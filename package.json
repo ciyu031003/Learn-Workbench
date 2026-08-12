@@ -1,0 +1,19 @@
+{
+  "name": "learn-workbench",
+  "private": true,
+  "version": "0.1.0",
+  "description": "ICT 学习工作台：学习路线图追踪 + 学习规划（Web + Android 双端）",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "web": "pnpm --filter web dev",
+    "mobile": "pnpm --filter mobile start"
+  },
+  "devDependencies": {
+    "turbo": "^2.10.9"
+  },
+  "packageManager": "pnpm@11.16.0"
+}
+

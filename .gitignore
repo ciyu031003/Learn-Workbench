@@ -1,0 +1,29 @@
+# 数据库（本地集群）
+.pgdata/
+
+# 本地工具链（conda 安装的 PostgreSQL）
+.tools/
+
+# Python
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+.turbo/
+.next/
+.expo/
+dist/
+dist-export/
+
+# 生成数据 / 下载的背景图
+.data/
+assets/backgrounds/bing/*.jpg
+
+# 本地日志
+*.log
+
+# OS
+Thumbs.db
+.DS_Store
+
