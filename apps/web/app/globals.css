@@ -243,3 +243,33 @@ html.bg-dark {
   backdrop-filter: blur(28px) saturate(var(--glass-saturation));
   border-color: var(--glass-border);
 }
+
+/* ============ 控制栏响应式：Web 左侧栏 / 移动端底部导航 ============ */
+/* 默认（Web/桌面宽屏）：控制栏固定在左侧 */
+.app-sidebar {
+  display: flex;
+}
+.app-mobile-topbar,
+.app-bottomnav {
+  display: none;
+}
+.app-main {
+  padding-left: 16rem; /* = w-64 侧栏宽度 */
+  padding-bottom: 1.5rem;
+}
+/* 移动端自动识别：窄屏（<768px）或触屏平板（≤1023px 且 pointer:coarse）→ 控制栏放到下方 */
+@media (max-width: 767px), (max-width: 1023px) and (pointer: coarse) {
+  .app-sidebar {
+    display: none;
+  }
+  .app-mobile-topbar {
+    display: flex;
+  }
+  .app-bottomnav {
+    display: grid;
+  }
+  .app-main {
+    padding-left: 0;
+    padding-bottom: 5rem;
+  }
+}
