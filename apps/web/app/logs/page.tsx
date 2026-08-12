@@ -95,6 +95,7 @@ export default function LogsPage() {
             placeholder="写下你的理解 / 复盘 / 项目进展…（用教别人的方式检验是否真懂）"
             value={content}
             onChange={(e) => setContent(e.target.value)}
+            className="min-h-[340px] resize-y text-[15px] leading-relaxed"
           />
           <Button onClick={addLog} className="self-end">
             <Plus className="size-4" /> 保存日志

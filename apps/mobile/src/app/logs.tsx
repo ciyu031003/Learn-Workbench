@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#18181b",
   },
-  contentInput: { minHeight: 90, textAlignVertical: "top" },
+  contentInput: { minHeight: 200, textAlignVertical: "top", fontSize: 14, lineHeight: 21 },
   primaryBtn: { backgroundColor: "#4f46e5", borderRadius: 14, paddingVertical: 12, alignItems: "center" },
   primaryBtnText: { color: "#fff", fontSize: 15, fontWeight: "600" },
   logItem: { gap: 4, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: "rgba(24,24,27,0.05)" },
