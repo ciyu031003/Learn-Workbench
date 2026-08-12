@@ -25,6 +25,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const date = todayISO();
 
+  // 登录页不显示导航与布局外壳
+  if (pathname === "/login") {
+    return <>{children}</>;
+  }
+
   return (
     <>
       {/* 桌面端侧边栏（毛玻璃） */}
@@ -100,3 +105,4 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     </>
   );
 }
+

@@ -25,6 +25,7 @@ interface TopicRow {
   summary: string | null;
   agent_task: string | null;
   sort_order: number;
+  is_custom: boolean;
 }
 
 interface ResourceRow {
@@ -60,15 +61,16 @@ interface CheckpointRow {
   sort_order: number;
 }
 
-export async function getProgressMap(): Promise<Map<number, ProgressRow>> {
+export async function getProgressMap(uid: string | null): Promise<Map<number, ProgressRow>> {
   const result = await pgPool.query<ProgressRow>(
-    `SELECT topic_id, done, note FROM topic_progress WHERE user_id IS NULL`
+    `SELECT topic_id, done, note FROM topic_progress WHERE user_id IS NOT DISTINCT FROM $1`,
+    [uid]
   );
   const rows: ProgressRow[] = result.rows;
   return new Map(rows.map((r): [number, ProgressRow] => [r.topic_id, r]));
 }
 
-export async function getRoadmapWithProgress(): Promise<RoadmapPhase[]> {
+export async function getRoadmapWithProgress(uid: string | null): Promise<RoadmapPhase[]> {
   const client = await pgPool.connect();
   try {
     const phasesResult = await client.query<PhaseRow>(
@@ -76,8 +78,11 @@ export async function getRoadmapWithProgress(): Promise<RoadmapPhase[]> {
        FROM content_phases ORDER BY track, sort_order, id`
     );
     const topicsResult = await client.query<TopicRow>(
-      `SELECT id, phase_id, topic_key, title, summary, agent_task, sort_order
-       FROM content_topics ORDER BY sort_order, id`
+      `SELECT id, phase_id, topic_key, title, summary, agent_task, sort_order, is_custom
+       FROM content_topics
+       WHERE is_custom = FALSE OR owner_id = $1
+       ORDER BY is_custom, sort_order, id`,
+      [uid]
     );
     const resourcesResult = await client.query<ResourceRow>(
       `SELECT id, topic_id, name, url, kind, sort_order FROM content_resources ORDER BY sort_order, id`
@@ -92,7 +97,8 @@ export async function getRoadmapWithProgress(): Promise<RoadmapPhase[]> {
       `SELECT id, topic_id, text, sort_order FROM content_checkpoints ORDER BY sort_order, id`
     );
     const progressResult = await client.query<ProgressRow>(
-      `SELECT topic_id, done, note FROM topic_progress WHERE user_id IS NULL`
+      `SELECT topic_id, done, note FROM topic_progress WHERE user_id IS NOT DISTINCT FROM $1`,
+      [uid]
     );
     const progressMap = new Map(
       progressResult.rows.map((r): [number, ProgressRow] => [r.topic_id, r])
@@ -111,6 +117,7 @@ export async function getRoadmapWithProgress(): Promise<RoadmapPhase[]> {
         sortOrder: t.sort_order,
         done,
         note,
+        isCustom: t.is_custom,
         resources: [],
         practices: [],
         projects: [],
@@ -146,4 +153,3 @@ export async function getRoadmapWithProgress(): Promise<RoadmapPhase[]> {
     client.release();
   }
 }
-

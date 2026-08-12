@@ -19,7 +19,7 @@ const QUOTES: { text: string; author?: string }[] = [
 ];
 
 export function QuoteWidget({ className }: { className?: string }) {
-  const [index, setIndex] = useState(() => Math.floor(Math.random() * QUOTES.length));
+  const [index, setIndex] = useState(0);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const next = useCallback(() => {
@@ -27,6 +27,9 @@ export function QuoteWidget({ className }: { className?: string }) {
   }, []);
 
   useEffect(() => {
+    // 客户端随机起始句，避免 SSR 水合不一致
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIndex(Math.floor(Math.random() * QUOTES.length));
     timer.current = setInterval(next, 8000);
     return () => {
       if (timer.current) clearInterval(timer.current);
@@ -58,3 +61,5 @@ export function QuoteWidget({ className }: { className?: string }) {
     </div>
   );
 }
+
+

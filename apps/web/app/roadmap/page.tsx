@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { RoadmapPhase } from "@learn-workbench/shared";
 import { pct } from "@learn-workbench/shared";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -16,6 +17,9 @@ import {
   FolderGit2,
   Target,
   Sparkles,
+  Plus,
+  Trash2,
+  X,
 } from "lucide-react";
 
 interface RoadmapResponse {
@@ -27,6 +31,10 @@ export default function RoadmapPage() {
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
   const [detail, setDetail] = useState<Record<number, boolean>>({});
+  const [adding, setAdding] = useState(false);
+  const [formPhase, setFormPhase] = useState<string>("");
+  const [formTitle, setFormTitle] = useState("");
+  const [formSummary, setFormSummary] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -65,6 +73,26 @@ export default function RoadmapPage() {
   };
 
   const togglePhase = (id: number) => setExpanded((s) => ({ ...s, [id]: !s[id] }));
+
+  const addCustom = async () => {
+    const phaseId = Number(formPhase);
+    if (!Number.isFinite(phaseId) || !formTitle.trim()) return;
+    await fetch("/api/roadmap/custom", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phaseId, title: formTitle.trim(), summary: formSummary.trim() || null }),
+    });
+    setFormPhase("");
+    setFormTitle("");
+    setFormSummary("");
+    setAdding(false);
+    load();
+  };
+
+  const deleteCustom = async (topicId: number) => {
+    await fetch(`/api/roadmap/custom?topicId=${topicId}`, { method: "DELETE" });
+    load();
+  };
   const toggleDetail = (id: number) => setDetail((s) => ({ ...s, [id]: !s[id] }));
 
   const main = useMemo(() => phases?.filter((p) => p.track === "main") ?? [], [phases]);
@@ -107,8 +135,49 @@ export default function RoadmapPage() {
                 {phases.flatMap((p) => p.topics).filter((t) => t.done).length}/
                 {phases.flatMap((p) => p.topics).length} 主题
               </span>
+              <Button variant="secondary" size="sm" onClick={() => setAdding((v) => !v)}>
+                {adding ? <X className="size-4" /> : <Plus className="size-4" />}
+                {adding ? "取消" : "自定义主题"}
+              </Button>
             </CardContent>
           </Card>
+
+          {adding ? (
+            <Card className="border-primary/30">
+              <CardContent className="flex flex-col gap-3 p-5">
+                <p className="text-sm font-medium">添加自定义学习内容</p>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <select
+                    value={formPhase}
+                    onChange={(e) => setFormPhase(e.target.value)}
+                    className="h-10 rounded-xl border border-white/25 bg-white/12 px-3 text-sm text-foreground outline-none backdrop-blur-md focus:border-primary/60"
+                  >
+                    <option value="">选择阶段…</option>
+                    {main.concat(agent).map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.title}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    value={formTitle}
+                    onChange={(e) => setFormTitle(e.target.value)}
+                    placeholder="学习内容标题（必填）"
+                    className="h-10 rounded-xl border border-white/25 bg-white/12 px-3 text-sm text-foreground outline-none backdrop-blur-md placeholder:text-muted-foreground focus:border-primary/60"
+                  />
+                  <input
+                    value={formSummary}
+                    onChange={(e) => setFormSummary(e.target.value)}
+                    placeholder="简要说明（可选）"
+                    className="h-10 rounded-xl border border-white/25 bg-white/12 px-3 text-sm text-foreground outline-none backdrop-blur-md placeholder:text-muted-foreground focus:border-primary/60"
+                  />
+                </div>
+                <Button onClick={addCustom} disabled={!formPhase || !formTitle.trim()} className="self-end">
+                  <Plus className="size-4" /> 添加
+                </Button>
+              </CardContent>
+            </Card>
+          ) : null}
 
           {/* 主轨阶段 */}
           {main.map((phase) => {
@@ -178,6 +247,18 @@ export default function RoadmapPage() {
                                   </span>
                                 ) : null}
                               </button>
+                              {topic.isCustom ? (
+                                <Badge variant="accent">自定义</Badge>
+                              ) : null}
+                              {topic.isCustom ? (
+                                <button
+                                  onClick={() => deleteCustom(topic.id)}
+                                  aria-label="删除自定义主题"
+                                  className="shrink-0 rounded-lg p-1 text-muted-foreground hover:bg-danger/15 hover:text-danger"
+                                >
+                                  <Trash2 className="size-4" />
+                                </button>
+                              ) : null}
                               {isDetail ? <ChevronDown className="size-4 shrink-0 text-muted-foreground" /> : <ChevronRight className="size-4 shrink-0 text-muted-foreground" />}
                             </div>
 
@@ -321,6 +402,8 @@ export default function RoadmapPage() {
     </div>
   );
 }
+
+
 
 
 

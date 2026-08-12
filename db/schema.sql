@@ -247,6 +247,33 @@ CREATE UNIQUE INDEX uq_topic_progress_anon ON topic_progress(topic_id) WHERE use
 CREATE UNIQUE INDEX uq_topic_progress_user ON topic_progress(user_id, topic_id) WHERE user_id IS NOT NULL;
 CREATE UNIQUE INDEX uq_checkins_anon ON checkins(checkin_date) WHERE user_id IS NULL;
 CREATE UNIQUE INDEX uq_checkins_user ON checkins(user_id, checkin_date) WHERE user_id IS NOT NULL;
+
+-- ---------- 14. 账号与会话（登录认证） ----------
+
+CREATE TABLE accounts (
+  id            serial PRIMARY KEY,
+  username      text NOT NULL UNIQUE,
+  password_hash text NOT NULL,
+  user_id       uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  updated_at    timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE sessions (
+  token      text PRIMARY KEY,
+  user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  expires_at timestamptz NOT NULL
+);
+CREATE INDEX idx_sessions_user ON sessions(user_id);
+
+CREATE TRIGGER trg_accounts_updated
+  BEFORE UPDATE ON accounts FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- 自定义主题标记
+ALTER TABLE content_topics ADD COLUMN is_custom boolean NOT NULL DEFAULT false;
+ALTER TABLE content_topics ADD COLUMN owner_id uuid REFERENCES users(id) ON DELETE CASCADE;
+CREATE INDEX idx_topics_owner ON content_topics(owner_id);
 -- ---------- updated_at 自动更新 ----------
 
 CREATE OR REPLACE FUNCTION set_updated_at() RETURNS trigger AS $$
@@ -264,4 +291,5 @@ CREATE TRIGGER trg_certificates_updated BEFORE UPDATE ON certificates   FOR EACH
 CREATE TRIGGER trg_resume_assets_updated BEFORE UPDATE ON resume_assets  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER trg_settings_updated     BEFORE UPDATE ON settings       FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER trg_app_meta_updated     BEFORE UPDATE ON app_meta       FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
 

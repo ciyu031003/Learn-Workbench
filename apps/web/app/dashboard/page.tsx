@@ -19,6 +19,10 @@ import {
   ListTodo,
   NotebookPen,
   Sparkles,
+  FolderGit2,
+  Plus,
+  Trash2,
+  ExternalLink,
 } from "lucide-react";
 
 function greeting(): string {
@@ -33,6 +37,10 @@ function greeting(): string {
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [github, setGithub] = useState<{ id: number; title: string; url: string | null; content: string | null }[]>([]);
+  const [ghTitle, setGhTitle] = useState("");
+  const [ghUrl, setGhUrl] = useState("");
+  const [ghDesc, setGhDesc] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -50,6 +58,40 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
+
+  const loadGithub = useCallback(async () => {
+    try {
+      const r = await fetch("/api/github");
+      if (r.ok) setGithub((await r.json()).records ?? []);
+    } catch {
+      // 忽略
+    }
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadGithub();
+  }, [loadGithub]);
+
+  const addGithub = async () => {
+    if (!ghTitle.trim()) return;
+    const r = await fetch("/api/github", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: ghTitle.trim(), url: ghUrl.trim() || null, content: ghDesc.trim() || null }),
+    });
+    if (r.ok) {
+      setGhTitle("");
+      setGhUrl("");
+      setGhDesc("");
+      loadGithub();
+    }
+  };
+
+  const deleteGithub = async (id: number) => {
+    await fetch(`/api/github?id=${id}`, { method: "DELETE" });
+    loadGithub();
+  };
 
   const checkin = async () => {
     await fetch("/api/checkin", { method: "POST", body: JSON.stringify({}) });
@@ -270,9 +312,89 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* GitHub 记录 */}
+      <Card>
+        <CardHeader className="flex-row items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FolderGit2 className="size-5 text-foreground" />
+            <CardTitle>GitHub 记录</CardTitle>
+          </div>
+          <Badge variant="muted">{github.length} 条</Badge>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <input
+              value={ghTitle}
+              onChange={(e) => setGhTitle(e.target.value)}
+              placeholder="项目 / 仓库名称（必填）"
+              className="h-10 rounded-xl border border-white/25 bg-white/12 px-3 text-sm text-foreground outline-none backdrop-blur-md placeholder:text-muted-foreground focus:border-primary/60"
+            />
+            <input
+              value={ghUrl}
+              onChange={(e) => setGhUrl(e.target.value)}
+              placeholder="GitHub 链接（可选）"
+              className="h-10 rounded-xl border border-white/25 bg-white/12 px-3 text-sm text-foreground outline-none backdrop-blur-md placeholder:text-muted-foreground focus:border-primary/60"
+            />
+            <input
+              value={ghDesc}
+              onChange={(e) => setGhDesc(e.target.value)}
+              placeholder="一句话说明（可选）"
+              className="h-10 rounded-xl border border-white/25 bg-white/12 px-3 text-sm text-foreground outline-none backdrop-blur-md placeholder:text-muted-foreground focus:border-primary/60"
+            />
+          </div>
+          <Button onClick={addGithub} disabled={!ghTitle.trim()} className="self-end">
+            <Plus className="size-4" /> 添加记录
+          </Button>
+
+          {github.length === 0 ? (
+            <p className="py-4 text-center text-sm text-muted-foreground">
+              还没有 GitHub 记录，添加你的项目资产吧（网络巡检助手 / 数仓 ETL / ICT 交付助手…）
+            </p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {github.map((g) => (
+                <div
+                  key={g.id}
+                  className="flex items-center gap-3 rounded-xl border border-white/20 bg-white/10 px-3 py-3 backdrop-blur-md"
+                >
+                  <FolderGit2 className="size-5 shrink-0 text-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">{g.title}</p>
+                    {g.content ? (
+                      <p className="truncate text-xs text-muted-foreground">{g.content}</p>
+                    ) : null}
+                  </div>
+                  {g.url ? (
+                    <a
+                      href={g.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-white/15 hover:text-foreground"
+                      aria-label="打开链接"
+                    >
+                      <ExternalLink className="size-4" />
+                    </a>
+                  ) : null}
+                  <button
+                    onClick={() => deleteGithub(g.id)}
+                    aria-label="删除"
+                    className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-danger/15 hover:text-danger"
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
+
+
+
 
 
 

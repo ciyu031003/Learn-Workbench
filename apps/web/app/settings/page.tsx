@@ -6,21 +6,28 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useUiStore } from "@/store/ui-store";
-import { Download, Upload, Database, Image as ImageIcon, Sparkles, RefreshCw } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Download, Upload, Database, Image as ImageIcon, Sparkles, RefreshCw, LogOut, User as UserIcon } from "lucide-react";
 
 export default function SettingsPage() {
+  const router = useRouter();
   const backgroundEnabled = useUiStore((s) => s.backgroundEnabled);
   const toggleBackground = useUiStore((s) => s.toggleBackground);
   const theme = useUiStore((s) => s.theme);
   const setTheme = useUiStore((s) => s.setTheme);
   const [dbOk, setDbOk] = useState<boolean | null>(null);
   const [msg, setMsg] = useState<string>("");
+  const [user, setUser] = useState<{ username: string; displayName: string | null } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch("/api/summary")
       .then((r) => setDbOk(r.ok))
       .catch(() => setDbOk(false));
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((d) => setUser(d.user ?? null))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -38,6 +45,12 @@ export default function SettingsPage() {
     a.click();
     URL.revokeObjectURL(url);
     setMsg("已导出备份文件");
+  };
+
+  const logout = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+    router.refresh();
   };
 
   const importJson = async (file: File) => {
@@ -160,6 +173,24 @@ export default function SettingsPage() {
       </div>
 
       <Card>
+        <CardHeader className="flex-row items-center justify-between">
+          <div className="flex items-center gap-2">
+            <UserIcon className="size-5 text-primary" />
+            <CardTitle>账号</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">当前登录</span>
+            <Badge variant="success">{user?.username ?? "未登录"}</Badge>
+          </div>
+          <Button variant="outline" onClick={logout} className="justify-start">
+            <LogOut className="size-4" /> 退出登录
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardHeader>
           <CardTitle>关于</CardTitle>
         </CardHeader>
@@ -172,4 +203,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+
 

@@ -61,6 +61,7 @@ export type Roadmap = z.infer<typeof roadmapSchema>;
 export const roadmapTopicSchema = topicSchema.extend({
   done: z.boolean(),
   note: z.string().nullable(),
+  isCustom: z.boolean().default(false),
 });
 export type RoadmapTopic = z.infer<typeof roadmapTopicSchema>;
 
@@ -216,4 +217,5 @@ export const certLabels: Record<string, string> = {
   "HCIP-Datacom": "HCIP-Datacom",
   "天翼云 ACP": "天翼云 ACP",
 };
+
 
