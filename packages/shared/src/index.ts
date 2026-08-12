@@ -154,6 +154,8 @@ export type PhaseProgress = z.infer<typeof phaseProgressSchema>;
 
 export const dashboardSummarySchema = z.object({
   overallPercent: z.number(),
+  career: z.string().optional(),
+  careerName: z.string().optional(),
   phases: z.array(phaseProgressSchema),
   todayTasks: z.array(dailyTaskSchema),
   weekTaskCount: z.number(),

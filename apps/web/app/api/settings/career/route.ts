@@ -8,12 +8,12 @@ const VALID = new Set([
 
 export async function GET() {
   const uid = await currentUserId();
-  if (!uid) return NextResponse.json({ career: "ict" });
+  if (!uid) return NextResponse.json({ career: "ict", set: false });
   const { rows } = await pgPool.query<{ value: unknown }>(
     `SELECT value FROM settings WHERE user_id = $1 AND key = 'career'`,
     [uid]
   );
-  return NextResponse.json({ career: rows[0]?.value ?? "ict" });
+  return NextResponse.json({ career: rows[0]?.value ?? "ict", set: rows.length > 0 });
 }
 
 export async function PUT(req: Request) {

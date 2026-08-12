@@ -144,9 +144,11 @@ export default function DashboardPage() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="page-title text-2xl font-semibold tracking-tight lg:text-3xl">
-            {greeting()}，继续今天的 ICT 学习
+            {greeting()}，继续今天的 {data?.careerName ?? "ICT 学习规划"} 学习
           </h1>
-          <p className="page-subtitle mt-1 text-sm">{formatDateCN(today)} · 通信 · 数据 · 云运维 · Agent</p>
+          <p className="page-subtitle mt-1 text-sm">
+            {formatDateCN(today)} · 当前职业路线：{data?.careerName ?? "ICT 学习规划"}
+          </p>
         </div>
         <QuoteWidget className="w-full sm:w-80" />
       </div>
@@ -179,7 +181,7 @@ export default function DashboardPage() {
         {/* 整体进度 */}
         <Card className="lg:col-span-2">
           <CardHeader className="flex-row items-center justify-between">
-            <CardTitle>整体学习进度</CardTitle>
+            <CardTitle>整体学习进度 · {data?.careerName ?? "ICT"}</CardTitle>
             <Button asChild variant="ghost" size="sm">
               <Link href="/roadmap">
                 路线图 <ChevronRight className="size-4" />

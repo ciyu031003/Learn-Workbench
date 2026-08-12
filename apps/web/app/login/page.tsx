@@ -2,7 +2,8 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Sparkles, User, Lock, Loader2 } from "lucide-react";
+import { Sparkles, User, Lock, Loader2, CheckCircle2 } from "lucide-react";
+import { GlassModal } from "@/components/ui/modal";
 
 function LoginForm() {
   const router = useRouter();
@@ -12,6 +13,28 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [careerStep, setCareerStep] = useState(false);
+  const [careers, setCareers] = useState<{ career_key: string; name: string; description: string | null; is_locked: boolean }[]>([]);
+  const [careerBusy, setCareerBusy] = useState(false);
+  const [careerErr, setCareerErr] = useState<string | null>(null);
+
+  const pickCareer = async (key: string) => {
+    setCareerBusy(true);
+    setCareerErr(null);
+    try {
+      const r = await fetch("/api/settings/career", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ career: key }),
+      });
+      if (!r.ok) throw new Error("保存失败");
+      router.replace(from);
+      router.refresh();
+    } catch {
+      setCareerErr("职业保存失败，请重试");
+      setCareerBusy(false);
+    }
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,8 +52,27 @@ function LoginForm() {
         setLoading(false);
         return;
       }
-      router.replace(from);
-      router.refresh();
+      // 登录成功：若未选择过职业，先弹出职业选择小窗，选择后再进入首页
+      try {
+        const cur = await fetch("/api/settings/career").then((x) => x.json());
+        if (cur?.set) {
+          router.replace(from);
+          router.refresh();
+          return;
+        }
+      } catch {
+        router.replace(from);
+        router.refresh();
+        return;
+      }
+      try {
+        const cData = await fetch("/api/careers").then((x) => x.json());
+        setCareers(cData.careers ?? []);
+      } catch {
+        setCareers([]);
+      }
+      setCareerStep(true);
+      setLoading(false);
     } catch {
       setError("网络异常，请稍后重试");
       setLoading(false);
@@ -99,6 +141,43 @@ function LoginForm() {
         </form>
         <p className="relative mt-6 text-center text-xs text-muted-foreground">首次使用请先在设置中修改默认密码</p>
 </div>
+
+      {/* 登录后职业选择小窗 */}
+      <GlassModal open={careerStep} onClose={() => { if (!careerBusy) { setCareerStep(false); router.replace(from); } }} title="选择你的职业 / 学习路线">
+        <p className="mb-3 text-xs text-muted-foreground">
+          选择后仪表盘与学习路线将只展示该职业的规划，可在「路线图 / 设置」中随时切换
+        </p>
+        <div className="flex max-h-[46vh] flex-col gap-2 overflow-y-auto pr-1">
+          {careers.map((c) => (
+            <button
+              key={c.career_key}
+              disabled={careerBusy}
+              onClick={() => pickCareer(c.career_key)}
+              className="group flex items-start gap-3 rounded-2xl border border-white/20 bg-white/10 p-3 text-left backdrop-blur-md transition-all hover:border-primary/50 hover:bg-white/15 disabled:opacity-50"
+            >
+              <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/25 text-primary">
+                <CheckCircle2 className="size-4" />
+              </span>
+              <span className="min-w-0">
+                <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  {c.name}
+                  {c.is_locked ? <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] text-muted-foreground">固定</span> : null}
+                </span>
+                {c.description ? (
+                  <span className="mt-0.5 block text-xs text-muted-foreground">{c.description}</span>
+                ) : null}
+              </span>
+            </button>
+          ))}
+          {careers.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">职业列表加载失败，请刷新重试</p>
+          ) : null}
+        </div>
+        {careerErr ? <p className="mt-2 text-xs text-danger">{careerErr}</p> : null}
+        <p className="mt-3 text-center text-xs text-muted-foreground">
+          {careerBusy ? "正在保存职业路线…" : "选择后正式进入首页"}
+        </p>
+      </GlassModal>
     </div>
   );
 }

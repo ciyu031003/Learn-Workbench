@@ -12,12 +12,16 @@ interface TaskRow {
 }
 interface CheckinRow { checkin_date: string; }
 
+function localKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 function computeStreak(dates: string[], today: string): number {
   const set = new Set(dates);
   let streak = 0;
   const cursor = new Date(today + "T00:00:00");
   if (!set.has(today)) cursor.setDate(cursor.getDate() - 1);
-  while (set.has(cursor.toISOString().slice(0, 10))) {
+  while (set.has(localKey(cursor))) {
     streak += 1;
     cursor.setDate(cursor.getDate() - 1);
   }
@@ -31,9 +35,30 @@ export async function GET() {
     const today = todayISO();
     const weekAgo = new Date(today + "T00:00:00");
     weekAgo.setDate(weekAgo.getDate() - 6);
-    const weekStart = weekAgo.toISOString().slice(0, 10);
+    const weekStart = localKey(weekAgo);
 
-    const topicsResult = await client.query<TopicRow>(`SELECT id, phase_id FROM content_topics WHERE is_custom = FALSE OR owner_id = $1`, [uid]);
+    // 当前职业：仪表盘整体进度只展示该职业的学习路径
+    let career = "ict";
+    let careerName = "ICT 学习规划";
+    if (uid) {
+      const careerRow = await client.query<{ value: unknown }>(
+        `SELECT value FROM settings WHERE user_id = $1 AND key = 'career'`,
+        [uid]
+      );
+      if (careerRow.rows[0]?.value) career = String(careerRow.rows[0].value);
+    }
+    const careerInfo = await client.query<{ name: string }>(
+      `SELECT name FROM careers WHERE career_key = $1`,
+      [career]
+    );
+    if (careerInfo.rows[0]) careerName = careerInfo.rows[0].name;
+
+    const topicsResult = await client.query<TopicRow>(
+      `SELECT id, phase_id FROM content_topics
+       WHERE (is_custom = FALSE OR owner_id = $1)
+         AND phase_id IN (SELECT id FROM content_phases WHERE career_key = $2)`,
+      [uid, career]
+    );
     const doneResult = await client.query<DoneRow>(
       `SELECT topic_id FROM topic_progress WHERE user_id IS NOT DISTINCT FROM $1 AND done = true`, [uid]
     );
@@ -49,7 +74,9 @@ export async function GET() {
     }
 
     const phasesResult = await client.query<PhaseRow>(
-      `SELECT id, phase_key, title, track FROM content_phases ORDER BY track, sort_order, id`
+      `SELECT id, phase_key, title, track FROM content_phases
+       WHERE career_key = $1 ORDER BY track, sort_order, id`,
+      [career]
     );
     const todayTasksResult = await client.query<TaskRow>(
       `SELECT id, task_date, title, phase_id, topic_id, task_type, done, focus_minutes, sort_order
@@ -83,6 +110,8 @@ export async function GET() {
     );
 
     return NextResponse.json({
+      career,
+      careerName,
       overallPercent: total > 0 ? Math.round((doneTotal / total) * 100) : 0,
       phases: phasesResult.rows.map((p) => {
         const c = phaseCounts.get(p.id) ?? { total: 0, done: 0 };
