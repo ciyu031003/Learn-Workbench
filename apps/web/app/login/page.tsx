@@ -62,7 +62,7 @@ function LoginForm() {
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="请输入账号"
                 autoComplete="username"
-                className="h-11 w-full rounded-xl border border-white/25 bg-white/12 pl-10 pr-3 text-sm text-foreground outline-none backdrop-blur-md transition-all placeholder:text-muted-foreground focus:border-primary/60 focus:ring-2 focus:ring-primary/30"
+                className="h-11 w-full rounded-xl border border-white/20 bg-white/10 pl-10 pr-3 text-sm text-foreground outline-none backdrop-blur-xl backdrop-saturate-150 transition-all placeholder:text-muted-foreground focus:border-primary/60 focus:ring-2 focus:ring-primary/30"
               />
             </div>
           </label>
@@ -77,7 +77,7 @@ function LoginForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="请输入密码"
                 autoComplete="current-password"
-                className="h-11 w-full rounded-xl border border-white/25 bg-white/12 pl-10 pr-3 text-sm text-foreground outline-none backdrop-blur-md transition-all placeholder:text-muted-foreground focus:border-primary/60 focus:ring-2 focus:ring-primary/30"
+                className="h-11 w-full rounded-xl border border-white/20 bg-white/10 pl-10 pr-3 text-sm text-foreground outline-none backdrop-blur-xl backdrop-saturate-150 transition-all placeholder:text-muted-foreground focus:border-primary/60 focus:ring-2 focus:ring-primary/30"
               />
             </div>
           </label>
@@ -114,3 +114,4 @@ export default function LoginPage() {
     </Suspense>
   );
 }
+

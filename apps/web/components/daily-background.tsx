@@ -72,6 +72,12 @@ export function DailyBackground({ children }: { children: React.ReactNode }) {
           {/* 暖调黄昏遮罩：保留原图氛围，同时保证文字可读 */}
           <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-transparent to-orange-950/35" />
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(255,180,110,0.14),transparent_55%)]" />
+          {/* 液态玻璃环境光斑 */}
+          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+            <div className="ambient-blob ambient-blob-1" />
+            <div className="ambient-blob ambient-blob-2" />
+            <div className="ambient-blob ambient-blob-3" />
+          </div>
         </div>
       ) : (
         <div className="fixed inset-0 -z-10 bg-gradient-to-br from-amber-100 via-orange-50 to-rose-100" />
@@ -80,3 +86,4 @@ export function DailyBackground({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+

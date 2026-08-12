@@ -11,9 +11,9 @@ const buttonVariants = cva(
         default:
           "bg-gradient-to-b from-primary to-[#d97f0a] text-primary-foreground shadow-[0_6px_20px_rgba(232,147,12,0.35)] hover:shadow-[0_8px_26px_rgba(232,147,12,0.45)] hover:brightness-105",
         secondary:
-          "border border-white/25 bg-white/15 text-foreground backdrop-blur-lg hover:bg-white/25",
-        ghost: "text-muted-foreground hover:bg-white/15 hover:text-foreground",
-        outline: "border border-white/25 bg-transparent text-foreground hover:bg-white/15",
+          "border border-white/20 bg-white/10 text-foreground backdrop-blur-xl backdrop-saturate-150 hover:bg-white/18",
+        ghost: "text-muted-foreground hover:bg-white/12 hover:text-foreground",
+        outline: "border border-white/20 bg-transparent text-foreground hover:bg-white/12",
         danger:
           "bg-gradient-to-b from-danger to-[#c93a3f] text-white shadow-[0_6px_20px_rgba(229,72,77,0.3)] hover:brightness-105",
       },
@@ -43,3 +43,4 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 Button.displayName = "Button";
 
 export { Button, buttonVariants };
+
