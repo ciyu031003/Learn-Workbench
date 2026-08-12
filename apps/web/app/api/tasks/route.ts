@@ -20,12 +20,14 @@ export async function POST(req: Request) {
   const taskDate = String(body?.taskDate || todayISO());
   const title = String(body?.title || "").trim();
   const taskType = String(body?.taskType || "study");
+  const phaseIdRaw = body?.phaseId;
+  const phaseId = phaseIdRaw === null || phaseIdRaw === undefined || phaseIdRaw === "" ? null : Number(phaseIdRaw);
   if (!title) return NextResponse.json({ error: "标题不能为空" }, { status: 400 });
   const uid = await currentUserId();
   const { rows } = await pgPool.query(
-    `INSERT INTO daily_tasks (user_id, task_date, title, task_type)
-     VALUES ($1, $2, $3, $4) RETURNING id, task_date, title, phase_id, topic_id, task_type, done, focus_minutes, sort_order`,
-    [uid, taskDate, title, taskType]
+    `INSERT INTO daily_tasks (user_id, task_date, title, task_type, phase_id)
+     VALUES ($1, $2, $3, $4, $5) RETURNING id, task_date, title, phase_id, topic_id, task_type, done, focus_minutes, sort_order`,
+    [uid, taskDate, title, taskType, phaseId]
   );
   return NextResponse.json({ task: rows[0] }, { status: 201 });
 }

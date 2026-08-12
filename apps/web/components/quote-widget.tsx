@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RefreshCw, Quote } from "lucide-react";
 
-const QUOTES: { text: string; author?: string }[] = [
+export const QUOTES: { text: string; author?: string }[] = [
   { text: "每天前进 1%，一年后你就是 37.8 倍的自己。", author: "学习复利" },
   { text: "HCIP 不是终点，能讲清楚、能演示、能写进简历，才是真的会。", author: "验收标准" },
   { text: "费曼技巧：教不会别人，就说明还没真正学会。", author: "学习方法" },

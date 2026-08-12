@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { DailyTask } from "@learn-workbench/shared";
 import { todayISO, taskTypeLabels, formatDateCN } from "@learn-workbench/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,15 +8,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CheckCircle2, Circle, ChevronLeft, ChevronRight, Play, Square, Plus } from "lucide-react";
+import { CheckCircle2, Circle, ChevronLeft, ChevronRight, Play, Plus, Timer as TimerIcon } from "lucide-react";
+import { FocusTimer } from "@/components/focus-timer";
 
 const TYPES = ["study", "agent", "output", "review", "exam"] as const;
 
-function fmtClock(totalSeconds: number) {
-  const h = Math.floor(totalSeconds / 3600);
-  const m = Math.floor((totalSeconds % 3600) / 60);
-  const s = totalSeconds % 60;
-  return [h, m, s].map((n) => String(n).padStart(2, "0")).join(":");
+interface PhaseStat {
+  phaseId: number | null;
+  phaseTitle: string;
+  totalMinutes: number;
+  sessionCount: number;
 }
 
 export default function TasksPage() {
@@ -24,13 +25,27 @@ export default function TasksPage() {
   const [tasks, setTasks] = useState<DailyTask[]>([]);
   const [title, setTitle] = useState("");
   const [type, setType] = useState<(typeof TYPES)[number]>("study");
-  const [running, setRunning] = useState<{ taskId: number | null; start: number; elapsed: number } | null>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [phaseId, setPhaseId] = useState<string>("");
+  const [phases, setPhases] = useState<{ id: number; title: string; track: string }[]>([]);
+  const [stats, setStats] = useState<PhaseStat[]>([]);
+  const [timerOpen, setTimerOpen] = useState(false);
+  const [timerSession, setTimerSession] = useState(0);
+  const [timerTask, setTimerTask] = useState<{ id: number | null; title: string | null } | null>(null);
 
   const load = useCallback(async (d: string) => {
     const r = await fetch(`/api/tasks?date=${d}`);
     const data = await r.json();
     setTasks(data.tasks ?? []);
+  }, []);
+
+  const loadStats = useCallback(async () => {
+    try {
+      const r = await fetch("/api/focus/stats");
+      const data = await r.json();
+      setStats(data.stats ?? []);
+    } catch {
+      // 忽略
+    }
   }, []);
 
   useEffect(() => {
@@ -40,9 +55,18 @@ export default function TasksPage() {
   }, [date, load]);
 
   useEffect(() => {
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
+    (async () => {
+      try {
+        const [ph, st] = await Promise.all([
+          fetch("/api/phases").then((r) => r.json()),
+          fetch("/api/focus/stats").then((r) => r.json()),
+        ]);
+        setPhases(ph.phases ?? []);
+        setStats(st.stats ?? []);
+      } catch {
+        // 忽略
+      }
+    })();
   }, []);
 
   const shiftDate = (delta: number) => {
@@ -55,7 +79,12 @@ export default function TasksPage() {
     if (!title.trim()) return;
     const r = await fetch("/api/tasks", {
       method: "POST",
-      body: JSON.stringify({ taskDate: date, title: title.trim(), taskType: type }),
+      body: JSON.stringify({
+        taskDate: date,
+        title: title.trim(),
+        taskType: type,
+        phaseId: phaseId ? Number(phaseId) : null,
+      }),
     });
     if (r.ok) {
       setTitle("");
@@ -71,29 +100,10 @@ export default function TasksPage() {
     load(date);
   };
 
-  const startTimer = (taskId: number | null) => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    const start = Date.now();
-    setRunning({ taskId, start, elapsed: 0 });
-    timerRef.current = setInterval(() => {
-      setRunning((r) => (r ? { ...r, elapsed: Math.floor((Date.now() - r.start) / 1000) } : r));
-    }, 1000);
-  };
-
-  const stopTimer = async () => {
-    if (!running) return;
-    if (timerRef.current) clearInterval(timerRef.current);
-    const endedAt = new Date().toISOString();
-    await fetch("/api/focus", {
-      method: "POST",
-      body: JSON.stringify({
-        startedAt: new Date(running.start).toISOString(),
-        endedAt,
-        taskId: running.taskId,
-      }),
-    });
-    setRunning(null);
-    load(date);
+  const openTimer = (taskId: number | null, taskTitle: string | null) => {
+    setTimerTask({ id: taskId, title: taskTitle });
+    setTimerSession((s) => s + 1);
+    setTimerOpen(true);
   };
 
   const totalFocus = tasks.reduce((a, t) => a + t.focusMinutes, 0);
@@ -122,25 +132,22 @@ export default function TasksPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* 专注计时 */}
+        {/* 专注计时：点击进入横屏倒计时 */}
         <Card className="lg:col-span-1">
           <CardHeader>
             <CardTitle>专注计时</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-4 py-6">
-            <div className="font-mono text-4xl font-semibold tracking-tight tabular-nums">
-              {running ? fmtClock(running.elapsed) : "00:00:00"}
+            <div className="flex items-center gap-2 font-mono text-4xl font-semibold tracking-tight tabular-nums">
+              <TimerIcon className="size-6 text-primary" />
+              25:00
             </div>
-            {running ? (
-              <Button onClick={stopTimer} variant="danger" className="w-full">
-                <Square className="size-4" /> 结束并记录
-              </Button>
-            ) : (
-              <Button onClick={() => startTimer(null)} className="w-full">
-                <Play className="size-4" /> 开始专注
-              </Button>
-            )}
-            <p className="text-xs text-muted-foreground">当日累计专注 {totalFocus} 分钟</p>
+            <Button onClick={() => openTimer(null, null)} className="w-full">
+              <Play className="size-4" /> 开始倒计时
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              进入全屏横屏倒计时，可切换时钟样式；当日累计专注 {totalFocus} 分钟
+            </p>
           </CardContent>
         </Card>
 
@@ -158,19 +165,34 @@ export default function TasksPage() {
                 if (e.key === "Enter") addTask();
               }}
             />
-            <div className="flex flex-wrap items-center gap-2">
-              <Tabs value={type} onValueChange={(v) => setType(v as (typeof TYPES)[number])}>
-                <TabsList>
-                  {TYPES.map((t) => (
-                    <TabsTrigger key={t} value={t}>
-                      {taskTypeLabels[t]}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
-              </Tabs>
-              <Button onClick={addTask} className="ml-auto">
-                <Plus className="size-4" /> 添加
-              </Button>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <select
+                value={phaseId}
+                onChange={(e) => setPhaseId(e.target.value)}
+                className="glass-select h-10 rounded-xl px-3 text-sm outline-none backdrop-blur-md"
+                aria-label="选择路线图大类"
+              >
+                <option value="">路线图大类（不限）</option>
+                {phases.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.title}
+                  </option>
+                ))}
+              </select>
+              <div className="flex flex-wrap items-center gap-2">
+                <Tabs value={type} onValueChange={(v) => setType(v as (typeof TYPES)[number])}>
+                  <TabsList>
+                    {TYPES.map((t) => (
+                      <TabsTrigger key={t} value={t}>
+                        {taskTypeLabels[t]}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                </Tabs>
+                <Button onClick={addTask} className="ml-auto">
+                  <Plus className="size-4" /> 添加
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -196,28 +218,58 @@ export default function TasksPage() {
                 <button onClick={() => toggleDone(t.id, !t.done)} aria-label="切换完成" className="shrink-0">
                   {t.done ? <CheckCircle2 className="size-5 text-success" /> : <Circle className="size-5 text-muted-foreground/50 hover:text-primary" />}
                 </button>
-                <span className={`flex-1 text-sm font-medium ${t.done ? "text-muted-foreground line-through" : ""}`}>
+                <span className={`min-w-0 flex-1 text-sm font-medium ${t.done ? "text-muted-foreground line-through" : ""}`}>
                   {t.title}
                 </span>
                 <Badge variant="muted">{taskTypeLabels[t.taskType] ?? t.taskType}</Badge>
                 {t.focusMinutes > 0 ? (
                   <Badge variant="accent">{t.focusMinutes} 分钟</Badge>
                 ) : null}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => (running?.taskId === t.id ? stopTimer() : startTimer(t.id))}
-                  aria-label={running?.taskId === t.id ? "结束专注" : "为此任务开始专注"}
-                >
-                  {running?.taskId === t.id ? <Square className="size-4 text-danger" /> : <Play className="size-4" />}
+                <Button variant="ghost" size="icon" onClick={() => openTimer(t.id, t.title)} aria-label="开始专注">
+                  <Play className="size-4" />
                 </Button>
               </div>
             ))
           )}
         </CardContent>
       </Card>
+
+      {/* 分类专注统计：每一章大类的学习总时间 */}
+      <Card>
+        <CardHeader className="flex-row items-center gap-2">
+          <TimerIcon className="size-5 text-primary" />
+          <CardTitle>分类专注统计</CardTitle>
+          <Badge variant="muted">按路线图大类汇总</Badge>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-2">
+          {stats.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">还没有专注记录，开始一次倒计时吧</p>
+          ) : (
+            stats.map((s) => (
+              <div
+                key={s.phaseId ?? 0}
+                className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/30 px-3 py-2.5"
+              >
+                <span className="min-w-0 flex-1 truncate text-sm font-medium">{s.phaseTitle}</span>
+                <span className="shrink-0 text-sm text-muted-foreground">
+                  <span className="font-semibold text-foreground">{s.totalMinutes} 分钟</span> · {s.sessionCount} 次
+                </span>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+
+      <FocusTimer
+        key={timerSession}
+        open={timerOpen}
+        task={timerTask}
+        onClose={() => setTimerOpen(false)}
+        onRecorded={() => {
+          load(date);
+          loadStats();
+        }}
+      />
     </div>
   );
 }
-
-
