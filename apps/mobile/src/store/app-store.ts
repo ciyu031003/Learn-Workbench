@@ -7,6 +7,31 @@ import { todayISO } from "@learn-workbench/shared";
 export type TaskType = "study" | "agent" | "output" | "review" | "exam";
 export type LogKind = "feynman" | "review" | "project" | "interview";
 
+export interface GithubRecord {
+  id: number;
+  title: string;
+  url: string | null;
+  content: string | null;
+}
+
+export interface CustomTopic {
+  id: number;
+  phaseId: number;
+  title: string;
+  summary: string | null;
+}
+
+export interface SyncPayload {
+  progress: { topicId: number; done: boolean; note: string | null; updatedAt: string }[];
+  tasks: DailyTask[];
+  sessions: FocusSession[];
+  checkins: { checkinDate: string; note: string | null }[];
+  logs: LogEntry[];
+  certificates: unknown[];
+  github: GithubRecord[];
+  customTopics: CustomTopic[];
+}
+
 interface AppState {
   progress: Record<number, TopicProgress>;
   tasks: DailyTask[];
@@ -14,6 +39,11 @@ interface AppState {
   sessions: FocusSession[];
   checkins: string[];
   backgroundEnabled: boolean;
+  token: string | null;
+  username: string | null;
+  github: GithubRecord[];
+  customTopics: CustomTopic[];
+
   toggleTopic: (topicId: number) => void;
   addTask: (title: string, taskType: TaskType) => void;
   toggleTaskDone: (id: number) => void;
@@ -22,6 +52,13 @@ interface AppState {
   addSession: (taskId: number | null, seconds: number) => void;
   toggleBackground: () => void;
   resetAll: () => void;
+
+  setAuth: (token: string | null, username: string | null) => void;
+  addGithub: (title: string, url: string | null, content: string | null) => void;
+  removeGithub: (id: number) => void;
+  addCustomTopic: (phaseId: number, title: string, summary: string | null) => void;
+  removeCustomTopic: (id: number) => void;
+  replaceAll: (data: SyncPayload) => void;
 }
 
 let seq = 1;
@@ -36,6 +73,10 @@ export const useAppStore = create<AppState>()(
       sessions: [],
       checkins: [],
       backgroundEnabled: true,
+      token: null,
+      username: null,
+      github: [],
+      customTopics: [],
 
       toggleTopic: (topicId) =>
         set((s) => {
@@ -104,7 +145,41 @@ export const useAppStore = create<AppState>()(
         }),
 
       toggleBackground: () => set((s) => ({ backgroundEnabled: !s.backgroundEnabled })),
-      resetAll: () => set({ progress: {}, tasks: [], logs: [], sessions: [], checkins: [] }),
+      resetAll: () =>
+        set({ progress: {}, tasks: [], logs: [], sessions: [], checkins: [], github: [], customTopics: [] }),
+
+      setAuth: (token, username) => set({ token, username }),
+      addGithub: (title, url, content) =>
+        set((s) => ({ github: [{ id: nextId(), title, url, content }, ...s.github] })),
+      removeGithub: (id) => set((s) => ({ github: s.github.filter((g) => g.id !== id) })),
+      addCustomTopic: (phaseId, title, summary) =>
+        set((s) => ({
+          customTopics: [...s.customTopics, { id: nextId(), phaseId, title, summary }],
+        })),
+      removeCustomTopic: (id) =>
+        set((s) => ({ customTopics: s.customTopics.filter((c) => c.id !== id) })),
+
+      replaceAll: (data) =>
+        set((s) => {
+          const progress: Record<number, TopicProgress> = {};
+          for (const p of data.progress ?? []) {
+            progress[p.topicId] = {
+              topicId: p.topicId,
+              done: p.done,
+              note: p.note,
+              updatedAt: p.updatedAt,
+            };
+          }
+          return {
+            progress,
+            tasks: data.tasks ?? [],
+            sessions: data.sessions ?? [],
+            logs: data.logs ?? [],
+            checkins: (data.checkins ?? []).map((c) => c.checkinDate),
+            github: data.github ?? [],
+            customTopics: data.customTopics ?? [],
+          };
+        }),
     }),
     { name: "lwb-mobile-store", storage: createJSONStorage(() => AsyncStorage) }
   )

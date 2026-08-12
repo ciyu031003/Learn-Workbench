@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useMemo, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useAppStore } from "@/store/app-store";
 import { mainPhases, agentPhase } from "@learn-workbench/content";
 import { pct, formatDuration, taskTypeLabels, todayISO } from "@learn-workbench/shared";
@@ -11,6 +11,9 @@ export default function DashboardScreen() {
   const checkins = useAppStore((s) => s.checkins);
   const sessions = useAppStore((s) => s.sessions);
   const checkinToday = useAppStore((s) => s.checkinToday);
+  const github = useAppStore((s) => s.github);
+  const addGithub = useAppStore((s) => s.addGithub);
+  const removeGithub = useAppStore((s) => s.removeGithub);
 
   const today = todayISO();
   const allTopics = useMemo(
@@ -35,6 +38,19 @@ export default function DashboardScreen() {
     }
     return s;
   }, [checkins, today]);
+
+  const [ghTitle, setGhTitle] = useState("");
+  const [ghUrl, setGhUrl] = useState("");
+  const [ghDesc, setGhDesc] = useState("");
+
+  const submitGithub = () => {
+    const t = ghTitle.trim();
+    if (!t) return;
+    addGithub(t, ghUrl.trim() || null, ghDesc.trim() || null);
+    setGhTitle("");
+    setGhUrl("");
+    setGhDesc("");
+  };
 
   const h = new Date().getHours();
   const greet = h < 6 ? "夜深了" : h < 11 ? "早上好" : h < 14 ? "中午好" : h < 18 ? "下午好" : "晚上好";
@@ -114,6 +130,31 @@ export default function DashboardScreen() {
           ))
         )}
       </Card>
+
+      <Card title="GitHub 记录" subtitle={`${github.length} 条项目资产`}>
+        <TextInput style={styles.input} placeholder="项目 / 仓库名称（必填）" placeholderTextColor="#9ca3af" value={ghTitle} onChangeText={setGhTitle} />
+        <TextInput style={styles.input} placeholder="GitHub 链接（可选）" placeholderTextColor="#9ca3af" value={ghUrl} onChangeText={setGhUrl} autoCapitalize="none" />
+        <TextInput style={styles.input} placeholder="一句话说明（可选）" placeholderTextColor="#9ca3af" value={ghDesc} onChangeText={setGhDesc} />
+        <Pressable style={styles.primaryBtn} onPress={submitGithub} disabled={!ghTitle.trim()}>
+          <Text style={styles.primaryBtnText}>添加记录</Text>
+        </Pressable>
+        {github.length === 0 ? (
+          <Text style={styles.empty}>还没有 GitHub 记录，添加你的项目资产吧</Text>
+        ) : (
+          github.map((g) => (
+            <View key={g.id} style={styles.ghRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.ghTitle} numberOfLines={1}>{g.title}</Text>
+                {g.content ? <Text style={styles.ghDesc} numberOfLines={1}>{g.content}</Text> : null}
+                {g.url ? <Text style={styles.ghUrl} numberOfLines={1}>{g.url}</Text> : null}
+              </View>
+              <Pressable onPress={() => removeGithub(g.id)} hitSlop={8}>
+                <Text style={styles.ghDelete}>✕</Text>
+              </Pressable>
+            </View>
+          ))
+        )}
+      </Card>
     </ScrollView>
   );
 }
@@ -146,4 +187,20 @@ const styles = StyleSheet.create({
   taskDone: { textDecorationLine: "line-through", color: "#71717a" },
   taskMeta: { fontSize: 12, color: "#71717a" },
   empty: { fontSize: 13, color: "#71717a", textAlign: "center", paddingVertical: 12 },
+  input: {
+    backgroundColor: "rgba(24,24,27,0.04)",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: "#18181b",
+  },
+  primaryBtn: { backgroundColor: "#e8930c", borderRadius: 14, paddingVertical: 11, alignItems: "center" },
+  primaryBtnText: { color: "#fff", fontSize: 14, fontWeight: "600" },
+  ghRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 6 },
+  ghTitle: { fontSize: 14, fontWeight: "600", color: "#18181b" },
+  ghDesc: { fontSize: 12, color: "#71717a" },
+  ghUrl: { fontSize: 12, color: "#0ea5e9" },
+  ghDelete: { fontSize: 14, color: "#dc2626", paddingHorizontal: 4 },
 });
+
