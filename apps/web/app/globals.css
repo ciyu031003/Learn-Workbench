@@ -273,3 +273,32 @@ html.bg-dark {
     padding-bottom: 5rem;
   }
 }
+
+/* ============ 玻璃下拉选择（修复原生 select 选项空白/隐形） ============ */
+.glass-select {
+  color-scheme: light;
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  color: var(--text-on-glass);
+}
+.glass-select option {
+  background: #ffffff;
+  color: #1f2937;
+}
+
+/* ============ 路线图章节卡片 hover 起伏效果 ============ */
+.roadmap-phase-card {
+  transition: transform 0.35s ease, box-shadow 0.35s ease;
+}
+@media (hover: hover) {
+  .roadmap-phase-card:hover {
+    animation: phase-bob 1.9s ease-in-out infinite;
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.18), inset 0 1px 0 var(--glass-highlight);
+  }
+}
+@keyframes phase-bob {
+  0%, 100% { transform: translate(0, -3px); }
+  25% { transform: translate(3px, 0); }
+  50% { transform: translate(0, 3px); }
+  75% { transform: translate(-3px, 0); }
+}

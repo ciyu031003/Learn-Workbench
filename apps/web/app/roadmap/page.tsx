@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { RoadmapPhase } from "@learn-workbench/shared";
 import { pct } from "@learn-workbench/shared";
 import { Card, CardContent } from "@/components/ui/card";
+import { GlassModal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -19,7 +20,6 @@ import {
   Sparkles,
   Plus,
   Trash2,
-  X,
 } from "lucide-react";
 
 interface RoadmapResponse {
@@ -135,49 +135,47 @@ export default function RoadmapPage() {
                 {phases.flatMap((p) => p.topics).filter((t) => t.done).length}/
                 {phases.flatMap((p) => p.topics).length} 主题
               </span>
-              <Button variant="secondary" size="sm" onClick={() => setAdding((v) => !v)}>
-                {adding ? <X className="size-4" /> : <Plus className="size-4" />}
-                {adding ? "取消" : "自定义主题"}
+              <Button variant="secondary" size="sm" onClick={() => setAdding(true)}>
+                <Plus className="size-4" /> 自定义主题
               </Button>
             </CardContent>
           </Card>
 
-          {adding ? (
-            <Card className="border-primary/30">
-              <CardContent className="flex flex-col gap-3 p-5">
-                <p className="text-sm font-medium">添加自定义学习内容</p>
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <select
-                    value={formPhase}
-                    onChange={(e) => setFormPhase(e.target.value)}
-                    className="h-10 rounded-xl border border-white/25 bg-white/12 px-3 text-sm text-foreground outline-none backdrop-blur-md focus:border-primary/60"
-                  >
-                    <option value="">选择阶段…</option>
-                    {main.concat(agent).map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.title}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    value={formTitle}
-                    onChange={(e) => setFormTitle(e.target.value)}
-                    placeholder="学习内容标题（必填）"
-                    className="h-10 rounded-xl border border-white/25 bg-white/12 px-3 text-sm text-foreground outline-none backdrop-blur-md placeholder:text-muted-foreground focus:border-primary/60"
-                  />
-                  <input
-                    value={formSummary}
-                    onChange={(e) => setFormSummary(e.target.value)}
-                    placeholder="简要说明（可选）"
-                    className="h-10 rounded-xl border border-white/25 bg-white/12 px-3 text-sm text-foreground outline-none backdrop-blur-md placeholder:text-muted-foreground focus:border-primary/60"
-                  />
-                </div>
-                <Button onClick={addCustom} disabled={!formPhase || !formTitle.trim()} className="self-end">
-                  <Plus className="size-4" /> 添加
-                </Button>
-              </CardContent>
-            </Card>
-          ) : null}
+          <GlassModal open={adding} onClose={() => setAdding(false)} title="添加自定义学习内容">
+            <p className="mb-3 text-xs text-muted-foreground">选择要在哪个 P 阶段下添加学习主题</p>
+            <div className="flex flex-col gap-3">
+              <select
+                value={formPhase}
+                onChange={(e) => setFormPhase(e.target.value)}
+                className="glass-select h-10 rounded-xl px-3 text-sm outline-none backdrop-blur-md focus:border-primary/60"
+              >
+                <option value="">选择阶段…</option>
+                {main.concat(agent).map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.phaseKey.replace("phase-", "P")} · {p.title}
+                  </option>
+                ))}
+              </select>
+              <input
+                value={formTitle}
+                onChange={(e) => setFormTitle(e.target.value)}
+                placeholder="学习内容标题（必填）"
+                className="h-10 rounded-xl border border-white/25 bg-white/12 px-3 text-sm text-foreground outline-none backdrop-blur-md placeholder:text-muted-foreground focus:border-primary/60"
+              />
+              <input
+                value={formSummary}
+                onChange={(e) => setFormSummary(e.target.value)}
+                placeholder="简要说明（可选）"
+                className="h-10 rounded-xl border border-white/25 bg-white/12 px-3 text-sm text-foreground outline-none backdrop-blur-md placeholder:text-muted-foreground focus:border-primary/60"
+              />
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setAdding(false)}>取消</Button>
+              <Button onClick={addCustom} disabled={!formPhase || !formTitle.trim()}>
+                <Plus className="size-4" /> 添加
+              </Button>
+            </div>
+          </GlassModal>
 
           {/* 主轨阶段 */}
           {main.map((phase) => {
@@ -185,7 +183,7 @@ export default function RoadmapPage() {
             const percent = pct(doneCount, phase.topics.length);
             const isOpen = !!expanded[phase.id];
             return (
-              <Card key={phase.id}>
+              <Card key={phase.id} className="roadmap-phase-card">
                 <button
                   onClick={() => togglePhase(phase.id)}
                   className="flex w-full items-center gap-3 p-5 text-left"
@@ -346,7 +344,7 @@ export default function RoadmapPage() {
             const percent = pct(doneCount, phase.topics.length);
             const isOpen = !!expanded[phase.id];
             return (
-              <Card key={phase.id} className="border-accent/20">
+              <Card key={phase.id} className="roadmap-phase-card border-accent/20">
                 <button
                   onClick={() => togglePhase(phase.id)}
                   className="flex w-full items-center gap-3 p-5 text-left"
