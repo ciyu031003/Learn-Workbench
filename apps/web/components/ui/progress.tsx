@@ -17,10 +17,10 @@ export function Progress({
       aria-valuenow={v}
       aria-valuemin={0}
       aria-valuemax={100}
-      className={cn("h-2 w-full overflow-hidden rounded-full bg-muted", className)}
+      className={cn("progress-track h-2 w-full overflow-hidden rounded-full", className)}
     >
       <div
-        className={cn("h-full rounded-full bg-primary transition-all duration-500", indicatorClassName)}
+        className={cn("progress-fill h-full rounded-full", indicatorClassName)}
         style={{ width: `${v}%` }}
       />
     </div>

@@ -1,15 +1,13 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+export function Card({
+  className,
+  hover = true,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement> & { hover?: boolean }) {
   return (
-    <div
-      className={cn(
-        "rounded-2xl border border-border bg-card/85 shadow-sm backdrop-blur-md",
-        className
-      )}
-      {...props}
-    />
+    <div className={cn("glass", hover && "glass-hover", className)} {...props} />
   );
 }
 

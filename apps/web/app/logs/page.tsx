@@ -65,11 +65,11 @@ export default function LogsPage() {
   const shown = filter === "all" ? logs : logs.filter((l) => l.kind === filter);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="page-enter flex flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight lg:text-3xl">学习日志</h1>
-          <p className="mt-1 text-sm text-muted-foreground">费曼讲稿 · 周复盘 · 项目笔记 · 面试记录，输出倒逼输入</p>
+          <h1 className="page-title text-2xl font-semibold tracking-tight lg:text-3xl">学习日志</h1>
+          <p className="page-subtitle mt-1 text-sm">费曼讲稿 · 周复盘 · 项目笔记 · 面试记录，输出倒逼输入</p>
         </div>
         <Button variant="secondary" onClick={exportJson}>
           <Download className="size-4" /> 导出 JSON
@@ -143,4 +143,5 @@ export default function LogsPage() {
     </div>
   );
 }
+
 

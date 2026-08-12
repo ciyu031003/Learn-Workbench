@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import { QuoteWidget } from "@/components/quote-widget";
 import {
   Flame,
   Clock3,
@@ -96,13 +97,16 @@ export default function DashboardPage() {
   const agentPhases = data?.phases.filter((p) => p.track === "agent") ?? [];
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* 问候 */}
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight lg:text-3xl">
-          {greeting()}，继续今天的 ICT 学习
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{formatDateCN(today)} · 通信 · 数据 · 云运维 · Agent</p>
+    <div className="page-enter flex flex-col gap-6">
+      {/* 问候 + 每日一言 */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="page-title text-2xl font-semibold tracking-tight lg:text-3xl">
+            {greeting()}，继续今天的 ICT 学习
+          </h1>
+          <p className="page-subtitle mt-1 text-sm">{formatDateCN(today)} · 通信 · 数据 · 云运维 · Agent</p>
+        </div>
+        <QuoteWidget className="w-full sm:w-80" />
       </div>
 
       {error ? (
@@ -241,7 +245,7 @@ export default function DashboardPage() {
                   <span className="font-medium">{p.title}</span>
                   <span className="text-muted-foreground">{p.done}/{p.total}</span>
                 </div>
-                <Progress value={p.percent} indicatorClassName="bg-accent" />
+                <Progress value={p.percent} indicatorClassName="progress-fill-accent" />
               </div>
             ))}
             <p className="mt-1 text-xs text-muted-foreground">Prompt → 工具 → RAG → 编排 → MCP → 工程化</p>
@@ -269,5 +273,7 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+
 
 

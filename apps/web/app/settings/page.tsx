@@ -52,10 +52,10 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="page-enter flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight lg:text-3xl">设置</h1>
-        <p className="mt-1 text-sm text-muted-foreground">外观、背景图、数据备份与同步</p>
+        <h1 className="page-title text-2xl font-semibold tracking-tight lg:text-3xl">设置</h1>
+        <p className="page-subtitle mt-1 text-sm">外观、背景图、数据备份与同步</p>
       </div>
 
       {msg ? <Badge variant="success">{msg}</Badge> : null}
@@ -172,3 +172,4 @@ export default function SettingsPage() {
     </div>
   );
 }
+

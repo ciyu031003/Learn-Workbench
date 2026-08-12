@@ -4,15 +4,18 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90",
-        secondary: "border border-border bg-white/70 text-foreground backdrop-blur hover:bg-white/90",
-        ghost: "text-muted-foreground hover:bg-muted hover:text-foreground",
-        outline: "border border-border bg-transparent hover:bg-muted",
-        danger: "bg-danger text-white hover:bg-danger/90",
+        default:
+          "bg-gradient-to-b from-primary to-[#d97f0a] text-primary-foreground shadow-[0_6px_20px_rgba(232,147,12,0.35)] hover:shadow-[0_8px_26px_rgba(232,147,12,0.45)] hover:brightness-105",
+        secondary:
+          "border border-white/25 bg-white/15 text-foreground backdrop-blur-lg hover:bg-white/25",
+        ghost: "text-muted-foreground hover:bg-white/15 hover:text-foreground",
+        outline: "border border-white/25 bg-transparent text-foreground hover:bg-white/15",
+        danger:
+          "bg-gradient-to-b from-danger to-[#c93a3f] text-white shadow-[0_6px_20px_rgba(229,72,77,0.3)] hover:brightness-105",
       },
       size: {
         default: "h-10 px-4",

@@ -99,11 +99,11 @@ export default function TasksPage() {
   const totalFocus = tasks.reduce((a, t) => a + t.focusMinutes, 0);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="page-enter flex flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight lg:text-3xl">每日任务</h1>
-          <p className="mt-1 text-sm text-muted-foreground">计划 → 专注 → 复盘，形成学习闭环</p>
+          <h1 className="page-title text-2xl font-semibold tracking-tight lg:text-3xl">每日任务</h1>
+          <p className="page-subtitle mt-1 text-sm">计划 → 专注 → 复盘，形成学习闭环</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" onClick={() => shiftDate(-1)} aria-label="前一天">
@@ -219,4 +219,5 @@ export default function TasksPage() {
     </div>
   );
 }
+
 

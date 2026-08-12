@@ -85,10 +85,10 @@ export default function RoadmapPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="page-enter flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight lg:text-3xl">学习路线图</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <h1 className="page-title text-2xl font-semibold tracking-tight lg:text-3xl">学习路线图</h1>
+        <p className="page-subtitle mt-1 text-sm">
           6 个主阶段 + Agent 应用副线 · 主题完成即打勾，进度自动聚合
         </p>
       </div>
@@ -285,7 +285,7 @@ export default function RoadmapPage() {
                       <span>{doneCount}/{phase.topics.length}</span>
                       <span>{percent}%</span>
                     </div>
-                    <Progress value={percent} indicatorClassName="bg-accent" className="h-1.5" />
+                    <Progress value={percent} indicatorClassName="progress-fill-accent" className="h-1.5" />
                   </span>
                   {isOpen ? <ChevronDown className="size-5 shrink-0 text-muted-foreground" /> : <ChevronRight className="size-5 shrink-0 text-muted-foreground" />}
                 </button>
@@ -321,5 +321,6 @@ export default function RoadmapPage() {
     </div>
   );
 }
+
 
 
