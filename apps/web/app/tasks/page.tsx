@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CheckCircle2, Circle, ChevronLeft, ChevronRight, Play, Plus, Timer as TimerIcon } from "lucide-react";
 import { FocusTimer } from "@/components/focus-timer";
+import { FocusStatsCard } from "@/components/focus-stats-card";
 
 const TYPES = ["study", "agent", "output", "review", "exam"] as const;
 
@@ -259,6 +260,14 @@ export default function TasksPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* 专注打卡统计（计时完成 / 完成当日全部任务后可分享） */}
+      {tasks.length > 0 && tasks.every((t) => t.done) ? (
+        <div className="flex items-center gap-2 rounded-2xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-foreground">
+          🎉 今日任务已全部完成！生成你的专注打卡卡片分享一下吧
+        </div>
+      ) : null}
+      <FocusStatsCard />
 
       <FocusTimer
         key={timerSession}
