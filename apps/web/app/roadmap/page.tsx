@@ -35,10 +35,12 @@ export default function RoadmapPage() {
   const [formPhase, setFormPhase] = useState<string>("");
   const [formTitle, setFormTitle] = useState("");
   const [formSummary, setFormSummary] = useState("");
+  const [careers, setCareers] = useState<{ career_key: string; name: string; description: string | null; is_locked: boolean }[]>([]);
+  const [career, setCareer] = useState<string>("ict");
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (careerKey: string) => {
     try {
-      const r = await fetch("/api/roadmap");
+      const r = await fetch(`/api/roadmap?career=${careerKey}`);
       if (!r.ok) throw new Error("load failed");
       const data = (await r.json()) as RoadmapResponse;
       setPhases(data.phases);
@@ -55,9 +57,46 @@ export default function RoadmapPage() {
   }, []);
 
   useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const [cRes, curRes] = await Promise.all([
+          fetch("/api/careers"),
+          fetch("/api/settings/career"),
+        ]);
+        const cData = await cRes.json();
+        const curData = await curRes.json();
+        if (!alive) return;
+        setCareers(cData.careers ?? []);
+        setCareer(curData.career ?? "ict");
+      } catch {
+        // 职业接口不可用时保持默认 ICT
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    load();
-  }, [load]);
+    load(career);
+  }, [career, load]);
+
+  const switchCareer = async (key: string) => {
+    setCareer(key);
+    try {
+      await fetch("/api/settings/career", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ career: key }),
+      });
+    } catch {
+      // 忽略保存失败
+    }
+  };
+
+  const currentCareer = careers.find((c) => c.career_key === career);
 
   const toggleTopic = async (topicId: number, done: boolean) => {
     setPhases((prev) =>
@@ -77,21 +116,26 @@ export default function RoadmapPage() {
   const addCustom = async () => {
     const phaseId = Number(formPhase);
     if (!Number.isFinite(phaseId) || !formTitle.trim()) return;
-    await fetch("/api/roadmap/custom", {
+    const r = await fetch("/api/roadmap/custom", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phaseId, title: formTitle.trim(), summary: formSummary.trim() || null }),
     });
+    if (!r.ok) {
+      const data = await r.json().catch(() => null);
+      setError(data?.error ?? "添加失败");
+      return;
+    }
     setFormPhase("");
     setFormTitle("");
     setFormSummary("");
     setAdding(false);
-    load();
+    load(career);
   };
 
   const deleteCustom = async (topicId: number) => {
     await fetch(`/api/roadmap/custom?topicId=${topicId}`, { method: "DELETE" });
-    load();
+    load(career);
   };
   const toggleDetail = (id: number) => setDetail((s) => ({ ...s, [id]: !s[id] }));
 
@@ -114,11 +158,28 @@ export default function RoadmapPage() {
 
   return (
     <div className="page-enter flex flex-col gap-6">
-      <div>
-        <h1 className="page-title text-2xl font-semibold tracking-tight lg:text-3xl">学习路线图</h1>
-        <p className="page-subtitle mt-1 text-sm">
-          6 个主阶段 + Agent 应用副线 · 主题完成即打勾，进度自动聚合
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="page-title text-2xl font-semibold tracking-tight lg:text-3xl">学习路线图</h1>
+          <p className="page-subtitle mt-1 text-sm">
+            {currentCareer ? currentCareer.name : "ICT 学习规划"} · 主题完成即打勾，进度自动聚合
+            {currentCareer?.is_locked ? "（系统固定内容，不可修改）" : "（可自定义添加主题）"}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-muted-foreground">职业 / 学习路线</label>
+          <select
+            value={career}
+            onChange={(e) => switchCareer(e.target.value)}
+            className="glass-select h-10 min-w-44 rounded-xl px-3 text-sm outline-none backdrop-blur-md"
+          >
+            {careers.map((c) => (
+              <option key={c.career_key} value={c.career_key}>
+                {c.name}{c.is_locked ? "（固定）" : ""}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {!phases ? (
@@ -135,9 +196,13 @@ export default function RoadmapPage() {
                 {phases.flatMap((p) => p.topics).filter((t) => t.done).length}/
                 {phases.flatMap((p) => p.topics).length} 主题
               </span>
-              <Button variant="secondary" size="sm" onClick={() => setAdding(true)}>
-                <Plus className="size-4" /> 自定义主题
-              </Button>
+              {currentCareer?.is_locked ? (
+                <Badge variant="muted">ICT 规划固定 · 不可自定义</Badge>
+              ) : (
+                <Button variant="secondary" size="sm" onClick={() => setAdding(true)}>
+                  <Plus className="size-4" /> 自定义主题
+                </Button>
+              )}
             </CardContent>
           </Card>
 

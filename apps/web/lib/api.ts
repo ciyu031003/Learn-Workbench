@@ -70,12 +70,13 @@ export async function getProgressMap(uid: string | null): Promise<Map<number, Pr
   return new Map(rows.map((r): [number, ProgressRow] => [r.topic_id, r]));
 }
 
-export async function getRoadmapWithProgress(uid: string | null): Promise<RoadmapPhase[]> {
+export async function getRoadmapWithProgress(uid: string | null, careerKey = "ict"): Promise<RoadmapPhase[]> {
   const client = await pgPool.connect();
   try {
     const phasesResult = await client.query<PhaseRow>(
       `SELECT id, phase_key, title, weeks, track, summary, sort_order
-       FROM content_phases ORDER BY track, sort_order, id`
+       FROM content_phases WHERE career_key = $1 ORDER BY track, sort_order, id`,
+      [careerKey]
     );
     const topicsResult = await client.query<TopicRow>(
       `SELECT id, phase_id, topic_key, title, summary, agent_task, sort_order, is_custom

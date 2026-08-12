@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { useAppStore } from "@/store/app-store";
 import { API_URL } from "@/config";
@@ -27,6 +27,25 @@ export default function SettingsScreen() {
   const [pwNew2, setPwNew2] = useState("");
   const [pwMsg, setPwMsg] = useState<string | null>(null);
   const [pwBusy, setPwBusy] = useState(false);
+  const [careers, setCareers] = useState<{ career_key: string; name: string }[]>([]);
+  const [career, setCareer] = useState("ict");
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [cRes, curRes] = await Promise.all([
+          fetch(`${API_URL}/api/careers`),
+          fetch(`${API_URL}/api/settings/career`),
+        ]);
+        const cData = await cRes.json();
+        const curData = await curRes.json();
+        setCareers(cData.careers ?? []);
+        setCareer(curData.career ?? "ict");
+      } catch {
+        // 职业接口不可用时保持默认
+      }
+    })();
+  }, []);
 
   const doLogin = async () => {
     if (!userInput.trim() || !passInput) return;
@@ -69,6 +88,24 @@ export default function SettingsScreen() {
       setMsg(e instanceof Error ? e.message : "拉取失败");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const switchCareer = async (key: string) => {
+    setCareer(key);
+    if (token) {
+      try {
+        await fetch(`${API_URL}/api/settings/career`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ career: key }),
+        });
+        setMsg("职业路线已切换并同步到云端");
+      } catch {
+        setMsg("切换失败：请确认已登录且 Web 服务可用");
+      }
+    } else {
+      setMsg("登录后可同步职业路线到云端");
     }
   };
 
@@ -188,6 +225,25 @@ export default function SettingsScreen() {
         </Card>
       ) : null}
 
+      {careers.length > 0 ? (
+        <Card title="职业 / 学习路线" subtitle="切换后 Web 端学习路线随之切换，ICT 规划为固定内容">
+          <View style={styles.chipWrap}>
+            {careers.map((c) => {
+              const active = c.career_key === career;
+              return (
+                <Pressable
+                  key={c.career_key}
+                  onPress={() => switchCareer(c.career_key)}
+                  style={[styles.chip, active ? styles.chipActive : styles.chipIdle]}
+                >
+                  <Text style={active ? styles.chipTextActive : styles.chipTextIdle}>{c.name}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </Card>
+      ) : null}
+
       <Card title="每日背景图" subtitle="每天自动更换 Bing 每日风景壁纸">
         <View style={styles.rowBetween}>
           <Text style={styles.rowLabel}>启用每日壁纸</Text>
@@ -243,6 +299,12 @@ const styles = StyleSheet.create({
   primaryBtnText: { color: "#fff", fontSize: 15, fontWeight: "600" },
   secondaryBtnText: { color: "#18181b", fontSize: 15, fontWeight: "600" },
   msg: { fontSize: 13, color: "#16a34a", fontWeight: "600" },
+  chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chip: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
+  chipActive: { backgroundColor: "#e8930c" },
+  chipIdle: { backgroundColor: "rgba(24,24,27,0.06)" },
+  chipTextActive: { color: "#fff", fontSize: 13, fontWeight: "600" },
+  chipTextIdle: { color: "#18181b", fontSize: 13 },
   hint: { fontSize: 12, color: "#9ca3af", lineHeight: 18 },
   about: { fontSize: 13, color: "#71717a", lineHeight: 19 },
 });

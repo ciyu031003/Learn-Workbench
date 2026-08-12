@@ -10,12 +10,13 @@
 CREATE TABLE content_phases (
   id         serial PRIMARY KEY,
   phase_key  text NOT NULL UNIQUE,            -- 'phase-0' .. 'phase-6' / 'agent-track'
+  career_key text NOT NULL DEFAULT 'ict',     -- 所属职业路线（见 careers 表）
   title      text NOT NULL,
   weeks      text,                            -- 如 '第 0-2 周'
   track      text NOT NULL DEFAULT 'main' CHECK (track IN ('main','agent')),
   summary    text,
   sort_order int NOT NULL DEFAULT 0,
-  UNIQUE (track, sort_order)
+  UNIQUE (career_key, track, sort_order)
 );
 
 CREATE TABLE content_topics (
@@ -59,6 +60,17 @@ CREATE TABLE content_checkpoints (
   topic_id   int NOT NULL REFERENCES content_topics(id) ON DELETE CASCADE,
   text       text NOT NULL,
   sort_order int NOT NULL DEFAULT 0
+);
+
+-- ---------- 0.1 职业路线（多职业学习路线；ICT 为固定内容） ----------
+
+CREATE TABLE careers (
+  id          serial PRIMARY KEY,
+  career_key  text NOT NULL UNIQUE,
+  name        text NOT NULL,
+  description text,
+  is_locked   boolean NOT NULL DEFAULT false,   -- ICT 严格规定不可修改
+  sort_order  int NOT NULL DEFAULT 0
 );
 
 -- ---------- 1. 用户（P1 云同步启用；本地匿名模式 user_id 为 NULL） ----------
@@ -223,6 +235,7 @@ CREATE TABLE app_meta (
 -- ---------- 索引 ----------
 
 CREATE INDEX idx_topics_phase      ON content_topics(phase_id);
+CREATE INDEX idx_phases_career     ON content_phases(career_key);
 CREATE INDEX idx_resources_topic   ON content_resources(topic_id);
 CREATE INDEX idx_practices_topic   ON content_practices(topic_id);
 CREATE INDEX idx_projects_topic    ON content_projects(topic_id);
