@@ -36,7 +36,7 @@ export async function currentUser(): Promise<SessionUser | null> {
   return rows[0] ?? null;
 }
 
-async function resolveToken(): Promise<string | null> {
+export async function currentSessionToken(): Promise<string | null> {
   const store = await cookies();
   const cookieToken = store.get(COOKIE_NAME)?.value;
   if (cookieToken) return cookieToken;
@@ -45,6 +45,10 @@ async function resolveToken(): Promise<string | null> {
   const auth = h.get("authorization");
   if (auth?.startsWith("Bearer ")) return auth.slice(7).trim();
   return null;
+}
+
+async function resolveToken(): Promise<string | null> {
+  return currentSessionToken();
 }
 
 export async function createSession(userId: string): Promise<{ token: string; expiresAt: Date }> {

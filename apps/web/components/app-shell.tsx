@@ -39,7 +39,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Sparkles className="size-5" />
           </span>
           <span>
-            <span className="block text-base font-semibold leading-tight text-foreground">ICT 学习工作台</span>
+            <span className="block text-base font-semibold leading-tight text-foreground">学习工作台</span>
             <span className="block text-xs text-muted-foreground">路线 · 规划 · 输出</span>
           </span>
         </Link>
@@ -74,7 +74,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent text-primary-foreground">
             <Sparkles className="size-4" />
           </span>
-          <span className="text-sm font-semibold text-foreground">ICT 学习工作台</span>
+          <span className="text-sm font-semibold text-foreground">学习工作台</span>
         </Link>
         <span className="text-xs text-muted-foreground">{date}</span>
       </header>

@@ -7,9 +7,9 @@
   --text-on-glass-muted: rgba(23, 23, 27, 0.68);
   --glass-blur: 24px;
   --glass-saturation: 1.8;
-  --glass-bg: rgba(255, 255, 255, 0.1);
-  --glass-bg-soft: rgba(255, 255, 255, 0.07);
-  --glass-bg-strong: rgba(255, 255, 255, 0.16);
+  --glass-bg: rgba(255, 255, 255, 0.2);
+  --glass-bg-soft: rgba(255, 255, 255, 0.15);
+  --glass-bg-strong: rgba(255, 255, 255, 0.3);
   --glass-border: rgba(255, 255, 255, 0.18);
   --glass-highlight: rgba(255, 255, 255, 0.35);
   --title-glow: 0 1px 0 rgba(255, 255, 255, 0.5), 0 0 22px rgba(255, 255, 255, 0.35);
@@ -17,9 +17,9 @@
 html.bg-dark {
   --text-on-glass: #ffffff;
   --text-on-glass-muted: rgba(255, 255, 255, 0.8);
-  --glass-bg: rgba(0, 0, 0, 0.22);
-  --glass-bg-soft: rgba(0, 0, 0, 0.16);
-  --glass-bg-strong: rgba(0, 0, 0, 0.3);
+  --glass-bg: rgba(0, 0, 0, 0.38);
+  --glass-bg-soft: rgba(0, 0, 0, 0.3);
+  --glass-bg-strong: rgba(0, 0, 0, 0.5);
   --glass-border: rgba(255, 255, 255, 0.16);
   --glass-highlight: rgba(255, 255, 255, 0.22);
   --title-glow: 0 1px 0 rgba(255, 255, 255, 0.35), 0 0 24px rgba(255, 255, 255, 0.5),

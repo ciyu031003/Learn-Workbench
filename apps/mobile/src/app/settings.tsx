@@ -22,6 +22,11 @@ export default function SettingsScreen() {
   const [passInput, setPassInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [pwCur, setPwCur] = useState("");
+  const [pwNew1, setPwNew1] = useState("");
+  const [pwNew2, setPwNew2] = useState("");
+  const [pwMsg, setPwMsg] = useState<string | null>(null);
+  const [pwBusy, setPwBusy] = useState(false);
 
   const doLogin = async () => {
     if (!userInput.trim() || !passInput) return;
@@ -64,6 +69,29 @@ export default function SettingsScreen() {
       setMsg(e instanceof Error ? e.message : "拉取失败");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const changePassword = async () => {
+    if (!token) return;
+    if (!pwCur || !pwNew1 || !pwNew2) { setPwMsg("请填写完整"); return; }
+    if (pwNew1 !== pwNew2) { setPwMsg("两次新密码不一致"); return; }
+    if (pwNew1.length < 6) { setPwMsg("新密码至少 6 位"); return; }
+    setPwBusy(true);
+    setPwMsg(null);
+    try {
+      const r = await fetch(`${API_URL}/api/auth/password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ currentPassword: pwCur, newPassword: pwNew1 }),
+      });
+      const data = await r.json();
+      if (!r.ok) { setPwMsg(data.error ?? "修改失败"); }
+      else { setPwMsg("密码修改成功"); setPwCur(""); setPwNew1(""); setPwNew2(""); }
+    } catch {
+      setPwMsg("网络异常，请稍后重试");
+    } finally {
+      setPwBusy(false);
     }
   };
 
@@ -127,6 +155,39 @@ export default function SettingsScreen() {
         <Text style={styles.hint}>Android 模拟器使用 10.0.2.2 访问本机；真机请把 app.json 中 apiUrl 改为电脑局域网 IP。</Text>
       </Card>
 
+      {token ? (
+        <Card title="修改密码" subtitle="修改后其他设备将自动退出登录">
+          <TextInput
+            style={styles.input}
+            placeholder="当前密码"
+            placeholderTextColor="#9ca3af"
+            value={pwCur}
+            onChangeText={setPwCur}
+            secureTextEntry
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="新密码（至少 6 位）"
+            placeholderTextColor="#9ca3af"
+            value={pwNew1}
+            onChangeText={setPwNew1}
+            secureTextEntry
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="确认新密码"
+            placeholderTextColor="#9ca3af"
+            value={pwNew2}
+            onChangeText={setPwNew2}
+            secureTextEntry
+          />
+          <Pressable style={styles.primaryBtn} onPress={changePassword} disabled={pwBusy}>
+            {pwBusy ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>保存新密码</Text>}
+          </Pressable>
+          {pwMsg ? <Text style={styles.msg}>{pwMsg}</Text> : null}
+        </Card>
+      ) : null}
+
       <Card title="每日背景图" subtitle="每天自动更换 Bing 每日风景壁纸">
         <View style={styles.rowBetween}>
           <Text style={styles.rowLabel}>启用每日壁纸</Text>
@@ -145,7 +206,7 @@ export default function SettingsScreen() {
         </Pressable>
       </Card>
 
-      <Card title="关于" subtitle="ICT 学习工作台 v0.2">
+      <Card title="关于" subtitle="学习工作台 v0.3">
         <Text style={styles.about}>Expo + React Native + 每日 Bing 壁纸 · 路线图内容来自《新疆ICT学习规划优化方案》</Text>
         <Text style={styles.about}>支持登录后一键同步云端，Web 与移动端数据保持一致。</Text>
       </Card>

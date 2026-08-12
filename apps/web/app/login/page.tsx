@@ -48,7 +48,7 @@ function LoginForm() {
           <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-accent text-white shadow-[0_10px_30px_rgba(232,147,12,0.45)]">
             <Sparkles className="size-7" />
           </span>
-          <h1 className="page-title mt-2 text-2xl font-bold">ICT 学习工作台</h1>
+          <h1 className="page-title mt-2 text-2xl font-bold">学习工作台</h1>
           <p className="page-subtitle text-sm">登录后开始你的学习旅程</p>
         </div>
 
@@ -97,12 +97,8 @@ function LoginForm() {
             登 录
           </button>
         </form>
-
-        <p className="relative mt-6 text-center text-xs text-muted-foreground">
-          默认账号：<span className="font-medium text-foreground">yuanabd</span> · 密码：
-          <span className="font-medium text-foreground">Abd123456.</span>
-        </p>
-      </div>
+        <p className="relative mt-6 text-center text-xs text-muted-foreground">首次使用请先在设置中修改默认密码</p>
+</div>
     </div>
   );
 }

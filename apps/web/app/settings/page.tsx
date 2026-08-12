@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useUiStore } from "@/store/ui-store";
 import { useRouter } from "next/navigation";
-import { Download, Upload, Database, Image as ImageIcon, Sparkles, RefreshCw, LogOut, User as UserIcon } from "lucide-react";
+import { Download, Upload, Database, Image as ImageIcon, Sparkles, RefreshCw, LogOut, User as UserIcon, Lock, KeyRound } from "lucide-react";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -19,6 +19,11 @@ export default function SettingsPage() {
   const [msg, setMsg] = useState<string>("");
   const [user, setUser] = useState<{ username: string; displayName: string | null } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [pwCurrent, setPwCurrent] = useState("");
+  const [pwNew, setPwNew] = useState("");
+  const [pwConfirm, setPwConfirm] = useState("");
+  const [pwMsg, setPwMsg] = useState<string | null>(null);
+  const [pwBusy, setPwBusy] = useState(false);
 
   useEffect(() => {
     fetch("/api/summary")
@@ -62,6 +67,43 @@ export default function SettingsPage() {
     });
     setMsg(r.ok ? "导入成功，数据已恢复" : "导入失败：格式不正确");
     if (fileRef.current) fileRef.current.value = "";
+  };
+
+  const changePassword = async () => {
+    if (!pwCurrent || !pwNew || !pwConfirm) {
+      setPwMsg("请填写完整");
+      return;
+    }
+    if (pwNew !== pwConfirm) {
+      setPwMsg("两次输入的新密码不一致");
+      return;
+    }
+    if (pwNew.length < 6) {
+      setPwMsg("新密码至少 6 位");
+      return;
+    }
+    setPwBusy(true);
+    setPwMsg(null);
+    try {
+      const r = await fetch("/api/auth/password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword: pwCurrent, newPassword: pwNew }),
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        setPwMsg(data.error ?? "修改失败");
+      } else {
+        setPwMsg("密码修改成功");
+        setPwCurrent("");
+        setPwNew("");
+        setPwConfirm("");
+      }
+    } catch {
+      setPwMsg("网络异常，请稍后重试");
+    } finally {
+      setPwBusy(false);
+    }
   };
 
   return (
@@ -191,11 +233,50 @@ export default function SettingsPage() {
       </Card>
 
       <Card>
+        <CardHeader className="flex-row items-center gap-2">
+          <Lock className="size-5 text-primary" />
+          <CardTitle>修改密码</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <input
+            type="password"
+            value={pwCurrent}
+            onChange={(e) => setPwCurrent(e.target.value)}
+            placeholder="当前密码"
+            autoComplete="current-password"
+            className="h-10 rounded-xl border border-white/25 bg-white/12 px-3 text-sm text-foreground outline-none backdrop-blur-md placeholder:text-muted-foreground focus:border-primary/60"
+          />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <input
+              type="password"
+              value={pwNew}
+              onChange={(e) => setPwNew(e.target.value)}
+              placeholder="新密码（至少 6 位）"
+              autoComplete="new-password"
+              className="h-10 rounded-xl border border-white/25 bg-white/12 px-3 text-sm text-foreground outline-none backdrop-blur-md placeholder:text-muted-foreground focus:border-primary/60"
+            />
+            <input
+              type="password"
+              value={pwConfirm}
+              onChange={(e) => setPwConfirm(e.target.value)}
+              placeholder="确认新密码"
+              autoComplete="new-password"
+              className="h-10 rounded-xl border border-white/25 bg-white/12 px-3 text-sm text-foreground outline-none backdrop-blur-md placeholder:text-muted-foreground focus:border-primary/60"
+            />
+          </div>
+          {pwMsg ? <p className="text-xs text-muted-foreground">{pwMsg}</p> : null}
+          <Button onClick={changePassword} disabled={pwBusy} className="self-end">
+            <KeyRound className="size-4" /> {pwBusy ? "提交中…" : "保存新密码"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardHeader>
           <CardTitle>关于</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
-          <p>ICT 学习工作台 v0.1（M0-M3 基础版）</p>
+          <p>学习工作台 v0.3（多职业路线 + 液态玻璃 UI）</p>
           <p className="mt-1">技术栈：Next.js 16 + Expo + PostgreSQL 18.4 + 每日 Bing 壁纸</p>
           <p className="mt-1">内容来源：《新疆ICT学习规划优化方案》</p>
         </CardContent>
