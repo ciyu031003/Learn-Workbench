@@ -15,7 +15,7 @@
 | D. AI 功能 | P2，不阻塞 MVP | ✅ 确认 |
 | E. 背景图 | 项目内置 Python 爬虫，**每天抓 Bing 每日壁纸**；本地保存 + 数据库记录 + 按日期展示；离线回退纯色/内置池 | ✅ 确认（改为 Bing 每日抓取） |
 | F. 内容源 | 初始内容直接采用《新疆ICT学习规划优化方案》（阶段 0-6 + Agent 副线 + 每周节奏 + KPI） | ✅ 已灌入数据库 |
-| G. 登录 | 账号密码登录，默认账号 **yuanabd / Abd123456.**；数据按用户隔离；登录页毛玻璃 | ✅ 已上线 |
+| G. 登录 | 账号密码登录，账号由 scripts/create-admin.mjs 创建（不再内置默认密码）；数据按用户隔离；登录页毛玻璃 | ✅ 已上线 |
 | H. UI 风格 | 全站 **Liquid Glass 液态玻璃**（参考 mianbeishiwole/Liquid-Glass-Vue / iOS 26 风格）；暖调黄昏氛围；背景风景图穿透模糊 | ✅ 已重构 |
 | I. 自定义内容 | 学习路线图允许用户自定义添加学习内容 | ✅ 已上线 |
 | J. 数据一致 | Web 端与移动端数据一致；移动端提供「一键同步到云端」 | ✅ 已上线（同步 API + 客户端） |
@@ -116,7 +116,7 @@ apps/mobile (Expo + React Native + Expo Router；本地 AsyncStorage + 同步 AP
 4. 学习日志：费曼讲稿 / 周复盘 / 项目笔记，导出 Markdown/JSON
 5. 每日 Bing 壁纸背景系统（Web + Android）
 6. JSON 导入导出，本地持久化
-7. **登录系统**（默认账号 yuanabd / Abd123456.，数据按用户隔离）
+7. **登录系统**（账号由 scripts/create-admin.mjs 创建（不再内置默认密码），数据按用户隔离）
 8. **Web / 移动端数据一致 + 移动端一键同步到云端**
 9. 双端可运行：Web（已完成）；Android APK（⏳ 暂缓，见 §12）
 
@@ -163,7 +163,7 @@ apps/mobile (Expo + React Native + Expo Router；本地 AsyncStorage + 同步 AP
 ### 5.3 页面清单
 | 页面 | Web | Android | 内容 |
 |---|---|---|---|
-| 登录 | ✔ | ✔ | 毛玻璃登录页，默认账号 yuanabd / Abd123456. |
+| 登录 | ✔ | ✔ | 毛玻璃登录页，账号由 scripts/create-admin.mjs 创建（不再内置默认密码） |
 | 仪表盘 | ✔ | ✔ | 总进度、本周任务、连续打卡、证书倒计时、快捷入口、每日一言、GitHub 记录 |
 | 路线图 | ✔ | ✔ | 职业切换、阶段折叠、主题详情、打勾、资源/项目/验收、自定义添加学习内容（毛玻璃弹窗） |
 | 任务与专注 | ✔ | ✔ | 每日任务 CRUD（可选路线图大类）、全屏居中环形倒计时（三背景模式 + 励志短句 + 时长预设）、分类专注统计、打卡分享卡片（分布图/时间轴 + 导出/分享） |
@@ -247,7 +247,7 @@ apps/mobile (Expo + React Native + Expo Router；本地 AsyncStorage + 同步 AP
 8. **启停脚本**：`scripts/start_pg.ps1` / `scripts/stop_pg.ps1`
 
 ### 本轮新增功能（已提交 git）
-1. **登录系统**：`db/migrations/002_auth_custom.sql`（accounts/sessions + user_id 列）；`apps/web/lib/password.ts`（scrypt）、`lib/session.ts`（Cookie + Bearer 双通道）；`apps/web/proxy.ts` 守卫 5 个页面；`app/login/page.tsx` 毛玻璃登录页；所有数据 API 按登录用户隔离，登录时自动认领匿名数据；默认账号 `yuanabd / Abd123456.` 已 seed
+1. **登录系统**：`db/migrations/002_auth_custom.sql`（accounts/sessions + user_id 列）；`apps/web/lib/password.ts`（scrypt）、`lib/session.ts`（Cookie + Bearer 双通道）；`apps/web/proxy.ts` 守卫 5 个页面；`app/login/page.tsx` 毛玻璃登录页；所有数据 API 按登录用户隔离，登录时自动认领匿名数据；不再内置默认账号，请用 scripts/create-admin.mjs 创建
 2. **自定义学习内容**：`POST/DELETE /api/roadmap/custom` + Web 表单（选择阶段）+ 移动端选择器
 3. **GitHub 记录**：`GET/POST/DELETE /api/github` + 仪表盘底部卡片（双端）
 4. **云同步**：`POST /api/sync/push`（全量替换）+ `GET /api/sync/pull`；移动端 `src/lib/sync.ts`；设置页「一键同步到云端 / 从云端恢复 / 退出登录」
@@ -279,7 +279,7 @@ apps/mobile (Expo + React Native + Expo Router；本地 AsyncStorage + 同步 AP
 
 **已完成（均已提交 git）**
 - M0-M4 基础版：monorepo / 路线图 / 仪表盘+每日 Bing 背景 / 任务+专注 / 日志+导入导出
-- M5.5 登录系统（yuanabd / Abd123456.）
+- M5.5 登录系统（账号由 create-admin 脚本创建，无默认密码）
 - M5.6 自定义学习内容 + GitHub 记录
 - M5.7 Web-移动端数据同步 + 一键同步到云端
 - M5.8 Liquid Glass 液态玻璃 UI 全面重构

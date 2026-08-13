@@ -159,7 +159,7 @@ export default function SettingsScreen() {
           <>
             <TextInput
               style={styles.input}
-              placeholder="账号（默认 yuanabd）"
+              placeholder="账号"
               placeholderTextColor="#9ca3af"
               value={userInput}
               onChangeText={setUserInput}

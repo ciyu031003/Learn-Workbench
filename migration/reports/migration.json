@@ -1,0 +1,25 @@
+{
+  "generatedAt": "2026-08-13T12:33:23.406Z",
+  "mode": "execute",
+  "userId": "6d84b5dd-aefc-4dbe-9433-a4a898955261",
+  "notes": [
+    {
+      "slug": "network-utils",
+      "id": "1",
+      "type": "PROJECT_NOTE",
+      "title": "Network Utils",
+      "assets": [
+        "content/migrated/network-utils/src/port_scanner.py"
+      ]
+    },
+    {
+      "slug": "nextjs-deploy",
+      "id": "2",
+      "type": "NOTE",
+      "title": "Next.js 项目部署到阿里云 ECS 完整指南",
+      "assets": []
+    }
+  ],
+  "tags": 4,
+  "errors": []
+}

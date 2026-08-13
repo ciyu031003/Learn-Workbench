@@ -1,0 +1,41 @@
+{
+  "generatedAt": "2026-08-13T12:33:23.330Z",
+  "mode": "dry-run",
+  "mysqlAvailable": true,
+  "warnings": [],
+  "summary": {
+    "total": 2,
+    "NOTE": 1,
+    "MINDMAP": 0,
+    "PROJECT_NOTE": 1,
+    "other": 0,
+    "tags": 4
+  },
+  "items": [
+    {
+      "sourceId": "travel-notes:repo:network-utils",
+      "title": "Network Utils",
+      "slug": "network-utils",
+      "type": "PROJECT_NOTE",
+      "date": null,
+      "tags": [],
+      "sourcePath": "content/tech/repos/network-utils/README.md",
+      "contentChars": 188
+    },
+    {
+      "sourceId": "travel-notes:blog:nextjs-deploy",
+      "title": "Next.js 项目部署到阿里云 ECS 完整指南",
+      "slug": "nextjs-deploy",
+      "type": "NOTE",
+      "date": "2026-07-25T00:00:00.000Z",
+      "tags": [
+        "Next.js",
+        "阿里云",
+        "部署",
+        "Nginx"
+      ],
+      "sourcePath": "content/tech/blog/nextjs-deploy.md",
+      "contentChars": 1297
+    }
+  ]
+}

@@ -27,3 +27,6 @@ assets/backgrounds/bing/*.jpg
 Thumbs.db
 .DS_Store
 
+.backup/
+
+.local/

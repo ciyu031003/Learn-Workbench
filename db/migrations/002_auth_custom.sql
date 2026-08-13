@@ -27,10 +27,7 @@ DROP TRIGGER IF EXISTS trg_accounts_updated ON accounts;
 CREATE TRIGGER trg_accounts_updated
   BEFORE UPDATE ON accounts FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
-INSERT INTO users (display_name) VALUES ('yuanabd') ON CONFLICT DO NOTHING;
-INSERT INTO accounts (username, password_hash, user_id)
-SELECT 'yuanabd',
-       '37c6fe5590cdd94dd59fdbb144da1809:bad66e576a7f8ba949035db9407d5b45c54727a07b93bd3a424fe447b03f3d2732649d2fb7f23bd2307643ce92559b5faade6dce2b79e6ea8493609ead888a59',
-       id
-FROM users WHERE display_name = 'yuanabd'
-ON CONFLICT (username) DO NOTHING;
+-- 安全策略（2026-08-13）：不再内置任何默认账号/默认密码。
+-- 生产环境不得依赖默认凭据。首次运行请执行：
+--   node scripts/create-admin.mjs --username <你的用户名> [--password <强密码>]
+-- 未传 --password 时脚本会生成随机密码并仅打印一次。

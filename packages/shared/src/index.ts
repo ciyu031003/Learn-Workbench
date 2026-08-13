@@ -221,3 +221,66 @@ export const certLabels: Record<string, string> = {
 };
 
 
+/* ================= Knowledge Domain（方案 §12-§14） ================= */
+
+export const knowledgeNoteTypeSchema = z.enum([
+  "NOTE",
+  "TUTORIAL",
+  "REFERENCE",
+  "MINDMAP",
+  "REVIEW",
+  "PROJECT_NOTE",
+]);
+export type KnowledgeNoteType = z.infer<typeof knowledgeNoteTypeSchema>;
+
+export const knowledgeNoteStatusSchema = z.enum(["DRAFT", "ACTIVE", "ARCHIVED"]);
+export type KnowledgeNoteStatus = z.infer<typeof knowledgeNoteStatusSchema>;
+
+export const knowledgeNoteSchema = z.object({
+  id: z.number(),
+  topicId: z.number().nullable(),
+  title: z.string(),
+  slug: z.string(),
+  content: z.string(),
+  summary: z.string().nullable(),
+  type: knowledgeNoteTypeSchema,
+  status: knowledgeNoteStatusSchema,
+  source: z.string().nullable(),
+  sourcePath: z.string().nullable(),
+  sourceId: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  publishedAt: z.string().nullable(),
+});
+export type KnowledgeNote = z.infer<typeof knowledgeNoteSchema>;
+
+export const knowledgeTagSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  slug: z.string(),
+});
+export type KnowledgeTag = z.infer<typeof knowledgeTagSchema>;
+
+export const knowledgeNoteWithTagsSchema = knowledgeNoteSchema.extend({
+  tags: z.array(knowledgeTagSchema).default([]),
+});
+export type KnowledgeNoteWithTags = z.infer<typeof knowledgeNoteWithTagsSchema>;
+
+export const knowledgeLinkTypeSchema = z.enum(["RELATED", "PREREQUISITE", "REFERENCE", "DERIVED"]);
+export const knowledgeLinkSchema = z.object({
+  id: z.number(),
+  sourceNoteId: z.number(),
+  targetNoteId: z.number(),
+  type: knowledgeLinkTypeSchema,
+  createdAt: z.string(),
+});
+export type KnowledgeLink = z.infer<typeof knowledgeLinkSchema>;
+
+export const knowledgeNoteTypeLabels: Record<KnowledgeNoteType, string> = {
+  NOTE: "笔记",
+  TUTORIAL: "教程",
+  REFERENCE: "参考",
+  MINDMAP: "思维导图",
+  REVIEW: "复盘",
+  PROJECT_NOTE: "项目笔记",
+};
