@@ -1,5 +1,5 @@
 import { API_URL } from "@/config";
-import { useAppStore, type SyncPayload } from "@/store/app-store";
+import { useAppStore, type SyncChange } from "@/store/app-store";
 
 export async function apiLogin(
   username: string,
@@ -15,41 +15,34 @@ export async function apiLogin(
   return data;
 }
 
-export function buildSyncPayload(): SyncPayload {
-  const s = useAppStore.getState();
-  return {
-    progress: Object.values(s.progress).map((p) => ({
-      topicId: p.topicId,
-      done: p.done,
-      note: p.note,
-      updatedAt: p.updatedAt,
-    })),
-    tasks: s.tasks,
-    sessions: s.sessions,
-    checkins: s.checkins.map((d) => ({ checkinDate: d, note: null })),
-    logs: s.logs,
-    certificates: [],
-    github: s.github,
-    customTopics: s.customTopics,
-  };
-}
-
+/** 增量 Push：只发送本地 pending changes（§37-§40），成功后清空 */
 export async function syncPush(token: string): Promise<void> {
-  const payload = buildSyncPayload();
+  const s = useAppStore.getState();
+  const changes: SyncChange[] = s.pendingChanges;
+  if (changes.length === 0) {
+    useAppStore.getState().setLastSyncedAt(new Date().toISOString());
+    return;
+  }
   const r = await fetch(`${API_URL}/api/sync/push`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ deviceId: s.deviceId, deviceName: "mobile", changes }),
   });
   const data = await r.json();
   if (!r.ok) throw new Error(data.error ?? "同步失败");
+  useAppStore.getState().clearPendingChanges();
+  if (data.serverTime) useAppStore.getState().setLastSyncedAt(data.serverTime);
 }
 
-export async function syncPull(token: string): Promise<SyncPayload> {
-  const r = await fetch(`${API_URL}/api/sync/pull`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+/** 增量 Pull：按 since 游标拉取远端变更并本地 LWW 合并 */
+export async function syncPull(token: string): Promise<void> {
+  const s = useAppStore.getState();
+  const since = s.lastSyncedAt ?? "";
+  const url = `${API_URL}/api/sync/pull?deviceId=${encodeURIComponent(s.deviceId)}&deviceName=mobile&since=${encodeURIComponent(since)}`;
+  const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
   const data = await r.json();
   if (!r.ok) throw new Error(data.error ?? "拉取失败");
-  return data;
+  const changes: SyncChange[] = Array.isArray(data.changes) ? data.changes : [];
+  if (changes.length > 0) useAppStore.getState().applyRemoteChanges(changes);
+  if (data.serverTime) useAppStore.getState().setLastSyncedAt(data.serverTime);
 }

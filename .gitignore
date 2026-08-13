@@ -23,7 +23,13 @@ assets/backgrounds/bing/*.jpg
 # 本地日志
 *.log
 
+# 测试覆盖率
+coverage/
+
 # OS
 Thumbs.db
 .DS_Store
 
+.backup/
+
+.local/

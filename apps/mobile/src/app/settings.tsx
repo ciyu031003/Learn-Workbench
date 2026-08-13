@@ -16,7 +16,6 @@ export default function SettingsScreen() {
   const token = useAppStore((s) => s.token);
   const username = useAppStore((s) => s.username);
   const setAuth = useAppStore((s) => s.setAuth);
-  const replaceAll = useAppStore((s) => s.replaceAll);
 
   const [userInput, setUserInput] = useState("");
   const [passInput, setPassInput] = useState("");
@@ -81,9 +80,8 @@ export default function SettingsScreen() {
     setBusy(true);
     setMsg(null);
     try {
-      const data = await syncPull(token);
-      replaceAll(data);
-      setMsg("已从云端恢复数据");
+      await syncPull(token);
+      setMsg("已从云端拉取增量更新");
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "拉取失败");
     } finally {
@@ -159,7 +157,7 @@ export default function SettingsScreen() {
           <>
             <TextInput
               style={styles.input}
-              placeholder="账号（默认 yuanabd）"
+              placeholder="账号"
               placeholderTextColor="#9ca3af"
               value={userInput}
               onChangeText={setUserInput}

@@ -8,7 +8,7 @@ ICT 学习路线图追踪 + 学习规划工作台（Web + Android 双端），Li
 - ✅ **M2 路线图模块**：双端，阶段折叠、主题打勾、进度聚合、资源/项目/验收、**自定义添加学习内容**
 - ✅ **M3 仪表盘 + 每日 Bing 背景**：双端仪表盘 + 每日 Bing 壁纸（爬虫 + 双端展示）
 - ✅ **M4 任务/专注/日志/设置**：双端基础页 + JSON 导入导出
-- ✅ **M5.5 登录系统**：默认账号 `yuanabd / Abd123456.`，数据按用户隔离，匿名数据自动认领
+- ✅ **M5.5 登录系统**：账号密码登录（账号通过 scripts/create-admin.mjs 创建，不再内置默认密码），数据按用户隔离，匿名数据自动认领
 - ✅ **M5.6 自定义内容 + GitHub 记录**：路线图自定义学习内容；仪表盘底部 GitHub 记录卡片
 - ✅ **M5.7 数据同步**：Web 与移动端数据一致；移动端「一键同步到云端 / 从云端恢复」
 - ✅ **M5.8 Liquid Glass UI**：全站液态玻璃重构（blur 24px + saturate 1.8 + 渐变高光边缘 + 动态文字对比 + 每日一言）
@@ -31,7 +31,7 @@ psql -h 127.0.0.1 -p 5432 -U postgres -d Learn-Workbench
 ### 2. Web 端（Next.js）
 ```powershell
 pnpm install
-pnpm web          # http://localhost:3000，默认账号 yuanabd / Abd123456.
+pnpm web          # http://localhost:3000（管理员账号通过 scripts/create-admin.mjs 创建）
 ```
 
 ### 3. 移动端（Expo）

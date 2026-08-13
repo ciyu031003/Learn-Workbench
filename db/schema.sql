@@ -305,4 +305,133 @@ CREATE TRIGGER trg_resume_assets_updated BEFORE UPDATE ON resume_assets  FOR EAC
 CREATE TRIGGER trg_settings_updated     BEFORE UPDATE ON settings       FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER trg_app_meta_updated     BEFORE UPDATE ON app_meta       FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+-- ---------- 15. Knowledge Domain（§11-§18：学习知识库） ----------
 
+CREATE TABLE IF NOT EXISTS knowledge_notes (
+  id           bigserial PRIMARY KEY,
+  user_id      uuid REFERENCES users(id) ON DELETE CASCADE,
+  topic_id     int REFERENCES content_topics(id) ON DELETE SET NULL,
+  title        text NOT NULL,
+  slug         text NOT NULL,
+  content      text NOT NULL,
+  summary      text,
+  type         text NOT NULL DEFAULT 'NOTE'
+               CHECK (type IN ('NOTE','TUTORIAL','REFERENCE','MINDMAP','REVIEW','PROJECT_NOTE')),
+  status       text NOT NULL DEFAULT 'ACTIVE'
+               CHECK (status IN ('DRAFT','ACTIVE','ARCHIVED')),
+  source       text,           -- 来源标识（travel-notes / manual / ...）
+  source_path  text,           -- 原始来源路径
+  source_id    text,           -- 原始来源 ID（可追溯）
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  updated_at   timestamptz NOT NULL DEFAULT now(),
+  published_at timestamptz
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_knowledge_notes_user ON knowledge_notes(user_id, slug) WHERE user_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_knowledge_notes_anon ON knowledge_notes(slug) WHERE user_id IS NULL;
+CREATE INDEX IF NOT EXISTS idx_knowledge_notes_type  ON knowledge_notes(type);
+CREATE INDEX IF NOT EXISTS idx_knowledge_notes_topic ON knowledge_notes(topic_id);
+CREATE INDEX IF NOT EXISTS idx_knowledge_notes_user  ON knowledge_notes(user_id);
+
+CREATE TABLE IF NOT EXISTS knowledge_tags (
+  id         bigserial PRIMARY KEY,
+  user_id    uuid REFERENCES users(id) ON DELETE CASCADE,
+  name       text NOT NULL,
+  slug       text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_knowledge_tags_user ON knowledge_tags(user_id, slug) WHERE user_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_knowledge_tags_anon ON knowledge_tags(slug) WHERE user_id IS NULL;
+
+CREATE TABLE IF NOT EXISTS knowledge_note_tags (
+  note_id bigint NOT NULL REFERENCES knowledge_notes(id) ON DELETE CASCADE,
+  tag_id  bigint NOT NULL REFERENCES knowledge_tags(id) ON DELETE CASCADE,
+  PRIMARY KEY (note_id, tag_id)
+);
+
+CREATE TABLE IF NOT EXISTS knowledge_links (
+  id             bigserial PRIMARY KEY,
+  source_note_id bigint NOT NULL REFERENCES knowledge_notes(id) ON DELETE CASCADE,
+  target_note_id bigint NOT NULL REFERENCES knowledge_notes(id) ON DELETE CASCADE,
+  type           text NOT NULL DEFAULT 'RELATED'
+                 CHECK (type IN ('RELATED','PREREQUISITE','REFERENCE','DERIVED')),
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  CHECK (source_note_id <> target_note_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_knowledge_links_source ON knowledge_links(source_note_id);
+CREATE INDEX IF NOT EXISTS idx_knowledge_links_target ON knowledge_links(target_note_id);
+
+DROP TRIGGER IF EXISTS trg_knowledge_notes_updated ON knowledge_notes;
+CREATE TRIGGER trg_knowledge_notes_updated
+  BEFORE UPDATE ON knowledge_notes FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- ---------- 16. 增量同步（§37-§40：sync_devices / sync_changes / 软删除） ----------
+
+ALTER TABLE topic_progress  ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+ALTER TABLE daily_tasks     ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+ALTER TABLE focus_sessions  ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+ALTER TABLE checkins        ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+ALTER TABLE log_entries     ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+ALTER TABLE resume_assets   ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+ALTER TABLE content_topics  ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+ALTER TABLE knowledge_notes ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+
+ALTER TABLE focus_sessions ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+ALTER TABLE checkins       ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+DROP TRIGGER IF EXISTS trg_focus_sessions_updated ON focus_sessions;
+CREATE TRIGGER trg_focus_sessions_updated BEFORE UPDATE ON focus_sessions FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+DROP TRIGGER IF EXISTS trg_checkins_updated ON checkins;
+CREATE TRIGGER trg_checkins_updated BEFORE UPDATE ON checkins FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+ALTER TABLE daily_tasks    ADD COLUMN IF NOT EXISTS client_id text;
+ALTER TABLE focus_sessions ADD COLUMN IF NOT EXISTS client_id text;
+ALTER TABLE log_entries    ADD COLUMN IF NOT EXISTS client_id text;
+ALTER TABLE resume_assets  ADD COLUMN IF NOT EXISTS client_id text;
+ALTER TABLE content_topics ADD COLUMN IF NOT EXISTS client_id text;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_daily_tasks_client    ON daily_tasks(user_id, client_id)    WHERE user_id IS NOT NULL AND client_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_focus_sessions_client ON focus_sessions(user_id, client_id) WHERE user_id IS NOT NULL AND client_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_log_entries_client    ON log_entries(user_id, client_id)    WHERE user_id IS NOT NULL AND client_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_resume_assets_client  ON resume_assets(user_id, client_id)  WHERE user_id IS NOT NULL AND client_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_content_topics_client ON content_topics(owner_id, client_id) WHERE owner_id IS NOT NULL AND client_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS sync_devices (
+  id           bigserial PRIMARY KEY,
+  user_id      uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  device_id    text NOT NULL,
+  name         text,
+  last_sync_at timestamptz,
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  updated_at   timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (user_id, device_id)
+);
+CREATE INDEX IF NOT EXISTS idx_sync_devices_user ON sync_devices(user_id);
+
+CREATE TABLE IF NOT EXISTS sync_changes (
+  id          bigserial PRIMARY KEY,
+  user_id     uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  device_id   text,
+  entity_type text NOT NULL,
+  entity_id   text NOT NULL,
+  operation   text NOT NULL CHECK (operation IN ('CREATE','UPDATE','DELETE')),
+  version     bigint NOT NULL DEFAULT 1,
+  payload     jsonb,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  synced_at   timestamptz
+);
+CREATE INDEX IF NOT EXISTS idx_sync_changes_user   ON sync_changes(user_id);
+CREATE INDEX IF NOT EXISTS idx_sync_changes_synced ON sync_changes(synced_at);
+
+-- 6) 存量数据回填 client_id（'srv-' + id），保证旧行可被增量同步识别
+UPDATE daily_tasks    SET client_id = 'srv-' || id WHERE client_id IS NULL;
+UPDATE focus_sessions SET client_id = 'srv-' || id WHERE client_id IS NULL;
+UPDATE log_entries    SET client_id = 'srv-' || id WHERE client_id IS NULL;
+UPDATE resume_assets  SET client_id = 'srv-' || id WHERE client_id IS NULL;
+UPDATE content_topics SET client_id = 'srv-' || id WHERE client_id IS NULL AND is_custom = TRUE;
+
+-- 7) content_topics 补充 updated_at（同步游标/LWW 需要）
+ALTER TABLE content_topics ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+DROP TRIGGER IF EXISTS trg_content_topics_updated ON content_topics;
+CREATE TRIGGER trg_content_topics_updated BEFORE UPDATE ON content_topics FOR EACH ROW EXECUTE FUNCTION set_updated_at();

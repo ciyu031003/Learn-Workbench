@@ -1,0 +1,58 @@
+{
+  "generatedAt": "2026-08-13T12:26:51.709Z",
+  "source": "Travel-Notes@fb9978a (git HEAD), 工作区学习文件已被并发会话 staged 删除，本清单基于 git HEAD 提取",
+  "mysqlPostTypes": {
+    "travel": 3,
+    "blog": 0,
+    "mindmap": 0,
+    "repo": 0
+  },
+  "mysqlRepoRows": 0,
+  "items": [
+    {
+      "sourceType": "repo",
+      "slug": "network-utils",
+      "title": "Network Utils",
+      "date": null,
+      "category": null,
+      "description": null,
+      "tags": [],
+      "sourcePath": "content/tech/repos/network-utils",
+      "target": "project:PROJECT_NOTE",
+      "content": {
+        "lines": 23,
+        "chars": 188,
+        "codeBlocks": 1,
+        "mermaid": 0,
+        "images": 0
+      },
+      "assets": [
+        "content/tech/repos/network-utils/src/port_scanner.py"
+      ]
+    },
+    {
+      "sourceType": "blog",
+      "slug": "nextjs-deploy",
+      "title": "Next.js 项目部署到阿里云 ECS 完整指南",
+      "date": "2026-07-25",
+      "category": "运维",
+      "description": "从零开始，将 Next.js 项目部署到阿里云 ECS 服务器的完整步骤",
+      "tags": [
+        "Next.js",
+        "阿里云",
+        "部署",
+        "Nginx"
+      ],
+      "sourcePath": "content/tech/blog/nextjs-deploy.md",
+      "target": "knowledge:NOTE",
+      "content": {
+        "lines": 94,
+        "chars": 1297,
+        "codeBlocks": 7,
+        "mermaid": 1,
+        "images": 0
+      },
+      "assets": []
+    }
+  ]
+}

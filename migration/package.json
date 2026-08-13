@@ -1,0 +1,17 @@
+{
+  "name": "learn-workbench-migration",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Travel-Notes → Learn-Workbench 学习内容迁移工具（方案 §19-§24）",
+  "scripts": {
+    "dry-run": "node migrate.mjs --dry-run",
+    "execute": "node migrate.mjs --execute",
+    "verify": "node migrate.mjs --verify",
+    "all": "node migrate.mjs --all"
+  },
+  "dependencies": {
+    "mysql2": "^3.23.1",
+    "pg": "^8.23.0"
+  }
+}

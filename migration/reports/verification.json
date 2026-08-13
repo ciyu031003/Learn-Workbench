@@ -1,0 +1,54 @@
+{
+  "generatedAt": "2026-08-13T12:33:23.413Z",
+  "mode": "verify",
+  "allOk": true,
+  "sourceCount": 2,
+  "notesCount": 2,
+  "checks": [
+    {
+      "name": "标题数量一致",
+      "ok": true,
+      "detail": "源 2 / 目标 2"
+    },
+    {
+      "name": "正文数量一致",
+      "ok": true,
+      "detail": "源 2 / 目标 2"
+    },
+    {
+      "name": "标签数量一致",
+      "ok": true,
+      "detail": "源 4 个 / 目标 4 个：[Next.js、阿里云、部署、Nginx]"
+    },
+    {
+      "name": "图片数量一致",
+      "ok": true,
+      "detail": "源 0 / 目标 0"
+    },
+    {
+      "name": "日期一致",
+      "ok": true,
+      "detail": "全部一致"
+    },
+    {
+      "name": "Slug 唯一",
+      "ok": true,
+      "detail": "无重复"
+    },
+    {
+      "name": "Markdown 可解析（代码围栏成对）",
+      "ok": true,
+      "detail": "全部成对"
+    },
+    {
+      "name": "Mermaid 正常",
+      "ok": true,
+      "detail": "mermaid 块完整"
+    },
+    {
+      "name": "特殊字符/正文往返一致",
+      "ok": true,
+      "detail": "正文逐字符一致"
+    }
+  ]
+}
