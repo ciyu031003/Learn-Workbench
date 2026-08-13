@@ -1,6 +1,6 @@
 {
   "name": "learn-workbench-migration",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "Travel-Notes → Learn-Workbench 学习内容迁移工具（方案 §19-§24）",

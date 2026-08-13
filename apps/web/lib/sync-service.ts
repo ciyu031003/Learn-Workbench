@@ -85,7 +85,7 @@ async function applyTasks(client: PoolClient, uid: string, c: SyncChange, at: Da
   }
   if (existing.rows[0] && newer(existing.rows[0].deleted_at, at)) return true;
   if (existing.rows[0] && !existing.rows[0].deleted_at && newer(existing.rows[0].updated_at, at)) return true;
-  const p = (c.payload ?? {}) as Record<string, any>;
+  const p = (c.payload ?? {}) as Record<string, unknown>;
   await client.query(
     `INSERT INTO daily_tasks
        (user_id, client_id, task_date, title, phase_id, topic_id, task_type, done, focus_minutes, sort_order, updated_at, deleted_at)
@@ -122,7 +122,7 @@ async function applySessions(client: PoolClient, uid: string, c: SyncChange, at:
   }
   if (existing.rows[0] && newer(existing.rows[0].deleted_at, at)) return true;
   if (existing.rows[0] && !existing.rows[0].deleted_at && newer(existing.rows[0].updated_at, at)) return true;
-  const p = (c.payload ?? {}) as Record<string, any>;
+  const p = (c.payload ?? {}) as Record<string, unknown>;
   await client.query(
     `INSERT INTO focus_sessions
        (user_id, client_id, task_id, started_at, ended_at, duration_seconds, tag, updated_at, deleted_at)
@@ -183,7 +183,7 @@ async function applyLogs(client: PoolClient, uid: string, c: SyncChange, at: Dat
   }
   if (existing.rows[0] && newer(existing.rows[0].deleted_at, at)) return true;
   if (existing.rows[0] && !existing.rows[0].deleted_at && newer(existing.rows[0].updated_at, at)) return true;
-  const p = (c.payload ?? {}) as Record<string, any>;
+  const p = (c.payload ?? {}) as Record<string, unknown>;
   await client.query(
     `INSERT INTO log_entries (user_id, client_id, kind, title, content, created_at, updated_at, deleted_at)
      VALUES ($1, $2, $3, $4, $5, $6, $7, NULL)
@@ -213,7 +213,7 @@ async function applyGithub(client: PoolClient, uid: string, c: SyncChange, at: D
   }
   if (existing.rows[0] && newer(existing.rows[0].deleted_at, at)) return true;
   if (existing.rows[0] && !existing.rows[0].deleted_at && newer(existing.rows[0].updated_at, at)) return true;
-  const p = (c.payload ?? {}) as Record<string, any>;
+  const p = (c.payload ?? {}) as Record<string, unknown>;
   await client.query(
     `INSERT INTO resume_assets (user_id, client_id, kind, title, url, content, updated_at, deleted_at)
      VALUES ($1, $2, 'github', $3, $4, $5, $6, NULL)
@@ -243,7 +243,7 @@ async function applyCustomTopics(client: PoolClient, uid: string, c: SyncChange,
   }
   if (existing.rows[0] && newer(existing.rows[0].deleted_at, at)) return true;
   if (existing.rows[0] && !existing.rows[0].deleted_at && newer(existing.rows[0].updated_at, at)) return true;
-  const p = (c.payload ?? {}) as Record<string, any>;
+  const p = (c.payload ?? {}) as Record<string, unknown>;
   await client.query(
     `INSERT INTO content_topics
        (phase_id, topic_key, title, summary, sort_order, is_custom, owner_id, client_id, updated_at, deleted_at)
