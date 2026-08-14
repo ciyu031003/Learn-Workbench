@@ -28,15 +28,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const date = todayISO();
 
-  // 会话有效性校验：伪造/过期 cookie 会被 /api/auth/me 识别并踢回登录页
+  // 会话有效性校验：伪造/过期 cookie 会被 /api/auth/me 识别
+  // 无效会话先调用 logout 清除失效 cookie，避免 proxy 把 /login 弹回 /dashboard 造成“点击即回仪表盘”循环
   useEffect(() => {
     if (pathname === "/login") return;
     let alive = true;
     fetch("/api/auth/me")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (!alive) return;
-        if (!d?.user) {
+      .then(async (r) => {
+        if (!r.ok) return { __error: true }; // 服务异常（500/网络）不视为未登录，避免误踢
+        return r.json();
+      })
+      .then(async (d: { __error?: boolean; user?: unknown } | null) => {
+        if (!alive || !d || d.__error) return;
+        if (!d.user) {
+          try {
+            await fetch("/api/auth/logout", { method: "POST" });
+          } catch {}
+          if (!alive) return;
           router.replace(`/login?from=${encodeURIComponent(pathname)}`);
         }
       })
