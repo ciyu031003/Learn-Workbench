@@ -113,7 +113,7 @@ export default function TasksPage() {
     <div className="page-enter flex flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="page-title text-2xl font-semibold tracking-tight lg:text-3xl">每日任务</h1>
+          <h1 className="page-title text-2xl font-bold tracking-tight lg:text-3xl">每日任务</h1>
           <p className="page-subtitle mt-1 text-sm">计划 → 专注 → 复盘，形成学习闭环</p>
         </div>
         <div className="flex items-center gap-2">

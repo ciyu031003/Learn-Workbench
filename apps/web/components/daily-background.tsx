@@ -22,7 +22,7 @@ function applyBrightnessTone(imgSrc: string) {
         sum += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
       }
       const avg = sum / (24 * 14);
-      document.documentElement.classList.toggle("bg-dark", avg < 132);
+      document.documentElement.classList.toggle("bg-dark", avg < 140);
     } catch {
       document.documentElement.classList.remove("bg-dark");
     }
@@ -33,6 +33,7 @@ function applyBrightnessTone(imgSrc: string) {
 export function DailyBackground({ children }: { children: React.ReactNode }) {
   const enabled = useUiStore((s) => s.backgroundEnabled);
   const [bg, setBg] = useState<BackgroundInfo | null>(null);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -67,23 +68,21 @@ export function DailyBackground({ children }: { children: React.ReactNode }) {
           <img
             src={`/api/background/img?date=${encodeURIComponent(bg.date)}`}
             alt=""
-            className="h-full w-full object-cover"
+            onLoad={() => setLoaded(true)}
+            className={`h-full w-full object-cover transition-opacity duration-700 ${loaded ? "opacity-100" : "opacity-0"}`}
           />
-          {/* 暖调黄昏遮罩：保留原图氛围，同时保证文字可读 */}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-transparent to-orange-950/35" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(255,180,110,0.14),transparent_55%)]" />
-          {/* 液态玻璃环境光斑 */}
-          <div className="pointer-events-none absolute inset-0 overflow-hidden">
-            <div className="ambient-blob ambient-blob-1" />
-            <div className="ambient-blob ambient-blob-2" />
-            <div className="ambient-blob ambient-blob-3" />
+          {/* 单层渐变遮罩：保证底部可读，不淹没壁纸 */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/15 via-transparent to-black/45" />
+          {/* 壁纸信息：版权 + 日期（右下角，不抢视线） */}
+          <div className="absolute bottom-2 right-3 z-10 text-[10px] text-white/60">
+            {bg.date}
+            {bg.copyright ? ` · ${bg.copyright}` : ""}
           </div>
         </div>
       ) : (
-        <div className="fixed inset-0 -z-10 bg-gradient-to-br from-amber-100 via-orange-50 to-rose-100" />
+        <div className="fixed inset-0 -z-10 bg-gradient-to-br from-slate-100 to-slate-200" />
       )}
       <div className="relative z-0">{children}</div>
     </div>
   );
 }
-

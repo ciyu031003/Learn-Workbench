@@ -143,7 +143,7 @@ export default function DashboardPage() {
       {/* 问候 + 每日一言 */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="page-title text-2xl font-semibold tracking-tight lg:text-3xl">
+          <h1 className="page-title text-3xl font-bold tracking-tight lg:text-5xl">
             {greeting()}，继续今天的 {data?.careerName ?? "ICT 学习规划"} 学习
           </h1>
           <p className="page-subtitle mt-1 text-sm">
@@ -163,13 +163,13 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {stats.map((s) => (
           <Link key={s.label} href={s.href}>
-            <Card className="transition-transform hover:-translate-y-0.5">
-              <CardContent className="flex flex-col gap-2 p-5">
+            <Card className={!data && !error ? "animate-pulse" : undefined}>
+              <CardContent className="flex flex-col gap-2 p-6">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">{s.label}</span>
                   <s.icon className={`size-5 ${s.accent}`} />
                 </div>
-                <span className="text-2xl font-semibold tracking-tight">{s.value}</span>
+                <span className="text-3xl font-bold tabular-nums tracking-tight">{s.value}</span>
                 <span className="text-xs text-muted-foreground">{s.sub}</span>
               </CardContent>
             </Card>
@@ -192,7 +192,7 @@ export default function DashboardPage() {
             <div className="flex items-center gap-4">
               <div className="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-muted">
                 <div className="absolute inset-2 rounded-full bg-card" />
-                <span className="relative text-xl font-semibold">{data?.overallPercent ?? 0}%</span>
+                <span className="relative text-xl font-semibold tabular-nums">{data?.overallPercent ?? 0}%</span>
               </div>
               <div className="flex-1 space-y-3">
                 {mainPhases.slice(0, 3).map((p) => (

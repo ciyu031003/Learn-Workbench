@@ -1,7 +1,7 @@
 /** 跨端设计 tokens：Web(Tailwind) 与 React Native 共用同一套视觉语言。 */
 
 export const colors = {
-  background: "#f7f7f8",
+  background: "#f8f9fb",
   foreground: "#18181b",
   card: "#ffffff",
   cardGlass: "rgba(255,255,255,0.78)",

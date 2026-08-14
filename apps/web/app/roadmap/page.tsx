@@ -160,7 +160,7 @@ export default function RoadmapPage() {
     <div className="page-enter flex flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="page-title text-2xl font-semibold tracking-tight lg:text-3xl">学习路线图</h1>
+          <h1 className="page-title text-2xl font-bold tracking-tight lg:text-3xl">学习路线图</h1>
           <p className="page-subtitle mt-1 text-sm">
             {currentCareer ? currentCareer.name : "ICT 学习规划"} · 主题完成即打勾，进度自动聚合
             {currentCareer?.is_locked ? "（系统固定内容，不可修改）" : "（可自定义添加主题）"}

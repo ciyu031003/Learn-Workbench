@@ -87,10 +87,10 @@ function LoginForm() {
         <div className="pointer-events-none absolute -bottom-20 -left-16 h-56 w-56 rounded-full bg-accent/25 blur-3xl" />
 
         <div className="relative flex flex-col items-center gap-2">
-          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-accent text-white shadow-[0_10px_30px_rgba(232,147,12,0.45)]">
+          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-accent text-white shadow-[0_10px_30px_rgba(79,70,229,0.35)]">
             <Sparkles className="size-7" />
           </span>
-          <h1 className="page-title mt-2 text-2xl font-bold">学习工作台</h1>
+          <h1 className="page-title mt-2 text-3xl font-bold">学习工作台</h1>
           <p className="page-subtitle text-sm">登录后开始你的学习旅程</p>
         </div>
 
@@ -133,7 +133,7 @@ function LoginForm() {
           <button
             type="submit"
             disabled={loading}
-            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-primary to-[#d97f0a] text-sm font-semibold text-white shadow-[0_8px_24px_rgba(232,147,12,0.4)] transition-all hover:brightness-105 disabled:opacity-60"
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-primary to-[#4338ca] text-sm font-semibold text-white shadow-[0_8px_24px_rgba(79,70,229,0.35)] transition-all hover:brightness-105 disabled:opacity-60"
           >
             {loading ? <Loader2 className="size-4 animate-spin" /> : null}
             登 录

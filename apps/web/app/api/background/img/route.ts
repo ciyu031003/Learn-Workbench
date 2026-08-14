@@ -24,11 +24,19 @@ export async function GET(req: Request) {
   if (!dir) return NextResponse.json({ error: "not found" }, { status: 404 });
   const file = path.join(dir, `${date}.jpg`);
   if (!fs.existsSync(file)) return NextResponse.json({ error: "not found" }, { status: 404 });
+
+  const stat = fs.statSync(file);
+  const etag = `"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
+  if (req.headers.get("if-none-match") === etag) {
+    return new NextResponse(null, { status: 304 });
+  }
   const buf = fs.readFileSync(file);
   return new NextResponse(new Uint8Array(buf), {
     headers: {
       "Content-Type": "image/jpeg",
       "Cache-Control": "public, max-age=86400",
+      ETag: etag,
+      "Last-Modified": stat.mtime.toUTCString(),
     },
   });
 }

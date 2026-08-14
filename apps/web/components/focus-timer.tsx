@@ -221,7 +221,7 @@ export function FocusTimer({
       <BackgroundLayer />
       {/* 可读性遮罩 */}
       <div className="pointer-events-none absolute inset-0 bg-black/35" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(232,147,12,0.14),transparent_60%)]" />
+      
 
       {/* 顶部：仅保留退出全屏提示 */}
       <div className="relative z-10 flex items-center justify-between px-4 pt-4">
@@ -361,7 +361,7 @@ export function FocusTimer({
               </button>
               <button
                 onClick={onClose}
-                className="rounded-full bg-gradient-to-b from-primary to-[#d97f0a] px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition-all hover:brightness-105"
+                className="rounded-full bg-gradient-to-b from-primary to-[#4338ca] px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition-all hover:brightness-105"
               >
                 返回任务页
               </button>

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect } from "react";
 import {
   LayoutDashboard,
   Map,
@@ -12,6 +13,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { todayISO } from "@learn-workbench/shared";
+import { Toaster } from "@/components/ui/toaster";
 
 const nav = [
   { href: "/dashboard", label: "仪表盘", icon: LayoutDashboard },
@@ -23,7 +25,26 @@ const nav = [
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const date = todayISO();
+
+  // 会话有效性校验：伪造/过期 cookie 会被 /api/auth/me 识别并踢回登录页
+  useEffect(() => {
+    if (pathname === "/login") return;
+    let alive = true;
+    fetch("/api/auth/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!alive) return;
+        if (!d?.user) {
+          router.replace(`/login?from=${encodeURIComponent(pathname)}`);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [pathname, router]);
 
   // 登录页不显示导航与布局外壳
   if (pathname === "/login") {
@@ -33,9 +54,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <>
       {/* 桌面端侧边栏（毛玻璃） */}
-      <aside className="glass-nav app-sidebar fixed inset-y-0 left-0 z-30 w-64 flex-col border-r px-5 py-6">
+      <aside className="glass-nav app-sidebar fixed inset-y-0 left-0 z-30 w-72 flex-col border-r px-5 py-6">
         <Link href="/dashboard" className="flex items-center gap-2.5 px-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-primary-foreground shadow-[0_6px_18px_rgba(232,147,12,0.4)]">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-primary-foreground">
             <Sparkles className="size-5" />
           </span>
           <span>
@@ -51,9 +72,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all",
+                  "flex items-center gap-3.5 rounded-lg px-3 py-3 text-sm font-medium transition-colors",
                   active
-                    ? "bg-primary/25 text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.25)]"
+                    ? "bg-indigo-500/10 text-foreground"
                     : "text-muted-foreground hover:bg-white/15 hover:text-foreground"
                 )}
               >
@@ -63,9 +84,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
-        <div className="rounded-xl border border-white/20 bg-white/12 px-3 py-2.5 text-xs text-muted-foreground backdrop-blur-md">
-          今日 {date}
-        </div>
+        <div className="px-2 text-xs text-muted-foreground">今日 {date}</div>
       </aside>
 
       {/* 移动端顶栏（毛玻璃） */}
@@ -80,7 +99,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </header>
 
       <main className="app-main relative z-0 min-h-screen">
-        <div className="mx-auto max-w-6xl px-4 py-6 lg:px-8 lg:py-8">{children}</div>
+        <div className="mx-auto max-w-5xl px-4 py-6 lg:px-8 lg:py-10">{children}</div>
       </main>
 
       {/* 移动端底部导航（毛玻璃） */}
@@ -102,7 +121,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           );
         })}
       </nav>
+
+      <Toaster />
     </>
   );
 }
-

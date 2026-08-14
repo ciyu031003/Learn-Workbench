@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useUiStore } from "@/store/ui-store";
+import { useToastStore } from "@/store/toast-store";
 import { useRouter } from "next/navigation";
 import { Download, Upload, Database, Image as ImageIcon, Sparkles, RefreshCw, LogOut, User as UserIcon, Lock, KeyRound } from "lucide-react";
 
@@ -24,6 +25,20 @@ export default function SettingsPage() {
   const [pwConfirm, setPwConfirm] = useState("");
   const [pwMsg, setPwMsg] = useState<string | null>(null);
   const [pwBusy, setPwBusy] = useState(false);
+  const pushToast = useToastStore((s) => s.push);
+  const [wallpaperBusy, setWallpaperBusy] = useState(false);
+  const refreshWallpaper = async () => {
+    setWallpaperBusy(true);
+    try {
+      const r = await fetch("/api/background/refresh", { method: "POST" });
+      const d = await r.json().catch(() => null);
+      pushToast(d?.ok ? "壁纸已刷新" : `刷新失败：${d?.error ?? "未知错误"}`, d?.ok ? "success" : "error");
+    } catch {
+      pushToast("刷新失败：网络异常", "error");
+    } finally {
+      setWallpaperBusy(false);
+    }
+  };
 
   useEffect(() => {
     fetch("/api/summary")
@@ -109,7 +124,7 @@ export default function SettingsPage() {
   return (
     <div className="page-enter flex flex-col gap-6">
       <div>
-        <h1 className="page-title text-2xl font-semibold tracking-tight lg:text-3xl">设置</h1>
+        <h1 className="page-title text-2xl font-bold tracking-tight lg:text-3xl">设置</h1>
         <p className="page-subtitle mt-1 text-sm">外观、背景图、数据备份与同步</p>
       </div>
 
@@ -129,7 +144,12 @@ export default function SettingsPage() {
               </div>
               <Switch checked={backgroundEnabled} onCheckedChange={toggleBackground} />
             </div>
-            <p className="text-xs text-muted-foreground">关闭后使用简洁渐变背景。</p>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs text-muted-foreground">关闭后使用简洁渐变背景。</p>
+              <Button variant="secondary" size="sm" onClick={refreshWallpaper} disabled={wallpaperBusy}>
+                <RefreshCw className="size-3.5" /> {wallpaperBusy ? "刷新中…" : "刷新今日壁纸"}
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
