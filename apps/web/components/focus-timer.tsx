@@ -5,7 +5,7 @@ import { QUOTES } from "@/components/quote-widget";
 import { FocusStatsCard } from "@/components/focus-stats-card";
 import {
   Pause, Play, RotateCcw, Square, X, Maximize, Minimize, Quote,
-  Palette, ImagePlus, Images, Pencil, Check,
+  Palette, ImagePlus, Images, Pencil, Check, Coffee, Droplets, Footprints,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FOCUS_COLORS, FOCUS_GALLERY, useFocusBgStore } from "@/store/focus-bg-store";
@@ -81,6 +81,7 @@ export function FocusTimer({
   const [quote, setQuote] = useState(() => QUOTES[Math.floor(Math.random() * QUOTES.length)]);
   const [editingQuote, setEditingQuote] = useState(false);
   const [quoteInput, setQuoteInput] = useState("");
+  const [wbDone, setWbDone] = useState<{ break?: boolean; water?: boolean }>({});
   const startRef = useRef<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const remainingRef = useRef((bg.minutes || 25) * 60);
@@ -197,6 +198,24 @@ export function FocusTimer({
       bg.setMode("upload");
     };
     reader.readAsDataURL(file);
+  };
+
+  const recordBreakDone = async () => {
+    await fetch("/api/wellbeing/breaks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kind: "MOVEMENT", minutes: 5 }),
+    });
+    setWbDone((s) => ({ ...s, break: true }));
+  };
+
+  const recordWaterDone = async () => {
+    await fetch("/api/wellbeing/hydration", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amountMl: 250, source: "FOCUS_BREAK" }),
+    });
+    setWbDone((s) => ({ ...s, water: true }));
   };
 
   const saveQuote = () => {
@@ -349,6 +368,37 @@ export function FocusTimer({
           <div className="mx-auto flex max-w-2xl flex-col items-center gap-4">
             <p className="text-2xl font-bold text-white drop-shadow">🎉 专注完成！</p>
             <p className="text-sm text-white/70">本次专注 {fmtClock(elapsed)}，已自动记录</p>
+
+            {/* 休息一下：站立 + 喝水 + 远眺 */}
+            <div className="glass w-full max-w-md rounded-2xl p-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-white">
+                <Coffee className="size-4 text-success" /> 休息一下再继续
+              </div>
+              <p className="mt-1 text-xs text-white/70">站立 + 喝水 + 远眺 5 分钟，让注意力回血</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  onClick={recordBreakDone}
+                  disabled={wbDone.break}
+                  className="flex items-center gap-1.5 rounded-full border border-white/25 bg-white/15 px-3 py-1.5 text-xs text-white backdrop-blur-md transition-all hover:bg-white/25 disabled:opacity-60"
+                >
+                  <Footprints className="size-3.5" /> {wbDone.break ? "已记录休息" : "记录休息"}
+                </button>
+                <button
+                  onClick={recordWaterDone}
+                  disabled={wbDone.water}
+                  className="flex items-center gap-1.5 rounded-full border border-white/25 bg-white/15 px-3 py-1.5 text-xs text-white backdrop-blur-md transition-all hover:bg-white/25 disabled:opacity-60"
+                >
+                  <Droplets className="size-3.5" /> {wbDone.water ? "已喝水 +250ml" : "喝水 +250ml"}
+                </button>
+                <button
+                  onClick={onClose}
+                  className="rounded-full border border-white/25 bg-white/15 px-3 py-1.5 text-xs text-white/80 backdrop-blur-md transition-all hover:bg-white/25"
+                >
+                  去记录精力
+                </button>
+              </div>
+            </div>
+
             <FocusStatsCard />
             <div className="flex gap-3">
               <button

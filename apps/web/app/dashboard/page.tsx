@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import type { DashboardSummary } from "@learn-workbench/shared";
+import type { DashboardSummary, WellbeingToday } from "@learn-workbench/shared";
 import { formatDuration, taskTypeLabels, formatDateCN } from "@learn-workbench/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +25,9 @@ import {
   Plus,
   Trash2,
   ExternalLink,
+  Droplets,
+  Zap,
+  Coffee,
 } from "lucide-react";
 
 function greeting(): string {
@@ -112,6 +115,7 @@ function OverallRing({ percent }: { percent: number }) {
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [wellbeing, setWellbeing] = useState<WellbeingToday | null>(null);
   const [github, setGithub] = useState<{ id: number; title: string; url: string | null; content: string | null }[]>([]);
   const [ghTitle, setGhTitle] = useState("");
   const [ghUrl, setGhUrl] = useState("");
@@ -134,6 +138,20 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
+
+  // 今日状态（Wellbeing MVP）
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/wellbeing/today")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (alive) setWellbeing(d);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const loadGithub = useCallback(async () => {
     try {
@@ -220,6 +238,68 @@ export default function DashboardPage() {
           <CardContent className="p-6 text-sm text-danger">{error}</CardContent>
         </Card>
       ) : null}
+
+      {/* 今日状态：饮水 / 精力 / 休息建议 */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <Link href="/wellbeing" className="group">
+          <Card>
+            <CardContent className="flex items-center gap-3 p-4">
+              <span className="icon-chip h-10 w-10 shrink-0">
+                <Droplets className="size-5 text-accent" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold tabular-nums">
+                  {wellbeing ? `${wellbeing.hydration.totalMl}/${wellbeing.hydration.targetMl} ml` : "—"}
+                </p>
+                <p className="text-[11px] text-muted-foreground">今日饮水</p>
+              </div>
+              {wellbeing ? (
+                <span className="shrink-0 text-xs font-medium text-accent">
+                  {Math.min(100, Math.round((wellbeing.hydration.totalMl / wellbeing.hydration.targetMl) * 100))}%
+                </span>
+              ) : null}
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/wellbeing" className="group">
+          <Card>
+            <CardContent className="flex items-center gap-3 p-4">
+              <span className="icon-chip h-10 w-10 shrink-0">
+                <Zap className="size-5 text-warning" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold">
+                  {wellbeing?.energy ? `精力 ${wellbeing.energy.level}/5` : "记录精力"}
+                </p>
+                <p className="text-[11px] text-muted-foreground">当前状态</p>
+              </div>
+              {wellbeing?.energy ? (
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {new Date(wellbeing.energy.recordedAt).toLocaleTimeString("zh-CN", { hour12: false }).slice(0, 5)}
+                </span>
+              ) : null}
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/wellbeing" className="group">
+          <Card>
+            <CardContent className="flex items-center gap-3 p-4">
+              <span className="icon-chip h-10 w-10 shrink-0">
+                <Coffee className="size-5 text-success" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold">
+                  {wellbeing?.nextBreakDue ? "建议休息一下" : "节奏良好"}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  今日专注 {wellbeing?.focusTodayMinutes ?? 0} 分钟
+                </p>
+              </div>
+              <span className="shrink-0 text-xs text-muted-foreground">站立 · 喝水 · 远眺</span>
+            </CardContent>
+          </Card>
+        </Link>
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* 整体进度 */}
