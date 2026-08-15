@@ -211,6 +211,10 @@ export function FocusTimer({
   const begin = () => {
     setStarted(true);
     resume();
+    Animated.sequence([
+      Animated.timing(ringScale, { toValue: 1.06, duration: 160, useNativeDriver: true }),
+      Animated.timing(ringScale, { toValue: 1, duration: 220, useNativeDriver: true }),
+    ]).start();
   };
 
   const reset = () => {
@@ -548,7 +552,7 @@ const styles = StyleSheet.create({
   statBox: { width: "46%", backgroundColor: "rgba(255,255,255,0.12)", borderRadius: 14, paddingVertical: 14, alignItems: "center" },
   statValue: { color: "#fff", fontSize: 22, fontWeight: "800" },
   statLabel: { color: "rgba(255,255,255,0.7)", fontSize: 12, marginTop: 3 },
-  primaryBtn: { backgroundColor: "#e8930c", borderRadius: 999, paddingHorizontal: 26, paddingVertical: 12, alignItems: "center" },
+  primaryBtn: { backgroundColor: "#4f46e5", borderRadius: 999, paddingHorizontal: 26, paddingVertical: 12, alignItems: "center" },
   primaryBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
   secondaryBtn: { backgroundColor: "rgba(255,255,255,0.14)", borderRadius: 999, paddingHorizontal: 22, paddingVertical: 12, alignItems: "center" },
   secondaryBtnText: { color: "#fff", fontSize: 15, fontWeight: "600" },

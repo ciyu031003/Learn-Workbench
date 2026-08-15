@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
   heroSub: { color: "rgba(255,255,255,0.85)", fontSize: 13 },
   timerHint: { fontSize: 15, color: "#18181b", textAlign: "center", marginBottom: 10 },
   timerSub: { fontSize: 12, color: "#71717a", textAlign: "center", marginTop: 8 },
-  primaryBtn: { backgroundColor: "#e8930c", borderRadius: 14, paddingVertical: 12, alignItems: "center" },
+  primaryBtn: { backgroundColor: "#4f46e5", borderRadius: 14, paddingVertical: 12, alignItems: "center" },
   primaryBtnText: { color: "#fff", fontSize: 15, fontWeight: "600" },
   input: {
     backgroundColor: "rgba(24,24,27,0.04)",
@@ -229,6 +229,6 @@ const styles = StyleSheet.create({
   timelineTime: { fontSize: 13, color: "#52525b" },
   timelineMin: { fontSize: 13, fontWeight: "600", color: "#18181b" },
   quoteLine: { fontSize: 13, color: "#b45309", lineHeight: 20, marginTop: 10 },
-  shareBtn: { backgroundColor: "#e8930c", borderRadius: 999, paddingVertical: 11, alignItems: "center", marginTop: 10 },
+  shareBtn: { backgroundColor: "#4f46e5", borderRadius: 999, paddingVertical: 11, alignItems: "center", marginTop: 10 },
   shareBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
 });

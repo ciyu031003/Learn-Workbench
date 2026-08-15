@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#18181b",
   },
-  primaryBtn: { backgroundColor: "#e8930c", borderRadius: 14, paddingVertical: 11, alignItems: "center" },
+  primaryBtn: { backgroundColor: "#4f46e5", borderRadius: 14, paddingVertical: 11, alignItems: "center" },
   primaryBtnText: { color: "#fff", fontSize: 14, fontWeight: "600" },
   ghRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 6 },
   ghTitle: { fontSize: 14, fontWeight: "600", color: "#18181b" },

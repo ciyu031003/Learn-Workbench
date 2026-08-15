@@ -245,7 +245,7 @@ export default function SettingsScreen() {
       <Card title="每日背景图" subtitle="每天自动更换 Bing 每日风景壁纸">
         <View style={styles.rowBetween}>
           <Text style={styles.rowLabel}>启用每日壁纸</Text>
-          <Switch value={backgroundEnabled} onValueChange={toggleBackground} trackColor={{ true: "#e8930c" }} />
+          <Switch value={backgroundEnabled} onValueChange={toggleBackground} trackColor={{ true: "#4f46e5" }} />
         </View>
       </Card>
 
@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", gap: 8 },
   rowBetween: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   rowLabel: { fontSize: 14, color: "#18181b" },
-  linkText: { fontSize: 14, color: "#e8930c", fontWeight: "600" },
+  linkText: { fontSize: 14, color: "#4f46e5", fontWeight: "600" },
   input: {
     backgroundColor: "rgba(24,24,27,0.04)",
     borderRadius: 12,
@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#18181b",
   },
-  primaryBtn: { backgroundColor: "#e8930c", borderRadius: 14, paddingVertical: 12, alignItems: "center" },
+  primaryBtn: { backgroundColor: "#4f46e5", borderRadius: 14, paddingVertical: 12, alignItems: "center" },
   secondaryBtn: {
     backgroundColor: "rgba(24,24,27,0.05)",
     borderRadius: 14,
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
   msg: { fontSize: 13, color: "#16a34a", fontWeight: "600" },
   chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
-  chipActive: { backgroundColor: "#e8930c" },
+  chipActive: { backgroundColor: "#4f46e5" },
   chipIdle: { backgroundColor: "rgba(24,24,27,0.06)" },
   chipTextActive: { color: "#fff", fontSize: 13, fontWeight: "600" },
   chipTextIdle: { color: "#18181b", fontSize: 13 },
