@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Sparkles, User, Lock, Loader2, CheckCircle2 } from "lucide-react";
 import { GlassModal } from "@/components/ui/modal";
+import { Input } from "@/components/ui/input";
 
 function LoginForm() {
   const router = useRouter();
@@ -99,12 +100,12 @@ function LoginForm() {
             <span className="text-xs font-medium text-muted-foreground">账号</span>
             <div className="relative">
               <User className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <input
+              <Input
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="请输入账号"
                 autoComplete="username"
-                className="h-11 w-full rounded-xl border border-white/20 bg-white/10 pl-10 pr-3 text-sm text-foreground outline-none backdrop-blur-xl backdrop-saturate-150 transition-all placeholder:text-muted-foreground focus:border-primary/60 focus:ring-2 focus:ring-primary/30"
+                className="h-11 pl-10"
               />
             </div>
           </label>
@@ -113,13 +114,13 @@ function LoginForm() {
             <span className="text-xs font-medium text-muted-foreground">密码</span>
             <div className="relative">
               <Lock className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <input
+              <Input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="请输入密码"
                 autoComplete="current-password"
-                className="h-11 w-full rounded-xl border border-white/20 bg-white/10 pl-10 pr-3 text-sm text-foreground outline-none backdrop-blur-xl backdrop-saturate-150 transition-all placeholder:text-muted-foreground focus:border-primary/60 focus:ring-2 focus:ring-primary/30"
+                className="h-11 pl-10"
               />
             </div>
           </label>
