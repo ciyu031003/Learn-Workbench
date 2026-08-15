@@ -284,3 +284,111 @@ export const knowledgeNoteTypeLabels: Record<KnowledgeNoteType, string> = {
   REVIEW: "复盘",
   PROJECT_NOTE: "项目笔记",
 };
+
+/* ================= Wellbeing 健康与状态领域（方案 §3、§6、§9） ================= */
+
+export const reminderTypeSchema = z.enum(["HYDRATION", "STAND", "BREAK", "MOVEMENT", "SLEEP", "CUSTOM"]);
+export type ReminderType = z.infer<typeof reminderTypeSchema>;
+
+export const breakKindSchema = z.enum(["SHORT", "LONG", "MOVEMENT", "EYE_REST", "MEAL"]);
+export type BreakKind = z.infer<typeof breakKindSchema>;
+
+export const wellbeingReminderSchema = z.object({
+  id: z.number(),
+  type: reminderTypeSchema,
+  title: z.string(),
+  message: z.string().nullable(),
+  enabled: z.boolean(),
+  intervalMinutes: z.number(),
+  startTime: z.string(),
+  endTime: z.string(),
+  weekdays: z.array(z.number()),
+  nextTriggerAt: z.string().nullable(),
+});
+export type WellbeingReminder = z.infer<typeof wellbeingReminderSchema>;
+
+export const hydrationLogSchema = z.object({
+  id: z.number(),
+  amountMl: z.number(),
+  source: z.string(),
+  recordedAt: z.string(),
+});
+export type HydrationLog = z.infer<typeof hydrationLogSchema>;
+
+export const hydrationGoalSchema = z.object({ id: z.number(), targetMl: z.number() });
+export type HydrationGoal = z.infer<typeof hydrationGoalSchema>;
+
+export const energyLogSchema = z.object({
+  id: z.number(),
+  level: z.number(),
+  note: z.string().nullable(),
+  source: z.string(),
+  recordedAt: z.string(),
+});
+export type EnergyLog = z.infer<typeof energyLogSchema>;
+
+export const breakSessionSchema = z.object({
+  id: z.number(),
+  kind: breakKindSchema,
+  minutes: z.number(),
+  note: z.string().nullable(),
+  startedAt: z.string(),
+});
+export type BreakSession = z.infer<typeof breakSessionSchema>;
+
+export const dailyPlanItemSchema = z.object({
+  time: z.string(),
+  label: z.string(),
+  kind: z.enum(["focus", "break", "hydrate", "energy", "task", "review"]),
+  hint: z.string().nullable(),
+});
+export type DailyPlanItem = z.infer<typeof dailyPlanItemSchema>;
+
+export const wellbeingTodaySchema = z.object({
+  date: z.string(),
+  hydration: z.object({
+    totalMl: z.number(),
+    targetMl: z.number(),
+    logs: z.array(hydrationLogSchema),
+  }),
+  energy: energyLogSchema.nullable(),
+  focusTodayMinutes: z.number(),
+  breaksToday: z.array(breakSessionSchema),
+  nextBreakDue: z.boolean(),
+  remindersDue: z.array(wellbeingReminderSchema),
+  plan: z.array(dailyPlanItemSchema),
+});
+export type WellbeingToday = z.infer<typeof wellbeingTodaySchema>;
+
+export const reminderTypeLabels: Record<ReminderType, string> = {
+  HYDRATION: "喝水",
+  STAND: "站立",
+  BREAK: "休息",
+  MOVEMENT: "活动",
+  SLEEP: "睡眠",
+  CUSTOM: "自定义",
+};
+
+export const breakKindLabels: Record<BreakKind, string> = {
+  SHORT: "短休",
+  LONG: "长休",
+  MOVEMENT: "活动",
+  EYE_REST: "远眺",
+  MEAL: "用餐",
+};
+
+export const energyLevelLabels: Record<number, string> = {
+  1: "极低",
+  2: "较低",
+  3: "一般",
+  4: "良好",
+  5: "很好",
+};
+
+export const energyLevelColors: Record<number, string> = {
+  1: "#ef4444",
+  2: "#f97316",
+  3: "#f59e0b",
+  4: "#22c55e",
+  5: "#0ea5e9",
+};
