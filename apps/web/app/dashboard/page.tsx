@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { DashboardSummary } from "@learn-workbench/shared";
 import { formatDuration, taskTypeLabels, formatDateCN } from "@learn-workbench/shared";
@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { QuoteWidget } from "@/components/quote-widget";
+import { EmptyState } from "@/components/ui/empty-state";
+import { cn } from "@/lib/utils";
 import {
   Flame,
   Clock3,
@@ -33,6 +35,79 @@ function greeting(): string {
   if (h < 18) return "下午好";
   return "晚上好";
 }
+/** 数字 count-up（尊重 prefers-reduced-motion） */
+function useCountUp(target: number, duration = 600): number {
+  const [value, setValue] = useState(0);
+  const fromRef = useRef(0);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      const raf = requestAnimationFrame(() => {
+        setValue(target);
+        fromRef.current = target;
+      });
+      return () => cancelAnimationFrame(raf);
+    }
+    const from = fromRef.current;
+    const start = performance.now();
+    let raf = 0;
+    const step = (t: number) => {
+      const p = Math.min(1, (t - start) / duration);
+      const eased = 1 - Math.pow(1 - p, 3);
+      const v = Math.round(from + (target - from) * eased);
+      setValue(v);
+      fromRef.current = v;
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration]);
+  return value;
+}
+
+function StatValue({ value, className }: { value: string; className?: string }) {
+  const m = /^(-?[\d.]+)(.*)$/.exec(value);
+  const target = m ? Number(m[1]) : NaN;
+  const animated = useCountUp(Number.isFinite(target) ? target : 0);
+  const text = Number.isFinite(target) ? animated + (m?.[2] ?? "") : value;
+  return <span className={cn("font-bold tabular-nums tracking-tight", className)}>{text}</span>;
+}
+
+/** 整体进度环（SVG，CSS 过渡动画） */
+function OverallRing({ percent }: { percent: number }) {
+  const R = 62;
+  const C = 2 * Math.PI * R;
+  const p = Math.max(0, Math.min(100, percent));
+  return (
+    <div className="relative h-36 w-36 shrink-0">
+      <svg viewBox="0 0 150 150" className="h-full w-full -rotate-90">
+        <defs>
+          <linearGradient id="hero-ring-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#6366f1" />
+            <stop offset="100%" stopColor="#0ea5e9" />
+          </linearGradient>
+        </defs>
+        <circle cx="75" cy="75" r={R} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="10" />
+        <circle
+          cx="75"
+          cy="75"
+          r={R}
+          fill="none"
+          stroke="url(#hero-ring-grad)"
+          strokeWidth="10"
+          strokeLinecap="round"
+          strokeDasharray={C}
+          strokeDashoffset={C * (1 - p / 100)}
+          style={{ transition: "stroke-dashoffset 0.8s ease" }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <StatValue value={p + "%"} className="text-3xl" />
+        <span className="text-[11px] text-muted-foreground">整体进度</span>
+      </div>
+    </div>
+  );
+}
 
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardSummary | null>(null);
@@ -41,6 +116,7 @@ export default function DashboardPage() {
   const [ghTitle, setGhTitle] = useState("");
   const [ghUrl, setGhUrl] = useState("");
   const [ghDesc, setGhDesc] = useState("");
+  const ghTitleRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     try {
@@ -100,58 +176,44 @@ export default function DashboardPage() {
 
   const today = new Date().toISOString().slice(0, 10);
 
-  const stats = [
-    {
-      label: "整体进度",
-      value: data ? `${data.overallPercent}%` : "—",
-      sub: data ? `${data.phases.reduce((a, p) => a + p.done, 0)}/${data.phases.reduce((a, p) => a + p.total, 0)} 主题` : "加载中",
-      icon: CheckCircle2,
-      accent: "text-primary",
-      href: "/roadmap",
-    },
-    {
-      label: "连续打卡",
-      value: data ? `${data.streak} 天` : "—",
-      sub: "每天学一点",
-      icon: Flame,
-      accent: "text-orange-500",
-      href: "/dashboard",
-    },
-    {
-      label: "本周专注",
-      value: data ? formatDuration(data.totalFocusMinutes) : "—",
-      sub: "专注会话统计",
-      icon: Clock3,
-      accent: "text-accent",
-      href: "/tasks",
-    },
-    {
-      label: "本周任务",
-      value: data ? `${data.weekTaskDone}/${data.weekTaskCount}` : "—",
-      sub: "已完成 / 全部",
-      icon: ListTodo,
-      accent: "text-success",
-      href: "/tasks",
-    },
-  ];
-
   const mainPhases = data?.phases.filter((p) => p.track === "main") ?? [];
   const agentPhases = data?.phases.filter((p) => p.track === "agent") ?? [];
 
   return (
     <div className="page-enter flex flex-col gap-6">
-      {/* 问候 + 每日一言 */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="page-title text-3xl font-bold tracking-tight lg:text-5xl">
-            {greeting()}，继续今天的 {data?.careerName ?? "ICT 学习规划"}
-          </h1>
-          <p className="page-subtitle mt-1 text-sm">
-            {formatDateCN(today)} · 当前职业路线：{data?.careerName ?? "ICT 学习规划"}
-          </p>
+      {/* 晨间驾驶舱：问候 + 整体进度环 + 今日聚焦 */}
+      <Card className="relative overflow-hidden">
+        <div className="flex flex-col gap-6 p-6 lg:flex-row lg:items-center lg:justify-between lg:p-8">
+          <div className="min-w-0">
+            <h1 className="page-title text-3xl font-bold tracking-tight lg:text-5xl">
+              {greeting()}，继续今天的 {data?.careerName ?? "ICT 学习规划"}
+            </h1>
+            <p className="page-subtitle mt-2 text-sm">
+              {formatDateCN(today)} · 当前职业路线：{data?.careerName ?? "ICT 学习规划"}
+            </p>
+            <QuoteWidget className="mt-5 w-full max-w-md" />
+          </div>
+
+          <div className="flex items-center gap-5 lg:gap-8">
+            <OverallRing percent={data?.overallPercent ?? 0} />
+            <div className="flex flex-col gap-2.5">
+              {[
+                { label: "今日任务", value: data ? `${data.weekTaskDone}/${data.weekTaskCount}` : "—", icon: ListTodo, accent: "text-success" },
+                { label: "本周专注", value: data ? formatDuration(data.totalFocusMinutes) : "—", icon: Clock3, accent: "text-accent" },
+                { label: "连续打卡", value: data ? `${data.streak} 天` : "—", icon: Flame, accent: "text-orange-500" },
+              ].map((p) => (
+                <div key={p.label} className="flex items-center gap-2.5 rounded-xl border border-white/20 bg-white/10 px-3 py-2 backdrop-blur-md">
+                  <p.icon className={`size-4 shrink-0 ${p.accent}`} />
+                  <div className="flex min-w-0 flex-col">
+                    <StatValue value={p.value} className="text-sm" />
+                    <span className="text-[11px] text-muted-foreground">{p.label}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
-        <QuoteWidget className="w-full sm:w-80" />
-      </div>
+      </Card>
 
       {error ? (
         <Card>
@@ -159,29 +221,11 @@ export default function DashboardPage() {
         </Card>
       ) : null}
 
-      {/* 统计卡片 */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {stats.map((s) => (
-          <Link key={s.label} href={s.href}>
-            <Card className={!data && !error ? "animate-pulse" : undefined}>
-              <CardContent className="flex flex-col gap-2 p-6">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">{s.label}</span>
-                  <s.icon className={`size-5 ${s.accent}`} />
-                </div>
-                <span className="text-3xl font-bold tabular-nums tracking-tight">{s.value}</span>
-                <span className="text-xs text-muted-foreground">{s.sub}</span>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
-      </div>
-
       <div className="grid gap-6 lg:grid-cols-3">
         {/* 整体进度 */}
         <Card className="lg:col-span-2">
           <CardHeader className="flex-row items-center justify-between">
-            <CardTitle>整体学习进度 · {data?.careerName ?? "ICT"}</CardTitle>
+            <CardTitle>各阶段进度 · {data?.careerName ?? "ICT"}</CardTitle>
             <Button asChild variant="ghost" size="sm">
               <Link href="/roadmap">
                 路线图 <ChevronRight className="size-4" />
@@ -189,22 +233,16 @@ export default function DashboardPage() {
             </Button>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            <div className="flex items-center gap-4">
-              <div className="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-muted">
-                <div className="absolute inset-2 rounded-full bg-card" />
-                <span className="relative text-xl font-semibold tabular-nums">{data?.overallPercent ?? 0}%</span>
-              </div>
-              <div className="flex-1 space-y-3">
-                {mainPhases.slice(0, 3).map((p) => (
-                  <div key={p.phaseId}>
-                    <div className="mb-1 flex items-center justify-between text-xs">
-                      <span className="font-medium">{p.title}</span>
-                      <span className="text-muted-foreground">{p.done}/{p.total}</span>
-                    </div>
-                    <Progress value={p.percent} />
+            <div className="flex flex-col gap-3">
+              {mainPhases.slice(0, 3).map((p) => (
+                <div key={p.phaseId}>
+                  <div className="mb-1 flex items-center justify-between text-xs">
+                    <span className="font-medium">{p.title}</span>
+                    <span className="text-muted-foreground">{p.done}/{p.total}</span>
                   </div>
-                ))}
-              </div>
+                  <Progress value={p.percent} />
+                </div>
+              ))}
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
               {mainPhases.map((p) => (
@@ -327,6 +365,7 @@ export default function DashboardPage() {
         <CardContent className="flex flex-col gap-4">
           <div className="grid gap-3 sm:grid-cols-3">
             <input
+              ref={ghTitleRef}
               value={ghTitle}
               onChange={(e) => setGhTitle(e.target.value)}
               placeholder="项目 / 仓库名称（必填）"
@@ -350,9 +389,16 @@ export default function DashboardPage() {
           </Button>
 
           {github.length === 0 ? (
-            <p className="py-4 text-center text-sm text-muted-foreground">
-              还没有 GitHub 记录，添加你的项目资产吧（网络巡检助手 / 数仓 ETL / ICT 交付助手…）
-            </p>
+            <EmptyState
+              icon={FolderGit2}
+              title="还没有 GitHub 记录"
+              hint="把做过的项目沉淀成资产：网络巡检助手 / 数仓 ETL / ICT 交付助手…"
+              action={
+                <Button size="sm" onClick={() => ghTitleRef.current?.focus()}>
+                  <Plus className="size-4" /> 添加第一条记录
+                </Button>
+              }
+            />
           ) : (
             <div className="flex flex-col gap-2">
               {github.map((g) => (
