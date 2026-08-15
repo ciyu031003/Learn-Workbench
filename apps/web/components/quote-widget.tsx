@@ -48,7 +48,7 @@ export function QuoteWidget({ className }: { className?: string }) {
           <button
             onClick={next}
             aria-label="换一句"
-            className="rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-white/15 hover:text-foreground"
+            className="rounded-lg p-2 text-muted-foreground transition-all hover:bg-white/15 hover:text-foreground"
           >
             <RefreshCw className="size-4" />
           </button>

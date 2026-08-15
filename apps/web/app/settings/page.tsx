@@ -24,6 +24,7 @@ export default function SettingsPage() {
   const [pwNew, setPwNew] = useState("");
   const [pwConfirm, setPwConfirm] = useState("");
   const [pwMsg, setPwMsg] = useState<string | null>(null);
+  const [pwOk, setPwOk] = useState<boolean | null>(null);
   const [pwBusy, setPwBusy] = useState(false);
   const pushToast = useToastStore((s) => s.push);
   const [wallpaperBusy, setWallpaperBusy] = useState(false);
@@ -87,18 +88,22 @@ export default function SettingsPage() {
   const changePassword = async () => {
     if (!pwCurrent || !pwNew || !pwConfirm) {
       setPwMsg("请填写完整");
+      setPwOk(false);
       return;
     }
     if (pwNew !== pwConfirm) {
       setPwMsg("两次输入的新密码不一致");
+      setPwOk(false);
       return;
     }
     if (pwNew.length < 6) {
       setPwMsg("新密码至少 6 位");
+      setPwOk(false);
       return;
     }
     setPwBusy(true);
     setPwMsg(null);
+    setPwOk(null);
     try {
       const r = await fetch("/api/auth/password", {
         method: "POST",
@@ -108,14 +113,17 @@ export default function SettingsPage() {
       const data = await r.json();
       if (!r.ok) {
         setPwMsg(data.error ?? "修改失败");
+        setPwOk(false);
       } else {
         setPwMsg("密码修改成功");
+        setPwOk(true);
         setPwCurrent("");
         setPwNew("");
         setPwConfirm("");
       }
     } catch {
       setPwMsg("网络异常，请稍后重试");
+      setPwOk(false);
     } finally {
       setPwBusy(false);
     }
@@ -284,7 +292,9 @@ export default function SettingsPage() {
               className="h-10 rounded-xl border border-white/25 bg-white/12 px-3 text-sm text-foreground outline-none backdrop-blur-md placeholder:text-muted-foreground focus:border-primary/60"
             />
           </div>
-          {pwMsg ? <p className="text-xs text-muted-foreground">{pwMsg}</p> : null}
+          {pwMsg ? (
+            <p className={`text-xs ${pwOk ? "text-success" : "text-danger"}`}>{pwMsg}</p>
+          ) : null}
           <Button onClick={changePassword} disabled={pwBusy} className="self-end">
             <KeyRound className="size-4" /> {pwBusy ? "提交中…" : "保存新密码"}
           </Button>

@@ -262,7 +262,7 @@ export default function RoadmapPage() {
                       {phase.weeks ? <Badge variant="muted">{phase.weeks}</Badge> : null}
                     </span>
                     {phase.summary ? (
-                      <span className="mt-0.5 block truncate text-xs text-muted-foreground">{phase.summary}</span>
+                      <span className="mt-0.5 block truncate text-xs text-muted-foreground" title={phase.summary ?? undefined}>{phase.summary}</span>
                     ) : null}
                   </span>
                   <span className="hidden w-28 shrink-0 sm:block">
@@ -289,7 +289,7 @@ export default function RoadmapPage() {
                               <button
                                 onClick={() => toggleTopic(topic.id, !topic.done)}
                                 aria-label={topic.done ? "标记为未完成" : "标记为完成"}
-                                className="shrink-0"
+                                className="shrink-0 rounded-lg p-2 -m-2"
                               >
                                 {topic.done ? (
                                   <CheckCircle2 className="size-5 text-success" />
@@ -422,7 +422,7 @@ export default function RoadmapPage() {
                       <span className="text-base font-semibold">{phase.title}</span>
                       <Badge variant="accent">{phase.weeks}</Badge>
                     </span>
-                    <span className="mt-0.5 block truncate text-xs text-muted-foreground">{phase.summary}</span>
+                    <span className="mt-0.5 block truncate text-xs text-muted-foreground" title={phase.summary ?? undefined}>{phase.summary}</span>
                   </span>
                   <span className="hidden w-28 shrink-0 sm:block">
                     <div className="mb-1 flex justify-between text-xs text-muted-foreground">
@@ -441,7 +441,7 @@ export default function RoadmapPage() {
                           key={topic.id}
                           className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 ${topic.done ? "border-success/20 bg-success/5" : "border-border/60 bg-muted/30"}`}
                         >
-                          <button onClick={() => toggleTopic(topic.id, !topic.done)} aria-label="切换完成" className="shrink-0">
+                          <button onClick={() => toggleTopic(topic.id, !topic.done)} aria-label={topic.done ? "标记为未完成" : "标记为完成"} className="shrink-0 rounded-lg p-2 -m-2">
                             {topic.done ? (
                               <CheckCircle2 className="size-5 text-success" />
                             ) : (

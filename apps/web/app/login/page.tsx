@@ -139,7 +139,7 @@ function LoginForm() {
             登 录
           </button>
         </form>
-        <p className="relative mt-6 text-center text-xs text-muted-foreground">首次使用请先在设置中修改默认密码</p>
+        <p className="relative mt-6 text-center text-xs text-muted-foreground">账号由管理员创建 · 忘记密码请联系管理员重置</p>
 </div>
 
       {/* 登录后职业选择小窗 */}

@@ -216,7 +216,7 @@ export function FocusStatsCard() {
             <button
               onClick={() => setView("dist")}
               className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors",
+                "flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors",
                 view === "dist" ? "bg-primary/25 text-foreground" : "text-muted-foreground hover:bg-white/10"
               )}
             >
@@ -225,7 +225,7 @@ export function FocusStatsCard() {
             <button
               onClick={() => setView("timeline")}
               className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors",
+                "flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors",
                 view === "timeline" ? "bg-primary/25 text-foreground" : "text-muted-foreground hover:bg-white/10"
               )}
             >

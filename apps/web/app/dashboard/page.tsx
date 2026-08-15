@@ -144,7 +144,7 @@ export default function DashboardPage() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="page-title text-3xl font-bold tracking-tight lg:text-5xl">
-            {greeting()}，继续今天的 {data?.careerName ?? "ICT 学习规划"} 学习
+            {greeting()}，继续今天的 {data?.careerName ?? "ICT 学习规划"}
           </h1>
           <p className="page-subtitle mt-1 text-sm">
             {formatDateCN(today)} · 当前职业路线：{data?.careerName ?? "ICT 学习规划"}
@@ -372,7 +372,7 @@ export default function DashboardPage() {
                       href={g.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-white/15 hover:text-foreground"
+                      className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-white/15 hover:text-foreground"
                       aria-label="打开链接"
                     >
                       <ExternalLink className="size-4" />
@@ -381,7 +381,7 @@ export default function DashboardPage() {
                   <button
                     onClick={() => deleteGithub(g.id)}
                     aria-label="删除"
-                    className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-danger/15 hover:text-danger"
+                    className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-danger/15 hover:text-danger"
                   >
                     <Trash2 className="size-4" />
                   </button>

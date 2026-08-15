@@ -122,6 +122,7 @@ export default function TasksPage() {
           </Button>
           <Input
             type="date"
+            aria-label="选择日期"
             value={date}
             onChange={(e) => setDate(e.target.value)}
             className="w-40"
@@ -216,7 +217,7 @@ export default function TasksPage() {
                 key={t.id}
                 className={`flex items-center gap-3 rounded-xl border px-3 py-3 ${t.done ? "border-success/20 bg-success/5" : "border-border/60 bg-muted/30"}`}
               >
-                <button onClick={() => toggleDone(t.id, !t.done)} aria-label="切换完成" className="shrink-0">
+                <button onClick={() => toggleDone(t.id, !t.done)} aria-label={t.done ? "标记为未完成" : "标记为完成"} className="shrink-0 rounded-lg p-2 -m-2">
                   {t.done ? <CheckCircle2 className="size-5 text-success" /> : <Circle className="size-5 text-muted-foreground/50 hover:text-primary" />}
                 </button>
                 <span className={`min-w-0 flex-1 text-sm font-medium ${t.done ? "text-muted-foreground line-through" : ""}`}>
