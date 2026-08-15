@@ -1,0 +1,524 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import {
+  Droplets,
+  Zap,
+  Coffee,
+  Bell,
+  HeartPulse,
+  Plus,
+  Trash2,
+  Check,
+  Pencil,
+  Footprints,
+  Timer as TimerIcon,
+  ListChecks,
+  GlassWater,
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+import {
+  energyLevelLabels,
+  energyLevelColors,
+  reminderTypeLabels,
+  breakKindLabels,
+  type WellbeingToday,
+  type WellbeingReminder,
+  type DailyPlanItem,
+} from "@learn-workbench/shared";
+
+const QUICK_WATER = [200, 250, 350];
+const BREAK_PRESETS = [
+  { kind: "SHORT", label: "短休", minutes: 5, icon: Coffee },
+  { kind: "EYE_REST", label: "远眺", minutes: 2, icon: HeartPulse },
+  { kind: "MOVEMENT", label: "活动", minutes: 10, icon: Footprints },
+  { kind: "LONG", label: "长休", minutes: 15, icon: GlassWater },
+] as const;
+const REMINDER_PRESETS = [
+  { type: "HYDRATION", title: "喝水提醒", intervalMinutes: 90 },
+  { type: "STAND", title: "站立提醒", intervalMinutes: 60 },
+  { type: "BREAK", title: "休息提醒", intervalMinutes: 50 },
+] as const;
+
+const planKindMeta: Record<DailyPlanItem["kind"], { icon: typeof TimerIcon; color: string }> = {
+  focus: { icon: TimerIcon, color: "#4f46e5" },
+  break: { icon: Coffee, color: "#16a34a" },
+  hydrate: { icon: GlassWater, color: "#0ea5e9" },
+  energy: { icon: Zap, color: "#f59e0b" },
+  task: { icon: ListChecks, color: "#71717a" },
+  review: { icon: HeartPulse, color: "#f97316" },
+};
+
+function HydrationRing({ totalMl, targetMl }: { totalMl: number; targetMl: number }) {
+  const R = 54;
+  const C = 2 * Math.PI * R;
+  const p = targetMl > 0 ? Math.min(100, Math.round((totalMl / targetMl) * 100)) : 0;
+  return (
+    <div className="relative h-32 w-32 shrink-0">
+      <svg viewBox="0 0 140 140" className="h-full w-full -rotate-90">
+        <defs>
+          <linearGradient id="hyd-ring" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#38bdf8" />
+            <stop offset="100%" stopColor="#0ea5e9" />
+          </linearGradient>
+        </defs>
+        <circle cx="70" cy="70" r={R} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="10" />
+        <circle
+          cx="70"
+          cy="70"
+          r={R}
+          fill="none"
+          stroke="url(#hyd-ring)"
+          strokeWidth="10"
+          strokeLinecap="round"
+          strokeDasharray={C}
+          strokeDashoffset={C * (1 - p / 100)}
+          style={{ transition: "stroke-dashoffset 0.6s ease" }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-xl font-bold tabular-nums">{totalMl}ml</span>
+        <span className="text-[11px] text-muted-foreground">目标 {targetMl}ml · {p}%</span>
+      </div>
+    </div>
+  );
+}
+
+export default function WellbeingPage() {
+  const [today, setToday] = useState<WellbeingToday | null>(null);
+  const [reminders, setReminders] = useState<WellbeingReminder[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const [customMl, setCustomMl] = useState("");
+  const [editingGoal, setEditingGoal] = useState(false);
+  const [goalInput, setGoalInput] = useState("");
+
+  const [energyLevel, setEnergyLevel] = useState<number | null>(null);
+  const [energyNote, setEnergyNote] = useState("");
+
+  const [showAddReminder, setShowAddReminder] = useState(false);
+  const [rmType, setRmType] = useState("HYDRATION");
+  const [rmTitle, setRmTitle] = useState("");
+  const [rmInterval, setRmInterval] = useState("90");
+
+  const loadToday = useCallback(async () => {
+    try {
+      const r = await fetch("/api/wellbeing/today");
+      if (!r.ok) throw new Error("load failed");
+      setToday(await r.json());
+      setError(null);
+    } catch {
+      setError("健康数据加载失败，请确认数据库已启动");
+    }
+  }, []);
+
+  const loadReminders = useCallback(async () => {
+    const r = await fetch("/api/wellbeing/reminders");
+    if (r.ok) setReminders((await r.json()).reminders ?? []);
+  }, []);
+
+  useEffect(() => {
+    // 数据加载：异步拉取外部系统后 setState
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadToday();
+    loadReminders();
+  }, [loadToday, loadReminders]);
+
+  const addWater = async (ml: number) => {
+    await fetch("/api/wellbeing/hydration", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amountMl: ml, source: "MANUAL" }),
+    });
+    loadToday();
+  };
+
+  const saveGoal = async () => {
+    const v = Number(goalInput);
+    if (!Number.isFinite(v) || v < 200) return;
+    await fetch("/api/wellbeing/goal", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetMl: v }),
+    });
+    setEditingGoal(false);
+    loadToday();
+  };
+
+  const saveEnergy = async () => {
+    if (energyLevel === null) return;
+    await fetch("/api/wellbeing/energy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ level: energyLevel, note: energyNote || null, source: "MANUAL" }),
+    });
+    setEnergyNote("");
+    loadToday();
+  };
+
+  const recordBreak = async (kind: string, minutes: number) => {
+    await fetch("/api/wellbeing/breaks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kind, minutes }),
+    });
+    loadToday();
+  };
+
+  const addReminderPreset = async (p: { type: string; title: string; intervalMinutes: number }) => {
+    await fetch("/api/wellbeing/reminders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(p),
+    });
+    loadReminders();
+  };
+
+  const addReminder = async () => {
+    if (!rmTitle.trim()) return;
+    await fetch("/api/wellbeing/reminders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: rmType, title: rmTitle.trim(), intervalMinutes: Number(rmInterval) || 60 }),
+    });
+    setRmTitle("");
+    setShowAddReminder(false);
+    loadReminders();
+  };
+
+  const toggleReminder = async (id: number, enabled: boolean) => {
+    await fetch("/api/wellbeing/reminders", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, enabled }),
+    });
+    loadReminders();
+  };
+
+  const deleteReminder = async (id: number) => {
+    await fetch(`/api/wellbeing/reminders?id=${id}`, { method: "DELETE" });
+    loadReminders();
+  };
+
+  const latestEnergy = today?.energy ?? null;
+  const plan = today?.plan ?? [];
+  const hydration = today?.hydration;
+
+  return (
+    <div className="page-enter flex flex-col gap-6">
+      <div>
+        <h1 className="page-title text-2xl font-bold tracking-tight lg:text-3xl">健康与状态</h1>
+        <p className="page-subtitle mt-1 text-sm">
+          Focus → 休息 → 饮水 → 精力，照顾好状态才有持续成长
+        </p>
+      </div>
+
+      {error ? (
+        <Card>
+          <CardContent className="p-6 text-sm text-danger">{error}</CardContent>
+        </Card>
+      ) : null}
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* 今日饮水 */}
+        <Card>
+          <CardHeader className="flex-row items-center gap-2">
+            <Droplets className="size-5 text-accent" />
+            <CardTitle>今日饮水</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center gap-4">
+            <HydrationRing totalMl={hydration?.totalMl ?? 0} targetMl={hydration?.targetMl ?? 2000} />
+            <div className="flex items-center gap-2">
+              {QUICK_WATER.map((ml) => (
+                <button
+                  key={ml}
+                  onClick={() => addWater(ml)}
+                  className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-sm text-foreground backdrop-blur-md transition-all hover:bg-white/15"
+                >
+                  +{ml}ml
+                </button>
+              ))}
+              <div className="flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-2 py-1 backdrop-blur-md">
+                <input
+                  type="number"
+                  min={1}
+                  max={2000}
+                  value={customMl}
+                  onChange={(e) => setCustomMl(e.target.value)}
+                  placeholder="自定义"
+                  className="w-16 bg-transparent text-center text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                />
+                <button
+                  onClick={() => {
+                    const v = Number(customMl);
+                    if (v > 0) addWater(v);
+                    setCustomMl("");
+                  }}
+                  aria-label="记录饮水量"
+                  className="rounded-full p-1 text-accent transition-colors hover:bg-white/15"
+                >
+                  <Check className="size-4" />
+                </button>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              {editingGoal ? (
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    type="number"
+                    min={200}
+                    max={10000}
+                    value={goalInput}
+                    onChange={(e) => setGoalInput(e.target.value)}
+                    className="h-8 w-28"
+                    aria-label="每日饮水目标"
+                  />
+                  <Button size="sm" onClick={saveGoal}>保存</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setEditingGoal(false)}>取消</Button>
+                </div>
+              ) : (
+                <>
+                  <span>每日目标 {hydration?.targetMl ?? 2000}ml</span>
+                  <button
+                    onClick={() => {
+                      setGoalInput(String(hydration?.targetMl ?? 2000));
+                      setEditingGoal(true);
+                    }}
+                    aria-label="修改饮水目标"
+                    className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-white/15 hover:text-foreground"
+                  >
+                    <Pencil className="size-3.5" />
+                  </button>
+                </>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 精力状态 */}
+        <Card>
+          <CardHeader className="flex-row items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Zap className="size-5 text-warning" />
+              <CardTitle>精力状态</CardTitle>
+            </div>
+            {latestEnergy ? (
+              <span className="rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-xs">
+                最近：<span className="font-semibold">{energyLevelLabels[latestEnergy.level]}</span>
+              </span>
+            ) : null}
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <div className="grid grid-cols-5 gap-2">
+              {[1, 2, 3, 4, 5].map((lv) => (
+                <button
+                  key={lv}
+                  onClick={() => setEnergyLevel(lv)}
+                  className={cn(
+                    "flex flex-col items-center gap-1 rounded-xl border py-2.5 transition-all",
+                    energyLevel === lv
+                      ? "scale-105 border-transparent text-white"
+                      : "border-white/20 bg-white/10 text-muted-foreground hover:bg-white/15"
+                  )}
+                  style={energyLevel === lv ? { backgroundColor: energyLevelColors[lv] } : undefined}
+                >
+                  <span className="text-base font-bold">{lv}</span>
+                  <span className="text-[10px]">{energyLevelLabels[lv]}</span>
+                </button>
+              ))}
+            </div>
+            <textarea
+              value={energyNote}
+              onChange={(e) => setEnergyNote(e.target.value)}
+              placeholder="补充一句（可选）：状态来自睡眠 / 咖啡 / 压力…"
+              className="min-h-[64px] w-full resize-none rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-foreground outline-none backdrop-blur-md placeholder:text-muted-foreground focus:border-primary/60"
+            />
+            <Button onClick={saveEnergy} disabled={energyLevel === null} className="self-end">
+              <Zap className="size-4" /> 记录精力
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              只做个人行为统计，用于安排任务强度，不做医学判断。
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* 休息与节奏 */}
+        <Card>
+          <CardHeader className="flex-row items-center gap-2">
+            <Coffee className="size-5 text-success" />
+            <CardTitle>休息与节奏</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <div className="flex items-center justify-between rounded-xl border border-white/20 bg-white/10 px-3 py-2.5 backdrop-blur-md">
+              <div className="flex flex-col">
+                <span className="text-sm font-semibold">{today?.focusTodayMinutes ?? 0} 分钟</span>
+                <span className="text-[11px] text-muted-foreground">今日专注</span>
+              </div>
+              {today?.nextBreakDue ? (
+                <span className="rounded-full bg-success/15 px-2.5 py-1 text-xs font-medium text-success">
+                  建议休息一下
+                </span>
+              ) : (
+                <span className="rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-xs text-muted-foreground">
+                  节奏良好
+                </span>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {BREAK_PRESETS.map((b) => (
+                <button
+                  key={b.kind}
+                  onClick={() => recordBreak(b.kind, b.minutes)}
+                  className="flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs text-foreground backdrop-blur-md transition-all hover:bg-white/15"
+                >
+                  <b.icon className="size-3.5 text-success" /> {b.label} {b.minutes}′
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-col gap-1.5">
+              {(today?.breaksToday ?? []).length === 0 ? (
+                <p className="py-2 text-center text-xs text-muted-foreground">今天还没有休息记录</p>
+              ) : (
+                today?.breaksToday.map((b) => (
+                  <div key={b.id} className="flex items-center justify-between rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs">
+                    <span className="flex items-center gap-1.5 text-foreground">
+                      <Coffee className="size-3.5 text-success" /> {breakKindLabels[b.kind] ?? b.kind}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {new Date(b.startedAt).toLocaleTimeString("zh-CN", { hour12: false }).slice(0, 5)} · {b.minutes} 分钟
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* 今日建议（Today Engine） */}
+        <Card>
+          <CardHeader className="flex-row items-center gap-2">
+            <ListChecks className="size-5 text-primary" />
+            <CardTitle>今日建议</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-1">
+            {plan.map((item, i) => {
+              const meta = planKindMeta[item.kind];
+              return (
+                <div key={i} className="flex items-start gap-3 rounded-xl px-2 py-2.5">
+                  <span
+                    className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+                    style={{ backgroundColor: `${meta.color}1f`, color: meta.color }}
+                  >
+                    <meta.icon className="size-4" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-foreground">{item.label}</p>
+                    {item.hint ? <p className="mt-0.5 text-xs text-muted-foreground">{item.hint}</p> : null}
+                  </div>
+                  <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{item.time}</span>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+
+        {/* 提醒 */}
+        <Card>
+          <CardHeader className="flex-row items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Bell className="size-5 text-primary" />
+              <CardTitle>提醒</CardTitle>
+            </div>
+            <Button variant="secondary" size="sm" onClick={() => setShowAddReminder((v) => !v)}>
+              <Plus className="size-4" /> 添加提醒
+            </Button>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            {reminders.length === 0 && !showAddReminder ? (
+              <div className="flex flex-col gap-2 py-2">
+                <p className="text-sm text-muted-foreground">还没有提醒，一键添加常用节奏：</p>
+                <div className="flex flex-wrap gap-2">
+                  {REMINDER_PRESETS.map((p) => (
+                    <button
+                      key={p.type}
+                      onClick={() => addReminderPreset(p)}
+                      className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs text-foreground backdrop-blur-md transition-all hover:bg-white/15"
+                    >
+                      {p.title} · 每 {p.intervalMinutes} 分钟
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {showAddReminder ? (
+              <div className="flex flex-col gap-2 rounded-xl border border-white/20 bg-white/10 p-3 backdrop-blur-md">
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <select
+                    value={rmType}
+                    onChange={(e) => setRmType(e.target.value)}
+                    className="glass-select h-10 rounded-xl px-3 text-sm outline-none"
+                    aria-label="提醒类型"
+                  >
+                    {Object.entries(reminderTypeLabels).map(([k, v]) => (
+                      <option key={k} value={k}>{v}</option>
+                    ))}
+                  </select>
+                  <Input
+                    value={rmInterval}
+                    onChange={(e) => setRmInterval(e.target.value)}
+                    placeholder="间隔（分钟）"
+                    aria-label="提醒间隔"
+                    className="h-10"
+                  />
+                </div>
+                <Input
+                  value={rmTitle}
+                  onChange={(e) => setRmTitle(e.target.value)}
+                  placeholder="提醒标题，如：起来站一会儿"
+                  className="h-10"
+                />
+                <div className="flex justify-end gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => setShowAddReminder(false)}>取消</Button>
+                  <Button size="sm" onClick={addReminder} disabled={!rmTitle.trim()}>
+                    <Check className="size-4" /> 保存
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="flex flex-col gap-2">
+              {reminders.map((r) => (
+                <div key={r.id} className="flex items-center gap-3 rounded-xl border border-white/15 bg-white/5 px-3 py-2.5">
+                  <span className="icon-chip h-9 w-9 shrink-0">
+                    <Bell className="size-4 text-primary" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">{r.title}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {reminderTypeLabels[r.type] ?? r.type} · 每 {r.intervalMinutes} 分钟 · {r.startTime}-{r.endTime}
+                    </p>
+                  </div>
+                  <Switch checked={r.enabled} onCheckedChange={(v) => toggleReminder(r.id, v)} aria-label={`${r.title}开关`} />
+                  <button
+                    onClick={() => deleteReminder(r.id)}
+                    aria-label="删除提醒"
+                    className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-danger/15 hover:text-danger"
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}

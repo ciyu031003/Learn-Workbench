@@ -10,6 +10,7 @@ import {
   NotebookPen,
   Settings,
   Sparkles,
+  HeartPulse,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { todayISO } from "@learn-workbench/shared";
@@ -20,6 +21,7 @@ const nav = [
   { href: "/roadmap", label: "路线图", icon: Map },
   { href: "/tasks", label: "任务", icon: ListTodo },
   { href: "/logs", label: "日志", icon: NotebookPen },
+  { href: "/wellbeing", label: "健康", icon: HeartPulse },
   { href: "/settings", label: "设置", icon: Settings },
 ];
 
@@ -139,7 +141,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* 移动端底部导航（毛玻璃） */}
-      <nav className="glass-nav app-bottomnav fixed inset-x-0 bottom-0 z-30 grid-cols-5 border-t">
+      <nav className="glass-nav app-bottomnav fixed inset-x-0 bottom-0 z-30 border-t">
         {nav.map((item) => {
           const active = pathname === item.href || pathname.startsWith(item.href + "/");
           return (

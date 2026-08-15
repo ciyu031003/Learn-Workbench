@@ -198,6 +198,7 @@ html.dark .glass::before {
   }
   .app-bottomnav {
     display: grid;
+    grid-template-columns: repeat(6, 1fr);
   }
   .app-main {
     padding-left: 0;
