@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   Map,
@@ -27,6 +27,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const date = todayISO();
+  const [careerInfo, setCareerInfo] = useState<{ name: string; percent: number } | null>(null);
+
+  // 侧边栏底部：当前职业 + 整体进度
+  useEffect(() => {
+    let alive = true;
+    Promise.all([
+      fetch("/api/settings/career").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch("/api/summary").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    ]).then(([, s]) => {
+      if (!alive) return;
+      const summary = s as { careerName?: string; overallPercent?: number } | null;
+      setCareerInfo({ name: summary?.careerName ?? "ICT 学习规划", percent: summary?.overallPercent ?? 0 });
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // 会话有效性校验：伪造/过期 cookie 会被 /api/auth/me 识别
   // 无效会话先调用 logout 清除失效 cookie，避免 proxy 把 /login 弹回 /dashboard 造成“点击即回仪表盘”循环
@@ -80,19 +97,30 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3.5 rounded-lg px-3 py-3 text-sm font-medium transition-colors",
+                  "relative flex items-center gap-3.5 rounded-lg px-3 py-3 text-sm font-medium transition-colors",
                   active
                     ? "bg-indigo-500/10 text-foreground"
                     : "text-muted-foreground hover:bg-white/15 hover:text-foreground"
                 )}
               >
-                <item.icon className="size-4.5" />
+                {active ? (
+                  <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full bg-gradient-to-b from-primary to-accent" />
+                ) : null}
+                <item.icon className={cn("size-4.5", active && "text-primary")} />
                 {item.label}
               </Link>
             );
           })}
         </nav>
-        <div className="px-2 text-xs text-muted-foreground">今日 {date}</div>
+        <div className="flex flex-col gap-2.5">
+          {careerInfo ? (
+            <div className="glass flex items-center justify-between rounded-xl px-3 py-2.5">
+              <span className="truncate text-xs font-medium text-foreground">{careerInfo.name}</span>
+              <span className="ml-2 shrink-0 text-[11px] tabular-nums text-muted-foreground">{careerInfo.percent}%</span>
+            </div>
+          ) : null}
+          <div className="px-1 text-xs text-muted-foreground">今日 {date}</div>
+        </div>
       </aside>
 
       {/* 移动端顶栏（毛玻璃） */}

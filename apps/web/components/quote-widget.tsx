@@ -48,14 +48,14 @@ export function QuoteWidget({ className }: { className?: string }) {
           <button
             onClick={next}
             aria-label="换一句"
-            className="rounded-lg p-2 text-muted-foreground transition-all hover:bg-white/15 hover:text-foreground"
+            className="rounded-lg p-2 text-muted-foreground transition-all active:rotate-90 hover:bg-white/15 hover:text-foreground"
           >
             <RefreshCw className="size-4" />
           </button>
         </div>
-        <p className="text-sm leading-relaxed text-foreground">{quote.text}</p>
+        <p key={"quote-" + index} className="quote-fade text-sm leading-relaxed text-foreground">{quote.text}</p>
         {quote.author ? (
-          <span className="self-end text-xs text-muted-foreground">—— {quote.author}</span>
+          <span key={"author-" + index} className="quote-fade self-end text-xs text-muted-foreground">—— {quote.author}</span>
         ) : null}
       </div>
     </div>

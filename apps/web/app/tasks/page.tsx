@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { DailyTask } from "@learn-workbench/shared";
 import { todayISO, taskTypeLabels, formatDateCN } from "@learn-workbench/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CheckCircle2, Circle, ChevronLeft, ChevronRight, Play, Plus, Timer as TimerIcon } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
+import { CheckCircle2, Circle, ChevronLeft, ChevronRight, ListTodo, Play, Plus, Timer as TimerIcon } from "lucide-react";
 import { FocusTimer } from "@/components/focus-timer";
 import { FocusStatsCard } from "@/components/focus-stats-card";
 
@@ -25,6 +26,7 @@ export default function TasksPage() {
   const [date, setDate] = useState(todayISO());
   const [tasks, setTasks] = useState<DailyTask[]>([]);
   const [title, setTitle] = useState("");
+  const titleRef = useRef<HTMLInputElement>(null);
   const [type, setType] = useState<(typeof TYPES)[number]>("study");
   const [phaseId, setPhaseId] = useState<string>("");
   const [phases, setPhases] = useState<{ id: number; title: string; track: string }[]>([]);
@@ -160,6 +162,7 @@ export default function TasksPage() {
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             <Input
+              ref={titleRef}
               placeholder="今天要学什么？（如：HCIP 路由交换第 3 章）"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -210,7 +213,22 @@ export default function TasksPage() {
         </CardHeader>
         <CardContent className="flex flex-col gap-2">
           {tasks.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">这一天还没有任务，添加一个开始吧</p>
+            <EmptyState
+              icon={ListTodo}
+              title="这一天还没有任务"
+              hint="添加一个学习任务，开始「计划 → 专注 → 复盘」闭环"
+              action={
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    titleRef.current?.focus();
+                    titleRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  }}
+                >
+                  <Plus className="size-4" /> 添加任务
+                </Button>
+              }
+            />
           ) : (
             tasks.map((t) => (
               <div

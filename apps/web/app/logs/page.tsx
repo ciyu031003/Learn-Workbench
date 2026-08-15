@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { LogEntry } from "@learn-workbench/shared";
 import { logKindLabels } from "@learn-workbench/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Download, Plus, NotebookPen } from "lucide-react";
 
 const KINDS = ["feynman", "review", "project", "interview"] as const;
@@ -25,6 +26,7 @@ export default function LogsPage() {
   const [kind, setKind] = useState<(typeof KINDS)[number]>("feynman");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const titleRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     const r = await fetch("/api/logs?limit=200");
@@ -90,7 +92,7 @@ export default function LogsPage() {
               ))}
             </TabsList>
           </Tabs>
-          <Input placeholder="标题" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <Input ref={titleRef} placeholder="标题" value={title} onChange={(e) => setTitle(e.target.value)} />
           <Textarea
             placeholder="写下你的理解 / 复盘 / 项目进展…（用教别人的方式检验是否真懂）"
             value={content}
@@ -119,9 +121,23 @@ export default function LogsPage() {
       <div className="flex flex-col gap-3">
         {shown.length === 0 ? (
           <Card>
-            <CardContent className="flex flex-col items-center gap-2 py-10 text-sm text-muted-foreground">
-              <NotebookPen className="size-6" />
-              还没有日志，写第一篇吧
+            <CardContent className="p-4">
+              <EmptyState
+                icon={NotebookPen}
+                title="还没有日志"
+                hint="写下第一篇费曼讲稿或复盘，用输出倒逼输入"
+                action={
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      titleRef.current?.focus();
+                      titleRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    }}
+                  >
+                    <Plus className="size-4" /> 写第一篇日志
+                  </Button>
+                }
+              />
             </CardContent>
           </Card>
         ) : (

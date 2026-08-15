@@ -383,7 +383,7 @@ export function FocusTimer({
           </div>
 
           {/* 环形进度 + 数字时钟（视觉正中） */}
-          <div className="relative flex items-center justify-center">
+          <div className={cn("relative flex items-center justify-center", started && "timer-pop")}>
             <svg width="min(72vw,340px)" height="min(72vw,340px)" viewBox="0 0 300 300" className="drop-shadow-[0_6px_30px_rgba(0,0,0,0.4)]">
               <defs>
                 <linearGradient id="ring-grad" x1="0%" y1="0%" x2="100%" y2="100%">
