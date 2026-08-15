@@ -74,6 +74,7 @@ export function FocusTimer({
   const [remaining, setRemaining] = useState((bg.minutes || 25) * 60);
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(false);
+  const [started, setStarted] = useState(false);
   const [recording, setRecording] = useState(false);
   const [full, setFull] = useState(false);
   const [showBg, setShowBg] = useState(false);
@@ -101,33 +102,33 @@ export function FocusTimer({
     }
   }, []);
 
-  // 打开即自动开始 + 自动全屏
+  // 打开：等待用户点击「开始专注」后再启动计时并请求全屏
   useEffect(() => {
     if (!open) return;
-    if (startRef.current === null) startRef.current = Date.now();
-    // 进入计时页自动开始，属于“挂载后启动外部计时器”的订阅模式
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setRunning(true);
-    timerRef.current = setInterval(tick, 1000);
+    if (timerRef.current) clearInterval(timerRef.current);
 
     const onFs = () => setFull(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", onFs);
-    const el = document.documentElement;
-    if (!document.fullscreenElement && el.requestFullscreen) {
-      el.requestFullscreen().then(() => setFull(true)).catch(() => setFull(false));
-    }
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
       document.removeEventListener("fullscreenchange", onFs);
       if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     };
-  }, [open, tick]);
+  }, [open]);
 
   const start = () => {
     if (timerRef.current) clearInterval(timerRef.current);
     if (startRef.current === null) startRef.current = Date.now() - (total - remaining) * 1000;
     setRunning(true);
     timerRef.current = setInterval(tick, 1000);
+  };
+
+  const begin = () => {
+    setStarted(true);
+    if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().then(() => setFull(true)).catch(() => {});
+    }
+    start();
   };
 
   const pause = () => {
@@ -368,7 +369,7 @@ export function FocusTimer({
             </div>
           </div>
         </div>
-      ) : (
+      ) : started ? (
         <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-5 px-4">
           {/* 任务名 + 状态 */}
           <div className="flex flex-col items-center gap-2 text-center">
@@ -519,6 +520,54 @@ export function FocusTimer({
 
           {/* 移动端横屏提示 */}
           <p className="text-xs text-white/40 lg:hidden">横屏使用，数字时钟更沉浸</p>
+        </div>
+      ) : (
+        <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-5 px-4">
+          <div className="flex flex-col items-center gap-2 text-center">
+            <span className="max-w-xl truncate rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-sm text-white/90 backdrop-blur-md">
+              {task?.title ?? "自由专注"}
+            </span>
+            <span className="text-xs text-white/70">准备开始 · {minutes} 分钟</span>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            {PRESETS.map((m) => (
+              <button
+                key={m}
+                onClick={() => changePreset(m)}
+                className={cn(
+                  "rounded-full border px-4 py-1.5 text-sm backdrop-blur-md transition-all",
+                  minutes === m
+                    ? "border-primary/60 bg-primary/30 text-white"
+                    : "border-white/20 bg-white/10 text-white/80 hover:bg-white/20"
+                )}
+              >
+                {m} 分钟
+              </button>
+            ))}
+            <label className="flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-sm text-white/80 backdrop-blur-md">
+              <input
+                type="number"
+                min={1}
+                max={180}
+                value={minutes}
+                onChange={(e) => {
+                  const v = Math.min(180, Math.max(1, Number(e.target.value) || 1));
+                  changePreset(v);
+                }}
+                className="w-10 bg-transparent text-center text-white outline-none"
+              />
+              <span className="text-xs text-white/60">分</span>
+            </label>
+          </div>
+
+          <button
+            onClick={begin}
+            className="flex items-center gap-2 rounded-full bg-gradient-to-b from-primary to-[#4338ca] px-10 py-4 text-base font-semibold text-white shadow-[0_10px_40px_rgba(79,70,229,0.45)] transition-all hover:brightness-105"
+          >
+            <Play className="size-5" /> 开始专注
+          </button>
+          <p className="text-xs text-white/50">开始后将进入全屏，可随时暂停或结束</p>
         </div>
       )}
     </div>

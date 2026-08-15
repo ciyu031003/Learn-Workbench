@@ -69,6 +69,7 @@ export function FocusTimer({
   const [remaining, setRemaining] = useState(25 * 60);
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(false);
+  const [started, setStarted] = useState(false);
   const [recording, setRecording] = useState(false);
   const [quote, setQuote] = useState(FOCUS_MOTIVATIONS[Math.floor(Math.random() * FOCUS_MOTIVATIONS.length)]);
   const [editingQuote, setEditingQuote] = useState(false);
@@ -118,10 +119,8 @@ export function FocusTimer({
     setRecording(false);
     setRemaining(total);
     remainingRef.current = total;
-    startRef.current = Date.now();
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setRunning(true);
-    timer.current = setInterval(tick, 1000);
+    startRef.current = null;
+    setStarted(false);
 
     let alive = true;
     if (galleryId === "bing") {
@@ -209,6 +208,11 @@ export function FocusTimer({
     setRunning(true);
     timer.current = setInterval(tick, 1000);
   };
+  const begin = () => {
+    setStarted(true);
+    resume();
+  };
+
   const reset = () => {
     if (timer.current) clearInterval(timer.current);
     setRunning(false);
@@ -363,7 +367,7 @@ export function FocusTimer({
                 </Pressable>
               </View>
             </View>
-          ) : (
+          ) : started ? (
             <>
               {/* 任务名 + 状态 */}
               <View style={styles.taskWrap}>
@@ -445,6 +449,15 @@ export function FocusTimer({
                 )}
               </View>
             </>
+          ) : (
+            <View style={styles.readyWrap}>
+              <Text style={styles.taskName} numberOfLines={1}>{task?.title ?? "自由专注"}</Text>
+              <Text style={styles.readyTitle}>准备开始 {minutes} 分钟专注</Text>
+              <Pressable style={styles.primaryBtn} onPress={begin}>
+                <Text style={styles.primaryBtnText}>▶ 开始专注</Text>
+              </Pressable>
+              <Text style={styles.readyHint}>开始后将全屏沉浸 · 可随时暂停</Text>
+            </View>
           )}
         </ScrollView>
       </View>
@@ -540,4 +553,7 @@ const styles = StyleSheet.create({
   secondaryBtn: { backgroundColor: "rgba(255,255,255,0.14)", borderRadius: 999, paddingHorizontal: 22, paddingVertical: 12, alignItems: "center" },
   secondaryBtnText: { color: "#fff", fontSize: 15, fontWeight: "600" },
   doneBtns: { flexDirection: "row", gap: 12 },
+  readyWrap: { alignItems: "center", gap: 16, paddingVertical: 48 },
+  readyTitle: { color: "#fff", fontSize: 24, fontWeight: "800" },
+  readyHint: { color: "rgba(255,255,255,0.55)", fontSize: 12, textAlign: "center" },
 });
