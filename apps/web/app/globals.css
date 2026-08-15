@@ -4,7 +4,7 @@
 /* ============ 设计 tokens：简约大气 · 壁纸优先（冷调中性 + 靛蓝强调） ============ */
 :root {
   --text-on-glass: #1a1a1f;
-  --text-on-glass-muted: rgba(26, 26, 31, 0.64);
+  --text-on-glass-muted: rgba(26, 26, 31, 0.78);
   --glass-blur: 12px;
   --glass-saturation: 1.3;
   --glass-bg: rgba(255, 255, 255, 0.12);
@@ -16,7 +16,7 @@
 /* 壁纸亮度自动：暗图 → 白字 + 深玻璃 */
 html.bg-dark {
   --text-on-glass: #ffffff;
-  --text-on-glass-muted: rgba(255, 255, 255, 0.78);
+  --text-on-glass-muted: rgba(255, 255, 255, 0.88);
   --glass-bg: rgba(13, 13, 18, 0.42);
   --glass-bg-soft: rgba(13, 13, 18, 0.3);
   --glass-bg-strong: rgba(13, 13, 18, 0.58);
@@ -26,7 +26,7 @@ html.bg-dark {
 /* 用户手动深色主题 */
 html.dark {
   --text-on-glass: #f4f4f5;
-  --text-on-glass-muted: rgba(244, 244, 245, 0.64);
+  --text-on-glass-muted: rgba(244, 244, 245, 0.78);
   --glass-bg: rgba(13, 13, 18, 0.5);
   --glass-bg-soft: rgba(13, 13, 18, 0.36);
   --glass-bg-strong: rgba(13, 13, 18, 0.66);
