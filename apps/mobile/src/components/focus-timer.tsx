@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { API_URL } from "@/config";
+import { getApiUrl } from "@/config";
 import { computeFocusStats, FOCUS_MOTIVATIONS } from "@/lib/focus-stats";
 import type { FocusSession } from "@learn-workbench/shared";
 
@@ -124,10 +124,10 @@ export function FocusTimer({
 
     let alive = true;
     if (galleryId === "bing") {
-      fetch(`${API_URL}/api/background`)
+      fetch(`${getApiUrl()}/api/background`)
         .then((r) => (r.ok ? r.json() : null))
         .then((d: { exists?: boolean; date?: string } | null) => {
-          if (alive && d?.exists && d.date) setBing(`${API_URL}/api/background/img?date=${encodeURIComponent(d.date)}`);
+          if (alive && d?.exists && d.date) setBing(`${getApiUrl()}/api/background/img?date=${encodeURIComponent(d.date)}`);
           else setBing(null);
         })
         .catch(() => setBing(null));

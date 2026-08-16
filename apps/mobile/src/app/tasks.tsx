@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
 import { useAppStore, type TaskType } from "@/store/app-store";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { taskTypeLabels, todayISO } from "@learn-workbench/shared";
 import { Card } from "@/components/card";
 import { FocusTimer } from "@/components/focus-timer";
@@ -9,6 +10,7 @@ import { computeFocusStats, FOCUS_MOTIVATIONS } from "@/lib/focus-stats";
 const TYPES: TaskType[] = ["study", "agent", "output", "review", "exam"];
 
 export default function TasksScreen() {
+  const insets = useSafeAreaInsets();
   const tasks = useAppStore((s) => s.tasks);
   const sessions = useAppStore((s) => s.sessions);
   const addTask = useAppStore((s) => s.addTask);
@@ -59,7 +61,7 @@ export default function TasksScreen() {
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <View style={styles.hero}>
+      <View style={[styles.hero, { paddingTop: insets.top + 24 }]}>
         <Text style={styles.heroTitle}>每日任务</Text>
         <Text style={styles.heroSub}>计划 → 专注 → 复盘，形成学习闭环</Text>
       </View>

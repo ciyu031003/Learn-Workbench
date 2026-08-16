@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useAppStore } from "@/store/app-store";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { mainPhases, agentPhase } from "@learn-workbench/content";
 import { pct } from "@learn-workbench/shared";
 import { Card } from "@/components/card";
@@ -83,6 +84,7 @@ function PhaseBlock({
 }
 
 export default function RoadmapScreen() {
+  const insets = useSafeAreaInsets();
   const progress = useAppStore((s) => s.progress);
   const toggleTopic = useAppStore((s) => s.toggleTopic);
   const customTopics = useAppStore((s) => s.customTopics);
@@ -129,7 +131,7 @@ export default function RoadmapScreen() {
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <View style={styles.hero}>
+      <View style={[styles.hero, { paddingTop: insets.top + 24 }]}>
         <Text style={styles.heroTitle}>学习路线图</Text>
         <Text style={styles.heroSub}>6 个主阶段 + Agent 应用副线，点击主题完成打勾</Text>
       </View>

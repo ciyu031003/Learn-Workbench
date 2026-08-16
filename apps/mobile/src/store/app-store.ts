@@ -77,6 +77,7 @@ interface AppState {
   github: GithubRecord[];
   customTopics: CustomTopic[];
   deviceId: string;
+  apiUrl: string | null;
   pendingChanges: PendingChange[];
   lastSyncedAt: string | null;
 
@@ -90,6 +91,7 @@ interface AppState {
   resetAll: () => void;
 
   setAuth: (token: string | null, username: string | null) => void;
+  setApiUrl: (url: string) => void;
   addGithub: (title: string, url: string | null, content: string | null) => void;
   removeGithub: (id: number) => void;
   addCustomTopic: (phaseId: number, title: string, summary: string | null) => void;
@@ -117,6 +119,7 @@ export const useAppStore = create<AppState>()(
       github: [],
       customTopics: [],
       deviceId: uid(),
+      apiUrl: null,
       pendingChanges: [],
       lastSyncedAt: null,
 
@@ -279,6 +282,7 @@ export const useAppStore = create<AppState>()(
         }),
 
       setAuth: (token, username) => set({ token, username }),
+      setApiUrl: (url) => set({ apiUrl: url }),
 
       addGithub: (title, url, content) =>
         set((s) => {

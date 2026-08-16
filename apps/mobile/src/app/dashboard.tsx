@@ -1,11 +1,13 @@
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useAppStore } from "@/store/app-store";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { mainPhases, agentPhase } from "@learn-workbench/content";
 import { pct, formatDuration, taskTypeLabels, todayISO } from "@learn-workbench/shared";
 import { Card } from "@/components/card";
 
 export default function DashboardScreen() {
+  const insets = useSafeAreaInsets();
   const progress = useAppStore((s) => s.progress);
   const tasks = useAppStore((s) => s.tasks);
   const checkins = useAppStore((s) => s.checkins);
@@ -57,7 +59,7 @@ export default function DashboardScreen() {
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <View style={styles.hero}>
+      <View style={[styles.hero, { paddingTop: insets.top + 24 }]}>
         <Text style={styles.heroTitle}>{greet}，继续今天的 ICT 学习规划</Text>
         <Text style={styles.heroSub}>路线图 · 每日任务 · 专注 · 输出</Text>
       </View>

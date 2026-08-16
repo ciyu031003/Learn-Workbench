@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useAppStore, type LogKind } from "@/store/app-store";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { logKindLabels } from "@learn-workbench/shared";
 import { Card } from "@/components/card";
 
 const KINDS: LogKind[] = ["feynman", "review", "project", "interview"];
 
 export default function LogsScreen() {
+  const insets = useSafeAreaInsets();
   const logs = useAppStore((s) => s.logs);
   const addLog = useAppStore((s) => s.addLog);
   const [kind, setKind] = useState<LogKind>("feynman");
@@ -24,7 +26,7 @@ export default function LogsScreen() {
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <View style={styles.hero}>
+      <View style={[styles.hero, { paddingTop: insets.top + 24 }]}>
         <Text style={styles.heroTitle}>学习日志</Text>
         <Text style={styles.heroSub}>费曼讲稿 · 周复盘 · 项目笔记 · 面试记录</Text>
       </View>

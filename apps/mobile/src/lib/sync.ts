@@ -1,11 +1,11 @@
-import { API_URL } from "@/config";
+import { getApiUrl } from "@/config";
 import { useAppStore, type SyncChange } from "@/store/app-store";
 
 export async function apiLogin(
   username: string,
   password: string
 ): Promise<{ token: string; user: { username: string } }> {
-  const r = await fetch(`${API_URL}/api/auth/login`, {
+  const r = await fetch(`${getApiUrl()}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, password }),
@@ -23,7 +23,7 @@ export async function syncPush(token: string): Promise<void> {
     useAppStore.getState().setLastSyncedAt(new Date().toISOString());
     return;
   }
-  const r = await fetch(`${API_URL}/api/sync/push`, {
+  const r = await fetch(`${getApiUrl()}/api/sync/push`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body: JSON.stringify({ deviceId: s.deviceId, deviceName: "mobile", changes }),
@@ -38,7 +38,7 @@ export async function syncPush(token: string): Promise<void> {
 export async function syncPull(token: string): Promise<void> {
   const s = useAppStore.getState();
   const since = s.lastSyncedAt ?? "";
-  const url = `${API_URL}/api/sync/pull?deviceId=${encodeURIComponent(s.deviceId)}&deviceName=mobile&since=${encodeURIComponent(since)}`;
+  const url = `${getApiUrl()}/api/sync/pull?deviceId=${encodeURIComponent(s.deviceId)}&deviceName=mobile&since=${encodeURIComponent(since)}`;
   const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
   const data = await r.json();
   if (!r.ok) throw new Error(data.error ?? "拉取失败");

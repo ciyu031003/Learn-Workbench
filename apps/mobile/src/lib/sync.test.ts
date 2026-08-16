@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-vi.mock("@/config", () => ({ API_URL: "https://example.com" }));
+vi.mock("@/config", () => ({ DEFAULT_API_URL: "https://example.com", getApiUrl: () => "https://example.com" }));
 vi.mock("@/store/app-store", () => ({
   useAppStore: {
     getState: vi.fn(),

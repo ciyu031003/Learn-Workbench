@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { useAppStore } from "@/store/app-store";
-import { API_URL } from "@/config";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { DEFAULT_API_URL, getApiUrl } from "@/config";
 import { apiLogin, syncPush, syncPull } from "@/lib/sync";
 import { Card } from "@/components/card";
 
 export default function SettingsScreen() {
+  const insets = useSafeAreaInsets();
   const backgroundEnabled = useAppStore((s) => s.backgroundEnabled);
   const toggleBackground = useAppStore((s) => s.toggleBackground);
   const resetAll = useAppStore((s) => s.resetAll);
@@ -28,13 +30,16 @@ export default function SettingsScreen() {
   const [pwBusy, setPwBusy] = useState(false);
   const [careers, setCareers] = useState<{ career_key: string; name: string }[]>([]);
   const [career, setCareer] = useState("ict");
+  const apiUrlFromStore = useAppStore((s) => s.apiUrl);
+  const setApiUrl = useAppStore((s) => s.setApiUrl);
+  const [apiUrlInput, setApiUrlInput] = useState(apiUrlFromStore ?? "");
 
   useEffect(() => {
     (async () => {
       try {
         const [cRes, curRes] = await Promise.all([
-          fetch(`${API_URL}/api/careers`),
-          fetch(`${API_URL}/api/settings/career`),
+          fetch(`${getApiUrl()}/api/careers`),
+          fetch(`${getApiUrl()}/api/settings/career`),
         ]);
         const cData = await cRes.json();
         const curData = await curRes.json();
@@ -45,6 +50,12 @@ export default function SettingsScreen() {
       }
     })();
   }, []);
+
+  const saveApiUrl = () => {
+    const v = apiUrlInput.trim().replace(/\/+$/, "");
+    setApiUrl(v || DEFAULT_API_URL);
+    setMsg(v ? "服务地址已保存：" + v : "已恢复默认：" + DEFAULT_API_URL);
+  };
 
   const doLogin = async () => {
     if (!userInput.trim() || !passInput) return;
@@ -93,7 +104,7 @@ export default function SettingsScreen() {
     setCareer(key);
     if (token) {
       try {
-        await fetch(`${API_URL}/api/settings/career`, {
+        await fetch(`${getApiUrl()}/api/settings/career`, {
           method: "PUT",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({ career: key }),
@@ -115,7 +126,7 @@ export default function SettingsScreen() {
     setPwBusy(true);
     setPwMsg(null);
     try {
-      const r = await fetch(`${API_URL}/api/auth/password`, {
+      const r = await fetch(`${getApiUrl()}/api/auth/password`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ currentPassword: pwCur, newPassword: pwNew1 }),
@@ -139,13 +150,28 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <View style={styles.hero}>
+      <View style={[styles.hero, { paddingTop: insets.top + 24 }]}>
         <Text style={styles.heroTitle}>设置</Text>
         <Text style={styles.heroSub}>外观、背景图、云同步与数据</Text>
       </View>
 
       {/* 云同步 */}
-      <Card title="云同步" subtitle={`服务地址：${API_URL}`}>
+      <Card title="云同步" subtitle={`服务地址：${getApiUrl()}`}>
+        <View style={styles.row}>
+          <TextInput
+            style={[styles.input, { flex: 1 }]}
+            placeholder="服务器地址（如 http://192.168.1.100:3000）"
+            placeholderTextColor="#9ca3af"
+            value={apiUrlInput}
+            onChangeText={setApiUrlInput}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+          />
+          <Pressable style={styles.secondaryBtn} onPress={saveApiUrl}>
+            <Text style={styles.secondaryBtnText}>保存</Text>
+          </Pressable>
+        </View>
         {token ? (
           <View style={styles.rowBetween}>
             <Text style={styles.rowLabel}>已登录：{username}</Text>
@@ -187,7 +213,7 @@ export default function SettingsScreen() {
           </View>
         ) : null}
         {msg ? <Text style={styles.msg}>{msg}</Text> : null}
-        <Text style={styles.hint}>Android 模拟器使用 10.0.2.2 访问本机；真机请把 app.json 中 apiUrl 改为电脑局域网 IP。</Text>
+        <Text style={styles.hint}>Android 模拟器使用 10.0.2.2；真机请在下方填写电脑局域网地址并保存。</Text>
       </Card>
 
       {token ? (
