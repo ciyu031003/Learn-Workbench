@@ -36,6 +36,9 @@ packages/ui        设计 tokens
 db/              schema.sql + seed_content.sql + migrations/001~006
 scripts/         Bing 爬虫 + 数据库启停 + 管理员账号创建
 deploy.sh        服务器一键部署脚本（见下文「服务器部署」）
+deploy-docker.sh Docker 一键部署脚本（docker-compose 包装）
+Dockerfile       Web 端 Docker 镜像（多阶段构建）
+docker-compose.yml Docker 编排（db + init + web）
 ```
 
 ## 当前进度
@@ -112,7 +115,9 @@ node scripts\create-admin.mjs --username admin --password 你的强密码
 
 ## 服务器部署
 
-项目内置一键部署脚本 `deploy.sh`，支持 **Debian / Ubuntu / CentOS / Rocky / AlmaLinux / Fedora**，会自动完成：安装依赖 → 初始化 PostgreSQL → 构建 Web 端 → 创建管理员 → PM2 启动服务。
+项目内置两种一键部署方式：
+- **`deploy.sh`（直接部署）**：支持 **Debian / Ubuntu / CentOS / Rocky / AlmaLinux / Fedora**，自动完成：安装依赖 → 初始化 PostgreSQL → 构建 Web 端 → 创建管理员 → PM2 启动服务；已安装的工具会自动跳过下载。
+- **`deploy-docker.sh`（Docker 部署）**：服务器只需装好 Docker + Compose v2，一条命令容器化运行（见「方式三」）。
 
 ### 方式一：一键脚本部署（推荐）
 
@@ -177,6 +182,7 @@ bash deploy.sh --help       # 查看帮助
 | SETUP_CRON | 0 | 是否添加每日 6 点抓取 Bing 壁纸的 crontab（0/1） |
 | SKIP_DEPS | 0 | 跳过系统依赖安装（0/1） |
 | SKIP_BUILD | 0 | 跳过构建（0/1） |
+| NPM_REGISTRY | https://registry.npmmirror.com | npm/pnpm 镜像源（国内加速，改官方源：https://registry.npmjs.org） |
 
 示例：自定义端口、自动添加每日壁纸定时任务：
 
@@ -224,6 +230,63 @@ PGHOST=127.0.0.1 PGDATABASE=Learn-Workbench PGUSER=lwb PGPASSWORD='你的数据�
 node scripts/create-admin.mjs
 ```
 
+### 方式三：Docker 部署（推荐新服务器）
+
+不需要手动装 Node / PostgreSQL，容器化一条命令跑起来（需要服务器已安装 **Docker + Compose v2 插件**，并让当前用户有 docker 权限，例如 `sudo usermod -aG docker 你的用户名` 后重新登录）。
+
+#### 1. 一键运行
+
+```bash
+cd /opt/learn-workbench
+bash deploy-docker.sh
+```
+
+脚本会自动：生成数据库密码与管理员密码 → 写入 `.env` → `docker compose up -d --build` 构建并启动 `db + init + web` 三个容器 → 初始化数据库（幂等，重复执行自动跳过）→ 创建管理员账号（密码保存到 `deploy-credentials.txt`）→ 等待 Web 就绪并打印访问地址。
+
+#### 2. 常用命令
+
+```bash
+bash deploy-docker.sh --status     # 查看容器状态
+bash deploy-docker.sh --restart    # 重启 web
+bash deploy-docker.sh --stop       # 停止容器（保留数据）
+bash deploy-docker.sh --down       # 停止并删除容器（保留数据卷）
+bash deploy-docker.sh --logs       # 查看 web 日志
+```
+
+#### 3. 可配置环境变量
+
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| APP_PORT | 3000 | Web 对外端口 |
+| PG_PASSWORD | 自动生成 | PostgreSQL 密码 |
+| ADMIN_USERNAME | admin | 管理员用户名 |
+| ADMIN_PASSWORD | 自动生成 | 管理员密码 |
+| NPM_REGISTRY | https://registry.npmmirror.com | npm/pnpm 镜像源（构建时下载加速） |
+
+自定义端口示例：`APP_PORT=8080 bash deploy-docker.sh`
+
+#### 4. 数据持久化与备份
+
+- 数据卷：`pgdata`（PostgreSQL 数据）、`bing`（每日 Bing 壁纸）；删除/重建容器不丢数据。
+- 备份数据库：
+
+```bash
+docker compose exec -T db pg_dump -U lwb -d Learn-Workbench -Fc -f /tmp/lwb.dump
+docker compose cp db:/tmp/lwb.dump ./lwb.dump
+```
+
+- 彻底删除（含数据卷，谨慎）：`docker compose down -v`
+
+#### 5. 手动 docker compose 用法
+
+```bash
+export PG_PASSWORD=你的数据库密码
+docker compose up -d --build
+# 数据库初始化由 init 容器自动完成（幂等）
+```
+
+> 提示：手机端 app.json 的 `extra.apiUrl` 需指向服务器：`http://<服务器IP>:<APP_PORT>`。
+
 ### Nginx 反向代理 + HTTPS
 
 用域名访问时配置 Nginx（把 `your-domain.com` 和端口改成实际的）：
@@ -270,6 +333,7 @@ pg_restore -h 127.0.0.1 -U lwb -d Learn-Workbench --clean --if-exists learn-work
 - **新增了 migration 文件**：手动执行 `psql -h 127.0.0.1 -U lwb -d Learn-Workbench -f db/migrations/00X_xxx.sql`。
 - **Bing 壁纸抓不到**：服务器需能访问 `www.bing.com`；也可在 Web 端「设置」里手动触发，或运行 `python3 scripts/fetch_bing_wallpaper.py`。
 - **pnpm 报错 `ERR_UNKNOWN_BUILTIN_MODULE: node:sqlite` / 提示需要 Node ≥ 22.13**：服务器 Node 版本太老。升级到 Node 22.13+（`bash deploy.sh` 已会自动处理；若升级后仍生效，请删除旧 node 如 `/usr/local/bin/node` 或改用 nvm 再重跑）。
+- **依赖下载慢 / pnpm 一直卡在 Downloading**：默认已启用淘宝镜像 `registry.npmmirror.com`（脚本内 `NPM_REGISTRY` 环境变量，可覆盖）。如仍慢，可换其他镜像：`NPM_REGISTRY=https://registry.npm.taobao.org`（旧）或 `https://mirrors.cloud.tencent.com/npm/`；Docker 部署还可在 Docker daemon 配置 `registry-mirrors`（如 https://docker.m.daocloud.io）加速拉取基础镜像。
 - **数据库连接失败**：确认 `apps/web/.env.local` 里的 `PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD` 与部署时一致。
 
 ## 相关文档

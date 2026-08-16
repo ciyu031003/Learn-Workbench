@@ -1,0 +1,40 @@
+# Git / 本地数据（不进构建上下文）
+.git
+.gitignore
+.pgdata/
+.tools/
+.backup/
+.local/
+.turbo/
+
+# 依赖与构建产物
+node_modules/
+**/node_modules/
+.next/
+.expo/
+dist/
+dist-export/
+coverage/
+*.tsbuildinfo
+
+# 环境变量与部署凭据（不进入镜像）
+.env
+.env.*
+deploy-credentials.txt
+server.log
+server.pid
+bing.log
+
+# 每日 Bing 壁纸缓存（运行期由数据卷挂载，不进镜像）
+assets/backgrounds/bing/*.jpg
+
+# 一次性迁移工具 / 历史内容
+migration/
+content/migrated
+
+# 其他
+.data/
+__pycache__/
+*.pyc
+Thumbs.db
+.DS_Store

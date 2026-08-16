@@ -25,6 +25,7 @@
 #
 #  可用环境变量（均有默认值，按需覆盖）：
 #    APP_PORT=3000            Web 服务端口
+#    NPM_REGISTRY=https://registry.npmmirror.com   npm/pnpm 镜像源（国内加速，可改为官方源）
 #    PG_HOST=127.0.0.1        PostgreSQL 地址
 #    PG_PORT=5432             PostgreSQL 端口
 #    PG_DB=Learn-Workbench    数据库名
@@ -57,6 +58,8 @@ FETCH_BING="${FETCH_BING:-1}"
 SETUP_CRON="${SETUP_CRON:-0}"
 SKIP_DEPS="${SKIP_DEPS:-0}"
 SKIP_BUILD="${SKIP_BUILD:-0}"
+# npm/pnpm 镜像源（默认淘宝 npmmirror，国内下载加速；NPM_REGISTRY=https://registry.npmjs.org 可切回官方）
+NPM_REGISTRY="${NPM_REGISTRY:-https://registry.npmmirror.com}"
 
 # ---------------------------------------------------------------- 工具函数
 info()  { printf "\033[1;32m[deploy]\033[0m %s\n" "$*"; }
@@ -67,6 +70,11 @@ maybe_sudo() {
   if [ "$(id -u)" = "0" ]; then echo; else echo "sudo"; fi
 }
 SUDO="$(maybe_sudo)"
+
+# 使用镜像源 + 提高下载重试容忍度（已安装工具不受影响）
+export npm_config_registry="$NPM_REGISTRY"
+export npm_config_fetch_retries=5
+export npm_config_fetch_timeout=120000
 
 run_as_postgres() {
   if [ "$(id -un)" = "postgres" ]; then
@@ -202,7 +210,7 @@ install_pnpm() {
   fi
   info "安装 pnpm@11.16.0 ..."
   if command -v npm >/dev/null 2>&1; then
-    $SUDO npm install -g pnpm@11.16.0
+    $SUDO npm install -g pnpm@11.16.0 --registry="$NPM_REGISTRY"
     hash -r
   elif command -v corepack >/dev/null 2>&1; then
     $SUDO corepack enable
@@ -289,7 +297,7 @@ if [ "$SKIP_DEPS" != "1" ]; then
   fi
   if [ "$PROCESS_MANAGER" = "pm2" ] && ! command -v pm2 >/dev/null 2>&1; then
     info "安装 PM2 进程管理器 ..."
-    $SUDO npm install -g pm2 || warn "PM2 安装失败，将降级为 nohup 启动"
+    $SUDO npm install -g pm2 --registry="$NPM_REGISTRY" || warn "PM2 安装失败，将降级为 nohup 启动"
   fi
 else
   info "SKIP_DEPS=1，跳过系统依赖安装"
@@ -352,11 +360,11 @@ fi
 # ---------------------------------------------------------------- 安装依赖 + 构建
 info "---------- 步骤 3/6：安装项目依赖 ----------"
 if command -v pnpm >/dev/null 2>&1; then
-  if pnpm install --frozen-lockfile 2>/dev/null; then
+  if pnpm install --frozen-lockfile --reporter=append-only 2>/dev/null; then
     :
   else
     info "lockfile 校验未通过，改用 pnpm install ..."
-    pnpm install
+    pnpm install --reporter=append-only
   fi
 else
   error "未找到 pnpm，请检查步骤 1 是否成功"

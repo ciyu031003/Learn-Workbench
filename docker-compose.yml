@@ -1,0 +1,78 @@
+# =============================================================================
+# Learn-Workbench · ICT 学习工作台 —— Docker Compose
+# 推荐使用一键脚本：bash deploy-docker.sh
+# 手动使用：
+#   export PG_PASSWORD=你的数据库密码
+#   docker compose up -d --build
+# =============================================================================
+name: learn-workbench
+
+services:
+  # PostgreSQL 数据库
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: Learn-Workbench
+      POSTGRES_USER: lwb
+      POSTGRES_PASSWORD: ${PG_PASSWORD:?PG_PASSWORD 未设置，请先运行 bash deploy-docker.sh 或 export PG_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lwb -d Learn-Workbench"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    networks: [lwb]
+
+  # 一次性初始化：建表 + 种子数据 + 迁移（幂等，可重复执行）
+  init:
+    image: postgres:16-alpine
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGPORT: 5432
+      PGUSER: lwb
+      PGDATABASE: Learn-Workbench
+      PGPASSWORD: ${PG_PASSWORD:?PG_PASSWORD 未设置}
+    volumes:
+      - ./db:/init/db:ro
+      - ./scripts/docker-init-db.sh:/init/init.sh:ro
+    command: ["sh", "/init/init.sh"]
+    networks: [lwb]
+
+  # Web 端（Next.js）
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmmirror.com}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      init:
+        condition: service_completed_successfully
+    environment:
+      PGHOST: db
+      PGPORT: 5432
+      PGDATABASE: Learn-Workbench
+      PGUSER: lwb
+      PGPASSWORD: ${PG_PASSWORD:?PG_PASSWORD 未设置}
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    volumes:
+      # 每日 Bing 壁纸持久化（爬虫写入 + 页面读取）
+      - bing:/app/assets/backgrounds/bing
+    networks: [lwb]
+
+volumes:
+  pgdata:   # PostgreSQL 数据
+  bing:     # Bing 壁纸
+
+networks:
+  lwb:
