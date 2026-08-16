@@ -59,7 +59,7 @@ deploy.sh        服务器一键部署脚本（见下文「服务器部署」）
 
 ## 本地开发
 
-环境要求：Node.js ≥ 20、pnpm 11（`corepack enable` 后可用）、PostgreSQL、Python 3。
+环境要求：Node.js ≥ 22.13（pnpm 11 依赖内置 `node:sqlite` 模块）、pnpm 11（`corepack enable` 后可用）、PostgreSQL、Python 3。
 
 ### 1. 数据库（PostgreSQL）
 
@@ -269,6 +269,7 @@ pg_restore -h 127.0.0.1 -U lwb -d Learn-Workbench --clean --if-exists learn-work
 - **重复运行 deploy.sh**：数据库已初始化会跳过 schema/seed/migrations（用 `app_meta` 中的 `deploy_init` 标记）；已存在的管理员账号不会被重置。
 - **新增了 migration 文件**：手动执行 `psql -h 127.0.0.1 -U lwb -d Learn-Workbench -f db/migrations/00X_xxx.sql`。
 - **Bing 壁纸抓不到**：服务器需能访问 `www.bing.com`；也可在 Web 端「设置」里手动触发，或运行 `python3 scripts/fetch_bing_wallpaper.py`。
+- **pnpm 报错 `ERR_UNKNOWN_BUILTIN_MODULE: node:sqlite` / 提示需要 Node ≥ 22.13**：服务器 Node 版本太老。升级到 Node 22.13+（`bash deploy.sh` 已会自动处理；若升级后仍生效，请删除旧 node 如 `/usr/local/bin/node` 或改用 nvm 再重跑）。
 - **数据库连接失败**：确认 `apps/web/.env.local` 里的 `PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD` 与部署时一致。
 
 ## 相关文档

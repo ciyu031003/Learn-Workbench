@@ -162,26 +162,35 @@ fi
 info "检测到系统: ${OS_ID:-unknown} (包管理器: $PKG_MGR)"
 
 # ---------------------------------------------------------------- 安装依赖
+# pnpm 11 需要 Node >= 22.13（内部使用 node:sqlite 内置模块，Node 20 会报
+# ERR_UNKNOWN_BUILTIN_MODULE: node:sqlite）。这里按 >= 22.13 校验。
+node_ok() {
+  local ver major minor
+  ver="$(node -v 2>/dev/null | sed 's/^v//')" || return 1
+  major="${ver%%.*}"
+  minor="$(printf '%s' "$ver" | cut -d. -f2)"
+  if [ "$major" -gt 22 ]; then return 0; fi
+  if [ "$major" -eq 22 ] && [ "$minor" -ge 13 ]; then return 0; fi
+  return 1
+}
+
 install_node() {
-  local need=0
-  if ! command -v node >/dev/null 2>&1; then
-    need=1
-  else
-    local major
-    major="$(node -v | sed 's/^v//' | cut -d. -f1)"
-    if [ "$major" -lt 20 ]; then need=1; fi
-  fi
-  if [ "$need" = 0 ]; then
+  if command -v node >/dev/null 2>&1 && node_ok; then
     info "Node.js $(node -v) 已就绪"
     return
   fi
-  info "安装 Node.js 22 LTS ..."
+  info "安装 Node.js 22 LTS（当前 $(command -v node >/dev/null 2>&1 && node -v || echo 无) 不满足 Node >= 22.13 要求）..."
   if [ "$PKG_MGR" = "apt" ]; then
     curl -fsSL https://deb.nodesource.com/setup_22.x | $SUDO bash -
   else
     curl -fsSL https://rpm.nodesource.com/setup_22.x | $SUDO bash -
   fi
   $SUDO "$PKG_MGR" install -y nodejs
+  hash -r
+  if ! node_ok; then
+    error "Node.js 升级后仍为 $(node -v)，仍未满足 >= 22.13。请手动处理：删除旧版 node（如 /usr/local/bin/node、nvm 等）后重试，或用 nvm：curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash && nvm install 22"
+  fi
+  info "Node.js 已升级到 $(node -v)"
 }
 
 install_pnpm() {
@@ -192,6 +201,7 @@ install_pnpm() {
   info "安装 pnpm@11.16.0 ..."
   if command -v npm >/dev/null 2>&1; then
     $SUDO npm install -g pnpm@11.16.0
+    hash -r
   elif command -v corepack >/dev/null 2>&1; then
     $SUDO corepack enable
     $SUDO corepack prepare pnpm@11.16.0 --activate
@@ -248,6 +258,7 @@ if [ "$SKIP_DEPS" != "1" ]; then
 else
   info "SKIP_DEPS=1，跳过系统依赖安装"
 fi
+hash -r
 
 # ---------------------------------------------------------------- PostgreSQL 配置
 if [ -z "$PG_PASSWORD" ]; then
