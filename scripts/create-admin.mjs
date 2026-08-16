@@ -60,6 +60,7 @@ const pool = new pg.Pool({
   port: Number(process.env.PGPORT || 5432),
   database: process.env.PGDATABASE || "Learn-Workbench",
   user: process.env.PGUSER || "postgres",
+  password: process.env.PGPASSWORD,
   connectionTimeoutMillis: 5000,
 });
 

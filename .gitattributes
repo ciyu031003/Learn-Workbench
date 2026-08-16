@@ -1,0 +1,2 @@
+# Shell 脚本强制 LF，避免 Windows 检出时被 core.autocrlf 转成 CRLF 导致 bash 无法运行
+*.sh text eol=lf

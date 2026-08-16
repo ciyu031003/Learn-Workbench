@@ -278,15 +278,8 @@ CREATE TABLE sessions (
   created_at timestamptz NOT NULL DEFAULT now(),
   expires_at timestamptz NOT NULL
 );
-CREATE INDEX idx_sessions_user ON sessions(user_id);
+CREATE INDEX idx_sessions_user_id ON sessions(user_id);
 
-CREATE TRIGGER trg_accounts_updated
-  BEFORE UPDATE ON accounts FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
--- 自定义主题标记
-ALTER TABLE content_topics ADD COLUMN is_custom boolean NOT NULL DEFAULT false;
-ALTER TABLE content_topics ADD COLUMN owner_id uuid REFERENCES users(id) ON DELETE CASCADE;
-CREATE INDEX idx_topics_owner ON content_topics(owner_id);
 -- ---------- updated_at 自动更新 ----------
 
 CREATE OR REPLACE FUNCTION set_updated_at() RETURNS trigger AS $$
@@ -295,6 +288,13 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+CREATE TRIGGER trg_accounts_updated
+  BEFORE UPDATE ON accounts FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- 自定义主题标记
+ALTER TABLE content_topics ADD COLUMN is_custom boolean NOT NULL DEFAULT false;
+ALTER TABLE content_topics ADD COLUMN owner_id uuid REFERENCES users(id) ON DELETE CASCADE;
+CREATE INDEX idx_topics_owner ON content_topics(owner_id);
 
 CREATE TRIGGER trg_users_updated        BEFORE UPDATE ON users          FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER trg_topic_progress_updated BEFORE UPDATE ON topic_progress FOR EACH ROW EXECUTE FUNCTION set_updated_at();

@@ -33,3 +33,12 @@ Thumbs.db
 .backup/
 
 .local/
+
+# 环境变量（含服务器部署自动生成的密钥，勿提交）
+.env
+.env.local
+.env.*.local
+
+# 部署产物（deploy.sh 生成）
+deploy-credentials.txt
+server.pid

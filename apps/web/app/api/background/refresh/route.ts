@@ -20,7 +20,7 @@ export async function POST() {
   if (!root) return NextResponse.json({ error: "未找到爬虫脚本" }, { status: 500 });
   const script = path.join(root, "scripts", "fetch_bing_wallpaper.py");
   const output = await new Promise<string>((resolve) => {
-    execFile("python", [script], { cwd: root, timeout: 60_000, windowsHide: true }, (err, stdout, stderr) => {
+    execFile(process.platform === "win32" ? "python" : "python3", [script], { cwd: root, timeout: 60_000, windowsHide: true }, (err, stdout, stderr) => {
       resolve(`${stdout ?? ""}${stderr ?? ""}${err ? ` [err] ${err.message}` : ""}`);
     });
   });
