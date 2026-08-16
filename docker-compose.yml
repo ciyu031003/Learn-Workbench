@@ -63,6 +63,7 @@ services:
       PGDATABASE: Learn-Workbench
       PGUSER: lwb
       PGPASSWORD: ${PG_PASSWORD:?PG_PASSWORD 未设置}
+      TZ: Asia/Shanghai
     ports:
       - "${APP_PORT:-3001}:3001"
     volumes:

@@ -38,10 +38,10 @@ ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1
 # python3：Bing 每日壁纸爬虫依赖（可选功能）；curl：便于容器内排障
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends python3 curl \
+    && apt-get install -y --no-install-recommends python3 curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=builder /app ./
 WORKDIR /app/apps/web
 EXPOSE 3001
-CMD ["node", "node_modules/next/dist/bin/next", "start", "-p", "3001"]
+CMD ["node", "/app/node_modules/next/dist/bin/next", "start", "-p", "3001"]
