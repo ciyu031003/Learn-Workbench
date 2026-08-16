@@ -45,7 +45,7 @@ export default function TasksScreen() {
 
   const shareCard = async () => {
     const msg = [
-      "📚 学习工作台 · 专注打卡",
+      "📚 苦旅 · 专注打卡",
       `📅 ${stats.date}`,
       `🔥 连续专注 ${stats.streak} 天 ｜ 累计专注 ${stats.totalFocusDays} 天`,
       `⏱ 今日专注 ${stats.todaySessions} 次 · ${stats.todayMinutes} 分钟`,
