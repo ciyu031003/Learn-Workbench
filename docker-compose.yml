@@ -64,7 +64,7 @@ services:
       PGUSER: lwb
       PGPASSWORD: ${PG_PASSWORD:?PG_PASSWORD 未设置}
     ports:
-      - "${APP_PORT:-3000}:3000"
+      - "${APP_PORT:-3001}:3001"
     volumes:
       # 每日 Bing 壁纸持久化（爬虫写入 + 页面读取）
       - bing:/app/assets/backgrounds/bing

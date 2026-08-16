@@ -22,7 +22,7 @@
 #    bash deploy-docker.sh --help         # 帮助
 #
 #  可用环境变量（均有默认值，按需覆盖）：
-#    APP_PORT=3000          Web 对外端口
+#    APP_PORT=3001          Web 对外端口
 #    NPM_REGISTRY=https://registry.npmmirror.com   npm/pnpm 镜像源（构建时下载加速，可改官方源）
 #    PG_PASSWORD=<自动生成>  PostgreSQL 密码
 #    ADMIN_USERNAME=admin   管理员用户名
@@ -33,7 +33,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 
-APP_PORT="${APP_PORT:-3000}"
+APP_PORT="${APP_PORT:-3001}"
 PG_PASSWORD="${PG_PASSWORD:-}"
 ADMIN_USERNAME="${ADMIN_USERNAME:-admin}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-}"

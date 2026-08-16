@@ -160,7 +160,7 @@ export default function SettingsScreen() {
         <View style={styles.row}>
           <TextInput
             style={[styles.input, { flex: 1 }]}
-            placeholder="服务器地址（如 http://192.168.1.100:3000）"
+            placeholder="服务器地址（如 http://192.168.1.100:3001）"
             placeholderTextColor="#9ca3af"
             value={apiUrlInput}
             onChangeText={setApiUrlInput}

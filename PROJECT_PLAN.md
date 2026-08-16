@@ -252,7 +252,7 @@ apps/mobile (Expo + React Native + Expo Router；本地 AsyncStorage + 同步 AP
 3. **GitHub 记录**：`GET/POST/DELETE /api/github` + 仪表盘底部卡片（双端）
 4. **云同步**：`POST /api/sync/push`（全量替换）+ `GET /api/sync/pull`；移动端 `src/lib/sync.ts`；设置页「一键同步到云端 / 从云端恢复 / 退出登录」
 5. **Liquid Glass UI**：`apps/web/app/globals.css` 玻璃 tokens（--glass-blur:24px / --glass-saturation:1.8 / 暗亮双主题）；`.glass::before` 渐变高光边缘；环境光斑 blob 动画；动态文字对比（DailyBackground canvas 亮度检测 → `<html>.bg-dark`）；每日一言小组件（修复水合不一致）
-6. **移动端配置**：app.json 增加 `android.package: com.yuanabd.learnworkbench`、显示名「ICT学习工作台」、`extra.apiUrl: http://10.0.2.2:3000`（模拟器）；`expo prebuild --platform android` 已生成原生 android/ 目录（gitignore 忽略）
+6. **移动端配置**：app.json 增加 `android.package: com.yuanabd.learnworkbench`、显示名「ICT学习工作台」、`extra.apiUrl: http://10.0.2.2:3001`（模拟器）；`expo prebuild --platform android` 已生成原生 android/ 目录（gitignore 忽略）
 
 ### 验证结果
 - Web：typecheck ✅ / lint ✅ / `next build` ✅ / 5 个页面 200 ✅；无 Cookie 访问 /dashboard → 307 /login ✅；POST /api/auth/login 200 ✅；Bearer 可访问数据 API ✅
@@ -291,7 +291,7 @@ apps/mobile (Expo + React Native + Expo Router；本地 AsyncStorage + 同步 AP
 - M7 云同步（Supabase）→ M8 证书/简历/题库 → M9 AI
 
 **日常命令**
-- Web：`pnpm web`（http://localhost:3000）
+- Web：`pnpm web`（http://localhost:3001）
 - 移动端：`pnpm mobile`（Expo）
 - 数据库：`powershell -File scripts\start_pg.ps1`
 - 抓壁纸：`python scripts\fetch_bing_wallpaper.py --db "host=127.0.0.1 port=5432 dbname=Learn-Workbench user=postgres"`
@@ -368,8 +368,8 @@ cd android
 ```
 
 - **产物**：`apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk`
-- **后端地址**：app.json `extra.apiUrl` 目前是 `http://10.0.2.2:3000`（Android 模拟器访问宿主机）；**真机安装需改为电脑局域网 IP**（如 `http://192.168.x.x:3000`）并重新 prebuild/打包，或改为公网地址
-- **Web 端需保持运行**：移动端同步依赖 Web 的 `:3000` 同步 API（`/api/sync/push|pull`、`/api/auth/login`）
+- **后端地址**：app.json `extra.apiUrl` 目前是 `http://10.0.2.2:3001`（Android 模拟器访问宿主机）；**真机安装需改为电脑局域网 IP**（如 `http://192.168.x.x:3001`）并重新 prebuild/打包，或改为公网地址
+- **Web 端需保持运行**：移动端同步依赖 Web 的 `:3001` 同步 API（`/api/sync/push|pull`、`/api/auth/login`）
 - **打包成功后**：将 APK 文件放到 `dist/` 或说明路径，并提交一次 git
 
 ### 12.5 移动端同步说明

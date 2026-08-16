@@ -48,7 +48,7 @@
       "reactCompiler": true
     },
     "extra": {
-      "apiUrl": "http://10.0.2.2:3000"
+      "apiUrl": "http://10.0.2.2:3001"
     }
   }
 }

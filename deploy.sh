@@ -24,7 +24,7 @@
 #    bash deploy.sh --help          # 帮助
 #
 #  可用环境变量（均有默认值，按需覆盖）：
-#    APP_PORT=3000            Web 服务端口
+#    APP_PORT=3001            Web 服务端口
 #    NPM_REGISTRY=https://registry.npmmirror.com   npm/pnpm 镜像源（国内加速，可改为官方源）
 #    PG_HOST=127.0.0.1        PostgreSQL 地址
 #    PG_PORT=5432             PostgreSQL 端口
@@ -45,7 +45,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 
 # ---------------------------------------------------------------- 默认配置
-APP_PORT="${APP_PORT:-3000}"
+APP_PORT="${APP_PORT:-3001}"
 PG_HOST="${PG_HOST:-127.0.0.1}"
 PG_PORT="${PG_PORT:-5432}"
 PG_DB="${PG_DB:-Learn-Workbench}"

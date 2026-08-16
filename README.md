@@ -87,14 +87,14 @@ psql -h 127.0.0.1 -p 5432 -U postgres -d Learn-Workbench
 
 ```powershell
 pnpm install
-pnpm web          # http://localhost:3000（管理员账号通过 scripts/create-admin.mjs 创建）
+pnpm web          # http://localhost:3001（管理员账号通过 scripts/create-admin.mjs 创建）
 ```
 
 ### 3. 移动端（Expo）
 
 ```powershell
 pnpm mobile       # 启动 Expo，按 a 打开 Android / w 打开 Web
-# app.json extra.apiUrl 默认 http://10.0.2.2:3000（Android 模拟器）；真机改为电脑局域网 IP
+# app.json extra.apiUrl 默认 http://10.0.2.2:3001（Android 模拟器）；真机改为电脑局域网 IP
 ```
 
 ### 4. Bing 每日壁纸
@@ -148,11 +148,11 @@ bash deploy.sh
 3. `pnpm install` + `pnpm --filter web build` 构建 Web 端
 4. 写入 `apps/web/.env.local`（数据库连接配置，已被 .gitignore 忽略）
 5. 创建管理员账号（自动生成密码）
-6. 用 PM2 启动 Web 服务（端口 3000），并抓取一次今日 Bing 壁纸
+6. 用 PM2 启动 Web 服务（端口 3001），并抓取一次今日 Bing 壁纸
 
 部署完成后：
 
-- 浏览器访问 `http://服务器IP:3000`
+- 浏览器访问 `http://服务器IP:3001`
 - 管理员账号密码见项目根目录 `deploy-credentials.txt`（权限 600，确认后建议删除）
 
 #### 3. 常用命令
@@ -169,7 +169,7 @@ bash deploy.sh --help       # 查看帮助
 
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
-| APP_PORT | 3000 | Web 服务端口 |
+| APP_PORT | 3001 | Web 服务端口 |
 | PG_HOST | 127.0.0.1 | PostgreSQL 地址 |
 | PG_PORT | 5432 | PostgreSQL 端口 |
 | PG_DB | Learn-Workbench | 数据库名 |
@@ -257,7 +257,7 @@ bash deploy-docker.sh --logs       # 查看 web 日志
 
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
-| APP_PORT | 3000 | Web 对外端口 |
+| APP_PORT | 3001 | Web 对外端口 |
 | PG_PASSWORD | 自动生成 | PostgreSQL 密码 |
 | ADMIN_USERNAME | admin | 管理员用户名 |
 | ADMIN_PASSWORD | 自动生成 | 管理员密码 |
@@ -297,7 +297,7 @@ server {
     server_name your-domain.com;
 
     location / {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:3001;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -327,7 +327,7 @@ pg_restore -h 127.0.0.1 -U lwb -d Learn-Workbench --clean --if-exists learn-work
 ### 常见问题（FAQ）
 
 - **端口被占用**：改 `APP_PORT=8080 bash deploy.sh`，或先停掉占用端口的进程。
-- **服务器访问不了 3000 端口**：检查云厂商安全组 / 防火墙（`ufw allow 3000` 或安全组放行）。
+- **服务器访问不了 3001 端口**：检查云厂商安全组 / 防火墙（`ufw allow 3001` 或安全组放行）。
 - **PM2 开机自启**：执行 `pm2 startup`，并按提示用 root 运行它输出的命令。
 - **重复运行 deploy.sh**：数据库已初始化会跳过 schema/seed/migrations（用 `app_meta` 中的 `deploy_init` 标记）；已存在的管理员账号不会被重置。
 - **新增了 migration 文件**：手动执行 `psql -h 127.0.0.1 -U lwb -d Learn-Workbench -f db/migrations/00X_xxx.sql`。

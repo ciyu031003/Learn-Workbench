@@ -43,5 +43,5 @@ RUN apt-get update \
 WORKDIR /app
 COPY --from=builder /app ./
 WORKDIR /app/apps/web
-EXPOSE 3000
-CMD ["node", "node_modules/next/dist/bin/next", "start", "-p", "3000"]
+EXPOSE 3001
+CMD ["node", "node_modules/next/dist/bin/next", "start", "-p", "3001"]
