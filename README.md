@@ -136,7 +136,7 @@ cd /opt/learn-workbench
 bash deploy.sh
 ```
 
-脚本会依次执行（可重复运行，幂等）：
+脚本会依次执行（可重复运行，幂等；已安装的工具会自动跳过下载/安装）：
 
 1. 安装 Node.js 22、pnpm 11.16.0、PostgreSQL、python3、PM2
 2. 创建数据库用户 `lwb` 和数据库 `Learn-Workbench`，执行 `db/schema.sql` + `db/seed_content.sql` + `db/migrations/*.sql`

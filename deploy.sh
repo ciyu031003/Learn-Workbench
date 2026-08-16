@@ -12,6 +12,8 @@
 #    5. 创建管理员账号（自动生成密码，保存到 deploy-credentials.txt）
 #    6. 用 PM2 启动 Web 服务（无 PM2 时降级为 nohup）
 #    7. 可选：抓取今日 Bing 壁纸、配置每日定时任务
+#    8. 依赖智能检测：已安装的工具（Node/pnpm/PostgreSQL/python3/curl/PM2）自动跳过下载与安装；
+#       PostgreSQL 已在运行或服务端已装也会跳过，重复执行不会重复下载
 #
 #  用法：
 #    bash deploy.sh                 # 一键部署（可重复执行，幂等）
@@ -194,7 +196,7 @@ install_node() {
 }
 
 install_pnpm() {
-  if command -v pnpm >/dev/null 2>&1; then
+  if command -v pnpm >/dev/null 2>&1 && [ "$(pnpm --version 2>/dev/null | cut -d. -f1)" -ge 11 ]; then
     info "pnpm $(pnpm --version) 已就绪"
     return
   fi
@@ -210,24 +212,40 @@ install_pnpm() {
   fi
 }
 
+# PostgreSQL 服务端是否已安装（psql 只是客户端，不能代表服务端已装）
+pg_server_installed() {
+  command -v postgres >/dev/null 2>&1 && return 0
+  command -v pg_ctl >/dev/null 2>&1 && return 0
+  [ -n "$(ls /usr/lib/postgresql/*/bin/postgres 2>/dev/null | head -1)" ] && return 0
+  return 1
+}
+
 install_postgres() {
-  if command -v psql >/dev/null 2>&1 && command -v pg_isready >/dev/null 2>&1; then
-    info "PostgreSQL 客户端已就绪"
+  # 目标端口已有 PostgreSQL 在运行（含系统自启 / 远程 / Docker），跳过安装与启动
+  if pg_isready -h "$PG_HOST" -p "$PG_PORT" -q 2>/dev/null; then
+    info "PostgreSQL 已在 $PG_HOST:$PG_PORT 运行，跳过安装与启动"
+    return
+  fi
+  if pg_server_installed; then
+    info "PostgreSQL 服务端已安装"
   else
     info "安装 PostgreSQL ..."
     $SUDO "$PKG_MGR" install -y postgresql postgresql-client 2>/dev/null \
       || $SUDO "$PKG_MGR" install -y postgresql-server postgresql
+    hash -r
   fi
   # RHEL 系首次初始化数据目录
   if [ -x /usr/bin/postgresql-setup ] && [ ! -f /var/lib/pgsql/data/PG_VERSION ]; then
     info "初始化 PostgreSQL 数据目录 ..."
     $SUDO /usr/bin/postgresql-setup --initdb || true
   fi
-  # 启动并设为开机自启
-  if command -v systemctl >/dev/null 2>&1; then
-    $SUDO systemctl enable --now postgresql >/dev/null 2>&1 || $SUDO systemctl restart postgresql
-  else
-    $SUDO service postgresql start || true
+  # 启动并设为开机自启（仅在未运行时）
+  if ! pg_isready -h "$PG_HOST" -p "$PG_PORT" -q 2>/dev/null; then
+    if command -v systemctl >/dev/null 2>&1; then
+      $SUDO systemctl enable --now postgresql >/dev/null 2>&1 || $SUDO systemctl restart postgresql
+    else
+      $SUDO service postgresql start || true
+    fi
   fi
   # 等待就绪
   local i=0
@@ -241,12 +259,30 @@ install_postgres() {
 
 if [ "$SKIP_DEPS" != "1" ]; then
   info "---------- 步骤 1/6：安装系统依赖 ----------"
-  if [ "$PKG_MGR" = "apt" ]; then
+  # 先判断是否真的需要安装，已装好的工具一律跳过下载/安装
+  need_install=0
+  if ! command -v node >/dev/null 2>&1 || ! node_ok; then need_install=1; fi
+  if ! command -v pnpm >/dev/null 2>&1 || [ "$(pnpm --version 2>/dev/null | cut -d. -f1)" -lt 11 ]; then need_install=1; fi
+  if ! command -v curl >/dev/null 2>&1; then need_install=1; fi
+  if ! command -v python3 >/dev/null 2>&1; then need_install=1; fi
+  if ! pg_isready -h "$PG_HOST" -p "$PG_PORT" -q 2>/dev/null && ! pg_server_installed; then need_install=1; fi
+  if [ "$PROCESS_MANAGER" = "pm2" ] && ! command -v pm2 >/dev/null 2>&1; then need_install=1; fi
+
+  # 只有确实要装东西时才执行 apt-get update，避免无谓的网络刷新
+  if [ "$need_install" = "1" ] && [ "$PKG_MGR" = "apt" ]; then
     $SUDO apt-get update -y
   fi
+  if [ "$need_install" = "0" ]; then
+    info "所需依赖均已就绪，跳过系统依赖安装"
+  fi
+
   install_node
   install_pnpm
   install_postgres
+  if ! command -v curl >/dev/null 2>&1; then
+    info "安装 curl ..."
+    $SUDO "$PKG_MGR" install -y curl
+  fi
   if ! command -v python3 >/dev/null 2>&1; then
     info "安装 python3（Bing 壁纸爬虫依赖）..."
     $SUDO "$PKG_MGR" install -y python3
@@ -259,7 +295,6 @@ else
   info "SKIP_DEPS=1，跳过系统依赖安装"
 fi
 hash -r
-
 # ---------------------------------------------------------------- PostgreSQL 配置
 if [ -z "$PG_PASSWORD" ]; then
   PG_PASSWORD="$(gen_password)"
