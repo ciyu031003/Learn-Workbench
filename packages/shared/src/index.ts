@@ -392,3 +392,139 @@ export const energyLevelColors: Record<number, string> = {
   4: "#22c55e",
   5: "#0ea5e9",
 };
+
+
+/* ================= 招花 · 招聘信息爬虫（方案 M7） ================= */
+
+export const jobSourceSchema = z.enum(["lagou", "liepin", "zhilian", "job51", "boss"]);
+export type JobSource = z.infer<typeof jobSourceSchema>;
+
+export const jobSourceLabels: Record<JobSource, string> = {
+  lagou: "拉勾",
+  liepin: "猎聘",
+  zhilian: "智联招聘",
+  job51: "前程无忧",
+  boss: "Boss直聘",
+};
+
+/** 实验性平台（强风控，可能不稳定） */
+export const experimentalJobSources: JobSource[] = ["boss"];
+
+export const defaultCrawlerPlatforms: JobSource[] = ["lagou", "liepin", "zhilian", "job51"];
+
+export const jobPostingSchema = z.object({
+  id: z.number(),
+  source: jobSourceSchema,
+  sourceJobId: z.string(),
+  title: z.string(),
+  company: z.string(),
+  city: z.string(),
+  district: z.string(),
+  salaryMin: z.number().nullable(),
+  salaryMax: z.number().nullable(),
+  salaryText: z.string(),
+  experience: z.string(),
+  education: z.string(),
+  tags: z.array(z.string()),
+  description: z.string(),
+  requirements: z.string(),
+  companyInfo: z.string(),
+  url: z.string(),
+  logoUrl: z.string(),
+  publishedAt: z.string().nullable(),
+  fetchedAt: z.string(),
+});
+export type JobPosting = z.infer<typeof jobPostingSchema>;
+
+/** 卡片列表项（招花信息流用，字段精简） */
+export const jobPostingListItemSchema = jobPostingSchema.pick({
+  id: true,
+  source: true,
+  title: true,
+  company: true,
+  city: true,
+  district: true,
+  salaryMin: true,
+  salaryMax: true,
+  salaryText: true,
+  experience: true,
+  education: true,
+  tags: true,
+  url: true,
+  publishedAt: true,
+  fetchedAt: true,
+}).extend({
+  isNew: z.boolean().default(false),
+  isFav: z.boolean().default(false),
+});
+export type JobPostingListItem = z.infer<typeof jobPostingListItemSchema>;
+
+export const jobPostingListSchema = z.object({
+  jobs: z.array(jobPostingListItemSchema),
+  total: z.number(),
+  page: z.number(),
+  pageSize: z.number(),
+});
+export type JobPostingList = z.infer<typeof jobPostingListSchema>;
+
+export const jobCrawlerConfigSchema = z.object({
+  keywords: z.array(z.string()),
+  industries: z.array(z.string()),
+  cities: z.array(z.string()),
+  platforms: z.array(jobSourceSchema),
+  scheduleTime: z.string(),
+  enabled: z.boolean(),
+  maxPages: z.number(),
+  lastRunAt: z.string().nullable().default(null),
+});
+export type JobCrawlerConfig = z.infer<typeof jobCrawlerConfigSchema>;
+
+export const defaultCrawlerConfig: JobCrawlerConfig = {
+  keywords: [],
+  industries: [],
+  cities: [],
+  platforms: defaultCrawlerPlatforms,
+  scheduleTime: "08:00",
+  enabled: true,
+  maxPages: 3,
+  lastRunAt: null,
+};
+
+export const jobRunSchema = z.object({
+  id: z.number(),
+  startedAt: z.string(),
+  finishedAt: z.string().nullable(),
+  status: z.enum(["running", "success", "partial", "failed"]),
+  platformsResult: z.record(z.string(), z.number()),
+  fetchedCount: z.number(),
+  newCount: z.number(),
+  error: z.string().nullable(),
+});
+export type JobRun = z.infer<typeof jobRunSchema>;
+
+export const jobStatsSchema = z.object({
+  total: z.number(),
+  todayNew: z.number(),
+  platformCount: z.number(),
+  lastRun: z.string().nullable(),
+  lastRunStatus: z.string().nullable(),
+});
+export type JobStats = z.infer<typeof jobStatsSchema>;
+
+/** 相对时间：X 小时前 / 昨天 / MM-DD */
+export function formatRelativeTime(iso: string | null): string {
+  if (!iso) return "—";
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return "—";
+  const diffMs = Date.now() - t;
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return "刚刚";
+  if (minutes < 60) return minutes + " 分钟前";
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return hours + " 小时前";
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "昨天";
+  if (days < 7) return days + " 天前";
+  const d = new Date(t);
+  return (d.getMonth() + 1) + "-" + String(d.getDate()).padStart(2, "0");
+}

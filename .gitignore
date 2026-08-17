@@ -42,3 +42,5 @@ Thumbs.db
 # 部署产物（deploy.sh 生成）
 deploy-credentials.txt
 server.pid
+prototype/shots/
+prototype/tmp/

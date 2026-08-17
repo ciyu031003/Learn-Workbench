@@ -11,6 +11,7 @@ import {
   Settings,
   Sparkles,
   HeartPulse,
+  Flower,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { todayISO } from "@learn-workbench/shared";
@@ -22,6 +23,7 @@ const nav = [
   { href: "/tasks", label: "任务", icon: ListTodo },
   { href: "/logs", label: "日志", icon: NotebookPen },
   { href: "/wellbeing", label: "健康", icon: HeartPulse },
+  { href: "/jobs", label: "招花", icon: Flower },
   { href: "/settings", label: "设置", icon: Settings },
 ];
 
@@ -94,6 +96,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <nav className="mt-8 flex flex-1 flex-col gap-1">
           {nav.map((item) => {
             const active = pathname === item.href || pathname.startsWith(item.href + "/");
+            const isJobs = item.href === "/jobs";
             return (
               <Link
                 key={item.href}
@@ -101,14 +104,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 className={cn(
                   "relative flex items-center gap-3.5 rounded-lg px-3 py-3 text-sm font-medium transition-colors",
                   active
-                    ? "bg-indigo-500/10 text-foreground"
+                    ? isJobs
+                      ? "bg-emerald-500/10 text-foreground"
+                      : "bg-indigo-500/10 text-foreground"
                     : "text-muted-foreground hover:bg-white/15 hover:text-foreground"
                 )}
               >
                 {active ? (
-                  <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full bg-gradient-to-b from-primary to-accent" />
+                  <span className={cn("absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full bg-gradient-to-b", isJobs ? "from-emerald-400 to-cyan-500" : "from-primary to-accent")} />
                 ) : null}
-                <item.icon className={cn("size-4.5", active && "text-primary")} />
+                <item.icon className={cn("size-4.5", active && (isJobs ? "text-emerald-500" : "text-primary"))} />
                 {item.label}
               </Link>
             );
@@ -144,13 +149,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <nav className="glass-nav app-bottomnav fixed inset-x-0 bottom-0 z-30 border-t">
         {nav.map((item) => {
           const active = pathname === item.href || pathname.startsWith(item.href + "/");
+          const isJobs = item.href === "/jobs";
           return (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
                 "flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium",
-                active ? "text-primary" : "text-muted-foreground"
+                active ? (isJobs ? "text-emerald-500" : "text-primary") : "text-muted-foreground"
               )}
             >
               <item.icon className="size-5" />

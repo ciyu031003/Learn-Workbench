@@ -254,6 +254,14 @@ apps/mobile (Expo + React Native + Expo Router；本地 AsyncStorage + 同步 AP
 5. **Liquid Glass UI**：`apps/web/app/globals.css` 玻璃 tokens（--glass-blur:24px / --glass-saturation:1.8 / 暗亮双主题）；`.glass::before` 渐变高光边缘；环境光斑 blob 动画；动态文字对比（DailyBackground canvas 亮度检测 → `<html>.bg-dark`）；每日一言小组件（修复水合不一致）
 6. **移动端配置**：app.json 增加 `android.package: com.yuanabd.learnworkbench`、显示名「ICT学习工作台」、`extra.apiUrl: http://10.0.2.2:3001`（模拟器）；`expo prebuild --platform android` 已生成原生 android/ 目录（gitignore 忽略）
 
+### M7 招花 · 招聘信息爬虫（2026-08-17 第一版）
+1. **数据层**：`db/migrations/007_jobs.sql` — `job_crawler_configs`（每账号一行）、`job_postings`（全局职位库，source+source_job_id 去重）、`job_favorites`（每账号收藏）、`job_crawler_runs`（运行日志）
+2. **共享类型**：`packages/shared` 新增 jobSource/jobPosting/jobCrawlerConfig/jobRun/jobStats + `jobSourceLabels`/`formatRelativeTime` 等
+3. **后端 API**：`/api/jobs`（列表/筛选/排序/分页）、`/api/jobs/[id]`（详情）、`/api/jobs/favorites`、`/api/jobs/[id]/favorite`（收藏切换）、`/api/jobs/config`（GET/PUT 按账号隔离）、`/api/jobs/run`（手动触发爬虫）、`/api/jobs/runs`（最近 10 次）、`/api/jobs/stats`；`POST /api/auth/register` 注册接口（登录页/移动端支持注册）
+4. **爬虫**：`scripts/fetch_jobs.py` — 适配器框架（lagou/liepin/zhilian/job51 稳定 + boss 实验），限速/重试/单平台失败隔离，psql 写入（Windows 下 stdin 传 SQL 避免编码问题），`--mock` 本地演示模式；`scripts/schedule_jobs_daily.ps1` Windows 计划任务；Web 端 `JOBS_MOCK=1` 时手动抓取走 mock
+5. **Web 端**：`app/jobs/page.tsx` 招花页（统计/搜索/筛选/卡片网格/详情弹窗/收藏）+ 设置页「招聘爬虫」配置卡（关键词/行业/城市/平台/时间 + 立即抓取 + 运行日志）
+6. **移动端**：Tab 重构（仪表盘/路线图/任务/日志/招花，设置改为仪表盘右上角齿轮进入）+ `app/jobs.tsx` 卡片流/详情弹窗/收藏 + 设置页爬虫配置 + 注册
+7. **按账号隔离**：爬虫配置与收藏职位按 user_id 隔离；学习数据沿用既有 user_id 隔离；登录页新增注册入口
 ### 验证结果
 - Web：typecheck ✅ / lint ✅ / `next build` ✅ / 5 个页面 200 ✅；无 Cookie 访问 /dashboard → 307 /login ✅；POST /api/auth/login 200 ✅；Bearer 可访问数据 API ✅
 - 移动端：`tsc --noEmit` ✅、`expo export --platform web` ✅

@@ -1,10 +1,41 @@
+/* eslint-disable react-hooks/immutability */
 import { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, type DimensionValue } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { useAppStore } from "@/store/app-store";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { mainPhases, agentPhase } from "@learn-workbench/content";
 import { pct, formatDuration, taskTypeLabels, todayISO } from "@learn-workbench/shared";
 import { Card } from "@/components/card";
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+function SettingsGearButton() {
+  const rotate = useSharedValue(0);
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: rotate.value + "deg" }, { scale: scale.value }],
+  }));
+
+  return (
+    <AnimatedPressable
+      onPress={() => router.push("/settings")}
+      onPressIn={() => {
+        rotate.value = withTiming(-90, { duration: 180 });
+        scale.value = withSpring(0.9, { damping: 14, stiffness: 260 });
+      }}
+      onPressOut={() => {
+        rotate.value = withTiming(0, { duration: 180 });
+        scale.value = withSpring(1, { damping: 14, stiffness: 260 });
+      }}
+      style={[styles.gearBtn, animatedStyle]}
+    >
+      <Ionicons name="settings-outline" size={20} color="#ffffff" />
+    </AnimatedPressable>
+  );
+}
 
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
@@ -60,8 +91,13 @@ export default function DashboardScreen() {
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={[styles.hero, { paddingTop: insets.top + 24 }]}>
-        <Text style={styles.heroTitle}>{greet}，继续今天的 ICT 学习规划</Text>
-        <Text style={styles.heroSub}>路线图 · 每日任务 · 专注 · 输出</Text>
+        <View style={styles.heroRow}>
+          <View style={styles.heroTextWrap}>
+            <Text style={styles.heroTitle}>{greet}，继续今天的 ICT 学习规划</Text>
+            <Text style={styles.heroSub}>路线图 · 每日任务 · 专注 · 输出</Text>
+          </View>
+          <SettingsGearButton />
+        </View>
       </View>
 
       <View style={styles.grid}>
@@ -95,7 +131,7 @@ export default function DashboardScreen() {
             <View key={p.id} style={styles.barRow}>
               <Text style={styles.barLabel}>{p.title}</Text>
               <View style={styles.barTrack}>
-                <View style={[styles.barFill, { width: `${percent}%` }]} />
+                <View style={[styles.barFill, { width: (percent + "%") as DimensionValue }]} />
               </View>
               <Text style={styles.barValue}>{percent}%</Text>
             </View>
@@ -108,7 +144,10 @@ export default function DashboardScreen() {
               <View
                 style={[
                   styles.barFill,
-                  { width: `${pct(agentPhase.topics.filter((t) => progress[t.id]?.done).length, agentPhase.topics.length)}%`, backgroundColor: "#0ea5e9" },
+                  {
+                    width: (pct(agentPhase.topics.filter((t) => progress[t.id]?.done).length, agentPhase.topics.length) + "%") as DimensionValue,
+                    backgroundColor: "#0ea5e9",
+                  },
                 ]}
               />
             </View>
@@ -133,7 +172,7 @@ export default function DashboardScreen() {
         )}
       </Card>
 
-      <Card title="GitHub 记录" subtitle={`${github.length} 条项目资产`}>
+      <Card title="GitHub 记录" subtitle={github.length + " 条项目资产"}>
         <TextInput style={styles.input} placeholder="项目 / 仓库名称（必填）" placeholderTextColor="#9ca3af" value={ghTitle} onChangeText={setGhTitle} />
         <TextInput style={styles.input} placeholder="GitHub 链接（可选）" placeholderTextColor="#9ca3af" value={ghUrl} onChangeText={setGhUrl} autoCapitalize="none" />
         <TextInput style={styles.input} placeholder="一句话说明（可选）" placeholderTextColor="#9ca3af" value={ghDesc} onChangeText={setGhDesc} />
@@ -153,6 +192,7 @@ export default function DashboardScreen() {
               <Pressable onPress={() => removeGithub(g.id)} hitSlop={8}>
                 <Text style={styles.ghDelete}>✕</Text>
               </Pressable>
+       
             </View>
           ))
         )}
@@ -164,9 +204,21 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: { padding: 16, paddingBottom: 32, gap: 14 },
-  hero: { paddingTop: 24, paddingBottom: 6, gap: 4 },
+  hero: { paddingTop: 24, paddingBottom: 6 },
+  heroRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+  heroTextWrap: { flex: 1, gap: 4 },
   heroTitle: { color: "#ffffff", fontSize: 24, fontWeight: "700" },
   heroSub: { color: "rgba(255,255,255,0.85)", fontSize: 13 },
+  gearBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.18)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255,255,255,0.42)",
+  },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   statCard: { width: "47%", flexGrow: 1 },
   statValue: { fontSize: 26, fontWeight: "700", color: "#18181b" },
@@ -205,4 +257,3 @@ const styles = StyleSheet.create({
   ghUrl: { fontSize: 12, color: "#0ea5e9" },
   ghDelete: { fontSize: 14, color: "#dc2626", paddingHorizontal: 4 },
 });
-

@@ -2,16 +2,29 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Sparkles, User, Lock, Loader2, CheckCircle2 } from "lucide-react";
+import {
+  CheckCircle2,
+  KeyRound,
+  Loader2,
+  Lock,
+  Sparkles,
+  User,
+  UserRoundPlus,
+} from "lucide-react";
 import { GlassModal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
+
+type AuthMode = "login" | "register";
 
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const from = params.get("from") || "/dashboard";
+  const [mode, setMode] = useState<AuthMode>("login");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [careerStep, setCareerStep] = useState(false);
@@ -37,42 +50,69 @@ function LoginForm() {
     }
   };
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
+  const afterAuth = async () => {
     try {
-      const r = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
-      const data = await r.json();
-      if (!r.ok) {
-        setError(data.error ?? "登录失败");
-        setLoading(false);
-        return;
-      }
-      // 登录成功：若未选择过职业，先弹出职业选择小窗，选择后再进入首页
-      try {
-        const cur = await fetch("/api/settings/career").then((x) => x.json());
-        if (cur?.set) {
-          router.replace(from);
-          router.refresh();
-          return;
-        }
-      } catch {
+      const cur = await fetch("/api/settings/career").then((x) => x.json());
+      if (cur?.set) {
         router.replace(from);
         router.refresh();
         return;
       }
-      try {
-        const cData = await fetch("/api/careers").then((x) => x.json());
-        setCareers(cData.careers ?? []);
-      } catch {
-        setCareers([]);
+    } catch {
+      router.replace(from);
+      router.refresh();
+      return;
+    }
+    try {
+      const cData = await fetch("/api/careers").then((x) => x.json());
+      setCareers(cData.careers ?? []);
+    } catch {
+      setCareers([]);
+    }
+    setCareerStep(true);
+  };
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    if (mode === "register") {
+      if (!/^[a-zA-Z0-9_.-]{3,32}$/.test(username)) {
+        setError("账号需为 3-32 位字母、数字或 _ . -");
+        setLoading(false);
+        return;
       }
-      setCareerStep(true);
+      if (password.length < 6) {
+        setError("密码至少 6 位");
+        setLoading(false);
+        return;
+      }
+      if (password !== confirmPassword) {
+        setError("两次输入的密码不一致");
+        setLoading(false);
+        return;
+      }
+    }
+
+    try {
+      const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/register";
+      const body =
+        mode === "login"
+          ? { username, password }
+          : { username, password, displayName: displayName.trim() || undefined };
+      const r = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        setError(data.error ?? (mode === "login" ? "登录失败" : "注册失败"));
+        setLoading(false);
+        return;
+      }
+      await afterAuth();
       setLoading(false);
     } catch {
       setError("网络异常，请稍后重试");
@@ -80,10 +120,16 @@ function LoginForm() {
     }
   };
 
+  const switchMode = (next: AuthMode) => {
+    setMode(next);
+    setError(null);
+    setPassword("");
+    setConfirmPassword("");
+  };
+
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
       <div className="glass glass-hover relative w-full max-w-sm overflow-hidden p-8">
-        {/* 装饰光斑 */}
         <div className="pointer-events-none absolute -top-16 -right-16 h-48 w-48 rounded-full bg-primary/30 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-20 -left-16 h-56 w-56 rounded-full bg-accent/25 blur-3xl" />
 
@@ -92,10 +138,35 @@ function LoginForm() {
             <Sparkles className="size-7" />
           </span>
           <h1 className="page-title mt-2 text-3xl font-bold">学习工作台</h1>
-          <p className="page-subtitle text-sm">登录后开始你的学习旅程</p>
+          <p className="page-subtitle text-sm">{mode === "login" ? "登录后开始你的学习旅程" : "注册一个本地账号开始使用"}</p>
         </div>
 
-        <form onSubmit={submit} className="relative mt-8 flex flex-col gap-4">
+        <div className="relative mt-7 grid grid-cols-2 gap-1 rounded-2xl border border-white/20 bg-white/10 p-1 backdrop-blur-xl">
+          <button
+            type="button"
+            onClick={() => switchMode("login")}
+            className={
+              mode === "login"
+                ? "rounded-xl bg-gradient-to-b from-primary to-[#4338ca] py-2 text-sm font-semibold text-white shadow-[0_6px_18px_rgba(79,70,229,0.28)]"
+                : "rounded-xl py-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
+            }
+          >
+            登录
+          </button>
+          <button
+            type="button"
+            onClick={() => switchMode("register")}
+            className={
+              mode === "register"
+                ? "rounded-xl bg-gradient-to-b from-emerald-500 to-cyan-500 py-2 text-sm font-semibold text-white shadow-[0_6px_18px_rgba(16,185,129,0.28)]"
+                : "rounded-xl py-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
+            }
+          >
+            注册
+          </button>
+        </div>
+
+        <form onSubmit={submit} className="relative mt-6 flex flex-col gap-4">
           <label className="flex flex-col gap-1.5">
             <span className="text-xs font-medium text-muted-foreground">账号</span>
             <div className="relative">
@@ -103,12 +174,28 @@ function LoginForm() {
               <Input
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="请输入账号"
+                placeholder={mode === "login" ? "请输入账号" : "3-32 位字母、数字或 _ . -"}
                 autoComplete="username"
                 className="h-11 pl-10"
               />
             </div>
           </label>
+
+          {mode === "register" ? (
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs font-medium text-muted-foreground">昵称（可选）</span>
+              <div className="relative">
+                <UserRoundPlus className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="给自己起个名字"
+                  autoComplete="name"
+                  className="h-11 pl-10"
+                />
+              </div>
+            </label>
+          ) : null}
 
           <label className="flex flex-col gap-1.5">
             <span className="text-xs font-medium text-muted-foreground">密码</span>
@@ -118,12 +205,29 @@ function LoginForm() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="请输入密码"
-                autoComplete="current-password"
+                placeholder={mode === "login" ? "请输入密码" : "至少 6 位密码"}
+                autoComplete={mode === "login" ? "current-password" : "new-password"}
                 className="h-11 pl-10"
               />
             </div>
           </label>
+
+          {mode === "register" ? (
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs font-medium text-muted-foreground">确认密码</span>
+              <div className="relative">
+                <KeyRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="再次输入密码"
+                  autoComplete="new-password"
+                  className="h-11 pl-10"
+                />
+              </div>
+            </label>
+          ) : null}
 
           {error ? (
             <p className="rounded-lg border border-danger/30 bg-danger/15 px-3 py-2 text-xs text-foreground">
@@ -134,16 +238,21 @@ function LoginForm() {
           <button
             type="submit"
             disabled={loading}
-            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-primary to-[#4338ca] text-sm font-semibold text-white shadow-[0_8px_24px_rgba(79,70,229,0.35)] transition-all hover:brightness-105 disabled:opacity-60"
+            className={
+              mode === "login"
+                ? "flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-primary to-[#4338ca] text-sm font-semibold text-white shadow-[0_8px_24px_rgba(79,70,229,0.35)] transition-all hover:brightness-105 disabled:opacity-60"
+                : "flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-emerald-500 to-cyan-500 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(16,185,129,0.32)] transition-all hover:brightness-105 disabled:opacity-60"
+            }
           >
             {loading ? <Loader2 className="size-4 animate-spin" /> : null}
-            登 录
+            {mode === "login" ? "登 录" : "注册并登录"}
           </button>
         </form>
-        <p className="relative mt-6 text-center text-xs text-muted-foreground">账号由管理员创建 · 忘记密码请联系管理员重置</p>
-</div>
+        <p className="relative mt-6 text-center text-xs text-muted-foreground">
+          {mode === "login" ? "账号由管理员创建 · 忘记密码请联系管理员重置" : "注册后自动登录 · 账号 3-32 位，密码至少 6 位"}
+        </p>
+      </div>
 
-      {/* 登录后职业选择小窗 */}
       <GlassModal open={careerStep} onClose={() => { if (!careerBusy) { setCareerStep(false); router.replace(from); } }} title="选择你的职业 / 学习路线">
         <p className="mb-3 text-xs text-muted-foreground">
           选择后仪表盘与学习路线将只展示该职业的规划，可在「路线图 / 设置」中随时切换
@@ -190,4 +299,3 @@ export default function LoginPage() {
     </Suspense>
   );
 }
-

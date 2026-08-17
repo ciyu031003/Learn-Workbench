@@ -8,7 +8,69 @@ import { Switch } from "@/components/ui/switch";
 import { useUiStore } from "@/store/ui-store";
 import { useToastStore } from "@/store/toast-store";
 import { useRouter } from "next/navigation";
-import { Download, Upload, Database, Image as ImageIcon, Sparkles, RefreshCw, LogOut, User as UserIcon, Lock, KeyRound } from "lucide-react";
+import type { JobCrawlerConfig, JobRun, JobSource, JobStats } from "@learn-workbench/shared";
+import { experimentalJobSources, formatRelativeTime, jobSourceLabels } from "@learn-workbench/shared";
+import {
+  Database,
+  Download,
+  Flower2,
+  Image as ImageIcon,
+  KeyRound,
+  Lock,
+  LogOut,
+  Play,
+  RefreshCw,
+  Save,
+  Sparkles,
+  Upload,
+  User as UserIcon,
+  X,
+} from "lucide-react";
+
+type ChipEditorProps = {
+  label: string;
+  placeholder?: string;
+  items: string[];
+  onAdd: (value: string) => void;
+  onRemove: (value: string) => void;
+};
+
+function ChipEditor({ label, placeholder, items, onAdd, onRemove }: ChipEditorProps) {
+  const [draft, setDraft] = useState("");
+  const commit = () => {
+    const value = draft.trim();
+    if (value) onAdd(value);
+    setDraft("");
+  };
+  return (
+    <div className="rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur-md">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        {items.map((item) => (
+          <span key={item} className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-300">
+            {item}
+            <button type="button" onClick={() => onRemove(item)} aria-label={`删除 ${item}`} className="text-emerald-600/70 hover:text-emerald-700 dark:hover:text-emerald-200">
+              <X className="size-3" />
+            </button>
+          </span>
+        ))}
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              commit();
+            }
+          }}
+          onBlur={commit}
+          placeholder={placeholder ?? "输入后回车添加"}
+          className="h-8 w-28 rounded-full border border-dashed border-white/30 bg-transparent px-3 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-emerald-500/60"
+        />
+      </div>
+    </div>
+  );
+}
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -28,6 +90,11 @@ export default function SettingsPage() {
   const [pwBusy, setPwBusy] = useState(false);
   const pushToast = useToastStore((s) => s.push);
   const [wallpaperBusy, setWallpaperBusy] = useState(false);
+  const [crawler, setCrawler] = useState<JobCrawlerConfig | null>(null);
+  const [crawlerBusy, setCrawlerBusy] = useState(false);
+  const [crawlerRunBusy, setCrawlerRunBusy] = useState(false);
+  const [jobRuns, setJobRuns] = useState<JobRun[]>([]);
+  const [jobStats, setJobStats] = useState<JobStats | null>(null);
   const refreshWallpaper = async () => {
     setWallpaperBusy(true);
     try {
@@ -54,6 +121,76 @@ export default function SettingsPage() {
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
   }, [theme]);
+
+  const loadCrawlerData = async () => {
+    try {
+      const [configR, runsR, statsR] = await Promise.allSettled([
+        fetch("/api/jobs/config").then(async (r) => {
+          if (!r.ok) throw new Error("招聘配置加载失败");
+          return (await r.json()) as { config: JobCrawlerConfig };
+        }),
+        fetch("/api/jobs/runs").then(async (r) => {
+          if (!r.ok) throw new Error("运行日志加载失败");
+          return (await r.json()) as { runs: JobRun[] };
+        }),
+        fetch("/api/jobs/stats").then(async (r) => {
+          if (!r.ok) throw new Error("招聘统计加载失败");
+          return (await r.json()) as JobStats;
+        }),
+      ]);
+      if (configR.status === "fulfilled") setCrawler(configR.value.config);
+      else pushToast(configR.reason?.message ?? "招聘配置加载失败", "error");
+      if (runsR.status === "fulfilled") setJobRuns(runsR.value.runs ?? []);
+      else pushToast(runsR.reason?.message ?? "运行日志加载失败", "error");
+      if (statsR.status === "fulfilled") setJobStats(statsR.value);
+      else pushToast(statsR.reason?.message ?? "招聘统计加载失败", "error");
+    } catch {
+      pushToast("招聘爬虫数据加载失败", "error");
+    }
+  };
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadCrawlerData();
+    }, 0);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const saveCrawler = async () => {
+    if (!crawler) return;
+    setCrawlerBusy(true);
+    try {
+      const r = await fetch("/api/jobs/config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ config: crawler }),
+      });
+      const data = await r.json().catch(() => null);
+      if (!r.ok) throw new Error(data?.error || "招聘配置保存失败");
+      setCrawler(data.config);
+      pushToast("招聘爬虫配置已保存", "success");
+    } catch (e) {
+      pushToast(e instanceof Error ? e.message : "招聘配置保存失败", "error");
+    } finally {
+      setCrawlerBusy(false);
+    }
+  };
+
+  const runCrawler = async () => {
+    setCrawlerRunBusy(true);
+    try {
+      const r = await fetch("/api/jobs/run", { method: "POST" });
+      const data = await r.json().catch(() => null);
+      if (!r.ok) throw new Error(data?.error || "启动抓取失败");
+      pushToast("抓取已启动，稍后自动刷新", "success");
+      window.setTimeout(() => loadCrawlerData(), 1800);
+    } catch (e) {
+      pushToast(e instanceof Error ? e.message : "启动抓取失败", "error");
+    } finally {
+      setCrawlerRunBusy(false);
+    }
+  };
 
   const exportJson = async () => {
     const r = await fetch("/api/export");
@@ -242,6 +379,192 @@ export default function SettingsPage() {
         </Card>
       </div>
 
+
+
+      <Card>
+        <CardHeader className="flex-row flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Flower2 className="size-5 text-emerald-500" />
+            <CardTitle>招聘爬虫</CardTitle>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={runCrawler}
+              disabled={crawlerRunBusy || crawlerBusy}
+            >
+              {crawlerRunBusy ? <RefreshCw className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
+              立即抓取
+            </Button>
+            <Button size="sm" onClick={saveCrawler} disabled={crawlerBusy}>
+              {crawlerBusy ? <RefreshCw className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
+              保存配置
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-5">
+          <div className="flex flex-col gap-3 rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-md sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-foreground">定时抓取开关</p>
+              <p className="text-xs text-muted-foreground">关闭后暂停每日自动抓取，不影响手动运行</p>
+            </div>
+            <Switch
+              checked={crawler?.enabled ?? false}
+              onCheckedChange={(checked) => setCrawler((prev) => (prev ? { ...prev, enabled: checked } : prev))}
+            />
+          </div>
+
+          <div className="grid gap-3 lg:grid-cols-3">
+            <ChipEditor
+              label="关键词"
+              placeholder="如 网络工程师"
+              items={crawler?.keywords ?? []}
+              onAdd={(value) => setCrawler((prev) => prev && !prev.keywords.includes(value) ? { ...prev, keywords: [...prev.keywords, value] } : prev)}
+              onRemove={(value) => setCrawler((prev) => prev ? { ...prev, keywords: prev.keywords.filter((item) => item !== value) } : prev)}
+            />
+            <ChipEditor
+              label="行业"
+              placeholder="如 通信"
+              items={crawler?.industries ?? []}
+              onAdd={(value) => setCrawler((prev) => prev && !prev.industries.includes(value) ? { ...prev, industries: [...prev.industries, value] } : prev)}
+              onRemove={(value) => setCrawler((prev) => prev ? { ...prev, industries: prev.industries.filter((item) => item !== value) } : prev)}
+            />
+            <ChipEditor
+              label="城市"
+              placeholder="如 乌鲁木齐"
+              items={crawler?.cities ?? []}
+              onAdd={(value) => setCrawler((prev) => prev && !prev.cities.includes(value) ? { ...prev, cities: [...prev.cities, value] } : prev)}
+              onRemove={(value) => setCrawler((prev) => prev ? { ...prev, cities: prev.cities.filter((item) => item !== value) } : prev)}
+            />
+          </div>
+
+          <div className="grid gap-3 lg:grid-cols-2">
+            <div className="rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur-md">
+              <span className="text-xs font-medium text-muted-foreground">招聘平台</span>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {(Object.keys(jobSourceLabels) as JobSource[]).map((source) => {
+                  const active = crawler?.platforms.includes(source) ?? false;
+                  return (
+                    <button
+                      key={source}
+                      type="button"
+                      onClick={() => setCrawler((prev) => {
+                        if (!prev) return prev;
+                        const exists = prev.platforms.includes(source);
+                        return {
+                          ...prev,
+                          platforms: exists ? prev.platforms.filter((p) => p !== source) : [...prev.platforms, source],
+                        };
+                      })}
+                      className={
+                        active
+                          ? "inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500 px-3 py-1.5 text-xs font-semibold text-white shadow-[0_6px_16px_rgba(16,185,129,0.28)]"
+                          : "inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-white/15"
+                      }
+                    >
+                      {jobSourceLabels[source]}
+                      {experimentalJobSources.includes(source) ? <span className="rounded-full bg-white/20 px-1.5 py-0.5 text-[10px]">实验</span> : null}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur-md">
+              <span className="text-xs font-medium text-muted-foreground">每日抓取时间</span>
+              <div className="mt-2 flex items-center gap-3">
+                <input
+                  type="time"
+                  value={crawler?.scheduleTime ?? "08:00"}
+                  onChange={(e) => setCrawler((prev) => (prev ? { ...prev, scheduleTime: e.target.value } : prev))}
+                  className="h-10 rounded-xl border border-white/20 bg-white/10 px-3 text-sm text-foreground outline-none backdrop-blur-md focus:border-emerald-500/60"
+                />
+                <span className="text-xs text-muted-foreground">每天自动抓取一次</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm backdrop-blur-md">
+            <span className="text-muted-foreground">上次运行</span>
+            <span className="font-semibold text-foreground">
+              {jobStats?.lastRun ? formatRelativeTime(jobStats.lastRun) : "尚未运行"}
+            </span>
+            {jobStats?.lastRunStatus ? (
+              <Badge variant={jobStats.lastRunStatus === "failed" ? "muted" : "success"}>
+                {jobStats.lastRunStatus}
+              </Badge>
+            ) : null}
+            {crawler?.lastRunAt ? (
+              <span className="ml-auto text-xs text-muted-foreground">配置最近运行：{formatRelativeTime(crawler.lastRunAt)}</span>
+            ) : null}
+          </div>
+
+          <div className="overflow-hidden rounded-2xl border border-white/15 bg-white/10 backdrop-blur-md">
+            <div className="flex items-center justify-between px-4 py-3">
+              <span className="text-xs font-semibold text-muted-foreground">最近运行日志</span>
+              <Badge variant="muted">最多 10 条</Badge>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] text-left text-xs">
+                <thead className="border-y border-white/10 text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-2 font-medium">时间</th>
+                    <th className="px-4 py-2 font-medium">平台</th>
+                    <th className="px-4 py-2 font-medium">抓取</th>
+                    <th className="px-4 py-2 font-medium">新增</th>
+                    <th className="px-4 py-2 font-medium">状态</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {jobRuns.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-6 text-center text-muted-foreground">暂无运行日志</td>
+                    </tr>
+                  ) : (
+                    jobRuns.slice(0, 10).map((run) => {
+                      const platformText = Object.entries(run.platformsResult ?? {})
+                        .map(([key, count]) => {
+                          const label = jobSourceLabels[key as JobSource] ?? key;
+                          return `${label} ${count}`;
+                        })
+                        .join(" / ") || "—";
+                      const statusLabel =
+                        run.status === "running"
+                          ? "运行中"
+                          : run.status === "success"
+                            ? "成功"
+                            : run.status === "partial"
+                              ? "部分成功"
+                              : "失败";
+                      return (
+                        <tr key={run.id} className="border-t border-white/5">
+                          <td className="px-4 py-2 text-muted-foreground">
+                            {new Date(run.startedAt).toLocaleString("zh-CN", {
+                              month: "2-digit",
+                              day: "2-digit",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </td>
+                          <td className="px-4 py-2 text-muted-foreground">{platformText}</td>
+                          <td className="px-4 py-2 tabular-nums text-foreground">{run.fetchedCount}</td>
+                          <td className="px-4 py-2 tabular-nums text-emerald-600 dark:text-emerald-300">{run.newCount}</td>
+                          <td className="px-4 py-2">
+                            <Badge variant={run.status === "failed" ? "muted" : run.status === "running" ? "accent" : "success"}>
+                              {statusLabel}
+                            </Badge>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
       <Card>
         <CardHeader className="flex-row items-center justify-between">
           <div className="flex items-center gap-2">

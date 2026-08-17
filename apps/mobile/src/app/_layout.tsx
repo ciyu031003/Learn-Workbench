@@ -1,7 +1,15 @@
+import { useEffect } from "react";
 import { Tabs } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, View, useColorScheme, type OpaqueColorValue } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import { DailyBackground } from "@/components/daily-background";
 import { useAppStore } from "@/store/app-store";
 
@@ -11,6 +19,34 @@ function TabIcon({ name, outlineName, color, focused }: { name: IoniconName; out
   return (
     <View style={styles.tabIcon}>
       <Ionicons name={focused ? name : outlineName} size={22} color={color} />
+      {focused ? <View style={[styles.tabDot, { backgroundColor: color }]} /> : null}
+    </View>
+  );
+}
+
+function FlowerTabIcon({ color, focused }: { color: string | OpaqueColorValue; focused?: boolean }) {
+  const scale = useSharedValue(1);
+  const rotate = useSharedValue(0);
+
+  useEffect(() => {
+    if (focused) {
+      scale.value = withSequence(withSpring(1.25, { damping: 10, stiffness: 220 }), withSpring(1));
+      rotate.value = withSequence(withTiming(-14, { duration: 140 }), withTiming(12, { duration: 140 }), withTiming(0, { duration: 140 }));
+    } else {
+      scale.value = withSpring(1);
+      rotate.value = withTiming(0, { duration: 140 });
+    }
+  }, [focused, rotate, scale]);
+
+  const flowerStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }, { rotate: rotate.value + "deg" }],
+  }));
+
+  return (
+    <View style={styles.tabIcon}>
+      <Animated.View style={flowerStyle}>
+        <Ionicons name={focused ? "flower" : "flower-outline"} size={22} color={color} />
+      </Animated.View>
       {focused ? <View style={[styles.tabDot, { backgroundColor: color }]} /> : null}
     </View>
   );
@@ -44,7 +80,8 @@ export default function RootLayout() {
         <Tabs.Screen name="roadmap" options={{ title: "路线图", tabBarIcon: ({ color, focused }) => <TabIcon name="map" outlineName="map-outline" color={color} focused={focused} /> }} />
         <Tabs.Screen name="tasks" options={{ title: "任务", tabBarIcon: ({ color, focused }) => <TabIcon name="checkbox" outlineName="checkbox-outline" color={color} focused={focused} /> }} />
         <Tabs.Screen name="logs" options={{ title: "日志", tabBarIcon: ({ color, focused }) => <TabIcon name="book" outlineName="book-outline" color={color} focused={focused} /> }} />
-        <Tabs.Screen name="settings" options={{ title: "设置", tabBarIcon: ({ color, focused }) => <TabIcon name="settings" outlineName="settings-outline" color={color} focused={focused} /> }} />
+        <Tabs.Screen name="jobs" options={{ title: "招花", tabBarIcon: ({ color, focused }) => <FlowerTabIcon color={color} focused={focused} /> }} />
+        <Tabs.Screen name="settings" options={{ title: "设置", href: null }} />
       </Tabs>
     </DailyBackground>
   );

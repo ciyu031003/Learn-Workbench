@@ -198,7 +198,7 @@ html.dark .glass::before {
   }
   .app-bottomnav {
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(7, 1fr);
   }
   .app-main {
     padding-left: 0;
@@ -285,6 +285,65 @@ html.dark .glass::before {
 @media (prefers-reduced-motion: reduce) {
   .quote-fade,
   .timer-pop {
+    animation: none;
+  }
+}
+/* ============ 招花 · 职位卡片 / 弹窗动效 ============ */
+.job-card {
+  transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.24s ease, background 0.24s ease;
+}
+@media (hover: hover) {
+  .job-card:hover {
+    transform: translateY(-3px);
+    box-shadow: inset 0 1px 0 var(--glass-highlight), 0 18px 44px rgba(0, 0, 0, 0.14);
+  }
+}
+.job-card-glare {
+  opacity: 0;
+  transition: opacity 0.24s ease;
+  background: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.24), transparent 46%);
+  mix-blend-mode: screen;
+}
+.job-card:hover .job-card-glare {
+  opacity: 1;
+}
+.job-card-enter {
+  animation: job-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes job-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.job-modal-backdrop {
+  animation: job-modal-backdrop-in 0.2s ease both;
+}
+.job-modal-panel {
+  animation: job-modal-panel-in 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes job-modal-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes job-modal-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .job-card-enter,
+  .job-modal-backdrop,
+  .job-modal-panel {
     animation: none;
   }
 }

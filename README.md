@@ -13,6 +13,7 @@ ICT 学习路线图追踪 + 学习规划工作台（**Web + Android 双端**）�
 - 📝 **任务 / 日志 / 设置**：每日任务、学习日志、密码修改、JSON 导入导出
 - 💾 **数据同步**：Web 与移动端数据一致，移动端「一键同步到云端 / 从云端恢复」
 - 🧑‍💻 **登录系统**：账号密码登录（scrypt 加密），数据按用户隔离，匿名数据自动认领
+- 🌸 **招花·招聘信息**：每日定时爬取拉勾/猎聘/智联/前程无忧等招聘网站的职位，卡片流展示 + 详情弹窗 + 收藏；爬虫关键词/行业/城市/平台按账号配置，数据按账号隔离
 - 🖼️ **Liquid Glass UI**：液态玻璃全站设计（blur + saturate + 渐变高光 + 每日一言）
 
 ## 技术栈
@@ -23,7 +24,7 @@ ICT 学习路线图追踪 + 学习规划工作台（**Web + Android 双端**）�
 | Web 端 | Next.js 16（App Router / Route Handlers）+ React 19 + Tailwind CSS 4 + Zustand + zod |
 | 移动端 | Expo SDK 57 / React Native 0.86（5 个 Tab，本地 AsyncStorage + 云同步客户端） |
 | 数据层 | PostgreSQL（`db/schema.sql` + `db/seed_content.sql` + `db/migrations/*.sql`） |
-| 其他 | Python 3（Bing 壁纸爬虫，仅标准库）、PM2 / Nginx（服务器部署） |
+| 其他 | Python 3（Bing 壁纸爬虫 + 招花招聘爬虫，仅标准库）、PM2 / Nginx（服务器部署） |
 
 ## 目录结构
 
@@ -34,7 +35,7 @@ packages/shared   zod 类型 / 工具函数（双端共用）
 packages/content  路线图内容数据（与 db/seed_content.sql 同源）
 packages/ui        设计 tokens
 db/              schema.sql + seed_content.sql + migrations/001~006
-scripts/         Bing 爬虫 + 数据库启停 + 管理员账号创建
+scripts/         Bing 爬虫 + 招花招聘爬虫 + 数据库启停 + 管理员账号创建
 deploy.sh        服务器一键部署脚本（见下文「服务器部署」）
 deploy-docker.sh Docker 一键部署脚本（docker-compose 包装）
 Dockerfile       Web 端 Docker 镜像（多阶段构建）
@@ -57,6 +58,7 @@ docker-compose.yml Docker 编排（db + init + web）
 - ✅ **M5.11 账号与日志**：设置页修改密码（登录页不显示默认密码）；日志输入框加大
 - ✅ **M5.12 计时界面升级**：Web/移动端全屏居中环形倒计时，三背景模式（纯色/上传/图库），专注打卡分享卡片（分布图/时间轴 + 导出/分享）
 - ✅ **M5.13 职业仪表盘**：仪表盘整体进度只统计所选职业；登录后首次进入弹出职业选择小窗
+- ✅ **M7 招花·招聘信息爬虫**：每日定时抓取招聘信息（拉勾/猎聘/智联/前程无忧 + Boss 实验）；双端卡片流 + 详情弹窗 + 收藏；爬虫配置按账号隔离；登录页支持注册
 - ⏳ **M6 APK 打包**：`expo prebuild` 已完成，因网络下载 Android SDK 受限暂缓，见 PROJECT_PLAN.md §12
 - ⏳ 后续：P1 Supabase 云同步、证书/简历/题库；P2 AI
 

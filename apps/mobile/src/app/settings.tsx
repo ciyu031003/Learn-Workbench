@@ -4,6 +4,8 @@ import { useAppStore } from "@/store/app-store";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DEFAULT_API_URL, getApiUrl } from "@/config";
 import { apiLogin, syncPush, syncPull } from "@/lib/sync";
+import { fetchJobConfig, fetchJobRuns, fetchJobStats, runCrawler as runJobsCrawler, saveJobConfig as saveJobsConfig } from "@/lib/jobs";
+import { defaultCrawlerConfig, experimentalJobSources, formatRelativeTime, jobSourceLabels, type JobCrawlerConfig, type JobRun, type JobSource, type JobStats } from "@learn-workbench/shared";
 import { Card } from "@/components/card";
 
 export default function SettingsScreen() {
@@ -21,6 +23,8 @@ export default function SettingsScreen() {
 
   const [userInput, setUserInput] = useState("");
   const [passInput, setPassInput] = useState("");
+  const [confirmPass, setConfirmPass] = useState("");
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [pwCur, setPwCur] = useState("");
@@ -34,12 +38,21 @@ export default function SettingsScreen() {
   const setApiUrl = useAppStore((s) => s.setApiUrl);
   const [apiUrlInput, setApiUrlInput] = useState(apiUrlFromStore ?? "");
 
+  const [jobConfig, setJobConfig] = useState<JobCrawlerConfig>(defaultCrawlerConfig);
+  const [jobStats, setJobStats] = useState<JobStats | null>(null);
+  const [jobRuns, setJobRuns] = useState<JobRun[]>([]);
+  const [jobBusy, setJobBusy] = useState(false);
+  const [jobMsg, setJobMsg] = useState<string | null>(null);
+  const [keywordInput, setKeywordInput] = useState("");
+  const [industryInput, setIndustryInput] = useState("");
+  const [cityInput, setCityInput] = useState("");
+
   useEffect(() => {
     (async () => {
       try {
         const [cRes, curRes] = await Promise.all([
-          fetch(`${getApiUrl()}/api/careers`),
-          fetch(`${getApiUrl()}/api/settings/career`),
+          fetch(getApiUrl() + "/api/careers"),
+          fetch(getApiUrl() + "/api/settings/career"),
         ]);
         const cData = await cRes.json();
         const curData = await curRes.json();
@@ -49,6 +62,33 @@ export default function SettingsScreen() {
         // 职业接口不可用时保持默认
       }
     })();
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const config = await fetchJobConfig();
+        if (alive) setJobConfig(config);
+      } catch {
+        // 保留默认配置，待用户手动保存
+      }
+      try {
+        const stats = await fetchJobStats();
+        if (alive) setJobStats(stats);
+      } catch {
+        // 后端未启动时保留空态
+      }
+      try {
+        const runs = await fetchJobRuns();
+        if (alive) setJobRuns(runs);
+      } catch {
+        // 运行记录为空时不阻塞设置页
+      }
+    })();
+    return () => {
+      alive = false;
+    };
   }, []);
 
   const saveApiUrl = () => {
@@ -70,6 +110,43 @@ export default function SettingsScreen() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const doRegister = async () => {
+    if (!userInput.trim() || !passInput) return;
+    if (passInput.length < 6) {
+      setMsg("密码至少 6 位");
+      return;
+    }
+    if (passInput !== confirmPass) {
+      setMsg("两次输入的密码不一致");
+      return;
+    }
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = await fetch(getApiUrl() + "/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: userInput.trim(), password: passInput }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error ?? "注册失败");
+      setAuth(data.token, data.user?.username ?? userInput.trim());
+      setMsg("注册成功");
+      setAuthMode("login");
+      setPassInput("");
+      setConfirmPass("");
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "注册失败");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitAuth = () => {
+    if (authMode === "register") doRegister();
+    else doLogin();
   };
 
   const doPush = async () => {
@@ -104,9 +181,9 @@ export default function SettingsScreen() {
     setCareer(key);
     if (token) {
       try {
-        await fetch(`${getApiUrl()}/api/settings/career`, {
+        await fetch(getApiUrl() + "/api/settings/career", {
           method: "PUT",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
           body: JSON.stringify({ career: key }),
         });
         setMsg("职业路线已切换并同步到云端");
@@ -126,9 +203,9 @@ export default function SettingsScreen() {
     setPwBusy(true);
     setPwMsg(null);
     try {
-      const r = await fetch(`${getApiUrl()}/api/auth/password`, {
+      const r = await fetch(getApiUrl() + "/api/auth/password", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
         body: JSON.stringify({ currentPassword: pwCur, newPassword: pwNew1 }),
       });
       const data = await r.json();
@@ -148,15 +225,122 @@ export default function SettingsScreen() {
     ]);
   };
 
+  const patchJobConfig = (patch: Partial<JobCrawlerConfig>) => {
+    setJobConfig((prev) => ({ ...prev, ...patch }));
+  };
+
+  const addStringField = (field: "keywords" | "industries" | "cities", value: string) => {
+    const v = value.trim();
+    if (!v) return;
+    if (field === "keywords") setKeywordInput("");
+    if (field === "industries") setIndustryInput("");
+    if (field === "cities") setCityInput("");
+    setJobConfig((prev) => {
+      if (prev[field].includes(v)) return prev;
+      return { ...prev, [field]: [...prev[field], v] };
+    });
+  };
+
+  const removeStringField = (field: "keywords" | "industries" | "cities", value: string) => {
+    setJobConfig((prev) => ({ ...prev, [field]: prev[field].filter((x) => x !== value) }));
+  };
+
+  const toggleJobPlatform = (source: JobSource) => {
+    setJobConfig((prev) => {
+      const enabled = prev.platforms.includes(source);
+      return {
+        ...prev,
+        platforms: enabled ? prev.platforms.filter((p) => p !== source) : [...prev.platforms, source],
+      };
+    });
+  };
+
+  const persistJobConfig = async () => {
+    if (!/^\d{2}:\d{2}$/.test(jobConfig.scheduleTime)) {
+      setJobMsg("抓取时间格式应为 HH:mm，例如 08:00");
+      return;
+    }
+    setJobBusy(true);
+    setJobMsg(null);
+    try {
+      const saved = await saveJobsConfig(jobConfig);
+      setJobConfig(saved);
+      setJobMsg("招聘爬虫配置已保存");
+    } catch (e) {
+      setJobMsg(e instanceof Error ? e.message : "配置保存失败");
+    } finally {
+      setJobBusy(false);
+    }
+  };
+
+  const refreshJobRunStatus = async () => {
+    try {
+      const [stats, runs] = await Promise.all([fetchJobStats(), fetchJobRuns()]);
+      setJobStats(stats);
+      setJobRuns(runs);
+    } catch {
+      // 状态刷新失败时保留旧值
+    }
+  };
+
+  const startJobsRun = async () => {
+    if (!token) {
+      Alert.alert("请先登录", "执行抓取任务需要先登录。");
+      return;
+    }
+    setJobBusy(true);
+    setJobMsg(null);
+    try {
+      await runJobsCrawler();
+      setJobMsg("抓取任务已启动，稍后刷新即可查看最新职位");
+      await refreshJobRunStatus();
+    } catch (e) {
+      setJobMsg(e instanceof Error ? e.message : "启动抓取失败");
+    } finally {
+      setJobBusy(false);
+    }
+  };
+
+  const renderEditableChips = (
+    label: string,
+    field: "keywords" | "industries" | "cities",
+    values: string[],
+    inputValue: string,
+    setInput: (value: string) => void
+  ) => (
+    <View style={styles.chipBlock}>
+      <Text style={styles.chipLabel}>{label}</Text>
+      <View style={styles.chipWrap}>
+        {values.map((value, index) => (
+          <View key={value + "-" + index} style={styles.jobChip}>
+            <Text style={styles.jobChipText}>{value}</Text>
+            <Pressable hitSlop={8} onPress={() => removeStringField(field, value)}>
+              <Text style={styles.jobChipX}>×</Text>
+            </Pressable>
+          </View>
+        ))}
+      </View>
+      <TextInput
+        style={styles.input}
+        placeholder={"输入" + label + "后回车添加"}
+        placeholderTextColor="#9ca3af"
+        value={inputValue}
+        onChangeText={setInput}
+        returnKeyType="done"
+        onSubmitEditing={() => addStringField(field, inputValue)}
+      />
+    </View>
+  );
+
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={[styles.hero, { paddingTop: insets.top + 24 }]}>
         <Text style={styles.heroTitle}>设置</Text>
-        <Text style={styles.heroSub}>外观、背景图、云同步与数据</Text>
+        <Text style={styles.heroSub}>外观、背景图、云同步、招聘爬虫与数据</Text>
       </View>
 
       {/* 云同步 */}
-      <Card title="云同步" subtitle={`服务地址：${getApiUrl()}`}>
+      <Card title="云同步" subtitle={"服务地址：" + getApiUrl()}>
         <View style={styles.row}>
           <TextInput
             style={[styles.input, { flex: 1 }]}
@@ -180,7 +364,18 @@ export default function SettingsScreen() {
             </Pressable>
           </View>
         ) : (
-          <>
+          <View style={{ gap: 10 }}>
+            <View style={styles.rowBetween}>
+              <Text style={styles.rowLabel}>{authMode === "login" ? "账号登录" : "注册新账号"}</Text>
+              <Pressable onPress={() => {
+                setAuthMode((mode) => (mode === "login" ? "register" : "login"));
+                setPassInput("");
+                setConfirmPass("");
+                setMsg(null);
+              }}>
+                <Text style={styles.linkText}>{authMode === "login" ? "没有账号？注册" : "已有账号？登录"}</Text>
+              </Pressable>
+            </View>
             <TextInput
               style={styles.input}
               placeholder="账号"
@@ -197,10 +392,20 @@ export default function SettingsScreen() {
               onChangeText={setPassInput}
               secureTextEntry
             />
-            <Pressable style={styles.primaryBtn} onPress={doLogin} disabled={busy}>
-              {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>登录</Text>}
+            {authMode === "register" ? (
+              <TextInput
+                style={styles.input}
+                placeholder="确认密码"
+                placeholderTextColor="#9ca3af"
+                value={confirmPass}
+                onChangeText={setConfirmPass}
+                secureTextEntry
+              />
+            ) : null}
+            <Pressable style={styles.primaryBtn} onPress={submitAuth} disabled={busy}>
+              {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>{authMode === "login" ? "登录" : "注册"}</Text>}
             </Pressable>
-          </>
+          </View>
         )}
         {token ? (
           <View style={styles.row}>
@@ -214,6 +419,61 @@ export default function SettingsScreen() {
         ) : null}
         {msg ? <Text style={styles.msg}>{msg}</Text> : null}
         <Text style={styles.hint}>Android 模拟器使用 10.0.2.2；真机请在下方填写电脑局域网地址并保存。</Text>
+      </Card>
+
+      {/* 招聘爬虫 */}
+      <Card title="招聘爬虫" subtitle="招花 · 自动采集招聘信息">
+        <View style={styles.rowBetween}>
+          <Text style={styles.rowLabel}>自动抓取</Text>
+          <Switch value={jobConfig.enabled} onValueChange={(value) => patchJobConfig({ enabled: value })} trackColor={{ true: "#10b981" }} />
+        </View>
+
+        <View style={styles.rowBetween}>
+          <Text style={styles.rowLabel}>抓取时间</Text>
+          <TextInput
+            style={[styles.input, styles.scheduleInput]}
+            value={jobConfig.scheduleTime}
+            onChangeText={(value) => patchJobConfig({ scheduleTime: value })}
+            placeholder="08:00"
+            placeholderTextColor="#9ca3af"
+            keyboardType="numbers-and-punctuation"
+          />
+        </View>
+
+        {renderEditableChips("关键词", "keywords", jobConfig.keywords, keywordInput, setKeywordInput)}
+        {renderEditableChips("行业", "industries", jobConfig.industries, industryInput, setIndustryInput)}
+        {renderEditableChips("城市", "cities", jobConfig.cities, cityInput, setCityInput)}
+
+        <Text style={styles.chipLabel}>招聘平台</Text>
+        {(Object.keys(jobSourceLabels) as JobSource[]).map((source) => {
+          const enabled = jobConfig.platforms.includes(source);
+          const experimental = experimentalJobSources.includes(source);
+          return (
+            <View key={source} style={styles.rowBetween}>
+              <Text style={styles.rowLabel}>
+                {jobSourceLabels[source]}
+                {experimental ? " · 实验" : ""}
+              </Text>
+              <Switch value={enabled} onValueChange={() => toggleJobPlatform(source)} trackColor={{ true: "#10b981" }} />
+            </View>
+          );
+        })}
+
+        <View style={styles.row}>
+          <Pressable style={[styles.primaryBtn, styles.jobsPrimaryBtn, { flex: 1 }]} onPress={persistJobConfig} disabled={jobBusy}>
+            {jobBusy ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.primaryBtnText}>保存配置</Text>}
+          </Pressable>
+          <Pressable style={[styles.secondaryBtn, { flex: 1 }]} onPress={startJobsRun} disabled={jobBusy}>
+            {jobBusy ? <ActivityIndicator color="#10b981" /> : <Text style={styles.secondaryBtnText}>立即抓取一次</Text>}
+          </Pressable>
+        </View>
+
+        {jobMsg ? <Text style={styles.jobMsg}>{jobMsg}</Text> : null}
+        <Text style={styles.hint}>
+          上次运行：{jobStats?.lastRun ? formatRelativeTime(jobStats.lastRun) : "暂无"}
+          {" · "}状态：{jobStats?.lastRunStatus ?? "—"}
+          {jobRuns[0] ? " · 最近任务：" + jobRuns[0].status : ""}
+        </Text>
       </Card>
 
       {token ? (
@@ -301,8 +561,8 @@ const styles = StyleSheet.create({
   heroTitle: { color: "#ffffff", fontSize: 24, fontWeight: "700" },
   heroSub: { color: "rgba(255,255,255,0.85)", fontSize: 13 },
   row: { flexDirection: "row", gap: 8 },
-  rowBetween: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  rowLabel: { fontSize: 14, color: "#18181b" },
+  rowBetween: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  rowLabel: { flex: 1, fontSize: 14, color: "#18181b" },
   linkText: { fontSize: 14, color: "#4f46e5", fontWeight: "600" },
   input: {
     backgroundColor: "rgba(24,24,27,0.04)",
@@ -312,6 +572,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#18181b",
   },
+  scheduleInput: { width: 96, textAlign: "center", fontWeight: "700" },
   primaryBtn: { backgroundColor: "#4f46e5", borderRadius: 14, paddingVertical: 12, alignItems: "center" },
   secondaryBtn: {
     backgroundColor: "rgba(24,24,27,0.05)",
@@ -319,16 +580,33 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: "center",
   },
+  jobsPrimaryBtn: { backgroundColor: "#10b981" },
   dangerBtn: { backgroundColor: "#dc2626" },
   primaryBtnText: { color: "#fff", fontSize: 15, fontWeight: "600" },
   secondaryBtnText: { color: "#18181b", fontSize: 15, fontWeight: "600" },
   msg: { fontSize: 13, color: "#16a34a", fontWeight: "600" },
+  jobMsg: { fontSize: 13, color: "#047857", fontWeight: "600", lineHeight: 18 },
   chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chipBlock: { gap: 7 },
+  chipLabel: { fontSize: 12, color: "#047857", fontWeight: "700", marginTop: 2 },
   chip: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
   chipActive: { backgroundColor: "#4f46e5" },
   chipIdle: { backgroundColor: "rgba(24,24,27,0.06)" },
   chipTextActive: { color: "#fff", fontSize: 13, fontWeight: "600" },
   chipTextIdle: { color: "#18181b", fontSize: 13 },
+  jobChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(16,185,129,0.13)",
+    borderWidth: 1,
+    borderColor: "rgba(16,185,129,0.28)",
+    borderRadius: 999,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+  },
+  jobChipText: { color: "#047857", fontSize: 13, fontWeight: "700" },
+  jobChipX: { color: "#047857", fontSize: 16, lineHeight: 18, paddingLeft: 2 },
   hint: { fontSize: 12, color: "#9ca3af", lineHeight: 18 },
   about: { fontSize: 13, color: "#71717a", lineHeight: 19 },
 });
