@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import type { JobPosting, JobPostingListItem } from "@learn-workbench/shared";
 import { experimentalJobSources, formatRelativeTime, jobSourceLabels } from "@learn-workbench/shared";
 import { Badge } from "@/components/ui/badge";
@@ -118,7 +119,7 @@ export function JobModal({
         .filter(Boolean)
     : [];
 
-  return (
+  return createPortal(
     <div
       className="job-modal-backdrop fixed inset-0 z-[80] flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm"
       onClick={onClose}
@@ -269,6 +270,7 @@ export function JobModal({
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -321,6 +321,11 @@ html.dark .glass::before {
   }
 }
 .job-modal-backdrop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: fixed;
+  inset: 0;
   animation: job-modal-backdrop-in 0.2s ease both;
 }
 .job-modal-panel {
