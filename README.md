@@ -106,6 +106,30 @@ python scripts\fetch_bing_wallpaper.py --db "host=127.0.0.1 port=5432 dbname=Lea
 powershell -ExecutionPolicy Bypass -File scripts\schedule_bing_daily.ps1   # 每日定时（管理员）
 ```
 
+
+### 4.5 招花 · 招聘信息爬虫（M7，调优版）
+
+```bash
+python scripts/fetch_jobs.py                     # 真实抓取（按账号配置：关键词/行业/城市/平台）
+python scripts/fetch_jobs.py --mock              # 本地演示：生成示例职位（不联网）
+python scripts/fetch_jobs.py --concurrency 8 --pages 3 --retries 2
+python scripts/fetch_jobs.py --cookies-file cookies.json --debug   # 注入 Cookie + 输出诊断
+```
+
+**关键参数**：`--concurrency` 并发数（默认 6）、`--pages` 翻页数（默认取账号配置 max_pages）、`--retries` 额外重试、`--timeout-min` 单轮时长上限、`--limit` 每组合条数、`--cookies-file` 平台 Cookie、`--debug` 空结果时打印原始响应片段。
+
+**调优说明**：
+- 并发抓取 + 多账号组合去重（重叠的「平台×关键词×城市」只抓一次）+ 每平台限速信号量
+- 归一化：发布时间统一转 ISO（兼容毫秒时间戳/空格日期）、HTML 清洗、薪资解析扩展（万/月、年薪）
+- `job_postings.content_hash`（迁移 008）：内容未变化则跳过 UPDATE，减少写放大；`new_count` 用键差集精确统计
+- 分批 upsert（100 行/批），避免超长 SQL
+
+> ⚠️ **风控现状（2026）**：拉勾/猎聘/51job/Boss 均启用浏览器级 JS 风控（阿里云 WAF / 火山引擎等），智联接口对非浏览器返回空数组。纯 urllib 无法直接绕过。个人使用最有效的方案是 **Cookie 注入**：在浏览器登录对应招聘站后，把 Cookie 保存为 JSON 并传给 `--cookies-file`：
+> ```json
+> { "lagou.com": "xxxx=yyyy; ...", "zhipin.com": "xxxx=yyyy; ..." }
+> ```
+> Web 端「立即抓取」可通过环境变量配置：`JOBS_MOCK=1`（演示数据）、`JOBS_COOKIES_FILE=/path/cookies.json`、`JOBS_DEBUG=1`、`JOBS_CONCURRENCY=8`。服务器每日任务：`scripts/schedule_jobs_daily.ps1`（Windows）或 crontab `0 8 * * * python3 /opt/learn-workbench/scripts/fetch_jobs.py`。
+
 ### 5. 创建管理员账号
 
 ```powershell

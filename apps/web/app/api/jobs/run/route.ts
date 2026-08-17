@@ -52,6 +52,9 @@ export async function POST() {
   };
   const args = ["-u", script];
   if (process.env.JOBS_MOCK === "1") args.push("--mock");
+  if (process.env.JOBS_COOKIES_FILE) args.push("--cookies-file", process.env.JOBS_COOKIES_FILE);
+  if (process.env.JOBS_DEBUG === "1") args.push("--debug");
+  if (process.env.JOBS_CONCURRENCY) args.push("--concurrency", process.env.JOBS_CONCURRENCY);
 
   const child = spawn(python, args, {
     cwd: REPO_ROOT,
