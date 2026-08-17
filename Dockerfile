@@ -36,9 +36,9 @@ RUN pnpm --filter web build
 FROM node:22-slim AS runtime
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1
-# python3：Bing 每日壁纸爬虫依赖（可选功能）；curl：便于容器内排障
+# python3：Bing 壁纸爬虫 + 招花招聘爬虫依赖；postgresql-client：爬虫经 psql 写库；curl：排障
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends python3 curl ca-certificates \
+    && apt-get install -y --no-install-recommends python3 postgresql-client curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=builder /app ./
