@@ -32,14 +32,8 @@ export async function POST() {
   const userId = await currentUserId();
   if (!userId) return NextResponse.json({ error: "请先登录" }, { status: 401 });
 
-  const script = path.join(REPO_ROOT, "scripts", "fetch_jobs.py");
-  if (!existsSync(script)) {
-    return NextResponse.json({ error: "爬虫脚本不存在，请检查部署" }, { status: 500 });
-  }
-  const python = findPython();
-  if (!python) {
-    return NextResponse.json({ error: "未找到 Python 运行时，无法手动抓取" }, { status: 500 });
-  }
+  const engine = process.env.JOBS_ENGINE || "browser"; // browser=Playwright 真实浏览器；python=HTTP 适配器/mock
+  const repoRoot = findRepoRoot();
 
   const env: NodeJS.ProcessEnv = {
     ...process.env,
@@ -50,18 +44,46 @@ export async function POST() {
     PGPASSWORD: process.env.PGPASSWORD || "",
     PSQL_BIN: process.env.PSQL_BIN || "",
   };
-  const args = ["-u", script];
-  if (process.env.JOBS_MOCK === "1") args.push("--mock");
-  if (process.env.JOBS_COOKIES_FILE) args.push("--cookies-file", process.env.JOBS_COOKIES_FILE);
-  if (process.env.JOBS_DEBUG === "1") args.push("--debug");
-  if (process.env.JOBS_CONCURRENCY) args.push("--concurrency", process.env.JOBS_CONCURRENCY);
 
-  const child = spawn(python, args, {
-    cwd: REPO_ROOT,
+  let bin: string;
+  let script: string;
+  let args: string[];
+
+  if (engine === "browser") {
+    script = path.join(repoRoot, "scripts", "jobs_browser.mjs");
+    if (!existsSync(script)) {
+      return NextResponse.json({ error: "浏览器爬虫脚本不存在，请检查部署" }, { status: 500 });
+    }
+    bin = "node";
+    if (process.env.JOBS_LIMIT) {
+      args = [script, "--limit", process.env.JOBS_LIMIT];
+    } else {
+      args = [script];
+    }
+  } else {
+    script = path.join(repoRoot, "scripts", "fetch_jobs.py");
+    if (!existsSync(script)) {
+      return NextResponse.json({ error: "爬虫脚本不存在，请检查部署" }, { status: 500 });
+    }
+    const python = findPython();
+    if (!python) {
+      return NextResponse.json({ error: "未找到 Python 运行时，无法手动抓取" }, { status: 500 });
+    }
+    bin = python;
+    args = ["-u", script];
+    if (process.env.JOBS_MOCK === "1") args.push("--mock");
+    if (process.env.JOBS_COOKIES_FILE) args.push("--cookies-file", process.env.JOBS_COOKIES_FILE);
+    if (process.env.JOBS_DEBUG === "1") args.push("--debug");
+    if (process.env.JOBS_CONCURRENCY) args.push("--concurrency", process.env.JOBS_CONCURRENCY);
+  }
+
+  const child = spawn(bin, args, {
+    cwd: repoRoot,
     env,
     detached: true,
     stdio: "ignore",
   });
   child.unref();
-  return NextResponse.json({ started: true });
+  return NextResponse.json({ started: true, engine });
 }
+

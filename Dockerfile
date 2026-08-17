@@ -40,7 +40,7 @@ ENV NODE_ENV=production \
 # 国内镜像：apt 源替换为腾讯云镜像（加速 + 避免 deb.debian.org 卡顿），npm/pnpm 已用 npmmirror
 RUN sed -i 's|deb.debian.org|mirrors.cloud.tencent.com|g' /etc/apt/sources.list.d/debian.sources 2>/dev/null || true \
     && apt-get update \
-    && apt-get install -y --no-install-recommends python3 postgresql-client curl ca-certificates \
+    && apt-get install -y --no-install-recommends python3 postgresql-client curl ca-certificates chromium fonts-noto-cjk \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=builder /app ./
