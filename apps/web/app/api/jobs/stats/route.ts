@@ -15,10 +15,16 @@ export async function GET() {
       "(SELECT status FROM job_crawler_runs ORDER BY started_at DESC LIMIT 1) AS last_run_status"
   );
   const r = rows[0];
+  const { rows: catRows } = await pgPool.query(
+    "SELECT category, count(*)::int AS n FROM job_postings WHERE is_active = true GROUP BY category"
+  );
+  const byCategory: Record<string, number> = {};
+  for (const c of catRows) byCategory[c.category] = c.n;
   const stats: JobStats = {
     total: r.total,
     todayNew: r.today_new,
     platformCount: r.platform_count,
+    byCategory,
     lastRun: r.last_run ? new Date(r.last_run).toISOString() : null,
     lastRunStatus: r.last_run_status ?? null,
   };

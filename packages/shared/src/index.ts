@@ -399,13 +399,24 @@ export const energyLevelColors: Record<number, string> = {
 export const jobSourceSchema = z.enum(["lagou", "liepin", "zhilian", "job51", "boss"]);
 export type JobSource = z.infer<typeof jobSourceSchema>;
 
-export const jobSourceLabels: Record<JobSource, string> = {
+export const jobSourceLabels: Record<string, string> = {
   lagou: "拉勾",
   liepin: "猎聘",
   zhilian: "智联招聘",
   job51: "前程无忧",
   boss: "Boss直聘",
+  "sasac-recruit": "国资委",
+  "cpta-notice": "中国人事考试网",
+  "81rc": "军队人才网",
+  "mohrss-sydw": "人社部事业单位平台",
+  "jiangsu-sydw": "江苏省人社厅",
+  "iguopin": "国聘网",
+  "guokao": "国考专题",
 };
+
+export function jobSourceLabel(source: string): string {
+  return jobSourceLabels[source] ?? source;
+}
 
 /** 实验性平台（强风控，可能不稳定） */
 export const experimentalJobSources: JobSource[] = ["boss"];
@@ -414,7 +425,7 @@ export const defaultCrawlerPlatforms: JobSource[] = ["lagou", "liepin", "zhilian
 
 export const jobPostingSchema = z.object({
   id: z.number(),
-  source: jobSourceSchema,
+  source: z.string(),
   sourceJobId: z.string(),
   title: z.string(),
   company: z.string(),
@@ -431,6 +442,10 @@ export const jobPostingSchema = z.object({
   companyInfo: z.string(),
   url: z.string(),
   logoUrl: z.string(),
+  category: z.string().default("internet"),
+  channel: z.enum(["job", "announcement", "event"]).default("job"),
+  deadlineAt: z.string().nullable().default(null),
+  extra: z.record(z.string(), z.unknown()).default({}),
   publishedAt: z.string().nullable(),
   fetchedAt: z.string(),
 });
@@ -451,6 +466,10 @@ export const jobPostingListItemSchema = jobPostingSchema.pick({
   education: true,
   tags: true,
   url: true,
+  category: true,
+  channel: true,
+  deadlineAt: true,
+  extra: true,
   publishedAt: true,
   fetchedAt: true,
 }).extend({
@@ -467,11 +486,33 @@ export const jobPostingListSchema = z.object({
 });
 export type JobPostingList = z.infer<typeof jobPostingListSchema>;
 
+export const jobCategorySchema = z.enum(["internet", "gongkao", "gongbian", "yangqi"]);
+export type JobCategory = z.infer<typeof jobCategorySchema>;
+
+export const jobCategoryLabels: Record<JobCategory, string> = {
+  internet: "互联网",
+  gongkao: "考公",
+  gongbian: "考编",
+  yangqi: "央国企",
+};
+
+export const jobCategoryColors: Record<JobCategory, string> = {
+  internet: "#10b981",
+  gongkao: "#3b82f6",
+  gongbian: "#8b5cf6",
+  yangqi: "#f59e0b",
+};
+
+export const allJobCategories: JobCategory[] = ["internet", "gongkao", "gongbian", "yangqi"];
+
 export const jobCrawlerConfigSchema = z.object({
   keywords: z.array(z.string()),
   industries: z.array(z.string()),
   cities: z.array(z.string()),
   platforms: z.array(jobSourceSchema),
+  categories: z.array(jobCategorySchema).default(allJobCategories),
+  provinces: z.array(z.string()).default([]),
+  sources: z.array(z.string()).default([]),
   scheduleTime: z.string(),
   enabled: z.boolean(),
   maxPages: z.number(),
@@ -484,6 +525,9 @@ export const defaultCrawlerConfig: JobCrawlerConfig = {
   industries: [],
   cities: [],
   platforms: defaultCrawlerPlatforms,
+  categories: allJobCategories,
+  provinces: [],
+  sources: [],
   scheduleTime: "08:00",
   enabled: true,
   maxPages: 3,
@@ -506,6 +550,7 @@ export const jobStatsSchema = z.object({
   total: z.number(),
   todayNew: z.number(),
   platformCount: z.number(),
+  byCategory: z.record(z.string(), z.number()).default({}),
   lastRun: z.string().nullable(),
   lastRunStatus: z.string().nullable(),
 });
@@ -528,3 +573,88 @@ export function formatRelativeTime(iso: string | null): string {
   const d = new Date(t);
   return (d.getMonth() + 1) + "-" + String(d.getDate()).padStart(2, "0");
 }
+
+
+/* ================= 招花 2.0 · hosts 注册表 / 订阅 / 考试日历 / 健康度 ================= */
+
+/** 信息源注册表条目（hosts 文件 / job_crawler_sources 表） */
+export const jobSourceInfoSchema = z.object({
+  id: z.string(),
+  category: jobCategorySchema,
+  channel: z.enum(["job", "announcement", "event"]),
+  name: z.string(),
+  engine: z.enum(["http", "browser"]),
+  baseUrl: z.string(),
+  risk: z.string(),
+  enabled: z.boolean(),
+  hitRate: z.number().default(1),
+  lastRunAt: z.string().nullable().default(null),
+  lastError: z.string().default(""),
+  note: z.string().default(""),
+});
+export type JobSourceInfo = z.infer<typeof jobSourceInfoSchema>;
+
+export const jobSourceInfoListSchema = z.object({
+  version: z.number(),
+  updatedAt: z.string().nullable(),
+  sources: z.array(jobSourceInfoSchema),
+});
+export type JobSourceInfoList = z.infer<typeof jobSourceInfoListSchema>;
+
+/** 订阅 */
+export const jobSubscriptionSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  categories: z.array(jobCategorySchema),
+  keywords: z.array(z.string()),
+  cities: z.array(z.string()),
+  enabled: z.boolean(),
+  createdAt: z.string(),
+});
+export type JobSubscription = z.infer<typeof jobSubscriptionSchema>;
+
+/** 站内通知 */
+export const jobNotificationSchema = z.object({
+  id: z.number(),
+  jobId: z.number(),
+  subscriptionId: z.number().nullable(),
+  title: z.string(),
+  body: z.string(),
+  url: z.string(),
+  read: z.boolean(),
+  createdAt: z.string(),
+});
+export type JobNotification = z.infer<typeof jobNotificationSchema>;
+
+/** 考试日历事件 */
+export const examEventSchema = z.object({
+  id: z.number(),
+  jobId: z.number(),
+  kind: z.enum(["apply_start", "apply_end", "exam", "interview", "result"]),
+  label: z.string(),
+  eventAt: z.string(),
+  note: z.string(),
+  daysLeft: z.number(),
+  title: z.string(),
+  source: z.string(),
+  url: z.string(),
+});
+export type ExamEvent = z.infer<typeof examEventSchema>;
+
+/** 信息源健康记录 */
+export const jobSourceHealthSchema = z.object({
+  id: z.number(),
+  source: z.string(),
+  fetched: z.number(),
+  hitRate: z.number(),
+  error: z.string(),
+  createdAt: z.string(),
+});
+export type JobSourceHealth = z.infer<typeof jobSourceHealthSchema>;
+
+/** 订阅匹配结果（抓取后新职位 × 订阅） */
+export const jobNotificationStatsSchema = z.object({
+  unread: z.number(),
+  total: z.number(),
+});
+export type JobNotificationStats = z.infer<typeof jobNotificationStatsSchema>;

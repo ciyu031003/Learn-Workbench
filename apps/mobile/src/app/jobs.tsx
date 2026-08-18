@@ -35,7 +35,13 @@ import { formatRelativeTime, jobSourceLabels, type JobPostingListItem, type JobS
 
 const PAGE_SIZE = 20;
 const CITY_OPTIONS = ["全部", "上海", "北京", "深圳", "杭州", "成都", "广州", "乌鲁木齐"];
-const SOURCE_COLORS: Record<JobSource, string> = {
+const CATEGORY_OPTIONS = [
+  { id: "", label: "全部" },
+  { id: "internet", label: "互联网" },
+  { id: "gongkao,gongbian", label: "考公考编" },
+  { id: "yangqi", label: "央国企" },
+];
+const SOURCE_COLORS: Record<string, string> = {
   lagou: "#10b981",
   liepin: "#0ea5e9",
   zhilian: "#4f46e5",
@@ -158,6 +164,7 @@ function JobCard({
             <Text style={styles.jobTitle} numberOfLines={1}>
               {job.title}
             </Text>
+            {job.channel === "announcement" ? <Text style={styles.announceBadge}>公告</Text> : null}
             {job.isNew ? <Text style={styles.newBadge}>NEW</Text> : null}
           </View>
           <Text style={styles.salary}>{salaryText(job)}</Text>
@@ -209,6 +216,7 @@ export default function JobsScreen() {
   const [searchInput, setSearchInput] = useState("");
   const [query, setQuery] = useState("");
   const [city, setCity] = useState("");
+  const [category, setCategory] = useState("");
   const [sort, setSort] = useState<"new" | "salary">("new");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [detailVisible, setDetailVisible] = useState(false);
@@ -224,6 +232,7 @@ export default function JobsScreen() {
         const data: JobListResult = await fetchJobs({
           q: query,
           city,
+          category: category || undefined,
           sort,
           page: pageNumber,
           pageSize: PAGE_SIZE,
@@ -254,7 +263,7 @@ export default function JobsScreen() {
         if (mode === "more") setLoadingMore(false);
       }
     },
-    [query, city, sort]
+    [query, city, category, sort]
   );
 
   useEffect(() => {
@@ -399,6 +408,24 @@ export default function JobsScreen() {
         ) : null}
       </View>
 
+      <View style={styles.catRow}>
+        {CATEGORY_OPTIONS.map((c) => {
+          const active = category === c.id || (c.id === "" && category === "");
+          return (
+            <Pressable
+              key={c.id || "all"}
+              style={[styles.catChip, active ? styles.catChipActive : styles.catChipIdle]}
+              onPress={() => {
+                setCategory(c.id);
+                setJobs([]);
+              }}
+            >
+              <Text style={active ? styles.catChipTextActive : styles.catChipTextIdle}>{c.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
       <View style={styles.chipsRow}>
         {CITY_OPTIONS.map((c) => {
           const active = city === c || (c === "全部" && city === "");
@@ -518,6 +545,12 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   searchInput: { flex: 1, fontSize: 14, color: "#18181b", padding: 0 },
+  catRow: { flexDirection: "row", gap: 8, paddingVertical: 4 },
+  catChip: { borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6 },
+  catChipActive: { backgroundColor: "#10b981" },
+  catChipIdle: { backgroundColor: "rgba(255,255,255,0.22)", borderWidth: 1, borderColor: "rgba(255,255,255,0.30)" },
+  catChipTextActive: { color: "#ffffff", fontSize: 13, fontWeight: "800" },
+  catChipTextIdle: { color: "#ffffff", fontSize: 13, fontWeight: "600" },
   chipsRow: { flexDirection: "row", gap: 8, paddingVertical: 2 },
   chip: { borderRadius: 999, paddingHorizontal: 13, paddingVertical: 7 },
   chipActive: { backgroundColor: "#10b981" },
@@ -560,6 +593,18 @@ const styles = StyleSheet.create({
   jobMain: { flex: 1, minWidth: 0, gap: 2 },
   titleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   jobTitle: { flex: 1, fontSize: 15.5, fontWeight: "800", color: "#18181b" },
+  announceBadge: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#4f46e5",
+    backgroundColor: "rgba(99,102,241,0.18)",
+    borderWidth: 1,
+    borderColor: "rgba(99,102,241,0.55)",
+    borderRadius: 999,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    overflow: "hidden",
+  },
   newBadge: {
     fontSize: 10,
     fontWeight: "800",

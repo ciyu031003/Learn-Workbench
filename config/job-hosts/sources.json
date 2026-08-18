@@ -1,0 +1,257 @@
+{
+  "meta": {
+    "version": 1,
+    "generated_at": "2026-08-18T00:00:00+08:00",
+    "changelog": "v1：招花 2.0 首发——考公考编 + 央国企官方信息源注册表",
+    "categories": [
+      {
+        "id": "internet",
+        "name": "互联网",
+        "color": "#10b981"
+      },
+      {
+        "id": "gongkao",
+        "name": "考公",
+        "color": "#3b82f6"
+      },
+      {
+        "id": "gongbian",
+        "name": "考编",
+        "color": "#8b5cf6"
+      },
+      {
+        "id": "yangqi",
+        "name": "央国企",
+        "color": "#f59e0b"
+      }
+    ]
+  },
+  "sources": [
+    {
+      "id": "sasac-recruit",
+      "category": "yangqi",
+      "channel": "announcement",
+      "name": "国资委 · 央企招聘公告",
+      "engine": "http",
+      "base_url": "http://www.sasac.gov.cn",
+      "list": {
+        "url": "http://www.sasac.gov.cn/n2588035/n2588325/n2588350/index.html",
+        "pagination": {
+          "type": "none"
+        },
+        "item_selector": "div.zsy_conlist ul li",
+        "title_selector": "a",
+        "url_selector": "a[href]",
+        "date_selector": "span",
+        "url_prefix": "http://www.sasac.gov.cn",
+        "date_prefix": "[",
+        "date_suffix": "]"
+      },
+      "detail": {
+        "body_selector": "div.TRS_Editor, div.article, .content",
+        "strip_tags": true
+      },
+      "deadline_parse": true,
+      "rate_limit_ms": 2500,
+      "max_items_per_run": 20,
+      "max_pages": 1,
+      "risk": "L1",
+      "enabled": true,
+      "note": "央企总部及委属单位招聘公告，UTF-8 静态列表",
+      "title_filter": null
+    },
+    {
+      "id": "cpta-notice",
+      "category": "gongbian",
+      "channel": "announcement",
+      "name": "中国人事考试网 · 通知公告",
+      "engine": "http",
+      "base_url": "http://www.cpta.com.cn",
+      "list": {
+        "url": "http://www.cpta.com.cn/notice.html",
+        "pagination": {
+          "type": "none"
+        },
+        "item_selector": "ul.list_14 li",
+        "title_selector": "a",
+        "url_selector": "a[href]",
+        "date_selector": "i",
+        "url_prefix": "http://www.cpta.com.cn",
+        "date_prefix": "[",
+        "date_suffix": "]"
+      },
+      "detail": {
+        "body_selector": ".article-content, .content, #zoom",
+        "strip_tags": true
+      },
+      "deadline_parse": true,
+      "rate_limit_ms": 2500,
+      "max_items_per_run": 20,
+      "max_pages": 1,
+      "risk": "L1",
+      "enabled": true,
+      "note": "含部属单位公开招聘公告，UTF-8 静态列表",
+      "title_filter": "公开招聘|拟聘|招聘公告"
+    },
+    {
+      "id": "81rc",
+      "category": "gongbian",
+      "channel": "announcement",
+      "name": "军队人才网 · 招考公告",
+      "engine": "http",
+      "base_url": "http://81rc.81.cn",
+      "list": {
+        "url": "http://81rc.81.cn/sy/gzdt_210283/index.html",
+        "pagination": {
+          "type": "none"
+        },
+        "item_selector": "div.left-news ul li",
+        "title_selector": "a",
+        "url_selector": "a[href]",
+        "date_selector": "span",
+        "url_prefix": "",
+        "date_prefix": "",
+        "date_suffix": ""
+      },
+      "detail": {
+        "body_selector": ".content, .article, .TRS_Editor",
+        "strip_tags": true
+      },
+      "deadline_parse": true,
+      "rate_limit_ms": 2500,
+      "max_items_per_run": 20,
+      "max_pages": 1,
+      "risk": "L1",
+      "enabled": true,
+      "note": "军队文职招考公告（工作动态栏目），UTF-8 静态列表"
+    },
+    {
+      "id": "mohrss-sydw",
+      "category": "gongbian",
+      "channel": "announcement",
+      "name": "人社部 · 事业单位公开招聘平台",
+      "engine": "browser",
+      "base_url": "https://www.mohrss.gov.cn",
+      "list": {
+        "url": "https://www.mohrss.gov.cn/SYrlzyhshbzb/fwyd/SYkaoshizhaopin/zyhgjjgsydwgkzp/zpgg/",
+        "pagination": {
+          "type": "none"
+        },
+        "item_selector": ".newslist li, .news li, ul li",
+        "title_selector": "a",
+        "url_selector": "a[href]",
+        "date_selector": "span, i",
+        "url_prefix": "https://www.mohrss.gov.cn",
+        "date_prefix": "",
+        "date_suffix": ""
+      },
+      "detail": {
+        "body_selector": ".TRS_Editor, .content",
+        "strip_tags": true
+      },
+      "deadline_parse": true,
+      "rate_limit_ms": 5000,
+      "max_items_per_run": 20,
+      "max_pages": 1,
+      "risk": "L2",
+      "enabled": true,
+      "note": "中央和国家机关所属事业单位公开招聘，带 JS 反爬挑战，需浏览器"
+    },
+    {
+      "id": "jiangsu-sydw",
+      "category": "gongbian",
+      "channel": "announcement",
+      "name": "江苏省人社厅 · 省属事业单位招聘",
+      "engine": "browser",
+      "base_url": "https://jshrss.jiangsu.gov.cn",
+      "list": {
+        "url": "https://jshrss.jiangsu.gov.cn/col/col78506/index.html",
+        "pagination": {
+          "type": "none"
+        },
+        "item_selector": "div.content_box_list ul li a",
+        "title_selector": "a",
+        "url_selector": "a[href]",
+        "date_selector": "span",
+        "url_prefix": "https://jshrss.jiangsu.gov.cn",
+        "date_prefix": "",
+        "date_suffix": ""
+      },
+      "detail": {
+        "body_selector": ".content_box, .article-content",
+        "strip_tags": true
+      },
+      "deadline_parse": true,
+      "rate_limit_ms": 5000,
+      "max_items_per_run": 20,
+      "max_pages": 1,
+      "risk": "L2",
+      "enabled": true,
+      "note": "列表由 JS 动态加载（urite），需浏览器"
+    },
+    {
+      "id": "iguopin",
+      "category": "yangqi",
+      "channel": "job",
+      "name": "国聘网 · 央企国企职位",
+      "engine": "browser",
+      "base_url": "https://www.iguopin.com",
+      "list": {
+        "url": "https://www.iguopin.com/search?keyword=校招&type=1",
+        "pagination": {
+          "type": "none"
+        },
+        "item_selector": "[class*='job-card'], [class*='jobCard'], [class*='position']",
+        "title_selector": "[class*='title'], [class*='name']",
+        "url_selector": "a[href]",
+        "date_selector": "span, .time",
+        "url_prefix": "https://www.iguopin.com",
+        "date_prefix": "",
+        "date_suffix": ""
+      },
+      "detail": {
+        "body_selector": ".job-detail, [class*='detail']",
+        "strip_tags": true
+      },
+      "deadline_parse": false,
+      "rate_limit_ms": 6000,
+      "max_items_per_run": 30,
+      "max_pages": 1,
+      "risk": "L2",
+      "enabled": true,
+      "note": "7 部委联合发起，央企国企核心平台，SPA 需浏览器"
+    },
+    {
+      "id": "guokao",
+      "category": "gongkao",
+      "channel": "announcement",
+      "name": "国家公务员局 · 国考专题",
+      "engine": "browser",
+      "base_url": "http://bm.scs.gov.cn",
+      "list": {
+        "url": "http://bm.scs.gov.cn/kl2026",
+        "pagination": {
+          "type": "none"
+        },
+        "item_selector": "ul li a",
+        "title_selector": "a",
+        "url_selector": "a[href]",
+        "date_selector": "span",
+        "url_prefix": "http://bm.scs.gov.cn",
+        "date_prefix": "",
+        "date_suffix": ""
+      },
+      "detail": {
+        "body_selector": ".content",
+        "strip_tags": true
+      },
+      "deadline_parse": true,
+      "rate_limit_ms": 5000,
+      "max_items_per_run": 20,
+      "max_pages": 1,
+      "risk": "L3",
+      "enabled": false,
+      "note": "季节性开放（每年 10 月 /kl2027），强风控，默认关闭，周更时自动校正年份"
+    }
+  ]
+}

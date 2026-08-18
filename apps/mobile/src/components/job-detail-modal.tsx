@@ -8,7 +8,7 @@ import { Card } from "@/components/card";
 import { fetchJobDetail, type JobDetail } from "@/lib/jobs";
 import { formatRelativeTime, jobSourceLabels, type JobPostingListItem, type JobSource } from "@learn-workbench/shared";
 
-const SOURCE_COLORS: Record<JobSource, string> = {
+const SOURCE_COLORS: Record<string, string> = {
   lagou: "#10b981",
   liepin: "#0ea5e9",
   zhilian: "#4f46e5",

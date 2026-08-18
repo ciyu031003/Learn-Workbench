@@ -12,7 +12,8 @@ import {
   experimentalJobSources,
   formatDateCN,
   formatRelativeTime,
-  jobSourceLabels,
+  jobCategoryLabels,
+  jobSourceLabel,
   todayISO,
 } from "@learn-workbench/shared";
 import { Badge } from "@/components/ui/badge";
@@ -21,16 +22,20 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { JobCard } from "@/components/jobs/job-card";
 import { JobModal } from "@/components/jobs/job-modal";
+import { ExamCalendarModal } from "@/components/jobs/exam-calendar-modal";
+import { NotificationPanel } from "@/components/jobs/notification-panel";
 import { cn } from "@/lib/utils";
 import { useToastStore } from "@/store/toast-store";
 import {
   ArrowUpDown,
   Building2,
+  CalendarDays,
   ChevronLeft,
   ChevronRight,
   Clock3,
   Database,
   Flower2,
+  Landmark,
   Loader2,
   Play,
   RefreshCw,
@@ -41,7 +46,22 @@ import {
 type JobDetail = JobPosting & { isFav: boolean };
 
 const PAGE_SIZE = 12;
-const PLATFORM_OPTIONS = Object.keys(jobSourceLabels) as JobSource[];
+const PLATFORM_OPTIONS = Object.keys(jobSourceLabel) as unknown as JobSource[];
+
+const GROUPS = [
+  { id: "all", label: "全部", icon: "✨" },
+  { id: "internet", label: "互联网", icon: "💼" },
+  { id: "gongzhi", label: "考公考编", icon: "🏛" },
+  { id: "yangqi", label: "央国企", icon: "🏢" },
+] as const;
+
+type GroupId = (typeof GROUPS)[number]["id"];
+
+const SUB_GROUPS = [
+  { id: "all", label: "全部" },
+  { id: "gongkao", label: "公务员" },
+  { id: "gongbian", label: "事业单位·军队文职" },
+] as const;
 
 function useCountUp(target: number, duration = 650): number {
   const [value, setValue] = useState(0);
@@ -131,7 +151,6 @@ function JobSkeleton() {
     </div>
   );
 }
-
 export default function JobsPage() {
   const pushToast = useToastStore((s) => s.push);
   const [stats, setStats] = useState<JobStats | null>(null);
@@ -142,7 +161,9 @@ export default function JobsPage() {
   const [search, setSearch] = useState("");
   const [city, setCity] = useState("");
   const [platforms, setPlatforms] = useState<JobSource[]>([]);
-  const [sort, setSort] = useState<"new" | "salary">("new");
+  const [group, setGroup] = useState<GroupId>("all");
+  const [sub, setSub] = useState<"all" | "gongkao" | "gongbian">("all");
+  const [sort, setSort] = useState<"new" | "salary" | "deadline">("new");
   const [cities, setCities] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
@@ -154,9 +175,19 @@ export default function JobsPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [favoriteBusyId, setFavoriteBusyId] = useState<number | null>(null);
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   const platformsKey = platforms.join(",");
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  const effectiveCategories = (() => {
+    if (group === "all") return "";
+    if (group === "internet") return "internet";
+    if (group === "yangqi") return "yangqi";
+    if (group === "gongzhi") return sub === "all" ? "gongkao,gongbian" : sub;
+    return "";
+  })();
+  const showDeadlineSort = group !== "internet";
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -205,6 +236,7 @@ export default function JobsPage() {
     const params = new URLSearchParams();
     if (search) params.set("q", search);
     if (city) params.set("city", city);
+    if (effectiveCategories) params.set("category", effectiveCategories);
     if (platforms.length > 0) params.set("platforms", platformsKey);
     params.set("sort", sort);
     params.set("page", String(page));
@@ -241,7 +273,7 @@ export default function JobsPage() {
       }
     })();
     return () => controller.abort();
-  }, [city, page, platforms.length, platformsKey, pushToast, refreshKey, search, sort]);
+  }, [city, effectiveCategories, page, platforms.length, platformsKey, pushToast, refreshKey, search, sort]);
 
   const runCrawler = async () => {
     setRunning(true);
@@ -303,6 +335,12 @@ export default function JobsPage() {
     setPage(1);
   };
 
+  const selectGroup = (g: GroupId) => {
+    setGroup(g);
+    setSub("all");
+    setPage(1);
+  };
+
   const statItems = [
     {
       label: "今日新增",
@@ -329,7 +367,6 @@ export default function JobsPage() {
       accent: "text-amber-400",
     },
   ];
-
   return (
     <div className="page-enter flex flex-col gap-6">
       <section className="glass relative overflow-hidden rounded-[28px] p-6 lg:p-8">
@@ -345,6 +382,17 @@ export default function JobsPage() {
               <Flower2 className="size-5" />
             </span>
             <Badge variant="success">招聘信息</Badge>
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setCalendarOpen(true)}
+                className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-white/20 bg-white/10 px-3 text-xs font-semibold text-muted-foreground backdrop-blur-md transition-all hover:bg-white/15 hover:text-foreground"
+              >
+                <CalendarDays className="size-4" />
+                考试日历
+              </button>
+              <NotificationPanel />
+            </div>
           </div>
           <h1 className="mt-5 max-w-xl bg-gradient-to-r from-emerald-400 via-emerald-500 to-cyan-500 bg-clip-text text-3xl font-black tracking-tight text-transparent lg:text-4xl">
             招花 · 今日好岗
@@ -375,13 +423,54 @@ export default function JobsPage() {
 
       <section className="glass rounded-2xl p-4">
         <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {GROUPS.map((g) => (
+              <button
+                key={g.id}
+                type="button"
+                onClick={() => selectGroup(g.id)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-bold backdrop-blur-md transition-all",
+                  group === g.id
+                    ? "border-transparent bg-gradient-to-r from-emerald-500 to-cyan-500 text-white shadow-[0_6px_18px_rgba(16,185,129,0.32)]"
+                    : "border-white/20 bg-white/10 text-muted-foreground hover:bg-white/15 hover:text-foreground"
+                )}
+              >
+                <span>{g.icon}</span>
+                {g.label}
+              </button>
+            ))}
+            {group === "gongzhi" ? (
+              <div className="ml-1 flex flex-wrap items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-2 py-1">
+                {SUB_GROUPS.map((sg) => (
+                  <button
+                    key={sg.id}
+                    type="button"
+                    onClick={() => {
+                      setSub(sg.id as never);
+                      setPage(1);
+                    }}
+                    className={cn(
+                      "rounded-full px-2.5 py-1 text-xs font-semibold transition-all",
+                      sub === sg.id
+                        ? "bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)]"
+                        : "text-muted-foreground hover:bg-white/10 hover:text-foreground"
+                    )}
+                  >
+                    {sg.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+
           <div className="flex flex-col gap-2 sm:flex-row">
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                placeholder="搜索职位、公司或标签"
+                placeholder="搜索职位、公司、公告标题或标签"
                 className="h-11 pl-10"
               />
             </div>
@@ -393,14 +482,14 @@ export default function JobsPage() {
                   setPage(1);
                 }}
                 className={cn(
-                  "inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl px-4 py-1.5 text-xs font-semibold transition-all sm:flex-none",
+                  "inline-flex flex-1 items-center justify-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all sm:flex-none",
                   sort === "new"
                     ? "bg-gradient-to-r from-emerald-500 to-cyan-500 text-white shadow-[0_6px_16px_rgba(16,185,129,0.28)]"
                     : "text-muted-foreground hover:bg-white/10 hover:text-foreground"
                 )}
               >
                 <Clock3 className="size-3.5" />
-                最新发布
+                最新
               </button>
               <button
                 type="button"
@@ -409,15 +498,33 @@ export default function JobsPage() {
                   setPage(1);
                 }}
                 className={cn(
-                  "inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl px-4 py-1.5 text-xs font-semibold transition-all sm:flex-none",
+                  "inline-flex flex-1 items-center justify-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all sm:flex-none",
                   sort === "salary"
                     ? "bg-gradient-to-r from-emerald-500 to-cyan-500 text-white shadow-[0_6px_16px_rgba(16,185,129,0.28)]"
                     : "text-muted-foreground hover:bg-white/10 hover:text-foreground"
                 )}
               >
                 <ArrowUpDown className="size-3.5" />
-                薪资高→低
+                薪资
               </button>
+              {showDeadlineSort ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSort("deadline");
+                    setPage(1);
+                  }}
+                  className={cn(
+                    "inline-flex flex-1 items-center justify-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all sm:flex-none",
+                    sort === "deadline"
+                      ? "bg-gradient-to-r from-emerald-500 to-cyan-500 text-white shadow-[0_6px_16px_rgba(16,185,129,0.28)]"
+                      : "text-muted-foreground hover:bg-white/10 hover:text-foreground"
+                  )}
+                >
+                  <CalendarDays className="size-3.5" />
+                  截止最近
+                </button>
+              ) : null}
             </div>
           </div>
 
@@ -441,7 +548,7 @@ export default function JobsPage() {
 
           <div className="flex flex-wrap gap-2">
             <FilterChip active={platforms.length === 0} onClick={() => setPlatforms([])}>
-              全部平台
+              全部来源
             </FilterChip>
             {PLATFORM_OPTIONS.map((source) => (
               <FilterChip
@@ -449,7 +556,7 @@ export default function JobsPage() {
                 active={platforms.includes(source)}
                 onClick={() => togglePlatform(source)}
               >
-                {jobSourceLabels[source]}
+                {jobSourceLabel(source)}
                 {experimentalJobSources.includes(source) ? (
                   <span className="rounded-full bg-white/20 px-1.5 py-0.5 text-[10px]">实验</span>
                 ) : null}
@@ -525,7 +632,7 @@ export default function JobsPage() {
             上一页
           </Button>
           <span className="text-sm text-muted-foreground tabular-nums">
-            第 {page} / {totalPages} 页 · 共 {total} 个职位
+            第 {page} / {totalPages} 页 · 共 {total} 个
           </span>
           <Button
             variant="outline"
@@ -549,6 +656,7 @@ export default function JobsPage() {
         onClose={() => setModalOpen(false)}
         onToggleFavorite={toggleFavorite}
       />
+      <ExamCalendarModal open={calendarOpen} onClose={() => setCalendarOpen(false)} />
     </div>
   );
 }

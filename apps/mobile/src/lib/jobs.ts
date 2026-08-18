@@ -13,6 +13,7 @@ export type JobDetail = JobPostingListItem & {
 export interface JobListParams {
   q?: string;
   city?: string;
+  category?: string;
   platforms?: JobSource[];
   sort?: "new" | "salary";
   page?: number;
@@ -61,6 +62,7 @@ function buildJobListQuery(params: JobListParams): string {
   const parts: string[] = [];
   if (params.q?.trim()) parts.push("q=" + encodeURIComponent(params.q.trim()));
   if (params.city?.trim()) parts.push("city=" + encodeURIComponent(params.city.trim()));
+  if (params.category?.trim()) parts.push("category=" + encodeURIComponent(params.category.trim()));
   if (params.platforms && params.platforms.length > 0) parts.push("platforms=" + encodeURIComponent(params.platforms.join(",")));
   if (params.sort) parts.push("sort=" + params.sort);
   if (typeof params.page === "number") parts.push("page=" + params.page);

@@ -4,11 +4,13 @@ import type { JobPostingListItem } from "@learn-workbench/shared";
 import {
   experimentalJobSources,
   formatRelativeTime,
-  jobSourceLabels,
+  jobCategoryColors,
+  jobCategoryLabels,
+  jobSourceLabel,
 } from "@learn-workbench/shared";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Building2, Clock3, Heart, MapPin } from "lucide-react";
+import { Building2, CalendarClock, Clock3, Heart, MapPin, Users } from "lucide-react";
 
 const avatarGradients = [
   "from-indigo-500 to-blue-500",
@@ -37,6 +39,20 @@ function salaryText(job: JobPostingListItem): string {
   return "薪资面议";
 }
 
+/** 报名截止文案 */
+export function deadlineText(deadlineAt: string | null): string | null {
+  if (!deadlineAt) return null;
+  const t = new Date(deadlineAt).getTime();
+  if (Number.isNaN(t)) return null;
+  const now = Date.now();
+  const days = Math.ceil((t - now) / 86400000);
+  const d = new Date(t);
+  const md = `${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  if (days < 0) return `已截止 ${md}`;
+  if (days === 0) return `今日 ${md} 截止`;
+  return `${days} 天后截止 · ${md}`;
+}
+
 export function JobCard({
   job,
   index = 0,
@@ -50,8 +66,14 @@ export function JobCard({
   onOpen: (job: JobPostingListItem) => void;
   onToggleFavorite: (id: number) => void;
 }) {
-  const initials = (job.company || job.title).trim().charAt(0).toUpperCase() || "职";
-  const gradient = avatarGradients[hashText(job.company || job.title) % avatarGradients.length];
+  const isAnnouncement = job.channel === "announcement";
+  const initials = (job.company || job.title).trim().charAt(0).toUpperCase() || (isAnnouncement ? "公" : "职");
+  const gradient = avatarGradients[hashText(job.company || job.title || job.source) % avatarGradients.length];
+  const deadline = deadlineText(job.deadlineAt);
+  const overdue = job.deadlineAt ? new Date(job.deadlineAt).getTime() < Date.now() : false;
+  const catColor = jobCategoryColors[job.category as keyof typeof jobCategoryColors] ?? "#10b981";
+  const catLabel = jobCategoryLabels[job.category as keyof typeof jobCategoryLabels] ?? job.category;
+  const recruitCount = (job.extra as Record<string, unknown>)?.recruit_count as number | undefined;
 
   return (
     <article
@@ -73,38 +95,95 @@ export function JobCard({
         <span
           className={cn(
             "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-sm font-bold text-white shadow-lg",
-            gradient
+            isAnnouncement ? "from-indigo-500 to-violet-600" : gradient
           )}
         >
           {initials}
         </span>
 
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-base font-bold leading-snug text-foreground">{job.title}</h2>
-          <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-            <MapPin className="size-3.5 shrink-0" />
-            <span className="truncate">
-              {job.city || "城市不限"}
-              {job.district ? ` · ${job.district}` : ""}
-            </span>
+          <div className="flex items-center gap-1.5">
+            <h2 className="truncate text-base font-bold leading-snug text-foreground">{job.title}</h2>
+          </div>
+          <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+            {isAnnouncement ? (
+              <>
+                <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold text-white" style={{ backgroundColor: catColor }}>
+                  {catLabel}
+                </span>
+                <MapPin className="size-3.5" />
+                <span className="truncate">{job.city || "全国"}</span>
+              </>
+            ) : (
+              <>
+                <MapPin className="size-3.5" />
+                <span className="truncate">
+                  {job.city || "城市不限"}
+                  {job.district ? ` · ${job.district}` : ""}
+                </span>
+              </>
+            )}
           </div>
         </div>
 
-        <span className="shrink-0 bg-gradient-to-r from-amber-500 to-orange-600 bg-clip-text text-lg font-black tabular-nums text-transparent">
-          {salaryText(job)}
-        </span>
+        {isAnnouncement ? (
+          deadline ? (
+            <span
+              className={cn(
+                "shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold tabular-nums",
+                overdue
+                  ? "bg-white/10 text-muted-foreground line-through"
+                  : "bg-rose-500/15 text-rose-500 dark:text-rose-300"
+              )}
+            >
+              {deadline}
+            </span>
+          ) : (
+            <span className="shrink-0 rounded-full bg-indigo-500/15 px-2.5 py-1 text-[11px] font-bold text-indigo-500 dark:text-indigo-300">
+              公告
+            </span>
+          )
+        ) : (
+          <span className="shrink-0 bg-gradient-to-r from-amber-500 to-orange-600 bg-clip-text text-lg font-black tabular-nums text-transparent">
+            {salaryText(job)}
+          </span>
+        )}
       </div>
 
       <div className="relative mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
         <Building2 className="size-3.5 shrink-0" />
-        <span className="truncate">{job.company || "公司未知"}</span>
-        <span className="text-white/30">·</span>
-        <span>{job.experience || "经验不限"}</span>
-        <span className="text-white/30">·</span>
-        <span>{job.education || "学历不限"}</span>
+        <span className="truncate">{job.company || (isAnnouncement ? jobSourceLabel(job.source) : "公司未知")}</span>
+        {!isAnnouncement ? (
+          <>
+            <span className="text-white/30">·</span>
+            <span>{job.experience || "经验不限"}</span>
+            <span className="text-white/30">·</span>
+            <span>{job.education || "学历不限"}</span>
+          </>
+        ) : null}
       </div>
 
-      {job.tags.length > 0 ? (
+      {isAnnouncement ? (
+        <div className="relative mt-3 flex flex-wrap items-center gap-1.5">
+          {recruitCount ? (
+            <Badge variant="muted" className="inline-flex items-center gap-1 text-[10px]">
+              <Users className="size-3" />
+              招录 {recruitCount} 人
+            </Badge>
+          ) : null}
+          {job.deadlineAt ? (
+            <Badge variant={overdue ? "muted" : "accent"} className="inline-flex items-center gap-1 text-[10px]">
+              <CalendarClock className="size-3" />
+              报名截止
+            </Badge>
+          ) : null}
+          {job.tags.slice(0, 3).map((tag) => (
+            <Badge key={tag} variant="muted" className="text-[10px]">
+              {tag}
+            </Badge>
+          ))}
+        </div>
+      ) : job.tags.length > 0 ? (
         <div className="relative mt-3 flex flex-wrap gap-1.5">
           {job.tags.slice(0, 4).map((tag) => (
             <Badge key={tag} variant="muted" className="text-[10px]">
@@ -116,9 +195,9 @@ export function JobCard({
 
       <div className="relative mt-3 flex items-center gap-2 border-t border-white/10 pt-3">
         <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
-          <span className="size-1.5 rounded-full bg-emerald-400" />
-          {jobSourceLabels[job.source]}
-          {experimentalJobSources.includes(job.source) ? (
+          <span className="size-1.5 rounded-full" style={{ backgroundColor: catColor }} />
+          {jobSourceLabel(job.source)}
+          {experimentalJobSources.includes(job.source as never) ? (
             <span className="rounded-full bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-300">
               实验
             </span>

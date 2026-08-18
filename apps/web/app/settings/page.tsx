@@ -8,8 +8,8 @@ import { Switch } from "@/components/ui/switch";
 import { useUiStore } from "@/store/ui-store";
 import { useToastStore } from "@/store/toast-store";
 import { useRouter } from "next/navigation";
-import type { JobCrawlerConfig, JobRun, JobSource, JobStats } from "@learn-workbench/shared";
-import { experimentalJobSources, formatRelativeTime, jobSourceLabels } from "@learn-workbench/shared";
+import type { JobCrawlerConfig, JobRun, JobSource, JobSourceInfo, JobStats, JobSubscription } from "@learn-workbench/shared";
+import { allJobCategories, experimentalJobSources, formatRelativeTime, jobCategoryLabels, jobSourceLabel, jobSourceLabels } from "@learn-workbench/shared";
 import {
   Database,
   Download,
@@ -23,8 +23,16 @@ import {
   Save,
   Sparkles,
   Upload,
+  Activity,
+  Bell,
+  CalendarClock,
+  Heart,
+  Plus,
+  Server,
+  Trash2,
   User as UserIcon,
   X,
+  Zap,
 } from "lucide-react";
 
 type ChipEditorProps = {
@@ -72,6 +80,83 @@ function ChipEditor({ label, placeholder, items, onAdd, onRemove }: ChipEditorPr
   );
 }
 
+function NewSubscriptionForm({ onSave }: { onSave: (sub: { name: string; categories: string[]; keywords: string[]; cities: string[] }) => Promise<void> }) {
+  const [name, setName] = useState("");
+  const [cats, setCats] = useState<string[]>(["yangqi"]);
+  const [kw, setKw] = useState("");
+  const [city, setCity] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const toggleCat = (c: string) => {
+    setCats((prev) => (prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]));
+  };
+
+  const submit = async () => {
+    const keywords = kw.split(/[,，、\s]+/).map((x) => x.trim()).filter(Boolean);
+    const cities = city.split(/[,，、\s]+/).map((x) => x.trim()).filter(Boolean);
+    if (!name.trim() && keywords.length === 0) return;
+    setBusy(true);
+    try {
+      await onSave({
+        name: name.trim() || (cats.length ? cats.map((c) => jobCategoryLabels[c as never] ?? c).join("·") : "我的订阅"),
+        categories: cats,
+        keywords,
+        cities,
+      });
+      setName("");
+      setKw("");
+      setCity("");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-dashed border-white/20 bg-white/5 p-3">
+      <p className="text-xs font-medium text-muted-foreground">新建订阅</p>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {allJobCategories.map((c) => (
+          <button
+            key={c}
+            type="button"
+            onClick={() => toggleCat(c)}
+            className={cats.includes(c)
+              ? "rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500 px-2.5 py-1 text-[11px] font-semibold text-white"
+              : "rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground"
+            }
+          >
+            {jobCategoryLabels[c]}
+          </button>
+        ))}
+      </div>
+      <input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="订阅名称，如 央国企×北京（可选）"
+        className="mt-2 h-9 w-full rounded-xl border border-white/20 bg-white/10 px-3 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-emerald-500/60"
+      />
+      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+        <input
+          value={kw}
+          onChange={(e) => setKw(e.target.value)}
+          placeholder="关键词：如 网络工程、数据分析"
+          className="h-9 w-full rounded-xl border border-white/20 bg-white/10 px-3 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-emerald-500/60"
+        />
+        <input
+          value={city}
+          onChange={(e) => setCity(e.target.value)}
+          placeholder="地区：如 北京、乌鲁木齐"
+          className="h-9 w-full rounded-xl border border-white/20 bg-white/10 px-3 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-emerald-500/60"
+        />
+      </div>
+      <Button size="sm" onClick={submit} disabled={busy} className="mt-2">
+        {busy ? <RefreshCw className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
+        创建订阅
+      </Button>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const router = useRouter();
   const backgroundEnabled = useUiStore((s) => s.backgroundEnabled);
@@ -95,6 +180,10 @@ export default function SettingsPage() {
   const [crawlerRunBusy, setCrawlerRunBusy] = useState(false);
   const [jobRuns, setJobRuns] = useState<JobRun[]>([]);
   const [jobStats, setJobStats] = useState<JobStats | null>(null);
+  const [sources, setSources] = useState<JobSourceInfo[]>([]);
+  const [hostsMeta, setHostsMeta] = useState<{ version: number; updatedAt: string | null } | null>(null);
+  const [hostsBusy, setHostsBusy] = useState(false);
+  const [subscriptions, setSubscriptions] = useState<JobSubscription[]>([]);
   const refreshWallpaper = async () => {
     setWallpaperBusy(true);
     try {
@@ -124,7 +213,7 @@ export default function SettingsPage() {
 
   const loadCrawlerData = async () => {
     try {
-      const [configR, runsR, statsR] = await Promise.allSettled([
+      const [configR, runsR, statsR, sourcesR, subsR] = await Promise.allSettled([
         fetch("/api/jobs/config").then(async (r) => {
           if (!r.ok) throw new Error("招聘配置加载失败");
           return (await r.json()) as { config: JobCrawlerConfig };
@@ -137,6 +226,14 @@ export default function SettingsPage() {
           if (!r.ok) throw new Error("招聘统计加载失败");
           return (await r.json()) as JobStats;
         }),
+        fetch("/api/jobs/sources").then(async (r) => {
+          if (!r.ok) throw new Error("信息源加载失败");
+          return (await r.json()) as { sources: JobSourceInfo[]; version: number; updatedAt: string | null };
+        }),
+        fetch("/api/jobs/subscriptions").then(async (r) => {
+          if (!r.ok) throw new Error("订阅加载失败");
+          return (await r.json()) as { subscriptions: JobSubscription[] };
+        }),
       ]);
       if (configR.status === "fulfilled") setCrawler(configR.value.config);
       else pushToast(configR.reason?.message ?? "招聘配置加载失败", "error");
@@ -144,6 +241,13 @@ export default function SettingsPage() {
       else pushToast(runsR.reason?.message ?? "运行日志加载失败", "error");
       if (statsR.status === "fulfilled") setJobStats(statsR.value);
       else pushToast(statsR.reason?.message ?? "招聘统计加载失败", "error");
+      if (sourcesR.status === "fulfilled") {
+        setSources(sourcesR.value.sources ?? []);
+        setHostsMeta({ version: sourcesR.value.version ?? 0, updatedAt: sourcesR.value.updatedAt ?? null });
+      } else {
+        pushToast(sourcesR.reason?.message ?? "信息源加载失败", "error");
+      }
+      if (subsR.status === "fulfilled") setSubscriptions(subsR.value.subscriptions ?? []);
     } catch {
       pushToast("招聘爬虫数据加载失败", "error");
     }
@@ -174,6 +278,84 @@ export default function SettingsPage() {
       pushToast(e instanceof Error ? e.message : "招聘配置保存失败", "error");
     } finally {
       setCrawlerBusy(false);
+    }
+  };
+
+  const toggleCategory = (cat: string) => {
+    setCrawler((prev) =>
+      prev
+        ? {
+            ...prev,
+            categories: prev.categories.includes(cat as never)
+              ? prev.categories.filter((c) => c !== cat)
+              : [...prev.categories, cat as never],
+          }
+        : prev
+    );
+  };
+
+  const toggleSourceWhitelist = (id: string) => {
+    setCrawler((prev) =>
+      prev
+        ? {
+            ...prev,
+            sources: prev.sources.includes(id)
+              ? prev.sources.filter((s) => s !== id)
+              : [...prev.sources, id],
+          }
+        : prev
+    );
+  };
+
+  const updateHosts = async () => {
+    setHostsBusy(true);
+    try {
+      const r = await fetch("/api/jobs/hosts/update", { method: "POST" });
+      const d = await r.json().catch(() => null);
+      if (!r.ok) throw new Error(d?.error || "hosts 更新失败");
+      pushToast("hosts 更新已启动，稍后自动刷新", "success");
+      window.setTimeout(() => void loadCrawlerData(), 2500);
+    } catch (e) {
+      pushToast(e instanceof Error ? e.message : "hosts 更新失败", "error");
+    } finally {
+      setHostsBusy(false);
+    }
+  };
+
+  const saveSubscription = async (sub: {
+    id?: number;
+    name: string;
+    categories: string[];
+    keywords: string[];
+    cities: string[];
+    enabled?: boolean;
+  }) => {
+    try {
+      const r = await fetch("/api/jobs/subscriptions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subscription: { ...sub, enabled: sub.enabled ?? true } }),
+      });
+      const d = await r.json().catch(() => null);
+      if (!r.ok) throw new Error(d?.error || "订阅保存失败");
+      pushToast("订阅已保存", "success");
+      const sr = await fetch("/api/jobs/subscriptions");
+      const sd = (await sr.json()) as { subscriptions: JobSubscription[] };
+      setSubscriptions(sd.subscriptions ?? []);
+    } catch (e) {
+      pushToast(e instanceof Error ? e.message : "订阅保存失败", "error");
+    }
+  };
+
+  const removeSubscription = async (id: number) => {
+    try {
+      const r = await fetch(`/api/jobs/subscriptions/${id}`, { method: "DELETE" });
+      const d = await r.json().catch(() => null);
+      if (!r.ok) throw new Error(d?.error || "删除订阅失败");
+      setSubscriptions((prev) => prev.filter((s) => s.id !== id));
+      pushToast("订阅已删除", "success");
+    } catch (e) {
+      pushToast(e instanceof Error ? e.message : "删除订阅失败", "error");
     }
   };
 
@@ -415,6 +597,29 @@ export default function SettingsPage() {
             />
           </div>
 
+          <div className="rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur-md">
+            <span className="text-xs font-medium text-muted-foreground">抓取类别（考公考编 / 央国企官方源）</span>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {allJobCategories.map((cat) => {
+                const active = crawler?.categories.includes(cat) ?? false;
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => toggleCategory(cat)}
+                    className={
+                      active
+                        ? "inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500 px-3 py-1.5 text-xs font-semibold text-white shadow-[0_6px_16px_rgba(16,185,129,0.28)]"
+                        : "inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-white/15"
+                    }
+                  >
+                    {jobCategoryLabels[cat]}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="grid gap-3 lg:grid-cols-3">
             <ChipEditor
               label="关键词"
@@ -438,6 +643,14 @@ export default function SettingsPage() {
               onRemove={(value) => setCrawler((prev) => prev ? { ...prev, cities: prev.cities.filter((item) => item !== value) } : prev)}
             />
           </div>
+
+          <ChipEditor
+            label="考编省份（省考 / 省直事业单位，可选）"
+            placeholder="如 江苏"
+            items={crawler?.provinces ?? []}
+            onAdd={(value) => setCrawler((prev) => prev && !prev.provinces.includes(value) ? { ...prev, provinces: [...prev.provinces, value] } : prev)}
+            onRemove={(value) => setCrawler((prev) => prev ? { ...prev, provinces: prev.provinces.filter((item) => item !== value) } : prev)}
+          />
 
           <div className="grid gap-3 lg:grid-cols-2">
             <div className="rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur-md">
@@ -482,6 +695,60 @@ export default function SettingsPage() {
                 />
                 <span className="text-xs text-muted-foreground">每天自动抓取一次</span>
               </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur-md">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs font-medium text-muted-foreground">信息源（hosts 注册表驱动）</span>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[11px] text-muted-foreground">
+                  v{hostsMeta?.version ?? 0}
+                  {hostsMeta?.updatedAt ? " · " + formatRelativeTime(hostsMeta.updatedAt) : " · 未更新"}
+                </span>
+                <Button variant="outline" size="sm" onClick={updateHosts} disabled={hostsBusy}>
+                  {hostsBusy ? <RefreshCw className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
+                  更新 hosts
+                </Button>
+              </div>
+            </div>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              {sources.map((src) => {
+                const active = crawler?.sources?.length ? crawler.sources.includes(src.id) : src.enabled;
+                const rate = Math.round((src.hitRate ?? 1) * 100);
+                return (
+                  <div
+                    key={src.id}
+                    className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggleSourceWhitelist(src.id)}
+                      aria-label={"切换 " + src.name}
+                      className={"flex h-4 w-7 shrink-0 items-center rounded-full p-0.5 transition-colors " + (active ? "bg-emerald-500" : "bg-white/20")}
+                    >
+                      <span className={"size-3 rounded-full bg-white transition-transform " + (active ? "translate-x-3" : "")} />
+                    </button>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="truncate text-xs font-semibold text-foreground">{src.name}</span>
+                        <Badge variant={src.risk === "L1" ? "success" : src.risk === "L2" ? "accent" : "muted"} className="text-[9px]">
+                          {src.risk === "L3" ? "实验" : "官方"}
+                        </Badge>
+                      </div>
+                      <div className="mt-1 flex items-center gap-1.5">
+                        <div className="h-1 flex-1 overflow-hidden rounded-full bg-white/10">
+                          <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-cyan-500" style={{ width: rate + "%" }} />
+                        </div>
+                        <span className="w-8 text-right text-[10px] tabular-nums text-muted-foreground">{rate}%</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {sources.length === 0 ? (
+                <p className="col-span-full text-center text-xs text-muted-foreground">暂无信息源，请先「更新 hosts」</p>
+              ) : null}
             </div>
           </div>
 
@@ -565,6 +832,51 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader className="flex-row items-center gap-2">
+          <Bell className="size-5 text-primary" />
+          <CardTitle>订阅提醒</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <p className="text-xs text-muted-foreground">
+            按「央国企 × 北京 / 考编 × 计算机类」等条件订阅，抓取到新职位/公告时在招花页铃铛提醒
+          </p>
+          {subscriptions.length === 0 ? (
+            <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-4 text-center text-xs text-muted-foreground">
+              还没有订阅，点击下方按钮创建第一个
+            </p>
+          ) : (
+            subscriptions.map((sub) => (
+              <div key={sub.id} className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
+                <Heart className="size-4 shrink-0 text-emerald-500" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-foreground">{sub.name}</p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    {sub.categories.length ? sub.categories.map((c) => jobCategoryLabels[c as never] ?? c).join(" / ") : "全类别"}
+                    {sub.cities.length ? " · " + sub.cities.join(" / ") : ""}
+                    {sub.keywords.length ? " · 关键词：" + sub.keywords.join("、") : ""}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void removeSubscription(sub.id)}
+                  aria-label="删除订阅"
+                  className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-danger/15 hover:text-danger"
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              </div>
+            ))
+          )}
+          <NewSubscriptionForm
+            onSave={async (sub) => {
+              await saveSubscription(sub);
+            }}
+          />
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader className="flex-row items-center justify-between">
           <div className="flex items-center gap-2">

@@ -25,6 +25,7 @@ describe("GET /api/jobs", () => {
           city: "上海", district: "徐汇", salaryMin: 15, salaryMax: 25, salaryText: "15-25K",
           experience: "1-3年", education: "本科", tags: ["React"], description: "d",
           requirements: "r", companyInfo: "c", url: "https://x", logoUrl: "",
+          category: "internet", channel: "job", deadlineAt: null, extra: {},
           publishedAt: null, fetchedAt: "2026-08-17T00:00:00Z", isNew: true, isFav: false,
         },
       ],

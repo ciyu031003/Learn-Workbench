@@ -3,13 +3,20 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import type { JobPosting, JobPostingListItem } from "@learn-workbench/shared";
-import { experimentalJobSources, formatRelativeTime, jobSourceLabels } from "@learn-workbench/shared";
+import {
+  experimentalJobSources,
+  formatRelativeTime,
+  jobCategoryColors,
+  jobCategoryLabels,
+  jobSourceLabel,
+} from "@learn-workbench/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useToastStore } from "@/store/toast-store";
 import {
   Building2,
+  CalendarClock,
   CalendarDays,
   ExternalLink,
   GraduationCap,
@@ -17,8 +24,10 @@ import {
   Loader2,
   MapPin,
   Share2,
+  Users,
   X,
 } from "lucide-react";
+import { deadlineText } from "./job-card";
 
 type JobDetail = JobPosting & { isFav: boolean };
 
@@ -107,17 +116,27 @@ export function JobModal({
 
   if (!open || !summary) return null;
 
-  const initials = (summary.company || summary.title).trim().charAt(0).toUpperCase() || "职";
+  const isAnnouncement = summary.channel === "announcement";
+  const initials = (summary.company || summary.title).trim().charAt(0).toUpperCase() || (isAnnouncement ? "公" : "职");
   const gradient = avatarGradients[hashText(summary.company || summary.title) % avatarGradients.length];
   const fav = detail?.isFav ?? summary.isFav;
   const title = detail?.title || summary.title;
   const sourceUrl = detail?.url || summary.url;
+  const catColor = jobCategoryColors[summary.category as keyof typeof jobCategoryColors] ?? "#10b981";
+  const catLabel = jobCategoryLabels[summary.category as keyof typeof jobCategoryLabels] ?? summary.category;
+  const extra = (detail?.extra ?? summary.extra ?? {}) as Record<string, unknown>;
+  const recruitCount = extra.recruit_count;
+  const deadline = deadlineText(detail?.deadlineAt ?? summary.deadlineAt);
+  const overdue = (detail?.deadlineAt ?? summary.deadlineAt) ? new Date((detail?.deadlineAt ?? summary.deadlineAt) as string).getTime() < Date.now() : false;
+  const attachments = Array.isArray(extra.attachments) ? (extra.attachments as string[]) : [];
+  const attachmentNames = Array.isArray(extra.attachment_names) ? (extra.attachment_names as string[]) : [];
   const requirements = detail?.requirements
     ? detail.requirements
         .split(/\n+/)
         .map((line) => line.trim())
         .filter(Boolean)
     : [];
+  const bodyText = detail?.description || "";
 
   return createPortal(
     <div
@@ -144,7 +163,7 @@ export function JobModal({
             <span
               className={cn(
                 "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-base font-bold text-white shadow-lg",
-                gradient
+                isAnnouncement ? "from-indigo-500 to-violet-600" : gradient
               )}
             >
               {initials}
@@ -154,43 +173,70 @@ export function JobModal({
               <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <span className="inline-flex items-center gap-1">
                   <Building2 className="size-3.5" />
-                  {summary.company}
+                  {detail?.company || summary.company || jobSourceLabel(summary.source)}
                 </span>
                 <span className="inline-flex items-center gap-1">
                   <MapPin className="size-3.5" />
-                  {detail?.city || summary.city}
+                  {detail?.city || summary.city || "全国"}
                   {detail?.district || summary.district ? ` · ${detail?.district || summary.district}` : ""}
                 </span>
               </div>
             </div>
-            <span className="ml-auto shrink-0 bg-gradient-to-r from-amber-500 to-orange-600 bg-clip-text text-2xl font-black tabular-nums text-transparent">
-              {salaryText(summary, detail)}
-            </span>
+            {isAnnouncement ? (
+              deadline ? (
+                <span
+                  className={cn(
+                    "shrink-0 rounded-full px-3 py-1.5 text-xs font-black tabular-nums",
+                    overdue
+                      ? "bg-white/10 text-muted-foreground line-through"
+                      : "bg-rose-500/15 text-rose-500 dark:text-rose-300"
+                  )}
+                >
+                  {deadline}
+                </span>
+              ) : null
+            ) : (
+              <span className="ml-auto shrink-0 bg-gradient-to-r from-amber-500 to-orange-600 bg-clip-text text-2xl font-black tabular-nums text-transparent">
+                {salaryText(summary, detail)}
+              </span>
+            )}
           </div>
 
           <div className="mt-4 flex flex-wrap gap-2">
-            <Badge variant="success">{jobSourceLabels[summary.source]}</Badge>
-            {experimentalJobSources.includes(summary.source) ? <Badge variant="accent">实验平台</Badge> : null}
+            <Badge variant="success" className="inline-flex items-center gap-1">
+              <span className="size-1.5 rounded-full" style={{ backgroundColor: catColor }} />
+              {catLabel}
+            </Badge>
+            <Badge variant="muted">{jobSourceLabel(summary.source)}</Badge>
+            {experimentalJobSources.includes(summary.source as never) ? <Badge variant="accent">实验平台</Badge> : null}
             {summary.isNew ? <Badge variant="success">NEW</Badge> : null}
             <Badge variant="muted">{formatRelativeTime(detail?.publishedAt ?? summary.publishedAt ?? summary.fetchedAt)}</Badge>
           </div>
 
           <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {[
-              { label: "经验", value: detail?.experience || summary.experience || "不限", icon: CalendarDays },
-              { label: "学历", value: detail?.education || summary.education || "不限", icon: GraduationCap },
-              { label: "城市", value: detail?.city || summary.city || "不限", icon: MapPin },
-              { label: "发布", value: formatRelativeTime(detail?.publishedAt ?? summary.publishedAt ?? summary.fetchedAt), icon: CalendarDays },
-            ].map((cell) => (
-              <div key={cell.label} className="rounded-2xl border border-white/15 bg-white/10 px-3 py-3 text-center backdrop-blur-md">
-                <div className="flex items-center justify-center gap-1 text-[11px] text-muted-foreground">
-                  <cell.icon className="size-3.5" />
-                  {cell.label}
+            {(isAnnouncement
+              ? [
+                  { label: "类别", value: catLabel, icon: CalendarDays },
+                  { label: "招录", value: recruitCount ? `${recruitCount} 人` : "详见原文", icon: Users },
+                  { label: "截止", value: deadline ?? "未标注", icon: CalendarClock },
+                  { label: "发布", value: formatRelativeTime(detail?.publishedAt ?? summary.publishedAt ?? summary.fetchedAt), icon: CalendarDays },
+                ]
+              : [
+                  { label: "经验", value: detail?.experience || summary.experience || "不限", icon: CalendarDays },
+                  { label: "学历", value: detail?.education || summary.education || "不限", icon: GraduationCap },
+                  { label: "城市", value: detail?.city || summary.city || "不限", icon: MapPin },
+                  { label: "发布", value: formatRelativeTime(detail?.publishedAt ?? summary.publishedAt ?? summary.fetchedAt), icon: CalendarDays },
+                ]
+              ).map((cell) => (
+                <div key={cell.label} className="rounded-2xl border border-white/15 bg-white/10 px-3 py-3 text-center backdrop-blur-md">
+                  <div className="flex items-center justify-center gap-1 text-[11px] text-muted-foreground">
+                    <cell.icon className="size-3.5" />
+                    {cell.label}
+                  </div>
+                  <div className="mt-1 truncate text-sm font-bold text-foreground">{cell.value}</div>
                 </div>
-                <div className="mt-1 truncate text-sm font-bold text-foreground">{cell.value}</div>
-              </div>
-            ))}
-          </div>
+              ))}
+        </div>
         </div>
 
         {loading ? (
@@ -200,38 +246,70 @@ export function JobModal({
             {error}
           </p>
         ) : detail ? (
-          <>
-            <Section title="职位描述">
-              {detail.description ? (
-                detail.description.split(/\n+/).map((p, i) => <p key={i}>{p}</p>)
-              ) : (
-                <p>暂无职位描述</p>
-              )}
-            </Section>
+          isAnnouncement ? (
+            <>
+              <Section title="公告内容">
+                {bodyText ? (
+                  bodyText.split(/\n+/).map((p, i) => <p key={i}>{p}</p>)
+                ) : (
+                  <p>暂无公告正文，请点击「查看原文」了解详情</p>
+                )}
+              </Section>
+              {attachments.length > 0 ? (
+                <Section title="岗位表附件">
+                  <ul className="space-y-1.5">
+                    {attachments.map((u, i) => (
+                      <li key={u + i}>
+                        <a
+                          href={u}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-600 underline-offset-4 hover:underline dark:text-emerald-300"
+                        >
+                          <ExternalLink className="size-3.5" />
+                          {attachmentNames[i] || `附件 ${i + 1}`}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-xs text-muted-foreground">岗位表已结构化到职位库，可在「全部职位」中查看</p>
+                </Section>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <Section title="职位描述">
+                {detail.description ? (
+                  detail.description.split(/\n+/).map((p, i) => <p key={i}>{p}</p>)
+                ) : (
+                  <p>暂无职位描述</p>
+                )}
+              </Section>
 
-            <Section title="任职要求">
-              {requirements.length > 0 ? (
-                <ul className="space-y-1.5">
-                  {requirements.map((item, i) => (
-                    <li key={i} className="flex gap-2">
-                      <span className="mt-2 size-1.5 shrink-0 rounded-full bg-emerald-500" />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p>暂无任职要求</p>
-              )}
-            </Section>
+              <Section title="任职要求">
+                {requirements.length > 0 ? (
+                  <ul className="space-y-1.5">
+                    {requirements.map((item, i) => (
+                      <li key={i} className="flex gap-2">
+                        <span className="mt-2 size-1.5 shrink-0 rounded-full bg-emerald-500" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>暂无任职要求</p>
+                )}
+              </Section>
 
-            <Section title="公司信息">
-              {detail.companyInfo ? (
-                <p className="whitespace-pre-wrap">{detail.companyInfo}</p>
-              ) : (
-                <p>暂无公司信息</p>
-              )}
-            </Section>
-          </>
+              <Section title="公司信息">
+                {detail.companyInfo ? (
+                  <p className="whitespace-pre-wrap">{detail.companyInfo}</p>
+                ) : (
+                  <p>暂无公司信息</p>
+                )}
+              </Section>
+            </>
+          )
         ) : null}
 
         <div className="mt-6 flex gap-2 border-t border-white/10 pt-4">
@@ -266,7 +344,7 @@ export function JobModal({
             }}
           >
             <ExternalLink className="size-4" />
-            查看原文
+            {isAnnouncement ? "查看官方原文" : "查看原文"}
           </Button>
         </div>
       </div>

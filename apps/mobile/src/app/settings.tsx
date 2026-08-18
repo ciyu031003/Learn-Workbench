@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DEFAULT_API_URL, getApiUrl } from "@/config";
 import { apiLogin, syncPush, syncPull } from "@/lib/sync";
 import { fetchJobConfig, fetchJobRuns, fetchJobStats, runCrawler as runJobsCrawler, saveJobConfig as saveJobsConfig } from "@/lib/jobs";
-import { defaultCrawlerConfig, experimentalJobSources, formatRelativeTime, jobSourceLabels, type JobCrawlerConfig, type JobRun, type JobSource, type JobStats } from "@learn-workbench/shared";
+import { allJobCategories, defaultCrawlerConfig, experimentalJobSources, formatRelativeTime, jobCategoryLabels, jobSourceLabels, type JobCrawlerConfig, type JobRun, type JobSource, type JobStats } from "@learn-workbench/shared";
 import { Card } from "@/components/card";
 
 export default function SettingsScreen() {
@@ -443,6 +443,27 @@ export default function SettingsScreen() {
         {renderEditableChips("关键词", "keywords", jobConfig.keywords, keywordInput, setKeywordInput)}
         {renderEditableChips("行业", "industries", jobConfig.industries, industryInput, setIndustryInput)}
         {renderEditableChips("城市", "cities", jobConfig.cities, cityInput, setCityInput)}
+
+        <Text style={styles.chipLabel}>抓取类别（考公考编 / 央国企）</Text>
+        {allJobCategories.map((cat) => {
+          const enabled = jobConfig.categories.includes(cat);
+          return (
+            <View key={cat} style={styles.rowBetween}>
+              <Text style={styles.rowLabel}>{jobCategoryLabels[cat]}</Text>
+              <Switch
+                value={enabled}
+                onValueChange={() =>
+                  patchJobConfig({
+                    categories: enabled
+                      ? jobConfig.categories.filter((c) => c !== cat)
+                      : [...jobConfig.categories, cat],
+                  })
+                }
+                trackColor={{ true: "#10b981" }}
+              />
+            </View>
+          );
+        })}
 
         <Text style={styles.chipLabel}>招聘平台</Text>
         {(Object.keys(jobSourceLabels) as JobSource[]).map((source) => {

@@ -1,41 +1,20 @@
 import { NextResponse } from "next/server";
 import { currentUserId } from "@/lib/session";
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 
 function findRepoRoot(): string {
   const cwd = process.cwd();
-  const candidates = [
-    cwd,
-    path.resolve(cwd, ".."),
-    path.resolve(cwd, "..", ".."),
-  ];
+  const candidates = [cwd, path.resolve(cwd, ".."), path.resolve(cwd, "..", "..")];
   for (const c of candidates) {
-    if (existsSync(path.join(c, "scripts", "fetch_jobs.py"))) return c;
+    if (existsSync(path.join(c, "scripts", "jobs_official.mjs"))) return c;
   }
   return path.resolve(cwd, "..", "..");
 }
-const REPO_ROOT = findRepoRoot();
 
-function findPython(): string | null {
-  if (process.env.PYTHON_BIN) return process.env.PYTHON_BIN;
-  const candidates = ["python3", "python", "py"];
-  for (const c of candidates) {
-    const r = spawnSync(c, ["--version"], { timeout: 5000 });
-    if (r && r.error === undefined && r.status === 0) return c;
-  }
-  return null;
-}
-
-export async function POST() {
-  const userId = await currentUserId();
-  if (!userId) return NextResponse.json({ error: "请先登录" }, { status: 401 });
-
-  const engine = process.env.JOBS_ENGINE || "browser"; // browser=Playwright 真实浏览器；python=HTTP 适配器/mock
-  const repoRoot = findRepoRoot();
-
-  const env: NodeJS.ProcessEnv = {
+function baseEnv(): NodeJS.ProcessEnv {
+  return {
     ...process.env,
     PGHOST: process.env.PGHOST || "127.0.0.1",
     PGPORT: process.env.PGPORT || "5432",
@@ -44,46 +23,48 @@ export async function POST() {
     PGPASSWORD: process.env.PGPASSWORD || "",
     PSQL_BIN: process.env.PSQL_BIN || "",
   };
+}
 
-  let bin: string;
-  let script: string;
-  let args: string[];
-
-  if (engine === "browser") {
-    script = path.join(repoRoot, "scripts", "jobs_browser.mjs");
-    if (!existsSync(script)) {
-      return NextResponse.json({ error: "浏览器爬虫脚本不存在，请检查部署" }, { status: 500 });
-    }
-    bin = "node";
-    if (process.env.JOBS_LIMIT) {
-      args = [script, "--limit", process.env.JOBS_LIMIT];
-    } else {
-      args = [script];
-    }
-  } else {
-    script = path.join(repoRoot, "scripts", "fetch_jobs.py");
-    if (!existsSync(script)) {
-      return NextResponse.json({ error: "爬虫脚本不存在，请检查部署" }, { status: 500 });
-    }
-    const python = findPython();
-    if (!python) {
-      return NextResponse.json({ error: "未找到 Python 运行时，无法手动抓取" }, { status: 500 });
-    }
-    bin = python;
-    args = ["-u", script];
-    if (process.env.JOBS_MOCK === "1") args.push("--mock");
-    if (process.env.JOBS_COOKIES_FILE) args.push("--cookies-file", process.env.JOBS_COOKIES_FILE);
-    if (process.env.JOBS_DEBUG === "1") args.push("--debug");
-    if (process.env.JOBS_CONCURRENCY) args.push("--concurrency", process.env.JOBS_CONCURRENCY);
-  }
-
-  const child = spawn(bin, args, {
-    cwd: repoRoot,
+/** 后台启动一个爬虫脚本（detached，不阻塞响应） */
+function launch(script: string, args: string[], env: NodeJS.ProcessEnv): void {
+  const child = spawn("node", [script, ...args], {
+    cwd: path.dirname(path.dirname(script)) === process.cwd() ? process.cwd() : process.cwd(),
     env,
     detached: true,
     stdio: "ignore",
   });
   child.unref();
-  return NextResponse.json({ started: true, engine });
 }
 
+export async function POST(req: Request) {
+  const userId = await currentUserId();
+  if (!userId) return NextResponse.json({ error: "请先登录" }, { status: 401 });
+
+  const repoRoot = findRepoRoot();
+  const env = baseEnv();
+  const body = await req.json().catch(() => null);
+  const scope = body?.scope ?? "all"; // all / official / internet
+  const engines: string[] = [];
+
+  if (scope === "all" || scope === "official") {
+    const script = path.join(repoRoot, "scripts", "jobs_official.mjs");
+    if (existsSync(script)) {
+      launch(script, [], env);
+      engines.push("official");
+    }
+  }
+  if (scope === "all" || scope === "internet") {
+    const script = path.join(repoRoot, "scripts", "jobs_browser.mjs");
+    if (existsSync(script)) {
+      const args: string[] = [];
+      if (process.env.JOBS_LIMIT) args.push("--limit", process.env.JOBS_LIMIT);
+      launch(script, args, env);
+      engines.push("internet");
+    }
+  }
+
+  if (engines.length === 0) {
+    return NextResponse.json({ error: "未找到可运行的爬虫脚本" }, { status: 500 });
+  }
+  return NextResponse.json({ started: true, engines });
+}

@@ -8,7 +8,11 @@ export async function GET(req: Request) {
   const params: JobListQuery = {
     q: url.searchParams.get("q")?.trim() || undefined,
     city: url.searchParams.get("city")?.trim() || undefined,
+    category: undefined,
+    categories: url.searchParams.get("category")?.split(",").filter(Boolean) || undefined,
+    channels: url.searchParams.get("channels")?.split(",").filter(Boolean) || undefined,
     platforms: url.searchParams.get("platforms")?.split(",").filter(Boolean) || undefined,
+    provinces: url.searchParams.get("provinces")?.split(",").filter(Boolean) || undefined,
     sort: url.searchParams.get("sort") || "new",
     page: Math.max(1, Number(url.searchParams.get("page") || 1) || 1),
     pageSize: Math.min(60, Math.max(1, Number(url.searchParams.get("pageSize") || 20) || 20)),
