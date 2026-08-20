@@ -53,5 +53,5 @@ for m in "$INIT_DIR"/db/migrations/*.sql; do
   psql_run -c "INSERT INTO schema_migrations(filename) VALUES ('$base')" >/dev/null
 done
 
-psql_run -c "INSERT INTO app_meta(key, value) VALUES ('deploy_init','{"v":1}'::jsonb) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=now()" >/dev/null
+psql_run -c "INSERT INTO app_meta(key, value) VALUES ('deploy_init','{\"v\":1}'::jsonb) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=now()" >/dev/null
 echo "[init] 数据库初始化完成"

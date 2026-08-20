@@ -163,6 +163,9 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 **原因/决策**：按实施路线图 M2.0-P2 验收（任意职位可看匹配度与缺口，缺口可转化为学习任务）落地；遵循评审建议 2（技能先建「种子 + 回填」，P2 一上线就有数据）、建议 8（新 API 全配单测）；匹配度按 roadmap §7.3 规则版公式，P5 再上模型。
 
 **验证**：web/mobile `tsc --noEmit` 通过；web vitest 157 项（+7 skills）；shared vitest 7 项；`next build` 通过。
+**部署修复（服务器 106.55.2.197）**：
+- P2 部署时 init 脚本的 app_meta JSON 写入转义问题：改进版脚本中 `{"v":1}` 的引号被 shell 吞掉导致 init 报错 → 已修正 `scripts/docker-init-db.sh` 第 56 行转义（`\\"` 转义 JSON 引号），并同步服务器；014 迁移与 seed_skills（46 技能）已手动应用并标记。
+- 验证：init 正常退出、skill_taxonomy 46 条、schema_migrations 13 条、/api/jobs/skills 200、需登录接口 401 正确、web 无错误日志。
 
 **影响**：014 为新增表 + 种子（幂等）；匹配度/缺口需登录后按用户画像计算，匿名时提示登录；skill_content_links 种子映射将在部署时补数据（后续按需扩充映射）；/career/skills 由占位页升级为可用功能。
 
