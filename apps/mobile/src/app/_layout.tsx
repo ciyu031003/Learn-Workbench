@@ -76,12 +76,16 @@ export default function RootLayout() {
           sceneStyle: { backgroundColor: "transparent" },
         }}
       >
-        <Tabs.Screen name="dashboard" options={{ title: "仪表盘", tabBarIcon: ({ color, focused }) => <TabIcon name="speedometer" outlineName="speedometer-outline" color={color} focused={focused} /> }} />
-        <Tabs.Screen name="roadmap" options={{ title: "路线图", tabBarIcon: ({ color, focused }) => <TabIcon name="map" outlineName="map-outline" color={color} focused={focused} /> }} />
-        <Tabs.Screen name="tasks" options={{ title: "任务", tabBarIcon: ({ color, focused }) => <TabIcon name="checkbox" outlineName="checkbox-outline" color={color} focused={focused} /> }} />
-        <Tabs.Screen name="logs" options={{ title: "日志", tabBarIcon: ({ color, focused }) => <TabIcon name="book" outlineName="book-outline" color={color} focused={focused} /> }} />
+        <Tabs.Screen name="dashboard" options={{ title: "首页", tabBarIcon: ({ color, focused }) => <TabIcon name="home" outlineName="home-outline" color={color} focused={focused} /> }} />
+        <Tabs.Screen name="learn" options={{ title: "学习", tabBarIcon: ({ color, focused }) => <TabIcon name="school" outlineName="school-outline" color={color} focused={focused} /> }} />
         <Tabs.Screen name="jobs" options={{ title: "招花", tabBarIcon: ({ color, focused }) => <FlowerTabIcon color={color} focused={focused} /> }} />
-        <Tabs.Screen name="settings" options={{ title: "设置", href: null }} />
+        <Tabs.Screen name="career" options={{ title: "职业", tabBarIcon: ({ color, focused }) => <TabIcon name="rocket" outlineName="rocket-outline" color={color} focused={focused} /> }} />
+        <Tabs.Screen name="settings" options={{ title: "我的", tabBarIcon: ({ color, focused }) => <TabIcon name="person" outlineName="person-outline" color={color} focused={focused} /> }} />
+
+        {/* 次级页面：从「学习」进入，不占底部导航 */}
+        <Tabs.Screen name="roadmap" options={{ href: null }} />
+        <Tabs.Screen name="tasks" options={{ href: null }} />
+        <Tabs.Screen name="logs" options={{ href: null }} />
       </Tabs>
     </DailyBackground>
   );

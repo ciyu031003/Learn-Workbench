@@ -16,6 +16,9 @@ node_modules/
 dist/
 dist-export/
 
+# pnpm 本地 store（构建产物，勿提交）
+.pnpm-store/
+
 # 生成数据 / 下载的背景图
 .data/
 assets/backgrounds/bing/*.jpg

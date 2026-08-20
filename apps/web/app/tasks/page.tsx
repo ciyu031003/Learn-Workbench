@@ -286,6 +286,7 @@ export default function TasksPage() {
           🎉 今日任务已全部完成！生成你的专注打卡卡片分享一下吧
         </div>
       ) : null}
+      <div id="focus" className="scroll-mt-24" />
       <FocusStatsCard />
 
       <FocusTimer

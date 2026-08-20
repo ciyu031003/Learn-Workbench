@@ -177,8 +177,8 @@ html.dark .glass::before {
   border-color: var(--glass-border);
 }
 
-/* ============ 控制栏响应式：Web 左侧栏 / 移动端底部导航 ============ */
-.app-sidebar {
+/* ============ 控制栏响应式：Web 顶导 / 移动端底部导航（2.0 五入口） ============ */
+.app-topnav {
   display: flex;
 }
 .app-mobile-topbar,
@@ -186,11 +186,10 @@ html.dark .glass::before {
   display: none;
 }
 .app-main {
-  padding-left: 18rem; /* = w-72 侧栏宽度 */
   padding-bottom: 1.5rem;
 }
 @media (max-width: 767px), (max-width: 1023px) and (pointer: coarse) {
-  .app-sidebar {
+  .app-topnav {
     display: none;
   }
   .app-mobile-topbar {
@@ -198,10 +197,9 @@ html.dark .glass::before {
   }
   .app-bottomnav {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns: repeat(5, 1fr);
   }
   .app-main {
-    padding-left: 0;
     padding-bottom: 5rem;
   }
 }

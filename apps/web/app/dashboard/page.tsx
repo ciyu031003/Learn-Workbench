@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import type { DashboardSummary, WellbeingToday } from "@learn-workbench/shared";
+import type { CareerReadiness, DashboardSummary, WellbeingToday } from "@learn-workbench/shared";
 import { formatDuration, taskTypeLabels, formatDateCN } from "@learn-workbench/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +28,8 @@ import {
   Droplets,
   Zap,
   Coffee,
+  Rocket,
+  Flower,
 } from "lucide-react";
 
 function greeting(): string {
@@ -114,6 +116,8 @@ function OverallRing({ percent }: { percent: number }) {
 
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardSummary | null>(null);
+  const [readiness, setReadiness] = useState<CareerReadiness | null>(null);
+  const [jobsTotal, setJobsTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [wellbeing, setWellbeing] = useState<WellbeingToday | null>(null);
   const [github, setGithub] = useState<{ id: number; title: string; url: string | null; content: string | null }[]>([]);
@@ -124,9 +128,13 @@ export default function DashboardPage() {
 
   const load = useCallback(async () => {
     try {
-      const r = await fetch("/api/summary");
+      // /api/dashboard 一次请求聚合：概览 + 职业状态卡 + 今日计划 + 推荐（减少前端并发）
+      const r = await fetch("/api/dashboard");
       if (!r.ok) throw new Error("load failed");
-      setData(await r.json());
+      const d = await r.json();
+      setData(d.summary ?? null);
+      setReadiness(d.readiness ?? null);
+      setJobsTotal(d.jobsTotal ?? 0);
       setError(null);
     } catch {
       setError("数据库暂不可用，请确认已运行 scripts\\start_pg.ps1 启动本地 PostgreSQL");
@@ -231,6 +239,62 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+      </Card>
+
+      {/* 职业状态卡：职业准备度 + 四维 + 发现职位（2.0 首页核心组件） */}
+      <Card className="relative overflow-hidden">
+        <CardContent className="flex flex-col gap-5 p-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <Rocket className="size-5 text-primary" />
+              <h2 className="text-xl font-bold tracking-tight lg:text-2xl">
+                {readiness?.targetRole ?? data?.careerName ?? "ICT 学习规划"}
+              </h2>
+            </div>
+            <p className="page-subtitle mt-1.5 text-sm">职业准备度 —— 技能 · 项目 · 简历 · 面试</p>
+            <div className="mt-4 flex max-w-xl flex-col gap-2.5">
+              {(readiness?.dimensions ?? []).map((d) => (
+                <div key={d.key}>
+                  <div className="mb-1 flex items-center justify-between text-xs">
+                    <span className="font-medium">{d.label}</span>
+                    <span className="tabular-nums text-muted-foreground">{d.score}%</span>
+                  </div>
+                  <Progress value={d.score} indicatorClassName={d.key === "project" || d.key === "interview" ? "progress-fill-accent" : "progress-fill"} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex shrink-0 flex-col items-center gap-3">
+            <div className="relative flex h-32 w-32 items-center justify-center">
+              <svg viewBox="0 0 150 150" className="h-full w-full -rotate-90">
+                <defs>
+                  <linearGradient id="dash-readiness-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#6366f1" />
+                    <stop offset="100%" stopColor="#0ea5e9" />
+                  </linearGradient>
+                </defs>
+                <circle cx="75" cy="75" r={62} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="10" />
+                <circle
+                  cx="75" cy="75" r={62} fill="none"
+                  stroke="url(#dash-readiness-grad)" strokeWidth="10" strokeLinecap="round"
+                  strokeDasharray={2 * Math.PI * 62}
+                  strokeDashoffset={2 * Math.PI * 62 * (1 - (readiness?.overall ?? 0) / 100)}
+                  style={{ transition: "stroke-dashoffset 0.8s ease" }}
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <StatValue value={(readiness?.overall ?? 0) + "%"} className="text-3xl" />
+                <span className="text-[11px] text-muted-foreground">职业准备度</span>
+              </div>
+            </div>
+            <Button asChild variant="secondary" size="sm">
+              <Link href="/jobs">
+                <Flower className="size-4" /> 发现 {readiness?.matchedJobs ?? jobsTotal} 个适合你的职位
+              </Link>
+            </Button>
+          </div>
+        </CardContent>
       </Card>
 
       {error ? (

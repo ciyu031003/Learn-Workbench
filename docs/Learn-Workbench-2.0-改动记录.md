@@ -1,0 +1,159 @@
+# Learn-Workbench 2.0 · 改动记录（Change Log）
+
+> 本文档是 Learn-Workbench 2.0 阶段**全部改动**的唯一记录台账。
+> 约定：任何代码 / 文档 / 数据 / 配置改动完成后，必须在「四、改动记录」追加一条记录（倒序，最新在最上）；**禁止修改历史条目**，如需更正请在原条目下补充「更正」说明。
+> 记录模板见「五、记录模板」。
+
+---
+
+## 一、文档用途
+
+1. 作为 2.0 版本全部改动的权威记录，避免改动漂移、重复建设、历史无法追溯。
+2. 承载 2.0 设计方案评审结论与后续决策（为何这么改、为何不这么改）。
+3. 供后续会话 / 协作者快速了解：当前做到哪、下一步做什么。
+
+---
+
+## 二、基线快照（2026-08-20 评审时点）
+
+### 2.1 项目结构与技术栈
+
+- Monorepo（pnpm + turbo）：`apps/web`（Next.js App Router）、`apps/mobile`（Expo / React Native）、`packages/shared`（zod 共享类型与工具）、`packages/ui`、`packages/content`。
+- 数据库：PostgreSQL（本地集群 `.pgdata`），Schema 全量在 `db/schema.sql`，增量迁移在 `db/migrations/001~011`。
+- 迁移版本：`001_anon_unique` → `011_job_engagement`（招花订阅/考试日历/通知已落地）。
+
+### 2.2 已有页面与导航（Web / Mobile）
+
+| 端 | 页面 | 备注 |
+|---|---|---|
+| Web | /dashboard /roadmap /tasks /logs /wellbeing /jobs /settings /login | 侧边栏 7 项：仪表盘/路线图/任务/日志/健康/招花/设置；无顶导 |
+| Mobile | 底部 Tab：仪表盘/路线图/任务/日志/招花（设置隐藏） | 与 Web 基本对齐 |
+
+### 2.3 已有数据表（可复用于 2.0）
+
+- 学习：content_phases/topics/resources/practices/projects/checkpoints、careers、topic_progress、daily_tasks、focus_sessions、checkins、xp_events、log_entries、certificates。
+- 职业：resume_assets（skill/project/github/certificate）、interview_questions（题库，**无答题记录表**）、`/api/github`。
+- 招聘：job_postings（含 content_hash/category/channel/deadline_at/extra/tags）、job_favorites、job_crawler_configs、job_crawler_runs、job_subscriptions、job_notifications、job_exam_events、job_source_health、hosts 注册表（config/job-hosts/sources.json）。
+- 用户：users、accounts、sessions、settings（含 career 键）。
+- 知识域：knowledge_notes/tags/links（004 迁移 + `/api/notes`，**无任何 UI 页面**）。
+
+### 2.4 招花 2.0 已建成能力（勿重复建设）
+
+hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright 浏览器）· 公告解析 + 考试日历 · 岗位表 excel 结构化（xlsx-min）· 订阅提醒 + 站内通知铃铛 · 信息源健康度可视化 · 分类体系（internet/gongkao/gongbian/yangqi）· content_hash 同源去重 · 按 user_id 全面隔离。
+
+---
+
+## 三、2.0 设计方案评审结论（2026-08-20）
+
+评审对象：
+1. `docs/Learn-Workbench-2.0-下一版本具体改动方向和设计方案.md`（产品/UI/UX 主稿）
+2. `docs/Learn-Workbench-2.0-实施路线图-优化版.md`（结合现有代码的落地版）
+
+### 3.1 总体判断
+
+**设计方案总体合理、方向正确、与现有代码库高度契合，可以落地。** 主稿的「先 UI 后功能、先数据关系后 AI、控制范围」策略正确；落地版路线图对现有能力的差距分析非常扎实（招花 2.0、careers/content/resume_assets/interview_questions 等数据基础与 2.0 愿景几乎一一对应）。
+
+核心风险不在方向，而在执行细节（见 3.3/3.4）。
+
+### 3.2 合理之处（保留）
+
+1. **一级导航收敛为 5 入口（首页/学习/招花/职业/设置）**：当前 Web 侧边栏 7 项扁平堆叠，学习模块（路线图/任务/日志/健康）确实该分组；健康收敛为系统级能力方向正确。
+2. **Liquid Glass 2.0 三层原则（背景=氛围 / 玻璃=层级 / 内容=信息）**：当前代码大量使用 glass 类导致「全玻璃化」，该原则是真实改进方向。
+3. **Dashboard 职业状态卡（职业准备度四维）**：数据来源全部存在（resume_assets/topic_progress/content_projects/interview_questions），无需新表即可出 MVP。
+4. **岗位匹配度「先规则后 AI」**：同义词表 + 加权公式先跑通闭环，符合当前数据规模（职位 258 条级）。
+5. **能力缺口 → 学习路线闭环**：content 已按 career_key 组织，补 skill_content_links 即可复用，不重建内容体系。
+6. **新增 4 张表（012-015）**：skill_taxonomy/user_skills/job_skill_links/skill_content_links + job_clusters + job_applications + market_stats，与现有 schema 风格（bigserial、user_id 隔离、updated_at）一致。
+7. **分阶段小步上线 + 明确「不做清单」**：与仓库既有迭代节奏一致。
+
+### 3.3 风险与缺口（需在执行前明确）
+
+| # | 缺口 | 说明 | 建议 |
+|---|---|---|---|
+| G1 | **面试维度无数据源** | 准备度四维含「面试」，但 interview_questions 仅是题库，**无答题/模拟面试记录表**；log_entries(kind='interview') 只是日志 | P0 用 log_entries 数量近似；P3 求职管理时补轻量表；面试权重初期设低（无数据时为 0） |
+| G2 | **知识域（knowledge domain）在 2.0 IA 中缺失** | 已有 knowledge_notes/tags/links 表 + /api/notes + migration/ 内容迁移工具，但 2.0 信息架构完全没给它位置，无 UI | 将「知识库/笔记」纳入「学习」子模块或明确砍掉；**不能既有数据又无入口** |
+| G3 | **/api/dashboard 与 /api/summary 重叠** | 路线图新增 /api/dashboard 聚合四区块，但 /api/summary 已是同类聚合接口 | 扩展 /api/summary 或让其被 /api/dashboard 取代，避免双接口并存 |
+| G4 | **职业模块 P0 范围过大** | 职业画像/技能树/简历/GitHub/面试 全部新建页面，P0 全做会拖慢 UI 重构 | P0 只做「职业入口 + 职业状态卡 + 职业画像占位」；技能树/简历/面试随 P2/P3 落地 |
+| G5 | **wellbeing 收敛有功能丢失风险** | 当前 wellbeing 页面功能完整（饮水环/能量/休息/提醒/日程），直接「收敛为浮层」会丢功能 | 保留 /wellbeing 页面，仅把「提醒」做成全局浮层（toast/通知），页面从学习模块可进入 |
+| G6 | **market_stats 结果表可能过早** | 数据量小（258 条），实时 SQL 聚合足够快 | P4 先做实时聚合 + 60s 缓存，数据量大后再上结果表；roadmap 的结果表作为备选 |
+| G7 | **skill_taxonomy 无种子数据/维护机制** | roadmap 未说明如何初始化技能表与 topic 映射 | 从 resume_assets(kind=skill) + content_topics 标题 + job_postings.tags 高频词生成初始表，提供管理入口（设置页），沿用 hosts 周更思路 |
+| G8 | **文档引用失效** | 路线图依据引用《设计方案-原稿.md》，该文件已删除（git status D）；主稿已更新为《下一版本具体改动方向和设计方案.md》 | 已在本记录中修正路线图引用（见四-1） |
+| G9 | **移动端「我的」与 Web「设置」不一致** | 主稿移动端 Tab 为 首页/学习/招花/职业/我的，Web 为 首页/学习/招花/职业/设置 | 明确移动端「我的」= 设置 + 数据入口的映射关系，避免双端体验割裂 |
+| G10 | **专注（focus）无独立入口** | 设计将「专注」列入学习子模块，但当前 focus-timer 仅嵌在 dashboard | 学习分组落地时给专注独立子页或浮层入口 |
+
+### 3.4 优化建议（按优先级）
+
+1. **P0 严格瘦身**：P0 只做「导航重构（阶段 A：Web 顶导 5 入口 + /career 占位）+ Liquid Glass 2.0 token + Dashboard 职业状态卡 + /api/dashboard（合并 /api/summary）」，健康浮层、职业全模块、学习分组全部后置，避免 UI 阶段战线过长。
+2. **技能体系先建「种子 + 回填」**：012 迁移落地时同步生成初始 skill_taxonomy（从 resume_assets/topics/job tags 抽取），并把已有 job_postings.tags 一次性回填 job_skill_links，P2 一上线就有数据。
+3. **job_clusters 去重键规范化**：去重键用「规范化 title + 规范化 company + city」，规范化规则（小写/去括号/去后缀）作为纯函数放 packages/shared 并配单测；保留人工「拆分组」入口。
+4. **新鲜度徽标按渠道区分**：job 类职位用 published_at/fetched_at；announcement/event（考公考编）类用 deadline_at 倒计时，两类不可混用同一徽标逻辑。
+5. **面试维度轻量化**：新增 interview_attempts（或复用 log_entries 查询），P0 不建表，用「本月 log_entries(kind='interview') 数量 + 自评」近似。
+6. **市场分析实时聚合优先**：P4 用 GROUP BY 实时聚合 + 60s 内存缓存；仅当数据量 >5 万条再考虑 market_stats 结果表。
+7. **知识域给位置**：将「知识库」纳入学习子模块（学习 → 知识库），复用已有表与 API，补一个列表/详情页即可，性价比高。
+8. **所有新 API 沿用仓库测试约定**：仓库每个 route.ts 都有 route.test.ts，新接口（jobs 扩展、readiness、skills、match、gaps、applications、market）必须配套单测。
+9. **统一前端筛选组件**：招花多条件筛选（薪资/学历/经验/时间/技能）做成可复用 FilterPanel（Web 侧栏 + Mobile Bottom Sheet 共用一份状态逻辑），避免双端各写一套。
+10. **匹配度口径透明**：UI 标注「匹配度为参考建议」，规则版公式（技能 0.7 + 学历 0.1 + 经验 0.1 + 城市 0.1）在共享包内实现 + 单测。
+
+---
+
+## 四、改动记录
+
+### 2026-08-20 · docs（评审与记录机制建立）
+
+- **新增**：本文档（改动记录台账），建立「全部改动必须记录于此」的约定。
+- **评审**：通读 2 份 2.0 设计文档并对照当前代码，结论见第三节（总体合理 + G1~G10 缺口 + 10 条优化建议）。
+- **修正**：`docs/Learn-Workbench-2.0-实施路线图-优化版.md` 首部「依据」引用由已删除的《设计方案-原稿.md》更新为《下一版本具体改动方向和设计方案.md》。
+- **状态**：未开始代码改动；后续所有修改按模板追加到本文档。
+
+
+### 2026-08-20 · feat/ui（M2.0-P0 信息架构 + Design System + Dashboard）
+
+**改动**：完成 P0 阶段（信息架构 + Design Token + Dashboard 职业状态卡 + wellbeing 系统级浮层 + Mobile Tab 重构）。
+
+- **Web 顶导 5 入口**：`apps/web/components/app-shell.tsx` 由 7 项侧边栏重构为顶导 5 入口（首页/学习▾/招花/职业▾/设置）；学习下拉（路线图/今日任务/专注/日志），职业下拉（画像/技能树/简历/面试）；移动端底部导航 5 入口（首页/学习/招花/职业/我的）。
+- **/career 职业模块**：新增 `apps/web/app/career/page.tsx`（职业画像：准备度环 + 四维进度条 + 发现职位）+ `career/skills|resume|interview` P2/P3 占位页；移动端 `apps/mobile/src/app/career.tsx` 职业 Hub。
+- **Design Token**：`packages/ui/src/index.ts` 更新为 2.0 规范（色彩 Background/Surface/Glass/Primary/Secondary/...；圆角 sm8 md12 lg16 xl20 2xl28；阴影 sm/md/lg/glass；间距 4/8/12/16/24/32/48/64；字号 xs~4xl）；`apps/web/app/globals.css` 导航布局改为顶导（.app-topnav）。
+- **Dashboard 职业状态卡**：`apps/web/app/dashboard/page.tsx` 新增职业准备度卡（复用 readiness 数据），数据源切换为聚合接口。
+- **新接口**：`/api/profile/readiness`（四维准备度，规则版：技能40% 项目30% 简历15% 面试15%，数据全部来自现有表）；`/api/dashboard`（一次请求聚合 summary + readiness + jobsTotal，替代前端多请求）；对应 `lib/readiness.ts` 与 route.test.ts。
+- **wellbeing 收敛**：`apps/web/components/wellbeing-float.tsx` 全局健康提醒浮层（有提醒时出现，点击进 /wellbeing），页面与数据保留；不再占一级导航。
+- **Mobile Tab 重构**：`apps/mobile/src/app/_layout.tsx` 改为 首页/学习/招花/职业/我的；新增 `learn.tsx`（学习 Hub：路线图/任务/日志）、`career.tsx`（职业 Hub：拉取 readiness）。
+- **shared 类型**：`packages/shared/src/index.ts` 新增 careerReadiness / dashboardAggregate 类型。
+
+**涉及文件**：apps/web/components/app-shell.tsx、wellbeing-float.tsx；apps/web/app/career/{page,skills/page,resume/page,interview/page}.tsx；apps/web/app/dashboard/page.tsx；apps/web/app/api/{profile/readiness,dashboard}/route.ts(+test)；apps/web/lib/readiness.ts；packages/ui/src/index.ts；packages/shared/src/index.ts；apps/web/app/globals.css；apps/web/app/tasks/page.tsx（#focus 锚点）；apps/mobile/src/app/{_layout,learn,career}.tsx。
+
+**原因/决策**：按实施路线图 M2.0-P0 验收（首页一眼看到职业目标与准备度；导航 5 项清晰；旧功能不回归）落地；遵循评审建议 1（P0 瘦身）、G3（合并 /api/dashboard）、G1（面试用 log_entries 近似）、建议 8（新 API 配单测）。
+
+**验证**：web/mobile `tsc --noEmit` 通过；web vitest 146 项全部通过（含新增 readiness/dashboard 测试）；`next build` 通过。
+
+**影响**：/wellbeing 从导航隐藏但页面保留；旧 URL（/roadmap /tasks /logs /jobs /settings）全部保留可访问；职业/技能树/简历/面试为占位页（P2/P3 落地）；未引入任何新表（P0 数据全部来自现有表）。
+
+---
+
+## 五、记录模板
+
+```markdown
+### YYYY-MM-DD · 类型（feat/fix/refactor/ui/docs/db/perf/test/chore）
+
+- **改动**：一句话说明改了什么。
+- **涉及文件**：路径列表。
+- **原因/决策**：为什么改（可引用评审编号 G# / 建议 #）。
+- **验证**：如何验证（测试 / 手工 / 部署）。
+- **影响**：对已有功能的影响与回滚说明。
+```
+
+---
+
+## 六、待办（源自评审，随实施推进勾选）
+
+- [x] P0：Web 顶导 5 入口 + /career 占位（阶段 A，保留旧 URL）—— 2026-08-20 完成
+- [x] P0：Liquid Glass 2.0 Design Token 落地 packages/ui + tailwind —— 2026-08-20 完成
+- [x] P0：Dashboard 职业状态卡 + /api/dashboard（合并 /api/summary）—— 2026-08-20 完成（/api/dashboard 为聚合新接口，/api/summary 保留兼容）
+- [x] P0：wellbeing 保留页面，提醒收敛为全局浮层 —— 2026-08-20 完成
+- [ ] P1：招花多条件筛选扩展 + 新鲜度徽标（按渠道区分，见建议 4）
+- [ ] P1：job_clusters 去重 + 来源聚合展示（规范化键见建议 3）
+- [ ] P1：Web 双栏布局 + Mobile Bottom Sheet 筛选（共用 FilterPanel，见建议 9）
+- [ ] P2：skill_taxonomy 种子 + 回填 + user_skills（建议 2）
+- [ ] P2：岗位匹配度规则版 + 能力缺口 + skill_content_links
+- [ ] P3：job_applications + 求职 Kanban + 面试记录轻量表（建议 5）
+- [ ] P4：市场分析实时聚合 + 缓存（建议 6）
+- [ ] P5：AI 智能层（数据积累后）
+- [ ] 学习子模块：知识库入口（建议 7）、专注独立入口（G10）

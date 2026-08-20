@@ -658,3 +658,32 @@ export const jobNotificationStatsSchema = z.object({
   total: z.number(),
 });
 export type JobNotificationStats = z.infer<typeof jobNotificationStatsSchema>;
+
+/* ================= 2.0 · 职业准备度 / Dashboard 聚合 ================= */
+
+/** 职业准备度四维（技能/项目/简历/面试） */
+export const readinessDimensionSchema = z.object({
+  key: z.enum(["skill", "project", "resume", "interview"]),
+  label: z.string(),
+  score: z.number(),          // 0-100
+  weight: z.number(),         // 0-1 权重
+  detail: z.string(),
+});
+export type ReadinessDimension = z.infer<typeof readinessDimensionSchema>;
+
+export const careerReadinessSchema = z.object({
+  targetRole: z.string(),          // 目标岗位（当前 career 名称）
+  overall: z.number(),             // 职业准备度 0-100
+  dimensions: z.array(readinessDimensionSchema),
+  matchedJobs: z.number(),         // 「发现 N 个适合你的职位」
+});
+export type CareerReadiness = z.infer<typeof careerReadinessSchema>;
+
+/** /api/dashboard 聚合响应（一次请求覆盖首页四区块） */
+export const dashboardAggregateSchema = z.object({
+  summary: dashboardSummarySchema,
+  readiness: careerReadinessSchema,
+  jobsTotal: z.number(),
+});
+export type DashboardAggregate = z.infer<typeof dashboardAggregateSchema>;
+
