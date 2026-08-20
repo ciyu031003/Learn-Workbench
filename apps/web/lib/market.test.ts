@@ -36,7 +36,25 @@ describe("analyzeMarket (P4)", () => {
       } as never)                                                                            // edu
       .mockResolvedValueOnce({
         rows: [{ experience: "1-3年" }, { experience: "3-5年" }, { experience: "应届" }],
-      } as never);                                                                           // exp
+      } as never)                                                                            // exp
+      .mockResolvedValueOnce({
+        rows: [
+          { title: "Java 后端开发", tags: [] },
+          { title: "前端工程师", tags: [] },
+          { title: "测试开发工程师", tags: [] },
+          { title: "星辰科技有限公司", tags: [] }, // 公司名脏数据 → 不计入职能
+          { title: "AI 算法实习生", tags: ["实习"] },
+        ],
+      } as never)                                                                            // fn/title rows
+      .mockResolvedValueOnce({
+        rows: [{ source: "zhilian" }, { source: "zhilian" }, { source: "lagou" }, { source: "lagou" }, { source: "job51" }],
+      } as never)                                                                            // platform
+      .mockResolvedValueOnce({
+        rows: [
+          { skill: "python", avg: 24, n: 3 },
+          { skill: "docker", avg: 28, n: 2 },
+        ],
+      } as never);                                                                           // skillSalary
 
     const m = await analyzeMarket();
     expect(m.total).toBe(5);
@@ -55,16 +73,24 @@ describe("analyzeMarket (P4)", () => {
     // 经验
     expect(m.byExperience.find((e) => e.label === "1-3年")?.count).toBe(1);
     expect(m.byExperience.find((e) => e.label === "应届")?.count).toBe(1);
+    // 职能方向：公司名脏数据被清洗，5 条 title → 4 个归类 + AI算法实习生
+    expect(m.byFunction.find((f) => f.label === "后端")?.count).toBe(1);
+    expect(m.byFunction.find((f) => f.label === "前端")?.count).toBe(1);
+    expect(m.byFunction.find((f) => f.label === "测试")?.count).toBe(1);
+    expect(m.byFunction.find((f) => f.label === "算法/AI")?.count).toBe(1);
+    expect(m.byFunction.reduce((a, f) => a + f.count, 0)).toBe(4); // 公司名不计入
+    // 平台分布
+    expect(m.byPlatform.find((p) => p.label === "智联")?.count).toBe(2);
+    expect(m.byPlatform.find((p) => p.label === "拉勾")?.count).toBe(2);
+    // 岗位类型：AI 算法实习生 → 实习
+    expect(m.byJobType.find((t) => t.label === "全职")?.count).toBe(4);
+    expect(m.byJobType.find((t) => t.label === "实习")?.count).toBe(1);
+    // 技能-薪资
+    expect(m.skillSalary[0]).toEqual({ skill: "python", avgSalary: 24, count: 3 });
   });
 
   it("uses cache on second call", async () => {
-    queryMock
-      .mockResolvedValueOnce({ rows: [{ n: 1 }] } as never)
-      .mockResolvedValueOnce({ rows: [] } as never)
-      .mockResolvedValueOnce({ rows: [] } as never)
-      .mockResolvedValueOnce({ rows: [] } as never)
-      .mockResolvedValueOnce({ rows: [] } as never)
-      .mockResolvedValueOnce({ rows: [] } as never);
+    for (let i = 0; i < 9; i += 1) queryMock.mockResolvedValueOnce({ rows: [] } as never);
     await analyzeMarket();
     const calls = queryMock.mock.calls.length;
     await analyzeMarket();

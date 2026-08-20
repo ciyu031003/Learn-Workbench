@@ -11,6 +11,10 @@ export interface MarketSalaryRow { label: string; min: number; count: number; }
 export interface MarketEduRow { label: string; count: number; }
 export interface MarketExpRow { label: string; count: number; }
 
+export interface MarketPlatformRow { label: string; count: number; }
+export interface MarketJobTypeRow { label: string; count: number; }
+export interface MarketSkillSalaryRow { skill: string; avgSalary: number | null; count: number; }
+
 export interface MarketAnalysis {
   total: number;
   byCity: MarketCityRow[];       // 城市需求
@@ -18,8 +22,20 @@ export interface MarketAnalysis {
   salaryDist: MarketSalaryRow[]; // 薪资分布
   byEducation: MarketEduRow[];   // 学历需求
   byExperience: MarketExpRow[];  // 经验需求
+  byFunction: MarketExpRow[];    // 岗位职能方向 TOP（清洗公司名脏 title 后按关键词分类）
+  byPlatform: MarketPlatformRow[]; // 数据来源平台分布
+  byJobType: MarketJobTypeRow[];   // 岗位类型占比（全职/实习/外包/兼职）
+  skillSalary: MarketSkillSalaryRow[]; // 技能-薪资相关性（job_skill_links JOIN）
   generatedAt: string;
 }
+
+/** 数据来源平台中文名 */
+const SOURCE_LABELS: Record<string, string> = {
+  lagou: "拉勾", liepin: "猎聘", zhilian: "智联", job51: "前程无忧", boss: "Boss直聘",
+  "sasac-recruit": "国资委", "cpta-notice": "人事考试网", "81rc": "军队人才网",
+  "mohrss-sydw": "人社部", "jiangsu-sydw": "江苏人社", iguopin: "国聘",
+  guokao: "国考",
+};
 
 // 60s 内存缓存（单进程；Docker 单实例下有效）
 let cache: { at: number; data: MarketAnalysis } | null = null;
@@ -53,6 +69,44 @@ function expBucket(raw: string): string {
   if (s.includes("1-3")) return "1-3年";
   if (s.includes("应届")) return "应届";
   return "不限/其他";
+}
+
+/** 公司名特征（zhilian/liepin 源把公司名写进 title 的脏数据清洗） */
+const COMPANY_RE =
+  /(公司|科技|数据|网络|信息|智能|集团|股份|有限|技术|软件|电子|通信|咨询|研究院|事务所|银行|证券|保险|置业|地产|物流|贸易|生物|医疗|教育|研究院$)/;
+
+/** 岗位职能分类（按 title 关键词，优先级从高到低） */
+const FUNCTION_RULES: { label: string; re: RegExp }[] = [
+  { label: "前端", re: /(前端|web前端|webs?前端|javascript工程师|vue|react工程师|uniapp)/i },
+  { label: "后端", re: /(后端|java开发|python开发|golang|go开发|c\+\+|c#|node.?js|php开发|中间件)/i },
+  { label: "算法/AI", re: /(算法|ai|人工智能|机器学习|深度学习|大模型|llm|nlp|cv|视觉|推荐算法|数据挖掘)/i },
+  { label: "测试", re: /(测试|qa|质量保障|测开)/i },
+  { label: "运维/DevOps", re: /(运维|devops|sre|系统工程师|网络工程师|数据库管理员|dba|linux|k8s|容器)/i },
+  { label: "数据", re: /(数据|etl|数仓|bi|数据分析师|大数据|sql)/i },
+  { label: "产品", re: /(产品|pm|需求)/i },
+  { label: "设计", re: /(设计|ui|ux|视觉|交互)/i },
+  { label: "运营/市场", re: /(运营|市场|销售|商务|客服|品牌|推广)/i },
+  { label: "安全", re: /(安全|渗透|等保|风控)/i },
+  { label: "硬件/嵌入式", re: /(硬件|嵌入式|fpga|芯片|ic|单片机|stm32|电路)/i },
+];
+
+/** 岗位职能方向分类（返回 null 表示公司名脏数据或无法归类） */
+function classifyFunction(title: string): string | null {
+  const t = (title ?? "").trim();
+  if (!t || COMPANY_RE.test(t)) return null;
+  for (const rule of FUNCTION_RULES) {
+    if (rule.re.test(t)) return rule.label;
+  }
+  return "其他";
+}
+
+/** 岗位类型（全职/实习/外包/兼职） */
+function classifyJobType(title: string, tags: string[]): string {
+  const s = (title ?? "") + " " + (tags ?? []).join(" ");
+  if (/(实习|intern|internship)/i.test(s)) return "实习";
+  if (/(外包|驻场|外派)/.test(s)) return "外包";
+  if (/(兼职|part[- ]?time)/i.test(s)) return "兼职";
+  return "全职";
 }
 
 export async function analyzeMarket(): Promise<MarketAnalysis> {
@@ -132,6 +186,58 @@ export async function analyzeMarket(): Promise<MarketAnalysis> {
     .map(([label, count]) => ({ label, count }))
     .sort((a, b) => b.count - a.count);
 
+  // 岗位职能方向（清洗公司名脏 title 后按关键词分类）
+  const fnRes = await pgPool.query<{ title: string; tags: string[] }>(
+    `SELECT title, tags FROM job_postings WHERE ${whereJob}`
+  );
+  const fnMap = new Map<string, number>();
+  const typeMap = new Map<string, number>();
+  const platformMap = new Map<string, number>();
+  for (const r of fnRes.rows) {
+    const fn = classifyFunction(r.title);
+    if (fn) fnMap.set(fn, (fnMap.get(fn) ?? 0) + 1);
+    const jt = classifyJobType(r.title, Array.isArray(r.tags) ? r.tags.map(String) : []);
+    typeMap.set(jt, (typeMap.get(jt) ?? 0) + 1);
+  }
+  const byFunction: MarketExpRow[] = Array.from(fnMap.entries())
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => b.count - a.count);
+
+  // 平台分布
+  const platRes = await pgPool.query<{ source: string }>(
+    `SELECT source FROM job_postings WHERE ${whereJob}`
+  );
+  for (const r of platRes.rows) {
+    const label = SOURCE_LABELS[r.source] ?? r.source;
+    platformMap.set(label, (platformMap.get(label) ?? 0) + 1);
+  }
+  const byPlatform: MarketPlatformRow[] = Array.from(platformMap.entries())
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => b.count - a.count);
+  const byJobType: MarketJobTypeRow[] = Array.from(typeMap.entries())
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => b.count - a.count);
+
+  // 技能-薪资相关性（job_skill_links JOIN job_postings 平均薪资，P2 已建成）
+  const ssRes = await pgPool.query<{ skill: string; avg: number | null; n: number }>(
+    `SELECT s.name AS skill,
+            round(avg(COALESCE(j.salary_max, j.salary_min))::numeric)::int AS avg,
+            count(*)::int AS n
+       FROM job_skill_links l
+       JOIN skill_taxonomy s ON s.id = l.skill_id
+       JOIN job_postings j ON j.id = l.job_id
+      WHERE j.is_active = true AND j.channel = 'job'
+        AND j.salary_max IS NOT NULL
+      GROUP BY s.name
+      ORDER BY n DESC, avg DESC
+      LIMIT 15`
+  );
+  const skillSalary: MarketSkillSalaryRow[] = ssRes.rows.map((r) => ({
+    skill: r.skill,
+    avgSalary: r.avg,
+    count: r.n,
+  }));
+
   const data: MarketAnalysis = {
     total,
     byCity,
@@ -139,6 +245,10 @@ export async function analyzeMarket(): Promise<MarketAnalysis> {
     salaryDist,
     byEducation,
     byExperience,
+    byFunction,
+    byPlatform,
+    byJobType,
+    skillSalary,
     generatedAt: new Date().toISOString(),
   };
   cache = { at: Date.now(), data };

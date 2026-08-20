@@ -878,6 +878,18 @@ export type MarketSalaryRow = z.infer<typeof marketSalaryRowSchema>;
 export const marketLabelCountSchema = z.object({ label: z.string(), count: z.number() });
 export type MarketLabelCount = z.infer<typeof marketLabelCountSchema>;
 
+export const marketPlatformRowSchema = marketLabelCountSchema;
+export type MarketPlatformRow = z.infer<typeof marketPlatformRowSchema>;
+export const marketJobTypeRowSchema = marketLabelCountSchema;
+export type MarketJobTypeRow = z.infer<typeof marketJobTypeRowSchema>;
+
+export const marketSkillSalaryRowSchema = z.object({
+  skill: z.string(),
+  avgSalary: z.number().nullable(),
+  count: z.number(),
+});
+export type MarketSkillSalaryRow = z.infer<typeof marketSkillSalaryRowSchema>;
+
 export const marketAnalysisSchema = z.object({
   total: z.number(),
   byCity: z.array(marketCityRowSchema),
@@ -885,6 +897,10 @@ export const marketAnalysisSchema = z.object({
   salaryDist: z.array(marketSalaryRowSchema),
   byEducation: z.array(marketLabelCountSchema),
   byExperience: z.array(marketLabelCountSchema),
+  byFunction: z.array(marketLabelCountSchema),
+  byPlatform: z.array(marketPlatformRowSchema),
+  byJobType: z.array(marketJobTypeRowSchema),
+  skillSalary: z.array(marketSkillSalaryRowSchema),
   generatedAt: z.string(),
 });
 export type MarketAnalysis = z.infer<typeof marketAnalysisSchema>;
