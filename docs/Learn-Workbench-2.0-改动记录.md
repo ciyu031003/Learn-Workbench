@@ -97,6 +97,22 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 
 ## 四、改动记录
 
+
+### 2026-08-20 · ui/fix（招花页职位列表改四列并居中）
+
+**改动**：三列仍不满足视觉效果，改为四列并整体居中。
+
+- `apps/web/components/app-shell.tsx`：主内容容器 `max-w-7xl` → `max-w-[1440px]`（仍 `mx-auto` 居中）。
+- `apps/web/app/jobs/page.tsx`：职位卡网格 `xl:grid-cols-3` → `sm:2 xl:3 2xl:4` 并加 `justify-center`；骨架屏 8 项同步；双栏外层由 `2xl:grid-cols-[1fr_360px]` 改为单列全宽（详情面板不再占布局列）。
+- `apps/web/components/jobs/job-detail-panel.tsx`：右侧详情面板由布局列改为 `fixed` 悬浮抽屉（右缘、2xl 显示，不挤占职位网格宽度）。
+
+**涉及文件**：apps/web/components/app-shell.tsx、apps/web/app/jobs/page.tsx、apps/web/components/jobs/job-detail-panel.tsx。
+
+**原因/决策**：4 列职位 + 全宽网格 + 详情悬浮抽屉，保证信息密度与居中；桌面详情联动改为浮层方式保留。
+
+**验证**：web `tsc --noEmit` 通过；`next build` 通过。
+
+---
 ### 2026-08-20 · ui/fix（招花页职位列表改三列）
 
 **改动**：招花页职位列表由两列改为三列（P1 双栏布局后列表过窄，视觉别扭）。

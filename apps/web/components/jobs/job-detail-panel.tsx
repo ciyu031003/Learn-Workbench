@@ -62,7 +62,7 @@ export function JobDetailPanel({
     : [];
 
   return (
-    <aside className="glass hidden h-fit flex-col gap-4 rounded-2xl p-5 2xl:flex" aria-label="职位详情">
+    <aside className="glass fixed right-6 top-20 z-40 hidden max-h-[calc(100vh-7rem)] w-[380px] flex-col gap-4 overflow-y-auto rounded-2xl p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)] 2xl:flex" aria-label="职位详情">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-lg font-black leading-tight text-foreground">{detail?.title || summary.title}</h2>
