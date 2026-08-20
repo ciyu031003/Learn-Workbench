@@ -98,6 +98,26 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 ## 四、改动记录
 
 
+### 2026-08-20 · feat/ui（M2.0-P4 招聘市场分析）
+
+**改动**：完成 P4 阶段（市场需要什么 —— 城市/薪资/技能/学历/经验实时聚合 + 图表页）。
+
+- **聚合 lib**：`lib/market.ts` —— analyzeMarket() 实时 SQL 聚合（城市需求 + 平均薪资、技能热度、薪资分桶、学历/经验归一统计）+ **60s 内存缓存**（评审建议 6：数据量小不上结果表，>5 万条再考虑 market_stats 落表）；invalidateMarketCache() 供爬虫后刷新。
+- **API**：`/api/market` GET（一次返回全部聚合，含 total/generatedAt）。
+- **Web 市场分析页**：`apps/web/app/career/market/page.tsx` —— 专业数据型布局，纯 CSS 横向柱状图（不引图表库）：城市需求 TOP / 技能热度 TOP / 薪资分布 / 学历需求 / 经验需求 / 数据说明。
+- **入口**：职业下拉「市场分析」+ 职业画像页新卡片（网格 4→5 列）+ 招花页 hero「市场分析」按钮（三入口）。
+- **Mobile**：`apps/mobile/src/app/market.tsx` 精简 Top 排行（城市/技能/薪资/学历经验，复用卡片体系不堆图）；career Hub 新增「市场分析」入口。
+- **shared**：marketAnalysis / MarketCityRow / MarketSkillRow / MarketSalaryRow / MarketLabelCount 类型。
+
+**涉及文件**：packages/shared/src/index.ts；apps/web/lib/market.ts(+test)；apps/web/app/api/market/route.ts；apps/web/app/career/market/page.tsx、career/page.tsx；apps/web/app/jobs/page.tsx；apps/web/components/app-shell.tsx；apps/mobile/src/app/market.tsx、career.tsx。
+
+**原因/决策**：按实施路线图 M2.0-P4 验收（回答「市场需要什么」；数据随抓取自动更新）落地；遵循评审建议 6（实时聚合 + 60s 缓存优先，暂不建 market_stats 表）；薪资按 salary_max 分桶近似、学历/经验宽松归一，UI 注明样本量与口径（roadmap §13 风险）。
+
+**验证**：web/mobile `tsc --noEmit` 通过；web vitest 164 项（+2 market）；`next build` 通过。
+
+**影响**：/api/market 为纯读聚合（无新表、无写入）；缓存 60s 内重复请求不查库；公告/考试事件不计入市场统计（只统计 channel=job 的招聘岗位）。
+
+---
 ### 2026-08-20 · feat/ui/db（M2.0-P3 求职管理）
 
 **改动**：完成 P3 阶段（求职管道：收藏 → 投递 → 笔试/面试 → Offer → 入职 + Kanban 看板）。
@@ -249,6 +269,6 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 - [x] P2：skill_taxonomy 种子 + 回填 + user_skills（建议 2）—— 2026-08-20 完成
 - [x] P2：岗位匹配度规则版 + 能力缺口 + skill_content_links —— 2026-08-20 完成
 - [x] P3：job_applications + 求职 Kanban + 面试记录（note 承载，暂不新增表）—— 2026-08-20 完成
-- [ ] P4：市场分析实时聚合 + 缓存（建议 6）
+- [x] P4：市场分析实时聚合 + 缓存（建议 6）—— 2026-08-20 完成（实时 SQL 聚合 + 60s 内存缓存，暂不建 market_stats 表）
 - [ ] P5：AI 智能层（数据积累后）
 - [ ] 学习子模块：知识库入口（建议 7）、专注独立入口（G10）

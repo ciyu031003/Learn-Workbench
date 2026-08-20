@@ -19,6 +19,7 @@ import {
   MessageSquare,
   Timer,
   Briefcase,
+  BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { todayISO } from "@learn-workbench/shared";
@@ -45,6 +46,7 @@ const CAREER_ITEMS = [
   { href: "/career/resume", label: "简历", icon: FileText },
   { href: "/career/interview", label: "面试", icon: MessageSquare },
   { href: "/career/applications", label: "我的求职", icon: Briefcase },
+  { href: "/career/market", label: "市场分析", icon: BarChart3 },
 ] as const;
 
 export function AppShell({ children }: { children: React.ReactNode }) {

@@ -859,6 +859,37 @@ export type JobApplication = z.infer<typeof jobApplicationSchema>;
 export const jobApplicationStatsSchema = z.record(jobApplicationStageSchema, z.number());
 export type JobApplicationStats = z.infer<typeof jobApplicationStatsSchema>;
 
+/* ================= 2.0 · P4 招聘市场分析 ================= */
+
+export const marketCityRowSchema = z.object({
+  city: z.string(),
+  count: z.number(),
+  avgMin: z.number().nullable(),
+  avgMax: z.number().nullable(),
+});
+export type MarketCityRow = z.infer<typeof marketCityRowSchema>;
+
+export const marketSkillRowSchema = z.object({ skill: z.string(), count: z.number() });
+export type MarketSkillRow = z.infer<typeof marketSkillRowSchema>;
+
+export const marketSalaryRowSchema = z.object({ label: z.string(), min: z.number(), count: z.number() });
+export type MarketSalaryRow = z.infer<typeof marketSalaryRowSchema>;
+
+export const marketLabelCountSchema = z.object({ label: z.string(), count: z.number() });
+export type MarketLabelCount = z.infer<typeof marketLabelCountSchema>;
+
+export const marketAnalysisSchema = z.object({
+  total: z.number(),
+  byCity: z.array(marketCityRowSchema),
+  bySkill: z.array(marketSkillRowSchema),
+  salaryDist: z.array(marketSalaryRowSchema),
+  byEducation: z.array(marketLabelCountSchema),
+  byExperience: z.array(marketLabelCountSchema),
+  generatedAt: z.string(),
+});
+export type MarketAnalysis = z.infer<typeof marketAnalysisSchema>;
+
+
 
 
 

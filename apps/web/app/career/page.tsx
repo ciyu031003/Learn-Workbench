@@ -17,6 +17,7 @@ import {
   ChevronRight,
   Users,
   Briefcase,
+  BarChart3,
 } from "lucide-react";
 
 const DIM_COLORS: Record<string, string> = {
@@ -118,8 +119,8 @@ export default function CareerPage() {
         </Card>
       ) : null}
 
-      {/* 职业模块入口：求职 / 技能树 / 简历 / 面试 */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {/* 职业模块入口：求职 / 市场 / 技能树 / 简历 / 面试 */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <Link href="/career/applications" className="group">
           <Card>
             <CardContent className="flex items-center gap-3 p-4">
@@ -129,6 +130,20 @@ export default function CareerPage() {
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold">我的求职</p>
                 <p className="text-[11px] text-muted-foreground">收藏 → Offer 全流程</p>
+              </div>
+              <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/career/market" className="group">
+          <Card>
+            <CardContent className="flex items-center gap-3 p-4">
+              <span className="icon-chip h-10 w-10 shrink-0">
+                <BarChart3 className="size-5 text-sky-500" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold">市场分析</p>
+                <p className="text-[11px] text-muted-foreground">城市 · 薪资 · 技能热度</p>
               </div>
               <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
             </CardContent>

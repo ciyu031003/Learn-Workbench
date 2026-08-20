@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type {
   JobCrawlerConfig,
@@ -44,6 +45,7 @@ import {
   Search,
   Sparkles,
   SlidersHorizontal,
+  BarChart3,
 } from "lucide-react";
 
 type JobDetail = JobPosting & { isFav: boolean };
@@ -399,6 +401,13 @@ export default function JobsPage() {
             </span>
             <Badge variant="success">招聘信息</Badge>
             <div className="ml-auto flex items-center gap-2">
+              <Link
+                href="/career/market"
+                className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-white/20 bg-white/10 px-3 text-xs font-semibold text-muted-foreground backdrop-blur-md transition-all hover:bg-white/15 hover:text-foreground"
+              >
+                <BarChart3 className="size-4" />
+                市场分析
+              </Link>
               <button
                 type="button"
                 onClick={() => setCalendarOpen(true)}
