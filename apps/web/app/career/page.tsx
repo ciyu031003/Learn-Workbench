@@ -16,6 +16,7 @@ import {
   MessageSquare,
   ChevronRight,
   Users,
+  Briefcase,
 } from "lucide-react";
 
 const DIM_COLORS: Record<string, string> = {
@@ -117,8 +118,22 @@ export default function CareerPage() {
         </Card>
       ) : null}
 
-      {/* P2 前置模块：技能树 / 简历 / 面试 */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      {/* 职业模块入口：求职 / 技能树 / 简历 / 面试 */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Link href="/career/applications" className="group">
+          <Card>
+            <CardContent className="flex items-center gap-3 p-4">
+              <span className="icon-chip h-10 w-10 shrink-0">
+                <Briefcase className="size-5 text-emerald-500" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold">我的求职</p>
+                <p className="text-[11px] text-muted-foreground">收藏 → Offer 全流程</p>
+              </div>
+              <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+            </CardContent>
+          </Card>
+        </Link>
         <Link href="/career/skills" className="group">
           <Card>
             <CardContent className="flex items-center gap-3 p-4">

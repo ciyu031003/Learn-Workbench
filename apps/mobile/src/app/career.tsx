@@ -10,9 +10,10 @@ import { Card } from "@/components/card";
 import type { CareerReadiness, UserSkillView } from "@learn-workbench/shared";
 
 const SECTIONS = [
-  { key: "skills", title: "技能树", desc: "技能画像 · 岗位匹配", icon: "git-branch-outline", color: "#4f46e5" },
-  { key: "resume", title: "简历", desc: "资产整理与预览（P3）", icon: "document-text-outline", color: "#0ea5e9" },
-  { key: "interview", title: "面试", desc: "题库 · 模拟面试（P3）", icon: "chatbubbles-outline", color: "#16a34a" },
+  { key: "applications", title: "我的求职", desc: "收藏 → Offer 全流程", icon: "briefcase-outline", color: "#10b981", href: "/applications" },
+  { key: "skills", title: "技能树", desc: "技能画像 · 岗位匹配", icon: "git-branch-outline", color: "#4f46e5", href: "" },
+  { key: "resume", title: "简历", desc: "资产整理与预览（P3）", icon: "document-text-outline", color: "#0ea5e9", href: "" },
+  { key: "interview", title: "面试", desc: "题库 · 模拟面试（P3）", icon: "chatbubbles-outline", color: "#16a34a", href: "" },
 ] as const;
 
 const LEVEL_LABELS = ["未掌握", "了解", "入门", "熟练", "精通", "专家"];
@@ -100,7 +101,7 @@ export default function CareerScreen() {
 
       <View style={styles.grid}>
         {SECTIONS.map((s) => (
-          <View key={s.key}>
+          <Pressable key={s.key} disabled={!s.href} onPress={() => { if (s.href) router.push(s.href as never); }}>
             <Card style={styles.entryCard}>
               <View style={[styles.iconChip, { backgroundColor: s.color + "22" }]}>
                 <Ionicons name={s.icon} size={22} color={s.color} />
@@ -109,8 +110,9 @@ export default function CareerScreen() {
                 <Text style={styles.entryTitle}>{s.title}</Text>
                 <Text style={styles.entryDesc}>{s.desc}</Text>
               </View>
+              {s.href ? <Ionicons name="chevron-forward" size={16} color="#9ca3af" /> : null}
             </Card>
-          </View>
+          </Pressable>
         ))}
       </View>
     </ScrollView>

@@ -11,6 +11,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useToastStore } from "@/store/toast-store";
 import {
   Building2,
   ExternalLink,
@@ -19,6 +20,7 @@ import {
   Loader2,
   MapPin,
   Share2,
+  ArrowRight,
   X,
 } from "lucide-react";
 import { FreshnessBadge } from "./freshness-badge";
@@ -50,6 +52,7 @@ export function JobDetailPanel({
   onClose: () => void;
   onToggleFavorite: (id: number) => void;
 }) {
+  const pushToast = useToastStore((s) => s.push);
   if (!open || !summary) return null;
   const isAnnouncement = summary.channel === "announcement";
   const deadline = deadlineText(detail?.deadlineAt ?? summary.deadlineAt);
@@ -167,6 +170,26 @@ export function JobDetailPanel({
         >
           {favoriteBusy ? <Loader2 className="size-4 animate-spin" /> : <Heart className={cn("size-4", fav && "fill-current")} />}
           {fav ? "已收藏" : "收藏"}
+        </Button>
+        <Button
+          variant="outline"
+          onClick={async () => {
+            try {
+              const r = await fetch("/api/jobs/applications", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ jobId: summary.id, stage: "favorite" }),
+              });
+              const d = await r.json().catch(() => null);
+              if (!r.ok) throw new Error(d?.error || "加入失败");
+              pushToast("已加入求职管道（我的求职 → 收藏）", "success");
+            } catch (e) {
+              pushToast(e instanceof Error ? e.message : "请先登录后再加入求职", "error");
+            }
+          }}
+        >
+          <ArrowRight className="size-4" />
+          加入求职
         </Button>
         <Button
           variant="outline"

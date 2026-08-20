@@ -798,5 +798,67 @@ export const skillOptionSchema = z.object({
 });
 export type SkillOption = z.infer<typeof skillOptionSchema>;
 
+/* ================= 2.0 · P3 求职管理 ================= */
+
+/** 求职阶段：收藏 → 准备投递 → 已投递 → 笔试 → 一面 → 二面 → Offer → 入职 → 关闭 */
+export const jobApplicationStageSchema = z.enum([
+  "favorite", "ready", "applied", "online_test", "interview1", "interview2", "offer", "hired", "closed",
+]);
+export type JobApplicationStage = z.infer<typeof jobApplicationStageSchema>;
+
+export const jobApplicationStageLabels: Record<JobApplicationStage, string> = {
+  favorite: "收藏",
+  ready: "准备投递",
+  applied: "已投递",
+  online_test: "笔试",
+  interview1: "一面",
+  interview2: "二面",
+  offer: "Offer",
+  hired: "入职",
+  closed: "关闭",
+};
+
+export const jobApplicationStageColors: Record<JobApplicationStage, string> = {
+  favorite: "#8b8b94",
+  ready: "#0ea5e9",
+  applied: "#6366f1",
+  online_test: "#8b5cf6",
+  interview1: "#d97706",
+  interview2: "#ea580c",
+  offer: "#16a34a",
+  hired: "#10b981",
+  closed: "#6b7280",
+};
+
+/** Kanban 四列分组：收藏/进行中（投递+笔试+面试）/Offer/已入职 */
+export const KANBAN_COLUMNS = [
+  { key: "favorite", label: "收藏", stages: ["favorite", "ready"] as JobApplicationStage[] },
+  { key: "active", label: "进行中", stages: ["applied", "online_test", "interview1", "interview2"] as JobApplicationStage[] },
+  { key: "offer", label: "Offer", stages: ["offer"] as JobApplicationStage[] },
+  { key: "done", label: "已入职/关闭", stages: ["hired", "closed"] as JobApplicationStage[] },
+] as const;
+
+export const jobApplicationSchema = z.object({
+  id: z.number(),
+  jobId: z.number(),
+  stage: jobApplicationStageSchema,
+  note: z.string().default(""),
+  appliedAt: z.string().nullable(),
+  updatedAt: z.string(),
+  // 职位快照
+  jobTitle: z.string(),
+  jobCompany: z.string(),
+  jobCity: z.string(),
+  jobSalary: z.string(),
+  jobUrl: z.string(),
+  jobSource: z.string(),
+});
+export type JobApplication = z.infer<typeof jobApplicationSchema>;
+
+/** 求职统计（各阶段数量） */
+export const jobApplicationStatsSchema = z.record(jobApplicationStageSchema, z.number());
+export type JobApplicationStats = z.infer<typeof jobApplicationStatsSchema>;
+
+
 
 

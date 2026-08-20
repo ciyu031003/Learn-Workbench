@@ -25,6 +25,7 @@ import {
   MapPin,
   Share2,
   Users,
+  ArrowRight,
   X,
 } from "lucide-react";
 import { deadlineText } from "./job-card";
@@ -335,6 +336,26 @@ export function JobModal({
           >
             {favoriteBusy ? <Loader2 className="size-4 animate-spin" /> : <Heart className={cn("size-4", fav && "fill-current")} />}
             {fav ? "已收藏" : "收藏"}
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={async () => {
+              try {
+                const r = await fetch("/api/jobs/applications", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ jobId: summary.id, stage: "favorite" }),
+                });
+                const d = await r.json().catch(() => null);
+                if (!r.ok) throw new Error(d?.error || "加入失败");
+                pushToast("已加入求职管道（我的求职 → 收藏）", "success");
+              } catch (e) {
+                pushToast(e instanceof Error ? e.message : "请先登录后再加入求职", "error");
+              }
+            }}
+          >
+            <ArrowRight className="size-4" />
+            加入求职
           </Button>
           <Button
             variant="secondary"

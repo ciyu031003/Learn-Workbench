@@ -98,6 +98,27 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 ## 四、改动记录
 
 
+### 2026-08-20 · feat/ui/db（M2.0-P3 求职管理）
+
+**改动**：完成 P3 阶段（求职管道：收藏 → 投递 → 笔试/面试 → Offer → 入职 + Kanban 看板）。
+
+- **015 迁移**：`db/migrations/015_job_applications.sql` —— job_applications 表（stage 枚举 favorite/ready/applied/online_test/interview1/interview2/offer/hired/closed + note + applied_at + UNIQUE(user_id, job_id) + 索引）。
+- **求职管理 lib**：`lib/job-applications.ts` —— listApplications（JOIN 职位快照）/ addApplication（upsert，投递类阶段自动记 applied_at）/ updateApplicationStage / deleteApplication / applicationStats（九阶段计数）/ getApplicationByJob。
+- **API**：`/api/jobs/applications` GET（列表+统计）/ POST（加入求职）；`/api/jobs/applications/:id` PUT（阶段流转+备注）/ DELETE。
+- **Web Kanban 看板**：`apps/web/app/career/applications/page.tsx` —— 四列看板（收藏/进行中/Offer/已入职关闭）+ 九阶段统计卡 + 卡片内阶段下拉/前后移/删除 + 备注展示；入口：职业下拉「我的求职」+ 职业画像页新卡片。
+- **职位详情「加入求职」**：`job-modal.tsx` / `job-detail-panel.tsx` 操作区新增「加入求职」按钮（POST → favorite 阶段）。
+- **Mobile**：`apps/mobile/src/app/applications.tsx` 求职列表（阶段 chips 快速流转 + 删除）；career Hub 新增「我的求职」可点卡片。
+- **shared**：`jobApplicationStageSchema` + 标签/颜色 + KANBAN_COLUMNS 分组 + JobApplication 类型（含职位快照）。
+
+**涉及文件**：db/migrations/015_job_applications.sql；packages/shared/src/index.ts；apps/web/lib/job-applications.ts(+test)；apps/web/app/api/jobs/applications/route.ts、applications/[id]/route.ts；apps/web/app/career/applications/page.tsx、career/page.tsx；apps/web/components/jobs/job-modal.tsx、job-detail-panel.tsx；apps/web/components/app-shell.tsx；apps/mobile/src/app/applications.tsx、career.tsx。
+
+**原因/决策**：按实施路线图 M2.0-P3 验收（从收藏到 Offer 全流程可记录）落地；遵循建议 5 前序（面试记录以 note + 阶段体现，interview_attempts 表暂不新增）；job_favorites 保留为「快存」，job_applications 承载完整管道（与 roadmap 一致）。
+
+**验证**：web/mobile `tsc --noEmit` 通过；web vitest 162 项（+5 applications）；`next build` 通过。
+
+**影响**：015 为新增表（幂等）；所有求职操作需登录；与 job_favorites 并存不冲突；看板四列分组是展示层聚合，底层仍按九阶段存储。
+
+---
 ### 2026-08-20 · ui/fix（招花页职位列表改四列并居中）
 
 **改动**：三列仍不满足视觉效果，改为四列并整体居中。
@@ -227,7 +248,7 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 - [x] P1：Web 双栏布局 + Mobile Bottom Sheet 筛选（共用 FilterPanel，见建议 9）—— 2026-08-20 完成
 - [x] P2：skill_taxonomy 种子 + 回填 + user_skills（建议 2）—— 2026-08-20 完成
 - [x] P2：岗位匹配度规则版 + 能力缺口 + skill_content_links —— 2026-08-20 完成
-- [ ] P3：job_applications + 求职 Kanban + 面试记录轻量表（建议 5）
+- [x] P3：job_applications + 求职 Kanban + 面试记录（note 承载，暂不新增表）—— 2026-08-20 完成
 - [ ] P4：市场分析实时聚合 + 缓存（建议 6）
 - [ ] P5：AI 智能层（数据积累后）
 - [ ] 学习子模块：知识库入口（建议 7）、专注独立入口（G10）
