@@ -7,18 +7,21 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getApiUrl } from "@/config";
 import { useAppStore } from "@/store/app-store";
 import { Card } from "@/components/card";
-import type { CareerReadiness } from "@learn-workbench/shared";
+import type { CareerReadiness, UserSkillView } from "@learn-workbench/shared";
 
 const SECTIONS = [
-  { key: "skills", title: "技能树", desc: "技能画像 · 岗位匹配（P2）", icon: "git-branch-outline", color: "#4f46e5" },
+  { key: "skills", title: "技能树", desc: "技能画像 · 岗位匹配", icon: "git-branch-outline", color: "#4f46e5" },
   { key: "resume", title: "简历", desc: "资产整理与预览（P3）", icon: "document-text-outline", color: "#0ea5e9" },
   { key: "interview", title: "面试", desc: "题库 · 模拟面试（P3）", icon: "chatbubbles-outline", color: "#16a34a" },
 ] as const;
+
+const LEVEL_LABELS = ["未掌握", "了解", "入门", "熟练", "精通", "专家"];
 
 export default function CareerScreen() {
   const insets = useSafeAreaInsets();
   const token = useAppStore((s) => s.token);
   const [readiness, setReadiness] = useState<CareerReadiness | null>(null);
+  const [skills, setSkills] = useState<UserSkillView[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -27,9 +30,14 @@ export default function CareerScreen() {
       try {
         const headers: Record<string, string> = {};
         if (token) headers.Authorization = "Bearer " + token;
-        const r = await fetch(getApiUrl() + "/api/profile/readiness", { headers });
-        const d = await r.json();
-        if (alive && r.ok) setReadiness(d);
+        const [rR, sR] = await Promise.all([
+          fetch(getApiUrl() + "/api/profile/readiness", { headers }),
+          fetch(getApiUrl() + "/api/profile/skills", { headers }),
+        ]);
+        const rd = await rR.json().catch(() => null);
+        const sd = await sR.json().catch(() => null);
+        if (alive && rR.ok && rd) setReadiness(rd);
+        if (alive && sR.ok && Array.isArray(sd.skills)) setSkills(sd.skills);
       } catch {
         // 离线或未登录：保持 null
       } finally {
@@ -77,6 +85,18 @@ export default function CareerScreen() {
           <Text style={styles.emptyHint}>登录并记录技能 / 项目 / 面试日志后，这里会呈现职业画像</Text>
         )}
       </Card>
+
+      {skills.length > 0 ? (
+        <Card style={styles.skillsCard} title={"我的技能 · " + skills.length}>
+          <View style={styles.skillChips}>
+            {skills.slice(0, 12).map((s) => (
+              <View key={s.id} style={styles.skillChip}>
+                <Text style={styles.skillChipText}>{s.name}</Text>
+              </View>
+            ))}
+          </View>
+        </Card>
+      ) : null}
 
       <View style={styles.grid}>
         {SECTIONS.map((s) => (
@@ -126,4 +146,15 @@ const styles = StyleSheet.create({
   entryText: { flex: 1 },
   entryTitle: { fontSize: 16, fontWeight: "600", color: "#18181b" },
   entryDesc: { fontSize: 12, color: "#71717a", marginTop: 2 },
+  skillsCard: { padding: 16, gap: 10 },
+  skillChips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  skillChip: {
+    backgroundColor: "rgba(79,70,229,0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(79,70,229,0.28)",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  skillChipText: { fontSize: 12, fontWeight: "700", color: "#4338ca" },
 });

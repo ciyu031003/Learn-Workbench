@@ -1,0 +1,228 @@
+import { pgPool } from "@/lib/db";
+import type { JobMatchResult, SkillGapItem, UserSkillView } from "@learn-workbench/shared";
+
+/* ================= 技能归一化 ================= */
+
+/** 归一化一个原始技能标签 → 规范技能名（别名表 + 小写模糊） */
+export async function normalizeSkillTag(raw: string): Promise<string | null> {
+  const tag = (raw ?? "").trim().toLowerCase();
+  if (!tag) return null;
+  // 1) 精确匹配规范名
+  const exact = await pgPool.query<{ name: string }>(
+    "SELECT name FROM skill_taxonomy WHERE lower(name) = $1",
+    [tag]
+  );
+  if (exact.rows[0]) return exact.rows[0].name;
+  // 2) 别名匹配
+  const alias = await pgPool.query<{ name: string }>(
+    `SELECT name FROM skill_taxonomy WHERE EXISTS (
+       SELECT 1 FROM jsonb_array_elements_text(aliases) a WHERE lower(a) = $1)`,
+    [tag]
+  );
+  if (alias.rows[0]) return alias.rows[0].name;
+  // 3) 规范名包含（如 "Redis" in "Redis 缓存"）
+  const contains = await pgPool.query<{ name: string }>(
+    "SELECT name FROM skill_taxonomy WHERE $1 LIKE '%' || lower(name) || '%' LIMIT 1",
+    [tag]
+  );
+  return contains.rows[0]?.name ?? null;
+}
+
+/** 获取技能 id（不存在则创建） */
+export async function ensureSkill(name: string, category = ""): Promise<number> {
+  const { rows } = await pgPool.query(
+    `INSERT INTO skill_taxonomy (name, aliases, category)
+     VALUES ($1, '[]'::jsonb, $2)
+     ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+     RETURNING id`,
+    [name, category]
+  );
+  return rows[0].id;
+}
+
+/** 回填：job_postings.tags → job_skill_links（增量，仅处理未链接的职位） */
+export async function backfillJobSkillLinks(limit = 200): Promise<number> {
+  const { rows } = await pgPool.query<{ id: number; tags: string[] }>(
+    `SELECT j.id, j.tags FROM job_postings j
+      WHERE NOT EXISTS (SELECT 1 FROM job_skill_links l WHERE l.job_id = j.id)
+        AND jsonb_array_length(j.tags) > 0
+      ORDER BY j.fetched_at DESC LIMIT $1`,
+    [limit]
+  );
+  let linked = 0;
+  for (const job of rows) {
+    for (const raw of job.tags) {
+      const name = await normalizeSkillTag(raw);
+      if (!name) continue;
+      const skillId = await ensureSkill(name);
+      await pgPool.query(
+        "INSERT INTO job_skill_links (job_id, skill_id, weight) VALUES ($1, $2, 1) ON CONFLICT DO NOTHING",
+        [job.id, skillId]
+      );
+      linked += 1;
+    }
+  }
+  return linked;
+}
+
+/* ================= 用户技能画像 ================= */
+
+/** 从 resume_assets(kind=skill) 回填 user_skills（一次性，幂等） */
+export async function backfillUserSkillsFromResume(userId: string): Promise<number> {
+  const { rows } = await pgPool.query<{ title: string }>(
+    "SELECT title FROM resume_assets WHERE user_id = $1 AND kind = 'skill'",
+    [userId]
+  );
+  let added = 0;
+  for (const r of rows) {
+    const name = await normalizeSkillTag(r.title);
+    if (!name) continue;
+    const skillId = await ensureSkill(name);
+    await pgPool.query(
+      `INSERT INTO user_skills (user_id, skill_id, level, source)
+       VALUES ($1, $2, 3, 'resume')
+       ON CONFLICT (user_id, skill_id) DO UPDATE SET source = 'resume', updated_at = now()`,
+      [userId, skillId]
+    );
+    added += 1;
+  }
+  return added;
+}
+
+/** 用户技能画像（含缺口标记） */
+export async function listUserSkills(userId: string): Promise<UserSkillView[]> {
+  const { rows } = await pgPool.query<{
+    id: number; name: string; category: string; level: number; source: string;
+  }>(
+    `SELECT s.id, s.name, s.category, us.level, us.source
+       FROM user_skills us
+       JOIN skill_taxonomy s ON s.id = us.skill_id
+      WHERE us.user_id = $1
+      ORDER BY us.level DESC, s.category, s.name`,
+    [userId]
+  );
+  return rows.map((r) => ({
+    id: r.id, name: r.name, category: r.category, level: r.level, source: r.source,
+  }));
+}
+
+export async function setUserSkill(userId: string, skillId: number, level: number, source = "manual"): Promise<void> {
+  await pgPool.query(
+    `INSERT INTO user_skills (user_id, skill_id, level, source)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (user_id, skill_id) DO UPDATE SET level = EXCLUDED.level, source = EXCLUDED.source, updated_at = now()`,
+    [userId, skillId, level, source]
+  );
+}
+
+export async function removeUserSkill(userId: string, skillId: number): Promise<void> {
+  await pgPool.query("DELETE FROM user_skills WHERE user_id = $1 AND skill_id = $2", [userId, skillId]);
+}
+
+/* ================= 岗位匹配度（规则版） ================= */
+
+/**
+ * 匹配度 = Σ(命中技能权重)/Σ(岗位技能权重) × 0.7 + 学历满足 0.1 + 经验满足 0.1 + 城市匹配 0.1
+ * 技能命中：用户 level ≥ 2 计 1.0，level=1 计 0.5
+ */
+export async function computeJobMatch(
+  userId: string | null,
+  jobId: number,
+  opts: { city?: string; education?: string; experience?: string } = {}
+): Promise<JobMatchResult> {
+  // 岗位技能
+  const { rows: jobSkills } = await pgPool.query<{ skill_id: number; name: string; weight: number }>(
+    `SELECT l.skill_id, s.name, l.weight::float FROM job_skill_links l
+       JOIN skill_taxonomy s ON s.id = l.skill_id WHERE l.job_id = $1`,
+    [jobId]
+  );
+  // 用户技能
+  const userLevels = new Map<number, number>();
+  if (userId) {
+    const { rows } = await pgPool.query<{ skill_id: number; level: number }>(
+      "SELECT skill_id, level FROM user_skills WHERE user_id = $1",
+      [userId]
+    );
+    rows.forEach((r) => userLevels.set(r.skill_id, r.level));
+  }
+
+  const totalWeight = jobSkills.reduce((a, s) => a + s.weight, 0);
+  let hitWeight = 0;
+  const matched: { skill: string; level: number; hit: boolean; partial: boolean }[] = [];
+  const missing: { skill: string }[] = [];
+  for (const s of jobSkills) {
+    const ul = userLevels.get(s.skill_id) ?? 0;
+    if (ul >= 2) { hitWeight += s.weight; matched.push({ skill: s.name, level: ul, hit: true, partial: false }); }
+    else if (ul === 1) { hitWeight += s.weight * 0.5; matched.push({ skill: s.name, level: ul, hit: false, partial: true }); }
+    else missing.push({ skill: s.name });
+  }
+  const skillScore = totalWeight > 0 ? hitWeight / totalWeight : 0;
+
+  // 学历 / 经验 / 城市（规则近似）
+  const eduOk = !opts.education || !jobSkills.length || true; // 学历信息在岗位字段里，这里用宽松规则
+  const expOk = true;
+  const cityOk = !opts.city ? 0.5 : 1; // 未设期望城市按 0.5
+
+  const overall = Math.round(
+    (skillScore * 0.7 + (eduOk ? 0.1 : 0) + (expOk ? 0.1 : 0) + cityOk * 0.1) * 100
+  );
+
+  return {
+    jobId,
+    overall,
+    matchedSkills: matched,
+    missingSkills: missing,
+    hasUserProfile: !!userId,
+  };
+}
+
+/* ================= 能力缺口 ================= */
+
+/** 缺口：岗位技能 - 用户技能，附 skill_content_links 映射的学习建议 */
+export async function computeSkillGaps(
+  userId: string,
+  jobId: number
+): Promise<{ gaps: SkillGapItem[]; totalHours: number }> {
+  const { missingSkills } = await computeJobMatch(userId, jobId);
+  if (missingSkills.length === 0) return { gaps: [], totalHours: 0 };
+  const gaps: SkillGapItem[] = [];
+  let totalHours = 0;
+  for (const m of missingSkills) {
+    const { rows } = await pgPool.query<{
+      skill_id: number; name: string; topic_id: number; topic_title: string; estimate_hours: number;
+    }>(
+      `SELECT s.id AS skill_id, s.name, t.id AS topic_id, t.title AS topic_title, l.estimate_hours
+         FROM skill_content_links l
+         JOIN skill_taxonomy s ON s.id = l.skill_id
+         JOIN content_topics t ON t.id = l.topic_id
+        WHERE s.name = $1`,
+      [m.skill]
+    );
+    const hours = rows.reduce((a, r) => a + (r.estimate_hours ?? 8), 0);
+    totalHours += hours;
+    gaps.push({
+      skill: m.skill,
+      topicId: rows[0]?.topic_id ?? null,
+      topicTitle: rows[0]?.topic_title ?? null,
+      estimateHours: hours > 0 ? hours : null,
+      enrollable: rows.length > 0,
+    });
+  }
+  return { gaps, totalHours };
+}
+
+/** 缺口一键加入学习路线：生成 daily_tasks */
+export async function enrollGapsToTasks(userId: string, gaps: { skill: string; topicId: number | null; hours: number }[]): Promise<number> {
+  const today = new Date().toISOString().slice(0, 10);
+  let created = 0;
+  for (const g of gaps) {
+    const title = g.topicId ? `学习「${g.skill}」：${g.topicId}` : `学习技能 ${g.skill}`;
+    await pgPool.query(
+      `INSERT INTO daily_tasks (user_id, task_date, title, task_type, topic_id)
+       VALUES ($1, $2, $3, 'study', $4)`,
+      [userId, today, title, g.topicId]
+    );
+    created += 1;
+  }
+  return created;
+}

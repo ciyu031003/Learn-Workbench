@@ -754,4 +754,49 @@ export function jobDedupKey(title: string, company: string, city: string): strin
   return [normalizeJobText(title), normalizeJobText(company), (city ?? "").trim()].join("|");
 }
 
+/* ================= 2.0 · P2 学习 × 招聘打通：技能画像 / 匹配 / 缺口 ================= */
+
+export const userSkillViewSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  category: z.string(),
+  level: z.number(),        // 0-5
+  source: z.string(),       // manual / resume / topic / gap
+});
+export type UserSkillView = z.infer<typeof userSkillViewSchema>;
+
+export const jobMatchResultSchema = z.object({
+  jobId: z.number(),
+  overall: z.number(),      // 0-100 匹配度
+  matchedSkills: z.array(z.object({ skill: z.string(), level: z.number(), hit: z.boolean(), partial: z.boolean() })),
+  missingSkills: z.array(z.object({ skill: z.string() })),
+  hasUserProfile: z.boolean(),
+});
+export type JobMatchResult = z.infer<typeof jobMatchResultSchema>;
+
+export const skillGapItemSchema = z.object({
+  skill: z.string(),
+  topicId: z.number().nullable(),
+  topicTitle: z.string().nullable(),
+  estimateHours: z.number().nullable(),
+  enrollable: z.boolean(),
+});
+export type SkillGapItem = z.infer<typeof skillGapItemSchema>;
+
+export const skillGapsResultSchema = z.object({
+  gaps: z.array(skillGapItemSchema),
+  totalHours: z.number(),
+});
+export type SkillGapsResult = z.infer<typeof skillGapsResultSchema>;
+
+/** 技能候选（供筛选/管理选择） */
+export const skillOptionSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  category: z.string(),
+  aliases: z.array(z.string()).default([]),
+});
+export type SkillOption = z.infer<typeof skillOptionSchema>;
+
+
 

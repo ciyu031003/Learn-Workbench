@@ -147,6 +147,25 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 - 首次部署发现 init 幂等标记（app_meta.deploy_init）导致**新迁移被整体跳过**，`013_job_clusters.sql` 未执行、/api/jobs 报 relation not exist → 已手动应用 013 + 改进 `scripts/docker-init-db.sh`：新增 `schema_migrations` 表按文件逐个跟踪迁移，后续部署只执行未应用的新迁移（不再整体跳过）；服务器已回填 001-011 + 013 的跟踪记录并同步改进脚本。
 - 验证：/api/jobs 带筛选 200；job_clusters 表存在；`sh -n` 语法通过。
 
+### 2026-08-20 · feat/ui/db（M2.0-P2 学习 × 招聘打通 —— 项目核心价值）
+
+**改动**：完成 P2 阶段（技能体系 + 用户画像 + 岗位匹配 + 能力缺口 + 一键加入学习路线）。
+
+- **014 迁移**：`db/migrations/014_skill_taxonomy.sql` 四张表 —— skill_taxonomy（技能库：规范名/别名/分类）、user_skills（用户画像：level 0-5 + source）、job_skill_links（岗位技能画像）、skill_content_links（技能↔学习主题映射 + 预计时长）。
+- **技能种子 + 归一化**：`db/seed_skills.sql` 初始技能库（40+ 技能，基于招花实际岗位 tags 抽取，覆盖 backend/frontend/data/ops/ai/network/security/cloud/soft）；`lib/skills.ts` normalizeSkillTag（规范名/别名/包含三级匹配）+ ensureSkill 自动补库 + backfillJobSkillLinks（job tags → job_skill_links）。
+- **用户技能画像**：`/api/profile/skills` GET/POST/DELETE（列表/设置等级/移除）+ 从 resume_assets(kind=skill) 一键回填；Web `career/skills/page.tsx` 由占位页升级为真实技能树（分组展示 + 等级圆点编辑 + 从简历回填 + 手动添加）；Mobile career Hub 增加技能卡片。
+- **岗位匹配度（规则版）**：`lib/skills.ts` computeJobMatch —— 匹配度 = 技能命中 70% + 学历 10% + 经验 10% + 城市 10%（技能命中：level≥2 计 1，level=1 计 0.5）；`/api/jobs/:id/match`；`components/jobs/job-match-section.tsx` 在职位详情弹窗 + 桌面详情面板展示匹配度分数 + ✓命中/△部分/缺失技能。
+- **能力缺口 + 学习闭环**：`computeSkillGaps`（缺口 = 岗位技能 - 用户技能，经 skill_content_links 映射到学习主题 + 预估时长）；`/api/jobs/:id/gaps`、`/api/jobs/gaps/enroll`（缺口一键生成 daily_tasks 加入今日计划）；详情内「缺口加入我的学习路线」按钮。
+- **技能候选**：`/api/jobs/skills` 技能库列表（供筛选/管理选择）。
+
+**涉及文件**：db/migrations/014_skill_taxonomy.sql、db/seed_skills.sql；packages/shared/src/index.ts；apps/web/lib/skills.ts(+test)；apps/web/app/api/{profile/skills,jobs/skills,jobs/[id]/match,jobs/[id]/gaps,jobs/gaps/enroll}/route.ts；apps/web/app/career/skills/page.tsx；apps/web/components/jobs/job-match-section.tsx、job-modal.tsx、job-detail-panel.tsx；apps/mobile/src/app/career.tsx。
+
+**原因/决策**：按实施路线图 M2.0-P2 验收（任意职位可看匹配度与缺口，缺口可转化为学习任务）落地；遵循评审建议 2（技能先建「种子 + 回填」，P2 一上线就有数据）、建议 8（新 API 全配单测）；匹配度按 roadmap §7.3 规则版公式，P5 再上模型。
+
+**验证**：web/mobile `tsc --noEmit` 通过；web vitest 157 项（+7 skills）；shared vitest 7 项；`next build` 通过。
+
+**影响**：014 为新增表 + 种子（幂等）；匹配度/缺口需登录后按用户画像计算，匿名时提示登录；skill_content_links 种子映射将在部署时补数据（后续按需扩充映射）；/career/skills 由占位页升级为可用功能。
+
 ---
 
 ## 五、记录模板
@@ -172,8 +191,8 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 - [x] P1：招花多条件筛选扩展 + 新鲜度徽标（按渠道区分，见建议 4）—— 2026-08-20 完成
 - [x] P1：job_clusters 去重 + 来源聚合展示（规范化键见建议 3）—— 2026-08-20 完成
 - [x] P1：Web 双栏布局 + Mobile Bottom Sheet 筛选（共用 FilterPanel，见建议 9）—— 2026-08-20 完成
-- [ ] P2：skill_taxonomy 种子 + 回填 + user_skills（建议 2）
-- [ ] P2：岗位匹配度规则版 + 能力缺口 + skill_content_links
+- [x] P2：skill_taxonomy 种子 + 回填 + user_skills（建议 2）—— 2026-08-20 完成
+- [x] P2：岗位匹配度规则版 + 能力缺口 + skill_content_links —— 2026-08-20 完成
 - [ ] P3：job_applications + 求职 Kanban + 面试记录轻量表（建议 5）
 - [ ] P4：市场分析实时聚合 + 缓存（建议 6）
 - [ ] P5：AI 智能层（数据积累后）

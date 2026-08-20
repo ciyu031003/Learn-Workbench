@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { deadlineText } from "./job-card";
 import { FreshnessBadge } from "./freshness-badge";
+import { JobMatchSection } from "./job-match-section";
 
 type JobDetail = JobPosting & { isFav: boolean };
 
@@ -317,6 +318,12 @@ export function JobModal({
               </Section>
             </>
           )
+        ) : null}
+
+        {!isAnnouncement && detail ? (
+          <div className="mt-5 rounded-2xl border border-white/15 bg-white/5 p-4">
+            <JobMatchSection jobId={summary.id} />
+          </div>
         ) : null}
 
         <div className="mt-6 flex gap-2 border-t border-white/10 pt-4">
