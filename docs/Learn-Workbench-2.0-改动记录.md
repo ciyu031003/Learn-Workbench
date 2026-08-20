@@ -143,6 +143,9 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 **验证**：web/mobile `tsc --noEmit` 通过；web vitest 150 项（+4：cluster 3 项、jobs route 筛选 1 项）；shared vitest 7 项（freshness/normalize）；`next build` 通过。
 
 **影响**：/api/jobs 新增参数向后兼容（不带参数行为不变）；job_clusters 为新增表，不影响既有数据；双栏仅桌面端（xl）启用，窄屏仍用弹窗；Mobile 筛选为新增交互，不改既有筛选默认值。
+**部署修复（服务器 106.55.2.197）**：
+- 首次部署发现 init 幂等标记（app_meta.deploy_init）导致**新迁移被整体跳过**，`013_job_clusters.sql` 未执行、/api/jobs 报 relation not exist → 已手动应用 013 + 改进 `scripts/docker-init-db.sh`：新增 `schema_migrations` 表按文件逐个跟踪迁移，后续部署只执行未应用的新迁移（不再整体跳过）；服务器已回填 001-011 + 013 的跟踪记录并同步改进脚本。
+- 验证：/api/jobs 带筛选 200；job_clusters 表存在；`sh -n` 语法通过。
 
 ---
 
