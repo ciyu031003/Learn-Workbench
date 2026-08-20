@@ -126,6 +126,24 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 
 **影响**：/wellbeing 从导航隐藏但页面保留；旧 URL（/roadmap /tasks /logs /jobs /settings）全部保留可访问；职业/技能树/简历/面试为占位页（P2/P3 落地）；未引入任何新表（P0 数据全部来自现有表）。
 
+### 2026-08-20 · feat/ui/db（M2.0-P1 招花核心增强）
+
+**改动**：完成 P1 阶段（多条件筛选 + 职位新鲜度 + 去重聚类 + Web 双栏 + Mobile Bottom Sheet）。
+
+- **职位新鲜度徽标**：`packages/shared/src/index.ts` 新增 `jobFreshness()`（按渠道区分：job 用 published_at/fetched_at → 🟢刚发布/🔵3天/🟡7天/⚪14天/🔴可能失效；announcement/event 用 deadline_at 倒计时）；Web `components/jobs/freshness-badge.tsx` + 卡片/详情/右侧面板展示；Mobile 卡片 + 详情同步。
+- **多条件筛选扩展**：`/api/jobs` 新增 salaryMin/salaryMax/education/experience/publishedWithin/skills 参数；`lib/jobs.ts` queryJobs 条件拼接（薪资区间、学历多选、经验多选、发布时间窗口、技能 tags ?| 匹配）；Web `components/jobs/job-filter-panel.tsx` 可复用筛选面板（薪资预设/学历/经验/时间/技能 + 重置）；Mobile `lib/jobs.ts` 查询构建器同步。
+- **职位去重聚类**：新增 `db/migrations/013_job_clusters.sql`（dedup_key 唯一 + job_ids/source_list/primary_job_id）；`lib/job-clusters.ts` 增量聚类（按规范化标题|公司|城市，7 天窗口）；`/api/jobs/cluster` POST 手动触发；shared 新增 `normalizeJobText()` / `jobDedupKey()` 规范化纯函数（小写/去括号/去公司后缀）；列表接口 includeSources=1 附带来源聚合，卡片展示「发现来源：BOSS/猎聘/智联」。
+- **Web 双栏布局**：`jobs/page.tsx` 改 xl 双栏（左列表 + 右 `components/jobs/job-detail-panel.tsx` 详情联动，窄屏沿用弹窗）；新增「高级筛选」折叠区 + 「立即去重」按钮。
+- **Mobile 对齐**：`apps/mobile/src/app/jobs.tsx` 新增筛选 Bottom Sheet（薪资/学历/经验/时间/技能）、卡片新鲜度与多来源徽标；详情弹窗补充新鲜度/多来源。
+
+**涉及文件**：packages/shared/src/index.ts、p1.test.ts；db/migrations/013_job_clusters.sql；apps/web/lib/jobs.ts、job-clusters.ts(+test)；apps/web/app/api/jobs/route.ts(+test)、cluster/route.ts；apps/web/app/jobs/page.tsx；apps/web/components/jobs/{freshness-badge,job-filter-panel,job-detail-panel}.tsx、job-card.tsx、job-modal.tsx；apps/mobile/src/app/jobs.tsx、src/lib/jobs.ts、src/components/job-detail-modal.tsx。
+
+**原因/决策**：按实施路线图 M2.0-P1 验收（筛选项齐全、无重复职位、卡片信息层级清晰）落地；遵循评审建议 3（去重键规范化纯函数 + 单测）、建议 4（新鲜度按渠道区分）、建议 9（Web/Mobile 共用筛选状态逻辑）；聚类为增量任务不阻塞抓取（roadmap §6.3）。
+
+**验证**：web/mobile `tsc --noEmit` 通过；web vitest 150 项（+4：cluster 3 项、jobs route 筛选 1 项）；shared vitest 7 项（freshness/normalize）；`next build` 通过。
+
+**影响**：/api/jobs 新增参数向后兼容（不带参数行为不变）；job_clusters 为新增表，不影响既有数据；双栏仅桌面端（xl）启用，窄屏仍用弹窗；Mobile 筛选为新增交互，不改既有筛选默认值。
+
 ---
 
 ## 五、记录模板
@@ -148,9 +166,9 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 - [x] P0：Liquid Glass 2.0 Design Token 落地 packages/ui + tailwind —— 2026-08-20 完成
 - [x] P0：Dashboard 职业状态卡 + /api/dashboard（合并 /api/summary）—— 2026-08-20 完成（/api/dashboard 为聚合新接口，/api/summary 保留兼容）
 - [x] P0：wellbeing 保留页面，提醒收敛为全局浮层 —— 2026-08-20 完成
-- [ ] P1：招花多条件筛选扩展 + 新鲜度徽标（按渠道区分，见建议 4）
-- [ ] P1：job_clusters 去重 + 来源聚合展示（规范化键见建议 3）
-- [ ] P1：Web 双栏布局 + Mobile Bottom Sheet 筛选（共用 FilterPanel，见建议 9）
+- [x] P1：招花多条件筛选扩展 + 新鲜度徽标（按渠道区分，见建议 4）—— 2026-08-20 完成
+- [x] P1：job_clusters 去重 + 来源聚合展示（规范化键见建议 3）—— 2026-08-20 完成
+- [x] P1：Web 双栏布局 + Mobile Bottom Sheet 筛选（共用 FilterPanel，见建议 9）—— 2026-08-20 完成
 - [ ] P2：skill_taxonomy 种子 + 回填 + user_skills（建议 2）
 - [ ] P2：岗位匹配度规则版 + 能力缺口 + skill_content_links
 - [ ] P3：job_applications + 求职 Kanban + 面试记录轻量表（建议 5）

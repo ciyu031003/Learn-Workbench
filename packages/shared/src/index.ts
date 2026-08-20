@@ -475,6 +475,8 @@ export const jobPostingListItemSchema = jobPostingSchema.pick({
 }).extend({
   isNew: z.boolean().default(false),
   isFav: z.boolean().default(false),
+  /** P1 去重聚类：该职位的多来源聚合（长度>1 时表示跨平台重复，如 ["boss","liepin"]） */
+  clusterSources: z.array(z.string()).optional(),
 });
 export type JobPostingListItem = z.infer<typeof jobPostingListItemSchema>;
 
@@ -686,4 +688,70 @@ export const dashboardAggregateSchema = z.object({
   jobsTotal: z.number(),
 });
 export type DashboardAggregate = z.infer<typeof dashboardAggregateSchema>;
+
+/* ================= 2.0 · P1 招花增强：新鲜度 + 去重 + 筛选 ================= */
+
+/** 职位新鲜度等级（按渠道区分：job 用发布时间，announcement/event 用截止倒计时） */
+export const jobFreshnessLevelSchema = z.enum(["just", "within3", "within7", "within14", "stale", "deadline"]);
+export type JobFreshnessLevel = z.infer<typeof jobFreshnessLevelSchema>;
+
+export interface JobFreshness {
+  level: JobFreshnessLevel;
+  label: string;
+  emoji: string;
+  /** 用于徽标背景的 tailwind 类 */
+  badgeClass: string;
+}
+
+/**
+ * 职位新鲜度（规则版，按渠道区分）
+ * - job 渠道：基于 published_at（缺失时用 fetched_at）
+ *   🟢 <1天 刚发布 · 🔵 3天内 · 🟡 7天内 · ⚪ 14天内 · 🔴 >30天 可能已失效
+ * - announcement/event 渠道：基于 deadline_at 倒计时（deadline 等级）
+ */
+export function jobFreshness(
+  publishedAt: string | null,
+  fetchedAt: string,
+  deadlineAt: string | null,
+  channel: "job" | "announcement" | "event" = "job"
+): JobFreshness {
+  if (channel !== "job" && deadlineAt) {
+    const t = new Date(deadlineAt).getTime();
+    if (!Number.isNaN(t)) {
+      const days = Math.ceil((t - Date.now()) / 86400000);
+      if (days < 0) return { level: "stale", label: "已截止", emoji: "🔴", badgeClass: "bg-rose-500/15 text-rose-500 dark:text-rose-300" };
+      if (days === 0) return { level: "deadline", label: "今日截止", emoji: "⏰", badgeClass: "bg-amber-500/15 text-amber-600 dark:text-amber-300" };
+      if (days <= 3) return { level: "deadline", label: `${days} 天后截止`, emoji: "⏰", badgeClass: "bg-amber-500/15 text-amber-600 dark:text-amber-300" };
+      if (days <= 7) return { level: "deadline", label: `${days} 天后截止`, emoji: "🗓", badgeClass: "bg-indigo-500/15 text-indigo-500 dark:text-indigo-300" };
+      return { level: "deadline", label: `${days} 天后截止`, emoji: "🗓", badgeClass: "bg-white/10 text-muted-foreground" };
+    }
+  }
+  const base = publishedAt || fetchedAt;
+  const t = new Date(base).getTime();
+  if (Number.isNaN(t)) return { level: "within14", label: "时间未知", emoji: "⚪", badgeClass: "bg-white/10 text-muted-foreground" };
+  const hours = (Date.now() - t) / 3600000;
+  if (hours < 24) return { level: "just", label: "刚发布", emoji: "🟢", badgeClass: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300" };
+  const days = hours / 24;
+  if (days < 3) return { level: "within3", label: "3 天内", emoji: "🔵", badgeClass: "bg-sky-500/15 text-sky-600 dark:text-sky-300" };
+  if (days < 7) return { level: "within7", label: "7 天内", emoji: "🟡", badgeClass: "bg-amber-500/15 text-amber-600 dark:text-amber-300" };
+  if (days < 14) return { level: "within14", label: "14 天内", emoji: "⚪", badgeClass: "bg-white/10 text-muted-foreground" };
+  if (days < 30) return { level: "within14", label: "超 14 天", emoji: "⚪", badgeClass: "bg-white/10 text-muted-foreground" };
+  return { level: "stale", label: "可能已失效", emoji: "🔴", badgeClass: "bg-rose-500/15 text-rose-500 dark:text-rose-300" };
+}
+
+/** 职位文本规范化（去重键）：小写、去空白、去括号内容、去公司常见后缀 */
+export function normalizeJobText(raw: string): string {
+  return (raw ?? "")
+    .toLowerCase()
+    .replace(/[（(].*?[)）]/g, "")   // 去括号内容
+    .replace(/[\s\u3000\-—_·.]+/g, "")   // 去空白/连字符
+    .replace(/有限公司|股份有限公司|集团|公司|科技|技术|有限/g, "")
+    .trim();
+}
+
+/** 职位去重键：规范化标题 + 公司 + 城市 */
+export function jobDedupKey(title: string, company: string, city: string): string {
+  return [normalizeJobText(title), normalizeJobText(company), (city ?? "").trim()].join("|");
+}
+
 

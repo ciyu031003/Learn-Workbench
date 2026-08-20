@@ -152,6 +152,14 @@ export interface JobListQuery {
   pageSize: number;
   userId?: string | null; // 传了则查询该用户的收藏状态
   favOnly?: boolean;      // 只看收藏
+  // ---- P1 多条件筛选 ----
+  salaryMin?: number;        // 薪资下限（K）
+  salaryMax?: number;        // 薪资上限（K）
+  education?: string[];      // 学历多选
+  experience?: string[];     // 经验多选
+  publishedWithin?: "today" | "3d" | "7d";  // 发布时间窗口
+  skills?: string[];         // 技能标签多选（匹配 tags）
+  includeSources?: boolean;  // 附带聚类来源聚合
 }
 
 export interface JobListResult {
@@ -163,7 +171,10 @@ export interface JobListResult {
 export async function queryJobs(params: JobListQuery): Promise<JobListResult> {
   const where: string[] = ["is_active = true"];
   const args: unknown[] = [];
-  const { q, city, category, categories, channels, platforms, provinces, sort, page, pageSize, userId, favOnly } = params;
+  const {
+    q, city, category, categories, channels, platforms, provinces, sort, page, pageSize, userId, favOnly,
+    salaryMin, salaryMax, education, experience, publishedWithin, skills, includeSources,
+  } = params;
 
   if (q) {
     args.push(`%${q}%`);
@@ -172,6 +183,34 @@ export async function queryJobs(params: JobListQuery): Promise<JobListResult> {
   if (city) {
     args.push(city);
     where.push(`city = $${args.length}`);
+  }
+  // ---- P1 多条件筛选 ----
+  if (typeof salaryMin === "number") {
+    args.push(salaryMin);
+    where.push(`COALESCE(salary_min, 0) >= $${args.length}`);
+  }
+  if (typeof salaryMax === "number") {
+    args.push(salaryMax);
+    where.push(`COALESCE(salary_max, salary_min, 0) <= $${args.length}`);
+  }
+  if (education && education.length > 0) {
+    args.push(education);
+    where.push(`education = ANY($${args.length}::text[])`);
+  }
+  if (experience && experience.length > 0) {
+    args.push(experience);
+    where.push(`experience = ANY($${args.length}::text[])`);
+  }
+  if (publishedWithin === "today") {
+    where.push(`fetched_at >= now() - interval '24 hours'`);
+  } else if (publishedWithin === "3d") {
+    where.push(`fetched_at >= now() - interval '3 days'`);
+  } else if (publishedWithin === "7d") {
+    where.push(`fetched_at >= now() - interval '7 days'`);
+  }
+  if (skills && skills.length > 0) {
+    args.push(skills);
+    where.push(`tags ?| $${args.length}::text[]`);
   }
   if (category) {
     args.push(category);
@@ -231,11 +270,22 @@ export async function queryJobs(params: JobListQuery): Promise<JobListResult> {
     totalParams
   );
 
-  const jobs = rows.map((r) => ({
+  let jobs = rows.map((r) => ({
     ...jobRowToPosting(r as JobRow),
     isNew: !!r.is_new,
     isFav: !!r.is_fav,
   }));
+
+  // P1：附带聚类来源聚合（「发现来源：BOSS/猎聘/智联」）
+  if (includeSources && jobs.length > 0) {
+    const { jobClusterSources } = await import("@/lib/job-clusters");
+    const sources = await jobClusterSources(jobs.map((j) => j.id));
+    jobs = jobs.map((j) => {
+      const list = sources[j.id];
+      return list && list.length > 1 ? { ...j, clusterSources: list } : j;
+    });
+  }
+
   return { jobs, total: cnt[0]?.n ?? 0 };
 }
 

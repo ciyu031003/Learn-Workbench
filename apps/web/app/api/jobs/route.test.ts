@@ -51,4 +51,17 @@ describe("GET /api/jobs", () => {
     await GET(new Request("http://localhost/api/jobs?page=0&pageSize=9999"));
     expect(queryJobsMock).toHaveBeenCalledWith(expect.objectContaining({ page: 1, pageSize: 60, sort: "new" }));
   });
+
+  it("parses P1 multi-condition filters", async () => {
+    await GET(new Request("http://localhost/api/jobs?salaryMin=10&salaryMax=30&education=本科,硕士&experience=1-3年&publishedWithin=7d&skills=Python,Redis&includeSources=1"));
+    expect(queryJobsMock).toHaveBeenCalledWith(expect.objectContaining({
+      salaryMin: 10,
+      salaryMax: 30,
+      education: ["本科", "硕士"],
+      experience: ["1-3年"],
+      publishedWithin: "7d",
+      skills: ["Python", "Redis"],
+      includeSources: true,
+    }));
+  });
 });

@@ -4,8 +4,10 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Modal,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -31,7 +33,7 @@ import {
   type JobListResult,
 } from "@/lib/jobs";
 import { useAppStore } from "@/store/app-store";
-import { formatRelativeTime, jobSourceLabels, type JobPostingListItem, type JobSource, type JobStats } from "@learn-workbench/shared";
+import { formatRelativeTime, jobFreshness, jobSourceLabels, type JobPostingListItem, type JobSource, type JobStats } from "@learn-workbench/shared";
 
 const PAGE_SIZE = 20;
 const CITY_OPTIONS = ["全部", "上海", "北京", "深圳", "杭州", "成都", "广州", "乌鲁木齐"];
@@ -119,6 +121,36 @@ function GearButton({ onPress }: { onPress: () => void }) {
   );
 }
 
+function FreshnessBadge({ job }: { job: JobPostingListItem }) {
+  const f = jobFreshness(
+    job.publishedAt ?? null,
+    job.fetchedAt,
+    job.deadlineAt ?? null,
+    job.channel === "announcement" ? "announcement" : "job"
+  );
+  const color =
+    f.level === "just" || f.level === "within3"
+      ? "#047857"
+      : f.level === "within7"
+        ? "#b45309"
+        : f.level === "stale"
+          ? "#b91c1c"
+          : "#52525b";
+  const bg =
+    f.level === "just" || f.level === "within3"
+      ? "rgba(16,185,129,0.14)"
+      : f.level === "within7"
+        ? "rgba(245,158,11,0.16)"
+        : f.level === "stale"
+          ? "rgba(239,68,68,0.14)"
+          : "rgba(24,24,27,0.06)";
+  return (
+    <View style={[styles.freshBadge, { backgroundColor: bg }]}>
+      <Text style={[styles.freshText, { color }]}>{f.emoji} {f.label}</Text>
+    </View>
+  );
+}
+
 function JobCard({
   job,
   index,
@@ -189,6 +221,12 @@ function JobCard({
           <View style={[styles.sourceDot, { backgroundColor: SOURCE_COLORS[job.source] }]} />
           <Text style={styles.sourceText}>{jobSourceLabels[job.source]}</Text>
         </View>
+        {job.channel !== "announcement" ? <FreshnessBadge job={job} /> : null}
+        {job.clusterSources && job.clusterSources.length > 1 ? (
+          <Text style={styles.clusterText} numberOfLines={1}>
+            🔁 {job.clusterSources.map((s) => jobSourceLabels[s] ?? s).join("/")}
+          </Text>
+        ) : null}
         <Text style={styles.time}>{formatRelativeTime(job.publishedAt)}</Text>
         <Pressable hitSlop={10} onPress={() => onToggleFavorite(job)}>
           <Ionicons name={job.isFav ? "heart" : "heart-outline"} size={18} color={job.isFav ? "#f43f5e" : "#8b8b94"} />
@@ -196,6 +234,156 @@ function JobCard({
         <Ionicons name="chevron-forward" size={16} color="#9ca3af" />
       </View>
     </AnimatedPressable>
+  );
+}
+
+const SALARY_PRESETS = [
+  { label: "不限", min: null, max: null },
+  { label: "10K 以下", min: null, max: 10 },
+  { label: "10-20K", min: 10, max: 20 },
+  { label: "20-30K", min: 20, max: 30 },
+  { label: "30K 以上", min: 30, max: null },
+] as const;
+const EDU_OPTIONS = ["大专", "本科", "硕士", "博士"];
+const EXP_OPTIONS = ["应届", "1-3年", "3-5年", "5-10年", "10年以上"];
+const PUBLISHED_OPTIONS = [
+  { value: "", label: "不限时间" },
+  { value: "today", label: "今天" },
+  { value: "3d", label: "3 天内" },
+  { value: "7d", label: "7 天内" },
+] as const;
+
+function FilterBottomSheet({
+  visible,
+  salaryMin,
+  salaryMax,
+  education,
+  experience,
+  publishedWithin,
+  skills,
+  onSalary,
+  onToggleEdu,
+  onToggleExp,
+  onPublished,
+  onAddSkill,
+  onRemoveSkill,
+  onReset,
+  onApply,
+  onClose,
+}: {
+  visible: boolean;
+  salaryMin: number | null;
+  salaryMax: number | null;
+  education: string[];
+  experience: string[];
+  publishedWithin: "" | "today" | "3d" | "7d";
+  skills: string[];
+  onSalary: (min: number | null, max: number | null) => void;
+  onToggleEdu: (v: string) => void;
+  onToggleExp: (v: string) => void;
+  onPublished: (v: "" | "today" | "3d" | "7d") => void;
+  onAddSkill: (v: string) => void;
+  onRemoveSkill: (v: string) => void;
+  onReset: () => void;
+  onApply: () => void;
+  onClose: () => void;
+}) {
+  const [draft, setDraft] = useState("");
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+      <View style={styles.sheetWrap}>
+        <Card style={styles.sheet}>
+          <View style={styles.grabber} />
+          <View style={styles.sheetHeader}>
+            <Text style={styles.sheetTitle}>高级筛选</Text>
+            <Pressable onPress={onReset} hitSlop={8}>
+              <Text style={styles.sheetReset}>重置</Text>
+            </Pressable>
+          </View>
+
+          <ScrollView style={{ maxHeight: "62%" }} showsVerticalScrollIndicator={false}>
+            <Text style={styles.filterGroupTitle}>薪资区间</Text>
+            <View style={styles.chipWrap}>
+              {SALARY_PRESETS.map((p) => (
+                <Pressable
+                  key={p.label}
+                  onPress={() => onSalary(p.min, p.max)}
+                  style={[styles.sheetChip, salaryMin === p.min && salaryMax === p.max ? styles.sheetChipActive : styles.sheetChipIdle]}
+                >
+                  <Text style={salaryMin === p.min && salaryMax === p.max ? styles.sheetChipTextActive : styles.sheetChipText}>{p.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Text style={styles.filterGroupTitle}>学历</Text>
+            <View style={styles.chipWrap}>
+              {EDU_OPTIONS.map((e) => (
+                <Pressable key={e} onPress={() => onToggleEdu(e)} style={[styles.sheetChip, education.includes(e) ? styles.sheetChipActive : styles.sheetChipIdle]}>
+                  <Text style={education.includes(e) ? styles.sheetChipTextActive : styles.sheetChipText}>{e}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Text style={styles.filterGroupTitle}>经验</Text>
+            <View style={styles.chipWrap}>
+              {EXP_OPTIONS.map((e) => (
+                <Pressable key={e} onPress={() => onToggleExp(e)} style={[styles.sheetChip, experience.includes(e) ? styles.sheetChipActive : styles.sheetChipIdle]}>
+                  <Text style={experience.includes(e) ? styles.sheetChipTextActive : styles.sheetChipText}>{e}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Text style={styles.filterGroupTitle}>发布时间</Text>
+            <View style={styles.chipWrap}>
+              {PUBLISHED_OPTIONS.map((p) => (
+                <Pressable key={p.value} onPress={() => onPublished(p.value as never)} style={[styles.sheetChip, publishedWithin === p.value ? styles.sheetChipActive : styles.sheetChipIdle]}>
+                  <Text style={publishedWithin === p.value ? styles.sheetChipTextActive : styles.sheetChipText}>{p.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Text style={styles.filterGroupTitle}>技能标签</Text>
+            <View style={styles.chipWrap}>
+              {skills.map((s) => (
+                <Pressable key={s} onPress={() => onRemoveSkill(s)} style={[styles.sheetChip, styles.sheetChipActive]}>
+                  <Text style={styles.sheetChipTextActive}>{s} ✕</Text>
+                </Pressable>
+              ))}
+            </View>
+            <View style={styles.skillInputRow}>
+              <TextInput
+                style={styles.skillInput}
+                value={draft}
+                onChangeText={setDraft}
+                placeholder="输入技能后回车添加，如 Python"
+                placeholderTextColor="#9ca3af"
+                returnKeyType="done"
+                onSubmitEditing={() => {
+                  const v = draft.trim();
+                  if (v) onAddSkill(v);
+                  setDraft("");
+                }}
+              />
+              <Pressable
+                style={styles.skillAddBtn}
+                onPress={() => {
+                  const v = draft.trim();
+                  if (v) onAddSkill(v);
+                  setDraft("");
+                }}
+              >
+                <Text style={styles.skillAddText}>添加</Text>
+              </Pressable>
+            </View>
+          </ScrollView>
+
+          <Pressable style={styles.applyBtn} onPress={onApply}>
+            <Text style={styles.applyText}>应用筛选</Text>
+          </Pressable>
+        </Card>
+      </View>
+    </Modal>
   );
 }
 
@@ -220,8 +408,19 @@ export default function JobsScreen() {
   const [sort, setSort] = useState<"new" | "salary">("new");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [detailVisible, setDetailVisible] = useState(false);
+  // P1 多条件筛选（Bottom Sheet）
+  const [filterVisible, setFilterVisible] = useState(false);
+  const [salaryMin, setSalaryMin] = useState<number | null>(null);
+  const [salaryMax, setSalaryMax] = useState<number | null>(null);
+  const [education, setEducation] = useState<string[]>([]);
+  const [experience, setExperience] = useState<string[]>([]);
+  const [publishedWithin, setPublishedWithin] = useState<"" | "today" | "3d" | "7d">("");
+  const [skillsFilter, setSkillsFilter] = useState<string[]>([]);
+  const [skillDraft, setSkillDraft] = useState("");
 
   const selectedJob = useMemo(() => jobs.find((j) => j.id === selectedId) ?? null, [jobs, selectedId]);
+  const hasActiveFilter =
+    salaryMin != null || salaryMax != null || education.length > 0 || experience.length > 0 || publishedWithin !== "" || skillsFilter.length > 0;
 
   const loadJobs = useCallback(
     async (pageNumber: number, mode: "initial" | "refresh" | "more") => {
@@ -236,6 +435,12 @@ export default function JobsScreen() {
           sort,
           page: pageNumber,
           pageSize: PAGE_SIZE,
+          salaryMin: salaryMin ?? undefined,
+          salaryMax: salaryMax ?? undefined,
+          education: education.length > 0 ? education : undefined,
+          experience: experience.length > 0 ? experience : undefined,
+          publishedWithin: publishedWithin || undefined,
+          skills: skillsFilter.length > 0 ? skillsFilter : undefined,
         });
         if (mode === "more") {
           setJobs((prev) => {
@@ -263,7 +468,7 @@ export default function JobsScreen() {
         if (mode === "more") setLoadingMore(false);
       }
     },
-    [query, city, category, sort]
+    [query, city, category, sort, salaryMin, salaryMax, education, experience, publishedWithin, skillsFilter]
   );
 
   useEffect(() => {
@@ -386,26 +591,31 @@ export default function JobsScreen() {
         </Card>
       </View>
 
-      <View style={styles.searchBar}>
-        <Ionicons name="search" size={18} color="#9ca3af" />
-        <TextInput
-          style={styles.searchInput}
-          value={searchInput}
-          onChangeText={setSearchInput}
-          placeholder="搜索职位 / 公司 / 技能"
-          placeholderTextColor="#9ca3af"
-          returnKeyType="search"
-          onSubmitEditing={() => setQuery(searchInput.trim())}
-          autoCapitalize="none"
-        />
-        {searchInput ? (
-          <Pressable onPress={() => {
-            setSearchInput("");
-            setQuery("");
-          }} hitSlop={8}>
-            <Ionicons name="close-circle" size={18} color="#9ca3af" />
-          </Pressable>
-        ) : null}
+      <View style={styles.searchRow}>
+        <View style={styles.searchBar}>
+          <Ionicons name="search" size={18} color="#9ca3af" />
+          <TextInput
+            style={styles.searchInput}
+            value={searchInput}
+            onChangeText={setSearchInput}
+            placeholder="搜索职位 / 公司 / 技能"
+            placeholderTextColor="#9ca3af"
+            returnKeyType="search"
+            onSubmitEditing={() => setQuery(searchInput.trim())}
+            autoCapitalize="none"
+          />
+          {searchInput ? (
+            <Pressable onPress={() => {
+              setSearchInput("");
+              setQuery("");
+            }} hitSlop={8}>
+              <Ionicons name="close-circle" size={18} color="#9ca3af" />
+            </Pressable>
+          ) : null}
+        </View>
+        <Pressable style={[styles.filterBtn, hasActiveFilter ? styles.filterBtnActive : null]} onPress={() => setFilterVisible(true)}>
+          <Ionicons name="options-outline" size={18} color={hasActiveFilter ? "#ffffff" : "#10b981"} />
+        </Pressable>
       </View>
 
       <View style={styles.catRow}>
@@ -492,6 +702,28 @@ export default function JobsScreen() {
         onClose={() => setDetailVisible(false)}
         onToggleFavorite={toggleFavorite}
       />
+      <FilterBottomSheet
+        visible={filterVisible}
+        salaryMin={salaryMin}
+        salaryMax={salaryMax}
+        education={education}
+        experience={experience}
+        publishedWithin={publishedWithin}
+        skills={skillsFilter}
+        onSalary={(min, max) => { setSalaryMin(min); setSalaryMax(max); }}
+        onToggleEdu={(v) => setEducation((prev) => (prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]))}
+        onToggleExp={(v) => setExperience((prev) => (prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]))}
+        onPublished={(v) => setPublishedWithin(v)}
+        onAddSkill={(v) => setSkillsFilter((prev) => (prev.includes(v) ? prev : [...prev, v]))}
+        onRemoveSkill={(v) => setSkillsFilter((prev) => prev.filter((x) => x !== v))}
+        onReset={() => {
+          setSalaryMin(null); setSalaryMax(null);
+          setEducation([]); setExperience([]);
+          setPublishedWithin(""); setSkillsFilter([]);
+        }}
+        onApply={() => { setFilterVisible(false); loadJobs(1, "refresh"); }}
+        onClose={() => setFilterVisible(false)}
+      />
     </View>
   );
 }
@@ -528,7 +760,9 @@ const styles = StyleSheet.create({
   statCard: { flex: 1, padding: 12, gap: 4 },
   statValue: { fontSize: 20, fontWeight: "900", color: "#18181b" },
   statLabel: { fontSize: 11, color: "#71717a", fontWeight: "700" },
+  searchRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   searchBar: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
@@ -545,6 +779,17 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   searchInput: { flex: 1, fontSize: 14, color: "#18181b", padding: 0 },
+  filterBtn: {
+    width: 46,
+    height: 46,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(16,185,129,0.14)",
+    borderWidth: 1,
+    borderColor: "rgba(16,185,129,0.45)",
+  },
+  filterBtnActive: { backgroundColor: "#10b981" },
   catRow: { flexDirection: "row", gap: 8, paddingVertical: 4 },
   catChip: { borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6 },
   catChipActive: { backgroundColor: "#10b981" },
@@ -649,7 +894,25 @@ const styles = StyleSheet.create({
   },
   sourceDot: { width: 6, height: 6, borderRadius: 3 },
   sourceText: { fontSize: 11, fontWeight: "700", color: "#52525b" },
-  time: { flex: 1, marginLeft: "auto", fontSize: 11, color: "#9ca3af" },
+  freshBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    marginLeft: 4,
+  },
+  freshText: { fontSize: 10, fontWeight: "800" },
+  clusterText: {
+    flexShrink: 1,
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#7c3aed",
+    backgroundColor: "rgba(139,92,246,0.12)",
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    marginLeft: 4,
+  },
+  time: { flex: 1, marginLeft: "auto", fontSize: 11, color: "#9ca3af", textAlign: "right" },
   emptyBox: { alignItems: "center", gap: 8, paddingVertical: 28, paddingHorizontal: 20 },
   emptyTitle: { fontSize: 16, fontWeight: "800", color: "#ffffff" },
   emptyText: { fontSize: 13, color: "rgba(255,255,255,0.78)", textAlign: "center", lineHeight: 19 },
@@ -662,4 +925,37 @@ const styles = StyleSheet.create({
   },
   emptyPrimaryText: { color: "#ffffff", fontSize: 14, fontWeight: "800" },
   footerLoading: { alignItems: "center", gap: 6, paddingVertical: 18 },
+  // ---- P1 筛选 Bottom Sheet ----
+  sheetWrap: { flex: 1, justifyContent: "flex-end" },
+  sheet: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0, padding: 18, gap: 14, maxHeight: "80%" },
+  grabber: { width: 40, height: 4, borderRadius: 2, backgroundColor: "rgba(24,24,27,0.15)", alignSelf: "center", marginBottom: 4 },
+  sheetHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  sheetTitle: { fontSize: 17, fontWeight: "800", color: "#18181b" },
+  sheetReset: { fontSize: 13, fontWeight: "700", color: "#10b981" },
+  filterGroupTitle: { fontSize: 13, fontWeight: "800", color: "#18181b", marginTop: 4 },
+  chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  sheetChip: { borderRadius: 999, paddingHorizontal: 13, paddingVertical: 7 },
+  sheetChipActive: { backgroundColor: "#10b981" },
+  sheetChipIdle: { backgroundColor: "rgba(24,24,27,0.06)", borderWidth: 1, borderColor: "rgba(24,24,27,0.12)" },
+  sheetChipText: { fontSize: 12.5, fontWeight: "700", color: "#52525b" },
+  sheetChipTextActive: { fontSize: 12.5, fontWeight: "800", color: "#ffffff" },
+  skillInputRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 6 },
+  skillInput: {
+    flex: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: "rgba(24,24,27,0.05)",
+    fontSize: 13,
+    color: "#18181b",
+  },
+  skillAddBtn: { backgroundColor: "#10b981", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 },
+  skillAddText: { color: "#ffffff", fontSize: 13, fontWeight: "800" },
+  applyBtn: {
+    backgroundColor: "#10b981",
+    borderRadius: 16,
+    paddingVertical: 13,
+    alignItems: "center",
+  },
+  applyText: { color: "#ffffff", fontSize: 15, fontWeight: "800" },
 });

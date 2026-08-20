@@ -18,6 +18,13 @@ export interface JobListParams {
   sort?: "new" | "salary";
   page?: number;
   pageSize?: number;
+  // P1 多条件筛选
+  salaryMin?: number;
+  salaryMax?: number;
+  education?: string[];
+  experience?: string[];
+  publishedWithin?: "today" | "3d" | "7d";
+  skills?: string[];
 }
 
 export interface JobListResult {
@@ -67,6 +74,14 @@ function buildJobListQuery(params: JobListParams): string {
   if (params.sort) parts.push("sort=" + params.sort);
   if (typeof params.page === "number") parts.push("page=" + params.page);
   if (typeof params.pageSize === "number") parts.push("pageSize=" + params.pageSize);
+  // P1 多条件筛选
+  if (typeof params.salaryMin === "number") parts.push("salaryMin=" + params.salaryMin);
+  if (typeof params.salaryMax === "number") parts.push("salaryMax=" + params.salaryMax);
+  if (params.education && params.education.length > 0) parts.push("education=" + encodeURIComponent(params.education.join(",")));
+  if (params.experience && params.experience.length > 0) parts.push("experience=" + encodeURIComponent(params.experience.join(",")));
+  if (params.publishedWithin) parts.push("publishedWithin=" + params.publishedWithin);
+  if (params.skills && params.skills.length > 0) parts.push("skills=" + encodeURIComponent(params.skills.join(",")));
+  parts.push("includeSources=1");
   return parts.length > 0 ? "/api/jobs?" + parts.join("&") : "/api/jobs";
 }
 

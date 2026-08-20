@@ -28,6 +28,7 @@ import {
   X,
 } from "lucide-react";
 import { deadlineText } from "./job-card";
+import { FreshnessBadge } from "./freshness-badge";
 
 type JobDetail = JobPosting & { isFav: boolean };
 
@@ -209,7 +210,13 @@ export function JobModal({
             </Badge>
             <Badge variant="muted">{jobSourceLabel(summary.source)}</Badge>
             {experimentalJobSources.includes(summary.source as never) ? <Badge variant="accent">实验平台</Badge> : null}
+            {!isAnnouncement ? <FreshnessBadge job={summary} /> : null}
             {summary.isNew ? <Badge variant="success">NEW</Badge> : null}
+            {summary.clusterSources && summary.clusterSources.length > 1 ? (
+              <Badge variant="accent" className="inline-flex items-center gap-1">
+                多平台来源：{summary.clusterSources.map(jobSourceLabel).join(" / ")}
+              </Badge>
+            ) : null}
             <Badge variant="muted">{formatRelativeTime(detail?.publishedAt ?? summary.publishedAt ?? summary.fetchedAt)}</Badge>
           </div>
 

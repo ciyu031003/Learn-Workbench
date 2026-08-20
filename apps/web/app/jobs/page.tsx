@@ -22,6 +22,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { JobCard } from "@/components/jobs/job-card";
 import { JobModal } from "@/components/jobs/job-modal";
+import { JobDetailPanel } from "@/components/jobs/job-detail-panel";
+import { JobFilterPanel, DEFAULT_FILTERS, type JobFilterState } from "@/components/jobs/job-filter-panel";
 import { ExamCalendarModal } from "@/components/jobs/exam-calendar-modal";
 import { NotificationPanel } from "@/components/jobs/notification-panel";
 import { cn } from "@/lib/utils";
@@ -41,6 +43,7 @@ import {
   RefreshCw,
   Search,
   Sparkles,
+  SlidersHorizontal,
 } from "lucide-react";
 
 type JobDetail = JobPosting & { isFav: boolean };
@@ -176,6 +179,11 @@ export default function JobsPage() {
   const [detailError, setDetailError] = useState<string | null>(null);
   const [favoriteBusyId, setFavoriteBusyId] = useState<number | null>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  // P1：多条件筛选 + 双栏详情面板
+  const [filters, setFilters] = useState<JobFilterState>({ ...DEFAULT_FILTERS });
+  const [skillsDraft, setSkillsDraft] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+  const [clustering, setClustering] = useState(false);
 
   const platformsKey = platforms.join(",");
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -241,6 +249,14 @@ export default function JobsPage() {
     params.set("sort", sort);
     params.set("page", String(page));
     params.set("pageSize", String(PAGE_SIZE));
+    // P1 多条件筛选
+    if (filters.salaryMin != null) params.set("salaryMin", String(filters.salaryMin));
+    if (filters.salaryMax != null) params.set("salaryMax", String(filters.salaryMax));
+    if (filters.education.length > 0) params.set("education", filters.education.join(","));
+    if (filters.experience.length > 0) params.set("experience", filters.experience.join(","));
+    if (filters.publishedWithin) params.set("publishedWithin", filters.publishedWithin);
+    if (filters.skills.length > 0) params.set("skills", filters.skills.join(","));
+    params.set("includeSources", "1");
 
     void (async () => {
       await Promise.resolve();
@@ -273,7 +289,7 @@ export default function JobsPage() {
       }
     })();
     return () => controller.abort();
-  }, [city, effectiveCategories, page, platforms.length, platformsKey, pushToast, refreshKey, search, sort]);
+  }, [city, effectiveCategories, filters, page, platforms.length, platformsKey, pushToast, refreshKey, search, sort]);
 
   const runCrawler = async () => {
     setRunning(true);
@@ -563,88 +579,186 @@ export default function JobsPage() {
               </FilterChip>
             ))}
           </div>
+
+          {/* P1：高级筛选（移动端折叠 / 桌面端默认展开） */}
+          <div className="flex flex-col gap-3 border-t border-white/10 pt-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowFilters((v) => !v)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold backdrop-blur-md transition-all",
+                  showFilters || Object.values(filters).some((v) => (Array.isArray(v) ? v.length > 0 : Boolean(v)))
+                    ? "border-transparent bg-gradient-to-r from-emerald-500 to-cyan-500 text-white"
+                    : "border-white/20 bg-white/10 text-muted-foreground hover:bg-white/15 hover:text-foreground"
+                )}
+              >
+                <SlidersHorizontal className="size-3.5" />
+                高级筛选
+              </button>
+              <div className="flex items-center gap-1.5 rounded-full border border-violet-500/25 bg-violet-500/10 px-3 py-1.5 text-xs font-semibold text-violet-600 dark:text-violet-300">
+                <span>🔁</span>
+                多平台职位已自动合并去重
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  setClustering(true);
+                  try {
+                    const r = await fetch("/api/jobs/cluster", { method: "POST" });
+                    const d = await r.json().catch(() => null);
+                    if (!r.ok) throw new Error(d?.error || "去重失败");
+                    pushToast(`去重完成：${d.clusters} 簇 · 合并 ${d.merged} 条`, "success");
+                    setRefreshKey((v) => v + 1);
+                  } catch (e) {
+                    pushToast(e instanceof Error ? e.message : "去重失败", "error");
+                  } finally {
+                    setClustering(false);
+                  }
+                }}
+                disabled={clustering}
+                className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-xs font-semibold text-muted-foreground backdrop-blur-md transition-all hover:bg-white/15 hover:text-foreground disabled:opacity-50"
+              >
+                {clustering ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
+                立即去重
+              </button>
+            </div>
+
+            {showFilters ? (
+              <div className="flex flex-col gap-3">
+                <JobFilterPanel filters={filters} onChange={(next) => { setFilters(next); setPage(1); }} compact />
+                {/* 技能标签快速添加 */}
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={skillsDraft}
+                    onChange={(e) => setSkillsDraft(e.target.value)}
+                    placeholder="添加技能标签，如 Python / Docker，回车确认"
+                    className="h-9"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        const v = skillsDraft.trim();
+                        if (v && !filters.skills.includes(v)) {
+                          setFilters((prev) => ({ ...prev, skills: [...prev.skills, v] }));
+                          setPage(1);
+                        }
+                        setSkillsDraft("");
+                      }
+                    }}
+                  />
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      const v = skillsDraft.trim();
+                      if (v && !filters.skills.includes(v)) {
+                        setFilters((prev) => ({ ...prev, skills: [...prev.skills, v] }));
+                        setPage(1);
+                      }
+                      setSkillsDraft("");
+                    }}
+                  >
+                    添加
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </div>
         </div>
       </section>
 
-      <section className="min-h-[260px]">
-        {loading && jobs.length === 0 ? <JobSkeleton /> : null}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_380px]">
+        <section className="min-w-0">
+          {loading && jobs.length === 0 ? <JobSkeleton /> : null}
 
-        {!loading && error && jobs.length === 0 ? (
-          <EmptyState
-            icon={RefreshCw}
-            title="职位列表加载失败"
-            hint={error}
-            action={
-              <Button variant="outline" onClick={() => setRefreshKey((v) => v + 1)}>
-                <RefreshCw className="size-4" />
-                重新加载
+          {!loading && error && jobs.length === 0 ? (
+            <EmptyState
+              icon={RefreshCw}
+              title="职位列表加载失败"
+              hint={error}
+              action={
+                <Button variant="outline" onClick={() => setRefreshKey((v) => v + 1)}>
+                  <RefreshCw className="size-4" />
+                  重新加载
+                </Button>
+              }
+            />
+          ) : null}
+
+          {!loading && !error && jobs.length === 0 ? (
+            <EmptyState
+              icon={Flower2}
+              title="还没有找到合适的职位"
+              hint="试试调整筛选条件，或立即抓取最新职位"
+              action={
+                <Button onClick={runCrawler} disabled={running}>
+                  {running ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
+                  立即抓取
+                </Button>
+              }
+            />
+          ) : null}
+
+          {jobs.length > 0 ? (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {jobs.map((job, index) => (
+                <JobCard
+                  key={job.id}
+                  job={job}
+                  index={index}
+                  favoriteBusy={favoriteBusyId === job.id}
+                  onOpen={openJob}
+                  onToggleFavorite={toggleFavorite}
+                />
+              ))}
+            </div>
+          ) : null}
+
+          {loading && jobs.length > 0 ? (
+            <div className="mt-5 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" />
+              正在刷新职位…
+            </div>
+          ) : null}
+
+          {total > PAGE_SIZE ? (
+            <div className="mt-6 flex items-center justify-between gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1 || loading}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                <ChevronLeft className="size-4" />
+                上一页
               </Button>
-            }
-          />
-        ) : null}
-
-        {!loading && !error && jobs.length === 0 ? (
-          <EmptyState
-            icon={Flower2}
-            title="还没有找到合适的职位"
-            hint="试试调整筛选条件，或立即抓取最新职位"
-            action={
-              <Button onClick={runCrawler} disabled={running}>
-                {running ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
-                立即抓取
+              <span className="text-sm text-muted-foreground tabular-nums">
+                第 {page} / {totalPages} 页 · 共 {total} 个
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages || loading}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                下一页
+                <ChevronRight className="size-4" />
               </Button>
-            }
-          />
-        ) : null}
+            </div>
+          ) : null}
+        </section>
 
-        {jobs.length > 0 ? (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {jobs.map((job, index) => (
-              <JobCard
-                key={job.id}
-                job={job}
-                index={index}
-                favoriteBusy={favoriteBusyId === job.id}
-                onOpen={openJob}
-                onToggleFavorite={toggleFavorite}
-              />
-            ))}
-          </div>
-        ) : null}
-
-        {loading && jobs.length > 0 ? (
-          <div className="mt-5 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" />
-            正在刷新职位…
-          </div>
-        ) : null}
-      </section>
-
-      {total > PAGE_SIZE ? (
-        <div className="flex items-center justify-between gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page <= 1 || loading}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-          >
-            <ChevronLeft className="size-4" />
-            上一页
-          </Button>
-          <span className="text-sm text-muted-foreground tabular-nums">
-            第 {page} / {totalPages} 页 · 共 {total} 个
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page >= totalPages || loading}
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-          >
-            下一页
-            <ChevronRight className="size-4" />
-          </Button>
-        </div>
-      ) : null}
+        {/* P1：右侧详情面板（桌面端列表+详情联动） */}
+        <JobDetailPanel
+          open={modalOpen}
+          summary={modalSummary}
+          detail={detailJob}
+          loading={detailLoading}
+          error={detailError}
+          favoriteBusy={favoriteBusyId === modalSummary?.id}
+          onClose={() => setModalOpen(false)}
+          onToggleFavorite={toggleFavorite}
+        />
+      </div>
 
       <JobModal
         open={modalOpen}

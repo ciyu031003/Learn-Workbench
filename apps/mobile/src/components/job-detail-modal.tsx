@@ -6,7 +6,7 @@ import * as WebBrowser from "expo-web-browser";
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring } from "react-native-reanimated";
 import { Card } from "@/components/card";
 import { fetchJobDetail, type JobDetail } from "@/lib/jobs";
-import { formatRelativeTime, jobSourceLabels, type JobPostingListItem, type JobSource } from "@learn-workbench/shared";
+import { formatRelativeTime, jobFreshness, jobSourceLabels, type JobPostingListItem, type JobSource } from "@learn-workbench/shared";
 
 const SOURCE_COLORS: Record<string, string> = {
   lagou: "#10b981",
@@ -72,6 +72,29 @@ export function JobDetailModal({
 
   const display = detail ?? job;
   if (!display) return null;
+
+  const freshness = jobFreshness(
+    display.publishedAt ?? null,
+    display.fetchedAt,
+    display.deadlineAt ?? null,
+    display.channel === "announcement" ? "announcement" : "job"
+  );
+  const freshnessColor =
+    freshness.level === "just" || freshness.level === "within3"
+      ? "#047857"
+      : freshness.level === "within7"
+        ? "#b45309"
+        : freshness.level === "stale"
+          ? "#b91c1c"
+          : "#52525b";
+  const freshnessBg =
+    freshness.level === "just" || freshness.level === "within3"
+      ? "rgba(16,185,129,0.14)"
+      : freshness.level === "within7"
+        ? "rgba(245,158,11,0.16)"
+        : freshness.level === "stale"
+          ? "rgba(239,68,68,0.14)"
+          : "rgba(24,24,27,0.06)";
 
   const popHeart = () => {
     heartScale.value = withSequence(withSpring(1.35, { damping: 10, stiffness: 260 }), withSpring(1));
@@ -149,7 +172,17 @@ export function JobDetailModal({
                 <View style={[styles.sourceDot, { backgroundColor: SOURCE_COLORS[display.source] }]} />
                 <Text style={styles.sourceText}>{jobSourceLabels[display.source]}</Text>
               </View>
+              {display.channel !== "announcement" ? (
+                <View style={[styles.freshBadge, { backgroundColor: freshnessBg }]}>
+                  <Text style={[styles.freshText, { color: freshnessColor }]}>{freshness.emoji} {freshness.label}</Text>
+                </View>
+              ) : null}
               {display.isNew ? <Text style={styles.newBadge}>NEW</Text> : null}
+              {display.clusterSources && display.clusterSources.length > 1 ? (
+                <Text style={styles.clusterText} numberOfLines={1}>
+                  🔁 {display.clusterSources.map((s) => jobSourceLabels[s] ?? s).join("/")}
+                </Text>
+              ) : null}
               <Text style={styles.fetchedAt}>更新于 {formatRelativeTime(display.fetchedAt)}</Text>
             </View>
 
@@ -326,6 +359,22 @@ const styles = StyleSheet.create({
     marginLeft: "auto",
     fontSize: 11,
     color: "#9ca3af",
+  },
+  freshBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  freshText: { fontSize: 10, fontWeight: "800" },
+  clusterText: {
+    flexShrink: 1,
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#7c3aed",
+    backgroundColor: "rgba(139,92,246,0.12)",
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
   },
   body: {
     flex: 1,

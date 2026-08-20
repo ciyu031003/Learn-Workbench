@@ -11,6 +11,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Building2, CalendarClock, Clock3, Heart, MapPin, Users } from "lucide-react";
+import { FreshnessBadge } from "./freshness-badge";
 
 const avatarGradients = [
   "from-indigo-500 to-blue-500",
@@ -193,7 +194,7 @@ export function JobCard({
         </div>
       ) : null}
 
-      <div className="relative mt-3 flex items-center gap-2 border-t border-white/10 pt-3">
+      <div className="relative mt-3 flex flex-wrap items-center gap-2 border-t border-white/10 pt-3">
         <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
           <span className="size-1.5 rounded-full" style={{ backgroundColor: catColor }} />
           {jobSourceLabel(job.source)}
@@ -203,10 +204,16 @@ export function JobCard({
             </span>
           ) : null}
         </span>
+        {!isAnnouncement ? <FreshnessBadge job={job} /> : null}
         <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
           <Clock3 className="size-3.5" />
           {formatRelativeTime(job.publishedAt ?? job.fetchedAt)}
         </span>
+        {job.clusterSources && job.clusterSources.length > 1 ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-600 dark:text-violet-300" title="多平台发布同一职位">
+            发现来源：{job.clusterSources.map(jobSourceLabel).join(" / ")}
+          </span>
+        ) : null}
         {job.isNew ? (
           <span className="ml-auto rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-black text-emerald-600 dark:text-emerald-300">
             NEW
