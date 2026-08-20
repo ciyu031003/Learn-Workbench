@@ -254,7 +254,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </header>
 
       <main className="app-main relative z-0 min-h-screen">
-        <div className="mx-auto max-w-5xl px-4 py-6 lg:px-8 lg:py-10">{children}</div>
+        <div className="mx-auto max-w-7xl px-4 py-6 lg:px-8 lg:py-10">{children}</div>
       </main>
 
       {/* 移动端底部导航（毛玻璃，5 入口） */}

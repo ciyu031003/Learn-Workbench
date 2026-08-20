@@ -130,7 +130,7 @@ function FilterChip({
 
 function JobSkeleton() {
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {Array.from({ length: 6 }).map((_, i) => (
         <div key={i} className="glass h-56 animate-pulse rounded-2xl p-4">
           <div className="flex items-start gap-3">
@@ -666,7 +666,7 @@ export default function JobsPage() {
         </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_380px]">
+      <div className="grid grid-cols-1 gap-6 2xl:grid-cols-[1fr_360px]">
         <section className="min-w-0">
           {loading && jobs.length === 0 ? <JobSkeleton /> : null}
 
@@ -699,7 +699,7 @@ export default function JobsPage() {
           ) : null}
 
           {jobs.length > 0 ? (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {jobs.map((job, index) => (
                 <JobCard
                   key={job.id}

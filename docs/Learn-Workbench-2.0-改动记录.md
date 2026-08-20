@@ -97,6 +97,21 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 
 ## 四、改动记录
 
+### 2026-08-20 · ui/fix（招花页职位列表改三列）
+
+**改动**：招花页职位列表由两列改为三列（P1 双栏布局后列表过窄，视觉别扭）。
+
+- `apps/web/components/app-shell.tsx`：主内容容器 `max-w-5xl` → `max-w-7xl`（全站内容区加宽，为三列腾出宽度）。
+- `apps/web/app/jobs/page.tsx`：职位卡网格 `md:grid-cols-2` → `sm:grid-cols-2 xl:grid-cols-3`；骨架屏同步；双栏布局由 `xl:grid-cols-[1fr_380px]` 改为 `2xl:grid-cols-[1fr_360px]`（桌面详情面板只在超宽屏 2xl 显示，常规桌面直接三列职位）。
+- `apps/web/components/jobs/job-detail-panel.tsx`：右侧详情面板断点 `xl:flex` → `2xl:flex`，与父网格对齐。
+
+**涉及文件**：apps/web/components/app-shell.tsx、apps/web/app/jobs/page.tsx、apps/web/components/jobs/job-detail-panel.tsx。
+
+**原因/决策**：P1 双栏（xl 起显示右侧详情面板 380px）挤占列表宽度，两列卡片偏窄；改三列 + 全站加宽容器，详情面板收敛到 2xl 超宽屏才显示，常规桌面优先信息密度。
+
+**验证**：web `tsc --noEmit` 通过；`next build` 通过。
+
+---
 ### 2026-08-20 · docs（评审与记录机制建立）
 
 - **新增**：本文档（改动记录台账），建立「全部改动必须记录于此」的约定。
