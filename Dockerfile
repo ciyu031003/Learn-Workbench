@@ -21,6 +21,7 @@ COPY apps/mobile/package.json apps/mobile/package.json
 COPY packages/shared/package.json packages/shared/package.json
 COPY packages/content/package.json packages/content/package.json
 COPY packages/ui/package.json packages/ui/package.json
+COPY packages/config/package.json packages/config/package.json
 RUN pnpm install --frozen-lockfile --filter "web..." || pnpm install --filter "web..."
 
 # ---------- 构建层 ----------
