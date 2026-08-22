@@ -133,6 +133,11 @@ npx expo run:android --variant release   # 或 EAS Build
   - nginx 443 SSL 站点已配置并 reload，服务器内部 `https://learn.yuanabd.cn` 返回 307（应用正常）
   - ⚠️ **手动 DNS-01 证书不会自动续期**：到期前需重新执行本流程（或完成备案后改用 `certbot --nginx` 自动续期）
 
+### 备案通过前的临时入口（已配置）
+- **http://106.55.2.197/**：nginx 80 默认站点直达学习工作台（IP 访问不受备案拦截，无证书警告）→ 当前可用入口
+- **https://106.55.2.197/**：443 默认站点直达（证书为域名证书，会有安全警告）
+- nginx 配置已入仓库：deploy/nginx/learn-workbench.conf；曾因安全组不再放行 3001 导致旧地址 http://IP:3001 超时
+
 ### ⛔ 唯一阻塞：ICP 备案
 - 外网访问 `https://learn.yuanabd.cn` 被腾讯云 **SNI 重置**（连接即断）；`http://learn.yuanabd.cn` 被 302 到备案提示页
 - 根因：`learn.yuanabd.cn` **未完成 ICP 备案**（对照：`travel-notes.yuanabd.cn` 同样被 SNI 重置，疑似整域备案状态问题）
