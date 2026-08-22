@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { execFile } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { currentUserId } from "@/lib/session";
+import { rateLimit } from "@/lib/rate-limit";
 
 function findRepoRoot(): string | null {
   let dir = process.cwd();
@@ -14,8 +16,15 @@ function findRepoRoot(): string | null {
   return null;
 }
 
-// 手动触发爬虫抓取今日 Bing 壁纸（本地个人工具，按需调用）
+// 手动触发爬虫抓取今日 Bing 壁纸（P0：要求登录 + 限流，防止匿名滥用）
 export async function POST() {
+  const userId = await currentUserId();
+  if (!userId) return NextResponse.json({ error: "请先登录" }, { status: 401 });
+  const throttle = rateLimit(`bg:refresh:${userId}`, { limit: 2, windowMs: 120_000 });
+  if (!throttle.ok) {
+    return NextResponse.json({ error: "操作过于频繁，请稍后再试", retryAfter: throttle.retryAfterSeconds }, { status: 429 });
+  }
+
   const root = findRepoRoot();
   if (!root) return NextResponse.json({ error: "未找到爬虫脚本" }, { status: 500 });
   const script = path.join(root, "scripts", "fetch_bing_wallpaper.py");

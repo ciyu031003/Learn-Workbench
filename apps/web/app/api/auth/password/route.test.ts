@@ -53,7 +53,7 @@ describe("POST /api/auth/password", () => {
   it("returns 400 when the current password is wrong", async () => {
     currentUserIdMock.mockResolvedValue("u-1");
     queryMock.mockResolvedValue({ rows: [{ password_hash: "salt:hash" }] } as never);
-    verifyMock.mockReturnValue(false);
+    verifyMock.mockReturnValue(Promise.resolve(false) as never);
     const res = await post({ currentPassword: "wrong", newPassword: "abcdef" });
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "当前密码错误" });
@@ -63,8 +63,8 @@ describe("POST /api/auth/password", () => {
     currentUserIdMock.mockResolvedValue("u-1");
     currentSessionTokenMock.mockResolvedValue("cur-tok");
     queryMock.mockResolvedValue({ rows: [{ password_hash: "salt:hash" }] } as never);
-    verifyMock.mockReturnValue(true);
-    hashMock.mockReturnValue("new-hash");
+    verifyMock.mockReturnValue(Promise.resolve(true) as never);
+    hashMock.mockReturnValue(Promise.resolve("new-hash") as never);
     const client = { query: vi.fn().mockResolvedValue({ rows: [] }), release: vi.fn() };
     connectMock.mockResolvedValue(client as never);
 
@@ -81,8 +81,8 @@ describe("POST /api/auth/password", () => {
     currentUserIdMock.mockResolvedValue("u-1");
     currentSessionTokenMock.mockResolvedValue(null);
     queryMock.mockResolvedValue({ rows: [{ password_hash: "salt:hash" }] } as never);
-    verifyMock.mockReturnValue(true);
-    hashMock.mockReturnValue("new-hash");
+    verifyMock.mockReturnValue(Promise.resolve(true) as never);
+    hashMock.mockReturnValue(Promise.resolve("new-hash") as never);
     const client = { query: vi.fn().mockResolvedValue({ rows: [] }), release: vi.fn() };
     connectMock.mockResolvedValue(client as never);
     await post({ currentPassword: "old", newPassword: "abcdef" });

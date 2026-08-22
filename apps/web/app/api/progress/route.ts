@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { pgPool } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
+import { getAnonId } from "@/lib/anon";
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
@@ -14,12 +15,24 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "topicId 无效" }, { status: 400 });
   }
   const uid = await currentUserId();
-  await pgPool.query(
-    `INSERT INTO topic_progress (user_id, topic_id, done, note)
-     VALUES ($1, $2, $3, $4)
-     ON CONFLICT (user_id, topic_id) WHERE user_id IS NOT NULL
-     DO UPDATE SET done = EXCLUDED.done, note = EXCLUDED.note, updated_at = now()`,
-    [uid, topicId, done, note]
-  );
+  if (uid) {
+    await pgPool.query(
+      `INSERT INTO topic_progress (user_id, topic_id, done, note)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (user_id, topic_id) WHERE user_id IS NOT NULL
+       DO UPDATE SET done = EXCLUDED.done, note = EXCLUDED.note, updated_at = now()`,
+      [uid, topicId, done, note]
+    );
+  } else {
+    // 匿名：按设备标识 upsert（P0 匿名数据设备化）
+    const anonId = await getAnonId();
+    await pgPool.query(
+      `INSERT INTO topic_progress (user_id, anon_id, topic_id, done, note)
+       VALUES (NULL, $1, $2, $3, $4)
+       ON CONFLICT (anon_id, topic_id) WHERE anon_id IS NOT NULL
+       DO UPDATE SET done = EXCLUDED.done, note = EXCLUDED.note, updated_at = now()`,
+      [anonId, topicId, done, note]
+    );
+  }
   return NextResponse.json({ ok: true });
 }

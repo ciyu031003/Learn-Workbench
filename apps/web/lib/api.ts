@@ -1,5 +1,6 @@
 import type { RoadmapPhase, RoadmapTopic } from "@learn-workbench/shared";
 import { pgPool } from "./db";
+import { anonFilterSql } from "./anon";
 
 export interface ProgressRow {
   topic_id: number;
@@ -61,16 +62,30 @@ interface CheckpointRow {
   sort_order: number;
 }
 
-export async function getProgressMap(uid: string | null): Promise<Map<number, ProgressRow>> {
+/** 匿名数据读取作用域：登录用户不追加过滤；匿名用户按设备过滤（含遗留行） */
+function anonParams(uid: string | null, anonId: string | null): { sql: string; params: unknown[] } {
+  if (uid) return { sql: "", params: [uid] };
+  return { sql: ` AND ${anonFilterSql(2)}`, params: [uid, anonId] };
+}
+
+export async function getProgressMap(
+  uid: string | null,
+  anonId: string | null = null
+): Promise<Map<number, ProgressRow>> {
+  const scope = anonParams(uid, anonId);
   const result = await pgPool.query<ProgressRow>(
-    `SELECT topic_id, done, note FROM topic_progress WHERE user_id IS NOT DISTINCT FROM $1`,
-    [uid]
+    `SELECT topic_id, done, note FROM topic_progress WHERE user_id IS NOT DISTINCT FROM $1${scope.sql}`,
+    scope.params
   );
   const rows: ProgressRow[] = result.rows;
   return new Map(rows.map((r): [number, ProgressRow] => [r.topic_id, r]));
 }
 
-export async function getRoadmapWithProgress(uid: string | null, careerKey = "ict"): Promise<RoadmapPhase[]> {
+export async function getRoadmapWithProgress(
+  uid: string | null,
+  careerKey = "ict",
+  anonId: string | null = null
+): Promise<RoadmapPhase[]> {
   const client = await pgPool.connect();
   try {
     const phasesResult = await client.query<PhaseRow>(
@@ -97,9 +112,10 @@ export async function getRoadmapWithProgress(uid: string | null, careerKey = "ic
     const checkpointsResult = await client.query<CheckpointRow>(
       `SELECT id, topic_id, text, sort_order FROM content_checkpoints ORDER BY sort_order, id`
     );
+    const scope = anonParams(uid, anonId);
     const progressResult = await client.query<ProgressRow>(
-      `SELECT topic_id, done, note FROM topic_progress WHERE user_id IS NOT DISTINCT FROM $1`,
-      [uid]
+      `SELECT topic_id, done, note FROM topic_progress WHERE user_id IS NOT DISTINCT FROM $1${scope.sql}`,
+      scope.params
     );
     const progressMap = new Map(
       progressResult.rows.map((r): [number, ProgressRow] => [r.topic_id, r])

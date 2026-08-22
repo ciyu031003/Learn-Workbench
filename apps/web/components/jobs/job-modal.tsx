@@ -130,6 +130,7 @@ export function JobModal({
   const extra = (detail?.extra ?? summary.extra ?? {}) as Record<string, unknown>;
   const recruitCount = extra.recruit_count;
   const deadline = deadlineText(detail?.deadlineAt ?? summary.deadlineAt);
+// eslint-disable-next-line react-hooks/purity -- 渲染期计算相对当前时间的逾期状态（既有模式）
   const overdue = (detail?.deadlineAt ?? summary.deadlineAt) ? new Date((detail?.deadlineAt ?? summary.deadlineAt) as string).getTime() < Date.now() : false;
   const attachments = Array.isArray(extra.attachments) ? (extra.attachments as string[]) : [];
   const attachmentNames = Array.isArray(extra.attachment_names) ? (extra.attachment_names as string[]) : [];

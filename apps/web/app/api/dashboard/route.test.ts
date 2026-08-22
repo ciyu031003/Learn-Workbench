@@ -75,7 +75,7 @@ describe("GET /api/dashboard", () => {
     });
     expect(json.jobsTotal).toBe(88);
     expect(release).toHaveBeenCalled();
-    expect(computeReadinessMock).toHaveBeenCalledWith("u-1");
+    expect(computeReadinessMock).toHaveBeenCalledWith("u-1", null);
   });
 
   it("returns 500 when the database is unavailable", async () => {

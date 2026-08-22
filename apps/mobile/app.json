@@ -38,7 +38,8 @@
         "expo-build-properties",
         {
           "android": {
-            "cmakeVersion": "3.31.6"
+            "cmakeVersion": "3.31.6",
+            "usesCleartextTraffic": true
           }
         }
       ]
@@ -48,7 +49,7 @@
       "reactCompiler": true
     },
     "extra": {
-      "apiUrl": "http://10.0.2.2:3001"
+      "apiUrl": "https://learn.yuanabd.cn"
     }
   }
 }

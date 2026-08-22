@@ -33,7 +33,7 @@ describe("POST /api/import", () => {
   it("rejects non-workbench backups", async () => {
     const res = await post({ app: "other" });
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "不是有效的学习工作台备份文件" });
+    expect(await res.json()).toMatchObject({ error: "备份文件格式不正确" });
   });
 
   it("wipes existing data and imports new rows in a transaction", async () => {

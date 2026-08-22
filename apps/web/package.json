@@ -28,7 +28,8 @@
     "tailwind-merge": "^3.6.0",
     "zod": "^4.4.3",
     "zustand": "^5.0.14",
-    "playwright-core": "^1.62.1"
+    "playwright-core": "^1.62.1",
+    "@learn-workbench/config": "workspace:*"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

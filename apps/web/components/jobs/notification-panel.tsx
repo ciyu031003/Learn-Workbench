@@ -29,6 +29,7 @@ export function NotificationPanel() {
   };
 
   useEffect(() => {
+// eslint-disable-next-line react-hooks/set-state-in-effect -- 轮询加载通知并写状态（既有模式）
     void load(true);
     const timer = window.setInterval(() => void load(true), 60000);
     return () => window.clearInterval(timer);

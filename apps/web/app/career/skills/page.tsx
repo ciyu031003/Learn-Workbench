@@ -43,6 +43,7 @@ export default function CareerSkillsPage() {
     }
   }, []);
 
+// eslint-disable-next-line react-hooks/set-state-in-effect -- 数据加载后在 effect 中写状态（既有模式，P1 统一迁移）
   useEffect(() => { load(); }, [load]);
 
   const backfillFromResume = async () => {

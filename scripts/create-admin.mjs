@@ -8,7 +8,8 @@
  *   node scripts/create-admin.mjs --username <用户名>          # 自动生成随机密码并打印一次
  *   ADMIN_USERNAME=xxx ADMIN_PASSWORD=yyy node scripts/create-admin.mjs
  *
- * 说明：密码使用 scrypt(salt:hash) 存储，与 apps/web/lib/password.ts 一致。
+ * 说明：密码使用 scrypt 存储（格式 scrypt:N:r:p:salt:hash），与 apps/web/lib/password.ts 一致；
+ * 创建的管理员账号自动标记 users.is_admin = true（P0：受限操作管理员鉴权）。
  */
 import { randomBytes, scryptSync } from "node:crypto";
 import { createRequire } from "node:module";
@@ -44,9 +45,10 @@ if (!username) {
 }
 
 function hashPassword(pw) {
+  // 与 apps/web/lib/password.ts 一致：scrypt + 成本参数（N=65536, r=8, p=1）
   const salt = randomBytes(16).toString("hex");
-  const hash = scryptSync(pw, salt, 64).toString("hex");
-  return `${salt}:${hash}`;
+  const hash = scryptSync(pw, salt, 64, { N: 65536, r: 8, p: 1 }).toString("hex");
+  return `scrypt:65536:8:1:${salt}:${hash}`;
 }
 
 let generated = false;
@@ -74,7 +76,7 @@ try {
     let userId = existing.rows[0]?.id ?? null;
     if (!userId) {
       const ins = await client.query(
-        `INSERT INTO users (display_name) VALUES ($1) RETURNING id`,
+        `INSERT INTO users (display_name, is_admin) VALUES ($1, true) RETURNING id`,
         [username]
       );
       userId = ins.rows[0]?.id;
@@ -89,6 +91,8 @@ try {
        ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash, user_id = EXCLUDED.user_id, updated_at = now()`,
       [username, hash, userId]
     );
+    // 3) 标记管理员（已存在用户也升级为管理员）
+    await client.query(`UPDATE users SET is_admin = true WHERE id = $1`, [userId]);
     await client.query("COMMIT");
   } catch (e) {
     await client.query("ROLLBACK");

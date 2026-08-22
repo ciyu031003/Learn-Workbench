@@ -34,6 +34,7 @@ function Donut({ data, size = 132, thickness = 20 }: { data: { label: string; co
   const segments = data.map((d, i) => {
     const frac = total > 0 ? d.count / total : 0;
     const seg = { ...d, color: colors[i % colors.length], dash: frac * c, offset };
+// eslint-disable-next-line react-hooks/immutability -- 纯局部累加计算（渲染期不可变规则过于严格）
     offset += frac * c;
     return seg;
   });

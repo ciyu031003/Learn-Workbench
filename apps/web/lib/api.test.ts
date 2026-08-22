@@ -34,7 +34,7 @@ describe("getProgressMap", () => {
   it("passes null for anonymous users", async () => {
     queryMock.mockResolvedValue({ rows: [] } as never);
     await getProgressMap(null);
-    expect(queryMock).toHaveBeenCalledWith(expect.any(String), [null]);
+    expect(queryMock).toHaveBeenCalledWith(expect.stringContaining("anon_id"), [null, null]);
   });
 });
 

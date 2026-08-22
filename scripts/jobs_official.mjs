@@ -19,6 +19,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { parseHtml, queryAll, textContent, attr, cleanText } from "./lib/simple-dom.js";
 import { parseExamEvents, parseRecruitCount, findAttachmentLinks, parseCnDate } from "./lib/announcement.js";
 import { readXlsx } from "./lib/xlsx-min.js";
+import { stripHtml, contentHash } from "./lib/normalize.js";
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 const ALL_CATEGORIES = ["internet", "gongkao", "gongbian", "yangqi"];
@@ -26,31 +27,7 @@ const ALL_CATEGORIES = ["internet", "gongkao", "gongbian", "yangqi"];
 // ---------- 工具 ----------
 const md5 = (s) => createHash("md5").update(String(s), "utf8").digest("hex");
 
-function stripHtml(text) {
-  return String(text || "")
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&#39;/g, "'")
-    .replace(/&quot;/g, '"')
-    .replace(/[ \t\u3000]+/g, " ")
-    .replace(/\n\s*\n+/g, "\n")
-    .trim();
-}
 
-function contentHash(p) {
-  const raw = [
-    p.source, p.source_job_id, p.title, p.company, p.city, p.district,
-    p.salary_text, p.experience, p.education, JSON.stringify(p.tags),
-    p.description, p.requirements, p.url, p.category, p.channel,
-    p.deadline_at || "", JSON.stringify(p.extra),
-  ].join("|");
-  return createHash("md5").update(raw, "utf8").digest("hex");
-}
 
 function parseDateText(s) {
   if (!s) return null;

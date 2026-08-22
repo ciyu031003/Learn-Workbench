@@ -19,6 +19,7 @@
  */
 import { createRequire } from "node:module";
 import { createHash } from "node:crypto";
+import { parseSalary, parsePublished, stripHtml, contentHash } from "./lib/normalize.js";
 const require = createRequire(import.meta.url);
 
 let chromium = null;
@@ -58,55 +59,6 @@ const CITY_MAP = {
 const enc = encodeURIComponent;
 const num = (v) => (typeof v === "number" ? v : Number(v));
 
-function parseSalary(text) {
-  if (!text) return [null, null];
-  let t = String(text).replace(/K/g, "k");
-  let m = t.match(/(\d+(?:\.\d+)?)\s*k\s*[-~—至]\s*(\d+(?:\.\d+)?)\s*k/);
-  if (m) return [num(m[1]), num(m[2])];
-  const yearly = t.includes("年");
-  m = t.match(/(\d+(?:\.\d+)?)\s*万\s*[-~—至]\s*(\d+(?:\.\d+)?)\s*万/) || t.match(/(\d+(?:\.\d+)?)\s*[-~—至]\s*(\d+(?:\.\d+)?)\s*万/);
-  if (m) {
-    let a = num(m[1]) * 10, b = num(m[2]) * 10;
-    if (yearly) { a = Math.round(a / 12); b = Math.round(b / 12); }
-    return [a, b];
-  }
-  m = t.match(/(\d+(?:\.\d+)?)\s*万/);
-  if (m) {
-    let a = num(m[1]) * 10;
-    if (yearly) a = Math.round(a / 12);
-    return [a, a];
-  }
-  m = t.match(/(\d+(?:\.\d+)?)\s*[-~—至]\s*(\d+(?:\.\d+)?)/);
-  if (m && (!t.includes("/") || t.includes("天") || t.includes("日"))) return [num(m[1]), num(m[2])];
-  m = t.match(/(\d+(?:\.\d+)?)\s*k/);
-  if (m) return [num(m[1]), num(m[1])];
-  return [null, null];
-}
-
-function parsePublished(v) {
-  if (!v) return null;
-  if (typeof v === "number") {
-    const ms = v > 1e12 ? v : v * 1000;
-    return new Date(ms).toISOString();
-  }
-  let s = String(v).trim();
-  if (/^\d+$/.test(s)) {
-    const ms = Number(s) > 1e12 ? Number(s) : Number(s) * 1000;
-    return new Date(ms).toISOString();
-  }
-  const d = new Date(s.replace(" ", "T"));
-  return isNaN(d.getTime()) ? null : d.toISOString();
-}
-
-function stripHtml(text) {
-  return String(text || "").replace(/<[^>]+>/g, "\n").replace(/&[a-z]+;/g, " ").replace(/[ \t\u3000]+/g, " ").replace(/\n\s*\n+/g, "\n").trim();
-}
-
-function contentHash(p) {
-  const raw = [p.title, p.company, p.city, p.district, p.salary_text, p.experience, p.education,
-    JSON.stringify(p.tags), p.description, p.requirements, p.company_info, p.url, p.logo_url].join("|");
-  return createHash("md5").update(raw, "utf8").digest("hex");
-}
 
 // ---------- 数据库 ----------
 const pool = new Pool({

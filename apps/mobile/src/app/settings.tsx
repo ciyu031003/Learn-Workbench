@@ -418,7 +418,7 @@ export default function SettingsScreen() {
           </View>
         ) : null}
         {msg ? <Text style={styles.msg}>{msg}</Text> : null}
-        <Text style={styles.hint}>Android 模拟器使用 10.0.2.2；真机请在下方填写电脑局域网地址并保存。</Text>
+        <Text style={styles.hint}>默认连接 https://learn.yuanabd.cn（生产）；本地联调请在启动时设置 EXPO_PUBLIC_API_URL 与 EXPO_PUBLIC_ALLOW_CLEARTEXT=1，或在下方临时覆盖。</Text>
       </Card>
 
       {/* 招聘爬虫 */}

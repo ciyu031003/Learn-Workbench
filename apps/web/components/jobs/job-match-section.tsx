@@ -22,6 +22,7 @@ export function JobMatchSection({ jobId }: { jobId: number }) {
 
   useEffect(() => {
     let alive = true;
+// eslint-disable-next-line react-hooks/set-state-in-effect -- 数据加载后在 effect 中写状态（既有模式）
     setLoading(true);
     setError(null);
     Promise.all([

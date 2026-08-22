@@ -99,7 +99,8 @@ function LoginForm() {
       const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/register";
       const body =
         mode === "login"
-          ? { username, password }
+          ? // claimLegacy：登录时把本机（该浏览器）遗留的匿名数据并入账号；新匿名数据按设备标识自动认领
+            { username, password, claimLegacy: true }
           : { username, password, displayName: displayName.trim() || undefined };
       const r = await fetch(endpoint, {
         method: "POST",

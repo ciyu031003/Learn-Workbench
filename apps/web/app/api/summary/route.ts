@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { pgPool } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
+import { getAnonId, anonFilterSql } from "@/lib/anon";
 import { todayISO } from "@learn-workbench/shared";
 
 interface TopicRow { id: number; phase_id: number; }
@@ -28,10 +29,19 @@ function computeStreak(dates: string[], today: string): number {
   return streak;
 }
 
+/** 匿名作用域：未登录时在 user_id 过滤之外追加 anon_id 过滤（含遗留行） */
+function anonScope(uid: string | null, anonId: string | null, base: unknown[]): { params: unknown[]; sql: string } {
+  const params = [...base];
+  if (uid) return { params, sql: "" };
+  params.push(anonId);
+  return { params, sql: ` AND ${anonFilterSql(params.length)}` };
+}
+
 export async function GET() {
   const client = await pgPool.connect();
   try {
     const uid = await currentUserId();
+    const anonId = uid ? null : await getAnonId();
     const today = todayISO();
     const weekAgo = new Date(today + "T00:00:00");
     weekAgo.setDate(weekAgo.getDate() - 6);
@@ -59,8 +69,10 @@ export async function GET() {
          AND phase_id IN (SELECT id FROM content_phases WHERE career_key = $2)`,
       [uid, career]
     );
+    const doneScope = anonScope(uid, anonId, [uid]);
     const doneResult = await client.query<DoneRow>(
-      `SELECT topic_id FROM topic_progress WHERE user_id IS NOT DISTINCT FROM $1 AND done = true`, [uid]
+      `SELECT topic_id FROM topic_progress WHERE user_id IS NOT DISTINCT FROM $1${doneScope.sql} AND done = true`,
+      doneScope.params
     );
     const doneIds = new Set(doneResult.rows.map((r) => r.topic_id));
     const phaseCounts = new Map<number, { total: number; done: number }>();
@@ -78,35 +90,42 @@ export async function GET() {
        WHERE career_key = $1 ORDER BY track, sort_order, id`,
       [career]
     );
+    const todayTasksScope = anonScope(uid, anonId, [uid, today]);
     const todayTasksResult = await client.query<TaskRow>(
       `SELECT id, task_date, title, phase_id, topic_id, task_type, done, focus_minutes, sort_order
-       FROM daily_tasks WHERE user_id IS NOT DISTINCT FROM $1 AND task_date = $2 ORDER BY sort_order, id`,
-      [uid, today]
+       FROM daily_tasks WHERE user_id IS NOT DISTINCT FROM $1${todayTasksScope.sql} AND task_date = $2 ORDER BY sort_order, id`,
+      todayTasksScope.params
     );
+    const weekTasksScope = anonScope(uid, anonId, [uid, weekStart, today]);
     const weekTasksResult = await client.query<{ done: boolean }>(
-      `SELECT done FROM daily_tasks WHERE user_id IS NOT DISTINCT FROM $1 AND task_date BETWEEN $2 AND $3`,
-      [uid, weekStart, today]
+      `SELECT done FROM daily_tasks WHERE user_id IS NOT DISTINCT FROM $1${weekTasksScope.sql} AND task_date BETWEEN $2 AND $3`,
+      weekTasksScope.params
     );
+    const focusScope = anonScope(uid, anonId, [uid, weekStart]);
     const focusResult = await client.query<{ s: number }>(
       `SELECT COALESCE(SUM(duration_seconds), 0)::int AS s FROM focus_sessions
-       WHERE user_id IS NOT DISTINCT FROM $1 AND started_at >= $2`,
-      [uid, weekStart]
+       WHERE user_id IS NOT DISTINCT FROM $1${focusScope.sql} AND started_at >= $2`,
+      focusScope.params
     );
+    const checkinsScope = anonScope(uid, anonId, [uid]);
     const checkinsResult = await client.query<CheckinRow>(
-      `SELECT checkin_date FROM checkins WHERE user_id IS NOT DISTINCT FROM $1 ORDER BY checkin_date DESC`,
-      [uid]
+      `SELECT checkin_date FROM checkins WHERE user_id IS NOT DISTINCT FROM $1${checkinsScope.sql} ORDER BY checkin_date DESC`,
+      checkinsScope.params
     );
+    const xpScope = anonScope(uid, anonId, [uid]);
     const xpResult = await client.query<{ x: number }>(
-      `SELECT COALESCE(SUM(amount), 0)::int AS x FROM xp_events WHERE user_id IS NOT DISTINCT FROM $1`,
-      [uid]
+      `SELECT COALESCE(SUM(amount), 0)::int AS x FROM xp_events WHERE user_id IS NOT DISTINCT FROM $1${xpScope.sql}`,
+      xpScope.params
     );
+    const certsScope = anonScope(uid, anonId, [uid]);
     const certsResult = await client.query<{ id: number; name: string; target_date: string | null; status: string; note: string | null }>(
-      `SELECT id, name, target_date, status, note FROM certificates WHERE user_id IS NOT DISTINCT FROM $1 ORDER BY target_date NULLS LAST`,
-      [uid]
+      `SELECT id, name, target_date, status, note FROM certificates WHERE user_id IS NOT DISTINCT FROM $1${certsScope.sql} ORDER BY target_date NULLS LAST`,
+      certsScope.params
     );
+    const logsScope = anonScope(uid, anonId, [uid, weekStart]);
     const logsResult = await client.query<{ n: number }>(
-      `SELECT count(*)::int AS n FROM log_entries WHERE user_id IS NOT DISTINCT FROM $1 AND created_at >= $2`,
-      [uid, weekStart]
+      `SELECT count(*)::int AS n FROM log_entries WHERE user_id IS NOT DISTINCT FROM $1${logsScope.sql} AND created_at >= $2`,
+      logsScope.params
     );
 
     return NextResponse.json({

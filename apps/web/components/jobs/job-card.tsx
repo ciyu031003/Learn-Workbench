@@ -71,6 +71,7 @@ export function JobCard({
   const initials = (job.company || job.title).trim().charAt(0).toUpperCase() || (isAnnouncement ? "公" : "职");
   const gradient = avatarGradients[hashText(job.company || job.title || job.source) % avatarGradients.length];
   const deadline = deadlineText(job.deadlineAt);
+// eslint-disable-next-line react-hooks/purity -- 渲染期计算相对当前时间的逾期状态（既有模式）
   const overdue = job.deadlineAt ? new Date(job.deadlineAt).getTime() < Date.now() : false;
   const catColor = jobCategoryColors[job.category as keyof typeof jobCategoryColors] ?? "#10b981";
   const catLabel = jobCategoryLabels[job.category as keyof typeof jobCategoryLabels] ?? job.category;

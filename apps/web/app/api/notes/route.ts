@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { pgPool } from "@/lib/db";
-import { currentUserId } from "@/lib/session";
+import { userScope, scopeWhere } from "@/lib/anon";
 
 // 知识库：GET /api/notes?limit=100 —— 列出当前用户（或匿名）的知识笔记（含标签）
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const limit = Math.min(200, Math.max(1, Number(url.searchParams.get("limit") || 100)));
-  const uid = await currentUserId();
+  const scope = await userScope();
+  const w = scopeWhere(scope, [scope.uid, limit]);
   const { rows } = await pgPool.query(
     `SELECT
         n.id,
@@ -33,11 +34,11 @@ export async function GET(req: Request) {
       FROM knowledge_notes n
       LEFT JOIN knowledge_note_tags nt ON nt.note_id = n.id
       LEFT JOIN knowledge_tags t ON t.id = nt.tag_id
-      WHERE n.user_id IS NOT DISTINCT FROM $1
+      WHERE n.user_id IS NOT DISTINCT FROM $1${w.sql}
       GROUP BY n.id
       ORDER BY n.created_at DESC, n.id DESC
       LIMIT $2`,
-    [uid, limit]
+    w.params
   );
   return NextResponse.json({ notes: rows });
 }

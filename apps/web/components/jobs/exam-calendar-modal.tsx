@@ -31,6 +31,7 @@ export function ExamCalendarModal({
   useEffect(() => {
     if (!open) return;
     let alive = true;
+// eslint-disable-next-line react-hooks/set-state-in-effect -- 弹窗打开时加载数据并写状态（既有模式）
     setLoading(true);
     setError(null);
     fetch("/api/jobs/calendar?limit=40")

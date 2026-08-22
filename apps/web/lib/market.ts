@@ -1,8 +1,9 @@
 import { pgPool } from "@/lib/db";
+import { functionRules, jobTypeRules, makeFunctionRule, companyNameRe, salaryBuckets, sourceLabels } from "@learn-workbench/config";
 
-/* ================= 招聘市场分析（P4，实时聚合 + 60s 缓存） =================
- * 评审建议 6：当前数据量小，实时 SQL 聚合足够快，暂不建 market_stats 结果表；
- * 数据量 >5 万条后再考虑定时聚合落表。
+/* ================= 招聘市场分析（P4，实时聚合 + DB 缓存） =================
+ * P1：聚合结果落 market_stats 表（60s TTL，多实例共享、重启不丢）；
+ * 数据量增长后可将刷新改为定时任务（见 docs/P0-安全加固与HTTPS部署.md P1 说明）。
  */
 
 export interface MarketCityRow { city: string; count: number; avgMin: number | null; avgMax: number | null; }
@@ -29,26 +30,9 @@ export interface MarketAnalysis {
   generatedAt: string;
 }
 
-/** 数据来源平台中文名 */
-const SOURCE_LABELS: Record<string, string> = {
-  lagou: "拉勾", liepin: "猎聘", zhilian: "智联", job51: "前程无忧", boss: "Boss直聘",
-  "sasac-recruit": "国资委", "cpta-notice": "人事考试网", "81rc": "军队人才网",
-  "mohrss-sydw": "人社部", "jiangsu-sydw": "江苏人社", iguopin: "国聘",
-  guokao: "国考",
-};
-
-// 60s 内存缓存（单进程；Docker 单实例下有效）
-let cache: { at: number; data: MarketAnalysis } | null = null;
-const TTL = 60_000;
-
-/** 薪资分桶（K/月） */
-const SALARY_BUCKETS: { label: string; min: number; max: number }[] = [
-  { label: "10K 以下", min: 0, max: 10 },
-  { label: "10-15K", min: 10, max: 15 },
-  { label: "15-20K", min: 15, max: 20 },
-  { label: "20-30K", min: 20, max: 30 },
-  { label: "30K 以上", min: 30, max: 1_000 },
-];
+/** P1：市场分析改为 DB 缓存（market_stats 表，多实例共享 + 重启不丢）；60s TTL */
+const CACHE_KEY = "full";
+const CACHE_TTL_MS = 60_000;
 
 /** 学历归一（宽松） */
 function eduBucket(raw: string): string {
@@ -71,30 +55,17 @@ function expBucket(raw: string): string {
   return "不限/其他";
 }
 
-/** 公司名特征（zhilian/liepin 源把公司名写进 title 的脏数据清洗） */
-const COMPANY_RE =
-  /(公司|科技|数据|网络|信息|智能|集团|股份|有限|技术|软件|电子|通信|咨询|研究院|事务所|银行|证券|保险|置业|地产|物流|贸易|生物|医疗|教育|研究院$)/;
 
-/** 岗位职能分类（按 title 关键词，优先级从高到低） */
-const FUNCTION_RULES: { label: string; re: RegExp }[] = [
-  { label: "前端", re: /(前端|web前端|webs?前端|javascript工程师|vue|react工程师|uniapp)/i },
-  { label: "后端", re: /(后端|java开发|python开发|golang|go开发|c\+\+|c#|node.?js|php开发|中间件)/i },
-  { label: "算法/AI", re: /(算法|ai|人工智能|机器学习|深度学习|大模型|llm|nlp|cv|视觉|推荐算法|数据挖掘)/i },
-  { label: "测试", re: /(测试|qa|质量保障|测开)/i },
-  { label: "运维/DevOps", re: /(运维|devops|sre|系统工程师|网络工程师|数据库管理员|dba|linux|k8s|容器)/i },
-  { label: "数据", re: /(数据|etl|数仓|bi|数据分析师|大数据|sql)/i },
-  { label: "产品", re: /(产品|pm|需求)/i },
-  { label: "设计", re: /(设计|ui|ux|视觉|交互)/i },
-  { label: "运营/市场", re: /(运营|市场|销售|商务|客服|品牌|推广)/i },
-  { label: "安全", re: /(安全|渗透|等保|风控)/i },
-  { label: "硬件/嵌入式", re: /(硬件|嵌入式|fpga|芯片|ic|单片机|stm32|电路)/i },
-];
+
+/** 编译后的职能规则（模块加载期编译一次） */
+const compiledFunctionRules = functionRules.map(makeFunctionRule);
+const compiledJobTypeRules = jobTypeRules.map((r) => ({ label: r.label, re: new RegExp(r.pattern, "i") }));
 
 /** 岗位职能方向分类（返回 null 表示公司名脏数据或无法归类） */
 function classifyFunction(title: string): string | null {
   const t = (title ?? "").trim();
-  if (!t || COMPANY_RE.test(t)) return null;
-  for (const rule of FUNCTION_RULES) {
+  if (!t || companyNameRe.test(t)) return null;
+  for (const rule of compiledFunctionRules) {
     if (rule.re.test(t)) return rule.label;
   }
   return "其他";
@@ -103,15 +74,22 @@ function classifyFunction(title: string): string | null {
 /** 岗位类型（全职/实习/外包/兼职） */
 function classifyJobType(title: string, tags: string[]): string {
   const s = (title ?? "") + " " + (tags ?? []).join(" ");
-  if (/(实习|intern|internship)/i.test(s)) return "实习";
-  if (/(外包|驻场|外派)/.test(s)) return "外包";
-  if (/(兼职|part[- ]?time)/i.test(s)) return "兼职";
+  for (const rule of compiledJobTypeRules) {
+    if (rule.re.test(s)) return rule.label;
+  }
   return "全职";
 }
 
 export async function analyzeMarket(): Promise<MarketAnalysis> {
-  const now = Date.now();
-  if (cache && now - cache.at < TTL) return cache.data;
+  // 读 DB 缓存：命中且新鲜则直接返回（避免每次全表聚合）
+  const cached = await pgPool.query<{ payload: MarketAnalysis; computed_at: Date }>(
+    `SELECT payload, computed_at FROM market_stats WHERE key = $1`,
+    [CACHE_KEY]
+  );
+  const cachedRow = cached.rows[0];
+  if (cachedRow?.payload && Date.now() - new Date(cachedRow.computed_at).getTime() < CACHE_TTL_MS) {
+    return cachedRow.payload;
+  }
 
   // 只统计招聘岗位类（排除公告/考试事件，它们不代表市场招聘需求）
   const whereJob = "is_active = true AND channel = 'job'";
@@ -152,7 +130,7 @@ export async function analyzeMarket(): Promise<MarketAnalysis> {
   const salaryRes = await pgPool.query<{ min: number | null; max: number | null }>(
     `SELECT salary_min AS min, salary_max AS max FROM job_postings WHERE ${whereJob}`
   );
-  const salaryDist = SALARY_BUCKETS.map((b) => {
+  const salaryDist = salaryBuckets.map((b) => {
     const count = salaryRes.rows.filter((r) => {
       const m = r.max ?? r.min;
       if (m == null) return false;
@@ -208,7 +186,7 @@ export async function analyzeMarket(): Promise<MarketAnalysis> {
     `SELECT source FROM job_postings WHERE ${whereJob}`
   );
   for (const r of platRes.rows) {
-    const label = SOURCE_LABELS[r.source] ?? r.source;
+    const label = sourceLabels[r.source] ?? r.source;
     platformMap.set(label, (platformMap.get(label) ?? 0) + 1);
   }
   const byPlatform: MarketPlatformRow[] = Array.from(platformMap.entries())
@@ -251,11 +229,13 @@ export async function analyzeMarket(): Promise<MarketAnalysis> {
     skillSalary,
     generatedAt: new Date().toISOString(),
   };
-  cache = { at: Date.now(), data };
+  // 写回 DB 缓存（失败不影响响应；下次请求再算）
+  await pgPool
+    .query(
+      `INSERT INTO market_stats (key, payload, computed_at) VALUES ($1, $2::jsonb, now())
+       ON CONFLICT (key) DO UPDATE SET payload = EXCLUDED.payload, computed_at = now()`,
+      [CACHE_KEY, JSON.stringify(data)]
+    )
+    .catch(() => {});
   return data;
-}
-
-/** 清空缓存（爬虫抓取后调用，保证最新） */
-export function invalidateMarketCache(): void {
-  cache = null;
 }

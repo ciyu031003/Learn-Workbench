@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { pgPool } from "@/lib/db";
-import { currentUserId } from "@/lib/session";
+import { userScope, scopeWhere, anonFilterSql } from "@/lib/anon";
 import { computeNextTriggerMs } from "@/lib/wellbeing";
 
 const TYPES = ["HYDRATION", "STAND", "BREAK", "MOVEMENT", "SLEEP", "CUSTOM"];
@@ -17,15 +17,16 @@ function cleanTime(v: unknown, fallback: string): string {
 }
 
 export async function GET() {
-  const uid = await currentUserId();
+  const scope = await userScope();
+  const w = scopeWhere(scope, [scope.uid]);
   const { rows } = await pgPool.query(
     `SELECT id, type, title, message, enabled, interval_minutes AS "intervalMinutes",
             start_time AS "startTime", end_time AS "endTime", weekdays,
             next_trigger_at AS "nextTriggerAt"
      FROM wellbeing_reminders
-     WHERE user_id IS NOT DISTINCT FROM $1 AND deleted_at IS NULL
+     WHERE user_id IS NOT DISTINCT FROM $1${w.sql} AND deleted_at IS NULL
      ORDER BY created_at`,
-    [uid]
+    w.params
   );
   return NextResponse.json({ reminders: rows });
 }
@@ -43,14 +44,25 @@ export async function POST(req: Request) {
   const nextTriggerAt = new Date(
     computeNextTriggerMs({ intervalMinutes, startTime, endTime, weekdays })
   ).toISOString();
-  const uid = await currentUserId();
-  const { rows } = await pgPool.query(
-    `INSERT INTO wellbeing_reminders (user_id, type, title, message, interval_minutes, start_time, end_time, weekdays, next_trigger_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-     RETURNING id, type, title, message, enabled, interval_minutes AS "intervalMinutes",
-               start_time AS "startTime", end_time AS "endTime", weekdays, next_trigger_at AS "nextTriggerAt"`,
-    [uid, type, title, message, intervalMinutes, startTime, endTime, weekdays, nextTriggerAt]
-  );
+  const scope = await userScope();
+  let rows;
+  if (scope.uid) {
+    ({ rows } = await pgPool.query(
+      `INSERT INTO wellbeing_reminders (user_id, type, title, message, interval_minutes, start_time, end_time, weekdays, next_trigger_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING id, type, title, message, enabled, interval_minutes AS "intervalMinutes",
+                 start_time AS "startTime", end_time AS "endTime", weekdays, next_trigger_at AS "nextTriggerAt"`,
+      [scope.uid, type, title, message, intervalMinutes, startTime, endTime, weekdays, nextTriggerAt]
+    ));
+  } else {
+    ({ rows } = await pgPool.query(
+      `INSERT INTO wellbeing_reminders (user_id, anon_id, type, title, message, interval_minutes, start_time, end_time, weekdays, next_trigger_at)
+       VALUES (NULL, $1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING id, type, title, message, enabled, interval_minutes AS "intervalMinutes",
+                 start_time AS "startTime", end_time AS "endTime", weekdays, next_trigger_at AS "nextTriggerAt"`,
+      [scope.anonId, type, title, message, intervalMinutes, startTime, endTime, weekdays, nextTriggerAt]
+    ));
+  }
   return NextResponse.json({ reminder: rows[0] }, { status: 201 });
 }
 
@@ -58,7 +70,7 @@ export async function PATCH(req: Request) {
   const body = await req.json().catch(() => null);
   const id = Number(body?.id);
   if (!Number.isFinite(id)) return NextResponse.json({ error: "id 无效" }, { status: 400 });
-  const uid = await currentUserId();
+  const scope = await userScope();
   const sets: string[] = [];
   const params: (string | number | boolean | number[] | null)[] = [];
   if (typeof body?.enabled === "boolean") {
@@ -82,11 +94,12 @@ export async function PATCH(req: Request) {
     sets.push(`end_time = $${params.length}`);
   }
   if (sets.length === 0) return NextResponse.json({ error: "没有可更新字段" }, { status: 400 });
-  // 重新计算 next_trigger_at
+  // 重新计算 next_trigger_at（先取当前规则）
+  const curScope = scopeWhere(scope, [id, scope.uid]);
   const cur = await pgPool.query(
     `SELECT interval_minutes AS "intervalMinutes", start_time AS "startTime", end_time AS "endTime", weekdays
-     FROM wellbeing_reminders WHERE id = $1 AND user_id IS NOT DISTINCT FROM $2 AND deleted_at IS NULL`,
-    [id, uid]
+     FROM wellbeing_reminders WHERE id = $1 AND user_id IS NOT DISTINCT FROM $2${curScope.sql} AND deleted_at IS NULL`,
+    curScope.params
   );
   if (cur.rows[0]) {
     const r = cur.rows[0];
@@ -99,13 +112,19 @@ export async function PATCH(req: Request) {
     sets.push(`updated_at = now()`);
   }
   params.push(id);
-  params.push(uid);
+  params.push(scope.uid);
+  const scopeParams: unknown[] = [scope.uid];
+  let scopeSql = `user_id IS NOT DISTINCT FROM $${params.length}`;
+  if (!scope.uid) {
+    scopeParams.push(scope.anonId);
+    scopeSql += ` AND ${anonFilterSql(params.length + 1)}`;
+  }
   const { rows } = await pgPool.query(
     `UPDATE wellbeing_reminders SET ${sets.join(", ")}
-     WHERE id = $${params.length - 1} AND user_id IS NOT DISTINCT FROM $${params.length} AND deleted_at IS NULL
+     WHERE id = $${params.length - 1} AND ${scopeSql} AND deleted_at IS NULL
      RETURNING id, type, title, message, enabled, interval_minutes AS "intervalMinutes",
                start_time AS "startTime", end_time AS "endTime", weekdays, next_trigger_at AS "nextTriggerAt"`,
-    params
+    [...params, ...scopeParams]
   );
   return NextResponse.json({ reminder: rows[0] ?? null });
 }
@@ -114,11 +133,17 @@ export async function DELETE(req: Request) {
   const url = new URL(req.url);
   const id = Number(url.searchParams.get("id"));
   if (!Number.isFinite(id)) return NextResponse.json({ error: "id 无效" }, { status: 400 });
-  const uid = await currentUserId();
+  const scope = await userScope();
+  const params: unknown[] = [id, scope.uid];
+  let scopeSql = `user_id IS NOT DISTINCT FROM $2`;
+  if (!scope.uid) {
+    params.push(scope.anonId);
+    scopeSql += ` AND ${anonFilterSql(params.length)}`;
+  }
   await pgPool.query(
     `UPDATE wellbeing_reminders SET deleted_at = now(), updated_at = now()
-     WHERE id = $1 AND user_id IS NOT DISTINCT FROM $2`,
-    [id, uid]
+     WHERE id = $1 AND ${scopeSql}`,
+    params
   );
   return NextResponse.json({ ok: true });
 }

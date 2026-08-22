@@ -1,9 +1,17 @@
 import { NextResponse } from "next/server";
 import { pgPool } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
+import { getAnonId, anonFilterSql } from "@/lib/anon";
 
 export async function GET() {
   const uid = await currentUserId();
+  const anonId = uid ? null : await getAnonId();
+  const params: unknown[] = [uid];
+  let anonSql = "";
+  if (!uid) {
+    params.push(anonId);
+    anonSql = ` AND ${anonFilterSql(params.length)}`;
+  }
   const { rows } = await pgPool.query<{
     phase_id: number | null;
     phase_title: string | null;
@@ -17,10 +25,10 @@ export async function GET() {
      FROM focus_sessions f
      LEFT JOIN daily_tasks t ON t.id = f.task_id
      LEFT JOIN content_phases p ON p.id = t.phase_id
-     WHERE f.user_id IS NOT DISTINCT FROM $1 AND f.duration_seconds IS NOT NULL
+     WHERE f.user_id IS NOT DISTINCT FROM $1${anonSql} AND f.duration_seconds IS NOT NULL
      GROUP BY t.phase_id, p.title
      ORDER BY total_seconds DESC`,
-    [uid]
+    params
   );
   return NextResponse.json({
     stats: rows.map((r) => ({

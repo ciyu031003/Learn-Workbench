@@ -24,7 +24,7 @@ ICT 学习路线图追踪 + 学习规划工作台（**Web + Android 双端**）�
 | Web 端 | Next.js 16（App Router / Route Handlers）+ React 19 + Tailwind CSS 4 + Zustand + zod |
 | 移动端 | Expo SDK 57 / React Native 0.86（5 个 Tab，本地 AsyncStorage + 云同步客户端） |
 | 数据层 | PostgreSQL（`db/schema.sql` + `db/seed_content.sql` + `db/migrations/*.sql`） |
-| 其他 | Python 3（Bing 壁纸爬虫 + 招花招聘爬虫，仅标准库）、PM2 / Nginx（服务器部署） |
+| 其他 | Python 3（Bing 壁纸爬虫，仅标准库）、PM2 / Nginx（服务器部署）；生产默认 HTTPS（learn.yuanabd.cn） |
 
 ## 目录结构
 
@@ -34,9 +34,9 @@ apps/mobile     Expo 移动端（5 个 Tab 页，本地 AsyncStorage + 云同步
 packages/shared   zod 类型 / 工具函数（双端共用）
 packages/content  路线图内容数据（与 db/seed_content.sql 同源）
 packages/ui        设计 tokens
-db/              schema.sql + seed_content.sql + migrations/001~006
+db/              schema.sql + seed_content.sql + migrations/001~016
 scripts/         Bing 爬虫 + 招花招聘爬虫 + 数据库启停 + 管理员账号创建
-deploy.sh        服务器一键部署脚本（见下文「服务器部署」）
+deploy.sh        服务器一键部署脚本（见下文「服务器部署」；HTTPS/域名见 docs/P0-安全加固与HTTPS部署.md）
 deploy-docker.sh Docker 一键部署脚本（docker-compose 包装）
 Dockerfile       Web 端 Docker 镜像（多阶段构建）
 docker-compose.yml Docker 编排（db + init + web）

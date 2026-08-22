@@ -19,7 +19,7 @@ describe("GET /api/roadmap", () => {
     const res = await GET(new Request("http://localhost/api/roadmap?career=frontend"));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ phases: [{ id: 1, phaseKey: "p1", topics: [] }] });
-    expect(getRoadmapMock).toHaveBeenCalledWith("u-1", "frontend");
+    expect(getRoadmapMock).toHaveBeenCalledWith("u-1", "frontend", null);
   });
 
   it("returns 500 when the database is unavailable", async () => {

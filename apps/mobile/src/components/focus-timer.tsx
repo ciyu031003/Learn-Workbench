@@ -71,6 +71,7 @@ export function FocusTimer({
   const [done, setDone] = useState(false);
   const [started, setStarted] = useState(false);
   const [recording, setRecording] = useState(false);
+// eslint-disable-next-line react-hooks/purity -- useState 初始随机语录（既有模式）
   const [quote, setQuote] = useState(FOCUS_MOTIVATIONS[Math.floor(Math.random() * FOCUS_MOTIVATIONS.length)]);
   const [editingQuote, setEditingQuote] = useState(false);
   const [quoteInput, setQuoteInput] = useState("");
@@ -80,6 +81,7 @@ export function FocusTimer({
   const startRef = useRef<number | null>(null);
   const remainingRef = useRef(25 * 60);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  // eslint-disable-next-line react-hooks/refs -- 组件内持有 Animated.Value 实例（既有模式）
   const ringScale = useRef(new Animated.Value(1)).current;
 
   // 初始化偏好
@@ -115,6 +117,7 @@ export function FocusTimer({
   // 打开：自动开始 + 加载每日 Bing
   useEffect(() => {
     if (!open) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 打开弹层时重置状态（既有模式）
     setDone(false);
     setRecording(false);
     setRemaining(total);
@@ -193,6 +196,7 @@ export function FocusTimer({
     remainingRef.current = v * 60;
     setRunning(false);
     startRef.current = null;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 打开弹层时重置状态（既有模式）
     setDone(false);
     if (timer.current) clearInterval(timer.current);
     persist(K_MINUTES, String(v));
@@ -223,6 +227,7 @@ export function FocusTimer({
     setRemaining(total);
     remainingRef.current = total;
     startRef.current = null;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 打开弹层时重置状态（既有模式）
     setDone(false);
   };
 

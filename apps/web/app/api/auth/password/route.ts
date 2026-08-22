@@ -2,11 +2,14 @@ import { NextResponse } from "next/server";
 import { pgPool } from "@/lib/db";
 import { currentSessionToken, currentUserId } from "@/lib/session";
 import { hashPassword, verifyPassword } from "@/lib/password";
+import { parseBody } from "@/lib/http";
 
 export async function POST(req: Request) {
-  const body = await req.json().catch(() => null);
-  const current = String(body?.currentPassword ?? "");
-  const next = String(body?.newPassword ?? "");
+  const parsed = await parseBody(req, 64 * 1024);
+  if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: parsed.status });
+  const body = (parsed.data ?? {}) as Record<string, unknown>;
+  const current = String(body.currentPassword ?? "");
+  const next = String(body.newPassword ?? "");
   if (!current) return NextResponse.json({ error: "请输入当前密码" }, { status: 400 });
   if (next.length < 6) return NextResponse.json({ error: "新密码至少 6 位" }, { status: 400 });
 
@@ -18,11 +21,11 @@ export async function POST(req: Request) {
     [uid]
   );
   const account = rows[0];
-  if (!account || !verifyPassword(current, account.password_hash)) {
+  if (!account || !(await verifyPassword(current, account.password_hash))) {
     return NextResponse.json({ error: "当前密码错误" }, { status: 400 });
   }
 
-  const hash = hashPassword(next);
+  const hash = await hashPassword(next);
   const token = await currentSessionToken();
   const client = await pgPool.connect();
   try {

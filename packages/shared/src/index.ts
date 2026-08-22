@@ -909,3 +909,67 @@ export type MarketAnalysis = z.infer<typeof marketAnalysisSchema>;
 
 
 
+
+/* ================= P0 安全加固：导出/导入文件 schema（import 校验 + body 限制） ================= */
+
+const dateStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "日期需为 YYYY-MM-DD");
+
+export const exportProgressRowSchema = z.object({
+  topic_id: z.number(),
+  done: z.boolean(),
+  note: z.string().nullable().optional(),
+  updated_at: z.string().optional(),
+});
+export const exportTaskRowSchema = z.object({
+  task_date: dateStr,
+  title: z.string().max(500),
+  phase_id: z.number().nullable().optional(),
+  topic_id: z.number().nullable().optional(),
+  task_type: z.string().max(20).optional(),
+  done: z.boolean().optional(),
+  focus_minutes: z.number().optional(),
+  sort_order: z.number().optional(),
+});
+export const exportSessionRowSchema = z.object({
+  task_id: z.number().nullable().optional(),
+  started_at: z.string(),
+  ended_at: z.string().nullable().optional(),
+  duration_seconds: z.number().optional(),
+  tag: z.string().nullable().optional(),
+});
+export const exportCheckinRowSchema = z.object({
+  checkin_date: dateStr,
+  note: z.string().nullable().optional(),
+});
+export const exportLogRowSchema = z.object({
+  kind: z.enum(["feynman", "review", "project", "interview"]),
+  title: z.string().max(500),
+  content: z.string().max(200_000),
+  created_at: z.string().optional(),
+});
+export const exportCertificateRowSchema = z.object({
+  name: z.string().max(200),
+  target_date: z.string().nullable().optional(),
+  status: z.string().max(20).optional(),
+  note: z.string().nullable().optional(),
+});
+export const exportGithubRowSchema = z.object({
+  title: z.string().max(200),
+  url: z.string().nullable().optional(),
+  content: z.string().max(20_000).nullable().optional(),
+});
+
+/** 导入文件整体 schema：与 /api/export 输出结构一致（snake_case 字段） */
+export const importFileSchema = z.object({
+  app: z.literal("learn-workbench"),
+  schemaVersion: z.string().optional(),
+  exportedAt: z.string().optional(),
+  progress: z.array(exportProgressRowSchema).default([]),
+  tasks: z.array(exportTaskRowSchema).default([]),
+  sessions: z.array(exportSessionRowSchema).default([]),
+  checkins: z.array(exportCheckinRowSchema).default([]),
+  logs: z.array(exportLogRowSchema).default([]),
+  certificates: z.array(exportCertificateRowSchema).default([]),
+  github: z.array(exportGithubRowSchema).default([]),
+});
+export type ImportFile = z.infer<typeof importFileSchema>;
