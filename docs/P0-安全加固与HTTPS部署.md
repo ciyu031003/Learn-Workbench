@@ -117,3 +117,24 @@ npx expo run:android --variant release   # 或 EAS Build
 ### 剩余 P1 / P2
 - **P1 未完**：`lib/domains/*` 领域分包（jobs.ts 496 行拆分）、`packages/config` 业务规则配置化（market 分类/权重/薪资分桶）、统一日志（pino + request-id）、mobile 同步幂等键、Python 爬虫 `fetch_jobs.py` 归一化与 normalize.js 对齐。
 - **P2**：爬虫服务化、多实例部署（缓存 Redis 化）、schema.sql 全量对账、迁移 012 补齐说明、Playwright E2E。
+
+---
+
+## 五、服务器部署与 HTTPS 状态（2026-08-22）
+
+### 已上线（learn-workbench-web 容器，Docker Compose）
+- 代码同步 → 镜像重建（含 Dockerfile packages/config 修复）→ 迁移 016/017 应用 → 管理员 is_admin=true → 端到端验证（登录/me/受限操作均 200）
+- 内部访问 `http://127.0.0.1:3001`、`http://106.55.2.197:3001` 正常（注：公网 3001 已不在安全组放行，见下）
+
+### HTTPS 证书（已签发，DNS-01 方式）
+- 因腾讯云对未备案域名拦截 80 端口（302 → dnspod webblock 备案页），HTTP-01 验证不可用
+- 已通过 DNS-01（在 DNSPod 手动添加 `_acme-challenge.learn.yuanabd.cn` TXT 记录）签发证书：
+  - 证书路径 `/etc/letsencrypt/live/learn.yuanabd.cn/`，有效期 **2026-08-22 → 2026-11-20**
+  - nginx 443 SSL 站点已配置并 reload，服务器内部 `https://learn.yuanabd.cn` 返回 307（应用正常）
+  - ⚠️ **手动 DNS-01 证书不会自动续期**：到期前需重新执行本流程（或完成备案后改用 `certbot --nginx` 自动续期）
+
+### ⛔ 唯一阻塞：ICP 备案
+- 外网访问 `https://learn.yuanabd.cn` 被腾讯云 **SNI 重置**（连接即断）；`http://learn.yuanabd.cn` 被 302 到备案提示页
+- 根因：`learn.yuanabd.cn` **未完成 ICP 备案**（对照：`travel-notes.yuanabd.cn` 同样被 SNI 重置，疑似整域备案状态问题）
+- 处理：请在腾讯云控制台「备案」提交 `learn.yuanabd.cn`（或确认 yuanabd.cn 备案状态）；备案通过后 HTTPS 自动可用（证书/nginx 已就绪）
+- 说明：公网 3001 端口当前未放行（安全组仅剩 80/443），移动端请直接使用 `https://learn.yuanabd.cn`（备案通过后生效）
