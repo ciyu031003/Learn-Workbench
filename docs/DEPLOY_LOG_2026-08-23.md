@@ -1,0 +1,70 @@
+# 招花 · 招聘信息 反爬破解与服务器部署交付记录
+
+- 交付日期：2026-08-23（Asia/Shanghai）
+- 服务器：106.55.2.197（腾讯云轻量，SSH: ubuntu@106.55.2.197）
+- 部署方式：Docker Compose（/home/ubuntu/learn-workbench），Dockerfile 多阶段构建
+- 关联文档：docs/JOBS_ANTI_CRAWL.md
+
+## 一、背景与目标
+服务器部署后招聘页只显示"成都"、猎聘/前程无忧/国聘/成都事业单位(cdhrss) 返回空。
+目标：在多城市基础上增加成都数据，破解各站反爬，恢复多城市数据源。
+
+## 二、本次交付内容
+
+### 1) 城市筛选：11 城选项常驻显示
+- packages/shared/src/index.ts：新增 `SUPPORTED_CITIES`（北京/上海/广州/深圳/杭州/成都/西安/乌鲁木齐/南京/武汉/苏州）
+- apps/web/app/jobs/page.tsx：城市 chip 初始化为 SUPPORTED_CITIES，不再只跟随已有数据
+
+### 2) 前程无忧 / 智联：代理支持（根治云 IP 风控）
+- scripts/jobs_browser.mjs：新增 `--proxy` / 环境变量 `JOBS_PROXY`；登录态 `storageState` 自动加载（默认 config/job-hosts/storageState.json，`--storage-state`/`JOBS_STORAGE_STATE` 可覆盖）
+- scripts/jobs_official.mjs：官方源 browser 引擎同样支持 proxy + storageState
+- docker-compose.yml：透传 `JOBS_PROXY`/`JOBS_STORAGE_STATE`，只读挂载 `config/job-hosts`
+- 实测（本地住宅 IP）：51job 成都·前端工程师 headless 未登录抓到 157 条 → 服务器空返回确认为云 IP 被 WAF 标记，需住宅代理
+
+### 3) 猎聘：登录态采集受阻（已放弃）
+- 猎聘风控会把"被自动化控制的浏览器"清空成 about:blank（采集器窗口、真实 Chrome 的 CDP 标签页、F12 均触发）
+- Chrome 151 v20 App-Bound 加密阻止从本地 Profile 直接导出 cookie（实测 3086 条全部 v20，复制 Profile 后 Chrome 直接清空）
+- scripts/harvest_cookies.mjs：新增采集器 + 登录态检测 + 手动导出备用说明（docs/JOBS_ANTI_CRAWL.md）
+- 结论：猎聘登录态暂无法自动化获取，依赖干净 IP/代理 + 服务器 headless 历史可用记录
+
+### 4) 国聘网（iguopin）成都职位：API 破解
+- 实测接口：POST https://gp-api.iguopin.com/api/jobs/v1/recom-job，成都过滤 `district:["000000.510000.510100"]`
+- scripts/jobs_official.mjs：新增 `crawlIguopinApi`（拦截接口注入成都 district，解析 JSON 入库）
+- config/job-hosts/sources.json：iguopin 增加 api 配置（11 城 district 码，默认成都）
+- 详情 URL：https://www.iguopin.com/job/detail?id=<jobId>（已验证）
+- 实测：服务器抓取 10 条、全部 city=成都
+
+### 5) 成都事业单位（cdhrss）
+- 实测 cdhrss.chengdu.gov.cn 被 WAF 403（真实浏览器也 403）；改用成都人事考试网
+- config/job-hosts/sources.json 新增：
+  - `cdpta-recruit`（成都人事考试网·事业单位考试公告，列表 ortherlist_all.do?id=989，选择器 ul li:has(> span)，city=成都）→ 已启用，实测服务器抓 10 条全部成都
+  - `cdhrss-sydw`（成都市人社局·事业单位招聘，c109905）→ 默认关闭（WAF 403，服务器可达后再启用）
+
+## 三、部署步骤（已完成）
+1. scp 变更文件到服务器（scripts/*.mjs、config/job-hosts/*、docker-compose.yml、apps/web/app/jobs/page.tsx、packages/shared/src/index.ts、docs/*）
+2. .env 追加 `JOBS_PROXY=`（留空，注释模板供填真实住宅代理）
+3. `docker compose up -d --build`（重建 web 镜像，依赖层有缓存）
+4. 容器内 `node scripts/update_job_hosts.mjs` 落库 10 个信息源（version=2）
+5. 容器内验证抓取：`node scripts/jobs_official.mjs --sources cdpta-recruit,iguopin --limit 10`
+6. 最终镜像重建固化修复（docker cp 修正运行中容器后，再 docker compose up -d --build）
+
+## 四、验证结果（服务器实测）
+- 数据库 job_postings：`iguopin` 10 条（city=成都）、`cdpta-recruit` 10 条（city=成都），写库 20 行、新增 20
+- 样例：成都市青羊区教育局 46 名高级职称教师考核招聘、成都市体育局少年儿童业余体育学校、成华区教育局中小学教师、国聘 成都锦江人才技术支持服务岗等
+- update_job_hosts dry-run 校验通过（10 个源）
+
+## 五、登录态（storageState）
+- config/job-hosts/storageState.json：37 cookie + 5 组 localStorage
+  - 前程无忧：51job/guid/JSESSIONID + localStorage token/userInfo ✅
+  - 国聘网：__token__ + localStorage userInfo ✅
+  - 猎聘：lt_auth 缺失（放弃，见上）
+
+## 六、待办 / 注意事项
+1. **JOBS_PROXY**：当前 .env 中留空。填入真实住宅代理后执行 `bash deploy-docker.sh --restart`（或 docker compose up -d）即生效。这是 51job/智联在服务器恢复数据的关键。
+2. **cdhrss-sydw**（人社局）：默认关闭，若服务器可达可改为 enabled=true 后 update_job_hosts。
+3. 猎聘：依赖代理/干净 IP，服务器 headless 曾有成功记录，配置代理后建议先跑一次。
+4. storageState.json 含登录会话，已 gitignore，禁止提交/外泄。
+
+## 七、回滚
+- 代码回滚：保留服务器 /home/ubuntu/learn-workbench 原文件备份（如需要可 scp 覆盖回旧版后 docker compose up -d --build）
+- 数据库：update_job_hosts 幂等；job_postings 按 (source, source_job_id) upsert，可 DELETE FROM job_postings WHERE source IN ('iguopin','cdpta-recruit')
