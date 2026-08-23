@@ -18,8 +18,9 @@
  * 依赖：playwright-core（npm）、pg（npm）。容器内由 web 镜像安装；本地测试见 .local/pw-test。
  */
 import { createRequire } from "node:module";
-import { createHash } from "node:crypto";
 import { parseSalary, parsePublished, stripHtml, contentHash } from "./lib/normalize.js";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 const require = createRequire(import.meta.url);
 
 let chromium = null;
@@ -36,6 +37,7 @@ if (!chromium) {
   process.exit(1);
 }
 const { Pool } = require("pg");
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 const DEFAULT_KEYWORDS = ["前端工程师", "网络安全", "数据分析"];
@@ -298,6 +300,16 @@ function chromiumPath() {
   return candidates.find((p) => fsmod.existsSync(p)) || null;
 }
 
+// ---------- 登录态 / 代理 ----------
+function resolveStorageState(explicit) {
+  const fsmod = require("node:fs");
+  const cands = [];
+  if (explicit) cands.push(explicit);
+  if (process.env.JOBS_STORAGE_STATE) cands.push(process.env.JOBS_STORAGE_STATE);
+  cands.push(path.join(REPO_ROOT, "config", "job-hosts", "storageState.json"));
+  return cands.find((p) => p && fsmod.existsSync(p)) || null;
+}
+
 // ---------- 主流程 ----------
 async function main() {
   const args = process.argv.slice(2);
@@ -306,6 +318,10 @@ async function main() {
   const LIMIT = Number(flag("--limit", 60));
   const TIMEOUT_MIN = Number(flag("--timeout-min", 25));
   const DRY = has("--dry-run");
+  const PROXY = flag("--proxy", "") || process.env.JOBS_PROXY || "";
+  const storageStateFile = resolveStorageState(flag("--storage-state", ""));
+  if (storageStateFile) console.log("[info] 复用登录态 Cookie：%s", storageStateFile);
+  if (PROXY) console.log("[info] 使用代理：%s", PROXY);
 
   const started = Date.now();
   const deadline = Date.now() + TIMEOUT_MIN * 60000;
@@ -333,9 +349,13 @@ async function main() {
     if (!chrome) throw new Error("未找到 Chromium 可执行文件（设置 CHROMIUM_PATH）");
     const browser = await chromium.launch({
       executablePath: chrome, headless: true,
+      proxy: PROXY ? { server: PROXY } : undefined,
       args: ["--disable-blink-features=AutomationControlled", "--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
     });
-    const ctx = await browser.newContext({ userAgent: UA, locale: "zh-CN", viewport: { width: 1440, height: 1600 } });
+    const ctx = await browser.newContext({
+      userAgent: UA, locale: "zh-CN", viewport: { width: 1440, height: 1600 },
+      storageState: storageStateFile || undefined,
+    });
     await ctx.addInitScript(() => {
       Object.defineProperty(navigator, "webdriver", { get: () => undefined });
       try { window.chrome = window.chrome || { runtime: {} }; } catch {}

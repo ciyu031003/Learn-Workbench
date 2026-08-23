@@ -423,6 +423,12 @@ export const experimentalJobSources: JobSource[] = ["boss"];
 
 export const defaultCrawlerPlatforms: JobSource[] = ["lagou", "liepin", "zhilian", "job51"];
 
+/** 招花招聘 · 支持的城市（与 scripts/jobs_browser.mjs 的 CITY_MAP 一致，用于前端城市筛选常驻显示） */
+export const SUPPORTED_CITIES = [
+  "北京", "上海", "广州", "深圳", "杭州", "成都",
+  "西安", "乌鲁木齐", "南京", "武汉", "苏州",
+];
+
 export const jobPostingSchema = z.object({
   id: z.number(),
   source: z.string(),

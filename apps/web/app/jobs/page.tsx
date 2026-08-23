@@ -15,6 +15,7 @@ import {
   formatRelativeTime,
   jobCategoryLabels,
   jobSourceLabel,
+  SUPPORTED_CITIES,
   todayISO,
 } from "@learn-workbench/shared";
 import { Badge } from "@/components/ui/badge";
@@ -169,7 +170,7 @@ export default function JobsPage() {
   const [group, setGroup] = useState<GroupId>("all");
   const [sub, setSub] = useState<"all" | "gongkao" | "gongbian">("all");
   const [sort, setSort] = useState<"new" | "salary" | "deadline">("new");
-  const [cities, setCities] = useState<string[]>([]);
+  const [cities, setCities] = useState<string[]>(SUPPORTED_CITIES);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);

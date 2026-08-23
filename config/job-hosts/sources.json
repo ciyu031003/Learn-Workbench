@@ -1,8 +1,8 @@
 {
   "meta": {
-    "version": 1,
-    "generated_at": "2026-08-18T00:00:00+08:00",
-    "changelog": "v1：招花 2.0 首发——考公考编 + 央国企官方信息源注册表",
+    "version": 2,
+    "generated_at": "2026-08-23T00:00:00+08:00",
+    "changelog": "v2：新增 四川省人社厅人事考试专栏（成都考公考编核心源，2026-08-23）",
     "categories": [
       {
         "id": "internet",
@@ -193,11 +193,11 @@
       "id": "iguopin",
       "category": "yangqi",
       "channel": "job",
-      "name": "国聘网 · 央企国企职位",
+      "name": "国聘网 · 央企国企职位（成都）",
       "engine": "browser",
       "base_url": "https://www.iguopin.com",
       "list": {
-        "url": "https://www.iguopin.com/search?keyword=校招&type=1",
+        "url": "https://www.iguopin.com/job?channel=social",
         "pagination": {
           "type": "none"
         },
@@ -207,7 +207,25 @@
         "date_selector": "span, .time",
         "url_prefix": "https://www.iguopin.com",
         "date_prefix": "",
-        "date_suffix": ""
+        "date_suffix": "",
+        "api": {
+          "mode": "iguopin-recom",
+          "page_url": "https://www.iguopin.com/job?channel=social",
+          "district_default": "成都",
+          "districts": {
+            "成都": "000000.510000.510100",
+            "北京": "000000.110000.110100",
+            "上海": "000000.310000.310100",
+            "广州": "000000.440000.440100",
+            "深圳": "000000.440000.440300",
+            "杭州": "000000.330000.330100",
+            "西安": "000000.610000.610100",
+            "南京": "000000.320000.320100",
+            "武汉": "000000.420000.420100",
+            "苏州": "000000.320000.320500",
+            "乌鲁木齐": "000000.650000.650100"
+          }
+        }
       },
       "detail": {
         "body_selector": ".job-detail, [class*='detail']",
@@ -219,7 +237,7 @@
       "max_pages": 1,
       "risk": "L2",
       "enabled": true,
-      "note": "7 部委联合发起，央企国企核心平台，SPA 需浏览器"
+      "note": "7 部委联合发起，央企国企核心平台；走 recom-job 接口注入成都 district（2026-08 实测）"
     },
     {
       "id": "guokao",
@@ -252,6 +270,101 @@
       "risk": "L3",
       "enabled": false,
       "note": "季节性开放（每年 10 月 /kl2027），强风控，默认关闭，周更时自动校正年份"
+    },
+    {
+      "id": "scpta-recruit",
+      "category": "gongkao",
+      "channel": "announcement",
+      "name": "四川省人社厅 · 人事考试专栏（公务员/事业单位公告）",
+      "engine": "browser",
+      "base_url": "https://www.scpta.com.cn",
+      "list": {
+        "url": "https://www.scpta.com.cn/front/News/List/56?o=117&t=0&a=1",
+        "pagination": { "type": "none" },
+        "item_selector": "li",
+        "title_selector": "a",
+        "url_selector": "a[href]",
+        "date_selector": "span",
+        "url_prefix": "https://www.scpta.com.cn",
+        "date_prefix": "",
+        "date_suffix": ""
+      },
+      "title_filter": "公告|招聘|录用|招考|报考|报名|遴选|考调",
+      "detail": {
+        "body_selector": ".content, .TRS_Editor, .article",
+        "strip_tags": true
+      },
+      "deadline_parse": true,
+      "rate_limit_ms": 5000,
+      "max_items_per_run": 25,
+      "max_pages": 1,
+      "risk": "L2",
+      "enabled": true,
+      "note": "四川省人事考试网人事考试专栏：省内各地公务员录用+事业单位公告；页面十六进制实体编码，需浏览器引擎解码（2026-08 新增，成都考公考编核心源）"
+    },
+    {
+      "id": "cdpta-recruit",
+      "category": "gongbian",
+      "channel": "announcement",
+      "name": "成都人事考试网 · 事业单位考试公告",
+      "engine": "browser",
+      "base_url": "https://cdpta.cdrsigc.com",
+      "list": {
+        "url": "https://cdpta.cdrsigc.com/netpage/ortherlist_all.do?pageSize=30&ifall=1&id=989",
+        "pagination": { "type": "none" },
+        "item_selector": "ul li:has(> span)",
+        "title_selector": "a",
+        "url_selector": "a[href]",
+        "date_selector": "span",
+        "url_prefix": "",
+        "date_prefix": "",
+        "date_suffix": "",
+        "city": "成都"
+      },
+      "detail": {
+        "body_selector": ".content, .TRS_Editor, .article, #zoom",
+        "strip_tags": true
+      },
+      "deadline_parse": true,
+      "rate_limit_ms": 2000,
+      "max_items_per_run": 30,
+      "max_pages": 1,
+      "risk": "L2",
+      "enabled": true,
+      "note": "成都市人社局·成都人事考试网 事业单位考试公告（考试招聘/考核招聘/公开选调），2026-08 实测可达；站点 WAF 偶发 403",
+      "title_filter": "招聘|公告|公示|拟聘|考核|选调|遴选|录用"
+    },
+    {
+      "id": "cdhrss-sydw",
+      "category": "gongbian",
+      "channel": "announcement",
+      "name": "成都市人社局 · 事业单位招聘",
+      "engine": "browser",
+      "base_url": "https://cdhrss.chengdu.gov.cn",
+      "list": {
+        "url": "https://cdhrss.chengdu.gov.cn/cdrsj/c109905/",
+        "pagination": { "type": "none" },
+        "item_selector": "ul li",
+        "title_selector": "a",
+        "url_selector": "a[href]",
+        "date_selector": "span",
+        "url_prefix": "https://cdhrss.chengdu.gov.cn",
+        "date_prefix": "",
+        "date_suffix": "",
+        "city": "成都"
+      },
+      "detail": {
+        "body_selector": ".content, .TRS_Editor, .article",
+        "strip_tags": true
+      },
+      "deadline_parse": true,
+      "rate_limit_ms": 2500,
+      "max_items_per_run": 20,
+      "max_pages": 1,
+      "risk": "L2",
+      "enabled": false,
+      "note": "成都市人社局政务公开-事业单位招聘栏目；2026-08 实测站点 WAF 返回 403，默认关闭，服务器可达后再启用",
+      "title_filter": "招聘|公告|公示|拟聘|考核|选调|遴选|录用"
     }
   ]
 }

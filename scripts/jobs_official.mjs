@@ -15,6 +15,7 @@ import { fileURLToPath } from "node:url";
 const require = createRequire(import.meta.url);
 const { Pool } = require("pg");
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(__dirname, "..");
 
 import { parseHtml, queryAll, textContent, attr, cleanText } from "./lib/simple-dom.js";
 import { parseExamEvents, parseRecruitCount, findAttachmentLinks, parseCnDate } from "./lib/announcement.js";
@@ -342,7 +343,7 @@ async function crawlHttpSource(src, limit) {
       source_job_id: md5(it.url),
       title: it.title.slice(0, 200),
       company: (src.name || "").slice(0, 120),
-      city: "", district: "",
+      city: src.list?.city || "", district: src.list?.district || "",
       salary_min: null, salary_max: null, salary_text: "",
       experience: "", education: "",
       tags: [src.category === "yangqi" ? "央国企" : src.category === "gongbian" ? "事业编" : "考公", src.channel === "announcement" ? "公告" : "职位"],
@@ -463,7 +464,74 @@ async function fetchDetailWithBrowser(page, src, url) {
   }
 }
 
+async function crawlIguopinApi(page, src, limit) {
+  // 国聘网：拦截 recom-job 接口，注入城市 district，解析 JSON（比 DOM 稳）
+  const apiCfg = (src.list && src.list.api) || {};
+  const district = (apiCfg.districts || {})[apiCfg.district_default || "成都"] || "";
+  const pageUrl = apiCfg.page_url || (src.list && src.list.url) || "https://www.iguopin.com/job?channel=social";
+  const rows = [];
+  page.on("response", async (r) => {
+    try {
+      if (!r.url().includes("/api/jobs/v1/recom-job")) return;
+      const j = await r.json();
+      const list = (j && j.data && j.data.list) || [];
+      for (const it of list) {
+        const dlist = it.district_list || [];
+        const firstArea = String((dlist[0] && dlist[0].area_cn) || "");
+        const city = (firstArea.split("-")[0] || "").trim() || "成都";
+        const districtCn = firstArea.includes("-") ? firstArea.split("-").slice(1).join("-") : firstArea;
+        const isNeg = !!it.is_negotiable;
+        const wMin = it.min_wage != null ? Number(it.min_wage) : null;
+        const wMax = it.max_wage != null ? Number(it.max_wage) : null;
+        const row = {
+          source: "iguopin",
+          source_job_id: String(it.job_id || ""),
+          title: String(it.job_name || "").slice(0, 200),
+          company: String(it.company_name || "").slice(0, 120),
+          city: city || "成都", district: districtCn,
+          salary_min: wMin, salary_max: wMax,
+          salary_text: isNeg ? "面议" : (wMin != null && wMax != null ? `${wMin}-${wMax}${it.wage_unit_cn || ""}` : ""),
+          experience: it.experience_cn || "", education: it.education_cn || "",
+          tags: [it.nature_cn || "职位", it.recruitment_type_cn || "社招"].filter(Boolean),
+          category: src.category || "yangqi",
+          channel: src.channel === "announcement" ? "announcement" : "job",
+          description: "", requirements: "", company_info: "",
+          url: `https://www.iguopin.com/job/detail?id=${it.job_id}`,
+          logo_url: "",
+          deadline_at: null,
+          extra: {},
+          published_at: it.start_time ? new Date(String(it.start_time).replace(/-/g, "/")).toISOString() : new Date().toISOString(),
+        };
+        row.content_hash = contentHash(row);
+        rows.push(row);
+      }
+    } catch {}
+  });
+  await page.route("**/api/jobs/v1/recom-job", async (route) => {
+    try {
+      const req = route.request();
+      let body = {};
+      try { body = req.postDataJSON() || {}; } catch {}
+      if (district) {
+        body.search = body.search || {};
+        body.search.district = [district];
+      }
+      await route.continue({ postData: JSON.stringify(body) });
+    } catch {}
+  }).catch(() => {});
+  await page.goto(pageUrl, { waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => {});
+  await page.waitForTimeout(9000);
+  await page.evaluate(async () => { for (let i = 0; i < 10; i++) { window.scrollBy(0, 600); await new Promise((r) => setTimeout(r, 200)); } }).catch(() => {});
+  await page.waitForTimeout(2000);
+  const out = rows.slice(0, limit || 30);
+  return { rows: out, eventsByKey: new Map() };
+}
+
 async function crawlBrowserSource(page, src, limit) {
+  const apiCfg = src.list && src.list.api;
+  if (apiCfg && apiCfg.mode === "iguopin-recom") {
+    return await crawlIguopinApi(page, src, limit);
+  }
   const items = await scrapeListWithBrowser(page, src);
   const rows = [];
   const eventsByKey = new Map();
@@ -483,7 +551,7 @@ async function crawlBrowserSource(page, src, limit) {
       source_job_id: md5(it.url),
       title: it.title.slice(0, 200),
       company: (src.name || "").slice(0, 120),
-      city: "", district: "",
+      city: src.list?.city || "", district: src.list?.district || "",
       salary_min: null, salary_max: null, salary_text: "",
       experience: "", education: "",
       tags: [src.category === "yangqi" ? "央国企" : src.category === "gongbian" ? "事业编" : "考公", src.channel === "announcement" ? "公告" : "职位"],
@@ -597,6 +665,16 @@ async function matchSubscriptions(newRows) {
   return count;
 }
 
+// ---------- 登录态 / 代理 ----------
+function resolveStorageState(explicit) {
+  const fsmod = require("node:fs");
+  const cands = [];
+  if (explicit) cands.push(explicit);
+  if (process.env.JOBS_STORAGE_STATE) cands.push(process.env.JOBS_STORAGE_STATE);
+  cands.push(path.join(REPO_ROOT, "config", "job-hosts", "storageState.json"));
+  return cands.find((p) => p && fsmod.existsSync(p)) || null;
+}
+
 // ---------- 主流程 ----------
 async function main() {
   const args = process.argv.slice(2);
@@ -606,6 +684,10 @@ async function main() {
   const TIMEOUT_MIN = Number(flag("--timeout-min", 25));
   const DRY = has("--dry-run");
   const onlyIds = flag("--sources", "").split(",").map((s) => s.trim()).filter(Boolean);
+  const PROXY = flag("--proxy", "") || process.env.JOBS_PROXY || "";
+  const storageStateFile = resolveStorageState(flag("--storage-state", ""));
+  if (storageStateFile) console.log("[info] 复用登录态 Cookie：%s", storageStateFile);
+  if (PROXY) console.log("[info] 使用代理：%s", PROXY);
 
   const started = Date.now();
   const deadline = Date.now() + TIMEOUT_MIN * 60000;
@@ -665,9 +747,13 @@ async function main() {
         } else {
           const browser = await chromium.launch({
             executablePath: chrome, headless: true,
+            proxy: PROXY ? { server: PROXY } : undefined,
             args: ["--disable-blink-features=AutomationControlled", "--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
           });
-          const ctx = await browser.newContext({ userAgent: UA, locale: "zh-CN", viewport: { width: 1440, height: 1600 } });
+          const ctx = await browser.newContext({
+            userAgent: UA, locale: "zh-CN", viewport: { width: 1440, height: 1600 },
+            storageState: storageStateFile || undefined,
+          });
           await ctx.addInitScript(() => {
             Object.defineProperty(navigator, "webdriver", { get: () => undefined });
             try { window.chrome = window.chrome || { runtime: {} }; } catch {}

@@ -64,11 +64,16 @@ services:
       PGUSER: lwb
       PGPASSWORD: ${PG_PASSWORD:?PG_PASSWORD 未设置}
       TZ: Asia/Shanghai
+      # 招花爬虫：住宅/干净代理 + 登录态 Cookie（storageState 放 config/job-hosts/storageState.json）
+      JOBS_PROXY: ${JOBS_PROXY:-}
+      JOBS_STORAGE_STATE: /app/config/job-hosts/storageState.json
     ports:
       - "${APP_PORT:-3001}:3001"
     volumes:
       # 每日 Bing 壁纸持久化（爬虫写入 + 页面读取）
       - bing:/app/assets/backgrounds/bing
+      # 信息源注册表 + 登录态 Cookie（宿主机直接改，无需重建镜像）
+      - ./config/job-hosts:/app/config/job-hosts:ro
     networks: [lwb]
 
 volumes:
