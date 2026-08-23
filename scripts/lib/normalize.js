@@ -1,7 +1,7 @@
 /**
  * 招花爬虫 · 归一化工具（P1：三套重复实现收敛为单份，Node 双引擎共用）
  * 覆盖：HTML 清洗 / 薪资解析 / 发布时间解析 / 去重 hash。
- * Python 版 fetch_jobs.py 暂保留，后续以本模块输出为基准对齐（见 docs）。
+ * Python 版 fetch_jobs.py 已废弃（见其头部说明），不再对齐。
  */
 import { createHash } from "node:crypto";
 

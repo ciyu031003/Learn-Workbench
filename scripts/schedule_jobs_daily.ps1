@@ -1,4 +1,6 @@
 # 注册 Windows 任务计划：每天自动抓取招聘信息（招花）
+# ⚠️ 2026-08-23 起：Python 爬虫 fetch_jobs.py 已废弃，生产环境由服务器 Node 爬虫负责（Docker/crontab）。
+# 本脚本仅适用于本地开发库（需本地 PostgreSQL + Python 环境），不建议继续使用。
 # 用法：以管理员身份运行  powershell -ExecutionPolicy Bypass -File scripts\schedule_jobs_daily.ps1
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot

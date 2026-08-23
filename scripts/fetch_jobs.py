@@ -1,4 +1,9 @@
-#!/usr/bin/env python3
+# ⚠️ DEPRECATED（2026-08-23 起）
+# 本 Python 爬虫已被 Node 双引擎取代（scripts/jobs_browser.mjs + scripts/jobs_official.mjs）：
+#   - 生产服务器（Docker）使用 Node 引擎，支持代理(JOBS_PROXY)/登录态(storageState)/Playwright 过 WAF
+#   - 本文件仅保留用于本地 --mock 演示与历史参考，不再维护新平台/反爬适配
+#   - 计划在确认无本地计划任务依赖后删除（见 docs/JOBS_ANTI_CRAWL.md）
+# 本地演示仍可用：python scripts/fetch_jobs.py --mock#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 招花 · 招聘信息爬虫（ICT 学习工作台）—— 调优版

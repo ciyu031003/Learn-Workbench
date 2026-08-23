@@ -19,6 +19,7 @@
  */
 import { createRequire } from "node:module";
 import { parseSalary, parsePublished, stripHtml, contentHash } from "./lib/normalize.js";
+import { CITY_MAP } from "./lib/cities.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 const require = createRequire(import.meta.url);
@@ -43,19 +44,6 @@ const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 const DEFAULT_KEYWORDS = ["前端工程师", "网络安全", "数据分析"];
 const DEFAULT_PLATFORMS = ["liepin", "zhilian", "job51"];
 
-const CITY_MAP = {
-  "北京": { zhilian: "530", job51: "010000" },
-  "上海": { zhilian: "538", job51: "020000" },
-  "广州": { zhilian: "653", job51: "030200" },
-  "深圳": { zhilian: "765", job51: "040000" },
-  "杭州": { zhilian: "619", job51: "080200" },
-  "成都": { zhilian: "801", job51: "090200" },
-  "西安": { zhilian: "715", job51: "200200" },
-  "乌鲁木齐": { zhilian: "749", job51: "330100" },
-  "南京": { zhilian: "631", job51: "070200" },
-  "武汉": { zhilian: "679", job51: "180200" },
-  "苏州": { zhilian: "653", job51: "050200" },
-};
 
 // ---------- 工具 ----------
 const enc = encodeURIComponent;
