@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getRoadmapWithProgress } from "@/lib/api";
 import { currentUserId } from "@/lib/session";
 import { getAnonId } from "@/lib/anon";
+import { logger } from "@/lib/logger";
 
 export async function GET(req: Request) {
   try {
@@ -12,7 +13,7 @@ export async function GET(req: Request) {
     const phases = await getRoadmapWithProgress(uid, career, anonId);
     return NextResponse.json({ phases });
   } catch (e) {
-    console.error("roadmap api error", e);
+    logger.error("roadmap api error", e);
     return NextResponse.json({ error: "数据库暂不可用" }, { status: 500 });
   }
 }

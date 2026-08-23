@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { currentUserId } from "@/lib/session";
 import { addApplication, applicationStats, listApplications } from "@/lib/job-applications";
 import { jobApplicationStageSchema } from "@learn-workbench/shared";
+import { logger } from "@/lib/logger";
 
 export async function GET() {
   const userId = await currentUserId();
@@ -13,7 +14,7 @@ export async function GET() {
     ]);
     return NextResponse.json({ applications, stats });
   } catch (e) {
-    console.error("applications list error", e);
+    logger.error("applications list error", e);
     return NextResponse.json({ error: "求职列表加载失败" }, { status: 500 });
   }
 }
@@ -33,7 +34,7 @@ export async function POST(req: Request) {
     const app = await addApplication(userId, jobId, stage.data);
     return NextResponse.json({ application: app }, { status: 201 });
   } catch (e) {
-    console.error("applications add error", e);
+    logger.error("applications add error", e);
     return NextResponse.json({ error: "加入求职失败" }, { status: 500 });
   }
 }

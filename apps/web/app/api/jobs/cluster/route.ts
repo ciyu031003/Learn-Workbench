@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { currentUserId } from "@/lib/session";
 import { runJobClustering } from "@/lib/job-clusters";
+import { logger } from "@/lib/logger";
 
 export async function POST() {
   const userId = await currentUserId();
@@ -9,7 +10,7 @@ export async function POST() {
     const result = await runJobClustering(7);
     return NextResponse.json({ ok: true, ...result });
   } catch (e) {
-    console.error("job clustering error", e);
+    logger.error("job clustering error", e);
     return NextResponse.json({ error: "去重聚类失败" }, { status: 500 });
   }
 }

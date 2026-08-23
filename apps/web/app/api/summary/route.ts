@@ -3,6 +3,7 @@ import { pgPool } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
 import { getAnonId, anonFilterSql } from "@/lib/anon";
 import { todayISO } from "@learn-workbench/shared";
+import { logger } from "@/lib/logger";
 
 interface TopicRow { id: number; phase_id: number; }
 interface DoneRow { topic_id: number; }
@@ -150,7 +151,7 @@ export async function GET() {
       logsThisWeek: Number(logsResult.rows[0]?.n ?? 0),
     });
   } catch (e) {
-    console.error("summary api error", e);
+    logger.error("summary api error", e);
     return NextResponse.json({ error: "数据库暂不可用" }, { status: 500 });
   } finally {
     client.release();

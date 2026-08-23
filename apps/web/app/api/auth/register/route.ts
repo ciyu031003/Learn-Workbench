@@ -4,6 +4,7 @@ import { pgPool } from "@/lib/db";
 import { hashPassword } from "@/lib/password";
 import { createSession, sessionCookieName } from "@/lib/session";
 import { parseBody } from "@/lib/http";
+import { logger } from "@/lib/logger";
 
 const USERNAME_RE = /^[a-zA-Z0-9_.-]{3,32}$/;
 const COOKIE_SECURE = process.env.NODE_ENV === "production";
@@ -64,7 +65,7 @@ export async function POST(req: Request) {
     return res;
   } catch (e) {
     await client.query("ROLLBACK").catch(() => {});
-    console.error("register failed:", e);
+    logger.error("register failed:", e);
     return NextResponse.json({ error: "注册失败，请稍后重试" }, { status: 500 });
   } finally {
     client.release();

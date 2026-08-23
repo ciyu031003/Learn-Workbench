@@ -1,4 +1,5 @@
 import type { PoolClient } from "pg";
+import { logger } from "@/lib/logger";
 
 // ============================================================================
 // 增量同步核心（方案 §37-§40）
@@ -278,7 +279,7 @@ export async function applyChanges(client: PoolClient, uid: string, changes: Syn
       const ok = await fn(client, uid, c, atOf(c));
       if (ok) applied++;
     } catch (e) {
-      console.error("[sync] apply failed", c.entityType, c.entityId, e);
+      logger.error("[sync] apply failed", c.entityType, c.entityId, e);
     }
   }
   return applied;

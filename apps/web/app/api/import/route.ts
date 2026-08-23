@@ -4,6 +4,7 @@ import { currentUserId } from "@/lib/session";
 import { getAnonId, anonFilterSql } from "@/lib/anon";
 import { parseBody } from "@/lib/http";
 import { importFileSchema } from "@learn-workbench/shared";
+import { logger } from "@/lib/logger";
 
 export async function POST(req: Request) {
   const parsed = await parseBody(req, 1_000_000);
@@ -91,7 +92,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   } catch (e) {
     await client.query("ROLLBACK");
-    console.error("import error", e);
+    logger.error("import error", e);
     return NextResponse.json({ error: "导入失败" }, { status: 500 });
   } finally {
     client.release();

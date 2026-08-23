@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { currentUserId } from "@/lib/session";
 import { backfillUserSkillsFromResume, listUserSkills, setUserSkill, removeUserSkill } from "@/lib/skills";
+import { logger } from "@/lib/logger";
 
 export async function GET() {
   const userId = await currentUserId();
@@ -9,7 +10,7 @@ export async function GET() {
     const skills = await listUserSkills(userId);
     return NextResponse.json({ skills });
   } catch (e) {
-    console.error("profile skills error", e);
+    logger.error("profile skills error", e);
     return NextResponse.json({ error: "技能画像加载失败" }, { status: 500 });
   }
 }
@@ -32,7 +33,7 @@ export async function POST(req: Request) {
     await setUserSkill(userId, skillId, level);
     return NextResponse.json({ ok: true });
   } catch (e) {
-    console.error("profile skills set error", e);
+    logger.error("profile skills set error", e);
     return NextResponse.json({ error: "技能更新失败" }, { status: 500 });
   }
 }
@@ -49,7 +50,7 @@ export async function DELETE(req: Request) {
     await removeUserSkill(userId, skillId);
     return NextResponse.json({ ok: true });
   } catch (e) {
-    console.error("profile skills delete error", e);
+    logger.error("profile skills delete error", e);
     return NextResponse.json({ error: "技能移除失败" }, { status: 500 });
   }
 }

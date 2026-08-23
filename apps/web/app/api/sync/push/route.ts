@@ -3,6 +3,7 @@ import { pgPool } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
 import { applyChanges, recordSyncChanges, upsertSyncDevice, type SyncChange } from "@/lib/sync-service";
 import { parseBody } from "@/lib/http";
+import { logger } from "@/lib/logger";
 
 const DEVICE_ID_RE = /^[a-zA-Z0-9_-]{1,64}$/;
 
@@ -31,7 +32,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, applied, serverTime: rows[0].now });
   } catch (e) {
     await client.query("ROLLBACK");
-    console.error("sync push error", e);
+    logger.error("sync push error", e);
     return NextResponse.json({ error: "同步失败" }, { status: 500 });
   } finally {
     client.release();

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { currentUserId } from "@/lib/session";
 import { enrollGapsToTasks } from "@/lib/skills";
+import { logger } from "@/lib/logger";
 
 export async function POST(req: Request) {
   const userId = await currentUserId();
@@ -19,7 +20,7 @@ export async function POST(req: Request) {
     );
     return NextResponse.json({ ok: true, created });
   } catch (e) {
-    console.error("gaps enroll error", e);
+    logger.error("gaps enroll error", e);
     return NextResponse.json({ error: "加入学习路线失败" }, { status: 500 });
   }
 }

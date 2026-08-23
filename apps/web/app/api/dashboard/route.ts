@@ -3,6 +3,7 @@ import { currentUserId } from "@/lib/session";
 import { computeReadiness } from "@/lib/readiness";
 import { getAnonId, anonFilterSql } from "@/lib/anon";
 import { pgPool } from "@/lib/db";
+import { logger } from "@/lib/logger";
 
 interface TopicRow { id: number; phase_id: number; }
 interface DoneRow { topic_id: number; }
@@ -157,7 +158,7 @@ export async function GET() {
     const readiness = await computeReadiness(uid, anonId);
     return NextResponse.json({ summary, readiness, jobsTotal: Number(jobsResult.rows[0]?.n ?? 0) });
   } catch (e) {
-    console.error("dashboard api error", e);
+    logger.error("dashboard api error", e);
     return NextResponse.json({ error: "数据库暂不可用" }, { status: 500 });
   } finally {
     client?.release();

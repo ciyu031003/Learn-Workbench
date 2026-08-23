@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { pgPool } from "@/lib/db";
 import type { SkillOption } from "@learn-workbench/shared";
+import { logger } from "@/lib/logger";
 
 export async function GET() {
   try {
@@ -13,7 +14,7 @@ export async function GET() {
     }));
     return NextResponse.json({ skills });
   } catch (e) {
-    console.error("jobs skills error", e);
+    logger.error("jobs skills error", e);
     return NextResponse.json({ error: "技能库加载失败" }, { status: 500 });
   }
 }

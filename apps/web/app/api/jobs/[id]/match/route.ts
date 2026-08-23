@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { currentUserId } from "@/lib/session";
 import { computeJobMatch } from "@/lib/skills";
+import { logger } from "@/lib/logger";
 
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
@@ -13,7 +14,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     const match = await computeJobMatch(userId, num);
     return NextResponse.json({ match });
   } catch (e) {
-    console.error("job match error", e);
+    logger.error("job match error", e);
     return NextResponse.json({ error: "匹配度计算失败" }, { status: 500 });
   }
 }

@@ -115,7 +115,7 @@ npx expo run:android --variant release   # 或 EAS Build
 - schema.sql 与迁移的漂移属既有问题（迁移新增表未回写 schema.sql），P2 建议以「schema.sql = 全量基线 + 迁移仅增量」为原则做一次对账。
 
 ### 剩余 P1 / P2
-- **P1 未完**：`lib/domains/*` 领域分包（jobs.ts 496 行拆分）、`packages/config` 业务规则配置化（market 分类/权重/薪资分桶）、统一日志（pino + request-id）、mobile 同步幂等键、Python 爬虫 `fetch_jobs.py` 归一化与 normalize.js 对齐。
+- **P1 未完**：`lib/domains/*` 领域分包（jobs.ts 496 行拆分）、`packages/config` 业务规则配置化（market 分类/权重/薪资分桶）、统一日志（pino + request-id）、mobile 同步幂等键；`fetch_jobs.py` 已于 2026-08-23 标记废弃（Node 双引擎取代，见 docs/JOBS_ANTI_CRAWL.md）。
 - **P2**：爬虫服务化、多实例部署（缓存 Redis 化）、schema.sql 全量对账、迁移 012 补齐说明、Playwright E2E。
 
 ---
@@ -143,3 +143,18 @@ npx expo run:android --variant release   # 或 EAS Build
 - 根因：`learn.yuanabd.cn` **未完成 ICP 备案**（对照：`travel-notes.yuanabd.cn` 同样被 SNI 重置，疑似整域备案状态问题）
 - 处理：请在腾讯云控制台「备案」提交 `learn.yuanabd.cn`（或确认 yuanabd.cn 备案状态）；备案通过后 HTTPS 自动可用（证书/nginx 已就绪）
 - 说明：公网 3001 端口当前未放行（安全组仅剩 80/443），移动端请直接使用 `https://learn.yuanabd.cn`（备案通过后生效）
+
+---
+
+## 六、P1-B 阶段落地记录（2026-08-23）
+
+| # | 事项 | 状态 |
+|---|---|---|
+| B1 | 城市/平台编码单源化：`scripts/lib/cities.js`（SUPPORTED_CITIES + CITY_MAP），`jobs_browser.mjs` 引用，`cities.test.mjs` 守护一致性；shared 注释联动 | ✅ |
+| B2 | Python 爬虫 `fetch_jobs.py` 退役评估：确认生产服务器不使用（Node 双引擎取代），标记 DEPRECATED + README/调度脚本/文档更新；删除延后至确认无本地计划任务依赖 | ✅ |
+| B3 | 领域分包：`lib/jobs.ts`(496行) → `lib/domains/jobs/{queries,config,sources,subscriptions,calendar}.ts`；`lib/market.ts` → `lib/domains/market/{types,analysis}.ts`；均保留 re-export 兼容，路由零改动 | ✅ |
+| B4 | 统一日志：`lib/logger.ts`（pino，生产 JSON / 开发 pino-pretty，console 兼容门面），替换 17 文件 21 处 `console.error` → `logger.error` | ✅ |
+| B5 | mobile 同步幂等键：**延后**。LWW + 事务 push 已使重放基本幂等（同 updatedAt 不覆盖），剩余收益有限且需 DB 迁移；设计要点：`sync_changes` 增加 (user_id, device_id, entity_type, entity_id, version, created_at) 唯一约束 + ON CONFLICT DO NOTHING，或客户端 changeId——放入 P2 | ⏳ P2 |
+
+> 验证：typecheck 6 包 / 测试 web 168+mobile 21 / lint 0 错误 / web build 通过。
+> 部署：以上为本地提交，服务器仍为 A 阶段状态；如需同步 B 阶段到服务器（Docker 重建 + 迁移无新增），确认后执行。

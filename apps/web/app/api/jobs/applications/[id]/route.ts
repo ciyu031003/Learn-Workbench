@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { currentUserId } from "@/lib/session";
 import { deleteApplication, updateApplicationStage } from "@/lib/job-applications";
 import { jobApplicationStageSchema } from "@learn-workbench/shared";
+import { logger } from "@/lib/logger";
 
 export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
@@ -21,7 +22,7 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }
     if (!app) return NextResponse.json({ error: "求职记录不存在" }, { status: 404 });
     return NextResponse.json({ application: app });
   } catch (e) {
-    console.error("applications update error", e);
+    logger.error("applications update error", e);
     return NextResponse.json({ error: "阶段更新失败" }, { status: 500 });
   }
 }
@@ -39,7 +40,7 @@ export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string 
     if (!ok) return NextResponse.json({ error: "求职记录不存在" }, { status: 404 });
     return NextResponse.json({ ok: true });
   } catch (e) {
-    console.error("applications delete error", e);
+    logger.error("applications delete error", e);
     return NextResponse.json({ error: "删除失败" }, { status: 500 });
   }
 }
