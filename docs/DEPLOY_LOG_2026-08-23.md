@@ -68,3 +68,22 @@
 ## 七、回滚
 - 代码回滚：保留服务器 /home/ubuntu/learn-workbench 原文件备份（如需要可 scp 覆盖回旧版后 docker compose up -d --build）
 - 数据库：update_job_hosts 幂等；job_postings 按 (source, source_job_id) upsert，可 DELETE FROM job_postings WHERE source IN ('iguopin','cdpta-recruit')
+
+## 八、B 阶段 UI 修复部署（2026-08-23 23:20 前后）
+> 对应 commit：`b4a580e`(UI 定位修复)、`86ee7cf`(去 Google Fonts)。用户手动推送 git，本机领先 origin 5 个提交。
+
+### 改动
+1. `apps/web/app/globals.css`
+   - `.glass.absolute / .glass.fixed / .glass.sticky` 组合选择器恢复定位语义：修复职业/学习导航下拉顶部被裁（unlayered `.glass{position:relative}` 覆盖 Tailwind utilities）。
+   - `.page-enter` 动画 `fill-mode: both → backwards`：消除结束后残留 transform，避免成为 `position:fixed` 的非视口包含块。
+   - 移除 `fonts.googleapis.com` 的 `@import`，`--font-sans` 改为 `ui-sans-serif/system-ui + 中文字体栈`。
+2. `apps/web/components/ui/modal.tsx`：`GlassModal` 改用 `createPortal` 挂到 `document.body`。
+
+### 验证（Playwright 无头，服务器 http://106.55.2.197 实测）
+- 导航下拉：`position:absolute; top:36px; box y=57.5`（修复前 y=-73.5 被裁），在 header(64px) 下方展开。
+- 添加弹窗：`box=(520.5,294.5,448x322)`，viewport 1489×911 → 水平/垂直精确居中；overlay 铺满视口；`htmlTransform:none`。
+- 字体 CSP 违规已消除（构建产物无 fonts.googleapis，console 不再报 fonts 相关错误）。
+
+### 已知遗留（另查，非本次引入）
+- `/dashboard` React #418 水合不匹配（预存，疑与 render 内 Date.now() 相关）。
+- `/focus` 一个 404 资源加载失败。
