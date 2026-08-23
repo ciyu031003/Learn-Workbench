@@ -1,4 +1,7 @@
+"use client";
+
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -16,7 +19,9 @@ export function GlassModal({
   className?: string;
 }) {
   if (!open) return null;
-  return (
+  // 用 portal 挂到 body：避免被 `.page-enter` 等带 transform 的祖先
+  // 改变 `position: fixed` 的包含块，导致弹窗无法相对视口居中。
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* 朦胧遮罩：半透明 + 轻微模糊，保留玻璃朦胧感 */}
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} aria-hidden />
@@ -40,6 +45,7 @@ export function GlassModal({
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

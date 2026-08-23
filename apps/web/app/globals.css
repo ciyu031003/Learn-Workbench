@@ -161,7 +161,7 @@ html.dark .glass::before {
   }
 }
 .page-enter {
-  animation: page-in 0.4s ease both;
+  animation: page-in 0.4s ease backwards;
 }
 @media (prefers-reduced-motion: reduce) {
   .page-enter {
@@ -350,3 +350,13 @@ html.dark .glass::before {
     animation: none;
   }
 }
+
+/* ============ 定位工具类与 .glass 的层叠修正 ============
+   .glass 自带 `position: relative`（unlayered CSS 优先级高于 Tailwind 的
+   @layer utilities），会覆盖 absolute/fixed/sticky，导致导航下拉、抽屉、
+   悬浮面板定位失效（顶部被裁、整体偏移）。此处按“组合选择器”恢复定位语义：
+   —— .glass 单独使用时仍为 relative（供 ::before/::after 定位）；
+   —— .glass 与定位工具类同时使用时，工具类生效。 */
+.glass.absolute { position: absolute; }
+.glass.fixed { position: fixed; }
+.glass.sticky { position: sticky; }
