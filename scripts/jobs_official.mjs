@@ -814,6 +814,8 @@ async function main() {
     const existing = await existingKeys(sourcesList);
     const newRows = rows.filter((r) => !existing.has(r.source + "|" + r.source_job_id));
     await upsertRows(rows);
+    // 清掉市场分析缓存（market_stats 60s TTL，避免爬虫后读到旧数据）
+    await pool.query("DELETE FROM market_stats WHERE key = 'full'").catch(() => {});
     const examInserted = await insertExamEvents(rows, allEvents);
     const notifInserted = await matchSubscriptions(newRows);
     console.log("[ok] 写库 %d 行，新增 %d，考试事件 %d，订阅通知 %d",

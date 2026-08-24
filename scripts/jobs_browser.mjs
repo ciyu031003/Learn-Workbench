@@ -399,6 +399,8 @@ async function main() {
       const existing = await existingKeys(sources);
       const fresh = rows.filter((r) => !existing.has(r.source + "|" + r.source_job_id)).length;
       await upsertRows(rows);
+      // 清掉市场分析缓存（market_stats 60s TTL，避免爬虫后读到旧数据）
+      await pool.query("DELETE FROM market_stats WHERE key = 'full'").catch(() => {});
       const status = rows.length === 0 ? "partial" : "success";
       await finishRun(runId, status, platformResult, rows.length, fresh, errors.length ? errors.slice(0, 5).join("；") : null);
       console.log("[done] status=%s fetched=%d new=%d 用时=%ss platforms=%s",

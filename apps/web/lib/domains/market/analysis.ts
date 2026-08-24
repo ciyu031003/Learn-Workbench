@@ -220,3 +220,7 @@ export async function analyzeMarket(): Promise<MarketAnalysis> {
   return data;
 }
 
+/** 爬虫写入新数据后调用：清掉市场分析缓存（下次请求重算，避免读到旧数据） */
+export async function invalidateMarketCache(): Promise<void> {
+  await pgPool.query(`DELETE FROM market_stats WHERE key = $1`, [CACHE_KEY]).catch(() => {});
+}
