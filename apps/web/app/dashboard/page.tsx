@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { QuoteWidget } from "@/components/quote-widget";
+import { DashboardGapCard } from "@/components/skills/dashboard-gap-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import {
@@ -311,6 +312,9 @@ export default function DashboardPage() {
           <CardContent className="p-6 text-sm text-danger">{error}</CardContent>
         </Card>
       ) : null}
+
+      {/* 学习 × 招聘打通：能力缺口入口 */}
+      <DashboardGapCard />
 
       {/* 今日状态：饮水 / 精力 / 休息建议 */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

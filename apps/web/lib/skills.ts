@@ -1,5 +1,5 @@
 import { pgPool } from "@/lib/db";
-import type { JobMatchResult, SkillGapItem, UserSkillView } from "@learn-workbench/shared";
+import type { JobMatchResult, MarketGapItem, SkillGapItem, UserSkillView } from "@learn-workbench/shared";
 
 /* ================= 技能归一化 ================= */
 
@@ -214,9 +214,20 @@ export async function computeSkillGaps(
 /** 缺口一键加入学习路线：生成 daily_tasks */
 export async function enrollGapsToTasks(userId: string, gaps: { skill: string; topicId: number | null; hours: number }[]): Promise<number> {
   const today = new Date().toISOString().slice(0, 10);
+  // 批量取主题标题，任务标题用「学习技能：主题标题」（修复旧实现把 topicId 当标题的 bug）
+  const topicIds = gaps.map((g) => g.topicId).filter((x): x is number => x != null);
+  const titleById = new Map<number, string>();
+  if (topicIds.length > 0) {
+    const { rows } = await pgPool.query<{ id: number; title: string }>(
+      `SELECT id, title FROM content_topics WHERE id = ANY($1)`,
+      [topicIds]
+    );
+    rows.forEach((r) => titleById.set(r.id, r.title));
+  }
   let created = 0;
   for (const g of gaps) {
-    const title = g.topicId ? `学习「${g.skill}」：${g.topicId}` : `学习技能 ${g.skill}`;
+    const topicTitle = g.topicId ? titleById.get(g.topicId) : null;
+    const title = topicTitle ? `学习「${g.skill}」：${topicTitle}` : `学习技能 ${g.skill}`;
     await pgPool.query(
       `INSERT INTO daily_tasks (user_id, task_date, title, task_type, topic_id)
        VALUES ($1, $2, $3, 'study', $4)`,
@@ -225,4 +236,75 @@ export async function enrollGapsToTasks(userId: string, gaps: { skill: string; t
     created += 1;
   }
   return created;
+}
+
+/* ================= 聚合「市场需求缺口」（学习 × 招聘打通） ================= */
+
+/**
+ * 市场高频需求技能 × 我的缺失技能：
+ * 统计 job_skill_links 中要求最多的技能，过滤掉我已达标（level ≥ minLevel）的，
+ * 附 skill_content_links 的学习建议，按市场岗位数降序返回。
+ */
+export async function aggregateMarketGaps(
+  userId: string,
+  opts: { limit?: number; minLevel?: number } = {}
+): Promise<{ gaps: MarketGapItem[]; totalJobs: number }> {
+  const limit = Math.min(Math.max(opts.limit ?? 12, 1), 50);
+  const minLevel = opts.minLevel ?? 2;
+
+  const [{ rows: demand }, { rows: total }] = await Promise.all([
+    pgPool.query<{ skill_id: number; name: string; category: string; job_count: string; demand_weight: string }>(
+      `SELECT s.id AS skill_id, s.name, s.category,
+              COUNT(DISTINCT l.job_id) AS job_count,
+              COALESCE(SUM(l.weight), 0)::float8 AS demand_weight
+         FROM job_skill_links l
+         JOIN skill_taxonomy s ON s.id = l.skill_id
+        GROUP BY s.id, s.name, s.category
+        ORDER BY job_count DESC, demand_weight DESC
+        LIMIT 200`
+    ),
+    pgPool.query<{ n: string }>(`SELECT COUNT(DISTINCT job_id) AS n FROM job_skill_links`),
+  ]);
+  const totalJobs = Number(total[0]?.n ?? 0);
+
+  // 用户技能等级
+  const userLevels = new Map<number, number>();
+  if (userId) {
+    const { rows } = await pgPool.query<{ skill_id: number; level: number }>(
+      "SELECT skill_id, level FROM user_skills WHERE user_id = $1",
+      [userId]
+    );
+    rows.forEach((r) => userLevels.set(r.skill_id, r.level));
+  }
+
+  const gaps: MarketGapItem[] = [];
+  for (const d of demand) {
+    const skillId = d.skill_id;
+    const level = userLevels.get(skillId) ?? 0;
+    if (level >= minLevel) continue;
+    const { rows: learn } = await pgPool.query<{ topic_id: number; topic_title: string; estimate_hours: number }>(
+      `SELECT t.id AS topic_id, t.title AS topic_title, l.estimate_hours
+         FROM skill_content_links l
+         JOIN content_topics t ON t.id = l.topic_id
+        WHERE l.skill_id = $1
+        ORDER BY l.estimate_hours ASC
+        LIMIT 1`,
+      [skillId]
+    );
+    gaps.push({
+      skillId,
+      skill: d.name,
+      category: d.category,
+      jobCount: Number(d.job_count),
+      demandWeight: Number(d.demand_weight),
+      myLevel: level,
+      missing: level < 1,
+      topicId: learn[0]?.topic_id ?? null,
+      topicTitle: learn[0]?.topic_title ?? null,
+      estimateHours: learn[0]?.estimate_hours ?? null,
+      enrollable: learn.length > 0,
+    });
+    if (gaps.length >= limit) break;
+  }
+  return { gaps, totalJobs };
 }

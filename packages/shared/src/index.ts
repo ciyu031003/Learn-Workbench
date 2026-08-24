@@ -795,6 +795,29 @@ export const skillGapsResultSchema = z.object({
 });
 export type SkillGapsResult = z.infer<typeof skillGapsResultSchema>;
 
+/** 聚合「市场需求缺口」：市场高频需求技能 × 我的技能缺失（学习×招聘打通） */
+export const marketGapItemSchema = z.object({
+  skillId: z.number(),
+  skill: z.string(),
+  category: z.string(),
+  jobCount: z.number(),        // 市场要求该技能的岗位数（需求强度）
+  demandWeight: z.number(),    // 需求权重合计
+  myLevel: z.number(),         // 0-5
+  missing: z.boolean(),        // true=未掌握 level<1
+  topicId: z.number().nullable(),
+  topicTitle: z.string().nullable(),
+  estimateHours: z.number().nullable(),
+  enrollable: z.boolean(),
+});
+export type MarketGapItem = z.infer<typeof marketGapItemSchema>;
+
+export const marketGapsResultSchema = z.object({
+  gaps: z.array(marketGapItemSchema),
+  totalJobs: z.number(),       // 参与统计的岗位数
+  generatedAt: z.string(),
+});
+export type MarketGapsResult = z.infer<typeof marketGapsResultSchema>;
+
 /** 技能候选（供筛选/管理选择） */
 export const skillOptionSchema = z.object({
   id: z.number(),

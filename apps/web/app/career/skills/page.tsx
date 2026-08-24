@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, GraduationCap, Plus, RefreshCw, Trash2, X } from "lucide-react";
+import { MarketGapsCard } from "@/components/skills/market-gaps-card";
 
 const LEVEL_LABELS = ["未掌握", "了解", "入门", "熟练", "精通", "专家"];
 const CATEGORY_LABELS: Record<string, string> = {
@@ -117,6 +118,9 @@ export default function CareerSkillsPage() {
       {error ? (
         <Card><CardContent className="p-4 text-sm text-danger">{error}</CardContent></Card>
       ) : null}
+
+      {/* 学习 × 招聘打通：市场高频需求 × 我的能力缺口 */}
+      <MarketGapsCard />
 
       {/* 添加技能 */}
       <Card>
