@@ -125,6 +125,7 @@ export default function DashboardPage() {
   const [ghUrl, setGhUrl] = useState("");
   const [ghDesc, setGhDesc] = useState("");
   const ghTitleRef = useRef<HTMLInputElement>(null);
+  const [mounted, setMounted] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -141,6 +142,9 @@ export default function DashboardPage() {
     }
   }, []);
 
+  // 客户端挂载后重算时间相关问候/日期（避免 SSR 静态快照与水合时间不一致）
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => setMounted(true), []);
   useEffect(() => {
     // 数据加载：异步拉取外部系统后 setState
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -200,7 +204,8 @@ export default function DashboardPage() {
     load();
   };
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = mounted ? new Date().toISOString().slice(0, 10) : "";
+  const greet = mounted ? greeting() : "";
 
   const mainPhases = data?.phases.filter((p) => p.track === "main") ?? [];
   const agentPhases = data?.phases.filter((p) => p.track === "agent") ?? [];
@@ -212,10 +217,14 @@ export default function DashboardPage() {
         <div className="flex flex-col gap-6 p-6 lg:flex-row lg:items-center lg:justify-between lg:p-8">
           <div className="min-w-0">
             <h1 className="page-title text-3xl font-bold tracking-tight lg:text-5xl">
-              {greeting()}，继续今天的 {data?.careerName ?? "ICT 学习规划"}
+              {mounted
+                ? `${greet}，继续今天的 ${data?.careerName ?? "ICT 学习规划"}`
+                : "你好，继续今天的 " + (data?.careerName ?? "ICT 学习规划")}
             </h1>
             <p className="page-subtitle mt-2 text-sm">
-              {formatDateCN(today)} · 当前职业路线：{data?.careerName ?? "ICT 学习规划"}
+              {mounted
+                ? `${formatDateCN(today)} · 当前职业路线：${data?.careerName ?? "ICT 学习规划"}`
+                : "… · 当前职业路线：" + (data?.careerName ?? "ICT 学习规划")}
             </p>
             <QuoteWidget className="mt-5 w-full max-w-md" />
           </div>
