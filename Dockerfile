@@ -16,6 +16,7 @@ WORKDIR /app
 # ---------- 依赖层：只安装 web 及其工作区依赖，便于缓存 ----------
 FROM base AS deps
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml turbo.json tsconfig.base.json ./
+COPY .npmrc .npmrc
 COPY apps/web/package.json apps/web/package.json
 COPY apps/mobile/package.json apps/mobile/package.json
 COPY packages/shared/package.json packages/shared/package.json
