@@ -159,3 +159,19 @@
 ### 数据说明
 - skill_content_links 由脚本回填（幂等，ON CONFLICT DO NOTHING）；新部署后需在容器内执行 `node scripts/backfill_skill_content_links.mjs`。
 - 未匹配到主题的 niche 技能（webgl/terraform/c++/stm32/flink/spark 等）仍可「加入学习」（生成通用任务），待内容扩充后补映射。
+
+---
+
+## 十二、缺口→路线图定位 + 技能画像冷启动（2026-08-24，commit `207be9c` / `6f17dc9`）
+
+> 服务器同步 6 文件（recommend route / skills.ts / market-gaps-card / roadmap page / skills page / shared index.ts），备份 `.bak-20260824200600`；docker compose up -d --build 重建。
+
+### 新增能力
+1. **缺口→路线图定位**：市场需求缺口的「→ 学习主题」改为链接 `/roadmap#phase-<id>`；roadmap 页支持 `#phase-<id>` 进入时展开对应阶段并滚动定位（仅前端，无 SSR 水合影响）。
+2. **技能画像冷启动**：新 API `GET /api/skills/recommend`（按 settings.career 读取职业 → CAREER_SKILL_MAP 6 职业推荐技能，不存在自动建库）；技能树页新增「按职业推荐技能」卡，点击一键添加为「入门」等级。
+3. shared：MarketGapItem 增加 phaseId/phaseTitle/phaseKey；新增 SkillRecommend 类型。
+
+### 验证（服务器实测 + E2E）
+- E2E **9/9 通过**（新增：推荐技能卡、#phase-<id> 展开定位）。
+- web vitest 175 全过（+3 recommend 用例）；lint 0 error；typecheck 全绿。
+- 缺口主题链接点击后 roadmap 定位到对应 P 阶段并展开（截图见 e2e/test-results）。

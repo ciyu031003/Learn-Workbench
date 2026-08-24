@@ -97,6 +97,14 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 
 ## 四、改动记录
 
+### 2026-08-24 · feat（缺口→路线图定位 + 技能画像冷启动）
+
+- **改动**：缺口「→ 学习主题」链接到 `/roadmap#phase-<id>`，roadmap 页支持 hash 展开定位；新 API `GET /api/skills/recommend`（按职业推荐技能，自动建库）；技能树页「按职业推荐技能」冷启动卡（一键添加为入门）；shared MarketGapItem 增加阶段字段 + SkillRecommend 类型。
+- **涉及文件**：packages/shared/src/index.ts；apps/web/lib/skills.ts；apps/web/app/api/skills/recommend/route.ts(+test)；apps/web/components/skills/market-gaps-card.tsx；apps/web/app/roadmap/page.tsx；apps/web/app/career/skills/page.tsx；e2e/tests/skills-gaps.spec.ts。
+- **原因/决策**：把「打通」体验补完整 —— 缺口不仅要能加入任务，还要能跳到路线图对应阶段去学；冷启动按职业推荐技能降低画像录入成本。
+- **验证**：web vitest 175 全过；E2E 9/9（新增推荐卡 + hash 定位展开）；lint 0 error。
+- **影响**：recommend 会在技能库自动补建缺失技能（幂等）；roadmap hash 定位为纯前端增强。
+
 ### 2026-08-24 · feat（学习 × 招聘打通：聚合「市场需求缺口」）
 
 - **改动**：新增 `GET /api/skills/gaps`（市场高频需求技能 × 我的缺失 × 学习建议）；技能树页新增「市场需求缺口」卡（岗位数/我的等级/→主题/一键加入学习）；Dashboard 新增能力缺口入口卡；修复 `enrollGapsToTasks` 用 topicId 当任务标题的 bug；新增 `scripts/backfill_skill_content_links.mjs` 回填技能↔主题映射（服务器 18 条生效）。
