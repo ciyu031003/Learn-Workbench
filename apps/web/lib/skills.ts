@@ -266,7 +266,7 @@ export async function buildJobLearningPlan(userId: string, jobId: number): Promi
   const estimatedWeeks = totalHours > 0 ? Math.max(1, Math.round(totalHours / WEEKLY_PLAN_HOURS)) : 0;
   return {
     job: {
-      id: job.id, title: job.title, company: job.company, city: job.city,
+      id: Number(job.id), title: job.title, company: job.company, city: job.city,
       salaryText: job.salary_text, education: job.education, experience: job.experience,
     },
     match: match.overall,

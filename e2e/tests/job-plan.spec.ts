@@ -18,7 +18,7 @@ test.describe("岗位学习计划（整包规划）", () => {
       return await r.json();
     });
     expect(plan).toBeTruthy();
-    expect(plan.job.id).toBeGreaterThan(0);
+    expect(Number(plan.job.id)).toBeGreaterThan(0);
     expect(Array.isArray(plan.phases)).toBe(true);
     expect(typeof plan.totalHours).toBe("number");
     expect(collector.errors).toEqual([]);
@@ -34,11 +34,12 @@ test.describe("岗位学习计划（整包规划）", () => {
     await page.locator("main .job-card").first().click();
     await page.waitForTimeout(3000);
 
-    await expect(page.getByText("我的匹配度")).toBeVisible();
+    // 视口 1489px 下 JobDetailPanel 为 2xl-only（hidden），可见的是 JobModal → 取 DOM 最后一个
+    await expect(page.getByText("我的匹配度").last()).toBeVisible();
     // admin 无技能画像时通常有缺口 → 展示学习计划（无缺口时跳过 UI 断言）
     const planCount = await page.getByText("岗位学习计划").count();
     if (planCount > 0) {
-      await expect(page.getByText(/补完约/)).toBeVisible();
+      await expect(page.getByText(/补完约/).last()).toBeVisible();
     }
     expect(collector.errors).toEqual([]);
   });
