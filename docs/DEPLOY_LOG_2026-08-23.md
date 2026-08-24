@@ -3,7 +3,7 @@
 - 交付日期：2026-08-23（Asia/Shanghai）
 - 服务器：106.55.2.197（腾讯云轻量，SSH: ubuntu@106.55.2.197）
 - 部署方式：Docker Compose（/home/ubuntu/learn-workbench），Dockerfile 多阶段构建
-- 关联文档：docs/JOBS_ANTI_CRAWL.md
+- 关联文档：docs/Learn-Workbench-2.0-改动记录.md
 
 ## 一、背景与目标
 服务器部署后招聘页只显示"成都"、猎聘/前程无忧/国聘/成都事业单位(cdhrss) 返回空。
@@ -24,7 +24,7 @@
 ### 3) 猎聘：登录态采集受阻（已放弃）
 - 猎聘风控会把"被自动化控制的浏览器"清空成 about:blank（采集器窗口、真实 Chrome 的 CDP 标签页、F12 均触发）
 - Chrome 151 v20 App-Bound 加密阻止从本地 Profile 直接导出 cookie（实测 3086 条全部 v20，复制 Profile 后 Chrome 直接清空）
-- scripts/harvest_cookies.mjs：新增采集器 + 登录态检测 + 手动导出备用说明（docs/JOBS_ANTI_CRAWL.md）
+- scripts/harvest_cookies.mjs：新增采集器 + 登录态检测 + 手动导出备用说明（docs/Learn-Workbench-2.0-改动记录.md）
 - 结论：猎聘登录态暂无法自动化获取，依赖干净 IP/代理 + 服务器 headless 历史可用记录
 
 ### 4) 国聘网（iguopin）成都职位：API 破解

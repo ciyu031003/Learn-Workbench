@@ -36,7 +36,7 @@ packages/content  路线图内容数据（与 db/seed_content.sql 同源）
 packages/ui        设计 tokens
 db/              schema.sql + seed_content.sql + migrations/001~016
 scripts/         Bing 爬虫 + 招花招聘爬虫 + 数据库启停 + 管理员账号创建
-deploy.sh        服务器一键部署脚本（见下文「服务器部署」；HTTPS/域名见 docs/P0-安全加固与HTTPS部署.md）
+deploy.sh        服务器一键部署脚本（见下文「服务器部署」；HTTPS/域名见 docs/Learn-Workbench-2.0-改动记录.md）
 deploy-docker.sh Docker 一键部署脚本（docker-compose 包装）
 Dockerfile       Web 端 Docker 镜像（多阶段构建）
 docker-compose.yml Docker 编排（db + init + web）
@@ -120,12 +120,12 @@ node scripts/jobs_browser.mjs [--limit 60] [--dry-run]
 
 **说明**：
 - 官方源 hosts 注册表：`config/job-hosts/sources.json` → `node scripts/update_job_hosts.mjs` 落库
-- 登录态采集：`node scripts/harvest_cookies.mjs --out config/job-hosts/storageState.json`（含会话，勿提交）；详见 `docs/JOBS_ANTI_CRAWL.md`
+- 登录态采集：`node scripts/harvest_cookies.mjs --out config/job-hosts/storageState.json`（含会话，勿提交）；详见 `docs/Learn-Workbench-2.0-改动记录.md`
 - 归一化统一在 `scripts/lib/normalize.js`；城市与平台编码单源 `scripts/lib/cities.js`
 - `job_postings.content_hash`：内容未变化则跳过 UPDATE，减少写放大
 
 > ⚠️ **废弃**：`scripts/fetch_jobs.py`（Python urllib 版）已被 Node 引擎取代（无法绕过浏览器级 JS 风控，不支持代理/登录态），仅保留 `--mock` 本地演示，计划后续删除。
-> **风控现状（2026）**：51job/智联在云服务器 IP 上会被 WAF 标记返回空，需住宅/干净代理（`JOBS_PROXY`）；猎聘对自动化浏览器识别最严，需登录态（storageState）或接受部分缺失。详见 `docs/JOBS_ANTI_CRAWL.md`。
+> **风控现状（2026）**：51job/智联在云服务器 IP 上会被 WAF 标记返回空，需住宅/干净代理（`JOBS_PROXY`）；猎聘对自动化浏览器识别最严，需登录态（storageState）或接受部分缺失。详见 `docs/Learn-Workbench-2.0-改动记录.md`。
 > 服务器定时：容器内 `node scripts/jobs_official.mjs` / `jobs_browser.mjs`（可在 Web 端「立即抓取」触发，管理员权限）。
 
 ### 5. 创建管理员账号
