@@ -87,3 +87,27 @@
 ### 已知遗留（另查，非本次引入）
 - `/dashboard` React #418 水合不匹配（预存，疑与 render 内 Date.now() 相关）。
 - `/focus` 一个 404 资源加载失败。
+
+---
+
+## 九、/dashboard React #418 水合不一致修复（2026-08-24，commit `74506e0`）
+
+> 对应提交：`74506e0`. 服务器 `/home/ubuntu/learn-workbench` 同步 `apps/web/app/dashboard/page.tsx`，备份 `.bak-dash.page.tsx-20260824184003`，docker compose up -d --build 重建，web 容器重启通过.
+
+### 根因
+`/dashboard` 为静态预渲染页（无 dynamic/revalidate），build/SSR 时 `new Date()` 被烤进静态 HTML 快照（`2026-08-23 / 下午好`），而客户端水合按当前时间（`2026-08-24`）重算 → 标题/副标题文本不一致 → React 报 #418.
+
+### 修复
+`apps/web/app/dashboard/page.tsx`：
+- 新增 `const [mounted, setMounted] = useState(false)` + `useEffect(() => setMounted(true), [])`.
+- `today = mounted ? new Date().toISOString().slice(0,10) : ""`，`greet = mounted ? greeting() : ""`.
+- h1/p 按 `mounted` 切换：SSR 输出占位（`你好，继续今天的 …` / `… · 当前职业路线：…`），水合后展示真实日期+问候.
+
+### 验证（Playwright 无头，服务器实测）
+- SSR 原始 HTML 含占位 `你好，继续今天的 ICT 学习规划`、`… · 当前职业路线：ICT 学习规划`，**不含** `晚上好`.
+- 水合后 DOM 显示 `2026 年 8 月 24 日 · 当前职业路线：前端开发工程师`、`晚上好，继续今天的 前端开发工程师`.
+- console **无任何 error**（React #418 已消除）；字体 CSP 错误仍为 0.
+
+### 已知遗留（另查，非本次引入）
+- `/focus` 一个 404 资源加载失败（低）.
+- `AppShell` 顶栏日期 `todayISO()` 亦用 `new Date()`（`今日 2026-08-24`），与 #418 同根因；静态快照过期或构建机/客户端时区跨日时会复发，建议后续同样用 mounted 门控（P1）.
