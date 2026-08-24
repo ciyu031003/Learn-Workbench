@@ -97,6 +97,14 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 
 ## 四、改动记录
 
+### 2026-08-24 · feat（岗位学习计划：整包规划）
+
+- **改动**：新 API `GET /api/jobs/[id]/plan`（岗位信息 + 匹配度 + 按路线图阶段分组的能力缺口计划 + 总时长/预估周数）；职位详情新增「岗位学习计划」区块（补完收益、阶段分组、`roadmap#phase-<id>` 定位、一键加入）；computeSkillGaps 输出阶段信息并支持预计算 missingSkills。
+- **涉及文件**：packages/shared/src/index.ts；apps/web/lib/skills.ts；apps/web/app/api/jobs/[id]/plan/route.ts(+test)；apps/web/components/jobs/job-match-section.tsx；e2e/tests/job-plan.spec.ts。
+- **原因/决策**：把「选岗位 → 缺口 → 学习」串成整包主流程；按阶段分组让计划直接对应路线图（点阶段可跳转）；复用 computeJobMatch 避免重复查询。
+- **验证**：web vitest 181 全过（+3）；E2E 11/11（+2）；线上实测计划 API 结构完整、详情面板展示计划。
+- **影响**：纯读 API + 前端展示；「全部缺口加入」复用既有 /api/jobs/gaps/enroll；job.id 已 Number 收口（bigint 序列化问题）。
+
 ### 2026-08-24 · feat/db（B5 同步幂等键 + schema.sql 全量对账）
 
 - **改动**：迁移 019 给 `sync_changes` 加 `change_id` + 唯一索引；server applyChanges/recordSyncChanges 按 changeId 去重（重试不重复 apply/记录）；mobile 10 处 pending change 生成点注入 `changeId: uid()`；schema.sql 从迁移 003~017 补齐 23 张表（招花/健康/技能/安全/市场统计）。

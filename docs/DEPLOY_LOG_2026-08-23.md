@@ -201,3 +201,19 @@
 ### 2) schema.sql 全量对账
 - 从迁移 003~017 原样提取 **23 张表**（招花/健康/技能/安全/市场统计等）追加到 schema.sql（按迁移顺序，保 FK 依赖），`scripts/verify-migrations.mjs` 漂移检查通过（51 表）。
 - 索引/触发器仍保留在迁移中（全新部署由 schema.sql + 全部迁移共同建库，IF NOT EXISTS 幂等）。
+
+---
+
+## 十五、岗位学习计划（整包规划）（2026-08-24，commit `1870fb2` / `78acbe3`）
+
+> 服务器同步 4 文件（plan route / skills.ts / job-match-section / shared index.ts），备份 `.bak-20260824205236`；docker compose up -d --build 重建（含一次 job.id bigint 修复重建）。
+
+### 新增能力
+1. **API** `GET /api/jobs/[id]/plan`：岗位信息 + 当前匹配度 + 按路线图阶段分组的能力缺口学习计划（每阶段含技能/主题/时长），+ 总时长 + 预估周数（每周 10h 假设）。
+2. **职位详情 JobMatchSection** 新增「岗位学习计划」区块：补完收益（+X% 匹配度）、总缺口数/时长/周数、按阶段分组的计划（每阶段链接 `/roadmap#phase-<id>` 定位）、「全部缺口加入学习路线」一键入学。
+3. lib/skills：computeSkillGaps 输出阶段信息 + 支持预计算 missingSkills（避免整包规划重复 computeJobMatch）；buildJobLearningPlan 组装整包计划。
+
+### 验证
+- web vitest 181 全过（+3 plan 用例，SQL 内容分发 mock 顺序无关）；lint 0 error。
+- E2E **11/11 通过**（新增 2 用例：计划 API 结构、详情面板展示匹配度+计划）。
+- 修两个实测问题：pg bigint id 序列化为字符串（API 内 Number 收口）；1489px 视口下 JobDetailPanel 为 2xl-only，可见的是 JobModal（E2E 改定位 .last()）。
