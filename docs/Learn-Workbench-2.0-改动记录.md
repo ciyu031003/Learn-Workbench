@@ -97,6 +97,43 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 
 ## 四、改动记录
 
+### 2026-08-24 · test（Playwright E2E 回归基线）
+
+- **改动**：新增 `e2e/` 包（@playwright/test + 系统 Chrome，无需下载浏览器），沉淀关键路径无头回归测试：dashboard 水合 #418 与顶栏日期、ICT 学习规划自定义主题增删闭环、职业下拉不被裁切、添加弹窗视口居中、专注页无 404。globalSetup 登录一次写入 storageState，未配置凭据自动跳过；根脚本 `pnpm test:e2e`，不参与 `pnpm -r test`。
+- **涉及文件**：e2e/（package.json、playwright.config.ts、global-setup.ts、helpers/*、tests/*.spec.ts、README.md、.env.example）；pnpm-workspace.yaml（+e2e、allowBuilds playwright）；package.json（test:e2e）；pnpm-lock.yaml。
+- **原因/决策**：把历轮手工无头验证脚本沉淀为可重复的回归护栏，为后续「学习×招聘」大功能打地基；不引入浏览器下载（channel: chrome），凭据走 env 不进仓库。
+- **验证**：对线上 `http://106.55.2.197` 实测 **5/5 通过**；无凭据时 5 用例正确跳过；e2e typecheck 通过；root `pnpm test` 不受影响（web 169 + mobile 全过）。
+- **影响**：纯 dev 工具，不影响运行时与部署产物。
+
+### 2026-08-24 · feat（ICT 学习规划支持自定义添加/删除主题）
+
+- **改动**：`/api/roadmap/custom` 移除 `career_key='ict'` 的 403 拦截（改阶段存在性校验）；新增迁移 `018_careers_unlock_ict.sql` 将 ict 的 `is_locked` 置 false；003 seed / schema.sql 同步。ICT 与其它职业路线一致可添加/删除自定义主题。
+- **涉及文件**：apps/web/app/api/roadmap/custom/route.ts(+test)；db/migrations/018_careers_unlock_ict.sql；db/migrations/003_careers.sql；db/schema.sql。
+- **原因/决策**：需求「ICT 学习规划不要固定，允许自定义添加和删除」；复用既有 is_custom/owner_id 权限模型，删除仍仅限本人自定义主题。
+- **验证**：web vitest 169 全过（ICT→201、阶段不存在→400）；服务器实测添加 201→刷新出现→删除 200→消失，0 console error。
+- **影响**：在线库经 init 迁移 018 生效（ict is_locked=f）；删除仍仅限 is_custom 且 owner 本人。
+
+### 2026-08-24 · fix（AppShell 顶栏日期 mounted 门控，根治 #418 复发）
+
+- **改动**：`apps/web/components/app-shell.tsx` 顶栏日期 `todayISO()` 改为挂载后再计算（`mounted ? todayISO() : ""`）。
+- **原因/决策**：`todayISO()` 在静态预渲染时被烤进所有页面顶栏，与 dashboard #418 同根因；快照过期/时区跨日会复发。
+- **验证**：服务器实测 /dashboard 顶栏日期正常，console 0 error。
+- **影响**：顶栏日期 SSR 输出空占位，水合后填充（一帧内）。
+
+### 2026-08-24 · fix（/dashboard 水合 #418）
+
+- **改动**：`apps/web/app/dashboard/page.tsx` 标题/副标题的问候与日期改为 `mounted` 后计算，SSR 输出占位文案。
+- **原因/决策**：SSR 静态快照把 `new Date()` 烤进 HTML，客户端水合按当前时间重算 → React #418。
+- **验证**：SSR HTML 含占位不含时间；水合后显示真实日期/问候；console 0 error。
+- **影响**：无。
+
+### 2026-08-23 · fix/ui（导航下拉被裁 + 添加弹窗未居中 + 移除 Google Fonts）
+
+- **改动**：globals.css 恢复 `.glass.absolute/fixed/sticky` 定位语义、`.page-enter` fill-mode 修正；GlassModal 改 createPortal 挂 body；移除 fonts.googleapis 依赖改自包含字体栈。
+- **涉及文件**：apps/web/app/globals.css；apps/web/components/ui/modal.tsx。
+- **原因/决策**：B 阶段 UI 验收发现的两处布局缺陷 + CSP/国内不可达字体问题。
+- **验证**：Playwright 无头实测下拉 y=57.5、弹窗精确居中、字体 CSP 错误消除。
+- **影响**：无。
 
 ### 2026-08-20 · ui/feat（市场分析页布局重构 —— 上大下小 / 左主右辅 / 多模块分组 + 新增 5 个分析模型）
 
