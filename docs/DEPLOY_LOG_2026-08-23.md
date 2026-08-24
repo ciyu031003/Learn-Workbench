@@ -185,3 +185,19 @@
 - `e2e/playwright.config.ts` 支持 `E2E_BROWSER=chromium`（CI 用 Playwright 自带 chromium，不依赖 runner 预装 Chrome）；本地/服务器仍用系统 Chrome。
 - 本地回归 9/9 通过（config 改动不破坏系统 Chrome 路径）。
 - 待首次 CI push 后观察：docker 全量构建约 10-15 分钟（在 30 分钟 timeout 内）；若镜像构建过慢可后续改为 service-container + 直启 next（P2 优化）。
+
+---
+
+## 十四、B5 同步幂等键 + schema.sql 全量对账（2026-08-24，commit `1672bba` / `c3f122c`）
+
+> 服务器同步 3 文件（sync-service.ts / 迁移 019 / schema.sql），备份 `.bak-20260824203806`；docker compose up -d --build 重建，init 应用迁移 019。
+
+### 1) B5 同步幂等键（change_id 去重）
+- 迁移 `019_sync_change_id.sql`：`sync_changes` 增加 `change_id` + `(user_id, change_id)` 部分唯一索引。
+- server：`applyChanges` 按 changeId 跳过已应用（重试不重复 apply）；`recordSyncChanges` 带 changeId 用 `ON CONFLICT DO NOTHING`（重试不重复审计日志）；无 changeId 旧客户端保持兼容。
+- mobile：`SyncChange` 增加 changeId，10 处 pending change 生成点注入 `changeId: uid()`（随 AsyncStorage 持久化，重试稳定）。
+- 验证：web 178 + mobile 22 测试全过；线上实测同 changeId 推送两次 → **applied 1→0**、`sync_changes` 仅 1 行、`daily_tasks` 仅 1 行（测试数据已清理）。
+
+### 2) schema.sql 全量对账
+- 从迁移 003~017 原样提取 **23 张表**（招花/健康/技能/安全/市场统计等）追加到 schema.sql（按迁移顺序，保 FK 依赖），`scripts/verify-migrations.mjs` 漂移检查通过（51 表）。
+- 索引/触发器仍保留在迁移中（全新部署由 schema.sql + 全部迁移共同建库，IF NOT EXISTS 幂等）。

@@ -97,6 +97,14 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 
 ## 四、改动记录
 
+### 2026-08-24 · feat/db（B5 同步幂等键 + schema.sql 全量对账）
+
+- **改动**：迁移 019 给 `sync_changes` 加 `change_id` + 唯一索引；server applyChanges/recordSyncChanges 按 changeId 去重（重试不重复 apply/记录）；mobile 10 处 pending change 生成点注入 `changeId: uid()`；schema.sql 从迁移 003~017 补齐 23 张表（招花/健康/技能/安全/市场统计）。
+- **涉及文件**：db/migrations/019_sync_change_id.sql；db/schema.sql；apps/web/lib/sync-service.ts(+test)；apps/mobile/src/store/app-store.ts(+test)。
+- **原因/决策**：网络重试导致重复 apply/审计日志膨胀 → 客户端生成稳定 change_id 幂等；schema.sql 与迁移漂移 23 表 → 全量对账使 verify-migrations 通过。
+- **验证**：web 178 / mobile 22 测试全过；线上同 changeId 推送两次 applied 1→0、sync_changes 仅 1 行；verify-migrations 漂移清零。
+- **影响**：旧客户端无 changeId 走原逻辑（兼容）；新增审计列不影响现有数据；schema.sql 追加表为 IF NOT EXISTS（幂等）。
+
 ### 2026-08-24 · ci（Playwright E2E 接入 GitHub Actions）
 
 - **改动**：`.github/workflows/ci.yml` 新增 `e2e` 作业（docker compose 全栈 + create-admin + Playwright chromium，失败上传报告）；e2e config 支持 `E2E_BROWSER=chromium`；workflow 设 `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1`（install 跳过下载，不影响显式 install）。
