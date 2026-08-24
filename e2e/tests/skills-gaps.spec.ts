@@ -50,23 +50,28 @@ test.describe("技能冷启动 + 路线图定位", () => {
   test("缺口→路线图定位：#phase-<id> 展开对应阶段", async ({ app }) => {
     test.skip(!hasAuth(), "未配置 E2E_USERNAME/E2E_PASSWORD");
     const { page, collector } = app!;
+    // 先从其它页面进入站点（模拟从技能页跳转，确保 /roadmap 全新挂载）
+    await page.goto("/career/skills");
+    await page.waitForLoadState("domcontentloaded");
     // 取 ICT 第 4 个主阶段（默认只展开前 2 个，用它验证 hash 定位展开）
-    const phaseId = await page.evaluate(async () => {
+    const { pid, firstTopic } = await page.evaluate(async () => {
       const r = await fetch("/api/roadmap?career=ict");
       const j = await r.json();
       const main = (j.phases || []).filter((p: { track: string }) => p.track === "main");
-      return main[3]?.id as number | undefined;
+      const ph = main[3];
+      return { pid: ph?.id as number | undefined, firstTopic: ph?.topics?.[0]?.title as string | undefined };
     });
-    expect(phaseId).toBeTruthy();
+    expect(pid).toBeTruthy();
+    expect(firstTopic).toBeTruthy();
 
-    await page.goto("/roadmap#phase-" + phaseId);
+    await page.goto("/roadmap#phase-" + pid);
     await page.waitForLoadState("domcontentloaded");
     await page.waitForTimeout(2500);
 
-    const card = page.locator("#phase-" + phaseId);
+    const card = page.locator("#phase-" + pid);
     await expect(card).toBeVisible();
-    // 展开态：内部有主题列表容器（border-t）
-    await expect(card.locator(".border-t.border-border\/60")).toBeVisible();
+    // 展开态：该阶段的首个主题标题可见（默认只展开前 2 个阶段，此处由 hash 定位展开）
+    await expect(card.getByText(firstTopic!)).toBeVisible();
     expect(collector.errors).toEqual([]);
   });
 });
