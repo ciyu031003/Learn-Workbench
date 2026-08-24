@@ -786,6 +786,9 @@ export const skillGapItemSchema = z.object({
   topicTitle: z.string().nullable(),
   estimateHours: z.number().nullable(),
   enrollable: z.boolean(),
+  phaseId: z.number().nullable(),       // 学习主题所属路线图阶段（整包规划定位用）
+  phaseTitle: z.string().nullable(),
+  phaseKey: z.string().nullable(),
 });
 export type SkillGapItem = z.infer<typeof skillGapItemSchema>;
 
@@ -1020,3 +1023,32 @@ export const skillRecommendResultSchema = z.object({
   skills: z.array(skillRecommendSchema),
 });
 export type SkillRecommendResult = z.infer<typeof skillRecommendResultSchema>;
+
+/** 岗位学习计划（整包规划）：按路线图阶段分组的能力缺口学习计划 */
+export const jobPlanPhaseSchema = z.object({
+  phaseId: z.number().nullable(),
+  phaseTitle: z.string().nullable(),
+  phaseKey: z.string().nullable(),
+  sortOrder: z.number(),
+  hours: z.number(),                    // 该阶段合计学习时长（小时）
+  skills: z.array(skillGapItemSchema),
+});
+export type JobPlanPhase = z.infer<typeof jobPlanPhaseSchema>;
+
+export const jobLearningPlanSchema = z.object({
+  job: z.object({
+    id: z.number(),
+    title: z.string(),
+    company: z.string(),
+    city: z.string(),
+    salaryText: z.string(),
+    education: z.string(),
+    experience: z.string(),
+  }),
+  match: z.number(),                    // 当前岗位匹配度 0-100
+  totalHours: z.number(),
+  estimatedWeeks: z.number(),           // 按每周学习时长估算
+  phases: z.array(jobPlanPhaseSchema),  // 按阶段分组（顺序=学习顺序）
+  gaps: z.array(skillGapItemSchema),
+});
+export type JobLearningPlan = z.infer<typeof jobLearningPlanSchema>;

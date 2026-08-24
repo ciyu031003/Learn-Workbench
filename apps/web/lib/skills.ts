@@ -1,5 +1,5 @@
 import { pgPool } from "@/lib/db";
-import type { JobMatchResult, MarketGapItem, SkillGapItem, SkillRecommend, UserSkillView } from "@learn-workbench/shared";
+import type { JobLearningPlan, JobMatchResult, MarketGapItem, SkillGapItem, SkillRecommend, UserSkillView } from "@learn-workbench/shared";
 
 /* ================= 技能归一化 ================= */
 
@@ -181,20 +181,24 @@ export async function computeJobMatch(
 /** 缺口：岗位技能 - 用户技能，附 skill_content_links 映射的学习建议 */
 export async function computeSkillGaps(
   userId: string,
-  jobId: number
+  jobId: number,
+  precomputed?: { missingSkills: { skill: string }[] }
 ): Promise<{ gaps: SkillGapItem[]; totalHours: number }> {
-  const { missingSkills } = await computeJobMatch(userId, jobId);
+  const { missingSkills } = precomputed ?? (await computeJobMatch(userId, jobId));
   if (missingSkills.length === 0) return { gaps: [], totalHours: 0 };
   const gaps: SkillGapItem[] = [];
   let totalHours = 0;
   for (const m of missingSkills) {
     const { rows } = await pgPool.query<{
       skill_id: number; name: string; topic_id: number; topic_title: string; estimate_hours: number;
+      phase_id: number | null; phase_title: string | null; phase_key: string | null;
     }>(
-      `SELECT s.id AS skill_id, s.name, t.id AS topic_id, t.title AS topic_title, l.estimate_hours
+      `SELECT s.id AS skill_id, s.name, t.id AS topic_id, t.title AS topic_title, l.estimate_hours,
+              p.id AS phase_id, p.title AS phase_title, p.phase_key AS phase_key
          FROM skill_content_links l
          JOIN skill_taxonomy s ON s.id = l.skill_id
          JOIN content_topics t ON t.id = l.topic_id
+         LEFT JOIN content_phases p ON p.id = t.phase_id
         WHERE s.name = $1`,
       [m.skill]
     );
@@ -206,10 +210,75 @@ export async function computeSkillGaps(
       topicTitle: rows[0]?.topic_title ?? null,
       estimateHours: hours > 0 ? hours : null,
       enrollable: rows.length > 0,
+      phaseId: rows[0]?.phase_id ?? null,
+      phaseTitle: rows[0]?.phase_title ?? null,
+      phaseKey: rows[0]?.phase_key ?? null,
     });
   }
   return { gaps, totalHours };
 }
+
+/** 岗位学习计划（整包规划）：岗位信息 + 匹配度 + 按路线图阶段分组的学习计划 */
+export async function buildJobLearningPlan(userId: string, jobId: number): Promise<JobLearningPlan> {
+  const [match, { rows: jobs }] = await Promise.all([
+    computeJobMatch(userId, jobId),
+    pgPool.query<{
+      id: number; title: string; company: string; city: string;
+      salary_text: string; education: string; experience: string;
+    }>(
+      `SELECT id, title, company, city, salary_text, education, experience
+         FROM job_postings WHERE id = $1`,
+      [jobId]
+    ),
+  ]);
+  const { gaps, totalHours } = await computeSkillGaps(userId, jobId, match);
+  const job = jobs[0];
+  if (!job) throw new Error("job not found");
+
+  // 按阶段分组（null 阶段归为「其他」，排最后）
+  const phaseMap = new Map<number | null, {
+    phaseId: number | null; phaseTitle: string | null; phaseKey: string | null;
+    sortOrder: number; hours: number; skills: SkillGapItem[];
+  }>();
+  for (const g of gaps) {
+    const key = g.phaseId ?? -1;
+    let entry = phaseMap.get(key);
+    if (!entry) {
+      entry = { phaseId: g.phaseId, phaseTitle: g.phaseTitle, phaseKey: g.phaseKey, sortOrder: 999, hours: 0, skills: [] };
+      phaseMap.set(key, entry);
+    }
+    entry.hours += g.estimateHours ?? 0;
+    entry.skills.push(g);
+  }
+  // 取真实阶段的 sort_order 排序
+  const phaseIds = [...phaseMap.keys()].filter((x): x is number => x != null && x > 0);
+  if (phaseIds.length > 0) {
+    const { rows } = await pgPool.query<{ id: number; sort_order: number }>(
+      `SELECT id, sort_order FROM content_phases WHERE id = ANY($1)`,
+      [phaseIds]
+    );
+    for (const r of rows) {
+      const e = phaseMap.get(r.id);
+      if (e) e.sortOrder = r.sort_order;
+    }
+  }
+  const phases = [...phaseMap.values()].sort((a, b) => a.sortOrder - b.sortOrder).map((p) => ({ ...p }));
+  const estimatedWeeks = totalHours > 0 ? Math.max(1, Math.round(totalHours / WEEKLY_PLAN_HOURS)) : 0;
+  return {
+    job: {
+      id: job.id, title: job.title, company: job.company, city: job.city,
+      salaryText: job.salary_text, education: job.education, experience: job.experience,
+    },
+    match: match.overall,
+    totalHours,
+    estimatedWeeks,
+    phases,
+    gaps,
+  };
+}
+
+/** 整包规划每周学习时长假设（小时） */
+export const WEEKLY_PLAN_HOURS = 10;
 
 /** 缺口一键加入学习路线：生成 daily_tasks */
 export async function enrollGapsToTasks(userId: string, gaps: { skill: string; topicId: number | null; hours: number }[]): Promise<number> {
