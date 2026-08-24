@@ -83,6 +83,21 @@ export default function RoadmapPage() {
     load(career);
   }, [career, load]);
 
+  // 从技能缺口等入口带 #phase-<id> 进入：展开并滚动定位到对应阶段
+  useEffect(() => {
+    if (!phases) return;
+    const m = window.location.hash.match(/^#phase-(\d+)$/);
+    if (!m) return;
+    const target = Number(m[1]);
+    if (!phases.some((p) => p.id === target)) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 进入路线图时按 hash 展开目标阶段（既有模式）
+    setExpanded((prev) => (prev[target] ? prev : { ...prev, [target]: true }));
+    const t = window.setTimeout(() => {
+      document.getElementById(`phase-${target}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 150);
+    return () => window.clearTimeout(t);
+  }, [phases]);
+
   const switchCareer = async (key: string) => {
     setCareer(key);
     try {
@@ -248,7 +263,7 @@ export default function RoadmapPage() {
             const percent = pct(doneCount, phase.topics.length);
             const isOpen = !!expanded[phase.id];
             return (
-              <Card key={phase.id} className="roadmap-phase-card">
+              <Card key={phase.id} id={`phase-${phase.id}`} className="roadmap-phase-card">
                 <button
                   onClick={() => togglePhase(phase.id)}
                   className="flex w-full items-center gap-3 p-5 text-left"

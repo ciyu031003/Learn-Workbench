@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import type { MarketGapItem, MarketGapsResult } from "@learn-workbench/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToastStore } from "@/store/toast-store";
-import { Loader2, TrendingUp, CheckCircle2, PlusCircle, Target, Sparkles } from "lucide-react";
+import { Loader2, TrendingUp, CheckCircle2, PlusCircle, Target, Sparkles, MapPin } from "lucide-react";
 
 const CATEGORY_LABELS: Record<string, string> = {
   backend: "后端", frontend: "前端", data: "数据", ops: "运维/云",
@@ -88,9 +89,14 @@ export function MarketGapsCard({ limit = 10 }: { limit?: number }) {
                 <Badge variant="muted" className="text-[10px]">{CATEGORY_LABELS[g.category] ?? "其他"}</Badge>
                 <span className="text-xs text-muted-foreground">{g.jobCount} 岗位要求 · 我：{LEVEL_LABELS[g.myLevel]}</span>
                 {g.topicTitle ? (
-                  <span className="w-full text-xs text-muted-foreground sm:w-auto sm:flex-1 sm:truncate">
+                  <Link
+                    href={g.phaseId ? `/roadmap#phase-${g.phaseId}` : "/roadmap"}
+                    title={g.phaseTitle ? `定位到路线图阶段：${g.phaseTitle}` : "前往学习路线图"}
+                    className="w-full text-xs text-muted-foreground hover:text-primary hover:underline sm:w-auto sm:flex-1 sm:truncate"
+                  >
                     → {g.topicTitle}{g.estimateHours ? `（约 ${g.estimateHours}h）` : ""}
-                  </span>
+                    {g.phaseId ? <MapPin className="ml-1 inline size-3" /> : null}
+                  </Link>
                 ) : null}
                 <Button size="sm" variant="secondary" onClick={() => enroll(g)} disabled={enrolling === g.skillId} className="ml-auto">
                   {enrolling === g.skillId ? <Loader2 className="size-3.5 animate-spin" /> : <PlusCircle className="size-3.5" />}

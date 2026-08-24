@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import type { SkillOption, UserSkillView } from "@learn-workbench/shared";
+import type { SkillOption, SkillRecommendResult, UserSkillView } from "@learn-workbench/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, GraduationCap, Plus, RefreshCw, Trash2, X } from "lucide-react";
+import { ChevronLeft, GraduationCap, Plus, RefreshCw, Sparkles, Trash2, X } from "lucide-react";
 import { MarketGapsCard } from "@/components/skills/market-gaps-card";
 
 const LEVEL_LABELS = ["未掌握", "了解", "入门", "熟练", "精通", "专家"];
@@ -26,16 +26,24 @@ export default function CareerSkillsPage() {
   const [selected, setSelected] = useState<SkillOption | null>(null);
   const [newLevel, setNewLevel] = useState(2);
   const [search, setSearch] = useState("");
+  const [recommends, setRecommends] = useState<{ id: number; name: string; category: string }[]>([]);
+  const [recommendCareer, setRecommendCareer] = useState("");
 
   const load = useCallback(async () => {
     try {
-      const [sR, cR] = await Promise.all([
+      const [sR, cR, recR] = await Promise.all([
         fetch("/api/profile/skills"),
         fetch("/api/jobs/skills"),
+        fetch("/api/skills/recommend"),
       ]);
       if (!sR.ok) throw new Error("技能加载失败");
       setSkills((await sR.json()).skills ?? []);
       if (cR.ok) setCatalog((await cR.json()).skills ?? []);
+      if (recR.ok) {
+        const rec = (await recR.json()) as SkillRecommendResult;
+        setRecommends(rec.skills ?? []);
+        setRecommendCareer(rec.careerName ?? "");
+      }
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "技能加载失败");
@@ -61,6 +69,20 @@ export default function CareerSkillsPage() {
       setError(e instanceof Error ? e.message : "回填失败");
     } finally {
       setAdding(false);
+    }
+  };
+
+  const addRecommended = async (skillId: number) => {
+    try {
+      const r = await fetch("/api/profile/skills", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ skillId, level: 2 }),
+      });
+      if (!r.ok) throw new Error("添加失败");
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "添加失败");
     }
   };
 
@@ -121,6 +143,37 @@ export default function CareerSkillsPage() {
 
       {/* 学习 × 招聘打通：市场高频需求 × 我的能力缺口 */}
       <MarketGapsCard />
+
+      {/* 技能画像冷启动：按目标职业推荐 */}
+      {recommends.filter((r) => !skills.some((s) => s.id === r.id)).length > 0 ? (
+        <Card>
+          <CardHeader className="flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="size-5 text-accent" /> 按职业推荐技能
+            </CardTitle>
+            {recommendCareer ? <Badge variant="muted">{recommendCareer}</Badge> : null}
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2">
+            <div className="flex flex-wrap gap-2">
+              {recommends
+                .filter((r) => !skills.some((s) => s.id === r.id))
+                .map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => addRecommended(r.id)}
+                    className="group inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs text-foreground transition-colors hover:border-primary/50 hover:bg-primary/10"
+                  >
+                    <Plus className="size-3 text-primary" />
+                    {r.name}
+                    <span className="text-[10px] text-muted-foreground">{CATEGORY_LABELS[r.category] ?? "其他"}</span>
+                  </button>
+                ))}
+            </div>
+            <p className="text-xs text-muted-foreground">点击即添加为「入门」等级（可随后调整），用于计算岗位匹配度与能力缺口。</p>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {/* 添加技能 */}
       <Card>

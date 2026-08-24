@@ -1,5 +1,5 @@
 import { pgPool } from "@/lib/db";
-import type { JobMatchResult, MarketGapItem, SkillGapItem, UserSkillView } from "@learn-workbench/shared";
+import type { JobMatchResult, MarketGapItem, SkillGapItem, SkillRecommend, UserSkillView } from "@learn-workbench/shared";
 
 /* ================= 技能归一化 ================= */
 
@@ -282,10 +282,15 @@ export async function aggregateMarketGaps(
     const skillId = d.skill_id;
     const level = userLevels.get(skillId) ?? 0;
     if (level >= minLevel) continue;
-    const { rows: learn } = await pgPool.query<{ topic_id: number; topic_title: string; estimate_hours: number }>(
-      `SELECT t.id AS topic_id, t.title AS topic_title, l.estimate_hours
+    const { rows: learn } = await pgPool.query<{
+      topic_id: number; topic_title: string; estimate_hours: number;
+      phase_id: number | null; phase_title: string | null; phase_key: string | null;
+    }>(
+      `SELECT t.id AS topic_id, t.title AS topic_title, l.estimate_hours,
+              p.id AS phase_id, p.title AS phase_title, p.phase_key AS phase_key
          FROM skill_content_links l
          JOIN content_topics t ON t.id = l.topic_id
+         LEFT JOIN content_phases p ON p.id = t.phase_id
         WHERE l.skill_id = $1
         ORDER BY l.estimate_hours ASC
         LIMIT 1`,
@@ -303,8 +308,70 @@ export async function aggregateMarketGaps(
       topicTitle: learn[0]?.topic_title ?? null,
       estimateHours: learn[0]?.estimate_hours ?? null,
       enrollable: learn.length > 0,
+      phaseId: learn[0]?.phase_id ?? null,
+      phaseTitle: learn[0]?.phase_title ?? null,
+      phaseKey: learn[0]?.phase_key ?? null,
     });
     if (gaps.length >= limit) break;
   }
   return { gaps, totalJobs };
+}
+
+/* ================= 技能画像冷启动：按目标职业推荐技能 ================= */
+
+/** 职业 → 推荐技能（规范名 + 分类）；不在技能库的会在 recommend 时自动建库 */
+const CAREER_SKILL_MAP: Record<string, { name: string; category: string }[]> = {
+  ict: [
+    { name: "linux", category: "ops" }, { name: "docker", category: "ops" }, { name: "shell", category: "ops" },
+    { name: "sql", category: "data" }, { name: "python", category: "backend" }, { name: "networking", category: "network" },
+    { name: "cloud", category: "cloud" }, { name: "redis", category: "data" }, { name: "nginx", category: "ops" },
+    { name: "k8s", category: "ops" }, { name: "git", category: "soft" }, { name: "security", category: "security" },
+  ],
+  frontend: [
+    { name: "html", category: "frontend" }, { name: "css", category: "frontend" }, { name: "javascript", category: "frontend" },
+    { name: "typescript", category: "frontend" }, { name: "vue", category: "frontend" }, { name: "react", category: "frontend" },
+    { name: "bootstrap", category: "frontend" }, { name: "vite", category: "frontend" }, { name: "nodejs", category: "backend" },
+    { name: "git", category: "soft" },
+  ],
+  "java-backend": [
+    { name: "java", category: "backend" }, { name: "spring", category: "backend" }, { name: "springboot", category: "backend" },
+    { name: "mysql", category: "data" }, { name: "redis", category: "data" }, { name: "sql", category: "data" },
+    { name: "docker", category: "ops" }, { name: "linux", category: "ops" }, { name: "git", category: "soft" },
+    { name: "kafka", category: "data" },
+  ],
+  "data-analysis": [
+    { name: "sql", category: "data" }, { name: "python", category: "backend" }, { name: "excel", category: "data" },
+    { name: "tableau", category: "data" }, { name: "mysql", category: "data" }, { name: "postgresql", category: "data" },
+    { name: "spark", category: "data" }, { name: "etl", category: "data" }, { name: "mongodb", category: "data" },
+  ],
+  "ai-engineer": [
+    { name: "python", category: "backend" }, { name: "pytorch", category: "ai" }, { name: "tensorflow", category: "ai" },
+    { name: "llm", category: "ai" }, { name: "nlp", category: "ai" }, { name: "sql", category: "data" },
+    { name: "linux", category: "ops" }, { name: "docker", category: "ops" },
+  ],
+  "cyber-security": [
+    { name: "security", category: "security" }, { name: "linux", category: "ops" }, { name: "networking", category: "network" },
+    { name: "shell", category: "ops" }, { name: "python", category: "backend" }, { name: "docker", category: "ops" },
+    { name: "k8s", category: "ops" },
+  ],
+};
+const DEFAULT_CAREER = "ict";
+
+/** 按目标职业推荐技能（冷启动引导）；技能不存在时自动建库（ensureSkill 幂等） */
+export async function recommendSkillsForCareer(
+  careerKey: string
+): Promise<{ career: string; careerName: string; skills: SkillRecommend[] }> {
+  const key = CAREER_SKILL_MAP[careerKey] ? careerKey : DEFAULT_CAREER;
+  const list = CAREER_SKILL_MAP[key];
+  const { rows } = await pgPool.query<{ name: string }>(
+    "SELECT name FROM careers WHERE career_key = $1",
+    [key]
+  );
+  const careerName = rows[0]?.name ?? "ICT 学习规划";
+  const skills: SkillRecommend[] = [];
+  for (const item of list) {
+    const id = await ensureSkill(item.name, item.category);
+    skills.push({ id, name: item.name, category: item.category });
+  }
+  return { career: key, careerName, skills };
 }

@@ -808,6 +808,9 @@ export const marketGapItemSchema = z.object({
   topicTitle: z.string().nullable(),
   estimateHours: z.number().nullable(),
   enrollable: z.boolean(),
+  phaseId: z.number().nullable(),       // 主题所属路线图阶段（跳转定位用）
+  phaseTitle: z.string().nullable(),
+  phaseKey: z.string().nullable(),
 });
 export type MarketGapItem = z.infer<typeof marketGapItemSchema>;
 
@@ -1002,3 +1005,18 @@ export const importFileSchema = z.object({
   github: z.array(exportGithubRowSchema).default([]),
 });
 export type ImportFile = z.infer<typeof importFileSchema>;
+
+/** 技能画像冷启动：按目标职业推荐技能 */
+export const skillRecommendSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  category: z.string(),
+});
+export type SkillRecommend = z.infer<typeof skillRecommendSchema>;
+
+export const skillRecommendResultSchema = z.object({
+  career: z.string(),
+  careerName: z.string(),
+  skills: z.array(skillRecommendSchema),
+});
+export type SkillRecommendResult = z.infer<typeof skillRecommendResultSchema>;
