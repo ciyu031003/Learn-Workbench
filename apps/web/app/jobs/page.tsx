@@ -13,7 +13,6 @@ import {
   experimentalJobSources,
   formatDateCN,
   formatRelativeTime,
-  jobCategoryLabels,
   jobSourceLabel,
   SUPPORTED_CITIES,
   todayISO,
@@ -33,9 +32,12 @@ import { useToastStore } from "@/store/toast-store";
 import {
   ArrowUpDown,
   Building2,
+  BriefcaseBusiness,
   CalendarDays,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  LayoutGrid,
   Clock3,
   Database,
   Flower2,
@@ -55,10 +57,10 @@ const PAGE_SIZE = 12;
 const PLATFORM_OPTIONS = Object.keys(jobSourceLabel) as unknown as JobSource[];
 
 const GROUPS = [
-  { id: "all", label: "全部", icon: "✨" },
-  { id: "internet", label: "互联网", icon: "💼" },
-  { id: "gongzhi", label: "考公考编", icon: "🏛" },
-  { id: "yangqi", label: "央国企", icon: "🏢" },
+  { id: "all", label: "全部", Icon: LayoutGrid },
+  { id: "internet", label: "互联网", Icon: BriefcaseBusiness },
+  { id: "gongzhi", label: "考公考编", Icon: Landmark },
+  { id: "yangqi", label: "央国企", Icon: Building2 },
 ] as const;
 
 type GroupId = (typeof GROUPS)[number]["id"];
@@ -386,9 +388,20 @@ export default function JobsPage() {
       accent: "text-amber-400",
     },
   ];
+  const filterCount =
+    (city ? 1 : 0) +
+    platforms.length +
+    [
+      filters.salaryMin != null,
+      filters.salaryMax != null,
+      filters.education.length > 0,
+      filters.experience.length > 0,
+      Boolean(filters.publishedWithin),
+      filters.skills.length > 0,
+    ].filter(Boolean).length;
   return (
     <div className="page-enter flex flex-col gap-6">
-      <section className="glass relative overflow-hidden rounded-[28px] p-6 lg:p-8">
+      <section className="glass relative overflow-hidden rounded-[24px] p-6 lg:p-8">
         <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-emerald-400/25 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-24 -left-20 h-72 w-72 rounded-full bg-cyan-400/20 blur-3xl" />
         <div className="pointer-events-none absolute right-8 top-8 hidden text-emerald-500/40 lg:block">
@@ -462,7 +475,7 @@ export default function JobsPage() {
                     : "border-white/20 bg-white/10 text-muted-foreground hover:bg-white/15 hover:text-foreground"
                 )}
               >
-                <span>{g.icon}</span>
+                <g.Icon className="size-4" />
                 {g.label}
               </button>
             ))}
@@ -490,7 +503,8 @@ export default function JobsPage() {
             ) : null}
           </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row">
+          {/* 第 2 层：搜索 + 排序 + 筛选 + 去重 */}
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -500,116 +514,78 @@ export default function JobsPage() {
                 className="h-11 pl-10"
               />
             </div>
-            <div className="flex rounded-2xl border border-white/20 bg-white/10 p-1 backdrop-blur-md">
-              <button
-                type="button"
-                onClick={() => {
-                  setSort("new");
-                  setPage(1);
-                }}
-                className={cn(
-                  "inline-flex flex-1 items-center justify-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all sm:flex-none",
-                  sort === "new"
-                    ? "bg-gradient-to-r from-emerald-500 to-cyan-500 text-white shadow-[0_6px_16px_rgba(16,185,129,0.28)]"
-                    : "text-muted-foreground hover:bg-white/10 hover:text-foreground"
-                )}
-              >
-                <Clock3 className="size-3.5" />
-                最新
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSort("salary");
-                  setPage(1);
-                }}
-                className={cn(
-                  "inline-flex flex-1 items-center justify-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all sm:flex-none",
-                  sort === "salary"
-                    ? "bg-gradient-to-r from-emerald-500 to-cyan-500 text-white shadow-[0_6px_16px_rgba(16,185,129,0.28)]"
-                    : "text-muted-foreground hover:bg-white/10 hover:text-foreground"
-                )}
-              >
-                <ArrowUpDown className="size-3.5" />
-                薪资
-              </button>
-              {showDeadlineSort ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex rounded-2xl border border-white/20 bg-white/10 p-1 backdrop-blur-md">
                 <button
                   type="button"
                   onClick={() => {
-                    setSort("deadline");
+                    setSort("new");
                     setPage(1);
                   }}
                   className={cn(
                     "inline-flex flex-1 items-center justify-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all sm:flex-none",
-                    sort === "deadline"
+                    sort === "new"
                       ? "bg-gradient-to-r from-emerald-500 to-cyan-500 text-white shadow-[0_6px_16px_rgba(16,185,129,0.28)]"
                       : "text-muted-foreground hover:bg-white/10 hover:text-foreground"
                   )}
                 >
-                  <CalendarDays className="size-3.5" />
-                  截止最近
+                  <Clock3 className="size-3.5" />
+                  最新
                 </button>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            <FilterChip active={!city} onClick={() => setCity("")}>
-              全部城市
-            </FilterChip>
-            {cities.map((c) => (
-              <FilterChip
-                key={c}
-                active={city === c}
-                onClick={() => {
-                  setCity(c);
-                  setPage(1);
-                }}
-              >
-                {c}
-              </FilterChip>
-            ))}
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <FilterChip active={platforms.length === 0} onClick={() => setPlatforms([])}>
-              全部来源
-            </FilterChip>
-            {PLATFORM_OPTIONS.map((source) => (
-              <FilterChip
-                key={source}
-                active={platforms.includes(source)}
-                onClick={() => togglePlatform(source)}
-              >
-                {jobSourceLabel(source)}
-                {experimentalJobSources.includes(source) ? (
-                  <span className="rounded-full bg-white/20 px-1.5 py-0.5 text-[10px]">实验</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSort("salary");
+                    setPage(1);
+                  }}
+                  className={cn(
+                    "inline-flex flex-1 items-center justify-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all sm:flex-none",
+                    sort === "salary"
+                      ? "bg-gradient-to-r from-emerald-500 to-cyan-500 text-white shadow-[0_6px_16px_rgba(16,185,129,0.28)]"
+                      : "text-muted-foreground hover:bg-white/10 hover:text-foreground"
+                  )}
+                >
+                  <ArrowUpDown className="size-3.5" />
+                  薪资
+                </button>
+                {showDeadlineSort ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSort("deadline");
+                      setPage(1);
+                    }}
+                    className={cn(
+                      "inline-flex flex-1 items-center justify-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all sm:flex-none",
+                      sort === "deadline"
+                        ? "bg-gradient-to-r from-emerald-500 to-cyan-500 text-white shadow-[0_6px_16px_rgba(16,185,129,0.28)]"
+                        : "text-muted-foreground hover:bg-white/10 hover:text-foreground"
+                    )}
+                  >
+                    <CalendarDays className="size-3.5" />
+                    截止最近
+                  </button>
                 ) : null}
-              </FilterChip>
-            ))}
-          </div>
+              </div>
 
-          {/* P1：高级筛选（移动端折叠 / 桌面端默认展开） */}
-          <div className="flex flex-col gap-3 border-t border-white/10 pt-3">
-            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => setShowFilters((v) => !v)}
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold backdrop-blur-md transition-all",
-                  showFilters || Object.values(filters).some((v) => (Array.isArray(v) ? v.length > 0 : Boolean(v)))
+                  showFilters || filterCount > 0
                     ? "border-transparent bg-gradient-to-r from-emerald-500 to-cyan-500 text-white"
                     : "border-white/20 bg-white/10 text-muted-foreground hover:bg-white/15 hover:text-foreground"
                 )}
               >
                 <SlidersHorizontal className="size-3.5" />
-                高级筛选
+                筛选
+                {filterCount > 0 ? (
+                  <span className="rounded-full bg-white/20 px-1.5 text-[10px] font-bold tabular-nums">{filterCount}</span>
+                ) : null}
+                <ChevronDown className={cn("size-3.5 transition-transform", showFilters && "rotate-180")} />
               </button>
-              <div className="flex items-center gap-1.5 rounded-full border border-violet-500/25 bg-violet-500/10 px-3 py-1.5 text-xs font-semibold text-violet-600 dark:text-violet-300">
-                <span>🔁</span>
-                多平台职位已自动合并去重
-              </div>
+
               <button
                 type="button"
                 onClick={async () => {
@@ -633,46 +609,76 @@ export default function JobsPage() {
                 立即去重
               </button>
             </div>
+          </div>
 
-            {showFilters ? (
-              <div className="flex flex-col gap-3">
+          {/* 折叠面板：城市 + 来源 + 高级筛选 */}
+          {showFilters ? (
+            <div className="flex flex-col gap-3 border-t border-white/10 pt-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">城市</span>
+                <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+                  <RefreshCw className="size-3" /> 多平台职位已自动合并去重
+                </span>
+              </div>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                <FilterChip active={!city} onClick={() => setCity("")}>全部城市</FilterChip>
+                {cities.map((c) => (
+                  <FilterChip key={c} active={city === c} onClick={() => { setCity(c); setPage(1); }}>{c}</FilterChip>
+                ))}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">来源</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <FilterChip active={platforms.length === 0} onClick={() => setPlatforms([])}>全部来源</FilterChip>
+                {PLATFORM_OPTIONS.map((source) => (
+                  <FilterChip key={source} active={platforms.includes(source)} onClick={() => togglePlatform(source)}>
+                    {jobSourceLabel(source)}
+                    {experimentalJobSources.includes(source) ? (
+                      <span className="rounded-full bg-white/20 px-1.5 py-0.5 text-[10px]">实验</span>
+                    ) : null}
+                  </FilterChip>
+                ))}
+              </div>
+
+              <div className="mt-1">
                 <JobFilterPanel filters={filters} onChange={(next) => { setFilters(next); setPage(1); }} compact />
-                {/* 技能标签快速添加 */}
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={skillsDraft}
-                    onChange={(e) => setSkillsDraft(e.target.value)}
-                    placeholder="添加技能标签，如 Python / Docker，回车确认"
-                    className="h-9"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        const v = skillsDraft.trim();
-                        if (v && !filters.skills.includes(v)) {
-                          setFilters((prev) => ({ ...prev, skills: [...prev.skills, v] }));
-                          setPage(1);
-                        }
-                        setSkillsDraft("");
-                      }
-                    }}
-                  />
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => {
+              </div>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={skillsDraft}
+                  onChange={(e) => setSkillsDraft(e.target.value)}
+                  placeholder="添加技能标签，如 Python / Docker，回车确认"
+                  className="h-9"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
                       const v = skillsDraft.trim();
                       if (v && !filters.skills.includes(v)) {
                         setFilters((prev) => ({ ...prev, skills: [...prev.skills, v] }));
                         setPage(1);
                       }
                       setSkillsDraft("");
-                    }}
-                  >
-                    添加
-                  </Button>
-                </div>
+                    }
+                  }}
+                />
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    const v = skillsDraft.trim();
+                    if (v && !filters.skills.includes(v)) {
+                      setFilters((prev) => ({ ...prev, skills: [...prev.skills, v] }));
+                      setPage(1);
+                    }
+                    setSkillsDraft("");
+                  }}
+                >
+                  添加
+                </Button>
               </div>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
         </div>
       </section>
 

@@ -1,0 +1,328 @@
+"use client";
+
+/**
+ * 招聘市场分析 · 胶囊化图表组件
+ * 参照 mav-charts 目录选型：C05 横向排名 / F01 矩形树图 / D07 直方图 / P02 环形 / D03 气泡象限
+ * 全部手绘 SVG/HTML，贴合 apps/web 玻璃拟态 + 冷调强调，不引入 recharts 依赖。
+ */
+import { cn } from "@/lib/utils";
+
+/** 冷调渐变对（胶囊填充） */
+const G = [
+  ["#10b981", "#34d399"], // emerald
+  ["#06b6d4", "#22d3ee"], // cyan
+  ["#6366f1", "#818cf8"], // indigo
+  ["#8b5cf6", "#a78bfa"], // violet
+  ["#f59e0b", "#fbbf24"], // amber
+  ["#ec4899", "#f472b6"], // pink
+] as const;
+const grad = (i: number, vertical = false) =>
+  `linear-gradient(${vertical ? "180" : "90"}deg, ${G[i % G.length][0]}, ${G[i % G.length][1]})`;
+const fillColor = (i: number) => G[i % G.length][0];
+
+/** 排序后的横向排名胶囊条 */
+export function CapsuleRank({
+  items,
+  className,
+}: {
+  items: { label: string; value: number; note?: string }[];
+  className?: string;
+}) {
+  const sorted = [...items].sort((a, b) => b.value - a.value);
+  const max = Math.max(1, ...sorted.map((s) => s.value));
+  return (
+    <div className={cn("flex flex-col gap-2", className)}>
+      {sorted.map((it, i) => (
+        <div key={it.label} className="flex items-center gap-2.5">
+          <span
+            className={cn(
+              "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-black",
+              i < 3 ? "text-white" : "bg-white/12 text-muted-foreground"
+            )}
+            style={i < 3 ? { background: fillColor(i) } : undefined}
+          >
+            {i + 1}
+          </span>
+          <span className="w-16 shrink-0 truncate text-xs font-medium text-muted-foreground" title={it.label}>
+            {it.label}
+          </span>
+          <div className="relative h-5 flex-1 overflow-hidden rounded-full bg-white/10">
+            <div
+              className="h-full rounded-full transition-[width] duration-700 ease-out"
+              style={{ width: `${Math.max(6, Math.round((it.value / max) * 100))}%`, background: grad(i) }}
+            />
+          </div>
+          <span className="w-14 shrink-0 text-right text-xs font-bold tabular-nums text-foreground">
+            {it.value}
+            {it.note ? <span className="ml-1 text-[10px] font-medium text-muted-foreground">{it.note}</span> : null}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** 矩形树图（一个整体中各类别规模）— squarify 面积成正比，胶囊圆角 */
+export function TreemapChart({ items, className }: { items: { label: string; value: number }[]; className?: string }) {
+  const rects = squarify(items, 0, 0, 400, 260);
+  return (
+    <div className={cn("relative w-full overflow-hidden rounded-2xl bg-white/6", className)} style={{ height: 260 }}>
+      {rects.map((r) => {
+        const big = r.w > 84 && r.h > 46;
+        const mid = r.w > 48 && r.h > 30;
+        return (
+          <div
+            key={r.label}
+            className="absolute flex flex-col justify-between overflow-hidden rounded-[10px] p-1.5"
+            style={{
+              left: `${(r.x / 400) * 100}%`,
+              top: `${(r.y / 260) * 100}%`,
+              width: `${(r.w / 400) * 100}%`,
+              height: `${(r.h / 260) * 100}%`,
+              background: grad(rects.indexOf(r), true),
+            }}
+          >
+            <span className="truncate text-[10px] font-semibold leading-tight text-white/95">
+              {big || mid ? r.label : ""}
+            </span>
+            {big ? (
+              <span className="text-sm font-black tabular-nums leading-none text-white">{r.value}</span>
+            ) : mid ? (
+              <span className="text-[10px] font-bold tabular-nums text-white/90">{r.value}</span>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** 直方图（等宽区间分布）— 竖向胶囊柱 */
+export function HistogramBars({ items, className }: { items: { label: string; value: number }[]; className?: string }) {
+  const max = Math.max(1, ...items.map((h) => h.value));
+  return (
+    <div className={cn("flex h-40 items-end gap-2", className)}>
+      {items.map((d, i) => (
+        <div key={d.label} className="flex min-w-0 flex-1 flex-col items-center gap-1.5" title={`${d.label}：${d.value} 个`}>
+          <span className="text-xs font-bold tabular-nums text-foreground">{d.value}</span>
+          <div className="flex w-full flex-col justify-end overflow-hidden rounded-md bg-white/10" style={{ height: "100%" }}>
+            <div
+              className="w-full rounded-md transition-[height] duration-700 ease-out"
+              style={{ height: `${Math.max(8, Math.round((d.value / max) * 100))}%`, background: grad(i, true) }}
+            />
+          </div>
+          <span className="truncate text-[10px] text-muted-foreground">{d.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** 环形图（占比）— 中心总量 + 图例 */
+export function DonutChart({
+  items,
+  centerLabel,
+  centerValue,
+  className,
+}: {
+  items: { label: string; value: number }[];
+  centerLabel?: string;
+  centerValue?: string;
+  className?: string;
+}) {
+  const total = items.reduce((a, d) => a + d.value, 0);
+  const size = 120;
+  const t = 18;
+  const r = (size - t) / 2;
+  const c = 2 * Math.PI * r;
+  const segs = items.reduce<{ label: string; value: number; color: string; dash: number; off: number }[]>((acc, d, i) => {
+    const prevOff = acc.length > 0 ? acc[acc.length - 1].off + acc[acc.length - 1].dash : 0;
+    const frac = total > 0 ? d.value / total : 0;
+    acc.push({ label: d.label, value: d.value, color: fillColor(i), dash: frac * c, off: prevOff });
+    return acc;
+  }, []);
+  return (
+    <div className={cn("flex items-center gap-4", className)}>
+      <div className="relative h-[120px] w-[120px] shrink-0">
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth={t} />
+          {segs.map((s) => (
+            <circle
+              key={s.label}
+              cx={size / 2}
+              cy={size / 2}
+              r={r}
+              fill="none"
+              stroke={s.color}
+              strokeWidth={t}
+              strokeLinecap="butt"
+              strokeDasharray={`${s.dash} ${c}`}
+              strokeDashoffset={-s.off}
+            />
+          ))}
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-xl font-black tabular-nums text-foreground">{centerValue ?? total}</span>
+          {centerLabel ? <span className="text-[10px] text-muted-foreground">{centerLabel}</span> : null}
+        </div>
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        {segs.map((s) => (
+          <div key={s.label} className="flex items-center gap-1.5 text-[11px]">
+            <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: s.color }} />
+            <span className="truncate text-muted-foreground">{s.label}</span>
+            <span className="ml-auto font-bold tabular-nums text-foreground">{s.value}</span>
+          </div>
+        ))}
+        {segs.length === 0 ? <span className="text-[11px] text-muted-foreground">暂无数据</span> : null}
+      </div>
+    </div>
+  );
+}
+
+/** 气泡象限图（关系 + 规模）— 中位数十字参考线 */
+export function BubbleQuadrant({
+  items,
+  xLabel,
+  yLabel,
+  className,
+}: {
+  items: { label: string; x: number; y: number; r: number }[];
+  xLabel?: string;
+  yLabel?: string;
+  className?: string;
+}) {
+  const W = 280, H = 170, P = 14;
+  const xs = items.map((d) => d.x).filter((n) => Number.isFinite(n));
+  const ys = items.map((d) => d.y).filter((n) => Number.isFinite(n));
+  const maxX = Math.max(1, ...xs);
+  const maxY = Math.max(1, ...ys);
+  const midX = median(xs) || maxX / 2;
+  const midY = median(ys) || maxY / 2;
+  const tone = (x: number, y: number) => (x >= midX && y >= midY ? "#34d399" : x >= midX ? "#22d3ee" : y >= midY ? "#818cf8" : "#a78bfa");
+  return (
+    <div className={cn("flex flex-col gap-2", className)}>
+      <div className="relative w-full overflow-hidden rounded-xl bg-white/6" style={{ height: 168 }}>
+        {/* 网格 */}
+        <svg viewBox={`0 0 ${W} ${H}`} className="h-full w-full">
+          {[0.25, 0.5, 0.75, 1].map((f) => (
+            <line key={f} x1={P} x2={W - P} y1={H - P - (H - 2 * P) * f} y2={H - P - (H - 2 * P) * f} stroke="rgba(255,255,255,0.07)" strokeWidth="1" />
+          ))}
+          {/* 参考十字线 */}
+          <line x1={P} x2={W - P} y1={Y(midY, maxY, H, P)} y2={Y(midY, maxY, H, P)} stroke="rgba(255,255,255,0.3)" strokeWidth="1" strokeDasharray="3 3" />
+          <line x1={X(midX, maxX, W, P)} x2={X(midX, maxX, W, P)} y1={P} y2={H - P} stroke="rgba(255,255,255,0.3)" strokeWidth="1" strokeDasharray="3 3" />
+          {items.map((d) => {
+            const cx = X(d.x, maxX, W, P);
+            const cy = Y(d.y, maxY, H, P);
+            const rad = Math.min(16, 3 + d.r * 1.6);
+            return (
+              <g key={d.label}>
+                <circle cx={cx} cy={cy} r={rad} fill={tone(d.x, d.y)} opacity={0.82} />
+                <title>{d.label} · 均 {d.x}K · {d.y} 个职位</title>
+              </g>
+            );
+          })}
+        </svg>
+        <span className="absolute left-1.5 top-1 text-[9px] font-semibold text-muted-foreground">{yLabel ?? "需求热度"}</span>
+        <span className="absolute bottom-1.5 right-2 text-[9px] font-semibold text-muted-foreground">{xLabel ?? "平均薪资"}</span>
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+        {items.slice(0, 6).map((d) => (
+          <span key={d.label} className="text-[10px] text-muted-foreground">
+            {d.label} <span className="font-bold tabular-nums text-foreground">{d.x}K</span>
+          </span>
+        ))}
+        {items.length > 6 ? <span className="text-[10px] text-muted-foreground">+{items.length - 6}…</span> : null}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- 数学工具 ---------- */
+function median(vals: number[]): number {
+  if (vals.length === 0) return 0;
+  const s = [...vals].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+}
+function X(v: number, max: number, W: number, P: number) {
+  return P + ((W - 2 * P) * v) / max;
+}
+function Y(v: number, max: number, H: number, P: number) {
+  return H - P - ((H - 2 * P) * v) / max;
+}
+
+/** squarify 矩形树图布局（已验证：填充 100% / 面积成正比 / 无重叠） */
+function squarify(
+  items: { label: string; value: number }[],
+  x: number,
+  y: number,
+  w: number,
+  h: number
+): { label: string; value: number; x: number; y: number; w: number; h: number }[] {
+  const total = items.reduce((a, b) => a + b.value, 0);
+  if (total <= 0) return [];
+  const AREA = w * h;
+  const stack = items
+    .filter((it) => it.value > 0)
+    .slice()
+    .sort((a, b) => b.value - a.value)
+    .map((it) => ({ label: it.label, value: it.value, wt: (it.value * AREA) / total }));
+  let rect = { x, y, w, h };
+  let row: typeof stack = [];
+  const worst = (rw: typeof stack, side: number) => {
+    if (rw.length === 0) return Infinity;
+    const s = rw.reduce((a, b) => a + b.wt, 0);
+    const mx = Math.max(...rw.map((r) => r.wt));
+    const mn = Math.min(...rw.map((r) => r.wt));
+    return Math.max((side * side * mx) / (s * s), (s * s) / (side * side * mn));
+  };
+  const layout = (rw: typeof stack, rect: { x: number; y: number; w: number; h: number }) => {
+    const s = rw.reduce((a, b) => a + b.wt, 0);
+    const placed: { label: string; value: number; x: number; y: number; w: number; h: number }[] = [];
+    if (rect.w >= rect.h) {
+      const rowW = s / rect.h;
+      let yOff = rect.y;
+      for (const r of rw) {
+        const rh = r.wt / rowW;
+        placed.push({ label: r.label, value: r.value, x: rect.x, y: yOff, w: rowW, h: rh });
+        yOff += rh;
+      }
+      return {
+        rect: { ...rect, x: rect.x + rowW, w: rect.w - rowW },
+        placed,
+      };
+    } else {
+      const rowH = s / rect.w;
+      let xOff = rect.x;
+      for (const r of rw) {
+        const cw = r.wt / rowH;
+        placed.push({ label: r.label, value: r.value, x: xOff, y: rect.y, w: cw, h: rowH });
+        xOff += cw;
+      }
+      return {
+        rect: { ...rect, y: rect.y + rowH, h: rect.h - rowH },
+        placed,
+      };
+    }
+  };
+  const result: { label: string; value: number; x: number; y: number; w: number; h: number }[] = [];
+  while (stack.length) {
+    const side = Math.min(rect.w, rect.h);
+    const c = stack[0];
+    if (row.length === 0 || worst([...row, c], side) <= worst(row, side)) {
+      row.push(c);
+      stack.shift();
+    } else {
+      const l = layout(row, rect);
+      result.push(...l.placed);
+      rect = l.rect;
+      row = [];
+    }
+  }
+  if (row.length) {
+    const l = layout(row, rect);
+    result.push(...l.placed);
+  }
+  return result;
+}

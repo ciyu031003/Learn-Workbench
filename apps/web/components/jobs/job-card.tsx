@@ -141,7 +141,7 @@ export function JobCard({
               {deadline}
             </span>
           ) : (
-            <span className="shrink-0 rounded-full bg-indigo-500/15 px-2.5 py-1 text-[11px] font-bold text-indigo-500 dark:text-indigo-300">
+            <span className="shrink-0 rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-bold text-emerald-500 dark:text-emerald-300">
               公告
             </span>
           )

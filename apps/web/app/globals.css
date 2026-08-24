@@ -45,6 +45,7 @@ html.dark {
   --color-accent: #0ea5e9;
   --color-danger: #dc2626;
   --color-success: #16a34a;
+  --color-warning: #f59e0b;
   --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
 }

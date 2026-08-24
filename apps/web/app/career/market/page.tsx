@@ -8,99 +8,38 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, Loader2, TrendingUp, MapPin, BarChart3, GraduationCap, Briefcase, Layers, Database, CircleDollarSign, Wrench, GitBranch, Flower2 } from "lucide-react";
+import {
+  ChevronLeft,
+  Loader2,
+  TrendingUp,
+  MapPin,
+  BarChart3,
+  GraduationCap,
+  Briefcase,
+  Layers,
+  Database,
+  CircleDollarSign,
+  BriefcaseBusiness,
+  GitBranch,
+  Flower2,
+} from "lucide-react";
+import { CapsuleRank, TreemapChart, HistogramBars, DonutChart, BubbleQuadrant } from "@/components/market/market-charts";
 
-const BAR_GRADIENTS = ["from-emerald-400 to-cyan-500","from-sky-400 to-blue-500","from-indigo-400 to-violet-500"];
-
-function HBar({ label, value, max, color, suffix = "", valueLabel }: { label: string; value: number; max: number; color: string; suffix?: string; valueLabel?: string; }) {
-  const pct = max > 0 ? Math.max(3, Math.round((value / max) * 100)) : 0;
+function ChartCard({
+  icon,
+  title,
+  badge,
+  children,
+  className,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  badge?: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <div className="flex items-center gap-2.5">
-      <span className="w-16 shrink-0 truncate text-right text-xs font-medium text-muted-foreground" title={label}>{label}</span>
-      <div className="relative h-4 flex-1 overflow-hidden rounded-md bg-white/10">
-        <div className={cn("h-full rounded-md bg-gradient-to-r transition-all duration-700", color)} style={{ width: pct + "%" }} />
-      </div>
-      <span className="w-16 shrink-0 text-xs font-bold tabular-nums text-foreground">{valueLabel ?? value}{suffix}</span>
-    </div>
-  );
-}
-
-function Donut({ data, size = 132, thickness = 20 }: { data: { label: string; count: number }[]; size?: number; thickness?: number; }) {
-  const total = data.reduce((a, d) => a + d.count, 0);
-  const colors = ["#34d399","#38bdf8","#818cf8","#a78bfa","#f472b6","#fbbf24","#94a3b8"];
-  const r = (size - thickness) / 2;
-  const c = 2 * Math.PI * r;
-  let offset = 0;
-  const segments = data.map((d, i) => {
-    const frac = total > 0 ? d.count / total : 0;
-    const seg = { ...d, color: colors[i % colors.length], dash: frac * c, offset };
-// eslint-disable-next-line react-hooks/immutability -- 纯局部累加计算（渲染期不可变规则过于严格）
-    offset += frac * c;
-    return seg;
-  });
-  return (
-    <div className="flex items-center gap-4">
-      <svg width={size} height={size} viewBox={"0 0 " + size + " " + size} className="shrink-0 -rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={thickness} />
-        {segments.map((s) => (
-          <circle key={s.label} cx={size / 2} cy={size / 2} r={r} fill="none" stroke={s.color} strokeWidth={thickness} strokeLinecap="butt" strokeDasharray={s.dash + " " + c} strokeDashoffset={-s.offset} />
-        ))}
-      </svg>
-      <div className="flex min-w-0 flex-col gap-1">
-        {segments.map((s) => (
-          <div key={s.label} className="flex items-center gap-1.5 text-[11px]">
-            <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: s.color }} />
-            <span className="truncate text-muted-foreground">{s.label}</span>
-            <span className="ml-auto font-bold tabular-nums text-foreground">{s.count}</span>
-          </div>
-        ))}
-        {segments.length === 0 ? <span className="text-[11px] text-muted-foreground">暂无数据</span> : null}
-      </div>
-    </div>
-  );
-}
-
-function Scatter({ data }: { data: { skill: string; avgSalary: number | null; count: number }[] }) {
-  const W = 240, H = 96, PAD = 8;
-  const values = data.filter((d) => d.avgSalary != null);
-  const maxS = Math.max(1, ...values.map((d) => d.avgSalary ?? 0));
-  return (
-    <div className="flex flex-col gap-2">
-      <svg viewBox={"0 0 " + W + " " + H} className="w-full">
-        {[0.25, 0.5, 0.75, 1].map((f) => (
-          <line key={f} x1={PAD} x2={W - PAD} y1={H - PAD - (H - 2 * PAD) * f} y2={H - PAD - (H - 2 * PAD) * f} stroke="rgba(255,255,255,0.07)" strokeWidth="1" />
-        ))}
-        {values.map((d, i) => {
-          const x = PAD + ((W - 2 * PAD) * (i + 0.5)) / Math.max(1, values.length);
-          const y = H - PAD - ((H - 2 * PAD) * (d.avgSalary ?? 0)) / maxS;
-          const r = Math.min(9, 3 + (d.count ?? 1) * 1.2);
-          return (
-            <g key={d.skill}>
-              <circle cx={x} cy={y} r={r} fill="url(#scatterGrad)" opacity={0.85} />
-              <title>{d.skill + " · 平均 " + (d.avgSalary ?? 0) + "K · " + d.count + " 个职位"}</title>
-            </g>
-          );
-        })}
-        <defs>
-          <linearGradient id="scatterGrad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#34d399" />
-            <stop offset="100%" stopColor="#818cf8" />
-          </linearGradient>
-        </defs>
-      </svg>
-      <div className="flex flex-wrap gap-x-3 gap-y-0.5">
-        {values.slice(0, 6).map((d) => (
-          <span key={d.skill} className="text-[10px] text-muted-foreground">{d.skill} <span className="font-bold text-foreground tabular-nums">{d.avgSalary}K</span></span>
-        ))}
-        {values.length > 6 ? <span className="text-[10px] text-muted-foreground">+{values.length - 6}…</span> : null}
-      </div>
-    </div>
-  );
-}
-
-function ChartCard({ icon, title, badge, children, className }: { icon: React.ReactNode; title: string; badge?: string; children: React.ReactNode; className?: string; }) {
-  return (
-    <Card className={cn("overflow-hidden rounded-xl shadow-[0_8px_40px_rgba(0,0,0,0.10)]", className)}>
+    <Card className={cn("overflow-hidden rounded-2xl", className)}>
       <CardHeader className="flex-row items-center gap-2">
         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10">{icon}</span>
         <CardTitle className="text-sm text-foreground">{title}</CardTitle>
@@ -109,6 +48,20 @@ function ChartCard({ icon, title, badge, children, className }: { icon: React.Re
       <CardContent className="flex flex-col gap-2">{children}</CardContent>
     </Card>
   );
+}
+
+/** 函数方向 TOP 汇总为树图：超 8 项时聚合成「其他」保证可读 */
+function toTreemap(items: { label: string; count: number }[]) {
+  const sorted = [...items].sort((a, b) => b.count - a.count);
+  if (sorted.length <= 8) return sorted;
+  const top = sorted.slice(0, 8);
+  const rest = sorted.slice(8).reduce((a, s) => a + s.count, 0);
+  return [...top, { label: "其他", count: rest }];
+}
+
+function CityNote(c: { avgMin: number | null; avgMax: number | null }): string | undefined {
+  if (c.avgMin == null && c.avgMax == null) return undefined;
+  return `均${c.avgMin ?? "—"}-${c.avgMax ?? "—"}K`;
 }
 
 export default function MarketPage() {
@@ -138,19 +91,18 @@ export default function MarketPage() {
     return <EmptyState icon={TrendingUp} title="暂无招聘数据" hint="先抓取一些职位，市场分析会随数据自动更新" />;
   }
 
-  const maxOf = (arr: { count: number }[]) => Math.max(1, ...arr.map((x) => x.count));
-  const cityMax = maxOf(data.byCity);
-  const skillMax = maxOf(data.bySkill);
-  const fnMax = maxOf(data.byFunction);
-  const salaryMax = maxOf(data.salaryDist);
-  const expMax = maxOf(data.byExperience);
-
   return (
     <div className="page-enter flex flex-col gap-5">
-      {/* 顶部大标题区（原样保留） */}
+      {/* 顶部大标题区 */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="page-title text-2xl font-bold tracking-tight lg:text-3xl">招聘市场分析</h1>
+          <div className="flex items-center gap-2">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-500 text-white shadow-[0_8px_24px_rgba(16,185,129,0.35)]">
+              <BarChart3 className="size-5" />
+            </span>
+            <Badge variant="success">市场分析</Badge>
+          </div>
+          <h1 className="page-title mt-3 text-2xl font-bold tracking-tight lg:text-3xl">招聘市场分析</h1>
           <p className="page-subtitle mt-1 text-sm">市场到底需要什么？—— 来自招花职位库的实时统计</p>
         </div>
         <div className="flex items-center gap-2">
@@ -159,62 +111,57 @@ export default function MarketPage() {
         </div>
       </div>
 
-      {/* 第一行：通栏主卡片 —— 岗位职能方向 TOP（总览模型） */}
-      <ChartCard icon={<Layers className="size-4 text-emerald-400" />} title="岗位职能方向分布 TOP" badge={"样本 " + data.byFunction.reduce((a, f) => a + f.count, 0) + " 个"}>
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-          {data.byFunction.map((f, i) => (
-            <HBar key={f.label} label={f.label} value={f.count} max={fnMax} color={BAR_GRADIENTS[i % 3]} suffix=" 个" />
-          ))}
-          {data.byFunction.length === 0 ? <p className="col-span-2 py-4 text-center text-xs text-muted-foreground">暂无职能数据（公司名脏数据已清洗）</p> : null}
-        </div>
+      {/* 第一行：岗位职能方向 —— 矩形树图（整体构成） */}
+      <ChartCard icon={<Layers className="size-4 text-emerald-400" />} title="岗位职能方向分布" badge={"样本 " + data.byFunction.reduce((a, f) => a + f.count, 0) + " 个"}>
+        <TreemapChart items={toTreemap(data.byFunction).map((f) => ({ label: f.label, value: f.count }))} />
       </ChartCard>
 
-      {/* 第二行：左右双列大卡片 —— 城市需求 + 技能热度 */}
+      {/* 第二行：城市 + 技能横向排名 */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <ChartCard icon={<MapPin className="size-4 text-sky-400" />} title="城市需求 TOP" badge={"样本 " + data.byCity.reduce((a, c) => a + c.count, 0) + " 个"}>
-          {data.byCity.map((c, i) => (
-            <HBar key={c.city} label={c.city} value={c.count} max={cityMax} color={BAR_GRADIENTS[i % 3]} suffix=" 个" valueLabel={c.count + " · 均" + (c.avgMin ?? "—") + "-" + (c.avgMax ?? "—") + "K"} />
-          ))}
+          <CapsuleRank items={data.byCity.map((c) => ({ label: c.city, value: c.count, note: CityNote(c) }))} />
         </ChartCard>
         <ChartCard icon={<BarChart3 className="size-4 text-indigo-400" />} title="技能热度 TOP" badge={"样本 " + data.bySkill.reduce((a, s) => a + s.count, 0) + " 个"}>
-          {data.bySkill.map((s, i) => (
-            <HBar key={s.skill} label={s.skill} value={s.count} max={skillMax} color={BAR_GRADIENTS[(i + 1) % 3]} />
-          ))}
+          <CapsuleRank items={data.bySkill.map((s) => ({ label: s.skill, value: s.count }))} />
         </ChartCard>
       </div>
 
-      {/* 第三行：三列等宽小卡片 —— 薪资 / 学历 / 经验 */}
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+      {/* 第三行：薪资直方图 + 学历环形 */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <ChartCard icon={<CircleDollarSign className="size-4 text-amber-400" />} title="薪资区间分布" badge="K/月">
-          {data.salaryDist.map((s, i) => (
-            <HBar key={s.label} label={s.label} value={s.count} max={salaryMax} color={BAR_GRADIENTS[i % 3]} suffix=" 个" />
-          ))}
+          <HistogramBars items={data.salaryDist.map((s) => ({ label: s.label, value: s.count }))} />
         </ChartCard>
         <ChartCard icon={<GraduationCap className="size-4 text-violet-400" />} title="学历需求占比" badge={"共 " + data.byEducation.reduce((a, e) => a + e.count, 0) + " 个"}>
-          <Donut data={data.byEducation} />
-        </ChartCard>
-        <ChartCard icon={<Briefcase className="size-4 text-rose-400" />} title="经验年限要求" badge="应届→资深">
-          {data.byExperience.map((e, i) => (
-            <HBar key={e.label} label={e.label} value={e.count} max={expMax} color={BAR_GRADIENTS[(i + 2) % 3]} suffix=" 个" />
-          ))}
+          <DonutChart items={data.byEducation.map((e) => ({ label: e.label, value: e.count }))} centerLabel="岗位" />
         </ChartCard>
       </div>
 
-      {/* 第四行：三列等宽小卡片 —— 平台 / 岗位类型 / 薪资-技能 */}
+      {/* 第四行：经验 / 平台 / 岗位类型 */}
       <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-        <ChartCard icon={<Database className="size-4 text-emerald-400" />} title="数据来源平台分布" badge={"共 " + data.byPlatform.reduce((a, p) => a + p.count, 0) + " 个"}>
-          <Donut data={data.byPlatform} />
+        <ChartCard icon={<Briefcase className="size-4 text-rose-400" />} title="经验年限要求" badge="应届→资深">
+          <CapsuleRank items={data.byExperience.map((e) => ({ label: e.label, value: e.count }))} />
         </ChartCard>
-        <ChartCard icon={<Wrench className="size-4 text-sky-400" />} title="岗位类型占比" badge="全职/实习/外包">
-          <Donut data={data.byJobType} />
+        <ChartCard icon={<Database className="size-4 text-emerald-400" />} title="数据来源平台" badge={"共 " + data.byPlatform.reduce((a, p) => a + p.count, 0) + " 个"}>
+          <DonutChart items={data.byPlatform.map((p) => ({ label: p.label, value: p.count }))} centerLabel="来源" />
         </ChartCard>
-        <ChartCard icon={<GitBranch className="size-4 text-indigo-400" />} title="薪资-技能相关性" badge="技能平均薪资 K/月">
-          <Scatter data={data.skillSalary} />
+        <ChartCard icon={<BriefcaseBusiness className="size-4 text-sky-400" />} title="岗位类型占比" badge="全职/实习/外包">
+          <DonutChart items={data.byJobType.map((j) => ({ label: j.label, value: j.count }))} centerLabel="类型" />
         </ChartCard>
       </div>
+
+      {/* 第五行：薪资-技能气泡象限 */}
+      <ChartCard icon={<GitBranch className="size-4 text-indigo-400" />} title="薪资-技能相关性" badge="技能平均薪资 K/月">
+        <BubbleQuadrant
+          items={data.skillSalary
+            .filter((s) => s.avgSalary != null && s.count > 0)
+            .map((s) => ({ label: s.skill, x: s.avgSalary as number, y: s.count, r: s.count }))}
+          xLabel="平均薪资"
+          yLabel="职位数"
+        />
+      </ChartCard>
 
       {/* 数据说明 */}
-      <Card className="rounded-xl">
+      <Card className="rounded-2xl">
         <CardHeader className="flex-row items-center gap-2">
           <Flower2 className="size-4 text-emerald-400" />
           <CardTitle className="text-sm text-foreground">关于数据</CardTitle>
