@@ -97,6 +97,14 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 
 ## 四、改动记录
 
+### 2026-08-24 · chore（收尾清理：市场缓存失效 + 迁移 012 补档 + /focus 确认）
+
+- **改动**：新增 `invalidateMarketCache()`（DELETE market_stats），两个爬虫脚本写库后调用（市场分析不再读 60s 旧缓存）；迁移 012 补档（idx_jobs_published 发布时间索引，补齐 011→013 跳号）；确认 /focus 无页面/无悬空链接（历史 404 不可复现）。
+- **涉及文件**：apps/web/lib/domains/market/analysis.ts(+test)；scripts/jobs_official.mjs、jobs_browser.mjs；db/migrations/012_jobs_published_index.sql。
+- **原因/决策**：收尾历史遗留 —— 市场缓存已落地但缺失效钩子；迁移编号跳号影响 verify-migrations；/focus 为旧会话观察。
+- **验证**：web vitest 183 全过（+2）；verify-migrations「全部检查通过 ✅」（19 迁移连续）；E2E 11/11；服务器迁移 012 已应用、/api/market 200。
+- **影响**：无破坏性改动；爬虫后市场分析最多 60s 内重算。
+
 ### 2026-08-24 · feat（移动端接入岗位学习计划 + 发布就绪）
 
 - **改动**：mobile `lib/jobs.ts` 新增 fetchJobPlan/enrollJobGaps；JobDetailModal 新增「岗位学习计划」区块（匹配度/补完收益、按阶段分组缺口、一键加入学习任务）；expo export android 打包验证通过。

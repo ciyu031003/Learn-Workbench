@@ -240,3 +240,24 @@ npx eas build:configure             # 生成 eas.json（如无）
 npx eas build -p android --profile preview   # 产出 APK（测试）
 npx eas build -p android            # 产出 AAB（上架 Google Play）
 ```
+
+---
+
+## 十七、收尾清理（2026-08-24，commit `1d3558b`）
+
+> 服务器同步 4 文件（迁移 012 / analysis.ts / 两个爬虫脚本），备份 `.bak-20260824212722`；docker compose up -d --build 重建，init 应用迁移 012。
+
+### 1) 市场统计接入实际统计（补缓存失效）
+- 根因：`analyzeMarket` 已用 `market_stats` 表做 60s DB 缓存（多实例共享/重启不丢），但**爬虫写入后从未失效** → 爬虫后 60s 内市场分析读到旧数据。
+- 修复：`analysis.ts` 新增 `invalidateMarketCache()`（DELETE market_stats）；`jobs_official.mjs` / `jobs_browser.mjs` 写库后调用（容器内已确认含该逻辑）。+2 单测。
+
+### 2) 迁移 012 补档
+- `db/migrations/012_jobs_published_index.sql`：`idx_jobs_published(job_postings.published_at DESC)`（列表发布时间筛选/排序加速）；011→013 编号跳号补齐。
+- `scripts/verify-migrations.mjs`：**19 迁移连续（1~19）+ 漂移清零，全部检查通过 ✅**。
+
+### 3) /focus 遗留确认
+- 复核 web/mobile：均无 `/focus` 页面路由与悬空链接（仅 `/api/focus/*` API）；历史「/focus 一个 404 资源」不可复现，判定为旧会话缓存观察，已关闭。
+
+### 验证
+- web vitest 183 全过（+2 invalidate 用例）；typecheck/lint 全绿；E2E 11/11。
+- 服务器：迁移 012 已应用（schema_migrations + idx_jobs_published 存在）；/api/market 200。
