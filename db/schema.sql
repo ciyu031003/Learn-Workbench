@@ -435,3 +435,312 @@ UPDATE content_topics SET client_id = 'srv-' || id WHERE client_id IS NULL AND i
 ALTER TABLE content_topics ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
 DROP TRIGGER IF EXISTS trg_content_topics_updated ON content_topics;
 CREATE TRIGGER trg_content_topics_updated BEFORE UPDATE ON content_topics FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+
+-- ============================================================================
+-- 2.x 增量迁移建表登记（全量对账补齐，2026-08-24）
+-- 以下表由 db/migrations/003~017 增量迁移创建；此处按迁移顺序原样提取，使
+-- db/schema.sql 成为完整表清单（scripts/verify-migrations.mjs 校验通过）。
+-- 说明：索引 / 触发器 / 约束补充语句仍保留在对应迁移文件中，全新部署由
+--       schema.sql + 全部迁移共同建库（建表均为 IF NOT EXISTS，幂等）。
+-- ============================================================================
+
+-- 来自迁移 006_wellbeing.sql
+CREATE TABLE IF NOT EXISTS wellbeing_reminders (
+  id                bigserial PRIMARY KEY,
+  user_id           uuid REFERENCES users(id) ON DELETE CASCADE,
+  type              text NOT NULL DEFAULT 'CUSTOM' CHECK (type IN ('HYDRATION','STAND','BREAK','MOVEMENT','SLEEP','CUSTOM')),
+  title             text NOT NULL,
+  message           text,
+  enabled           boolean NOT NULL DEFAULT true,
+  interval_minutes  int  NOT NULL DEFAULT 60 CHECK (interval_minutes BETWEEN 1 AND 1440),
+  start_time        text NOT NULL DEFAULT '09:00',
+  end_time          text NOT NULL DEFAULT '22:00',
+  weekdays          int[] NOT NULL DEFAULT ARRAY[1,2,3,4,5,6,7],
+  last_triggered_at timestamptz,
+  next_trigger_at   timestamptz,
+  deleted_at        timestamptz,
+  client_id         text,
+  created_at        timestamptz NOT NULL DEFAULT now(),
+  updated_at        timestamptz NOT NULL DEFAULT now()
+);
+
+-- 来自迁移 006_wellbeing.sql
+CREATE TABLE IF NOT EXISTS hydration_logs (
+  id          bigserial PRIMARY KEY,
+  user_id     uuid REFERENCES users(id) ON DELETE CASCADE,
+  amount_ml   int NOT NULL CHECK (amount_ml > 0 AND amount_ml <= 2000),
+  source      text NOT NULL DEFAULT 'MANUAL' CHECK (source IN ('MANUAL','REMINDER','FOCUS_BREAK')),
+  recorded_at timestamptz NOT NULL DEFAULT now(),
+  deleted_at  timestamptz,
+  client_id   text,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now()
+);
+
+-- 来自迁移 006_wellbeing.sql
+CREATE TABLE IF NOT EXISTS hydration_goals (
+  id             bigserial PRIMARY KEY,
+  user_id        uuid REFERENCES users(id) ON DELETE CASCADE,
+  target_ml      int NOT NULL DEFAULT 2000 CHECK (target_ml BETWEEN 200 AND 10000),
+  effective_from date NOT NULL DEFAULT CURRENT_DATE,
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  updated_at     timestamptz NOT NULL DEFAULT now()
+);
+
+-- 来自迁移 006_wellbeing.sql
+CREATE TABLE IF NOT EXISTS energy_logs (
+  id          bigserial PRIMARY KEY,
+  user_id     uuid REFERENCES users(id) ON DELETE CASCADE,
+  level       int NOT NULL CHECK (level BETWEEN 1 AND 5),
+  note        text,
+  source      text NOT NULL DEFAULT 'MANUAL' CHECK (source IN ('MANUAL','AFTER_FOCUS','MORNING')),
+  recorded_at timestamptz NOT NULL DEFAULT now(),
+  deleted_at  timestamptz,
+  client_id   text,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now()
+);
+
+-- 来自迁移 006_wellbeing.sql
+CREATE TABLE IF NOT EXISTS break_sessions (
+  id         bigserial PRIMARY KEY,
+  user_id    uuid REFERENCES users(id) ON DELETE CASCADE,
+  kind       text NOT NULL DEFAULT 'SHORT' CHECK (kind IN ('SHORT','LONG','MOVEMENT','EYE_REST','MEAL')),
+  minutes    int NOT NULL DEFAULT 5 CHECK (minutes BETWEEN 1 AND 240),
+  note       text,
+  started_at timestamptz NOT NULL DEFAULT now(),
+  deleted_at timestamptz,
+  client_id  text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- 来自迁移 007_jobs.sql
+CREATE TABLE IF NOT EXISTS job_crawler_configs (
+  user_id       uuid PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  keywords      jsonb NOT NULL DEFAULT '[]',
+  industries    jsonb NOT NULL DEFAULT '[]',
+  cities        jsonb NOT NULL DEFAULT '[]',
+  platforms     jsonb NOT NULL DEFAULT '["lagou","liepin","zhilian","job51"]',
+  schedule_time text   NOT NULL DEFAULT '08:00',
+  enabled       boolean NOT NULL DEFAULT true,
+  max_pages     int    NOT NULL DEFAULT 3,
+  last_run_at   timestamptz,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  updated_at    timestamptz NOT NULL DEFAULT now()
+);
+
+-- 来自迁移 007_jobs.sql
+CREATE TABLE IF NOT EXISTS job_postings (
+  id            bigserial PRIMARY KEY,
+  source        text NOT NULL,          -- lagou / liepin / zhilian / job51 / boss
+  source_job_id text NOT NULL,          -- 源站职位 ID
+  title         text NOT NULL,
+  company       text NOT NULL DEFAULT '',
+  city          text NOT NULL DEFAULT '',
+  district      text NOT NULL DEFAULT '',
+  salary_min    int,
+  salary_max    int,
+  salary_text   text NOT NULL DEFAULT '',
+  experience    text NOT NULL DEFAULT '',
+  education     text NOT NULL DEFAULT '',
+  tags          jsonb NOT NULL DEFAULT '[]',
+  description   text NOT NULL DEFAULT '',
+  requirements  text NOT NULL DEFAULT '',
+  company_info  text NOT NULL DEFAULT '',
+  url           text NOT NULL,
+  logo_url      text NOT NULL DEFAULT '',
+  published_at  timestamptz,
+  fetched_at    timestamptz NOT NULL DEFAULT now(),
+  is_active     boolean NOT NULL DEFAULT true,
+  UNIQUE (source, source_job_id)
+);
+
+-- 来自迁移 007_jobs.sql
+CREATE TABLE IF NOT EXISTS job_favorites (
+  user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  job_id     bigint NOT NULL REFERENCES job_postings(id) ON DELETE CASCADE,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, job_id)
+);
+
+-- 来自迁移 007_jobs.sql
+CREATE TABLE IF NOT EXISTS job_crawler_runs (
+  id               bigserial PRIMARY KEY,
+  started_at       timestamptz NOT NULL DEFAULT now(),
+  finished_at      timestamptz,
+  status           text NOT NULL DEFAULT 'running',   -- running / success / partial / failed
+  config_snapshot  jsonb,
+  platforms_result jsonb NOT NULL DEFAULT '{}',
+  fetched_count    int NOT NULL DEFAULT 0,
+  new_count        int NOT NULL DEFAULT 0,
+  error            text
+);
+
+-- 来自迁移 009_job_sources.sql
+CREATE TABLE IF NOT EXISTS job_crawler_sources (
+  id               text PRIMARY KEY,          -- 与 hosts 文件 id 一致
+  category         text NOT NULL,             -- internet / gongkao / gongbian / yangqi
+  channel          text NOT NULL DEFAULT 'announcement', -- job / announcement / event
+  name             text NOT NULL,
+  engine           text NOT NULL DEFAULT 'http',  -- http / browser
+  base_url         text NOT NULL DEFAULT '',
+  list_config      jsonb NOT NULL DEFAULT '{}',   -- list/pagination/selectors
+  detail_config    jsonb NOT NULL DEFAULT '{}',
+  deadline_parse   boolean NOT NULL DEFAULT false,
+  rate_limit_ms    int NOT NULL DEFAULT 3000,
+  max_items_per_run int NOT NULL DEFAULT 20,
+  max_pages        int NOT NULL DEFAULT 1,
+  risk             text NOT NULL DEFAULT 'L1',
+  enabled          boolean NOT NULL DEFAULT true,
+  hit_rate         numeric(4,3) NOT NULL DEFAULT 1,
+  last_run_at      timestamptz,
+  last_error       text NOT NULL DEFAULT '',
+  note             text NOT NULL DEFAULT '',
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  updated_at       timestamptz NOT NULL DEFAULT now()
+);
+
+-- 来自迁移 009_job_sources.sql
+CREATE TABLE IF NOT EXISTS job_source_health (
+  id         bigserial PRIMARY KEY,
+  source     text NOT NULL REFERENCES job_crawler_sources(id) ON DELETE CASCADE,
+  run_id     bigint,
+  fetched    int NOT NULL DEFAULT 0,
+  hit_rate   numeric(4,3) NOT NULL DEFAULT 0,
+  error      text NOT NULL DEFAULT '',
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- 来自迁移 011_job_engagement.sql
+CREATE TABLE IF NOT EXISTS job_subscriptions (
+  id         bigserial PRIMARY KEY,
+  user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name       text NOT NULL,
+  categories jsonb NOT NULL DEFAULT '[]',   -- 订阅的分类
+  keywords   jsonb NOT NULL DEFAULT '[]',   -- 关键词（标题/公司/岗位表岗位名）
+  cities     jsonb NOT NULL DEFAULT '[]',   -- 城市/地区
+  enabled    boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- 来自迁移 011_job_engagement.sql
+CREATE TABLE IF NOT EXISTS job_notifications (
+  id              bigserial PRIMARY KEY,
+  user_id         uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  job_id          bigint NOT NULL REFERENCES job_postings(id) ON DELETE CASCADE,
+  subscription_id bigint REFERENCES job_subscriptions(id) ON DELETE CASCADE,
+  title           text NOT NULL,
+  body            text NOT NULL DEFAULT '',
+  url             text NOT NULL DEFAULT '',
+  read_at         timestamptz,
+  created_at      timestamptz NOT NULL DEFAULT now()
+);
+
+-- 来自迁移 011_job_engagement.sql
+CREATE TABLE IF NOT EXISTS job_exam_events (
+  id         bigserial PRIMARY KEY,
+  job_id     bigint NOT NULL REFERENCES job_postings(id) ON DELETE CASCADE,
+  source     text NOT NULL,
+  kind       text NOT NULL,                 -- apply_start / apply_end / exam / interview / result
+  label      text NOT NULL,                 -- 报名开始 / 报名截止 / 笔试 / 面试 / 成绩公布
+  event_at   timestamptz NOT NULL,
+  note       text NOT NULL DEFAULT '',
+  UNIQUE (job_id, kind, event_at)
+);
+
+-- 来自迁移 013_job_clusters.sql
+CREATE TABLE IF NOT EXISTS job_clusters (
+  id               bigserial PRIMARY KEY,
+  canonical_title  text NOT NULL,           -- 规范化职位名
+  canonical_company text NOT NULL,          -- 规范化公司名
+  city             text NOT NULL DEFAULT '',-- 城市
+  dedup_key        text NOT NULL,           -- normalize(title)|normalize(company)|city（唯一键）
+  job_ids          bigint[] NOT NULL DEFAULT '{}',   -- 簇内成员职位 id
+  source_list      jsonb NOT NULL DEFAULT '[]',      -- 发现来源（如 ["boss","liepin","zhilian"]）
+  primary_job_id   bigint,                  -- 代表职位（最新抓取的一个）
+  member_count     int NOT NULL DEFAULT 1,  -- 簇内职位数
+  updated_at       timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (dedup_key)
+);
+
+-- 来自迁移 014_skill_taxonomy.sql
+CREATE TABLE IF NOT EXISTS skill_taxonomy (
+  id         bigserial PRIMARY KEY,
+  name       text NOT NULL UNIQUE,           -- 规范名，如 redis
+  aliases    jsonb NOT NULL DEFAULT '[]',    -- 别名（归一化匹配用）
+  category   text NOT NULL DEFAULT '',       -- backend/frontend/ops/ai/data/network/security/cloud/soft
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- 来自迁移 014_skill_taxonomy.sql
+CREATE TABLE IF NOT EXISTS user_skills (
+  user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  skill_id   bigint NOT NULL REFERENCES skill_taxonomy(id) ON DELETE CASCADE,
+  level      int NOT NULL DEFAULT 2,         -- 0-5（0=不会 1=了解 2=入门 3=熟练 4=精通 5=专家）
+  source     text NOT NULL DEFAULT 'manual', -- manual / resume / topic / gap
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, skill_id)
+);
+
+-- 来自迁移 014_skill_taxonomy.sql
+CREATE TABLE IF NOT EXISTS job_skill_links (
+  job_id   bigint NOT NULL REFERENCES job_postings(id) ON DELETE CASCADE,
+  skill_id bigint NOT NULL REFERENCES skill_taxonomy(id) ON DELETE CASCADE,
+  weight   numeric(3,2) NOT NULL DEFAULT 1,  -- 岗位对该技能的权重（默认 1）
+  PRIMARY KEY (job_id, skill_id)
+);
+
+-- 来自迁移 014_skill_taxonomy.sql
+CREATE TABLE IF NOT EXISTS skill_content_links (
+  skill_id       bigint NOT NULL REFERENCES skill_taxonomy(id) ON DELETE CASCADE,
+  topic_id       bigint NOT NULL REFERENCES content_topics(id) ON DELETE CASCADE,
+  estimate_hours int NOT NULL DEFAULT 8,     -- 预计学习时长（小时）
+  PRIMARY KEY (skill_id, topic_id)
+);
+
+-- 来自迁移 015_job_applications.sql
+CREATE TABLE IF NOT EXISTS job_applications (
+  id         bigserial PRIMARY KEY,
+  user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  job_id     bigint NOT NULL REFERENCES job_postings(id) ON DELETE CASCADE,
+  stage      text NOT NULL DEFAULT 'favorite'
+             CHECK (stage IN ('favorite','ready','applied','online_test','interview1','interview2','offer','hired','closed')),
+  note       text NOT NULL DEFAULT '',
+  applied_at timestamptz,                       -- 投递时间
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (user_id, job_id)
+);
+
+-- 来自迁移 016_security_hardening.sql
+CREATE TABLE IF NOT EXISTS auth_attempts (
+  id         bigserial PRIMARY KEY,
+  username   text NOT NULL DEFAULT '',
+  ip         text NOT NULL DEFAULT '',
+  success    boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- 来自迁移 016_security_hardening.sql
+CREATE TABLE IF NOT EXISTS task_runs (
+  id          bigserial PRIMARY KEY,
+  task_key    text NOT NULL UNIQUE,
+  status      text NOT NULL DEFAULT 'idle'
+              CHECK (status IN ('idle','running','finished','failed')),
+  started_by  text,
+  pid         int,
+  started_at  timestamptz,
+  finished_at timestamptz,
+  error       text,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now()
+);
+
+-- 来自迁移 017_market_stats.sql
+CREATE TABLE IF NOT EXISTS market_stats (
+  key         text PRIMARY KEY,
+  payload     jsonb NOT NULL,
+  computed_at timestamptz NOT NULL DEFAULT now()
+);
