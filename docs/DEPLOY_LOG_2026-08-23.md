@@ -111,3 +111,28 @@
 ### 已知遗留（另查，非本次引入）
 - `/focus` 一个 404 资源加载失败（低）.
 - `AppShell` 顶栏日期 `todayISO()` 亦用 `new Date()`（`今日 2026-08-24`），与 #418 同根因；静态快照过期或构建机/客户端时区跨日时会复发，建议后续同样用 mounted 门控（P1）.
+
+---
+
+## 十、AppShell 顶栏日期门控 + ICT 学习规划自定义（2026-08-24，commit `30737fe` / `f305c66`）
+
+> 服务器 `/home/ubuntu/learn-workbench` 同步 app-shell.tsx / roadmap/custom/route.ts / db/migrations/018 / 003 / schema.sql，备份 `.bak-20260824191246`，docker compose up -d --build 重建；init 应用迁移 018（`schema_migrations` 已记录）.
+
+### 1) AppShell 顶栏日期门控（根治 #418 复发）
+- 根因：`todayISO()` 在静态预渲染时把日期烤进 HTML，所有页面顶栏（`今日 2026-08-24`）与 dashboard 同根因，快照过期/时区跨日会复发 React #418.
+- 修复：`const [mounted, setMounted] = useState(false)` + `useEffect(() => setMounted(true), [])`，`date = mounted ? todayISO() : ""`.
+
+### 2) ICT 学习规划支持自定义添加/删除
+- `/api/roadmap/custom` 移除 `career_key='ict'` 的 403 拦截；改为阶段存在性校验（不存在返回 400）.
+- 新增迁移 `018_careers_unlock_ict.sql`：`UPDATE careers SET is_locked=false WHERE career_key='ict'`（在线库已生效）.
+- `003_careers.sql` seed 与 `schema.sql` 同步：ict 默认 `is_locked=false`，全新部署即解锁.
+- 测试：ICT 自定义主题返回 201；新增"阶段不存在 400"用例；web 全量 169 测试通过.
+
+### 验证（Playwright 无头，服务器实测）
+- /dashboard：console 0 error，顶栏显示 `今日 2026-08-24`，无 #418.
+- /roadmap（ICT）：显示"可自定义添加主题"、自定义主题按钮，无"ICT 规划固定"badge.
+- 添加自定义主题到 ICT P1 阶段 → 201（id=893，is_custom=true），重载后出现在列表；删除 → 200，重载后消失；全程 0 console error.
+- /tasks（专注组件）：0 error / 0 404.
+
+### 已知遗留
+- 历史提到的 "/focus 一个 404 资源" 在本轮 dashboard/roadmap/tasks 三页均未复现（web 端无 /focus 页面路由，疑为历史缓存观察，暂无法复现）.
