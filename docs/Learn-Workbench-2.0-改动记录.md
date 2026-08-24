@@ -97,6 +97,14 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 
 ## 四、改动记录
 
+### 2026-08-24 · feat（学习 × 招聘打通：聚合「市场需求缺口」）
+
+- **改动**：新增 `GET /api/skills/gaps`（市场高频需求技能 × 我的缺失 × 学习建议）；技能树页新增「市场需求缺口」卡（岗位数/我的等级/→主题/一键加入学习）；Dashboard 新增能力缺口入口卡；修复 `enrollGapsToTasks` 用 topicId 当任务标题的 bug；新增 `scripts/backfill_skill_content_links.mjs` 回填技能↔主题映射（服务器 18 条生效）。
+- **涉及文件**：packages/shared/src/index.ts；apps/web/lib/skills.ts；apps/web/app/api/skills/gaps/route.ts(+test)；apps/web/components/skills/{market-gaps-card,dashboard-gap-card}.tsx；apps/web/app/career/skills/page.tsx；apps/web/app/dashboard/page.tsx；scripts/backfill_skill_content_links.mjs；e2e/tests/skills-gaps.spec.ts。
+- **原因/决策**：按评审 P2「学习×招聘打通」核心价值推进；在既有按岗位匹配/缺口基础上补「聚合视图」，形成 市场→缺口→学习建议→一键加入 闭环；映射用关键词脚本而非静态迁移（名称匹配更稳，可重复执行）。
+- **验证**：web vitest 172 全过（+3）；E2E 7/7（新增 2 用例）；服务器实测 API 200 / 技能页 / 首页卡 / 加入学习创建任务（标题含真实主题名）。
+- **影响**：/api/skills/gaps 为纯读聚合；新增 daily_tasks 仅用户主动「加入学习」时产生；skill_content_links 新部署需跑回填脚本。
+
 ### 2026-08-24 · test（Playwright E2E 回归基线）
 
 - **改动**：新增 `e2e/` 包（@playwright/test + 系统 Chrome，无需下载浏览器），沉淀关键路径无头回归测试：dashboard 水合 #418 与顶栏日期、ICT 学习规划自定义主题增删闭环、职业下拉不被裁切、添加弹窗视口居中、专注页无 404。globalSetup 登录一次写入 storageState，未配置凭据自动跳过；根脚本 `pnpm test:e2e`，不参与 `pnpm -r test`。

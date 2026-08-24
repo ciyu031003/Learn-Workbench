@@ -136,3 +136,26 @@
 
 ### 已知遗留
 - 历史提到的 "/focus 一个 404 资源" 在本轮 dashboard/roadmap/tasks 三页均未复现（web 端无 /focus 页面路由，疑为历史缓存观察，暂无法复现）.
+
+---
+
+## 十一、学习 × 招聘打通：聚合「市场需求缺口」（2026-08-24，commit `3e0d4ab` / `9b2c92d`）
+
+> 服务器同步 7 个文件（route.ts / skills.ts / skills-page.tsx / dashboard page / 两个 gap 组件 / shared index.ts），备份 `.bak-gaps-20260824193751` + 二次修正同名 page.tsx 覆盖问题；docker compose up -d --build 重建。数据回填：`node scripts/backfill_skill_content_links.mjs`（容器内 -w /app）→ skill_content_links 18 条映射生效。
+
+### 新增能力
+1. **API** `GET /api/skills/gaps?limit=N`：市场高频需求技能（job_skill_links 聚合）× 我的缺失（user_skills level < 2），附 skill_content_links 学习建议，按岗位数降序。
+2. **技能树页**（/career/skills）新增「市场需求缺口」卡：技能 + 分类 + 岗位数 + 我的等级 + 学习建议（→ 主题 · 约 Xh）+ 一键「加入学习」。
+3. **Dashboard** 新增能力缺口入口卡（TOP3 + 去补齐入口，无缺口/未登录不渲染）。
+4. **修复** `enrollGapsToTasks` 任务标题 bug：旧实现把 topicId 当标题（`学习「vue」：813`），改为查 content_topics 用真实主题标题（`学习「vue」：Vue 3 或 React 框架`）。
+
+### 验证（服务器实测）
+- `/api/skills/gaps` 200：totalJobs=89；top3 = vue(26岗)→Vue 3 或 React 框架、python(20)→Python 编程、javascript(18)→JavaScript 核心语法，均 enrollable。
+- /career/skills：市场需求缺口 / 在招岗位统计 / 加入学习 / 岗位要求 全部渲染，console 0 error。
+- /dashboard：能力缺口入口卡渲染，console 0 error。
+- 加入学习：创建 daily_tasks（标题含真实主题名）；验证后已删除测试任务。
+- E2E 全量 7/7 通过（新增 skills-gaps 2 用例）。
+
+### 数据说明
+- skill_content_links 由脚本回填（幂等，ON CONFLICT DO NOTHING）；新部署后需在容器内执行 `node scripts/backfill_skill_content_links.mjs`。
+- 未匹配到主题的 niche 技能（webgl/terraform/c++/stm32/flink/spark 等）仍可「加入学习」（生成通用任务），待内容扩充后补映射。
