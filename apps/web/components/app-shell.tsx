@@ -52,10 +52,15 @@ const CAREER_ITEMS = [
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const date = todayISO();
+  const [mounted, setMounted] = useState(false);
+  const date = mounted ? todayISO() : "";
   const [careerInfo, setCareerInfo] = useState<{ name: string; percent: number } | null>(null);
   const [openMenu, setOpenMenu] = useState<"learn" | "career" | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // 客户端挂载后再算日期，避免 SSR 静态快照日期与水合不一致（React #418 同根因）
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => setMounted(true), []);
 
   // 侧边栏底部（现为顶导）：当前职业 + 整体进度
   useEffect(() => {
