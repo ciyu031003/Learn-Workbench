@@ -41,6 +41,18 @@ E2E_BASE_URL=http://106.55.2.197 E2E_USERNAME=admin E2E_PASSWORD=<密码> \
   pnpm --filter @learn-workbench/e2e test:e2e
 ```
 
+## CI（GitHub Actions）
+
+`.github/workflows/ci.yml` 的 `e2e` 作业：docker compose 起全栈（db+init+web，监听
+`localhost:3001`）→ `create-admin.mjs` 建测试管理员 → 用 **Playwright 自带 chromium**
+（`E2E_BROWSER=chromium`，避免依赖 runner 是否预装 Chrome）跑全部用例 →
+失败时上传 `playwright-report` 产物。
+
+- 浏览器下载：install 阶段用 `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` 跳过自动下载，
+  `playwright install --with-deps chromium` 显式安装（该 env 不影响显式 install）。
+- 管理员密码：仓库 Secret `E2E_PASSWORD`，未设置时回退 `ci-e2e-password`（测试环境）。
+- 本地/服务器跑 E2E 用系统 Chrome（`E2E_CHROME_PATH` 或 `E2E_CHANNEL=chrome`）。
+
 ## 产物
 
 - `test-results/` / `playwright-report/`：失败 trace / 报告（已 gitignore）

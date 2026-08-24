@@ -24,7 +24,12 @@ export default defineConfig({
     navigationTimeout: 30_000,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
-    ...(chromePath ? { executablePath: chromePath } : { channel: process.env.E2E_CHANNEL || "chrome" }),
+    // 浏览器选择：E2E_CHROME_PATH 优先 → E2E_BROWSER=chromium 用 Playwright 自带 chromium（CI）→ 默认系统 Chrome
+    ...(chromePath
+      ? { executablePath: chromePath }
+      : env.E2E_BROWSER === "chromium"
+        ? {}
+        : { channel: process.env.E2E_CHANNEL || "chrome" }),
   },
   outputDir: path.join(__dirname, "test-results"),
 });

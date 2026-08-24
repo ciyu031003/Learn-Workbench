@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+env:
+  # E2E/Playwright 相关依赖在 install 阶段不下载浏览器（e2e 作业按需安装）
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+
 jobs:
   quality:
     name: Lint / Typecheck / Test / Build
@@ -39,3 +43,64 @@ jobs:
 
       - name: Build (web)
         run: pnpm --filter web build
+
+  e2e:
+    name: E2E (Playwright · Docker 全栈)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # compose 全栈：web 监听宿主机 3001
+      PG_PASSWORD: ci-pg-pass
+      NPM_REGISTRY: https://registry.npmjs.org
+      E2E_BASE_URL: http://localhost:3001
+      E2E_USERNAME: admin
+      E2E_PASSWORD: ${{ secrets.E2E_PASSWORD || 'ci-e2e-password' }}
+      E2E_BROWSER: chromium
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.16.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies (skip browser download)
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright chromium (E2E)
+        run: pnpm --filter @learn-workbench/e2e exec playwright install --with-deps chromium
+
+      - name: Build & start stack (db + init + web)
+        run: docker compose up -d --build
+
+      - name: Wait for web ready
+        run: |
+          for i in $(seq 1 72); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3001/login || true)
+            if [ "$code" = "200" ] || [ "$code" = "307" ]; then
+              echo "web ready (HTTP $code) after ${i}x5s"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "web 未就绪，最近日志："
+          docker compose logs web --tail 60
+          exit 1
+
+      - name: Create admin account (E2E login)
+        run: docker exec -w /app learn-workbench-web-1 node scripts/create-admin.mjs --username "$E2E_USERNAME" --password "$E2E_PASSWORD"
+
+      - name: Run E2E
+        run: pnpm --filter @learn-workbench/e2e test:e2e
+
+      - name: Upload Playwright report (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: e2e/playwright-report/
+          retention-days: 7
