@@ -175,3 +175,13 @@
 - E2E **9/9 通过**（新增：推荐技能卡、#phase-<id> 展开定位）。
 - web vitest 175 全过（+3 recommend 用例）；lint 0 error；typecheck 全绿。
 - 缺口主题链接点击后 roadmap 定位到对应 P 阶段并展开（截图见 e2e/test-results）。
+
+---
+
+## 十三、CI 接入 Playwright E2E（2026-08-24，commit `22bb1e3`，纯 dev 工具，无服务器部署）
+
+- `.github/workflows/ci.yml` 新增 `e2e` 作业：docker compose 起全栈（db+init+web，`NPM_REGISTRY=https://registry.npmjs.org`）→ `create-admin.mjs` 建测试管理员（密码 Secret `E2E_PASSWORD`，缺省 `ci-e2e-password`）→ `playwright install --with-deps chromium` + `E2E_BROWSER=chromium` 跑 9 用例 → 失败上传 `playwright-report` 产物。
+- workflow env `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1`：install 阶段跳过浏览器自动下载（已验证该 env 不影响显式 `playwright install`，见 playwright-core 源码 installBrowsersForNpmInstall 分支）。
+- `e2e/playwright.config.ts` 支持 `E2E_BROWSER=chromium`（CI 用 Playwright 自带 chromium，不依赖 runner 预装 Chrome）；本地/服务器仍用系统 Chrome。
+- 本地回归 9/9 通过（config 改动不破坏系统 Chrome 路径）。
+- 待首次 CI push 后观察：docker 全量构建约 10-15 分钟（在 30 分钟 timeout 内）；若镜像构建过慢可后续改为 service-container + 直启 next（P2 优化）。

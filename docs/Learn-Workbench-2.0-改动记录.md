@@ -97,6 +97,14 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 
 ## 四、改动记录
 
+### 2026-08-24 · ci（Playwright E2E 接入 GitHub Actions）
+
+- **改动**：`.github/workflows/ci.yml` 新增 `e2e` 作业（docker compose 全栈 + create-admin + Playwright chromium，失败上传报告）；e2e config 支持 `E2E_BROWSER=chromium`；workflow 设 `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1`（install 跳过下载，不影响显式 install）。
+- **涉及文件**：.github/workflows/ci.yml；e2e/playwright.config.ts；e2e/README.md。
+- **原因/决策**：把 9 个回归用例变成每次 push 的自动闸门；用 Playwright 自带 chromium 避免依赖 runner 预装 Chrome；docker compose 复用生产部署路径，不另写启动脚本。
+- **验证**：本地 9/9 回归通过；YAML 人工核对；首次 CI 运行待 push 后观察（docker 全量构建 10-15 分钟）。
+- **影响**：纯 CI 配置，不影响运行时；quality 作业仍 20 分钟超时，e2e 作业 30 分钟。
+
 ### 2026-08-24 · feat（缺口→路线图定位 + 技能画像冷启动）
 
 - **改动**：缺口「→ 学习主题」链接到 `/roadmap#phase-<id>`，roadmap 页支持 hash 展开定位；新 API `GET /api/skills/recommend`（按职业推荐技能，自动建库）；技能树页「按职业推荐技能」冷启动卡（一键添加为入门）；shared MarketGapItem 增加阶段字段 + SkillRecommend 类型。
