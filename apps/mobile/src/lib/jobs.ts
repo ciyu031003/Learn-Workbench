@@ -1,6 +1,6 @@
 import { getApiUrl } from "@/config";
 import { useAppStore } from "@/store/app-store";
-import type { JobCrawlerConfig, JobPostingListItem, JobRun, JobSource, JobStats } from "@learn-workbench/shared";
+import type { JobCrawlerConfig, JobLearningPlan, JobPostingListItem, JobRun, JobSource, JobStats, SkillGapItem } from "@learn-workbench/shared";
 
 export type JobDetail = JobPostingListItem & {
   description: string;
@@ -124,4 +124,20 @@ export async function runCrawler(): Promise<boolean> {
 export async function fetchJobRuns(): Promise<JobRun[]> {
   const data = await apiRequest<{ runs: JobRun[] }>("/api/jobs/runs");
   return data.runs ?? [];
+}
+
+/** 岗位学习计划（整包规划）：岗位信息 + 匹配度 + 按阶段分组的能力缺口计划 */
+export async function fetchJobPlan(id: number | string): Promise<JobLearningPlan> {
+  return apiRequest<JobLearningPlan>("/api/jobs/" + id + "/plan");
+}
+
+/** 缺口一键加入学习任务（生成 daily_tasks） */
+export async function enrollJobGaps(gaps: Pick<SkillGapItem, "skill" | "topicId" | "estimateHours">[]): Promise<number> {
+  const data = await apiRequest<{ ok: boolean; created: number }>("/api/jobs/gaps/enroll", {
+    method: "POST",
+    body: {
+      gaps: gaps.map((g) => ({ skill: g.skill, topicId: g.topicId, hours: g.estimateHours })),
+    },
+  });
+  return data.created ?? 0;
 }

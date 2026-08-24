@@ -5,8 +5,8 @@ import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring } from "react-native-reanimated";
 import { Card } from "@/components/card";
-import { fetchJobDetail, type JobDetail } from "@/lib/jobs";
-import { formatRelativeTime, jobFreshness, jobSourceLabels, type JobPostingListItem, type JobSource } from "@learn-workbench/shared";
+import { enrollJobGaps, fetchJobDetail, fetchJobPlan, type JobDetail } from "@/lib/jobs";
+import { formatRelativeTime, jobFreshness, jobSourceLabels, type JobLearningPlan, type JobPostingListItem } from "@learn-workbench/shared";
 
 const SOURCE_COLORS: Record<string, string> = {
   lagou: "#10b981",
@@ -38,9 +38,11 @@ export function JobDetailModal({
   onToggleFavorite: (job: JobPostingListItem) => void;
 }) {
   const [detail, setDetail] = useState<JobDetail | null>(null);
+  const [plan, setPlan] = useState<JobLearningPlan | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [enrolling, setEnrolling] = useState(false);
 
   const heartScale = useSharedValue(1);
   const heartStyle = useAnimatedStyle(() => ({
@@ -54,10 +56,17 @@ export function JobDetailModal({
     setLoading(true);
     setError(null);
     setDetail(null);
+    setPlan(null);
     setToast(null);
-    fetchJobDetail(jobId)
-      .then((d) => {
-        if (alive) setDetail(d);
+    Promise.all([
+      fetchJobDetail(jobId),
+      fetchJobPlan(jobId).catch(() => null), // 未登录/无画像时返回 null，不阻断详情
+    ])
+      .then(([d, p]) => {
+        if (alive) {
+          setDetail(d);
+          setPlan(p);
+        }
       })
       .catch((e) => {
         if (alive) setError(e instanceof Error ? e.message : "职位详情加载失败");
@@ -112,6 +121,20 @@ export function JobDetailModal({
       setToast("分享失败，请稍后重试");
     }
     setTimeout(() => setToast(null), 2200);
+  };
+
+  const enrollPlan = async () => {
+    if (!plan || plan.gaps.length === 0) return;
+    setEnrolling(true);
+    try {
+      const created = await enrollJobGaps(plan.gaps);
+      setToast(`已加入 ${created} 项学习任务到今日计划`);
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : "加入失败");
+    } finally {
+      setEnrolling(false);
+      setTimeout(() => setToast(null), 2400);
+    }
   };
 
   const openOriginal = async () => {
@@ -202,6 +225,37 @@ export function JobDetailModal({
                   <Text style={styles.sectionText}>{detail?.requirements || "暂无任职要求"}</Text>
                   <Text style={styles.sectionTitle}>公司信息</Text>
                   <Text style={styles.sectionText}>{detail?.companyInfo || "暂无公司信息"}</Text>
+
+                  {plan && plan.gaps.length > 0 ? (
+                    <View style={styles.planBox}>
+                      <View style={styles.planHeader}>
+                        <Text style={styles.planTitle}>📋 岗位学习计划</Text>
+                        <View style={styles.matchBadge}>
+                          <Text style={styles.matchText}>匹配 {plan.match}% · 补完约 +{Math.max(0, 100 - plan.match)}%</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.planMeta}>
+                        共 {plan.gaps.length} 项缺口 · 约 {plan.totalHours} 小时
+                        {plan.estimatedWeeks > 0 ? ` · 每周 10h 约 ${plan.estimatedWeeks} 周` : ""}
+                      </Text>
+                      {plan.phases.map((ph) => (
+                        <View key={ph.phaseId ?? "other"} style={styles.phaseBox}>
+                          <Text style={styles.phaseTitle}>
+                            {ph.phaseId ? `${(ph.phaseKey ?? "").replace("phase-", "P")} · ${ph.phaseTitle ?? "阶段"}` : "其他学习内容"}
+                            <Text style={styles.phaseHours}>  {ph.hours}h</Text>
+                          </Text>
+                          {ph.skills.map((g) => (
+                            <Text key={g.skill} style={styles.phaseSkill}>
+                              · {g.skill}{g.topicTitle ? ` → ${g.topicTitle}` : ""}{g.estimateHours ? `（${g.estimateHours}h）` : ""}
+                            </Text>
+                          ))}
+                        </View>
+                      ))}
+                      <Pressable style={[styles.enrollBtn, enrolling && styles.enrollBtnDisabled]} onPress={enrollPlan} disabled={enrolling}>
+                        <Text style={styles.enrollText}>{enrolling ? "加入中..." : "全部缺口加入学习任务"}</Text>
+                      </Pressable>
+                    </View>
+                  ) : null}
                 </>
               ) : null}
             </ScrollView>
@@ -448,5 +502,79 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 13,
     overflow: "hidden",
+  },
+  planBox: {
+    marginTop: 8,
+    backgroundColor: "rgba(79,70,229,0.07)",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(79,70,229,0.25)",
+    padding: 12,
+    gap: 8,
+  },
+  planHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  planTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#18181b",
+  },
+  matchBadge: {
+    backgroundColor: "rgba(79,70,229,0.14)",
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+  },
+  matchText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#4f46e5",
+  },
+  planMeta: {
+    fontSize: 12,
+    color: "#71717a",
+    lineHeight: 18,
+  },
+  phaseBox: {
+    backgroundColor: "rgba(24,24,27,0.04)",
+    borderRadius: 11,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 3,
+  },
+  phaseTitle: {
+    fontSize: 12.5,
+    fontWeight: "800",
+    color: "#18181b",
+  },
+  phaseHours: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#71717a",
+  },
+  phaseSkill: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: "#3f3f46",
+  },
+  enrollBtn: {
+    backgroundColor: "#10b981",
+    borderRadius: 13,
+    alignItems: "center",
+    paddingVertical: 11,
+    marginTop: 2,
+  },
+  enrollBtnDisabled: {
+    opacity: 0.6,
+  },
+  enrollText: {
+    color: "#ffffff",
+    fontSize: 13.5,
+    fontWeight: "800",
   },
 });
