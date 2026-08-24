@@ -12,7 +12,8 @@
     "mobile": "pnpm --filter mobile start",
     "test": "pnpm -r test",
     "test:coverage": "vitest run --coverage",
-    "test:scripts": "node scripts/lib/normalize.test.mjs && node scripts/lib/cities.test.mjs && node scripts/verify-migrations.mjs"
+    "test:scripts": "node scripts/lib/normalize.test.mjs && node scripts/lib/cities.test.mjs && node scripts/verify-migrations.mjs",
+    "test:e2e": "pnpm --filter @learn-workbench/e2e test:e2e"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.1.10",

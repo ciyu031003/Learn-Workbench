@@ -1,7 +1,12 @@
 packages:
   - "apps/*"
   - "packages/*"
+  - "e2e"
 allowBuilds:
   sharp: false
   unrs-resolver: false
+  # E2E：允许 playwright 安装脚本解压驱动（浏览器用系统 Chrome，不下载）
+  playwright: true
+  playwright-core: true
+  "@playwright/test": true
 nodeLinker: hoisted
