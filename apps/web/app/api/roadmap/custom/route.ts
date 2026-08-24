@@ -12,12 +12,12 @@ export async function POST(req: Request) {
   if (!Number.isFinite(phaseId) || !title) {
     return NextResponse.json({ error: "参数无效" }, { status: 400 });
   }
-  const phase = await pgPool.query<{ career_key: string }>(
-    `SELECT career_key FROM content_phases WHERE id = $1`,
+  const phase = await pgPool.query<{ id: number }>(
+    `SELECT id FROM content_phases WHERE id = $1`,
     [phaseId]
   );
-  if (phase.rows[0]?.career_key === "ict") {
-    return NextResponse.json({ error: "ICT 学习规划为系统固定内容，不可自定义添加" }, { status: 403 });
+  if (!phase.rows[0]) {
+    return NextResponse.json({ error: "阶段不存在" }, { status: 400 });
   }
   const { rows } = await pgPool.query(
     `INSERT INTO content_topics (phase_id, topic_key, title, summary, sort_order, is_custom, owner_id)

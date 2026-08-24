@@ -37,16 +37,23 @@ describe("POST /api/roadmap/custom", () => {
     expect(await res.json()).toEqual({ error: "参数无效" });
   });
 
-  it("forbids custom topics in the fixed ICT track", async () => {
-    queryMock.mockResolvedValue({ rows: [{ career_key: "ict" }] } as never);
-    const res = await post({ phaseId: 1, title: "t" });
-    expect(res.status).toBe(403);
-    expect(await res.json()).toEqual({ error: "ICT 学习规划为系统固定内容，不可自定义添加" });
+  it("creates a custom topic in the ICT track (no longer fixed)", async () => {
+    queryMock
+      .mockResolvedValueOnce({ rows: [{ id: 1 }] } as never)
+      .mockResolvedValueOnce({ rows: [{ id: 8, phase_id: 1, title: "t", summary: null, is_custom: true }] } as never);
+    const res = await post({ phaseId: 1, title: " 自定义 " });
+    expect(res.status).toBe(201);
+    expect(await res.json()).toEqual({ topic: { id: 8, phase_id: 1, title: "t", summary: null, is_custom: true } });
+    expect(queryMock).toHaveBeenNthCalledWith(1, expect.stringContaining("SELECT id FROM content_phases"), [1]);
+    expect(queryMock).toHaveBeenLastCalledWith(
+      expect.stringContaining("INSERT INTO content_topics"),
+      [1, "自定义", null, "u-1"]
+    );
   });
 
   it("creates a custom topic for non-ICT careers", async () => {
     queryMock
-      .mockResolvedValueOnce({ rows: [{ career_key: "frontend" }] } as never)
+      .mockResolvedValueOnce({ rows: [{ id: 2 }] } as never)
       .mockResolvedValueOnce({ rows: [{ id: 8, phase_id: 2, title: "t", summary: null, is_custom: true }] } as never);
     const res = await post({ phaseId: 2, title: " 自定义 " });
     expect(res.status).toBe(201);
@@ -55,6 +62,13 @@ describe("POST /api/roadmap/custom", () => {
       expect.stringContaining("INSERT INTO content_topics"),
       [2, "自定义", null, "u-1"]
     );
+  });
+
+  it("returns 400 when the phase does not exist", async () => {
+    queryMock.mockResolvedValueOnce({ rows: [] } as never);
+    const res = await post({ phaseId: 999, title: "t" });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "阶段不存在" });
   });
 });
 

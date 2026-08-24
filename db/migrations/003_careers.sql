@@ -1,6 +1,6 @@
 -- ============================================================================
 -- 003：职业功能（多职业学习路线）
--- ICT 学习规划（career_key='ict'）严格固定不可修改；其余职业路线来自公开学习路线整理
+-- ICT 学习规划（career_key='ict'）默认可自定义主题；其余职业路线来自公开学习路线整理
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS careers (
@@ -19,7 +19,7 @@ ALTER TABLE content_phases ADD CONSTRAINT content_phases_career_track_sort UNIQU
 CREATE INDEX IF NOT EXISTS idx_phases_career ON content_phases(career_key);
 
 INSERT INTO careers (career_key, name, description, is_locked, sort_order) VALUES
-('ict', 'ICT 学习规划', '新疆 ICT 就业导向：网络/数据/云运维/售前/Agent 综合路线，严格规定不可修改', true, 0),
+('ict', 'ICT 学习规划', '新疆 ICT 就业导向：网络/数据/云运维/售前/Agent 综合路线，支持自定义学习主题', false, 0),
 ('frontend', '前端开发工程师', 'HTML/CSS/JavaScript → 框架 → 工程化 → 跨端 → 性能与架构', false, 1),
 ('java-backend', 'Java 后端工程师', 'Java 基础 → JavaWeb → 框架 → 中间件 → 微服务 → 项目实战', false, 2),
 ('data-analysis', '数据分析师', 'Excel/SQL → Python → 统计学 → 可视化 → 业务分析实战', false, 3),

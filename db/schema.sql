@@ -62,14 +62,14 @@ CREATE TABLE content_checkpoints (
   sort_order int NOT NULL DEFAULT 0
 );
 
--- ---------- 0.1 职业路线（多职业学习路线；ICT 为固定内容） ----------
+-- ---------- 0.1 职业路线（多职业学习路线，默认可自定义主题） ----------
 
 CREATE TABLE careers (
   id          serial PRIMARY KEY,
   career_key  text NOT NULL UNIQUE,
   name        text NOT NULL,
   description text,
-  is_locked   boolean NOT NULL DEFAULT false,   -- ICT 严格规定不可修改
+  is_locked   boolean NOT NULL DEFAULT false,   -- 职业路线是否锁定（默认均可自定义主题）
   sort_order  int NOT NULL DEFAULT 0
 );
 
