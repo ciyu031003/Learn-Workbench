@@ -97,6 +97,14 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 
 ## 四、改动记录
 
+### 2026-08-24 · feat（移动端接入岗位学习计划 + 发布就绪）
+
+- **改动**：mobile `lib/jobs.ts` 新增 fetchJobPlan/enrollJobGaps；JobDetailModal 新增「岗位学习计划」区块（匹配度/补完收益、按阶段分组缺口、一键加入学习任务）；expo export android 打包验证通过。
+- **涉及文件**：apps/mobile/src/lib/jobs.ts；apps/mobile/src/components/job-detail-modal.tsx。
+- **原因/决策**：让「整包规划」在手机端可用，与 Web 端能力对齐；发布流程走 EAS（需用户 Expo 账号）。
+- **验证**：mobile typecheck/test 22/lint 全过；expo export android 成功（entry-*.hbc 4.8MB）。
+- **影响**：纯客户端改动，无需服务器部署；后续发布：eas login → eas build -p android（步骤见 DEPLOY_LOG 十六节）。
+
 ### 2026-08-24 · feat（岗位学习计划：整包规划）
 
 - **改动**：新 API `GET /api/jobs/[id]/plan`（岗位信息 + 匹配度 + 按路线图阶段分组的能力缺口计划 + 总时长/预估周数）；职位详情新增「岗位学习计划」区块（补完收益、阶段分组、`roadmap#phase-<id>` 定位、一键加入）；computeSkillGaps 输出阶段信息并支持预计算 missingSkills。

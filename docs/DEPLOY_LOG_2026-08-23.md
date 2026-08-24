@@ -217,3 +217,26 @@
 - web vitest 181 全过（+3 plan 用例，SQL 内容分发 mock 顺序无关）；lint 0 error。
 - E2E **11/11 通过**（新增 2 用例：计划 API 结构、详情面板展示匹配度+计划）。
 - 修两个实测问题：pg bigint id 序列化为字符串（API 内 Number 收口）；1489px 视口下 JobDetailPanel 为 2xl-only，可见的是 JobModal（E2E 改定位 .last()）。
+
+---
+
+## 十六、移动端接入岗位学习计划 + 发布就绪验证（2026-08-24，commit `27ccf92`）
+
+> 纯客户端改动（apps/mobile），**无需服务器部署**（后端 /api/jobs/[id]/plan 与 /api/jobs/gaps/enroll 已在前一轮上线）。
+
+### 改动
+1. `apps/mobile/src/lib/jobs.ts`：新增 `fetchJobPlan` / `enrollJobGaps`（复用 apiRequest + Bearer token）。
+2. `apps/mobile/src/components/job-detail-modal.tsx`：详情加载时并行拉取计划（未登录/无画像返回 null 不阻断详情）；底部弹层新增「📋 岗位学习计划」区块：匹配度 + 补完收益、总缺口/时长/预估周数、按阶段分组（P# · 阶段 + 技能→主题 + 时长）、「全部缺口加入学习任务」一键入学（toast 反馈）。
+
+### 发布就绪验证
+- `npx expo export --platform android` **成功**：产出 entry-*.hbc（4.8MB）+ metadata，Metro 打包无解析/导入错误。
+- mobile typecheck 通过；vitest 22 全过；expo lint 0 error（顺手清理存量 JobSource 未用导入）。
+
+### 后续发布步骤（需用户 Expo 账号，本环境无法代跑）
+```bash
+cd apps/mobile
+npx eas login                       # 用户 Expo 账号
+npx eas build:configure             # 生成 eas.json（如无）
+npx eas build -p android --profile preview   # 产出 APK（测试）
+npx eas build -p android            # 产出 AAB（上架 Google Play）
+```
