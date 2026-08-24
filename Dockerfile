@@ -32,7 +32,7 @@ COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
 COPY --from=deps /app/packages ./packages
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN pnpm --filter web build
+RUN cd /app/apps/web && node /app/node_modules/next/dist/bin/next build
 
 # ---------- 运行层 ----------
 FROM node:22-slim AS runtime
