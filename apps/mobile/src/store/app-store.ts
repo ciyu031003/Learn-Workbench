@@ -22,6 +22,7 @@ export interface SyncChange {
   version: number;
   payload: Record<string, unknown> | null;
   updatedAt: string;
+  changeId?: string; // B5 幂等键：创建变更时生成，重试推送按 (user_id, change_id) 去重
 }
 
 export type PendingChange = SyncChange;
@@ -133,6 +134,7 @@ export const useAppStore = create<AppState>()(
             updatedAt: new Date().toISOString(),
           };
           const change: PendingChange = {
+            changeId: uid(),
             entityType: "progress",
             entityId: String(topicId),
             operation: "UPDATE",
@@ -160,6 +162,7 @@ export const useAppStore = create<AppState>()(
             sortOrder: s.tasks.length,
           };
           const change: PendingChange = {
+            changeId: uid(),
             entityType: "tasks",
             entityId: clientId,
             operation: "CREATE",
@@ -178,6 +181,7 @@ export const useAppStore = create<AppState>()(
             if (t.id !== id) return t;
             const next = { ...t, done: !t.done };
             changed = {
+              changeId: uid(),
               entityType: "tasks",
               entityId: next.clientId || "srv-" + next.id,
               operation: "UPDATE",
@@ -198,6 +202,7 @@ export const useAppStore = create<AppState>()(
           const clientId = uid();
           const log: LocalLog = { id: nextId(), clientId, kind, title, content, createdAt: now, updatedAt: now };
           const change: PendingChange = {
+            changeId: uid(),
             entityType: "logs",
             entityId: clientId,
             operation: "CREATE",
@@ -214,6 +219,7 @@ export const useAppStore = create<AppState>()(
           if (s.checkins.includes(date)) return s;
           const now = new Date().toISOString();
           const change: PendingChange = {
+            changeId: uid(),
             entityType: "checkins",
             entityId: date,
             operation: "CREATE",
@@ -240,6 +246,7 @@ export const useAppStore = create<AppState>()(
           };
           const changes: PendingChange[] = [
             {
+              changeId: uid(),
               entityType: "sessions",
               entityId: clientId,
               operation: "CREATE",
@@ -290,6 +297,7 @@ export const useAppStore = create<AppState>()(
           const clientId = uid();
           const g: GithubRecord = { id: nextId(), clientId, title, url, content };
           const change: PendingChange = {
+            changeId: uid(),
             entityType: "github",
             entityId: clientId,
             operation: "CREATE",
@@ -306,6 +314,7 @@ export const useAppStore = create<AppState>()(
           if (!g) return s;
           const now = new Date().toISOString();
           const change: PendingChange = {
+            changeId: uid(),
             entityType: "github",
             entityId: g.clientId || "srv-" + g.id,
             operation: "DELETE",
@@ -322,6 +331,7 @@ export const useAppStore = create<AppState>()(
           const clientId = uid();
           const t: CustomTopic = { id: nextId(), clientId, phaseId, title, summary };
           const change: PendingChange = {
+            changeId: uid(),
             entityType: "customTopics",
             entityId: clientId,
             operation: "CREATE",
@@ -338,6 +348,7 @@ export const useAppStore = create<AppState>()(
           if (!t) return s;
           const now = new Date().toISOString();
           const change: PendingChange = {
+            changeId: uid(),
             entityType: "customTopics",
             entityId: t.clientId || "srv-" + t.id,
             operation: "DELETE",

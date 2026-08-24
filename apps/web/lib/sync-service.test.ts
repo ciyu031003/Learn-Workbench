@@ -373,3 +373,41 @@ describe("upsertSyncDevice", () => {
     expect(query).toHaveBeenCalledWith(expect.any(String), ["u-1", "dev-1", null]);
   });
 });
+
+describe("B5 幂等键 (changeId)", () => {
+  it("applyChanges 跳过已应用过的 changeId（客户端重试）", async () => {
+    const { client, query } = makeClient((sql) =>
+      sql.includes("FROM sync_changes") ? { rows: [{ "?column?": 1 }] } : { rows: [] }
+    );
+    const applied = await applyChanges(client, "u-1", [
+      change({ entityType: "tasks", entityId: "c-1", changeId: "chg-1" }),
+    ]);
+    expect(applied).toBe(0);
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining("SELECT 1 FROM sync_changes WHERE user_id = $1 AND change_id = $2"),
+      ["u-1", "chg-1"]
+    );
+  });
+
+  it("recordSyncChanges 带 change_id 用 ON CONFLICT DO NOTHING（不重复审计）", async () => {
+    const { client, query } = makeClient(() => ({ rows: [] }));
+    await recordSyncChanges(client, "u-1", "dev-1", [
+      change({ entityType: "progress", entityId: "1", changeId: "chg-1" }),
+    ]);
+    const calls = query.mock.calls.filter(([sql]) => sql.includes("INSERT INTO sync_changes"));
+    expect(calls).toHaveLength(1);
+    expect(calls[0][0]).toContain("ON CONFLICT (user_id, change_id)");
+    expect(calls[0][1]).toEqual(["u-1", "dev-1", "progress", "1", "UPDATE", 1, null, new Date(AT), "chg-1"]);
+  });
+
+  it("无 change_id 时保持原插入（旧客户端兼容）", async () => {
+    const { client, query } = makeClient(() => ({ rows: [] }));
+    await recordSyncChanges(client, "u-1", "dev-1", [
+      change({ entityType: "checkins", entityId: "2026-08-13" }),
+    ]);
+    const calls = query.mock.calls.filter(([sql]) => sql.includes("INSERT INTO sync_changes"));
+    expect(calls).toHaveLength(1);
+    expect(calls[0][0]).not.toContain("ON CONFLICT");
+    expect(calls[0][1]).toEqual(["u-1", "dev-1", "checkins", "2026-08-13", "UPDATE", 1, null, new Date(AT)]);
+  });
+});

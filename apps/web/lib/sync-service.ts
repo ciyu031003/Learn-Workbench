@@ -18,6 +18,8 @@ export interface SyncChange {
   version: number;
   payload: Record<string, unknown> | null;
   updatedAt: string;
+  /** 幂等键（B5）：客户端生成的稳定 ID，重试推送按 (user_id, change_id) 去重 */
+  changeId?: string;
 }
 
 export const SYNC_ENTITY_TYPES = [
@@ -275,6 +277,14 @@ export async function applyChanges(client: PoolClient, uid: string, changes: Syn
   for (const c of changes) {
     const fn = APPLIERS[c.entityType];
     if (!fn) continue;
+    // B5 幂等：该 changeId 已应用过（客户端重试），直接跳过
+    if (c.changeId) {
+      const { rows } = await client.query(
+        `SELECT 1 FROM sync_changes WHERE user_id = $1 AND change_id = $2`,
+        [uid, c.changeId]
+      );
+      if (rows.length > 0) continue;
+    }
     try {
       const ok = await fn(client, uid, c, atOf(c));
       if (ok) applied++;
@@ -397,6 +407,16 @@ export async function recordSyncChanges(
   client: PoolClient, uid: string, deviceId: string | null, changes: SyncChange[]
 ): Promise<void> {
   for (const c of changes) {
+    if (c.changeId) {
+      // B5 幂等：重复推送不重复记录审计日志
+      await client.query(
+        `INSERT INTO sync_changes (user_id, device_id, entity_type, entity_id, operation, version, payload, created_at, change_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         ON CONFLICT (user_id, change_id) WHERE change_id IS NOT NULL DO NOTHING`,
+        [uid, deviceId, c.entityType, c.entityId, c.operation, c.version, c.payload ? JSON.stringify(c.payload) : null, new Date(c.updatedAt), c.changeId]
+      );
+      continue;
+    }
     await client.query(
       `INSERT INTO sync_changes (user_id, device_id, entity_type, entity_id, operation, version, payload, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,

@@ -195,3 +195,16 @@ describe("clearPendingChanges / setLastSyncedAt / resetAll", () => {
     expect(useAppStore.getState().lastSyncedAt).toBe("2026-08-13T10:00:00.000Z");
   });
 });
+
+describe("B5 幂等键", () => {
+  it("每条 pending change 携带稳定且唯一的 changeId", () => {
+    const s = useAppStore.getState();
+    s.addTask("任务一", "study");
+    s.addTask("任务二", "study");
+    const changes = useAppStore.getState().pendingChanges;
+    expect(changes).toHaveLength(2);
+    expect(changes[0].changeId).toBeTruthy();
+    expect(changes[1].changeId).toBeTruthy();
+    expect(changes[0].changeId).not.toBe(changes[1].changeId);
+  });
+});
