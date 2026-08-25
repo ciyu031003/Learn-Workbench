@@ -504,3 +504,89 @@ export function SkillMarketMap({
     </div>
   );
 }
+
+/* ================= 薪资分布带（SalaryDistributionBand）＝ 替换竖向直方图 =================
+ * 用「100% 占比分布带」替代传统柱状直方图，直观体现「岗位薪资集中在哪些区间」：
+ *  - 分布带：每个区间宽度=该区间职位占比，最宽=岗位最集中；主流区间高亮描边。
+ *  - 值轴刻度：叠加 中位/平均 薪资标记（K/月），一眼看出集中度与中心趋势。
+ *  - 图例 + 摘要：区间 · 数量 · 占比 + 主流区间 / 平均 / 中位。
+ * 仅依赖 salaryDist + overview.avgSalary/medianSalary，无需新增后端字段。
+ */
+
+export function SalaryDistributionBand({
+  items,
+  avgSalary,
+  medianSalary,
+  className,
+}: {
+  items: { label: string; min: number; count: number }[];
+  avgSalary: number | null;
+  medianSalary: number | null;
+  className?: string;
+}) {
+  const total = items.reduce((a, b) => a + b.count, 0);
+  if (total === 0) return <p className="text-xs text-muted-foreground">暂无薪资数据</p>;
+  const maxCount = Math.max(...items.map((b) => b.count));
+  const main = items.find((b) => b.count === maxCount) ?? items[0];
+  const CAP = 40; // 值轴封顶（K/月）
+  const px = (v: number) => Math.max(0, Math.min(100, (v / CAP) * 100));
+  const segs = items.map((b, i) => ({ ...b, pct: (b.count / total) * 100, main: b.label === main.label, idx: i }));
+
+  return (
+    <div className={cn("flex flex-col gap-2.5", className)}>
+      {/* 占比分布带（100% 堆叠，宽度=占比） */}
+      <div className="flex h-7 w-full overflow-hidden rounded-full bg-white/10">
+        {segs.map((s) => (
+          <div
+            key={s.label}
+            className="relative flex items-center justify-center overflow-hidden"
+            style={{
+              width: `${s.pct}%`,
+              background: grad(s.idx, true),
+              ...(s.main ? { filter: "brightness(1.12)", boxShadow: "inset 0 0 0 1.5px rgba(255,255,255,0.78)" } : {}),
+            }}
+            title={`${s.label}：${s.count} 个（${s.pct.toFixed(1)}%）`}
+          >
+            {s.main && s.pct >= 8 ? <span className="text-[10px] font-bold text-white/95">{s.pct.toFixed(0)}%</span> : null}
+          </div>
+        ))}
+      </div>
+
+      {/* 值轴刻度：中位 & 平均 */}
+      <div className="relative h-6 w-full">
+        <div className="absolute left-0 right-0 top-1/2 h-px -translate-y-1/2 bg-white/15" />
+        {medianSalary != null ? (
+          <div className="absolute top-0 h-3.5 w-px bg-sky-300" style={{ left: `${px(medianSalary)}%` }} title={`中位薪资 ${medianSalary}K`}>
+            <span className="absolute left-1 top-[-1px] whitespace-nowrap text-[10px] font-semibold text-sky-300">中位 {medianSalary}K</span>
+          </div>
+        ) : null}
+        {avgSalary != null ? (
+          <div className="absolute top-0 h-3.5 w-px bg-indigo-300" style={{ left: `${px(avgSalary)}%` }} title={`平均薪资 ${avgSalary}K`}>
+            <span className="absolute left-1 top-[-1px] whitespace-nowrap text-[10px] font-semibold text-indigo-300">平均 {avgSalary}K</span>
+          </div>
+        ) : null}
+        <span className="absolute -bottom-2 left-0 text-[9px] text-muted-foreground/70">0K</span>
+        <span className="absolute -bottom-2 right-0 text-[9px] text-muted-foreground/70">{CAP}K</span>
+      </div>
+
+      {/* 图例：区间 · 数量 · 占比 */}
+      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+        {segs.map((s) => (
+          <span key={s.label} className="text-[11px] text-muted-foreground">
+            <span className="mr-1 inline-block size-2 rounded-full" style={{ backgroundColor: fillColor(s.idx) }} />
+            {s.label}
+            <span className="ml-1 font-bold tabular-nums text-foreground">{s.count}</span>
+            <span className="ml-0.5 text-[10px]">({s.pct.toFixed(1)}%)</span>
+          </span>
+        ))}
+      </div>
+
+      {/* 主区间 + 中位 摘要 */}
+      <p className="text-xs text-muted-foreground">
+        主流区间 <span className="font-bold text-foreground">{main.label}</span>
+        {avgSalary != null ? <> · 平均 <span className="font-bold tabular-nums text-foreground">{avgSalary}K</span></> : null}
+        {medianSalary != null ? <> · 中位 <span className="font-bold tabular-nums text-foreground">{medianSalary}K</span></> : null}
+      </p>
+    </div>
+  );
+}

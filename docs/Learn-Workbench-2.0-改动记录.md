@@ -97,6 +97,14 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 
 ## 四、改动记录
 
+### 2026-08-25 · feat/ui（薪资区间分布改用「占比分布带」直方图替换）
+
+- **改动**：`/career/market` 的「薪资区间分布」由竖向直方图（HistogramBars）替换为新增的 `SalaryDistributionBand` 组件：①100% 占比分布带（线段宽度=该区间职位占比，最宽=岗位最集中，主流区间高亮描边+百分比）；②值轴刻度叠加「中位 / 平均」薪资标记（K/月）；③图例（区间·数量·占比）+ 摘要（主流区间/平均/中位）。用分布带直观体现「岗位薪资集中在哪些区间」，解决原直方图不易读分布的问题；仅用现有 `salaryDist` + `overview.avgSalary/medianSalary`，无需新增后端字段。
+- **涉及文件**：apps/web/components/market/market-charts.tsx（+SalaryDistributionBand）；apps/web/app/career/market/page.tsx（引替换，去 HistogramBars）。
+- **原因/决策**：用户反馈原竖向直方图未能直观体现分布区间；改用占比分布带（不同图表类型）+ 中心趋势标注，更符合「分布」语义。
+- **验证**：web typecheck/lint/test 全 0。
+- **影响**：纯前端换图，无数据/DB 变更；部署后 /career/market 正常渲染。
+
 ### 2026-08-25 · feat/ui（招花市场分析 2.0：市场概览 + 四段信息架构 + 技能市场地图接驳学习闭环）
 
 - **改动**：按《招花市场分析-UI优化方案-评审后v2.md》执行 P0 主增量。①市场分析页由"等权卡片堆叠"重构为「市场概览 + 01 市场需求 / 02 技能机会 / 03 人才画像 / 04 我的学习机会」四段信息架构，数据来源/岗位类型从主图降权为「关于数据」说明；②`MarketAnalysis` 新增 `overview`（城市去重数 / 热门技能数 / 整体均薪 + 中位薪资，全部真实取数），首屏 KPI 不再用伪指标；③新增 `SkillMarketMap`（技能市场地图：四象限 X=需求职位数 / Y=均薪 / Size=职位数，冷调 token 着色 + 我的掌握状态描边，点击详情 + 一键加入学习路线），复用现有 `/api/profile/skills` + `/api/skills/gaps` + `/api/jobs/gaps/enroll`；④规则驱动「市场洞察」，全部由 `/api/market` 字段计算，无静态文案。

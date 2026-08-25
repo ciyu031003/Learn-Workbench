@@ -11,7 +11,7 @@ import {
   SkillMarketMap,
   CapsuleRank,
   TreemapChart,
-  HistogramBars,
+  SalaryDistributionBand,
   DonutChart,
   type SkillMapNode,
 } from "@/components/market/market-charts";
@@ -233,7 +233,7 @@ export default function MarketPage() {
             <CapsuleRank items={data.byCity.map((c) => ({ label: c.city, value: c.count, note: CityNote(c) }))} />
           </ChartCard>
           <ChartCard icon={<CircleDollarSign className="size-4 text-amber-400" />} title="薪资区间分布" badge="K/月">
-            <HistogramBars items={data.salaryDist.map((s) => ({ label: s.label, value: s.count }))} />
+            <SalaryDistributionBand items={data.salaryDist} avgSalary={ov?.avgSalary ?? null} medianSalary={ov?.medianSalary ?? null} />
           </ChartCard>
         </div>
       </section>
