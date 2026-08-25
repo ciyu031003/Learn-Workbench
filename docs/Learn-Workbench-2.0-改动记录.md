@@ -104,6 +104,7 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 - **原因/决策**：评审确认「市场×学习闭环」数据层与多数 UI 已建成（aggregateMarketGaps / user_skills / enrollGapsToTasks + /api/skills/gaps 等 + 技能树/首页/职位详情三处缺口卡），缺的只是接到市场页，故把原稿 Phase 5（最后、长期）**前置为 P0**；概览与技能状态改为真实可算，消除「17.4K 整体均薪 / 学习中 62%」等伪指标；图表色板用冷调 token 对齐全站（全站 token 统一留待 P1）。
 - **验证**：web vitest 全过（market +2）；`pnpm -F web typecheck` 0 error；`pnpm -F web lint` 0 error；`pnpm -F web build` 通过；部署后 /api/market 返回 overview、/career/market 正常渲染技能地图与闭环、（匿名访问无报错）。
 - **影响**：/api/market 新增 overview 字段（向后兼容）；纯前端交互增强，无 DB 变更；匿名用户隐藏「我的技能 / 能力缺口」，仅显示市场统计与登录提示。
+- **更正（部署实测 2 处，commit e74b8a4 + 7ae6c5b）**：① `overview.skillCount` 首版写成 `count(DISTINCT jsonb_array_elements_text(tags))`，真库报 Postgres `0A000 aggregate function calls cannot contain set-returning function calls` → 改为子查询先展开 tags 再 `count(DISTINCT tag)`（修复后返回 253）；② `overview.avgSalary` 首版用原始 `salary_max/min` 直接求均值，真库 avgSalary=944（离群值如「面议/极高」占位拉偏）而 medianSalary=20 正常 → 改为按薪资直方图分桶中点加权估算（末桶「30K 以上」封顶 40K），中位数不变（更稳健）。本地 typecheck/lint/market test 均 0；**注**：本地 `pnpm -F web build`（Turbopack）在本机报既有错误（`tsc --showConfig` 解析失败 + 4 条既有动态文件系统警告），基线 HEAD 同样失败→属既有/Windows 环境问题，与本次改动无关；生产在服务器 Linux Docker 内构建，`next build` 正常（TypeScript 12s 通过、74 页生成）。
 
 ### 2026-08-25 · docs（规划 + 文档清理）
 
