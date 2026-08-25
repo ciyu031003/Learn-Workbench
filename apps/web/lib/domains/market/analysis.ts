@@ -224,16 +224,25 @@ export async function analyzeMarket(): Promise<MarketAnalysis> {
       )
     : null;
   const p = (q: number) => percentileOf(salaryVals, q);
+  // 箱线图须端用 Tukey 规则（Q±1.5×IQR 内的真实极值），排除「面议/极高」等离群占位值，避免箱体被压扁
+  const q1v = p(0.25);
+  const q3v = p(0.75);
+  const iqr = q3v - q1v;
+  const lowerFence = Math.max(0, q1v - 1.5 * iqr);
+  const upperFence = q3v + 1.5 * iqr;
+  const inFence = salaryVals.filter((v) => v >= lowerFence && v <= upperFence);
+  const whiskerMin = inFence.length ? inFence[0] : lowerFence;
+  const whiskerMax = inFence.length ? inFence[inFence.length - 1] : upperFence;
   const overview: MarketOverview = {
     total,
     cityCount: cityCountRes.rows[0]?.n ?? 0,
     skillCount: skillCountRes.rows[0]?.n ?? 0,
     avgSalary,
     medianSalary: p(0.5),
-    salaryMin: p(0.05),
-    salaryQ1: p(0.25),
-    salaryQ3: p(0.75),
-    salaryMax: p(0.95),
+    salaryMin: whiskerMin,
+    salaryQ1: q1v,
+    salaryQ3: q3v,
+    salaryMax: whiskerMax,
   };
 
   const data: MarketAnalysis = {
