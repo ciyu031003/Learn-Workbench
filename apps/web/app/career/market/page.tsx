@@ -150,24 +150,37 @@ export default function MarketPage() {
   }, []);
 
   /** 规则驱动市场洞察：全部由 data 计算得出，禁止静态文案 */
-  const insights = useMemo(() => {
-    if (!data) return [] as string[];
-    const lines: string[] = [];
-    if (data.byFunction[0]) lines.push(`当前招聘需求最高的职能方向是「${data.byFunction[0].label}」（${data.byFunction[0].count} 个岗位）`);
-    const topCity = data.byCity[0];
-    if (topCity) lines.push(`「${topCity.city}」岗位机会最多（${topCity.count} 个）${topCity.avgMin != null ? `，均薪 ${topCity.avgMin}-${topCity.avgMax}K` : ""}`);
-    if (data.bySkill[0]) lines.push(`「${data.bySkill[0].skill}」是最高频技能要求（${data.bySkill[0].count} 次）`);
+  const insightData = useMemo(() => {
+    if (!data) return { quadrants: [] as { key: string; label: string; hint: string; color: string; skills: string[] }[], headlines: [] as string[] };
     const salarySkills = (data.skillSalary ?? []).filter((s) => s.avgSalary != null && s.count > 0);
-    const highSal = [...salarySkills].sort((a, b) => (b.avgSalary ?? 0) - (a.avgSalary ?? 0))[0];
-    if (highSal) lines.push(`「${highSal.skill}」平均薪资最高（${highSal.avgSalary}K/月）`);
-
     const counts = salarySkills.map((s) => s.count).sort((a, b) => a - b);
     const medCount = counts[Math.floor(counts.length / 2)] ?? 0;
     const sals = salarySkills.map((s) => s.avgSalary as number).sort((a, b) => a - b);
     const medSal = sals[Math.floor(sals.length / 2)] ?? 0;
-    const star = salarySkills.find((s) => s.count >= medCount && (s.avgSalary ?? 0) >= medSal);
-    if (star) lines.push(`「${star.skill}」兼具高需求与高薪资，是值得优先学习的明星技能`);
-    return lines;
+
+    const inQuad = (highCount: boolean, highSal: boolean) =>
+      salarySkills
+        .filter((s) => (s.count >= medCount) === highCount && ((s.avgSalary as number) >= medSal) === highSal)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 3)
+        .map((s) => s.skill);
+
+    const quadrants = [
+      { key: "star", label: "明星技能", hint: "高需求+高薪，优先学", color: "#6366f1", skills: inQuad(true, true) },
+      { key: "potential", label: "潜力技能", hint: "高薪但需求尚小，关注长期", color: "#8b5cf6", skills: inQuad(false, true) },
+      { key: "basic", label: "基础技能", hint: "需求大、薪资适中，必备", color: "#0ea5e9", skills: inQuad(true, false) },
+      { key: "longtail", label: "长尾技能", hint: "需求少，附加价值有限", color: "#94a3b8", skills: inQuad(false, false) },
+    ];
+
+    const headlines: string[] = [];
+    if (data.byFunction[0]) headlines.push(`需求最高的职能方向：「${data.byFunction[0].label}」（${data.byFunction[0].count} 岗）`);
+    const topCity = data.byCity[0];
+    if (topCity) headlines.push(`机会最多的城市：「${topCity.city}」（${topCity.count} 岗）${topCity.avgMin != null ? `，均薪 ${topCity.avgMin}-${topCity.avgMax}K` : ""}`);
+    if (data.bySkill[0]) headlines.push(`最高频技能：「${data.bySkill[0].skill}」（${data.bySkill[0].count} 次）`);
+    const highSal = [...salarySkills].sort((a, b) => (b.avgSalary ?? 0) - (a.avgSalary ?? 0))[0];
+    if (highSal) headlines.push(`平均薪资最高：「${highSal.skill}」（${highSal.avgSalary}K/月）`);
+
+    return { quadrants, headlines };
   }, [data]);
 
   if (loading) {
@@ -278,12 +291,39 @@ export default function MarketPage() {
             <CardTitle className="text-sm text-foreground">市场洞察</CardTitle>
             <Badge variant="muted" className="ml-auto text-[10px]">真实数据计算</Badge>
           </CardHeader>
-          <CardContent className="flex flex-col gap-2">
-            {insights.length ? insights.map((line) => (
-              <p key={line} className="flex items-start gap-2 text-xs text-muted-foreground">
-                <Sparkles className="mt-0.5 size-3.5 shrink-0 text-amber-500" /> {line}
-              </p>
-            )) : <p className="text-xs text-muted-foreground">暂无可计算的洞察，数据积累后将自动生成。</p>}
+          <CardContent className="flex flex-col gap-3">
+            {/* 技能 × 薪资象限解读 */}
+            {insightData.quadrants.length ? (
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {insightData.quadrants.map((q) => (
+                  <div key={q.key} className="rounded-xl border border-white/10 bg-muted/20 p-2.5">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                      <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: q.color }} />
+                      {q.label}
+                      <span className="ml-auto text-[10px] font-normal text-muted-foreground">{q.hint}</span>
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {q.skills.length ? q.skills.map((s) => (
+                        <span key={s} className="rounded-full bg-white/10 px-2 py-0.5 text-[10px]">{s}</span>
+                      )) : <span className="text-[10px] text-muted-foreground/60">暂无</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {/* 关键结论 */}
+            {insightData.headlines.length ? (
+              <div className="flex flex-col gap-1.5">
+                {insightData.headlines.map((line) => (
+                  <p key={line} className="flex items-start gap-2 text-xs text-muted-foreground">
+                    <Sparkles className="mt-0.5 size-3.5 shrink-0 text-amber-500" /> {line}
+                  </p>
+                ))}
+              </div>
+            ) : <p className="text-xs text-muted-foreground">暂无可计算的洞察，数据积累后将自动生成。</p>}
+            {data.generatedAt ? (
+              <p className="text-[11px] text-muted-foreground/70">数据更新时间：{new Date(data.generatedAt).toLocaleString("zh-CN", { hour12: false })}</p>
+            ) : null}
           </CardContent>
         </Card>
         {loggedIn ? (
