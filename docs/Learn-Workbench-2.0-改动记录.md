@@ -97,6 +97,14 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 
 ## 四、改动记录
 
+### 2026-08-25 · feat/ui（P1 图表色板收敛到全站冷调 token + 圆角对齐）
+
+- **改动**：把 `market-charts.tsx` 的图表色板从硬编码 6 色彩虹（emerald/cyan/indigo/violet/amber/pink，含暖橙/粉与绿，与冷调玻璃冲突）收敛为**全站冷调 token 体系**（primary=indigo `#6366f1`、accent=sky `#0ea5e9`，配 violet/blue/cyan/teal 冷色补全），供 CapsuleRank/Treemap/Histogram/Donut/SalaryDistributionBand 统一取色；treemap 单元格圆角由 `rounded-[10px]` 对齐到 sm(8px) token。保留 SkillMarketMap 的冷调象限色与语义状态色（绿/琥珀/灰）。
+- **涉及文件**：apps/web/components/market/market-charts.tsx（G 色板 + treemap 圆角）。
+- **原因/决策**：按评审后 v2 方案 P1「少颜色、强层级、弱网格、强交互；图表色板收敛到 token、圆角统一」——统一冷调、消解暖色/绿冲突，与全站主题一致；状态仍用语义色。
+- **验证**：web typecheck/lint/test 全 0。
+- **影响**：纯前端配色/圆角微调，无数据/DB 变更；部署后 /career/market 各图表色统一。
+
 ### 2026-08-25 · feat/ui（薪资区间分布改用「占比分布带」直方图替换）
 
 - **改动**：`/career/market` 的「薪资区间分布」由竖向直方图（HistogramBars）替换为新增的 `SalaryDistributionBand` 组件：①100% 占比分布带（线段宽度=该区间职位占比，最宽=岗位最集中，主流区间高亮描边+百分比）；②值轴刻度叠加「中位 / 平均」薪资标记（K/月）；③图例（区间·数量·占比）+ 摘要（主流区间/平均/中位）。用分布带直观体现「岗位薪资集中在哪些区间」，解决原直方图不易读分布的问题；仅用现有 `salaryDist` + `overview.avgSalary/medianSalary`，无需新增后端字段。

@@ -10,14 +10,14 @@ import { useState } from "react";
 import { useToastStore } from "@/store/toast-store";
 import { cn } from "@/lib/utils";
 
-/** 冷调渐变对（胶囊填充） */
+/** 冷调渐变对（胶囊填充）—— P1 收敛到全站 token 冷调体系（primary=靛蓝、accent=天蓝），去暖色/绿冲突 */
 const G = [
-  ["#10b981", "#34d399"], // emerald
-  ["#06b6d4", "#22d3ee"], // cyan
-  ["#6366f1", "#818cf8"], // indigo
+  ["#6366f1", "#818cf8"], // indigo（≈primary）
+  ["#0ea5e9", "#38bdf8"], // sky（accent）
   ["#8b5cf6", "#a78bfa"], // violet
-  ["#f59e0b", "#fbbf24"], // amber
-  ["#ec4899", "#f472b6"], // pink
+  ["#3b82f6", "#60a5fa"], // blue
+  ["#06b6d4", "#22d3ee"], // cyan
+  ["#14b8a6", "#2dd4bf"], // teal
 ] as const;
 const grad = (i: number, vertical = false) =>
   `linear-gradient(${vertical ? "180" : "90"}deg, ${G[i % G.length][0]}, ${G[i % G.length][1]})`;
@@ -76,7 +76,7 @@ export function TreemapChart({ items, className }: { items: { label: string; val
         return (
           <div
             key={r.label}
-            className="absolute flex flex-col justify-between overflow-hidden rounded-[10px] p-1.5"
+            className="absolute flex flex-col justify-between overflow-hidden rounded-[8px] p-1.5"
             style={{
               left: `${(r.x / 400) * 100}%`,
               top: `${(r.y / 260) * 100}%`,
