@@ -97,6 +97,14 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 
 ## 四、改动记录
 
+### 2026-08-25 · feat/db（P5 市场趋势：每日快照 + 环比展示；P4 移动端确认已响应式）
+
+- **改动**：①迁移 `020_market_stats_history.sql`：`market_stats_history(snap_date UNIQUE, payload jsonb)` 每日一快照；`analyzeMarket` 重算时 `ON CONFLICT DO NOTHING` 落当日快照，并新增 `computeMarketTrend`（当前数据 vs 上一日快照环比）。②`MarketAnalysis` 新增 `trend`（has/prevDate/totalDeltaPct/topSkill/topSkillDelta/topCity/topCityDelta/avgSalaryDelta）。③/`career/market` 市场概览卡新增"市场趋势（较上一日）"行：有历史展示岗位总量%/TOP 技能/TOP 城市/均薪 的环比增减，无历史显示"数据积累中（每日快照≥2天后可展示）。④P4：确认市场页已响应式（grid 折叠、技能地图窄屏降级、箱线图 SVG 自适应、CapsuleRank 标签 truncate），无需额外改动。
+- **涉及文件**：db/migrations/020_market_stats_history.sql（新增）；packages/shared/src/index.ts（+marketTrendSchema、MarketAnalysis.trend）；apps/web/lib/domains/market/{types,analysis}.ts（+MarketTrend、快照+computeMarketTrend）；apps/web/lib/market.test.ts（+trend 断言）；apps/web/app/career/market/page.tsx（顶卡趋势行）。
+- **原因/决策**：按评审后 v2 方案 P5「从数据展示到数据解释」，先做**趋势**（每日快照 + 环比），城市地图按方案延后（数据成熟再做）；趋势数据需至少 2 天快照积累才可见，属预期。
+- **验证**：web typecheck/lint/test 全 0（market 含 trend 断言）；mobile typecheck 0；迁移由 init 应用；部署后 /api/market 返回 trend（首日 has=false）。
+- **影响**：新增表 market_stats_history（每日一根，幂等）；/api/market 新增 trend 字段（向后兼容）；趋势首日无数据，随快照积累自动出现。
+
 ### 2026-08-25 · feat/ui（薪资改箱线图 + 技能地图全节点标签）
 
 - **改动**：①薪资区间分布由占比分布带改为**箱线图 `SalaryBoxPlot`**：下须(P5)/下四分位(P25)/中位(P50)/上四分位(P75)/上须(P95)，用分位数抗「面议/极高」离群值（否则箱体被压扁）；含数值刻度、各区间数量/占比图例、摘要（主流区间 Q1-Q3·平均·中位）。为此 `overview` 新增 `salaryMin/Q1/Q3/Max`（真实分位数，`percentileOf` nearest-rank）。②技能市场地图：**每个点名称都显示**（点不多全显示，点多只显示权重 Top 12，选中节点始终显示），标签移到气泡上方并加黑色描边（paintOrder=stroke）保证可读。

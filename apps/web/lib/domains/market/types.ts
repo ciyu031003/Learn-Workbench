@@ -26,9 +26,23 @@ export interface MarketOverview {
   salaryMax: number | null;       // 薪资上须（P95）
 }
 
+export interface MarketTrend {
+  has: boolean;                       // 是否至少有 2 个不同日快照可比
+  prevDate: string | null;            // 上次快照日期（YYYY-MM-DD）
+  totalDeltaPct: number | null;       // 岗位总量环比（%）
+  topSkill: string | null;            // 当前最高频技能
+  topSkillCount: number | null;
+  topSkillDelta: number | null;       // 与该技能上次的数量差
+  topCity: string | null;             // 当前机会最多城市
+  topCityCount: number | null;
+  topCityDelta: number | null;
+  avgSalaryDelta: number | null;      // 平均薪资差（K/月）
+}
+
 export interface MarketAnalysis {
   total: number;
   overview: MarketOverview;
+  trend: MarketTrend;
   byCity: MarketCityRow[];       // 城市需求
   bySkill: MarketSkillRow[];     // 技能热度
   salaryDist: MarketSalaryRow[]; // 薪资分布

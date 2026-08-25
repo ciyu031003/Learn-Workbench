@@ -939,9 +939,25 @@ export const marketOverviewSchema = z.object({
 });
 export type MarketOverview = z.infer<typeof marketOverviewSchema>;
 
+/** 市场趋势（本周 vs 上周快照环比；无历史时为 has=false） */
+export const marketTrendSchema = z.object({
+  has: z.boolean(),                        // 是否至少有 2 个不同日快照可比
+  prevDate: z.string().nullable(),         // 上次快照日期（YYYY-MM-DD）
+  totalDeltaPct: z.number().nullable(),    // 岗位总量环比（%）
+  topSkill: z.string().nullable(),         // 当前最高频技能
+  topSkillCount: z.number().nullable(),
+  topSkillDelta: z.number().nullable(),    // 与该技能上次的数量差
+  topCity: z.string().nullable(),          // 当前机会最多城市
+  topCityCount: z.number().nullable(),
+  topCityDelta: z.number().nullable(),
+  avgSalaryDelta: z.number().nullable(),   // 平均薪资差（K/月）
+});
+export type MarketTrend = z.infer<typeof marketTrendSchema>;
+
 export const marketAnalysisSchema = z.object({
   total: z.number(),
   overview: marketOverviewSchema,
+  trend: marketTrendSchema,
   byCity: z.array(marketCityRowSchema),
   bySkill: z.array(marketSkillRowSchema),
   salaryDist: z.array(marketSalaryRowSchema),

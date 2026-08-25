@@ -229,6 +229,36 @@ export default function MarketPage() {
             <StatCell value={String(ov?.skillCount ?? data.bySkill.length)} label="热门技能" />
             <StatCell value={ov?.avgSalary != null ? `${ov.avgSalary}K` : "—"} label="平均薪资" />
           </div>
+          {/* 市场趋势（环比上一日快照） */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+            {data.trend?.has ? (
+              <>
+                <span className="font-semibold text-foreground">较 {data.trend.prevDate}</span>
+                {data.trend.totalDeltaPct != null && (
+                  <span className={data.trend.totalDeltaPct >= 0 ? "text-success" : "text-danger"}>
+                    岗位总量 {data.trend.totalDeltaPct >= 0 ? "+" : ""}{data.trend.totalDeltaPct}%
+                  </span>
+                )}
+                {data.trend.topSkill && (
+                  <span>
+                    TOP 技能「{data.trend.topSkill}」{data.trend.topSkillDelta != null ? (data.trend.topSkillDelta >= 0 ? `+${data.trend.topSkillDelta}` : data.trend.topSkillDelta) : ""}
+                  </span>
+                )}
+                {data.trend.topCity && (
+                  <span>
+                    TOP 城市「{data.trend.topCity}」{data.trend.topCityDelta != null ? (data.trend.topCityDelta >= 0 ? `+${data.trend.topCityDelta}` : data.trend.topCityDelta) : ""}
+                  </span>
+                )}
+                {data.trend.avgSalaryDelta != null && (
+                  <span className={data.trend.avgSalaryDelta >= 0 ? "text-success" : "text-danger"}>
+                    均薪 {data.trend.avgSalaryDelta >= 0 ? "+" : ""}{data.trend.avgSalaryDelta}K
+                  </span>
+                )}
+              </>
+            ) : (
+              <span>市场趋势：数据积累中（每日快照 ≥2 天后可展示环比）</span>
+            )}
+          </div>
           <p className="text-[11px] text-muted-foreground/70">
             数据随抓取自动更新，缓存约 60s；{data.generatedAt ? `生成于 ${new Date(data.generatedAt).toLocaleString("zh-CN", { hour12: false })}` : "更新时间未知"}
           </p>

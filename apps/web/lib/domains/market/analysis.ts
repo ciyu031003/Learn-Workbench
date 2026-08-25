@@ -1,5 +1,5 @@
 import { pgPool } from "@/lib/db";
-import type { MarketAnalysis, MarketCityRow, MarketExpRow, MarketJobTypeRow, MarketOverview, MarketPlatformRow, MarketSkillRow, MarketSkillSalaryRow } from "./types";
+import type { MarketAnalysis, MarketCityRow, MarketExpRow, MarketJobTypeRow, MarketOverview, MarketPlatformRow, MarketSkillRow, MarketSkillSalaryRow, MarketTrend } from "./types";
 import { functionRules, jobTypeRules, makeFunctionRule, companyNameRe, salaryBuckets, sourceLabels } from "@learn-workbench/config";
 
 /* ================= 招聘市场分析（P4，实时聚合 + DB 缓存） =================
@@ -245,7 +245,7 @@ export async function analyzeMarket(): Promise<MarketAnalysis> {
     salaryMax: whiskerMax,
   };
 
-  const data: MarketAnalysis = {
+  const payload: Omit<MarketAnalysis, "trend"> = {
     total,
     overview,
     byCity,
@@ -259,6 +259,20 @@ export async function analyzeMarket(): Promise<MarketAnalysis> {
     skillSalary,
     generatedAt: new Date().toISOString(),
   };
+
+  // P5 趋势：每日落一次快照（DO NOTHING），并与上一日快照环比
+  const snapDate = new Date().toISOString().slice(0, 10);
+  await pgPool
+    .query(
+      `INSERT INTO market_stats_history (snap_date, payload) VALUES ($1, $2::jsonb)
+       ON CONFLICT (snap_date) DO NOTHING`,
+      [snapDate, JSON.stringify(payload)]
+    )
+    .catch(() => {});
+  const trend = await computeMarketTrend(payload, snapDate);
+
+  const data: MarketAnalysis = { ...payload, trend };
+
   // 写回 DB 缓存（失败不影响响应；下次请求再算）
   await pgPool
     .query(
@@ -268,6 +282,48 @@ export async function analyzeMarket(): Promise<MarketAnalysis> {
     )
     .catch(() => {});
   return data;
+}
+
+/** 市场趋势：当前数据 vs 上一日快照（环比）。无历史时返回 has=false。 */
+async function computeMarketTrend(current: Omit<MarketAnalysis, "trend">, snapDate: string): Promise<MarketTrend> {
+  const NO_TREND: MarketTrend = {
+    has: false, prevDate: null, totalDeltaPct: null,
+    topSkill: null, topSkillCount: null, topSkillDelta: null,
+    topCity: null, topCityCount: null, topCityDelta: null, avgSalaryDelta: null,
+  };
+  const { rows } = await pgPool
+    .query<{ snap_date: string; payload: Omit<MarketAnalysis, "trend"> }>(
+      `SELECT snap_date, payload FROM market_stats_history
+        WHERE snap_date < $1 ORDER BY snap_date DESC LIMIT 1`,
+      [snapDate]
+    )
+    .catch(() => ({ rows: [] }));
+  const prev = rows[0];
+  if (!prev) return NO_TREND;
+
+  const p = prev.payload;
+  const totalDeltaPct = p.total ? Math.round(((current.total - p.total) / p.total) * 100) : null;
+  const topSkill = current.bySkill[0] ?? null;
+  const prevSkill = p.bySkill?.find((s) => s.skill === topSkill?.skill) ?? null;
+  const topCity = current.byCity[0] ?? null;
+  const prevCity = p.byCity?.find((c) => c.city === topCity?.city) ?? null;
+  const avgSalaryDelta =
+    current.overview.avgSalary != null && p.overview?.avgSalary != null
+      ? current.overview.avgSalary - p.overview.avgSalary
+      : null;
+
+  return {
+    has: true,
+    prevDate: prev.snap_date,
+    totalDeltaPct,
+    topSkill: topSkill?.skill ?? null,
+    topSkillCount: topSkill?.count ?? null,
+    topSkillDelta: topSkill && prevSkill ? topSkill.count - prevSkill.count : null,
+    topCity: topCity?.city ?? null,
+    topCityCount: topCity?.count ?? null,
+    topCityDelta: topCity && prevCity ? topCity.count - prevCity.count : null,
+    avgSalaryDelta,
+  };
 }
 
 /** 爬虫写入新数据后调用：清掉市场分析缓存（下次请求重算，避免读到旧数据） */
