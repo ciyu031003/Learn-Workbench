@@ -211,7 +211,18 @@ export async function analyzeMarket(): Promise<MarketAnalysis> {
     .map((r) => r.max ?? r.min)
     .filter((v): v is number => v != null && Number.isFinite(v))
     .sort((a, b) => a - b);
-  const avgSalary = salaryVals.length ? Math.round(salaryVals.reduce((a, b) => a + b, 0) / salaryVals.length) : null;
+  // 整体平均薪资：用薪资分桶中点加权估算（末桶「30K 以上」按 40K 封顶），口径与薪资直方图一致，
+  // 避免原始列中的离群值（如"面议/极高"占位）把均值拉到失真；中位数另算（更稳健）。
+  const bucketCount = salaryDist.reduce((a, b) => a + b.count, 0);
+  const avgSalary = bucketCount
+    ? Math.round(
+        salaryDist.reduce((a, b) => {
+          const cfg = salaryBuckets.find((s) => s.label === b.label);
+          const max = cfg ? Math.min(cfg.max, 40) : b.min + 5;
+          return a + ((b.min + max) / 2) * b.count;
+        }, 0) / bucketCount
+      )
+    : null;
   const overview: MarketOverview = {
     total,
     cityCount: cityCountRes.rows[0]?.n ?? 0,
