@@ -201,9 +201,11 @@ export async function analyzeMarket(): Promise<MarketAnalysis> {
     `SELECT count(DISTINCT COALESCE(NULLIF(city,''),'全国'))::int AS n FROM job_postings WHERE ${whereJob}`
   );
   const skillCountRes = await pgPool.query<{ n: number }>(
-    `SELECT count(DISTINCT jsonb_array_elements_text(tags))::int AS n
-       FROM job_postings
-      WHERE ${whereJob} AND jsonb_array_length(tags) > 0`
+    `SELECT count(DISTINCT tag)::int AS n FROM (
+       SELECT jsonb_array_elements_text(tags) AS tag
+         FROM job_postings
+        WHERE ${whereJob} AND jsonb_array_length(tags) > 0
+     ) s`
   );
   const salaryVals = salaryRes.rows
     .map((r) => r.max ?? r.min)
