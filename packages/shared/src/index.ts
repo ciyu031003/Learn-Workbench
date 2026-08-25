@@ -925,8 +925,19 @@ export const marketSkillSalaryRowSchema = z.object({
 });
 export type MarketSkillSalaryRow = z.infer<typeof marketSkillSalaryRowSchema>;
 
+/** 市场概览（第一屏 KPI，真实可算） */
+export const marketOverviewSchema = z.object({
+  total: z.number(),                    // 职位样本
+  cityCount: z.number(),                // 去重城市数
+  skillCount: z.number(),               // 热门技能数（去重标签）
+  avgSalary: z.number().nullable(),     // 整体平均薪资（K/月）
+  medianSalary: z.number().nullable(),  // 整体中位薪资（K/月）
+});
+export type MarketOverview = z.infer<typeof marketOverviewSchema>;
+
 export const marketAnalysisSchema = z.object({
   total: z.number(),
+  overview: marketOverviewSchema,
   byCity: z.array(marketCityRowSchema),
   bySkill: z.array(marketSkillRowSchema),
   salaryDist: z.array(marketSalaryRowSchema),

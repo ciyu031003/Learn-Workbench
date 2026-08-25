@@ -14,8 +14,17 @@ export interface MarketJobTypeRow { label: string; count: number; }
 
 export interface MarketSkillSalaryRow { skill: string; avgSalary: number | null; count: number; }
 
+export interface MarketOverview {
+  total: number;                  // 职位样本
+  cityCount: number;              // 去重城市数
+  skillCount: number;             // 热门技能数（去重标签）
+  avgSalary: number | null;       // 整体平均薪资（K/月）
+  medianSalary: number | null;    // 整体中位薪资（K/月）
+}
+
 export interface MarketAnalysis {
   total: number;
+  overview: MarketOverview;
   byCity: MarketCityRow[];       // 城市需求
   bySkill: MarketSkillRow[];     // 技能热度
   salaryDist: MarketSalaryRow[]; // 薪资分布

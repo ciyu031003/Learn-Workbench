@@ -97,6 +97,14 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 
 ## 四、改动记录
 
+### 2026-08-25 · feat/ui（招花市场分析 2.0：市场概览 + 四段信息架构 + 技能市场地图接驳学习闭环）
+
+- **改动**：按《招花市场分析-UI优化方案-评审后v2.md》执行 P0 主增量。①市场分析页由"等权卡片堆叠"重构为「市场概览 + 01 市场需求 / 02 技能机会 / 03 人才画像 / 04 我的学习机会」四段信息架构，数据来源/岗位类型从主图降权为「关于数据」说明；②`MarketAnalysis` 新增 `overview`（城市去重数 / 热门技能数 / 整体均薪 + 中位薪资，全部真实取数），首屏 KPI 不再用伪指标；③新增 `SkillMarketMap`（技能市场地图：四象限 X=需求职位数 / Y=均薪 / Size=职位数，冷调 token 着色 + 我的掌握状态描边，点击详情 + 一键加入学习路线），复用现有 `/api/profile/skills` + `/api/skills/gaps` + `/api/jobs/gaps/enroll`；④规则驱动「市场洞察」，全部由 `/api/market` 字段计算，无静态文案。
+- **涉及文件**：packages/shared/src/index.ts（+marketOverviewSchema、MarketAnalysis.overview）；apps/web/lib/domains/market/{types,analysis}.ts（overview 计算）；apps/web/lib/market.test.ts（+2 mock + overview 断言）；apps/web/components/market/market-charts.tsx（+SkillMarketMap / SkillMapNode / SKILL_LEVEL_LABELS）；apps/web/app/career/market/page.tsx（重构）；docs/招花市场分析-UI优化方案-评审后v2.md（新增方案稿）。
+- **原因/决策**：评审确认「市场×学习闭环」数据层与多数 UI 已建成（aggregateMarketGaps / user_skills / enrollGapsToTasks + /api/skills/gaps 等 + 技能树/首页/职位详情三处缺口卡），缺的只是接到市场页，故把原稿 Phase 5（最后、长期）**前置为 P0**；概览与技能状态改为真实可算，消除「17.4K 整体均薪 / 学习中 62%」等伪指标；图表色板用冷调 token 对齐全站（全站 token 统一留待 P1）。
+- **验证**：web vitest 全过（market +2）；`pnpm -F web typecheck` 0 error；`pnpm -F web lint` 0 error；`pnpm -F web build` 通过；部署后 /api/market 返回 overview、/career/market 正常渲染技能地图与闭环、（匿名访问无报错）。
+- **影响**：/api/market 新增 overview 字段（向后兼容）；纯前端交互增强，无 DB 变更；匿名用户隐藏「我的技能 / 能力缺口」，仅显示市场统计与登录提示。
+
 ### 2026-08-25 · docs（规划 + 文档清理）
 
 - **改动**：新增《P3-面试题库与模拟面试-任务清单.md》（P3 题库刷题/答题复盘/求职 Kanban 联动 + 后续笔试/Offer/统计/AI 模拟面试任务的规划稿，不含实现）；删除已完成并已记录于本文档的规划类文档：docs/P0-安全加固与HTTPS部署.md、docs/JOBS_ANTI_CRAWL.md、docs/招花-考公考编央国企-实施方案.md；README.md 与 docs/DEPLOY_LOG_2026-08-23.md 中指向上述已删文档的链接改为指向本文档。

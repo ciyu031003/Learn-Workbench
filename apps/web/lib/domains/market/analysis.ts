@@ -1,5 +1,5 @@
 import { pgPool } from "@/lib/db";
-import type { MarketAnalysis, MarketCityRow, MarketExpRow, MarketJobTypeRow, MarketPlatformRow, MarketSkillRow, MarketSkillSalaryRow } from "./types";
+import type { MarketAnalysis, MarketCityRow, MarketExpRow, MarketJobTypeRow, MarketOverview, MarketPlatformRow, MarketSkillRow, MarketSkillSalaryRow } from "./types";
 import { functionRules, jobTypeRules, makeFunctionRule, companyNameRe, salaryBuckets, sourceLabels } from "@learn-workbench/config";
 
 /* ================= 招聘市场分析（P4，实时聚合 + DB 缓存） =================
@@ -196,8 +196,31 @@ export async function analyzeMarket(): Promise<MarketAnalysis> {
     count: r.n,
   }));
 
+  // 市场概览（第一屏 KPI）：城市去重数 / 热门技能数 / 整体平均+中位薪资（均真实取数）
+  const cityCountRes = await pgPool.query<{ n: number }>(
+    `SELECT count(DISTINCT COALESCE(NULLIF(city,''),'全国'))::int AS n FROM job_postings WHERE ${whereJob}`
+  );
+  const skillCountRes = await pgPool.query<{ n: number }>(
+    `SELECT count(DISTINCT jsonb_array_elements_text(tags))::int AS n
+       FROM job_postings
+      WHERE ${whereJob} AND jsonb_array_length(tags) > 0`
+  );
+  const salaryVals = salaryRes.rows
+    .map((r) => r.max ?? r.min)
+    .filter((v): v is number => v != null && Number.isFinite(v))
+    .sort((a, b) => a - b);
+  const avgSalary = salaryVals.length ? Math.round(salaryVals.reduce((a, b) => a + b, 0) / salaryVals.length) : null;
+  const overview: MarketOverview = {
+    total,
+    cityCount: cityCountRes.rows[0]?.n ?? 0,
+    skillCount: skillCountRes.rows[0]?.n ?? 0,
+    avgSalary,
+    medianSalary: medianOf(salaryVals),
+  };
+
   const data: MarketAnalysis = {
     total,
+    overview,
     byCity,
     bySkill,
     salaryDist,
@@ -223,4 +246,11 @@ export async function analyzeMarket(): Promise<MarketAnalysis> {
 /** 爬虫写入新数据后调用：清掉市场分析缓存（下次请求重算，避免读到旧数据） */
 export async function invalidateMarketCache(): Promise<void> {
   await pgPool.query(`DELETE FROM market_stats WHERE key = $1`, [CACHE_KEY]).catch(() => {});
+}
+
+/** 升序数组取中位数（空返回 null） */
+function medianOf(sorted: number[]): number | null {
+  if (sorted.length === 0) return null;
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
 }

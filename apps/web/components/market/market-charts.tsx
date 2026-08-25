@@ -4,7 +4,10 @@
  * 招聘市场分析 · 胶囊化图表组件
  * 参照 mav-charts 目录选型：C05 横向排名 / F01 矩形树图 / D07 直方图 / P02 环形 / D03 气泡象限
  * 全部手绘 SVG/HTML，贴合 apps/web 玻璃拟态 + 冷调强调，不引入 recharts 依赖。
+ * 另含：SkillMarketMap（技能市场地图，四象限 + 我的技能状态 + 学习入口）。
  */
+import { useState } from "react";
+import { useToastStore } from "@/store/toast-store";
 import { cn } from "@/lib/utils";
 
 /** 冷调渐变对（胶囊填充） */
@@ -325,4 +328,179 @@ function squarify(
     result.push(...l.placed);
   }
   return result;
+}
+
+/* ================= 技能市场地图（Skill Market Map）＝ 升级版 BubbleQuadrant =================
+ * 语义迁移：X=市场需求(职位数) / Y=平均薪资 / Size=职位数 / 状态=我的掌握。
+ * 四象限：明星(高需高薪) / 潜力(低需高薪) / 基础(高需低薪) / 长尾(低需低薪)。
+ * 冷调 token 着色（呼应全站 primary/accent），我的状态用语义色描边（不引入彩虹色板）。
+ */
+
+export interface SkillMapNode {
+  skill: string;
+  avgSalary: number | null;   // Y：平均薪资（K/月）
+  count: number;              // X + Size：需求职位数
+  myLevel: number | null;     // 0-5；null=未登录/未维护
+  enrollable: boolean;        // 是否有对应学习主题可加入
+  topicId: number | null;
+  topicTitle: string | null;
+  estimateHours: number | null;
+  phaseId: number | null;
+}
+
+export const SKILL_LEVEL_LABELS = ["未掌握", "了解", "入门", "熟练", "精通", "专家"];
+
+const HEAT_STARS = (jobCount: number, ref: number) => {
+  const scale = jobCount / Math.max(1, ref);
+  return scale >= 1.8 ? 5 : scale >= 1.2 ? 4 : scale >= 0.7 ? 3 : scale >= 0.35 ? 2 : 1;
+};
+
+export function SkillMarketMap({
+  nodes,
+  loggedIn,
+  className,
+}: {
+  nodes: SkillMapNode[];
+  loggedIn: boolean;
+  className?: string;
+}) {
+  const pushToast = useToastStore((s) => s.push);
+  const [sel, setSel] = useState<SkillMapNode | null>(null);
+  const [enrolling, setEnrolling] = useState<string | null>(null);
+
+  // X=需求 / Y=薪资
+  const usable = nodes.filter((n) => n.avgSalary != null && n.count > 0);
+  const xs = usable.map((n) => n.avgSalary as number);
+  const ys = usable.map((n) => n.count);
+  const maxX = Math.max(1, ...xs);
+  const maxY = Math.max(1, ...ys);
+  const midX = median(xs) || maxX / 2;
+  const midY = median(ys) || maxY / 2;
+
+  const W = 720, H = 340, P = 18;
+  const px = (v: number) => X(v, maxX, W, P);
+  const py = (v: number) => Y(v, maxY, H, P);
+
+  // 冷调象限色
+  const tone = (x: number, y: number) =>
+    x >= midX && y >= midY ? "#6366f1" // 明星（高需高薪）
+    : x >= midX ? "#0ea5e9"           // 基础（高需低薪）
+    : y >= midY ? "#8b5cf6"           // 潜力（低需高薪）
+    : "#94a3b8";                      // 长尾（低需低薪）
+
+  const ring = (level: number | null) =>
+    level == null ? null
+    : level >= 3 ? "#10b981"
+    : level >= 1 ? "#f59e0b"
+    : "#e4e4e7";
+
+  const enroll = async (n: SkillMapNode) => {
+    if (!loggedIn) { pushToast("请先登录，才能把技能加入学习路线", "error"); return; }
+    if (!n.enrollable || n.topicId == null) { pushToast("该技能暂无可加入的学习主题", "error"); return; }
+    setEnrolling(n.skill);
+    try {
+      const r = await fetch("/api/jobs/gaps/enroll", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gaps: [{ skill: n.skill, topicId: n.topicId, hours: n.estimateHours }] }),
+      });
+      const d = await r.json().catch(() => null);
+      if (!r.ok) throw new Error(d?.error || "加入失败");
+      pushToast(`已加入「${n.skill}」学习任务到今日计划`, "success");
+    } catch (e) {
+      pushToast(e instanceof Error ? e.message : "加入失败", "error");
+    } finally {
+      setEnrolling(null);
+    }
+  };
+
+  const heatStars = sel ? HEAT_STARS(sel.count, midY) : 0;
+
+  return (
+    <div className={cn("flex flex-col gap-3", className)}>
+      {/* 坐标区 */}
+      <div className="relative w-full overflow-hidden rounded-2xl bg-white/6">
+        <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label="技能市场地图：横轴需求职位数，纵轴平均薪资">
+          {/* 浅网格（弱网格） */}
+          {[0.25, 0.5, 0.75, 1].map((f) => (
+            <line key={`h${f}`} x1={P} x2={W - P} y1={H - P - (H - 2 * P) * f} y2={H - P - (H - 2 * P) * f} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+          ))}
+          {[0.25, 0.5, 0.75, 1].map((f) => (
+            <line key={`v${f}`} x1={P + (W - 2 * P) * f} x2={P + (W - 2 * P) * f} y1={P} y2={H - P} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+          ))}
+          {/* 中位参考十字线 */}
+          <line x1={P} x2={W - P} y1={py(midY)} y2={py(midY)} stroke="rgba(255,255,255,0.28)" strokeWidth="1" strokeDasharray="4 4" />
+          <line x1={px(midX)} x2={px(midX)} y1={P} y2={H - P} stroke="rgba(255,255,255,0.28)" strokeWidth="1" strokeDasharray="4 4" />
+          {/* 气泡 */}
+          {usable.map((n) => {
+            const cx = px(n.avgSalary as number);
+            const cy = py(n.count);
+            const rad = Math.min(24, 6 + Math.sqrt(n.count) * 2.2);
+            const r = ring(n.myLevel);
+            const isSel = sel?.skill === n.skill;
+            return (
+              <g
+                key={n.skill}
+                tabIndex={0}
+                role="button"
+                aria-label={`${n.skill}：${n.count} 个岗位，均薪 ${n.avgSalary}K`}
+                className="cursor-pointer outline-none"
+                onClick={() => setSel(n)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSel(n); } }}
+              >
+                <title>{n.skill} · {n.count} 个岗位 · 均 {n.avgSalary}K</title>
+                {isSel ? <circle cx={cx} cy={cy} r={rad + 4} fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="1.5" /> : null}
+                <circle cx={cx} cy={cy} r={rad} fill={tone(n.avgSalary as number, n.count)} opacity="0.86" />
+                {r ? <circle cx={cx} cy={cy} r={rad + 2} fill="none" stroke={r} strokeWidth={n.myLevel! >= 3 ? 2.5 : 2} strokeDasharray={n.myLevel === 0 ? "3 3" : undefined} /> : null}
+                <text x={cx} y={cy + 3} textAnchor="middle" fontSize="9" fontWeight="700" fill="rgba(255,255,255,0.95)">{n.skill.slice(0, 6)}</text>
+              </g>
+            );
+          })}
+        </svg>
+        {/* 象限标签 */}
+        <span className="pointer-events-none absolute right-2 top-1.5 text-[10px] font-semibold text-muted-foreground/60">明星技能</span>
+        <span className="pointer-events-none absolute left-2 top-1.5 text-[10px] font-semibold text-muted-foreground/60">潜力技能</span>
+        <span className="pointer-events-none absolute bottom-1.5 right-2 text-[10px] font-semibold text-muted-foreground/60">基础技能</span>
+        <span className="pointer-events-none absolute bottom-1.5 left-2 text-[10px] font-semibold text-muted-foreground/60">长尾技能</span>
+        {/* 轴标签 */}
+        <span className="pointer-events-none absolute left-1/2 top-1.5 -translate-x-1/2 text-[10px] text-muted-foreground/70">平均薪资（K/月）</span>
+        <span className="pointer-events-none absolute bottom-1.5 left-1/2 -translate-x-1/2 text-[10px] text-muted-foreground/70">需求职位数 →</span>
+      </div>
+
+      {/* 详情 / 状态条 */}
+      {sel ? (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-white/15 bg-muted/30 px-3 py-2.5 text-xs">
+          <span className="text-sm font-bold text-foreground">{sel.skill}</span>
+          <span className="text-muted-foreground">在招 {sel.count} 岗</span>
+          <span className="text-muted-foreground">均薪 {sel.avgSalary}K</span>
+          <span className="text-muted-foreground">热度 {"★".repeat(heatStars)}{"☆".repeat(5 - heatStars)}</span>
+          <span className="text-muted-foreground">
+            我的：{sel.myLevel == null ? (loggedIn ? "未维护" : "未登录") : SKILL_LEVEL_LABELS[sel.myLevel]}
+          </span>
+          {sel.topicTitle ? (
+            <a
+              href={sel.phaseId ? `/roadmap#phase-${sel.phaseId}` : "/roadmap"}
+              className="text-muted-foreground underline-offset-2 hover:text-primary hover:underline"
+            >
+              → {sel.topicTitle}{sel.estimateHours ? `（约 ${sel.estimateHours}h）` : ""}
+            </a>
+          ) : null}
+          {loggedIn && sel.enrollable && sel.topicId != null ? (
+            <button
+              type="button"
+              onClick={() => enroll(sel)}
+              disabled={enrolling === sel.skill}
+              className="ml-auto rounded-lg bg-primary/90 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary disabled:opacity-50"
+            >
+              {enrolling === sel.skill ? "加入中…" : "加入学习路线"}
+            </button>
+          ) : loggedIn && sel.myLevel != null && sel.myLevel >= 2 ? (
+            <span className="ml-auto text-success">已达标，无需补齐 ✓</span>
+          ) : null}
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">点击气泡查看技能详情；登录后叠加你的掌握状态，可直接加入学习路线。</p>
+      )}
+    </div>
+  );
 }
