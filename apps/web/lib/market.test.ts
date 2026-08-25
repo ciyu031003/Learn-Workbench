@@ -62,7 +62,7 @@ describe("analyzeMarket (P4)", () => {
 
     const m = await analyzeMarket();
     expect(m.total).toBe(5);
-    expect(m.overview).toMatchObject({ total: 5, cityCount: 2, skillCount: 2, avgSalary: 19, medianSalary: 18 });
+    expect(m.overview).toMatchObject({ total: 5, cityCount: 2, skillCount: 2, avgSalary: 19, medianSalary: 18, salaryMin: 9, salaryQ1: 12, salaryQ3: 22, salaryMax: 35 });
     expect(m.byCity[0]).toEqual({ city: "深圳", count: 3, avgMin: 15, avgMax: 25 });
     expect(m.bySkill[0]).toEqual({ skill: "Python", count: 3 });
     const s = Object.fromEntries(m.salaryDist.map((x) => [x.label, x.count]));

@@ -223,12 +223,17 @@ export async function analyzeMarket(): Promise<MarketAnalysis> {
         }, 0) / bucketCount
       )
     : null;
+  const p = (q: number) => percentileOf(salaryVals, q);
   const overview: MarketOverview = {
     total,
     cityCount: cityCountRes.rows[0]?.n ?? 0,
     skillCount: skillCountRes.rows[0]?.n ?? 0,
     avgSalary,
-    medianSalary: medianOf(salaryVals),
+    medianSalary: p(0.5),
+    salaryMin: p(0.05),
+    salaryQ1: p(0.25),
+    salaryQ3: p(0.75),
+    salaryMax: p(0.95),
   };
 
   const data: MarketAnalysis = {
@@ -266,4 +271,11 @@ function medianOf(sorted: number[]): number | null {
   if (sorted.length === 0) return null;
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
+}
+
+/** 升序数组取第 p 分位数（nearest-rank）；空返回 0。用于箱线图抗离群值。 */
+function percentileOf(sorted: number[], p: number): number {
+  if (sorted.length === 0) return 0;
+  const idx = Math.min(sorted.length - 1, Math.floor(p * sorted.length));
+  return sorted[idx];
 }

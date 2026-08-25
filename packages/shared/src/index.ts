@@ -930,8 +930,12 @@ export const marketOverviewSchema = z.object({
   total: z.number(),                    // 职位样本
   cityCount: z.number(),                // 去重城市数
   skillCount: z.number(),               // 热门技能数（去重标签）
-  avgSalary: z.number().nullable(),     // 整体平均薪资（K/月）
+  avgSalary: z.number().nullable(),     // 整体平均薪资（K/月，分桶中点加权）
   medianSalary: z.number().nullable(),  // 整体中位薪资（K/月）
+  salaryMin: z.number().nullable(),     // 薪资下须（P5，抗离群值）
+  salaryQ1: z.number().nullable(),      // 下四分位（P25）
+  salaryQ3: z.number().nullable(),      // 上四分位（P75）
+  salaryMax: z.number().nullable(),     // 薪资上须（P95）
 });
 export type MarketOverview = z.infer<typeof marketOverviewSchema>;
 

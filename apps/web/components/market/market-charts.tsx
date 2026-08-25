@@ -417,6 +417,10 @@ export function SkillMarketMap({
   const heatStars = sel ? HEAT_STARS(sel.count, midY) : 0;
 
   const topByCount = [...usable].sort((a, b) => b.count - a.count);
+  // 标签：点不多一律显示每个点名；点多只显示权重 Top N（选中节点始终显示）
+  const LABEL_LIMIT = 12;
+  const labelSet = new Set(topByCount.slice(0, LABEL_LIMIT).map((n) => n.skill));
+  const showAllLabels = usable.length <= LABEL_LIMIT;
 
   return (
     <div className={cn("flex flex-col gap-3", className)}>
@@ -446,7 +450,7 @@ export function SkillMarketMap({
               const rad = Math.min(24, 6 + Math.sqrt(n.count) * 2.2);
               const r = ring(n.myLevel);
               const isSel = sel?.skill === n.skill;
-              const showLabel = rad >= 14 || isSel;
+              const showLabel = isSel || showAllLabels || labelSet.has(n.skill);
               return (
                 <g
                   key={n.skill}
@@ -462,8 +466,18 @@ export function SkillMarketMap({
                   <circle cx={cx} cy={cy} r={rad} fill={tone(n.avgSalary as number, n.count)} opacity="0.86" />
                   {r ? <circle cx={cx} cy={cy} r={rad + 2} fill="none" stroke={r} strokeWidth={n.myLevel! >= 3 ? 2.5 : 2} strokeDasharray={n.myLevel === 0 ? "3 3" : undefined} /> : null}
                   {showLabel ? (
-                    <text x={cx} y={cy + 3} textAnchor="middle" fontSize={isSel ? 10 : 9} fontWeight="700" fill="rgba(255,255,255,0.95)">
-                      {n.skill.slice(0, rad >= 20 || isSel ? 8 : 5)}
+                    <text
+                      x={cx}
+                      y={cy - rad - 5}
+                      textAnchor="middle"
+                      fontSize="10"
+                      fontWeight="700"
+                      fill="rgba(255,255,255,0.96)"
+                      paintOrder="stroke"
+                      stroke="rgba(0,0,0,0.55)"
+                      strokeWidth={3}
+                    >
+                      {n.skill.slice(0, 10)}
                     </text>
                   ) : null}
                 </g>
@@ -554,87 +568,82 @@ export function SkillMarketMap({
   );
 }
 
-/* ================= 薪资分布带（SalaryDistributionBand）＝ 替换竖向直方图 =================
- * 用「100% 占比分布带」替代传统柱状直方图，直观体现「岗位薪资集中在哪些区间」：
- *  - 分布带：每个区间宽度=该区间职位占比，最宽=岗位最集中；主流区间高亮描边。
- *  - 值轴刻度：叠加 中位/平均 薪资标记（K/月），一眼看出集中度与中心趋势。
- *  - 图例 + 摘要：区间 · 数量 · 占比 + 主流区间 / 平均 / 中位。
- * 仅依赖 salaryDist + overview.avgSalary/medianSalary，无需新增后端字段。
+/* ================= 薪资箱线图（SalaryBoxPlot）＝ 替换竖向直方图/分布带 =================
+ * 用箱线图（Box Plot）直观表达「薪资分布区间」：下须(P5) → 下四分位(P25) → 中位(P50) → 上四分位(P75) → 上须(P95)。
+ * 用分位数而非绝对 min/max，抗「面议/极高」等离群值（否则箱体被压扁）。
+ *  - 箱体 = 约 50% 岗位所在的「主流区间」；中位线（粗）与平均（琥珀虚线）标注中心趋势。
+ *  - 下方：数值刻度 + 各区间数量/占比图例 + 摘要（主流区间 Q1-Q3 · 平均 · 中位）。
+ * 数据来自 overview 的 salaryMin/Q1/Q3/Max + salaryDist。
  */
 
-export function SalaryDistributionBand({
+export function SalaryBoxPlot({
   items,
-  avgSalary,
-  medianSalary,
+  min,
+  q1,
+  median,
+  q3,
+  max,
+  avg,
   className,
 }: {
   items: { label: string; min: number; count: number }[];
-  avgSalary: number | null;
-  medianSalary: number | null;
+  min: number | null;
+  q1: number | null;
+  median: number | null;
+  q3: number | null;
+  max: number | null;
+  avg: number | null;
   className?: string;
 }) {
+  if (min == null || q1 == null || median == null || q3 == null || max == null || q1 >= q3) {
+    return <p className="text-xs text-muted-foreground">暂无薪资数据</p>;
+  }
   const total = items.reduce((a, b) => a + b.count, 0);
-  if (total === 0) return <p className="text-xs text-muted-foreground">暂无薪资数据</p>;
-  const maxCount = Math.max(...items.map((b) => b.count));
-  const main = items.find((b) => b.count === maxCount) ?? items[0];
-  const CAP = 40; // 值轴封顶（K/月）
-  const px = (v: number) => Math.max(0, Math.min(100, (v / CAP) * 100));
-  const segs = items.map((b, i) => ({ ...b, pct: (b.count / total) * 100, main: b.label === main.label, idx: i }));
+  const lo = Math.min(min, q1 - 2);
+  const hi = Math.max(max, q3 + 2);
+  const range = Math.max(1, hi - lo);
+  const W = 640, H = 104, PX = 14, yc = 44;
+  const X = (v: number) => PX + ((v - lo) / range) * (W - 2 * PX);
 
   return (
     <div className={cn("flex flex-col gap-2.5", className)}>
-      {/* 占比分布带（100% 堆叠，宽度=占比） */}
-      <div className="flex h-7 w-full overflow-hidden rounded-full bg-white/10">
-        {segs.map((s) => (
-          <div
-            key={s.label}
-            className="relative flex items-center justify-center overflow-hidden"
-            style={{
-              width: `${s.pct}%`,
-              background: grad(s.idx, true),
-              ...(s.main ? { filter: "brightness(1.12)", boxShadow: "inset 0 0 0 1.5px rgba(255,255,255,0.78)" } : {}),
-            }}
-            title={`${s.label}：${s.count} 个（${s.pct.toFixed(1)}%）`}
-          >
-            {s.main && s.pct >= 8 ? <span className="text-[10px] font-bold text-white/95">{s.pct.toFixed(0)}%</span> : null}
-          </div>
-        ))}
-      </div>
-
-      {/* 值轴刻度：中位 & 平均 */}
-      <div className="relative h-6 w-full">
-        <div className="absolute left-0 right-0 top-1/2 h-px -translate-y-1/2 bg-white/15" />
-        {medianSalary != null ? (
-          <div className="absolute top-0 h-3.5 w-px bg-sky-300" style={{ left: `${px(medianSalary)}%` }} title={`中位薪资 ${medianSalary}K`}>
-            <span className="absolute left-1 top-[-1px] whitespace-nowrap text-[10px] font-semibold text-sky-300">中位 {medianSalary}K</span>
-          </div>
-        ) : null}
-        {avgSalary != null ? (
-          <div className="absolute top-0 h-3.5 w-px bg-indigo-300" style={{ left: `${px(avgSalary)}%` }} title={`平均薪资 ${avgSalary}K`}>
-            <span className="absolute left-1 top-[-1px] whitespace-nowrap text-[10px] font-semibold text-indigo-300">平均 {avgSalary}K</span>
-          </div>
-        ) : null}
-        <span className="absolute -bottom-2 left-0 text-[9px] text-muted-foreground/70">0K</span>
-        <span className="absolute -bottom-2 right-0 text-[9px] text-muted-foreground/70">{CAP}K</span>
-      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="薪资分布箱线图：下须、下四分位、中位、上四分位、上须">
+        {/* 须线（min..max） */}
+        <line x1={X(min)} y1={yc} x2={X(max)} y2={yc} stroke="rgba(255,255,255,0.5)" strokeWidth="2" />
+        {/* 两端须帽 */}
+        <line x1={X(min)} y1={yc - 7} x2={X(min)} y2={yc + 7} stroke="rgba(255,255,255,0.7)" strokeWidth="2" />
+        <line x1={X(max)} y1={yc - 7} x2={X(max)} y2={yc + 7} stroke="rgba(255,255,255,0.7)" strokeWidth="2" />
+        {/* 箱体（Q1..Q3，主流区间） */}
+        <rect x={X(q1)} y={yc - 16} width={X(q3) - X(q1)} height={32} rx={6} fill="rgba(99,102,241,0.26)" stroke="rgba(129,140,248,0.7)" strokeWidth="1.2" />
+        {/* 中位线（粗白） */}
+        <line x1={X(median)} y1={yc - 20} x2={X(median)} y2={yc + 20} stroke="rgba(255,255,255,0.92)" strokeWidth="2.5" />
+        {/* 平均（琥珀虚线） */}
+        {avg != null ? <line x1={X(avg)} y1={yc - 20} x2={X(avg)} y2={yc + 20} stroke="#f59e0b" strokeWidth="1.8" strokeDasharray="4 3" /> : null}
+        {/* 数值刻度标签 */}
+        <text x={X(min)} y={H - 8} textAnchor="start" fontSize="9" fill="rgba(255,255,255,0.75)">{min}K</text>
+        <text x={X(q1)} y={H - 8} textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.75)">{q1}K</text>
+        <text x={X(median)} y={H - 8} textAnchor="middle" fontSize="9" fontWeight="700" fill="rgba(255,255,255,0.95)">{median}K</text>
+        <text x={X(q3)} y={H - 8} textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.75)">{q3}K</text>
+        <text x={X(max)} y={H - 8} textAnchor="end" fontSize="9" fill="rgba(255,255,255,0.75)">{max}K</text>
+      </svg>
 
       {/* 图例：区间 · 数量 · 占比 */}
-      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
-        {segs.map((s) => (
-          <span key={s.label} className="text-[11px] text-muted-foreground">
-            <span className="mr-1 inline-block size-2 rounded-full" style={{ backgroundColor: fillColor(s.idx) }} />
-            {s.label}
-            <span className="ml-1 font-bold tabular-nums text-foreground">{s.count}</span>
-            <span className="ml-0.5 text-[10px]">({s.pct.toFixed(1)}%)</span>
+      <div className="flex flex-wrap gap-x-3 gap-y-1">
+        {items.map((b, i) => (
+          <span key={b.label} className="text-[11px] text-muted-foreground">
+            <span className="mr-1 inline-block size-2 rounded-full" style={{ backgroundColor: fillColor(i) }} />
+            {b.label}
+            <span className="ml-1 font-bold tabular-nums text-foreground">{b.count}</span>
+            <span className="ml-0.5 text-[10px]">({total ? ((b.count / total) * 100).toFixed(1) : 0}%)</span>
           </span>
         ))}
       </div>
 
-      {/* 主区间 + 中位 摘要 */}
+      {/* 摘要：主流区间 · 平均 · 中位 */}
       <p className="text-xs text-muted-foreground">
-        主流区间 <span className="font-bold text-foreground">{main.label}</span>
-        {avgSalary != null ? <> · 平均 <span className="font-bold tabular-nums text-foreground">{avgSalary}K</span></> : null}
-        {medianSalary != null ? <> · 中位 <span className="font-bold tabular-nums text-foreground">{medianSalary}K</span></> : null}
+        主流区间 <span className="font-bold text-foreground">{q1}-{q3}K</span>
+        {avg != null ? <> · 平均 <span className="font-bold tabular-nums text-foreground">{avg}K</span></> : null}
+        {median != null ? <> · 中位 <span className="font-bold tabular-nums text-foreground">{median}K</span></> : null}
       </p>
     </div>
   );

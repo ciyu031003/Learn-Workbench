@@ -97,6 +97,14 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 
 ## 四、改动记录
 
+### 2026-08-25 · feat/ui（薪资改箱线图 + 技能地图全节点标签）
+
+- **改动**：①薪资区间分布由占比分布带改为**箱线图 `SalaryBoxPlot`**：下须(P5)/下四分位(P25)/中位(P50)/上四分位(P75)/上须(P95)，用分位数抗「面议/极高」离群值（否则箱体被压扁）；含数值刻度、各区间数量/占比图例、摘要（主流区间 Q1-Q3·平均·中位）。为此 `overview` 新增 `salaryMin/Q1/Q3/Max`（真实分位数，`percentileOf` nearest-rank）。②技能市场地图：**每个点名称都显示**（点不多全显示，点多只显示权重 Top 12，选中节点始终显示），标签移到气泡上方并加黑色描边（paintOrder=stroke）保证可读。
+- **涉及文件**：packages/shared/src/index.ts（+overview salaryMin/Q1/Q3/Max）；apps/web/lib/domains/market/{types,analysis}.ts（percentileOf + p5/p25/p75/p95）；apps/web/lib/market.test.ts（overview 断言补四分位）；apps/web/components/market/market-charts.tsx（+SalaryBoxPlot、SkillMarketMap 标签逻辑）；apps/web/app/career/market/page.tsx（引换 SalaryBoxPlot + 传四分位）。
+- **原因/决策**：用户反馈占比分布带仍不直观，改用"分布区间"的规范图表——箱线图（分位数表达 spread 与中心趋势，抗离群值）；地图希望每个点可读名称，改全显示/权重 Top N。
+- **验证**：web typecheck/lint/test 全 0；mobile typecheck 0。
+- **影响**：/api/market 的 overview 新增 4 个可空字段（向后兼容）；纯前端图表与标签调整。
+
 ### 2026-08-25 · feat/ui（P3 市场洞察增强：技能×薪资象限解读）
 
 - **改动**：`/career/market` 的「市场洞察」由平铺结论升级为结构化洞察——①**技能×薪资象限解读**：按中位需求/中位薪资把技能分为明星/潜力/基础/长尾四象限，各列 Top 3 技能 + 一句解读（全部由 `skillSalary` 计算，含本象限的技能名）；②**关键结论**：需求最高职能、机会最多城市（含均薪）、最高频技能、平均薪资最高技能（由 `data` 各字段计算）；③数据更新时间醒目化（`generatedAt`）。

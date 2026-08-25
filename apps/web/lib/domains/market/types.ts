@@ -18,8 +18,12 @@ export interface MarketOverview {
   total: number;                  // 职位样本
   cityCount: number;              // 去重城市数
   skillCount: number;             // 热门技能数（去重标签）
-  avgSalary: number | null;       // 整体平均薪资（K/月）
+  avgSalary: number | null;       // 整体平均薪资（K/月，分桶中点加权）
   medianSalary: number | null;    // 整体中位薪资（K/月）
+  salaryMin: number | null;       // 薪资下须（P5，抗离群值）
+  salaryQ1: number | null;        // 下四分位（P25）
+  salaryQ3: number | null;        // 上四分位（P75）
+  salaryMax: number | null;       // 薪资上须（P95）
 }
 
 export interface MarketAnalysis {
