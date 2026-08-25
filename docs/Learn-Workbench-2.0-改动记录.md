@@ -97,6 +97,14 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 
 ## 四、改动记录
 
+### 2026-08-25 · feat/ui（P2 技能市场地图精修）
+
+- **改动**：`SkillMarketMap` 精修——①四象限背景弱色着色（明星/潜力/基础/长尾各染主题冷色，区域更清晰）；②节点标签防重叠（仅大气泡 rad≥14 或选中节点才显示技能名，小气泡靠 hover/点击/详情，避免文字溢出重叠）；③登录后新增状态描边图例（已熟练=绿 / 学习中=琥珀 / 未掌握=灰）；④窄屏降级：lg 及以上显示完整 SVG 地图，窄屏显示「技能机会摘要（可点击查看详情）+ Top 技能榜」（复用 CapsuleRank），与桌面主链路对齐。
+- **涉及文件**：apps/web/components/market/market-charts.tsx（SkillMarketMap）。
+- **原因/决策**：按评审后 v2 方案 P2「打造招花最有辨识度的核心组件」——四象限背景、节点防重叠、状态可读、响应式（>1024 完整地图，窄屏降级为矩阵摘要+Top 榜）。
+- **验证**：web typecheck/lint/test 全 0。
+- **影响**：纯前端组件增强，无数据/DB 变更；部署后 /career/market 技能机会模块在桌面/窄屏均清晰可读。
+
 ### 2026-08-25 · feat/ui（P1 图表色板收敛到全站冷调 token + 圆角对齐）
 
 - **改动**：把 `market-charts.tsx` 的图表色板从硬编码 6 色彩虹（emerald/cyan/indigo/violet/amber/pink，含暖橙/粉与绿，与冷调玻璃冲突）收敛为**全站冷调 token 体系**（primary=indigo `#6366f1`、accent=sky `#0ea5e9`，配 violet/blue/cyan/teal 冷色补全），供 CapsuleRank/Treemap/Histogram/Donut/SalaryDistributionBand 统一取色；treemap 单元格圆角由 `rounded-[10px]` 对齐到 sm(8px) token。保留 SkillMarketMap 的冷调象限色与语义状态色（绿/琥珀/灰）。

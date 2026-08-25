@@ -416,58 +416,107 @@ export function SkillMarketMap({
 
   const heatStars = sel ? HEAT_STARS(sel.count, midY) : 0;
 
+  const topByCount = [...usable].sort((a, b) => b.count - a.count);
+
   return (
     <div className={cn("flex flex-col gap-3", className)}>
-      {/* 坐标区 */}
-      <div className="relative w-full overflow-hidden rounded-2xl bg-white/6">
-        <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label="技能市场地图：横轴需求职位数，纵轴平均薪资">
-          {/* 浅网格（弱网格） */}
-          {[0.25, 0.5, 0.75, 1].map((f) => (
-            <line key={`h${f}`} x1={P} x2={W - P} y1={H - P - (H - 2 * P) * f} y2={H - P - (H - 2 * P) * f} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
-          ))}
-          {[0.25, 0.5, 0.75, 1].map((f) => (
-            <line key={`v${f}`} x1={P + (W - 2 * P) * f} x2={P + (W - 2 * P) * f} y1={P} y2={H - P} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
-          ))}
-          {/* 中位参考十字线 */}
-          <line x1={P} x2={W - P} y1={py(midY)} y2={py(midY)} stroke="rgba(255,255,255,0.28)" strokeWidth="1" strokeDasharray="4 4" />
-          <line x1={px(midX)} x2={px(midX)} y1={P} y2={H - P} stroke="rgba(255,255,255,0.28)" strokeWidth="1" strokeDasharray="4 4" />
-          {/* 气泡 */}
-          {usable.map((n) => {
-            const cx = px(n.avgSalary as number);
-            const cy = py(n.count);
-            const rad = Math.min(24, 6 + Math.sqrt(n.count) * 2.2);
-            const r = ring(n.myLevel);
-            const isSel = sel?.skill === n.skill;
-            return (
-              <g
-                key={n.skill}
-                tabIndex={0}
-                role="button"
-                aria-label={`${n.skill}：${n.count} 个岗位，均薪 ${n.avgSalary}K`}
-                className="cursor-pointer outline-none"
-                onClick={() => setSel(n)}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSel(n); } }}
-              >
-                <title>{n.skill} · {n.count} 个岗位 · 均 {n.avgSalary}K</title>
-                {isSel ? <circle cx={cx} cy={cy} r={rad + 4} fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="1.5" /> : null}
-                <circle cx={cx} cy={cy} r={rad} fill={tone(n.avgSalary as number, n.count)} opacity="0.86" />
-                {r ? <circle cx={cx} cy={cy} r={rad + 2} fill="none" stroke={r} strokeWidth={n.myLevel! >= 3 ? 2.5 : 2} strokeDasharray={n.myLevel === 0 ? "3 3" : undefined} /> : null}
-                <text x={cx} y={cy + 3} textAnchor="middle" fontSize="9" fontWeight="700" fill="rgba(255,255,255,0.95)">{n.skill.slice(0, 6)}</text>
-              </g>
-            );
-          })}
-        </svg>
-        {/* 象限标签 */}
-        <span className="pointer-events-none absolute right-2 top-1.5 text-[10px] font-semibold text-muted-foreground/60">明星技能</span>
-        <span className="pointer-events-none absolute left-2 top-1.5 text-[10px] font-semibold text-muted-foreground/60">潜力技能</span>
-        <span className="pointer-events-none absolute bottom-1.5 right-2 text-[10px] font-semibold text-muted-foreground/60">基础技能</span>
-        <span className="pointer-events-none absolute bottom-1.5 left-2 text-[10px] font-semibold text-muted-foreground/60">长尾技能</span>
-        {/* 轴标签 */}
-        <span className="pointer-events-none absolute left-1/2 top-1.5 -translate-x-1/2 text-[10px] text-muted-foreground/70">平均薪资（K/月）</span>
-        <span className="pointer-events-none absolute bottom-1.5 left-1/2 -translate-x-1/2 text-[10px] text-muted-foreground/70">需求职位数 →</span>
+      {/* 桌面完整技能市场地图（lg 及以上） */}
+      <div className="hidden lg:block">
+        <div className="relative w-full overflow-hidden rounded-2xl bg-white/6">
+          <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label="技能市场地图：横轴需求职位数，纵轴平均薪资">
+            {/* 四象限背景（弱色着色，区分区域） */}
+            <rect x={px(midX)} y={P} width={Math.max(0, W - P - px(midX))} height={Math.max(0, py(midY) - P)} fill="rgba(99,102,241,0.07)" />
+            <rect x={P} y={P} width={Math.max(0, px(midX) - P)} height={Math.max(0, py(midY) - P)} fill="rgba(139,92,246,0.07)" />
+            <rect x={px(midX)} y={py(midY)} width={Math.max(0, W - P - px(midX))} height={Math.max(0, H - P - py(midY))} fill="rgba(14,165,233,0.07)" />
+            <rect x={P} y={py(midY)} width={Math.max(0, px(midX) - P)} height={Math.max(0, H - P - py(midY))} fill="rgba(148,163,184,0.07)" />
+            {/* 浅网格（弱网格） */}
+            {[0.25, 0.5, 0.75, 1].map((f) => (
+              <line key={`h${f}`} x1={P} x2={W - P} y1={H - P - (H - 2 * P) * f} y2={H - P - (H - 2 * P) * f} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+            ))}
+            {[0.25, 0.5, 0.75, 1].map((f) => (
+              <line key={`v${f}`} x1={P + (W - 2 * P) * f} x2={P + (W - 2 * P) * f} y1={P} y2={H - P} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+            ))}
+            {/* 中位参考十字线 */}
+            <line x1={P} x2={W - P} y1={py(midY)} y2={py(midY)} stroke="rgba(255,255,255,0.28)" strokeWidth="1" strokeDasharray="4 4" />
+            <line x1={px(midX)} x2={px(midX)} y1={P} y2={H - P} stroke="rgba(255,255,255,0.28)" strokeWidth="1" strokeDasharray="4 4" />
+            {/* 气泡（标签仅大气泡/选中显示，防重叠） */}
+            {usable.map((n) => {
+              const cx = px(n.avgSalary as number);
+              const cy = py(n.count);
+              const rad = Math.min(24, 6 + Math.sqrt(n.count) * 2.2);
+              const r = ring(n.myLevel);
+              const isSel = sel?.skill === n.skill;
+              const showLabel = rad >= 14 || isSel;
+              return (
+                <g
+                  key={n.skill}
+                  tabIndex={0}
+                  role="button"
+                  aria-label={`${n.skill}：${n.count} 个岗位，均薪 ${n.avgSalary}K`}
+                  className="cursor-pointer outline-none"
+                  onClick={() => setSel(n)}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSel(n); } }}
+                >
+                  <title>{n.skill} · {n.count} 个岗位 · 均 {n.avgSalary}K</title>
+                  {isSel ? <circle cx={cx} cy={cy} r={rad + 4} fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="1.5" /> : null}
+                  <circle cx={cx} cy={cy} r={rad} fill={tone(n.avgSalary as number, n.count)} opacity="0.86" />
+                  {r ? <circle cx={cx} cy={cy} r={rad + 2} fill="none" stroke={r} strokeWidth={n.myLevel! >= 3 ? 2.5 : 2} strokeDasharray={n.myLevel === 0 ? "3 3" : undefined} /> : null}
+                  {showLabel ? (
+                    <text x={cx} y={cy + 3} textAnchor="middle" fontSize={isSel ? 10 : 9} fontWeight="700" fill="rgba(255,255,255,0.95)">
+                      {n.skill.slice(0, rad >= 20 || isSel ? 8 : 5)}
+                    </text>
+                  ) : null}
+                </g>
+              );
+            })}
+          </svg>
+          {/* 象限标签 */}
+          <span className="pointer-events-none absolute right-2 top-1.5 text-[10px] font-semibold text-muted-foreground/60">明星技能</span>
+          <span className="pointer-events-none absolute left-2 top-1.5 text-[10px] font-semibold text-muted-foreground/60">潜力技能</span>
+          <span className="pointer-events-none absolute bottom-1.5 right-2 text-[10px] font-semibold text-muted-foreground/60">基础技能</span>
+          <span className="pointer-events-none absolute bottom-1.5 left-2 text-[10px] font-semibold text-muted-foreground/60">长尾技能</span>
+          {/* 轴标签 */}
+          <span className="pointer-events-none absolute left-1/2 top-1.5 -translate-x-1/2 text-[10px] text-muted-foreground/70">平均薪资（K/月）</span>
+          <span className="pointer-events-none absolute bottom-1.5 left-1/2 -translate-x-1/2 text-[10px] text-muted-foreground/70">需求职位数 →</span>
+        </div>
+        {/* 状态描边图例（登录后） */}
+        {loggedIn ? (
+          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
+            <span><span className="mr-1 inline-block size-2 rounded-full bg-emerald-500" />已熟练/掌握</span>
+            <span><span className="mr-1 inline-block size-2 rounded-full bg-amber-500" />学习中</span>
+            <span><span className="mr-1 inline-block size-2 rounded-full bg-zinc-400" />未掌握</span>
+          </div>
+        ) : null}
       </div>
 
-      {/* 详情 / 状态条 */}
+      {/* 窄屏降级：技能矩阵摘要 + Top 榜 */}
+      <div className="lg:hidden">
+        <p className="mb-2 text-xs font-semibold text-foreground">技能机会摘要 · 点一下查看详情</p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {topByCount.slice(0, 12).map((n) => (
+            <button
+              key={n.skill}
+              type="button"
+              onClick={() => setSel(n)}
+              className="flex flex-col gap-1 rounded-xl border border-white/10 bg-muted/20 px-2.5 py-2 text-left transition-colors hover:bg-muted/30"
+            >
+              <span className="flex items-center gap-1.5 text-xs font-semibold">
+                <span className="size-1.5 rounded-full" style={{ backgroundColor: tone(n.avgSalary as number, n.count) }} />
+                {n.skill}
+              </span>
+              <span className="text-[10px] text-muted-foreground">
+                {n.count} 岗 · {n.avgSalary}K
+                {loggedIn && n.myLevel != null ? ` · ${SKILL_LEVEL_LABELS[n.myLevel]}` : ""}
+              </span>
+            </button>
+          ))}
+        </div>
+        <div className="mt-3">
+          <CapsuleRank items={topByCount.slice(0, 6).map((n) => ({ label: n.skill, value: n.count, note: n.avgSalary != null ? `${n.avgSalary}K` : undefined }))} />
+        </div>
+      </div>
+
+      {/* 详情 / 状态条（共用） */}
       {sel ? (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-white/15 bg-muted/30 px-3 py-2.5 text-xs">
           <span className="text-sm font-bold text-foreground">{sel.skill}</span>
