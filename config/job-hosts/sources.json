@@ -1,370 +1,590 @@
 {
-  "meta": {
-    "version": 2,
-    "generated_at": "2026-08-23T00:00:00+08:00",
-    "changelog": "v2：新增 四川省人社厅人事考试专栏（成都考公考编核心源，2026-08-23）",
-    "categories": [
-      {
-        "id": "internet",
-        "name": "互联网",
-        "color": "#10b981"
-      },
-      {
-        "id": "gongkao",
-        "name": "考公",
-        "color": "#3b82f6"
-      },
-      {
-        "id": "gongbian",
-        "name": "考编",
-        "color": "#8b5cf6"
-      },
-      {
-        "id": "yangqi",
-        "name": "央国企",
-        "color": "#f59e0b"
-      }
-    ]
-  },
-  "sources": [
-    {
-      "id": "sasac-recruit",
-      "category": "yangqi",
-      "channel": "announcement",
-      "name": "国资委 · 央企招聘公告",
-      "engine": "http",
-      "base_url": "http://www.sasac.gov.cn",
-      "list": {
-        "url": "http://www.sasac.gov.cn/n2588035/n2588325/n2588350/index.html",
-        "pagination": {
-          "type": "none"
-        },
-        "item_selector": "div.zsy_conlist ul li",
-        "title_selector": "a",
-        "url_selector": "a[href]",
-        "date_selector": "span",
-        "url_prefix": "http://www.sasac.gov.cn",
-        "date_prefix": "[",
-        "date_suffix": "]"
-      },
-      "detail": {
-        "body_selector": "div.TRS_Editor, div.article, .content",
-        "strip_tags": true
-      },
-      "deadline_parse": true,
-      "rate_limit_ms": 2500,
-      "max_items_per_run": 20,
-      "max_pages": 1,
-      "risk": "L1",
-      "enabled": true,
-      "note": "央企总部及委属单位招聘公告，UTF-8 静态列表",
-      "title_filter": null
+    "meta": {
+        "version": 4,
+        "generated_at": "2026-08-28T00:00:00+08:00",
+        "changelog": "v4：新增 新疆国资委(公示公告)/兵团国资委(通知公告) 央国企官方源，补齐新疆央国企招聘（2026-08-29）",
+        "categories": [
+            {
+                "id": "internet",
+                "name": "互联网",
+                "color": "#10b981"
+            },
+            {
+                "id": "gongkao",
+                "name": "考公",
+                "color": "#3b82f6"
+            },
+            {
+                "id": "gongbian",
+                "name": "考编",
+                "color": "#8b5cf6"
+            },
+            {
+                "id": "yangqi",
+                "name": "央国企",
+                "color": "#f59e0b"
+            }
+        ]
     },
-    {
-      "id": "cpta-notice",
-      "category": "gongbian",
-      "channel": "announcement",
-      "name": "中国人事考试网 · 通知公告",
-      "engine": "http",
-      "base_url": "http://www.cpta.com.cn",
-      "list": {
-        "url": "http://www.cpta.com.cn/notice.html",
-        "pagination": {
-          "type": "none"
+    "sources": [
+        {
+            "id": "sasac-recruit",
+            "category": "yangqi",
+            "channel": "announcement",
+            "name": "国资委 · 央企招聘公告",
+            "engine": "http",
+            "base_url": "http://www.sasac.gov.cn",
+            "list": {
+                "url": "http://www.sasac.gov.cn/n2588035/n2588325/n2588350/index.html",
+                "pagination": {
+                    "type": "none"
+                },
+                "item_selector": "div.zsy_conlist ul li",
+                "title_selector": "a",
+                "url_selector": "a[href]",
+                "date_selector": "span",
+                "url_prefix": "http://www.sasac.gov.cn",
+                "date_prefix": "[",
+                "date_suffix": "]"
+            },
+            "detail": {
+                "body_selector": "div.TRS_Editor, div.article, .content",
+                "strip_tags": true
+            },
+            "deadline_parse": true,
+            "rate_limit_ms": 2500,
+            "max_items_per_run": 20,
+            "max_pages": 1,
+            "risk": "L1",
+            "enabled": true,
+            "note": "央企总部及委属单位招聘公告，UTF-8 静态列表",
+            "title_filter": null
         },
-        "item_selector": "ul.list_14 li",
-        "title_selector": "a",
-        "url_selector": "a[href]",
-        "date_selector": "i",
-        "url_prefix": "http://www.cpta.com.cn",
-        "date_prefix": "[",
-        "date_suffix": "]"
-      },
-      "detail": {
-        "body_selector": ".article-content, .content, #zoom",
-        "strip_tags": true
-      },
-      "deadline_parse": true,
-      "rate_limit_ms": 2500,
-      "max_items_per_run": 20,
-      "max_pages": 1,
-      "risk": "L1",
-      "enabled": true,
-      "note": "含部属单位公开招聘公告，UTF-8 静态列表",
-      "title_filter": "公开招聘|拟聘|招聘公告"
-    },
-    {
-      "id": "81rc",
-      "category": "gongbian",
-      "channel": "announcement",
-      "name": "军队人才网 · 招考公告",
-      "engine": "http",
-      "base_url": "http://81rc.81.cn",
-      "list": {
-        "url": "http://81rc.81.cn/sy/gzdt_210283/index.html",
-        "pagination": {
-          "type": "none"
+        {
+            "id": "cpta-notice",
+            "category": "gongbian",
+            "channel": "announcement",
+            "name": "中国人事考试网 · 通知公告",
+            "engine": "http",
+            "base_url": "http://www.cpta.com.cn",
+            "list": {
+                "url": "http://www.cpta.com.cn/notice.html",
+                "pagination": {
+                    "type": "none"
+                },
+                "item_selector": "ul.list_14 li",
+                "title_selector": "a",
+                "url_selector": "a[href]",
+                "date_selector": "i",
+                "url_prefix": "http://www.cpta.com.cn",
+                "date_prefix": "[",
+                "date_suffix": "]"
+            },
+            "detail": {
+                "body_selector": ".article-content, .content, #zoom",
+                "strip_tags": true
+            },
+            "deadline_parse": true,
+            "rate_limit_ms": 2500,
+            "max_items_per_run": 20,
+            "max_pages": 1,
+            "risk": "L1",
+            "enabled": true,
+            "note": "含部属单位公开招聘公告，UTF-8 静态列表",
+            "title_filter": "公开招聘|拟聘|招聘公告"
         },
-        "item_selector": "div.left-news ul li",
-        "title_selector": "a",
-        "url_selector": "a[href]",
-        "date_selector": "span",
-        "url_prefix": "",
-        "date_prefix": "",
-        "date_suffix": ""
-      },
-      "detail": {
-        "body_selector": ".content, .article, .TRS_Editor",
-        "strip_tags": true
-      },
-      "deadline_parse": true,
-      "rate_limit_ms": 2500,
-      "max_items_per_run": 20,
-      "max_pages": 1,
-      "risk": "L1",
-      "enabled": true,
-      "note": "军队文职招考公告（工作动态栏目），UTF-8 静态列表"
-    },
-    {
-      "id": "mohrss-sydw",
-      "category": "gongbian",
-      "channel": "announcement",
-      "name": "人社部 · 事业单位公开招聘平台",
-      "engine": "browser",
-      "base_url": "https://www.mohrss.gov.cn",
-      "list": {
-        "url": "https://www.mohrss.gov.cn/SYrlzyhshbzb/fwyd/SYkaoshizhaopin/zyhgjjgsydwgkzp/zpgg/",
-        "pagination": {
-          "type": "none"
+        {
+            "id": "81rc",
+            "category": "gongbian",
+            "channel": "announcement",
+            "name": "军队人才网 · 招考公告",
+            "engine": "http",
+            "base_url": "http://81rc.81.cn",
+            "list": {
+                "url": "http://81rc.81.cn/sy/gzdt_210283/index.html",
+                "pagination": {
+                    "type": "none"
+                },
+                "item_selector": "div.left-news ul li",
+                "title_selector": "a",
+                "url_selector": "a[href]",
+                "date_selector": "span",
+                "url_prefix": "",
+                "date_prefix": "",
+                "date_suffix": ""
+            },
+            "detail": {
+                "body_selector": ".content, .article, .TRS_Editor",
+                "strip_tags": true
+            },
+            "deadline_parse": true,
+            "rate_limit_ms": 2500,
+            "max_items_per_run": 20,
+            "max_pages": 1,
+            "risk": "L1",
+            "enabled": true,
+            "note": "军队文职招考公告（工作动态栏目），UTF-8 静态列表"
         },
-        "item_selector": ".newslist li, .news li, ul li",
-        "title_selector": "a",
-        "url_selector": "a[href]",
-        "date_selector": "span, i",
-        "url_prefix": "https://www.mohrss.gov.cn",
-        "date_prefix": "",
-        "date_suffix": ""
-      },
-      "detail": {
-        "body_selector": ".TRS_Editor, .content",
-        "strip_tags": true
-      },
-      "deadline_parse": true,
-      "rate_limit_ms": 5000,
-      "max_items_per_run": 20,
-      "max_pages": 1,
-      "risk": "L2",
-      "enabled": true,
-      "note": "中央和国家机关所属事业单位公开招聘，带 JS 反爬挑战，需浏览器"
-    },
-    {
-      "id": "jiangsu-sydw",
-      "category": "gongbian",
-      "channel": "announcement",
-      "name": "江苏省人社厅 · 省属事业单位招聘",
-      "engine": "browser",
-      "base_url": "https://jshrss.jiangsu.gov.cn",
-      "list": {
-        "url": "https://jshrss.jiangsu.gov.cn/col/col78506/index.html",
-        "pagination": {
-          "type": "none"
+        {
+            "id": "mohrss-sydw",
+            "category": "gongbian",
+            "channel": "announcement",
+            "name": "人社部 · 事业单位公开招聘平台",
+            "engine": "browser",
+            "base_url": "https://www.mohrss.gov.cn",
+            "list": {
+                "url": "https://www.mohrss.gov.cn/SYrlzyhshbzb/fwyd/SYkaoshizhaopin/zyhgjjgsydwgkzp/zpgg/",
+                "pagination": {
+                    "type": "none"
+                },
+                "item_selector": ".newslist li, .news li, ul li",
+                "title_selector": "a",
+                "url_selector": "a[href]",
+                "date_selector": "span, i",
+                "url_prefix": "https://www.mohrss.gov.cn",
+                "date_prefix": "",
+                "date_suffix": ""
+            },
+            "detail": {
+                "body_selector": ".TRS_Editor, .content",
+                "strip_tags": true
+            },
+            "deadline_parse": true,
+            "rate_limit_ms": 5000,
+            "max_items_per_run": 20,
+            "max_pages": 1,
+            "risk": "L2",
+            "enabled": true,
+            "note": "中央和国家机关所属事业单位公开招聘，带 JS 反爬挑战，需浏览器"
         },
-        "item_selector": "div.content_box_list ul li a",
-        "title_selector": "a",
-        "url_selector": "a[href]",
-        "date_selector": "span",
-        "url_prefix": "https://jshrss.jiangsu.gov.cn",
-        "date_prefix": "",
-        "date_suffix": ""
-      },
-      "detail": {
-        "body_selector": ".content_box, .article-content",
-        "strip_tags": true
-      },
-      "deadline_parse": true,
-      "rate_limit_ms": 5000,
-      "max_items_per_run": 20,
-      "max_pages": 1,
-      "risk": "L2",
-      "enabled": true,
-      "note": "列表由 JS 动态加载（urite），需浏览器"
-    },
-    {
-      "id": "iguopin",
-      "category": "yangqi",
-      "channel": "job",
-      "name": "国聘网 · 央企国企职位（成都）",
-      "engine": "browser",
-      "base_url": "https://www.iguopin.com",
-      "list": {
-        "url": "https://www.iguopin.com/job?channel=social",
-        "pagination": {
-          "type": "none"
+        {
+            "id": "jiangsu-sydw",
+            "category": "gongbian",
+            "channel": "announcement",
+            "name": "江苏省人社厅 · 省属事业单位招聘",
+            "engine": "browser",
+            "base_url": "https://jshrss.jiangsu.gov.cn",
+            "list": {
+                "url": "https://jshrss.jiangsu.gov.cn/col/col78506/index.html",
+                "pagination": {
+                    "type": "none"
+                },
+                "item_selector": "div.content_box_list ul li a",
+                "title_selector": "a",
+                "url_selector": "a[href]",
+                "date_selector": "span",
+                "url_prefix": "https://jshrss.jiangsu.gov.cn",
+                "date_prefix": "",
+                "date_suffix": ""
+            },
+            "detail": {
+                "body_selector": ".content_box, .article-content",
+                "strip_tags": true
+            },
+            "deadline_parse": true,
+            "rate_limit_ms": 5000,
+            "max_items_per_run": 20,
+            "max_pages": 1,
+            "risk": "L2",
+            "enabled": true,
+            "note": "列表由 JS 动态加载（urite），需浏览器"
         },
-        "item_selector": "[class*='job-card'], [class*='jobCard'], [class*='position']",
-        "title_selector": "[class*='title'], [class*='name']",
-        "url_selector": "a[href]",
-        "date_selector": "span, .time",
-        "url_prefix": "https://www.iguopin.com",
-        "date_prefix": "",
-        "date_suffix": "",
-        "api": {
-          "mode": "iguopin-recom",
-          "page_url": "https://www.iguopin.com/job?channel=social",
-          "district_default": "成都",
-          "districts": {
-            "成都": "000000.510000.510100",
-            "北京": "000000.110000.110100",
-            "上海": "000000.310000.310100",
-            "广州": "000000.440000.440100",
-            "深圳": "000000.440000.440300",
-            "杭州": "000000.330000.330100",
-            "西安": "000000.610000.610100",
-            "南京": "000000.320000.320100",
-            "武汉": "000000.420000.420100",
-            "苏州": "000000.320000.320500",
-            "乌鲁木齐": "000000.650000.650100"
-          }
+        {
+            "id": "iguopin",
+            "category": "yangqi",
+            "channel": "job",
+            "name": "国聘网 · 央企国企职位（多区域）",
+            "engine": "browser",
+            "base_url": "https://www.iguopin.com",
+            "list": {
+                "url": "https://www.iguopin.com/job?channel=social",
+                "pagination": {
+                    "type": "none"
+                },
+                "item_selector": "[class*='job-card'], [class*='jobCard'], [class*='position']",
+                "title_selector": "[class*='title'], [class*='name']",
+                "url_selector": "a[href]",
+                "date_selector": "span, .time",
+                "url_prefix": "https://www.iguopin.com",
+                "date_prefix": "",
+                "date_suffix": "",
+                "api": {
+                    "mode": "iguopin-recom",
+                    "page_url": "https://www.iguopin.com/job?channel=social",
+                    "district_default": "成都",
+                    "districts": {
+                        "成都": "000000.510000.510100",
+                        "北京": "000000.110000.110100",
+                        "上海": "000000.310000.310100",
+                        "广州": "000000.440000.440100",
+                        "深圳": "000000.440000.440300",
+                        "杭州": "000000.330000.330100",
+                        "西安": "000000.610000.610100",
+                        "南京": "000000.320000.320100",
+                        "武汉": "000000.420000.420100",
+                        "苏州": "000000.320000.320500",
+                        "乌鲁木齐": "000000.650000.650100",
+                        "新疆": "000000.650000",
+                        "重庆": "000000.500000",
+                        "克拉玛依": "000000.650000.650200",
+                        "吐鲁番": "000000.650000.650400",
+                        "哈密": "000000.650000.650500",
+                        "昌吉": "000000.650000.652300",
+                        "伊犁": "000000.650000.654000",
+                        "喀什": "000000.650000.653100",
+                        "阿克苏": "000000.650000.652900",
+                        "和田": "000000.650000.653200"
+                    }
+                }
+            },
+            "detail": {
+                "body_selector": ".job-detail, [class*='detail']",
+                "strip_tags": true
+            },
+            "deadline_parse": false,
+            "rate_limit_ms": 6000,
+            "max_items_per_run": 30,
+            "max_pages": 1,
+            "risk": "L2",
+            "enabled": true,
+            "note": "7 部委联合发起，央企国企核心平台；走 recom-job 接口按 districts 多区域注入（成都/重庆/新疆/乌鲁木齐等，2026-08 实测）"
+        },
+        {
+            "id": "guokao",
+            "category": "gongkao",
+            "channel": "announcement",
+            "name": "国家公务员局 · 国考专题",
+            "engine": "browser",
+            "base_url": "http://bm.scs.gov.cn",
+            "list": {
+                "url": "http://bm.scs.gov.cn/kl2026",
+                "pagination": {
+                    "type": "none"
+                },
+                "item_selector": "ul li a",
+                "title_selector": "a",
+                "url_selector": "a[href]",
+                "date_selector": "span",
+                "url_prefix": "http://bm.scs.gov.cn",
+                "date_prefix": "",
+                "date_suffix": ""
+            },
+            "detail": {
+                "body_selector": ".content",
+                "strip_tags": true
+            },
+            "deadline_parse": true,
+            "rate_limit_ms": 5000,
+            "max_items_per_run": 20,
+            "max_pages": 1,
+            "risk": "L3",
+            "enabled": false,
+            "note": "季节性开放（每年 10 月 /kl2027），强风控，默认关闭，周更时自动校正年份"
+        },
+        {
+            "id": "scpta-recruit",
+            "category": "gongkao",
+            "channel": "announcement",
+            "name": "四川省人社厅 · 人事考试专栏（公务员/事业单位公告）",
+            "engine": "browser",
+            "base_url": "https://www.scpta.com.cn",
+            "list": {
+                "url": "https://www.scpta.com.cn/front/News/List/56?o=117&t=0&a=1",
+                "pagination": {
+                    "type": "none"
+                },
+                "item_selector": "li",
+                "title_selector": "a",
+                "url_selector": "a[href]",
+                "date_selector": "span",
+                "url_prefix": "https://www.scpta.com.cn",
+                "date_prefix": "",
+                "date_suffix": ""
+            },
+            "title_filter": "公告|招聘|录用|招考|报考|报名|遴选|考调",
+            "detail": {
+                "body_selector": ".content, .TRS_Editor, .article",
+                "strip_tags": true
+            },
+            "deadline_parse": true,
+            "rate_limit_ms": 5000,
+            "max_items_per_run": 25,
+            "max_pages": 1,
+            "risk": "L2",
+            "enabled": true,
+            "note": "四川省人事考试网人事考试专栏：省内各地公务员录用+事业单位公告；页面十六进制实体编码，需浏览器引擎解码（2026-08 新增，成都考公考编核心源）"
+        },
+        {
+            "id": "cdpta-recruit",
+            "category": "gongbian",
+            "channel": "announcement",
+            "name": "成都人事考试网 · 事业单位考试公告",
+            "engine": "browser",
+            "base_url": "https://cdpta.cdrsigc.com",
+            "list": {
+                "url": "https://cdpta.cdrsigc.com/netpage/ortherlist_all.do?pageSize=30&ifall=1&id=989",
+                "pagination": {
+                    "type": "none"
+                },
+                "item_selector": "ul li:has(> span)",
+                "title_selector": "a",
+                "url_selector": "a[href]",
+                "date_selector": "span",
+                "url_prefix": "",
+                "date_prefix": "",
+                "date_suffix": "",
+                "city": "成都"
+            },
+            "detail": {
+                "body_selector": ".content, .TRS_Editor, .article, #zoom",
+                "strip_tags": true
+            },
+            "deadline_parse": true,
+            "rate_limit_ms": 2000,
+            "max_items_per_run": 30,
+            "max_pages": 1,
+            "risk": "L2",
+            "enabled": true,
+            "note": "成都市人社局·成都人事考试网 事业单位考试公告（考试招聘/考核招聘/公开选调），2026-08 实测可达；站点 WAF 偶发 403",
+            "title_filter": "招聘|公告|公示|拟聘|考核|选调|遴选|录用"
+        },
+        {
+            "id": "cdhrss-sydw",
+            "category": "gongbian",
+            "channel": "announcement",
+            "name": "成都市人社局 · 事业单位招聘",
+            "engine": "browser",
+            "base_url": "https://cdhrss.chengdu.gov.cn",
+            "list": {
+                "url": "https://cdhrss.chengdu.gov.cn/cdrsj/c109905/",
+                "pagination": {
+                    "type": "none"
+                },
+                "item_selector": "ul li",
+                "title_selector": "a",
+                "url_selector": "a[href]",
+                "date_selector": "span",
+                "url_prefix": "https://cdhrss.chengdu.gov.cn",
+                "date_prefix": "",
+                "date_suffix": "",
+                "city": "成都"
+            },
+            "detail": {
+                "body_selector": ".content, .TRS_Editor, .article",
+                "strip_tags": true
+            },
+            "deadline_parse": true,
+            "rate_limit_ms": 2500,
+            "max_items_per_run": 20,
+            "max_pages": 1,
+            "risk": "L2",
+            "enabled": false,
+            "note": "成都市人社局政务公开-事业单位招聘栏目；2026-08 实测站点 WAF 返回 403，默认关闭，服务器可达后再启用",
+            "title_filter": "招聘|公告|公示|拟聘|考核|选调|遴选|录用"
+        },
+        {
+            "id": "xjrst-sydw",
+            "category": "gongbian",
+            "channel": "announcement",
+            "name": "新疆人社厅 · 事业单位招聘",
+            "engine": "http",
+            "base_url": "https://rst.xinjiang.gov.cn",
+            "list": {
+                "url": "https://rst.xinjiang.gov.cn/xjrst/c112746/list_2.shtml",
+                "pagination": {
+                    "type": "none"
+                },
+                "item_selector": "ul.com-pic-news-list li",
+                "title_selector": "a.cpn-title",
+                "url_selector": "a.cpn-title",
+                "date_selector": "span.cpn-date",
+                "url_prefix": "https://rst.xinjiang.gov.cn",
+                "date_prefix": "",
+                "date_suffix": "",
+                "city": "乌鲁木齐"
+            },
+            "detail": {
+                "body_selector": ".ccp-article-detail, .article-detail, .conTxt, .TRS_Editor, .content",
+                "strip_tags": true
+            },
+            "deadline_parse": true,
+            "rate_limit_ms": 2000,
+            "max_items_per_run": 30,
+            "max_pages": 1,
+            "risk": "L1",
+            "enabled": true,
+            "note": "新疆维吾尔自治区人社厅·事业单位公开招聘公告（2026-08 实测静态可达，最新页 list_2）",
+            "title_filter": "招聘|公告|公示|拟聘|考核|选调|遴选|录用"
+        },
+        {
+            "id": "btpta-recruit",
+            "category": "gongkao",
+            "channel": "announcement",
+            "name": "兵团考试信息网 · 通知公告",
+            "engine": "http",
+            "base_url": "http://btpta.xjbt.gov.cn",
+            "list": {
+                "url": "http://btpta.xjbt.gov.cn/",
+                "pagination": {
+                    "type": "none"
+                },
+                "item_selector": "li.ewb-info-item",
+                "title_selector": "div.ewb-info-forus a",
+                "url_selector": "div.ewb-info-forus a",
+                "date_selector": "span.ewb-date",
+                "url_prefix": "http://btpta.xjbt.gov.cn",
+                "date_prefix": "",
+                "date_suffix": "",
+                "city": "乌鲁木齐"
+            },
+            "detail": {
+                "body_selector": ".article-content, .article, .TRS_Editor, .content, #zoom, .ewb-content, .zwxx-content, .ccp-article-detail, .article-detail",
+                "strip_tags": true
+            },
+            "deadline_parse": true,
+            "rate_limit_ms": 2000,
+            "max_items_per_run": 30,
+            "max_pages": 1,
+            "risk": "L1",
+            "enabled": true,
+            "note": "新疆生产建设兵团考试信息网·通知公告（公务员+事业单位统招，2026-08 实测静态可达）",
+            "title_filter": "招聘|公告|遴选|录用|公示|核减|核销"
+        },
+        {
+            "id": "cqrsj-sydw",
+            "category": "gongbian",
+            "channel": "announcement",
+            "name": "重庆人社局 · 事业单位公开招聘",
+            "engine": "http",
+            "base_url": "https://rlsbj.cq.gov.cn/zwxx_182/sydw/sydwgkzp2026/",
+            "list": {
+                "url": "https://rlsbj.cq.gov.cn/zwxx_182/sydw/sydwgkzp2026/",
+                "pagination": {
+                    "type": "none"
+                },
+                "item_selector": "ul.rsj-list1 li",
+                "title_selector": "a",
+                "url_selector": "a",
+                "date_selector": "span",
+                "url_prefix": "https://rlsbj.cq.gov.cn/zwxx_182/sydw/sydwgkzp2026/",
+                "date_prefix": "",
+                "date_suffix": "",
+                "city": "重庆"
+            },
+            "detail": {
+                "body_selector": ".article-content, .article, .TRS_Editor, .content, #zoom, .ewb-content, .zwxx-content, .ccp-article-detail, .article-detail",
+                "strip_tags": true
+            },
+            "deadline_parse": true,
+            "rate_limit_ms": 2000,
+            "max_items_per_run": 30,
+            "max_pages": 1,
+            "risk": "L1",
+            "enabled": true,
+            "note": "重庆市人社局·事业单位公开招聘（2026年发布栏目，2026-08 实测静态可达）",
+            "title_filter": "招聘|公告|遴选|录用|公示|考核"
+        },
+        {
+            "id": "xjrsks-notice",
+            "category": "gongkao",
+            "channel": "announcement",
+            "name": "新疆人事考试中心 · 最新动态",
+            "engine": "http",
+            "base_url": "https://www.xjrsks.com.cn/ncms/",
+            "list": {
+                "url": "https://www.xjrsks.com.cn/ncms/index.shtml",
+                "pagination": {
+                    "type": "none"
+                },
+                "item_selector": "li",
+                "title_selector": "a",
+                "url_selector": "a",
+                "date_selector": "span.sp-h",
+                "url_prefix": "https://www.xjrsks.com.cn/ncms/",
+                "date_prefix": "",
+                "date_suffix": "",
+                "city": "乌鲁木齐"
+            },
+            "detail": {
+                "body_selector": ".article-content, .article, .TRS_Editor, .content, #zoom, .ewb-content, .zwxx-content, .ccp-article-detail, .article-detail",
+                "strip_tags": true
+            },
+            "deadline_parse": true,
+            "rate_limit_ms": 2000,
+            "max_items_per_run": 30,
+            "max_pages": 1,
+            "risk": "L1",
+            "enabled": true,
+            "note": "新疆人事考试中心·最新动态（公务员+事业单位考试公告，2026-08 实测静态可达）",
+            "title_filter": "招聘|遴选|录用|公示|事业单位"
+        },
+        {
+            "id": "xjgzw-gsgg",
+            "category": "yangqi",
+            "channel": "announcement",
+            "name": "新疆国资委 · 公示公告",
+            "engine": "http",
+            "base_url": "http://gzw.xinjiang.gov.cn",
+            "list": {
+                "url": "http://gzw.xinjiang.gov.cn/gzw/gsgg/list_tj.shtml",
+                "pagination": {
+                    "type": "none"
+                },
+                "item_selector": "ul.list.pt20 li",
+                "title_selector": "a",
+                "url_selector": "a[href]",
+                "date_selector": "span",
+                "url_prefix": "http://gzw.xinjiang.gov.cn",
+                "date_prefix": "",
+                "date_suffix": "",
+                "city": "乌鲁木齐"
+            },
+            "detail": {
+                "body_selector": ".content_p, #NewsContent, .p20.contentbox",
+                "strip_tags": true
+            },
+            "deadline_parse": true,
+            "rate_limit_ms": 2000,
+            "max_items_per_run": 30,
+            "max_pages": 1,
+            "risk": "L1",
+            "enabled": true,
+            "note": "新疆维吾尔自治区人民政府国有资产监督管理委员会·公示公告（央国企/人才计划/公开招聘，2026-08 实测静态可达）",
+            "title_filter": "招聘|拟聘|录用|遴选|引进|选聘|引才"
+        },
+        {
+            "id": "btgzw-tzgg",
+            "category": "yangqi",
+            "channel": "announcement",
+            "name": "兵团国资委 · 通知公告",
+            "engine": "http",
+            "base_url": "http://gyzc.xjbt.gov.cn",
+            "list": {
+                "url": "http://gyzc.xjbt.gov.cn/xxgk/tzgg/",
+                "pagination": {
+                    "type": "none"
+                },
+                "item_selector": "div.list div.article",
+                "title_selector": "div.name a",
+                "url_selector": "div.name a",
+                "date_selector": "div.time",
+                "url_prefix": "http://gyzc.xjbt.gov.cn",
+                "date_prefix": "",
+                "date_suffix": "",
+                "city": "乌鲁木齐"
+            },
+            "detail": {
+                "body_selector": ".detail-con .content, #detail-con .content, .detail-con",
+                "strip_tags": true
+            },
+            "deadline_parse": true,
+            "rate_limit_ms": 2000,
+            "max_items_per_run": 30,
+            "max_pages": 1,
+            "risk": "L1",
+            "enabled": true,
+            "note": "新疆生产建设兵团国有资产监督管理委员会·通知公告（兵团央国企招聘/选聘，2026-08 实测静态可达）",
+            "title_filter": "招聘|拟聘|录用|遴选|选聘"
         }
-      },
-      "detail": {
-        "body_selector": ".job-detail, [class*='detail']",
-        "strip_tags": true
-      },
-      "deadline_parse": false,
-      "rate_limit_ms": 6000,
-      "max_items_per_run": 30,
-      "max_pages": 1,
-      "risk": "L2",
-      "enabled": true,
-      "note": "7 部委联合发起，央企国企核心平台；走 recom-job 接口注入成都 district（2026-08 实测）"
-    },
-    {
-      "id": "guokao",
-      "category": "gongkao",
-      "channel": "announcement",
-      "name": "国家公务员局 · 国考专题",
-      "engine": "browser",
-      "base_url": "http://bm.scs.gov.cn",
-      "list": {
-        "url": "http://bm.scs.gov.cn/kl2026",
-        "pagination": {
-          "type": "none"
-        },
-        "item_selector": "ul li a",
-        "title_selector": "a",
-        "url_selector": "a[href]",
-        "date_selector": "span",
-        "url_prefix": "http://bm.scs.gov.cn",
-        "date_prefix": "",
-        "date_suffix": ""
-      },
-      "detail": {
-        "body_selector": ".content",
-        "strip_tags": true
-      },
-      "deadline_parse": true,
-      "rate_limit_ms": 5000,
-      "max_items_per_run": 20,
-      "max_pages": 1,
-      "risk": "L3",
-      "enabled": false,
-      "note": "季节性开放（每年 10 月 /kl2027），强风控，默认关闭，周更时自动校正年份"
-    },
-    {
-      "id": "scpta-recruit",
-      "category": "gongkao",
-      "channel": "announcement",
-      "name": "四川省人社厅 · 人事考试专栏（公务员/事业单位公告）",
-      "engine": "browser",
-      "base_url": "https://www.scpta.com.cn",
-      "list": {
-        "url": "https://www.scpta.com.cn/front/News/List/56?o=117&t=0&a=1",
-        "pagination": { "type": "none" },
-        "item_selector": "li",
-        "title_selector": "a",
-        "url_selector": "a[href]",
-        "date_selector": "span",
-        "url_prefix": "https://www.scpta.com.cn",
-        "date_prefix": "",
-        "date_suffix": ""
-      },
-      "title_filter": "公告|招聘|录用|招考|报考|报名|遴选|考调",
-      "detail": {
-        "body_selector": ".content, .TRS_Editor, .article",
-        "strip_tags": true
-      },
-      "deadline_parse": true,
-      "rate_limit_ms": 5000,
-      "max_items_per_run": 25,
-      "max_pages": 1,
-      "risk": "L2",
-      "enabled": true,
-      "note": "四川省人事考试网人事考试专栏：省内各地公务员录用+事业单位公告；页面十六进制实体编码，需浏览器引擎解码（2026-08 新增，成都考公考编核心源）"
-    },
-    {
-      "id": "cdpta-recruit",
-      "category": "gongbian",
-      "channel": "announcement",
-      "name": "成都人事考试网 · 事业单位考试公告",
-      "engine": "browser",
-      "base_url": "https://cdpta.cdrsigc.com",
-      "list": {
-        "url": "https://cdpta.cdrsigc.com/netpage/ortherlist_all.do?pageSize=30&ifall=1&id=989",
-        "pagination": { "type": "none" },
-        "item_selector": "ul li:has(> span)",
-        "title_selector": "a",
-        "url_selector": "a[href]",
-        "date_selector": "span",
-        "url_prefix": "",
-        "date_prefix": "",
-        "date_suffix": "",
-        "city": "成都"
-      },
-      "detail": {
-        "body_selector": ".content, .TRS_Editor, .article, #zoom",
-        "strip_tags": true
-      },
-      "deadline_parse": true,
-      "rate_limit_ms": 2000,
-      "max_items_per_run": 30,
-      "max_pages": 1,
-      "risk": "L2",
-      "enabled": true,
-      "note": "成都市人社局·成都人事考试网 事业单位考试公告（考试招聘/考核招聘/公开选调），2026-08 实测可达；站点 WAF 偶发 403",
-      "title_filter": "招聘|公告|公示|拟聘|考核|选调|遴选|录用"
-    },
-    {
-      "id": "cdhrss-sydw",
-      "category": "gongbian",
-      "channel": "announcement",
-      "name": "成都市人社局 · 事业单位招聘",
-      "engine": "browser",
-      "base_url": "https://cdhrss.chengdu.gov.cn",
-      "list": {
-        "url": "https://cdhrss.chengdu.gov.cn/cdrsj/c109905/",
-        "pagination": { "type": "none" },
-        "item_selector": "ul li",
-        "title_selector": "a",
-        "url_selector": "a[href]",
-        "date_selector": "span",
-        "url_prefix": "https://cdhrss.chengdu.gov.cn",
-        "date_prefix": "",
-        "date_suffix": "",
-        "city": "成都"
-      },
-      "detail": {
-        "body_selector": ".content, .TRS_Editor, .article",
-        "strip_tags": true
-      },
-      "deadline_parse": true,
-      "rate_limit_ms": 2500,
-      "max_items_per_run": 20,
-      "max_pages": 1,
-      "risk": "L2",
-      "enabled": false,
-      "note": "成都市人社局政务公开-事业单位招聘栏目；2026-08 实测站点 WAF 返回 403，默认关闭，服务器可达后再启用",
-      "title_filter": "招聘|公告|公示|拟聘|考核|选调|遴选|录用"
-    }
-  ]
+    ]
 }

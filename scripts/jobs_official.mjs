@@ -467,18 +467,23 @@ async function fetchDetailWithBrowser(page, src, url) {
 async function crawlIguopinApi(page, src, limit) {
   // 国聘网：拦截 recom-job 接口，注入城市 district，解析 JSON（比 DOM 稳）
   const apiCfg = (src.list && src.list.api) || {};
-  const district = (apiCfg.districts || {})[apiCfg.district_default || "成都"] || "";
+  const districts = Object.values(apiCfg.districts || {}).filter(Boolean);
   const pageUrl = apiCfg.page_url || (src.list && src.list.url) || "https://www.iguopin.com/job?channel=social";
   const rows = [];
+  const seenIds = new Set();
+  let currentDistrict = "";
   page.on("response", async (r) => {
     try {
       if (!r.url().includes("/api/jobs/v1/recom-job")) return;
       const j = await r.json();
       const list = (j && j.data && j.data.list) || [];
       for (const it of list) {
+        const jid = String(it.job_id || "");
+        if (!jid || seenIds.has(jid)) continue;
+        seenIds.add(jid);
         const dlist = it.district_list || [];
         const firstArea = String((dlist[0] && dlist[0].area_cn) || "");
-        const city = (firstArea.split("-")[0] || "").trim() || "成都";
+        const city = (firstArea.split("-")[0] || "").trim();
         const districtCn = firstArea.includes("-") ? firstArea.split("-").slice(1).join("-") : firstArea;
         const isNeg = !!it.is_negotiable;
         const wMin = it.min_wage != null ? Number(it.min_wage) : null;
@@ -512,18 +517,25 @@ async function crawlIguopinApi(page, src, limit) {
       const req = route.request();
       let body = {};
       try { body = req.postDataJSON() || {}; } catch {}
-      if (district) {
+      if (currentDistrict) {
         body.search = body.search || {};
-        body.search.district = [district];
+        body.search.district = [currentDistrict];
       }
       await route.continue({ postData: JSON.stringify(body) });
     } catch {}
   }).catch(() => {});
-  await page.goto(pageUrl, { waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => {});
-  await page.waitForTimeout(9000);
-  await page.evaluate(async () => { for (let i = 0; i < 10; i++) { window.scrollBy(0, 600); await new Promise((r) => setTimeout(r, 200)); } }).catch(() => {});
-  await page.waitForTimeout(2000);
-  const out = rows.slice(0, limit || 30);
+  const targets = districts.length ? districts : [""];
+  for (let i = 0; i < targets.length; i++) {
+    currentDistrict = targets[i];
+    const bust = (pageUrl.includes("?") ? "&" : "?") + "_xr=" + i + "_" + Date.now();
+    await page.goto(pageUrl + bust, { waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => {});
+    await page.waitForTimeout(7000);
+    await page.evaluate(async () => { for (let k = 0; k < 8; k++) { window.scrollBy(0, 600); await new Promise((r) => setTimeout(r, 200)); } }).catch(() => {});
+    await page.waitForTimeout(1500);
+  }
+  // 多区域收集时不能按先后截断：早期成都/北上广会占满 slice，后期 乌鲁木齐/新疆/重庆 会被裁掉
+  // recom-job 每区固定 page_size=20，全区域去重后上限约 districts*20，这里放宽到全部保留，避免地区失衡
+  const out = rows.slice(0, Math.max(limit || 30, targets.length * 25));
   return { rows: out, eventsByKey: new Map() };
 }
 

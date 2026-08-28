@@ -426,7 +426,9 @@ export const defaultCrawlerPlatforms: JobSource[] = ["lagou", "liepin", "zhilian
 /** 招花招聘 · 支持的城市（前端城市筛选常驻显示；爬虫侧单源见 scripts/lib/cities.js，二者需保持一致） */
 export const SUPPORTED_CITIES = [
   "北京", "上海", "广州", "深圳", "杭州", "成都",
-  "西安", "乌鲁木齐", "南京", "武汉", "苏州",
+  "西安", "重庆", "南京", "武汉", "苏州",
+  "乌鲁木齐", "克拉玛依", "吐鲁番", "哈密", "昌吉",
+  "伊犁", "喀什", "阿克苏", "和田",
 ];
 
 export const jobPostingSchema = z.object({

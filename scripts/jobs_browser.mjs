@@ -18,6 +18,7 @@
  * 依赖：playwright-core（npm）、pg（npm）。容器内由 web 镜像安装；本地测试见 .local/pw-test。
  */
 import { createRequire } from "node:module";
+import { createHash } from "node:crypto";
 import { parseSalary, parsePublished, stripHtml, contentHash } from "./lib/normalize.js";
 import { CITY_MAP } from "./lib/cities.js";
 import path from "node:path";
@@ -48,6 +49,7 @@ const DEFAULT_PLATFORMS = ["liepin", "zhilian", "job51"];
 // ---------- 工具 ----------
 const enc = encodeURIComponent;
 const num = (v) => (typeof v === "number" ? v : Number(v));
+const hashId = (s) => createHash("md5").update(String(s), "utf8").digest("hex");
 
 
 // ---------- 数据库 ----------
@@ -145,14 +147,15 @@ async function scrapeWithBrowser(ctx, site, kw, city, limit) {
       if (!cards || cards.length === 0) continue;
       for (const card of cards.slice(0, limit)) {
         try {
-          const data = await card.evaluate((root) => {
+          let data = await card.evaluate((root) => {
             const text = (root.innerText || "").replace(/\s+/g, " ").trim();
             const link = root.querySelector("a[href]");
             const href = link ? link.getAttribute("href") : "";
             const titleRaw = link ? (link.innerText || "").replace(/\s+/g, " ").trim() : text.slice(0, 40);
             return { text, href, titleRaw };
           });
-          const item = site.parse(data);
+          if (site.extract) data = await card.evaluate(site.extract);
+          const item = site.parse(data, { kw, city });
           if (item && item.source_job_id && item.title) out.push(item);
         } catch {}
         if (out.length >= limit) break;
@@ -224,26 +227,34 @@ const SITES = {
     name: "智联招聘",
     buildUrl: (kw, city) => "https://sou.zhaopin.com/?jl=" + ((CITY_MAP[city] || {}).zhilian || "489") + "&kw=" + enc(kw),
     selectors: [".job-card", "[class*='job-card']", ".joblist-box__item"],
-    parse(d) {
+    extract(root) {
+      const text = (root.innerText || "").replace(/\s+/g, " ").trim();
+      const titleNode = root.querySelector(".job-card__title-main") || root.querySelector(".job-card__title-clamp") || root.querySelector("[class*='job-card__title']") || root.querySelector(".jobinfo__name");
+      const titleRaw = titleNode ? (titleNode.innerText || "").replace(/\s+/g, " ").trim() : text.slice(0, 40);
+      const link = root.querySelector("a.jobinfo__name") || root.querySelector(".jobinfo__name") || root.querySelector("a[href]");
+      const href = link ? link.getAttribute("href") : "";
+      return { text, href, titleRaw };
+    },
+    parse(d, ctx) {
       const t = d.text;
       const salary = salaryTextOf(t);
       const sm = salary.includes("**") ? [null, null] : parseSalary(salary);
       const expM = t.match(/(经验不限|在校|应届|1年以下|\d+-\d+年|\d+年以下|\d+年以上|\d+年)/);
       const eduM = t.match(/(博士|硕士|统招本科|本科|大专|学历不限)/);
       const edu = eduM ? eduM[1] : "";
-      const cityM = t.match(/(北京|上海|广州|深圳|杭州|成都|西安|乌鲁木齐|南京|武汉|苏州|重庆|东莞|大连|长沙|郑州|青岛|天津)/);
+      const cityM = t.match(/(北京|上海|广州|深圳|杭州|成都|西安|乌鲁木齐|克拉玛依|吐鲁番|哈密|昌吉|伊犁|喀什|阿克苏|和田|南京|武汉|苏州|重庆|东莞|大连|长沙|郑州|青岛|天津)/);
       const compM = t.match(/([\u4e00-\u9fa5A-Za-z0-9（）()]{4,}(?:公司|集团|科技|信息|网络|数据|电子|智能|有限|证券|银行))/);
       const tags = t.split(/\s+/).filter((x) => /^[A-Za-z+#.]+$/.test(x)).slice(0, 8);
       return {
         source: "zhilian",
-        source_job_id: (d.href.match(/(\d{8,})/) || [])[1] || "",
+        source_job_id: d.href.includes("jobdetail") ? ((d.href.match(/jobdetail\/([^?]+)/) || [])[1] || "") : hashId([d.titleRaw, d.text, "zhilian"].join("|")),
         title: cleanTitle(d.titleRaw),
         company: compM ? compM[1] : "",
         city: cityM ? cityM[1] : "", district: "",
         salary_min: sm[0], salary_max: sm[1], salary_text: salary || "面议",
         experience: expM ? expM[0] : "", education: edu,
         tags, description: "", requirements: "", company_info: "",
-        url: d.href.startsWith("http") ? d.href : "https://sou.zhaopin.com" + d.href,
+        url: (d.href && d.href.includes("jobdetail")) ? d.href : ("https://sou.zhaopin.com/?jl=" + ((CITY_MAP[ctx && ctx.city] || {}).zhilian || "489") + "&kw=" + encodeURIComponent((ctx && ctx.kw) || "")),
         logo_url: "", published_at: new Date().toISOString(),
       };
     },
@@ -252,11 +263,26 @@ const SITES = {
     name: "前程无忧",
     buildUrl: (kw, city) => "https://we.51job.com/pc/search?keyword=" + enc(kw) + "&searchType=2" + (city ? "&jobArea=" + ((CITY_MAP[city] || {}).job51 || "") : ""),
     selectors: [".joblist-item", "[class*='joblist-item']", ".j_joblist .e"],
+    extract(root) {
+      const text = (root.innerText || "").replace(/\s+/g, " ").trim();
+      const titleNode = root.querySelector(".jname") || root.querySelector("[class*='jname']");
+      const titleRaw = titleNode ? (titleNode.innerText || "").replace(/\s+/g, " ").trim() : text.slice(0, 40);
+      const sensorEl = root.querySelector(".joblist-item-job") || root.querySelector("[class*='joblist-item-job']");
+      let jobId = "";
+      try {
+        const sensor = JSON.parse(sensorEl ? (sensorEl.getAttribute("sensorsdata") || "{}") : "{}");
+        jobId = String(sensor.jobId || "");
+      } catch {}
+      const compNode = root.querySelector("a.comp .cname") || root.querySelector("a.comp") || root.querySelector(".cname");
+      const company = compNode ? (compNode.innerText || "").replace(/\s+/g, " ").trim() : "";
+      const href = jobId ? ("https://jobs.51job.com/all/" + jobId + ".html") : "";
+      return { text, href, titleRaw, jobId, company };
+    },
     parse(d) {
       const t = d.text;
       const salary = salaryTextOf(t);
       const sm = parseSalary(salary);
-      const cityM = t.match(/\s(北京|上海|广州|深圳|杭州|成都|西安|乌鲁木齐|南京|武汉|苏州|重庆|东莞|大连|长沙|郑州)\s/);
+      const cityM = t.match(/\s(北京|上海|广州|深圳|杭州|成都|西安|乌鲁木齐|克拉玛依|吐鲁番|哈密|昌吉|伊犁|喀什|阿克苏|和田|南京|武汉|苏州|重庆|东莞|大连|长沙|郑州)(?=[\s·]|$)/);
       const expM = t.match(/(经验不限|在校|应届|1年以下|\d+-\d+年|\d+年以下|\d+年以上|\d+年)/);
       const eduM = t.match(/(博士|硕士|本科|大专|学历不限)/);
       const edu = eduM ? eduM[1] : "";
@@ -264,9 +290,9 @@ const SITES = {
       const tags = t.split(/\s+/).filter((x) => /^[A-Za-z+#.]+$/.test(x)).slice(0, 8);
       return {
         source: "job51",
-        source_job_id: (d.href.match(/job\/(\d+)/) || d.href.match(/(\d{8,})/) || [])[1] || "",
+        source_job_id: d.jobId || (d.href.match(/all\/(\d+)\.html/) || d.href.match(/job\/(\d+)/) || d.href.match(/(\d{8,})/) || [])[1] || "",
         title: cleanTitle(d.titleRaw),
-        company: compM ? compM[1] : "",
+        company: d.company || (compM ? compM[1] : ""),
         city: cityM ? cityM[1] : "", district: "",
         salary_min: sm[0], salary_max: sm[1], salary_text: salary || "面议",
         experience: expM ? expM[0] : "", education: edu,
