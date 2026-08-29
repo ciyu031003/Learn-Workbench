@@ -97,6 +97,18 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 
 ## 四、改动记录
 
+### 2026-08-29 · docs（遗留模块评估：面试题库与模拟面试 P3 —— 原设计 + 改进空间 + 下会话待办）
+
+- **遗留任务**：`/career/interview` 目前是**占位页**（卡片列出「面试题库与模拟面试（P3）」三要点）。它属于 2.0 的 **P3 求职管理**大项——其中求职 Kanban（/career/applications + 职位详情「加入求职」+ Mobile，commit 8c0f855）已完成；**面试题库与模拟面试是 P3 里尚未实现、剩下的部分**（即截图所示阶段）。
+- **原设计**：见 `docs/P3-面试题库与模拟面试-任务清单.md`（2026-08-24 规划稿，依据设计方案『三十四、P3 求职管理』）。核心：①数据层新增 `interview_attempts`（答题/面试记录，按 user_id 隔离；interview_questions 为**共享题库**，无 user_id）；②题库 API + 刷题页（GET /api/questions、POST /api/questions/attempt、GET /api/questions/attempts）；③面试记录 + 复盘；④与求职 Kanban 联动（interview1/2 阶段加「记录面试」）；⑤面试维度接入职业准备度（替代 log_entries×20 近似）。后续承接：笔试/Offer/求职统计、题库内容与管理、规则化→AI 模拟面试（P5）。
+- **现状核对**：interview_questions 表已有（module/question/answer/difficulty，无答题记录表）；面试就绪度仍是 `log_entries(kind='interview') count×20` 近似（readiness.ts，detail="N 篇面试日志"，权重 15%）；**迁移号 020 已被 P5 的 market_stats_history 占用**。
+- **改进空间（结合 2026-08-25 完成的市场分析 2.0 P0-P5）**：
+  1. **市场驱动面试备考（新增价值点）**：市场分析已产出技能需求/薪资/象限（明星/潜力/基础/长尾，skillSalary + 象限洞察）、市场×学习闭环（aggregateMarketGaps / user_skills / enrollGapsToTasks + /api/skills/gaps）、市场趋势。原设计题库按模块（通信/ETL/Linux云运维/Agent/行业）；建议**新增「市场热点技能」维度**——按市场高频/高薪技能（如 AI / Docker / SQL，来自 skillSalary 与象限洞察）**优先推荐面试考点**，并让「刷题薄弱 → 市场缺口 → 学习路线」复用已有闭环，形成**市场 → 面试 → 学习**三级联动。这比原设计价值更高。
+  2. **修正过时点**：任务清单迁移号「如 020_interview_attempts.sql」**应改为 021**（020 已被 market_stats_history 占用）；占位页文案「阶段：P3 求职管理（当前 P0 仅完成职业画像入口，本页为占位）」**已过时**——实际 P3 求职管理（Kanban）已完成，仅面试子模块待做。
+  3. **就绪度维度**：仍按原计划用真实 `interview_attempts`（自评+次数）替代 log_entries×20；实现时可直接与「市场驱动备考」绑定（面试分反映市场热点技能准备度）。
+  4. **建议顺序**：P3-1 数据层（interview_attempts，迁移 021）→ P3-2 题库刷题 API + 页 → P3-4 与求职 Kanban 联动 → P3-5 就绪度接入 → 再叠加「市场驱动面试备考」增强 → AI 模拟面试（P5）最后。
+- **验证**：纯评估 + 文档记录，**未改代码**；交由下个会话按本条目启动 P3 面试模块实现。
+
 ### 2026-08-25 · feat/db（P5 市场趋势：每日快照 + 环比展示；P4 移动端确认已响应式）
 
 - **改动**：①迁移 `020_market_stats_history.sql`：`market_stats_history(snap_date UNIQUE, payload jsonb)` 每日一快照；`analyzeMarket` 重算时 `ON CONFLICT DO NOTHING` 落当日快照，并新增 `computeMarketTrend`（当前数据 vs 上一日快照环比）。②`MarketAnalysis` 新增 `trend`（has/prevDate/totalDeltaPct/topSkill/topSkillDelta/topCity/topCityDelta/avgSalaryDelta）。③/`career/market` 市场概览卡新增"市场趋势（较上一日）"行：有历史展示岗位总量%/TOP 技能/TOP 城市/均薪 的环比增减，无历史显示"数据积累中（每日快照≥2天后可展示）。④P4：确认市场页已响应式（grid 折叠、技能地图窄屏降级、箱线图 SVG 自适应、CapsuleRank 标签 truncate），无需额外改动。
