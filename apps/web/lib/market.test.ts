@@ -109,4 +109,47 @@ describe("analyzeMarket (P4)", () => {
     expect(queryMock.mock.calls.length).toBe(callsAfterFirst + 1);
     expect(m2.total).toBe(0);
   });
+  it("computes a day-over-day trend from the previous snapshot when one exists", async () => {
+    // 聚合查询：缓存 miss → 12 次查询（与首个用例一致）
+    queryMock
+      .mockResolvedValueOnce({ rows: [] } as never)                                          // DB 缓存 miss
+      .mockResolvedValueOnce({ rows: [{ n: 5 }] } as never)                                   // total
+      .mockResolvedValueOnce({ rows: [{ city: "深圳", count: 3, avg_min: 15, avg_max: 25 }] } as never) // byCity
+      .mockResolvedValueOnce({ rows: [{ skill: "Python", count: 3 }] } as never)              // bySkill
+      .mockResolvedValueOnce({ rows: [{ min: 8, max: 12 }] } as never)                        // salary rows
+      .mockResolvedValueOnce({ rows: [{ education: "本科" }] } as never)                      // edu
+      .mockResolvedValueOnce({ rows: [{ experience: "1-3年" }] } as never)                    // exp
+      .mockResolvedValueOnce({ rows: [{ title: "Java 后端开发", tags: [] }] } as never)       // fn/title
+      .mockResolvedValueOnce({ rows: [{ source: "zhilian" }] } as never)                      // platform
+      .mockResolvedValueOnce({ rows: [{ skill: "python", avg: 24, n: 3 }] } as never)         // skillSalary
+      .mockResolvedValueOnce({ rows: [{ n: 1 }] } as never)                                   // cityCount
+      .mockResolvedValueOnce({ rows: [{ n: 1 }] } as never)                                   // skillCount
+      .mockResolvedValueOnce({ rows: [] } as never)                                          // 快照落库（DO NOTHING）
+      .mockResolvedValueOnce({
+        rows: [{
+          snap_date: "2026-08-28",
+          payload: {
+            total: 4,
+            overview: { total: 4, cityCount: 1, skillCount: 1, avgSalary: 15, medianSalary: 12, salaryMin: 8, salaryQ1: 10, salaryQ3: 20, salaryMax: 30 },
+            byCity: [{ city: "深圳", count: 2, avgMin: 15, avgMax: 25 }],
+            bySkill: [{ skill: "Python", count: 1 }],
+            salaryDist: [], byEducation: [], byExperience: [], byFunction: [],
+            byPlatform: [], byJobType: [], skillSalary: [], generatedAt: "2026-08-28T00:00:00.000Z",
+          },
+        }],
+      } as never);                                                                           // 趋势查询：命中上一日
+    queryMock.mockResolvedValue({ rows: [] } as never);                                      // 缓存写回
+
+    const m = await analyzeMarket();
+    expect(m.trend.has).toBe(true);
+    expect(m.trend.prevDate).toBe("2026-08-28");
+    expect(m.trend.totalDeltaPct).toBe(25); // (5-4)/4
+    expect(m.trend.topSkill).toBe("Python");
+    expect(m.trend.topSkillCount).toBe(3);
+    expect(m.trend.topSkillDelta).toBe(2); // 3 - 1
+    expect(m.trend.topCity).toBe("深圳");
+    expect(m.trend.topCityCount).toBe(3);
+    expect(m.trend.topCityDelta).toBe(1); // 3 - 2
+    expect(m.trend.avgSalaryDelta).toBe(-2); // 13 - 15
+  });
 });

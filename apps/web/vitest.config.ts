@@ -18,7 +18,7 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "html"],
       include: ["**/*.ts"],
-      exclude: ["**/*.test.ts", "**/vitest.config.ts", "**/node_modules/**"],
+      exclude: ["**/*.test.ts", "**/vitest.config.ts", "**/node_modules/**", "next.config.ts", "proxy.ts", "**/.next/**"],
       thresholds: {
         statements: 80,
         branches: 60,
@@ -28,3 +28,4 @@ export default defineConfig({
     },
   },
 });
+

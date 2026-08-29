@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("@/lib/db", () => ({ pgPool: { query: vi.fn() } }));
 import { pgPool } from "@/lib/db";
-import { normalizeSkillTag, computeJobMatch, computeSkillGaps, enrollGapsToTasks } from "./skills";
+import { normalizeSkillTag, computeJobMatch, computeSkillGaps, enrollGapsToTasks, backfillJobSkillLinks, backfillUserSkillsFromResume, listUserSkills, setUserSkill, removeUserSkill } from "./skills";
 
 const queryMock = vi.mocked(pgPool.query);
 // resetAllMocks 会清空 mockResolvedValueOnce 队列（clearAllMocks 不会），
@@ -89,3 +89,91 @@ describe("enrollGapsToTasks (P2)", () => {
     expect(insert).toBeTruthy();
   });
 });
+
+
+describe("backfillJobSkillLinks (P0)", () => {
+  it("links known tags and skips unknown ones", async () => {
+    queryMock.mockImplementation((sql: string, params: unknown[] = []) => {
+      if (sql.includes("FROM job_postings j")) return Promise.resolve({ rows: [{ id: 1, tags: ["redis", "bogus"] }] } as never);
+      if (sql.includes("FROM skill_taxonomy WHERE lower(name)")) return Promise.resolve({ rows: params[0] === "redis" ? [{ name: "redis" }] : [] } as never);
+      if (sql.includes("jsonb_array_elements_text")) return Promise.resolve({ rows: [] } as never);
+      if (sql.includes("LIKE '%' || lower(name)")) return Promise.resolve({ rows: [] } as never);
+      if (sql.includes("INSERT INTO skill_taxonomy")) return Promise.resolve({ rows: [{ id: 5 }] } as never);
+      return Promise.resolve({ rows: [] } as never);
+    });
+    const linked = await backfillJobSkillLinks(10);
+    expect(linked).toBe(1);
+    const link = queryMock.mock.calls.find((c) => String(c[0]).includes("INSERT INTO job_skill_links"));
+    expect(link?.[1]).toEqual([1, 5]);
+  });
+
+  it("returns 0 when there are no unlinked jobs", async () => {
+    queryMock.mockResolvedValue({ rows: [] } as never);
+    expect(await backfillJobSkillLinks()).toBe(0);
+  });
+});
+
+describe("backfillUserSkillsFromResume (P0)", () => {
+  it("backfills recognised resume skills", async () => {
+    queryMock.mockImplementation((sql: string, params: unknown[] = []) => {
+      if (sql.includes("FROM resume_assets")) return Promise.resolve({ rows: [{ title: "python" }, { title: "??" }] } as never);
+      if (sql.includes("FROM skill_taxonomy WHERE lower(name)")) return Promise.resolve({ rows: params[0] === "python" ? [{ name: "python" }] : [] } as never);
+      if (sql.includes("jsonb_array_elements_text")) return Promise.resolve({ rows: [] } as never);
+      if (sql.includes("LIKE '%' || lower(name)")) return Promise.resolve({ rows: [] } as never);
+      if (sql.includes("INSERT INTO skill_taxonomy")) return Promise.resolve({ rows: [{ id: 7 }] } as never);
+      return Promise.resolve({ rows: [] } as never);
+    });
+    const added = await backfillUserSkillsFromResume("u-1");
+    expect(added).toBe(1);
+    const insert = queryMock.mock.calls.find((c) => String(c[0]).includes("INSERT INTO user_skills"));
+    expect(insert?.[1]).toEqual(["u-1", 7]);
+  });
+
+  it("returns 0 when there are no resume skills", async () => {
+    queryMock.mockResolvedValue({ rows: [] } as never);
+    expect(await backfillUserSkillsFromResume("u-1")).toBe(0);
+  });
+});
+
+describe("user skill CRUD", () => {
+  it("lists user skills mapped to view shape", async () => {
+    queryMock.mockResolvedValue({ rows: [
+      { id: 1, name: "react", category: "frontend", level: 3, source: "manual" },
+      { id: 2, name: "git", category: "soft", level: 2, source: "resume" },
+    ] } as never);
+    const skills = await listUserSkills("u-1");
+    expect(skills).toEqual([
+      { id: 1, name: "react", category: "frontend", level: 3, source: "manual" },
+      { id: 2, name: "git", category: "soft", level: 2, source: "resume" },
+    ]);
+    expect(queryMock).toHaveBeenCalledWith(expect.stringContaining("FROM user_skills us"), ["u-1"]);
+  });
+
+  it("sets a user skill with explicit source", async () => {
+    queryMock.mockResolvedValue({ rows: [] } as never);
+    await setUserSkill("u-1", 5, 4, "manual");
+    expect(queryMock).toHaveBeenCalledWith(
+      expect.stringContaining("INSERT INTO user_skills"),
+      ["u-1", 5, 4, "manual"]
+    );
+  });
+
+  it("sets a user skill with the default source", async () => {
+    queryMock.mockResolvedValue({ rows: [] } as never);
+    await setUserSkill("u-1", 5, 4);
+    expect(queryMock).toHaveBeenCalledWith(
+      expect.stringContaining("INSERT INTO user_skills"),
+      ["u-1", 5, 4, "manual"]
+    );
+  });
+
+  it("removes a user skill", async () => {
+    queryMock.mockResolvedValue({ rows: [] } as never);
+    await removeUserSkill("u-1", 5);
+    expect(queryMock).toHaveBeenCalledWith(
+      "DELETE FROM user_skills WHERE user_id = $1 AND skill_id = $2",
+      ["u-1", 5]
+    );
+  });
+});
+
