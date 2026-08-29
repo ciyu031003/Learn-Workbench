@@ -744,3 +744,25 @@ CREATE TABLE IF NOT EXISTS market_stats (
   payload     jsonb NOT NULL,
   computed_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- 来自迁移 021_interview_attempts.sql
+CREATE TABLE IF NOT EXISTS interview_attempts (
+  id             bigserial PRIMARY KEY,
+  user_id        uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  question_id    bigint REFERENCES interview_questions(id) ON DELETE SET NULL,
+  application_id bigint REFERENCES job_applications(id) ON DELETE SET NULL,
+  phase_id       int REFERENCES content_phases(id) ON DELETE SET NULL,
+  mode           text NOT NULL DEFAULT 'quiz'
+                 CHECK (mode IN ('quiz','mock','interview')),
+  self_rating    int CHECK (self_rating IS NULL OR (self_rating >= 1 AND self_rating <= 5)),
+  reaction       int,
+  chosen_answer  text NOT NULL DEFAULT '',
+  is_correct     boolean,
+  note           text NOT NULL DEFAULT '',
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  updated_at     timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_interview_attempt_user ON interview_attempts(user_id);
+CREATE INDEX IF NOT EXISTS idx_interview_attempt_question ON interview_attempts(question_id);
+CREATE INDEX IF NOT EXISTS idx_interview_attempt_application ON interview_attempts(application_id);

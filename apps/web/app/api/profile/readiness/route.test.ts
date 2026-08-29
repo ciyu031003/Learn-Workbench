@@ -26,7 +26,7 @@ describe("GET /api/profile/readiness", () => {
       if (sql.includes("SELECT DISTINCT kind")) return Promise.resolve({ rows: [
         { kind: "skill" }, { kind: "project" }, { kind: "github" }, { kind: "certificate" },
       ] } as never);
-      if (sql.includes("kind = 'interview'")) return Promise.resolve({ rows: [{ n: 2 }] } as never);
+      if (sql.includes("FROM interview_attempts")) return Promise.resolve({ rows: [{ total: 5, correct: 4, interviews: 1 }] } as never);
       if (sql.includes("FROM job_postings")) return Promise.resolve({ rows: [{ n: 88 }] } as never);
       return Promise.resolve({ rows: [] } as never);
     });

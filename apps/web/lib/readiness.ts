@@ -76,14 +76,26 @@ export async function computeReadiness(
     (kinds.has("certificate") ? 25 : 0)
   ), 0, 100);
 
-  // 面试：log_entries(kind=interview) 数量近似（题库答题记录 P3 落地）
-  const ivScope = anonScope(userId, anonId, [userId]);
-  const { rows: ivRows } = await pgPool.query<{ n: number }>(
-    `SELECT count(*)::int AS n FROM log_entries WHERE user_id IS NOT DISTINCT FROM $1${ivScope.sql} AND kind = 'interview'`,
-    ivScope.params
-  );
-  const interviewCount = ivRows[0]?.n ?? 0;
-  const interviewScore = clamp(Math.round(interviewCount * 20), 0, 100);
+  // 面试：interview_attempts 真实答题/面试记录（P3 落地，替代 log_entries×20 近似）
+  let attemptCount = 0;
+  let correctCount = 0;
+  let interviewCountX = 0;
+  if (userId) {
+    const { rows: ivRows } = await pgPool.query<{ total: number; correct: number; interviews: number }>(
+      `SELECT count(*)::int AS total,
+              count(*) FILTER (WHERE is_correct)::int AS correct,
+              count(*) FILTER (WHERE mode = 'interview')::int AS interviews
+         FROM interview_attempts WHERE user_id = $1`,
+      [userId]
+    );
+    attemptCount = ivRows[0]?.total ?? 0;
+    correctCount = ivRows[0]?.correct ?? 0;
+    interviewCountX = ivRows[0]?.interviews ?? 0;
+  }
+  const volumeScore = clamp(Math.round(attemptCount * 4), 0, 40);          // 刷题量 → 0-40
+  const accScore = attemptCount > 0 ? Math.round((correctCount / attemptCount) * 40) : 0; // 正确率 → 0-40
+  const sessionScore = clamp(Math.round(interviewCountX * 8), 0, 20);      // 真实面试场次 → 0-20
+  const interviewScore = clamp(volumeScore + accScore + sessionScore, 0, 100);
 
   // 匹配职位数：「发现 N 个适合你的职位」——P0 用活跃职位总数近似，P2 换真实匹配
   const { rows: jobRows } = await pgPool.query<{ n: number }>(
@@ -96,7 +108,7 @@ export async function computeReadiness(
     { key: "skill", label: "技能", score: skillScore, weight: readinessWeights.skill, detail: `${skillCount} 项技能资产 · 主题完成 ${topicDone}/${topicTotal}` },
     { key: "project", label: "项目", score: projectScore, weight: readinessWeights.project, detail: `${projectCount} 个项目资产 · 完成 ${topicDone} 个主题` },
     { key: "resume", label: "简历", score: resumeScore, weight: readinessWeights.resume, detail: `资产完整度 ${kinds.size}/4 类` },
-    { key: "interview", label: "面试", score: interviewScore, weight: readinessWeights.interview, detail: `${interviewCount} 篇面试日志` },
+    { key: "interview", label: "面试", score: interviewScore, weight: readinessWeights.interview, detail: `${attemptCount} 题（对 ${correctCount}）· 面试 ${interviewCountX} 场` },
   ];
   const overall = Math.round(dimensions.reduce((a, d) => a + d.score * d.weight, 0));
 

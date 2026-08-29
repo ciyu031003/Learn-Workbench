@@ -97,6 +97,23 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 
 ## 四、改动记录
 
+### 2026-08-29 · feat/db+ui（P3 面试题库与模拟面试全链路落地：数据层 + 题库API/页 + 记录复盘 + Kanban联动 + 就绪度接入 + 市场驱动备考增强）
+
+- **背景**：承接本日前述「遗留模块评估」条目，按建议顺序落地 P3。`/career/interview` 由占位页改为可用页；修正两个过时点（迁移号 020→021、占位文案）。
+- **改动**：
+  1. **数据层（021）**：`db/migrations/021_interview_attempts.sql` 新增 `interview_attempts`（答题/面试记录，按 user_id 隔离；`question_id`/`application_id`/`phase_id` 可空外键；`mode`('quiz'|'mock'|'interview')；`self_rating`/`reaction`/`chosen_answer`/`is_correct`/`note`/`created_at`/`updated_at`）；`db/schema.sql` 全量对账登记 `-- 来自迁移 021`。
+  2. **题库 API（P3-2）**：`GET /api/questions`（共享题库，按 module/难度筛，**列表不含答案**避免刷题泄漏）+ `GET /api/questions/attempts`（我的答题历史+按 module 统计）+ `POST /api/questions/attempt`（与服务端判分，返回对错+参考答案，写 interview_attempts）。每路由配 `route.test.ts`。
+  3. **题库刷题页（P3-2）**：重写 `apps/web/app/career/interview/page.tsx`——模块/难度筛选刷题卡片（提交作答→显对错/参考答案→下一题）、答题统计（总数/正确率/面试记录/平均自评/按 module 进度条）、**记录一场面试**（mode/自评/关联求职记录/复盘）+ **复盘记录列表**。
+  4. **与求职 Kanban 联动（P3-4）**：求职看板 `interview1`/`interview2` 卡片加「记录面试」动作（GlassModal 弹窗，POST attempt 绑 `application_id`），并回流该申请已记录场次（「已记录 N 场 · 去复盘」链接）。
+  5. **就绪度接入（P3-5）**：`apps/web/lib/readiness.ts` 面试维度改读 `interview_attempts`（刷题量 0-40 + 正确率 0-40 + 真实面试场次 0-20 = 0-100），替代 `log_entries×20` 近似；权重保持 15%；detail 由「N 篇面试日志」改为「N 题（对 M）· 面试 K 场」。
+  6. **市场驱动备考增强**：面试页新增「市场驱动备考」卡，复用 `/api/skills/gaps`（市场高频需求×我的缺口）+ skill→模块启发式映射，按市场热点技能推荐刷题模块并链接「去学→路线图」/「市场分析」。
+  7. **题库种子**：`scripts/seed_interview_questions.mjs`（表空时插入通信/ETL/Linux云运维/Agent/行业共 12 题样例，幂等）。
+  8. **E2E**：`e2e/tests/interview.spec.ts`（面试页区块渲染无报错 + 题库空态容忍）。
+- **涉及文件**：db/migrations/021_interview_attempts.sql（新增）；db/schema.sql；packages/shared/src/index.ts（+interviewMode/question/interviewAttempt/Input/Stats 等类型）；apps/web/lib/readiness.ts、lib/interview.ts（新增）；apps/web/app/api/questions/{route,attempt/route,attempts/route}.ts + 对应 route.test.ts（新增）；apps/web/app/career/interview/page.tsx（重写）；apps/web/app/career/applications/page.tsx；scripts/seed_interview_questions.mjs（新增）；e2e/tests/interview.spec.ts（新增）。
+- **原因/决策**：按 2026-08-29 评估条目「建议顺序（P3-1 数据层 → P3-2 题库API+页 → P3-4 Kanban联动 → P3-5 就绪度接入 → 市场驱动增强 → AI面试(P5)）」与任务清单落地；`interview_questions` 维持共享题库（无 user_id），答题记录才按用户隔离；迁移号用 021（020 已被 market_stats_history 占用）；判分用宽松启发式（归一化后双向包含）；就绪度改由真实答题/面试数据驱动。
+- **验证**：`node scripts/verify-migrations.mjs` → 21 个迁移编号连续无跳号/重复，仅 1 条**既有** warning（`market_stats_history` 020 未登记进 schema.sql，非本次引入）；`pnpm -F web typecheck` 0 error；`pnpm -F web lint` 0 error（21 条既有 warning）；`pnpm -F web test` 91 文件 / 436 用例全过（含本次 +11 个 questions/attempts/attempt 路由用例 + readiness 用例按 interview_attempts 更新）；E2E 用例已写入，需 live server + 凭据（`E2E_BASE_URL` + `E2E_USERNAME/E2E_PASSWORD`）运行；迁移 021 需经 `init` 应用（本地 PG 未启）。
+- **影响**：新增 `interview_attempts` 表；新增 `/api/questions*` 三个读写接口（均登录隔离；题库共享、记录按用户）；职业就绪度面试维度改用真实数据（权重仍 15%）；面试页由占位改可用；求职看板新增「记录面试」入口与回流。AI 模拟面试（P5）按任务清单后置，未实现。
+
 ### 2026-08-29 · docs（遗留模块评估：面试题库与模拟面试 P3 —— 原设计 + 改进空间 + 下会话待办）
 
 - **遗留任务**：`/career/interview` 目前是**占位页**（卡片列出「面试题库与模拟面试（P3）」三要点）。它属于 2.0 的 **P3 求职管理**大项——其中求职 Kanban（/career/applications + 职位详情「加入求职」+ Mobile，commit 8c0f855）已完成；**面试题库与模拟面试是 P3 里尚未实现、剩下的部分**（即截图所示阶段）。

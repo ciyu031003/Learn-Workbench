@@ -12,10 +12,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { GlassModal } from "@/components/ui/modal";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useToastStore } from "@/store/toast-store";
 import {
-  ArrowRight, Building2, ChevronLeft, ExternalLink, Loader2, MapPin, Trash2,
+  ArrowRight, Building2, ChevronLeft, ExternalLink, Loader2, MapPin, MessageSquare, Trash2,
 } from "lucide-react";
 
 const STAGE_ORDER: JobApplicationStage[] = [
@@ -28,6 +30,11 @@ export default function ApplicationsPage() {
   const [stats, setStats] = useState<JobApplicationStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [recordTarget, setRecordTarget] = useState<JobApplication | null>(null);
+  const [recRating, setRecRating] = useState<number>(0);
+  const [recNote, setRecNote] = useState("");
+  const [recBusy, setRecBusy] = useState(false);
+  const [attemptsByApp, setAttemptsByApp] = useState<Record<number, number>>({});
 
   const load = useCallback(async () => {
     try {
@@ -41,6 +48,17 @@ export default function ApplicationsPage() {
     } finally {
       setLoading(false);
     }
+    try {
+      const ar = await fetch("/api/questions/attempts");
+      if (ar.ok) {
+        const a = await ar.json();
+        const map: Record<number, number> = {};
+        for (const att of (a.attempts ?? []) as { applicationId: number | null }[]) {
+          if (att.applicationId != null) map[att.applicationId] = (map[att.applicationId] ?? 0) + 1;
+        }
+        setAttemptsByApp(map);
+      }
+    } catch { /* 面试记录数非必须 */ }
   }, [pushToast]);
 
 // eslint-disable-next-line react-hooks/set-state-in-effect -- 数据加载后在 effect 中写状态（既有模式，P1 统一迁移）
@@ -93,6 +111,33 @@ export default function ApplicationsPage() {
       pushToast(e instanceof Error ? e.message : "阶段更新失败", "error");
     } finally {
       setBusyId(null);
+    }
+  };
+
+  const recordInterview = async () => {
+    if (!recordTarget) return;
+    setRecBusy(true);
+    try {
+      const r = await fetch("/api/questions/attempt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "interview",
+          applicationId: recordTarget.id,
+          selfRating: recRating || null,
+          note: recNote,
+        }),
+      });
+      if (!r.ok) throw new Error("记录面试失败");
+      pushToast("已记录面试", "success");
+      setRecordTarget(null);
+      setRecRating(0);
+      setRecNote("");
+      await load();
+    } catch (e) {
+      pushToast(e instanceof Error ? e.message : "记录面试失败", "error");
+    } finally {
+      setRecBusy(false);
     }
   };
 
@@ -173,6 +218,18 @@ export default function ApplicationsPage() {
                         {app.note ? (
                           <p className="mt-2 rounded-lg bg-white/10 px-2 py-1.5 text-[11px] text-muted-foreground">{app.note}</p>
                         ) : null}
+                        {(app.stage === "interview1" || app.stage === "interview2") ? (
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <Button variant="ghost" size="sm" className="h-7 gap-1 px-2 text-[11px]" onClick={() => { setRecordTarget(app); setRecRating(0); setRecNote(""); }}>
+                              <MessageSquare className="size-3" /> 记录面试
+                            </Button>
+                            {attemptsByApp[app.id] ? (
+                              <Link href="/career/interview" className="text-[11px] text-sky-300 hover:underline">
+                                已记录 {attemptsByApp[app.id]} 场 · 去复盘
+                              </Link>
+                            ) : null}
+                          </div>
+                        ) : null}
                         <div className="mt-2.5 flex items-center gap-1 border-t border-white/10 pt-2">
                           <Button variant="ghost" size="sm" className="h-7 px-2 text-[11px]" disabled={busyId === app.id} onClick={() => move(app, -1)}>
                             ←
@@ -207,6 +264,22 @@ export default function ApplicationsPage() {
           })}
         </div>
       )}
+
+      <GlassModal open={!!recordTarget} onClose={() => setRecordTarget(null)} title={`记录面试 · ${recordTarget?.jobTitle ?? ""}`}>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-muted-foreground">自评（1-5）</label>
+            <select value={recRating} onChange={(e) => setRecRating(Number(e.target.value))} className="glass-select h-9 rounded-lg px-2 text-sm">
+              <option value={0}>未评分</option>
+              {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n} 分</option>)}
+            </select>
+          </div>
+          <Textarea value={recNote} onChange={(e) => setRecNote(e.target.value)} rows={3} placeholder="复盘结论 / 待改进点…" />
+          <Button onClick={recordInterview} disabled={recBusy} className="gap-2">
+            {recBusy ? <Loader2 className="size-4 animate-spin" /> : <MessageSquare className="size-4" />} 保存记录
+          </Button>
+        </div>
+      </GlassModal>
     </div>
   );
 }

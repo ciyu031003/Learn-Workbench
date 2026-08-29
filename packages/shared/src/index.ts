@@ -896,6 +896,88 @@ export type JobApplication = z.infer<typeof jobApplicationSchema>;
 export const jobApplicationStatsSchema = z.record(jobApplicationStageSchema, z.number());
 export type JobApplicationStats = z.infer<typeof jobApplicationStatsSchema>;
 
+/* ================= 2.0 · P3 面试题库与模拟面试 ================= */
+
+/** 答题记录类型：题库刷题 / 模拟面试 / 真实面试 */
+export const interviewModeSchema = z.enum(["quiz", "mock", "interview"]);
+export type InterviewMode = z.infer<typeof interviewModeSchema>;
+
+export const interviewModeLabels: Record<InterviewMode, string> = {
+  quiz: "题库刷题",
+  mock: "模拟面试",
+  interview: "真实面试",
+};
+
+/** 题库难度 */
+export const questionDifficultySchema = z.enum(["easy", "medium", "hard"]);
+export type QuestionDifficulty = z.infer<typeof questionDifficultySchema>;
+
+/** 题库题目（列表不含参考答案，避免刷题前泄漏答案） */
+export const interviewQuestionSchema = z.object({
+  id: z.number(),
+  module: z.string(),
+  question: z.string(),
+  difficulty: questionDifficultySchema,
+});
+export type InterviewQuestion = z.infer<typeof interviewQuestionSchema>;
+
+/** 答题 / 面试记录（含关联题目与申请信息） */
+export const interviewAttemptSchema = z.object({
+  id: z.number(),
+  questionId: z.number().nullable(),
+  applicationId: z.number().nullable(),
+  phaseId: z.number().nullable(),
+  mode: interviewModeSchema,
+  selfRating: z.number().nullable(),
+  reaction: z.number().nullable(),
+  chosenAnswer: z.string().default(""),
+  isCorrect: z.boolean().nullable(),
+  note: z.string().default(""),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  // 关联信息（可有可无）
+  question: z.string().nullable(),
+  module: z.string().nullable(),
+  jobTitle: z.string().nullable(),
+});
+export type InterviewAttempt = z.infer<typeof interviewAttemptSchema>;
+
+/** 提交一道答题 / 面试记录 */
+export const interviewAttemptInputSchema = z.object({
+  questionId: z.number().nullable().optional(),
+  applicationId: z.number().nullable().optional(),
+  phaseId: z.number().nullable().optional(),
+  mode: interviewModeSchema.default("quiz"),
+  chosenAnswer: z.string().default(""),
+  selfRating: z.number().min(1).max(5).nullable().optional(),
+  reaction: z.number().nullable().optional(),
+  note: z.string().default("").optional(),
+});
+export type InterviewAttemptInput = z.infer<typeof interviewAttemptInputSchema>;
+
+/** 题库按 module 分组（用于刷题选择 & 统计） */
+export const questionModuleSchema = z.object({
+  module: z.string(),
+  count: z.number(),
+});
+export type QuestionModule = z.infer<typeof questionModuleSchema>;
+
+/** 答题统计（总分 + 按 module 汇总） */
+export const interviewStatsSchema = z.object({
+  total: z.number(),
+  correct: z.number(),
+  interviewCount: z.number(),
+  avgRating: z.number().nullable(),
+  byModule: z.array(
+    z.object({
+      module: z.string(),
+      total: z.number(),
+      correct: z.number(),
+    })
+  ),
+});
+export type InterviewStats = z.infer<typeof interviewStatsSchema>;
+
 /* ================= 2.0 · P4 招聘市场分析 ================= */
 
 export const marketCityRowSchema = z.object({
