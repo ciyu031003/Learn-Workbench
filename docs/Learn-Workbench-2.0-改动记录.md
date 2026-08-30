@@ -97,6 +97,18 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 
 ## 四、改动记录
 
+### 2026-08-30 · fix(auth)（登录/注册「选职业进不了页面」：移除 router.refresh() 冗余调用 + 职业保存失败降级）
+
+- **背景**：用户反馈「注册用户选择职业时无法进入页面」，并请评审登录链接入口。经服务器真机复现(web 容器内 Playwright+chromium 对线上 HTTPS)——**全新浏览器流程完全正常**(注册→选职业→落 /dashboard,0 console 报错);后端 `/api/auth/register`、`/api/settings/career`(GET set:false / PUT ok)、`/api/careers`、`/api/auth/me`、`/dashboard=200` 全部正常;`http` 有 301 跳转 https。故排除后端接口故障。
+- **根因**：web 容器日志**持续大量**报 `Error: The Server Reference ID did not match the expected format. Received "x"/"0"/"1"/"action"...`(Next.js `failed-to-find-server-action`)。代码里**没有 server action**(全部走 API route/fetch);该报错来源是 **App Router 的 `router.refresh()`**——内部经 server-action 引用下发,配合 Next 16.3 **Turbopack 生产构建**的引用不一致,导致**客户端导航静默失败**。用户"日常浏览器(可能缓存旧 JS)"在部署换新构建后会命中该不一致，表现为更新后仍停留/进不了页面。
+- **改动**：`apps/web/app/login/page.tsx`
+  1. `pickCareer` 保存职业成功后：仅 `router.replace(from)`,**移除紧随其后的 `router.refresh()`**(减少一次 RSC/server-action 请求)。
+  2. `afterAuth` 两个成功分支：`router.replace(from)` 后不再 `router.refresh()`。
+  3. 职业保存失败降级：错误文案改为「请重试，或点击『跳过』稍后在设置里选择」;职业弹窗底部新增「暂时跳过，稍后在设置中选择」按钮(同 X 关闭,进入目标页,职业后可到设置/路线图再选)。
+- **验证**：本地 `pnpm -F web typecheck` 0 error；重新构建并部署 web 容器后，Playwright 复现「注册→选职业→进页面」仍全通过、0 console 报错；**重建后近 8 分钟 server-action 报错为 0**(修复前持续大量)。**提示用户强制刷新(Ctrl+Shift+R)清除旧 JS 缓存。**
+- **涉及文件**：apps/web/app/login/page.tsx。
+- **影响**：登录/注册后进入目标页不再依赖不稳定的 server-action 刷新；职业保存失败不再卡死弹窗(可跳过)。`settings/page.tsx` 还有一处 `router.refresh()`(约 393 行)，非本次登录流，留作后续一并治理。
+
 ### 2026-08-29 · feat/db+ui（P3 面试题库与模拟面试全链路落地：数据层 + 题库API/页 + 记录复盘 + Kanban联动 + 就绪度接入 + 市场驱动备考增强）
 
 - **背景**：承接本日前述「遗留模块评估」条目，按建议顺序落地 P3。`/career/interview` 由占位页改为可用页；修正两个过时点（迁移号 020→021、占位文案）。

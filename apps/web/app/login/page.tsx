@@ -42,10 +42,11 @@ function LoginForm() {
         body: JSON.stringify({ career: key }),
       });
       if (!r.ok) throw new Error("保存失败");
+      // 直接跳转目标页；不额外 router.refresh()（App Router 的 refresh 内部走 server-action
+      // 引用，在 Turbopack 构建下易触发 failed-to-find-server-action，导致客户端导航静默失败/停留）
       router.replace(from);
-      router.refresh();
     } catch {
-      setCareerErr("职业保存失败，请重试");
+      setCareerErr("职业保存失败，请重试，或点击「跳过」稍后在设置里选择");
       setCareerBusy(false);
     }
   };
@@ -54,13 +55,12 @@ function LoginForm() {
     try {
       const cur = await fetch("/api/settings/career").then((x) => x.json());
       if (cur?.set) {
+        // 已设置职业：直接进入目标页，不做多余 refresh
         router.replace(from);
-        router.refresh();
         return;
       }
     } catch {
       router.replace(from);
-      router.refresh();
       return;
     }
     try {
@@ -288,6 +288,14 @@ function LoginForm() {
         <p className="mt-3 text-center text-xs text-muted-foreground">
           {careerBusy ? "正在保存职业路线…" : "选择后正式进入首页"}
         </p>
+        <button
+          type="button"
+          disabled={careerBusy}
+          onClick={() => { setCareerStep(false); router.replace(from); }}
+          className="mt-3 w-full rounded-xl border border-white/20 bg-white/10 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-white/15 hover:text-foreground disabled:opacity-50"
+        >
+          暂时跳过，稍后在设置中选择
+        </button>
       </GlassModal>
     </div>
   );
