@@ -313,6 +313,10 @@ docker compose up -d --build
 
 ### Nginx 反向代理 + HTTPS
 
+> 当前生产（2026-08-31 起）：`www.yuanabd.cn` 的 80/443 已让给门户网站（其他项目），
+> 本项目改走端口访问：**http://www.yuanabd.cn:8080 → 127.0.0.1:3001**（nginx 配置见 `deploy/nginx/learn-workbench.conf`），
+> `https://learn.yuanabd.cn` 继续可用。注意需在腾讯云安全组放行 TCP 8080。
+
 用域名访问时配置 Nginx（把 `your-domain.com` 和端口改成实际的）：
 
 ```nginx
