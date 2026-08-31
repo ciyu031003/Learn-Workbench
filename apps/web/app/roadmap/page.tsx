@@ -30,8 +30,6 @@ interface RoadmapResponse {
 
 type Track = "main" | "agent";
 
-const phaseLabel = (key: string) => key.replace("phase-", "P");
-
 export default function RoadmapPage() {
   const [phases, setPhases] = useState<RoadmapPhase[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -369,7 +367,7 @@ export default function RoadmapPage() {
                 <option value="">选择阶段…</option>
                 {main.concat(agent).map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.track === "main" ? phaseLabel(p.phaseKey) : "Agent"} · {p.title}
+                    {p.track === "main" ? `P${main.findIndex((x) => x.id === p.id) + 1}` : "Agent"} · {p.title}
                   </option>
                 ))}
               </select>
@@ -437,7 +435,7 @@ export default function RoadmapPage() {
             </div>
           </GlassModal>
           {/* 主轨阶段 */}
-          {main.map((phase) => {
+          {main.map((phase, mainIndex) => {
             const doneCount = phase.topics.filter((t) => t.done).length;
             const percent = pct(doneCount, phase.topics.length);
             const isOpen = !!expanded[phase.id];
@@ -458,7 +456,7 @@ export default function RoadmapPage() {
                     className="flex min-w-0 flex-1 items-center gap-3 p-5 text-left"
                   >
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-sm font-semibold text-primary">
-                      {phaseLabel(phase.phaseKey)}
+                      {`P${mainIndex + 1}`}
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="flex flex-wrap items-center gap-2">

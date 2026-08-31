@@ -23,6 +23,7 @@ function fakeClient() {
   client.query.mockResolvedValue({ rows: [] });
   return client;
 }
+
 beforeEach(() => {
   vi.clearAllMocks();
   currentUserIdMock.mockResolvedValue("u-1");
@@ -53,21 +54,16 @@ describe("POST /api/roadmap/reorder", () => {
     expect(client.query).toHaveBeenCalledWith("ROLLBACK");
     expect(client.release).toHaveBeenCalled();
   });
+
   it("applies the new order and renumbers keys in one transaction", async () => {
     const client = fakeClient();
     client.query
       .mockResolvedValueOnce({ rows: [] } as never) // BEGIN
       .mockResolvedValueOnce({ rows: [{ id: 3 }, { id: 1 }, { id: 2 }] } as never) // SELECT current (P3, P1, P2)
-      .mockResolvedValueOnce({ rowCount: 1 } as never) // UPDATE sort_order i=0 -> id=3
-      .mockResolvedValueOnce({ rowCount: 1 } as never) // UPDATE sort_order i=1 -> id=1
-      .mockResolvedValueOnce({ rowCount: 1 } as never) // UPDATE sort_order i=2 -> id=2
-      .mockResolvedValueOnce({ rows: [{ id: 3 }, { id: 1 }, { id: 2 }] } as never) // renumber SELECT
-      .mockResolvedValueOnce({ rowCount: 1 } as never) // temp key id=3
-      .mockResolvedValueOnce({ rowCount: 1 } as never) // temp key id=1
-      .mockResolvedValueOnce({ rowCount: 1 } as never) // temp key id=2
-      .mockResolvedValueOnce({ rowCount: 1 } as never) // final phase-1 id=3
-      .mockResolvedValueOnce({ rowCount: 1 } as never) // final phase-2 id=1
-      .mockResolvedValueOnce({ rowCount: 1 } as never); // final phase-3 id=2
+      .mockResolvedValueOnce({ rowCount: 1 } as never) // renumberTrack: 全部置临时（负 sort + ren- key）
+      .mockResolvedValueOnce({ rowCount: 1 } as never) // final phase-1/sort0 -> id=3
+      .mockResolvedValueOnce({ rowCount: 1 } as never) // final phase-2/sort1 -> id=1
+      .mockResolvedValueOnce({ rowCount: 1 } as never); // final phase-3/sort2 -> id=2
     connectMock.mockResolvedValue(client as never);
 
     const res = await post({ career: "ict", track: "main", order: [3, 1, 2] });
@@ -75,9 +71,13 @@ describe("POST /api/roadmap/reorder", () => {
     expect(await res.json()).toEqual({ ok: true });
     expect(client.query).toHaveBeenCalledWith("BEGIN");
     expect(client.query).toHaveBeenCalledWith("COMMIT");
-    // id=2 最终编号为 phase-3（P3 拖到最前自动变为 P1，其余顺延）
+    // P3（id=3）被拖到最前 → 自动更名 phase-1；原 P1（id=1）→ phase-2；原 P2（id=2）→ phase-3
     expect(client.query).toHaveBeenCalledWith(
-      expect.stringContaining("phase_key = $1, sort_order = $2"),
+      expect.stringContaining("UPDATE content_phases SET phase_key = $1, sort_order = $2"),
+      ["phase-1", 0, 3]
+    );
+    expect(client.query).toHaveBeenCalledWith(
+      expect.stringContaining("UPDATE content_phases SET phase_key = $1, sort_order = $2"),
       ["phase-3", 2, 2]
     );
     expect(client.release).toHaveBeenCalled();
