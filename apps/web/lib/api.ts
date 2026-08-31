@@ -15,7 +15,8 @@ interface PhaseRow {
   weeks: string | null;
   track: "main" | "agent";
   summary: string | null;
-  sort_order: number;
+      sort_order: number;
+      is_custom: boolean;
 }
 
 interface TopicRow {
@@ -89,7 +90,7 @@ export async function getRoadmapWithProgress(
   const client = await pgPool.connect();
   try {
     const phasesResult = await client.query<PhaseRow>(
-      `SELECT id, phase_key, title, weeks, track, summary, sort_order
+      `SELECT id, phase_key, title, weeks, track, summary, sort_order, is_custom
        FROM content_phases WHERE career_key = $1 ORDER BY track, sort_order, id`,
       [careerKey]
     );
@@ -161,7 +162,8 @@ export async function getRoadmapWithProgress(
       weeks: p.weeks,
       track: p.track,
       summary: p.summary,
-      sortOrder: p.sort_order,
+        isCustom: p.is_custom,
+        sortOrder: p.sort_order,
       topics: topicsResult.rows
         .filter((t) => t.phase_id === p.id)
         .map((t) => topicMap.get(t.id) as RoadmapTopic),

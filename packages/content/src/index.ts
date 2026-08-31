@@ -7,7 +7,7 @@ import type { Phase } from "@learn-workbench/shared";
  */
 export const roadmapPhases: Phase[] = [
   {
-    id: 1, phaseKey: "phase-0", title: "学习机制 + Agent 启蒙", weeks: "第 0-2 周", track: "main",
+    id: 1, phaseKey: "phase-1", title: "学习机制 + Agent 启蒙", weeks: "第 0-2 周", track: "main",
     summary: "搭建 Anki/笔记/复盘/费曼模板，学习 LLM 基础，完成最小 Agent。", sortOrder: 0,
     topics: [
       { id: 101, topicKey: "p0-mechanism", title: "学习方法机制搭建", summary: "Anki 卡片库、笔记模板、每周复盘模板、费曼讲稿模板。", agentTask: null, sortOrder: 0, resources: [], practices: [{ id: 1, text: "搭建 Anki 卡片库、笔记模板、每周复盘模板、费曼讲稿模板", sortOrder: 0 }], projects: [], checkpoints: [{ id: 1, text: "1 页学习机制说明（能讲清自己的学习方法）", sortOrder: 0 }] },
@@ -16,7 +16,7 @@ export const roadmapPhases: Phase[] = [
     ],
   },
   {
-    id: 2, phaseKey: "phase-1", title: "通信网络进阶", weeks: "第 3-8 周", track: "main",
+    id: 2, phaseKey: "phase-2", title: "通信网络进阶", weeks: "第 3-8 周", track: "main",
     summary: "HCIP 理论 + 园区 5G/等保 + eNSP/Wireshark + 网络自动化巡检。", sortOrder: 1,
     topics: [
       { id: 201, topicKey: "p1-hcip", title: "HCIP-Datacom 理论", summary: "数据通信方向核心理论。", agentTask: null, sortOrder: 0, resources: [{ id: 1, name: "HCIP-Datacom 官方认证", url: "https://support.huawei.com/enterprise/zh/certification", kind: "course", sortOrder: 0 }], practices: [], projects: [], checkpoints: [] },
@@ -26,7 +26,7 @@ export const roadmapPhases: Phase[] = [
     ],
   },
   {
-    id: 3, phaseKey: "phase-2", title: "ETL 数据仓库开发", weeks: "第 9-14 周", track: "main",
+    id: 3, phaseKey: "phase-3", title: "ETL 数据仓库开发", weeks: "第 9-14 周", track: "main",
     summary: "数仓分层 + SQL 高阶 + Shell/Kettle 调度 + Pandas/DataEase 可视化。", sortOrder: 2,
     topics: [
       { id: 301, topicKey: "p2-dw-layers", title: "数仓分层与数据质量", summary: "ODS/DWD/DWS 分层、数据质量治理。", agentTask: null, sortOrder: 0, resources: [], practices: [{ id: 5, text: "按 ODS/DWD/DWS 设计一个分层数仓模型", sortOrder: 0 }], projects: [], checkpoints: [] },
@@ -36,7 +36,7 @@ export const roadmapPhases: Phase[] = [
     ],
   },
   {
-    id: 4, phaseKey: "phase-3", title: "云 & 虚拟化自动化运维", weeks: "第 15-20 周", track: "main",
+    id: 4, phaseKey: "phase-4", title: "云 & 虚拟化自动化运维", weeks: "第 15-20 周", track: "main",
     summary: "VDI/KVM/VPC + 天翼云政企 + Shell + Spug/proxmox-utils 批量运维。", sortOrder: 3,
     topics: [
       { id: 401, topicKey: "p3-cloud-products", title: "云与虚拟化基础", summary: "VDI、KVM、VPC、天翼云政企产品。", agentTask: null, sortOrder: 0, resources: [], practices: [], projects: [], checkpoints: [] },
@@ -45,7 +45,7 @@ export const roadmapPhases: Phase[] = [
     ],
   },
   {
-    id: 5, phaseKey: "phase-4", title: "售前解决方案撰写", weeks: "第 21-24 周", track: "main",
+    id: 5, phaseKey: "phase-5", title: "售前解决方案撰写", weeks: "第 21-24 周", track: "main",
     summary: "新疆政企投标方案框架 + 需求调研 + 验收流程 + Visio/PPT/Word。", sortOrder: 4,
     topics: [
       { id: 501, topicKey: "p4-bid-framework", title: "投标方案框架", summary: "新疆政企投标方案框架与要点。", agentTask: null, sortOrder: 0, resources: [], practices: [], projects: [], checkpoints: [] },
@@ -54,7 +54,7 @@ export const roadmapPhases: Phase[] = [
     ],
   },
   {
-    id: 6, phaseKey: "phase-5", title: "综合实战 + 证书冲刺", weeks: "第 25-30 周", track: "main",
+    id: 6, phaseKey: "phase-6", title: "综合实战 + 证书冲刺", weeks: "第 25-30 周", track: "main",
     summary: "HCIP/ACP 取证 + smart-campus 平台 + ICT 交付助手整合 + 工程化评测。", sortOrder: 5,
     topics: [
       { id: 601, topicKey: "p5-hcip-exam", title: "HCIP-Datacom 取证冲刺", summary: "考试报名、题库刷题、模拟。", agentTask: null, sortOrder: 0, resources: [], practices: [], projects: [], checkpoints: [] },
@@ -65,7 +65,7 @@ export const roadmapPhases: Phase[] = [
     ],
   },
   {
-    id: 7, phaseKey: "phase-6", title: "面试冲刺 + 新疆求职落地", weeks: "第 31-36 周", track: "main",
+    id: 7, phaseKey: "phase-7", title: "面试冲刺 + 新疆求职落地", weeks: "第 31-36 周", track: "main",
     summary: "三模块题库 + Agent 专项面试 + 行业知识 + 批量投递。", sortOrder: 6,
     topics: [
       { id: 701, topicKey: "p6-question-bank", title: "三模块题库", summary: "通信、ETL、Linux 云运维三模块面试题库。", agentTask: null, sortOrder: 0, resources: [], practices: [], projects: [], checkpoints: [{ id: 10, text: "通信/ETL/Linux 云运维三模块题库刷完并自测通过", sortOrder: 0 }] },

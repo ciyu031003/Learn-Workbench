@@ -66,7 +66,8 @@ export const roadmapTopicSchema = topicSchema.extend({
 export type RoadmapTopic = z.infer<typeof roadmapTopicSchema>;
 
 export const roadmapPhaseSchema = phaseSchema.extend({
-  topics: z.array(roadmapTopicSchema),
+    isCustom: z.boolean().default(false),
+    topics: z.array(roadmapTopicSchema),
 });
 export type RoadmapPhase = z.infer<typeof roadmapPhaseSchema>;
 

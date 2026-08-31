@@ -60,3 +60,69 @@ test.describe("/roadmap ICT 学习规划自定义", () => {
     expect(collector.errors).toEqual([]);
   });
 });
+
+test.describe("/roadmap 大阶段自定义（拖拽排序/增删）", () => {
+  test("可新增、排序、编辑、删除大阶段（API 层面）", async ({ app }) => {
+    test.skip(!hasAuth(), "未配置 E2E_USERNAME/E2E_PASSWORD");
+    const { page } = app!;
+    await page.goto("/roadmap");
+    await page.waitForLoadState("domcontentloaded");
+    await page.waitForTimeout(1200);
+
+    // 1) 新增自定义大阶段
+    const created = await page.evaluate(async () => {
+      const title = "E2E大阶段-" + Date.now();
+      const r = await fetch("/api/roadmap/phases", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ career: "ict", track: "main", title, summary: "e2e", weeks: "第 99-100 周" }),
+      });
+      const body = await r.json().catch(() => null);
+      return { status: r.status, body };
+    });
+    expect(created.status).toBe(201);
+    const phaseId = created.body?.phase?.id as number | undefined;
+    expect(phaseId).toBeTruthy();
+
+    // 2) 排序：把新阶段放到最前 → 应返回 ok
+    const reorder = await page.evaluate(async (pid: number) => {
+      const r0 = await fetch("/api/roadmap?career=ict");
+      const j = await r0.json();
+      const main = (j.phases || []).filter((p: { track: string }) => p.track === "main");
+      const ids = main.map((p: { id: number }) => p.id);
+      const order = [pid, ...ids.filter((x: number) => x !== pid)];
+      const rr = await fetch("/api/roadmap/reorder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ career: "ict", track: "main", order }),
+      });
+      return { status: rr.status, order };
+    }, phaseId!);
+    expect(reorder.status).toBe(200);
+
+    // 3) 排序后该阶段应被自动更名（位于最前 → phase-1）
+    const after = await page.evaluate(async (pid: number) => {
+      const r = await fetch("/api/roadmap?career=ict");
+      const j = await r.json();
+      const main = (j.phases || []).filter((p: { track: string }) => p.track === "main");
+      return main.find((p: { id: number }) => p.id === pid) ?? null;
+    }, phaseId!);
+    expect(after?.phase_key).toBe("phase-1");
+    expect(after?.is_custom).toBe(true);
+
+    // 4) 删除该大阶段
+    const del = await page.evaluate(async (pid: number) => {
+      const r = await fetch("/api/roadmap/phases?id=" + pid, { method: "DELETE" });
+      return { status: r.status };
+    }, phaseId!);
+    expect(del.status).toBe(200);
+
+    // 5) 刷新后不再出现
+    const gone = await page.evaluate(async (pid: number) => {
+      const r = await fetch("/api/roadmap?career=ict");
+      const j = await r.json();
+      return (j.phases || []).some((p: { id: number }) => p.id === pid);
+    }, phaseId!);
+    expect(gone).toBe(false);
+  });
+});

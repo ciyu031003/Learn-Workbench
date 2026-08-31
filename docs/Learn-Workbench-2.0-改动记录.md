@@ -97,6 +97,21 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 
 ## 四、改动记录
 
+### 2026-08-31 · feat(roadmap)（学习路线图自定义：大阶段可拖拽排序自动更名 + 增删/编辑，迁移 022）
+
+- **背景**：用户希望学习路线图尽可能可自定义：阶段卡片可拖动排序（如把 P3 拖到 P1 上方 → P3 自动变 P1，后续阶段顺延更名），大阶段可增加/删除/编辑；本地先做一套基础路线图，其余内容交给用户自行补充。
+- **改动**：
+  1. **数据层（迁移 022）**：`content_phases` 增加 `is_custom` / `owner_id` / `created_at` / `updated_at` + 触发器（与 `content_topics` 自定义模式一致）；主线阶段键位由 `phase-0..` 归一为 `phase-1..`（P1/P2/...，两步更新避免唯一约束冲突）；`db/schema.sql` 全量对账；`db/seed_content.sql` 与 `packages/content` 同步为 `phase-1..phase-7`。
+  2. **服务端逻辑**：新增 `apps/web/lib/roadmap-admin.ts`（`renumberTrack`：对某轨道按序重排 sort_order 并自动更名 main→phase-1..N、agent→agent-track/agent-N，两步写避免 UNIQUE 冲突）。
+  3. **新 API**：`POST/PATCH/DELETE /api/roadmap/phases`（新增/编辑/删除大阶段，登录鉴权；删除级联其下主题/资源/实操/项目/检查点，随后同轨重新编号）；`POST /api/roadmap/reorder`（拖动排序，校验 order 为当前轨道阶段集合的排列，事务内写 sort_order + 自动更名）。
+  4. **前端 `/roadmap`**：阶段卡支持 HTML5 拖拽排序（同轨内互拖，悬停高亮、拖拽半透明）；卡片右上角「拖拽排序/编辑/删除」操作区；顶部「添加大阶段」+ 弹窗（轨道/名称/简介/周期）；自定义主题弹窗阶段选项显示 P1/P2/...；副标题与 README 同步说明。
+  5. **测试**：`api/roadmap/phases/route.test.ts`、`api/roadmap/reorder/route.test.ts`（新增 16 用例，覆盖 401/400/创建/编辑/换轨/删除/排序+更名）；`e2e/tests/roadmap-ict.spec.ts` 追加「新增→排序自动更名 phase-1→删除」用例。
+- **涉及文件**：db/migrations/022_roadmap_custom_phases.sql（新增）；db/schema.sql；db/seed_content.sql；packages/content/src/index.ts；packages/shared/src/index.ts（roadmapPhaseSchema + isCustom）；apps/web/lib/api.ts；apps/web/lib/roadmap-admin.ts（新增）；apps/web/app/api/roadmap/phases/route.ts + route.test.ts（新增）；apps/web/app/api/roadmap/reorder/route.ts + route.test.ts（新增）；apps/web/app/roadmap/page.tsx；e2e/tests/roadmap-ict.spec.ts；README.md。
+- **原因/决策**：沿用 `content_topics.is_custom/owner_id` 的用户自定义模式；大阶段增删/排序由登录用户操作（与自定义主题一致）；`phase_key` 归一为 P1 起编号以贴合「P3 拖到 P1」的直觉；删除级联采用表外键 `ON DELETE CASCADE`。
+- **验证**：`pnpm -F web typecheck` 0 error；`pnpm -F web test` 93 文件 / 452 用例全过（含新增 16）；`node scripts/verify-migrations.mjs` → 22 个迁移编号连续（仅 1 条既有 `market_stats_history` warning）；`pnpm -F web build` 通过（含 /api/roadmap/phases、/api/roadmap/reorder、/roadmap）。
+- **部署**：见本次会话（git push 后服务器非 git 克隆式部署：scp 改动文件 + `docker compose run --rm init` 应用迁移 022 + `docker compose up -d --build web`）。
+- **影响**：路线图主线阶段键位从 phase-0 改为 phase-1（显示 P0→P1 变化）；新增 3 个阶段管理接口（登录鉴权）；删除大阶段会级联删除其下全部内容，操作前有确认提示。
+
 ### 2026-08-30 · fix(auth)（登录/注册「选职业进不了页面」：移除 router.refresh() 冗余调用 + 职业保存失败降级）
 
 - **背景**：用户反馈「注册用户选择职业时无法进入页面」，并请评审登录链接入口。经服务器真机复现(web 容器内 Playwright+chromium 对线上 HTTPS)——**全新浏览器流程完全正常**(注册→选职业→落 /dashboard,0 console 报错);后端 `/api/auth/register`、`/api/settings/career`(GET set:false / PUT ok)、`/api/careers`、`/api/auth/me`、`/dashboard=200` 全部正常;`http` 有 301 跳转 https。故排除后端接口故障。

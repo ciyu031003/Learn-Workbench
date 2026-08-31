@@ -9,13 +9,17 @@
 
 CREATE TABLE content_phases (
   id         serial PRIMARY KEY,
-  phase_key  text NOT NULL UNIQUE,            -- 'phase-0' .. 'phase-6' / 'agent-track'
+  phase_key  text NOT NULL UNIQUE,            -- 'phase-1' .. 'phase-N' / 'agent-track'
   career_key text NOT NULL DEFAULT 'ict',     -- 所属职业路线（见 careers 表）
   title      text NOT NULL,
-  weeks      text,                            -- 如 '第 0-2 周'
+  weeks      text,                            -- 如 '第 1-2 周'
   track      text NOT NULL DEFAULT 'main' CHECK (track IN ('main','agent')),
   summary    text,
   sort_order int NOT NULL DEFAULT 0,
+  is_custom  boolean NOT NULL DEFAULT false,  -- 用户自建大阶段
+  owner_id   uuid REFERENCES users(id) ON DELETE CASCADE,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (career_key, track, sort_order)
 );
 

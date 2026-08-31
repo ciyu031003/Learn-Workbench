@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type DragEvent as ReactDragEvent } from "react";
 import type { RoadmapPhase } from "@learn-workbench/shared";
 import { pct } from "@learn-workbench/shared";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,11 +20,17 @@ import {
   Sparkles,
   Plus,
   Trash2,
+  Pencil,
+  GripVertical,
 } from "lucide-react";
 
 interface RoadmapResponse {
   phases: RoadmapPhase[];
 }
+
+type Track = "main" | "agent";
+
+const phaseLabel = (key: string) => key.replace("phase-", "P");
 
 export default function RoadmapPage() {
   const [phases, setPhases] = useState<RoadmapPhase[] | null>(null);
@@ -37,6 +43,12 @@ export default function RoadmapPage() {
   const [formSummary, setFormSummary] = useState("");
   const [careers, setCareers] = useState<{ career_key: string; name: string; description: string | null; is_locked: boolean }[]>([]);
   const [career, setCareer] = useState<string>("ict");
+  // 大阶段自定义：拖拽排序 + 增删/编辑
+  const [dragId, setDragId] = useState<number | null>(null);
+  const [dragOverId, setDragOverId] = useState<number | null>(null);
+  const [phaseModal, setPhaseModal] = useState(false);
+  const [editingPhase, setEditingPhase] = useState<RoadmapPhase | null>(null);
+  const [phaseForm, setPhaseForm] = useState({ track: "main" as Track, title: "", summary: "", weeks: "" });
 
   const load = useCallback(async (careerKey: string) => {
     try {
@@ -97,7 +109,6 @@ export default function RoadmapPage() {
     }, 150);
     return () => window.clearTimeout(t);
   }, [phases]);
-
   const switchCareer = async (key: string) => {
     setCareer(key);
     try {
@@ -112,6 +123,7 @@ export default function RoadmapPage() {
   };
 
   const currentCareer = careers.find((c) => c.career_key === career);
+  const canEdit = !!currentCareer && !currentCareer.is_locked;
 
   const toggleTopic = async (topicId: number, done: boolean) => {
     setPhases((prev) =>
@@ -154,6 +166,125 @@ export default function RoadmapPage() {
   };
   const toggleDetail = (id: number) => setDetail((s) => ({ ...s, [id]: !s[id] }));
 
+  // ---------- 大阶段：拖拽排序 ----------
+  const onPhaseDragStart = (e: ReactDragEvent, phase: RoadmapPhase) => {
+    if (!canEdit) return;
+    setDragId(phase.id);
+    e.dataTransfer.setData("text/plain", String(phase.id));
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const onPhaseDragOver = (e: ReactDragEvent, phase: RoadmapPhase) => {
+    if (dragId == null || dragId === phase.id) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (dragOverId !== phase.id) setDragOverId(phase.id);
+  };
+
+  const saveOrder = async (track: Track, order: number[]) => {
+    try {
+      const r = await fetch("/api/roadmap/reorder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ career, track, order }),
+      });
+      if (!r.ok) {
+        const d = await r.json().catch(() => null);
+        setError(d?.error ?? "排序保存失败");
+      }
+    } catch {
+      setError("排序保存失败");
+    }
+    load(career); // 重新拉取，同步自动更名后的 P 编号
+  };
+
+  const onPhaseDrop = (e: ReactDragEvent, track: Track) => {
+    e.preventDefault();
+    const fromId = dragId;
+    const toId = dragOverId;
+    setDragId(null);
+    setDragOverId(null);
+    if (fromId == null || toId == null || fromId === toId) return;
+    const list = phases?.filter((p) => p.track === track) ?? [];
+    const fromIdx = list.findIndex((p) => p.id === fromId);
+    const toIdx = list.findIndex((p) => p.id === toId);
+    if (fromIdx < 0 || toIdx < 0) return;
+    const next = [...list];
+    const [moved] = next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, moved);
+    const order = next.map((p) => p.id);
+    // 乐观更新：先本地换位，后台保存成功后重新拉取
+    setPhases((prev) => {
+      if (!prev) return prev;
+      const nextMap = new Map(next.map((p, i) => [p.id, { ...p, sortOrder: i }]));
+      return prev.map((p) => (p.track === track && nextMap.has(p.id) ? (nextMap.get(p.id) as RoadmapPhase) : p));
+    });
+    void saveOrder(track, order);
+  };
+
+  const onPhaseDragEnd = () => {
+    setDragId(null);
+    setDragOverId(null);
+  };
+
+  // ---------- 大阶段：新增 / 编辑 / 删除 ----------
+  const openAddPhase = () => {
+    setEditingPhase(null);
+    setPhaseForm({ track: "main", title: "", summary: "", weeks: "" });
+    setPhaseModal(true);
+  };
+
+  const openEditPhase = (phase: RoadmapPhase) => {
+    setEditingPhase(phase);
+    setPhaseForm({
+      track: phase.track,
+      title: phase.title,
+      summary: phase.summary ?? "",
+      weeks: phase.weeks ?? "",
+    });
+    setPhaseModal(true);
+  };
+
+  const savePhase = async () => {
+    if (!phaseForm.title.trim()) return;
+    const payload = {
+      career,
+      track: phaseForm.track,
+      title: phaseForm.title.trim(),
+      summary: phaseForm.summary.trim() || null,
+      weeks: phaseForm.weeks.trim() || null,
+    };
+    const r = editingPhase
+      ? await fetch("/api/roadmap/phases", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...payload, id: editingPhase.id }),
+        })
+      : await fetch("/api/roadmap/phases", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+    if (!r.ok) {
+      const d = await r.json().catch(() => null);
+      setError(d?.error ?? "保存失败");
+      return;
+    }
+    setPhaseModal(false);
+    load(career);
+  };
+
+  const deletePhase = async (phase: RoadmapPhase) => {
+    if (!window.confirm(`确定删除大阶段「${phase.title}」？其下所有主题/内容将一并删除，此操作不可恢复。`)) return;
+    const r = await fetch(`/api/roadmap/phases?id=${phase.id}`, { method: "DELETE" });
+    if (!r.ok) {
+      const d = await r.json().catch(() => null);
+      setError(d?.error ?? "删除失败");
+      return;
+    }
+    load(career);
+  };
+
   const main = useMemo(() => phases?.filter((p) => p.track === "main") ?? [], [phases]);
   const agent = useMemo(() => phases?.filter((p) => p.track === "agent") ?? [], [phases]);
 
@@ -170,7 +301,6 @@ export default function RoadmapPage() {
       </Card>
     );
   }
-
   return (
     <div className="page-enter flex flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -178,7 +308,9 @@ export default function RoadmapPage() {
           <h1 className="page-title text-2xl font-bold tracking-tight lg:text-3xl">学习路线图</h1>
           <p className="page-subtitle mt-1 text-sm">
             {currentCareer ? currentCareer.name : "ICT 学习规划"} · 主题完成即打勾，进度自动聚合
-            {currentCareer?.is_locked ? "（系统固定内容，不可修改）" : "（可自定义添加主题）"}
+            {canEdit
+              ? "（可自定义：拖动排序、增删/编辑阶段、添加主题）"
+              : "（系统固定内容，不可修改）"}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -211,12 +343,17 @@ export default function RoadmapPage() {
                 {phases.flatMap((p) => p.topics).filter((t) => t.done).length}/
                 {phases.flatMap((p) => p.topics).length} 主题
               </span>
-              {currentCareer?.is_locked ? (
-                <Badge variant="muted">ICT 规划固定 · 不可自定义</Badge>
+              {canEdit ? (
+                <div className="flex items-center gap-2">
+                  <Button variant="secondary" size="sm" onClick={openAddPhase}>
+                    <Plus className="size-4" /> 添加大阶段
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={() => setAdding(true)}>
+                    <Plus className="size-4" /> 自定义主题
+                  </Button>
+                </div>
               ) : (
-                <Button variant="secondary" size="sm" onClick={() => setAdding(true)}>
-                  <Plus className="size-4" /> 自定义主题
-                </Button>
+                <Badge variant="muted">ICT 规划固定 · 不可自定义</Badge>
               )}
             </CardContent>
           </Card>
@@ -232,7 +369,7 @@ export default function RoadmapPage() {
                 <option value="">选择阶段…</option>
                 {main.concat(agent).map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.phaseKey.replace("phase-", "P")} · {p.title}
+                    {p.track === "main" ? phaseLabel(p.phaseKey) : "Agent"} · {p.title}
                   </option>
                 ))}
               </select>
@@ -257,38 +394,105 @@ export default function RoadmapPage() {
             </div>
           </GlassModal>
 
+          {/* 新增/编辑大阶段 */}
+          <GlassModal
+            open={phaseModal}
+            onClose={() => setPhaseModal(false)}
+            title={editingPhase ? "编辑大阶段" : "添加大阶段"}
+          >
+            <div className="flex flex-col gap-3">
+              <label className="text-xs text-muted-foreground">所属轨道</label>
+              <select
+                value={phaseForm.track}
+                onChange={(e) => setPhaseForm((s) => ({ ...s, track: e.target.value as Track }))}
+                className="glass-select h-10 rounded-xl px-3 text-sm outline-none backdrop-blur-md focus:border-primary/60"
+              >
+                <option value="main">主线（P1/P2/…，自动编号）</option>
+                <option value="agent">Agent 副线</option>
+              </select>
+              <input
+                value={phaseForm.title}
+                onChange={(e) => setPhaseForm((s) => ({ ...s, title: e.target.value }))}
+                placeholder="阶段名称（必填），如：数据库进阶实战"
+                className="h-10 rounded-xl border border-white/25 bg-white/12 px-3 text-sm text-foreground outline-none backdrop-blur-md placeholder:text-muted-foreground focus:border-primary/60"
+              />
+              <input
+                value={phaseForm.summary}
+                onChange={(e) => setPhaseForm((s) => ({ ...s, summary: e.target.value }))}
+                placeholder="阶段简介（可选）"
+                className="h-10 rounded-xl border border-white/25 bg-white/12 px-3 text-sm text-foreground outline-none backdrop-blur-md placeholder:text-muted-foreground focus:border-primary/60"
+              />
+              <input
+                value={phaseForm.weeks}
+                onChange={(e) => setPhaseForm((s) => ({ ...s, weeks: e.target.value }))}
+                placeholder="周期（可选），如：第 37-40 周"
+                className="h-10 rounded-xl border border-white/25 bg-white/12 px-3 text-sm text-foreground outline-none backdrop-blur-md placeholder:text-muted-foreground focus:border-primary/60"
+              />
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setPhaseModal(false)}>取消</Button>
+              <Button onClick={savePhase} disabled={!phaseForm.title.trim()}>
+                <Plus className="size-4" /> {editingPhase ? "保存" : "添加"}
+              </Button>
+            </div>
+          </GlassModal>
           {/* 主轨阶段 */}
           {main.map((phase) => {
             const doneCount = phase.topics.filter((t) => t.done).length;
             const percent = pct(doneCount, phase.topics.length);
             const isOpen = !!expanded[phase.id];
             return (
-              <Card key={phase.id} id={`phase-${phase.id}`} className="roadmap-phase-card">
-                <button
-                  onClick={() => togglePhase(phase.id)}
-                  className="flex w-full items-center gap-3 p-5 text-left"
-                >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-sm font-semibold text-primary">
-                    {phase.phaseKey.replace("phase-", "P")}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="flex flex-wrap items-center gap-2">
-                      <span className="text-base font-semibold">{phase.title}</span>
-                      {phase.weeks ? <Badge variant="muted">{phase.weeks}</Badge> : null}
+              <Card
+                key={phase.id}
+                id={`phase-${phase.id}`}
+                draggable={canEdit}
+                onDragStart={(e) => onPhaseDragStart(e, phase)}
+                onDragOver={(e) => onPhaseDragOver(e, phase)}
+                onDrop={(e) => onPhaseDrop(e, "main")}
+                onDragEnd={onPhaseDragEnd}
+                className={`roadmap-phase-card ${canEdit ? "cursor-grab active:cursor-grabbing" : ""} ${dragId === phase.id ? "opacity-50" : ""} ${dragOverId === phase.id && dragId !== phase.id ? "ring-2 ring-primary/60" : ""}`}
+              >
+                <div className="flex items-center">
+                  <button
+                    onClick={() => togglePhase(phase.id)}
+                    className="flex min-w-0 flex-1 items-center gap-3 p-5 text-left"
+                  >
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-sm font-semibold text-primary">
+                      {phaseLabel(phase.phaseKey)}
                     </span>
-                    {phase.summary ? (
-                      <span className="mt-0.5 block truncate text-xs text-muted-foreground" title={phase.summary ?? undefined}>{phase.summary}</span>
-                    ) : null}
-                  </span>
-                  <span className="hidden w-28 shrink-0 sm:block">
-                    <div className="mb-1 flex justify-between text-xs text-muted-foreground">
-                      <span>{doneCount}/{phase.topics.length}</span>
-                      <span>{percent}%</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="text-base font-semibold">{phase.title}</span>
+                        {phase.weeks ? <Badge variant="muted">{phase.weeks}</Badge> : null}
+                        {phase.isCustom ? <Badge variant="accent">自定义</Badge> : null}
+                      </span>
+                      {phase.summary ? (
+                        <span className="mt-0.5 block truncate text-xs text-muted-foreground" title={phase.summary ?? undefined}>{phase.summary}</span>
+                      ) : null}
+                    </span>
+                    <span className="hidden w-28 shrink-0 sm:block">
+                      <div className="mb-1 flex justify-between text-xs text-muted-foreground">
+                        <span>{doneCount}/{phase.topics.length}</span>
+                        <span>{percent}%</span>
+                      </div>
+                      <Progress value={percent} className="h-1.5" />
+                    </span>
+                    {isOpen ? <ChevronDown className="size-5 shrink-0 text-muted-foreground" /> : <ChevronRight className="size-5 shrink-0 text-muted-foreground" />}
+                  </button>
+                  {canEdit ? (
+                    <div className="flex shrink-0 items-center gap-0.5 pr-3">
+                      <span title="拖拽排序" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground/60">
+                        <GripVertical className="size-4" />
+                      </span>
+                      <button onClick={() => openEditPhase(phase)} aria-label="编辑阶段" title="编辑阶段" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary">
+                        <Pencil className="size-4" />
+                      </button>
+                      <button onClick={() => deletePhase(phase)} aria-label="删除阶段" title="删除阶段" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-danger/15 hover:text-danger">
+                        <Trash2 className="size-4" />
+                      </button>
                     </div>
-                    <Progress value={percent} className="h-1.5" />
-                  </span>
-                  {isOpen ? <ChevronDown className="size-5 shrink-0 text-muted-foreground" /> : <ChevronRight className="size-5 shrink-0 text-muted-foreground" />}
-                </button>
+                  ) : null}
+                </div>
 
                 {isOpen ? (
                   <div className="border-t border-border/60 px-5 py-4">
@@ -417,37 +621,60 @@ export default function RoadmapPage() {
               </Card>
             );
           })}
-
           {/* Agent 副线 */}
           {agent.map((phase) => {
             const doneCount = phase.topics.filter((t) => t.done).length;
             const percent = pct(doneCount, phase.topics.length);
             const isOpen = !!expanded[phase.id];
             return (
-              <Card key={phase.id} className="roadmap-phase-card border-accent/20">
-                <button
-                  onClick={() => togglePhase(phase.id)}
-                  className="flex w-full items-center gap-3 p-5 text-left"
-                >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
-                    <Sparkles className="size-5" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="flex flex-wrap items-center gap-2">
-                      <span className="text-base font-semibold">{phase.title}</span>
-                      <Badge variant="accent">{phase.weeks}</Badge>
+              <Card
+                key={phase.id}
+                draggable={canEdit}
+                onDragStart={(e) => onPhaseDragStart(e, phase)}
+                onDragOver={(e) => onPhaseDragOver(e, phase)}
+                onDrop={(e) => onPhaseDrop(e, "agent")}
+                onDragEnd={onPhaseDragEnd}
+                className={`roadmap-phase-card border-accent/20 ${canEdit ? "cursor-grab active:cursor-grabbing" : ""} ${dragId === phase.id ? "opacity-50" : ""} ${dragOverId === phase.id && dragId !== phase.id ? "ring-2 ring-accent/60" : ""}`}
+              >
+                <div className="flex items-center">
+                  <button
+                    onClick={() => togglePhase(phase.id)}
+                    className="flex min-w-0 flex-1 items-center gap-3 p-5 text-left"
+                  >
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
+                      <Sparkles className="size-5" />
                     </span>
-                    <span className="mt-0.5 block truncate text-xs text-muted-foreground" title={phase.summary ?? undefined}>{phase.summary}</span>
-                  </span>
-                  <span className="hidden w-28 shrink-0 sm:block">
-                    <div className="mb-1 flex justify-between text-xs text-muted-foreground">
-                      <span>{doneCount}/{phase.topics.length}</span>
-                      <span>{percent}%</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="text-base font-semibold">{phase.title}</span>
+                        <Badge variant="accent">{phase.weeks}</Badge>
+                        {phase.isCustom ? <Badge variant="accent">自定义</Badge> : null}
+                      </span>
+                      <span className="mt-0.5 block truncate text-xs text-muted-foreground" title={phase.summary ?? undefined}>{phase.summary}</span>
+                    </span>
+                    <span className="hidden w-28 shrink-0 sm:block">
+                      <div className="mb-1 flex justify-between text-xs text-muted-foreground">
+                        <span>{doneCount}/{phase.topics.length}</span>
+                        <span>{percent}%</span>
+                      </div>
+                      <Progress value={percent} indicatorClassName="progress-fill-accent" className="h-1.5" />
+                    </span>
+                    {isOpen ? <ChevronDown className="size-5 shrink-0 text-muted-foreground" /> : <ChevronRight className="size-5 shrink-0 text-muted-foreground" />}
+                  </button>
+                  {canEdit ? (
+                    <div className="flex shrink-0 items-center gap-0.5 pr-3">
+                      <span title="拖拽排序" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground/60">
+                        <GripVertical className="size-4" />
+                      </span>
+                      <button onClick={() => openEditPhase(phase)} aria-label="编辑阶段" title="编辑阶段" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary">
+                        <Pencil className="size-4" />
+                      </button>
+                      <button onClick={() => deletePhase(phase)} aria-label="删除阶段" title="删除阶段" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-danger/15 hover:text-danger">
+                        <Trash2 className="size-4" />
+                      </button>
                     </div>
-                    <Progress value={percent} indicatorClassName="progress-fill-accent" className="h-1.5" />
-                  </span>
-                  {isOpen ? <ChevronDown className="size-5 shrink-0 text-muted-foreground" /> : <ChevronRight className="size-5 shrink-0 text-muted-foreground" />}
-                </button>
+                  ) : null}
+                </div>
                 {isOpen ? (
                   <div className="border-t border-border/60 px-5 py-4">
                     <div className="flex flex-col gap-2">
@@ -480,8 +707,3 @@ export default function RoadmapPage() {
     </div>
   );
 }
-
-
-
-
-
