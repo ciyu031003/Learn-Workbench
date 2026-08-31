@@ -15,6 +15,10 @@ import {
   Timer as TimerIcon,
   ListChecks,
   GlassWater,
+  Activity,
+  Play,
+  Pause,
+  RotateCcw,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +30,8 @@ import {
   energyLevelColors,
   reminderTypeLabels,
   breakKindLabels,
+  exerciseTypeOptions,
+  exerciseTypeLabels,
   type WellbeingToday,
   type WellbeingReminder,
   type DailyPlanItem,
@@ -51,6 +57,7 @@ const planKindMeta: Record<DailyPlanItem["kind"], { icon: typeof TimerIcon; colo
   energy: { icon: Zap, color: "#f59e0b" },
   task: { icon: ListChecks, color: "#71717a" },
   review: { icon: HeartPulse, color: "#f97316" },
+  move: { icon: Activity, color: "#10b981" },
 };
 
 function HydrationRing({ totalMl, targetMl }: { totalMl: number; targetMl: number }) {
@@ -105,11 +112,23 @@ export default function WellbeingPage() {
   const [rmTitle, setRmTitle] = useState("");
   const [rmInterval, setRmInterval] = useState("90");
 
+  // ---- 运动模块：类型 / 时长 / 倒计时 / 目标 ----
+  const [exerciseType, setExerciseType] = useState("BALL");
+  const [exLabel, setExLabel] = useState("");
+  const [exMinutes, setExMinutes] = useState("20");
+  const [exTarget, setExTarget] = useState(String(today?.exercise?.targetMinutes ?? 30));
+  const [editingExTarget, setEditingExTarget] = useState(false);
+  const [timerTotal, setTimerTotal] = useState(0);
+  const [timerLeft, setTimerLeft] = useState(0);
+  const [timerRunning, setTimerRunning] = useState(false);
+
   const loadToday = useCallback(async () => {
     try {
       const r = await fetch("/api/wellbeing/today");
       if (!r.ok) throw new Error("load failed");
-      setToday(await r.json());
+      const t = await r.json();
+      setToday(t);
+      setExTarget(String(t?.exercise?.targetMinutes ?? 30));
       setError(null);
     } catch {
       setError("健康数据加载失败，请确认数据库已启动");
@@ -127,6 +146,70 @@ export default function WellbeingPage() {
     loadToday();
     loadReminders();
   }, [loadToday, loadReminders]);
+
+  const logExercise = useCallback(
+    async (durationSeconds: number, source = "MANUAL") => {
+      if (durationSeconds <= 0) return;
+      await fetch("/api/wellbeing/exercise", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: exerciseType, typeLabel: exLabel.trim() || null, durationSeconds, source }),
+      });
+      loadToday();
+    },
+    [exerciseType, exLabel, loadToday]
+  );
+
+  const startTimer = () => {
+    const mins = Math.max(1, Number(exMinutes) || 1);
+    const total = mins * 60;
+    setTimerTotal(total);
+    setTimerLeft(total);
+    setTimerRunning(true);
+  };
+
+  const toggleTimer = () => setTimerRunning((v) => !v);
+
+  const resetTimer = () => {
+    setTimerRunning(false);
+    setTimerTotal(0);
+    setTimerLeft(0);
+  };
+
+  useEffect(() => {
+    if (!timerRunning) return;
+    const id = setInterval(() => setTimerLeft((p) => Math.max(0, p - 1)), 1000);
+    return () => clearInterval(id);
+  }, [timerRunning]);
+
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (!timerRunning || timerLeft !== 0 || timerTotal <= 0) return;
+    const total = timerTotal;
+    void logExercise(total, "FOCUS");
+    setTimerRunning(false);
+    setTimerTotal(0);
+  }, [timerRunning, timerLeft, timerTotal, logExercise]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  const recordNow = async () => {
+    if (timerRunning) return;
+    await logExercise((Math.max(0, Number(exMinutes) || 0)) * 60, "MANUAL");
+  };
+
+  const saveExTarget = async () => {
+    const v = Number(exTarget);
+    if (!Number.isFinite(v) || v < 1 || v > 600) return;
+    await fetch("/api/wellbeing/exercise/goal", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetMinutes: v }),
+    });
+    setEditingExTarget(false);
+    loadToday();
+  };
+
+
 
   const addWater = async (ml: number) => {
     await fetch("/api/wellbeing/hydration", {
@@ -207,6 +290,11 @@ export default function WellbeingPage() {
   const latestEnergy = today?.energy ?? null;
   const plan = today?.plan ?? [];
   const hydration = today?.hydration;
+  const exerciseToday = today?.exercise;
+  const timerText =
+    timerLeft > 0
+      ? ("0" + Math.floor(timerLeft / 60)).slice(-2) + ":" + ("0" + (timerLeft % 60)).slice(-2)
+      : "00:00";
 
   return (
     <div className="page-enter flex flex-col gap-6">
@@ -393,6 +481,169 @@ export default function WellbeingPage() {
                     </span>
                   </div>
                 ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+        {/* 今日运动（健康模块小类） */}
+        <Card>
+          <CardHeader className="flex-row items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Activity className="size-5 text-success" />
+              <CardTitle>今日运动</CardTitle>
+            </div>
+            <span className="rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-xs">
+              今日 <span className="font-semibold">{exerciseToday?.totalMinutes ?? 0}</span>
+              <span className="text-muted-foreground"> / {exerciseToday?.targetMinutes ?? 30}</span>
+              <span className="text-muted-foreground"> 分钟</span>
+            </span>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <div className="flex items-center gap-3 rounded-xl border border-white/20 bg-white/10 px-3 py-2.5 backdrop-blur-md">
+              <Activity className="size-5 shrink-0 text-success" />
+              <div className="flex-1">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-lg font-bold tabular-nums">
+                    {exerciseToday?.totalMinutes ?? 0}
+                    <span className="text-xs font-normal text-muted-foreground"> 分钟</span>
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    目标 {exerciseToday?.targetMinutes ?? 30} 分钟 ·{' '}
+                    {exerciseToday?.targetMinutes
+                      ? Math.min(100, Math.round(((exerciseToday?.totalMinutes ?? 0) / exerciseToday.targetMinutes) * 100))
+                      : 0}
+                    %
+                  </span>
+                </div>
+                <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-teal-500 transition-all"
+                    style={{
+                      width: `${exerciseToday?.targetMinutes
+                        ? Math.min(100, Math.round(((exerciseToday?.totalMinutes ?? 0) / exerciseToday.targetMinutes) * 100))
+                        : 0}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 记录运动 */}
+            <div className="flex flex-col gap-2">
+              <div className="grid gap-2 sm:grid-cols-2">
+                <select
+                  value={exerciseType}
+                  onChange={(e) => setExerciseType(e.target.value)}
+                  className="glass-select h-10 rounded-xl px-3 text-sm outline-none"
+                  aria-label="运动类型"
+                >
+                  {exerciseTypeOptions.map((opt) => (
+                    <option key={opt.type} value={opt.type}>{opt.label}</option>
+                  ))}
+                </select>
+                <Input
+                  value={exLabel}
+                  onChange={(e) => setExLabel(e.target.value)}
+                  placeholder="自定义，如：篮球 / 羽毛球"
+                  aria-label="运动名称"
+                  className="h-10"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={1}
+                  max={600}
+                  value={exMinutes}
+                  onChange={(e) => setExMinutes(e.target.value)}
+                  className="h-10 w-24"
+                  aria-label="运动时长"
+                />
+                <span className="text-sm text-muted-foreground">分钟</span>
+                <Button onClick={recordNow} disabled={timerRunning || !(Number(exMinutes) > 0)} className="ml-auto">
+                  <Check className="size-4" /> 记录一下
+                </Button>
+              </div>
+            </div>
+
+            {/* 专注运动倒计时 */}
+            <div className="flex flex-col gap-2 rounded-xl border border-white/20 bg-white/10 p-3 backdrop-blur-md">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <TimerIcon className="size-5 text-success" />
+                  <span className="text-2xl font-bold tabular-nums">{timerText}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Button size="sm" onClick={startTimer} disabled={timerRunning}>
+                    <Play className="size-4" /> 开始
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={toggleTimer}
+                    disabled={timerTotal === 0}
+                    aria-label={timerRunning ? "暂停" : "继续"}
+                  >
+                    {timerRunning ? <Pause className="size-4" /> : <Play className="size-4" />}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={resetTimer} disabled={timerTotal === 0} aria-label="重置倒计时">
+                    <RotateCcw className="size-4" />
+                  </Button>
+                </div>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                专注运动倒计时，结束时自动记为「专注运动」；配合 {exMinutes || "—"} 分钟初始时长。
+              </p>
+            </div>
+
+            {/* 今日运动记录 */}
+            <div className="flex flex-col gap-1.5">
+              {(exerciseToday?.logs ?? []).length === 0 ? (
+                <p className="py-2 text-center text-xs text-muted-foreground">今天还没有运动记录</p>
+              ) : (
+                exerciseToday?.logs.map((l) => (
+                  <div key={l.id} className="flex items-center justify-between rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs">
+                    <span className="flex items-center gap-1.5 text-foreground">
+                      <Activity className="size-3.5 text-success" /> {l.typeLabel || exerciseTypeLabels[l.type]}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {new Date(l.startedAt).toLocaleTimeString("zh-CN", { hour12: false }).slice(0, 5)} · {Math.round(l.durationSeconds / 60)} 分钟
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* 每日目标 */}
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              {editingExTarget ? (
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={600}
+                    value={exTarget}
+                    onChange={(e) => setExTarget(e.target.value)}
+                    className="h-8 w-28"
+                    aria-label="每日运动目标"
+                  />
+                  <Button size="sm" onClick={saveExTarget}>保存</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setEditingExTarget(false)}>取消</Button>
+                </div>
+              ) : (
+                <>
+                  <span>每日目标 {exerciseToday?.targetMinutes ?? 30} 分钟</span>
+                  <button
+                    onClick={() => {
+                      setExTarget(String(exerciseToday?.targetMinutes ?? 30));
+                      setEditingExTarget(true);
+                    }}
+                    aria-label="修改运动目标"
+                    className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-white/15 hover:text-foreground"
+                  >
+                    <Pencil className="size-3.5" />
+                  </button>
+                </>
               )}
             </div>
           </CardContent>

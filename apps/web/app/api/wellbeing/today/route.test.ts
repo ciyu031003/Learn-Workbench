@@ -22,13 +22,15 @@ beforeEach(() => {
 });
 
 describe("GET /api/wellbeing/today", () => {
-  it("aggregates hydration/focus/energy/breaks into the today payload", async () => {
+  it("aggregates hydration/focus/energy/breaks/exercise into the today payload", async () => {
     userScopeMock.mockResolvedValue({ uid: "u-1", anonId: null });
     queryMock.mockResolvedValueOnce({ rows: [{ id: 1, amountMl: 500, source: "MANUAL", recordedAt: "x" }] } as never); // hydration
     queryMock.mockResolvedValueOnce({ rows: [{ id: 2, targetMl: 2500 }] } as never);                                  // goal
     queryMock.mockResolvedValueOnce({ rows: [{ id: 3, level: 4 }] } as never);                                       // energy
     queryMock.mockResolvedValueOnce({ rows: [{ seconds: 3600 }] } as never);                                         // focus
     queryMock.mockResolvedValueOnce({ rows: [] } as never);                                                          // breaks
+    queryMock.mockResolvedValueOnce({ rows: [{ id: 1, type: "BALL", typeLabel: "篮球", durationSeconds: 1200, source: "MANUAL", note: null, startedAt: "x" }] } as never); // exercise logs
+    queryMock.mockResolvedValueOnce({ rows: [{ id: 1, targetMinutes: 45 }] } as never);                             // exercise goal
     queryMock.mockResolvedValueOnce({ rows: [] } as never);                                                          // reminders due
     planMock.mockImplementation(({ focusMinutes }) => [{ time: "09:00", kind: "focus", label: `${focusMinutes}`, hint: "" }]);
 
@@ -41,24 +43,22 @@ describe("GET /api/wellbeing/today", () => {
     expect(body.energy.level).toBe(4);
     expect(body.focusTodayMinutes).toBe(60);
     expect(body.nextBreakDue).toBe(true);
-    expect(planMock).toHaveBeenCalledWith(expect.objectContaining({ focusMinutes: 60, energyLevel: 4, breakDue: true }));
+    expect(body.exercise.totalMinutes).toBe(20);
+    expect(body.exercise.targetMinutes).toBe(45);
+    expect(planMock).toHaveBeenCalledWith(expect.objectContaining({ focusMinutes: 60, energyLevel: 4, breakDue: true, exerciseMinutes: 20, exerciseTargetMinutes: 45 }));
     expect(body.plan).toEqual([{ time: "09:00", kind: "focus", label: "60", hint: "" }]);
   });
 
   it("defaults target to 2000 and energy to null when empty", async () => {
     userScopeMock.mockResolvedValue({ uid: "u-1", anonId: null });
-    queryMock.mockResolvedValueOnce({ rows: [] } as never);
-    queryMock.mockResolvedValueOnce({ rows: [] } as never);
-    queryMock.mockResolvedValueOnce({ rows: [] } as never);
-    queryMock.mockResolvedValueOnce({ rows: [] } as never);
-    queryMock.mockResolvedValueOnce({ rows: [] } as never);
-    queryMock.mockResolvedValueOnce({ rows: [] } as never);
+    for (let i = 0; i < 8; i++) queryMock.mockResolvedValueOnce({ rows: [] } as never);
     planMock.mockReturnValue([]);
     const res = await GET();
     const body = await res.json();
     expect(body.hydration.targetMl).toBe(2000);
     expect(body.energy).toBeNull();
     expect(body.focusTodayMinutes).toBe(0);
+    expect(body.exercise.totalMinutes).toBe(0);
+    expect(body.exercise.targetMinutes).toBe(30);
   });
 });
-

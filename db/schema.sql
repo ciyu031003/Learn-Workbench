@@ -520,6 +520,41 @@ CREATE TABLE IF NOT EXISTS break_sessions (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- 来自迁移 023_exercise_logs.sql
+CREATE TABLE IF NOT EXISTS exercise_logs (
+  id               bigserial PRIMARY KEY,
+  user_id          uuid REFERENCES users(id) ON DELETE CASCADE,
+  anon_id          text,
+  type             text NOT NULL DEFAULT 'OTHER'
+                   CHECK (type IN ('BALL','AEROBIC','STRENGTH','STRETCH','MOVE','OTHER')),
+  type_label       text,
+  duration_seconds int NOT NULL DEFAULT 0 CHECK (duration_seconds >= 0 AND duration_seconds <= 86400),
+  source           text NOT NULL DEFAULT 'MANUAL'
+                   CHECK (source IN ('MANUAL','FOCUS','BREAK')),
+  note             text,
+  started_at       timestamptz NOT NULL DEFAULT now(),
+  deleted_at       timestamptz,
+  client_id        text,
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  updated_at       timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_exercise_user    ON exercise_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_exercise_started ON exercise_logs(started_at);
+CREATE INDEX IF NOT EXISTS idx_exercise_anon    ON exercise_logs(anon_id);
+DROP TRIGGER IF EXISTS trg_exercise_logs_updated ON exercise_logs;
+CREATE TRIGGER trg_exercise_logs_updated BEFORE UPDATE ON exercise_logs
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TABLE IF NOT EXISTS exercise_goals (
+  id             bigserial PRIMARY KEY,
+  user_id        uuid REFERENCES users(id) ON DELETE CASCADE,
+  anon_id        text,
+  target_minutes int NOT NULL DEFAULT 30 CHECK (target_minutes BETWEEN 1 AND 600),
+  effective_from date NOT NULL DEFAULT CURRENT_DATE,
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  updated_at     timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_exercise_goal_user ON exercise_goals(user_id);
 -- 来自迁移 007_jobs.sql
 CREATE TABLE IF NOT EXISTS job_crawler_configs (
   user_id       uuid PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
@@ -748,6 +783,15 @@ CREATE TABLE IF NOT EXISTS market_stats (
   payload     jsonb NOT NULL,
   computed_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- 来自迁移 020_market_stats_history.sql
+CREATE TABLE IF NOT EXISTS market_stats_history (
+  id bigserial PRIMARY KEY,
+  snap_date date NOT NULL UNIQUE,
+  payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_market_stats_history_snap_date ON market_stats_history(snap_date DESC);
 
 -- 来自迁移 021_interview_attempts.sql
 CREATE TABLE IF NOT EXISTS interview_attempts (

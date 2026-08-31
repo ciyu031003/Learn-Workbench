@@ -41,6 +41,8 @@ export function buildTodayPlan(opts: {
   focusMinutes: number;
   energyLevel: number | null;
   breakDue: boolean;
+  exerciseMinutes?: number;
+  exerciseTargetMinutes?: number;
 }): DailyPlanItem[] {
   const now = new Date();
   const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
@@ -60,6 +62,15 @@ export function buildTodayPlan(opts: {
   } else if (opts.energyLevel >= 4) {
     plan.push({ time, label: "精力在线，适合攻克难点", kind: "energy", hint: "把最烧脑的任务放在现在" });
   }
-  plan.push({ time, label: "补充水分", kind: "hydrate", hint: "小口多次，比一次灌一大杯更有效" });
+  const exMin = opts.exerciseMinutes ?? 0;
+  const exTarget = opts.exerciseTargetMinutes ?? 30;
+  if (exTarget > 0 && exMin < exTarget) {
+    plan.push({
+      time,
+      label: `今日运动 ${exMin}/${exTarget} 分钟`,
+      kind: "move",
+      hint: exMin <= 0 ? "还没运动：起身活动或来一段球类/有氧，兼顾身体" : "运动时长未达标，来一组拉伸或快走补上",
+    });
+  }  plan.push({ time, label: "补充水分", kind: "hydrate", hint: "小口多次，比一次灌一大杯更有效" });
   return plan;
 }

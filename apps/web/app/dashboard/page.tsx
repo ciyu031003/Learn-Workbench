@@ -31,6 +31,7 @@ import {
   Coffee,
   Rocket,
   Flower,
+  Activity,
 } from "lucide-react";
 
 function greeting(): string {
@@ -316,8 +317,8 @@ export default function DashboardPage() {
       {/* 学习 × 招聘打通：能力缺口入口 */}
       <DashboardGapCard />
 
-      {/* 今日状态：饮水 / 精力 / 休息建议 */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      {/* 今日状态：饮水 / 精力 / 休息 / 运动 */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Link href="/wellbeing" className="group">
           <Card>
             <CardContent className="flex items-center gap-3 p-4">
@@ -373,6 +374,26 @@ export default function DashboardPage() {
                 </p>
               </div>
               <span className="shrink-0 text-xs text-muted-foreground">站立 · 喝水 · 远眺</span>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/wellbeing" className="group">
+          <Card>
+            <CardContent className="flex items-center gap-3 p-4">
+              <span className="icon-chip h-10 w-10 shrink-0">
+                <Activity className="size-5 text-success" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold tabular-nums">
+                  {wellbeing ? `${wellbeing.exercise.totalMinutes}/${wellbeing.exercise.targetMinutes} 分钟` : "—"}
+                </p>
+                <p className="text-[11px] text-muted-foreground">今日运动</p>
+              </div>
+              {wellbeing ? (
+                <span className="shrink-0 text-xs font-medium text-success">
+                  {Math.min(100, Math.round((wellbeing.exercise.totalMinutes / Math.max(1, wellbeing.exercise.targetMinutes)) * 100))}%
+                </span>
+              ) : null}
             </CardContent>
           </Card>
         </Link>

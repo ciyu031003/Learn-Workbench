@@ -130,6 +130,26 @@ export const certificateSchema = z.object({
   note: z.string().nullable(),
 });
 export type Certificate = z.infer<typeof certificateSchema>;
+export const resumeAssetKindSchema = z.enum(["project", "skill", "github", "certificate"]);
+export type ResumeAssetKind = z.infer<typeof resumeAssetKindSchema>;
+
+export const resumeAssetSchema = z.object({
+  id: z.number(),
+  kind: resumeAssetKindSchema,
+  title: z.string(),
+  content: z.string().nullable(),
+  url: z.string().nullable(),
+  sortOrder: z.number(),
+  updatedAt: z.string(),
+});
+export type ResumeAsset = z.infer<typeof resumeAssetSchema>;
+
+export const resumeAssetKindLabels: Record<ResumeAssetKind, string> = {
+  project: "项目",
+  skill: "技能",
+  github: "GitHub",
+  certificate: "证书",
+};
 
 export const backgroundInfoSchema = z.object({
   date: z.string(),
@@ -340,11 +360,45 @@ export type BreakSession = z.infer<typeof breakSessionSchema>;
 export const dailyPlanItemSchema = z.object({
   time: z.string(),
   label: z.string(),
-  kind: z.enum(["focus", "break", "hydrate", "energy", "task", "review"]),
+  kind: z.enum(["focus", "break", "hydrate", "energy", "task", "review", "move"]),
   hint: z.string().nullable(),
 });
 export type DailyPlanItem = z.infer<typeof dailyPlanItemSchema>;
 
+export const exerciseTypeSchema = z.enum(["BALL", "AEROBIC", "STRENGTH", "STRETCH", "MOVE", "OTHER"]);
+export type ExerciseType = z.infer<typeof exerciseTypeSchema>;
+
+export const exerciseLogSchema = z.object({
+  id: z.number(),
+  type: exerciseTypeSchema,
+  typeLabel: z.string().nullable(),
+  durationSeconds: z.number(),
+  source: z.string(),
+  note: z.string().nullable(),
+  startedAt: z.string(),
+});
+export type ExerciseLog = z.infer<typeof exerciseLogSchema>;
+
+export const exerciseGoalSchema = z.object({ id: z.number(), targetMinutes: z.number() });
+export type ExerciseGoal = z.infer<typeof exerciseGoalSchema>;
+
+export const exerciseTypeLabels: Record<ExerciseType, string> = {
+  BALL: "球类运动",
+  AEROBIC: "有氧运动",
+  STRENGTH: "力量训练",
+  STRETCH: "拉伸放松",
+  MOVE: "日常活动",
+  OTHER: "其他运动",
+};
+
+export const exerciseTypeOptions: { type: ExerciseType; label: string }[] = [
+  { type: "BALL", label: "球类运动" },
+  { type: "AEROBIC", label: "有氧运动" },
+  { type: "STRENGTH", label: "力量训练" },
+  { type: "STRETCH", label: "拉伸放松" },
+  { type: "MOVE", label: "日常活动" },
+  { type: "OTHER", label: "其他运动" },
+];
 export const wellbeingTodaySchema = z.object({
   date: z.string(),
   hydration: z.object({
@@ -357,6 +411,11 @@ export const wellbeingTodaySchema = z.object({
   breaksToday: z.array(breakSessionSchema),
   nextBreakDue: z.boolean(),
   remindersDue: z.array(wellbeingReminderSchema),
+  exercise: z.object({
+    totalMinutes: z.number(),
+    targetMinutes: z.number(),
+    logs: z.array(exerciseLogSchema),
+  }),
   plan: z.array(dailyPlanItemSchema),
 });
 export type WellbeingToday = z.infer<typeof wellbeingTodaySchema>;
@@ -393,6 +452,7 @@ export const energyLevelColors: Record<number, string> = {
   4: "#22c55e",
   5: "#0ea5e9",
 };
+
 
 
 /* ================= 招花 · 招聘信息爬虫（方案 M7） ================= */

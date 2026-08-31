@@ -58,6 +58,25 @@ export async function GET() {
     w5.params
   );
 
+  // 今日运动（健康模块小类）：记录 + 当日汇总 + 目标
+  const w5b = scopeWhere(scope, [scope.uid, date]);
+  const exercise = await pgPool.query(
+    `SELECT id, type, type_label AS "typeLabel", duration_seconds AS "durationSeconds",
+            source, note, started_at AS "startedAt"
+     FROM exercise_logs
+     WHERE user_id IS NOT DISTINCT FROM $1${w5b.sql} AND deleted_at IS NULL
+       AND started_at >= $2::date AND started_at < ($2::date + 1)
+     ORDER BY started_at`,
+    w5b.params
+  );
+  const exerciseSeconds = exercise.rows.reduce((a: number, r: { durationSeconds: number }) => a + r.durationSeconds, 0);
+  const w5c = scopeWhere(scope, [scope.uid, date]);
+  const exerciseGoal = await pgPool.query(
+    `SELECT id, target_minutes AS "targetMinutes" FROM exercise_goals
+     WHERE user_id IS NOT DISTINCT FROM $1${w5c.sql} AND effective_from <= $2::date
+     ORDER BY effective_from DESC LIMIT 1`,
+    w5c.params
+  );
   // 提醒：启用且 next_trigger_at 在接下来 30 分钟内视为“即将触发”
   const dueFrom = new Date().toISOString();
   const dueTo = new Date(Date.now() + 30 * 60000).toISOString();
@@ -82,6 +101,8 @@ export async function GET() {
     focusMinutes,
     energyLevel: energy.rows[0]?.level ?? null,
     breakDue,
+    exerciseMinutes: Math.round(exerciseSeconds / 60),
+    exerciseTargetMinutes: exerciseGoal.rows[0]?.targetMinutes ?? 30,
   });
 
   return NextResponse.json({
@@ -92,6 +113,11 @@ export async function GET() {
     breaksToday: breaks.rows,
     nextBreakDue: breakDue,
     remindersDue: reminders.rows,
-    plan,
+    exercise: {
+    totalMinutes: Math.round(exerciseSeconds / 60),
+    totalSeconds: exerciseSeconds,
+    targetMinutes: exerciseGoal.rows[0]?.targetMinutes ?? 30,
+    logs: exercise.rows,
+  },  plan,
   });
 }
