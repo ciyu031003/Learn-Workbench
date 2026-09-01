@@ -230,7 +230,7 @@ export default function CareerResumePage() {
 
   return (
     <div className="page-enter flex flex-col gap-6">
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <Button asChild variant="ghost" size="sm">
           <Link href="/career"><ChevronLeft className="size-4" /> 职业画像</Link>
         </Button>

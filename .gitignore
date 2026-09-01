@@ -50,3 +50,4 @@ prototype/tmp/
 
 # 登录态 Cookie（含敏感会话，禁止提交）
 config/job-hosts/storageState.json
+scripts/.audit_cookie.txt

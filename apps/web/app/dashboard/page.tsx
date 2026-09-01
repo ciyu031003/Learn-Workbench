@@ -1,37 +1,29 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import type { CareerReadiness, DashboardSummary, WellbeingToday } from "@learn-workbench/shared";
 import { formatDuration, taskTypeLabels, formatDateCN } from "@learn-workbench/shared";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { QuoteWidget } from "@/components/quote-widget";
-import { DashboardGapCard } from "@/components/skills/dashboard-gap-card";
-import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import {
-  Flame,
+  Target,
+  Activity,
+  TrendingUp,
+  Rocket,
+  ListTodo,
   Clock3,
   CheckCircle2,
-  ChevronRight,
-  Award,
-  Map,
-  ListTodo,
-  NotebookPen,
-  Sparkles,
-  FolderGit2,
-  Plus,
-  Trash2,
-  ExternalLink,
+  Circle,
+  ArrowRight,
+  Play,
   Droplets,
   Zap,
-  Coffee,
-  Rocket,
-  Flower,
-  Activity,
+  Flame,
+  Plus,
 } from "lucide-react";
 
 function greeting(): string {
@@ -42,6 +34,7 @@ function greeting(): string {
   if (h < 18) return "下午好";
   return "晚上好";
 }
+
 /** 数字 count-up（尊重 prefers-reduced-motion） */
 function useCountUp(target: number, duration = 600): number {
   const [value, setValue] = useState(0);
@@ -72,21 +65,22 @@ function useCountUp(target: number, duration = 600): number {
   return value;
 }
 
-function StatValue({ value, className }: { value: string; className?: string }) {
-  const m = /^(-?[\d.]+)(.*)$/.exec(value);
+function StatValue({ value, className }: { value: number | string; className?: string }) {
+  const s = String(value);
+  const m = /^(-?[\d.]+)(.*)$/.exec(s);
   const target = m ? Number(m[1]) : NaN;
   const animated = useCountUp(Number.isFinite(target) ? target : 0);
-  const text = Number.isFinite(target) ? animated + (m?.[2] ?? "") : value;
-  return <span className={cn("font-bold tabular-nums tracking-tight", className)}>{text}</span>;
+  const text = Number.isFinite(target) ? animated + (m?.[2] ?? "") : s;
+  return <span className={cn("stat-pop font-bold tabular-nums tracking-tight", className)}>{text}</span>;
 }
 
 /** 整体进度环（SVG，CSS 过渡动画） */
 function OverallRing({ percent }: { percent: number }) {
-  const R = 62;
+  const R = 56;
   const C = 2 * Math.PI * R;
   const p = Math.max(0, Math.min(100, percent));
   return (
-    <div className="relative h-36 w-36 shrink-0">
+    <div className="relative h-28 w-28 shrink-0">
       <svg viewBox="0 0 150 150" className="h-full w-full -rotate-90">
         <defs>
           <linearGradient id="hero-ring-grad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -109,9 +103,32 @@ function OverallRing({ percent }: { percent: number }) {
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <StatValue value={p + "%"} className="text-3xl" />
+        <StatValue value={p + "%"} className="text-2xl" />
         <span className="text-[11px] text-muted-foreground">整体进度</span>
       </div>
+    </div>
+  );
+}
+
+/** 小节标题 */
+function SectionTitle({
+  icon: Icon,
+  title,
+  action,
+}: {
+  icon: typeof Target;
+  title: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="mb-3 flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <span className="icon-chip h-8 w-8 shrink-0">
+          <Icon className="size-4 text-primary" />
+        </span>
+        <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
+      </div>
+      {action}
     </div>
   );
 }
@@ -119,25 +136,17 @@ function OverallRing({ percent }: { percent: number }) {
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardSummary | null>(null);
   const [readiness, setReadiness] = useState<CareerReadiness | null>(null);
-  const [jobsTotal, setJobsTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [wellbeing, setWellbeing] = useState<WellbeingToday | null>(null);
-  const [github, setGithub] = useState<{ id: number; title: string; url: string | null; content: string | null }[]>([]);
-  const [ghTitle, setGhTitle] = useState("");
-  const [ghUrl, setGhUrl] = useState("");
-  const [ghDesc, setGhDesc] = useState("");
-  const ghTitleRef = useRef<HTMLInputElement>(null);
   const [mounted, setMounted] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      // /api/dashboard 一次请求聚合：概览 + 职业状态卡 + 今日计划 + 推荐（减少前端并发）
       const r = await fetch("/api/dashboard");
       if (!r.ok) throw new Error("load failed");
       const d = await r.json();
       setData(d.summary ?? null);
       setReadiness(d.readiness ?? null);
-      setJobsTotal(d.jobsTotal ?? 0);
       setError(null);
     } catch {
       setError("数据库暂不可用，请确认已运行 scripts\\start_pg.ps1 启动本地 PostgreSQL");
@@ -167,461 +176,256 @@ export default function DashboardPage() {
     };
   }, []);
 
-  const loadGithub = useCallback(async () => {
-    try {
-      const r = await fetch("/api/github");
-      if (r.ok) setGithub((await r.json()).records ?? []);
-    } catch {
-      // 忽略
-    }
-  }, []);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadGithub();
-  }, [loadGithub]);
-
-  const addGithub = async () => {
-    if (!ghTitle.trim()) return;
-    const r = await fetch("/api/github", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: ghTitle.trim(), url: ghUrl.trim() || null, content: ghDesc.trim() || null }),
-    });
-    if (r.ok) {
-      setGhTitle("");
-      setGhUrl("");
-      setGhDesc("");
-      loadGithub();
-    }
-  };
-
-  const deleteGithub = async (id: number) => {
-    await fetch(`/api/github?id=${id}`, { method: "DELETE" });
-    loadGithub();
-  };
-
   const checkin = async () => {
     await fetch("/api/checkin", { method: "POST", body: JSON.stringify({}) });
+    load();
+  };
+
+  const toggleDone = async (id: number, done: boolean) => {
+    await fetch("/api/tasks", { method: "PATCH", body: JSON.stringify({ id, done }) });
     load();
   };
 
   const today = mounted ? new Date().toISOString().slice(0, 10) : "";
   const greet = mounted ? greeting() : "";
 
-  const mainPhases = data?.phases.filter((p) => p.track === "main") ?? [];
-  const agentPhases = data?.phases.filter((p) => p.track === "agent") ?? [];
+  const tasks = data?.todayTasks ?? [];
+  const todayCount = tasks.length;
+  const todayDone = tasks.filter((t) => t.done).length;
+  const undone = [...tasks].filter((t) => !t.done).sort((a, b) => a.sortOrder - b.sortOrder);
+  const currentTask = undone[0] ?? null;
+  const upcoming = undone.slice(1, 5);
+
+  const statCards = [
+    { label: "职业准备度", value: `${readiness?.overall ?? 0}%`, icon: Rocket, accent: "text-accent", href: "/career" },
+    { label: "今日任务", value: `${todayDone}/${todayCount}`, icon: ListTodo, accent: "text-success", href: "/tasks" },
+    { label: "本周专注", value: formatDuration(data?.totalFocusMinutes ?? 0), icon: Clock3, accent: "text-warning", href: "/tasks#focus" },
+    { label: "连续打卡", value: `${data?.streak ?? 0} 天`, icon: Flame, accent: "text-orange-500", href: "/logs" },
+  ];
+
+  const wellbeingChips = [
+    { label: "精力", value: wellbeing?.energy ? `${wellbeing.energy.level}/5` : "待记录", icon: Zap, accent: "text-warning" },
+    { label: "饮水", value: wellbeing ? `${wellbeing.hydration.totalMl}ml` : "—", icon: Droplets, accent: "text-accent" },
+    { label: "运动", value: wellbeing ? `${wellbeing.exercise.totalMinutes} 分` : "—", icon: Activity, accent: "text-success" },
+  ];
 
   return (
     <div className="page-enter flex flex-col gap-6">
-      {/* 晨间驾驶舱：问候 + 整体进度环 + 今日聚焦 */}
-      <Card className="relative overflow-hidden">
-        <div className="flex flex-col gap-6 p-6 lg:flex-row lg:items-center lg:justify-between lg:p-8">
-          <div className="min-w-0">
-            <h1 className="page-title text-3xl font-bold tracking-tight lg:text-5xl">
-              {mounted
-                ? `${greet}，继续今天的 ${data?.careerName ?? "ICT 学习规划"}`
-                : "你好，继续今天的 " + (data?.careerName ?? "ICT 学习规划")}
-            </h1>
-            <p className="page-subtitle mt-2 text-sm">
-              {mounted
-                ? `${formatDateCN(today)} · 当前职业路线：${data?.careerName ?? "ICT 学习规划"}`
-                : "… · 当前职业路线：" + (data?.careerName ?? "ICT 学习规划")}
-            </p>
-            <QuoteWidget className="mt-5 w-full max-w-md" />
-          </div>
-
-          <div className="flex items-center gap-5 lg:gap-8">
-            <OverallRing percent={data?.overallPercent ?? 0} />
-            <div className="flex flex-col gap-2.5">
-              {[
-                { label: "今日任务", value: data ? `${data.weekTaskDone}/${data.weekTaskCount}` : "—", icon: ListTodo, accent: "text-success" },
-                { label: "本周专注", value: data ? formatDuration(data.totalFocusMinutes) : "—", icon: Clock3, accent: "text-accent" },
-                { label: "连续打卡", value: data ? `${data.streak} 天` : "—", icon: Flame, accent: "text-orange-500" },
-              ].map((p) => (
-                <div key={p.label} className="flex items-center gap-2.5 rounded-xl border border-white/20 bg-white/10 px-3 py-2 backdrop-blur-md">
-                  <p.icon className={`size-4 shrink-0 ${p.accent}`} />
-                  <div className="flex min-w-0 flex-col">
-                    <StatValue value={p.value} className="text-sm" />
-                    <span className="text-[11px] text-muted-foreground">{p.label}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      {/* 职业状态卡：职业准备度 + 四维 + 发现职位（2.0 首页核心组件） */}
-      <Card className="relative overflow-hidden">
-        <CardContent className="flex flex-col gap-5 p-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <Rocket className="size-5 text-primary" />
-              <h2 className="text-xl font-bold tracking-tight lg:text-2xl">
-                {readiness?.targetRole ?? data?.careerName ?? "ICT 学习规划"}
-              </h2>
-            </div>
-            <p className="page-subtitle mt-1.5 text-sm">职业准备度 —— 技能 · 项目 · 简历 · 面试</p>
-            <div className="mt-4 flex max-w-xl flex-col gap-2.5">
-              {(readiness?.dimensions ?? []).map((d) => (
-                <div key={d.key}>
-                  <div className="mb-1 flex items-center justify-between text-xs">
-                    <span className="font-medium">{d.label}</span>
-                    <span className="tabular-nums text-muted-foreground">{d.score}%</span>
-                  </div>
-                  <Progress value={d.score} indicatorClassName={d.key === "project" || d.key === "interview" ? "progress-fill-accent" : "progress-fill"} />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex shrink-0 flex-col items-center gap-3">
-            <div className="relative flex h-32 w-32 items-center justify-center">
-              <svg viewBox="0 0 150 150" className="h-full w-full -rotate-90">
-                <defs>
-                  <linearGradient id="dash-readiness-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#6366f1" />
-                    <stop offset="100%" stopColor="#0ea5e9" />
-                  </linearGradient>
-                </defs>
-                <circle cx="75" cy="75" r={62} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="10" />
-                <circle
-                  cx="75" cy="75" r={62} fill="none"
-                  stroke="url(#dash-readiness-grad)" strokeWidth="10" strokeLinecap="round"
-                  strokeDasharray={2 * Math.PI * 62}
-                  strokeDashoffset={2 * Math.PI * 62 * (1 - (readiness?.overall ?? 0) / 100)}
-                  style={{ transition: "stroke-dashoffset 0.8s ease" }}
-                />
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <StatValue value={(readiness?.overall ?? 0) + "%"} className="text-3xl" />
-                <span className="text-[11px] text-muted-foreground">职业准备度</span>
-              </div>
-            </div>
-            <Button asChild variant="secondary" size="sm">
-              <Link href="/jobs">
-                <Flower className="size-4" /> 发现 {readiness?.matchedJobs ?? jobsTotal} 个适合你的职位
-              </Link>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
       {error ? (
         <Card>
           <CardContent className="p-6 text-sm text-danger">{error}</CardContent>
         </Card>
       ) : null}
 
-      {/* 学习 × 招聘打通：能力缺口入口 */}
-      <DashboardGapCard />
+      {/* 问候条 + 整体进度 */}
+      <section className="glass relative overflow-hidden">
+        <div className="flex flex-col gap-5 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between lg:p-7">
+          <div className="min-w-0">
+            <p className="page-subtitle text-xs">{mounted ? formatDateCN(today) : "今日"}</p>
+            <h1 className="page-title mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
+              {mounted ? `${greet}，${data?.careerName ?? "ICT 学习规划"}` : `你好，${data?.careerName ?? "ICT 学习规划"}`}
+            </h1>
+            <p className="page-subtitle mt-1.5 text-sm">把最重要的一件事做完，就赢了一半。</p>
+          </div>
+          <div className="shrink-0">
+            <OverallRing percent={data?.overallPercent ?? 0} />
+          </div>
+        </div>
+      </section>
 
-      {/* 今日状态：饮水 / 精力 / 休息 / 运动 */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Link href="/wellbeing" className="group">
-          <Card>
-            <CardContent className="flex items-center gap-3 p-4">
-              <span className="icon-chip h-10 w-10 shrink-0">
-                <Droplets className="size-5 text-accent" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold tabular-nums">
-                  {wellbeing ? `${wellbeing.hydration.totalMl}/${wellbeing.hydration.targetMl} ml` : "—"}
-                </p>
-                <p className="text-[11px] text-muted-foreground">今日饮水</p>
-              </div>
-              {wellbeing ? (
-                <span className="shrink-0 text-xs font-medium text-accent">
-                  {Math.min(100, Math.round((wellbeing.hydration.totalMl / wellbeing.hydration.targetMl) * 100))}%
-                </span>
-              ) : null}
-            </CardContent>
-          </Card>
-        </Link>
-        <Link href="/wellbeing" className="group">
-          <Card>
-            <CardContent className="flex items-center gap-3 p-4">
-              <span className="icon-chip h-10 w-10 shrink-0">
-                <Zap className="size-5 text-warning" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold">
-                  {wellbeing?.energy ? `精力 ${wellbeing.energy.level}/5` : "记录精力"}
-                </p>
-                <p className="text-[11px] text-muted-foreground">当前状态</p>
-              </div>
-              {wellbeing?.energy ? (
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  {new Date(wellbeing.energy.recordedAt).toLocaleTimeString("zh-CN", { hour12: false }).slice(0, 5)}
-                </span>
-              ) : null}
-            </CardContent>
-          </Card>
-        </Link>
-        <Link href="/wellbeing" className="group">
-          <Card>
-            <CardContent className="flex items-center gap-3 p-4">
-              <span className="icon-chip h-10 w-10 shrink-0">
-                <Coffee className="size-5 text-success" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold">
-                  {wellbeing?.nextBreakDue ? "建议休息一下" : "节奏良好"}
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  今日专注 {wellbeing?.focusTodayMinutes ?? 0} 分钟
-                </p>
-              </div>
-              <span className="shrink-0 text-xs text-muted-foreground">站立 · 喝水 · 远眺</span>
-            </CardContent>
-          </Card>
-        </Link>
-        <Link href="/wellbeing" className="group">
-          <Card>
-            <CardContent className="flex items-center gap-3 p-4">
-              <span className="icon-chip h-10 w-10 shrink-0">
-                <Activity className="size-5 text-success" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold tabular-nums">
-                  {wellbeing ? `${wellbeing.exercise.totalMinutes}/${wellbeing.exercise.targetMinutes} 分钟` : "—"}
-                </p>
-                <p className="text-[11px] text-muted-foreground">今日运动</p>
-              </div>
-              {wellbeing ? (
-                <span className="shrink-0 text-xs font-medium text-success">
-                  {Math.min(100, Math.round((wellbeing.exercise.totalMinutes / Math.max(1, wellbeing.exercise.targetMinutes)) * 100))}%
-                </span>
-              ) : null}
-            </CardContent>
-          </Card>
-        </Link>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* 整体进度 */}
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex-row items-center justify-between">
-            <CardTitle>各阶段进度 · {data?.careerName ?? "ICT"}</CardTitle>
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/roadmap">
-                路线图 <ChevronRight className="size-4" />
-              </Link>
-            </Button>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <div className="flex flex-col gap-3">
-              {mainPhases.slice(0, 3).map((p) => (
-                <div key={p.phaseId}>
-                  <div className="mb-1 flex items-center justify-between text-xs">
-                    <span className="font-medium">{p.title}</span>
-                    <span className="text-muted-foreground">{p.done}/{p.total}</span>
-                  </div>
-                  <Progress value={p.percent} />
-                </div>
-              ))}
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {mainPhases.map((p) => (
-                <div key={p.phaseId} className="rounded-xl bg-muted/60 px-3 py-2">
-                  <div className="mb-1 flex items-center justify-between text-xs">
-                    <span className="truncate font-medium">{p.title}</span>
-                    <span className="ml-2 shrink-0 text-muted-foreground">{p.percent}%</span>
-                  </div>
-                  <Progress value={p.percent} className="h-1.5" />
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* 今日任务 */}
-        <Card>
-          <CardHeader className="flex-row items-center justify-between">
-            <CardTitle>今日任务</CardTitle>
+      {/* ① 当前任务 */}
+      <section>
+        <SectionTitle
+          icon={Target}
+          title="当前任务"
+          action={
             <Button asChild variant="ghost" size="sm">
               <Link href="/tasks">
-                全部 <ChevronRight className="size-4" />
+                今日任务 <ArrowRight className="size-4" />
               </Link>
             </Button>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2.5">
-            <Button onClick={checkin} variant="secondary" className="w-full justify-start gap-2">
-              <Flame className="size-4 text-orange-500" /> 今日打卡
-            </Button>
-            {data?.todayTasks.length === 0 ? (
-              <p className="py-4 text-center text-sm text-muted-foreground">今天还没有任务，去添加一个吧</p>
-            ) : (
-              data?.todayTasks.map((t) => (
-                <div key={t.id} className="flex items-center gap-2.5 rounded-xl bg-muted/50 px-3 py-2.5">
-                  <CheckCircle2 className={`size-5 shrink-0 ${t.done ? "text-success" : "text-muted-foreground/40"}`} />
-                  <span className={`flex-1 text-sm ${t.done ? "text-muted-foreground line-through" : ""}`}>{t.title}</span>
-                  <Badge variant="muted">{taskTypeLabels[t.taskType] ?? t.taskType}</Badge>
+          }
+        />
+        <Card className="overflow-hidden">
+          <CardContent className="flex flex-col gap-4 p-6">
+            {currentTask ? (
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-2 text-xs font-medium text-primary">
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+                    </span>
+                    正在进行的任务
+                  </span>
+                  <Badge variant="muted">今日 {todayDone}/{todayCount}</Badge>
                 </div>
-              ))
-            )}
-            <div className="mt-1 rounded-xl bg-muted/50 px-3 py-2.5 text-xs text-muted-foreground">
-              本周完成 {data?.weekTaskDone ?? 0}/{data?.weekTaskCount ?? 0} · 日志 {data?.logsThisWeek ?? 0} 篇
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* 证书 */}
-        <Card>
-          <CardHeader className="flex-row items-center gap-2">
-            <Award className="size-5 text-primary" />
-            <CardTitle>证书冲刺</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2.5">
-            {data?.certificates.length === 0 ? (
-              <p className="py-2 text-sm text-muted-foreground">暂无证书计划（P1 支持证书倒计时）</p>
-            ) : (
-              data?.certificates.map((c) => (
-                <div key={c.id} className="flex items-center justify-between rounded-xl bg-muted/50 px-3 py-2.5 text-sm">
-                  <span className="font-medium">{c.name}</span>
-                  <Badge variant={c.status === "achieved" ? "success" : "default"}>
-                    {c.status === "achieved" ? "已取得" : c.targetDate ?? "规划中"}
-                  </Badge>
-                </div>
-              ))
-            )}
-            <p className="mt-1 text-xs text-muted-foreground">HCIP-Datacom · 天翼云 ACP</p>
-          </CardContent>
-        </Card>
-
-        {/* Agent 副线 */}
-        <Card>
-          <CardHeader className="flex-row items-center gap-2">
-            <Sparkles className="size-5 text-accent" />
-            <CardTitle>Agent 应用副线</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2.5">
-            {agentPhases.map((p) => (
-              <div key={p.phaseId}>
-                <div className="mb-1 flex items-center justify-between text-xs">
-                  <span className="font-medium">{p.title}</span>
-                  <span className="text-muted-foreground">{p.done}/{p.total}</span>
-                </div>
-                <Progress value={p.percent} indicatorClassName="progress-fill-accent" />
-              </div>
-            ))}
-            <p className="mt-1 text-xs text-muted-foreground">Prompt → 工具 → RAG → 编排 → MCP → 工程化</p>
-          </CardContent>
-        </Card>
-
-        {/* 快捷入口 */}
-        <Card>
-          <CardHeader>
-            <CardTitle>快捷入口</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2">
-            <Button asChild variant="secondary" className="justify-start">
-              <Link href="/roadmap"><Map className="size-4" /> 路线图</Link>
-            </Button>
-            <Button asChild variant="secondary" className="justify-start">
-              <Link href="/tasks"><ListTodo className="size-4" /> 今日任务与专注</Link>
-            </Button>
-            <Button asChild variant="secondary" className="justify-start">
-              <Link href="/logs"><NotebookPen className="size-4" /> 费曼 / 复盘日志</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* GitHub 记录 */}
-      <Card>
-        <CardHeader className="flex-row items-center justify-between">
-          <div className="flex items-center gap-2">
-            <FolderGit2 className="size-5 text-foreground" />
-            <CardTitle>GitHub 记录</CardTitle>
-          </div>
-          <Badge variant="muted">{github.length} 条</Badge>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <input
-              ref={ghTitleRef}
-              value={ghTitle}
-              onChange={(e) => setGhTitle(e.target.value)}
-              placeholder="项目 / 仓库名称（必填）"
-              className="h-10 rounded-xl border border-white/25 bg-white/12 px-3 text-sm text-foreground outline-none backdrop-blur-md placeholder:text-muted-foreground focus:border-primary/60"
-            />
-            <input
-              value={ghUrl}
-              onChange={(e) => setGhUrl(e.target.value)}
-              placeholder="GitHub 链接（可选）"
-              className="h-10 rounded-xl border border-white/25 bg-white/12 px-3 text-sm text-foreground outline-none backdrop-blur-md placeholder:text-muted-foreground focus:border-primary/60"
-            />
-            <input
-              value={ghDesc}
-              onChange={(e) => setGhDesc(e.target.value)}
-              placeholder="一句话说明（可选）"
-              className="h-10 rounded-xl border border-white/25 bg-white/12 px-3 text-sm text-foreground outline-none backdrop-blur-md placeholder:text-muted-foreground focus:border-primary/60"
-            />
-          </div>
-          <Button onClick={addGithub} disabled={!ghTitle.trim()} className="self-end">
-            <Plus className="size-4" /> 添加记录
-          </Button>
-
-          {github.length === 0 ? (
-            <EmptyState
-              icon={FolderGit2}
-              title="还没有 GitHub 记录"
-              hint="把做过的项目沉淀成资产：网络巡检助手 / 数仓 ETL / ICT 交付助手…"
-              action={
-                <Button size="sm" onClick={() => ghTitleRef.current?.focus()}>
-                  <Plus className="size-4" /> 添加第一条记录
-                </Button>
-              }
-            />
-          ) : (
-            <div className="flex flex-col gap-2">
-              {github.map((g) => (
-                <div
-                  key={g.id}
-                  className="flex items-center gap-3 rounded-xl border border-white/20 bg-white/10 px-3 py-3 backdrop-blur-md"
-                >
-                  <FolderGit2 className="size-5 shrink-0 text-foreground" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">{g.title}</p>
-                    {g.content ? (
-                      <p className="truncate text-xs text-muted-foreground">{g.content}</p>
+                <div className="flex flex-col gap-2.5">
+                  <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">{currentTask.title}</h2>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="default">{taskTypeLabels[currentTask.taskType] ?? currentTask.taskType}</Badge>
+                    {currentTask.phaseId ? <Badge variant="muted">路线图阶段</Badge> : null}
+                    {currentTask.focusMinutes > 0 ? (
+                      <Badge variant="accent">已专注 {currentTask.focusMinutes} 分</Badge>
                     ) : null}
                   </div>
-                  {g.url ? (
-                    <a
-                      href={g.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-white/15 hover:text-foreground"
-                      aria-label="打开链接"
-                    >
-                      <ExternalLink className="size-4" />
-                    </a>
-                  ) : null}
-                  <button
-                    onClick={() => deleteGithub(g.id)}
-                    aria-label="删除"
-                    className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-danger/15 hover:text-danger"
-                  >
-                    <Trash2 className="size-4" />
-                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button asChild size="lg" className="press-scale">
+                    <Link href="/tasks#focus">
+                      <Play className="size-4" /> 开始专注
+                    </Link>
+                  </Button>
+                  <Button asChild variant="secondary" size="lg" className="press-scale">
+                    <Link href="/tasks">
+                      去今日任务 <ArrowRight className="size-4" />
+                    </Link>
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-col items-start gap-3 py-2">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="size-6 text-success" />
+                  <p className="text-lg font-semibold text-success">
+                    {todayCount === 0 ? "今天还没安排任务" : "今日任务已全部完成"}
+                  </p>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {todayCount === 0 ? "先规划一个今日要完成的小目标，或者去路线图推进下一阶段。" : "可以去复盘，或提前看明天的安排。"}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button asChild variant="secondary" className="press-scale">
+                    <Link href="/tasks">
+                      <Plus className="size-4" /> {todayCount === 0 ? "添加任务" : "看任务"}
+                    </Link>
+                  </Button>
+                  <Button asChild variant="secondary" className="press-scale">
+                    <Link href="/roadmap">
+                      去路线图 <ArrowRight className="size-4" />
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* ② 当前状态 */}
+      <section>
+        <SectionTitle
+          icon={Activity}
+          title="当前状态"
+          action={
+            <div className="flex items-center gap-1.5">
+              <Button onClick={checkin} variant="ghost" size="sm" className="press-scale">
+                <Flame className="size-4 text-orange-500" /> 今日打卡
+              </Button>
+            </div>
+          }
+        />
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {statCards.map((c) => (
+            <Link key={c.label} href={c.href} className="group">
+              <Card className="press-scale">
+                <CardContent className="flex flex-col gap-2 p-4">
+                  <span className={cn("icon-chip h-9 w-9 shrink-0", c.accent)}>
+                    <c.icon className="size-4.5" />
+                  </span>
+                  <StatValue value={c.value} className="text-xl" />
+                  <span className="text-[11px] text-muted-foreground">{c.label}</span>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </div>
+
+        {/* 健康快照（跳转 wellbeing） */}
+        <Link href="/wellbeing" className="group mt-3 block">
+          <Card className="glass-hover">
+            <CardContent className="grid grid-cols-3 gap-3 p-4">
+              {wellbeingChips.map((c) => (
+                <div key={c.label} className="flex items-center gap-2.5">
+                  <span className="icon-chip h-9 w-9 shrink-0">
+                    <c.icon className={cn("size-4", c.accent)} />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold tabular-nums">{c.value}</p>
+                    <p className="text-[11px] text-muted-foreground">{c.label}</p>
+                  </div>
                 </div>
               ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              <span className="hidden items-center justify-end text-xs text-muted-foreground group-hover:block sm:flex">
+                <ArrowRight className="size-4" />
+              </span>
+            </CardContent>
+          </Card>
+        </Link>
+      </section>
+
+      {/* ③ 接下来 */}
+      <section>
+        <SectionTitle
+          icon={TrendingUp}
+          title="接下来"
+          action={
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/tasks">
+                全部 <ArrowRight className="size-4" />
+              </Link>
+            </Button>
+          }
+        />
+        {upcoming.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-start gap-3 p-6">
+              <p className="text-sm text-muted-foreground">
+                {undone.length === 0
+                  ? "今天没有更多待办任务了，去添加或规划一下吧。"
+                  : "只剩一个任务了，先专注搞定它！"}
+              </p>
+              <Button asChild variant="secondary" size="sm" className="press-scale">
+                <Link href="/tasks">
+                  <Plus className="size-4" /> 添加任务
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {upcoming.map((t, i) => (
+              <div
+                key={t.id}
+                className="rise-in flex items-center gap-3 rounded-xl border border-white/20 bg-white/10 px-3.5 py-3 backdrop-blur-md"
+                style={{ animationDelay: `${i * 45}ms` }}
+              >
+                <button
+                  onClick={() => toggleDone(t.id, true)}
+                  aria-label="标记完成"
+                  className="shrink-0 rounded-lg p-1 text-muted-foreground/40 transition-all hover:text-success"
+                >
+                  <Circle className="size-5" />
+                </button>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{t.title}</p>
+                  <Badge variant="muted" className="mt-1">
+                    {taskTypeLabels[t.taskType] ?? t.taskType}
+                  </Badge>
+                </div>
+                <Button asChild variant="ghost" size="sm" className="shrink-0">
+                  <Link href="/tasks#focus">
+                    <Play className="size-3.5" /> 专注
+                  </Link>
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* 每日一言（轻量收尾） */}
+      <QuoteWidget className="mt-1" />
     </div>
   );
 }
-
-
-
-
-
-
-

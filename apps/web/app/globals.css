@@ -200,7 +200,10 @@ html.dark .glass::before {
     grid-template-columns: repeat(5, 1fr);
   }
   .app-main {
-    padding-bottom: 5rem;
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+  }
+  .app-bottomnav {
+    padding-bottom: env(safe-area-inset-bottom);
   }
 }
 
@@ -360,3 +363,76 @@ html.dark .glass::before {
 .glass.absolute { position: absolute; }
 .glass.fixed { position: fixed; }
 .glass.sticky { position: sticky; }
+/* ============ 2.1 移动端横向溢出防护 ============
+   防止子元素（表格/图表/固定宽度胶囊）把整个页面撑出横向滚动。
+   —— html/body 不再产生整页横向滚动（body 可纵向滚动）；
+   —— 主内容区与容器收窄，grid/flex 子项默认可收缩。 */
+html,
+body {
+  max-width: 100%;
+  overflow-x: clip;
+}
+.app-main {
+  min-width: 0;
+}
+.app-main > div {
+  width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+}
+/* 移动端统一：任何整宽卡片的内部 grid/flex 都允许收缩，避免固定宽度把卡片撑爆 */
+.app-main .min-w-0 {
+  min-width: 0;
+}
+
+/* ============ 2.1 微交互：跟手性 + 动效衔接 ============ */
+/* 按压反馈：按钮/卡片点下轻微下沉，抬升回弹（物理感） */
+.press-scale {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.14s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.14s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+@media (hover: hover) {
+  .press-scale:hover {
+    transform: translateY(-1px);
+  }
+}
+.press-scale:active {
+  transform: scale(0.97) translateY(0);
+  transition-duration: 0.06s;
+}
+
+/* 页面进入动效：统一的 0.36s 上浮 + 轻微位移，带出「丝滑衔接」 */
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.sheet-in {
+  animation: sheet-in 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* 列表项交错进入（用于「接下来」任务列表） */
+.rise-in {
+  animation: sheet-in 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* 数字统计的柔和过渡 */
+.stat-pop {
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), color 0.18s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .press-scale,
+  .sheet-in,
+  .rise-in,
+  .stat-pop {
+    animation: none;
+    transition: none;
+  }
+}

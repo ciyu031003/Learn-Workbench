@@ -320,7 +320,7 @@ export default function WellbeingPage() {
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-4">
             <HydrationRing totalMl={hydration?.totalMl ?? 0} targetMl={hydration?.targetMl ?? 2000} />
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-center gap-2">
               {QUICK_WATER.map((ml) => (
                 <button
                   key={ml}

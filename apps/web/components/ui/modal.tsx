@@ -29,7 +29,7 @@ export function GlassModal({
         role="dialog"
         aria-modal="true"
         className={cn(
-          "glass relative w-full max-w-md overflow-hidden rounded-3xl p-6 shadow-[0_24px_70px_rgba(0,0,0,0.35)]",
+          "glass relative max-h-[86dvh] w-full max-w-md overflow-y-auto overscroll-contain rounded-3xl p-6 shadow-[0_24px_70px_rgba(0,0,0,0.35)]",
           className
         )}
       >
