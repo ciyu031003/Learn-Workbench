@@ -44,6 +44,7 @@ describe("POST /api/roadmap/phases", () => {
   it("creates a custom phase and renumbers the track", async () => {
     const client = fakeClient();
     queryMock
+      .mockResolvedValueOnce({ rows: [{ owner_id: null }] } as never) // SELECT careers domain (system)
       .mockResolvedValueOnce({ rows: [{ id: 9 }] } as never) // INSERT RETURNING
       .mockResolvedValueOnce({ rows: [{ id: 9, phase_key: "phase-8", title: "新阶段", weeks: null, track: "main", summary: null, sort_order: 7, is_custom: true }] } as never); // SELECT created
     connectMock.mockResolvedValue(client as never);
@@ -55,7 +56,7 @@ describe("POST /api/roadmap/phases", () => {
     expect(json.phase.phase_key).toBe("phase-8");
     expect(json.phase.is_custom).toBe(true);
 
-    expect(queryMock).toHaveBeenNthCalledWith(1, expect.stringContaining("INSERT INTO content_phases"), [
+    expect(queryMock).toHaveBeenNthCalledWith(2, expect.stringContaining("INSERT INTO content_phases"), [
       "ict", "新阶段", "第 37-40 周", "main", null, "u-1",
     ]);
     // renumberTrack 使用独立连接
@@ -83,10 +84,16 @@ describe("PATCH /api/roadmap/phases", () => {
     expect(res.status).toBe(400);
   });
 
+  it("returns 403 when editing another user custom phase", async () => {
+    queryMock.mockResolvedValueOnce({ rows: [{ career_key: "ict", track: "main", is_custom: true, owner_id: "u-2" }] } as never);
+    const res = await PATCH(req("PATCH", { id: 7, title: "hack" }));
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "无权操作他人自定义阶段" });
+  });
   it("updates title/summary/weeks and renumbers the same track", async () => {
     const client = fakeClient();
     queryMock
-      .mockResolvedValueOnce({ rows: [{ career_key: "ict", track: "main" }] } as never) // SELECT current
+      .mockResolvedValueOnce({ rows: [{ career_key: "ict", track: "main", is_custom: false, owner_id: null }] } as never) // SELECT current
       .mockResolvedValueOnce({ rows: [] } as never); // UPDATE
     connectMock.mockResolvedValue(client as never);
 
@@ -102,7 +109,7 @@ describe("PATCH /api/roadmap/phases", () => {
   it("renumbers both tracks when moving to another track", async () => {
     const client = fakeClient();
     queryMock
-      .mockResolvedValueOnce({ rows: [{ career_key: "ict", track: "agent" }] } as never)
+      .mockResolvedValueOnce({ rows: [{ career_key: "ict", track: "agent", is_custom: false, owner_id: null }] } as never)
       .mockResolvedValueOnce({ rows: [] } as never);
     connectMock.mockResolvedValue(client as never);
 
@@ -131,10 +138,16 @@ describe("DELETE /api/roadmap/phases", () => {
     expect(res.status).toBe(400);
   });
 
+  it("returns 403 when deleting another user custom phase", async () => {
+    queryMock.mockResolvedValueOnce({ rows: [{ career_key: "ict", track: "main", is_custom: true, owner_id: "u-2" }] } as never);
+    const res = await DELETE(req("DELETE", undefined, "?id=7"));
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "无权操作他人自定义阶段" });
+  });
   it("deletes the phase and renumbers the track", async () => {
     const client = fakeClient();
     queryMock
-      .mockResolvedValueOnce({ rows: [{ career_key: "ict", track: "main" }] } as never) // SELECT current
+      .mockResolvedValueOnce({ rows: [{ career_key: "ict", track: "main", is_custom: false, owner_id: null }] } as never) // SELECT current
       .mockResolvedValueOnce({ rows: [] } as never); // DELETE
     connectMock.mockResolvedValue(client as never);
 

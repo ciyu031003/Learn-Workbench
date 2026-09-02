@@ -14,18 +14,18 @@ beforeEach(() => {
 });
 
 describe("GET /api/phases", () => {
-  it("defaults to ict for anonymous users", async () => {
+  it("defaults to ict for anonymous users and only returns system phases", async () => {
     currentUserIdMock.mockResolvedValue(null);
     queryMock.mockResolvedValue({ rows: [] } as never);
     const res = await GET();
     expect((await res.json()).career).toBe("ict");
     expect(queryMock).toHaveBeenCalledWith(
       expect.stringContaining("WHERE career_key = $1"),
-      ["ict"]
+      ["ict", null]
     );
   });
 
-  it("uses the user's saved career setting", async () => {
+  it("uses the user saved career setting and filters owner scope", async () => {
     queryMock
       .mockResolvedValueOnce({ rows: [{ value: "frontend" }] } as never)
       .mockResolvedValueOnce({ rows: [{ id: 1, phase_key: "f1", title: "F1", track: "main" }] } as never);
@@ -33,5 +33,15 @@ describe("GET /api/phases", () => {
     const json = await res.json();
     expect(json.career).toBe("frontend");
     expect(json.phases).toEqual([{ id: 1, phase_key: "f1", title: "F1", track: "main" }]);
+    expect(queryMock).toHaveBeenNthCalledWith(
+      1,
+      expect.stringContaining("key = $2"),
+      ["u-1", "career"]
+    );
+    expect(queryMock).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining("(is_custom = FALSE OR owner_id = $2)"),
+      ["frontend", "u-1"]
+    );
   });
 });

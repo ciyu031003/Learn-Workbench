@@ -730,6 +730,36 @@ export const jobNotificationStatsSchema = z.object({
 });
 export type JobNotificationStats = z.infer<typeof jobNotificationStatsSchema>;
 
+/* ================= 3.0 · 学习领域（Domain） ================= */
+
+/** 领域类型：career 职业类保留技能树/简历/面试/求职等专属能力 */
+export const domainKindSchema = z.enum(["career", "language", "sports", "hobby", "life", "custom"]);
+export type DomainKind = z.infer<typeof domainKindSchema>;
+
+export const domainSchema = z.object({
+  careerKey: z.string(),          // 物理主键 key（保留 careers.career_key 命名）
+  name: z.string(),
+  description: z.string().nullable(),
+  isLocked: z.boolean(),
+  sortOrder: z.number(),
+  ownerId: z.string().uuid().nullable(),  // 系统内置域 null（全员共享）；用户自建域 = 用户 id
+  kind: domainKindSchema,
+  icon: z.string(),               // lucide 图标名（移动端映射 Ionicons）
+  color: z.string(),              // 主色 hex
+  phasePrefix: z.string(),        // 阶段徽标：职业 P / 语言 E / 运动 S / 自定义自定
+  isArchived: z.boolean(),
+});
+export type Domain = z.infer<typeof domainSchema>;
+
+export const domainKindLabels: Record<DomainKind, string> = {
+  career: "职业成长",
+  language: "语言学习",
+  sports: "运动训练",
+  hobby: "兴趣技能",
+  life: "生活成长",
+  custom: "自定义",
+};
+
 /* ================= 2.0 · 职业准备度 / Dashboard 聚合 ================= */
 
 /** 职业准备度四维（技能/项目/简历/面试） */

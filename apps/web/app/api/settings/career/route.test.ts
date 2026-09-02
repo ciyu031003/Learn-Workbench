@@ -44,20 +44,42 @@ describe("PUT /api/settings/career", () => {
     expect(res.status).toBe(401);
   });
 
-  it("rejects invalid careers", async () => {
+  it("rejects invalid careers via DB lookup", async () => {
+    queryMock.mockResolvedValueOnce({ rows: [{ exists: false }] } as never);
     const res = await put({ career: "hacker" });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "职业无效" });
+    expect(queryMock).toHaveBeenCalledWith(
+      expect.stringContaining("FROM careers"),
+      ["hacker", "u-1"]
+    );
+  });
+
+  it("rejects another user's custom domain", async () => {
+    queryMock.mockResolvedValueOnce({ rows: [{ exists: false }] } as never);
+    const res = await put({ career: "badminton" });
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "职业无效" });
   });
 
-  it("upserts the career setting as jsonb", async () => {
-    queryMock.mockResolvedValue({ rows: [] } as never);
+  it("accepts a system career", async () => {
+    queryMock
+      .mockResolvedValueOnce({ rows: [{ exists: true }] } as never)
+      .mockResolvedValueOnce({ rows: [] } as never);
     const res = await put({ career: "data-analysis" });
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true, career: "data-analysis" });
-    expect(queryMock).toHaveBeenCalledWith(
-      expect.stringContaining("ON CONFLICT (user_id, key)"),
-      ["u-1", JSON.stringify("data-analysis")]
-    );
+    expect(queryMock).toHaveBeenNthCalledWith(2, expect.stringContaining("ON CONFLICT"), [
+      "u-1", JSON.stringify("data-analysis"),
+    ]);
+  });
+
+  it("accepts the user's own custom domain", async () => {
+    queryMock
+      .mockResolvedValueOnce({ rows: [{ exists: true }] } as never)
+      .mockResolvedValueOnce({ rows: [] } as never);
+    const res = await put({ career: "badminton" });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, career: "badminton" });
   });
 });

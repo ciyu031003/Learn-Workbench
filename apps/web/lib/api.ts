@@ -91,8 +91,10 @@ export async function getRoadmapWithProgress(
   try {
     const phasesResult = await client.query<PhaseRow>(
       `SELECT id, phase_key, title, weeks, track, summary, sort_order, is_custom
-       FROM content_phases WHERE career_key = $1 ORDER BY track, sort_order, id`,
-      [careerKey]
+       FROM content_phases
+       WHERE career_key = $1 AND (is_custom = FALSE OR owner_id = $2)
+       ORDER BY track, sort_order, id`,
+      [careerKey, uid]
     );
     const topicsResult = await client.query<TopicRow>(
       `SELECT id, phase_id, topic_key, title, summary, agent_task, sort_order, is_custom

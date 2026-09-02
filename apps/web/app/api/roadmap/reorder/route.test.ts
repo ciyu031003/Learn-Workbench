@@ -5,6 +5,7 @@ import { pgPool } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
 import { POST } from "./route";
 
+const queryMock = vi.mocked(pgPool.query);
 const connectMock = vi.mocked(pgPool.connect);
 const currentUserIdMock = vi.mocked(currentUserId);
 
@@ -37,15 +38,31 @@ describe("POST /api/roadmap/reorder", () => {
   });
 
   it("returns 400 for invalid order", async () => {
+    queryMock.mockResolvedValue({ rows: [{ owner_id: null }] } as never);
     const res = await post({ track: "main", order: "x" });
     expect(res.status).toBe(400);
     const res2 = await post({ track: "main", order: [] });
     expect(res2.status).toBe(400);
   });
 
+  it("returns 400 when the career domain does not exist", async () => {
+    queryMock.mockResolvedValueOnce({ rows: [] } as never);
+    const res = await post({ career: "nope", track: "main", order: [1] });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "学习领域不存在" });
+  });
+
+  it("returns 403 when reordering another user's custom domain", async () => {
+    queryMock.mockResolvedValueOnce({ rows: [{ owner_id: "u-2" }] } as never);
+    const res = await post({ career: "badminton", track: "main", order: [1] });
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "无权操作他人自定义领域" });
+  });
+
   it("returns 400 when the order does not match the current phase list", async () => {
     const client = fakeClient();
     client.query.mockResolvedValueOnce({ rows: [{ id: 1 }, { id: 2 }, { id: 3 }] } as never); // SELECT current
+    queryMock.mockResolvedValueOnce({ rows: [{ owner_id: null }] } as never); // domain scope
     connectMock.mockResolvedValue(client as never);
 
     const res = await post({ career: "ict", track: "main", order: [1, 2] });
@@ -64,6 +81,7 @@ describe("POST /api/roadmap/reorder", () => {
       .mockResolvedValueOnce({ rowCount: 1 } as never) // final phase-1/sort0 -> id=3
       .mockResolvedValueOnce({ rowCount: 1 } as never) // final phase-2/sort1 -> id=1
       .mockResolvedValueOnce({ rowCount: 1 } as never); // final phase-3/sort2 -> id=2
+    queryMock.mockResolvedValueOnce({ rows: [{ owner_id: null }] } as never); // domain scope
     connectMock.mockResolvedValue(client as never);
 
     const res = await post({ career: "ict", track: "main", order: [3, 1, 2] });
@@ -71,7 +89,6 @@ describe("POST /api/roadmap/reorder", () => {
     expect(await res.json()).toEqual({ ok: true });
     expect(client.query).toHaveBeenCalledWith("BEGIN");
     expect(client.query).toHaveBeenCalledWith("COMMIT");
-    // P3（id=3）被拖到最前 → 自动更名 phase-1；原 P1（id=1）→ phase-2；原 P2（id=2）→ phase-3
     expect(client.query).toHaveBeenCalledWith(
       expect.stringContaining("UPDATE content_phases SET phase_key = $1, sort_order = $2"),
       ["phase-1", 0, 3]

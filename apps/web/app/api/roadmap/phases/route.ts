@@ -15,6 +15,27 @@ function str(v: unknown): string | null {
   return t.length ? t : null;
 }
 
+interface PhaseOwnerRow {
+  career_key: string;
+  track: RoadmapTrack;
+  is_custom: boolean;
+  owner_id: string | null;
+}
+
+/** 读取阶段归属；校验：用户自建阶段必须归属当前用户，否则 403 */
+async function loadPhaseForWrite(id: number, uid: string): Promise<PhaseOwnerRow | NextResponse> {
+  const cur = await pgPool.query<PhaseOwnerRow>(
+    `SELECT career_key, track, is_custom, owner_id FROM content_phases WHERE id = $1`,
+    [id]
+  );
+  if (!cur.rows[0]) return NextResponse.json({ error: "阶段不存在" }, { status: 400 });
+  const phase = cur.rows[0];
+  if (phase.is_custom && phase.owner_id !== uid) {
+    return NextResponse.json({ error: "无权操作他人自定义阶段" }, { status: 403 });
+  }
+  return phase;
+}
+
 /** 新增大阶段（用户自建，is_custom=true） */
 export async function POST(req: Request) {
   const uid = await currentUserId();
@@ -27,6 +48,16 @@ export async function POST(req: Request) {
   if (!title) return NextResponse.json({ error: "阶段标题不能为空" }, { status: 400 });
   const summary = str(body?.summary);
   const weeks = str(body?.weeks);
+
+  // 仅允许在「系统内置域或本人自定义域」下新增阶段
+  const domain = await pgPool.query<{ owner_id: string | null }>(
+    `SELECT owner_id FROM careers WHERE career_key = $1 AND is_archived = FALSE`,
+    [career]
+  );
+  if (!domain.rows[0]) return NextResponse.json({ error: "学习领域不存在" }, { status: 400 });
+  if (domain.rows[0].owner_id !== null && domain.rows[0].owner_id !== uid) {
+    return NextResponse.json({ error: "无权操作他人自定义领域" }, { status: 403 });
+  }
 
   const { rows } = await pgPool.query<{ id: number }>(
     `INSERT INTO content_phases (phase_key, career_key, title, weeks, track, summary, sort_order, is_custom, owner_id)
@@ -56,13 +87,10 @@ export async function PATCH(req: Request) {
   const id = Number(body?.id);
   if (!Number.isFinite(id)) return NextResponse.json({ error: "id 无效" }, { status: 400 });
 
-  const cur = await pgPool.query<{ career_key: string; track: RoadmapTrack }>(
-    `SELECT career_key, track FROM content_phases WHERE id = $1`,
-    [id]
-  );
-  if (!cur.rows[0]) return NextResponse.json({ error: "阶段不存在" }, { status: 400 });
-  const career = cur.rows[0].career_key;
-  const oldTrack = cur.rows[0].track;
+  const phaseOrErr = await loadPhaseForWrite(id, uid);
+  if (phaseOrErr instanceof NextResponse) return phaseOrErr;
+  const career = phaseOrErr.career_key;
+  const oldTrack = phaseOrErr.track;
 
   const title = str(body?.title);
   const summary = str(body?.summary);
@@ -103,12 +131,9 @@ export async function DELETE(req: Request) {
   const id = Number(url.searchParams.get("id"));
   if (!Number.isFinite(id)) return NextResponse.json({ error: "id 无效" }, { status: 400 });
 
-  const cur = await pgPool.query<{ career_key: string; track: RoadmapTrack }>(
-    `SELECT career_key, track FROM content_phases WHERE id = $1`,
-    [id]
-  );
-  if (!cur.rows[0]) return NextResponse.json({ error: "阶段不存在" }, { status: 400 });
-  const { career_key: career, track } = cur.rows[0];
+  const phaseOrErr = await loadPhaseForWrite(id, uid);
+  if (phaseOrErr instanceof NextResponse) return phaseOrErr;
+  const { career_key: career, track } = phaseOrErr;
 
   await pgPool.query(`DELETE FROM content_phases WHERE id = $1`, [id]);
   await renumberTrack(career, track);
