@@ -22,13 +22,93 @@ import {
   Trash2,
   Pencil,
   GripVertical,
+  Cpu,
+  Layout,
+  Coffee,
+  ChartLine,
+  Brain,
+  Shield,
+  Compass,
+  Languages,
+  Activity,
+  Volleyball,
+  Copy,
+  Archive,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { useToastStore } from "@/store/toast-store";
 
 interface RoadmapResponse {
   phases: RoadmapPhase[];
 }
 
 type Track = "main" | "agent";
+
+interface DomainRow {
+  career_key: string;
+  name: string;
+  description: string | null;
+  is_locked: boolean;
+  sort_order: number;
+  owner_id: string | null;
+  kind: string;
+  icon: string;
+  color: string;
+  phase_prefix: string;
+  is_archived: boolean;
+  kind_label: string;
+}
+
+interface DomainTemplate {
+  key: string;
+  name: string;
+  kindLabel: string;
+  icon: string;
+  color: string;
+  phasePrefix: string;
+  description: string;
+  weeksNote: string | null;
+  phaseCount: number;
+}
+
+const DOMAIN_ICONS: Record<string, LucideIcon> = {
+  cpu: Cpu,
+  layout: Layout,
+  coffee: Coffee,
+  "chart-line": ChartLine,
+  brain: Brain,
+  shield: Shield,
+  compass: Compass,
+  languages: Languages,
+  activity: Activity,
+  dribbble: Volleyball,
+};
+
+function DomainIcon({ icon, className }: { icon?: string | null; className?: string }) {
+  const Icon = (icon && DOMAIN_ICONS[icon]) || Compass;
+  return <Icon className={className} />;
+}
+
+const KIND_OPTIONS = [
+  { value: "career", label: "职业成长" },
+  { value: "language", label: "语言学习" },
+  { value: "sports", label: "运动训练" },
+  { value: "hobby", label: "兴趣技能" },
+  { value: "life", label: "生活成长" },
+  { value: "custom", label: "自定义" },
+];
+
+const DOMAIN_COLORS = [
+  "#4f46e5",
+  "#0ea5e9",
+  "#16a34a",
+  "#9333ea",
+  "#e11d48",
+  "#ea580c",
+  "#f59e0b",
+  "#2563eb",
+  "#6366f1",
+];
 
 export default function RoadmapPage() {
   const [phases, setPhases] = useState<RoadmapPhase[] | null>(null);
@@ -39,7 +119,14 @@ export default function RoadmapPage() {
   const [formPhase, setFormPhase] = useState<string>("");
   const [formTitle, setFormTitle] = useState("");
   const [formSummary, setFormSummary] = useState("");
-  const [careers, setCareers] = useState<{ career_key: string; name: string; description: string | null; is_locked: boolean }[]>([]);
+  const [domains, setDomains] = useState<DomainRow[]>([]);
+  const [templates, setTemplates] = useState<DomainTemplate[]>([]);
+  const [domainManager, setDomainManager] = useState(false);
+  const [domainCreator, setDomainCreator] = useState(false);
+  const [domainEditor, setDomainEditor] = useState<DomainRow | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", description: "", icon: "", color: "", phasePrefix: "", kind: "" });
+  const [busy, setBusy] = useState(false);
+  const pushToast = useToastStore((s) => s.push);
   const [career, setCareer] = useState<string>("ict");
   // 大阶段自定义：拖拽排序 + 增删/编辑
   const [dragId, setDragId] = useState<number | null>(null);
@@ -70,17 +157,21 @@ export default function RoadmapPage() {
     let alive = true;
     (async () => {
       try {
-        const [cRes, curRes] = await Promise.all([
-          fetch("/api/careers"),
+        const [dRes, curRes] = await Promise.all([
+          fetch("/api/domains?templates=1"),
           fetch("/api/settings/career"),
         ]);
-        const cData = await cRes.json();
+        const dData = await dRes.json();
         const curData = await curRes.json();
         if (!alive) return;
-        setCareers(cData.careers ?? []);
-        setCareer(curData.career ?? "ict");
+        const list = (dData.domains ?? []) as DomainRow[];
+        setDomains(list);
+        setTemplates((dData.templates ?? []) as DomainTemplate[]);
+        // 若已保存的领域被归档/删除，回退到第一个可见领域
+        const saved = curData.career ?? "ict";
+        setCareer(list.some((d) => d.career_key === saved) ? saved : (list[0]?.career_key ?? "ict"));
       } catch {
-        // 职业接口不可用时保持默认 ICT
+        // 领域接口不可用时保持默认 ICT
       }
     })();
     return () => {
@@ -107,7 +198,7 @@ export default function RoadmapPage() {
     }, 150);
     return () => window.clearTimeout(t);
   }, [phases]);
-  const switchCareer = async (key: string) => {
+  const switchDomain = async (key: string) => {
     setCareer(key);
     try {
       await fetch("/api/settings/career", {
@@ -120,8 +211,174 @@ export default function RoadmapPage() {
     }
   };
 
-  const currentCareer = careers.find((c) => c.career_key === career);
+  const refreshDomains = useCallback(async (): Promise<DomainRow[] | null> => {
+    try {
+      const r = await fetch("/api/domains?templates=1");
+      if (!r.ok) return null;
+      const d = await r.json();
+      const list = (d.domains ?? []) as DomainRow[];
+      setDomains(list);
+      setTemplates((d.templates ?? []) as DomainTemplate[]);
+      return list;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  // 当前领域被归档/删除后，自动切到第一个可见领域
+  const ensureActive = async (list: DomainRow[] | null) => {
+    if (!list) return;
+    if (list.some((d) => d.career_key === career)) return;
+    const next = list[0]?.career_key;
+    if (next && next !== career) {
+      pushToast(`已切换到「${list[0]?.name ?? next}」`);
+      await switchDomain(next);
+    }
+  };
+
+  const currentCareer = domains.find((c) => c.career_key === career);
   const canEdit = !!currentCareer && !currentCareer.is_locked;
+
+  const openDomainEditor = (d: DomainRow) => {
+    setDomainEditor(d);
+    setEditForm({
+      name: d.name,
+      description: d.description ?? "",
+      icon: d.icon,
+      color: d.color,
+      phasePrefix: d.phase_prefix,
+      kind: d.kind,
+    });
+  };
+
+  const saveDomain = async () => {
+    if (!domainEditor) return;
+    if (!editForm.name.trim()) {
+      pushToast("领域名称不能为空", "error");
+      return;
+    }
+    setBusy(true);
+    try {
+      const r = await fetch("/api/domains", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          key: domainEditor.career_key,
+          name: editForm.name.trim(),
+          description: editForm.description.trim(),
+          icon: editForm.icon,
+          color: editForm.color,
+          phasePrefix: editForm.phasePrefix.trim(),
+          kind: editForm.kind,
+        }),
+      });
+      const d = await r.json().catch(() => null);
+      if (!r.ok) {
+        pushToast(d?.error ?? "保存失败", "error");
+        return;
+      }
+      pushToast("领域信息已保存");
+      setDomainEditor(null);
+      await refreshDomains();
+      load(career); // 名称/前缀变更后刷新阶段展示
+    } catch {
+      pushToast("网络异常，请重试", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const createDomain = async (templateKey: string | null) => {
+    setBusy(true);
+    try {
+      const r = await fetch("/api/domains", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(templateKey ? { template: templateKey } : {}),
+      });
+      const d = await r.json().catch(() => null);
+      if (!r.ok) {
+        pushToast(d?.error ?? "创建失败", "error");
+        return;
+      }
+      const created = d?.domain as DomainRow | undefined;
+      setDomainCreator(false);
+      pushToast(created ? `已创建「${created.name}」` : "已创建新领域");
+      const list = await refreshDomains();
+      if (created) await switchDomain(created.career_key);
+      else await ensureActive(list);
+    } catch {
+      pushToast("网络异常，请重试", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const duplicateDomain = async (d: DomainRow) => {
+    setBusy(true);
+    try {
+      const r = await fetch(`/api/domains/${encodeURIComponent(d.career_key)}/duplicate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const res = await r.json().catch(() => null);
+      if (!r.ok) {
+        pushToast(res?.error ?? "复制失败", "error");
+        return;
+      }
+      pushToast(`已复制为「${res?.domain?.name ?? "领域副本"}」`);
+      await refreshDomains();
+    } catch {
+      pushToast("网络异常，请重试", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const archiveDomain = async (d: DomainRow) => {
+    if (!window.confirm(`确定归档「${d.name}」？归档后将从领域列表隐藏，学习内容会保留。`)) return;
+    setBusy(true);
+    try {
+      const r = await fetch("/api/domains", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: d.career_key, isArchived: true }),
+      });
+      const res = await r.json().catch(() => null);
+      if (!r.ok) {
+        pushToast(res?.error ?? "归档失败", "error");
+        return;
+      }
+      pushToast(`已归档「${d.name}」`);
+      const list = await refreshDomains();
+      await ensureActive(list);
+    } catch {
+      pushToast("网络异常，请重试", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const deleteDomain = async (d: DomainRow) => {
+    if (!window.confirm(`确定删除「${d.name}」？其下所有阶段/主题/进度将一并删除，此操作不可恢复。`)) return;
+    setBusy(true);
+    try {
+      const r = await fetch(`/api/domains?key=${encodeURIComponent(d.career_key)}`, { method: "DELETE" });
+      const res = await r.json().catch(() => null);
+      if (!r.ok) {
+        pushToast(res?.error ?? "删除失败", "error");
+        return;
+      }
+      pushToast(`已删除「${d.name}」`);
+      const list = await refreshDomains();
+      await ensureActive(list);
+    } catch {
+      pushToast("网络异常，请重试", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const toggleTopic = async (topicId: number, done: boolean) => {
     setPhases((prev) =>
@@ -305,25 +562,32 @@ export default function RoadmapPage() {
         <div>
           <h1 className="page-title text-2xl font-bold tracking-tight lg:text-3xl">学习路线图</h1>
           <p className="page-subtitle mt-1 text-sm">
-            {currentCareer ? currentCareer.name : "ICT 学习规划"} · 主题完成即打勾，进度自动聚合
+            {currentCareer ? `${currentCareer.name} · 主题完成即打勾，进度自动聚合` : "学习领域 · 主题完成即打勾，进度自动聚合"}
             {canEdit
-              ? "（可自定义：拖动排序、增删/编辑阶段、添加主题）"
-              : "（系统固定内容，不可修改）"}
+              ? "（可编辑：拖动排序、增删/编辑阶段、添加主题）"
+              : "（只读）"}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <label className="text-xs text-muted-foreground">职业 / 学习路线</label>
-          <select
-            value={career}
-            onChange={(e) => switchCareer(e.target.value)}
-            className="glass-select h-10 min-w-44 rounded-xl px-3 text-sm outline-none backdrop-blur-md"
+          <button
+            onClick={() => setDomainManager(true)}
+            aria-label="切换学习领域"
+            title="切换 / 管理学习领域"
+            className="flex h-10 max-w-60 items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-2.5 text-sm backdrop-blur-xl backdrop-saturate-150 transition-colors hover:bg-white/18 sm:max-w-72"
           >
-            {careers.map((c) => (
-              <option key={c.career_key} value={c.career_key}>
-                {c.name}{c.is_locked ? "（固定）" : ""}
-              </option>
-            ))}
-          </select>
+            <span
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+              style={{ backgroundColor: `${currentCareer?.color ?? "#6366f1"}26`, color: currentCareer?.color ?? "#6366f1" }}
+            >
+              <DomainIcon icon={currentCareer?.icon} className="size-4" />
+            </span>
+            <span className="min-w-0 flex-1 truncate text-left font-medium">{currentCareer?.name ?? "学习领域"}</span>
+            {currentCareer ? <Badge variant="muted" className="hidden shrink-0 sm:inline-flex">{currentCareer.kind_label}</Badge> : null}
+            <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+          </button>
+          <Button variant="secondary" size="sm" className="hidden sm:inline-flex" onClick={() => setDomainCreator(true)}>
+            <Plus className="size-4" /> 新建
+          </Button>
         </div>
       </div>
 
@@ -351,7 +615,7 @@ export default function RoadmapPage() {
                   </Button>
                 </div>
               ) : (
-                <Badge variant="muted">ICT 规划固定 · 不可自定义</Badge>
+                <Badge variant="muted">{currentCareer?.name ?? "当前领域"} · 不可自定义</Badge>
               )}
             </CardContent>
           </Card>
@@ -434,6 +698,236 @@ export default function RoadmapPage() {
               </Button>
             </div>
           </GlassModal>
+          {/* 领域管理 */}
+          <GlassModal open={domainManager} onClose={() => setDomainManager(false)} title="学习领域">
+            <div className="flex flex-col gap-2">
+              {domains.length === 0 ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">暂无可见领域</p>
+              ) : (
+                domains.map((d) => {
+                  const active = d.career_key === career;
+                  const owned = !!d.owner_id;
+                  return (
+                    <div
+                      key={d.career_key}
+                      className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors ${active ? "border-primary/40 bg-primary/10" : "border-white/15 bg-white/10 hover:bg-white/14"}`}
+                    >
+                      <button
+                        onClick={() => {
+                          switchDomain(d.career_key);
+                          setDomainManager(false);
+                        }}
+                        className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                      >
+                        <span
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+                          style={{ backgroundColor: `${d.color}26`, color: d.color }}
+                        >
+                          <DomainIcon icon={d.icon} className="size-4.5" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="flex flex-wrap items-center gap-1.5">
+                            <span className="truncate text-sm font-medium">{d.name}</span>
+                            <Badge variant={active ? "default" : "muted"}>{d.kind_label}</Badge>
+                            {!owned ? <Badge variant="muted">内置</Badge> : null}
+                          </span>
+                          {d.description ? (
+                            <span className="mt-0.5 block truncate text-xs text-muted-foreground">{d.description}</span>
+                          ) : null}
+                        </span>
+                        {active ? <CheckCircle2 className="size-4 shrink-0 text-primary" /> : null}
+                      </button>
+                      {owned ? (
+                        <div className="flex shrink-0 items-center gap-0.5">
+                          <button
+                            onClick={() => openDomainEditor(d)}
+                            aria-label={`编辑${d.name}`}
+                            title="编辑"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                          >
+                            <Pencil className="size-4" />
+                          </button>
+                          <button
+                            onClick={() => duplicateDomain(d)}
+                            aria-label={`复制${d.name}`}
+                            title="复制"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                          >
+                            <Copy className="size-4" />
+                          </button>
+                          <button
+                            onClick={() => archiveDomain(d)}
+                            aria-label={`归档${d.name}`}
+                            title="归档"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                          >
+                            <Archive className="size-4" />
+                          </button>
+                          <button
+                            onClick={() => deleteDomain(d)}
+                            aria-label={`删除${d.name}`}
+                            title="删除"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-danger/15 hover:text-danger"
+                          >
+                            <Trash2 className="size-4" />
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })
+              )}
+              <div className="mt-1 flex justify-end">
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setDomainManager(false);
+                    setDomainCreator(true);
+                  }}
+                  disabled={busy}
+                >
+                  <Plus className="size-4" /> 新建领域
+                </Button>
+              </div>
+            </div>
+          </GlassModal>
+
+          {/* 新建领域：空白 / 模板 */}
+          <GlassModal open={domainCreator} onClose={() => setDomainCreator(false)} title="新建学习领域">
+            <p className="mb-3 text-xs text-muted-foreground">选择模板即可快速开始，或从空白领域完全自定义。</p>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => createDomain(null)}
+                disabled={busy}
+                className="flex items-center gap-3 rounded-xl border border-white/15 bg-white/10 px-3 py-2.5 text-left transition-colors hover:bg-white/14 disabled:opacity-60"
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                  <Plus className="size-4.5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="text-sm font-medium">空白领域</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">从零搭建自己的学习路线：阶段、主题全部自定义</span>
+                </span>
+                <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+              </button>
+              {templates.map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => createDomain(t.key)}
+                  disabled={busy}
+                  className="flex items-center gap-3 rounded-xl border border-white/15 bg-white/10 px-3 py-2.5 text-left transition-colors hover:bg-white/14 disabled:opacity-60"
+                >
+                  <span
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+                    style={{ backgroundColor: `${t.color}26`, color: t.color }}
+                  >
+                    <DomainIcon icon={t.icon} className="size-4.5" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-sm font-medium">{t.name}</span>
+                      <Badge variant="muted">{t.kindLabel}</Badge>
+                    </span>
+                    <span className="mt-0.5 block truncate text-xs text-muted-foreground">{t.description}</span>
+                  </span>
+                  <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{t.phaseCount} 阶段</span>
+                  <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                </button>
+              ))}
+            </div>
+          </GlassModal>
+
+          {/* 编辑领域 */}
+          <GlassModal
+            open={!!domainEditor}
+            onClose={() => setDomainEditor(null)}
+            title={domainEditor ? `编辑「${domainEditor.name}」` : "编辑领域"}
+          >
+            {domainEditor ? (
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-muted-foreground">名称</label>
+                  <input
+                    value={editForm.name}
+                    onChange={(e) => setEditForm((s) => ({ ...s, name: e.target.value }))}
+                    placeholder="领域名称（必填）"
+                    className="h-10 rounded-xl border border-white/25 bg-white/12 px-3 text-sm text-foreground outline-none backdrop-blur-md placeholder:text-muted-foreground focus:border-primary/60"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-muted-foreground">简介</label>
+                  <input
+                    value={editForm.description}
+                    onChange={(e) => setEditForm((s) => ({ ...s, description: e.target.value }))}
+                    placeholder="一句话说明这个领域（可选）"
+                    className="h-10 rounded-xl border border-white/25 bg-white/12 px-3 text-sm text-foreground outline-none backdrop-blur-md placeholder:text-muted-foreground focus:border-primary/60"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-muted-foreground">图标</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {Object.keys(DOMAIN_ICONS).map((k) => (
+                      <button
+                        key={k}
+                        onClick={() => setEditForm((s) => ({ ...s, icon: k }))}
+                        aria-label={`图标 ${k}`}
+                        title={k}
+                        className={`flex h-9 w-9 items-center justify-center rounded-xl border transition-colors ${editForm.icon === k ? "border-primary bg-primary/15 text-primary" : "border-white/15 bg-white/10 text-muted-foreground hover:text-foreground"}`}
+                      >
+                        <DomainIcon icon={k} className="size-4" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-muted-foreground">颜色</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {DOMAIN_COLORS.map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => setEditForm((s) => ({ ...s, color: c }))}
+                        aria-label={`颜色 ${c}`}
+                        title={c}
+                        className={`h-8 w-8 rounded-full border-2 transition-transform ${editForm.color === c ? "scale-110 border-white" : "border-white/20"}`}
+                        style={{ backgroundColor: c }}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-muted-foreground">阶段前缀</label>
+                  <input
+                    value={editForm.phasePrefix}
+                    onChange={(e) => setEditForm((s) => ({ ...s, phasePrefix: e.target.value }))}
+                    placeholder="如 P / E / S（1-3 位字母数字）"
+                    className="h-10 rounded-xl border border-white/25 bg-white/12 px-3 text-sm text-foreground outline-none backdrop-blur-md placeholder:text-muted-foreground focus:border-primary/60"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-muted-foreground">领域类型</label>
+                  <select
+                    value={editForm.kind}
+                    onChange={(e) => setEditForm((s) => ({ ...s, kind: e.target.value }))}
+                    className="glass-select h-10 rounded-xl px-3 text-sm outline-none backdrop-blur-md focus:border-primary/60"
+                  >
+                    {KIND_OPTIONS.map((k) => (
+                      <option key={k.value} value={k.value}>{k.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="ghost" onClick={() => setDomainEditor(null)}>取消</Button>
+                  <Button onClick={saveDomain} disabled={busy || !editForm.name.trim()}>保存</Button>
+                </div>
+              </div>
+            ) : null}
+          </GlassModal>
+
+          {main.length === 0 ? (
+            <div className="rounded-xl border border-white/15 bg-white/10 p-8 text-center text-sm text-muted-foreground">
+              {canEdit ? "还没有大阶段，点击上方「添加大阶段」开始搭建这条路线。" : "这个领域还没有大阶段内容。"}
+            </div>
+          ) : null}
           {/* 主轨阶段 */}
           {main.map((phase, mainIndex) => {
             const doneCount = phase.topics.filter((t) => t.done).length;
