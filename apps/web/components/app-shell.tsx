@@ -20,6 +20,7 @@ import {
   Timer,
   Briefcase,
   BarChart3,
+  Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { todayISO } from "@learn-workbench/shared";
@@ -48,6 +49,8 @@ const CAREER_ITEMS = [
   { href: "/career/applications", label: "我的求职", icon: Briefcase },
   { href: "/career/market", label: "市场分析", icon: BarChart3 },
 ] as const;
+
+const DOWNLOAD_URL = "https://learn.yuanabd.cn/download.html";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -247,6 +250,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
             ) : null}
             <span className="hidden text-xs text-muted-foreground md:block">今日 {date}</span>
+            <a
+              href={DOWNLOAD_URL}
+              className="flex items-center gap-1.5 rounded-xl border border-white/15 px-3.5 py-2 text-sm font-medium text-muted-foreground transition-colors hover:border-accent hover:text-accent"
+            >
+              <Download className="size-4" />
+              下载
+            </a>
           </div>
         </div>
       </header>
@@ -259,7 +269,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </span>
           <span className="text-sm font-semibold text-foreground">学习工作台</span>
         </Link>
-        <span className="text-xs text-muted-foreground">{date}</span>
+        <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground">{date}</span>
+            <a
+              href={DOWNLOAD_URL}
+              className="flex items-center gap-1 rounded-lg border border-white/15 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-accent hover:text-accent"
+            >
+              <Download className="size-4" />
+              下载
+            </a>
+          </div>
       </header>
 
       <main className="app-main relative z-0 min-h-screen">
