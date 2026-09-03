@@ -8,6 +8,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { QuoteWidget } from "@/components/quote-widget";
+import { DomainIcon } from "@/components/domain-icon";
+import { useDomainStore } from "@/store/domain-store";
 import { cn } from "@/lib/utils";
 import {
   Target,
@@ -139,6 +141,7 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [wellbeing, setWellbeing] = useState<WellbeingToday | null>(null);
   const [mounted, setMounted] = useState(false);
+  const domain = useDomainStore((s) => s.current);
 
   const load = useCallback(async () => {
     try {
@@ -226,6 +229,22 @@ export default function DashboardPage() {
               {mounted ? `${greet}，${data?.careerName ?? "ICT 学习规划"}` : `你好，${data?.careerName ?? "ICT 学习规划"}`}
             </h1>
             <p className="page-subtitle mt-1.5 text-sm">把最重要的一件事做完，就赢了一半。</p>
+            {domain ? (
+              <Link
+                href="/roadmap"
+                className="mt-2.5 inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-medium backdrop-blur-xl backdrop-saturate-150 transition-colors hover:bg-white/18"
+              >
+                <span
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg"
+                  style={{ backgroundColor: `${domain.color}26`, color: domain.color }}
+                >
+                  <DomainIcon icon={domain.icon} className="size-3.5" />
+                </span>
+                <span className="max-w-44 truncate">{domain.name}</span>
+                {domain.kindLabel ? <span className="text-muted-foreground">· {domain.kindLabel}</span> : null}
+                <ArrowRight className="size-3.5 shrink-0 text-muted-foreground" />
+              </Link>
+            ) : null}
           </div>
           <div className="shrink-0">
             <OverallRing percent={data?.overallPercent ?? 0} />

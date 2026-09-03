@@ -79,6 +79,19 @@ describe("GET /api/domains", () => {
     expect(queryMock).toHaveBeenCalledWith(expect.stringContaining("owner_id = $1"), [null]);
   });
 
+  it("lists archived owned domains when archived=1", async () => {
+    queryMock.mockResolvedValue({ rows: [row({ is_archived: true })] } as never);
+    const res = await GET(new Request("http://localhost/api/domains?archived=1"));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.domains).toEqual([serialized({ is_archived: true })]);
+    expect(json.templates).toBeUndefined();
+    expect(queryMock).toHaveBeenCalledWith(
+      expect.stringContaining("owner_id = $1 AND is_archived = TRUE"),
+      ["u-1"]
+    );
+  });
+
   it("includes built-in templates when templates=1", async () => {
     queryMock.mockResolvedValue({ rows: [] } as never);
     const res = await GET(new Request("http://localhost/api/domains?templates=1"));

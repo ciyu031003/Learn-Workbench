@@ -77,16 +77,20 @@ function templateView(t: DomainTemplate) {
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const withTemplates = url.searchParams.get("templates") === "1";
+  const archivedOnly = url.searchParams.get("archived") === "1";
   const templateKey = url.searchParams.get("template");
   const tpl = findTemplate(templateKey);
 
   const uid = await currentUserId();
+  // archived=1：仅列出当前用户已归档的自建领域（供恢复/彻底删除）；默认列出可见领域
+  const scope = archivedOnly
+    ? "owner_id = $1 AND is_archived = TRUE"
+    : "is_archived = FALSE AND (owner_id IS NULL OR owner_id = $1)";
   const { rows } = await pgPool.query<DomainRow>(
     `SELECT career_key, name, description, is_locked, sort_order,
             owner_id, kind, icon, color, phase_prefix, is_archived
      FROM careers
-     WHERE is_archived = FALSE
-       AND (owner_id IS NULL OR owner_id = $1)
+     WHERE ${scope}
      ORDER BY sort_order, id`,
     [uid]
   );
@@ -95,7 +99,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ template: templateView(tpl) });
   }
   const body: Record<string, unknown> = { domains: rows.map(serializeDomain) };
-  if (withTemplates) body.templates = domainTemplates.map(templateView);
+  if (withTemplates && !archivedOnly) body.templates = domainTemplates.map(templateView);
   return NextResponse.json(body);
 }
 /* ================= POST ================= */

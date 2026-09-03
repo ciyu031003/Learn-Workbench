@@ -22,21 +22,13 @@ import {
   Trash2,
   Pencil,
   GripVertical,
-  Cpu,
-  Layout,
-  Coffee,
-  ChartLine,
-  Brain,
-  Shield,
-  Compass,
-  Languages,
-  Activity,
-  Volleyball,
   Copy,
   Archive,
+  ArchiveRestore,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import { useToastStore } from "@/store/toast-store";
+import { DomainIcon, DOMAIN_ICONS, toDomainIdentity } from "@/components/domain-icon";
+import { useDomainStore } from "@/store/domain-store";
 
 interface RoadmapResponse {
   phases: RoadmapPhase[];
@@ -69,24 +61,6 @@ interface DomainTemplate {
   description: string;
   weeksNote: string | null;
   phaseCount: number;
-}
-
-const DOMAIN_ICONS: Record<string, LucideIcon> = {
-  cpu: Cpu,
-  layout: Layout,
-  coffee: Coffee,
-  "chart-line": ChartLine,
-  brain: Brain,
-  shield: Shield,
-  compass: Compass,
-  languages: Languages,
-  activity: Activity,
-  dribbble: Volleyball,
-};
-
-function DomainIcon({ icon, className }: { icon?: string | null; className?: string }) {
-  const Icon = (icon && DOMAIN_ICONS[icon]) || Compass;
-  return <Icon className={className} />;
 }
 
 const KIND_OPTIONS = [
@@ -127,6 +101,9 @@ export default function RoadmapPage() {
   const [editForm, setEditForm] = useState({ name: "", description: "", icon: "", color: "", phasePrefix: "", kind: "" });
   const [busy, setBusy] = useState(false);
   const pushToast = useToastStore((s) => s.push);
+  const setDomain = useDomainStore((s) => s.setCurrent);
+  const [archivedDomains, setArchivedDomains] = useState<DomainRow[]>([]);
+  const [archivedOpen, setArchivedOpen] = useState(false);
   const [career, setCareer] = useState<string>("ict");
   // 大阶段自定义：拖拽排序 + 增删/编辑
   const [dragId, setDragId] = useState<number | null>(null);
@@ -169,7 +146,10 @@ export default function RoadmapPage() {
         setTemplates((dData.templates ?? []) as DomainTemplate[]);
         // 若已保存的领域被归档/删除，回退到第一个可见领域
         const saved = curData.career ?? "ict";
-        setCareer(list.some((d) => d.career_key === saved) ? saved : (list[0]?.career_key ?? "ict"));
+        const resolved = list.some((d) => d.career_key === saved) ? saved : (list[0]?.career_key ?? "ict");
+        setCareer(resolved);
+        const row = list.find((d) => d.career_key === resolved);
+        if (row) setDomain(toDomainIdentity(row));
       } catch {
         // 领域接口不可用时保持默认 ICT
       }
@@ -177,7 +157,7 @@ export default function RoadmapPage() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [setDomain]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -200,6 +180,8 @@ export default function RoadmapPage() {
   }, [phases]);
   const switchDomain = async (key: string) => {
     setCareer(key);
+    const row = domains.find((d) => d.career_key === key);
+    if (row) setDomain(toDomainIdentity(row));
     try {
       await fetch("/api/settings/career", {
         method: "PUT",
@@ -279,7 +261,9 @@ export default function RoadmapPage() {
       }
       pushToast("领域信息已保存");
       setDomainEditor(null);
-      await refreshDomains();
+      const savedList = await refreshDomains();
+      const updated = savedList?.find((x) => x.career_key === career);
+      if (updated) setDomain(toDomainIdentity(updated));
       load(career); // 名称/前缀变更后刷新阶段展示
     } catch {
       pushToast("网络异常，请重试", "error");
@@ -305,8 +289,12 @@ export default function RoadmapPage() {
       setDomainCreator(false);
       pushToast(created ? `已创建「${created.name}」` : "已创建新领域");
       const list = await refreshDomains();
-      if (created) await switchDomain(created.career_key);
-      else await ensureActive(list);
+      if (created) {
+        setDomain(toDomainIdentity(created));
+        await switchDomain(created.career_key);
+      } else {
+        await ensureActive(list);
+      }
     } catch {
       pushToast("网络异常，请重试", "error");
     } finally {
@@ -378,6 +366,63 @@ export default function RoadmapPage() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const loadArchived = useCallback(async () => {
+    try {
+      const r = await fetch("/api/domains?archived=1");
+      if (!r.ok) return;
+      const d = await r.json();
+      setArchivedDomains((d.domains ?? []) as DomainRow[]);
+    } catch {
+      // 已归档列表加载失败时静默
+    }
+  }, []);
+
+  const restoreDomain = async (d: DomainRow) => {
+    setBusy(true);
+    try {
+      const r = await fetch("/api/domains", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: d.career_key, isArchived: false }),
+      });
+      const res = await r.json().catch(() => null);
+      if (!r.ok) {
+        pushToast(res?.error ?? "恢复失败", "error");
+        return;
+      }
+      pushToast(`已恢复「${d.name}」`);
+      await Promise.all([refreshDomains(), loadArchived()]);
+    } catch {
+      pushToast("网络异常，请重试", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const deleteArchivedDomain = async (d: DomainRow) => {
+    if (!window.confirm(`确定彻底删除「${d.name}」？其下所有阶段/主题/进度将一并删除，此操作不可恢复。`)) return;
+    setBusy(true);
+    try {
+      const r = await fetch(`/api/domains?key=${encodeURIComponent(d.career_key)}`, { method: "DELETE" });
+      const res = await r.json().catch(() => null);
+      if (!r.ok) {
+        pushToast(res?.error ?? "删除失败", "error");
+        return;
+      }
+      pushToast(`已删除「${d.name}」`);
+      await loadArchived();
+    } catch {
+      pushToast("网络异常，请重试", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openManager = () => {
+    setDomainManager(true);
+    void loadArchived();
   };
 
   const toggleTopic = async (topicId: number, done: boolean) => {
@@ -570,7 +615,7 @@ export default function RoadmapPage() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setDomainManager(true)}
+            onClick={openManager}
             aria-label="切换学习领域"
             title="切换 / 管理学习领域"
             className="flex h-10 max-w-60 items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-2.5 text-sm backdrop-blur-xl backdrop-saturate-150 transition-colors hover:bg-white/18 sm:max-w-72"
@@ -777,6 +822,56 @@ export default function RoadmapPage() {
                   );
                 })
               )}
+              {archivedDomains.length > 0 ? (
+                <>
+                  <button
+                    onClick={() => setArchivedOpen((s) => !s)}
+                    className="mt-1 flex items-center justify-between rounded-xl px-2 py-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    <span>已归档（{archivedDomains.length}）</span>
+                    {archivedOpen ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+                  </button>
+                  {archivedOpen ? (
+                    <div className="flex flex-col gap-2">
+                      {archivedDomains.map((d) => (
+                        <div
+                          key={d.career_key}
+                          className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 opacity-80"
+                        >
+                          <span
+                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+                            style={{ backgroundColor: `${d.color}1f`, color: d.color }}
+                          >
+                            <DomainIcon icon={d.icon} className="size-4.5" />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-medium">{d.name}</span>
+                            <span className="mt-0.5 block text-xs text-muted-foreground">已归档 · 内容已保留</span>
+                          </span>
+                          <div className="flex shrink-0 items-center gap-0.5">
+                            <button
+                              onClick={() => restoreDomain(d)}
+                              aria-label={`恢复${d.name}`}
+                              title="恢复"
+                              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-success/15 hover:text-success"
+                            >
+                              <ArchiveRestore className="size-4" />
+                            </button>
+                            <button
+                              onClick={() => deleteArchivedDomain(d)}
+                              aria-label={`删除${d.name}`}
+                              title="彻底删除"
+                              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-danger/15 hover:text-danger"
+                            >
+                              <Trash2 className="size-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
               <div className="mt-1 flex justify-end">
                 <Button
                   size="sm"

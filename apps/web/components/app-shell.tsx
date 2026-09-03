@@ -25,6 +25,8 @@ import {
 import { cn } from "@/lib/utils";
 import { todayISO } from "@learn-workbench/shared";
 import { Toaster } from "@/components/ui/toaster";
+import { DomainIcon, toDomainIdentity } from "@/components/domain-icon";
+import { useDomainStore } from "@/store/domain-store";
 import { WellbeingFloat } from "@/components/wellbeing-float";
 
 /** 一级入口：首页 / 学习 / 招花 / 职业 / 设置 */
@@ -57,7 +59,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const date = mounted ? todayISO() : "";
-  const [careerInfo, setCareerInfo] = useState<{ name: string; percent: number } | null>(null);
+  const domain = useDomainStore((s) => s.current);
+  const setDomain = useDomainStore((s) => s.setCurrent);
+  const [percent, setPercent] = useState<number | null>(null);
   const [openMenu, setOpenMenu] = useState<"learn" | "career" | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -65,21 +69,48 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setMounted(true), []);
 
-  // 侧边栏底部（现为顶导）：当前职业 + 整体进度
+  // 顶栏领域胶囊：初始化解析当前领域身份（图标/颜色/名称），并随全局 store 实时联动
   useEffect(() => {
     let alive = true;
     Promise.all([
+      fetch("/api/domains").then((r) => (r.ok ? r.json() : null)).catch(() => null),
       fetch("/api/settings/career").then((r) => (r.ok ? r.json() : null)).catch(() => null),
-      fetch("/api/summary").then((r) => (r.ok ? r.json() : null)).catch(() => null),
-    ]).then(([, s]) => {
+    ]).then(([d, c]) => {
       if (!alive) return;
-      const summary = s as { careerName?: string; overallPercent?: number } | null;
-      setCareerInfo({ name: summary?.careerName ?? "ICT 学习规划", percent: summary?.overallPercent ?? 0 });
+      if (useDomainStore.getState().current) return;
+      const list = (d?.domains ?? []) as Array<{
+        career_key: string;
+        name: string;
+        color?: string | null;
+        icon?: string | null;
+        kind_label?: string | null;
+        is_locked?: boolean | null;
+      }>;
+      const saved = (c?.career as string | undefined) ?? "ict";
+      const row = list.find((x) => x.career_key === saved) ?? list[0] ?? null;
+      if (row) setDomain(toDomainIdentity(row));
     });
     return () => {
       alive = false;
     };
-  }, []);
+  }, [setDomain]);
+
+  // 领域切换后刷新整体进度（percent 实时跟随当前领域）
+  const domainKey = domain?.careerKey;
+  useEffect(() => {
+    if (!domainKey) return;
+    let alive = true;
+    fetch("/api/summary")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((s) => {
+        if (!alive || !s) return;
+        setPercent((s as { overallPercent?: number }).overallPercent ?? 0);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [domainKey]);
 
   // 会话有效性校验（保持不变）
   useEffect(() => {
@@ -243,10 +274,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="flex shrink-0 items-center gap-2.5">
-            {careerInfo ? (
+            {domain ? (
               <div className="glass flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs">
-                <span className="max-w-28 truncate font-medium text-foreground">{careerInfo.name}</span>
-                <span className="tabular-nums text-muted-foreground">{careerInfo.percent}%</span>
+                <span
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg"
+                  style={{ backgroundColor: `${domain.color}26`, color: domain.color }}
+                >
+                  <DomainIcon icon={domain.icon} className="size-3.5" />
+                </span>
+                <span className="max-w-24 truncate font-medium text-foreground">{domain.name}</span>
+                <span className="tabular-nums text-muted-foreground">{percent === null ? "…" : `${percent}%`}</span>
               </div>
             ) : null}
             <span className="hidden text-xs text-muted-foreground md:block">今日 {date}</span>
