@@ -13,6 +13,18 @@ interface UiState {
   toggleBackground: () => void;
 }
 
+/**
+ * persist 迁移（纯函数导出以便测试）：
+ * v0 → v1：旧版 theme 只有 light/dark 且不影响壁纸亮度自动逻辑；
+ * 升级三档后统一归为 auto，保持升级前视觉行为不变
+ */
+export function migrateUiStore(persisted: unknown, version: number): UiState {
+  if (version < 1 && persisted && typeof persisted === "object") {
+    return { ...(persisted as object), theme: "auto" } as UiState;
+  }
+  return persisted as UiState;
+}
+
 export const useUiStore = create<UiState>()(
   persist(
     (set) => ({
@@ -24,14 +36,7 @@ export const useUiStore = create<UiState>()(
     {
       name: "lwb-web-ui",
       version: 1,
-      migrate: (persisted, version) => {
-        // v0 → v1：旧版 theme 只有 light/dark 且不影响壁纸亮度自动逻辑；
-        // 升级三档后统一归为 auto，保持升级前视觉行为不变
-        if (version < 1 && persisted && typeof persisted === "object") {
-          return { ...(persisted as object), theme: "auto" } as UiState;
-        }
-        return persisted as UiState;
-      },
+      migrate: migrateUiStore,
     }
   )
 );

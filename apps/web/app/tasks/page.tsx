@@ -16,6 +16,7 @@ import { FocusTimer } from "@/components/focus-timer";
 import { FocusStatsCard } from "@/components/focus-stats-card";
 import { DomainIcon } from "@/components/domain-icon";
 import { useDomainStore } from "@/store/domain-store";
+import { parseAutofocusParams } from "@/lib/autofocus";
 
 const TYPES = ["study", "agent", "output", "review", "exam"] as const;
 
@@ -127,13 +128,10 @@ export default function TasksPage() {
   // 快捷开始：/tasks?autofocus=study|exercise&minutes=N 自动打开并启动倒计时（解析后清除参数）
   useEffect(() => {
     if (autofocusHandled.current || timerOpen) return;
-    const sp = new URLSearchParams(window.location.search);
-    const af = sp.get("autofocus");
-    if (af !== "study" && af !== "exercise") return;
+    const parsed = parseAutofocusParams(window.location.search);
+    if (!parsed) return;
     autofocusHandled.current = true;
-    const m = Number(sp.get("minutes"));
-    const minutes = Number.isFinite(m) && m >= 1 && m <= 180 ? Math.round(m) : undefined;
-    const mode = af === "exercise" ? "exercise" : "focus";
+    const { mode, minutes } = parsed;
     // 延迟一帧再打开计时器：避免 effect 体内同步 setState 触发级联渲染
     const t = window.setTimeout(() => {
       setTimerTask({ id: null, title: null });

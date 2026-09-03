@@ -36,6 +36,7 @@ Thumbs.db
 .backup/
 
 .local/
+.workbuddy/
 
 # 环境变量（含服务器部署自动生成的密钥，勿提交）
 .env
