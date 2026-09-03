@@ -179,4 +179,105 @@ export const ballSportsTemplate: DomainTemplate = {
   ],
 };
 
-export const domainTemplates: DomainTemplate[] = [englishTemplate, badmintonTemplate, ballSportsTemplate];
+export const fitnessTemplate: DomainTemplate = {
+  key: "fitness",
+  name: "健身与体能",
+  kind: "sports",
+  icon: "dumbbell",
+  color: "#16a34a",
+  phasePrefix: "F",
+  description: "体测评估 → 力量增肌 → 心肺体能 → 维持习惯，科学训练不受伤",
+  phases: [
+    {
+      id: 1, phaseKey: "f-phase-1", title: "体测与基础动作", weeks: "第 1-2 周", track: "main",
+      summary: "健康体测、动作模式学习与训练记录习惯。", sortOrder: 0,
+      topics: [
+        { id: 101, topicKey: "f-t1-1", title: "健康体测与目标", summary: "体重/体脂/围度/力量基线，设定 8-16 周目标。", agentTask: null, sortOrder: 0, resources: [], practices: [{ id: 1001, text: "完成一次体测并记录基线数据", sortOrder: 0 }], projects: [], checkpoints: [] },
+        { id: 102, topicKey: "f-t1-2", title: "基础动作模式", summary: "深蹲/俯卧撑/划船/髋铰链标准动作入门。", agentTask: null, sortOrder: 1, resources: [], practices: [], projects: [], checkpoints: [{ id: 2001, text: "四类基础动作标准完成 3×10", sortOrder: 0 }] },
+        { id: 103, topicKey: "f-t1-3", title: "训练计划与记录", summary: "推拉腿分化与训练日志模板。", agentTask: null, sortOrder: 2, resources: [], practices: [], projects: [], checkpoints: [] },
+      ],
+    },
+    {
+      id: 2, phaseKey: "f-phase-2", title: "力量与增肌", weeks: "第 3-8 周", track: "main",
+      summary: "循序渐进的力量训练与营养恢复。", sortOrder: 1,
+      topics: [
+        { id: 201, topicKey: "f-t2-1", title: "分化训练安排", summary: "推/拉/腿分化，每周 3-4 练。", agentTask: null, sortOrder: 0, resources: [], practices: [{ id: 1002, text: "执行推拉腿分化计划 4 周", sortOrder: 0 }], projects: [], checkpoints: [] },
+        { id: 202, topicKey: "f-t2-2", title: "渐进超负荷", summary: "重量/次数/组数渐进，避免平台期。", agentTask: null, sortOrder: 1, resources: [], practices: [], projects: [], checkpoints: [{ id: 2002, text: "关键动作 4-6 周内重量提升 10%+", sortOrder: 0 }] },
+        { id: 203, topicKey: "f-t2-3", title: "营养与恢复", summary: "蛋白质摄入、睡眠与休息日。", agentTask: null, sortOrder: 2, resources: [], practices: [], projects: [], checkpoints: [] },
+      ],
+    },
+    {
+      id: 3, phaseKey: "f-phase-3", title: "心肺与体能", weeks: "第 9-12 周", track: "main",
+      summary: "有氧基础与高强度间歇提升体能。", sortOrder: 2,
+      topics: [
+        { id: 301, topicKey: "f-t3-1", title: "有氧基础", summary: "慢跑/骑行等持续有氧，每周 3 次 20 分钟起。", agentTask: null, sortOrder: 0, resources: [], practices: [{ id: 1003, text: "每周 3 次 ≥20 分钟有氧并记录", sortOrder: 0 }], projects: [], checkpoints: [] },
+        { id: 302, topicKey: "f-t3-2", title: "HIIT 进阶", summary: "冲刺/波比跳等间歇训练，控制强度与恢复。", agentTask: null, sortOrder: 1, resources: [], practices: [], projects: [], checkpoints: [{ id: 2003, text: "完成 8 次 HIIT 且无过度疲劳", sortOrder: 0 }] },
+      ],
+    },
+    {
+      id: 4, phaseKey: "f-phase-4", title: "巩固与习惯", weeks: "第 13-16 周", track: "main",
+      summary: "周期化安排、柔韧与长期习惯。", sortOrder: 3,
+      topics: [
+        { id: 401, topicKey: "f-t4-1", title: "周期化计划", summary: "力量/体能交替周期，避免枯燥与瓶颈。", agentTask: null, sortOrder: 0, resources: [], practices: [], projects: [], checkpoints: [] },
+        { id: 402, topicKey: "f-t4-2", title: "姿态与柔韧", summary: "拉伸/泡沫轴与日常姿态纠正。", agentTask: null, sortOrder: 1, resources: [], practices: [], projects: [], checkpoints: [] },
+        { id: 403, topicKey: "f-t4-3", title: "复盘与维持", summary: "月度复盘、调整目标并固定为生活习惯。", agentTask: null, sortOrder: 2, resources: [], practices: [{ id: 1004, text: "输出月度训练复盘", sortOrder: 0 }], projects: [], checkpoints: [{ id: 2004, text: "形成每周 ≥3 练的稳定节奏", sortOrder: 0 }] },
+      ],
+    },
+  ],
+};
+
+export const readingTemplate: DomainTemplate = {
+  key: "reading",
+  name: "阅读与笔记",
+  kind: "hobby",
+  icon: "book-open",
+  color: "#7c3aed",
+  phasePrefix: "R",
+  description: "选书机制 → 精读输出 → 主题深读 → 内化复用，让知识真正留下",
+  phases: [
+    {
+      id: 1, phaseKey: "r-phase-1", title: "选书与阅读机制", weeks: "第 1-2 周", track: "main",
+      summary: "主题选书、阅读节奏与精读/泛读方法。", sortOrder: 0,
+      topics: [
+        { id: 101, topicKey: "r-t1-1", title: "主题选书清单", summary: "围绕一个主题挑选 10 本（入门→进阶→经典）。", agentTask: null, sortOrder: 0, resources: [], practices: [{ id: 1001, text: "建立 10 本主题书单", sortOrder: 0 }], projects: [], checkpoints: [] },
+        { id: 102, topicKey: "r-t1-2", title: "阅读节奏与工具", summary: "固定阅读时间块，选择笔记工具与模板。", agentTask: null, sortOrder: 1, resources: [], practices: [], projects: [], checkpoints: [] },
+        { id: 103, topicKey: "r-t1-3", title: "精读与泛读", summary: "精读拆结构、泛读抓脉络，先读序言目录再快速扫读。", agentTask: null, sortOrder: 2, resources: [], practices: [], projects: [], checkpoints: [{ id: 2001, text: "完成第一本书前 1/3 并输出笔记模板", sortOrder: 0 }] },
+      ],
+    },
+    {
+      id: 2, phaseKey: "r-phase-2", title: "精读与输出", weeks: "第 3-8 周", track: "main",
+      summary: "结构化笔记与卡片输出，读完一本留下痕迹。", sortOrder: 1,
+      topics: [
+        { id: 201, topicKey: "r-t2-1", title: "结构化笔记", summary: "章结-观点-证据三栏记录。", agentTask: null, sortOrder: 0, resources: [], practices: [], projects: [], checkpoints: [] },
+        { id: 202, topicKey: "r-t2-2", title: "卡片与费曼", summary: "每本提炼 3 张卡片并用费曼讲解。", agentTask: null, sortOrder: 1, resources: [], practices: [], projects: [], checkpoints: [{ id: 2002, text: "完成 2 本精读 + 6 张卡片", sortOrder: 0 }] },
+        { id: 203, topicKey: "r-t2-3", title: "主题阅读串联", summary: "跨书提取同一主题的共性观点。", agentTask: null, sortOrder: 2, resources: [], practices: [{ id: 1002, text: "每本输出 1 张主题对比卡片", sortOrder: 0 }], projects: [], checkpoints: [] },
+      ],
+    },
+    {
+      id: 3, phaseKey: "r-phase-3", title: "主题深读", weeks: "第 9-12 周", track: "main",
+      summary: "同主题多本对比、批判与专题综述。", sortOrder: 2,
+      topics: [
+        { id: 301, topicKey: "r-t3-1", title: "多本对比", summary: "同主题 3 本书的方法/观点/适用场景对比。", agentTask: null, sortOrder: 0, resources: [], practices: [{ id: 1003, text: "输出三本对比表", sortOrder: 0 }], projects: [], checkpoints: [] },
+        { id: 302, topicKey: "r-t3-2", title: "观点批判", summary: "找出矛盾点与适用边界，形成自己的判断。", agentTask: null, sortOrder: 1, resources: [], practices: [], projects: [], checkpoints: [] },
+        { id: 303, topicKey: "r-t3-3", title: "专题综述", summary: "把多本内容整合成一篇主题综述。", agentTask: null, sortOrder: 2, resources: [], practices: [], projects: [{ id: 1, name: "主题综述", description: "整合同主题多本书的专题综述", repoUrl: null, deliverable: "1 篇结构化主题综述", sortOrder: 0 }], checkpoints: [] },
+      ],
+    },
+    {
+      id: 4, phaseKey: "r-phase-4", title: "内化与复用", weeks: "第 13-16 周", track: "main",
+      summary: "把知识转成行动清单、分享并复盘留存。", sortOrder: 3,
+      topics: [
+        { id: 401, topicKey: "r-t4-1", title: "行动清单转实践", summary: "从书里提炼可执行行动并安排到日程。", agentTask: null, sortOrder: 0, resources: [], practices: [], projects: [], checkpoints: [{ id: 2003, text: "至少 3 条知识落地为行动", sortOrder: 0 }] },
+        { id: 402, topicKey: "r-t4-2", title: "分享与费曼讲解", summary: "向他人讲一遍主题，发现理解漏洞。", agentTask: null, sortOrder: 1, resources: [], practices: [{ id: 1004, text: "完成一次主题费曼讲解", sortOrder: 0 }], projects: [], checkpoints: [] },
+        { id: 403, topicKey: "r-t4-3", title: "阅读复盘", summary: "复盘书单完成度、卡片与综述质量。", agentTask: null, sortOrder: 2, resources: [], practices: [], projects: [], checkpoints: [{ id: 2004, text: "累计 6 本 / 12 卡 / 1 综述", sortOrder: 0 }] },
+      ],
+    },
+  ],
+};
+
+export const domainTemplates: DomainTemplate[] = [
+  englishTemplate,
+  badmintonTemplate,
+  ballSportsTemplate,
+  fitnessTemplate,
+  readingTemplate,
+];

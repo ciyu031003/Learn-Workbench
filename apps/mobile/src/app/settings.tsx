@@ -32,7 +32,7 @@ export default function SettingsScreen() {
   const [pwNew2, setPwNew2] = useState("");
   const [pwMsg, setPwMsg] = useState<string | null>(null);
   const [pwBusy, setPwBusy] = useState(false);
-  const [careers, setCareers] = useState<{ career_key: string; name: string }[]>([]);
+  const [domains, setDomains] = useState<{ career_key: string; name: string; kind?: string; kind_label?: string }[]>([]);
   const [career, setCareer] = useState("ict");
   const apiUrlFromStore = useAppStore((s) => s.apiUrl);
   const setApiUrl = useAppStore((s) => s.setApiUrl);
@@ -50,13 +50,13 @@ export default function SettingsScreen() {
   useEffect(() => {
     (async () => {
       try {
-        const [cRes, curRes] = await Promise.all([
-          fetch(getApiUrl() + "/api/careers"),
+        const [dRes, curRes] = await Promise.all([
+          fetch(getApiUrl() + "/api/domains"),
           fetch(getApiUrl() + "/api/settings/career"),
         ]);
-        const cData = await cRes.json();
+        const dData = await dRes.json();
         const curData = await curRes.json();
-        setCareers(cData.careers ?? []);
+        setDomains(dData.domains ?? []);
         setCareer(curData.career ?? "ict");
       } catch {
         // 职业接口不可用时保持默认
@@ -530,10 +530,10 @@ export default function SettingsScreen() {
         </Card>
       ) : null}
 
-      {careers.length > 0 ? (
-        <Card title="职业 / 学习路线" subtitle="切换后 Web 端学习路线随之切换，ICT 规划为固定内容">
+      {domains.length > 0 ? (
+        <Card title="学习领域" subtitle="切换后 Web 端学习路线随之切换；移动端路线图暂为内置内容副本">
           <View style={styles.chipWrap}>
-            {careers.map((c) => {
+            {domains.map((c) => {
               const active = c.career_key === career;
               return (
                 <Pressable

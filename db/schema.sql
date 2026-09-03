@@ -110,6 +110,7 @@ CREATE TABLE daily_tasks (
   topic_id      int REFERENCES content_topics(id) ON DELETE SET NULL,
   task_type     text NOT NULL DEFAULT 'study'
                 CHECK (task_type IN ('study','agent','output','review','exam')),
+  career_key    text NOT NULL DEFAULT 'ict',   -- 所属学习领域（见 careers 表）
   done          boolean NOT NULL DEFAULT false,
   focus_minutes int NOT NULL DEFAULT 0,
   sort_order    int NOT NULL DEFAULT 0,
@@ -247,6 +248,7 @@ CREATE INDEX idx_checkpoints_topic ON content_checkpoints(topic_id);
 CREATE INDEX idx_progress_user     ON topic_progress(user_id);
 CREATE INDEX idx_progress_topic    ON topic_progress(topic_id);
 CREATE INDEX idx_tasks_date        ON daily_tasks(task_date);
+CREATE INDEX idx_tasks_domain      ON daily_tasks(career_key);
 CREATE INDEX idx_tasks_user        ON daily_tasks(user_id);
 CREATE INDEX idx_sessions_user     ON focus_sessions(user_id);
 CREATE INDEX idx_sessions_start    ON focus_sessions(started_at);

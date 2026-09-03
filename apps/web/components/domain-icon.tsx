@@ -10,6 +10,8 @@ import {
   Languages,
   Activity,
   Volleyball,
+  Dumbbell,
+  BookOpen,
 } from "lucide-react";
 import type { DomainIdentity } from "@/store/domain-store";
 
@@ -25,6 +27,8 @@ export const DOMAIN_ICONS: Record<string, LucideIcon> = {
   languages: Languages,
   activity: Activity,
   dribbble: Volleyball,
+  dumbbell: Dumbbell,
+  "book-open": BookOpen,
 };
 
 export function DomainIcon({ icon, className }: { icon?: string | null; className?: string }) {

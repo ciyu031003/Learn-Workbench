@@ -19,7 +19,14 @@ describe("GET /api/tasks", () => {
     const res = await GET(new Request("http://localhost/api/tasks?date=2026-08-13"));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ tasks: [{ id: 1, title: "T" }] });
-    expect(queryMock).toHaveBeenCalledWith(expect.any(String), ["u-1", "2026-08-13"]);
+    expect(queryMock).toHaveBeenCalledWith(expect.any(String), ["u-1", "2026-08-13", "ict"]);
+  });
+
+  it("filters by an explicit career param", async () => {
+    queryMock.mockResolvedValue({ rows: [] } as never);
+    const res = await GET(new Request("http://localhost/api/tasks?date=2026-08-13&career=english"));
+    expect(res.status).toBe(200);
+    expect(queryMock).toHaveBeenCalledWith(expect.any(String), ["u-1", "2026-08-13", "english"]);
   });
 });
 
@@ -47,7 +54,7 @@ describe("POST /api/tasks", () => {
     );
     expect(res.status).toBe(201);
     expect(await res.json()).toEqual({ task: { id: 9, title: "学" } });
-    expect(queryMock).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO daily_tasks"), ["u-1", "2026-08-14", "学", "study", null]);
+    expect(queryMock).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO daily_tasks"), ["u-1", "2026-08-14", "学", "study", null, "ict"]);
   });
 });
 

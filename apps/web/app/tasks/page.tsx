@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { DailyTask } from "@learn-workbench/shared";
 import { todayISO, taskTypeLabels, formatDateCN } from "@learn-workbench/shared";
@@ -9,9 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/ui/empty-state";
-import { CheckCircle2, Circle, ChevronLeft, ChevronRight, ListTodo, Play, Plus, Timer as TimerIcon } from "lucide-react";
+import { CheckCircle2, Circle, ChevronLeft, ChevronRight, ListTodo, Play, Plus, Timer as TimerIcon, ArrowRight } from "lucide-react";
 import { FocusTimer } from "@/components/focus-timer";
 import { FocusStatsCard } from "@/components/focus-stats-card";
+import { DomainIcon } from "@/components/domain-icon";
+import { useDomainStore } from "@/store/domain-store";
 
 const TYPES = ["study", "agent", "output", "review", "exam"] as const;
 
@@ -23,6 +26,8 @@ interface PhaseStat {
 }
 
 export default function TasksPage() {
+  const domain = useDomainStore((s) => s.current);
+  const careerKey = domain?.careerKey ?? "ict";
   const [date, setDate] = useState(todayISO());
   const [tasks, setTasks] = useState<DailyTask[]>([]);
   const [title, setTitle] = useState("");
@@ -36,20 +41,20 @@ export default function TasksPage() {
   const [timerTask, setTimerTask] = useState<{ id: number | null; title: string | null } | null>(null);
 
   const load = useCallback(async (d: string) => {
-    const r = await fetch(`/api/tasks?date=${d}`);
+    const r = await fetch(`/api/tasks?date=${d}&career=${careerKey}`);
     const data = await r.json();
     setTasks(data.tasks ?? []);
-  }, []);
+  }, [careerKey]);
 
   const loadStats = useCallback(async () => {
     try {
-      const r = await fetch("/api/focus/stats");
+      const r = await fetch(`/api/focus/stats?career=${careerKey}`);
       const data = await r.json();
       setStats(data.stats ?? []);
     } catch {
       // 忽略
     }
-  }, []);
+  }, [careerKey]);
 
   useEffect(() => {
     // 数据加载属于外部系统同步，异步 setState 不受影响
@@ -58,11 +63,12 @@ export default function TasksPage() {
   }, [date, load]);
 
   useEffect(() => {
+    // 领域切换后阶段下拉与专注统计跟随当前领域（任务列表由上方 load 效果联动）
     (async () => {
       try {
         const [ph, st] = await Promise.all([
-          fetch("/api/phases").then((r) => r.json()),
-          fetch("/api/focus/stats").then((r) => r.json()),
+          fetch(`/api/phases?career=${careerKey}`).then((r) => r.json()),
+          fetch(`/api/focus/stats?career=${careerKey}`).then((r) => r.json()),
         ]);
         setPhases(ph.phases ?? []);
         setStats(st.stats ?? []);
@@ -70,7 +76,7 @@ export default function TasksPage() {
         // 忽略
       }
     })();
-  }, []);
+  }, [careerKey]);
 
   const shiftDate = (delta: number) => {
     const d = new Date(date + "T00:00:00");
@@ -87,6 +93,7 @@ export default function TasksPage() {
         title: title.trim(),
         taskType: type,
         phaseId: phaseId ? Number(phaseId) : null,
+        career: careerKey,
       }),
     });
     if (r.ok) {
@@ -117,6 +124,18 @@ export default function TasksPage() {
         <div>
           <h1 className="page-title text-2xl font-bold tracking-tight lg:text-3xl">每日任务</h1>
           <p className="page-subtitle mt-1 text-sm">计划 → 专注 → 复盘，形成学习闭环</p>
+          {domain ? (
+            <Link href="/roadmap" className="mt-2 inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-medium backdrop-blur-xl backdrop-saturate-150 transition-colors hover:bg-white/18">
+              <span
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg"
+                style={{ backgroundColor: `${domain.color}26`, color: domain.color }}
+              >
+                <DomainIcon icon={domain.icon} className="size-3.5" />
+              </span>
+              <span className="max-w-40 truncate">{domain.name}</span>
+              <ArrowRight className="size-3.5 shrink-0 text-muted-foreground" />
+            </Link>
+          ) : null}
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" onClick={() => shiftDate(-1)} aria-label="前一天">

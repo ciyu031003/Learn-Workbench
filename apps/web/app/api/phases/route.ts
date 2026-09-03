@@ -2,10 +2,14 @@ import { NextResponse } from "next/server";
 import { pgPool } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
 
-export async function GET() {
+export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const careerParam = url.searchParams.get("career");
   const uid = await currentUserId();
   let career = "ict";
-  if (uid) {
+  if (careerParam) {
+    career = careerParam;
+  } else if (uid) {
     const { rows } = await pgPool.query<{ value: unknown }>(
       `SELECT value FROM settings WHERE user_id = $1 AND key = $2`,
       [uid, "career"]

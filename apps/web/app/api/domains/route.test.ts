@@ -97,7 +97,7 @@ describe("GET /api/domains", () => {
     const res = await GET(new Request("http://localhost/api/domains?templates=1"));
     const json = await res.json();
     expect(json.domains).toEqual([]);
-    expect(json.templates.map((t: { key: string }) => t.key)).toEqual(["english", "badminton", "ball-sports"]);
+    expect(json.templates.map((t: { key: string }) => t.key)).toEqual(["english", "badminton", "ball-sports", "fitness", "reading"]);
     expect(json.templates[0]).toMatchObject({ name: "英语学习", kind: "language", phaseCount: 5 });
   });
 

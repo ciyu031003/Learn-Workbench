@@ -7,17 +7,29 @@ import { todayISO } from "@learn-workbench/shared";
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const date = url.searchParams.get("date") || todayISO();
+  const careerParam = url.searchParams.get("career");
   const uid = await currentUserId();
   const anonId = uid ? null : await getAnonId();
-  const params: unknown[] = [uid, date];
+  // 领域维度：显式 career 参数优先，否则跟随用户设置（匿名默认 ICT）
+  let career = "ict";
+  if (careerParam) {
+    career = careerParam;
+  } else if (uid) {
+    const { rows } = await pgPool.query<{ value: unknown }>(
+      `SELECT value FROM settings WHERE user_id = $1 AND key = $2`,
+      [uid, "career"]
+    );
+    if (rows[0]?.value) career = String(rows[0].value);
+  }
+  const params: unknown[] = [uid, date, career];
   let anonSql = "";
   if (!uid) {
-    anonSql = ` AND ${anonFilterSql(3)}`;
+    anonSql = ` AND ${anonFilterSql(4)}`;
     params.push(anonId);
   }
   const { rows } = await pgPool.query(
-    `SELECT id, task_date, title, phase_id, topic_id, task_type, done, focus_minutes, sort_order
-     FROM daily_tasks WHERE user_id IS NOT DISTINCT FROM $1 AND task_date = $2${anonSql} ORDER BY sort_order, id`,
+    `SELECT id, task_date, title, phase_id, topic_id, task_type, done, focus_minutes, sort_order, career_key
+     FROM daily_tasks WHERE user_id IS NOT DISTINCT FROM $1 AND task_date = $2 AND career_key = $3${anonSql} ORDER BY sort_order, id`,
     params
   );
   return NextResponse.json({ tasks: rows });
@@ -28,23 +40,24 @@ export async function POST(req: Request) {
   const taskDate = String(body?.taskDate || todayISO());
   const title = String(body?.title || "").trim();
   const taskType = String(body?.taskType || "study");
+  const career = String(body?.career || "ict");
   const phaseIdRaw = body?.phaseId;
   const phaseId = phaseIdRaw === null || phaseIdRaw === undefined || phaseIdRaw === "" ? null : Number(phaseIdRaw);
   if (!title) return NextResponse.json({ error: "标题不能为空" }, { status: 400 });
   const uid = await currentUserId();
   if (uid) {
     const { rows } = await pgPool.query(
-      `INSERT INTO daily_tasks (user_id, task_date, title, task_type, phase_id)
-       VALUES ($1, $2, $3, $4, $5) RETURNING id, task_date, title, phase_id, topic_id, task_type, done, focus_minutes, sort_order`,
-      [uid, taskDate, title, taskType, phaseId]
+      `INSERT INTO daily_tasks (user_id, task_date, title, task_type, phase_id, career_key)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, task_date, title, phase_id, topic_id, task_type, done, focus_minutes, sort_order, career_key`,
+      [uid, taskDate, title, taskType, phaseId, career]
     );
     return NextResponse.json({ task: rows[0] }, { status: 201 });
   }
   const anonId = await getAnonId();
   const { rows } = await pgPool.query(
-    `INSERT INTO daily_tasks (user_id, anon_id, task_date, title, task_type, phase_id)
-     VALUES (NULL, $1, $2, $3, $4, $5) RETURNING id, task_date, title, phase_id, topic_id, task_type, done, focus_minutes, sort_order`,
-    [anonId, taskDate, title, taskType, phaseId]
+    `INSERT INTO daily_tasks (user_id, anon_id, task_date, title, task_type, phase_id, career_key)
+     VALUES (NULL, $1, $2, $3, $4, $5, $6) RETURNING id, task_date, title, phase_id, topic_id, task_type, done, focus_minutes, sort_order, career_key`,
+    [anonId, taskDate, title, taskType, phaseId, career]
   );
   return NextResponse.json({ task: rows[0] }, { status: 201 });
 }
@@ -71,7 +84,7 @@ export async function PATCH(req: Request) {
   }
   const { rows } = await pgPool.query(
     `UPDATE daily_tasks SET ${sets.join(", ")} WHERE id = $${params.length} AND ${scopeSql}
-     RETURNING id, task_date, title, phase_id, topic_id, task_type, done, focus_minutes, sort_order`,
+     RETURNING id, task_date, title, phase_id, topic_id, task_type, done, focus_minutes, sort_order, career_key`,
     [...params, ...scopeParams]
   );
   return NextResponse.json({ task: rows[0] ?? null });
