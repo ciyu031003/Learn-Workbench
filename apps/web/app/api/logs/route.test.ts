@@ -15,11 +15,22 @@ beforeEach(() => {
 
 describe("GET /api/logs", () => {
   it("clamps the limit between 1 and 200", async () => {
-    queryMock.mockResolvedValue({ rows: [] } as never);
+    queryMock
+      .mockResolvedValueOnce({ rows: [{ value: "ict" }] } as never)
+      .mockResolvedValueOnce({ rows: [] } as never)
+      .mockResolvedValueOnce({ rows: [{ value: "ict" }] } as never)
+      .mockResolvedValueOnce({ rows: [] } as never);
     await GET(new Request("http://localhost/api/logs?limit=9999"));
-    expect(queryMock).toHaveBeenCalledWith(expect.any(String), ["u-1", 200]);
+    expect(queryMock).toHaveBeenNthCalledWith(2, expect.any(String), ["u-1", "ict", 200]);
     await GET(new Request("http://localhost/api/logs?limit=0"));
-    expect(queryMock).toHaveBeenCalledWith(expect.any(String), ["u-1", 1]);
+    expect(queryMock).toHaveBeenNthCalledWith(4, expect.any(String), ["u-1", "ict", 1]);
+  });
+
+  it("filters by an explicit career param", async () => {
+    queryMock.mockResolvedValue({ rows: [] } as never);
+    const res = await GET(new Request("http://localhost/api/logs?limit=50&career=english"));
+    expect(res.status).toBe(200);
+    expect(queryMock).toHaveBeenCalledWith(expect.any(String), ["u-1", "english", 50]);
   });
 });
 
@@ -59,6 +70,6 @@ describe("POST /api/logs", () => {
     );
     expect(res.status).toBe(201);
     expect(await res.json()).toEqual({ log: { id: 3, kind: "feynman" } });
-    expect(queryMock).toHaveBeenCalledWith(expect.any(String), ["u-1", "feynman", "费曼", "讲稿"]);
+    expect(queryMock).toHaveBeenCalledWith(expect.any(String), ["u-1", "feynman", "ict", "费曼", "讲稿"]);
   });
 });

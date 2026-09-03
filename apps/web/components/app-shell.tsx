@@ -8,6 +8,7 @@ import {
   Map,
   ListTodo,
   NotebookPen,
+  Gauge,
   Settings,
   Sparkles,
   Flower,
@@ -40,6 +41,7 @@ const LEARN_ITEMS: { href: string; label: string; icon: typeof Map; hash?: strin
   { href: "/tasks", label: "今日任务", icon: ListTodo },
   { href: "/tasks", label: "专注", icon: Timer, hash: "#focus" },
   { href: "/logs", label: "学习日志", icon: NotebookPen },
+  { href: "/trackers", label: "领域记录", icon: Gauge },
 ];
 
 /** 职业分组（画像 / 技能树 / 简历 / GitHub / 面试 / 求职） */

@@ -28,7 +28,7 @@ export async function POST(req: Request) {
       scopeParams.push(anonId);
       scopeSql = ` AND ${anonFilterSql(scopeParams.length)}`;
     }
-    for (const table of ["topic_progress","daily_tasks","focus_sessions","checkins","log_entries","certificates","resume_assets","xp_events"]) {
+    for (const table of ["topic_progress","daily_tasks","focus_sessions","checkins","log_entries","certificates","resume_assets","xp_events","tracker_logs","domain_trackers"]) {
       await client.query(`DELETE FROM ${table} WHERE user_id IS NOT DISTINCT FROM $1${scopeSql}`, scopeParams);
     }
 
@@ -47,9 +47,9 @@ export async function POST(req: Request) {
     for (const t of data.tasks) {
       const s = stamp(uid, anonId);
       await client.query(
-        `INSERT INTO daily_tasks (${s.col}, task_date, title, phase_id, topic_id, task_type, done, focus_minutes, sort_order)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-        [s.val, t.task_date, String(t.title), t.phase_id ?? null, t.topic_id ?? null, t.task_type ?? "study", Boolean(t.done), Number(t.focus_minutes ?? 0), Number(t.sort_order ?? 0)]
+        `INSERT INTO daily_tasks (${s.col}, task_date, title, phase_id, topic_id, task_type, career_key, done, focus_minutes, sort_order)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        [s.val, t.task_date, String(t.title), t.phase_id ?? null, t.topic_id ?? null, t.task_type ?? "study", t.career_key ?? "ict", Boolean(t.done), Number(t.focus_minutes ?? 0), Number(t.sort_order ?? 0)]
       );
     }
     for (const s of data.sessions) {
@@ -70,8 +70,8 @@ export async function POST(req: Request) {
     for (const l of data.logs) {
       const st = stamp(uid, anonId);
       await client.query(
-        `INSERT INTO log_entries (${st.col}, kind, title, content, created_at) VALUES ($1, $2, $3, $4, $5)`,
-        [st.val, l.kind, String(l.title), String(l.content), l.created_at ?? new Date().toISOString()]
+        `INSERT INTO log_entries (${st.col}, kind, career_key, title, content, created_at) VALUES ($1, $2, $3, $4, $5, $6)`,
+        [st.val, l.kind, l.career_key ?? "ict", String(l.title), String(l.content), l.created_at ?? new Date().toISOString()]
       );
     }
     for (const c of data.certificates) {
@@ -87,6 +87,42 @@ export async function POST(req: Request) {
         `INSERT INTO resume_assets (${st.col}, kind, title, url, content) VALUES ($1, 'github', $2, $3, $4)`,
         [st.val, g.title, g.url ?? null, g.content ?? null]
       );
+    }
+    // 自定义领域：仅登录用户可导入（匿名不允许建私有域）
+    if (uid) {
+      for (const d of data.domains) {
+        await client.query(
+          `INSERT INTO careers (career_key, name, description, is_locked, owner_id, kind, icon, color, phase_prefix, is_archived)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+           ON CONFLICT (career_key) DO NOTHING`,
+          [String(d.career_key), String(d.name), d.description ?? null, Boolean(d.is_locked ?? false), uid,
+           d.kind ?? "custom", d.icon ?? "compass", d.color ?? "#6366f1", d.phase_prefix ?? "P", Boolean(d.is_archived ?? false)]
+        );
+      }
+      const trackerIdByKey = new Map<string, number>();
+      for (const t of data.trackers) {
+        const { rows } = await client.query<{ id: number }>(
+          `INSERT INTO domain_trackers (user_id, domain_key, name, unit, target_value, target_cadence, color)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT (user_id, domain_key, name) DO UPDATE SET
+             unit = EXCLUDED.unit, target_value = EXCLUDED.target_value,
+             target_cadence = EXCLUDED.target_cadence, color = EXCLUDED.color,
+             deleted_at = NULL, updated_at = now()
+           RETURNING id`,
+          [uid, String(t.domain_key), String(t.name), t.unit ?? "", t.target_value ?? null, t.target_cadence ?? null, t.color ?? "#6366f1"]
+        );
+        trackerIdByKey.set(`${t.domain_key}::${t.name}`, rows[0].id);
+      }
+      for (const l of data.tracker_logs) {
+        const trackerId = trackerIdByKey.get(`${l.domain_key}::${l.tracker_name}`);
+        if (trackerId == null) continue;
+        await client.query(
+          `INSERT INTO tracker_logs (user_id, tracker_id, log_date, value, note)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (user_id, tracker_id, log_date) DO UPDATE SET value = EXCLUDED.value, note = EXCLUDED.note, updated_at = now()`,
+          [uid, trackerId, l.log_date, Number(l.value), l.note ?? null]
+        );
+      }
     }
     await client.query("COMMIT");
     return NextResponse.json({ ok: true });

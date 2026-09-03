@@ -89,6 +89,7 @@ export const dailyTaskSchema = z.object({
   phaseId: z.number().nullable(),
   topicId: z.number().nullable(),
   taskType: taskTypeSchema,
+  careerKey: z.string().optional(),
   done: z.boolean(),
   focusMinutes: z.number(),
   sortOrder: z.number(),
@@ -115,6 +116,7 @@ export const logKindSchema = z.enum(["feynman", "review", "project", "interview"
 export const logEntrySchema = z.object({
   id: z.number(),
   kind: logKindSchema,
+  careerKey: z.string().optional(),
   title: z.string(),
   content: z.string(),
   createdAt: z.string(),
@@ -760,6 +762,59 @@ export const domainKindLabels: Record<DomainKind, string> = {
   custom: "自定义",
 };
 
+/* ================= 3.0 · 领域记录维度（Tracker） ================= */
+
+export const domainTrackerSchema = z.object({
+  id: z.number(),
+  domainKey: z.string(),
+  name: z.string(),
+  unit: z.string(),
+  targetValue: z.number().nullable(),
+  targetCadence: z.enum(["daily", "weekly"]).nullable(),
+  color: z.string(),
+});
+export type DomainTracker = z.infer<typeof domainTrackerSchema>;
+
+export const trackerLogSchema = z.object({
+  id: z.number(),
+  trackerId: z.number(),
+  logDate: z.string(),
+  value: z.number(),
+  note: z.string().nullable(),
+});
+export type TrackerLog = z.infer<typeof trackerLogSchema>;
+
+const trackerDateStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "日期需为 YYYY-MM-DD");
+export const exportDomainRowSchema = z.object({
+  career_key: z.string().max(100),
+  name: z.string().max(100),
+  description: z.string().nullable().optional(),
+  is_locked: z.boolean().optional(),
+  owner_id: z.string().nullable().optional(),
+  kind: z.string().max(20).optional(),
+  icon: z.string().max(40).optional(),
+  color: z.string().max(20).optional(),
+  phase_prefix: z.string().max(10).optional(),
+  is_archived: z.boolean().optional(),
+});
+export const exportTrackerRowSchema = z.object({
+  domain_key: z.string().max(100),
+  name: z.string().max(100),
+  unit: z.string().max(40).optional(),
+  target_value: z.number().nullable().optional(),
+  target_cadence: z.enum(["daily", "weekly"]).nullable().optional(),
+  color: z.string().max(20).optional(),
+});
+export const exportTrackerLogRowSchema = z.object({
+  domain_key: z.string().max(100),
+  tracker_name: z.string().max(100),
+  log_date: trackerDateStr,
+  value: z.number(),
+  note: z.string().nullable().optional(),
+});
+export type ExportTrackerRow = z.infer<typeof exportTrackerRowSchema>;
+export type ExportTrackerLogRow = z.infer<typeof exportTrackerLogRowSchema>;
+
 /* ================= 2.0 · 职业准备度 / Dashboard 聚合 ================= */
 
 /** 职业准备度四维（技能/项目/简历/面试） */
@@ -1167,6 +1222,7 @@ export const exportTaskRowSchema = z.object({
   phase_id: z.number().nullable().optional(),
   topic_id: z.number().nullable().optional(),
   task_type: z.string().max(20).optional(),
+  career_key: z.string().max(100).optional(),
   done: z.boolean().optional(),
   focus_minutes: z.number().optional(),
   sort_order: z.number().optional(),
@@ -1184,6 +1240,7 @@ export const exportCheckinRowSchema = z.object({
 });
 export const exportLogRowSchema = z.object({
   kind: z.enum(["feynman", "review", "project", "interview"]),
+  career_key: z.string().max(100).optional(),
   title: z.string().max(500),
   content: z.string().max(200_000),
   created_at: z.string().optional(),
@@ -1212,6 +1269,9 @@ export const importFileSchema = z.object({
   logs: z.array(exportLogRowSchema).default([]),
   certificates: z.array(exportCertificateRowSchema).default([]),
   github: z.array(exportGithubRowSchema).default([]),
+  domains: z.array(exportDomainRowSchema).default([]),
+  trackers: z.array(exportTrackerRowSchema).default([]),
+  tracker_logs: z.array(exportTrackerLogRowSchema).default([]),
 });
 export type ImportFile = z.infer<typeof importFileSchema>;
 

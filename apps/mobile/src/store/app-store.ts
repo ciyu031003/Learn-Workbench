@@ -29,6 +29,7 @@ export type PendingChange = SyncChange;
 
 interface LocalTask extends DailyTask {
   clientId?: string;
+  careerKey: string;
 }
 interface LocalLog extends LogEntry {
   clientId?: string;
@@ -157,6 +158,7 @@ export const useAppStore = create<AppState>()(
             phaseId: null,
             topicId: null,
             taskType,
+            careerKey: "ict",
             done: false,
             focusMinutes: 0,
             sortOrder: s.tasks.length,
@@ -429,6 +431,7 @@ export const useAppStore = create<AppState>()(
                   phaseId: nnull(p.phaseId),
                   topicId: nnull(p.topicId),
                   taskType: (p.taskType as TaskType) ?? "study",
+                  careerKey: sval(p.careerKey, "ict"),
                   done: bval(p.done),
                   focusMinutes: nval(p.focusMinutes),
                   sortOrder: nval(p.sortOrder),
@@ -463,6 +466,7 @@ export const useAppStore = create<AppState>()(
                   id: nval(p.id, nextId()),
                   clientId: c.entityId,
                   kind: (p.kind as LogKind) ?? "review",
+                  careerKey: sval(p.careerKey, "ict"),
                   title: sval(p.title),
                   content: sval(p.content),
                   createdAt: sval(p.createdAt, new Date().toISOString()),

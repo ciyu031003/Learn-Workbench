@@ -127,7 +127,7 @@ describe("applyChanges", () => {
     expect(del![1]).toEqual(["u-1", 7, new Date(AT)]);
   });
 
-  it("inserts tasks with defaulted fields", async () => {
+  it("inserts tasks with defaulted fields and careerKey", async () => {
     const { client, query } = makeClient(() => ({ rows: [] }));
     const applied = await applyChanges(client, "u-1", [
       change({
@@ -139,7 +139,7 @@ describe("applyChanges", () => {
     expect(applied).toBe(1);
     const insert = query.mock.calls.find(([sql]) => sql.includes("INSERT INTO daily_tasks"));
     expect(insert![1]).toEqual([
-      "u-1", "c-1", null, "T", null, null, "study", true, 25, 3, new Date(AT),
+      "u-1", "c-1", null, "T", null, null, "study", "ict", true, 25, 3, new Date(AT),
     ]);
   });
 
@@ -171,7 +171,7 @@ describe("applyChanges", () => {
     ]);
     const insert = query.mock.calls.find(([sql]) => sql.includes("INSERT INTO log_entries"));
     expect(insert![1]).toEqual([
-      "u-1", "c-l1", "feynman", "123", "", new Date(AT), new Date(AT),
+      "u-1", "c-l1", "feynman", "ict", "123", "", new Date(AT), new Date(AT),
     ]);
   });
 

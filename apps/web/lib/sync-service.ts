@@ -91,16 +91,17 @@ async function applyTasks(client: PoolClient, uid: string, c: SyncChange, at: Da
   const p = (c.payload ?? {}) as Record<string, unknown>;
   await client.query(
     `INSERT INTO daily_tasks
-       (user_id, client_id, task_date, title, phase_id, topic_id, task_type, done, focus_minutes, sort_order, updated_at, deleted_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NULL)
+       (user_id, client_id, task_date, title, phase_id, topic_id, task_type, career_key, done, focus_minutes, sort_order, updated_at, deleted_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NULL)
      ON CONFLICT (user_id, client_id) WHERE user_id IS NOT NULL AND client_id IS NOT NULL
      DO UPDATE SET task_date = EXCLUDED.task_date, title = EXCLUDED.title, phase_id = EXCLUDED.phase_id,
-       topic_id = EXCLUDED.topic_id, task_type = EXCLUDED.task_type, done = EXCLUDED.done,
-       focus_minutes = EXCLUDED.focus_minutes, sort_order = EXCLUDED.sort_order,
+       topic_id = EXCLUDED.topic_id, task_type = EXCLUDED.task_type, career_key = EXCLUDED.career_key,
+       done = EXCLUDED.done, focus_minutes = EXCLUDED.focus_minutes, sort_order = EXCLUDED.sort_order,
        updated_at = EXCLUDED.updated_at, deleted_at = NULL`,
     [
       uid, clientId, p.taskDate ?? null, String(p.title ?? ""),
       p.phaseId ?? null, p.topicId ?? null, p.taskType ?? "study",
+      String(p.careerKey ?? "ict"),
       Boolean(p.done), Number(p.focusMinutes ?? 0), Number(p.sortOrder ?? 0), at,
     ]
   );
@@ -188,12 +189,12 @@ async function applyLogs(client: PoolClient, uid: string, c: SyncChange, at: Dat
   if (existing.rows[0] && !existing.rows[0].deleted_at && newer(existing.rows[0].updated_at, at)) return true;
   const p = (c.payload ?? {}) as Record<string, unknown>;
   await client.query(
-    `INSERT INTO log_entries (user_id, client_id, kind, title, content, created_at, updated_at, deleted_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, NULL)
+    `INSERT INTO log_entries (user_id, client_id, kind, career_key, title, content, created_at, updated_at, deleted_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULL)
      ON CONFLICT (user_id, client_id) WHERE user_id IS NOT NULL AND client_id IS NOT NULL
-     DO UPDATE SET kind = EXCLUDED.kind, title = EXCLUDED.title, content = EXCLUDED.content,
+     DO UPDATE SET kind = EXCLUDED.kind, career_key = EXCLUDED.career_key, title = EXCLUDED.title, content = EXCLUDED.content,
        created_at = EXCLUDED.created_at, updated_at = EXCLUDED.updated_at, deleted_at = NULL`,
-    [uid, clientId, p.kind ?? "review", String(p.title ?? ""), String(p.content ?? ""), p.createdAt ?? at, at]
+    [uid, clientId, p.kind ?? "review", String(p.careerKey ?? "ict"), String(p.title ?? ""), String(p.content ?? ""), p.createdAt ?? at, at]
   );
   return true;
 }
@@ -322,7 +323,7 @@ export async function collectChangesSince(client: PoolClient, uid: string, since
   {
     const { rows } = await q(
       `SELECT id, client_id AS cid, task_date AS td, title, phase_id AS pid, topic_id AS tid,
-              task_type AS tt, done, focus_minutes AS fm, sort_order AS so, updated_at AS u, deleted_at AS d
+              task_type AS tt, career_key AS ck, done, focus_minutes AS fm, sort_order AS so, updated_at AS u, deleted_at AS d
        FROM daily_tasks WHERE user_id = $1 AND (updated_at > $2 OR deleted_at > $2)`,
       [uid, since]
     );
@@ -331,7 +332,7 @@ export async function collectChangesSince(client: PoolClient, uid: string, since
       out.push(change("tasks", r.cid || "srv-" + r.id, del ? "DELETE" : "UPDATE",
         del ? null : {
           id: r.id, clientId: r.cid, taskDate: r.td, title: r.title, phaseId: r.pid,
-          topicId: r.tid, taskType: r.tt, done: r.done, focusMinutes: r.fm, sortOrder: r.so,
+          topicId: r.tid, taskType: r.tt, careerKey: r.ck, done: r.done, focusMinutes: r.fm, sortOrder: r.so,
         }, del ?? r.u));
     }
   }
@@ -363,14 +364,14 @@ export async function collectChangesSince(client: PoolClient, uid: string, since
   }
   {
     const { rows } = await q(
-      `SELECT id, client_id AS cid, kind, title, content, created_at AS ca, updated_at AS u, deleted_at AS d
+      `SELECT id, client_id AS cid, kind, career_key AS ck, title, content, created_at AS ca, updated_at AS u, deleted_at AS d
        FROM log_entries WHERE user_id = $1 AND (updated_at > $2 OR deleted_at > $2)`,
       [uid, since]
     );
     for (const r of rows) {
       const del = r.d;
       out.push(change("logs", r.cid || "srv-" + r.id, del ? "DELETE" : "UPDATE",
-        del ? null : { id: r.id, clientId: r.cid, kind: r.kind, title: r.title, content: r.content, createdAt: r.ca },
+        del ? null : { id: r.id, clientId: r.cid, kind: r.kind, careerKey: r.ck, title: r.title, content: r.content, createdAt: r.ca },
         del ?? r.u));
     }
   }

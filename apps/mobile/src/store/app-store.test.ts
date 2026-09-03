@@ -128,8 +128,8 @@ describe("applyRemoteChanges", () => {
     useAppStore.setState({
       progress: { 3: { topicId: 3, done: true, note: null, updatedAt: "x" } },
       tasks: [
-        { id: 1, clientId: "c-1", taskDate: "2026-08-13", title: "a", phaseId: null, topicId: null, taskType: "study", done: false, focusMinutes: 0, sortOrder: 0 },
-        { id: 2, taskDate: "2026-08-13", title: "srv", phaseId: null, topicId: null, taskType: "study", done: false, focusMinutes: 0, sortOrder: 1 },
+        { id: 1, clientId: "c-1", taskDate: "2026-08-13", title: "a", phaseId: null, topicId: null, taskType: "study", careerKey: "ict", done: false, focusMinutes: 0, sortOrder: 0 },
+        { id: 2, taskDate: "2026-08-13", title: "srv", phaseId: null, topicId: null, taskType: "study", careerKey: "ict", done: false, focusMinutes: 0, sortOrder: 1 },
       ],
       sessions: [{ id: 9, clientId: "c-9", taskId: null, startedAt: "x", endedAt: null, durationSeconds: 0, tag: null }],
       checkins: ["2026-08-12"],

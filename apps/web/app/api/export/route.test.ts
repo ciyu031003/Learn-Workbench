@@ -23,7 +23,7 @@ describe("GET /api/export", () => {
     const json = await res.json();
     expect(json.app).toBe("learn-workbench");
     expect(json.schemaVersion).toBe("0.1.0");
-    expect(["progress", "tasks", "sessions", "checkins", "logs", "certificates", "github"]).toEqual(
+    expect(["progress", "tasks", "sessions", "checkins", "logs", "certificates", "github", "domains", "trackers", "tracker_logs"]).toEqual(
       Object.keys(json).filter((k) => !["app", "schemaVersion", "exportedAt"].includes(k))
     );
     expect(query).toHaveBeenCalledWith(expect.stringContaining("FROM topic_progress"), ["u-1"]);

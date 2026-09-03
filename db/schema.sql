@@ -133,6 +133,38 @@ CREATE TABLE focus_sessions (
 
 -- ---------- 5. 打卡（连续打卡由 checkins 聚合计算） ----------
 
+
+
+-- ---------- 5.5 领域记录（计量项 + 按日记录） ----------
+
+CREATE TABLE domain_trackers (
+  id            bigserial PRIMARY KEY,
+  user_id       uuid REFERENCES users(id) ON DELETE CASCADE,
+  domain_key    text NOT NULL DEFAULT 'ict',
+  name          text NOT NULL,
+  unit          text NOT NULL DEFAULT '',
+  target_value  numeric,
+  target_cadence text CHECK (target_cadence IN ('daily','weekly')),
+  color         text NOT NULL DEFAULT '#6366f1',
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  updated_at    timestamptz NOT NULL DEFAULT now(),
+  deleted_at    timestamptz,
+  client_id     text,
+  UNIQUE (user_id, domain_key, name)
+);
+
+CREATE TABLE tracker_logs (
+  id         bigserial PRIMARY KEY,
+  user_id    uuid REFERENCES users(id) ON DELETE CASCADE,
+  tracker_id bigint REFERENCES domain_trackers(id) ON DELETE CASCADE,
+  log_date   date NOT NULL,
+  value      numeric NOT NULL DEFAULT 0,
+  note       text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (user_id, tracker_id, log_date)
+);
+
 CREATE TABLE checkins (
   id           bigserial PRIMARY KEY,
   user_id      uuid REFERENCES users(id) ON DELETE CASCADE,
@@ -158,6 +190,7 @@ CREATE TABLE log_entries (
   id         bigserial PRIMARY KEY,
   user_id    uuid REFERENCES users(id) ON DELETE CASCADE,
   kind       text NOT NULL CHECK (kind IN ('feynman','review','project','interview')),
+  career_key text NOT NULL DEFAULT 'ict',   -- 所属学习领域（见 careers 表）
   title      text NOT NULL,
   content    text NOT NULL,
   refs       jsonb NOT NULL DEFAULT '[]',
@@ -249,6 +282,8 @@ CREATE INDEX idx_progress_user     ON topic_progress(user_id);
 CREATE INDEX idx_progress_topic    ON topic_progress(topic_id);
 CREATE INDEX idx_tasks_date        ON daily_tasks(task_date);
 CREATE INDEX idx_tasks_domain      ON daily_tasks(career_key);
+CREATE INDEX idx_trackers_domain    ON domain_trackers(domain_key);
+CREATE INDEX idx_tracker_logs_user  ON tracker_logs(user_id);
 CREATE INDEX idx_tasks_user        ON daily_tasks(user_id);
 CREATE INDEX idx_sessions_user     ON focus_sessions(user_id);
 CREATE INDEX idx_sessions_start    ON focus_sessions(started_at);

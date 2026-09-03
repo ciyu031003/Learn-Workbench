@@ -10,7 +10,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Download, Plus, NotebookPen } from "lucide-react";
+import { Download, Plus, NotebookPen, ArrowRight } from "lucide-react";
+import Link from "next/link";
+import { DomainIcon } from "@/components/domain-icon";
+import { useDomainStore } from "@/store/domain-store";
 
 const KINDS = ["feynman", "review", "project", "interview"] as const;
 const kindVariant: Record<string, "default" | "accent" | "success" | "muted"> = {
@@ -21,6 +24,8 @@ const kindVariant: Record<string, "default" | "accent" | "success" | "muted"> = 
 };
 
 export default function LogsPage() {
+  const domain = useDomainStore((s) => s.current);
+  const careerKey = domain?.careerKey ?? "ict";
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [filter, setFilter] = useState<string>("all");
   const [kind, setKind] = useState<(typeof KINDS)[number]>("feynman");
@@ -29,10 +34,10 @@ export default function LogsPage() {
   const titleRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
-    const r = await fetch("/api/logs?limit=200");
+    const r = await fetch(`/api/logs?limit=200&career=${careerKey}`);
     const data = await r.json();
     setLogs(data.logs ?? []);
-  }, []);
+  }, [careerKey]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -43,7 +48,7 @@ export default function LogsPage() {
     if (!title.trim() || !content.trim()) return;
     const r = await fetch("/api/logs", {
       method: "POST",
-      body: JSON.stringify({ kind, title: title.trim(), content: content.trim() }),
+      body: JSON.stringify({ kind, career: careerKey, title: title.trim(), content: content.trim() }),
     });
     if (r.ok) {
       setTitle("");
@@ -72,6 +77,18 @@ export default function LogsPage() {
         <div>
           <h1 className="page-title text-2xl font-bold tracking-tight lg:text-3xl">学习日志</h1>
           <p className="page-subtitle mt-1 text-sm">费曼讲稿 · 周复盘 · 项目笔记 · 面试记录，输出倒逼输入</p>
+          {domain ? (
+            <Link href="/roadmap" className="mt-2 inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-medium backdrop-blur-xl backdrop-saturate-150 transition-colors hover:bg-white/18">
+              <span
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg"
+                style={{ backgroundColor: `${domain.color}26`, color: domain.color }}
+              >
+                <DomainIcon icon={domain.icon} className="size-3.5" />
+              </span>
+              <span className="max-w-40 truncate">{domain.name}</span>
+              <ArrowRight className="size-3.5 shrink-0 text-muted-foreground" />
+            </Link>
+          ) : null}
         </div>
         <Button variant="secondary" onClick={exportJson}>
           <Download className="size-4" /> 导出 JSON
