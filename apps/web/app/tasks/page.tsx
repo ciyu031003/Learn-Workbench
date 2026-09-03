@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { DailyTask } from "@learn-workbench/shared";
 import { todayISO, taskTypeLabels, formatDateCN } from "@learn-workbench/shared";
@@ -26,6 +27,7 @@ interface PhaseStat {
 }
 
 export default function TasksPage() {
+  const router = useRouter();
   const domain = useDomainStore((s) => s.current);
   const careerKey = domain?.careerKey ?? "ict";
   const [date, setDate] = useState(todayISO());
@@ -39,6 +41,11 @@ export default function TasksPage() {
   const [timerOpen, setTimerOpen] = useState(false);
   const [timerSession, setTimerSession] = useState(0);
   const [timerTask, setTimerTask] = useState<{ id: number | null; title: string | null } | null>(null);
+  const [timerAuto, setTimerAuto] = useState<{ autoStart: boolean; mode: "focus" | "exercise"; minutes?: number }>({
+    autoStart: false,
+    mode: "focus",
+  });
+  const autofocusHandled = useRef(false);
 
   const load = useCallback(async (d: string) => {
     const r = await fetch(`/api/tasks?date=${d}&career=${careerKey}`);
@@ -112,9 +119,32 @@ export default function TasksPage() {
 
   const openTimer = (taskId: number | null, taskTitle: string | null) => {
     setTimerTask({ id: taskId, title: taskTitle });
+    setTimerAuto({ autoStart: false, mode: "focus" });
     setTimerSession((s) => s + 1);
     setTimerOpen(true);
   };
+
+  // 快捷开始：/tasks?autofocus=study|exercise&minutes=N 自动打开并启动倒计时（解析后清除参数）
+  useEffect(() => {
+    if (autofocusHandled.current || timerOpen) return;
+    const sp = new URLSearchParams(window.location.search);
+    const af = sp.get("autofocus");
+    if (af !== "study" && af !== "exercise") return;
+    autofocusHandled.current = true;
+    const m = Number(sp.get("minutes"));
+    const minutes = Number.isFinite(m) && m >= 1 && m <= 180 ? Math.round(m) : undefined;
+    const mode = af === "exercise" ? "exercise" : "focus";
+    // 延迟一帧再打开计时器：避免 effect 体内同步 setState 触发级联渲染
+    const t = window.setTimeout(() => {
+      setTimerTask({ id: null, title: null });
+      setTimerAuto({ autoStart: true, mode, minutes });
+      setTimerSession((s) => s + 1);
+      setTimerOpen(true);
+      router.replace("/tasks");
+    }, 0);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const totalFocus = tasks.reduce((a, t) => a + t.focusMinutes, 0);
 
@@ -312,6 +342,9 @@ export default function TasksPage() {
         key={timerSession}
         open={timerOpen}
         task={timerTask}
+        autoStart={timerAuto.autoStart}
+        mode={timerAuto.mode}
+        initialMinutes={timerAuto.minutes}
         onClose={() => setTimerOpen(false)}
         onRecorded={() => {
           load(date);

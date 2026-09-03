@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { pgPool } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
-import { getAnonId, anonFilterSql } from "@/lib/anon";
 
 /** 记录项按日打卡：GET 列出（含今日/最近一条）；POST upsert（同一天重复记录覆盖） */
 export async function GET(req: Request) {
@@ -10,20 +9,14 @@ export async function GET(req: Request) {
   const limit = Math.min(90, Math.max(1, Number(url.searchParams.get("limit") || 30)));
   if (!Number.isFinite(trackerId)) return NextResponse.json({ error: "trackerId 无效" }, { status: 400 });
   const uid = await currentUserId();
-  const anonId = uid ? null : await getAnonId();
-  const params: unknown[] = [uid, trackerId, limit];
-  let anonSql = "";
-  if (!uid) {
-    anonSql = ` AND ${anonFilterSql(params.length + 1)}`;
-    params.push(anonId);
-  }
+  if (!uid) return NextResponse.json({ error: "请先登录" }, { status: 401 });
   const { rows } = await pgPool.query(
     `SELECT l.id, l.tracker_id, l.log_date, l.value, l.note
      FROM tracker_logs l
      JOIN domain_trackers t ON t.id = l.tracker_id
-     WHERE l.user_id IS NOT DISTINCT FROM $1 AND l.tracker_id = $2 AND t.deleted_at IS NULL${anonSql}
+     WHERE l.user_id = $1 AND l.tracker_id = $2 AND t.deleted_at IS NULL
      ORDER BY l.log_date DESC LIMIT $3`,
-    params
+    [uid, trackerId, limit]
   );
   return NextResponse.json({ logs: rows });
 }

@@ -1,26 +1,19 @@
 import { NextResponse } from "next/server";
 import { pgPool } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
-import { getAnonId, anonFilterSql } from "@/lib/anon";
 
 /** 领域记录项（计量模型）：GET 按领域列出；POST 新建；PATCH 改目标/单位；DELETE 软删除（级联记录由服务端删除） */
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const career = url.searchParams.get("career") || "ict";
   const uid = await currentUserId();
-  const anonId = uid ? null : await getAnonId();
-  const params: unknown[] = [uid, career];
-  let anonSql = "";
-  if (!uid) {
-    anonSql = ` AND ${anonFilterSql(params.length + 1)}`;
-    params.push(anonId);
-  }
+  if (!uid) return NextResponse.json({ error: "请先登录" }, { status: 401 });
   const { rows } = await pgPool.query(
     `SELECT id, domain_key, name, unit, target_value, target_cadence, color
      FROM domain_trackers
-     WHERE user_id IS NOT DISTINCT FROM $1 AND domain_key = $2 AND deleted_at IS NULL${anonSql}
+     WHERE user_id = $1 AND domain_key = $2 AND deleted_at IS NULL
      ORDER BY id`,
-    params
+    [uid, career]
   );
   return NextResponse.json({ trackers: rows });
 }

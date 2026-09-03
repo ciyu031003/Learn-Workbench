@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FOCUS_COLORS, FOCUS_GALLERY, useFocusBgStore } from "@/store/focus-bg-store";
+import { useToastStore } from "@/store/toast-store";
 
 const PRESETS = [15, 25, 45];
 const RING_R = 128;
@@ -62,16 +63,23 @@ export function FocusTimer({
   task,
   onClose,
   onRecorded,
+  autoStart = false,
+  mode = "focus",
+  initialMinutes,
 }: {
   open: boolean;
   task: { id: number | null; title: string | null } | null;
   onClose: () => void;
   onRecorded?: () => void;
+  autoStart?: boolean;
+  mode?: "focus" | "exercise";
+  initialMinutes?: number;
 }) {
   const bg = useFocusBgStore();
-  const [minutes, setMinutesState] = useState(bg.minutes || 25);
-  const [total, setTotal] = useState((bg.minutes || 25) * 60);
-  const [remaining, setRemaining] = useState((bg.minutes || 25) * 60);
+  const initMinutes = initialMinutes ?? (bg.minutes || 25);
+  const [minutes, setMinutesState] = useState(initMinutes);
+  const [total, setTotal] = useState(initMinutes * 60);
+  const [remaining, setRemaining] = useState(initMinutes * 60);
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(false);
   const [started, setStarted] = useState(false);
@@ -84,8 +92,10 @@ export function FocusTimer({
   const [wbDone, setWbDone] = useState<{ break?: boolean; water?: boolean }>({});
   const startRef = useRef<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const remainingRef = useRef((bg.minutes || 25) * 60);
+  const remainingRef = useRef(initMinutes * 60);
   const fileRef = useRef<HTMLInputElement>(null);
+  const autoStartedRef = useRef(false);
+  const exerciseRecordedRef = useRef(false);
 
   const setRemainingSafe = useCallback((n: number) => {
     remainingRef.current = n;
@@ -132,6 +142,14 @@ export function FocusTimer({
     start();
   };
 
+  // 快捷开始：autoStart 时挂载后自动进入倒计时（仍允许暂停/结束）
+  useEffect(() => {
+    if (!open || !autoStart || autoStartedRef.current) return;
+    autoStartedRef.current = true;
+    begin();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, autoStart]);
+
   const pause = () => {
     if (timerRef.current) clearInterval(timerRef.current);
     setRunning(false);
@@ -158,6 +176,35 @@ export function FocusTimer({
 
   const record = async (elapsedSeconds: number) => {
     if (recording) return;
+    // 运动模式：只写 exercise_logs，不计专注 session / 专注时长
+    if (mode === "exercise") {
+      if (elapsedSeconds < 60) {
+        useToastStore.getState().push("不足 1 分钟，未计入", "info");
+        onClose();
+        return;
+      }
+      setRecording(true);
+      const startedAt = new Date(Date.now() - elapsedSeconds * 1000).toISOString();
+      try {
+        await fetch("/api/wellbeing/exercise", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "OTHER",
+            typeLabel: "一键运动",
+            durationSeconds: elapsedSeconds,
+            source: "FOCUS",
+            startedAt,
+          }),
+        });
+        useToastStore.getState().push(`运动完成 +${Math.round(elapsedSeconds / 60)} 分钟`);
+      } catch {
+        // 忽略
+      }
+      setRecording(false);
+      onClose();
+      return;
+    }
     if (elapsedSeconds < 10) {
       onClose();
       return;
@@ -178,6 +225,14 @@ export function FocusTimer({
     onRecorded?.();
     onClose();
   };
+
+  // 运动模式：倒计时自然结束自动按实际时长写入运动记录
+  useEffect(() => {
+    if (!done || mode !== "exercise" || exerciseRecordedRef.current) return;
+    exerciseRecordedRef.current = true;
+    record(total);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [done, mode, total]);
 
   const toggleFullscreen = () => {
     if (document.fullscreenElement) {
@@ -232,6 +287,7 @@ export function FocusTimer({
 
   const ratio = total > 0 ? remaining / total : 0;
   const elapsed = total - remaining;
+  const sessionLabel = mode === "exercise" ? "运动中" : (task?.title ?? "自由专注");
   const shownQuote = bg.customQuote ? { text: bg.customQuote, author: undefined as string | undefined } : quote;
 
   if (!open) return null;
@@ -424,11 +480,11 @@ export function FocusTimer({
           {/* 任务名 + 状态 */}
           <div className="flex flex-col items-center gap-2 text-center">
             <span className="max-w-xl truncate rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-sm text-white/90 backdrop-blur-md">
-              {task?.title ?? "自由专注"}
+              {sessionLabel}
             </span>
             <span className="flex items-center gap-1.5 text-xs text-white/70">
               <span className={cn("size-1.5 rounded-full", running ? "bg-success animate-pulse" : "bg-white/40")} />
-              {running ? "专注中 · 保持节奏" : "已暂停"}
+              {running ? (mode === "exercise" ? "运动中 · 保持节奏" : "专注中 · 保持节奏") : "已暂停"}
             </span>
           </div>
 
@@ -437,8 +493,17 @@ export function FocusTimer({
             <svg width="min(72vw,340px)" height="min(72vw,340px)" viewBox="0 0 300 300" className="drop-shadow-[0_6px_30px_rgba(0,0,0,0.4)]">
               <defs>
                 <linearGradient id="ring-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#ffb25e" />
-                  <stop offset="100%" stopColor="#ff6a5e" />
+                  {mode === "exercise" ? (
+                    <>
+                      <stop offset="0%" stopColor="#38bdf8" />
+                      <stop offset="100%" stopColor="#0ea5e9" />
+                    </>
+                  ) : (
+                    <>
+                      <stop offset="0%" stopColor="#ffb25e" />
+                      <stop offset="100%" stopColor="#ff6a5e" />
+                    </>
+                  )}
                 </linearGradient>
               </defs>
               <circle cx="150" cy="150" r={RING_R} fill="none" stroke="rgba(255,255,255,0.16)" strokeWidth="12" />
@@ -575,7 +640,7 @@ export function FocusTimer({
         <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-5 px-4">
           <div className="flex flex-col items-center gap-2 text-center">
             <span className="max-w-xl truncate rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-sm text-white/90 backdrop-blur-md">
-              {task?.title ?? "自由专注"}
+              {sessionLabel}
             </span>
             <span className="text-xs text-white/70">准备开始 · {minutes} 分钟</span>
           </div>
@@ -615,7 +680,7 @@ export function FocusTimer({
             onClick={begin}
             className="flex items-center gap-2 rounded-full bg-gradient-to-b from-primary to-[#4338ca] px-10 py-4 text-base font-semibold text-white shadow-[0_10px_40px_rgba(79,70,229,0.45)] transition-all hover:brightness-105"
           >
-            <Play className="size-5" /> 开始专注
+            <Play className="size-5" /> {mode === "exercise" ? "开始运动" : "开始专注"}
           </button>
           <p className="text-xs text-white/50">开始后将进入全屏，可随时暂停或结束</p>
         </div>

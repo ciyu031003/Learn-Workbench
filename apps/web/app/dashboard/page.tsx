@@ -26,6 +26,8 @@ import {
   Zap,
   Flame,
   Plus,
+  BookOpen,
+  Dumbbell,
 } from "lucide-react";
 
 function greeting(): string {
@@ -249,6 +251,40 @@ export default function DashboardPage() {
           <div className="shrink-0">
             <OverallRing percent={data?.overallPercent ?? 0} />
           </div>
+        </div>
+      </section>
+
+      {/* 快捷开始：一键学习 / 一键运动 */}
+      <section aria-label="快捷开始">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Link href="/tasks?autofocus=study&minutes=25" className="group">
+            <Card className="glass-hover press-scale h-full">
+              <CardContent className="flex items-center gap-3 p-4">
+                <span className="icon-chip h-10 w-10 shrink-0">
+                  <BookOpen className="size-5 text-primary" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold">一键学习</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">25 分钟专注 · 立即开始</p>
+                </div>
+                <ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/tasks?autofocus=exercise&minutes=30" className="group">
+            <Card className="glass-hover press-scale h-full">
+              <CardContent className="flex items-center gap-3 p-4">
+                <span className="icon-chip h-10 w-10 shrink-0">
+                  <Dumbbell className="size-5 text-accent" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold">一键运动</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">30 分钟计时 · 立即开始</p>
+                </div>
+                <ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+              </CardContent>
+            </Card>
+          </Link>
         </div>
       </section>
 

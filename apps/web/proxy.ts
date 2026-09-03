@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-const PROTECTED = ["/dashboard", "/roadmap", "/tasks", "/logs", "/jobs", "/settings"];
+const PROTECTED = ["/dashboard", "/roadmap", "/tasks", "/logs", "/jobs", "/settings", "/trackers"];
 
 /** 匿名设备标识 cookie（未登录时隔离匿名数据，见 db/migrations/016_security_hardening.sql） */
 const ANON_COOKIE = "lwb_anon";

@@ -10,14 +10,13 @@ import { useState } from "react";
 import { useToastStore } from "@/store/toast-store";
 import { cn } from "@/lib/utils";
 
-/** 冷调渐变对（胶囊填充）—— P1 收敛到全站 token 冷调体系（primary=靛蓝、accent=天蓝），去暖色/绿冲突 */
+/** 冷调渐变对（胶囊填充）—— 收敛到图表色板 tokens：primary 靛蓝 → accent 青梯度，去彩虹色 */
 const G = [
-  ["#6366f1", "#818cf8"], // indigo（≈primary）
-  ["#0ea5e9", "#38bdf8"], // sky（accent）
-  ["#8b5cf6", "#a78bfa"], // violet
-  ["#3b82f6", "#60a5fa"], // blue
-  ["#06b6d4", "#22d3ee"], // cyan
-  ["#14b8a6", "#2dd4bf"], // teal
+  ["#4f46e5", "#6366f1"],
+  ["#6366f1", "#818cf8"],
+  ["#818cf8", "#0ea5e9"],
+  ["#0ea5e9", "#38bdf8"],
+  ["#4f46e5", "#818cf8"],
 ] as const;
 const grad = (i: number, vertical = false) =>
   `linear-gradient(${vertical ? "180" : "90"}deg, ${G[i % G.length][0]}, ${G[i % G.length][1]})`;
@@ -202,7 +201,7 @@ export function BubbleQuadrant({
   const maxY = Math.max(1, ...ys);
   const midX = median(xs) || maxX / 2;
   const midY = median(ys) || maxY / 2;
-  const tone = (x: number, y: number) => (x >= midX && y >= midY ? "#34d399" : x >= midX ? "#22d3ee" : y >= midY ? "#818cf8" : "#a78bfa");
+  const tone = (x: number, y: number) => (x >= midX && y >= midY ? "#6366f1" : x >= midX ? "#0ea5e9" : y >= midY ? "#818cf8" : "#a1a1aa");
   return (
     <div className={cn("flex flex-col gap-2", className)}>
       <div className="relative w-full overflow-hidden rounded-xl bg-white/6" style={{ height: 168 }}>
@@ -385,13 +384,13 @@ export function SkillMarketMap({
   const tone = (x: number, y: number) =>
     x >= midX && y >= midY ? "#6366f1" // 明星（高需高薪）
     : x >= midX ? "#0ea5e9"           // 基础（高需低薪）
-    : y >= midY ? "#8b5cf6"           // 潜力（低需高薪）
+    : y >= midY ? "#818cf8"           // 潜力（低需高薪）
     : "#94a3b8";                      // 长尾（低需低薪）
 
   const ring = (level: number | null) =>
     level == null ? null
-    : level >= 3 ? "#10b981"
-    : level >= 1 ? "#f59e0b"
+    : level >= 3 ? "#16a34a"
+    : level >= 1 ? "#d97706"
     : "#e4e4e7";
 
   const enroll = async (n: SkillMapNode) => {
@@ -496,8 +495,8 @@ export function SkillMarketMap({
         {/* 状态描边图例（登录后） */}
         {loggedIn ? (
           <div className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
-            <span><span className="mr-1 inline-block size-2 rounded-full bg-emerald-500" />已熟练/掌握</span>
-            <span><span className="mr-1 inline-block size-2 rounded-full bg-amber-500" />学习中</span>
+            <span><span className="mr-1 inline-block size-2 rounded-full bg-green-600" />已熟练/掌握</span>
+            <span><span className="mr-1 inline-block size-2 rounded-full bg-amber-600" />学习中</span>
             <span><span className="mr-1 inline-block size-2 rounded-full bg-zinc-400" />未掌握</span>
           </div>
         ) : null}
@@ -618,7 +617,7 @@ export function SalaryBoxPlot({
         {/* 中位线（粗白） */}
         <line x1={X(median)} y1={yc - 20} x2={X(median)} y2={yc + 20} stroke="rgba(255,255,255,0.92)" strokeWidth="2.5" />
         {/* 平均（琥珀虚线） */}
-        {avg != null ? <line x1={X(avg)} y1={yc - 20} x2={X(avg)} y2={yc + 20} stroke="#f59e0b" strokeWidth="1.8" strokeDasharray="4 3" /> : null}
+        {avg != null ? <line x1={X(avg)} y1={yc - 20} x2={X(avg)} y2={yc + 20} stroke="#d97706" strokeWidth="1.8" strokeDasharray="4 3" /> : null}
         {/* 数值刻度标签 */}
         <text x={X(min)} y={H - 8} textAnchor="start" fontSize="9" fill="rgba(255,255,255,0.75)">{min}K</text>
         <text x={X(q1)} y={H - 8} textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.75)">{q1}K</text>

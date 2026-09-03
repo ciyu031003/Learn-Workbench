@@ -211,6 +211,17 @@ export default function SettingsPage() {
     document.documentElement.classList.toggle("dark", theme === "dark");
   }, [theme]);
 
+  // 「跟随壁纸」档位下展示当前亮度判定结果（bg-dark 由 daily-background 写入）
+  const [autoTone, setAutoTone] = useState<"light" | "dark">("light");
+  useEffect(() => {
+    const update = () =>
+      setAutoTone(document.documentElement.classList.contains("bg-dark") ? "dark" : "light");
+    update();
+    const obs = new MutationObserver(update);
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => obs.disconnect();
+  }, []);
+
   const loadCrawlerData = async () => {
     try {
       const [configR, runsR, statsR, sourcesR, subsR] = await Promise.allSettled([
@@ -488,7 +499,10 @@ export default function SettingsPage() {
           <CardContent className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium">主题模式</p>
-              <p className="text-xs text-muted-foreground">浅色 / 深色（开发中，基础支持）</p>
+              <p className="text-xs text-muted-foreground">
+                浅色 / 深色 / 跟随壁纸
+                {theme === "auto" ? `（当前：${autoTone === "dark" ? "深色" : "浅色"}）` : ""}
+              </p>
             </div>
             <div className="flex gap-2">
               <Button
@@ -504,6 +518,13 @@ export default function SettingsPage() {
                 onClick={() => setTheme("dark")}
               >
                 深色
+              </Button>
+              <Button
+                variant={theme === "auto" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTheme("auto")}
+              >
+                跟随壁纸
               </Button>
             </div>
           </CardContent>

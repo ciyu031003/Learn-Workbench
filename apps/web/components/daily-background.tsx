@@ -32,6 +32,7 @@ function applyBrightnessTone(imgSrc: string) {
 
 export function DailyBackground({ children }: { children: React.ReactNode }) {
   const enabled = useUiStore((s) => s.backgroundEnabled);
+  const theme = useUiStore((s) => s.theme);
   const [bg, setBg] = useState<BackgroundInfo | null>(null);
   const [loaded, setLoaded] = useState(false);
 
@@ -53,12 +54,17 @@ export function DailyBackground({ children }: { children: React.ReactNode }) {
   const show = enabled && bg?.exists;
 
   useEffect(() => {
+    // 仅「跟随壁纸」档位启用亮度自动判定；手动浅色/深色时停用，避免两套机制打架
+    if (theme !== "auto") {
+      document.documentElement.classList.remove("bg-dark");
+      return;
+    }
     if (show && bg) {
       applyBrightnessTone(`/api/background/img?date=${encodeURIComponent(bg.date)}`);
     } else {
       document.documentElement.classList.remove("bg-dark");
     }
-  }, [show, bg]);
+  }, [show, bg, theme]);
 
   return (
     <div className="relative min-h-screen">

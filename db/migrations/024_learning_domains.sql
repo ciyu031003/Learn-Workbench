@@ -21,10 +21,16 @@ ALTER TABLE careers ADD COLUMN IF NOT EXISTS icon text NOT NULL DEFAULT 'compass
 ALTER TABLE careers ADD COLUMN IF NOT EXISTS color text NOT NULL DEFAULT '#6366f1';
 ALTER TABLE careers ADD COLUMN IF NOT EXISTS phase_prefix text NOT NULL DEFAULT 'P';
 ALTER TABLE careers ADD COLUMN IF NOT EXISTS is_archived boolean NOT NULL DEFAULT false;
-ALTER TABLE careers ADD CONSTRAINT IF NOT EXISTS careers_kind_check
-  CHECK (kind IN ('career','language','sports','hobby','life','custom'));
-ALTER TABLE careers ADD CONSTRAINT IF NOT EXISTS careers_owner_scope_check
-  CHECK (kind <> 'custom' OR owner_id IS NOT NULL);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'careers_kind_check') THEN
+    ALTER TABLE careers ADD CONSTRAINT careers_kind_check
+      CHECK (kind IN ('career','language','sports','hobby','life','custom'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'careers_owner_scope_check') THEN
+    ALTER TABLE careers ADD CONSTRAINT careers_owner_scope_check
+      CHECK (kind <> 'custom' OR owner_id IS NOT NULL);
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_careers_owner ON careers(owner_id);
 CREATE INDEX IF NOT EXISTS idx_careers_kind   ON careers(kind);

@@ -41,5 +41,8 @@ export const fontFamily = {
   mono: "'JetBrains Mono', 'SFMono-Regular', Consolas, monospace",
 } as const;
 
+/** 图表序列色板：primary → accent 冷调梯度（多系列数据按序取用） */
+export const chartSeries = ["#4f46e5", "#6366f1", "#818cf8", "#0ea5e9", "#38bdf8"] as const;
+
 export const tokens = { colors, radius, shadows, spacing, fontSize, fontFamily } as const;
 export type Tokens = typeof tokens;
