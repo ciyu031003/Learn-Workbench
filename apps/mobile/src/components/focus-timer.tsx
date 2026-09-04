@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  Animated,
   Image,
   Modal,
   Pressable,
@@ -11,9 +10,11 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getApiUrl } from "@/config";
 import { computeFocusStats, FOCUS_MOTIVATIONS } from "@/lib/focus-stats";
+import { RingProgress } from "@/components/ring-progress";
 import type { FocusSession } from "@learn-workbench/shared";
 
 const PRESETS = [15, 25, 45];
@@ -81,9 +82,6 @@ export function FocusTimer({
   const startRef = useRef<number | null>(null);
   const remainingRef = useRef(25 * 60);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-  // eslint-disable-next-line react-hooks/refs -- 组件内持有 Animated.Value 实例（既有模式）
-  const ringScale = useRef(new Animated.Value(1)).current;
-
   // 初始化偏好
   useEffect(() => {
     (async () => {
@@ -153,17 +151,6 @@ export function FocusTimer({
     }
   };
 
-  // 环形缩放动画
-  useEffect(() => {
-    const ratio = total > 0 ? remaining / total : 0;
-    Animated.timing(ringScale, {
-      toValue: 0.6 + 0.4 * ratio,
-      duration: 900,
-      useNativeDriver: true,
-    }).start();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remaining]);
-
   const persist = async (key: string, value: string) => {
     try {
       await AsyncStorage.setItem(key, value);
@@ -215,10 +202,6 @@ export function FocusTimer({
   const begin = () => {
     setStarted(true);
     resume();
-    Animated.sequence([
-      Animated.timing(ringScale, { toValue: 1.06, duration: 160, useNativeDriver: true }),
-      Animated.timing(ringScale, { toValue: 1, duration: 220, useNativeDriver: true }),
-    ]).start();
   };
 
   const reset = () => {
@@ -293,10 +276,13 @@ export function FocusTimer({
         {/* 顶部：背景切换 + 关闭 */}
         <View style={styles.topBar}>
           <Pressable style={styles.topBtn} onPress={() => setShowBg((v) => !v)}>
-            <Text style={styles.topBtnText}>🎨 背景</Text>
+            <View style={styles.topBtnInner}>
+              <Ionicons name="color-palette-outline" size={16} color="rgba(255,255,255,0.9)" />
+              <Text style={styles.topBtnText}>背景</Text>
+            </View>
           </Pressable>
           <Pressable style={styles.topBtn} onPress={() => record(elapsed)}>
-            <Text style={styles.topBtnText}>✕</Text>
+            <Ionicons name="close" size={20} color="rgba(255,255,255,0.9)" />
           </Pressable>
         </View>
 
@@ -348,7 +334,10 @@ export function FocusTimer({
         <ScrollView contentContainerStyle={styles.center} showsVerticalScrollIndicator={false}>
           {done ? (
             <View style={styles.doneWrap}>
-              <Text style={styles.doneTitle}>🎉 专注完成！</Text>
+              <View style={styles.doneTitleRow}>
+                <Ionicons name="trophy" size={34} color="#FFB25E" />
+                <Text style={styles.doneTitle}>专注完成！</Text>
+              </View>
               <Text style={styles.doneSub}>本次专注 {fmt(elapsed)}，已自动记录</Text>
               <View style={styles.statGrid}>
                 {[
@@ -387,9 +376,14 @@ export function FocusTimer({
               </View>
 
               {/* 环形进度 + 数字时钟 */}
-              <View style={[styles.ringWrap, { width: 300, height: 300 }]}>
-                <View style={[styles.ringTrack, { width: 300, height: 300, borderRadius: 150 }]} />
-                <Animated.View style={[styles.ringProgress, { width: 300, height: 300, borderRadius: 150, transform: [{ scale: ringScale }] }]} />
+              <View style={styles.ringWrap}>
+                <RingProgress
+                  size={300}
+                  strokeWidth={14}
+                  progress={1 - ratio}
+                  trackColor="rgba(255,255,255,0.16)"
+                  color="#FFB25E"
+                />
                 <Pressable style={styles.clockWrap} onPress={() => (running ? pause() : resume())}>
                   <Text style={styles.clock}>{fmt(remaining)}</Text>
                 </Pressable>
@@ -398,15 +392,20 @@ export function FocusTimer({
               {/* 控制按钮 */}
               <View style={styles.controls}>
                 <Pressable style={styles.ctrlBtn} onPress={() => (running ? pause() : resume())}>
-                  <Text style={styles.ctrlText}>{running ? "⏸" : "▶"}</Text>
+                  <Ionicons name={running ? "pause" : "play"} size={26} color="#fff" />
                 </Pressable>
                 <Pressable style={styles.ctrlBtn} onPress={reset}>
-                  <Text style={styles.ctrlText}>↺</Text>
+                  <Ionicons name="refresh" size={26} color="#fff" />
                 </Pressable>
                 <Pressable style={styles.ctrlBtn} onPress={() => record(elapsed)}>
-                  <Text style={styles.ctrlText}>⏹</Text>
+                  <Ionicons name="stop" size={26} color="#fff" />
                 </Pressable>
               </View>
+
+              <Pressable style={styles.recordBtn} onPress={() => record(elapsed)}>
+                <Ionicons name="checkmark-done" size={18} color="#1f1f1f" />
+                <Text style={styles.recordBtnText}>结束并记录本次专注</Text>
+              </Pressable>
 
               {/* 时长选择 */}
               <View style={styles.presets}>
@@ -435,7 +434,10 @@ export function FocusTimer({
               {/* 励志短句 */}
               <View style={styles.quoteCard}>
                 <View style={styles.quoteHeader}>
-                  <Text style={styles.quoteLabel}>✨ 励志短句</Text>
+                  <View style={styles.quoteLabelRow}>
+                    <Ionicons name="sparkles" size={14} color="#FFB25E" />
+                    <Text style={styles.quoteLabel}>励志短句</Text>
+                  </View>
                   <Pressable onPress={() => { setEditingQuote((v) => !v); setQuoteInput(quote); }} hitSlop={8}>
                     <Text style={styles.quoteEdit}>{editingQuote ? "取消" : "编辑"}</Text>
                   </Pressable>
@@ -463,7 +465,10 @@ export function FocusTimer({
               <Text style={styles.taskName} numberOfLines={1}>{task?.title ?? "自由专注"}</Text>
               <Text style={styles.readyTitle}>准备开始 {minutes} 分钟专注</Text>
               <Pressable style={styles.primaryBtn} onPress={begin}>
-                <Text style={styles.primaryBtnText}>▶ 开始专注</Text>
+                <View style={styles.readyCtaInner}>
+                  <Ionicons name="play" size={16} color="#1f1f1f" />
+                  <Text style={styles.primaryBtnText}>开始专注</Text>
+                </View>
               </Pressable>
               <Text style={styles.readyHint}>开始后将全屏沉浸 · 可随时暂停</Text>
             </View>
@@ -486,7 +491,9 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.25)",
+    justifyContent: "center",
   },
+  topBtnInner: { flexDirection: "row", alignItems: "center", gap: 6 },
   topBtnText: { color: "rgba(255,255,255,0.9)", fontSize: 13 },
   bgPanel: { marginHorizontal: 16, marginTop: 10, backgroundColor: "rgba(20,20,26,0.55)", borderRadius: 18, padding: 12, zIndex: 20 },
   bgModes: { flexDirection: "row", gap: 8, marginBottom: 10 },
@@ -517,8 +524,6 @@ const styles = StyleSheet.create({
   taskName: { color: "#fff", fontSize: 16, fontWeight: "600", maxWidth: "85%" },
   taskStatus: { color: "rgba(255,255,255,0.7)", fontSize: 12 },
   ringWrap: { alignItems: "center", justifyContent: "center" },
-  ringTrack: { position: "absolute", borderWidth: 10, borderColor: "rgba(255,255,255,0.16)" },
-  ringProgress: { position: "absolute", borderWidth: 12, borderColor: "#ffb25e" },
   clockWrap: { position: "absolute", alignItems: "center", justifyContent: "center" },
   clock: { color: "#fff", fontSize: 62, fontWeight: "800", fontVariant: ["tabular-nums"] },
   controls: { flexDirection: "row", gap: 22 },
@@ -532,7 +537,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  ctrlText: { color: "#fff", fontSize: 22 },
+  recordBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#FFB25E",
+    borderRadius: 999,
+    paddingHorizontal: 20,
+    paddingVertical: 11,
+  },
+  recordBtnText: { color: "#1f1f1f", fontSize: 14, fontWeight: "700" },
   presets: { flexDirection: "row", flexWrap: "wrap", gap: 8, justifyContent: "center" },
   presetChip: { borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7, backgroundColor: "rgba(255,255,255,0.1)", borderWidth: 1, borderColor: "rgba(255,255,255,0.2)" },
   presetChipActive: { backgroundColor: "rgba(232,147,12,0.4)", borderColor: "rgba(232,147,12,0.7)" },
@@ -543,6 +557,7 @@ const styles = StyleSheet.create({
   customMinUnit: { color: "rgba(255,255,255,0.6)", fontSize: 12 },
   quoteCard: { width: "100%", maxWidth: 420, backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 18, padding: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.2)" },
   quoteHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
+  quoteLabelRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   quoteLabel: { color: "#ffb25e", fontSize: 12, fontWeight: "600" },
   quoteEdit: { color: "rgba(255,255,255,0.7)", fontSize: 12 },
   quoteEditRow: { flexDirection: "row", gap: 8, alignItems: "center" },
@@ -551,18 +566,20 @@ const styles = StyleSheet.create({
   quoteSaveText: { color: "#fff", fontSize: 13, fontWeight: "600" },
   quoteText: { color: "rgba(255,255,255,0.92)", fontSize: 14, lineHeight: 21 },
   doneWrap: { alignItems: "center", gap: 14, width: "100%" },
+  doneTitleRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   doneTitle: { color: "#fff", fontSize: 26, fontWeight: "800" },
   doneSub: { color: "rgba(255,255,255,0.75)", fontSize: 13 },
   statGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, justifyContent: "center" },
   statBox: { width: "46%", backgroundColor: "rgba(255,255,255,0.12)", borderRadius: 14, paddingVertical: 14, alignItems: "center" },
   statValue: { color: "#fff", fontSize: 22, fontWeight: "800" },
   statLabel: { color: "rgba(255,255,255,0.7)", fontSize: 12, marginTop: 3 },
-  primaryBtn: { backgroundColor: "#4f46e5", borderRadius: 999, paddingHorizontal: 26, paddingVertical: 12, alignItems: "center" },
-  primaryBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  primaryBtn: { backgroundColor: "#FFB25E", borderRadius: 999, paddingHorizontal: 26, paddingVertical: 12, alignItems: "center" },
+  primaryBtnText: { color: "#1f1f1f", fontSize: 15, fontWeight: "700" },
   secondaryBtn: { backgroundColor: "rgba(255,255,255,0.14)", borderRadius: 999, paddingHorizontal: 22, paddingVertical: 12, alignItems: "center" },
   secondaryBtnText: { color: "#fff", fontSize: 15, fontWeight: "600" },
   doneBtns: { flexDirection: "row", gap: 12 },
   readyWrap: { alignItems: "center", gap: 16, paddingVertical: 48 },
+  readyCtaInner: { flexDirection: "row", alignItems: "center", gap: 8 },
   readyTitle: { color: "#fff", fontSize: 24, fontWeight: "800" },
   readyHint: { color: "rgba(255,255,255,0.55)", fontSize: 12, textAlign: "center" },
 });

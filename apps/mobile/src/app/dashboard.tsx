@@ -1,40 +1,152 @@
 /* eslint-disable react-hooks/immutability */
 import { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, type DimensionValue } from "react-native";
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type DimensionValue,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
-import { useAppStore } from "@/store/app-store";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
+import { useAppStore } from "@/store/app-store";
+import { useSportStore, SPORT_TYPES, type SportKind } from "@/store/sport-store";
 import { mainPhases, agentPhase } from "@learn-workbench/content";
 import { pct, formatDuration, taskTypeLabels, todayISO } from "@learn-workbench/shared";
+import { FocusTimer } from "@/components/focus-timer";
 import { Card } from "@/components/card";
+import { BottomSheet } from "@/components/bottom-sheet";
+import { Celebration } from "@/components/celebration";
+import { PressableScale } from "@/components/pressable-scale";
+import { colors, radius, shadows } from "@/theme/tokens";
+import { computeFocusStats, FOCUS_MOTIVATIONS } from "@/lib/focus-stats";
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const DAILY_QUOTES = [
+  "把今天过成你喜欢的样子，明天才会长得像它。",
+  "每天前进 1%，一年后你就是 37.8 倍的自己。",
+  "把时间花在值得的地方，时间会替你说话。",
+  "积累不是一蹴而就，而是日拱一卒的坚持。",
+];
 
-function SettingsGearButton() {
-  const rotate = useSharedValue(0);
-  const scale = useSharedValue(1);
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: rotate.value + "deg" }, { scale: scale.value }],
+function dayOfYear(date: Date) {
+  const start = new Date(date.getFullYear(), 0, 0);
+  return Math.floor((date.getTime() - start.getTime()) / 86400000);
+}
+
+function useDailyQuote() {
+  return useMemo(() => DAILY_QUOTES[dayOfYear(new Date()) % DAILY_QUOTES.length], []);
+}
+
+function FocusCard({ onStart }: { onStart: () => void }) {
+  const puff1 = useSharedValue(0);
+  const puff2 = useSharedValue(0);
+
+  const blob1 = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 + 0.16 * puff1.value }, { translateX: 14 * puff1.value }],
+    opacity: 0.62 + 0.2 * puff1.value,
+  }));
+  const blob2 = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 + 0.2 * puff2.value }, { translateX: -10 * puff2.value }],
+    opacity: 0.55 + 0.22 * puff2.value,
   }));
 
+  useMemo(() => {
+    puff1.value = withRepeat(withTiming(1, { duration: 4200 }), -1, true);
+    puff2.value = withRepeat(withTiming(1, { duration: 5200 }), -1, true);
+    return () => {};
+  }, [puff1, puff2]);
+
   return (
-    <AnimatedPressable
-      onPress={() => router.push("/settings")}
-      onPressIn={() => {
-        rotate.value = withTiming(-90, { duration: 180 });
-        scale.value = withSpring(0.9, { damping: 14, stiffness: 260 });
-      }}
-      onPressOut={() => {
-        rotate.value = withTiming(0, { duration: 180 });
-        scale.value = withSpring(1, { damping: 14, stiffness: 260 });
-      }}
-      style={[styles.gearBtn, animatedStyle]}
-    >
-      <Ionicons name="settings-outline" size={20} color="#ffffff" />
-    </AnimatedPressable>
+    <View style={styles.focusCard}>
+      <View style={styles.focusBase} />
+      <Animated.View style={[styles.focusBlob1, blob1]} />
+      <Animated.View style={[styles.focusBlob2, blob2]} />
+      <View style={styles.focusContent}>
+        <View style={styles.focusEyebrowRow}>
+          <Ionicons name="sunny" size={14} color="rgba(255,255,255,0.9)" />
+          <Text style={styles.focusEyebrow}>今日焦点 · TODAY FOCUS</Text>
+        </View>
+        <Text style={styles.focusTitle}>深度学习《React 渲染优化》</Text>
+        <Text style={styles.focusSub}>25 分钟沉浸专注 · 从第一章第 3 节继续</Text>
+        <PressableScale style={styles.focusCta} haptic onPress={onStart}>
+          <Ionicons name="play" size={16} color="#2F74C0" />
+          <Text style={styles.focusCtaText}>开始专注</Text>
+        </PressableScale>
+      </View>
+    </View>
   );
+}
+
+function SportSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const addSport = useSportStore((s) => s.addSport);
+  const [kind, setKind] = useState<SportKind>("basketball");
+  const [minutes, setMinutes] = useState(30);
+
+  return (
+    <BottomSheet visible={visible} onClose={onClose} title="添加运动记录" height="50%">
+      <View style={styles.sportTypeGrid}>
+        {SPORT_TYPES.map((t) => {
+          const active = t.key === kind;
+          return (
+            <Pressable
+              key={t.key}
+              onPress={() => setKind(t.key)}
+              style={[styles.sportType, active && styles.sportTypeActive]}
+            >
+              <View style={[styles.sportTypeIcon, { backgroundColor: `${t.c1}22` }]}>
+                <Ionicons name={t.icon} size={22} color={t.c1} />
+              </View>
+              <Text style={[styles.sportTypeName, active && styles.sportTypeNameActive]}>{t.name}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      <View style={styles.stepper}>
+        <Pressable style={styles.stepBtn} onPress={() => setMinutes((m) => Math.max(15, m - 15))}>
+          <Text style={styles.stepBtnText}>−</Text>
+        </Pressable>
+        <View style={styles.stepperVal}>
+          <Text style={styles.stepperNum}>{minutes}</Text>
+          <Text style={styles.stepperUnit}>分钟</Text>
+        </View>
+        <Pressable style={styles.stepBtn} onPress={() => setMinutes((m) => Math.min(240, m + 15))}>
+          <Text style={styles.stepBtnText}>+</Text>
+        </Pressable>
+      </View>
+      <View style={styles.quickRow}>
+        {[30, 60, 90].map((m) => (
+          <Pressable
+            key={m}
+            onPress={() => setMinutes(m)}
+            style={[styles.quickChip, minutes === m && styles.quickChipActive]}
+          >
+            <Text style={[styles.quickChipText, minutes === m && styles.quickChipTextActive]}>{m} 分</Text>
+          </Pressable>
+        ))}
+      </View>
+      <PressableScale
+        style={styles.saveSport}
+        haptic
+        onPress={() => {
+          addSport(kind, minutes);
+          onClose();
+        }}
+      >
+        <Text style={styles.saveSportText}>保存这条记录</Text>
+      </PressableScale>
+    </BottomSheet>
+  );
+}
+
+function formatSport(minutes: number) {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h && m) return `${h} 小时 ${m} 分`;
+  if (h) return `${h} 小时`;
+  return `${m} 分钟`;
 }
 
 export default function DashboardScreen() {
@@ -44,11 +156,20 @@ export default function DashboardScreen() {
   const checkins = useAppStore((s) => s.checkins);
   const sessions = useAppStore((s) => s.sessions);
   const checkinToday = useAppStore((s) => s.checkinToday);
-  const github = useAppStore((s) => s.github);
-  const addGithub = useAppStore((s) => s.addGithub);
-  const removeGithub = useAppStore((s) => s.removeGithub);
+  const toggleTaskDone = useAppStore((s) => s.toggleTaskDone);
+  const addSession = useAppStore((s) => s.addSession);
+  const sports = useSportStore((s) => s.records);
+  const removeSport = useSportStore((s) => s.removeSport);
 
+  const [focusOpen, setFocusOpen] = useState(false);
+  const [sportSheetOpen, setSportSheetOpen] = useState(false);
+  const [celebrate, setCelebrate] = useState(false);
+
+  const quote = useDailyQuote();
   const today = todayISO();
+  const h = new Date().getHours();
+  const greet = h < 6 ? "夜深了" : h < 11 ? "早上好" : h < 14 ? "中午好" : h < 18 ? "下午好" : "晚上好";
+
   const allTopics = useMemo(
     () => mainPhases.flatMap((p) => p.topics).concat(agentPhase?.topics ?? []),
     []
@@ -58,7 +179,8 @@ export default function DashboardScreen() {
 
   const todayTasks = tasks.filter((t) => t.taskDate === today);
   const todayDone = todayTasks.filter((t) => t.done).length;
-  const focusSeconds = sessions.reduce((a, s) => a + (s.durationSeconds ?? 0), 0);
+  const focusStats = computeFocusStats(sessions);
+  const sportsTotalMinutes = sports.reduce((sum, r) => sum + r.minutes, 0);
 
   const streak = useMemo(() => {
     const set = new Set(checkins);
@@ -72,188 +194,333 @@ export default function DashboardScreen() {
     return s;
   }, [checkins, today]);
 
-  const [ghTitle, setGhTitle] = useState("");
-  const [ghUrl, setGhUrl] = useState("");
-  const [ghDesc, setGhDesc] = useState("");
+  const focusTask = todayTasks.find((t) => !t.done);
 
-  const submitGithub = () => {
-    const t = ghTitle.trim();
-    if (!t) return;
-    addGithub(t, ghUrl.trim() || null, ghDesc.trim() || null);
-    setGhTitle("");
-    setGhUrl("");
-    setGhDesc("");
+  const fireCelebrate = () => {
+    setCelebrate(false);
+    requestAnimationFrame(() => setCelebrate(true));
+    setTimeout(() => setCelebrate(false), 1300);
   };
 
-  const h = new Date().getHours();
-  const greet = h < 6 ? "夜深了" : h < 11 ? "早上好" : h < 14 ? "中午好" : h < 18 ? "下午好" : "晚上好";
-
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <View style={[styles.hero, { paddingTop: insets.top + 24 }]}>
-        <View style={styles.heroRow}>
-          <View style={styles.heroTextWrap}>
-            <Text style={styles.heroTitle}>{greet}，继续今天的 ICT 学习规划</Text>
-            <Text style={styles.heroSub}>路线图 · 每日任务 · 专注 · 输出</Text>
-          </View>
-          <SettingsGearButton />
-        </View>
-      </View>
-
-      <View style={styles.grid}>
-        <Card style={styles.statCard} title="整体进度">
-          <Text style={styles.statValue}>{overall}%</Text>
-          <Text style={styles.statSub}>{doneCount}/{allTopics.length} 主题</Text>
-        </Card>
-        <Card style={styles.statCard} title="连续打卡">
-          <Text style={styles.statValue}>{streak} 天</Text>
-          <Pressable style={styles.checkinBtn} onPress={checkinToday}>
-            <Text style={styles.checkinText}>今日打卡</Text>
-          </Pressable>
-        </Card>
-        <Card style={styles.statCard} title="本周专注">
-          <Text style={styles.statValue}>{formatDuration(Math.round(focusSeconds / 60))}</Text>
-          <Text style={styles.statSub}>专注会话统计</Text>
-        </Card>
-        <Card style={styles.statCard} title="今日任务">
-          <Text style={styles.statValue}>
-            {todayDone}/{todayTasks.length}
+    <View style={styles.root}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 14 }]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.hero}>
+          <View style={styles.sunGlow} />
+          <Text style={styles.heroTitle}>
+            {greet}，{"\n"}继续今天的 ICT 学习规划
           </Text>
-          <Text style={styles.statSub}>已完成 / 全部</Text>
-        </Card>
-      </View>
+          <Text style={styles.heroSub}>今天 · 一个焦点 · 可折叠任务</Text>
 
-      <Card title="学习进度" subtitle="6 个主阶段 + Agent 副线">
-        {mainPhases.slice(0, 3).map((p) => {
-          const done = p.topics.filter((t) => progress[t.id]?.done).length;
-          const percent = pct(done, p.topics.length);
-          return (
-            <View key={p.id} style={styles.barRow}>
-              <Text style={styles.barLabel}>{p.title}</Text>
-              <View style={styles.barTrack}>
-                <View style={[styles.barFill, { width: (percent + "%") as DimensionValue }]} />
-              </View>
-              <Text style={styles.barValue}>{percent}%</Text>
-            </View>
-          );
-        })}
-        {agentPhase ? (
-          <View style={styles.barRow}>
-            <Text style={styles.barLabel}>{agentPhase.title}</Text>
-            <View style={styles.barTrack}>
-              <View
-                style={[
-                  styles.barFill,
-                  {
-                    width: (pct(agentPhase.topics.filter((t) => progress[t.id]?.done).length, agentPhase.topics.length) + "%") as DimensionValue,
-                    backgroundColor: "#0ea5e9",
-                  },
-                ]}
-              />
-            </View>
-            <Text style={styles.barValue}>{pct(agentPhase.topics.filter((t) => progress[t.id]?.done).length, agentPhase.topics.length)}%</Text>
+          <View style={styles.quote}>
+            <Ionicons name="sunny" size={16} color={colors.accent} />
+            <Text style={styles.quoteText}>{quote}</Text>
           </View>
-        ) : null}
-      </Card>
+        </View>
 
-      <Card title="今日任务" subtitle="计划 → 专注 → 复盘">
+        <FocusCard onStart={() => setFocusOpen(true)} />
+
+        <View style={styles.sectionTitleRow}>
+          <Text style={styles.sectionTitle}>运动 · 健康</Text>
+          <Pressable onPress={() => setSportSheetOpen(true)} hitSlop={8} style={styles.addSportBtn}>
+            <Ionicons name="add" size={16} color={colors.accentStrong} />
+            <Text style={styles.addSportText}>添加记录</Text>
+          </Pressable>
+        </View>
+
+        <Card style={styles.sportCard}>
+          <View style={styles.sportTotal}>
+            <Text style={styles.sportTotalNum}>{(sportsTotalMinutes / 60).toFixed(1)}</Text>
+            <Text style={styles.sportTotalUnit}>小时</Text>
+            <Text style={styles.sportTotalNote}>今日能量 · 阳光满分</Text>
+          </View>
+          {sports.length === 0 ? (
+            <Text style={styles.sportEmpty}>今天还没有运动记录，去阳光下动一动吧 ☀️</Text>
+          ) : (
+            sports.map((r) => (
+              <View key={r.id} style={styles.sportItem}>
+                <View style={[styles.sportIco, { backgroundColor: `${r.c1}1f` }]}>
+                  <Ionicons name={r.icon} size={20} color={r.c1} />
+                </View>
+                <View style={styles.sportItemInfo}>
+                  <Text style={styles.sportItemName}>{r.name}</Text>
+                  <Text style={styles.sportItemTime}>{formatSport(r.minutes)} · 已完成</Text>
+                </View>
+                <Pressable onPress={() => removeSport(r.id)} hitSlop={8}>
+                  <Ionicons name="close" size={18} color={colors.textMuted} />
+                </Pressable>
+              </View>
+            ))
+          )}
+        </Card>
+
+        <View style={styles.sectionTitleRow}>
+          <Text style={styles.sectionTitle}>今日任务</Text>
+          <Text style={styles.sectionMore}>
+            {todayDone} / {todayTasks.length} 已完成
+          </Text>
+        </View>
+
         {todayTasks.length === 0 ? (
-          <Text style={styles.empty}>今天还没有任务，去任务页添加一个吧</Text>
+          <Card>
+            <Text style={styles.taskEmpty}>今天还没有任务，去学习页添加一个吧</Text>
+          </Card>
         ) : (
           todayTasks.map((t) => (
-            <View key={t.id} style={styles.taskRow}>
-              <Text style={[styles.taskText, t.done && styles.taskDone]} numberOfLines={1}>
-                {t.done ? "✓ " : "○ "}
+            <Pressable
+              key={t.id}
+              onPress={() => {
+                const willDone = !t.done;
+                toggleTaskDone(t.id);
+                if (willDone) fireCelebrate();
+              }}
+              style={styles.task}
+            >
+              <View style={[styles.taskBox, t.done && styles.taskBoxDone]}>
+                {t.done ? <Ionicons name="checkmark" size={16} color="#fff" /> : null}
+              </View>
+              <Text style={[styles.taskTitle, t.done && styles.taskDone]} numberOfLines={1}>
                 {t.title}
               </Text>
               <Text style={styles.taskMeta}>{taskTypeLabels[t.taskType] ?? t.taskType}</Text>
-            </View>
+            </Pressable>
           ))
         )}
-      </Card>
 
-      <Card title="GitHub 记录" subtitle={github.length + " 条项目资产"}>
-        <TextInput style={styles.input} placeholder="项目 / 仓库名称（必填）" placeholderTextColor="#9ca3af" value={ghTitle} onChangeText={setGhTitle} />
-        <TextInput style={styles.input} placeholder="GitHub 链接（可选）" placeholderTextColor="#9ca3af" value={ghUrl} onChangeText={setGhUrl} autoCapitalize="none" />
-        <TextInput style={styles.input} placeholder="一句话说明（可选）" placeholderTextColor="#9ca3af" value={ghDesc} onChangeText={setGhDesc} />
-        <Pressable style={styles.primaryBtn} onPress={submitGithub} disabled={!ghTitle.trim()}>
-          <Text style={styles.primaryBtnText}>添加记录</Text>
-        </Pressable>
-        {github.length === 0 ? (
-          <Text style={styles.empty}>还没有 GitHub 记录，添加你的项目资产吧</Text>
-        ) : (
-          github.map((g) => (
-            <View key={g.id} style={styles.ghRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.ghTitle} numberOfLines={1}>{g.title}</Text>
-                {g.content ? <Text style={styles.ghDesc} numberOfLines={1}>{g.content}</Text> : null}
-                {g.url ? <Text style={styles.ghUrl} numberOfLines={1}>{g.url}</Text> : null}
-              </View>
-              <Pressable onPress={() => removeGithub(g.id)} hitSlop={8}>
-                <Text style={styles.ghDelete}>✕</Text>
-              </Pressable>
-       
+        <View style={styles.sectionTitleRow}>
+          <Text style={styles.sectionTitle}>本周节奏</Text>
+        </View>
+        <View style={styles.statsGrid}>
+          <Card style={styles.statCard}>
+            <View style={[styles.statIconChip, { backgroundColor: colors.accentSoft }]}>
+              <Ionicons name="flame" size={18} color={colors.accent} />
             </View>
-          ))
-        )}
-      </Card>
-    </ScrollView>
+            <Text style={styles.statLabel}>连续打卡</Text>
+            <Text style={styles.statValue}>{streak}<Text style={styles.statValueUnit}> 天</Text></Text>
+          </Card>
+          <Card style={styles.statCard}>
+            <View style={[styles.statIconChip, { backgroundColor: colors.primarySoft }]}>
+              <Ionicons name="timer" size={18} color={colors.primary} />
+            </View>
+            <Text style={styles.statLabel}>今日专注</Text>
+            <Text style={styles.statValue}>{focusStats.todayMinutes}<Text style={styles.statValueUnit}> 分</Text></Text>
+          </Card>
+          <Card style={styles.statCard}>
+            <View style={[styles.statIconChip, { backgroundColor: colors.successSoft }]}>
+              <Ionicons name="trending-up" size={18} color={colors.success} />
+            </View>
+            <Text style={styles.statLabel}>本周进度</Text>
+            <Text style={styles.statValue}>{overall}<Text style={styles.statValueUnit}>%</Text></Text>
+          </Card>
+        </View>
+
+        <Pressable style={styles.checkinRow} onPress={checkinToday}>
+          <Text style={styles.checkinRowText}>今日打卡 · 给自己一个正向信号</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.accentStrong} />
+        </Pressable>
+      </ScrollView>
+
+      <SportSheet visible={sportSheetOpen} onClose={() => setSportSheetOpen(false)} />
+      <FocusTimer
+        open={focusOpen}
+        task={focusTask ? { id: focusTask.id, title: focusTask.title } : { id: null, title: "自由专注" }}
+        sessions={sessions}
+        onClose={() => setFocusOpen(false)}
+        onRecorded={(taskId, seconds) => addSession(taskId, seconds)}
+      />
+      <Celebration play={celebrate} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1 },
   scroll: { flex: 1 },
-  content: { padding: 16, paddingBottom: 32, gap: 14 },
-  hero: { paddingTop: 24, paddingBottom: 6 },
-  heroRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
-  heroTextWrap: { flex: 1, gap: 4 },
-  heroTitle: { color: "#ffffff", fontSize: 24, fontWeight: "700" },
-  heroSub: { color: "rgba(255,255,255,0.85)", fontSize: 13 },
-  gearBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+  content: { padding: 16, paddingBottom: 40, gap: 14 },
+  hero: { paddingBottom: 6, position: "relative" },
+  sunGlow: {
+    position: "absolute",
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    top: -60,
+    right: -40,
+    backgroundColor: "rgba(255, 210, 130, 0.35)",
+  },
+  heroTitle: { fontSize: 26, lineHeight: 32, fontWeight: "800", color: colors.text },
+  heroSub: { fontSize: 13, color: colors.textMuted, marginTop: 5 },
+  quote: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 10,
+    padding: 10,
+    paddingRight: 12,
+    borderRadius: radius.md,
+    backgroundColor: "rgba(255,255,255,0.6)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  quoteText: { flex: 1, fontSize: 13, lineHeight: 19, color: colors.textMuted },
+
+  focusCard: {
+    height: 168,
+    borderRadius: radius.xl,
+    overflow: "hidden",
+    ...shadows.floating,
+  },
+  focusBase: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "#2F74C0" },
+  focusBlob1: {
+    position: "absolute",
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    top: -40,
+    right: -20,
+    backgroundColor: "#F28C28",
+  },
+  focusBlob2: {
+    position: "absolute",
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    bottom: -40,
+    left: -30,
+    backgroundColor: "#5DAE74",
+  },
+  focusContent: { flex: 1, padding: 18, justifyContent: "space-between" },
+  focusEyebrowRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  focusEyebrow: { fontSize: 11, fontWeight: "800", letterSpacing: 0.4, color: "rgba(255,255,255,0.92)" },
+  focusTitle: { fontSize: 21, fontWeight: "800", color: "#fff", marginTop: 8 },
+  focusSub: { fontSize: 12, color: "rgba(255,255,255,0.85)", marginTop: 3 },
+  focusCta: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#fff",
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginTop: 10,
+  },
+  focusCtaText: { color: "#2F74C0", fontSize: 13, fontWeight: "800" },
+
+  sectionTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
+  sectionTitle: { fontSize: 17, fontWeight: "800", color: colors.text },
+  sectionMore: { fontSize: 12, color: colors.textMuted },
+  addSportBtn: { flexDirection: "row", alignItems: "center", gap: 3 },
+  addSportText: { fontSize: 12, fontWeight: "700", color: colors.accentStrong },
+
+  sportCard: { gap: 8 },
+  sportTotal: { flexDirection: "row", alignItems: "baseline", gap: 6 },
+  sportTotalNum: { fontSize: 30, fontWeight: "800", color: colors.text },
+  sportTotalUnit: { fontSize: 13, color: colors.textMuted },
+  sportTotalNote: { marginLeft: "auto", fontSize: 11, color: colors.accentStrong },
+  sportEmpty: { fontSize: 13, color: colors.textMuted, paddingVertical: 4 },
+  sportItem: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 4 },
+  sportIco: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  sportItemInfo: { flex: 1 },
+  sportItemName: { fontSize: 14, fontWeight: "700", color: colors.text },
+  sportItemTime: { fontSize: 12, color: colors.textMuted, marginTop: 1 },
+
+  task: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: 14,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    ...shadows.card,
+  },
+  taskBox: {
+    width: 22,
+    height: 22,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: colors.borderStrong,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.18)",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255,255,255,0.42)",
   },
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-  statCard: { width: "47%", flexGrow: 1 },
-  statValue: { fontSize: 26, fontWeight: "700", color: "#18181b" },
-  statSub: { fontSize: 12, color: "#71717a" },
-  checkinBtn: {
-    marginTop: 6,
-    backgroundColor: "#4f46e5",
-    borderRadius: 10,
-    paddingVertical: 6,
+  taskBoxDone: { backgroundColor: colors.success, borderColor: colors.success },
+  taskTitle: { flex: 1, fontSize: 14, fontWeight: "600", color: colors.text },
+  taskDone: { textDecorationLine: "line-through", color: colors.textMuted },
+  taskMeta: { fontSize: 12, color: colors.textMuted },
+  taskEmpty: { fontSize: 13, color: colors.textMuted, textAlign: "center", paddingVertical: 4 },
+
+  statsGrid: { flexDirection: "row", gap: 10 },
+  statCard: { flex: 1, gap: 6, padding: 14 },
+  statIconChip: { width: 34, height: 34, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  statLabel: { fontSize: 12, color: colors.textMuted },
+  statValue: { fontSize: 20, fontWeight: "800", color: colors.text },
+  statValueUnit: { fontSize: 12, fontWeight: "600", color: colors.textMuted },
+
+  checkinRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: radius.lg,
+    backgroundColor: colors.accentSoft,
+  },
+  checkinRowText: { fontSize: 13, fontWeight: "700", color: colors.accentStrong },
+
+  sportTypeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  sportType: {
+    width: "30%",
+    flexGrow: 1,
+    alignItems: "center",
+    gap: 6,
+    padding: 12,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+  },
+  sportTypeActive: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
+  sportTypeIcon: { width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  sportTypeName: { fontSize: 12, fontWeight: "700", color: colors.text },
+  sportTypeNameActive: { color: colors.accentStrong },
+  stepper: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 16, marginTop: 18 },
+  stepBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stepBtnText: { fontSize: 24, color: colors.text, lineHeight: 26 },
+  stepperVal: { alignItems: "center", minWidth: 80 },
+  stepperNum: { fontSize: 28, fontWeight: "800", color: colors.text },
+  stepperUnit: { fontSize: 12, color: colors.textMuted },
+  quickRow: { flexDirection: "row", gap: 8, justifyContent: "center", marginTop: 14 },
+  quickChip: {
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  quickChipActive: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
+  quickChipText: { fontSize: 13, fontWeight: "700", color: colors.text },
+  quickChipTextActive: { color: colors.accentStrong },
+  saveSport: {
+    marginTop: 20,
+    backgroundColor: colors.accent,
+    borderRadius: 999,
+    paddingVertical: 13,
     alignItems: "center",
   },
-  checkinText: { color: "#fff", fontSize: 13, fontWeight: "600" },
-  barRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  barLabel: { width: 130, fontSize: 13, color: "#18181b" },
-  barTrack: { flex: 1, height: 8, borderRadius: 4, backgroundColor: "rgba(24,24,27,0.08)", overflow: "hidden" },
-  barFill: { height: "100%", borderRadius: 4, backgroundColor: "#4f46e5" },
-  barValue: { width: 40, fontSize: 12, color: "#71717a", textAlign: "right" },
-  taskRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  taskText: { flex: 1, fontSize: 14, color: "#18181b" },
-  taskDone: { textDecorationLine: "line-through", color: "#71717a" },
-  taskMeta: { fontSize: 12, color: "#71717a" },
-  empty: { fontSize: 13, color: "#71717a", textAlign: "center", paddingVertical: 12 },
-  input: {
-    backgroundColor: "rgba(24,24,27,0.04)",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: "#18181b",
-  },
-  primaryBtn: { backgroundColor: "#4f46e5", borderRadius: 14, paddingVertical: 11, alignItems: "center" },
-  primaryBtnText: { color: "#fff", fontSize: 14, fontWeight: "600" },
-  ghRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 6 },
-  ghTitle: { fontSize: 14, fontWeight: "600", color: "#18181b" },
-  ghDesc: { fontSize: 12, color: "#71717a" },
-  ghUrl: { fontSize: 12, color: "#0ea5e9" },
-  ghDelete: { fontSize: 14, color: "#dc2626", paddingHorizontal: 4 },
+  saveSportText: { color: "#fff", fontSize: 15, fontWeight: "800" },
 });

@@ -1,48 +1,37 @@
-import { useEffect, useState } from "react";
+import { type ReactNode } from "react";
 import { StyleSheet, View } from "react-native";
-import { Image } from "expo-image";
-import { useAppStore } from "@/store/app-store";
+import { colors } from "@/theme/tokens";
 
-/** 每日 Bing 壁纸背景：每天自动换一张风景照，配深色渐变遮罩保证可读性 */
-export function DailyBackground({ children }: { children: React.ReactNode }) {
-  const enabled = useAppStore((s) => s.backgroundEnabled);
-  const [url, setUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    fetch("https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&mkt=zh-CN")
-      .then((r) => r.json())
-      .then((d) => {
-        const img = d?.images?.[0];
-        if (!alive || !img) return;
-        const base: string = img.urlbase ?? "";
-        const u = base
-          ? "https://www.bing.com" + base + "_1080x1920.jpg"
-          : "https://www.bing.com" + img.url;
-        setUrl(u);
-      })
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, []);
-
+/**
+ * 默认浅色画布：暖象牙白 + 顶部暖色渐晕（用两个柔光色块近似）。
+ * 普通页面不再压黑遮罩，仅专注全屏保留沉浸暗色。
+ */
+export function DailyBackground({ children }: { children: ReactNode }) {
   return (
     <View style={styles.root}>
-      {enabled && url ? (
-        <Image source={{ uri: url }} style={StyleSheet.absoluteFill} contentFit="cover" transition={400} />
-      ) : (
-        <View style={[StyleSheet.absoluteFill, styles.fallback]} />
-      )}
-      <View style={[StyleSheet.absoluteFill, styles.overlay]} />
+      <View style={[styles.blob, styles.blobTop]} />
+      <View style={[styles.blob, styles.blobBottom]} />
       <View style={styles.content}>{children}</View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  fallback: { backgroundColor: "#eef2ff" },
-  overlay: { backgroundColor: "rgba(8,8,14,0.38)" },
+  root: { flex: 1, backgroundColor: colors.canvas, overflow: "hidden" },
+  blob: { position: "absolute", borderRadius: 999 },
+  blobTop: {
+    width: 420,
+    height: 420,
+    top: -150,
+    left: -120,
+    backgroundColor: "rgba(255, 243, 218, 0.95)",
+  },
+  blobBottom: {
+    width: 480,
+    height: 480,
+    top: -260,
+    right: -180,
+    backgroundColor: "rgba(220, 236, 255, 0.85)",
+  },
   content: { flex: 1 },
 });

@@ -1,0 +1,1411 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>苦旅 · 移动端重构 Demo（设计原型）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --canvas: #fdf8ef;
+    --surface: #fffbea;
+    --surface-strong: #ffffff;
+    --text: #3a342c;
+    --text-muted: #7a7367;
+    --border: rgba(120, 90, 45, 0.16);
+    --border-strong: rgba(120, 90, 45, 0.30);
+    --primary: #2f74c0;
+    --primary-strong: #255fa8;
+    --primary-soft: #e8f3fd;
+    --accent: #f28c28;
+    --accent-strong: #d97411;
+    --accent-soft: #fdecd8;
+    --success: #3da35d;
+    --success-soft: #e7f6ec;
+    --sun: #ffb25e;
+    --coral: #f26b5e;
+    --teal: #2fb3a6;
+    --lav: #8d7bd8;
+    --peach: #ffb77a;
+    --shadow-card: 0 10px 28px rgba(184, 130, 63, 0.14);
+    --shadow-float: 0 16px 34px rgba(225, 120, 28, 0.24);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 28px 12px;
+    font-family: "Nunito", -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    color: var(--text);
+    background:
+      radial-gradient(1200px 600px at 15% -10%, #fff3da 0%, transparent 55%),
+      radial-gradient(900px 520px at 100% 0%, #dcecff 0%, transparent 50%),
+      linear-gradient(160deg, #f7f2e8 0%, #eef4f8 100%);
+  }
+
+  .defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+  .stage-note {
+    position: fixed;
+    left: 18px;
+    top: 18px;
+    font-size: 12px;
+    color: #8b8274;
+    letter-spacing: 0.02em;
+    background: rgba(255,255,255,0.7);
+    border: 1px solid rgba(120,90,45,0.14);
+    padding: 8px 12px;
+    border-radius: 999px;
+    backdrop-filter: blur(8px);
+    z-index: 200;
+  }
+
+  .phone {
+    position: relative;
+    width: 390px;
+    height: 816px;
+    background: var(--canvas);
+    border-radius: 44px;
+    box-shadow: 0 40px 90px rgba(30, 24, 12, 0.28), 0 0 0 1px rgba(255,255,255,0.7) inset, 0 0 0 12px #17150f, 0 0 0 13px #2e2a22;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .statusbar {
+    height: 52px;
+    flex: none;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding: 0 26px 8px;
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--text);
+    position: relative;
+    z-index: 30;
+  }
+  .statusbar .left { letter-spacing: 0.02em; }
+  .statusbar .right { display: flex; gap: 6px; align-items: center; }
+  .dynamic-island {
+    position: absolute;
+    left: 50%;
+    bottom: 10px;
+    transform: translateX(-50%);
+    width: 104px;
+    height: 28px;
+    background: #17150f;
+    border-radius: 999px;
+  }
+
+  .app { position: relative; flex: 1; overflow: hidden; }
+
+  .screen {
+    position: absolute;
+    inset: 0;
+    overflow-y: auto;
+    padding: 6px 18px 28px;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(8px);
+    transition: opacity 220ms ease, transform 260ms ease, visibility 220ms;
+    scrollbar-width: none;
+  }
+  .screen::-webkit-scrollbar { display: none; }
+  .screen.active { opacity: 1; visibility: visible; transform: none; }
+
+  .tabbar {
+    position: relative;
+    z-index: 40;
+    flex: none;
+    margin: 0 18px 20px;
+    background: rgba(255, 255, 255, 0.86);
+    backdrop-filter: blur(18px);
+    border: 1px solid rgba(255,255,255,0.9);
+    border-radius: 26px;
+    box-shadow: 0 8px 24px rgba(90, 66, 30, 0.12);
+    display: flex;
+    padding: 8px;
+  }
+  .tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 7px 4px 5px;
+    border-radius: 18px;
+    cursor: pointer;
+    color: #9a937f;
+    transition: transform 180ms cubic-bezier(.2,.8,.2,1), background 180ms ease, color 180ms ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tab:active { transform: scale(0.94); }
+  .tab.active { color: var(--primary); background: var(--primary-soft); }
+  .tab svg { width: 22px; height: 22px; }
+  .tab span { font-size: 11px; font-weight: 700; }
+
+  .hero {
+    padding-top: 14px;
+    position: relative;
+  }
+  .hero h1 {
+    font-size: 26px;
+    line-height: 1.22;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: var(--text);
+  }
+  .hero .sub { margin-top: 6px; font-size: 13.5px; color: var(--text-muted); }
+  .sun-glow {
+    position: absolute;
+    top: -70px;
+    right: -50px;
+    width: 180px;
+    height: 180px;
+    background: radial-gradient(circle, rgba(242,140,40,0.18), transparent 68%);
+    pointer-events: none;
+  }
+
+  .quote {
+    margin-top: 14px;
+    background: linear-gradient(135deg, #fffdf4, #fbeedd);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 14px 16px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    box-shadow: var(--shadow-card);
+  }
+  .quote .mark {
+    width: 34px; height: 34px; flex: none;
+    border-radius: 12px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    display: grid; place-items: center;
+  }
+  .quote .mark svg { width: 20px; height: 20px; }
+  .quote p { font-size: 13.5px; line-height: 1.45; color: #6a5b42; font-weight: 600; }
+
+  /* 今日焦点：呼吸流体色带 */
+  .focus-card {
+    margin-top: 16px;
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+    border-radius: 24px;
+    padding: 20px;
+    color: #fff;
+    box-shadow: var(--shadow-float);
+  }
+  .focus-card .back {
+    position: absolute;
+    inset: 0;
+    z-index: -3;
+    border-radius: inherit;
+  }
+  .focus-card .back.grad {
+    background: linear-gradient(135deg, #2a70b8 0%, #4f8cd6 48%, #f28c28 135%);
+  }
+  .focus-card .back.ribbon {
+    inset: -40% -12%;
+    background:
+      repeating-linear-gradient(
+        115deg,
+        rgba(124, 198, 255, 0.0) 0%,
+        rgba(124, 198, 255, 0.34) 14%,
+        rgba(255, 178, 94, 0.0) 30%,
+        rgba(255, 178, 94, 0.38) 48%,
+        rgba(124, 198, 255, 0.0) 64%);
+    background-size: 320% 320%;
+    filter: blur(2px);
+    mix-blend-mode: screen;
+    opacity: .9;
+    animation: ribbon-flow 10s linear infinite;
+  }
+  .focus-card .back.blob {
+    z-index: -2;
+    inset: -70% -20%;
+    background:
+      radial-gradient(circle at 30% 30%, rgba(255,255,255,0.22), transparent 52%),
+      radial-gradient(circle at 72% 62%, rgba(255,220,160,0.20), transparent 46%),
+      radial-gradient(circle at 50% 90%, rgba(90,180,255,0.18), transparent 50%);
+    mix-blend-mode: soft-light;
+    animation: breathe 5.5s ease-in-out infinite;
+  }
+  @keyframes ribbon-flow {
+    to { background-position: 320% 0%; }
+  }
+  @keyframes breathe {
+    0%, 100% { opacity: .55; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.08); }
+  }
+  .focus-card .focus-content { position: relative; z-index: 2; }
+  .focus-card .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .08em; opacity: .85; }
+  .focus-card .focus-title { margin-top: 6px; font-size: 21px; font-weight: 800; }
+  .focus-card .focus-sub { margin-top: 4px; font-size: 13px; opacity: .9; }
+  .focus-card .cta {
+    margin-top: 16px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #fff;
+    color: var(--primary-strong);
+    padding: 12px 20px;
+    border-radius: 999px;
+    font-size: 15px;
+    font-weight: 800;
+    box-shadow: 0 8px 18px rgba(20, 45, 80, 0.22);
+    cursor: pointer;
+    border: 0;
+    transition: transform 160ms ease;
+  }
+  .focus-card .cta:active { transform: scale(0.96); }
+
+  .section-title {
+    margin: 22px 2px 12px;
+    font-size: 17px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .section-title .more { font-size: 12.5px; color: var(--primary); font-weight: 700; }
+
+  /* 运动健康记录 */
+  .sport-card {
+    margin-top: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    padding: 16px;
+    box-shadow: var(--shadow-card);
+  }
+  .sport-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .sport-head .ttl { font-size: 16px; font-weight: 800; }
+  .sport-head .add {
+    display: inline-flex; align-items: center; gap: 5px;
+    color: var(--accent); font-size: 13px; font-weight: 800;
+    background: var(--accent-soft); border: 0; padding: 8px 12px; border-radius: 999px; cursor: pointer;
+  }
+  .sport-head .add:active { transform: scale(.96); }
+  .sport-total {
+    margin-top: 14px;
+    padding: 12px 14px;
+    border-radius: 17px;
+    background: linear-gradient(135deg, #ffe7c4, #ffd9ae 55%, #ffb27f 135%);
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    color: #5b3d1a;
+  }
+  .sport-total .big { font-family: "Fredoka", sans-serif; font-size: 27px; font-weight: 700; }
+  .sport-total .unit { font-size: 13px; font-weight: 800; }
+  .sport-total .note { margin-left: auto; font-size: 12px; color: #7f6040; font-weight: 700; }
+  .sport-list { margin-top: 6px; }
+  .sport-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 2px;
+    border-bottom: 1px dashed rgba(120,90,45,.12);
+  }
+  .sport-item:last-child { border-bottom: 0; }
+  .sport-ico {
+    width: 44px; height: 44px; flex: none; border-radius: 16px;
+    display: grid; place-items: center; font-size: 22px;
+    background: var(--accent-soft);
+  }
+  .sport-item .sinfo { flex: 1; min-width: 0; }
+  .sport-item .sname { font-size: 14.5px; font-weight: 800; }
+  .sport-item .stime { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
+  .sport-item .del {
+    width: 30px; height: 30px; border-radius: 999px; border: 0;
+    background: transparent; color: #c8bfab; cursor: pointer;
+    display: grid; place-items: center;
+  }
+  .sport-item .del svg { width: 16px; height: 16px; }
+  .sport-empty { padding: 16px; text-align: center; color: var(--text-muted); font-size: 13px; }
+
+  .task {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 13px 14px;
+    margin-bottom: 10px;
+    box-shadow: var(--shadow-card);
+    cursor: pointer;
+    transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+  }
+  .task:active { transform: scale(0.98); }
+  .task.done { background: var(--success-soft); border-color: rgba(61,163,93,.2); }
+  .task .box {
+    width: 24px; height: 24px; flex: none;
+    border-radius: 999px;
+    border: 2px solid var(--border-strong);
+    display: grid; place-items: center;
+    color: transparent;
+    transition: all 180ms ease;
+  }
+  .task.done .box { background: var(--success); border-color: var(--success); color: #fff; }
+  .task .box svg { width: 15px; height: 15px; }
+  .task .meta { margin-left: auto; font-size: 12px; color: var(--text-muted); }
+  .task .title { font-size: 14.5px; font-weight: 700; }
+  .task.done .title { text-decoration: line-through; color: var(--text-muted); }
+
+  .stats { display: flex; gap: 10px; }
+  .stat {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 14px 12px;
+    box-shadow: var(--shadow-card);
+  }
+  .stat .label { font-size: 12px; color: var(--text-muted); }
+  .stat .value { margin-top: 5px; font-family: "Fredoka", "Nunito", sans-serif; font-size: 22px; font-weight: 700; }
+  .stat .value em { font-style: normal; font-size: 13px; font-weight: 700; color: var(--text-muted); }
+  .stat.hot .value { color: var(--accent); }
+  .stat.blue .value { color: var(--primary); }
+  .stat.green .value { color: var(--success); }
+
+  /* 油画色感材质 */
+  .oil { position: relative; }
+  .oil::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    mix-blend-mode: overlay;
+    opacity: .55;
+    filter: url(#noise);
+  }
+
+  .stage-card {
+    margin-bottom: 12px;
+    border-radius: 22px;
+    padding: 16px 18px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow-card);
+    border: 1px solid rgba(120,90,45,.16);
+  }
+  .stage-card .stage-top { position: relative; display: flex; align-items: center; gap: 10px; z-index: 1; }
+  .stage-card .stage-tag {
+    padding: 4px 9px; border-radius: 999px; font-size: 11px; font-weight: 800;
+  }
+  .stage-card.s1 { background: linear-gradient(135deg, #ddeeff 0%, #bfe2ff 52%, #ffd9aa 140%); color: #16334f; }
+  .stage-card.s1 .stage-tag { background: rgba(47,116,192,.15); color: #1d4b7d; }
+  .stage-card.s2 { background: linear-gradient(135deg, #ffe6c2 0%, #ffd1a1 55%, #cdeee9 145%); color: #5b3d1a; }
+  .stage-card.s2 .stage-tag { background: rgba(242,140,40,.18); color: #9a570b; }
+  .stage-card.s3 { background: linear-gradient(135deg, #e3ecff 0%, #dde1fb 55%, #fde0d4 145%); color: #3d3a63; }
+  .stage-card.s3 .stage-tag { background: rgba(141,123,216,.18); color: #5b4c96; }
+  .stage-card .stage-name { font-size: 15.5px; font-weight: 800; }
+  .stage-card .stage-desc { margin-top: 5px; font-size: 12.5px; opacity: .68; }
+  .stage-card .bar {
+    position: relative; z-index: 1; margin-top: 12px;
+    height: 7px; border-radius: 999px; background: rgba(255,255,255,.42);
+    overflow: hidden;
+  }
+  .stage-card .bar i {
+    position: absolute; inset: 0 auto 0 0; width: 0;
+    border-radius: inherit; background: rgba(70,60,40,.36);
+  }
+
+  .more-card {
+    margin-bottom: 12px;
+    border-radius: 22px;
+    padding: 16px 18px;
+    background: var(--surface);
+    border: 1.5px dashed var(--border-strong);
+    color: var(--primary);
+    font-size: 15px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    cursor: pointer;
+    box-shadow: none;
+  }
+  .more-card:active { transform: scale(.98); }
+  .more-card .chev { display: grid; place-items: center; transition: transform 260ms ease; }
+  .more-card .chev svg { width: 18px; height: 18px; }
+
+  .theme-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: 22px;
+    padding: 16px 18px;
+    margin-bottom: 12px;
+    border: 1px solid rgba(120,90,45,.16);
+    box-shadow: var(--shadow-card);
+  }
+  .theme-card.t1 {
+    background:
+      radial-gradient(120% 140% at 10% 0%, rgba(255,255,255,.75), transparent 42%),
+      linear-gradient(135deg, #ffd7a5, #ff9d76 62%, #ffc0a3);
+    color: #5a3417;
+  }
+  .theme-card.t2 {
+    background:
+      radial-gradient(120% 140% at 90% 10%, rgba(255,255,255,.8), transparent 45%),
+      linear-gradient(135deg, #bfe8ff, #8ed0c8 60%, #d8f2cf);
+    color: #22414b;
+  }
+  .theme-card.t3 {
+    background:
+      radial-gradient(120% 140% at 10% 90%, rgba(255,255,255,.72), transparent 46%),
+      linear-gradient(135deg, #fde0f0, #e3d5ff 58%, #ffe0c6);
+    color: #5a3b63;
+  }
+  .theme-card .theme-inner { position: relative; z-index: 1; }
+  .theme-card .tname { font-size: 15.5px; font-weight: 800; }
+  .theme-card .tmeta { margin-top: 5px; font-size: 12.5px; opacity: .7; }
+  .theme-card .tdots { margin-top: 12px; display: flex; align-items: center; gap: 7px; }
+  .theme-card .tdots .dot { width: 20px; height: 7px; border-radius: 999px; background: rgba(255,255,255,.45); }
+  .theme-card .tdots .dot.on { background: rgba(60,48,36,.42); }
+  .theme-card .tnum { position: absolute; right: 16px; bottom: 12px; font-family: "Fredoka", sans-serif; font-size: 22px; font-weight: 700; opacity: .35; }
+
+  .job-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 15px 16px;
+    margin-bottom: 12px;
+    box-shadow: var(--shadow-card);
+  }
+  .job-card .top { display: flex; align-items: center; gap: 10px; }
+  .job-card .logo {
+    width: 40px; height: 40px; border-radius: 13px; flex: none;
+    display: grid; place-items: center; font-weight: 800; color: #fff; font-size: 16px;
+  }
+  .job-card .name { font-size: 15px; font-weight: 800; }
+  .job-card .tag {
+    font-size: 11px; font-weight: 700; color: #fff;
+    padding: 3px 8px; border-radius: 999px; margin-left: auto;
+  }
+  .job-card .salary { margin-top: 8px; font-family: "Fredoka", sans-serif; color: var(--accent); font-weight: 700; }
+  .job-card .extra { margin-top: 4px; font-size: 12px; color: var(--text-muted); }
+
+  .stats-panel {
+    margin-top: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 16px;
+    box-shadow: var(--shadow-card);
+  }
+  .stats-panel .panel-head { display: flex; align-items: center; justify-content: space-between; }
+  .stats-panel .panel-head .ttl { font-size: 16px; font-weight: 800; }
+  .stats-panel .panel-head .share {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--primary-soft); color: var(--primary); border: 0;
+    font-size: 12.5px; font-weight: 800; padding: 8px 12px; border-radius: 999px; cursor: pointer;
+  }
+  .tomato-hero {
+    margin-top: 14px;
+    padding: 14px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, #ffbf82, #f28c28 58%, #ff9d76);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .tomato-hero .ring {
+    width: 58px; height: 58px; flex: none; border-radius: 999px;
+    background: rgba(255,255,255,.22); display: grid; place-items: center;
+  }
+  .tomato-hero .ring b { font-family: "Fredoka", sans-serif; font-size: 19px; }
+  .tomato-hero .h-label { font-size: 12px; opacity: .9; }
+  .tomato-hero .h-val { margin-top: 3px; font-family: "Fredoka", sans-serif; font-size: 22px; font-weight: 700; }
+  .tomato-grid { margin-top: 14px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .tomato-mini { background: #fff; border: 1px solid rgba(120,90,45,.10); border-radius: 15px; padding: 11px 8px; text-align: center; }
+  .tomato-mini .k { font-size: 11.5px; color: var(--text-muted); }
+  .tomato-mini .v { margin-top: 5px; font-family: "Fredoka", sans-serif; font-size: 18px; font-weight: 700; }
+  .tomato-mini .v em { font-style: normal; font-size: 11px; color: var(--text-muted); font-weight: 700; }
+  .heat-label { margin-top: 18px; font-size: 13px; font-weight: 800; color: var(--text-muted); }
+  .heat {
+    margin-top: 10px;
+    display: grid;
+    grid-template-columns: repeat(20, 1fr);
+    gap: 5px;
+  }
+  .heat .cell { aspect-ratio: 1; border-radius: 4px; background: #eee6d8; }
+  .heat-legend { margin-top: 10px; display: flex; align-items: center; justify-content: flex-end; gap: 7px; font-size: 11px; color: var(--text-muted); }
+  .heat-legend .sw { width: 12px; height: 12px; border-radius: 3px; background: #eee6d8; }
+
+  .profile-card {
+    background: linear-gradient(135deg, #ffffff, #fdf1df);
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    padding: 20px;
+    display: flex; align-items: center; gap: 14px;
+    box-shadow: var(--shadow-card);
+  }
+  .avatar {
+    width: 58px; height: 58px; border-radius: 20px; flex: none;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    display: grid; place-items: center; color: #fff; font-size: 24px; font-weight: 800;
+  }
+  .profile-card .pname { font-size: 18px; font-weight: 800; }
+  .profile-card .pmeta { font-size: 12.5px; color: var(--text-muted); margin-top: 3px; }
+
+  .group { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; margin-top: 16px; box-shadow: var(--shadow-card); overflow: hidden; }
+  .group .gtitle { padding: 14px 16px 6px; font-size: 12px; font-weight: 800; color: var(--text-muted); letter-spacing: .04em; }
+  .row { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-top: 1px solid rgba(120,90,45,.08); }
+  .row .ic { width: 30px; height: 30px; border-radius: 10px; display: grid; place-items: center; }
+  .row .ic svg { width: 18px; height: 18px; }
+  .row .txt { flex: 1; font-size: 14.5px; font-weight: 700; }
+  .row .chev { color: #c2b9a4; }
+  .row .chev svg { width: 18px; height: 18px; }
+
+  .focus-overlay {
+    position: absolute; inset: 0; z-index: 60;
+    background: radial-gradient(120% 90% at 50% 0%, #14323f 0%, #0f2027 55%, #0b1419 100%);
+    color: #fff;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+  }
+  .focus-overlay.open { display: flex; }
+  .focus-overlay .ambient {
+    position: absolute; inset: 0; pointer-events: none;
+    background:
+      radial-gradient(circle at 50% 42%, rgba(255,178,94,0.16), transparent 45%),
+      linear-gradient(120deg, rgba(47,116,192,0.10), transparent 55%);
+    animation: ambient 6s ease-in-out infinite;
+  }
+  @keyframes ambient { 0%,100% { opacity:.7; } 50% { opacity:1; } }
+  .focus-top { width: 100%; display: flex; justify-content: space-between; align-items: center; position: relative; }
+  .focus-top .ghost { width: 40px; }
+  .focus-top .close { width: 40px; height: 40px; border-radius: 999px; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.22); color: #fff; display: grid; place-items: center; cursor: pointer; }
+  .focus-top .close svg { width: 18px; height: 18px; }
+  .focus-job { margin-top: 22px; text-align: center; position: relative; }
+  .focus-job .t { font-size: 16px; font-weight:700; opacity: .95; }
+  .focus-job .s { margin-top: 5px; font-size: 12px; opacity: .62; }
+  .ring-wrap { margin-top: 34px; position: relative; width: 280px; height: 280px; }
+  .ring-wrap svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .ring-wrap .glow { filter: drop-shadow(0 0 22px rgba(255,178,94,.4)); }
+  .ring-center {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    flex-direction: column; gap: 4px; text-align: center;
+  }
+  .ring-center .clock { font-family: "Fredoka", sans-serif; font-size: 58px; font-weight: 700; letter-spacing: .01em; font-variant-numeric: tabular-nums; }
+  .ring-center .hint { font-size: 12.5px; opacity: .65; }
+  .focus-controls { position: relative; display: flex; gap: 16px; margin-top: 26px; }
+  .fbtn {
+    width: 58px; height: 58px; border-radius: 999px;
+    background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.26);
+    color: #fff; display: grid; place-items: center; cursor: pointer;
+    transition: transform 160ms ease;
+  }
+  .fbtn:active { transform: scale(.94); }
+  .fbtn.primary { background: var(--focus-accent); color: #241a09; border-color: transparent; width: 68px; height: 68px; }
+  .fbtn svg { width: 24px; height: 24px; }
+  .presets { position: relative; display: flex; gap: 8px; margin-top: 24px; }
+  .preset { padding: 8px 14px; border-radius: 999px; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2); color: rgba(255,255,255,.8); font-size: 13px; font-weight: 700; cursor: pointer; }
+  .preset.active { background: rgba(255,178,94,.4); border-color: rgba(255,178,94,.7); color: #fff; }
+  .record {
+    position: relative; margin-top: 24px; width: 78%;
+    background: #fff; color: var(--primary-strong); border: 0;
+    border-radius: 999px; padding: 13px; font-size: 15px; font-weight: 800;
+    cursor: pointer; box-shadow: 0 10px 24px rgba(0,0,0,.25);
+  }
+  .record:active { transform: scale(.97); }
+
+  /* Bottom sheet */
+  .sheet-scrim {
+    position: absolute; inset: 0; z-index: 70;
+    background: rgba(24, 20, 12, 0.36);
+    opacity: 0; visibility: hidden;
+    transition: opacity 260ms ease, visibility 260ms;
+  }
+  .sheet-scrim.show { opacity: 1; visibility: visible; }
+  .sheet {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    height: 54%;
+    background: var(--surface-strong);
+    border-radius: 28px 28px 0 0;
+    box-shadow: 0 -14px 44px rgba(20, 16, 8, 0.22);
+    transform: translateY(103%);
+    transition: transform 340ms cubic-bezier(.2,.8,.2,1), height 300ms cubic-bezier(.2,.8,.2,1);
+    z-index: 72;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .sheet.open { transform: translateY(0); }
+  .sheet.full { height: 94%; }
+  .sheet .handle-area { flex: none; padding: 10px 0 4px; cursor: grab; touch-action: none; user-select: none; }
+  .sheet .handle-area:active { cursor: grabbing; }
+  .sheet .grabber {
+    width: 42px; height: 5px; border-radius: 999px;
+    background: #d8ceba; margin: 0 auto;
+  }
+  .sheet .sheet-head {
+    flex: none; display: flex; align-items: center; justify-content: space-between;
+    padding: 4px 20px 12px;
+  }
+  .sheet .sheet-head .ttl { font-size: 18px; font-weight: 800; }
+  .sheet .sheet-close {
+    width: 34px; height: 34px; border-radius: 999px; border: 0;
+    background: #f4eee2; color: var(--text-muted); cursor: pointer; display: grid; place-items: center;
+  }
+  .sheet .sheet-close svg { width: 16px; height: 16px; }
+  .sheet .sheet-body { flex: 1; overflow-y: auto; padding: 0 20px 26px; }
+
+  .sheet-stage-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 2px;
+    border-bottom: 1px dashed rgba(120,90,45,.12);
+  }
+  .sheet-stage-item:last-child { border-bottom: 0; }
+  .sheet-stage-item .num {
+    width: 30px; height: 30px; flex: none; border-radius: 10px;
+    display: grid; place-items: center; font-weight: 800; font-size: 13px; color: #fff;
+  }
+  .sheet-stage-item .sinfo { flex: 1; }
+  .sheet-stage-item .sname { font-size: 14.5px; font-weight: 800; }
+  .sheet-stage-item .smeta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .sheet-stage-item .pct { font-size: 13px; font-weight: 800; color: var(--accent); }
+
+  .sport-type-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 16px; }
+  .sport-type {
+    border: 1.5px solid rgba(120,90,45,.14); background: #fff;
+    border-radius: 16px; padding: 12px 6px; text-align: center; cursor: pointer;
+    transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+  }
+  .sport-type:active { transform: scale(.96); }
+  .sport-type .e { font-size: 26px; }
+  .sport-type .n { margin-top: 5px; font-size: 12.5px; font-weight: 800; color: var(--text-muted); }
+  .sport-type.active { border-color: var(--accent); background: var(--accent-soft); }
+  .sport-type.active .n { color: var(--accent-strong); }
+  .stepper {
+    margin-top: 18px; display: flex; align-items: center; justify-content: center; gap: 18px;
+    background: #faf3e6; border-radius: 18px; padding: 12px;
+  }
+  .stepper button {
+    width: 40px; height: 40px; border-radius: 999px; border: 0;
+    background: #fff; box-shadow: 0 3px 10px rgba(90,66,30,.08);
+    color: var(--accent); font-size: 22px; font-weight: 800; cursor: pointer;
+  }
+  .stepper button:active { transform: scale(.94); }
+  .stepper .val { min-width: 76px; text-align: center; }
+  .stepper .val b { font-family: "Fredoka", sans-serif; font-size: 22px; }
+  .stepper .val span { display: block; font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .stepper .quick { color: var(--accent); font-size: 12px; font-weight: 800; background: none; border: 0; cursor: pointer; }
+  .save-sport {
+    margin-top: 18px; width: 100%; border: 0; border-radius: 999px;
+    background: linear-gradient(135deg, var(--accent), var(--coral));
+    color: #fff; padding: 14px; font-size: 15px; font-weight: 800; cursor: pointer;
+  }
+  .save-sport:active { transform: scale(.98); }
+
+  .share-preview {
+    margin-top: 16px;
+    border-radius: 22px;
+    padding: 18px;
+    background:
+      radial-gradient(120% 140% at 15% 10%, rgba(255,255,255,.85), transparent 45%),
+      linear-gradient(140deg, #ffb27f, #f28c28 55%, #f26b5e);
+    color: #fff;
+    box-shadow: var(--shadow-float);
+  }
+  .share-preview .sp-title { font-size: 15px; font-weight: 800; }
+  .share-preview .sp-sub { font-size: 12px; opacity: .85; margin-top: 3px; }
+  .share-preview .sp-rows { margin-top: 14px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .share-preview .sp-item { background: rgba(255,255,255,.20); border-radius: 14px; padding: 10px; }
+  .share-preview .sp-item .k { font-size: 11px; opacity: .85; }
+  .share-preview .sp-item .v { margin-top: 4px; font-family: "Fredoka", sans-serif; font-size: 19px; font-weight: 700; }
+  .share-actions { display: flex; gap: 10px; margin-top: 16px; }
+  .share-actions button {
+    flex: 1; border: 0; border-radius: 15px; padding: 12px;
+    font-size: 13.5px; font-weight: 800; cursor: pointer;
+  }
+  .share-actions .ghost { background: #f4eee2; color: var(--text); }
+  .share-actions .primary { background: linear-gradient(135deg, var(--accent), var(--coral)); color: #fff; }
+
+  .toast {
+    position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%) translateY(20px);
+    background: rgba(20,22,20,0.94); color: #fff; padding: 11px 16px; border-radius: 999px;
+    font-size: 13px; font-weight: 700; opacity: 0; transition: all 240ms cubic-bezier(.2,.8,.2,1);
+    z-index: 90; pointer-events: none; white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  canvas.confetti { position: absolute; inset: 0; z-index: 80; pointer-events: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition-duration: 0.001ms !important; }
+  }
+</style>
+</head>
+<body>
+  <svg class="defs" aria-hidden="true">
+    <filter id="noise" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.22" intercept="0"/></feComponentTransfer>
+    </filter>
+  </svg>
+
+  <div class="stage-note">苦旅 · 移动端重构 Demo（设计原型 · 非真实数据）</div>
+
+  <div class="phone">
+    <div class="statusbar">
+      <span class="left">9:41</span>
+      <span class="right">5G · <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="2" y="7" width="16" height="12" rx="3"/><path d="M6 11v4"/><path d="M10 11v4"/><path d="M18 9v8"/></svg></span>
+      <span class="dynamic-island"></span>
+    </div>
+
+    <div class="app" id="app">
+      <!-- 今天 -->
+      <section class="screen active" id="today">
+        <div class="hero">
+          <div class="sun-glow"></div>
+          <h1>早上好，<br />继续今天的 ICT 学习规划</h1>
+          <div class="sub">今天 · 一个焦点 · 可折叠任务</div>
+        </div>
+
+        <div class="quote">
+          <div class="mark"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 9.2 8.6 2 9.6l5.2 4.7L5.8 20 12 16.3 18.2 20l-1.4-5.7L22 9.6l-7.2-1z"/></svg></div>
+          <p>把今天过成你喜欢的样子，明天才会长得像它。坚持投入，静待花开。</p>
+        </div>
+
+        <div class="focus-card">
+          <div class="back grad"></div>
+          <div class="back ribbon"></div>
+          <div class="back blob"></div>
+          <div class="focus-content">
+            <div class="eyebrow">今日焦点 · TODAY FOCUS</div>
+            <div class="focus-title">深度学习《React 渲染优化》</div>
+            <div class="focus-sub">25 分钟沉浸专注 · 从第一章第 3 节继续</div>
+            <button class="cta" onclick="openFocus()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+              开始专注
+            </button>
+          </div>
+        </div>
+
+        <div class="sport-card">
+          <div class="sport-head">
+            <div class="ttl">运动 · 健康</div>
+            <button class="add" onclick="openSportSheet()">+ 添加记录</button>
+          </div>
+          <div class="sport-total">
+            <span class="big" id="sportTotal">2.3</span>
+            <span class="unit">小时</span>
+            <span class="note">今日能量 · 阳光满分</span>
+          </div>
+          <div class="sport-list" id="sportList"></div>
+        </div>
+
+        <div class="section-title">今日任务 <span class="more">1 / 3 已完成</span></div>
+        <div class="task" onclick="toggleTask(this, event)">
+          <span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4"><path d="M5 12.5 10 17 19 7"/></svg></span>
+          <span class="title">读完《How React Renders》</span>
+          <span class="meta">25 分</span>
+        </div>
+        <div class="task done" onclick="toggleTask(this, event, true)">
+          <span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4"><path d="M5 12.5 10 17 19 7"/></svg></span>
+          <span class="title">完成每日打卡</span>
+          <span class="meta">已完成</span>
+        </div>
+        <div class="task" onclick="toggleTask(this, event)">
+          <span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4"><path d="M5 12.5 10 17 19 7"/></svg></span>
+          <span class="title">写 3 条学习日志</span>
+          <span class="meta">10 分</span>
+        </div>
+
+        <div class="section-title">本周节奏</div>
+        <div class="stats">
+          <div class="stat hot"><div class="label">连续打卡</div><div class="value">12<em> 天</em></div></div>
+          <div class="stat blue"><div class="label">今日专注</div><div class="value">45<em> 分</em></div></div>
+          <div class="stat green"><div class="label">本周进度</div><div class="value">68<em>%</em></div></div>
+        </div>
+      </section>
+
+      <!-- 学习 -->
+      <section class="screen" id="learn">
+        <div class="hero"><h1>学习</h1><div class="sub">路线图 · 主题 · 统计 · 日志</div></div>
+
+        <div class="section-title">学习阶段</div>
+        <div class="stage-card oil s1">
+          <div class="stage-top">
+            <span class="stage-tag">阶段 1</span>
+            <span class="stage-name">前端基础</span>
+          </div>
+          <div class="stage-desc">HTML · CSS · JavaScript · 工程思维</div>
+          <div class="bar"><i style="width:86%"></i></div>
+        </div>
+        <div class="stage-card oil s2">
+          <div class="stage-top">
+            <span class="stage-tag">阶段 2</span>
+            <span class="stage-name">React 深度进阶</span>
+          </div>
+          <div class="stage-desc">渲染机制 · Fiber · 状态管理与性能</div>
+          <div class="bar"><i style="width:64%"></i></div>
+        </div>
+        <div class="more-card" onclick="openStageSheet()">
+          <span>更多阶段</span>
+          <span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m6 9 6 6 6-6"/></svg></span>
+        </div>
+
+        <div class="section-title">当前主题</div>
+        <div class="theme-card oil t1">
+          <div class="theme-inner">
+            <div class="tname">React 渲染与 Fiber</div>
+            <div class="tmeta">已完成 6 / 9 个主题 · 本周计划 3 次专注</div>
+            <div class="tdots">
+              <span class="dot on"></span><span class="dot on"></span><span class="dot on"></span>
+              <span class="dot on"></span><span class="dot on"></span><span class="dot on"></span>
+              <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+            </div>
+          </div>
+          <div class="tnum">6/9</div>
+        </div>
+        <div class="theme-card oil t2">
+          <div class="theme-inner">
+            <div class="tname">Vite 构建与性能</div>
+            <div class="tmeta">已完成 4 / 8 个主题</div>
+            <div class="tdots">
+              <span class="dot on"></span><span class="dot on"></span><span class="dot on"></span>
+              <span class="dot on"></span><span class="dot"></span><span class="dot"></span>
+              <span class="dot"></span><span class="dot"></span>
+            </div>
+          </div>
+          <div class="tnum">4/8</div>
+        </div>
+        <div class="theme-card oil t3">
+          <div class="theme-inner">
+            <div class="tname">TypeScript 类型体操</div>
+            <div class="tmeta">已完成 2 / 5 个主题</div>
+            <div class="tdots">
+              <span class="dot on"></span><span class="dot on"></span><span class="dot"></span>
+              <span class="dot"></span><span class="dot"></span>
+            </div>
+          </div>
+          <div class="tnum">2/5</div>
+        </div>
+
+        <div class="section-title">学习统计 <span class="more">近 20 周</span></div>
+        <div class="stats-panel">
+          <div class="panel-head">
+            <div class="ttl">番茄 · 热力统计</div>
+            <button class="share" onclick="openShareSheet()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.4 6.8-4M8.6 13.6l6.8 4"/></svg>
+              分享
+            </button>
+          </div>
+          <div class="tomato-hero">
+            <div class="ring"><b>68%</b></div>
+            <div>
+              <div class="h-label">近 7 天可学习时间 · 已专注</div>
+              <div class="h-val">12.5 / 18.2 小时</div>
+            </div>
+          </div>
+          <div class="tomato-grid">
+            <div class="tomato-mini"><div class="k">累计专注</div><div class="v">36<em> 天</em></div></div>
+            <div class="tomato-mini"><div class="k">累计时长</div><div class="v">108<em> h</em></div></div>
+            <div class="tomato-mini"><div class="k">本周</div><div class="v">12.5<em> h</em></div></div>
+            <div class="tomato-mini"><div class="k">今日</div><div class="v">45<em> 分</em></div></div>
+          </div>
+          <div class="heat-label">可学习时长分布 · GitHub 热力图</div>
+          <div class="heat" id="heat"></div>
+          <div class="heat-legend">
+            少
+            <span class="sw" style="background:#eee6d8"></span>
+            <span class="sw" style="background:#f3c98b"></span>
+            <span class="sw" style="background:#f28c28"></span>
+            <span class="sw" style="background:#e35d2f"></span>
+            多
+          </div>
+        </div>
+      </section>
+
+      <!-- 招花 -->
+      <section class="screen" id="jobs">
+        <div class="hero"><h1>招花</h1><div class="sub">把机会种下去，静待绽放</div></div>
+        <div class="section-title">求职市场</div>
+        <div class="chip-row" style="display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; scrollbar-width:none;">
+          <span class="chip" style="white-space:nowrap;padding:8px 14px;border-radius:999px;background:var(--surface);border:1px solid var(--border);font-size:13px;font-weight:700;color:var(--text-muted)">全部</span>
+          <span class="chip" style="white-space:nowrap;padding:8px 14px;border-radius:999px;background:var(--surface);border:1px solid var(--border);font-size:13px;font-weight:700;color:var(--text-muted)">互联网</span>
+          <span class="chip" style="white-space:nowrap;padding:8px 14px;border-radius:999px;background:var(--surface);border:1px solid var(--border);font-size:13px;font-weight:700;color:var(--text-muted)">考公考编</span>
+          <span class="chip" style="white-space:nowrap;padding:8px 14px;border-radius:999px;background:var(--surface);border:1px solid var(--border);font-size:13px;font-weight:700;color:var(--text-muted)">央国企</span>
+        </div>
+        <div class="job-card">
+          <div class="top"><div class="logo" style="background:#2f74c0">前</div><span class="name">前端开发工程师</span><span class="tag" style="background:#2f74c0">新鲜</span></div>
+          <div class="salary">18–28K · 杭州</div><div class="extra">某互联网公司 · 12 分钟前更新</div>
+        </div>
+        <div class="job-card">
+          <div class="top"><div class="logo" style="background:#e1781c">央</div><span class="name">信息化建设岗</span><span class="tag" style="background:#e1781c">今日</span></div>
+          <div class="salary">12–18K · 北京</div><div class="extra">某央国企 · 30 分钟前更新</div>
+        </div>
+        <div class="job-card">
+          <div class="top"><div class="logo" style="background:#3da35d">考</div><span class="name">数字技术岗位</span><span class="tag" style="background:#3da35d">推荐</span></div>
+          <div class="salary">面议 · 成都</div><div class="extra">某事业单位 · 1 小时前更新</div>
+        </div>
+      </section>
+
+      <!-- 我的 -->
+      <section class="screen" id="me">
+        <div class="hero"><h1>我的</h1><div class="sub">个人 · 外观 · 同步 · 数据 · 招聘</div></div>
+        <div class="profile-card">
+          <div class="avatar">苦</div>
+          <div><div class="pname">苦旅学习者</div><div class="pmeta">连续打卡 12 天 · 累计专注 36 天</div></div>
+        </div>
+        <div class="group">
+          <div class="gtitle">外观</div>
+          <div class="row"><span class="ic" style="background:#fdecd8; color:#f28c28"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="12" cy="12" r="4"/></svg></span><span class="txt">背景与主题</span><span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m9 6 6 6-6 6"/></svg></span></div>
+        </div>
+        <div class="group">
+          <div class="gtitle">账户</div>
+          <div class="row"><span class="ic" style="background:#e8f3fd; color:#2f74c0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg></span><span class="txt">登录 / 注册</span><span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m9 6 6 6-6 6"/></svg></span></div>
+        </div>
+        <div class="group">
+          <div class="gtitle">数据</div>
+          <div class="row"><span class="ic" style="background:#e7f6ec; color:#3da35d"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16M4 12h16M4 19h10"/></svg></span><span class="txt">同步与导出</span><span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m9 6 6 6-6 6"/></svg></span></div>
+        </div>
+        <div class="group">
+          <div class="gtitle">招聘 · 职业</div>
+          <div class="row"><span class="ic" style="background:#fdecd8; color:#f28c28"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3c2 3 5 5 6 8 1 2.5 0 6-6 6s-7-3.5-6-6c1-3 4-5 6-8z"/></svg></span><span class="txt">职业规划</span><span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m9 6 6 6-6 6"/></svg></span></div>
+          <div class="row"><span class="ic" style="background:#fdecd8; color:#f28c28"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 9h18"/></svg></span><span class="txt">采集配置与运行记录</span><span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m9 6 6 6-6 6"/></svg></span></div>
+        </div>
+      </section>
+
+      <!-- 专注沉浸层 -->
+      <div class="focus-overlay" id="focusOverlay">
+        <div class="ambient"></div>
+        <div class="focus-top">
+          <span class="ghost"></span>
+          <button class="close" onclick="closeFocus()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+        </div>
+        <div class="focus-job">
+          <div class="t">深度学习《React 渲染优化》</div>
+          <div class="s" id="focusStatus">准备开始 · 25 分钟</div>
+        </div>
+        <div class="ring-wrap">
+          <svg viewBox="0 0 280 280">
+            <circle cx="140" cy="140" r="118" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="12"></circle>
+            <circle class="glow" id="ring" cx="140" cy="140" r="118" fill="none" stroke="#ffb25e" stroke-width="12" stroke-linecap="round" stroke-dasharray="741.4" stroke-dashoffset="0" transform="rotate(-90 140 140)"></circle>
+          </svg>
+          <div class="ring-center">
+            <div class="clock" id="clock">25:00</div>
+            <div class="hint" id="focusHint">点击开始进入沉浸专注</div>
+          </div>
+        </div>
+        <div class="focus-controls">
+          <button class="fbtn" onclick="resetTimer()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></button>
+          <button class="fbtn primary" id="playBtn" onclick="toggleTimer()"><svg id="playIcon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
+          <button class="fbtn" onclick="recordAndClose()"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>
+        </div>
+        <div class="presets">
+          <span class="preset" onclick="setMinutes(15)">15</span>
+          <span class="preset active" onclick="setMinutes(25)">25</span>
+          <span class="preset" onclick="setMinutes(45)">45</span>
+        </div>
+        <button class="record" onclick="recordAndClose()">结束并记录本次专注</button>
+      </div>
+
+      <canvas class="confetti" id="confetti"></canvas>
+      <div class="toast" id="toast"></div>
+    </div>
+
+    <nav class="tabbar" id="tabbar">
+      <div class="tab active" data-tab="today">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m4 11 8-7 8 7v9a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z"/></svg>
+        <span>今天</span>
+      </div>
+      <div class="tab" data-tab="learn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h16v4H4zM4 10h16v4H4zM4 16h16v4H4z"/></svg>
+        <span>学习</span>
+      </div>
+      <div class="tab" data-tab="jobs">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/><path d="M12 2c2 2.5 4 4.5 4 6a4 4 0 0 1-8 0c0-1.5 2-3.5 4-6z"/></svg>
+        <span>招花</span>
+      </div>
+      <div class="tab" data-tab="me">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>
+        <span>我的</span>
+      </div>
+    </nav>
+
+    <!-- 阶段更多抽屉 -->
+    <div class="sheet-scrim" id="scrim" onclick="onScrimClick()"></div>
+    <div class="sheet" id="stageSheet">
+      <div class="handle-area" onclick="toggleStageFull()" onpointerdown="beginDrag(event)" onpointerup="endDrag(event)">
+        <div class="grabber"></div>
+      </div>
+      <div class="sheet-head">
+        <div class="ttl">更多阶段</div>
+        <button class="sheet-close" onclick="closeSheets()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      </div>
+      <div class="sheet-body">
+        <div class="sheet-stage-item">
+          <span class="num" style="background:linear-gradient(135deg,#8d7bd8,#6aa5c8)">3</span>
+          <div class="sinfo"><div class="sname">阶段三 · 工程化</div><div class="smeta">Vite · TypeScript · 测试与部署流水线</div></div>
+          <span class="pct">40%</span>
+        </div>
+        <div class="sheet-stage-item">
+          <span class="num" style="background:linear-gradient(135deg,#f28c28,#f26b5e)">A</span>
+          <div class="sinfo"><div class="sname">Agent 副线</div><div class="smeta">AI 工作流 · 自动化 · 工具链</div></div>
+          <span class="pct">20%</span>
+        </div>
+        <div class="sheet-stage-item">
+          <span class="num" style="background:linear-gradient(135deg,#2fb3a6,#7ac06e)">P</span>
+          <div class="sinfo"><div class="sname">性能优化专题</div><div class="smeta">渲染性能 · 内存 · 长任务拆解</div></div>
+          <span class="pct">8%</span>
+        </div>
+        <div class="sheet-stage-item">
+          <span class="num" style="background:linear-gradient(135deg,#f26b5e,#f3b0a0)">M</span>
+          <div class="sinfo"><div class="sname">面试复盘</div><div class="smeta">真题 · 手写题 · 系统设计表达</div></div>
+          <span class="pct">15%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 运动记录抽屉 -->
+    <div class="sheet" id="sportSheet">
+      <div class="handle-area" onclick="closeSheets()"><div class="grabber"></div></div>
+      <div class="sheet-head">
+        <div class="ttl">添加运动记录</div>
+        <button class="sheet-close" onclick="closeSheets()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      </div>
+      <div class="sheet-body">
+        <div class="sport-type-grid" id="sportTypeGrid"></div>
+        <div class="stepper">
+          <button onclick="adjustSport(-15)">−</button>
+          <div class="val"><b id="sportMin">30</b><span>分钟</span></div>
+          <button onclick="adjustSport(15)">+</button>
+        </div>
+        <div class="sport-type-grid" style="margin-top:12px">
+          <button class="sport-type" onclick="setSportMin(30)"><div class="n">30 分</div></button>
+          <button class="sport-type" onclick="setSportMin(60)"><div class="n">60 分</div></button>
+          <button class="sport-type" onclick="setSportMin(90)"><div class="n">90 分</div></button>
+        </div>
+        <button class="save-sport" onclick="saveSport()">保存这条记录</button>
+      </div>
+    </div>
+
+    <!-- 统计分享抽屉 -->
+    <div class="sheet" id="shareSheet">
+      <div class="handle-area" onclick="closeSheets()"><div class="grabber"></div></div>
+      <div class="sheet-head">
+        <div class="ttl">分享学习统计</div>
+        <button class="sheet-close" onclick="closeSheets()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      </div>
+      <div class="sheet-body">
+        <div class="share-preview">
+          <div class="sp-title">我的 ICT 学习周报</div>
+          <div class="sp-sub">把专注种成花 · 用热力记录每一次投入</div>
+          <div class="sp-rows">
+            <div class="sp-item"><div class="k">本周专注</div><div class="v">12.5h</div></div>
+            <div class="sp-item"><div class="k">连续打卡</div><div class="v">12 天</div></div>
+            <div class="sp-item"><div class="k">任务完成</div><div class="v">68%</div></div>
+            <div class="sp-item"><div class="k">运动记录</div><div class="v">2.3h</div></div>
+          </div>
+        </div>
+        <div class="share-actions">
+          <button class="ghost" onclick="shareAction('复制文案')">复制文案</button>
+          <button class="primary" onclick="shareAction('生成图片')">生成图片</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // Tab 切换
+  const tabs = document.querySelectorAll('.tab');
+  const screens = document.querySelectorAll('.screen');
+  tabs.forEach(t => t.addEventListener('click', () => {
+    tabs.forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    screens.forEach(s => s.classList.remove('active'));
+    document.getElementById(t.dataset.tab).classList.add('active');
+  }));
+
+  // confetti
+  const canvas = document.getElementById('confetti');
+  const ctx = canvas.getContext('2d');
+  let particles = [];
+  let confettiRAF = null;
+  function sizeCanvas() {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = rect.width * devicePixelRatio;
+    canvas.height = rect.height * devicePixelRatio;
+    ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+  }
+  sizeCanvas();
+  window.addEventListener('resize', sizeCanvas);
+  function burst(x, y, scale = 1) {
+    const colors = ['#2f74c0', '#f28c28', '#3da35d', '#ffb25e', '#8d7bd8', '#2fb3a6', '#f26b5e'];
+    for (let i = 0; i < Math.floor(90 * scale); i++) {
+      const a = Math.random() * Math.PI * 2;
+      const v = 2 + Math.random() * 4;
+      particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 2.5, life: 1, color: colors[i % colors.length], r: 2 + Math.random() * 3, rot: Math.random() * Math.PI, vr: (Math.random() - .5) * .3 });
+    }
+    if (!confettiRAF) drawConfetti();
+  }
+  function drawConfetti() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life -= 0.012; p.rot += p.vr; });
+    particles = particles.filter(p => p.life > 0);
+    particles.forEach(p => {
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.r / 2, -p.r / 2, p.r, p.r * 0.6);
+      ctx.restore();
+    });
+    if (particles.length) confettiRAF = requestAnimationFrame(drawConfetti);
+    else { confettiRAF = null; ctx.clearRect(0, 0, canvas.width, canvas.height); }
+  }
+
+  function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => el.classList.remove('show'), 2200);
+  }
+
+  function toggleTask(el, ev, wasDone) {
+    const r = el.querySelector('.box').getBoundingClientRect();
+    const rect = canvas.parentElement.getBoundingClientRect();
+    const x = r.left - rect.left + r.width / 2;
+    const y = r.top - rect.top + r.height / 2;
+    if (el.classList.contains('done')) {
+      el.classList.remove('done');
+    } else {
+      el.classList.add('done');
+      burst(x, y);
+      setTimeout(() => toast('任务完成，今日进度 +1'), 180);
+    }
+  }
+
+  // 运动健康记录
+  const sportRecords = [
+    { icon: '🏀', name: '打篮球', min: 60, bg: 'linear-gradient(135deg,#f28c28,#ff8f6b)' },
+    { icon: '🚶', name: '散步', min: 30, bg: 'linear-gradient(135deg,#2fb3a6,#57c7b2)' },
+    { icon: '🏸', name: '羽毛球', min: 45, bg: 'linear-gradient(135deg,#8d7bd8,#b39ad9)' }
+  ];
+  const sportTypes = [
+    { icon: '🏀', name: '篮球' },
+    { icon: '🏸', name: '羽毛球' },
+    { icon: '🚶', name: '散步' },
+    { icon: '🏃', name: '跑步' },
+    { icon: '🚴', name: '骑行' },
+    { icon: '🏊', name: '游泳' }
+  ];
+  let sportDraft = { type: sportTypes[0], min: 30 };
+  function formatSport(min) {
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    if (h && m) return `${h} 小时 ${m} 分`;
+    if (h) return `${h} 小时`;
+    return `${m} 分钟`;
+  }
+  function renderSport() {
+    const total = sportRecords.reduce((s, r) => s + r.min, 0);
+    document.getElementById('sportTotal').textContent = (total / 60).toFixed(1);
+    const list = document.getElementById('sportList');
+    list.innerHTML = '';
+    if (!sportRecords.length) {
+      list.innerHTML = '<div class="sport-empty">今天还没有运动记录，去阳光下动一动吧 ☀️</div>';
+      return;
+    }
+    sportRecords.forEach((r, i) => {
+      const div = document.createElement('div');
+      div.className = 'sport-item';
+      div.innerHTML = `
+        <span class="sport-ico" style="background:${r.bg}">${r.icon}</span>
+        <div class="sinfo"><div class="sname">${r.name}</div><div class="stime">${formatSport(r.min)} · 已完成</div></div>
+        <button class="del" onclick="removeSport(${i})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 6l12 12M18 6 6 18"/></svg></button>`;
+      list.appendChild(div);
+    });
+  }
+  function removeSport(i) {
+    sportRecords.splice(i, 1);
+    renderSport();
+    toast('已删除这条运动记录');
+  }
+  function renderSportTypes() {
+    const grid = document.getElementById('sportTypeGrid');
+    grid.innerHTML = '';
+    sportTypes.forEach((t, i) => {
+      const b = document.createElement('button');
+      b.className = 'sport-type' + (sportDraft.type.name === t.name ? ' active' : '');
+      b.innerHTML = `<div class="e">${t.icon}</div><div class="n">${t.name}</div>`;
+      b.onclick = () => { sportDraft.type = t; renderSportTypes(); };
+      grid.appendChild(b);
+    });
+  }
+  function adjustSport(delta) {
+    sportDraft.min = Math.max(15, sportDraft.min + delta);
+    document.getElementById('sportMin').textContent = sportDraft.min;
+  }
+  function setSportMin(m) { sportDraft.min = m; document.getElementById('sportMin').textContent = m; }
+  function saveSport() {
+    sportRecords.push({ icon: sportDraft.type.icon, name: sportDraft.type.name, min: sportDraft.min, bg: `linear-gradient(135deg, ${['#f28c28,#ff8f6b','#8d7bd8,#b39ad9','#2fb3a6,#57c7b2','#f26b5e,#ffb77a','#4f8cd6,#78c2e8','#2fb3a6,#5fb7c8'][sportTypes.indexOf(sportDraft.type)]})` });
+    renderSport();
+    closeSheets();
+    toast(`已记录 ${sportDraft.type.name} ${formatSport(sportDraft.min)}`);
+    const rect = canvas.parentElement.getBoundingClientRect();
+    burst(rect.width / 2, rect.height / 3, 0.7);
+  }
+  renderSport();
+  renderSportTypes();
+
+  // bottom sheet 通用控制
+  let activeSheet = null;
+  const scrim = document.getElementById('scrim');
+  function openSheet(id, full = false) {
+    closeSheets(false);
+    activeSheet = id;
+    const el = document.getElementById(id);
+    el.classList.add('open');
+    if (full) el.classList.add('full'); else el.classList.remove('full');
+    scrim.classList.add('show');
+  }
+  function closeSheets(animate = true) {
+    document.querySelectorAll('.sheet').forEach(s => s.classList.remove('open', 'full'));
+    if (animate) scrim.classList.remove('show');
+    else scrim.classList.remove('show');
+    activeSheet = null;
+  }
+  function openStageSheet() { openSheet('stageSheet'); }
+  function openSportSheet() { openSheet('sportSheet'); renderSportTypes(); }
+  function openShareSheet() { openSheet('shareSheet'); }
+  function onScrimClick() {
+    if (activeSheet === 'stageSheet') {
+      const el = document.getElementById('stageSheet');
+      if (el.classList.contains('full')) el.classList.remove('full');
+      else el.classList.add('full');
+    } else {
+      closeSheets();
+    }
+  }
+  function toggleStageFull() {
+    if (activeSheet !== 'stageSheet') return;
+    const el = document.getElementById('stageSheet');
+    el.classList.toggle('full');
+  }
+  function beginDrag(e) { e._startY = (e.touches ? e.touches[0].clientY : e.clientY); }
+  function endDrag(e) {
+    const y = (e.changedTouches ? e.changedTouches[0].clientY : e.clientY);
+    const dy = y - (e._startY || y);
+    const el = document.getElementById('stageSheet');
+    if (dy < -30) el.classList.add('full');
+    else if (dy > 30) el.classList.remove('full');
+  }
+
+  // 热力图
+  function renderHeatmap() {
+    const heat = document.getElementById('heat');
+    heat.innerHTML = '';
+    const levels = ['#eee6d8', '#f3c98b', '#f28c28', '#e35d2f', '#c84a1f'];
+    const seed = (i) => { const x = Math.sin(i * 12.9898 + 78.233) * 43758.5453; return x - Math.floor(x); };
+    for (let w = 0; w < 20; w++) {
+      for (let d = 0; d < 7; d++) {
+        const i = w * 7 + d;
+        const r = seed(i);
+        let lvl = 0;
+        if (r > 0.42) lvl = 1;
+        if (r > 0.68) lvl = 2;
+        if (r > 0.84) lvl = 3;
+        if (r > 0.95) lvl = 4;
+        const cell = document.createElement('span');
+        cell.className = 'cell';
+        cell.style.background = levels[lvl];
+        cell.style.opacity = (d === 0 || d === 6) ? 0.72 : 1;
+        cell.title = `第 ${20 - w} 周 · ${['日','一','二','三','四','五','六'][d]}`;
+        heat.appendChild(cell);
+      }
+    }
+  }
+  renderHeatmap();
+
+  // 分享
+  function shareAction(type) {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    burst(rect.width / 2, rect.height / 2, 1.1);
+    setTimeout(() => toast(`${type} · 已准备就绪`), 150);
+    closeSheets();
+  }
+
+  // 专注计时
+  let total = 25 * 60;
+  let remaining = total;
+  let running = false;
+  let started = false;
+  let timerId = null;
+  const circle = document.getElementById('ring');
+  const C = 2 * Math.PI * 118;
+  circle.style.strokeDasharray = C;
+  circle.style.strokeDashoffset = 0;
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function fmt(s) { return `${pad(Math.floor(s / 60))}:${pad(s % 60)}`; }
+  function render() {
+    document.getElementById('clock').textContent = fmt(remaining);
+    const ratio = remaining / total;
+    circle.style.strokeDashoffset = (C * (1 - ratio)).toFixed(1);
+    document.getElementById('focusStatus').textContent = started ? (running ? '● 专注中 · 保持节奏' : '❚❚ 已暂停') : `准备开始 · ${Math.round(total / 60)} 分钟`;
+    document.getElementById('focusHint').textContent = started && !running ? '已暂停，点击继续' : (started ? '' : '点击开始进入沉浸专注');
+  }
+  function toggleTimer() {
+    if (remaining <= 0) return;
+    if (!started) started = true;
+    running = !running;
+    if (running) {
+      timerId = setInterval(() => {
+        remaining = Math.max(0, remaining - 1);
+        render();
+        if (remaining === 0) { running = false; clearInterval(timerId); burstCenter(); setTimeout(() => { toast('专注完成！'); }, 150); }
+      }, 1000);
+    } else {
+      clearInterval(timerId);
+    }
+    render();
+  }
+  function resetTimer() {
+    clearInterval(timerId); running = false; started = false; remaining = total; render();
+  }
+  function setMinutes(m) {
+    total = m * 60; remaining = total; started = false; running = false; clearInterval(timerId);
+    document.querySelectorAll('.preset').forEach((p, i) => p.classList.toggle('active', [15,25,45][i] === m));
+    render();
+  }
+  function openFocus() { document.getElementById('focusOverlay').classList.add('open'); render(); }
+  function closeFocus() { clearInterval(timerId); running = false; document.getElementById('focusOverlay').classList.remove('open'); }
+  function burstCenter() {
+    const rect = document.querySelector('.ring-wrap').getBoundingClientRect();
+    const appRect = canvas.parentElement.getBoundingClientRect();
+    burst(rect.left - appRect.left + rect.width / 2, rect.top - appRect.top + rect.height / 2);
+  }
+  function recordAndClose() {
+    const secs = total - remaining;
+    if (secs < 10) { if (secs === 0) toast('还没有开始专注'); else toast('不足 10 秒，未记录'); closeFocus(); return; }
+    closeFocus();
+    toast(`已记录本次专注 ${fmt(secs)}`);
+    burstCenter();
+  }
+  render();
+</script>
+</body>
+</html>

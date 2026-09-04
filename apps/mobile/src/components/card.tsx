@@ -1,8 +1,6 @@
-import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
+import { type ReactNode } from "react";
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
-
-/** iOS 26+ 使用原生液态玻璃；其余平台回退为半透明毛玻璃质感卡片 */
-const glassReady = isLiquidGlassAvailable();
+import { colors, radius, shadows } from "@/theme/tokens";
 
 export function Card({
   children,
@@ -10,13 +8,13 @@ export function Card({
   title,
   subtitle,
 }: {
-  children?: React.ReactNode;
+  children?: ReactNode;
   style?: StyleProp<ViewStyle>;
   title?: string;
   subtitle?: string;
 }) {
   return (
-    <GlassView glassEffectStyle="regular" colorScheme="auto" style={[styles.card, style]}>
+    <View style={[styles.card, style]}>
       {title ? (
         <View style={styles.header}>
           <Text style={styles.title}>{title}</Text>
@@ -24,25 +22,21 @@ export function Card({
         </View>
       ) : null}
       {children}
-    </GlassView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: glassReady ? "transparent" : "rgba(255,255,255,0.72)",
+    backgroundColor: colors.surface,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255,255,255,0.65)",
-    borderRadius: 20,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
     padding: 16,
     gap: 10,
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 2,
+    ...shadows.card,
   },
   header: { gap: 2 },
-  title: { fontSize: 16, fontWeight: "600", color: "#18181b" },
-  subtitle: { fontSize: 12, color: "#71717a" },
+  title: { fontSize: 16, fontWeight: "700", color: colors.text },
+  subtitle: { fontSize: 12, color: colors.textMuted },
 });

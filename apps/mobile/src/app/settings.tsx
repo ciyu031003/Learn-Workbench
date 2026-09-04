@@ -7,6 +7,7 @@ import { apiLogin, syncPush, syncPull } from "@/lib/sync";
 import { fetchJobConfig, fetchJobRuns, fetchJobStats, runCrawler as runJobsCrawler, saveJobConfig as saveJobsConfig } from "@/lib/jobs";
 import { allJobCategories, defaultCrawlerConfig, experimentalJobSources, formatRelativeTime, jobCategoryLabels, jobSourceLabels, type JobCrawlerConfig, type JobRun, type JobSource, type JobStats } from "@learn-workbench/shared";
 import { Card } from "@/components/card";
+import { colors, radius } from "@/theme/tokens";
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
@@ -335,8 +336,8 @@ export default function SettingsScreen() {
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={[styles.hero, { paddingTop: insets.top + 24 }]}>
-        <Text style={styles.heroTitle}>设置</Text>
-        <Text style={styles.heroSub}>外观、背景图、云同步、招聘爬虫与数据</Text>
+        <Text style={styles.heroTitle}>我的</Text>
+        <Text style={styles.heroSub}>账号 · 偏好 · 职业方向 · 数据同步</Text>
       </View>
 
       {/* 云同步 */}
@@ -576,58 +577,62 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1 },
+  scroll: { flex: 1, backgroundColor: "transparent" },
   content: { padding: 16, paddingBottom: 32, gap: 12 },
   hero: { paddingTop: 24, paddingBottom: 6, gap: 4 },
-  heroTitle: { color: "#ffffff", fontSize: 24, fontWeight: "700" },
-  heroSub: { color: "rgba(255,255,255,0.85)", fontSize: 13 },
+  heroTitle: { color: colors.text, fontSize: 26, fontWeight: "800" },
+  heroSub: { color: colors.textMuted, fontSize: 13 },
   row: { flexDirection: "row", gap: 8 },
   rowBetween: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
-  rowLabel: { flex: 1, fontSize: 14, color: "#18181b" },
-  linkText: { fontSize: 14, color: "#4f46e5", fontWeight: "600" },
+  rowLabel: { flex: 1, fontSize: 14, color: colors.text },
+  linkText: { fontSize: 14, color: colors.primary, fontWeight: "600" },
   input: {
-    backgroundColor: "rgba(24,24,27,0.04)",
-    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
-    color: "#18181b",
+    color: colors.text,
   },
   scheduleInput: { width: 96, textAlign: "center", fontWeight: "700" },
-  primaryBtn: { backgroundColor: "#4f46e5", borderRadius: 14, paddingVertical: 12, alignItems: "center" },
+  primaryBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 12, alignItems: "center" },
   secondaryBtn: {
-    backgroundColor: "rgba(24,24,27,0.05)",
+    backgroundColor: colors.surface,
     borderRadius: 14,
     paddingVertical: 12,
     alignItems: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
   },
-  jobsPrimaryBtn: { backgroundColor: "#10b981" },
-  dangerBtn: { backgroundColor: "#dc2626" },
+  jobsPrimaryBtn: { backgroundColor: colors.success },
+  dangerBtn: { backgroundColor: colors.danger },
   primaryBtnText: { color: "#fff", fontSize: 15, fontWeight: "600" },
-  secondaryBtnText: { color: "#18181b", fontSize: 15, fontWeight: "600" },
-  msg: { fontSize: 13, color: "#16a34a", fontWeight: "600" },
-  jobMsg: { fontSize: 13, color: "#047857", fontWeight: "600", lineHeight: 18 },
+  secondaryBtnText: { color: colors.text, fontSize: 15, fontWeight: "600" },
+  msg: { fontSize: 13, color: colors.success, fontWeight: "600" },
+  jobMsg: { fontSize: 13, color: colors.success, fontWeight: "600", lineHeight: 18 },
   chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chipBlock: { gap: 7 },
-  chipLabel: { fontSize: 12, color: "#047857", fontWeight: "700", marginTop: 2 },
+  chipLabel: { fontSize: 12, color: colors.success, fontWeight: "700", marginTop: 2 },
   chip: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
-  chipActive: { backgroundColor: "#4f46e5" },
-  chipIdle: { backgroundColor: "rgba(24,24,27,0.06)" },
+  chipActive: { backgroundColor: colors.primary },
+  chipIdle: { backgroundColor: colors.surface },
   chipTextActive: { color: "#fff", fontSize: 13, fontWeight: "600" },
-  chipTextIdle: { color: "#18181b", fontSize: 13 },
+  chipTextIdle: { color: colors.text, fontSize: 13 },
   jobChip: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    backgroundColor: "rgba(16,185,129,0.13)",
+    backgroundColor: `${colors.success}22`,
     borderWidth: 1,
-    borderColor: "rgba(16,185,129,0.28)",
+    borderColor: `${colors.success}50`,
     borderRadius: 999,
     paddingHorizontal: 11,
     paddingVertical: 6,
   },
-  jobChipText: { color: "#047857", fontSize: 13, fontWeight: "700" },
-  jobChipX: { color: "#047857", fontSize: 16, lineHeight: 18, paddingLeft: 2 },
-  hint: { fontSize: 12, color: "#9ca3af", lineHeight: 18 },
-  about: { fontSize: 13, color: "#71717a", lineHeight: 19 },
+  jobChipText: { color: colors.success, fontSize: 13, fontWeight: "700" },
+  jobChipX: { color: colors.success, fontSize: 16, lineHeight: 18, paddingLeft: 2 },
+  hint: { fontSize: 12, color: colors.textMuted, lineHeight: 18 },
+  about: { fontSize: 13, color: colors.textMuted, lineHeight: 19 },
 });
