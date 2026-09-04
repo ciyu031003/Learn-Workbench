@@ -10,15 +10,24 @@ import {
 import { cn } from "@/lib/utils";
 import { FOCUS_COLORS, FOCUS_GALLERY, useFocusBgStore } from "@/store/focus-bg-store";
 import { useToastStore } from "@/store/toast-store";
+import { MIN_FOCUS_SECONDS, MIN_EXERCISE_SECONDS } from "@/lib/focus-session";
 
 const PRESETS = [15, 25, 45];
 const RING_R = 128;
 const RING_C = 2 * Math.PI * RING_R;
-
+/** 计时间隔上报：每 15 秒将已学习时长持久化到服务端（开始即建 session，杜绝关页丢时长） */
+const FLUSH_INTERVAL_MS = 15_000;
+/** 目标总时长上限（秒）：防御客户端异常，服务端也复核 */
+const MAX_SESSION_SECONDS = 12 * 3600;
 function fmtClock(totalSeconds: number) {
   const m = Math.floor(totalSeconds / 60);
   const s = totalSeconds % 60;
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+function clampSec(n: number): number {
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.round(n);
 }
 
 function BackgroundLayer() {
@@ -96,41 +105,276 @@ export function FocusTimer({
   const fileRef = useRef<HTMLInputElement>(null);
   const autoStartedRef = useRef(false);
   const exerciseRecordedRef = useRef(false);
+  const sessionRef = useRef<{ id: string; startedAt: string; settled: boolean; recorded: boolean } | null>(null);
+  const lastFlushRef = useRef<number>(0);
+  const lastVisibleRef = useRef<number>(0);
+  const idleStartedAtRef = useRef<number | null>(null);
+  const visibleElapsedRef = useRef(0);
+
+  const taskIdRef = useRef(task?.id ?? null);
+  const modeRef = useRef(mode);
+  const onRecordedRef = useRef(onRecorded);
+  const onCloseRef = useRef(onClose);
+  // 最新值同步到 ref（render 之外执行，供事件/effect 使用）
+  useEffect(() => {
+    taskIdRef.current = task?.id ?? null;
+    modeRef.current = mode;
+    onRecordedRef.current = onRecorded;
+    onCloseRef.current = onClose;
+  }, [task, mode, onRecorded, onClose]);
 
   const setRemainingSafe = useCallback((n: number) => {
     remainingRef.current = n;
     setRemaining(n);
   }, []);
 
+  const clearTimerRef = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+  // 每秒走秒 + 倒计时归零
   const tick = useCallback(() => {
     const next = Math.max(0, remainingRef.current - 1);
+    if (!document.hidden) visibleElapsedRef.current += 1;
     remainingRef.current = next;
     setRemaining(next);
     if (next === 0) {
       setRunning(false);
       setDone(true);
-      if (timerRef.current) clearInterval(timerRef.current);
+      clearTimerRef();
     }
+  }, [clearTimerRef]);
+
+  // 会话开始时只登记本地 session（生成稳定 client_id），
+  // 服务端记录在首次「有实际学习秒数」的续写/结算时创建（client_id 幂等 upsert），
+  // 避免「开始即退」产生 0 秒噪音记录；学了 2 分钟退出也会在结算时完整入库。
+  const ensureSession = useCallback(() => {
+    if (sessionRef.current) return;
+    const clientId = `focus-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+    sessionRef.current = {
+      id: clientId,
+      startedAt: new Date().toISOString(),
+      settled: false,
+      recorded: false,
+    };
   }, []);
 
-  // 打开：等待用户点击「开始专注」后再启动计时并请求全屏
+  // 计算本会话实际学习时长（专注：秒数计数=开着手表时间；运动：同一规则，落库的是跑到当前真实耗时）
+  const currentElapsed = useCallback(() => {
+    if (startRef.current === null) return 0;
+    return Math.max(0, visibleElapsedRef.current);
+  }, []);
+
+  // 结算会话：把已学时长一次性写入服务端并标记（不关闭弹层；供自然结束自动入账）
+  const settleSession = useCallback(async (elapsedSeconds: number) => {
+    const ses = sessionRef.current;
+    const el = clampSec(elapsedSeconds);
+    if (!ses || ses.settled) return;
+    if (el < MIN_FOCUS_SECONDS) return;
+    const finalSec = Math.min(el, MAX_SESSION_SECONDS);
+    const parsedStart = Date.parse(ses.startedAt);
+    try {
+      await fetch("/api/focus", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client_id: ses.id,
+          started_at: ses.startedAt,
+          ended_at: new Date(parsedStart + finalSec * 1000).toISOString(),
+          task_id: taskIdRef.current,
+          duration_seconds: finalSec,
+          settle: true,
+        }),
+      });
+    } catch {
+      // 忽略
+    }
+    ses.settled = true;
+    ses.recorded = true;
+    onRecordedRef.current?.();
+  }, []);
+
+  // 统一结算：按当前墙钟累计（非倒计时差），专注实际 ≥5s 即入库；运动仍需 ≥1 分钟。
+  const record = useCallback(async (elapsedSeconds: number) => {
+    if (recording) return;
+    const s = sessionRef.current;
+    const now = new Date();
+    const elapsed = clampSec(elapsedSeconds);
+    if (modeRef.current === "exercise") {
+      if (elapsed < MIN_EXERCISE_SECONDS) {
+        exerciseRecordedRef.current = true;
+        useToastStore.getState().push("不足 1 分钟，未计入", "info");
+        onCloseRef.current();
+        return;
+      }
+      setRecording(true);
+      try {
+        await fetch("/api/wellbeing/exercise", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "OTHER",
+            typeLabel: "一键运动",
+            durationSeconds: elapsed,
+            source: "FOCUS",
+            startedAt: new Date(now.getTime() - elapsed * 1000).toISOString(),
+          }),
+        });
+        useToastStore.getState().push(`运动完成 +${Math.round(elapsed / 60)} 分钟`);
+      } catch {
+        // 忽略
+      }
+      if (s) {
+        s.settled = true;
+        s.recorded = true;
+      }
+      setRecording(false);
+      onCloseRef.current();
+      return;
+    }
+
+    if (!s) {
+      if (elapsed < MIN_FOCUS_SECONDS) {
+        onCloseRef.current();
+        return;
+      }
+      // 没建上 session 也要尽力把学习时长落库（按已学习时间补一条）
+      const startedAt = new Date(now.getTime() - elapsed * 1000).toISOString();
+      await fetch("/api/focus", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ startedAt, endedAt: now.toISOString(), taskId: taskIdRef.current }),
+      });
+      onRecordedRef.current?.();
+      onCloseRef.current();
+      return;
+    }
+
+    if (elapsed >= MIN_FOCUS_SECONDS && !s.settled) {
+      setRecording(true);
+      await settleSession(elapsed);
+      setRecording(false);
+    }
+    onCloseRef.current();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recording, exerciseRecordedRef]);
+
+  // 间隔续写：把已学习总时长写进服务端（同一 client_id 幂等 upsert，时长单调取大）
+  const flushElapsed = useCallback(async () => {
+    const s = sessionRef.current;
+    if (!s || s.settled || modeRef.current === "exercise") return;
+    const elapsed = Math.min(currentElapsed(), MAX_SESSION_SECONDS);
+    if (elapsed < MIN_FOCUS_SECONDS) return;
+    const nowMs = Date.now();
+    if (nowMs - lastFlushRef.current < 4000) return; // 简单防重入
+    lastFlushRef.current = nowMs;
+    setRecording(true);
+    try {
+      const parsedStart = Date.parse(s.startedAt);
+      await fetch("/api/focus", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client_id: s.id,
+          started_at: s.startedAt,
+          ended_at: new Date(parsedStart + elapsed * 1000).toISOString(),
+          task_id: taskIdRef.current,
+          duration_seconds: elapsed,
+        }),
+      });
+    } catch {
+      // 忽略
+    }
+    setRecording(false);
+  }, [currentElapsed]);
+
+  // 离开结算（关页/刷新/跳导航/切后台）：把已学可见秒数一次写死（幂等）。
+  const settleOnExit = useCallback(async () => {
+    if (modeRef.current !== "focus") return;
+    const s = sessionRef.current;
+    if (!s) return;
+    const elapsed = Math.min(currentElapsed(), MAX_SESSION_SECONDS);
+    if (elapsed >= MIN_FOCUS_SECONDS && !s.settled) {
+      const endedAt = new Date(Date.parse(s.startedAt) + elapsed * 1000).toISOString();
+      await fetch("/api/focus", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client_id: s.id,
+          started_at: s.startedAt,
+          ended_at: endedAt,
+          task_id: taskIdRef.current,
+          duration_seconds: elapsed,
+          settle: true,
+        }),
+      }).catch(() => {});
+      s.settled = true;
+      s.recorded = true;
+      if (modeRef.current === "focus") onRecordedRef.current?.();
+    }
+    lastVisibleRef.current = Date.now();
+    idleStartedAtRef.current = null;
+  }, [currentElapsed]);
+
+  // 打开：等待用户点击「开始专注」后再启动计时并请求全屏；首次开始即建服务端 session
   useEffect(() => {
     if (!open) return;
-    if (timerRef.current) clearInterval(timerRef.current);
+    clearTimerRef();
+    lastFlushRef.current = 0;
+    lastVisibleRef.current = Date.now();
 
     const onFs = () => setFull(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", onFs);
+
+    const onVisibility = () => {
+      if (document.hidden) {
+        void flushElapsed();
+      } else {
+        lastVisibleRef.current = Date.now();
+        idleStartedAtRef.current = null;
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
+    const onPageHide = () => void settleOnExit();
+
+    // 定时把已学习秒数写进服务端（专注模式；运动模式只在结束时整笔写入）
+    const flushId = window.setInterval(() => {
+      void flushElapsed();
+    }, FLUSH_INTERVAL_MS);
+
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
+      clearTimerRef();
+      clearInterval(flushId);
       document.removeEventListener("fullscreenchange", onFs);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", onPageHide);
       if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     };
-  }, [open]);
+  }, [open, clearTimerRef, flushElapsed, settleOnExit]);
+
+  // 打开时若有尚未结算的 session，用户在页面任意关闭流程（X/结束/返回/离开）都会统一结算；
+  // 卸载前最后一次 flush（确保拿到最终 elapsed 才销毁）。
+  useEffect(() => {
+    if (!open) return;
+    // 卸载前兜底：页面离开 = 会话结束，结算已学时长
+    return () => {
+      if (sessionRef.current && !sessionRef.current.settled) {
+        void settleOnExit();
+      }
+    };
+  }, [open, settleOnExit]);
 
   const start = () => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    if (startRef.current === null) startRef.current = Date.now() - (total - remaining) * 1000;
+    clearTimerRef();
+    if (startRef.current === null) {
+      startRef.current = Date.now();
+      if (!sessionRef.current) visibleElapsedRef.current = 0;
+    }
     setRunning(true);
+    if (!sessionRef.current) void ensureSession();
     timerRef.current = setInterval(tick, 1000);
   };
 
@@ -151,90 +395,61 @@ export function FocusTimer({
   }, [open, autoStart]);
 
   const pause = () => {
-    if (timerRef.current) clearInterval(timerRef.current);
+    clearTimerRef();
     setRunning(false);
   };
 
   const reset = () => {
-    if (timerRef.current) clearInterval(timerRef.current);
+    clearTimerRef();
     setRunning(false);
     setRemainingSafe(total);
     startRef.current = null;
+    exerciseRecordedRef.current = false;
+    // 重置前把已学时长结算入库（含中间切换预设/再来一次的场景）
+    if (sessionRef.current && !sessionRef.current.settled) {
+      const el = currentElapsed();
+      if (el >= MIN_FOCUS_SECONDS) {
+        void settleOnExit();
+      }
+      sessionRef.current = null;
+      lastVisibleRef.current = Date.now();
+      idleStartedAtRef.current = null;
+    }
+    visibleElapsedRef.current = 0;
     setDone(false);
   };
 
   const changePreset = (m: number) => {
-    if (timerRef.current) clearInterval(timerRef.current);
+    clearTimerRef();
     setMinutesState(m);
     bg.setMinutes(m);
     setTotal(m * 60);
     setRemainingSafe(m * 60);
     setRunning(false);
     startRef.current = null;
+    if (sessionRef.current && !sessionRef.current.settled) {
+      void flushElapsed();
+    }
     setDone(false);
   };
 
-  const record = async (elapsedSeconds: number) => {
-    if (recording) return;
-    // 运动模式：只写 exercise_logs，不计专注 session / 专注时长
-    if (mode === "exercise") {
-      if (elapsedSeconds < 60) {
-        useToastStore.getState().push("不足 1 分钟，未计入", "info");
-        onClose();
-        return;
-      }
-      setRecording(true);
-      const startedAt = new Date(Date.now() - elapsedSeconds * 1000).toISOString();
-      try {
-        await fetch("/api/wellbeing/exercise", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type: "OTHER",
-            typeLabel: "一键运动",
-            durationSeconds: elapsedSeconds,
-            source: "FOCUS",
-            startedAt,
-          }),
-        });
-        useToastStore.getState().push(`运动完成 +${Math.round(elapsedSeconds / 60)} 分钟`);
-      } catch {
-        // 忽略
-      }
-      setRecording(false);
-      onClose();
-      return;
-    }
-    if (elapsedSeconds < 10) {
-      onClose();
-      return;
-    }
-    setRecording(true);
-    const now = new Date();
-    const startedAt = new Date(now.getTime() - elapsedSeconds * 1000).toISOString();
-    try {
-      await fetch("/api/focus", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ startedAt, endedAt: now.toISOString(), taskId: task?.id ?? null }),
-      });
-    } catch {
-      // 忽略
-    }
-    setRecording(false);
-    onRecorded?.();
-    onClose();
-  };
+  // 专注模式：倒计时自然结束自动入账（不关闭，done 页继续展示统计）
+  useEffect(() => {
+    if (!done || mode !== "focus" || exerciseRecordedRef.current) return;
+    exerciseRecordedRef.current = true;
+    void settleSession(currentElapsed());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [done, mode]);
 
   // 运动模式：倒计时自然结束自动按实际时长写入运动记录
   useEffect(() => {
     if (!done || mode !== "exercise" || exerciseRecordedRef.current) return;
     exerciseRecordedRef.current = true;
-    record(total);
+    void record(currentElapsed());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [done, mode, total]);
+  }, [done, mode]);
 
-  const toggleFullscreen = () => {
+    const toggleFullscreen = () => {
     if (document.fullscreenElement) {
       document.exitFullscreen().catch(() => {});
     } else {
@@ -318,7 +533,11 @@ export function FocusTimer({
             <Palette className="size-3.5" /> 背景
           </button>
           <button
-            onClick={() => (running || elapsed > 0 ? record(elapsed) : onClose())}
+            onClick={() => {
+              const el = currentElapsed();
+              if (el >= MIN_FOCUS_SECONDS || running || (elapsed > 0 && mode === "focus")) void record(el);
+              else onCloseRef.current();
+            }}
             aria-label="关闭"
             className="rounded-full border border-white/20 bg-white/10 p-2 text-white/80 backdrop-blur-md transition-all hover:bg-white/20"
           >
@@ -422,7 +641,7 @@ export function FocusTimer({
       {done ? (
         <div className="relative z-10 flex-1 overflow-y-auto px-4 pb-6 pt-4">
           <div className="mx-auto flex max-w-2xl flex-col items-center gap-4">
-            <p className="text-2xl font-bold text-white drop-shadow">🎉 专注完成！</p>
+            <p className="text-2xl font-bold text-white drop-shadow">��� 专注完成！</p>
             <p className="text-sm text-white/70">本次专注 {fmtClock(elapsed)}，已自动记录</p>
 
             {/* 休息一下：站立 + 喝水 + 远眺 */}
@@ -447,7 +666,10 @@ export function FocusTimer({
                   <Droplets className="size-3.5" /> {wbDone.water ? "已喝水 +250ml" : "喝水 +250ml"}
                 </button>
                 <button
-                  onClick={onClose}
+                  onClick={() => {
+                    if (sessionRef.current && !sessionRef.current.settled) void settleOnExit();
+                    onCloseRef.current();
+                  }}
                   className="rounded-full border border-white/25 bg-white/15 px-3 py-1.5 text-xs text-white/80 backdrop-blur-md transition-all hover:bg-white/25"
                 >
                   去记录精力
@@ -467,7 +689,10 @@ export function FocusTimer({
                 再来一次
               </button>
               <button
-                onClick={onClose}
+                onClick={() => {
+                  if (sessionRef.current && !sessionRef.current.settled) void settleOnExit();
+                  onCloseRef.current();
+                }}
                 className="rounded-full bg-gradient-to-b from-primary to-[#4338ca] px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition-all hover:brightness-105"
               >
                 返回任务页
@@ -549,8 +774,8 @@ export function FocusTimer({
               <RotateCcw className="size-5" />
             </button>
             <button
-              onClick={() => record(elapsed)}
-              disabled={elapsed < 10}
+              onClick={() => record(currentElapsed())}
+              disabled={elapsed < 10 && mode === "focus" && remaining === total}
               className="flex h-14 w-14 items-center justify-center rounded-full border border-white/25 bg-white/15 text-white backdrop-blur-md transition-all hover:bg-white/25 disabled:opacity-40"
               aria-label="结束计时"
             >

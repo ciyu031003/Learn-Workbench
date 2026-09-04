@@ -60,4 +60,78 @@ describe("POST /api/focus", () => {
     );
     expect(query.mock.calls.some(([sql]) => sql.includes("UPDATE daily_tasks"))).toBe(false);
   });
+
+  it("幂等续写（client_id）：非结算请求只 upsert 不累加任务分钟", async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [{ id: 9, duration_seconds: 120, focus_minutes_applied: false }] });
+    const release = vi.fn();
+    connectMock.mockResolvedValue({ query, release } as never);
+    const res = await POST(
+      new Request("http://localhost/api/focus", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client_id: "c-abc",
+          started_at: "2026-08-13T09:00:00.000Z",
+          ended_at: "2026-08-13T09:02:00.000Z",
+          task_id: 5,
+          duration_seconds: 120,
+        }),
+      })
+    );
+    expect(res.status).toBe(201);
+    expect(String(query.mock.calls[0][0])).toContain("ON CONFLICT");
+    // 未带 settle → 不累加 daily_tasks
+    expect(query.mock.calls.some(([sql]) => sql.includes("UPDATE daily_tasks"))).toBe(false);
+    expect(release).toHaveBeenCalled();
+  });
+
+  it("幂等续写 + settle：最终结算才累加任务分钟一次", async () => {
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [{ id: 9, duration_seconds: 130, focus_minutes_applied: false }] })
+      .mockResolvedValueOnce({ rows: [{ id: 9 }] })
+      .mockResolvedValueOnce({ rows: [] });
+    const release = vi.fn();
+    connectMock.mockResolvedValue({ query, release } as never);
+    const res = await POST(
+      new Request("http://localhost/api/focus", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client_id: "c-abc",
+          started_at: "2026-08-13T09:00:00.000Z",
+          ended_at: "2026-08-13T09:02:10.000Z",
+          task_id: 5,
+          duration_seconds: 130,
+          settle: true,
+        }),
+      })
+    );
+    expect(res.status).toBe(201);
+    // 置位 focus_minutes_applied + 累加 daily_tasks
+    expect(query.mock.calls[1][0]).toContain("focus_minutes_applied = true");
+    expect(query.mock.calls[2][0]).toContain("UPDATE daily_tasks SET focus_minutes");
+    expect(query.mock.calls[2][1]).toEqual([2, 5, "u-1"]);
+  });
+
+  it("显式 duration_seconds 被钳制到单会话上限", async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [{ id: 1, duration_seconds: 12 * 3600 }] });
+    const release = vi.fn();
+    connectMock.mockResolvedValue({ query, release } as never);
+    const res = await POST(
+      new Request("http://localhost/api/focus", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client_id: "c-big",
+          started_at: "2026-08-13T09:00:00.000Z",
+          duration_seconds: 999999,
+        }),
+      })
+    );
+    expect(res.status).toBe(201);
+    // 参数最后一个值应被钳制为 MAX（12h）
+    const args = query.mock.calls[0][1] as unknown[];
+    expect(args[4]).toBe(12 * 3600);
+  });
 });

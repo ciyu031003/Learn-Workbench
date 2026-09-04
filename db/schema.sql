@@ -428,6 +428,7 @@ CREATE TRIGGER trg_checkins_updated BEFORE UPDATE ON checkins FOR EACH ROW EXECU
 
 ALTER TABLE daily_tasks    ADD COLUMN IF NOT EXISTS client_id text;
 ALTER TABLE focus_sessions ADD COLUMN IF NOT EXISTS client_id text;
+ALTER TABLE focus_sessions ADD COLUMN IF NOT EXISTS focus_minutes_applied boolean NOT NULL DEFAULT false;
 ALTER TABLE log_entries    ADD COLUMN IF NOT EXISTS client_id text;
 ALTER TABLE resume_assets  ADD COLUMN IF NOT EXISTS client_id text;
 ALTER TABLE content_topics ADD COLUMN IF NOT EXISTS client_id text;
@@ -851,3 +852,14 @@ CREATE TABLE IF NOT EXISTS interview_attempts (
 CREATE INDEX IF NOT EXISTS idx_interview_attempt_user ON interview_attempts(user_id);
 CREATE INDEX IF NOT EXISTS idx_interview_attempt_question ON interview_attempts(question_id);
 CREATE INDEX IF NOT EXISTS idx_interview_attempt_application ON interview_attempts(application_id);
+-- 028：专注/运动会话幂等索引（匿名设备维度）
+-- 开始即建 session + 期间续写依赖 client_id 幂等；匿名设备同样需要唯一索引兜底。
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_focus_sessions_client_anon
+  ON focus_sessions(anon_id, client_id) WHERE anon_id IS NOT NULL AND client_id IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_exercise_logs_client
+  ON exercise_logs(user_id, client_id) WHERE user_id IS NOT NULL AND client_id IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_exercise_logs_client_anon
+  ON exercise_logs(anon_id, client_id) WHERE anon_id IS NOT NULL AND client_id IS NOT NULL;
