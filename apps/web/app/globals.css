@@ -2,6 +2,14 @@
 
 /* ============ 设计 tokens：简约大气 · 壁纸优先（冷调中性 + 靛蓝强调） ============ */
 :root {
+  /* 全局画布与纸面（油画系列 v1.2） */
+  --color-canvas: #f6f2ea;
+  --color-surface: #fffdf7;
+  --color-text: #3a3630;
+  --color-muted: #ece7dd;
+  --color-muted-foreground: #6f6a63;
+  --color-border: rgba(90, 80, 60, 0.14);
+  /* 专注页/弹窗的玻璃浮层继续使用独立变量 */
   --text-on-glass: #1a1a1f;
   --text-on-glass-muted: rgba(26, 26, 31, 0.78);
   --glass-blur: 12px;
@@ -24,6 +32,12 @@ html.bg-dark {
 }
 /* 用户手动深色主题 */
 html.dark {
+  --color-canvas: #0d0d12;
+  --color-surface: #17171d;
+  --color-text: #f4f4f5;
+  --color-muted: #26262e;
+  --color-muted-foreground: #a7a7b3;
+  --color-border: rgba(244, 244, 245, 0.11);
   --text-on-glass: #f4f4f5;
   --text-on-glass-muted: rgba(244, 244, 245, 0.78);
   --glass-bg: rgba(13, 13, 18, 0.5);
@@ -34,20 +48,29 @@ html.dark {
 }
 
 @theme inline {
-  --color-background: #f8f9fb;
-  --color-foreground: var(--text-on-glass);
-  --color-card: var(--glass-bg);
-  --color-muted: rgba(255, 255, 255, 0.14);
-  --color-muted-foreground: var(--text-on-glass-muted);
-  --color-border: rgba(26, 26, 31, 0.07);
-  --color-primary: #4f46e5;
+  --color-background: var(--color-canvas);
+  --color-foreground: var(--color-text);
+  --color-card: var(--color-surface);
+  --color-muted: var(--color-muted);
+  --color-muted-foreground: var(--color-muted-foreground);
+  --color-border: var(--color-border);
+  --color-primary: #46617a;
   --color-primary-foreground: #ffffff;
-  --color-accent: #0ea5e9;
-  --color-danger: #dc2626;
-  --color-success: #16a34a;
-  --color-warning: #f59e0b;
+  --color-accent: #a5662e;
+  --color-danger: #a0524a;
+  --color-success: #5f7d59;
+  --color-warning: #8f6a2a;
   --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+}
+
+/* 深色档沿用原玻璃深色语义色，保证浅色改油画后按钮仍可读 */
+html.dark {
+  --color-primary: #818cf8;
+  --color-accent: #38bdf8;
+  --color-danger: #f87171;
+  --color-success: #4ade80;
+  --color-warning: #fbbf24;
 }
 
 @layer base {
@@ -62,8 +85,8 @@ html.dark {
     }
   }
   body {
-    background-color: #f8f9fb;
-    color: var(--text-on-glass);
+    background-color: var(--color-canvas);
+    color: var(--color-text);
     font-family: var(--font-sans);
   }
   ::selection {
@@ -124,6 +147,67 @@ html.dark .glass::before {
     background: var(--glass-bg-strong);
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
   }
+}
+
+/* ============ 纸感卡片（油画系列 v1.2）：日常卡片实底，文字脱离背景图波动 ============ */
+.paper-card {
+  position: relative;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(60, 50, 30, 0.06), 0 12px 32px rgba(60, 50, 30, 0.08);
+  color: var(--color-text);
+  transition: box-shadow 0.24s ease, border-color 0.24s ease;
+}
+html.dark .paper-card {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22), 0 12px 32px rgba(0, 0, 0, 0.26);
+}
+
+/* 实底表面导航：侧边栏 / 顶栏 / 移动端 Tab */
+.surface-nav {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .paper-card,
+  .surface-nav {
+    box-shadow: none;
+  }
+}
+
+/* 纸卡 hover：仅阴影加深，不上浮（油画求稳） */
+@media (hover: hover) {
+  .paper-hover:hover {
+    border-color: rgba(90, 80, 60, 0.26);
+    box-shadow: 0 2px 8px rgba(60, 50, 30, 0.08), 0 16px 40px rgba(60, 50, 30, 0.12);
+  }
+}
+
+/* 纸面小容器：导航胶囊 / 表单块 */
+.paper-chip {
+  background: var(--color-muted);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  color: var(--color-text);
+}
+
+/* 纸面下拉选择 */
+.paper-select {
+  color-scheme: light;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+.paper-select option {
+  background: #ffffff;
+  color: #2f2b25;
+}
+html.dark .paper-select {
+  color-scheme: dark;
+}
+html.dark .paper-select option {
+  background: #17171d;
+  color: #f4f4f5;
 }
 
 /* ============ 三级玻璃体系（v1.1）：层级越高越实；.glass 保留不动 ============ */

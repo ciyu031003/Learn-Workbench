@@ -137,7 +137,7 @@ function JobSkeleton() {
   return (
     <div className="grid grid-cols-1 justify-center gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
       {Array.from({ length: 8 }).map((_, i) => (
-        <div key={i} className="glass h-56 animate-pulse rounded-2xl p-4">
+        <div key={i} className="paper-card h-56 animate-pulse rounded-2xl p-4">
           <div className="flex items-start gap-3">
             <div className="h-11 w-11 rounded-xl bg-white/15" />
             <div className="flex-1 space-y-2">
@@ -401,7 +401,7 @@ export default function JobsPage() {
     ].filter(Boolean).length;
   return (
     <div className="page-enter flex flex-col gap-6">
-      <section className="glass relative overflow-hidden rounded-[24px] p-6 lg:p-8">
+      <section className="paper-card relative overflow-hidden rounded-[24px] p-6 lg:p-8">
         <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-emerald-400/25 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-24 -left-20 h-72 w-72 rounded-full bg-cyan-400/20 blur-3xl" />
         <div className="pointer-events-none absolute right-8 top-8 hidden text-emerald-500/40 lg:block">
@@ -460,7 +460,7 @@ export default function JobsPage() {
         </div>
       </section>
 
-      <section className="glass rounded-2xl p-4">
+      <section className="paper-card rounded-2xl p-4">
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-2">
             {GROUPS.map((g) => (

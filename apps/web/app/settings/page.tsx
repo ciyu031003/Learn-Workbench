@@ -6,33 +6,33 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useUiStore } from "@/store/ui-store";
+import { FOCUS_GALLERY, useFocusBgStore } from "@/store/focus-bg-store";
 import { useToastStore } from "@/store/toast-store";
 import { useRouter } from "next/navigation";
 import type { JobCrawlerConfig, JobRun, JobSource, JobSourceInfo, JobStats, JobSubscription } from "@learn-workbench/shared";
-import { allJobCategories, experimentalJobSources, formatRelativeTime, jobCategoryLabels, jobSourceLabel, jobSourceLabels } from "@learn-workbench/shared";
+import { allJobCategories, experimentalJobSources, formatRelativeTime, jobCategoryLabels, jobSourceLabels } from "@learn-workbench/shared";
 import {
   Database,
   Download,
   Flower2,
   Image as ImageIcon,
+  ImagePlus,
+  Images,
   KeyRound,
   Lock,
   LogOut,
   Play,
+  Palette,
   RefreshCw,
   Save,
   Sparkles,
   Upload,
-  Activity,
   Bell,
-  CalendarClock,
   Heart,
   Plus,
-  Server,
   Trash2,
   User as UserIcon,
   X,
-  Zap,
 } from "lucide-react";
 
 type ChipEditorProps = {
@@ -159,10 +159,13 @@ function NewSubscriptionForm({ onSave }: { onSave: (sub: { name: string; categor
 
 export default function SettingsPage() {
   const router = useRouter();
-  const backgroundEnabled = useUiStore((s) => s.backgroundEnabled);
-  const toggleBackground = useUiStore((s) => s.toggleBackground);
   const theme = useUiStore((s) => s.theme);
   const setTheme = useUiStore((s) => s.setTheme);
+  const focusMode = useFocusBgStore((s) => s.mode);
+  const focusColor = useFocusBgStore((s) => s.color);
+  const focusUploadUrl = useFocusBgStore((s) => s.uploadUrl);
+  const focusGalleryId = useFocusBgStore((s) => s.galleryId);
+  const focusBg = useFocusBgStore();
   const [dbOk, setDbOk] = useState<boolean | null>(null);
   const [msg, setMsg] = useState<string>("");
   const [user, setUser] = useState<{ username: string; displayName: string | null } | null>(null);
@@ -207,20 +210,22 @@ export default function SettingsPage() {
       .catch(() => {});
   }, []);
 
+  // 「跟随系统」档位：用 prefers-color-scheme 决定 html.dark，并实时监听系统切换。
+  const [systemDark, setSystemDark] = useState(false);
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", theme === "dark");
-  }, [theme]);
-
-  // 「跟随壁纸」档位下展示当前亮度判定结果（bg-dark 由 daily-background 写入）
-  const [autoTone, setAutoTone] = useState<"light" | "dark">("light");
-  useEffect(() => {
-    const update = () =>
-      setAutoTone(document.documentElement.classList.contains("bg-dark") ? "dark" : "light");
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const update = () => setSystemDark(mq.matches);
     update();
-    const obs = new MutationObserver(update);
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-    return () => obs.disconnect();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
   }, []);
+
+  useEffect(() => {
+    const applyDark = theme === "dark" || (theme === "auto" && systemDark);
+    document.documentElement.classList.toggle("dark", applyDark);
+    document.documentElement.classList.remove("bg-dark");
+  }, [theme, systemDark]);
 
   const loadCrawlerData = async () => {
     try {
@@ -472,22 +477,100 @@ export default function SettingsPage() {
         <Card>
           <CardHeader className="flex-row items-center gap-2">
             <ImageIcon className="size-5 text-primary" />
-            <CardTitle>每日背景图</CardTitle>
+            <CardTitle>专注页背景</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium">每日 Bing 壁纸</p>
-                <p className="text-xs text-muted-foreground">每天由爬虫抓取 Bing 每日壁纸并自动更换</p>
+            <p className="text-xs text-muted-foreground">
+              仅全屏专注计时会显示背景图；其他页面保持油画浅色画布，不再使用壁纸。
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                { key: "gallery", label: "图库", icon: Images },
+                { key: "color", label: "纯色", icon: Palette },
+                { key: "upload", label: "自定义图片", icon: ImagePlus },
+              ].map((m) => (
+                <Button
+                  key={m.key}
+                  size="sm"
+                  variant={focusMode === m.key ? "default" : "outline"}
+                  onClick={() => focusBg.setMode(m.key as typeof focusMode)}
+                >
+                  <m.icon />
+                  {m.label}
+                </Button>
+              ))}
+            </div>
+            {focusMode === "gallery" ? (
+              <>
+                <div className="grid grid-cols-4 gap-2">
+                  {FOCUS_GALLERY.map((g) => (
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() => focusBg.setGalleryId(g.id)}
+                      className={
+                        focusGalleryId === g.id
+                          ? "flex h-12 items-center justify-center overflow-hidden rounded-xl border-2 border-primary px-1 text-[10px] font-semibold text-white"
+                          : "flex h-12 items-center justify-center overflow-hidden rounded-xl border border-border px-1 text-[10px] font-semibold text-white/85"
+                      }
+                      style={g.css ? { background: g.css } : { backgroundImage: "linear-gradient(135deg,#3b6b8f,#8b5f8f)" }}
+                    >
+                      {g.name}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs text-muted-foreground">默认使用每日 Bing 壁纸；刷新会立即抓取当天的图。</p>
+                  <Button variant="secondary" size="sm" onClick={refreshWallpaper} disabled={wallpaperBusy}>
+                    <RefreshCw className="size-3.5" /> {wallpaperBusy ? "刷新中…" : "刷新 Bing 壁纸"}
+                  </Button>
+                </div>
+              </>
+            ) : null}
+            {focusMode === "color" ? (
+              <div className="flex flex-wrap gap-2">
+                {["#0f172a", "#1f2937", "#14532d", "#1e3a8a", "#4c1d95", "#7c2d12"].map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => focusBg.setColor(c)}
+                    aria-label={`专注背景色 ${c}`}
+                    className={focusColor === c ? "size-8 rounded-full border-2 border-primary" : "size-8 rounded-full border border-border"}
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
+                <label className="flex h-8 cursor-pointer items-center gap-1.5 rounded-full border border-border px-3 text-xs text-muted-foreground">
+                  自定义
+                  <input
+                    type="color"
+                    value={focusColor}
+                    onChange={(e) => focusBg.setColor(e.target.value)}
+                    className="size-5 cursor-pointer border-0 bg-transparent p-0"
+                  />
+                </label>
               </div>
-              <Switch checked={backgroundEnabled} onCheckedChange={toggleBackground} />
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-xs text-muted-foreground">关闭后使用简洁渐变背景。</p>
-              <Button variant="secondary" size="sm" onClick={refreshWallpaper} disabled={wallpaperBusy}>
-                <RefreshCw className="size-3.5" /> {wallpaperBusy ? "刷新中…" : "刷新今日壁纸"}
-              </Button>
-            </div>
+            ) : null}
+            {focusMode === "upload" ? (
+              <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-dashed border-border px-3 py-3 text-xs text-muted-foreground">
+                {focusUploadUrl ? "已上传自定义图片，点击可更换" : "上传自定义图片（仅专注页使用）"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (!f) return;
+                    if (f.size > 3 * 1024 * 1024) {
+                      pushToast("图片不能超过 3MB", "error");
+                      return;
+                    }
+                    const reader = new FileReader();
+                    reader.onload = () => focusBg.setUploadUrl(typeof reader.result === "string" ? reader.result : null);
+                    reader.readAsDataURL(f);
+                  }}
+                />
+              </label>
+            ) : null}
           </CardContent>
         </Card>
 
@@ -500,8 +583,8 @@ export default function SettingsPage() {
             <div>
               <p className="text-sm font-medium">主题模式</p>
               <p className="text-xs text-muted-foreground">
-                浅色 / 深色 / 跟随壁纸
-                {theme === "auto" ? `（当前：${autoTone === "dark" ? "深色" : "浅色"}）` : ""}
+                浅色 / 深色 / 跟随系统
+                {theme === "auto" ? `（当前：${systemDark ? "深色" : "浅色"}）` : ""}
               </p>
             </div>
             <div className="flex gap-2">
@@ -524,7 +607,7 @@ export default function SettingsPage() {
                 size="sm"
                 onClick={() => setTheme("auto")}
               >
-                跟随壁纸
+                跟随系统
               </Button>
             </div>
           </CardContent>
@@ -970,5 +1053,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-
-

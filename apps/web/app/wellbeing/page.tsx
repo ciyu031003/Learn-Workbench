@@ -534,7 +534,7 @@ export default function WellbeingPage() {
                 <select
                   value={exerciseType}
                   onChange={(e) => setExerciseType(e.target.value)}
-                  className="glass-select h-10 rounded-xl px-3 text-sm outline-none"
+                  className="paper-select h-10 rounded-xl px-3 text-sm outline-none"
                   aria-label="运动类型"
                 >
                   {exerciseTypeOptions.map((opt) => (
@@ -714,7 +714,7 @@ export default function WellbeingPage() {
                   <select
                     value={rmType}
                     onChange={(e) => setRmType(e.target.value)}
-                    className="glass-select h-10 rounded-xl px-3 text-sm outline-none"
+                    className="paper-select h-10 rounded-xl px-3 text-sm outline-none"
                     aria-label="提醒类型"
                   >
                     {Object.entries(reminderTypeLabels).map(([k, v]) => (

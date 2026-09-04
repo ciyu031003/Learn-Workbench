@@ -6,7 +6,7 @@ beforeEach(() =>
     mode: "gallery",
     color: "#0f172a",
     uploadUrl: null,
-    galleryId: "sunset",
+    galleryId: "bing",
     customQuote: null,
     minutes: 25,
   })
@@ -24,7 +24,7 @@ describe("useFocusBgStore", () => {
     expect(s.mode).toBe("gallery");
     expect(s.color).toBe("#0f172a");
     expect(s.uploadUrl).toBeNull();
-    expect(s.galleryId).toBe("sunset");
+    expect(s.galleryId).toBe("bing");
     expect(s.customQuote).toBeNull();
     expect(s.minutes).toBe(25);
   });

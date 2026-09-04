@@ -9,18 +9,13 @@
 import { useState } from "react";
 import { useToastStore } from "@/store/toast-store";
 import { cn } from "@/lib/utils";
+import { oilPainting } from "@learn-workbench/ui";
 
-/** 冷调渐变对（胶囊填充）—— 收敛到图表色板 tokens：primary 靛蓝 → accent 青梯度，去彩虹色 */
-const G = [
-  ["#4f46e5", "#6366f1"],
-  ["#6366f1", "#818cf8"],
-  ["#818cf8", "#0ea5e9"],
-  ["#0ea5e9", "#38bdf8"],
-  ["#4f46e5", "#818cf8"],
-] as const;
+/** 油画图表序列（单一事实源：packages/ui oilPainting.chartSeries） */
+const CHART_SERIES = oilPainting.chartSeries as readonly string[];
 const grad = (i: number, vertical = false) =>
-  `linear-gradient(${vertical ? "180" : "90"}deg, ${G[i % G.length][0]}, ${G[i % G.length][1]})`;
-const fillColor = (i: number) => G[i % G.length][0];
+  `linear-gradient(${vertical ? "180" : "90"}deg, ${CHART_SERIES[i % CHART_SERIES.length]}, ${CHART_SERIES[(i + 1) % CHART_SERIES.length]})`;
+const fillColor = (i: number) => CHART_SERIES[i % CHART_SERIES.length];
 
 /** 排序后的横向排名胶囊条 */
 export function CapsuleRank({

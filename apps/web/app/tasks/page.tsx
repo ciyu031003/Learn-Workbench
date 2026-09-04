@@ -221,7 +221,7 @@ export default function TasksPage() {
               <select
                 value={phaseId}
                 onChange={(e) => setPhaseId(e.target.value)}
-                className="glass-select h-10 rounded-xl px-3 text-sm outline-none backdrop-blur-md"
+                className="paper-select h-10 rounded-xl px-3 text-sm outline-none backdrop-blur-md"
                 aria-label="选择路线图大类"
               >
                 <option value="">路线图大类（不限）</option>

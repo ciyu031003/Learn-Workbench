@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, GraduationCap, Plus, RefreshCw, Sparkles, Trash2, X } from "lucide-react";
+import { ChevronLeft, GraduationCap, Plus, RefreshCw, Sparkles, X } from "lucide-react";
 import { MarketGapsCard } from "@/components/skills/market-gaps-card";
 
 const LEVEL_LABELS = ["未掌握", "了解", "入门", "熟练", "精通", "专家"];
@@ -198,7 +198,7 @@ export default function CareerSkillsPage() {
                 const opt = catalogFiltered.find((c) => c.id === Number(e.target.value));
                 setSelected(opt ?? null);
               }}
-              className="glass-select h-10 rounded-xl px-3 text-sm"
+              className="paper-select h-10 rounded-xl px-3 text-sm"
             >
               <option value="">选择技能…</option>
               {catalogFiltered
@@ -207,7 +207,7 @@ export default function CareerSkillsPage() {
                   <option key={c.id} value={c.id}>{CATEGORY_LABELS[c.category] ?? "其他"} · {c.name}</option>
                 ))}
             </select>
-            <select value={newLevel} onChange={(e) => setNewLevel(Number(e.target.value))} className="glass-select h-10 rounded-xl px-3 text-sm">
+            <select value={newLevel} onChange={(e) => setNewLevel(Number(e.target.value))} className="paper-select h-10 rounded-xl px-3 text-sm">
               {LEVEL_LABELS.map((l, i) => <option key={l} value={i}>{i} · {l}</option>)}
             </select>
             <Button size="sm" onClick={addSkill} disabled={!selected}>

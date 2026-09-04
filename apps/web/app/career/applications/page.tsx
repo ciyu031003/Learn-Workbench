@@ -8,13 +8,11 @@ import {
   jobApplicationStageLabels,
   jobApplicationStageColors,
 } from "@learn-workbench/shared";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { GlassModal } from "@/components/ui/modal";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
 import { useToastStore } from "@/store/toast-store";
 import {
   ArrowRight, Building2, ChevronLeft, ExternalLink, Loader2, MapPin, MessageSquare, Trash2,
@@ -158,7 +156,7 @@ export default function ApplicationsPage() {
       {/* 统计 */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-9">
         {STAGE_ORDER.map((s) => (
-          <div key={s} className="glass rounded-xl px-3 py-2.5 text-center">
+          <div key={s} className="paper-card rounded-xl px-3 py-2.5 text-center">
             <div className="text-lg font-black tabular-nums" style={{ color: jobApplicationStageColors[s] }}>
               {stats?.[s] ?? 0}
             </div>
@@ -195,7 +193,7 @@ export default function ApplicationsPage() {
                     <p className="py-6 text-center text-xs text-muted-foreground">暂无</p>
                   ) : (
                     colApps.map((app) => (
-                      <div key={app.id} className="glass rounded-xl p-3">
+                      <div key={app.id} className="paper-card rounded-xl p-3">
                         <div className="flex items-start gap-2">
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-bold text-foreground">{app.jobTitle}</p>
@@ -237,7 +235,7 @@ export default function ApplicationsPage() {
                           <select
                             value={app.stage}
                             onChange={(e) => setStage(app, e.target.value as JobApplicationStage)}
-                            className="glass-select h-7 flex-1 rounded-lg px-1.5 text-[11px]"
+                            className="paper-select h-7 flex-1 rounded-lg px-1.5 text-[11px]"
                           >
                             {STAGE_ORDER.map((s) => (
                               <option key={s} value={s}>{jobApplicationStageLabels[s]}</option>
@@ -269,7 +267,7 @@ export default function ApplicationsPage() {
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-1">
             <label className="text-xs text-muted-foreground">自评（1-5）</label>
-            <select value={recRating} onChange={(e) => setRecRating(Number(e.target.value))} className="glass-select h-9 rounded-lg px-2 text-sm">
+            <select value={recRating} onChange={(e) => setRecRating(Number(e.target.value))} className="paper-select h-9 rounded-lg px-2 text-sm">
               <option value={0}>未评分</option>
               {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n} 分</option>)}
             </select>

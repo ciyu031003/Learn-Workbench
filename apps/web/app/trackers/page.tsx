@@ -346,7 +346,7 @@ export default function TrackersPage() {
               <select
                 value={form.targetCadence}
                 onChange={(e) => setForm((s) => ({ ...s, targetCadence: e.target.value }))}
-                className="glass-select h-10 rounded-xl px-3 text-sm outline-none backdrop-blur-md"
+                className="paper-select h-10 rounded-xl px-3 text-sm outline-none backdrop-blur-md"
               >
                 <option value="">不限</option>
                 <option value="daily">每日</option>

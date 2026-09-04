@@ -208,11 +208,11 @@ export default function CareerInterviewPage() {
               <>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex flex-wrap items-center gap-2">
-                    <select value={selModule} onChange={(e) => { setSelModule(e.target.value); setQuizIdx(0); setResult(null); }} className="glass-select h-9 rounded-lg px-2 text-sm">
+                    <select value={selModule} onChange={(e) => { setSelModule(e.target.value); setQuizIdx(0); setResult(null); }} className="paper-select h-9 rounded-lg px-2 text-sm">
                       <option value="">全部模块</option>
                       {modules.map((m) => <option key={m.module} value={m.module}>{m.module}（{m.count}）</option>)}
                     </select>
-                    <select value={selDiff} onChange={(e) => { setSelDiff(e.target.value); setQuizIdx(0); setResult(null); }} className="glass-select h-9 rounded-lg px-2 text-sm">
+                    <select value={selDiff} onChange={(e) => { setSelDiff(e.target.value); setQuizIdx(0); setResult(null); }} className="paper-select h-9 rounded-lg px-2 text-sm">
                       <option value="">全部难度</option>
                       <option value="easy">易</option>
                       <option value="medium">中</option>
@@ -254,19 +254,19 @@ export default function CareerInterviewPage() {
           <CardHeader><CardTitle className="flex items-center gap-2"><CheckCircle2 className="size-4" /> 答题统计</CardTitle></CardHeader>
           <CardContent className="flex flex-col gap-4">
             <div className="grid grid-cols-2 gap-3">
-              <div className="glass rounded-xl px-3 py-3 text-center">
+              <div className="paper-card rounded-xl px-3 py-3 text-center">
                 <div className="text-2xl font-black tabular-nums">{stats?.total ?? 0}</div>
                 <div className="text-[11px] text-muted-foreground">答题数</div>
               </div>
-              <div className="glass rounded-xl px-3 py-3 text-center">
+              <div className="paper-card rounded-xl px-3 py-3 text-center">
                 <div className="text-2xl font-black tabular-nums">{accuracy}%</div>
                 <div className="text-[11px] text-muted-foreground">正确率</div>
               </div>
-              <div className="glass rounded-xl px-3 py-3 text-center">
+              <div className="paper-card rounded-xl px-3 py-3 text-center">
                 <div className="text-2xl font-black tabular-nums">{stats?.interviewCount ?? 0}</div>
                 <div className="text-[11px] text-muted-foreground">面试记录</div>
               </div>
-              <div className="glass rounded-xl px-3 py-3 text-center">
+              <div className="paper-card rounded-xl px-3 py-3 text-center">
                 <div className="text-2xl font-black tabular-nums">{stats?.avgRating ? stats.avgRating.toFixed(1) : "—"}</div>
                 <div className="text-[11px] text-muted-foreground">平均自评</div>
               </div>
@@ -334,19 +334,19 @@ export default function CareerInterviewPage() {
         <Card>
           <CardHeader><CardTitle className="flex items-center gap-2"><PenLine className="size-4" /> 记录一场面试</CardTitle></CardHeader>
           <CardContent className="flex flex-col gap-3">
-            <select value={recMode} onChange={(e) => setRecMode(e.target.value as InterviewMode)} className="glass-select h-9 rounded-lg px-2 text-sm">
+            <select value={recMode} onChange={(e) => setRecMode(e.target.value as InterviewMode)} className="paper-select h-9 rounded-lg px-2 text-sm">
               <option value="interview">真实面试</option>
               <option value="mock">模拟面试</option>
               <option value="quiz">题库刷题</option>
             </select>
             <div className="flex flex-col gap-1">
               <label className="text-xs text-muted-foreground">自评（1-5）</label>
-              <select value={recRating} onChange={(e) => setRecRating(Number(e.target.value))} className="glass-select h-9 rounded-lg px-2 text-sm">
+              <select value={recRating} onChange={(e) => setRecRating(Number(e.target.value))} className="paper-select h-9 rounded-lg px-2 text-sm">
                 <option value={0}>未评分</option>
                 {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n} 分</option>)}
               </select>
             </div>
-            <select value={recAppId === "" ? "" : String(recAppId)} onChange={(e) => setRecAppId(e.target.value === "" ? "" : Number(e.target.value))} className="glass-select h-9 rounded-lg px-2 text-sm">
+            <select value={recAppId === "" ? "" : String(recAppId)} onChange={(e) => setRecAppId(e.target.value === "" ? "" : Number(e.target.value))} className="paper-select h-9 rounded-lg px-2 text-sm">
               <option value="">关联求职记录（可选）</option>
               {applications.map((a) => <option key={a.id} value={a.id}>{a.jobTitle || `#${a.id}`}</option>)}
             </select>

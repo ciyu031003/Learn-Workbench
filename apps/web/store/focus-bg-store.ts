@@ -41,7 +41,7 @@ export const useFocusBgStore = create<FocusBgState>()(
       mode: "gallery",
       color: "#0f172a",
       uploadUrl: null,
-      galleryId: "sunset",
+      galleryId: "bing",
       customQuote: null,
       minutes: 25,
       setMode: (mode) => set({ mode }),

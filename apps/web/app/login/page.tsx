@@ -130,7 +130,7 @@ function LoginForm() {
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
-      <div className="glass glass-hover relative w-full max-w-sm overflow-hidden p-8">
+      <div className="paper-card paper-hover relative w-full max-w-sm overflow-hidden p-8">
         <div className="pointer-events-none absolute -top-16 -right-16 h-48 w-48 rounded-full bg-primary/30 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-20 -left-16 h-56 w-56 rounded-full bg-accent/25 blur-3xl" />
 

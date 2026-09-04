@@ -671,7 +671,7 @@ export default function RoadmapPage() {
               <select
                 value={formPhase}
                 onChange={(e) => setFormPhase(e.target.value)}
-                className="glass-select h-10 rounded-xl px-3 text-sm outline-none backdrop-blur-md focus:border-primary/60"
+                className="paper-select h-10 rounded-xl px-3 text-sm outline-none backdrop-blur-md focus:border-primary/60"
               >
                 <option value="">选择阶段…</option>
                 {main.concat(agent).map((p) => (
@@ -712,7 +712,7 @@ export default function RoadmapPage() {
               <select
                 value={phaseForm.track}
                 onChange={(e) => setPhaseForm((s) => ({ ...s, track: e.target.value as Track }))}
-                className="glass-select h-10 rounded-xl px-3 text-sm outline-none backdrop-blur-md focus:border-primary/60"
+                className="paper-select h-10 rounded-xl px-3 text-sm outline-none backdrop-blur-md focus:border-primary/60"
               >
                 <option value="main">主线（P1/P2/…，自动编号）</option>
                 <option value="agent">Agent 副线</option>
@@ -1003,7 +1003,7 @@ export default function RoadmapPage() {
                   <select
                     value={editForm.kind}
                     onChange={(e) => setEditForm((s) => ({ ...s, kind: e.target.value }))}
-                    className="glass-select h-10 rounded-xl px-3 text-sm outline-none backdrop-blur-md focus:border-primary/60"
+                    className="paper-select h-10 rounded-xl px-3 text-sm outline-none backdrop-blur-md focus:border-primary/60"
                   >
                     {KIND_OPTIONS.map((k) => (
                       <option key={k.value} value={k.value}>{k.label}</option>

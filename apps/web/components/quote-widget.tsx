@@ -40,7 +40,7 @@ export function QuoteWidget({ className }: { className?: string }) {
 
   return (
     <div className={className}>
-      <div className="glass glass-hover flex max-w-md flex-col gap-2 p-4">
+      <div className="paper-card paper-hover flex max-w-md flex-col gap-2 p-4">
         <div className="flex items-center justify-between">
           <span className="flex items-center gap-1.5 text-xs font-medium text-primary">
             <Quote className="size-3.5" /> 每日一言

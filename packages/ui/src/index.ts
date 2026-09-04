@@ -46,3 +46,23 @@ export const chartSeries = ["#4f46e5", "#6366f1", "#818cf8", "#0ea5e9", "#38bdf8
 
 export const tokens = { colors, radius, shadows, spacing, fontSize, fontFamily } as const;
 export type Tokens = typeof tokens;
+
+/**
+ * 浅色油画系列（v1.2）：
+ * 暖米白画布底 + 纸感卡片 + 莫兰迪低饱和语义色。
+ * 仅作为新增色板暴露，不替换现有 tokens，便于灰度与回退。
+ * 语义色已按 WCAG AA：「正文/按钮文字 ≥ 4.5:1」校准（见 docs/ui-redesign-proposal.md §11.3）。
+ */
+export const oilPainting = {
+  canvas: "#f6f2ea",
+  surface: "#fffdf7",
+  text: "#3a3630",
+  textMuted: "#6f6a63",
+  border: "rgba(90,80,60,0.14)",
+  primary: "#46617a",
+  accent: "#a5662e",
+  success: "#5f7d59",
+  warning: "#8f6a2a",
+  danger: "#a0524a",
+  chartSeries: ["#5f7d9c", "#7d9bb8", "#a3b8cc", "#c98a4b", "#8a9a5b"],
+} as const;

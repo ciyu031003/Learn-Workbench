@@ -162,7 +162,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <>
       {/* 桌面端顶导（毛玻璃，5 入口） */}
-      <header className="glass-nav app-topnav sticky top-0 z-40 h-16 items-center border-b px-5">
+      <header className="surface-nav app-topnav sticky top-0 z-40 h-16 items-center border-b px-5">
         <div className="mx-auto flex w-full max-w-7xl items-center gap-6">
           <Link href="/dashboard" className="flex shrink-0 items-center gap-2.5">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-primary-foreground">
@@ -181,7 +181,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 href={item.href}
                 className={cn(
                   "relative flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors",
-                  isActive(item.href) ? "bg-indigo-500/10 text-foreground" : "text-muted-foreground hover:bg-white/15 hover:text-foreground"
+                  isActive(item.href) ? "bg-primary/10 text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
                 <item.icon className="size-4.5" />
@@ -196,7 +196,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 onClick={() => setOpenMenu(openMenu === "learn" ? null : "learn")}
                 className={cn(
                   "flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors",
-                  learnActive ? "bg-indigo-500/10 text-foreground" : "text-muted-foreground hover:bg-white/15 hover:text-foreground"
+                  learnActive ? "bg-primary/10 text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
                 <GraduationCap className="size-4.5" />
@@ -225,7 +225,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               href="/jobs"
               className={cn(
                 "relative flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors",
-                isJobs ? "bg-emerald-500/10 text-foreground" : "text-muted-foreground hover:bg-white/15 hover:text-foreground"
+                isJobs ? "bg-primary/10 text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
               <Flower className="size-4.5" />
@@ -239,7 +239,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 onClick={() => setOpenMenu(openMenu === "career" ? null : "career")}
                 className={cn(
                   "flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors",
-                  isCareer ? "bg-indigo-500/10 text-foreground" : "text-muted-foreground hover:bg-white/15 hover:text-foreground"
+                  isCareer ? "bg-primary/10 text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
                 <Rocket className="size-4.5" />
@@ -267,7 +267,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               href="/settings"
               className={cn(
                 "relative flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors",
-                isActive("/settings") ? "bg-indigo-500/10 text-foreground" : "text-muted-foreground hover:bg-white/15 hover:text-foreground"
+                isActive("/settings") ? "bg-primary/10 text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
               <Settings className="size-4.5" />
@@ -277,7 +277,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <div className="flex shrink-0 items-center gap-2.5">
             {domain ? (
-              <div className="glass flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs">
+              <div className="paper-chip flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs">
                 <span
                   className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg"
                   style={{ backgroundColor: `${domain.color}26`, color: domain.color }}
@@ -291,7 +291,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <span className="hidden text-xs text-muted-foreground md:block">今日 {date}</span>
             <a
               href={DOWNLOAD_URL}
-              className="flex items-center gap-1.5 rounded-xl border border-white/15 px-3.5 py-2 text-sm font-medium text-muted-foreground transition-colors hover:border-accent hover:text-accent"
+              className="flex items-center gap-1.5 rounded-xl border border-border px-3.5 py-2 text-sm font-medium text-muted-foreground transition-colors hover:border-accent hover:text-accent"
             >
               <Download className="size-4" />
               下载
@@ -301,7 +301,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* 移动端顶栏（毛玻璃） */}
-      <header className="glass-nav app-mobile-topbar sticky top-0 z-30 h-14 items-center justify-between border-b px-4">
+      <header className="surface-nav app-mobile-topbar sticky top-0 z-30 h-14 items-center justify-between border-b px-4">
         <Link href="/dashboard" className="flex items-center gap-2">
           <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent text-primary-foreground">
             <Sparkles className="size-4" />
@@ -312,7 +312,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <span className="text-xs text-muted-foreground">{date}</span>
             <a
               href={DOWNLOAD_URL}
-              className="flex items-center gap-1 rounded-lg border border-white/15 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-accent hover:text-accent"
+              className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-accent hover:text-accent"
             >
               <Download className="size-4" />
               下载
@@ -325,7 +325,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* 移动端底部导航（毛玻璃，5 入口） */}
-      <nav className="glass-nav app-bottomnav fixed inset-x-0 bottom-0 z-30 border-t">
+      <nav className="surface-nav app-bottomnav fixed inset-x-0 bottom-0 z-30 border-t">
         {[
           { href: "/dashboard", label: "首页", icon: LayoutDashboard },
           { href: "/roadmap", label: "学习", icon: GraduationCap },
@@ -335,14 +335,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         ].map((item) => {
           const active = isActive(item.href);
           const jobs = item.href === "/jobs";
-          const career = item.href === "/career";
           return (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
                 "flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium",
-                active ? (jobs ? "text-emerald-500" : "text-primary") : "text-muted-foreground"
+                active ? (jobs ? "text-accent" : "text-primary") : "text-muted-foreground"
               )}
             >
               <item.icon className="size-5" />

@@ -223,7 +223,7 @@ export default function DashboardPage() {
       ) : null}
 
       {/* 问候条 + 整体进度 */}
-      <section className="glass relative overflow-hidden">
+      <section className="paper-card relative overflow-hidden">
         <div className="flex flex-col gap-5 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between lg:p-7">
           <div className="min-w-0">
             <p className="page-subtitle text-xs">{mounted ? formatDateCN(today) : "今日"}</p>
@@ -258,7 +258,7 @@ export default function DashboardPage() {
       <section aria-label="快捷开始">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Link href="/tasks?autofocus=study&minutes=25" className="group">
-            <Card className="glass-hover press-scale h-full">
+            <Card className="paper-hover press-scale h-full">
               <CardContent className="flex items-center gap-3 p-4">
                 <span className="icon-chip h-10 w-10 shrink-0">
                   <BookOpen className="size-5 text-primary" />
@@ -272,7 +272,7 @@ export default function DashboardPage() {
             </Card>
           </Link>
           <Link href="/tasks?autofocus=exercise&minutes=30" className="group">
-            <Card className="glass-hover press-scale h-full">
+            <Card className="paper-hover press-scale h-full">
               <CardContent className="flex items-center gap-3 p-4">
                 <span className="icon-chip h-10 w-10 shrink-0">
                   <Dumbbell className="size-5 text-accent" />
@@ -398,7 +398,7 @@ export default function DashboardPage() {
 
         {/* 健康快照（跳转 wellbeing） */}
         <Link href="/wellbeing" className="group mt-3 block">
-          <Card className="glass-hover">
+          <Card className="paper-hover">
             <CardContent className="grid grid-cols-3 gap-3 p-4">
               {wellbeingChips.map((c) => (
                 <div key={c.label} className="flex items-center gap-2.5">
