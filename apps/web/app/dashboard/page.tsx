@@ -3,13 +3,16 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import type { CareerReadiness, DashboardSummary, WellbeingToday } from "@learn-workbench/shared";
-import { formatDuration, taskTypeLabels, formatDateCN } from "@learn-workbench/shared";
+import { formatDuration, taskTypeLabels, formatDateCN, todayISO } from "@learn-workbench/shared";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { QuoteWidget } from "@/components/quote-widget";
 import { DomainIcon } from "@/components/domain-icon";
 import { useDomainStore } from "@/store/domain-store";
+import { useToastStore } from "@/store/toast-store";
+import { Celebration } from "@/components/celebration";
 import { cn } from "@/lib/utils";
 import {
   Target,
@@ -28,6 +31,7 @@ import {
   Plus,
   BookOpen,
   Dumbbell,
+  Pencil,
 } from "lucide-react";
 
 function greeting(): string {
@@ -37,6 +41,22 @@ function greeting(): string {
   if (h < 14) return "中午好";
   if (h < 18) return "下午好";
   return "晚上好";
+}
+
+/** 实时时钟（60s 刷新一次，够用可读） */
+function LiveClock() {
+  const [now, setNow] = useState(() => (typeof window === "undefined" ? null : new Date()));
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const id = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+  if (!now) return null;
+  return (
+    <span className="tabular-nums">
+      {now.toLocaleTimeString("zh-CN", { hour12: false }).slice(0, 5)}
+    </span>
+  );
 }
 
 /** 数字 count-up（尊重 prefers-reduced-motion） */
@@ -78,6 +98,26 @@ function StatValue({ value, className }: { value: number | string; className?: s
   return <span className={cn("stat-pop font-bold tabular-nums tracking-tight", className)}>{text}</span>;
 }
 
+/** 连续打卡火焰团：团簇越满代表连续天数越有积累感 */
+function FlameCluster({ streak, className }: { streak: number; className?: string }) {
+  const flameCount = Math.min(6, 1 + Math.floor(Math.max(0, streak) / 2));
+  return (
+    <span className={cn("flex items-end justify-center gap-0.5", className)} aria-label={`连续打卡 ${streak} 天`}>
+      {Array.from({ length: flameCount }, (_, i) => (
+        <Flame
+          key={i}
+          className={cn(
+            "text-accent-strong",
+            i === 0 ? "size-5" : i < 3 ? "size-4" : "size-3.5",
+            i > 0 && "opacity-80"
+          )}
+          strokeWidth={2.2}
+        />
+      ))}
+    </span>
+  );
+}
+
 /** 整体进度环（SVG，CSS 过渡动画） */
 function OverallRing({ percent }: { percent: number }) {
   const R = 56;
@@ -88,8 +128,8 @@ function OverallRing({ percent }: { percent: number }) {
       <svg viewBox="0 0 150 150" className="h-full w-full -rotate-90">
         <defs>
           <linearGradient id="hero-ring-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#6366f1" />
-            <stop offset="100%" stopColor="#0ea5e9" />
+            <stop offset="0%" stopColor="#2f74c0" />
+            <stop offset="100%" stopColor="#5b93d6" />
           </linearGradient>
         </defs>
         <circle cx="75" cy="75" r={R} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="10" />
@@ -143,7 +183,13 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [wellbeing, setWellbeing] = useState<WellbeingToday | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [celebration, setCelebration] = useState<"sparkle" | "confetti" | null>(null);
+  const [quickTitle, setQuickTitle] = useState("");
+  const [quickAdding, setQuickAdding] = useState(false);
+  const [reviewNote, setReviewNote] = useState("");
+  const [reviewSaving, setReviewSaving] = useState(false);
   const domain = useDomainStore((s) => s.current);
+  const pushToast = useToastStore((s) => s.push);
 
   const load = useCallback(async () => {
     try {
@@ -188,7 +234,67 @@ export default function DashboardPage() {
 
   const toggleDone = async (id: number, done: boolean) => {
     await fetch("/api/tasks", { method: "PATCH", body: JSON.stringify({ id, done }) });
+    const base = data?.todayTasks ?? [];
+    const next = base.map((t) => (t.id === id ? { ...t, done } : t));
+    setData((prev) => (prev ? { ...prev, todayTasks: next } : prev));
+    if (done) {
+      const allDone = next.every((t) => t.done);
+      pushToast(allDone ? "今日任务全部完成！" : "任务完成，继续保持", "success");
+      setCelebration(allDone ? "confetti" : "sparkle");
+    }
     load();
+  };
+
+  const addQuickTask = async () => {
+    const title = quickTitle.trim();
+    if (!title || quickAdding) return;
+    setQuickAdding(true);
+    try {
+      const r = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          taskDate: todayISO(),
+          title,
+          taskType: "study",
+          phaseId: null,
+          career: domain?.careerKey ?? "ict",
+        }),
+      });
+      if (r.ok) {
+        setQuickTitle("");
+        pushToast(`已添加「${title}」`, "success");
+        setCelebration("sparkle");
+        load();
+      }
+    } catch {
+      // 保留输入，交给用户重试
+    } finally {
+      setQuickAdding(false);
+    }
+  };
+
+  const saveReview = async () => {
+    const note = reviewNote.trim();
+    if (!note || reviewSaving) return;
+    setReviewSaving(true);
+    try {
+      const r = await fetch("/api/checkin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ note }),
+      });
+      if (r.ok) {
+        setReviewNote("");
+        pushToast("今日复盘已记录", "success");
+        setCelebration("sparkle");
+        load();
+      }
+    } catch {
+      // 保留输入，交给用户重试
+    } finally {
+      setReviewSaving(false);
+    }
   };
 
   const today = mounted ? new Date().toISOString().slice(0, 10) : "";
@@ -205,7 +311,7 @@ export default function DashboardPage() {
     { label: "职业准备度", value: `${readiness?.overall ?? 0}%`, icon: Rocket, accent: "text-accent", href: "/career" },
     { label: "今日任务", value: `${todayDone}/${todayCount}`, icon: ListTodo, accent: "text-success", href: "/tasks" },
     { label: "本周专注", value: formatDuration(data?.totalFocusMinutes ?? 0), icon: Clock3, accent: "text-warning", href: "/tasks#focus" },
-    { label: "连续打卡", value: `${data?.streak ?? 0} 天`, icon: Flame, accent: "text-orange-500", href: "/logs" },
+    { label: "连续打卡", value: `${data?.streak ?? 0} 天`, icon: Flame, accent: "text-accent-strong", href: "/logs", flame: true },
   ];
 
   const wellbeingChips = [
@@ -224,9 +330,13 @@ export default function DashboardPage() {
 
       {/* 问候条 + 整体进度 */}
       <section className="paper-card relative overflow-hidden">
-        <div className="flex flex-col gap-5 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between lg:p-7">
+        <div className="flex flex-col gap-5 p-5 sm:p-6 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(220px,260px)_minmax(160px,200px)] lg:items-center lg:gap-7 lg:p-7">
           <div className="min-w-0">
-            <p className="page-subtitle text-xs">{mounted ? formatDateCN(today) : "今日"}</p>
+            <p className="page-subtitle flex items-center gap-2 text-xs">
+              {mounted ? formatDateCN(today) : "今日"}
+              <span className="text-muted-foreground/50">·</span>
+              <LiveClock />
+            </p>
             <h1 className="page-title mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
               {mounted ? `${greet}，${data?.careerName ?? "ICT 学习规划"}` : `你好，${data?.careerName ?? "ICT 学习规划"}`}
             </h1>
@@ -234,7 +344,7 @@ export default function DashboardPage() {
             {domain ? (
               <Link
                 href="/roadmap"
-                className="mt-2.5 inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-medium backdrop-blur-xl backdrop-saturate-150 transition-colors hover:bg-white/18"
+                className="mt-2.5 inline-flex items-center gap-2 rounded-xl border border-border bg-muted/60 px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-muted"
               >
                 <span
                   className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg"
@@ -248,7 +358,8 @@ export default function DashboardPage() {
               </Link>
             ) : null}
           </div>
-          <div className="shrink-0">
+          <QuoteWidget variant="inline" className="min-w-0" />
+          <div className="flex items-center justify-center">
             <OverallRing percent={data?.overallPercent ?? 0} />
           </div>
         </div>
@@ -311,7 +422,7 @@ export default function DashboardPage() {
                       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
                       <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
                     </span>
-                    正在进行的任务
+                    今日焦点 · 正在进行的任务
                   </span>
                   <Badge variant="muted">今日 {todayDone}/{todayCount}</Badge>
                 </div>
@@ -375,7 +486,7 @@ export default function DashboardPage() {
           action={
             <div className="flex items-center gap-1.5">
               <Button onClick={checkin} variant="ghost" size="sm" className="press-scale">
-                <Flame className="size-4 text-orange-500" /> 今日打卡
+                <Flame className="size-4 text-accent-strong" /> 今日打卡
               </Button>
             </div>
           }
@@ -385,9 +496,13 @@ export default function DashboardPage() {
             <Link key={c.label} href={c.href} className="group">
               <Card className="press-scale">
                 <CardContent className="flex flex-col gap-2 p-4">
-                  <span className={cn("icon-chip h-9 w-9 shrink-0", c.accent)}>
-                    <c.icon className="size-4.5" />
-                  </span>
+                  {c.flame ? (
+                    <FlameCluster streak={data?.streak ?? 0} />
+                  ) : (
+                    <span className={cn("icon-chip h-9 w-9 shrink-0", c.accent)}>
+                      <c.icon className="size-4.5" />
+                    </span>
+                  )}
                   <StatValue value={c.value} className="text-xl" />
                   <span className="text-[11px] text-muted-foreground">{c.label}</span>
                 </CardContent>
@@ -417,6 +532,27 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </Link>
+        <form
+          className="mt-3 flex items-center gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void saveReview();
+          }}
+        >
+          <span className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-full bg-success/10 text-success-strong sm:flex">
+            <Pencil className="size-4" />
+          </span>
+          <Input
+            value={reviewNote}
+            onChange={(e) => setReviewNote(e.target.value)}
+            placeholder="一句话复盘：今天最重要的收获 / 明天要改进的一点"
+            className="h-9 flex-1"
+            aria-label="今日一句话复盘"
+          />
+          <Button type="submit" size="sm" disabled={!reviewNote.trim() || reviewSaving} className="press-scale">
+            {reviewSaving ? "保存中…" : "记一句"}
+          </Button>
+        </form>
       </section>
 
       {/* ③ 接下来 */}
@@ -425,13 +561,36 @@ export default function DashboardPage() {
           icon={TrendingUp}
           title="接下来"
           action={
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/tasks">
-                全部 <ArrowRight className="size-4" />
-              </Link>
-            </Button>
+            <div className="flex items-center gap-1.5">
+              <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
+                <Link href="/tasks">
+                  全部 <ArrowRight className="size-4" />
+                </Link>
+              </Button>
+            </div>
           }
         />
+        <form
+          className="mb-3 flex items-center gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void addQuickTask();
+          }}
+        >
+          <span className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent-strong sm:flex">
+            <Plus className="size-4" />
+          </span>
+          <Input
+            value={quickTitle}
+            onChange={(e) => setQuickTitle(e.target.value)}
+            placeholder="快速添加一个今日任务，回车即创建"
+            className="h-9"
+            aria-label="快速添加今日任务"
+          />
+          <Button type="submit" size="sm" disabled={!quickTitle.trim() || quickAdding} className="press-scale">
+            {quickAdding ? "添加中…" : "添加"}
+          </Button>
+        </form>
         {upcoming.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-start gap-3 p-6">
@@ -452,7 +611,7 @@ export default function DashboardPage() {
             {upcoming.map((t, i) => (
               <div
                 key={t.id}
-                className="rise-in flex items-center gap-3 rounded-xl border border-white/20 bg-white/10 px-3.5 py-3 backdrop-blur-md"
+                className="rise-in flex items-center gap-3 rounded-xl border border-border bg-muted/35 px-3.5 py-3"
                 style={{ animationDelay: `${i * 45}ms` }}
               >
                 <button
@@ -479,8 +638,14 @@ export default function DashboardPage() {
         )}
       </section>
 
-      {/* 每日一言（轻量收尾） */}
-      <QuoteWidget className="mt-1" />
+      {celebration ? (
+        <Celebration
+          kind={celebration}
+          message={celebration === "confetti" ? "今日任务全部完成！" : "任务完成"}
+          onDone={() => setCelebration(null)}
+        />
+      ) : null}
+
     </div>
   );
 }

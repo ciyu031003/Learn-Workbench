@@ -9,13 +9,13 @@ export const colors = {
   muted: "#f1f1f3",
   mutedForeground: "#71717a",
   border: "rgba(24,24,27,0.08)",
-  primary: "#4f46e5",        // 靛蓝
+  primary: "#2f74c0",        // 晴空蓝
   primaryForeground: "#ffffff",
-  secondary: "#eef2ff",      // 靛蓝浅底（次级强调）
-  accent: "#0ea5e9",         // 青
-  success: "#16a34a",
-  warning: "#d97706",
-  danger: "#dc2626",
+  secondary: "#eaf4fd",      // 晴空浅底（次级强调）
+  accent: "#e1781c",         // 阳光橘
+  success: "#3da35d",
+  warning: "#d99000",
+  danger: "#c04545",
   overlay: "rgba(10,10,14,0.35)",
 } as const;
 
@@ -41,28 +41,35 @@ export const fontFamily = {
   mono: "'JetBrains Mono', 'SFMono-Regular', Consolas, monospace",
 } as const;
 
-/** 图表序列色板：primary → accent 冷调梯度（多系列数据按序取用） */
-export const chartSeries = ["#4f46e5", "#6366f1", "#818cf8", "#0ea5e9", "#38bdf8"] as const;
+/** 图表序列色板：晴空蓝 → 浅蓝 → 阳光橘 → 新芽绿（多系列数据按序取用） */
+export const chartSeries = ["#2f74c0", "#5b93d6", "#8bb7e8", "#e1781c", "#8fbf5f"] as const;
 
 export const tokens = { colors, radius, shadows, spacing, fontSize, fontFamily } as const;
 export type Tokens = typeof tokens;
 
 /**
- * 浅色油画系列（v1.2）：
- * 暖米白画布底 + 纸感卡片 + 莫兰迪低饱和语义色。
- * 仅作为新增色板暴露，不替换现有 tokens，便于灰度与回退。
- * 语义色已按 WCAG AA：「正文/按钮文字 ≥ 4.5:1」校准（见 docs/ui-redesign-proposal.md §11.3）。
+ * 青春阳光系列（v1.3）：
+ * 暖柔象牙白画布 + 晴空蓝主色 + 阳光橘强调。
+ * 与 apps/web/app/globals.css @theme 保持单一事实源，替换旧的 indigo/cyan 图表残留。
  */
 export const oilPainting = {
-  canvas: "#f6f2ea",
-  surface: "#fffdf7",
+  canvas: "#fdf8ef",
+  surface: "#fffefa",
   text: "#3a3630",
   textMuted: "#6f6a63",
-  border: "rgba(90,80,60,0.14)",
-  primary: "#46617a",
-  accent: "#a5662e",
-  success: "#5f7d59",
-  warning: "#8f6a2a",
-  danger: "#a0524a",
-  chartSeries: ["#5f7d9c", "#7d9bb8", "#a3b8cc", "#c98a4b", "#8a9a5b"],
+  border: "rgba(120,90,45,0.16)",
+  primary: "#2f74c0",
+  primaryStrong: "#2563b0",
+  accent: "#e1781c",
+  accentStrong: "#b85c12",
+  success: "#3da35d",
+  successStrong: "#2c7d47",
+  warning: "#d99000",
+  warningStrong: "#a86900",
+  danger: "#c04545",
+  dangerStrong: "#9c2f2f",
+  chartSeries: ["#2f74c0", "#5b93d6", "#8bb7e8", "#e1781c", "#8fbf5f"],
 } as const;
+
+/** v1.3 对外别名：保留 oilPainting，同时提供语义名 sunny。 */
+export const sunny = oilPainting;

@@ -3,8 +3,8 @@
 /* ============ 设计 tokens：简约大气 · 壁纸优先（冷调中性 + 靛蓝强调） ============ */
 :root {
   /* 全局画布与纸面（油画系列 v1.2） */
-  --color-canvas: #f6f2ea;
-  --color-surface: #fffdf7;
+  --color-canvas: #fdf8ef;
+  --color-surface: #fffefa;
   --color-text: #3a3630;
   --color-muted: #ece7dd;
   --color-muted-foreground: #6f6a63;
@@ -54,23 +54,42 @@ html.dark {
   --color-muted: var(--color-muted);
   --color-muted-foreground: var(--color-muted-foreground);
   --color-border: var(--color-border);
-  --color-primary: #46617a;
+  --color-primary: #2f74c0;
+  --color-primary-strong: #2563b0;
   --color-primary-foreground: #ffffff;
-  --color-accent: #a5662e;
-  --color-danger: #a0524a;
-  --color-success: #5f7d59;
-  --color-warning: #8f6a2a;
+  --color-accent: #e1781c;
+  --color-accent-strong: #b85c12;
+  --color-accent-foreground: #ffffff;
+  --color-danger: #c04545;
+  --color-danger-strong: #9c2f2f;
+  --color-danger-foreground: #ffffff;
+  --color-success: #3da35d;
+  --color-success-strong: #2c7d47;
+  --color-success-foreground: #ffffff;
+  --color-warning: #d99000;
+  --color-warning-strong: #a86900;
+  --color-warning-foreground: #241a06;
   --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
 }
 
 /* 深色档沿用原玻璃深色语义色，保证浅色改油画后按钮仍可读 */
 html.dark {
-  --color-primary: #818cf8;
-  --color-accent: #38bdf8;
-  --color-danger: #f87171;
-  --color-success: #4ade80;
-  --color-warning: #fbbf24;
+  --color-primary: #6fa8e0;
+  --color-primary-strong: #8fc0f0;
+  --color-primary-foreground: #0a1d30;
+  --color-accent: #f49a4a;
+  --color-accent-strong: #ffbb7a;
+  --color-accent-foreground: #2b1604;
+  --color-danger: #e77b7b;
+  --color-danger-strong: #f0a0a0;
+  --color-danger-foreground: #2a0a0a;
+  --color-success: #6fca8d;
+  --color-success-strong: #99ddad;
+  --color-success-foreground: #0a2513;
+  --color-warning: #f3b94a;
+  --color-warning-strong: #ffd382;
+  --color-warning-foreground: #241a06;
 }
 
 @layer base {
@@ -90,7 +109,7 @@ html.dark {
     font-family: var(--font-sans);
   }
   ::selection {
-    background: rgba(79, 70, 229, 0.22);
+    background: rgba(47, 116, 192, 0.22);
   }
   :focus-visible {
     outline: 2px solid var(--color-primary);
@@ -275,27 +294,25 @@ html.dark .glass-3 {
   }
 }
 
-/* ============ 进度条：靛蓝渐变，无发光 ============ */
+/* ============ 进度条：纸面实底，暖影无发光 ============ */
 .progress-track {
-  background: rgba(255, 255, 255, 0.2);
-  -webkit-backdrop-filter: blur(8px) saturate(1.3);
-  backdrop-filter: blur(8px) saturate(1.3);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
+  background: var(--color-muted);
+  border: 1px solid var(--color-border);
 }
 .progress-fill {
-  background: linear-gradient(90deg, #6366f1, #4f46e5);
+  background: linear-gradient(90deg, #2f74c0, #5b93d6);
 }
 .progress-fill-accent {
-  background: linear-gradient(90deg, #38bdf8, #0ea5e9);
+  background: linear-gradient(90deg, #e1781c, #f1a45c);
 }
 
 /* ============ 页面标题（无发光） ============ */
 .page-title {
-  color: var(--text-on-glass);
+  color: var(--color-text);
   letter-spacing: -0.01em;
 }
 .page-subtitle {
-  color: var(--text-on-glass-muted);
+  color: var(--color-muted-foreground);
 }
 
 /* ============ 淡入动画：统一 0.4s，无错峰 ============ */
@@ -395,11 +412,10 @@ html.dark .glass-3 {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: var(--glass-bg-strong);
-  border: 1px solid var(--glass-border);
+  background: var(--color-muted);
+  border: 1px solid var(--color-border);
   border-radius: 9999px;
-  -webkit-backdrop-filter: blur(8px) saturate(1.3);
-  backdrop-filter: blur(8px) saturate(1.3);
+  color: var(--color-text);
 }
 
 /* ============ 每日一言交叉淡入 ============ */

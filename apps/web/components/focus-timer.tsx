@@ -5,12 +5,13 @@ import { QUOTES } from "@/components/quote-widget";
 import { FocusStatsCard } from "@/components/focus-stats-card";
 import {
   Pause, Play, RotateCcw, Square, X, Maximize, Minimize, Quote,
-  Palette, ImagePlus, Images, Pencil, Check, Coffee, Droplets, Footprints,
+  Palette, ImagePlus, Images, Pencil, Check, Coffee, Droplets, Footprints, TreePine,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FOCUS_COLORS, FOCUS_GALLERY, useFocusBgStore } from "@/store/focus-bg-store";
 import { useToastStore } from "@/store/toast-store";
 import { MIN_FOCUS_SECONDS, MIN_EXERCISE_SECONDS } from "@/lib/focus-session";
+import { Celebration } from "@/components/celebration";
 
 const PRESETS = [15, 25, 45];
 const RING_R = 128;
@@ -99,6 +100,7 @@ export function FocusTimer({
   const [editingQuote, setEditingQuote] = useState(false);
   const [quoteInput, setQuoteInput] = useState("");
   const [wbDone, setWbDone] = useState<{ break?: boolean; water?: boolean }>({});
+  const [celebration, setCelebration] = useState<"sparkle" | "confetti" | null>(null);
   const startRef = useRef<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const remainingRef = useRef(initMinutes * 60);
@@ -405,6 +407,7 @@ export function FocusTimer({
     setRemainingSafe(total);
     startRef.current = null;
     exerciseRecordedRef.current = false;
+    setCelebration(null);
     // 重置前把已学时长结算入库（含中间切换预设/再来一次的场景）
     if (sessionRef.current && !sessionRef.current.settled) {
       const el = currentElapsed();
@@ -427,6 +430,7 @@ export function FocusTimer({
     setRemainingSafe(m * 60);
     setRunning(false);
     startRef.current = null;
+    exerciseRecordedRef.current = false;
     if (sessionRef.current && !sessionRef.current.settled) {
       void flushElapsed();
     }
@@ -438,6 +442,7 @@ export function FocusTimer({
     if (!done || mode !== "focus" || exerciseRecordedRef.current) return;
     exerciseRecordedRef.current = true;
     void settleSession(currentElapsed());
+    setCelebration("confetti");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [done, mode]);
 
@@ -446,6 +451,7 @@ export function FocusTimer({
     if (!done || mode !== "exercise" || exerciseRecordedRef.current) return;
     exerciseRecordedRef.current = true;
     void record(currentElapsed());
+    setCelebration("confetti");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [done, mode]);
 
@@ -510,6 +516,13 @@ export function FocusTimer({
   return (
     <div className="fixed inset-0 z-[100] flex flex-col overflow-hidden bg-black/80">
       <BackgroundLayer />
+      {celebration ? (
+        <Celebration
+          kind={celebration}
+          message={mode === "exercise" ? "运动目标完成！" : "专注完成！"}
+          onDone={() => setCelebration(null)}
+        />
+      ) : null}
       {/* 可读性遮罩 */}
       <div className="pointer-events-none absolute inset-0 bg-black/35" />
       
@@ -641,8 +654,12 @@ export function FocusTimer({
       {done ? (
         <div className="relative z-10 flex-1 overflow-y-auto px-4 pb-6 pt-4">
           <div className="mx-auto flex max-w-2xl flex-col items-center gap-4">
-            <p className="text-2xl font-bold text-white drop-shadow">��� 专注完成！</p>
-            <p className="text-sm text-white/70">本次专注 {fmtClock(elapsed)}，已自动记录</p>
+            <p className="text-2xl font-bold text-white drop-shadow">🎉 {mode === "exercise" ? "运动完成" : "专注完成"}！</p>
+            <p className="text-sm text-white/70">本次{mode === "exercise" ? "运动" : "专注"} {fmtClock(elapsed)}，已自动记录</p>
+            <div className="inline-flex items-center gap-2 rounded-full border border-success/40 bg-success/20 px-4 py-2 text-sm text-white backdrop-blur-md">
+              <TreePine className="size-4 text-success" />
+              <span className="font-semibold">专注果实 +{Math.max(1, Math.min(180, Math.round(elapsed / 60)))}</span>
+            </div>
 
             {/* 休息一下：站立 + 喝水 + 远眺 */}
             <div className="glass w-full max-w-md rounded-2xl p-4">
@@ -693,7 +710,7 @@ export function FocusTimer({
                   if (sessionRef.current && !sessionRef.current.settled) void settleOnExit();
                   onCloseRef.current();
                 }}
-                className="rounded-full bg-gradient-to-b from-primary to-[#4338ca] px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition-all hover:brightness-105"
+                className="rounded-full bg-gradient-to-b from-primary to-primary-strong px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition-all hover:brightness-105"
               >
                 返回任务页
               </button>
@@ -720,8 +737,8 @@ export function FocusTimer({
                 <linearGradient id="ring-grad" x1="0%" y1="0%" x2="100%" y2="100%">
                   {mode === "exercise" ? (
                     <>
-                      <stop offset="0%" stopColor="#38bdf8" />
-                      <stop offset="100%" stopColor="#0ea5e9" />
+                      <stop offset="0%" stopColor="#8bb7e8" />
+                      <stop offset="100%" stopColor="#2f74c0" />
                     </>
                   ) : (
                     <>
@@ -903,7 +920,7 @@ export function FocusTimer({
 
           <button
             onClick={begin}
-            className="flex items-center gap-2 rounded-full bg-gradient-to-b from-primary to-[#4338ca] px-10 py-4 text-base font-semibold text-white shadow-[0_10px_40px_rgba(79,70,229,0.45)] transition-all hover:brightness-105"
+            className="flex items-center gap-2 rounded-full bg-gradient-to-b from-primary to-primary-strong px-10 py-4 text-base font-semibold text-white shadow-[0_10px_40px_rgba(23,37,84,0.4)] transition-all hover:brightness-105"
           >
             <Play className="size-5" /> {mode === "exercise" ? "开始运动" : "开始专注"}
           </button>

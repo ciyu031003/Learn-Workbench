@@ -16,7 +16,9 @@ import { FocusTimer } from "@/components/focus-timer";
 import { FocusStatsCard } from "@/components/focus-stats-card";
 import { DomainIcon } from "@/components/domain-icon";
 import { useDomainStore } from "@/store/domain-store";
+import { useToastStore } from "@/store/toast-store";
 import { parseAutofocusParams } from "@/lib/autofocus";
+import { Celebration } from "@/components/celebration";
 
 const TYPES = ["study", "agent", "output", "review", "exam"] as const;
 
@@ -46,7 +48,9 @@ export default function TasksPage() {
     autoStart: false,
     mode: "focus",
   });
+  const [celebration, setCelebration] = useState<"sparkle" | "confetti" | null>(null);
   const autofocusHandled = useRef(false);
+  const pushToast = useToastStore((s) => s.push);
 
   const load = useCallback(async (d: string) => {
     const r = await fetch(`/api/tasks?date=${d}&career=${careerKey}`);
@@ -94,11 +98,12 @@ export default function TasksPage() {
 
   const addTask = async () => {
     if (!title.trim()) return;
+    const taskTitle = title.trim();
     const r = await fetch("/api/tasks", {
       method: "POST",
       body: JSON.stringify({
         taskDate: date,
-        title: title.trim(),
+        title: taskTitle,
         taskType: type,
         phaseId: phaseId ? Number(phaseId) : null,
         career: careerKey,
@@ -106,6 +111,8 @@ export default function TasksPage() {
     });
     if (r.ok) {
       setTitle("");
+      pushToast(`已添加「${taskTitle}」`, "success");
+      setCelebration("sparkle");
       load(date);
     }
   };
@@ -115,7 +122,15 @@ export default function TasksPage() {
       method: "PATCH",
       body: JSON.stringify({ id, done }),
     });
-    load(date);
+    const next = tasks.map((t) => (t.id === id ? { ...t, done } : t));
+    setTasks(next);
+    if (done) {
+      const allDone = next.every((t) => t.done);
+      pushToast(allDone ? "今日任务全部完成！" : "任务完成，继续保持", "success");
+      setCelebration(allDone ? "confetti" : "sparkle");
+    } else {
+      load(date);
+    }
   };
 
   const openTimer = (taskId: number | null, taskTitle: string | null) => {
@@ -153,7 +168,7 @@ export default function TasksPage() {
           <h1 className="page-title text-2xl font-bold tracking-tight lg:text-3xl">每日任务</h1>
           <p className="page-subtitle mt-1 text-sm">计划 → 专注 → 复盘，形成学习闭环</p>
           {domain ? (
-            <Link href="/roadmap" className="mt-2 inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-medium backdrop-blur-xl backdrop-saturate-150 transition-colors hover:bg-white/18">
+            <Link href="/roadmap" className="mt-2 inline-flex items-center gap-2 rounded-xl border border-border bg-muted/40 px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-muted/70">
               <span
                 className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg"
                 style={{ backgroundColor: `${domain.color}26`, color: domain.color }}
@@ -221,7 +236,7 @@ export default function TasksPage() {
               <select
                 value={phaseId}
                 onChange={(e) => setPhaseId(e.target.value)}
-                className="paper-select h-10 rounded-xl px-3 text-sm outline-none backdrop-blur-md"
+                className="paper-select h-10 rounded-xl px-3 text-sm outline-none"
                 aria-label="选择路线图大类"
               >
                 <option value="">路线图大类（不限）</option>
@@ -335,6 +350,14 @@ export default function TasksPage() {
       ) : null}
       <div id="focus" className="scroll-mt-24" />
       <FocusStatsCard />
+
+      {celebration ? (
+        <Celebration
+          kind={celebration}
+          message={celebration === "confetti" ? "今日任务全部完成！" : "任务已记录"}
+          onDone={() => setCelebration(null)}
+        />
+      ) : null}
 
       <FocusTimer
         key={timerSession}

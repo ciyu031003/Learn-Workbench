@@ -29,7 +29,7 @@ export function GlassModal({
         role="dialog"
         aria-modal="true"
         className={cn(
-          "glass relative max-h-[86dvh] w-full max-w-md overflow-y-auto overscroll-contain rounded-3xl p-6 shadow-[0_24px_70px_rgba(0,0,0,0.35)]",
+          "surface-nav relative max-h-[86dvh] w-full max-w-md overflow-y-auto overscroll-contain rounded-[20px] p-6 shadow-[0_24px_70px_rgba(80,60,25,0.18)]",
           className
         )}
       >
@@ -38,7 +38,7 @@ export function GlassModal({
           <button
             onClick={onClose}
             aria-label="关闭"
-            className="rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-white/15 hover:text-foreground"
+            className="rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-muted hover:text-foreground"
           >
             <X className="size-4" />
           </button>

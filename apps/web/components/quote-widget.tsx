@@ -18,7 +18,13 @@ export const QUOTES: { text: string; author?: string }[] = [
   { text: "工具会过时，但解决问题的能力永远稀缺。", author: "ICT 心法" },
 ];
 
-export function QuoteWidget({ className }: { className?: string }) {
+export function QuoteWidget({
+  className,
+  variant = "card",
+}: {
+  className?: string;
+  variant?: "card" | "inline";
+}) {
   const [index, setIndex] = useState(0);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -38,6 +44,33 @@ export function QuoteWidget({ className }: { className?: string }) {
 
   const quote = QUOTES[index];
 
+  if (variant === "inline") {
+    return (
+      <div className={className}>
+        <div className="flex min-h-full flex-col gap-1.5 border-l-2 border-accent/60 pl-4">
+          <div className="flex items-center justify-between gap-3">
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-accent-strong">
+              <Quote className="size-3.5" /> 每日一言
+            </span>
+            <button
+              onClick={next}
+              aria-label="换一句"
+              className="rounded-lg p-1.5 text-muted-foreground transition-all active:rotate-90 hover:bg-muted hover:text-foreground"
+            >
+              <RefreshCw className="size-3.5" />
+            </button>
+          </div>
+          <p key={"quote-" + index} className="quote-fade text-sm leading-relaxed text-foreground">{quote.text}</p>
+          {quote.author ? (
+            <span key={"author-" + index} className="quote-fade self-end text-xs text-muted-foreground">
+              —— {quote.author}
+            </span>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={className}>
       <div className="paper-card paper-hover flex max-w-md flex-col gap-2 p-4">
@@ -48,7 +81,7 @@ export function QuoteWidget({ className }: { className?: string }) {
           <button
             onClick={next}
             aria-label="换一句"
-            className="rounded-lg p-2 text-muted-foreground transition-all active:rotate-90 hover:bg-white/15 hover:text-foreground"
+            className="rounded-lg p-2 text-muted-foreground transition-all active:rotate-90 hover:bg-muted hover:text-foreground"
           >
             <RefreshCw className="size-4" />
           </button>

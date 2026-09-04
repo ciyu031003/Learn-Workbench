@@ -212,12 +212,12 @@ export function FocusStatsCard() {
 
         {/* 分布图 / 时间轴 切换 */}
         <div className="flex items-center gap-2">
-          <div className="flex overflow-hidden rounded-xl border border-white/20">
+          <div className="flex overflow-hidden rounded-xl border border-border">
             <button
               onClick={() => setView("dist")}
               className={cn(
                 "flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors",
-                view === "dist" ? "bg-primary/25 text-foreground" : "text-muted-foreground hover:bg-white/10"
+                view === "dist" ? "bg-primary/12 text-primary-strong" : "text-muted-foreground hover:bg-muted/70"
               )}
             >
               <BarChart3 className="size-3.5" /> 分布图
@@ -226,7 +226,7 @@ export function FocusStatsCard() {
               onClick={() => setView("timeline")}
               className={cn(
                 "flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors",
-                view === "timeline" ? "bg-primary/25 text-foreground" : "text-muted-foreground hover:bg-white/10"
+                view === "timeline" ? "bg-primary/12 text-primary-strong" : "text-muted-foreground hover:bg-muted/70"
               )}
             >
               <ListOrdered className="size-3.5" /> 时间轴
@@ -240,7 +240,7 @@ export function FocusStatsCard() {
               <div key={d.date} className="group flex flex-1 flex-col items-center gap-1">
                 <div className="relative flex w-full flex-1 items-end">
                   <div
-                    className="w-full rounded-t-md bg-gradient-to-t from-primary to-amber-300 transition-all"
+                    className="w-full rounded-t-md bg-gradient-to-t from-primary to-[#8bb7e8] transition-all"
                     style={{ height: `${Math.max(3, (d.minutes / maxMin) * 100)}%` }}
                     title={`${d.date} · ${d.minutes} 分钟`}
                   />

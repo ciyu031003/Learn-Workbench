@@ -13,14 +13,14 @@ export function Toaster() {
         <div
           key={t.id}
           role="status"
-          className="glass flex items-center gap-2 rounded-[10px] px-3 py-2.5 text-sm"
+          className="surface-nav flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm shadow-[0_12px_36px_rgba(80,60,25,0.16)]"
         >
           {t.kind === "success" ? (
-            <CheckCircle2 className="size-4 shrink-0 text-success" />
+            <CheckCircle2 className="size-4 shrink-0 text-success-strong" />
           ) : t.kind === "error" ? (
-            <AlertCircle className="size-4 shrink-0 text-danger" />
+            <AlertCircle className="size-4 shrink-0 text-danger-strong" />
           ) : (
-            <Info className="size-4 shrink-0 text-primary" />
+            <Info className="size-4 shrink-0 text-primary-strong" />
           )}
           <span className="text-foreground">{t.message}</span>
           <button
