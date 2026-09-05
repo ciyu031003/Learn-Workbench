@@ -1,8 +1,9 @@
 /* eslint-disable react-hooks/immutability */
 import { type ReactNode, useCallback } from "react";
-import { Pressable, type PressableProps, type StyleProp, type ViewStyle, Vibration } from "react-native";
+import { Pressable, type PressableProps, type StyleProp, type ViewStyle } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { motion } from "@/theme/tokens";
+import { haptics } from "@/lib/haptics";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -37,11 +38,7 @@ function PressableScale({
   const handlePress = useCallback(
     (e: Parameters<NonNullable<PressableProps["onPress"]>>[0]) => {
       if (haptic && !disabled) {
-        try {
-          Vibration.vibrate(8);
-        } catch {
-          // 忽略无振动能力的设备
-        }
+        haptics.light();
       }
       onPress?.(e);
     },

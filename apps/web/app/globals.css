@@ -601,3 +601,162 @@ body {
     transition: none;
   }
 }
+
+/* ============ 呼吸灯效层（Ambient Glow v1.4）：光只给值得注意的地方 ============ */
+:root {
+  --glow-a: 255, 208, 138;   /* 暖杏金 */
+  --glow-b: 163, 200, 240;   /* 静天蓝 */
+  --glow-halo: 47, 116, 192; /* 主色光晕 */
+  --glow-cta: 241, 138, 40;  /* CTA 琥珀 */
+}
+html.dark {
+  --glow-a: 255, 190, 110;
+  --glow-b: 122, 166, 226;
+}
+/* 时段心情：晨杏金 · 午蓝青 · 暮橙紫 */
+.glow-morning { --glow-a: 255, 208, 138; --glow-b: 163, 200, 240; }
+.glow-noon    { --glow-a: 150, 195, 240; --glow-b: 150, 226, 214; }
+.glow-evening { --glow-a: 255, 176, 108; --glow-b: 197, 176, 240; }
+
+/* 1) 氛围底光：预模糊径向渐变缓慢漂移呼吸（仅 transform/opacity，走合成器） */
+.ambient-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+}
+.ambient-glow::before,
+.ambient-glow::after {
+  content: "";
+  position: absolute;
+  width: 340px;
+  height: 340px;
+  border-radius: 9999px;
+  will-change: transform, opacity;
+}
+.ambient-glow::before {
+  top: -160px;
+  left: -80px;
+  background: radial-gradient(closest-side, rgba(var(--glow-a), 0.5), rgba(var(--glow-a), 0) 72%);
+  animation: glow-drift-a 16s ease-in-out infinite alternate;
+}
+.ambient-glow::after {
+  bottom: -190px;
+  right: -70px;
+  background: radial-gradient(closest-side, rgba(var(--glow-b), 0.42), rgba(var(--glow-b), 0) 72%);
+  animation: glow-drift-b 13s ease-in-out infinite alternate;
+}
+html.dark .ambient-glow::before {
+  background: radial-gradient(closest-side, rgba(var(--glow-a), 0.34), rgba(var(--glow-a), 0) 72%);
+}
+html.dark .ambient-glow::after {
+  background: radial-gradient(closest-side, rgba(var(--glow-b), 0.3), rgba(var(--glow-b), 0) 72%);
+}
+@keyframes glow-drift-a {
+  from { transform: translate3d(0, 0, 0) scale(1); opacity: 0.7; }
+  to { transform: translate3d(46px, 20px, 0) scale(1.14); opacity: 1; }
+}
+@keyframes glow-drift-b {
+  from { transform: translate3d(0, 0, 0) scale(1.08); opacity: 0.55; }
+  to { transform: translate3d(-40px, -16px, 0) scale(1); opacity: 0.85; }
+}
+
+/* 2) 进度环光晕：围绕整体进度的轻呼吸 */
+.ring-halo { border-radius: 9999px; }
+@media (prefers-reduced-motion: no-preference) {
+  .ring-halo { animation: ring-breathe 3.2s ease-in-out infinite; }
+}
+@keyframes ring-breathe {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(var(--glow-halo), 0.10), 0 0 18px rgba(var(--glow-halo), 0.14); }
+  50% { box-shadow: 0 0 0 1px rgba(var(--glow-halo), 0.16), 0 0 30px rgba(var(--glow-halo), 0.24); }
+}
+
+/* 3) CTA 呼吸（今日打卡）：hover/focus 时安静下来 */
+@media (prefers-reduced-motion: no-preference) {
+  .cta-breathe { animation: cta-breathe 2.8s ease-in-out infinite; }
+}
+.cta-breathe:hover,
+.cta-breathe:focus-visible {
+  animation: none;
+}
+@keyframes cta-breathe {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(var(--glow-cta), 0), 0 0 0 1px rgba(var(--glow-cta), 0.14); }
+  50% { box-shadow: 0 0 18px 2px rgba(var(--glow-cta), 0.26), 0 0 0 1px rgba(var(--glow-cta), 0.3); }
+}
+
+/* 4) 渐变旋转描边：重点卡 1px 霓虹边（限量使用；Firefox 降级为静态渐变） */
+@property --border-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+.glow-border { position: relative; }
+.glow-border::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--border-angle),
+    rgba(47, 116, 192, 0.45),
+    rgba(242, 140, 40, 0.5),
+    rgba(141, 123, 216, 0.4),
+    rgba(47, 116, 192, 0.45)
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .glow-border::before { animation: glow-border-spin 10s linear infinite; }
+}
+@keyframes glow-border-spin {
+  to { --border-angle: 360deg; }
+}
+
+/* 5) NEW 徽章扫光：6s 一次的克制 shimmer */
+.badge-new { position: relative; overflow: hidden; }
+@media (prefers-reduced-motion: no-preference) {
+  .badge-new::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 36%;
+    left: -60%;
+    background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.75), transparent);
+    transform: skewX(-18deg);
+    animation: badge-shimmer 6s ease-in-out infinite;
+  }
+}
+@keyframes badge-shimmer {
+  0%, 55% { left: -60%; }
+  90%, 100% { left: 130%; }
+}
+
+/* 6) 快捷卡 hover 彩色辉光（与 paper-hover 叠加，后者定义在前，此处覆盖） */
+@media (hover: hover) {
+  .hover-glow-primary:hover {
+    border-color: rgba(47, 116, 192, 0.35);
+    box-shadow: 0 2px 8px rgba(60, 50, 30, 0.08), 0 14px 34px -12px rgba(47, 116, 192, 0.35);
+  }
+  .hover-glow-accent:hover {
+    border-color: rgba(241, 138, 40, 0.4);
+    box-shadow: 0 2px 8px rgba(60, 50, 30, 0.08), 0 14px 34px -12px rgba(241, 138, 40, 0.35);
+  }
+}
+
+/* 灯效整体尊重减弱动态偏好 */
+@media (prefers-reduced-motion: reduce) {
+  .ambient-glow::before,
+  .ambient-glow::after,
+  .ring-halo,
+  .cta-breathe,
+  .glow-border::before,
+  .badge-new::after {
+    animation: none !important;
+  }
+}

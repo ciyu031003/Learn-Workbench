@@ -216,7 +216,7 @@ export function JobCard({
           </span>
         ) : null}
         {job.isNew ? (
-          <span className="ml-auto rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-black text-emerald-600 dark:text-emerald-300">
+          <span className="badge-new ml-auto rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-black text-emerald-600 dark:text-emerald-300">
             NEW
           </span>
         ) : null}

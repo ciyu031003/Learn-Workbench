@@ -28,6 +28,7 @@ import { Card } from "@/components/card";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { Celebration } from "@/components/celebration";
 import { PressableScale } from "@/components/pressable-scale";
+import { haptics } from "@/lib/haptics";
 import { colors, radius, shadows } from "@/theme/tokens";
 import { computeFocusStats } from "@/lib/focus-stats";
 import { getDailyQuote } from "@/lib/quotes";
@@ -261,6 +262,7 @@ export default function DashboardScreen() {
   }, [checkins, today]);
 
   const focusTask = todayTasks.find((t) => !t.done);
+  const checkedInToday = checkins.includes(today);
 
   const fireCelebrate = () => {
     setCelebrate(false);
@@ -384,7 +386,13 @@ export default function DashboardScreen() {
           </Card>
         </View>
 
-        <Pressable style={styles.checkinRow} onPress={checkinToday}>
+        <Pressable
+          style={styles.checkinRow}
+          onPress={() => {
+            if (!checkedInToday) haptics.success();
+            checkinToday();
+          }}
+        >
           <Text style={styles.checkinRowText}>今日打卡 · 给自己一个正向信号</Text>
           <Ionicons name="chevron-forward" size={18} color={colors.accentStrong} />
         </Pressable>

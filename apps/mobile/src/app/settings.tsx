@@ -4,9 +4,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAppStore } from "@/store/app-store";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getApiUrl } from "@/config";
-import { apiLogin, syncPush, syncPull } from "@/lib/sync";
+import { syncPush, syncPull } from "@/lib/sync";
 import { useSyncEngineStatus } from "@/lib/sync-engine";
 import { Card } from "@/components/card";
+import { AuthSheet } from "@/components/auth-sheet";
+import { haptics } from "@/lib/haptics";
 import { colors, radius } from "@/theme/tokens";
 
 export default function SettingsScreen() {
@@ -25,10 +27,7 @@ export default function SettingsScreen() {
   const lastSyncedAt = useAppStore((s) => s.lastSyncedAt);
   const engine = useSyncEngineStatus();
 
-  const [userInput, setUserInput] = useState("");
-  const [passInput, setPassInput] = useState("");
-  const [confirmPass, setConfirmPass] = useState("");
-  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [authOpen, setAuthOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -58,56 +57,9 @@ export default function SettingsScreen() {
     })();
   }, []);
 
-  const doLogin = async () => {
-    if (!userInput.trim() || !passInput) return;
-    setBusy(true);
-    setMsg(null);
-    try {
-      const data = await apiLogin(userInput.trim(), passInput);
-      setAuth(data.token, data.user.username);
-      setMsg("登录成功");
-    } catch (e) {
-      setMsg(e instanceof Error ? e.message : "登录失败");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const doRegister = async () => {
-    if (!userInput.trim() || !passInput) return;
-    if (passInput.length < 6) {
-      setMsg("密码至少 6 位");
-      return;
-    }
-    if (passInput !== confirmPass) {
-      setMsg("两次输入的密码不一致");
-      return;
-    }
-    setBusy(true);
-    setMsg(null);
-    try {
-      const r = await fetch(getApiUrl() + "/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: userInput.trim(), password: passInput }),
-      });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error ?? "注册失败");
-      setAuth(data.token, data.user?.username ?? userInput.trim());
-      setMsg("注册成功");
-      setAuthMode("login");
-      setPassInput("");
-      setConfirmPass("");
-    } catch (e) {
-      setMsg(e instanceof Error ? e.message : "注册失败");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const submitAuth = () => {
-    if (authMode === "register") doRegister();
-    else doLogin();
+  const handleAuthed = (token: string, username: string) => {
+    setAuth(token, username);
+    setMsg(`欢迎回来，${username}：本机数据将自动同步云端`);
   };
 
   const doPush = async () => {
@@ -116,6 +68,7 @@ export default function SettingsScreen() {
     setMsg(null);
     try {
       await syncPush(token);
+      haptics.success();
       setMsg("已一键同步到云端");
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "同步失败");
@@ -130,6 +83,7 @@ export default function SettingsScreen() {
     setMsg(null);
     try {
       await syncPull(token);
+      haptics.soft();
       setMsg("已从云端拉取最新数据");
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "拉取失败");
@@ -170,8 +124,8 @@ export default function SettingsScreen() {
         body: JSON.stringify({ currentPassword: pwCur, newPassword: pwNew1 }),
       });
       const data = await r.json();
-      if (!r.ok) { setPwMsg(data.error ?? "修改失败"); }
-      else { setPwMsg("密码修改成功"); setPwCur(""); setPwNew1(""); setPwNew2(""); }
+      if (!r.ok) { setPwMsg(data.error ?? "修改失败"); haptics.error(); }
+      else { setPwMsg("密码修改成功"); haptics.success(); setPwCur(""); setPwNew1(""); setPwNew2(""); }
     } catch {
       setPwMsg("网络异常，请稍后重试");
     } finally {
@@ -196,87 +150,41 @@ export default function SettingsScreen() {
       <Card title="账号" subtitle={token ? "登录中，学习数据将自动同步云端" : "登录后同步云端，离线数据不会丢失"}>
         {token ? (
           <View style={styles.rowBetween}>
-            <Text style={styles.rowLabel}>已登录：{username}</Text>
-            <Pressable onPress={() => setAuth(null, null)}>
+            <View style={styles.rowBetween}>
+              <View style={styles.avatarChip}>
+                <Text style={styles.avatarText}>{(username ?? "旅").slice(0, 1).toUpperCase()}</Text>
+              </View>
+              <Text style={styles.rowLabel}>已登录：{username}</Text>
+            </View>
+            <Pressable
+              onPress={() => {
+                haptics.warning();
+                Alert.alert("退出登录", "退出后本机数据保留，云端数据不受影响。", [
+                  { text: "取消", style: "cancel" },
+                  { text: "退出", style: "destructive", onPress: () => setAuth(null, null) },
+                ]);
+              }}
+            >
               <Text style={styles.linkText}>退出</Text>
             </Pressable>
           </View>
         ) : (
-          <View style={styles.authBox}>
-            <View style={styles.authBrand}>
-              <View style={styles.authLogo}>
-                <Ionicons name="sunny" size={26} color={colors.accentStrong} />
-              </View>
-              <Text style={styles.authTitle}>苦旅</Text>
-              <Text style={styles.authSub}>把每一天的学习，都变成面向未来的积累</Text>
+          <Pressable
+            style={styles.authPrompt}
+            onPress={() => {
+              haptics.light();
+              setAuthOpen(true);
+            }}
+          >
+            <View style={styles.authPromptIcon}>
+              <Ionicons name="person-circle-outline" size={30} color={colors.primary} />
             </View>
-
-            <View style={styles.segToggle}>
-              <Pressable
-                style={[styles.segToggleItem, authMode === "login" && styles.segToggleActive]}
-                onPress={() => { setAuthMode("login"); setMsg(null); }}
-              >
-                <Text style={[styles.segToggleText, authMode === "login" && styles.segToggleTextActive]}>登录</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.segToggleItem, authMode === "register" && styles.segToggleActive]}
-                onPress={() => { setAuthMode("register"); setMsg(null); }}
-              >
-                <Text style={[styles.segToggleText, authMode === "register" && styles.segToggleTextActive]}>注册</Text>
-              </Pressable>
+            <View style={styles.authPromptBody}>
+              <Text style={styles.authPromptTitle}>登录 / 注册</Text>
+              <Text style={styles.authPromptSub}>同步学习进度到云端，Web 端与 App 数据保持一致</Text>
             </View>
-
-            <View style={styles.authInputShell}>
-              <Ionicons name="person-outline" size={16} color={colors.textMuted} />
-              <TextInput
-                style={styles.authInput}
-                placeholder="账号"
-                placeholderTextColor={colors.textFaint}
-                value={userInput}
-                onChangeText={setUserInput}
-                autoCapitalize="none"
-              />
-            </View>
-            <View style={styles.authInputShell}>
-              <Ionicons name="lock-closed-outline" size={16} color={colors.textMuted} />
-              <TextInput
-                style={styles.authInput}
-                placeholder="密码"
-                placeholderTextColor={colors.textFaint}
-                value={passInput}
-                onChangeText={setPassInput}
-                secureTextEntry
-              />
-            </View>
-            {authMode === "register" ? (
-              <View style={styles.authInputShell}>
-                <Ionicons name="shield-checkmark-outline" size={16} color={colors.textMuted} />
-                <TextInput
-                  style={styles.authInput}
-                  placeholder="确认密码"
-                  placeholderTextColor={colors.textFaint}
-                  value={confirmPass}
-                  onChangeText={setConfirmPass}
-                  secureTextEntry
-                />
-              </View>
-            ) : null}
-
-            <Pressable style={styles.authBtn} onPress={submitAuth} disabled={busy}>
-              {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.authBtnText}>{authMode === "login" ? "登 录" : "创建账号"}</Text>}
-            </Pressable>
-
-            <Pressable
-              onPress={() => {
-                setAuthMode((mode) => (mode === "login" ? "register" : "login"));
-                setPassInput("");
-                setConfirmPass("");
-                setMsg(null);
-              }}
-            >
-              <Text style={styles.authSwitch}>{authMode === "login" ? "还没有账号？立即注册" : "已有账号？返回登录"}</Text>
-            </Pressable>
-          </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
+          </Pressable>
         )}
 
         {token ? (
@@ -379,6 +287,8 @@ export default function SettingsScreen() {
         <Text style={styles.about}>Expo + React Native · 路线图内容来自《新疆ICT学习规划优化方案》</Text>
         <Text style={styles.about}>支持登录后一键同步云端，Web 与移动端数据保持一致。</Text>
       </Card>
+
+      <AuthSheet visible={authOpen} onClose={() => setAuthOpen(false)} onAuthed={handleAuthed} />
     </ScrollView>
   );
 }
@@ -403,50 +313,37 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text,
   },
-  authBox: { gap: 12 },
-  authBrand: { alignItems: "center", gap: 6, paddingVertical: 8 },
-  authLogo: {
-    width: 56,
-    height: 56,
-    borderRadius: 20,
+  authPrompt: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: colors.surfaceStrong,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  authPromptIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.accentSoft,
+    backgroundColor: colors.primarySoft,
   },
-  authTitle: { fontSize: 22, fontWeight: "900", color: colors.text },
-  authSub: { fontSize: 12, color: colors.textMuted, textAlign: "center", lineHeight: 18 },
-  segToggle: {
-    flexDirection: "row",
-    backgroundColor: colors.surfaceStrong,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    borderRadius: 14,
-    padding: 4,
-  },
-  segToggleItem: { flex: 1, borderRadius: 11, paddingVertical: 9, alignItems: "center" },
-  segToggleActive: { backgroundColor: colors.primary },
-  segToggleText: { fontSize: 14, fontWeight: "700", color: colors.textMuted },
-  segToggleTextActive: { color: "#fff", fontWeight: "800" },
-  authInputShell: {
-    flexDirection: "row",
+  authPromptBody: { flex: 1, gap: 2 },
+  authPromptTitle: { fontSize: 15, fontWeight: "800", color: colors.text },
+  authPromptSub: { fontSize: 12, color: colors.textMuted, lineHeight: 17 },
+  avatarChip: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     alignItems: "center",
-    gap: 10,
-    backgroundColor: colors.surfaceStrong,
-    borderRadius: radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    paddingHorizontal: 14,
-    paddingVertical: 4,
+    justifyContent: "center",
+    backgroundColor: colors.primarySoft,
   },
-  authInput: { flex: 1, paddingVertical: 10, fontSize: 14, color: colors.text },
-  authBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: 14,
-    paddingVertical: 13,
-    alignItems: "center",
-  },
-  authBtnText: { color: "#fff", fontSize: 15, fontWeight: "800", letterSpacing: 1 },
-  authSwitch: { fontSize: 12, color: colors.primary, fontWeight: "600", textAlign: "center", paddingVertical: 2 },
+  avatarText: { fontSize: 13, fontWeight: "800", color: colors.primary },
   primaryBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 12, alignItems: "center" },
   secondaryBtn: {
     backgroundColor: colors.surfaceStrong,

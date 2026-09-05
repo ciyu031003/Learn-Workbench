@@ -124,7 +124,7 @@ function OverallRing({ percent }: { percent: number }) {
   const C = 2 * Math.PI * R;
   const p = Math.max(0, Math.min(100, percent));
   return (
-    <div className="relative h-28 w-28 shrink-0">
+        <div className="ring-halo relative h-28 w-28 shrink-0">
       <svg viewBox="0 0 150 150" className="h-full w-full -rotate-90">
         <defs>
           <linearGradient id="hero-ring-grad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -329,7 +329,18 @@ export default function DashboardPage() {
       ) : null}
 
       {/* 问候条 + 整体进度 */}
-      <section className="paper-card relative overflow-hidden">
+      <section
+        className={`paper-card glow-border relative overflow-hidden ${
+          mounted
+            ? new Date().getHours() < 11
+              ? "glow-morning"
+              : new Date().getHours() < 17
+                ? "glow-noon"
+                : "glow-evening"
+            : "glow-noon"
+        }`}
+      >
+        <div className="ambient-glow" aria-hidden="true" />
         <div className="flex flex-col gap-5 p-5 sm:p-6 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(220px,260px)_minmax(160px,200px)] lg:items-center lg:gap-7 lg:p-7">
           <div className="min-w-0">
             <p className="page-subtitle flex items-center gap-2 text-xs">
@@ -369,7 +380,7 @@ export default function DashboardPage() {
       <section aria-label="快捷开始">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Link href="/tasks?autofocus=study&minutes=25" className="group">
-            <Card className="paper-hover press-scale h-full">
+            <Card className="hover-glow-primary paper-hover press-scale h-full">
               <CardContent className="flex items-center gap-3 p-4">
                 <span className="icon-chip h-10 w-10 shrink-0">
                   <BookOpen className="size-5 text-primary" />
@@ -383,7 +394,7 @@ export default function DashboardPage() {
             </Card>
           </Link>
           <Link href="/tasks?autofocus=exercise&minutes=30" className="group">
-            <Card className="paper-hover press-scale h-full">
+            <Card className="hover-glow-accent paper-hover press-scale h-full">
               <CardContent className="flex items-center gap-3 p-4">
                 <span className="icon-chip h-10 w-10 shrink-0">
                   <Dumbbell className="size-5 text-accent" />
@@ -485,7 +496,7 @@ export default function DashboardPage() {
           title="当前状态"
           action={
             <div className="flex items-center gap-1.5">
-              <Button onClick={checkin} variant="ghost" size="sm" className="press-scale">
+              <Button onClick={checkin} variant="ghost" size="sm" className="cta-breathe press-scale">
                 <Flame className="size-4 text-accent-strong" /> 今日打卡
               </Button>
             </div>
