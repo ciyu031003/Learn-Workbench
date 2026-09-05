@@ -459,6 +459,15 @@ export function sportItemByKey(key: string): SportItem | undefined {
   return SPORT_CATALOG.find((s) => s.key === key);
 }
 
+/**
+ * 卡路里估算（MET 模型）：kcal = MET × 体重kg × 时长小时。
+ * met 取自运动注册表（sport_items.met）；customMet 用于无注册表匹配时的按大类兜底。
+ */
+export function sportCalories(met: number, weightKg: number, durationSeconds: number): number {
+  if (!(met > 0) || !(weightKg > 0) || !(durationSeconds > 0)) return 0;
+  return Math.round((met * weightKg * (durationSeconds / 3600)) * 10) / 10;
+}
+
 /** 运动大类的推荐兜底项目（老记录/自定义时展示用） */
 export const sportTypeFallbackItem: Record<ExerciseType, SportItem> = {
   BALL: { key: "ball-other", name: "球类运动", type: "BALL", met: 5.0, defaultMinutes: 30, featured: false, sort: 99 },

@@ -19,17 +19,24 @@ beforeEach(() => {
 });
 
 describe("GET /api/wellbeing/exercise?days=N", () => {
-  it("returns multi-day logs window", async () => {
+  it("returns multi-day logs window + byType weekly aggregation", async () => {
     userScopeMock.mockResolvedValue({ uid: "u-1", anonId: null });
     queryMock.mockResolvedValueOnce({ rows: [{ id: 1, type: "BALL", typeLabel: "篮球", durationSeconds: 1800, source: "MANUAL", startedAt: "2026-09-05T10:00:00Z" }] } as never);
+    queryMock.mockResolvedValueOnce({ rows: [{ type: "BALL", seconds: 5400 }, { type: "AEROBIC", seconds: 1200 }] } as never);
     const res = await GET(new Request("https://x.cn/api/wellbeing/exercise?days=14"));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.logs).toHaveLength(1);
     expect(body.logs[0].typeLabel).toBe("篮球");
-    // 第三参为天数
+    expect(body.byType).toEqual([
+      { type: "BALL", minutes: 90 },
+      { type: "AEROBIC", minutes: 20 },
+    ]);
+    // 第三参为天数（两条查询同参）
     const args = queryMock.mock.calls[0];
     expect(args[1]).toEqual(["u-1", expect.any(String), 14]);
+    expect(queryMock.mock.calls[1][1]).toEqual(["u-1", expect.any(String), 14]);
+    expect(String(queryMock.mock.calls[1][0])).toContain("GROUP BY type");
   });
 });
 

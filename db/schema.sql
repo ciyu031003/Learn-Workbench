@@ -898,3 +898,15 @@ CREATE TABLE sport_items (
   sort            int NOT NULL DEFAULT 100,
   enabled         boolean NOT NULL DEFAULT true
 );
+
+-- 来自迁移 031_user_settings.sql
+CREATE TABLE IF NOT EXISTS user_settings (
+  id         bigserial PRIMARY KEY,
+  user_id    uuid REFERENCES users(id) ON DELETE CASCADE,
+  anon_id    text,
+  weight_kg  numeric NOT NULL DEFAULT 60 CHECK (weight_kg BETWEEN 20 AND 300),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_user_settings_user ON user_settings(user_id) WHERE user_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_user_settings_anon ON user_settings(anon_id) WHERE user_id IS NULL AND anon_id IS NOT NULL;

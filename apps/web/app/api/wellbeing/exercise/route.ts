@@ -26,7 +26,26 @@ export async function GET(req: Request) {
        ORDER BY started_at DESC LIMIT 60`,
       [...w.params, daysParam]
     );
-    return NextResponse.json({ date, logs: recent.rows, totalMinutes: 0, totalSeconds: 0, targetMinutes: 0 });
+    // 按大类聚合窗口内分钟数（不受 LIMIT 60 截断，供周统计图）
+    const byType = await pgPool.query(
+      `SELECT type, COALESCE(SUM(duration_seconds), 0) AS seconds
+       FROM exercise_logs
+       WHERE user_id IS NOT DISTINCT FROM $1${w.sql} AND deleted_at IS NULL
+         AND started_at >= ($2::date - ($3::int - 1)) AND started_at < ($2::date + 1)
+       GROUP BY type`,
+      [...w.params, daysParam]
+    );
+    return NextResponse.json({
+      date,
+      logs: recent.rows,
+      byType: byType.rows.map((r: { type: string; seconds: string | number }) => ({
+        type: r.type,
+        minutes: Math.round(Number(r.seconds) / 60),
+      })),
+      totalMinutes: 0,
+      totalSeconds: 0,
+      targetMinutes: 0,
+    });
   }
 
   const { rows } = await pgPool.query(

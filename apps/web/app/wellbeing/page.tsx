@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Droplets,
   Zap,
@@ -29,9 +29,10 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { ExerciseSheet } from "@/components/sport/exercise-sheet";
-import type { SportItem } from "@learn-workbench/shared";
+import { ExerciseSheet, useSportCatalog } from "@/components/sport/exercise-sheet";
 import {
+  sportCalories,
+  sportTypeFallbackItem,
   energyLevelLabels,
   energyLevelColors,
   reminderTypeLabels,
@@ -39,6 +40,7 @@ import {
   exerciseTypeOptions,
   exerciseTypeLabels,
   type ExerciseType,
+  type SportItem,
   type WellbeingToday,
   type WellbeingReminder,
   type DailyPlanItem,
@@ -128,6 +130,41 @@ export default function WellbeingPage() {
   const [rmTitle, setRmTitle] = useState("");
   const [rmInterval, setRmInterval] = useState("90");
 
+  // ---- 卡路里估算：体重设置（默认 60kg，MET × 体重 × 小时） ----
+  const [weightKg, setWeightKg] = useState(60);
+  const [editingWeight, setEditingWeight] = useState(false);
+  const [weightInput, setWeightInput] = useState("60");
+  // ---- 每类运动周统计（近 7 天按大类聚合分钟数） ----
+  const [weekByType, setWeekByType] = useState<{ type: ExerciseType; minutes: number }[]>([]);
+  const catalog = useSportCatalog();
+
+  const loadProfile = useCallback(async () => {
+    try {
+      const r = await fetch("/api/wellbeing/profile");
+      if (r.ok) {
+        const d = await r.json();
+        setWeightKg(Number(d.weightKg) || 60);
+      }
+    } catch {
+      // 读不到就保持默认 60kg
+    }
+  }, []);
+
+  const saveWeight = async () => {
+    const v = Number(weightInput);
+    if (!Number.isFinite(v) || v < 20 || v > 300) return;
+    const r = await fetch("/api/wellbeing/profile", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ weightKg: v }),
+    });
+    if (r.ok) {
+      const d = await r.json();
+      setWeightKg(Number(d.weightKg) || 60);
+    }
+    setEditingWeight(false);
+  };
+
   // ---- 运动模块：类型 / 时长 / 倒计时 / 目标 ----
   const [exerciseType, setExerciseType] = useState<ExerciseType>("BALL");
   const [exLabel, setExLabel] = useState("");
@@ -157,12 +194,26 @@ export default function WellbeingPage() {
     if (r.ok) setReminders((await r.json()).reminders ?? []);
   }, []);
 
+  const loadWeekly = useCallback(async () => {
+    try {
+      const r = await fetch("/api/wellbeing/exercise?days=7");
+      if (r.ok) {
+        const d = await r.json();
+        setWeekByType(Array.isArray(d.byType) ? d.byType : []);
+      }
+    } catch {
+      // 周统计加载失败不影响主流程
+    }
+  }, []);
+
   useEffect(() => {
     // 数据加载：异步拉取外部系统后 setState
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadToday();
     loadReminders();
-  }, [loadToday, loadReminders]);
+    loadProfile();
+    loadWeekly();
+  }, [loadToday, loadReminders, loadProfile, loadWeekly]);
 
   const logExercise = useCallback(
     async (durationSeconds: number, source = "MANUAL") => {
@@ -173,8 +224,9 @@ export default function WellbeingPage() {
         body: JSON.stringify({ type: exerciseType, typeLabel: exLabel.trim() || null, durationSeconds, source }),
       });
       loadToday();
+      loadWeekly();
     },
-    [exerciseType, exLabel, loadToday]
+    [exerciseType, exLabel, loadToday, loadWeekly]
   );
 
   const startTimer = () => {
@@ -312,6 +364,32 @@ export default function WellbeingPage() {
     timerLeft > 0
       ? ("0" + Math.floor(timerLeft / 60)).slice(-2) + ":" + ("0" + (timerLeft % 60)).slice(-2)
       : "00:00";
+
+  // 今日卡路里估算：按 typeLabel 匹配注册表 MET，匹配不到按大类兜底
+  const todayKcal = useMemo(() => {
+    const logs = exerciseToday?.logs ?? [];
+    return Math.round(
+      logs.reduce((sum, l) => {
+        const item = catalog.find((s) => s.name === l.typeLabel) ?? sportTypeFallbackItem[l.type];
+        return sum + sportCalories(item?.met ?? 4, weightKg, l.durationSeconds);
+      }, 0)
+    );
+  }, [exerciseToday?.logs, catalog, weightKg]);
+
+  // 本周统计：按大类分钟数（byType）+ 兜底 MET 估算的周卡路里
+  const weekRows = useMemo(
+    () =>
+      exerciseTypeOptions.map((o) => ({
+        ...o,
+        minutes: weekByType.find((b) => b.type === o.type)?.minutes ?? 0,
+      })),
+    [weekByType]
+  );
+  const weekTotalMinutes = weekRows.reduce((a, r) => a + r.minutes, 0);
+  const weekKcal = Math.round(
+    weekRows.reduce((a, r) => a + sportCalories(sportTypeFallbackItem[r.type].met, weightKg, r.minutes * 60), 0)
+  );
+  const weekMax = Math.max(1, ...weekRows.map((r) => r.minutes));
 
   return (
     <div className="page-enter flex flex-col gap-6">
@@ -542,6 +620,12 @@ export default function WellbeingPage() {
                     }}
                   />
                 </div>
+                <div className="mt-1.5 flex items-center justify-between text-[11px] text-muted-foreground">
+                  <span>
+                    今日消耗 ≈ <span className="font-semibold text-foreground">{todayKcal}</span> kcal
+                  </span>
+                  <span>按体重 {weightKg}kg · MET 估算</span>
+                </div>
               </div>
             </div>
 
@@ -568,6 +652,13 @@ export default function WellbeingPage() {
                     </button>
                   );
                 })}
+                <button
+                  type="button"
+                  onClick={() => setSportPickerOpen(true)}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-full border border-dashed border-primary/40 px-3 text-xs font-medium text-primary-strong transition-all hover:bg-primary/10"
+                >
+                  <Plus className="size-3.5" /> 选具体项目
+                </button>
               </div>
               <Input
                 value={exLabel}
@@ -641,8 +732,8 @@ export default function WellbeingPage() {
               )}
             </div>
 
-            {/* 每日目标 */}
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            {/* 每日目标 + 体重（卡路里估算用） */}
+            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               {editingExTarget ? (
                 <div className="flex items-center gap-1.5">
                   <Input
@@ -672,12 +763,90 @@ export default function WellbeingPage() {
                   </button>
                 </>
               )}
+              <span className="text-border">|</span>
+              {editingWeight ? (
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    type="number"
+                    min={20}
+                    max={300}
+                    step={0.5}
+                    value={weightInput}
+                    onChange={(e) => setWeightInput(e.target.value)}
+                    className="h-8 w-24"
+                    aria-label="体重"
+                  />
+                  <span className="text-muted-foreground">kg</span>
+                  <Button size="sm" onClick={saveWeight}>保存</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setEditingWeight(false)}>取消</Button>
+                </div>
+              ) : (
+                <>
+                  <span>
+                    体重 <span className="font-semibold text-foreground">{weightKg}</span> kg
+                  </span>
+                  <button
+                    onClick={() => {
+                      setWeightInput(String(weightKg));
+                      setEditingWeight(true);
+                    }}
+                    aria-label="修改体重"
+                    className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-muted/75 hover:text-foreground"
+                  >
+                    <Pencil className="size-3.5" />
+                  </button>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* 本周运动分布（近 7 天按大类聚合） */}
+        <Card>
+          <CardHeader className="flex-row items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Activity className="size-5 text-accent" />
+              <CardTitle>本周运动分布</CardTitle>
+            </div>
+            <span className="rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs text-muted-foreground">
+              共 <span className="font-semibold text-foreground">{weekTotalMinutes}</span> 分钟 · ≈{weekKcal} kcal
+            </span>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2.5">
+            {weekTotalMinutes === 0 ? (
+              <p className="py-6 text-center text-xs text-muted-foreground">
+                本周还没有运动记录，去「今日运动」记一笔吧
+              </p>
+            ) : (
+              weekRows.map((row) => {
+                const Icon = exerciseTypeIcons[row.type] ?? Activity;
+                return (
+                  <div key={row.type} className="flex items-center gap-2.5">
+                    <span className="flex w-20 shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+                      <Icon className="size-3.5 shrink-0 text-success" />
+                      {row.label}
+                    </span>
+                    <div className="h-4 flex-1 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-success/80 to-success transition-all"
+                        style={{ width: row.minutes > 0 ? `${Math.max(2, Math.round((row.minutes / weekMax) * 100))}%` : "0%" }}
+                      />
+                    </div>
+                    <span className="w-14 shrink-0 text-right text-xs font-semibold tabular-nums text-foreground">
+                      {row.minutes}′
+                    </span>
+                  </div>
+                );
+              })
+            )}
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              近 7 天按运动大类统计；周卡路里按各类兜底 MET × 体重估算。
+            </p>
+          </CardContent>
+        </Card>
+
         {/* 今日建议（Today Engine） */}
         <Card>
           <CardHeader className="flex-row items-center gap-2">
