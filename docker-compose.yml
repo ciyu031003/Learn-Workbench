@@ -70,15 +70,14 @@ services:
     ports:
       - "${APP_PORT:-3001}:3001"
     volumes:
-      # 每日 Bing 壁纸持久化（爬虫写入 + 页面读取）
-      - bing:/app/assets/backgrounds/bing
+      # 每日 Bing 壁纸持久化：已迁移至 COS 存储桶（/data = cosfs 挂载，2026-09-06）
+      - /data/learn-workbench/bing:/app/assets/backgrounds/bing
       # 信息源注册表 + 登录态 Cookie（宿主机直接改，无需重建镜像）
       - ./config/job-hosts:/app/config/job-hosts:ro
     networks: [lwb]
 
 volumes:
-  pgdata:   # PostgreSQL 数据
-  bing:     # Bing 壁纸
+  pgdata:   # PostgreSQL 数据（留在系统盘，未迁移）
 
 networks:
   lwb:
