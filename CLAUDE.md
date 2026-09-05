@@ -1,5 +1,7 @@
 # CLAUDE.md — Learn-Workbench
 
+> **新会话先读** [`docs/改动记录与任务看板.md`](docs/改动记录与任务看板.md)——近期改动明细、待办任务看板、踩坑点清单（部署链路/CRLF/迁移/图标管线等全在里面），持续更新。
+
 ## Project-wide rules
 - Monorepo: pnpm workspace + Turborepo. Commands run from repo root: `pnpm -F web dev` (web), `pnpm mobile` (Expo).
 - Never edit compiled output (`.next`, `dist`, `/build`). Never commit `.env`, `deploy-credentials.txt`, `config/job-hosts/storageState.json`.
