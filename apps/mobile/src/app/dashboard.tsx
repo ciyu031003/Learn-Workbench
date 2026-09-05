@@ -22,22 +22,11 @@ import { BottomSheet } from "@/components/bottom-sheet";
 import { Celebration } from "@/components/celebration";
 import { PressableScale } from "@/components/pressable-scale";
 import { colors, radius, shadows } from "@/theme/tokens";
-import { computeFocusStats, FOCUS_MOTIVATIONS } from "@/lib/focus-stats";
-
-const DAILY_QUOTES = [
-  "把今天过成你喜欢的样子，明天才会长得像它。",
-  "每天前进 1%，一年后你就是 37.8 倍的自己。",
-  "把时间花在值得的地方，时间会替你说话。",
-  "积累不是一蹴而就，而是日拱一卒的坚持。",
-];
-
-function dayOfYear(date: Date) {
-  const start = new Date(date.getFullYear(), 0, 0);
-  return Math.floor((date.getTime() - start.getTime()) / 86400000);
-}
+import { computeFocusStats } from "@/lib/focus-stats";
+import { getDailyQuote } from "@/lib/quotes";
 
 function useDailyQuote() {
-  return useMemo(() => DAILY_QUOTES[dayOfYear(new Date()) % DAILY_QUOTES.length], []);
+  return useMemo(() => getDailyQuote(), []);
 }
 
 function FocusCard({ onStart }: { onStart: () => void }) {
@@ -340,7 +329,7 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   scroll: { flex: 1 },
-  content: { padding: 16, paddingBottom: 40, gap: 14 },
+  content: { padding: 16, paddingBottom: 118, gap: 14 },
   hero: { paddingBottom: 6, position: "relative" },
   sunGlow: {
     position: "absolute",

@@ -8,13 +8,17 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as ScreenOrientation from "expo-screen-orientation";
 import { getApiUrl } from "@/config";
 import { computeFocusStats, FOCUS_MOTIVATIONS } from "@/lib/focus-stats";
 import { RingProgress } from "@/components/ring-progress";
+import { getDailyQuote } from "@/lib/quotes";
 import type { FocusSession } from "@learn-workbench/shared";
 
 const PRESETS = [15, 25, 45];
@@ -59,6 +63,10 @@ export function FocusTimer({
   onClose: () => void;
   onRecorded: (taskId: number | null, seconds: number) => void;
 }) {
+  const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
+  const isLandscape = width > height;
+
   const [mode, setMode] = useState<BgMode>("gallery");
   const [color, setColor] = useState("#0f172a");
   const [url, setUrl] = useState<string | null>(null);
@@ -72,8 +80,8 @@ export function FocusTimer({
   const [done, setDone] = useState(false);
   const [started, setStarted] = useState(false);
   const [recording, setRecording] = useState(false);
-// eslint-disable-next-line react-hooks/purity -- useState 初始随机语录（既有模式）
-  const [quote, setQuote] = useState(FOCUS_MOTIVATIONS[Math.floor(Math.random() * FOCUS_MOTIVATIONS.length)]);
+  // eslint-disable-next-line react-hooks/purity -- useState 初始每日一言（既有模式）
+  const [quote, setQuote] = useState(getDailyQuote());
   const [editingQuote, setEditingQuote] = useState(false);
   const [quoteInput, setQuoteInput] = useState("");
   const [showBg, setShowBg] = useState(false);
@@ -114,6 +122,24 @@ export function FocusTimer({
 
   // 打开：自动开始 + 加载每日 Bing
   useEffect(() => {
+    if (open) {
+      ScreenOrientation.unlockAsync().catch(() => {
+        // 忽略某些设备不支持旋转
+      });
+      // 未自定义语录时，回到“每日一言”
+      AsyncStorage.getItem(K_QUOTE)
+        .then((saved) => {
+          if (!saved) setQuote(getDailyQuote());
+        })
+        .catch(() => {
+          // 忽略
+        });
+    } else {
+      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {
+        // 忽略
+      });
+    }
+
     if (!open) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 打开弹层时重置状态（既有模式）
     setDone(false);
@@ -232,7 +258,7 @@ export function FocusTimer({
       setQuote(v);
       persist(K_QUOTE, v);
     } else {
-      setQuote(FOCUS_MOTIVATIONS[Math.floor(Math.random() * FOCUS_MOTIVATIONS.length)]);
+      setQuote(getDailyQuote());
       persist(K_QUOTE, "");
     }
     setEditingQuote(false);
@@ -274,7 +300,7 @@ export function FocusTimer({
         <View style={[ABS_FILL, styles.glow]} />
 
         {/* 顶部：背景切换 + 关闭 */}
-        <View style={styles.topBar}>
+        <View style={[styles.topBar, { paddingTop: insets.top + 12 }]}>
           <Pressable style={styles.topBtn} onPress={() => setShowBg((v) => !v)}>
             <View style={styles.topBtnInner}>
               <Ionicons name="color-palette-outline" size={16} color="rgba(255,255,255,0.9)" />
@@ -366,6 +392,33 @@ export function FocusTimer({
               </View>
             </View>
           ) : started ? (
+            isLandscape ? (
+              <View style={styles.landscapeWrap}>
+                <View style={styles.landscapeTop}>
+                  <Text style={styles.taskName} numberOfLines={1}>{task?.title ?? "自由专注"}</Text>
+                  <Text style={styles.taskStatus}>{running ? "● 专注中" : "❚❚ 已暂停"}</Text>
+                </View>
+                <Pressable style={styles.landscapeClockWrap} onPress={() => (running ? pause() : resume())}>
+                  <Text style={styles.landscapeClock}>{fmt(remaining)}</Text>
+                  <Text style={styles.landscapeClockHint}>点击计时 · 暂停 / 继续</Text>
+                </Pressable>
+                <View style={styles.controls}>
+                  <Pressable style={styles.ctrlBtn} onPress={() => (running ? pause() : resume())}>
+                    <Ionicons name={running ? "pause" : "play"} size={26} color="#fff" />
+                  </Pressable>
+                  <Pressable style={styles.ctrlBtn} onPress={reset}>
+                    <Ionicons name="refresh" size={26} color="#fff" />
+                  </Pressable>
+                  <Pressable style={styles.ctrlBtn} onPress={() => record(elapsed)}>
+                    <Ionicons name="stop" size={26} color="#fff" />
+                  </Pressable>
+                </View>
+                <Pressable style={styles.recordBtn} onPress={() => record(elapsed)}>
+                  <Ionicons name="checkmark-done" size={18} color="#1f1f1f" />
+                  <Text style={styles.recordBtnText}>结束并记录本次专注</Text>
+                </Pressable>
+              </View>
+            ) : (
             <>
               {/* 任务名 + 状态 */}
               <View style={styles.taskWrap}>
@@ -460,6 +513,7 @@ export function FocusTimer({
                 )}
               </View>
             </>
+            )
           ) : (
             <View style={styles.readyWrap}>
               <Text style={styles.taskName} numberOfLines={1}>{task?.title ?? "自由专注"}</Text>
@@ -526,6 +580,11 @@ const styles = StyleSheet.create({
   ringWrap: { alignItems: "center", justifyContent: "center" },
   clockWrap: { position: "absolute", alignItems: "center", justifyContent: "center" },
   clock: { color: "#fff", fontSize: 62, fontWeight: "800", fontVariant: ["tabular-nums"] },
+  landscapeWrap: { alignItems: "center", gap: 14, paddingVertical: 8 },
+  landscapeTop: { alignItems: "center", gap: 3 },
+  landscapeClockWrap: { alignItems: "center", gap: 6, paddingHorizontal: 24, paddingVertical: 6 },
+  landscapeClock: { color: "#fff", fontSize: 64, fontWeight: "800", fontVariant: ["tabular-nums"], letterSpacing: 2 },
+  landscapeClockHint: { color: "rgba(255,255,255,0.65)", fontSize: 12 },
   controls: { flexDirection: "row", gap: 22 },
   ctrlBtn: {
     width: 58,

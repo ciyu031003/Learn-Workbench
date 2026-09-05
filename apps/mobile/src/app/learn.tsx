@@ -319,7 +319,7 @@ export default function LearnScreen() {
 
 const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: "transparent" },
-  content: { paddingHorizontal: 16, paddingBottom: 48, gap: 12 },
+  content: { paddingHorizontal: 16, paddingBottom: 118, gap: 12 },
   hero: { marginBottom: 8 },
   heroTitle: { fontSize: 28, fontWeight: "800", color: colors.text },
   heroSub: { fontSize: 13, color: colors.textMuted, marginTop: 4 },

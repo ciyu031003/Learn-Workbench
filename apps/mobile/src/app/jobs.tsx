@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/immutability, react-hooks/set-state-in-effect */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -25,6 +25,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Card } from "@/components/card";
 import { JobDetailModal } from "@/components/job-detail-modal";
+import { colors, radius } from "@/theme/tokens";
 import {
   fetchJobStats,
   fetchJobs,
@@ -35,7 +36,7 @@ import {
 import { useAppStore } from "@/store/app-store";
 import { formatRelativeTime, jobFreshness, jobSourceLabels, type JobPostingListItem, type JobSource, type JobStats } from "@learn-workbench/shared";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 12;
 const CITY_OPTIONS = ["全部", "上海", "北京", "深圳", "杭州", "成都", "广州", "乌鲁木齐"];
 const CATEGORY_OPTIONS = [
   { id: "", label: "全部" },
@@ -116,7 +117,7 @@ function GearButton({ onPress }: { onPress: () => void }) {
       }}
       style={[styles.gearBtn, animatedStyle]}
     >
-      <Ionicons name="settings-outline" size={20} color="#ffffff" />
+      <Ionicons name="settings-outline" size={20} color={colors.primary} />
     </AnimatedPressable>
   );
 }
@@ -396,7 +397,7 @@ export default function JobsScreen() {
   const [page, setPage] = useState(1);
   const [stats, setStats] = useState<JobStats | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const [paging, setPaging] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -419,14 +420,15 @@ export default function JobsScreen() {
   const [skillDraft, setSkillDraft] = useState("");
 
   const selectedJob = useMemo(() => jobs.find((j) => j.id === selectedId) ?? null, [jobs, selectedId]);
+  const listRef = useRef<FlatList<JobPostingListItem>>(null);
   const hasActiveFilter =
     salaryMin != null || salaryMax != null || education.length > 0 || experience.length > 0 || publishedWithin !== "" || skillsFilter.length > 0;
 
   const loadJobs = useCallback(
-    async (pageNumber: number, mode: "initial" | "refresh" | "more") => {
+    async (pageNumber: number, mode: "initial" | "refresh" | "paging") => {
       if (mode === "initial") setInitialLoading(true);
       if (mode === "refresh") setRefreshing(true);
-      if (mode === "more") setLoadingMore(true);
+      if (mode === "paging") setPaging(true);
       try {
         const data: JobListResult = await fetchJobs({
           q: query,
@@ -442,30 +444,16 @@ export default function JobsScreen() {
           publishedWithin: publishedWithin || undefined,
           skills: skillsFilter.length > 0 ? skillsFilter : undefined,
         });
-        if (mode === "more") {
-          setJobs((prev) => {
-            const map = new Map(prev.map((j) => [j.id, j]));
-            data.jobs.forEach((j) => map.set(j.id, j));
-            return Array.from(map.values());
-          });
-        } else {
-          setJobs(data.jobs);
-        }
+        setJobs(data.jobs);
         setTotal(data.total);
         setPage(data.page);
         setError(null);
       } catch (e) {
-        if (mode !== "more") {
-          setJobs([]);
-          setError(e instanceof Error ? e.message : "职位列表加载失败");
-        } else {
-       
-          setError(e instanceof Error ? e.message : "加载更多失败");
-        }
+        setError(e instanceof Error ? e.message : "职位列表加载失败");
       } finally {
         if (mode === "initial") setInitialLoading(false);
         if (mode === "refresh") setRefreshing(false);
-        if (mode === "more") setLoadingMore(false);
+        if (mode === "paging") setPaging(false);
       }
     },
     [query, city, category, sort, salaryMin, salaryMax, education, experience, publishedWithin, skillsFilter]
@@ -493,10 +481,12 @@ export default function JobsScreen() {
     loadJobs(1, "refresh");
   }, [loadJobs]);
 
-  const loadMore = () => {
-    if (initialLoading || loadingMore || refreshing) return;
-    if (jobs.length >= total) return;
-    loadJobs(page + 1, "more");
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  const goToPage = (next: number) => {
+    if (next < 1 || next > totalPages || next === page || paging || initialLoading || refreshing) return;
+    loadJobs(next, "paging");
+    listRef.current?.scrollToOffset({ offset: 0, animated: true });
   };
 
   const toggleFavorite = async (job: JobPostingListItem) => {
@@ -665,9 +655,43 @@ export default function JobsScreen() {
     </View>
   );
 
+  const renderPager = () => {
+    if (initialLoading || jobs.length === 0) return null;
+    return (
+      <View style={styles.pager}>
+        <Pressable
+          style={[styles.pagerBtn, (page <= 1 || paging) && styles.pagerBtnDisabled]}
+          disabled={page <= 1 || paging}
+          onPress={() => goToPage(page - 1)}
+        >
+          <Ionicons name="chevron-back" size={14} color={page <= 1 ? colors.textFaint : colors.primary} />
+          <Text style={[styles.pagerBtnText, page <= 1 && styles.pagerBtnTextDisabled]}>上一页</Text>
+        </Pressable>
+
+        <View style={styles.pagerCenter}>
+          {paging ? (
+            <ActivityIndicator color={colors.primary} size="small" />
+          ) : (
+            <Text style={styles.pagerInfo}>第 {page} / {totalPages} 页</Text>
+          )}
+        </View>
+
+        <Pressable
+          style={[styles.pagerBtn, (page >= totalPages || paging) && styles.pagerBtnDisabled]}
+          disabled={page >= totalPages || paging}
+          onPress={() => goToPage(page + 1)}
+        >
+          <Text style={[styles.pagerBtnText, page >= totalPages && styles.pagerBtnTextDisabled]}>下一页</Text>
+          <Ionicons name="chevron-forward" size={14} color={page >= totalPages ? colors.textFaint : colors.primary} />
+        </Pressable>
+      </View>
+    );
+  };
+
   return (
     <View style={styles.root}>
       <FlatList
+        ref={listRef}
         data={jobs}
         keyExtractor={(item) => String(item.id)}
         renderItem={({ item, index }) => (
@@ -676,16 +700,7 @@ export default function JobsScreen() {
         contentContainerStyle={styles.content}
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={renderEmpty}
-        ListFooterComponent={
-          loadingMore ? (
-            <View style={styles.footerLoading}>
-              <ActivityIndicator color="#10b981" />
-              <Text style={styles.emptyText}>正在加载更多...</Text>
-            </View>
-          ) : null
-        }
-        onEndReached={loadMore}
-        onEndReachedThreshold={0.35}
+        ListFooterComponent={renderPager}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -730,7 +745,7 @@ export default function JobsScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  content: { padding: 16, paddingBottom: 28, gap: 12 },
+  content: { padding: 16, paddingBottom: 118, gap: 12 },
   hero: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -739,27 +754,27 @@ const styles = StyleSheet.create({
     paddingBottom: 6,
   },
   heroTextWrap: { flex: 1, gap: 4 },
-  heroTitle: { color: "#34d399", fontSize: 30, fontWeight: "900", letterSpacing: 1 },
-  heroSub: { color: "rgba(255,255,255,0.88)", fontSize: 13, lineHeight: 19 },
+  heroTitle: { color: colors.accent, fontSize: 30, fontWeight: "900", letterSpacing: 1 },
+  heroSub: { color: colors.textMuted, fontSize: 13, lineHeight: 19 },
   gearBtn: {
     width: 42,
     height: 42,
     borderRadius: 21,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.18)",
+    backgroundColor: colors.surfaceStrong,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255,255,255,0.42)",
+    borderColor: colors.border,
     shadowColor: "#000",
-    shadowOpacity: 0.16,
+    shadowOpacity: 0.10,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 5 },
-    elevation: 3,
+    elevation: 2,
   },
   statsRow: { flexDirection: "row", gap: 8 },
   statCard: { flex: 1, padding: 12, gap: 4 },
-  statValue: { fontSize: 20, fontWeight: "900", color: "#18181b" },
-  statLabel: { fontSize: 11, color: "#71717a", fontWeight: "700" },
+  statValue: { fontSize: 20, fontWeight: "900", color: colors.text },
+  statLabel: { fontSize: 11, color: colors.textMuted, fontWeight: "700" },
   searchRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   searchBar: {
     flex: 1,
@@ -769,57 +784,57 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    backgroundColor: "rgba(255,255,255,0.80)",
+    backgroundColor: colors.surfaceStrong,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255,255,255,0.70)",
+    borderColor: colors.border,
     shadowColor: "#000",
     shadowOpacity: 0.06,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
   },
-  searchInput: { flex: 1, fontSize: 14, color: "#18181b", padding: 0 },
+  searchInput: { flex: 1, fontSize: 14, color: colors.text, padding: 0 },
   filterBtn: {
     width: 46,
     height: 46,
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(16,185,129,0.14)",
+    backgroundColor: colors.successSoft,
     borderWidth: 1,
-    borderColor: "rgba(16,185,129,0.45)",
+    borderColor: colors.success,
   },
-  filterBtnActive: { backgroundColor: "#10b981" },
+  filterBtnActive: { backgroundColor: colors.success },
   catRow: { flexDirection: "row", gap: 8, paddingVertical: 4 },
   catChip: { borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6 },
-  catChipActive: { backgroundColor: "#10b981" },
-  catChipIdle: { backgroundColor: "rgba(255,255,255,0.22)", borderWidth: 1, borderColor: "rgba(255,255,255,0.30)" },
+  catChipActive: { backgroundColor: colors.success },
+  catChipIdle: { backgroundColor: colors.surfaceStrong, borderWidth: 1, borderColor: colors.border },
   catChipTextActive: { color: "#ffffff", fontSize: 13, fontWeight: "800" },
-  catChipTextIdle: { color: "#ffffff", fontSize: 13, fontWeight: "600" },
+  catChipTextIdle: { color: colors.textMuted, fontSize: 13, fontWeight: "600" },
   chipsRow: { flexDirection: "row", gap: 8, paddingVertical: 2 },
   chip: { borderRadius: 999, paddingHorizontal: 13, paddingVertical: 7 },
-  chipActive: { backgroundColor: "#10b981" },
-  chipIdle: { backgroundColor: "rgba(255,255,255,0.22)", borderWidth: 1, borderColor: "rgba(255,255,255,0.30)" },
+  chipActive: { backgroundColor: colors.primary },
+  chipIdle: { backgroundColor: colors.surfaceStrong, borderWidth: 1, borderColor: colors.border },
   chipTextActive: { color: "#ffffff", fontSize: 12.5, fontWeight: "700" },
-  chipTextIdle: { color: "#ffffff", fontSize: 12.5, fontWeight: "600" },
+  chipTextIdle: { color: colors.textMuted, fontSize: 12.5, fontWeight: "600" },
   sortRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  sortLabel: { color: "rgba(255,255,255,0.85)", fontSize: 13, fontWeight: "700" },
-  seg: { flexDirection: "row", backgroundColor: "rgba(255,255,255,0.16)", borderRadius: 12, padding: 3 },
+  sortLabel: { color: colors.textMuted, fontSize: 13, fontWeight: "700" },
+  seg: { flexDirection: "row", backgroundColor: colors.surfaceStrong, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 3 },
   segItem: { borderRadius: 10, paddingHorizontal: 16, paddingVertical: 7 },
-  segItemActive: { backgroundColor: "#10b981" },
-  segText: { color: "rgba(255,255,255,0.78)", fontSize: 12.5, fontWeight: "700" },
+  segItemActive: { backgroundColor: colors.primary },
+  segText: { color: colors.textMuted, fontSize: 12.5, fontWeight: "700" },
   segTextActive: { color: "#ffffff", fontSize: 12.5, fontWeight: "800" },
   jobCard: {
-    backgroundColor: "rgba(255,255,255,0.82)",
+    backgroundColor: colors.surfaceStrong,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255,255,255,0.72)",
+    borderColor: colors.border,
     borderRadius: 20,
     padding: 15,
     shadowColor: "#000",
-    shadowOpacity: 0.10,
+    shadowOpacity: 0.08,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 6 },
-    elevation: 3,
+    elevation: 2,
   },
   jobTop: { flexDirection: "row", alignItems: "flex-start", gap: 11 },
   logo: {
@@ -837,7 +852,7 @@ const styles = StyleSheet.create({
   logoText: { color: "#ffffff", fontSize: 17, fontWeight: "800" },
   jobMain: { flex: 1, minWidth: 0, gap: 2 },
   titleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  jobTitle: { flex: 1, fontSize: 15.5, fontWeight: "800", color: "#18181b" },
+  jobTitle: { flex: 1, fontSize: 15.5, fontWeight: "800", color: colors.text },
   announceBadge: {
     fontSize: 10,
     fontWeight: "800",
@@ -862,18 +877,18 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     overflow: "hidden",
   },
-  salary: { fontSize: 16, fontWeight: "900", color: "#f97316", letterSpacing: 0.2 },
-  jobMeta: { fontSize: 12, color: "#71717a", marginTop: 1 },
+  salary: { fontSize: 16, fontWeight: "900", color: colors.accentStrong, letterSpacing: 0.2 },
+  jobMeta: { fontSize: 12, color: colors.textMuted, marginTop: 1 },
   tags: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 10 },
   tag: {
-    backgroundColor: "rgba(16,185,129,0.13)",
-    borderWidth: 1,
-    borderColor: "rgba(16,185,129,0.30)",
+    backgroundColor: colors.successSoft,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     borderRadius: 9,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  tagText: { fontSize: 11, fontWeight: "700", color: "#047857" },
+  tagText: { fontSize: 11, fontWeight: "700", color: colors.success },
   jobFoot: {
     flexDirection: "row",
     alignItems: "center",
@@ -881,19 +896,15 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 11,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(24,24,27,0.08)",
+    borderTopColor: colors.border,
   },
   sourceBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    backgroundColor: "rgba(24,24,27,0.05)",
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
   },
   sourceDot: { width: 6, height: 6, borderRadius: 3 },
-  sourceText: { fontSize: 11, fontWeight: "700", color: "#52525b" },
+  sourceText: { fontSize: 11, fontWeight: "700", color: colors.textMuted },
   freshBadge: {
     borderRadius: 999,
     paddingHorizontal: 7,
@@ -912,10 +923,10 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     marginLeft: 4,
   },
-  time: { flex: 1, marginLeft: "auto", fontSize: 11, color: "#9ca3af", textAlign: "right" },
+  time: { flex: 1, marginLeft: "auto", fontSize: 11, color: colors.textFaint, textAlign: "right" },
   emptyBox: { alignItems: "center", gap: 8, paddingVertical: 28, paddingHorizontal: 20 },
-  emptyTitle: { fontSize: 16, fontWeight: "800", color: "#ffffff" },
-  emptyText: { fontSize: 13, color: "rgba(255,255,255,0.78)", textAlign: "center", lineHeight: 19 },
+  emptyTitle: { fontSize: 16, fontWeight: "800", color: colors.text },
+  emptyText: { fontSize: 13, color: colors.textMuted, textAlign: "center", lineHeight: 19 },
   emptyPrimaryBtn: {
     marginTop: 6,
     backgroundColor: "#10b981",
@@ -924,7 +935,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   emptyPrimaryText: { color: "#ffffff", fontSize: 14, fontWeight: "800" },
-  footerLoading: { alignItems: "center", gap: 6, paddingVertical: 18 },
+  pager: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 4,
+    paddingVertical: 6,
+  },
+  pagerBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    minWidth: 92,
+    justifyContent: "center",
+    borderRadius: radius.pill,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    backgroundColor: colors.surfaceStrong,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  pagerBtnDisabled: { opacity: 0.45 },
+  pagerBtnText: { fontSize: 13, fontWeight: "700", color: colors.primary },
+  pagerBtnTextDisabled: { color: colors.textMuted },
+  pagerCenter: { alignItems: "center", justifyContent: "center", minWidth: 96 },
+  pagerInfo: { fontSize: 13, fontWeight: "700", color: colors.textMuted },
   // ---- P1 筛选 Bottom Sheet ----
   sheetWrap: { flex: 1, justifyContent: "flex-end" },
   sheet: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0, padding: 18, gap: 14, maxHeight: "80%" },

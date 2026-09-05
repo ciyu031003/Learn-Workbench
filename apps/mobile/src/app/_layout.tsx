@@ -3,6 +3,7 @@ import { Tabs } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, View, type OpaqueColorValue } from "react-native";
+import * as ScreenOrientation from "expo-screen-orientation";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -72,6 +73,13 @@ export default function RootLayout() {
   // 离线优先：启动后台同步引擎（联网/回前台/登录后自动推送本地变更）
   useEffect(() => startSyncEngine(), []);
 
+  // 默认竖屏锁定；专注页打开时会临时解锁以支持横屏时钟模式
+  useEffect(() => {
+    ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {
+      // 忽略不支持锁定的设备
+    });
+  }, []);
+
   return (
     <DailyBackground>
       <StatusBar style="dark" />
@@ -81,10 +89,22 @@ export default function RootLayout() {
           tabBarActiveTintColor: colors.primary,
           tabBarInactiveTintColor: colors.textMuted,
           tabBarStyle: {
-            backgroundColor: "rgba(255,255,255,0.90)",
-            borderTopColor: colors.border,
-            borderTopWidth: StyleSheet.hairlineWidth,
-            height: 64,
+            position: "absolute",
+            left: 16,
+            right: 16,
+            bottom: 16,
+            height: 66,
+            borderRadius: 22,
+            backgroundColor: "rgba(255,255,255,0.82)",
+            borderTopWidth: 0,
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: "rgba(120,90,45,0.10)",
+            shadowColor: "#B8823F",
+            shadowOpacity: 0.20,
+            shadowRadius: 20,
+            shadowOffset: { width: 0, height: 8 },
+            elevation: 8,
+            overflow: "hidden",
           },
           tabBarItemStyle: { paddingVertical: 4 },
           sceneStyle: { backgroundColor: "transparent" },
@@ -120,6 +140,7 @@ export default function RootLayout() {
         />
 
         {/* 次级页面：不占底部导航 */}
+        <Tabs.Screen name="index" options={{ href: null }} />
         <Tabs.Screen name="career" options={{ href: null }} />
         <Tabs.Screen name="roadmap" options={{ href: null }} />
         <Tabs.Screen name="tasks" options={{ href: null }} />
