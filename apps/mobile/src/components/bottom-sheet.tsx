@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/immutability, react-hooks/set-state-in-effect */
 import { type ReactNode, useEffect, useState , useMemo } from "react";
 import { Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { ThemedIcon } from "@/components/themed-icon";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { radius, shadows } from "@/theme/tokens";
@@ -117,7 +117,7 @@ export function BottomSheet({
           <View style={styles.head}>
             <Text style={styles.title}>{title}</Text>
             <Pressable onPress={close} hitSlop={10} style={styles.close}>
-              <Ionicons name="close" size={20} color={colors.textMuted} />
+              <ThemedIcon name="close" size={20} color={colors.textMuted} />
             </Pressable>
           </View>
           <View style={styles.body}>{body ? body(expanded) : children}</View>

@@ -10,7 +10,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { ThemedIcon } from "@/components/themed-icon";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { getApiUrl } from "@/config";
 import { apiLogin } from "@/lib/sync";
@@ -132,7 +132,7 @@ export function AuthSheet({
         <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
           <View style={styles.brand}>
             <View style={styles.brandLogo}>
-              <Ionicons name="sunny" size={24} color={colors.accentStrong} />
+              <ThemedIcon name="sunny" size={24} color={colors.accentStrong} />
             </View>
             <Text style={styles.brandTitle}>苦旅</Text>
             <Text style={styles.brandSub}>把每一天的学习，都变成面向未来的积累</Text>
@@ -158,7 +158,7 @@ export function AuthSheet({
           </View>
 
           <View style={styles.inputShell}>
-            <Ionicons name="person-outline" size={16} color={colors.textMuted} />
+            <ThemedIcon name="person-outline" size={16} color={colors.textMuted} />
             <TextInput
               style={styles.input}
               placeholder="账号"
@@ -173,7 +173,7 @@ export function AuthSheet({
             />
           </View>
           <View style={styles.inputShell}>
-            <Ionicons name="lock-closed-outline" size={16} color={colors.textMuted} />
+            <ThemedIcon name="lock-closed-outline" size={16} color={colors.textMuted} />
             <TextInput
               style={styles.input}
               placeholder={mode === "login" ? "密码" : "密码（至少 6 位）"}
@@ -187,12 +187,12 @@ export function AuthSheet({
               autoComplete={mode === "login" ? "current-password" : "new-password"}
             />
             <Pressable onPress={() => setShowPass((v) => !v)} hitSlop={8}>
-              <Ionicons name={showPass ? "eye-off-outline" : "eye-outline"} size={18} color={colors.textMuted} />
+              <ThemedIcon name={showPass ? "eye-off-outline" : "eye-outline"} size={18} color={colors.textMuted} />
             </Pressable>
           </View>
           {mode === "register" ? (
             <View style={[styles.inputShell, confirmPass && passInput !== confirmPass ? styles.inputMismatch : null]}>
-              <Ionicons name="shield-checkmark-outline" size={16} color={colors.textMuted} />
+              <ThemedIcon name="shield-checkmark-outline" size={16} color={colors.textMuted} />
               <TextInput
                 style={styles.input}
                 placeholder="确认密码"
@@ -205,14 +205,14 @@ export function AuthSheet({
                 secureTextEntry={!showPass}
               />
               {confirmPass && passInput === confirmPass ? (
-                <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+                <ThemedIcon name="checkmark-circle" size={18} color={colors.success} />
               ) : null}
             </View>
           ) : null}
 
           {error ? (
             <View style={styles.errorRow}>
-              <Ionicons name="alert-circle" size={15} color={colors.danger} />
+              <ThemedIcon name="alert-circle" size={15} color={colors.danger} />
               <Text style={styles.errorText}>{error}</Text>
             </View>
           ) : null}

@@ -3,7 +3,7 @@ import { useEffect, useState , useMemo } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, type DimensionValue } from "react-native";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
-import { Ionicons } from "@expo/vector-icons";
+import { ThemedIcon } from "@/components/themed-icon";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getApiUrl } from "@/config";
@@ -83,7 +83,7 @@ export default function CareerScreen() {
               </View>
             ))}
             <Pressable onPress={() => router.push("/jobs")} style={({ pressed }) => [styles.jobBtn, pressed && { opacity: 0.8 }]}>
-              <Ionicons name="flower-outline" size={16} color="#0d9488" />
+              <ThemedIcon name="flower-outline" size={16} color="#0d9488" />
               <Text style={styles.jobBtnText}>发现 {readiness.matchedJobs} 个适合你的职位</Text>
             </Pressable>
           </View>
@@ -109,13 +109,13 @@ export default function CareerScreen() {
           <Pressable key={s.key} disabled={!s.href} onPress={() => { if (s.href) router.push(s.href as never); }}>
             <Card style={styles.entryCard}>
               <View style={[styles.iconChip, { backgroundColor: s.color + "22" }]}>
-                <Ionicons name={s.icon} size={22} color={s.color} />
+                <ThemedIcon name={s.icon} size={22} color={s.color} />
               </View>
               <View style={styles.entryText}>
                 <Text style={styles.entryTitle}>{s.title}</Text>
                 <Text style={styles.entryDesc}>{s.desc}</Text>
               </View>
-              {s.href ? <Ionicons name="chevron-forward" size={16} color={colors.textFaint} /> : null}
+              {s.href ? <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} /> : null}
             </Card>
           </Pressable>
         ))}

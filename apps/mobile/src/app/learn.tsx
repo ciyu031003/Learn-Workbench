@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/immutability */
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { ThemedIcon } from "@/components/themed-icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Card } from "@/components/card";
 import { BottomSheet } from "@/components/bottom-sheet";
@@ -150,7 +150,7 @@ function MonthCalendar({
           style={styles.calNavBtn}
           onPress={() => setView((v) => (v.m === 0 ? { y: v.y - 1, m: 11 } : { y: v.y, m: v.m - 1 }))}
         >
-          <Ionicons name="chevron-back" size={20} color={colors.text} />
+          <ThemedIcon name="chevron-back" size={20} color={colors.text} />
         </Pressable>
         <Text style={styles.calTitle}>{view.y} 年 {view.m + 1} 月</Text>
         <Pressable
@@ -158,7 +158,7 @@ function MonthCalendar({
           style={styles.calNavBtn}
           onPress={() => setView((v) => (v.m === 11 ? { y: v.y + 1, m: 0 } : { y: v.y, m: v.m + 1 }))}
         >
-          <Ionicons name="chevron-forward" size={20} color={colors.text} />
+          <ThemedIcon name="chevron-forward" size={20} color={colors.text} />
         </Pressable>
       </View>
 
@@ -436,10 +436,10 @@ export default function LearnScreen() {
 
       <PressableScale style={styles.moreCard} haptic onPress={() => setStageSheet(true)}>
         <View style={styles.moreLeft}>
-          <Ionicons name="layers-outline" size={18} color={colors.textMuted} />
+          <ThemedIcon name="layers-outline" size={18} color={colors.textMuted} />
           <Text style={styles.moreText}>更多阶段</Text>
         </View>
-        <Ionicons name="chevron-down" size={18} color={colors.textMuted} />
+        <ThemedIcon name="chevron-down" size={18} color={colors.textMuted} />
       </PressableScale>
 
       <View style={styles.sectionHeadRow}>
@@ -453,7 +453,7 @@ export default function LearnScreen() {
             setCustomTopicSheet(true);
           }}
         >
-          <Ionicons name="add" size={16} color={colors.primary} />
+          <ThemedIcon name="add" size={16} color={colors.primary} />
           <Text style={styles.addBtnText}>添加主题</Text>
         </Pressable>
       </View>
@@ -490,7 +490,7 @@ export default function LearnScreen() {
         <View style={styles.panelHead}>
           <Text style={styles.panelTitle}>热力统计</Text>
           <Pressable style={styles.shareBtn} onPress={() => setShareSheet(true)}>
-            <Ionicons name="share-social-outline" size={14} color={colors.primary} />
+            <ThemedIcon name="share-social-outline" size={14} color={colors.primary} />
             <Text style={styles.shareBtnText}>分享</Text>
           </Pressable>
         </View>
@@ -501,10 +501,10 @@ export default function LearnScreen() {
             onPress={() => setStatDate((d) => addDays(d, -1))}
             hitSlop={8}
           >
-            <Ionicons name="chevron-back" size={18} color={colors.primary} />
+            <ThemedIcon name="chevron-back" size={18} color={colors.primary} />
           </Pressable>
           <Pressable style={styles.dateCenter} onPress={() => setCalendarOpen(true)}>
-            <Ionicons name="calendar-outline" size={15} color={colors.accentStrong} />
+            <ThemedIcon name="calendar-outline" size={15} color={colors.accentStrong} />
             <Text style={styles.dateText}>{statDate.getMonth() + 1}月{statDate.getDate()}日 · {weekdayName(statDate)}</Text>
           </Pressable>
           <Pressable
@@ -513,7 +513,7 @@ export default function LearnScreen() {
             onPress={() => setStatDate((d) => addDays(d, 1))}
             hitSlop={8}
           >
-            <Ionicons name="chevron-forward" size={18} color={isStatToday ? colors.textFaint : colors.primary} />
+            <ThemedIcon name="chevron-forward" size={18} color={isStatToday ? colors.textFaint : colors.primary} />
           </Pressable>
         </View>
 
@@ -601,7 +601,7 @@ export default function LearnScreen() {
                 setCustomPhaseTitle("");
                 setCustomPhaseSheet(true);
               }}>
-                <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
+                <ThemedIcon name="add-circle-outline" size={18} color={colors.primary} />
                 <Text style={styles.newStageBtnText}>新建自定义阶段</Text>
               </Pressable>
               {roadmap.map((p, i) => {
@@ -631,7 +631,7 @@ export default function LearnScreen() {
                         style={[styles.reorderBtn, i === 0 && styles.reorderBtnDisabled]}
                         onPress={() => swapPhase(i, i - 1)}
                       >
-                        <Ionicons name="chevron-up" size={16} color={i === 0 ? colors.textFaint : colors.primary} />
+                        <ThemedIcon name="chevron-up" size={16} color={i === 0 ? colors.textFaint : colors.primary} />
                       </Pressable>
                       <Pressable
                         hitSlop={6}
@@ -639,7 +639,7 @@ export default function LearnScreen() {
                         style={[styles.reorderBtn, i === roadmap.length - 1 && styles.reorderBtnDisabled]}
                         onPress={() => swapPhase(i, i + 1)}
                       >
-                        <Ionicons name="chevron-down" size={16} color={i === roadmap.length - 1 ? colors.textFaint : colors.primary} />
+                        <ThemedIcon name="chevron-down" size={16} color={i === roadmap.length - 1 ? colors.textFaint : colors.primary} />
                       </Pressable>
                     </View>
                   </PressableScale>
@@ -795,7 +795,7 @@ export default function LearnScreen() {
                 ) : null}
                 {(activeTopic.practices ?? []).map((pr) => (
                   <View key={pr.id} style={styles.modalRow}>
-                    <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+                    <ThemedIcon name="checkmark-circle" size={16} color={colors.success} />
                     <Text style={styles.modalRowText}>{pr.text}</Text>
                   </View>
                 ))}
@@ -804,7 +804,7 @@ export default function LearnScreen() {
                 ) : null}
                 {(activeTopic.checkpoints ?? []).map((cp) => (
                   <View key={cp.id} style={styles.modalRow}>
-                    <Ionicons name="flag" size={16} color={colors.accent} />
+                    <ThemedIcon name="flag" size={16} color={colors.accent} />
                     <Text style={styles.modalRowText}>{cp.text}</Text>
                   </View>
                 ))}
@@ -816,7 +816,7 @@ export default function LearnScreen() {
                       setContentTopic(null);
                     }}
                   >
-                    <Ionicons name="trash-outline" size={15} color="#D64545" />
+                    <ThemedIcon name="trash-outline" size={15} color="#D64545" />
                     <Text style={styles.deleteTopicText}>删除该主题</Text>
                   </Pressable>
                 ) : null}

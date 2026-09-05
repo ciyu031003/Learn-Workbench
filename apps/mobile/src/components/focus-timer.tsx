@@ -11,7 +11,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { ThemedIcon } from "@/components/themed-icon";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ScreenOrientation from "expo-screen-orientation";
@@ -303,12 +303,12 @@ export function FocusTimer({
         <View style={[styles.topBar, { paddingTop: insets.top + 12 }]}>
           <Pressable style={styles.topBtn} onPress={() => setShowBg((v) => !v)}>
             <View style={styles.topBtnInner}>
-              <Ionicons name="color-palette-outline" size={16} color="rgba(255,255,255,0.9)" />
+              <ThemedIcon name="color-palette-outline" size={16} color="rgba(255,255,255,0.9)" />
               <Text style={styles.topBtnText}>背景</Text>
             </View>
           </Pressable>
           <Pressable style={styles.topBtn} onPress={() => record(elapsed)}>
-            <Ionicons name="close" size={20} color="rgba(255,255,255,0.9)" />
+            <ThemedIcon name="close" size={20} color="rgba(255,255,255,0.9)" />
           </Pressable>
         </View>
 
@@ -361,7 +361,7 @@ export function FocusTimer({
           {done ? (
             <View style={styles.doneWrap}>
               <View style={styles.doneTitleRow}>
-                <Ionicons name="trophy" size={34} color="#FFB25E" />
+                <ThemedIcon name="trophy" size={34} color="#FFB25E" />
                 <Text style={styles.doneTitle}>专注完成！</Text>
               </View>
               <Text style={styles.doneSub}>本次专注 {fmt(elapsed)}，已自动记录</Text>
@@ -404,17 +404,17 @@ export function FocusTimer({
                 </Pressable>
                 <View style={styles.controls}>
                   <Pressable style={styles.ctrlBtn} onPress={() => (running ? pause() : resume())}>
-                    <Ionicons name={running ? "pause" : "play"} size={26} color="#fff" />
+                    <ThemedIcon name={running ? "pause" : "play"} size={26} color="#fff" />
                   </Pressable>
                   <Pressable style={styles.ctrlBtn} onPress={reset}>
-                    <Ionicons name="refresh" size={26} color="#fff" />
+                    <ThemedIcon name="refresh" size={26} color="#fff" />
                   </Pressable>
                   <Pressable style={styles.ctrlBtn} onPress={() => record(elapsed)}>
-                    <Ionicons name="stop" size={26} color="#fff" />
+                    <ThemedIcon name="stop" size={26} color="#fff" />
                   </Pressable>
                 </View>
                 <Pressable style={styles.recordBtn} onPress={() => record(elapsed)}>
-                  <Ionicons name="checkmark-done" size={18} color="#1f1f1f" />
+                  <ThemedIcon name="checkmark-done" size={18} color="#1f1f1f" />
                   <Text style={styles.recordBtnText}>结束并记录本次专注</Text>
                 </Pressable>
               </View>
@@ -445,18 +445,18 @@ export function FocusTimer({
               {/* 控制按钮 */}
               <View style={styles.controls}>
                 <Pressable style={styles.ctrlBtn} onPress={() => (running ? pause() : resume())}>
-                  <Ionicons name={running ? "pause" : "play"} size={26} color="#fff" />
+                  <ThemedIcon name={running ? "pause" : "play"} size={26} color="#fff" />
                 </Pressable>
                 <Pressable style={styles.ctrlBtn} onPress={reset}>
-                  <Ionicons name="refresh" size={26} color="#fff" />
+                  <ThemedIcon name="refresh" size={26} color="#fff" />
                 </Pressable>
                 <Pressable style={styles.ctrlBtn} onPress={() => record(elapsed)}>
-                  <Ionicons name="stop" size={26} color="#fff" />
+                  <ThemedIcon name="stop" size={26} color="#fff" />
                 </Pressable>
               </View>
 
               <Pressable style={styles.recordBtn} onPress={() => record(elapsed)}>
-                <Ionicons name="checkmark-done" size={18} color="#1f1f1f" />
+                <ThemedIcon name="checkmark-done" size={18} color="#1f1f1f" />
                 <Text style={styles.recordBtnText}>结束并记录本次专注</Text>
               </Pressable>
 
@@ -488,7 +488,7 @@ export function FocusTimer({
               <View style={styles.quoteCard}>
                 <View style={styles.quoteHeader}>
                   <View style={styles.quoteLabelRow}>
-                    <Ionicons name="sparkles" size={14} color="#FFB25E" />
+                    <ThemedIcon name="sparkles" size={14} color="#FFB25E" />
                     <Text style={styles.quoteLabel}>励志短句</Text>
                   </View>
                   <Pressable onPress={() => { setEditingQuote((v) => !v); setQuoteInput(quote); }} hitSlop={8}>
@@ -520,7 +520,7 @@ export function FocusTimer({
               <Text style={styles.readyTitle}>准备开始 {minutes} 分钟专注</Text>
               <Pressable style={styles.primaryBtn} onPress={begin}>
                 <View style={styles.readyCtaInner}>
-                  <Ionicons name="play" size={16} color="#1f1f1f" />
+                  <ThemedIcon name="play" size={16} color="#1f1f1f" />
                   <Text style={styles.primaryBtnText}>开始专注</Text>
                 </View>
               </Pressable>

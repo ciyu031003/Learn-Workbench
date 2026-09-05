@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Link } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { ThemedIcon } from "@/components/themed-icon";
 import { radius, shadows } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
@@ -13,7 +13,7 @@ export default function NotFound() {
     <View style={styles.wrap}>
       <View style={styles.card}>
         <View style={styles.iconWrap}>
-          <Ionicons name="compass-outline" size={40} color={colors.accent} />
+          <ThemedIcon name="compass-outline" size={40} color={colors.accent} />
         </View>
         <Text style={styles.title}>页面走丢了</Text>
         <Text style={styles.sub}>你访问的页面不存在，回到「今天」继续你的节奏吧。</Text>

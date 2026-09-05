@@ -9,7 +9,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { ThemedIcon } from "@/components/themed-icon";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppStore } from "@/store/app-store";
@@ -131,7 +131,7 @@ export default function AccountSecurityScreen() {
     <View style={styles.root}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={22} color={colors.text} />
+          <ThemedIcon name="chevron-back" size={22} color={colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>账号与安全</Text>
         <View style={styles.backBtn} />
@@ -154,7 +154,7 @@ export default function AccountSecurityScreen() {
               ) : wechat ? (
                 <View style={styles.boundRow}>
                   <View style={[styles.badge, { backgroundColor: "#07c16022" }]}>
-                    <Ionicons name="checkmark-circle" size={18} color="#07a254" />
+                    <ThemedIcon name="checkmark-circle" size={18} color="#07a254" />
                   </View>
                   <View style={styles.boundBody}>
                     <Text style={styles.boundTitle}>已绑定{wechat.nickname ? `：${wechat.nickname}` : ""}</Text>
@@ -167,7 +167,7 @@ export default function AccountSecurityScreen() {
               ) : (
                 <View style={styles.boundRow}>
                   <View style={[styles.badge, { backgroundColor: colors.surfaceStrong }]}>
-                    <Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.textMuted} />
+                    <ThemedIcon name="chatbubble-ellipses-outline" size={18} color={colors.textMuted} />
                   </View>
                   <View style={styles.boundBody}>
                     <Text style={styles.boundTitle}>未绑定微信</Text>
@@ -219,7 +219,7 @@ export default function AccountSecurityScreen() {
                     setDeleteOpen(true);
                   }}
                 >
-                  <Ionicons name="trash-outline" size={16} color={colors.danger} />
+                  <ThemedIcon name="trash-outline" size={16} color={colors.danger} />
                   <Text style={styles.deleteEntryText}>注销 {username ?? "当前"} 账号…</Text>
                 </Pressable>
               )}

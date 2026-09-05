@@ -3,7 +3,7 @@ import { useEffect, useState , useMemo } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
-import { Ionicons } from "@expo/vector-icons";
+import { ThemedIcon } from "@/components/themed-icon";
 import * as WebBrowser from "expo-web-browser";
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring } from "react-native-reanimated";
 import { Card } from "@/components/card";
@@ -267,16 +267,16 @@ export function JobDetailModal({
             <View style={styles.actions}>
               <Animated.View style={heartStyle}>
                 <Pressable style={styles.actionBtn} onPress={popHeart}>
-                  <Ionicons name={job?.isFav ? "heart" : "heart-outline"} size={22} color={job?.isFav ? "#f43f5e" : colors.textMuted} />
+                  <ThemedIcon name={job?.isFav ? "heart" : "heart-outline"} size={22} color={job?.isFav ? "#f43f5e" : colors.textMuted} />
                   <Text style={styles.actionText}>{job?.isFav ? "已收藏" : "收藏"}</Text>
                 </Pressable>
               </Animated.View>
               <Pressable style={styles.actionBtn} onPress={shareJob}>
-                <Ionicons name="share-social-outline" size={22} color="#4f46e5" />
+                <ThemedIcon name="share-social-outline" size={22} color="#4f46e5" />
                 <Text style={styles.actionText}>分享</Text>
               </Pressable>
               <Pressable style={[styles.actionBtn, styles.actionPrimary]} onPress={openOriginal}>
-                <Ionicons name="open-outline" size={20} color="#ffffff" />
+                <ThemedIcon name="open-outline" size={20} color="#ffffff" />
                 <Text style={[styles.actionText, { color: "#ffffff" }]}>查看原文</Text>
               </Pressable>
             </View>

@@ -1,6 +1,6 @@
 import { useEffect, useState , useMemo } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { ThemedIcon } from "@/components/themed-icon";
 import { useAppStore } from "@/store/app-store";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getApiUrl } from "@/config";
@@ -158,13 +158,13 @@ export default function SettingsScreen() {
             }}
           >
             <View style={styles.authPromptIcon}>
-              <Ionicons name="person-circle-outline" size={30} color={colors.primary} />
+              <ThemedIcon name="person-circle-outline" size={30} color={colors.primary} />
             </View>
             <View style={styles.authPromptBody}>
               <Text style={styles.authPromptTitle}>登录 / 注册</Text>
               <Text style={styles.authPromptSub}>同步学习进度到云端，Web 端与 App 数据保持一致</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
+            <ThemedIcon name="chevron-forward" size={18} color={colors.textFaint} />
           </Pressable>
         )}
 
@@ -187,9 +187,9 @@ export default function SettingsScreen() {
               router.push("/account-security");
             }}
           >
-            <Ionicons name="shield-checkmark-outline" size={18} color={colors.primary} />
+            <ThemedIcon name="shield-checkmark-outline" size={18} color={colors.primary} />
             <Text style={styles.securityRowText}>账号与安全 · 微信绑定</Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
+            <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
           </PressableScale>
         ) : null}
 

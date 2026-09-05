@@ -3,7 +3,7 @@ import { useEffect, useState , useMemo } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View, type DimensionValue } from "react-native";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
-import { Ionicons } from "@expo/vector-icons";
+import { ThemedIcon } from "@/components/themed-icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getApiUrl } from "@/config";
 import { useAppStore } from "@/store/app-store";
@@ -56,7 +56,7 @@ export default function MarketScreen() {
         <View style={styles.loadingBox}><ActivityIndicator color="#10b981" /></View>
       ) : !data || data.total === 0 ? (
         <View style={styles.loadingBox}>
-          <Ionicons name="trending-up-outline" size={30} color={colors.textFaint} />
+          <ThemedIcon name="trending-up-outline" size={30} color={colors.textFaint} />
           <Text style={styles.emptyText}>暂无招聘数据，先抓取职位</Text>
         </View>
       ) : (

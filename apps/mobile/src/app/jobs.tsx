@@ -13,7 +13,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { ThemedIcon } from "@/components/themed-icon";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
@@ -121,7 +121,7 @@ function GearButton({ onPress }: { onPress: () => void }) {
       }}
       style={[styles.gearBtn, animatedStyle]}
     >
-      <Ionicons name="settings-outline" size={20} color={colors.primary} />
+      <ThemedIcon name="settings-outline" size={20} color={colors.primary} />
     </AnimatedPressable>
   );
 }
@@ -238,9 +238,9 @@ function JobCard({
         ) : null}
         <Text style={styles.time}>{formatRelativeTime(job.publishedAt)}</Text>
         <Pressable hitSlop={10} onPress={() => onToggleFavorite(job)}>
-          <Ionicons name={job.isFav ? "heart" : "heart-outline"} size={18} color={job.isFav ? "#f43f5e" : "#8b8b94"} />
+          <ThemedIcon name={job.isFav ? "heart" : "heart-outline"} size={18} color={job.isFav ? "#f43f5e" : "#8b8b94"} />
         </Pressable>
-        <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
+        <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
       </View>
     </AnimatedPressable>
   );
@@ -570,7 +570,7 @@ export default function JobsScreen() {
     if (error) {
       return (
         <View style={styles.emptyBox}>
-          <Ionicons name="cloud-offline-outline" size={30} color={colors.textFaint} />
+          <ThemedIcon name="cloud-offline-outline" size={30} color={colors.textFaint} />
           <Text style={styles.emptyText}>{error}</Text>
           <ScalePressable style={styles.emptyPrimaryBtn} onPress={() => loadJobs(1, "initial")}>
             <Text style={styles.emptyPrimaryText}>重新加载</Text>
@@ -580,7 +580,7 @@ export default function JobsScreen() {
     }
     return (
       <View style={styles.emptyBox}>
-        <Ionicons name="flower-outline" size={34} color="#10b981" />
+        <ThemedIcon name="flower-outline" size={34} color="#10b981" />
         <Text style={styles.emptyTitle}>还没有找到绽放的机会</Text>
         <Text style={styles.emptyText}>调整搜索条件，或立即抓取一次最新职位。</Text>
         <ScalePressable style={styles.emptyPrimaryBtn} onPress={runNow}>
@@ -617,7 +617,7 @@ export default function JobsScreen() {
 
       <View style={styles.searchRow}>
         <View style={styles.searchBar}>
-          <Ionicons name="search" size={18} color={colors.textFaint} />
+          <ThemedIcon name="search" size={18} color={colors.textFaint} />
           <TextInput
             style={styles.searchInput}
             value={searchInput}
@@ -633,12 +633,12 @@ export default function JobsScreen() {
               setSearchInput("");
               setQuery("");
             }} hitSlop={8}>
-              <Ionicons name="close-circle" size={18} color={colors.textFaint} />
+              <ThemedIcon name="close-circle" size={18} color={colors.textFaint} />
             </Pressable>
           ) : null}
         </View>
         <Pressable style={[styles.filterBtn, hasActiveFilter ? styles.filterBtnActive : null]} onPress={() => setFilterVisible(true)}>
-          <Ionicons name="options-outline" size={18} color={hasActiveFilter ? "#ffffff" : "#10b981"} />
+          <ThemedIcon name="options-outline" size={18} color={hasActiveFilter ? "#ffffff" : "#10b981"} />
         </Pressable>
       </View>
 
@@ -677,7 +677,7 @@ export default function JobsScreen() {
           style={[styles.chip, styles.chipMore]}
           onPress={() => setCityExpand((v) => !v)}
         >
-          <Ionicons name={cityExpand ? "chevron-up" : "chevron-down"} size={14} color={colors.accentStrong} />
+          <ThemedIcon name={cityExpand ? "chevron-up" : "chevron-down"} size={14} color={colors.accentStrong} />
           <Text style={styles.chipMoreText}>
             {cityExpand ? "收起城市" : "更多城市"}
           </Text>
@@ -707,7 +707,7 @@ export default function JobsScreen() {
           disabled={page <= 1 || paging}
           onPress={() => goToPage(page - 1)}
         >
-          <Ionicons name="chevron-back" size={14} color={page <= 1 ? colors.textFaint : colors.primary} />
+          <ThemedIcon name="chevron-back" size={14} color={page <= 1 ? colors.textFaint : colors.primary} />
           <Text style={[styles.pagerBtnText, page <= 1 && styles.pagerBtnTextDisabled]}>上一页</Text>
         </Pressable>
 
@@ -725,7 +725,7 @@ export default function JobsScreen() {
           onPress={() => goToPage(page + 1)}
         >
           <Text style={[styles.pagerBtnText, page >= totalPages && styles.pagerBtnTextDisabled]}>下一页</Text>
-          <Ionicons name="chevron-forward" size={14} color={page >= totalPages ? colors.textFaint : colors.primary} />
+          <ThemedIcon name="chevron-forward" size={14} color={page >= totalPages ? colors.textFaint : colors.primary} />
         </Pressable>
       </View>
     );

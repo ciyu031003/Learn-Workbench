@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState , useMemo } from "react";
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
-import { Ionicons } from "@expo/vector-icons";
+import { ThemedIcon } from "@/components/themed-icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getApiUrl } from "@/config";
 import { useAppStore } from "@/store/app-store";
@@ -80,7 +80,7 @@ export default function ApplicationsScreen() {
         ))}
       </View>
       <Pressable onPress={() => remove(item.id)} hitSlop={8} style={styles.removeBtn}>
-        <Ionicons name="trash-outline" size={14} color="#dc2626" />
+        <ThemedIcon name="trash-outline" size={14} color="#dc2626" />
       </Pressable>
     </Card>
   );
@@ -103,7 +103,7 @@ export default function ApplicationsScreen() {
             <View style={styles.emptyBox}><ActivityIndicator color="#10b981" /></View>
           ) : (
             <View style={styles.emptyBox}>
-              <Ionicons name="briefcase-outline" size={34} color="#10b981" />
+              <ThemedIcon name="briefcase-outline" size={34} color="#10b981" />
               <Text style={styles.emptyText}>还没有求职记录，去招花页加入吧</Text>
             </View>
           )

@@ -105,6 +105,45 @@ export function sportAnimOf(sportKey: string): SportAnimPreset {
   return SPORT_ANIMS[sportKey] ?? "pop";
 }
 
+/** iOS SF Symbols 指派（figure.* 需 iOS 16+；Android 走 SPORT_ICONS 的 Ionicons） */
+export const SPORT_SF: Record<string, string> = {
+  basketball: "basketball",
+  badminton: "tennisball",
+  volleyball: "volleyball",
+  "table-tennis": "tennisball",
+  soccer: "soccer",
+  tennis: "tennisball",
+  baseball: "baseball",
+  run: "figure.run",
+  walk: "figure.walk",
+  "brisk-walk": "figure.walk",
+  cycling: "outdoor.cycle",
+  "rope-jumping": "figure.jumprope",
+  swimming: "figure.pool.swim",
+  dancing: "figure.dance",
+  hiking: "figure.hiking",
+  frisbee: "disc",
+  treadmill: "treadmill",
+  boxing: "figure.boxing",
+  "sit-ups": "figure.core.training",
+  squats: "figure.strengthtraining.functional",
+  "push-ups": "figure.strengthtraining.functional",
+  plank: "figure.plank",
+  dumbbells: "dumbbell",
+  "pull-ups": "figure.strengthtraining.functional",
+  crunches: "figure.core.training",
+  stretching: "figure.flexibility",
+  yoga: "figure.mind.and.body",
+  baduanjin: "figure.mind.and.body",
+  "tai-chi": "figure.mind.and.body",
+  stairs: "figure.stairs",
+  housework: "house",
+};
+
+export function sportSfOf(sportKey: string): string {
+  return SPORT_SF[sportKey] ?? "figure.run";
+}
+
 /** 图标：先按注册表 key，再用名称反查（同步下来的远端记录可能缺 key） */
 export function sportIconOf(sportKey: string | undefined, name?: string): IoniconName {
   if (sportKey && SPORT_ICONS[sportKey]) return SPORT_ICONS[sportKey];

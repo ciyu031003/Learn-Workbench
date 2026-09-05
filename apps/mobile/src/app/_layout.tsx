@@ -68,7 +68,7 @@ function FlowerTabIcon({ color, focused }: { color: string | OpaqueColorValue; f
   return (
     <View style={[styles.tabIcon, focused && styles.tabIconFocused]}>
       <Animated.View style={flowerStyle}>
-        <Ionicons name={focused ? "flower" : "flower-outline"} size={22} color={color} />
+        <ThemedIcon name={focused ? "flower" : "flower-outline"} size={22} color={typeof color === "string" ? color : undefined} />
       </Animated.View>
     </View>
   );

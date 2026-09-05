@@ -8,7 +8,7 @@ import {
   View,
   type DimensionValue,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { ThemedIcon } from "@/components/themed-icon";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
@@ -23,7 +23,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useAppStore } from "@/store/app-store";
 import { SPORT_CATALOG, exerciseTypeOptions, type ExerciseType, type SportItem } from "@learn-workbench/shared";
-import { sportIconOf, sportColorsOf, sportAnimOf } from "@/lib/sport-view";
+import { sportIconOf, sportColorsOf, sportAnimOf, sportSfOf } from "@/lib/sport-view";
 import { mainPhases, agentPhase } from "@learn-workbench/content";
 import { pct, formatDuration, taskTypeLabels, todayISO } from "@learn-workbench/shared";
 import { FocusTimer } from "@/components/focus-timer";
@@ -70,13 +70,13 @@ function FocusCard({ onStart }: { onStart: () => void }) {
       <Animated.View style={[styles.focusBlob2, blob2]} />
       <View style={styles.focusContent}>
         <View style={styles.focusEyebrowRow}>
-          <Ionicons name="sunny" size={14} color="rgba(255,255,255,0.9)" />
+          <ThemedIcon name="sunny" size={14} color="rgba(255,255,255,0.9)" />
           <Text style={styles.focusEyebrow}>今日焦点 · TODAY FOCUS</Text>
         </View>
         <Text style={styles.focusTitle}>深度学习《React 渲染优化》</Text>
         <Text style={styles.focusSub}>25 分钟沉浸专注 · 从第一章第 3 节继续</Text>
         <PressableScale style={styles.focusCta} haptic onPress={onStart}>
-          <Ionicons name="play" size={16} color="#2F74C0" />
+          <ThemedIcon name="play" size={16} color="#2F74C0" />
           <Text style={styles.focusCtaText}>开始专注</Text>
         </PressableScale>
       </View>
@@ -200,7 +200,7 @@ function SportIcon({
 
   return (
     <Animated.View style={animatedStyle}>
-      <Ionicons name={icon} size={22} color={c} />
+      <ThemedIcon name={icon} ios={sportSfOf(sportKey)} size={22} color={c} />
     </Animated.View>
   );
 }
@@ -415,7 +415,7 @@ export default function DashboardScreen() {
           <Text style={styles.heroSub}>{todayTip}</Text>
 
           <View style={styles.quote}>
-            <Ionicons name="sunny" size={16} color={colors.accent} />
+            <ThemedIcon name="sunny" size={16} color={colors.accent} />
             <Text style={styles.quoteText}>{quote}</Text>
           </View>
         </Animated.View>
@@ -425,7 +425,7 @@ export default function DashboardScreen() {
         <View style={styles.sectionTitleRow}>
           <Text style={styles.sectionTitle}>运动 · 健康</Text>
           <Pressable onPress={() => setSportSheetOpen(true)} hitSlop={8} style={styles.addSportBtn}>
-            <Ionicons name="add" size={16} color={colors.accentStrong} />
+            <ThemedIcon name="add" size={16} color={colors.accentStrong} />
             <Text style={styles.addSportText}>添加记录</Text>
           </Pressable>
         </View>
@@ -451,7 +451,7 @@ export default function DashboardScreen() {
                     <Text style={styles.sportItemTime}>{formatSport(r.minutes)} · 已完成</Text>
                   </View>
                   <Pressable onPress={() => removeSport(r.clientId)} hitSlop={8}>
-                    <Ionicons name="close" size={18} color={colors.textMuted} />
+                    <ThemedIcon name="close" size={18} color={colors.textMuted} />
                   </Pressable>
                 </View>
               );
@@ -482,7 +482,7 @@ export default function DashboardScreen() {
               style={styles.task}
             >
               <View style={[styles.taskBox, t.done && styles.taskBoxDone]}>
-                {t.done ? <Ionicons name="checkmark" size={16} color="#fff" /> : null}
+                {t.done ? <ThemedIcon name="checkmark" size={16} color="#fff" /> : null}
               </View>
               <Text style={[styles.taskTitle, t.done && styles.taskDone]} numberOfLines={1}>
                 {t.title}
@@ -498,21 +498,21 @@ export default function DashboardScreen() {
         <View style={styles.statsGrid}>
           <Card style={styles.statCard}>
             <View style={[styles.statIconChip, { backgroundColor: colors.accentSoft }]}>
-              <Ionicons name="flame" size={18} color={colors.accent} />
+              <ThemedIcon name="flame" size={18} color={colors.accent} />
             </View>
             <Text style={styles.statLabel}>连续打卡</Text>
             <Text style={styles.statValue}>{streak}<Text style={styles.statValueUnit}> 天</Text></Text>
           </Card>
           <Card style={styles.statCard}>
             <View style={[styles.statIconChip, { backgroundColor: colors.primarySoft }]}>
-              <Ionicons name="timer" size={18} color={colors.primary} />
+              <ThemedIcon name="timer" size={18} color={colors.primary} />
             </View>
             <Text style={styles.statLabel}>今日专注</Text>
             <Text style={styles.statValue}>{focusStats.todayMinutes}<Text style={styles.statValueUnit}> 分</Text></Text>
           </Card>
           <Card style={styles.statCard}>
             <View style={[styles.statIconChip, { backgroundColor: colors.successSoft }]}>
-              <Ionicons name="trending-up" size={18} color={colors.success} />
+              <ThemedIcon name="trending-up" size={18} color={colors.success} />
             </View>
             <Text style={styles.statLabel}>本周进度</Text>
             <Text style={styles.statValue}>{overall}<Text style={styles.statValueUnit}>%</Text></Text>
@@ -527,7 +527,7 @@ export default function DashboardScreen() {
           }}
         >
           <Text style={styles.checkinRowText}>今日打卡 · 给自己一个正向信号</Text>
-          <Ionicons name="chevron-forward" size={18} color={colors.accentStrong} />
+          <ThemedIcon name="chevron-forward" size={18} color={colors.accentStrong} />
         </Pressable>
       </Animated.ScrollView>
 
