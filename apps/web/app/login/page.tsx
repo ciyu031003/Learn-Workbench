@@ -8,8 +8,7 @@ import {
   Loader2,
   Lock,
   Mail,
-  MessageCircle,
-  Sparkles,
+  MessageCircle,
   User,
   UserRoundPlus,
 } from "lucide-react";
@@ -253,9 +252,7 @@ function LoginForm() {
         <div className="pointer-events-none absolute -bottom-20 -left-16 h-56 w-56 rounded-full bg-accent/25 blur-3xl" />
 
         <div className="relative flex flex-col items-center gap-2">
-          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-accent text-white shadow-[0_10px_30px_rgba(79,70,229,0.35)]">
-            <Sparkles className="size-7" />
-          </span>
+          <img src="/app-icon.png" alt="学习工作台" className="h-14 w-14 rounded-2xl shadow-[0_10px_30px_rgba(60,50,30,0.18)]" />
           <h1 className="page-title mt-2 text-3xl font-bold">学习工作台</h1>
           <p className="page-subtitle text-sm">{mode === "login" ? "登录后开始你的学习旅程" : "注册一个本地账号开始使用"}</p>
         </div>

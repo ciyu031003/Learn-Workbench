@@ -52,8 +52,8 @@
       "apiUrl": "https://learn.yuanabd.cn"
     }
   },
-  "version": "1.1.0",
+  "version": "1.1.1",
   "android": {
-    "versionCode": 2
+    "versionCode": 3
   }
 }

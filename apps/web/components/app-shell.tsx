@@ -10,7 +10,6 @@ import {
   NotebookPen,
   Gauge,
   Settings,
-  Sparkles,
   Flower,
   Rocket,
   ChevronDown,
@@ -165,9 +164,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <header className="surface-nav app-topnav sticky top-0 z-40 h-16 items-center border-b px-5">
         <div className="mx-auto flex w-full max-w-7xl items-center gap-6">
           <Link href="/dashboard" className="flex shrink-0 items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-primary-foreground">
-              <Sparkles className="size-5" />
-            </span>
+            <img src="/app-icon.png" alt="" className="h-9 w-9 rounded-xl shadow-[0_2px_8px_rgba(60,50,30,0.12)]" />
             <span className="hidden lg:block">
               <span className="block text-base font-semibold leading-tight text-foreground">学习工作台</span>
               <span className="block text-xs text-muted-foreground">学习 → 技能 → 职业成长</span>
@@ -303,9 +300,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* 移动端顶栏（毛玻璃） */}
       <header className="surface-nav app-mobile-topbar sticky top-0 z-30 h-14 items-center justify-between border-b px-4">
         <Link href="/dashboard" className="flex items-center gap-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent text-primary-foreground">
-            <Sparkles className="size-4" />
-          </span>
+          <img src="/app-icon.png" alt="" className="h-7 w-7 rounded-lg" />
           <span className="text-sm font-semibold text-foreground">学习工作台</span>
         </Link>
         <div className="flex items-center gap-3">
