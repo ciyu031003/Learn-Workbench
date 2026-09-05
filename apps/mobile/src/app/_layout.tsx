@@ -14,6 +14,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { DailyBackground } from "@/components/daily-background";
+import { ThemedIcon } from "@/components/themed-icon";
 import { ThemeProvider } from "@/theme";
 import { useTheme } from "@/theme";
 import type { ThemeColors } from "@/theme/tokens";
@@ -38,7 +39,7 @@ function TabIcon({
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={[styles.tabIcon, focused && styles.tabIconFocused]}>
-      <Ionicons name={focused ? name : outlineName} size={22} color={color} />
+      <ThemedIcon ios={undefined} name={focused ? name : outlineName} size={22} color={typeof color === "string" ? color : undefined} />
     </View>
   );
 }

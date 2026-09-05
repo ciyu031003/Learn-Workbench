@@ -51,5 +51,9 @@
     "extra": {
       "apiUrl": "https://learn.yuanabd.cn"
     }
+  },
+  "version": "1.1.0",
+  "android": {
+    "versionCode": 2
   }
 }

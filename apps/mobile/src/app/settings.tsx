@@ -266,7 +266,7 @@ export default function SettingsScreen() {
         </Pressable>
       </Card>
 
-      <Card title="关于" subtitle="苦旅 v1.0.0">
+      <Card title="关于" subtitle="苦旅 v1.1.0">
         <Text style={styles.about}>Expo + React Native · 路线图内容来自《新疆ICT学习规划优化方案》</Text>
         <Text style={styles.about}>支持登录后一键同步云端，Web 与移动端数据保持一致。</Text>
       </Card>

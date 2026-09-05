@@ -297,6 +297,15 @@ export default function DashboardScreen() {
       opacity: interpolate(p, [0, 140], [1, 0.55], { extrapolateRight: "clamp" }),
     };
   });
+
+  // 今日建议（规则版）：根据任务/打卡状态给一句可执行的小建议
+  const todayTip = useMemo(() => {
+    if (todayTasks.length === 0) return "先给今天定一个小目标，路线图会告诉你下一步学什么";
+    if (todayDone === 0) return "从第一件事开始，把最重要的做完就赢了一半";
+    if (todayDone < todayTasks.length) return "还差 " + (todayTasks.length - todayDone) + " 件事就完成今天，冲一冲";
+    if (!checkedInToday) return "任务已全部完成，别忘了打卡留下今天的印记";
+    return "今天已满载而归，去复盘或提前看看明天的安排";
+  }, [todayTasks, todayDone, checkedInToday]);
   return (
     <View style={styles.root}>
       <Animated.ScrollView
@@ -311,7 +320,7 @@ export default function DashboardScreen() {
           <Text style={styles.heroTitle}>
             {greet}，{"\n"}继续今天的 ICT 学习规划
           </Text>
-          <Text style={styles.heroSub}>今天 · 一个焦点 · 可折叠任务</Text>
+          <Text style={styles.heroSub}>{todayTip}</Text>
 
           <View style={styles.quote}>
             <Ionicons name="sunny" size={16} color={colors.accent} />
