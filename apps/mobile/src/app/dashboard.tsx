@@ -14,6 +14,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
+  useAnimatedScrollHandler,
+  interpolate,
   withRepeat,
   withSequence,
   withSpring,
@@ -29,7 +31,9 @@ import { BottomSheet } from "@/components/bottom-sheet";
 import { Celebration } from "@/components/celebration";
 import { PressableScale } from "@/components/pressable-scale";
 import { haptics } from "@/lib/haptics";
-import { colors, radius, shadows } from "@/theme/tokens";
+import { radius, shadows } from "@/theme/tokens";
+import type { ThemeColors } from "@/theme/tokens";
+import { useTheme } from "@/theme";
 import { computeFocusStats } from "@/lib/focus-stats";
 import { getDailyQuote } from "@/lib/quotes";
 
@@ -38,6 +42,8 @@ function useDailyQuote() {
 }
 
 function FocusCard({ onStart }: { onStart: () => void }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const puff1 = useSharedValue(0);
   const puff2 = useSharedValue(0);
 
@@ -148,6 +154,8 @@ function SportIcon({
 }
 
 function SportSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const addSport = useSportStore((s) => s.addSport);
   const [kind, setKind] = useState<SportKind>("basketball");
   const [minutes, setMinutes] = useState(30);
@@ -217,6 +225,8 @@ function formatSport(minutes: number) {
 }
 
 export default function DashboardScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const progress = useAppStore((s) => s.progress);
   const tasks = useAppStore((s) => s.tasks);
@@ -270,14 +280,33 @@ export default function DashboardScreen() {
     setTimeout(() => setCelebrate(false), 1300);
   };
 
+  // iOS 大标题联动：滚动时 Hero 轻微上浮、缩小、淡出
+  const heroProgress = useSharedValue(0);
+  const heroScroll = useAnimatedScrollHandler({
+    onScroll: (e) => {
+      heroProgress.value = e.contentOffset.y;
+    },
+  });
+  const heroAnim = useAnimatedStyle(() => {
+    const p = heroProgress.value;
+    return {
+      transform: [
+        { translateY: interpolate(p, [0, 120], [0, -10], { extrapolateRight: "clamp" }) },
+        { scale: interpolate(p, [0, 120], [1, 0.94], { extrapolateRight: "clamp" }) },
+      ],
+      opacity: interpolate(p, [0, 140], [1, 0.55], { extrapolateRight: "clamp" }),
+    };
+  });
   return (
     <View style={styles.root}>
-      <ScrollView
+      <Animated.ScrollView
+        onScroll={heroScroll}
+        scrollEventThrottle={16}
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 14 }]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.hero}>
+        <Animated.View style={[styles.hero, heroAnim]}>
           <View style={styles.sunGlow} />
           <Text style={styles.heroTitle}>
             {greet}，{"\n"}继续今天的 ICT 学习规划
@@ -288,7 +317,7 @@ export default function DashboardScreen() {
             <Ionicons name="sunny" size={16} color={colors.accent} />
             <Text style={styles.quoteText}>{quote}</Text>
           </View>
-        </View>
+        </Animated.View>
 
         <FocusCard onStart={() => setFocusOpen(true)} />
 
@@ -396,7 +425,7 @@ export default function DashboardScreen() {
           <Text style={styles.checkinRowText}>今日打卡 · 给自己一个正向信号</Text>
           <Ionicons name="chevron-forward" size={18} color={colors.accentStrong} />
         </Pressable>
-      </ScrollView>
+      </Animated.ScrollView>
 
       <SportSheet visible={sportSheetOpen} onClose={() => setSportSheetOpen(false)} />
       <FocusTimer
@@ -411,7 +440,8 @@ export default function DashboardScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   root: { flex: 1 },
   scroll: { flex: 1 },
   content: { padding: 16, paddingBottom: 118, gap: 14 },

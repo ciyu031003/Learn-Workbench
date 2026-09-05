@@ -1,6 +1,8 @@
 /* eslint-disable react-hooks/immutability, react-hooks/set-state-in-effect */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState , useMemo } from "react";
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import type { ThemeColors } from "@/theme/tokens";
+import { useTheme } from "@/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getApiUrl } from "@/config";
@@ -18,6 +20,8 @@ const STAGES: JobApplicationStage[] = [
 ];
 
 export default function ApplicationsScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const token = useAppStore((s) => s.token);
   const [apps, setApps] = useState<JobApplication[]>([]);
@@ -110,25 +114,26 @@ export default function ApplicationsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   root: { flex: 1 },
   content: { padding: 16, paddingBottom: 40, gap: 10 },
   header: { marginBottom: 8 },
-  headerTitle: { fontSize: 26, fontWeight: "900", color: "#18181b" },
-  headerSub: { fontSize: 13, color: "#71717a", marginTop: 4 },
+  headerTitle: { fontSize: 26, fontWeight: "900", color: colors.text },
+  headerSub: { fontSize: 13, color: colors.textMuted, marginTop: 4 },
   appCard: { padding: 14, gap: 10 },
   appTop: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
   appMain: { flex: 1, minWidth: 0, gap: 3 },
-  title: { fontSize: 15, fontWeight: "800", color: "#18181b" },
-  meta: { fontSize: 12, color: "#71717a" },
+  title: { fontSize: 15, fontWeight: "800", color: colors.text },
+  meta: { fontSize: 12, color: colors.textMuted },
   stageBadge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4, backgroundColor: "rgba(79,70,229,0.12)" },
   stageText: { fontSize: 10, fontWeight: "800", color: "#4338ca" },
   actions: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   stageChip: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4, backgroundColor: "rgba(24,24,27,0.05)", borderWidth: 1, borderColor: "rgba(24,24,27,0.10)" },
   stageChipActive: { backgroundColor: "#10b981", borderColor: "#10b981" },
-  stageChipText: { fontSize: 10, fontWeight: "700", color: "#52525b" },
+  stageChipText: { fontSize: 10, fontWeight: "700", color: colors.textMuted },
   stageChipTextActive: { fontSize: 10, fontWeight: "800", color: "#ffffff" },
   removeBtn: { alignSelf: "flex-end" },
   emptyBox: { alignItems: "center", gap: 8, paddingVertical: 40 },
-  emptyText: { fontSize: 13, color: "#9ca3af", textAlign: "center" },
+  emptyText: { fontSize: 13, color: colors.textFaint, textAlign: "center" },
 });

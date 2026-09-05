@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState , useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import type { ThemeColors } from "@/theme/tokens";
+import { useTheme } from "@/theme";
 import { useAppStore, type LogKind } from "@/store/app-store";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { logKindLabels } from "@learn-workbench/shared";
@@ -8,6 +10,8 @@ import { Card } from "@/components/card";
 const KINDS: LogKind[] = ["feynman", "review", "project", "interview"];
 
 export default function LogsScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const logs = useAppStore((s) => s.logs);
   const addLog = useAppStore((s) => s.addLog);
@@ -48,14 +52,14 @@ export default function LogsScreen() {
         <TextInput
           style={styles.input}
           placeholder="标题"
-          placeholderTextColor="#9ca3af"
+          placeholderTextColor={colors.textFaint}
           value={title}
           onChangeText={setTitle}
         />
         <TextInput
           style={[styles.input, styles.contentInput]}
           placeholder="写下你的理解 / 复盘 / 项目进展…"
-          placeholderTextColor="#9ca3af"
+          placeholderTextColor={colors.textFaint}
           value={content}
           onChangeText={setContent}
           multiline
@@ -89,7 +93,8 @@ export default function LogsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   scroll: { flex: 1 },
   content: { padding: 16, paddingBottom: 32, gap: 12 },
   hero: { paddingTop: 24, paddingBottom: 6, gap: 4 },
@@ -98,7 +103,7 @@ const styles = StyleSheet.create({
   typeRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   typeChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: "rgba(24,24,27,0.05)" },
   typeChipActive: { backgroundColor: "rgba(79,70,229,0.12)" },
-  typeChipText: { fontSize: 12, color: "#71717a" },
+  typeChipText: { fontSize: 12, color: colors.textMuted },
   typeChipTextActive: { color: "#4f46e5", fontWeight: "600" },
   input: {
     backgroundColor: "rgba(24,24,27,0.04)",
@@ -106,7 +111,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
-    color: "#18181b",
+    color: colors.text,
   },
   contentInput: { minHeight: 200, textAlignVertical: "top", fontSize: 14, lineHeight: 21 },
   primaryBtn: { backgroundColor: "#4f46e5", borderRadius: 14, paddingVertical: 12, alignItems: "center" },
@@ -114,8 +119,8 @@ const styles = StyleSheet.create({
   logItem: { gap: 4, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: "rgba(24,24,27,0.05)" },
   logHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   logKind: { fontSize: 11, color: "#4f46e5", fontWeight: "600" },
-  logDate: { fontSize: 11, color: "#9ca3af" },
-  logTitle: { fontSize: 14, fontWeight: "600", color: "#18181b" },
-  logContent: { fontSize: 13, color: "#71717a", lineHeight: 19 },
-  empty: { fontSize: 13, color: "#71717a", textAlign: "center", paddingVertical: 12 },
+  logDate: { fontSize: 11, color: colors.textFaint },
+  logTitle: { fontSize: 14, fontWeight: "600", color: colors.text },
+  logContent: { fontSize: 13, color: colors.textMuted, lineHeight: 19 },
+  empty: { fontSize: 13, color: colors.textMuted, textAlign: "center", paddingVertical: 12 },
 });

@@ -25,7 +25,9 @@ import Animated, {
 } from "react-native-reanimated";
 import { Card } from "@/components/card";
 import { JobDetailModal } from "@/components/job-detail-modal";
-import { colors, radius } from "@/theme/tokens";
+import { radius } from "@/theme/tokens";
+import type { ThemeColors } from "@/theme/tokens";
+import { useTheme } from "@/theme";
 import {
   fetchJobStats,
   fetchJobs,
@@ -99,6 +101,8 @@ function ScalePressable({
 }
 
 function GearButton({ onPress }: { onPress: () => void }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const rotate = useSharedValue(0);
   const scale = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => ({
@@ -123,6 +127,8 @@ function GearButton({ onPress }: { onPress: () => void }) {
 }
 
 function FreshnessBadge({ job }: { job: JobPostingListItem }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const f = jobFreshness(
     job.publishedAt ?? null,
     job.fetchedAt,
@@ -136,7 +142,7 @@ function FreshnessBadge({ job }: { job: JobPostingListItem }) {
         ? "#b45309"
         : f.level === "stale"
           ? "#b91c1c"
-          : "#52525b";
+          : colors.textMuted;
   const bg =
     f.level === "just" || f.level === "within3"
       ? "rgba(16,185,129,0.14)"
@@ -163,6 +169,8 @@ function JobCard({
   onPress: (job: JobPostingListItem) => void;
   onToggleFavorite: (job: JobPostingListItem) => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(16);
   const scale = useSharedValue(1);
@@ -232,7 +240,7 @@ function JobCard({
         <Pressable hitSlop={10} onPress={() => onToggleFavorite(job)}>
           <Ionicons name={job.isFav ? "heart" : "heart-outline"} size={18} color={job.isFav ? "#f43f5e" : "#8b8b94"} />
         </Pressable>
-        <Ionicons name="chevron-forward" size={16} color="#9ca3af" />
+        <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
       </View>
     </AnimatedPressable>
   );
@@ -293,6 +301,8 @@ function FilterBottomSheet({
   onApply: () => void;
   onClose: () => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [draft, setDraft] = useState("");
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -379,7 +389,7 @@ function FilterBottomSheet({
                 value={draft}
                 onChangeText={setDraft}
                 placeholder="输入技能后回车添加，如 Python"
-                placeholderTextColor="#9ca3af"
+                placeholderTextColor={colors.textFaint}
                 returnKeyType="done"
                 onSubmitEditing={() => {
                   const v = draft.trim();
@@ -410,6 +420,8 @@ function FilterBottomSheet({
 }
 
 export default function JobsScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const token = useAppStore((s) => s.token);
 
@@ -558,7 +570,7 @@ export default function JobsScreen() {
     if (error) {
       return (
         <View style={styles.emptyBox}>
-          <Ionicons name="cloud-offline-outline" size={30} color="#9ca3af" />
+          <Ionicons name="cloud-offline-outline" size={30} color={colors.textFaint} />
           <Text style={styles.emptyText}>{error}</Text>
           <ScalePressable style={styles.emptyPrimaryBtn} onPress={() => loadJobs(1, "initial")}>
             <Text style={styles.emptyPrimaryText}>重新加载</Text>
@@ -605,13 +617,13 @@ export default function JobsScreen() {
 
       <View style={styles.searchRow}>
         <View style={styles.searchBar}>
-          <Ionicons name="search" size={18} color="#9ca3af" />
+          <Ionicons name="search" size={18} color={colors.textFaint} />
           <TextInput
             style={styles.searchInput}
             value={searchInput}
             onChangeText={setSearchInput}
             placeholder="搜索职位 / 公司 / 技能"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={colors.textFaint}
             returnKeyType="search"
             onSubmitEditing={() => setQuery(searchInput.trim())}
             autoCapitalize="none"
@@ -621,7 +633,7 @@ export default function JobsScreen() {
               setSearchInput("");
               setQuery("");
             }} hitSlop={8}>
-              <Ionicons name="close-circle" size={18} color="#9ca3af" />
+              <Ionicons name="close-circle" size={18} color={colors.textFaint} />
             </Pressable>
           ) : null}
         </View>
@@ -776,7 +788,8 @@ export default function JobsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   root: { flex: 1 },
   content: { padding: 16, paddingBottom: 118, gap: 12 },
   hero: {
@@ -1010,14 +1023,14 @@ const styles = StyleSheet.create({
   sheet: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0, padding: 18, gap: 14, maxHeight: "80%" },
   grabber: { width: 40, height: 4, borderRadius: 2, backgroundColor: "rgba(24,24,27,0.15)", alignSelf: "center", marginBottom: 4 },
   sheetHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  sheetTitle: { fontSize: 17, fontWeight: "800", color: "#18181b" },
+  sheetTitle: { fontSize: 17, fontWeight: "800", color: colors.text },
   sheetReset: { fontSize: 13, fontWeight: "700", color: "#10b981" },
-  filterGroupTitle: { fontSize: 13, fontWeight: "800", color: "#18181b", marginTop: 4 },
+  filterGroupTitle: { fontSize: 13, fontWeight: "800", color: colors.text, marginTop: 4 },
   chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   sheetChip: { borderRadius: 999, paddingHorizontal: 13, paddingVertical: 7 },
   sheetChipActive: { backgroundColor: "#10b981" },
   sheetChipIdle: { backgroundColor: "rgba(24,24,27,0.06)", borderWidth: 1, borderColor: "rgba(24,24,27,0.12)" },
-  sheetChipText: { fontSize: 12.5, fontWeight: "700", color: "#52525b" },
+  sheetChipText: { fontSize: 12.5, fontWeight: "700", color: colors.textMuted },
   sheetChipTextActive: { fontSize: 12.5, fontWeight: "800", color: "#ffffff" },
   skillInputRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 6 },
   skillInput: {
@@ -1027,7 +1040,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     backgroundColor: "rgba(24,24,27,0.05)",
     fontSize: 13,
-    color: "#18181b",
+    color: colors.text,
   },
   skillAddBtn: { backgroundColor: "#10b981", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 },
   skillAddText: { color: "#ffffff", fontSize: 13, fontWeight: "800" },

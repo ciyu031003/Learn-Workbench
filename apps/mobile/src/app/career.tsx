@@ -1,6 +1,8 @@
 /* eslint-disable react-hooks/immutability */
-import { useEffect, useState } from "react";
+import { useEffect, useState , useMemo } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, type DimensionValue } from "react-native";
+import type { ThemeColors } from "@/theme/tokens";
+import { useTheme } from "@/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -20,6 +22,8 @@ const SECTIONS = [
 const LEVEL_LABELS = ["未掌握", "了解", "入门", "熟练", "精通", "专家"];
 
 export default function CareerScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const token = useAppStore((s) => s.token);
   const [readiness, setReadiness] = useState<CareerReadiness | null>(null);
@@ -111,7 +115,7 @@ export default function CareerScreen() {
                 <Text style={styles.entryTitle}>{s.title}</Text>
                 <Text style={styles.entryDesc}>{s.desc}</Text>
               </View>
-              {s.href ? <Ionicons name="chevron-forward" size={16} color="#9ca3af" /> : null}
+              {s.href ? <Ionicons name="chevron-forward" size={16} color={colors.textFaint} /> : null}
             </Card>
           </Pressable>
         ))}
@@ -120,35 +124,36 @@ export default function CareerScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   scroll: { flex: 1, backgroundColor: "transparent" },
   content: { paddingHorizontal: 16, paddingBottom: 40, gap: 12 },
   hero: { marginBottom: 8 },
-  heroTitle: { fontSize: 28, fontWeight: "700", color: "#18181b" },
-  heroSub: { fontSize: 13, color: "#71717a", marginTop: 4 },
+  heroTitle: { fontSize: 28, fontWeight: "700", color: colors.text },
+  heroSub: { fontSize: 13, color: colors.textMuted, marginTop: 4 },
   readinessCard: { padding: 16 },
   loader: { marginVertical: 24 },
   readinessBody: { gap: 10 },
   readinessTop: { flexDirection: "row", alignItems: "baseline", gap: 8 },
   overall: { fontSize: 40, fontWeight: "800", color: "#4f46e5" },
-  overallLabel: { fontSize: 12, color: "#71717a" },
+  overallLabel: { fontSize: 12, color: colors.textMuted },
   dim: { gap: 4 },
   dimHeader: { flexDirection: "row", justifyContent: "space-between" },
-  dimLabel: { fontSize: 12, fontWeight: "600", color: "#18181b" },
-  dimScore: { fontSize: 12, color: "#71717a" },
+  dimLabel: { fontSize: 12, fontWeight: "600", color: colors.text },
+  dimScore: { fontSize: 12, color: colors.textMuted },
   track: { height: 6, borderRadius: 3, backgroundColor: "rgba(24,24,27,0.08)", overflow: "hidden" },
   fill: { height: 6, borderRadius: 3 },
   jobBtn: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 12, backgroundColor: "rgba(13,148,136,0.10)", alignSelf: "flex-start" },
   jobBtnText: { fontSize: 13, fontWeight: "600", color: "#0d9488" },
-  emptyHint: { fontSize: 13, color: "#71717a", paddingVertical: 12 },
+  emptyHint: { fontSize: 13, color: colors.textMuted, paddingVertical: 12 },
   grid: { gap: 12 },
   entry: { borderRadius: 20 },
   pressed: { opacity: 0.85, transform: [{ scale: 0.98 }] },
   entryCard: { flexDirection: "row", alignItems: "center", gap: 12 },
   iconChip: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   entryText: { flex: 1 },
-  entryTitle: { fontSize: 16, fontWeight: "600", color: "#18181b" },
-  entryDesc: { fontSize: 12, color: "#71717a", marginTop: 2 },
+  entryTitle: { fontSize: 16, fontWeight: "600", color: colors.text },
+  entryDesc: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   skillsCard: { padding: 16, gap: 10 },
   skillChips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   skillChip: {

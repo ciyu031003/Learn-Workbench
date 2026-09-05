@@ -14,7 +14,9 @@ import { mainPhases, agentPhase } from "@learn-workbench/content";
 import type { Phase } from "@learn-workbench/shared";
 import { formatDuration, pct } from "@learn-workbench/shared";
 import { computeFocusStats } from "@/lib/focus-stats";
-import { colors, radius } from "@/theme/tokens";
+import { radius } from "@/theme/tokens";
+import type { ThemeColors } from "@/theme/tokens";
+import { useTheme } from "@/theme";
 import { fetchRoadmap, createPhase, reorderPhases, readCachedRoadmap } from "@/lib/roadmap";
 
 const STAGE_GRADS: [string, string][] = [
@@ -134,6 +136,8 @@ function MonthCalendar({
   onSelect: (d: Date) => void;
   onClose: () => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [view, setView] = useState(() => ({ y: selected.getFullYear(), m: selected.getMonth() }));
   const cells = monthGrid(view.y, view.m);
   const todayKey = localKey(new Date());
@@ -204,6 +208,8 @@ function MonthCalendar({
 }
 
 export default function LearnScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const progress = useAppStore((s) => s.progress);
   const sessions = useAppStore((s) => s.sessions);
@@ -824,7 +830,8 @@ export default function LearnScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   scroll: { flex: 1, backgroundColor: "transparent" },
   content: { paddingHorizontal: 16, paddingBottom: 118, gap: 12 },
   hero: { marginBottom: 8 },

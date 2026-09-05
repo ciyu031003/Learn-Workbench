@@ -1,9 +1,14 @@
+import { useMemo } from "react";
 import { Link } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, radius, shadows } from "@/theme/tokens";
+import { radius, shadows } from "@/theme/tokens";
+import type { ThemeColors } from "@/theme/tokens";
+import { useTheme } from "@/theme";
 
 export default function NotFound() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.wrap}>
       <View style={styles.card}>
@@ -22,7 +27,8 @@ export default function NotFound() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   wrap: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
   card: {
     width: "100%",

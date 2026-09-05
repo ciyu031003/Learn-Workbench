@@ -3,6 +3,8 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { DailyTask, FocusSession, LogEntry, TopicProgress } from "@learn-workbench/shared";
 import { todayISO } from "@learn-workbench/shared";
+import type { ThemeMode } from "@/theme/tokens";
+import { secureToken } from "@/lib/secure-token";
 
 export type TaskType = "study" | "agent" | "output" | "review" | "exam";
 export type LogKind = "feynman" | "review" | "project" | "interview";
@@ -92,6 +94,9 @@ interface AppState {
   toggleBackground: () => void;
   resetAll: () => void;
 
+  themeMode: ThemeMode;
+  setThemeMode: (mode: ThemeMode) => void;
+
   setAuth: (token: string | null, username: string | null) => void;
   setApiUrl: (url: string) => void;
   addGithub: (title: string, url: string | null, content: string | null) => void;
@@ -116,6 +121,7 @@ export const useAppStore = create<AppState>()(
       sessions: [],
       checkins: [],
       backgroundEnabled: true,
+      themeMode: "system" as ThemeMode,
       token: null,
       username: null,
       github: [],
@@ -277,6 +283,7 @@ export const useAppStore = create<AppState>()(
         }),
 
       toggleBackground: () => set((s) => ({ backgroundEnabled: !s.backgroundEnabled })),
+      setThemeMode: (mode) => set({ themeMode: mode }),
       resetAll: () =>
         set({
           progress: {},
@@ -290,7 +297,11 @@ export const useAppStore = create<AppState>()(
           lastSyncedAt: null,
         }),
 
-      setAuth: (token, username) => set({ token, username }),
+      setAuth: (token, username) => {
+        if (token) void secureToken.save(token);
+        else void secureToken.clear();
+        set({ token, username });
+      },
       setApiUrl: (url) => set({ apiUrl: url }),
 
       addGithub: (title, url, content) =>
@@ -512,6 +523,11 @@ export const useAppStore = create<AppState>()(
       clearPendingChanges: () => set({ pendingChanges: [] }),
       setLastSyncedAt: (t) => set({ lastSyncedAt: t }),
     }),
-    { name: "lwb-mobile-store", storage: createJSONStorage(() => AsyncStorage) }
+    {
+      name: "lwb-mobile-store",
+      storage: createJSONStorage(() => AsyncStorage),
+      // token 改存 expo-secure-store（Keychain/Keystore），AsyncStorage 持久化里置空
+      partialize: (s) => ({ ...s, token: null as string | null }),
+    }
   )
 );

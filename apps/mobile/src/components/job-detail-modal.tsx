@@ -1,6 +1,8 @@
 /* eslint-disable react-hooks/immutability, react-hooks/set-state-in-effect */
-import { useEffect, useState } from "react";
+import { useEffect, useState , useMemo } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import type { ThemeColors } from "@/theme/tokens";
+import { useTheme } from "@/theme";
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring } from "react-native-reanimated";
@@ -37,6 +39,8 @@ export function JobDetailModal({
   onClose: () => void;
   onToggleFavorite: (job: JobPostingListItem) => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [detail, setDetail] = useState<JobDetail | null>(null);
   const [plan, setPlan] = useState<JobLearningPlan | null>(null);
   const [loading, setLoading] = useState(false);
@@ -95,7 +99,7 @@ export function JobDetailModal({
         ? "#b45309"
         : freshness.level === "stale"
           ? "#b91c1c"
-          : "#52525b";
+          : colors.textMuted;
   const freshnessBg =
     freshness.level === "just" || freshness.level === "within3"
       ? "rgba(16,185,129,0.14)"
@@ -263,7 +267,7 @@ export function JobDetailModal({
             <View style={styles.actions}>
               <Animated.View style={heartStyle}>
                 <Pressable style={styles.actionBtn} onPress={popHeart}>
-                  <Ionicons name={job?.isFav ? "heart" : "heart-outline"} size={22} color={job?.isFav ? "#f43f5e" : "#71717a"} />
+                  <Ionicons name={job?.isFav ? "heart" : "heart-outline"} size={22} color={job?.isFav ? "#f43f5e" : colors.textMuted} />
                   <Text style={styles.actionText}>{job?.isFav ? "已收藏" : "收藏"}</Text>
                 </Pressable>
               </Animated.View>
@@ -285,7 +289,8 @@ export function JobDetailModal({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: "flex-end",
@@ -335,7 +340,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: "800",
-    color: "#18181b",
+    color: colors.text,
     lineHeight: 24,
   },
   salary: {
@@ -345,7 +350,7 @@ const styles = StyleSheet.create({
   },
   meta: {
     fontSize: 12.5,
-    color: "#71717a",
+    color: colors.textMuted,
     lineHeight: 18,
   },
   metaGrid: {
@@ -369,7 +374,7 @@ const styles = StyleSheet.create({
   },
   metaValue: {
     fontSize: 13,
-    color: "#18181b",
+    color: colors.text,
     marginTop: 2,
   },
   sourceRow: {
@@ -394,7 +399,7 @@ const styles = StyleSheet.create({
   },
   sourceText: {
     fontSize: 11,
-    color: "#52525b",
+    color: colors.textMuted,
     fontWeight: "700",
   },
   newBadge: {
@@ -412,7 +417,7 @@ const styles = StyleSheet.create({
   fetchedAt: {
     marginLeft: "auto",
     fontSize: 11,
-    color: "#9ca3af",
+    color: colors.textFaint,
   },
   freshBadge: {
     borderRadius: 999,
@@ -441,13 +446,13 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 15,
     fontWeight: "800",
-    color: "#18181b",
+    color: colors.text,
     marginTop: 4,
   },
   sectionText: {
     fontSize: 13.5,
     lineHeight: 21,
-    color: "#3f3f46",
+    color: colors.text,
   },
   loadingBox: {
     alignItems: "center",
@@ -456,7 +461,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 12,
-    color: "#71717a",
+    color: colors.textMuted,
   },
   errorText: {
     fontSize: 13,
@@ -487,7 +492,7 @@ const styles = StyleSheet.create({
   actionText: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#3f3f46",
+    color: colors.text,
   },
   toast: {
     position: "absolute",
@@ -522,7 +527,7 @@ const styles = StyleSheet.create({
   planTitle: {
     fontSize: 15,
     fontWeight: "800",
-    color: "#18181b",
+    color: colors.text,
   },
   matchBadge: {
     backgroundColor: "rgba(79,70,229,0.14)",
@@ -537,7 +542,7 @@ const styles = StyleSheet.create({
   },
   planMeta: {
     fontSize: 12,
-    color: "#71717a",
+    color: colors.textMuted,
     lineHeight: 18,
   },
   phaseBox: {
@@ -550,17 +555,17 @@ const styles = StyleSheet.create({
   phaseTitle: {
     fontSize: 12.5,
     fontWeight: "800",
-    color: "#18181b",
+    color: colors.text,
   },
   phaseHours: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#71717a",
+    color: colors.textMuted,
   },
   phaseSkill: {
     fontSize: 12,
     lineHeight: 18,
-    color: "#3f3f46",
+    color: colors.text,
   },
   enrollBtn: {
     backgroundColor: "#10b981",

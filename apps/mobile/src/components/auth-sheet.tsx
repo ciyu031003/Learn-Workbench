@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState , useMemo } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -15,7 +15,9 @@ import { BottomSheet } from "@/components/bottom-sheet";
 import { getApiUrl } from "@/config";
 import { apiLogin } from "@/lib/sync";
 import { haptics } from "@/lib/haptics";
-import { colors, radius } from "@/theme/tokens";
+import { radius } from "@/theme/tokens";
+import type { ThemeColors } from "@/theme/tokens";
+import { useTheme } from "@/theme";
 
 /**
  * 登录 / 注册底部抽屉：从「我的」页唤起，成功后回写会话并自动关闭。
@@ -30,6 +32,8 @@ export function AuthSheet({
   onClose: () => void;
   onAuthed: (token: string, username: string) => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [mode, setMode] = useState<"login" | "register">("login");
   const [userInput, setUserInput] = useState("");
   const [passInput, setPassInput] = useState("");
@@ -237,7 +241,8 @@ export function AuthSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   flex: { flex: 1 },
   content: { paddingBottom: 16, gap: 12 },
   brand: { alignItems: "center", gap: 5, paddingVertical: 4 },

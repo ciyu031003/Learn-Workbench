@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect , useMemo } from "react";
 import { Tabs, router, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
@@ -14,8 +14,12 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { DailyBackground } from "@/components/daily-background";
-import { colors } from "@/theme/tokens";
+import { ThemeProvider } from "@/theme";
+import { useTheme } from "@/theme";
+import type { ThemeColors } from "@/theme/tokens";
 import { startSyncEngine } from "@/lib/sync-engine";
+import { secureToken } from "@/lib/secure-token";
+import { useAppStore } from "@/store/app-store";
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
@@ -30,6 +34,8 @@ function TabIcon({
   color: string | OpaqueColorValue;
   focused?: boolean;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={[styles.tabIcon, focused && styles.tabIconFocused]}>
       <Ionicons name={focused ? name : outlineName} size={22} color={color} />
@@ -38,6 +44,8 @@ function TabIcon({
 }
 
 function FlowerTabIcon({ color, focused }: { color: string | OpaqueColorValue; focused?: boolean }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const scale = useSharedValue(1);
   const rotate = useSharedValue(0);
 
@@ -64,48 +72,76 @@ function FlowerTabIcon({ color, focused }: { color: string | OpaqueColorValue; f
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   root: { flex: 1 },
   tabIcon: { alignItems: "center", gap: 3, paddingVertical: 2 },
   tabIconFocused: {
-    backgroundColor: "rgba(47,116,192,0.12)",
+    backgroundColor: colors.primarySoft,
     borderRadius: 14,
     paddingHorizontal: 12,
   },
 });
 
+/**
+ * iOS 风格边缘横滑：只截获屏幕左右 26pt 边缘的横滑，
+ * 不再全屏覆盖（避免吃掉子页面内部的横向手势/轮播/sheet 冲突）。
+ */
 function SwipeNavigator() {
   const pathname = usePathname();
 
-  const gesture = Gesture.Pan()
-    .activeOffsetX([-24, 24])
-    .failOffsetY([-12, 12])
-    .onEnd((e) => {
-      if (Math.abs(e.translationX) < 48 || Math.abs(e.velocityX) < 320) return;
-      const right = e.translationX < 0;
-      if (pathname === "/" || pathname === "/dashboard") runOnJS(router.navigate)(right ? "/learn" : "/dashboard");
-      else if (pathname === "/learn") runOnJS(router.navigate)(right ? "/jobs" : "/dashboard");
-      else if (pathname === "/jobs") runOnJS(router.navigate)(right ? "/settings" : "/learn");
-      else if (pathname === "/settings" && !right) runOnJS(router.navigate)("/jobs");
-    });
+  const go = (dir: "left" | "right") => {
+    const right = dir === "left";
+    if (pathname === "/" || pathname === "/dashboard") runOnJS(router.navigate)(right ? "/learn" : "/dashboard");
+    else if (pathname === "/learn") runOnJS(router.navigate)(right ? "/jobs" : "/dashboard");
+    else if (pathname === "/jobs") runOnJS(router.navigate)(right ? "/settings" : "/learn");
+    else if (pathname === "/settings" && !right) runOnJS(router.navigate)("/jobs");
+  };
+
+  const makeEdge = (side: "left" | "right") =>
+    Gesture.Pan()
+      .activeOffsetX(side === "left" ? [-24, 24] : [-24, 24])
+      .failOffsetY([-14, 14])
+      .onEnd((e) => {
+        if (Math.abs(e.translationX) < 48 || Math.abs(e.velocityX) < 320) return;
+        const right = e.translationX < 0;
+        // 左边缘响应右滑（返回上一 tab），右边缘响应左滑（前进下一 tab）
+        if (side === "left" && !right) return;
+        if (side === "right" && right) return;
+        runOnJS(go)(right ? "left" : "right");
+      });
 
   return (
     <View pointerEvents="box-none" style={swipeStyles.layer}>
-      <GestureDetector gesture={gesture}>
-        <View style={swipeStyles.gestureZone} />
+      <GestureDetector gesture={makeEdge("left")}>
+        <View style={swipeStyles.edgeLeft} />
+      </GestureDetector>
+      <GestureDetector gesture={makeEdge("right")}>
+        <View style={swipeStyles.edgeRight} />
       </GestureDetector>
     </View>
   );
 }
 
 const swipeStyles = StyleSheet.create({
-  layer: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 60 },
-  gestureZone: { flex: 1 },
+  layer: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 60, flexDirection: "row", justifyContent: "space-between" },
+  edgeLeft: { width: 26, height: "100%" },
+  edgeRight: { width: 26, height: "100%" },
 });
 
 export default function RootLayout() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   // 离线优先：启动后台同步引擎（联网/回前台/登录后自动推送本地变更）
   useEffect(() => startSyncEngine(), []);
+
+  // 登录令牌恢复：token 存于安全存储（Keychain/Keystore），启动时回填会话
+  useEffect(() => {
+    secureToken.load().then((t) => {
+      const st = useAppStore.getState();
+      if (t && !st.token) st.setAuth(t, st.username);
+    });
+  }, []);
 
   // 默认竖屏锁定；专注页打开时会临时解锁以支持横屏时钟模式
   useEffect(() => {
@@ -116,9 +152,21 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={styles.root}>
-      <DailyBackground>
-        <StatusBar style="dark" />
-        <Tabs
+      <ThemeProvider>
+        <ThemedShell />
+      </ThemeProvider>
+    </GestureHandlerRootView>
+  );
+}
+
+/** 壳层（吃主题）：TabBar / StatusBar / 每日背景 / 边缘横滑 */
+function ThemedShell() {
+  const { colors, dark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  return (
+    <DailyBackground>
+      <StatusBar style={dark ? "light" : "dark"} />
+      <Tabs
         screenOptions={{
           headerShown: false,
           tabBarActiveTintColor: colors.primary,
@@ -132,11 +180,11 @@ export default function RootLayout() {
             bottom: 18,
             height: 62,
             borderRadius: 21,
-            backgroundColor: "rgba(255,251,234,0.72)",
+            backgroundColor: dark ? "rgba(34,27,16,0.82)" : "rgba(255,251,234,0.72)",
             borderTopWidth: 0,
             borderWidth: 1,
-            borderColor: "rgba(255,255,255,0.65)",
-            shadowColor: "#A96F2F",
+            borderColor: dark ? "rgba(242,235,221,0.12)" : "rgba(255,255,255,0.65)",
+            shadowColor: dark ? "#000000" : "#A96F2F",
             shadowOpacity: 0.12,
             shadowRadius: 12,
             shadowOffset: { width: 0, height: 4 },
@@ -184,10 +232,10 @@ export default function RootLayout() {
         <Tabs.Screen name="logs" options={{ href: null }} />
         <Tabs.Screen name="market" options={{ href: null }} />
         <Tabs.Screen name="applications" options={{ href: null }} />
+        <Tabs.Screen name="account-security" options={{ href: null }} />
         <Tabs.Screen name="+not-found" options={{ href: null }} />
-        </Tabs>
-      </DailyBackground>
+      </Tabs>
       <SwipeNavigator />
-    </GestureHandlerRootView>
+    </DailyBackground>
   );
 }

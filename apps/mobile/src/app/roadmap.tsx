@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState , useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import type { ThemeColors } from "@/theme/tokens";
+import { useTheme } from "@/theme";
 import { useAppStore } from "@/store/app-store";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { mainPhases, agentPhase } from "@learn-workbench/content";
@@ -34,6 +36,8 @@ function PhaseBlock({
   onDelete?: (id: number) => void;
   defaultOpen: boolean;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [open, setOpen] = useState(defaultOpen);
   const doneCount = topics.filter((t) => progress[t.id]?.done).length;
   const percent = pct(doneCount, topics.length);
@@ -84,6 +88,8 @@ function PhaseBlock({
 }
 
 export default function RoadmapScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const progress = useAppStore((s) => s.progress);
   const toggleTopic = useAppStore((s) => s.toggleTopic);
@@ -156,8 +162,8 @@ export default function RoadmapScreen() {
                 </Pressable>
               ))}
             </View>
-            <TextInput style={styles.input} placeholder="学习内容标题（必填）" placeholderTextColor="#9ca3af" value={title} onChangeText={setTitle} />
-            <TextInput style={styles.input} placeholder="简要说明（可选）" placeholderTextColor="#9ca3af" value={summary} onChangeText={setSummary} />
+            <TextInput style={styles.input} placeholder="学习内容标题（必填）" placeholderTextColor={colors.textFaint} value={title} onChangeText={setTitle} />
+            <TextInput style={styles.input} placeholder="简要说明（可选）" placeholderTextColor={colors.textFaint} value={summary} onChangeText={setSummary} />
             <Pressable style={styles.primaryBtn} onPress={submitCustom} disabled={!title.trim()}>
               <Text style={styles.primaryBtnText}>添加</Text>
             </Pressable>
@@ -195,7 +201,8 @@ export default function RoadmapScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   scroll: { flex: 1 },
   content: { padding: 16, paddingBottom: 32, gap: 12 },
   hero: { paddingTop: 24, paddingBottom: 6, gap: 4 },
@@ -204,11 +211,11 @@ const styles = StyleSheet.create({
   addToggle: { alignItems: "center", paddingVertical: 10 },
   addToggleText: { fontSize: 14, fontWeight: "600", color: "#e8930c" },
   addForm: { gap: 8 },
-  addLabel: { fontSize: 12, color: "#71717a" },
+  addLabel: { fontSize: 12, color: colors.textMuted },
   phasePicker: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   chip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: "rgba(24,24,27,0.05)" },
   chipActive: { backgroundColor: "rgba(232,147,12,0.18)" },
-  chipText: { fontSize: 11, color: "#71717a", maxWidth: 120 },
+  chipText: { fontSize: 11, color: colors.textMuted, maxWidth: 120 },
   chipTextActive: { color: "#e8930c", fontWeight: "600" },
   input: {
     backgroundColor: "rgba(24,24,27,0.04)",
@@ -216,7 +223,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
-    color: "#18181b",
+    color: colors.text,
   },
   primaryBtn: { backgroundColor: "#e8930c", borderRadius: 14, paddingVertical: 11, alignItems: "center" },
   primaryBtnText: { color: "#fff", fontSize: 14, fontWeight: "600" },
@@ -225,18 +232,18 @@ const styles = StyleSheet.create({
   phaseDotMain: { backgroundColor: "rgba(232,147,12,0.14)" },
   phaseDotAccent: { backgroundColor: "rgba(239,106,94,0.15)" },
   phaseDotText: { fontSize: 13, fontWeight: "700", color: "#e8930c" },
-  phaseTitle: { fontSize: 16, fontWeight: "600", color: "#18181b" },
-  phaseWeeks: { fontSize: 11, color: "#71717a", backgroundColor: "rgba(24,24,27,0.06)", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, overflow: "hidden" },
-  phasePercent: { marginTop: 2, fontSize: 12, color: "#71717a" },
-  chevron: { fontSize: 16, color: "#9ca3af" },
+  phaseTitle: { fontSize: 16, fontWeight: "600", color: colors.text },
+  phaseWeeks: { fontSize: 11, color: colors.textMuted, backgroundColor: "rgba(24,24,27,0.06)", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, overflow: "hidden" },
+  phasePercent: { marginTop: 2, fontSize: 12, color: colors.textMuted },
+  chevron: { fontSize: 16, color: colors.textFaint },
   topicList: { borderTopWidth: 1, borderTopColor: "rgba(24,24,27,0.06)", paddingTop: 6, gap: 2 },
   topicRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, paddingVertical: 8, paddingHorizontal: 4, borderRadius: 10 },
   topicCheck: { fontSize: 16, color: "rgba(24,24,27,0.3)", width: 18, textAlign: "center" },
   topicChecked: { color: "#16a34a" },
-  topicTitle: { fontSize: 14, fontWeight: "500", color: "#18181b" },
-  topicTitleDone: { textDecorationLine: "line-through", color: "#71717a" },
+  topicTitle: { fontSize: 14, fontWeight: "500", color: colors.text },
+  topicTitleDone: { textDecorationLine: "line-through", color: colors.textMuted },
   customTag: { fontSize: 10, color: "#e8930c", backgroundColor: "rgba(232,147,12,0.14)", paddingHorizontal: 5, paddingVertical: 1, borderRadius: 5, overflow: "hidden" },
   topicAgent: { marginTop: 2, fontSize: 12, color: "#ef6a5e" },
-  topicSummary: { marginTop: 2, fontSize: 12, color: "#71717a" },
+  topicSummary: { marginTop: 2, fontSize: 12, color: colors.textMuted },
   deleteBtn: { fontSize: 13, color: "#dc2626", paddingHorizontal: 4 },
 });

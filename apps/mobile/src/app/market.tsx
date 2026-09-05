@@ -1,6 +1,8 @@
 /* eslint-disable react-hooks/immutability, react-hooks/set-state-in-effect */
-import { useEffect, useState } from "react";
+import { useEffect, useState , useMemo } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View, type DimensionValue } from "react-native";
+import type { ThemeColors } from "@/theme/tokens";
+import { useTheme } from "@/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getApiUrl } from "@/config";
@@ -9,6 +11,8 @@ import { Card } from "@/components/card";
 import type { MarketAnalysis } from "@learn-workbench/shared";
 
 export default function MarketScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const token = useAppStore((s) => s.token);
   const [data, setData] = useState<MarketAnalysis | null>(null);
@@ -52,7 +56,7 @@ export default function MarketScreen() {
         <View style={styles.loadingBox}><ActivityIndicator color="#10b981" /></View>
       ) : !data || data.total === 0 ? (
         <View style={styles.loadingBox}>
-          <Ionicons name="trending-up-outline" size={30} color="#9ca3af" />
+          <Ionicons name="trending-up-outline" size={30} color={colors.textFaint} />
           <Text style={styles.emptyText}>暂无招聘数据，先抓取职位</Text>
         </View>
       ) : (
@@ -121,20 +125,21 @@ export default function MarketScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   scroll: { flex: 1, backgroundColor: "transparent" },
   content: { padding: 16, paddingBottom: 40, gap: 12 },
-  title: { fontSize: 26, fontWeight: "900", color: "#18181b" },
-  sub: { fontSize: 13, color: "#71717a", marginTop: 2 },
+  title: { fontSize: 26, fontWeight: "900", color: colors.text },
+  sub: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
   loadingBox: { alignItems: "center", gap: 10, paddingVertical: 40 },
-  emptyText: { fontSize: 13, color: "#9ca3af", textAlign: "center" },
+  emptyText: { fontSize: 13, color: colors.textFaint, textAlign: "center" },
   grid: { gap: 12 },
   card: { padding: 16, gap: 8 },
   row: { flexDirection: "row", alignItems: "center", gap: 8 },
-  rowLabel: { flexShrink: 1, minWidth: 0, fontSize: 12, fontWeight: "700", color: "#52525b", textAlign: "right" },
+  rowLabel: { flexShrink: 1, minWidth: 0, fontSize: 12, fontWeight: "700", color: colors.textMuted, textAlign: "right" },
   track: { flex: 1, height: 12, borderRadius: 6, backgroundColor: "rgba(24,24,27,0.07)", overflow: "hidden" },
   fill: { height: 12, borderRadius: 6 },
-  rowValue: { width: 32, fontSize: 12, fontWeight: "800", color: "#18181b", textAlign: "right" },
-  groupTitle: { fontSize: 12, fontWeight: "800", color: "#18181b", marginTop: 6 },
+  rowValue: { width: 32, fontSize: 12, fontWeight: "800", color: colors.text, textAlign: "right" },
+  groupTitle: { fontSize: 12, fontWeight: "800", color: colors.text, marginTop: 6 },
 });
 

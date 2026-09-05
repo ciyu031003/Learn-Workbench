@@ -1,10 +1,12 @@
 /* eslint-disable react-hooks/immutability, react-hooks/set-state-in-effect */
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState , useMemo } from "react";
 import { Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
-import { colors, radius, shadows } from "@/theme/tokens";
+import { radius, shadows } from "@/theme/tokens";
+import type { ThemeColors } from "@/theme/tokens";
+import { useTheme } from "@/theme";
 
 function parsePercent(value: string, fallback = 0.5) {
   const n = parseFloat(value);
@@ -28,6 +30,8 @@ export function BottomSheet({
   expandable?: boolean;
   height?: string;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const { height: winH } = useWindowDimensions();
   const ratio = parsePercent(height, 0.5);
   const collapsed = winH * ratio;
@@ -123,7 +127,8 @@ export function BottomSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   root: { flex: 1, justifyContent: "flex-end" },
   scrim: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(30,24,12,0.36)" },
   sheet: {

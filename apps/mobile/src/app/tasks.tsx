@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState , useMemo } from "react";
 import { Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
+import type { ThemeColors } from "@/theme/tokens";
+import { useTheme } from "@/theme";
 import { useAppStore, type TaskType } from "@/store/app-store";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { taskTypeLabels, todayISO } from "@learn-workbench/shared";
@@ -10,6 +12,8 @@ import { computeFocusStats, FOCUS_MOTIVATIONS } from "@/lib/focus-stats";
 const TYPES: TaskType[] = ["study", "agent", "output", "review", "exam"];
 
 export default function TasksScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const tasks = useAppStore((s) => s.tasks);
   const sessions = useAppStore((s) => s.sessions);
@@ -78,7 +82,7 @@ export default function TasksScreen() {
         <TextInput
           style={styles.input}
           placeholder="今天要学什么？"
-          placeholderTextColor="#9ca3af"
+          placeholderTextColor={colors.textFaint}
           value={title}
           onChangeText={setTitle}
           onSubmitEditing={submit}
@@ -183,14 +187,15 @@ export default function TasksScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   scroll: { flex: 1 },
   content: { padding: 16, paddingBottom: 32, gap: 12 },
   hero: { paddingTop: 24, paddingBottom: 6, gap: 4 },
   heroTitle: { color: "#ffffff", fontSize: 24, fontWeight: "700" },
   heroSub: { color: "rgba(255,255,255,0.85)", fontSize: 13 },
-  timerHint: { fontSize: 15, color: "#18181b", textAlign: "center", marginBottom: 10 },
-  timerSub: { fontSize: 12, color: "#71717a", textAlign: "center", marginTop: 8 },
+  timerHint: { fontSize: 15, color: colors.text, textAlign: "center", marginBottom: 10 },
+  timerSub: { fontSize: 12, color: colors.textMuted, textAlign: "center", marginTop: 8 },
   primaryBtn: { backgroundColor: "#4f46e5", borderRadius: 14, paddingVertical: 12, alignItems: "center" },
   primaryBtnText: { color: "#fff", fontSize: 15, fontWeight: "600" },
   input: {
@@ -199,37 +204,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
-    color: "#18181b",
+    color: colors.text,
   },
   typeRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   typeChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: "rgba(24,24,27,0.05)" },
   typeChipActive: { backgroundColor: "rgba(79,70,229,0.12)" },
-  typeChipText: { fontSize: 12, color: "#71717a" },
+  typeChipText: { fontSize: 12, color: colors.textMuted },
   typeChipTextActive: { color: "#4f46e5", fontWeight: "600" },
   doneBanner: { backgroundColor: "rgba(22,163,74,0.12)", borderRadius: 12, padding: 10, marginBottom: 8 },
   doneBannerText: { color: "#166534", fontSize: 13, fontWeight: "600" },
   taskRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   taskCheck: { fontSize: 16, color: "rgba(24,24,27,0.3)", width: 18 },
   taskChecked: { color: "#16a34a" },
-  taskTitle: { flex: 1, fontSize: 14, color: "#18181b" },
-  taskTitleDone: { textDecorationLine: "line-through", color: "#71717a" },
-  taskMeta: { fontSize: 12, color: "#71717a" },
+  taskTitle: { flex: 1, fontSize: 14, color: colors.text },
+  taskTitleDone: { textDecorationLine: "line-through", color: colors.textMuted },
+  taskMeta: { fontSize: 12, color: colors.textMuted },
   taskFocus: { fontSize: 12, color: "#0ea5e9" },
   taskPlay: { fontSize: 14, color: "#4f46e5" },
-  empty: { fontSize: 13, color: "#71717a", textAlign: "center", paddingVertical: 12 },
+  empty: { fontSize: 13, color: colors.textMuted, textAlign: "center", paddingVertical: 12 },
   statGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, justifyContent: "center", marginBottom: 8 },
   statBox: { width: "46%", backgroundColor: "rgba(232,147,12,0.08)", borderRadius: 14, paddingVertical: 14, alignItems: "center" },
-  statValue: { fontSize: 22, fontWeight: "800", color: "#18181b" },
-  statLabel: { fontSize: 12, color: "#71717a", marginTop: 3 },
-  sectionLabel: { fontSize: 13, fontWeight: "600", color: "#18181b", marginTop: 12, marginBottom: 8 },
+  statValue: { fontSize: 22, fontWeight: "800", color: colors.text },
+  statLabel: { fontSize: 12, color: colors.textMuted, marginTop: 3 },
+  sectionLabel: { fontSize: 13, fontWeight: "600", color: colors.text, marginTop: 12, marginBottom: 8 },
   barChart: { flexDirection: "row", alignItems: "flex-end", height: 96, gap: 4 },
   barCol: { flex: 1, alignItems: "center", gap: 4, height: "100%" },
   barTrack: { flex: 1, width: "100%", justifyContent: "flex-end", backgroundColor: "rgba(24,24,27,0.05)", borderRadius: 4, overflow: "hidden" },
   bar: { width: "100%", backgroundColor: "#e8930c", borderRadius: 4, minHeight: 4 },
-  barLabel: { fontSize: 9, color: "#9ca3af" },
+  barLabel: { fontSize: 9, color: colors.textFaint },
   timelineRow: { flexDirection: "row", justifyContent: "space-between", backgroundColor: "rgba(24,24,27,0.04)", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, marginBottom: 6 },
-  timelineTime: { fontSize: 13, color: "#52525b" },
-  timelineMin: { fontSize: 13, fontWeight: "600", color: "#18181b" },
+  timelineTime: { fontSize: 13, color: colors.textMuted },
+  timelineMin: { fontSize: 13, fontWeight: "600", color: colors.text },
   quoteLine: { fontSize: 13, color: "#b45309", lineHeight: 20, marginTop: 10 },
   shareBtn: { backgroundColor: "#4f46e5", borderRadius: 999, paddingVertical: 11, alignItems: "center", marginTop: 10 },
   shareBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },

@@ -1,5 +1,7 @@
-import { useEffect } from "react";
+import { useEffect , useMemo } from "react";
 import { StyleSheet, View } from "react-native";
+import type { ThemeColors } from "@/theme/tokens";
+import { useTheme } from "@/theme";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -10,6 +12,8 @@ import Animated, {
 const COLORS = ["#2F74C0", "#F28C28", "#3DA35D", "#FFB25E", "#8D7BD8", "#2FB3A6", "#F26B5E"];
 
 function Particle({ index, play }: { index: number; play: boolean }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const tx = useSharedValue(0);
   const ty = useSharedValue(0);
   const rotate = useSharedValue(0);
@@ -57,6 +61,8 @@ function Particle({ index, play }: { index: number; play: boolean }) {
 }
 
 export function Celebration({ play }: { play: boolean }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
       <View style={styles.center}>
@@ -68,7 +74,8 @@ export function Celebration({ play }: { play: boolean }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   center: {
     position: "absolute",
     left: "50%",

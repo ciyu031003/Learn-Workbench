@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+vi.mock("expo-secure-store", () => ({
+  getItemAsync: vi.fn().mockResolvedValue(null),
+  setItemAsync: vi.fn().mockResolvedValue(undefined),
+  deleteItemAsync: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock("@react-native-async-storage/async-storage", () => ({
   default: {
     getItem: vi.fn().mockResolvedValue(null),

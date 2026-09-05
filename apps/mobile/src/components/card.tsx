@@ -1,6 +1,8 @@
-import { type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
-import { colors, radius, shadows } from "@/theme/tokens";
+import { radius, shadows } from "@/theme/tokens";
+import type { ThemeColors } from "@/theme/tokens";
+import { useTheme } from "@/theme";
 
 export function Card({
   children,
@@ -13,6 +15,8 @@ export function Card({
   title?: string;
   subtitle?: string;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={[styles.card, style]}>
       {title ? (
@@ -26,7 +30,8 @@ export function Card({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   card: {
     backgroundColor: "rgba(255,251,234,0.88)",
     borderWidth: 1,

@@ -1,12 +1,14 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   CheckCircle2,
   KeyRound,
   Loader2,
   Lock,
+  Mail,
+  MessageCircle,
   Sparkles,
   User,
   UserRoundPlus,
@@ -31,6 +33,92 @@ function LoginForm() {
   const [careers, setCareers] = useState<{ career_key: string; name: string; description: string | null; is_locked: boolean }[]>([]);
   const [careerBusy, setCareerBusy] = useState(false);
   const [careerErr, setCareerErr] = useState<string | null>(null);
+
+  // 微信扫码登录（后端未配置 WECHAT_WEB_APPID 时入口自动隐藏）
+  const [wechatEnabled, setWechatEnabled] = useState(false);
+  const [wechatBusy, setWechatBusy] = useState(false);
+  // 忘记密码（邮箱重置；EMAIL_API_KEY 未配置时给引导文案）
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotBusy, setForgotBusy] = useState(false);
+  const [forgotMsg, setForgotMsg] = useState<string | null>(null);
+  // 邮件重置链接回跳（/login?reset=<token>）
+  const resetTokenParam = params.get("reset");
+  const [resetPassword, setResetPassword] = useState("");
+  const [resetBusy, setResetBusy] = useState(false);
+  const [resetMsg, setResetMsg] = useState<string | null>(null);
+  const [resetOk, setResetOk] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/auth/wechat/status")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setWechatEnabled(!!d?.enabled))
+      .catch(() => setWechatEnabled(false));
+  }, []);
+
+  const startWechatLogin = async () => {
+    setWechatBusy(true);
+    setError(null);
+    try {
+      const r = await fetch("/api/auth/wechat/qrcode");
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "微信登录暂不可用");
+      window.location.href = d.url;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "微信登录暂不可用");
+      setWechatBusy(false);
+    }
+  };
+
+  const submitForgot = async () => {
+    if (forgotBusy) return;
+    setForgotBusy(true);
+    setForgotMsg(null);
+    try {
+      const r = await fetch("/api/auth/forgot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail.trim() }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "提交失败");
+      if (d.ok === false && d.reason === "EMAIL_UNCONFIGURED") {
+        setForgotMsg("邮箱服务尚未配置：请联系管理员重置，或继续使用账号密码登录。");
+      } else {
+        setForgotMsg("若该邮箱已绑定账号，重置链接已发送（30 分钟内有效），请查收邮件。");
+      }
+    } catch (e) {
+      setForgotMsg(e instanceof Error ? e.message : "提交失败，请稍后重试");
+    } finally {
+      setForgotBusy(false);
+    }
+  };
+
+  const submitReset = async () => {
+    if (resetBusy) return;
+    if (resetPassword.length < 6) {
+      setResetMsg("新密码至少 6 位");
+      return;
+    }
+    setResetBusy(true);
+    setResetMsg(null);
+    try {
+      const r = await fetch("/api/auth/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: resetTokenParam, newPassword: resetPassword }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "重置失败");
+      setResetOk(true);
+      setResetMsg("密码已重置，请使用新密码登录。");
+      window.history.replaceState(null, "", "/login");
+    } catch (e) {
+      setResetMsg(e instanceof Error ? e.message : "重置失败，链接可能已过期");
+    } finally {
+      setResetBusy(false);
+    }
+  };
 
   const pickCareer = async (key: string) => {
     setCareerBusy(true);
@@ -71,6 +159,36 @@ function LoginForm() {
     }
     setCareerStep(true);
   };
+
+  // 微信回跳：/login?code=xxx&state=xxx → 服务端兑换会话（放在 afterAuth 声明之后）
+  const wechatCode = params.get("code");
+  const wechatState = params.get("state");
+  const [wechatHandled, setWechatHandled] = useState(false);
+  useEffect(() => {
+    if (wechatHandled || !wechatCode || !wechatState) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setWechatHandled(true);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setWechatBusy(true);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setError(null);
+    fetch("/api/auth/wechat/callback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: wechatCode, state: wechatState }),
+    })
+      .then(async (r) => {
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error ?? "微信登录失败");
+        await afterAuth();
+      })
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : "微信登录失败"))
+      .finally(() => {
+        setWechatBusy(false);
+        window.history.replaceState(null, "", "/login");
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wechatCode, wechatState, wechatHandled]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -142,31 +260,71 @@ function LoginForm() {
           <p className="page-subtitle text-sm">{mode === "login" ? "登录后开始你的学习旅程" : "注册一个本地账号开始使用"}</p>
         </div>
 
-        <div className="relative mt-7 grid grid-cols-2 gap-1 rounded-2xl border border-white/20 bg-white/10 p-1 backdrop-blur-xl">
-          <button
-            type="button"
-            onClick={() => switchMode("login")}
-            className={
-              mode === "login"
-                ? "rounded-xl bg-gradient-to-b from-primary to-[#4338ca] py-2 text-sm font-semibold text-white shadow-[0_6px_18px_rgba(79,70,229,0.28)]"
-                : "rounded-xl py-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
-            }
-          >
-            登录
-          </button>
-          <button
-            type="button"
-            onClick={() => switchMode("register")}
-            className={
-              mode === "register"
-                ? "rounded-xl bg-gradient-to-b from-emerald-500 to-cyan-500 py-2 text-sm font-semibold text-white shadow-[0_6px_18px_rgba(16,185,129,0.28)]"
-                : "rounded-xl py-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
-            }
-          >
-            注册
-          </button>
-        </div>
+        {resetTokenParam ? null : (
+          <div className="relative mt-7 grid grid-cols-2 gap-1 rounded-2xl border border-white/20 bg-white/10 p-1 backdrop-blur-xl">
+            <button
+              type="button"
+              onClick={() => switchMode("login")}
+              className={
+                mode === "login"
+                  ? "rounded-xl bg-gradient-to-b from-primary to-[#4338ca] py-2 text-sm font-semibold text-white shadow-[0_6px_18px_rgba(79,70,229,0.28)]"
+                  : "rounded-xl py-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
+              }
+            >
+              登录
+            </button>
+            <button
+              type="button"
+              onClick={() => switchMode("register")}
+              className={
+                mode === "register"
+                  ? "rounded-xl bg-gradient-to-b from-emerald-500 to-cyan-500 py-2 text-sm font-semibold text-white shadow-[0_6px_18px_rgba(16,185,129,0.28)]"
+                  : "rounded-xl py-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
+              }
+            >
+              注册
+            </button>
+          </div>
+        )}
 
+        {resetTokenParam ? (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void submitReset();
+            }}
+            className="relative mt-7 flex flex-col gap-4"
+          >
+            <p className="text-xs text-muted-foreground">请为你的账号设置新密码（至少 6 位）。</p>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs font-medium text-muted-foreground">新密码</span>
+              <div className="relative">
+                <KeyRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="password"
+                  value={resetPassword}
+                  onChange={(e) => setResetPassword(e.target.value)}
+                  placeholder="至少 6 位新密码"
+                  autoComplete="new-password"
+                  className="h-11 pl-10"
+                />
+              </div>
+            </label>
+            {resetMsg ? (
+              <p className={`rounded-lg border px-3 py-2 text-xs ${resetOk ? "border-success/30 bg-success/10 text-foreground" : "border-danger/30 bg-danger/15 text-foreground"}`}>
+                {resetMsg}
+              </p>
+            ) : null}
+            <button
+              type="submit"
+              disabled={resetBusy || resetOk}
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-primary to-[#4338ca] text-sm font-semibold text-white shadow-[0_8px_24px_rgba(79,70,229,0.35)] transition-all hover:brightness-105 disabled:opacity-60"
+            >
+              {resetBusy ? <Loader2 className="size-4 animate-spin" /> : null}
+              {resetOk ? "已完成，去登录" : "重置密码"}
+            </button>
+          </form>
+        ) : (
         <form onSubmit={submit} className="relative mt-6 flex flex-col gap-4">
           <label className="flex flex-col gap-1.5">
             <span className="text-xs font-medium text-muted-foreground">账号</span>
@@ -249,8 +407,71 @@ function LoginForm() {
             {mode === "login" ? "登 录" : "注册并登录"}
           </button>
         </form>
-        <p className="relative mt-6 text-center text-xs text-muted-foreground">
-          {mode === "login" ? "账号由管理员创建 · 忘记密码请联系管理员重置" : "注册后自动登录 · 账号 3-32 位，密码至少 6 位"}
+        )}
+
+        {mode === "login" && !resetTokenParam && wechatEnabled ? (
+          <>
+            <div className="relative mt-5 flex items-center gap-3 text-[11px] text-muted-foreground">
+              <span className="h-px flex-1 bg-border" />或<span className="h-px flex-1 bg-border" />
+            </div>
+            <button
+              type="button"
+              onClick={startWechatLogin}
+              disabled={wechatBusy}
+              className="relative flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#07c160]/40 bg-[#07c160]/10 text-sm font-semibold text-[#07a254] transition-all hover:bg-[#07c160]/15 disabled:opacity-60"
+            >
+              {wechatBusy ? <Loader2 className="size-4 animate-spin" /> : <MessageCircle className="size-4" />}
+              微信扫码登录
+            </button>
+          </>
+        ) : null}
+
+        {mode === "login" && !resetTokenParam ? (
+          <div className="relative mt-4">
+            {forgotOpen ? (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void submitForgot();
+                }}
+                className="flex flex-col gap-2 rounded-xl border border-border bg-muted/50 p-3"
+              >
+                <span className="text-xs font-medium text-muted-foreground">通过邮箱重置密码</span>
+                <div className="relative">
+                  <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    type="email"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    placeholder="注册时绑定的邮箱"
+                    autoComplete="email"
+                    className="h-10 pl-10"
+                  />
+                </div>
+                {forgotMsg ? <p className="text-xs leading-relaxed text-muted-foreground">{forgotMsg}</p> : null}
+                <button
+                  type="submit"
+                  disabled={forgotBusy || !forgotEmail.trim()}
+                  className="flex h-9 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-xs font-semibold text-white transition-all hover:brightness-105 disabled:opacity-60"
+                >
+                  {forgotBusy ? <Loader2 className="size-3.5 animate-spin" /> : null}
+                  发送重置链接
+                </button>
+              </form>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setForgotOpen(true)}
+                className="mx-auto block text-xs text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"
+              >
+                忘记密码？
+              </button>
+            )}
+          </div>
+        ) : null}
+
+        <p className="relative mt-5 text-center text-xs text-muted-foreground">
+          {mode === "login" ? "账号密码或微信扫码登录 · 数据云端同步" : "注册后自动登录 · 账号 3-32 位，密码至少 6 位"}
         </p>
       </div>
 

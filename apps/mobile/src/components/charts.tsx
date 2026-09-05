@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState , useMemo } from "react";
 import { StyleSheet, View, type LayoutChangeEvent } from "react-native";
+import type { ThemeColors } from "@/theme/tokens";
+import { useTheme } from "@/theme";
 import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop, Text as SvgText } from "react-native-svg";
 
 export interface ChartDatum {

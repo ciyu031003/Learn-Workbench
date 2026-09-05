@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState , useMemo } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppStore } from "@/store/app-store";
@@ -7,11 +7,17 @@ import { getApiUrl } from "@/config";
 import { syncPush, syncPull } from "@/lib/sync";
 import { useSyncEngineStatus } from "@/lib/sync-engine";
 import { Card } from "@/components/card";
+import { PressableScale } from "@/components/pressable-scale";
+import { router } from "expo-router";
 import { AuthSheet } from "@/components/auth-sheet";
 import { haptics } from "@/lib/haptics";
-import { colors, radius } from "@/theme/tokens";
+import { radius , type ThemeMode } from "@/theme/tokens";
+import type { ThemeColors } from "@/theme/tokens";
+import { useTheme } from "@/theme";
 
 export default function SettingsScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const backgroundEnabled = useAppStore((s) => s.backgroundEnabled);
   const toggleBackground = useAppStore((s) => s.toggleBackground);
@@ -24,6 +30,8 @@ export default function SettingsScreen() {
   const username = useAppStore((s) => s.username);
   const setAuth = useAppStore((s) => s.setAuth);
   const pendingCount = useAppStore((s) => s.pendingChanges.length);
+  const themeMode = useAppStore((s) => s.themeMode);
+  const setThemeMode = useAppStore((s) => s.setThemeMode);
   const lastSyncedAt = useAppStore((s) => s.lastSyncedAt);
   const engine = useSyncEngineStatus();
 
@@ -31,11 +39,6 @@ export default function SettingsScreen() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
-  const [pwCur, setPwCur] = useState("");
-  const [pwNew1, setPwNew1] = useState("");
-  const [pwNew2, setPwNew2] = useState("");
-  const [pwMsg, setPwMsg] = useState<string | null>(null);
-  const [pwBusy, setPwBusy] = useState(false);
 
   const [domains, setDomains] = useState<{ career_key: string; name: string; kind?: string; kind_label?: string }[]>([]);
   const [career, setCareer] = useState("ict");
@@ -110,28 +113,6 @@ export default function SettingsScreen() {
     }
   };
 
-  const changePassword = async () => {
-    if (!token) return;
-    if (!pwCur || !pwNew1 || !pwNew2) { setPwMsg("请填写完整"); return; }
-    if (pwNew1 !== pwNew2) { setPwMsg("两次新密码不一致"); return; }
-    if (pwNew1.length < 6) { setPwMsg("新密码至少 6 位"); return; }
-    setPwBusy(true);
-    setPwMsg(null);
-    try {
-      const r = await fetch(getApiUrl() + "/api/auth/password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
-        body: JSON.stringify({ currentPassword: pwCur, newPassword: pwNew1 }),
-      });
-      const data = await r.json();
-      if (!r.ok) { setPwMsg(data.error ?? "修改失败"); haptics.error(); }
-      else { setPwMsg("密码修改成功"); haptics.success(); setPwCur(""); setPwNew1(""); setPwNew2(""); }
-    } catch {
-      setPwMsg("网络异常，请稍后重试");
-    } finally {
-      setPwBusy(false);
-    }
-  };
 
   const confirmReset = () => {
     Alert.alert("重置数据", "将清空本机所有进度、任务、日志与打卡，确定吗？", [
@@ -198,6 +179,20 @@ export default function SettingsScreen() {
           </View>
         ) : null}
 
+        {token ? (
+          <PressableScale
+            style={styles.securityRow}
+            onPress={() => {
+              haptics.light();
+              router.push("/account-security");
+            }}
+          >
+            <Ionicons name="shield-checkmark-outline" size={18} color={colors.primary} />
+            <Text style={styles.securityRowText}>账号与安全 · 微信绑定</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
+          </PressableScale>
+        ) : null}
+
         {msg ? <Text style={styles.msg}>{msg}</Text> : null}
         <Text style={styles.hint}>
           {engine.syncing
@@ -212,39 +207,6 @@ export default function SettingsScreen() {
         </Text>
         <Text style={styles.hint}>移动端默认连接生产域名，招聘爬虫配置请在 Web 端完成。</Text>
       </Card>
-
-      {token ? (
-        <Card title="修改密码" subtitle="修改后其他设备将自动退出登录">
-          <TextInput
-            style={styles.input}
-            placeholder="当前密码"
-            placeholderTextColor={colors.textFaint}
-            value={pwCur}
-            onChangeText={setPwCur}
-            secureTextEntry
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="新密码（至少 6 位）"
-            placeholderTextColor={colors.textFaint}
-            value={pwNew1}
-            onChangeText={setPwNew1}
-            secureTextEntry
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="确认新密码"
-            placeholderTextColor={colors.textFaint}
-            value={pwNew2}
-            onChangeText={setPwNew2}
-            secureTextEntry
-          />
-          <Pressable style={styles.primaryBtn} onPress={changePassword} disabled={pwBusy}>
-            {pwBusy ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>保存新密码</Text>}
-          </Pressable>
-          {pwMsg ? <Text style={styles.msg}>{pwMsg}</Text> : null}
-        </Card>
-      ) : null}
 
       {domains.length > 0 ? (
         <Card title="学习领域" subtitle="切换后 Web 端学习路线随之切换">
@@ -264,6 +226,27 @@ export default function SettingsScreen() {
           </View>
         </Card>
       ) : null}
+
+      <Card title="外观" subtitle="浅色 · 深色 · 跟随系统">
+        <View style={styles.segToggle}>
+          {(["light", "dark", "system"] as ThemeMode[]).map((m) => {
+            const active = themeMode === m;
+            const label = m === "light" ? "浅色" : m === "dark" ? "深色" : "跟随系统";
+            return (
+              <Pressable
+                key={m}
+                style={[styles.segToggleItem, active && styles.segToggleActive]}
+                onPress={() => {
+                  haptics.soft();
+                  setThemeMode(m);
+                }}
+              >
+                <Text style={[styles.segToggleText, active && styles.segToggleTextActive]}>{label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </Card>
 
       <Card title="每日背景图" subtitle="每天自动更换每日风景壁纸">
         <View style={styles.rowBetween}>
@@ -293,7 +276,8 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   scroll: { flex: 1, backgroundColor: "transparent" },
   content: { padding: 16, paddingBottom: 118, gap: 12 },
   hero: { paddingTop: 24, paddingBottom: 6, gap: 4 },
@@ -313,6 +297,30 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text,
   },
+  segToggle: {
+    flexDirection: "row",
+    backgroundColor: colors.surfaceStrong,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    borderRadius: 14,
+    padding: 4,
+  },
+  segToggleItem: { flex: 1, borderRadius: 11, paddingVertical: 9, alignItems: "center" },
+  segToggleActive: { backgroundColor: colors.primary },
+  segToggleText: { fontSize: 14, fontWeight: "700", color: colors.textMuted },
+  segToggleTextActive: { color: "#fff", fontWeight: "800" },
+  securityRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: colors.surfaceStrong,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  securityRowText: { flex: 1, fontSize: 14, fontWeight: "600", color: colors.text },
   authPrompt: {
     flexDirection: "row",
     alignItems: "center",
