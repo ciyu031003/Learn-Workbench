@@ -12,6 +12,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { DailyBackground } from "@/components/daily-background";
 import { colors } from "@/theme/tokens";
+import { startSyncEngine } from "@/lib/sync-engine";
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
@@ -68,6 +69,9 @@ const styles = StyleSheet.create({
 });
 
 export default function RootLayout() {
+  // 离线优先：启动后台同步引擎（联网/回前台/登录后自动推送本地变更）
+  useEffect(() => startSyncEngine(), []);
+
   return (
     <DailyBackground>
       <StatusBar style="dark" />

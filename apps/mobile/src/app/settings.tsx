@@ -4,6 +4,7 @@ import { useAppStore } from "@/store/app-store";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DEFAULT_API_URL, getApiUrl } from "@/config";
 import { apiLogin, syncPush, syncPull } from "@/lib/sync";
+import { useSyncEngineStatus } from "@/lib/sync-engine";
 import { fetchJobConfig, fetchJobRuns, fetchJobStats, runCrawler as runJobsCrawler, saveJobConfig as saveJobsConfig } from "@/lib/jobs";
 import { allJobCategories, defaultCrawlerConfig, experimentalJobSources, formatRelativeTime, jobCategoryLabels, jobSourceLabels, type JobCrawlerConfig, type JobRun, type JobSource, type JobStats } from "@learn-workbench/shared";
 import { Card } from "@/components/card";
@@ -21,6 +22,9 @@ export default function SettingsScreen() {
   const token = useAppStore((s) => s.token);
   const username = useAppStore((s) => s.username);
   const setAuth = useAppStore((s) => s.setAuth);
+  const pendingCount = useAppStore((s) => s.pendingChanges.length);
+  const lastSyncedAt = useAppStore((s) => s.lastSyncedAt);
+  const engine = useSyncEngineStatus();
 
   const [userInput, setUserInput] = useState("");
   const [passInput, setPassInput] = useState("");
@@ -419,6 +423,17 @@ export default function SettingsScreen() {
           </View>
         ) : null}
         {msg ? <Text style={styles.msg}>{msg}</Text> : null}
+        <Text style={styles.hint}>
+          {engine.syncing
+            ? "Syncing…"
+            : !engine.online
+              ? `Offline mode: data is saved to this device first, and will be automatically uploaded to the cloud once the network connection is restored${pendingCount ? ` (${pendingCount} items pending sync)` : ""}`
+              : !token
+                ? "Network connected: after logging in, local data will be automatically synced to the cloud"
+                : pendingCount
+                  ? `Network connected: ${pendingCount} items pending sync, will be automatically uploaded shortly`
+                  : `Local and cloud are in sync${lastSyncedAt ? ` (last synced at ${lastSyncedAt.slice(0, 16).replace("T", " ")})` : ""}`}
+        </Text>
         <Text style={styles.hint}>默认连接 https://learn.yuanabd.cn（生产）；本地联调请在启动时设置 EXPO_PUBLIC_API_URL 与 EXPO_PUBLIC_ALLOW_CLEARTEXT=1，或在下方临时覆盖。</Text>
       </Card>
 
