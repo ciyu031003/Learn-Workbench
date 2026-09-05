@@ -97,6 +97,8 @@ interface AppState {
   apiUrl: string | null;
   pendingChanges: PendingChange[];
   lastSyncedAt: string | null;
+  /** AI 每日建议（按日缓存；未拉到/未登录为 null，前端回落规则版） */
+  aiTip: { date: string; text: string } | null;
 
   toggleTopic: (topicId: number) => void;
   addTask: (title: string, taskType: TaskType) => void;
@@ -123,6 +125,7 @@ interface AppState {
   applyRemoteChanges: (changes: SyncChange[]) => void;
   clearPendingChanges: () => void;
   setLastSyncedAt: (t: string | null) => void;
+  setAiTip: (text: string) => void;
 }
 
 let seq = 1;
@@ -147,6 +150,7 @@ export const useAppStore = create<AppState>()(
       apiUrl: null,
       pendingChanges: [],
       lastSyncedAt: null,
+      aiTip: null,
 
       toggleTopic: (topicId) =>
         set((s) => {
@@ -654,6 +658,7 @@ export const useAppStore = create<AppState>()(
 
       clearPendingChanges: () => set({ pendingChanges: [] }),
       setLastSyncedAt: (t) => set({ lastSyncedAt: t }),
+      setAiTip: (text) => set({ aiTip: { date: todayISO(), text } }),
     }),
     {
       name: "lwb-mobile-store",

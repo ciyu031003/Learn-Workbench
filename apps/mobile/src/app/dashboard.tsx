@@ -37,6 +37,7 @@ import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { computeFocusStats } from "@/lib/focus-stats";
 import { getDailyQuote } from "@/lib/quotes";
+import { fetchAiTip } from "@/lib/ai-tip";
 
 function useDailyQuote() {
   return useMemo(() => getDailyQuote(), []);
@@ -329,6 +330,8 @@ export default function DashboardScreen() {
   const addSession = useAppStore((s) => s.addSession);
   const sports = useAppStore((s) => s.sports);
   const removeSport = useAppStore((s) => s.removeSport);
+  const aiTip = useAppStore((s) => s.aiTip);
+  const setAiTip = useAppStore((s) => s.setAiTip);
 
   const [focusOpen, setFocusOpen] = useState(false);
   const [sportSheetOpen, setSportSheetOpen] = useState(false);
@@ -398,6 +401,16 @@ export default function DashboardScreen() {
     if (!checkedInToday) return "任务已全部完成，别忘了打卡留下今天的印记";
     return "今天已满载而归，去复盘或提前看看明天的安排";
   }, [todayTasks, todayDone, checkedInToday]);
+
+  // AI 每日建议：当日缓存一次；未配置/失败静默回落规则版 todayTip
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (aiTip && aiTip.date === today) return;
+    void fetchAiTip().then((text) => {
+      if (text) setAiTip(text);
+    });
+  }, [aiTip, today, setAiTip]);
+  const heroTip = aiTip && aiTip.date === today && aiTip.text ? aiTip.text : todayTip;
   return (
     <View style={styles.root}>
       <Animated.ScrollView
@@ -412,7 +425,7 @@ export default function DashboardScreen() {
           <Text style={styles.heroTitle}>
             {greet}，{"\n"}继续今天的 ICT 学习规划
           </Text>
-          <Text style={styles.heroSub}>{todayTip}</Text>
+          <Text style={styles.heroSub}>{heroTip}</Text>
 
           <View style={styles.quote}>
             <ThemedIcon name="sunny" size={16} color={colors.accent} />
