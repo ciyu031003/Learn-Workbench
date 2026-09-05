@@ -1,7 +1,15 @@
-import { type ReactNode, useState } from "react";
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+/* eslint-disable react-hooks/immutability, react-hooks/set-state-in-effect */
+import { type ReactNode, useEffect, useState } from "react";
+import { Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { colors, radius, shadows } from "@/theme/tokens";
+
+function parsePercent(value: string, fallback = 0.5) {
+  const n = parseFloat(value);
+  return Number.isFinite(n) ? Math.max(0.12, Math.min(0.98, n / 100)) : fallback;
+}
 
 export function BottomSheet({
   visible,
@@ -16,43 +24,93 @@ export function BottomSheet({
   title: string;
   children: ReactNode;
   expandable?: boolean;
-  height?: "50%" | "100%";
+  height?: string;
 }) {
-  const [full, setFull] = useState(false);
+  const { height: winH } = useWindowDimensions();
+  const ratio = parsePercent(height, 0.5);
+  const collapsed = winH * ratio;
+  const full = winH * 0.94;
+  const maxOffset = Math.max(0, full - collapsed);
 
-  const toggleFull = () => {
-    if (!expandable) return;
-    setFull((v) => !v);
-  };
+  const translateY = useSharedValue(expandable ? maxOffset : 0);
+  const [expanded, setExpanded] = useState(false);
 
-  const closeSheet = () => {
-    setFull(false);
+  useEffect(() => {
+    if (visible) {
+      translateY.value = expandable ? maxOffset : 0;
+      setExpanded(false);
+    }
+  }, [visible, expandable, maxOffset, translateY]);
+
+  const close = () => {
+    setExpanded(false);
     onClose();
   };
 
-  const handleScrim = () => {
-    if (expandable) toggleFull();
-    else closeSheet();
+  const toggle = () => {
+    if (!expandable) return;
+    const next = !expanded;
+    translateY.value = withSpring(next ? 0 : maxOffset, { damping: 24, stiffness: 240 });
+    setExpanded(next);
   };
 
-  const sheetHeight = full ? "92%" : height;
+  const handleScrim = () => {
+    if (expandable) toggle();
+    else close();
+  };
+
+  const panGesture = Gesture.Pan()
+    .enabled(expandable)
+    .onUpdate((e) => {
+      const base = expanded ? 0 : maxOffset;
+      translateY.value = Math.min(maxOffset + 90, Math.max(base + e.translationY, 0));
+    })
+    .onEnd((e) => {
+      const base = expanded ? 0 : maxOffset;
+      const current = base + e.translationY;
+      if (current > maxOffset + 70) {
+        runOnJS(close)();
+      } else if (current < maxOffset * 0.5 || e.velocityY < -500) {
+        translateY.value = withSpring(0, { damping: 24, stiffness: 240 });
+        runOnJS(setExpanded)(true);
+      } else {
+        translateY.value = withSpring(maxOffset, { damping: 24, stiffness: 240 });
+        runOnJS(setExpanded)(false);
+      }
+    });
+
+  const tapGesture = Gesture.Tap()
+    .enabled(expandable)
+    .onEnd(() => {
+      runOnJS(toggle)();
+    });
+
+  const handleGesture = Gesture.Exclusive(tapGesture, panGesture);
+
+  const animatedSheet = useAnimatedStyle(() => ({
+    transform: [{ translateY: expandable ? translateY.value : 0 }],
+  }));
+
+  const sheetHeight = expandable ? full : collapsed;
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.root}>
         <Pressable style={styles.scrim} onPress={handleScrim} />
-        <View style={[styles.sheet, { height: sheetHeight }]}>
-          <Pressable style={styles.handleArea} onPress={toggleFull}>
-            <View style={styles.grabber} />
-          </Pressable>
+        <Animated.View style={[styles.sheet, { height: sheetHeight }, animatedSheet]}>
+          <GestureDetector gesture={handleGesture}>
+            <View style={styles.handleZone}>
+              <View style={styles.grabber} />
+            </View>
+          </GestureDetector>
           <View style={styles.head}>
             <Text style={styles.title}>{title}</Text>
-            <Pressable onPress={closeSheet} hitSlop={10} style={styles.close}>
+            <Pressable onPress={close} hitSlop={10} style={styles.close}>
               <Ionicons name="close" size={20} color={colors.textMuted} />
             </Pressable>
           </View>
           <View style={styles.body}>{children}</View>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -69,7 +127,7 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     ...shadows.floating,
   },
-  handleArea: { alignItems: "center", paddingVertical: 10 },
+  handleZone: { alignItems: "center", paddingVertical: 12 },
   grabber: { width: 44, height: 5, borderRadius: 999, backgroundColor: "rgba(120,90,45,0.28)" },
   head: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
   title: { fontSize: 18, fontWeight: "800", color: colors.text },

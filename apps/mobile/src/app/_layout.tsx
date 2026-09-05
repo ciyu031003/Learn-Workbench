@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, View, type OpaqueColorValue } from "react-native";
 import * as ScreenOrientation from "expo-screen-orientation";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -31,7 +32,6 @@ function TabIcon({
   return (
     <View style={styles.tabIcon}>
       <Ionicons name={focused ? name : outlineName} size={22} color={color} />
-      {focused ? <View style={[styles.tabDot, { backgroundColor: color }]} /> : null}
     </View>
   );
 }
@@ -59,14 +59,13 @@ function FlowerTabIcon({ color, focused }: { color: string | OpaqueColorValue; f
       <Animated.View style={flowerStyle}>
         <Ionicons name={focused ? "flower" : "flower-outline"} size={22} color={color} />
       </Animated.View>
-      {focused ? <View style={[styles.tabDot, { backgroundColor: color }]} /> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1 },
   tabIcon: { alignItems: "center", gap: 3, paddingVertical: 2 },
-  tabDot: { width: 4, height: 4, borderRadius: 2 },
 });
 
 export default function RootLayout() {
@@ -81,13 +80,16 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <DailyBackground>
-      <StatusBar style="dark" />
-      <Tabs
+    <GestureHandlerRootView style={styles.root}>
+      <DailyBackground>
+        <StatusBar style="dark" />
+        <Tabs
         screenOptions={{
           headerShown: false,
           tabBarActiveTintColor: colors.primary,
           tabBarInactiveTintColor: colors.textMuted,
+          tabBarActiveBackgroundColor: "transparent",
+          tabBarInactiveBackgroundColor: "transparent",
           tabBarStyle: {
             position: "absolute",
             left: 16,
@@ -147,7 +149,9 @@ export default function RootLayout() {
         <Tabs.Screen name="logs" options={{ href: null }} />
         <Tabs.Screen name="market" options={{ href: null }} />
         <Tabs.Screen name="applications" options={{ href: null }} />
-      </Tabs>
-    </DailyBackground>
+        <Tabs.Screen name="+not-found" options={{ href: null }} />
+        </Tabs>
+      </DailyBackground>
+    </GestureHandlerRootView>
   );
 }

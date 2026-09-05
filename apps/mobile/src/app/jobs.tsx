@@ -256,6 +256,7 @@ const PUBLISHED_OPTIONS = [
 
 function FilterBottomSheet({
   visible,
+  city,
   salaryMin,
   salaryMax,
   education,
@@ -263,6 +264,7 @@ function FilterBottomSheet({
   publishedWithin,
   skills,
   onSalary,
+  onCity,
   onToggleEdu,
   onToggleExp,
   onPublished,
@@ -273,6 +275,7 @@ function FilterBottomSheet({
   onClose,
 }: {
   visible: boolean;
+  city: string;
   salaryMin: number | null;
   salaryMax: number | null;
   education: string[];
@@ -280,6 +283,7 @@ function FilterBottomSheet({
   publishedWithin: "" | "today" | "3d" | "7d";
   skills: string[];
   onSalary: (min: number | null, max: number | null) => void;
+  onCity: (v: string) => void;
   onToggleEdu: (v: string) => void;
   onToggleExp: (v: string) => void;
   onPublished: (v: "" | "today" | "3d" | "7d") => void;
@@ -315,6 +319,23 @@ function FilterBottomSheet({
                   <Text style={salaryMin === p.min && salaryMax === p.max ? styles.sheetChipTextActive : styles.sheetChipText}>{p.label}</Text>
                 </Pressable>
               ))}
+            </View>
+
+            <Text style={styles.filterGroupTitle}>城市</Text>
+            <View style={styles.chipWrap}>
+              {CITY_OPTIONS.map((c) => {
+                const cVal = c === "全部" ? "" : c;
+                const active = city === cVal;
+                return (
+                  <Pressable
+                    key={c}
+                    onPress={() => onCity(cVal)}
+                    style={[styles.sheetChip, active ? styles.sheetChipActive : styles.sheetChipIdle]}
+                  >
+                    <Text style={active ? styles.sheetChipTextActive : styles.sheetChipText}>{c}</Text>
+                  </Pressable>
+                );
+              })}
             </View>
 
             <Text style={styles.filterGroupTitle}>学历</Text>
@@ -405,6 +426,7 @@ export default function JobsScreen() {
   const [searchInput, setSearchInput] = useState("");
   const [query, setQuery] = useState("");
   const [city, setCity] = useState("");
+  const [cityExpand, setCityExpand] = useState(false);
   const [category, setCategory] = useState("");
   const [sort, setSort] = useState<"new" | "salary">("new");
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -627,7 +649,7 @@ export default function JobsScreen() {
       </View>
 
       <View style={styles.chipsRow}>
-        {CITY_OPTIONS.map((c) => {
+        {(cityExpand ? CITY_OPTIONS : CITY_OPTIONS.slice(0, 5)).map((c) => {
           const active = city === c || (c === "全部" && city === "");
           return (
             <Pressable
@@ -639,6 +661,14 @@ export default function JobsScreen() {
             </Pressable>
           );
         })}
+        <Pressable
+          style={[styles.chip, styles.chipMore]}
+          onPress={() => setCityExpand((v) => !v)}
+        >
+          <Text style={styles.chipTextIdle}>
+            {cityExpand ? "收起城市 ∧" : "更多城市 ∨"}
+          </Text>
+        </Pressable>
       </View>
 
       <View style={styles.sortRow}>
@@ -719,12 +749,14 @@ export default function JobsScreen() {
       />
       <FilterBottomSheet
         visible={filterVisible}
+        city={city}
         salaryMin={salaryMin}
         salaryMax={salaryMax}
         education={education}
         experience={experience}
         publishedWithin={publishedWithin}
         skills={skillsFilter}
+        onCity={setCity}
         onSalary={(min, max) => { setSalaryMin(min); setSalaryMax(max); }}
         onToggleEdu={(v) => setEducation((prev) => (prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]))}
         onToggleExp={(v) => setExperience((prev) => (prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]))}
@@ -811,10 +843,11 @@ const styles = StyleSheet.create({
   catChipIdle: { backgroundColor: colors.surfaceStrong, borderWidth: 1, borderColor: colors.border },
   catChipTextActive: { color: "#ffffff", fontSize: 13, fontWeight: "800" },
   catChipTextIdle: { color: colors.textMuted, fontSize: 13, fontWeight: "600" },
-  chipsRow: { flexDirection: "row", gap: 8, paddingVertical: 2 },
+  chipsRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingVertical: 2 },
   chip: { borderRadius: 999, paddingHorizontal: 13, paddingVertical: 7 },
   chipActive: { backgroundColor: colors.primary },
   chipIdle: { backgroundColor: colors.surfaceStrong, borderWidth: 1, borderColor: colors.border },
+  chipMore: { backgroundColor: colors.surfaceStrong, borderWidth: 1, borderColor: colors.border, borderStyle: "dashed" },
   chipTextActive: { color: "#ffffff", fontSize: 12.5, fontWeight: "700" },
   chipTextIdle: { color: colors.textMuted, fontSize: 12.5, fontWeight: "600" },
   sortRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },

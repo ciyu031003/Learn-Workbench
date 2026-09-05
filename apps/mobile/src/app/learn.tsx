@@ -7,6 +7,7 @@ import { Card } from "@/components/card";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
 import { RingProgress } from "@/components/ring-progress";
+import { BarChart, LineChart } from "@/components/charts";
 import { useAppStore } from "@/store/app-store";
 import { useSportStore } from "@/store/sport-store";
 import { mainPhases, agentPhase } from "@learn-workbench/content";
@@ -32,6 +33,57 @@ const THEME_COLORS: [string, string][] = [
 
 const localKey = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+const addDays = (d: Date, n: number) => {
+  const r = new Date(d);
+  r.setDate(d.getDate() + n);
+  return r;
+};
+
+const weekdayName = (d: Date) => ["周日", "周一", "周二", "周三", "周四", "周五", "周六"][d.getDay()];
+
+const PERIODS = [
+  { label: "凌晨", start: 0, end: 6 },
+  { label: "清晨", start: 6, end: 9 },
+  { label: "上午", start: 9, end: 12 },
+  { label: "中午", start: 12, end: 14 },
+  { label: "下午", start: 14, end: 18 },
+  { label: "晚上", start: 18, end: 22 },
+  { label: "深夜", start: 22, end: 24 },
+] as const;
+
+function buildDayMinutesMap(sessions: ReturnType<typeof useAppStore.getState>["sessions"]) {
+  const map = new Map<string, number>();
+  for (const s of sessions) {
+    const d = new Date(s.startedAt);
+    if (Number.isNaN(d.getTime())) continue;
+    const key = localKey(d);
+    map.set(key, (map.get(key) ?? 0) + Math.max(0, Math.round((s.durationSeconds ?? 0) / 60)));
+  }
+  return map;
+}
+
+function buildPeriodBars(sessions: ReturnType<typeof useAppStore.getState>["sessions"], key: string) {
+  const bars = PERIODS.map((p) => ({ label: p.label, value: 0 }));
+  for (const s of sessions) {
+    const d = new Date(s.startedAt);
+    if (Number.isNaN(d.getTime()) || localKey(d) !== key) continue;
+    const h = d.getHours();
+    const idx = PERIODS.findIndex((p) => h >= p.start && h < p.end);
+    if (idx >= 0) bars[idx].value += Math.max(0, Math.round((s.durationSeconds ?? 0) / 60));
+  }
+  return bars;
+}
+
+function buildDailySeries(sessions: ReturnType<typeof useAppStore.getState>["sessions"], endDate: Date) {
+  const map = buildDayMinutesMap(sessions);
+  const out: { label: string; value: number }[] = [];
+  for (let i = 13; i >= 0; i -= 1) {
+    const d = addDays(endDate, -i);
+    out.push({ label: `${d.getMonth() + 1}/${d.getDate()}`, value: map.get(localKey(d)) ?? 0 });
+  }
+  return out;
+}
 
 function phaseDoneCount(phaseId: number, progress: ReturnType<typeof useAppStore.getState>["progress"]) {
   const phase = mainPhases.find((p) => p.id === phaseId);
@@ -66,6 +118,95 @@ function heatColor(minutes: number): string {
   return "#E35D2F";
 }
 
+function monthGrid(year: number, month: number): (Date | null)[] {
+  const first = new Date(year, month, 1);
+  const startWeekday = first.getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells: (Date | null)[] = [];
+  for (let i = 0; i < startWeekday; i += 1) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d += 1) cells.push(new Date(year, month, d));
+  while (cells.length % 7 !== 0) cells.push(null);
+  return cells;
+}
+
+function MonthCalendar({
+  selected,
+  onSelect,
+  onClose,
+}: {
+  selected: Date;
+  onSelect: (d: Date) => void;
+  onClose: () => void;
+}) {
+  const [view, setView] = useState(() => ({ y: selected.getFullYear(), m: selected.getMonth() }));
+  const cells = monthGrid(view.y, view.m);
+  const todayKey = localKey(new Date());
+  const selectedKey = localKey(selected);
+
+  return (
+    <View style={styles.calendar}>
+      <View style={styles.calNav}>
+        <Pressable
+          hitSlop={8}
+          style={styles.calNavBtn}
+          onPress={() => setView((v) => (v.m === 0 ? { y: v.y - 1, m: 11 } : { y: v.y, m: v.m - 1 }))}
+        >
+          <Ionicons name="chevron-back" size={20} color={colors.text} />
+        </Pressable>
+        <Text style={styles.calTitle}>{view.y} 年 {view.m + 1} 月</Text>
+        <Pressable
+          hitSlop={8}
+          style={styles.calNavBtn}
+          onPress={() => setView((v) => (v.m === 11 ? { y: v.y + 1, m: 0 } : { y: v.y, m: v.m + 1 }))}
+        >
+          <Ionicons name="chevron-forward" size={20} color={colors.text} />
+        </Pressable>
+      </View>
+
+      <View style={styles.calWeekRow}>
+        {["日", "一", "二", "三", "四", "五", "六"].map((w) => (
+          <Text key={w} style={styles.calWeek}>
+            {w}
+          </Text>
+        ))}
+      </View>
+
+      <View style={styles.calGrid}>
+        {cells.map((d, i) => {
+          if (!d) return <View key={i} style={styles.calCell} />;
+          const key = localKey(d);
+          const isSelected = key === selectedKey;
+          const isToday = key === todayKey;
+          const future = key > todayKey;
+          return (
+            <Pressable
+              key={i}
+              style={styles.calCell}
+              disabled={future}
+              onPress={() => {
+                onSelect(d);
+                onClose();
+              }}
+            >
+              <View style={[styles.calDay, isSelected && styles.calDaySelected, isToday && !isSelected && styles.calDayToday]}>
+                <Text
+                  style={[
+                    styles.calDayText,
+                    isSelected && styles.calDayTextSelected,
+                    future && styles.calDayTextDisabled,
+                  ]}
+                >
+                  {d.getDate()}
+                </Text>
+              </View>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 export default function LearnScreen() {
   const insets = useSafeAreaInsets();
   const progress = useAppStore((s) => s.progress);
@@ -74,9 +215,21 @@ export default function LearnScreen() {
   const sportRecords = useSportStore((s) => s.records);
   const [stageSheet, setStageSheet] = useState(false);
   const [shareSheet, setShareSheet] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [statDate, setStatDate] = useState<Date>(() => new Date());
 
   const stats = useMemo(() => computeFocusStats(sessions), [sessions]);
   const heatmap = useMemo(() => buildHeatmap(sessions), [sessions]);
+  const [heatWidth, setHeatWidth] = useState(0);
+  const heatWeeks = heatmap.length;
+  const heatWeekGap = 4;
+  const heatCellGap = 4;
+  const heatCell = heatWidth > 0 ? Math.max(8, Math.floor((heatWidth - heatWeekGap * (heatWeeks - 1)) / heatWeeks)) : 13;
+  const selectedKey = localKey(statDate);
+  const isStatToday = selectedKey === localKey(new Date());
+  const selectedMinutes = useMemo(() => buildDayMinutesMap(sessions).get(selectedKey) ?? 0, [sessions, selectedKey]);
+  const periodBars = useMemo(() => buildPeriodBars(sessions, selectedKey), [sessions, selectedKey]);
+  const dailySeries = useMemo(() => buildDailySeries(sessions, statDate), [sessions, statDate]);
   const firstPhase = mainPhases[0];
   const secondPhase = mainPhases[1];
   const remainingPhases = mainPhases.slice(2);
@@ -194,10 +347,32 @@ export default function LearnScreen() {
       </Text>
       <Card style={styles.statsPanel}>
         <View style={styles.panelHead}>
-          <Text style={styles.panelTitle}>番茄 · 热力统计</Text>
+          <Text style={styles.panelTitle}>热力统计</Text>
           <Pressable style={styles.shareBtn} onPress={() => setShareSheet(true)}>
             <Ionicons name="share-social-outline" size={14} color={colors.primary} />
             <Text style={styles.shareBtnText}>分享</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.dateNav}>
+          <Pressable
+            style={styles.dateArrow}
+            onPress={() => setStatDate((d) => addDays(d, -1))}
+            hitSlop={8}
+          >
+            <Ionicons name="chevron-back" size={18} color={colors.primary} />
+          </Pressable>
+          <Pressable style={styles.dateCenter} onPress={() => setCalendarOpen(true)}>
+            <Ionicons name="calendar-outline" size={15} color={colors.accentStrong} />
+            <Text style={styles.dateText}>{statDate.getMonth() + 1}月{statDate.getDate()}日 · {weekdayName(statDate)}</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.dateArrow, isStatToday && styles.dateArrowDisabled]}
+            disabled={isStatToday}
+            onPress={() => setStatDate((d) => addDays(d, 1))}
+            hitSlop={8}
+          >
+            <Ionicons name="chevron-forward" size={18} color={isStatToday ? colors.textFaint : colors.primary} />
           </Pressable>
         </View>
 
@@ -235,12 +410,22 @@ export default function LearnScreen() {
           ))}
         </View>
 
-        <Text style={styles.heatLabel}>可学习时长分布 · GitHub 热力图</Text>
-        <View style={styles.heat}>
+        <Text style={styles.heatLabel}>可学习时长分布 · 热力图</Text>
+        <View
+          style={styles.heat}
+          onLayout={(e) => setHeatWidth(Math.round(e.nativeEvent.layout.width))}
+        >
           {heatmap.map((week, wi) => (
-            <View key={wi} style={styles.heatWeek}>
+            <View key={wi} style={[styles.heatWeek, { gap: heatCellGap }]}>
               {week.map((day) => (
-                <View key={day.key} style={[styles.heatCell, { backgroundColor: heatColor(day.minutes) }]} />
+                <View
+                  key={day.key}
+                  style={[
+                    styles.heatCell,
+                    { width: heatCell, height: heatCell, borderRadius: Math.max(3, heatCell * 0.28), backgroundColor: heatColor(day.minutes) },
+                    day.key === selectedKey && styles.heatCellActive,
+                  ]}
+                />
               ))}
             </View>
           ))}
@@ -252,6 +437,14 @@ export default function LearnScreen() {
           ))}
           <Text style={styles.heatLegendText}>多</Text>
         </View>
+
+        <Text style={styles.chartLabel}>
+          {statDate.getMonth() + 1}月{statDate.getDate()}日 · 学习 {formatDuration(selectedMinutes)}
+        </Text>
+        <BarChart data={periodBars} height={150} color={colors.primary} colorTo="#78C2E8" />
+
+        <Text style={styles.chartLabel}>近 14 天学习时长</Text>
+        <LineChart data={dailySeries} height={150} color={colors.accent} />
       </Card>
 
       <BottomSheet
@@ -312,6 +505,19 @@ export default function LearnScreen() {
             <Text style={styles.primaryShareText}>生成图片</Text>
           </Pressable>
         </View>
+      </BottomSheet>
+
+      <BottomSheet
+        visible={calendarOpen}
+        onClose={() => setCalendarOpen(false)}
+        title="选择日期"
+        height="60%"
+      >
+        <MonthCalendar
+          selected={statDate}
+          onSelect={(d) => setStatDate(d)}
+          onClose={() => setCalendarOpen(false)}
+        />
       </BottomSheet>
     </ScrollView>
   );
@@ -378,6 +584,62 @@ const styles = StyleSheet.create({
   heatLegend: { flexDirection: "row", alignItems: "center", gap: 5, justifyContent: "flex-end", marginTop: 8 },
   heatLegendText: { color: colors.textMuted, fontSize: 11 },
   heatSwatch: { width: 13, height: 13, borderRadius: 4 },
+  heatCellActive: { borderWidth: 2, borderColor: colors.primary },
+
+  dateNav: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  dateArrow: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surfaceStrong,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  dateCenter: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: colors.accentSoft,
+  },
+  dateText: { fontSize: 13, fontWeight: "700", color: colors.text },
+  dateArrowDisabled: { opacity: 0.4 },
+
+  chartLabel: { fontSize: 13, fontWeight: "700", color: colors.text },
+
+  calendar: { gap: 14 },
+  calNav: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  calNavBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surfaceStrong,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  calTitle: { fontSize: 15, fontWeight: "800", color: colors.text },
+  calWeekRow: { flexDirection: "row" },
+  calWeek: { width: `${100 / 7}%`, textAlign: "center", fontSize: 12, fontWeight: "700", color: colors.textMuted },
+  calGrid: { flexDirection: "row", flexWrap: "wrap" },
+  calCell: { width: `${100 / 7}%`, aspectRatio: 1, alignItems: "center", justifyContent: "center" },
+  calDay: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  calDaySelected: { backgroundColor: colors.primary },
+  calDayToday: { backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent },
+  calDayText: { fontSize: 14, fontWeight: "600", color: colors.text },
+  calDayTextSelected: { color: "#fff", fontWeight: "800" },
+  calDayTextDisabled: { color: colors.textFaint },
 
   sheetScroll: { flex: 1 },
   sheetStageItem: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 4 },

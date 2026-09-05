@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/immutability */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -11,7 +11,14 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import { useAppStore } from "@/store/app-store";
 import { useSportStore, SPORT_TYPES, type SportKind } from "@/store/sport-store";
 import { mainPhases, agentPhase } from "@learn-workbench/content";
@@ -69,13 +76,83 @@ function FocusCard({ onStart }: { onStart: () => void }) {
   );
 }
 
+function SportIcon({
+  kind,
+  icon,
+  color,
+  active,
+}: {
+  kind: SportKind;
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+  active: boolean;
+}) {
+  const tx = useSharedValue(0);
+  const ty = useSharedValue(0);
+  const rotate = useSharedValue(0);
+  const scale = useSharedValue(1);
+
+  useEffect(() => {
+    if (!active) {
+      tx.value = withTiming(0, { duration: 180 });
+      ty.value = withTiming(0, { duration: 180 });
+      rotate.value = withTiming(0, { duration: 180 });
+      scale.value = withSpring(1);
+      return;
+    }
+
+    if (kind === "basketball") {
+      scale.value = withSequence(withSpring(1.18, { damping: 9, stiffness: 220 }), withSpring(1));
+      ty.value = withSequence(withTiming(-18, { duration: 340 }), withTiming(0, { duration: 400 }));
+      rotate.value = withSequence(withTiming(-140, { duration: 700 }), withTiming(0, { duration: 0 }));
+      tx.value = withTiming(0, { duration: 180 });
+    } else if (kind === "badminton") {
+      scale.value = withSequence(withSpring(1.14, { damping: 9, stiffness: 220 }), withSpring(1));
+      tx.value = withSequence(
+        withRepeat(withSequence(withTiming(-6, { duration: 170 }), withTiming(6, { duration: 170 })), 3, true),
+        withTiming(0, { duration: 160 })
+      );
+      ty.value = withRepeat(withSequence(withTiming(-4, { duration: 170 }), withTiming(4, { duration: 170 })), 3, true);
+      rotate.value = withTiming(0, { duration: 180 });
+    } else if (kind === "walk") {
+      scale.value = withSequence(withSpring(1.1, { damping: 9, stiffness: 220 }), withSpring(1));
+      rotate.value = withSequence(
+        withRepeat(withSequence(withTiming(-12, { duration: 220 }), withTiming(12, { duration: 220 })), 2, true),
+        withTiming(0, { duration: 200 })
+      );
+      ty.value = withRepeat(withSequence(withTiming(-3, { duration: 220 }), withTiming(3, { duration: 220 })), 2, true);
+      tx.value = withTiming(0, { duration: 180 });
+    } else {
+      scale.value = withSequence(withSpring(1.12, { damping: 9, stiffness: 220 }), withSpring(1));
+      tx.value = withTiming(0, { duration: 180 });
+      ty.value = withTiming(0, { duration: 180 });
+      rotate.value = withTiming(0, { duration: 180 });
+    }
+  }, [active, kind, rotate, scale, tx, ty]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: tx.value },
+      { translateY: ty.value },
+      { rotate: `${rotate.value}deg` },
+      { scale: scale.value },
+    ],
+  }));
+
+  return (
+    <Animated.View style={animatedStyle}>
+      <Ionicons name={icon} size={22} color={color} />
+    </Animated.View>
+  );
+}
+
 function SportSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const addSport = useSportStore((s) => s.addSport);
   const [kind, setKind] = useState<SportKind>("basketball");
   const [minutes, setMinutes] = useState(30);
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} title="添加运动记录" height="50%">
+    <BottomSheet visible={visible} onClose={onClose} title="添加运动记录" height="64%">
       <View style={styles.sportTypeGrid}>
         {SPORT_TYPES.map((t) => {
           const active = t.key === kind;
@@ -86,7 +163,7 @@ function SportSheet({ visible, onClose }: { visible: boolean; onClose: () => voi
               style={[styles.sportType, active && styles.sportTypeActive]}
             >
               <View style={[styles.sportTypeIcon, { backgroundColor: `${t.c1}22` }]}>
-                <Ionicons name={t.icon} size={22} color={t.c1} />
+                <SportIcon kind={t.key} icon={t.icon} color={t.c1} active={active} />
               </View>
               <Text style={[styles.sportTypeName, active && styles.sportTypeNameActive]}>{t.name}</Text>
             </Pressable>

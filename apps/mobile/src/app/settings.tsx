@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useAppStore } from "@/store/app-store";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getApiUrl } from "@/config";
@@ -201,46 +202,79 @@ export default function SettingsScreen() {
             </Pressable>
           </View>
         ) : (
-          <View style={{ gap: 10 }}>
-            <View style={styles.rowBetween}>
-              <Text style={styles.rowLabel}>{authMode === "login" ? "账号登录" : "注册新账号"}</Text>
-              <Pressable onPress={() => {
+          <View style={styles.authBox}>
+            <View style={styles.authBrand}>
+              <View style={styles.authLogo}>
+                <Ionicons name="sunny" size={26} color={colors.accentStrong} />
+              </View>
+              <Text style={styles.authTitle}>苦旅</Text>
+              <Text style={styles.authSub}>把每一天的学习，都变成面向未来的积累</Text>
+            </View>
+
+            <View style={styles.segToggle}>
+              <Pressable
+                style={[styles.segToggleItem, authMode === "login" && styles.segToggleActive]}
+                onPress={() => { setAuthMode("login"); setMsg(null); }}
+              >
+                <Text style={[styles.segToggleText, authMode === "login" && styles.segToggleTextActive]}>登录</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.segToggleItem, authMode === "register" && styles.segToggleActive]}
+                onPress={() => { setAuthMode("register"); setMsg(null); }}
+              >
+                <Text style={[styles.segToggleText, authMode === "register" && styles.segToggleTextActive]}>注册</Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.authInputShell}>
+              <Ionicons name="person-outline" size={16} color={colors.textMuted} />
+              <TextInput
+                style={styles.authInput}
+                placeholder="账号"
+                placeholderTextColor={colors.textFaint}
+                value={userInput}
+                onChangeText={setUserInput}
+                autoCapitalize="none"
+              />
+            </View>
+            <View style={styles.authInputShell}>
+              <Ionicons name="lock-closed-outline" size={16} color={colors.textMuted} />
+              <TextInput
+                style={styles.authInput}
+                placeholder="密码"
+                placeholderTextColor={colors.textFaint}
+                value={passInput}
+                onChangeText={setPassInput}
+                secureTextEntry
+              />
+            </View>
+            {authMode === "register" ? (
+              <View style={styles.authInputShell}>
+                <Ionicons name="shield-checkmark-outline" size={16} color={colors.textMuted} />
+                <TextInput
+                  style={styles.authInput}
+                  placeholder="确认密码"
+                  placeholderTextColor={colors.textFaint}
+                  value={confirmPass}
+                  onChangeText={setConfirmPass}
+                  secureTextEntry
+                />
+              </View>
+            ) : null}
+
+            <Pressable style={styles.authBtn} onPress={submitAuth} disabled={busy}>
+              {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.authBtnText}>{authMode === "login" ? "登 录" : "创建账号"}</Text>}
+            </Pressable>
+
+            <Pressable
+              onPress={() => {
                 setAuthMode((mode) => (mode === "login" ? "register" : "login"));
                 setPassInput("");
                 setConfirmPass("");
                 setMsg(null);
-              }}>
-                <Text style={styles.linkText}>{authMode === "login" ? "没有账号？注册" : "已有账号？登录"}</Text>
-              </Pressable>
-            </View>
-            <TextInput
-              style={styles.input}
-              placeholder="账号"
-              placeholderTextColor={colors.textFaint}
-              value={userInput}
-              onChangeText={setUserInput}
-              autoCapitalize="none"
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="密码"
-              placeholderTextColor={colors.textFaint}
-              value={passInput}
-              onChangeText={setPassInput}
-              secureTextEntry
-            />
-            {authMode === "register" ? (
-              <TextInput
-                style={styles.input}
-                placeholder="确认密码"
-                placeholderTextColor={colors.textFaint}
-                value={confirmPass}
-                onChangeText={setConfirmPass}
-                secureTextEntry
-              />
-            ) : null}
-            <Pressable style={styles.primaryBtn} onPress={submitAuth} disabled={busy}>
-              {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>{authMode === "login" ? "登录" : "注册"}</Text>}
+              }}
+            >
+              <Text style={styles.authSwitch}>{authMode === "login" ? "还没有账号？立即注册" : "已有账号？返回登录"}</Text>
             </Pressable>
           </View>
         )}
@@ -369,6 +403,50 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text,
   },
+  authBox: { gap: 12 },
+  authBrand: { alignItems: "center", gap: 6, paddingVertical: 8 },
+  authLogo: {
+    width: 56,
+    height: 56,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.accentSoft,
+  },
+  authTitle: { fontSize: 22, fontWeight: "900", color: colors.text },
+  authSub: { fontSize: 12, color: colors.textMuted, textAlign: "center", lineHeight: 18 },
+  segToggle: {
+    flexDirection: "row",
+    backgroundColor: colors.surfaceStrong,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    borderRadius: 14,
+    padding: 4,
+  },
+  segToggleItem: { flex: 1, borderRadius: 11, paddingVertical: 9, alignItems: "center" },
+  segToggleActive: { backgroundColor: colors.primary },
+  segToggleText: { fontSize: 14, fontWeight: "700", color: colors.textMuted },
+  segToggleTextActive: { color: "#fff", fontWeight: "800" },
+  authInputShell: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: colors.surfaceStrong,
+    borderRadius: radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+  },
+  authInput: { flex: 1, paddingVertical: 10, fontSize: 14, color: colors.text },
+  authBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: 14,
+    paddingVertical: 13,
+    alignItems: "center",
+  },
+  authBtnText: { color: "#fff", fontSize: 15, fontWeight: "800", letterSpacing: 1 },
+  authSwitch: { fontSize: 12, color: colors.primary, fontWeight: "600", textAlign: "center", paddingVertical: 2 },
   primaryBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 12, alignItems: "center" },
   secondaryBtn: {
     backgroundColor: colors.surfaceStrong,
