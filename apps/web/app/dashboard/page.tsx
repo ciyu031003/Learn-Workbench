@@ -12,6 +12,7 @@ import { QuoteWidget } from "@/components/quote-widget";
 import { DomainIcon } from "@/components/domain-icon";
 import { useDomainStore } from "@/store/domain-store";
 import { useToastStore } from "@/store/toast-store";
+import { ExerciseSheet } from "@/components/sport/exercise-sheet";
 import { Celebration } from "@/components/celebration";
 import { cn } from "@/lib/utils";
 import {
@@ -188,6 +189,7 @@ export default function DashboardPage() {
   const [quickAdding, setQuickAdding] = useState(false);
   const [reviewNote, setReviewNote] = useState("");
   const [reviewSaving, setReviewSaving] = useState(false);
+  const [sportSheetOpen, setSportSheetOpen] = useState(false);
   const domain = useDomainStore((s) => s.current);
   const pushToast = useToastStore((s) => s.push);
 
@@ -393,20 +395,20 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           </Link>
-          <Link href="/tasks?autofocus=exercise&minutes=30" className="group">
+          <button type="button" onClick={() => setSportSheetOpen(true)} className="group text-left">
             <Card className="hover-glow-accent paper-hover press-scale h-full">
               <CardContent className="flex items-center gap-3 p-4">
                 <span className="icon-chip h-10 w-10 shrink-0">
                   <Dumbbell className="size-5 text-accent" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold">一键运动</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">30 分钟计时 · 立即开始</p>
+                  <p className="text-sm font-semibold">开始运动</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">篮球 · 羽毛球 · 跑步 · 深蹲… 30+ 项目任选</p>
                 </div>
                 <ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
               </CardContent>
             </Card>
-          </Link>
+          </button>
         </div>
       </section>
 
@@ -564,6 +566,21 @@ export default function DashboardPage() {
             {reviewSaving ? "保存中…" : "记一句"}
           </Button>
         </form>
+      
+      {/* 今日运动项目 chips */}
+      {wellbeing && wellbeing.exercise.logs.length > 0 ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-surface px-4 py-3">
+          <span className="text-xs font-medium text-muted-foreground">今日运动</span>
+          {wellbeing.exercise.logs.slice(-6).map((log) => (
+            <span
+              key={log.id}
+              className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2.5 py-1 text-xs font-medium text-success"
+            >
+              {log.typeLabel ?? "运动"} · {Math.max(1, Math.round(log.durationSeconds / 60))}分
+            </span>
+          ))}
+        </div>
+      ) : null}
       </section>
 
       {/* ③ 接下来 */}
@@ -649,6 +666,17 @@ export default function DashboardPage() {
         )}
       </section>
 
+      <ExerciseSheet
+        open={sportSheetOpen}
+        onClose={() => setSportSheetOpen(false)}
+        onLogged={() => {
+          load();
+          fetch("/api/wellbeing/today")
+            .then((r) => (r.ok ? r.json() : null))
+            .then((d) => setWellbeing(d))
+            .catch(() => {});
+        }}
+      />
       {celebration ? (
         <Celebration
           kind={celebration}

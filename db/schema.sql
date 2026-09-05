@@ -863,3 +863,38 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_exercise_logs_client
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_exercise_logs_client_anon
   ON exercise_logs(anon_id, client_id) WHERE anon_id IS NOT NULL AND client_id IS NOT NULL;
+
+
+-- ---------- 运动项目注册表（迁移 029/030：identities + password_reset_tokens + sport_items） ----------
+
+CREATE TABLE identities (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id      uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  provider     text NOT NULL,
+  provider_uid text NOT NULL,
+  unionid      text,
+  nickname     text,
+  avatar_url   text,
+  meta         jsonb NOT NULL DEFAULT '{}',
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (provider, provider_uid)
+);
+
+CREATE TABLE password_reset_tokens (
+  token      text PRIMARY KEY,
+  user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  expires_at timestamptz NOT NULL,
+  used_at    timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE sport_items (
+  key             text PRIMARY KEY,
+  name            text NOT NULL,
+  type            text NOT NULL,
+  met             numeric NOT NULL DEFAULT 4.0,
+  default_minutes int NOT NULL DEFAULT 30,
+  featured        boolean NOT NULL DEFAULT false,
+  sort            int NOT NULL DEFAULT 100,
+  enabled         boolean NOT NULL DEFAULT true
+);

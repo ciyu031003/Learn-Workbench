@@ -44,7 +44,13 @@ export default function TasksPage() {
   const [timerOpen, setTimerOpen] = useState(false);
   const [timerSession, setTimerSession] = useState(0);
   const [timerTask, setTimerTask] = useState<{ id: number | null; title: string | null } | null>(null);
-  const [timerAuto, setTimerAuto] = useState<{ autoStart: boolean; mode: "focus" | "exercise"; minutes?: number }>({
+  const [timerAuto, setTimerAuto] = useState<{
+    autoStart: boolean;
+    mode: "focus" | "exercise";
+    minutes?: number;
+    label?: string;
+    stype?: string;
+  }>({
     autoStart: false,
     mode: "focus",
   });
@@ -146,11 +152,11 @@ export default function TasksPage() {
     const parsed = parseAutofocusParams(window.location.search);
     if (!parsed) return;
     autofocusHandled.current = true;
-    const { mode, minutes } = parsed;
+    const { mode, minutes, label, stype } = parsed;
     // 延迟一帧再打开计时器：避免 effect 体内同步 setState 触发级联渲染
     const t = window.setTimeout(() => {
       setTimerTask({ id: null, title: null });
-      setTimerAuto({ autoStart: true, mode, minutes });
+      setTimerAuto({ autoStart: true, mode, minutes, label, stype });
       setTimerSession((s) => s + 1);
       setTimerOpen(true);
       router.replace("/tasks");
@@ -366,6 +372,8 @@ export default function TasksPage() {
         autoStart={timerAuto.autoStart}
         mode={timerAuto.mode}
         initialMinutes={timerAuto.minutes}
+        exerciseLabel={timerAuto.label}
+        exerciseType={timerAuto.stype}
         onClose={() => setTimerOpen(false)}
         onRecorded={() => {
           load(date);

@@ -76,6 +76,8 @@ export function FocusTimer({
   autoStart = false,
   mode = "focus",
   initialMinutes,
+  exerciseLabel,
+  exerciseType,
 }: {
   open: boolean;
   task: { id: number | null; title: string | null } | null;
@@ -84,6 +86,10 @@ export function FocusTimer({
   autoStart?: boolean;
   mode?: "focus" | "exercise";
   initialMinutes?: number;
+  /** 运动项目名（exercise 模式记录 type_label） */
+  exerciseLabel?: string | null;
+  /** 运动大类（exercise 模式记录 type） */
+  exerciseType?: string | null;
 }) {
   const bg = useFocusBgStore();
   const initMinutes = initialMinutes ?? (bg.minutes || 25);
@@ -107,6 +113,12 @@ export function FocusTimer({
   const fileRef = useRef<HTMLInputElement>(null);
   const autoStartedRef = useRef(false);
   const exerciseRecordedRef = useRef(false);
+  const exerciseLabelRef = useRef<string | null>(exerciseLabel ?? null);
+  const exerciseTypeRef = useRef<string | null>(exerciseType ?? null);
+  useEffect(() => {
+    exerciseLabelRef.current = exerciseLabel ?? null;
+    exerciseTypeRef.current = exerciseType ?? null;
+  }, [exerciseLabel, exerciseType]);
   const sessionRef = useRef<{ id: string; startedAt: string; settled: boolean; recorded: boolean } | null>(null);
   const lastFlushRef = useRef<number>(0);
   const lastVisibleRef = useRef<number>(0);
@@ -217,8 +229,8 @@ export function FocusTimer({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            type: "OTHER",
-            typeLabel: "一键运动",
+            type: ["BALL", "AEROBIC", "STRENGTH", "STRETCH", "MOVE"].includes(exerciseTypeRef.current ?? "") ? exerciseTypeRef.current! : "OTHER",
+            typeLabel: exerciseLabelRef.current ?? "一键运动",
             durationSeconds: elapsed,
             source: "FOCUS",
             startedAt: new Date(now.getTime() - elapsed * 1000).toISOString(),

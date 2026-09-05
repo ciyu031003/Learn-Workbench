@@ -760,3 +760,157 @@ html.dark .ambient-glow::after {
     animation: none !important;
   }
 }
+
+/* ============ 运动模块动态图标（SVG + CSS 关键帧，仅 transform/opacity） ============ */
+.sport-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.sport-icon-wrap .sport-anim-base {
+  display: inline-block;
+  will-change: transform;
+  transform-origin: 50% 85%;
+}
+/* hover：未选中时轻轻动一下，暗示" selectable " */
+@media (hover: hover) {
+  .sport-tile:hover .sport-anim-base {
+    animation: sport-breathe 1.2s ease-in-out 1;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* 篮球：弹跳 + 触底挤压 */
+  .sport-anim-bounce-squash { animation: sport-bounce-squash 0.9s cubic-bezier(0.28, 0.84, 0.42, 1) infinite; }
+  /* 羽毛球：被拨来拨去 */
+  .sport-anim-sway { animation: sport-sway 0.9s ease-in-out infinite; }
+  /* 排球/乒乓球：轻抛 */
+  .sport-anim-toss { animation: sport-toss 1.1s ease-in-out infinite; }
+  /* 足球/网球/棒球：滚动 */
+  .sport-anim-roll { animation: sport-roll 1.2s linear infinite; }
+  /* 跑步/快走/飞盘：步频颠簸 + 前倾 */
+  .sport-anim-run-bounce { animation: sport-run-bounce 0.5s ease-in-out infinite; }
+  /* 散步：慢摇摆 */
+  .sport-anim-sway-slow { animation: sport-sway 2.4s ease-in-out infinite; }
+  /* 骑行：水平微震 */
+  .sport-anim-vibrate-h { animation: sport-vibrate-h 0.36s linear infinite; }
+  /* 跳绳：节拍跳 */
+  .sport-anim-hop { animation: sport-hop 0.75s ease-in-out infinite; }
+  /* 游泳：波浪起伏 */
+  .sport-anim-wave { animation: sport-wave 1.4s ease-in-out infinite; }
+  /* 跳舞：律动 */
+  .sport-anim-groove { animation: sport-groove 0.9s ease-in-out infinite; }
+  /* 爬山/爬楼梯：阶梯上升 */
+  .sport-anim-step-up { animation: sport-step-up 1.1s ease-in-out infinite; }
+  /* 拳击：出拳 */
+  .sport-anim-punch { animation: sport-punch 0.7s ease-in-out infinite; }
+  /* 仰卧起坐/卷腹：一起一落 */
+  .sport-anim-situp { animation: sport-situp 1.2s ease-in-out infinite; }
+  /* 深蹲：下蹲起立 */
+  .sport-anim-squat { animation: sport-squat 1.3s ease-in-out infinite; }
+  /* 俯卧撑：撑起压下 */
+  .sport-anim-pushup { animation: sport-pushup 1.1s ease-in-out infinite; }
+  /* 平板支撑：高频微颤 */
+  .sport-anim-tremble { animation: sport-tremble 0.16s linear infinite; }
+  /* 哑铃：提拉 */
+  .sport-anim-lift { animation: sport-lift 1.2s ease-in-out infinite; }
+  /* 引体向上：上拉 */
+  .sport-anim-pullup { animation: sport-pullup 1.3s ease-in-out infinite; }
+  /* 拉伸：呼吸式 */
+  .sport-anim-breathe { animation: sport-breathe 2.4s ease-in-out infinite; }
+  /* 瑜伽：慢呼吸 */
+  .sport-anim-breathe-slow { animation: sport-breathe 4s ease-in-out infinite; }
+  /* 八段锦：导引节拍 */
+  .sport-anim-taiji { animation: sport-taiji 1.6s ease-in-out infinite; }
+  /* 太极：行云流水 */
+  .sport-anim-taiji-slow { animation: sport-taiji 3.2s ease-in-out infinite; }
+}
+
+@keyframes sport-bounce-squash {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  18% { transform: translateY(2px) scale(1.12, 0.85); }
+  55% { transform: translateY(-26%) scale(0.94, 1.08); }
+  82% { transform: translateY(2px) scale(1.12, 0.85); }
+}
+@keyframes sport-sway {
+  0%, 100% { transform: rotate(-14deg) translateX(-8%); }
+  50% { transform: rotate(14deg) translateX(8%); }
+}
+@keyframes sport-toss {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  40% { transform: translateY(-22%) rotate(10deg); }
+  60% { transform: translateY(-22%) rotate(-8deg); }
+}
+@keyframes sport-roll {
+  0% { transform: translateX(-18%) rotate(0deg); }
+  100% { transform: translateX(18%) rotate(180deg); }
+}
+@keyframes sport-run-bounce {
+  0%, 100% { transform: translateY(0) rotate(-6deg); }
+  50% { transform: translateY(-16%) rotate(6deg); }
+}
+@keyframes sport-vibrate-h {
+  0%, 100% { transform: translateX(-2%); }
+  50% { transform: translateX(2%); }
+}
+@keyframes sport-hop {
+  0%, 100% { transform: translateY(0) scaleY(1); }
+  30% { transform: translateY(-30%) scaleY(1.06); }
+  60% { transform: translateY(0) scaleY(0.94); }
+}
+@keyframes sport-wave {
+  0%, 100% { transform: translateY(0) rotate(-5deg); }
+  50% { transform: translateY(-10%) rotate(5deg); }
+}
+@keyframes sport-groove {
+  0%, 100% { transform: rotate(-8deg) translateY(0); }
+  50% { transform: rotate(8deg) translateY(-12%); }
+}
+@keyframes sport-step-up {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(6%, -16%); }
+}
+@keyframes sport-punch {
+  0%, 100% { transform: translateX(0) rotate(0deg); }
+  40% { transform: translateX(14%) rotate(-8deg); }
+  60% { transform: translateX(14%) rotate(-8deg); }
+}
+@keyframes sport-situp {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  50% { transform: rotate(-14deg) translateY(-10%); }
+}
+@keyframes sport-squat {
+  0%, 100% { transform: translateY(0) scaleY(1); }
+  50% { transform: translateY(10%) scaleY(0.82); }
+}
+@keyframes sport-pushup {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(8%) scale(0.94, 0.9); }
+}
+@keyframes sport-tremble {
+  0%, 100% { transform: translateX(-1%); }
+  50% { transform: translateX(1%); }
+}
+@keyframes sport-lift {
+  0%, 100% { transform: translateY(6%) scaleY(1); }
+  50% { transform: translateY(-8%) scaleY(1.05); }
+}
+@keyframes sport-pullup {
+  0%, 100% { transform: translateY(4%); }
+  50% { transform: translateY(-14%); }
+}
+@keyframes sport-breathe {
+  0%, 100% { transform: scale(0.97); }
+  50% { transform: scale(1.06); }
+}
+@keyframes sport-taiji {
+  0%, 100% { transform: rotate(-8deg) translateY(0); }
+  50% { transform: rotate(8deg) translateY(-8%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sport-anim-base,
+  .sport-tile:hover .sport-anim-base {
+    animation: none !important;
+  }
+}

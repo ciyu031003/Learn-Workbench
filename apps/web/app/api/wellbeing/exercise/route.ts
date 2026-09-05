@@ -13,8 +13,22 @@ function pickType(raw: unknown): string {
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const date = url.searchParams.get("date") || todayISO();
+  const daysParam = Math.min(30, Math.max(1, Math.round(Number(url.searchParams.get("days")) || 0)));
   const scope = await userScope();
   const w = scopeWhere(scope, [scope.uid, date]);
+  if (daysParam > 1) {
+    const recent = await pgPool.query(
+      `SELECT id, type, type_label AS "typeLabel", duration_seconds AS "durationSeconds",
+              source, started_at AS "startedAt"
+       FROM exercise_logs
+       WHERE user_id IS NOT DISTINCT FROM $1${w.sql} AND deleted_at IS NULL
+         AND started_at >= ($2::date - ($3::int - 1)) AND started_at < ($2::date + 1)
+       ORDER BY started_at DESC LIMIT 60`,
+      [...w.params, daysParam]
+    );
+    return NextResponse.json({ date, logs: recent.rows, totalMinutes: 0, totalSeconds: 0, targetMinutes: 0 });
+  }
+
   const { rows } = await pgPool.query(
     `SELECT id, type, type_label AS "typeLabel", duration_seconds AS "durationSeconds",
             source, note, started_at AS "startedAt"

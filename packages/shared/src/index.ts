@@ -401,6 +401,74 @@ export const exerciseTypeOptions: { type: ExerciseType; label: string }[] = [
   { type: "MOVE", label: "日常活动" },
   { type: "OTHER", label: "其他运动" },
 ];
+
+/* ---------- 运动项目注册表（Web/移动端共用；数据库 sport_items 同源种子） ---------- */
+
+export interface SportItem {
+  key: string;
+  name: string;
+  type: ExerciseType;
+  /** 运动强度系数（MET），卡路里估算预留 */
+  met: number;
+  defaultMinutes: number;
+  /** 前台常用位：默认网格只展示 featured 项目，其余收进「更多」 */
+  featured: boolean;
+  sort: number;
+}
+
+export const SPORT_CATALOG: SportItem[] = [
+  // 球类 BALL
+  { key: "basketball", name: "篮球", type: "BALL", met: 6.5, defaultMinutes: 30, featured: true, sort: 1 },
+  { key: "badminton", name: "羽毛球", type: "BALL", met: 5.5, defaultMinutes: 30, featured: true, sort: 2 },
+  { key: "volleyball", name: "排球", type: "BALL", met: 5.0, defaultMinutes: 30, featured: true, sort: 3 },
+  { key: "table-tennis", name: "乒乓球", type: "BALL", met: 4.0, defaultMinutes: 30, featured: true, sort: 4 },
+  { key: "soccer", name: "足球", type: "BALL", met: 7.0, defaultMinutes: 45, featured: false, sort: 5 },
+  { key: "tennis", name: "网球", type: "BALL", met: 5.0, defaultMinutes: 45, featured: false, sort: 6 },
+  { key: "baseball", name: "棒球", type: "BALL", met: 5.0, defaultMinutes: 45, featured: false, sort: 7 },
+  // 有氧 AEROBIC
+  { key: "run", name: "跑步", type: "AEROBIC", met: 8.0, defaultMinutes: 30, featured: true, sort: 10 },
+  { key: "walk", name: "散步", type: "AEROBIC", met: 3.5, defaultMinutes: 30, featured: true, sort: 11 },
+  { key: "brisk-walk", name: "快走", type: "AEROBIC", met: 5.0, defaultMinutes: 30, featured: false, sort: 12 },
+  { key: "cycling", name: "骑行", type: "AEROBIC", met: 6.8, defaultMinutes: 40, featured: true, sort: 13 },
+  { key: "rope-jumping", name: "跳绳", type: "AEROBIC", met: 10.0, defaultMinutes: 15, featured: true, sort: 14 },
+  { key: "swimming", name: "游泳", type: "AEROBIC", met: 7.0, defaultMinutes: 40, featured: false, sort: 15 },
+  { key: "dancing", name: "跳舞", type: "AEROBIC", met: 5.0, defaultMinutes: 30, featured: false, sort: 16 },
+  { key: "hiking", name: "爬山", type: "AEROBIC", met: 6.0, defaultMinutes: 120, featured: false, sort: 17 },
+  { key: "frisbee", name: "飞盘", type: "AEROBIC", met: 5.5, defaultMinutes: 40, featured: false, sort: 18 },
+  { key: "treadmill", name: "跑步机", type: "AEROBIC", met: 5.0, defaultMinutes: 30, featured: false, sort: 19 },
+  { key: "boxing", name: "拳击", type: "AEROBIC", met: 6.0, defaultMinutes: 30, featured: false, sort: 20 },
+  // 力量 STRENGTH
+  { key: "sit-ups", name: "仰卧起坐", type: "STRENGTH", met: 3.8, defaultMinutes: 15, featured: true, sort: 30 },
+  { key: "squats", name: "深蹲", type: "STRENGTH", met: 5.0, defaultMinutes: 15, featured: true, sort: 31 },
+  { key: "push-ups", name: "俯卧撑", type: "STRENGTH", met: 4.0, defaultMinutes: 10, featured: false, sort: 32 },
+  { key: "plank", name: "平板支撑", type: "STRENGTH", met: 3.3, defaultMinutes: 10, featured: false, sort: 33 },
+  { key: "dumbbells", name: "哑铃", type: "STRENGTH", met: 3.5, defaultMinutes: 20, featured: true, sort: 34 },
+  { key: "pull-ups", name: "引体向上", type: "STRENGTH", met: 8.0, defaultMinutes: 10, featured: false, sort: 35 },
+  { key: "crunches", name: "卷腹", type: "STRENGTH", met: 3.8, defaultMinutes: 10, featured: false, sort: 36 },
+  // 拉伸 STRETCH
+  { key: "stretching", name: "拉伸放松", type: "STRETCH", met: 2.3, defaultMinutes: 10, featured: true, sort: 40 },
+  { key: "yoga", name: "瑜伽", type: "STRETCH", met: 2.5, defaultMinutes: 30, featured: false, sort: 41 },
+  { key: "baduanjin", name: "八段锦", type: "STRETCH", met: 3.0, defaultMinutes: 20, featured: false, sort: 42 },
+  { key: "tai-chi", name: "太极", type: "STRETCH", met: 3.0, defaultMinutes: 30, featured: false, sort: 43 },
+  // 日常 MOVE
+  { key: "stairs", name: "爬楼梯", type: "MOVE", met: 8.0, defaultMinutes: 10, featured: false, sort: 50 },
+  { key: "housework", name: "家务活动", type: "MOVE", met: 3.3, defaultMinutes: 20, featured: false, sort: 51 },
+];
+
+export function sportItemByKey(key: string): SportItem | undefined {
+  return SPORT_CATALOG.find((s) => s.key === key);
+}
+
+/** 运动大类的推荐兜底项目（老记录/自定义时展示用） */
+export const sportTypeFallbackItem: Record<ExerciseType, SportItem> = {
+  BALL: { key: "ball-other", name: "球类运动", type: "BALL", met: 5.0, defaultMinutes: 30, featured: false, sort: 99 },
+  AEROBIC: { key: "aerobic-other", name: "有氧运动", type: "AEROBIC", met: 5.0, defaultMinutes: 30, featured: false, sort: 99 },
+  STRENGTH: { key: "strength-other", name: "力量训练", type: "STRENGTH", met: 4.0, defaultMinutes: 15, featured: false, sort: 99 },
+  STRETCH: { key: "stretch-other", name: "拉伸放松", type: "STRETCH", met: 2.5, defaultMinutes: 10, featured: false, sort: 99 },
+  MOVE: { key: "move-other", name: "日常活动", type: "MOVE", met: 3.5, defaultMinutes: 20, featured: false, sort: 99 },
+  OTHER: { key: "other", name: "其他运动", type: "OTHER", met: 4.0, defaultMinutes: 30, featured: false, sort: 99 },
+};
+
 export const wellbeingTodaySchema = z.object({
   date: z.string(),
   hydration: z.object({

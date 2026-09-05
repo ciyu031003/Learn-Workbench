@@ -29,6 +29,8 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { ExerciseSheet } from "@/components/sport/exercise-sheet";
+import type { SportItem } from "@learn-workbench/shared";
 import {
   energyLevelLabels,
   energyLevelColors,
@@ -131,6 +133,7 @@ export default function WellbeingPage() {
   const [exLabel, setExLabel] = useState("");
   const [exMinutes, setExMinutes] = useState("20");
   const [exTarget, setExTarget] = useState(String(today?.exercise?.targetMinutes ?? 30));
+  const [sportPickerOpen, setSportPickerOpen] = useState(false);
   const [editingExTarget, setEditingExTarget] = useState(false);
   const [timerTotal, setTimerTotal] = useState(0);
   const [timerLeft, setTimerLeft] = useState(0);
@@ -794,6 +797,16 @@ export default function WellbeingPage() {
           </CardContent>
         </Card>
       </div>
+      <ExerciseSheet
+        open={sportPickerOpen}
+        mode="pick"
+        onClose={() => setSportPickerOpen(false)}
+        onSelect={(item: SportItem) => {
+          setExerciseType(item.type);
+          setExLabel(item.name);
+        }}
+      />
+
     </div>
   );
 }

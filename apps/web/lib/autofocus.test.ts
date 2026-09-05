@@ -10,6 +10,16 @@ describe("parseAutofocusParams", () => {
     expect(parseAutofocusParams("?autofocus=exercise&minutes=30")).toEqual({ mode: "exercise", minutes: 30 });
   });
 
+  it("运动模式解析 label 与 stype（写入运动记录）", () => {
+    expect(parseAutofocusParams("?autofocus=exercise&minutes=30&label=" + encodeURIComponent("篮球") + "&stype=BALL")).toEqual({
+      mode: "exercise", minutes: 30, label: "篮球", stype: "BALL",
+    });
+    // stype 非法枚举被丢弃；label 空白被丢弃
+    expect(parseAutofocusParams("?autofocus=exercise&label=%20&stype=HACK")).toEqual({ mode: "exercise", minutes: undefined });
+    // focus 模式不带运动参数
+    expect(parseAutofocusParams("?autofocus=study&minutes=25&label=X")).toEqual({ mode: "focus", minutes: 25 });
+  });
+
   it("autofocus 缺省或非法时返回 null（忽略）", () => {
     expect(parseAutofocusParams("")).toBeNull();
     expect(parseAutofocusParams("?minutes=25")).toBeNull();
