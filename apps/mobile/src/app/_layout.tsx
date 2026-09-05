@@ -21,6 +21,7 @@ import type { ThemeColors } from "@/theme/tokens";
 import { startSyncEngine } from "@/lib/sync-engine";
 import { secureToken } from "@/lib/secure-token";
 import { useAppStore } from "@/store/app-store";
+import { migrateLegacySports } from "@/store/sport-legacy";
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
@@ -135,6 +136,11 @@ export default function RootLayout() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   // 离线优先：启动后台同步引擎（联网/回前台/登录后自动推送本地变更）
   useEffect(() => startSyncEngine(), []);
+
+  // 旧运动记录一次性并入 app-store（入同步队列）
+  useEffect(() => {
+    void migrateLegacySports();
+  }, []);
 
   // 登录令牌恢复：token 存于安全存储（Keychain/Keystore），启动时回填会话
   useEffect(() => {

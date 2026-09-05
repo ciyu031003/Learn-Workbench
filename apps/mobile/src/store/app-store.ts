@@ -1,8 +1,8 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import type { DailyTask, FocusSession, LogEntry, TopicProgress } from "@learn-workbench/shared";
-import { todayISO } from "@learn-workbench/shared";
+import type { DailyTask, FocusSession, LogEntry, TopicProgress, ExerciseType } from "@learn-workbench/shared";
+import { todayISO, sportItemByKey, SPORT_CATALOG } from "@learn-workbench/shared";
 import type { ThemeMode } from "@/theme/tokens";
 import { secureToken } from "@/lib/secure-token";
 
@@ -15,7 +15,8 @@ export type SyncEntityType =
   | "checkins"
   | "logs"
   | "github"
-  | "customTopics";
+  | "customTopics"
+  | "exerciseLogs";
 
 export interface SyncChange {
   entityType: SyncEntityType;
@@ -56,6 +57,17 @@ export interface CustomTopic {
   summary: string | null;
 }
 
+/** 运动记录（对齐 SPORT_CATALOG；经 /api/sync 以 exerciseLogs 实体入库 exercise_logs） */
+export interface LocalSportLog {
+  id: number;
+  clientId: string;
+  sportKey: string;
+  name: string;
+  type: ExerciseType;
+  minutes: number;
+  createdAt: string;
+}
+
 /** 生成跨设备稳定 ID（client_id） */
 
 /** payload 字段类型收窄（payload: Record<string, unknown>） */
@@ -80,6 +92,7 @@ interface AppState {
   username: string | null;
   github: GithubRecord[];
   customTopics: CustomTopic[];
+  sports: LocalSportLog[];
   deviceId: string;
   apiUrl: string | null;
   pendingChanges: PendingChange[];
@@ -103,6 +116,9 @@ interface AppState {
   removeGithub: (id: number) => void;
   addCustomTopic: (phaseId: number, title: string, summary: string | null) => void;
   removeCustomTopic: (id: number) => void;
+  addSport: (sportKey: string, minutes: number) => void;
+  removeSport: (clientId: string) => void;
+  importLegacySports: (records: { sportKey: string; minutes: number; createdAt: string }[]) => void;
 
   applyRemoteChanges: (changes: SyncChange[]) => void;
   clearPendingChanges: () => void;
@@ -126,6 +142,7 @@ export const useAppStore = create<AppState>()(
       username: null,
       github: [],
       customTopics: [],
+      sports: [],
       deviceId: uid(),
       apiUrl: null,
       pendingChanges: [],
@@ -293,6 +310,7 @@ export const useAppStore = create<AppState>()(
           checkins: [],
           github: [],
           customTopics: [],
+          sports: [],
           pendingChanges: [],
           lastSyncedAt: null,
         }),
@@ -375,6 +393,96 @@ export const useAppStore = create<AppState>()(
           };
         }),
 
+      addSport: (sportKey, minutes) =>
+        set((s) => {
+          const item = sportItemByKey(sportKey);
+          if (!item) return s;
+          const now = new Date().toISOString();
+          const clientId = uid();
+          const mins = Math.max(1, Math.min(600, Math.round(minutes || item.defaultMinutes)));
+          const rec: LocalSportLog = {
+            id: nextId(),
+            clientId,
+            sportKey: item.key,
+            name: item.name,
+            type: item.type,
+            minutes: mins,
+            createdAt: now,
+          };
+          const change: PendingChange = {
+            changeId: uid(),
+            entityType: "exerciseLogs",
+            entityId: clientId,
+            operation: "CREATE",
+            version: 1,
+            payload: {
+              clientId,
+              type: item.type,
+              typeLabel: item.name,
+              durationSeconds: mins * 60,
+              source: "MANUAL",
+              startedAt: now,
+            },
+            updatedAt: now,
+          };
+          return { sports: [...s.sports, rec], pendingChanges: [change, ...s.pendingChanges] };
+        }),
+
+      removeSport: (clientId) =>
+        set((s) => {
+          const rec = s.sports.find((x) => x.clientId === clientId);
+          if (!rec) return s;
+          const now = new Date().toISOString();
+          const change: PendingChange = {
+            changeId: uid(),
+            entityType: "exerciseLogs",
+            entityId: rec.clientId || "srv-" + rec.id,
+            operation: "DELETE",
+            version: 1,
+            payload: null,
+            updatedAt: now,
+          };
+          return {
+            sports: s.sports.filter((x) => x.clientId !== clientId),
+            pendingChanges: [change, ...s.pendingChanges],
+          };
+        }),
+
+      /** 旧版 sport-store（6 项、仅本地）一次性并入并补同步 */
+      importLegacySports: (records) =>
+        set((s) => {
+          if (!records.length) return s;
+          const now = new Date().toISOString();
+          const sports = [...s.sports];
+          const changes = [...s.pendingChanges];
+          for (const r of records) {
+            const item = sportItemByKey(r.sportKey);
+            if (!item) continue;
+            if (sports.some((x) => x.sportKey === item.key && x.createdAt === r.createdAt)) continue;
+            const clientId = uid();
+            const minutes = Math.max(1, Math.min(600, Math.round(r.minutes)));
+            const createdAt = r.createdAt || now;
+            sports.push({ id: nextId(), clientId, sportKey: item.key, name: item.name, type: item.type, minutes, createdAt });
+            changes.unshift({
+              changeId: uid(),
+              entityType: "exerciseLogs",
+              entityId: clientId,
+              operation: "CREATE",
+              version: 1,
+              payload: {
+                clientId,
+                type: item.type,
+                typeLabel: item.name,
+                durationSeconds: minutes * 60,
+                source: "MANUAL",
+                startedAt: createdAt,
+              },
+              updatedAt: createdAt,
+            });
+          }
+          return { sports, pendingChanges: changes };
+        }),
+
       applyRemoteChanges: (changes) =>
         set((s) => {
           let progress = { ...s.progress };
@@ -384,6 +492,7 @@ export const useAppStore = create<AppState>()(
           let checkins = [...s.checkins];
           let github = [...s.github];
           let customTopics = [...s.customTopics];
+          let sports = [...s.sports];
 
           for (const c of changes) {
             // LWW：本地未推送的更新应获胜
@@ -418,6 +527,9 @@ export const useAppStore = create<AppState>()(
                   break;
                 case "customTopics":
                   customTopics = customTopics.filter((x) => (x.clientId || "srv-" + x.id) !== c.entityId);
+                  break;
+                case "exerciseLogs":
+                  sports = sports.filter((x) => (x.clientId || "srv-" + x.id) !== c.entityId);
                   break;
               }
               continue;
@@ -514,10 +626,30 @@ export const useAppStore = create<AppState>()(
                 else customTopics = [...customTopics, t];
                 break;
               }
+              case "exerciseLogs": {
+                // 服务端 payload：{ type, typeLabel, durationSeconds, source, startedAt }；本地补 sportKey 便于图标
+                const name = sval(p.typeLabel, "运动");
+                const catalogItem = sportItemByKey(sval(p.sportKey)) ??
+                  // 名称反查注册表（远端记录不带 sportKey）
+                  SPORT_CATALOG.find((sp) => sp.name === name);
+                const rec: LocalSportLog = {
+                  id: nval(p.id, nextId()),
+                  clientId: c.entityId,
+                  sportKey: catalogItem?.key ?? "",
+                  name,
+                  type: (p.type as ExerciseType) ?? catalogItem?.type ?? "OTHER",
+                  minutes: Math.max(1, Math.round(nval(p.durationSeconds) / 60)),
+                  createdAt: sval(p.startedAt, new Date().toISOString()),
+                };
+                const idx = sports.findIndex((x) => (x.clientId || "srv-" + x.id) === c.entityId);
+                if (idx >= 0) sports[idx] = rec;
+                else sports = [...sports, rec];
+                break;
+              }
             }
           }
 
-          return { progress, tasks, logs, sessions, checkins, github, customTopics };
+          return { progress, tasks, logs, sessions, checkins, github, customTopics, sports };
         }),
 
       clearPendingChanges: () => set({ pendingChanges: [] }),

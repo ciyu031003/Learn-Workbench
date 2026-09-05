@@ -97,6 +97,53 @@ describe("local mutations queue pending changes", () => {
     useAppStore.getState().removeCustomTopic(t.id);
     expect(useAppStore.getState().pendingChanges[0]).toMatchObject({ entityType: "customTopics", operation: "DELETE" });
   });
+
+  it("addSport resolves SPORT_CATALOG item and enqueues exerciseLogs CREATE with seconds payload", () => {
+    useAppStore.getState().addSport("basketball", 30);
+    const s = useAppStore.getState();
+    expect(s.sports).toHaveLength(1);
+    const rec = s.sports[0];
+    expect(rec).toMatchObject({ sportKey: "basketball", name: "篮球", type: "BALL", minutes: 30 });
+    expect(s.pendingChanges[0]).toMatchObject({
+      entityType: "exerciseLogs",
+      operation: "CREATE",
+      entityId: rec.clientId,
+      payload: { type: "BALL", typeLabel: "篮球", durationSeconds: 1800, source: "MANUAL" },
+    });
+  });
+
+  it("addSport rejects unknown sport keys", () => {
+    useAppStore.getState().addSport("not-a-sport", 30);
+    expect(useAppStore.getState().sports).toHaveLength(0);
+    expect(useAppStore.getState().pendingChanges).toHaveLength(0);
+  });
+
+  it("removeSport enqueues exerciseLogs DELETE", () => {
+    useAppStore.getState().addSport("run", 25);
+    const rec = useAppStore.getState().sports[0];
+    useAppStore.getState().clearPendingChanges();
+    useAppStore.getState().removeSport(rec.clientId);
+    const s = useAppStore.getState();
+    expect(s.sports).toHaveLength(0);
+    expect(s.pendingChanges[0]).toMatchObject({ entityType: "exerciseLogs", operation: "DELETE", entityId: rec.clientId });
+  });
+
+  it("importLegacySports converts old records and enqueues sync, idempotent per record", () => {
+    useAppStore.getState().importLegacySports([
+      { sportKey: "cycling", minutes: 40, createdAt: "2026-09-01T08:00:00.000Z" },
+      { sportKey: "legacy-gone", minutes: 10, createdAt: "2026-09-01T08:05:00.000Z" },
+    ]);
+    const s = useAppStore.getState();
+    expect(s.sports).toHaveLength(1);
+    expect(s.sports[0]).toMatchObject({ sportKey: "cycling", name: "骑行", type: "AEROBIC", minutes: 40 });
+    expect(s.pendingChanges.filter((c) => c.entityType === "exerciseLogs")).toHaveLength(1);
+
+    // 再次导入同一条（同 key + createdAt）不重复
+    useAppStore.getState().importLegacySports([
+      { sportKey: "cycling", minutes: 40, createdAt: "2026-09-01T08:00:00.000Z" },
+    ]);
+    expect(useAppStore.getState().sports).toHaveLength(1);
+  });
 });
 
 describe("applyRemoteChanges", () => {
@@ -115,6 +162,7 @@ describe("applyRemoteChanges", () => {
       change({ entityType: "logs", entityId: "c-l1", payload: { kind: "review", title: "周复盘", content: "内容", createdAt: "2026-08-13T09:00:00.000Z", updatedAt: "2026-08-13T09:00:00.000Z" } }),
       change({ entityType: "github", entityId: "c-g1", payload: { title: "GH", url: "u", content: "c" } }),
       change({ entityType: "customTopics", entityId: "c-t1", payload: { phaseId: 1, title: "CT", summary: null } }),
+      change({ entityType: "exerciseLogs", entityId: "c-sp1", payload: { type: "BALL", typeLabel: "篮球", durationSeconds: 1800, source: "MANUAL", startedAt: "2026-08-13T09:00:00.000Z" } }),
     ]);
 
     const after = useAppStore.getState();
@@ -127,6 +175,7 @@ describe("applyRemoteChanges", () => {
     expect(after.logs[0]).toMatchObject({ clientId: "c-l1", kind: "review", title: "周复盘" });
     expect(after.github[0]).toMatchObject({ clientId: "c-g1", title: "GH" });
     expect(after.customTopics[0]).toMatchObject({ clientId: "c-t1", phaseId: 1, title: "CT" });
+    expect(after.sports[0]).toMatchObject({ clientId: "c-sp1", sportKey: "basketball", name: "篮球", type: "BALL", minutes: 30 });
   });
 
   it("applies DELETE for every entity type using clientId or srv- fallback", () => {
@@ -141,6 +190,7 @@ describe("applyRemoteChanges", () => {
       logs: [{ id: 4, clientId: "c-4", kind: "review", title: "l", content: "", createdAt: "x", updatedAt: "x" }],
       github: [{ id: 5, clientId: "c-5", title: "g", url: null, content: null }],
       customTopics: [{ id: 6, clientId: "c-6", phaseId: 1, title: "t", summary: null }],
+      sports: [{ id: 8, clientId: "c-8", sportKey: "run", name: "跑步", type: "AEROBIC", minutes: 30, createdAt: "x" }],
     });
 
     useAppStore.getState().applyRemoteChanges([
@@ -152,6 +202,7 @@ describe("applyRemoteChanges", () => {
       change({ entityType: "logs", entityId: "c-4", operation: "DELETE" }),
       change({ entityType: "github", entityId: "c-5", operation: "DELETE" }),
       change({ entityType: "customTopics", entityId: "c-6", operation: "DELETE" }),
+      change({ entityType: "exerciseLogs", entityId: "c-8", operation: "DELETE" }),
     ]);
 
     const after = useAppStore.getState();
@@ -162,6 +213,7 @@ describe("applyRemoteChanges", () => {
     expect(after.logs).toEqual([]);
     expect(after.github).toEqual([]);
     expect(after.customTopics).toEqual([]);
+    expect(after.sports).toEqual([]);
   });
 
   it("lets newer local pending changes win (LWW)", () => {

@@ -9,7 +9,6 @@ import { PressableScale } from "@/components/pressable-scale";
 import { RingProgress } from "@/components/ring-progress";
 import { BarChart, LineChart } from "@/components/charts";
 import { useAppStore } from "@/store/app-store";
-import { useSportStore } from "@/store/sport-store";
 import { mainPhases, agentPhase } from "@learn-workbench/content";
 import type { Phase } from "@learn-workbench/shared";
 import { formatDuration, pct } from "@learn-workbench/shared";
@@ -218,7 +217,7 @@ export default function LearnScreen() {
   const customTopics = useAppStore((s) => s.customTopics);
   const addCustomTopic = useAppStore((s) => s.addCustomTopic);
   const removeCustomTopic = useAppStore((s) => s.removeCustomTopic);
-  const sportRecords = useSportStore((s) => s.records);
+  const sportRecords = useAppStore((s) => s.sports);
   const [stageSheet, setStageSheet] = useState(false);
   const [shareSheet, setShareSheet] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);

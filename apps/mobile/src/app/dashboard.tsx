@@ -22,7 +22,8 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useAppStore } from "@/store/app-store";
-import { useSportStore, SPORT_TYPES, type SportKind } from "@/store/sport-store";
+import { SPORT_CATALOG, exerciseTypeOptions, type ExerciseType, type SportItem } from "@learn-workbench/shared";
+import { sportIconOf, sportColorsOf, sportAnimOf } from "@/lib/sport-view";
 import { mainPhases, agentPhase } from "@learn-workbench/content";
 import { pct, formatDuration, taskTypeLabels, todayISO } from "@learn-workbench/shared";
 import { FocusTimer } from "@/components/focus-timer";
@@ -84,20 +85,25 @@ function FocusCard({ onStart }: { onStart: () => void }) {
 }
 
 function SportIcon({
-  kind,
-  icon,
+  sportKey,
+  name,
+  type,
   color,
   active,
 }: {
-  kind: SportKind;
-  icon: keyof typeof Ionicons.glyphMap;
-  color: string;
+  sportKey: string;
+  name?: string;
+  type: ExerciseType;
+  color?: string;
   active: boolean;
 }) {
   const tx = useSharedValue(0);
   const ty = useSharedValue(0);
   const rotate = useSharedValue(0);
   const scale = useSharedValue(1);
+  const icon = sportIconOf(sportKey, name);
+  const c = color ?? sportColorsOf(type).c1;
+  const preset = sportAnimOf(sportKey);
 
   useEffect(() => {
     if (!active) {
@@ -108,34 +114,80 @@ function SportIcon({
       return;
     }
 
-    if (kind === "basketball") {
-      scale.value = withSequence(withSpring(1.18, { damping: 9, stiffness: 220 }), withSpring(1));
-      ty.value = withSequence(withTiming(-18, { duration: 340 }), withTiming(0, { duration: 400 }));
-      rotate.value = withSequence(withTiming(-140, { duration: 700 }), withTiming(0, { duration: 0 }));
-      tx.value = withTiming(0, { duration: 180 });
-    } else if (kind === "badminton") {
-      scale.value = withSequence(withSpring(1.14, { damping: 9, stiffness: 220 }), withSpring(1));
-      tx.value = withSequence(
-        withRepeat(withSequence(withTiming(-6, { duration: 170 }), withTiming(6, { duration: 170 })), 3, true),
-        withTiming(0, { duration: 160 })
-      );
-      ty.value = withRepeat(withSequence(withTiming(-4, { duration: 170 }), withTiming(4, { duration: 170 })), 3, true);
-      rotate.value = withTiming(0, { duration: 180 });
-    } else if (kind === "walk") {
-      scale.value = withSequence(withSpring(1.1, { damping: 9, stiffness: 220 }), withSpring(1));
-      rotate.value = withSequence(
-        withRepeat(withSequence(withTiming(-12, { duration: 220 }), withTiming(12, { duration: 220 })), 2, true),
-        withTiming(0, { duration: 200 })
-      );
-      ty.value = withRepeat(withSequence(withTiming(-3, { duration: 220 }), withTiming(3, { duration: 220 })), 2, true);
-      tx.value = withTiming(0, { duration: 180 });
-    } else {
-      scale.value = withSequence(withSpring(1.12, { damping: 9, stiffness: 220 }), withSpring(1));
-      tx.value = withTiming(0, { duration: 180 });
-      ty.value = withTiming(0, { duration: 180 });
-      rotate.value = withTiming(0, { duration: 180 });
+    // 动画词汇表：与 Web 端 sport-animated-icon 的 keyframes 分组同源
+    switch (preset) {
+      case "ball-bounce":
+        scale.value = withSequence(withSpring(1.18, { damping: 9, stiffness: 220 }), withSpring(1));
+        ty.value = withSequence(withTiming(-18, { duration: 340 }), withTiming(0, { duration: 400 }));
+        rotate.value = withSequence(withTiming(-140, { duration: 700 }), withTiming(0, { duration: 0 }));
+        break;
+      case "racket-sway":
+        scale.value = withSequence(withSpring(1.14, { damping: 9, stiffness: 220 }), withSpring(1));
+        tx.value = withSequence(
+          withRepeat(withSequence(withTiming(-6, { duration: 170 }), withTiming(6, { duration: 170 })), 3, true),
+          withTiming(0, { duration: 160 })
+        );
+        ty.value = withRepeat(withSequence(withTiming(-4, { duration: 170 }), withTiming(4, { duration: 170 })), 3, true);
+        break;
+      case "stroll":
+        scale.value = withSequence(withSpring(1.1, { damping: 9, stiffness: 220 }), withSpring(1));
+        rotate.value = withSequence(
+          withRepeat(withSequence(withTiming(-12, { duration: 220 }), withTiming(12, { duration: 220 })), 2, true),
+          withTiming(0, { duration: 200 })
+        );
+        ty.value = withRepeat(withSequence(withTiming(-3, { duration: 220 }), withTiming(3, { duration: 220 })), 2, true);
+        break;
+      case "run-bounce":
+        scale.value = withSequence(withSpring(1.12, { damping: 9, stiffness: 220 }), withSpring(1));
+        ty.value = withRepeat(withSequence(withTiming(-8, { duration: 130 }), withTiming(0, { duration: 110 })), 4, false);
+        rotate.value = withSequence(withTiming(-6, { duration: 130 }), withTiming(4, { duration: 130 }), withTiming(0, { duration: 120 }));
+        break;
+      case "ride":
+        scale.value = withSequence(withSpring(1.1, { damping: 9, stiffness: 220 }), withSpring(1));
+        tx.value = withRepeat(withSequence(withTiming(-4, { duration: 160 }), withTiming(4, { duration: 160 })), 4, true);
+        ty.value = withRepeat(withSequence(withTiming(-3, { duration: 160 }), withTiming(0, { duration: 160 })), 4, true);
+        break;
+      case "swim":
+        scale.value = withSequence(withSpring(1.1, { damping: 9, stiffness: 200 }), withSpring(1));
+        ty.value = withSequence(withTiming(-5, { duration: 320 }), withTiming(0, { duration: 320 }), withTiming(-4, { duration: 300 }), withTiming(0, { duration: 300 }));
+        rotate.value = withSequence(withTiming(6, { duration: 320 }), withTiming(-6, { duration: 320 }), withTiming(0, { duration: 260 }));
+        break;
+      case "rope":
+        scale.value = withSequence(withSpring(1.1, { damping: 9, stiffness: 220 }), withSpring(1));
+        ty.value = withRepeat(withSequence(withTiming(-9, { duration: 120 }), withTiming(0, { duration: 110 })), 5, false);
+        break;
+      case "strength":
+        ty.value = withRepeat(
+          withSequence(withTiming(-3, { duration: 220 }), withTiming(3, { duration: 220 })),
+          3,
+          true
+        );
+        scale.value = withRepeat(
+          withSequence(withTiming(1.04, { duration: 220 }), withTiming(0.94, { duration: 220 }), withTiming(1, { duration: 180 })),
+          2,
+          false
+        );
+        break;
+      case "tremble":
+        tx.value = withRepeat(withSequence(withTiming(-1.5, { duration: 60 }), withTiming(1.5, { duration: 60 })), 10, true);
+        ty.value = withTiming(-2, { duration: 160 });
+        break;
+      case "breath":
+        scale.value = withRepeat(withSequence(withTiming(1.07, { duration: 700 }), withTiming(0.97, { duration: 700 })), 2, true);
+        break;
+      case "climb":
+        scale.value = withSequence(withSpring(1.08, { damping: 9, stiffness: 220 }), withSpring(1));
+        ty.value = withRepeat(
+          withSequence(withTiming(-7, { duration: 170 }), withTiming(0, { duration: 90 })),
+          3,
+          false
+        );
+        break;
+      default:
+        scale.value = withSequence(withSpring(1.12, { damping: 9, stiffness: 220 }), withSpring(1));
+        break;
     }
-  }, [active, kind, rotate, scale, tx, ty]);
+  }, [active, preset, rotate, scale, tx, ty]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
@@ -148,7 +200,7 @@ function SportIcon({
 
   return (
     <Animated.View style={animatedStyle}>
-      <Ionicons name={icon} size={22} color={color} />
+      <Ionicons name={icon} size={22} color={c} />
     </Animated.View>
   );
 }
@@ -156,43 +208,80 @@ function SportIcon({
 function SportSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const addSport = useSportStore((s) => s.addSport);
-  const [kind, setKind] = useState<SportKind>("basketball");
+  const sports = useAppStore((s) => s.sports);
+  const addSport = useAppStore((s) => s.addSport);
+  const [tab, setTab] = useState<"recent" | ExerciseType>("recent");
+  const [sportKey, setSportKey] = useState("basketball");
   const [minutes, setMinutes] = useState(30);
 
+  // 最近：按记录时间倒序取 distinct 项目（不足时回退常用 featured）
+  const items = useMemo(() => {
+    if (tab === "recent") {
+      const seen: string[] = [];
+      for (const r of [...sports].sort((a, b) => b.createdAt.localeCompare(a.createdAt))) {
+        if (!seen.includes(r.sportKey)) seen.push(r.sportKey);
+        if (seen.length >= 6) break;
+      }
+      const recent = seen
+        .map((k) => SPORT_CATALOG.find((i) => i.key === k))
+        .filter((i): i is SportItem => !!i);
+      return recent.length > 0 ? recent : SPORT_CATALOG.filter((i) => i.featured);
+    }
+    return SPORT_CATALOG.filter((i) => i.type === tab);
+  }, [tab, sports]);
+
+  const current = SPORT_CATALOG.find((i) => i.key === sportKey) ?? items[0] ?? SPORT_CATALOG[0];
+
   return (
-    <BottomSheet visible={visible} onClose={onClose} title="添加运动记录" height="64%">
-      <View style={styles.sportTypeGrid}>
-        {SPORT_TYPES.map((t) => {
-          const active = t.key === kind;
+    <BottomSheet visible={visible} onClose={onClose} title="添加运动记录" height="72%">
+      <View style={styles.sportTabRow}>
+        <Pressable onPress={() => setTab("recent")} style={[styles.sportTab, tab === "recent" && styles.sportTabActive]}>
+          <Text style={[styles.sportTabText, tab === "recent" && styles.sportTabTextActive]}>最近</Text>
+        </Pressable>
+        {exerciseTypeOptions.map((o) => (
+          <Pressable key={o.type} onPress={() => setTab(o.type)} style={[styles.sportTab, tab === o.type && styles.sportTabActive]}>
+            <Text style={[styles.sportTabText, tab === o.type && styles.sportTabTextActive]}>
+              {o.label.replace("运动", "").replace("训练", "").replace("放松", "").replace("活动", "")}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+      <ScrollView style={styles.sportGridScroll} contentContainerStyle={styles.sportTypeGrid} showsVerticalScrollIndicator={false}>
+        {items.map((t) => {
+          const active = t.key === current?.key;
           return (
             <Pressable
               key={t.key}
-              onPress={() => setKind(t.key)}
+              onPress={() => {
+                setSportKey(t.key);
+                setMinutes(t.defaultMinutes);
+              }}
               style={[styles.sportType, active && styles.sportTypeActive]}
             >
-              <View style={[styles.sportTypeIcon, { backgroundColor: `${t.c1}22` }]}>
-                <SportIcon kind={t.key} icon={t.icon} color={t.c1} active={active} />
+              <View style={[styles.sportTypeIcon, { backgroundColor: `${sportColorsOf(t.type).c1}22` }]}>
+                <SportIcon sportKey={t.key} type={t.type} active={active} />
               </View>
-              <Text style={[styles.sportTypeName, active && styles.sportTypeNameActive]}>{t.name}</Text>
+              <Text style={[styles.sportTypeName, active && styles.sportTypeNameActive]} numberOfLines={1}>
+                {t.name}
+              </Text>
             </Pressable>
           );
         })}
-      </View>
+      </ScrollView>
       <View style={styles.stepper}>
-        <Pressable style={styles.stepBtn} onPress={() => setMinutes((m) => Math.max(15, m - 15))}>
+        <Pressable style={styles.stepBtn} onPress={() => setMinutes((m) => Math.max(5, m - 5))}>
           <Text style={styles.stepBtnText}>−</Text>
         </Pressable>
         <View style={styles.stepperVal}>
           <Text style={styles.stepperNum}>{minutes}</Text>
           <Text style={styles.stepperUnit}>分钟</Text>
         </View>
-        <Pressable style={styles.stepBtn} onPress={() => setMinutes((m) => Math.min(240, m + 15))}>
+        <Pressable style={styles.stepBtn} onPress={() => setMinutes((m) => Math.min(240, m + 5))}>
           <Text style={styles.stepBtnText}>+</Text>
         </Pressable>
       </View>
       <View style={styles.quickRow}>
-        {[30, 60, 90].map((m) => (
+        {[15, 30, 45, 60].map((m) => (
           <Pressable
             key={m}
             onPress={() => setMinutes(m)}
@@ -206,11 +295,14 @@ function SportSheet({ visible, onClose }: { visible: boolean; onClose: () => voi
         style={styles.saveSport}
         haptic
         onPress={() => {
-          addSport(kind, minutes);
+          if (!current) return;
+          addSport(current.key, minutes);
           onClose();
         }}
       >
-        <Text style={styles.saveSportText}>保存这条记录</Text>
+        <Text style={styles.saveSportText}>
+          记录 {current?.name ?? "—"} {minutes} 分钟
+        </Text>
       </PressableScale>
     </BottomSheet>
   );
@@ -235,8 +327,8 @@ export default function DashboardScreen() {
   const checkinToday = useAppStore((s) => s.checkinToday);
   const toggleTaskDone = useAppStore((s) => s.toggleTaskDone);
   const addSession = useAppStore((s) => s.addSession);
-  const sports = useSportStore((s) => s.records);
-  const removeSport = useSportStore((s) => s.removeSport);
+  const sports = useAppStore((s) => s.sports);
+  const removeSport = useAppStore((s) => s.removeSport);
 
   const [focusOpen, setFocusOpen] = useState(false);
   const [sportSheetOpen, setSportSheetOpen] = useState(false);
@@ -347,20 +439,23 @@ export default function DashboardScreen() {
           {sports.length === 0 ? (
             <Text style={styles.sportEmpty}>今天还没有运动记录，去阳光下动一动吧 ☀️</Text>
           ) : (
-            sports.map((r) => (
-              <View key={r.id} style={styles.sportItem}>
-                <View style={[styles.sportIco, { backgroundColor: `${r.c1}1f` }]}>
-                  <Ionicons name={r.icon} size={20} color={r.c1} />
+            sports.map((r) => {
+              const { c1 } = sportColorsOf(r.type);
+              return (
+                <View key={r.id} style={styles.sportItem}>
+                  <View style={[styles.sportIco, { backgroundColor: `${c1}1f` }]}>
+                    <SportIcon sportKey={r.sportKey} name={r.name} type={r.type} color={c1} active={false} />
+                  </View>
+                  <View style={styles.sportItemInfo}>
+                    <Text style={styles.sportItemName}>{r.name}</Text>
+                    <Text style={styles.sportItemTime}>{formatSport(r.minutes)} · 已完成</Text>
+                  </View>
+                  <Pressable onPress={() => removeSport(r.clientId)} hitSlop={8}>
+                    <Ionicons name="close" size={18} color={colors.textMuted} />
+                  </Pressable>
                 </View>
-                <View style={styles.sportItemInfo}>
-                  <Text style={styles.sportItemName}>{r.name}</Text>
-                  <Text style={styles.sportItemTime}>{formatSport(r.minutes)} · 已完成</Text>
-                </View>
-                <Pressable onPress={() => removeSport(r.id)} hitSlop={8}>
-                  <Ionicons name="close" size={18} color={colors.textMuted} />
-                </Pressable>
-              </View>
-            ))
+              );
+            })
           )}
         </Card>
 
@@ -585,13 +680,26 @@ const makeStyles = (colors: ThemeColors) =>
   },
   checkinRowText: { fontSize: 13, fontWeight: "700", color: colors.accentStrong },
 
-  sportTypeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  sportTabRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 },
+  sportTab: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  sportTabActive: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
+  sportTabText: { fontSize: 12, fontWeight: "700", color: colors.textMuted },
+  sportTabTextActive: { color: colors.accentStrong },
+  sportGridScroll: { flex: 1 },
+  sportTypeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, paddingBottom: 6 },
   sportType: {
     width: "30%",
     flexGrow: 1,
     alignItems: "center",
     gap: 6,
-    padding: 12,
+    padding: 10,
     borderRadius: radius.md,
     backgroundColor: colors.surface,
     borderWidth: 1.5,

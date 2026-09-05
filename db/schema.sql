@@ -910,3 +910,8 @@ CREATE TABLE IF NOT EXISTS user_settings (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_user_settings_user ON user_settings(user_id) WHERE user_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_user_settings_anon ON user_settings(anon_id) WHERE user_id IS NULL AND anon_id IS NOT NULL;
+
+-- 来自迁移 032_exercise_logs_client_index.sql（移动端同步幂等）
+CREATE UNIQUE INDEX IF NOT EXISTS uq_exercise_logs_client
+  ON exercise_logs(user_id, client_id)
+  WHERE user_id IS NOT NULL AND client_id IS NOT NULL;

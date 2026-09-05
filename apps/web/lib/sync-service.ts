@@ -1,5 +1,6 @@
 import type { PoolClient } from "pg";
 import { logger } from "@/lib/logger";
+import { exerciseTypeSchema } from "@learn-workbench/shared";
 
 // ============================================================================
 // 增量同步核心（方案 §37-§40）
@@ -30,6 +31,7 @@ export const SYNC_ENTITY_TYPES = [
   "logs",
   "github",
   "customTopics",
+  "exerciseLogs",
 ] as const;
 
 function atOf(c: SyncChange): Date {
@@ -263,6 +265,47 @@ async function applyCustomTopics(client: PoolClient, uid: string, c: SyncChange,
   return true;
 }
 
+// ---------------- exerciseLogs (exercise_logs, key: client_id) ----------------
+// 移动端运动记录入库：type 走枚举校验（非法回退 OTHER），source 仅允许 MANUAL/FOCUS/BREAK
+async function applyExerciseLogs(client: PoolClient, uid: string, c: SyncChange, at: Date): Promise<boolean> {
+  const clientId = c.entityId;
+  if (!clientId) return false;
+  const existing = await client.query(
+    `SELECT id, updated_at, deleted_at FROM exercise_logs WHERE user_id = $1 AND client_id = $2`,
+    [uid, clientId]
+  );
+  if (c.operation === "DELETE") {
+    await client.query(
+      `UPDATE exercise_logs SET deleted_at = $3, updated_at = $3
+       WHERE user_id = $1 AND client_id = $2 AND (deleted_at IS NULL OR deleted_at <= $3) AND updated_at <= $3`,
+      [uid, clientId, at]
+    );
+    return true;
+  }
+  if (existing.rows[0] && newer(existing.rows[0].deleted_at, at)) return true;
+  if (existing.rows[0] && !existing.rows[0].deleted_at && newer(existing.rows[0].updated_at, at)) return true;
+  const p = (c.payload ?? {}) as Record<string, unknown>;
+  const type = exerciseTypeSchema.safeParse(p.type).success ? String(p.type) : "OTHER";
+  const source = ["MANUAL", "FOCUS", "BREAK"].includes(String(p.source)) ? String(p.source) : "MANUAL";
+  const durationSeconds = Math.min(86400, Math.max(0, Math.round(Number(p.durationSeconds) || 0)));
+  const typeLabel = typeof p.typeLabel === "string" ? p.typeLabel.trim().slice(0, 50) || null : null;
+  const note = typeof p.note === "string" ? p.note.trim().slice(0, 200) || null : null;
+  const startedAt = typeof p.startedAt === "string" && !Number.isNaN(Date.parse(p.startedAt))
+    ? new Date(p.startedAt)
+    : at;
+  await client.query(
+    `INSERT INTO exercise_logs
+       (user_id, client_id, type, type_label, duration_seconds, source, note, started_at, updated_at, deleted_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NULL)
+     ON CONFLICT (user_id, client_id) WHERE user_id IS NOT NULL AND client_id IS NOT NULL
+     DO UPDATE SET type = EXCLUDED.type, type_label = EXCLUDED.type_label,
+       duration_seconds = EXCLUDED.duration_seconds, source = EXCLUDED.source, note = EXCLUDED.note,
+       started_at = EXCLUDED.started_at, updated_at = EXCLUDED.updated_at, deleted_at = NULL`,
+    [uid, clientId, type, typeLabel, durationSeconds, source, note, startedAt, at]
+  );
+  return true;
+}
+
 const APPLIERS: Record<string, (client: PoolClient, uid: string, c: SyncChange, at: Date) => Promise<boolean>> = {
   progress: applyProgress,
   tasks: applyTasks,
@@ -271,6 +314,7 @@ const APPLIERS: Record<string, (client: PoolClient, uid: string, c: SyncChange, 
   logs: applyLogs,
   github: applyGithub,
   customTopics: applyCustomTopics,
+  exerciseLogs: applyExerciseLogs,
 };
 
 export async function applyChanges(client: PoolClient, uid: string, changes: SyncChange[]): Promise<number> {
@@ -398,6 +442,23 @@ export async function collectChangesSince(client: PoolClient, uid: string, since
       const del = r.d;
       out.push(change("customTopics", r.cid || "srv-" + r.id, del ? "DELETE" : "UPDATE",
         del ? null : { id: r.id, clientId: r.cid, phaseId: r.pid, title: r.title, summary: r.summary, sortOrder: r.so },
+        del ?? r.u));
+    }
+  }
+  {
+    const { rows } = await q(
+      `SELECT id, client_id AS cid, type, type_label AS tl, duration_seconds AS ds, source, note,
+              started_at AS sa, updated_at AS u, deleted_at AS d
+       FROM exercise_logs WHERE user_id = $1 AND (updated_at > $2 OR deleted_at > $2)`,
+      [uid, since]
+    );
+    for (const r of rows) {
+      const del = r.d;
+      out.push(change("exerciseLogs", r.cid || "srv-" + r.id, del ? "DELETE" : "UPDATE",
+        del ? null : {
+          id: r.id, clientId: r.cid, type: r.type, typeLabel: r.tl, durationSeconds: r.ds,
+          source: r.source, note: r.note, startedAt: r.sa,
+        },
         del ?? r.u));
     }
   }

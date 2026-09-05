@@ -42,6 +42,7 @@ describe("SYNC_ENTITY_TYPES", () => {
       "logs",
       "github",
       "customTopics",
+      "exerciseLogs",
     ]);
   });
 });
@@ -202,6 +203,45 @@ describe("applyChanges", () => {
     ]);
   });
 
+  it("inserts exerciseLogs with coerced payload (type enum + clamp)", async () => {
+    const { client, query } = makeClient(() => ({ rows: [] }));
+    await applyChanges(client, "u-1", [
+      change({
+        entityType: "exerciseLogs",
+        entityId: "c-sp1",
+        payload: { type: "BALL", typeLabel: "篮球", durationSeconds: 1800, source: "MANUAL", startedAt: EARLIER },
+      }),
+    ]);
+    const insert = query.mock.calls.find(([sql]) => sql.includes("INSERT INTO exercise_logs"));
+    expect(insert![1]).toEqual([
+      "u-1", "c-sp1", "BALL", "篮球", 1800, "MANUAL", null, new Date(EARLIER), new Date(AT),
+    ]);
+  });
+
+  it("falls back invalid exerciseLogs type to OTHER / source to MANUAL and clamps duration", async () => {
+    const { client, query } = makeClient(() => ({ rows: [] }));
+    await applyChanges(client, "u-1", [
+      change({
+        entityType: "exerciseLogs",
+        entityId: "c-sp2",
+        payload: { type: "NOT_A_TYPE", typeLabel: "  自定义  ", durationSeconds: 999999, source: "HACK" },
+      }),
+    ]);
+    const insert = query.mock.calls.find(([sql]) => sql.includes("INSERT INTO exercise_logs"));
+    expect(insert![1]).toEqual([
+      "u-1", "c-sp2", "OTHER", "自定义", 86400, "MANUAL", null, new Date(AT), new Date(AT),
+    ]);
+  });
+
+  it("soft-deletes exerciseLogs by client id", async () => {
+    const { client, query } = makeClient(() => ({ rows: [{ id: 9, updated_at: new Date(EARLIER), deleted_at: null }] }));
+    const applied = await applyChanges(client, "u-1", [
+      change({ entityType: "exerciseLogs", entityId: "c-sp3", operation: "DELETE" }),
+    ]);
+    expect(applied).toBe(1);
+    expect(query.mock.calls.find(([sql]) => sql.includes("SET deleted_at"))![1]).toEqual(["u-1", "c-sp3", new Date(AT)]);
+  });
+
   it("continues after an applier throws and counts the others", async () => {
     let calls = 0;
     const query = vi.fn(() => {
@@ -236,7 +276,7 @@ describe("applyChanges", () => {
 });
 
 describe("collectChangesSince", () => {
-  it("collects changes across all seven entity types", async () => {
+  it("collects changes across all eight entity types", async () => {
     const script: Record<string, { rows: unknown[] }> = {
       "FROM topic_progress": {
         rows: [
@@ -273,6 +313,12 @@ describe("collectChangesSince", () => {
       "FROM content_topics": {
         rows: [
           { id: 7, cid: "c-7", pid: 1, title: "CT", summary: null, so: 0, u: new Date(AT), d: null },
+        ],
+      },
+      "FROM exercise_logs": {
+        rows: [
+          { id: 11, cid: "c-11", type: "BALL", tl: "篮球", ds: 1800, source: "MANUAL", note: null, sa: new Date(AT), u: new Date(AT), d: null },
+          { id: 12, cid: null, type: "AEROBIC", tl: "跑步", ds: 600, source: "FOCUS", note: null, sa: new Date(AT), u: new Date(AT), d: new Date(LATER) },
         ],
       },
     };
@@ -322,6 +368,15 @@ describe("collectChangesSince", () => {
     expect(byType("customTopics")[0]).toEqual(
       expect.objectContaining({ entityId: "c-7", payload: expect.objectContaining({ id: 7, clientId: "c-7", phaseId: 1 }) })
     );
+    // exerciseLogs: client id used, soft-deleted -> DELETE
+    expect(byType("exerciseLogs")).toEqual([
+      expect.objectContaining({
+        entityId: "c-11",
+        operation: "UPDATE",
+        payload: expect.objectContaining({ id: 11, clientId: "c-11", type: "BALL", typeLabel: "篮球", durationSeconds: 1800 }),
+      }),
+      expect.objectContaining({ entityId: "srv-12", operation: "DELETE", payload: null }),
+    ]);
 
     // every change has version 1 and ISO updatedAt
     for (const c of changes) {
