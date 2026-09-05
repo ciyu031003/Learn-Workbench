@@ -16,6 +16,7 @@ export function BottomSheet({
   onClose,
   title,
   children,
+  body,
   expandable = false,
   height = "50%",
 }: {
@@ -23,6 +24,7 @@ export function BottomSheet({
   onClose: () => void;
   title: string;
   children: ReactNode;
+  body?: (expanded: boolean) => ReactNode;
   expandable?: boolean;
   height?: string;
 }) {
@@ -33,14 +35,16 @@ export function BottomSheet({
   const maxOffset = Math.max(0, full - collapsed);
 
   const translateY = useSharedValue(expandable ? maxOffset : 0);
+  const dragBase = useSharedValue(expandable ? maxOffset : 0);
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     if (visible) {
       translateY.value = expandable ? maxOffset : 0;
+      dragBase.value = expandable ? maxOffset : 0;
       setExpanded(false);
     }
-  }, [visible, expandable, maxOffset, translateY]);
+  }, [visible, expandable, maxOffset, translateY, dragBase]);
 
   const close = () => {
     setExpanded(false);
@@ -51,23 +55,32 @@ export function BottomSheet({
     if (!expandable) return;
     const next = !expanded;
     translateY.value = withSpring(next ? 0 : maxOffset, { damping: 24, stiffness: 240 });
+    dragBase.value = next ? 0 : maxOffset;
     setExpanded(next);
   };
 
   const handleScrim = () => {
-    if (expandable) toggle();
-    else close();
+    close();
   };
+
+  const tapGesture = Gesture.Tap()
+    .enabled(expandable)
+    .maxDuration(220)
+    .onEnd(() => {
+      runOnJS(toggle)();
+    });
 
   const panGesture = Gesture.Pan()
     .enabled(expandable)
+    .activateAfterLongPress(160)
+    .onBegin(() => {
+      dragBase.value = expanded ? 0 : maxOffset;
+    })
     .onUpdate((e) => {
-      const base = expanded ? 0 : maxOffset;
-      translateY.value = Math.min(maxOffset + 90, Math.max(base + e.translationY, 0));
+      translateY.value = Math.min(maxOffset + 90, Math.max(dragBase.value + e.translationY, 0));
     })
     .onEnd((e) => {
-      const base = expanded ? 0 : maxOffset;
-      const current = base + e.translationY;
+      const current = dragBase.value + e.translationY;
       if (current > maxOffset + 70) {
         runOnJS(close)();
       } else if (current < maxOffset * 0.5 || e.velocityY < -500) {
@@ -79,13 +92,7 @@ export function BottomSheet({
       }
     });
 
-  const tapGesture = Gesture.Tap()
-    .enabled(expandable)
-    .onEnd(() => {
-      runOnJS(toggle)();
-    });
-
-  const handleGesture = Gesture.Exclusive(tapGesture, panGesture);
+  const handleGesture = Gesture.Race(tapGesture, panGesture);
 
   const animatedSheet = useAnimatedStyle(() => ({
     transform: [{ translateY: expandable ? translateY.value : 0 }],
@@ -109,7 +116,7 @@ export function BottomSheet({
               <Ionicons name="close" size={20} color={colors.textMuted} />
             </Pressable>
           </View>
-          <View style={styles.body}>{children}</View>
+          <View style={styles.body}>{body ? body(expanded) : children}</View>
         </Animated.View>
       </View>
     </Modal>
@@ -120,15 +127,18 @@ const styles = StyleSheet.create({
   root: { flex: 1, justifyContent: "flex-end" },
   scrim: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(30,24,12,0.36)" },
   sheet: {
-    backgroundColor: colors.canvas,
+    backgroundColor: "rgba(253,248,239,0.96)",
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255,255,255,0.65)",
     paddingHorizontal: 16,
     paddingBottom: 24,
     ...shadows.floating,
+    overflow: "hidden",
   },
-  handleZone: { alignItems: "center", paddingVertical: 12 },
-  grabber: { width: 44, height: 5, borderRadius: 999, backgroundColor: "rgba(120,90,45,0.28)" },
+  handleZone: { alignItems: "center", paddingVertical: 14 },
+  grabber: { width: 48, height: 6, borderRadius: 999, backgroundColor: "rgba(120,90,45,0.30)" },
   head: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
   title: { fontSize: 18, fontWeight: "800", color: colors.text },
   close: {

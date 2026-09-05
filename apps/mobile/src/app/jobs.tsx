@@ -497,7 +497,7 @@ export default function JobsScreen() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [token]);
 
   const refreshJobs = useCallback(() => {
     loadJobs(1, "refresh");
@@ -665,8 +665,9 @@ export default function JobsScreen() {
           style={[styles.chip, styles.chipMore]}
           onPress={() => setCityExpand((v) => !v)}
         >
-          <Text style={styles.chipTextIdle}>
-            {cityExpand ? "收起城市 ∧" : "更多城市 ∨"}
+          <Ionicons name={cityExpand ? "chevron-up" : "chevron-down"} size={14} color={colors.accentStrong} />
+          <Text style={styles.chipMoreText}>
+            {cityExpand ? "收起城市" : "更多城市"}
           </Text>
         </Pressable>
       </View>
@@ -803,7 +804,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 5 },
     elevation: 2,
   },
-  statsRow: { flexDirection: "row", gap: 8 },
+  statsRow: { flexDirection: "row", gap: 8, marginBottom: 4 },
   statCard: { flex: 1, padding: 12, gap: 4 },
   statValue: { fontSize: 20, fontWeight: "900", color: colors.text },
   statLabel: { fontSize: 11, color: colors.textMuted, fontWeight: "700" },
@@ -847,7 +848,18 @@ const styles = StyleSheet.create({
   chip: { borderRadius: 999, paddingHorizontal: 13, paddingVertical: 7 },
   chipActive: { backgroundColor: colors.primary },
   chipIdle: { backgroundColor: colors.surfaceStrong, borderWidth: 1, borderColor: colors.border },
-  chipMore: { backgroundColor: colors.surfaceStrong, borderWidth: 1, borderColor: colors.border, borderStyle: "dashed" },
+  chipMore: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: colors.accentSoft,
+    borderWidth: 1,
+    borderColor: "rgba(242,140,40,0.32)",
+    borderRadius: 999,
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+  },
+  chipMoreText: { color: colors.accentStrong, fontSize: 12.5, fontWeight: "800" },
   chipTextActive: { color: "#ffffff", fontSize: 12.5, fontWeight: "700" },
   chipTextIdle: { color: colors.textMuted, fontSize: 12.5, fontWeight: "600" },
   sortRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },

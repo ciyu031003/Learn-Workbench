@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/immutability */
-import { useMemo, useState } from "react";
-import { Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Card } from "@/components/card";
@@ -11,9 +11,11 @@ import { BarChart, LineChart } from "@/components/charts";
 import { useAppStore } from "@/store/app-store";
 import { useSportStore } from "@/store/sport-store";
 import { mainPhases, agentPhase } from "@learn-workbench/content";
+import type { Phase } from "@learn-workbench/shared";
 import { formatDuration, pct } from "@learn-workbench/shared";
 import { computeFocusStats } from "@/lib/focus-stats";
 import { colors, radius } from "@/theme/tokens";
+import { fetchRoadmap, createPhase, reorderPhases, readCachedRoadmap } from "@/lib/roadmap";
 
 const STAGE_GRADS: [string, string][] = [
   ["#2F74C0", "#78C2E8"],
@@ -83,12 +85,6 @@ function buildDailySeries(sessions: ReturnType<typeof useAppStore.getState>["ses
     out.push({ label: `${d.getMonth() + 1}/${d.getDate()}`, value: map.get(localKey(d)) ?? 0 });
   }
   return out;
-}
-
-function phaseDoneCount(phaseId: number, progress: ReturnType<typeof useAppStore.getState>["progress"]) {
-  const phase = mainPhases.find((p) => p.id === phaseId);
-  if (!phase) return 0;
-  return phase.topics.filter((t) => progress[t.id]?.done).length;
 }
 
 function buildHeatmap(sessions: ReturnType<typeof useAppStore.getState>["sessions"]) {
@@ -212,11 +208,48 @@ export default function LearnScreen() {
   const progress = useAppStore((s) => s.progress);
   const sessions = useAppStore((s) => s.sessions);
   const username = useAppStore((s) => s.username);
+  const token = useAppStore((s) => s.token);
+  const customTopics = useAppStore((s) => s.customTopics);
+  const addCustomTopic = useAppStore((s) => s.addCustomTopic);
+  const removeCustomTopic = useAppStore((s) => s.removeCustomTopic);
   const sportRecords = useSportStore((s) => s.records);
   const [stageSheet, setStageSheet] = useState(false);
   const [shareSheet, setShareSheet] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [statDate, setStatDate] = useState<Date>(() => new Date());
+  const [roadmap, setRoadmap] = useState<Phase[]>(mainPhases.filter((p) => p.track === "main"));
+  const [selectedPhaseId, setSelectedPhaseId] = useState<number | null>(mainPhases[0]?.id ?? null);
+  const [contentTopic, setContentTopic] = useState<{ topicId: number; phaseId: number } | null>(null);
+  const [customTopicSheet, setCustomTopicSheet] = useState(false);
+  const [customTopicTitle, setCustomTopicTitle] = useState("");
+  const [customTopicSummary, setCustomTopicSummary] = useState("");
+  const [customPhaseSheet, setCustomPhaseSheet] = useState(false);
+  const [customPhaseTitle, setCustomPhaseTitle] = useState("");
+  const [roadmapLoading, setRoadmapLoading] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      setRoadmapLoading(true);
+      const cached = await readCachedRoadmap();
+      const cachedMain = cached
+        .filter((p) => p.track === "main")
+        .map((p) => ({ ...p, topics: p.topics ?? [] })) as unknown as Phase[];
+      if (alive && cachedMain.length > 0) setRoadmap(cachedMain);
+      if (token) {
+        const remote = await fetchRoadmap();
+        const remoteMain = remote
+          .filter((p) => p.track === "main")
+          .map((p) => ({ ...p, topics: p.topics ?? [] })) as unknown as Phase[];
+        if (alive && remoteMain.length > 0) setRoadmap(remoteMain);
+      }
+      if (alive) setRoadmapLoading(false);
+    };
+    void load();
+    return () => {
+      alive = false;
+    };
+  }, [token]);
 
   const stats = useMemo(() => computeFocusStats(sessions), [sessions]);
   const heatmap = useMemo(() => buildHeatmap(sessions), [sessions]);
@@ -230,13 +263,13 @@ export default function LearnScreen() {
   const selectedMinutes = useMemo(() => buildDayMinutesMap(sessions).get(selectedKey) ?? 0, [sessions, selectedKey]);
   const periodBars = useMemo(() => buildPeriodBars(sessions, selectedKey), [sessions, selectedKey]);
   const dailySeries = useMemo(() => buildDailySeries(sessions, statDate), [sessions, statDate]);
-  const firstPhase = mainPhases[0];
-  const secondPhase = mainPhases[1];
-  const remainingPhases = mainPhases.slice(2);
-  const firstProgress = firstPhase ? phaseDoneCount(firstPhase.id, progress) : 0;
-  const secondProgress = secondPhase ? phaseDoneCount(secondPhase.id, progress) : 0;
-  const firstTotal = firstPhase?.topics.length ?? 1;
-  const secondTotal = secondPhase?.topics.length ?? 1;
+  const firstPhase = roadmap[0];
+  const secondPhase = roadmap[1];
+  const remainingPhases = roadmap.slice(2);
+  const phaseDone = (phase: Phase) => {
+    const doneTopics = phase.topics.filter((t) => progress[t.id]?.done).length;
+    return { done: doneTopics, total: phase.topics.length };
+  };
 
   const todayMinutes = stats.todayMinutes;
   const todayTarget = 150;
@@ -246,7 +279,27 @@ export default function LearnScreen() {
   const totalMinutes = sessions.reduce((sum, s) => sum + Math.max(0, Math.round((s.durationSeconds ?? 0) / 60)), 0);
   const sportMinutes = sportRecords.reduce((sum, r) => sum + r.minutes, 0);
 
-  const currentThemes = firstPhase?.topics.slice(0, 3) ?? [];
+  const selectedPhase = roadmap.find((p) => p.id === selectedPhaseId) ?? firstPhase;
+  const selectedCustomTopics = useMemo(
+    () => customTopics.filter((t) => t.phaseId === selectedPhase?.id),
+    [customTopics, selectedPhase?.id]
+  );
+  const currentThemes = [
+    ...(selectedPhase?.topics ?? []),
+    ...selectedCustomTopics.map((t, ci) => ({
+      id: t.id,
+      topicKey: `lwb-custom-${ci}`,
+      title: t.title,
+      summary: t.summary,
+      agentTask: null,
+      sortOrder: 100000 + ci,
+      resources: [],
+      practices: [],
+      projects: [],
+      checkpoints: [],
+      isCustomSubject: true,
+    })),
+  ].slice(0, 4);
 
   const shareMessage = [
     `📚 ${username || "苦旅学习者"} 的 ICT 学习周报`,
@@ -267,6 +320,76 @@ export default function LearnScreen() {
     }
   };
 
+  const swapPhase = (from: number, to: number) => {
+    if (to < 0 || to >= roadmap.length) return;
+    const next = [...roadmap];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    setRoadmap(next);
+    if (token) {
+      reorderPhases(next.map((p) => p.id)).catch(() => {
+        // 本机已更新顺序；联网后会在下次拉取时对齐
+      });
+    }
+  };
+
+  const activeTopic = useMemo(() => {
+    if (!contentTopic) return null;
+    const topic = currentThemes.find(
+      (t) => t.id === contentTopic.topicId && ("isCustomSubject" in t === false)
+    );
+    if (topic) return topic;
+    const custom = selectedCustomTopics.find((t) => t.id === contentTopic.topicId);
+    if (!custom) return null;
+    return {
+      id: custom.id,
+      topicKey: `lwb-custom-${selectedCustomTopics.indexOf(custom)}`,
+      title: custom.title,
+      summary: custom.summary,
+      agentTask: null,
+      sortOrder: 100000 + selectedCustomTopics.indexOf(custom),
+      resources: [],
+      practices: [],
+      projects: [],
+      checkpoints: [],
+      isCustomSubject: true,
+    };
+  }, [contentTopic, currentThemes, selectedCustomTopics]);
+
+  const submitCustomTopic = () => {
+    const title = customTopicTitle.trim();
+    if (!title) {
+      Alert.alert("请填写主题标题");
+      return;
+    }
+    if (!selectedPhase) return;
+    addCustomTopic(selectedPhase.id, title, customTopicSummary.trim() || null);
+    setCustomTopicSheet(false);
+  };
+
+  const submitCustomPhase = async () => {
+    const title = customPhaseTitle.trim();
+    if (!title) {
+      Alert.alert("请填写阶段标题");
+      return;
+    }
+    setRoadmapLoading(true);
+    try {
+      await createPhase(title, null, null);
+      const remote = await fetchRoadmap();
+      const remoteMain = remote
+        .filter((p) => p.track === "main")
+        .map((p) => ({ ...p, topics: p.topics ?? [] })) as unknown as Phase[];
+      setRoadmap(remoteMain.length > 0 ? remoteMain : roadmap);
+      setCustomPhaseSheet(false);
+      setStageSheet(true);
+    } catch (e) {
+      Alert.alert("创建失败", e instanceof Error ? e.message : "请稍后重试");
+    } finally {
+      setRoadmapLoading(false);
+    }
+  };
+
   return (
     <ScrollView
       style={styles.scroll}
@@ -279,38 +402,32 @@ export default function LearnScreen() {
       </View>
 
       <Text style={styles.sectionTitle}>学习阶段</Text>
-      {firstPhase ? (
-        <View style={styles.stageCard}>
-          <View style={[styles.stageBlob, { backgroundColor: STAGE_GRADS[0][1] }]} />
-          <View style={styles.stageTop}>
-            <Text style={styles.stageTag}>阶段 1</Text>
-            <Text style={styles.stageName}>{firstPhase.title}</Text>
-          </View>
-          <Text style={styles.stageDesc} numberOfLines={1}>
-            {firstPhase.summary || firstPhase.weeks || ""}
-          </Text>
-          <View style={styles.stageBar}>
-            <View style={[styles.stageBarFill, { width: `${pct(firstProgress, firstTotal)}%`, backgroundColor: STAGE_GRADS[0][1] }]} />
-          </View>
-          <Text style={styles.stagePct}>{pct(firstProgress, firstTotal)}%</Text>
-        </View>
-      ) : null}
-      {secondPhase ? (
-        <View style={styles.stageCard}>
-          <View style={[styles.stageBlob, { backgroundColor: STAGE_GRADS[1][1] }]} />
-          <View style={styles.stageTop}>
-            <Text style={styles.stageTag}>阶段 2</Text>
-            <Text style={styles.stageName}>{secondPhase.title}</Text>
-          </View>
-          <Text style={styles.stageDesc} numberOfLines={1}>
-            {secondPhase.summary || secondPhase.weeks || ""}
-          </Text>
-          <View style={styles.stageBar}>
-            <View style={[styles.stageBarFill, { width: `${pct(secondProgress, secondTotal)}%`, backgroundColor: STAGE_GRADS[1][1] }]} />
-          </View>
-          <Text style={styles.stagePct}>{pct(secondProgress, secondTotal)}%</Text>
-        </View>
-      ) : null}
+      {[firstPhase, secondPhase].filter(Boolean).map((phase, i) => {
+        const p = phase as Phase;
+        const progressInfo = phaseDone(p);
+        const active = p.id === selectedPhaseId;
+        return (
+          <PressableScale
+            key={p.id}
+            haptic
+            onPress={() => setSelectedPhaseId(p.id)}
+            style={[styles.stageCard, active && styles.stageCardActive]}
+          >
+            <View style={[styles.stageBlob, { backgroundColor: STAGE_GRADS[i][1] }]} />
+            <View style={styles.stageTop}>
+              <Text style={styles.stageTag}>阶段 {i + 1}</Text>
+              <Text style={styles.stageName}>{p.title}</Text>
+            </View>
+            <Text style={styles.stageDesc} numberOfLines={1}>
+              {p.summary || p.weeks || ""}
+            </Text>
+            <View style={styles.stageBar}>
+              <View style={[styles.stageBarFill, { width: `${pct(progressInfo.done, progressInfo.total)}%`, backgroundColor: STAGE_GRADS[i][1] }]} />
+            </View>
+            <Text style={styles.stagePct}>{pct(progressInfo.done, progressInfo.total)}%</Text>
+          </PressableScale>
+        );
+      })}
 
       <PressableScale style={styles.moreCard} haptic onPress={() => setStageSheet(true)}>
         <View style={styles.moreLeft}>
@@ -320,13 +437,32 @@ export default function LearnScreen() {
         <Ionicons name="chevron-down" size={18} color={colors.textMuted} />
       </PressableScale>
 
-      <Text style={styles.sectionTitle}>当前主题</Text>
+      <View style={styles.sectionHeadRow}>
+        <Text style={styles.sectionTitle}>当前主题</Text>
+        <Pressable
+          hitSlop={8}
+          style={styles.addBtn}
+          onPress={() => {
+            setCustomTopicTitle("");
+            setCustomTopicSummary("");
+            setCustomTopicSheet(true);
+          }}
+        >
+          <Ionicons name="add" size={16} color={colors.primary} />
+          <Text style={styles.addBtnText}>添加主题</Text>
+        </Pressable>
+      </View>
       {currentThemes.map((topic, i) => {
         const c = THEME_COLORS[i % THEME_COLORS.length] ?? THEME_COLORS[0];
         const done = topic && progress[topic.id]?.done ? 1 : 0;
         const total = 6;
         return (
-          <View key={topic.id} style={styles.themeCard}>
+          <PressableScale
+            key={topic.topicKey}
+            haptic
+            onPress={() => setContentTopic({ topicId: topic.id, phaseId: selectedPhase?.id ?? 0 })}
+            style={styles.themeCard}
+          >
             <View style={[styles.themeBlob, { backgroundColor: c[1] }]} />
             <View style={styles.themeInner}>
               <Text style={styles.themeName}>{topic.title}</Text>
@@ -338,7 +474,7 @@ export default function LearnScreen() {
               </View>
             </View>
             <Text style={styles.themeNum}>{done}/{total}</Text>
-          </View>
+          </PressableScale>
         );
       })}
 
@@ -453,37 +589,101 @@ export default function LearnScreen() {
         title="更多阶段"
         expandable
         height="50%"
+        body={(expanded) =>
+          expanded ? (
+            <ScrollView style={styles.sheetScroll} showsVerticalScrollIndicator={false}>
+              <Pressable style={styles.newStageBtn} onPress={() => {
+                setCustomPhaseTitle("");
+                setCustomPhaseSheet(true);
+              }}>
+                <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
+                <Text style={styles.newStageBtnText}>新建自定义阶段</Text>
+              </Pressable>
+              {roadmap.map((p, i) => {
+                const info = phaseDone(p);
+                return (
+                  <PressableScale
+                    key={p.id}
+                    haptic
+                    onPress={() => {
+                      setSelectedPhaseId(p.id);
+                      setStageSheet(false);
+                    }}
+                    style={styles.reorderCard}
+                  >
+                    <View style={[styles.reorderNum, { backgroundColor: STAGE_GRADS[i % STAGE_GRADS.length][0] }]}>
+                      <Text style={styles.sheetNumText}>{i + 1}</Text>
+                    </View>
+                    <View style={styles.sheetInfo}>
+                      <Text style={styles.sheetName}>{p.title}</Text>
+                      <Text style={styles.sheetMeta} numberOfLines={1}>{p.summary || p.weeks || ""}</Text>
+                    </View>
+                    <Text style={styles.sheetPct}>{pct(info.done, info.total)}%</Text>
+                    <View style={styles.reorderBtns}>
+                      <Pressable
+                        hitSlop={6}
+                        disabled={i === 0}
+                        style={[styles.reorderBtn, i === 0 && styles.reorderBtnDisabled]}
+                        onPress={() => swapPhase(i, i - 1)}
+                      >
+                        <Ionicons name="chevron-up" size={16} color={i === 0 ? colors.textFaint : colors.primary} />
+                      </Pressable>
+                      <Pressable
+                        hitSlop={6}
+                        disabled={i === roadmap.length - 1}
+                        style={[styles.reorderBtn, i === roadmap.length - 1 && styles.reorderBtnDisabled]}
+                        onPress={() => swapPhase(i, i + 1)}
+                      >
+                        <Ionicons name="chevron-down" size={16} color={i === roadmap.length - 1 ? colors.textFaint : colors.primary} />
+                      </Pressable>
+                    </View>
+                  </PressableScale>
+                );
+              })}
+              <Text style={styles.reorderHint}>点击上下箭头调整阶段顺序，长按右上角横线可全屏</Text>
+            </ScrollView>
+          ) : (
+            <ScrollView style={styles.sheetScroll} showsVerticalScrollIndicator={false}>
+              {agentPhase ? (
+                <View style={styles.sheetStageItem}>
+                  <View style={[styles.sheetNum, { backgroundColor: colors.primary }]}>
+                    <Text style={styles.sheetNumText}>A</Text>
+                  </View>
+                  <View style={styles.sheetInfo}>
+                    <Text style={styles.sheetName}>{agentPhase.title}</Text>
+                    <Text style={styles.sheetMeta} numberOfLines={1}>{agentPhase.summary || "全程"}</Text>
+                  </View>
+                  <Text style={styles.sheetPct}>0%</Text>
+                </View>
+              ) : null}
+              {remainingPhases.map((p, i) => {
+                const info = phaseDone(p);
+                return (
+                  <PressableScale
+                    key={p.id}
+                    haptic
+                    style={styles.sheetStageItem}
+                    onPress={() => {
+                      setSelectedPhaseId(p.id);
+                      setStageSheet(false);
+                    }}
+                  >
+                    <View style={[styles.sheetNum, { backgroundColor: STAGE_GRADS[(i + 2) % STAGE_GRADS.length][0] }]}>
+                      <Text style={styles.sheetNumText}>{i + 3}</Text>
+                    </View>
+                    <View style={styles.sheetInfo}>
+                      <Text style={styles.sheetName}>阶段 {i + 3} · {p.title}</Text>
+                      <Text style={styles.sheetMeta} numberOfLines={1}>{p.summary || p.weeks || ""}</Text>
+                    </View>
+                    <Text style={styles.sheetPct}>{pct(info.done, info.total)}%</Text>
+                  </PressableScale>
+                );
+              })}
+            </ScrollView>
+          )
+        }
       >
-        <ScrollView style={styles.sheetScroll} showsVerticalScrollIndicator={false}>
-          {agentPhase ? (
-            <View style={styles.sheetStageItem}>
-              <View style={[styles.sheetNum, { backgroundColor: colors.primary }]}>
-                <Text style={styles.sheetNumText}>A</Text>
-              </View>
-              <View style={styles.sheetInfo}>
-                <Text style={styles.sheetName}>{agentPhase.title}</Text>
-                <Text style={styles.sheetMeta} numberOfLines={1}>{agentPhase.summary || "全程"}</Text>
-              </View>
-              <Text style={styles.sheetPct}>0%</Text>
-            </View>
-          ) : null}
-          {remainingPhases.map((p, i) => {
-            const done = phaseDoneCount(p.id, progress);
-            const total = p.topics.length || 1;
-            return (
-              <View key={p.id} style={styles.sheetStageItem}>
-                <View style={[styles.sheetNum, { backgroundColor: STAGE_GRADS[(i + 2) % STAGE_GRADS.length][0] }]}>
-                  <Text style={styles.sheetNumText}>{i + 3}</Text>
-                </View>
-                <View style={styles.sheetInfo}>
-                  <Text style={styles.sheetName}>阶段 {i + 3} · {p.title}</Text>
-                  <Text style={styles.sheetMeta} numberOfLines={1}>{p.summary || p.weeks || ""}</Text>
-                </View>
-                <Text style={styles.sheetPct}>{pct(done, total)}%</Text>
-              </View>
-            );
-          })}
-        </ScrollView>
+        {null}
       </BottomSheet>
 
       <BottomSheet visible={shareSheet} onClose={() => setShareSheet(false)} title="分享学习统计" height="50%">
@@ -519,6 +719,107 @@ export default function LearnScreen() {
           onClose={() => setCalendarOpen(false)}
         />
       </BottomSheet>
+
+      <BottomSheet
+        visible={customTopicSheet}
+        onClose={() => setCustomTopicSheet(false)}
+        title="添加学习内容"
+        height="46%"
+      >
+        <View style={styles.formSheet}>
+          <Text style={styles.formLabel}>主题标题</Text>
+          <TextInput
+            style={styles.formInput}
+            value={customTopicTitle}
+            onChangeText={setCustomTopicTitle}
+            placeholder="例如：网络安全命令速查"
+            placeholderTextColor={colors.textFaint}
+          />
+          <Text style={styles.formLabel}>一句话说明（选填）</Text>
+          <TextInput
+            style={[styles.formInput, styles.formInputArea]}
+            value={customTopicSummary}
+            onChangeText={setCustomTopicSummary}
+            placeholder="这个阶段要掌握什么"
+            placeholderTextColor={colors.textFaint}
+            multiline
+          />
+          <Pressable style={styles.primaryShareBtn} onPress={submitCustomTopic}>
+            <Text style={styles.primaryShareText}>保存并同步</Text>
+          </Pressable>
+        </View>
+      </BottomSheet>
+
+      <BottomSheet
+        visible={customPhaseSheet}
+        onClose={() => setCustomPhaseSheet(false)}
+        title="新建学习阶段"
+        height="38%"
+      >
+        <View style={styles.formSheet}>
+          <Text style={styles.formLabel}>阶段标题</Text>
+          <TextInput
+            style={styles.formInput}
+            value={customPhaseTitle}
+            onChangeText={setCustomPhaseTitle}
+            placeholder="例如：项目实战冲刺"
+            placeholderTextColor={colors.textFaint}
+          />
+          <Pressable
+            style={[styles.primaryShareBtn, roadmapLoading && styles.btnDisabled]}
+            disabled={roadmapLoading}
+            onPress={() => void submitCustomPhase()}
+          >
+            {roadmapLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryShareText}>创建并同步</Text>}
+          </Pressable>
+        </View>
+      </BottomSheet>
+
+      <Modal visible={!!activeTopic} transparent animationType="fade" onRequestClose={() => setContentTopic(null)}>
+        <Pressable style={styles.modalScrim} onPress={() => setContentTopic(null)}>
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+            {activeTopic ? (
+              <>
+                <View style={styles.modalHead}>
+                  <View style={[styles.modalDot, { backgroundColor: colors.accent }]} />
+                  <Text style={styles.modalTitle}>{activeTopic.title}</Text>
+                </View>
+                <Text style={styles.modalSub}>{activeTopic.summary || "这个阶段的学习内容会在这里展开。"}</Text>
+                {(activeTopic.practices?.length ?? 0) > 0 ? (
+                  <Text style={styles.modalListTitle}>练习任务</Text>
+                ) : null}
+                {(activeTopic.practices ?? []).map((pr) => (
+                  <View key={pr.id} style={styles.modalRow}>
+                    <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+                    <Text style={styles.modalRowText}>{pr.text}</Text>
+                  </View>
+                ))}
+                {(activeTopic.checkpoints?.length ?? 0) > 0 ? (
+                  <Text style={styles.modalListTitle}>阶段验收</Text>
+                ) : null}
+                {(activeTopic.checkpoints ?? []).map((cp) => (
+                  <View key={cp.id} style={styles.modalRow}>
+                    <Ionicons name="flag" size={16} color={colors.accent} />
+                    <Text style={styles.modalRowText}>{cp.text}</Text>
+                  </View>
+                ))}
+                {"isCustomSubject" in activeTopic ? (
+                  <Pressable
+                    style={styles.deleteTopicBtn}
+                    onPress={() => {
+                      removeCustomTopic(contentTopic?.topicId ?? 0);
+                      setContentTopic(null);
+                    }}
+                  >
+                    <Ionicons name="trash-outline" size={15} color="#D64545" />
+                    <Text style={styles.deleteTopicText}>删除该主题</Text>
+                  </Pressable>
+                ) : null}
+              </>
+            ) : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ScrollView>
   );
 }
@@ -531,8 +832,33 @@ const styles = StyleSheet.create({
   heroSub: { fontSize: 13, color: colors.textMuted, marginTop: 4 },
   sectionTitle: { fontSize: 17, fontWeight: "800", color: colors.text, marginTop: 8 },
   sectionTitleMore: { fontSize: 12, fontWeight: "600", color: colors.textMuted },
+  sectionHeadRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 },
+  addBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: colors.accentSoft,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(242,140,40,0.25)",
+  },
+  addBtnText: { color: colors.accentStrong, fontSize: 12, fontWeight: "800" },
 
-  stageCard: { borderRadius: radius.lg, padding: 16, overflow: "hidden", minHeight: 104, backgroundColor: "#2F74C0" },
+  stageCard: {
+    borderRadius: radius.lg,
+    padding: 16,
+    overflow: "hidden",
+    minHeight: 104,
+    backgroundColor: "#2F74C0",
+    shadowColor: "#14548D",
+    shadowOpacity: 0.22,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 7 },
+    elevation: 4,
+  },
+  stageCardActive: { borderWidth: 2.5, borderColor: "rgba(255,255,255,0.85)" },
   stageBlob: { position: "absolute", width: 160, height: 160, borderRadius: 80, right: -46, top: -56, opacity: 0.5 },
   stageTop: { flexDirection: "row", alignItems: "center", gap: 8 },
   stageTag: { color: "rgba(255,255,255,0.9)", fontSize: 11, fontWeight: "800", backgroundColor: "rgba(255,255,255,0.18)", borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
@@ -546,7 +872,20 @@ const styles = StyleSheet.create({
   moreLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
   moreText: { color: colors.text, fontSize: 14, fontWeight: "700" },
 
-  themeCard: { borderRadius: radius.lg, padding: 16, overflow: "hidden", minHeight: 92, flexDirection: "row", alignItems: "center", backgroundColor: "#2F74C0" },
+  themeCard: {
+    borderRadius: radius.lg,
+    padding: 16,
+    overflow: "hidden",
+    minHeight: 92,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#2F74C0",
+    shadowColor: "#14548D",
+    shadowOpacity: 0.20,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 3,
+  },
   themeBlob: { position: "absolute", width: 120, height: 120, borderRadius: 60, right: -30, top: -38, opacity: 0.5 },
   themeInner: { flex: 1 },
   themeName: { color: "#fff", fontSize: 15, fontWeight: "800" },
@@ -649,6 +988,94 @@ const styles = StyleSheet.create({
   sheetName: { color: colors.text, fontSize: 14, fontWeight: "700" },
   sheetMeta: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
   sheetPct: { color: colors.accent, fontSize: 13, fontWeight: "800" },
+  newStageBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: colors.accentSoft,
+    borderRadius: 14,
+    paddingVertical: 11,
+    marginBottom: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(242,140,40,0.28)",
+  },
+  newStageBtnText: { color: colors.accentStrong, fontSize: 13, fontWeight: "800" },
+  reorderCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: colors.surfaceStrong,
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  reorderNum: { width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  reorderBtns: { flexDirection: "row", gap: 4 },
+  reorderBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 9,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  reorderBtnDisabled: { opacity: 0.45 },
+  reorderHint: { color: colors.textMuted, fontSize: 11, textAlign: "center", marginTop: 8 },
+
+  formSheet: { gap: 12, paddingTop: 4 },
+  formLabel: { color: colors.text, fontSize: 13, fontWeight: "800" },
+  formInput: {
+    backgroundColor: colors.surfaceStrong,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: colors.text,
+    fontSize: 14,
+  },
+  formInputArea: { minHeight: 84, textAlignVertical: "top" },
+  btnDisabled: { opacity: 0.6 },
+
+  modalScrim: {
+    flex: 1,
+    backgroundColor: "rgba(30,24,12,0.42)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  modalCard: {
+    width: "100%",
+    maxWidth: 380,
+    backgroundColor: "rgba(255,251,234,0.98)",
+    borderRadius: 24,
+    padding: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255,255,255,0.7)",
+  },
+  modalHead: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 },
+  modalDot: { width: 10, height: 10, borderRadius: 5 },
+  modalTitle: { color: colors.text, fontSize: 19, fontWeight: "900", flex: 1 },
+  modalSub: { color: colors.textMuted, fontSize: 13, lineHeight: 19, marginBottom: 14 },
+  modalListTitle: { color: colors.text, fontSize: 13, fontWeight: "800", marginTop: 6, marginBottom: 8 },
+  modalRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 7 },
+  modalRowText: { color: colors.text, fontSize: 13, flex: 1, lineHeight: 18 },
+  deleteTopicBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginTop: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: "#FFF0F0",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#F3C2C2",
+  },
+  deleteTopicText: { color: "#D64545", fontSize: 13, fontWeight: "800" },
 
   sharePreview: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   spTitle: { color: colors.text, fontSize: 18, fontWeight: "800" },

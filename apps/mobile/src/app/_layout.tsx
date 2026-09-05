@@ -1,13 +1,14 @@
 import { useEffect } from "react";
-import { Tabs } from "expo-router";
+import { Tabs, router, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, View, type OpaqueColorValue } from "react-native";
 import * as ScreenOrientation from "expo-screen-orientation";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
+  runOnJS,
   withSequence,
   withSpring,
   withTiming,
@@ -30,7 +31,7 @@ function TabIcon({
   focused?: boolean;
 }) {
   return (
-    <View style={styles.tabIcon}>
+    <View style={[styles.tabIcon, focused && styles.tabIconFocused]}>
       <Ionicons name={focused ? name : outlineName} size={22} color={color} />
     </View>
   );
@@ -55,7 +56,7 @@ function FlowerTabIcon({ color, focused }: { color: string | OpaqueColorValue; f
   }));
 
   return (
-    <View style={styles.tabIcon}>
+    <View style={[styles.tabIcon, focused && styles.tabIconFocused]}>
       <Animated.View style={flowerStyle}>
         <Ionicons name={focused ? "flower" : "flower-outline"} size={22} color={color} />
       </Animated.View>
@@ -66,6 +67,40 @@ function FlowerTabIcon({ color, focused }: { color: string | OpaqueColorValue; f
 const styles = StyleSheet.create({
   root: { flex: 1 },
   tabIcon: { alignItems: "center", gap: 3, paddingVertical: 2 },
+  tabIconFocused: {
+    backgroundColor: "rgba(47,116,192,0.12)",
+    borderRadius: 14,
+    paddingHorizontal: 12,
+  },
+});
+
+function SwipeNavigator() {
+  const pathname = usePathname();
+
+  const gesture = Gesture.Pan()
+    .activeOffsetX([-24, 24])
+    .failOffsetY([-12, 12])
+    .onEnd((e) => {
+      if (Math.abs(e.translationX) < 48 || Math.abs(e.velocityX) < 320) return;
+      const right = e.translationX < 0;
+      if (pathname === "/" || pathname === "/dashboard") runOnJS(router.navigate)(right ? "/learn" : "/dashboard");
+      else if (pathname === "/learn") runOnJS(router.navigate)(right ? "/jobs" : "/dashboard");
+      else if (pathname === "/jobs") runOnJS(router.navigate)(right ? "/settings" : "/learn");
+      else if (pathname === "/settings" && !right) runOnJS(router.navigate)("/jobs");
+    });
+
+  return (
+    <View pointerEvents="box-none" style={swipeStyles.layer}>
+      <GestureDetector gesture={gesture}>
+        <View style={swipeStyles.gestureZone} />
+      </GestureDetector>
+    </View>
+  );
+}
+
+const swipeStyles = StyleSheet.create({
+  layer: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 60 },
+  gestureZone: { flex: 1 },
 });
 
 export default function RootLayout() {
@@ -94,21 +129,21 @@ export default function RootLayout() {
             position: "absolute",
             left: 16,
             right: 16,
-            bottom: 16,
-            height: 66,
-            borderRadius: 22,
-            backgroundColor: "rgba(255,255,255,0.82)",
+            bottom: 18,
+            height: 62,
+            borderRadius: 21,
+            backgroundColor: "rgba(255,251,234,0.72)",
             borderTopWidth: 0,
-            borderWidth: StyleSheet.hairlineWidth,
-            borderColor: "rgba(120,90,45,0.10)",
-            shadowColor: "#B8823F",
-            shadowOpacity: 0.20,
-            shadowRadius: 20,
-            shadowOffset: { width: 0, height: 8 },
-            elevation: 8,
+            borderWidth: 1,
+            borderColor: "rgba(255,255,255,0.65)",
+            shadowColor: "#A96F2F",
+            shadowOpacity: 0.12,
+            shadowRadius: 12,
+            shadowOffset: { width: 0, height: 4 },
+            elevation: 3,
             overflow: "hidden",
           },
-          tabBarItemStyle: { paddingVertical: 4 },
+          tabBarItemStyle: { paddingVertical: 3 },
           sceneStyle: { backgroundColor: "transparent" },
         }}
       >
@@ -152,6 +187,7 @@ export default function RootLayout() {
         <Tabs.Screen name="+not-found" options={{ href: null }} />
         </Tabs>
       </DailyBackground>
+      <SwipeNavigator />
     </GestureHandlerRootView>
   );
 }
