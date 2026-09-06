@@ -1,6 +1,6 @@
 import { Platform, type StyleProp, type TextProps, type TextStyle } from "react-native";
 import { SymbolView } from "expo-symbols";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 
 /**
  * SF Symbols 优先图标（iOS 原生观感），Android 自动降级 Ionicons。
@@ -56,10 +56,12 @@ const MAP: Record<string, string> = {
   "lock-closed-outline": "lock",
   "shield-checkmark-outline": "checkmark.shield",
   "person-circle-outline": "person.circle",
+  "log-out-outline": "rectangle.portrait.and.arrow.right",
   "settings-outline": "gearshape",
   "options-outline": "slider.horizontal.3",
   "color-palette-outline": "paintpalette",
   "layers-outline": "square.3.layers.3d",
+  "reorder-three-outline": "line.3.horizontal",
   "calendar-outline": "calendar",
   "compass-outline": "safari",
   "briefcase-outline": "briefcase",
@@ -70,6 +72,7 @@ const MAP: Record<string, string> = {
 };
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
+type MaterialCommunityIconName = keyof typeof MaterialCommunityIcons.glyphMap;
 
 export function ThemedIcon({
   ios,
@@ -98,4 +101,37 @@ export function ThemedIcon({
     );
   }
   return <Ionicons name={name} size={size} color={color} style={style} />;
+}
+
+/**
+ * 运动图标专用渲染层：iOS 走 SF Symbols，Android 使用 MaterialCommunityIcons。
+ * 独立于通用 ThemedIcon，避免把通用图标 name 联合类型扩宽。
+ */
+export function SportThemedIcon({
+  name,
+  sf,
+  size = 20,
+  color,
+  weight = "regular",
+  style,
+}: {
+  name: MaterialCommunityIconName;
+  sf: string;
+  size?: number;
+  color?: string;
+  weight?: "regular" | "medium" | "semibold" | "bold";
+  style?: StyleProp<TextStyle>;
+}) {
+  if (Platform.OS === "ios") {
+    return (
+      <SymbolView
+        name={sf as never}
+        size={size}
+        tintColor={color}
+        weight={weight}
+        style={style as never}
+      />
+    );
+  }
+  return <MaterialCommunityIcons name={name} size={size} color={color} style={style} />;
 }

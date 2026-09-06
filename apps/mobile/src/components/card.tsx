@@ -33,9 +33,9 @@ export function Card({
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
   card: {
-    backgroundColor: "rgba(255,251,234,0.88)",
+    backgroundColor: colors.surfaceStrong,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.62)",
+    borderColor: colors.borderStrong,
     borderRadius: radius.lg,
     padding: 16,
     gap: 10,

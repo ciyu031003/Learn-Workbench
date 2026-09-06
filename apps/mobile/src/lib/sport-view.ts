@@ -1,13 +1,13 @@
 import type { ComponentProps } from "react";
-import { Ionicons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { SPORT_CATALOG, type ExerciseType } from "@learn-workbench/shared";
 
 /**
  * 移动端运动视图层：与 packages/shared SPORT_CATALOG（31 项）对齐。
- * 图标（Android Ionicons / iOS SF Symbols 走 themed-icon 映射）、大类配色、选中动画词汇表。
+ * 图标（Android MaterialCommunityIcons / iOS SF Symbols 走 themed-icon 映射）、大类配色、选中动画词汇表。
  * 动画词汇表与 Web 端 sport-animated-icon 的 keyframes 分组保持同一套语义。
  */
-export type IoniconName = ComponentProps<typeof Ionicons>["name"];
+export type SportIconName = ComponentProps<typeof MaterialCommunityIcons>["name"];
 
 export type SportAnimPreset =
   | "ball-bounce" // 球类：弹跳 + 旋转
@@ -23,39 +23,39 @@ export type SportAnimPreset =
   | "climb" // 爬楼梯：阶梯上跳
   | "pop"; // 兜底：轻弹一下
 
-/** Android Ionicons 指派（iOS 端由 SF Symbols 映射表处理） */
-export const SPORT_ICONS: Record<string, IoniconName> = {
+/** Android MaterialCommunityIcons 指派（iOS 端由 SF Symbols 映射表处理） */
+export const SPORT_ICONS: Record<string, SportIconName> = {
   basketball: "basketball",
-  badminton: "tennisball",
-  volleyball: "baseball",
-  "table-tennis": "tennisball",
+  badminton: "badminton",
+  volleyball: "volleyball",
+  "table-tennis": "table-tennis",
   soccer: "football",
-  tennis: "tennisball",
+  tennis: "tennis",
   baseball: "baseball",
-  run: "fitness",
-  walk: "footsteps",
-  "brisk-walk": "footsteps",
-  cycling: "bicycle",
-  "rope-jumping": "infinite",
-  swimming: "water",
-  dancing: "musical-notes",
-  hiking: "trail-sign",
+  run: "run",
+  walk: "walk",
+  "brisk-walk": "run-fast",
+  cycling: "bike",
+  "rope-jumping": "jump-rope",
+  swimming: "swim",
+  dancing: "dance-ballroom",
+  hiking: "hiking",
   frisbee: "disc",
-  treadmill: "speedometer",
-  boxing: "hand-left",
-  "sit-ups": "body",
-  squats: "body",
-  "push-ups": "fitness",
-  plank: "hourglass",
-  dumbbells: "barbell",
-  "pull-ups": "accessibility",
-  crunches: "body",
-  stretching: "accessibility",
-  yoga: "flower",
+  treadmill: "human-walker",
+  boxing: "boxing-glove",
+  "sit-ups": "human-male-height",
+  squats: "human-handsup",
+  "push-ups": "human-handsdown",
+  plank: "weight-lifter",
+  dumbbells: "dumbbell",
+  "pull-ups": "human-capacity-increase",
+  crunches: "human-male",
+  stretching: "arm-flex",
+  yoga: "yoga",
   baduanjin: "leaf",
-  "tai-chi": "sparkles",
-  stairs: "trending-up",
-  housework: "home",
+  "tai-chi": "meditation",
+  stairs: "stairs",
+  housework: "broom",
 };
 
 export const SPORT_TYPE_COLORS: Record<ExerciseType, { c1: string; c2: string }> = {
@@ -145,11 +145,11 @@ export function sportSfOf(sportKey: string): string {
 }
 
 /** 图标：先按注册表 key，再用名称反查（同步下来的远端记录可能缺 key） */
-export function sportIconOf(sportKey: string | undefined, name?: string): IoniconName {
+export function sportIconOf(sportKey: string | undefined, name?: string): SportIconName {
   if (sportKey && SPORT_ICONS[sportKey]) return SPORT_ICONS[sportKey];
   const item = SPORT_CATALOG.find((s) => s.name === name);
   if (item && SPORT_ICONS[item.key]) return SPORT_ICONS[item.key];
-  return "body";
+  return "weight-lifter";
 }
 
 export function sportColorsOf(type: ExerciseType): { c1: string; c2: string } {

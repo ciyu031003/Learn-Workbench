@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/immutability */
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Card } from "@/components/card";
@@ -8,6 +8,8 @@ import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
 import { RingProgress } from "@/components/ring-progress";
 import { BarChart, LineChart } from "@/components/charts";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import { useAppStore } from "@/store/app-store";
 import { mainPhases, agentPhase } from "@learn-workbench/content";
 import type { Phase } from "@learn-workbench/shared";
@@ -203,6 +205,108 @@ function MonthCalendar({
         })}
       </View>
     </View>
+  );
+}
+
+const REORDER_ROW_STEP = 76;
+
+function StageShine({ active }: { active: boolean }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { width } = useWindowDimensions();
+  const cardWidth = Math.max(140, width - 32);
+  const beamWidth = Math.max(68, cardWidth * 0.32);
+  const sweep = useSharedValue(-beamWidth);
+
+  useEffect(() => {
+    if (!active) {
+      sweep.value = -beamWidth;
+      return;
+    }
+    sweep.value = withRepeat(
+      withTiming(cardWidth + beamWidth, { duration: 1500, easing: Easing.inOut(Easing.quad) }),
+      -1,
+      false
+    );
+    return () => {
+      sweep.value = -beamWidth;
+    };
+  }, [active, beamWidth, cardWidth, sweep]);
+
+  const sweepStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: sweep.value }, { rotate: "18deg" }],
+  }));
+
+  return <Animated.View pointerEvents="none" style={[styles.stageShine, { width: beamWidth }, sweepStyle]} />;
+}
+
+function ReorderRow({
+  index,
+  total,
+  title,
+  summary,
+  pct,
+  onSelect,
+  onMove,
+}: {
+  index: number;
+  total: number;
+  title: string;
+  summary: string;
+  pct: number;
+  onSelect: () => void;
+  onMove: (from: number, to: number) => void;
+}) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const [dragging, setDragging] = useState(false);
+  const dragY = useSharedValue(0);
+
+  const pan = useMemo(
+    () =>
+      Gesture.Pan()
+        .activateAfterLongPress(240)
+        .onStart(() => {
+          runOnJS(setDragging)(true);
+        })
+        .onUpdate((e) => {
+          dragY.value = e.translationY;
+        })
+        .onEnd((e) => {
+          runOnJS(setDragging)(false);
+          const target = Math.max(0, Math.min(total - 1, index + Math.round(e.translationY / REORDER_ROW_STEP)));
+          dragY.value = withTiming(0, { duration: 160 });
+          if (target !== index) runOnJS(onMove)(index, target);
+        })
+        .onFinalize(() => {
+          runOnJS(setDragging)(false);
+          dragY.value = withTiming(0, { duration: 160 });
+        }),
+    [dragY, index, onMove, total]
+  );
+
+  const dragStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: dragY.value }],
+  }));
+
+  return (
+    <Animated.View style={[styles.reorderCard, dragging && styles.reorderCardDragging, dragStyle]}>
+      <GestureDetector gesture={pan}>
+        <View style={styles.reorderHandle} hitSlop={8}>
+          <ThemedIcon name="reorder-three-outline" size={20} color={colors.textMuted} />
+        </View>
+      </GestureDetector>
+      <Pressable style={styles.reorderRowMain} onPress={onSelect}>
+        <View style={[styles.reorderNum, { backgroundColor: STAGE_GRADS[index % STAGE_GRADS.length][0] }]}>
+          <Text style={styles.sheetNumText}>{index + 1}</Text>
+        </View>
+        <View style={styles.sheetInfo}>
+          <Text style={styles.sheetName}>{title}</Text>
+          <Text style={styles.sheetMeta} numberOfLines={1}>{summary || ""}</Text>
+        </View>
+        <Text style={styles.sheetPct}>{pct}%</Text>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -419,6 +523,7 @@ export default function LearnScreen() {
             style={[styles.stageCard, active && styles.stageCardActive]}
           >
             <View style={[styles.stageBlob, { backgroundColor: STAGE_GRADS[i][1] }]} />
+            <StageShine active={active} />
             <View style={styles.stageTop}>
               <Text style={styles.stageTag}>阶段 {i + 1}</Text>
               <Text style={styles.stageName}>{p.title}</Text>
@@ -607,45 +712,22 @@ export default function LearnScreen() {
               {roadmap.map((p, i) => {
                 const info = phaseDone(p);
                 return (
-                  <PressableScale
+                  <ReorderRow
                     key={p.id}
-                    haptic
-                    onPress={() => {
+                    index={i}
+                    total={roadmap.length}
+                    title={p.title}
+                    summary={p.summary || p.weeks || ""}
+                    pct={pct(info.done, info.total)}
+                    onSelect={() => {
                       setSelectedPhaseId(p.id);
                       setStageSheet(false);
                     }}
-                    style={styles.reorderCard}
-                  >
-                    <View style={[styles.reorderNum, { backgroundColor: STAGE_GRADS[i % STAGE_GRADS.length][0] }]}>
-                      <Text style={styles.sheetNumText}>{i + 1}</Text>
-                    </View>
-                    <View style={styles.sheetInfo}>
-                      <Text style={styles.sheetName}>{p.title}</Text>
-                      <Text style={styles.sheetMeta} numberOfLines={1}>{p.summary || p.weeks || ""}</Text>
-                    </View>
-                    <Text style={styles.sheetPct}>{pct(info.done, info.total)}%</Text>
-                    <View style={styles.reorderBtns}>
-                      <Pressable
-                        hitSlop={6}
-                        disabled={i === 0}
-                        style={[styles.reorderBtn, i === 0 && styles.reorderBtnDisabled]}
-                        onPress={() => swapPhase(i, i - 1)}
-                      >
-                        <ThemedIcon name="chevron-up" size={16} color={i === 0 ? colors.textFaint : colors.primary} />
-                      </Pressable>
-                      <Pressable
-                        hitSlop={6}
-                        disabled={i === roadmap.length - 1}
-                        style={[styles.reorderBtn, i === roadmap.length - 1 && styles.reorderBtnDisabled]}
-                        onPress={() => swapPhase(i, i + 1)}
-                      >
-                        <ThemedIcon name="chevron-down" size={16} color={i === roadmap.length - 1 ? colors.textFaint : colors.primary} />
-                      </Pressable>
-                    </View>
-                  </PressableScale>
+                    onMove={swapPhase}
+                  />
                 );
               })}
-              <Text style={styles.reorderHint}>点击上下箭头调整阶段顺序，长按右上角横线可全屏</Text>
+              <Text style={styles.reorderHint}>长按左侧拖动手柄可上下调整阶段顺序</Text>
             </ScrollView>
           ) : (
             <ScrollView style={styles.sheetScroll} showsVerticalScrollIndicator={false}>
@@ -858,14 +940,17 @@ const makeStyles = (colors: ThemeColors) =>
     overflow: "hidden",
     minHeight: 104,
     backgroundColor: "#2F74C0",
+    borderWidth: 1.5,
+    borderColor: "rgba(255,255,255,0.18)",
     shadowColor: "#14548D",
     shadowOpacity: 0.22,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 7 },
     elevation: 4,
   },
-  stageCardActive: { borderWidth: 2.5, borderColor: "rgba(255,255,255,0.85)" },
+  stageCardActive: { borderColor: "rgba(255,255,255,0.92)", shadowOpacity: 0.28 },
   stageBlob: { position: "absolute", width: 160, height: 160, borderRadius: 80, right: -46, top: -56, opacity: 0.5 },
+  stageShine: { position: "absolute", top: -60, bottom: -60, left: 0, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.24)" },
   stageTop: { flexDirection: "row", alignItems: "center", gap: 8 },
   stageTag: { color: "rgba(255,255,255,0.9)", fontSize: 11, fontWeight: "800", backgroundColor: "rgba(255,255,255,0.18)", borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
   stageName: { color: "#fff", fontSize: 17, fontWeight: "800", flex: 1 },
@@ -1010,7 +1095,7 @@ const makeStyles = (colors: ThemeColors) =>
   reorderCard: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 10,
     backgroundColor: colors.surfaceStrong,
     borderRadius: 16,
     padding: 12,
@@ -1018,17 +1103,18 @@ const makeStyles = (colors: ThemeColors) =>
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
   },
-  reorderNum: { width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  reorderBtns: { flexDirection: "row", gap: 4 },
-  reorderBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 9,
-    backgroundColor: colors.surface,
-    alignItems: "center",
-    justifyContent: "center",
+  reorderCardDragging: {
+    zIndex: 10,
+    opacity: 0.96,
+    shadowColor: "#000000",
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 7 },
+    elevation: 6,
   },
-  reorderBtnDisabled: { opacity: 0.45 },
+  reorderHandle: { width: 28, height: 44, alignItems: "center", justifyContent: "center" },
+  reorderRowMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10 },
+  reorderNum: { width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   reorderHint: { color: colors.textMuted, fontSize: 11, textAlign: "center", marginTop: 8 },
 
   formSheet: { gap: 12, paddingTop: 4 },
@@ -1056,11 +1142,11 @@ const makeStyles = (colors: ThemeColors) =>
   modalCard: {
     width: "100%",
     maxWidth: 380,
-    backgroundColor: "rgba(255,251,234,0.98)",
+    backgroundColor: colors.surfaceStrong,
     borderRadius: 24,
     padding: 20,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255,255,255,0.7)",
+    borderColor: colors.borderStrong,
   },
   modalHead: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 },
   modalDot: { width: 10, height: 10, borderRadius: 5 },

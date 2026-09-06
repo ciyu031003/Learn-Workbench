@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/immutability, react-hooks/set-state-in-effect */
-import { type ReactNode, useEffect, useState , useMemo } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
@@ -76,9 +76,9 @@ export function BottomSheet({
 
   const panGesture = Gesture.Pan()
     .enabled(expandable)
-    .activateAfterLongPress(160)
+    .activateAfterLongPress(180)
     .onBegin(() => {
-      dragBase.value = expanded ? 0 : maxOffset;
+      dragBase.value = translateY.value;
     })
     .onUpdate((e) => {
       translateY.value = Math.min(maxOffset + 90, Math.max(dragBase.value + e.translationY, 0));
@@ -96,7 +96,7 @@ export function BottomSheet({
       }
     });
 
-  const handleGesture = Gesture.Race(tapGesture, panGesture);
+  const handleGesture = Gesture.Exclusive(panGesture, tapGesture);
 
   const animatedSheet = useAnimatedStyle(() => ({
     transform: [{ translateY: expandable ? translateY.value : 0 }],
@@ -130,20 +130,20 @@ export function BottomSheet({
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
   root: { flex: 1, justifyContent: "flex-end" },
-  scrim: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(30,24,12,0.36)" },
+  scrim: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: colors.scrim },
   sheet: {
-    backgroundColor: "rgba(253,248,239,0.96)",
+    backgroundColor: colors.surfaceStrong,
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255,255,255,0.65)",
+    borderColor: colors.borderStrong,
     paddingHorizontal: 16,
     paddingBottom: 24,
     ...shadows.floating,
     overflow: "hidden",
   },
-  handleZone: { alignItems: "center", paddingVertical: 14 },
-  grabber: { width: 48, height: 6, borderRadius: 999, backgroundColor: "rgba(120,90,45,0.30)" },
+  handleZone: { minHeight: 44, alignItems: "center", justifyContent: "center", paddingVertical: 12 },
+  grabber: { width: 64, height: 7, borderRadius: 999, backgroundColor: colors.borderStrong },
   head: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
   title: { fontSize: 18, fontWeight: "800", color: colors.text },
   close: {

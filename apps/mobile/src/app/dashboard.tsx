@@ -8,7 +8,7 @@ import {
   View,
   type DimensionValue,
 } from "react-native";
-import { ThemedIcon } from "@/components/themed-icon";
+import { SportThemedIcon, ThemedIcon } from "@/components/themed-icon";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
@@ -139,9 +139,7 @@ function SportIcon({
         ty.value = withRepeat(withSequence(withTiming(-3, { duration: 220 }), withTiming(3, { duration: 220 })), 2, true);
         break;
       case "run-bounce":
-        scale.value = withSequence(withSpring(1.12, { damping: 9, stiffness: 220 }), withSpring(1));
-        ty.value = withRepeat(withSequence(withTiming(-8, { duration: 130 }), withTiming(0, { duration: 110 })), 4, false);
-        rotate.value = withSequence(withTiming(-6, { duration: 130 }), withTiming(4, { duration: 130 }), withTiming(0, { duration: 120 }));
+        scale.value = withSequence(withSpring(1.16, { damping: 9, stiffness: 220 }), withSpring(1));
         break;
       case "ride":
         scale.value = withSequence(withSpring(1.1, { damping: 9, stiffness: 220 }), withSpring(1));
@@ -154,24 +152,13 @@ function SportIcon({
         rotate.value = withSequence(withTiming(6, { duration: 320 }), withTiming(-6, { duration: 320 }), withTiming(0, { duration: 260 }));
         break;
       case "rope":
-        scale.value = withSequence(withSpring(1.1, { damping: 9, stiffness: 220 }), withSpring(1));
-        ty.value = withRepeat(withSequence(withTiming(-9, { duration: 120 }), withTiming(0, { duration: 110 })), 5, false);
+        scale.value = withSequence(withSpring(1.16, { damping: 9, stiffness: 220 }), withSpring(1));
         break;
       case "strength":
-        ty.value = withRepeat(
-          withSequence(withTiming(-3, { duration: 220 }), withTiming(3, { duration: 220 })),
-          3,
-          true
-        );
-        scale.value = withRepeat(
-          withSequence(withTiming(1.04, { duration: 220 }), withTiming(0.94, { duration: 220 }), withTiming(1, { duration: 180 })),
-          2,
-          false
-        );
+        scale.value = withSequence(withSpring(1.15, { damping: 9, stiffness: 220 }), withSpring(1));
         break;
       case "tremble":
-        tx.value = withRepeat(withSequence(withTiming(-1.5, { duration: 60 }), withTiming(1.5, { duration: 60 })), 10, true);
-        ty.value = withTiming(-2, { duration: 160 });
+        scale.value = withSequence(withSpring(1.08, { damping: 12, stiffness: 220 }), withSpring(1));
         break;
       case "breath":
         scale.value = withRepeat(withSequence(withTiming(1.07, { duration: 700 }), withTiming(0.97, { duration: 700 })), 2, true);
@@ -199,11 +186,11 @@ function SportIcon({
     ],
   }));
 
-  return (
-    <Animated.View style={animatedStyle}>
-      <ThemedIcon name={icon} ios={sportSfOf(sportKey)} size={22} color={c} />
-    </Animated.View>
-  );
+    return (
+      <Animated.View style={animatedStyle}>
+        <SportThemedIcon name={icon} sf={sportSfOf(sportKey)} size={22} color={c} />
+      </Animated.View>
+    );
 }
 
 function SportSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
@@ -393,6 +380,15 @@ export default function DashboardScreen() {
     };
   });
 
+  const sunPulse = useSharedValue(0);
+  useEffect(() => {
+    sunPulse.value = withRepeat(withTiming(1, { duration: 4400 }), -1, true);
+  }, [sunPulse]);
+  const sunAnim = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 + 0.08 * sunPulse.value }],
+    opacity: 0.28 + 0.14 * sunPulse.value,
+  }));
+
   // 今日建议（规则版）：根据任务/打卡状态给一句可执行的小建议
   const todayTip = useMemo(() => {
     if (todayTasks.length === 0) return "先给今天定一个小目标，路线图会告诉你下一步学什么";
@@ -421,7 +417,7 @@ export default function DashboardScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Animated.View style={[styles.hero, heroAnim]}>
-          <View style={styles.sunGlow} />
+          <Animated.View style={[styles.sunGlow, sunAnim]} />
           <Text style={styles.heroTitle}>
             {greet}，{"\n"}继续今天的 ICT 学习规划
           </Text>
@@ -450,7 +446,7 @@ export default function DashboardScreen() {
             <Text style={styles.sportTotalNote}>今日能量 · 阳光满分</Text>
           </View>
           {sports.length === 0 ? (
-            <Text style={styles.sportEmpty}>今天还没有运动记录，去阳光下动一动吧 ☀️</Text>
+            <Text style={styles.sportEmpty}>今天还没有运动记录，去阳光下动一动吧</Text>
           ) : (
             sports.map((r) => {
               const { c1 } = sportColorsOf(r.type);

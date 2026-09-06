@@ -77,11 +77,12 @@ function FlowerTabIcon({ color, focused }: { color: string | OpaqueColorValue; f
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
   root: { flex: 1 },
-  tabIcon: { alignItems: "center", gap: 3, paddingVertical: 2 },
+  tabIcon: { width: 42, height: 42, alignItems: "center", justifyContent: "center" },
   tabIconFocused: {
-    backgroundColor: colors.primarySoft,
-    borderRadius: 14,
-    paddingHorizontal: 12,
+    backgroundColor: "transparent",
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
   },
 });
 
@@ -182,15 +183,15 @@ function ThemedShell() {
           tabBarInactiveBackgroundColor: "transparent",
           tabBarStyle: {
             position: "absolute",
-            left: 16,
-            right: 16,
+            left: 30,
+            right: 30,
             bottom: 18,
-            height: 62,
-            borderRadius: 21,
-            backgroundColor: dark ? "rgba(34,27,16,0.82)" : "rgba(255,251,234,0.72)",
+            height: 64,
+            borderRadius: 20,
+            backgroundColor: colors.surfaceStrong,
             borderTopWidth: 0,
             borderWidth: 1,
-            borderColor: dark ? "rgba(242,235,221,0.12)" : "rgba(255,255,255,0.65)",
+            borderColor: colors.borderStrong,
             shadowColor: dark ? "#000000" : "#A96F2F",
             shadowOpacity: 0.12,
             shadowRadius: 12,

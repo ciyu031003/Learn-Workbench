@@ -130,14 +130,17 @@ export default function SettingsScreen() {
 
       <Card title="账号" subtitle={token ? "登录中，学习数据将自动同步云端" : "登录后同步云端，离线数据不会丢失"}>
         {token ? (
-          <View style={styles.rowBetween}>
-            <View style={styles.rowBetween}>
-              <View style={styles.avatarChip}>
-                <Text style={styles.avatarText}>{(username ?? "旅").slice(0, 1).toUpperCase()}</Text>
-              </View>
-              <Text style={styles.rowLabel}>已登录：{username}</Text>
+          <View style={styles.accountHeader}>
+            <View style={styles.accountAvatar}>
+              <Text style={styles.accountAvatarText}>{(username ?? "旅").slice(0, 1).toUpperCase()}</Text>
+            </View>
+            <View style={styles.accountIdentity}>
+              <Text style={styles.accountName}>{username || "已登录"}</Text>
+              <Text style={styles.accountSub}>学习数据将自动同步云端</Text>
             </View>
             <Pressable
+              hitSlop={8}
+              style={styles.logoutBtn}
               onPress={() => {
                 haptics.warning();
                 Alert.alert("退出登录", "退出后本机数据保留，云端数据不受影响。", [
@@ -146,7 +149,8 @@ export default function SettingsScreen() {
                 ]);
               }}
             >
-              <Text style={styles.linkText}>退出</Text>
+              <ThemedIcon name="log-out-outline" size={16} color={colors.danger} />
+              <Text style={styles.logoutText}>退出</Text>
             </Pressable>
           </View>
         ) : (
@@ -343,15 +347,33 @@ const makeStyles = (colors: ThemeColors) =>
   authPromptBody: { flex: 1, gap: 2 },
   authPromptTitle: { fontSize: 15, fontWeight: "800", color: colors.text },
   authPromptSub: { fontSize: 12, color: colors.textMuted, lineHeight: 17 },
-  avatarChip: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+  accountHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
+  accountAvatar: {
+    width: 46,
+    height: 46,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.primarySoft,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(47,116,192,0.24)",
   },
-  avatarText: { fontSize: 13, fontWeight: "800", color: colors.primary },
+  accountAvatarText: { fontSize: 17, fontWeight: "800", color: colors.primary },
+  accountIdentity: { flex: 1, gap: 3 },
+  accountName: { fontSize: 15, fontWeight: "800", color: colors.text },
+  accountSub: { fontSize: 12, color: colors.textMuted, lineHeight: 17 },
+  logoutBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: colors.dangerSoft,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(192,69,69,0.24)",
+  },
+  logoutText: { fontSize: 13, fontWeight: "800", color: colors.danger },
   primaryBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 12, alignItems: "center" },
   secondaryBtn: {
     backgroundColor: colors.surfaceStrong,
