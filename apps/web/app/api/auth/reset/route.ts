@@ -7,7 +7,7 @@ import { hashPassword } from "@/lib/password";
 
 /** 重置密码：一次性令牌，30 分钟内有效 */
 export async function POST(req: Request) {
-  const throttle = rateLimit(`reset:${clientIp(req)}`, { limit: 10, windowMs: 60 * 60_000 });
+  const throttle = await rateLimit(`reset:${clientIp(req)}`, { limit: 10, windowMs: 60 * 60_000 });
   if (!throttle.ok) {
     return NextResponse.json({ error: "请求过于频繁，请稍后再试" }, { status: 429 });
   }

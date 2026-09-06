@@ -2,17 +2,18 @@ import { pgPool } from "@/lib/db";
 import type { MarketAnalysis, MarketCityRow, MarketExpRow, MarketJobTypeRow, MarketOverview, MarketPlatformRow, MarketSkillRow, MarketSkillSalaryRow, MarketTrend } from "./types";
 import { functionRules, jobTypeRules, makeFunctionRule, companyNameRe, salaryBuckets, sourceLabels } from "@learn-workbench/config";
 
-/* ================= 招聘市场分析（P4，实时聚合 + DB 缓存） =================
- * P1：聚合结果落 market_stats 表（60s TTL，多实例共享、重启不丢）；
- * 数据量增长后可将刷新改为定时任务（见 docs/P0-安全加固与HTTPS部署.md P1 说明）。
+/* ================= 招聘市场分析（P4，预聚合 + DB 缓存） =================
+ * P1：聚合结果落 market_stats 表（多实例共享、重启不丢）；
+ * 正常由服务器每日 aggregate 任务（/api/internal/cron?job=aggregate）强制重算，
+ * 用户请求只读缓存行；缓存缺失/超期时才在请求路径兜底重算（冷启动可自愈）。
  */
 
 
 
 
-/** P1：市场分析改为 DB 缓存（market_stats 表，多实例共享 + 重启不丢）；60s TTL */
+/** 缓存 26h：覆盖「今日 05:40 聚合 → 明日 05:40 再聚合」的间隔并留漂移余量 */
 const CACHE_KEY = "full";
-const CACHE_TTL_MS = 60_000;
+const CACHE_TTL_MS = 26 * 3600_000;
 
 /** 学历归一（宽松） */
 function eduBucket(raw: string): string {
@@ -60,15 +61,17 @@ function classifyJobType(title: string, tags: string[]): string {
   return "全职";
 }
 
-export async function analyzeMarket(): Promise<MarketAnalysis> {
-  // 读 DB 缓存：命中且新鲜则直接返回（避免每次全表聚合）
-  const cached = await pgPool.query<{ payload: MarketAnalysis; computed_at: Date }>(
-    `SELECT payload, computed_at FROM market_stats WHERE key = $1`,
-    [CACHE_KEY]
-  );
-  const cachedRow = cached.rows[0];
-  if (cachedRow?.payload && Date.now() - new Date(cachedRow.computed_at).getTime() < CACHE_TTL_MS) {
-    return cachedRow.payload;
+export async function analyzeMarket(options: { force?: boolean } = {}): Promise<MarketAnalysis> {
+  // 读 DB 缓存：命中且新鲜则直接返回（避免每次全表聚合）；force 供每日聚合任务强制重算
+  if (!options.force) {
+    const cached = await pgPool.query<{ payload: MarketAnalysis; computed_at: Date }>(
+      `SELECT payload, computed_at FROM market_stats WHERE key = $1`,
+      [CACHE_KEY]
+    );
+    const cachedRow = cached.rows[0];
+    if (cachedRow?.payload && Date.now() - new Date(cachedRow.computed_at).getTime() < CACHE_TTL_MS) {
+      return cachedRow.payload;
+    }
   }
 
   // 只统计招聘岗位类（排除公告/考试事件，它们不代表市场招聘需求）

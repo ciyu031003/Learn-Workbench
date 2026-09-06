@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from "vitest";
-import { parseBody, ApiError } from "./http";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { parseBody, ApiError, siteOrigin } from "./http";
 
 function req(body: string | null, init?: RequestInit): Request {
   return new Request("http://localhost", {
@@ -16,6 +16,36 @@ describe("ApiError", () => {
     expect(err.message).toBe("too big");
     expect(err.name).toBe("ApiError");
     expect(err).toBeInstanceOf(Error);
+  });
+});
+
+describe("siteOrigin", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("prefers the configured WEB_BASE_URL over any header", () => {
+    vi.stubEnv("WEB_BASE_URL", "https://learn.yuanabd.cn/");
+    const r = new Request("http://internal:3000/x", {
+      headers: { host: "evil.example", origin: "https://evil.example" },
+    });
+    expect(siteOrigin(r)).toBe("https://learn.yuanabd.cn");
+  });
+
+  it("never trusts the Origin header (reset-link poisoning vector)", () => {
+    const r = new Request("https://learn.yuanabd.cn/api/auth/forgot", {
+      headers: { origin: "https://evil.example" },
+    });
+    expect(siteOrigin(r)).toBe("https://learn.yuanabd.cn");
+  });
+
+  it("uses forwarded host/proto when nginx proxies the request", () => {
+    const r = new Request("http://127.0.0.1:3001/api/auth/forgot", {
+      headers: { "x-forwarded-host": "learn.yuanabd.cn", "x-forwarded-proto": "https" },
+    });
+    expect(siteOrigin(r)).toBe("https://learn.yuanabd.cn");
+  });
+
+  it("falls back to the request URL origin", () => {
+    expect(siteOrigin(new Request("http://localhost:3001/x"))).toBe("http://localhost:3001");
   });
 });
 

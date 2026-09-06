@@ -19,7 +19,7 @@ export async function POST() {
   if (!(await isAdmin(userId))) {
     return NextResponse.json({ error: "无权限更新信息源注册表" }, { status: 403 });
   }
-  const throttle = rateLimit(`hosts:update:${userId}`, { limit: 2, windowMs: 300_000 });
+  const throttle = await rateLimit(`hosts:update:${userId}`, { limit: 2, windowMs: 300_000 });
   if (!throttle.ok) {
     return NextResponse.json({ error: "操作过于频繁，请稍后再试", retryAfter: throttle.retryAfterSeconds }, { status: 429 });
   }

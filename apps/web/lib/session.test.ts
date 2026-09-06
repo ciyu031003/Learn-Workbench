@@ -10,6 +10,7 @@ vi.mock("./db", () => ({
 
 import { cookies, headers } from "next/headers";
 import { pgPool } from "./db";
+import { createHash } from "node:crypto";
 import {
   currentSessionToken,
   currentUserId,
@@ -18,6 +19,8 @@ import {
   destroySession,
   sessionCookieName,
 } from "./session";
+
+const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
 
 const cookiesMock = vi.mocked(cookies);
 const headersMock = vi.mocked(headers);
@@ -59,13 +62,13 @@ describe("currentUserId", () => {
     expect(queryMock).not.toHaveBeenCalled();
   });
 
-  it("returns the user id from an active session", async () => {
+  it("returns the user id from an active session (lookup by token hash)", async () => {
     cookiesMock.mockResolvedValue({ get: vi.fn().mockReturnValue({ value: "tok" }) } as never);
     queryMock.mockResolvedValue({ rows: [{ user_id: "u-1" }] } as never);
     await expect(currentUserId()).resolves.toBe("u-1");
     expect(queryMock).toHaveBeenCalledWith(
-      expect.stringContaining("FROM sessions WHERE token = $1"),
-      ["tok"]
+      expect.stringContaining("FROM sessions WHERE token_hash = $1"),
+      [sha256("tok")]
     );
   });
 
@@ -91,7 +94,7 @@ describe("currentUser", () => {
 });
 
 describe("createSession", () => {
-  it("inserts a random token with a 30-day expiry", async () => {
+  it("inserts a random token with a 30-day expiry, storing hash alongside (transition)", async () => {
     queryMock.mockResolvedValue({ rows: [] } as never);
     const before = Date.now();
     const { token, expiresAt } = await createSession("u-1");
@@ -101,18 +104,18 @@ describe("createSession", () => {
     expect(ttlMs).toBeLessThanOrEqual(30 * 24 * 3600 * 1000 + 1000);
     expect(queryMock).toHaveBeenCalledWith(
       expect.stringContaining("INSERT INTO sessions"),
-      [token, "u-1", expiresAt]
+      [token, sha256(token), "u-1", expiresAt]
     );
   });
 });
 
 describe("destroySession", () => {
-  it("deletes the session row", async () => {
+  it("deletes by hash or raw token (covers legacy plaintext rows)", async () => {
     queryMock.mockResolvedValue({ rows: [] } as never);
     await destroySession("tok");
     expect(queryMock).toHaveBeenCalledWith(
-      expect.stringContaining("DELETE FROM sessions WHERE token = $1"),
-      ["tok"]
+      expect.stringContaining("DELETE FROM sessions WHERE token_hash = $1 OR token = $2"),
+      [sha256("tok"), "tok"]
     );
   });
 });

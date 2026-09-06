@@ -1,4 +1,5 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { siteOrigin } from "./http";
 
 /**
  * 微信网站应用（扫码登录/绑定）服务端对接。
@@ -30,18 +31,14 @@ export function wechatWebConfig(): { appid: string; secret: string } | null {
   return { appid, secret };
 }
 
+/** 微信登录总开关：AppSecret 与 state 签名密钥（生产）齐备才启用 */
 export function isWechatEnabled(): boolean {
-  return wechatWebConfig() !== null;
+  return wechatWebConfig() !== null && stateSecret() !== null;
 }
 
 /** 授权成功后的回跳页（网站应用回调域名必须在开放平台登记） */
 export function wechatRedirectUri(req: Request): string {
-  const base = process.env.WEB_BASE_URL?.replace(/\/$/, "");
-  if (base) return `${base}/login`;
-  const url = new URL(req.url);
-  const proto = req.headers.get("x-forwarded-proto") ?? url.protocol.replace(":", "");
-  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? url.host;
-  return `${proto}://${host}/login`;
+  return `${siteOrigin(req)}/login`;
 }
 
 /** 生成扫码授权页地址（用户扫码确认后微信携带 code/state 回跳 redirect_uri） */
@@ -61,29 +58,36 @@ export function buildQrConnectUrl(redirectUri: string, state: string): string {
 
 /* ---------- state 签名：无状态防 CSRF（10 分钟有效） ---------- */
 
-function stateSecret(): string {
-  return (
-    process.env.WECHAT_STATE_SECRET?.trim() ||
-    process.env.PGPASSWORD?.trim() ||
-    "lwb-wechat-state-dev"
-  );
+/**
+ * state 签名密钥：生产必须显式配置 WECHAT_STATE_SECRET。
+ * 旧实现回退到 PGPASSWORD / 硬编码常量——前者把数据库口令挪作 HMAC 密钥，后者是公开值，
+ * 都会让攻击者可伪造 state（CSRF 防护失效）。生产缺配置时禁用微信登录（返回 503）。
+ */
+function stateSecret(): string | null {
+  const explicit = process.env.WECHAT_STATE_SECRET?.trim();
+  if (explicit) return explicit;
+  if (process.env.NODE_ENV === "production") return null;
+  return process.env.PGPASSWORD?.trim() || "lwb-wechat-state-dev";
 }
 
 export function createState(): string {
+  const secret = stateSecret();
+  if (!secret) return "";
   const exp = Date.now() + 10 * 60 * 1000;
   const nonce = randomBytes(8).toString("hex");
   const payload = `${exp}.${nonce}`;
-  const sig = createHmac("sha256", stateSecret()).update(payload).digest("hex").slice(0, 32);
+  const sig = createHmac("sha256", secret).update(payload).digest("hex").slice(0, 32);
   return `${payload}.${sig}`;
 }
 
 export function verifyState(state: string | null | undefined): boolean {
-  if (!state) return false;
+  const secret = stateSecret();
+  if (!secret || !state) return false;
   const parts = state.split(".");
   if (parts.length !== 3) return false;
   const [exp, nonce, sig] = parts;
   const payload = `${exp}.${nonce}`;
-  const expect = createHmac("sha256", stateSecret()).update(payload).digest("hex").slice(0, 32);
+  const expect = createHmac("sha256", secret).update(payload).digest("hex").slice(0, 32);
   const a = Buffer.from(sig);
   const b = Buffer.from(expect);
   if (a.length !== b.length || !timingSafeEqual(a, b)) return false;

@@ -12,6 +12,8 @@ services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
+    # P2 监控：慢查询（>500ms）写入容器日志（docker compose logs db / 日志采集可见）
+    command: ["postgres", "-c", "log_min_duration_statement=500"]
     environment:
       POSTGRES_DB: Learn-Workbench
       POSTGRES_USER: lwb
@@ -64,6 +66,12 @@ services:
       PGUSER: lwb
       PGPASSWORD: ${PG_PASSWORD:?PG_PASSWORD 未设置}
       TZ: Asia/Shanghai
+      # 内部 cron 触发密钥（宿主机 crontab → /api/internal/cron，见 deploy.sh / deploy-docker.sh）
+      CRON_SECRET: ${CRON_SECRET:-}
+      # 对外站点地址（邮件重置链接/微信回跳用；不设则回退代理头）
+      WEB_BASE_URL: ${WEB_BASE_URL:-}
+      # 生产注册管理员白名单：注册接口仅向该用户名授予 is_admin（空 = 不自动授予）
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-}
       # 招花爬虫：住宅/干净代理 + 登录态 Cookie（storageState 放 config/job-hosts/storageState.json）
       JOBS_PROXY: ${JOBS_PROXY:-}
       JOBS_STORAGE_STATE: /app/config/job-hosts/storageState.json

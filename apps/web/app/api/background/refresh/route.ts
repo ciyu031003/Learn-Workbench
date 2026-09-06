@@ -20,7 +20,7 @@ function findRepoRoot(): string | null {
 export async function POST() {
   const userId = await currentUserId();
   if (!userId) return NextResponse.json({ error: "请先登录" }, { status: 401 });
-  const throttle = rateLimit(`bg:refresh:${userId}`, { limit: 2, windowMs: 120_000 });
+  const throttle = await rateLimit(`bg:refresh:${userId}`, { limit: 2, windowMs: 120_000 });
   if (!throttle.ok) {
     return NextResponse.json({ error: "操作过于频繁，请稍后再试", retryAfter: throttle.retryAfterSeconds }, { status: 429 });
   }

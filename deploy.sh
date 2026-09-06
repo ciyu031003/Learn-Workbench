@@ -31,6 +31,9 @@
 #    PG_DB=Learn-Workbench    数据库名
 #    PG_USER=lwb              应用数据库用户
 #    PG_PASSWORD=<自动生成>   应用数据库用户密码
+#    CRON_SECRET=<自动生成>   内部 cron 触发密钥（/api/internal/cron）
+#    WEB_BASE_URL=<自动推断>  对外站点地址（https://learn.yuanabd.cn），用于邮件链接/微信回跳
+#    SETUP_JOBS_CRON=1        是否添加每日招聘爬虫+聚合+维护的 crontab（0/1）
 #    ADMIN_USERNAME=admin     管理员用户名
 #    ADMIN_PASSWORD=<自动生成> 管理员密码（留空自动生成）
 #    PROCESS_MANAGER=pm2      进程管理方式：pm2 | nohup
@@ -58,6 +61,9 @@ FETCH_BING="${FETCH_BING:-1}"
 SETUP_CRON="${SETUP_CRON:-0}"
 SKIP_DEPS="${SKIP_DEPS:-0}"
 SKIP_BUILD="${SKIP_BUILD:-0}"
+CRON_SECRET="${CRON_SECRET:-}"
+WEB_BASE_URL="${WEB_BASE_URL:-}"
+SETUP_JOBS_CRON="${SETUP_JOBS_CRON:-1}"
 # npm/pnpm 镜像源（默认淘宝 npmmirror，国内下载加速；NPM_REGISTRY=https://registry.npmjs.org 可切回官方）
 NPM_REGISTRY="${NPM_REGISTRY:-https://registry.npmmirror.com}"
 
@@ -308,6 +314,11 @@ if [ -z "$PG_PASSWORD" ]; then
   PG_PASSWORD="$(gen_password)"
   info "已生成数据库用户 $PG_USER 的密码"
 fi
+# 内部 cron 触发密钥（/api/internal/cron 鉴权用，写入 crontab 与运行时配置）
+if [ -z "$CRON_SECRET" ]; then
+  CRON_SECRET="$(gen_password)$(gen_password)"
+  info "已生成内部 cron 触发密钥 CRON_SECRET"
+fi
 
 info "---------- 步骤 2/6：初始化数据库 ----------"
 export PGCLIENTENCODING=UTF8
@@ -388,6 +399,8 @@ PGPORT=$PG_PORT
 PGDATABASE=$PG_DB
 PGUSER=$PG_USER
 PGPASSWORD=$PG_PASSWORD
+CRON_SECRET=$CRON_SECRET
+WEB_BASE_URL=$WEB_BASE_URL
 EOF
 info "已写入 $ENV_FILE"
 
@@ -409,6 +422,7 @@ else
     echo "Web 地址 : http://<服务器IP>:${APP_PORT}"
     echo "管理员账号 : ${ADMIN_USERNAME}"
     echo "管理员密码 : ${ADMIN_PASSWORD}"
+    echo "CRON_SECRET : ${CRON_SECRET}（每日爬虫 cron 触发密钥，勿泄露）"
     echo "数据库   : ${PG_DB} (${PG_HOST}:${PG_PORT} / ${PG_USER})"
     echo "-----------------------------------------------------"
     echo "请妥善保管，确认后建议删除本文件：rm $CRED_FILE"
@@ -459,6 +473,23 @@ if [ "$SETUP_CRON" = "1" ] && command -v crontab >/dev/null 2>&1; then
   ( crontab -l 2>/dev/null | grep -v "fetch_bing_wallpaper.py"; \
     echo "0 6 * * * cd $ROOT && python3 scripts/fetch_bing_wallpaper.py >> $ROOT/bing.log 2>&1" ) | crontab -
   info "crontab 已配置"
+fi
+
+# 每日招聘爬虫管线（P1 并发优化）：服务器统一批处理，用户请求只读预聚合数据
+#   04:30 抓取（幂等守卫：当天已成功则跳过；12:30 补跑同样无害）
+#   05:40 聚合（市场分析 + 公开统计快照落库，此后用户读单行快照）
+#   06:10 维护（清理过期会话/审计/重置令牌）
+if [ "$SETUP_JOBS_CRON" = "1" ] && command -v crontab >/dev/null 2>&1; then
+  info "添加每日爬虫/聚合/维护 crontab（04:30 / 05:40 / 06:10）..."
+  CRON_URL="http://127.0.0.1:${APP_PORT}/api/internal/cron"
+  ( crontab -l 2>/dev/null | grep -v "api/internal/cron"; \
+    echo "30 4 * * * flock -n /tmp/lwb-cron-crawl.lock curl -fsS -m 60 -X POST -H 'x-cron-secret: ${CRON_SECRET}' '${CRON_URL}?job=crawl' >> $ROOT/cron-jobs.log 2>&1 || true"; \
+    echo "30 12 * * * flock -n /tmp/lwb-cron-crawl.lock curl -fsS -m 60 -X POST -H 'x-cron-secret: ${CRON_SECRET}' '${CRON_URL}?job=crawl' >> $ROOT/cron-jobs.log 2>&1 || true"; \
+    echo "40 5 * * * flock -n /tmp/lwb-cron-agg.lock curl -fsS -m 300 -X POST -H 'x-cron-secret: ${CRON_SECRET}' '${CRON_URL}?job=aggregate' >> $ROOT/cron-jobs.log 2>&1 || true"; \
+    echo "10 6 * * * flock -n /tmp/lwb-cron-maint.lock curl -fsS -m 120 -X POST -H 'x-cron-secret: ${CRON_SECRET}' '${CRON_URL}?job=maintenance' >> $ROOT/cron-jobs.log 2>&1 || true" ) | crontab -
+  info "crontab 已配置（每日爬虫管线）"
+elif [ "$SETUP_JOBS_CRON" = "1" ]; then
+  warn "未检测到 crontab 命令，跳过每日爬虫管线配置（请手动配置或改用容器调度）"
 fi
 
 # ---------------------------------------------------------------- 汇总

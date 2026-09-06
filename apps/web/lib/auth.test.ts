@@ -19,8 +19,13 @@ beforeEach(() => {
 });
 
 describe("clientIp", () => {
-  it("takes the first x-forwarded-for entry", () => {
+  it("takes the last (proxy-appended) x-forwarded-for entry", () => {
     const req = new Request("http://localhost", { headers: { "x-forwarded-for": "1.2.3.4, 5.6.7.8" } });
+    expect(clientIp(req)).toBe("5.6.7.8");
+  });
+
+  it("returns the only entry when xff has a single value", () => {
+    const req = new Request("http://localhost", { headers: { "x-forwarded-for": "1.2.3.4" } });
     expect(clientIp(req)).toBe("1.2.3.4");
   });
 

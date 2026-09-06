@@ -132,3 +132,41 @@ describe("syncPull", () => {
     await expect(syncPull("tok")).rejects.toThrow("拉取失败");
   });
 });
+
+describe("syncPush batching", () => {
+  const bigBatch = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({
+      entityType: "progress", entityId: String(i), operation: "UPDATE",
+      version: 1, payload: {}, updatedAt: "2026-08-13T10:00:00.000Z",
+    }));
+
+  it("splits queues over 500 changes into batches and clears per batch", async () => {
+    const state = mockState({ pendingChanges: bigBatch(1200), clearPendingChanges: vi.fn() });
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({ serverTime: "2026-08-13T11:00:00.000Z" }),
+    } as never);
+    await syncPush("tok");
+    expect(fetch).toHaveBeenCalledTimes(3); // 500 + 500 + 200
+    expect(state.clearPendingChanges).toHaveBeenCalledTimes(3);
+    const bodies = vi.mocked(fetch).mock.calls.map(
+      (c) => JSON.parse((c[1] as RequestInit).body as string) as { changes: unknown[] }
+    );
+    expect(bodies[0].changes).toHaveLength(500);
+    expect(bodies[1].changes).toHaveLength(500);
+    expect(bodies[2].changes).toHaveLength(200);
+    expect(state.setLastSyncedAt).toHaveBeenCalledWith("2026-08-13T11:00:00.000Z");
+  });
+
+  it("keeps remaining changes when a later batch fails", async () => {
+    const state = mockState({ pendingChanges: bigBatch(501), clearPendingChanges: vi.fn() });
+    vi.mocked(fetch)
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ serverTime: "t1" }) } as never)
+      .mockResolvedValueOnce({ ok: false, json: async () => ({ error: "同步失败" }) } as never);
+    await expect(syncPush("tok")).rejects.toThrow("同步失败");
+    expect(fetch).toHaveBeenCalledTimes(2);
+    // 仅第一批被清除；时间戳不更新（失败批次留待重试）
+    expect(state.clearPendingChanges).toHaveBeenCalledTimes(1);
+    expect(state.setLastSyncedAt).not.toHaveBeenCalled();
+  });
+});

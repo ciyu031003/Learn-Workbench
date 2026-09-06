@@ -3,14 +3,19 @@ import { pgPool } from "@/lib/db";
 import { userScope, scopeWhere } from "@/lib/anon";
 import { todayISO } from "@learn-workbench/shared";
 import { logger } from "@/lib/logger";
+import { rateLimit } from "@/lib/rate-limit";
+import { dailyCacheGet, dailyCacheSet } from "@/lib/daily-cache";
 
 /**
  * AI 每日建议（P2）：把今日学习/运动/精力上下文交给 LLM，生成一句可执行的小建议。
  * env 门控（与微信/邮箱同约定）：未配置 AI_API_KEY 时返回 503 { enabled:false }，前端回落规则版。
  * 可选：AI_BASE_URL（OpenAI 兼容端点，默认 https://api.openai.com/v1）、AI_MODEL（默认 gpt-4o-mini）。
+ * P0 加固：用户级限流 + 当日缓存——每用户每天只真正调用一次上游，防刷爆 API 配额。
  */
 
 const UPSTREAM_TIMEOUT_MS = 12_000;
+const TIP_TTL_MS = 6 * 3600_000;
+const USER_LIMIT_PER_MIN = 10;
 
 function aiConfig(): { apiKey: string; baseUrl: string; model: string } | null {
   const apiKey = process.env.AI_API_KEY?.trim();
@@ -31,6 +36,22 @@ export async function GET() {
     return NextResponse.json({ enabled: true, tip: null, error: "请先登录" }, { status: 401 });
   }
   const date = todayISO();
+
+  // 当日缓存命中：不消耗上游配额，也不再重复查询上下文
+  const cacheKey = `ai-tip:${scope.uid}:${date}`;
+  const cached = await dailyCacheGet<{ tip: string }>(cacheKey);
+  if (cached) {
+    return NextResponse.json({ enabled: true, tip: cached.tip, source: "ai", cached: true });
+  }
+
+  // 用户级限流：防单账号刷爆上游 LLM 配额
+  const throttle = await rateLimit(`ai:${scope.uid}`, { limit: USER_LIMIT_PER_MIN, windowMs: 60_000 });
+  if (!throttle.ok) {
+    return NextResponse.json(
+      { enabled: true, tip: null, error: "请求过于频繁，请稍后再试", retryAfter: throttle.retryAfterSeconds },
+      { status: 429 }
+    );
+  }
 
   // 今日上下文：任务完成度 / 专注分钟 / 运动分钟
   const w1 = scopeWhere(scope, [scope.uid, date]);
@@ -96,6 +117,7 @@ export async function GET() {
     if (!tip) {
       return NextResponse.json({ enabled: true, tip: null, error: "未能生成建议" }, { status: 502 });
     }
+    await dailyCacheSet(cacheKey, { tip }, TIP_TTL_MS);
     return NextResponse.json({ enabled: true, tip, source: "ai" });
   } catch (e) {
     logger.warn("ai tip request failed", e);

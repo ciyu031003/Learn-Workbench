@@ -2,10 +2,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/session", () => ({ currentUserId: vi.fn() }));
 vi.mock("@/lib/db", () => ({ pgPool: { query: vi.fn(), connect: vi.fn() } }));
-vi.mock("@/lib/sync-service", () => ({
-  collectChangesSince: vi.fn(),
-  upsertSyncDevice: vi.fn(),
-}));
+vi.mock("@/lib/sync-service", async (importOriginal) => {
+  const mod = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...mod, // sanitizeDeviceId / sanitizeDeviceName 走真实实现
+    collectChangesSince: vi.fn(),
+    upsertSyncDevice: vi.fn(),
+  };
+});
 
 import { currentUserId } from "@/lib/session";
 import { pgPool } from "@/lib/db";
@@ -53,5 +57,22 @@ describe("GET /api/sync/pull", () => {
     collectMock.mockResolvedValue([] as never);
     await GET(new Request("http://localhost/api/sync/pull?since=not-a-date"));
     expect(collectMock).toHaveBeenCalledWith(expect.anything(), "u-1", new Date(0));
+  });
+
+  it("sanitizes a malformed deviceId before upserting the device", async () => {
+    currentUserIdMock.mockResolvedValue("u-1");
+    connectMock.mockResolvedValue({ query: vi.fn().mockResolvedValue({ rows: [{ now: "x" }] }), release: vi.fn() } as never);
+    collectMock.mockResolvedValue([] as never);
+    await GET(new Request("http://localhost/api/sync/pull?deviceId=bad%20id!!"));
+    expect(upsertMock).toHaveBeenCalledWith(expect.anything(), "u-1", "unknown", null);
+  });
+
+  it("truncates an over-long deviceName to 50 chars", async () => {
+    currentUserIdMock.mockResolvedValue("u-1");
+    connectMock.mockResolvedValue({ query: vi.fn().mockResolvedValue({ rows: [{ now: "x" }] }), release: vi.fn() } as never);
+    collectMock.mockResolvedValue([] as never);
+    const longName = "x".repeat(80);
+    await GET(new Request(`http://localhost/api/sync/pull?deviceId=dev-1&deviceName=${longName}`));
+    expect(upsertMock).toHaveBeenCalledWith(expect.anything(), "u-1", "dev-1", "x".repeat(50));
   });
 });

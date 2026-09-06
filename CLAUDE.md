@@ -27,3 +27,4 @@
 - `pnpm -F web build` (Next 16 + Turbopack; `pnpm -r test` runs all workspaces)
 - `pnpm test:e2e` — Playwright against a running server (`E2E_BASE_URL`, credentials via env)
 - Deploy: `bash deploy-docker.sh` (Docker compose db+init+web) or `bash deploy.sh` (PM2); prod at `106.55.2.197`, domain `https://learn.yuanabd.cn`.
+- Daily pipeline: host crontab → `POST /api/internal/cron?job=crawl|aggregate|maintenance` (auth `x-cron-secret` = env `CRON_SECRET`); user-facing market/public-stats read pre-aggregated snapshots, crawlers are batch-only (admin trigger is fallback).

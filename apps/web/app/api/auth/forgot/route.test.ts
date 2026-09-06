@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("@/lib/db", () => ({ pgPool: { query: vi.fn() } }));
 vi.mock("@/lib/http", () => ({
   parseBody: vi.fn(async (req: Request) => ({ ok: true, data: await req.json() })),
+  siteOrigin: vi.fn(() => "https://learn.yuanabd.cn"),
 }));
 vi.mock("@/lib/rate-limit", () => ({ rateLimit: vi.fn(() => ({ ok: true, retryAfterSeconds: 0 })) }));
 vi.mock("@/lib/auth", () => ({ clientIp: vi.fn(() => "1.2.3.4") }));
@@ -54,7 +55,9 @@ describe("POST /api/auth/forgot", () => {
     const insertCall = queryMock.mock.calls.find((c) => String(c[0]).includes("INSERT INTO password_reset_tokens"));
     expect(insertCall).toBeDefined();
     expect((insertCall![1] as unknown[])[1]).toBe("u-1");
-    expect(sendMock).toHaveBeenCalled();
+    // 链接域名走 siteOrigin（固定配置/代理头），不受请求方 Origin 头影响
+    const resetUrl = sendMock.mock.calls[0][1];
+    expect(resetUrl).toMatch(/^https:\/\/learn\.yuanabd\.cn\/login\?reset=/);
   });
 
   it("rejects invalid email format", async () => {

@@ -50,7 +50,7 @@ describe("SYNC_ENTITY_TYPES", () => {
 describe("applyChanges", () => {
   it("skips unknown entity types", async () => {
     const { client, query } = makeClient(() => ({ rows: [] }));
-    const applied = await applyChanges(client, "u-1", [
+    const { applied } = await applyChanges(client, "u-1", [
       change({ entityType: "unknown", entityId: "x" }),
     ]);
     expect(applied).toBe(0);
@@ -59,7 +59,7 @@ describe("applyChanges", () => {
 
   it("ignores progress with a non-numeric entity id", async () => {
     const { client, query } = makeClient(() => ({ rows: [] }));
-    const applied = await applyChanges(client, "u-1", [
+    const { applied } = await applyChanges(client, "u-1", [
       change({ entityType: "progress", entityId: "abc" }),
     ]);
     expect(applied).toBe(0);
@@ -68,7 +68,7 @@ describe("applyChanges", () => {
 
   it("rejects checkins with an invalid date entity id", async () => {
     const { client, query } = makeClient(() => ({ rows: [] }));
-    const applied = await applyChanges(client, "u-1", [
+    const { applied } = await applyChanges(client, "u-1", [
       change({ entityType: "checkins", entityId: "2026/08/13" }),
     ]);
     expect(applied).toBe(0);
@@ -79,7 +79,7 @@ describe("applyChanges", () => {
     const { client, query } = makeClient((sql) =>
       sql.includes("SELECT updated_at, deleted_at FROM topic_progress") ? { rows: [] } : { rows: [] }
     );
-    const applied = await applyChanges(client, "u-1", [
+    const { applied } = await applyChanges(client, "u-1", [
       change({
         entityType: "progress",
         entityId: "42",
@@ -98,7 +98,7 @@ describe("applyChanges", () => {
         ? { rows: [{ updated_at: new Date(LATER), deleted_at: null }] }
         : { rows: [] }
     );
-    const applied = await applyChanges(client, "u-1", [
+    const { applied } = await applyChanges(client, "u-1", [
       change({ entityType: "progress", entityId: "42", payload: { done: true, note: null } }),
     ]);
     expect(applied).toBe(1);
@@ -119,7 +119,7 @@ describe("applyChanges", () => {
 
   it("soft-deletes progress (DELETE)", async () => {
     const { client, query } = makeClient(() => ({ rows: [] }));
-    const applied = await applyChanges(client, "u-1", [
+    const { applied } = await applyChanges(client, "u-1", [
       change({ entityType: "progress", entityId: "7", operation: "DELETE" }),
     ]);
     expect(applied).toBe(1);
@@ -130,7 +130,7 @@ describe("applyChanges", () => {
 
   it("inserts tasks with defaulted fields and careerKey", async () => {
     const { client, query } = makeClient(() => ({ rows: [] }));
-    const applied = await applyChanges(client, "u-1", [
+    const { applied } = await applyChanges(client, "u-1", [
       change({
         entityType: "tasks",
         entityId: "c-1",
@@ -146,7 +146,7 @@ describe("applyChanges", () => {
 
   it("rejects tasks without a client id", async () => {
     const { client, query } = makeClient(() => ({ rows: [] }));
-    const applied = await applyChanges(client, "u-1", [
+    const { applied } = await applyChanges(client, "u-1", [
       change({ entityType: "tasks", entityId: "" }),
     ]);
     expect(applied).toBe(0);
@@ -155,7 +155,7 @@ describe("applyChanges", () => {
 
   it("inserts sessions with startedAt fallback", async () => {
     const { client, query } = makeClient(() => ({ rows: [] }));
-    const applied = await applyChanges(client, "u-1", [
+    const { applied } = await applyChanges(client, "u-1", [
       change({ entityType: "sessions", entityId: "c-s1", payload: { durationSeconds: 1500 } }),
     ]);
     expect(applied).toBe(1);
@@ -235,7 +235,7 @@ describe("applyChanges", () => {
 
   it("soft-deletes exerciseLogs by client id", async () => {
     const { client, query } = makeClient(() => ({ rows: [{ id: 9, updated_at: new Date(EARLIER), deleted_at: null }] }));
-    const applied = await applyChanges(client, "u-1", [
+    const { applied } = await applyChanges(client, "u-1", [
       change({ entityType: "exerciseLogs", entityId: "c-sp3", operation: "DELETE" }),
     ]);
     expect(applied).toBe(1);
@@ -251,7 +251,7 @@ describe("applyChanges", () => {
     });
     const client = { query } as unknown as PoolClient;
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const applied = await applyChanges(client, "u-1", [
+    const { applied } = await applyChanges(client, "u-1", [
       change({ entityType: "progress", entityId: "1", payload: { done: true } }),
       change({ entityType: "progress", entityId: "2", payload: { done: true } }),
     ]);
@@ -434,7 +434,7 @@ describe("B5 幂等键 (changeId)", () => {
     const { client, query } = makeClient((sql) =>
       sql.includes("FROM sync_changes") ? { rows: [{ "?column?": 1 }] } : { rows: [] }
     );
-    const applied = await applyChanges(client, "u-1", [
+    const { applied } = await applyChanges(client, "u-1", [
       change({ entityType: "tasks", entityId: "c-1", changeId: "chg-1" }),
     ]);
     expect(applied).toBe(0);

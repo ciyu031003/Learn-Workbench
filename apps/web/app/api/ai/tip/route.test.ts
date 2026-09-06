@@ -8,6 +8,8 @@ vi.mock("@learn-workbench/shared", async (importOriginal) => {
 });
 import { pgPool } from "@/lib/db";
 import { userScope, scopeWhere } from "@/lib/anon";
+import { resetDailyCache } from "@/lib/daily-cache";
+import { resetRateLimits } from "@/lib/rate-limit";
 import { GET } from "./route";
 
 const queryMock = vi.mocked(pgPool.query);
@@ -20,6 +22,8 @@ vi.stubGlobal("fetch", fetchMock);
 beforeEach(() => {
   vi.resetAllMocks();
   vi.unstubAllEnvs();
+  resetDailyCache();
+  resetRateLimits();
   scopeWhereMock.mockImplementation((_scope, base) => ({ params: base as unknown[], sql: "" }));
   queryMock.mockResolvedValue({ rows: [{ total: 3, done: 1, seconds: 3600 }] } as never);
 });
@@ -59,6 +63,35 @@ describe("GET /api/ai/tip", () => {
     expect(payload.model).toBe("gpt-4o-mini");
     expect(payload.messages[0].content).toContain("任务 1/3 完成");
     expect(payload.messages[0].content).toContain("专注 60 分钟");
+  });
+
+  it("serves the cached tip for the same user+day without calling upstream again", async () => {
+    vi.stubEnv("AI_API_KEY", "sk-test");
+    userScopeMock.mockResolvedValue({ uid: "u-1", anonId: null });
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: "先啃最难的那件" } }] }),
+    });
+    const first = await GET();
+    expect(first.status).toBe(200);
+    expect((await first.json()).cached).toBeUndefined();
+
+    const second = await GET();
+    expect(second.status).toBe(200);
+    const body = await second.json();
+    expect(body.tip).toBe("先啃最难的那件");
+    expect(body.cached).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1); // 第二次不再调用上游
+  });
+
+  it("returns 429 when a user exceeds the per-minute quota", async () => {
+    vi.stubEnv("AI_API_KEY", "sk-test");
+    userScopeMock.mockResolvedValue({ uid: "u-2", anonId: null });
+    fetchMock.mockResolvedValue({ ok: false, status: 500 }); // 每次都失败 → 不写缓存
+    let res: Response | undefined;
+    for (let i = 0; i < 11; i++) res = await GET();
+    expect(res!.status).toBe(429);
+    expect(await res!.json()).toMatchObject({ error: "请求过于频繁，请稍后再试" });
   });
 
   it("maps upstream failure to 502", async () => {

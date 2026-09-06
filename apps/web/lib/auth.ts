@@ -6,10 +6,17 @@ import { getAnonId } from "@/lib/anon";
  * P0 安全加固：管理员鉴权 + 登录防爆破 + 匿名数据设备化认领
  * ==========================================================================*/
 
-/** 从代理头解析客户端 IP（nginx 反代场景） */
+/**
+ * 从代理头解析客户端 IP（nginx 反代场景）。
+ * nginx `$proxy_add_x_forwarded_for` 是追加式：前面的段都是客户端可伪造的自报值，
+ * 只有最后一段才是代理追加的可信地址——取第一段会让按 IP 的限流/审计被伪造头绕过。
+ */
 export function clientIp(req: Request): string {
   const xff = req.headers.get("x-forwarded-for");
-  if (xff) return xff.split(",")[0]?.trim() || "";
+  if (xff) {
+    const parts = xff.split(",").map((s) => s.trim()).filter(Boolean);
+    if (parts.length > 0) return parts[parts.length - 1];
+  }
   return req.headers.get("x-real-ip") || "unknown";
 }
 

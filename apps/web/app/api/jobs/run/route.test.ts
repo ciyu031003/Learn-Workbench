@@ -34,7 +34,7 @@ const spawnDetachedMock = vi.mocked(spawnDetached);
 function happy() {
   currentUserIdMock.mockResolvedValue("u-1");
   isAdminMock.mockResolvedValue(true);
-  rateLimitMock.mockReturnValue({ ok: true, retryAfterSeconds: 0 });
+  rateLimitMock.mockResolvedValue({ ok: true, retryAfterSeconds: 0 });
   findRepoRootMock.mockReturnValue("/repo");
   baseEnvMock.mockReturnValue({});
   acquireLockMock.mockResolvedValue({ acquired: true, runId: 1 } as never);
@@ -63,7 +63,7 @@ describe("POST /api/jobs/run", () => {
 
   it("returns 429 when rate limited", async () => {
     happy();
-    rateLimitMock.mockReturnValue({ ok: false, retryAfterSeconds: 30 });
+    rateLimitMock.mockResolvedValue({ ok: false, retryAfterSeconds: 30 });
     const res = await POST(jsonReq({}));
     expect(res.status).toBe(429);
     expect((await res.json()).retryAfter).toBe(30);

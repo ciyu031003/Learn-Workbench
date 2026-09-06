@@ -247,6 +247,19 @@ describe("clearPendingChanges / setLastSyncedAt / resetAll", () => {
     expect(useAppStore.getState().pendingChanges).toEqual([]);
   });
 
+  it("removes only the sent batch when one is passed (batched push)", () => {
+    const s = useAppStore.getState();
+    s.toggleTopic(1);
+    s.toggleTopic(2);
+    const pending = useAppStore.getState().pendingChanges;
+    expect(pending.length).toBe(2);
+    s.clearPendingChanges([pending[0]]);
+    const rest = useAppStore.getState().pendingChanges;
+    expect(rest).toHaveLength(1);
+    expect(rest).not.toContain(pending[0]);
+    expect(rest).toContain(pending[1]);
+  });
+
   it("sets lastSyncedAt", () => {
     useAppStore.getState().setLastSyncedAt("2026-08-13T10:00:00.000Z");
     expect(useAppStore.getState().lastSyncedAt).toBe("2026-08-13T10:00:00.000Z");

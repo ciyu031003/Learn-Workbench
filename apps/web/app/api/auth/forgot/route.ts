@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
 import { pgPool } from "@/lib/db";
-import { parseBody } from "@/lib/http";
+import { parseBody, siteOrigin } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
 import { clientIp } from "@/lib/auth";
 import { isEmailSendingConfigured, sendResetEmail } from "@/lib/wechat";
@@ -11,7 +11,7 @@ import { isEmailSendingConfigured, sendResetEmail } from "@/lib/wechat";
  * 实际发信依赖 EMAIL_API_KEY（Resend）；未配置时返回 ok:false + reason，前端给引导文案。
  */
 export async function POST(req: Request) {
-  const throttle = rateLimit(`forgot:${clientIp(req)}`, { limit: 5, windowMs: 60 * 60_000 });
+  const throttle = await rateLimit(`forgot:${clientIp(req)}`, { limit: 5, windowMs: 60 * 60_000 });
   if (!throttle.ok) {
     return NextResponse.json({ error: "请求过于频繁，请稍后再试" }, { status: 429 });
   }
@@ -36,8 +36,8 @@ export async function POST(req: Request) {
       "INSERT INTO password_reset_tokens (token, user_id, expires_at) VALUES ($1, $2, now() + interval '30 minutes')",
       [token, rows[0].id]
     );
-    const origin = new URL(req.headers.get("origin") ?? req.url).origin;
-    await sendResetEmail(email, `${origin}/login?reset=${token}`);
+    // P0：链接域名走固定配置/代理头（siteOrigin），不再信任 Origin 头，防重置链接投毒
+    await sendResetEmail(email, `${siteOrigin(req)}/login?reset=${token}`);
   }
   return NextResponse.json({ ok: true });
 }

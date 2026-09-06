@@ -18,7 +18,7 @@ const COOKIE_SECURE = process.env.NODE_ENV === "production";
 export async function POST(req: Request) {
   // 第一道防线：按 IP 限流（进程内，单实例有效）
   const ip = clientIp(req);
-  const throttle = rateLimit(`login:${ip}`, { limit: 20, windowMs: 60_000 });
+  const throttle = await rateLimit(`login:${ip}`, { limit: 20, windowMs: 60_000 });
   if (!throttle.ok) {
     return NextResponse.json(
       { error: "尝试过于频繁，请稍后再试", retryAfter: throttle.retryAfterSeconds },
@@ -33,6 +33,15 @@ export async function POST(req: Request) {
   const password = String(body.password ?? "");
   if (!username || !password) {
     return NextResponse.json({ error: "请输入账号和密码" }, { status: 400 });
+  }
+
+  // 第二道防线：按用户名限流（单账号爆破收紧；伪造 XFF 绕过 IP 限流时仍然生效）
+  const userThrottle = await rateLimit(`login-user:${username}`, { limit: 10, windowMs: 60_000 });
+  if (!userThrottle.ok) {
+    return NextResponse.json(
+      { error: "尝试过于频繁，请稍后再试", retryAfter: userThrottle.retryAfterSeconds },
+      { status: 429 }
+    );
   }
 
   const { rows } = await pgPool.query(

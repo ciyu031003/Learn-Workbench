@@ -36,7 +36,10 @@ export const SYNC_ENTITY_TYPES = [
 
 function atOf(c: SyncChange): Date {
   const d = new Date(c.updatedAt);
-  return isNaN(d.getTime()) ? new Date() : d;
+  const t = isNaN(d.getTime()) ? Date.now() : d.getTime();
+  // 钳制未来时间戳：客户端时钟漂移/恶意超前会污染 LWW 排序（远端新数据被判"更旧"而丢失）
+  const maxT = Date.now() + 5 * 60_000;
+  return new Date(Math.min(t, maxT));
 }
 
 function newer(a: Date | null | undefined, b: Date): boolean {
@@ -317,8 +320,23 @@ const APPLIERS: Record<string, (client: PoolClient, uid: string, c: SyncChange, 
   exerciseLogs: applyExerciseLogs,
 };
 
-export async function applyChanges(client: PoolClient, uid: string, changes: SyncChange[]): Promise<number> {
+const DEVICE_ID_RE = /^[a-zA-Z0-9_-]{1,64}$/;
+
+/** 设备标识白名单校验（push/pull 共用，防伪造超长脏数据写入 sync_devices） */
+export function sanitizeDeviceId(raw: string, fallback: string): string {
+  return DEVICE_ID_RE.test(raw) ? raw : fallback;
+}
+
+/** 设备名截断（push/pull 共用） */
+export function sanitizeDeviceName(raw: string | null | undefined): string | null {
+  return typeof raw === "string" ? raw.slice(0, 50) : null;
+}
+
+export async function applyChanges(
+  client: PoolClient, uid: string, changes: SyncChange[]
+): Promise<{ applied: number; okChanges: SyncChange[] }> {
   let applied = 0;
+  const okChanges: SyncChange[] = [];
   for (const c of changes) {
     const fn = APPLIERS[c.entityType];
     if (!fn) continue;
@@ -332,12 +350,15 @@ export async function applyChanges(client: PoolClient, uid: string, changes: Syn
     }
     try {
       const ok = await fn(client, uid, c, atOf(c));
-      if (ok) applied++;
+      if (ok) {
+        applied++;
+        okChanges.push(c);
+      }
     } catch (e) {
       logger.error("[sync] apply failed", c.entityType, c.entityId, e);
     }
   }
-  return applied;
+  return { applied, okChanges };
 }
 
 // ---------------- collect (pull) ----------------
@@ -472,16 +493,16 @@ export async function recordSyncChanges(
     if (c.changeId) {
       // B5 幂等：重复推送不重复记录审计日志
       await client.query(
-        `INSERT INTO sync_changes (user_id, device_id, entity_type, entity_id, operation, version, payload, created_at, change_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        `INSERT INTO sync_changes (user_id, device_id, entity_type, entity_id, operation, version, payload, created_at, synced_at, change_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now(), $9)
          ON CONFLICT (user_id, change_id) WHERE change_id IS NOT NULL DO NOTHING`,
         [uid, deviceId, c.entityType, c.entityId, c.operation, c.version, c.payload ? JSON.stringify(c.payload) : null, new Date(c.updatedAt), c.changeId]
       );
       continue;
     }
     await client.query(
-      `INSERT INTO sync_changes (user_id, device_id, entity_type, entity_id, operation, version, payload, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      `INSERT INTO sync_changes (user_id, device_id, entity_type, entity_id, operation, version, payload, created_at, synced_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())`,
       [uid, deviceId, c.entityType, c.entityId, c.operation, c.version, c.payload ? JSON.stringify(c.payload) : null, new Date(c.updatedAt)]
     );
   }

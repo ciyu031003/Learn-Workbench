@@ -27,6 +27,9 @@
 #    PG_PASSWORD=<自动生成>  PostgreSQL 密码
 #    ADMIN_USERNAME=admin   管理员用户名
 #    ADMIN_PASSWORD=<自动生成> 管理员密码
+#    CRON_SECRET=<自动生成>  内部 cron 触发密钥（/api/internal/cron）
+#    WEB_BASE_URL=<可选>     对外站点地址（邮件链接/微信回跳）
+#    SETUP_JOBS_CRON=1      是否添加每日爬虫/聚合/维护 crontab（0/1）
 # =============================================================================
 set -euo pipefail
 
@@ -37,6 +40,9 @@ APP_PORT="${APP_PORT:-3001}"
 PG_PASSWORD="${PG_PASSWORD:-}"
 ADMIN_USERNAME="${ADMIN_USERNAME:-admin}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-}"
+CRON_SECRET="${CRON_SECRET:-}"
+WEB_BASE_URL="${WEB_BASE_URL:-}"
+SETUP_JOBS_CRON="${SETUP_JOBS_CRON:-1}"
 NPM_REGISTRY="${NPM_REGISTRY:-https://registry.npmmirror.com}"
 
 # ---------------------------------------------------------------- 工具函数
@@ -102,12 +108,18 @@ if [ -z "$ADMIN_PASSWORD" ]; then
   ADMIN_PASSWORD="$(gen_password)"
   info "已生成管理员密码（见 deploy-credentials.txt）"
 fi
+if [ -z "$CRON_SECRET" ]; then
+  CRON_SECRET="$(gen_password)$(gen_password)"
+  info "已生成内部 cron 触发密钥 CRON_SECRET"
+fi
 
 # ---------------------------------------------------------------- 写入 .env
 cat > .env << EOF
 # 由 deploy-docker.sh 自动生成，请勿提交到 Git（已在 .gitignore 中）
 PG_PASSWORD=$PG_PASSWORD
 APP_PORT=$APP_PORT
+CRON_SECRET=$CRON_SECRET
+WEB_BASE_URL=$WEB_BASE_URL
 NPM_REGISTRY=$NPM_REGISTRY
 EOF
 chmod 600 .env
@@ -158,6 +170,22 @@ else
   } > "$CRED_FILE"
   chmod 600 "$CRED_FILE"
   info "管理员账号创建完成，凭据已保存到 deploy-credentials.txt（权限 600）"
+fi
+
+# ---------------------------------------------------------------- 每日爬虫管线 crontab
+# 服务器统一批处理：04:30 抓取（幂等，当天已成功自动跳过）→ 05:40 预聚合 → 06:10 维护
+# 宿主机 crontab 通过映射端口触发容器内 /api/internal/cron（x-cron-secret 鉴权）
+if [ "$SETUP_JOBS_CRON" = "1" ] && command -v crontab >/dev/null 2>&1; then
+  info "添加每日爬虫/聚合/维护 crontab（04:30 / 05:40 / 06:10）..."
+  CRON_URL="http://127.0.0.1:${APP_PORT}/api/internal/cron"
+  ( crontab -l 2>/dev/null | grep -v "api/internal/cron"; \
+    echo "30 4 * * * flock -n /tmp/lwb-cron-crawl.lock curl -fsS -m 60 -X POST -H 'x-cron-secret: ${CRON_SECRET}' '${CRON_URL}?job=crawl' >> $ROOT/cron-jobs.log 2>&1 || true"; \
+    echo "30 12 * * * flock -n /tmp/lwb-cron-crawl.lock curl -fsS -m 60 -X POST -H 'x-cron-secret: ${CRON_SECRET}' '${CRON_URL}?job=crawl' >> $ROOT/cron-jobs.log 2>&1 || true"; \
+    echo "40 5 * * * flock -n /tmp/lwb-cron-agg.lock curl -fsS -m 300 -X POST -H 'x-cron-secret: ${CRON_SECRET}' '${CRON_URL}?job=aggregate' >> $ROOT/cron-jobs.log 2>&1 || true"; \
+    echo "10 6 * * * flock -n /tmp/lwb-cron-maint.lock curl -fsS -m 120 -X POST -H 'x-cron-secret: ${CRON_SECRET}' '${CRON_URL}?job=maintenance' >> $ROOT/cron-jobs.log 2>&1 || true" ) | crontab -
+  info "crontab 已配置（每日爬虫管线）"
+elif [ "$SETUP_JOBS_CRON" = "1" ]; then
+  warn "未检测到 crontab 命令，跳过每日爬虫管线配置（请手动配置）"
 fi
 
 # ---------------------------------------------------------------- 汇总

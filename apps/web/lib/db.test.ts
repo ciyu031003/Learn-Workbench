@@ -22,6 +22,8 @@ afterEach(() => {
   delete process.env.PGDATABASE;
   delete process.env.PGUSER;
   delete process.env.PGPASSWORD;
+  delete process.env.PGPOOL_MAX;
+  delete process.env.PG_STATEMENT_TIMEOUT_MS;
 });
 
 describe("lib/db", () => {
@@ -38,8 +40,10 @@ describe("lib/db", () => {
       port: 5432,
       database: "Learn-Workbench",
       user: "postgres",
-      max: 10,
+      max: 20,
+      idleTimeoutMillis: 30_000,
       connectionTimeoutMillis: 5000,
+      statement_timeout: 15_000,
     });
     expect(mod.pgPool).toBe(poolMock.mock.results[0].value);
   });
@@ -56,11 +60,22 @@ describe("lib/db", () => {
       port: 5433,
       database: "other",
       user: "admin",
-      max: 10,
+      max: 20,
+      idleTimeoutMillis: 30_000,
       connectionTimeoutMillis: 5000,
+      statement_timeout: 15_000,
       password: "secret",
     });
     expect(pgPool).toBeDefined();
+  });
+
+  it("honours PGPOOL_MAX and PG_STATEMENT_TIMEOUT_MS overrides", async () => {
+    process.env.PGPOOL_MAX = "40";
+    process.env.PG_STATEMENT_TIMEOUT_MS = "30000";
+    await import("@/lib/db");
+    const cfg = poolMock.mock.calls[0][0];
+    expect(cfg.max).toBe(40);
+    expect(cfg.statement_timeout).toBe(30_000);
   });
 
   it("does not include password when PGPASSWORD is unset", async () => {

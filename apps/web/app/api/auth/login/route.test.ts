@@ -13,6 +13,7 @@ import { pgPool } from "@/lib/db";
 import { verifyPassword, needsRehash } from "@/lib/password";
 import { createSession } from "@/lib/session";
 import { getAnonId } from "@/lib/anon";
+import { resetRateLimits } from "@/lib/rate-limit";
 import { POST } from "./route";
 
 const queryMock = vi.mocked(pgPool.query);
@@ -37,6 +38,7 @@ function post(body: unknown) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  resetRateLimits();
   needsRehashMock.mockReturnValue(false);
 });
 
@@ -53,6 +55,17 @@ describe("POST /api/auth/login", () => {
     const res = await post({ username: "alice", password: "bad" });
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({ error: "账号或密码错误" });
+  });
+
+  it("returns 429 when the same username exceeds the username throttle", async () => {
+    queryMock.mockResolvedValue({ rows: [] } as never);
+    verifyMock.mockReturnValue(Promise.resolve(false) as never);
+    let res: Response | undefined;
+    for (let i = 0; i < 11; i++) {
+      res = await post({ username: "bruteforce", password: "bad" });
+    }
+    expect(res!.status).toBe(429);
+    expect(await res!.json()).toMatchObject({ error: "尝试过于频繁，请稍后再试" });
   });
 
   it("returns 429 when account is locked after too many failures", async () => {

@@ -123,7 +123,8 @@ interface AppState {
   importLegacySports: (records: { sportKey: string; minutes: number; createdAt: string }[]) => void;
 
   applyRemoteChanges: (changes: SyncChange[]) => void;
-  clearPendingChanges: () => void;
+  /** 清空推送队列；传入本批已成功推送的变更时按引用/幂等键精确移除（分批推送用） */
+  clearPendingChanges: (sent?: PendingChange[]) => void;
   setLastSyncedAt: (t: string | null) => void;
   setAiTip: (text: string) => void;
 }
@@ -656,7 +657,20 @@ export const useAppStore = create<AppState>()(
           return { progress, tasks, logs, sessions, checkins, github, customTopics, sports };
         }),
 
-      clearPendingChanges: () => set({ pendingChanges: [] }),
+      clearPendingChanges: (sent) => {
+        if (!sent) {
+          set({ pendingChanges: [] });
+          return;
+        }
+        // 按引用或幂等键精确移除本批，期间用户新增的变更保留
+        const sentRefs = new Set(sent);
+        const sentIds = new Set(sent.map((c) => c.changeId).filter(Boolean) as string[]);
+        set((state) => ({
+          pendingChanges: state.pendingChanges.filter(
+            (c) => !sentRefs.has(c) && !(c.changeId && sentIds.has(c.changeId))
+          ),
+        }));
+      },
       setLastSyncedAt: (t) => set({ lastSyncedAt: t }),
       setAiTip: (text) => set({ aiTip: { date: todayISO(), text } }),
     }),

@@ -26,3 +26,18 @@ export async function parseBody(req: Request, maxBytes = 1_000_000): Promise<Bod
     return { ok: false, status: 400, error: "JSON 解析失败" };
   }
 }
+
+/**
+ * 站点对外 origin（拼邮件链接/回跳地址用）：
+ * 优先固定配置 WEB_BASE_URL，其次代理头（x-forwarded-host/proto，nginx 传递的 Host），
+ * 最后回退请求 URL。绝不读取 Origin 头——它可被请求方任意指定，
+ * 用它拼密码重置链接会导致链接投毒（token 外泄到攻击者域）。
+ */
+export function siteOrigin(req: Request): string {
+  const configured = process.env.WEB_BASE_URL?.trim().replace(/\/$/, "");
+  if (configured) return configured;
+  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
+  const proto = req.headers.get("x-forwarded-proto") ?? new URL(req.url).protocol.replace(":", "");
+  if (host) return `${proto}://${host}`;
+  return new URL(req.url).origin;
+}
