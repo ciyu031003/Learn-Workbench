@@ -25,7 +25,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Card } from "@/components/card";
 import { JobDetailModal } from "@/components/job-detail-modal";
-import { radius } from "@/theme/tokens";
+import { radius, shadows } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import {
@@ -150,7 +150,7 @@ function FreshnessBadge({ job }: { job: JobPostingListItem }) {
         ? "rgba(245,158,11,0.16)"
         : f.level === "stale"
           ? "rgba(239,68,68,0.14)"
-          : "rgba(24,24,27,0.06)";
+          : colors.surfaceMuted;
   return (
     <View style={[styles.freshBadge, { backgroundColor: bg }]}>
       <Text style={[styles.freshText, { color }]}>{f.emoji} {f.label}</Text>
@@ -252,6 +252,15 @@ const SALARY_PRESETS = [
   { label: "10-20K", min: 10, max: 20 },
   { label: "20-30K", min: 20, max: 30 },
   { label: "30K 以上", min: 30, max: null },
+] as const;
+
+const GEAR_MENU = [
+  { key: "market", title: "市场分析", desc: "城市 · 薪资 · 技能热度", icon: "trending-up-outline" as const, href: "/market" },
+  { key: "applications", title: "我的求职", desc: "收藏 → Offer 全流程", icon: "briefcase-outline" as const, href: "/applications" },
+  { key: "resume", title: "简历", desc: "技能 · 项目 · GitHub · 证书", icon: "document-text-outline" as const, href: "/resume" },
+  { key: "interview", title: "面试流程", desc: "题库刷题 · 模拟面试", icon: "chatbubbles-outline" as const, href: "/interview" },
+  { key: "career", title: "职业画像", desc: "准备度 · 技能树", icon: "git-branch-outline" as const, href: "/career" },
+  { key: "settings", title: "设置", desc: "账号 · 主题 · 同步", icon: "settings-outline" as const, href: "/settings" },
 ] as const;
 const EDU_OPTIONS = ["大专", "本科", "硕士", "博士"];
 const EXP_OPTIONS = ["应届", "1-3年", "3-5年", "5-10年", "10年以上"];
@@ -443,6 +452,7 @@ export default function JobsScreen() {
   const [sort, setSort] = useState<"new" | "salary">("new");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [detailVisible, setDetailVisible] = useState(false);
+  const [moreVisible, setMoreVisible] = useState(false);
   // P1 多条件筛选（Bottom Sheet）
   const [filterVisible, setFilterVisible] = useState(false);
   const [salaryMin, setSalaryMin] = useState<number | null>(null);
@@ -597,7 +607,7 @@ export default function JobsScreen() {
           <Text style={styles.heroTitle}>招花</Text>
           <Text style={styles.heroSub}>让每一次机会，都像花一样准时绽放</Text>
         </View>
-        <GearButton onPress={() => router.push("/settings")} />
+        <GearButton onPress={() => setMoreVisible(true)} />
       </View>
 
       <View style={styles.statsRow}>
@@ -784,6 +794,32 @@ export default function JobsScreen() {
         onApply={() => { setFilterVisible(false); loadJobs(1, "refresh"); }}
         onClose={() => setFilterVisible(false)}
       />
+
+      <Modal visible={moreVisible} transparent animationType="fade" onRequestClose={() => setMoreVisible(false)}>
+        <Pressable style={styles.menuScrim} onPress={() => setMoreVisible(false)}>
+          <View style={[styles.menuPanel, { top: insets.top + 58 }]}>
+            {GEAR_MENU.map((item) => (
+              <Pressable
+                key={item.key}
+                style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
+                onPress={() => {
+                  setMoreVisible(false);
+                  router.push(item.href as never);
+                }}
+              >
+                <View style={styles.menuIcon}>
+                  <ThemedIcon name={item.icon} size={18} color={colors.primary} />
+                </View>
+                <View style={styles.menuTextWrap}>
+                  <Text style={styles.menuTitle}>{item.title}</Text>
+                  <Text style={styles.menuDesc}>{item.desc}</Text>
+                </View>
+                <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
+              </Pressable>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -817,6 +853,43 @@ const makeStyles = (colors: ThemeColors) =>
     shadowOffset: { width: 0, height: 5 },
     elevation: 2,
   },
+  menuScrim: {
+    flex: 1,
+    backgroundColor: colors.scrim,
+    alignItems: "flex-end",
+    paddingRight: 18,
+  },
+  menuPanel: {
+    position: "absolute",
+    right: 18,
+    width: 272,
+    backgroundColor: colors.surfaceStrong,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    paddingVertical: 6,
+    ...shadows.floating,
+    overflow: "hidden",
+  },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+  },
+  menuItemPressed: { backgroundColor: colors.surfaceMuted },
+  menuIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.primarySoft,
+  },
+  menuTextWrap: { flex: 1, minWidth: 0 },
+  menuTitle: { fontSize: 14, fontWeight: "800", color: colors.text },
+  menuDesc: { fontSize: 11, color: colors.textMuted, marginTop: 1 },
   statsRow: { flexDirection: "row", gap: 8, marginBottom: 4 },
   statCard: { flex: 1, padding: 12, gap: 4 },
   statValue: { fontSize: 20, fontWeight: "900", color: colors.text },
@@ -1021,7 +1094,7 @@ const makeStyles = (colors: ThemeColors) =>
   // ---- P1 筛选 Bottom Sheet ----
   sheetWrap: { flex: 1, justifyContent: "flex-end" },
   sheet: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0, padding: 18, gap: 14, maxHeight: "80%" },
-  grabber: { width: 40, height: 4, borderRadius: 2, backgroundColor: "rgba(24,24,27,0.15)", alignSelf: "center", marginBottom: 4 },
+  grabber: { width: 40, height: 4, borderRadius: 2, backgroundColor: colors.borderStrong, alignSelf: "center", marginBottom: 4 },
   sheetHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   sheetTitle: { fontSize: 17, fontWeight: "800", color: colors.text },
   sheetReset: { fontSize: 13, fontWeight: "700", color: "#10b981" },
@@ -1029,7 +1102,7 @@ const makeStyles = (colors: ThemeColors) =>
   chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   sheetChip: { borderRadius: 999, paddingHorizontal: 13, paddingVertical: 7 },
   sheetChipActive: { backgroundColor: "#10b981" },
-  sheetChipIdle: { backgroundColor: "rgba(24,24,27,0.06)", borderWidth: 1, borderColor: "rgba(24,24,27,0.12)" },
+  sheetChipIdle: { backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.borderStrong },
   sheetChipText: { fontSize: 12.5, fontWeight: "700", color: colors.textMuted },
   sheetChipTextActive: { fontSize: 12.5, fontWeight: "800", color: "#ffffff" },
   skillInputRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 6 },
@@ -1038,7 +1111,7 @@ const makeStyles = (colors: ThemeColors) =>
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: "rgba(24,24,27,0.05)",
+    backgroundColor: colors.surfaceMuted,
     fontSize: 13,
     color: colors.text,
   },

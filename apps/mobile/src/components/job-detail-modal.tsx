@@ -107,7 +107,7 @@ export function JobDetailModal({
         ? "rgba(245,158,11,0.16)"
         : freshness.level === "stale"
           ? "rgba(239,68,68,0.14)"
-          : "rgba(24,24,27,0.06)";
+          : colors.surfaceMuted;
 
   const popHeart = () => {
     heartScale.value = withSequence(withSpring(1.35, { damping: 10, stiffness: 260 }), withSpring(1));
@@ -312,7 +312,7 @@ const makeStyles = (colors: ThemeColors) =>
     width: 42,
     height: 5,
     borderRadius: 3,
-    backgroundColor: "rgba(24,24,27,0.18)",
+    backgroundColor: colors.borderStrong,
     marginBottom: 12,
   },
   header: {
@@ -387,7 +387,7 @@ const makeStyles = (colors: ThemeColors) =>
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    backgroundColor: "rgba(24,24,27,0.05)",
+    backgroundColor: colors.surfaceMuted,
     borderRadius: 9,
     paddingHorizontal: 9,
     paddingVertical: 5,
@@ -474,7 +474,7 @@ const makeStyles = (colors: ThemeColors) =>
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(24,24,27,0.10)",
+    borderTopColor: colors.borderStrong,
   },
   actionBtn: {
     flex: 1,
@@ -482,7 +482,7 @@ const makeStyles = (colors: ThemeColors) =>
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    backgroundColor: "rgba(24,24,27,0.05)",
+    backgroundColor: colors.surfaceMuted,
     borderRadius: 14,
     paddingVertical: 11,
   },
@@ -546,7 +546,7 @@ const makeStyles = (colors: ThemeColors) =>
     lineHeight: 18,
   },
   phaseBox: {
-    backgroundColor: "rgba(24,24,27,0.04)",
+    backgroundColor: colors.surfaceMuted,
     borderRadius: 11,
     paddingHorizontal: 10,
     paddingVertical: 8,

@@ -129,7 +129,7 @@ const makeStyles = (colors: ThemeColors) =>
   stageBadge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4, backgroundColor: "rgba(79,70,229,0.12)" },
   stageText: { fontSize: 10, fontWeight: "800", color: "#4338ca" },
   actions: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  stageChip: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4, backgroundColor: "rgba(24,24,27,0.05)", borderWidth: 1, borderColor: "rgba(24,24,27,0.10)" },
+  stageChip: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4, backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.borderStrong },
   stageChipActive: { backgroundColor: "#10b981", borderColor: "#10b981" },
   stageChipText: { fontSize: 10, fontWeight: "700", color: colors.textMuted },
   stageChipTextActive: { fontSize: 10, fontWeight: "800", color: "#ffffff" },

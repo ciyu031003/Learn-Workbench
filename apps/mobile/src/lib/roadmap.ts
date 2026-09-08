@@ -61,3 +61,17 @@ export async function reorderPhases(order: number[]): Promise<unknown> {
     body: { career: "ict", track: "main", order },
   });
 }
+
+export async function deletePhase(id: number): Promise<unknown> {
+  return request(`/api/roadmap/phases?id=${id}`, { method: "DELETE" });
+}
+
+export async function updatePhase(
+  id: number,
+  data: { title?: string; summary?: string | null; weeks?: string | null }
+): Promise<unknown> {
+  return request("/api/roadmap/phases", {
+    method: "PATCH",
+    body: { id, ...data },
+  });
+}

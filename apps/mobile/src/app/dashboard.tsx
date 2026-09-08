@@ -27,6 +27,7 @@ import { sportIconOf, sportColorsOf, sportAnimOf, sportSfOf } from "@/lib/sport-
 import { mainPhases, agentPhase } from "@learn-workbench/content";
 import { pct, formatDuration, taskTypeLabels, todayISO } from "@learn-workbench/shared";
 import { FocusTimer } from "@/components/focus-timer";
+import { TodayStack } from "@/components/today-stack";
 import { Card } from "@/components/card";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { Celebration } from "@/components/celebration";
@@ -41,48 +42,6 @@ import { fetchAiTip } from "@/lib/ai-tip";
 
 function useDailyQuote() {
   return useMemo(() => getDailyQuote(), []);
-}
-
-function FocusCard({ onStart }: { onStart: () => void }) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
-  const puff1 = useSharedValue(0);
-  const puff2 = useSharedValue(0);
-
-  const blob1 = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 + 0.16 * puff1.value }, { translateX: 14 * puff1.value }],
-    opacity: 0.62 + 0.2 * puff1.value,
-  }));
-  const blob2 = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 + 0.2 * puff2.value }, { translateX: -10 * puff2.value }],
-    opacity: 0.55 + 0.22 * puff2.value,
-  }));
-
-  useMemo(() => {
-    puff1.value = withRepeat(withTiming(1, { duration: 4200 }), -1, true);
-    puff2.value = withRepeat(withTiming(1, { duration: 5200 }), -1, true);
-    return () => {};
-  }, [puff1, puff2]);
-
-  return (
-    <View style={styles.focusCard}>
-      <View style={styles.focusBase} />
-      <Animated.View style={[styles.focusBlob1, blob1]} />
-      <Animated.View style={[styles.focusBlob2, blob2]} />
-      <View style={styles.focusContent}>
-        <View style={styles.focusEyebrowRow}>
-          <ThemedIcon name="sunny" size={14} color="rgba(255,255,255,0.9)" />
-          <Text style={styles.focusEyebrow}>今日焦点 · TODAY FOCUS</Text>
-        </View>
-        <Text style={styles.focusTitle}>深度学习《React 渲染优化》</Text>
-        <Text style={styles.focusSub}>25 分钟沉浸专注 · 从第一章第 3 节继续</Text>
-        <PressableScale style={styles.focusCta} haptic onPress={onStart}>
-          <ThemedIcon name="play" size={16} color="#2F74C0" />
-          <Text style={styles.focusCtaText}>开始专注</Text>
-        </PressableScale>
-      </View>
-    </View>
-  );
 }
 
 function SportIcon({
@@ -429,7 +388,7 @@ export default function DashboardScreen() {
           </View>
         </Animated.View>
 
-        <FocusCard onStart={() => setFocusOpen(true)} />
+        <TodayStack onStartFocus={() => setFocusOpen(true)} />
 
         <View style={styles.sectionTitleRow}>
           <Text style={styles.sectionTitle}>运动 · 健康</Text>
@@ -578,54 +537,11 @@ const makeStyles = (colors: ThemeColors) =>
     padding: 10,
     paddingRight: 12,
     borderRadius: radius.md,
-    backgroundColor: "rgba(255,255,255,0.6)",
+    backgroundColor: colors.surfaceMuted,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
   },
   quoteText: { flex: 1, fontSize: 13, lineHeight: 19, color: colors.textMuted },
-
-  focusCard: {
-    height: 168,
-    borderRadius: radius.xl,
-    overflow: "hidden",
-    ...shadows.floating,
-  },
-  focusBase: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "#2F74C0" },
-  focusBlob1: {
-    position: "absolute",
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    top: -40,
-    right: -20,
-    backgroundColor: "#F28C28",
-  },
-  focusBlob2: {
-    position: "absolute",
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    bottom: -40,
-    left: -30,
-    backgroundColor: "#5DAE74",
-  },
-  focusContent: { flex: 1, padding: 18, justifyContent: "space-between" },
-  focusEyebrowRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  focusEyebrow: { fontSize: 11, fontWeight: "800", letterSpacing: 0.4, color: "rgba(255,255,255,0.92)" },
-  focusTitle: { fontSize: 21, fontWeight: "800", color: "#fff", marginTop: 8 },
-  focusSub: { fontSize: 12, color: "rgba(255,255,255,0.85)", marginTop: 3 },
-  focusCta: {
-    alignSelf: "flex-start",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "#fff",
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    marginTop: 10,
-  },
-  focusCtaText: { color: "#2F74C0", fontSize: 13, fontWeight: "800" },
 
   sectionTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
   sectionTitle: { fontSize: 17, fontWeight: "800", color: colors.text },

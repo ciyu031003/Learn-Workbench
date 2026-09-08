@@ -2,7 +2,7 @@ import { useEffect , useMemo } from "react";
 import { Tabs, router, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
-import { StyleSheet, View, type OpaqueColorValue } from "react-native";
+import { Pressable, StyleSheet, View, type OpaqueColorValue } from "react-native";
 import * as ScreenOrientation from "expo-screen-orientation";
 import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, {
@@ -39,7 +39,7 @@ function TabIcon({
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
-    <View style={[styles.tabIcon, focused && styles.tabIconFocused]}>
+    <View style={styles.tabIcon}>
       <ThemedIcon ios={undefined} name={focused ? name : outlineName} size={22} color={typeof color === "string" ? color : undefined} />
     </View>
   );
@@ -66,7 +66,7 @@ function FlowerTabIcon({ color, focused }: { color: string | OpaqueColorValue; f
   }));
 
   return (
-    <View style={[styles.tabIcon, focused && styles.tabIconFocused]}>
+    <View style={styles.tabIcon}>
       <Animated.View style={flowerStyle}>
         <ThemedIcon name={focused ? "flower" : "flower-outline"} size={22} color={typeof color === "string" ? color : undefined} />
       </Animated.View>
@@ -74,16 +74,24 @@ function FlowerTabIcon({ color, focused }: { color: string | OpaqueColorValue; f
   );
 }
 
+function FlatTabButton({ children, onPress, accessibilityState }: any) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={accessibilityState}
+      android_ripple={{ color: "transparent" }}
+      style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
+    >
+      {children}
+    </Pressable>
+  );
+}
+
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
   root: { flex: 1 },
   tabIcon: { width: 42, height: 42, alignItems: "center", justifyContent: "center" },
-  tabIconFocused: {
-    backgroundColor: "transparent",
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-  },
 });
 
 /**
@@ -181,22 +189,23 @@ function ThemedShell() {
           tabBarInactiveTintColor: colors.textMuted,
           tabBarActiveBackgroundColor: "transparent",
           tabBarInactiveBackgroundColor: "transparent",
+          tabBarButton: FlatTabButton,
           tabBarStyle: {
             position: "absolute",
-            left: 30,
-            right: 30,
+            left: 54,
+            right: 54,
             bottom: 18,
-            height: 64,
-            borderRadius: 20,
+            height: 58,
+            borderRadius: 18,
             backgroundColor: colors.surfaceStrong,
             borderTopWidth: 0,
             borderWidth: 1,
             borderColor: colors.borderStrong,
-            shadowColor: dark ? "#000000" : "#A96F2F",
-            shadowOpacity: 0.12,
-            shadowRadius: 12,
+            shadowColor: dark ? colors.text : "#A96F2F",
+            shadowOpacity: 0.08,
+            shadowRadius: 10,
             shadowOffset: { width: 0, height: 4 },
-            elevation: 3,
+            elevation: 2,
             overflow: "hidden",
           },
           tabBarItemStyle: { paddingVertical: 3 },
@@ -240,6 +249,8 @@ function ThemedShell() {
         <Tabs.Screen name="logs" options={{ href: null }} />
         <Tabs.Screen name="market" options={{ href: null }} />
         <Tabs.Screen name="applications" options={{ href: null }} />
+        <Tabs.Screen name="resume" options={{ href: null }} />
+        <Tabs.Screen name="interview" options={{ href: null }} />
         <Tabs.Screen name="account-security" options={{ href: null }} />
         <Tabs.Screen name="+not-found" options={{ href: null }} />
       </Tabs>

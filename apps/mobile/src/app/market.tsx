@@ -137,7 +137,7 @@ const makeStyles = (colors: ThemeColors) =>
   card: { padding: 16, gap: 8 },
   row: { flexDirection: "row", alignItems: "center", gap: 8 },
   rowLabel: { flexShrink: 1, minWidth: 0, fontSize: 12, fontWeight: "700", color: colors.textMuted, textAlign: "right" },
-  track: { flex: 1, height: 12, borderRadius: 6, backgroundColor: "rgba(24,24,27,0.07)", overflow: "hidden" },
+  track: { flex: 1, height: 12, borderRadius: 6, backgroundColor: colors.surfaceMuted, overflow: "hidden" },
   fill: { height: 12, borderRadius: 6 },
   rowValue: { width: 32, fontSize: 12, fontWeight: "800", color: colors.text, textAlign: "right" },
   groupTitle: { fontSize: 12, fontWeight: "800", color: colors.text, marginTop: 6 },

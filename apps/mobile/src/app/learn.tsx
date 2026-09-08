@@ -18,7 +18,7 @@ import { computeFocusStats } from "@/lib/focus-stats";
 import { radius } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
-import { fetchRoadmap, createPhase, reorderPhases, readCachedRoadmap } from "@/lib/roadmap";
+import { fetchRoadmap, createPhase, reorderPhases, readCachedRoadmap, deletePhase, updatePhase } from "@/lib/roadmap";
 
 const STAGE_GRADS: [string, string][] = [
   ["#2F74C0", "#78C2E8"],
@@ -209,6 +209,7 @@ function MonthCalendar({
 }
 
 const REORDER_ROW_STEP = 76;
+const STAGE_CARD_STEP = 108;
 
 function StageShine({ active }: { active: boolean }) {
   const { colors } = useTheme();
@@ -238,6 +239,97 @@ function StageShine({ active }: { active: boolean }) {
   }));
 
   return <Animated.View pointerEvents="none" style={[styles.stageShine, { width: beamWidth }, sweepStyle]} />;
+}
+
+function StageCard({
+  phase,
+  index,
+  total,
+  active,
+  progressInfo,
+  onSelect,
+  onMove,
+  onDelete,
+  onEdit,
+}: {
+  phase: Phase;
+  index: number;
+  total: number;
+  active: boolean;
+  progressInfo: { done: number; total: number };
+  onSelect: () => void;
+  onMove: (from: number, to: number) => void;
+  onDelete: () => void;
+  onEdit: () => void;
+}) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const [dragging, setDragging] = useState(false);
+  const dragY = useSharedValue(0);
+
+  const pan = useMemo(
+    () =>
+      Gesture.Pan()
+        .activateAfterLongPress(260)
+        .onStart(() => {
+          runOnJS(setDragging)(true);
+        })
+        .onUpdate((e) => {
+          dragY.value = e.translationY;
+        })
+        .onEnd((e) => {
+          runOnJS(setDragging)(false);
+          const target = Math.max(0, Math.min(total - 1, index + Math.round(e.translationY / STAGE_CARD_STEP)));
+          dragY.value = withTiming(0, { duration: 160 });
+          if (target !== index) runOnJS(onMove)(index, target);
+        })
+        .onFinalize(() => {
+          runOnJS(setDragging)(false);
+          dragY.value = withTiming(0, { duration: 160 });
+        }),
+    [dragY, index, onMove, total]
+  );
+
+  const dragStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: dragY.value }, { scale: dragging ? 1.02 : 1 }],
+  }));
+
+  return (
+    <GestureDetector gesture={pan}>
+      <Animated.View style={[styles.stageCard, active && styles.stageCardActive, dragging && styles.stageCardDragging, dragStyle]}>
+        <View style={[styles.stageBlob, { backgroundColor: STAGE_GRADS[index % STAGE_GRADS.length][1] }]} />
+        <StageShine active={active} />
+        <View style={styles.stageTop}>
+          <Text style={styles.stageTag}>阶段 {index + 1}</Text>
+          <Text style={styles.stageName} numberOfLines={1}>{phase.title}</Text>
+          <View style={styles.stageActions}>
+            <Pressable
+              hitSlop={6}
+              style={styles.stageActionBtn}
+              onPress={onEdit}
+            >
+              <ThemedIcon name="create-outline" size={14} color="rgba(255,255,255,0.92)" />
+            </Pressable>
+            <Pressable
+              hitSlop={6}
+              style={styles.stageActionBtn}
+              onPress={onDelete}
+            >
+              <ThemedIcon name="trash-outline" size={14} color="rgba(255,255,255,0.92)" />
+            </Pressable>
+          </View>
+        </View>
+        <Pressable onPress={onSelect}>
+          <Text style={styles.stageDesc} numberOfLines={1}>
+            {phase.summary || phase.weeks || ""}
+          </Text>
+          <View style={styles.stageBar}>
+            <View style={[styles.stageBarFill, { width: `${pct(progressInfo.done, progressInfo.total)}%`, backgroundColor: STAGE_GRADS[index % STAGE_GRADS.length][1] }]} />
+          </View>
+        </Pressable>
+      </Animated.View>
+    </GestureDetector>
+  );
 }
 
 function ReorderRow({
@@ -334,6 +426,8 @@ export default function LearnScreen() {
   const [customTopicSummary, setCustomTopicSummary] = useState("");
   const [customPhaseSheet, setCustomPhaseSheet] = useState(false);
   const [customPhaseTitle, setCustomPhaseTitle] = useState("");
+  const [customPhaseSummary, setCustomPhaseSummary] = useState("");
+  const [editingPhase, setEditingPhase] = useState<Phase | null>(null);
   const [roadmapLoading, setRoadmapLoading] = useState(false);
 
   useEffect(() => {
@@ -373,7 +467,6 @@ export default function LearnScreen() {
   const periodBars = useMemo(() => buildPeriodBars(sessions, selectedKey), [sessions, selectedKey]);
   const dailySeries = useMemo(() => buildDailySeries(sessions, statDate), [sessions, statDate]);
   const firstPhase = roadmap[0];
-  const secondPhase = roadmap[1];
   const remainingPhases = roadmap.slice(2);
   const phaseDone = (phase: Phase) => {
     const doneTopics = phase.topics.filter((t) => progress[t.id]?.done).length;
@@ -442,6 +535,39 @@ export default function LearnScreen() {
     }
   };
 
+  const removePhase = (phase: Phase) => {
+    Alert.alert("删除学习阶段", `删除「${phase.title}」后，其下主题、进度与相关记录会一并移除，确定吗？`, [
+      { text: "取消", style: "cancel" },
+      {
+        text: "删除",
+        style: "destructive",
+        onPress: async () => {
+          const next = roadmap.filter((p) => p.id !== phase.id);
+          setRoadmap(next);
+          if (phase.id === selectedPhaseId) setSelectedPhaseId(next[0]?.id ?? null);
+          if (!token) return;
+          try {
+            await deletePhase(phase.id);
+            const remote = await fetchRoadmap();
+            const remoteMain = remote
+              .filter((p) => p.track === "main")
+              .map((p) => ({ ...p, topics: p.topics ?? [] })) as unknown as Phase[];
+            if (remoteMain.length > 0) setRoadmap(remoteMain);
+          } catch (e) {
+            Alert.alert("删除失败", e instanceof Error ? e.message : "本机已移除，联网后会重试或对齐");
+          }
+        },
+      },
+    ]);
+  };
+
+  const openEditPhase = (phase: Phase) => {
+    setEditingPhase(phase);
+    setCustomPhaseTitle(phase.title);
+    setCustomPhaseSummary(phase.summary || phase.weeks || "");
+    setCustomPhaseSheet(true);
+  };
+
   const activeTopic = useMemo(() => {
     if (!contentTopic) return null;
     const topic = currentThemes.find(
@@ -484,16 +610,24 @@ export default function LearnScreen() {
     }
     setRoadmapLoading(true);
     try {
-      await createPhase(title, null, null);
+      if (editingPhase) {
+        await updatePhase(editingPhase.id, {
+          title,
+          summary: customPhaseSummary.trim() || null,
+        });
+      } else {
+        await createPhase(title, customPhaseSummary.trim() || null, null);
+      }
       const remote = await fetchRoadmap();
       const remoteMain = remote
         .filter((p) => p.track === "main")
         .map((p) => ({ ...p, topics: p.topics ?? [] })) as unknown as Phase[];
       setRoadmap(remoteMain.length > 0 ? remoteMain : roadmap);
       setCustomPhaseSheet(false);
+      setEditingPhase(null);
       setStageSheet(true);
     } catch (e) {
-      Alert.alert("创建失败", e instanceof Error ? e.message : "请稍后重试");
+      Alert.alert(editingPhase ? "保存失败" : "创建失败", e instanceof Error ? e.message : "请稍后重试");
     } finally {
       setRoadmapLoading(false);
     }
@@ -510,32 +644,38 @@ export default function LearnScreen() {
         <Text style={styles.heroSub}>路线图 · 主题 · 统计 · 日志</Text>
       </View>
 
-      <Text style={styles.sectionTitle}>学习阶段</Text>
-      {[firstPhase, secondPhase].filter(Boolean).map((phase, i) => {
-        const p = phase as Phase;
-        const progressInfo = phaseDone(p);
-        const active = p.id === selectedPhaseId;
+      <View style={styles.sectionHeadRow}>
+        <Text style={styles.sectionTitle}>学习阶段</Text>
+        <Pressable
+          hitSlop={8}
+          style={styles.addBtn}
+          onPress={() => {
+            setEditingPhase(null);
+            setCustomPhaseTitle("");
+            setCustomPhaseSummary("");
+            setCustomPhaseSheet(true);
+          }}
+        >
+          <ThemedIcon name="add" size={16} color={colors.primary} />
+          <Text style={styles.addBtnText}>添加阶段</Text>
+        </Pressable>
+      </View>
+      {roadmap.map((phase, i) => {
+        const progressInfo = phaseDone(phase);
+        const active = phase.id === selectedPhaseId;
         return (
-          <PressableScale
-            key={p.id}
-            haptic
-            onPress={() => setSelectedPhaseId(p.id)}
-            style={[styles.stageCard, active && styles.stageCardActive]}
-          >
-            <View style={[styles.stageBlob, { backgroundColor: STAGE_GRADS[i][1] }]} />
-            <StageShine active={active} />
-            <View style={styles.stageTop}>
-              <Text style={styles.stageTag}>阶段 {i + 1}</Text>
-              <Text style={styles.stageName}>{p.title}</Text>
-            </View>
-            <Text style={styles.stageDesc} numberOfLines={1}>
-              {p.summary || p.weeks || ""}
-            </Text>
-            <View style={styles.stageBar}>
-              <View style={[styles.stageBarFill, { width: `${pct(progressInfo.done, progressInfo.total)}%`, backgroundColor: STAGE_GRADS[i][1] }]} />
-            </View>
-            <Text style={styles.stagePct}>{pct(progressInfo.done, progressInfo.total)}%</Text>
-          </PressableScale>
+          <StageCard
+            key={phase.id}
+            phase={phase}
+            index={i}
+            total={roadmap.length}
+            active={active}
+            progressInfo={progressInfo}
+            onSelect={() => setSelectedPhaseId(phase.id)}
+            onMove={swapPhase}
+            onDelete={() => removePhase(phase)}
+            onEdit={() => openEditPhase(phase)}
+          />
         );
       })}
 
@@ -840,7 +980,7 @@ export default function LearnScreen() {
       <BottomSheet
         visible={customPhaseSheet}
         onClose={() => setCustomPhaseSheet(false)}
-        title="新建学习阶段"
+        title={editingPhase ? "编辑学习阶段" : "新建学习阶段"}
         height="38%"
       >
         <View style={styles.formSheet}>
@@ -852,12 +992,25 @@ export default function LearnScreen() {
             placeholder="例如：项目实战冲刺"
             placeholderTextColor={colors.textFaint}
           />
+          <Text style={styles.formLabel}>阶段说明（选填）</Text>
+          <TextInput
+            style={[styles.formInput, styles.formInputArea]}
+            value={customPhaseSummary}
+            onChangeText={setCustomPhaseSummary}
+            placeholder="这个阶段要掌握什么"
+            placeholderTextColor={colors.textFaint}
+            multiline
+          />
           <Pressable
             style={[styles.primaryShareBtn, roadmapLoading && styles.btnDisabled]}
             disabled={roadmapLoading}
             onPress={() => void submitCustomPhase()}
           >
-            {roadmapLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryShareText}>创建并同步</Text>}
+            {roadmapLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.primaryShareText}>{editingPhase ? "保存并同步" : "创建并同步"}</Text>
+            )}
           </Pressable>
         </View>
       </BottomSheet>
@@ -949,11 +1102,21 @@ const makeStyles = (colors: ThemeColors) =>
     elevation: 4,
   },
   stageCardActive: { borderColor: "rgba(255,255,255,0.92)", shadowOpacity: 0.28 },
+  stageCardDragging: { opacity: 0.88 },
   stageBlob: { position: "absolute", width: 160, height: 160, borderRadius: 80, right: -46, top: -56, opacity: 0.5 },
   stageShine: { position: "absolute", top: -60, bottom: -60, left: 0, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.24)" },
   stageTop: { flexDirection: "row", alignItems: "center", gap: 8 },
   stageTag: { color: "rgba(255,255,255,0.9)", fontSize: 11, fontWeight: "800", backgroundColor: "rgba(255,255,255,0.18)", borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
   stageName: { color: "#fff", fontSize: 17, fontWeight: "800", flex: 1 },
+  stageActions: { flexDirection: "row", alignItems: "center", gap: 6 },
+  stageActionBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(255,255,255,0.16)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   stageDesc: { color: "rgba(255,255,255,0.85)", fontSize: 12, marginTop: 6 },
   stageBar: { height: 8, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.22)", marginTop: 12, overflow: "hidden" },
   stageBarFill: { height: "100%", borderRadius: 999 },
