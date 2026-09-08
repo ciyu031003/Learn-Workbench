@@ -4,6 +4,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, type 
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { ThemedIcon } from "@/components/themed-icon";
+import { ScreenHeader } from "@/components/screen-header";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getApiUrl } from "@/config";
@@ -57,10 +58,7 @@ export default function CareerScreen() {
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top + 24 }]} showsVerticalScrollIndicator={false}>
-      <View style={styles.hero}>
-        <Text style={styles.heroTitle}>职业</Text>
-        <Text style={styles.heroSub}>画像 · 技能 · 简历 · 面试</Text>
-      </View>
+      <ScreenHeader title="职业" subtitle="画像 · 技能 · 简历 · 面试" compact />
 
       <Card style={styles.readinessCard} title={readiness?.targetRole ?? "职业准备度"}>
         {loading ? (

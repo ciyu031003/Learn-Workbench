@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
+import { ScreenHeader } from "@/components/screen-header";
 import { Card } from "@/components/card";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
@@ -91,10 +92,7 @@ export default function ResumeScreen() {
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top + 24 }]} showsVerticalScrollIndicator={false}>
-      <View style={styles.hero}>
-        <Text style={styles.heroTitle}>简历</Text>
-        <Text style={styles.heroSub}>技能 / 项目 / GitHub / 证书，整理成随时可投的资产</Text>
-      </View>
+      <ScreenHeader title="简历" subtitle="技能 / 项目 / GitHub / 证书，整理成随时可投的资产" compact />
 
       <PressableScale style={styles.addBtn} haptic onPress={() => setSheetOpen(true)}>
         <ThemedIcon name="add" size={17} color={colors.primary} />

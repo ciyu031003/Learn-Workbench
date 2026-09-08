@@ -11,6 +11,7 @@ import { BarChart, LineChart } from "@/components/charts";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import { useAppStore } from "@/store/app-store";
+import { router } from "expo-router";
 import { mainPhases, agentPhase } from "@learn-workbench/content";
 import type { Phase } from "@learn-workbench/shared";
 import { formatDuration, pct } from "@learn-workbench/shared";
@@ -671,60 +672,11 @@ export default function LearnScreen() {
             total={roadmap.length}
             active={active}
             progressInfo={progressInfo}
-            onSelect={() => setSelectedPhaseId(phase.id)}
+            onSelect={() => router.push(`/phase/${phase.id}` as never)}
             onMove={swapPhase}
             onDelete={() => removePhase(phase)}
             onEdit={() => openEditPhase(phase)}
           />
-        );
-      })}
-
-      <PressableScale style={styles.moreCard} haptic onPress={() => setStageSheet(true)}>
-        <View style={styles.moreLeft}>
-          <ThemedIcon name="layers-outline" size={18} color={colors.textMuted} />
-          <Text style={styles.moreText}>更多阶段</Text>
-        </View>
-        <ThemedIcon name="chevron-down" size={18} color={colors.textMuted} />
-      </PressableScale>
-
-      <View style={styles.sectionHeadRow}>
-        <Text style={styles.sectionTitle}>当前主题</Text>
-        <Pressable
-          hitSlop={8}
-          style={styles.addBtn}
-          onPress={() => {
-            setCustomTopicTitle("");
-            setCustomTopicSummary("");
-            setCustomTopicSheet(true);
-          }}
-        >
-          <ThemedIcon name="add" size={16} color={colors.primary} />
-          <Text style={styles.addBtnText}>添加主题</Text>
-        </Pressable>
-      </View>
-      {currentThemes.map((topic, i) => {
-        const c = THEME_COLORS[i % THEME_COLORS.length] ?? THEME_COLORS[0];
-        const done = topic && progress[topic.id]?.done ? 1 : 0;
-        const total = 6;
-        return (
-          <PressableScale
-            key={topic.topicKey}
-            haptic
-            onPress={() => setContentTopic({ topicId: topic.id, phaseId: selectedPhase?.id ?? 0 })}
-            style={styles.themeCard}
-          >
-            <View style={[styles.themeBlob, { backgroundColor: c[1] }]} />
-            <View style={styles.themeInner}>
-              <Text style={styles.themeName}>{topic.title}</Text>
-              <Text style={styles.themeMeta} numberOfLines={1}>{topic.summary || "当前主题 · 保持节奏"}</Text>
-              <View style={styles.themeDots}>
-                {Array.from({ length: total }).map((_, j) => (
-                  <View key={j} style={[styles.dot, j < done * total ? styles.dotOn : styles.dotOff]} />
-                ))}
-              </View>
-            </View>
-            <Text style={styles.themeNum}>{done}/{total}</Text>
-          </PressableScale>
         );
       })}
 
@@ -832,86 +784,6 @@ export default function LearnScreen() {
         <Text style={styles.chartLabel}>近 14 天学习时长</Text>
         <LineChart data={dailySeries} height={150} color={colors.accent} />
       </Card>
-
-      <BottomSheet
-        visible={stageSheet}
-        onClose={() => setStageSheet(false)}
-        title="更多阶段"
-        expandable
-        height="50%"
-        body={(expanded) =>
-          expanded ? (
-            <ScrollView style={styles.sheetScroll} showsVerticalScrollIndicator={false}>
-              <Pressable style={styles.newStageBtn} onPress={() => {
-                setCustomPhaseTitle("");
-                setCustomPhaseSheet(true);
-              }}>
-                <ThemedIcon name="add-circle-outline" size={18} color={colors.primary} />
-                <Text style={styles.newStageBtnText}>新建自定义阶段</Text>
-              </Pressable>
-              {roadmap.map((p, i) => {
-                const info = phaseDone(p);
-                return (
-                  <ReorderRow
-                    key={p.id}
-                    index={i}
-                    total={roadmap.length}
-                    title={p.title}
-                    summary={p.summary || p.weeks || ""}
-                    pct={pct(info.done, info.total)}
-                    onSelect={() => {
-                      setSelectedPhaseId(p.id);
-                      setStageSheet(false);
-                    }}
-                    onMove={swapPhase}
-                  />
-                );
-              })}
-              <Text style={styles.reorderHint}>长按左侧拖动手柄可上下调整阶段顺序</Text>
-            </ScrollView>
-          ) : (
-            <ScrollView style={styles.sheetScroll} showsVerticalScrollIndicator={false}>
-              {agentPhase ? (
-                <View style={styles.sheetStageItem}>
-                  <View style={[styles.sheetNum, { backgroundColor: colors.primary }]}>
-                    <Text style={styles.sheetNumText}>A</Text>
-                  </View>
-                  <View style={styles.sheetInfo}>
-                    <Text style={styles.sheetName}>{agentPhase.title}</Text>
-                    <Text style={styles.sheetMeta} numberOfLines={1}>{agentPhase.summary || "全程"}</Text>
-                  </View>
-                  <Text style={styles.sheetPct}>0%</Text>
-                </View>
-              ) : null}
-              {remainingPhases.map((p, i) => {
-                const info = phaseDone(p);
-                return (
-                  <PressableScale
-                    key={p.id}
-                    haptic
-                    style={styles.sheetStageItem}
-                    onPress={() => {
-                      setSelectedPhaseId(p.id);
-                      setStageSheet(false);
-                    }}
-                  >
-                    <View style={[styles.sheetNum, { backgroundColor: STAGE_GRADS[(i + 2) % STAGE_GRADS.length][0] }]}>
-                      <Text style={styles.sheetNumText}>{i + 3}</Text>
-                    </View>
-                    <View style={styles.sheetInfo}>
-                      <Text style={styles.sheetName}>阶段 {i + 3} · {p.title}</Text>
-                      <Text style={styles.sheetMeta} numberOfLines={1}>{p.summary || p.weeks || ""}</Text>
-                    </View>
-                    <Text style={styles.sheetPct}>{pct(info.done, info.total)}%</Text>
-                  </PressableScale>
-                );
-              })}
-            </ScrollView>
-          )
-        }
-      >
-        {null}
-      </BottomSheet>
 
       <BottomSheet visible={shareSheet} onClose={() => setShareSheet(false)} title="分享学习统计" height="50%">
         <View style={styles.sharePreview}>

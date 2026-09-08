@@ -282,6 +282,7 @@ export default function DashboardScreen() {
   const [focusOpen, setFocusOpen] = useState(false);
   const [sportSheetOpen, setSportSheetOpen] = useState(false);
   const [celebrate, setCelebrate] = useState(false);
+  const [stackGestureActive, setStackGestureActive] = useState(false);
 
   const quote = useDailyQuote();
   const today = todayISO();
@@ -372,6 +373,7 @@ export default function DashboardScreen() {
         onScroll={heroScroll}
         scrollEventThrottle={16}
         style={styles.scroll}
+        scrollEnabled={!stackGestureActive}
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 14 }]}
         showsVerticalScrollIndicator={false}
       >
@@ -388,7 +390,7 @@ export default function DashboardScreen() {
           </View>
         </Animated.View>
 
-        <TodayStack onStartFocus={() => setFocusOpen(true)} />
+        <TodayStack onStartFocus={() => setFocusOpen(true)} onGestureActive={setStackGestureActive} />
 
         <View style={styles.sectionTitleRow}>
           <Text style={styles.sectionTitle}>运动 · 健康</Text>

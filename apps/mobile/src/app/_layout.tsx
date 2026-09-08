@@ -192,11 +192,11 @@ function ThemedShell() {
           tabBarButton: FlatTabButton,
           tabBarStyle: {
             position: "absolute",
-            left: 54,
-            right: 54,
+            left: 72,
+            right: 72,
             bottom: 18,
-            height: 58,
-            borderRadius: 18,
+            height: 64,
+            borderRadius: 20,
             backgroundColor: colors.surfaceStrong,
             borderTopWidth: 0,
             borderWidth: 1,
@@ -251,6 +251,7 @@ function ThemedShell() {
         <Tabs.Screen name="applications" options={{ href: null }} />
         <Tabs.Screen name="resume" options={{ href: null }} />
         <Tabs.Screen name="interview" options={{ href: null }} />
+        <Tabs.Screen name="phase/[id]" options={{ href: null }} />
         <Tabs.Screen name="account-security" options={{ href: null }} />
         <Tabs.Screen name="+not-found" options={{ href: null }} />
       </Tabs>

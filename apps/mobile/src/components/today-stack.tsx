@@ -38,7 +38,13 @@ function shuffled<T>(items: T[], seed: number): T[] {
   return out;
 }
 
-export function TodayStack({ onStartFocus }: { onStartFocus: () => void }) {
+export function TodayStack({
+  onStartFocus,
+  onGestureActive,
+}: {
+  onStartFocus: () => void;
+  onGestureActive?: (active: boolean) => void;
+}) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const tasks = useAppStore((s) => s.tasks);
@@ -148,6 +154,9 @@ export function TodayStack({ onStartFocus }: { onStartFocus: () => void }) {
       Gesture.Pan()
         .activeOffsetY([-14, 14])
         .failOffsetX([-22, 22])
+        .onBegin(() => {
+          if (onGestureActive) runOnJS(onGestureActive)(true);
+        })
         .onUpdate((e) => {
           topY.value = e.translationY * 0.28;
           topOpacity.value = 1 - Math.min(0.35, Math.abs(e.translationY) / 420);
@@ -168,8 +177,9 @@ export function TodayStack({ onStartFocus }: { onStartFocus: () => void }) {
           }
           topOpacity.value = withTiming(1, { duration: 150 });
           topScale.value = withSpring(1);
+          if (onGestureActive) runOnJS(onGestureActive)(false);
         }),
-    [topOpacity, topScale, topY]
+    [onGestureActive, topOpacity, topScale, topY]
   );
 
   const topAnim = useAnimatedStyle(() => ({

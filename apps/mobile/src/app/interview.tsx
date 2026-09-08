@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Card } from "@/components/card";
+import { ScreenHeader } from "@/components/screen-header";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/theme";
 import type { ThemeColors } from "@/theme/tokens";
@@ -74,10 +75,7 @@ export default function InterviewScreen() {
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top + 24 }]} showsVerticalScrollIndicator={false}>
-      <View style={styles.hero}>
-        <Text style={styles.heroTitle}>面试流程</Text>
-        <Text style={styles.heroSub}>题库刷题 · 记录每一次模拟与复盘</Text>
-      </View>
+      <ScreenHeader title="面试流程" subtitle="题库刷题 · 记录每一次模拟与复盘" compact />
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.moduleScroller}>
         <Pressable onPress={() => selectModule(null)} style={[styles.moduleChip, moduleFilter === null && styles.moduleChipActive]}>

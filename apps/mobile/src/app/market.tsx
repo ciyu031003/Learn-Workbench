@@ -4,6 +4,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, View, type DimensionVa
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { ThemedIcon } from "@/components/themed-icon";
+import { ScreenHeader } from "@/components/screen-header";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getApiUrl } from "@/config";
 import { useAppStore } from "@/store/app-store";
@@ -49,8 +50,7 @@ export default function MarketScreen() {
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top + 20 }]} showsVerticalScrollIndicator={false}>
-      <Text style={styles.title}>招聘市场分析</Text>
-      <Text style={styles.sub}>市场到底需要什么？样本 {data?.total ?? "—"} 个职位</Text>
+      <ScreenHeader title="招聘市场分析" subtitle={`市场到底需要什么？样本 ${data?.total ?? "—"} 个职位`} compact />
 
       {loading ? (
         <View style={styles.loadingBox}><ActivityIndicator color="#10b981" /></View>
