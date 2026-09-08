@@ -33,7 +33,7 @@ export function useInView<T extends HTMLElement = HTMLDivElement>(options?: Inte
   return { ref, inView };
 }
 
-export function useCountUp(target: number, enabled: boolean, duration = MOTION.base) {
+export function useCountUp(target: number, enabled: boolean, duration: number = MOTION.base) {
   const [value, setValue] = useState(0);
   const frame = useRef<number | null>(null);
   const started = useRef(false);
@@ -62,7 +62,7 @@ export function useCountUp(target: number, enabled: boolean, duration = MOTION.b
   return value;
 }
 
-export function useProgressive(start: number, end: number, enabled: boolean, duration = MOTION.base) {
+export function useProgressive(start: number, end: number, enabled: boolean, duration: number = MOTION.base) {
   const [value, setValue] = useState(start);
   const frame = useRef<number | null>(null);
   const started = useRef(false);

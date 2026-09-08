@@ -16,6 +16,9 @@ import {
   type SkillMapNode,
 } from "@/components/market/market-charts";
 import { MarketGapsCard } from "@/components/skills/market-gaps-card";
+import { MarketCover } from "@/components/market/market-cover";
+import { StorySection } from "@/components/market/story-shell";
+import { buildMarketStory } from "@/lib/market/story-config";
 import type { MarketAnalysis } from "@learn-workbench/shared";
 import {
   ChevronLeft,
@@ -196,6 +199,7 @@ export default function MarketPage() {
   }
 
   const ov = data.overview ?? null;
+  const chapters = useMemo(() => buildMarketStory(data), [data]);
 
   return (
     <div className="page-enter flex flex-col gap-6">
@@ -216,6 +220,8 @@ export default function MarketPage() {
           <Button asChild variant="ghost" size="sm"><Link href="/jobs"><ChevronLeft className="size-4" /> 回招花</Link></Button>
         </div>
       </div>
+
+      <MarketCover data={data} />
 
       {/* ===== 市场概览（KPI，真实可算） ===== */}
       <Card className="overflow-hidden rounded-2xl">
