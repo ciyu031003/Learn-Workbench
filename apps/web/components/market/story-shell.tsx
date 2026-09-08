@@ -5,6 +5,22 @@ import { useInView } from "./motion-utils";
 import { cn } from "@/lib/utils";
 import type { MarketStoryChapter } from "@/lib/market/story-config";
 
+export function RevealChart({ children, delay = 0 }: { children: ReactNode; delay?: number }) {
+  const { ref, inView } = useInView<HTMLDivElement>();
+  return (
+    <div
+      ref={ref}
+      className={cn(
+        "transition-all duration-700 ease-out",
+        inView ? "translate-y-0 scale-100 opacity-100" : "translate-y-3 scale-[0.985] opacity-0"
+      )}
+      style={{ transitionDelay: `${delay}ms` }}
+    >
+      {children}
+    </div>
+  );
+}
+
 export function StorySection({
   chapter,
   showHeading = true,

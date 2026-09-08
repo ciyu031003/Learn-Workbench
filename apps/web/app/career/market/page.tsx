@@ -17,7 +17,7 @@ import {
 } from "@/components/market/market-charts";
 import { MarketGapsCard } from "@/components/skills/market-gaps-card";
 import { MarketCover } from "@/components/market/market-cover";
-import { StorySection } from "@/components/market/story-shell";
+import { RevealChart, StorySection } from "@/components/market/story-shell";
 import { buildMarketStory } from "@/lib/market/story-config";
 import type { MarketAnalysis } from "@learn-workbench/shared";
 import {
@@ -272,10 +272,12 @@ export default function MarketPage() {
       </Card>
 
       {/* ===== 01 市场需求 ===== */}
-      <section className="flex flex-col gap-4">
+      <StorySection showHeading={false} chapter={chapters[1]}>
         <h2 className="text-lg font-bold tracking-tight text-foreground">01 · 市场需求</h2>
         <ChartCard icon={<Layers className="size-4 text-emerald-400" />} title="岗位职能方向分布" badge={"样本 " + data.byFunction.reduce((a, f) => a + f.count, 0) + " 个"}>
-          <TreemapChart items={toTreemap(data.byFunction).map((f) => ({ label: f.label, value: f.count }))} />
+          <RevealChart>
+            <TreemapChart items={toTreemap(data.byFunction).map((f) => ({ label: f.label, value: f.count }))} />
+          </RevealChart>
         </ChartCard>
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <ChartCard icon={<MapPin className="size-4 text-sky-400" />} title="城市机会" badge={"样本 " + data.byCity.reduce((a, c) => a + c.count, 0) + " 个"}>
@@ -293,10 +295,10 @@ export default function MarketPage() {
             />
           </ChartCard>
         </div>
-      </section>
+      </StorySection>
 
       {/* ===== 02 技能机会 ===== */}
-      <section className="flex flex-col gap-4">
+      <StorySection showHeading={false} chapter={chapters[4]}>
         <h2 className="text-lg font-bold tracking-tight text-foreground">02 · 技能机会</h2>
         <Card className="overflow-hidden rounded-2xl">
           <CardHeader className="flex-row items-center gap-2">
@@ -311,20 +313,22 @@ export default function MarketPage() {
         <ChartCard icon={<BarChart3 className="size-4 text-indigo-400" />} title="技能热度 TOP" badge={"样本 " + data.bySkill.reduce((a, s) => a + s.count, 0) + " 个"}>
           <CapsuleRank items={data.bySkill.map((s) => ({ label: s.skill, value: s.count }))} />
         </ChartCard>
-      </section>
+      </StorySection>
 
       {/* ===== 03 人才画像 ===== */}
-      <section className="flex flex-col gap-4">
+      <StorySection showHeading={false} chapter={chapters[3]}>
         <h2 className="text-lg font-bold tracking-tight text-foreground">03 · 人才画像</h2>
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <ChartCard icon={<GraduationCap className="size-4 text-violet-400" />} title="学历需求占比" badge={"共 " + data.byEducation.reduce((a, e) => a + e.count, 0) + " 个"}>
-            <DonutChart items={data.byEducation.map((e) => ({ label: e.label, value: e.count }))} centerLabel="岗位" />
+            <RevealChart>
+              <DonutChart items={data.byEducation.map((e) => ({ label: e.label, value: e.count }))} centerLabel="岗位" />
+            </RevealChart>
           </ChartCard>
           <ChartCard icon={<Briefcase className="size-4 text-rose-400" />} title="经验年限要求" badge="应届→资深">
             <CapsuleRank items={data.byExperience.map((e) => ({ label: e.label, value: e.count }))} />
           </ChartCard>
         </div>
-      </section>
+      </StorySection>
 
       {/* ===== 04 我的学习机会 ===== */}
       <section className="flex flex-col gap-4">
