@@ -297,36 +297,36 @@ function StageCard({
   return (
     <GestureDetector gesture={pan}>
       <Animated.View style={[styles.stageCard, active && styles.stageCardActive, dragging && styles.stageCardDragging, dragStyle]}>
-        <View style={[styles.stageBlob, { backgroundColor: STAGE_GRADS[index % STAGE_GRADS.length][1] }]} />
-        <StageShine active={active} />
-        <View style={styles.stageTop}>
-          <Text style={styles.stageTag}>阶段 {index + 1}</Text>
-          <Text style={styles.stageName} numberOfLines={1}>{phase.title}</Text>
-          <View style={styles.stageActions}>
-            <Pressable
-              hitSlop={6}
-              style={styles.stageActionBtn}
-              onPress={onEdit}
-            >
-              <ThemedIcon name="create-outline" size={14} color="rgba(255,255,255,0.92)" />
-            </Pressable>
-            <Pressable
-              hitSlop={6}
-              style={styles.stageActionBtn}
-              onPress={onDelete}
-            >
-              <ThemedIcon name="trash-outline" size={14} color="rgba(255,255,255,0.92)" />
-            </Pressable>
+        <PressableScale style={styles.stageCardBody} haptic onPress={onSelect}>
+          <View style={[styles.stageBlob, { backgroundColor: STAGE_GRADS[index % STAGE_GRADS.length][1] }]} />
+          <StageShine active={active} />
+          <View style={styles.stageTop}>
+            <Text style={styles.stageTag}>阶段 {index + 1}</Text>
+            <Text style={styles.stageName} numberOfLines={1}>{phase.title}</Text>
+            <View style={styles.stageActions}>
+              <Pressable
+                hitSlop={6}
+                style={styles.stageActionBtn}
+                onPress={onEdit}
+              >
+                <ThemedIcon name="create-outline" size={14} color="rgba(255,255,255,0.92)" />
+              </Pressable>
+              <Pressable
+                hitSlop={6}
+                style={styles.stageActionBtn}
+                onPress={onDelete}
+              >
+                <ThemedIcon name="trash-outline" size={14} color="rgba(255,255,255,0.92)" />
+              </Pressable>
+            </View>
           </View>
-        </View>
-        <Pressable onPress={onSelect}>
           <Text style={styles.stageDesc} numberOfLines={1}>
             {phase.summary || phase.weeks || ""}
           </Text>
           <View style={styles.stageBar}>
             <View style={[styles.stageBarFill, { width: `${pct(progressInfo.done, progressInfo.total)}%`, backgroundColor: STAGE_GRADS[index % STAGE_GRADS.length][1] }]} />
           </View>
-        </Pressable>
+        </PressableScale>
       </Animated.View>
     </GestureDetector>
   );
@@ -1103,6 +1103,7 @@ const makeStyles = (colors: ThemeColors) =>
   },
   stageCardActive: { borderColor: "rgba(255,255,255,0.92)", shadowOpacity: 0.28 },
   stageCardDragging: { opacity: 0.88 },
+  stageCardBody: { flex: 1 },
   stageBlob: { position: "absolute", width: 160, height: 160, borderRadius: 80, right: -46, top: -56, opacity: 0.5 },
   stageShine: { position: "absolute", top: -60, bottom: -60, left: 0, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.24)" },
   stageTop: { flexDirection: "row", alignItems: "center", gap: 8 },
