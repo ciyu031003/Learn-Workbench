@@ -631,6 +631,13 @@ CREATE TABLE IF NOT EXISTS job_postings (
   published_at  timestamptz,
   fetched_at    timestamptz NOT NULL DEFAULT now(),
   is_active     boolean NOT NULL DEFAULT true,
+  function_key text NOT NULL DEFAULT '',
+  title_family text NOT NULL DEFAULT '',
+  seniority_bucket text NOT NULL DEFAULT '',
+  industry_sector text NOT NULL DEFAULT '',
+  industry_subsector text NOT NULL DEFAULT '',
+  salary_band text NOT NULL DEFAULT '',
+  market_enriched_at timestamptz,
   UNIQUE (source, source_job_id)
 );
 
@@ -830,6 +837,34 @@ CREATE TABLE IF NOT EXISTS market_stats_history (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_market_stats_history_snap_date ON market_stats_history(snap_date DESC);
+
+CREATE TABLE IF NOT EXISTS market_dimension_snapshots (
+  id            bigserial PRIMARY KEY,
+  snap_date      date NOT NULL,
+  dimension      text NOT NULL,
+  dimension_key  text NOT NULL,
+  metric_name    text NOT NULL,
+  metric_value   numeric NOT NULL,
+  meta           jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (snap_date, dimension, dimension_key, metric_name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_market_dimension_snapshot_lookup
+  ON market_dimension_snapshots(snap_date DESC, dimension, dimension_key);
+
+CREATE TABLE IF NOT EXISTS market_saved_views (
+  id         bigserial PRIMARY KEY,
+  user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name       text NOT NULL,
+  filters    jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (user_id, name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_market_saved_views_user
+  ON market_saved_views(user_id, updated_at DESC);
 
 -- 来自迁移 021_interview_attempts.sql
 CREATE TABLE IF NOT EXISTS interview_attempts (

@@ -4,6 +4,9 @@ vi.mock("@/lib/domains/market/analysis", () => ({ analyzeMarket: vi.fn(async () 
 vi.mock("@/lib/domains/market/public-stats", () => ({
   refreshPublicStats: vi.fn(async () => ({ total: 1 })),
 }));
+vi.mock("@/lib/domains/market/enrich", () => ({
+  backfillMarketJobAttributes: vi.fn(async () => 3),
+}));
 vi.mock("@/lib/maintenance", () => ({
   cleanupExpiredData: vi.fn(async () => ({ sessions: 2, authAttempts: 0, resetTokens: 0, syncChanges: 0 })),
   securityAlerts: vi.fn(async () => ({
@@ -18,12 +21,14 @@ vi.mock("@/lib/logger", () => ({ logger: { warn: vi.fn(), error: vi.fn(), info: 
 
 import { analyzeMarket } from "@/lib/domains/market/analysis";
 import { refreshPublicStats } from "@/lib/domains/market/public-stats";
+import { backfillMarketJobAttributes } from "@/lib/domains/market/enrich";
 import { cleanupExpiredData, securityAlerts } from "@/lib/maintenance";
 import { crawlerRanSuccessfullyToday, triggerCrawlerJobs } from "@/lib/tasks/crawler";
 import { POST } from "./route";
 
 const analyzeMock = vi.mocked(analyzeMarket);
 const refreshStatsMock = vi.mocked(refreshPublicStats);
+const backfillMarketMock = vi.mocked(backfillMarketJobAttributes);
 const cleanupMock = vi.mocked(cleanupExpiredData);
 const securityMock = vi.mocked(securityAlerts);
 const ranTodayMock = vi.mocked(crawlerRanSuccessfullyToday);
@@ -82,6 +87,7 @@ describe("POST /api/internal/cron", () => {
     const res = await post("aggregate", "s3cret");
     expect(res.status).toBe(200);
     expect(analyzeMock).toHaveBeenCalledWith({ force: true });
+    expect(backfillMarketMock).toHaveBeenCalledWith(2000);
     expect(refreshStatsMock).toHaveBeenCalledTimes(1);
     expect(cleanupMock).not.toHaveBeenCalled();
   });
@@ -101,6 +107,7 @@ describe("POST /api/internal/cron", () => {
     const body = await res.json();
     expect(triggerMock).not.toHaveBeenCalled(); // 今天已成功 → 跳过
     expect(analyzeMock).toHaveBeenCalledWith({ force: true });
+    expect(backfillMarketMock).toHaveBeenCalledWith(2000);
     expect(cleanupMock).toHaveBeenCalledTimes(1);
     expect(body.ok).toBe(true);
   });

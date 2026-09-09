@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { analyzeMarket } from "@/lib/domains/market/analysis";
 import { refreshPublicStats } from "@/lib/domains/market/public-stats";
+import { backfillMarketJobAttributes } from "@/lib/domains/market/enrich";
 import { cleanupExpiredData, securityAlerts } from "@/lib/maintenance";
 import {
   crawlerRanSuccessfullyToday,
@@ -58,7 +59,8 @@ export async function POST(req: Request) {
   if (job === "aggregate" || job === "all") {
     // force：跳过缓存直接重算（写 market_stats key='full' + 当日 market_stats_history）
     await analyzeMarket({ force: true });
-    result.aggregate = { ok: true, publicStats: await refreshPublicStats() };
+    const enriched = await backfillMarketJobAttributes(2000);
+    result.aggregate = { ok: true, enriched, publicStats: await refreshPublicStats() };
   }
 
   if (job === "maintenance" || job === "all") {
