@@ -97,6 +97,21 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 
 ## 四、改动记录
 
+### 2026-09-09 · feat(market)+ops（股市分析型市场工作台 + 生产部署收口）
+
+- **背景**：确认市场模块按「股市分析型工作台」实施，首期范围是市场查询筛选、7/30/90 天趋势、个人市场位置与推荐岗位；接受新增数据表和爬虫回填任务，继续只使用现有中文职位和简历数据，不接外部新数据源。
+- **改动**：
+  1. **数据层（迁移 034/035）**：`job_postings` 新增 `function_key`、`title_family`、`seniority_bucket`、`industry_sector`、`industry_subsector`、`salary_band`、`market_enriched_at` 及筛选索引；新增 `market_dimension_snapshots`、`market_saved_views`。035 在薪资统一为 K 口径后清空历史 `salary_band`，等待自动回填。
+  2. **职位市场字典与回填**：新增 `apps/web/lib/domains/market/enrich.ts`，按标题、标签、经验、公司名规则化生成职能、资历、行业、细分行业和薪资带；`backfillMarketJobAttributes(2000)` 接入每日 `aggregate` cron，在 `analyzeMarket({force:true})` 后逐批补全。生产已执行，约 8560 个活跃职位完成回填。
+  3. **市场情报查询**：新增 `queryMarketIntelligence()` 和 `GET /api/market/intelligence`，支持 `q/city/function/industrySector/industrySubsector/seniority/source/salaryMin/salaryMax/range`；返回汇总、维度 facet、城市/职能/行业/资历/薪资/技能分布，以及 7/30/90 天新增岗位和薪资时间序列。薪资查询口径统一为 K。
+  4. **个人市场位置**：新增 `getMarketPersonalInsights()` 和 `GET /api/market/personal`；登录后返回技能覆盖率、市场技能总数、可触达岗位、市场缺口、推荐岗位及匹配度，匿名请求返回 `{loggedIn:false}`。
+  5. **Web 市场工作台**：重写 `apps/web/app/career/market/page.tsx`；新增 `intelligence-filter-bar.tsx`、`market-time-series.tsx`、`personal-market-card.tsx`。全局薪资分布继续复用旧 `analyzeMarket()` 的 `salaryDist`，避免新旧统计口径漂移。
+  6. **门户与生产部署**：更新 nginx 模板 `deploy/nginx/learn-workbench.conf`，IP 直接访问跳转到登录子域名；生产部署到 `https://learn.yuanabd.cn/career/market`，DB 迁移与回填已执行并验证接口 200。当前代码提交 `50c183c`，分支 `codex/market-intelligence-v1`。
+- **涉及文件**：`db/migrations/034_market_intelligence.sql`、`db/migrations/035_fix_market_salary_bands.sql`、`db/schema.sql`；`apps/web/lib/domains/market/{enrich,intelligence,personal,index}.ts`；`apps/web/app/api/market/{intelligence,personal}/route.ts`；`apps/web/app/career/market/page.tsx`；`apps/web/components/market/{intelligence-filter-bar,market-time-series,personal-market-card}.tsx`；`apps/web/app/api/internal/cron/route.ts`；`deploy/nginx/learn-workbench.conf`。
+- **原因/决策**：首期按用户确认范围做「查询筛选、趋势、个人匹配」三个模块；不会引入外部新数据源。新增维度列是为了避免市场查询每次全量解析标题和标签，也便于后续保存视图和 What If 决策。时间序列首期直接按 `job_postings.fetched_at` 计算。
+- **验证**：Web 测试 640 个通过，Mobile 测试 52 个通过；Web typecheck、lint、生产构建、迁移校验通过；生产域名 `/career/market` 与两个新 API 返回 200；生产数据 `summary.total: 8560`、`cityCount: 59`、`skillCount: 684`、`last7DaysJobs: 4463`、`avgSalary: 15`、`medianSalary: 16`。
+- **影响**：市场页面从旧分析页升级为工作台；`/api/market` 保留兼容；职位表新增列对旧逻辑透明；生产 `.env` 当前使用临时 `CRON_SECRET`，待收敛。
+
 ### 2026-09-08 · chore(mobile)（移动端安卓 UI 修复——运动图标/Dock/学习阶段卡片/登录/首页呼吸光晕，版本 1.1.4 versionCode 6）
 
 - **背景**：用户反馈安卓端多项 UI 问题：运动图标错误与动效单一、底部 Dock 栏样式与选中态异常、学习阶段卡片切换导致其他卡片消失、更多阶段半屏抽屉无法拖拽、登录卡片粗糙且退出按钮溢出、首页卡片白条与单调问题。
@@ -523,3 +538,12 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 - [x] P4：市场分析实时聚合 + 缓存（建议 6）—— 2026-08-20 完成（实时 SQL 聚合 + 60s 内存缓存，暂不建 market_stats 表）
 - [ ] P5：AI 智能层（数据积累后）
 - [ ] 学习子模块：知识库入口（建议 7）、专注独立入口（G10）
+- [x] 市场工作台首期：筛选、7/30/90 天趋势、个人市场位置、推荐岗位 —— 2026-09-09 完成
+- [x] 职位市场字典回填接入每日 aggregate —— 2026-09-09 完成
+- [ ] 移动端市场工作台对齐：接入 `/api/market/intelligence`、`/api/market/personal`，补齐筛选与时间趋势
+- [ ] 保存市场筛选视图：实现 `market_saved_views` 的 API、Switcher 和删除/重命名
+- [ ] 每日维度快照落数：实现 `market_dimension_snapshots` 的 cron 写入与查询读取
+- [ ] 下午 crawl 增量回填：12:30 爬取成功后立即补跑市场字段，不等次日 aggregate
+- [ ] What If / 决策引擎及后续激进优化，按已确认方案推进
+- [ ] GitHub 推送与合并：网络恢复后推送 `codex/market-intelligence-v1` 到远端
+- [ ] 生产 `CRON_SECRET` 由临时字符串换成正式随机值，并核对 crontab
