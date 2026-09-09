@@ -10,15 +10,20 @@ export function useInView<T extends HTMLElement = HTMLDivElement>(options?: Inte
   const [inView, setInView] = useState(false);
 
   useEffect(() => {
+    let raf: number | null = null;
     if (typeof IntersectionObserver === "undefined") {
-      setInView(true);
-      return;
+      raf = requestAnimationFrame(() => setInView(true));
+      return () => {
+        if (raf != null) cancelAnimationFrame(raf);
+      };
     }
     const node = ref.current;
     if (!node) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setInView(true);
-      return;
+      raf = requestAnimationFrame(() => setInView(true));
+      return () => {
+        if (raf != null) cancelAnimationFrame(raf);
+      };
     }
     const observer = new IntersectionObserver(([entry]) => {
       if (entry?.isIntersecting) {
@@ -39,11 +44,14 @@ export function useCountUp(target: number, enabled: boolean, duration: number = 
   const started = useRef(false);
 
   useEffect(() => {
+    let raf: number | null = null;
     if (!enabled || started.current) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setValue(target);
+      raf = requestAnimationFrame(() => setValue(target));
       started.current = true;
-      return;
+      return () => {
+        if (raf != null) cancelAnimationFrame(raf);
+      };
     }
     const interpolate = interpolateNumber(0, target);
     const start = performance.now();
@@ -68,11 +76,14 @@ export function useProgressive(start: number, end: number, enabled: boolean, dur
   const started = useRef(false);
 
   useEffect(() => {
+    let raf: number | null = null;
     if (!enabled || started.current) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setValue(end);
+      raf = requestAnimationFrame(() => setValue(end));
       started.current = true;
-      return;
+      return () => {
+        if (raf != null) cancelAnimationFrame(raf);
+      };
     }
     const interpolate = interpolateNumber(start, end);
     const startTime = performance.now();

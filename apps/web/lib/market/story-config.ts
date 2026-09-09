@@ -1,11 +1,10 @@
 import type {
   MarketAnalysis,
   MarketCityRow,
-  MarketSkillRow,
   MarketSkillSalaryRow,
 } from "@/lib/domains/market/types";
 
-export type MarketStoryChapterId = "cover" | "scale" | "cities" | "salary" | "skills";
+export type MarketStoryChapterId = "cover" | "scale" | "cities" | "talent" | "salary" | "skills" | "learning";
 
 export interface MarketStoryRankItem {
   label: string;
@@ -39,6 +38,8 @@ export function buildMarketStory(data: MarketAnalysis): MarketStoryChapter[] {
     (s) => s.avgSalary ?? 0
   );
   const topFunction = top(data.byFunction, (f) => f.count);
+  const topEducation = top(data.byEducation, (e) => e.count);
+  const topExperience = top(data.byExperience, (e) => e.count);
   const cityCount = data.byCity.length;
   const skillCount = data.bySkill.length;
   const avgSalary = data.overview?.avgSalary ?? null;
@@ -69,8 +70,16 @@ export function buildMarketStory(data: MarketAnalysis): MarketStoryChapter[] {
       conclusion: `「${topCity?.city ?? "待积累"}」当前机会最多，共 ${topCity?.count ?? 0} 个岗位${cityNote(topCity ?? { city: "", count: 0, avgMin: null, avgMax: null }) ? `，${cityNote(topCity ?? { city: "", count: 0, avgMin: null, avgMax: null })}` : ""}。`,
     },
     {
-      id: "salary",
+      id: "talent",
       index: "03",
+      kicker: "TALENT PROFILE",
+      title: "人才画像",
+      subtitle: "学历与经验要求反映招聘方的准入门槛。",
+      conclusion: `学历需求最高的是「${topEducation?.label ?? "待积累"}」，经验要求最高的是「${topExperience?.label ?? "待积累"}」。`,
+    },
+    {
+      id: "salary",
+      index: "04",
       kicker: "SALARY DISTRIBUTION",
       title: "薪资分布",
       subtitle: "不同区间岗位数量反映市场定价。",
@@ -78,11 +87,19 @@ export function buildMarketStory(data: MarketAnalysis): MarketStoryChapter[] {
     },
     {
       id: "skills",
-      index: "04",
+      index: "05",
       kicker: "SKILL OPPORTUNITY",
       title: "什么技能值得学习",
       subtitle: "结合热度与平均薪资，找出更有价值的能力方向。",
       conclusion: `热度最高的技能是「${topSkill?.skill ?? "待积累"}」，共 ${topSkill?.count ?? 0} 个岗位关联。`,
+    },
+    {
+      id: "learning",
+      index: "06",
+      kicker: "MY LEARNING OPPORTUNITY",
+      title: "我的学习机会",
+      subtitle: "把市场洞察转化为你的学习路线。",
+      conclusion: "登录后查看能力缺口，并可以把高频技能一键加入学习路线。",
     },
   ];
 }

@@ -185,6 +185,7 @@ export default function MarketPage() {
 
     return { quadrants, headlines };
   }, [data]);
+  const chapters = useMemo(() => (data ? buildMarketStory(data) : []), [data]);
 
   if (loading) {
     return (
@@ -199,7 +200,6 @@ export default function MarketPage() {
   }
 
   const ov = data.overview ?? null;
-  const chapters = useMemo(() => buildMarketStory(data), [data]);
 
   return (
     <div className="page-enter flex flex-col gap-6">
@@ -272,8 +272,7 @@ export default function MarketPage() {
       </Card>
 
       {/* ===== 01 市场需求 ===== */}
-      <StorySection showHeading={false} chapter={chapters[1]}>
-        <h2 className="text-lg font-bold tracking-tight text-foreground">01 · 市场需求</h2>
+      <StorySection chapter={chapters[1]}>
         <ChartCard icon={<Layers className="size-4 text-emerald-400" />} title="岗位职能方向分布" badge={"样本 " + data.byFunction.reduce((a, f) => a + f.count, 0) + " 个"}>
           <RevealChart>
             <TreemapChart items={toTreemap(data.byFunction).map((f) => ({ label: f.label, value: f.count }))} />
@@ -298,8 +297,7 @@ export default function MarketPage() {
       </StorySection>
 
       {/* ===== 02 技能机会 ===== */}
-      <StorySection showHeading={false} chapter={chapters[4]}>
-        <h2 className="text-lg font-bold tracking-tight text-foreground">02 · 技能机会</h2>
+      <StorySection chapter={chapters[5]}>
         <Card className="overflow-hidden rounded-2xl">
           <CardHeader className="flex-row items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10"><GitBranch className="size-4 text-indigo-400" /></span>
@@ -316,8 +314,7 @@ export default function MarketPage() {
       </StorySection>
 
       {/* ===== 03 人才画像 ===== */}
-      <StorySection showHeading={false} chapter={chapters[3]}>
-        <h2 className="text-lg font-bold tracking-tight text-foreground">03 · 人才画像</h2>
+      <StorySection chapter={chapters[3]}>
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <ChartCard icon={<GraduationCap className="size-4 text-violet-400" />} title="学历需求占比" badge={"共 " + data.byEducation.reduce((a, e) => a + e.count, 0) + " 个"}>
             <RevealChart>
@@ -331,8 +328,7 @@ export default function MarketPage() {
       </StorySection>
 
       {/* ===== 04 我的学习机会 ===== */}
-      <section className="flex flex-col gap-4">
-        <h2 className="text-lg font-bold tracking-tight text-foreground">04 · 我的学习机会</h2>
+      <StorySection chapter={chapters[6]}>
         <Card className="overflow-hidden rounded-2xl">
           <CardHeader className="flex-row items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10"><Sparkles className="size-4 text-amber-400" /></span>
@@ -386,7 +382,7 @@ export default function MarketPage() {
             </CardContent>
           </Card>
         )}
-      </section>
+      </StorySection>
 
       {/* ===== 数据说明（来源/类型降权） ===== */}
       <Card className="rounded-2xl">

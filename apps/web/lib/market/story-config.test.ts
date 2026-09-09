@@ -52,12 +52,14 @@ const data = {
 } as MarketAnalysis;
 
 describe("buildMarketStory", () => {
-  it("builds five story chapters", () => {
+  it("builds seven story chapters with talent and learning sections", () => {
     const chapters = buildMarketStory(data);
-    expect(chapters).toHaveLength(5);
+    expect(chapters).toHaveLength(7);
     expect(chapters[0].id).toBe("cover");
     expect(chapters[1].conclusion).toContain("后端");
     expect(chapters[2].conclusion).toContain("深圳");
+    expect(chapters[3]).toMatchObject({ id: "talent", title: "人才画像" });
+    expect(chapters[6]).toMatchObject({ id: "learning" });
   });
 
   it("builds rank data for charts", () => {
