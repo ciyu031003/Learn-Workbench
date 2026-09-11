@@ -97,6 +97,21 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 
 ## 四、改动记录
 
+### 2026-09-11 · feat(market)+ops（收尾移动端工作台、保存视图、维度快照、What If 与生产 cron）
+
+- **背景**：把 2026-09-09 市场工作台落地的 8 项遗留任务一次性收口，重点是移动端对齐、`market_saved_views`、`market_dimension_snapshots`、下午 crawl 回填、What If 决策，以及生产环境 cron 密钥和部署。
+- **改动**：
+  1. **移动端市场工作台对齐**：`apps/mobile/src/lib/market.ts` 新增 `/api/market/intelligence`、`/api/market/personal`、`/api/market/decision` 客户端与响应类型；`apps/mobile/src/app/market.tsx` 重写为筛选、7/30/90 天趋势、需求分布、个人市场位置、推荐岗位和 What If 决策。
+  2. **保存市场视图**：新增 `apps/web/lib/domains/market/saved-views.ts`；新增 `GET/POST /api/market/views` 与 `PATCH/DELETE /api/market/views/[id]`；Web 市场页新增 `market-view-switcher.tsx`，可保存、切换、重命名和删除当前筛选组合。
+  3. **每日维度快照**：新增 `apps/web/lib/domains/market/snapshots.ts`，在 cron `aggregate` 阶段写入 `market_dimension_snapshots`；`queryMarketIntelligence()` 全局趋势优先读取快照，筛选场景继续实时聚合。
+  4. **下午 crawl 回填**：cron 新增 `job=backfill`，`crawl` 触后也即时补一批市场字段；`deploy.sh` 和 `deploy-docker.sh` 的推荐 crontab 增加 12:50 独立回填位。
+  5. **What If / 决策引擎**：新增 `apps/web/lib/domains/market/decision.ts` 和 `GET /api/market/decision`；Web 市场页接入 `market-decision-panel.tsx`，移动端接入同一决策场景，覆盖城市迁移、职能热度、升温预警、可触达岗位和待补技能。
+  6. **清理实验组件**：删除未接线的 `story-shell.tsx`、`market-cover.tsx`、`market/motion-utils.ts`、`market/motion-tokens.ts`、`lib/market/story-config.ts` 及测试。
+  7. **生产环境收尾**：生产 `.env` 的临时 `CRON_SECRET` 已替换为正式随机值，`WEB_BASE_URL=https://learn.yuanabd.cn` 已补齐；crontab 已同步为 crawl/aggregate/backfill/maintenance；生产容器已重建并执行 aggregate，快照写入 39 条。Git 已收敛为只保留 `main`。
+- **涉及文件**：`apps/web/lib/domains/market/{decision,saved-views,snapshots,intelligence,index}.ts`；`apps/web/app/api/market/{decision,views,views/[id],internal/cron}/route.ts`；`apps/web/components/market/{market-decision-panel,market-view-switcher}.tsx`；`apps/web/app/career/market/page.tsx`；`apps/mobile/src/app/market.tsx`、`apps/mobile/src/lib/market.ts`；`deploy.sh`、`deploy-docker.sh`。
+- **验证**：Web 646 个测试通过，Mobile 52 个测试通过；Web/Mobile typecheck 通过；Web lint 0 error；Web production build 通过；生产 `/career/market`、`/api/market/intelligence`、`/api/market/decision` 返回 200，`/api/market/views` 匿名返回 401，生产日志无新增错误。
+- **影响**：移动端市场页完全切到新工作台；用户可保存市场视图；趋势全局读取快照，筛选趋势仍实时计算；下午新职位有独立回填窗口；What If 为规则版建议，不代表招聘承诺。
+
 ### 2026-09-09 · feat(market)+ops（股市分析型市场工作台 + 生产部署收口）
 
 - **背景**：确认市场模块按「股市分析型工作台」实施，首期范围是市场查询筛选、7/30/90 天趋势、个人市场位置与推荐岗位；接受新增数据表和爬虫回填任务，继续只使用现有中文职位和简历数据，不接外部新数据源。
@@ -540,10 +555,11 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 - [ ] 学习子模块：知识库入口（建议 7）、专注独立入口（G10）
 - [x] 市场工作台首期：筛选、7/30/90 天趋势、个人市场位置、推荐岗位 —— 2026-09-09 完成
 - [x] 职位市场字典回填接入每日 aggregate —— 2026-09-09 完成
-- [ ] 移动端市场工作台对齐：接入 `/api/market/intelligence`、`/api/market/personal`，补齐筛选与时间趋势
-- [ ] 保存市场筛选视图：实现 `market_saved_views` 的 API、Switcher 和删除/重命名
-- [ ] 每日维度快照落数：实现 `market_dimension_snapshots` 的 cron 写入与查询读取
-- [ ] 下午 crawl 增量回填：12:30 爬取成功后立即补跑市场字段，不等次日 aggregate
-- [ ] What If / 决策引擎及后续激进优化，按已确认方案推进
-- [ ] GitHub 推送与合并：网络恢复后推送 `codex/market-intelligence-v1` 到远端
-- [ ] 生产 `CRON_SECRET` 由临时字符串换成正式随机值，并核对 crontab
+- [x] 移动端市场工作台对齐：接入 `/api/market/intelligence`、`/api/market/personal`、`/api/market/decision` —— 2026-09-11 完成
+- [x] 保存市场筛选视图：`market_saved_views` API + Switcher/保存/切换/重命名/删除 —— 2026-09-11 完成
+- [x] 每日维度快照落数：cron 写入 + `market/intelligence` 全局趋势读取 —— 2026-09-11 完成
+- [x] 下午 crawl 增量回填：新增 `job=backfill` + 12:50 crontab + crawl 触后补批 —— 2026-09-11 完成
+- [x] What If / 决策引擎规则版：城市迁移、职能热度、升温预警、目标场景 —— 2026-09-11 完成
+- [x] GitHub 推送与分支清理：仅保留 `main`，生产代码已部署 —— 2026-09-11（`e9c943c` 因网络暂未推到远端）
+- [x] 生产 `CRON_SECRET` 换正式随机值，crontab 与 `.env` 已核对
+- [ ] GitHub 网络恢复后推送当前 `main` 后续提交：`3ce6d54`、`e9c943c` 和本轮文档收尾
