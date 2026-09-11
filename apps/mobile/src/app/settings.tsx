@@ -1,11 +1,18 @@
-import { useEffect, useState , useMemo } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
 import { useAppStore } from "@/store/app-store";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getApiUrl } from "@/config";
 import { syncPush, syncPull } from "@/lib/sync";
 import { useSyncEngineStatus } from "@/lib/sync-engine";
+import {
+  APP_ICP_NUMBER,
+  APP_VERSION_NAME,
+  ICP_VERIFY_URL,
+  PRIVACY_POLICY_URL,
+  checkForUpdate,
+} from "@/lib/ota";
 import { Card } from "@/components/card";
 import { PressableScale } from "@/components/pressable-scale";
 import { router } from "expo-router";
@@ -38,6 +45,7 @@ export default function SettingsScreen() {
   const [authOpen, setAuthOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [updateState, setUpdateState] = useState<"idle" | "checking" | "latest" | "update" | "failed">("idle");
 
 
   const [domains, setDomains] = useState<{ career_key: string; name: string; kind?: string; kind_label?: string }[]>([]);
@@ -92,6 +100,38 @@ export default function SettingsScreen() {
       setMsg(e instanceof Error ? e.message : "拉取失败");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const checkUpdate = async () => {
+    setUpdateState("checking");
+    try {
+      const result = await checkForUpdate();
+      if (!result.hasUpdate) {
+        setUpdateState("latest");
+        Alert.alert("已是最新版本", `当前版本：苦旅 v${APP_VERSION_NAME}`);
+        return;
+      }
+      setUpdateState("update");
+      const notes =
+        result.releaseNotes && result.releaseNotes.length > 0
+          ? `\n\n${result.releaseNotes.join("\n")}`
+          : "";
+      Alert.alert("发现新版本", `苦旅 v${result.latestVersionName} 可下载${notes}`, [
+        { text: "稍后", style: "cancel" },
+        {
+          text: "立即更新",
+          onPress: () => {
+            if (!result.apkUrl) return;
+            Linking.openURL(result.apkUrl).catch(() => {
+              Alert.alert("无法打开下载链接", "请前往 learn.yuanabd.cn/download.html 手动下载");
+            });
+          },
+        },
+      ]);
+    } catch {
+      setUpdateState("failed");
+      Alert.alert("检查更新失败", "请确认网络可用，或前往 learn.yuanabd.cn/download.html 手动下载");
     }
   };
 
@@ -270,9 +310,34 @@ export default function SettingsScreen() {
         </Pressable>
       </Card>
 
-      <Card title="关于" subtitle="苦旅 v1.1.1">
+      <Card title="关于" subtitle={`苦旅 v${APP_VERSION_NAME}`}>
         <Text style={styles.about}>Expo + React Native · 路线图内容来自《新疆ICT学习规划优化方案》</Text>
         <Text style={styles.about}>支持登录后一键同步云端，Web 与移动端数据保持一致。</Text>
+        <Pressable style={styles.aboutLinkRow} onPress={checkUpdate} disabled={updateState === "checking"}>
+          <ThemedIcon name="refresh" size={17} color={colors.primary} />
+          <Text style={styles.aboutLinkText}>检查更新</Text>
+          {updateState === "checking" ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <Text style={styles.aboutMeta}>
+              {updateState === "update"
+                ? "发现新版本"
+                : updateState === "latest"
+                  ? "已是最新"
+                  : updateState === "failed"
+                    ? "检查失败"
+                    : "支持 OTA 推送"}
+            </Text>
+          )}
+        </Pressable>
+        <Pressable style={styles.aboutLinkRow} onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}>
+          <ThemedIcon name="document-text-outline" size={17} color={colors.primary} />
+          <Text style={styles.aboutLinkText}>隐私政策</Text>
+        </Pressable>
+        <Pressable style={styles.aboutLinkRow} onPress={() => Linking.openURL(ICP_VERIFY_URL)}>
+          <ThemedIcon name="shield-checkmark-outline" size={17} color={colors.primary} />
+          <Text style={styles.aboutLinkText}>App 备案：{APP_ICP_NUMBER}</Text>
+        </Pressable>
       </Card>
 
       <AuthSheet visible={authOpen} onClose={() => setAuthOpen(false)} onAuthed={handleAuthed} />
@@ -395,4 +460,7 @@ const makeStyles = (colors: ThemeColors) =>
   chipTextIdle: { color: colors.text, fontSize: 13 },
   hint: { fontSize: 12, color: colors.textMuted, lineHeight: 18 },
   about: { fontSize: 13, color: colors.textMuted, lineHeight: 19 },
+  aboutLinkRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 7 },
+  aboutLinkText: { flex: 1, fontSize: 14, color: colors.primary, fontWeight: "600" },
+  aboutMeta: { fontSize: 12, color: colors.textMuted },
 });
