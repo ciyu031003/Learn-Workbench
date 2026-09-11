@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { currentUserId } from "@/lib/session";
+import { currentSessionToken, currentUserId } from "@/lib/session";
 import { getMarketDecision } from "@/lib/domains/market/decision";
 import { logger } from "@/lib/logger";
 
@@ -8,7 +8,8 @@ export async function GET(req: Request) {
   const city = params.get("city")?.trim() || undefined;
   const functionKey = params.get("function")?.trim() || undefined;
   try {
-    const userId = await currentUserId();
+    const token = await currentSessionToken();
+    const userId = token ? await currentUserId() : null;
     const payload = await getMarketDecision(userId, { city, functionKey });
     return NextResponse.json(payload);
   } catch (error) {

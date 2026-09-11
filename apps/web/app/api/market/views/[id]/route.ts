@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { currentUserId } from "@/lib/session";
+import { currentSessionToken, currentUserId } from "@/lib/session";
 import {
   deleteMarketSavedView,
   renameMarketSavedView,
@@ -17,7 +17,8 @@ function parseId(raw: string) {
 export async function PATCH(req: Request, ctx: Context) {
   const id = parseId((await ctx.params).id);
   if (!id) return NextResponse.json({ error: "无效 ID" }, { status: 400 });
-  const userId = await currentUserId();
+  const token = await currentSessionToken();
+  const userId = token ? await currentUserId() : null;
   if (!userId) return NextResponse.json({ error: "请先登录" }, { status: 401 });
   const body = await req.json().catch(() => null);
   try {
@@ -38,7 +39,8 @@ export async function PATCH(req: Request, ctx: Context) {
 export async function DELETE(_req: Request, ctx: Context) {
   const id = parseId((await ctx.params).id);
   if (!id) return NextResponse.json({ error: "无效 ID" }, { status: 400 });
-  const userId = await currentUserId();
+  const token = await currentSessionToken();
+  const userId = token ? await currentUserId() : null;
   if (!userId) return NextResponse.json({ error: "请先登录" }, { status: 401 });
   try {
     const ok = await deleteMarketSavedView(userId, id);

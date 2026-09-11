@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/session", () => ({ currentUserId: vi.fn() }));
+vi.mock("@/lib/session", () => ({ currentUserId: vi.fn(), currentSessionToken: vi.fn() }));
 vi.mock("@/lib/domains/market/saved-views", () => ({
   renameMarketSavedView: vi.fn(),
   updateMarketSavedViewFilters: vi.fn(),
@@ -8,7 +8,7 @@ vi.mock("@/lib/domains/market/saved-views", () => ({
 }));
 vi.mock("@/lib/logger", () => ({ logger: { error: vi.fn() } }));
 
-import { currentUserId } from "@/lib/session";
+import { currentSessionToken, currentUserId } from "@/lib/session";
 import {
   deleteMarketSavedView,
   renameMarketSavedView,
@@ -17,6 +17,7 @@ import {
 import { DELETE, PATCH } from "./route";
 
 const userIdMock = vi.mocked(currentUserId);
+const tokenMock = vi.mocked(currentSessionToken);
 const renameMock = vi.mocked(renameMarketSavedView);
 const updateFiltersMock = vi.mocked(updateMarketSavedViewFilters);
 const deleteMock = vi.mocked(deleteMarketSavedView);
@@ -25,6 +26,7 @@ beforeEach(() => vi.clearAllMocks());
 
 describe("market saved view item routes", () => {
   it("renames a view", async () => {
+    tokenMock.mockResolvedValue("token-1");
     userIdMock.mockResolvedValue("u-1");
     renameMock.mockResolvedValue({ id: 3, name: "重命名", filters: {}, createdAt: "", updatedAt: "" });
     const response = await PATCH(
@@ -39,6 +41,7 @@ describe("market saved view item routes", () => {
   });
 
   it("updates filters", async () => {
+    tokenMock.mockResolvedValue("token-1");
     userIdMock.mockResolvedValue("u-1");
     updateFiltersMock.mockResolvedValue({ id: 3, name: "北京", filters: {}, createdAt: "", updatedAt: "" });
     const response = await PATCH(
@@ -53,6 +56,7 @@ describe("market saved view item routes", () => {
   });
 
   it("deletes a view", async () => {
+    tokenMock.mockResolvedValue("token-1");
     userIdMock.mockResolvedValue("u-1");
     deleteMock.mockResolvedValue(true);
     const response = await DELETE(

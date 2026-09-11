@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { currentUserId } from "@/lib/session";
+import { currentSessionToken, currentUserId } from "@/lib/session";
 import { createMarketSavedView, listMarketSavedViews } from "@/lib/domains/market/saved-views";
 import type { MarketIntelligenceFilters } from "@/lib/domains/market/intelligence";
 import { logger } from "@/lib/logger";
 
 export async function GET() {
-  const userId = await currentUserId();
+  const token = await currentSessionToken();
+  const userId = token ? await currentUserId() : null;
   if (!userId) return NextResponse.json({ error: "请先登录" }, { status: 401 });
   try {
     const views = await listMarketSavedViews(userId);
@@ -17,7 +18,8 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const userId = await currentUserId();
+  const token = await currentSessionToken();
+  const userId = token ? await currentUserId() : null;
   if (!userId) return NextResponse.json({ error: "请先登录" }, { status: 401 });
   const body = await req.json().catch(() => null);
   const name = typeof body?.name === "string" ? body.name.trim() : "";
