@@ -4,3 +4,6 @@ export * from "./public-stats";
 export * from "./enrich";
 export * from "./intelligence";
 export * from "./personal";
+export * from "./saved-views";
+export * from "./snapshots";
+export * from "./decision";

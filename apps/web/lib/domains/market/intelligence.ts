@@ -1,5 +1,6 @@
 import { pgPool } from "@/lib/db";
 import { analyzeMarket } from "./analysis";
+import { readGlobalMarketTimeSeries } from "./snapshots";
 
 export type MarketIntelligenceRange = 7 | 30 | 90;
 
@@ -298,6 +299,18 @@ export async function queryMarketIntelligence(
     summary.median_salary = legacy.overview?.medianSalary == null ? null : String(legacy.overview.medianSalary);
   }
 
+  const timeSeries = isGlobal
+    ? await readGlobalMarketTimeSeries(range)
+    : fillSeries(
+        seriesRes.rows.map((row) => ({
+          date: row.snap_date,
+          newJobs: Number(row.new_jobs ?? 0),
+          medianSalary: row.median_salary == null ? null : Number(row.median_salary),
+          avgSalary: row.avg_salary == null ? null : Number(row.avg_salary),
+        })),
+        range
+      );
+
   const facet = <T extends { key?: string; sector?: string; subsector?: string; count: number }>(
     rows: T[]
   ): MarketFacetItem[] =>
@@ -363,14 +376,6 @@ export async function queryMarketIntelligence(
         count: Number(row.count),
       })),
     },
-    timeSeries: fillSeries(
-      seriesRes.rows.map((row) => ({
-        date: row.snap_date,
-        newJobs: Number(row.new_jobs ?? 0),
-        medianSalary: row.median_salary == null ? null : Number(row.median_salary),
-        avgSalary: row.avg_salary == null ? null : Number(row.avg_salary),
-      })),
-      range
-    ),
+    timeSeries,
   };
 }

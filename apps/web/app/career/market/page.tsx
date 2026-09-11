@@ -29,6 +29,8 @@ import {
 import { MarketIntelligenceFilterBar } from "@/components/market/intelligence-filter-bar";
 import { MarketTimeSeries } from "@/components/market/market-time-series";
 import { PersonalMarketCard } from "@/components/market/personal-market-card";
+import { MarketViewSwitcher } from "@/components/market/market-view-switcher";
+import { MarketDecisionPanel } from "@/components/market/market-decision-panel";
 import type {
   MarketIntelligenceFilters,
   MarketIntelligencePayload,
@@ -252,6 +254,8 @@ export default function MarketPage() {
         </Button>
       </div>
 
+      <MarketViewSwitcher filters={filters} onApply={setFilters} />
+
       {data && facets ? (
         <MarketIntelligenceFilterBar
           filters={filters}
@@ -313,6 +317,12 @@ export default function MarketPage() {
           </ChartCard>
 
           <PersonalMarketCard />
+
+          <MarketDecisionPanel
+            facets={facets}
+            initialCity={filters.city}
+            initialFunction={filters.functionKey}
+          />
 
           <Card className="rounded-2xl">
             <CardContent className="flex flex-col gap-1.5 px-5 py-4 text-xs text-muted-foreground">

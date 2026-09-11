@@ -176,12 +176,13 @@ fi
 # 服务器统一批处理：04:30 抓取（幂等，当天已成功自动跳过）→ 05:40 预聚合 → 06:10 维护
 # 宿主机 crontab 通过映射端口触发容器内 /api/internal/cron（x-cron-secret 鉴权）
 if [ "$SETUP_JOBS_CRON" = "1" ] && command -v crontab >/dev/null 2>&1; then
-  info "添加每日爬虫/聚合/维护 crontab（04:30 / 05:40 / 06:10）..."
+  info "添加每日爬虫/聚合/回填/维护 crontab（04:30 / 05:40 / 12:50 / 06:10）..."
   CRON_URL="http://127.0.0.1:${APP_PORT}/api/internal/cron"
   ( crontab -l 2>/dev/null | grep -v "api/internal/cron"; \
     echo "30 4 * * * flock -n /tmp/lwb-cron-crawl.lock curl -fsS -m 60 -X POST -H 'x-cron-secret: ${CRON_SECRET}' '${CRON_URL}?job=crawl' >> $ROOT/cron-jobs.log 2>&1 || true"; \
     echo "30 12 * * * flock -n /tmp/lwb-cron-crawl.lock curl -fsS -m 60 -X POST -H 'x-cron-secret: ${CRON_SECRET}' '${CRON_URL}?job=crawl' >> $ROOT/cron-jobs.log 2>&1 || true"; \
     echo "40 5 * * * flock -n /tmp/lwb-cron-agg.lock curl -fsS -m 300 -X POST -H 'x-cron-secret: ${CRON_SECRET}' '${CRON_URL}?job=aggregate' >> $ROOT/cron-jobs.log 2>&1 || true"; \
+    echo "50 12 * * * flock -n /tmp/lwb-cron-backfill.lock curl -fsS -m 300 -X POST -H 'x-cron-secret: ${CRON_SECRET}' '${CRON_URL}?job=backfill' >> $ROOT/cron-jobs.log 2>&1 || true"; \
     echo "10 6 * * * flock -n /tmp/lwb-cron-maint.lock curl -fsS -m 120 -X POST -H 'x-cron-secret: ${CRON_SECRET}' '${CRON_URL}?job=maintenance' >> $ROOT/cron-jobs.log 2>&1 || true" ) | crontab -
   info "crontab 已配置（每日爬虫管线）"
 elif [ "$SETUP_JOBS_CRON" = "1" ]; then

@@ -3,10 +3,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
   type DimensionValue,
 } from "react-native";
@@ -23,27 +25,21 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppStore } from "@/store/app-store";
 import {
   enrollMarketGaps,
-  fetchMarket,
-  fetchMarketGaps,
-  fetchMarketProfile,
-  marketKpis,
-  marketSkillRows,
+  fetchMarketDecision,
+  fetchMarketIntelligence,
+  fetchMarketPersonal,
+  type MarketDecisionPayload,
+  type MarketFacetItem,
+  type MarketIntelligenceFilters,
+  type MarketIntelligencePayload,
+  type MarketIntelligenceRange,
+  type MarketPersonalInsights,
+  type MarketRankItem,
 } from "@/lib/market";
-import type { MarketSkillRow } from "@/lib/market";
-import type { MarketAnalysis, MarketGapItem, UserSkillView } from "@learn-workbench/shared";
-
-const LEVEL_LABELS = ["未掌握", "了解", "入门", "熟练", "精通", "专家"] as const;
+import type { MarketGapItem } from "@learn-workbench/shared";
 
 type MarketStyles = ReturnType<typeof makeStyles>;
-
-function normalize(value: string) {
-  return value.trim().toLowerCase();
-}
-
-function levelLabel(level: number | null) {
-  if (level == null || level < 0 || level >= LEVEL_LABELS.length) return "未记录";
-  return LEVEL_LABELS[level];
-}
+type FilterKey = "city" | "function" | "industry" | "seniority" | "source";
 
 function maxOf(values: number[], fallback = 1) {
   return Math.max(fallback, ...values);
@@ -83,14 +79,17 @@ function BarRow({
   value,
   max,
   color,
+  suffix,
 }: {
   styles: MarketStyles;
   label: string;
   value: number;
   max: number;
   color: string;
+  suffix?: string;
 }) {
-  const width = `${maxOf([max]) > 0 ? Math.max(6, Math.round((value / maxOf([max])) * 100)) : 6}%` as DimensionValue;
+  const safeMax = maxOf([max]);
+  const width = `${Math.max(6, Math.round((value / safeMax) * 100))}%` as DimensionValue;
   return (
     <View style={styles.row}>
       <Text style={styles.rowLabel} numberOfLines={1}>
@@ -99,15 +98,89 @@ function BarRow({
       <View style={styles.rowTrack}>
         <View style={[styles.rowFill, { width, backgroundColor: color }]} />
       </View>
-      <Text style={styles.rowValue}>{value}</Text>
+      <Text style={styles.rowValue}>{suffix ? suffix : value}</Text>
     </View>
   );
 }
 
-function Chip({ styles, label }: { styles: MarketStyles; label: string }) {
+function Chip({
+  styles,
+  label,
+  active,
+  onPress,
+}: {
+  styles: MarketStyles;
+  label: string;
+  active?: boolean;
+  onPress?: () => void;
+}) {
+  const Component = onPress ? Pressable : View;
   return (
-    <View style={styles.chip}>
-      <Text style={styles.chipText}>{label}</Text>
+    <Component
+      style={[styles.chip, active && styles.chipActive]}
+      disabled={!onPress}
+      onPress={onPress}
+    >
+      <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
+    </Component>
+  );
+}
+
+function RangeTabs({
+  styles,
+  range,
+  onChange,
+}: {
+  styles: MarketStyles;
+  range: MarketIntelligenceRange;
+  onChange: (range: MarketIntelligenceRange) => void;
+}) {
+  const tabs: Array<{ value: MarketIntelligenceRange; label: string }> = [
+    { value: 7, label: "7天" },
+    { value: 30, label: "30天" },
+    { value: 90, label: "90天" },
+  ];
+  return (
+    <View style={styles.rangeRow}>
+      {tabs.map((tab) => (
+        <Pressable
+          key={tab.value}
+          onPress={() => onChange(tab.value)}
+          style={[styles.rangeTab, range === tab.value && styles.rangeTabActive]}
+        >
+          <Text style={[styles.rangeText, range === tab.value && styles.rangeTextActive]}>{tab.label}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+function TrendChart({ styles, series }: { styles: MarketStyles; series: MarketIntelligencePayload["timeSeries"] }) {
+  const max = maxOf(series.map((point) => point.newJobs));
+  return (
+    <View style={styles.trendBars}>
+      {series.map((point, index) => (
+        <View key={point.date} style={styles.trendBarWrap}>
+          <View style={[styles.trendBar, { height: Math.max(4, Math.round((point.newJobs / max) * 82)) }]} />
+          <Text style={styles.trendDate}>{index % Math.max(1, Math.ceil(series.length / 7)) === 0 ? point.date.slice(5) : ""}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function MoveList({ styles, items }: { styles: MarketStyles; items: MarketDecisionPayload["hotspots"] }) {
+  return (
+    <View style={styles.moveList}>
+      {items.slice(0, 4).map((item) => (
+        <View key={`${item.reason}-${item.key}`} style={styles.moveRow}>
+          <View style={styles.moveMain}>
+            <Text style={styles.moveName} numberOfLines={1}>{item.label}</Text>
+            <Text style={styles.moveMeta}>{item.reason} · {item.count} 岗{item.medianSalary != null ? ` · ${item.medianSalary}K` : ""}</Text>
+          </View>
+          <Text style={styles.moveScore}>{Math.round(item.score)}</Text>
+        </View>
+      ))}
     </View>
   );
 }
@@ -119,75 +192,59 @@ export default function MarketScreen() {
   const token = useAppStore((s) => s.token);
   const setAuth = useAppStore((s) => s.setAuth);
 
-  const [data, setData] = useState<MarketAnalysis | null>(null);
-  const [skills, setSkills] = useState<UserSkillView[]>([]);
-  const [gaps, setGaps] = useState<MarketGapItem[]>([]);
+  const [filters, setFilters] = useState<MarketIntelligenceFilters>({ range: 90 });
+  const [data, setData] = useState<MarketIntelligencePayload | null>(null);
+  const [personal, setPersonal] = useState<MarketPersonalInsights>({ loggedIn: false });
+  const [decision, setDecision] = useState<MarketDecisionPayload | null>(null);
+  const [decisionTarget, setDecisionTarget] = useState({ city: "", functionKey: "" });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [loggedIn, setLoggedIn] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
-  const [selectedSkill, setSelectedSkill] = useState<MarketSkillRow | null>(null);
-  const [enrolling, setEnrolling] = useState(false);
+  const [filterOpen, setFilterOpen] = useState<FilterKey | null>(null);
+  const [decisionPicker, setDecisionPicker] = useState<"city" | "function" | null>(null);
+  const [enrolling, setEnrolling] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   const load = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true);
     else setLoading(true);
     setError(null);
-
     try {
-      const nextData = await fetchMarket();
-      const profile = await fetchMarketProfile().catch(() => ({ loggedIn: false, skills: [] as UserSkillView[] }));
-      let nextGaps: MarketGapItem[] = [];
-
-      if (profile.loggedIn) {
-        nextGaps = await fetchMarketGaps().catch(() => []);
-      }
-
+      const [nextData, nextPersonal] = await Promise.all([
+        fetchMarketIntelligence(filters),
+        fetchMarketPersonal(),
+      ]);
       setData(nextData);
-      setLoggedIn(profile.loggedIn);
-      setSkills(profile.skills);
-      setGaps(nextGaps);
+      setPersonal(nextPersonal);
     } catch (e) {
       setError(e instanceof Error ? e.message : "市场数据加载失败");
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [filters]);
 
   useEffect(() => {
     void load();
   }, [load, token]);
 
-  const kpis = useMemo(() => (data ? marketKpis(data) : null), [data]);
-  const skillRows = useMemo(
-    () => (data ? marketSkillRows(data, skills, gaps) : []),
-    [data, gaps, skills]
-  );
-  const selectedGap = useMemo(
-    () =>
-      selectedSkill
-        ? gaps.find((gap) => normalize(gap.skill) === normalize(selectedSkill.skill))
-        : undefined,
-    [gaps, selectedSkill]
-  );
+  useEffect(() => {
+    let alive = true;
+    fetchMarketDecision(decisionTarget.city || undefined, decisionTarget.functionKey || undefined)
+      .then((payload) => {
+        if (alive) setDecision(payload);
+      })
+      .catch(() => {
+        if (alive) setDecision(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [decisionTarget]);
 
-  const enroll = async (gap: MarketGapItem) => {
-    if (!gap || enrolling) return;
-    setEnrolling(true);
-    try {
-      const created = await enrollMarketGaps([gap]);
-      haptics.success();
-      Alert.alert("已加入学习路线", `已创建 ${created} 项学习任务到今日计划。`);
-      const nextGaps = await fetchMarketGaps().catch(() => []);
-      setGaps(nextGaps);
-    } catch (e) {
-      haptics.error();
-      Alert.alert("加入失败", e instanceof Error ? e.message : "请稍后重试");
-    } finally {
-      setEnrolling(false);
-    }
+  const patchFilters = (patch: Partial<MarketIntelligenceFilters>) => {
+    setFilters((current) => ({ ...current, ...patch }));
   };
 
   const handleAuthed = (nextToken: string, username: string) => {
@@ -195,10 +252,74 @@ export default function MarketScreen() {
     setAuthOpen(false);
   };
 
-  const cityMax = maxOf(data?.byCity.map((c) => c.count) ?? []);
-  const salaryMax = maxOf(data?.salaryDist.map((s) => s.count) ?? []);
-  const educationMax = maxOf(data?.byEducation.map((e) => e.count) ?? []);
-  const experienceMax = maxOf(data?.byExperience.map((e) => e.count) ?? []);
+  const enroll = async (gap: MarketGapItem) => {
+    if (!gap || enrolling) return;
+    setEnrolling(gap.skill);
+    try {
+      const created = await enrollMarketGaps([gap]);
+      haptics.success();
+      Alert.alert("已加入学习路线", `已创建 ${created} 项学习任务到今日计划。`);
+      setPersonal(await fetchMarketPersonal());
+    } catch (e) {
+      haptics.error();
+      Alert.alert("加入失败", e instanceof Error ? e.message : "请稍后重试");
+    } finally {
+      setEnrolling(null);
+    }
+  };
+
+  const pickFilterOptions = (key: FilterKey): MarketFacetItem[] => {
+    if (!data) return [];
+    if (key === "industry") {
+      return data.facets.industries.map((item) => ({
+        key: `${item.key}`,
+        label: item.label,
+        count: item.count,
+      }));
+    }
+    if (key === "city") return data.facets.cities;
+    if (key === "function") return data.facets.functions;
+    if (key === "seniority") return data.facets.seniorities;
+    return data.facets.sources;
+  };
+
+  const setFilterOption = (key: FilterKey, value: string) => {
+    if (key === "industry") {
+      const [sector, subsector] = value.split(" / ");
+      patchFilters({
+        industrySector: value ? sector : undefined,
+        industrySubsector: value && subsector ? subsector : undefined,
+      });
+    } else if (key === "city") {
+      patchFilters({ city: value || undefined });
+    } else if (key === "function") {
+      patchFilters({ functionKey: value || undefined });
+    } else if (key === "seniority") {
+      patchFilters({ seniorityBucket: value || undefined });
+    } else {
+      patchFilters({ source: value || undefined });
+    }
+  };
+
+  const industryValue = filters.industrySector
+    ? filters.industrySubsector
+      ? `${filters.industrySector} / ${filters.industrySubsector}`
+      : filters.industrySector
+    : "";
+  const summary = data?.summary;
+  const dist = data?.distributions;
+
+  const filterLabels: Array<{ key: FilterKey; label: string; value: string }> = [
+    { key: "city", label: "城市", value: filters.city ?? "" },
+    { key: "function", label: "职能", value: filters.functionKey ?? "" },
+    { key: "industry", label: "行业", value: industryValue },
+    { key: "seniority", label: "资历", value: filters.seniorityBucket ?? "" },
+    { key: "source", label: "来源", value: filters.source ?? "" },
+  ];
+
+  const pickDecisionOptions = decisionPicker === "city"
+    ? data?.facets.cities ?? []
+    : data?.facets.functions ?? [];
 
   return (
     <ScrollView
@@ -215,15 +336,55 @@ export default function MarketScreen() {
       }
     >
       <ScreenHeader
-        title="招聘市场分析"
-        subtitle={`市场到底需要什么？样本 ${data?.total ?? "—"} 个职位`}
+        title="招聘市场工作台"
+        subtitle={`筛选 · 趋势 · 个人位置${summary ? ` · ${summary.total} 个样本` : ""}`}
         compact
       />
+
+      <RangeTabs
+        styles={styles}
+        range={filters.range ?? 90}
+        onChange={(range) => patchFilters({ range })}
+      />
+
+      <View style={styles.searchRow}>
+        <TextInput
+          value={search}
+          onChangeText={setSearch}
+          onSubmitEditing={() => patchFilters({ q: search.trim() || undefined })}
+          placeholder="搜索职位 / 公司 / 技能"
+          placeholderTextColor={colors.textFaint}
+          style={styles.searchInput}
+        />
+        <PressableScale haptic style={styles.searchButton} onPress={() => patchFilters({ q: search.trim() || undefined })}>
+          <ThemedIcon name="search-outline" size={19} color="#FFFFFF" />
+        </PressableScale>
+      </View>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+        {filterLabels.map((item) => (
+          <Chip
+            key={item.key}
+            styles={styles}
+            label={item.value ? `${item.label}: ${item.value}` : item.label}
+            active={!!item.value}
+            onPress={() => setFilterOpen(item.key)}
+          />
+        ))}
+        <Chip
+          styles={styles}
+          label="重置筛选"
+          onPress={() => {
+            setSearch("");
+            setFilters({ range: filters.range ?? 90 });
+          }}
+        />
+      </ScrollView>
 
       {loading ? (
         <View style={styles.centeredBox}>
           <ActivityIndicator color={colors.primary} />
-          <Text style={styles.mutedText}>正在聚合职位数据</Text>
+          <Text style={styles.mutedText}>正在聚合市场数据</Text>
         </View>
       ) : error ? (
         <View style={styles.centeredBox}>
@@ -233,7 +394,7 @@ export default function MarketScreen() {
             <Text style={styles.retryText}>重新加载</Text>
           </PressableScale>
         </View>
-      ) : !data || !kpis ? (
+      ) : !data || !summary || summary.total === 0 ? (
         <View style={styles.centeredBox}>
           <ThemedIcon name="trending-up-outline" size={30} color={colors.textFaint} />
           <Text style={styles.mutedText}>暂无招聘数据，先抓取一些职位</Text>
@@ -241,204 +402,191 @@ export default function MarketScreen() {
       ) : (
         <View style={styles.body}>
           <View style={styles.kpiGrid}>
-            <KpiCard styles={styles} colors={colors} icon="briefcase-outline" label="职位样本" value={String(kpis.total)} color={colors.primary} />
-            <KpiCard styles={styles} colors={colors} icon="layers-outline" label="覆盖城市" value={String(kpis.cityCount)} color={colors.teal} />
-            <KpiCard styles={styles} colors={colors} icon="git-branch-outline" label="热门技能" value={String(kpis.skillCount)} color={colors.lavender} />
-            <KpiCard styles={styles} colors={colors} icon="trending-up-outline" label="平均薪资" value={kpis.avgSalary != null ? `${kpis.avgSalary}K` : "—"} color={colors.accent} />
+            <KpiCard styles={styles} colors={colors} icon="briefcase-outline" label="职位样本" value={String(summary.total)} color={colors.primary} />
+            <KpiCard styles={styles} colors={colors} icon="layers-outline" label="7天新增" value={String(summary.last7DaysJobs)} color={colors.teal} />
+            <KpiCard styles={styles} colors={colors} icon="cash-outline" label="薪资中位" value={summary.medianSalary != null ? `${summary.medianSalary}K` : "—"} color={colors.accent} />
+            <KpiCard styles={styles} colors={colors} icon="location-outline" label="覆盖城市" value={String(summary.cityCount)} color={colors.lavender} />
           </View>
 
-          {data.trend?.has ? (
-            <View style={styles.trendStrip}>
-              <Text style={styles.trendText}>
-                较 {data.trend.prevDate} 岗位总量{" "}
-                {data.trend.totalDeltaPct != null
-                  ? `${data.trend.totalDeltaPct >= 0 ? "+" : ""}${data.trend.totalDeltaPct}%`
-                  : "—"}
-              </Text>
-              {data.trend.topSkill ? (
-                <Text style={styles.trendText}>TOP 技能「{data.trend.topSkill}」</Text>
-              ) : null}
-            </View>
-          ) : (
-            <View style={styles.trendStrip}>
-              <Text style={styles.trendText}>市场趋势：数据积累中</Text>
-            </View>
-          )}
+          <Card title="市场时间趋势" subtitle="新增岗位数，7/30/90 天切换">
+            <TrendChart styles={styles} series={data.timeSeries ?? []} />
+            <Text style={styles.mutedText}>
+              最近节点：{data.timeSeries?.at(-1)?.newJobs ?? 0} 个新岗位
+            </Text>
+          </Card>
 
-          <Card title="市场需求" subtitle="城市、方向和薪资一起看">
-            <Text style={styles.groupTitle}>城市机会 TOP 5</Text>
-            {data.byCity.slice(0, 5).map((city) => (
+          <Card title="需求分布" subtitle="城市、职能、行业、资历和薪资">
+            <Text style={styles.groupTitle}>城市机会 TOP</Text>
+            {(dist?.byCity ?? []).slice(0, 5).map((item: MarketRankItem) => (
               <BarRow
-                key={city.city}
+                key={item.key}
                 styles={styles}
-                label={city.city}
-                value={city.count}
-                max={cityMax}
+                label={item.label}
+                value={item.count}
+                max={maxOf((dist?.byCity ?? []).map((x) => x.count))}
                 color={colors.primary}
               />
             ))}
+            <Text style={styles.groupTitle}>职能需求</Text>
+            <View style={styles.chipGrid}>
+              {(dist?.byFunction ?? []).slice(0, 8).map((item) => (
+                <Chip key={item.key} styles={styles} label={`${item.label} ${item.count}`} />
+              ))}
+            </View>
             <Text style={styles.groupTitle}>薪资区间</Text>
-            {data.salaryDist.slice(0, 4).map((salary) => (
+            {(dist?.bySalary ?? []).slice(0, 4).map((item) => (
               <BarRow
-                key={salary.label}
+                key={item.label}
                 styles={styles}
-                label={salary.label}
-                value={salary.count}
-                max={salaryMax}
+                label={item.label}
+                value={item.count}
+                max={maxOf((dist?.bySalary ?? []).map((x) => x.count))}
                 color={colors.accent}
               />
             ))}
-            <Text style={styles.groupTitle}>岗位职能</Text>
-            <View style={styles.chipGrid}>
-              {data.byFunction.slice(0, 8).map((item) => (
-                <Chip key={item.label} styles={styles} label={`${item.label} ${item.count}`} />
-              ))}
-            </View>
           </Card>
 
-          <Card title="技能机会" subtitle="热度与平均薪资">
-            {skillRows.length ? (
-              skillRows.slice(0, 6).map((row) => (
-                <PressableScale
-                  key={row.skill}
-                  haptic
-                  style={styles.skillRow}
-                  onPress={() => setSelectedSkill(row)}
-                >
-                  <View style={styles.skillMain}>
-                    <Text style={styles.skillName} numberOfLines={1}>
-                      {row.skill}
-                    </Text>
-                    <Text style={styles.skillMeta}>
-                      {row.avgSalary}K · {row.count} 岗位
-                    </Text>
-                  </View>
-                  {loggedIn ? (
-                    <Text style={styles.levelText}>{levelLabel(row.myLevel)}</Text>
-                  ) : (
-                    <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
-                  )}
-                </PressableScale>
-              ))
-            ) : (
-              <Text style={styles.mutedText}>暂无可计算的技能薪资数据</Text>
-            )}
-          </Card>
-
-          <Card title="人才画像" subtitle="招聘方学历与经验要求">
-            <Text style={styles.groupTitle}>学历需求</Text>
-            {data.byEducation.slice(0, 4).map((item) => (
-              <BarRow
-                key={item.label}
-                styles={styles}
-                label={item.label}
-                value={item.count}
-                max={educationMax}
-                color={colors.lavender}
-              />
-            ))}
-            <Text style={styles.groupTitle}>经验要求</Text>
-            {data.byExperience.slice(0, 4).map((item) => (
-              <BarRow
-                key={item.label}
-                styles={styles}
-                label={item.label}
-                value={item.count}
-                max={experienceMax}
-                color={colors.coral}
-              />
-            ))}
-          </Card>
-
-          <Card title="我的学习机会" subtitle="登录后把市场缺口变成学习路线">
-            {loggedIn ? (
-              gaps.length ? (
-                <View style={styles.gapList}>
-                  {gaps.slice(0, 6).map((gap) => (
-                    <View key={gap.skill} style={styles.gapRow}>
-                      <View style={styles.skillMain}>
-                        <Text style={styles.skillName} numberOfLines={1}>
-                          {gap.skill}
-                        </Text>
-                        <Text style={styles.skillMeta}>
-                          {gap.topicTitle ?? "技能主题"} · 约 {gap.estimateHours ?? 8}h
-                        </Text>
-                      </View>
-                      <PressableScale
-                        haptic
-                        disabled={enrolling || !gap.enrollable}
-                        style={[styles.gapButton, (!gap.enrollable || enrolling) && styles.gapButtonDisabled]}
-                        onPress={() => void enroll(gap)}
-                      >
-                        <Text style={styles.gapButtonText}>{enrolling ? "加入中" : "加入学习"}</Text>
-                      </PressableScale>
-                    </View>
-                  ))}
+          <Card title="我的市场位置" subtitle="技能覆盖、可触达岗位和推荐">
+            {personal.loggedIn ? (
+              <View style={styles.personalBody}>
+                <View style={styles.kpiGrid}>
+                  <KpiCard styles={styles} colors={colors} icon="git-branch-outline" label="技能覆盖" value={`${personal.profile.skillCoveragePct}%`} color={colors.lavender} />
+                  <KpiCard styles={styles} colors={colors} icon="briefcase-outline" label="可触达" value={String(personal.reachableJobs)} color={colors.primary} />
                 </View>
-              ) : (
-                <Text style={styles.mutedText}>当前能力画像已覆盖主要热门技能</Text>
-              )
+                <Text style={styles.groupTitle}>优先补什么</Text>
+                {personal.gaps.slice(0, 5).map((gap) => (
+                  <View key={gap.skill} style={styles.gapRow}>
+                    <View style={styles.moveMain}>
+                      <Text style={styles.skillName} numberOfLines={1}>{gap.skill}</Text>
+                      <Text style={styles.skillMeta}>{gap.topicTitle ?? "技能主题"} · 约 {gap.estimateHours ?? 8}h</Text>
+                    </View>
+                    <PressableScale
+                      haptic
+                      disabled={enrolling === gap.skill || !gap.enrollable}
+                      style={[styles.gapButton, (!gap.enrollable || enrolling === gap.skill) && styles.gapButtonDisabled]}
+                      onPress={() => void enroll(gap)}
+                    >
+                      <Text style={styles.gapButtonText}>{enrolling === gap.skill ? "加入中" : "加入"}</Text>
+                    </PressableScale>
+                  </View>
+                ))}
+                {!personal.gaps.length ? <Text style={styles.mutedText}>当前能力画像已覆盖主要热门技能</Text> : null}
+                <Text style={styles.groupTitle}>推荐岗位</Text>
+                {personal.recommendations.slice(0, 4).map((job) => (
+                  <View key={job.id} style={styles.recommendRow}>
+                    <View style={styles.moveMain}>
+                      <Text style={styles.skillName} numberOfLines={1}>{job.title}</Text>
+                      <Text style={styles.skillMeta}>{job.company} · {job.city} · {job.salaryText}</Text>
+                      {job.missingSkills.length ? <Text style={styles.skillMeta}>还缺 {job.missingSkills.slice(0, 3).join(" / ")}</Text> : null}
+                    </View>
+                    <Text style={styles.matchText}>{job.match}%</Text>
+                  </View>
+                ))}
+              </View>
             ) : (
               <View style={styles.loginBox}>
-                <View style={styles.skillMain}>
-                  <Text style={styles.loginText}>登录后查看你的能力缺口，并一键加入学习路线。</Text>
-                </View>
+                <Text style={styles.loginText}>登录后查看技能覆盖、可触达岗位和推荐职位。</Text>
                 <PressableScale haptic style={styles.gapButton} onPress={() => setAuthOpen(true)}>
                   <Text style={styles.gapButtonText}>去登录</Text>
                 </PressableScale>
               </View>
             )}
           </Card>
+
+          <Card title="What If 决策" subtitle="城市迁移、职能热度与升温预警">
+            <View style={styles.decisionPickers}>
+              <Pressable style={styles.pickerButton} onPress={() => setDecisionPicker("city")}>
+                <Text style={styles.pickerText}>{decisionTarget.city || "目标城市"}</Text>
+                <ThemedIcon name="chevron-down-outline" size={16} color={colors.textMuted} />
+              </Pressable>
+              <Pressable style={styles.pickerButton} onPress={() => setDecisionPicker("function")}>
+                <Text style={styles.pickerText}>{decisionTarget.functionKey || "目标职能"}</Text>
+                <ThemedIcon name="chevron-down-outline" size={16} color={colors.textMuted} />
+              </Pressable>
+            </View>
+            {decision ? (
+              <>
+                <View style={styles.kpiGrid}>
+                  <KpiCard styles={styles} colors={colors} icon="briefcase-outline" label="目标岗位" value={String(decision.scenario.totalJobs)} color={colors.primary} />
+                  <KpiCard styles={styles} colors={colors} icon="cash-outline" label="薪资中位" value={decision.scenario.medianSalary != null ? `${decision.scenario.medianSalary}K` : "—"} color={colors.accent} />
+                </View>
+                <Text style={styles.groupTitle}>建议</Text>
+                {decision.scenario.suggestions.slice(0, 4).map((suggestion) => (
+                  <Text key={suggestion.slice(0, 80)} style={styles.skillMeta}>{suggestion}</Text>
+                ))}
+                <Text style={styles.groupTitle}>职能热度</Text>
+                <MoveList styles={styles} items={decision.hotspots} />
+                <Text style={styles.groupTitle}>城市机会</Text>
+                <MoveList styles={styles} items={decision.migrations} />
+                <Text style={styles.groupTitle}>升温预警</Text>
+                <MoveList styles={styles} items={decision.alerts} />
+              </>
+            ) : (
+              <Text style={styles.mutedText}>正在计算决策场景</Text>
+            )}
+          </Card>
         </View>
       )}
 
       <BottomSheet
-        visible={!!selectedSkill}
-        onClose={() => setSelectedSkill(null)}
-        title={selectedSkill?.skill ?? ""}
-        height="58%"
+        visible={!!filterOpen}
+        onClose={() => setFilterOpen(null)}
+        title="选择筛选项"
+        height="62%"
       >
-        {selectedSkill ? (
+        {filterOpen ? (
           <View style={styles.sheetBody}>
-            <View style={styles.sheetStatRow}>
-              <Text style={styles.sheetStatLabel}>市场热度</Text>
-              <Text style={styles.sheetStatValue}>{selectedSkill.count} 岗位</Text>
-            </View>
-            <View style={styles.sheetStatRow}>
-              <Text style={styles.sheetStatLabel}>平均薪资</Text>
-              <Text style={styles.sheetStatValue}>{selectedSkill.avgSalary}K/月</Text>
-            </View>
-            <View style={styles.sheetStatRow}>
-              <Text style={styles.sheetStatLabel}>我的掌握</Text>
-              <Text style={styles.sheetStatValue}>{loggedIn ? levelLabel(selectedSkill.myLevel) : "登录后可见"}</Text>
-            </View>
-            {loggedIn ? (
-              selectedGap ? (
-                <PressableScale
-                  haptic
-                  style={[styles.gapButton, styles.sheetButton]}
-                  disabled={enrolling || !selectedGap.enrollable}
-                  onPress={() => void enroll(selectedGap)}
-                >
-                  <Text style={styles.gapButtonText}>{enrolling ? "加入中…" : "加入学习路线"}</Text>
-                </PressableScale>
-              ) : (
-                <Text style={styles.sheetHint}>当前技能已经纳入你的学习画像</Text>
-              )
-            ) : (
+            <PressableScale
+              haptic
+              style={styles.optionRow}
+              onPress={() => {
+                setFilterOption(filterOpen, "");
+                setFilterOpen(null);
+              }}
+            >
+              <Text style={styles.optionText}>全部</Text>
+            </PressableScale>
+            {pickFilterOptions(filterOpen).map((option) => (
               <PressableScale
+                key={option.key}
                 haptic
-                style={[styles.gapButton, styles.sheetButton]}
+                style={styles.optionRow}
                 onPress={() => {
-                  setSelectedSkill(null);
-                  setAuthOpen(true);
+                  setFilterOption(filterOpen, option.key);
+                  setFilterOpen(null);
                 }}
               >
-                <Text style={styles.gapButtonText}>登录后加入</Text>
+                <Text style={styles.optionText}>{option.label} ({option.count})</Text>
+                <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
               </PressableScale>
-            )}
+            ))}
           </View>
         ) : null}
+      </BottomSheet>
+
+      <BottomSheet
+        visible={!!decisionPicker}
+        onClose={() => setDecisionPicker(null)}
+        title={decisionPicker === "city" ? "选择目标城市" : "选择目标职能"}
+        height="62%"
+      >
+        <View style={styles.sheetBody}>
+          {pickDecisionOptions.map((option) => (
+            <PressableScale
+              key={option.key}
+              haptic
+              style={styles.optionRow}
+              onPress={() => {
+                if (decisionPicker === "city") setDecisionTarget((current) => ({ ...current, city: option.key }));
+                else setDecisionTarget((current) => ({ ...current, functionKey: option.key }));
+                setDecisionPicker(null);
+              }}
+            >
+              <Text style={styles.optionText}>{option.label} ({option.count})</Text>
+              <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
+            </PressableScale>
+          ))}
+        </View>
       </BottomSheet>
 
       <AuthSheet visible={authOpen} onClose={() => setAuthOpen(false)} onAuthed={handleAuthed} />
@@ -451,6 +599,51 @@ const makeStyles = (colors: ThemeColors) =>
     scroll: { flex: 1, backgroundColor: "transparent" },
     content: { padding: 16, paddingBottom: 40, gap: 12 },
     body: { gap: 12 },
+    rangeRow: { flexDirection: "row", gap: 8 },
+    rangeTab: {
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 999,
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    rangeTabActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+    rangeText: { fontSize: 12, fontWeight: "800", color: colors.textMuted },
+    rangeTextActive: { color: "#FFFFFF" },
+    searchRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+    searchInput: {
+      flex: 1,
+      height: 42,
+      borderRadius: 14,
+      paddingHorizontal: 12,
+      color: colors.text,
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      fontSize: 13,
+    },
+    searchButton: {
+      width: 42,
+      height: 42,
+      borderRadius: 14,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.primary,
+    },
+    filterRow: { gap: 7, paddingRight: 8 },
+    chipGrid: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
+    chip: {
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      borderRadius: 999,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+    },
+    chipActive: { backgroundColor: colors.primary + "22", borderColor: colors.primary },
+    chipText: { fontSize: 11, fontWeight: "700", color: colors.textMuted },
+    chipTextActive: { color: colors.primary },
     kpiGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
     kpiCard: {
       flexBasis: "47%",
@@ -473,43 +666,22 @@ const makeStyles = (colors: ThemeColors) =>
     },
     kpiLabel: { fontSize: 12, color: colors.textMuted, fontWeight: "600" },
     kpiValue: { fontSize: 24, fontWeight: "900", letterSpacing: 0 },
-    trendStrip: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: 8,
-      paddingHorizontal: 2,
+    trendBars: { flexDirection: "row", alignItems: "flex-end", gap: 4, height: 112, paddingTop: 8 },
+    trendBarWrap: { flex: 1, alignItems: "center", justifyContent: "flex-end", gap: 5 },
+    trendBar: {
+      width: "70%",
+      minWidth: 5,
+      borderRadius: 6,
+      backgroundColor: colors.primary,
     },
-    trendText: { fontSize: 12, color: colors.textMuted },
+    trendDate: { fontSize: 8, color: colors.textFaint },
     groupTitle: { fontSize: 12, fontWeight: "800", color: colors.text, marginTop: 4 },
     row: { flexDirection: "row", alignItems: "center", gap: 8 },
     rowLabel: { flexShrink: 1, minWidth: 0, width: 76, fontSize: 12, fontWeight: "700", color: colors.textMuted, textAlign: "right" },
     rowTrack: { flex: 1, height: 10, borderRadius: 5, backgroundColor: colors.surfaceMuted, overflow: "hidden" },
     rowFill: { height: 10, borderRadius: 5 },
-    rowValue: { width: 30, fontSize: 12, fontWeight: "800", color: colors.text, textAlign: "right" },
-    chipGrid: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
-    chip: {
-      backgroundColor: colors.surfaceMuted,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.border,
-      borderRadius: 999,
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-    },
-    chipText: { fontSize: 11, fontWeight: "700", color: colors.textMuted },
-    skillRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      gap: 10,
-      paddingVertical: 8,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.border,
-    },
-    skillMain: { flex: 1, minWidth: 0 },
-    skillName: { fontSize: 14, fontWeight: "800", color: colors.text },
-    skillMeta: { fontSize: 11, color: colors.textMuted, marginTop: 3 },
-    levelText: { fontSize: 11, fontWeight: "700", color: colors.primary },
-    gapList: { gap: 0 },
+    rowValue: { width: 34, fontSize: 12, fontWeight: "800", color: colors.text, textAlign: "right" },
+    personalBody: { gap: 10 },
     gapRow: {
       flexDirection: "row",
       alignItems: "center",
@@ -519,6 +691,19 @@ const makeStyles = (colors: ThemeColors) =>
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: colors.border,
     },
+    recommendRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 10,
+      paddingVertical: 9,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+    },
+    moveMain: { flex: 1, minWidth: 0 },
+    skillName: { fontSize: 14, fontWeight: "800", color: colors.text },
+    skillMeta: { fontSize: 11, color: colors.textMuted, marginTop: 3, lineHeight: 16 },
+    matchText: { fontSize: 16, fontWeight: "900", color: colors.primary },
     gapButton: {
       backgroundColor: colors.primary,
       borderRadius: 12,
@@ -535,7 +720,34 @@ const makeStyles = (colors: ThemeColors) =>
       gap: 10,
       paddingVertical: 4,
     },
-    loginText: { fontSize: 13, color: colors.textMuted, lineHeight: 19 },
+    loginText: { flex: 1, fontSize: 13, color: colors.textMuted, lineHeight: 19 },
+    decisionPickers: { flexDirection: "row", gap: 8 },
+    pickerButton: {
+      flex: 1,
+      minHeight: 42,
+      borderRadius: 14,
+      paddingHorizontal: 12,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    pickerText: { fontSize: 13, fontWeight: "700", color: colors.text },
+    moveList: { gap: 0 },
+    moveRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 10,
+      paddingVertical: 8,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+    },
+    moveName: { fontSize: 13, fontWeight: "800", color: colors.text },
+    moveMeta: { fontSize: 10, color: colors.textMuted, marginTop: 3 },
+    moveScore: { fontSize: 14, fontWeight: "900", color: colors.accent },
     centeredBox: { alignItems: "center", gap: 10, paddingVertical: 36 },
     mutedText: { fontSize: 13, color: colors.textMuted, textAlign: "center", lineHeight: 19 },
     errorText: { fontSize: 13, color: colors.danger, textAlign: "center" },
@@ -546,10 +758,15 @@ const makeStyles = (colors: ThemeColors) =>
       paddingVertical: 8,
     },
     retryText: { color: "#FFFFFF", fontSize: 12, fontWeight: "800" },
-    sheetBody: { gap: 12 },
-    sheetStatRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    sheetStatLabel: { fontSize: 13, color: colors.textMuted },
-    sheetStatValue: { fontSize: 14, fontWeight: "800", color: colors.text },
-    sheetButton: { alignSelf: "stretch", alignItems: "center" },
-    sheetHint: { fontSize: 13, color: colors.textMuted, textAlign: "center" },
+    sheetBody: { gap: 2 },
+    optionRow: {
+      minHeight: 46,
+      paddingHorizontal: 10,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+    },
+    optionText: { fontSize: 14, fontWeight: "700", color: colors.text },
   });
