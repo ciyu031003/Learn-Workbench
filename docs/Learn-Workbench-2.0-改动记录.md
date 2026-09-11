@@ -112,6 +112,19 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 - **验证**：Web 646 个测试通过，Mobile 52 个测试通过；Web/Mobile typecheck 通过；Web lint 0 error；Web production build 通过；生产 `/career/market`、`/api/market/intelligence`、`/api/market/decision` 返回 200，`/api/market/views` 匿名返回 401，生产日志无新增错误。
 - **影响**：移动端市场页完全切到新工作台；用户可保存市场视图；趋势全局读取快照，筛选趋势仍实时计算；下午新职位有独立回填窗口；What If 为规则版建议，不代表招聘承诺。
 
+### 2026-09-11 · feat(mobile)+ops（App 备案号展示、版本 1.2.0 与 OTA 发布）
+
+- **背景**：苦旅 App 备案通过（`赣ICP备2024031528号-3A`），需要重新打包 APK、在 App 与门户中展示备案信息，重新推送移动端改动到服务器，并支持扫码下载与 OTA 推送。
+- **改动**：
+  1. **版本升级**：`apps/mobile/app.json`、`package.json`、安卓本地 `app/build.gradle` 同步为 `1.2.0`（versionCode `8`），APK 构建成功（65,687,783 字节）。
+  2. **备案信息展示**：设置页「关于」卡片新增 App 备案号（`APP_ICP_NUMBER`）与工信部核验链接、隐私政策入口（`PRIVACY_POLICY_URL=https://learn.yuanabd.cn/privacy.html`）。
+  3. **OTA 更新**：新增 `apps/mobile/src/lib/ota.ts`（版本常量、`fetchOtaManifest()`、`checkForUpdate()`）与 `ota.test.ts`；设置页「检查更新」读取 `https://learn.yuanabd.cn/mobile-update.json`，版本号高于当前时弹窗提示并调用系统浏览器下载 APK。
+  4. **门户发布页**：YuanAbd-Web 的 `download.html` 更新为 v1.2.0、新 APK 链接与新版二维码；`learn.html` 与下载页页脚展示备案号；新增 `privacy.html` 隐私政策页；新增 `mobile-update.json` OTA 清单。
+  5. **服务器发布**：APK 上传至 `/data/learn-workbench/releases/learn-workbench-v1.2.0.apk`；落地页、二维码与 OTA 清单同步到 `/data/learn-workbench/landing/`；SHA256 与本地一致。
+- **涉及文件**：`apps/mobile/app.json`、`apps/mobile/package.json`、`apps/mobile/src/app/settings.tsx`、`apps/mobile/src/lib/ota.ts`、`apps/mobile/src/lib/ota.test.ts`；YuanAbd-Web `demo/download.html`、`demo/learn.html`、`demo/privacy.html`、`demo/mobile-update.json`、`demo/img/learn-download-qr.png`、`demo/js/project.js`。
+- **验证**：Mobile 56 个测试通过、typecheck 与 lint 通过；APK 签名 MD5 仍是 `3057105285981cc18597a95c1370c147`（与备案一致），版本 `1.2.0`/versionCode `8`；线上 `download.html`、`mobile-update.json`、`learn-workbench-v1.2.0.apk`、`privacy.html` 均为 200。
+- **影响**：版本 1.2.0 可通过下载页扫码安装；已安装 App 可在设置页检查并下载新版本；备案信息和隐私政策可在 App 内直接查看。App 商店送审时以本版 APK 和备案号提交。
+
 ### 2026-09-09 · feat(market)+ops（股市分析型市场工作台 + 生产部署收口）
 
 - **背景**：确认市场模块按「股市分析型工作台」实施，首期范围是市场查询筛选、7/30/90 天趋势、个人市场位置与推荐岗位；接受新增数据表和爬虫回填任务，继续只使用现有中文职位和简历数据，不接外部新数据源。
