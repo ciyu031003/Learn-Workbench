@@ -97,6 +97,21 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 
 ## 四、改动记录
 
+### 2026-09-04 · 补记 · feat(domains)+ui（3.0 学习领域化 P0–P4 + UI 改版 v1.1 主题三档）
+
+- **背景**：本条目为**补记**——`90bbe11`~`6b555ca`（2026-09-02~04）在 `main` 上完整落地 Learn-Workbench 3.0「领域化」方案（P0–P4，迁移 024–028）与 UI 改版 v1.1，但此前的改动台账未覆盖；按《改动记录》约定补写，便于追溯与后续会话对齐现状。
+- **改动**：
+  1. **P0 领域底座（`90bbe11`，迁移 024）**：`careers` 语义泛化为「学习领域」——新增 `kind`（career/language/sports/hobby/life/custom）、`icon`、`color`、`phase_prefix`、`owner_id`、`is_archived`；系统内置域 `owner_id IS NULL` 全员共享，自建域按 owner 隔离；新增 `GET/POST /api/domains`、`/api/domains/[key]` PATCH/DELETE/duplicate；修复 roadmap 自定义大阶段跨账号串扰（阶段查询 `WHERE career_key=$1 AND (is_custom=FALSE OR owner_id=$2)`）+ CRUD owner 鉴权。
+  2. **P1 领域前端工作台（`9c427c2`）**：领域导航、空白/从模板创建、编辑/复制/归档、切换与自定义；路线图 UI 统一。
+  3. **P2 领域状态全站联动（`a46bd76`）**：统一 `DomainIcon` 组件 + 全局领域 store，顶栏进度胶囊/首页问候跟随当前领域实时联动；`/api/domains?archived` 列出归档域并支持恢复/彻底删除。
+  4. **P3 领域模板与任务/专注隔离（`9b02211`，迁移 025）**：新增健身与体能、阅读与笔记模板；`daily_tasks.career_key`；`/api/tasks`、`/api/phases`、`/api/focus/stats` 支持领域筛选；任务页领域徽章联动；移动端设置改用 `/api/domains`。
+  5. **P4 收尾 + Tracker 通用计量（`76f675d`，迁移 026/027）**：`log_entries.career_key` 按域隔离；新增 `domain_trackers` + `tracker_logs`（通用计量：英语单词量/训练量/跑量等，单位/日周目标/频率/按日数值备注）；导出导入含领域与记录维度；同步协议透传 `careerKey`；顶栏新增领域记录入口。
+  6. **UI 改版 v1.1 主题三档（`aa6d37f`）+ 本地脏改动落盘（`068c4f5`）**：三级玻璃体系、浅色/深色/跟随壁纸主题、首页快捷开始（一键学习/一键运动）、/tasks autofocus、图表色板收敛、圆角 token；修复 tracker 匿名 401 + 迁移 024 PG16 兼容。
+  7. **专注会话幂等（`6b555ca`，迁移 028）**：FocusTimer 开始即建会话，页面可见期间每秒累计、每 15s `client_id` 幂等 upsert、pagehide 自动结算；最短记录 5s、运动 ≥1 分钟；倒计时自然结束自动入账；`focus_minutes_applied` 只累加一次。
+- **涉及文件**：`db/migrations/024_learning_domains.sql`~`028_focus_session_idempotent.sql`、`db/schema.sql`；`apps/web/lib/api.ts`（领域隔离查询）、`lib/roadmap-admin.ts`；`apps/web/app/api/domains/**`（route / [key]/duplicate / overview / copy-domain / lib）、`apps/web/app/api/trackers/**`（route + logs）；`apps/web/app/career/domains` 与领域 UI 组件、`apps/web/components/` DomainIcon；`apps/mobile/src/app/settings.tsx`（/api/domains 切换）；`packages/content/src/domain-templates.ts`。
+- **验证**：阶段收口按 3.0 方案——迁移干净库 + 现有 `.pgdata` 幂等通过；Web test/typecheck/lint 全绿；Web 手工冒烟（老职业不受影响 → 模板建英语域 → 打勾/任务/记录 → 换域统计 → 职业域保留专属入口）；移动端 settings 领域切换可同步。
+- **影响**：职业路线泛化为可自主创建的学习领域（英语/运动/阅读/健身等），并复用路线图/任务/日志/专注/打卡/统计全套能力；`careers` 表物理名保留、旧数据零变化；职业类专属能力仅在 `kind=career` 域渲染。**后续 P4 移动端增强（领域管理 UI + Tracker 记录移动化）待续**。
+
 ### 2026-09-11 · feat(market)+ops（收尾移动端工作台、保存视图、维度快照、What If 与生产 cron）
 
 - **背景**：把 2026-09-09 市场工作台落地的 8 项遗留任务一次性收口，重点是移动端对齐、`market_saved_views`、`market_dimension_snapshots`、下午 crawl 回填、What If 决策，以及生产环境 cron 密钥和部署。
