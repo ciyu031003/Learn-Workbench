@@ -125,6 +125,15 @@ hosts 注册表（7 源、周更）· 双引擎爬虫（http 轻量 + Playwright
 - **验证**：Mobile 56 个测试通过、typecheck 与 lint 通过；APK 签名 MD5 仍是 `3057105285981cc18597a95c1370c147`（与备案一致），版本 `1.2.0`/versionCode `8`；线上 `download.html`、`mobile-update.json`、`learn-workbench-v1.2.0.apk`、`privacy.html` 均为 200。
 - **影响**：版本 1.2.0 可通过下载页扫码安装；已安装 App 可在设置页检查并下载新版本；备案信息和隐私政策可在 App 内直接查看。App 商店送审时以本版 APK 和备案号提交。
 
+### 2026-09-13 · docs(mobile)+ops（v1.2.0 双仓库推送收尾与 GitHub 连通性绕行）
+
+- **背景**：09-11 的 v1.2.0 备案/OTA/门户部署已完成本地提交，但推送时 GitHub HTTPS 直连不稳定；2026-09-13 完成双仓库推送。
+- **改动**：
+  1. **双仓库推送**：Learn-Workbench `main` 推至 `19be048`（`73b2004..19be048`）；YuanAbd-Web `main` 推至 `15a8fb8`（`3e1b782..15a8fb8`），远端 HEAD 已用 `git ls-remote` 核对一致。
+  2. **GitHub 连通性绕行**：本机临时 Node CONNECT 代理监听 `127.0.0.1:3128`，把 `CONNECT github.com:443` 转发到可达 IP `140.82.112.3`，用 `git -c http.proxy=http://127.0.0.1:3128 push origin main` 推送成功，推完即关闭代理。
+- **验证**：线上 `download.html`、`mobile-update.json`、`learn-workbench-v1.2.0.apk`（65,687,783 字节）、`privacy.html` 均为 200；APK 签名 MD5 与备案一致。
+- **影响/待办**：扫码下载与 OTA 已可用；各品牌安卓商店送审仍待平台账号。
+
 ### 2026-09-09 · feat(market)+ops（股市分析型市场工作台 + 生产部署收口）
 
 - **背景**：确认市场模块按「股市分析型工作台」实施，首期范围是市场查询筛选、7/30/90 天趋势、个人市场位置与推荐岗位；接受新增数据表和爬虫回填任务，继续只使用现有中文职位和简历数据，不接外部新数据源。
