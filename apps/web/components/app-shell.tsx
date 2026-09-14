@@ -24,6 +24,7 @@ import {
   UserRound,
   Award,
   FolderGit2,
+  Radar,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { todayISO } from "@learn-workbench/shared";
@@ -51,6 +52,7 @@ const CAREER_ITEMS = [
   { href: "/career", label: "职业画像", icon: Users },
   { href: "/career/profile", label: "我的资料", icon: UserRound },
   { href: "/career/skills", label: "技能树", icon: GraduationCap },
+  { href: "/career/radar", label: "就业雷达", icon: Radar },
   { href: "/career/certificates", label: "我的证书", icon: Award },
   { href: "/career/resume", label: "简历", icon: FileText },
   { href: "/career/resume-assets", label: "简历资产", icon: FolderGit2 },
