@@ -21,6 +21,7 @@ import {
   Briefcase,
   BarChart3,
   Download,
+  UserRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { todayISO } from "@learn-workbench/shared";
@@ -46,6 +47,7 @@ const LEARN_ITEMS: { href: string; label: string; icon: typeof Map; hash?: strin
 /** 职业分组（画像 / 技能树 / 简历 / GitHub / 面试 / 求职） */
 const CAREER_ITEMS = [
   { href: "/career", label: "职业画像", icon: Users },
+  { href: "/career/profile", label: "我的资料", icon: UserRound },
   { href: "/career/skills", label: "技能树", icon: GraduationCap },
   { href: "/career/resume", label: "简历", icon: FileText },
   { href: "/career/interview", label: "面试", icon: MessageSquare },

@@ -161,7 +161,16 @@ export async function computeJobMatch(
   // 学历 / 经验 / 城市（规则近似）
   const eduOk = !opts.education || !jobSkills.length || true; // 学历信息在岗位字段里，这里用宽松规则
   const expOk = true;
-  const cityOk = !opts.city ? 0.5 : 1; // 未设期望城市按 0.5
+  // 城市：优先显式 opts.city，否则用 Profile 信息源 user_settings.current_city（V3 Profile 收敛）
+  let city = opts.city;
+  if (!city && userId) {
+    const { rows: cityRows } = await pgPool.query<{ city: string | null }>(
+      `SELECT current_city AS city FROM user_settings WHERE user_id = $1 LIMIT 1`,
+      [userId]
+    );
+    city = cityRows[0]?.city ?? undefined;
+  }
+  const cityOk = !city ? 0.5 : 1; // 未设期望城市按 0.5
 
   const overall = Math.round(
     (skillScore * 0.7 + (eduOk ? 0.1 : 0) + (expOk ? 0.1 : 0) + cityOk * 0.1) * 100

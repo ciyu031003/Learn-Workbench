@@ -912,6 +912,40 @@ export const careerReadinessSchema = z.object({
 });
 export type CareerReadiness = z.infer<typeof careerReadinessSchema>;
 
+/* ================= V3 · Profile 信息源收敛（教育/经历/城市/目标/简介） ================= */
+
+/** 教育经历一条 */
+export const educationItemSchema = z.object({
+  school: z.string().default(""),
+  major: z.string().default(""),
+  degree: z.string().default(""),
+  start: z.string().nullable().default(null),
+  end: z.string().nullable().default(null),
+  note: z.string().nullable().default(null),
+});
+export type EducationItem = z.infer<typeof educationItemSchema>;
+
+/** 工作/项目经历一条 */
+export const experienceItemSchema = z.object({
+  title: z.string().default(""),
+  org: z.string().default(""),
+  start: z.string().nullable().default(null),
+  end: z.string().nullable().default(null),
+  description: z.string().default(""),
+  skills: z.array(z.string()).default([]),
+});
+export type ExperienceItem = z.infer<typeof experienceItemSchema>;
+
+/** Profile 基本信息（载体：user_settings 扩展列） */
+export const profileInfoSchema = z.object({
+  education: z.array(educationItemSchema).default([]),
+  experiences: z.array(experienceItemSchema).default([]),
+  currentCity: z.string().default(""),
+  targetRole: z.string().default(""),
+  bio: z.string().default(""),
+});
+export type ProfileInfo = z.infer<typeof profileInfoSchema>;
+
 /** /api/dashboard 聚合响应（一次请求覆盖首页四区块） */
 export const dashboardAggregateSchema = z.object({
   summary: dashboardSummarySchema,

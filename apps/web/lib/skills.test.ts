@@ -44,7 +44,9 @@ describe("computeJobMatch (P2)", () => {
           { skill_id: 1, level: 3 },
           { skill_id: 2, level: 1 },
         ],
-      } as never);
+      } as never)
+      // V3 Profile 收敛：computeJobMatch 缺 opts.city 时读 user_settings.current_city
+      .mockResolvedValueOnce({ rows: [{ city: "北京" }] } as never);
     const m = await computeJobMatch("u-1", 10);
     expect(m.overall).toBeGreaterThan(0);
     expect(m.matchedSkills.some((s) => s.skill === "python" && s.hit)).toBe(true);
@@ -64,10 +66,11 @@ describe("computeJobMatch (P2)", () => {
 
 describe("computeSkillGaps (P2)", () => {
   it("returns gaps with content mapping", async () => {
-    // computeSkillGaps → computeJobMatch: 1) job_skill_links, 2) user_skills, then 3) skill_content_links
+    // computeSkillGaps → computeJobMatch: 1) job_skill_links, 2) user_skills, [V3] 3) city, then 4) skill_content_links
     queryMock
       .mockResolvedValueOnce({ rows: [{ skill_id: 1, name: "docker", weight: 1 }] } as never)
       .mockResolvedValueOnce({ rows: [] } as never)
+      .mockResolvedValueOnce({ rows: [{ city: null }] } as never) // V3 城市兜底查询
       .mockResolvedValueOnce({
         rows: [{ skill_id: 1, name: "docker", topic_id: 403, topic_title: "批量运维工具", estimate_hours: 8 }],
       } as never);
