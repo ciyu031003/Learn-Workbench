@@ -75,6 +75,7 @@ const MAP: Record<string, string> = {
   "repeat-outline": "repeat",
   "barbell-outline": "figure.strengthtraining.traditional",
   "restaurant-outline": "fork.knife",
+  "sparkles-outline": "sparkles",
 };
 
 type IoniconName = keyof typeof Ionicons.glyphMap;

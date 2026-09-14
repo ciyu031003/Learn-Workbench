@@ -243,6 +243,7 @@ function ThemedShell() {
 
         {/* 次级页面：不占底部导航 */}
         <Tabs.Screen name="index" options={{ href: null }} />
+        <Tabs.Screen name="today" options={{ href: null }} />
         <Tabs.Screen name="career" options={{ href: null }} />
         <Tabs.Screen name="roadmap" options={{ href: null }} />
         <Tabs.Screen name="tasks" options={{ href: null }} />

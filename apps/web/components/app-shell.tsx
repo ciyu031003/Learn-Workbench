@@ -28,6 +28,7 @@ import {
   Repeat,
   Dumbbell,
   Salad,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { todayISO } from "@learn-workbench/shared";
@@ -39,6 +40,7 @@ import { WellbeingFloat } from "@/components/wellbeing-float";
 /** 一级入口：首页 / 学习 / 招花 / 职业 / 设置 */
 const NAV = [
   { href: "/dashboard", label: "首页", icon: LayoutDashboard },
+  { href: "/today", label: "我的一天", icon: Sparkles },
 ] as const;
 
 /** 学习分组（路线图 / 今日任务 / 专注 / 日志 / 项目） */
