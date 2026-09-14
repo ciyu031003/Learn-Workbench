@@ -368,8 +368,24 @@ export const typography = {
 | P0-3 骨架屏/空态 | ✅ 完成 | `177bdd6` | `Skeleton`/`SkeletonList`（微光，尊重 reduce-motion）+ `EmptyState`；接入 jobs/radar/certificates/habits/workout/nutrition |
 | P0-4 长列表虚拟化 | ✅ 完成 | `177bdd6` | 引入 FlashList v2（MIT，已登记 THIRD_PARTY）；jobs → FlashList；logs → FlatList |
 | P0-5 启动与包体 | ✅ 完成 | `12cb67c`/`abe29c5` | 同步引擎与旧数据迁移延后到首帧后；清理死资源 435.8 KB |
-| P1 精美与手感 | ⏳ 待办 | — | 卡片三变体收敛 / Sheet-first 快捷操作 / 动效与触感词汇表 / 暗色逐屏打磨 / Dynamic Type 截断修复 / 全量列表下拉刷新 |
-| P2 工程化与发布 | ⏳ 待办 | — | 版本单一事实源脚本 / 一键构建自检脚本 / iOS 图标变体 / 启动图配色 / 权限收敛 / 预测返回 / R8 瘦身 / OTA 静默检查 / 上架素材 |
+| P1 精美与手感 | ✅ 完成 | `bca2852` | Card 三变体（surface/glass/hero）；`lib/motion.ts` 动效词汇表（含 reduce-motion 收敛）；`useRefreshable` + 6 屏下拉刷新；暗色硬编码色→语义 token（learn 删除区/applications 徽标/career 就绪度/logs/tasks 主按钮）；Sheet-first 已核查无需改造；Dynamic Type 留真机走查 |
+| P2 工程化与发布 | 🟡 部分完成 | `7b3a54f` | ✅ 版本单一事实源（gradle→app.json/package.json 由脚本同步，已升 1.3.0/9）✅ 一键构建自检脚本（签名三要素断言 + JDK17 选择 + apksigner MD5 校验 + 包体预算）✅ 内测 APK 已出包并上线（见下）；⏳ 待办：iOS 图标变体 / 启动图配色 / 权限收敛 / 预测返回 / R8 / OTA 静默检查 / 上架素材 |
+
+## P1 / P2(部分) 发布记录（2026-09-15）
+
+```text
+版本      : v1.3.0（versionCode 9）
+构建      : scripts/build-android-release.ps1 → BUILD SUCCESSFUL（2m18s，arm 双 ABI）
+包体      : 65,913,259 B（62.9 MiB）
+签名 MD5  : 3057105285981cc18597a95c1370c147（与备案一致 ✅）
+SHA256    : 4222e9e14f5b57b6b0264b84d7cf3e94bcca9fd5fd2fd7a356817ea8d8fb2570
+下载      : https://learn.yuanabd.cn/download/learn-workbench-v1.3.0.apk
+下载页    : https://learn.yuanabd.cn/download.html（含新二维码）
+OTA 清单  : https://learn.yuanabd.cn/mobile-update.json → 1.3.0 / code 9
+回滚兜底  : v1.2.0 APK 仍在 releases 目录，可随时把 download.html 指回
+```
+
+**新增踩坑（已写入看板 43–45）**：① Gradle 工具链要 JDK **17**，系统 JAVA_HOME=21 会触发联网下载（被阻断）→ 必须用仓库内 `.tools/jdk17/Library`；② PowerShell 5.1 下 `.ps1` 脚本含中文必须存为 **UTF-8 with BOM**，否则按 ANSI 解析报「意外的标记」；③ PS 5.1 `$ErrorActionPreference='Stop'` 会把 native stderr（gradle 进度）当终止错误 → 改为重定向日志 + 只看退出码。
 
 **P0 量化结论（待真机复测）**
 
