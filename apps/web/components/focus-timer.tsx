@@ -100,6 +100,8 @@ export function FocusTimer({
   const [done, setDone] = useState(false);
   const [started, setStarted] = useState(false);
   const [recording, setRecording] = useState(false);
+  /** V3 计时模式：countdown=倒计时（既有），stopwatch=正向秒表 */
+  const [timerMode, setTimerMode] = useState<"countdown" | "stopwatch">("countdown");
   const [full, setFull] = useState(false);
   const [showBg, setShowBg] = useState(false);
   const [quote, setQuote] = useState(() => QUOTES[Math.floor(Math.random() * QUOTES.length)]);
@@ -107,14 +109,21 @@ export function FocusTimer({
   const [quoteInput, setQuoteInput] = useState("");
   const [wbDone, setWbDone] = useState<{ break?: boolean; water?: boolean }>({});
   const [celebration, setCelebration] = useState<"sparkle" | "confetti" | null>(null);
+  const timerModeRef = useRef<"countdown" | "stopwatch">("countdown");
   const startRef = useRef<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const remainingRef = useRef(initMinutes * 60);
+  const totalRef = useRef(initMinutes * 60);
   const fileRef = useRef<HTMLInputElement>(null);
   const autoStartedRef = useRef(false);
   const exerciseRecordedRef = useRef(false);
   const exerciseLabelRef = useRef<string | null>(exerciseLabel ?? null);
   const exerciseTypeRef = useRef<string | null>(exerciseType ?? null);
+  // V3 正向计时（秒表）：accumulatedMsRef 累计跨暂停段的已跑毫秒；startRef 为当前运行段的墙钟起点。
+  const accumulatedMsRef = useRef(0);
+  useEffect(() => {
+    timerModeRef.current = timerMode;
+  }, [timerMode]);
   useEffect(() => {
     exerciseLabelRef.current = exerciseLabel ?? null;
     exerciseTypeRef.current = exerciseType ?? null;
@@ -148,10 +157,25 @@ export function FocusTimer({
       timerRef.current = null;
     }
   }, []);
-  // 每秒走秒 + 倒计时归零
+  // 计算本会话实际时长（墙钟：accumulatedMs + 当前运行段）。后台继续计时；暂停段不计入。
+  const currentElapsed = useCallback(() => {
+    const acc = accumulatedMsRef.current;
+    const runningMs = running && startRef.current !== null ? Date.now() - startRef.current : 0;
+    return Math.round((acc + runningMs) / 1000);
+  }, [running]);
+
+  // 每秒重算：墙钟为唯一事实来源。
+  // countdown：remaining = total - elapsed（后台继续计时，切走/隐藏不暂停）。
+  // stopwatch：仅刷新展示（elapsed 计数由 currentElapsed 实时算），无归零。
   const tick = useCallback(() => {
-    const next = Math.max(0, remainingRef.current - 1);
     if (!document.hidden) visibleElapsedRef.current += 1;
+    if (timerModeRef.current === "stopwatch") {
+      // 秒表：用 remaining 状态存当前墙钟秒数，驱动每秒重渲染
+      setRemaining(currentElapsed());
+      return;
+    }
+    const el = currentElapsed();
+    const next = Math.max(0, totalRef.current - el);
     remainingRef.current = next;
     setRemaining(next);
     if (next === 0) {
@@ -159,7 +183,7 @@ export function FocusTimer({
       setDone(true);
       clearTimerRef();
     }
-  }, [clearTimerRef]);
+  }, [clearTimerRef, currentElapsed]);
 
   // 会话开始时只登记本地 session（生成稳定 client_id），
   // 服务端记录在首次「有实际学习秒数」的续写/结算时创建（client_id 幂等 upsert），
@@ -173,12 +197,6 @@ export function FocusTimer({
       settled: false,
       recorded: false,
     };
-  }, []);
-
-  // 计算本会话实际学习时长（专注：秒数计数=开着手表时间；运动：同一规则，落库的是跑到当前真实耗时）
-  const currentElapsed = useCallback(() => {
-    if (startRef.current === null) return 0;
-    return Math.max(0, visibleElapsedRef.current);
   }, []);
 
   // 结算会话：把已学时长一次性写入服务端并标记（不关闭弹层；供自然结束自动入账）
@@ -385,7 +403,11 @@ export function FocusTimer({
     clearTimerRef();
     if (startRef.current === null) {
       startRef.current = Date.now();
-      if (!sessionRef.current) visibleElapsedRef.current = 0;
+      // 全新会话：清空累计，重置起点
+      if (!sessionRef.current) {
+        accumulatedMsRef.current = 0;
+        visibleElapsedRef.current = 0;
+      }
     }
     setRunning(true);
     if (!sessionRef.current) void ensureSession();
@@ -409,6 +431,11 @@ export function FocusTimer({
   }, [open, autoStart]);
 
   const pause = () => {
+    // 把当前运行段折算进累计（墙钟），暂停段不计入
+    if (startRef.current !== null) {
+      accumulatedMsRef.current += Date.now() - startRef.current;
+      startRef.current = null;
+    }
     clearTimerRef();
     setRunning(false);
   };
@@ -418,6 +445,7 @@ export function FocusTimer({
     setRunning(false);
     setRemainingSafe(total);
     startRef.current = null;
+    accumulatedMsRef.current = 0;
     exerciseRecordedRef.current = false;
     setCelebration(null);
     // 重置前把已学时长结算入库（含中间切换预设/再来一次的场景）
@@ -439,9 +467,11 @@ export function FocusTimer({
     setMinutesState(m);
     bg.setMinutes(m);
     setTotal(m * 60);
+    totalRef.current = m * 60;
     setRemainingSafe(m * 60);
     setRunning(false);
     startRef.current = null;
+    accumulatedMsRef.current = 0;
     exerciseRecordedRef.current = false;
     if (sessionRef.current && !sessionRef.current.settled) {
       void flushElapsed();
@@ -518,8 +548,11 @@ export function FocusTimer({
     setEditingQuote(false);
   };
 
-  const ratio = total > 0 ? remaining / total : 0;
-  const elapsed = total - remaining;
+  // 显示层：countdown 用 remaining 作剩余时间；stopwatch 时 tick 已把「墙钟已跑秒数」写进 remaining 状态。
+  // 因此这里直接读 remaining 状态即可，不在 render 内读 ref。
+  const elapsed = timerMode === "stopwatch" ? remaining : total - remaining;
+  const ratio = timerMode === "stopwatch" ? 0 : (remaining > 0 ? remaining / total : 0);
+  const remainingShown = remaining;
   const sessionLabel = mode === "exercise" ? "运动中" : (task?.title ?? "自由专注");
   const shownQuote = bg.customQuote ? { text: bg.customQuote, author: undefined as string | undefined } : quote;
 
@@ -781,7 +814,7 @@ export function FocusTimer({
               aria-label={running ? "暂停" : "继续"}
             >
               <span className="font-mono text-[min(13vw,64px)] font-bold leading-none tabular-nums drop-shadow-[0_3px_18px_rgba(0,0,0,0.5)]">
-                {fmtClock(remaining)}
+                {fmtClock(remainingShown)}
               </span>
             </button>
           </div>
@@ -804,7 +837,7 @@ export function FocusTimer({
             </button>
             <button
               onClick={() => record(currentElapsed())}
-              disabled={elapsed < 10 && mode === "focus" && remaining === total}
+              disabled={elapsed < 10 && mode === "focus" && timerMode === "countdown" && remaining === total}
               className="flex h-14 w-14 items-center justify-center rounded-full border border-white/25 bg-white/15 text-white backdrop-blur-md transition-all hover:bg-white/25 disabled:opacity-40"
               aria-label="结束计时"
             >
@@ -896,45 +929,74 @@ export function FocusTimer({
             <span className="max-w-xl truncate rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-sm text-white/90 backdrop-blur-md">
               {sessionLabel}
             </span>
-            <span className="text-xs text-white/70">准备开始 · {minutes} 分钟</span>
+            <span className="text-xs text-white/70">{timerMode === "stopwatch" ? "准备开始 · 正向计时" : `准备开始 · ${minutes} 分钟`}</span>
           </div>
 
+          {/* V3 计时模式切换 */}
+          {mode === "focus" ? (
+            <div className="flex items-center gap-1 rounded-full border border-white/20 bg-white/10 p-1 backdrop-blur-md">
+              {(
+                [
+                  { key: "countdown", label: "倒计时" },
+                  { key: "stopwatch", label: "正向秒表" },
+                ] as const
+              ).map((o) => (
+                <button
+                  key={o.key}
+                  onClick={() => setTimerMode(o.key)}
+                  className={cn(
+                    "rounded-full px-4 py-1.5 text-sm transition-all",
+                    timerMode === o.key ? "bg-primary/40 text-white" : "text-white/70 hover:text-white"
+                  )}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
           <div className="flex flex-wrap items-center justify-center gap-2">
-            {PRESETS.map((m) => (
-              <button
-                key={m}
-                onClick={() => changePreset(m)}
-                className={cn(
-                  "rounded-full border px-4 py-1.5 text-sm backdrop-blur-md transition-all",
-                  minutes === m
-                    ? "border-primary/60 bg-primary/30 text-white"
-                    : "border-white/20 bg-white/10 text-white/80 hover:bg-white/20"
-                )}
-              >
-                {m} 分钟
-              </button>
-            ))}
-            <label className="flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-sm text-white/80 backdrop-blur-md">
-              <input
-                type="number"
-                min={1}
-                max={180}
-                value={minutes}
-                onChange={(e) => {
-                  const v = Math.min(180, Math.max(1, Number(e.target.value) || 1));
-                  changePreset(v);
-                }}
-                className="w-10 bg-transparent text-center text-white outline-none"
-              />
-              <span className="text-xs text-white/60">分</span>
-            </label>
+            {timerMode === "countdown" ? (
+              <>
+                {PRESETS.map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => changePreset(m)}
+                    className={cn(
+                      "rounded-full border px-4 py-1.5 text-sm backdrop-blur-md transition-all",
+                      minutes === m
+                        ? "border-primary/60 bg-primary/30 text-white"
+                        : "border-white/20 bg-white/10 text-white/80 hover:bg-white/20"
+                    )}
+                  >
+                    {m} 分钟
+                  </button>
+                ))}
+                <label className="flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-sm text-white/80 backdrop-blur-md">
+                  <input
+                    type="number"
+                    min={1}
+                    max={180}
+                    value={minutes}
+                    onChange={(e) => {
+                      const v = Math.min(180, Math.max(1, Number(e.target.value) || 1));
+                      changePreset(v);
+                    }}
+                    className="w-10 bg-transparent text-center text-white outline-none"
+                  />
+                  <span className="text-xs text-white/60">分</span>
+                </label>
+              </>
+            ) : (
+              <p className="text-sm text-white/70">秒表将从 00:00 开始正向计时，结束即记录本次时长</p>
+            )}
           </div>
 
           <button
             onClick={begin}
             className="flex items-center gap-2 rounded-full bg-gradient-to-b from-primary to-primary-strong px-10 py-4 text-base font-semibold text-white shadow-[0_10px_40px_rgba(23,37,84,0.4)] transition-all hover:brightness-105"
           >
-            <Play className="size-5" /> {mode === "exercise" ? "开始运动" : "开始专注"}
+            <Play className="size-5" /> {mode === "exercise" ? "开始运动" : timerMode === "stopwatch" ? "开始计时" : "开始专注"}
           </button>
           <p className="text-xs text-white/50">开始后将进入全屏，可随时暂停或结束</p>
         </div>

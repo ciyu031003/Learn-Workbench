@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  AppState,
   Image,
   Modal,
   Pressable,
@@ -80,6 +81,8 @@ export function FocusTimer({
   const [done, setDone] = useState(false);
   const [started, setStarted] = useState(false);
   const [recording, setRecording] = useState(false);
+  /** V3 计时模式：countdown=倒计时（既有），stopwatch=正向秒表 */
+  const [timerMode, setTimerMode] = useState<"countdown" | "stopwatch">("countdown");
   // eslint-disable-next-line react-hooks/purity -- useState 初始每日一言（既有模式）
   const [quote, setQuote] = useState(getDailyQuote());
   const [editingQuote, setEditingQuote] = useState(false);
@@ -90,6 +93,10 @@ export function FocusTimer({
   const startRef = useRef<number | null>(null);
   const remainingRef = useRef(25 * 60);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  // V3 墙钟对时：累计跨暂停段的毫秒；startRef 为当前运行段墙钟起点。
+  const accumulatedMsRef = useRef(0);
+  const totalRef = useRef(25 * 60);
+  const timerModeRef = useRef<"countdown" | "stopwatch">("countdown");
   // 初始化偏好
   useEffect(() => {
     (async () => {
@@ -120,6 +127,11 @@ export function FocusTimer({
     })();
   }, []);
 
+  // V3 同步计时模式到 ref（供事件/定时器闭包读取）
+  useEffect(() => {
+    timerModeRef.current = timerMode;
+  }, [timerMode]);
+
   // 打开：自动开始 + 加载每日 Bing
   useEffect(() => {
     if (open) {
@@ -146,8 +158,30 @@ export function FocusTimer({
     setRecording(false);
     setRemaining(total);
     remainingRef.current = total;
+    totalRef.current = total;
     startRef.current = null;
+    accumulatedMsRef.current = 0;
     setStarted(false);
+
+    // V3 AppState 对时：退后台不暂停（墙钟继续走），回前台按墙钟刷新剩余时间
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        if (running && startRef.current !== null) {
+          if (timerModeRef.current === "stopwatch") {
+            setRemaining(currentElapsed());
+          } else {
+            const next = Math.max(0, totalRef.current - currentElapsed());
+            remainingRef.current = next;
+            setRemaining(next);
+            if (next === 0) {
+              setRunning(false);
+              setDone(true);
+              if (timer.current) clearInterval(timer.current);
+            }
+          }
+        }
+      }
+    });
 
     let alive = true;
     if (galleryId === "bing") {
@@ -161,13 +195,27 @@ export function FocusTimer({
     }
     return () => {
       if (timer.current) clearInterval(timer.current);
+      sub.remove();
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  // 墙钟已跑秒数（后台 AppState 不暂停，靠 startRef 墙钟起点 + 累计推算）
+  const currentElapsed = () => {
+    const acc = accumulatedMsRef.current;
+    const runningMs = running && startRef.current !== null ? Date.now() - startRef.current : 0;
+    return Math.round((acc + runningMs) / 1000);
+  };
+
   const tick = () => {
-    const next = Math.max(0, remainingRef.current - 1);
+    if (timerModeRef.current === "stopwatch") {
+      // 秒表：用 remaining 存当前墙钟秒数驱动每秒重渲染
+      setRemaining(currentElapsed());
+      return;
+    }
+    const el = currentElapsed();
+    const next = Math.max(0, totalRef.current - el);
     remainingRef.current = next;
     setRemaining(next);
     if (next === 0) {
@@ -205,10 +253,12 @@ export function FocusTimer({
     const v = Math.min(180, Math.max(1, m));
     setMinutes(v);
     setTotal(v * 60);
+    totalRef.current = v * 60;
     setRemaining(v * 60);
     remainingRef.current = v * 60;
     setRunning(false);
     startRef.current = null;
+    accumulatedMsRef.current = 0;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 打开弹层时重置状态（既有模式）
     setDone(false);
     if (timer.current) clearInterval(timer.current);
@@ -216,12 +266,17 @@ export function FocusTimer({
   };
 
   const pause = () => {
+    // 把当前运行段折算进累计（墙钟），暂停段不计入
+    if (startRef.current !== null) {
+      accumulatedMsRef.current += Date.now() - startRef.current;
+      startRef.current = null;
+    }
     if (timer.current) clearInterval(timer.current);
     setRunning(false);
   };
   const resume = () => {
     if (timer.current) clearInterval(timer.current);
-    if (startRef.current === null) startRef.current = Date.now() - (total - remaining) * 1000;
+    if (startRef.current === null) startRef.current = Date.now();
     setRunning(true);
     timer.current = setInterval(tick, 1000);
   };
@@ -236,6 +291,7 @@ export function FocusTimer({
     setRemaining(total);
     remainingRef.current = total;
     startRef.current = null;
+    accumulatedMsRef.current = 0;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 打开弹层时重置状态（既有模式）
     setDone(false);
   };
@@ -281,8 +337,10 @@ export function FocusTimer({
     }
   };
 
-  const ratio = total > 0 ? remaining / total : 0;
-  const elapsed = total - remaining;
+  const ratio = timerMode === "stopwatch" ? 0 : (total > 0 ? remaining / total : 0);
+  // stopwatch 时 tick 已把「墙钟已跑秒数」写进 remaining 状态，render 内直接读 remaining 即可
+  const elapsed = timerMode === "stopwatch" ? remaining : total - remaining;
+  const remainingShown = remaining;
   const stats = computeFocusStats(sessions);
   const maxMin = Math.max(1, ...stats.last14.map((d) => d.minutes));
   const bgColor = mode === "color" ? color : mode === "upload" ? "#1f2937" : (GALLERY.find((g) => g.id === galleryId)?.color ?? "#1f2937");
@@ -399,7 +457,7 @@ export function FocusTimer({
                   <Text style={styles.taskStatus}>{running ? "● 专注中" : "❚❚ 已暂停"}</Text>
                 </View>
                 <Pressable style={styles.landscapeClockWrap} onPress={() => (running ? pause() : resume())}>
-                  <Text style={styles.landscapeClock}>{fmt(remaining)}</Text>
+                  <Text style={styles.landscapeClock}>{fmt(remainingShown)}</Text>
                   <Text style={styles.landscapeClockHint}>点击计时 · 暂停 / 继续</Text>
                 </Pressable>
                 <View style={styles.controls}>
@@ -438,7 +496,7 @@ export function FocusTimer({
                   color="#FFB25E"
                 />
                 <Pressable style={styles.clockWrap} onPress={() => (running ? pause() : resume())}>
-                  <Text style={styles.clock}>{fmt(remaining)}</Text>
+                  <Text style={styles.clock}>{fmt(remainingShown)}</Text>
                 </Pressable>
               </View>
 
@@ -517,14 +575,33 @@ export function FocusTimer({
           ) : (
             <View style={styles.readyWrap}>
               <Text style={styles.taskName} numberOfLines={1}>{task?.title ?? "自由专注"}</Text>
-              <Text style={styles.readyTitle}>准备开始 {minutes} 分钟专注</Text>
+              <Text style={styles.readyTitle}>{timerMode === "stopwatch" ? "准备开始 正向计时" : `准备开始 ${minutes} 分钟专注`}</Text>
+
+              {/* V3 计时模式切换 */}
+              <View style={styles.modeToggle}>
+                {(
+                  [
+                    { key: "countdown", label: "倒计时" },
+                    { key: "stopwatch", label: "正向秒表" },
+                  ] as const
+                ).map((o) => (
+                  <Pressable
+                    key={o.key}
+                    onPress={() => setTimerMode(o.key)}
+                    style={[styles.modeChip, timerMode === o.key && styles.modeChipActive]}
+                  >
+                    <Text style={[styles.modeChipText, timerMode === o.key && styles.modeChipTextActive]}>{o.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+
               <Pressable style={styles.primaryBtn} onPress={begin}>
                 <View style={styles.readyCtaInner}>
                   <ThemedIcon name="play" size={16} color="#1f1f1f" />
-                  <Text style={styles.primaryBtnText}>开始专注</Text>
+                  <Text style={styles.primaryBtnText}>{timerMode === "stopwatch" ? "开始计时" : "开始专注"}</Text>
                 </View>
               </Pressable>
-              <Text style={styles.readyHint}>开始后将全屏沉浸 · 可随时暂停</Text>
+              <Text style={styles.readyHint}>{timerMode === "stopwatch" ? "秒表从 00:00 正向计时 · 结束即记录" : "开始后将全屏沉浸 · 可随时暂停"}</Text>
             </View>
           )}
         </ScrollView>
@@ -641,4 +718,9 @@ const styles = StyleSheet.create({
   readyCtaInner: { flexDirection: "row", alignItems: "center", gap: 8 },
   readyTitle: { color: "#fff", fontSize: 24, fontWeight: "800" },
   readyHint: { color: "rgba(255,255,255,0.55)", fontSize: 12, textAlign: "center" },
+  modeToggle: { flexDirection: "row", gap: 8 },
+  modeChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.1)", borderWidth: 1, borderColor: "rgba(255,255,255,0.2)" },
+  modeChipActive: { backgroundColor: "rgba(232,147,12,0.4)", borderColor: "rgba(232,147,12,0.7)" },
+  modeChipText: { color: "rgba(255,255,255,0.8)", fontSize: 13 },
+  modeChipTextActive: { color: "#fff", fontWeight: "600" },
 });
