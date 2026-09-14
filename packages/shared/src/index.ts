@@ -1822,3 +1822,115 @@ export const HABIT_TEMPLATES: HabitTemplate[] = [
   { name: "步数", icon: "👟", isBoolean: false, targetValue: 8000, unit: "步", color: "#22c55e" },
   { name: "练字", icon: "✍️", isBoolean: true, targetValue: null, unit: null, color: "#a855f7" },
 ];
+
+/* ================= V3 · Fitness Plan 轻量 A（迁移 040） ================= */
+
+export const workoutItemSchema = z.object({
+  id: z.number().optional(),
+  exerciseKey: z.string().nullable().optional(),
+  exerciseLabel: z.string(),
+  sets: z.number().default(1),
+  reps: z.number().default(1),
+  weightKg: z.number().nullable().default(null),
+  durationSeconds: z.number().default(0),
+  sortOrder: z.number().default(0),
+});
+export type WorkoutItem = z.infer<typeof workoutItemSchema>;
+
+export const workoutSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  exercisedOn: z.string(),          // YYYY-MM-DD
+  durationSeconds: z.number(),
+  note: z.string().nullable(),
+  items: z.array(workoutItemSchema).default([]),
+  updatedAt: z.string().optional(),
+});
+export type Workout = z.infer<typeof workoutSchema>;
+
+/** 单次训练容量（总组数 / 总次数 / 总重量 kg） */
+export function workoutVolume(items: Pick<WorkoutItem, "sets" | "reps" | "weightKg">[]): {
+  sets: number;
+  reps: number;
+  volumeKg: number;
+} {
+  let sets = 0;
+  let reps = 0;
+  let volumeKg = 0;
+  for (const it of items) {
+    const s = Number(it.sets) || 0;
+    const r = Number(it.reps) || 0;
+    sets += s;
+    reps += s * r;
+    volumeKg += s * r * (Number(it.weightKg) || 0);
+  }
+  return { sets, reps, volumeKg: Math.round(volumeKg) };
+}
+
+/* ================= V3 · Nutrition v1（迁移 041） ================= */
+
+export const mealKindSchema = z.enum(["breakfast", "lunch", "dinner", "snack"]);
+export type MealKind = z.infer<typeof mealKindSchema>;
+export const mealKindLabels: Record<MealKind, string> = {
+  breakfast: "早餐",
+  lunch: "午餐",
+  dinner: "晚餐",
+  snack: "加餐",
+};
+
+export const foodSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  unit: z.string(),
+  kcal: z.number(),
+  proteinG: z.number(),
+  carbsG: z.number(),
+  fatG: z.number(),
+});
+export type Food = z.infer<typeof foodSchema>;
+
+export const mealEntrySchema = z.object({
+  id: z.number(),
+  logDate: z.string(),
+  meal: mealKindSchema,
+  foodId: z.number().nullable(),
+  name: z.string(),
+  amount: z.number(),
+  unit: z.string(),
+  kcal: z.number(),
+  proteinG: z.number(),
+  carbsG: z.number(),
+  fatG: z.number(),
+});
+export type MealEntry = z.infer<typeof mealEntrySchema>;
+
+export interface NutritionTotals {
+  kcal: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+}
+
+/** 汇总某日营养摄入 */
+export function sumNutrition(entries: Pick<MealEntry, "kcal" | "proteinG" | "carbsG" | "fatG">[]): NutritionTotals {
+  const out: NutritionTotals = { kcal: 0, proteinG: 0, carbsG: 0, fatG: 0 };
+  for (const e of entries) {
+    out.kcal += Number(e.kcal) || 0;
+    out.proteinG += Number(e.proteinG) || 0;
+    out.carbsG += Number(e.carbsG) || 0;
+    out.fatG += Number(e.fatG) || 0;
+  }
+  out.kcal = Math.round(out.kcal);
+  out.proteinG = Math.round(out.proteinG);
+  out.carbsG = Math.round(out.carbsG);
+  out.fatG = Math.round(out.fatG);
+  return out;
+}
+
+/** 每日营养目标（规则版默认值，可由用户设置覆盖） */
+export const DEFAULT_NUTRITION_TARGETS: NutritionTotals = {
+  kcal: 2000,
+  proteinG: 120,
+  carbsG: 220,
+  fatG: 60,
+};

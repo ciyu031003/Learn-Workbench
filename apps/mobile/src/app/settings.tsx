@@ -288,6 +288,16 @@ export default function SettingsScreen() {
             <Text style={styles.securityRowText}>习惯 · 连续打卡</Text>
             <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
           </PressableScale>
+          <PressableScale style={styles.securityRow} onPress={() => { haptics.light(); router.push("/workout" as never); }}>
+            <ThemedIcon name="barbell-outline" size={18} color={colors.primary} />
+            <Text style={styles.securityRowText}>训练记录 · 动作 / 组次</Text>
+            <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
+          </PressableScale>
+          <PressableScale style={styles.securityRow} onPress={() => { haptics.light(); router.push("/nutrition" as never); }}>
+            <ThemedIcon name="restaurant-outline" size={18} color={colors.primary} />
+            <Text style={styles.securityRowText}>今日饮食 · 营养</Text>
+            <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
+          </PressableScale>
         </Card>
       ) : null}
 

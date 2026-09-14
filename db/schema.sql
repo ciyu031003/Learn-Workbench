@@ -1027,3 +1027,80 @@ CREATE TABLE IF NOT EXISTS habit_logs (
 );
 CREATE INDEX IF NOT EXISTS idx_habit_logs_user_date ON habit_logs(user_id, log_date);
 CREATE INDEX IF NOT EXISTS idx_habit_logs_habit ON habit_logs(habit_id, log_date);
+
+-- ---------- 来自迁移 040_workouts.sql（Fitness Plan 轻量 A） ----------
+
+CREATE TABLE IF NOT EXISTS workouts (
+  id               bigserial PRIMARY KEY,
+  user_id          uuid REFERENCES users(id) ON DELETE CASCADE,
+  anon_id          text,
+  name             text NOT NULL DEFAULT '训练',
+  exercised_on     date NOT NULL DEFAULT CURRENT_DATE,
+  duration_seconds int NOT NULL DEFAULT 0 CHECK (duration_seconds >= 0 AND duration_seconds <= 86400),
+  note             text,
+  deleted_at       timestamptz,
+  client_id        text,
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  updated_at       timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_workouts_user_date ON workouts(user_id, exercised_on DESC) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_workouts_anon ON workouts(anon_id, exercised_on DESC) WHERE deleted_at IS NULL AND user_id IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_workouts_client
+  ON workouts(user_id, client_id) WHERE user_id IS NOT NULL AND client_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS workout_items (
+  id               bigserial PRIMARY KEY,
+  user_id          uuid REFERENCES users(id) ON DELETE CASCADE,
+  workout_id       bigint NOT NULL REFERENCES workouts(id) ON DELETE CASCADE,
+  exercise_key     text,
+  exercise_label   text NOT NULL,
+  sets             int NOT NULL DEFAULT 1 CHECK (sets BETWEEN 0 AND 200),
+  reps             int NOT NULL DEFAULT 1 CHECK (reps BETWEEN 0 AND 2000),
+  weight_kg        numeric CHECK (weight_kg IS NULL OR (weight_kg >= 0 AND weight_kg <= 2000)),
+  duration_seconds int NOT NULL DEFAULT 0 CHECK (duration_seconds >= 0 AND duration_seconds <= 86400),
+  sort_order       int NOT NULL DEFAULT 0,
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  updated_at       timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_workout_items_workout ON workout_items(workout_id, sort_order);
+
+-- ---------- 来自迁移 041_nutrition.sql（Nutrition v1） ----------
+
+CREATE TABLE IF NOT EXISTS foods (
+  id         bigserial PRIMARY KEY,
+  user_id    uuid REFERENCES users(id) ON DELETE CASCADE,
+  name       text NOT NULL,
+  unit       text NOT NULL DEFAULT '份',
+  kcal       numeric NOT NULL DEFAULT 0 CHECK (kcal >= 0 AND kcal <= 10000),
+  protein_g  numeric NOT NULL DEFAULT 0 CHECK (protein_g >= 0 AND protein_g <= 1000),
+  carbs_g    numeric NOT NULL DEFAULT 0 CHECK (carbs_g >= 0 AND carbs_g <= 1000),
+  fat_g      numeric NOT NULL DEFAULT 0 CHECK (fat_g >= 0 AND fat_g <= 1000),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_foods_user_name ON foods(user_id, lower(name)) WHERE user_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_foods_global_name ON foods(lower(name)) WHERE user_id IS NULL;
+
+CREATE TABLE IF NOT EXISTS meal_entries (
+  id         bigserial PRIMARY KEY,
+  user_id    uuid REFERENCES users(id) ON DELETE CASCADE,
+  anon_id    text,
+  log_date   date NOT NULL DEFAULT CURRENT_DATE,
+  meal       text NOT NULL DEFAULT 'lunch' CHECK (meal IN ('breakfast','lunch','dinner','snack')),
+  food_id    bigint REFERENCES foods(id) ON DELETE SET NULL,
+  name       text NOT NULL,
+  amount     numeric NOT NULL DEFAULT 1 CHECK (amount > 0 AND amount <= 1000),
+  unit       text NOT NULL DEFAULT '份',
+  kcal       numeric NOT NULL DEFAULT 0 CHECK (kcal >= 0 AND kcal <= 100000),
+  protein_g  numeric NOT NULL DEFAULT 0 CHECK (protein_g >= 0 AND protein_g <= 10000),
+  carbs_g    numeric NOT NULL DEFAULT 0 CHECK (carbs_g >= 0 AND carbs_g <= 10000),
+  fat_g      numeric NOT NULL DEFAULT 0 CHECK (fat_g >= 0 AND fat_g <= 10000),
+  deleted_at timestamptz,
+  client_id  text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_meal_entries_user_date ON meal_entries(user_id, log_date) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_meal_entries_anon ON meal_entries(anon_id, log_date) WHERE deleted_at IS NULL AND user_id IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_meal_entries_client
+  ON meal_entries(user_id, client_id) WHERE user_id IS NOT NULL AND client_id IS NOT NULL;

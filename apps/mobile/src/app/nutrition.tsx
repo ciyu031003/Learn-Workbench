@@ -1,0 +1,231 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ThemedIcon } from "@/components/themed-icon";
+import { ScreenHeader } from "@/components/screen-header";
+import { Card } from "@/components/card";
+import { BottomSheet } from "@/components/bottom-sheet";
+import { PressableScale } from "@/components/pressable-scale";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTheme } from "@/theme";
+import type { ThemeColors } from "@/theme/tokens";
+import { useAppStore } from "@/store/app-store";
+import { getApiUrl } from "@/config";
+import { DEFAULT_NUTRITION_TARGETS, mealKindLabels, sumNutrition, type Food, type MealEntry, type MealKind } from "@learn-workbench/shared";
+
+const MEALS: MealKind[] = ["breakfast", "lunch", "dinner", "snack"];
+
+function todayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** V3 今日饮食（移动端）：营养汇总 + 条目 + 常用食物快速添加 */
+export default function NutritionScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
+  const token = useAppStore((s) => s.token);
+  const [entries, setEntries] = useState<MealEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [foods, setFoods] = useState<Food[]>([]);
+  const [meal, setMeal] = useState<MealKind>("lunch");
+  const [picked, setPicked] = useState<Food | null>(null);
+  const [amount, setAmount] = useState("1");
+  const [saving, setSaving] = useState(false);
+
+  const date = todayKey();
+  const totals = useMemo(() => sumNutrition(entries), [entries]);
+  const target = DEFAULT_NUTRITION_TARGETS;
+
+  const headers = (): Record<string, string> => (token ? { Authorization: `Bearer ${token}` } : {});
+
+  const load = useCallback(async () => {
+    try {
+      const r = await fetch(`${getApiUrl()}/api/nutrition?date=${date}`, { headers: headers() });
+      const d = await r.json();
+      if (r.ok) setEntries(Array.isArray(d.entries) ? d.entries : []);
+    } catch {
+      // 离线保持现状
+    } finally {
+      setLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, token]);
+
+  useEffect(() => {
+    const t = setTimeout(() => void load(), 0);
+    return () => clearTimeout(t);
+  }, [load]);
+
+  useEffect(() => {
+    if (!sheetOpen) return;
+    void (async () => {
+      try {
+        const r = await fetch(getApiUrl() + "/api/nutrition/foods", { headers: headers() });
+        const d = await r.json();
+        if (r.ok) setFoods(Array.isArray(d.foods) ? d.foods : []);
+      } catch {
+        // 忽略
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sheetOpen]);
+
+  const add = async () => {
+    if (!picked) {
+      Alert.alert("请选择食物");
+      return;
+    }
+    setSaving(true);
+    try {
+      await fetch(getApiUrl() + "/api/nutrition", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...headers() },
+        body: JSON.stringify({ date, meal, name: picked.name, foodId: picked.id, amount: Number(amount) || 1 }),
+      });
+      setSheetOpen(false);
+      setPicked(null);
+      setAmount("1");
+      await load();
+    } catch (e) {
+      Alert.alert("添加失败", e instanceof Error ? e.message : "请稍后重试");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const remove = async (id: number) => {
+    try {
+      await fetch(`${getApiUrl()}/api/nutrition?id=${id}`, { method: "DELETE", headers: headers() });
+      setEntries((prev) => prev.filter((x) => x.id !== id));
+    } catch {
+      Alert.alert("删除失败");
+    }
+  };
+
+  const bars = [
+    { label: "热量", value: totals.kcal, max: target.kcal, unit: "kcal", color: colors.primary },
+    { label: "蛋白质", value: totals.proteinG, max: target.proteinG, unit: "g", color: "#16a34a" },
+    { label: "碳水", value: totals.carbsG, max: target.carbsG, unit: "g", color: "#f59e0b" },
+    { label: "脂肪", value: totals.fatG, max: target.fatG, unit: "g", color: "#dc2626" },
+  ];
+
+  return (
+    <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top + 24 }]} showsVerticalScrollIndicator={false}>
+      <ScreenHeader title="今日饮食" subtitle={`${totals.kcal} / ${target.kcal} kcal`} compact />
+
+      <PressableScale style={styles.addBtn} haptic onPress={() => setSheetOpen(true)}>
+        <ThemedIcon name="add" size={17} color={colors.primary} />
+        <Text style={styles.addBtnText}>添加饮食</Text>
+      </PressableScale>
+
+      <Card>
+        <View style={styles.macroGrid}>
+          {bars.map((b) => {
+            const pct = b.max > 0 ? Math.min(100, Math.round((b.value / b.max) * 100)) : 0;
+            return (
+              <View key={b.label} style={styles.macroItem}>
+                <Text style={styles.macroValue}>{Math.round(b.value)}</Text>
+                <Text style={styles.macroUnit}>/ {b.max}{b.unit}</Text>
+                <View style={styles.macroTrack}>
+                  <View style={[styles.macroFill, { width: `${pct}%`, backgroundColor: b.color }]} />
+                </View>
+                <Text style={styles.macroLabel}>{b.label}</Text>
+              </View>
+            );
+          })}
+        </View>
+      </Card>
+
+      {loading ? (
+        <ActivityIndicator color={colors.primary} style={styles.loading} />
+      ) : entries.length === 0 ? (
+        <Card><Text style={styles.empty}>今天还没有记录，从常用食物挑一个吧</Text></Card>
+      ) : (
+        MEALS.map((m) => {
+          const list = entries.filter((e) => e.meal === m);
+          if (list.length === 0) return null;
+          return (
+            <Card key={m} style={styles.mealCard}>
+              <Text style={styles.mealTitle}>{mealKindLabels[m]} · {sumNutrition(list).kcal} kcal</Text>
+              {list.map((e) => (
+                <View key={e.id} style={styles.entryRow}>
+                  <View style={styles.entryBody}>
+                    <Text style={styles.entryName} numberOfLines={1}>{e.name}</Text>
+                    <Text style={styles.muted}>{e.amount} {e.unit} · {e.kcal} kcal · P{e.proteinG} C{e.carbsG} F{e.fatG}</Text>
+                  </View>
+                  <Pressable hitSlop={8} onPress={() => void remove(e.id)}>
+                    <ThemedIcon name="trash-outline" size={16} color={colors.textFaint} />
+                  </Pressable>
+                </View>
+              ))}
+            </Card>
+          );
+        })
+      )}
+
+      <BottomSheet visible={sheetOpen} onClose={() => setSheetOpen(false)} title="添加饮食" height="66%">
+        <View style={styles.form}>
+          <Text style={styles.label}>餐次</Text>
+          <View style={styles.kindRow}>
+            {MEALS.map((m) => (
+              <Pressable key={m} onPress={() => setMeal(m)} style={[styles.kindChip, meal === m && styles.kindChipActive]}>
+                <Text style={[styles.kindChipText, meal === m && styles.kindChipTextActive]}>{mealKindLabels[m]}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <Text style={styles.label}>常用食物</Text>
+          <View style={styles.kindRow}>
+            {foods.map((f) => (
+              <Pressable key={f.id} onPress={() => setPicked(f)} style={[styles.kindChip, picked?.id === f.id && styles.kindChipActive]}>
+                <Text style={[styles.kindChipText, picked?.id === f.id && styles.kindChipTextActive]}>
+                  {f.name} · {f.kcal}kcal
+                </Text>
+              </Pressable>
+            ))}
+            {foods.length === 0 ? <Text style={styles.muted}>没有可用食物</Text> : null}
+          </View>
+          <Text style={styles.label}>数量</Text>
+          <TextInput style={styles.input} value={amount} onChangeText={setAmount} keyboardType="numeric" placeholder="1" placeholderTextColor={colors.textFaint} />
+          <Pressable style={[styles.primaryBtn, saving && { opacity: 0.5 }]} disabled={saving} onPress={() => void add()}>
+            {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>添加</Text>}
+          </Pressable>
+        </View>
+      </BottomSheet>
+    </ScrollView>
+  );
+}
+
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    scroll: { flex: 1, backgroundColor: "transparent" },
+    content: { padding: 16, paddingBottom: 40, gap: 12 },
+    addBtn: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.primarySoft, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9 },
+    addBtnText: { color: colors.primary, fontSize: 13, fontWeight: "800" },
+    loading: { marginTop: 24, alignSelf: "center" },
+    empty: { fontSize: 13, color: colors.textMuted, textAlign: "center", paddingVertical: 8 },
+    macroGrid: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
+    macroItem: { flex: 1, alignItems: "center", gap: 2 },
+    macroValue: { fontSize: 16, fontWeight: "800", color: colors.text },
+    macroUnit: { fontSize: 10, color: colors.textMuted },
+    macroTrack: { width: "100%", height: 5, borderRadius: 999, backgroundColor: colors.surfaceMuted, overflow: "hidden", marginTop: 3 },
+    macroFill: { height: 5, borderRadius: 999 },
+    macroLabel: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
+    mealCard: { gap: 8 },
+    mealTitle: { fontSize: 13, fontWeight: "800", color: colors.primary },
+    entryRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+    entryBody: { flex: 1, minWidth: 0 },
+    entryName: { fontSize: 14, fontWeight: "700", color: colors.text },
+    muted: { fontSize: 11, color: colors.textMuted },
+    form: { gap: 10, paddingTop: 6 },
+    label: { fontSize: 12, fontWeight: "700", color: colors.textMuted },
+    kindRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    kindChip: { borderRadius: 999, paddingHorizontal: 13, paddingVertical: 7, backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.border },
+    kindChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+    kindChipText: { fontSize: 12, fontWeight: "700", color: colors.textMuted },
+    kindChipTextActive: { color: "#ffffff" },
+    input: { backgroundColor: colors.surfaceMuted, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: colors.text },
+    primaryBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 12, alignItems: "center", marginTop: 4 },
+    primaryBtnText: { color: "#fff", fontSize: 15, fontWeight: "800" },
+  });

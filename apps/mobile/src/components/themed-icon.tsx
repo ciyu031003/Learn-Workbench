@@ -73,6 +73,8 @@ const MAP: Record<string, string> = {
   "ribbon-outline": "rosette",
   "radio-outline": "dot.radiowaves.left.and.right",
   "repeat-outline": "repeat",
+  "barbell-outline": "figure.strengthtraining.traditional",
+  "restaurant-outline": "fork.knife",
 };
 
 type IoniconName = keyof typeof Ionicons.glyphMap;

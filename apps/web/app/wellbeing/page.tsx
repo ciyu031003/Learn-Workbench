@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   Droplets,
   Zap,
@@ -23,6 +24,7 @@ import {
   Bike,
   Dumbbell,
   BicepsFlexed,
+  Salad,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -398,6 +400,14 @@ export default function WellbeingPage() {
         <p className="page-subtitle mt-1 text-sm">
           Focus → 休息 → 饮水 → 精力，照顾好状态才有持续成长
         </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link href="/wellbeing/workout" className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/50 px-3.5 py-1.5 text-xs transition-colors hover:bg-muted/60">
+            <Dumbbell className="size-3.5 text-primary" /> 训练记录
+          </Link>
+          <Link href="/wellbeing/nutrition" className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/50 px-3.5 py-1.5 text-xs transition-colors hover:bg-muted/60">
+            <Salad className="size-3.5 text-primary" /> 今日饮食
+          </Link>
+        </div>
       </div>
 
       {error ? (
