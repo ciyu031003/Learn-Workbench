@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { router } from "expo-router";
 import { ThemedIcon } from "@/components/themed-icon";
 import { ScreenHeader } from "@/components/screen-header";
 import { Card } from "@/components/card";
@@ -97,6 +98,11 @@ export default function ResumeScreen() {
       <PressableScale style={styles.addBtn} haptic onPress={() => setSheetOpen(true)}>
         <ThemedIcon name="add" size={17} color={colors.primary} />
         <Text style={styles.addBtnText}>添加资产</Text>
+      </PressableScale>
+
+      <PressableScale style={styles.addBtn} haptic onPress={() => router.push("/resume-preview" as never)}>
+        <ThemedIcon name="eye-outline" size={17} color={colors.primary} />
+        <Text style={styles.addBtnText}>预览简历</Text>
       </PressableScale>
 
       {loading ? (

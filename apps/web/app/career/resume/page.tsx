@@ -1,443 +1,487 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  resumeAssetKindLabels,
-  jobApplicationStageLabels,
-  type ResumeAsset,
-  type ResumeAssetKind,
-  type JobApplication,
+  RESUME_TEMPLATES,
+  getResumeTemplate,
+  resumeSectionKeyLabels,
+  resumeStyleSchema,
+  type ResumeContent,
+  type ResumeSectionConfig,
+  type ResumeStyle,
 } from "@learn-workbench/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { Switch } from "@/components/ui/switch";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ResumePreview } from "@/components/resume/resume-preview";
+import { useToastStore } from "@/store/toast-store";
 import {
-  ChevronLeft,
-  FileText,
-  type LucideIcon,
-  GraduationCap,
-  FolderGit2,
-  GitBranch,
-  Award,
-  Plus,
-  Pencil,
-  Trash2,
-  Check,
-  Copy,
-  Download,
-  RefreshCw,
-  Briefcase,
-  ExternalLink,
-  Sparkles,
+  Plus, Printer, Save, Trash2, GripVertical, FileText, LayoutTemplate,
+  ChevronUp, ChevronDown, EyeOff, Eye, Loader2, FolderGit2,
 } from "lucide-react";
 
-const KIND_ORDER: ResumeAssetKind[] = ["skill", "project", "github", "certificate"];
-const KIND_LABEL = resumeAssetKindLabels;
-const KIND_ICON: Record<ResumeAssetKind, LucideIcon> = {
-  skill: GraduationCap,
-  project: FolderGit2,
-  github: GitBranch,
-  certificate: Award,
-};
-const KIND_COLOR: Record<ResumeAssetKind, string> = {
-  skill: "text-primary",
-  project: "text-emerald-500",
-  github: "text-foreground",
-  certificate: "text-sky-500",
-};
-const KIND_HINT: Record<ResumeAssetKind, string> = {
-  skill: "如：Linux / Docker / 云计算",
-  project: "如：网络巡检助手",
-  github: "如：learn-workbench（可填链接）",
-  certificate: "如：HCIP-Datacom",
-};
+interface DocListItem {
+  id: number;
+  title: string;
+  templateKey: string;
+  isDefault: boolean;
+  updatedAt: string;
+}
 
-export default function CareerResumePage() {
-  const [records, setRecords] = useState<ResumeAsset[]>([]);
+interface DocState {
+  id: number;
+  title: string;
+  templateKey: string;
+  sectionOrder: ResumeSectionConfig[];
+  styles: ResumeStyle;
+}
+
+const STYLE_DEFAULTS: ResumeStyle = resumeStyleSchema.parse({});
+const ACCENT_PRESETS = ["#2f74c0", "#0f766e", "#7c3aed", "#b45309", "#334155", "#be123c"];
+
+export default function ResumeEditorPage() {
+  const pushToast = useToastStore((s) => s.push);
+  const [docs, setDocs] = useState<DocListItem[]>([]);
+  const [doc, setDoc] = useState<DocState | null>(null);
+  const [content, setContent] = useState<ResumeContent | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(0.72);
 
-  const [me, setMe] = useState<{ displayName: string | null } | null>(null);
-  const [applications, setApplications] = useState<JobApplication[]>([]);
-  const [appError, setAppError] = useState<string | null>(null);
-
-  const [showForm, setShowForm] = useState(false);
-  const [formKind, setFormKind] = useState<ResumeAssetKind>("skill");
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [form, setForm] = useState({ title: "", content: "", url: "" });
-
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
-  const [syncMsg, setSyncMsg] = useState<string | null>(null);
-  const [syncing, setSyncing] = useState(false);
-
-  const load = useCallback(async () => {
-    try {
-      const r = await fetch("/api/resume-assets");
-      if (!r.ok) throw new Error("load failed");
-      const d = await r.json();
-      setRecords(d.records ?? []);
-      setError(null);
-    } catch {
-      setError("简历资产加载失败，请确认数据库已启动");
-    } finally {
-      setLoading(false);
+  /** 载入列表；无文档时自动创建一个默认文档（首次进入即可编辑） */
+  const loadList = useCallback(async (): Promise<DocListItem[]> => {
+    const r = await fetch("/api/resumes");
+    if (!r.ok) throw new Error("简历列表加载失败");
+    const d = await r.json();
+    const list: DocListItem[] = Array.isArray(d.documents) ? d.documents : [];
+    if (list.length === 0) {
+      const cr = await fetch("/api/resumes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "我的简历" }),
+      });
+      if (!cr.ok) throw new Error("创建简历失败");
+      const cd = await cr.json();
+      return [cd.document];
     }
+    return list;
+  }, []);
+
+  const loadDoc = useCallback(async (id: number) => {
+    const r = await fetch(`/api/resumes/${id}`);
+    if (!r.ok) throw new Error("简历加载失败");
+    const d = await r.json();
+    const tpl = getResumeTemplate(d.document?.templateKey);
+    setDoc({
+      id: d.document.id,
+      title: d.document.title ?? "我的简历",
+      templateKey: tpl.key,
+      sectionOrder: Array.isArray(d.document.sectionOrder) ? d.document.sectionOrder : [],
+      styles: { ...STYLE_DEFAULTS, ...tpl.defaults, ...(d.document.styles ?? {}) } as ResumeStyle,
+    });
+    setContent(d.content ?? null);
+    setDirty(false);
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    load();
-    fetch("/api/auth/me")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (d?.user) setMe(d.user);
-      })
-      .catch(() => {});
-    // 联动：投递记录（需要登录）
-    fetch("/api/jobs/applications")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (d) {
-          setApplications(d.applications ?? []);
-          setAppError(null);
-        } else {
-          setAppError("登录后可关联投递记录");
-        }
-      })
-      .catch(() => setAppError("投递记录加载失败"));
-  }, [load]);
-
-  const openCreate = (kind: ResumeAssetKind) => {
-    setFormKind(kind);
-    setEditingId(null);
-    setForm({ title: "", content: "", url: "" });
-    setShowForm(true);
-  };
-
-  const openEdit = (rec: ResumeAsset) => {
-    setFormKind(rec.kind);
-    setEditingId(rec.id);
-    setForm({ title: rec.title, content: rec.content ?? "", url: rec.url ?? "" });
-    setShowForm(true);
-  };
+    let alive = true;
+    (async () => {
+      try {
+        const list = await loadList();
+        if (!alive) return;
+        setDocs(list);
+        await loadDoc(list[0].id);
+      } catch (e) {
+        if (alive) pushToast(e instanceof Error ? e.message : "加载失败", "error");
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [loadList, loadDoc, pushToast]);
 
   const save = async () => {
-    if (!form.title.trim()) return;
-    const payload = {
-      kind: formKind,
-      title: form.title.trim(),
-      content: form.content.trim() || null,
-      url: form.url.trim() || null,
-    };
-    if (editingId) {
-      await fetch("/api/resume-assets", {
+    if (!doc) return;
+    setBusy(true);
+    try {
+      const r = await fetch(`/api/resumes/${doc.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: editingId, ...payload }),
+        body: JSON.stringify({
+          title: doc.title,
+          templateKey: doc.templateKey,
+          sectionOrder: doc.sectionOrder,
+          styles: doc.styles,
+        }),
       });
-    } else {
-      await fetch("/api/resume-assets", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-    }
-    setShowForm(false);
-    load();
-  };
-
-  const del = async (id: number) => {
-    await fetch(`/api/resume-assets?id=${id}`, { method: "DELETE" });
-    load();
-  };
-
-  const buildMarkdown = () => {
-    const name = me?.displayName || "我的简历";
-    const lines: string[] = [`# ${name} 的简历`, ""];
-    const byKind = (k: ResumeAssetKind) => records.filter((r) => r.kind === k);
-    const sections: [string, ResumeAssetKind][] = [
-      ["## 技能", "skill"],
-      ["## 项目", "project"],
-      ["## GitHub 项目", "github"],
-      ["## 证书", "certificate"],
-    ];
-    for (const [header, kind] of sections) {
-      const recs = byKind(kind);
-      if (recs.length === 0) continue;
-      lines.push(header);
-      for (const r of recs) {
-        const parts = [`**${r.title}**`];
-        if (r.content) parts.push(r.content);
-        if (r.url) parts.push(`(${r.url})`);
-        lines.push(`- ${parts.join("：")}`);
+      if (!r.ok) {
+        const d = await r.json().catch(() => null);
+        throw new Error(d?.error || "保存失败");
       }
-      lines.push("");
-    }
-    if (!records.length) lines.push("_尚未添加简历资产。_");
-    return lines.join("\n");
-  };
-
-  const downloadMd = () => {
-    const md = buildMarkdown();
-    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${me?.displayName || "我的"}-简历.md`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const copyMd = async () => {
-    try {
-      await navigator.clipboard.writeText(buildMarkdown());
-      setToast("已复制 Markdown");
-    } catch {
-      setToast("复制失败，请手动选择");
-    }
-    window.setTimeout(() => setToast(null), 1800);
-  };
-
-  const syncSkills = async () => {
-    setSyncing(true);
-    setSyncMsg(null);
-    try {
-      const r = await fetch("/api/profile/skills", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "resume" }),
-      });
-      if (r.ok) {
-        const d = await r.json();
-        setSyncMsg(`已同步 ${d.added ?? 0} 项技能到技能树`);
-      } else if (r.status === 401) {
-        setSyncMsg("同步到技能树需要登录后使用");
-      } else {
-        setSyncMsg("同步失败，请稍后再试");
-      }
-    } catch {
-      setSyncMsg("同步失败");
+      setDirty(false);
+      pushToast("已保存");
+      setDocs((prev) => prev.map((x) => (x.id === doc.id ? { ...x, title: doc.title, templateKey: doc.templateKey } : x)));
+    } catch (e) {
+      pushToast(e instanceof Error ? e.message : "保存失败", "error");
     } finally {
-      setSyncing(false);
+      setBusy(false);
     }
   };
 
-  const getRecords = (k: ResumeAssetKind) => records.filter((r) => r.kind === k);
+  const createDoc = async () => {
+    setBusy(true);
+    try {
+      const r = await fetch("/api/resumes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: `我的简历 ${docs.length + 1}` }),
+      });
+      if (!r.ok) throw new Error("创建失败");
+      const d = await r.json();
+      const list = await loadList();
+      setDocs(list);
+      await loadDoc(d.document.id);
+      pushToast("已新建简历");
+    } catch (e) {
+      pushToast(e instanceof Error ? e.message : "创建失败", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const removeDoc = async () => {
+    if (!doc) return;
+    if (!window.confirm(`删除简历「${doc.title}」？`)) return;
+    try {
+      const r = await fetch(`/api/resumes/${doc.id}`, { method: "DELETE" });
+      if (!r.ok) throw new Error("删除失败");
+      const list = await loadList();
+      setDocs(list);
+      await loadDoc(list[0].id);
+      pushToast("已删除");
+    } catch (e) {
+      pushToast(e instanceof Error ? e.message : "删除失败", "error");
+    }
+  };
+
+  const patchDoc = (p: Partial<DocState>) => {
+    setDoc((s) => (s ? { ...s, ...p } : s));
+    setDirty(true);
+  };
+
+  const toggleSection = (i: number) => {
+    if (!doc) return;
+    const next = doc.sectionOrder.map((s, idx) => (idx === i ? { ...s, visible: !s.visible } : s));
+    patchDoc({ sectionOrder: next });
+  };
+
+  const moveSection = (from: number, to: number) => {
+    if (!doc) return;
+    if (to < 0 || to >= doc.sectionOrder.length || from === to) return;
+    const next = [...doc.sectionOrder];
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
+    patchDoc({ sectionOrder: next });
+  };
+
+  const changeTemplate = (key: string) => {
+    if (!doc) return;
+    const tpl = getResumeTemplate(key);
+    // 切换模板时并入该模板默认样式（用户已改的 accent/fontScale 仍保留）
+    patchDoc({ templateKey: tpl.key, styles: { ...doc.styles, ...tpl.defaults } as ResumeStyle });
+  };
+
+  const printResume = () => window.print();
+
+  const stats = useMemo(() => {
+    if (!content) return null;
+    return {
+      education: content.education.length,
+      experience: content.experience.length,
+      skills: content.skills.length,
+      projects: content.projects.length,
+      certificates: content.certificates.length,
+    };
+  }, [content]);
+
+  if (loading) {
+    return (
+      <div className="page-enter flex items-center justify-center py-24 text-sm text-muted-foreground">
+        <Loader2 className="mr-2 size-4 animate-spin" /> 正在准备简历编辑器…
+      </div>
+    );
+  }
+
+  if (!doc || !content) {
+    return <EmptyState icon={FileText} title="暂时无法加载简历" hint="请稍后重试" />;
+  }
+
+  const tpl = getResumeTemplate(doc.templateKey);
 
   return (
-    <div className="page-enter flex flex-col gap-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <Button asChild variant="ghost" size="sm">
-          <Link href="/career"><ChevronLeft className="size-4" /> 职业画像</Link>
-        </Button>
-        <h1 className="page-title text-2xl font-bold tracking-tight">简历</h1>
-        <div className="ml-auto flex items-center gap-2">
-          <Button size="sm" variant="secondary" onClick={() => setPreviewOpen((v) => !v)}>
-            <FileText className="size-4" /> {previewOpen ? "收起预览" : "预览简历"}
+    <div className="page-enter flex flex-col gap-5">
+      {/* 顶部：文档切换 + 保存 + 导出 */}
+      <div className="flex flex-wrap items-center gap-3 print:hidden">
+        <div className="min-w-0">
+          <h1 className="page-title text-2xl font-bold tracking-tight lg:text-3xl">简历编辑器</h1>
+          <p className="page-subtitle mt-1 text-sm">
+            多模板 · A4 实时预览 · 分节拖拽 · 打印导出（内容实时取自资料 / 证书 / 技能 / 资产）
+          </p>
+        </div>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <select
+            value={doc.id}
+            onChange={(e) => void loadDoc(Number(e.target.value))}
+            className="h-9 rounded-xl border border-border bg-card/60 px-3 text-sm"
+            aria-label="切换简历"
+          >
+            {docs.map((d) => (
+              <option key={d.id} value={d.id}>{d.title}</option>
+            ))}
+          </select>
+          <Button size="sm" variant="ghost" onClick={createDoc} disabled={busy} className="gap-1.5">
+            <Plus className="size-4" /> 新建
           </Button>
-          <Button size="sm" onClick={downloadMd}>
-            <Download className="size-4" /> 导出 Markdown
+          <Button size="sm" variant="ghost" onClick={removeDoc} disabled={busy || docs.length <= 1} className="gap-1.5 text-danger">
+            <Trash2 className="size-4" /> 删除
+          </Button>
+          <Button size="sm" variant="secondary" onClick={printResume} className="gap-1.5">
+            <Printer className="size-4" /> 打印 / 导出 PDF
+          </Button>
+          <Button size="sm" onClick={save} disabled={busy || !dirty} className="gap-1.5">
+            {busy ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+            {dirty ? "保存" : "已保存"}
           </Button>
         </div>
       </div>
-      <p className="page-subtitle mt-1 text-sm">技能 / 项目 / GitHub / 证书 → 简历预览与导出 → 投递记录联动</p>
 
-      {error ? (
-        <Card>
-          <CardContent className="p-6 text-sm text-danger">{error}</CardContent>
+      <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)_260px]">
+        {/* 左：分节排序与开关 */}
+        <Card className="h-fit print:hidden">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">分节</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-1.5">
+            {doc.sectionOrder.map((s, i) => (
+              <div
+                key={s.key}
+                draggable
+                onDragStart={() => setDragIndex(i)}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={() => {
+                  if (dragIndex !== null) moveSection(dragIndex, i);
+                  setDragIndex(null);
+                }}
+                onDragEnd={() => setDragIndex(null)}
+                className={`flex items-center gap-2 rounded-xl border px-2.5 py-2 text-sm transition-colors ${
+                  dragIndex === i ? "border-primary/60 bg-primary/10" : "border-border/60 bg-card/40 hover:bg-muted/50"
+                }`}
+              >
+                <GripVertical className="size-3.5 shrink-0 cursor-grab text-muted-foreground" />
+                <span className={`min-w-0 flex-1 truncate ${s.visible ? "" : "text-muted-foreground line-through"}`}>
+                  {resumeSectionKeyLabels[s.key]}
+                </span>
+                <button onClick={() => moveSection(i, i - 1)} disabled={i === 0} className="rounded p-1 text-muted-foreground hover:text-foreground disabled:opacity-30" aria-label="上移">
+                  <ChevronUp className="size-3.5" />
+                </button>
+                <button onClick={() => moveSection(i, i + 1)} disabled={i === doc.sectionOrder.length - 1} className="rounded p-1 text-muted-foreground hover:text-foreground disabled:opacity-30" aria-label="下移">
+                  <ChevronDown className="size-3.5" />
+                </button>
+                <button onClick={() => toggleSection(i)} className="rounded p-1 text-muted-foreground hover:text-foreground" aria-label={s.visible ? "隐藏" : "显示"}>
+                  {s.visible ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
+                </button>
+              </div>
+            ))}
+            <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+              拖动或上下箭头调整顺序；眼睛图标控制是否出现在简历中。
+            </p>
+            <div className="mt-2 border-t border-border/60 pt-3">
+              <label className="mb-1 block text-xs font-medium">简历名称</label>
+              <Input value={doc.title} onChange={(e) => patchDoc({ title: e.target.value })} />
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-1.5 text-[11px] text-muted-foreground">
+              {stats ? (
+                <>
+                  <span>教育 {stats.education}</span>
+                  <span>经历 {stats.experience}</span>
+                  <span>技能 {stats.skills}</span>
+                  <span>项目 {stats.projects}</span>
+                  <span>证书 {stats.certificates}</span>
+                </>
+              ) : null}
+            </div>
+            <Link href="/career/resume-assets" className="mt-2 flex items-center gap-1.5 text-xs text-primary hover:underline">
+              <FolderGit2 className="size-3.5" /> 管理简历资产（技能 / 项目 / GitHub）
+            </Link>
+          </CardContent>
         </Card>
-      ) : null}
 
-      {toast ? (
-        <div className="rounded-xl border border-success/30 bg-success/10 px-4 py-2 text-sm text-success backdrop-blur-md">{toast}</div>
-      ) : null}
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* 资产四栏 */}
-        <div className="flex flex-col gap-6 lg:col-span-2">
-          <div className="grid gap-4 sm:grid-cols-2">
-            {KIND_ORDER.map((kind) => {
-              const Icon = KIND_ICON[kind];
-              const recs = getRecords(kind);
-              return (
-                <Card key={kind}>
-                  <CardHeader className="flex-row items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Icon className={cn("size-5", KIND_COLOR[kind])} />
-                      <CardTitle>{KIND_LABEL[kind]}</CardTitle>
-                      <Badge variant="muted">{recs.length}</Badge>
-                    </div>
-                    <Button size="sm" variant="ghost" onClick={() => openCreate(kind)} aria-label={`添加${KIND_LABEL[kind]}`}>
-                      <Plus className="size-4" />
-                    </Button>
-                  </CardHeader>
-                  <CardContent className="flex flex-col gap-2">
-                    {recs.length === 0 ? (
-                      <p className="py-3 text-center text-xs text-muted-foreground">还没有{KIND_LABEL[kind]}资产</p>
-                    ) : (
-                      recs.map((r) => (
-                        <div key={r.id} className="flex items-start gap-2 rounded-xl border border-white/15 bg-white/5 px-3 py-2.5">
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium text-foreground">{r.title}</p>
-                            {r.content ? <p className="truncate text-xs text-muted-foreground">{r.content}</p> : null}
-                            {r.url ? (
-                              <a href={r.url} target="_blank" rel="noreferrer" className="mt-0.5 flex items-center gap-1 text-xs text-accent hover:underline">
-                                <ExternalLink className="size-3" /> 链接
-                              </a>
-                            ) : null}
-                          </div>
-                          <button onClick={() => openEdit(r)} aria-label="编辑" className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-white/15 hover:text-foreground">
-                            <Pencil className="size-3.5" />
-                          </button>
-                          <button onClick={() => del(r.id)} aria-label="删除" className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-danger/15 hover:text-danger">
-                            <Trash2 className="size-3.5" />
-                          </button>
-                        </div>
-                      ))
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
+        {/* 中：A4 实时预览（刻意不做玻璃质感） */}
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground print:hidden">
+            <span>{tpl.name}</span>
+            <span>·</span>
+            <span>{doc.styles.page}</span>
+            <div className="ml-2 flex items-center gap-1.5">
+              {[0.55, 0.72, 0.9].map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setScale(s)}
+                  className={`rounded-md px-2 py-0.5 ${Math.abs(scale - s) < 0.01 ? "bg-primary/20 text-foreground" : "hover:bg-muted"}`}
+                >
+                  {Math.round(s * 100)}%
+                </button>
+              ))}
+            </div>
           </div>
+          <div
+            ref={previewRef}
+            className="w-full overflow-auto rounded-2xl border border-border/60 bg-slate-200/40 p-4 print:overflow-visible print:border-0 print:bg-transparent print:p-0"
+            style={{ maxHeight: "74vh" }}
+          >
+            <div style={{ height: 1123 * scale, width: "100%", display: "flex", justifyContent: "center" }}>
+              <ResumePreview
+                title={doc.title}
+                templateKey={doc.templateKey}
+                content={content}
+                sectionOrder={doc.sectionOrder}
+                styles={doc.styles}
+                scale={scale}
+              />
+            </div>
+          </div>
+        </div>
 
-          {showForm ? (
-            <Card>
-              <CardHeader className="flex-row items-center justify-between">
-                <div className="flex items-center gap-2">
-                  {(() => {
-                    const Icon = KIND_ICON[formKind];
-                    return <Icon className={cn("size-5", KIND_COLOR[formKind])} />;
-                  })()}
-                  <CardTitle>{editingId ? "编辑" : "添加"}{KIND_LABEL[formKind]}</CardTitle>
-                </div>
-                <Button size="sm" variant="ghost" onClick={() => setShowForm(false)}>取消</Button>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-3">
-                <div className="grid gap-2 sm:grid-cols-4">
-                  {KIND_ORDER.map((kind) => (
+        {/* 右：模板与样式 */}
+        <div className="flex flex-col gap-4 print:hidden">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-sm">
+                <LayoutTemplate className="size-4 text-primary" /> 模板
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-1.5">
+              {RESUME_TEMPLATES.map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => changeTemplate(t.key)}
+                  className={`rounded-xl border px-3 py-2 text-left transition-colors ${
+                    doc.templateKey === t.key ? "border-primary/60 bg-primary/10" : "border-border/60 hover:bg-muted/50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-medium">{t.name}</span>
+                    {doc.templateKey === t.key ? <Badge variant="accent">使用中</Badge> : null}
+                  </div>
+                  <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{t.description}</p>
+                </button>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">样式</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3 text-xs">
+              <div>
+                <span className="mb-1.5 block font-medium">强调色</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {ACCENT_PRESETS.map((c) => (
                     <button
-                      key={kind}
-                      onClick={() => setFormKind(kind)}
-                      className={cn(
-                        "rounded-xl border px-3 py-2 text-xs transition-all",
-                        formKind === kind ? "border-primary/60 bg-primary/10 text-primary" : "border-white/20 bg-white/10 text-muted-foreground hover:bg-white/15"
-                      )}
+                      key={c}
+                      onClick={() => patchDoc({ styles: { ...doc.styles, accent: c } })}
+                      className={`size-7 rounded-full border-2 ${doc.styles.accent === c ? "border-foreground" : "border-transparent"}`}
+                      style={{ background: c }}
+                      aria-label={`强调色 ${c}`}
+                    />
+                  ))}
+                  <input
+                    type="color"
+                    value={doc.styles.accent}
+                    onChange={(e) => patchDoc({ styles: { ...doc.styles, accent: e.target.value } })}
+                    className="size-7 cursor-pointer rounded-full border border-border bg-transparent p-0"
+                    aria-label="自定义强调色"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <span className="mb-1.5 block font-medium">字号 {Math.round(doc.styles.fontScale * 100)}%</span>
+                <input
+                  type="range"
+                  min={80}
+                  max={130}
+                  step={5}
+                  value={Math.round(doc.styles.fontScale * 100)}
+                  onChange={(e) => patchDoc({ styles: { ...doc.styles, fontScale: Number(e.target.value) / 100 } })}
+                  className="w-full"
+                />
+              </div>
+
+              <div>
+                <span className="mb-1.5 block font-medium">行距</span>
+                <div className="flex gap-1.5">
+                  {(["compact", "normal", "relaxed"] as const).map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => patchDoc({ styles: { ...doc.styles, spacing: s } })}
+                      className={`flex-1 rounded-lg border px-2 py-1.5 ${doc.styles.spacing === s ? "border-primary/60 bg-primary/15" : "border-border/60 hover:bg-muted/50"}`}
                     >
-                      {KIND_LABEL[kind]}
+                      {s === "compact" ? "紧凑" : s === "normal" ? "标准" : "宽松"}
                     </button>
                   ))}
                 </div>
-                <Input
-                  value={form.title}
-                  onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  placeholder={KIND_HINT[formKind]}
-                  aria-label="名称"
-                  className="h-10"
-                />
-                <textarea
-                  value={form.content}
-                  onChange={(e) => setForm({ ...form, content: e.target.value })}
-                  placeholder="一句话说明 / 亮点（可选）"
-                  className="min-h-[72px] w-full resize-none rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-foreground outline-none backdrop-blur-md placeholder:text-muted-foreground focus:border-primary/60"
-                />
-                <Input
-                  value={form.url}
-                  onChange={(e) => setForm({ ...form, url: e.target.value })}
-                  placeholder="链接（可选）"
-                  aria-label="链接"
-                  className="h-10"
-                />
-                <Button onClick={save} disabled={!form.title.trim()} className="self-end">
-                  <Check className="size-4" /> 保存
-                </Button>
-              </CardContent>
-            </Card>
-          ) : null}
-        </div>
-
-        {/* 右侧：预览 + 联动 */}
-        <div className="flex flex-col gap-6">
-          <Card>
-            <CardHeader className="flex-row items-center gap-2">
-              <FileText className="size-5 text-accent" />
-              <CardTitle>简历预览</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              {previewOpen ? (
-                <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-xl border border-white/15 bg-black/30 p-4 text-xs leading-relaxed text-foreground">
-                  {buildMarkdown()}
-                </pre>
-              ) : (
-                <p className="text-sm text-muted-foreground">点击「预览简历」查看 Markdown 版简历</p>
-              )}
-              <div className="flex gap-2">
-                <Button size="sm" variant="secondary" onClick={copyMd} disabled={records.length === 0}>
-                  <Copy className="size-4" /> 复制
-                </Button>
-                <Button size="sm" variant="secondary" onClick={downloadMd} disabled={records.length === 0}>
-                  <Download className="size-4" /> 下载 .md
-                </Button>
               </div>
-              <p className="text-[11px] text-muted-foreground">粘贴到任意 Markdown 编辑器 / 简历工具即可继续排版。</p>
-            </CardContent>
-          </Card>
 
-          <Card>
-            <CardHeader className="flex-row items-center gap-2">
-              <Sparkles className="size-5 text-primary" />
-              <CardTitle>联动</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3 text-sm">
-              <div className="flex items-center justify-between rounded-xl border border-white/15 bg-white/5 px-3 py-2.5">
-                <div className="flex items-center gap-2">
-                  <GraduationCap className="size-4 text-primary" />
-                  <span>同步技能 → 技能树</span>
+              <div>
+                <span className="mb-1.5 block font-medium">字体</span>
+                <div className="flex gap-1.5">
+                  {(["sans", "serif"] as const).map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => patchDoc({ styles: { ...doc.styles, fontFamily: f } })}
+                      className={`flex-1 rounded-lg border px-2 py-1.5 ${doc.styles.fontFamily === f ? "border-primary/60 bg-primary/15" : "border-border/60 hover:bg-muted/50"}`}
+                    >
+                      {f === "sans" ? "无衬线" : "衬线"}
+                    </button>
+                  ))}
                 </div>
-                <Button size="sm" variant="secondary" onClick={syncSkills} disabled={syncing}>
-                  <RefreshCw className={cn("size-4", syncing && "animate-spin")} /> {syncing ? "同步中…" : "同步"}
-                </Button>
               </div>
-              {syncMsg ? <p className="text-xs text-muted-foreground">{syncMsg}</p> : null}
 
-              <div className="rounded-xl border border-white/15 bg-white/5 px-3 py-2.5">
-                <div className="mb-1 flex items-center gap-2">
-                  <Briefcase className="size-4 text-emerald-500" />
-                  <span className="font-medium">投递记录</span>
-                  <Badge variant="muted">{applications.length}</Badge>
+              <div>
+                <span className="mb-1.5 block font-medium">页面</span>
+                <div className="flex gap-1.5">
+                  {(["A4", "Letter"] as const).map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => patchDoc({ styles: { ...doc.styles, page: p } })}
+                      className={`flex-1 rounded-lg border px-2 py-1.5 ${doc.styles.page === p ? "border-primary/60 bg-primary/15" : "border-border/60 hover:bg-muted/50"}`}
+                    >
+                      {p}
+                    </button>
+                  ))}
                 </div>
-                {appError ? (
-                  <p className="text-xs text-muted-foreground">{appError}</p>
-                ) : applications.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">还没有投递记录，去「我的求职」添加。</p>
-                ) : (
-                  <ul className="mt-1 flex flex-col gap-1">
-                    {applications.slice(0, 4).map((a) => (
-                      <li key={a.id} className="flex items-center justify-between text-xs">
-                        <span className="truncate text-foreground">{a.jobCompany} · {a.jobTitle}</span>
-                        <span className="shrink-0 text-muted-foreground">{jobApplicationStageLabels[a.stage] ?? a.stage}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <Link href="/career/applications" className="text-xs text-accent hover:underline">
-                  管理投递记录 →
-                </Link>
               </div>
+
+              <label className="flex items-center justify-between gap-2 pt-1">
+                <span className="font-medium">显示照片位</span>
+                <Switch
+                  checked={doc.styles.showPhoto}
+                  onCheckedChange={(v) => patchDoc({ styles: { ...doc.styles, showPhoto: v } })}
+                />
+              </label>
             </CardContent>
           </Card>
         </div>
       </div>
-
-      {loading && !records.length ? (
-        <Card>
-          <CardContent className="p-6 text-sm text-muted-foreground">加载中…</CardContent>
-        </Card>
-      ) : null}
     </div>
   );
 }

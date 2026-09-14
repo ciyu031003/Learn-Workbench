@@ -233,6 +233,28 @@ CREATE TABLE resume_assets (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- ---------- 9b. 简历文档（Resume Engine v1，来自迁移 038_resume_documents.sql） ----------
+
+CREATE TABLE IF NOT EXISTS resume_documents (
+  id            bigserial PRIMARY KEY,
+  user_id       uuid REFERENCES users(id) ON DELETE CASCADE,
+  anon_id       text,
+  title         text NOT NULL DEFAULT '我的简历',
+  template_key  text NOT NULL DEFAULT 'classic',
+  section_order jsonb NOT NULL DEFAULT '[]'::jsonb,
+  styles        jsonb NOT NULL DEFAULT '{}'::jsonb,
+  overrides     jsonb NOT NULL DEFAULT '{}'::jsonb,
+  is_default    boolean NOT NULL DEFAULT false,
+  deleted_at    timestamptz,
+  client_id     text,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  updated_at    timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_resume_docs_user ON resume_documents(user_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_resume_docs_anon ON resume_documents(anon_id) WHERE deleted_at IS NULL AND user_id IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_resume_documents_client
+  ON resume_documents(user_id, client_id) WHERE user_id IS NOT NULL AND client_id IS NOT NULL;
+
 -- ---------- 10. 面试题库 ----------
 
 CREATE TABLE interview_questions (

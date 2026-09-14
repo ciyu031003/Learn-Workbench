@@ -250,6 +250,7 @@ function ThemedShell() {
         <Tabs.Screen name="market" options={{ href: null }} />
         <Tabs.Screen name="applications" options={{ href: null }} />
         <Tabs.Screen name="resume" options={{ href: null }} />
+        <Tabs.Screen name="resume-preview" options={{ href: null }} />
         <Tabs.Screen name="certificates" options={{ href: null }} />
         <Tabs.Screen name="interview" options={{ href: null }} />
         <Tabs.Screen name="phase/[id]" options={{ href: null }} />

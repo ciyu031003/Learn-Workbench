@@ -184,6 +184,184 @@ export const resumeAssetKindLabels: Record<ResumeAssetKind, string> = {
   certificate: "证书",
 };
 
+/* ================= V3 · Resume Engine v1（简历文档 / 模板注册表 / A4 预览） ================= */
+
+/** 简历分节键（有序；section_order 用它排列与开关） */
+export const resumeSectionKeySchema = z.enum([
+  "basics",
+  "education",
+  "skills",
+  "projects",
+  "experience",
+  "certificates",
+]);
+export type ResumeSectionKey = z.infer<typeof resumeSectionKeySchema>;
+
+export const resumeSectionKeyLabels: Record<ResumeSectionKey, string> = {
+  basics: "基本信息",
+  education: "教育经历",
+  skills: "技能",
+  projects: "项目",
+  experience: "工作经历",
+  certificates: "证书",
+};
+
+/** 分节配置：顺序 + 可见性 */
+export const resumeSectionConfigSchema = z.object({
+  key: resumeSectionKeySchema,
+  visible: z.boolean().default(true),
+});
+export type ResumeSectionConfig = z.infer<typeof resumeSectionConfigSchema>;
+
+/** 样式配置 */
+export const resumeStyleSchema = z.object({
+  accent: z.string().default("#2f74c0"),
+  fontScale: z.number().min(0.8).max(1.3).default(1),
+  spacing: z.enum(["compact", "normal", "relaxed"]).default("normal"),
+  page: z.enum(["A4", "Letter"]).default("A4"),
+  showPhoto: z.boolean().default(false),
+  fontFamily: z.enum(["sans", "serif"]).default("sans"),
+});
+export type ResumeStyle = z.infer<typeof resumeStyleSchema>;
+
+/** 模板注册表（代码侧唯一事实源：避免 DB 种子与渲染器配置漂移） */
+export interface ResumeTemplate {
+  key: string;
+  name: string;
+  description: string;
+  /** 默认样式，作为文档样式的兜底 */
+  defaults: Partial<ResumeStyle>;
+  /** 版式特征：单栏经典 / 双栏侧边 / 时间线 */
+  layout: "single" | "sidebar" | "timeline";
+  /** 小节标题风格：下划线 / 左侧色条 / 纯文字 */
+  heading: "underline" | "bar" | "plain";
+}
+
+export const RESUME_TEMPLATES: ResumeTemplate[] = [
+  {
+    key: "classic",
+    name: "经典单栏",
+    description: "专业克制，适合国企/事业单位与通用投递",
+    defaults: { accent: "#2f74c0", spacing: "normal", fontFamily: "sans" },
+    layout: "single",
+    heading: "underline",
+  },
+  {
+    key: "serif",
+    name: "衬线简洁",
+    description: "衬线字体 + 纯文字小标题，适合传统行业与研究岗",
+    defaults: { accent: "#334155", spacing: "relaxed", fontFamily: "serif" },
+    layout: "single",
+    heading: "plain",
+  },
+  {
+    key: "sidebar",
+    name: "双栏侧边",
+    description: "左侧信息栏（技能/证书）+ 右侧主经历，信息密度高",
+    defaults: { accent: "#0f766e", spacing: "compact", fontFamily: "sans" },
+    layout: "sidebar",
+    heading: "bar",
+  },
+  {
+    key: "timeline",
+    name: "时间线",
+    description: "教育与工作按时间轴排布，成长路径清晰",
+    defaults: { accent: "#7c3aed", spacing: "normal", fontFamily: "sans" },
+    layout: "timeline",
+    heading: "bar",
+  },
+];
+
+export const resumeTemplateKeys = RESUME_TEMPLATES.map((t) => t.key);
+export function getResumeTemplate(key: string | null | undefined): ResumeTemplate {
+  return RESUME_TEMPLATES.find((t) => t.key === key) ?? RESUME_TEMPLATES[0];
+}
+
+/** 组装后的简历内容（服务端按 Profile/证书/技能/资产实时组装，只读） */
+export const resumeContentSchema = z.object({
+  basics: z.object({
+    name: z.string().default(""),
+    headline: z.string().default(""),
+    city: z.string().default(""),
+    targetRole: z.string().default(""),
+    summary: z.string().default(""),
+    email: z.string().default(""),
+  }),
+  education: z.array(z.object({
+    school: z.string(), major: z.string(), degree: z.string(),
+    start: z.string().nullable(), end: z.string().nullable(), note: z.string().nullable(),
+  })).default([]),
+  experience: z.array(z.object({
+    title: z.string(), org: z.string(),
+    start: z.string().nullable(), end: z.string().nullable(),
+    description: z.string(), skills: z.array(z.string()).default([]),
+  })).default([]),
+  skills: z.array(z.object({ name: z.string(), level: z.number(), category: z.string() })).default([]),
+  projects: z.array(z.object({
+    title: z.string(), content: z.string().nullable(), url: z.string().nullable(), kind: z.string(),
+  })).default([]),
+  certificates: z.array(z.object({
+    name: z.string(), issuer: z.string().nullable(), earnedDate: z.string().nullable(), expiryDate: z.string().nullable(),
+  })).default([]),
+});
+export type ResumeContent = z.infer<typeof resumeContentSchema>;
+
+/** 简历文档（DB 行 + 组装内容） */
+export const resumeDocumentSchema = z.object({
+  id: z.number(),
+  title: z.string(),
+  templateKey: z.string(),
+  sectionOrder: z.array(resumeSectionConfigSchema),
+  styles: resumeStyleSchema.partial(),
+  overrides: z.record(z.string(), z.unknown()).default({}),
+  isDefault: z.boolean().optional(),
+  updatedAt: z.string().optional(),
+});
+export type ResumeDocument = z.infer<typeof resumeDocumentSchema>;
+
+/** 简历列表项（轻量） */
+export const resumeDocumentListItemSchema = z.object({
+  id: z.number(),
+  title: z.string(),
+  templateKey: z.string(),
+  isDefault: z.boolean(),
+  updatedAt: z.string(),
+});
+export type ResumeDocumentListItem = z.infer<typeof resumeDocumentListItemSchema>;
+
+/** 默认分节顺序（新建文档时使用） */
+export const DEFAULT_RESUME_SECTION_ORDER: ResumeSectionConfig[] = [
+  { key: "basics", visible: true },
+  { key: "education", visible: true },
+  { key: "skills", visible: true },
+  { key: "experience", visible: true },
+  { key: "projects", visible: true },
+  { key: "certificates", visible: true },
+];
+
+/** 归一化分节顺序：补齐缺失键、去重、忽略非法键 */
+export function normalizeSectionOrder(raw: unknown): ResumeSectionConfig[] {
+  const seen = new Set<string>();
+  const out: ResumeSectionConfig[] = [];
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      const key = typeof item === "string" ? item : (item as { key?: unknown })?.key;
+      const parsed = resumeSectionKeySchema.safeParse(key);
+      if (!parsed.success || seen.has(parsed.data)) continue;
+      seen.add(parsed.data);
+      const visible = typeof item === "object" && item !== null && "visible" in item
+        ? Boolean((item as { visible?: unknown }).visible)
+        : true;
+      out.push({ key: parsed.data, visible });
+    }
+  }
+  for (const def of DEFAULT_RESUME_SECTION_ORDER) {
+    if (!seen.has(def.key)) out.push({ ...def });
+  }
+  return out;
+}
+
+
 export const backgroundInfoSchema = z.object({
   date: z.string(),
   file: z.string().nullable(),
