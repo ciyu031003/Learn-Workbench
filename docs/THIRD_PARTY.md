@@ -40,8 +40,12 @@
 
 ## 3. 依赖清单（由包管理器引入，非复制源码）
 
-新增第三方依赖：**无**。本期仅在既有依赖（Next 16 / React 19 / Tailwind 4 / zod / pg / lucide-react / expo 等）范围内实现，
-未新增任何运行时依赖，因此不引入新的许可义务。
+| 依赖 | 版本 | 用途 | 许可 | 引入阶段 |
+|---|---|---|---|---|
+| `@shopify/flash-list` | ^2.3.2 | 移动端长列表回收式虚拟化（职位列表） | MIT | APP P0-4（2026-09-14） |
+
+> 除上表外，V3 与 APP P0 未新增其它运行时依赖；其余能力均在既有依赖（Next 16 / React 19 / Tailwind 4 / zod / pg / lucide-react / expo / reanimated / react-native-gesture-handler 等）范围内实现。
+> 新增依赖的许可策略：只接受 MIT / Apache-2.0 / BSD；GPL / AGPL / SSPL 类需先评估，不直接引入。
 
 ---
 
