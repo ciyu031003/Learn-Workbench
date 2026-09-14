@@ -72,6 +72,7 @@ const MAP: Record<string, string> = {
   "ribbon": "rosette",
   "ribbon-outline": "rosette",
   "radio-outline": "dot.radiowaves.left.and.right",
+  "repeat-outline": "repeat",
 };
 
 type IoniconName = keyof typeof Ionicons.glyphMap;

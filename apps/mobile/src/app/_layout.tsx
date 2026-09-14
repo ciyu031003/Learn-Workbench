@@ -258,6 +258,7 @@ function ThemedShell() {
         <Tabs.Screen name="account-security" options={{ href: null }} />
         <Tabs.Screen name="domain-manager" options={{ href: null }} />
         <Tabs.Screen name="trackers" options={{ href: null }} />
+        <Tabs.Screen name="habits" options={{ href: null }} />
         <Tabs.Screen name="+not-found" options={{ href: null }} />
       </Tabs>
       <SwipeNavigator />

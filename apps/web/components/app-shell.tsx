@@ -25,6 +25,7 @@ import {
   Award,
   FolderGit2,
   Radar,
+  Repeat,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { todayISO } from "@learn-workbench/shared";
@@ -45,6 +46,7 @@ const LEARN_ITEMS: { href: string; label: string; icon: typeof Map; hash?: strin
   { href: "/tasks", label: "专注", icon: Timer, hash: "#focus" },
   { href: "/logs", label: "学习日志", icon: NotebookPen },
   { href: "/trackers", label: "领域记录", icon: Gauge },
+  { href: "/habits", label: "习惯打卡", icon: Repeat },
 ];
 
 /** 职业分组（画像 / 技能树 / 简历 / GitHub / 面试 / 求职） */

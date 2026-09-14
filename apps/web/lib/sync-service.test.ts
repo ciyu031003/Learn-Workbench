@@ -44,6 +44,8 @@ describe("SYNC_ENTITY_TYPES", () => {
       "customTopics",
       "exerciseLogs",
       "certificates",
+      "habits",
+      "habitLogs",
     ]);
   });
 });
@@ -284,6 +286,59 @@ describe("applyChanges", () => {
     expect(query.mock.calls.find(([sql]) => sql.includes("UPDATE certificates SET deleted_at"))![1]).toEqual(["u-1", "c-cert4", new Date(AT)]);
   });
 
+  it("inserts habits with client id and normalized schedule", async () => {
+    const { client, query } = makeClient(() => ({ rows: [] }));
+    const { applied } = await applyChanges(client, "u-1", [
+      change({
+        entityType: "habits",
+        entityId: "c-h1",
+        payload: { name: "饮水", isBoolean: false, targetValue: 8, unit: "杯", schedule: [1, 1, 3] },
+      }),
+    ]);
+    expect(applied).toBe(1);
+    const insert = query.mock.calls.find(([sql]) => sql.includes("INSERT INTO habits"));
+    const args = insert![1] as unknown[];
+    expect(args[0]).toBe("u-1");
+    expect(args[1]).toBe("c-h1");
+    expect(args[2]).toBe("饮水");
+    expect(args[4]).toBe(false);
+    expect(args[5]).toBe(8);
+    // 去重并排序
+    expect(args[7]).toEqual([1, 3]);
+  });
+
+  it("rejects habits without a name", async () => {
+    const { client, query } = makeClient(() => ({ rows: [] }));
+    const { applied } = await applyChanges(client, "u-1", [
+      change({ entityType: "habits", entityId: "c-h2", payload: { name: "   " } }),
+    ]);
+    expect(applied).toBe(0);
+    expect(query.mock.calls.some(([sql]) => sql.includes("INSERT INTO habits"))).toBe(false);
+  });
+
+  it("upserts habitLogs by resolving the habit client id", async () => {
+    const { client, query } = makeClient((sql) =>
+      sql.includes("SELECT id FROM habits")
+        ? { rows: [{ id: 42 }] }
+        : { rows: [] }
+    );
+    const { applied } = await applyChanges(client, "u-1", [
+      change({ entityType: "habitLogs", entityId: "c-h1|2026-09-14", payload: { value: 3 } }),
+    ]);
+    expect(applied).toBe(1);
+    const insert = query.mock.calls.find(([sql]) => sql.includes("INSERT INTO habit_logs"));
+    expect(insert![1]).toEqual(["u-1", 42, "2026-09-14", 3, null, new Date(AT)]);
+  });
+
+  it("ignores habitLogs whose habit is unknown", async () => {
+    const { client, query } = makeClient(() => ({ rows: [] }));
+    const { applied } = await applyChanges(client, "u-1", [
+      change({ entityType: "habitLogs", entityId: "c-missing|2026-09-14", payload: { value: 1 } }),
+    ]);
+    expect(applied).toBe(0);
+    expect(query.mock.calls.some(([sql]) => sql.includes("INSERT INTO habit_logs"))).toBe(false);
+  });
+
   it("continues after an applier throws and counts the others", async () => {
     let calls = 0;
     const query = vi.fn(() => {
@@ -318,7 +373,7 @@ describe("applyChanges", () => {
 });
 
 describe("collectChangesSince", () => {
-  it("collects changes across all nine entity types", async () => {
+  it("collects changes across all eleven entity types", async () => {
     const script: Record<string, { rows: unknown[] }> = {
       "FROM topic_progress": {
         rows: [
@@ -367,6 +422,16 @@ describe("collectChangesSince", () => {
         rows: [
           { id: 21, cid: "c-21", name: "CISP", issuer: "测评中心", status: "achieved", td: null, ed: "2025-09-30", xd: "2028-09-30", iu: null, so: 0, note: null, u: new Date(AT), d: null },
           { id: 22, cid: null, name: "HCIP", issuer: null, status: "planned", td: "2026-06-01", ed: null, xd: null, iu: null, so: 0, note: null, u: new Date(AT), d: new Date(LATER) },
+        ],
+      },
+      "FROM habits": {
+        rows: [
+          { id: 31, cid: "c-31", name: "饮水", icon: "💧", ib: false, tv: "8", unit: "杯", schedule: [0, 1, 2], color: "#0ea5e9", so: 0, u: new Date(AT), d: null },
+        ],
+      },
+      "FROM habit_logs l": {
+        rows: [
+          { hcid: "c-31", ld: "2026-09-14", value: "8", note: null, u: new Date(AT) },
         ],
       },
     };
@@ -434,6 +499,20 @@ describe("collectChangesSince", () => {
       }),
       expect.objectContaining({ entityId: "srv-22", operation: "DELETE", payload: null }),
     ]);
+    // habits: client id + normalized schedule
+    expect(byType("habits")[0]).toEqual(
+      expect.objectContaining({
+        entityId: "c-31",
+        payload: expect.objectContaining({ name: "饮水", isBoolean: false, targetValue: 8, unit: "杯", schedule: [0, 1, 2] }),
+      })
+    );
+    // habitLogs: 复合键 <habitClientId>|<date>
+    expect(byType("habitLogs")[0]).toEqual(
+      expect.objectContaining({
+        entityId: "c-31|2026-09-14",
+        payload: expect.objectContaining({ habitClientId: "c-31", logDate: "2026-09-14", value: 8 }),
+      })
+    );
 
     // every change has version 1 and ISO updatedAt
     for (const c of changes) {

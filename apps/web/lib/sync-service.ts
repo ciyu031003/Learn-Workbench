@@ -33,6 +33,8 @@ export const SYNC_ENTITY_TYPES = [
   "customTopics",
   "exerciseLogs",
   "certificates",
+  "habits",
+  "habitLogs",
 ] as const;
 
 function atOf(c: SyncChange): Date {
@@ -363,6 +365,86 @@ async function applyCertificates(client: PoolClient, uid: string, c: SyncChange,
   return true;
 }
 
+// ---------------- habits (habits, key: client_id) ----------------
+async function applyHabits(client: PoolClient, uid: string, c: SyncChange, at: Date): Promise<boolean> {
+  const clientId = c.entityId;
+  if (!clientId) return false;
+  const existing = await client.query(
+    `SELECT id, updated_at, deleted_at FROM habits WHERE user_id = $1 AND client_id = $2`,
+    [uid, clientId]
+  );
+  if (c.operation === "DELETE") {
+    await client.query(
+      `UPDATE habits SET deleted_at = $3, updated_at = $3
+       WHERE user_id = $1 AND client_id = $2 AND (deleted_at IS NULL OR deleted_at <= $3) AND updated_at <= $3`,
+      [uid, clientId, at]
+    );
+    return true;
+  }
+  if (existing.rows[0] && newer(existing.rows[0].deleted_at, at)) return true;
+  if (existing.rows[0] && !existing.rows[0].deleted_at && newer(existing.rows[0].updated_at, at)) return true;
+  const p = (c.payload ?? {}) as Record<string, unknown>;
+  const name = typeof p.name === "string" ? p.name.trim().slice(0, 60) : "";
+  if (!name) return false;
+  const isBoolean = p.isBoolean === undefined ? true : Boolean(p.isBoolean);
+  const rawTarget = Number(p.targetValue);
+  const targetValue = isBoolean || !Number.isFinite(rawTarget) || rawTarget <= 0 ? null : Math.min(1_000_000, rawTarget);
+  const unit = typeof p.unit === "string" ? p.unit.trim().slice(0, 20) || null : null;
+  const icon = typeof p.icon === "string" ? p.icon.trim().slice(0, 20) || null : null;
+  const color = typeof p.color === "string" && /^#[0-9a-fA-F]{6}$/.test(p.color) ? p.color : "#6366f1";
+  const schedule = Array.isArray(p.schedule)
+    ? [...new Set(p.schedule.map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n <= 6))].sort((a, b) => a - b)
+    : [0, 1, 2, 3, 4, 5, 6];
+  const sortOrder = Math.max(0, Math.min(10000, Math.round(Number(p.sortOrder) || 0)));
+  await client.query(
+    `INSERT INTO habits
+       (user_id, client_id, name, icon, is_boolean, target_value, unit, schedule, color, sort_order, updated_at, deleted_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NULL)
+     ON CONFLICT (user_id, client_id) WHERE user_id IS NOT NULL AND client_id IS NOT NULL
+     DO UPDATE SET name = EXCLUDED.name, icon = EXCLUDED.icon, is_boolean = EXCLUDED.is_boolean,
+       target_value = EXCLUDED.target_value, unit = EXCLUDED.unit, schedule = EXCLUDED.schedule,
+       color = EXCLUDED.color, sort_order = EXCLUDED.sort_order, updated_at = EXCLUDED.updated_at, deleted_at = NULL`,
+    [
+      uid, clientId, name, icon, isBoolean, targetValue, unit,
+      schedule.length > 0 ? schedule : [0, 1, 2, 3, 4, 5, 6], color, sortOrder, at,
+    ]
+  );
+  return true;
+}
+
+// ---------------- habitLogs (habit_logs, key: `<habitClientId>|<YYYY-MM-DD>`) ----------------
+async function applyHabitLogs(client: PoolClient, uid: string, c: SyncChange, at: Date): Promise<boolean> {
+  const [habitClientId, dateRaw] = String(c.entityId ?? "").split("|");
+  if (!habitClientId || !/^\d{4}-\d{2}-\d{2}$/.test(dateRaw ?? "")) return false;
+  const date = dateRaw;
+  const { rows: habitRows } = await client.query(
+    `SELECT id FROM habits WHERE user_id = $1 AND client_id = $2`,
+    [uid, habitClientId]
+  );
+  const habitId = habitRows[0]?.id;
+  if (!habitId) return false;
+
+  if (c.operation === "DELETE") {
+    await client.query(
+      `DELETE FROM habit_logs WHERE user_id = $1 AND habit_id = $2 AND log_date = $3::date`,
+      [uid, habitId, date]
+    );
+    return true;
+  }
+  const p = (c.payload ?? {}) as Record<string, unknown>;
+  const valueRaw = Number(p.value);
+  const value = Number.isFinite(valueRaw) && valueRaw >= 0 ? Math.min(1_000_000, valueRaw) : 1;
+  const note = typeof p.note === "string" ? p.note.trim().slice(0, 500) || null : null;
+  await client.query(
+    `INSERT INTO habit_logs (user_id, habit_id, log_date, value, note, updated_at)
+     VALUES ($1, $2, $3::date, $4, $5, $6)
+     ON CONFLICT (user_id, habit_id, log_date)
+     DO UPDATE SET value = EXCLUDED.value, note = EXCLUDED.note, updated_at = EXCLUDED.updated_at`,
+    [uid, habitId, date, value, note, at]
+  );
+  return true;
+}
+
 const APPLIERS: Record<string, (client: PoolClient, uid: string, c: SyncChange, at: Date) => Promise<boolean>> = {
   progress: applyProgress,
   tasks: applyTasks,
@@ -373,6 +455,8 @@ const APPLIERS: Record<string, (client: PoolClient, uid: string, c: SyncChange, 
   customTopics: applyCustomTopics,
   exerciseLogs: applyExerciseLogs,
   certificates: applyCertificates,
+  habits: applyHabits,
+  habitLogs: applyHabitLogs,
 };
 
 const DEVICE_ID_RE = /^[a-zA-Z0-9_-]{1,64}$/;
@@ -554,6 +638,41 @@ export async function collectChangesSince(client: PoolClient, uid: string, since
           sortOrder: r.so, note: r.note,
         },
         del ?? r.u));
+    }
+  }
+  {
+    const { rows } = await q(
+      `SELECT id, client_id AS cid, name, icon, is_boolean AS ib, target_value AS tv, unit,
+              schedule, color, sort_order AS so, updated_at AS u, deleted_at AS d
+       FROM habits WHERE user_id = $1 AND (updated_at > $2 OR deleted_at > $2)`,
+      [uid, since]
+    );
+    for (const r of rows) {
+      const del = r.d;
+      out.push(change("habits", r.cid || "srv-" + r.id, del ? "DELETE" : "UPDATE",
+        del ? null : {
+          id: r.id, clientId: r.cid, name: r.name, icon: r.icon, isBoolean: r.ib,
+          targetValue: r.tv === null ? null : Number(r.tv), unit: r.unit,
+          schedule: Array.isArray(r.schedule) ? r.schedule.map(Number) : [0, 1, 2, 3, 4, 5, 6],
+          color: r.color, sortOrder: r.so,
+        },
+        del ?? r.u));
+    }
+  }
+  {
+    // habitLogs 需要 habit 的 client_id 才能稳定寻址；只同步已带 client_id 的习惯的打卡
+    const { rows } = await q(
+      `SELECT h.client_id AS hcid, l.log_date AS ld, l.value, l.note, l.updated_at AS u
+       FROM habit_logs l
+       JOIN habits h ON h.id = l.habit_id
+      WHERE l.user_id = $1 AND h.client_id IS NOT NULL AND l.updated_at > $2`,
+      [uid, since]
+    );
+    for (const r of rows) {
+      const dateKey = String(r.ld).slice(0, 10);
+      out.push(change("habitLogs", `${r.hcid}|${dateKey}`, "UPDATE",
+        { habitClientId: r.hcid, logDate: dateKey, value: Number(r.value), note: r.note },
+        r.u));
     }
   }
   return out;

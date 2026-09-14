@@ -283,6 +283,11 @@ export default function SettingsScreen() {
             <Text style={styles.securityRowText}>领域记录 · 打卡</Text>
             <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
           </PressableScale>
+          <PressableScale style={styles.securityRow} onPress={() => { haptics.light(); router.push("/habits" as never); }}>
+            <ThemedIcon name="repeat-outline" size={18} color={colors.primary} />
+            <Text style={styles.securityRowText}>习惯 · 连续打卡</Text>
+            <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
+          </PressableScale>
         </Card>
       ) : null}
 

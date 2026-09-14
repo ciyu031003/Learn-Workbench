@@ -1638,3 +1638,187 @@ export const jobLearningPlanSchema = z.object({
   gaps: z.array(skillGapItemSchema),
 });
 export type JobLearningPlan = z.infer<typeof jobLearningPlanSchema>;
+
+/* ================= V3 · Habit 独立领域（迁移 039） ================= */
+
+/** 每周排期：0=周日 … 6=周六（与 JS Date.getDay() 对齐） */
+export const habitScheduleSchema = z.array(z.number().int().min(0).max(6));
+export const HABIT_WEEKDAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"];
+
+export const habitSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  icon: z.string().nullable(),
+  isBoolean: z.boolean(),
+  targetValue: z.number().nullable(),
+  unit: z.string().nullable(),
+  schedule: habitScheduleSchema,
+  color: z.string(),
+  sortOrder: z.number(),
+  archivedAt: z.string().nullable().optional(),
+  updatedAt: z.string().optional(),
+});
+export type Habit = z.infer<typeof habitSchema>;
+
+export const habitLogSchema = z.object({
+  habitId: z.number(),
+  logDate: z.string(),        // YYYY-MM-DD
+  value: z.number(),
+  note: z.string().nullable().optional(),
+});
+export type HabitLog = z.infer<typeof habitLogSchema>;
+
+export const habitStatsSchema = z.object({
+  habitId: z.number(),
+  currentStreak: z.number(),
+  longestStreak: z.number(),
+  doneToday: z.boolean(),
+  /** 近 7 天（含今天）按排期的完成率 0-100 */
+  weekRate: z.number(),
+  /** 近 30 天完成率 0-100 */
+  monthRate: z.number(),
+});
+export type HabitStats = z.infer<typeof habitStatsSchema>;
+
+/** 日期工具：YYYY-MM-DD（本地日） */
+export function toDateKey(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/** 给定日期键 → Date（本地 00:00） */
+export function fromDateKey(key: string): Date {
+  const [y, m, d] = key.slice(0, 10).split("-").map(Number);
+  return new Date(y, (m ?? 1) - 1, d ?? 1);
+}
+
+/** 是否在排期内（schedule 为空视为每天） */
+export function isScheduled(schedule: number[], date: Date): boolean {
+  if (!Array.isArray(schedule) || schedule.length === 0) return true;
+  return schedule.includes(date.getDay());
+}
+
+export interface HabitLogLike {
+  habitId: number;
+  logDate: string;
+  value: number;
+}
+
+/** 某习惯在某天是否算「完成」：布尔型 value>=1；量化型 value>=target（无目标则 >=1） */
+export function isHabitDone(habit: Pick<Habit, "isBoolean" | "targetValue">, value: number): boolean {
+  const v = Number.isFinite(value) ? value : 0;
+  if (habit.isBoolean) return v >= 1;
+  const target = habit.targetValue ?? 0;
+  return target > 0 ? v >= target : v >= 1;
+}
+
+/**
+ * 计算习惯统计（纯函数，前端与服务端共用）：
+ * - currentStreak：从今天（或今天未完成时从昨天）向前数，遇到「排期内但未完成」即中断；
+ *   非排期日跳过、不中断。
+ * - longestStreak：全区间内最长连续段（同样跳过非排期日）。
+ * - weekRate/monthRate：区间内「排期日」的完成比例。
+ */
+export function computeHabitStats(
+  habit: Pick<Habit, "id" | "isBoolean" | "targetValue" | "schedule">,
+  logs: HabitLogLike[],
+  today: Date = new Date()
+): HabitStats {
+  const doneByDate = new Map<string, boolean>();
+  for (const l of logs) {
+    if (l.habitId !== habit.id) continue;
+    const key = l.logDate.slice(0, 10);
+    // 同一天多条取最大完成度
+    const prev = doneByDate.get(key) ?? false;
+    doneByDate.set(key, prev || isHabitDone(habit, l.value));
+  }
+
+  const dayDone = (d: Date) => doneByDate.get(toDateKey(d)) === true;
+
+  // ---- currentStreak ----
+  let current = 0;
+  const cursor = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  // 今天若未完成且是排期日，不算中断（今天还没结束）
+  if (isScheduled(habit.schedule, cursor) && !dayDone(cursor)) {
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  // 向前最多回溯 2 年，避免死循环
+  for (let i = 0; i < 730; i++) {
+    if (!isScheduled(habit.schedule, cursor)) {
+      cursor.setDate(cursor.getDate() - 1);
+      continue;
+    }
+    if (dayDone(cursor)) {
+      current += 1;
+      cursor.setDate(cursor.getDate() - 1);
+    } else {
+      break;
+    }
+  }
+
+  // ---- longestStreak（回溯 365 天窗口）----
+  let longest = 0;
+  let run = 0;
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  start.setDate(start.getDate() - 365);
+  const walk = new Date(start);
+  for (let i = 0; i <= 365; i++) {
+    if (!isScheduled(habit.schedule, walk)) {
+      walk.setDate(walk.getDate() + 1);
+      continue;
+    }
+    if (dayDone(walk)) {
+      run += 1;
+      if (run > longest) longest = run;
+    } else {
+      run = 0;
+    }
+    walk.setDate(walk.getDate() + 1);
+  }
+  if (current > longest) longest = current;
+
+  // ---- 完成率 ----
+  const rate = (days: number): number => {
+    let scheduledDays = 0;
+    let doneDays = 0;
+    const d = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    for (let i = 0; i < days; i++) {
+      if (isScheduled(habit.schedule, d)) {
+        scheduledDays += 1;
+        if (dayDone(d)) doneDays += 1;
+      }
+      d.setDate(d.getDate() - 1);
+    }
+    return scheduledDays === 0 ? 0 : Math.round((doneDays / scheduledDays) * 100);
+  };
+
+  return {
+    habitId: habit.id,
+    currentStreak: current,
+    longestStreak: longest,
+    doneToday: dayDone(today),
+    weekRate: rate(7),
+    monthRate: rate(30),
+  };
+}
+
+/** 习惯模板（新建时的快速选择） */
+export interface HabitTemplate {
+  name: string;
+  icon: string;
+  isBoolean: boolean;
+  targetValue: number | null;
+  unit: string | null;
+  color: string;
+}
+
+export const HABIT_TEMPLATES: HabitTemplate[] = [
+  { name: "饮水", icon: "💧", isBoolean: false, targetValue: 8, unit: "杯", color: "#0ea5e9" },
+  { name: "早睡", icon: "🌙", isBoolean: true, targetValue: null, unit: null, color: "#6366f1" },
+  { name: "拉伸", icon: "🧘", isBoolean: true, targetValue: null, unit: null, color: "#14b8a6" },
+  { name: "阅读", icon: "📖", isBoolean: false, targetValue: 30, unit: "分钟", color: "#f59e0b" },
+  { name: "步数", icon: "👟", isBoolean: false, targetValue: 8000, unit: "步", color: "#22c55e" },
+  { name: "练字", icon: "✍️", isBoolean: true, targetValue: null, unit: null, color: "#a855f7" },
+];

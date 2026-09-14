@@ -986,3 +986,44 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_user_settings_anon ON user_settings(anon_id
 CREATE UNIQUE INDEX IF NOT EXISTS uq_exercise_logs_client
   ON exercise_logs(user_id, client_id)
   WHERE user_id IS NOT NULL AND client_id IS NOT NULL;
+
+-- ---------- 来自迁移 039_habits.sql（Habit 独立领域） ----------
+
+CREATE TABLE IF NOT EXISTS habits (
+  id           bigserial PRIMARY KEY,
+  user_id      uuid REFERENCES users(id) ON DELETE CASCADE,
+  anon_id      text,
+  name         text NOT NULL,
+  icon         text,
+  is_boolean   boolean NOT NULL DEFAULT true,
+  target_value numeric,
+  unit         text,
+  schedule     int[] NOT NULL DEFAULT ARRAY[0,1,2,3,4,5,6],
+  color        text NOT NULL DEFAULT '#6366f1',
+  sort_order   int NOT NULL DEFAULT 0,
+  archived_at  timestamptz,
+  deleted_at   timestamptz,
+  client_id    text,
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  updated_at   timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_habits_user_name
+  ON habits(user_id, lower(name)) WHERE deleted_at IS NULL AND user_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_habits_user ON habits(user_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_habits_anon ON habits(anon_id) WHERE deleted_at IS NULL AND user_id IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_habits_client
+  ON habits(user_id, client_id) WHERE user_id IS NOT NULL AND client_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS habit_logs (
+  id         bigserial PRIMARY KEY,
+  user_id    uuid REFERENCES users(id) ON DELETE CASCADE,
+  habit_id   bigint NOT NULL REFERENCES habits(id) ON DELETE CASCADE,
+  log_date   date NOT NULL,
+  value      numeric NOT NULL DEFAULT 1,
+  note       text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (user_id, habit_id, log_date)
+);
+CREATE INDEX IF NOT EXISTS idx_habit_logs_user_date ON habit_logs(user_id, log_date);
+CREATE INDEX IF NOT EXISTS idx_habit_logs_habit ON habit_logs(habit_id, log_date);
