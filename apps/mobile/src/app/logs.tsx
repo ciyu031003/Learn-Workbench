@@ -1,13 +1,23 @@
-import { useState , useMemo } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import type { ThemeColors } from "@/theme/tokens";
+import { spacing, typography } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { useAppStore, type LogKind } from "@/store/app-store";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { logKindLabels } from "@learn-workbench/shared";
 import { Card } from "@/components/card";
+import { EmptyState } from "@/components/empty-state";
 
 const KINDS: LogKind[] = ["feynman", "review", "project", "interview"];
+
+interface LogRow {
+  id: number;
+  kind: LogKind;
+  title: string;
+  content: string;
+  createdAt: string;
+}
 
 export default function LogsScreen() {
   const { colors } = useTheme();
@@ -28,8 +38,25 @@ export default function LogsScreen() {
     setContent("");
   };
 
-  return (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+  // 列表项：日志卡（虚拟化渲染，避免长列表全量挂载）
+  const renderItem = useCallback(
+    ({ item }: { item: LogRow }) => (
+      <View style={styles.logItem}>
+        <View style={styles.logHeader}>
+          <Text style={styles.logKind}>{logKindLabels[item.kind] ?? item.kind}</Text>
+          <Text style={styles.logDate}>{new Date(item.createdAt).toLocaleDateString("zh-CN")}</Text>
+        </View>
+        <Text style={styles.logTitle}>{item.title}</Text>
+        <Text style={styles.logContent} numberOfLines={4}>
+          {item.content}
+        </Text>
+      </View>
+    ),
+    [styles]
+  );
+
+  const header = (
+    <View style={styles.headerWrap}>
       <View style={[styles.hero, { paddingTop: insets.top + 24 }]}>
         <Text style={styles.heroTitle}>学习日志</Text>
         <Text style={styles.heroSub}>费曼讲稿 · 周复盘 · 项目笔记 · 面试记录</Text>
@@ -69,58 +96,60 @@ export default function LogsScreen() {
         </Pressable>
       </Card>
 
-      <Card title="全部日志" subtitle={`共 ${logs.length} 篇`}>
-        {logs.length === 0 ? (
-          <Text style={styles.empty}>还没有日志，写第一篇吧</Text>
-        ) : (
-          logs.map((l) => (
-            <View key={l.id} style={styles.logItem}>
-              <View style={styles.logHeader}>
-                <Text style={styles.logKind}>{logKindLabels[l.kind] ?? l.kind}</Text>
-                <Text style={styles.logDate}>
-                  {new Date(l.createdAt).toLocaleDateString("zh-CN")}
-                </Text>
-              </View>
-              <Text style={styles.logTitle}>{l.title}</Text>
-              <Text style={styles.logContent} numberOfLines={4}>
-                {l.content}
-              </Text>
-            </View>
-          ))
-        )}
-      </Card>
-    </ScrollView>
+      <Text style={styles.sectionTitle}>全部日志 · {logs.length} 篇</Text>
+    </View>
+  );
+
+  return (
+    <FlatList
+      style={styles.scroll}
+      data={logs as LogRow[]}
+      keyExtractor={(l) => String(l.id)}
+      renderItem={renderItem}
+      ListHeaderComponent={header}
+      ListEmptyComponent={
+        <EmptyState icon="create-outline" title="还没有日志" hint="写下第一篇费曼讲稿或周复盘" />
+      }
+      contentContainerStyle={[styles.content, { paddingBottom: 110 }]}
+      showsVerticalScrollIndicator={false}
+      initialNumToRender={8}
+      maxToRenderPerBatch={8}
+      windowSize={7}
+      removeClippedSubviews
+    />
   );
 }
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
-  scroll: { flex: 1 },
-  content: { padding: 16, paddingBottom: 32, gap: 12 },
-  hero: { paddingTop: 24, paddingBottom: 6, gap: 4 },
-  heroTitle: { color: "#ffffff", fontSize: 24, fontWeight: "700" },
-  heroSub: { color: "rgba(255,255,255,0.85)", fontSize: 13 },
-  typeRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  typeChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: colors.surfaceMuted },
-  typeChipActive: { backgroundColor: "rgba(79,70,229,0.12)" },
-  typeChipText: { fontSize: 12, color: colors.textMuted },
-  typeChipTextActive: { color: "#4f46e5", fontWeight: "600" },
-  input: {
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: colors.text,
-  },
-  contentInput: { minHeight: 200, textAlignVertical: "top", fontSize: 14, lineHeight: 21 },
-  primaryBtn: { backgroundColor: "#4f46e5", borderRadius: 14, paddingVertical: 12, alignItems: "center" },
-  primaryBtnText: { color: "#fff", fontSize: 15, fontWeight: "600" },
-  logItem: { gap: 4, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.border },
-  logHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  logKind: { fontSize: 11, color: "#4f46e5", fontWeight: "600" },
-  logDate: { fontSize: 11, color: colors.textFaint },
-  logTitle: { fontSize: 14, fontWeight: "600", color: colors.text },
-  logContent: { fontSize: 13, color: colors.textMuted, lineHeight: 19 },
-  empty: { fontSize: 13, color: colors.textMuted, textAlign: "center", paddingVertical: 12 },
-});
+    scroll: { flex: 1 },
+    content: { padding: spacing.lg, gap: spacing.md },
+    headerWrap: { gap: spacing.md },
+    hero: { paddingBottom: 6, gap: 4 },
+    heroTitle: { ...typography.title1, color: "#ffffff" },
+    heroSub: { ...typography.caption, fontWeight: "400", color: "rgba(255,255,255,0.85)" },
+    sectionTitle: { ...typography.headline, color: colors.text, marginTop: spacing.xs },
+    typeRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+    typeChip: { paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: 999, backgroundColor: colors.surfaceMuted },
+    typeChipActive: { backgroundColor: "rgba(79,70,229,0.12)" },
+    typeChipText: { ...typography.caption, fontWeight: "400", color: colors.textMuted },
+    typeChipTextActive: { color: "#4f46e5", fontWeight: "600" },
+    input: {
+      backgroundColor: colors.surfaceMuted,
+      borderRadius: 12,
+      paddingHorizontal: spacing.md,
+      paddingVertical: 10,
+      ...typography.callout,
+      fontWeight: "400",
+      color: colors.text,
+    },
+    contentInput: { minHeight: 200, textAlignVertical: "top", lineHeight: 21 },
+    primaryBtn: { backgroundColor: "#4f46e5", borderRadius: 14, paddingVertical: 12, alignItems: "center" },
+    primaryBtnText: { ...typography.body, fontWeight: "600", color: "#fff" },
+    logItem: { gap: 4, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
+    logHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    logKind: { ...typography.micro, color: "#4f46e5" },
+    logDate: { ...typography.micro, fontWeight: "400", color: colors.textFaint },
+    logTitle: { ...typography.callout, fontWeight: "600", color: colors.text },
+    logContent: { ...typography.caption, fontWeight: "400", color: colors.textMuted, lineHeight: 19 },
+  });

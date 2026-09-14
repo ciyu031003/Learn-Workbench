@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
+import { EmptyState } from "@/components/empty-state";
+import { SkeletonList } from "@/components/skeleton";
 import { ScreenHeader } from "@/components/screen-header";
 import { Card } from "@/components/card";
 import { BottomSheet } from "@/components/bottom-sheet";
@@ -139,9 +141,9 @@ export default function NutritionScreen() {
       </Card>
 
       {loading ? (
-        <ActivityIndicator color={colors.primary} style={styles.loading} />
+        <SkeletonList count={4} />
       ) : entries.length === 0 ? (
-        <Card><Text style={styles.empty}>今天还没有记录，从常用食物挑一个吧</Text></Card>
+        <EmptyState icon="restaurant-outline" title="今天还没有记录" hint="从常用食物挑一个，或手动填写营养" />
       ) : (
         MEALS.map((m) => {
           const list = entries.filter((e) => e.meal === m);

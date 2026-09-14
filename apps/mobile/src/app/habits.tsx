@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
+import { EmptyState } from "@/components/empty-state";
+import { SkeletonList } from "@/components/skeleton";
 import { ScreenHeader } from "@/components/screen-header";
 import { Card } from "@/components/card";
 import { BottomSheet } from "@/components/bottom-sheet";
@@ -141,10 +143,10 @@ export default function HabitsScreen() {
       </PressableScale>
 
       {loading ? (
-        <ActivityIndicator color={colors.primary} style={styles.loading} />
+        <SkeletonList count={4} />
       ) : habits.length === 0 ? (
         <>
-          <Card><Text style={styles.empty}>还没有习惯，从模板快速开始</Text></Card>
+          <EmptyState icon="repeat-outline" title="还没有习惯" hint="从下方模板快速开始，或自定义一个" />
           <View style={styles.tplRow}>
             {HABIT_TEMPLATES.map((t) => (
               <Pressable

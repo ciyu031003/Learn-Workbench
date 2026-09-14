@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
   Modal,
   Pressable,
   RefreshControl,
@@ -13,7 +12,10 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import { ThemedIcon } from "@/components/themed-icon";
+import { EmptyState } from "@/components/empty-state";
+import { SkeletonList } from "@/components/skeleton";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
@@ -464,7 +466,7 @@ export default function JobsScreen() {
   const [skillDraft, setSkillDraft] = useState("");
 
   const selectedJob = useMemo(() => jobs.find((j) => j.id === selectedId) ?? null, [jobs, selectedId]);
-  const listRef = useRef<FlatList<JobPostingListItem>>(null);
+  const listRef = useRef<FlashListRef<JobPostingListItem>>(null);
   const hasActiveFilter =
     salaryMin != null || salaryMax != null || education.length > 0 || experience.length > 0 || publishedWithin !== "" || skillsFilter.length > 0;
 
@@ -569,34 +571,33 @@ export default function JobsScreen() {
   };
 
   const renderEmpty = () => {
+    // 首次加载：骨架屏（感知更快，避免空白等待）
     if (initialLoading) {
       return (
-        <View style={styles.emptyBox}>
-          <ActivityIndicator color="#10b981" />
-          <Text style={styles.emptyText}>正在等待花开...</Text>
+        <View style={styles.skeletonWrap}>
+          <SkeletonList count={5} />
         </View>
       );
     }
     if (error) {
       return (
-        <View style={styles.emptyBox}>
-          <ThemedIcon name="cloud-offline-outline" size={30} color={colors.textFaint} />
-          <Text style={styles.emptyText}>{error}</Text>
-          <ScalePressable style={styles.emptyPrimaryBtn} onPress={() => loadJobs(1, "initial")}>
-            <Text style={styles.emptyPrimaryText}>重新加载</Text>
-          </ScalePressable>
-        </View>
+        <EmptyState
+          icon="cloud-offline-outline"
+          title="加载失败"
+          hint={error}
+          actionLabel="重新加载"
+          onAction={() => loadJobs(1, "initial")}
+        />
       );
     }
     return (
-      <View style={styles.emptyBox}>
-        <ThemedIcon name="flower-outline" size={34} color="#10b981" />
-        <Text style={styles.emptyTitle}>还没有找到绽放的机会</Text>
-        <Text style={styles.emptyText}>调整搜索条件，或立即抓取一次最新职位。</Text>
-        <ScalePressable style={styles.emptyPrimaryBtn} onPress={runNow}>
-          {running ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.emptyPrimaryText}>立即抓取</Text>}
-        </ScalePressable>
-      </View>
+      <EmptyState
+        icon="flower-outline"
+        title="还没有找到绽放的机会"
+        hint="调整搜索条件，或立即抓取一次最新职位。"
+        actionLabel={running ? "抓取中…" : "立即抓取"}
+        onAction={runNow}
+      />
     );
   };
 
@@ -743,7 +744,8 @@ export default function JobsScreen() {
 
   return (
     <View style={styles.root}>
-      <FlatList
+      {/* FlashList：职位列表可达数百条，回收式虚拟化（D3）；未提供 estimatedItemSize —— v2 自动测量 */}
+      <FlashList
         ref={listRef}
         data={jobs}
         keyExtractor={(item) => String(item.id)}
@@ -1056,6 +1058,7 @@ const makeStyles = (colors: ThemeColors) =>
   },
   time: { flex: 1, marginLeft: "auto", fontSize: 11, color: colors.textFaint, textAlign: "right" },
   emptyBox: { alignItems: "center", gap: 8, paddingVertical: 28, paddingHorizontal: 20 },
+  skeletonWrap: { paddingHorizontal: 16, paddingTop: 8 },
   emptyTitle: { fontSize: 16, fontWeight: "800", color: colors.text },
   emptyText: { fontSize: 13, color: colors.textMuted, textAlign: "center", lineHeight: 19 },
   emptyPrimaryBtn: {

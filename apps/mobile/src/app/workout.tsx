@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
+import { EmptyState } from "@/components/empty-state";
+import { SkeletonList } from "@/components/skeleton";
 import { ScreenHeader } from "@/components/screen-header";
 import { Card } from "@/components/card";
 import { BottomSheet } from "@/components/bottom-sheet";
@@ -99,9 +101,9 @@ export default function WorkoutScreen() {
       </PressableScale>
 
       {loading ? (
-        <ActivityIndicator color={colors.primary} style={styles.loading} />
+        <SkeletonList count={4} />
       ) : workouts.length === 0 ? (
-        <Card><Text style={styles.empty}>还没有训练记录</Text></Card>
+        <EmptyState icon="barbell-outline" title="还没有训练记录" hint="记录动作与组次，自动汇总训练容量" />
       ) : (
         workouts.map((w) => {
           const v = workoutVolume(w.items);

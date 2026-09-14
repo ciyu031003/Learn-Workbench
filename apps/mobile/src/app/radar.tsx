@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { ScreenHeader } from "@/components/screen-header";
+import { EmptyState } from "@/components/empty-state";
+import { SkeletonList } from "@/components/skeleton";
 import { Card } from "@/components/card";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/theme";
@@ -76,13 +78,17 @@ export default function RadarScreen() {
       ) : null}
 
       {loading && top.length === 0 ? (
-        <ActivityIndicator color={colors.primary} style={styles.loading} />
+        <SkeletonList count={4} />
       ) : top.length === 0 ? (
-        <Card>
-          <Text style={styles.empty}>
-            {data?.hasProfile ? "暂时没有可匹配的岗位" : "先补全「我的资料」与技能，雷达才能算出匹配度"}
-          </Text>
-        </Card>
+        <EmptyState
+          icon="radio-outline"
+          title={data?.hasProfile ? "暂时没有可匹配的岗位" : "还没有岗位画像"}
+          hint={
+            data?.hasProfile
+              ? "试试调整城市筛选，或稍后刷新雷达"
+              : "先补全「我的资料」与技能，雷达才能算出匹配度"
+          }
+        />
       ) : (
         top.map((j) => (
           <Card key={j.jobId} style={styles.item}>

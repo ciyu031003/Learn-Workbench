@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
+import { EmptyState } from "@/components/empty-state";
+import { SkeletonList } from "@/components/skeleton";
 import { ScreenHeader } from "@/components/screen-header";
 import { Card } from "@/components/card";
 import { BottomSheet } from "@/components/bottom-sheet";
@@ -109,9 +111,13 @@ export default function CertificatesScreen() {
       </PressableScale>
 
       {loading ? (
-        <ActivityIndicator color={colors.primary} style={styles.loading} />
+        <SkeletonList count={4} />
       ) : records.length === 0 ? (
-        <Card><Text style={styles.empty}>还没有证书，先加一张 CISP / HCIP 吧</Text></Card>
+        <EmptyState
+          icon="ribbon-outline"
+          title="还没有证书"
+          hint="先添加一张 CISP / HCIP，简历与职业雷达会自动引用"
+        />
       ) : (
         records.map((r) => {
           const info = certificateExpiryInfo(r.expiryDate);
