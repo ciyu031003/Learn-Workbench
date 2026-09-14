@@ -203,11 +203,20 @@ CREATE TABLE log_entries (
 CREATE TABLE certificates (
   id          bigserial PRIMARY KEY,
   user_id     uuid REFERENCES users(id) ON DELETE CASCADE,
+  anon_id     text,
   name        text NOT NULL,                  -- 'HCIP-Datacom' / '天翼云 ACP'
-  target_date date,
+  target_date date,                           -- 计划考取日期
   status      text NOT NULL DEFAULT 'planned'
               CHECK (status IN ('planned','preparing','achieved')),
+  issuer      text,                           -- 颁发机构（来自迁移 037）
+  earned_date date,                           -- 取得日期（来自迁移 037）
+  expiry_date date,                           -- 有效期至（来自迁移 037，用于过期提醒）
+  image_url   text,                           -- 证书缩略图（来自迁移 037）
+  sort_order  int NOT NULL DEFAULT 0,         -- 展示排序（来自迁移 037）
   note        text,
+  deleted_at  timestamptz,                    -- 软删除（来自迁移 037）
+  client_id   text,                           -- 同步幂等（来自迁移 037）
+  created_at  timestamptz NOT NULL DEFAULT now(),
   updated_at  timestamptz NOT NULL DEFAULT now()
 );
 

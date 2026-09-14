@@ -130,8 +130,39 @@ export const certificateSchema = z.object({
   targetDate: z.string().nullable(),
   status: z.enum(["planned", "preparing", "achieved"]),
   note: z.string().nullable(),
+  // V3 独立证书领域（迁移 037）；旧调用方（dashboard/summary/export）不带这些字段，故为可选
+  issuer: z.string().nullable().optional(),
+  earnedDate: z.string().nullable().optional(),
+  expiryDate: z.string().nullable().optional(),
+  imageUrl: z.string().nullable().optional(),
+  sortOrder: z.number().optional(),
+  updatedAt: z.string().optional(),
 });
 export type Certificate = z.infer<typeof certificateSchema>;
+
+/** 证书状态中文标签（V3 独立证书领域） */
+export const certificateStatusLabels: Record<"planned" | "preparing" | "achieved", string> = {
+  planned: "计划中",
+  preparing: "备考中",
+  achieved: "已取得",
+};
+
+/** 证书有效期提醒（V3）：按到期天数分档，供 UI 显示「30 天后到期」等徽标 */
+export function certificateExpiryInfo(
+  expiryDate: string | null | undefined,
+  now: Date = new Date()
+): { level: "none" | "expired" | "soon" | "ok"; days: number | null; label: string } {
+  if (!expiryDate) return { level: "none", days: null, label: "" };
+  const end = Date.parse(expiryDate);
+  if (!Number.isFinite(end)) return { level: "none", days: null, label: "" };
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const target = Date.parse(`${expiryDate.slice(0, 10)}T00:00:00Z`);
+  const days = Math.round((target - today) / 86_400_000);
+  if (days < 0) return { level: "expired", days, label: `已过期 ${Math.abs(days)} 天` };
+  if (days <= 30) return { level: "soon", days, label: `${days} 天后到期` };
+  return { level: "ok", days, label: `有效至 ${expiryDate.slice(0, 10)}` };
+}
+
 export const resumeAssetKindSchema = z.enum(["project", "skill", "github", "certificate"]);
 export type ResumeAssetKind = z.infer<typeof resumeAssetKindSchema>;
 

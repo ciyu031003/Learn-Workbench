@@ -32,6 +32,7 @@ export const SYNC_ENTITY_TYPES = [
   "github",
   "customTopics",
   "exerciseLogs",
+  "certificates",
 ] as const;
 
 function atOf(c: SyncChange): Date {
@@ -309,6 +310,59 @@ async function applyExerciseLogs(client: PoolClient, uid: string, c: SyncChange,
   return true;
 }
 
+// ---------------- certificates (certificates, key: client_id) ----------------
+// 移动端证书入库：status 走枚举校验（非法回退 planned），日期仅接受 YYYY-MM-DD。
+const CERT_STATUSES = ["planned", "preparing", "achieved"];
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+function pickDateOnly(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const s = v.trim().slice(0, 10);
+  return DATE_RE.test(s) ? s : null;
+}
+
+async function applyCertificates(client: PoolClient, uid: string, c: SyncChange, at: Date): Promise<boolean> {
+  const clientId = c.entityId;
+  if (!clientId) return false;
+  const existing = await client.query(
+    `SELECT id, updated_at, deleted_at FROM certificates WHERE user_id = $1 AND client_id = $2`,
+    [uid, clientId]
+  );
+  if (c.operation === "DELETE") {
+    await client.query(
+      `UPDATE certificates SET deleted_at = $3, updated_at = $3
+       WHERE user_id = $1 AND client_id = $2 AND (deleted_at IS NULL OR deleted_at <= $3) AND updated_at <= $3`,
+      [uid, clientId, at]
+    );
+    return true;
+  }
+  if (existing.rows[0] && newer(existing.rows[0].deleted_at, at)) return true;
+  if (existing.rows[0] && !existing.rows[0].deleted_at && newer(existing.rows[0].updated_at, at)) return true;
+  const p = (c.payload ?? {}) as Record<string, unknown>;
+  const name = typeof p.name === "string" ? p.name.trim().slice(0, 200) : "";
+  if (!name) return false;
+  const status = CERT_STATUSES.includes(String(p.status)) ? String(p.status) : "planned";
+  const issuer = typeof p.issuer === "string" ? p.issuer.trim().slice(0, 200) || null : null;
+  const imageUrl = typeof p.imageUrl === "string" ? p.imageUrl.trim().slice(0, 2000) || null : null;
+  const note = typeof p.note === "string" ? p.note.trim().slice(0, 5000) || null : null;
+  const sortOrder = Math.max(0, Math.min(10000, Math.round(Number(p.sortOrder) || 0)));
+  await client.query(
+    `INSERT INTO certificates
+       (user_id, client_id, name, issuer, status, target_date, earned_date, expiry_date, image_url, sort_order, note, updated_at, deleted_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NULL)
+     ON CONFLICT (user_id, client_id) WHERE user_id IS NOT NULL AND client_id IS NOT NULL
+     DO UPDATE SET name = EXCLUDED.name, issuer = EXCLUDED.issuer, status = EXCLUDED.status,
+       target_date = EXCLUDED.target_date, earned_date = EXCLUDED.earned_date, expiry_date = EXCLUDED.expiry_date,
+       image_url = EXCLUDED.image_url, sort_order = EXCLUDED.sort_order, note = EXCLUDED.note,
+       updated_at = EXCLUDED.updated_at, deleted_at = NULL`,
+    [
+      uid, clientId, name, issuer, status,
+      pickDateOnly(p.targetDate), pickDateOnly(p.earnedDate), pickDateOnly(p.expiryDate),
+      imageUrl, sortOrder, note, at,
+    ]
+  );
+  return true;
+}
+
 const APPLIERS: Record<string, (client: PoolClient, uid: string, c: SyncChange, at: Date) => Promise<boolean>> = {
   progress: applyProgress,
   tasks: applyTasks,
@@ -318,6 +372,7 @@ const APPLIERS: Record<string, (client: PoolClient, uid: string, c: SyncChange, 
   github: applyGithub,
   customTopics: applyCustomTopics,
   exerciseLogs: applyExerciseLogs,
+  certificates: applyCertificates,
 };
 
 const DEVICE_ID_RE = /^[a-zA-Z0-9_-]{1,64}$/;
@@ -479,6 +534,24 @@ export async function collectChangesSince(client: PoolClient, uid: string, since
         del ? null : {
           id: r.id, clientId: r.cid, type: r.type, typeLabel: r.tl, durationSeconds: r.ds,
           source: r.source, note: r.note, startedAt: r.sa,
+        },
+        del ?? r.u));
+    }
+  }
+  {
+    const { rows } = await q(
+      `SELECT id, client_id AS cid, name, issuer, status, target_date AS td, earned_date AS ed,
+              expiry_date AS xd, image_url AS iu, sort_order AS so, note, updated_at AS u, deleted_at AS d
+       FROM certificates WHERE user_id = $1 AND (updated_at > $2 OR deleted_at > $2)`,
+      [uid, since]
+    );
+    for (const r of rows) {
+      const del = r.d;
+      out.push(change("certificates", r.cid || "srv-" + r.id, del ? "DELETE" : "UPDATE",
+        del ? null : {
+          id: r.id, clientId: r.cid, name: r.name, issuer: r.issuer, status: r.status,
+          targetDate: r.td, earnedDate: r.ed, expiryDate: r.xd, imageUrl: r.iu,
+          sortOrder: r.so, note: r.note,
         },
         del ?? r.u));
     }

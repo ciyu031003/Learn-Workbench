@@ -69,6 +69,8 @@ const MAP: Record<string, string> = {
   "chatbubbles-outline": "bubble.left.and.bubble.right",
   "git-branch-outline": "arrow.triangle.branch",
   "document-text-outline": "doc.text",
+  "ribbon": "rosette",
+  "ribbon-outline": "rosette",
 };
 
 type IoniconName = keyof typeof Ionicons.glyphMap;

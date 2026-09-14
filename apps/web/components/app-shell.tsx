@@ -22,6 +22,7 @@ import {
   BarChart3,
   Download,
   UserRound,
+  Award,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { todayISO } from "@learn-workbench/shared";
@@ -49,6 +50,7 @@ const CAREER_ITEMS = [
   { href: "/career", label: "职业画像", icon: Users },
   { href: "/career/profile", label: "我的资料", icon: UserRound },
   { href: "/career/skills", label: "技能树", icon: GraduationCap },
+  { href: "/career/certificates", label: "我的证书", icon: Award },
   { href: "/career/resume", label: "简历", icon: FileText },
   { href: "/career/interview", label: "面试", icon: MessageSquare },
   { href: "/career/applications", label: "我的求职", icon: Briefcase },

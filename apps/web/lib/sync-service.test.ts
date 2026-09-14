@@ -43,6 +43,7 @@ describe("SYNC_ENTITY_TYPES", () => {
       "github",
       "customTopics",
       "exerciseLogs",
+      "certificates",
     ]);
   });
 });
@@ -242,6 +243,47 @@ describe("applyChanges", () => {
     expect(query.mock.calls.find(([sql]) => sql.includes("SET deleted_at"))![1]).toEqual(["u-1", "c-sp3", new Date(AT)]);
   });
 
+  it("inserts certificates with normalized dates", async () => {
+    const { client, query } = makeClient(() => ({ rows: [] }));
+    const { applied } = await applyChanges(client, "u-1", [
+      change({
+        entityType: "certificates",
+        entityId: "c-cert1",
+        payload: { name: "CISP", issuer: "中国信息安全测评中心", status: "achieved", earnedDate: "2025-09-30", expiryDate: "2028-09-30", targetDate: "bad-date" },
+      }),
+    ]);
+    expect(applied).toBe(1);
+    const insert = query.mock.calls.find(([sql]) => sql.includes("INSERT INTO certificates"));
+    expect(insert![1]).toEqual([
+      "u-1", "c-cert1", "CISP", "中国信息安全测评中心", "achieved", null, "2025-09-30", "2028-09-30", null, 0, null, new Date(AT),
+    ]);
+  });
+
+  it("falls back invalid certificate status to planned and rejects empty name", async () => {
+    const { client, query } = makeClient(() => ({ rows: [] }));
+    await applyChanges(client, "u-1", [
+      change({ entityType: "certificates", entityId: "c-cert2", payload: { name: "X", status: "HACK" } }),
+    ]);
+    const insert = query.mock.calls.find(([sql]) => sql.includes("INSERT INTO certificates"));
+    expect(insert![1][4]).toBe("planned");
+
+    const { client: c2, query: q2 } = makeClient(() => ({ rows: [] }));
+    const { applied } = await applyChanges(c2, "u-1", [
+      change({ entityType: "certificates", entityId: "c-cert3", payload: { name: "   " } }),
+    ]);
+    expect(applied).toBe(0);
+    expect(q2.mock.calls.some(([sql]) => sql.includes("INSERT INTO certificates"))).toBe(false);
+  });
+
+  it("soft-deletes certificates by client id", async () => {
+    const { client, query } = makeClient(() => ({ rows: [{ id: 3, updated_at: new Date(EARLIER), deleted_at: null }] }));
+    const { applied } = await applyChanges(client, "u-1", [
+      change({ entityType: "certificates", entityId: "c-cert4", operation: "DELETE" }),
+    ]);
+    expect(applied).toBe(1);
+    expect(query.mock.calls.find(([sql]) => sql.includes("UPDATE certificates SET deleted_at"))![1]).toEqual(["u-1", "c-cert4", new Date(AT)]);
+  });
+
   it("continues after an applier throws and counts the others", async () => {
     let calls = 0;
     const query = vi.fn(() => {
@@ -276,7 +318,7 @@ describe("applyChanges", () => {
 });
 
 describe("collectChangesSince", () => {
-  it("collects changes across all eight entity types", async () => {
+  it("collects changes across all nine entity types", async () => {
     const script: Record<string, { rows: unknown[] }> = {
       "FROM topic_progress": {
         rows: [
@@ -319,6 +361,12 @@ describe("collectChangesSince", () => {
         rows: [
           { id: 11, cid: "c-11", type: "BALL", tl: "篮球", ds: 1800, source: "MANUAL", note: null, sa: new Date(AT), u: new Date(AT), d: null },
           { id: 12, cid: null, type: "AEROBIC", tl: "跑步", ds: 600, source: "FOCUS", note: null, sa: new Date(AT), u: new Date(AT), d: new Date(LATER) },
+        ],
+      },
+      "FROM certificates": {
+        rows: [
+          { id: 21, cid: "c-21", name: "CISP", issuer: "测评中心", status: "achieved", td: null, ed: "2025-09-30", xd: "2028-09-30", iu: null, so: 0, note: null, u: new Date(AT), d: null },
+          { id: 22, cid: null, name: "HCIP", issuer: null, status: "planned", td: "2026-06-01", ed: null, xd: null, iu: null, so: 0, note: null, u: new Date(AT), d: new Date(LATER) },
         ],
       },
     };
@@ -377,6 +425,15 @@ describe("collectChangesSince", () => {
       }),
       expect.objectContaining({ entityId: "srv-12", operation: "DELETE", payload: null }),
     ]);
+    // certificates: client id used, soft-deleted -> DELETE
+    expect(byType("certificates")).toEqual([
+      expect.objectContaining({
+        entityId: "c-21",
+        operation: "UPDATE",
+        payload: expect.objectContaining({ id: 21, clientId: "c-21", name: "CISP", status: "achieved", expiryDate: "2028-09-30" }),
+      }),
+      expect.objectContaining({ entityId: "srv-22", operation: "DELETE", payload: null }),
+    ]);
 
     // every change has version 1 and ISO updatedAt
     for (const c of changes) {
@@ -384,7 +441,6 @@ describe("collectChangesSince", () => {
       expect(new Date(c.updatedAt).getTime()).not.toBeNaN();
     }
   });
-
   it("returns an empty list when nothing changed", async () => {
     const { client } = makeClient(() => ({ rows: [] }));
     const changes = await collectChangesSince(client, "u-1", new Date(0));

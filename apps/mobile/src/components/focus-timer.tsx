@@ -132,6 +132,13 @@ export function FocusTimer({
     timerModeRef.current = timerMode;
   }, [timerMode]);
 
+  // 墙钟已跑秒数（后台 AppState 不暂停，靠 startRef 墙钟起点 + 累计推算）
+  const currentElapsed = () => {
+    const acc = accumulatedMsRef.current;
+    const runningMs = running && startRef.current !== null ? Date.now() - startRef.current : 0;
+    return Math.round((acc + runningMs) / 1000);
+  };
+
   // 打开：自动开始 + 加载每日 Bing
   useEffect(() => {
     if (open) {
@@ -200,13 +207,6 @@ export function FocusTimer({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
-
-  // 墙钟已跑秒数（后台 AppState 不暂停，靠 startRef 墙钟起点 + 累计推算）
-  const currentElapsed = () => {
-    const acc = accumulatedMsRef.current;
-    const runningMs = running && startRef.current !== null ? Date.now() - startRef.current : 0;
-    return Math.round((acc + runningMs) / 1000);
-  };
 
   const tick = () => {
     if (timerModeRef.current === "stopwatch") {
