@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  RefreshControl,
+  ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
 import { EmptyState } from "@/components/empty-state";
 import { SkeletonList } from "@/components/skeleton";
@@ -9,6 +11,7 @@ import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/theme";
+import { useRefreshable } from "@/lib/use-refresh";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
@@ -59,6 +62,8 @@ export default function NutritionScreen() {
     const t = setTimeout(() => void load(), 0);
     return () => clearTimeout(t);
   }, [load]);
+
+  const { refreshing, onRefresh } = useRefreshable(load);
 
   useEffect(() => {
     if (!sheetOpen) return;
@@ -114,7 +119,10 @@ export default function NutritionScreen() {
   ];
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top + 24 }]} showsVerticalScrollIndicator={false}>
+    <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top + 24 }]} showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+      }>
       <ScreenHeader title="今日饮食" subtitle={`${totals.kcal} / ${target.kcal} kcal`} compact />
 
       <PressableScale style={styles.addBtn} haptic onPress={() => setSheetOpen(true)}>

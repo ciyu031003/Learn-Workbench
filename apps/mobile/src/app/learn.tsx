@@ -1229,9 +1229,9 @@ const makeStyles = (colors: ThemeColors) =>
     marginTop: 16,
     paddingVertical: 10,
     borderRadius: 12,
-    backgroundColor: "#FFF0F0",
+    backgroundColor: colors.dangerSoft,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#F3C2C2",
+    borderColor: colors.danger,
   },
   deleteTopicText: { color: "#D64545", fontSize: 13, fontWeight: "800" },
 

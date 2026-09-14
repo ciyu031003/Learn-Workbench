@@ -135,7 +135,7 @@ const makeStyles = (colors: ThemeColors) =>
   loader: { marginVertical: 24 },
   readinessBody: { gap: 10 },
   readinessTop: { flexDirection: "row", alignItems: "baseline", gap: 8 },
-  overall: { fontSize: 40, fontWeight: "800", color: "#4f46e5" },
+  overall: { fontSize: 40, fontWeight: "800", color: colors.primary },
   overallLabel: { fontSize: 12, color: colors.textMuted },
   dim: { gap: 4 },
   dimHeader: { flexDirection: "row", justifyContent: "space-between" },
@@ -164,5 +164,5 @@ const makeStyles = (colors: ThemeColors) =>
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
-  skillChipText: { fontSize: 12, fontWeight: "700", color: "#4338ca" },
+  skillChipText: { fontSize: 12, fontWeight: "700", color: colors.primary },
 });

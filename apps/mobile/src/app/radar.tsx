@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  RefreshControl,
+  ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { ScreenHeader } from "@/components/screen-header";
 import { EmptyState } from "@/components/empty-state";
 import { SkeletonList } from "@/components/skeleton";
 import { Card } from "@/components/card";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/theme";
+import { useRefreshable } from "@/lib/use-refresh";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
@@ -61,10 +64,15 @@ export default function RadarScreen() {
     return () => clearTimeout(t);
   }, [load]);
 
+  const { refreshing, onRefresh } = useRefreshable(load);
+
   const top = data?.top ?? [];
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top + 24 }]} showsVerticalScrollIndicator={false}>
+    <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top + 24 }]} showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+      }>
       <ScreenHeader
         title="就业雷达"
         subtitle={data?.targetRole ? `目标：${data.targetRole}${data.profileCity ? ` · ${data.profileCity}` : ""}` : "今日适合你的岗位信号"}

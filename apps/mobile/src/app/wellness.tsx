@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { ThemedIcon } from "@/components/themed-icon";
 import { Card } from "@/components/card";
@@ -12,6 +12,7 @@ import { radius, spacing, tabularNums, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { useFocusRefresh } from "@/lib/use-focus-refresh";
+import { useRefreshable } from "@/lib/use-refresh";
 import { getApiUrl } from "@/config";
 
 interface DailyOs {
@@ -63,6 +64,7 @@ export default function WellnessScreen() {
     return () => clearTimeout(t);
   }, [load]);
   useFocusRefresh(load);
+  const { refreshing, onRefresh } = useRefreshable(load);
 
   const habitPct =
     data && data.habits.scheduled > 0 ? Math.round((data.habits.done / data.habits.scheduled) * 100) : 0;
@@ -72,6 +74,9 @@ export default function WellnessScreen() {
       style={styles.scroll}
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
       showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+      }
     >
       <ScreenHeader title="健康" subtitle="训练 · 饮食 · 习惯，照顾好身体才有持续成长" compact />
 
@@ -79,7 +84,7 @@ export default function WellnessScreen() {
       {loading && !data ? (
         <SkeletonCard count={1} />
       ) : (
-        <Card style={styles.hero}>
+        <Card variant="hero" style={styles.hero}>
           <View style={styles.heroRow}>
             <View style={styles.heroItem}>
               <Text style={styles.heroNum}>{data?.fitness.workoutMinutes ?? 0}</Text>

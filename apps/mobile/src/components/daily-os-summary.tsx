@@ -113,8 +113,8 @@ export function DailyOsSummary({ onNavigate }: { onNavigate?: (href: string) => 
 
   return (
     <View style={styles.wrap}>
-      {/* 今日完成度 */}
-      <Card style={styles.progressCard}>
+      {/* 今日完成度（每屏唯一 hero 卡） */}
+      <Card variant="hero" style={styles.progressCard}>
         <View style={styles.progressHead}>
           <View style={styles.progressTitleWrap}>
             <Text style={styles.progressLabel}>今日完成</Text>

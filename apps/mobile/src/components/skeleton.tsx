@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import {
-  AccessibilityInfo,
   StyleSheet,
   View,
   type StyleProp,
@@ -16,6 +15,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useTheme } from "@/theme";
 import { motion, radius, shadows, spacing, type ThemeColors } from "@/theme/tokens";
+import { useReducedMotion } from "@/lib/motion";
 
 /**
  * 骨架屏：数据未就绪时的占位块（列表 / 卡片 / 图表 / 首屏大块）。
@@ -35,32 +35,9 @@ const SHIMMER_DURATION = motion.standard.duration;
 const CHART_BARS: readonly number[] = [0.52, 0.78, 0.36, 0.94, 0.62, 0.84, 0.44];
 
 /**
- * 读取系统「减弱动态效果」开关，并订阅其变化。
- * 挂载前默认 false（宁可先动一下，也不要给普通用户留下静止骨架屏）。
+ * 共享的呼吸透明度：animated=false 或系统减弱动态效果时保持 1
+ * （reduce-motion 读取已收敛到 lib/motion.ts，避免两处实现漂移）
  */
-export function useReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(false);
-
-  useEffect(() => {
-    let mounted = true;
-    AccessibilityInfo.isReduceMotionEnabled()
-      .then((enabled) => {
-        if (mounted) setReduced(enabled);
-      })
-      .catch(() => {});
-    const subscription = AccessibilityInfo.addEventListener("reduceMotionChanged", (enabled) => {
-      if (mounted) setReduced(enabled);
-    });
-    return () => {
-      mounted = false;
-      subscription.remove();
-    };
-  }, []);
-
-  return reduced;
-}
-
-/** 共享的呼吸透明度：animated=false 或系统减弱动态效果时保持 1 */
 function useShimmerOpacity(animated: boolean): {
   active: boolean;
   animatedStyle: AnimatedStyle<ViewStyle>;
