@@ -8,7 +8,7 @@ import { PressableScale } from "@/components/pressable-scale";
 import { SkeletonCard } from "@/components/skeleton";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/theme";
-import { radius, spacing } from "@/theme/tokens";
+import { radius, spacing, tabularNums, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { useFocusRefresh } from "@/lib/use-focus-refresh";
@@ -149,17 +149,17 @@ const makeStyles = (colors: ThemeColors) =>
     heroRow: { flexDirection: "row", alignItems: "center" },
     heroItem: { flex: 1, alignItems: "center", gap: 1 },
     heroDivider: { width: StyleSheet.hairlineWidth, height: 34, backgroundColor: colors.border },
-    heroNum: { fontSize: 22, fontWeight: "800", color: colors.text, fontVariant: ["tabular-nums"] },
-    heroUnit: { fontSize: 11, color: colors.textMuted },
-    heroLabel: { fontSize: 11, color: colors.textFaint, marginTop: 2 },
+    heroNum: { ...typography.title2, color: colors.text, ...tabularNums },
+    heroUnit: { ...typography.micro, color: colors.textMuted },
+    heroLabel: { ...typography.micro, color: colors.textFaint, marginTop: 2 },
     grid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
     gridItem: { width: "47.5%", flexGrow: 1 },
     entryCard: { gap: spacing.sm, minHeight: 104 },
     iconChip: { width: 40, height: 40, borderRadius: radius.md, alignItems: "center", justifyContent: "center" },
     entryText: { gap: 1 },
-    entryTitle: { fontSize: 15, fontWeight: "800", color: colors.text },
-    entryDesc: { fontSize: 11, color: colors.textMuted, lineHeight: 15 },
+    entryTitle: { ...typography.headline, color: colors.text },
+    entryDesc: { ...typography.micro, fontWeight: "500", color: colors.textMuted, lineHeight: 15 },
     quickRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
     quickBody: { flex: 1, minWidth: 0 },
-    quickTitle: { fontSize: 14, fontWeight: "800", color: colors.text },
+    quickTitle: { ...typography.headline, color: colors.text },
   });

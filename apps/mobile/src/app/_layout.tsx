@@ -2,7 +2,7 @@ import { useEffect , useMemo } from "react";
 import { Tabs, router, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
-import { Pressable, StyleSheet, View, type OpaqueColorValue } from "react-native";
+import { InteractionManager, Pressable, StyleSheet, View, type OpaqueColorValue } from "react-native";
 import * as ScreenOrientation from "expo-screen-orientation";
 import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
@@ -112,12 +112,23 @@ const swipeStyles = StyleSheet.create({
 export default function RootLayout() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  // 离线优先：启动后台同步引擎（联网/回前台/登录后自动推送本地变更）
-  useEffect(() => startSyncEngine(), []);
-
-  // 旧运动记录一次性并入 app-store（入同步队列）
+  // 启动期只做「必要且轻」的事；重活（同步引擎/旧数据迁移/令牌恢复）延后到首帧之后，
+  // 避免与首屏渲染抢 JS 线程（TTI 优化，见 docs/APP端设计与打包方案.md §6.3）
   useEffect(() => {
-    void migrateLegacySports();
+    let stopSync: (() => void) | undefined;
+    let cancelled = false;
+    const task = InteractionManager.runAfterInteractions(() => {
+      if (cancelled) return;
+      // 离线优先：后台同步引擎（联网/回前台/登录后自动推送本地变更）
+      stopSync = startSyncEngine();
+      // 旧运动记录一次性并入 app-store（入同步队列）
+      void migrateLegacySports();
+    });
+    return () => {
+      cancelled = true;
+      task.cancel();
+      stopSync?.();
+    };
   }, []);
 
   // 登录令牌恢复：token 存于安全存储（Keychain/Keystore），启动时回填会话

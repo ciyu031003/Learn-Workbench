@@ -145,3 +145,25 @@ export const spacing = {
   "2xl": 32,
   "3xl": 48,
 } as const;
+
+/**
+ * 排版体系（唯一事实源）
+ * 背景：此前 25 屏各自硬编码 fontSize/fontWeight，是「观感不一致」的主因。
+ * 用法：StyleSheet 内展开 `...typography.body`；数字类文本叠加 `tabularNums`。
+ * 说明：不锁死行高以外的布局高度，避免系统字体放大时被截断（配合 allowFontScaling）。
+ */
+export const typography = {
+  display: { fontSize: 30, lineHeight: 36, fontWeight: "800", letterSpacing: -0.4 },
+  title1: { fontSize: 24, lineHeight: 30, fontWeight: "800" },
+  title2: { fontSize: 19, lineHeight: 25, fontWeight: "700" },
+  headline: { fontSize: 16, lineHeight: 22, fontWeight: "700" },
+  body: { fontSize: 15, lineHeight: 22, fontWeight: "400" },
+  callout: { fontSize: 14, lineHeight: 20, fontWeight: "500" },
+  caption: { fontSize: 12, lineHeight: 16, fontWeight: "500" },
+  micro: { fontSize: 11, lineHeight: 14, fontWeight: "600" },
+} as const;
+
+export type TypographyToken = keyof typeof typography;
+
+/** 数字类文本：等宽数字，保证统计/时长/百分比纵向对齐 */
+export const tabularNums = { fontVariant: ["tabular-nums" as const] };

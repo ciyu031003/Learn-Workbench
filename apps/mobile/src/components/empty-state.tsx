@@ -5,7 +5,7 @@ import { PressableScale } from "@/components/pressable-scale";
 import { ThemedIcon } from "@/components/themed-icon";
 import { haptics } from "@/lib/haptics";
 import { useTheme } from "@/theme";
-import { radius, spacing, type ThemeColors } from "@/theme/tokens";
+import { radius, spacing, typography, type ThemeColors } from "@/theme/tokens";
 
 /**
  * 空状态：数据为空 / 搜索无结果 / 出错兜底时的统一占位。
@@ -75,10 +75,9 @@ const makeStyles = (colors: ThemeColors) =>
       justifyContent: "center",
       marginBottom: spacing.sm,
     },
-    title: { fontSize: 15, fontWeight: "700", color: colors.text, textAlign: "center" },
+    title: { ...typography.headline, color: colors.text, textAlign: "center" },
     hint: {
-      fontSize: 13,
-      lineHeight: 19,
+      ...typography.callout,
       color: colors.textMuted,
       textAlign: "center",
       maxWidth: 280,
@@ -90,5 +89,5 @@ const makeStyles = (colors: ThemeColors) =>
       paddingHorizontal: spacing.xl,
       paddingVertical: spacing.md,
     },
-    ctaText: { color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
+    ctaText: { ...typography.body, fontWeight: "800", color: "#FFFFFF" },
   });

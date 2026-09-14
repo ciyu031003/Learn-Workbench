@@ -6,7 +6,7 @@ import { Card } from "@/components/card";
 import { PressableScale } from "@/components/pressable-scale";
 import { useTheme } from "@/theme";
 import type { ThemeColors } from "@/theme/tokens";
-import { radius, spacing } from "@/theme/tokens";
+import { radius, spacing, tabularNums, typography } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { useFocusRefresh } from "@/lib/use-focus-refresh";
 import { getApiUrl } from "@/config";
@@ -170,9 +170,9 @@ const makeStyles = (colors: ThemeColors) =>
     progressCard: { gap: spacing.sm },
     progressHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     progressTitleWrap: { gap: 1 },
-    progressLabel: { fontSize: 15, fontWeight: "800", color: colors.text },
-    progressHint: { fontSize: 11, color: colors.textMuted },
-    progressValue: { fontSize: 24, fontWeight: "800", color: colors.primary, fontVariant: ["tabular-nums"] },
+    progressLabel: { ...typography.headline, color: colors.text },
+    progressHint: { ...typography.micro, fontWeight: "500", color: colors.textMuted },
+    progressValue: { ...typography.title2, color: colors.primary, ...tabularNums },
     track: { height: 10, borderRadius: radius.pill, backgroundColor: colors.surfaceMuted, overflow: "hidden" },
     fill: { height: 10, borderRadius: radius.pill, backgroundColor: colors.primary },
     grid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
@@ -180,10 +180,10 @@ const makeStyles = (colors: ThemeColors) =>
     block: { gap: 2, minHeight: 92 },
     blockHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     badge: { minWidth: 18, height: 18, paddingHorizontal: 5, borderRadius: radius.pill, backgroundColor: colors.accentStrong, alignItems: "center", justifyContent: "center" },
-    badgeText: { color: "#fff", fontSize: 10, fontWeight: "800" },
-    blockLabel: { fontSize: 14, fontWeight: "800", color: colors.text, marginTop: 2 },
-    muted: { fontSize: 11, color: colors.textMuted, lineHeight: 15 },
+    badgeText: { color: "#fff", ...typography.micro, fontSize: 10 },
+    blockLabel: { ...typography.callout, fontWeight: "800", color: colors.text, marginTop: 2 },
+    muted: { ...typography.micro, fontWeight: "500", color: colors.textMuted, lineHeight: 15 },
     row: { flexDirection: "row", alignItems: "center", gap: spacing.md },
     rowBody: { flex: 1, minWidth: 0 },
-    rowLabel: { fontSize: 14, fontWeight: "800", color: colors.text },
+    rowLabel: { ...typography.callout, fontWeight: "800", color: colors.text },
   });
