@@ -1104,3 +1104,27 @@ CREATE INDEX IF NOT EXISTS idx_meal_entries_user_date ON meal_entries(user_id, l
 CREATE INDEX IF NOT EXISTS idx_meal_entries_anon ON meal_entries(anon_id, log_date) WHERE deleted_at IS NULL AND user_id IS NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_meal_entries_client
   ON meal_entries(user_id, client_id) WHERE user_id IS NOT NULL AND client_id IS NOT NULL;
+
+-- ---------- 来自迁移 042_sports_profile.sql（Sports Profile / Share） ----------
+
+CREATE TABLE IF NOT EXISTS sports_profiles (
+  id           bigserial PRIMARY KEY,
+  user_id      uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  sport_key    text NOT NULL,
+  identity     text,
+  level_text   text,
+  handedness   text CHECK (handedness IS NULL OR handedness IN ('left','right')),
+  play_style   text,
+  photo_url    text,
+  gear         jsonb NOT NULL DEFAULT '[]'::jsonb,
+  highlights   jsonb NOT NULL DEFAULT '[]'::jsonb,
+  is_public    boolean NOT NULL DEFAULT false,
+  share_slug   text UNIQUE,
+  deleted_at   timestamptz,
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  updated_at   timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_sports_profiles_user_sport
+  ON sports_profiles(user_id, sport_key) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_sports_profiles_public
+  ON sports_profiles(is_public) WHERE deleted_at IS NULL AND is_public = true;

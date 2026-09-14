@@ -25,6 +25,7 @@ import {
   Dumbbell,
   BicepsFlexed,
   Salad,
+  Trophy,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -406,6 +407,9 @@ export default function WellbeingPage() {
           </Link>
           <Link href="/wellbeing/nutrition" className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/50 px-3.5 py-1.5 text-xs transition-colors hover:bg-muted/60">
             <Salad className="size-3.5 text-primary" /> 今日饮食
+          </Link>
+          <Link href="/wellbeing/sports" className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/50 px-3.5 py-1.5 text-xs transition-colors hover:bg-muted/60">
+            <Trophy className="size-3.5 text-primary" /> 运动档案
           </Link>
         </div>
       </div>

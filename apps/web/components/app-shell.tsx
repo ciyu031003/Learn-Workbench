@@ -29,6 +29,7 @@ import {
   Dumbbell,
   Salad,
   Sparkles,
+  Trophy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { todayISO } from "@learn-workbench/shared";
@@ -53,6 +54,7 @@ const LEARN_ITEMS: { href: string; label: string; icon: typeof Map; hash?: strin
   { href: "/habits", label: "习惯打卡", icon: Repeat },
   { href: "/wellbeing/workout", label: "训练记录", icon: Dumbbell },
   { href: "/wellbeing/nutrition", label: "今日饮食", icon: Salad },
+  { href: "/wellbeing/sports", label: "运动档案", icon: Trophy },
 ];
 
 /** 职业分组（画像 / 技能树 / 简历 / GitHub / 面试 / 求职） */

@@ -1934,3 +1934,72 @@ export const DEFAULT_NUTRITION_TARGETS: NutritionTotals = {
   carbsG: 220,
   fatG: 60,
 };
+
+/* ================= V3 · Sports Profile / Share（迁移 042） ================= */
+
+export const handSchema = z.enum(["left", "right"]);
+export type Hand = z.infer<typeof handSchema>;
+export const handLabels: Record<Hand, string> = { left: "左手", right: "右手" };
+
+/** 装备 / 成绩条目 */
+export const sportsGearItemSchema = z.object({
+  label: z.string(),
+  value: z.string(),
+});
+export type SportsGearItem = z.infer<typeof sportsGearItemSchema>;
+
+export const sportsProfileSchema = z.object({
+  id: z.number(),
+  sportKey: z.string(),
+  /** 运动身份（如「双打搭子」） */
+  identity: z.string().nullable(),
+  /** 等级（如「中羽 1 级」） */
+  levelText: z.string().nullable(),
+  handedness: handSchema.nullable(),
+  playStyle: z.string().nullable(),
+  photoUrl: z.string().nullable(),
+  gear: z.array(sportsGearItemSchema).default([]),
+  highlights: z.array(sportsGearItemSchema).default([]),
+  isPublic: z.boolean(),
+  shareSlug: z.string().nullable(),
+  updatedAt: z.string().optional(),
+});
+export type SportsProfile = z.infer<typeof sportsProfileSchema>;
+
+/**
+ * 公开分享视图：**只包含白名单字段**。
+ * 明确不含：体重 / 年龄 / 身体测量 / 饮食 / 训练细节 / 私人记录。
+ */
+export const sportsShareSchema = z.object({
+  sportKey: z.string(),
+  sportName: z.string(),
+  identity: z.string().nullable(),
+  levelText: z.string().nullable(),
+  handedness: handSchema.nullable(),
+  playStyle: z.string().nullable(),
+  photoUrl: z.string().nullable(),
+  gear: z.array(sportsGearItemSchema).default([]),
+  highlights: z.array(sportsGearItemSchema).default([]),
+  displayName: z.string().nullable(),
+});
+export type SportsShare = z.infer<typeof sportsShareSchema>;
+
+/** 从完整档案投影出公开视图（唯一的脱敏出口，避免各处手写白名单） */
+export function toSportsShare(
+  profile: Pick<SportsProfile, "sportKey" | "identity" | "levelText" | "handedness" | "playStyle" | "photoUrl" | "gear" | "highlights">,
+  sportName: string,
+  displayName: string | null
+): SportsShare {
+  return {
+    sportKey: profile.sportKey,
+    sportName,
+    identity: profile.identity,
+    levelText: profile.levelText,
+    handedness: profile.handedness,
+    playStyle: profile.playStyle,
+    photoUrl: profile.photoUrl,
+    gear: profile.gear ?? [],
+    highlights: profile.highlights ?? [],
+    displayName,
+  };
+}
