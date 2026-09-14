@@ -271,6 +271,21 @@ export default function SettingsScreen() {
         </Card>
       ) : null}
 
+      {token ? (
+        <Card title="领域工具" subtitle="自定义学习领域 · 通用记录打卡">
+          <PressableScale style={styles.securityRow} onPress={() => { haptics.light(); router.push("/domain-manager"); }}>
+            <ThemedIcon name="layers-outline" size={18} color={colors.primary} />
+            <Text style={styles.securityRowText}>领域管理</Text>
+            <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
+          </PressableScale>
+          <PressableScale style={styles.securityRow} onPress={() => { haptics.light(); router.push("/trackers"); }}>
+            <ThemedIcon name="bar-chart-outline" size={18} color={colors.primary} />
+            <Text style={styles.securityRowText}>领域记录 · 打卡</Text>
+            <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
+          </PressableScale>
+        </Card>
+      ) : null}
+
       <Card title="外观" subtitle="浅色 · 深色 · 跟随系统">
         <View style={styles.segToggle}>
           {(["light", "dark", "system"] as ThemeMode[]).map((m) => {
