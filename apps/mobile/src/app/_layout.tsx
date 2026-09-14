@@ -5,14 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, View, type OpaqueColorValue } from "react-native";
 import * as ScreenOrientation from "expo-screen-orientation";
 import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  runOnJS,
-  withSequence,
-  withSpring,
-  withTiming,
-} from "react-native-reanimated";
+import { runOnJS } from "react-native-reanimated";
 import { DailyBackground } from "@/components/daily-background";
 import { ThemedIcon } from "@/components/themed-icon";
 import { ThemeProvider } from "@/theme";
@@ -45,35 +38,6 @@ function TabIcon({
   );
 }
 
-function FlowerTabIcon({ color, focused }: { color: string | OpaqueColorValue; focused?: boolean }) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
-  const scale = useSharedValue(1);
-  const rotate = useSharedValue(0);
-
-  useEffect(() => {
-    if (focused) {
-      scale.value = withSequence(withSpring(1.22, { damping: 10, stiffness: 220 }), withSpring(1));
-      rotate.value = withSequence(withTiming(-14, { duration: 140 }), withTiming(12, { duration: 140 }), withTiming(0, { duration: 140 }));
-    } else {
-      scale.value = withSpring(1);
-      rotate.value = withTiming(0, { duration: 140 });
-    }
-  }, [focused, rotate, scale]);
-
-  const flowerStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }, { rotate: rotate.value + "deg" }],
-  }));
-
-  return (
-    <View style={styles.tabIcon}>
-      <Animated.View style={flowerStyle}>
-        <ThemedIcon name={focused ? "flower" : "flower-outline"} size={22} color={typeof color === "string" ? color : undefined} />
-      </Animated.View>
-    </View>
-  );
-}
-
 function FlatTabButton({ children, onPress, accessibilityState }: any) {
   return (
     <Pressable
@@ -101,12 +65,17 @@ const makeStyles = (colors: ThemeColors) =>
 function SwipeNavigator() {
   const pathname = usePathname();
 
+  // 5 Tab 顺序：今日 → 学习 → 职业 → 健康 → 我的
+  const ORDER = ["/today", "/learn", "/career", "/wellness", "/settings"];
+  const normalize = (p: string) => (p === "/" || p === "" ? "/today" : p === "/dashboard" ? "/today" : p);
+
   const go = (dir: "left" | "right") => {
-    const right = dir === "left";
-    if (pathname === "/" || pathname === "/dashboard") runOnJS(router.navigate)(right ? "/learn" : "/dashboard");
-    else if (pathname === "/learn") runOnJS(router.navigate)(right ? "/jobs" : "/dashboard");
-    else if (pathname === "/jobs") runOnJS(router.navigate)(right ? "/settings" : "/learn");
-    else if (pathname === "/settings" && !right) runOnJS(router.navigate)("/jobs");
+    const cur = ORDER.indexOf(normalize(pathname));
+    if (cur < 0) return;
+    // dir=left 表示手指左滑 = 前进到下一个 tab；dir=right = 返回上一个
+    const next = dir === "left" ? cur + 1 : cur - 1;
+    if (next < 0 || next >= ORDER.length) return;
+    runOnJS(router.navigate)(ORDER[next]);
   };
 
   const makeEdge = (side: "left" | "right") =>
@@ -192,11 +161,12 @@ function ThemedShell() {
           tabBarButton: FlatTabButton,
           tabBarStyle: {
             position: "absolute",
-            left: 72,
-            right: 72,
-            bottom: 18,
-            height: 64,
-            borderRadius: 20,
+            // 5 Tab：收窄左右留白，保证每项 ≥64pt 触控宽度（HIG/Material 触控目标）
+            left: 14,
+            right: 14,
+            bottom: 16,
+            height: 62,
+            borderRadius: 22,
             backgroundColor: colors.surfaceStrong,
             borderTopWidth: 0,
             borderWidth: 1,
@@ -208,14 +178,16 @@ function ThemedShell() {
             elevation: 2,
             overflow: "hidden",
           },
+          tabBarLabelStyle: { fontSize: 10, fontWeight: "600" },
           tabBarItemStyle: { paddingVertical: 3 },
           sceneStyle: { backgroundColor: "transparent" },
         }}
       >
+        {/* 一级 Tab：今日 / 学习 / 职业 / 健康 / 我的 */}
         <Tabs.Screen
-          name="dashboard"
+          name="today"
           options={{
-            title: "今天",
+            title: "今日",
             tabBarIcon: ({ color, focused }) => <TabIcon name="home" outlineName="home-outline" color={color} focused={focused} />,
           }}
         />
@@ -227,10 +199,17 @@ function ThemedShell() {
           }}
         />
         <Tabs.Screen
-          name="jobs"
+          name="career"
           options={{
-            title: "招花",
-            tabBarIcon: ({ color, focused }) => <FlowerTabIcon color={color} focused={focused} />,
+            title: "职业",
+            tabBarIcon: ({ color, focused }) => <TabIcon name="briefcase" outlineName="briefcase-outline" color={color} focused={focused} />,
+          }}
+        />
+        <Tabs.Screen
+          name="wellness"
+          options={{
+            title: "健康",
+            tabBarIcon: ({ color, focused }) => <TabIcon name="heart" outlineName="heart-outline" color={color} focused={focused} />,
           }}
         />
         <Tabs.Screen
@@ -243,8 +222,8 @@ function ThemedShell() {
 
         {/* 次级页面：不占底部导航 */}
         <Tabs.Screen name="index" options={{ href: null }} />
-        <Tabs.Screen name="today" options={{ href: null }} />
-        <Tabs.Screen name="career" options={{ href: null }} />
+        <Tabs.Screen name="dashboard" options={{ href: null }} />
+        <Tabs.Screen name="jobs" options={{ href: null }} />
         <Tabs.Screen name="roadmap" options={{ href: null }} />
         <Tabs.Screen name="tasks" options={{ href: null }} />
         <Tabs.Screen name="logs" options={{ href: null }} />

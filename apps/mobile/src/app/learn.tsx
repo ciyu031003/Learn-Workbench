@@ -645,6 +645,22 @@ export default function LearnScreen() {
         <Text style={styles.heroSub}>路线图 · 主题 · 统计 · 日志</Text>
       </View>
 
+      {/* 学习域快捷入口：任务 / 日志 / 领域记录（5 Tab 后集中在此，避免入口散落设置） */}
+      <View style={styles.quickRow}>
+        {(
+          [
+            { key: "tasks", label: "今日任务", icon: "list-outline", href: "/tasks" },
+            { key: "logs", label: "学习日志", icon: "create-outline", href: "/logs" },
+            { key: "trackers", label: "领域记录", icon: "stats-chart-outline", href: "/trackers" },
+          ] as const
+        ).map((q) => (
+          <PressableScale key={q.key} haptic style={styles.quickItem} onPress={() => router.push(q.href as never)}>
+            <ThemedIcon name={q.icon} size={20} color={colors.primary} />
+            <Text style={styles.quickLabel}>{q.label}</Text>
+          </PressableScale>
+        ))}
+      </View>
+
       <View style={styles.sectionHeadRow}>
         <Text style={styles.sectionTitle}>学习阶段</Text>
         <Pressable
@@ -943,6 +959,20 @@ const makeStyles = (colors: ThemeColors) =>
   hero: { marginBottom: 8 },
   heroTitle: { fontSize: 28, fontWeight: "800", color: colors.text },
   heroSub: { fontSize: 13, color: colors.textMuted, marginTop: 4 },
+  quickRow: { flexDirection: "row", gap: 8 },
+  quickItem: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    paddingVertical: 12,
+    minHeight: 64,
+    borderRadius: 16,
+    backgroundColor: colors.surfaceStrong,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  quickLabel: { fontSize: 12, fontWeight: "700", color: colors.text },
   sectionTitle: { fontSize: 17, fontWeight: "800", color: colors.text, marginTop: 8 },
   sectionTitleMore: { fontSize: 12, fontWeight: "600", color: colors.textMuted },
   sectionHeadRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 },

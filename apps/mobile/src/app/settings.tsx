@@ -272,35 +272,10 @@ export default function SettingsScreen() {
       ) : null}
 
       {token ? (
-        <Card title="领域工具" subtitle="自定义学习领域 · 通用记录打卡">
-          <PressableScale style={styles.securityRow} onPress={() => { haptics.light(); router.push("/today" as never); }}>
-            <ThemedIcon name="sparkles-outline" size={18} color={colors.primary} />
-            <Text style={styles.securityRowText}>我的一天 · 今日汇总</Text>
-            <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
-          </PressableScale>
+        <Card title="领域工具" subtitle="自定义学习领域与通用计量">
           <PressableScale style={styles.securityRow} onPress={() => { haptics.light(); router.push("/domain-manager"); }}>
             <ThemedIcon name="layers-outline" size={18} color={colors.primary} />
             <Text style={styles.securityRowText}>领域管理</Text>
-            <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
-          </PressableScale>
-          <PressableScale style={styles.securityRow} onPress={() => { haptics.light(); router.push("/trackers"); }}>
-            <ThemedIcon name="bar-chart-outline" size={18} color={colors.primary} />
-            <Text style={styles.securityRowText}>领域记录 · 打卡</Text>
-            <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
-          </PressableScale>
-          <PressableScale style={styles.securityRow} onPress={() => { haptics.light(); router.push("/habits" as never); }}>
-            <ThemedIcon name="repeat-outline" size={18} color={colors.primary} />
-            <Text style={styles.securityRowText}>习惯 · 连续打卡</Text>
-            <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
-          </PressableScale>
-          <PressableScale style={styles.securityRow} onPress={() => { haptics.light(); router.push("/workout" as never); }}>
-            <ThemedIcon name="barbell-outline" size={18} color={colors.primary} />
-            <Text style={styles.securityRowText}>训练记录 · 动作 / 组次</Text>
-            <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
-          </PressableScale>
-          <PressableScale style={styles.securityRow} onPress={() => { haptics.light(); router.push("/nutrition" as never); }}>
-            <ThemedIcon name="restaurant-outline" size={18} color={colors.primary} />
-            <Text style={styles.securityRowText}>今日饮食 · 营养</Text>
             <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
           </PressableScale>
         </Card>

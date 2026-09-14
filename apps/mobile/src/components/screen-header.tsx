@@ -19,7 +19,8 @@ export function ScreenHeader({
 
   const goBack = () => {
     if (router.canGoBack()) router.back();
-    else router.replace("/jobs");
+    // 冷启动深链无历史时的兜底：回到首页（5 Tab 的一级入口）
+    else router.replace("/today");
   };
 
   return (

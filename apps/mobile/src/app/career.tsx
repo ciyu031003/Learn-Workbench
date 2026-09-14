@@ -13,10 +13,10 @@ import { Card } from "@/components/card";
 import type { CareerReadiness, UserSkillView } from "@learn-workbench/shared";
 
 const SECTIONS = [
+  { key: "jobs", title: "招花市场", desc: "岗位搜索 · 收藏 · 匹配", icon: "flower-outline", color: "#0d9488", href: "/jobs" },
   { key: "radar", title: "就业雷达", desc: "匹配度 · 信号岗位", icon: "radio-outline", color: "#dc2626", href: "/radar" },
   { key: "applications", title: "我的求职", desc: "收藏 → Offer 全流程", icon: "briefcase-outline", color: "#10b981", href: "/applications" },
   { key: "market", title: "市场分析", desc: "城市 · 薪资 · 技能热度", icon: "trending-up-outline", color: "#0ea5e9", href: "/market" },
-  { key: "skills", title: "技能树", desc: "技能画像 · 岗位匹配", icon: "git-branch-outline", color: "#4f46e5", href: "" },
   { key: "resume", title: "简历", desc: "资产整理与预览", icon: "document-text-outline", color: "#0ea5e9", href: "/resume" },
   { key: "certificates", title: "我的证书", desc: "证书 · 有效期提醒", icon: "ribbon-outline", color: "#d97706", href: "/certificates" },
   { key: "interview", title: "面试", desc: "题库 · 模拟面试", icon: "chatbubbles-outline", color: "#16a34a", href: "/interview" },
