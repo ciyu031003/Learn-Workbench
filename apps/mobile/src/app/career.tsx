@@ -7,6 +7,7 @@ import { ThemedIcon } from "@/components/themed-icon";
 import { ScreenHeader } from "@/components/screen-header";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { getApiUrl } from "@/config";
 import { useAppStore } from "@/store/app-store";
 import { Card } from "@/components/card";
@@ -28,6 +29,7 @@ export default function CareerScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
+  const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
   const [readiness, setReadiness] = useState<CareerReadiness | null>(null);
   const [skills, setSkills] = useState<UserSkillView[]>([]);
@@ -59,7 +61,7 @@ export default function CareerScreen() {
   }, [token]);
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top + 24 }]} showsVerticalScrollIndicator={false}>
+    <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top + 24, paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
       <ScreenHeader title="职业" subtitle="画像 · 技能 · 简历 · 面试" compact />
 
       <Card style={styles.readinessCard} title={readiness?.targetRole ?? "职业准备度"}>
@@ -127,7 +129,7 @@ export default function CareerScreen() {
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
   scroll: { flex: 1, backgroundColor: "transparent" },
-  content: { paddingHorizontal: 16, paddingBottom: 40, gap: 12 },
+  content: { paddingHorizontal: 16, gap: 12 },
   hero: { marginBottom: 8 },
   heroTitle: { fontSize: 28, fontWeight: "700", color: colors.text },
   heroSub: { fontSize: 13, color: colors.textMuted, marginTop: 4 },

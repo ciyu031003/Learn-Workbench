@@ -158,11 +158,14 @@ export function FocusTimer({
     }
   }, []);
   // 计算本会话实际时长（墙钟：accumulatedMs + 当前运行段）。后台继续计时；暂停段不计入。
+  // ⚠️ 运行状态一律看 startRef（ref），**不能看 running（state）**：
+  //    setInterval 注册的是「注册那一刻的闭包」，而 setRunning(true) 是异步的，
+  //    若用 state 判断，interval 里的旧闭包永远读到 running=false → 已跑时长恒为 0（计时器不动）。
   const currentElapsed = useCallback(() => {
     const acc = accumulatedMsRef.current;
-    const runningMs = running && startRef.current !== null ? Date.now() - startRef.current : 0;
+    const runningMs = startRef.current !== null ? Date.now() - startRef.current : 0;
     return Math.round((acc + runningMs) / 1000);
-  }, [running]);
+  }, []);
 
   // 每秒重算：墙钟为唯一事实来源。
   // countdown：remaining = total - elapsed（后台继续计时，切走/隐藏不暂停）。
@@ -179,6 +182,11 @@ export function FocusTimer({
     remainingRef.current = next;
     setRemaining(next);
     if (next === 0) {
+      // 冻结时长：把当前运行段折进累计并清空起点，避免完成之后 elapsed 继续增长
+      if (startRef.current !== null) {
+        accumulatedMsRef.current += Date.now() - startRef.current;
+        startRef.current = null;
+      }
       setRunning(false);
       setDone(true);
       clearTimerRef();

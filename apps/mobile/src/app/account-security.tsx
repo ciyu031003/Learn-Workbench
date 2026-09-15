@@ -12,6 +12,7 @@ import {
 import { ThemedIcon } from "@/components/themed-icon";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
 import { haptics } from "@/lib/haptics";
@@ -36,6 +37,7 @@ export default function AccountSecurityScreen() {
   const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
   const insets = useSafeAreaInsets();
+  const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
   const username = useAppStore((s) => s.username);
   const setAuth = useAppStore((s) => s.setAuth);
@@ -139,7 +141,7 @@ export default function AccountSecurityScreen() {
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
         showsVerticalScrollIndicator={false}
       >
         {!token ? (
@@ -248,7 +250,7 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
     backBtn: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
     headerTitle: { fontSize: 17, fontWeight: "800", color: colors.text },
     scroll: { flex: 1 },
-    content: { padding: 16, paddingBottom: 48, gap: 12 },
+    content: { padding: 16, gap: 12 },
     boundRow: { flexDirection: "row", alignItems: "center", gap: 12 },
     badge: { width: 40, height: 40, borderRadius: 14, alignItems: "center", justifyContent: "center" },
     boundBody: { flex: 1, gap: 2 },

@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ScreenOrientation from "expo-screen-orientation";
 import { getApiUrl } from "@/config";
 import { computeFocusStats, FOCUS_MOTIVATIONS } from "@/lib/focus-stats";
+import { elapsedSeconds } from "@/lib/focus-elapsed";
 import { RingProgress } from "@/components/ring-progress";
 import { getDailyQuote } from "@/lib/quotes";
 import type { FocusSession } from "@learn-workbench/shared";
@@ -133,11 +134,10 @@ export function FocusTimer({
   }, [timerMode]);
 
   // 墙钟已跑秒数（后台 AppState 不暂停，靠 startRef 墙钟起点 + 累计推算）
-  const currentElapsed = () => {
-    const acc = accumulatedMsRef.current;
-    const runningMs = running && startRef.current !== null ? Date.now() - startRef.current : 0;
-    return Math.round((acc + runningMs) / 1000);
-  };
+  // ⚠️ 运行状态一律看 startRef（ref），**不能看 running（state）**：
+  //    setInterval 注册的是「注册那一刻的闭包」，而 setRunning(true) 是异步的，
+  //    若用 state 判断，interval 里的旧闭包永远读到 running=false → 已跑时长恒为 0（计时器不动）。
+  const currentElapsed = () => elapsedSeconds(accumulatedMsRef.current, startRef.current, Date.now());
 
   // 打开：自动开始 + 加载每日 Bing
   useEffect(() => {
@@ -219,6 +219,11 @@ export function FocusTimer({
     remainingRef.current = next;
     setRemaining(next);
     if (next === 0) {
+      // 冻结时长：把当前运行段折进累计并清空起点，避免完成之后 elapsed 继续增长
+      if (startRef.current !== null) {
+        accumulatedMsRef.current += Date.now() - startRef.current;
+        startRef.current = null;
+      }
       setRunning(false);
       setDone(true);
       if (timer.current) clearInterval(timer.current);

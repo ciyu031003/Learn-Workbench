@@ -12,6 +12,7 @@ import {
 import { ThemedIcon } from "@/components/themed-icon";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
 import { haptics } from "@/lib/haptics";
@@ -41,6 +42,7 @@ export default function TrackersScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
+  const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
 
   const [loading, setLoading] = useState(true);
@@ -215,7 +217,7 @@ export default function TrackersScreen() {
         </Pressable>
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
         {!token ? (
           <Card title="未登录" subtitle="登录后可按领域记录计量与打卡">
             <Text style={styles.hint}>在「我的」页登录后，可为英语单词量、训练量、跑量等建立通用记录并每日打卡。</Text>
@@ -350,7 +352,7 @@ const makeStyles = (colors: ThemeColors) =>
     backBtn: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
     headerTitle: { fontSize: 17, fontWeight: "800", color: colors.text },
     scroll: { flex: 1 },
-    content: { padding: 16, paddingBottom: 48, gap: 12 },
+    content: { padding: 16, gap: 12 },
     loading: { marginVertical: 24 },
     hint: { fontSize: 12, color: colors.textMuted, lineHeight: 18, paddingHorizontal: 4 },
     msg: { fontSize: 13, color: colors.success, fontWeight: "600", paddingHorizontal: 4 },

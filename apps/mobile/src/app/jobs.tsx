@@ -15,9 +15,10 @@ import {
 import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import { ThemedIcon } from "@/components/themed-icon";
 import { EmptyState } from "@/components/empty-state";
+import { ScreenHeader } from "@/components/screen-header";
 import { SkeletonList } from "@/components/skeleton";
-import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -27,7 +28,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Card } from "@/components/card";
 import { JobDetailModal } from "@/components/job-detail-modal";
-import { radius, shadows } from "@/theme/tokens";
+import { radius } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import {
@@ -98,32 +99,6 @@ function ScalePressable({
       style={[style, animatedStyle]}
     >
       {children}
-    </AnimatedPressable>
-  );
-}
-
-function GearButton({ onPress }: { onPress: () => void }) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
-  const rotate = useSharedValue(0);
-  const scale = useSharedValue(1);
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: rotate.value + "deg" }, { scale: scale.value }],
-  }));
-  return (
-    <AnimatedPressable
-      onPress={onPress}
-      onPressIn={() => {
-        rotate.value = withTiming(-90, { duration: 180 });
-        scale.value = withSpring(0.9, { damping: 14, stiffness: 260 });
-      }}
-      onPressOut={() => {
-        rotate.value = withTiming(0, { duration: 180 });
-        scale.value = withSpring(1, { damping: 14, stiffness: 260 });
-      }}
-      style={[styles.gearBtn, animatedStyle]}
-    >
-      <ThemedIcon name="settings-outline" size={20} color={colors.primary} />
     </AnimatedPressable>
   );
 }
@@ -256,14 +231,6 @@ const SALARY_PRESETS = [
   { label: "30K 以上", min: 30, max: null },
 ] as const;
 
-const GEAR_MENU = [
-  { key: "market", title: "市场分析", desc: "城市 · 薪资 · 技能热度", icon: "trending-up-outline" as const, href: "/market" },
-  { key: "applications", title: "我的求职", desc: "收藏 → Offer 全流程", icon: "briefcase-outline" as const, href: "/applications" },
-  { key: "resume", title: "简历", desc: "技能 · 项目 · GitHub · 证书", icon: "document-text-outline" as const, href: "/resume" },
-  { key: "interview", title: "面试流程", desc: "题库刷题 · 模拟面试", icon: "chatbubbles-outline" as const, href: "/interview" },
-  { key: "career", title: "职业画像", desc: "准备度 · 技能树", icon: "git-branch-outline" as const, href: "/career" },
-  { key: "settings", title: "设置", desc: "账号 · 主题 · 同步", icon: "settings-outline" as const, href: "/settings" },
-] as const;
 const EDU_OPTIONS = ["大专", "本科", "硕士", "博士"];
 const EXP_OPTIONS = ["应届", "1-3年", "3-5年", "5-10年", "10年以上"];
 const PUBLISHED_OPTIONS = [
@@ -434,6 +401,7 @@ export default function JobsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
+  const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
 
   const [jobs, setJobs] = useState<JobPostingListItem[]>([]);
@@ -454,7 +422,6 @@ export default function JobsScreen() {
   const [sort, setSort] = useState<"new" | "salary">("new");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [detailVisible, setDetailVisible] = useState(false);
-  const [moreVisible, setMoreVisible] = useState(false);
   // P1 多条件筛选（Bottom Sheet）
   const [filterVisible, setFilterVisible] = useState(false);
   const [salaryMin, setSalaryMin] = useState<number | null>(null);
@@ -604,11 +571,8 @@ export default function JobsScreen() {
   const renderHeader = () => (
     <View>
       <View style={[styles.hero, { paddingTop: insets.top + 22 }]}>
-        <View style={styles.heroTextWrap}>
-          <Text style={styles.heroTitle}>招花</Text>
-          <Text style={styles.heroSub}>让每一次机会，都像花一样准时绽放</Text>
-        </View>
-        <GearButton onPress={() => setMoreVisible(true)} />
+        {/* 页面级导航（原齿轮菜单已移除）：返回职业 Hub */}
+        <ScreenHeader title="招花" subtitle="让每一次机会，都像花一样准时绽放" compact backTo="/career" />
       </View>
 
       <View style={styles.statsRow}>
@@ -752,7 +716,7 @@ export default function JobsScreen() {
         renderItem={({ item, index }) => (
           <JobCard job={item} index={index} onPress={openJob} onToggleFavorite={toggleFavorite} />
         )}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={renderEmpty}
         ListFooterComponent={renderPager}
@@ -796,32 +760,6 @@ export default function JobsScreen() {
         onApply={() => { setFilterVisible(false); loadJobs(1, "refresh"); }}
         onClose={() => setFilterVisible(false)}
       />
-
-      <Modal visible={moreVisible} transparent animationType="fade" onRequestClose={() => setMoreVisible(false)}>
-        <Pressable style={styles.menuScrim} onPress={() => setMoreVisible(false)}>
-          <View style={[styles.menuPanel, { top: insets.top + 58 }]}>
-            {GEAR_MENU.map((item) => (
-              <Pressable
-                key={item.key}
-                style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
-                onPress={() => {
-                  setMoreVisible(false);
-                  router.push(item.href as never);
-                }}
-              >
-                <View style={styles.menuIcon}>
-                  <ThemedIcon name={item.icon} size={18} color={colors.primary} />
-                </View>
-                <View style={styles.menuTextWrap}>
-                  <Text style={styles.menuTitle}>{item.title}</Text>
-                  <Text style={styles.menuDesc}>{item.desc}</Text>
-                </View>
-                <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
-              </Pressable>
-            ))}
-          </View>
-        </Pressable>
-      </Modal>
     </View>
   );
 }
@@ -829,70 +767,15 @@ export default function JobsScreen() {
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
   root: { flex: 1 },
-  content: { padding: 16, paddingBottom: 118, gap: 12 },
+  content: { padding: 16, gap: 12 },
   hero: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
+    alignItems: "center",
     gap: 12,
     paddingBottom: 6,
   },
-  heroTextWrap: { flex: 1, gap: 4 },
-  heroTitle: { color: colors.accent, fontSize: 30, fontWeight: "900", letterSpacing: 1 },
-  heroSub: { color: colors.textMuted, fontSize: 13, lineHeight: 19 },
-  gearBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.surfaceStrong,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    shadowColor: "#000",
-    shadowOpacity: 0.10,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 5 },
-    elevation: 2,
-  },
-  menuScrim: {
-    flex: 1,
-    backgroundColor: colors.scrim,
-    alignItems: "flex-end",
-    paddingRight: 18,
-  },
-  menuPanel: {
-    position: "absolute",
-    right: 18,
-    width: 272,
-    backgroundColor: colors.surfaceStrong,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    paddingVertical: 6,
-    ...shadows.floating,
-    overflow: "hidden",
-  },
-  menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 11,
-  },
-  menuItemPressed: { backgroundColor: colors.surfaceMuted },
-  menuIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.primarySoft,
-  },
-  menuTextWrap: { flex: 1, minWidth: 0 },
-  menuTitle: { fontSize: 14, fontWeight: "800", color: colors.text },
-  menuDesc: { fontSize: 11, color: colors.textMuted, marginTop: 1 },
   statsRow: { flexDirection: "row", gap: 8, marginBottom: 4 },
+
   statCard: { flex: 1, padding: 12, gap: 4 },
   statValue: { fontSize: 20, fontWeight: "900", color: colors.text },
   statLabel: { fontSize: 11, color: colors.textMuted, fontWeight: "700" },

@@ -12,6 +12,7 @@ import {
 import { ThemedIcon } from "@/components/themed-icon";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
 import { haptics } from "@/lib/haptics";
@@ -42,6 +43,7 @@ export default function DomainManagerScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
+  const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
 
   const [loading, setLoading] = useState(true);
@@ -228,7 +230,7 @@ export default function DomainManagerScreen() {
         </Pressable>
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
         {!token ? (
           <Card title="未登录" subtitle="登录后可创建与管理自定义领域">
             <Text style={styles.hint}>在「我的」页登录后，可新建英语、运动、阅读等任意学习领域并复用学习工具。</Text>
@@ -387,7 +389,7 @@ const makeStyles = (colors: ThemeColors) =>
     backBtn: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
     headerTitle: { fontSize: 17, fontWeight: "800", color: colors.text },
     scroll: { flex: 1 },
-    content: { padding: 16, paddingBottom: 48, gap: 12 },
+    content: { padding: 16, gap: 12 },
     loading: { marginVertical: 24 },
     hint: { fontSize: 12, color: colors.textMuted, lineHeight: 18, paddingHorizontal: 4 },
     msg: { fontSize: 13, color: colors.success, fontWeight: "600", paddingHorizontal: 4 },

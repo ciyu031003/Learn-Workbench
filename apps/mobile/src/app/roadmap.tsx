@@ -4,6 +4,7 @@ import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { useAppStore } from "@/store/app-store";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { mainPhases, agentPhase } from "@learn-workbench/content";
 import { pct } from "@learn-workbench/shared";
 import { Card } from "@/components/card";
@@ -91,6 +92,7 @@ export default function RoadmapScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
+  const tabBarSpace = useTabBarSpace();
   const progress = useAppStore((s) => s.progress);
   const toggleTopic = useAppStore((s) => s.toggleTopic);
   const customTopics = useAppStore((s) => s.customTopics);
@@ -136,7 +138,7 @@ export default function RoadmapScreen() {
   });
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
       <View style={[styles.hero, { paddingTop: insets.top + 24 }]}>
         <Text style={styles.heroTitle}>学习路线图</Text>
         <Text style={styles.heroSub}>6 个主阶段 + Agent 应用副线，点击主题完成打勾</Text>
@@ -204,7 +206,7 @@ export default function RoadmapScreen() {
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
   scroll: { flex: 1 },
-  content: { padding: 16, paddingBottom: 32, gap: 12 },
+  content: { padding: 16, gap: 12 },
   hero: { paddingTop: 24, paddingBottom: 6, gap: 4 },
   heroTitle: { color: "#ffffff", fontSize: 24, fontWeight: "700" },
   heroSub: { color: "rgba(255,255,255,0.85)", fontSize: 13 },

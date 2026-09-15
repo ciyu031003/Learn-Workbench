@@ -6,6 +6,7 @@ import { useTheme } from "@/theme";
 import { ThemedIcon } from "@/components/themed-icon";
 import { ScreenHeader } from "@/components/screen-header";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { getApiUrl } from "@/config";
 import { useAppStore } from "@/store/app-store";
 import { Card } from "@/components/card";
@@ -24,6 +25,7 @@ export default function ApplicationsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
+  const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
   const [apps, setApps] = useState<JobApplication[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,7 +94,7 @@ export default function ApplicationsScreen() {
         data={apps}
         keyExtractor={(item) => String(item.id)}
         renderItem={renderItem}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 20 }]}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 20, paddingBottom: tabBarSpace }]}
         ListHeaderComponent={
           <View style={styles.header}>
             <ScreenHeader title="我的求职" subtitle={`共 ${apps.length} 条 · 收藏 → Offer 全流程`} compact />
@@ -117,7 +119,7 @@ export default function ApplicationsScreen() {
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
   root: { flex: 1 },
-  content: { padding: 16, paddingBottom: 40, gap: 10 },
+  content: { padding: 16, gap: 10 },
   header: { marginBottom: 8 },
   headerTitle: { fontSize: 26, fontWeight: "900", color: colors.text },
   headerSub: { fontSize: 13, color: colors.textMuted, marginTop: 4 },

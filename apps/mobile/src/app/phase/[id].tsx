@@ -8,6 +8,7 @@ import { PressableScale } from "@/components/pressable-scale";
 import { ScreenHeader } from "@/components/screen-header";
 import { useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
@@ -35,6 +36,7 @@ export default function PhaseScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
+  const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
   const progress = useAppStore((s) => s.progress);
   const customTopics = useAppStore((s) => s.customTopics);
@@ -114,7 +116,7 @@ export default function PhaseScreen() {
   return (
     <ScrollView
       style={styles.scroll}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: tabBarSpace }]}
       showsVerticalScrollIndicator={false}
     >
       <ScreenHeader
@@ -240,7 +242,7 @@ export default function PhaseScreen() {
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     scroll: { flex: 1, backgroundColor: "transparent" },
-    content: { padding: 16, paddingBottom: 40, gap: 12 },
+    content: { padding: 16, gap: 12 },
     loading: { marginTop: 36, alignSelf: "center" },
     progressCard: { padding: 16, gap: 12 },
     progressHead: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },

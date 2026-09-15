@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Tex
 import { Card } from "@/components/card";
 import { ScreenHeader } from "@/components/screen-header";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
@@ -13,6 +14,7 @@ export default function InterviewScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
+  const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
   const [questions, setQuestions] = useState<InterviewQuestion[]>([]);
   const [modules, setModules] = useState<QuestionModule[]>([]);
@@ -74,7 +76,7 @@ export default function InterviewScreen() {
   const shown = moduleFilter ? questions : questions;
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top + 24 }]} showsVerticalScrollIndicator={false}>
+    <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top + 24, paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
       <ScreenHeader title="面试流程" subtitle="题库刷题 · 记录每一次模拟与复盘" compact />
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.moduleScroller}>
@@ -142,7 +144,7 @@ export default function InterviewScreen() {
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     scroll: { flex: 1, backgroundColor: "transparent" },
-    content: { padding: 16, paddingBottom: 40, gap: 12 },
+    content: { padding: 16, gap: 12 },
     hero: { marginBottom: 4 },
     heroTitle: { fontSize: 28, fontWeight: "800", color: colors.text },
     heroSub: { fontSize: 13, color: colors.textMuted, marginTop: 4 },

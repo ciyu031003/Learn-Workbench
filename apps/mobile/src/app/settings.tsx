@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, S
 import { ThemedIcon } from "@/components/themed-icon";
 import { useAppStore } from "@/store/app-store";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { getApiUrl } from "@/config";
 import { syncPush, syncPull } from "@/lib/sync";
 import { useSyncEngineStatus } from "@/lib/sync-engine";
@@ -26,6 +27,7 @@ export default function SettingsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
+  const tabBarSpace = useTabBarSpace();
   const backgroundEnabled = useAppStore((s) => s.backgroundEnabled);
   const toggleBackground = useAppStore((s) => s.toggleBackground);
   const resetAll = useAppStore((s) => s.resetAll);
@@ -162,7 +164,7 @@ export default function SettingsScreen() {
   };
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
       <View style={[styles.hero, { paddingTop: insets.top + 24 }]}>
         <Text style={styles.heroTitle}>我的</Text>
         <Text style={styles.heroSub}>账号 · 学习领域 · 数据同步</Text>
@@ -358,7 +360,7 @@ export default function SettingsScreen() {
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
   scroll: { flex: 1, backgroundColor: "transparent" },
-  content: { padding: 16, paddingBottom: 118, gap: 12 },
+  content: { padding: 16, gap: 12 },
   hero: { paddingTop: 24, paddingBottom: 6, gap: 4 },
   heroTitle: { color: colors.text, fontSize: 26, fontWeight: "800" },
   heroSub: { color: colors.textMuted, fontSize: 13 },

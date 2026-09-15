@@ -7,6 +7,7 @@ import { Card } from "@/components/card";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
@@ -19,6 +20,7 @@ export default function ResumeScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
+  const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
   const [records, setRecords] = useState<ResumeAsset[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,7 +94,7 @@ export default function ResumeScreen() {
   };
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top + 24 }]} showsVerticalScrollIndicator={false}>
+    <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top + 24, paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
       <ScreenHeader title="简历" subtitle="技能 / 项目 / GitHub / 证书，整理成随时可投的资产" compact />
 
       <PressableScale style={styles.addBtn} haptic onPress={() => setSheetOpen(true)}>
@@ -154,7 +156,7 @@ export default function ResumeScreen() {
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     scroll: { flex: 1, backgroundColor: "transparent" },
-    content: { padding: 16, paddingBottom: 40, gap: 12 },
+    content: { padding: 16, gap: 12 },
     hero: { marginBottom: 4 },
     heroTitle: { fontSize: 28, fontWeight: "800", color: colors.text },
     heroSub: { fontSize: 13, color: colors.textMuted, marginTop: 4 },

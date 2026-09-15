@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { Card } from "@/components/card";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
@@ -407,6 +408,7 @@ export default function LearnScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
+  const tabBarSpace = useTabBarSpace();
   const progress = useAppStore((s) => s.progress);
   const sessions = useAppStore((s) => s.sessions);
   const username = useAppStore((s) => s.username);
@@ -637,7 +639,7 @@ export default function LearnScreen() {
   return (
     <ScrollView
       style={styles.scroll}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 24 }]}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + 24, paddingBottom: tabBarSpace }]}
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.hero}>
@@ -955,7 +957,7 @@ export default function LearnScreen() {
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
   scroll: { flex: 1, backgroundColor: "transparent" },
-  content: { paddingHorizontal: 16, paddingBottom: 118, gap: 12 },
+  content: { paddingHorizontal: 16, gap: 12 },
   hero: { marginBottom: 8 },
   heroTitle: { fontSize: 28, fontWeight: "800", color: colors.text },
   heroSub: { fontSize: 13, color: colors.textMuted, marginTop: 4 },

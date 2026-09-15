@@ -5,6 +5,7 @@ import { spacing, typography } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { useAppStore, type LogKind } from "@/store/app-store";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { logKindLabels } from "@learn-workbench/shared";
 import { Card } from "@/components/card";
 import { EmptyState } from "@/components/empty-state";
@@ -23,6 +24,7 @@ export default function LogsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
+  const tabBarSpace = useTabBarSpace();
   const logs = useAppStore((s) => s.logs);
   const addLog = useAppStore((s) => s.addLog);
   const [kind, setKind] = useState<LogKind>("feynman");
@@ -110,7 +112,7 @@ export default function LogsScreen() {
       ListEmptyComponent={
         <EmptyState icon="create-outline" title="还没有日志" hint="写下第一篇费曼讲稿或周复盘" />
       }
-      contentContainerStyle={[styles.content, { paddingBottom: 110 }]}
+      contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
       showsVerticalScrollIndicator={false}
       initialNumToRender={8}
       maxToRenderPerBatch={8}

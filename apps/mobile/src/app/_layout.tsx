@@ -4,12 +4,14 @@ import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { InteractionManager, Pressable, StyleSheet, View, type OpaqueColorValue } from "react-native";
 import * as ScreenOrientation from "expo-screen-orientation";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
 import { DailyBackground } from "@/components/daily-background";
 import { ThemedIcon } from "@/components/themed-icon";
 import { ThemeProvider } from "@/theme";
 import { useTheme } from "@/theme";
+import { TAB_BAR_HEIGHT } from "@/lib/use-tab-bar-space";
 import type { ThemeColors } from "@/theme/tokens";
 import { startSyncEngine } from "@/lib/sync-engine";
 import { secureToken } from "@/lib/secure-token";
@@ -38,16 +40,21 @@ function TabIcon({
   );
 }
 
-function FlatTabButton({ children, onPress, accessibilityState }: any) {
+function FlatTabButton({ children, onPress, accessibilityState, style }: any) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const focused = !!accessibilityState?.selected;
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={accessibilityState}
       android_ripple={{ color: "transparent" }}
-      style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
+      style={[styles.tabButton, style]}
     >
       {children}
+      {/* 激活项短下划线（参考图：通栏扁平 + 品牌色短横线） */}
+      <View style={[styles.tabUnderline, focused && styles.tabUnderlineActive]} />
     </Pressable>
   );
 }
@@ -55,7 +62,17 @@ function FlatTabButton({ children, onPress, accessibilityState }: any) {
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
   root: { flex: 1 },
-  tabIcon: { width: 42, height: 42, alignItems: "center", justifyContent: "center" },
+  tabIcon: { width: 42, height: 30, alignItems: "center", justifyContent: "center" },
+  tabButton: { flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 8, paddingBottom: 10 },
+  tabUnderline: {
+    position: "absolute",
+    bottom: 2,
+    width: 18,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: "transparent",
+  },
+  tabUnderlineActive: { backgroundColor: colors.primary },
 });
 
 /**
@@ -159,6 +176,7 @@ export default function RootLayout() {
 function ThemedShell() {
   const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
   return (
     <DailyBackground>
       <StatusBar style={dark ? "light" : "dark"} />
@@ -170,27 +188,26 @@ function ThemedShell() {
           tabBarActiveBackgroundColor: "transparent",
           tabBarInactiveBackgroundColor: "transparent",
           tabBarButton: FlatTabButton,
+          // 通栏扁平底栏（用户参考图）：实底、无圆角、无阴影、顶部 hairline 分隔
+          // 注意：底栏有文字，玻璃会削弱可读性 —— 底栏不走玻璃（决策 D10）
           tabBarStyle: {
             position: "absolute",
-            // 5 Tab：收窄左右留白，保证每项 ≥64pt 触控宽度（HIG/Material 触控目标）
-            left: 14,
-            right: 14,
-            bottom: 16,
-            height: 62,
-            borderRadius: 22,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: TAB_BAR_HEIGHT + insets.bottom,
+            paddingBottom: insets.bottom,
+            paddingTop: 0,
             backgroundColor: colors.surfaceStrong,
-            borderTopWidth: 0,
-            borderWidth: 1,
-            borderColor: colors.borderStrong,
-            shadowColor: dark ? colors.text : "#A96F2F",
-            shadowOpacity: 0.08,
-            shadowRadius: 10,
-            shadowOffset: { width: 0, height: 4 },
-            elevation: 2,
-            overflow: "hidden",
+            borderTopWidth: StyleSheet.hairlineWidth,
+            borderTopColor: colors.border,
+            borderWidth: 0,
+            borderRadius: 0,
+            elevation: 0,
+            shadowOpacity: 0,
           },
-          tabBarLabelStyle: { fontSize: 10, fontWeight: "600" },
-          tabBarItemStyle: { paddingVertical: 3 },
+          tabBarLabelStyle: { fontSize: 10, fontWeight: "600", letterSpacing: 0.2 },
+          tabBarItemStyle: { paddingVertical: 0 },
           sceneStyle: { backgroundColor: "transparent" },
         }}
       >

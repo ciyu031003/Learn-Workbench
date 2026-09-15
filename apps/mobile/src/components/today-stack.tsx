@@ -2,7 +2,14 @@
 import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
+import Animated, {
+  Easing,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withTiming,
+} from "react-native-reanimated";
 import { ThemedIcon } from "@/components/themed-icon";
 import { useAppStore } from "@/store/app-store";
 import { mainPhases } from "@learn-workbench/content";
@@ -38,6 +45,13 @@ function shuffled<T>(items: T[], seed: number): T[] {
   return out;
 }
 
+/**
+ * 今日焦点卡组。
+ *
+ * 2026-09-15 真机反馈「上滑、弹跳、再消失」：原实现是滑出 260pt + 弹簧回弹 + 缩放 +
+ * 背后卡片错位叠层。现改为**纯淡化**（见 docs/APP端优化方案-v2 §Bug 4）：
+ * 手势仍是触发方式，但动画只有 opacity —— 无位移、无缩放、无叠层错位。
+ */
 export function TodayStack({
   onStartFocus,
   onGestureActive,
@@ -141,9 +155,9 @@ export function TodayStack({
   const cards = order
     .map((key) => baseCards.find((c) => c.key === key))
     .filter((c): c is TodayCard => !!c);
-  const topY = useSharedValue(0);
-  const topOpacity = useSharedValue(1);
-  const topScale = useSharedValue(1);
+
+  /** 唯一的动画量：不透明度（无位移/缩放） */
+  const fade = useSharedValue(1);
 
   const swap = (back: boolean) => {
     setOrder((prev) => (back ? [prev[prev.length - 1], ...prev.slice(0, -1)] : [...prev.slice(1), prev[0]]));
@@ -157,88 +171,91 @@ export function TodayStack({
         .onBegin(() => {
           if (onGestureActive) runOnJS(onGestureActive)(true);
         })
+        // 拖拽期间只做轻微变淡（给反馈），不做任何位移
         .onUpdate((e) => {
-          topY.value = e.translationY * 0.28;
-          topOpacity.value = 1 - Math.min(0.35, Math.abs(e.translationY) / 420);
-          topScale.value = 1 - Math.min(0.08, Math.abs(e.translationY) / 1800);
+          fade.value = 1 - Math.min(0.3, Math.abs(e.translationY) / 520);
         })
         .onEnd((e) => {
           const go = Math.abs(e.translationY) > 52 && Math.abs(e.velocityY) > 120;
           if (go) {
             const back = e.translationY > 0;
-            topY.value = withTiming(back ? 260 : -260, { duration: 150 }, (finished) => {
-              if (finished) {
-                runOnJS(swap)(back);
-                topY.value = withSpring(0, { damping: 18, stiffness: 240 });
-              }
+            fade.value = withTiming(0, { duration: 80, easing: Easing.in(Easing.quad) }, (finished) => {
+              if (!finished) return;
+              runOnJS(swap)(back);
+              // 等一帧让新卡成为顶层，再淡入 —— 全程只有淡化
+              fade.value = withDelay(30, withTiming(1, { duration: 130, easing: Easing.out(Easing.quad) }));
             });
           } else {
-            topY.value = withSpring(0, { damping: 18, stiffness: 240 });
+            fade.value = withTiming(1, { duration: 120, easing: Easing.out(Easing.quad) });
           }
-          topOpacity.value = withTiming(1, { duration: 150 });
-          topScale.value = withSpring(1);
           if (onGestureActive) runOnJS(onGestureActive)(false);
         }),
-    [onGestureActive, topOpacity, topScale, topY]
+    [fade, onGestureActive]
   );
 
-  const topAnim = useAnimatedStyle(() => ({
-    transform: [{ translateY: topY.value }, { scale: topScale.value }],
-    opacity: topOpacity.value,
-  }));
+  const topAnim = useAnimatedStyle(() => ({ opacity: fade.value }));
+
+  const topIndex = order[0];
+  const topCardIndex = baseCards.findIndex((c) => c.key === topIndex);
 
   return (
-    <View style={styles.stack}>
-      {cards.map((card, index) => {
-        const isTop = index === 0;
-        const behind = index > 0;
-        const content = (
-          <Animated.View
-            key={card.key}
-            style={[
-              styles.card,
-              {
-                backgroundColor: card.base,
-                zIndex: 10 - index,
-                opacity: behind ? 0.82 - index * 0.14 : undefined,
-              },
-              !behind && topAnim,
-              behind ? { transform: [{ translateY: index * 9 }, { scale: 1 - index * 0.055 }] } : null,
-            ]}
-          >
-            <View style={[styles.blob, { backgroundColor: card.blob1, top: -46, right: -24 }]} />
-            <View style={[styles.blob, { backgroundColor: card.blob2, bottom: -44, left: -30 }]} />
-            <View style={styles.cardBody}>
-              <View style={styles.eyebrowRow}>
-                <ThemedIcon name={card.icon} size={14} color="rgba(255,255,255,0.94)" />
-                <Text style={styles.eyebrow}>{card.eyebrow}</Text>
+    <View style={styles.wrap}>
+      <View style={styles.stack}>
+        {cards.map((card, index) => {
+          const isTop = index === 0;
+          const content = (
+            <Animated.View
+              key={card.key}
+              style={[
+                styles.card,
+                { backgroundColor: card.base, zIndex: 10 - index },
+                // 非顶层完全隐藏：不再做错位叠层（原 bug 的弹跳来源之一）
+                isTop ? topAnim : styles.cardHidden,
+              ]}
+            >
+              <View style={[styles.blob, { backgroundColor: card.blob1, top: -46, right: -24 }]} />
+              <View style={[styles.blob, { backgroundColor: card.blob2, bottom: -44, left: -30 }]} />
+              <View style={styles.cardBody}>
+                <View style={styles.eyebrowRow}>
+                  <ThemedIcon name={card.icon} size={14} color="rgba(255,255,255,0.94)" />
+                  <Text style={styles.eyebrow}>{card.eyebrow}</Text>
+                </View>
+                <Text style={styles.title} numberOfLines={2}>{card.title}</Text>
+                <Text style={styles.sub} numberOfLines={2}>{card.sub}</Text>
+                {card.action === "focus" ? (
+                  <Pressable style={styles.cta} onPress={onStartFocus}>
+                    <ThemedIcon name="play" size={15} color="#2F74C0" />
+                    <Text style={styles.ctaText}>开始专注</Text>
+                  </Pressable>
+                ) : null}
               </View>
-              <Text style={styles.title} numberOfLines={2}>{card.title}</Text>
-              <Text style={styles.sub} numberOfLines={2}>{card.sub}</Text>
-              {card.action === "focus" ? (
-                <Pressable style={styles.cta} onPress={onStartFocus}>
-                  <ThemedIcon name="play" size={15} color="#2F74C0" />
-                  <Text style={styles.ctaText}>开始专注</Text>
-                </Pressable>
-              ) : null}
-            </View>
-          </Animated.View>
-        );
-        return isTop ? (
-          <GestureDetector key={card.key} gesture={pan}>
-            {content}
-          </GestureDetector>
-        ) : (
-          content
-        );
-      })}
+            </Animated.View>
+          );
+          return isTop ? (
+            <GestureDetector key={card.key} gesture={pan}>
+              {content}
+            </GestureDetector>
+          ) : (
+            content
+          );
+        })}
+      </View>
+
+      {/* 单卡展示后需要有「还有几张」的可发现性线索 */}
+      <View style={styles.dots}>
+        {baseCards.map((c, i) => (
+          <View key={c.key} style={[styles.dot, i === topCardIndex && styles.dotActive]} />
+        ))}
+      </View>
     </View>
   );
 }
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
-    stack: { height: 176 },
+    wrap: { gap: 10 },
+    // 单卡高度：不再为叠层留 peek
+    stack: { height: 168 },
     card: {
       position: "absolute",
       left: 0,
@@ -250,6 +267,7 @@ const makeStyles = (colors: ThemeColors) =>
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.borderStrong,
     },
+    cardHidden: { opacity: 0 },
     blob: {
       position: "absolute",
       width: 170,
@@ -274,4 +292,7 @@ const makeStyles = (colors: ThemeColors) =>
       marginTop: 9,
     },
     ctaText: { color: "#2F74C0", fontSize: 13, fontWeight: "800" },
+    dots: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
+    dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.border },
+    dotActive: { width: 16, backgroundColor: colors.primary },
   });

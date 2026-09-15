@@ -11,6 +11,7 @@ import {
 import { SportThemedIcon, ThemedIcon } from "@/components/themed-icon";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -268,6 +269,7 @@ export default function TodayScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
+  const tabBarSpace = useTabBarSpace();
   const progress = useAppStore((s) => s.progress);
   const tasks = useAppStore((s) => s.tasks);
   const checkins = useAppStore((s) => s.checkins);
@@ -375,7 +377,7 @@ export default function TodayScreen() {
         scrollEventThrottle={16}
         style={styles.scroll}
         scrollEnabled={!stackGestureActive}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 14 }]}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 14, paddingBottom: tabBarSpace }]}
         showsVerticalScrollIndicator={false}
       >
         <Animated.View style={[styles.hero, heroAnim]}>
@@ -522,7 +524,7 @@ const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
   root: { flex: 1 },
   scroll: { flex: 1 },
-  content: { padding: 16, paddingBottom: 118, gap: 14 },
+  content: { padding: 16, gap: 14 },
   hero: { paddingBottom: 6, position: "relative" },
   sunGlow: {
     position: "absolute",

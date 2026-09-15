@@ -7,6 +7,7 @@ import { ScreenHeader } from "@/components/screen-header";
 import { PressableScale } from "@/components/pressable-scale";
 import { SkeletonCard } from "@/components/skeleton";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
 import { radius, spacing, tabularNums, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
@@ -43,6 +44,7 @@ export default function WellnessScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
+  const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
   const [data, setData] = useState<DailyOs | null>(null);
   const [loading, setLoading] = useState(true);
@@ -72,7 +74,7 @@ export default function WellnessScreen() {
   return (
     <ScrollView
       style={styles.scroll}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: tabBarSpace }]}
       showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
@@ -149,7 +151,7 @@ export default function WellnessScreen() {
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     scroll: { flex: 1, backgroundColor: "transparent" },
-    content: { paddingHorizontal: spacing.lg, paddingBottom: 96, gap: spacing.md },
+    content: { paddingHorizontal: spacing.lg, gap: spacing.md },
     hero: { paddingVertical: spacing.lg },
     heroRow: { flexDirection: "row", alignItems: "center" },
     heroItem: { flex: 1, alignItems: "center", gap: 1 },
