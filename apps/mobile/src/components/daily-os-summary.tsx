@@ -4,9 +4,12 @@ import { router } from "expo-router";
 import { ThemedIcon } from "@/components/themed-icon";
 import { Card } from "@/components/card";
 import { PressableScale } from "@/components/pressable-scale";
+import { GlassSurface } from "@/components/surface";
+import { ProgressArc } from "@/components/progress-arc";
+import { StatLine } from "@/components/stat";
 import { useTheme } from "@/theme";
 import type { ThemeColors } from "@/theme/tokens";
-import { radius, spacing, tabularNums, typography } from "@/theme/tokens";
+import { radius, spacing, typography } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { useFocusRefresh } from "@/lib/use-focus-refresh";
 import { getApiUrl } from "@/config";
@@ -110,24 +113,40 @@ export function DailyOsSummary({ onNavigate }: { onNavigate?: (href: string) => 
   if (!data) return null;
 
   const pct = Math.max(0, Math.min(100, data.progress));
+  // Orbix：「鼓励而非警示」——结论按完成度给正向引导，不做责备式文案
+  const verdict =
+    pct >= 80
+      ? "今天状态很好，保持这个节奏"
+      : pct >= 50
+        ? "已经过半，再推一把就收工"
+        : pct > 0
+          ? "慢慢来，今天已经开始"
+          : "从一件小事开始，今天就算赢";
 
   return (
     <View style={styles.wrap}>
-      {/* 今日完成度（每屏唯一 hero 卡） */}
-      <Card variant="hero" style={styles.progressCard}>
-        <View style={styles.progressHead}>
-          <View style={styles.progressTitleWrap}>
-            <Text style={styles.progressLabel}>今日完成</Text>
-            <Text style={styles.progressHint}>学习 · 习惯 · 运动 · 饮食</Text>
-          </View>
-          <Text style={styles.progressValue}>{pct}%</Text>
+      {/* ① 今日完成度 hero：进度弧（替代横条）+ 关键指标（每屏唯一 hero，玻璃只做层级） */}
+      <GlassSurface corner={radius.xl} style={styles.hero}>
+        <ProgressArc
+          progress={pct / 100}
+          size={126}
+          strokeWidth={11}
+          value={`${pct}%`}
+          label="今日完成"
+          caption={verdict}
+        />
+        <View style={styles.heroStats}>
+          <StatLine label="专注" value={`${data.learning.focusMinutes} 分`} />
+          <StatLine label="任务" value={`${data.learning.tasksDone}/${data.learning.tasksTotal}`} />
+          <StatLine label="习惯" value={`${data.habits.done}/${data.habits.scheduled}`} />
+          <StatLine
+            label="饮食"
+            value={`${data.fitness.nutritionKcal}/${data.fitness.nutritionTargetKcal} kcal`}
+          />
         </View>
-        <View style={styles.track}>
-          <View style={[styles.fill, { width: `${pct}%` }]} />
-        </View>
-      </Card>
+      </GlassSurface>
 
-      {/* 四域入口（2×2） */}
+      {/* ② 四域入口（2×2） */}
       <View style={styles.grid}>
         {blocks.map((b) => (
           <PressableScale key={b.key} haptic style={styles.gridItem} onPress={() => go(b.href)}>
@@ -147,7 +166,7 @@ export function DailyOsSummary({ onNavigate }: { onNavigate?: (href: string) => 
         ))}
       </View>
 
-      {/* 饮食进度（一行） */}
+      {/* 饮食明细入口（一行；更细的明细进「更多」） */}
       <PressableScale haptic onPress={() => go("/nutrition")}>
         <Card style={styles.row}>
           <ThemedIcon name="restaurant-outline" size={18} color={colors.primary} />
@@ -167,14 +186,13 @@ export function DailyOsSummary({ onNavigate }: { onNavigate?: (href: string) => 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     wrap: { gap: spacing.md },
-    progressCard: { gap: spacing.sm },
-    progressHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    progressTitleWrap: { gap: 1 },
-    progressLabel: { ...typography.headline, color: colors.text },
-    progressHint: { ...typography.micro, fontWeight: "500", color: colors.textMuted },
-    progressValue: { ...typography.title2, color: colors.primary, ...tabularNums },
-    track: { height: 10, borderRadius: radius.pill, backgroundColor: colors.surfaceMuted, overflow: "hidden" },
-    fill: { height: 10, borderRadius: radius.pill, backgroundColor: colors.primary },
+    hero: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.lg,
+      paddingVertical: spacing.lg,
+    },
+    heroStats: { flex: 1, minWidth: 0, gap: spacing.sm },
     grid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
     gridItem: { width: "47.5%", flexGrow: 1 },
     block: { gap: 2, minHeight: 92 },

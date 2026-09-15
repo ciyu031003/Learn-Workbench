@@ -126,8 +126,15 @@ export function AuthSheet({
     setNotice(mode === "login" ? "创建新账号，本地数据会自动同步云端" : null);
   };
 
+  // 自带 KeyboardAvoidingView + ScrollView：关闭内置滚动，避免嵌套滚动抢手势
   return (
-    <BottomSheet visible={visible} onClose={onClose} title={mode === "login" ? "登录苦旅" : "创建账号"} height="82%">
+    <BottomSheet
+      visible={visible}
+      onClose={onClose}
+      title={mode === "login" ? "登录苦旅" : "创建账号"}
+      height="82%"
+      scroll={false}
+    >
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.flex}>
         <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
           <View style={styles.brand}>

@@ -15,6 +15,8 @@ import {
   checkForUpdate,
 } from "@/lib/ota";
 import { Card } from "@/components/card";
+import { Button, ButtonRow } from "@/components/button";
+import { ListGroup, ListRow } from "@/components/list-row";
 import { PressableScale } from "@/components/pressable-scale";
 import { router } from "expo-router";
 import { AuthSheet } from "@/components/auth-sheet";
@@ -48,6 +50,8 @@ export default function SettingsScreen() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [updateState, setUpdateState] = useState<"idle" | "checking" | "latest" | "update" | "failed">("idle");
+  // 「进阶设置」默认折叠：首屏只留账号 / 外观 / 关于（信息精简，见 v2 方案 §3）
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
 
   const [domains, setDomains] = useState<{ career_key: string; name: string; kind?: string; kind_label?: string }[]>([]);
@@ -215,28 +219,26 @@ export default function SettingsScreen() {
         )}
 
         {token ? (
-          <View style={styles.row}>
-            <Pressable style={[styles.primaryBtn, { flex: 1 }]} onPress={doPush} disabled={busy}>
-              {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>同步到云端</Text>}
-            </Pressable>
-            <Pressable style={[styles.secondaryBtn, { flex: 1 }]} onPress={doPull} disabled={busy}>
-              <Text style={styles.secondaryBtnText}>从云端恢复</Text>
-            </Pressable>
-          </View>
+          <ButtonRow>
+            <Button label="同步到云端" onPress={doPush} loading={busy} icon="cloud-upload-outline" />
+            <Button label="从云端恢复" variant="secondary" onPress={doPull} disabled={busy} />
+          </ButtonRow>
         ) : null}
 
         {token ? (
-          <PressableScale
-            style={styles.securityRow}
-            onPress={() => {
-              haptics.light();
-              router.push("/account-security");
-            }}
-          >
-            <ThemedIcon name="shield-checkmark-outline" size={18} color={colors.primary} />
-            <Text style={styles.securityRowText}>账号与安全 · 微信绑定</Text>
-            <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
-          </PressableScale>
+          <ListGroup>
+            <ListRow
+              icon="shield-checkmark-outline"
+              title="账号与安全"
+              subtitle="密码 · 微信绑定 · 登录设备"
+              showChevron
+              last
+              onPress={() => {
+                haptics.light();
+                router.push("/account-security");
+              }}
+            />
+          </ListGroup>
         ) : null}
 
         {msg ? <Text style={styles.msg}>{msg}</Text> : null}
@@ -254,32 +256,67 @@ export default function SettingsScreen() {
         <Text style={styles.hint}>移动端默认连接生产域名，招聘爬虫配置请在 Web 端完成。</Text>
       </Card>
 
-      {domains.length > 0 ? (
-        <Card title="学习领域" subtitle="切换后 Web 端学习路线随之切换">
-          <View style={styles.chipWrap}>
-            {domains.map((c) => {
-              const active = c.career_key === career;
-              return (
-                <Pressable
-                  key={c.career_key}
-                  onPress={() => switchCareer(c.career_key)}
-                  style={[styles.chip, active ? styles.chipActive : styles.chipIdle]}
-                >
-                  <Text style={active ? styles.chipTextActive : styles.chipTextIdle}>{c.name}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </Card>
-      ) : null}
-
-      {token ? (
-        <Card title="领域工具" subtitle="自定义学习领域与通用计量">
-          <PressableScale style={styles.securityRow} onPress={() => { haptics.light(); router.push("/domain-manager"); }}>
-            <ThemedIcon name="layers-outline" size={18} color={colors.primary} />
-            <Text style={styles.securityRowText}>领域管理</Text>
-            <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
+      {domains.length > 0 || token ? (
+        <Card style={styles.advancedCard}>
+          <PressableScale haptic style={styles.advancedHead} onPress={() => setAdvancedOpen((v) => !v)}>
+            <View style={styles.advancedHeadText}>
+              <Text style={styles.advancedTitle}>进阶设置</Text>
+              <Text style={styles.hint}>学习领域 · 领域管理 · 本机数据</Text>
+            </View>
+            <ThemedIcon
+              name={advancedOpen ? "chevron-up" : "chevron-down"}
+              size={18}
+              color={colors.textMuted}
+            />
           </PressableScale>
+
+          {advancedOpen ? (
+            <View style={styles.advancedBody}>
+              {domains.length > 0 ? (
+                <View style={styles.advancedBlock}>
+                  <Text style={styles.advancedLabel}>学习领域</Text>
+                  <View style={styles.chipWrap}>
+                    {domains.map((c) => {
+                      const active = c.career_key === career;
+                      return (
+                        <Pressable
+                          key={c.career_key}
+                          onPress={() => switchCareer(c.career_key)}
+                          style={[styles.chip, active ? styles.chipActive : styles.chipIdle]}
+                        >
+                          <Text style={active ? styles.chipTextActive : styles.chipTextIdle}>{c.name}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              ) : null}
+
+              {token ? (
+                <ListGroup>
+                  <ListRow
+                    icon="layers-outline"
+                    title="领域管理"
+                    subtitle="自定义学习领域与通用计量"
+                    showChevron
+                    last
+                    onPress={() => {
+                      haptics.light();
+                      router.push("/domain-manager");
+                    }}
+                  />
+                </ListGroup>
+              ) : null}
+
+              <View style={styles.advancedBlock}>
+                <Text style={styles.advancedLabel}>本机数据</Text>
+                <Text style={styles.hint}>
+                  进度 {Object.values(progress).filter((p) => p.done).length} · 任务 {tasks.length} · 日志 {logs.length}
+                </Text>
+                <Button label="清空本机数据" variant="danger" icon="trash-outline" onPress={confirmReset} />
+              </View>
+            </View>
+          ) : null}
         </Card>
       ) : null}
 
@@ -309,17 +346,6 @@ export default function SettingsScreen() {
           <Text style={styles.rowLabel}>启用每日壁纸</Text>
           <Switch value={backgroundEnabled} onValueChange={toggleBackground} trackColor={{ true: colors.primary }} />
         </View>
-      </Card>
-
-      <Card title="数据" subtitle="本机数据保存在设备，无登录也可使用">
-        <View style={styles.rowBetween}>
-          <Text style={styles.rowLabel}>
-            进度 {Object.values(progress).filter((p) => p.done).length} · 任务 {tasks.length} · 日志 {logs.length}
-          </Text>
-        </View>
-        <Pressable style={[styles.primaryBtn, styles.dangerBtn]} onPress={confirmReset}>
-          <Text style={styles.primaryBtnText}>清空本机数据</Text>
-        </Pressable>
       </Card>
 
       <Card title="关于" subtitle={`苦旅 v${APP_VERSION_NAME}`}>
@@ -364,6 +390,13 @@ const makeStyles = (colors: ThemeColors) =>
   hero: { paddingTop: 24, paddingBottom: 6, gap: 4 },
   heroTitle: { color: colors.text, fontSize: 26, fontWeight: "800" },
   heroSub: { color: colors.textMuted, fontSize: 13 },
+  advancedCard: { gap: 12 },
+  advancedHead: { flexDirection: "row", alignItems: "center", gap: 10 },
+  advancedHeadText: { flex: 1, minWidth: 0, gap: 2 },
+  advancedTitle: { fontSize: 16, fontWeight: "800", color: colors.text },
+  advancedBody: { gap: 14 },
+  advancedBlock: { gap: 8 },
+  advancedLabel: { fontSize: 12, fontWeight: "700", color: colors.textMuted },
   row: { flexDirection: "row", gap: 8 },
   rowBetween: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
   rowLabel: { flex: 1, fontSize: 14, color: colors.text },

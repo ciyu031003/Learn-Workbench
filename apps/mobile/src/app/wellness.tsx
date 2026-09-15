@@ -6,10 +6,14 @@ import { Card } from "@/components/card";
 import { ScreenHeader } from "@/components/screen-header";
 import { PressableScale } from "@/components/pressable-scale";
 import { SkeletonCard } from "@/components/skeleton";
+import { GlassSurface } from "@/components/surface";
+import { ProgressArc } from "@/components/progress-arc";
+import { StatLine } from "@/components/stat";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
+import { computeReadiness, WEAKEST_LABEL } from "@/lib/readiness";
 import { useTheme } from "@/theme";
-import { radius, spacing, tabularNums, typography } from "@/theme/tokens";
+import { radius, spacing, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { useFocusRefresh } from "@/lib/use-focus-refresh";
@@ -17,6 +21,7 @@ import { useRefreshable } from "@/lib/use-refresh";
 import { getApiUrl } from "@/config";
 
 interface DailyOs {
+  learning: { tasksTotal: number; tasksDone: number; focusMinutes: number };
   fitness: { workoutName: string | null; workoutMinutes: number; nutritionKcal: number; nutritionTargetKcal: number };
   habits: { scheduled: number; done: number };
 }
@@ -71,6 +76,22 @@ export default function WellnessScreen() {
   const habitPct =
     data && data.habits.scheduled > 0 ? Math.round((data.habits.done / data.habits.scheduled) * 100) : 0;
 
+  // 今日状态分（readiness）：借 Orbix Pulse 的「先知道自己在哪一档」——
+  // 健康页 hero 给一个分数 + 一句结论，而不是罗列三个孤立数字（D8/§1.5.3D）
+  const readiness = useMemo(
+    () =>
+      computeReadiness({
+        tasksTotal: data?.learning.tasksTotal ?? 0,
+        tasksDone: data?.learning.tasksDone ?? 0,
+        habitsScheduled: data?.habits.scheduled ?? 0,
+        habitsDone: data?.habits.done ?? 0,
+        workoutMinutes: data?.fitness.workoutMinutes ?? 0,
+        nutritionKcal: data?.fitness.nutritionKcal ?? 0,
+        nutritionTargetKcal: data?.fitness.nutritionTargetKcal ?? 0,
+      }),
+    [data]
+  );
+
   return (
     <ScrollView
       style={styles.scroll}
@@ -82,33 +103,28 @@ export default function WellnessScreen() {
     >
       <ScreenHeader title="健康" subtitle="训练 · 饮食 · 习惯，照顾好身体才有持续成长" compact />
 
-      {/* 今日状态 */}
+      {/* ① 今日状态（readiness hero）：进度弧 + 一句话结论 + 三个关键值 */}
       {loading && !data ? (
         <SkeletonCard count={1} />
       ) : (
-        <Card variant="hero" style={styles.hero}>
-          <View style={styles.heroRow}>
-            <View style={styles.heroItem}>
-              <Text style={styles.heroNum}>{data?.fitness.workoutMinutes ?? 0}</Text>
-              <Text style={styles.heroUnit}>分钟</Text>
-              <Text style={styles.heroLabel}>今日训练</Text>
-            </View>
-            <View style={styles.heroDivider} />
-            <View style={styles.heroItem}>
-              <Text style={styles.heroNum}>{data?.fitness.nutritionKcal ?? 0}</Text>
-              <Text style={styles.heroUnit}>kcal</Text>
-              <Text style={styles.heroLabel}>今日摄入</Text>
-            </View>
-            <View style={styles.heroDivider} />
-            <View style={styles.heroItem}>
-              <Text style={styles.heroNum}>{habitPct}%</Text>
-              <Text style={styles.heroUnit}>习惯</Text>
-              <Text style={styles.heroLabel}>
-                {data ? `${data.habits.done}/${data.habits.scheduled}` : "0/0"}
-              </Text>
-            </View>
+        <GlassSurface corner={radius.xl} style={styles.hero}>
+          <ProgressArc
+            progress={readiness.score / 100}
+            size={126}
+            strokeWidth={11}
+            value={readiness.score}
+            label="今日状态"
+            caption={readiness.weakest ? WEAKEST_LABEL[readiness.weakest] : readiness.verdict}
+          />
+          <View style={styles.heroStats}>
+            <StatLine label="今日训练" value={`${data?.fitness.workoutMinutes ?? 0} 分`} />
+            <StatLine label="今日摄入" value={`${data?.fitness.nutritionKcal ?? 0} kcal`} />
+            <StatLine
+              label="习惯完成"
+              value={data && data.habits.scheduled > 0 ? `${data.habits.done}/${data.habits.scheduled} · ${habitPct}%` : "今天没有排期"}
+            />
           </View>
-        </Card>
+        </GlassSurface>
       )}
 
       {/* 领域入口 */}
@@ -152,13 +168,8 @@ const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     scroll: { flex: 1, backgroundColor: "transparent" },
     content: { paddingHorizontal: spacing.lg, gap: spacing.md },
-    hero: { paddingVertical: spacing.lg },
-    heroRow: { flexDirection: "row", alignItems: "center" },
-    heroItem: { flex: 1, alignItems: "center", gap: 1 },
-    heroDivider: { width: StyleSheet.hairlineWidth, height: 34, backgroundColor: colors.border },
-    heroNum: { ...typography.title2, color: colors.text, ...tabularNums },
-    heroUnit: { ...typography.micro, color: colors.textMuted },
-    heroLabel: { ...typography.micro, color: colors.textFaint, marginTop: 2 },
+    hero: { flexDirection: "row", alignItems: "center", gap: spacing.lg, paddingVertical: spacing.lg },
+    heroStats: { flex: 1, minWidth: 0, gap: spacing.sm },
     grid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
     gridItem: { width: "47.5%", flexGrow: 1 },
     entryCard: { gap: spacing.sm, minHeight: 104 },

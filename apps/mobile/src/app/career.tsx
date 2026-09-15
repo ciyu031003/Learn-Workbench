@@ -1,29 +1,45 @@
 /* eslint-disable react-hooks/immutability */
-import { useEffect, useState , useMemo } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, type DimensionValue } from "react-native";
+import { useEffect, useState, useMemo } from "react";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { ThemeColors } from "@/theme/tokens";
+import { radius, spacing, typography } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { ThemedIcon } from "@/components/themed-icon";
 import { ScreenHeader } from "@/components/screen-header";
+import { SectionHeader } from "@/components/section-header";
+import { ListGroup, ListRow } from "@/components/list-row";
+import { GlassSurface } from "@/components/surface";
+import { ProgressArc } from "@/components/progress-arc";
+import { ProgressBar, Stat, StatLine } from "@/components/stat";
+import { Button } from "@/components/button";
+import { BottomSheet } from "@/components/bottom-sheet";
+import { PressableScale } from "@/components/pressable-scale";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { getApiUrl } from "@/config";
 import { useAppStore } from "@/store/app-store";
-import { Card } from "@/components/card";
 import type { CareerReadiness, UserSkillView } from "@learn-workbench/shared";
 
-const SECTIONS = [
-  { key: "jobs", title: "招花市场", desc: "岗位搜索 · 收藏 · 匹配", icon: "flower-outline", color: "#0d9488", href: "/jobs" },
-  { key: "radar", title: "就业雷达", desc: "匹配度 · 信号岗位", icon: "radio-outline", color: "#dc2626", href: "/radar" },
-  { key: "applications", title: "我的求职", desc: "收藏 → Offer 全流程", icon: "briefcase-outline", color: "#10b981", href: "/applications" },
-  { key: "market", title: "市场分析", desc: "城市 · 薪资 · 技能热度", icon: "trending-up-outline", color: "#0ea5e9", href: "/market" },
-  { key: "resume", title: "简历", desc: "资产整理与预览", icon: "document-text-outline", color: "#0ea5e9", href: "/resume" },
-  { key: "certificates", title: "我的证书", desc: "证书 · 有效期提醒", icon: "ribbon-outline", color: "#d97706", href: "/certificates" },
-  { key: "interview", title: "面试", desc: "题库 · 模拟面试", icon: "chatbubbles-outline", color: "#16a34a", href: "/interview" },
+type IconName = Parameters<typeof ThemedIcon>[0]["name"];
+
+/**
+ * 职业 Hub 的信息分级（见 docs/APP端优化方案-v2 §3）：
+ * - 首屏重点（≤2 块）：① 职业准备度 hero ② 三个主入口（招花 / 雷达 / 我的求职）
+ * - 非重点收纳：市场分析 / 简历 / 证书 / 面试 + 准备度维度明细 → 「更多职业工具」Sheet
+ */
+const FOCUS_SECTIONS = [
+  { key: "jobs", title: "招花市场", desc: "岗位搜索 · 收藏 · 匹配", icon: "flower-outline" as IconName, href: "/jobs" },
+  { key: "radar", title: "就业雷达", desc: "匹配度 · 信号岗位", icon: "radio-outline" as IconName, href: "/radar" },
+  { key: "applications", title: "我的求职", desc: "收藏 → Offer 全流程", icon: "briefcase-outline" as IconName, href: "/applications" },
 ] as const;
 
-const LEVEL_LABELS = ["未掌握", "了解", "入门", "熟练", "精通", "专家"];
+const MORE_SECTIONS = [
+  { key: "market", title: "市场分析", desc: "城市 · 薪资 · 技能热度", icon: "trending-up-outline" as IconName, href: "/market" },
+  { key: "resume", title: "简历", desc: "资产整理与预览", icon: "document-text-outline" as IconName, href: "/resume" },
+  { key: "certificates", title: "我的证书", desc: "证书 · 有效期提醒", icon: "ribbon-outline" as IconName, href: "/certificates" },
+  { key: "interview", title: "面试", desc: "题库 · 模拟面试", icon: "chatbubbles-outline" as IconName, href: "/interview" },
+] as const;
 
 export default function CareerScreen() {
   const { colors } = useTheme();
@@ -34,6 +50,7 @@ export default function CareerScreen() {
   const [readiness, setReadiness] = useState<CareerReadiness | null>(null);
   const [skills, setSkills] = useState<UserSkillView[]>([]);
   const [loading, setLoading] = useState(true);
+  const [moreOpen, setMoreOpen] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -60,42 +77,89 @@ export default function CareerScreen() {
     };
   }, [token]);
 
+  const overall = readiness?.overall ?? 0;
+  const goalVerdict =
+    overall >= 80
+      ? "准备充分，可以直接投递"
+      : overall >= 55
+        ? "接近达标，补一补短板"
+        : overall > 0
+          ? "还在积累，先补技能与项目"
+          : "登录并记录技能 / 项目后显示";
+
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top + 24, paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
+    <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
       <ScreenHeader title="职业" subtitle="画像 · 技能 · 简历 · 面试" compact />
 
-      <Card style={styles.readinessCard} title={readiness?.targetRole ?? "职业准备度"}>
+      {/* ① 职业准备度 hero：进度弧 + 结论 + 三个关键值 */}
+      <GlassSurface corner={radius.xl} style={styles.hero}>
         {loading ? (
-          <ActivityIndicator color="#4f46e5" style={styles.loader} />
-        ) : readiness ? (
-          <View style={styles.readinessBody}>
-            <View style={styles.readinessTop}>
-              <Text style={styles.overall}>{readiness.overall}%</Text>
-              <Text style={styles.overallLabel}>职业准备度</Text>
-            </View>
-            {readiness.dimensions.map((d) => (
-              <View key={d.key} style={styles.dim}>
-                <View style={styles.dimHeader}>
-                  <Text style={styles.dimLabel}>{d.label}</Text>
-                  <Text style={styles.dimScore}>{d.score}%</Text>
-                </View>
-                <View style={styles.track}>
-                  <View style={[styles.fill, { width: (d.score + "%") as DimensionValue, backgroundColor: d.key === "project" || d.key === "interview" ? "#0ea5e9" : "#4f46e5" }]} />
-                </View>
-              </View>
-            ))}
-            <Pressable onPress={() => router.push("/jobs")} style={({ pressed }) => [styles.jobBtn, pressed && { opacity: 0.8 }]}>
-              <ThemedIcon name="flower-outline" size={16} color="#0d9488" />
-              <Text style={styles.jobBtnText}>发现 {readiness.matchedJobs} 个适合你的职位</Text>
-            </Pressable>
-          </View>
+          <ActivityIndicator color={colors.primary} style={styles.loader} />
         ) : (
-          <Text style={styles.emptyHint}>登录并记录技能 / 项目 / 面试日志后，这里会呈现职业画像</Text>
+          <>
+            <ProgressArc
+              progress={overall / 100}
+              size={126}
+              strokeWidth={11}
+              value={`${overall}%`}
+              label="职业准备度"
+              caption={goalVerdict}
+            />
+            <View style={styles.heroStats}>
+              <StatLine label="目标岗位" value={readiness?.targetRole ?? "未设置"} />
+              <StatLine label="匹配岗位" value={readiness ? `${readiness.matchedJobs} 个` : "—"} />
+              <StatLine label="技能" value={`${skills.length} 项`} />
+            </View>
+          </>
         )}
-      </Card>
+      </GlassSurface>
+
+      {readiness && readiness.matchedJobs > 0 ? (
+        <Button
+          label={`发现 ${readiness.matchedJobs} 个适合你的职位`}
+          icon="flower-outline"
+          variant="secondary"
+          onPress={() => router.push("/jobs" as never)}
+        />
+      ) : null}
+
+      {/* ② 三个主入口（首屏只留重点） */}
+      <SectionHeader title="主入口" />
+      <ListGroup>
+        {FOCUS_SECTIONS.map((s, i) => (
+          <ListRow
+            key={s.key}
+            icon={s.icon}
+            title={s.title}
+            subtitle={s.desc}
+            showChevron
+            last={i === FOCUS_SECTIONS.length - 1}
+            onPress={() => router.push(s.href as never)}
+          />
+        ))}
+      </ListGroup>
+
+      {/* 非重点：更多职业工具 + 准备度维度明细 */}
+      <SectionHeader title="更多职业工具" actionLabel="全部" onAction={() => setMoreOpen(true)} />
+      <PressableScale haptic scaleTo={0.98} onPress={() => setMoreOpen(true)}>
+        <View style={styles.moreRow}>
+          {MORE_SECTIONS.map((s) => (
+            <View key={s.key} style={styles.moreItem}>
+              <View style={styles.moreIcon}>
+                <ThemedIcon name={s.icon} size={18} color={colors.primary} />
+              </View>
+              <Text style={styles.moreLabel} numberOfLines={1}>{s.title}</Text>
+            </View>
+          ))}
+        </View>
+      </PressableScale>
 
       {skills.length > 0 ? (
-        <Card style={styles.skillsCard} title={"我的技能 · " + skills.length}>
+        <GlassSurface corner={radius.lg} style={styles.skillsCard}>
+          <View style={styles.skillsHead}>
+            <Text style={styles.skillsTitle}>我的技能</Text>
+            <Stat value={skills.length} unit="项" size={22} />
+          </View>
           <View style={styles.skillChips}>
             {skills.slice(0, 12).map((s) => (
               <View key={s.id} style={styles.skillChip}>
@@ -103,68 +167,83 @@ export default function CareerScreen() {
               </View>
             ))}
           </View>
-        </Card>
+        </GlassSurface>
       ) : null}
 
-      <View style={styles.grid}>
-        {SECTIONS.map((s) => (
-          <Pressable key={s.key} disabled={!s.href} onPress={() => { if (s.href) router.push(s.href as never); }}>
-            <Card style={styles.entryCard}>
-              <View style={[styles.iconChip, { backgroundColor: s.color + "22" }]}>
-                <ThemedIcon name={s.icon} size={22} color={s.color} />
+      <BottomSheet visible={moreOpen} onClose={() => setMoreOpen(false)} title="更多职业工具" height="72%">
+        <ListGroup>
+          {MORE_SECTIONS.map((s, i) => (
+            <ListRow
+              key={s.key}
+              icon={s.icon}
+              title={s.title}
+              subtitle={s.desc}
+              showChevron
+              last={i === MORE_SECTIONS.length - 1}
+              onPress={() => {
+                setMoreOpen(false);
+                router.push(s.href as never);
+              }}
+            />
+          ))}
+        </ListGroup>
+
+        {readiness && readiness.dimensions.length > 0 ? (
+          <View style={styles.dimBlock}>
+            <SectionHeader title="准备度明细" subtitle={readiness.targetRole ?? undefined} />
+            {readiness.dimensions.map((d) => (
+              <View key={d.key} style={styles.dim}>
+                <View style={styles.dimHeader}>
+                  <Text style={styles.dimLabel}>{d.label}</Text>
+                  <Text style={styles.dimScore}>{d.score}%</Text>
+                </View>
+                <ProgressBar progress={d.score / 100} />
               </View>
-              <View style={styles.entryText}>
-                <Text style={styles.entryTitle}>{s.title}</Text>
-                <Text style={styles.entryDesc}>{s.desc}</Text>
-              </View>
-              {s.href ? <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} /> : null}
-            </Card>
-          </Pressable>
-        ))}
-      </View>
+            ))}
+          </View>
+        ) : (
+          <Text style={styles.emptyHint}>登录并记录技能 / 项目 / 面试日志后，这里会呈现职业画像</Text>
+        )}
+      </BottomSheet>
     </ScrollView>
   );
 }
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: "transparent" },
-  content: { paddingHorizontal: 16, gap: 12 },
-  hero: { marginBottom: 8 },
-  heroTitle: { fontSize: 28, fontWeight: "700", color: colors.text },
-  heroSub: { fontSize: 13, color: colors.textMuted, marginTop: 4 },
-  readinessCard: { padding: 16 },
-  loader: { marginVertical: 24 },
-  readinessBody: { gap: 10 },
-  readinessTop: { flexDirection: "row", alignItems: "baseline", gap: 8 },
-  overall: { fontSize: 40, fontWeight: "800", color: colors.primary },
-  overallLabel: { fontSize: 12, color: colors.textMuted },
-  dim: { gap: 4 },
-  dimHeader: { flexDirection: "row", justifyContent: "space-between" },
-  dimLabel: { fontSize: 12, fontWeight: "600", color: colors.text },
-  dimScore: { fontSize: 12, color: colors.textMuted },
-  track: { height: 6, borderRadius: 3, backgroundColor: colors.surfaceMuted, overflow: "hidden" },
-  fill: { height: 6, borderRadius: 3 },
-  jobBtn: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 12, backgroundColor: "rgba(13,148,136,0.10)", alignSelf: "flex-start" },
-  jobBtnText: { fontSize: 13, fontWeight: "600", color: "#0d9488" },
-  emptyHint: { fontSize: 13, color: colors.textMuted, paddingVertical: 12 },
-  grid: { gap: 12 },
-  entry: { borderRadius: 20 },
-  pressed: { opacity: 0.85, transform: [{ scale: 0.98 }] },
-  entryCard: { flexDirection: "row", alignItems: "center", gap: 12 },
-  iconChip: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  entryText: { flex: 1 },
-  entryTitle: { fontSize: 16, fontWeight: "600", color: colors.text },
-  entryDesc: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
-  skillsCard: { padding: 16, gap: 10 },
-  skillChips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  skillChip: {
-    backgroundColor: "rgba(79,70,229,0.10)",
-    borderWidth: 1,
-    borderColor: "rgba(79,70,229,0.28)",
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  skillChipText: { fontSize: 12, fontWeight: "700", color: colors.primary },
-});
+    scroll: { flex: 1, backgroundColor: "transparent" },
+    content: { paddingHorizontal: spacing.lg, gap: spacing.md },
+    hero: { flexDirection: "row", alignItems: "center", gap: spacing.lg, paddingVertical: spacing.lg },
+    heroStats: { flex: 1, minWidth: 0, gap: spacing.sm },
+    loader: { marginVertical: 28, flex: 1 },
+    moreRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
+    moreItem: { flex: 1, alignItems: "center", gap: 6 },
+    moreIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: 14,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.primarySoft,
+    },
+    moreLabel: { ...typography.micro, color: colors.textMuted },
+    dimBlock: { gap: spacing.md, marginTop: spacing.sm },
+    dim: { gap: 6 },
+    dimHeader: { flexDirection: "row", justifyContent: "space-between" },
+    dimLabel: { ...typography.caption, fontWeight: "600", color: colors.text },
+    dimScore: { ...typography.caption, color: colors.textMuted },
+    emptyHint: { ...typography.callout, color: colors.textMuted, paddingVertical: spacing.md },
+    skillsCard: { gap: spacing.md },
+    skillsHead: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },
+    skillsTitle: { ...typography.headline, fontWeight: "800", color: colors.text },
+    skillChips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    skillChip: {
+      backgroundColor: colors.primarySoft,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderStrong,
+      borderRadius: radius.pill,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+    },
+    skillChipText: { ...typography.caption, fontWeight: "700", color: colors.primary },
+  });
