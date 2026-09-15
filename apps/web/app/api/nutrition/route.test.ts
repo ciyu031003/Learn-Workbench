@@ -42,6 +42,24 @@ describe("GET /api/nutrition", () => {
     const body = await res.json();
     expect(body.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
+
+  // v3 M3：时间线要显示 HH:mm，所以明细必须带 createdAt（ISO）
+  it("returns createdAt as ISO for each entry", async () => {
+    userScopeMock.mockResolvedValue({ uid: "u-1", anonId: null });
+    queryMock.mockResolvedValue({
+      rows: [
+        {
+          id: "9", logDate: "2026-09-15", meal: "snack", foodId: null, name: "桃子", amount: "1", unit: "个",
+          kcal: "62", proteinG: "1", carbsG: "15", fatG: "0.2",
+          createdAt: "2026-09-15T10:17:00.000Z",
+        },
+      ],
+    } as never);
+    const res = await GET(new Request("http://localhost/api/nutrition?date=2026-09-15"));
+    const body = await res.json();
+    expect(body.entries[0].createdAt).toBe("2026-09-15T10:17:00.000Z");
+    expect(String(queryMock.mock.calls[0][0])).toContain('created_at AS "createdAt"');
+  });
 });
 
 describe("POST /api/nutrition", () => {

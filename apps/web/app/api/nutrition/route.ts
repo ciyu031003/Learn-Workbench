@@ -23,9 +23,11 @@ export async function GET(req: Request) {
   const { rows } = await pgPool.query<{
     id: string; logDate: string; meal: string; foodId: string | null; name: string;
     amount: string; unit: string; kcal: string; proteinG: string; carbsG: string; fatG: string;
+    createdAt: string;
   }>(
     `SELECT id, log_date AS "logDate", meal, food_id AS "foodId", name, amount, unit,
-            kcal, protein_g AS "proteinG", carbs_g AS "carbsG", fat_g AS "fatG"
+            kcal, protein_g AS "proteinG", carbs_g AS "carbsG", fat_g AS "fatG",
+            created_at AS "createdAt"
        FROM meal_entries
       WHERE user_id IS NOT DISTINCT FROM $1${w.sql} AND log_date = $2::date AND deleted_at IS NULL
       ORDER BY meal, id`,
@@ -43,6 +45,8 @@ export async function GET(req: Request) {
     proteinG: Number(r.proteinG),
     carbsG: Number(r.carbsG),
     fatG: Number(r.fatG),
+    // 时间线用（v3 M3）：显式 ISO，避免不同驱动把 Date 序列化成对象
+    createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : undefined,
   }));
   return NextResponse.json({ date, entries, totals: sumNutrition(entries) });
 }

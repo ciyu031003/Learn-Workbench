@@ -1,4 +1,4 @@
-import { useEffect, useMemo, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, type ReactNode } from "react";
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import Svg, { Circle, Defs, LinearGradient, Path, Stop } from "react-native-svg";
 import Animated, {
@@ -6,6 +6,7 @@ import Animated, {
   useAnimatedProps,
   useReducedMotion,
   useSharedValue,
+  withSequence,
   withTiming,
 } from "react-native-reanimated";
 import { tabularNums, typography } from "@/theme/tokens";
@@ -34,12 +35,14 @@ function arcPath(cx: number, cy: number, r: number, sweepDeg: number) {
 }
 
 /**
- * 进度弧（见 docs/APP端优化方案-v2 §1.5.3B —— 借 Orbix Studia 的「progress arc」手法）
+ * 进度弧（见 docs/APP端优化方案-v2 §1.5.3B + v3 M1/M5）
  *
- * 「72% 不像一个统计数字，而像一种势能」：把「今日完成度」从横条升级为弧线，
- * 弧长 = 完成度、端点带小圆点与微光、中心是大号记分牌数字。
- *
- * 动效：进入时 dashoffset 420ms ease-out；**尊重 reduce-motion（直接到位）**。
+ * v3 新增：
+ * - `overBudget`：超出目标 → 轨道与进度转 danger（不做阻断，只做提示）
+ * - `beatOnChange`：数值变化时弧线"跳一下"（strokeWidth ×1.35 @100ms → 回落 300ms），
+ *   参数取自开源实测（nutrition-mobile 的 6→12→6 @100/300/500ms 序列）
+ * - `flat`：小尺寸微环用（不画端点微光）
+ * - 渐变 id 按实例生成，避免一屏多个环时 id 冲撞
  */
 export function ProgressArc({
   progress,
@@ -52,6 +55,9 @@ export function ProgressArc({
   to,
   children,
   style,
+  overBudget = false,
+  beatOnChange = false,
+  showDot = true,
 }: {
   /** 0..1 */
   progress: number;
@@ -67,10 +73,18 @@ export function ProgressArc({
   to?: string;
   children?: ReactNode;
   style?: StyleProp<ViewStyle>;
+  /** 超出目标：轨道/进度/端点转 danger */
+  overBudget?: boolean;
+  /** 数值变化时弧线跳动一次（尊重 reduce-motion） */
+  beatOnChange?: boolean;
+  /** 端点圆点与微光（小尺寸微环建议关） */
+  showDot?: boolean;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const reduce = useReducedMotion();
+  const rawId = useId();
+  const gradientId = useMemo(() => `lwbArc${rawId.replace(/[^a-zA-Z0-9]/g, "")}`, [rawId]);
 
   const clamped = Math.max(0, Math.min(1, Number.isFinite(progress) ? progress : 0));
   const r = (size - strokeWidth) / 2;
@@ -78,10 +92,14 @@ export function ProgressArc({
   const cy = size / 2;
   const arcLen = 2 * Math.PI * r * (SWEEP / 360);
   const targetOffset = arcLen * (1 - clamped);
-  const start = from ?? colors.primary;
-  const end = to ?? colors.accentStrong;
+  const start = overBudget ? colors.danger : (from ?? colors.primary);
+  const end = overBudget ? colors.danger : (to ?? colors.accentStrong);
 
   const offset = useSharedValue(ARC_ANIMATION_ENABLED ? arcLen : targetOffset);
+  const beat = useSharedValue(1);
+  const seenRef = useRef(false);
+  const prevRef = useRef(targetOffset);
+
   useEffect(() => {
     if (!ARC_ANIMATION_ENABLED || reduce) {
       offset.value = targetOffset;
@@ -90,10 +108,32 @@ export function ProgressArc({
     offset.value = withTiming(targetOffset, { duration: 420, easing: Easing.out(Easing.cubic) });
   }, [offset, reduce, targetOffset]);
 
-  const animatedProps = useAnimatedProps(() => ({ strokeDashoffset: offset.value }));
+  // 数值变化 → 跳动一次（首次挂载不跳）
+  useEffect(() => {
+    if (!seenRef.current) {
+      seenRef.current = true;
+      prevRef.current = targetOffset;
+      return;
+    }
+    if (!beatOnChange || reduce || Math.abs(prevRef.current - targetOffset) < 0.5) {
+      prevRef.current = targetOffset;
+      return;
+    }
+    prevRef.current = targetOffset;
+    beat.value = withSequence(
+      withTiming(1.35, { duration: 100, easing: Easing.out(Easing.quad) }),
+      withTiming(1, { duration: 300, easing: Easing.out(Easing.cubic) })
+    );
+  }, [beat, beatOnChange, reduce, targetOffset]);
+
+  const animatedProps = useAnimatedProps(() =>
+    beatOnChange && ARC_ANIMATION_ENABLED
+      ? { strokeDashoffset: offset.value, strokeWidth: strokeWidth * beat.value }
+      : { strokeDashoffset: offset.value }
+  );
 
   const dot = polar(cx, cy, r, START_ANGLE + SWEEP * clamped);
-  const showDot = clamped > 0.02;
+  const showDotMark = showDot && clamped > 0.02;
   // 完成度极小时不画进度弧（round cap 会退化成一个点）
   const showArc = clamped > 0.004;
 
@@ -101,7 +141,7 @@ export function ProgressArc({
     <View style={[{ width: size, height: size }, style]}>
       <Svg width={size} height={size}>
         <Defs>
-          <LinearGradient id="lwbArc" x1="0" y1="1" x2="1" y2="0">
+          <LinearGradient id={gradientId} x1="0" y1="1" x2="1" y2="0">
             <Stop offset="0" stopColor={start} />
             <Stop offset="1" stopColor={end} />
           </LinearGradient>
@@ -109,7 +149,7 @@ export function ProgressArc({
         {/* 轨道 */}
         <Path
           d={arcPath(cx, cy, r, SWEEP)}
-          stroke={colors.surfaceMuted}
+          stroke={overBudget ? colors.dangerSoft : colors.surfaceMuted}
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           fill="none"
@@ -118,7 +158,7 @@ export function ProgressArc({
         {showArc ? (
           <AnimatedPath
             d={arcPath(cx, cy, r, SWEEP)}
-            stroke="url(#lwbArc)"
+            stroke={`url(#${gradientId})`}
             strokeWidth={strokeWidth}
             strokeLinecap="round"
             fill="none"
@@ -127,7 +167,7 @@ export function ProgressArc({
           />
         ) : null}
         {/* 端点微光 + 圆点 */}
-        {showDot ? (
+        {showDotMark ? (
           <>
             <Circle cx={dot.x} cy={dot.y} r={strokeWidth * 0.95} fill={end} opacity={0.22} />
             <Circle cx={dot.x} cy={dot.y} r={strokeWidth * 0.34} fill={end} />

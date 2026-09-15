@@ -1922,6 +1922,8 @@ export const mealEntrySchema = z.object({
   proteinG: z.number(),
   carbsG: z.number(),
   fatG: z.number(),
+  /** 记录时间（ISO；迁移 041 的 created_at，v3 时间线用于显示 HH:mm） */
+  createdAt: z.string().optional(),
 });
 export type MealEntry = z.infer<typeof mealEntrySchema>;
 
@@ -1955,6 +1957,101 @@ export const DEFAULT_NUTRITION_TARGETS: NutritionTotals = {
   carbsG: 220,
   fatG: 60,
 };
+
+/* ---------- v3 饮食模块视图口径（纯函数，Web / Mobile 共用） ---------- */
+
+/** 餐次热量占比目标（早 25% / 午 35% / 晚 30% / 加餐 10%） */
+export const MEAL_KCAL_SHARES: Record<MealKind, number> = {
+  breakfast: 0.25,
+  lunch: 0.35,
+  dinner: 0.3,
+  snack: 0.1,
+};
+
+/** 区间目标（D3：三大营养素用区间而非单值，降低焦虑） */
+export interface NutritionRange {
+  min: number;
+  max: number;
+}
+
+/** 由单值目标推出区间（默认 ±12%，四舍五入；最小宽度 1g） */
+export function nutritionTargetRange(value: number, spread = 0.12): NutritionRange {
+  const v = Number.isFinite(value) && value > 0 ? value : 0;
+  const delta = Math.max(1, v * spread);
+  return { min: Math.max(0, Math.round(v - delta)), max: Math.round(v + delta) };
+}
+
+/** 落在区间内的判定（用于"达标绿"） */
+export function withinRange(value: number, range: NutritionRange): boolean {
+  const v = Number.isFinite(value) ? value : 0;
+  return v >= range.min && v <= range.max;
+}
+
+/** 用量相对区间的状态：不足 / 达标 / 超出 */
+export type MacroStatus = "under" | "in" | "over";
+export function macroStatus(value: number, range: NutritionRange): MacroStatus {
+  const v = Number.isFinite(value) ? value : 0;
+  if (v < range.min) return "under";
+  if (v > range.max) return "over";
+  return "in";
+}
+
+/** 今日剩余可吃（可为负 = 已超出；D2：以「剩余」为主角） */
+export function remainingKcal(eatenKcal: number, targetKcal: number): number {
+  const eaten = Number.isFinite(eatenKcal) ? eatenKcal : 0;
+  const target = Number.isFinite(targetKcal) && targetKcal > 0 ? targetKcal : 0;
+  return Math.round(target - eaten);
+}
+
+/**
+ * 剩余热量的"人话"换算（借小卡健康「≈ 几只苹果」的手法，只给一条，避免啰嗦）。
+ * 以 100 kcal ≈ 半碗米饭 为基准，取最贴近的一项。
+ */
+export function kcalEquivalentText(kcal: number): string {
+  const v = Math.abs(Math.round(Number.isFinite(kcal) ? kcal : 0));
+  if (v < 60) return "很轻的一份加餐";
+  const options: { unit: number; label: string }[] = [
+    { unit: 130, label: "碗米饭" },
+    { unit: 80, label: "个苹果" },
+    { unit: 140, label: "瓶可乐" },
+    { unit: 165, label: "份鸡胸" },
+  ];
+  let best = options[0];
+  let bestErr = Number.POSITIVE_INFINITY;
+  for (const o of options) {
+    const n = v / o.unit;
+    // 偏好 0.5–4 之间的整数或半数表达
+    const rounded = n < 1 ? Math.round(n * 2) / 2 : Math.round(n);
+    const err = Math.abs(n - rounded) + (rounded < 0.5 || rounded > 6 ? 1 : 0);
+    if (err < bestErr) {
+      bestErr = err;
+      best = o;
+    }
+  }
+  const n = v / best.unit;
+  const shown = n < 1 ? Math.round(n * 2) / 2 : Math.round(n);
+  return `约等于 ${shown} ${best.label}`;
+}
+
+/** 时间线用：ISO → HH:mm（本地）；解析失败返回 null */
+export function formatEntryTime(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+/** 近 N 天日期键（含今天，升序） */
+export function recentDateKeys(days: number, today: Date = new Date()): string[] {
+  const out: string[] = [];
+  const n = Math.max(1, Math.min(60, Math.round(days)));
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    d.setDate(d.getDate() - i);
+    out.push(toDateKey(d));
+  }
+  return out;
+}
 
 /* ================= V3 · Sports Profile / Share（迁移 042） ================= */
 
