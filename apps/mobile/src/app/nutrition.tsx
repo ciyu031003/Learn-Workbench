@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   RefreshControl,
-  ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+  Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
 import { EmptyState } from "@/components/empty-state";
 import { SkeletonList } from "@/components/skeleton";
 import { ScreenHeader } from "@/components/screen-header";
+import { SectionHeader } from "@/components/section-header";
 import { Card } from "@/components/card";
+import { Button } from "@/components/button";
+import { Field } from "@/components/field";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -40,6 +43,10 @@ export default function NutritionScreen() {
   const [picked, setPicked] = useState<Food | null>(null);
   const [amount, setAmount] = useState("1");
   const [saving, setSaving] = useState(false);
+  // 手动录入（Bug 7a：不想从常用食物里选也能记一条）
+  const [manual, setManual] = useState({ name: "", unit: "份", kcal: "", proteinG: "", carbsG: "", fatG: "" });
+  const [saveAsCommon, setSaveAsCommon] = useState(false);
+  const [foodQuery, setFoodQuery] = useState("");
 
   const date = todayKey();
   const totals = useMemo(() => sumNutrition(entries), [entries]);
@@ -81,7 +88,8 @@ export default function NutritionScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sheetOpen]);
 
-  const add = async () => {
+  /** 从常用食物添加（按所选食物单位营养 × 数量换算，服务端计算） */
+  const addPicked = async () => {
     if (!picked) {
       Alert.alert("请选择食物");
       return;
@@ -93,9 +101,7 @@ export default function NutritionScreen() {
         headers: { "Content-Type": "application/json", ...headers() },
         body: JSON.stringify({ date, meal, name: picked.name, foodId: picked.id, amount: Number(amount) || 1 }),
       });
-      setSheetOpen(false);
-      setPicked(null);
-      setAmount("1");
+      closeSheet();
       await load();
     } catch (e) {
       Alert.alert("添加失败", e instanceof Error ? e.message : "请稍后重试");
@@ -103,6 +109,76 @@ export default function NutritionScreen() {
       setSaving(false);
     }
   };
+
+  /** 手动录入一条（名称为必填，营养可只填热量） */
+  const addManual = async () => {
+    const name = manual.name.trim();
+    if (!name) {
+      Alert.alert("请填写食物名称");
+      return;
+    }
+    setSaving(true);
+    try {
+      const body = {
+        date,
+        meal,
+        name,
+        unit: manual.unit.trim() || "份",
+        amount: 1,
+        kcal: Number(manual.kcal) || 0,
+        proteinG: Number(manual.proteinG) || 0,
+        carbsG: Number(manual.carbsG) || 0,
+        fatG: Number(manual.fatG) || 0,
+      };
+      const r = await fetch(getApiUrl() + "/api/nutrition", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...headers() },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        throw new Error(d.error ?? "添加失败");
+      }
+      if (saveAsCommon) {
+        // 存为常用食物（登录用户私有，同名 upsert）
+        const fr = await fetch(getApiUrl() + "/api/nutrition/foods", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...headers() },
+          body: JSON.stringify({
+            name,
+            unit: body.unit,
+            kcal: body.kcal,
+            proteinG: body.proteinG,
+            carbsG: body.carbsG,
+            fatG: body.fatG,
+          }),
+        });
+        if (!fr.ok) {
+          const d = await fr.json().catch(() => ({}));
+          Alert.alert("已记录，但保存常用食物失败", d.error ?? "请登录后再保存常用食物");
+        }
+      }
+      closeSheet();
+      await load();
+    } catch (e) {
+      Alert.alert("添加失败", e instanceof Error ? e.message : "请稍后重试");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const closeSheet = () => {
+    setSheetOpen(false);
+    setPicked(null);
+    setAmount("1");
+    setManual({ name: "", unit: "份", kcal: "", proteinG: "", carbsG: "", fatG: "" });
+    setSaveAsCommon(false);
+    setFoodQuery("");
+  };
+
+  const visibleFoods = foods.filter(
+    (f) => !foodQuery.trim() || f.name.toLowerCase().includes(foodQuery.trim().toLowerCase())
+  );
 
   const remove = async (id: number) => {
     try {
@@ -177,7 +253,7 @@ export default function NutritionScreen() {
         })
       )}
 
-      <BottomSheet visible={sheetOpen} onClose={() => setSheetOpen(false)} title="添加饮食" height="66%">
+      <BottomSheet visible={sheetOpen} onClose={closeSheet} title="添加饮食" height="82%">
         <View style={styles.form}>
           <Text style={styles.label}>餐次</Text>
           <View style={styles.kindRow}>
@@ -187,22 +263,91 @@ export default function NutritionScreen() {
               </Pressable>
             ))}
           </View>
-          <Text style={styles.label}>常用食物</Text>
+
+          {/* ① 常用食物（可搜索） */}
+          <SectionHeader title="常用食物" subtitle="选一个再填数量，营养自动换算" style={styles.sheetSection} />
+          <Field
+            value={foodQuery}
+            onChangeText={setFoodQuery}
+            placeholder="搜索常用食物"
+            returnKeyType="search"
+            autoCapitalize="none"
+          />
           <View style={styles.kindRow}>
-            {foods.map((f) => (
+            {visibleFoods.map((f) => (
               <Pressable key={f.id} onPress={() => setPicked(f)} style={[styles.kindChip, picked?.id === f.id && styles.kindChipActive]}>
                 <Text style={[styles.kindChipText, picked?.id === f.id && styles.kindChipTextActive]}>
                   {f.name} · {f.kcal}kcal
                 </Text>
               </Pressable>
             ))}
-            {foods.length === 0 ? <Text style={styles.muted}>没有可用食物</Text> : null}
+            {visibleFoods.length === 0 ? <Text style={styles.muted}>没有匹配的食物，试试下方手动添加</Text> : null}
           </View>
-          <Text style={styles.label}>数量</Text>
-          <TextInput style={styles.input} value={amount} onChangeText={setAmount} keyboardType="numeric" placeholder="1" placeholderTextColor={colors.textFaint} />
-          <Pressable style={[styles.primaryBtn, saving && { opacity: 0.5 }]} disabled={saving} onPress={() => void add()}>
-            {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>添加</Text>}
+          {picked ? (
+            <>
+              <Field
+                label={`数量（${picked.unit}）`}
+                value={amount}
+                onChangeText={setAmount}
+                keyboardType="numeric"
+                placeholder="1"
+                hint={`≈ ${Math.round(picked.kcal * (Number(amount) || 1))} kcal`}
+              />
+              <Button label="添加到今天" icon="add" loading={saving} onPress={() => void addPicked()} />
+            </>
+          ) : null}
+
+          {/* ② 手动添加（不选常用食物也能记） */}
+          <SectionHeader title="手动添加" subtitle="只填名称与热量也能记一条" style={styles.sheetSection} />
+          <Field label="名称" value={manual.name} onChangeText={(v) => setManual((s) => ({ ...s, name: v }))} placeholder="例如：食堂番茄鸡蛋面" />
+          <View style={styles.macroInputRow}>
+            <Field
+              label="单位"
+              value={manual.unit}
+              onChangeText={(v) => setManual((s) => ({ ...s, unit: v }))}
+              placeholder="份"
+              containerStyle={styles.macroInput}
+            />
+            <Field
+              label="热量 kcal"
+              value={manual.kcal}
+              onChangeText={(v) => setManual((s) => ({ ...s, kcal: v }))}
+              keyboardType="numeric"
+              placeholder="520"
+              containerStyle={styles.macroInput}
+            />
+          </View>
+          <View style={styles.macroInputRow}>
+            <Field
+              label="蛋白 g"
+              value={manual.proteinG}
+              onChangeText={(v) => setManual((s) => ({ ...s, proteinG: v }))}
+              keyboardType="numeric"
+              placeholder="选填"
+              containerStyle={styles.macroInput}
+            />
+            <Field
+              label="碳水 g"
+              value={manual.carbsG}
+              onChangeText={(v) => setManual((s) => ({ ...s, carbsG: v }))}
+              keyboardType="numeric"
+              placeholder="选填"
+              containerStyle={styles.macroInput}
+            />
+            <Field
+              label="脂肪 g"
+              value={manual.fatG}
+              onChangeText={(v) => setManual((s) => ({ ...s, fatG: v }))}
+              keyboardType="numeric"
+              placeholder="选填"
+              containerStyle={styles.macroInput}
+            />
+          </View>
+          <Pressable style={styles.switchRow} onPress={() => setSaveAsCommon((v) => !v)}>
+            <Switch value={saveAsCommon} onValueChange={setSaveAsCommon} trackColor={{ true: colors.primary }} />
+            <Text style={styles.switchLabel}>存入常用食物（下次可直接选）</Text>
           </Pressable>
+          <Button label="手动添加到今天" icon="create-outline" variant="secondary" loading={saving} onPress={() => void addManual()} />
         </View>
       </BottomSheet>
     </ScrollView>
@@ -231,6 +376,11 @@ const makeStyles = (colors: ThemeColors) =>
     entryName: { fontSize: 14, fontWeight: "700", color: colors.text },
     muted: { fontSize: 11, color: colors.textMuted },
     form: { gap: 10, paddingTop: 6 },
+    sheetSection: { marginTop: 6 },
+    macroInputRow: { flexDirection: "row", gap: 8 },
+    macroInput: { flex: 1, minWidth: 0 },
+    switchRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+    switchLabel: { flex: 1, fontSize: 13, fontWeight: "600", color: colors.text },
     label: { fontSize: 12, fontWeight: "700", color: colors.textMuted },
     kindRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     kindChip: { borderRadius: 999, paddingHorizontal: 13, paddingVertical: 7, backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.border },

@@ -420,6 +420,7 @@ export default function LearnScreen() {
   const [stageSheet, setStageSheet] = useState(false);
   const [shareSheet, setShareSheet] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(false);
   const [statDate, setStatDate] = useState<Date>(() => new Date());
   const [roadmap, setRoadmap] = useState<Phase[]>(mainPhases.filter((p) => p.track === "main"));
   const [selectedPhaseId, setSelectedPhaseId] = useState<number | null>(mainPhases[0]?.id ?? null);
@@ -698,9 +699,21 @@ export default function LearnScreen() {
         );
       })}
 
-      <Text style={styles.sectionTitle}>
-        学习统计 <Text style={styles.sectionTitleMore}>近 12 周</Text>
-      </Text>
+      <Text style={styles.sectionTitle}>学习统计</Text>
+      {/* 统计明细收进「学习统计」全屏 Sheet（v2 §Bug 6）：首屏只留一行摘要 */}
+      <PressableScale haptic scaleTo={0.98} onPress={() => setStatsOpen(true)}>
+        <Card style={styles.statsEntry}>
+          <View style={styles.statsEntryBody}>
+            <Text style={styles.statsEntryTitle}>今日已专注 {formatDuration(todayMinutes)}</Text>
+            <Text style={styles.statsEntrySub}>
+              热力图 · 周期柱状 · 近 14 天趋势 · 连续 {stats.streak} 天
+            </Text>
+          </View>
+          <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
+        </Card>
+      </PressableScale>
+
+      <BottomSheet visible={statsOpen} onClose={() => setStatsOpen(false)} title="学习统计" height="94%">
       <Card style={styles.statsPanel}>
         <View style={styles.panelHead}>
           <Text style={styles.panelTitle}>热力统计</Text>
@@ -802,6 +815,7 @@ export default function LearnScreen() {
         <Text style={styles.chartLabel}>近 14 天学习时长</Text>
         <LineChart data={dailySeries} height={150} color={colors.accent} />
       </Card>
+      </BottomSheet>
 
       <BottomSheet visible={shareSheet} onClose={() => setShareSheet(false)} title="分享学习统计" height="50%">
         <View style={styles.sharePreview}>
@@ -1056,6 +1070,10 @@ const makeStyles = (colors: ThemeColors) =>
   themeNum: { color: "#fff", fontSize: 22, fontWeight: "800", marginLeft: 12 },
 
   statsPanel: { padding: 16, gap: 14 },
+  statsEntry: { flexDirection: "row", alignItems: "center", gap: 12 },
+  statsEntryBody: { flex: 1, minWidth: 0, gap: 2 },
+  statsEntryTitle: { fontSize: 15, fontWeight: "800", color: colors.text },
+  statsEntrySub: { fontSize: 12, fontWeight: "500", color: colors.textMuted },
   panelHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   panelTitle: { fontSize: 16, fontWeight: "800", color: colors.text },
   shareBtn: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: colors.surface, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },

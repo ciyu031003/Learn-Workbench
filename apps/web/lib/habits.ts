@@ -14,7 +14,8 @@ export interface Scope {
 }
 
 const HABIT_COLS = `id, name, icon, is_boolean AS "isBoolean", target_value AS "targetValue",
-  unit, schedule, color, sort_order AS "sortOrder", archived_at AS "archivedAt", updated_at AS "updatedAt"`;
+  unit, schedule, color, sort_order AS "sortOrder", remind_start AS "remindStart",
+  remind_end AS "remindEnd", archived_at AS "archivedAt", updated_at AS "updatedAt"`;
 
 /** 未归档且未删除的习惯（按排序） */
 export async function listHabits(scope: Scope): Promise<Habit[]> {

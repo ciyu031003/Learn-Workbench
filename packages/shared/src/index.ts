@@ -1655,10 +1655,31 @@ export const habitSchema = z.object({
   schedule: habitScheduleSchema,
   color: z.string(),
   sortOrder: z.number(),
+  /** 可选时间段 HH:MM（迁移 043；本期只存+展示，不发本地通知） */
+  remindStart: z.string().nullable().optional(),
+  remindEnd: z.string().nullable().optional(),
   archivedAt: z.string().nullable().optional(),
   updatedAt: z.string().optional(),
 });
 export type Habit = z.infer<typeof habitSchema>;
+
+/** HH:MM（00:00–23:59），空串/null 视为「不限定」 */
+export const HABIT_TIME_RE = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
+
+/** 归一化时间段输入：非法或空 → null */
+export function normalizeHabitTime(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const v = raw.trim();
+  return HABIT_TIME_RE.test(v) ? v : null;
+}
+
+/** 时间段展示文案（如 07:00–08:00）；两端都空 → null */
+export function habitTimeLabel(habit: Pick<Habit, "remindStart" | "remindEnd">): string | null {
+  const s = normalizeHabitTime(habit.remindStart);
+  const e = normalizeHabitTime(habit.remindEnd);
+  if (!s || !e) return null;
+  return `${s}–${e}`;
+}
 
 export const habitLogSchema = z.object({
   habitId: z.number(),

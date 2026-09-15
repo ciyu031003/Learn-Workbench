@@ -31,6 +31,7 @@ import { FocusTimer } from "@/components/focus-timer";
 import { TodayStack } from "@/components/today-stack";
 import { DailyOsSummary } from "@/components/daily-os-summary";
 import { Card } from "@/components/card";
+import { SectionHeader } from "@/components/section-header";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { Celebration } from "@/components/celebration";
 import { PressableScale } from "@/components/pressable-scale";
@@ -284,6 +285,7 @@ export default function TodayScreen() {
 
   const [focusOpen, setFocusOpen] = useState(false);
   const [sportSheetOpen, setSportSheetOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [celebrate, setCelebrate] = useState(false);
   const [stackGestureActive, setStackGestureActive] = useState(false);
 
@@ -386,11 +388,6 @@ export default function TodayScreen() {
             {greet}，{"\n"}继续今天的 ICT 学习规划
           </Text>
           <Text style={styles.heroSub}>{heroTip}</Text>
-
-          <View style={styles.quote}>
-            <ThemedIcon name="sunny" size={16} color={colors.accent} />
-            <Text style={styles.quoteText}>{quote}</Text>
-          </View>
         </Animated.View>
 
         {/* 我的一天：完成度 + 四域入口（Daily OS 聚合，只读 /api/daily） */}
@@ -406,33 +403,19 @@ export default function TodayScreen() {
           </Pressable>
         </View>
 
+        {/* 首屏只留汇总；逐条明细收进「更多」（v2 §3） */}
         <Card style={styles.sportCard}>
           <View style={styles.sportTotal}>
             <Text style={styles.sportTotalNum}>{(sportsTotalMinutes / 60).toFixed(1)}</Text>
             <Text style={styles.sportTotalUnit}>小时</Text>
             <Text style={styles.sportTotalNote}>今日能量 · 阳光满分</Text>
           </View>
-          {sports.length === 0 ? (
-            <Text style={styles.sportEmpty}>今天还没有运动记录，去阳光下动一动吧</Text>
-          ) : (
-            sports.map((r) => {
-              const { c1 } = sportColorsOf(r.type);
-              return (
-                <View key={r.id} style={styles.sportItem}>
-                  <View style={[styles.sportIco, { backgroundColor: `${c1}1f` }]}>
-                    <SportIcon sportKey={r.sportKey} name={r.name} type={r.type} color={c1} active={false} />
-                  </View>
-                  <View style={styles.sportItemInfo}>
-                    <Text style={styles.sportItemName}>{r.name}</Text>
-                    <Text style={styles.sportItemTime}>{formatSport(r.minutes)} · 已完成</Text>
-                  </View>
-                  <Pressable onPress={() => removeSport(r.clientId)} hitSlop={8}>
-                    <ThemedIcon name="close" size={18} color={colors.textMuted} />
-                  </Pressable>
-                </View>
-              );
-            })
-          )}
+          <Pressable onPress={() => setMoreOpen(true)} hitSlop={6} style={styles.inlineMore}>
+            <Text style={styles.inlineMoreText}>
+              {sports.length === 0 ? "今天还没有运动记录，去阳光下动一动吧" : `${sports.length} 条记录 · 查看明细`}
+            </Text>
+            <ThemedIcon name="chevron-forward" size={14} color={colors.textFaint} />
+          </Pressable>
         </Card>
 
         <View style={styles.sectionTitleRow}>
@@ -447,7 +430,7 @@ export default function TodayScreen() {
             <Text style={styles.taskEmpty}>今天还没有任务，去学习页添加一个吧</Text>
           </Card>
         ) : (
-          todayTasks.map((t) => (
+          todayTasks.slice(0, 3).map((t) => (
             <Pressable
               key={t.id}
               onPress={() => {
@@ -467,10 +450,19 @@ export default function TodayScreen() {
             </Pressable>
           ))
         )}
+        {todayTasks.length > 3 ? (
+          <Pressable onPress={() => router.push("/tasks" as never)} hitSlop={6} style={styles.inlineMore}>
+            <Text style={styles.inlineMoreText}>还有 {todayTasks.length - 3} 条任务 · 查看全部</Text>
+            <ThemedIcon name="chevron-forward" size={14} color={colors.textFaint} />
+          </Pressable>
+        ) : null}
 
-        <View style={styles.sectionTitleRow}>
-          <Text style={styles.sectionTitle}>本周节奏</Text>
-        </View>
+        {/* 更多：本周节奏 / 打卡 / 运动明细 / AI 建议（首屏只留重点块） */}
+        <SectionHeader title="更多" subtitle="本周节奏 · 打卡 · 运动明细 · AI 建议" actionLabel="展开" onAction={() => setMoreOpen(true)} />
+      </Animated.ScrollView>
+
+      <BottomSheet visible={moreOpen} onClose={() => setMoreOpen(false)} title="更多" height="82%">
+        <SectionHeader title="本周节奏" />
         <View style={styles.statsGrid}>
           <Card style={styles.statCard}>
             <View style={[styles.statIconChip, { backgroundColor: colors.accentSoft }]}>
@@ -505,7 +497,36 @@ export default function TodayScreen() {
           <Text style={styles.checkinRowText}>今日打卡 · 给自己一个正向信号</Text>
           <ThemedIcon name="chevron-forward" size={18} color={colors.accentStrong} />
         </Pressable>
-      </Animated.ScrollView>
+
+        <SectionHeader title="运动明细" actionLabel="添加" onAction={() => { setMoreOpen(false); setSportSheetOpen(true); }} />
+        {sports.length === 0 ? (
+          <Text style={styles.sportEmpty}>今天还没有运动记录，去阳光下动一动吧</Text>
+        ) : (
+          sports.map((r) => {
+            const { c1 } = sportColorsOf(r.type);
+            return (
+              <View key={r.id} style={styles.sportItem}>
+                <View style={[styles.sportIco, { backgroundColor: `${c1}1f` }]}>
+                  <SportIcon sportKey={r.sportKey} name={r.name} type={r.type} color={c1} active={false} />
+                </View>
+                <View style={styles.sportItemInfo}>
+                  <Text style={styles.sportItemName}>{r.name}</Text>
+                  <Text style={styles.sportItemTime}>{formatSport(r.minutes)} · 已完成</Text>
+                </View>
+                <Pressable onPress={() => removeSport(r.clientId)} hitSlop={8}>
+                  <ThemedIcon name="close" size={18} color={colors.textMuted} />
+                </Pressable>
+              </View>
+            );
+          })
+        )}
+
+        <SectionHeader title="今日建议" />
+        <Card>
+          <Text style={styles.quoteText}>{quote}</Text>
+          <Text style={styles.heroSub}>{heroTip}</Text>
+        </Card>
+      </BottomSheet>
 
       <SportSheet visible={sportSheetOpen} onClose={() => setSportSheetOpen(false)} />
       <FocusTimer
@@ -554,6 +575,8 @@ const makeStyles = (colors: ThemeColors) =>
   sectionTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
   sectionTitle: { fontSize: 17, fontWeight: "800", color: colors.text },
   sectionMore: { fontSize: 12, color: colors.textMuted },
+  inlineMore: { flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start", paddingVertical: 2 },
+  inlineMoreText: { fontSize: 12, fontWeight: "600", color: colors.textMuted },
   addSportBtn: { flexDirection: "row", alignItems: "center", gap: 3 },
   addSportText: { fontSize: 12, fontWeight: "700", color: colors.accentStrong },
 

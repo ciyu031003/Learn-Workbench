@@ -7,6 +7,8 @@ import { EmptyState } from "@/components/empty-state";
 import { SkeletonList } from "@/components/skeleton";
 import { ScreenHeader } from "@/components/screen-header";
 import { Card } from "@/components/card";
+import { Button } from "@/components/button";
+import { Field } from "@/components/field";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -17,9 +19,16 @@ import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
 import {
-  HABIT_TEMPLATES, HABIT_WEEKDAY_LABELS, computeHabitStats, isHabitDone, isScheduled, toDateKey,
+  HABIT_TEMPLATES, HABIT_WEEKDAY_LABELS, computeHabitStats, habitTimeLabel, isHabitDone, isScheduled, normalizeHabitTime, toDateKey,
   type Habit, type HabitLog,
 } from "@learn-workbench/shared";
+
+/** 内置习惯图标（约 24 个，覆盖常见健康 / 学习 / 生活场景） */
+const HABIT_ICONS = [
+  "💧", "🌙", "🧘", "📖", "👟", "✍️", "🥗", "🏃",
+  "💪", "🧠", "☀️", "🎯", "🛏️", "🦷", "🧴", "🍵",
+  "🚭", "📵", "🎧", "🧹", "💊", "🐶", "💰", "🙏",
+];
 
 type HabitRow = Habit;
 
@@ -40,6 +49,10 @@ export default function HabitsScreen() {
   const [icon, setIcon] = useState("✅");
   const [isBoolean, setIsBoolean] = useState(true);
   const [targetValue, setTargetValue] = useState("");
+  // Bug 7c：可选时间段（HH:MM，留空 = 不限定）+ 自定义 emoji 入口
+  const [remindStart, setRemindStart] = useState("");
+  const [remindEnd, setRemindEnd] = useState("");
+  const [customIcon, setCustomIcon] = useState("");
 
   const today = useMemo(() => new Date(), []);
   const todayKey = toDateKey(today);
@@ -109,9 +122,16 @@ export default function HabitsScreen() {
       Alert.alert("请填写习惯名称");
       return;
     }
+    // 时间段：要么两端都合法，要么都不传（避免半个区间）
+    const s = normalizeHabitTime(remindStart);
+    const e = normalizeHabitTime(remindEnd);
+    if ((remindStart.trim() || remindEnd.trim()) && !(s && e)) {
+      Alert.alert("时间段格式不对", "请按 07:00 / 08:00 的 24 小时制填写，或两端都留空");
+      return;
+    }
     setSaving(true);
     try {
-      await fetch(getApiUrl() + "/api/habits", {
+      const r = await fetch(getApiUrl() + "/api/habits", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...headers() },
         body: JSON.stringify({
@@ -119,19 +139,32 @@ export default function HabitsScreen() {
           icon,
           isBoolean,
           targetValue: isBoolean ? null : Number(targetValue) || null,
+          remindStart: s,
+          remindEnd: e,
         }),
       });
-      setSheetOpen(false);
-      setName("");
-      setIcon("✅");
-      setIsBoolean(true);
-      setTargetValue("");
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        throw new Error(d.error ?? "保存失败");
+      }
+      closeSheet();
       await load();
-    } catch (e) {
-      Alert.alert("保存失败", e instanceof Error ? e.message : "请稍后重试");
+    } catch (err) {
+      Alert.alert("保存失败", err instanceof Error ? err.message : "请稍后重试");
     } finally {
       setSaving(false);
     }
+  };
+
+  const closeSheet = () => {
+    setSheetOpen(false);
+    setName("");
+    setIcon("✅");
+    setIsBoolean(true);
+    setTargetValue("");
+    setRemindStart("");
+    setRemindEnd("");
+    setCustomIcon("");
   };
 
   const scheduledToday = habits.filter((h) => isScheduled(h.schedule, today)).length;
@@ -202,6 +235,7 @@ export default function HabitsScreen() {
                   <View style={styles.itemHeadRow}>
                     <Text style={styles.itemTitle} numberOfLines={1}>{h.name}</Text>
                     {st.currentStreak > 0 ? <Text style={styles.streak}>🔥 {st.currentStreak}</Text> : null}
+                    {habitTimeLabel(h) ? <Text style={styles.timeBadge}>{habitTimeLabel(h)}</Text> : null}
                     {!scheduled ? <Text style={styles.muted}>今日不排期</Text> : null}
                   </View>
                   <Text style={styles.muted}>近 7 天 {st.weekRate}% · 近 30 天 {st.monthRate}%</Text>
@@ -228,12 +262,37 @@ export default function HabitsScreen() {
         })
       )}
 
-      <BottomSheet visible={sheetOpen} onClose={() => setSheetOpen(false)} title="新建习惯" height="62%">
+      <BottomSheet visible={sheetOpen} onClose={closeSheet} title="新建习惯" height="86%">
         <View style={styles.form}>
+          {/* 图标选择器：内置 ~24 个常用图标，点选高亮；也可自定义 emoji */}
           <Text style={styles.label}>图标</Text>
-          <TextInput style={styles.input} value={icon} onChangeText={(t) => setIcon(t.slice(0, 2))} placeholder="✅" placeholderTextColor={colors.textFaint} />
-          <Text style={styles.label}>名称</Text>
-          <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="例如：饮水 / 早睡" placeholderTextColor={colors.textFaint} />
+          <View style={styles.iconGrid}>
+            {HABIT_ICONS.map((ic) => (
+              <Pressable
+                key={ic}
+                onPress={() => {
+                  setIcon(ic);
+                  setCustomIcon("");
+                }}
+                style={[styles.iconCell, icon === ic && customIcon === "" && styles.iconCellActive]}
+              >
+                <Text style={styles.iconGlyph}>{ic}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <Field
+            label="自定义 emoji（可选）"
+            value={customIcon}
+            onChangeText={(v) => {
+              const t = v.slice(0, 2);
+              setCustomIcon(t);
+              if (t.trim()) setIcon(t.trim());
+            }}
+            placeholder="例如 🌱"
+          />
+
+          <Field label="名称" value={name} onChangeText={setName} placeholder="例如：饮水 / 早睡" />
+
           <Text style={styles.label}>类型</Text>
           <View style={styles.kindRow}>
             <Pressable onPress={() => setIsBoolean(true)} style={[styles.kindChip, isBoolean && styles.kindChipActive]}>
@@ -244,14 +303,33 @@ export default function HabitsScreen() {
             </Pressable>
           </View>
           {!isBoolean ? (
-            <>
-              <Text style={styles.label}>目标值</Text>
-              <TextInput style={styles.input} value={targetValue} onChangeText={setTargetValue} keyboardType="numeric" placeholder="8" placeholderTextColor={colors.textFaint} />
-            </>
+            <Field label="目标值" value={targetValue} onChangeText={setTargetValue} keyboardType="numeric" placeholder="8" />
           ) : null}
-          <Pressable style={[styles.primaryBtn, saving && { opacity: 0.5 }]} disabled={saving} onPress={() => void submit()}>
-            {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>保存习惯</Text>}
-          </Pressable>
+
+          {/* 可选时间段：只存 + 展示（决策 D5：本期不发本地通知） */}
+          <Text style={styles.label}>时间段（可选）</Text>
+          <View style={styles.timeRow}>
+            <Field
+              value={remindStart}
+              onChangeText={setRemindStart}
+              placeholder="07:00"
+              keyboardType="numbers-and-punctuation"
+              maxLength={5}
+              containerStyle={styles.timeField}
+            />
+            <Text style={styles.timeDash}>–</Text>
+            <Field
+              value={remindEnd}
+              onChangeText={setRemindEnd}
+              placeholder="08:00"
+              keyboardType="numbers-and-punctuation"
+              maxLength={5}
+              containerStyle={styles.timeField}
+            />
+          </View>
+          <Text style={styles.muted}>留空表示不限定时间；本期只做记录与展示，不会触发提醒。</Text>
+
+          <Button label="保存习惯" loading={saving} onPress={() => void submit()} />
         </View>
       </BottomSheet>
     </ScrollView>
@@ -277,6 +355,7 @@ const makeStyles = (colors: ThemeColors) =>
     itemHeadRow: { flexDirection: "row", alignItems: "center", gap: 8 },
     itemTitle: { fontSize: 15, fontWeight: "800", color: colors.text, flexShrink: 1 },
     streak: { fontSize: 12, fontWeight: "800", color: colors.accentStrong },
+    timeBadge: { fontSize: 11, fontWeight: "700", color: colors.primary, backgroundColor: colors.primarySoft, borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 },
     muted: { fontSize: 11, color: colors.textMuted },
     strip: { flexDirection: "row", gap: 4, marginTop: 4 },
     stripDot: { height: 5, width: 18, borderRadius: 999, backgroundColor: colors.surfaceMuted },
@@ -284,6 +363,22 @@ const makeStyles = (colors: ThemeColors) =>
     stripDotSkip: { backgroundColor: "transparent", borderWidth: 1, borderColor: colors.border },
     form: { gap: 10, paddingTop: 6 },
     label: { fontSize: 12, fontWeight: "700", color: colors.textMuted },
+    iconGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    iconCell: {
+      width: 44,
+      height: 44,
+      borderRadius: 14,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    iconCellActive: { backgroundColor: colors.primarySoft, borderColor: colors.primary, borderWidth: 2 },
+    iconGlyph: { fontSize: 20 },
+    timeRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+    timeField: { flex: 1, minWidth: 0 },
+    timeDash: { fontSize: 16, color: colors.textMuted },
     kindRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     kindChip: { borderRadius: 999, paddingHorizontal: 13, paddingVertical: 7, backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.border },
     kindChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },

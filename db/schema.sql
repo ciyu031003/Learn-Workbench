@@ -1001,6 +1001,8 @@ CREATE TABLE IF NOT EXISTS habits (
   schedule     int[] NOT NULL DEFAULT ARRAY[0,1,2,3,4,5,6],
   color        text NOT NULL DEFAULT '#6366f1',
   sort_order   int NOT NULL DEFAULT 0,
+  remind_start text,                            -- HH:MM，可选（来自迁移 043）
+  remind_end   text,                            -- HH:MM，可选（来自迁移 043）
   archived_at  timestamptz,
   deleted_at   timestamptz,
   client_id    text,

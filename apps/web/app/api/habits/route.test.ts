@@ -95,4 +95,28 @@ describe("POST /api/habits", () => {
     expect(String(queryMock.mock.calls[0][0])).toContain("anon_id");
     expect((queryMock.mock.calls[0][1] as unknown[])[0]).toBe("anon-9");
   });
+
+  // 迁移 043 / Bug 7c：可选时间段（HH:MM），非法或空一律存 null
+  it("persists a valid remind window", async () => {
+    userScopeMock.mockResolvedValue({ uid: "u-1", anonId: null });
+    parseBodyMock.mockResolvedValue({ ok: true, data: { name: "晨跑", remindStart: "07:00", remindEnd: "08:00" } });
+    queryMock.mockResolvedValue({ rows: [{ id: 6 }] } as never);
+    const res = await POST(new Request("http://localhost", { method: "POST" }));
+    expect(res.status).toBe(201);
+    const args = queryMock.mock.calls[0][1] as unknown[];
+    // cols: name, icon, isBoolean, targetValue, unit, schedule, color, sortOrder, remindStart, remindEnd, clientId
+    expect(args[9]).toBe("07:00");
+    expect(args[10]).toBe("08:00");
+  });
+
+  it("drops an invalid remind window without failing the request", async () => {
+    userScopeMock.mockResolvedValue({ uid: "u-1", anonId: null });
+    parseBodyMock.mockResolvedValue({ ok: true, data: { name: "晨跑", remindStart: "25:99", remindEnd: "" } });
+    queryMock.mockResolvedValue({ rows: [{ id: 7 }] } as never);
+    const res = await POST(new Request("http://localhost", { method: "POST" }));
+    expect(res.status).toBe(201);
+    const args = queryMock.mock.calls[0][1] as unknown[];
+    expect(args[9]).toBeNull();
+    expect(args[10]).toBeNull();
+  });
 });

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { pgPool } from "@/lib/db";
 import { userScope, scopeWhere } from "@/lib/anon";
 import { parseBody } from "@/lib/http";
+import { normalizeHabitTime } from "@learn-workbench/shared";
 
 function parseId(raw: string): number | null {
   const n = Number(raw);
@@ -9,7 +10,8 @@ function parseId(raw: string): number | null {
 }
 
 const SELECT_COLS = `id, name, icon, is_boolean AS "isBoolean", target_value AS "targetValue",
-  unit, schedule, color, sort_order AS "sortOrder"`;
+  unit, schedule, color, sort_order AS "sortOrder", remind_start AS "remindStart",
+  remind_end AS "remindEnd"`;
 
 function pickSchedule(raw: unknown): number[] | null {
   if (!Array.isArray(raw)) return null;
@@ -62,6 +64,9 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     push("color", body.color);
   }
   if (body.sortOrder !== undefined) push("sort_order", Math.max(0, Math.min(10000, Math.round(Number(body.sortOrder) || 0))));
+  // 可选时间段（迁移 043）
+  if (body.remindStart !== undefined) push("remind_start", normalizeHabitTime(body.remindStart));
+  if (body.remindEnd !== undefined) push("remind_end", normalizeHabitTime(body.remindEnd));
   if (body.archived !== undefined) push("archived_at", body.archived ? new Date() : null);
 
   if (sets.length === 0) return NextResponse.json({ error: "没有要更新的字段" }, { status: 400 });
