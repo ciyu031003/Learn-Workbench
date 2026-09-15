@@ -13,11 +13,14 @@
 #  3. 构建后强制 apksigner 校验签名 MD5 —— 必须与备案一致，否则包装不上/备案失效。
 # =============================================================================
 param(
-  [string]$VersionName = "1.3.0",
-  [int]$VersionCode = 9,
+  [string]$VersionName = "1.3.1",
+  [int]$VersionCode = 10,
   [string]$Abis = "armeabi-v7a,arm64-v8a",
   [string]$ExpectedMd5 = "3057105285981cc18597a95c1370c147",
-  [switch]$SkipVersionBump
+  [switch]$SkipVersionBump,
+  # R8/资源裁剪默认关闭：包体已达标（约 66MB），而 R8 只能在真机上验证是否破坏反射。
+  # 需要更小包体时加 -EnableR8，并在真机回归通过后再考虑设为默认。
+  [switch]$EnableR8
 )
 
 $ErrorActionPreference = "Stop"
@@ -58,7 +61,7 @@ if (-not $SkipVersionBump) {
   Info "写入版本号到 build.gradle：versionName=$VersionName versionCode=$VersionCode"
   $syncScript = @'
 const fs = require("fs");
-const [gradleFile, appJson, pkgJson, vName, vCode] = process.argv.slice(2);
+const [gradleFile, appJson, pkgJson, otaFile, vName, vCode] = process.argv.slice(2);
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 let g = fs.readFileSync(gradleFile, "utf8");
 g = g.replace(/versionCode\s+\d+/, `versionCode ${vCode}`);
@@ -70,11 +73,18 @@ for (const p of [appJson, pkgJson]) {
   if (p === appJson) j = j.replace(/"versionCode":\s*\d+/, `"versionCode": ${vCode}`);
   fs.writeFileSync(p, j, "utf8");
 }
-console.log("[build] 版本号已同步（gradle/app.json/package.json）");
+// lib/ota.ts 是「App 内展示的版本号」唯一来源，必须一起同步（否则关于页显示旧版本）
+{
+  let o = fs.readFileSync(otaFile, "utf8");
+  o = o.replace(/APP_VERSION_NAME = "[^"]*"/, `APP_VERSION_NAME = "${vName}"`);
+  o = o.replace(/APP_VERSION_CODE = \d+/, `APP_VERSION_CODE = ${vCode}`);
+  fs.writeFileSync(otaFile, o, "utf8");
+}
+console.log("[build] 版本号已同步（gradle/app.json/package.json/ota.ts）");
 '@
   $syncFile = Join-Path $env:TEMP "lwb-sync-version.cjs"
   Set-Content -Path $syncFile -Value $syncScript -Encoding UTF8
-  & node $syncFile $gradleFile (Join-Path $mobile "app.json") (Join-Path $mobile "package.json") $VersionName $VersionCode
+  & node $syncFile $gradleFile (Join-Path $mobile "app.json") (Join-Path $mobile "package.json") (Join-Path $mobile "src\lib\ota.ts") $VersionName $VersionCode
   if ($LASTEXITCODE -ne 0) { Fail "版本号同步失败" }
 }
 
@@ -86,6 +96,72 @@ if ($g -notmatch "versionName\s+`"$([regex]::Escape($VersionName))`"") { Fail "b
 if ($g -notmatch "keystorePropertiesFile") { Fail "build.gradle 未加载 keystore.properties（release 签名会退化为 debug）" }
 if ($g -notmatch "signingConfigs\s*\{[\s\S]*?release\s*\{") { Fail "build.gradle 缺少 signingConfigs.release 配置块" }
 if ($g -notmatch "signingConfig keystorePropertiesFile\.exists\(\)") { Fail "release buildType 未引用正式签名（踩坑点 23）" }
+
+# ---------- 3.5) 原生清单 / 资源 / 包体策略（APP v2 阶段 D） ----------
+# android/ 不进 git，prebuild 会重建它 —— 把「权限收敛 · 预测返回 · 启动图配色 · R8 开关」
+# 固化成幂等修补，保证任何一次 prebuild 之后重新跑本脚本都能得到同样的合规包。
+Info "修补原生清单与资源（权限收敛 / 预测返回 / 启动图配色）"
+$nativePatch = @'
+const fs = require("fs");
+const path = require("path");
+const [androidDir, canvasLight, canvasDark, enableR8] = process.argv.slice(2);
+const log = [];
+
+// 1) AndroidManifest：移除悬浮窗权限（安装页会展示权限列表）+ 打开预测返回
+const manifestPath = path.join(androidDir, "app", "src", "main", "AndroidManifest.xml");
+let m = fs.readFileSync(manifestPath, "utf8");
+const m0 = m;
+m = m.split("\n").filter((l) => !/SYSTEM_ALERT_WINDOW/.test(l)).join("\n");
+m = m.replace(/android:enableOnBackInvokedCallback="false"/, 'android:enableOnBackInvokedCallback="true"');
+if (m !== m0) { fs.writeFileSync(manifestPath, m, "utf8"); log.push("AndroidManifest 已修补"); }
+else { log.push("AndroidManifest 无需修补"); }
+
+// 2) 启动图配色：浅色 = 品牌画布；深色走 values-night
+const resDir = path.join(androidDir, "app", "src", "main", "res");
+const colorsPath = path.join(resDir, "values", "colors.xml");
+let c = fs.readFileSync(colorsPath, "utf8");
+const c0 = c;
+c = c.replace(/(<color name="splashscreen_background">)[^<]*(<\/color>)/, `$1${canvasLight}$2`);
+c = c.replace(/(<color name="iconBackground">)[^<]*(<\/color>)/, `$1${canvasLight}$2`);
+if (c !== c0) { fs.writeFileSync(colorsPath, c, "utf8"); log.push("colors.xml 已修补"); }
+else { log.push("colors.xml 无需修补"); }
+
+const nightDir = path.join(resDir, "values-night");
+const nightPath = path.join(nightDir, "colors.xml");
+const nightXml = `<resources>\n  <color name="splashscreen_background">${canvasDark}</color>\n</resources>\n`;
+if (!fs.existsSync(nightPath) || fs.readFileSync(nightPath, "utf8") !== nightXml) {
+  fs.mkdirSync(nightDir, { recursive: true });
+  fs.writeFileSync(nightPath, nightXml, "utf8");
+  log.push("values-night/colors.xml 已写入");
+} else {
+  log.push("values-night/colors.xml 已是最新");
+}
+
+// 3) R8 / 资源裁剪开关（默认关闭，包体已达标；开启后必须真机回归）
+const propsPath = path.join(androidDir, "gradle.properties");
+const r8Keys = ["android.enableProguardInReleaseBuilds", "android.enableShrinkResourcesInReleaseBuilds"];
+let p = fs.readFileSync(propsPath, "utf8");
+p = p.split("\n").filter((l) => !r8Keys.some((k) => l.startsWith(k + "="))).join("\n");
+p = p.replace(/\n+$/, "\n");
+const want = enableR8 === "true";
+p += r8Keys.map((k) => `${k}=${want}`).join("\n") + "\n";
+fs.writeFileSync(propsPath, p, "utf8");
+log.push(`R8/资源裁剪 = ${want}`);
+
+console.log("[build] " + log.join(" · "));
+'@
+$patchFile = Join-Path $env:TEMP "lwb-patch-native.cjs"
+Set-Content -Path $patchFile -Value $nativePatch -Encoding UTF8
+$r8Flag = if ($EnableR8) { "true" } else { "false" }
+& node $patchFile $android "#FDF8EF" "#171209" $r8Flag
+if ($LASTEXITCODE -ne 0) { Fail "原生清单/资源修补失败" }
+
+# 修补后断言（防止某次 prebuild 后静默回退）
+$manifest = Get-Content (Join-Path $android "app\src\main\AndroidManifest.xml") -Raw
+if ($manifest -match "SYSTEM_ALERT_WINDOW") { Fail "AndroidManifest 仍声明 SYSTEM_ALERT_WINDOW" }
+if ($manifest -notmatch 'android:enableOnBackInvokedCallback="true"') { Fail "未开启预测返回（enableOnBackInvokedCallback）" }
+$splashColors = Get-Content (Join-Path $android "app\src\main\res\values\colors.xml") -Raw
+if ($splashColors -match "#208AEF") { Fail "启动图配色仍是旧的 #208AEF" }
 
 # ---------- 4) 构建 ----------
 # 注意：gradle 把进度写在 stderr；在 $ErrorActionPreference='Stop' 下 PowerShell 5.1 会把

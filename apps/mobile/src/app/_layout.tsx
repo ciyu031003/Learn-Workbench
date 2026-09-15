@@ -14,6 +14,7 @@ import { useTheme } from "@/theme";
 import { TAB_BAR_HEIGHT } from "@/lib/use-tab-bar-space";
 import type { ThemeColors } from "@/theme/tokens";
 import { startSyncEngine } from "@/lib/sync-engine";
+import { silentCheckForUpdate } from "@/lib/ota";
 import { secureToken } from "@/lib/secure-token";
 import { useAppStore } from "@/store/app-store";
 import { migrateLegacySports } from "@/store/sport-legacy";
@@ -140,6 +141,8 @@ export default function RootLayout() {
       stopSync = startSyncEngine();
       // 旧运动记录一次性并入 app-store（入同步队列）
       void migrateLegacySports();
+      // OTA 静默检查：有新版本时只落盘标记，「我的」页展示（不弹窗、不打断启动）
+      void silentCheckForUpdate();
     });
     return () => {
       cancelled = true;

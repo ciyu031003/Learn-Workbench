@@ -1,5 +1,5 @@
-export const APP_VERSION_NAME = "1.2.0";
-export const APP_VERSION_CODE = 8;
+export const APP_VERSION_NAME = "1.3.1";
+export const APP_VERSION_CODE = 10;
 export const APP_ICP_NUMBER = "赣ICP备2024031528号-3A";
 export const PRIVACY_POLICY_URL = "https://learn.yuanabd.cn/privacy.html";
 export const ICP_VERIFY_URL = "https://beian.miit.gov.cn/";
@@ -73,4 +73,73 @@ export async function checkForUpdate(baseUrl?: string): Promise<OtaCheckResult> 
     apkUrl: hasUpdate ? manifest.apkUrl : undefined,
     releaseNotes: hasUpdate ? manifest.releaseNotes : undefined,
   };
+}
+
+/* ============ 启动静默检查（APP v2 阶段 D / 决策 D8 收尾） ============
+ * 目标：不打断启动、不弹窗，只在「我的」页把「检查更新」那一行标成「发现新版本」，
+ * 并把 release notes 带过去展示。结果写 AsyncStorage（失败/离网时静默忽略）。
+ */
+const PENDING_UPDATE_KEY = "lwb.pendingUpdate.v1";
+
+export interface PendingUpdate {
+  versionName: string;
+  versionCode: number;
+  apkUrl?: string;
+  releaseNotes?: string[];
+  /** 检查时间（ISO） */
+  checkedAt: string;
+}
+
+/** 启动时调用：有新版本就落盘；无更新/失败则清除旧标记。永不抛错。 */
+export async function silentCheckForUpdate(baseUrl?: string): Promise<PendingUpdate | null> {
+  if (process.env.NODE_ENV === "test") return null;
+  try {
+    const [result, storage] = await Promise.all([checkForUpdate(baseUrl), import("@react-native-async-storage/async-storage")]);
+    const AsyncStorage = storage.default;
+    if (!result.hasUpdate) {
+      await AsyncStorage.removeItem(PENDING_UPDATE_KEY);
+      return null;
+    }
+    const pending: PendingUpdate = {
+      versionName: result.latestVersionName,
+      versionCode: result.latestVersionCode,
+      apkUrl: result.apkUrl,
+      releaseNotes: result.releaseNotes,
+      checkedAt: new Date().toISOString(),
+    };
+    await AsyncStorage.setItem(PENDING_UPDATE_KEY, JSON.stringify(pending));
+    return pending;
+  } catch {
+    // 离网 / 清单不可用：保持原状，不打扰用户
+    return null;
+  }
+}
+
+/** 读取启动检查结果（「我的」页用来初始化「发现新版本」状态） */
+export async function readPendingUpdate(): Promise<PendingUpdate | null> {
+  if (process.env.NODE_ENV === "test") return null;
+  try {
+    const { default: AsyncStorage } = await import("@react-native-async-storage/async-storage");
+    const raw = await AsyncStorage.getItem(PENDING_UPDATE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PendingUpdate;
+    // 已经装上去了就不再提示
+    if (!isNewer(parsed.versionCode)) {
+      await AsyncStorage.removeItem(PENDING_UPDATE_KEY);
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+/** 用户点过「稍后」→ 清除标记 */
+export async function clearPendingUpdate(): Promise<void> {
+  try {
+    const { default: AsyncStorage } = await import("@react-native-async-storage/async-storage");
+    await AsyncStorage.removeItem(PENDING_UPDATE_KEY);
+  } catch {
+    // 忽略
+  }
 }

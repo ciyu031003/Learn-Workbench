@@ -13,6 +13,9 @@ import {
   ICP_VERIFY_URL,
   PRIVACY_POLICY_URL,
   checkForUpdate,
+  clearPendingUpdate,
+  readPendingUpdate,
+  silentCheckForUpdate,
 } from "@/lib/ota";
 import { Card } from "@/components/card";
 import { Button, ButtonRow } from "@/components/button";
@@ -74,6 +77,15 @@ export default function SettingsScreen() {
     })();
   }, []);
 
+  // OTA 启动静默检查的落盘结果：进来就把这一行标成「发现新版本」（不弹窗）
+  useEffect(() => {
+    void (async () => {
+      const pending = await readPendingUpdate();
+      if (pending) setUpdateState("update");
+      else void silentCheckForUpdate();
+    })();
+  }, []);
+
   const handleAuthed = (token: string, username: string) => {
     setAuth(token, username);
     setMsg(`欢迎回来，${username}：本机数据将自动同步云端`);
@@ -115,6 +127,7 @@ export default function SettingsScreen() {
       const result = await checkForUpdate();
       if (!result.hasUpdate) {
         setUpdateState("latest");
+        await clearPendingUpdate();
         Alert.alert("已是最新版本", `当前版本：苦旅 v${APP_VERSION_NAME}`);
         return;
       }
@@ -124,7 +137,14 @@ export default function SettingsScreen() {
           ? `\n\n${result.releaseNotes.join("\n")}`
           : "";
       Alert.alert("发现新版本", `苦旅 v${result.latestVersionName} 可下载${notes}`, [
-        { text: "稍后", style: "cancel" },
+        {
+          text: "稍后",
+          style: "cancel",
+          onPress: () => {
+            void clearPendingUpdate();
+            setUpdateState("idle");
+          },
+        },
         {
           text: "立即更新",
           onPress: () => {
@@ -357,7 +377,7 @@ export default function SettingsScreen() {
           {updateState === "checking" ? (
             <ActivityIndicator size="small" color={colors.primary} />
           ) : (
-            <Text style={styles.aboutMeta}>
+            <Text style={[styles.aboutMeta, updateState === "update" && styles.aboutMetaNew]}>
               {updateState === "update"
                 ? "发现新版本"
                 : updateState === "latest"
@@ -508,4 +528,5 @@ const makeStyles = (colors: ThemeColors) =>
   aboutLinkRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 7 },
   aboutLinkText: { flex: 1, fontSize: 14, color: colors.primary, fontWeight: "600" },
   aboutMeta: { fontSize: 12, color: colors.textMuted },
+  aboutMetaNew: { color: colors.accentStrong, fontWeight: "800" },
 });
