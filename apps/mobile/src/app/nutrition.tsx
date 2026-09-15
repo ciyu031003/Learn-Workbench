@@ -19,6 +19,7 @@ import { DayStrip } from "@/components/day-strip";
 import { MacroMiniRings, type MacroRingItem } from "@/components/macro-mini-rings";
 import { MealEditSheet, type MealUpdate } from "@/components/meal-edit-sheet";
 import { PortionSlider } from "@/components/portion-slider";
+import { StickerBookSheet } from "@/components/sticker-book";
 import { SwipeRow } from "@/components/swipe-row";
 import { WaterCard } from "@/components/water-card";
 import { WeightCard } from "@/components/weight-card";
@@ -123,6 +124,8 @@ export default function NutritionScreen() {
   const [wellnessBusy, setWellnessBusy] = useState(false);
   const [weightOpen, setWeightOpen] = useState(false);
   const [weightDraft, setWeightDraft] = useState("");
+  // M9 深化：收集册弹层
+  const [bookOpen, setBookOpen] = useState(false);
 
   /** 有效目标：身体数据算出来（或手动覆盖），失败回落 shared 默认值 */
   const target = useMemo(() => {
@@ -795,10 +798,18 @@ export default function NutritionScreen() {
         })
       )}
 
-      {/* M9 我的饮食日记：把这一天的食物收集成贴纸（点一下 = 再记一份） */}
+      {/* M9 我的饮食日记：当天贴纸（点一下 = 再记一份），完整收集册在弹层里 */}
       {stickers.length > 0 ? (
         <Card style={styles.stickerCard}>
-          <SectionHeader title="我的饮食日记" subtitle={`今天收集了 ${stickers.length} 种食物`} />
+          <SectionHeader
+            title="我的饮食日记"
+            subtitle={`今天收集了 ${stickers.length} 种食物`}
+            actionLabel="收集册"
+            onAction={() => {
+              haptics.soft();
+              setBookOpen(true);
+            }}
+          />
           <View style={styles.stickerGrid}>
             {stickers.map((s) => (
               <Pressable
@@ -824,6 +835,23 @@ export default function NutritionScreen() {
           </View>
         </Card>
       ) : null}
+
+      <StickerBookSheet
+        visible={bookOpen}
+        reloadKey={entries.length}
+        onClose={() => setBookOpen(false)}
+        onPick={(name, avgKcal) => {
+          const food = foods.find((f) => f.name === name);
+          if (food) {
+            void quickAdd(food);
+            return;
+          }
+          // 不在常用库里：带着名字与平均热量打开手动表单（今天先落账）
+          setManual((prev) => ({ ...prev, name, kcal: String(Math.round(avgKcal)) }));
+          setBookOpen(false);
+          setSheetOpen(true);
+        }}
+      />
 
       <BottomSheet visible={sheetOpen} onClose={closeSheet} title="添加饮食" height="86%">
         <View style={styles.form}>

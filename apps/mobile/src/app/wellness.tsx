@@ -18,6 +18,7 @@ import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { useFocusRefresh } from "@/lib/use-focus-refresh";
 import { useRefreshable } from "@/lib/use-refresh";
+import { mealKindLabels } from "@learn-workbench/shared";
 import { getApiUrl } from "@/config";
 
 interface DailyOs {
@@ -28,6 +29,8 @@ interface DailyOs {
     nutritionKcal: number;
     nutritionTargetKcal: number;
     nutritionRemainingKcal?: number;
+    /** 今日饮食明细（最近 5 条，v3 M11 深化） */
+    nutritionEntries?: { id: number; name: string; meal: "breakfast" | "lunch" | "dinner" | "snack"; kcal: number }[];
   };
   hydration?: { totalMl: number; targetMl: number };
   habits: { scheduled: number; done: number };
@@ -83,6 +86,8 @@ export default function WellnessScreen() {
   const habitPct =
     data && data.habits.scheduled > 0 ? Math.round((data.habits.done / data.habits.scheduled) * 100) : 0;
 
+  const dietEntries = data?.fitness.nutritionEntries ?? [];
+
   // 今日状态分（readiness）：借 Orbix Pulse 的「先知道自己在哪一档」——
   // 健康页 hero 给一个分数 + 一句结论，而不是罗列三个孤立数字（D8/§1.5.3D）
   const readiness = useMemo(
@@ -134,12 +139,8 @@ export default function WellnessScreen() {
         </GlassSurface>
       )}
 
-      {/* ② 今日饮食摘要（v3 M11「一处看全」：剩余可吃 + 饮水，点开进饮食页） */}
-      <PressableScale
-        haptic
-        scaleTo={0.98}
-        onPress={() => router.push("/nutrition" as never)}
-      >
+      {/* ② 今日饮食（v3 M11 深化：剩余可吃 + 饮水 + 吃了什么，点开进饮食页记一条） */}
+      <PressableScale haptic scaleTo={0.98} onPress={() => router.push("/nutrition" as never)}>
         <Card style={styles.dietCard}>
           <View style={styles.dietRow}>
             <View style={styles.dietItem}>
@@ -185,6 +186,25 @@ export default function WellnessScreen() {
               </View>
             </View>
           </View>
+
+          {/* 今日吃了什么（最近 3 条） */}
+          {dietEntries.length > 0 ? (
+            <View style={styles.dietList}>
+              {dietEntries.slice(0, 3).map((e) => (
+                <View key={e.id} style={styles.dietEntryRow}>
+                  <ThemedIcon name="ellipse" size={6} color={colors.accent} />
+                  <Text style={styles.dietEntryName} numberOfLines={1}>{e.name}</Text>
+                  <Text style={styles.dietEntryMeal}>{mealKindLabels[e.meal] ?? ""}</Text>
+                  <Text style={styles.dietEntryKcal}>{e.kcal} kcal</Text>
+                </View>
+              ))}
+              {dietEntries.length > 3 ? (
+                <Text style={styles.dietHint}>还有 {dietEntries.length - 3} 条 · 查看全部</Text>
+              ) : null}
+            </View>
+          ) : (
+            <Text style={styles.dietHint}>今天还没记录饮食，点这里记一条 ›</Text>
+          )}
         </Card>
       </PressableScale>
 
@@ -239,6 +259,11 @@ const makeStyles = (colors: ThemeColors) =>
     dietValue: { ...typography.title2, fontWeight: "800", color: colors.text, ...tabularNums },
     dietUnit: { ...typography.micro, fontWeight: "600", color: colors.textMuted },
     dietHint: { ...typography.micro, fontWeight: "400", color: colors.textFaint, ...tabularNums },
+    dietList: { gap: 6, marginTop: 2 },
+    dietEntryRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+    dietEntryName: { flex: 1, minWidth: 0, ...typography.callout, fontWeight: "600", color: colors.text },
+    dietEntryMeal: { ...typography.micro, fontWeight: "500", color: colors.textFaint },
+    dietEntryKcal: { ...typography.micro, fontWeight: "700", color: colors.accentStrong, ...tabularNums },
     waterTrack: { height: 5, borderRadius: 999, backgroundColor: colors.surfaceMuted, overflow: "hidden", marginTop: 4 },
     waterFill: { height: 5, borderRadius: 999, backgroundColor: colors.teal },
     grid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },

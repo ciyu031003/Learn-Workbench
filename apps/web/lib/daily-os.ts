@@ -31,6 +31,8 @@ export interface DailyOsResult {
     nutritionTargetKcal: number;
     /** 今日剩余可吃（可为负；v3 M11 今日页与健康 Hub 共用） */
     nutritionRemainingKcal?: number;
+    /** 今日饮食明细（最近 5 条；v3 M11 让 Hub/今日页直接看到吃了什么） */
+    nutritionEntries?: { id: number; name: string; meal: string; kcal: number; createdAt?: string }[];
   };
   /** 今日饮水（v3 M7/M11：复用 hydration_logs，无需新表） */
   hydration?: { totalMl: number; targetMl: number };
@@ -116,14 +118,33 @@ export async function buildDailyOs(scope: Scope, now: Date = new Date()): Promis
     workoutWhere.params
   );
 
-  // ---- 饮食（今日摄入） ----
+  // ---- 饮食（今日摄入 + 明细前 5 条，供「一处看全」直接展示，无需再发一次请求） ----
   const mealWhere = scopeWhere(scope, [scope.uid, dateKey]);
-  const { rows: mealRows } = await pgPool.query<{ kcal: string }>(
-    `SELECT kcal FROM meal_entries
-      WHERE user_id IS NOT DISTINCT FROM $1${mealWhere.sql} AND log_date = $2::date AND deleted_at IS NULL`,
+  const { rows: mealRows } = await pgPool.query<{
+    id: string;
+    name: string;
+    meal: string;
+    kcal: string;
+    createdAt: string;
+  }>(
+    `SELECT id, name, meal, kcal, created_at AS "createdAt"
+       FROM meal_entries
+      WHERE user_id IS NOT DISTINCT FROM $1${mealWhere.sql} AND log_date = $2::date AND deleted_at IS NULL
+      ORDER BY created_at DESC, id DESC`,
     mealWhere.params
   );
   const nutrition = sumNutrition(mealRows.map((r) => ({ kcal: Number(r.kcal), proteinG: 0, carbsG: 0, fatG: 0 })));
+  const nutritionEntries = mealRows.slice(0, 5).map((r) => ({
+    id: Number(r.id),
+    name: r.name,
+    meal: (["breakfast", "lunch", "dinner", "snack"].includes(r.meal) ? r.meal : "snack") as
+      | "breakfast"
+      | "lunch"
+      | "dinner"
+      | "snack",
+    kcal: Math.round(Number(r.kcal)),
+    createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : undefined,
+  }));
 
   // ---- 职业：目标岗位 + 高匹配数 + 在途投递 + 临期证书 ----
   const profWhere = scopeWhere(scope, [scope.uid]);
@@ -251,6 +272,7 @@ export async function buildDailyOs(scope: Scope, now: Date = new Date()): Promis
       nutritionKcal: nutrition.kcal,
       nutritionTargetKcal,
       nutritionRemainingKcal: nutritionTargetKcal - nutrition.kcal,
+      nutritionEntries,
     },
     hydration: { totalMl: hydrationTotalMl, targetMl: hydrationTargetMl },
     habits: { scheduled, done: habitsDone },

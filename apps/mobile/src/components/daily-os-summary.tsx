@@ -7,9 +7,11 @@ import { PressableScale } from "@/components/pressable-scale";
 import { GlassSurface } from "@/components/surface";
 import { ProgressArc } from "@/components/progress-arc";
 import { StatLine } from "@/components/stat";
+import { FoodSticker } from "@/components/food-sticker";
 import { useTheme } from "@/theme";
 import type { ThemeColors } from "@/theme/tokens";
-import { radius, spacing, typography } from "@/theme/tokens";
+import { radius, spacing, tabularNums, typography } from "@/theme/tokens";
+import { mealKindLabels } from "@learn-workbench/shared";
 import { useAppStore } from "@/store/app-store";
 import { useFocusRefresh } from "@/lib/use-focus-refresh";
 import { getApiUrl } from "@/config";
@@ -26,6 +28,8 @@ export interface DailyOs {
     nutritionKcal: number;
     nutritionTargetKcal: number;
     nutritionRemainingKcal?: number;
+    /** 今日饮食明细（最近 5 条，v3 M11） */
+    nutritionEntries?: { id: number; name: string; meal: "breakfast" | "lunch" | "dinner" | "snack"; kcal: number; createdAt?: string }[];
   };
   /** v3 M11：今日饮水（后端复用 hydration_logs） */
   hydration?: { totalMl: number; targetMl: number };
@@ -120,6 +124,7 @@ export function DailyOsSummary({ onNavigate }: { onNavigate?: (href: string) => 
   // 首次加载尚无数据时不占位（首页其余卡片已在渲染，避免骨架闪烁）
   if (!data) return null;
 
+  const entries = data.fitness.nutritionEntries ?? [];
   const pct = Math.max(0, Math.min(100, data.progress));
   // Orbix：「鼓励而非警示」——结论按完成度给正向引导，不做责备式文案
   const verdict =
@@ -183,17 +188,38 @@ export function DailyOsSummary({ onNavigate }: { onNavigate?: (href: string) => 
         ))}
       </View>
 
-      {/* 饮食明细入口（一行；更细的明细进「更多」） */}
+      {/* 今日饮食明细（v3 M11：直接看到吃了什么，点进饮食页看全部） */}
       <PressableScale haptic onPress={() => go("/nutrition")}>
-        <Card style={styles.row}>
-          <ThemedIcon name="restaurant-outline" size={18} color={colors.primary} />
-          <View style={styles.rowBody}>
-            <Text style={styles.rowLabel}>今日饮食</Text>
-            <Text style={styles.muted}>
-              {data.fitness.nutritionKcal} / {data.fitness.nutritionTargetKcal} kcal
-            </Text>
+        <Card style={styles.dietCard}>
+          <View style={styles.dietHead}>
+            <ThemedIcon name="restaurant-outline" size={18} color={colors.primary} />
+            <View style={styles.rowBody}>
+              <Text style={styles.rowLabel}>今日饮食</Text>
+              <Text style={styles.muted}>
+                {data.fitness.nutritionKcal} / {data.fitness.nutritionTargetKcal} kcal
+                {entries.length > 0 ? ` · ${entries.length} 条` : ""}
+              </Text>
+            </View>
+            <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
           </View>
-          <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
+
+          {entries.length === 0 ? (
+            <Text style={styles.muted}>还没有记录，去记一条吧</Text>
+          ) : (
+            <View style={styles.dietList}>
+              {entries.slice(0, 3).map((e) => (
+                <View key={e.id} style={styles.dietRow}>
+                  <FoodSticker name={e.name} size={28} />
+                  <Text style={styles.dietName} numberOfLines={1}>{e.name}</Text>
+                  <Text style={styles.dietMeal}>{mealKindLabels[e.meal] ?? ""}</Text>
+                  <Text style={styles.dietKcal}>{e.kcal} kcal</Text>
+                </View>
+              ))}
+              {entries.length > 3 ? (
+                <Text style={styles.muted}>还有 {entries.length - 3} 条 · 查看全部</Text>
+              ) : null}
+            </View>
+          )}
         </Card>
       </PressableScale>
     </View>
@@ -221,4 +247,11 @@ const makeStyles = (colors: ThemeColors) =>
     row: { flexDirection: "row", alignItems: "center", gap: spacing.md },
     rowBody: { flex: 1, minWidth: 0 },
     rowLabel: { ...typography.callout, fontWeight: "800", color: colors.text },
+    dietCard: { gap: spacing.sm },
+    dietHead: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+    dietList: { gap: 6 },
+    dietRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+    dietName: { flex: 1, minWidth: 0, ...typography.callout, fontWeight: "600", color: colors.text },
+    dietMeal: { ...typography.micro, fontWeight: "500", color: colors.textFaint },
+    dietKcal: { ...typography.micro, fontWeight: "700", color: colors.accentStrong, ...tabularNums },
   });

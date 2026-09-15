@@ -127,4 +127,43 @@ describe("buildDailyOs", () => {
     await buildDailyOs({ uid: "u-1", anonId: null }, TODAY);
     expect(queryMock.mock.calls.some(([sql]) => String(sql).includes("FROM habit_logs"))).toBe(false);
   });
+
+  // v3 M11 深化：今日饮食明细随聚合一起返回（Hub/今日页不必再发一次请求）
+  it("returns today's nutrition entries (latest first, capped at 5)", async () => {
+    setup({
+      meals: [
+        { id: "9", name: "桃子", meal: "snack", kcal: "62", createdAt: "2026-09-14T02:17:00.000Z" },
+        { id: "8", name: "香煎鳕鱼海鲜烩菜", meal: "dinner", kcal: "520", createdAt: "2026-09-14T02:16:00.000Z" },
+        { id: "7", name: "米饭", meal: "lunch", kcal: "230", createdAt: "2026-09-14T02:15:00.000Z" },
+        { id: "6", name: "水煮蛋", meal: "breakfast", kcal: "78", createdAt: "2026-09-14T02:14:00.000Z" },
+        { id: "5", name: "牛奶", meal: "breakfast", kcal: "120", createdAt: "2026-09-14T02:13:00.000Z" },
+        { id: "4", name: "苹果", meal: "snack", kcal: "80", createdAt: "2026-09-14T02:12:00.000Z" },
+      ],
+    });
+    const r = await buildDailyOs({ uid: "u-1", anonId: null }, TODAY);
+    expect(r.fitness.nutritionEntries).toHaveLength(5);
+    expect(r.fitness.nutritionEntries?.[0]).toEqual({
+      id: 9,
+      name: "桃子",
+      meal: "snack",
+      kcal: 62,
+      createdAt: "2026-09-14T02:17:00.000Z",
+    });
+    // 热量合计用的是全部条目（不只是展示的 5 条）
+    expect(r.fitness.nutritionKcal).toBe(62 + 520 + 230 + 78 + 120 + 80);
+    expect(r.fitness.nutritionRemainingKcal).toBe(2000 - (62 + 520 + 230 + 78 + 120 + 80));
+  });
+
+  it("normalises an unknown meal value to snack (不崩、不返回脏枚举)", async () => {
+    setup({ meals: [{ id: "1", name: "x", meal: "brunch", kcal: "100", createdAt: "2026-09-14T02:00:00.000Z" }] });
+    const r = await buildDailyOs({ uid: "u-1", anonId: null }, TODAY);
+    expect(r.fitness.nutritionEntries?.[0].meal).toBe("snack");
+  });
+
+  it("hydrates today's water intake from hydration_logs", async () => {
+    setup({});
+    const r = await buildDailyOs({ uid: "u-1", anonId: null }, TODAY);
+    expect(r.hydration).toEqual({ totalMl: 0, targetMl: 2000 });
+    expect(queryMock.mock.calls.some(([sql]) => String(sql).includes("FROM hydration_logs"))).toBe(true);
+  });
 });
