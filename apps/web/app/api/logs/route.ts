@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbErrorResponse } from "@/lib/api-error";
 import { pgPool } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
 import { getAnonId, anonFilterSql } from "@/lib/anon";
@@ -37,6 +38,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  try {
   const body = await req.json().catch(() => null);
   const kind = String(body?.kind || "");
   const career = String(body?.career || "ict");
@@ -60,4 +62,7 @@ export async function POST(req: Request) {
     [anonId, kind, career, title, content]
   );
   return NextResponse.json({ log: rows[0] }, { status: 201 });
+  } catch (e) {
+    return dbErrorResponse(e);
+  }
 }

@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
+import { dbErrorResponse } from "@/lib/api-error";
 import { pgPool } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
 import { getAnonId } from "@/lib/anon";
 
 export async function POST(req: Request) {
+  try {
   const body = await req.json().catch(() => null);
   if (!body) {
     return NextResponse.json({ error: "bad request" }, { status: 400 });
@@ -35,4 +37,7 @@ export async function POST(req: Request) {
     );
   }
   return NextResponse.json({ ok: true });
+  } catch (e) {
+    return dbErrorResponse(e);
+  }
 }

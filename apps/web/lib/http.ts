@@ -33,6 +33,13 @@ export async function parseBody(req: Request, maxBytes = 1_000_000): Promise<Bod
  * 最后回退请求 URL。绝不读取 Origin 头——它可被请求方任意指定，
  * 用它拼密码重置链接会导致链接投毒（token 外泄到攻击者域）。
  */
+
+/**
+ * 站点对外 origin（拼邮件链接/回跳地址用）：
+ * 优先固定配置 WEB_BASE_URL，其次代理头（x-forwarded-host/proto，nginx 传递的 Host），
+ * 最后回退请求 URL。绝不读取 Origin 头——它可被请求方任意指定，
+ * 用它拼密码重置链接会导致链接投毒（token 外泄到攻击者域）。
+ */
 export function siteOrigin(req: Request): string {
   const configured = process.env.WEB_BASE_URL?.trim().replace(/\/$/, "");
   if (configured) return configured;

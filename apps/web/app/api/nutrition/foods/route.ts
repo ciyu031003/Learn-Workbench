@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbErrorResponse } from "@/lib/api-error";
 import { pgPool } from "@/lib/db";
 import { userScope } from "@/lib/anon";
 import { parseBody } from "@/lib/http";
@@ -59,6 +60,7 @@ export async function GET(req: Request) {
 
 /** POST /api/nutrition/foods —— 保存常用食物（登录用户私有；同名 upsert） */
 export async function POST(req: Request) {
+  try {
   const parsed = await parseBody(req, 64 * 1024);
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: parsed.status });
   const body = (parsed.data ?? {}) as Record<string, unknown>;
@@ -81,4 +83,7 @@ export async function POST(req: Request) {
     [userId, name, unit, num(body.kcal, 10000), num(body.proteinG, 1000), num(body.carbsG, 1000), num(body.fatG, 1000)]
   );
   return NextResponse.json({ food: rows[0] }, { status: 201 });
+  } catch (e) {
+    return dbErrorResponse(e);
+  }
 }

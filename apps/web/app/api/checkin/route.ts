@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
+import { dbErrorResponse } from "@/lib/api-error";
 import { pgPool } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
 import { getAnonId } from "@/lib/anon";
 
 export async function POST(req: Request) {
+  try {
   const body = await req.json().catch(() => ({}));
   const note = typeof body?.note === "string" ? body.note.trim() : null;
   const uid = await currentUserId();
@@ -22,4 +24,7 @@ export async function POST(req: Request) {
     );
   }
   return NextResponse.json({ ok: true });
+  } catch (e) {
+    return dbErrorResponse(e);
+  }
 }

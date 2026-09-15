@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbErrorResponse } from "@/lib/api-error";
 import { pgPool } from "@/lib/db";
 import { userScope, scopeWhere } from "@/lib/anon";
 import { todayISO } from "@learn-workbench/shared";
@@ -28,6 +29,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  try {
   const body = await req.json().catch(() => null);
   const amountMl = Number(body?.amountMl);
   if (!Number.isFinite(amountMl) || amountMl <= 0 || amountMl > 2000) {
@@ -50,6 +52,9 @@ export async function POST(req: Request) {
     ));
   }
   return NextResponse.json({ log: rows[0] }, { status: 201 });
+  } catch (e) {
+    return dbErrorResponse(e);
+  }
 }
 
 /** DELETE /api/wellbeing/hydration?id= —— 撤销一条饮水记录（软删，v3 M7） */

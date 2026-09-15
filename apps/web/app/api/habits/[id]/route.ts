@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbErrorResponse } from "@/lib/api-error";
 import { pgPool } from "@/lib/db";
 import { userScope, scopeWhere } from "@/lib/anon";
 import { parseBody } from "@/lib/http";
@@ -26,6 +27,7 @@ function pickSchedule(raw: unknown): number[] | null {
 
 /** PATCH /api/habits/[id] —— 更新习惯（名称/目标/排期/颜色/排序/归档） */
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  try {
   const { id: rawId } = await ctx.params;
   const id = parseId(rawId);
   if (!id) return NextResponse.json({ error: "id 无效" }, { status: 400 });
@@ -79,6 +81,9 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   );
   if (!rows[0]) return NextResponse.json({ error: "未找到习惯" }, { status: 404 });
   return NextResponse.json({ habit: rows[0] });
+  } catch (e) {
+    return dbErrorResponse(e);
+  }
 }
 
 /** DELETE /api/habits/[id] —— 软删除（级联保留历史打卡） */

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbErrorResponse } from "@/lib/api-error";
 import { pgPool } from "@/lib/db";
 import { userScope } from "@/lib/anon";
 import { parseBody } from "@/lib/http";
@@ -26,6 +27,7 @@ function pickSchedule(raw: unknown): number[] {
 
 /** POST /api/habits —— 新建习惯 */
 export async function POST(req: Request) {
+  try {
   const parsed = await parseBody(req, 128 * 1024);
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: parsed.status });
   const body = (parsed.data ?? {}) as Record<string, unknown>;
@@ -71,4 +73,7 @@ export async function POST(req: Request) {
     ));
   }
   return NextResponse.json({ habit: rows[0] }, { status: 201 });
+  } catch (e) {
+    return dbErrorResponse(e);
+  }
 }

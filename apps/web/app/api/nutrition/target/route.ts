@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbErrorResponse } from "@/lib/api-error";
 import { pgPool } from "@/lib/db";
 import { userScope, scopeWhere } from "@/lib/anon";
 import { parseBody } from "@/lib/http";
@@ -94,6 +95,7 @@ export async function GET() {
  * 传 null 表示清空该项（回到自动算）。
  */
 export async function PUT(req: Request) {
+  try {
   const parsed = await parseBody(req, 64 * 1024);
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: parsed.status });
   const body = (parsed.data ?? {}) as Record<string, unknown>;
@@ -166,4 +168,7 @@ export async function PUT(req: Request) {
     },
     target: toView(row),
   });
+  } catch (e) {
+    return dbErrorResponse(e);
+  }
 }

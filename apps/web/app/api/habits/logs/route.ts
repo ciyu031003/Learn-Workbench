@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbErrorResponse } from "@/lib/api-error";
 import { pgPool } from "@/lib/db";
 import { userScope, scopeWhere } from "@/lib/anon";
 import { parseBody } from "@/lib/http";
@@ -25,6 +26,7 @@ export async function GET(req: Request) {
  * value 缺省为 1（布尔型打卡）；同一习惯同一天重复提交覆盖。
  */
 export async function POST(req: Request) {
+  try {
   const parsed = await parseBody(req, 64 * 1024);
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: parsed.status });
   const body = (parsed.data ?? {}) as Record<string, unknown>;
@@ -63,6 +65,9 @@ export async function POST(req: Request) {
     [uid, habitId, date, value, note]
   );
   return NextResponse.json({ log: rows[0] }, { status: 201 });
+  } catch (e) {
+    return dbErrorResponse(e);
+  }
 }
 
 /** DELETE /api/habits/logs?habitId=&date= —— 取消打卡 */

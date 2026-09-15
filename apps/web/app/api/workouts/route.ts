@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbErrorResponse } from "@/lib/api-error";
 import { pgPool } from "@/lib/db";
 import { userScope, scopeWhere } from "@/lib/anon";
 import { parseBody } from "@/lib/http";
@@ -109,6 +110,7 @@ export async function GET(req: Request) {
 
 /** POST /api/workouts —— 新建训练（含动作明细） */
 export async function POST(req: Request) {
+  try {
   const parsed = await parseBody(req, 256 * 1024);
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: parsed.status });
   const body = (parsed.data ?? {}) as Record<string, unknown>;
@@ -157,5 +159,8 @@ export async function POST(req: Request) {
     throw e;
   } finally {
     client.release();
+  }
+  } catch (e) {
+    return dbErrorResponse(e);
   }
 }

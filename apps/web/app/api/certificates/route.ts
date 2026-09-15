@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbErrorResponse } from "@/lib/api-error";
 import { pgPool } from "@/lib/db";
 import { userScope, scopeWhere } from "@/lib/anon";
 import { parseBody } from "@/lib/http";
@@ -66,6 +67,7 @@ export async function GET() {
 
 /** POST /api/certificates —— 新建证书 */
 export async function POST(req: Request) {
+  try {
   const parsed = await parseBody(req, 256 * 1024);
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: parsed.status });
   const body = (parsed.data ?? {}) as Record<string, unknown>;
@@ -92,6 +94,9 @@ export async function POST(req: Request) {
     ));
   }
   return NextResponse.json({ record: rows[0] }, { status: 201 });
+  } catch (e) {
+    return dbErrorResponse(e);
+  }
 }
 
 /** PATCH /api/certificates —— 局部更新（id 必填） */

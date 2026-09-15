@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbErrorResponse } from "@/lib/api-error";
 import { pgPool } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
 import { getAnonId, anonFilterSql } from "@/lib/anon";
@@ -36,6 +37,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  try {
   const body = await req.json().catch(() => null);
   const taskDate = String(body?.taskDate || todayISO());
   const title = String(body?.title || "").trim();
@@ -60,9 +62,13 @@ export async function POST(req: Request) {
     [anonId, taskDate, title, taskType, phaseId, career]
   );
   return NextResponse.json({ task: rows[0] }, { status: 201 });
+  } catch (e) {
+    return dbErrorResponse(e);
+  }
 }
 
 export async function PATCH(req: Request) {
+  try {
   const body = await req.json().catch(() => null);
   const id = Number(body?.id);
   if (!Number.isFinite(id)) return NextResponse.json({ error: "id 无效" }, { status: 400 });
@@ -88,4 +94,7 @@ export async function PATCH(req: Request) {
     [...params, ...scopeParams]
   );
   return NextResponse.json({ task: rows[0] ?? null });
+  } catch (e) {
+    return dbErrorResponse(e);
+  }
 }

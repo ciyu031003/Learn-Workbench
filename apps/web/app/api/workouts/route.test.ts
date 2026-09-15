@@ -105,7 +105,28 @@ describe("POST /api/workouts", () => {
       .mockRejectedValueOnce(new Error("boom"))            // INSERT workouts 失败
       .mockResolvedValueOnce({ rows: [] });                // ROLLBACK
     connectMock.mockResolvedValue({ query, release: vi.fn() } as never);
-    await expect(POST(new Request("http://localhost", { method: "POST" }))).rejects.toThrow("boom");
+
+    // 2026-09-15 加固：写接口统一包了错误边界 —— 未知数据库错误不再把裸异常抛给框架（那是 500 的由来），
+    // 而是回结构化 500；事务回滚语义不变。
+    const res = await POST(new Request("http://localhost", { method: "POST" }));
+    expect(res.status).toBe(500);
+    expect((await res.json()).error).toEqual(expect.any(String));
+    expect(query).toHaveBeenCalledWith("ROLLBACK");
+  });
+
+  it("maps a check-constraint violation to 400 instead of 500", async () => {
+    userScopeMock.mockResolvedValue({ uid: "u-1", anonId: null });
+    parseBodyMock.mockResolvedValue({ ok: true, data: { name: "t", items: [] } });
+    const pgError = Object.assign(new Error("check violation"), { code: "23514" });
+    const query = vi.fn()
+      .mockResolvedValueOnce({ rows: [] })   // BEGIN
+      .mockRejectedValueOnce(pgError)        // INSERT 触发 CHECK
+      .mockResolvedValueOnce({ rows: [] });  // ROLLBACK
+    connectMock.mockResolvedValue({ query, release: vi.fn() } as never);
+
+    const res = await POST(new Request("http://localhost", { method: "POST" }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toContain("范围");
     expect(query).toHaveBeenCalledWith("ROLLBACK");
   });
 });

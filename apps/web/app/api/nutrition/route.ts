@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbErrorResponse } from "@/lib/api-error";
 import { pgPool } from "@/lib/db";
 import { userScope, scopeWhere } from "@/lib/anon";
 import { parseBody } from "@/lib/http";
@@ -57,6 +58,7 @@ export async function GET(req: Request) {
  * 若给 foodId，则按所选食物的单位营养 × amount 自动计算（前端也可直接传数值）。
  */
 export async function POST(req: Request) {
+  try {
   const parsed = await parseBody(req, 128 * 1024);
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: parsed.status });
   const body = (parsed.data ?? {}) as Record<string, unknown>;
@@ -135,6 +137,9 @@ export async function POST(req: Request) {
     ));
   }
   return NextResponse.json({ entry: rows[0] }, { status: 201 });
+  } catch (e) {
+    return dbErrorResponse(e);
+  }
 }
 
 /**

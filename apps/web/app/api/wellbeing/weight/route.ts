@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbErrorResponse } from "@/lib/api-error";
 import { pgPool } from "@/lib/db";
 import { userScope, scopeWhere } from "@/lib/anon";
 import { parseBody } from "@/lib/http";
@@ -55,6 +56,7 @@ export async function GET(req: Request) {
  * 同时把 user_settings.weight_kg 更新为最新值（MET 卡路里估算依赖它）。
  */
 export async function POST(req: Request) {
+  try {
   const parsed = await parseBody(req, 32 * 1024);
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: parsed.status });
   const body = (parsed.data ?? {}) as Record<string, unknown>;
@@ -102,6 +104,9 @@ export async function POST(req: Request) {
   }
 
   return NextResponse.json({ ok: true, weightKg }, { status: 201 });
+  } catch (e) {
+    return dbErrorResponse(e);
+  }
 }
 
 /** DELETE /api/wellbeing/weight?id= —— 删除一条体重记录（软删） */

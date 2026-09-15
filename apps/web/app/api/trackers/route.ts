@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbErrorResponse } from "@/lib/api-error";
 import { pgPool } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
 
@@ -19,6 +20,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  try {
   const uid = await currentUserId();
   if (!uid) return NextResponse.json({ error: "请先登录" }, { status: 401 });
   const body = await req.json().catch(() => null);
@@ -40,6 +42,9 @@ export async function POST(req: Request) {
     [uid, domainKey, name, unit, targetValue, targetCadence, color]
   );
   return NextResponse.json({ tracker: rows[0] }, { status: 201 });
+  } catch (e) {
+    return dbErrorResponse(e);
+  }
 }
 
 export async function PATCH(req: Request) {

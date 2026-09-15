@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbErrorResponse } from "@/lib/api-error";
 import { pgPool } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
 import { getAnonId } from "@/lib/anon";
@@ -13,6 +14,7 @@ function toInt(v: unknown): number | null {
 }
 
 export async function POST(req: Request) {
+  try {
   const body = await req.json().catch(() => null);
 
   // 兼容两组命名：新式（client_id/started_at/ended_at/task_id/duration_seconds）+ 旧式（startedAt/endedAt/taskId/durationSeconds）
@@ -121,5 +123,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ session }, { status: 201 });
   } finally {
     client.release();
+  }
+  } catch (e) {
+    return dbErrorResponse(e);
   }
 }
