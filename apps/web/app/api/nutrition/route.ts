@@ -74,6 +74,22 @@ export async function POST(req: Request) {
   const clientId = typeof body.clientId === "string" ? body.clientId.trim().slice(0, 200) || null : null;
 
   const scope = await userScope();
+
+  // 幂等（v3 M4 离线补发）：同一 clientId 重复提交直接返回已存在的那条，避免重复记录
+  if (clientId) {
+    const dup = scopeWhere(scope, [scope.uid, clientId]);
+    const { rows: existing } = await pgPool.query(
+      `SELECT id, log_date AS "logDate", meal, food_id AS "foodId", name, amount, unit,
+              kcal, protein_g AS "proteinG", carbs_g AS "carbsG", fat_g AS "fatG",
+              created_at AS "createdAt"
+         FROM meal_entries
+        WHERE user_id IS NOT DISTINCT FROM $1${dup.sql} AND client_id = $2 AND deleted_at IS NULL
+        LIMIT 1`,
+      dup.params
+    );
+    if (existing[0]) return NextResponse.json({ entry: existing[0], deduped: true }, { status: 200 });
+  }
+
   let foodId: number | null = null;
   let kcal = Math.max(0, Number(body.kcal) || 0);
   let proteinG = Math.max(0, Number(body.proteinG) || 0);
@@ -119,6 +135,96 @@ export async function POST(req: Request) {
     ));
   }
   return NextResponse.json({ entry: rows[0] }, { status: 201 });
+}
+
+/**
+ * PATCH /api/nutrition —— 修改一条记录（v3 M3：点按条目改分量/餐次/热量）
+ * body: { id, amount?, meal?, name?, unit?, kcal?, proteinG?, carbsG?, fatG? }
+ * 若该条来自常用食物（food_id 非空）且只改了 amount → 服务端按食物营养 × 数量重算，避免客户端算错。
+ */
+export async function PATCH(req: Request) {
+  const parsed = await parseBody(req, 128 * 1024);
+  if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: parsed.status });
+  const body = (parsed.data ?? {}) as Record<string, unknown>;
+
+  const id = Number(body.id);
+  if (!Number.isInteger(id) || id <= 0) return NextResponse.json({ error: "id 无效" }, { status: 400 });
+
+  const scope = await userScope();
+  const w = scopeWhere(scope, [scope.uid, id]);
+
+  // 先取出原记录（同时完成作用域校验）
+  const { rows: current } = await pgPool.query<{
+    id: string; foodId: string | null; amount: string; unit: string; name: string;
+    kcal: string; proteinG: string; carbsG: string; fatG: string; meal: string;
+  }>(
+    `SELECT id, food_id AS "foodId", amount, unit, name, kcal,
+            protein_g AS "proteinG", carbs_g AS "carbsG", fat_g AS "fatG", meal
+       FROM meal_entries
+      WHERE user_id IS NOT DISTINCT FROM $1${w.sql} AND id = $2 AND deleted_at IS NULL`,
+    w.params
+  );
+  const entry = current[0];
+  if (!entry) return NextResponse.json({ error: "未找到记录" }, { status: 404 });
+
+  const round1 = (n: number) => Math.round(n * 10) / 10;
+  const clamp = (v: unknown, max: number, fallback: number) => {
+    const n = Number(v);
+    return Number.isFinite(n) && n >= 0 ? Math.min(max, round1(n)) : fallback;
+  };
+
+  let amount = Number(entry.amount);
+  if (body.amount !== undefined) {
+    const n = Number(body.amount);
+    amount = Number.isFinite(n) && n > 0 ? Math.min(1000, round1(n)) : amount;
+  }
+
+  let name = entry.name;
+  if (typeof body.name === "string" && body.name.trim()) name = body.name.trim().slice(0, 80);
+
+  let unit = entry.unit;
+  if (typeof body.unit === "string" && body.unit.trim()) unit = body.unit.trim().slice(0, 20);
+
+  let meal: MealKind = MEAL_KINDS.includes(entry.meal as MealKind) ? (entry.meal as MealKind) : "lunch";
+  if (body.meal !== undefined) {
+    const m = mealKindSchema.safeParse(body.meal);
+    if (m.success) meal = m.data;
+  }
+
+  let kcal = clamp(body.kcal, 100000, Number(entry.kcal));
+  let proteinG = clamp(body.proteinG, 10000, Number(entry.proteinG));
+  let carbsG = clamp(body.carbsG, 10000, Number(entry.carbsG));
+  let fatG = clamp(body.fatG, 10000, Number(entry.fatG));
+
+  // 食物型条目 + 只改分量 → 按食物单位营养重算（客户端不必自己乘）
+  const onlyAmount = body.amount !== undefined && body.kcal === undefined && body.proteinG === undefined
+    && body.carbsG === undefined && body.fatG === undefined;
+  if (onlyAmount && entry.foodId) {
+    const { rows: foods } = await pgPool.query<{ kcal: string; proteinG: string; carbsG: string; fatG: string }>(
+      `SELECT kcal, protein_g AS "proteinG", carbs_g AS "carbsG", fat_g AS "fatG"
+         FROM foods WHERE id = $1 AND (user_id IS NULL OR user_id = $2)`,
+      [Number(entry.foodId), scope.uid]
+    );
+    const f = foods[0];
+    if (f) {
+      kcal = round1(Number(f.kcal) * amount);
+      proteinG = round1(Number(f.proteinG) * amount);
+      carbsG = round1(Number(f.carbsG) * amount);
+      fatG = round1(Number(f.fatG) * amount);
+    }
+  }
+
+  const { rows } = await pgPool.query(
+    `UPDATE meal_entries
+        SET name = $3, meal = $4, amount = $5, unit = $6,
+            kcal = $7, protein_g = $8, carbs_g = $9, fat_g = $10, updated_at = now()
+      WHERE user_id IS NOT DISTINCT FROM $1${w.sql} AND id = $2 AND deleted_at IS NULL
+      RETURNING id, log_date AS "logDate", meal, food_id AS "foodId", name, amount, unit,
+                kcal, protein_g AS "proteinG", carbs_g AS "carbsG", fat_g AS "fatG",
+                created_at AS "createdAt"`,
+    [scope.uid, id, name, meal, amount, unit, kcal, proteinG, carbsG, fatG]
+  );
+  return NextResponse.json({ entry: rows[0] });
 }
 
 /** DELETE /api/nutrition?id= —— 软删除条目 */

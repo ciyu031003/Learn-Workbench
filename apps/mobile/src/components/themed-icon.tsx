@@ -20,6 +20,7 @@ const MAP: Record<string, string> = {
   "flower-outline": "camera.macro",
   // 通用
   "add": "plus",
+  "remove": "minus",
   "add-circle-outline": "plus.circle",
   "close": "xmark",
   "close-circle": "xmark.circle",

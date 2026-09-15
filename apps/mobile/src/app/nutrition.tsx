@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import Animated, { FadeInUp, LinearTransition } from "react-native-reanimated";
 import { ThemedIcon } from "@/components/themed-icon";
 import { EmptyState } from "@/components/empty-state";
 import { SkeletonList } from "@/components/skeleton";
@@ -16,12 +17,32 @@ import { KcalBadge } from "@/components/kcal-badge";
 import { FoodSticker } from "@/components/food-sticker";
 import { DayStrip } from "@/components/day-strip";
 import { MacroMiniRings, type MacroRingItem } from "@/components/macro-mini-rings";
+import { MealEditSheet, type MealUpdate } from "@/components/meal-edit-sheet";
+import { PortionSlider } from "@/components/portion-slider";
+import { SwipeRow } from "@/components/swipe-row";
+import { portionPreviewText } from "@/lib/portion";
 import { PressableScale } from "@/components/pressable-scale";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
 import { useRefreshable } from "@/lib/use-refresh";
 import { haptics } from "@/lib/haptics";
+import {
+  EMPTY_OUTBOX,
+  enqueue,
+  flushOutbox,
+  hasPendingFor,
+  loadOutbox,
+  makeCreateOp,
+  makeDeleteOp,
+  makeUpdateOp,
+  nextLocalId,
+  pendingCount,
+  saveOutbox,
+  toLocalEntry,
+  type MealEntryInput,
+  type OutboxState,
+} from "@/lib/nutrition-outbox";
 import { spacing, tabularNums, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
@@ -69,6 +90,10 @@ export default function NutritionScreen() {
   const [manual, setManual] = useState({ name: "", unit: "份", kcal: "", proteinG: "", carbsG: "", fatG: "" });
   const [saveAsCommon, setSaveAsCommon] = useState(false);
   const [foodQuery, setFoodQuery] = useState("");
+  // P2：编辑面板 + 离线发件箱
+  const [editing, setEditing] = useState<MealEntry | null>(null);
+  const [outbox, setOutbox] = useState<OutboxState>(EMPTY_OUTBOX);
+  const [pendingIds, setPendingIds] = useState<number[]>([]);
 
   const target = DEFAULT_NUTRITION_TARGETS;
   const isToday = date === todayKey;
@@ -82,7 +107,51 @@ export default function NutritionScreen() {
     [token]
   );
 
+  /** 把发件箱里的一条操作发给服务端（成功 true） */
+  const sendOp = useCallback(
+    async (op: ReturnType<typeof makeCreateOp> | ReturnType<typeof makeDeleteOp> | ReturnType<typeof makeUpdateOp>) => {
+      try {
+        if (op.kind === "create") {
+          const r = await fetch(getApiUrl() + "/api/nutrition", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...headers() },
+            body: JSON.stringify({ ...op.body, clientId: op.clientId }),
+          });
+          return r.ok;
+        }
+        if (op.kind === "update") {
+          const r = await fetch(getApiUrl() + "/api/nutrition", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json", ...headers() },
+            body: JSON.stringify({ ...op.body, id: op.id }),
+          });
+          return r.ok;
+        }
+        const r = await fetch(`${getApiUrl()}/api/nutrition?id=${op.id}`, { method: "DELETE", headers: headers() });
+        return r.ok;
+      } catch {
+        return false;
+      }
+    },
+    [headers]
+  );
+
+  /** 先补发离线积压，再拉取明细（保证顺序与幂等） */
+  const flushPending = useCallback(async () => {
+    const state = await loadOutbox();
+    setOutbox(state);
+    setPendingIds(state.ops.map((o) => (o.kind === "create" ? o.localId : o.id)));
+    if (pendingCount(state) === 0) return;
+    const result = await flushOutbox(sendOp);
+    if (result.sent > 0) {
+      const after = await loadOutbox();
+      setOutbox(after);
+      setPendingIds(after.ops.map((o) => (o.kind === "create" ? o.localId : o.id)));
+    }
+  }, [sendOp]);
+
   const load = useCallback(async () => {
+    await flushPending();
     try {
       const [entriesRes, summaryRes] = await Promise.all([
         fetch(`${getApiUrl()}/api/nutrition?date=${date}`, { headers: headers() }),
@@ -104,7 +173,7 @@ export default function NutritionScreen() {
     } finally {
       setLoading(false);
     }
-  }, [date, headers]);
+  }, [date, flushPending, headers]);
 
   useEffect(() => {
     const t = setTimeout(() => void load(), 0);
@@ -135,10 +204,51 @@ export default function NutritionScreen() {
     setFoodQuery("");
   }, []);
 
-  /** 从常用食物添加（服务端按食物单位营养 × 数量换算） */
+  /** 从常用食物添加：默认 1 份，立即入账（v3 M4 一点即记）；离线时进发件箱 */
+  const quickAdd = async (food: Food) => {
+    const localId = nextLocalId();
+    const body: MealEntryInput = {
+      date,
+      meal,
+      name: food.name,
+      amount: 1,
+      unit: food.unit,
+      kcal: food.kcal,
+      proteinG: food.proteinG,
+      carbsG: food.carbsG,
+      fatG: food.fatG,
+      foodId: food.id,
+    };
+    const op = makeCreateOp(body, localId);
+    // 乐观入账：先显示，再上传
+    setEntries((prev) => [...prev, toLocalEntry(body, localId)]);
+    setPendingIds((prev) => [...prev, localId]);
+    haptics.success();
+
+    const ok = await sendOp(op);
+    if (ok) {
+      await load();
+      return;
+    }
+    // 离线/失败：进发件箱，等下次刷新补发
+    setOutbox((prev) => {
+      const next = enqueue(prev, op);
+      void saveOutbox(next);
+      return next;
+    });
+    Alert.alert("已记在本机", "当前网络不可用，联网后会自动补发。");
+  };
+
+  /** 从常用食物按指定份量添加（编辑面板里改份量后保存时走 PATCH） */
   const addPicked = async () => {
     if (!picked) {
       Alert.alert("请选择食物");
+      return;
+    }
+    const amountNum = Number(amount) || 1;
+    if (amountNum === 1) {
+      await quickAdd(picked);
+      closeSheet();
       return;
     }
     setSaving(true);
@@ -146,14 +256,37 @@ export default function NutritionScreen() {
       const r = await fetch(getApiUrl() + "/api/nutrition", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...headers() },
-        body: JSON.stringify({ date, meal, name: picked.name, foodId: picked.id, amount: Number(amount) || 1 }),
+        body: JSON.stringify({ date, meal, name: picked.name, foodId: picked.id, amount: amountNum }),
       });
       if (!r.ok) throw new Error("添加失败");
       haptics.success();
       closeSheet();
       await load();
     } catch (e) {
-      Alert.alert("添加失败", e instanceof Error ? e.message : "请稍后重试");
+      // 离线：手写一条本地记录 + 进发件箱
+      const scaled = {
+        kcal: Math.round(picked.kcal * amountNum * 10) / 10,
+        proteinG: Math.round(picked.proteinG * amountNum * 10) / 10,
+        carbsG: Math.round(picked.carbsG * amountNum * 10) / 10,
+        fatG: Math.round(picked.fatG * amountNum * 10) / 10,
+      };
+      const localId = nextLocalId();
+      const body: MealEntryInput = {
+        date,
+        meal,
+        name: picked.name,
+        amount: amountNum,
+        unit: picked.unit,
+        ...scaled,
+        foodId: picked.id,
+      };
+      setEntries((prev) => [...prev, toLocalEntry(body, localId)]);
+      setPendingIds((prev) => [...prev, localId]);
+      const next = enqueue(outbox, makeCreateOp(body, localId));
+      setOutbox(next);
+      await saveOutbox(next);
+      closeSheet();
+      Alert.alert("已记在本机", e instanceof Error ? e.message : "联网后会自动补发。");
     } finally {
       setSaving(false);
     }
@@ -214,13 +347,75 @@ export default function NutritionScreen() {
   };
 
   const remove = async (id: number) => {
+    // 尚未上传的本地记录：直接从发件箱撤掉
+    if (id < 0) {
+      const next = enqueue(outbox, makeDeleteOp(id));
+      setOutbox(next);
+      await saveOutbox(next);
+      setEntries((prev) => prev.filter((x) => x.id !== id));
+      setPendingIds((prev) => prev.filter((x) => x !== id));
+      return;
+    }
+    setEntries((prev) => prev.filter((x) => x.id !== id));
     try {
       const r = await fetch(`${getApiUrl()}/api/nutrition?id=${id}`, { method: "DELETE", headers: headers() });
       if (!r.ok) throw new Error();
       haptics.warning();
-      setEntries((prev) => prev.filter((x) => x.id !== id));
+      await load();
     } catch {
-      Alert.alert("删除失败");
+      const next = enqueue(outbox, makeDeleteOp(id));
+      setOutbox(next);
+      await saveOutbox(next);
+      Alert.alert("已在本机删除", "联网后会自动同步删除。");
+    }
+  };
+
+  /** 保存编辑（食物型条目只改份量 → 服务端重算营养） */
+  const saveEdit = async (update: MealUpdate) => {
+    const id = update.id;
+    setSaving(true);
+    // 乐观更新本地列表
+    const food = foods.find((f) => f.id === (editing?.foodId ?? -1)) ?? null;
+    const scaled = food && update.amount !== undefined
+      ? {
+          kcal: Math.round(food.kcal * update.amount * 10) / 10,
+          proteinG: Math.round(food.proteinG * update.amount * 10) / 10,
+          carbsG: Math.round(food.carbsG * update.amount * 10) / 10,
+          fatG: Math.round(food.fatG * update.amount * 10) / 10,
+        }
+      : {};
+    setEntries((prev) =>
+      prev.map((e) => (e.id === id ? { ...e, ...update, ...scaled } : e))
+    );
+    setEditing(null);
+    try {
+      if (id < 0) {
+        // 本地未上传：合并进发件箱的 create
+        const { id: _drop, ...body } = update;
+        void _drop;
+        const next = enqueue(outbox, makeUpdateOp(id, body));
+        setOutbox(next);
+        await saveOutbox(next);
+        haptics.success();
+        return;
+      }
+      const r = await fetch(getApiUrl() + "/api/nutrition", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...headers() },
+        body: JSON.stringify(update),
+      });
+      if (!r.ok) throw new Error("保存失败");
+      haptics.success();
+      await load();
+    } catch {
+      const { id: _drop2, ...body } = update;
+      void _drop2;
+      const next = enqueue(outbox, makeUpdateOp(id, body));
+      setOutbox(next);
+      await saveOutbox(next);
+      Alert.alert("已在本机保存", "联网后会自动补发这条修改。");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -373,27 +568,42 @@ export default function NutritionScreen() {
               <View style={styles.timeline}>
                 {list.map((e, i) => {
                   const time = formatEntryTime(e.createdAt);
+                  const isPending = e.id < 0 || hasPendingFor(outbox, e.id) || pendingIds.includes(e.id);
                   return (
-                    <View key={e.id} style={styles.entryRow}>
-                      <View style={styles.rail}>
-                        <View style={styles.node} />
-                        {i !== list.length - 1 ? <View style={styles.line} /> : null}
-                      </View>
-                      <FoodSticker name={e.name} size={40} />
-                      <View style={styles.entryBody}>
-                        <View style={styles.entryTitleRow}>
-                          <Text style={styles.entryName} numberOfLines={1}>{e.name}</Text>
-                          <KcalBadge kcal={e.kcal} size="sm" />
-                        </View>
-                        <Text style={styles.entryMeta} numberOfLines={1}>
-                          {time ? `${time} · ` : ""}
-                          {e.amount} {e.unit} · P{Math.round(e.proteinG)} C{Math.round(e.carbsG)} F{Math.round(e.fatG)}
-                        </Text>
-                      </View>
-                      <Pressable hitSlop={8} onPress={() => void remove(e.id)} accessibilityLabel={`删除 ${e.name}`}>
-                        <ThemedIcon name="close" size={16} color={colors.textFaint} />
-                      </Pressable>
-                    </View>
+                    <Animated.View key={e.id} entering={FadeInUp.duration(180)} layout={LinearTransition.duration(180)}>
+                      <SwipeRow
+                        onDelete={() => {
+                          void remove(e.id);
+                        }}
+                        deleteLabel="删除"
+                      >
+                        <Pressable
+                          onPress={() => {
+                            haptics.soft();
+                            setEditing(e);
+                          }}
+                          style={styles.entryRow}
+                          accessibilityLabel={`修改 ${e.name}`}
+                        >
+                          <View style={styles.rail}>
+                            <View style={[styles.node, isPending && { backgroundColor: colors.textFaint }]} />
+                            {i !== list.length - 1 ? <View style={styles.line} /> : null}
+                          </View>
+                          <FoodSticker name={e.name} size={40} />
+                          <View style={styles.entryBody}>
+                            <View style={styles.entryTitleRow}>
+                              <Text style={styles.entryName} numberOfLines={1}>{e.name}</Text>
+                              <KcalBadge kcal={e.kcal} size="sm" />
+                            </View>
+                            <Text style={styles.entryMeta} numberOfLines={1}>
+                              {isPending ? "待同步 · " : time ? `${time} · ` : ""}
+                              {e.amount} {e.unit} · P{Math.round(e.proteinG)} C{Math.round(e.carbsG)} F{Math.round(e.fatG)}
+                            </Text>
+                          </View>
+                          <ThemedIcon name="chevron-forward" size={14} color={colors.textFaint} />
+                        </Pressable>
+                      </SwipeRow>
+                    </Animated.View>
                   );
                 })}
               </View>
@@ -417,7 +627,28 @@ export default function NutritionScreen() {
             ))}
           </View>
 
-          <SectionHeader title="常用食物" subtitle="选一个再填数量，营养自动换算" style={styles.sheetSection} />
+          <SectionHeader title="常用食物" subtitle="点一下就记 1 份（0 输入）" style={styles.sheetSection} />
+          {/* 一点即记：贴纸网格，无需输入数量 */}
+          <View style={styles.chipGrid}>
+            {visibleFoods.slice(0, 12).map((f) => (
+              <PressableScale
+                key={f.id}
+                haptic
+                scaleTo={0.96}
+                onPress={() => void quickAdd(f)}
+                style={styles.foodChip}
+              >
+                <FoodSticker name={f.name} size={34} />
+                <View style={styles.foodChipBody}>
+                  <Text style={styles.foodChipName} numberOfLines={1}>{f.name}</Text>
+                  <Text style={styles.foodChipMeta}>{Math.round(f.kcal)} kcal / {f.unit}</Text>
+                </View>
+                <ThemedIcon name="add-circle" size={18} color={colors.accentStrong} />
+              </PressableScale>
+            ))}
+            {visibleFoods.length === 0 ? <Text style={styles.muted}>没有匹配的食物，试试下方手动添加</Text> : null}
+          </View>
+
           <Field
             value={foodQuery}
             onChangeText={setFoodQuery}
@@ -425,6 +656,8 @@ export default function NutritionScreen() {
             returnKeyType="search"
             autoCapitalize="none"
           />
+
+          <SectionHeader title="按份量添加" subtitle="需要精确份量时选一个再拖滑杆" style={styles.sheetSection} />
           <View style={styles.kindRow}>
             {visibleFoods.map((f) => (
               <Pressable
@@ -433,23 +666,23 @@ export default function NutritionScreen() {
                 style={[styles.kindChip, picked?.id === f.id && styles.kindChipActive]}
               >
                 <Text style={[styles.kindChipText, picked?.id === f.id && styles.kindChipTextActive]}>
-                  {f.name} · {f.kcal}kcal
+                  {f.name}
                 </Text>
               </Pressable>
             ))}
-            {visibleFoods.length === 0 ? <Text style={styles.muted}>没有匹配的食物，试试下方手动添加</Text> : null}
           </View>
           {picked ? (
             <>
-              <Field
-                label={`数量（${picked.unit}）`}
-                value={amount}
-                onChangeText={setAmount}
-                keyboardType="numeric"
-                placeholder="1"
-                hint={`≈ ${Math.round(picked.kcal * (Number(amount) || 1))} kcal`}
+              <PortionSlider
+                value={Number(amount) || 1}
+                onChange={(v) => setAmount(String(v))}
+                min={0.5}
+                max={3}
+                step={0.5}
+                unitLabel={picked.unit}
+                hint={portionPreviewText(picked, Number(amount) || 1)}
               />
-              <Button label="添加到这天" icon="add" loading={saving} onPress={() => void addPicked()} />
+              <Button label={`添加到${mealKindLabels[meal]}`} icon="add" loading={saving} onPress={() => void addPicked()} />
             </>
           ) : null}
 
@@ -516,6 +749,19 @@ export default function NutritionScreen() {
           />
         </View>
       </BottomSheet>
+
+      <MealEditSheet
+        entry={editing}
+        food={foods.find((f) => f.id === (editing?.foodId ?? -1)) ?? null}
+        visible={!!editing}
+        saving={saving}
+        onClose={() => setEditing(null)}
+        onSave={(u) => void saveEdit(u)}
+        onDelete={(id) => {
+          setEditing(null);
+          void remove(id);
+        }}
+      />
     </ScrollView>
   );
 }
@@ -584,6 +830,21 @@ const makeStyles = (colors: ThemeColors) =>
     kindChipText: { ...typography.caption, fontWeight: "700", color: colors.textMuted },
     kindChipTextActive: { color: "#ffffff" },
     muted: { ...typography.micro, color: colors.textMuted },
+    chipGrid: { gap: 8 },
+    foodChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      borderRadius: 16,
+      backgroundColor: colors.surfaceStrong,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    foodChipBody: { flex: 1, minWidth: 0, gap: 1 },
+    foodChipName: { ...typography.callout, fontWeight: "700", color: colors.text },
+    foodChipMeta: { ...typography.micro, fontWeight: "400", color: colors.textMuted, ...tabularNums },
     macroInputRow: { flexDirection: "row", gap: 8 },
     macroInput: { flex: 1, minWidth: 0 },
     switchRow: { flexDirection: "row", alignItems: "center", gap: 8 },

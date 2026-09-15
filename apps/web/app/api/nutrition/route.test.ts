@@ -5,7 +5,7 @@ vi.mock("@/lib/http", () => ({ parseBody: vi.fn() }));
 import { pgPool } from "@/lib/db";
 import { userScope, scopeWhere } from "@/lib/anon";
 import { parseBody } from "@/lib/http";
-import { GET, POST, DELETE } from "./route";
+import { GET, POST, PATCH, DELETE } from "./route";
 
 const queryMock = vi.mocked(pgPool.query);
 const userScopeMock = vi.mocked(userScope);
@@ -111,6 +111,21 @@ describe("POST /api/nutrition", () => {
     await POST(new Request("http://localhost", { method: "POST" }));
     expect((queryMock.mock.calls[0][1] as unknown[])[2]).toBe("lunch");
   });
+
+  // v3 M4：离线补发可能重复提交，按 clientId 幂等
+  it("returns the existing entry when clientId was already stored (no duplicate)", async () => {
+    userScopeMock.mockResolvedValue({ uid: "u-1", anonId: null });
+    parseBodyMock.mockResolvedValue({ ok: true, data: { name: "米饭", clientId: "cid-9", kcal: 230 } });
+    queryMock.mockResolvedValueOnce({ rows: [{ id: "77", name: "米饭" }] } as never);
+    const res = await POST(new Request("http://localhost", { method: "POST" }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.deduped).toBe(true);
+    expect(body.entry.id).toBe("77");
+    // 只查了一次（没有走 INSERT）
+    expect(queryMock.mock.calls).toHaveLength(1);
+    expect(String(queryMock.mock.calls[0][0])).toContain("client_id = $2");
+  });
 });
 
 describe("DELETE /api/nutrition", () => {
@@ -125,5 +140,76 @@ describe("DELETE /api/nutrition", () => {
   it("rejects an invalid id", async () => {
     const res = await DELETE(new Request("http://localhost/api/nutrition?id=x"));
     expect(res.status).toBe(400);
+  });
+});
+
+// v3 M3/M4：点按条目改分量（食物型条目由服务端重算，避免客户端算错）
+describe("PATCH /api/nutrition", () => {
+  const currentRow = {
+    id: "7", foodId: "3", amount: "1", unit: "个", name: "鸡蛋",
+    kcal: "78", proteinG: "6.3", carbsG: "0.6", fatG: "5.3", meal: "breakfast",
+  };
+
+  it("rejects an invalid id", async () => {
+    parseBodyMock.mockResolvedValue({ ok: true, data: { id: 0 } });
+    const res = await PATCH(new Request("http://localhost", { method: "PATCH" }));
+    expect(res.status).toBe(400);
+  });
+
+  it("404 when the entry is missing / not owned", async () => {
+    userScopeMock.mockResolvedValue({ uid: "u-1", anonId: null });
+    parseBodyMock.mockResolvedValue({ ok: true, data: { id: 7, amount: 2 } });
+    queryMock.mockResolvedValueOnce({ rows: [] } as never);
+    const res = await PATCH(new Request("http://localhost", { method: "PATCH" }));
+    expect(res.status).toBe(404);
+  });
+
+  it("recomputes macros from the linked food when only amount changes", async () => {
+    userScopeMock.mockResolvedValue({ uid: "u-1", anonId: null });
+    parseBodyMock.mockResolvedValue({ ok: true, data: { id: 7, amount: 2 } });
+    queryMock
+      .mockResolvedValueOnce({ rows: [currentRow] } as never) // 取原记录
+      .mockResolvedValueOnce({ rows: [{ kcal: "78", proteinG: "6.3", carbsG: "0.6", fatG: "5.3" }] } as never) // 食物
+      .mockResolvedValueOnce({ rows: [{ id: "7" }] } as never); // UPDATE
+    const res = await PATCH(new Request("http://localhost", { method: "PATCH" }));
+    expect(res.status).toBe(200);
+    const args = queryMock.mock.calls[2][1] as unknown[];
+    // [uid, id, name, meal, amount, unit, kcal, protein, carbs, fat]
+    expect(args[4]).toBe(2);
+    expect(args[6]).toBe(156);
+    expect(args[7]).toBe(12.6);
+  });
+
+  it("keeps explicit values for a manual entry (no food id)", async () => {
+    userScopeMock.mockResolvedValue({ uid: "u-1", anonId: null });
+    parseBodyMock.mockResolvedValue({ ok: true, data: { id: 8, kcal: 300, proteinG: 20 } });
+    queryMock
+      .mockResolvedValueOnce({ rows: [{ ...currentRow, id: "8", foodId: null, name: "自制沙拉" }] } as never)
+      .mockResolvedValueOnce({ rows: [{ id: "8" }] } as never);
+    const res = await PATCH(new Request("http://localhost", { method: "PATCH" }));
+    expect(res.status).toBe(200);
+    const args = queryMock.mock.calls[1][1] as unknown[];
+    expect(args[6]).toBe(300);
+    expect(args[7]).toBe(20);
+    // 未传的字段保持原值
+    expect(args[8]).toBe(0.6);
+  });
+
+  it("ignores an invalid meal but accepts a valid one", async () => {
+    userScopeMock.mockResolvedValue({ uid: "u-1", anonId: null });
+    parseBodyMock.mockResolvedValue({ ok: true, data: { id: 7, meal: "brunch" } });
+    queryMock
+      .mockResolvedValueOnce({ rows: [currentRow] } as never)
+      .mockResolvedValueOnce({ rows: [{ id: "7" }] } as never);
+    await PATCH(new Request("http://localhost", { method: "PATCH" }));
+    expect((queryMock.mock.calls[1][1] as unknown[])[3]).toBe("breakfast");
+
+    queryMock.mockClear();
+    parseBodyMock.mockResolvedValue({ ok: true, data: { id: 7, meal: "dinner" } });
+    queryMock
+      .mockResolvedValueOnce({ rows: [currentRow] } as never)
+      .mockResolvedValueOnce({ rows: [{ id: "7" }] } as never);
+    await PATCH(new Request("http://localhost", { method: "PATCH" }));
+    expect((queryMock.mock.calls[1][1] as unknown[])[3]).toBe("dinner");
   });
 });
