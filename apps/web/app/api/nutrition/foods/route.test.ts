@@ -61,6 +61,23 @@ describe("GET /api/nutrition/foods", () => {
     expect(String(queryMock.mock.calls[0][0])).toContain("LIMIT 200");
     expect(queryMock.mock.calls[0][1]).toEqual(["u-1", "%鸡%"]);
   });
+
+  // 回归（2026-09-15）：Number(null)=0 曾被钳到最小值，导致不带 limit 只返回 1 条
+  it("不带 limit 时用默认 200，而不是 1", async () => {
+    userScopeMock.mockResolvedValue({ uid: "u-1", anonId: null });
+    queryMock.mockResolvedValue({ rows: [] } as never);
+
+    await GET(new Request("http://localhost/api/nutrition/foods"));
+    expect(String(queryMock.mock.calls[0][0])).toContain("LIMIT 200");
+
+    queryMock.mockClear();
+    await GET(new Request("http://localhost/api/nutrition/foods?limit="));
+    expect(String(queryMock.mock.calls[0][0])).toContain("LIMIT 200");
+
+    queryMock.mockClear();
+    await GET(new Request("http://localhost/api/nutrition/foods?sort=recent"));
+    expect(String(queryMock.mock.calls[0][0])).toContain("LIMIT 200");
+  });
 });
 
 describe("POST /api/nutrition/foods", () => {

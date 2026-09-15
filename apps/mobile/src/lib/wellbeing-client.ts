@@ -99,6 +99,38 @@ export interface NutritionProfileDto {
   activityLevel: ActivityLevel | null;
 }
 
+/** 收集册条目（v3 M9 深化：按食物名聚合一段时间内的记录） */
+export interface StickerItem {
+  name: string;
+  times: number;
+  totalKcal: number;
+  avgKcal: number;
+  firstDate: string;
+  lastDate: string;
+}
+
+export interface StickerBookDto {
+  days: number;
+  totalKinds: number;
+  totalTimes: number;
+  stickers: StickerItem[];
+}
+
+/** 我的饮食日记收集册（近 N 天，含手动录入、不在食物库里的名字） */
+export async function fetchStickerBook(token: string | null, days = 30): Promise<StickerBookDto> {
+  const r = await fetch(`${getApiUrl()}/api/nutrition/stickers?days=${days}&limit=60`, {
+    headers: authHeaders(token),
+  });
+  if (!r.ok) throw new Error("加载收集册失败");
+  const d = await r.json();
+  return {
+    days: Number(d.days) || days,
+    totalKinds: Number(d.totalKinds) || 0,
+    totalTimes: Number(d.totalTimes) || 0,
+    stickers: Array.isArray(d.stickers) ? d.stickers : [],
+  };
+}
+
 export async function fetchNutritionTarget(
   token: string | null
 ): Promise<{ profile: NutritionProfileDto; target: NutritionTargetDto }> {

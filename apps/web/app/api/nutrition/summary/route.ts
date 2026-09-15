@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { pgPool } from "@/lib/db";
 import { userScope, scopeWhere } from "@/lib/anon";
+import { readDateParam, readIntParam } from "@/lib/query";
 
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_DAYS = 31;
 
 /**
@@ -12,10 +12,9 @@ const MAX_DAYS = 31;
  */
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const daysRaw = Number(url.searchParams.get("days"));
-  const days = Number.isFinite(daysRaw) ? Math.max(1, Math.min(MAX_DAYS, Math.round(daysRaw))) : 7;
-  const endRaw = (url.searchParams.get("end") ?? "").slice(0, 10);
-  const end = DATE_RE.test(endRaw) ? endRaw : null;
+  // 注意：缺失 days 时不能用 Number(null)=0 去钳位（会退化成 1 天）
+  const days = readIntParam(url.searchParams.get("days"), 7, 1, MAX_DAYS);
+  const end = readDateParam(url.searchParams.get("end"));
 
   const scope = await userScope();
   // 以 end（默认今天）为终点，取 days 天窗口

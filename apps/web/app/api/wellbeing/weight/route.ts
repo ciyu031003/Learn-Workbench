@@ -3,8 +3,8 @@ import { dbErrorResponse } from "@/lib/api-error";
 import { pgPool } from "@/lib/db";
 import { userScope, scopeWhere } from "@/lib/anon";
 import { parseBody } from "@/lib/http";
+import { readDateParam, readIntParam } from "@/lib/query";
 
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_DAYS = 365;
 
 interface WeightRow {
@@ -19,10 +19,9 @@ interface WeightRow {
  */
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const daysRaw = Number(url.searchParams.get("days"));
-  const days = Number.isFinite(daysRaw) ? Math.max(1, Math.min(MAX_DAYS, Math.round(daysRaw))) : 30;
-  const endRaw = (url.searchParams.get("end") ?? "").slice(0, 10);
-  const end = DATE_RE.test(endRaw) ? endRaw : null;
+  // 注意：缺失 days 时不能用 Number(null)=0 去钳位（会退化成 1 天）
+  const days = readIntParam(url.searchParams.get("days"), 30, 1, MAX_DAYS);
+  const end = readDateParam(url.searchParams.get("end"));
 
   const scope = await userScope();
   const base: unknown[] = end ? [scope.uid, end, days] : [scope.uid, days];
@@ -66,8 +65,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "体重需在 20-300 kg 之间" }, { status: 400 });
   }
   const weightKg = Math.min(300, Math.max(20, Math.round(raw * 10) / 10));
-  const dateRaw = typeof body.date === "string" ? body.date.slice(0, 10) : "";
-  const date = DATE_RE.test(dateRaw) ? dateRaw : null;
+  const date = readDateParam(typeof body.date === "string" ? body.date : null);
   const note = typeof body.note === "string" ? body.note.trim().slice(0, 200) || null : null;
 
   const scope = await userScope();

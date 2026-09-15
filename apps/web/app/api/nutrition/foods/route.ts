@@ -3,6 +3,7 @@ import { dbErrorResponse } from "@/lib/api-error";
 import { pgPool } from "@/lib/db";
 import { userScope } from "@/lib/anon";
 import { parseBody } from "@/lib/http";
+import { readIntParam } from "@/lib/query";
 
 const SELECT_COLS = `id, name, unit, kcal, protein_g AS "proteinG", carbs_g AS "carbsG", fat_g AS "fatG"`;
 
@@ -14,8 +15,8 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const q = (url.searchParams.get("q") ?? "").trim().slice(0, 40);
   const sort = url.searchParams.get("sort") === "recent" ? "recent" : "name";
-  const limitRaw = Number(url.searchParams.get("limit"));
-  const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(200, Math.round(limitRaw))) : 200;
+  // 注意：缺失 limit 时不能用 Number(null)=0 去钳位（会退化成 LIMIT 1）
+  const limit = readIntParam(url.searchParams.get("limit"), 200, 1, 200);
   const scope = await userScope();
   const params: unknown[] = [scope.uid];
   let qSql = "";
