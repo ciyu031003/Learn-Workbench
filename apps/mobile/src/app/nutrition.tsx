@@ -251,7 +251,8 @@ export default function NutritionScreen() {
     if (!sheetOpen) return;
     void (async () => {
       try {
-        const r = await fetch(getApiUrl() + "/api/nutrition/foods", { headers: headers() });
+        // 优先按「最近使用/频次」排序（v3 M4：一点即记的命中率靠这个）
+        const r = await fetch(getApiUrl() + "/api/nutrition/foods?sort=recent&limit=24", { headers: headers() });
         const d = await r.json();
         if (r.ok) setFoods(Array.isArray(d.foods) ? d.foods : []);
       } catch {
@@ -259,6 +260,19 @@ export default function NutritionScreen() {
       }
     })();
   }, [sheetOpen, headers]);
+
+  /** 贴纸墙数据（v3 M9）：近 30 天记录里出现过的食物 + 次数 */
+  const stickers = useMemo(() => {
+    const map = new Map<string, { name: string; times: number; kcal: number }>();
+    for (const e of entries) {
+      const key = e.name.trim();
+      if (!key) continue;
+      const prev = map.get(key);
+      if (prev) prev.times += 1;
+      else map.set(key, { name: key, times: 1, kcal: e.kcal });
+    }
+    return [...map.values()].sort((a, b) => b.times - a.times).slice(0, 18);
+  }, [entries]);
 
   const closeSheet = useCallback(() => {
     setSheetOpen(false);
@@ -781,6 +795,36 @@ export default function NutritionScreen() {
         })
       )}
 
+      {/* M9 我的饮食日记：把这一天的食物收集成贴纸（点一下 = 再记一份） */}
+      {stickers.length > 0 ? (
+        <Card style={styles.stickerCard}>
+          <SectionHeader title="我的饮食日记" subtitle={`今天收集了 ${stickers.length} 种食物`} />
+          <View style={styles.stickerGrid}>
+            {stickers.map((s) => (
+              <Pressable
+                key={s.name}
+                onPress={() => {
+                  const food = foods.find((f) => f.name === s.name);
+                  if (food) {
+                    void quickAdd(food);
+                    return;
+                  }
+                  haptics.soft();
+                  setManual((prev) => ({ ...prev, name: s.name, kcal: String(Math.round(s.kcal)) }));
+                  setSheetOpen(true);
+                }}
+                style={styles.stickerCell}
+                accessibilityLabel={`再记一份 ${s.name}`}
+              >
+                <FoodSticker name={s.name} size={44} />
+                <Text style={styles.stickerName} numberOfLines={1}>{s.name}</Text>
+                {s.times > 1 ? <Text style={styles.stickerTimes}>×{s.times}</Text> : null}
+              </Pressable>
+            ))}
+          </View>
+        </Card>
+      ) : null}
+
       <BottomSheet visible={sheetOpen} onClose={closeSheet} title="添加饮食" height="86%">
         <View style={styles.form}>
           <Text style={styles.label}>餐次</Text>
@@ -1099,4 +1143,9 @@ const makeStyles = (colors: ThemeColors) =>
       backgroundColor: colors.primarySoft,
     },
     weightField: { flex: 1, minWidth: 0 },
+    stickerCard: { gap: spacing.sm },
+    stickerGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+    stickerCell: { alignItems: "center", gap: 2, width: 64 },
+    stickerName: { ...typography.micro, fontSize: 10, color: colors.textMuted },
+    stickerTimes: { ...typography.micro, fontSize: 10, fontWeight: "800", color: colors.accentStrong },
   });

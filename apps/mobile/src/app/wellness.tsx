@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { computeReadiness, WEAKEST_LABEL } from "@/lib/readiness";
 import { useTheme } from "@/theme";
-import { radius, spacing, typography } from "@/theme/tokens";
+import { radius, spacing, tabularNums, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { useFocusRefresh } from "@/lib/use-focus-refresh";
@@ -22,7 +22,14 @@ import { getApiUrl } from "@/config";
 
 interface DailyOs {
   learning: { tasksTotal: number; tasksDone: number; focusMinutes: number };
-  fitness: { workoutName: string | null; workoutMinutes: number; nutritionKcal: number; nutritionTargetKcal: number };
+  fitness: {
+    workoutName: string | null;
+    workoutMinutes: number;
+    nutritionKcal: number;
+    nutritionTargetKcal: number;
+    nutritionRemainingKcal?: number;
+  };
+  hydration?: { totalMl: number; targetMl: number };
   habits: { scheduled: number; done: number };
 }
 
@@ -127,6 +134,60 @@ export default function WellnessScreen() {
         </GlassSurface>
       )}
 
+      {/* ② 今日饮食摘要（v3 M11「一处看全」：剩余可吃 + 饮水，点开进饮食页） */}
+      <PressableScale
+        haptic
+        scaleTo={0.98}
+        onPress={() => router.push("/nutrition" as never)}
+      >
+        <Card style={styles.dietCard}>
+          <View style={styles.dietRow}>
+            <View style={styles.dietItem}>
+              <Text style={styles.dietLabel}>还能吃</Text>
+              <Text
+                style={[
+                  styles.dietValue,
+                  (data?.fitness.nutritionRemainingKcal ??
+                    (data ? data.fitness.nutritionTargetKcal - data.fitness.nutritionKcal : 0)) < 0 && {
+                    color: colors.danger,
+                  },
+                ]}
+              >
+                {data?.fitness.nutritionRemainingKcal ??
+                  (data ? data.fitness.nutritionTargetKcal - data.fitness.nutritionKcal : 0)}
+                <Text style={styles.dietUnit}> kcal</Text>
+              </Text>
+              <Text style={styles.dietHint}>
+                已吃 {data?.fitness.nutritionKcal ?? 0} / {data?.fitness.nutritionTargetKcal ?? 2000}
+              </Text>
+            </View>
+            <View style={styles.dietDivider} />
+            <View style={styles.dietItem}>
+              <Text style={styles.dietLabel}>饮水</Text>
+              <Text style={styles.dietValue}>
+                {data?.hydration?.totalMl ?? 0}
+                <Text style={styles.dietUnit}> / {data?.hydration?.targetMl ?? 2000} ml</Text>
+              </Text>
+              <View style={styles.waterTrack}>
+                <View
+                  style={[
+                    styles.waterFill,
+                    {
+                      width: `${Math.min(
+                        100,
+                        Math.round(
+                          ((data?.hydration?.totalMl ?? 0) / Math.max(1, data?.hydration?.targetMl ?? 2000)) * 100
+                        )
+                      )}%`,
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+          </View>
+        </Card>
+      </PressableScale>
+
       {/* 领域入口 */}
       <View style={styles.grid}>
         {ENTRIES.map((e) => (
@@ -170,6 +231,16 @@ const makeStyles = (colors: ThemeColors) =>
     content: { paddingHorizontal: spacing.lg, gap: spacing.md },
     hero: { flexDirection: "row", alignItems: "center", gap: spacing.lg, paddingVertical: spacing.lg },
     heroStats: { flex: 1, minWidth: 0, gap: spacing.sm },
+    dietCard: { gap: spacing.sm },
+    dietRow: { flexDirection: "row", alignItems: "center" },
+    dietItem: { flex: 1, gap: 2 },
+    dietDivider: { width: StyleSheet.hairlineWidth, alignSelf: "stretch", backgroundColor: colors.border, marginHorizontal: 12 },
+    dietLabel: { ...typography.micro, color: colors.textMuted },
+    dietValue: { ...typography.title2, fontWeight: "800", color: colors.text, ...tabularNums },
+    dietUnit: { ...typography.micro, fontWeight: "600", color: colors.textMuted },
+    dietHint: { ...typography.micro, fontWeight: "400", color: colors.textFaint, ...tabularNums },
+    waterTrack: { height: 5, borderRadius: 999, backgroundColor: colors.surfaceMuted, overflow: "hidden", marginTop: 4 },
+    waterFill: { height: 5, borderRadius: 999, backgroundColor: colors.teal },
     grid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
     gridItem: { width: "47.5%", flexGrow: 1 },
     entryCard: { gap: spacing.sm, minHeight: 104 },

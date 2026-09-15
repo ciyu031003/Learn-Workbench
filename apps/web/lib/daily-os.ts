@@ -1,6 +1,6 @@
 import { pgPool } from "@/lib/db";
 import { scopeWhere } from "@/lib/anon";
-import { computeHabitStats, isScheduled, toDateKey, sumNutrition, type Habit } from "@learn-workbench/shared";
+import { computeHabitStats, isScheduled, toDateKey, sumNutrition, buildNutritionTargetView, ACTIVITY_LEVELS, type ActivityLevel, type Habit, type Sex } from "@learn-workbench/shared";
 
 export interface Scope {
   uid: string | null;
@@ -29,7 +29,11 @@ export interface DailyOsResult {
     workoutMinutes: number;
     nutritionKcal: number;
     nutritionTargetKcal: number;
+    /** 今日剩余可吃（可为负；v3 M11 今日页与健康 Hub 共用） */
+    nutritionRemainingKcal?: number;
   };
+  /** 今日饮水（v3 M7/M11：复用 hydration_logs，无需新表） */
+  hydration?: { totalMl: number; targetMl: number };
   habits: {
     scheduled: number;
     done: number;
@@ -123,11 +127,35 @@ export async function buildDailyOs(scope: Scope, now: Date = new Date()): Promis
 
   // ---- 职业：目标岗位 + 高匹配数 + 在途投递 + 临期证书 ----
   const profWhere = scopeWhere(scope, [scope.uid]);
-  const { rows: profRows } = await pgPool.query<{ targetRole: string | null }>(
-    `SELECT target_role AS "targetRole" FROM user_settings
+  const { rows: profRows } = await pgPool.query<{
+    targetRole: string | null;
+    weightKg: string | null;
+    heightCm: number | null;
+    birthYear: number | null;
+    sex: string | null;
+    activityLevel: string | null;
+    targetKcal: string | null;
+  }>(
+    `SELECT target_role AS "targetRole", weight_kg AS "weightKg", height_cm AS "heightCm",
+            birth_year AS "birthYear", sex, activity_level AS "activityLevel",
+            nutrition_target_kcal AS "targetKcal"
+       FROM user_settings
       WHERE user_id IS NOT DISTINCT FROM $1${profWhere.sql} LIMIT 1`,
     profWhere.params
   );
+
+  // ---- 饮水（复用 hydration_logs，未登录也可用）----
+  const waterWhere = scopeWhere(scope, [scope.uid, dateKey]);
+  const { rows: waterRows } = await pgPool.query<{ totalMl: string | null }>(
+    `SELECT COALESCE(SUM(amount_ml), 0)::text AS "totalMl"
+       FROM hydration_logs
+      WHERE user_id IS NOT DISTINCT FROM $1${waterWhere.sql}
+        AND deleted_at IS NULL
+        AND recorded_at >= $2::date AND recorded_at < ($2::date + 1)`,
+    waterWhere.params
+  );
+  const hydrationTotalMl = Number(waterRows[0]?.totalMl ?? 0) || 0;
+  const hydrationTargetMl = 2000;
 
   let highMatchJobs = 0;
   let pendingApplications = 0;
@@ -174,7 +202,25 @@ export async function buildDailyOs(scope: Scope, now: Date = new Date()): Promis
   const taskPart = tasksTotal > 0 ? tasksDone / tasksTotal : 0;
   const habitPart = scheduled > 0 ? habitsDone / scheduled : 0;
   const workoutPart = workoutRows.length > 0 ? 1 : 0;
-  const nutritionPart = Math.min(1, nutrition.kcal / 2000);
+
+  // 目标热量：优先手动覆盖，其次按身体数据算（v3 M6），最后默认 2000
+  const profileRow = profRows[0];
+  const targetView = buildNutritionTargetView(
+    {
+      weightKg: profileRow?.weightKg ? Number(profileRow.weightKg) : 60,
+      heightCm: profileRow?.heightCm ?? null,
+      birthYear: profileRow?.birthYear ?? null,
+      sex: profileRow?.sex === "male" || profileRow?.sex === "female" ? (profileRow.sex as Sex) : null,
+      activityLevel:
+        profileRow?.activityLevel && (ACTIVITY_LEVELS as readonly string[]).includes(profileRow.activityLevel)
+          ? (profileRow.activityLevel as ActivityLevel)
+          : null,
+    },
+    { kcal: profileRow?.targetKcal ? Number(profileRow.targetKcal) : null },
+    now
+  );
+  const nutritionTargetKcal = targetView.kcal;
+  const nutritionPart = Math.min(1, nutrition.kcal / Math.max(1, nutritionTargetKcal));
   const progress = Math.round((taskPart * 40 + habitPart * 30 + workoutPart * 15 + nutritionPart * 15));
 
   return {
@@ -203,8 +249,10 @@ export async function buildDailyOs(scope: Scope, now: Date = new Date()): Promis
       workoutName: workoutRows[0]?.name ?? null,
       workoutMinutes: workoutRows[0] ? Math.round(Number(workoutRows[0].minutes)) : 0,
       nutritionKcal: nutrition.kcal,
-      nutritionTargetKcal: 2000,
+      nutritionTargetKcal,
+      nutritionRemainingKcal: nutritionTargetKcal - nutrition.kcal,
     },
+    hydration: { totalMl: hydrationTotalMl, targetMl: hydrationTargetMl },
     habits: { scheduled, done: habitsDone },
   };
 }

@@ -5,10 +5,16 @@ import { parseBody } from "@/lib/http";
 
 const SELECT_COLS = `id, name, unit, kcal, protein_g AS "proteinG", carbs_g AS "carbsG", fat_g AS "fatG"`;
 
-/** GET /api/nutrition/foods?q= —— 常用食物库（全局种子 + 本人自定义） */
+/** GET /api/nutrition/foods?q= —— 常用食物库（全局种子 + 本人自定义）
+ *  ?sort=recent —— 按「最近使用 / 使用频次」排序（v3 M4「一点即记」与 M9 贴纸墙的数据源），
+ *  统计口径来自近 90 天的 meal_entries，不需要新表。
+ */
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const q = (url.searchParams.get("q") ?? "").trim().slice(0, 40);
+  const sort = url.searchParams.get("sort") === "recent" ? "recent" : "name";
+  const limitRaw = Number(url.searchParams.get("limit"));
+  const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(200, Math.round(limitRaw))) : 200;
   const scope = await userScope();
   const params: unknown[] = [scope.uid];
   let qSql = "";
@@ -16,14 +22,39 @@ export async function GET(req: Request) {
     params.push(`%${q}%`);
     qSql = ` AND name ILIKE $${params.length}`;
   }
+
+  if (sort === "recent") {
+    // 频次与最近使用：以本人 meal_entries 的 name 聚合（food_id 可能为空的手动条目也能收集起来）
+    const { rows } = await pgPool.query(
+      `WITH usage AS (
+          SELECT name, COUNT(*) AS times, MAX(created_at) AS last_used
+            FROM meal_entries
+           WHERE user_id IS NOT DISTINCT FROM $1
+             AND deleted_at IS NULL
+             AND created_at >= now() - interval '90 days'
+           GROUP BY name
+       )
+       SELECT f.id, f.name, f.unit, f.kcal, f.protein_g AS "proteinG", f.carbs_g AS "carbsG", f.fat_g AS "fatG",
+              COALESCE(u.times, 0)::int AS "times",
+              u.last_used AS "lastUsed"
+         FROM foods f
+         LEFT JOIN usage u ON lower(u.name) = lower(f.name)
+        WHERE (f.user_id IS NULL OR f.user_id = $1)${qSql}
+        ORDER BY COALESCE(u.times, 0) DESC, u.last_used DESC NULLS LAST, (f.user_id IS NULL), f.name
+        LIMIT ${limit}`,
+      params
+    );
+    return NextResponse.json({ foods: rows, sort });
+  }
+
   const { rows } = await pgPool.query(
     `SELECT ${SELECT_COLS} FROM foods
       WHERE (user_id IS NULL OR user_id = $1)${qSql}
       ORDER BY (user_id IS NULL), name
-      LIMIT 200`,
+      LIMIT ${limit}`,
     params
   );
-  return NextResponse.json({ foods: rows });
+  return NextResponse.json({ foods: rows, sort });
 }
 
 /** POST /api/nutrition/foods —— 保存常用食物（登录用户私有；同名 upsert） */

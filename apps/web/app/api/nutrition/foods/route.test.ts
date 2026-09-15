@@ -34,6 +34,33 @@ describe("GET /api/nutrition/foods", () => {
     await GET(new Request("http://localhost/api/nutrition/foods"));
     expect(queryMock.mock.calls[0][1]).toEqual([null]);
   });
+
+  // v3 M4/M9：按最近使用排序（一点即记 / 贴纸墙的数据源）
+  it("sorts by recent usage when sort=recent", async () => {
+    userScopeMock.mockResolvedValue({ uid: "u-1", anonId: null });
+    queryMock.mockResolvedValue({
+      rows: [{ id: 3, name: "鸡蛋", unit: "个", kcal: 78, times: 9, lastUsed: "2026-09-15T00:00:00.000Z" }],
+    } as never);
+    const res = await GET(new Request("http://localhost/api/nutrition/foods?sort=recent&limit=12"));
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.sort).toBe("recent");
+    expect(body.foods[0].times).toBe(9);
+    const sql = String(queryMock.mock.calls[0][0]);
+    expect(sql).toContain("meal_entries");
+    expect(sql).toContain("ORDER BY COALESCE(u.times, 0) DESC");
+    expect(sql).toContain("LIMIT 12");
+    // 搜索词仍然生效
+    expect(queryMock.mock.calls[0][1]).toEqual(["u-1"]);
+  });
+
+  it("recent + q 同时生效，limit 被钳位", async () => {
+    userScopeMock.mockResolvedValue({ uid: "u-1", anonId: null });
+    queryMock.mockResolvedValue({ rows: [] } as never);
+    await GET(new Request("http://localhost/api/nutrition/foods?sort=recent&q=鸡&limit=9999"));
+    expect(String(queryMock.mock.calls[0][0])).toContain("LIMIT 200");
+    expect(queryMock.mock.calls[0][1]).toEqual(["u-1", "%鸡%"]);
+  });
 });
 
 describe("POST /api/nutrition/foods", () => {

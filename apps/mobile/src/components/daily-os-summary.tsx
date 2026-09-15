@@ -20,7 +20,15 @@ export interface DailyOs {
   progress: number;
   learning: { tasksTotal: number; tasksDone: number; focusMinutes: number; items: { id: number; title: string; done: boolean }[] };
   career: { targetRole: string | null; highMatchJobs: number; pendingApplications: number; expiringCertificates: number };
-  fitness: { workoutName: string | null; workoutMinutes: number; nutritionKcal: number; nutritionTargetKcal: number };
+  fitness: {
+    workoutName: string | null;
+    workoutMinutes: number;
+    nutritionKcal: number;
+    nutritionTargetKcal: number;
+    nutritionRemainingKcal?: number;
+  };
+  /** v3 M11：今日饮水（后端复用 hydration_logs） */
+  hydration?: { totalMl: number; targetMl: number };
   habits: { scheduled: number; done: number };
 }
 
@@ -139,10 +147,19 @@ export function DailyOsSummary({ onNavigate }: { onNavigate?: (href: string) => 
           <StatLine label="专注" value={`${data.learning.focusMinutes} 分`} />
           <StatLine label="任务" value={`${data.learning.tasksDone}/${data.learning.tasksTotal}`} />
           <StatLine label="习惯" value={`${data.habits.done}/${data.habits.scheduled}`} />
+          {/* v3 M11：饮食以「剩余可吃」呈现（与饮食页口径一致） */}
           <StatLine
-            label="饮食"
-            value={`${data.fitness.nutritionKcal}/${data.fitness.nutritionTargetKcal} kcal`}
+            label="还能吃"
+            value={`${data.fitness.nutritionRemainingKcal ?? data.fitness.nutritionTargetKcal - data.fitness.nutritionKcal} kcal`}
+            valueColor={
+              (data.fitness.nutritionRemainingKcal ?? data.fitness.nutritionTargetKcal - data.fitness.nutritionKcal) < 0
+                ? colors.danger
+                : undefined
+            }
           />
+          {data.hydration ? (
+            <StatLine label="饮水" value={`${data.hydration.totalMl}/${data.hydration.targetMl} ml`} />
+          ) : null}
         </View>
       </GlassSurface>
 
