@@ -539,6 +539,26 @@ CREATE TABLE IF NOT EXISTS wellbeing_reminders (
 );
 
 -- 来自迁移 006_wellbeing.sql
+-- ---------- 来自迁移 045_weight_logs.sql（体重趋势） ----------
+
+CREATE TABLE IF NOT EXISTS weight_logs (
+  id         bigserial PRIMARY KEY,
+  user_id    uuid REFERENCES users(id) ON DELETE CASCADE,
+  anon_id    text,
+  log_date   date NOT NULL DEFAULT CURRENT_DATE,
+  weight_kg  numeric NOT NULL CHECK (weight_kg BETWEEN 20 AND 300),
+  note       text,
+  deleted_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_weight_logs_user_date
+  ON weight_logs(user_id, log_date) WHERE deleted_at IS NULL AND user_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_weight_logs_anon_date
+  ON weight_logs(anon_id, log_date) WHERE deleted_at IS NULL AND user_id IS NULL AND anon_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_weight_logs_user_date
+  ON weight_logs(user_id, log_date DESC) WHERE deleted_at IS NULL;
+
 CREATE TABLE IF NOT EXISTS hydration_logs (
   id          bigserial PRIMARY KEY,
   user_id     uuid REFERENCES users(id) ON DELETE CASCADE,
@@ -971,6 +991,14 @@ CREATE TABLE IF NOT EXISTS user_settings (
   user_id       uuid REFERENCES users(id) ON DELETE CASCADE,
   anon_id       text,
   weight_kg     numeric NOT NULL DEFAULT 60 CHECK (weight_kg BETWEEN 20 AND 300),
+  height_cm     int,                              -- 身高（来自迁移 044）
+  birth_year    int,                              -- 出生年（来自迁移 044）
+  sex           text,                             -- male / female（来自迁移 044）
+  activity_level text,                            -- sedentary/light/moderate/high（来自迁移 044）
+  nutrition_target_kcal numeric,                  -- 手动覆盖热量目标（NULL = 自动算，来自迁移 044）
+  protein_target_g numeric,                       -- 手动覆盖三大营养素（来自迁移 044）
+  carbs_target_g numeric,
+  fat_target_g numeric,
   education     jsonb,
   experiences   jsonb,
   current_city  text,

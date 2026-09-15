@@ -20,7 +20,22 @@ import { MacroMiniRings, type MacroRingItem } from "@/components/macro-mini-ring
 import { MealEditSheet, type MealUpdate } from "@/components/meal-edit-sheet";
 import { PortionSlider } from "@/components/portion-slider";
 import { SwipeRow } from "@/components/swipe-row";
+import { WaterCard } from "@/components/water-card";
+import { WeightCard } from "@/components/weight-card";
+import { TargetSheet, type TargetProfileInput } from "@/components/target-sheet";
 import { portionPreviewText } from "@/lib/portion";
+import {
+  addHydration,
+  addWeight,
+  fetchHydration,
+  fetchNutritionTarget,
+  fetchWeight,
+  removeHydration,
+  saveNutritionTarget,
+  type NutritionProfileDto,
+  type NutritionTargetDto,
+  type WeightPointDto,
+} from "@/lib/wellbeing-client";
 import { PressableScale } from "@/components/pressable-scale";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
@@ -50,6 +65,7 @@ import { getApiUrl } from "@/config";
 import {
   DEFAULT_NUTRITION_TARGETS,
   MEAL_KCAL_SHARES,
+  buildNutritionTargetView,
   formatEntryTime,
   mealKindLabels,
   nutritionTargetRange,
@@ -94,8 +110,42 @@ export default function NutritionScreen() {
   const [editing, setEditing] = useState<MealEntry | null>(null);
   const [outbox, setOutbox] = useState<OutboxState>(EMPTY_OUTBOX);
   const [pendingIds, setPendingIds] = useState<number[]>([]);
+  // P3：目标 / 饮水 / 体重
+  const [profile, setProfile] = useState<NutritionProfileDto | null>(null);
+  const [serverTarget, setServerTarget] = useState<NutritionTargetDto | null>(null);
+  const [targetOpen, setTargetOpen] = useState(false);
+  const [hydration, setHydration] = useState<{ totalMl: number; targetMl: number; lastId: number | null }>({
+    totalMl: 0,
+    targetMl: 2000,
+    lastId: null,
+  });
+  const [weightPoints, setWeightPoints] = useState<WeightPointDto[]>([]);
+  const [wellnessBusy, setWellnessBusy] = useState(false);
+  const [weightOpen, setWeightOpen] = useState(false);
+  const [weightDraft, setWeightDraft] = useState("");
 
-  const target = DEFAULT_NUTRITION_TARGETS;
+  /** 有效目标：身体数据算出来（或手动覆盖），失败回落 shared 默认值 */
+  const target = useMemo(() => {
+    const base = buildNutritionTargetView(
+      {
+        weightKg: profile?.weightKg ?? 60,
+        heightCm: profile?.heightCm ?? null,
+        birthYear: profile?.birthYear ?? null,
+        sex: profile?.sex ?? null,
+        activityLevel: profile?.activityLevel ?? null,
+      },
+      serverTarget
+        ? {
+            kcal: serverTarget.computed || serverTarget.kcal !== DEFAULT_NUTRITION_TARGETS.kcal ? serverTarget.kcal : null,
+            proteinG: serverTarget.proteinG,
+            carbsG: serverTarget.carbsG,
+            fatG: serverTarget.fatG,
+          }
+        : null
+    );
+    return { kcal: base.kcal, proteinG: base.proteinG, carbsG: base.carbsG, fatG: base.fatG, computed: base.computed, note: base.note };
+  }, [profile, serverTarget]);
+
   const isToday = date === todayKey;
   const totals = useMemo(() => sumNutrition(entries), [entries]);
   const remaining = remainingKcal(totals.kcal, target.kcal);
@@ -153,10 +203,13 @@ export default function NutritionScreen() {
   const load = useCallback(async () => {
     await flushPending();
     try {
-      const [entriesRes, summaryRes] = await Promise.all([
+      const [entriesRes, summaryRes, targetRes, waterRes, weightRes] = await Promise.all([
         fetch(`${getApiUrl()}/api/nutrition?date=${date}`, { headers: headers() }),
         // 日期条的 ✓ 与窗口一起取（一次请求覆盖最多 4 周窗口，避免连打 28 次明细）
         fetch(`${getApiUrl()}/api/nutrition/summary?days=28`, { headers: headers() }),
+        fetchNutritionTarget(token).catch(() => null),
+        fetchHydration(token).catch(() => null),
+        fetchWeight(token, 30).catch(() => null),
       ]);
       const d = await entriesRes.json();
       if (entriesRes.ok) setEntries(Array.isArray(d.entries) ? d.entries : []);
@@ -168,12 +221,24 @@ export default function NutritionScreen() {
         }
         setDaySummary(map);
       }
+      if (targetRes) {
+        setProfile(targetRes.profile);
+        setServerTarget(targetRes.target);
+      }
+      if (waterRes) {
+        setHydration({
+          totalMl: waterRes.totalMl,
+          targetMl: waterRes.targetMl,
+          lastId: waterRes.logs.length > 0 ? waterRes.logs[waterRes.logs.length - 1].id : null,
+        });
+      }
+      if (weightRes) setWeightPoints(weightRes.points);
     } catch {
       // 离线保留现状
     } finally {
       setLoading(false);
     }
-  }, [date, flushPending, headers]);
+  }, [date, flushPending, headers, token]);
 
   useEffect(() => {
     const t = setTimeout(() => void load(), 0);
@@ -423,6 +488,82 @@ export default function NutritionScreen() {
     (f) => !foodQuery.trim() || f.name.toLowerCase().includes(foodQuery.trim().toLowerCase())
   );
 
+  /* ---------- P3：饮水 / 体重 / 目标 ---------- */
+
+  const onAddWater = async (amountMl: number) => {
+    haptics.light();
+    setHydration((prev) => ({ ...prev, totalMl: prev.totalMl + amountMl }));
+    setWellnessBusy(true);
+    try {
+      await addHydration(token, amountMl);
+      const fresh = await fetchHydration(token);
+      setHydration({
+        totalMl: fresh.totalMl,
+        targetMl: fresh.targetMl,
+        lastId: fresh.logs.length > 0 ? fresh.logs[fresh.logs.length - 1].id : null,
+      });
+    } catch {
+      Alert.alert("记录失败", "联网后再试一次");
+      await load();
+    } finally {
+      setWellnessBusy(false);
+    }
+  };
+
+  const onUndoWater = async () => {
+    if (!hydration.lastId) return;
+    setWellnessBusy(true);
+    try {
+      await removeHydration(token, hydration.lastId);
+      const fresh = await fetchHydration(token);
+      setHydration({
+        totalMl: fresh.totalMl,
+        targetMl: fresh.targetMl,
+        lastId: fresh.logs.length > 0 ? fresh.logs[fresh.logs.length - 1].id : null,
+      });
+    } catch {
+      Alert.alert("撤销失败");
+    } finally {
+      setWellnessBusy(false);
+    }
+  };
+
+  const onAddWeight = async (weightKg: number) => {
+    setWellnessBusy(true);
+    try {
+      await addWeight(token, weightKg);
+      const fresh = await fetchWeight(token, 30);
+      setWeightPoints(fresh.points);
+      haptics.success();
+    } catch {
+      Alert.alert("记录失败", "联网后再试一次");
+    } finally {
+      setWellnessBusy(false);
+    }
+  };
+
+  const onSaveTarget = async (next: TargetProfileInput) => {
+    setSaving(true);
+    try {
+      const { profile: p, target: t } = await saveNutritionTarget(token, {
+        weightKg: next.weightKg ?? undefined,
+        heightCm: next.heightCm,
+        birthYear: next.birthYear,
+        sex: next.sex,
+        activityLevel: next.activityLevel,
+        kcal: next.kcal,
+      });
+      setProfile(p);
+      setServerTarget(t);
+      setTargetOpen(false);
+      haptics.success();
+    } catch {
+      Alert.alert("保存失败", "请确认网络可用");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const macroItems: MacroRingItem[] = useMemo(
     () => [
       {
@@ -507,12 +648,16 @@ export default function NutritionScreen() {
                 : "刚好达标，收工"}
           </Text>
           <Pressable
-            onPress={() => Alert.alert("每日目标", `当前目标 ${target.kcal} kcal\n（v3 P3 会支持按身体数据自动计算）`)}
+            onPress={() => {
+              haptics.soft();
+              setTargetOpen(true);
+            }}
             hitSlop={6}
             style={styles.targetRow}
           >
             <Text style={styles.targetText}>
               已吃 {totals.kcal} · 目标 {target.kcal}
+              {target.computed ? "（按身体数据）" : ""}
             </Text>
             <ThemedIcon name="chevron-forward" size={13} color={colors.textFaint} />
           </Pressable>
@@ -523,6 +668,30 @@ export default function NutritionScreen() {
       <Card style={styles.macroCard}>
         <MacroMiniRings items={macroItems} />
       </Card>
+
+      {/* M7 饮水 + M8 体重：两个「角落小卡」（只在看今天时显示） */}
+      {isToday ? (
+        <>
+          <WaterCard
+            totalMl={hydration.totalMl}
+            targetMl={hydration.targetMl}
+            lastLogId={hydration.lastId}
+            busy={wellnessBusy}
+            onAdd={(ml) => void onAddWater(ml)}
+            onUndo={() => void onUndoWater()}
+          />
+          <WeightCard
+            points={weightPoints.map((p) => ({ date: p.date, weightKg: p.weightKg }))}
+            heightCm={profile?.heightCm ?? null}
+            busy={wellnessBusy}
+            onAdd={() => {
+              const latest = weightPoints.length > 0 ? weightPoints[weightPoints.length - 1].weightKg : (profile?.weightKg ?? 60);
+              setWeightDraft(String(Math.round(latest * 10) / 10));
+              setWeightOpen(true);
+            }}
+          />
+        </>
+      ) : null}
 
       <PressableScale haptic style={styles.addBtn} onPress={() => setSheetOpen(true)}>
         <ThemedIcon name="add" size={18} color="#fff" />
@@ -762,6 +931,77 @@ export default function NutritionScreen() {
           void remove(id);
         }}
       />
+
+      {/* 体重记录（Android 没有 Alert.prompt，用自研弹层） */}
+      <BottomSheet visible={weightOpen} onClose={() => setWeightOpen(false)} title="记录体重" height="52%">
+        <View style={styles.form}>
+          <Text style={styles.label}>今日体重</Text>
+          <View style={styles.weightRow}>
+            <Pressable
+              style={styles.weightStep}
+              hitSlop={8}
+              accessibilityLabel="减少 0.1kg"
+              onPress={() => {
+                haptics.light();
+                setWeightDraft((v) => (Math.round((Number(v) - 0.1) * 10) / 10).toFixed(1));
+              }}
+            >
+              <ThemedIcon name="remove" size={18} color={colors.primary} />
+            </Pressable>
+            <Field
+              value={weightDraft}
+              onChangeText={setWeightDraft}
+              keyboardType="numeric"
+              placeholder="62.4"
+              containerStyle={styles.weightField}
+            />
+            <Pressable
+              style={styles.weightStep}
+              hitSlop={8}
+              accessibilityLabel="增加 0.1kg"
+              onPress={() => {
+                haptics.light();
+                setWeightDraft((v) => (Math.round((Number(v) + 0.1) * 10) / 10).toFixed(1));
+              }}
+            >
+              <ThemedIcon name="add" size={18} color={colors.primary} />
+            </Pressable>
+          </View>
+          <Text style={styles.muted}>同一天重复记录会覆盖；写入后同步为卡路里估算用的体重。</Text>
+          <Button
+            label="保存体重"
+            icon="checkmark"
+            loading={wellnessBusy}
+            onPress={() => {
+              const n = Number(weightDraft);
+              if (!Number.isFinite(n) || n <= 0) {
+                Alert.alert("请输入有效体重");
+                return;
+              }
+              setWeightOpen(false);
+              void onAddWeight(n);
+            }}
+          />
+        </View>
+      </BottomSheet>
+
+      <TargetSheet
+        visible={targetOpen}
+        profile={{
+          weightKg: profile?.weightKg ?? null,
+          heightCm: profile?.heightCm ?? null,
+          birthYear: profile?.birthYear ?? null,
+          sex: profile?.sex ?? null,
+          activityLevel: profile?.activityLevel ?? null,
+          kcal: null,
+        }}
+        note={target.note}
+        computed={target.computed}
+        preview={{ kcal: target.kcal, proteinG: target.proteinG, carbsG: target.carbsG, fatG: target.fatG }}
+        saving={saving}
+        onClose={() => setTargetOpen(false)}
+        onSave={(next) => void onSaveTarget(next)}
+      />
     </ScrollView>
   );
 }
@@ -849,4 +1089,14 @@ const makeStyles = (colors: ThemeColors) =>
     macroInput: { flex: 1, minWidth: 0 },
     switchRow: { flexDirection: "row", alignItems: "center", gap: 8 },
     switchLabel: { flex: 1, ...typography.callout, fontWeight: "600", color: colors.text },
+    weightRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+    weightStep: {
+      width: 40,
+      height: 44,
+      borderRadius: 12,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.primarySoft,
+    },
+    weightField: { flex: 1, minWidth: 0 },
   });

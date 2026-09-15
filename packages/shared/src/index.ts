@@ -2053,6 +2053,144 @@ export function recentDateKeys(days: number, today: Date = new Date()): string[]
   return out;
 }
 
+/* ---------- v3 M6：热量目标（BMR × 活动系数） ---------- */
+
+export const ACTIVITY_LEVELS = ["sedentary", "light", "moderate", "high"] as const;
+export type ActivityLevel = (typeof ACTIVITY_LEVELS)[number];
+export const ACTIVITY_FACTORS: Record<ActivityLevel, number> = {
+  sedentary: 1.2,
+  light: 1.375,
+  moderate: 1.55,
+  high: 1.725,
+};
+export const ACTIVITY_LABELS: Record<ActivityLevel, string> = {
+  sedentary: "久坐",
+  light: "轻活动",
+  moderate: "中等活动",
+  high: "高活动",
+};
+
+export type Sex = "male" | "female";
+
+export interface BodyProfile {
+  /** 当前体重（来自 user_settings.weight_kg） */
+  weightKg: number;
+  heightCm?: number | null;
+  birthYear?: number | null;
+  sex?: Sex | null;
+  activityLevel?: ActivityLevel | null;
+}
+
+/** 热量目标的安全区间（避免算出离谱值） */
+export const KCAL_TARGET_MIN = 1200;
+export const KCAL_TARGET_MAX = 4000;
+
+/**
+ * Mifflin-St Jeor 基础代谢（纯函数）。
+ * 缺身高/年龄/性别时返回 null —— 调用方回落到默认目标，不阻塞使用。
+ */
+export function computeBmr(profile: BodyProfile, now: Date = new Date()): number | null {
+  const { weightKg, heightCm, birthYear, sex } = profile;
+  if (!Number.isFinite(weightKg) || weightKg <= 0) return null;
+  if (!heightCm || !Number.isFinite(heightCm) || heightCm <= 0) return null;
+  if (!birthYear || !Number.isFinite(birthYear)) return null;
+  if (sex !== "male" && sex !== "female") return null;
+  const age = Math.max(14, Math.min(90, now.getFullYear() - birthYear));
+  const base = 10 * weightKg + 6.25 * heightCm - 5 * age;
+  return Math.round(base + (sex === "male" ? 5 : -161));
+}
+
+export interface CalorieTargetResult {
+  /** 目标热量（单值；D3 里只有三大营养素用区间） */
+  kcal: number;
+  bmr: number | null;
+  factor: number;
+  /** 是否由身体数据算出（false = 用了默认值） */
+  computed: boolean;
+  /** 一句话解释（可展开显示"怎么算出来的"） */
+  note: string;
+}
+
+/**
+ * 由身体数据算热量目标；数据不全时回落到默认目标。
+ * 口径：BMR × 活动系数，钳位到 [1200, 4000]。
+ */
+export function computeCalorieTarget(
+  profile: BodyProfile,
+  fallbackKcal = DEFAULT_NUTRITION_TARGETS.kcal,
+  now: Date = new Date()
+): CalorieTargetResult {
+  const factor = ACTIVITY_FACTORS[profile.activityLevel ?? "light"] ?? 1.375;
+  const bmr = computeBmr(profile, now);
+  if (bmr === null) {
+    return {
+      kcal: fallbackKcal,
+      bmr: null,
+      factor,
+      computed: false,
+      note: `填身高 / 出生年 / 性别后可自动算目标，当前用默认 ${fallbackKcal} kcal`,
+    };
+  }
+  const raw = bmr * factor;
+  const kcal = Math.round(Math.min(KCAL_TARGET_MAX, Math.max(KCAL_TARGET_MIN, raw)));
+  return {
+    kcal,
+    bmr,
+    factor,
+    computed: true,
+    note: `BMR ${bmr} × ${factor} ≈ ${Math.round(raw)} kcal`,
+  };
+}
+
+/**
+ * 由热量目标推三大营养素（蛋白 1.6g/kg、脂肪 0.9g/kg，碳水补足）。
+ * 返回单值；UI 侧用 nutritionTargetRange() 展示成区间（D3）。
+ */
+export function macroTargetsFromKcal(
+  kcal: number,
+  weightKg: number
+): { proteinG: number; carbsG: number; fatG: number } {
+  const k = Number.isFinite(kcal) && kcal > 0 ? kcal : DEFAULT_NUTRITION_TARGETS.kcal;
+  const w = Number.isFinite(weightKg) && weightKg > 0 ? weightKg : 60;
+  const proteinG = Math.round(Math.min(2.4, Math.max(1.2, 1.6)) * w);
+  const fatG = Math.round(0.9 * w);
+  const carbsKcal = k - proteinG * 4 - fatG * 9;
+  const carbsG = Math.max(50, Math.round(carbsKcal / 4));
+  return { proteinG, carbsG, fatG };
+}
+
+/** 目标预览（UI 显示"怎么算出来的"和最终四项） */
+export interface NutritionTargetView {
+  kcal: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+  computed: boolean;
+  bmr: number | null;
+  factor: number;
+  note: string;
+}
+
+export function buildNutritionTargetView(
+  profile: BodyProfile,
+  overrides?: { kcal?: number | null; proteinG?: number | null; carbsG?: number | null; fatG?: number | null } | null,
+  now: Date = new Date()
+): NutritionTargetView {
+  const base = computeCalorieTarget(profile, DEFAULT_NUTRITION_TARGETS.kcal, now);
+  const kcal = overrides?.kcal && overrides.kcal > 0 ? Math.round(overrides.kcal) : base.kcal;
+  const macroBase = macroTargetsFromKcal(kcal, profile.weightKg);
+  return {
+    kcal,
+    proteinG: overrides?.proteinG && overrides.proteinG > 0 ? Math.round(overrides.proteinG) : macroBase.proteinG,
+    carbsG: overrides?.carbsG && overrides.carbsG > 0 ? Math.round(overrides.carbsG) : macroBase.carbsG,
+    fatG: overrides?.fatG && overrides.fatG > 0 ? Math.round(overrides.fatG) : macroBase.fatG,
+    computed: base.computed,
+    bmr: base.bmr,
+    factor: base.factor,
+    note: base.note,
+  };
+}
+
 /* ================= V3 · Sports Profile / Share（迁移 042） ================= */
 
 export const handSchema = z.enum(["left", "right"]);

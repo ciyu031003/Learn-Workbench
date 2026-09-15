@@ -7,7 +7,7 @@ vi.mock("@learn-workbench/shared", async (importOriginal) => {
 });
 import { pgPool } from "@/lib/db";
 import { userScope, scopeWhere } from "@/lib/anon";
-import { GET, POST } from "./route";
+import { GET, POST, DELETE } from "./route";
 
 const queryMock = vi.mocked(pgPool.query);
 const userScopeMock = vi.mocked(userScope);
@@ -59,3 +59,20 @@ describe("POST /api/wellbeing/hydration", () => {
 function jsonReq(body: unknown): Request {
   return new Request("http://localhost", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 }
+
+// v3 M7：撤销一条饮水记录（软删）
+describe("DELETE /api/wellbeing/hydration", () => {
+  it("soft-deletes the log", async () => {
+    userScopeMock.mockResolvedValue({ uid: "u-1", anonId: null });
+    queryMock.mockResolvedValue({ rows: [] } as never);
+    const res = await DELETE(new Request("http://localhost/api/wellbeing/hydration?id=12", { method: "DELETE" }));
+    expect(res.status).toBe(200);
+    expect(String(queryMock.mock.calls[0][0])).toContain("deleted_at = now()");
+    expect((queryMock.mock.calls[0][1] as unknown[])[1]).toBe(12);
+  });
+
+  it("rejects an invalid id", async () => {
+    const res = await DELETE(new Request("http://localhost/api/wellbeing/hydration?id=abc", { method: "DELETE" }));
+    expect(res.status).toBe(400);
+  });
+});

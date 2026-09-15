@@ -51,3 +51,18 @@ export async function POST(req: Request) {
   }
   return NextResponse.json({ log: rows[0] }, { status: 201 });
 }
+
+/** DELETE /api/wellbeing/hydration?id= —— 撤销一条饮水记录（软删，v3 M7） */
+export async function DELETE(req: Request) {
+  const url = new URL(req.url);
+  const id = Number(url.searchParams.get("id"));
+  if (!Number.isInteger(id) || id <= 0) return NextResponse.json({ error: "id 无效" }, { status: 400 });
+  const scope = await userScope();
+  const w = scopeWhere(scope, [scope.uid, id]);
+  await pgPool.query(
+    `UPDATE hydration_logs SET deleted_at = now()
+      WHERE user_id IS NOT DISTINCT FROM $1${w.sql} AND id = $2 AND deleted_at IS NULL`,
+    w.params
+  );
+  return NextResponse.json({ ok: true });
+}
