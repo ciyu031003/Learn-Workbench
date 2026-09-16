@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import Animated, { FadeInUp, LinearTransition } from "react-native-reanimated";
 import { ThemedIcon } from "@/components/themed-icon";
@@ -15,7 +15,8 @@ import { ProgressArc } from "@/components/progress-arc";
 import { AnimatedNumber } from "@/components/animated-number";
 import { KcalBadge } from "@/components/kcal-badge";
 import { FoodSticker } from "@/components/food-sticker";
-import { DayStrip } from "@/components/day-strip";
+import { DayStrip, DAY_STRIP_MAX_WEEKS } from "@/components/day-strip";
+import { MonthCalendar } from "@/components/month-calendar";
 import { MacroMiniRings, type MacroRingItem } from "@/components/macro-mini-rings";
 import { MealEditSheet, type MealUpdate } from "@/components/meal-edit-sheet";
 import { PortionSlider } from "@/components/portion-slider";
@@ -60,8 +61,19 @@ import {
   type OutboxOp,
   type OutboxState,
 } from "@/lib/nutrition-outbox";
-import { isRetryable, sendNutritionOp, toFlushOutcome, type SendOutcome } from "@/lib/nutrition-sync";
-import { spacing, tabularNums, typography } from "@/theme/tokens";
+import { isRetryable, sendNutritionOp, toFlushOutcome } from "@/lib/nutrition-sync";
+import { monthRange } from "@/lib/month-grid";
+import {
+  compactKcal,
+  dayLabel,
+  summarizeRange,
+  pickWindowSummary,
+  toDaySummaryMap,
+  todayAndYesterday,
+  weeksAgo,
+  type DaySummaryRow,
+} from "@/lib/nutrition-views";
+import { spacing, tabularNums, typography, shadows } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
@@ -70,8 +82,10 @@ import {
   MEAL_KCAL_SHARES,
   buildNutritionTargetView,
   formatEntryTime,
+  fromDateKey,
   mealKindLabels,
   nutritionTargetRange,
+  recentDateKeys,
   remainingKcal,
   toDateKey,
   kcalEquivalentText,
@@ -81,7 +95,13 @@ import {
   type MealKind,
 } from "@learn-workbench/shared";
 
+/** 窗口不匹配时的占位（引用恒定，避免 useMemo 抖动） */
+const EMPTY_SUMMARY_MAP: Record<string, DaySummaryRow> = {};
+
 const MEALS: MealKind[] = ["breakfast", "lunch", "dinner", "snack"];
+
+/** v4 P4-a：日期视图（日 / 周 / 月） */
+type ViewMode = "day" | "week" | "month";
 
 /** 三大营养素环的配色（借 吃一点：绿=达标、橙=碳水、青=脂肪） */
 const MACRO_COLORS = { proteinG: "#3DA35D", carbsG: "#F28C28", fatG: "#2FB3A6" } as const;
@@ -93,11 +113,29 @@ export default function NutritionScreen() {
   const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
 
-  const todayKey = useMemo(() => toDateKey(new Date()), []);
+  const { today: todayKey, yesterday: yesterdayKey } = useMemo(() => todayAndYesterday(), []);
   const [date, setDate] = useState(todayKey);
   const [weekOffset, setWeekOffset] = useState(0);
+  /** v4 P4-a：日 / 周 / 月 日期视图（默认「日」） */
+  const [viewMode, setViewMode] = useState<ViewMode>("day");
+  /** 月视图当前翻到的月份（切到「月」时对齐所选日期的月份，避免停在今天的月份） */
+  const [monthView, setMonthView] = useState(() => ({
+    y: Number(todayKey.slice(0, 4)),
+    m: Number(todayKey.slice(5, 7)) - 1,
+  }));
   const [entries, setEntries] = useState<MealEntry[]>([]);
-  const [daySummary, setDaySummary] = useState<Record<string, number>>({});
+  /** 逐日汇总（**保留 kcal 等完整字段**，月历徽标与周/月汇总都靠它；不再只存条数） */
+  /**
+   * 区间汇总与**取数窗口绑定**：`key` 是当前请求用的窗口标识，`map` 是该窗口的结果。
+   * 二者不匹配时消费方按"还没有数据"处理 —— 否则切视图/翻月的过渡期会拿旧窗口的数字
+   * 去渲染新窗口（例如月历一个徽标都没有、却显示"本月记录了 1 天"，审查发现）。
+   */
+  const [summaryState, setSummaryState] = useState<{ key: string; map: Record<string, DaySummaryRow> }>({
+    key: "",
+    map: {},
+  });
+  /** 日视图里的「选择日期」弹层 */
+  const [dateSheetOpen, setDateSheetOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [foods, setFoods] = useState<Food[]>([]);
@@ -151,6 +189,53 @@ export default function NutritionScreen() {
     return { kcal: base.kcal, proteinG: base.proteinG, carbsG: base.carbsG, fatG: base.fatG, computed: base.computed, note: base.note };
   }, [profile, serverTarget]);
 
+  /**
+   * v4 P4-a：按视图决定 summary 的取数窗口
+   *  - 日：只需要当天（✓ 标记只在周视图用，避免每次切日期都拉 28 天）
+   *  - 周：日期条最多回看 4 周 → 一次取 28 天覆盖整个可翻页窗口（保持既有行为）
+   *  - 月：`days` = 该月天数、`end` = 该月最后一天 → 翻历史月时不会把上个月的尾巴算进来
+   *    （后端 `MAX_DAYS = 31`，正好覆盖整月；不需要任何后端改动）
+   */
+  const summaryWindow = useMemo(() => {
+    if (viewMode === "month") return monthRange(monthView.y, monthView.m);
+    if (viewMode === "week") {
+      const end = fromDateKey(todayKey);
+      end.setDate(end.getDate() - weekOffset * 7);
+      return { days: 28, end: toDateKey(end) };
+    }
+    return { days: 1, end: date };
+  }, [viewMode, monthView, weekOffset, date, todayKey]);
+
+  const summaryWindowKey = `${summaryWindow.days}:${summaryWindow.end}`;
+  /** 只有"当前窗口"的数据才参与渲染；切换窗口的过渡期一律当空（宁可不显示，也不显示错窗口的数字） */
+  const daySummary = useMemo(
+    () => pickWindowSummary(summaryState, summaryWindowKey) ?? EMPTY_SUMMARY_MAP,
+    [summaryState, summaryWindowKey]
+  );
+
+  /** 日期条的 ✓ 仍按"当天有记录"判定，所以从富结构里派生一份 entryCount map（DayStrip 的 API 不变） */
+  const doneMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const [key, row] of Object.entries(daySummary)) map[key] = row.entryCount;
+    return map;
+  }, [daySummary]);
+
+  /** 周视图的 7 天窗口（与 DayStrip 内部窗口一致：今天往前 weekOffset 周，取 7 天） */
+  const weekKeys = useMemo(() => {
+    const end = fromDateKey(todayKey);
+    end.setDate(end.getDate() - weekOffset * 7);
+    return recentDateKeys(7, end);
+  }, [todayKey, weekOffset]);
+
+  /** 周 / 月视图顶部的区间汇总 */
+  const weekRows = useMemo(
+    () => weekKeys.map((k) => daySummary[k]).filter((r): r is DaySummaryRow => Boolean(r)),
+    [weekKeys, daySummary]
+  );
+  const rangeRows = useMemo(() => Object.values(daySummary), [daySummary]);
+  const weekSummary = useMemo(() => summarizeRange(weekRows), [weekRows]);
+  const monthSummary = useMemo(() => summarizeRange(rangeRows), [rangeRows]);
+
   const isToday = date === todayKey;
   const totals = useMemo(() => sumNutrition(entries), [entries]);
   const remaining = remainingKcal(totals.kcal, target.kcal);
@@ -187,27 +272,32 @@ export default function NutritionScreen() {
     }
   }, [sendOp]);
 
+  /**
+   * 请求序号：`load()` 里先 `await flushPending()`（可能含网络重试），
+   * 因此**后触发的 load 可能先返回**；没有守卫时旧响应会覆盖新数据
+   * （切换到月视图后仍显示上一天的数字，且不会自愈）——审查发现。
+   */
+  const loadSeq = useRef(0);
+
   const load = useCallback(async () => {
+    const my = ++loadSeq.current;
     await flushPending();
+    if (my !== loadSeq.current) return;
     try {
       const [entriesRes, summaryRes, targetRes, waterRes, weightRes] = await Promise.all([
         fetch(`${getApiUrl()}/api/nutrition?date=${date}`, { headers: headers() }),
-        // 日期条的 ✓ 与窗口一起取（一次请求覆盖最多 4 周窗口，避免连打 28 次明细）
-        fetch(`${getApiUrl()}/api/nutrition/summary?days=28`, { headers: headers() }),
+        // 日期条的 ✓ / 月历徽标 / 区间汇总一起取（一次请求覆盖当前视图窗口，避免连打 N 次明细）
+        fetch(`${getApiUrl()}/api/nutrition/summary?days=${summaryWindow.days}&end=${summaryWindow.end}`, { headers: headers() }),
         fetchNutritionTarget(token).catch(() => null),
         fetchHydration(token).catch(() => null),
         fetchWeight(token, 30).catch(() => null),
       ]);
+      if (my !== loadSeq.current) return;
       const d = await entriesRes.json();
       if (entriesRes.ok) setEntries(Array.isArray(d.entries) ? d.entries : []);
       const s = await summaryRes.json();
-      if (summaryRes.ok && Array.isArray(s.summary)) {
-        const map: Record<string, number> = {};
-        for (const row of s.summary as { date: string; entryCount: number }[]) {
-          if (row.entryCount > 0) map[row.date.slice(0, 10)] = row.entryCount;
-        }
-        setDaySummary(map);
-      }
+      // 与窗口一起落库：窗口不匹配时消费方按空处理，宁可不显示也不显示错的月份数字
+      if (summaryRes.ok) setSummaryState({ key: summaryWindowKey, map: toDaySummaryMap(s.summary) });
       if (targetRes) {
         setProfile(targetRes.profile);
         setServerTarget(targetRes.target);
@@ -223,9 +313,9 @@ export default function NutritionScreen() {
     } catch {
       // 离线保留现状
     } finally {
-      setLoading(false);
+      if (my === loadSeq.current) setLoading(false);
     }
-  }, [date, flushPending, headers, token]);
+  }, [date, flushPending, headers, summaryWindow, summaryWindowKey]);
 
   useEffect(() => {
     const t = setTimeout(() => void load(), 0);
@@ -632,17 +722,192 @@ export default function NutritionScreen() {
         compact
       />
 
-      {/* M2 日期条：可回看历史（今天用能量橙描边） */}
-      <DayStrip
-        selected={date}
-        onSelect={setDate}
-        weekOffset={weekOffset}
-        onWeekOffsetChange={setWeekOffset}
-        doneMap={daySummary}
-        todayKey={todayKey}
-      />
+      {/* v4 P4-a：日 / 周 / 月 视图切换（圆角胶囊分段控件，参考「吃一点」顶部那条） */}
+      <View style={styles.segment}>
+        {(
+          [
+            { key: "day", label: "日" },
+            { key: "week", label: "周" },
+            { key: "month", label: "月" },
+          ] as const
+        ).map((o) => {
+          const active = viewMode === o.key;
+          return (
+            <Pressable
+              key={o.key}
+              style={[styles.segmentItem, active && styles.segmentItemActive]}
+              onPress={() => {
+                haptics.soft();
+                // 切到「月」时对齐当前所选日期的月份，符合"我正在看哪天就展开哪个月"的预期
+                if (o.key === "month") {
+                  setMonthView({ y: Number(date.slice(0, 4)), m: Number(date.slice(5, 7)) - 1 });
+                }
+                // 切到「周」时把日期条翻到包含所选日期的那一周（否则会停在今天那周且没有格子高亮）
+                if (o.key === "week") {
+                  setWeekOffset(weeksAgo(date, todayKey, DAY_STRIP_MAX_WEEKS));
+                }
+                setViewMode(o.key);
+              }}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+            >
+              <Text style={[styles.segmentText, active && styles.segmentTextActive]}>{o.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
 
-      {/* M1 热量 Hero：主角是「今天还能吃多少」 */}
+      {/* 日视图：今天 / 昨天 快捷胶囊 + 自定义日期（复用月历弹层） */}
+      {viewMode === "day" ? (
+        <View style={styles.dayPills}>
+          {[
+            { key: todayKey, label: "今天" },
+            { key: yesterdayKey, label: "昨天" },
+          ].map((o) => {
+            const active = date === o.key;
+            return (
+              <Pressable
+                key={o.key}
+                style={[styles.dayPill, active && styles.dayPillActive]}
+                onPress={() => {
+                  haptics.soft();
+                  setDate(o.key);
+                }}
+              >
+                <Text style={[styles.dayPillText, active && styles.dayPillTextActive]}>{o.label}</Text>
+              </Pressable>
+            );
+          })}
+          <Pressable
+            style={styles.dayPill}
+            onPress={() => {
+              haptics.soft();
+              setDateSheetOpen(true);
+            }}
+          >
+            <Text style={styles.dayPillText}>{date === todayKey || date === yesterdayKey ? "选择日期" : dayLabel(date, todayKey)}</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {/* v4 P4-b 顶部摘要胶囊：把「摄入 / 剩余（或日均）/ 饮水或记录天数」收敛成一行，
+          首屏只保留一个强视觉块（下面的热量 Hero），避免多个 hero 互相抢焦点 */}
+      <View style={styles.summaryPill}>
+        <View style={styles.summaryItem}>
+          <Text style={styles.summaryValue}>
+            {viewMode === "day" ? Math.round(totals.kcal) : viewMode === "week" ? weekSummary.kcal : monthSummary.kcal}
+          </Text>
+          <Text style={styles.summaryLabel}>
+            {viewMode === "day" ? "已摄入 kcal" : viewMode === "week" ? "本周 kcal" : "本月 kcal"}
+          </Text>
+        </View>
+        <View style={styles.summaryDivider} />
+        <View style={styles.summaryItem}>
+          <Text style={[styles.summaryValue, viewMode === "day" && overBudget && { color: colors.danger }]}>
+            {viewMode === "day"
+              ? Math.abs(remaining)
+              : viewMode === "week"
+                ? weekSummary.avgKcal
+                : monthSummary.avgKcal}
+          </Text>
+          <Text style={styles.summaryLabel}>
+            {viewMode === "day" ? (overBudget ? "已超出 kcal" : "还能吃 kcal") : "日均 kcal"}
+          </Text>
+        </View>
+        <View style={styles.summaryDivider} />
+        <View style={styles.summaryItem}>
+          <Text style={styles.summaryValue}>
+            {viewMode === "day"
+              ? hydration.totalMl
+              : viewMode === "week"
+                ? weekSummary.daysLogged
+                : monthSummary.daysLogged}
+          </Text>
+          <Text style={styles.summaryLabel}>{viewMode === "day" ? "饮水 ml" : "记录天数"}</Text>
+        </View>
+        <Pressable
+          style={styles.summaryAdd}
+          onPress={() => {
+            haptics.soft();
+            setSheetOpen(true);
+          }}
+          accessibilityLabel={`添加${mealKindLabels[meal]}`}
+        >
+          <ThemedIcon name="add" size={18} color="#fff" />
+        </Pressable>
+      </View>
+
+      {/* M2 日期条：周视图的一排（可回看 4 周，今天用能量橙描边） */}
+      {viewMode === "week" ? (
+        <DayStrip
+          selected={date}
+          onSelect={setDate}
+          weekOffset={weekOffset}
+          onWeekOffsetChange={setWeekOffset}
+          doneMap={doneMap}
+          todayKey={todayKey}
+        />
+      ) : null}
+
+      {/* 周视图：这一周的区间汇总 */}
+      {viewMode === "week" ? (
+        <Card style={styles.rangeCard}>
+          <Text style={styles.rangeTitle}>
+            {weekSummary.daysLogged > 0 ? `这一周记录了 ${weekSummary.daysLogged} 天` : "这一周还没有记录"}
+          </Text>
+          <Text style={styles.rangeMeta}>
+            {weekSummary.kcal} kcal · 日均 {weekSummary.avgKcal} kcal
+            {weekSummary.daysLogged > 0
+              ? ` · P${weekSummary.proteinG} C${weekSummary.carbsG} F${weekSummary.fatG}`
+              : ""}
+          </Text>
+        </Card>
+      ) : null}
+
+      {/* 月视图：整月日历 + 每格当天 kcal 汇总（点某天 → 回日视图看那天） */}
+      {viewMode === "month" ? (
+        <>
+          <Card style={styles.monthCard}>
+            <MonthCalendar
+              key={`${monthView.y}-${monthView.m}`}
+              selected={fromDateKey(date)}
+              initialView={monthView}
+              onViewChange={setMonthView}
+              onSelect={(d) => {
+                haptics.soft();
+                setDate(toDateKey(d));
+                setViewMode("day");
+              }}
+              onClose={() => {
+                // 月视图是内联的日历，选中即切日视图，无需关闭动作
+              }}
+              renderDayBadge={(key) => {
+                const row = daySummary[key];
+                if (!row) return null;
+                return <Text style={styles.calBadgeText}>{compactKcal(row.kcal)}</Text>;
+              }}
+            />
+          </Card>
+          <Card style={styles.rangeCard}>
+            <Text style={styles.rangeTitle}>
+              {monthSummary.daysLogged > 0
+                ? `${monthView.y} 年 ${monthView.m + 1} 月：记录了 ${monthSummary.daysLogged} 天`
+                : `${monthView.y} 年 ${monthView.m + 1} 月还没有记录`}
+            </Text>
+            <Text style={styles.rangeMeta}>
+              {monthSummary.kcal} kcal · 日均 {monthSummary.avgKcal} kcal
+              {monthSummary.daysLogged > 0
+                ? ` · P${monthSummary.proteinG} C${monthSummary.carbsG} F${monthSummary.fatG}`
+                : ""}
+            </Text>
+            <Text style={styles.rangeHint}>点日期格子可以查看那一天的记录</Text>
+          </Card>
+        </>
+      ) : null}
+
+      {/* M1 热量 Hero：主角是「今天还能吃多少」——只在日视图出现（每屏唯一 hero） */}
+      {viewMode === "day" ? (
+      <>
       <GlassSurface corner={24} style={styles.hero}>
         <ProgressArc
           progress={ringProgress}
@@ -654,7 +919,9 @@ export default function NutritionScreen() {
           label="已完成"
         />
         <View style={styles.heroRight}>
-          <Text style={styles.heroCaption}>{overBudget ? "已超出" : "今天还能吃"}</Text>
+          <Text style={styles.heroCaption}>
+            {overBudget ? "已超出" : isToday ? "今天还能吃" : `${dayLabel(date, todayKey)}还能吃`}
+          </Text>
           <View style={styles.heroValueRow}>
             <AnimatedNumber
               value={Math.abs(remaining)}
@@ -686,43 +953,18 @@ export default function NutritionScreen() {
           </Pressable>
         </View>
       </GlassSurface>
-
-      {/* M5 三大营养素：区间目标 + 达标绿 */}
-      <Card style={styles.macroCard}>
-        <MacroMiniRings items={macroItems} />
-      </Card>
-
-      {/* M7 饮水 + M8 体重：两个「角落小卡」（只在看今天时显示） */}
-      {isToday ? (
-        <>
-          <WaterCard
-            totalMl={hydration.totalMl}
-            targetMl={hydration.targetMl}
-            lastLogId={hydration.lastId}
-            busy={wellnessBusy}
-            onAdd={(ml) => void onAddWater(ml)}
-            onUndo={() => void onUndoWater()}
-          />
-          <WeightCard
-            points={weightPoints.map((p) => ({ date: p.date, weightKg: p.weightKg }))}
-            heightCm={profile?.heightCm ?? null}
-            busy={wellnessBusy}
-            onAdd={() => {
-              const latest = weightPoints.length > 0 ? weightPoints[weightPoints.length - 1].weightKg : (profile?.weightKg ?? 60);
-              setWeightDraft(String(Math.round(latest * 10) / 10));
-              setWeightOpen(true);
-            }}
-          />
-        </>
+      </>
       ) : null}
 
-      <PressableScale haptic style={styles.addBtn} onPress={() => setSheetOpen(true)}>
-        <ThemedIcon name="add" size={18} color="#fff" />
-        <Text style={styles.addBtnText}>添加{mealKindLabels[meal]}</Text>
-      </PressableScale>
+      {viewMode === "month" ? null : (
+        <PressableScale haptic style={styles.addBtn} onPress={() => setSheetOpen(true)}>
+          <ThemedIcon name="add" size={18} color="#fff" />
+          <Text style={styles.addBtnText}>添加{mealKindLabels[meal]}</Text>
+        </PressableScale>
+      )}
 
-      {/* M3 餐次时间线 */}
-      {loading && entries.length === 0 ? (
+      {/* M3 餐次时间线（月视图只看日历与汇总，不铺明细） */}
+      {viewMode === "month" ? null : loading && entries.length === 0 ? (
         <SkeletonList count={4} />
       ) : entries.length === 0 ? (
         <EmptyState
@@ -781,18 +1023,25 @@ export default function NutritionScreen() {
                             <View style={[styles.node, isPending && { backgroundColor: colors.textFaint }]} />
                             {i !== list.length - 1 ? <View style={styles.line} /> : null}
                           </View>
-                          <FoodSticker name={e.name} size={40} />
+                          {/* 「吃一点」式行结构：左侧「日期 时间」品牌绿 → 食物名 → 单位/营养素，
+                              贴纸与 kcal 放到右侧（贴纸角上的橙色数字） */}
                           <View style={styles.entryBody}>
-                            <View style={styles.entryTitleRow}>
-                              <Text style={styles.entryName} numberOfLines={1}>{e.name}</Text>
-                              <KcalBadge kcal={e.kcal} size="sm" />
-                            </View>
+                            <Text style={styles.entryWhen} numberOfLines={1}>
+                              {dayLabel(date, todayKey)}
+                              {time ? ` ${time}` : ""}
+                              {isPending ? " · 待同步" : ""}
+                            </Text>
+                            <Text style={styles.entryName} numberOfLines={1}>{e.name}</Text>
                             <Text style={styles.entryMeta} numberOfLines={1}>
-                              {isPending ? "待同步 · " : time ? `${time} · ` : ""}
                               {e.amount} {e.unit} · P{Math.round(e.proteinG)} C{Math.round(e.carbsG)} F{Math.round(e.fatG)}
                             </Text>
                           </View>
-                          <ThemedIcon name="chevron-forward" size={14} color={colors.textFaint} />
+                          <View style={styles.entrySticker}>
+                            <FoodSticker name={e.name} size={52} outlined rotate={i % 2 === 0 ? -6 : 5} />
+                            <View style={styles.entryKcal}>
+                              <KcalBadge kcal={e.kcal} size="sm" bare />
+                            </View>
+                          </View>
                         </Pressable>
                       </SwipeRow>
                     </Animated.View>
@@ -804,8 +1053,41 @@ export default function NutritionScreen() {
         })
       )}
 
-      {/* M9 我的饮食日记：当天贴纸（点一下 = 再记一份），完整收集册在弹层里 */}
-      {stickers.length > 0 ? (
+      {/* 日视图的次要卡片（三大营养素 / 饮水 / 体重）**放在时间线之后**：
+          首屏先给"还能吃 + 吃了什么"（借「吃一点」的信息优先级），这些日常打卡往下排一行，
+          既满足"每屏唯一强视觉块"，也避免首屏被四张卡挤满。 */}
+      {viewMode === "day" ? (
+        <>
+          <Card style={styles.macroCard}>
+            <MacroMiniRings items={macroItems} />
+          </Card>
+          {isToday ? (
+            <>
+              <WaterCard
+                totalMl={hydration.totalMl}
+                targetMl={hydration.targetMl}
+                lastLogId={hydration.lastId}
+                busy={wellnessBusy}
+                onAdd={(ml) => void onAddWater(ml)}
+                onUndo={() => void onUndoWater()}
+              />
+              <WeightCard
+                points={weightPoints.map((p) => ({ date: p.date, weightKg: p.weightKg }))}
+                heightCm={profile?.heightCm ?? null}
+                busy={wellnessBusy}
+                onAdd={() => {
+                  const latest = weightPoints.length > 0 ? weightPoints[weightPoints.length - 1].weightKg : (profile?.weightKg ?? 60);
+                  setWeightDraft(String(Math.round(latest * 10) / 10));
+                  setWeightOpen(true);
+                }}
+              />
+            </>
+          ) : null}
+        </>
+      ) : null}
+
+      {/* M9 我的饮食日记：当天贴纸（点一下 = 再记一份），完整收集册在弹层里；月视图不显示 */}
+      {viewMode !== "month" && stickers.length > 0 ? (
         <Card style={styles.stickerCard}>
           <SectionHeader
             title="我的饮食日记"
@@ -841,6 +1123,20 @@ export default function NutritionScreen() {
           </View>
         </Card>
       ) : null}
+
+      {/* 日视图的「选择日期」：复用同一个 MonthCalendar（与学习统计页行为一致） */}
+      <BottomSheet
+        visible={dateSheetOpen}
+        onClose={() => setDateSheetOpen(false)}
+        title="选择日期"
+        height="60%"
+      >
+        <MonthCalendar
+          selected={fromDateKey(date)}
+          onSelect={(d) => setDate(toDateKey(d))}
+          onClose={() => setDateSheetOpen(false)}
+        />
+      </BottomSheet>
 
       <StickerBookSheet
         visible={bookOpen}
@@ -1088,6 +1384,65 @@ const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     scroll: { flex: 1, backgroundColor: "transparent" },
     content: { padding: spacing.lg, gap: spacing.md },
+    /* ---- v4 P4-a：日 / 周 / 月 视图控件 ---- */
+    segment: {
+      flexDirection: "row",
+      backgroundColor: colors.surfaceMuted,
+      borderRadius: 999,
+      padding: 3,
+      gap: 2,
+    },
+    segmentItem: { flex: 1, alignItems: "center", paddingVertical: 7, borderRadius: 999 },
+    /** 选中段用实底 + 轻投影，做出「滑块」的层次（参考图中日周月年那条） */
+    segmentItemActive: { backgroundColor: colors.surfaceStrong, ...shadows.card },
+    segmentText: { ...typography.caption, fontWeight: "700", color: colors.textMuted },
+    segmentTextActive: { color: colors.text, fontWeight: "800" },
+    dayPills: { flexDirection: "row", gap: spacing.sm },
+    dayPill: {
+      borderRadius: 999,
+      paddingHorizontal: 14,
+      paddingVertical: 7,
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    dayPillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+    dayPillText: { ...typography.caption, fontWeight: "700", color: colors.textMuted },
+    dayPillTextActive: { color: "#ffffff" },
+    /* ---- v4 P4-b：顶部摘要胶囊 ---- */
+    summaryPill: {
+      flexDirection: "row",
+      alignItems: "center",
+      borderRadius: 999,
+      backgroundColor: colors.surfaceStrong,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      paddingVertical: spacing.sm,
+      paddingLeft: spacing.lg,
+      paddingRight: spacing.sm,
+      gap: spacing.md,
+      ...shadows.card,
+    },
+    summaryItem: { flex: 1, minWidth: 0 },
+    summaryValue: { ...typography.headline, fontWeight: "800", color: colors.text, ...tabularNums },
+    summaryLabel: { ...typography.micro, color: colors.textMuted },
+    summaryDivider: { width: StyleSheet.hairlineWidth, height: 22, backgroundColor: colors.border },
+    summaryAdd: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.accentStrong,
+    },
+    /* ---- 周 / 月 区间汇总卡 ---- */
+    rangeCard: { gap: 2 },
+    rangeTitle: { ...typography.headline, fontWeight: "800", color: colors.text },
+    rangeMeta: { ...typography.caption, fontWeight: "400", color: colors.textMuted, ...tabularNums },
+    rangeHint: { ...typography.micro, color: colors.textFaint, marginTop: 2 },
+    monthCard: { paddingVertical: spacing.md },
+    /** 月历格子下的当天热量汇总（有记录才显示） */
+    calBadgeText: { ...typography.micro, fontSize: 10, fontWeight: "800", color: colors.accentStrong, ...tabularNums },
     hero: { flexDirection: "row", alignItems: "center", gap: spacing.lg, paddingVertical: spacing.lg },
     heroRight: { flex: 1, minWidth: 0, gap: 2 },
     heroCaption: { ...typography.caption, fontWeight: "600", color: colors.textMuted },
@@ -1124,14 +1479,18 @@ const makeStyles = (colors: ThemeColors) =>
     mealTrack: { height: 5, borderRadius: 999, backgroundColor: colors.surfaceMuted, overflow: "hidden" },
     mealFill: { height: 5, borderRadius: 999 },
     timeline: { marginTop: 6 },
-    entryRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingBottom: 4 },
+    entryRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 6 },
     rail: { width: 10, alignItems: "center", alignSelf: "stretch" },
     node: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent, marginTop: 16 },
     line: { flex: 1, width: 2, backgroundColor: colors.border, marginVertical: 2 },
     entryBody: { flex: 1, minWidth: 0, gap: 2 },
-    entryTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-    entryName: { flex: 1, minWidth: 0, ...typography.body, fontWeight: "600", color: colors.text },
+    /** 行首「今天 18:42」：品牌绿（借「吃一点」的时间戳配色） */
+    entryWhen: { ...typography.micro, fontWeight: "700", color: colors.success, ...tabularNums },
+    entryName: { ...typography.headline, fontWeight: "700", color: colors.text },
     entryMeta: { ...typography.micro, fontWeight: "400", color: colors.textMuted, ...tabularNums },
+    /** 贴纸列：贴纸右下角挂 kcal 裸数字 */
+    entrySticker: { width: 58, alignItems: "center", justifyContent: "center" },
+    entryKcal: { position: "absolute", right: -2, bottom: -2 },
     form: { gap: 10, paddingTop: 6 },
     sheetSection: { marginTop: 6 },
     label: { ...typography.caption, fontWeight: "700", color: colors.textMuted },

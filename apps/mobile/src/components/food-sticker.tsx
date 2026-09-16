@@ -16,6 +16,8 @@ export function FoodSticker({
   size = 40,
   emoji,
   style,
+  outlined = false,
+  rotate = 0,
 }: {
   /** 食物名（用于推导 emoji） */
   name: string;
@@ -23,6 +25,13 @@ export function FoodSticker({
   /** 直接指定 emoji（如来自常用食物表） */
   emoji?: string;
   style?: StyleProp<ViewStyle>;
+  /**
+   * 贴纸质感（v4 P4-b）：更粗的**白描边** + 更明显的投影。
+   * 默认关闭，既有用法（列表小图标、日记网格等）渲染结果完全不变。
+   */
+  outlined?: boolean;
+  /** 轻微旋转（度）：配合 outlined 做出"手贴上去"的感觉；默认 0 = 不转 */
+  rotate?: number;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -32,6 +41,8 @@ export function FoodSticker({
       style={[
         styles.sticker,
         { width: size, height: size, borderRadius: Math.round(size * 0.3) },
+        outlined && styles.outlined,
+        rotate !== 0 && { transform: [{ rotate: `${rotate}deg` }] },
         style,
       ]}
       accessibilityLabel={name}
@@ -50,5 +61,14 @@ const makeStyles = (colors: ThemeColors) =>
       borderWidth: 1,
       borderColor: colors.border,
       ...shadows.card,
+    },
+    /** 白描边贴纸：3px 白边 + 更深的投影（借「吃一点」的贴纸 craft） */
+    outlined: {
+      borderWidth: 3,
+      borderColor: "#FFFFFF",
+      shadowOpacity: 0.18,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 5 },
+      elevation: 4,
     },
   });

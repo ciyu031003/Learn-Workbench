@@ -8,6 +8,7 @@ import { Card } from "@/components/card";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
 import { RingProgress } from "@/components/ring-progress";
+import { MonthCalendar } from "@/components/month-calendar";
 import { BarChart, LineChart } from "@/components/charts";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withRepeat, withTiming, type SharedValue } from "react-native-reanimated";
@@ -119,96 +120,6 @@ function heatColor(minutes: number): string {
   return "#E35D2F";
 }
 
-function monthGrid(year: number, month: number): (Date | null)[] {
-  const first = new Date(year, month, 1);
-  const startWeekday = first.getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const cells: (Date | null)[] = [];
-  for (let i = 0; i < startWeekday; i += 1) cells.push(null);
-  for (let d = 1; d <= daysInMonth; d += 1) cells.push(new Date(year, month, d));
-  while (cells.length % 7 !== 0) cells.push(null);
-  return cells;
-}
-
-function MonthCalendar({
-  selected,
-  onSelect,
-  onClose,
-}: {
-  selected: Date;
-  onSelect: (d: Date) => void;
-  onClose: () => void;
-}) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
-  const [view, setView] = useState(() => ({ y: selected.getFullYear(), m: selected.getMonth() }));
-  const cells = monthGrid(view.y, view.m);
-  const todayKey = localKey(new Date());
-  const selectedKey = localKey(selected);
-
-  return (
-    <View style={styles.calendar}>
-      <View style={styles.calNav}>
-        <Pressable
-          hitSlop={8}
-          style={styles.calNavBtn}
-          onPress={() => setView((v) => (v.m === 0 ? { y: v.y - 1, m: 11 } : { y: v.y, m: v.m - 1 }))}
-        >
-          <ThemedIcon name="chevron-back" size={20} color={colors.text} />
-        </Pressable>
-        <Text style={styles.calTitle}>{view.y} 年 {view.m + 1} 月</Text>
-        <Pressable
-          hitSlop={8}
-          style={styles.calNavBtn}
-          onPress={() => setView((v) => (v.m === 11 ? { y: v.y + 1, m: 0 } : { y: v.y, m: v.m + 1 }))}
-        >
-          <ThemedIcon name="chevron-forward" size={20} color={colors.text} />
-        </Pressable>
-      </View>
-
-      <View style={styles.calWeekRow}>
-        {["日", "一", "二", "三", "四", "五", "六"].map((w) => (
-          <Text key={w} style={styles.calWeek}>
-            {w}
-          </Text>
-        ))}
-      </View>
-
-      <View style={styles.calGrid}>
-        {cells.map((d, i) => {
-          if (!d) return <View key={i} style={styles.calCell} />;
-          const key = localKey(d);
-          const isSelected = key === selectedKey;
-          const isToday = key === todayKey;
-          const future = key > todayKey;
-          return (
-            <Pressable
-              key={i}
-              style={styles.calCell}
-              disabled={future}
-              onPress={() => {
-                onSelect(d);
-                onClose();
-              }}
-            >
-              <View style={[styles.calDay, isSelected && styles.calDaySelected, isToday && !isSelected && styles.calDayToday]}>
-                <Text
-                  style={[
-                    styles.calDayText,
-                    isSelected && styles.calDayTextSelected,
-                    future && styles.calDayTextDisabled,
-                  ]}
-                >
-                  {d.getDate()}
-                </Text>
-              </View>
-            </Pressable>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
 
 /** 阶段卡之间的间距，必须与 `styles.content` 的 gap 一致（实时让位的位移量按"实测高度 + 这个值"算） */
 const STAGE_CARD_GAP = 12;
@@ -1154,35 +1065,6 @@ const makeStyles = (colors: ThemeColors) =>
 
   chartLabel: { fontSize: 13, fontWeight: "700", color: colors.text },
 
-  calendar: { gap: 14 },
-  calNav: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  calNavBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.surfaceStrong,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  calTitle: { fontSize: 15, fontWeight: "800", color: colors.text },
-  calWeekRow: { flexDirection: "row" },
-  calWeek: { width: `${100 / 7}%`, textAlign: "center", fontSize: 12, fontWeight: "700", color: colors.textMuted },
-  calGrid: { flexDirection: "row", flexWrap: "wrap" },
-  calCell: { width: `${100 / 7}%`, aspectRatio: 1, alignItems: "center", justifyContent: "center" },
-  calDay: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  calDaySelected: { backgroundColor: colors.primary },
-  calDayToday: { backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.accent },
-  calDayText: { fontSize: 14, fontWeight: "600", color: colors.text },
-  calDayTextSelected: { color: "#fff", fontWeight: "800" },
-  calDayTextDisabled: { color: colors.textFaint },
 
   sheetScroll: { flex: 1 },
   sheetStageItem: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 4 },
