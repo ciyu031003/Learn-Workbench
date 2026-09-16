@@ -286,6 +286,8 @@ function ThemedShell() {
         <Tabs.Screen name="habits" options={{ href: null }} />
         <Tabs.Screen name="workout" options={{ href: null }} />
         <Tabs.Screen name="nutrition" options={{ href: null }} />
+        {/* 排障用隐藏页（问题诊断 / 触摸自检）：不占底部导航，纯 App 内部，与厂商无关 */}
+        <Tabs.Screen name="diagnostics" options={{ href: null }} />
         <Tabs.Screen name="+not-found" options={{ href: null }} />
       </Tabs>
       <SwipeNavigator />

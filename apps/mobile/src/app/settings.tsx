@@ -406,6 +406,11 @@ export default function SettingsScreen() {
           <ThemedIcon name="document-text-outline" size={17} color={colors.primary} />
           <Text style={styles.aboutLinkText}>隐私政策</Text>
         </Pressable>
+        <Pressable style={styles.aboutLinkRow} onPress={() => router.push("/diagnostics")}>
+          <ThemedIcon name="pulse-outline" size={17} color={colors.primary} />
+          <Text style={styles.aboutLinkText}>问题诊断（触摸自检）</Text>
+          <Text style={styles.aboutMeta}>点不动 / 白屏时跑一次</Text>
+        </Pressable>
         <Pressable style={styles.aboutLinkRow} onPress={() => Linking.openURL(ICP_VERIFY_URL)}>
           <ThemedIcon name="shield-checkmark-outline" size={17} color={colors.primary} />
           <Text style={styles.aboutLinkText}>App 备案：{APP_ICP_NUMBER}</Text>
