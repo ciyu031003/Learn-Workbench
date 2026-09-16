@@ -28,6 +28,7 @@ import { sportIconOf, sportColorsOf, sportAnimOf, sportSfOf } from "@/lib/sport-
 import { mainPhases, agentPhase } from "@learn-workbench/content";
 import { pct, formatDuration, taskTypeLabels, todayISO } from "@learn-workbench/shared";
 import { FocusTimer } from "@/components/focus-timer";
+import { QuickStartSheet, type QuickStartChoice } from "@/components/quick-start-sheet";
 import { TodayStack } from "@/components/today-stack";
 import { DailyOsSummary } from "@/components/daily-os-summary";
 import { Card } from "@/components/card";
@@ -279,6 +280,7 @@ export default function TodayScreen() {
   const toggleTaskDone = useAppStore((s) => s.toggleTaskDone);
   const addSession = useAppStore((s) => s.addSession);
   const sports = useAppStore((s) => s.sports);
+  const addSportSeconds = useAppStore((s) => s.addSportSeconds);
   const removeSport = useAppStore((s) => s.removeSport);
   const aiTip = useAppStore((s) => s.aiTip);
   const setAiTip = useAppStore((s) => s.setAiTip);
@@ -288,6 +290,11 @@ export default function TodayScreen() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [celebrate, setCelebrate] = useState(false);
   const [stackGestureActive, setStackGestureActive] = useState(false);
+  /** v4 P2：一键开始（弹层选学习/运动/正向计时 → 选完立即进入计时） */
+  const [quickOpen, setQuickOpen] = useState(false);
+  const [timerAuto, setTimerAuto] = useState<QuickStartChoice | null>(null);
+  const [pendingChoice, setPendingChoice] = useState<QuickStartChoice | null>(null);
+  const [timerSession, setTimerSession] = useState(0);
 
   const quote = useDailyQuote();
   const today = todayISO();
@@ -390,7 +397,21 @@ export default function TodayScreen() {
           <Text style={styles.heroSub}>{heroTip}</Text>
         </Animated.View>
 
-        {/* 我的一天：完成度 + 四域入口（Daily OS 聚合，只读 /api/daily） */}
+        {/* v4 P2 一键开始：首页唯一的大动作按钮（实色强调色，不用玻璃——首屏已有两个 hero，避免互相抢戏） */}
+        <PressableScale haptic scaleTo={0.97} onPress={() => setQuickOpen(true)}>
+          <View style={styles.quickStart}>
+            <View style={styles.quickStartIcon}>
+              <ThemedIcon name="play" size={24} color="#fff" />
+            </View>
+            <View style={styles.quickStartBody}>
+              <Text style={styles.quickStartTitle}>一键开始</Text>
+              <Text style={styles.quickStartSub}>倒计时 / 正向计时 · 学习或运动</Text>
+            </View>
+            <ThemedIcon name="chevron-forward" size={20} color="rgba(255,255,255,0.9)" />
+          </View>
+        </PressableScale>
+
+        {/* 我的一天：完成度 + 剩余领域入口（学习/运动已并入上面的「一键开始」，不再重复） */}
         <DailyOsSummary />
 
         <TodayStack onStartFocus={() => setFocusOpen(true)} onGestureActive={setStackGestureActive} />
@@ -529,12 +550,47 @@ export default function TodayScreen() {
       </BottomSheet>
 
       <SportSheet visible={sportSheetOpen} onClose={() => setSportSheetOpen(false)} />
+      <QuickStartSheet
+        visible={quickOpen}
+        onClose={() => setQuickOpen(false)}
+        onPick={(choice) => {
+          // ⚠️ 不能在这里直接 setFocusOpen(true)：QuickStartSheet 是 Modal，
+          // 它退场还要 180ms 才卸载，同帧再 present 全屏 Modal 会出现两个 Modal 叠加
+          // （iOS 上常见表现是"点了没反应"）。存起来，等它真正关闭后再开。
+          setPendingChoice(choice);
+        }}
+        onClosed={() => {
+          if (!pendingChoice) return;
+          setTimerAuto(pendingChoice);
+          setPendingChoice(null);
+          setTimerSession((n) => n + 1);
+          setFocusOpen(true);
+        }}
+      />
       <FocusTimer
+        key={timerSession}
         open={focusOpen}
-        task={focusTask ? { id: focusTask.id, title: focusTask.title } : { id: null, title: "自由专注" }}
+        task={
+          focusTask
+            ? { id: focusTask.id, title: focusTask.title }
+            : { id: null, title: timerAuto?.kind === "exercise" ? timerAuto.sportName ?? "运动" : "自由专注" }
+        }
         sessions={sessions}
-        onClose={() => setFocusOpen(false)}
+        autoStart={!!timerAuto}
+        initialTimerMode={timerAuto?.timerMode}
+        initialMinutes={timerAuto?.minutes}
+        mode={timerAuto?.kind === "exercise" ? "exercise" : "focus"}
+        exerciseLabel={timerAuto?.sportName ?? null}
+        onClose={() => {
+          // 关闭时清空一键开始的配置：否则之后从轮播卡「开始专注」进入计时器时，
+          // 会继承上一次的运动类型/时长并再次自动开始（写错数据 + 跳过准备页）。
+          setFocusOpen(false);
+          setTimerAuto(null);
+        }}
         onRecorded={(taskId, seconds) => addSession(taskId, seconds)}
+        onExerciseRecorded={(seconds) => {
+          if (timerAuto?.sportKey) addSportSeconds(timerAuto.sportKey, seconds);
+        }}
       />
       <Celebration play={celebrate} />
     </View>
@@ -545,6 +601,29 @@ const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
   root: { flex: 1 },
   scroll: { flex: 1 },
+  // v4 P2 一键开始：实色大按钮（不占 hero 名额，高度控制在 92 以内）
+  quickStart: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    minHeight: 92,
+    borderRadius: radius.xl,
+    backgroundColor: "#2F74C0",
+    ...shadows.floating,
+  },
+  quickStartIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.18)",
+  },
+  quickStartBody: { flex: 1, gap: 3 },
+  quickStartTitle: { fontSize: 20, fontWeight: "800", color: "#ffffff", letterSpacing: 0.2 },
+  quickStartSub: { fontSize: 12.5, color: "rgba(255,255,255,0.88)" },
   content: { padding: 16, gap: 14 },
   hero: { paddingBottom: 6, position: "relative" },
   sunGlow: {

@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
   AppState,
-  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -12,6 +11,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { Image as ExpoImage } from "expo-image";
 import { ThemedIcon } from "@/components/themed-icon";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -41,6 +41,8 @@ const K_MODE = "focus-bg-mode";
 const K_GALLERY = "focus-bg-gallery";
 const K_QUOTE = "focus-quote";
 const K_MINUTES = "focus-minutes";
+/** Bing 壁纸 URL 最近一次解析结果（秒出图用；按天由服务端回退历史图，不会 404） */
+const K_BING = "focus-bg-bing-v1";
 
 type BgMode = "gallery" | "color" | "upload";
 
@@ -58,12 +60,28 @@ export function FocusTimer({
   sessions,
   onClose,
   onRecorded,
+  autoStart = false,
+  initialTimerMode,
+  initialMinutes,
+  mode: sessionMode = "focus",
+  exerciseLabel = null,
+  onExerciseRecorded,
 }: {
   open: boolean;
   task: { id: number | null; title: string | null } | null;
   sessions: FocusSession[];
   onClose: () => void;
   onRecorded: (taskId: number | null, seconds: number) => void;
+  /** v4 P2「一键开始」：打开即开始计时（跳过"准备开始"屏） */
+  autoStart?: boolean;
+  /** 打开时的计时模式（倒计时 / 正向秒表）；不传则沿用上次/默认 */
+  initialTimerMode?: "countdown" | "stopwatch";
+  /** 打开时的时长（分钟），例如一键学习 = 25 */
+  initialMinutes?: number;
+  /** 会话类型：exercise 时结束时把秒数交给 onExerciseRecorded（不再写专注 sessions） */
+  mode?: "focus" | "exercise";
+  exerciseLabel?: string | null;
+  onExerciseRecorded?: (seconds: number, label: string | null) => void;
 }) {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
@@ -72,7 +90,9 @@ export function FocusTimer({
   const [mode, setMode] = useState<BgMode>("gallery");
   const [color, setColor] = useState("#0f172a");
   const [url, setUrl] = useState<string | null>(null);
-  const [galleryId, setGalleryId] = useState("sunset");
+  // v4 P2：默认改为「每日 Bing」风景壁纸（Web 端早就是 bing；用户若手动选过其它背景，
+  // 显式选择优先 —— 因为我们从不自动写入这个 key，所以"改默认值"对老用户同样生效）
+  const [galleryId, setGalleryId] = useState("bing");
   const [bing, setBing] = useState<string | null>(null);
 
   const [minutes, setMinutes] = useState(25);
@@ -92,6 +112,10 @@ export function FocusTimer({
   const [customMin, setCustomMin] = useState("");
 
   const startRef = useRef<number | null>(null);
+  /** 记录去重：同一帧内连点"记录"/Modal 关闭与按钮并发时，避免写两条 */
+  const recordedRef = useRef(false);
+  /** 倒计时自然结束时只自动记一次 */
+  const autoRecordedRef = useRef(false);
   const remainingRef = useRef(25 * 60);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   // V3 墙钟对时：累计跨暂停段的毫秒；startRef 为当前运行段墙钟起点。
@@ -117,10 +141,15 @@ export function FocusTimer({
         if (q) setQuote(q);
         if (mins) {
           const v = Math.min(180, Math.max(1, Number(mins) || 25));
-          setMinutes(v);
-          setTotal(v * 60);
-          setRemaining(v * 60);
-          remainingRef.current = v * 60;
+          // 调用方显式指定了时长/模式时以调用方为准
+          //（"一键开始 → 学习 25 分钟"不该被历史偏好设置改掉）
+          if (typeof initialMinutes !== "number" && !initialTimerMode) {
+            setMinutes(v);
+            setTotal(v * 60);
+            totalRef.current = v * 60;
+            setRemaining(v * 60);
+            remainingRef.current = v * 60;
+          }
         }
       } catch {
         // 忽略
@@ -170,6 +199,33 @@ export function FocusTimer({
     accumulatedMsRef.current = 0;
     setStarted(false);
 
+    // v4 P2 一键开始：应用调用方指定的模式/时长，并可选立即开始
+    const nextTimerMode = initialTimerMode ?? timerModeRef.current;
+    if (initialTimerMode) {
+      setTimerMode(initialTimerMode);
+      timerModeRef.current = initialTimerMode;
+    }
+    if (typeof initialMinutes === "number" && initialMinutes > 0) {
+      const v = Math.min(180, Math.max(1, Math.round(initialMinutes)));
+      setMinutes(v);
+      setTotal(v * 60);
+      totalRef.current = v * 60;
+      setRemaining(v * 60);
+      remainingRef.current = v * 60;
+    } else if (nextTimerMode === "countdown") {
+      const v = Math.min(180, Math.max(1, minutes));
+      setTotal(v * 60);
+      totalRef.current = v * 60;
+      setRemaining(v * 60);
+      remainingRef.current = v * 60;
+    } else {
+      // 秒表模式：remaining 被当作"已跑秒数"用，初值必须是 0（否则第一眼显示 25:00）
+      setRemaining(0);
+      remainingRef.current = 0;
+    }
+    recordedRef.current = false;
+    autoRecordedRef.current = false;
+
     // V3 AppState 对时：退后台不暂停（墙钟继续走），回前台按墙钟刷新剩余时间
     const sub = AppState.addEventListener("change", (state) => {
       if (state === "active") {
@@ -191,15 +247,7 @@ export function FocusTimer({
     });
 
     let alive = true;
-    if (galleryId === "bing") {
-      fetch(`${getApiUrl()}/api/background`)
-        .then((r) => (r.ok ? r.json() : null))
-        .then((d: { exists?: boolean; date?: string } | null) => {
-          if (alive && d?.exists && d.date) setBing(`${getApiUrl()}/api/background/img?date=${encodeURIComponent(d.date)}`);
-          else setBing(null);
-        })
-        .catch(() => setBing(null));
-    }
+    void alive;
     return () => {
       if (timer.current) clearInterval(timer.current);
       sub.remove();
@@ -207,6 +255,44 @@ export function FocusTimer({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  /**
+   * Bing 每日壁纸：`open` 或所选背景变化时都会加载。
+   * 修掉既有 bug：旧实现只在打开的瞬间判断一次 `galleryId === "bing"`，
+   * 于是"在计时页里切到每日 Bing"永远拉不到图（只能关掉重开）。
+   * 另外先用上次缓存的 URL 秒出图（避免 0.3~1s 纯色再跳图），再静默刷新并预取。
+   */
+  useEffect(() => {
+    if (!open || mode !== "gallery" || galleryId !== "bing") return;
+    let alive = true;
+    (async () => {
+      try {
+        const cached = await AsyncStorage.getItem(K_BING);
+        if (alive && cached) {
+          const parsed = JSON.parse(cached) as { url?: string };
+          if (parsed?.url) setBing(parsed.url);
+        }
+      } catch {
+        // 缓存损坏：忽略
+      }
+      try {
+        const r = await fetch(`${getApiUrl()}/api/background`);
+        const d = (r.ok ? await r.json() : null) as { exists?: boolean; date?: string } | null;
+        if (!alive) return;
+        if (d?.exists && d.date) {
+          const next = `${getApiUrl()}/api/background/img?date=${encodeURIComponent(d.date)}`;
+          setBing(next);
+          void AsyncStorage.setItem(K_BING, JSON.stringify({ date: d.date, url: next })).catch(() => {});
+          void ExpoImage.prefetch(next, { cachePolicy: "memory-disk" }).catch(() => {});
+        }
+      } catch {
+        // 拉不到：保留缓存或回落到纯色兜底（setBing 保持原值）
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [open, mode, galleryId]);
 
   const tick = () => {
     if (timerModeRef.current === "stopwatch") {
@@ -290,6 +376,25 @@ export function FocusTimer({
     resume();
   };
 
+  /**
+   * v4 P2「一键开始」：打开弹层即开始计时（用户点了"学习 25 分钟"就不该再点一次"开始"）。
+   * 声明在 resume 之后，依赖 open 的 false→true 变化（home 页的 FocusTimer 无 key，
+   * tasks 页用 key={timerSession} 重挂载，两种入口都能触发）。
+   */
+  useEffect(() => {
+    if (!open || !autoStart) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 一键开始：打开即进入计时态
+    setStarted(true);
+    setDone(false);
+    startRef.current = null;
+    accumulatedMsRef.current = 0;
+    resume();
+    return () => {
+      if (timer.current) clearInterval(timer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, autoStart]);
+
   const reset = () => {
     if (timer.current) clearInterval(timer.current);
     setRunning(false);
@@ -302,16 +407,40 @@ export function FocusTimer({
   };
 
   const record = async (elapsedSeconds: number) => {
-    if (recording) return;
+    // 用 ref 去重：同一帧内"连点记录"或"到点自动记录 + 用户手动点"都只写一条
+    if (recording || recordedRef.current) return;
+    recordedRef.current = true;
     if (elapsedSeconds < 10) {
       onClose();
       return;
     }
     setRecording(true);
+    // v4 P2：运动会话把秒数交给运动记录通道（不再写专注 sessions），避免 45 秒被取整成 1 分钟
+    if (sessionMode === "exercise") {
+      onExerciseRecorded?.(elapsedSeconds, exerciseLabel);
+      setRecording(false);
+      onClose();
+      return;
+    }
     onRecorded(task?.id ?? null, elapsedSeconds);
     setRecording(false);
     onClose();
   };
+
+  /**
+   * v4 P2：倒计时自然结束（done=true）时**自动记录一次**。
+   * 之前只在到点时把 done 置真、什么也不写，而弹层文案写着"倒计时结束自动记入运动记录"——
+   * 用户按预期离开，结果一条记录都没有。
+   * 手动提前结束仍走「记录」按钮（record 内部有 ref 去重，不会写两条）。
+   */
+  useEffect(() => {
+    if (!open || !done) return;
+    if (autoRecordedRef.current) return;
+    autoRecordedRef.current = true;
+    const seconds = timerModeRef.current === "stopwatch" ? currentElapsed() : totalRef.current;
+    void record(seconds);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, done]);
 
   const saveQuote = () => {
     const v = quoteInput.trim();
@@ -356,8 +485,8 @@ export function FocusTimer({
     <Modal visible={open} animationType="fade" presentationStyle="fullScreen" onRequestClose={() => record(elapsed)}>
       <View style={styles.root}>
         {/* 背景层 */}
-        {showImage ? <Image source={{ uri: url! }} style={ABS_FILL} resizeMode="cover" /> : null}
-        {showBing ? <Image source={{ uri: bing! }} style={ABS_FILL} resizeMode="cover" /> : null}
+        {showImage ? <ExpoImage source={{ uri: url! }} style={ABS_FILL} contentFit="cover" cachePolicy="memory-disk" transition={200} onError={() => setUrl(null)} /> : null}
+        {showBing ? <ExpoImage source={{ uri: bing! }} style={ABS_FILL} contentFit="cover" cachePolicy="memory-disk" transition={200} onError={() => setBing(null)} /> : null}
         {!showImage && !showBing ? <View style={[ABS_FILL, { backgroundColor: bgColor }]} /> : null}
         <View style={[ABS_FILL, styles.scrim]} />
         <View style={[ABS_FILL, styles.glow]} />
@@ -603,7 +732,7 @@ export function FocusTimer({
               <Pressable style={styles.primaryBtn} onPress={begin}>
                 <View style={styles.readyCtaInner}>
                   <ThemedIcon name="play" size={16} color="#1f1f1f" />
-                  <Text style={styles.primaryBtnText}>{timerMode === "stopwatch" ? "开始计时" : "开始专注"}</Text>
+                  <Text style={styles.primaryBtnText}>{sessionMode === "exercise" ? "开始锻炼" : timerMode === "stopwatch" ? "开始计时" : "开始专注"}</Text>
                 </View>
               </Pressable>
               <Text style={styles.readyHint}>{timerMode === "stopwatch" ? "秒表从 00:00 正向计时 · 结束即记录" : "开始后将全屏沉浸 · 可随时暂停"}</Text>
@@ -617,7 +746,7 @@ export function FocusTimer({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#000" },
-  scrim: { backgroundColor: "rgba(0,0,0,0.32)" },
+  scrim: { backgroundColor: "rgba(0,0,0,0.5)" },
   glow: { backgroundColor: "rgba(232,147,12,0.10)" },
   topBar: { flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 16, zIndex: 20 },
   topBtn: {

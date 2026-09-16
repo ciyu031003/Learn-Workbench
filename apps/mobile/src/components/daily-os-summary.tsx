@@ -84,17 +84,9 @@ export function DailyOsSummary({ onNavigate }: { onNavigate?: (href: string) => 
 
   const blocks: Block[] = useMemo(() => {
     if (!data) return [];
+    // v4 P2：「学习」「运动」已并入首页的「一键开始」大按钮（点一下直接进入计时），
+    // 这里只保留"需要跳页面看明细"的两个领域，避免同一入口出现两次、也让首屏少两格高度。
     return [
-      {
-        key: "learning",
-        icon: "book-outline",
-        label: "学习",
-        detail:
-          data.learning.tasksTotal > 0
-            ? `${data.learning.tasksDone}/${data.learning.tasksTotal} 任务 · 专注 ${data.learning.focusMinutes} 分`
-            : `专注 ${data.learning.focusMinutes} 分`,
-        href: "/tasks",
-      },
       {
         key: "career",
         icon: "briefcase-outline",
@@ -102,13 +94,6 @@ export function DailyOsSummary({ onNavigate }: { onNavigate?: (href: string) => 
         detail: `高匹配 ${data.career.highMatchJobs} · 在途 ${data.career.pendingApplications}`,
         href: "/career",
         badge: data.career.expiringCertificates,
-      },
-      {
-        key: "fitness",
-        icon: "barbell-outline",
-        label: "运动",
-        detail: data.fitness.workoutName ? `${data.fitness.workoutName} · ${data.fitness.workoutMinutes} 分` : "今天还没有训练",
-        href: "/wellness",
       },
       {
         key: "habits",

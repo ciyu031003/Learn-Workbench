@@ -328,6 +328,7 @@ export default function MarketScreen() {
       style={styles.scroll}
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 20, paddingBottom: tabBarSpace }]}
       showsVerticalScrollIndicator={false}
+      automaticallyAdjustKeyboardInsets
       refreshControl={
         <RefreshControl
           refreshing={refreshing}

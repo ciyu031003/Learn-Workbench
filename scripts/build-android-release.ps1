@@ -244,6 +244,12 @@ if ($boolsNight -notmatch 'name="system_bars_light">false') { Fail "缺少 value
 $splashColors = Get-Content (Join-Path $android "app\src\main\res\values\colors.xml") -Raw
 if ($splashColors -match "#208AEF") { Fail "启动图配色仍是旧的 #208AEF" }
 
+# 键盘适配（v4 P2）：BottomSheet 的键盘高度收缩依赖 adjustResize；
+# 一旦某次 prebuild 把它改回 adjustPan/缺省，输入框又会被键盘挡住。
+if ($manifest -notmatch 'android:windowSoftInputMode="adjustResize"') {
+  Fail "AndroidManifest 的 windowSoftInputMode 必须是 adjustResize（键盘避让依赖它）"
+}
+
 # ---------- 4) 构建 ----------
 # 注意：gradle 把进度写在 stderr；在 $ErrorActionPreference='Stop' 下 PowerShell 5.1 会把
 # native stderr 视为终止错误。这里改为「重定向到日志 + 只看退出码」，失败时打印日志尾部。

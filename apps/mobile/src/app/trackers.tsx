@@ -18,6 +18,7 @@ import { getApiUrl } from "@/config";
 import { haptics } from "@/lib/haptics";
 import { Card } from "@/components/card";
 import { PressableScale } from "@/components/pressable-scale";
+import { BottomSheet } from "@/components/bottom-sheet";
 import { useTheme } from "@/theme";
 import type { ThemeColors } from "@/theme/tokens";
 import { domainIconName, fetchDomains, type DomainItem } from "@/lib/domains";
@@ -273,74 +274,75 @@ export default function TrackersScreen() {
         )}
       </ScrollView>
 
-      {createOpen ? (
-        <View style={[styles.modalMask, { backgroundColor: colors.scrim }]}>
-          <View style={styles.modal}>
-            <Text style={styles.modalTitle}>新建记录项</Text>
-            <TextInput style={styles.input} placeholder="名称（如：单词量）" placeholderTextColor={colors.textFaint} value={name} onChangeText={setName} autoFocus />
-            <TextInput style={styles.input} placeholder="单位（如：个、分钟、公里）" placeholderTextColor={colors.textFaint} value={unit} onChangeText={setUnit} />
-            <TextInput style={styles.input} placeholder="目标值（可选）" placeholderTextColor={colors.textFaint} value={target} onChangeText={setTarget} keyboardType="numeric" />
-            <View style={styles.cadenceRow}>
-              {(["daily", "weekly"] as const).map((c) => (
-                <Pressable key={c} onPress={() => setCadence(cadence === c ? null : c)} style={[styles.cadenceChip, cadence === c && styles.cadenceChipActive]}>
-                  <Text style={[styles.cadenceText, cadence === c && styles.cadenceTextActive]}>{c === "daily" ? "每日" : "每周"}</Text>
-                </Pressable>
-              ))}
-            </View>
-            <View style={styles.palette}>
-              {COLOR_PALETTE.map((c) => (
-                <Pressable key={c} onPress={() => setColor(c)} style={[styles.swatch, { backgroundColor: c }, color === c && styles.swatchActive]} />
-              ))}
-            </View>
-            <View style={styles.row}>
-              <PressableScale style={[styles.btn, styles.btnGhost]} onPress={() => setCreateOpen(false)}>
-                <Text style={styles.btnGhostText}>取消</Text>
-              </PressableScale>
-              <PressableScale style={[styles.btn, styles.btnPrimary]} onPress={() => void saveCreate()} disabled={busy || !name.trim()}>
-                {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnPrimaryText}>新建</Text>}
-              </PressableScale>
-            </View>
+      {/* v4 P2：原来是自绘的居中弹层（无任何键盘适配，autoFocus 一弹键盘就看不到输入框），
+          统一改用 BottomSheet（内置键盘高度收缩 + 滚动 + 安全区）。 */}
+      <BottomSheet visible={createOpen} onClose={() => setCreateOpen(false)} title="新建记录项" height="60%">
+        <View style={styles.sheetBody}>
+          <TextInput style={styles.input} placeholder="名称（如：单词量）" placeholderTextColor={colors.textFaint} value={name} onChangeText={setName} autoFocus />
+          <TextInput style={styles.input} placeholder="单位（如：个、分钟、公里）" placeholderTextColor={colors.textFaint} value={unit} onChangeText={setUnit} />
+          <TextInput style={styles.input} placeholder="目标值（可选）" placeholderTextColor={colors.textFaint} value={target} onChangeText={setTarget} keyboardType="numeric" />
+          <View style={styles.cadenceRow}>
+            {(["daily", "weekly"] as const).map((c) => (
+              <Pressable key={c} onPress={() => setCadence(cadence === c ? null : c)} style={[styles.cadenceChip, cadence === c && styles.cadenceChipActive]}>
+                <Text style={[styles.cadenceText, cadence === c && styles.cadenceTextActive]}>{c === "daily" ? "每日" : "每周"}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <View style={styles.palette}>
+            {COLOR_PALETTE.map((c) => (
+              <Pressable key={c} onPress={() => setColor(c)} style={[styles.swatch, { backgroundColor: c }, color === c && styles.swatchActive]} />
+            ))}
+          </View>
+          <View style={styles.row}>
+            <PressableScale style={[styles.btn, styles.btnGhost]} onPress={() => setCreateOpen(false)}>
+              <Text style={styles.btnGhostText}>取消</Text>
+            </PressableScale>
+            <PressableScale style={[styles.btn, styles.btnPrimary]} onPress={() => void saveCreate()} disabled={busy || !name.trim()}>
+              {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnPrimaryText}>新建</Text>}
+            </PressableScale>
           </View>
         </View>
-      ) : null}
+      </BottomSheet>
 
-      {logOpen ? (
-        <View style={[styles.modalMask, { backgroundColor: colors.scrim }]}>
-          <View style={styles.modal}>
-            <Text style={styles.modalTitle}>记录 · {logOpen.name}</Text>
-            <Text style={styles.logDate}>日期 {todayLocal()}{logOpen.unit ? " · 单位 " + logOpen.unit : ""}</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="今日数值"
-              placeholderTextColor={colors.textFaint}
-              value={logValue}
-              onChangeText={setLogValue}
-              keyboardType="numeric"
-              autoFocus
-            />
-            <TextInput style={styles.input} placeholder="备注（可选）" placeholderTextColor={colors.textFaint} value={logNote} onChangeText={setLogNote} />
-            {logHistory.length > 0 ? (
-              <View style={styles.historyBox}>
-                <Text style={styles.historyTitle}>最近记录</Text>
-                {logHistory.slice(0, 5).map((l) => (
-                  <View key={l.id} style={styles.historyRow}>
-                    <Text style={styles.historyDate}>{l.log_date}</Text>
-                    <Text style={styles.historyValue}>{l.value}{logOpen.unit ? " " + logOpen.unit : ""}</Text>
-                  </View>
-                ))}
-              </View>
-            ) : null}
-            <View style={styles.row}>
-              <PressableScale style={[styles.btn, styles.btnGhost]} onPress={() => setLogOpen(null)}>
-                <Text style={styles.btnGhostText}>取消</Text>
-              </PressableScale>
-              <PressableScale style={[styles.btn, styles.btnPrimary]} onPress={() => void saveLog()} disabled={busy}>
-                {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnPrimaryText}>保存</Text>}
-              </PressableScale>
+      <BottomSheet
+        visible={!!logOpen}
+        onClose={() => setLogOpen(null)}
+        title={logOpen ? `记录 · ${logOpen.name}` : "记录"}
+        height="62%"
+      >
+        <View style={styles.sheetBody}>
+          <Text style={styles.logDate}>日期 {todayLocal()}{logOpen?.unit ? " · 单位 " + logOpen.unit : ""}</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="今日数值"
+            placeholderTextColor={colors.textFaint}
+            value={logValue}
+            onChangeText={setLogValue}
+            keyboardType="numeric"
+            autoFocus
+          />
+          <TextInput style={styles.input} placeholder="备注（可选）" placeholderTextColor={colors.textFaint} value={logNote} onChangeText={setLogNote} />
+          {logHistory.length > 0 ? (
+            <View style={styles.historyBox}>
+              <Text style={styles.historyTitle}>最近记录</Text>
+              {logHistory.slice(0, 5).map((l) => (
+                <View key={l.id} style={styles.historyRow}>
+                  <Text style={styles.historyDate}>{l.log_date}</Text>
+                  <Text style={styles.historyValue}>{l.value}{logOpen?.unit ? " " + logOpen.unit : ""}</Text>
+                </View>
+              ))}
             </View>
+          ) : null}
+          <View style={styles.row}>
+            <PressableScale style={[styles.btn, styles.btnGhost]} onPress={() => setLogOpen(null)}>
+              <Text style={styles.btnGhostText}>取消</Text>
+            </PressableScale>
+            <PressableScale style={[styles.btn, styles.btnPrimary]} onPress={() => void saveLog()} disabled={busy}>
+              {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnPrimaryText}>保存</Text>}
+            </PressableScale>
           </View>
         </View>
-      ) : null}
+      </BottomSheet>
     </View>
   );
 }
@@ -382,6 +384,7 @@ const makeStyles = (colors: ThemeColors) =>
     palette: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
     swatch: { width: 30, height: 30, borderRadius: 15 },
     swatchActive: { borderWidth: 3, borderColor: "#fff" },
+    sheetBody: { gap: 10, paddingTop: 4 },
     row: { flexDirection: "row", gap: 8, marginTop: 4 },
     btn: { flex: 1, borderRadius: 12, paddingVertical: 11, alignItems: "center", justifyContent: "center" },
     btnGhost: { backgroundColor: colors.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },

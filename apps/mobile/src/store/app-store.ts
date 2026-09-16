@@ -127,6 +127,8 @@ interface AppState {
   addCustomTopic: (phaseId: number, title: string, summary: string | null) => void;
   removeCustomTopic: (id: number) => void;
   addSport: (sportKey: string, minutes: number) => void;
+  /** v4 P2：按秒记录运动（正向计时结束），避免 45 秒被取整成 1 分钟 */
+  addSportSeconds: (sportKey: string, seconds: number) => void;
   removeSport: (clientId: string) => void;
   importLegacySports: (records: { sportKey: string; minutes: number; createdAt: string }[]) => void;
 
@@ -436,6 +438,46 @@ export const useAppStore = create<AppState>()(
               type: item.type,
               typeLabel: item.name,
               durationSeconds: mins * 60,
+              source: "MANUAL",
+              startedAt: now,
+            },
+            updatedAt: now,
+          };
+          return { sports: [...s.sports, rec], pendingChanges: [change, ...s.pendingChanges] };
+        }),
+
+      /**
+       * v4 P2：按**秒**记录运动（正向计时/倒计时结束后调用）。
+       * 既有 addSport 只吃分钟整数（`Math.round`），45 秒会被抹成 0 → 兜成 1 分钟，数据失真。
+       * 同步载荷仍写 `durationSeconds`，本地展示用分钟（向上取整到 1 分钟，避免 0 分钟显示）。
+       */
+      addSportSeconds: (sportKey, seconds) =>
+        set((s) => {
+          const item = sportItemByKey(sportKey);
+          if (!item) return s;
+          const sec = Math.max(1, Math.min(24 * 3600, Math.round(seconds || 0)));
+          const now = new Date().toISOString();
+          const clientId = uid();
+          const rec: LocalSportLog = {
+            id: nextId(),
+            clientId,
+            sportKey: item.key,
+            name: item.name,
+            type: item.type,
+            minutes: Math.max(1, Math.round(sec / 60)),
+            createdAt: now,
+          };
+          const change: PendingChange = {
+            changeId: uid(),
+            entityType: "exerciseLogs",
+            entityId: clientId,
+            operation: "CREATE",
+            version: 1,
+            payload: {
+              clientId,
+              type: item.type,
+              typeLabel: item.name,
+              durationSeconds: sec,
               source: "MANUAL",
               startedAt: now,
             },

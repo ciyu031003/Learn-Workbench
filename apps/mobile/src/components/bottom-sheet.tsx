@@ -1,9 +1,8 @@
 /* eslint-disable react-hooks/immutability, react-hooks/set-state-in-effect */
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  KeyboardAvoidingView,
+  Dimensions,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,6 +12,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { useReanimatedKeyboardAnimation } from "react-native-keyboard-controller";
 import Animated, {
   Easing,
   runOnJS,
@@ -59,6 +59,7 @@ export function BottomSheet({
   expandable = false,
   height = "50%",
   scroll = true,
+  onClosed,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -69,11 +70,19 @@ export function BottomSheet({
   height?: string;
   /** 是否内置滚动容器（内容自带 ScrollView 时传 false） */
   scroll?: boolean;
+  /**
+   * 退场动画结束、Modal 真正卸载后调用。
+   * 用途：需要"关掉这个弹层再打开另一个全屏 Modal"时，必须等它卸载完再开，
+   * 否则 Android/iOS 上会出现两个 Modal 同时 present（iOS 常见表现是第二个不出现）。
+   */
+  onClosed?: () => void;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { height: winH } = useWindowDimensions();
+  /** 设备屏幕高度：键盘补偿的基准（window 高度在 Android adjustResize 下会变小，不能当基准） */
+  const screenHeight = Dimensions.get("screen").height;
   const ratio = parsePercent(height, 0.5);
   const collapsed = winH * ratio;
   const full = winH * 0.94;
@@ -84,6 +93,8 @@ export function BottomSheet({
   const [mounted, setMounted] = useState(visible);
   const [expanded, setExpanded] = useState(false);
 
+  /** 键盘高度（reanimated 共享值；键盘收起时为 0） */
+  const keyboardAnim = useReanimatedKeyboardAnimation().height;
   const translateY = useSharedValue(collapsed);
   const dragBase = useSharedValue(restOffset);
   const scrim = useSharedValue(0);
@@ -100,7 +111,10 @@ export function BottomSheet({
     } else if (mounted) {
       scrim.value = withTiming(0, { duration: SLIDE_OUT, easing: Easing.in(Easing.cubic) });
       translateY.value = withTiming(collapsed, { duration: SLIDE_OUT, easing: Easing.in(Easing.cubic) }, (fin) => {
-        if (fin) runOnJS(setMounted)(false);
+        if (fin) {
+          runOnJS(setMounted)(false);
+          if (onClosedRef.current) runOnJS(onClosedRef.current)();
+        }
       });
     }
   }, [visible, mounted, collapsed, restOffset, scrim, translateY, dragBase]);
@@ -109,6 +123,12 @@ export function BottomSheet({
     setExpanded(false);
     onClose();
   }, [onClose]);
+
+  /** 用 ref 持有最新回调，避免把它写进 worklet 的依赖里（渲染期不写 ref，走 effect） */
+  const onClosedRef = useRef<(() => void) | undefined>(undefined);
+  useEffect(() => {
+    onClosedRef.current = onClosed;
+  }, [onClosed]);
 
   const toggle = useCallback(() => {
     if (!expandable) return;
@@ -158,13 +178,27 @@ export function BottomSheet({
 
   const handleGesture = Gesture.Exclusive(panGesture, tapGesture);
 
-  const animatedSheet = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
-    opacity: 0.6 + scrim.value * 0.4,
-  }));
+  // ⚠️ 顺序约束：worklet 会在**定义处**快照它引用的自由变量（babel worklets 插件），
+  // 所以 `sheetHeight` / `maxSheetHeight` / `screenHeight` 必须声明在下面两个 useAnimatedStyle **之前**，
+  // 否则 worklet 捕获到 undefined（键盘补偿失效，甚至把弹层高度写成 NaN）。
+  const sheetHeight = expandable ? full : collapsed;
+  /** 键盘补偿的上界：用 screen 高度（不会被 Android adjustResize 改小）而非 window 高度 */
+  const maxSheetHeight = Math.max(160, screenHeight - insets.top);
+
+  const animatedSheet = useAnimatedStyle(() => {
+    // v4 P2 键盘适配：键盘弹出时按键盘高度**收缩弹层高度**，
+    // 让输入框与底部保存按钮始终落在键盘之上。
+    // 旧的 KeyboardAvoidingView(behavior 仅 iOS) + "挂载时算死的像素高度" 在 Android 上必然被挡。
+    const kb = Math.abs(keyboardAnim.value);
+    const available = Math.max(160, maxSheetHeight - kb);
+    return {
+      height: Math.min(sheetHeight, available),
+      transform: [{ translateY: translateY.value }],
+      opacity: 0.6 + scrim.value * 0.4,
+    };
+  });
   const animatedScrim = useAnimatedStyle(() => ({ opacity: scrim.value }));
 
-  const sheetHeight = expandable ? full : collapsed;
   const content = body ? body(expanded) : children;
 
   return (
@@ -189,10 +223,7 @@ export function BottomSheet({
               </Pressable>
             </View>
 
-            <KeyboardAvoidingView
-              style={styles.flex}
-              behavior={Platform.OS === "ios" ? "padding" : undefined}
-            >
+            <View style={styles.flex}>
               {scroll ? (
                 <ScrollView
                   style={styles.flex}
@@ -206,7 +237,7 @@ export function BottomSheet({
               ) : (
                 <View style={[styles.flex, { paddingBottom: insets.bottom + 8 }]}>{content}</View>
               )}
-            </KeyboardAvoidingView>
+            </View>
           </GlassSurface>
         </Animated.View>
       </View>

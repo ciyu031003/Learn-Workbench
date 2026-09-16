@@ -255,13 +255,13 @@ const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     wrap: { gap: 10 },
     // 单卡高度：不再为叠层留 peek
-    stack: { height: 168 },
+    stack: { height: 150 },
     card: {
       position: "absolute",
       left: 0,
       right: 0,
       top: 0,
-      height: 168,
+      height: 150,
       borderRadius: 24,
       overflow: "hidden",
       borderWidth: StyleSheet.hairlineWidth,

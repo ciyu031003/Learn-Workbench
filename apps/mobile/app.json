@@ -18,6 +18,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": true,
+      "softwareKeyboardLayoutMode": "resize",
       "package": "com.yuanabd.learnworkbench",
       "blockedPermissions": [
         "android.permission.SYSTEM_ALERT_WINDOW",

@@ -114,6 +114,7 @@ export default function LogsScreen() {
       }
       contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
       showsVerticalScrollIndicator={false}
+      automaticallyAdjustKeyboardInsets
       initialNumToRender={8}
       maxToRenderPerBatch={8}
       windowSize={7}

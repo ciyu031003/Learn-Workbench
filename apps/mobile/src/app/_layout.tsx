@@ -6,6 +6,7 @@ import { InteractionManager, Platform, Pressable, StyleSheet, View, type OpaqueC
 import * as ScreenOrientation from "expo-screen-orientation";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import { runOnJS } from "react-native-reanimated";
 import { DailyBackground } from "@/components/daily-background";
 import { ThemedIcon } from "@/components/themed-icon";
@@ -182,9 +183,13 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={styles.root}>
-      <ThemeProvider>
-        <ThemedShell />
-      </ThemeProvider>
+      {/* v4 P2：键盘适配（react-native-keyboard-controller）需要根部 Provider，
+          供 BottomSheet 的键盘高度动画与 KeyboardAwareScrollView 使用 */}
+      <KeyboardProvider>
+        <ThemeProvider>
+          <ThemedShell />
+        </ThemeProvider>
+      </KeyboardProvider>
     </GestureHandlerRootView>
   );
 }
