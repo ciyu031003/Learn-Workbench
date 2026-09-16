@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
 import { useAppStore } from "@/store/app-store";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -27,6 +27,7 @@ import { haptics } from "@/lib/haptics";
 import { radius , type ThemeMode } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
+import { resolveEdgeSwipeEnabled } from "@/lib/edge-swipe";
 
 export default function SettingsScreen() {
   const { colors } = useTheme();
@@ -35,6 +36,9 @@ export default function SettingsScreen() {
   const tabBarSpace = useTabBarSpace();
   const backgroundEnabled = useAppStore((s) => s.backgroundEnabled);
   const toggleBackground = useAppStore((s) => s.toggleBackground);
+  const storedEdgeSwipe = useAppStore((s) => s.edgeSwipeEnabled);
+  const setEdgeSwipeEnabled = useAppStore((s) => s.setEdgeSwipeEnabled);
+  const edgeSwipeEnabled = resolveEdgeSwipeEnabled(storedEdgeSwipe, Platform.OS);
   const resetAll = useAppStore((s) => s.resetAll);
   const progress = useAppStore((s) => s.progress);
   const tasks = useAppStore((s) => s.tasks);
@@ -366,6 +370,16 @@ export default function SettingsScreen() {
           <Text style={styles.rowLabel}>启用每日壁纸</Text>
           <Switch value={backgroundEnabled} onValueChange={toggleBackground} trackColor={{ true: colors.primary }} />
         </View>
+      </Card>
+
+      <Card title="手势" subtitle="屏幕左右边缘横滑可切换底部 Tab">
+        <View style={styles.rowBetween}>
+          <Text style={styles.rowLabel}>边缘横滑切换 Tab</Text>
+          <Switch value={edgeSwipeEnabled} onValueChange={setEdgeSwipeEnabled} trackColor={{ true: colors.primary }} />
+        </View>
+        <Text style={styles.about}>
+          Android 默认关闭：系统的返回手势本身就占用屏幕左右边缘，两者同时启用容易互相抢触摸。
+        </Text>
       </Card>
 
       <Card title="关于" subtitle={`苦旅 v${APP_VERSION_NAME}`}>

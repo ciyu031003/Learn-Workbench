@@ -21,6 +21,25 @@ export const secureToken = {
       return null;
     }
   },
+  /**
+   * 带超时的读取：部分 ROM（如 ColorOS）的 Keystore 在冷启动时可能长时间不返回，
+   * 超时按"未登录"处理，保证启动链路永远不会被安全存储卡住。
+   */
+  async loadWithTimeout(ms = 3000): Promise<string | null> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        this.load(),
+        new Promise<null>((resolve) => {
+          timer = setTimeout(() => resolve(null), ms);
+        }),
+      ]);
+    } catch {
+      return null;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  },
   async clear(): Promise<void> {
     try {
       await SecureStore.deleteItemAsync(KEY);

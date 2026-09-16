@@ -1,9 +1,11 @@
 # OPPO / ColorOS 适配方案（触摸失效专项 · 以官方文档为准）
 
 > **触发**：内测用户 OPPO 手机安装后**能打开但全屏点不动**，清后台重开仍无效。
-> **状态**：**方案待确认，未改代码**
+> **状态**：**Phase 1 + Phase 2 路径 A 已实施**（代码 + 构建脚本补丁，v1.3.4 出包）；真机验证中
 > **基础**：v1.3.3（versionCode 12，`minSdk 24` / `targetSdk 36` / New Architecture / Expo SDK 57 + RN 0.86）
 > **本文取代**：`docs/APP端国产ROM触摸失效适配方案.md`（该文基于推断；本文补齐了 OPPO 官方文档依据与本地实测证据）
+> **硬约束（用户明确要求）**：**不得影响其它品牌手机**——全部改动只用标准 Android 属性，**不写任何按厂商分支的代码**，
+> 且不采用"只在某一品牌上才有意义"的开关。逐项影响评估见第 4.5 节。
 
 ---
 
@@ -23,7 +25,24 @@
    这与 ① 叠加，就是国产 ROM 上"看得见、点不着"的经典成因。
 ```
 
-**因此适配方向是**：先把 ② 这类**我们自己的确定性风险**彻底删掉，再把 ① 的 inset 策略**显式化并回到经典布局**（兼容优先：`targetSdk 35` + 官方 opt-out），最后用 **OPPO 官方云真机**验证，而不是让内测用户一轮轮试。
+**因此适配方向是**：先把 ② 这类**我们自己的确定性风险**彻底删掉，再把 ① 的 inset 策略**显式化并回到经典布局**（兼容优先：`targetSdk 35` + 官方 opt-out），最后用**真机云测**验证，而不是让内测用户一轮轮试。
+
+---
+
+# 0.5 实施结果（v1.3.4 已落地）
+
+| 项 | 改前（v1.3.3） | 改后（v1.3.4） | 位置 |
+|---|---|---|---|
+| 全屏覆盖层 | `SwipeNavigator` = 四边贴边 + `zIndex:60` 全屏 View，靠 `pointerEvents="box-none"` 透传 | **两条各自绝对定位的 26pt 窄条**，屏幕中央零覆盖层 | `apps/mobile/src/app/_layout.tsx` |
+| 边缘横滑 | 双端常开 | iOS 默认开、**Android 默认关**（可手动打开，见「我的 → 手势」） | `src/lib/edge-swipe.ts`（纯函数 + 单测）、`src/store/app-store.ts`、`src/app/settings.tsx` |
+| 系统栏 | `statusBarColor`/`navigationBarColor` = 透明（伪 edge-to-edge） | 跟随画布色 `@color/app_bar_color`（浅 `#FDF8EF` / 深 `#171209`），图标明暗走 `@bool/system_bars_light` | 构建脚本修补 `res/values/styles.xml` + `values-night/` |
+| Android 15 强制 edge-to-edge | 无声明（targetSdk 36 无法 opt-out） | `android:windowOptOutEdgeToEdgeEnforcement=true` + **targetSdk 35**（compileSdk 仍 36） | 同上 + `gradle.properties`（`android.targetSdkVersion=35`） |
+| 挖孔屏 | 未声明 | `android:windowLayoutInDisplayCutoutMode=shortEdges` | 同上 |
+| 预测返回 | `enableOnBackInvokedCallback="true"`（v1.3.1 我加的） | **回到 `false`**（经典返回，Android 15 起默认值本就如此） | 构建脚本修补 `AndroidManifest.xml` |
+| 启动期安全存储 | `secureToken.load()` 无超时 | `loadWithTimeout(3000)`，异常/卡住按未登录启动 | `src/lib/secure-token.ts`（+4 单测） |
+
+> 全部原生改动都固化在 `scripts/build-android-release.ps1` 的幂等修补 + 构建后断言里
+> （`android/` 不进 git，prebuild 会重建它）；任何一次 prebuild 后重跑脚本都能得到同一个包。
 
 ---
 
@@ -72,6 +91,9 @@
 
 # 4. 适配方案（四阶段，Phase 1–2 是出包内容）
 
+> **执行状态**：Phase 1 的 1.1 / 1.2 / 1.3 / 1.5 与 Phase 2 路径 A **已实施**；
+> 1.4 除 `resizeableActivity` 外已实施——**刻意不设 `android:resizeableActivity="false"`**，理由见 4.5。
+
 ## Phase 1 · 删掉我们自己的确定性风险（零风险、纯收益）
 
 | # | 改动 | 文件 | 说明 |
@@ -94,15 +116,59 @@
 - `targetSdkVersion 36` + 真 edge-to-edge：调用 `enableEdgeToEdge()`（或引入 `react-native-edge-to-edge`），并把**所有**屏幕的内边距改成真实 insets 逻辑（去掉现在的 `insets.top + N` 叠加）
 - 代价：Android 16 起 36 无法 opt-out，必须 insets 全对；且需在多种 ROM 上回归
 
-> 建议：**本轮先走 A**（内测用户马上能用），A 稳定后再评估 B。
+> 建议：**本轮先走 A**（内测用户马上能用），A 稳定后再评估 B。**A 已实施**（`android.targetSdkVersion=35`）。
 
-## Phase 3 · 用 OPPO 官方工具验证（不再让内测用户当小白鼠）
+## 4.5 跨品牌无损影响评估（硬约束：其它品牌手机必须照常可用）
 
-1. **OPPO 云真机**（[cloudmachine](https://open.oppomobile.com/new/introduction?page_name=cloudmachine)）：上传 APK，选 Android 15 / 16 各一台 ColorOS 机型（含挖孔屏），跑「五点触控自检」→ 出报告与截图留档：
-   ① 五个 Tab 都能切换 ② 列表能滚动 ③ 弹层能开合 ④ 输入框能聚焦输入 ⑤ 返回手势正常
-2. **OPPO 适配自检/适配支持**（[autotest](https://open.oppomobile.com/new/introduction?page_name=autotest)）：跑官方兼容性自检，收集报告
-3. **适配指导书**（[doc id=11308](https://open.oppomobile.com/documentation/page/info?id=11308)，需登录）：交付前人工过一遍 checklist
-4. 同时保留 Android Studio 模拟器（Android 15/16）+ 我们自己的设备做冒烟
+前提：**没有一行按厂商分支的代码**（无 `Build.MANUFACTURER` 判断、无 OEM 专属开关）。所有改动都是标准 Android 属性或纯 JS 层：
+
+| 改动 | 影响面 | 是否有品牌差异 | 判定 |
+|---|---|---|---|
+| 删全屏手势覆盖层 + 窄条绝对定位 | 所有平台 | 无 | ✅ 纯收益：任何 ROM 都不再可能被整层吃掉触摸 |
+| 边缘横滑 Android 默认关（可开） | 所有 Android 品牌**完全一致** | 无（只按 `Platform.OS`） | ✅ 反而消除了与 Android 系统返回手势的冲突 |
+| 系统栏改跟随画布色（不再透明） | 所有品牌视觉一致；`values-night` 自动跟随深色 | 无 | ✅ 视觉微调，无功能损失 |
+| `windowOptOutEdgeToEdgeEnforcement` + targetSdk 35 | Android 15/16 上回到经典"内容内缩"布局；Android 14 及以下无此概念，行为不变 | 无 | ✅ 官方提供的行为开关，Google/各家文档一致 |
+| `windowLayoutInDisplayCutoutMode=shortEdges` | 挖孔屏设备允许内容延伸进挖孔区，安全区由 `SafeAreaInsets` 兜底 | 无 | ✅ 所有挖孔屏机型一致（本就该有） |
+| `enableOnBackInvokedCallback=false` | Android 13+ 回到经典返回路径 | 无 | ✅ 经典路径在 RN 生态是兼容性最好的选择 |
+| `secureToken.loadWithTimeout` | 所有平台 | 无 | ✅ 纯保险 |
+| **`resizeableActivity="false"`（原方案 1.4 的一项，最终不做）** | 会让**所有**手机/平板失去分屏与小窗能力；且 Android 16 起对大屏本就忽略该属性，收益为 0 | 无（但代价由所有品牌承担） | ❌ **放弃**：与"不影响其它品牌"冲突，收益不可验证 |
+| ABI 不变（armeabi-v7a + arm64-v8a） | 所有品牌一致 | 无 | ✅ 保持现状 |
+
+**回归矩阵（每次出包必过）**：
+
+| 层 | 用例 |
+|---|---|
+| 单元/集成 | `pnpm -F mobile test`（20 文件 160 用例，含 `edge-swipe`/`secure-token` 新用例）、`pnpm -F web test` |
+| 静态 | `pnpm -F mobile typecheck`、`pnpm -F mobile lint`（0 error） |
+| 产物核验 | `aapt2 dump badging`：`targetSdkVersion 35`、`minSdk 24`、`enableOnBackInvokedCallback=false`；`zipalign -c -P 16 -v 4` 全 OK；`apksigner` MD5 = 备案值 |
+| 模拟器 | API 35 / API 36 各起一台：五 Tab 切换、列表滚动、弹层开合、输入聚焦、返回手势（**跨品牌代表：非 OPPO 平台的 Android**） |
+| 云真机 | 腾讯 WeTest 云手机（OPPO/ColorOS 机型）+ 后续 OPPO 官方云真机（实名认证审核通过后）|
+| 现场 | 内测用户复测：能点、能切 Tab、能滚动、能开弹层、能记一条饮食 |
+
+## Phase 3 · 真机验证（不再让内测用户当小白鼠）
+
+### 3.1 路线说明（实测约束）
+
+| 平台 | 状态 | 说明 |
+|---|---|---|
+| **OPPO 官方云真机** | ⛔ 暂不可用 | `open.oppomobile.com` → 管理中心只放行「选择认证」：**账号未实名认证时云测服务菜单不出现**（实测截图留档）。已提交个人开发者实名认证，**审核 1–3 天**，通过后回到本路线（最贴近现场） |
+| **腾讯 WeTest 云手机（云真机）** | ✅ 采用 | [wetest.qq.com/products/cloud-phone](https://wetest.qq.com/products/cloud-phone)：真实 OPPO/ColorOS 机型、支持上传 APK、截图 + 实时日志 + ADB 模式；按分钟计费（新账号可能有体验额度） |
+| 本地 Android 模拟器 | ✅ 兜底 | API 35/36，用于跨品牌行为回归（不代表 ColorOS） |
+
+### 3.2 云真机五点触控自检（每次出包在 ColorOS 机型上跑一遍）
+
+1. 五个底部 Tab 逐个点击 → 页面都切换
+2. 长列表上下滚动（今日 / 学习 / 招花）
+3. 打开任意弹层（饮食录入 Sheet / 任务详情）再关闭
+4. 输入框聚焦并输入（登录用户名）
+5. 系统返回手势 / 返回键退回上一屏
+6. 附加：`adb shell` 抓 `logcat` 看有无 `ANR` / 触摸事件是否到达 RN（`InputDispatcher` 相关）
+
+### 3.3 官方自检工具（OPPO 实名通过后补跑）
+
+- **适配自检/适配支持**（[autotest](https://open.oppomobile.com/new/introduction?page_name=autotest)）：跑官方兼容性自检，收集报告
+- **适配指导书**（[doc id=11308](https://open.oppomobile.com/documentation/page/info?id=11308)，需登录）：交付前人工过一遍 checklist
+
 
 ## Phase 4 · 兜底与远程观测（按需）
 
@@ -114,10 +180,10 @@
 
 # 5. 验收标准
 
-- OPPO 云真机（ColorOS + Android 15/16 各一台）：五点触控自检全绿，无一次"点了没反应"
+- 云真机（ColorOS 机型）：五点触控自检全绿，无一次"点了没反应"
 - 本机 Android 模拟器（API 35/36）冒烟通过
 - 内测用户复测：能点、能切 Tab、能滚动、能开弹层、能记一条饮食
-- 回归确认：iOS 不受影响（边缘横滑在 iOS 保留）
+- 回归确认：非 OPPO 品牌 Android 行为与 v1.3.3 一致（除视觉/边缘横滑默认值）；iOS 保留边缘横滑
 
 ---
 
@@ -125,16 +191,21 @@
 
 | 风险 | 缓解 | 回滚 |
 |---|---|---|
-| 降 targetSdk 到 35 影响新特性 | 只影响 Android 15 的强制 edge-to-edge，功能无损失 | 一行 config 改回 36 |
-| 去掉边缘横滑后体验变差 | 默认关但仍保留开关；底部 Tab 与返回键不受影响 | 打开设置开关即可 |
+| 降 targetSdk 到 35 影响新特性 | 只影响 Android 15 的强制 edge-to-edge，功能无损失；compileSdk 仍 36 | `scripts/build-android-release.ps1` 里 `android.targetSdkVersion` 改回 36（一行） |
+| 去掉边缘横滑后体验变差 | 默认关但保留开关；底部 Tab 与返回键不受影响 | 「我的 → 手势」打开，或在 `lib/edge-swipe.ts` 改平台默认 |
 | 删覆盖层引入手势回归 | 改动只在根布局一个函数，且 iOS 保留原能力 | 单文件 revert |
-| 清单改动被 prebuild 覆盖 | 已按 v1.3.2 的做法把原生修补**固化进构建脚本**并加断言 | 脚本内开关 |
+| 原生改动被 prebuild 覆盖 | 已把清单/主题/资源/targetSdk 修补**固化进构建脚本**并加构建后断言 | 脚本内开关 |
 
 ---
 
-# 7. 需要你这边做的（只有两件）
+# 7. 待办（与责任方）
 
-1. **确认走路径 A（兼容优先）**：我立刻出 `v1.3.4`（Phase 1 + Phase 2A），先在 OPPO 云真机验证，再给内测用户；
-2. **给我一个 OPPO 开放平台账号**（或其登录态）用于**云真机**——若不方便，我可以先用 "小米/华为云真机 + 模拟器 API 35/36" 替代验证，但 OPPO 云真机是最贴近现场的。
+| # | 事项 | 责任方 | 状态 |
+|---|---|---|---|
+| 1 | OPPO 开放平台个人开发者**实名认证**（云真机前置条件） | 用户 | 🕓 已提交，审核中（1–3 天） |
+| 2 | 腾讯 WeTest 云手机**登录**（手机号 + 短信验证码，腾讯滑块验证码） | 用户 | 🕓 待登录 |
+| 3 | v1.3.4 出包 + 产物核验（targetSdk/清单/16KB/签名） | 我 | 🔄 进行中 |
+| 4 | 云真机触控自检 + 模拟器跨品牌回归 | 我 | ⏳ 待 2/3 完成 |
+| 5 | 内测用户复测（同一台 OPPO 手机） | 用户/内测 | ⏳ 待发布 |
+| 6 | 内测机型信息（型号 / ColorOS / Android 版本、是否简易模式/大字/悬浮球类 App） | 用户 | ⏳ 拿不到则按最坏情况兼容 |
 
-> 拿到上面两条之前，Phase 1（1.1–1.5）我也可以先做——它们与 ROM 无关、纯收益，且能把"我们自己的风险"清零。

@@ -97,56 +97,121 @@ if ($g -notmatch "keystorePropertiesFile") { Fail "build.gradle 未加载 keysto
 if ($g -notmatch "signingConfigs\s*\{[\s\S]*?release\s*\{") { Fail "build.gradle 缺少 signingConfigs.release 配置块" }
 if ($g -notmatch "signingConfig keystorePropertiesFile\.exists\(\)") { Fail "release buildType 未引用正式签名（踩坑点 23）" }
 
-# ---------- 3.5) 原生清单 / 资源 / 包体策略（APP v2 阶段 D） ----------
-# android/ 不进 git，prebuild 会重建它 —— 把「权限收敛 · 预测返回 · 启动图配色 · R8 开关」
+# ---------- 3.5) 原生清单 / 资源 / 包体策略（APP v2 阶段 D + OPPO 兼容专项） ----------
+# android/ 不进 git，prebuild 会重建它 —— 把「权限收敛 · 预测返回 · 经典系统栏 ·
+# 关闭强制 edge-to-edge · 挖孔屏声明 · targetSdk 取向 · 启动图配色 · R8 开关」
 # 固化成幂等修补，保证任何一次 prebuild 之后重新跑本脚本都能得到同样的合规包。
-Info "修补原生清单与资源（权限收敛 / 预测返回 / 启动图配色）"
+Info "修补原生清单与资源（权限收敛 / 经典系统栏 / targetSdk / 启动图配色）"
 $nativePatch = @'
 const fs = require("fs");
 const path = require("path");
 const [androidDir, canvasLight, canvasDark, enableR8] = process.argv.slice(2);
 const log = [];
 
-// 1) AndroidManifest：移除悬浮窗权限（安装页会展示权限列表）+ 打开预测返回
+/** 确保主题里存在 <item name="X">V</item>：已存在则原位改值，否则插到第一个 </style> 之前 */
+function ensureItem(xml, name, value) {
+  const escaped = name.replace(/\./g, "\\.");
+  const re = new RegExp(`(<item name="${escaped}">)[^<]*(</item>)`);
+  if (re.test(xml)) return xml.replace(re, `$1${value}$2`);
+  const idx = xml.indexOf("</style>");
+  if (idx < 0) throw new Error(`styles.xml 缺少 </style>，无法插入 ${name}`);
+  const head = xml.slice(0, idx).replace(/\s+$/, "");
+  return `${head}\n    <item name="${name}">${value}</item>\n  ${xml.slice(idx)}`;
+}
+
+// 1) AndroidManifest
+//    a) 移除悬浮窗权限（安装页会展示权限列表）
+//    b) 关闭 Android 13+ 预测返回（enableOnBackInvokedCallback=false）：
+//       RN/expo-router 在预测返回链路上实现不完整，回到经典返回是最稳的；
+//       Android 15 起「不声明」的默认值本就是 false，这里显式钉死避免回退。
 const manifestPath = path.join(androidDir, "app", "src", "main", "AndroidManifest.xml");
 let m = fs.readFileSync(manifestPath, "utf8");
 const m0 = m;
 m = m.split("\n").filter((l) => !/SYSTEM_ALERT_WINDOW/.test(l)).join("\n");
-m = m.replace(/android:enableOnBackInvokedCallback="false"/, 'android:enableOnBackInvokedCallback="true"');
+m = m.replace(/android:enableOnBackInvokedCallback="[^"]*"/, 'android:enableOnBackInvokedCallback="false"');
 if (m !== m0) { fs.writeFileSync(manifestPath, m, "utf8"); log.push("AndroidManifest 已修补"); }
 else { log.push("AndroidManifest 无需修补"); }
 
-// 2) 启动图配色：浅色 = 品牌画布；深色走 values-night
+// 2) 主题：经典系统栏策略（兼容优先，OPPO/ColorOS 触摸失效专项）
+//    原来 statusBarColor/navigationBarColor = transparent，而窗口并未真 edge-to-edge
+//    → 形成"伪 edge-to-edge"：窗口按系统栏内缩 + 各屏又加 insets.top，国产 ROM 上
+//    最易出现 inset 错位/双重留白。这里改成唯一确定的事实：系统栏跟随画布色、窗口内缩。
 const resDir = path.join(androidDir, "app", "src", "main", "res");
+const stylesPath = path.join(resDir, "values", "styles.xml");
+let s = fs.readFileSync(stylesPath, "utf8");
+const s0 = s;
+s = s.replace(/(<item name="android:statusBarColor">)[^<]*(<\/item>)/, "$1@color/app_bar_color$2");
+s = s.replace(/(<item name="android:navigationBarColor">)[^<]*(<\/item>)/, "$1@color/app_bar_color$2");
+// 系统栏图标明暗用 @bool 资源按日夜切换（避免复制整份 AppTheme）
+s = ensureItem(s, "android:windowLightStatusBar", "@bool/system_bars_light");
+s = ensureItem(s, "android:windowLightNavigationBar", "@bool/system_bars_light");
+// Android 15 起 targetSdk 35+ 强制 edge-to-edge；显式 opt-out（仅 targetSdk 35 生效，见 gradle.properties）
+s = ensureItem(s, "android:windowOptOutEdgeToEdgeEnforcement", "true");
+// 挖孔屏：允许窗口延伸到挖孔区（真实安全区由 SafeAreaInsets 兜底）
+s = ensureItem(s, "android:windowLayoutInDisplayCutoutMode", "shortEdges");
+if (s !== s0) { fs.writeFileSync(stylesPath, s, "utf8"); log.push("styles.xml 已修补"); }
+else { log.push("styles.xml 无需修补"); }
+
+// 3) 颜色 / 布尔资源：浅色 = 品牌画布；深色走 values-night
 const colorsPath = path.join(resDir, "values", "colors.xml");
 let c = fs.readFileSync(colorsPath, "utf8");
 const c0 = c;
 c = c.replace(/(<color name="splashscreen_background">)[^<]*(<\/color>)/, `$1${canvasLight}$2`);
 c = c.replace(/(<color name="iconBackground">)[^<]*(<\/color>)/, `$1${canvasLight}$2`);
+if (/<color name="app_bar_color">/.test(c)) {
+  c = c.replace(/(<color name="app_bar_color">)[^<]*(<\/color>)/, `$1${canvasLight}$2`);
+} else {
+  c = c.replace("</resources>", `  <color name="app_bar_color">${canvasLight}</color>\n</resources>`);
+}
 if (c !== c0) { fs.writeFileSync(colorsPath, c, "utf8"); log.push("colors.xml 已修补"); }
 else { log.push("colors.xml 无需修补"); }
 
 const nightDir = path.join(resDir, "values-night");
+fs.mkdirSync(nightDir, { recursive: true });
+const nightXml = `<resources>\n  <color name="splashscreen_background">${canvasDark}</color>\n  <color name="app_bar_color">${canvasDark}</color>\n</resources>\n`;
 const nightPath = path.join(nightDir, "colors.xml");
-const nightXml = `<resources>\n  <color name="splashscreen_background">${canvasDark}</color>\n</resources>\n`;
-if (!fs.existsSync(nightPath) || fs.readFileSync(nightPath, "utf8") !== nightXml) {
-  fs.mkdirSync(nightDir, { recursive: true });
+if (fs.readFileSync(nightPath, "utf8") !== nightXml) {
   fs.writeFileSync(nightPath, nightXml, "utf8");
   log.push("values-night/colors.xml 已写入");
 } else {
   log.push("values-night/colors.xml 已是最新");
 }
 
-// 3) R8 / 资源裁剪开关（默认关闭，包体已达标；开启后必须真机回归）
+const lightBools = `<resources>\n  <bool name="system_bars_light">true</bool>\n</resources>\n`;
+const darkBools = `<resources>\n  <bool name="system_bars_light">false</bool>\n</resources>\n`;
+const boolFiles = [
+  [path.join(resDir, "values", "bools.xml"), lightBools],
+  [path.join(nightDir, "bools.xml"), darkBools],
+];
+for (const [file, xml] of boolFiles) {
+  if (!fs.existsSync(file) || fs.readFileSync(file, "utf8") !== xml) {
+    fs.writeFileSync(file, xml, "utf8");
+    log.push(`${path.relative(resDir, file)} 已写入`);
+  }
+}
+
+// 4) gradle.properties：targetSdk 取向 + 关掉空开关 + R8 / 资源裁剪（默认关闭，包体已达标）
+//    - android.targetSdkVersion：expo 根工程插件会把它写进 expoLibs 版本目录（RN 默认 36）。
+//      兼容优先取 35：Android 15 起 35+ 强制 edge-to-edge，但 35 仍受
+//      windowOptOutEdgeToEdgeEnforcement 管辖，36 起该开关被忽略。
+//      商店门槛（OPPO/小米/vivo/华为 ≥30、Google Play 新应用 35）均满足；compileSdk 仍 36。
+//    - edgeToEdgeEnabled：当前 RN 0.86 / Expo 57 组合下无任何代码读取（全量 grep 无命中），
+//      显式置 false，避免将来某次升级后突然生效。
 const propsPath = path.join(androidDir, "gradle.properties");
-const r8Keys = ["android.enableProguardInReleaseBuilds", "android.enableShrinkResourcesInReleaseBuilds"];
-let p = fs.readFileSync(propsPath, "utf8");
-p = p.split("\n").filter((l) => !r8Keys.some((k) => l.startsWith(k + "="))).join("\n");
-p = p.replace(/\n+$/, "\n");
 const want = enableR8 === "true";
-p += r8Keys.map((k) => `${k}=${want}`).join("\n") + "\n";
+const managed = {
+  "android.targetSdkVersion": "35",
+  "edgeToEdgeEnabled": "false",
+  "android.enableProguardInReleaseBuilds": String(want),
+  "android.enableShrinkResourcesInReleaseBuilds": String(want),
+};
+const managedKeys = Object.keys(managed);
+let p = fs.readFileSync(propsPath, "utf8");
+p = p.split("\n").filter((l) => !managedKeys.some((k) => l.startsWith(k + "="))).join("\n");
+p = p.replace(/\n+$/, "\n");
+p += managedKeys.map((k) => `${k}=${managed[k]}`).join("\n") + "\n";
 fs.writeFileSync(propsPath, p, "utf8");
-log.push(`R8/资源裁剪 = ${want}`);
+log.push(`targetSdk=35 · edgeToEdgeEnabled=false · R8/资源裁剪=${want}`);
 
 console.log("[build] " + log.join(" · "));
 '@
@@ -159,7 +224,23 @@ if ($LASTEXITCODE -ne 0) { Fail "原生清单/资源修补失败" }
 # 修补后断言（防止某次 prebuild 后静默回退）
 $manifest = Get-Content (Join-Path $android "app\src\main\AndroidManifest.xml") -Raw
 if ($manifest -match "SYSTEM_ALERT_WINDOW") { Fail "AndroidManifest 仍声明 SYSTEM_ALERT_WINDOW" }
-if ($manifest -notmatch 'android:enableOnBackInvokedCallback="true"') { Fail "未开启预测返回（enableOnBackInvokedCallback）" }
+if ($manifest -notmatch 'android:enableOnBackInvokedCallback="false"') { Fail "未关闭预测返回（enableOnBackInvokedCallback 应为 false）" }
+
+$stylesXml = Get-Content (Join-Path $android "app\src\main\res\values\styles.xml") -Raw
+if ($stylesXml -match 'android:statusBarColor">@android:color/transparent') { Fail "状态栏仍是透明（伪 edge-to-edge 未消除）" }
+if ($stylesXml -notmatch '@color/app_bar_color') { Fail "系统栏未改为跟随画布色（app_bar_color）" }
+if ($stylesXml -notmatch 'windowOptOutEdgeToEdgeEnforcement">true') { Fail "未声明 windowOptOutEdgeToEdgeEnforcement（Android 15 强制 edge-to-edge 未关闭）" }
+if ($stylesXml -notmatch 'windowLayoutInDisplayCutoutMode">shortEdges') { Fail "未声明挖孔屏 shortEdges" }
+
+$gradleProps = Get-Content (Join-Path $android "gradle.properties") -Raw
+if ($gradleProps -notmatch "(?m)^android\.targetSdkVersion=35\r?$") { Fail "gradle.properties 未把 targetSdk 固定为 35" }
+if ($gradleProps -notmatch "(?m)^edgeToEdgeEnabled=false\r?$") { Fail "edgeToEdgeEnabled 未置 false" }
+
+$boolsXml = Get-Content (Join-Path $android "app\src\main\res\values\bools.xml") -Raw -ErrorAction SilentlyContinue
+if ($boolsXml -notmatch 'name="system_bars_light">true') { Fail "缺少 values/bools.xml（系统栏图标明暗资源）" }
+$boolsNight = Get-Content (Join-Path $android "app\src\main\res\values-night\bools.xml") -Raw -ErrorAction SilentlyContinue
+if ($boolsNight -notmatch 'name="system_bars_light">false') { Fail "缺少 values-night/bools.xml（深色系统栏图标资源）" }
+
 $splashColors = Get-Content (Join-Path $android "app\src\main\res\values\colors.xml") -Raw
 if ($splashColors -match "#208AEF") { Fail "启动图配色仍是旧的 #208AEF" }
 

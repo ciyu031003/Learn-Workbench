@@ -99,6 +99,13 @@ interface AppState {
   lastSyncedAt: string | null;
   /** AI 每日建议（按日缓存；未拉到/未登录为 null，前端回落规则版） */
   aiTip: { date: string; text: string } | null;
+  /**
+   * 边缘横滑切换 Tab：`null` = 跟随平台默认（iOS 开、Android 关）。
+   * Android 默认关：系统返回手势本身就占用屏幕左右边缘，再叠加我们自己的
+   * 26pt 手势条会互相抢触摸；部分国产 ROM 上更是"看得见点不着"的诱因。
+   * 解析见 `src/lib/edge-swipe.ts`（store 不直接依赖 react-native，保证单测可加载）。
+   */
+  edgeSwipeEnabled: boolean | null;
 
   toggleTopic: (topicId: number) => void;
   addTask: (title: string, taskType: TaskType) => void;
@@ -107,6 +114,7 @@ interface AppState {
   checkinToday: () => void;
   addSession: (taskId: number | null, seconds: number) => void;
   toggleBackground: () => void;
+  setEdgeSwipeEnabled: (enabled: boolean) => void;
   resetAll: () => void;
 
   themeMode: ThemeMode;
@@ -152,6 +160,8 @@ export const useAppStore = create<AppState>()(
       pendingChanges: [],
       lastSyncedAt: null,
       aiTip: null,
+      // null = 跟随平台默认（iOS 开 / Android 关），用户手动开关后才写入显式值
+      edgeSwipeEnabled: null,
 
       toggleTopic: (topicId) =>
         set((s) => {
@@ -305,6 +315,7 @@ export const useAppStore = create<AppState>()(
         }),
 
       toggleBackground: () => set((s) => ({ backgroundEnabled: !s.backgroundEnabled })),
+      setEdgeSwipeEnabled: (enabled) => set({ edgeSwipeEnabled: enabled }),
       setThemeMode: (mode) => set({ themeMode: mode }),
       resetAll: () =>
         set({

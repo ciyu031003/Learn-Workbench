@@ -2,7 +2,7 @@ import { useEffect , useMemo } from "react";
 import { Tabs, router, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
-import { InteractionManager, Pressable, StyleSheet, View, type OpaqueColorValue } from "react-native";
+import { InteractionManager, Platform, Pressable, StyleSheet, View, type OpaqueColorValue } from "react-native";
 import * as ScreenOrientation from "expo-screen-orientation";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
@@ -12,6 +12,7 @@ import { ThemedIcon } from "@/components/themed-icon";
 import { ThemeProvider } from "@/theme";
 import { useTheme } from "@/theme";
 import { TAB_BAR_HEIGHT } from "@/lib/use-tab-bar-space";
+import { resolveEdgeSwipeEnabled } from "@/lib/edge-swipe";
 import type { ThemeColors } from "@/theme/tokens";
 import { startSyncEngine } from "@/lib/sync-engine";
 import { silentCheckForUpdate } from "@/lib/ota";
@@ -77,11 +78,21 @@ const makeStyles = (colors: ThemeColors) =>
 });
 
 /**
- * iOS 风格边缘横滑：只截获屏幕左右 26pt 边缘的横滑，
- * 不再全屏覆盖（避免吃掉子页面内部的横向手势/轮播/sheet 冲突）。
+ * iOS 风格边缘横滑：只截获屏幕左右 26pt 边缘的横滑。
+ *
+ * 关键约束（OPPO/ColorOS 触摸失效专项）：**不允许存在全屏覆盖层**。
+ * v1.3.3 及以前这里是个 `position:absolute` 四边贴边 + `zIndex:60` 的全屏 View，
+ * 依赖 `pointerEvents="box-none"` 把触摸透下去；在部分 ROM + Fabric 组合下 box-none
+ * 会退化成"整层可点"，表现就是"界面正常、点哪儿都没反应"。
+ * 现在改成两条**各自独立绝对定位**的窄条：屏幕中央不存在任何覆盖层，
+ * 最坏情况也只是失去边缘横滑这一项锦上添花的能力。
+ *
+ * 默认值：iOS 开、Android 关（Android 的系统返回手势本就占用左右边缘，避免互抢）。
  */
 function SwipeNavigator() {
   const pathname = usePathname();
+  const stored = useAppStore((s) => s.edgeSwipeEnabled);
+  const edgeSwipeEnabled = resolveEdgeSwipeEnabled(stored, Platform.OS);
 
   // 5 Tab 顺序：今日 → 学习 → 职业 → 健康 → 我的
   const ORDER = ["/today", "/learn", "/career", "/wellness", "/settings"];
@@ -109,22 +120,24 @@ function SwipeNavigator() {
         runOnJS(go)(right ? "left" : "right");
       });
 
+  if (!edgeSwipeEnabled) return null;
+
   return (
-    <View pointerEvents="box-none" style={swipeStyles.layer}>
+    <>
       <GestureDetector gesture={makeEdge("left")}>
         <View style={swipeStyles.edgeLeft} />
       </GestureDetector>
       <GestureDetector gesture={makeEdge("right")}>
         <View style={swipeStyles.edgeRight} />
       </GestureDetector>
-    </View>
+    </>
   );
 }
 
+// 两条窄条各自绝对定位，互不包裹 → 不存在任何全屏（甚至中等面积）的覆盖层
 const swipeStyles = StyleSheet.create({
-  layer: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 60, flexDirection: "row", justifyContent: "space-between" },
-  edgeLeft: { width: 26, height: "100%" },
-  edgeRight: { width: 26, height: "100%" },
+  edgeLeft: { position: "absolute", top: 0, bottom: 0, left: 0, width: 26, zIndex: 60 },
+  edgeRight: { position: "absolute", top: 0, bottom: 0, right: 0, width: 26, zIndex: 60 },
 });
 
 export default function RootLayout() {
@@ -151,9 +164,10 @@ export default function RootLayout() {
     };
   }, []);
 
-  // 登录令牌恢复：token 存于安全存储（Keychain/Keystore），启动时回填会话
+  // 登录令牌恢复：token 存于安全存储（Keychain/Keystore），启动时回填会话。
+  // 带 3s 超时：ColorOS 等 ROM 的 Keystore 有已知卡顿，宁可当未登录启动，也不拖住启动链路。
   useEffect(() => {
-    secureToken.load().then((t) => {
+    secureToken.loadWithTimeout(3000).then((t) => {
       const st = useAppStore.getState();
       if (t && !st.token) st.setAuth(t, st.username);
     });
