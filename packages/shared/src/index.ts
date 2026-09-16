@@ -668,6 +668,158 @@ export function sportItemByKey(key: string): SportItem | undefined {
   return SPORT_CATALOG.find((s) => s.key === key);
 }
 
+/* ---------- 健身房动作字典（迁移 046 exercise_items；Web/移动端共用，与迁移种子同源） ----------
+
+   为什么单开一份（而不是复用 SPORT_CATALOG）：SPORT_CATALOG 是"运动/活动"目录
+   （篮球、跑步、深蹲…），力量类只有 6 项，撑不起训练记录里的"选择动作"面板。
+   本常量同时是「库不可用 / 未迁移环境」的回退数据源与移动端离线数据源。
+
+   ⚠️ 改动这里必须同步 `db/migrations/046_exercise_catalog.sql`（只追加新迁移，别改 046）；
+      `apps/web/lib/exercise-catalog.test.ts` 会解析迁移文件逐条比对，漂移即失败。
+*/
+
+export type ExerciseMuscleGroup = "胸" | "背" | "腿" | "肩" | "手臂" | "核心" | "臀" | "全身";
+export type ExerciseEquipment = "杠铃" | "哑铃" | "器械" | "自重" | "绳索" | "壶铃";
+
+export interface ExerciseCatalogItem {
+  key: string;
+  name: string;
+  muscleGroup: ExerciseMuscleGroup;
+  category: ExerciseType;
+  equipment: ExerciseEquipment | null;
+  /** 强度系数（MET），卡路里估算预留 */
+  met: number | null;
+  sort: number;
+}
+
+/** 面板里"按部位浏览"的顺序（与迁移 CHECK 约束一致） */
+export const exerciseMuscleGroups: ExerciseMuscleGroup[] = ["胸", "背", "腿", "肩", "手臂", "核心", "臀", "全身"];
+
+export const EXERCISE_CATALOG: ExerciseCatalogItem[] = [
+  // 胸
+  { key: "bench-press", name: "卧推", muscleGroup: "胸", category: "STRENGTH", equipment: "杠铃", met: 6.0, sort: 11 },
+  { key: "incline-bench-press", name: "上斜卧推", muscleGroup: "胸", category: "STRENGTH", equipment: "杠铃", met: 6.0, sort: 12 },
+  { key: "dumbbell-bench-press", name: "哑铃卧推", muscleGroup: "胸", category: "STRENGTH", equipment: "哑铃", met: 5.5, sort: 13 },
+  { key: "dumbbell-fly", name: "哑铃飞鸟", muscleGroup: "胸", category: "STRENGTH", equipment: "哑铃", met: 4.0, sort: 14 },
+  { key: "cable-crossover", name: "绳索夹胸", muscleGroup: "胸", category: "STRENGTH", equipment: "绳索", met: 4.0, sort: 15 },
+  { key: "machine-chest-press", name: "器械推胸", muscleGroup: "胸", category: "STRENGTH", equipment: "器械", met: 5.0, sort: 16 },
+  { key: "push-up", name: "俯卧撑", muscleGroup: "胸", category: "STRENGTH", equipment: "自重", met: 4.0, sort: 17 },
+  { key: "dips", name: "双杠臂屈伸", muscleGroup: "胸", category: "STRENGTH", equipment: "自重", met: 5.0, sort: 18 },
+  // 背
+  { key: "deadlift", name: "硬拉", muscleGroup: "背", category: "STRENGTH", equipment: "杠铃", met: 6.0, sort: 21 },
+  { key: "romanian-deadlift", name: "罗马尼亚硬拉", muscleGroup: "背", category: "STRENGTH", equipment: "杠铃", met: 6.0, sort: 22 },
+  { key: "pull-up", name: "引体向上", muscleGroup: "背", category: "STRENGTH", equipment: "自重", met: 8.0, sort: 23 },
+  { key: "lat-pulldown", name: "高位下拉", muscleGroup: "背", category: "STRENGTH", equipment: "器械", met: 5.0, sort: 24 },
+  { key: "barbell-row", name: "杠铃划船", muscleGroup: "背", category: "STRENGTH", equipment: "杠铃", met: 6.0, sort: 25 },
+  { key: "seated-cable-row", name: "坐姿划船", muscleGroup: "背", category: "STRENGTH", equipment: "绳索", met: 5.0, sort: 26 },
+  { key: "one-arm-dumbbell-row", name: "单臂哑铃划船", muscleGroup: "背", category: "STRENGTH", equipment: "哑铃", met: 5.0, sort: 27 },
+  { key: "face-pull", name: "面拉", muscleGroup: "背", category: "STRENGTH", equipment: "绳索", met: 4.0, sort: 28 },
+  { key: "reverse-fly", name: "反向飞鸟", muscleGroup: "背", category: "STRENGTH", equipment: "哑铃", met: 4.0, sort: 29 },
+  { key: "t-bar-row", name: "T 杠划船", muscleGroup: "背", category: "STRENGTH", equipment: "杠铃", met: 5.5, sort: 30 },
+  // 腿
+  { key: "squat", name: "深蹲", muscleGroup: "腿", category: "STRENGTH", equipment: "杠铃", met: 6.0, sort: 31 },
+  { key: "front-squat", name: "前蹲", muscleGroup: "腿", category: "STRENGTH", equipment: "杠铃", met: 6.0, sort: 32 },
+  { key: "hack-squat", name: "哈克深蹲", muscleGroup: "腿", category: "STRENGTH", equipment: "器械", met: 5.5, sort: 33 },
+  { key: "goblet-squat", name: "高脚杯深蹲", muscleGroup: "腿", category: "STRENGTH", equipment: "哑铃", met: 5.0, sort: 34 },
+  { key: "bulgarian-split-squat", name: "保加利亚分腿蹲", muscleGroup: "腿", category: "STRENGTH", equipment: "哑铃", met: 5.0, sort: 35 },
+  { key: "lunge", name: "箭步蹲", muscleGroup: "腿", category: "STRENGTH", equipment: "哑铃", met: 5.0, sort: 36 },
+  { key: "leg-press", name: "腿举", muscleGroup: "腿", category: "STRENGTH", equipment: "器械", met: 5.0, sort: 37 },
+  { key: "leg-extension", name: "腿屈伸", muscleGroup: "腿", category: "STRENGTH", equipment: "器械", met: 4.0, sort: 38 },
+  { key: "leg-curl", name: "腿弯举", muscleGroup: "腿", category: "STRENGTH", equipment: "器械", met: 4.0, sort: 39 },
+  { key: "standing-calf-raise", name: "站姿提踵", muscleGroup: "腿", category: "STRENGTH", equipment: "器械", met: 3.5, sort: 40 },
+  // 肩
+  { key: "overhead-press", name: "推举", muscleGroup: "肩", category: "STRENGTH", equipment: "杠铃", met: 6.0, sort: 41 },
+  { key: "dumbbell-shoulder-press", name: "哑铃推举", muscleGroup: "肩", category: "STRENGTH", equipment: "哑铃", met: 5.0, sort: 42 },
+  { key: "arnold-press", name: "阿诺德推举", muscleGroup: "肩", category: "STRENGTH", equipment: "哑铃", met: 5.0, sort: 43 },
+  { key: "lateral-raise", name: "哑铃侧平举", muscleGroup: "肩", category: "STRENGTH", equipment: "哑铃", met: 3.5, sort: 44 },
+  { key: "front-raise", name: "前平举", muscleGroup: "肩", category: "STRENGTH", equipment: "哑铃", met: 3.5, sort: 45 },
+  { key: "reverse-pec-deck", name: "反向蝴蝶机", muscleGroup: "肩", category: "STRENGTH", equipment: "器械", met: 4.0, sort: 46 },
+  { key: "upright-row", name: "直立划船", muscleGroup: "肩", category: "STRENGTH", equipment: "杠铃", met: 5.0, sort: 47 },
+  { key: "shrug", name: "耸肩", muscleGroup: "肩", category: "STRENGTH", equipment: "哑铃", met: 3.5, sort: 48 },
+  // 手臂
+  { key: "barbell-curl", name: "杠铃弯举", muscleGroup: "手臂", category: "STRENGTH", equipment: "杠铃", met: 4.0, sort: 51 },
+  { key: "dumbbell-curl", name: "哑铃弯举", muscleGroup: "手臂", category: "STRENGTH", equipment: "哑铃", met: 3.5, sort: 52 },
+  { key: "hammer-curl", name: "锤式弯举", muscleGroup: "手臂", category: "STRENGTH", equipment: "哑铃", met: 3.5, sort: 53 },
+  { key: "concentration-curl", name: "集中弯举", muscleGroup: "手臂", category: "STRENGTH", equipment: "哑铃", met: 3.5, sort: 54 },
+  { key: "preacher-curl", name: "牧师凳弯举", muscleGroup: "手臂", category: "STRENGTH", equipment: "器械", met: 4.0, sort: 55 },
+  { key: "triceps-pushdown", name: "绳索下压", muscleGroup: "手臂", category: "STRENGTH", equipment: "绳索", met: 3.5, sort: 56 },
+  { key: "close-grip-bench-press", name: "窄距卧推", muscleGroup: "手臂", category: "STRENGTH", equipment: "杠铃", met: 5.5, sort: 57 },
+  { key: "lying-triceps-extension", name: "仰卧臂屈伸", muscleGroup: "手臂", category: "STRENGTH", equipment: "杠铃", met: 4.0, sort: 58 },
+  { key: "overhead-triceps-ext", name: "过顶臂屈伸", muscleGroup: "手臂", category: "STRENGTH", equipment: "哑铃", met: 4.0, sort: 59 },
+  { key: "wrist-curl", name: "腕弯举", muscleGroup: "手臂", category: "STRENGTH", equipment: "哑铃", met: 3.0, sort: 60 },
+  // 核心
+  { key: "plank", name: "平板支撑", muscleGroup: "核心", category: "STRENGTH", equipment: "自重", met: 3.3, sort: 61 },
+  { key: "side-plank", name: "侧平板支撑", muscleGroup: "核心", category: "STRENGTH", equipment: "自重", met: 3.3, sort: 62 },
+  { key: "crunch", name: "卷腹", muscleGroup: "核心", category: "STRENGTH", equipment: "自重", met: 3.8, sort: 63 },
+  { key: "sit-up", name: "仰卧起坐", muscleGroup: "核心", category: "STRENGTH", equipment: "自重", met: 3.8, sort: 64 },
+  { key: "hanging-leg-raise", name: "悬垂举腿", muscleGroup: "核心", category: "STRENGTH", equipment: "自重", met: 4.5, sort: 65 },
+  { key: "russian-twist", name: "俄罗斯转体", muscleGroup: "核心", category: "STRENGTH", equipment: "自重", met: 4.0, sort: 66 },
+  { key: "cable-crunch", name: "绳索卷腹", muscleGroup: "核心", category: "STRENGTH", equipment: "绳索", met: 4.5, sort: 67 },
+  { key: "ab-wheel", name: "健腹轮", muscleGroup: "核心", category: "STRENGTH", equipment: "器械", met: 4.5, sort: 68 },
+  // 臀
+  { key: "glute-bridge", name: "臀桥", muscleGroup: "臀", category: "STRENGTH", equipment: "自重", met: 3.5, sort: 71 },
+  { key: "hip-thrust", name: "臀冲", muscleGroup: "臀", category: "STRENGTH", equipment: "杠铃", met: 5.0, sort: 72 },
+  { key: "hip-abduction", name: "髋外展", muscleGroup: "臀", category: "STRENGTH", equipment: "器械", met: 3.5, sort: 73 },
+  { key: "cable-kickback", name: "绳索后踢", muscleGroup: "臀", category: "STRENGTH", equipment: "绳索", met: 4.0, sort: 74 },
+  { key: "sumo-deadlift", name: "相扑硬拉", muscleGroup: "臀", category: "STRENGTH", equipment: "杠铃", met: 6.0, sort: 75 },
+  // 全身（力量 / 有氧 / 拉伸）
+  { key: "farmer-walk", name: "农夫行走", muscleGroup: "全身", category: "STRENGTH", equipment: "哑铃", met: 6.0, sort: 81 },
+  { key: "kettlebell-swing", name: "壶铃摆荡", muscleGroup: "全身", category: "STRENGTH", equipment: "壶铃", met: 8.0, sort: 82 },
+  { key: "burpee", name: "波比跳", muscleGroup: "全身", category: "STRENGTH", equipment: "自重", met: 8.0, sort: 83 },
+  { key: "rowing-machine", name: "划船机", muscleGroup: "全身", category: "AEROBIC", equipment: "器械", met: 7.0, sort: 84 },
+  { key: "battle-rope", name: "战绳", muscleGroup: "全身", category: "AEROBIC", equipment: "器械", met: 8.0, sort: 85 },
+  { key: "jump-rope", name: "跳绳", muscleGroup: "全身", category: "AEROBIC", equipment: "自重", met: 10.0, sort: 86 },
+  { key: "treadmill-run", name: "跑步机", muscleGroup: "全身", category: "AEROBIC", equipment: "器械", met: 8.0, sort: 87 },
+  { key: "stair-climber", name: "爬楼机", muscleGroup: "腿", category: "AEROBIC", equipment: "器械", met: 9.0, sort: 88 },
+  { key: "spin-bike", name: "动感单车", muscleGroup: "腿", category: "AEROBIC", equipment: "器械", met: 8.5, sort: 89 },
+  { key: "foam-roll", name: "泡沫轴放松", muscleGroup: "全身", category: "STRETCH", equipment: "自重", met: 2.5, sort: 90 },
+  { key: "stretch-cooldown", name: "训练后拉伸", muscleGroup: "全身", category: "STRETCH", equipment: "自重", met: 2.3, sort: 91 },
+  { key: "yoga-flow", name: "瑜伽流", muscleGroup: "全身", category: "STRETCH", equipment: "自重", met: 2.8, sort: 92 },
+];
+
+export function exerciseByKey(key: string): ExerciseCatalogItem | undefined {
+  return EXERCISE_CATALOG.find((e) => e.key === key);
+}
+
+/** 可参与检索的最小结构（`/api/exercises` 的返回项即满足此形状，无需带 met/sort） */
+export type ExerciseFilterable = Pick<
+  ExerciseCatalogItem,
+  "key" | "name" | "muscleGroup" | "category" | "equipment"
+>;
+
+/**
+ * 动作检索（纯函数，Web 路由与移动端面板共用）：
+ * - `q`：匹配中文名 / key / 器械 / 部位（输入「胸」「杠铃」也能筛）
+ * - `category`：按分类精确过滤（大小写不敏感，`ALL`/空 = 不过滤）
+ * - `limit`：截断条数（**钳位由调用方用 readIntParam 完成**，这里只做 0..n 的安全截断）
+ *
+ * 泛型是为了让调用方的额外字段（例如 API 返回的 `id`）原样保留。
+ */
+export function filterExercises<T extends ExerciseFilterable>(
+  items: T[],
+  opts: { q?: string | null; category?: string | null; limit?: number } = {}
+): T[] {
+  const q = (opts.q ?? "").trim().toLowerCase();
+  const category = (opts.category ?? "").trim().toUpperCase();
+  let out = items;
+  if (category && category !== "ALL") {
+    out = out.filter((i) => i.category === category);
+  }
+  if (q) {
+    out = out.filter(
+      (i) =>
+        i.name.toLowerCase().includes(q) ||
+        i.key.includes(q) ||
+        (i.equipment ?? "").includes(q) ||
+        i.muscleGroup.includes(q)
+    );
+  }
+  if (typeof opts.limit === "number" && Number.isFinite(opts.limit)) {
+    out = out.slice(0, Math.max(0, Math.floor(opts.limit)));
+  }
+  return out;
+}
+
 /**
  * 卡路里估算（MET 模型）：kcal = MET × 体重kg × 时长小时。
  * met 取自运动注册表（sport_items.met）；customMet 用于无注册表匹配时的按大类兜底。

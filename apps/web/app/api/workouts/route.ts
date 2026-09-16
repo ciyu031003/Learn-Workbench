@@ -26,12 +26,15 @@ export function normalizeItems(raw: unknown): ItemInput[] {
     const o = r as Record<string, unknown>;
     const label = String(o.exerciseLabel ?? "").trim().slice(0, 80);
     if (!label) return;
-    const weightRaw = Number(o.weightKg);
+    // weightKg：空值必须是 null（自重动作），不能变成 0 ——
+    // 旧写法 `Number(null) === 0` 会把"自重"存成 0kg，移动端新步进器会把它显示成 "0kg"（审查发现）
+    const weightRaw =
+      o.weightKg === null || o.weightKg === undefined || o.weightKg === "" ? Number.NaN : Number(o.weightKg);
     out.push({
       exerciseKey: typeof o.exerciseKey === "string" ? o.exerciseKey.trim().slice(0, 60) || null : null,
       exerciseLabel: label,
-      sets: Math.max(0, Math.min(200, Math.round(Number(o.sets) || 1))),
-      reps: Math.max(0, Math.min(2000, Math.round(Number(o.reps) || 1))),
+      sets: Math.max(1, Math.min(200, Math.round(Number(o.sets) || 1))),
+      reps: Math.max(1, Math.min(2000, Math.round(Number(o.reps) || 1))),
       weightKg: Number.isFinite(weightRaw) && weightRaw >= 0 ? Math.min(2000, Math.round(weightRaw * 10) / 10) : null,
       durationSeconds: Math.max(0, Math.min(86400, Math.round(Number(o.durationSeconds) || 0))),
       sortOrder: Number.isFinite(Number(o.sortOrder)) ? Math.round(Number(o.sortOrder)) : i,

@@ -28,8 +28,19 @@ describe("normalizeItems", () => {
     ]);
     expect(out).toHaveLength(1);
     expect(out[0].sets).toBe(200);
-    expect(out[0].reps).toBe(0); // 负数钳位到 0
+    expect(out[0].reps).toBe(1); // 非正数钳到下限 1（0 组 0 次没有意义）
     expect(out[0].weightKg).toBe(60.6);
+  });
+
+  it("自重动作的 weightKg 必须落成 null 而不是 0", () => {
+    // v4 P3 审查发现：Number(null) === 0 会把"自重"存成 0kg，移动端步进器随即显示 "0kg"
+    const out = normalizeItems([
+      { exerciseLabel: "俯卧撑", sets: 3, reps: 12, weightKg: null },
+      { exerciseLabel: "引体向上", sets: 3, reps: 8, weightKg: "" },
+      { exerciseLabel: "深蹲", sets: 3, reps: 10 },
+      { exerciseLabel: "硬拉", sets: 3, reps: 5, weightKg: 0 },
+    ]);
+    expect(out.map((i) => i.weightKg)).toEqual([null, null, null, 0]);
   });
 
   it("returns [] for non-array input", () => {

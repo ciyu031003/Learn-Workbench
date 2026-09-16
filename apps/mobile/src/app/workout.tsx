@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  RefreshControl,
-  ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
 import { EmptyState } from "@/components/empty-state";
 import { SkeletonList } from "@/components/skeleton";
@@ -9,6 +7,7 @@ import { ScreenHeader } from "@/components/screen-header";
 import { Card } from "@/components/card";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
+import { ExercisePickerSheet } from "@/components/exercise-picker-sheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
@@ -16,36 +15,59 @@ import { useRefreshable } from "@/lib/use-refresh";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
-import { workoutVolume, type Workout } from "@learn-workbench/shared";
+import { toDateKey, workoutVolume, type Workout } from "@learn-workbench/shared";
+import {
+  REPS_MAX,
+  REPS_MIN,
+  SETS_MAX,
+  SETS_MIN,
+  WEIGHT_MAX,
+  WEIGHT_STEP,
+  dateOptions,
+  draftFromWorkout,
+  newDraftItem,
+  stepNumber,
+  stepWeight,
+  toPayloadItems,
+  type DraftItem,
+} from "@/lib/workout-draft";
 
-interface DraftItem {
-  exerciseLabel: string;
-  sets: string;
-  reps: string;
-  weightKg: string;
-}
-
-function todayKey() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-/** V3 训练记录（移动端）：轻量动作记录（动作/组/次/重量） */
+/** V3 训练记录（移动端）→ v4 P3 重做：动作可选择/可删除、支持编辑与删除整次训练、日期可选 */
 export default function WorkoutScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
+
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sheetOpen, setSheetOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [name, setName] = useState("训练");
-  const [items, setItems] = useState<DraftItem[]>([{ exerciseLabel: "", sets: "4", reps: "8", weightKg: "" }]);
 
-  const headers = (): Record<string, string> => (token ? { Authorization: `Bearer ${token}` } : {});
+  /** 记录训练弹层 */
+  const [sheetOpen, setSheetOpen] = useState(false);
+  /** null = 新建；数字 = 正在编辑这条记录 */
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [name, setName] = useState("训练");
+  const [date, setDate] = useState(() => toDateKey(new Date()));
+  const [items, setItems] = useState<DraftItem[]>([newDraftItem()]);
+
+  /**
+   * 选择动作弹层。它与记录弹层都是 `Modal`，而 BottomSheet 明确「一次只 present 一个 sheet」，
+   * 所以这里用 `onClosed` 串行切换：关闭记录弹层 → 动画结束 → 打开选择弹层（反之亦然）。
+   */
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerIndex, setPickerIndex] = useState<number | null>(null);
+  const [pickerPending, setPickerPending] = useState(false);
+  /** 每次打开选择弹层自增 → 换 key 让它重新挂载，状态天然重置（不在 effect 里 setState） */
+  const [pickerSession, setPickerSession] = useState(0);
+
+  const headers = useCallback(
+    (): Record<string, string> => (token ? { Authorization: `Bearer ${token}` } : {}),
+    [token]
+  );
   const totals = useMemo(() => workoutVolume(workouts.flatMap((w) => w.items)), [workouts]);
+  const today = toDateKey(new Date());
 
   const load = useCallback(async () => {
     try {
@@ -57,8 +79,7 @@ export default function WorkoutScreen() {
     } finally {
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [headers]);
 
   useEffect(() => {
     const t = setTimeout(() => void load(), 0);
@@ -67,29 +88,93 @@ export default function WorkoutScreen() {
 
   const { refreshing, onRefresh } = useRefreshable(load);
 
+  /* ---------- 弹层开关 ---------- */
+
+  const openCreate = () => {
+    setEditingId(null);
+    setName("训练");
+    setDate(today);
+    setItems([newDraftItem()]);
+    setSheetOpen(true);
+  };
+
+  const openEdit = (w: Workout) => {
+    const draft = draftFromWorkout(w);
+    setEditingId(w.id);
+    setName(draft.name);
+    setDate(draft.date);
+    setItems(draft.items);
+    setSheetOpen(true);
+  };
+
+  /** 打开动作选择（index = null → 追加一行；数字 → 替换该行） */
+  const openPicker = (index: number | null) => {
+    // 已在等待串行切换（记录弹层正在退场）时忽略重复点击：
+    // 否则第二次点击会被第一次的 onClosed 清掉 pending，表现为"点了没反应"（审查发现）
+    if (pickerPending) return;
+    setPickerIndex(index);
+    setPickerPending(true);
+    setPickerSession((s) => s + 1);
+    setSheetOpen(false);
+  };
+
+  /** 记录弹层退场结束后，若用户刚才是去选动作，则接着打开选择弹层 */
+  const onRecordSheetClosed = () => {
+    if (pickerPending) setPickerOpen(true);
+  };
+
+  /** 选择弹层退场结束后回到记录弹层（新增/替换都回到表单，用户可继续加动作） */
+  const onPickerClosed = () => {
+    setPickerPending(false);
+    setSheetOpen(true);
+  };
+
+  const applyPicked = (item: DraftItem) => {
+    setItems((prev) => {
+      if (pickerIndex === null) return [...prev, item];
+      return prev.map((x, i) => (i === pickerIndex ? item : x));
+    });
+    setPickerOpen(false);
+  };
+
+  /* ---------- 动作行编辑 ---------- */
+
+  const patchItem = (index: number, patch: Partial<DraftItem>) => {
+    setItems((prev) => prev.map((x, i) => (i === index ? { ...x, ...patch } : x)));
+  };
+
+  const removeItem = (index: number) => {
+    setItems((prev) => {
+      // 至少保留一行，否则面板会变成空白（用户会以为卡住了）
+      if (prev.length <= 1) return [newDraftItem()];
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  /* ---------- 保存 / 删除 ---------- */
+
   const save = async () => {
-    const cleaned = items
-      .map((it) => ({
-        exerciseLabel: it.exerciseLabel.trim(),
-        sets: Number(it.sets) || 0,
-        reps: Number(it.reps) || 0,
-        weightKg: it.weightKg.trim() === "" ? null : Number(it.weightKg),
-      }))
-      .filter((it) => it.exerciseLabel);
-    if (cleaned.length === 0) {
-      Alert.alert("至少填写一个动作");
+    const payloadItems = toPayloadItems(items);
+    if (payloadItems.length === 0) {
+      Alert.alert("至少填写一个动作", "点「添加动作」从动作库里选一个，或手动输入动作名。");
       return;
     }
     setSaving(true);
     try {
-      await fetch(getApiUrl() + "/api/workouts", {
-        method: "POST",
+      const isEdit = editingId !== null;
+      const r = await fetch(isEdit ? `${getApiUrl()}/api/workouts/${editingId}` : getApiUrl() + "/api/workouts", {
+        method: isEdit ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json", ...headers() },
-        body: JSON.stringify({ name, exercisedOn: todayKey(), items: cleaned }),
+        body: JSON.stringify({ name: name.trim() || "训练", exercisedOn: date, items: payloadItems }),
       });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}) as { error?: string });
+        throw new Error((d as { error?: string }).error ?? "保存失败");
+      }
       setSheetOpen(false);
+      setEditingId(null);
+      setItems([newDraftItem()]);
       setName("训练");
-      setItems([{ exerciseLabel: "", sets: "4", reps: "8", weightKg: "" }]);
       await load();
     } catch (e) {
       Alert.alert("保存失败", e instanceof Error ? e.message : "请稍后重试");
@@ -98,14 +183,40 @@ export default function WorkoutScreen() {
     }
   };
 
+  const removeWorkout = (w: Workout) => {
+    Alert.alert("删除训练记录", `确定删除「${w.name}」（${w.exercisedOn}）吗？删除后不可恢复。`, [
+      { text: "取消", style: "cancel" },
+      {
+        text: "删除",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            const r = await fetch(`${getApiUrl()}/api/workouts/${w.id}`, { method: "DELETE", headers: headers() });
+            if (!r.ok) throw new Error("删除失败");
+            await load();
+          } catch (e) {
+            Alert.alert("删除失败", e instanceof Error ? e.message : "请稍后重试");
+          }
+        },
+      },
+    ]);
+  };
+
+  const pickerInitial = pickerIndex === null ? null : items[pickerIndex] ?? null;
+  const dateChoices = dateOptions(today, date);
+
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top + 24, paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}
+    <ScrollView
+      style={styles.scroll}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + 24, paddingBottom: tabBarSpace }]}
+      showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
-      }>
+      }
+    >
       <ScreenHeader title="训练记录" subtitle={`近 60 天 ${workouts.length} 次 · 总容量 ${totals.volumeKg} kg`} compact />
 
-      <PressableScale style={styles.addBtn} haptic onPress={() => setSheetOpen(true)}>
+      <PressableScale style={styles.addBtn} haptic onPress={openCreate}>
         <ThemedIcon name="add" size={17} color={colors.primary} />
         <Text style={styles.addBtnText}>记录训练</Text>
       </PressableScale>
@@ -113,15 +224,33 @@ export default function WorkoutScreen() {
       {loading ? (
         <SkeletonList count={4} />
       ) : workouts.length === 0 ? (
-        <EmptyState icon="barbell-outline" title="还没有训练记录" hint="记录动作与组次，自动汇总训练容量" />
+        <EmptyState icon="barbell-outline" title="还没有训练记录" hint="从动作库里选动作、填组次，自动汇总训练容量" />
       ) : (
         workouts.map((w) => {
           const v = workoutVolume(w.items);
           return (
             <Card key={w.id} style={styles.item}>
               <View style={styles.itemHead}>
-                <Text style={styles.itemTitle}>{w.name}</Text>
+                <Text style={styles.itemTitle} numberOfLines={1}>{w.name}</Text>
                 <Text style={styles.muted}>{w.exercisedOn}</Text>
+                <View style={styles.itemActions}>
+                  <Pressable
+                    hitSlop={8}
+                    style={styles.iconBtn}
+                    onPress={() => openEdit(w)}
+                    accessibilityLabel={`编辑 ${w.name}`}
+                  >
+                    <ThemedIcon name="create-outline" size={15} color={colors.textMuted} />
+                  </Pressable>
+                  <Pressable
+                    hitSlop={8}
+                    style={styles.iconBtn}
+                    onPress={() => removeWorkout(w)}
+                    accessibilityLabel={`删除 ${w.name}`}
+                  >
+                    <ThemedIcon name="trash-outline" size={15} color={colors.danger} />
+                  </Pressable>
+                </View>
               </View>
               {w.items.map((it, i) => (
                 <View key={it.id ?? i} style={styles.entryRow}>
@@ -137,58 +266,155 @@ export default function WorkoutScreen() {
         })
       )}
 
-      <BottomSheet visible={sheetOpen} onClose={() => setSheetOpen(false)} title="记录训练" height="70%">
+      {/* 记录训练（新建 / 编辑共用） */}
+      <BottomSheet
+        visible={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        onClosed={onRecordSheetClosed}
+        title={editingId === null ? "记录训练" : "编辑训练"}
+        height="80%"
+      >
         <View style={styles.form}>
-          <Text style={styles.label}>训练名称</Text>
-          <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="胸 + 三头" placeholderTextColor={colors.textFaint} />
-          <Text style={styles.label}>动作明细</Text>
+          <Text style={styles.sectionLabel}>训练信息</Text>
+          <TextInput
+            style={styles.input}
+            value={name}
+            onChangeText={setName}
+            placeholder="训练名称，例如：胸 + 三头"
+            placeholderTextColor={colors.textFaint}
+          />
+          <View style={styles.dateRow}>
+            {dateChoices.map((d) => {
+              const active = d.key === date;
+              return (
+                <Pressable
+                  key={d.key}
+                  style={[styles.dateChip, active && styles.dateChipActive]}
+                  onPress={() => setDate(d.key)}
+                >
+                  <Text style={[styles.dateChipText, active && styles.dateChipTextActive]}>{d.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <Text style={styles.dateHint}>记录日期：{date}</Text>
+
+          <View style={styles.itemsHead}>
+            <Text style={styles.sectionLabel}>动作明细（{items.length}）</Text>
+            <Text style={styles.muted}>点动作名可更换</Text>
+          </View>
+
           {items.map((it, i) => (
-            <View key={i} style={styles.itemRowInput}>
-              <TextInput
-                style={[styles.input, styles.flex]}
-                value={it.exerciseLabel}
-                onChangeText={(t) => setItems((s) => s.map((x, j) => (j === i ? { ...x, exerciseLabel: t } : x)))}
-                placeholder="动作"
-                placeholderTextColor={colors.textFaint}
-              />
-              <TextInput
-                style={[styles.input, styles.small]}
-                value={it.sets}
-                onChangeText={(t) => setItems((s) => s.map((x, j) => (j === i ? { ...x, sets: t } : x)))}
-                keyboardType="numeric"
-                placeholder="组"
-                placeholderTextColor={colors.textFaint}
-              />
-              <TextInput
-                style={[styles.input, styles.small]}
-                value={it.reps}
-                onChangeText={(t) => setItems((s) => s.map((x, j) => (j === i ? { ...x, reps: t } : x)))}
-                keyboardType="numeric"
-                placeholder="次"
-                placeholderTextColor={colors.textFaint}
-              />
-              <TextInput
-                style={[styles.input, styles.small]}
-                value={it.weightKg}
-                onChangeText={(t) => setItems((s) => s.map((x, j) => (j === i ? { ...x, weightKg: t } : x)))}
-                keyboardType="numeric"
-                placeholder="kg"
-                placeholderTextColor={colors.textFaint}
-              />
+            <View key={i} style={styles.itemCard}>
+              <View style={styles.itemCardHead}>
+                <Pressable style={styles.exercisePick} onPress={() => openPicker(i)}>
+                  <Text style={[styles.exercisePickText, !it.exerciseLabel && styles.exercisePickPlaceholder]} numberOfLines={1}>
+                    {it.exerciseLabel || "选择动作"}
+                  </Text>
+                  <ThemedIcon name="chevron-down" size={14} color={colors.textFaint} />
+                </Pressable>
+                <Pressable
+                  hitSlop={8}
+                  style={styles.iconBtn}
+                  onPress={() => removeItem(i)}
+                  accessibilityLabel="移除动作"
+                >
+                  <ThemedIcon name="trash-outline" size={16} color={colors.danger} />
+                </Pressable>
+              </View>
+              <View style={styles.stepperRow}>
+                <MiniStepper
+                  colors={colors}
+                  label="组"
+                  value={it.sets}
+                  onChange={(v) => patchItem(i, { sets: v })}
+                  onStep={(d) => patchItem(i, { sets: stepNumber(it.sets, d, SETS_MIN, SETS_MAX, 4) })}
+                />
+                <MiniStepper
+                  colors={colors}
+                  label="次"
+                  value={it.reps}
+                  onChange={(v) => patchItem(i, { reps: v })}
+                  onStep={(d) => patchItem(i, { reps: stepNumber(it.reps, d, REPS_MIN, REPS_MAX, 8) })}
+                />
+                <MiniStepper
+                  colors={colors}
+                  label="kg"
+                  value={it.weightKg}
+                  placeholder="自重"
+                  onChange={(v) => patchItem(i, { weightKg: v })}
+                  onStep={(d) => patchItem(i, { weightKg: stepWeight(it.weightKg, d * WEIGHT_STEP) })}
+                  max={WEIGHT_MAX}
+                />
+              </View>
             </View>
           ))}
-          <Pressable
-            style={styles.ghostBtn}
-            onPress={() => setItems((s) => [...s, { exerciseLabel: "", sets: "4", reps: "8", weightKg: "" }])}
-          >
-            <Text style={styles.ghostBtnText}>+ 添加动作</Text>
+
+          <Pressable style={styles.ghostBtn} onPress={() => openPicker(null)}>
+            <Text style={styles.ghostBtnText}>＋ 添加动作</Text>
           </Pressable>
-          <Pressable style={[styles.primaryBtn, saving && { opacity: 0.5 }]} disabled={saving} onPress={() => void save()}>
-            {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>保存训练</Text>}
+
+          <Pressable style={[styles.primaryBtn, saving && styles.btnDisabled]} disabled={saving} onPress={() => void save()}>
+            {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>{editingId === null ? "保存训练" : "保存修改"}</Text>}
           </Pressable>
         </View>
       </BottomSheet>
+
+      {/* 选择动作（两步：选动作 → 填组次）。key=pickerSession → 每次打开都是干净状态 */}
+      <ExercisePickerSheet
+        key={pickerSession}
+        visible={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onClosed={onPickerClosed}
+        onConfirm={applyPicked}
+        initial={pickerInitial}
+      />
     </ScrollView>
+  );
+}
+
+/** 表单里的紧凑步进器：− [输入] + 单位 */
+function MiniStepper({
+  colors,
+  label,
+  value,
+  onChange,
+  onStep,
+  placeholder,
+  max = 9999,
+}: {
+  colors: ThemeColors;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  onStep: (delta: number) => void;
+  placeholder?: string;
+  max?: number;
+}) {
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  return (
+    <View style={styles.miniStepper}>
+      <Pressable style={styles.miniBtn} onPress={() => onStep(-1)} accessibilityLabel={`减少${label}`}>
+        <ThemedIcon name="remove" size={14} color={colors.primary} />
+      </Pressable>
+      <TextInput
+        style={styles.miniInput}
+        value={value}
+        onChangeText={(t) => {
+          const cleaned = t.replace(/[^0-9.]/g, "").slice(0, 7);
+          const n = Number(cleaned);
+          if (cleaned !== "" && Number.isFinite(n) && n > max) return;
+          onChange(cleaned);
+        }}
+        keyboardType="decimal-pad"
+        placeholder={placeholder ?? "0"}
+        placeholderTextColor={colors.textFaint}
+      />
+      <Text style={styles.miniLabel}>{label}</Text>
+      <Pressable style={styles.miniBtn} onPress={() => onStep(1)} accessibilityLabel={`增加${label}`}>
+        <ThemedIcon name="add" size={14} color={colors.primary} />
+      </Pressable>
+    </View>
   );
 }
 
@@ -196,25 +422,81 @@ const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     scroll: { flex: 1, backgroundColor: "transparent" },
     content: { padding: 16, gap: 12 },
-    addBtn: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.primarySoft, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9 },
+    addBtn: {
+      alignSelf: "flex-start",
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      backgroundColor: colors.primarySoft,
+      borderRadius: 999,
+      paddingHorizontal: 14,
+      paddingVertical: 9,
+    },
     addBtnText: { color: colors.primary, fontSize: 13, fontWeight: "800" },
-    loading: { marginTop: 24, alignSelf: "center" },
-    empty: { fontSize: 13, color: colors.textMuted, textAlign: "center", paddingVertical: 8 },
     item: { gap: 6 },
-    itemHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+    itemHead: { flexDirection: "row", alignItems: "center", gap: 8 },
     itemTitle: { fontSize: 15, fontWeight: "800", color: colors.text, flexShrink: 1 },
+    itemActions: { flexDirection: "row", alignItems: "center", gap: 4, marginLeft: "auto" },
+    iconBtn: { width: 30, height: 30, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceMuted },
     muted: { fontSize: 11, color: colors.textMuted },
     entryRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
     entryName: { fontSize: 13, color: colors.text, flexShrink: 1 },
     volume: { fontSize: 11, fontWeight: "700", color: colors.primary },
-    form: { gap: 10, paddingTop: 6 },
-    label: { fontSize: 12, fontWeight: "700", color: colors.textMuted },
-    input: { backgroundColor: colors.surfaceMuted, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: colors.text },
-    flex: { flex: 1 },
-    small: { width: 56, textAlign: "center" },
-    itemRowInput: { flexDirection: "row", gap: 6, alignItems: "center" },
-    ghostBtn: { borderRadius: 12, paddingVertical: 9, alignItems: "center", backgroundColor: colors.surfaceMuted },
+
+    form: { gap: 10, paddingTop: 2 },
+    sectionLabel: { fontSize: 12, fontWeight: "800", color: colors.textMuted, letterSpacing: 0.3 },
+    input: {
+      backgroundColor: colors.surfaceMuted,
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontSize: 14,
+      color: colors.text,
+    },
+    dateRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    dateChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, backgroundColor: colors.surfaceMuted },
+    dateChipActive: { backgroundColor: colors.primarySoft },
+    dateChipText: { fontSize: 12, color: colors.textMuted, fontWeight: "600" },
+    dateChipTextActive: { color: colors.primary, fontWeight: "800" },
+    dateHint: { fontSize: 11, color: colors.textMuted },
+    itemsHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 2 },
+    itemCard: {
+      gap: 8,
+      borderRadius: 14,
+      padding: 10,
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    itemCardHead: { flexDirection: "row", alignItems: "center", gap: 8 },
+    exercisePick: { flex: 1, flexDirection: "row", alignItems: "center", gap: 6 },
+    exercisePickText: { fontSize: 15, fontWeight: "700", color: colors.text, flexShrink: 1 },
+    exercisePickPlaceholder: { color: colors.textFaint, fontWeight: "600" },
+    stepperRow: { flexDirection: "row", gap: 8 },
+    miniStepper: { flex: 1, flexDirection: "row", alignItems: "center", gap: 4 },
+    miniBtn: {
+      width: 28,
+      height: 28,
+      borderRadius: 9,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surfaceStrong,
+    },
+    miniInput: {
+      flex: 1,
+      minWidth: 34,
+      textAlign: "center",
+      paddingVertical: 6,
+      fontSize: 14,
+      fontWeight: "800",
+      color: colors.text,
+      backgroundColor: colors.surfaceStrong,
+      borderRadius: 9,
+    },
+    miniLabel: { fontSize: 11, color: colors.textMuted, width: 16 },
+    ghostBtn: { borderRadius: 12, paddingVertical: 10, alignItems: "center", backgroundColor: colors.surfaceMuted },
     ghostBtnText: { fontSize: 13, fontWeight: "700", color: colors.primary },
-    primaryBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 12, alignItems: "center", marginTop: 4 },
+    primaryBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 12, alignItems: "center", marginTop: 2 },
     primaryBtnText: { color: "#fff", fontSize: 15, fontWeight: "800" },
+    btnDisabled: { opacity: 0.5 },
   });

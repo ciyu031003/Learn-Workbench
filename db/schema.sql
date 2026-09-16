@@ -1094,6 +1094,28 @@ CREATE TABLE IF NOT EXISTS workout_items (
 );
 CREATE INDEX IF NOT EXISTS idx_workout_items_workout ON workout_items(workout_id, sort_order);
 
+-- ---------- 来自迁移 046_exercise_catalog.sql（健身房动作字典） ----------
+-- 训练记录「选择动作」面板的数据源；与 packages/shared 的 EXERCISE_CATALOG 同源
+-- （apps/web/lib/exercise-catalog.test.ts 会解析迁移文件逐条比对，防止两边漂移）。
+
+CREATE TABLE IF NOT EXISTS exercise_items (
+  id            bigserial PRIMARY KEY,
+  key           text NOT NULL UNIQUE,
+  name          text NOT NULL,
+  muscle_group  text NOT NULL
+                CHECK (muscle_group IN ('胸', '背', '腿', '肩', '手臂', '核心', '臀', '全身')),
+  category      text NOT NULL
+                CHECK (category IN ('BALL', 'AEROBIC', 'STRENGTH', 'STRETCH', 'MOVE', 'OTHER')),
+  equipment     text
+                CHECK (equipment IS NULL OR equipment IN ('杠铃', '哑铃', '器械', '自重', '绳索', '壶铃')),
+  met           numeric CHECK (met IS NULL OR (met >= 0 AND met <= 25)),
+  sort          int NOT NULL DEFAULT 100,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  updated_at    timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_exercise_items_group ON exercise_items(muscle_group, sort);
+CREATE INDEX IF NOT EXISTS idx_exercise_items_category ON exercise_items(category, sort);
+
 -- ---------- 来自迁移 041_nutrition.sql（Nutrition v1） ----------
 
 CREATE TABLE IF NOT EXISTS foods (
