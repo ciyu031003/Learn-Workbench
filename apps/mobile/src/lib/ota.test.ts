@@ -27,10 +27,25 @@ describe("ota", () => {
     expect(parsed.versionName).toBe("1.2.0");
     expect(parsed.versionCode).toBe(8);
     expect(parsed.releaseNotes).toHaveLength(2);
-    expect(globalThis.fetch).toHaveBeenCalledWith(
-      "https://learn.yuanabd.cn/mobile-update.json",
-      expect.objectContaining({ cache: "no-store" }),
-    );
+    const [calledUrl, calledInit] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    // 2026-09-16 事故回归：清单 URL 必须带破缓存参数，且带 no-cache 头。
+    // RN(Android) 走 OkHttp 磁盘缓存，不认 fetch 的 cache 选项，只认响应头/URL。
+    expect(String(calledUrl)).toMatch(/^https:\/\/learn\.yuanabd\.cn\/mobile-update\.json\?t=\d+$/);
+    expect(calledInit).toMatchObject({
+      cache: "no-store",
+      headers: expect.objectContaining({ "Cache-Control": "no-cache" }),
+    });
+  });
+
+  it("两次请求的 URL 不同（否则会被客户端缓存复用）", async () => {
+    mockOk(manifest);
+    await fetchOtaManifest("https://learn.yuanabd.cn");
+    await new Promise((r) => setTimeout(r, 5));
+    await fetchOtaManifest("https://learn.yuanabd.cn");
+    const calls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.map((c) => String(c[0]));
+    expect(calls).toHaveLength(2);
+    // 时间戳理论上可能相同（同毫秒），这里只断言都带 t= 参数
+    expect(calls.every((u) => /[?&]t=\d+/.test(u))).toBe(true);
   });
 
   it("rejects manifests with missing required fields", async () => {

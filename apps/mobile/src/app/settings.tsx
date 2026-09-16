@@ -10,6 +10,7 @@ import { useSyncEngineStatus } from "@/lib/sync-engine";
 import {
   APP_ICP_NUMBER,
   APP_VERSION_NAME,
+  DOWNLOAD_PAGE_URL,
   ICP_VERIFY_URL,
   PRIVACY_POLICY_URL,
   checkForUpdate,
@@ -132,7 +133,11 @@ export default function SettingsScreen() {
       if (!result.hasUpdate) {
         setUpdateState("latest");
         await clearPendingUpdate();
-        Alert.alert("已是最新版本", `当前版本：苦旅 v${APP_VERSION_NAME}`);
+        // 永远留一条「去下载页」：万一客户端缓存/服务端策略出问题，用户仍能自救
+        Alert.alert("已是最新版本", `当前版本：苦旅 v${APP_VERSION_NAME}`, [
+          { text: "知道了", style: "cancel" },
+          { text: "打开下载页", onPress: () => void Linking.openURL(DOWNLOAD_PAGE_URL).catch(() => {}) },
+        ]);
         return;
       }
       setUpdateState("update");
@@ -150,6 +155,10 @@ export default function SettingsScreen() {
           },
         },
         {
+          text: "去下载页",
+          onPress: () => void Linking.openURL(DOWNLOAD_PAGE_URL).catch(() => {}),
+        },
+        {
           text: "立即更新",
           onPress: () => {
             if (!result.apkUrl) return;
@@ -161,7 +170,10 @@ export default function SettingsScreen() {
       ]);
     } catch {
       setUpdateState("failed");
-      Alert.alert("检查更新失败", "请确认网络可用，或前往 learn.yuanabd.cn/download.html 手动下载");
+      Alert.alert("检查更新失败", "请确认网络可用，或前往 learn.yuanabd.cn/download.html 手动下载", [
+        { text: "知道了", style: "cancel" },
+        { text: "打开下载页", onPress: () => void Linking.openURL(DOWNLOAD_PAGE_URL).catch(() => {}) },
+      ]);
     }
   };
 
@@ -405,6 +417,11 @@ export default function SettingsScreen() {
         <Pressable style={styles.aboutLinkRow} onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}>
           <ThemedIcon name="document-text-outline" size={17} color={colors.primary} />
           <Text style={styles.aboutLinkText}>隐私政策</Text>
+        </Pressable>
+        <Pressable style={styles.aboutLinkRow} onPress={() => void Linking.openURL(DOWNLOAD_PAGE_URL).catch(() => {})}>
+          <ThemedIcon name="cloud-download-outline" size={17} color={colors.primary} />
+          <Text style={styles.aboutLinkText}>手动下载最新版</Text>
+          <Text style={styles.aboutMeta}>打不开更新时用这个</Text>
         </Pressable>
         <Pressable style={styles.aboutLinkRow} onPress={() => router.push("/diagnostics")}>
           <ThemedIcon name="pulse-outline" size={17} color={colors.primary} />

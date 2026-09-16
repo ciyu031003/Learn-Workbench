@@ -1,9 +1,11 @@
-export const APP_VERSION_NAME = "1.3.4";
-export const APP_VERSION_CODE = 13;
+export const APP_VERSION_NAME = "1.3.5";
+export const APP_VERSION_CODE = 14;
 export const APP_ICP_NUMBER = "赣ICP备2024031528号-3A";
 export const PRIVACY_POLICY_URL = "https://learn.yuanabd.cn/privacy.html";
 export const ICP_VERIFY_URL = "https://beian.miit.gov.cn/";
 export const OTA_MANIFEST_BASE_URL = "https://learn.yuanabd.cn";
+/** 手动下载页（OTA 不通时的兜底路径，永远可用） */
+export const DOWNLOAD_PAGE_URL = "https://learn.yuanabd.cn/download.html";
 
 export interface OtaManifest {
   versionName: string;
@@ -32,8 +34,18 @@ export function isNewer(latestVersionCode: number, currentVersionCode = APP_VERS
 
 export async function fetchOtaManifest(baseUrl = OTA_MANIFEST_BASE_URL): Promise<OtaManifest> {
   const normalized = baseUrl.replace(/\/+$/, "");
-  const res = await fetch(`${normalized}/mobile-update.json`, {
-    headers: { Accept: "application/json" },
+  // 必须破缓存：客户端是 RN（Android 侧走 OkHttp 磁盘缓存，10MB），
+  // 它**不认** fetch 的 `cache: "no-store"`（那是浏览器语义），只会看响应头。
+  // 2026-09-16 线上事故：清单被 `Cache-Control: max-age=2592000` 缓存 30 天，
+  // 已安装用户永远读到旧清单、检查更新始终「已是最新」→ 无法升级。
+  // 现在三重保险：① 随机查询串（缓存键不同）② no-cache 头 ③ cache:"no-store"。
+  const url = `${normalized}/mobile-update.json?t=${Date.now()}`;
+  const res = await fetch(url, {
+    headers: {
+      Accept: "application/json",
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
+    },
     cache: "no-store",
   });
   if (!res.ok) {
