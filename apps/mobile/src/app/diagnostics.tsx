@@ -10,6 +10,7 @@ import { useTheme } from "@/theme";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { resolveEdgeSwipeEnabled } from "@/lib/edge-swipe";
+import { secureToken } from "@/lib/secure-token";
 import { formatDiagnostics, judgeTouch, type DiagnosticsInput } from "@/lib/diagnostics";
 import { APP_VERSION_NAME } from "@/lib/ota";
 
@@ -31,7 +32,6 @@ export default function DiagnosticsScreen() {
 
   const storedEdgeSwipe = useAppStore((s) => s.edgeSwipeEnabled);
   const pendingSync = useAppStore((s) => s.pendingChanges.length);
-  const token = useAppStore((s) => s.token);
 
   const [startedAt] = useState(() => Date.now());
   const [now, setNow] = useState(() => Date.now());
@@ -39,6 +39,23 @@ export default function DiagnosticsScreen() {
   const [tapCount, setTapCount] = useState(0);
   const [lastTap, setLastTap] = useState<{ x: number; y: number } | null>(null);
   const [firstTouchMs, setFirstTouchMs] = useState<number | null>(null);
+  /** null = 读取超时/抛错；true = 读到令牌；false = 正常读到「无令牌」 */
+  const [tokenProbe, setTokenProbe] = useState<boolean | null>(null);
+
+  // 现场探测安全存储（ColorOS 的 Keystore 卡顿就体现在这里）：
+  // 区分「本来就没登录（读得到，只是空）」与「读取超时/失败」两件完全不同的事。
+  useEffect(() => {
+    let alive = true;
+    const started = Date.now();
+    void secureToken.loadWithTimeout(1500).then((t) => {
+      if (!alive) return;
+      if (t) setTokenProbe(true);
+      else setTokenProbe(Date.now() - started >= 1500 ? null : false);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // JS 心跳：数字不涨 = JS 线程被卡住（这类问题界面会整体无响应）
   useEffect(() => {
@@ -79,7 +96,7 @@ export default function DiagnosticsScreen() {
     tapCount,
     lastTap,
     edgeSwipeEnabled: resolveEdgeSwipeEnabled(storedEdgeSwipe, Platform.OS),
-    tokenLoaded: token ? true : null,
+    tokenLoaded: tokenProbe,
     pendingSync,
   };
   const verdict = judgeTouch({ tapCount, heartbeatTicks: heartbeat });
