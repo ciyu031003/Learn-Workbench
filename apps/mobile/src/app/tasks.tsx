@@ -1,4 +1,4 @@
-import { useEffect, useState , useMemo } from "react";
+import { useState , useMemo } from "react";
 import { Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { taskTypeLabels, todayISO } from "@learn-workbench/shared";
 import { Card } from "@/components/card";
+import { BottomSheet } from "@/components/bottom-sheet";
 import { FocusTimer } from "@/components/focus-timer";
 import { computeFocusStats, FOCUS_MOTIVATIONS } from "@/lib/focus-stats";
 
@@ -28,12 +29,18 @@ export default function TasksScreen() {
   const [timerOpen, setTimerOpen] = useState(false);
   const [timerSession, setTimerSession] = useState(0);
   const [timerTask, setTimerTask] = useState<{ id: number | null; title: string | null } | null>(null);
+  /** v4 P1：新建任务改为弹层输入（不再让输入框常驻首屏第一位） */
+  const [newTaskOpen, setNewTaskOpen] = useState(false);
 
   const today = todayISO();
   const todayTasks = tasks.filter((t) => t.taskDate === today);
   const totalFocus = todayTasks.reduce((a, t) => a + t.focusMinutes, 0);
   const stats = computeFocusStats(sessions);
   const allDone = todayTasks.length > 0 && todayTasks.every((t) => t.done);
+  const doneCount = todayTasks.filter((t) => t.done).length;
+  const donePct = todayTasks.length === 0 ? 0 : Math.round((doneCount / todayTasks.length) * 100);
+  /** 「下一步」= 第一个未完成的任务（不引入优先级字段，见 v4 方案 §P1-3） */
+  const nextTask = todayTasks.find((t) => !t.done) ?? null;
   const maxMin = Math.max(1, ...stats.last14.map((d) => d.minutes));
 
   const openTimer = (taskId: number | null, taskTitle: string | null) => {
@@ -47,6 +54,7 @@ export default function TasksScreen() {
     if (!t) return;
     addTask(t, type);
     setTitle("");
+    setNewTaskOpen(false);
   };
 
   const shareCard = async () => {
@@ -72,39 +80,36 @@ export default function TasksScreen() {
         <Text style={styles.heroSub}>计划 → 专注 → 复盘，形成学习闭环</Text>
       </View>
 
-      <Card title="专注计时" subtitle="点击进入全屏环形倒计时">
-        <Text style={styles.timerHint}>⏱ 25:00 · 环形进度 · 可切换背景</Text>
-        <Pressable style={styles.primaryBtn} onPress={() => openTimer(null, null)}>
-          <Text style={styles.primaryBtnText}>开始倒计时</Text>
+      {/* ① 焦点 hero：今天第一件该做的事（v4 P1-3）。
+          放在这里而不是 Card 列表里，是为了让"进页面 1 秒内知道先做什么"成立。 */}
+      <Card
+        variant="hero"
+        title={nextTask ? "下一步" : allDone ? "今日已全部完成" : "今天还没有任务"}
+        subtitle={todayTasks.length > 0 ? `共 ${todayTasks.length} 项 · 已完成 ${doneCount}` : "先写下一个今天要学的东西"}
+      >
+        <Text style={styles.nextTitle} numberOfLines={2}>
+          {nextTask ? nextTask.title : allDone ? "🎉 收工，明天继续" : "任务越具体，越容易开始"}
+        </Text>
+        <Text style={styles.nextMeta}>
+          {nextTask
+            ? `${taskTypeLabels[nextTask.taskType]}${nextTask.focusMinutes > 0 ? ` · 已专注 ${nextTask.focusMinutes} 分钟` : " · 还没有专注记录"}`
+            : allDone
+              ? "可以再定一个小目标，或者早点休息"
+              : "例如：把 V3 方案的 Phase 5 读一遍"}
+        </Text>
+        <Pressable
+          style={styles.primaryBtn}
+          onPress={() => (nextTask ? openTimer(nextTask.id, nextTask.title) : setNewTaskOpen(true))}
+        >
+          <Text style={styles.primaryBtnText}>{nextTask ? "开始专注这 25 分钟" : "新建任务"}</Text>
         </Pressable>
-        <Text style={styles.timerSub}>当日累计专注 {totalFocus} 分钟</Text>
       </Card>
 
-      <Card title="新建任务">
-        <TextInput
-          style={styles.input}
-          placeholder="今天要学什么？"
-          placeholderTextColor={colors.textFaint}
-          value={title}
-          onChangeText={setTitle}
-          onSubmitEditing={submit}
-          returnKeyType="done"
-        />
-        <View style={styles.typeRow}>
-          {TYPES.map((t) => (
-            <Pressable key={t} style={[styles.typeChip, type === t && styles.typeChipActive]} onPress={() => setType(t)}>
-              <Text style={[styles.typeChipText, type === t && styles.typeChipTextActive]}>
-                {taskTypeLabels[t]}
-              </Text>
-            </Pressable>
-          ))}
+      {/* ② 今日任务：信息量最大的一张，升到工具区之前，并补进度条 */}
+      <Card title="今日任务" subtitle={`${doneCount}/${todayTasks.length} 已完成 · 专注 ${totalFocus} 分钟`}>
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressFill, { width: `${donePct}%` }]} />
         </View>
-        <Pressable style={styles.primaryBtn} onPress={submit}>
-          <Text style={styles.primaryBtnText}>添加任务</Text>
-        </Pressable>
-      </Card>
-
-      <Card title="今日任务" subtitle={`${todayTasks.filter((t) => t.done).length}/${todayTasks.length} 已完成`}>
         {allDone ? (
           <View style={styles.doneBanner}>
             <Text style={styles.doneBannerText}>🎉 今日任务已全部完成！生成打卡卡片分享吧</Text>
@@ -131,8 +136,21 @@ export default function TasksScreen() {
         )}
       </Card>
 
-      {/* 专注打卡统计 */}
-      <Card title="专注打卡" subtitle={`${stats.date} · 分布图 / 时间轴`}>
+      {/* ③ 工具区收拢：原来「专注计时」「新建任务」两张等权卡占首屏前两位，现合成一张紧凑卡 */}
+      <Card variant="glass" title="快速开始" subtitle={`当日累计专注 ${totalFocus} 分钟`}>
+        <View style={styles.toolRow}>
+          <Pressable style={[styles.toolBtn, styles.toolBtnPrimary]} onPress={() => openTimer(null, null)}>
+            <Text style={styles.toolBtnTextPrimary}>⏱ 自由倒计时 25:00</Text>
+          </Pressable>
+          <Pressable style={[styles.toolBtn, styles.toolBtnGhost]} onPress={() => setNewTaskOpen(true)}>
+            <Text style={styles.toolBtnTextGhost}>＋ 新建任务</Text>
+          </Pressable>
+        </View>
+        <Text style={styles.toolHint}>倒计时可切正向秒表、可换背景；新建任务在弹层里输入</Text>
+      </Card>
+
+      {/* ④ 统计降权：整卡改玻璃，明细仍保留在这里 */}
+      <Card variant="glass" title="专注打卡" subtitle={`${stats.date} · 分布图 / 时间轴`}>
         <View style={styles.statGrid}>
           {[
             { label: "累计专注", value: `${stats.totalFocusDays}` },
@@ -177,6 +195,33 @@ export default function TasksScreen() {
         </Pressable>
       </Card>
 
+      <BottomSheet visible={newTaskOpen} onClose={() => setNewTaskOpen(false)} title="新建任务" height="52%">
+        <View style={styles.sheetBody}>
+          <TextInput
+            style={styles.input}
+            placeholder="今天要学什么？"
+            placeholderTextColor={colors.textFaint}
+            value={title}
+            onChangeText={setTitle}
+            onSubmitEditing={submit}
+            returnKeyType="done"
+            autoFocus
+          />
+          <View style={styles.typeRow}>
+            {TYPES.map((t) => (
+              <Pressable key={t} style={[styles.typeChip, type === t && styles.typeChipActive]} onPress={() => setType(t)}>
+                <Text style={[styles.typeChipText, type === t && styles.typeChipTextActive]}>
+                  {taskTypeLabels[t]}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          <Pressable style={styles.primaryBtn} onPress={submit}>
+            <Text style={styles.primaryBtnText}>添加任务</Text>
+          </Pressable>
+        </View>
+      </BottomSheet>
+
       <FocusTimer
         key={timerSession}
         open={timerOpen}
@@ -196,8 +241,21 @@ const makeStyles = (colors: ThemeColors) =>
   hero: { paddingTop: 24, paddingBottom: 6, gap: 4 },
   heroTitle: { color: "#ffffff", fontSize: 24, fontWeight: "700" },
   heroSub: { color: "rgba(255,255,255,0.85)", fontSize: 13 },
-  timerHint: { fontSize: 15, color: colors.text, textAlign: "center", marginBottom: 10 },
-  timerSub: { fontSize: 12, color: colors.textMuted, textAlign: "center", marginTop: 8 },
+  // 焦点 hero 内的"下一步"
+  nextTitle: { fontSize: 19, fontWeight: "800", color: colors.text, lineHeight: 26 },
+  nextMeta: { fontSize: 12, color: colors.textMuted, marginTop: -4 },
+  // 今日任务进度条
+  progressTrack: { height: 6, borderRadius: 999, backgroundColor: colors.surfaceMuted, overflow: "hidden", marginBottom: 10 },
+  progressFill: { height: "100%", borderRadius: 999, backgroundColor: colors.success },
+  // 工具区
+  toolRow: { flexDirection: "row", gap: 8 },
+  toolBtn: { flex: 1, borderRadius: 14, paddingVertical: 12, alignItems: "center" },
+  toolBtnPrimary: { backgroundColor: colors.primary },
+  toolBtnGhost: { backgroundColor: colors.surfaceMuted },
+  toolBtnTextPrimary: { color: "#fff", fontSize: 14, fontWeight: "700" },
+  toolBtnTextGhost: { color: colors.primary, fontSize: 14, fontWeight: "700" },
+  toolHint: { fontSize: 12, color: colors.textMuted, marginTop: 8 },
+  sheetBody: { gap: 12, paddingTop: 4 },
   primaryBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 12, alignItems: "center" },
   primaryBtnText: { color: "#fff", fontSize: 15, fontWeight: "600" },
   input: {
