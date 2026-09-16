@@ -57,8 +57,10 @@ import {
   saveOutbox,
   toLocalEntry,
   type MealEntryInput,
+  type OutboxOp,
   type OutboxState,
 } from "@/lib/nutrition-outbox";
+import { isRetryable, sendNutritionOp, toFlushOutcome, type SendOutcome } from "@/lib/nutrition-sync";
 import { spacing, tabularNums, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
@@ -160,33 +162,15 @@ export default function NutritionScreen() {
     [token]
   );
 
-  /** 把发件箱里的一条操作发给服务端（成功 true） */
+  /**
+   * 发货实现（v4 P1-4）：能力已抽到 `lib/nutrition-sync.ts`，这里只做两件事：
+   *  - `submitOp`：单条提交，返回四分类结果（离线/服务端/校验/未登录），由调用方决定提示与入队
+   *  - `sendOp`  ：发件箱适配层，把结果翻译成 ok/retry/drop（4xx 直接丢弃，避免毒丸堵队首）
+   */
+  const submitOp = useCallback((op: OutboxOp) => sendNutritionOp(op, token), [token]);
   const sendOp = useCallback(
-    async (op: ReturnType<typeof makeCreateOp> | ReturnType<typeof makeDeleteOp> | ReturnType<typeof makeUpdateOp>) => {
-      try {
-        if (op.kind === "create") {
-          const r = await fetch(getApiUrl() + "/api/nutrition", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", ...headers() },
-            body: JSON.stringify({ ...op.body, clientId: op.clientId }),
-          });
-          return r.ok;
-        }
-        if (op.kind === "update") {
-          const r = await fetch(getApiUrl() + "/api/nutrition", {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json", ...headers() },
-            body: JSON.stringify({ ...op.body, id: op.id }),
-          });
-          return r.ok;
-        }
-        const r = await fetch(`${getApiUrl()}/api/nutrition?id=${op.id}`, { method: "DELETE", headers: headers() });
-        return r.ok;
-      } catch {
-        return false;
-      }
-    },
-    [headers]
+    async (op: OutboxOp) => toFlushOutcome(await sendNutritionOp(op, token)),
+    [token]
   );
 
   /** 先补发离线积压，再拉取明细（保证顺序与幂等） */
@@ -196,7 +180,7 @@ export default function NutritionScreen() {
     setPendingIds(state.ops.map((o) => (o.kind === "create" ? o.localId : o.id)));
     if (pendingCount(state) === 0) return;
     const result = await flushOutbox(sendOp);
-    if (result.sent > 0) {
+    if (result.sent > 0 || result.dropped > 0) {
       const after = await loadOutbox();
       setOutbox(after);
       setPendingIds(after.ops.map((o) => (o.kind === "create" ? o.localId : o.id)));
@@ -307,18 +291,27 @@ export default function NutritionScreen() {
     setPendingIds((prev) => [...prev, localId]);
     haptics.success();
 
-    const ok = await sendOp(op);
-    if (ok) {
+    const outcome = await submitOp(op);
+    if (outcome.ok) {
       await load();
       return;
     }
-    // 离线/失败：进发件箱，等下次刷新补发
+    if (!isRetryable(outcome)) {
+      // 服务端明确拒绝（4xx 校验/参数问题）：重试永远不会成功 → 撤回乐观入账并说明原因
+      setEntries((prev) => prev.filter((e) => e.id !== localId));
+      setPendingIds((prev) => prev.filter((id) => id !== localId));
+      Alert.alert("这条没有记上", outcome.message ?? "服务端拒绝了这条记录，请稍后重试。");
+      return;
+    }
+    // 离线 / 服务端错误 / 未登录：静默进发件箱，列表里的「待同步」标记就是唯一提示
     setOutbox((prev) => {
       const next = enqueue(prev, op);
       void saveOutbox(next);
       return next;
     });
-    Alert.alert("已记在本机", "当前网络不可用，联网后会自动补发。");
+    if (outcome.kind === "auth") {
+      Alert.alert("已记在本机", "登录后会自动同步到云端。");
+    }
   };
 
   /** 从常用食物按指定份量添加（编辑面板里改份量后保存时走 PATCH） */
@@ -335,17 +328,6 @@ export default function NutritionScreen() {
     }
     setSaving(true);
     try {
-      const r = await fetch(getApiUrl() + "/api/nutrition", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...headers() },
-        body: JSON.stringify({ date, meal, name: picked.name, foodId: picked.id, amount: amountNum }),
-      });
-      if (!r.ok) throw new Error("添加失败");
-      haptics.success();
-      closeSheet();
-      await load();
-    } catch (e) {
-      // 离线：手写一条本地记录 + 进发件箱
       const scaled = {
         kcal: Math.round(picked.kcal * amountNum * 10) / 10,
         proteinG: Math.round(picked.proteinG * amountNum * 10) / 10,
@@ -362,13 +344,27 @@ export default function NutritionScreen() {
         ...scaled,
         foodId: picked.id,
       };
+      const op = makeCreateOp(body, localId);
+      // 走统一的四分类发货（离线静默入队 / 4xx 才报错），不再用 try/catch 把所有失败都当"没网"
+      const outcome = await submitOp(op);
+      if (outcome.ok) {
+        haptics.success();
+        closeSheet();
+        await load();
+        return;
+      }
+      if (!isRetryable(outcome)) {
+        Alert.alert("这条没有记上", outcome.message ?? "服务端拒绝了这条记录，请稍后重试。");
+        return;
+      }
+      // 离线 / 服务端错误 / 未登录：乐观入账 + 进发件箱，联网后自动补发
       setEntries((prev) => [...prev, toLocalEntry(body, localId)]);
       setPendingIds((prev) => [...prev, localId]);
-      const next = enqueue(outbox, makeCreateOp(body, localId));
+      const next = enqueue(outbox, op);
       setOutbox(next);
       await saveOutbox(next);
       closeSheet();
-      Alert.alert("已记在本机", e instanceof Error ? e.message : "联网后会自动补发。");
+      if (outcome.kind === "auth") Alert.alert("已记在本机", "登录后会自动同步到云端。");
     } finally {
       setSaving(false);
     }
@@ -383,7 +379,8 @@ export default function NutritionScreen() {
     }
     setSaving(true);
     try {
-      const body = {
+      const localId = nextLocalId();
+      const body: MealEntryInput = {
         date,
         meal,
         name,
@@ -394,16 +391,20 @@ export default function NutritionScreen() {
         carbsG: Number(manual.carbsG) || 0,
         fatG: Number(manual.fatG) || 0,
       };
-      const r = await fetch(getApiUrl() + "/api/nutrition", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...headers() },
-        body: JSON.stringify(body),
-      });
-      if (!r.ok) {
-        const d = await r.json().catch(() => ({}));
-        throw new Error(d.error ?? "添加失败");
+      const op = makeCreateOp(body, localId);
+      const outcome = await submitOp(op);
+      if (!outcome.ok && !isRetryable(outcome)) {
+        Alert.alert("这条没有记上", outcome.message ?? "服务端拒绝了这条记录。");
+        return;
       }
-      if (saveAsCommon) {
+      if (!outcome.ok) {
+        // 离线 / 服务端错误 / 未登录：同样先落本机再补发
+        setEntries((prev) => [...prev, toLocalEntry(body, localId)]);
+        setPendingIds((prev) => [...prev, localId]);
+        const next = enqueue(outbox, op);
+        setOutbox(next);
+        await saveOutbox(next);
+      } else if (saveAsCommon) {
         const fr = await fetch(getApiUrl() + "/api/nutrition/foods", {
           method: "POST",
           headers: { "Content-Type": "application/json", ...headers() },
@@ -421,8 +422,6 @@ export default function NutritionScreen() {
       haptics.success();
       closeSheet();
       await load();
-    } catch (e) {
-      Alert.alert("添加失败", e instanceof Error ? e.message : "请稍后重试");
     } finally {
       setSaving(false);
     }
@@ -439,17 +438,22 @@ export default function NutritionScreen() {
       return;
     }
     setEntries((prev) => prev.filter((x) => x.id !== id));
-    try {
-      const r = await fetch(`${getApiUrl()}/api/nutrition?id=${id}`, { method: "DELETE", headers: headers() });
-      if (!r.ok) throw new Error();
+    const outcome = await submitOp(makeDeleteOp(id));
+    // 404 = 服务端本来就没有这条（可能已被别处删掉），按成功处理
+    if (outcome.ok || (!outcome.ok && outcome.status === 404)) {
       haptics.warning();
       await load();
-    } catch {
-      const next = enqueue(outbox, makeDeleteOp(id));
-      setOutbox(next);
-      await saveOutbox(next);
-      Alert.alert("已在本机删除", "联网后会自动同步删除。");
+      return;
     }
+    if (!isRetryable(outcome)) {
+      Alert.alert("删除失败", outcome.message ?? "服务端拒绝了这次删除。");
+      await load();
+      return;
+    }
+    const next = enqueue(outbox, makeDeleteOp(id));
+    setOutbox(next);
+    await saveOutbox(next);
+    if (outcome.kind === "auth") Alert.alert("已在本机删除", "登录后会自动同步到云端。");
   };
 
   /** 保存编辑（食物型条目只改份量 → 服务端重算营养） */
@@ -481,21 +485,23 @@ export default function NutritionScreen() {
         haptics.success();
         return;
       }
-      const r = await fetch(getApiUrl() + "/api/nutrition", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", ...headers() },
-        body: JSON.stringify(update),
-      });
-      if (!r.ok) throw new Error("保存失败");
-      haptics.success();
-      await load();
-    } catch {
       const { id: _drop2, ...body } = update;
       void _drop2;
+      const outcome = await submitOp(makeUpdateOp(id, body));
+      if (outcome.ok) {
+        haptics.success();
+        await load();
+        return;
+      }
+      if (!isRetryable(outcome)) {
+        Alert.alert("保存失败", outcome.message ?? "服务端拒绝了这次修改。");
+        await load();
+        return;
+      }
       const next = enqueue(outbox, makeUpdateOp(id, body));
       setOutbox(next);
       await saveOutbox(next);
-      Alert.alert("已在本机保存", "联网后会自动补发这条修改。");
+      if (outcome.kind === "auth") Alert.alert("已在本机保存", "登录后会自动同步到云端。");
     } finally {
       setSaving(false);
     }

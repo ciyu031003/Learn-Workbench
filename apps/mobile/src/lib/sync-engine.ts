@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react";
 import { AppState, type AppStateStatus } from "react-native";
 import * as Network from "expo-network";
 import { syncPull, syncPush } from "@/lib/sync";
+import { flushNutritionOutbox } from "@/lib/nutrition-sync";
 import { useAppStore } from "@/store/app-store";
 
 /**
@@ -64,13 +65,19 @@ async function runSync(): Promise<void> {
   }
 }
 
+/** 网络恢复 / 回前台时的统一动作：推拉业务变更 + 补发饮食发件箱（后者不依赖登录态） */
+function onOnlineOrForeground(): void {
+  void runSync();
+  void flushNutritionOutbox(useAppStore.getState().token);
+}
+
 async function refreshOnline(): Promise<void> {
   try {
     const state = await Network.getNetworkStateAsync();
     const online = isOnlineState(state);
     const was = status.online;
     setStatus({ online });
-    if (online && !was) void runSync();
+    if (online && !was) onOnlineOrForeground();
   } catch {
     // 取不到网络状态时保持现状
   }
@@ -94,13 +101,13 @@ export function startSyncEngine(): () => void {
     const online = isOnlineState(state);
     const was = status.online;
     setStatus({ online });
-    if (online && !was) void runSync();
+    if (online && !was) onOnlineOrForeground();
   });
 
   const appSub = AppState.addEventListener("change", (next: AppStateStatus) => {
     if (next === "active") {
       void refreshOnline();
-      void runSync();
+      onOnlineOrForeground();
     }
   });
 

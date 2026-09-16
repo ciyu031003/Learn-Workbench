@@ -192,22 +192,32 @@ export async function saveOutbox(state: OutboxState): Promise<void> {
   }
 }
 
+/** 发送一条操作的结果：成功出队 / 保留重试 / 丢弃（4xx 等重试无意义的情况，避免堵住队首） */
+export type FlushStep = "ok" | "retry" | "drop";
+
 /**
  * 顺序发送队列。
- * @param send 返回 true = 成功（出队继续）；false = 失败（停下，保留该条与后续）
+ *
+ * @param send 返回 "ok" = 成功（出队继续）；"retry" = 失败但值得重试（停下，保留该条与后续）；
+ *             "drop" = 该条永远不可能成功（如 4xx 校验错误），丢弃后继续处理后面的
+ *
+ * 设计要点（v1.3.5 真机反馈修复）：旧实现只认 boolean 且失败即 break，
+ * 一条"毒丸"（例如 foodId 已失效的 404）会永久堵住它后面所有记录的补发。
  */
 export async function flushOutbox(
-  send: (op: OutboxOp) => Promise<boolean>
-): Promise<{ sent: number; remaining: number }> {
+  send: (op: OutboxOp) => Promise<FlushStep>
+): Promise<{ sent: number; dropped: number; remaining: number }> {
   let state = await loadOutbox();
   let sent = 0;
+  let dropped = 0;
   while (state.ops.length > 0) {
     const op = state.ops[0];
-    const ok = await send(op);
-    if (!ok) break;
+    const step = await send(op);
+    if (step === "retry") break;
     state = dequeue(state, op.opId);
-    sent += 1;
+    if (step === "ok") sent += 1;
+    else dropped += 1;
     await saveOutbox(state);
   }
-  return { sent, remaining: state.ops.length };
+  return { sent, dropped, remaining: state.ops.length };
 }
