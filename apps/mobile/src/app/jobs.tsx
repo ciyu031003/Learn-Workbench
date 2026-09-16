@@ -223,6 +223,22 @@ function JobCard({
   );
 }
 
+/**
+ * 职位卡之间的间距。
+ *
+ * **为什么不用 `contentContainerStyle={{ gap }}`**：FlashList v2 的 item 是绝对定位渲染的
+ * （内部 `ViewHolder` 用 `position:"absolute"` + `top: layout.y`），根本没有"内容容器"，
+ * 因此 `contentContainerStyle` 的 `gap`/`padding` 会被整体丢弃 —— 这正是 v1.3.5 真机反馈的
+ * "每张职位卡紧紧挨着、左右也没有留白"的根因。
+ * v2 会渲染 `ItemSeparatorComponent`（最后一行之后自动跳过），所以间距走这里；
+ * 样式用模块级常量，保证引用恒定，避免每次 render 触发 separator 重建。
+ */
+const CARD_SEP_STYLE = { height: 12 } as const;
+
+function JobCardSeparator() {
+  return <View style={CARD_SEP_STYLE} />;
+}
+
 const SALARY_PRESETS = [
   { label: "不限", min: null, max: null },
   { label: "10K 以下", min: null, max: 10 },
@@ -558,18 +574,20 @@ export default function JobsScreen() {
       );
     }
     return (
-      <EmptyState
-        icon="flower-outline"
-        title="还没有找到绽放的机会"
-        hint="调整搜索条件，或立即抓取一次最新职位。"
-        actionLabel={running ? "抓取中…" : "立即抓取"}
-        onAction={runNow}
-      />
+      <View style={styles.listSide}>
+        <EmptyState
+          icon="flower-outline"
+          title="还没有找到绽放的机会"
+          hint="调整搜索条件，或立即抓取一次最新职位。"
+          actionLabel={running ? "抓取中…" : "立即抓取"}
+          onAction={runNow}
+        />
+      </View>
     );
   };
 
   const renderHeader = () => (
-    <View>
+    <View style={styles.listSide}>
       <View style={[styles.hero, { paddingTop: insets.top + 22 }]}>
         {/* 页面级导航（原齿轮菜单已移除）：返回职业 Hub */}
         <ScreenHeader title="招花" subtitle="让每一次机会，都像花一样准时绽放" compact backTo="/career" />
@@ -676,7 +694,7 @@ export default function JobsScreen() {
   const renderPager = () => {
     if (initialLoading || jobs.length === 0) return null;
     return (
-      <View style={styles.pager}>
+      <View style={[styles.pager, styles.listSide]}>
         <Pressable
           style={[styles.pagerBtn, (page <= 1 || paging) && styles.pagerBtnDisabled]}
           disabled={page <= 1 || paging}
@@ -708,15 +726,20 @@ export default function JobsScreen() {
 
   return (
     <View style={styles.root}>
-      {/* FlashList：职位列表可达数百条，回收式虚拟化（D3）；未提供 estimatedItemSize —— v2 自动测量 */}
+      {/* FlashList：职位列表可达数百条，回收式虚拟化（D3）；未提供 estimatedItemSize —— v2 自动测量
+          注意：**FlashList v2 不消费 contentContainerStyle**（内部把 items 绝对定位，没有内容容器），
+          所以 padding/gap 必须由 item wrapper、separator、header/footer 自己给（见 styles.listSide / cardSep）。 */}
       <FlashList
         ref={listRef}
         data={jobs}
         keyExtractor={(item) => String(item.id)}
         renderItem={({ item, index }) => (
-          <JobCard job={item} index={index} onPress={openJob} onToggleFavorite={toggleFavorite} />
+          <View style={styles.listSide}>
+            <JobCard job={item} index={index} onPress={openJob} onToggleFavorite={toggleFavorite} />
+          </View>
         )}
-        contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
+        ItemSeparatorComponent={JobCardSeparator}
+        contentContainerStyle={{ paddingBottom: tabBarSpace }}
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={renderEmpty}
         ListFooterComponent={renderPager}
@@ -767,7 +790,9 @@ export default function JobsScreen() {
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
   root: { flex: 1 },
-  content: { padding: 16, gap: 12 },
+  /** 列表左右留白：FlashList v2 忽略 contentContainerStyle 的 padding，必须逐处显式给 */
+  listSide: { paddingHorizontal: 16 },
+  cardSep: { height: 12 },
   hero: {
     flexDirection: "row",
     alignItems: "center",

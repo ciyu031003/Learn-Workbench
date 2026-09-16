@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/immutability */
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -10,7 +10,7 @@ import { PressableScale } from "@/components/pressable-scale";
 import { RingProgress } from "@/components/ring-progress";
 import { BarChart, LineChart } from "@/components/charts";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
+import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withRepeat, withTiming, type SharedValue } from "react-native-reanimated";
 import { useAppStore } from "@/store/app-store";
 import { router } from "expo-router";
 import { mainPhases, agentPhase } from "@learn-workbench/content";
@@ -210,8 +210,8 @@ function MonthCalendar({
   );
 }
 
-const REORDER_ROW_STEP = 76;
-const STAGE_CARD_STEP = 108;
+/** 阶段卡之间的间距，必须与 `styles.content` 的 gap 一致（实时让位的位移量按"实测高度 + 这个值"算） */
+const STAGE_CARD_GAP = 12;
 
 function StageShine({ active }: { active: boolean }) {
   const { colors } = useTheme();
@@ -253,6 +253,12 @@ function StageCard({
   onMove,
   onDelete,
   onEdit,
+  dragIndex,
+  dragTarget,
+  dragY,
+  heights,
+  onMeasure,
+  onDragChange,
 }: {
   phase: Phase;
   index: number;
@@ -263,42 +269,102 @@ function StageCard({
   onMove: (from: number, to: number) => void;
   onDelete: () => void;
   onEdit: () => void;
+  /** 拖拽状态全部用共享值在 UI 线程流转（禁止每帧 runOnJS(setState)，否则必掉帧） */
+  dragIndex: SharedValue<number>;
+  dragTarget: SharedValue<number>;
+  dragY: SharedValue<number>;
+  /** 各卡片实测高度（下标对齐 roadmap），onLayout 时写入 */
+  heights: SharedValue<number[]>;
+  onMeasure: (index: number, height: number) => void;
+  onDragChange: (index: number | null) => void;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const [dragging, setDragging] = useState(false);
-  const dragY = useSharedValue(0);
 
   const pan = useMemo(
     () =>
       Gesture.Pan()
         .activateAfterLongPress(260)
         .onStart(() => {
-          runOnJS(setDragging)(true);
+          dragIndex.value = index;
+          dragTarget.value = index;
+          dragY.value = 0;
+          runOnJS(onDragChange)(index);
         })
         .onUpdate((e) => {
           dragY.value = e.translationY;
+          // 目标下标：把"被拖卡片的中心"换算成落在哪张卡的中线上。
+          // 用**实测高度**累加（不再用固定步长 108 —— 实际行距是 104+12=116，且长标题会更高），
+          // 这样"拖到某张卡中间就换位"才准。
+          const hs = heights.value;
+          let above = 0;
+          for (let i = 0; i < index; i++) above += (hs[i] ?? 0) + STAGE_CARD_GAP;
+          const center = above + (hs[index] ?? 0) / 2 + e.translationY;
+          let acc = 0;
+          let target = 0;
+          for (let i = 0; i < total; i++) {
+            if (center > acc + (hs[i] ?? 0) / 2) target = i;
+            acc += (hs[i] ?? 0) + STAGE_CARD_GAP;
+          }
+          dragTarget.value = target;
         })
-        .onEnd((e) => {
-          runOnJS(setDragging)(false);
-          const target = Math.max(0, Math.min(total - 1, index + Math.round(e.translationY / STAGE_CARD_STEP)));
-          dragY.value = withTiming(0, { duration: 160 });
+        .onEnd(() => {
+          const target = dragTarget.value;
+          dragIndex.value = -1;
+          dragTarget.value = -1;
+          dragY.value = 0;
+          runOnJS(onDragChange)(null);
           if (target !== index) runOnJS(onMove)(index, target);
         })
         .onFinalize(() => {
-          runOnJS(setDragging)(false);
-          dragY.value = withTiming(0, { duration: 160 });
+          dragIndex.value = -1;
+          dragTarget.value = -1;
+          dragY.value = 0;
+          runOnJS(onDragChange)(null);
         }),
-    [dragY, index, onMove, total]
+    [dragIndex, dragTarget, dragY, heights, index, onDragChange, onMove, total]
   );
 
-  const dragStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: dragY.value }, { scale: dragging ? 1.02 : 1 }],
-  }));
+  /**
+   * 拖拽表现（全部在 UI 线程）：
+   * - 被拖的卡片：跟手 + 轻微放大 + **浮到所有兄弟卡片之上**。Android 上同 elevation 的兄弟
+   *   仍按子视图顺序绘制，所以必须**同时**抬 `zIndex` 与 `elevation`（只加 zIndex 看不出效果）；
+   *   阴影也一起加重，去掉旧的 `opacity: 0.88`（半透明正是"沉到下面"观感的放大器）。
+   * - 其它卡片：在被拖卡片越过的区间里上移/下移一格，形成实时让位。
+   */
+  const cardStyle = useAnimatedStyle(() => {
+    const from = dragIndex.value;
+    const to = dragTarget.value;
+    const isDragged = from === index;
+    let shift = 0;
+    if (from >= 0 && !isDragged) {
+      const draggedStep = (heights.value[from] ?? 0) + STAGE_CARD_GAP;
+      if (from < to && index > from && index <= to) shift = -draggedStep;
+      else if (from > to && index >= to && index < from) shift = draggedStep;
+    }
+    return {
+      zIndex: isDragged ? 30 : 0,
+      elevation: isDragged ? 18 : 4,
+      shadowOpacity: isDragged ? 0.34 : active ? 0.28 : 0.22,
+      shadowRadius: isDragged ? 22 : 14,
+      shadowOffset: { width: 0, height: isDragged ? 14 : 7 },
+      transform: [
+        {
+          translateY: isDragged
+            ? dragY.value
+            : withTiming(shift, { duration: 160, easing: Easing.out(Easing.quad) }),
+        },
+        { scale: isDragged ? 1.02 : 1 },
+      ],
+    };
+  });
 
   return (
     <GestureDetector gesture={pan}>
-      <Animated.View style={[styles.stageCard, active && styles.stageCardActive, dragging && styles.stageCardDragging, dragStyle]}>
+      <Animated.View
+        style={[styles.stageCard, active && styles.stageCardActive, cardStyle]}
+        onLayout={(e) => onMeasure(index, e.nativeEvent.layout.height)}
+      >
         <PressableScale style={styles.stageCardBody} haptic onPress={onSelect}>
           <View style={[styles.stageBlob, { backgroundColor: STAGE_GRADS[index % STAGE_GRADS.length][1] }]} />
           <StageShine active={active} />
@@ -334,75 +400,6 @@ function StageCard({
   );
 }
 
-function ReorderRow({
-  index,
-  total,
-  title,
-  summary,
-  pct,
-  onSelect,
-  onMove,
-}: {
-  index: number;
-  total: number;
-  title: string;
-  summary: string;
-  pct: number;
-  onSelect: () => void;
-  onMove: (from: number, to: number) => void;
-}) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
-  const [dragging, setDragging] = useState(false);
-  const dragY = useSharedValue(0);
-
-  const pan = useMemo(
-    () =>
-      Gesture.Pan()
-        .activateAfterLongPress(240)
-        .onStart(() => {
-          runOnJS(setDragging)(true);
-        })
-        .onUpdate((e) => {
-          dragY.value = e.translationY;
-        })
-        .onEnd((e) => {
-          runOnJS(setDragging)(false);
-          const target = Math.max(0, Math.min(total - 1, index + Math.round(e.translationY / REORDER_ROW_STEP)));
-          dragY.value = withTiming(0, { duration: 160 });
-          if (target !== index) runOnJS(onMove)(index, target);
-        })
-        .onFinalize(() => {
-          runOnJS(setDragging)(false);
-          dragY.value = withTiming(0, { duration: 160 });
-        }),
-    [dragY, index, onMove, total]
-  );
-
-  const dragStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: dragY.value }],
-  }));
-
-  return (
-    <Animated.View style={[styles.reorderCard, dragging && styles.reorderCardDragging, dragStyle]}>
-      <GestureDetector gesture={pan}>
-        <View style={styles.reorderHandle} hitSlop={8}>
-          <ThemedIcon name="reorder-three-outline" size={20} color={colors.textMuted} />
-        </View>
-      </GestureDetector>
-      <Pressable style={styles.reorderRowMain} onPress={onSelect}>
-        <View style={[styles.reorderNum, { backgroundColor: STAGE_GRADS[index % STAGE_GRADS.length][0] }]}>
-          <Text style={styles.sheetNumText}>{index + 1}</Text>
-        </View>
-        <View style={styles.sheetInfo}>
-          <Text style={styles.sheetName}>{title}</Text>
-          <Text style={styles.sheetMeta} numberOfLines={1}>{summary || ""}</Text>
-        </View>
-        <Text style={styles.sheetPct}>{pct}%</Text>
-      </Pressable>
-    </Animated.View>
-  );
-}
 
 export default function LearnScreen() {
   const { colors } = useTheme();
@@ -433,6 +430,29 @@ export default function LearnScreen() {
   const [customPhaseSummary, setCustomPhaseSummary] = useState("");
   const [editingPhase, setEditingPhase] = useState<Phase | null>(null);
   const [roadmapLoading, setRoadmapLoading] = useState(false);
+  /**
+   * 阶段卡拖拽排序（v4 P1）：状态全部用共享值，拖动过程中**不触发任何 React 重渲染**，
+   * 位移与让位动画都在 UI 线程完成；`stageDragging` 只用于拖动期间锁住 ScrollView。
+   */
+  const stageDragIndex = useSharedValue(-1);
+  const stageDragTarget = useSharedValue(-1);
+  const stageDragY = useSharedValue(0);
+  const stageHeights = useSharedValue<number[]>([]);
+  const [stageDragging, setStageDragging] = useState(false);
+
+  const measureStage = useCallback(
+    (i: number, h: number) => {
+      const next = [...stageHeights.value];
+      if (next[i] === h) return;
+      next[i] = h;
+      stageHeights.value = next;
+    },
+    [stageHeights]
+  );
+
+  const onStageDragChange = useCallback((i: number | null) => {
+    setStageDragging(i !== null);
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -642,6 +662,7 @@ export default function LearnScreen() {
       style={styles.scroll}
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 24, paddingBottom: tabBarSpace }]}
       showsVerticalScrollIndicator={false}
+      scrollEnabled={!stageDragging}
     >
       <View style={styles.hero}>
         <Text style={styles.heroTitle}>学习</Text>
@@ -695,6 +716,12 @@ export default function LearnScreen() {
             onMove={swapPhase}
             onDelete={() => removePhase(phase)}
             onEdit={() => openEditPhase(phase)}
+            dragIndex={stageDragIndex}
+            dragTarget={stageDragTarget}
+            dragY={stageDragY}
+            heights={stageHeights}
+            onMeasure={measureStage}
+            onDragChange={onStageDragChange}
           />
         );
       })}
@@ -1178,30 +1205,6 @@ const makeStyles = (colors: ThemeColors) =>
     borderColor: "rgba(242,140,40,0.28)",
   },
   newStageBtnText: { color: colors.accentStrong, fontSize: 13, fontWeight: "800" },
-  reorderCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    backgroundColor: colors.surfaceStrong,
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  reorderCardDragging: {
-    zIndex: 10,
-    opacity: 0.96,
-    shadowColor: "#000000",
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 7 },
-    elevation: 6,
-  },
-  reorderHandle: { width: 28, height: 44, alignItems: "center", justifyContent: "center" },
-  reorderRowMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10 },
-  reorderNum: { width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  reorderHint: { color: colors.textMuted, fontSize: 11, textAlign: "center", marginTop: 8 },
 
   formSheet: { gap: 12, paddingTop: 4 },
   formLabel: { color: colors.text, fontSize: 13, fontWeight: "800" },
