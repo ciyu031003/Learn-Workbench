@@ -153,7 +153,13 @@
 |---|---|---|
 | **OPPO 官方云真机** | ⛔ 暂不可用 | `open.oppomobile.com` → 管理中心只放行「选择认证」：**账号未实名认证时云测服务菜单不出现**（实测截图留档）。已提交个人开发者实名认证，**审核 1–3 天**，通过后回到本路线（最贴近现场） |
 | **腾讯 WeTest 云手机（云真机）** | ✅ 采用 | [wetest.qq.com/products/cloud-phone](https://wetest.qq.com/products/cloud-phone)：真实 OPPO/ColorOS 机型、支持上传 APK、截图 + 实时日志 + ADB 模式；按分钟计费（新账号可能有体验额度） |
-| 本地 Android 模拟器 | ✅ 兜底 | API 35/36，用于跨品牌行为回归（不代表 ColorOS） |
+| **本地 Android 模拟器** | ⛔ 本机跑不动 | `x86_64 emulation currently requires hardware acceleration` —— 本机 Hyper-V / WHPX / AEHD 均未启用且当前非管理员（见看板踩坑 65）。脚本 `scripts/android-emulator-smoke.ps1 -Api 35` 已就绪，开启硬件加速后即可跑 |
+
+**跨品牌回归现状（诚实结论）**：本轮**没有**在任何非 OPPO 真机/模拟器上跑过完整冒烟。可给出的证据是：
+① 代码里**零厂商分支**（全项目 grep 无 `MANUFACTURER`/`BRAND` 判断，平台差异只按 `Platform.OS`）；
+② 改动全部是标准 Android 属性/资源，且 `aapt2` 实测生效（targetSdk 35 / opt-out / shortEdges / 16KB 对齐）；
+③ 单元与静态检查全绿（mobile 21 文件 169 用例、typecheck、lint 0 error）；
+④ 逐项影响评估见 4.5。**模拟器/真机冒烟仍待补**。
 
 ### 3.2 云真机五点触控自检（每次出包在 ColorOS 机型上跑一遍）
 
@@ -240,9 +246,10 @@
 | # | 事项 | 责任方 | 状态 |
 |---|---|---|---|
 | 1 | OPPO 开放平台个人开发者**实名认证**（云真机前置条件） | 用户 | 🕓 已提交，审核中（1–3 天） |
-| 2 | v1.3.4 出包 + 产物核验（targetSdk 35 / 清单 / 主题 / 16KB / 签名） | 我 | ✅ 完成（66,094,387 B，SHA256 `fd2ad988…a3aa6`） |
-| 3 | 发布：APK 上传 + 门户/二维码/OTA 清单更新 | 我 | ✅ 完成（`https://learn.yuanabd.cn/download.html` → v1.3.4） |
+| 2 | v1.3.4 出包 + 产物核验（targetSdk 35 / 清单 / 主题 / 16KB / 签名） | 我 | ✅ 完成（66,094,819 B，MD5 `147a077d…`，SHA256 `13c42541…`） |
+| 3 | 发布：APK 上传 + 门户/二维码/OTA 清单更新 | 我 | ✅ 完成（`https://learn.yuanabd.cn/download.html` → v1.3.4，二维码已解码校验） |
 | 4 | 内测用户复测（同一台 OPPO 手机）+ 诊断页结果回传 | 用户/内测 | ⏳ 待复测（指引见附录 A） |
-| 5 | 云真机触控自检（OPPO 云真机 / WeTest）+ 模拟器跨品牌回归 | 我 | ⏳ 等 1 通过；本机无模拟器与真机，需先装 AVD |
-| 6 | 内测机型信息（型号 / ColorOS / Android 版本、是否简易模式/大字/悬浮球类 App） | 用户 | ⏳ 拿不到则按最坏情况兼容 |
+| 5 | 云真机触控自检（OPPO 云真机 / WeTest） | 我 | ⏳ 等 1 通过（WeTest 需手机号+短信登录） |
+| 6 | 模拟器跨品牌回归（脚本已就绪 `scripts/android-emulator-smoke.ps1`） | 我 | ⛔ 本机缺硬件加速且非管理员；需管理员启用 WHPX/AEHD 后执行 |
+| 7 | 内测机型信息（型号 / ColorOS / Android 版本、是否简易模式/大字/悬浮球类 App） | 用户 | ⏳ 拿不到则按最坏情况兼容 |
 
