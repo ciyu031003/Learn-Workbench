@@ -101,6 +101,26 @@ export function compactKcal(kcal: number): string {
 }
 
 /**
+ * 千分位整数（`1549` → `"1,549"`）。
+ *
+ * 为什么不用 `Number.prototype.toLocaleString("en-US")`：① 它依赖 Hermes 的 Intl 实现，
+ * 而本项目是**首次**在移动端格式化数字（既有代码只对日期用过 toLocaleDateString），
+ * 缺失 Intl 时不同平台表现不一致（可能没有分隔符）；② 纯函数可以单测。
+ * 参考图里的 "1,549 kcal" 就是千分位，所以这里显式实现，跨端输出恒定。
+ */
+export function groupThousands(value: number): string {
+  const n = Math.round(Number.isFinite(value) ? value : 0);
+  const sign = n < 0 ? "-" : "";
+  const digits = String(Math.abs(n));
+  let out = "";
+  for (let i = 0; i < digits.length; i += 1) {
+    if (i > 0 && (digits.length - i) % 3 === 0) out += ",";
+    out += digits[i];
+  }
+  return sign + out;
+}
+
+/**
  * 所选日期距离今天「几周之前」（0 = 本周），用于切到「周」视图时把日期条翻到包含它的那一周
  * —— 否则用户在看 8 月的某天时点「周」，日期条会停在今天那周且没有任何格子高亮。
  * 上限由调用方按日期条的能力（4 周）截断。

@@ -93,7 +93,14 @@ export function BarChart({
   );
 }
 
-function buildSmoothPath(points: { x: number; y: number }[]) {
+/**
+ * 折线平滑路径（二阶贝塞尔 + 中点）。
+ *
+ * v4 P4-c 起对外导出：饮食的「近 7 天热量曲线」需要**双序列**（本周 + 上周虚线）
+ * 与自定义标注，`LineChart` 的单序列 API 装不下，所以这里只共享这条纯函数，
+ * 避免两处各写一份平滑算法（渲染仍在各自组件里）。
+ */
+export function buildSmoothPath(points: { x: number; y: number }[]) {
   if (points.length === 0) return "";
   if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
   let d = `M ${points[0].x} ${points[0].y}`;

@@ -23,6 +23,9 @@ import { PortionSlider } from "@/components/portion-slider";
 import { StickerBookSheet } from "@/components/sticker-book";
 import { SwipeRow } from "@/components/swipe-row";
 import { WaterCard } from "@/components/water-card";
+import { WaterCupSheet } from "@/components/water-cup";
+import { NutritionStatsSheet } from "@/components/nutrition-stats-sheet";
+import { LiveLogSheet } from "@/components/live-log-sheet";
 import { WeightCard } from "@/components/weight-card";
 import { TargetSheet, type TargetProfileInput } from "@/components/target-sheet";
 import { portionPreviewText } from "@/lib/portion";
@@ -155,10 +158,11 @@ export default function NutritionScreen() {
   const [profile, setProfile] = useState<NutritionProfileDto | null>(null);
   const [serverTarget, setServerTarget] = useState<NutritionTargetDto | null>(null);
   const [targetOpen, setTargetOpen] = useState(false);
-  const [hydration, setHydration] = useState<{ totalMl: number; targetMl: number; lastId: number | null }>({
+  const [hydration, setHydration] = useState<{ totalMl: number; targetMl: number; lastId: number | null; lastTime: string | null }>({
     totalMl: 0,
     targetMl: 2000,
     lastId: null,
+    lastTime: null,
   });
   const [weightPoints, setWeightPoints] = useState<WeightPointDto[]>([]);
   const [wellnessBusy, setWellnessBusy] = useState(false);
@@ -166,6 +170,10 @@ export default function NutritionScreen() {
   const [weightDraft, setWeightDraft] = useState("");
   // M9 深化：收集册弹层
   const [bookOpen, setBookOpen] = useState(false);
+  // v4 P4-c：趋势面板（7 天曲线 / 6 个月点阵 / Food Calendar）、水杯、LiveLog
+  const [statsOpen, setStatsOpen] = useState(false);
+  const [cupOpen, setCupOpen] = useState(false);
+  const [liveOpen, setLiveOpen] = useState(false);
 
   /** 有效目标：身体数据算出来（或手动覆盖），失败回落 shared 默认值 */
   const target = useMemo(() => {
@@ -303,10 +311,13 @@ export default function NutritionScreen() {
         setServerTarget(targetRes.target);
       }
       if (waterRes) {
+        const last = waterRes.logs.length > 0 ? waterRes.logs[waterRes.logs.length - 1] : null;
         setHydration({
           totalMl: waterRes.totalMl,
           targetMl: waterRes.targetMl,
-          lastId: waterRes.logs.length > 0 ? waterRes.logs[waterRes.logs.length - 1].id : null,
+          lastId: last ? last.id : null,
+          // 水杯弹层要显示"最近一次饮水时间"（参考图 8 的时间戳）
+          lastTime: last ? last.recordedAt : null,
         });
       }
       if (weightRes) setWeightPoints(weightRes.points);
@@ -350,6 +361,28 @@ export default function NutritionScreen() {
     }
     return [...map.values()].sort((a, b) => b.times - a.times).slice(0, 18);
   }, [entries]);
+
+  /**
+   * v4 P4-c LiveLog 的贴纸候选：今天的记录 + 常用食物（去重、最多 12 个）。
+   * 顺序优先"今天吃过的"——手摆贴纸时最常见的诉求就是"把今天吃的摆出来"。
+   */
+  const liveNames = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const e of entries) {
+      const name = e.name.trim();
+      if (!name || seen.has(name)) continue;
+      seen.add(name);
+      out.push(name);
+    }
+    for (const f of foods) {
+      const name = f.name.trim();
+      if (!name || seen.has(name)) continue;
+      seen.add(name);
+      out.push(name);
+    }
+    return out.slice(0, 12);
+  }, [entries, foods]);
 
   const closeSheet = useCallback(() => {
     setSheetOpen(false);
@@ -610,10 +643,12 @@ export default function NutritionScreen() {
     try {
       await addHydration(token, amountMl);
       const fresh = await fetchHydration(token);
+      const lastLog = fresh.logs.length > 0 ? fresh.logs[fresh.logs.length - 1] : null;
       setHydration({
         totalMl: fresh.totalMl,
         targetMl: fresh.targetMl,
-        lastId: fresh.logs.length > 0 ? fresh.logs[fresh.logs.length - 1].id : null,
+        lastId: lastLog ? lastLog.id : null,
+        lastTime: lastLog ? lastLog.recordedAt : null,
       });
     } catch {
       Alert.alert("记录失败", "联网后再试一次");
@@ -629,10 +664,12 @@ export default function NutritionScreen() {
     try {
       await removeHydration(token, hydration.lastId);
       const fresh = await fetchHydration(token);
+      const lastLog = fresh.logs.length > 0 ? fresh.logs[fresh.logs.length - 1] : null;
       setHydration({
         totalMl: fresh.totalMl,
         targetMl: fresh.targetMl,
-        lastId: fresh.logs.length > 0 ? fresh.logs[fresh.logs.length - 1].id : null,
+        lastId: lastLog ? lastLog.id : null,
+        lastTime: lastLog ? lastLog.recordedAt : null,
       });
     } catch {
       Alert.alert("撤销失败");
@@ -835,6 +872,49 @@ export default function NutritionScreen() {
         >
           <ThemedIcon name="add" size={18} color="#fff" />
         </Pressable>
+      </View>
+
+      {/* v4 P4-c 进阶入口：趋势（7 天曲线 / 6 个月点阵 / Food Calendar）、水杯、LiveLog。
+          做成一行**低权重胶囊**而不是卡片：既让功能可发现，又不会在首屏和热量 Hero 抢焦点。 */}
+      <View style={styles.advancedRow}>
+        <Pressable
+          style={styles.advancedChip}
+          onPress={() => {
+            haptics.soft();
+            setStatsOpen(true);
+          }}
+          accessibilityLabel="打开饮食趋势"
+        >
+          <ThemedIcon name="stats-chart-outline" size={15} color={colors.primary} />
+          <Text style={styles.advancedText}>趋势</Text>
+        </Pressable>
+        {viewMode === "day" && isToday ? (
+          <Pressable
+            style={styles.advancedChip}
+            onPress={() => {
+              haptics.soft();
+              setCupOpen(true);
+            }}
+            accessibilityLabel="打开水杯"
+          >
+            <ThemedIcon name="water-outline" size={15} color={colors.teal} />
+            <Text style={styles.advancedText}>水杯</Text>
+            <Text style={styles.advancedMeta}>{hydration.totalMl}</Text>
+          </Pressable>
+        ) : null}
+        {viewMode === "day" ? (
+          <Pressable
+            style={styles.advancedChip}
+            onPress={() => {
+              haptics.soft();
+              setLiveOpen(true);
+            }}
+            accessibilityLabel="打开 LiveLog 贴纸画布"
+          >
+            <ThemedIcon name="sparkles-outline" size={15} color={colors.accent} />
+            <Text style={styles.advancedText}>LiveLog</Text>
+          </Pressable>
+        ) : null}
       </View>
 
       {/* M2 日期条：周视图的一排（可回看 4 周，今天用能量橙描边） */}
@@ -1155,6 +1235,42 @@ export default function NutritionScreen() {
         }}
       />
 
+      {/* v4 P4-c：水杯（液面动画 + 快捷水量） */}
+      <BottomSheet
+        visible={cupOpen}
+        onClose={() => setCupOpen(false)}
+        title="今日饮水"
+        height="86%"
+        scroll={false}
+      >
+        <WaterCupSheet
+          visible={cupOpen}
+          totalMl={hydration.totalMl}
+          targetMl={hydration.targetMl}
+          lastLogId={hydration.lastId}
+          lastTime={hydration.lastTime}
+          busy={wellnessBusy}
+          onAdd={(ml) => void onAddWater(ml)}
+          onUndo={() => void onUndoWater()}
+        />
+      </BottomSheet>
+
+      {/* v4 P4-c：饮食趋势（7 天曲线 / 6 个月点阵 / Food Calendar 缩略图） */}
+      <NutritionStatsSheet
+        visible={statsOpen}
+        onClose={() => setStatsOpen(false)}
+        headers={headers}
+        targetKcal={target.kcal}
+        todayKey={todayKey}
+        onPickDate={(key) => {
+          setDate(key);
+          setViewMode("day");
+        }}
+      />
+
+      {/* v4 P4-c：LiveLog 贴纸画布（本机保存） */}
+      <LiveLogSheet visible={liveOpen} onClose={() => setLiveOpen(false)} names={liveNames} />
+
       <BottomSheet visible={sheetOpen} onClose={closeSheet} title="添加饮食" height="86%">
         <View style={styles.form}>
           <Text style={styles.label}>餐次</Text>
@@ -1435,6 +1551,21 @@ const makeStyles = (colors: ThemeColors) =>
       justifyContent: "center",
       backgroundColor: colors.accentStrong,
     },
+    /* ---- v4 P4-c 进阶入口（低权重胶囊行） ---- */
+    advancedRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+    advancedChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      paddingHorizontal: spacing.md,
+      paddingVertical: 7,
+      borderRadius: 999,
+      backgroundColor: colors.surfaceStrong,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    advancedText: { ...typography.caption, color: colors.text, fontWeight: "700" },
+    advancedMeta: { ...typography.micro, color: colors.teal, fontWeight: "800", ...tabularNums },
     /* ---- 周 / 月 区间汇总卡 ---- */
     rangeCard: { gap: 2 },
     rangeTitle: { ...typography.headline, fontWeight: "800", color: colors.text },

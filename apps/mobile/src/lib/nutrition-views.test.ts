@@ -3,6 +3,7 @@ import {
   pickWindowSummary,
   compactKcal,
   dayLabel,
+  groupThousands,
   summarizeRange,
   toDaySummaryMap,
   todayAndYesterday,
@@ -79,6 +80,25 @@ describe("compactKcal", () => {
     expect(compactKcal(320)).toBe("320");
     expect(compactKcal(1549)).toBe("1.5k");
     expect(compactKcal(12345)).toBe("12k");
+  });
+});
+
+describe("groupThousands", () => {
+  it("按三位分组，跨端输出恒定（不依赖 Intl）", () => {
+    expect(groupThousands(0)).toBe("0");
+    expect(groupThousands(7)).toBe("7");
+    expect(groupThousands(999)).toBe("999");
+    expect(groupThousands(1000)).toBe("1,000");
+    expect(groupThousands(1549)).toBe("1,549");
+    expect(groupThousands(12345)).toBe("12,345");
+    expect(groupThousands(1234567)).toBe("1,234,567");
+  });
+
+  it("负数与非法值不产生怪字符串（图表/水杯都直接渲染它）", () => {
+    expect(groupThousands(-1549)).toBe("-1,549");
+    expect(groupThousands(Number.NaN)).toBe("0");
+    expect(groupThousands(Number.POSITIVE_INFINITY)).toBe("0");
+    expect(groupThousands(1549.4)).toBe("1,549");
   });
 });
 
