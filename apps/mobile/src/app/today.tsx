@@ -398,7 +398,15 @@ export default function TodayScreen() {
         </Animated.View>
 
         {/* v4 P2 一键开始：首页唯一的大动作按钮（实色强调色，不用玻璃——首屏已有两个 hero，避免互相抢戏） */}
-        <PressableScale haptic scaleTo={0.97} onPress={() => setQuickOpen(true)}>
+        <PressableScale
+          haptic
+          scaleTo={0.97}
+          onPress={() => {
+            // 打开时清掉上一轮遗留的待启动选择：保证"弹层里没点开始计时 → 一定不会启动"的不变量
+            setPendingChoice(null);
+            setQuickOpen(true);
+          }}
+        >
           <View style={styles.quickStart}>
             <View style={styles.quickStartIcon}>
               <ThemedIcon name="play" size={24} color="#fff" />
@@ -554,9 +562,14 @@ export default function TodayScreen() {
         visible={quickOpen}
         onClose={() => setQuickOpen(false)}
         onPick={(choice) => {
-          // ⚠️ 不能在这里直接 setFocusOpen(true)：QuickStartSheet 是 Modal，
-          // 它退场还要 180ms 才卸载，同帧再 present 全屏 Modal 会出现两个 Modal 叠加
-          // （iOS 上常见表现是"点了没反应"）。存起来，等它真正关闭后再开。
+          /**
+           * ⚠️ 两条不变量（v1.4.2）：
+           * 1) `onPick` **只由弹层底部的「开始计时」按钮触发** —— 弹层内的点选只改选择态，
+           *    所以"侧滑返回 / 点空白 / 返回键"都只会走 `onClose`，绝不会开始计时（真机反馈）。
+           * 2) 不能在这里直接 `setFocusOpen(true)`：QuickStartSheet 是 Modal，退场还要 180ms 才卸载，
+           *    同帧再 present 全屏 Modal 会出现两个 Modal 叠加（iOS 上表现为"点了没反应"）；
+           *    所以先存起来，等它真正关闭（onClosed）后再开。
+           */
           setPendingChoice(choice);
         }}
         onClosed={() => {

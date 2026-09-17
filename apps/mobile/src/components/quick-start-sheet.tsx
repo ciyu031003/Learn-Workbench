@@ -33,11 +33,13 @@ export interface QuickStartChoice {
 }
 
 /**
- * 「一键开始」弹层（v4 P2）。
+ * 「一键开始」弹层。
  *
- * 交互：点首页大按钮 → 这里选「学习 25 分钟 / 运动 30 分钟 / 正向计时」→
- * **选完立即开始计时**（不再让用户进计时页后再点一次"开始"）。
- * 运动的可选项目复用 `SPORT_CATALOG`（与既有"添加运动记录"面板同一份数据源）。
+ * 交互（v1.4.2 修正）：**选择 ≠ 开始**。
+ * 用户在这里只做选择（学什么 / 时长 / 倒计时还是秒表 / 运动项目），
+ * **只有点底部的「开始计时」按钮才真正进入计时**；
+ * 侧滑返回、点空白、返回键一律只是关闭弹层、退回首页（不启动任何计时）。
+ * 之前"选完立即开始"会让"想退出的人"被动进入计时（真机反馈）。
  */
 export function QuickStartSheet({
   visible,
@@ -59,46 +61,75 @@ export function QuickStartSheet({
   const [sportMinutes, setSportMinutes] = useState(30);
   /** v5 P2-1：这次学什么（默认不指定；不做"记住上次"——D4） */
   const [content, setContent] = useState<ContentChoice>(EMPTY_CONTENT);
+  /** 学习：时长与模式的**选择态**（不再直接开始） */
+  const [learningMinutes, setLearningMinutes] = useState(25);
+  const [learningMode, setLearningMode] = useState<"countdown" | "stopwatch">("countdown");
+  /** 运动：模式的选择态 */
+  const [exerciseMode, setExerciseMode] = useState<"countdown" | "stopwatch">("countdown");
 
   const sports = useMemo(
     () => SPORT_CATALOG.filter((s) => s.type === sportType),
     [sportType]
   );
 
-  const pickLearning = (timerMode: "countdown" | "stopwatch", minutes?: number) => {
-    const label = contentLabelOf(content);
-    onPick({
-      kind: "focus",
-      timerMode,
-      minutes,
-      contentLabel: label ?? undefined,
-      // 没填内容时明确记为 none（而不是留下一个可能会被误读的 source）
-      contentSource: label ? content.source : "none",
-      phaseId: label ? content.phaseId : undefined,
-      topicId: label ? content.topicId : undefined,
-    });
-    // 用完即清（D4：不记住上次）——否则下次打开会静默沿用上次内容，把 tag 写错归属
+  /** 每次关闭都回到默认选择（D4：不记住上次）——所有关闭路径（含侧滑/点空白）都会走它 */
+  const reset = () => {
     setContent(EMPTY_CONTENT);
+    setLearningMinutes(25);
+    setLearningMode("countdown");
+    setExerciseMode("countdown");
+    setSport(null);
+    setSportMinutes(30);
+    setTab("learning");
+  };
+
+  const close = () => {
+    reset();
     onClose();
   };
 
-  const pickExercise = (timerMode: "countdown" | "stopwatch") => {
+  const pickedSport = sport ?? sports[0] ?? null;
+  /** 底部按钮文案：把当前选择说清楚，避免"点错才知道会开始" */
+  const startLabel =
+    tab === "learning"
+      ? learningMode === "stopwatch"
+        ? "开始计时 · 学习（正向计时）"
+        : `开始计时 · 学习 ${learningMinutes} 分钟`
+      : exerciseMode === "stopwatch"
+        ? `开始计时 · ${pickedSport?.name ?? "运动"}（正向计时）`
+        : `开始计时 · ${pickedSport?.name ?? "运动"} ${sportMinutes} 分钟`;
+
+  const start = () => {
+    if (tab === "learning") {
+      const label = contentLabelOf(content);
+      onPick({
+        kind: "focus",
+        timerMode: learningMode,
+        minutes: learningMode === "countdown" ? learningMinutes : undefined,
+        contentLabel: label ?? undefined,
+        // 没填内容时明确记为 none（而不是留下一个可能会被误读的 source）
+        contentSource: label ? content.source : "none",
+        phaseId: label ? content.phaseId : undefined,
+        topicId: label ? content.topicId : undefined,
+      });
+      close();
+      return;
+    }
     // 只接受"当前分类下真实存在"的项目：否则会静默回落到目录第一项，
     // 出现"选的是拉伸、记的是篮球"这种错配
-    const item = sport ?? sports[0];
-    if (!item) return;
+    if (!pickedSport) return;
     onPick({
       kind: "exercise",
-      timerMode,
-      minutes: timerMode === "countdown" ? sportMinutes : undefined,
-      sportKey: item.key,
-      sportName: item.name,
+      timerMode: exerciseMode,
+      minutes: exerciseMode === "countdown" ? sportMinutes : undefined,
+      sportKey: pickedSport.key,
+      sportName: pickedSport.name,
     });
-    onClose();
+    close();
   };
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} title="一键开始" height="62%" onClosed={onClosed}>
+    <BottomSheet visible={visible} onClose={close} title="一键开始" height="62%" onClosed={onClosed}>
       <View style={styles.tabs}>
         {(
           [
@@ -133,33 +164,45 @@ export function QuickStartSheet({
             </Text>
           </View>
 
-          <PressableScale haptic style={styles.bigCard} onPress={() => pickLearning("countdown", 25)}>
-            <View style={[styles.bigIcon, { backgroundColor: colors.primary }]}>
-              <ThemedIcon name="timer-outline" size={22} color="#fff" />
-            </View>
-            <View style={styles.bigBody}>
-              <Text style={styles.bigTitle}>学习 25 分钟</Text>
-              <Text style={styles.bigSub}>倒计时 · 环形进度 · Bing 每日壁纸</Text>
-            </View>
-            <ThemedIcon name="chevron-forward" size={18} color={colors.textFaint} />
-          </PressableScale>
-
+          {/* 时长 / 模式：**只是选择**，不会开始计时（开始统一走底部按钮） */}
           <View style={styles.minuteRow}>
-            {[15, 25, 45].map((m) => (
-              <PressableScale key={m} haptic style={styles.minuteChip} onPress={() => pickLearning("countdown", m)}>
-                <Text style={styles.minuteChipText}>{m} 分钟</Text>
-              </PressableScale>
-            ))}
+            {[15, 25, 45].map((m) => {
+              const active = learningMode === "countdown" && learningMinutes === m;
+              return (
+                <Pressable
+                  key={m}
+                  style={[styles.minuteChip, active && styles.minuteChipActive]}
+                  onPress={() => {
+                    setLearningMode("countdown");
+                    setLearningMinutes(m);
+                  }}
+                >
+                  <Text style={[styles.minuteChipText, active && styles.minuteChipTextActive]}>{m} 分钟</Text>
+                </Pressable>
+              );
+            })}
           </View>
 
-          <PressableScale haptic style={styles.lineCard} onPress={() => pickLearning("stopwatch")}>
-            <ThemedIcon name="play-forward-outline" size={18} color={colors.primary} />
-            <View style={styles.bigBody}>
-              <Text style={styles.lineTitle}>正向计时（秒表）</Text>
-              <Text style={styles.bigSub}>不设上限，结束时按实际时长计入专注</Text>
-            </View>
-            <ThemedIcon name="chevron-forward" size={18} color={colors.textFaint} />
-          </PressableScale>
+          <View style={styles.minuteRow}>
+            {(
+              [
+                { key: "countdown", label: "倒计时", icon: "timer-outline" },
+                { key: "stopwatch", label: "正向计时", icon: "play-forward-outline" },
+              ] as const
+            ).map((o) => {
+              const active = learningMode === o.key;
+              return (
+                <Pressable
+                  key={o.key}
+                  style={[styles.modeChip, active && styles.modeChipActive]}
+                  onPress={() => setLearningMode(o.key)}
+                >
+                  <ThemedIcon name={o.icon} size={16} color={active ? colors.primary : colors.textMuted} />
+                  <Text style={[styles.modeChipText, active && styles.modeChipTextActive]}>{o.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
       ) : (
         <View style={styles.body}>
@@ -209,29 +252,61 @@ export function QuickStartSheet({
             })}
           </View>
 
-          <PressableScale haptic style={styles.bigCard} onPress={() => pickExercise("countdown")}>
-            <View style={[styles.bigIcon, { backgroundColor: "#e1781c" }]}>
-              <ThemedIcon name="timer-outline" size={22} color="#fff" />
-            </View>
-            <View style={styles.bigBody}>
-              <Text style={styles.bigTitle}>
-                开始{(sport ?? sports[0])?.name ?? "运动"} {sportMinutes} 分钟
-              </Text>
-              <Text style={styles.bigSub}>倒计时结束自动记入运动记录</Text>
-            </View>
-            <ThemedIcon name="chevron-forward" size={18} color={colors.textFaint} />
-          </PressableScale>
+          <View style={styles.minuteRow}>
+            {[15, 30, 45, 60].map((m) => {
+              const active = exerciseMode === "countdown" && sportMinutes === m;
+              return (
+                <Pressable
+                  key={m}
+                  style={[styles.minuteChip, active && styles.minuteChipActive]}
+                  onPress={() => {
+                    setExerciseMode("countdown");
+                    setSportMinutes(m);
+                  }}
+                >
+                  <Text style={[styles.minuteChipText, active && styles.minuteChipTextActive]}>{m} 分钟</Text>
+                </Pressable>
+              );
+            })}
+          </View>
 
-          <PressableScale haptic style={styles.lineCard} onPress={() => pickExercise("stopwatch")}>
-            <ThemedIcon name="play-forward-outline" size={18} color={colors.primary} />
-            <View style={styles.bigBody}>
-              <Text style={styles.lineTitle}>正向计时（秒表）</Text>
-              <Text style={styles.bigSub}>按实际时长记录（秒级，不再取整成分钟）</Text>
-            </View>
-            <ThemedIcon name="chevron-forward" size={18} color={colors.textFaint} />
-          </PressableScale>
+          <View style={styles.minuteRow}>
+            {(
+              [
+                { key: "countdown", label: "倒计时", icon: "timer-outline" },
+                { key: "stopwatch", label: "正向计时", icon: "play-forward-outline" },
+              ] as const
+            ).map((o) => {
+              const active = exerciseMode === o.key;
+              return (
+                <Pressable
+                  key={o.key}
+                  style={[styles.modeChip, active && styles.modeChipActive]}
+                  onPress={() => setExerciseMode(o.key)}
+                >
+                  <ThemedIcon name={o.icon} size={16} color={active ? colors.primary : colors.textMuted} />
+                  <Text style={[styles.modeChipText, active && styles.modeChipTextActive]}>{o.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
       )}
+
+      {/*
+        唯一的启动入口（v1.4.2）：上面所有的点选都只改选择态，
+        只有这个按钮会调用 `onPick` 真正开始计时。
+        侧滑返回 / 点空白 / 返回键走 `close()`，只关闭弹层、退回首页。
+      */}
+      <View style={styles.startBar}>
+        <PressableScale haptic style={styles.startBtn} onPress={start}>
+          <ThemedIcon name="play" size={18} color="#fff" />
+          <Text style={styles.startBtnText} numberOfLines={1}>
+            {startLabel}
+          </Text>
+        </PressableScale>
+        <Text style={styles.startHint}>选好后点这里开始；返回或点空白处只会退出，不会开始计时</Text>
+      </View>
     </BottomSheet>
   );
 }
@@ -295,6 +370,33 @@ const makeStyles = (colors: ThemeColors) =>
     minuteChipActive: { backgroundColor: colors.surfaceStrong, borderWidth: 1, borderColor: colors.primary },
     minuteChipText: { fontSize: 13, fontWeight: "600", color: colors.textMuted },
     minuteChipTextActive: { color: colors.primary },
+    /** 模式选择（倒计时 / 正向计时） */
+    modeChip: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      paddingVertical: 10,
+      borderRadius: radius.md,
+      backgroundColor: colors.surfaceMuted,
+    },
+    modeChipActive: { backgroundColor: colors.surfaceStrong, borderWidth: 1, borderColor: colors.primary },
+    modeChipText: { fontSize: 13, fontWeight: "600", color: colors.textMuted },
+    modeChipTextActive: { color: colors.primary },
+    /** 唯一的启动入口 */
+    startBar: { gap: 6, paddingTop: spacing.sm, paddingBottom: spacing.sm },
+    startBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      paddingVertical: 14,
+      borderRadius: radius.lg,
+      backgroundColor: colors.primary,
+    },
+    startBtnText: { color: "#fff", fontSize: 15, fontWeight: "800" },
+    startHint: { ...typography.caption, color: colors.textMuted, textAlign: "center" },
     typeRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     typeChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: colors.surfaceMuted },
     typeChipActive: { backgroundColor: colors.surfaceStrong, borderWidth: 1, borderColor: colors.primary },
