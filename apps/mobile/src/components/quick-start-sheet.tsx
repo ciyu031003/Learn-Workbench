@@ -3,6 +3,13 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
+import {
+  ContentPicker,
+  EMPTY_CONTENT,
+  contentLabelOf,
+  type ContentChoice,
+  type ContentSource,
+} from "@/components/content-picker";
 import { useTheme } from "@/theme";
 import { radius, spacing, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
@@ -17,6 +24,12 @@ export interface QuickStartChoice {
   minutes?: number;
   sportKey?: string;
   sportName?: string;
+  /** v5 P2-1：本次绑定的学习内容（写进 focus_sessions.tag） */
+  contentLabel?: string;
+  contentSource?: ContentSource;
+  /** 本轮仅用于拼 label，不落库（为将来结构化列预留） */
+  phaseId?: number;
+  topicId?: number;
 }
 
 /**
@@ -44,6 +57,8 @@ export function QuickStartSheet({
   const [sportType, setSportType] = useState<string>(exerciseTypeOptions[0]?.type ?? "AEROBIC");
   const [sport, setSport] = useState<SportItem | null>(null);
   const [sportMinutes, setSportMinutes] = useState(30);
+  /** v5 P2-1：这次学什么（默认不指定；不做"记住上次"——D4） */
+  const [content, setContent] = useState<ContentChoice>(EMPTY_CONTENT);
 
   const sports = useMemo(
     () => SPORT_CATALOG.filter((s) => s.type === sportType),
@@ -51,7 +66,19 @@ export function QuickStartSheet({
   );
 
   const pickLearning = (timerMode: "countdown" | "stopwatch", minutes?: number) => {
-    onPick({ kind: "focus", timerMode, minutes });
+    const label = contentLabelOf(content);
+    onPick({
+      kind: "focus",
+      timerMode,
+      minutes,
+      contentLabel: label ?? undefined,
+      // 没填内容时明确记为 none（而不是留下一个可能会被误读的 source）
+      contentSource: label ? content.source : "none",
+      phaseId: label ? content.phaseId : undefined,
+      topicId: label ? content.topicId : undefined,
+    });
+    // 用完即清（D4：不记住上次）——否则下次打开会静默沿用上次内容，把 tag 写错归属
+    setContent(EMPTY_CONTENT);
     onClose();
   };
 
@@ -96,6 +123,16 @@ export function QuickStartSheet({
 
       {tab === "learning" ? (
         <View style={styles.body}>
+          {/* v5 P2-1：先定"这次学什么"，再选时长/模式；不选就是自由专注 */}
+          <ContentPicker value={content} onChange={setContent} />
+
+          <View style={styles.thisTime}>
+            <Text style={styles.thisTimeLabel}>本次学习</Text>
+            <Text style={styles.thisTimeValue} numberOfLines={1}>
+              {contentLabelOf(content) ?? "自由专注（不绑定内容）"}
+            </Text>
+          </View>
+
           <PressableScale haptic style={styles.bigCard} onPress={() => pickLearning("countdown", 25)}>
             <View style={[styles.bigIcon, { backgroundColor: colors.primary }]}>
               <ThemedIcon name="timer-outline" size={22} color="#fff" />
@@ -216,6 +253,14 @@ const makeStyles = (colors: ThemeColors) =>
     tabText: { fontSize: 14, fontWeight: "600", color: colors.textMuted },
     tabTextActive: { color: colors.primary },
     body: { gap: spacing.md, paddingBottom: spacing.md },
+    thisTime: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      paddingHorizontal: 2,
+    },
+    thisTimeLabel: { ...typography.caption, color: colors.textMuted, fontWeight: "700" },
+    thisTimeValue: { flex: 1, ...typography.body, fontWeight: "700", color: colors.text },
     bigCard: {
       flexDirection: "row",
       alignItems: "center",

@@ -112,7 +112,8 @@ interface AppState {
   toggleTaskDone: (id: number) => void;
   addLog: (kind: LogKind, title: string, content: string) => void;
   checkinToday: () => void;
-  addSession: (taskId: number | null, seconds: number) => void;
+  /** v5 P2-1：label = 本次学习的内容名（写进 focus_sessions.tag；空/未传 = 自由专注） */
+  addSession: (taskId: number | null, seconds: number, label?: string | null) => void;
   toggleBackground: () => void;
   setEdgeSwipeEnabled: (enabled: boolean) => void;
   resetAll: () => void;
@@ -272,11 +273,13 @@ export const useAppStore = create<AppState>()(
           return { checkins: [...s.checkins, date], pendingChanges: [change, ...s.pendingChanges] };
         }),
 
-      addSession: (taskId, seconds) =>
+      addSession: (taskId, seconds, label) =>
         set((s) => {
           const now = new Date().toISOString();
           const start = new Date(Date.now() - seconds * 1000).toISOString();
           const clientId = uid();
+          // v5 P2-1：学习内容只写 tag（该列与同步链路早已打通：schema/白名单/shared 都已含 tag）
+          const tag = label?.trim() ? label.trim().slice(0, 40) : null;
           const session: LocalSession = {
             id: nextId(),
             clientId,
@@ -284,7 +287,7 @@ export const useAppStore = create<AppState>()(
             startedAt: start,
             endedAt: now,
             durationSeconds: seconds,
-            tag: null,
+            tag,
           };
           const changes: PendingChange[] = [
             {

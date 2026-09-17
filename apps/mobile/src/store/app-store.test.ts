@@ -84,6 +84,30 @@ describe("local mutations queue pending changes", () => {
     expect(s.pendingChanges.some((c) => c.entityType === "tasks" && c.payload?.focusMinutes === 25)).toBe(true);
   });
 
+  /**
+   * v5 P2-1：学习内容写进 `focus_sessions.tag`（零迁移、零协议改动）。
+   * 空/纯空白必须落成 null，否则统计里会出现空的「未分类」以外的伪内容。
+   */
+  it("addSession 带 label 时写入 tag，空/纯空白落成 null", () => {
+    const st = useAppStore.getState();
+    st.addSession(null, 1500, "英语读写");
+    st.addSession(null, 600, "   ");
+    st.addSession(null, 300);
+    const sessions = useAppStore.getState().sessions;
+    expect(sessions.map((s) => s.tag)).toEqual(["英语读写", null, null]);
+
+    // 同步载荷必须带上 tag（服务端白名单已支持，无需改协议）
+    const createChanges = useAppStore
+      .getState()
+      .pendingChanges.filter((c) => c.entityType === "sessions" && c.operation === "CREATE");
+    expect(createChanges).toHaveLength(3);
+    expect(createChanges.map((c) => (c.payload as { tag?: string | null }).tag)).toEqual([
+      null,
+      null,
+      "英语读写",
+    ]);
+  });
+
   it("addGithub/removeGithub and addCustomTopic/removeCustomTopic enqueue changes", () => {
     useAppStore.getState().addGithub("repo", "https://x", "c");
     const g = useAppStore.getState().github[0];

@@ -66,12 +66,14 @@ export function FocusTimer({
   mode: sessionMode = "focus",
   exerciseLabel = null,
   onExerciseRecorded,
+  contentLabel = null,
 }: {
   open: boolean;
   task: { id: number | null; title: string | null } | null;
   sessions: FocusSession[];
   onClose: () => void;
-  onRecorded: (taskId: number | null, seconds: number) => void;
+  /** v5 P2-1：第三个参数是本次绑定的学习内容（写 focus_sessions.tag）；忽略它也能编译 */
+  onRecorded: (taskId: number | null, seconds: number, label?: string | null) => void;
   /** v4 P2「一键开始」：打开即开始计时（跳过"准备开始"屏） */
   autoStart?: boolean;
   /** 打开时的计时模式（倒计时 / 正向秒表）；不传则沿用上次/默认 */
@@ -82,6 +84,8 @@ export function FocusTimer({
   mode?: "focus" | "exercise";
   exerciseLabel?: string | null;
   onExerciseRecorded?: (seconds: number, label: string | null) => void;
+  /** 本次学习的内容名（"英语读写" / "阶段X · 主题Y"），随会话一起写入 tag */
+  contentLabel?: string | null;
 }) {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
@@ -422,7 +426,9 @@ export function FocusTimer({
       onClose();
       return;
     }
-    onRecorded(task?.id ?? null, elapsedSeconds);
+    // v5 P2-1：把"这次学什么"一并带出（调用方写入 focus_sessions.tag）
+    const label = contentLabel?.trim() ? contentLabel.trim().slice(0, 40) : null;
+    onRecorded(task?.id ?? null, elapsedSeconds, label);
     setRecording(false);
     onClose();
   };
@@ -710,6 +716,14 @@ export function FocusTimer({
             <View style={styles.readyWrap}>
               <Text style={styles.taskName} numberOfLines={1}>{task?.title ?? "自由专注"}</Text>
               <Text style={styles.readyTitle}>{timerMode === "stopwatch" ? "准备开始 正向计时" : `准备开始 ${minutes} 分钟专注`}</Text>
+              {contentLabel?.trim() ? (
+                <View style={styles.contentChip}>
+                  <ThemedIcon name="bookmark-outline" size={12} color="rgba(255,255,255,0.92)" />
+                  <Text style={styles.contentChipText} numberOfLines={1}>
+                    本次学习 · {contentLabel.trim()}
+                  </Text>
+                </View>
+              ) : null}
 
               {/* V3 计时模式切换 */}
               <View style={styles.modeToggle}>
@@ -851,6 +865,18 @@ const styles = StyleSheet.create({
   readyWrap: { alignItems: "center", gap: 16, paddingVertical: 48 },
   readyCtaInner: { flexDirection: "row", alignItems: "center", gap: 8 },
   readyTitle: { color: "#fff", fontSize: 24, fontWeight: "800" },
+  contentChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.16)",
+    maxWidth: "88%",
+  },
+  contentChipText: { color: "rgba(255,255,255,0.95)", fontSize: 12.5, fontWeight: "700" },
   readyHint: { color: "rgba(255,255,255,0.55)", fontSize: 12, textAlign: "center" },
   modeToggle: { flexDirection: "row", gap: 8 },
   modeChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.1)", borderWidth: 1, borderColor: "rgba(255,255,255,0.2)" },

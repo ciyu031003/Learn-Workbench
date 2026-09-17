@@ -9,6 +9,7 @@ import { taskTypeLabels, todayISO } from "@learn-workbench/shared";
 import { Card } from "@/components/card";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { FocusTimer } from "@/components/focus-timer";
+import { ContentPicker, EMPTY_CONTENT, contentLabelOf, type ContentChoice } from "@/components/content-picker";
 import { computeFocusStats, FOCUS_MOTIVATIONS } from "@/lib/focus-stats";
 
 const TYPES: TaskType[] = ["study", "agent", "output", "review", "exam"];
@@ -31,6 +32,15 @@ export default function TasksScreen() {
   const [timerTask, setTimerTask] = useState<{ id: number | null; title: string | null } | null>(null);
   /** v4 P1：新建任务改为弹层输入（不再让输入框常驻首屏第一位） */
   const [newTaskOpen, setNewTaskOpen] = useState(false);
+  /**
+   * v5 P2-1：「自由专注」入口先问"这次学什么"（复用 ContentPicker），选完立即开始。
+   * 与首页一键开始同样的 Modal 串行处理：先关选择弹层，等它卸载后再开计时器。
+   */
+  const [contentOpen, setContentOpen] = useState(false);
+  const [content, setContent] = useState<ContentChoice>(EMPTY_CONTENT);
+  const [pendingStart, setPendingStart] = useState<{ label: string | null; timerMode: "countdown" | "stopwatch" } | null>(null);
+  /** 由"自由专注"弹出的计时器：需要自动开始 + 指定模式 + 带内容名 */
+  const [autoTimer, setAutoTimer] = useState<{ label: string | null; timerMode: "countdown" | "stopwatch" } | null>(null);
 
   const today = todayISO();
   const todayTasks = tasks.filter((t) => t.taskDate === today);
@@ -44,9 +54,18 @@ export default function TasksScreen() {
   const maxMin = Math.max(1, ...stats.last14.map((d) => d.minutes));
 
   const openTimer = (taskId: number | null, taskTitle: string | null) => {
+    setAutoTimer(null);
     setTimerTask({ id: taskId, title: taskTitle });
     setTimerSession((s) => s + 1);
     setTimerOpen(true);
+  };
+
+  /** 「自由专注」：带着"这次学什么"直接开始（不需要再点一次开始） */
+  const startFreeFocus = (timerMode: "countdown" | "stopwatch") => {
+    setPendingStart({ label: contentLabelOf(content), timerMode });
+    setContentOpen(false);
+    // 用完即清（D4：不记住上次）——否则下次打开会静默沿用上次内容
+    setContent(EMPTY_CONTENT);
   };
 
   const submit = () => {
@@ -139,14 +158,14 @@ export default function TasksScreen() {
       {/* ③ 工具区收拢：原来「专注计时」「新建任务」两张等权卡占首屏前两位，现合成一张紧凑卡 */}
       <Card variant="glass" title="快速开始" subtitle={`当日累计专注 ${totalFocus} 分钟`}>
         <View style={styles.toolRow}>
-          <Pressable style={[styles.toolBtn, styles.toolBtnPrimary]} onPress={() => openTimer(null, null)}>
-            <Text style={styles.toolBtnTextPrimary}>⏱ 自由倒计时 25:00</Text>
+          <Pressable style={[styles.toolBtn, styles.toolBtnPrimary]} onPress={() => setContentOpen(true)}>
+            <Text style={styles.toolBtnTextPrimary}>⏱ 自由专注 · 选内容</Text>
           </Pressable>
           <Pressable style={[styles.toolBtn, styles.toolBtnGhost]} onPress={() => setNewTaskOpen(true)}>
             <Text style={styles.toolBtnTextGhost}>＋ 新建任务</Text>
           </Pressable>
         </View>
-        <Text style={styles.toolHint}>倒计时可切正向秒表、可换背景；新建任务在弹层里输入</Text>
+        <Text style={styles.toolHint}>自由专注可先选「这次学什么」；倒计时可切正向秒表、可换背景；新建任务在弹层里输入</Text>
       </Card>
 
       {/* ④ 统计降权：整卡改玻璃，明细仍保留在这里 */}
@@ -222,13 +241,50 @@ export default function TasksScreen() {
         </View>
       </BottomSheet>
 
+      <BottomSheet
+        visible={contentOpen}
+        onClose={() => setContentOpen(false)}
+        title="自由专注"
+        height="76%"
+        onClosed={() => {
+          // 等选择弹层真正卸载后再开计时器（两个 Modal 同帧 present 会互相吞掉）
+          if (!pendingStart) return;
+          setTimerTask({ id: null, title: pendingStart.label ?? "自由专注" });
+          setAutoTimer({ label: pendingStart.label, timerMode: pendingStart.timerMode });
+          setPendingStart(null);
+          setTimerSession((s) => s + 1);
+          setTimerOpen(true);
+        }}
+      >
+        <View style={styles.sheetBody}>
+          <ContentPicker value={content} onChange={setContent} />
+          <Pressable style={styles.primaryBtn} onPress={() => startFreeFocus("countdown")}>
+            <Text style={styles.primaryBtnText}>
+              开始倒计时 · {contentLabelOf(content) ?? "自由专注"}
+            </Text>
+          </Pressable>
+          <Pressable style={[styles.primaryBtn, styles.ghostStartBtn]} onPress={() => startFreeFocus("stopwatch")}>
+            <Text style={[styles.primaryBtnText, styles.ghostStartText]}>正向计时（秒表）</Text>
+          </Pressable>
+        </View>
+      </BottomSheet>
+
       <FocusTimer
         key={timerSession}
         open={timerOpen}
         task={timerTask}
         sessions={sessions}
-        onClose={() => setTimerOpen(false)}
-        onRecorded={(taskId, seconds) => addSession(taskId, seconds)}
+        autoStart={!!autoTimer}
+        initialTimerMode={autoTimer?.timerMode}
+        contentLabel={autoTimer?.label ?? null}
+        onClose={() => {
+          setTimerOpen(false);
+          setAutoTimer(null);
+        }}
+        onRecorded={(taskId, seconds, label) =>
+          // 任务行 ▶ 进入的专注没有显式内容名 → 用任务标题兜底，避免统计里全是「未分类」
+          addSession(taskId, seconds, label ?? (taskId ? (timerTask?.title ?? null) : null))
+        }
       />
     </ScrollView>
   );
@@ -256,6 +312,8 @@ const makeStyles = (colors: ThemeColors) =>
   toolBtnTextGhost: { color: colors.primary, fontSize: 14, fontWeight: "700" },
   toolHint: { fontSize: 12, color: colors.textMuted, marginTop: 8 },
   sheetBody: { gap: 12, paddingTop: 4 },
+  ghostStartBtn: { backgroundColor: colors.surfaceMuted },
+  ghostStartText: { color: colors.primary },
   primaryBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 12, alignItems: "center" },
   primaryBtnText: { color: "#fff", fontSize: 15, fontWeight: "600" },
   input: {

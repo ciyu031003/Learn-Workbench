@@ -17,7 +17,7 @@ import { router } from "expo-router";
 import { mainPhases, agentPhase } from "@learn-workbench/content";
 import type { Phase } from "@learn-workbench/shared";
 import { formatDuration, pct } from "@learn-workbench/shared";
-import { computeFocusStats } from "@/lib/focus-stats";
+import { UNTAGGED_CONTENT, computeFocusStats } from "@/lib/focus-stats";
 import { radius } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
@@ -329,6 +329,8 @@ export default function LearnScreen() {
   const [shareSheet, setShareSheet] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
+  /** v5 P2-2：学习内容区块的时间范围（今日 / 本周） */
+  const [contentTab, setContentTab] = useState<"today" | "week">("today");
   const [statDate, setStatDate] = useState<Date>(() => new Date());
   const [roadmap, setRoadmap] = useState<Phase[]>(mainPhases.filter((p) => p.track === "main"));
   const [selectedPhaseId, setSelectedPhaseId] = useState<number | null>(mainPhases[0]?.id ?? null);
@@ -391,6 +393,9 @@ export default function LearnScreen() {
 
   const stats = useMemo(() => computeFocusStats(sessions), [sessions]);
   const heatmap = useMemo(() => buildHeatmap(sessions), [sessions]);
+  /** v5 P2-2：当前 tab 的内容汇总 + 占比基准 */
+  const contentRows = contentTab === "today" ? stats.byContent : stats.weekByContent;
+  const maxContentMinutes = contentRows.reduce((m, r) => Math.max(m, r.minutes), 0);
   const [heatWidth, setHeatWidth] = useState(0);
   const heatWeeks = heatmap.length;
   const heatWeekGap = 4;
@@ -717,6 +722,64 @@ export default function LearnScreen() {
           ))}
         </View>
 
+        {/* v5 P2-2：学习内容维度（今日 / 本周）—— 放在目标环之后、热力图之前，不抢 hero 焦点 */}
+        <View style={styles.contentHead}>
+          <Text style={styles.heatLabel}>学习内容</Text>
+          <View style={styles.contentTabs}>
+            {(
+              [
+                { key: "today", label: "今日" },
+                { key: "week", label: "本周" },
+              ] as const
+            ).map((t) => {
+              const active = contentTab === t.key;
+              return (
+                <Pressable
+                  key={t.key}
+                  style={[styles.contentTab, active && styles.contentTabActive]}
+                  onPress={() => setContentTab(t.key)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                >
+                  <Text style={[styles.contentTabText, active && styles.contentTabTextActive]}>{t.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        {contentRows.length === 0 ? (
+          <Text style={styles.contentEmpty}>
+            {contentTab === "today" ? "今天还没有绑定学习内容的专注" : "本周还没有绑定学习内容的专注"}
+          </Text>
+        ) : (
+          <View style={styles.contentList}>
+            {contentRows.map((row) => (
+              <View key={row.label} style={styles.contentRow}>
+                <View style={styles.contentTop}>
+                  <Text style={styles.contentLabel} numberOfLines={1}>
+                    {row.label}
+                  </Text>
+                  <Text style={styles.contentMeta}>
+                    {formatDuration(row.minutes)} · {row.sessions} 次
+                  </Text>
+                </View>
+                <View style={styles.contentTrack}>
+                  <View
+                    style={[
+                      styles.contentFill,
+                      {
+                        width: `${maxContentMinutes > 0 ? Math.round((row.minutes / maxContentMinutes) * 100) : 0}%`,
+                        backgroundColor: row.label === UNTAGGED_CONTENT ? colors.textFaint : colors.accent,
+                      },
+                    ]}
+                  />
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
         <Text style={styles.heatLabel}>可学习时长分布 · 热力图</Text>
         <View
           style={styles.heat}
@@ -1032,6 +1095,20 @@ const makeStyles = (colors: ThemeColors) =>
   tomatoMiniU: { color: colors.textMuted, fontSize: 12, marginBottom: 3 },
 
   heatLabel: { color: colors.text, fontSize: 13, fontWeight: "700" },
+  contentHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 14 },
+  contentTabs: { flexDirection: "row", gap: 6 },
+  contentTab: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999, backgroundColor: colors.surfaceMuted },
+  contentTabActive: { backgroundColor: colors.accent },
+  contentTabText: { fontSize: 12, fontWeight: "700", color: colors.textMuted },
+  contentTabTextActive: { color: "#fff" },
+  contentList: { gap: 10, marginTop: 10 },
+  contentRow: { gap: 5 },
+  contentTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
+  contentLabel: { flex: 1, fontSize: 13.5, fontWeight: "700", color: colors.text },
+  contentMeta: { fontSize: 12, color: colors.textMuted, fontWeight: "600" },
+  contentTrack: { height: 6, borderRadius: 999, backgroundColor: colors.surfaceMuted, overflow: "hidden" },
+  contentFill: { height: "100%", borderRadius: 999 },
+  contentEmpty: { fontSize: 12.5, color: colors.textMuted, marginTop: 8 },
   heat: { flexDirection: "row", gap: 4, alignItems: "flex-start" },
   heatWeek: { gap: 4 },
   heatCell: { width: 13, height: 13, borderRadius: 4 },

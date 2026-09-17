@@ -571,9 +571,21 @@ export default function TodayScreen() {
         key={timerSession}
         open={focusOpen}
         task={
-          focusTask
-            ? { id: focusTask.id, title: focusTask.title }
-            : { id: null, title: timerAuto?.kind === "exercise" ? timerAuto.sportName ?? "运动" : "自由专注" }
+          /**
+           * v5 P2-1：一键开始路径**不再隐式绑定"今天第一个未完成任务"**
+           * （用户不可控，专注会被算到无关任务上）；改为用"这次学什么"作为标题。
+           * 「今日轮播卡 → 开始专注」这条既有路径（timerAuto 为空）仍然绑定 focusTask。
+           */
+          timerAuto
+            ? {
+                id: null,
+                title:
+                  timerAuto.contentLabel ??
+                  (timerAuto.kind === "exercise" ? timerAuto.sportName ?? "运动" : "自由专注"),
+              }
+            : focusTask
+              ? { id: focusTask.id, title: focusTask.title }
+              : { id: null, title: "自由专注" }
         }
         sessions={sessions}
         autoStart={!!timerAuto}
@@ -581,13 +593,17 @@ export default function TodayScreen() {
         initialMinutes={timerAuto?.minutes}
         mode={timerAuto?.kind === "exercise" ? "exercise" : "focus"}
         exerciseLabel={timerAuto?.sportName ?? null}
+        contentLabel={timerAuto?.kind === "focus" ? timerAuto.contentLabel ?? null : null}
         onClose={() => {
           // 关闭时清空一键开始的配置：否则之后从轮播卡「开始专注」进入计时器时，
           // 会继承上一次的运动类型/时长并再次自动开始（写错数据 + 跳过准备页）。
           setFocusOpen(false);
           setTimerAuto(null);
         }}
-        onRecorded={(taskId, seconds) => addSession(taskId, seconds)}
+        onRecorded={(taskId, seconds, label) =>
+          // 轮播卡绑定今日任务时用任务标题兜底（一键开始路径 label 由用户选择决定）
+          addSession(taskId, seconds, label ?? (taskId ? (focusTask?.title ?? null) : null))
+        }
         onExerciseRecorded={(seconds) => {
           if (timerAuto?.sportKey) addSportSeconds(timerAuto.sportKey, seconds);
         }}
