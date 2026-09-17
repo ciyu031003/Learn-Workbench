@@ -2,7 +2,7 @@
   "expo": {
     "name": "苦旅",
     "slug": "learn-workbench",
-    "version": "1.4.1",
+    "version": "1.4.2",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "learnworkbench",
@@ -61,6 +61,6 @@
   },
   "version": "1.2.0",
   "android": {
-    "versionCode": 16
+    "versionCode": 17
   }
 }

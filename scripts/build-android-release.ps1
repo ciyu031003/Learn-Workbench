@@ -281,7 +281,9 @@ if (-not $apksigner) { Fail "找不到 apksigner.bat（build-tools 未安装？�
 Info "校验签名（apksigner verify --print-certs）"
 $prevEap2 = $ErrorActionPreference
 $ErrorActionPreference = "Continue"
-$certs = (& cmd /c "`"$($apksigner.FullName)`" verify --print-certs `"$apk`" 2>&1" | Out-String)
+# ⚠️ 必须 `< nul` 重定向 stdin：apksigner 在 PowerShell 管道里会**等 stdin 而挂死**
+# （2026-09-17 连踩两次：gradle 早已 BUILD SUCCESSFUL，脚本却卡在这一步很久，只能手动取产物）
+$certs = (& cmd /c "`"$($apksigner.FullName)`" verify --print-certs `"$apk`" < nul 2>&1" | Out-String)
 $ErrorActionPreference = $prevEap2
 $md5 = ([regex]::Match($certs, "certificate MD5 digest:\s*([0-9a-fA-F]{32})")).Groups[1].Value.ToLower()
 if (-not $md5) { Info $certs; Fail "未能从 apksigner 输出解析 MD5" }
