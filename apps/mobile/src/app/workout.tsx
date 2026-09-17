@@ -59,6 +59,12 @@ export default function WorkoutScreen() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerIndex, setPickerIndex] = useState<number | null>(null);
   const [pickerPending, setPickerPending] = useState(false);
+  /**
+   * 「用户是**确认选了动作**才关掉选择弹层」的意图标记（v5 P1-4）。
+   * 没有它时：`onPickerClosed` 无条件重开记录弹层 → 用户点空白只关一层又自动弹回，弹窗关不掉。
+   * 只有 `applyPicked`（用户点了「加入训练」）才置位；关闭出口一律清零。
+   */
+  const [pickerReturn, setPickerReturn] = useState(false);
   /** 每次打开选择弹层自增 → 换 key 让它重新挂载，状态天然重置（不在 effect 里 setState） */
   const [pickerSession, setPickerSession] = useState(0);
 
@@ -114,26 +120,51 @@ export default function WorkoutScreen() {
     if (pickerPending) return;
     setPickerIndex(index);
     setPickerPending(true);
+    // 新一轮开始：清掉上一轮可能残留的"确认返回"意图
+    setPickerReturn(false);
     setPickerSession((s) => s + 1);
     setSheetOpen(false);
   };
 
   /** 记录弹层退场结束后，若用户刚才是去选动作，则接着打开选择弹层 */
   const onRecordSheetClosed = () => {
-    if (pickerPending) setPickerOpen(true);
+    // 防御：只有这轮确实是"为选动作而关"，且选择弹层尚未打开时才开
+    if (!pickerPending || pickerOpen) return;
+    setPickerOpen(true);
   };
 
-  /** 选择弹层退场结束后回到记录弹层（新增/替换都回到表单，用户可继续加动作） */
+  /**
+   * 选择弹层退场结束后：**只有用户确认选了动作**才回到记录弹层；
+   * 点空白/返回键关闭一律不回（P1-4：否则"关一层又弹回来"，弹窗关不掉）。
+   */
   const onPickerClosed = () => {
     setPickerPending(false);
-    setSheetOpen(true);
+    if (pickerReturn) setSheetOpen(true);
+    setPickerReturn(false);
+  };
+
+  /** 记录弹层被用户关闭（点空白/关闭钮/返回键）：无条件清零两个标记 */
+  const closeRecordSheet = () => {
+    setPickerPending(false);
+    setPickerReturn(false);
+    setSheetOpen(false);
+  };
+
+  /** 选择弹层被用户关闭：清掉"等待串行"标记，但保留 return（确认路径由 onClosed 消费） */
+  const closePickerSheet = () => {
+    setPickerPending(false);
+    setPickerOpen(false);
   };
 
   const applyPicked = (item: DraftItem) => {
+    // 退场动画期间 Modal 仍可点：不做守卫会 append 两行（审查发现）
+    if (!pickerOpen) return;
     setItems((prev) => {
       if (pickerIndex === null) return [...prev, item];
       return prev.map((x, i) => (i === pickerIndex ? item : x));
     });
+    // 置位"确认返回"意图：onPickerClosed 才会把记录弹层接回来
+    setPickerReturn(true);
     setPickerOpen(false);
   };
 
@@ -269,7 +300,7 @@ export default function WorkoutScreen() {
       {/* 记录训练（新建 / 编辑共用） */}
       <BottomSheet
         visible={sheetOpen}
-        onClose={() => setSheetOpen(false)}
+        onClose={closeRecordSheet}
         onClosed={onRecordSheetClosed}
         title={editingId === null ? "记录训练" : "编辑训练"}
         height="80%"
@@ -364,7 +395,7 @@ export default function WorkoutScreen() {
       <ExercisePickerSheet
         key={pickerSession}
         visible={pickerOpen}
-        onClose={() => setPickerOpen(false)}
+        onClose={closePickerSheet}
         onClosed={onPickerClosed}
         onConfirm={applyPicked}
         initial={pickerInitial}

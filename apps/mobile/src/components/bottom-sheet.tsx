@@ -1,22 +1,14 @@
 /* eslint-disable react-hooks/immutability, react-hooks/set-state-in-effect */
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Dimensions,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from "react-native";
+import { Dimensions, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import { useReanimatedKeyboardAnimation } from "react-native-keyboard-controller";
 import Animated, {
   Easing,
   runOnJS,
   useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
@@ -80,17 +72,29 @@ export function BottomSheet({
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const { height: winH } = useWindowDimensions();
-  /** 设备屏幕高度：键盘补偿的基准（window 高度在 Android adjustResize 下会变小，不能当基准） */
+  /**
+   * 高度基准一律用**屏幕高度**（`Dimensions.get("screen")`），不用 `useWindowDimensions()`：
+   * Android `adjustResize` 在键盘弹出时会把 window 变矮，若拿它当基准，
+   * 弹层高度会跟着缩小 → 视觉上"顶边往下缩"（v1.4.0 真机反馈）。
+   * "窗口是否已被键盘 resize 吃掉一部分"改用**实测根容器高度**判断（见 eatenByResize）。
+   */
   const screenHeight = Dimensions.get("screen").height;
   const ratio = parsePercent(height, 0.5);
-  const collapsed = winH * ratio;
-  const full = winH * 0.94;
+  /**
+   * 高度基准用"屏幕高 − 状态栏 − 底部安全区"，而不是裸 screen 高度：
+   * 0.92/0.94 档若按裸屏高算，顶边会落进状态栏（审查发现）。
+   * 这个基准对键盘免疫（不随窗口 resize 变化），配合下面的 `eatenByResize` 做自校正。
+   */
+  const usableScreen = Math.max(240, screenHeight - insets.top - insets.bottom);
+  const collapsed = usableScreen * ratio;
+  const full = usableScreen * 0.94;
   const maxOffset = Math.max(0, full - collapsed);
 
   // 收起态 = 停在 collapsed 高度；展开态 = 上移 maxOffset
   const restOffset = expandable ? maxOffset : 0;
   const [mounted, setMounted] = useState(visible);
+  /** 根容器实测高度：判断窗口是否已被键盘 resize 吃掉一部分（见 eatenByResize） */
+  const [rootH, setRootH] = useState(screenHeight);
   const [expanded, setExpanded] = useState(false);
 
   /** 键盘高度（reanimated 共享值；键盘收起时为 0） */
@@ -99,25 +103,38 @@ export function BottomSheet({
   const dragBase = useSharedValue(restOffset);
   const scrim = useSharedValue(0);
 
+  /**
+   * 把 collapsed / restOffset 放进共享值，供"滑入滑出" effect 读取：
+   * 若把它们留在依赖数组里，键盘/窗口尺寸变化会重播滑入动画（弹层会从下方重新弹一次）。
+   * 这个同步 effect 必须声明在滑入 effect **之前**（effect 按声明顺序执行）。
+   */
+  const collapsedSV = useSharedValue(collapsed);
+  const restOffsetSV = useSharedValue(restOffset);
+  useEffect(() => {
+    collapsedSV.value = collapsed;
+    restOffsetSV.value = restOffset;
+  }, [collapsed, restOffset, collapsedSV, restOffsetSV]);
+
   // 滑入 / 滑出（Modal 不做动画，全部自己实现）
   useEffect(() => {
     if (visible) {
       setMounted(true);
       setExpanded(false);
-      translateY.value = collapsed;
-      dragBase.value = restOffset;
+      translateY.value = collapsedSV.value;
+      dragBase.value = restOffsetSV.value;
       scrim.value = withTiming(1, { duration: SLIDE_IN, easing: Easing.out(Easing.cubic) });
       translateY.value = withTiming(0, { duration: SLIDE_IN, easing: Easing.out(Easing.cubic) });
     } else if (mounted) {
       scrim.value = withTiming(0, { duration: SLIDE_OUT, easing: Easing.in(Easing.cubic) });
-      translateY.value = withTiming(collapsed, { duration: SLIDE_OUT, easing: Easing.in(Easing.cubic) }, (fin) => {
+      translateY.value = withTiming(collapsedSV.value, { duration: SLIDE_OUT, easing: Easing.in(Easing.cubic) }, (fin) => {
         if (fin) {
           runOnJS(setMounted)(false);
           if (onClosedRef.current) runOnJS(onClosedRef.current)();
         }
       });
     }
-  }, [visible, mounted, collapsed, restOffset, scrim, translateY, dragBase]);
+    // 只在 visible/mounted 变化时播动画（collapsed/restOffset 走上面的共享值同步，不进依赖）
+  }, [visible, mounted, scrim, translateY, dragBase, collapsedSV, restOffsetSV]);
 
   const close = useCallback(() => {
     setExpanded(false);
@@ -157,8 +174,9 @@ export function BottomSheet({
     .onEnd((e) => {
       const current = dragBase.value + e.translationY;
       if (!expandable) {
-        // 非展开态：下滑关闭
-        if (current > 110 || e.velocityY > 900) {
+        // 非展开态：下滑关闭。阈值把键盘抬起量算进去，
+        // 否则视觉上弹层已被 lift 抬起、用户却要多拖 lift 像素才触发关闭（审查发现）
+        if (current - lift.value > 110 || e.velocityY > 900) {
           runOnJS(close)();
         } else {
           translateY.value = withTiming(0, { duration: SLIDE_OUT, easing: Easing.out(Easing.cubic) });
@@ -179,21 +197,42 @@ export function BottomSheet({
   const handleGesture = Gesture.Exclusive(panGesture, tapGesture);
 
   // ⚠️ 顺序约束：worklet 会在**定义处**快照它引用的自由变量（babel worklets 插件），
-  // 所以 `sheetHeight` / `maxSheetHeight` / `screenHeight` 必须声明在下面两个 useAnimatedStyle **之前**，
-  // 否则 worklet 捕获到 undefined（键盘补偿失效，甚至把弹层高度写成 NaN）。
+  // 所以这些量必须声明在下面两个 useAnimatedStyle **之前**。
   const sheetHeight = expandable ? full : collapsed;
-  /** 键盘补偿的上界：用 screen 高度（不会被 Android adjustResize 改小）而非 window 高度 */
-  const maxSheetHeight = Math.max(160, screenHeight - insets.top);
+  /** 弹层顶边允许到达的最高位置（减掉状态栏 + 底部安全区） */
+  const maxSheetHeight = Math.max(160, usableScreen);
+
+  /**
+   * 键盘避让（v1.4.0 反馈："搜索框往下缩，更看不到内容"）——**自校正**几何，两个平台都对：
+   *
+   * 关键事实：Android 的 Modal 是 Dialog，RN 给它设了 `ADJUST_RESIZE` → 键盘弹出时**窗口自己就变矮**
+   * （`useWindowDimensions()` 会变小），而 iOS 的 Modal 全屏、窗口不变。
+   * 因此"要补多少"取决于窗口是否已经把键盘高度吃掉：
+   *   - iOS：`winH ≈ screenH` → `eaten = 0` → 需要整体上抬 `kb`
+   *   - Android：`winH ≈ screenH - kb` → `eaten ≈ kb` → **不需要再抬**（否则就是之前那种双重补偿）
+   *
+   * 同时**按键盘高度收缩高度**（而不是恒定高度）：高弹层（82%/92%）若不收缩，
+   * 顶边会被变矮的窗口裁掉（标题/搜索框看不见）——这是审查发现的阻断点。
+   *   `height = min(sheetHeight, usableScreen - kb)`：顶边永远 ≥ 安全区；
+   *   `lift   = max(0, kb - eaten)`：底边永远贴在键盘上沿。
+   *
+   * `eaten` 用**实测根容器高度**（onLayout）而不是 `useWindowDimensions()`：
+   * Modal 是独立 Window，`useWindowDimensions` 在其中是否反映 Dialog 的 resize 语义不够确定；
+   * onLayout 给的是真实布局高度 —— Android 被 resize 时 rootH ≈ screenH - kb → eaten ≈ kb → 不再上抬；
+   * iOS 全屏 rootH ≈ screenH → eaten = 0 → 整体上抬 kb。
+   */
+  const eatenByResize = useDerivedValue(() => Math.max(0, screenHeight - rootH));
+  const lift = useDerivedValue(() => {
+    const kb = Math.abs(keyboardAnim.value);
+    return Math.max(0, kb - eatenByResize.value);
+  });
 
   const animatedSheet = useAnimatedStyle(() => {
-    // v4 P2 键盘适配：键盘弹出时按键盘高度**收缩弹层高度**，
-    // 让输入框与底部保存按钮始终落在键盘之上。
-    // 旧的 KeyboardAvoidingView(behavior 仅 iOS) + "挂载时算死的像素高度" 在 Android 上必然被挡。
     const kb = Math.abs(keyboardAnim.value);
     const available = Math.max(160, maxSheetHeight - kb);
     return {
       height: Math.min(sheetHeight, available),
-      transform: [{ translateY: translateY.value }],
+      transform: [{ translateY: translateY.value - lift.value }],
       opacity: 0.6 + scrim.value * 0.4,
     };
   });
@@ -203,13 +242,20 @@ export function BottomSheet({
 
   return (
     <Modal visible={mounted} transparent animationType="none" onRequestClose={close} statusBarTranslucent>
-      <View style={styles.root}>
+      {/*
+        必须再包一层 `GestureHandlerRootView`：Android 的 Modal 是独立 Window，
+        主 Window 的根 view（_layout.tsx 里那个）收不到它的触摸流 →
+        Modal 内的 Pan/Pinch（LiveLog 拖贴纸、portion-slider 等）会**静默失效**（v1.4.0 反馈）。
+        注意：下拉关闭手势只挂在 grabber 区（handleZone），内容区滚动不受它影响。
+      */}
+      <GestureHandlerRootView style={styles.root} onLayout={(e) => setRootH(e.nativeEvent.layout.height)}>
         <Animated.View style={[styles.scrimWrap, animatedScrim]}>
           <Pressable style={styles.scrim} onPress={close} accessibilityLabel="关闭弹层" />
         </Animated.View>
 
-        <Animated.View style={[styles.sheetWrap, { height: sheetHeight }, animatedSheet]}>
-          <GlassSurface corner={SHEET_CORNER} padded={false} style={styles.sheet}>
+        <Animated.View style={[styles.sheetWrap, animatedSheet]}>
+          {/* opaque：弹窗必须是实底（玻璃会"看穿"到底部内容） */}
+          <GlassSurface corner={SHEET_CORNER} padded={false} opaque style={styles.sheet}>
             <GestureDetector gesture={handleGesture}>
               <View style={styles.handleZone} accessibilityRole="adjustable">
                 <View style={styles.grabber} />
@@ -240,7 +286,7 @@ export function BottomSheet({
             </View>
           </GlassSurface>
         </Animated.View>
-      </View>
+      </GestureHandlerRootView>
     </Modal>
   );
 }

@@ -63,6 +63,7 @@ export function GlassSurface({
   padded = true,
   tint,
   interactive = false,
+  opaque = false,
 }: {
   children?: ReactNode;
   style?: StyleProp<ViewStyle>;
@@ -72,11 +73,24 @@ export function GlassSurface({
   tint?: string;
   /** 可交互玻璃（iOS 26 按压高亮） */
   interactive?: boolean;
+  /**
+   * 实底模式（v5 P1-2）：弹窗/抽屉必须不透光，否则底下的内容会"看穿"过来。
+   * - iOS：玻璃照旧，但用 `surfaceStrong` 作为 tint 压住透光；
+   * - 其它平台：回落分支直接用 `surfaceStrong` 实底，不再叠半透明覆盖层。
+   * Hero 卡不要传这个（决策 D2：只改弹窗，Hero 保留玻璃观感）。
+   */
+  opaque?: boolean;
 }) {
   const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
-  if (glassSupported()) {
+  /**
+   * `opaque`：弹窗/抽屉要求"完全看不穿"（v1.5 反馈）。
+   * iOS 的 `GlassView` 是系统玻璃材质，`tintColor` 只染色、**不保证不透光** ——
+   * 所以 opaque 时**两个平台都走实底分支**，牺牲玻璃质感换取确定性（只有 sheet 传这个开关，
+   * Hero 卡仍走上面的玻璃分支）。
+   */
+  if (glassSupported() && !opaque) {
     return (
       <GlassView
         glassEffectStyle="regular"
@@ -97,7 +111,7 @@ export function GlassSurface({
         { borderRadius: corner },
         padded && styles.padded,
         styles.elevated,
-        glassTintOverlay(colors, dark, tint),
+        opaque ? { backgroundColor: colors.surfaceStrong } : glassTintOverlay(colors, dark, tint),
         style,
       ]}
     >

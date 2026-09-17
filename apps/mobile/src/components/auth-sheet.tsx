@@ -1,8 +1,6 @@
 import { useEffect, useState , useMemo } from "react";
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -126,7 +124,8 @@ export function AuthSheet({
     setNotice(mode === "login" ? "创建新账号，本地数据会自动同步云端" : null);
   };
 
-  // 自带 KeyboardAvoidingView + ScrollView：关闭内置滚动，避免嵌套滚动抢手势
+  // 内置 ScrollView 即可：键盘避让由 BottomSheet 统一做（v5 P1-3 移除了这里重复的 KeyboardAvoidingView，
+  // 否则两层避让会叠加，弹层被顶得更高/内容跳动）
   return (
     <BottomSheet
       visible={visible}
@@ -135,7 +134,7 @@ export function AuthSheet({
       height="82%"
       scroll={false}
     >
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.flex}>
+      <View style={styles.flex}>
         <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
           <View style={styles.brand}>
             <View style={styles.brandLogo}>
@@ -243,7 +242,7 @@ export function AuthSheet({
 
           <Text style={styles.hint}>登录后本机数据自动同步云端；不登录也可以离线使用全部功能。</Text>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </View>
     </BottomSheet>
   );
 }

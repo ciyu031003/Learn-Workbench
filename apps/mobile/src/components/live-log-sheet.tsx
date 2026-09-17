@@ -373,17 +373,30 @@ function DraggableSticker({
   const ty = useSharedValue(sticker.y * size.h);
   const sc = useSharedValue(sticker.scale);
   const startScale = useSharedValue(sticker.scale);
-  /** 手指按下时"贴纸中心 − 手指"的偏移：不加它贴纸会在按下瞬间跳到手指中心 */
-  const grabX = useSharedValue(0);
-  const grabY = useSharedValue(0);
-
-  // 外部（回写后被夹取、或打开时载入）变化 → 同步回共享值
+  /**
+   * 画布尺寸变化（键盘弹出、旋转、窗口 resize）时，按**归一化坐标**重算像素位置。
+   * 只依赖 `size`：不依赖 `sticker.x/y`，避免在手势进行中被外部状态抢值（审查发现：
+   * 原先只在挂载时初始化一次，尺寸变化后渲染像素仍是旧的 → 贴纸整体错位）。
+   */
   useEffect(() => {
     tx.value = sticker.x * size.w;
     ty.value = sticker.y * size.h;
-    sc.value = sticker.scale;
-  }, [sticker.x, sticker.y, sticker.scale, size.w, size.h, tx, ty, sc]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 有意只跟随画布尺寸
+  }, [size.w, size.h]);
+  /**
+   * 用**相对位移**拖动（而不是 absolute 坐标）：
+   * Modal 是独立 Window，`e.absoluteX/Y` 与画布局部坐标不在同一空间（v1.4.0 反馈"贴纸拖不动/位置固定"，
+   * 即使手势生效，坐标系混用也会让贴纸乱跳或贴边）。改记录"按下时的位置"，再用 translation 增量。
+   */
+  const startX = useSharedValue(0);
+  const startY = useSharedValue(0);
 
+  /**
+   * 回调（`setSelected` / `commit` / `commitScale`）在父组件里都是稳定引用
+   * （useState setter 与 useCallback([])），所以直接进手势依赖**不会**导致手势重建，
+   * 也就不需要 ref 转发（用 ref 反而会被 `react-hooks/refs` 判为"渲染期访问 ref"）。
+   */
+  /** 贴纸中心的可达范围（归一化 8%~92%）：任何拖动都被夹在这里，贴纸不会跑出画布 */
   const minX = size.w * 0.08;
   const maxX = size.w * 0.92;
   const minY = size.h * 0.08;
@@ -392,15 +405,15 @@ function DraggableSticker({
   const pan = useMemo(
     () =>
       Gesture.Pan()
-        .onBegin((e) => {
+        .onBegin(() => {
           // 按下即选中（顺带覆盖"单击选中"的语义，不必再叠一个 Tap 手势）
           runOnJS(onSelect)(sticker.id);
-          grabX.value = tx.value - e.absoluteX;
-          grabY.value = ty.value - e.absoluteY;
+          startX.value = tx.value;
+          startY.value = ty.value;
         })
         .onUpdate((e) => {
-          const nx = e.absoluteX + grabX.value;
-          const ny = e.absoluteY + grabY.value;
+          const nx = startX.value + e.translationX;
+          const ny = startY.value + e.translationY;
           tx.value = nx < minX ? minX : nx > maxX ? maxX : nx;
           ty.value = ny < minY ? minY : ny > maxY ? maxY : ny;
         })
@@ -408,7 +421,7 @@ function DraggableSticker({
           // 松手才回写状态：拖动过程零 React 重渲染
           runOnJS(onCommit)(sticker.id, tx.value / size.w, ty.value / size.h);
         }),
-    [grabX, grabY, maxX, maxY, minX, minY, onCommit, onSelect, size.h, size.w, sticker.id, tx, ty]
+    [maxX, maxY, minX, minY, onCommit, onSelect, size.h, size.w, startX, startY, sticker.id, tx, ty]
   );
 
   const pinch = useMemo(

@@ -372,7 +372,10 @@ const makeStyles = (colors: ThemeColors) =>
       paddingVertical: 9,
     },
     searchInput: { flex: 1, fontSize: 14, color: colors.text, padding: 0 },
-    tabRow: { gap: 8, paddingVertical: 2 },
+    // alignItems:"center"：横向 ScrollView 的内容容器默认 alignItems:"stretch"，
+    // 会把 pill 纵向拉满 → 表现为"长条椭圆 + 文字下方留白"（v1.4.0 反馈）。
+    // 不要给 chip 加 flex:1（那会让 6 个分类平分宽度，又变回长条）。
+    tabRow: { gap: 8, paddingVertical: 2, alignItems: "center" },
     tab: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: colors.surfaceMuted },
     tabActive: { backgroundColor: colors.primarySoft },
     tabText: { fontSize: 12, color: colors.textMuted, fontWeight: "600" },
