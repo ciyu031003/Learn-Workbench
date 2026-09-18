@@ -19,7 +19,7 @@
 | P0-3 | 手动添加饮食提示成功但页面没有、数据仍 0 | addManual() 在**没真正落库**（离线/5xx/401）时也执行 load()，服务端列表把乐观入账**覆盖掉**（quickAdd() 没有这问题，所以「鸡蛋」能显示） | **必修 · 数据丢失观感** |
 | P1-1 | 食物列表「一食物一行」太占地方 | 现为单列行卡（styles.foodChip）；改为 2 列大图标网格 | 体验 |
 | P1-2 | 常用食物不分餐次 | /api/nutrition/foods 只有 sort=recent，无 meal 维度 | 功能 |
-| P1-3 | 需要食物营养库（热量/蛋白/脂肪/碳水）+ 模糊搜索 + 按克换算 | 新增营养基准库表 + 导入管线 + pg_trgm 模糊搜索 + 按克录入；**数据源许可需先决策（D1）** | 功能 · 需迁移 |
+| P1-3 | 需要食物营养库（热量/蛋白/脂肪/碳水）+ 模糊搜索 + 按克换算 | 新增营养基准库表 + 导入管线 + 模糊搜索（**字符覆盖率**，中文友好；pg_trgm 对纯中文失效，见踩坑 81）+ 按克录入；**数据源许可需先决策（D1）** | 功能 · 需迁移 |
 | P2-1 | 训练记录动作明细的 ± 图标挨着、尺寸差 | workout.tsx 三个 MiniStepper 并排（每个 28×28、间隙 4/8），相邻字段的 + 与 − 贴在一起 | 体验 |
 | P2-2 | 分类按钮太小、上下大片空白 | exercise-picker-sheet.tsx 用横向文字 pill（fontSize 12 / paddingVertical 6）；改为 2×2 大卡片 + 按压动效 | 体验 |
 | P3-1 | 跳过职业/换领域后学习页空、无法自建 | 移动端 lib/roadmap.ts **硬编码 career=ict**；空态无引导；三级内容（H3）无存储 | 功能 · 需迁移 |
@@ -153,7 +153,7 @@
 **推荐方案 B（新建基准库，不动现有语义）**——迁移 047 草案：
 
 ```sql
-CREATE EXTENSION IF NOT EXISTS pg_trgm;            -- 模糊搜索（PG16+ trusted，库 owner 可建）
+CREATE EXTENSION IF NOT EXISTS pg_trgm;            -- 仅服务英文名/拼音；纯中文不生成 trigram（见踩坑 81）
 
 CREATE TABLE food_items (                          -- 营养基准库（只读、可重建、可清空重导）
   id             bigserial PRIMARY KEY,
@@ -209,7 +209,8 @@ ALTER TABLE meal_entries ADD COLUMN IF NOT EXISTS food_item_id bigint;  -- 指�
 #### 2.3.4 模糊搜索（**决策 D3**）
 
 - 端点：GET /api/foods/search?q=番茄鸡蛋面&meal=lunch&limit=20（或复用 /api/nutrition/foods 加 source=db）；
-- SQL 排序：GREATEST(similarity(name, q), similarity(coalesce(pinyin, ''), q)) + name ILIKE 命中 + q = ANY(aliases) + 本人使用频次；阈值 similarity > 0.25 → 支持错别字（鸡旦 → 鸡蛋）；
+- SQL 排序：**字符覆盖率**（`|查询串字符 ∩ 名称字符| / 查询串长度`，阈值 ≥ 0.5，支持错别字「鸡旦 → 鸡蛋」）+ 子串命中（名称/英文名/拼音/别名）+ 本人使用频次；
+  ⚠️ **不要用 pg_trgm 的 similarity()**：实测 `show_trgm('番茄鸡蛋面') = {}` —— pg_trgm 只把字母数字当词，纯中文不生成 trigram，similarity 恒为 0（见踩坑 81，已实测纠正）；
 - 返回体：{ id, name, basisAmount, basisUnit, kcal, proteinG, carbsG, fatG, score }；
 - 客户端：300ms 防抖 + 请求序号守卫（项目里 loadSeq 已有同款模式），离线时回退本地缓存（AsyncStorage，最近 200 条 + 常用）。
 
@@ -353,7 +354,7 @@ ALTER TABLE meal_entries ADD COLUMN IF NOT EXISTS food_item_id bigint;  -- 指�
 | 端点 | 变更 |
 | --- | --- |
 | GET /api/nutrition/foods | 新增 meal 参数与三级排序 |
-| GET /api/foods/search（新） | 模糊搜索（trgm + 别名 + 拼音 + 频次） |
+| GET /api/foods/search（新） | 模糊搜索（字符覆盖率 + 别名 + 拼音 + 频次） |
 | POST /api/nutrition | 新增 foodItemId + grams 分支，服务端换算 |
 | POST /api/roadmap/import（新） | MD 解析结果批量入库（事务 + 限额 + 幂等） |
 | GET /api/internal/cron?job=food（新） | 食物库增量导入（默认关闭，需显式启用） |
@@ -384,7 +385,7 @@ ALTER TABLE meal_entries ADD COLUMN IF NOT EXISTS food_item_id bigint;  -- 指�
 | --- | --- | --- |
 | **D1** | 食物数据源与许可 | OFF（ODbL，署名+开放）+ USDA（CC0）+ 自建中餐 200 条；**不使用**无 license 的《中国食物成分表》JSON（除非你接受版权风险） |
 | **D2** | 表模型 | 新建 food_items 基准库（方案 B），现有 foods 当「我的常用」 |
-| **D3** | 模糊搜索 | pg_trgm + 别名 + 拼音，服务端排序；客户端 300ms 防抖 |
+| **D3** | 模糊搜索 | **字符覆盖率**（中文友好）+ 别名 + 拼音，服务端排序；客户端 300ms 防抖（pg_trgm 对纯中文失效） |
 | **D4** | 学习页是否跟随领域 | 是（career 参数化，默认回落 ict）；跳过职业的用户给空态引导 |
 | **D5** | 空态入口 | 导入 MD / 手动新建阶段 / 从模板创建 三入口 |
 | **D6** | H3 内容存储 | 新建 content_topic_items（可勾选/排序）；备选塞 content_md |

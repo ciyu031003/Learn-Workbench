@@ -5,6 +5,16 @@
 -- 说明     : 内容数据 + 用户数据 + 背景图记录，P1 云同步复用同一结构（Supabase）
 -- ============================================================================
 
+-- ---------- 1. 用户（**必须先建**：内容表的 owner_id / user_id 外键引用它） ----------
+
+CREATE TABLE users (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  email        text UNIQUE,
+  display_name text,
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  updated_at   timestamptz NOT NULL DEFAULT now()
+);
+
 -- ---------- 0. 内容数据（只读，seed 自 db/seed_content.sql） ----------
 
 CREATE TABLE content_phases (
@@ -77,15 +87,6 @@ CREATE TABLE careers (
   sort_order  int NOT NULL DEFAULT 0
 );
 
--- ---------- 1. 用户（P1 云同步启用；本地匿名模式 user_id 为 NULL） ----------
-
-CREATE TABLE users (
-  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  email        text UNIQUE,
-  display_name text,
-  created_at   timestamptz NOT NULL DEFAULT now(),
-  updated_at   timestamptz NOT NULL DEFAULT now()
-);
 
 -- ---------- 2. 主题进度 ----------
 
@@ -128,7 +129,14 @@ CREATE TABLE focus_sessions (
   ended_at         timestamptz,
   duration_seconds int,
   tag              text,
-  created_at       timestamptz NOT NULL DEFAULT now()
+  -- 以下列由迁移补齐（005 增量同步 / 016 安全加固 / 028 幂等）；这里同步登记，
+  -- 否则「全新库执行 schema.sql」会在 uq_focus_sessions_client_anon 处失败（踩坑 82）
+  client_id        text,
+  anon_id          text,
+  focus_minutes_applied boolean NOT NULL DEFAULT false,
+  deleted_at       timestamptz,
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  updated_at       timestamptz NOT NULL DEFAULT now()
 );
 
 -- ---------- 5. 打卡（连续打卡由 checkins 聚合计算） ----------

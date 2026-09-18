@@ -6,6 +6,9 @@
 --   builtin = 自建中餐常见菜/食材（自有数据，scripts/data/food-builtin.json）
 -- 不使用《中国食物成分表》等有版权的数据（该库只在本地做人工参考，不入库、不入 git）。
 
+-- ⚠️ pg_trgm 对**纯中文**不生成 trigram（实测 show_trgm('番茄鸡蛋面') = {} → similarity() 恒为 0），
+--    中文模糊匹配由应用层的「字符覆盖率」评分实现（apps/web/app/api/foods/search/route.ts，见看板踩坑 81）。
+--    扩展与索引仍然保留：英文名 / 拼音（ASCII）场景可用。
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 CREATE TABLE IF NOT EXISTS food_items (

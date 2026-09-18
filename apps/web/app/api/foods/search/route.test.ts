@@ -32,7 +32,9 @@ describe("GET /api/foods/search（v6 P1-3 营养基准库模糊搜索）", () =>
     expect(body.meal).toBe("lunch");
     expect(body.items[0].basisAmount).toBe("500");
     const sql = String(queryMock.mock.calls[0][0]);
-    expect(sql).toContain("similarity(fi.name, $2)");
+    // 中文友好评分：字符覆盖率 + 子串命中（不用 similarity，见踩坑 81）
+    expect(sql).toContain("regexp_split_to_array");
+    expect(sql).toContain("s.score >= 0.5");
     expect(sql).toContain("unnest(fi.aliases)");
     expect(sql).toContain("meal_tags @> ARRAY[$3::text]");
     expect(sql).toContain("LIMIT 5");

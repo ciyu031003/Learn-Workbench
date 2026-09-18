@@ -6,7 +6,7 @@
 - Monorepo: pnpm workspace + Turborepo. Commands run from repo root: `pnpm -F web dev` (web), `pnpm mobile` (Expo).
 - Never edit compiled output (`.next`, `dist`, `/build`). Never commit `.env`, `deploy-credentials.txt`, `config/job-hosts/storageState.json`.
 - Every `app/api/**/route.ts` ships a sibling `route.test.ts`. Run `pnpm -F web test` before touching routes.
-- Database: PostgreSQL (`scripts/start_pg.ps1` → `127.0.0.1:5432`, db `Learn-Workbench`, user `lwb`). Schema in `db/schema.sql`; `db/migrations/` are incremental, appended not modified.
+- Database: PostgreSQL (`scripts/start_pg.ps1` → `127.0.0.1:5432`, db `Learn-Workbench`, user `lwb`). Schema in `db/schema.sql`; `db/migrations/` are incremental, appended not modified. After touching either, run `node scripts/check-schema-fresh.mjs` (applies schema.sql + all migrations to an empty DB and reports drift — production only runs new migrations, so drift otherwise stays invisible).
 - Data isolation: every business query filters by `user_id` (or `anon_id` when anonymous).
 - Auth: Cookie/Bearer session in `apps/web/lib/session.ts`; router guard in `apps/web/proxy.ts` (`/dashboard /roadmap /tasks /logs /settings` → 307 to `/login`).
 
@@ -27,4 +27,4 @@
 - `pnpm -F web build` (Next 16 + Turbopack; `pnpm -r test` runs all workspaces)
 - `pnpm test:e2e` — Playwright against a running server (`E2E_BASE_URL`, credentials via env)
 - Deploy: `bash deploy-docker.sh` (Docker compose db+init+web) or `bash deploy.sh` (PM2); prod at `106.55.2.197`, domain `https://learn.yuanabd.cn`.
-- Daily pipeline: host crontab → `POST /api/internal/cron?job=crawl|aggregate|maintenance` (auth `x-cron-secret` = env `CRON_SECRET`); user-facing market/public-stats read pre-aggregated snapshots, crawlers are batch-only (admin trigger is fallback).
+- Daily pipeline: host crontab → `POST /api/internal/cron?job=crawl|aggregate|backfill|maintenance|food` (auth `x-cron-secret` = env `CRON_SECRET`); user-facing market/public-stats read pre-aggregated snapshots, crawlers are batch-only (admin trigger is fallback).
