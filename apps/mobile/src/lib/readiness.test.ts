@@ -76,6 +76,24 @@ describe("computeReadiness", () => {
     expect(r.weakest).toBeNull();
   });
 
+  // v7 P2：健康页 hero 的分解条要用四项比例
+  it("parts 返回四项 0..1 比例（训练按「有没有练」二值）", () => {
+    const r = computeReadiness({
+      ...base,
+      tasksTotal: 4,
+      tasksDone: 2,
+      habitsScheduled: 4,
+      habitsDone: 1,
+      workoutMinutes: 25,
+      nutritionKcal: 1000,
+      nutritionTargetKcal: 2000,
+    });
+    expect(r.parts.tasks).toBe(0.5);
+    expect(r.parts.habits).toBe(0.25);
+    expect(r.parts.workout).toBe(1);
+    expect(r.parts.nutrition).toBe(0.5);
+  });
+
   it("异常输入（负数 / NaN）不产生 NaN 分", () => {
     const r = computeReadiness({ ...base, tasksTotal: -3, tasksDone: Number.NaN, habitsScheduled: Number.NaN });
     expect(Number.isFinite(r.score)).toBe(true);

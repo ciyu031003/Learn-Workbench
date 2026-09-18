@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
 import { useAppStore } from "@/store/app-store";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -21,12 +21,13 @@ import {
 import { Card } from "@/components/card";
 import { Button, ButtonRow } from "@/components/button";
 import { ListGroup, ListRow } from "@/components/list-row";
+import { GroupLabel } from "@/components/group-label";
+import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
 import { router } from "expo-router";
 import { AuthSheet } from "@/components/auth-sheet";
 import { haptics } from "@/lib/haptics";
-import { radius , type ThemeMode } from "@/theme/tokens";
-import type { ThemeColors } from "@/theme/tokens";
+import type { ThemeColors, ThemeMode } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { resolveEdgeSwipeEnabled } from "@/lib/edge-swipe";
 
@@ -58,8 +59,8 @@ export default function SettingsScreen() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [updateState, setUpdateState] = useState<"idle" | "checking" | "latest" | "update" | "failed">("idle");
-  // 「进阶设置」默认折叠：首屏只留账号 / 外观 / 关于（信息精简，见 v2 方案 §3）
-  const [advancedOpen, setAdvancedOpen] = useState(false);
+  // v7 P1：主题改为弹层选择（分组卡片范式里没有折叠卡）
+  const [themeOpen, setThemeOpen] = useState(false);
 
 
   const [domains, setDomains] = useState<{ career_key: string; name: string; kind?: string; kind_label?: string }[]>([]);
@@ -203,6 +204,28 @@ export default function SettingsScreen() {
     ]);
   };
 
+  /** v7 P1：分组卡片右侧「值」的文案（截图范式：值 + 箭头） */
+  const themeLabel = themeMode === "light" ? "浅色" : themeMode === "dark" ? "深色" : "跟随系统";
+  const updateLabel =
+    updateState === "update"
+      ? "发现新版本"
+      : updateState === "latest"
+        ? "已是最新"
+        : updateState === "failed"
+          ? "检查失败"
+          : `v${APP_VERSION_NAME}`;
+  const syncHint = engine.syncing
+    ? "正在同步…"
+    : !engine.online
+      ? `当前离线${pendingCount ? ` · ${pendingCount} 条待同步` : ""}`
+      : !token
+        ? "登录后自动同步到云端"
+        : pendingCount
+          ? `${pendingCount} 条待同步，稍后自动上传`
+          : lastSyncedAt
+            ? `已同步 · ${lastSyncedAt.slice(0, 16).replace("T", " ")}`
+            : "本机与云端已同步";
+
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
       <View style={[styles.hero, { paddingTop: insets.top + 24 }]}>
@@ -210,19 +233,22 @@ export default function SettingsScreen() {
         <Text style={styles.heroSub}>账号 · 学习领域 · 数据同步</Text>
       </View>
 
-      <Card title="账号" subtitle={token ? "登录中，学习数据将自动同步云端" : "登录后同步云端，离线数据不会丢失"}>
-        {token ? (
-          <View style={styles.accountHeader}>
-            <View style={styles.accountAvatar}>
-              <Text style={styles.accountAvatarText}>{(username ?? "旅").slice(0, 1).toUpperCase()}</Text>
-            </View>
-            <View style={styles.accountIdentity}>
-              <Text style={styles.accountName}>{username || "已登录"}</Text>
-              <Text style={styles.accountSub}>学习数据将自动同步云端</Text>
-            </View>
-            <Pressable
-              hitSlop={8}
+      {/* 账号英雄卡：头像 + 昵称 + 同步状态 + 一键同步 */}
+      <Card style={styles.profileCard}>
+        <View style={styles.profileHead}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{(username ?? "旅").slice(0, 1).toUpperCase()}</Text>
+          </View>
+          <View style={styles.profileBody}>
+            <Text style={styles.profileName}>{token ? username || "已登录" : "未登录"}</Text>
+            <Text style={styles.profileSub}>{syncHint}</Text>
+          </View>
+          {token ? (
+            <PressableScale
+              haptic
+              scaleTo={0.96}
               style={styles.logoutBtn}
+              accessibilityLabel="退出登录"
               onPress={() => {
                 haptics.warning();
                 Alert.alert("退出登录", "退出后本机数据保留，云端数据不受影响。", [
@@ -231,292 +257,276 @@ export default function SettingsScreen() {
                 ]);
               }}
             >
-              <ThemedIcon name="log-out-outline" size={16} color={colors.danger} />
+              <ThemedIcon name="log-out-outline" size={15} color={colors.danger} />
               <Text style={styles.logoutText}>退出</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <Pressable
-            style={styles.authPrompt}
-            onPress={() => {
-              haptics.light();
-              setAuthOpen(true);
-            }}
-          >
-            <View style={styles.authPromptIcon}>
-              <ThemedIcon name="person-circle-outline" size={30} color={colors.primary} />
-            </View>
-            <View style={styles.authPromptBody}>
-              <Text style={styles.authPromptTitle}>登录 / 注册</Text>
-              <Text style={styles.authPromptSub}>同步学习进度到云端，Web 端与 App 数据保持一致</Text>
-            </View>
-            <ThemedIcon name="chevron-forward" size={18} color={colors.textFaint} />
-          </Pressable>
-        )}
-
+            </PressableScale>
+          ) : (
+            <PressableScale
+              haptic
+              scaleTo={0.96}
+              style={styles.loginBtn}
+              accessibilityLabel="登录或注册"
+              onPress={() => {
+                haptics.light();
+                setAuthOpen(true);
+              }}
+            >
+              <Text style={styles.loginBtnText}>登录 / 注册</Text>
+            </PressableScale>
+          )}
+        </View>
         {token ? (
           <ButtonRow>
             <Button label="同步到云端" onPress={doPush} loading={busy} icon="cloud-upload-outline" />
             <Button label="从云端恢复" variant="secondary" onPress={doPull} disabled={busy} />
           </ButtonRow>
         ) : null}
-
-        {token ? (
-          <ListGroup>
-            <ListRow
-              icon="shield-checkmark-outline"
-              title="账号与安全"
-              subtitle="密码 · 微信绑定 · 登录设备"
-              showChevron
-              last
-              onPress={() => {
-                haptics.light();
-                router.push("/account-security");
-              }}
-            />
-          </ListGroup>
-        ) : null}
-
         {msg ? <Text style={styles.msg}>{msg}</Text> : null}
-        <Text style={styles.hint}>
-          {engine.syncing
-            ? "正在同步…"
-            : !engine.online
-              ? `当前离线：数据将先保存在本机，联网后自动上传${pendingCount ? `（${pendingCount} 条待同步）` : ""}`
-              : !token
-                ? "网络已连接：登录后本机数据将自动同步到云端"
-                : pendingCount
-                  ? `网络已连接：${pendingCount} 条待同步，稍后自动上传`
-                  : `本机与云端已同步${lastSyncedAt ? `（上次同步 ${lastSyncedAt.slice(0, 16).replace("T", " ")}）` : ""}`}
-        </Text>
-        <Text style={styles.hint}>移动端默认连接生产域名，招聘爬虫配置请在 Web 端完成。</Text>
       </Card>
 
-      {domains.length > 0 || token ? (
-        <Card style={styles.advancedCard}>
-          <PressableScale haptic style={styles.advancedHead} onPress={() => setAdvancedOpen((v) => !v)}>
-            <View style={styles.advancedHeadText}>
-              <Text style={styles.advancedTitle}>进阶设置</Text>
-              <Text style={styles.hint}>学习领域 · 领域管理 · 本机数据</Text>
+      <GroupLabel>账号</GroupLabel>
+      <ListGroup>
+        <ListRow
+          {...tint(GROUP_TINT.blue)}
+          icon="shield-checkmark-outline"
+          title="账号与安全"
+          subtitle="密码 · 微信绑定 · 登录设备"
+          value={token ? "已登录" : "未登录"}
+          showChevron
+          last={!token}
+          onPress={() => {
+            haptics.light();
+            if (token) router.push("/account-security");
+            else setAuthOpen(true);
+          }}
+        />
+        {token ? (
+          <ListRow
+            {...tint(GROUP_TINT.blue)}
+            icon="pulse-outline"
+            title="同步状态"
+            subtitle={pendingCount ? `还有 ${pendingCount} 条待上传` : "本机与云端一致"}
+            value={engine.syncing ? "同步中" : engine.online ? "在线" : "离线"}
+            last
+          />
+        ) : null}
+      </ListGroup>
+
+      <GroupLabel>学习与数据</GroupLabel>
+      <ListGroup>
+        {domains.length > 0 ? (
+          <View style={styles.domainBlock}>
+            <Text style={styles.domainLabel}>当前学习领域</Text>
+            <View style={styles.chipWrap}>
+              {domains.map((c) => {
+                const active = c.career_key === career;
+                return (
+                  <Pressable
+                    key={c.career_key}
+                    onPress={() => void switchCareer(c.career_key)}
+                    style={[styles.chip, active ? styles.chipActive : styles.chipIdle]}
+                  >
+                    <Text style={active ? styles.chipTextActive : styles.chipTextIdle}>{c.name}</Text>
+                  </Pressable>
+                );
+              })}
             </View>
-            <ThemedIcon
-              name={advancedOpen ? "chevron-up" : "chevron-down"}
-              size={18}
-              color={colors.textMuted}
-            />
-          </PressableScale>
+          </View>
+        ) : null}
+        {token ? (
+          <ListRow
+            {...tint(GROUP_TINT.purple)}
+            icon="layers-outline"
+            title="领域管理"
+            subtitle="新建 / 归档 / 从模板创建"
+            showChevron
+            onPress={() => {
+              haptics.light();
+              router.push("/domain-manager");
+            }}
+          />
+        ) : null}
+        <ListRow
+          {...tint(GROUP_TINT.green)}
+          icon="stats-chart-outline"
+          title="领域记录"
+          subtitle="通用计量与按日打卡"
+          showChevron
+          onPress={() => {
+            haptics.light();
+            router.push("/trackers");
+          }}
+        />
+        <ListRow
+          {...tint(GROUP_TINT.orange)}
+          icon="checkmark-circle"
+          title="习惯与打卡"
+          subtitle="连续天数 · 13 周热力图"
+          showChevron
+          onPress={() => {
+            haptics.light();
+            router.push("/habits");
+          }}
+        />
+        <ListRow
+          {...tint(colors.danger)}
+          icon="trash-outline"
+          title="清空本机数据"
+          subtitle={`进度 ${Object.values(progress).filter((x) => x.done).length} · 任务 ${tasks.length} · 日志 ${logs.length}`}
+          last
+          onPress={confirmReset}
+        />
+      </ListGroup>
 
-          {advancedOpen ? (
-            <View style={styles.advancedBody}>
-              {domains.length > 0 ? (
-                <View style={styles.advancedBlock}>
-                  <Text style={styles.advancedLabel}>学习领域</Text>
-                  <View style={styles.chipWrap}>
-                    {domains.map((c) => {
-                      const active = c.career_key === career;
-                      return (
-                        <Pressable
-                          key={c.career_key}
-                          onPress={() => switchCareer(c.career_key)}
-                          style={[styles.chip, active ? styles.chipActive : styles.chipIdle]}
-                        >
-                          <Text style={active ? styles.chipTextActive : styles.chipTextIdle}>{c.name}</Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </View>
-              ) : null}
+      <GroupLabel>外观与体验</GroupLabel>
+      <ListGroup>
+        <ListRow
+          {...tint(GROUP_TINT.purple)}
+          icon="color-palette-outline"
+          title="主题"
+          subtitle="浅色 / 深色 / 跟随系统"
+          value={themeLabel}
+          showChevron
+          onPress={() => setThemeOpen(true)}
+        />
+        <ListRow
+          {...tint(GROUP_TINT.teal)}
+          icon="image-outline"
+          title="每日背景图"
+          subtitle="每天自动更换风景壁纸"
+          right={<Switch value={backgroundEnabled} onValueChange={toggleBackground} trackColor={{ true: colors.primary }} />}
+          onPress={toggleBackground}
+        />
+        <ListRow
+          {...tint(GROUP_TINT.orange)}
+          icon="swap-horizontal"
+          title="边缘横滑切换 Tab"
+          subtitle="Android 默认关闭：系统返回手势同样占用屏幕边缘，容易互相抢触摸"
+          right={<Switch value={edgeSwipeEnabled} onValueChange={setEdgeSwipeEnabled} trackColor={{ true: colors.primary }} />}
+          last
+          onPress={() => setEdgeSwipeEnabled(!edgeSwipeEnabled)}
+        />
+      </ListGroup>
 
-              {token ? (
-                <ListGroup>
-                  <ListRow
-                    icon="layers-outline"
-                    title="领域管理"
-                    subtitle="自定义学习领域与通用计量"
-                    showChevron
-                    last
-                    onPress={() => {
-                      haptics.light();
-                      router.push("/domain-manager");
-                    }}
-                  />
-                </ListGroup>
-              ) : null}
+      <GroupLabel>支持</GroupLabel>
+      <ListGroup>
+        <ListRow
+          {...tint(GROUP_TINT.green)}
+          icon="refresh"
+          title="检查更新"
+          subtitle="支持应用内 OTA 推送"
+          value={updateState === "checking" ? undefined : updateLabel}
+          valueColor={updateState === "update" ? colors.accentStrong : undefined}
+          showChevron={updateState !== "checking"}
+          right={updateState === "checking" ? <ActivityIndicator size="small" color={colors.primary} /> : undefined}
+          disabled={updateState === "checking"}
+          onPress={() => void checkUpdate()}
+        />
+        <ListRow
+          {...tint(GROUP_TINT.blue)}
+          icon="pulse-outline"
+          title="问题诊断"
+          subtitle="点不动 / 白屏时跑一次触摸自检"
+          showChevron
+          onPress={() => router.push("/diagnostics")}
+        />
+        <ListRow
+          {...tint(GROUP_TINT.blue)}
+          icon="cloud-download-outline"
+          title="手动下载最新版"
+          subtitle="打不开更新时用这个"
+          onPress={() => void Linking.openURL(DOWNLOAD_PAGE_URL).catch(() => {})}
+        />
+        <ListRow
+          {...tint(GROUP_TINT.gray)}
+          icon="lock-closed-outline"
+          title="隐私与数据"
+          subtitle="数据只在本机与你的云端账号之间流转"
+          showChevron
+          last
+          onPress={() => void Linking.openURL(PRIVACY_POLICY_URL).catch(() => {})}
+        />
+      </ListGroup>
 
-              <View style={styles.advancedBlock}>
-                <Text style={styles.advancedLabel}>本机数据</Text>
-                <Text style={styles.hint}>
-                  进度 {Object.values(progress).filter((p) => p.done).length} · 任务 {tasks.length} · 日志 {logs.length}
-                </Text>
-                <Button label="清空本机数据" variant="danger" icon="trash-outline" onPress={confirmReset} />
-              </View>
-            </View>
-          ) : null}
-        </Card>
-      ) : null}
+      <GroupLabel>关于</GroupLabel>
+      <ListGroup>
+        <ListRow
+          {...tint(GROUP_TINT.gray)}
+          icon="information-circle-outline"
+          title={`苦旅 v${APP_VERSION_NAME}`}
+          subtitle={`App 备案：${APP_ICP_NUMBER}`}
+          showChevron
+          onPress={() => void Linking.openURL(ICP_VERIFY_URL).catch(() => {})}
+        />
+        <ListRow
+          {...tint(GROUP_TINT.gray)}
+          icon="document-text-outline"
+          title="隐私政策"
+          showChevron
+          last
+          onPress={() => void Linking.openURL(PRIVACY_POLICY_URL).catch(() => {})}
+        />
+      </ListGroup>
 
-      <Card title="外观" subtitle="浅色 · 深色 · 跟随系统">
-        <View style={styles.segToggle}>
-          {(["light", "dark", "system"] as ThemeMode[]).map((m) => {
-            const active = themeMode === m;
+      <Text style={styles.footer}>移动端默认连接生产域名，招聘爬虫配置请在 Web 端完成。</Text>
+      <Text style={styles.footer}>© 苦旅 · 学习工作台 · Expo + React Native</Text>
+
+      <BottomSheet visible={themeOpen} onClose={() => setThemeOpen(false)} title="外观主题" height="48%">
+        <ListGroup>
+          {(["light", "dark", "system"] as ThemeMode[]).map((m, i, list) => {
             const label = m === "light" ? "浅色" : m === "dark" ? "深色" : "跟随系统";
+            const active = themeMode === m;
             return (
-              <Pressable
+              <ListRow
                 key={m}
-                style={[styles.segToggleItem, active && styles.segToggleActive]}
+                {...tint(active ? GROUP_TINT.blue : GROUP_TINT.gray)}
+                icon={m === "light" ? "sunny" : m === "dark" ? "moon-outline" : "options-outline"}
+                title={label}
+                value={active ? "当前" : undefined}
+                last={i === list.length - 1}
                 onPress={() => {
                   haptics.soft();
                   setThemeMode(m);
+                  setThemeOpen(false);
                 }}
-              >
-                <Text style={[styles.segToggleText, active && styles.segToggleTextActive]}>{label}</Text>
-              </Pressable>
+              />
             );
           })}
-        </View>
-      </Card>
-
-      <Card title="每日背景图" subtitle="每天自动更换每日风景壁纸">
-        <View style={styles.rowBetween}>
-          <Text style={styles.rowLabel}>启用每日壁纸</Text>
-          <Switch value={backgroundEnabled} onValueChange={toggleBackground} trackColor={{ true: colors.primary }} />
-        </View>
-      </Card>
-
-      <Card title="手势" subtitle="屏幕左右边缘横滑可切换底部 Tab">
-        <View style={styles.rowBetween}>
-          <Text style={styles.rowLabel}>边缘横滑切换 Tab</Text>
-          <Switch value={edgeSwipeEnabled} onValueChange={setEdgeSwipeEnabled} trackColor={{ true: colors.primary }} />
-        </View>
-        <Text style={styles.about}>
-          Android 默认关闭：系统的返回手势本身就占用屏幕左右边缘，两者同时启用容易互相抢触摸。
-        </Text>
-      </Card>
-
-      <Card title="关于" subtitle={`苦旅 v${APP_VERSION_NAME}`}>
-        <Text style={styles.about}>Expo + React Native · 路线图内容来自《新疆ICT学习规划优化方案》</Text>
-        <Text style={styles.about}>支持登录后一键同步云端，Web 与移动端数据保持一致。</Text>
-        <Pressable style={styles.aboutLinkRow} onPress={checkUpdate} disabled={updateState === "checking"}>
-          <ThemedIcon name="refresh" size={17} color={colors.primary} />
-          <Text style={styles.aboutLinkText}>检查更新</Text>
-          {updateState === "checking" ? (
-            <ActivityIndicator size="small" color={colors.primary} />
-          ) : (
-            <Text style={[styles.aboutMeta, updateState === "update" && styles.aboutMetaNew]}>
-              {updateState === "update"
-                ? "发现新版本"
-                : updateState === "latest"
-                  ? "已是最新"
-                  : updateState === "failed"
-                    ? "检查失败"
-                    : "支持 OTA 推送"}
-            </Text>
-          )}
-        </Pressable>
-        <Pressable style={styles.aboutLinkRow} onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}>
-          <ThemedIcon name="document-text-outline" size={17} color={colors.primary} />
-          <Text style={styles.aboutLinkText}>隐私政策</Text>
-        </Pressable>
-        <Pressable style={styles.aboutLinkRow} onPress={() => void Linking.openURL(DOWNLOAD_PAGE_URL).catch(() => {})}>
-          <ThemedIcon name="cloud-download-outline" size={17} color={colors.primary} />
-          <Text style={styles.aboutLinkText}>手动下载最新版</Text>
-          <Text style={styles.aboutMeta}>打不开更新时用这个</Text>
-        </Pressable>
-        <Pressable style={styles.aboutLinkRow} onPress={() => router.push("/diagnostics")}>
-          <ThemedIcon name="pulse-outline" size={17} color={colors.primary} />
-          <Text style={styles.aboutLinkText}>问题诊断（触摸自检）</Text>
-          <Text style={styles.aboutMeta}>点不动 / 白屏时跑一次</Text>
-        </Pressable>
-        <Pressable style={styles.aboutLinkRow} onPress={() => Linking.openURL(ICP_VERIFY_URL)}>
-          <ThemedIcon name="shield-checkmark-outline" size={17} color={colors.primary} />
-          <Text style={styles.aboutLinkText}>App 备案：{APP_ICP_NUMBER}</Text>
-        </Pressable>
-      </Card>
+        </ListGroup>
+      </BottomSheet>
 
       <AuthSheet visible={authOpen} onClose={() => setAuthOpen(false)} onAuthed={handleAuthed} />
     </ScrollView>
   );
 }
 
+/** v7 P1：分组卡片的语义色（淡底 = 颜色 + 22 alpha，与 wellness 入口卡同款做法） */
+const GROUP_TINT = {
+  blue: "#2F74C0",
+  purple: "#8D7BD8",
+  teal: "#2FB3A6",
+  orange: "#F28C28",
+  green: "#3DA35D",
+  gray: "#8A8375",
+} as const;
+
+function tint(color: string) {
+  return { iconColor: color, iconBg: color + "22" };
+}
+
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
   scroll: { flex: 1, backgroundColor: "transparent" },
   content: { padding: 16, gap: 12 },
-  hero: { paddingTop: 24, paddingBottom: 6, gap: 4 },
+  hero: { paddingTop: 24, paddingBottom: 2, gap: 4 },
   heroTitle: { color: colors.text, fontSize: 26, fontWeight: "800" },
   heroSub: { color: colors.textMuted, fontSize: 13 },
-  advancedCard: { gap: 12 },
-  advancedHead: { flexDirection: "row", alignItems: "center", gap: 10 },
-  advancedHeadText: { flex: 1, minWidth: 0, gap: 2 },
-  advancedTitle: { fontSize: 16, fontWeight: "800", color: colors.text },
-  advancedBody: { gap: 14 },
-  advancedBlock: { gap: 8 },
-  advancedLabel: { fontSize: 12, fontWeight: "700", color: colors.textMuted },
-  row: { flexDirection: "row", gap: 8 },
-  rowBetween: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
-  rowLabel: { flex: 1, fontSize: 14, color: colors.text },
-  linkText: { fontSize: 14, color: colors.primary, fontWeight: "600" },
-  input: {
-    backgroundColor: colors.surfaceStrong,
-    borderRadius: radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: colors.text,
-  },
-  segToggle: {
-    flexDirection: "row",
-    backgroundColor: colors.surfaceStrong,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    borderRadius: 14,
-    padding: 4,
-  },
-  segToggleItem: { flex: 1, borderRadius: 11, paddingVertical: 9, alignItems: "center" },
-  segToggleActive: { backgroundColor: colors.primary },
-  segToggleText: { fontSize: 14, fontWeight: "700", color: colors.textMuted },
-  segToggleTextActive: { color: "#fff", fontWeight: "800" },
-  securityRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    backgroundColor: colors.surfaceStrong,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  securityRowText: { flex: 1, fontSize: 14, fontWeight: "600", color: colors.text },
-  authPrompt: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: colors.surfaceStrong,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  authPromptIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 15,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.primarySoft,
-  },
-  authPromptBody: { flex: 1, gap: 2 },
-  authPromptTitle: { fontSize: 15, fontWeight: "800", color: colors.text },
-  authPromptSub: { fontSize: 12, color: colors.textMuted, lineHeight: 17 },
-  accountHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
-  accountAvatar: {
-    width: 46,
-    height: 46,
+  /* 账号英雄卡 */
+  profileCard: { gap: 12 },
+  profileHead: { flexDirection: "row", alignItems: "center", gap: 12 },
+  avatar: {
+    width: 48,
+    height: 48,
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
@@ -524,10 +534,12 @@ const makeStyles = (colors: ThemeColors) =>
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "rgba(47,116,192,0.24)",
   },
-  accountAvatarText: { fontSize: 17, fontWeight: "800", color: colors.primary },
-  accountIdentity: { flex: 1, gap: 3 },
-  accountName: { fontSize: 15, fontWeight: "800", color: colors.text },
-  accountSub: { fontSize: 12, color: colors.textMuted, lineHeight: 17 },
+  avatarText: { fontSize: 18, fontWeight: "800", color: colors.primary },
+  profileBody: { flex: 1, minWidth: 0, gap: 3 },
+  profileName: { fontSize: 17, fontWeight: "800", color: colors.text },
+  profileSub: { fontSize: 12, color: colors.textMuted, lineHeight: 17 },
+  loginBtn: { backgroundColor: colors.primary, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 9 },
+  loginBtnText: { fontSize: 13, fontWeight: "800", color: "#fff" },
   logoutBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -540,29 +552,15 @@ const makeStyles = (colors: ThemeColors) =>
     borderColor: "rgba(192,69,69,0.24)",
   },
   logoutText: { fontSize: 13, fontWeight: "800", color: colors.danger },
-  primaryBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 12, alignItems: "center" },
-  secondaryBtn: {
-    backgroundColor: colors.surfaceStrong,
-    borderRadius: 14,
-    paddingVertical: 12,
-    alignItems: "center",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  dangerBtn: { backgroundColor: colors.danger },
-  primaryBtnText: { color: "#fff", fontSize: 15, fontWeight: "600" },
-  secondaryBtnText: { color: colors.text, fontSize: 15, fontWeight: "600" },
   msg: { fontSize: 13, color: colors.success, fontWeight: "600" },
+  /* 领域选择（组内嵌块） */
+  domainBlock: { gap: 8, paddingHorizontal: 14, paddingVertical: 12 },
+  domainLabel: { fontSize: 12, fontWeight: "700", color: colors.textMuted },
   chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
   chipActive: { backgroundColor: colors.primary },
   chipIdle: { backgroundColor: colors.surfaceStrong, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   chipTextActive: { color: "#fff", fontSize: 13, fontWeight: "600" },
   chipTextIdle: { color: colors.text, fontSize: 13 },
-  hint: { fontSize: 12, color: colors.textMuted, lineHeight: 18 },
-  about: { fontSize: 13, color: colors.textMuted, lineHeight: 19 },
-  aboutLinkRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 7 },
-  aboutLinkText: { flex: 1, fontSize: 14, color: colors.primary, fontWeight: "600" },
-  aboutMeta: { fontSize: 12, color: colors.textMuted },
-  aboutMetaNew: { color: colors.accentStrong, fontWeight: "800" },
+  footer: { fontSize: 12, color: colors.textFaint, lineHeight: 18, paddingHorizontal: 4 },
 });

@@ -27,6 +27,8 @@ export interface Readiness {
   verdict: string;
   /** 最该补的一项（无短板时为 null） */
   weakest: "tasks" | "habits" | "workout" | "nutrition" | null;
+  /** v7 P2：四项分解比例（0..1），供健康页 hero 画分解条 */
+  parts: { tasks: number; habits: number; workout: number; nutrition: number };
 }
 
 const WEIGHTS = { tasks: 40, habits: 30, workout: 15, nutrition: 15 } as const;
@@ -71,7 +73,7 @@ export function computeReadiness(input: ReadinessInput): Readiness {
   const sorted = gaps.filter((g) => g.gap > 0).sort((a, b) => b.gap - a.gap);
   const weakest = sorted.length > 0 && score < 80 ? sorted[0].key : null;
 
-  return { score, verdict, weakest };
+  return { score, verdict, weakest, parts: { tasks, habits, workout, nutrition } };
 }
 
 /** 最短板的人话（配合 hero 的 caption 使用） */

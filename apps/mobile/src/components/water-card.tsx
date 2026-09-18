@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import Svg, { ClipPath, Defs, LinearGradient, Path, Rect, Stop } from "react-native-svg";
+import Animated, { Easing, useAnimatedProps, useReducedMotion, useSharedValue, withTiming } from "react-native-reanimated";
 import { ThemedIcon } from "@/components/themed-icon";
 import { AnimatedNumber } from "@/components/animated-number";
 import { PressableScale } from "@/components/pressable-scale";
@@ -11,14 +12,29 @@ import { useTheme } from "@/theme";
 
 const PRESETS = [200, 300, 500] as const;
 
+/** v7 P3：液面缓动开关 —— 真机若出现 SVG 动画异常，置 false 即回落到静态液面（与 ProgressArc 同约定） */
+const WATER_LEVEL_ANIMATION_ENABLED = true;
+const AnimatedRect = Animated.createAnimatedComponent(Rect);
+
 /** 玻璃杯（液面 = 进度；纯 SVG，零新增依赖） */
 function WaterGlass({ ratio, size = 72 }: { ratio: number; size?: number }) {
   const { colors } = useTheme();
+  const reducedMotion = useReducedMotion();
   const clamped = Math.max(0, Math.min(1, ratio));
   const w = size;
   const h = size * 1.25;
   const inset = 6;
+  /** 目标液面（y 像素） */
   const level = h - inset - (h - inset * 2) * clamped;
+  /** v7 P3：液面缓动 450ms（跟随系统「减少动态效果」时直接落位） */
+  const levelSV = useSharedValue(level);
+  useEffect(() => {
+    levelSV.value =
+      WATER_LEVEL_ANIMATION_ENABLED && !reducedMotion
+        ? withTiming(level, { duration: 450, easing: Easing.out(Easing.cubic) })
+        : level;
+  }, [level, levelSV, reducedMotion]);
+  const liquidProps = useAnimatedProps(() => ({ y: levelSV.value, height: h }));
   return (
     <Svg width={w} height={h}>
       <Defs>
@@ -42,7 +58,18 @@ function WaterGlass({ ratio, size = 72 }: { ratio: number; size?: number }) {
         strokeWidth={2}
       />
       {/* 液面 */}
-      <Rect x={0} y={level} width={w} height={h} fill="url(#lwbWater)" clipPath="url(#lwbWaterClip)" opacity={0.85} />
+      {WATER_LEVEL_ANIMATION_ENABLED ? (
+        <AnimatedRect
+          x={0}
+          width={w}
+          fill="url(#lwbWater)"
+          clipPath="url(#lwbWaterClip)"
+          opacity={0.85}
+          animatedProps={liquidProps}
+        />
+      ) : (
+        <Rect x={0} y={level} width={w} height={h} fill="url(#lwbWater)" clipPath="url(#lwbWaterClip)" opacity={0.85} />
+      )}
       {/* 刻度 */}
       {[0.33, 0.66].map((r) => (
         <Path

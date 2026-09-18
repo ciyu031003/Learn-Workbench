@@ -82,6 +82,17 @@ const MAP: Record<string, string> = {
   "basketball-outline": "figure.basketball",
   "footsteps-outline": "figure.walking",
   "ellipsis-horizontal": "ellipsis",
+  // v7 P1：我的页分组卡片
+  "cloud-upload-outline": "arrow.up.circle",
+  "cloud-download-outline": "arrow.down.circle",
+  "image-outline": "photo",
+  "swap-horizontal": "arrow.left.arrow.right",
+  "help-circle-outline": "questionmark.circle",
+  "information-circle-outline": "info.circle",
+  "stats-chart-outline": "chart.bar",
+  "moon-outline": "moon",
+  "water-outline": "drop",
+  "sunny-outline": "sun.max",
   "restaurant-outline": "fork.knife",
   "sparkles-outline": "sparkles",
 };
