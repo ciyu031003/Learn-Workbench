@@ -1,7 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
+import { ReadinessHero } from "@/components/wellbeing/readiness-hero";
+
+/** 3D 水杯懒加载（ssr:false）：与状态球共用 three 异步 chunk */
+const WaterGlass3D = dynamic(() => import("@/components/three/water-glass-3d").then((m) => m.WaterGlass3D), {
+  ssr: false,
+  loading: () => <div className="h-[145px] w-[116px] animate-pulse rounded-2xl bg-muted/30" />,
+});
 import {
   Droplets,
   Zap,
@@ -414,6 +422,9 @@ export default function WellbeingPage() {
         </div>
       </div>
 
+      {/* v8 P3：3D 状态球 hero（状态分 + 四项分解 + 本周概览） */}
+      <ReadinessHero />
+
       {error ? (
         <Card>
           <CardContent className="p-6 text-sm text-danger">{error}</CardContent>
@@ -428,7 +439,13 @@ export default function WellbeingPage() {
             <CardTitle>今日饮水</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-4">
-            <HydrationRing totalMl={hydration?.totalMl ?? 0} targetMl={hydration?.targetMl ?? 2000} />
+            <div className="flex flex-wrap items-center justify-center gap-4">
+              <WaterGlass3D
+                ratio={(hydration?.totalMl ?? 0) / Math.max(1, hydration?.targetMl ?? 2000)}
+                size={116}
+              />
+              <HydrationRing totalMl={hydration?.totalMl ?? 0} targetMl={hydration?.targetMl ?? 2000} />
+            </div>
             <div className="flex flex-wrap items-center justify-center gap-2">
               {QUICK_WATER.map((ml) => (
                 <button

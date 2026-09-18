@@ -2461,3 +2461,89 @@ export function formatBasisLabel(item: { basisAmount: number | string; basisUnit
   return `每 ${item.basisAmount}${item.basisUnit}`;
 }
 
+/* ==================== v8：今日状态分（Web/APP 共用同一口径） ==================== */
+
+export interface DailyReadinessInput {
+  tasksTotal: number;
+  tasksDone: number;
+  habitsScheduled: number;
+  habitsDone: number;
+  workoutMinutes: number;
+  nutritionKcal: number;
+  nutritionTargetKcal: number;
+}
+
+export interface DailyReadiness {
+  /** 0..100 整数 */
+  score: number;
+  /** 一句话结论（鼓励而非警示） */
+  verdict: string;
+  /** 最该补的一项（无短板时为 null） */
+  weakest: "tasks" | "habits" | "workout" | "nutrition" | null;
+  /** 四项分解比例（0..1），供 hero 画分解条 */
+  parts: { tasks: number; habits: number; workout: number; nutrition: number };
+}
+
+/** 每项权重（合计 100） */
+export const DAILY_READINESS_WEIGHTS = { tasks: 40, habits: 30, workout: 15, nutrition: 15 } as const;
+
+function readinessRatio(done: number, total: number): number {
+  if (!Number.isFinite(total) || total <= 0) return 0;
+  return Math.max(0, Math.min(1, done / total));
+}
+
+/**
+ * 今日状态分（口径与 APP 一致，见 docs/APP端优化方案-v2 §1.5.3D）：
+ *   任务完成率×40 + 习惯完成率×30 + 今日有训练×15 + 饮食达标率×15；
+ * 全部为 0 数据时给「待开始」而不是 0 分羞辱式文案；分数 ≥80 不再提示短板。
+ */
+export function computeDailyReadiness(input: DailyReadinessInput): DailyReadiness {
+  const tasks = readinessRatio(input.tasksDone, input.tasksTotal);
+  const habits = readinessRatio(input.habitsDone, input.habitsScheduled);
+  const workout = input.workoutMinutes > 0 ? 1 : 0;
+  const nutrition =
+    input.nutritionTargetKcal > 0 ? Math.min(1, readinessRatio(input.nutritionKcal, input.nutritionTargetKcal)) : 0;
+
+  const score = Math.round(
+    tasks * DAILY_READINESS_WEIGHTS.tasks +
+      habits * DAILY_READINESS_WEIGHTS.habits +
+      workout * DAILY_READINESS_WEIGHTS.workout +
+      nutrition * DAILY_READINESS_WEIGHTS.nutrition
+  );
+
+  const hasAnyPlan =
+    input.tasksTotal > 0 || input.habitsScheduled > 0 || input.workoutMinutes > 0 || input.nutritionKcal > 0;
+
+  let verdict: string;
+  if (!hasAnyPlan) verdict = "今天还没有记录，先记一笔就算开始";
+  else if (score >= 80) verdict = "状态很好，适合练力量";
+  else if (score >= 60) verdict = "状态不错，按计划推进";
+  else if (score >= 40) verdict = "状态一般，做点轻量训练";
+  else verdict = "先补最薄弱的一项，别硬扛";
+
+  const plannedDims = [
+    input.tasksTotal > 0,
+    input.habitsScheduled > 0,
+    input.nutritionTargetKcal > 0,
+  ].filter(Boolean).length;
+  const gaps: { key: NonNullable<DailyReadiness["weakest"]>; gap: number }[] = [
+    { key: "tasks", gap: input.tasksTotal > 0 ? 1 - tasks : -1 },
+    { key: "habits", gap: input.habitsScheduled > 0 ? 1 - habits : -1 },
+    { key: "workout", gap: input.workoutMinutes > 0 || plannedDims === 0 ? -1 : 1 },
+    { key: "nutrition", gap: input.nutritionTargetKcal > 0 ? 1 - nutrition : -1 },
+  ];
+  const sorted = gaps.filter((g) => g.gap > 0).sort((a, b) => b.gap - a.gap);
+  const weakest = sorted.length > 0 && score < 80 ? sorted[0].key : null;
+
+  return { score, verdict, weakest, parts: { tasks, habits, workout, nutrition } };
+}
+
+/** 最短板的人话（hero caption 用） */
+export const DAILY_WEAKEST_LABEL: Record<NonNullable<DailyReadiness["weakest"]>, string> = {
+  tasks: "任务还差几件",
+  habits: "习惯还没打卡",
+  workout: "今天还没动",
+  nutrition: "饮食还没记",
+};
+
+

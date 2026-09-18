@@ -18,6 +18,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { useToastStore } from "@/store/toast-store";
 import { cn } from "@/lib/utils";
 import { Plus, Trash2, Salad, Loader2, ChevronLeft, Search } from "lucide-react";
+import { FoodLibrarySearch } from "@/components/nutrition/food-library-search";
 
 const MEALS: MealKind[] = ["breakfast", "lunch", "dinner", "snack"];
 
@@ -204,6 +205,9 @@ export default function NutritionPage() {
           </Button>
         </div>
       </div>
+
+      {/* v8 P1：食物营养库搜索 + 按克录入（与 APP v6 对齐） */}
+      <FoodLibrarySearch date={date} meal={meal} onAdded={load} />
 
       {/* 营养环 */}
       <Card>

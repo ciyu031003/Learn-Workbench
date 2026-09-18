@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SectionLabel } from "@/components/ui/section-label";
+import { QuickLinks } from "@/components/settings/quick-links";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -473,6 +475,10 @@ export default function SettingsPage() {
 
       {msg ? <Badge variant="success">{msg}</Badge> : null}
 
+      {/* v8 P2：与 APP「我的」页一致的分组快捷入口（账号 / 学习与数据 / 健康 / 账号与安全） */}
+      <QuickLinks />
+
+      <SectionLabel>外观与体验</SectionLabel>
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader className="flex-row items-center gap-2">
