@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { GlassModal } from "@/components/ui/modal";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToastStore } from "@/store/toast-store";
+import { SectionLabel } from "@/components/ui/section-label";
 import { cn } from "@/lib/utils";
 import { Plus, Trash2, Flame, Check, Loader2, Repeat, Pencil } from "lucide-react";
 
@@ -245,6 +246,13 @@ export default function HabitsPage() {
     return v !== undefined && isHabitDone(h, v);
   }).length;
 
+  /** v8：hero 用的两个汇总值（最长连续 + 平均本周完成率） */
+  const bestStreak = habits.reduce((m, h) => Math.max(m, statsByHabit.get(h.id)?.longestStreak ?? 0), 0);
+  const weekRate =
+    habits.length === 0
+      ? 0
+      : Math.round(habits.reduce((s, h) => s + (statsByHabit.get(h.id)?.weekRate ?? 0), 0) / habits.length);
+
   return (
     <div className="page-enter flex flex-col gap-6">
       <div className="flex flex-wrap items-center gap-3">
@@ -260,6 +268,29 @@ export default function HabitsPage() {
           </Button>
         </div>
       </div>
+
+      {/* v8：习惯 hero（今日打卡 / 最长连续 / 本周完成率）—— 与健康页同一套视觉语言 */}
+      {!loading && habits.length > 0 ? (
+        <Card className="relative overflow-hidden border-white/20 bg-gradient-to-br from-accent/12 via-card/70 to-primary/10 backdrop-blur-xl">
+          <div className="pointer-events-none absolute -left-20 -top-20 size-56 rounded-full bg-accent/20 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-24 -right-12 size-64 rounded-full bg-primary/15 blur-3xl" />
+          <CardContent className="relative grid gap-4 p-6 sm:grid-cols-3">
+            {[
+              { label: "今日打卡", value: `${doneToday}/${scheduledToday}`, unit: "项" },
+              { label: "最长连续", value: String(bestStreak), unit: "天" },
+              { label: "本周完成率", value: String(weekRate), unit: "%" },
+            ].map((s) => (
+              <div key={s.label} className="rounded-2xl border border-white/15 bg-white/45 px-4 py-3 backdrop-blur-md dark:bg-white/5">
+                <div className="text-[11px] font-medium text-muted-foreground">{s.label}</div>
+                <div className="mt-0.5 text-3xl font-black tabular-nums">
+                  {s.value}
+                  <span className="ml-1 text-xs font-medium text-muted-foreground">{s.unit}</span>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
 
       {loading ? (
         <Card><CardContent className="flex items-center justify-center gap-2 p-8 text-sm text-muted-foreground">
@@ -285,7 +316,7 @@ export default function HabitsPage() {
         <>
           {/* 今日打卡 */}
           <section className="flex flex-col gap-3">
-            <h2 className="text-sm font-semibold">今日打卡</h2>
+            <SectionLabel>今日打卡</SectionLabel>
             <div className="grid gap-3 lg:grid-cols-2">
               {habits.map((h) => {
                 const v = logMap.get(logKey(h.id, todayKey));
@@ -374,7 +405,8 @@ export default function HabitsPage() {
             </div>
           </section>
 
-          {/* 完整热力图 */}
+          {/* 完整热力图（趋势与档案层） */}
+          <SectionLabel>趋势与热力图</SectionLabel>
           <section className="flex flex-col gap-3">
             <h2 className="text-sm font-semibold">近 13 周热力图</h2>
             <div className="flex flex-col gap-4">

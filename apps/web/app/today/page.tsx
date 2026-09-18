@@ -12,6 +12,7 @@ const StateOrb = dynamic(() => import("@/components/three/state-orb").then((m) =
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { SectionLabel } from "@/components/ui/section-label";
 import { cn } from "@/lib/utils";
 import {
   BookOpen, Briefcase, Dumbbell, Repeat, CheckCircle2, Circle, Loader2,
@@ -162,7 +163,7 @@ export default function TodayPage() {
       {/* 今日任务清单 */}
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold">今日任务</h2>
+          <SectionLabel>今日任务</SectionLabel>
           <Button size="sm" variant="ghost" asChild>
             <Link href="/tasks">全部任务 <ArrowRight className="size-3.5" /></Link>
           </Button>
@@ -191,6 +192,7 @@ export default function TodayPage() {
       </section>
 
       {/* 饮食与提醒 */}
+      <SectionLabel>饮食与提醒</SectionLabel>
       <div className="grid gap-3 sm:grid-cols-2">
         <Card>
           <CardContent className="flex items-center gap-3 p-4">

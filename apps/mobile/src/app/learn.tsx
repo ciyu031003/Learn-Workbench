@@ -5,6 +5,9 @@ import { ThemedIcon } from "@/components/themed-icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { Card } from "@/components/card";
+import { GlassSurface } from "@/components/surface";
+import { GroupLabel } from "@/components/group-label";
+import { ListGroup, ListRow } from "@/components/list-row";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
 import { RingProgress } from "@/components/ring-progress";
@@ -655,24 +658,54 @@ export default function LearnScreen() {
         <Text style={styles.heroSub}>路线图 · 主题 · 统计 · 日志</Text>
       </View>
 
-      {/* 学习域快捷入口：任务 / 日志 / 领域记录（5 Tab 后集中在此，避免入口散落设置） */}
-      <View style={styles.quickRow}>
+      {/* v9：今日专注 hero（进度环 + 关键值），与健康页同一套视觉语言 */}
+      <GlassSurface corner={radius.xl} style={styles.focusHero}>
+        <View style={styles.tomatoHero}>
+          <View style={styles.ringWrap}>
+            <RingProgress
+              size={104}
+              strokeWidth={11}
+              progress={ringRatio}
+              trackColor="rgba(47,116,192,0.14)"
+              color={colors.primary}
+            />
+            <Text style={styles.ringPct}>{ringPctNum}%</Text>
+          </View>
+          <View style={styles.tomatoHeroRight}>
+            <Text style={styles.hLabel}>今日已专注 · 目标 2.5 小时</Text>
+            <Text style={styles.hVal}>{formatDuration(todayMinutes)}</Text>
+            <View style={styles.focusMets}>
+              <Text style={styles.focusMet}>连续专注 {stats.streak} 天</Text>
+              <Text style={styles.focusMet}>本周 {formatDuration(weekMinutes)}</Text>
+            </View>
+          </View>
+        </View>
+      </GlassSurface>
+
+      <GroupLabel>快捷入口</GroupLabel>
+      <ListGroup>
         {(
           [
-            { key: "tasks", label: "今日任务", icon: "list-outline", href: "/tasks" },
-            { key: "logs", label: "学习日志", icon: "create-outline", href: "/logs" },
-            { key: "trackers", label: "领域记录", icon: "stats-chart-outline", href: "/trackers" },
+            { key: "tasks", label: "今日任务", desc: "勾选今天要完成的事", icon: "list-outline", href: "/tasks" },
+            { key: "logs", label: "学习日志", desc: "记录今天学了什么", icon: "create-outline", href: "/logs" },
+            { key: "trackers", label: "领域记录", desc: "通用计量与按日打卡", icon: "stats-chart-outline", href: "/trackers" },
           ] as const
-        ).map((q) => (
-          <PressableScale key={q.key} haptic style={styles.quickItem} onPress={() => router.push(q.href as never)}>
-            <ThemedIcon name={q.icon} size={20} color={colors.primary} />
-            <Text style={styles.quickLabel}>{q.label}</Text>
-          </PressableScale>
+        ).map((q, i, list) => (
+          <ListRow
+            key={q.key}
+            icon={q.icon}
+            title={q.label}
+            subtitle={q.desc}
+            showChevron
+            last={i === list.length - 1}
+            onPress={() => router.push(q.href as never)}
+          />
         ))}
-      </View>
+      </ListGroup>
 
+      <GroupLabel>学习阶段</GroupLabel>
       <View style={styles.sectionHeadRow}>
-        <Text style={styles.sectionTitle}>学习阶段</Text>
+        <Text style={styles.sectionTitle}>阶段路线</Text>
         <Pressable
           hitSlop={8}
           style={styles.addBtn}
@@ -759,7 +792,7 @@ export default function LearnScreen() {
         );
       })}
 
-      <Text style={styles.sectionTitle}>学习统计</Text>
+      <GroupLabel>学习统计</GroupLabel>
       {/* 统计明细收进「学习统计」全屏 Sheet（v2 §Bug 6）：首屏只留一行摘要 */}
       <PressableScale haptic scaleTo={0.98} onPress={() => setStatsOpen(true)}>
         <Card style={styles.statsEntry}>
@@ -1154,20 +1187,10 @@ const makeStyles = (colors: ThemeColors) =>
   hero: { marginBottom: 8 },
   heroTitle: { fontSize: 28, fontWeight: "800", color: colors.text },
   heroSub: { fontSize: 13, color: colors.textMuted, marginTop: 4 },
-  quickRow: { flexDirection: "row", gap: 8 },
-  quickItem: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 4,
-    paddingVertical: 12,
-    minHeight: 64,
-    borderRadius: 16,
-    backgroundColor: colors.surfaceStrong,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  quickLabel: { fontSize: 12, fontWeight: "700", color: colors.text },
+  /* v9：今日专注 hero */
+  focusHero: { padding: 16 },
+  focusMets: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 2 },
+  focusMet: { fontSize: 11, fontWeight: "700", color: colors.textMuted },
   sectionTitle: { fontSize: 17, fontWeight: "800", color: colors.text, marginTop: 8 },
   sectionTitleMore: { fontSize: 12, fontWeight: "600", color: colors.textMuted },
   sectionHeadRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 },
