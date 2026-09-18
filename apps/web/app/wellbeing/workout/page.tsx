@@ -11,16 +11,21 @@ import { Badge } from "@/components/ui/badge";
 import { GlassModal } from "@/components/ui/modal";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToastStore } from "@/store/toast-store";
-import { Plus, Trash2, Dumbbell, Loader2, Timer, ChevronLeft } from "lucide-react";
+import { NumberStepper } from "@/components/workout/number-stepper";
+import { ExercisePicker } from "@/components/workout/exercise-picker";
+import { cn } from "@/lib/utils";
+import { Plus, Trash2, Dumbbell, Loader2, Timer, ChevronLeft, ChevronDown } from "lucide-react";
 
 interface DraftItem {
+  /** 动作库 key（自定义动作为 null） */
+  exerciseKey: string | null;
   exerciseLabel: string;
   sets: string;
   reps: string;
   weightKg: string;
 }
 
-const EMPTY_ITEM: DraftItem = { exerciseLabel: "", sets: "4", reps: "8", weightKg: "" };
+const EMPTY_ITEM: DraftItem = { exerciseKey: null, exerciseLabel: "", sets: "4", reps: "8", weightKg: "" };
 
 export default function WorkoutPage() {
   const pushToast = useToastStore((s) => s.push);
@@ -36,6 +41,8 @@ export default function WorkoutPage() {
   const [durationMin, setDurationMin] = useState("");
   const [note, setNote] = useState("");
   const [items, setItems] = useState<DraftItem[]>([{ ...EMPTY_ITEM }]);
+  /** 正在用动作库挑选的行（null = 未打开） */
+  const [pickingIndex, setPickingIndex] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -67,6 +74,7 @@ export default function WorkoutPage() {
   const save = async () => {
     const cleaned = items
       .map((it) => ({
+        exerciseKey: it.exerciseKey,
         exerciseLabel: it.exerciseLabel.trim(),
         sets: Number(it.sets) || 0,
         reps: Number(it.reps) || 0,
@@ -221,39 +229,58 @@ export default function WorkoutPage() {
             </div>
             <div className="flex flex-col gap-2">
               {items.map((it, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <Input
-                    className="flex-1"
-                    placeholder="动作（如：卧推）"
-                    value={it.exerciseLabel}
-                    onChange={(e) => setItems((s) => s.map((x, j) => (j === i ? { ...x, exerciseLabel: e.target.value } : x)))}
-                  />
-                  <Input
-                    className="w-14 text-center"
-                    placeholder="组"
-                    value={it.sets}
-                    onChange={(e) => setItems((s) => s.map((x, j) => (j === i ? { ...x, sets: e.target.value } : x)))}
-                  />
-                  <span className="text-xs text-muted-foreground">×</span>
-                  <Input
-                    className="w-14 text-center"
-                    placeholder="次"
-                    value={it.reps}
-                    onChange={(e) => setItems((s) => s.map((x, j) => (j === i ? { ...x, reps: e.target.value } : x)))}
-                  />
-                  <Input
-                    className="w-16 text-center"
-                    placeholder="kg"
-                    value={it.weightKg}
-                    onChange={(e) => setItems((s) => s.map((x, j) => (j === i ? { ...x, weightKg: e.target.value } : x)))}
-                  />
-                  <button
-                    onClick={() => setItems((s) => (s.length > 1 ? s.filter((_, j) => j !== i) : s))}
-                    className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-danger"
-                    aria-label="移除动作"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </button>
+                <div key={i} className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card/50 p-3">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPickingIndex(i)}
+                      className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-border/60 bg-muted/30 px-3 py-2 text-left transition-colors hover:bg-muted/60"
+                    >
+                      <span className={cn("min-w-0 flex-1 truncate text-sm", it.exerciseLabel ? "font-semibold" : "text-muted-foreground")}>
+                        {it.exerciseLabel || "选择动作"}
+                      </span>
+                      <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setItems((s) => (s.length > 1 ? s.filter((_, j) => j !== i) : s))}
+                      className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-danger"
+                      aria-label="移除动作"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
+                  {/* 三个字段各自一行（sm 以上三列）＋ ± 按钮：不再把「组/次/kg」挤成一行 */}
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <NumberStepper
+                      label="组数"
+                      value={it.sets}
+                      onChange={(v) => setItems((s) => s.map((x, j) => (j === i ? { ...x, sets: v } : x)))}
+                      placeholder="4"
+                      suffix="组"
+                      min={1}
+                      max={30}
+                    />
+                    <NumberStepper
+                      label="次数"
+                      value={it.reps}
+                      onChange={(v) => setItems((s) => s.map((x, j) => (j === i ? { ...x, reps: v } : x)))}
+                      placeholder="8"
+                      suffix="次"
+                      min={1}
+                      max={100}
+                    />
+                    <NumberStepper
+                      label="重量"
+                      value={it.weightKg}
+                      onChange={(v) => setItems((s) => s.map((x, j) => (j === i ? { ...x, weightKg: v } : x)))}
+                      placeholder="自重"
+                      suffix="kg"
+                      step={2.5}
+                      min={0}
+                      max={500}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
@@ -270,6 +297,18 @@ export default function WorkoutPage() {
           </div>
         </div>
       </GlassModal>
+
+      {/* v8 P4-a：动作库选择器（分类大卡 + 搜索 + 内置目录回退） */}
+      <ExercisePicker
+        open={pickingIndex !== null}
+        onClose={() => setPickingIndex(null)}
+        onPick={(item) => {
+          if (pickingIndex === null) return;
+          setItems((s) =>
+            s.map((x, j) => (j === pickingIndex ? { ...x, exerciseKey: item.key, exerciseLabel: item.name } : x))
+          );
+        }}
+      />
     </div>
   );
 }

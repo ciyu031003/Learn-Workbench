@@ -3,6 +3,8 @@
 > 状态：**已执行（2026-09-18 深夜）**。本轮落地：Web 健康页 3D 状态球 hero + 四项分解 + 本周概览、3D 水杯、设置页分组快捷入口、饮食页食物营养库搜索 + 按克录入；并把「今日状态分」口径收敛到 `packages/shared`（Web/APP 同源）。
 > 依赖：新增 `three@^0.186`（+ `@types/three` 开发依赖）；three 走 `useEffect` 内动态 import，构建后确认在**异步 chunk**（720KB 未压缩，不在 prerender HTML，也不在 `app-build-manifest.json`）。
 > 验证：web typecheck 0 / lint 0 / **1064 测试** / `pnpm -F web build` 通过；mobile typecheck 0 / lint 0 / 281 测试（readiness 改为 shared 薄封装后仍全绿）。
+>
+> **第二批（同日晚）**：Web 训练页对齐 APP v6（动作库选择器：分类大卡 + 搜索 + 内置目录回退；组/次/重量改独立字段块 + 36×36 ± 步进器）；**今日页**加 3D 完成度球 hero（`StateOrb` + 四个域入口卡 + 渐变玻璃卡）。
 > 前置：v6（食物营养库 / 训练 UI / MD 导入）、v7（我的页分组卡片 / 健康三层）。
 
 ---

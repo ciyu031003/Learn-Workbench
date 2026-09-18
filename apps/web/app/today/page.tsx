@@ -1,7 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
+
+/** 3D 完成度球（懒加载，ssr:false；three 只在客户端进入时拉取） */
+const StateOrb = dynamic(() => import("@/components/three/state-orb").then((m) => m.StateOrb), {
+  ssr: false,
+  loading: () => <div className="size-[208px] animate-pulse rounded-full bg-muted/30" />,
+});
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -114,44 +121,43 @@ export default function TodayPage() {
         <p className="page-subtitle mt-1 text-sm">今天 · {formatCN(data.date)}</p>
       </div>
 
-      <Card>
-        <CardContent className="flex flex-col gap-3 p-6">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold">今日完成</span>
-            <span className="text-2xl font-extrabold tabular-nums text-primary">{data.progress}%</span>
+      {/* v8：3D 完成度球 hero（今日页的视觉主角）+ 四个域入口 */}
+      <Card className="relative overflow-hidden border-white/20 bg-gradient-to-br from-primary/12 via-card/70 to-accent/12 shadow-[0_18px_60px_-30px_rgba(47,116,192,0.65)] backdrop-blur-xl">
+        <div className="pointer-events-none absolute -left-24 -top-24 size-64 rounded-full bg-primary/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-28 -right-16 size-72 rounded-full bg-accent/15 blur-3xl" />
+        <CardContent className="relative grid gap-7 p-6 lg:grid-cols-[236px_1fr] lg:p-8">
+          <div className="flex flex-col items-center gap-2">
+            <StateOrb score={data.progress} size={208} />
+            <div className="text-center">
+              <div className="bg-gradient-to-r from-primary to-accent bg-clip-text text-5xl font-black tabular-nums text-transparent">
+                {data.progress}%
+              </div>
+              <div className="mt-1 text-[11px] font-medium text-muted-foreground">
+                今日完成度 · 学习 40% · 习惯 30% · 运动 15% · 饮食 15%
+              </div>
+            </div>
           </div>
-          <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-primary to-primary-strong transition-all"
-              style={{ width: `${data.progress}%` }}
-            />
+          <div className="grid gap-3 sm:grid-cols-2">
+            {blocks.map((b) => (
+              <Link key={b.key} href={b.href} className="group">
+                <Card className="h-full border-white/15 bg-white/45 backdrop-blur-md transition-all group-hover:-translate-y-0.5 group-hover:bg-white/60 dark:bg-white/5 dark:group-hover:bg-white/10">
+                  <CardContent className="flex items-center gap-3 p-4">
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary/15">
+                      <b.icon className="size-5 text-primary" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold">{b.label}</p>
+                      <p className="truncate text-xs text-muted-foreground">{b.detail}</p>
+                    </div>
+                    {b.extra ? <Badge variant="muted">{b.extra}</Badge> : null}
+                    <ArrowRight className="size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
           </div>
-          <p className="text-[11px] text-muted-foreground">
-            学习任务 40% · 习惯 30% · 运动 15% · 饮食 15%
-          </p>
         </CardContent>
       </Card>
-
-      {/* 四个域 */}
-      <div className="grid gap-3 sm:grid-cols-2">
-        {blocks.map((b) => (
-          <Link key={b.key} href={b.href} className="group">
-            <Card className="h-full transition-colors group-hover:bg-muted/40">
-              <CardContent className="flex items-center gap-3 p-4">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary/15">
-                  <b.icon className="size-5 text-primary" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold">{b.label}</p>
-                  <p className="truncate text-xs text-muted-foreground">{b.detail}</p>
-                </div>
-                {b.extra ? <Badge variant="muted">{b.extra}</Badge> : null}
-                <ArrowRight className="size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
-      </div>
 
       {/* 今日任务清单 */}
       <section className="flex flex-col gap-3">
