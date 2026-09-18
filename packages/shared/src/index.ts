@@ -2443,14 +2443,21 @@ export function scaleFoodByAmount(
   item: Pick<FoodItemHit, "kcal" | "proteinG" | "carbsG" | "fatG" | "basisAmount">,
   amount: number
 ): { kcal: number; proteinG: number; carbsG: number; fatG: number } {
-  const basis = Number.isFinite(item.basisAmount) && item.basisAmount > 0 ? item.basisAmount : 100;
-  const a = Number.isFinite(amount) && amount > 0 ? amount : 0;
-  const r = (n: number) => Math.round(((Number.isFinite(n) ? n : 0) * a) / basis * 10) / 10;
+  // ⚠️ Postgres 的 numeric 经 node-pg 返回的是**字符串**（"96"），必须先 Number() 再判有限性，
+  //    否则 Number.isFinite("96") === false → 预览恒为 0（v6 真机前实测到）。
+  const basisRaw = Number(item.basisAmount);
+  const basis = Number.isFinite(basisRaw) && basisRaw > 0 ? basisRaw : 100;
+  const amountRaw = Number(amount);
+  const a = Number.isFinite(amountRaw) && amountRaw > 0 ? amountRaw : 0;
+  const r = (n: unknown) => {
+    const v = Number(n);
+    return Math.round(((Number.isFinite(v) ? v : 0) * a) / basis * 10) / 10;
+  };
   return { kcal: r(item.kcal), proteinG: r(item.proteinG), carbsG: r(item.carbsG), fatG: r(item.fatG) };
 }
 
 /** 基准量文案：每 100g / 每 500g / 每 1份 */
-export function formatBasisLabel(item: { basisAmount: number; basisUnit: string }): string {
+export function formatBasisLabel(item: { basisAmount: number | string; basisUnit: string }): string {
   return `每 ${item.basisAmount}${item.basisUnit}`;
 }
 

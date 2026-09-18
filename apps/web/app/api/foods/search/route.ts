@@ -63,7 +63,17 @@ export async function GET(req: Request) {
         LIMIT ${limit}`,
       [scope.uid, q, meal]
     );
-    return NextResponse.json({ items: rows, query: q, meal });
+    // numeric 列经 node-pg 是字符串：统一转成数字再返回（与 /api/nutrition 的映射口径一致）
+    const items = rows.map((r) => ({
+      ...r,
+      id: Number(r.id),
+      basisAmount: Number(r.basisAmount),
+      kcal: Number(r.kcal),
+      proteinG: Number(r.proteinG),
+      carbsG: Number(r.carbsG),
+      fatG: Number(r.fatG),
+    }));
+    return NextResponse.json({ items, query: q, meal });
   } catch (e) {
     return dbErrorResponse(e);
   }

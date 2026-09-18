@@ -30,7 +30,9 @@ describe("GET /api/foods/search（v6 P1-3 营养基准库模糊搜索）", () =>
     const body = await res.json();
     expect(body.query).toBe("番茄鸡蛋面");
     expect(body.meal).toBe("lunch");
-    expect(body.items[0].basisAmount).toBe("500");
+    // numeric 会以字符串从 PG 返回，路由必须转成数字（否则客户端换算会算成 0）
+    expect(body.items[0].basisAmount).toBe(500);
+    expect(body.items[0].kcal).toBe(480);
     const sql = String(queryMock.mock.calls[0][0]);
     // 中文友好评分：字符覆盖率 + 子串命中（不用 similarity，见踩坑 81）
     expect(sql).toContain("regexp_split_to_array");

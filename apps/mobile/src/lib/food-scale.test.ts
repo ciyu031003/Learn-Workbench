@@ -29,6 +29,11 @@ describe("scaleFoodByAmount", () => {
     expect(scaleFoodByAmount({ kcal: NaN, proteinG: 1, carbsG: 1, fatG: 1, basisAmount: 100 }, 100).kcal).toBe(0);
   });
 
+  it("兼容 node-pg 返回的字符串数值（numeric → string）", () => {
+    const fromApi = { kcal: "480", proteinG: "22", carbsG: "65", fatG: "16", basisAmount: "500" };
+    expect(scaleFoodByAmount(fromApi as never, 600)).toEqual({ kcal: 576, proteinG: 26.4, carbsG: 78, fatG: 19.2 });
+  });
+
   it("formatBasisLabel 生成「每 500g」文案", () => {
     expect(formatBasisLabel({ basisAmount: 100, basisUnit: "g" })).toBe("每 100g");
     expect(formatBasisLabel({ basisAmount: 1, basisUnit: "份" })).toBe("每 1份");
