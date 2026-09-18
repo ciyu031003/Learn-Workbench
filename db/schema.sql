@@ -1180,3 +1180,61 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_sports_profiles_user_sport
   ON sports_profiles(user_id, sport_key) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_sports_profiles_public
   ON sports_profiles(is_public) WHERE deleted_at IS NULL AND is_public = true;
+
+-- 来自迁移 047_food_database.sql（食物营养库 v6：模糊搜索 + 营养基准库 + 导入审计）
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+CREATE TABLE IF NOT EXISTS food_items (
+  id           bigserial PRIMARY KEY,
+  source       text NOT NULL,
+  source_id    text NOT NULL,
+  name         text NOT NULL,
+  name_en      text,
+  aliases      text[] NOT NULL DEFAULT '{}',
+  pinyin       text,
+  category     text,
+  meal_tags    text[] NOT NULL DEFAULT '{}',
+  basis_amount numeric NOT NULL DEFAULT 100 CHECK (basis_amount > 0),
+  basis_unit   text NOT NULL DEFAULT 'g',
+  kcal         numeric NOT NULL DEFAULT 0 CHECK (kcal >= 0 AND kcal <= 100000),
+  protein_g    numeric NOT NULL DEFAULT 0 CHECK (protein_g >= 0 AND protein_g <= 10000),
+  carbs_g      numeric NOT NULL DEFAULT 0 CHECK (carbs_g >= 0 AND carbs_g <= 10000),
+  fat_g        numeric NOT NULL DEFAULT 0 CHECK (fat_g >= 0 AND fat_g <= 10000),
+  fiber_g      numeric,
+  sodium_mg    numeric,
+  license      text NOT NULL,
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  updated_at   timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (source, source_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_food_items_name_trgm ON food_items USING gin (name gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_food_items_aliases   ON food_items USING gin (aliases);
+CREATE INDEX IF NOT EXISTS idx_food_items_meal_tags ON food_items USING gin (meal_tags);
+CREATE INDEX IF NOT EXISTS idx_food_items_category  ON food_items (category);
+
+CREATE TABLE IF NOT EXISTS food_import_runs (
+  id            bigserial PRIMARY KEY,
+  source        text NOT NULL,
+  license       text NOT NULL,
+  imported_at   timestamptz NOT NULL DEFAULT now(),
+  rows_in       int NOT NULL DEFAULT 0,
+  rows_upserted int NOT NULL DEFAULT 0,
+  checksum      text,
+  note          text
+);
+
+-- 来自迁移 048_md_topic_items.sql（MD 导入：H3 级学习内容）
+CREATE TABLE IF NOT EXISTS content_topic_items (
+  id         bigserial PRIMARY KEY,
+  topic_id   int NOT NULL REFERENCES content_topics(id) ON DELETE CASCADE,
+  title      text NOT NULL,
+  content_md text NOT NULL DEFAULT '',
+  sort_order int NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_topic_items_topic ON content_topic_items(topic_id, sort_order);
+
+

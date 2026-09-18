@@ -20,6 +20,7 @@ vi.mock("@/lib/tasks/crawler", () => ({
   crawlerRanSuccessfullyToday: vi.fn(async () => false),
   triggerCrawlerJobs: vi.fn(async () => [{ name: "crawler:official", started: true, runId: 1 }]),
 }));
+vi.mock("@/lib/tasks/food", () => ({ triggerFoodImport: vi.fn(async () => ({ started: true, runId: 7 })) }));
 vi.mock("@/lib/logger", () => ({ logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 
 import { analyzeMarket } from "@/lib/domains/market/analysis";
@@ -28,6 +29,7 @@ import { backfillMarketJobAttributes } from "@/lib/domains/market/enrich";
 import { writeMarketDimensionSnapshots } from "@/lib/domains/market/snapshots";
 import { cleanupExpiredData, securityAlerts } from "@/lib/maintenance";
 import { crawlerRanSuccessfullyToday, triggerCrawlerJobs } from "@/lib/tasks/crawler";
+import { triggerFoodImport } from "@/lib/tasks/food";
 import { POST } from "./route";
 
 const analyzeMock = vi.mocked(analyzeMarket);
@@ -38,6 +40,7 @@ const cleanupMock = vi.mocked(cleanupExpiredData);
 const securityMock = vi.mocked(securityAlerts);
 const ranTodayMock = vi.mocked(crawlerRanSuccessfullyToday);
 const triggerMock = vi.mocked(triggerCrawlerJobs);
+const foodMock = vi.mocked(triggerFoodImport);
 
 function post(job?: string, secret?: string) {
   const headers: Record<string, string> = {};
@@ -97,6 +100,20 @@ describe("POST /api/internal/cron", () => {
     expect(snapshotMock).toHaveBeenCalledTimes(1);
     expect(refreshStatsMock).toHaveBeenCalledTimes(1);
     expect(cleanupMock).not.toHaveBeenCalled();
+  });
+
+  // v6 P1-3：食物库导入（默认自建；可指定 source/query）
+  it("runs the food import job with source/query args", async () => {
+    const res = await post("food&source=off&query=番茄鸡蛋面", "s3cret");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.food).toEqual({ started: true, runId: 7 });
+    expect(foodMock).toHaveBeenCalledWith(["--source=off", "--query=番茄鸡蛋面"]);
+  });
+
+  it("food job defaults to the builtin dataset", async () => {
+    await post("food", "s3cret");
+    expect(foodMock).toHaveBeenCalledWith(["--source=builtin"]);
   });
 
   it("runs an afternoon backfill-only job", async () => {

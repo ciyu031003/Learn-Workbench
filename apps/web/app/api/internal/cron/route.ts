@@ -9,6 +9,7 @@ import {
   triggerCrawlerJobs,
   type CrawlerEngineResult,
 } from "@/lib/tasks/crawler";
+import { triggerFoodImport } from "@/lib/tasks/food";
 import { logger } from "@/lib/logger";
 
 /**
@@ -17,7 +18,8 @@ import { logger } from "@/lib/logger";
  *   ?job=aggregate    预计算市场分析 + 公开统计快照（爬完后的读路径数据源）
  *   ?job=backfill     单独补跑市场职位字段回填（例如 12:30 crawl 后立即调度）
  *   ?job=maintenance  清理过期会话/审计/重置令牌
- *   ?job=all          依次执行以上三项
+ *   ?job=food         食物营养库导入（v6 P1-3；默认自建库，可 ?source=off&query=番茄鸡蛋面 追加 OFF 数据）
+ *   ?job=all          依次执行以上三项（**不含 food**，食物库按需手动/月频触发）
  *
  * 鉴权：请求头 x-cron-secret 必须等于环境变量 CRON_SECRET；
  *       CRON_SECRET 未配置时一律 403（部署脚本会生成并写入 crontab，见 deploy.sh）。
@@ -27,7 +29,7 @@ import { logger } from "@/lib/logger";
  *   10 6 * * *  … ?job=maintenance
  */
 
-const VALID_JOBS = ["crawl", "aggregate", "backfill", "maintenance", "all"] as const;
+const VALID_JOBS = ["crawl", "aggregate", "backfill", "maintenance", "food", "all"] as const;
 
 function authorize(req: Request): boolean {
   const expected = process.env.CRON_SECRET?.trim();
@@ -43,7 +45,10 @@ export async function POST(req: Request) {
 
   const job = new URL(req.url).searchParams.get("job") || "all";
   if (!(VALID_JOBS as readonly string[]).includes(job)) {
-    return NextResponse.json({ error: "job 无效，应为 crawl/aggregate/maintenance/all" }, { status: 400 });
+    return NextResponse.json(
+      { error: "job 无效，应为 crawl/aggregate/backfill/maintenance/food/all" },
+      { status: 400 }
+    );
   }
 
   const result: Record<string, unknown> = { ok: true, job };
@@ -69,6 +74,16 @@ export async function POST(req: Request) {
 
   if (job === "backfill") {
     result.backfill = { enriched: await backfillMarketJobAttributes(2000) };
+  }
+
+  if (job === "food") {
+    // v6 P1-3：食物营养库导入（默认自建中餐库；OFF/USDA 需显式指定 source）
+    const params = new URL(req.url).searchParams;
+    const source = (params.get("source") || "builtin").slice(0, 10);
+    const query = (params.get("query") || "").slice(0, 40);
+    const args = [`--source=${source}`];
+    if (query) args.push(`--query=${query}`);
+    result.food = await triggerFoodImport(args);
   }
 
   if (job === "maintenance" || job === "all") {

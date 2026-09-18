@@ -4,7 +4,7 @@
 > `source / license / version-commit / modified / attribution`。
 > 仅「阅读参考、未复制」的项目单独列在文末的「参考未复制」区，便于后续追溯。
 >
-> 最后更新：2026-09-14（下一阶段 V3 各 Phase 完成后）
+> 最后更新：2026-09-18（APP 端 v6：崩溃修复 / 食物营养库 / MD 导入）
 
 ---
 
@@ -21,6 +21,7 @@
 - 分节拖拽：使用浏览器原生 HTML5 `draggable` + `onDragStart/onDragOver/onDrop`，**未引入 dnd-kit 等第三方拖拽库**。
 - 图表/环形进度（Match Ring、营养环、习惯热力图）：项目内自研 SVG/CSS。
 - 食物营养种子数据（`db/migrations/041_nutrition.sql` 的 12 项）：常见中式食物的**公开常识性估算值**，非从任何数据库复制。
+- 自建食物营养库（`scripts/data/food-builtin.json`，v6 P1-3）：108 条常见中餐/食材的**每 100g 参考值**，本项目自行整理（license 标记为 `own`），非从任何受版权保护的数据库复制。
 
 ---
 
@@ -35,6 +36,22 @@
 | [JobSync](https://github.com/Gsync/jobsync) | 求职流程信息架构（Application → Status → Timeline → Analytics） | — | 仅参考信息架构；本项目求职流程早在迁移 015 已自行实现 |
 | Job Tracker 类项目 | Pipeline / 状态筛选 / 看板视图 | — | 仅参考交互；看板与时间线为自研 |
 | [BeHabit](https://github.com/) / Ritual | streak、weekly strip、heatmap、One-Tap 打卡交互 | — | 仅参考交互；`habits`/`habit_logs` 表结构与 streak 算法为自研（`computeHabitStats`） |
+
+---
+
+## 2.5 外部数据集（**运行时导入，不进仓库**）
+
+v6 P1-3 的食物营养库支持从公开数据源导入（`scripts/import_food_db.mjs`）。
+**导入的数据落在数据库 `food_items` 表，不进入 git 仓库**；下表登记许可与义务：
+
+| 数据源 | 导入方式 | 许可 | 义务 | 本项目处理 |
+|---|---|---|---|---|
+| [Open Food Facts](https://world.openfoodfacts.org/) | `--source=off`（搜索 API） | **ODbL 1.0**（开放数据库许可） | 署名 + 衍生数据库同许可开放 | 导入行在 `food_items.license` 标 `ODbL-1.0`；App/文档标注来源与许可；用户自建数据（`foods` 表）不受影响 |
+| [USDA FoodData Central](https://fdc.nal.usda.gov/) | `--source=usda`（需 `USDA_API_KEY`） | **CC0 1.0**（公有领域） | 无（建议标注来源） | `food_items.license = 'CC0-1.0'` |
+| 自建中餐库（本仓库 `scripts/data/food-builtin.json`） | `--source=builtin`（默认） | 自有 | 无 | `license = 'own'` |
+
+**明确不采用**：《中国食物成分表（第6版）》及其社区 OCR 衍生 JSON（如 `Sanotsu/china-food-composition-data`，仓库无 license，原书版权属中国 CDC 营养与健康所）——**版权风险，不进仓库、不入库**。
+（2026-09-18 用户决策：只使用公开/可商用数据源。）
 
 ---
 

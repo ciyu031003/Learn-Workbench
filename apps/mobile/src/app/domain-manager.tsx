@@ -16,6 +16,7 @@ import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
 import { haptics } from "@/lib/haptics";
+import { setCachedCareer } from "@/lib/roadmap";
 import { Card } from "@/components/card";
 import { PressableScale } from "@/components/pressable-scale";
 import { useTheme } from "@/theme";
@@ -92,6 +93,7 @@ export default function DomainManagerScreen() {
         headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
         body: JSON.stringify({ career: key }),
       });
+      await setCachedCareer(key);
       haptics.success();
       setMsg("已切换领域");
     } catch {

@@ -1,0 +1,1808 @@
+{
+  "meta": {
+    "source": "builtin",
+    "license": "own",
+    "basis": "每 100g 可食部的常见参考值（中餐菜品按成品估算）",
+    "note": "自建数据，仅作日常记录参考，非医学/临床用途。可继续用 scripts/import_food_db.mjs 追加 OFF/USDA 数据。",
+    "updatedAt": "2026-09-18"
+  },
+  "items": [
+    {
+      "sourceId": "builtin-001",
+      "name": "米饭",
+      "aliases": [
+        "白米饭",
+        "大米饭"
+      ],
+      "category": "主食",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 116,
+      "proteinG": 2.6,
+      "carbsG": 25.9,
+      "fatG": 0.3
+    },
+    {
+      "sourceId": "builtin-002",
+      "name": "糙米饭",
+      "aliases": [
+        "糙米"
+      ],
+      "category": "主食",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 112,
+      "proteinG": 2.6,
+      "carbsG": 23,
+      "fatG": 0.9
+    },
+    {
+      "sourceId": "builtin-003",
+      "name": "馒头",
+      "aliases": [],
+      "category": "主食",
+      "mealTags": [
+        "breakfast",
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 223,
+      "proteinG": 7,
+      "carbsG": 47,
+      "fatG": 1.1
+    },
+    {
+      "sourceId": "builtin-004",
+      "name": "花卷",
+      "aliases": [],
+      "category": "主食",
+      "mealTags": [
+        "breakfast"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 217,
+      "proteinG": 6.4,
+      "carbsG": 45.6,
+      "fatG": 2.2
+    },
+    {
+      "sourceId": "builtin-005",
+      "name": "猪肉包子",
+      "aliases": [
+        "肉包",
+        "包子"
+      ],
+      "category": "主食",
+      "mealTags": [
+        "breakfast"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 227,
+      "proteinG": 8,
+      "carbsG": 30,
+      "fatG": 8
+    },
+    {
+      "sourceId": "builtin-006",
+      "name": "素包子",
+      "aliases": [
+        "素包",
+        "菜包"
+      ],
+      "category": "主食",
+      "mealTags": [
+        "breakfast"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 180,
+      "proteinG": 6,
+      "carbsG": 30,
+      "fatG": 4
+    },
+    {
+      "sourceId": "builtin-007",
+      "name": "白粥",
+      "aliases": [
+        "大米粥",
+        "稀饭"
+      ],
+      "category": "主食",
+      "mealTags": [
+        "breakfast"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 46,
+      "proteinG": 1.1,
+      "carbsG": 9.9,
+      "fatG": 0.2
+    },
+    {
+      "sourceId": "builtin-008",
+      "name": "小米粥",
+      "aliases": [],
+      "category": "主食",
+      "mealTags": [
+        "breakfast"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 46,
+      "proteinG": 1.4,
+      "carbsG": 8.4,
+      "fatG": 0.7
+    },
+    {
+      "sourceId": "builtin-009",
+      "name": "皮蛋瘦肉粥",
+      "aliases": [],
+      "category": "主食",
+      "mealTags": [
+        "breakfast",
+        "snack"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 60,
+      "proteinG": 3,
+      "carbsG": 8,
+      "fatG": 1.5
+    },
+    {
+      "sourceId": "builtin-010",
+      "name": "面条（煮）",
+      "aliases": [
+        "挂面",
+        "汤面"
+      ],
+      "category": "主食",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 110,
+      "proteinG": 3.5,
+      "carbsG": 22,
+      "fatG": 0.5
+    },
+    {
+      "sourceId": "builtin-011",
+      "name": "挂面（干）",
+      "aliases": [],
+      "category": "主食",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 348,
+      "proteinG": 11,
+      "carbsG": 74,
+      "fatG": 0.9
+    },
+    {
+      "sourceId": "builtin-012",
+      "name": "米粉（煮）",
+      "aliases": [
+        "米线"
+      ],
+      "category": "主食",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 105,
+      "proteinG": 1.8,
+      "carbsG": 24,
+      "fatG": 0.2
+    },
+    {
+      "sourceId": "builtin-013",
+      "name": "油条",
+      "aliases": [],
+      "category": "主食",
+      "mealTags": [
+        "breakfast"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 388,
+      "proteinG": 6.9,
+      "carbsG": 51,
+      "fatG": 17.6
+    },
+    {
+      "sourceId": "builtin-014",
+      "name": "吐司面包",
+      "aliases": [],
+      "category": "主食",
+      "mealTags": [
+        "breakfast"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 296,
+      "proteinG": 8.3,
+      "carbsG": 52,
+      "fatG": 5.5
+    },
+    {
+      "sourceId": "builtin-015",
+      "name": "全麦面包",
+      "aliases": [],
+      "category": "主食",
+      "mealTags": [
+        "breakfast"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 246,
+      "proteinG": 9,
+      "carbsG": 44,
+      "fatG": 3.5
+    },
+    {
+      "sourceId": "builtin-016",
+      "name": "玉米（煮）",
+      "aliases": [
+        "玉米棒"
+      ],
+      "category": "主食",
+      "mealTags": [
+        "breakfast",
+        "snack"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 112,
+      "proteinG": 4,
+      "carbsG": 22.8,
+      "fatG": 1.2
+    },
+    {
+      "sourceId": "builtin-017",
+      "name": "红薯（蒸）",
+      "aliases": [
+        "地瓜"
+      ],
+      "category": "主食",
+      "mealTags": [
+        "breakfast",
+        "snack"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 86,
+      "proteinG": 1.6,
+      "carbsG": 20.1,
+      "fatG": 0.1
+    },
+    {
+      "sourceId": "builtin-018",
+      "name": "土豆（蒸）",
+      "aliases": [
+        "马铃薯"
+      ],
+      "category": "主食",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 81,
+      "proteinG": 2,
+      "carbsG": 17.8,
+      "fatG": 0.2
+    },
+    {
+      "sourceId": "builtin-019",
+      "name": "猪肉白菜饺子",
+      "aliases": [
+        "水饺",
+        "饺子"
+      ],
+      "category": "主食",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 240,
+      "proteinG": 9,
+      "carbsG": 28,
+      "fatG": 10
+    },
+    {
+      "sourceId": "builtin-020",
+      "name": "馄饨",
+      "aliases": [
+        "云吞"
+      ],
+      "category": "主食",
+      "mealTags": [
+        "breakfast",
+        "lunch"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 175,
+      "proteinG": 7,
+      "carbsG": 24,
+      "fatG": 5.5
+    },
+    {
+      "sourceId": "builtin-021",
+      "name": "蛋炒饭",
+      "aliases": [],
+      "category": "主食",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 163,
+      "proteinG": 4.6,
+      "carbsG": 26,
+      "fatG": 4.5
+    },
+    {
+      "sourceId": "builtin-022",
+      "name": "炒面",
+      "aliases": [],
+      "category": "主食",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 200,
+      "proteinG": 6,
+      "carbsG": 28,
+      "fatG": 7
+    },
+    {
+      "sourceId": "builtin-023",
+      "name": "燕麦（干）",
+      "aliases": [
+        "燕麦片"
+      ],
+      "category": "主食",
+      "mealTags": [
+        "breakfast"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 380,
+      "proteinG": 13,
+      "carbsG": 66,
+      "fatG": 7
+    },
+    {
+      "sourceId": "builtin-024",
+      "name": "鸡蛋（煮）",
+      "aliases": [
+        "水煮蛋",
+        "白煮蛋"
+      ],
+      "category": "蛋白",
+      "mealTags": [
+        "breakfast"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 151,
+      "proteinG": 12.1,
+      "carbsG": 1.1,
+      "fatG": 10.5
+    },
+    {
+      "sourceId": "builtin-025",
+      "name": "鸡蛋（煎）",
+      "aliases": [
+        "煎蛋"
+      ],
+      "category": "蛋白",
+      "mealTags": [
+        "breakfast"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 209,
+      "proteinG": 13.5,
+      "carbsG": 1,
+      "fatG": 16.8
+    },
+    {
+      "sourceId": "builtin-026",
+      "name": "鸡蛋羹",
+      "aliases": [
+        "蒸蛋"
+      ],
+      "category": "蛋白",
+      "mealTags": [
+        "breakfast",
+        "lunch"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 62,
+      "proteinG": 5,
+      "carbsG": 1,
+      "fatG": 4.3
+    },
+    {
+      "sourceId": "builtin-027",
+      "name": "牛奶（全脂）",
+      "aliases": [
+        "纯牛奶"
+      ],
+      "category": "饮品",
+      "mealTags": [
+        "breakfast"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 65,
+      "proteinG": 3.3,
+      "carbsG": 4.9,
+      "fatG": 3.6
+    },
+    {
+      "sourceId": "builtin-028",
+      "name": "酸奶（原味）",
+      "aliases": [],
+      "category": "饮品",
+      "mealTags": [
+        "breakfast",
+        "snack"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 72,
+      "proteinG": 3.2,
+      "carbsG": 9.3,
+      "fatG": 2.7
+    },
+    {
+      "sourceId": "builtin-029",
+      "name": "豆浆（无糖）",
+      "aliases": [],
+      "category": "饮品",
+      "mealTags": [
+        "breakfast"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 31,
+      "proteinG": 3,
+      "carbsG": 1.2,
+      "fatG": 1.6
+    },
+    {
+      "sourceId": "builtin-030",
+      "name": "北豆腐",
+      "aliases": [
+        "老豆腐"
+      ],
+      "category": "蛋白",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 116,
+      "proteinG": 12.2,
+      "carbsG": 3.4,
+      "fatG": 6
+    },
+    {
+      "sourceId": "builtin-031",
+      "name": "南豆腐",
+      "aliases": [
+        "嫩豆腐"
+      ],
+      "category": "蛋白",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 87,
+      "proteinG": 6.2,
+      "carbsG": 3.9,
+      "fatG": 5
+    },
+    {
+      "sourceId": "builtin-032",
+      "name": "豆干",
+      "aliases": [
+        "香干"
+      ],
+      "category": "蛋白",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 140,
+      "proteinG": 16.2,
+      "carbsG": 11.5,
+      "fatG": 3.6
+    },
+    {
+      "sourceId": "builtin-033",
+      "name": "鸡胸肉（熟）",
+      "aliases": [
+        "鸡胸"
+      ],
+      "category": "蛋白",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 165,
+      "proteinG": 31,
+      "carbsG": 0,
+      "fatG": 3.6
+    },
+    {
+      "sourceId": "builtin-034",
+      "name": "鸡腿肉（熟）",
+      "aliases": [
+        "鸡腿"
+      ],
+      "category": "蛋白",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 209,
+      "proteinG": 26,
+      "carbsG": 0,
+      "fatG": 11
+    },
+    {
+      "sourceId": "builtin-035",
+      "name": "牛肉（瘦，熟）",
+      "aliases": [
+        "瘦牛肉"
+      ],
+      "category": "蛋白",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 250,
+      "proteinG": 26,
+      "carbsG": 0,
+      "fatG": 15
+    },
+    {
+      "sourceId": "builtin-036",
+      "name": "猪里脊（熟）",
+      "aliases": [],
+      "category": "蛋白",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 190,
+      "proteinG": 27,
+      "carbsG": 0,
+      "fatG": 8
+    },
+    {
+      "sourceId": "builtin-037",
+      "name": "五花肉（熟）",
+      "aliases": [],
+      "category": "蛋白",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 508,
+      "proteinG": 20,
+      "carbsG": 0,
+      "fatG": 47
+    },
+    {
+      "sourceId": "builtin-038",
+      "name": "羊肉（瘦，熟）",
+      "aliases": [],
+      "category": "蛋白",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 230,
+      "proteinG": 27,
+      "carbsG": 0,
+      "fatG": 13
+    },
+    {
+      "sourceId": "builtin-039",
+      "name": "三文鱼（熟）",
+      "aliases": [],
+      "category": "蛋白",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 208,
+      "proteinG": 20,
+      "carbsG": 0,
+      "fatG": 13
+    },
+    {
+      "sourceId": "builtin-040",
+      "name": "鲈鱼（清蒸）",
+      "aliases": [],
+      "category": "蛋白",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 105,
+      "proteinG": 18.6,
+      "carbsG": 0,
+      "fatG": 3.4
+    },
+    {
+      "sourceId": "builtin-041",
+      "name": "虾仁（熟）",
+      "aliases": [
+        "虾"
+      ],
+      "category": "蛋白",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 99,
+      "proteinG": 20,
+      "carbsG": 0.2,
+      "fatG": 1.4
+    },
+    {
+      "sourceId": "builtin-042",
+      "name": "培根",
+      "aliases": [],
+      "category": "蛋白",
+      "mealTags": [
+        "breakfast"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 181,
+      "proteinG": 22.3,
+      "carbsG": 2.6,
+      "fatG": 8.6
+    },
+    {
+      "sourceId": "builtin-043",
+      "name": "火腿肠",
+      "aliases": [],
+      "category": "蛋白",
+      "mealTags": [
+        "breakfast",
+        "snack"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 212,
+      "proteinG": 14,
+      "carbsG": 15.6,
+      "fatG": 10.4
+    },
+    {
+      "sourceId": "builtin-044",
+      "name": "西兰花",
+      "aliases": [],
+      "category": "蔬菜",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 34,
+      "proteinG": 4.1,
+      "carbsG": 4.3,
+      "fatG": 0.6
+    },
+    {
+      "sourceId": "builtin-045",
+      "name": "番茄",
+      "aliases": [
+        "西红柿"
+      ],
+      "category": "蔬菜",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 15,
+      "proteinG": 0.9,
+      "carbsG": 3.3,
+      "fatG": 0.2
+    },
+    {
+      "sourceId": "builtin-046",
+      "name": "黄瓜",
+      "aliases": [],
+      "category": "蔬菜",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 15,
+      "proteinG": 0.8,
+      "carbsG": 2.9,
+      "fatG": 0.2
+    },
+    {
+      "sourceId": "builtin-047",
+      "name": "生菜",
+      "aliases": [],
+      "category": "蔬菜",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 13,
+      "proteinG": 1.3,
+      "carbsG": 1.3,
+      "fatG": 0.3
+    },
+    {
+      "sourceId": "builtin-048",
+      "name": "大白菜",
+      "aliases": [
+        "白菜"
+      ],
+      "category": "蔬菜",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 18,
+      "proteinG": 1.5,
+      "carbsG": 3.2,
+      "fatG": 0.1
+    },
+    {
+      "sourceId": "builtin-049",
+      "name": "菠菜",
+      "aliases": [],
+      "category": "蔬菜",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 28,
+      "proteinG": 2.6,
+      "carbsG": 4.5,
+      "fatG": 0.3
+    },
+    {
+      "sourceId": "builtin-050",
+      "name": "胡萝卜",
+      "aliases": [],
+      "category": "蔬菜",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 39,
+      "proteinG": 1,
+      "carbsG": 8.8,
+      "fatG": 0.2
+    },
+    {
+      "sourceId": "builtin-051",
+      "name": "茄子",
+      "aliases": [],
+      "category": "蔬菜",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 23,
+      "proteinG": 1.1,
+      "carbsG": 4.9,
+      "fatG": 0.2
+    },
+    {
+      "sourceId": "builtin-052",
+      "name": "青椒",
+      "aliases": [],
+      "category": "蔬菜",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 22,
+      "proteinG": 1,
+      "carbsG": 5.4,
+      "fatG": 0.2
+    },
+    {
+      "sourceId": "builtin-053",
+      "name": "鲜香菇",
+      "aliases": [
+        "香菇"
+      ],
+      "category": "蔬菜",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 26,
+      "proteinG": 2.2,
+      "carbsG": 5.2,
+      "fatG": 0.3
+    },
+    {
+      "sourceId": "builtin-054",
+      "name": "木耳（水发）",
+      "aliases": [],
+      "category": "蔬菜",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 27,
+      "proteinG": 1.5,
+      "carbsG": 6,
+      "fatG": 0.2
+    },
+    {
+      "sourceId": "builtin-055",
+      "name": "洋葱",
+      "aliases": [],
+      "category": "蔬菜",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 40,
+      "proteinG": 1.1,
+      "carbsG": 9,
+      "fatG": 0.2
+    },
+    {
+      "sourceId": "builtin-056",
+      "name": "南瓜",
+      "aliases": [],
+      "category": "蔬菜",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 23,
+      "proteinG": 0.7,
+      "carbsG": 5.3,
+      "fatG": 0.1
+    },
+    {
+      "sourceId": "builtin-057",
+      "name": "白萝卜",
+      "aliases": [],
+      "category": "蔬菜",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 16,
+      "proteinG": 0.7,
+      "carbsG": 4,
+      "fatG": 0.1
+    },
+    {
+      "sourceId": "builtin-058",
+      "name": "苹果",
+      "aliases": [],
+      "category": "水果",
+      "mealTags": [
+        "snack"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 53,
+      "proteinG": 0.2,
+      "carbsG": 13.5,
+      "fatG": 0.2
+    },
+    {
+      "sourceId": "builtin-059",
+      "name": "香蕉",
+      "aliases": [],
+      "category": "水果",
+      "mealTags": [
+        "breakfast",
+        "snack"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 93,
+      "proteinG": 1.4,
+      "carbsG": 22,
+      "fatG": 0.2
+    },
+    {
+      "sourceId": "builtin-060",
+      "name": "橙子",
+      "aliases": [
+        "橘子",
+        "橙"
+      ],
+      "category": "水果",
+      "mealTags": [
+        "snack"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 48,
+      "proteinG": 0.8,
+      "carbsG": 11.1,
+      "fatG": 0.2
+    },
+    {
+      "sourceId": "builtin-061",
+      "name": "西瓜",
+      "aliases": [],
+      "category": "水果",
+      "mealTags": [
+        "snack"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 31,
+      "proteinG": 0.5,
+      "carbsG": 8.1,
+      "fatG": 0.3
+    },
+    {
+      "sourceId": "builtin-062",
+      "name": "葡萄",
+      "aliases": [],
+      "category": "水果",
+      "mealTags": [
+        "snack"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 45,
+      "proteinG": 0.5,
+      "carbsG": 10.3,
+      "fatG": 0.2
+    },
+    {
+      "sourceId": "builtin-063",
+      "name": "蓝莓",
+      "aliases": [],
+      "category": "水果",
+      "mealTags": [
+        "breakfast",
+        "snack"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 57,
+      "proteinG": 0.7,
+      "carbsG": 14.5,
+      "fatG": 0.3
+    },
+    {
+      "sourceId": "builtin-064",
+      "name": "猕猴桃",
+      "aliases": [
+        "奇异果"
+      ],
+      "category": "水果",
+      "mealTags": [
+        "breakfast",
+        "snack"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 61,
+      "proteinG": 0.8,
+      "carbsG": 14.5,
+      "fatG": 0.6
+    },
+    {
+      "sourceId": "builtin-065",
+      "name": "炒花生米",
+      "aliases": [
+        "花生"
+      ],
+      "category": "坚果",
+      "mealTags": [
+        "snack"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 590,
+      "proteinG": 24,
+      "carbsG": 21,
+      "fatG": 48
+    },
+    {
+      "sourceId": "builtin-066",
+      "name": "核桃仁",
+      "aliases": [
+        "核桃"
+      ],
+      "category": "坚果",
+      "mealTags": [
+        "snack"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 646,
+      "proteinG": 14.9,
+      "carbsG": 19.1,
+      "fatG": 58.8
+    },
+    {
+      "sourceId": "builtin-067",
+      "name": "腰果",
+      "aliases": [],
+      "category": "坚果",
+      "mealTags": [
+        "snack"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 559,
+      "proteinG": 17.3,
+      "carbsG": 30.2,
+      "fatG": 43.8
+    },
+    {
+      "sourceId": "builtin-068",
+      "name": "橄榄油",
+      "aliases": [],
+      "category": "油脂",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 899,
+      "proteinG": 0,
+      "carbsG": 0,
+      "fatG": 99.9
+    },
+    {
+      "sourceId": "builtin-069",
+      "name": "花生油",
+      "aliases": [],
+      "category": "油脂",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 899,
+      "proteinG": 0,
+      "carbsG": 0,
+      "fatG": 99.9
+    },
+    {
+      "sourceId": "builtin-070",
+      "name": "蜂蜜",
+      "aliases": [],
+      "category": "其他",
+      "mealTags": [
+        "breakfast"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 321,
+      "proteinG": 0.4,
+      "carbsG": 79.5,
+      "fatG": 1.9
+    },
+    {
+      "sourceId": "builtin-071",
+      "name": "白砂糖",
+      "aliases": [
+        "白糖",
+        "糖"
+      ],
+      "category": "其他",
+      "mealTags": [
+        "breakfast"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 400,
+      "proteinG": 0,
+      "carbsG": 99.9,
+      "fatG": 0
+    },
+    {
+      "sourceId": "builtin-072",
+      "name": "番茄鸡蛋面",
+      "aliases": [
+        "西红柿鸡蛋面"
+      ],
+      "category": "菜品",
+      "mealTags": [
+        "breakfast",
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 96,
+      "proteinG": 4.4,
+      "carbsG": 13,
+      "fatG": 3.2
+    },
+    {
+      "sourceId": "builtin-073",
+      "name": "兰州拉面",
+      "aliases": [
+        "牛肉拉面"
+      ],
+      "category": "菜品",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 140,
+      "proteinG": 6,
+      "carbsG": 22,
+      "fatG": 3
+    },
+    {
+      "sourceId": "builtin-074",
+      "name": "牛肉面",
+      "aliases": [],
+      "category": "菜品",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 128,
+      "proteinG": 7,
+      "carbsG": 19,
+      "fatG": 3
+    },
+    {
+      "sourceId": "builtin-075",
+      "name": "炸酱面",
+      "aliases": [],
+      "category": "菜品",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 180,
+      "proteinG": 6.5,
+      "carbsG": 28,
+      "fatG": 5
+    },
+    {
+      "sourceId": "builtin-076",
+      "name": "沙县拌面",
+      "aliases": [
+        "拌面"
+      ],
+      "category": "菜品",
+      "mealTags": [
+        "breakfast",
+        "lunch"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 200,
+      "proteinG": 7,
+      "carbsG": 30,
+      "fatG": 6
+    },
+    {
+      "sourceId": "builtin-077",
+      "name": "鸡蛋灌饼",
+      "aliases": [],
+      "category": "菜品",
+      "mealTags": [
+        "breakfast"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 260,
+      "proteinG": 8,
+      "carbsG": 30,
+      "fatG": 12
+    },
+    {
+      "sourceId": "builtin-078",
+      "name": "煎饼果子",
+      "aliases": [],
+      "category": "菜品",
+      "mealTags": [
+        "breakfast"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 280,
+      "proteinG": 8,
+      "carbsG": 34,
+      "fatG": 12
+    },
+    {
+      "sourceId": "builtin-079",
+      "name": "黄焖鸡米饭",
+      "aliases": [],
+      "category": "菜品",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 165,
+      "proteinG": 9,
+      "carbsG": 20,
+      "fatG": 5
+    },
+    {
+      "sourceId": "builtin-080",
+      "name": "宫保鸡丁",
+      "aliases": [],
+      "category": "菜品",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 190,
+      "proteinG": 13,
+      "carbsG": 10,
+      "fatG": 11
+    },
+    {
+      "sourceId": "builtin-081",
+      "name": "鱼香肉丝",
+      "aliases": [],
+      "category": "菜品",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 175,
+      "proteinG": 10,
+      "carbsG": 12,
+      "fatG": 9.5
+    },
+    {
+      "sourceId": "builtin-082",
+      "name": "麻婆豆腐",
+      "aliases": [],
+      "category": "菜品",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 130,
+      "proteinG": 8,
+      "carbsG": 6,
+      "fatG": 8.5
+    },
+    {
+      "sourceId": "builtin-083",
+      "name": "红烧肉",
+      "aliases": [],
+      "category": "菜品",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 480,
+      "proteinG": 12,
+      "carbsG": 6,
+      "fatG": 46
+    },
+    {
+      "sourceId": "builtin-084",
+      "name": "青椒肉丝",
+      "aliases": [],
+      "category": "菜品",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 145,
+      "proteinG": 11,
+      "carbsG": 5,
+      "fatG": 9
+    },
+    {
+      "sourceId": "builtin-085",
+      "name": "西红柿炒蛋",
+      "aliases": [
+        "番茄炒蛋"
+      ],
+      "category": "菜品",
+      "mealTags": [
+        "breakfast",
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 100,
+      "proteinG": 5,
+      "carbsG": 5,
+      "fatG": 6.5
+    },
+    {
+      "sourceId": "builtin-086",
+      "name": "干煸四季豆",
+      "aliases": [],
+      "category": "菜品",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 130,
+      "proteinG": 4,
+      "carbsG": 12,
+      "fatG": 7.5
+    },
+    {
+      "sourceId": "builtin-087",
+      "name": "地三鲜",
+      "aliases": [],
+      "category": "菜品",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 165,
+      "proteinG": 2.5,
+      "carbsG": 18,
+      "fatG": 9.5
+    },
+    {
+      "sourceId": "builtin-088",
+      "name": "酸辣土豆丝",
+      "aliases": [],
+      "category": "菜品",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 110,
+      "proteinG": 2,
+      "carbsG": 15,
+      "fatG": 4.5
+    },
+    {
+      "sourceId": "builtin-089",
+      "name": "清炒时蔬",
+      "aliases": [
+        "炒青菜"
+      ],
+      "category": "菜品",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 60,
+      "proteinG": 2.5,
+      "carbsG": 6,
+      "fatG": 3
+    },
+    {
+      "sourceId": "builtin-090",
+      "name": "水煮鱼",
+      "aliases": [],
+      "category": "菜品",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 150,
+      "proteinG": 15,
+      "carbsG": 3,
+      "fatG": 8.5
+    },
+    {
+      "sourceId": "builtin-091",
+      "name": "小笼包",
+      "aliases": [
+        "灌汤包"
+      ],
+      "category": "菜品",
+      "mealTags": [
+        "breakfast"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 240,
+      "proteinG": 8,
+      "carbsG": 30,
+      "fatG": 9
+    },
+    {
+      "sourceId": "builtin-092",
+      "name": "生煎包",
+      "aliases": [],
+      "category": "菜品",
+      "mealTags": [
+        "breakfast"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 270,
+      "proteinG": 9,
+      "carbsG": 30,
+      "fatG": 12
+    },
+    {
+      "sourceId": "builtin-093",
+      "name": "蒸饺",
+      "aliases": [],
+      "category": "菜品",
+      "mealTags": [
+        "breakfast",
+        "lunch"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 210,
+      "proteinG": 8,
+      "carbsG": 27,
+      "fatG": 8
+    },
+    {
+      "sourceId": "builtin-094",
+      "name": "烧麦",
+      "aliases": [],
+      "category": "菜品",
+      "mealTags": [
+        "breakfast"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 240,
+      "proteinG": 8,
+      "carbsG": 30,
+      "fatG": 9.5
+    },
+    {
+      "sourceId": "builtin-095",
+      "name": "麻辣烫",
+      "aliases": [],
+      "category": "菜品",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 130,
+      "proteinG": 6,
+      "carbsG": 14,
+      "fatG": 5.5
+    },
+    {
+      "sourceId": "builtin-096",
+      "name": "螺蛞粉",
+      "aliases": [
+        "螺狮粉"
+      ],
+      "category": "菜品",
+      "mealTags": [
+        "lunch",
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 120,
+      "proteinG": 4,
+      "carbsG": 18,
+      "fatG": 3.5
+    },
+    {
+      "sourceId": "builtin-097",
+      "name": "羊肉串（烧烤）",
+      "aliases": [
+        "烧烤"
+      ],
+      "category": "菜品",
+      "mealTags": [
+        "dinner",
+        "snack"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 230,
+      "proteinG": 20,
+      "carbsG": 2,
+      "fatG": 16
+    },
+    {
+      "sourceId": "builtin-098",
+      "name": "火锅（清汤涮煮）",
+      "aliases": [
+        "火锅"
+      ],
+      "category": "菜品",
+      "mealTags": [
+        "dinner"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 120,
+      "proteinG": 10,
+      "carbsG": 5,
+      "fatG": 7
+    },
+    {
+      "sourceId": "builtin-099",
+      "name": "可乐",
+      "aliases": [
+        "汽水"
+      ],
+      "category": "饮品",
+      "mealTags": [
+        "snack"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 43,
+      "proteinG": 0,
+      "carbsG": 10.8,
+      "fatG": 0
+    },
+    {
+      "sourceId": "builtin-100",
+      "name": "无糖可乐",
+      "aliases": [
+        "零度可乐"
+      ],
+      "category": "饮品",
+      "mealTags": [
+        "snack"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 0,
+      "proteinG": 0,
+      "carbsG": 0,
+      "fatG": 0
+    },
+    {
+      "sourceId": "builtin-101",
+      "name": "啤酒",
+      "aliases": [],
+      "category": "饮品",
+      "mealTags": [
+        "snack"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 43,
+      "proteinG": 0.5,
+      "carbsG": 3.6,
+      "fatG": 0
+    },
+    {
+      "sourceId": "builtin-102",
+      "name": "橙汁（含糖）",
+      "aliases": [],
+      "category": "饮品",
+      "mealTags": [
+        "breakfast"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 45,
+      "proteinG": 0.5,
+      "carbsG": 10.5,
+      "fatG": 0.1
+    },
+    {
+      "sourceId": "builtin-103",
+      "name": "拿铁咖啡",
+      "aliases": [
+        "拿铁"
+      ],
+      "category": "饮品",
+      "mealTags": [
+        "breakfast"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 55,
+      "proteinG": 3,
+      "carbsG": 5,
+      "fatG": 2.5
+    },
+    {
+      "sourceId": "builtin-104",
+      "name": "美式咖啡",
+      "aliases": [
+        "黑咖啡"
+      ],
+      "category": "饮品",
+      "mealTags": [
+        "breakfast"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 2,
+      "proteinG": 0.1,
+      "carbsG": 0.3,
+      "fatG": 0
+    },
+    {
+      "sourceId": "builtin-105",
+      "name": "奶茶（全糖）",
+      "aliases": [
+        "珍珠奶茶"
+      ],
+      "category": "饮品",
+      "mealTags": [
+        "snack"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 70,
+      "proteinG": 1,
+      "carbsG": 12,
+      "fatG": 2
+    },
+    {
+      "sourceId": "builtin-106",
+      "name": "薯片",
+      "aliases": [],
+      "category": "零食",
+      "mealTags": [
+        "snack"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 536,
+      "proteinG": 6,
+      "carbsG": 50,
+      "fatG": 34
+    },
+    {
+      "sourceId": "builtin-107",
+      "name": "牛奶巧克力",
+      "aliases": [
+        "巧克力"
+      ],
+      "category": "零食",
+      "mealTags": [
+        "snack"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 535,
+      "proteinG": 7,
+      "carbsG": 59,
+      "fatG": 30
+    },
+    {
+      "sourceId": "builtin-108",
+      "name": "冰淇淋",
+      "aliases": [
+        "雪糕"
+      ],
+      "category": "零食",
+      "mealTags": [
+        "snack"
+      ],
+      "basisAmount": 100,
+      "basisUnit": "g",
+      "kcal": 207,
+      "proteinG": 3.5,
+      "carbsG": 24,
+      "fatG": 11
+    }
+  ]
+}

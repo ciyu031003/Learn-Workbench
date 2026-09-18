@@ -5,6 +5,8 @@
 
 /** 吸附到 step 并钳位到 [min, max]，消除浮点误差 */
 export function snapPortion(value: number, min = 0.5, max = 3, step = 0.5): number {
+  // 允许在 UI 线程 worklet 里调用（v1.4.2 真机崩溃：普通函数在 worklet 里同步调用会崩）
+  "worklet";
   const v = Number.isFinite(value) ? value : min;
   const s = step > 0 ? step : 0.5;
   const n = Math.round((v - min) / s) * s + min;

@@ -304,6 +304,7 @@ export default function WorkoutScreen() {
         onClosed={onRecordSheetClosed}
         title={editingId === null ? "记录训练" : "编辑训练"}
         height="80%"
+        expandable
       >
         <View style={styles.form}>
           <Text style={styles.sectionLabel}>训练信息</Text>
@@ -353,9 +354,10 @@ export default function WorkoutScreen() {
                   <ThemedIcon name="trash-outline" size={16} color={colors.danger} />
                 </Pressable>
               </View>
-              <View style={styles.stepperRow}>
+              <View style={styles.stepperStack}>
                 <MiniStepper
                   colors={colors}
+                  title="组数"
                   label="组"
                   value={it.sets}
                   onChange={(v) => patchItem(i, { sets: v })}
@@ -363,6 +365,7 @@ export default function WorkoutScreen() {
                 />
                 <MiniStepper
                   colors={colors}
+                  title="次数"
                   label="次"
                   value={it.reps}
                   onChange={(v) => patchItem(i, { reps: v })}
@@ -370,6 +373,7 @@ export default function WorkoutScreen() {
                 />
                 <MiniStepper
                   colors={colors}
+                  title="重量"
                   label="kg"
                   value={it.weightKg}
                   placeholder="自重"
@@ -404,9 +408,14 @@ export default function WorkoutScreen() {
   );
 }
 
-/** 表单里的紧凑步进器：− [输入] + 单位 */
+/**
+ * 表单里的字段块（v6 P2-1）：`标题  − [输入] 单位 +`。
+ * 每个字段独占一行（竖向堆叠），± 按钮 36×36、间距 10 —— 原来三列并排时
+ * 「组 的 +」与「次 的 −」只隔 8pt，看起来像一对加减号（用户反馈）。
+ */
 function MiniStepper({
   colors,
+  title,
   label,
   value,
   onChange,
@@ -415,6 +424,9 @@ function MiniStepper({
   max = 9999,
 }: {
   colors: ThemeColors;
+  /** 字段名（组数 / 次数 / 重量） */
+  title: string;
+  /** 单位（组 / 次 / kg） */
   label: string;
   value: string;
   onChange: (v: string) => void;
@@ -425,8 +437,9 @@ function MiniStepper({
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.miniStepper}>
-      <Pressable style={styles.miniBtn} onPress={() => onStep(-1)} accessibilityLabel={`减少${label}`}>
-        <ThemedIcon name="remove" size={14} color={colors.primary} />
+      <Text style={styles.miniTitle}>{title}</Text>
+      <Pressable style={styles.miniBtn} onPress={() => onStep(-1)} accessibilityLabel={`减少${title}`}>
+        <ThemedIcon name="remove" size={16} color={colors.primary} />
       </Pressable>
       <TextInput
         style={styles.miniInput}
@@ -441,9 +454,9 @@ function MiniStepper({
         placeholder={placeholder ?? "0"}
         placeholderTextColor={colors.textFaint}
       />
-      <Text style={styles.miniLabel}>{label}</Text>
-      <Pressable style={styles.miniBtn} onPress={() => onStep(1)} accessibilityLabel={`增加${label}`}>
-        <ThemedIcon name="add" size={14} color={colors.primary} />
+      <Text style={styles.miniUnit}>{label}</Text>
+      <Pressable style={styles.miniBtn} onPress={() => onStep(1)} accessibilityLabel={`增加${title}`}>
+        <ThemedIcon name="add" size={16} color={colors.primary} />
       </Pressable>
     </View>
   );
@@ -503,28 +516,30 @@ const makeStyles = (colors: ThemeColors) =>
     exercisePick: { flex: 1, flexDirection: "row", alignItems: "center", gap: 6 },
     exercisePickText: { fontSize: 15, fontWeight: "700", color: colors.text, flexShrink: 1 },
     exercisePickPlaceholder: { color: colors.textFaint, fontWeight: "600" },
-    stepperRow: { flexDirection: "row", gap: 8 },
-    miniStepper: { flex: 1, flexDirection: "row", alignItems: "center", gap: 4 },
+    /* v6 P2-1：字段独占一行，± 分离 */
+    stepperStack: { gap: 12 },
+    miniStepper: { flexDirection: "row", alignItems: "center", gap: 10 },
+    miniTitle: { width: 36, fontSize: 12, fontWeight: "700", color: colors.textMuted },
     miniBtn: {
-      width: 28,
-      height: 28,
-      borderRadius: 9,
+      width: 36,
+      height: 36,
+      borderRadius: 12,
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: colors.surfaceStrong,
     },
     miniInput: {
       flex: 1,
-      minWidth: 34,
+      minWidth: 44,
       textAlign: "center",
-      paddingVertical: 6,
-      fontSize: 14,
+      paddingVertical: 9,
+      fontSize: 15,
       fontWeight: "800",
       color: colors.text,
       backgroundColor: colors.surfaceStrong,
-      borderRadius: 9,
+      borderRadius: 10,
     },
-    miniLabel: { fontSize: 11, color: colors.textMuted, width: 16 },
+    miniUnit: { width: 20, fontSize: 12, color: colors.textMuted },
     ghostBtn: { borderRadius: 12, paddingVertical: 10, alignItems: "center", backgroundColor: colors.surfaceMuted },
     ghostBtnText: { fontSize: 13, fontWeight: "700", color: colors.primary },
     primaryBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 12, alignItems: "center", marginTop: 2 },

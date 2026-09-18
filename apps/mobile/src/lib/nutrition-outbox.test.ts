@@ -17,6 +17,7 @@ import {
   makeCreateOp,
   makeDeleteOp,
   makeUpdateOp,
+  mergePendingEntries,
   nextLocalId,
   peek,
   pendingCount,
@@ -121,5 +122,44 @@ describe("nutrition outbox · 队列与合并", () => {
     expect(a).toBeLessThan(0);
     expect(b).toBeLessThan(0);
     expect(a).not.toBe(b);
+  });
+
+  it("mergePendingEntries：待同步条目在服务端刷新后依然可见（v6 P0-3）", () => {
+    const localId = nextLocalId();
+    const s = enqueue(EMPTY_OUTBOX, makeCreateOp(body("番茄鸡蛋面"), localId));
+    const merged = mergePendingEntries([], s);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].id).toBe(localId);
+    expect(merged[0].name).toBe("番茄鸡蛋面");
+  });
+
+  it("mergePendingEntries：服务端已有同一条时不重复插入", () => {
+    const localId = nextLocalId();
+    const s = enqueue(EMPTY_OUTBOX, makeCreateOp(body("鸡蛋"), localId));
+    const server = [
+      { id: 7, logDate: "2026-09-15", meal: "lunch" as const, foodId: null, name: "鸡蛋", amount: 1,
+        unit: "个", kcal: 78, proteinG: 6.3, carbsG: 0.6, fatG: 5.3 },
+    ];
+    const merged = mergePendingEntries(server, s);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].id).toBe(7);
+  });
+
+  it("mergePendingEntries：服务端列表原样在前，待同步条目追加在后", () => {
+    const s = enqueue(EMPTY_OUTBOX, makeCreateOp(body("牛奶"), nextLocalId()));
+    const server = [
+      { id: 1, logDate: "2026-09-15", meal: "breakfast" as const, foodId: null, name: "馒头", amount: 1,
+        unit: "个", kcal: 223, proteinG: 7, carbsG: 47, fatG: 1.1 },
+    ];
+    const merged = mergePendingEntries(server, s);
+    expect(merged.map((e) => e.name)).toEqual(["馒头", "牛奶"]);
+  });
+
+  it("mergePendingEntries：没有待同步时原样返回（保持引用）", () => {
+    const server = [
+      { id: 1, logDate: "2026-09-15", meal: "lunch" as const, foodId: null, name: "米饭", amount: 1,
+        unit: "碗", kcal: 232, proteinG: 4.8, carbsG: 51.6, fatG: 0.6 },
+    ];
+    expect(mergePendingEntries(server, EMPTY_OUTBOX)).toBe(server);
   });
 });

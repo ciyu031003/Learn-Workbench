@@ -4,12 +4,15 @@ import { pgPool } from "@/lib/db";
 import { userScope } from "@/lib/anon";
 import { parseBody } from "@/lib/http";
 import { readIntParam } from "@/lib/query";
+import { mealKindSchema } from "@learn-workbench/shared";
 
 const SELECT_COLS = `id, name, unit, kcal, protein_g AS "proteinG", carbs_g AS "carbsG", fat_g AS "fatG"`;
 
 /** GET /api/nutrition/foods?q= —— 常用食物库（全局种子 + 本人自定义）
  *  ?sort=recent —— 按「最近使用 / 使用频次」排序（v3 M4「一点即记」与 M9 贴纸墙的数据源），
  *  统计口径来自近 90 天的 meal_entries，不需要新表。
+ *  ?meal=breakfast|lunch|dinner|snack —— v6 P1-2：先看**本人该餐次**的频次，再回落到总体频次
+ *  （早餐常吃的包子不会因为中午也吃过而被淹没）。
  */
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -17,19 +20,27 @@ export async function GET(req: Request) {
   const sort = url.searchParams.get("sort") === "recent" ? "recent" : "name";
   // 注意：缺失 limit 时不能用 Number(null)=0 去钳位（会退化成 LIMIT 1）
   const limit = readIntParam(url.searchParams.get("limit"), 200, 1, 200);
+  const mealParsed = mealKindSchema.safeParse(url.searchParams.get("meal") ?? "");
+  const meal = mealParsed.success ? mealParsed.data : null;
   const scope = await userScope();
-  const params: unknown[] = [scope.uid];
-  let qSql = "";
-  if (q) {
-    params.push(`%${q}%`);
-    qSql = ` AND name ILIKE $${params.length}`;
-  }
 
   if (sort === "recent") {
     // 频次与最近使用：以本人 meal_entries 的 name 聚合（food_id 可能为空的手动条目也能收集起来）
+    // $2 = 当前餐次（可为 null → 该两项恒为 0/NULL，排序退化成原来的总体频次）
+    const params: unknown[] = [scope.uid, meal];
+    let qSql = "";
+    if (q) {
+      params.push(`%${q}%`);
+      // 必须限定 f.name：usage CTE 里也有 name，不限定会报 ambiguous column
+      qSql = ` AND f.name ILIKE $${params.length}`;
+    }
     const { rows } = await pgPool.query(
       `WITH usage AS (
-          SELECT name, COUNT(*) AS times, MAX(created_at) AS last_used
+          SELECT name,
+                 COUNT(*) AS times,
+                 MAX(created_at) AS last_used,
+                 COUNT(*) FILTER (WHERE meal = $2) AS meal_times,
+                 MAX(created_at) FILTER (WHERE meal = $2) AS meal_last_used
             FROM meal_entries
            WHERE user_id IS NOT DISTINCT FROM $1
              AND deleted_at IS NULL
@@ -38,15 +49,24 @@ export async function GET(req: Request) {
        )
        SELECT f.id, f.name, f.unit, f.kcal, f.protein_g AS "proteinG", f.carbs_g AS "carbsG", f.fat_g AS "fatG",
               COALESCE(u.times, 0)::int AS "times",
-              u.last_used AS "lastUsed"
+              u.last_used AS "lastUsed",
+              COALESCE(u.meal_times, 0)::int AS "mealTimes"
          FROM foods f
          LEFT JOIN usage u ON lower(u.name) = lower(f.name)
         WHERE (f.user_id IS NULL OR f.user_id = $1)${qSql}
-        ORDER BY COALESCE(u.times, 0) DESC, u.last_used DESC NULLS LAST, (f.user_id IS NULL), f.name
+        ORDER BY COALESCE(u.meal_times, 0) DESC, u.meal_last_used DESC NULLS LAST,
+                 COALESCE(u.times, 0) DESC, u.last_used DESC NULLS LAST, (f.user_id IS NULL), f.name
         LIMIT ${limit}`,
       params
     );
-    return NextResponse.json({ foods: rows, sort });
+    return NextResponse.json({ foods: rows, sort, meal });
+  }
+
+  const params: unknown[] = [scope.uid];
+  let qSql = "";
+  if (q) {
+    params.push(`%${q}%`);
+    qSql = ` AND name ILIKE $${params.length}`;
   }
 
   const { rows } = await pgPool.query(
@@ -56,7 +76,7 @@ export async function GET(req: Request) {
       LIMIT ${limit}`,
     params
   );
-  return NextResponse.json({ foods: rows, sort });
+  return NextResponse.json({ foods: rows, sort, meal });
 }
 
 /** POST /api/nutrition/foods —— 保存常用食物（登录用户私有；同名 upsert） */

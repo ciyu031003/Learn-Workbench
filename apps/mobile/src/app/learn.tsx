@@ -21,7 +21,17 @@ import { UNTAGGED_CONTENT, computeFocusStats } from "@/lib/focus-stats";
 import { radius } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
-import { fetchRoadmap, createPhase, reorderPhases, readCachedRoadmap, deletePhase, updatePhase } from "@/lib/roadmap";
+import {
+  fetchRoadmapOrNull,
+  importRoadmapMarkdown,
+  createPhase,
+  reorderPhases,
+  readCachedRoadmap,
+  deletePhase,
+  updatePhase,
+  type MdImportResult,
+} from "@/lib/roadmap";
+import { Button } from "@/components/button";
 
 const STAGE_GRADS: [string, string][] = [
   ["#2F74C0", "#78C2E8"],
@@ -343,6 +353,12 @@ export default function LearnScreen() {
   const [customPhaseSummary, setCustomPhaseSummary] = useState("");
   const [editingPhase, setEditingPhase] = useState<Phase | null>(null);
   const [roadmapLoading, setRoadmapLoading] = useState(false);
+  // v6 P3-2：Markdown 导入（粘贴 → 服务端解析预览 → 确认导入）
+  const [mdSheet, setMdSheet] = useState(false);
+  const [mdText, setMdText] = useState("");
+  const [mdPreview, setMdPreview] = useState<MdImportResult | null>(null);
+  const [mdBusy, setMdBusy] = useState(false);
+  const [mdMsg, setMdMsg] = useState<string | null>(null);
   /**
    * 阶段卡拖拽排序（v4 P1）：状态全部用共享值，拖动过程中**不触发任何 React 重渲染**，
    * 位移与让位动画都在 UI 线程完成；`stageDragging` 只用于拖动期间锁住 ScrollView。
@@ -367,6 +383,64 @@ export default function LearnScreen() {
     setStageDragging(i !== null);
   }, []);
 
+  /**
+   * 重新拉取当前领域的路线图（v6 P3-1：走 fetchRoadmapOrNull，
+   * 返回 null = 没拿到权威答案 → 保留现状，不把页面清空）。
+   */
+  const reloadRoadmap = useCallback(async () => {
+    const remote = await fetchRoadmapOrNull();
+    if (remote === null) return;
+    setRoadmap(
+      remote
+        .filter((p) => p.track === "main")
+        .map((p) => ({ ...p, topics: p.topics ?? [] })) as unknown as Phase[]
+    );
+  }, []);
+
+  /** v6 P3-2：先让服务端解析 MD 出预览树（不写库） */
+  const previewMd = async () => {
+    const md = mdText.trim();
+    if (!md) {
+      Alert.alert("请粘贴 Markdown 内容");
+      return;
+    }
+    setMdBusy(true);
+    setMdMsg(null);
+    try {
+      const r = await importRoadmapMarkdown(md, { dryRun: true });
+      setMdPreview(r);
+    } catch (e) {
+      setMdPreview(null);
+      setMdMsg(e instanceof Error ? e.message : "解析失败");
+    } finally {
+      setMdBusy(false);
+    }
+  };
+
+  /** v6 P3-2：确认导入（服务端在事务里写阶段/主题/学习内容） */
+  const confirmMd = async () => {
+    const md = mdText.trim();
+    if (!md) return;
+    setMdBusy(true);
+    setMdMsg(null);
+    try {
+      const r = await importRoadmapMarkdown(md);
+      const created = r.created ?? { phases: 0, topics: 0, items: 0 };
+      Alert.alert(
+        "导入完成",
+        `新增 ${created.phases} 个阶段 · ${created.topics} 个主题 · ${created.items} 条学习内容`
+      );
+      setMdSheet(false);
+      setMdPreview(null);
+      setMdText("");
+      await reloadRoadmap();
+    } catch (e) {
+      setMdMsg(e instanceof Error ? e.message : "导入失败");
+    } finally {
+      setMdBusy(false);
+    }
+  };
+
   useEffect(() => {
     let alive = true;
     const load = async () => {
@@ -377,11 +451,15 @@ export default function LearnScreen() {
         .map((p) => ({ ...p, topics: p.topics ?? [] })) as unknown as Phase[];
       if (alive && cachedMain.length > 0) setRoadmap(cachedMain);
       if (token) {
-        const remote = await fetchRoadmap();
-        const remoteMain = remote
-          .filter((p) => p.track === "main")
-          .map((p) => ({ ...p, topics: p.topics ?? [] })) as unknown as Phase[];
-        if (alive && remoteMain.length > 0) setRoadmap(remoteMain);
+        const remote = await fetchRoadmapOrNull();
+        // null = 离线/出错：保留现有内容；[] = 该领域确实没有阶段 → 交给空态引导
+        if (alive && remote !== null) {
+          setRoadmap(
+            remote
+              .filter((p) => p.track === "main")
+              .map((p) => ({ ...p, topics: p.topics ?? [] })) as unknown as Phase[]
+          );
+        }
       }
       if (alive) setRoadmapLoading(false);
     };
@@ -488,11 +566,7 @@ export default function LearnScreen() {
           if (!token) return;
           try {
             await deletePhase(phase.id);
-            const remote = await fetchRoadmap();
-            const remoteMain = remote
-              .filter((p) => p.track === "main")
-              .map((p) => ({ ...p, topics: p.topics ?? [] })) as unknown as Phase[];
-            if (remoteMain.length > 0) setRoadmap(remoteMain);
+            await reloadRoadmap();
           } catch (e) {
             Alert.alert("删除失败", e instanceof Error ? e.message : "本机已移除，联网后会重试或对齐");
           }
@@ -558,11 +632,7 @@ export default function LearnScreen() {
       } else {
         await createPhase(title, customPhaseSummary.trim() || null, null);
       }
-      const remote = await fetchRoadmap();
-      const remoteMain = remote
-        .filter((p) => p.track === "main")
-        .map((p) => ({ ...p, topics: p.topics ?? [] })) as unknown as Phase[];
-      setRoadmap(remoteMain.length > 0 ? remoteMain : roadmap);
+      await reloadRoadmap();
       setCustomPhaseSheet(false);
       setEditingPhase(null);
       setStageSheet(true);
@@ -617,6 +687,53 @@ export default function LearnScreen() {
           <Text style={styles.addBtnText}>添加阶段</Text>
         </Pressable>
       </View>
+      {/* v6 P3-1：领域下没有任何阶段时的引导（跳过职业选择 / 新建领域后最常见） */}
+      {!roadmapLoading && roadmap.length === 0 ? (
+        <Card style={styles.emptyCard}>
+          <Text style={styles.emptyTitle}>还没有学习阶段</Text>
+          <Text style={styles.emptyHint}>
+            这个学习领域下还没有任何阶段。可以自己新建，也可以导入 Markdown：
+            # 一级标题 = 学习阶段，## 二级 = 阶段里的主题，### 三级 = 主题下的学习内容。
+          </Text>
+          <View style={styles.emptyActions}>
+            <PressableScale
+              haptic
+              style={styles.emptyAction}
+              onPress={() => {
+                setMdText("");
+                setMdPreview(null);
+                setMdMsg(null);
+                setMdSheet(true);
+              }}
+            >
+              <ThemedIcon name="document-text-outline" size={18} color={colors.primary} />
+              <Text style={styles.emptyActionText}>导入 MD</Text>
+            </PressableScale>
+            <PressableScale
+              haptic
+              style={styles.emptyAction}
+              onPress={() => {
+                setEditingPhase(null);
+                setCustomPhaseTitle("");
+                setCustomPhaseSummary("");
+                setCustomPhaseSheet(true);
+              }}
+            >
+              <ThemedIcon name="add" size={18} color={colors.primary} />
+              <Text style={styles.emptyActionText}>新建阶段</Text>
+            </PressableScale>
+            <PressableScale
+              haptic
+              style={styles.emptyAction}
+              onPress={() => router.push("/domain-manager" as never)}
+            >
+              <ThemedIcon name="layers-outline" size={18} color={colors.primary} />
+              <Text style={styles.emptyActionText}>从模板创建</Text>
+            </PressableScale>
+          </View>
+        </Card>
+      ) : null}
+
       {roadmap.map((phase, i) => {
         const progressInfo = phaseDone(phase);
         const active = phase.id === selectedPhaseId;
@@ -920,6 +1037,67 @@ export default function LearnScreen() {
         </View>
       </BottomSheet>
 
+      {/* v6 P3-2：粘贴 Markdown → 预览 → 导入（服务端解析 + 事务写入） */}
+      <BottomSheet
+        visible={mdSheet}
+        onClose={() => setMdSheet(false)}
+        title="导入 Markdown 学习计划"
+        height="86%"
+        expandable
+      >
+        <View style={styles.formSheet}>
+          <Text style={styles.mdHint}>
+            # 一级标题 = 学习阶段；## 二级 = 阶段里的主题；### 三级 = 主题下的学习内容（正文一起导入）。
+          </Text>
+          <TextInput
+            style={styles.mdInput}
+            value={mdText}
+            onChangeText={(v) => {
+              setMdText(v);
+              setMdPreview(null);
+              setMdMsg(null);
+            }}
+            placeholder={"# 阶段一：基础\n## 主题 A\n### 学习内容 1\n具体说明…"}
+            placeholderTextColor={colors.textFaint}
+            multiline
+            textAlignVertical="top"
+            autoCapitalize="none"
+          />
+          {mdMsg ? <Text style={styles.mdMsg}>{mdMsg}</Text> : null}
+          {mdPreview ? (
+            <View style={styles.mdPreview}>
+              <Text style={styles.mdPreviewTitle}>
+                预览：{mdPreview.counts?.phases ?? 0} 个阶段 · {mdPreview.counts?.topics ?? 0} 个主题 ·{" "}
+                {mdPreview.counts?.items ?? 0} 条学习内容
+              </Text>
+              {(mdPreview.preview ?? []).slice(0, 6).map((p) => (
+                <View key={p.title} style={styles.mdPreviewPhase}>
+                  <Text style={styles.mdPreviewPhaseTitle} numberOfLines={1}># {p.title}</Text>
+                  {p.topics.slice(0, 4).map((t) => (
+                    <Text key={t.title} style={styles.mdPreviewTopic} numberOfLines={1}>
+                      ## {t.title}（{t.items.length} 条）
+                    </Text>
+                  ))}
+                </View>
+              ))}
+            </View>
+          ) : null}
+          <View style={styles.mdActions}>
+            <View style={styles.mdActionItem}>
+              <Button label="预览" variant="secondary" loading={mdBusy} onPress={() => void previewMd()} />
+            </View>
+            <View style={styles.mdActionItem}>
+              <Button
+                label="确认导入"
+                icon="add"
+                loading={mdBusy}
+                disabled={!mdPreview}
+                onPress={() => void confirmMd()}
+              />
+            </View>
+          </View>
+        </View>
+      </BottomSheet>
       <Modal visible={!!activeTopic} transparent animationType="fade" onRequestClose={() => setContentTopic(null)}>
         <Pressable style={styles.modalScrim} onPress={() => setContentTopic(null)}>
           <Pressable style={styles.modalCard} onPress={() => {}}>
@@ -1166,6 +1344,43 @@ const makeStyles = (colors: ThemeColors) =>
   newStageBtnText: { color: colors.accentStrong, fontSize: 13, fontWeight: "800" },
 
   formSheet: { gap: 12, paddingTop: 4 },
+  /* v6 P3-1：空态引导 */
+  emptyCard: { gap: 10 },
+  emptyTitle: { fontSize: 16, fontWeight: "800", color: colors.text },
+  emptyHint: { fontSize: 12, lineHeight: 18, color: colors.textMuted },
+  emptyActions: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  emptyAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+    backgroundColor: colors.primarySoft,
+  },
+  emptyActionText: { fontSize: 13, fontWeight: "800", color: colors.primary },
+  /* v6 P3-2：MD 导入 */
+  mdHint: { fontSize: 12, lineHeight: 18, color: colors.textMuted },
+  mdInput: {
+    minHeight: 180,
+    maxHeight: 300,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.text,
+    backgroundColor: colors.surfaceMuted,
+    textAlignVertical: "top",
+  },
+  mdMsg: { fontSize: 12, color: colors.danger },
+  mdPreview: { gap: 6, padding: 10, borderRadius: 12, backgroundColor: colors.surfaceMuted },
+  mdPreviewTitle: { fontSize: 12, fontWeight: "800", color: colors.primary },
+  mdPreviewPhase: { gap: 2 },
+  mdPreviewPhaseTitle: { fontSize: 13, fontWeight: "700", color: colors.text },
+  mdPreviewTopic: { fontSize: 12, color: colors.textMuted },
+  mdActions: { flexDirection: "row", gap: 10 },
+  mdActionItem: { flex: 1 },
   formLabel: { color: colors.text, fontSize: 13, fontWeight: "800" },
   formInput: {
     backgroundColor: colors.surfaceStrong,

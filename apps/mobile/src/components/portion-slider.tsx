@@ -61,6 +61,24 @@ export function PortionSlider({
     pos.value = withTiming(toPx(value), { duration: 160 });
   }, [dragging, pos, toPx, value, width]);
 
+  /**
+   * 松手结算：**在 JS 线程**做吸附 + 回弹 + 回调（UI 线程只读一次 pos.value 再 runOnJS）。
+   * v1.4.2 真机崩溃根因：原来在 onEnd worklet 里直接调 snapPortion()（普通函数）→
+   * UI 线程同步调用非 worklet 函数会抛错并闪退（见看板踩坑 79）。
+   */
+  const settleFromPos = useCallback(
+    (px: number) => {
+      const raw = min + (width > 0 ? px / width : 0) * span;
+      const next = snapPortion(raw, min, max, step);
+      pos.value = withSpring(((next - min) / span) * width, { damping: 18, stiffness: 240 });
+      knob.value = withSpring(1, { damping: 18, stiffness: 240 });
+      setDragging(false);
+      onChange(next);
+      haptics.light();
+    },
+    [knob, max, min, onChange, pos, span, step, width]
+  );
+
   const pan = useMemo(
     () =>
       Gesture.Pan()
@@ -73,15 +91,10 @@ export function PortionSlider({
           pos.value = Math.min(width, Math.max(0, startPos.value + e.translationX));
         })
         .onEnd(() => {
-          const raw = min + (width > 0 ? pos.value / width : 0) * span;
-          const next = snapPortion(raw, min, max, step);
-          pos.value = withSpring(((next - min) / span) * width, { damping: 18, stiffness: 240 });
-          knob.value = withSpring(1, { damping: 18, stiffness: 240 });
-          runOnJS(setDragging)(false);
-          runOnJS(onChange)(next);
-          runOnJS(haptics.light)();
+          // worklet 里只做一件事：把当前位置交给 JS 线程结算（绝不在 UI 线程调普通函数）
+          runOnJS(settleFromPos)(pos.value);
         }),
-    [knob, max, min, onChange, pos, span, startPos, step, width]
+    [knob, pos, settleFromPos, startPos, width]
   );
 
   const fillStyle = useAnimatedStyle(() => ({ width: pos.value }));

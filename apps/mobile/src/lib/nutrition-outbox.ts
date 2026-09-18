@@ -27,6 +27,10 @@ export interface MealEntryInput {
   carbsG: number;
   fatG: number;
   foodId?: number | null;
+  /** v6 P1-3：营养基准库条目 id（服务端按 grams 与 basis_amount 换算） */
+  foodItemId?: number | null;
+  /** v6 P1-3：实际摄入克数（留档；份量型条目可选） */
+  grams?: number | null;
 }
 
 export interface CreateOp {
@@ -170,6 +174,36 @@ export function toLocalEntry(body: MealEntryInput, localId: number): MealEntry {
     fatG: body.fatG,
     createdAt: new Date().toISOString(),
   };
+}
+
+/**
+ * 把发件箱里**还没上传成功**的 create 合并进服务端列表（v6 P0-3）。
+ *
+ * 背景：手动添加在离线 / 5xx / 401 时会先乐观入账，但若随后执行了一次 load()，
+ * 服务端列表里没有这条 → 直接把它覆盖掉（用户看到「提示成功但页面没有、数据仍 0」）。
+ * 现在 load() 一律走这个合并函数，保证待同步条目始终可见。
+ *
+ * 去重：同一天 + 同餐次 + 同名 + 同份量视为同一条（覆盖「请求其实成功了但响应丢失、
+ * 操作仍留在队列里」这种边界情况，避免列表出现两条一样的）。
+ */
+export function mergePendingEntries(server: MealEntry[], state: OutboxState): MealEntry[] {
+  const creates = state.ops.filter((o): o is CreateOp => o.kind === "create");
+  if (creates.length === 0) return server;
+  const seen = new Set(server.map(entrySignature));
+  const merged = [...server];
+  for (const op of creates) {
+    const local = toLocalEntry(op.body, op.localId);
+    const key = entrySignature(local);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(local);
+  }
+  return merged;
+}
+
+/** 去重指纹：同一天 + 同餐次 + 同名（忽略大小写与首尾空格）+ 同份量 */
+function entrySignature(e: MealEntry): string {
+  return [e.logDate, e.meal, e.name.trim().toLowerCase(), e.amount].join("|");
 }
 
 export async function loadOutbox(): Promise<OutboxState> {

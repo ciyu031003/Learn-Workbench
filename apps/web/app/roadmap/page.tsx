@@ -34,6 +34,32 @@ interface RoadmapResponse {
   phases: RoadmapPhase[];
 }
 
+/** v6 P3-2：MD 导入接口的响应形状（/api/roadmap/import） */
+interface MdCounts {
+  phases: number;
+  topics: number;
+  items: number;
+}
+interface MdTopicPreview {
+  title: string;
+  summary: string | null;
+  items: { title: string; contentMd: string }[];
+}
+interface MdPhasePreview {
+  title: string;
+  summary: string | null;
+  topics: MdTopicPreview[];
+}
+interface MdImportResponse {
+  ok?: boolean;
+  dryRun?: boolean;
+  career?: string;
+  counts?: MdCounts;
+  preview?: MdPhasePreview[];
+  created?: MdCounts;
+  error?: string;
+}
+
 type Track = "main" | "agent";
 
 interface DomainRow {
@@ -111,6 +137,23 @@ export default function RoadmapPage() {
   const [phaseModal, setPhaseModal] = useState(false);
   const [editingPhase, setEditingPhase] = useState<RoadmapPhase | null>(null);
   const [phaseForm, setPhaseForm] = useState({ track: "main" as Track, title: "", summary: "", weeks: "" });
+  // v6 P3-2：MD 导入（选文件/粘贴 → 预览 → 导入；H1=阶段 / H2=主题 / H3=学习内容）
+  const [mdOpen, setMdOpen] = useState(false);
+  const [mdText, setMdText] = useState("");
+  const [mdInfo, setMdInfo] = useState<{ counts: MdCounts; preview: MdPhasePreview[] } | null>(null);
+  const [mdBusy, setMdBusy] = useState(false);
+  const [mdError, setMdError] = useState<string | null>(null);
+
+  const readMdFile = useCallback(async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      setMdText(await file.text());
+      setMdInfo(null);
+      setMdError(null);
+    } catch {
+      setMdError("读取文件失败");
+    }
+  }, []);
 
   const load = useCallback(async (careerKey: string) => {
     try {
@@ -129,6 +172,41 @@ export default function RoadmapPage() {
       setError("数据库暂不可用，请确认已运行 scripts\\start_pg.ps1");
     }
   }, []);
+
+  /** v6 P3-2：调用导入接口（dryRun=true 只解析预览，不写库） */
+  const callImport = useCallback(
+    async (dryRun: boolean) => {
+      setMdBusy(true);
+      setMdError(null);
+      try {
+        const r = await fetch("/api/roadmap/import", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ markdown: mdText, career, dryRun }),
+        });
+        const data = (await r.json()) as MdImportResponse;
+        if (!r.ok) throw new Error(data?.error ?? "导入失败");
+        if (dryRun) {
+          setMdInfo({
+            counts: data.counts ?? { phases: 0, topics: 0, items: 0 },
+            preview: data.preview ?? [],
+          });
+        } else {
+          const created = data.created ?? { phases: 0, topics: 0, items: 0 };
+          setMdOpen(false);
+          setMdInfo(null);
+          setMdText("");
+          pushToast(`已导入 ${created.phases} 个阶段 · ${created.topics} 个主题 · ${created.items} 条学习内容`);
+          await load(career);
+        }
+      } catch (e) {
+        setMdError(e instanceof Error ? e.message : "导入失败");
+      } finally {
+        setMdBusy(false);
+      }
+    },
+    [career, load, mdText, pushToast]
+  );
 
   useEffect(() => {
     let alive = true;
@@ -658,6 +736,18 @@ export default function RoadmapPage() {
                   <Button variant="secondary" size="sm" onClick={() => setAdding(true)}>
                     <Plus className="size-4" /> 自定义主题
                   </Button>
+                  {/* v6 P3-2：导入 Markdown 学习计划 */}
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      setMdInfo(null);
+                      setMdError(null);
+                      setMdOpen(true);
+                    }}
+                  >
+                    <BookOpen className="size-4" /> 导入 MD
+                  </Button>
                 </div>
               ) : (
                 <Badge variant="muted">{currentCareer?.name ?? "当前领域"} · 不可自定义</Badge>
@@ -701,6 +791,51 @@ export default function RoadmapPage() {
             </div>
           </GlassModal>
 
+          {/* v6 P3-2：MD 导入（选文件或粘贴 → 预览 → 确认） */}
+          <GlassModal open={mdOpen} onClose={() => setMdOpen(false)} title="导入 Markdown 学习计划">
+            <p className="mb-3 text-xs text-muted-foreground">
+              # 一级标题 = 学习阶段；## 二级 = 阶段里的主题；### 三级 = 主题下的学习内容（正文一起导入）。
+            </p>
+            <div className="flex flex-col gap-3">
+              <input
+                type="file"
+                accept=".md,.markdown,.txt,text/markdown,text/plain"
+                onChange={(e) => void readMdFile(e.target.files?.[0])}
+                className="text-xs text-muted-foreground file:mr-3 file:rounded-lg file:border-0 file:bg-white/15 file:px-3 file:py-1.5 file:text-xs file:text-foreground"
+              />
+              <textarea
+                value={mdText}
+                onChange={(e) => {
+                  setMdText(e.target.value);
+                  setMdInfo(null);
+                  setMdError(null);
+                }}
+                rows={8}
+                placeholder="# 阶段一：基础&#10;## 主题 A&#10;### 学习内容 1&#10;具体说明…"
+                className="rounded-xl border border-white/25 bg-white/12 px-3 py-2 font-mono text-xs text-foreground outline-none backdrop-blur-md placeholder:text-muted-foreground focus:border-primary/60"
+              />
+            </div>
+            {mdError ? <p className="mt-2 text-xs text-danger">{mdError}</p> : null}
+            {mdInfo ? (
+              <div className="mt-3 max-h-44 overflow-y-auto rounded-xl bg-white/10 p-3 text-xs">
+                <p className="font-semibold text-primary">
+                  {mdInfo.counts.phases} 个阶段 · {mdInfo.counts.topics} 个主题 · {mdInfo.counts.items} 条学习内容
+                </p>
+                {mdInfo.preview.slice(0, 8).map((p) => (
+                  <p key={p.title} className="mt-1 text-foreground"># {p.title}</p>
+                ))}
+              </div>
+            ) : null}
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setMdOpen(false)}>取消</Button>
+              <Button variant="secondary" onClick={() => void callImport(true)} disabled={mdBusy || !mdText.trim()}>
+                预览
+              </Button>
+              <Button onClick={() => void callImport(false)} disabled={mdBusy || !mdInfo}>
+                <Plus className="size-4" /> 确认导入
+              </Button>
+            </div>
+          </GlassModal>
           {/* 新增/编辑大阶段 */}
           <GlassModal
             open={phaseModal}

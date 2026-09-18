@@ -75,6 +75,13 @@ const MAP: Record<string, string> = {
   "radio-outline": "dot.radiowaves.left.and.right",
   "repeat-outline": "repeat",
   "barbell-outline": "figure.strengthtraining.traditional",
+  // v6 P2-2：训练分类大卡片
+  "apps-outline": "square.grid.2x2",
+  "walk-outline": "figure.walk",
+  "body-outline": "figure.flexibility",
+  "basketball-outline": "figure.basketball",
+  "footsteps-outline": "figure.walking",
+  "ellipsis-horizontal": "ellipsis",
   "restaurant-outline": "fork.knife",
   "sparkles-outline": "sparkles",
 };

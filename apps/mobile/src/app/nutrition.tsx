@@ -56,6 +56,7 @@ import {
   makeCreateOp,
   makeDeleteOp,
   makeUpdateOp,
+  mergePendingEntries,
   nextLocalId,
   pendingCount,
   saveOutbox,
@@ -66,6 +67,7 @@ import {
 } from "@/lib/nutrition-outbox";
 import { isRetryable, sendNutritionOp, toFlushOutcome } from "@/lib/nutrition-sync";
 import { monthRange } from "@/lib/month-grid";
+import { mealForNow } from "@/lib/meal-time";
 import {
   compactKcal,
   dayLabel,
@@ -93,6 +95,9 @@ import {
   toDateKey,
   kcalEquivalentText,
   sumNutrition,
+  scaleFoodByAmount,
+  formatBasisLabel,
+  type FoodItemHit,
   type Food,
   type MealEntry,
   type MealKind,
@@ -150,6 +155,11 @@ export default function NutritionScreen() {
   const [manual, setManual] = useState({ name: "", unit: "份", kcal: "", proteinG: "", carbsG: "", fatG: "" });
   const [saveAsCommon, setSaveAsCommon] = useState(false);
   const [foodQuery, setFoodQuery] = useState("");
+  // v6 P1-3：营养基准库（food_items）搜索 → 选一条 → 输入实际摄入量 → 服务端换算
+  const [dbItems, setDbItems] = useState<FoodItemHit[]>([]);
+  const [dbLoading, setDbLoading] = useState(false);
+  const [pickedItem, setPickedItem] = useState<FoodItemHit | null>(null);
+  const [itemGrams, setItemGrams] = useState("100");
   // P2：编辑面板 + 离线发件箱
   const [editing, setEditing] = useState<MealEntry | null>(null);
   const [outbox, setOutbox] = useState<OutboxState>(EMPTY_OUTBOX);
@@ -302,7 +312,11 @@ export default function NutritionScreen() {
       ]);
       if (my !== loadSeq.current) return;
       const d = await entriesRes.json();
-      if (entriesRes.ok) setEntries(Array.isArray(d.entries) ? d.entries : []);
+      if (entriesRes.ok) {
+        const server: MealEntry[] = Array.isArray(d.entries) ? d.entries : [];
+        // 合并发件箱里还没上传成功的条目（v6 P0-3）：否则这次 load 会把乐观入账抹掉
+        setEntries(mergePendingEntries(server, await loadOutbox()));
+      }
       const s = await summaryRes.json();
       // 与窗口一起落库：窗口不匹配时消费方按空处理，宁可不显示也不显示错的月份数字
       if (summaryRes.ok) setSummaryState({ key: summaryWindowKey, map: toDaySummaryMap(s.summary) });
@@ -326,7 +340,7 @@ export default function NutritionScreen() {
     } finally {
       if (my === loadSeq.current) setLoading(false);
     }
-  }, [date, flushPending, headers, summaryWindow, summaryWindowKey]);
+  }, [date, flushPending, headers, summaryWindow, summaryWindowKey, token]);
 
   useEffect(() => {
     const t = setTimeout(() => void load(), 0);
@@ -335,19 +349,129 @@ export default function NutritionScreen() {
 
   const { refreshing, onRefresh } = useRefreshable(load);
 
+  /** v6 P0-3：「N 条待同步」状态条的重试入口 —— 先补发，再刷新列表 */
+  const retryPending = useCallback(async () => {
+    await flushPending();
+    await load();
+  }, [flushPending, load]);
+
+  /** v6 P1-3：营养库条目的实时换算预览（服务端会独立重算一次） */
+  const itemScaled = useMemo(
+    () => (pickedItem ? scaleFoodByAmount(pickedItem, Number(itemGrams) || 0) : null),
+    [pickedItem, itemGrams]
+  );
+
+  /**
+   * v6 P1-3：从营养基准库按实际摄入量添加。
+   * 与 addManual 同一条规则（P0-3）：**只有真正落库成功才 load()**，
+   * 否则服务端列表会把刚插入的乐观入账覆盖掉。
+   */
+  const addFromItem = async () => {
+    if (!pickedItem) return;
+    const gramsNum = Number(itemGrams);
+    if (!Number.isFinite(gramsNum) || gramsNum <= 0) {
+      Alert.alert("请填写摄入量", "输入实际吃了多少（克，或与基准单位相同的量）。");
+      return;
+    }
+    setSaving(true);
+    try {
+      const localId = nextLocalId();
+      const scaled = scaleFoodByAmount(pickedItem, gramsNum);
+      const isMass = pickedItem.basisUnit === "g" || pickedItem.basisUnit === "ml";
+      const body: MealEntryInput = {
+        date,
+        meal,
+        name: pickedItem.name,
+        amount: isMass
+          ? Math.min(1000, gramsNum)
+          : Math.round((gramsNum / pickedItem.basisAmount) * 100) / 100,
+        unit: pickedItem.basisUnit,
+        ...scaled,
+        foodItemId: pickedItem.id,
+        grams: gramsNum,
+      };
+      const op = makeCreateOp(body, localId);
+      const outcome = await submitOp(op);
+      if (!outcome.ok && !isRetryable(outcome)) {
+        Alert.alert("这条没有记上", outcome.message ?? "服务端拒绝了这条记录。");
+        return;
+      }
+      if (!outcome.ok) {
+        setEntries((prev) => [...prev, toLocalEntry(body, localId)]);
+        setPendingIds((prev) => [...prev, localId]);
+        const next = enqueue(outbox, op);
+        setOutbox(next);
+        await saveOutbox(next);
+        haptics.success();
+        closeSheet();
+        if (outcome.kind === "auth") Alert.alert("已记在本机", "登录后会自动同步到云端。");
+        return;
+      }
+      haptics.success();
+      closeSheet();
+      await load();
+    } finally {
+      setSaving(false);
+    }
+  };
+
   useEffect(() => {
     if (!sheetOpen) return;
     void (async () => {
       try {
-        // 优先按「最近使用/频次」排序（v3 M4：一点即记的命中率靠这个）
-        const r = await fetch(getApiUrl() + "/api/nutrition/foods?sort=recent&limit=24", { headers: headers() });
+        // 优先按「最近使用/频次」排序（v3 M4）；v6 P1-2 再叠加当前餐次：
+        // 先看「本人这个餐次」吃过的（早餐常吃的包子不会因为中午也吃过被淹没）
+        const r = await fetch(
+          getApiUrl() + `/api/nutrition/foods?sort=recent&limit=24&meal=${meal}`,
+          { headers: headers() }
+        );
         const d = await r.json();
         if (r.ok) setFoods(Array.isArray(d.foods) ? d.foods : []);
       } catch {
         // 忽略
       }
     })();
-  }, [sheetOpen, headers]);
+  }, [sheetOpen, meal, headers]);
+
+  /**
+   * v6 P1-3：营养基准库模糊搜索（300ms 防抖 + 只认最新一次响应）。
+   * 输入为空时清空结果；失败静默（下方还有常用食物与手动添加两条兜底路径）。
+   */
+  useEffect(() => {
+    const q = foodQuery.trim();
+    let alive = true;
+    if (!sheetOpen || q.length === 0) {
+      // 清空放到异步回调里：effect 体内同步 setState 会触发级联渲染（react-hooks/set-state-in-effect）
+      const idle = setTimeout(() => {
+        if (alive) setDbItems([]);
+      }, 0);
+      return () => {
+        alive = false;
+        clearTimeout(idle);
+      };
+    }
+    const timer = setTimeout(() => {
+      void (async () => {
+        setDbLoading(true);
+        try {
+          const r = await fetch(
+            getApiUrl() + `/api/foods/search?q=${encodeURIComponent(q)}&meal=${meal}&limit=12`,
+            { headers: headers() }
+          );
+          const d = await r.json();
+          if (alive && r.ok) setDbItems(Array.isArray(d.items) ? d.items : []);
+        } catch {
+          if (alive) setDbItems([]);
+        } finally {
+          if (alive) setDbLoading(false);
+        }
+      })();
+    }, 300);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [foodQuery, sheetOpen, meal, headers]);
 
   /** 贴纸墙数据（v3 M9）：近 30 天记录里出现过的食物 + 次数 */
   const stickers = useMemo(() => {
@@ -387,10 +511,18 @@ export default function NutritionScreen() {
   const closeSheet = useCallback(() => {
     setSheetOpen(false);
     setPicked(null);
+    setPickedItem(null);
+    setItemGrams("100");
     setAmount("1");
     setManual({ name: "", unit: "份", kcal: "", proteinG: "", carbsG: "", fatG: "" });
     setSaveAsCommon(false);
     setFoodQuery("");
+  }, []);
+
+  /** v6 P1-2：打开「添加饮食」时按当前时间预选餐次（用户仍可手动切） */
+  const openSheet = useCallback(() => {
+    setMeal(mealForNow());
+    setSheetOpen(true);
   }, []);
 
   /** 从常用食物添加：默认 1 份，立即入账（v3 M4 一点即记）；离线时进发件箱 */
@@ -521,13 +653,20 @@ export default function NutritionScreen() {
         return;
       }
       if (!outcome.ok) {
-        // 离线 / 服务端错误 / 未登录：同样先落本机再补发
+        // 离线 / 服务端错误 / 未登录：先落本机再补发。
+        // ⚠️ 这条分支**不能**调 load()：服务端列表里没有它，load 会把乐观入账覆盖掉
+        //（真机「提示成功但页面没有、数据仍 0」的根因，见看板踩坑 80）。
         setEntries((prev) => [...prev, toLocalEntry(body, localId)]);
         setPendingIds((prev) => [...prev, localId]);
         const next = enqueue(outbox, op);
         setOutbox(next);
         await saveOutbox(next);
-      } else if (saveAsCommon) {
+        haptics.success();
+        closeSheet();
+        if (outcome.kind === "auth") Alert.alert("已记在本机", "登录后会自动同步到云端。");
+        return;
+      }
+      if (saveAsCommon) {
         const fr = await fetch(getApiUrl() + "/api/nutrition/foods", {
           method: "POST",
           headers: { "Content-Type": "application/json", ...headers() },
@@ -1036,8 +1175,20 @@ export default function NutritionScreen() {
       </>
       ) : null}
 
+      {/* v6 P0-3：待同步状态条 —— 未上传的条目始终可见，且可一键重试 */}
+      {pendingCount(outbox) > 0 ? (
+        <Pressable
+          onPress={() => void retryPending()}
+          style={styles.syncBar}
+          accessibilityLabel="重试同步待上传的饮食记录"
+        >
+          <ThemedIcon name="refresh" size={15} color={colors.accentStrong} />
+          <Text style={styles.syncBarText}>{pendingCount(outbox)} 条待同步 · 点此重试</Text>
+        </Pressable>
+      ) : null}
+
       {viewMode === "month" ? null : (
-        <PressableScale haptic style={styles.addBtn} onPress={() => setSheetOpen(true)}>
+        <PressableScale haptic style={styles.addBtn} onPress={openSheet}>
           <ThemedIcon name="add" size={18} color="#fff" />
           <Text style={styles.addBtnText}>添加{mealKindLabels[meal]}</Text>
         </PressableScale>
@@ -1190,7 +1341,7 @@ export default function NutritionScreen() {
                   }
                   haptics.soft();
                   setManual((prev) => ({ ...prev, name: s.name, kcal: String(Math.round(s.kcal)) }));
-                  setSheetOpen(true);
+                  openSheet();
                 }}
                 style={styles.stickerCell}
                 accessibilityLabel={`再记一份 ${s.name}`}
@@ -1231,7 +1382,7 @@ export default function NutritionScreen() {
           // 不在常用库里：带着名字与平均热量打开手动表单（今天先落账）
           setManual((prev) => ({ ...prev, name, kcal: String(Math.round(avgKcal)) }));
           setBookOpen(false);
-          setSheetOpen(true);
+          openSheet();
         }}
       />
 
@@ -1271,7 +1422,7 @@ export default function NutritionScreen() {
       {/* v4 P4-c：LiveLog 贴纸画布（本机保存） */}
       <LiveLogSheet visible={liveOpen} onClose={() => setLiveOpen(false)} names={liveNames} />
 
-      <BottomSheet visible={sheetOpen} onClose={closeSheet} title="添加饮食" height="86%">
+      <BottomSheet visible={sheetOpen} onClose={closeSheet} title="添加饮食" height="86%" expandable>
         <View style={styles.form}>
           <Text style={styles.label}>餐次</Text>
           <View style={styles.kindRow}>
@@ -1286,35 +1437,115 @@ export default function NutritionScreen() {
             ))}
           </View>
 
-          <SectionHeader title="常用食物" subtitle="点一下就记 1 份（0 输入）" style={styles.sheetSection} />
-          {/* 一点即记：贴纸网格，无需输入数量 */}
-          <View style={styles.chipGrid}>
+          {/* v6 P1-3：搜索提到最前 —— 先查营养基准库（模糊匹配 → 输入克数换算），再是常用食物网格 */}
+          <Field
+            value={foodQuery}
+            onChangeText={setFoodQuery}
+            placeholder="搜索食物（如 番茄鸡蛋面 / 鸡旦）"
+            returnKeyType="search"
+            autoCapitalize="none"
+          />
+
+          {foodQuery.trim().length > 0 ? (
+            <View style={styles.dbBlock}>
+              <SectionHeader
+                title="营养库匹配"
+                subtitle={dbLoading ? "搜索中…" : "选一条 → 填实际摄入量"}
+                style={styles.sheetSection}
+              />
+              {pickedItem ? (
+                <View style={styles.itemCard}>
+                  <View style={styles.itemHead}>
+                    <Text style={styles.itemName} numberOfLines={1}>{pickedItem.name}</Text>
+                    <Pressable hitSlop={8} onPress={() => setPickedItem(null)} accessibilityLabel="返回搜索结果">
+                      <ThemedIcon name="close-circle" size={18} color={colors.textFaint} />
+                    </Pressable>
+                  </View>
+                  <Text style={styles.itemMeta}>
+                    {formatBasisLabel(pickedItem)} · {Math.round(pickedItem.kcal)} kcal
+                    {pickedItem.category ? ` · ${pickedItem.category}` : ""}
+                  </Text>
+                  <View style={styles.gramsRow}>
+                    <Field
+                      label="实际摄入量"
+                      value={itemGrams}
+                      onChangeText={setItemGrams}
+                      keyboardType="numeric"
+                      placeholder={String(pickedItem.basisAmount)}
+                      containerStyle={styles.gramsField}
+                    />
+                    <Text style={styles.gramsUnit}>{pickedItem.basisUnit}</Text>
+                  </View>
+                  <View style={styles.gramsQuick}>
+                    {[100, 200, 300, 500].map((g) => (
+                      <Pressable key={g} onPress={() => setItemGrams(String(g))} style={styles.gramsChip}>
+                        <Text style={styles.gramsChipText}>{g}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                  {itemScaled ? (
+                    <Text style={styles.itemPreview}>
+                      ≈ {Math.round(itemScaled.kcal)} kcal · P{itemScaled.proteinG} C{itemScaled.carbsG} F{itemScaled.fatG}
+                    </Text>
+                  ) : null}
+                  <Button label={`添加到${mealKindLabels[meal]}`} icon="add" loading={saving} onPress={() => void addFromItem()} />
+                </View>
+              ) : (
+                <>
+                  {dbItems.map((it) => (
+                    <PressableScale
+                      key={it.id}
+                      haptic
+                      scaleTo={0.98}
+                      style={styles.dbRow}
+                      onPress={() => {
+                        setPickedItem(it);
+                        setItemGrams(String(it.basisAmount));
+                      }}
+                    >
+                      <View style={styles.dbRowBody}>
+                        <Text style={styles.dbName} numberOfLines={1}>{it.name}</Text>
+                        <Text style={styles.dbMeta} numberOfLines={1}>
+                          {formatBasisLabel(it)} · {Math.round(it.kcal)} kcal
+                          {it.category ? ` · ${it.category}` : ""}
+                        </Text>
+                      </View>
+                      <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
+                    </PressableScale>
+                  ))}
+                  {!dbLoading && dbItems.length === 0 ? (
+                    <Text style={styles.muted}>营养库没有匹配，可试试下方手动添加</Text>
+                  ) : null}
+                </>
+              )}
+            </View>
+          ) : null}
+
+          <SectionHeader title="常用食物" subtitle="按当前餐次推荐 · 点一下记 1 份，长按改份量" style={styles.sheetSection} />
+          {/* v6 P1-1：两列大图标网格（原来一食物一行太占地方） */}
+          <View style={styles.foodGrid}>
             {visibleFoods.slice(0, 12).map((f) => (
               <PressableScale
                 key={f.id}
                 haptic
                 scaleTo={0.96}
                 onPress={() => void quickAdd(f)}
-                style={styles.foodChip}
+                onLongPress={() => setPicked(f)}
+                style={styles.foodCard}
+                accessibilityLabel={`记一份 ${f.name}`}
               >
-                <FoodSticker name={f.name} size={34} />
-                <View style={styles.foodChipBody}>
-                  <Text style={styles.foodChipName} numberOfLines={1}>{f.name}</Text>
-                  <Text style={styles.foodChipMeta}>{Math.round(f.kcal)} kcal / {f.unit}</Text>
+                <View style={styles.foodCardTop}>
+                  <FoodSticker name={f.name} size={46} />
+                  <ThemedIcon name="add-circle" size={18} color={colors.accentStrong} />
                 </View>
-                <ThemedIcon name="add-circle" size={18} color={colors.accentStrong} />
+                <Text style={styles.foodCardName} numberOfLines={2}>{f.name}</Text>
+                <Text style={styles.foodCardMeta} numberOfLines={1}>
+                  {Math.round(f.kcal)} kcal · {f.unit}
+                </Text>
               </PressableScale>
             ))}
             {visibleFoods.length === 0 ? <Text style={styles.muted}>没有匹配的食物，试试下方手动添加</Text> : null}
           </View>
-
-          <Field
-            value={foodQuery}
-            onChangeText={setFoodQuery}
-            placeholder="搜索常用食物"
-            returnKeyType="search"
-            autoCapitalize="none"
-          />
 
           <SectionHeader title="按份量添加" subtitle="需要精确份量时选一个再拖滑杆" style={styles.sheetSection} />
           <View style={styles.kindRow}>
@@ -1603,6 +1834,19 @@ const makeStyles = (colors: ThemeColors) =>
       paddingVertical: 13,
     },
     addBtnText: { color: "#fff", ...typography.headline, fontWeight: "800" },
+    /* v6 P0-3：待同步状态条 */
+    syncBar: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      borderRadius: 12,
+      paddingVertical: 9,
+      backgroundColor: colors.primarySoft,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    syncBarText: { ...typography.caption, fontWeight: "700", color: colors.accentStrong },
     mealBlock: { gap: 6 },
     mealHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" },
     mealTitle: { ...typography.headline, fontWeight: "800", color: colors.text },
@@ -1638,21 +1882,55 @@ const makeStyles = (colors: ThemeColors) =>
     kindChipText: { ...typography.caption, fontWeight: "700", color: colors.textMuted },
     kindChipTextActive: { color: "#ffffff" },
     muted: { ...typography.micro, color: colors.textMuted },
-    chipGrid: { gap: 8 },
-    foodChip: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 10,
-      paddingHorizontal: 10,
-      paddingVertical: 8,
+    /* v6 P1-1：两列大图标网格（卡片约 48% 宽，图标 46，名称 2 行） */
+    foodGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+    foodCard: {
+      width: "48%",
+      gap: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 12,
       borderRadius: 16,
       backgroundColor: colors.surfaceStrong,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.border,
     },
-    foodChipBody: { flex: 1, minWidth: 0, gap: 1 },
-    foodChipName: { ...typography.callout, fontWeight: "700", color: colors.text },
-    foodChipMeta: { ...typography.micro, fontWeight: "400", color: colors.textMuted, ...tabularNums },
+    foodCardTop: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
+    foodCardName: { ...typography.callout, fontWeight: "700", color: colors.text },
+    foodCardMeta: { ...typography.micro, fontWeight: "400", color: colors.textMuted, ...tabularNums },
+    /* v6 P1-3：营养基准库搜索 + 克数录入 */
+    dbBlock: { gap: 8 },
+    dbRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: 14,
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    dbRowBody: { flex: 1, minWidth: 0, gap: 2 },
+    dbName: { ...typography.callout, fontWeight: "700", color: colors.text },
+    dbMeta: { ...typography.micro, color: colors.textMuted, ...tabularNums },
+    itemCard: {
+      gap: 8,
+      padding: 12,
+      borderRadius: 16,
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    itemHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+    itemName: { flex: 1, minWidth: 0, ...typography.headline, fontWeight: "800", color: colors.text },
+    itemMeta: { ...typography.caption, color: colors.textMuted, ...tabularNums },
+    gramsRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
+    gramsField: { flex: 1, minWidth: 0 },
+    gramsUnit: { ...typography.callout, color: colors.textMuted, paddingBottom: 10 },
+    gramsQuick: { flexDirection: "row", gap: 8 },
+    gramsChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: colors.surfaceStrong },
+    gramsChipText: { ...typography.caption, fontWeight: "700", color: colors.primary, ...tabularNums },
+    itemPreview: { ...typography.caption, fontWeight: "700", color: colors.accentStrong, ...tabularNums },
     macroInputRow: { flexDirection: "row", gap: 8 },
     macroInput: { flex: 1, minWidth: 0 },
     switchRow: { flexDirection: "row", alignItems: "center", gap: 8 },

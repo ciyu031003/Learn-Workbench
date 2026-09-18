@@ -2411,3 +2411,46 @@ export function toSportsShare(
     displayName,
   };
 }
+
+/* ============================ v6：食物营养基准库（P1-3） ============================ */
+
+/**
+ * 营养基准库条目：`kcal/proteinG/carbsG/fatG` 都是**每 `basisAmount basisUnit`** 的量
+ * （中餐常见「每 100g」或「每 500g」）。来自 `food_items` 表（迁移 047）。
+ */
+export interface FoodItemHit {
+  id: number;
+  name: string;
+  category: string | null;
+  mealTags: string[];
+  basisAmount: number;
+  basisUnit: string;
+  kcal: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+  source?: string;
+  license?: string;
+  score?: number;
+  times?: number;
+}
+
+/**
+ * 按实际摄入量换算营养（v6 P1-3）：`amount` 与 `basisUnit` 同单位（默认克）。
+ * 客户端只用它做实时预览；**服务端会独立重算一次**（不信客户端）。
+ */
+export function scaleFoodByAmount(
+  item: Pick<FoodItemHit, "kcal" | "proteinG" | "carbsG" | "fatG" | "basisAmount">,
+  amount: number
+): { kcal: number; proteinG: number; carbsG: number; fatG: number } {
+  const basis = Number.isFinite(item.basisAmount) && item.basisAmount > 0 ? item.basisAmount : 100;
+  const a = Number.isFinite(amount) && amount > 0 ? amount : 0;
+  const r = (n: number) => Math.round(((Number.isFinite(n) ? n : 0) * a) / basis * 10) / 10;
+  return { kcal: r(item.kcal), proteinG: r(item.proteinG), carbsG: r(item.carbsG), fatG: r(item.fatG) };
+}
+
+/** 基准量文案：每 100g / 每 500g / 每 1份 */
+export function formatBasisLabel(item: { basisAmount: number; basisUnit: string }): string {
+  return `每 ${item.basisAmount}${item.basisUnit}`;
+}
+

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { BottomSheet } from "@/components/bottom-sheet";
+import { PressableScale } from "@/components/pressable-scale";
 import { ThemedIcon } from "@/components/themed-icon";
 import { useTheme } from "@/theme";
 import type { ThemeColors } from "@/theme/tokens";
@@ -48,6 +49,17 @@ export interface ExercisePickerSheetProps {
 }
 
 const ALL = "ALL";
+
+/** v6 P2-2：分类大卡片的图标（Ionicons 名；iOS 走 themed-icon MAP 里的 SF Symbols） */
+const CATEGORY_ICONS: Record<string, string> = {
+  ALL: "apps-outline",
+  STRENGTH: "barbell-outline",
+  AEROBIC: "walk-outline",
+  STRETCH: "body-outline",
+  BALL: "basketball-outline",
+  MOVE: "footsteps-outline",
+  OTHER: "ellipsis-horizontal",
+};
 
 /**
  * 选择动作弹层（v4 P3）——"添加动作时弹小弹窗选择动作 / 组数 / 每组次数"的落地。
@@ -117,6 +129,19 @@ export function ExercisePickerSheet({ visible, onClose, onClosed, onConfirm, ini
   }, [visible, token]);
 
   const tabs = useMemo(() => [{ type: ALL, label: "全部" }, ...exerciseTypeOptions], []);
+  /** v6 P2-2：每个分类的动作数（卡片副标题） */
+  const counts = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const t of tabs) {
+      map[t.type] = filterExercises(catalog, { q: "", category: t.type === ALL ? "" : t.type }).length;
+    }
+    return map;
+  }, [catalog, tabs]);
+  /** 没有动作的分类不显示（目录以后端字典为准，可能只有力量/有氧/拉伸） */
+  const gridTabs = useMemo(
+    () => tabs.filter((t) => t.type === ALL || t.type === category || (counts[t.type] ?? 0) > 0),
+    [tabs, counts, category]
+  );
   const list = useMemo(
     () => filterExercises(catalog, { q: query, category: category === ALL ? "" : category }),
     [catalog, query, category]
@@ -144,6 +169,7 @@ export function ExercisePickerSheet({ visible, onClose, onClosed, onConfirm, ini
       onClosed={onClosed}
       title={picked ? "填写组次" : "选择动作"}
       height="82%"
+      expandable
       scroll={false}
     >
       <View style={styles.root}>
@@ -167,25 +193,33 @@ export function ExercisePickerSheet({ visible, onClose, onClosed, onConfirm, ini
               ) : null}
             </View>
 
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.tabRow}
-              keyboardShouldPersistTaps="handled"
-            >
-              {tabs.map((t) => {
+            {/* v6 P2-2：分类改 2 列大卡片（图标 + 名称 + 数量 + 按压缩放动效），把原来的空白地带用起来 */}
+            <View style={styles.catGrid}>
+              {gridTabs.map((t) => {
                 const active = category === t.type;
+                const count = counts[t.type] ?? 0;
                 return (
-                  <Pressable
+                  <PressableScale
                     key={t.type}
-                    style={[styles.tab, active && styles.tabActive]}
+                    haptic
+                    scaleTo={0.96}
                     onPress={() => setCategory(t.type)}
+                    style={[styles.catCard, active && styles.catCardActive]}
+                    accessibilityLabel={`筛选 ${t.label}（${count} 个动作）`}
                   >
-                    <Text style={[styles.tabText, active && styles.tabTextActive]}>{t.label}</Text>
-                  </Pressable>
+                    <ThemedIcon
+                      name={(CATEGORY_ICONS[t.type] ?? "ellipsis-horizontal") as never}
+                      size={26}
+                      color={active ? colors.primary : colors.textMuted}
+                    />
+                    <Text style={[styles.catName, active && styles.catNameActive]} numberOfLines={1}>
+                      {t.label}
+                    </Text>
+                    <Text style={styles.catCount}>{count} 个</Text>
+                  </PressableScale>
                 );
               })}
-            </ScrollView>
+            </View>
 
             <View style={styles.listHead}>
               <Text style={styles.listHeadText}>
@@ -372,14 +406,22 @@ const makeStyles = (colors: ThemeColors) =>
       paddingVertical: 9,
     },
     searchInput: { flex: 1, fontSize: 14, color: colors.text, padding: 0 },
-    // alignItems:"center"：横向 ScrollView 的内容容器默认 alignItems:"stretch"，
-    // 会把 pill 纵向拉满 → 表现为"长条椭圆 + 文字下方留白"（v1.4.0 反馈）。
-    // 不要给 chip 加 flex:1（那会让 6 个分类平分宽度，又变回长条）。
-    tabRow: { gap: 8, paddingVertical: 2, alignItems: "center" },
-    tab: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: colors.surfaceMuted },
-    tabActive: { backgroundColor: colors.primarySoft },
-    tabText: { fontSize: 12, color: colors.textMuted, fontWeight: "600" },
-    tabTextActive: { color: colors.primary, fontWeight: "800" },
+    /* v6 P2-2：2 列大卡片（约 84 高，图标 26 + 名称 15 + 数量 11） */
+    catGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+    catCard: {
+      width: "48%",
+      gap: 4,
+      paddingHorizontal: 14,
+      paddingVertical: 14,
+      borderRadius: 16,
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    catCardActive: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
+    catName: { fontSize: 15, fontWeight: "700", color: colors.text },
+    catNameActive: { color: colors.primary, fontWeight: "800" },
+    catCount: { fontSize: 11, color: colors.textMuted },
     listHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
     listHeadText: { fontSize: 12, color: colors.textMuted, fontWeight: "600" },
     list: { flex: 1 },
@@ -388,12 +430,12 @@ const makeStyles = (colors: ThemeColors) =>
       flexDirection: "row",
       alignItems: "center",
       gap: 10,
-      paddingVertical: 11,
+      paddingVertical: 14,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: colors.border,
     },
     rowMain: { flex: 1, gap: 2 },
-    rowName: { fontSize: 15, fontWeight: "700", color: colors.text },
+    rowName: { fontSize: 16, fontWeight: "700", color: colors.text },
     rowMeta: { fontSize: 11, color: colors.textMuted },
     freeRow: {
       flexDirection: "row",

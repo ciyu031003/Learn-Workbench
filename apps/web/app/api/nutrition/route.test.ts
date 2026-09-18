@@ -126,6 +126,54 @@ describe("POST /api/nutrition", () => {
     expect(queryMock.mock.calls).toHaveLength(1);
     expect(String(queryMock.mock.calls[0][0])).toContain("client_id = $2");
   });
+
+  // v6 P1-3：营养基准库条目 + 实际克数（服务端按 basis_amount 换算，不信客户端）
+  it("按基准库换算：每 500g 吃 600g → ×1.2", async () => {
+    userScopeMock.mockResolvedValue({ uid: "u-1", anonId: null });
+    parseBodyMock.mockResolvedValue({ ok: true, data: { meal: "lunch", foodItemId: 12, grams: 600 } });
+    queryMock
+      .mockResolvedValueOnce({ rows: [{ id: "12", name: "番茄鸡蛋面", basisAmount: "500", basisUnit: "g", kcal: "480", proteinG: "22", carbsG: "65", fatG: "16" }] } as never)
+      .mockResolvedValueOnce({ rows: [{ id: 1 }] } as never);
+    const res = await POST(new Request("http://localhost", { method: "POST" }));
+    expect(res.status).toBe(201);
+    const args = queryMock.mock.calls[1][1] as unknown[];
+    // [uid, date, meal, foodId, name, amount, unit, kcal, protein, carbs, fat, clientId, grams, foodItemId]
+    expect(args[4]).toBe("番茄鸡蛋面");
+    expect(args[5]).toBe(600);
+    expect(args[6]).toBe("g");
+    expect(args[7]).toBe(576);
+    expect(args[8]).toBe(26.4);
+    expect(args[12]).toBe(600);
+    expect(args[13]).toBe(12);
+    expect(String(queryMock.mock.calls[1][0])).toContain("food_item_id");
+  });
+
+  it("基准单位不是克（份）时 amount 记份数", async () => {
+    userScopeMock.mockResolvedValue({ uid: "u-1", anonId: null });
+    parseBodyMock.mockResolvedValue({ ok: true, data: { meal: "dinner", foodItemId: 7, grams: 250 } });
+    queryMock
+      .mockResolvedValueOnce({ rows: [{ id: "7", name: "拉面", basisAmount: "100", basisUnit: "份", kcal: "140", proteinG: "6", carbsG: "22", fatG: "3" }] } as never)
+      .mockResolvedValueOnce({ rows: [{ id: 2 }] } as never);
+    await POST(new Request("http://localhost", { method: "POST" }));
+    const args = queryMock.mock.calls[1][1] as unknown[];
+    expect(args[5]).toBe(2.5);
+    expect(args[6]).toBe("份");
+  });
+
+  it("基准库里找不到该条目 → 404", async () => {
+    userScopeMock.mockResolvedValue({ uid: "u-1", anonId: null });
+    parseBodyMock.mockResolvedValue({ ok: true, data: { foodItemId: 999, grams: 100 } });
+    queryMock.mockResolvedValueOnce({ rows: [] } as never);
+    const res = await POST(new Request("http://localhost", { method: "POST" }));
+    expect(res.status).toBe(404);
+  });
+
+  it("既无名称也无基准库 id → 400", async () => {
+    userScopeMock.mockResolvedValue({ uid: "u-1", anonId: null });
+    parseBodyMock.mockResolvedValue({ ok: true, data: { grams: 100 } });
+    const res = await POST(new Request("http://localhost", { method: "POST" }));
+    expect(res.status).toBe(400);
+  });
 });
 
 describe("DELETE /api/nutrition", () => {

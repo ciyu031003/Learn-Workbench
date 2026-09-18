@@ -103,6 +103,40 @@ export function BottomSheet({
   const dragBase = useSharedValue(restOffset);
   const scrim = useSharedValue(0);
 
+  // ⚠️ 顺序约束（v1.4.2 真机崩溃根因，见看板踩坑 78）：worklet 会在**定义处**
+  // 快照它引用的自由变量 —— 下面这些量都被 panGesture 的 worklet 读取，
+  // 因此必须声明在 tapGesture / panGesture / useAnimatedStyle **之前**。
+  // 一旦挪到后面，worklet 里拿到的是 undefined（产物把 const 降级成 var，不报 TDZ），
+  // 读 .value 会在 UI 线程抛 TypeError → Android 直接闪退。
+  const sheetHeight = expandable ? full : collapsed;
+  /** 弹层顶边允许到达的最高位置（减掉状态栏 + 底部安全区） */
+  const maxSheetHeight = Math.max(160, usableScreen);
+
+  /**
+   * 键盘避让（v1.4.0 反馈："搜索框往下缩，更看不到内容"）——**自校正**几何，两个平台都对：
+   *
+   * 关键事实：Android 的 Modal 是 Dialog，RN 给它设了 `ADJUST_RESIZE` → 键盘弹出时**窗口自己就变矮**
+   * （`useWindowDimensions()` 会变小），而 iOS 的 Modal 全屏、窗口不变。
+   * 因此"要补多少"取决于窗口是否已经把键盘高度吃掉：
+   *   - iOS：`winH ≈ screenH` → `eaten = 0` → 需要整体上抬 `kb`
+   *   - Android：`winH ≈ screenH - kb` → `eaten ≈ kb` → **不需要再抬**（否则就是之前那种双重补偿）
+   *
+   * 同时**按键盘高度收缩高度**（而不是恒定高度）：高弹层（82%/92%）若不收缩，
+   * 顶边会被变矮的窗口裁掉（标题/搜索框看不见）——这是审查发现的阻断点。
+   *   `height = min(sheetHeight, usableScreen - kb)`：顶边永远 ≥ 安全区；
+   *   `lift   = max(0, kb - eaten)`：底边永远贴在键盘上沿。
+   *
+   * `eaten` 用**实测根容器高度**（onLayout）而不是 `useWindowDimensions()`：
+   * Modal 是独立 Window，`useWindowDimensions` 在其中是否反映 Dialog 的 resize 语义不够确定；
+   * onLayout 给的是真实布局高度 —— Android 被 resize 时 rootH ≈ screenH - kb → eaten ≈ kb → 不再上抬；
+   * iOS 全屏 rootH ≈ screenH → eaten = 0 → 整体上抬 kb。
+   */
+  const eatenByResize = useDerivedValue(() => Math.max(0, screenHeight - rootH));
+  const lift = useDerivedValue(() => {
+    const kb = Math.abs(keyboardAnim.value);
+    return Math.max(0, kb - eatenByResize.value);
+  });
+
   /**
    * 把 collapsed / restOffset 放进共享值，供"滑入滑出" effect 读取：
    * 若把它们留在依赖数组里，键盘/窗口尺寸变化会重播滑入动画（弹层会从下方重新弹一次）。
@@ -123,7 +157,10 @@ export function BottomSheet({
       translateY.value = collapsedSV.value;
       dragBase.value = restOffsetSV.value;
       scrim.value = withTiming(1, { duration: SLIDE_IN, easing: Easing.out(Easing.cubic) });
-      translateY.value = withTiming(0, { duration: SLIDE_IN, easing: Easing.out(Easing.cubic) });
+      // 静止位 = restOffset：非展开弹层是 0；可展开弹层是 maxOffset
+      // （元素本身按 full 高度渲染，靠 translateY 下移露出 height 比例的高度）——
+      // 这样「上滑到全屏」才有可拖的余量（v6 决策 D12）。
+      translateY.value = withTiming(restOffsetSV.value, { duration: SLIDE_IN, easing: Easing.out(Easing.cubic) });
     } else if (mounted) {
       scrim.value = withTiming(0, { duration: SLIDE_OUT, easing: Easing.in(Easing.cubic) });
       translateY.value = withTiming(collapsedSV.value, { duration: SLIDE_OUT, easing: Easing.in(Easing.cubic) }, (fin) => {
@@ -196,36 +233,6 @@ export function BottomSheet({
 
   const handleGesture = Gesture.Exclusive(panGesture, tapGesture);
 
-  // ⚠️ 顺序约束：worklet 会在**定义处**快照它引用的自由变量（babel worklets 插件），
-  // 所以这些量必须声明在下面两个 useAnimatedStyle **之前**。
-  const sheetHeight = expandable ? full : collapsed;
-  /** 弹层顶边允许到达的最高位置（减掉状态栏 + 底部安全区） */
-  const maxSheetHeight = Math.max(160, usableScreen);
-
-  /**
-   * 键盘避让（v1.4.0 反馈："搜索框往下缩，更看不到内容"）——**自校正**几何，两个平台都对：
-   *
-   * 关键事实：Android 的 Modal 是 Dialog，RN 给它设了 `ADJUST_RESIZE` → 键盘弹出时**窗口自己就变矮**
-   * （`useWindowDimensions()` 会变小），而 iOS 的 Modal 全屏、窗口不变。
-   * 因此"要补多少"取决于窗口是否已经把键盘高度吃掉：
-   *   - iOS：`winH ≈ screenH` → `eaten = 0` → 需要整体上抬 `kb`
-   *   - Android：`winH ≈ screenH - kb` → `eaten ≈ kb` → **不需要再抬**（否则就是之前那种双重补偿）
-   *
-   * 同时**按键盘高度收缩高度**（而不是恒定高度）：高弹层（82%/92%）若不收缩，
-   * 顶边会被变矮的窗口裁掉（标题/搜索框看不见）——这是审查发现的阻断点。
-   *   `height = min(sheetHeight, usableScreen - kb)`：顶边永远 ≥ 安全区；
-   *   `lift   = max(0, kb - eaten)`：底边永远贴在键盘上沿。
-   *
-   * `eaten` 用**实测根容器高度**（onLayout）而不是 `useWindowDimensions()`：
-   * Modal 是独立 Window，`useWindowDimensions` 在其中是否反映 Dialog 的 resize 语义不够确定；
-   * onLayout 给的是真实布局高度 —— Android 被 resize 时 rootH ≈ screenH - kb → eaten ≈ kb → 不再上抬；
-   * iOS 全屏 rootH ≈ screenH → eaten = 0 → 整体上抬 kb。
-   */
-  const eatenByResize = useDerivedValue(() => Math.max(0, screenHeight - rootH));
-  const lift = useDerivedValue(() => {
-    const kb = Math.abs(keyboardAnim.value);
-    return Math.max(0, kb - eatenByResize.value);
-  });
 
   const animatedSheet = useAnimatedStyle(() => {
     const kb = Math.abs(keyboardAnim.value);

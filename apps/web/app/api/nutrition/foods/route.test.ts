@@ -48,18 +48,39 @@ describe("GET /api/nutrition/foods", () => {
     expect(body.foods[0].times).toBe(9);
     const sql = String(queryMock.mock.calls[0][0]);
     expect(sql).toContain("meal_entries");
-    expect(sql).toContain("ORDER BY COALESCE(u.times, 0) DESC");
+    // v6：先按「本人该餐次」频次，再回落到总体频次
+    expect(sql).toContain("ORDER BY COALESCE(u.meal_times, 0) DESC");
+    expect(sql).toContain("COALESCE(u.times, 0) DESC");
     expect(sql).toContain("LIMIT 12");
-    // 搜索词仍然生效
-    expect(queryMock.mock.calls[0][1]).toEqual(["u-1"]);
+    // 搜索词仍然生效（$2 = 当前餐次，未指定时为 null）
+    expect(queryMock.mock.calls[0][1]).toEqual(["u-1", null]);
   });
 
   it("recent + q 同时生效，limit 被钳位", async () => {
     userScopeMock.mockResolvedValue({ uid: "u-1", anonId: null });
     queryMock.mockResolvedValue({ rows: [] } as never);
     await GET(new Request("http://localhost/api/nutrition/foods?sort=recent&q=鸡&limit=9999"));
-    expect(String(queryMock.mock.calls[0][0])).toContain("LIMIT 200");
-    expect(queryMock.mock.calls[0][1]).toEqual(["u-1", "%鸡%"]);
+    const sql = String(queryMock.mock.calls[0][0]);
+    expect(sql).toContain("LIMIT 200");
+    // v6 顺带修：usage CTE 里也有 name，未限定 f.name 会让 Postgres 报 ambiguous column
+    expect(sql).toContain("f.name ILIKE");
+    expect(queryMock.mock.calls[0][1]).toEqual(["u-1", null, "%鸡%"]);
+  });
+
+  // v6 P1-2：餐次维度
+  it("meal 参数进入 SQL 与返回值，非法值按未指定处理", async () => {
+    userScopeMock.mockResolvedValue({ uid: "u-1", anonId: null });
+    queryMock.mockResolvedValue({ rows: [] } as never);
+    const res = await GET(new Request("http://localhost/api/nutrition/foods?sort=recent&meal=breakfast"));
+    const body = await res.json();
+    expect(body.meal).toBe("breakfast");
+    expect(queryMock.mock.calls[0][1]).toEqual(["u-1", "breakfast"]);
+    expect(String(queryMock.mock.calls[0][0])).toContain("FILTER (WHERE meal = $2)");
+
+    queryMock.mockClear();
+    const bad = await GET(new Request("http://localhost/api/nutrition/foods?sort=recent&meal=brunch"));
+    expect((await bad.json()).meal).toBeNull();
+    expect(queryMock.mock.calls[0][1]).toEqual(["u-1", null]);
   });
 
   // 回归（2026-09-15）：Number(null)=0 曾被钳到最小值，导致不带 limit 只返回 1 条
