@@ -413,6 +413,22 @@ API：
 
 **仍未做（P1 起）**：图片上传（现在只能粘贴照片链接）、装备商品图、四宫格里的身高体重在 App 内编辑（当前去 Web 改）。
 
+### 12.5 P1 图片上传批次 —— 已完成（v1.12.0）
+
+| 层 | 改动 |
+| --- | --- |
+| 服务端 | `POST /api/uploads`（multipart：`file` + `kind`，≤8MB，JPG/PNG/WebP/HEIC）→ sharp `rotate()` 纠向 + 长边 ≤1600（头像 ≤1200）+ WebP(q84/86) → 写 `public/uploads/<uid>/<uuid>.webp`；写 `uploads` 表；配额 **200 张 / 500MB**；`DELETE /api/uploads?url=` 软删登记 + 清盘（校验越权与目录穿越） |
+| 数据 | 迁移 **051** `uploads` 表（id / user_id / kind / path / mime / bytes / width / height / 时间戳与软删）；`gear` 项新增 `imageUrl`（jsonb，无需 DDL） |
+| 存储 | compose 新增卷 `- /data/learn-workbench/uploads:/app/public/uploads`（COS 桶）；服务器建目录 + nginx 新增 `location /uploads/`（alias + 一年 immutable 缓存，已 reload）；本地开发 Next 直接当静态资源伺服 |
+| 移动端 | 新依赖 `expo-image-picker`；`lib/uploads.ts`（相册选图 / 上传 / `absoluteMediaUrl` 补域名 / 换图删旧图 / 由装备标签猜 kind）；档案页**头图点击即换照片**、**装备卡点击即拍照选图**，列表与卡面展示缩略图 |
+| Web | `lib/media.ts` + 档案页照片与装备图的统一上传入口（缩略图 + 上传按钮，替换旧图会清理），列表展示装备缩略图 |
+
+**安全与边界**：只允许登录用户；路径格式强校验（`<uuid>/<name>.webp`）且必须以自己的 userId 开头；单张 ≤8MB、非图片格式直接拒绝；图片一律转 WebP 落盘，原图不留；失败返回可读文案。
+
+**验证**：web **1112 测试** / mobile **311 测试**；双端 typecheck、lint 全绿；迁移 51 个全新建库自检通过；`pnpm -F web build` 通过（`/api/uploads` 已进产物）；线上 `/api/uploads` 未登录 401、`/uploads/<不存在>` 404（nginx alias 生效）。
+
+**下一批（P1.5）**：装备图库 —— 先抓 YONEX / VICTOR / 李宁 / 川崎的羽毛球装备白底图（球拍/球鞋/拍线/手胶/球），入 COS + `equipment_items` 表，App 里「从图库选择」回填型号与图片。
+
 
 
 
