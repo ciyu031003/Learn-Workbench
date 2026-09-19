@@ -153,12 +153,18 @@ export default function SportsCardScreen() {
    * 展示用装备行：老档案的「球拍型号 / 球拍类型」在这里合并成一行「球拍」，
    * 「磅数」行丢弃（它已经在图鉴四宫格里）。上传装备图时按归一后的整表写回，顺带完成迁移。
    */
-  const gearRows = useMemo(() => {
-    if (!current) return [] as { label: string; value: string; imageUrl: string | null }[];
-    return normalizeSportGear(current.gear ?? [])
-      .gear.filter((g) => g.label.trim())
-      .map((g) => ({ label: g.label, value: g.value, imageUrl: g.imageUrl ?? null }));
+  const gearView = useMemo(() => {
+    if (!current) return { rows: [] as { label: string; value: string; imageUrl: string | null }[], tensionLbs: null as number | null };
+    const normalized = normalizeSportGear(current.gear ?? []);
+    return {
+      rows: normalized.gear
+        .filter((g) => g.label.trim())
+        .map((g) => ({ label: g.label, value: g.value, imageUrl: g.imageUrl ?? null })),
+      // 老档案把磅数写在装备行里：这里把数值捞出来，四宫格不用等用户存一次才显示
+      tensionLbs: normalized.tensionLbs,
+    };
   }, [current]);
+  const gearRows = gearView.rows;
 
   const goBack = () => {
     if (router.canGoBack()) router.back();
@@ -348,7 +354,13 @@ export default function SportsCardScreen() {
         { label: "身高", value: body.heightCm ? body.heightCm + " cm" : "—" },
         { label: "体重", value: body.weightKg ? body.weightKg + " kg" : "—" },
         { label: "鞋码", value: current.shoeSize?.trim() || "—" },
-        { label: "磅数", value: current.tensionLbs ? current.tensionLbs + " lbs" : "—" },
+        {
+          label: "磅数",
+          value: (() => {
+            const lbs = current.tensionLbs ?? gearView.tensionLbs;
+            return lbs ? lbs + " lbs" : "—";
+          })(),
+        },
       ]
     : [];
 
