@@ -2594,7 +2594,47 @@ export function toSportsShare(
   };
 }
 
+/* ==================== v11 P1.5：装备图库（品牌官方白底商品图） ==================== */
+
+export interface EquipmentCategoryMeta {
+  key: string;
+  /** 中文类别名（选择器 chips） */
+  label: string;
+  /** 对应档案装备行的默认标签 */
+  gearLabel: string;
+  /** 供给的运动项目 */
+  sportKey: string;
+}
+
+export const EQUIPMENT_CATEGORIES: EquipmentCategoryMeta[] = [
+  { key: "badminton-racket", label: "羽毛球拍", gearLabel: "球拍型号", sportKey: "badminton" },
+  { key: "badminton-shoes", label: "羽毛球鞋", gearLabel: "球鞋类型", sportKey: "badminton" },
+  { key: "badminton-string", label: "拍线", gearLabel: "拍线", sportKey: "badminton" },
+  { key: "badminton-shuttle", label: "羽毛球", gearLabel: "比赛用球", sportKey: "badminton" },
+  { key: "badminton-accessory", label: "手胶/配件", gearLabel: "手胶", sportKey: "badminton" },
+];
+
+export function equipmentCategoriesForSport(sportKey: string): EquipmentCategoryMeta[] {
+  return EQUIPMENT_CATEGORIES.filter((c) => c.sportKey === sportKey);
+}
+
+/** 由装备行标签猜图库分类（拿不到就返回第一个候选） */
+export function equipmentCategoryForGearLabel(sportKey: string, label: string): string {
+  const candidates = equipmentCategoriesForSport(sportKey);
+  const text = label.toLowerCase();
+  const hit = candidates.find((c) => {
+    if (/球拍|底板|rackets?/.test(text)) return c.key.endsWith("racket");
+    if (/鞋|shoe|战靴/.test(text)) return c.key.endsWith("shoes");
+    if (/线|string/.test(text)) return c.key.endsWith("string");
+    if (/手胶|grip|配件/.test(text)) return c.key.endsWith("accessory");
+    if (/球$|ball|shuttle/.test(text)) return c.key.endsWith("shuttle");
+    return false;
+  });
+  return hit?.key ?? candidates[0]?.key ?? "";
+}
+
 /* ============================ v6：食物营养基准库（P1-3） ============================ */
+
 
 /**
  * 营养基准库条目：`kcal/proteinG/carbsG/fatG` 都是**每 `basisAmount basisUnit`** 的量

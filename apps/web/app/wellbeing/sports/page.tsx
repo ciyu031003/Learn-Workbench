@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  SPORT_CATALOG, computeSportsRecord, handLabels, sportGearTemplate, type Hand, type SportsProfile,
+  SPORT_CATALOG, computeSportsRecord, equipmentCategoryForGearLabel, handLabels, sportGearTemplate, type Hand, type SportsProfile,
 } from "@learn-workbench/shared";
 import { Card, CardContent } from "@/components/ui/card";
 import { HoloSportCardLazy } from "@/components/holo/holo-sport-card-lazy";
 import { cardModelFor } from "@/lib/sports-card-view";
 import { hasHoloArt } from "@/lib/holo-card-text";
 import { deleteUpload, kindFromGearLabel, uploadImageFile, type UploadKind } from "@/lib/media";
+import { EquipmentPickerModal } from "@/components/equipment/equipment-picker-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -81,6 +82,8 @@ export default function SportsProfilePage() {
   const [saving, setSaving] = useState(false);
   /** 正在上传哪张图（用于禁用按钮） */
   const [uploading, setUploading] = useState<string | null>(null);
+  /** 正在从图库选装备的装备行下标 */
+  const [pickerIndex, setPickerIndex] = useState<number | null>(null);
   /** 正在看闪光卡的档案 */
   const [cardProfile, setCardProfile] = useState<SportsProfile | null>(null);
 
@@ -473,6 +476,14 @@ export default function SportsProfilePage() {
                   </label>
                   <Input className="w-24" value={g.label} onChange={(e) => setPair("gear", i, { label: e.target.value })} placeholder="类别" />
                   <Input className="flex-1" value={g.value} onChange={(e) => setPair("gear", i, { value: e.target.value })} placeholder="型号" />
+                  <button
+                    type="button"
+                    onClick={() => setPickerIndex(pickerIndex === i ? null : i)}
+                    className="shrink-0 rounded-xl border border-border/60 px-2.5 py-2 text-[11px] hover:bg-muted/60"
+                    aria-label="从图库选择"
+                  >
+                    图库
+                  </button>
                 </div>
               ))}
             </div>
@@ -572,6 +583,18 @@ export default function SportsProfilePage() {
           </div>
         </div>
       </GlassModal>
+
+      {pickerIndex !== null ? (
+        <EquipmentPickerModal
+          open
+          onClose={() => setPickerIndex(null)}
+          onPick={(item) => {
+            setPair("gear", pickerIndex, { value: item.model, imageUrl: item.imageUrl });
+          }}
+          sportKey={form.sportKey}
+          defaultCategory={equipmentCategoryForGearLabel(form.sportKey, form.gear[pickerIndex]?.label ?? "")}
+        />
+      ) : null}
 
       {cardModel ? (
         <GlassModal

@@ -25,6 +25,7 @@ import {
   SPORT_CATALOG,
   buildSportsCardModel,
   computeSportsRecord,
+  equipmentCategoryForGearLabel,
   formatMemberNo,
   sportItemByKey,
   type SportsProfile,
@@ -35,6 +36,8 @@ import { Field } from "@/components/field";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { GroupLabel } from "@/components/group-label";
 import { SportsHoloCard } from "@/components/sports-holo-card";
+import { EquipmentPicker } from "@/components/equipment-picker-sheet";
+import type { EquipmentItem } from "@/lib/equipment";
 import { hasHoloImages, holoImages } from "@/lib/holo-images";
 import { absoluteMediaUrl, deleteUpload, kindFromGearLabel, pickAndUpload } from "@/lib/uploads";
 import {
@@ -87,6 +90,8 @@ export default function SportsCardScreen() {
   const [editId, setEditId] = useState<number | null>(null);
   const [draft, setDraft] = useState<SportsProfileDraft>(() => emptySportsDraft());
   const [saving, setSaving] = useState(false);
+  /** 正在从图库选装备的装备行下标（null = 未打开） */
+  const [pickerIndex, setPickerIndex] = useState<number | null>(null);
 
   // 闪光卡全屏弹层
   const [cardOpen, setCardOpen] = useState(false);
@@ -280,8 +285,15 @@ export default function SportsCardScreen() {
     ]);
   };
 
-  const setGear = (i: number, patch: Partial<{ label: string; value: string }>) => {
+  const setGear = (i: number, patch: Partial<{ label: string; value: string; imageUrl?: string | null }>) => {
     setDraft((d) => ({ ...d, gear: d.gear.map((g, j) => (j === i ? { ...g, ...patch } : g)) }));
+  };
+
+  /** 从图库选中的装备：回填型号 + 商品图 */
+  const applyEquipment = (item: EquipmentItem) => {
+    if (pickerIndex === null) return;
+    setGear(pickerIndex, { value: item.model, imageUrl: item.imageUrl });
+    setPickerIndex(null);
   };
 
   const setHighlight = (i: number, patch: Partial<{ label: string; value: string }>) => {
@@ -567,8 +579,32 @@ export default function SportsCardScreen() {
               <View style={styles.gearInputValue}>
                 <Field value={g.value} onChangeText={(v) => setGear(i, { value: v })} placeholder="型号 / 类型" />
               </View>
+              <Pressable
+                onPress={() => setPickerIndex(pickerIndex === i ? null : i)}
+                style={styles.gearPickBtn}
+                accessibilityLabel="从图库选择"
+              >
+                <ThemedIcon name="images-outline" size={16} color={colors.primary} />
+              </Pressable>
             </View>
           ))}
+
+          {pickerIndex !== null ? (
+            <View style={styles.pickerBox}>
+              <Text style={styles.pickerTitle}>
+                {draft.gear[pickerIndex]?.label || "装备"} · 从图库选择
+              </Text>
+              <EquipmentPicker
+                key={pickerIndex}
+                inline
+                visible
+                onClose={() => setPickerIndex(null)}
+                onPick={applyEquipment}
+                sportKey={draft.sportKey}
+                defaultCategory={equipmentCategoryForGearLabel(draft.sportKey, draft.gear[pickerIndex]?.label ?? "")}
+              />
+            </View>
+          ) : null}
 
           <GroupLabel>公开成绩（第一条会放大到卡面）</GroupLabel>
           {draft.highlights.map((h, i) => (
@@ -788,6 +824,25 @@ const makeStyles = (colors: ThemeColors) =>
     gearInputRow: { flexDirection: "row", gap: 8 },
     gearInputLabel: { width: 108 },
     gearInputValue: { flex: 1 },
+    gearPickBtn: {
+      width: 40,
+      height: 44,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceStrong,
+    },
+    pickerBox: {
+      gap: 10,
+      padding: 12,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceMuted,
+    },
+    pickerTitle: { fontSize: 12, fontWeight: "700", color: colors.text },
     switchRow: {
       flexDirection: "row",
       alignItems: "center",
