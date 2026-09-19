@@ -133,6 +133,25 @@ export default function WellnessScreen() {
   const dietRemaining = data?.fitness.nutritionRemainingKcal ?? (data ? dietTarget - dietKcal : 0);
   const dietPct = dietTarget > 0 ? Math.min(100, Math.round((dietKcal / dietTarget) * 100)) : 0;
 
+  // v11 P2（参考图 1）：三个关键指标 + 「今日目标」进度条
+  const exerciseMinutes = data?.fitness.workoutMinutes ?? 0;
+  const exerciseTarget = 30;
+  const reachGoals = [
+    { key: "water", label: "饮水", unit: "ml", value: data?.hydration?.totalMl ?? 0, target: data?.hydration?.targetMl ?? 2000, href: "/wellness" },
+    { key: "exercise", label: "训练", unit: "min", value: exerciseMinutes, target: exerciseTarget, href: "/workout" },
+  ];
+  const mainGoal = reachGoals.reduce(
+    (worst, item) => {
+      const ratio = item.target > 0 ? item.value / item.target : 0;
+      return ratio < worst.ratio ? { item, ratio } : worst;
+    },
+    {
+      item: reachGoals[0],
+      ratio: reachGoals[0].target > 0 ? reachGoals[0].value / reachGoals[0].target : 0,
+    }
+  );
+  const goalPct = Math.min(100, Math.round(mainGoal.ratio * 100));
+
   const waterMl = data?.hydration?.totalMl ?? 0;
   const waterTarget = data?.hydration?.targetMl ?? 2000;
   const waterPct = Math.min(100, Math.round((waterMl / Math.max(1, waterTarget)) * 100));
@@ -173,23 +192,76 @@ export default function WellnessScreen() {
         <SkeletonCard count={1} />
       ) : (
         <GlassSurface corner={radius.xl} style={styles.hero}>
-          <View style={styles.heroTop}>
+          {/* 大圆环（参考图 1）：中心是完成度，环下一句结论 */}
+          <View style={styles.ringWrap}>
             <ProgressArc
               progress={readiness.score / 100}
-              size={126}
-              strokeWidth={11}
+              size={168}
+              strokeWidth={13}
               value={readiness.score}
-              label="今日状态"
-              caption={readiness.weakest ? WEAKEST_LABEL[readiness.weakest] : readiness.verdict}
+              label="已完成"
+              caption=""
             />
-            <View style={styles.heroStats}>
-              <StatLine label="本周训练" value={`${weekWorkouts} 次`} />
-              <StatLine label="饮食记录" value={recordDays > 0 ? `${recordDays} 天 · 均 ${avgKcal}` : "本周未记录"} />
-              <StatLine
-                label="习惯完成"
-                value={data && data.habits.scheduled > 0 ? `${data.habits.done}/${data.habits.scheduled} · ${habitPct}%` : "今天没有排期"}
-              />
+          </View>
+          <Text style={styles.heroVerdict}>
+            {readiness.weakest ? "今天最短板 · " + WEAKEST_LABEL[readiness.weakest] : readiness.verdict}
+          </Text>
+
+          {/* 三指标行（今日摄入 / 今日训练 / 今日饮水） */}
+          <View style={styles.metricRow}>
+            <PressableScale haptic scaleTo={0.98} style={styles.metricCell} onPress={() => router.push("/nutrition" as never)}>
+              <ThemedIcon name="restaurant-outline" size={16} color={DIET_COLOR} />
+              <Text style={styles.metricValue}>
+                {dietKcal}
+                <Text style={styles.metricUnit}> kcal</Text>
+              </Text>
+              <Text style={styles.metricLabel}>今日摄入</Text>
+            </PressableScale>
+            <PressableScale haptic scaleTo={0.98} style={styles.metricCell} onPress={() => router.push("/workout" as never)}>
+              <ThemedIcon name="barbell-outline" size={16} color={DIET_COLOR} />
+              <Text style={styles.metricValue}>
+                {exerciseMinutes}
+                <Text style={styles.metricUnit}> min</Text>
+              </Text>
+              <Text style={styles.metricLabel}>今日训练</Text>
+            </PressableScale>
+            <PressableScale haptic scaleTo={0.98} style={styles.metricCell} onPress={() => router.push("/wellness" as never)}>
+              <ThemedIcon name="water-outline" size={16} color={WATER_COLOR} />
+              <Text style={styles.metricValue}>
+                {waterMl}
+                <Text style={styles.metricUnit}> ml</Text>
+              </Text>
+              <Text style={styles.metricLabel}>今日饮水</Text>
+            </PressableScale>
+          </View>
+
+          {/* 今日目标进度条（取最没达标的那一项） */}
+          <PressableScale
+            haptic
+            scaleTo={0.99}
+            style={styles.goalCard}
+            accessibilityLabel={`今日目标 ${mainGoal.item.label} ${goalPct}%`}
+            onPress={() => router.push(mainGoal.item.href as never)}
+          >
+            <View style={styles.goalRow}>
+              <Text style={styles.goalLabel}>今日目标</Text>
+              <Text style={styles.goalValue}>
+                {mainGoal.item.label} {mainGoal.item.value} / {mainGoal.item.target} {mainGoal.item.unit} ›
+              </Text>
             </View>
+            <View style={styles.goalTrack}>
+              <View style={[styles.goalFill, { width: `${Math.max(2, goalPct)}%` }]} />
+            </View>
+          </PressableScale>
+
+          {/* 本周概览（保留，压缩成一行） */}
+          <View style={styles.weekRow}>
+            <StatLine label="本周训练" value={`${weekWorkouts} 次`} />
+            <StatLine label="饮食记录" value={recordDays > 0 ? `${recordDays} 天 · 均 ${avgKcal}` : "未记录"} />
+            <StatLine
+              label="习惯完成"
+              value={data && data.habits.scheduled > 0 ? `${data.habits.done}/${data.habits.scheduled} · ${habitPct}%` : "无排期"}
+            />
           </View>
 
           <View style={styles.breakdown}>
@@ -393,7 +465,42 @@ const makeStyles = (colors: ThemeColors) =>
     hero: { gap: spacing.md, paddingVertical: spacing.lg },
     heroTop: { flexDirection: "row", alignItems: "center", gap: spacing.lg },
     heroStats: { flex: 1, minWidth: 0, gap: spacing.sm },
-    breakdown: { gap: 8, paddingTop: 2 },
+    /* v11 P2（参考图 1）：大圆环 + 三指标 + 今日目标 */
+    ringWrap: { alignItems: "center", paddingTop: 4, paddingBottom: 2 },
+    heroVerdict: { textAlign: "center", ...typography.micro, fontWeight: "600", color: colors.textMuted },
+    metricRow: {
+      flexDirection: "row",
+      marginTop: spacing.md,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+      paddingTop: spacing.md,
+    },
+    metricCell: { flex: 1, alignItems: "center", gap: 3 },
+    metricValue: { ...typography.title2, fontWeight: "800", color: colors.text, ...tabularNums },
+    metricUnit: { ...typography.micro, fontWeight: "600", color: colors.textMuted },
+    metricLabel: { ...typography.micro, fontWeight: "600", color: colors.textMuted },
+    goalCard: {
+      marginTop: spacing.md,
+      gap: 8,
+      padding: spacing.md,
+      borderRadius: radius.lg,
+      backgroundColor: colors.surfaceMuted,
+    },
+    goalRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
+    goalLabel: { ...typography.micro, fontWeight: "700", color: colors.text },
+    goalValue: { ...typography.micro, fontWeight: "600", color: colors.textMuted, ...tabularNums },
+    goalTrack: { height: 7, borderRadius: 999, backgroundColor: colors.surfaceStrong, overflow: "hidden" },
+    goalFill: { height: 7, borderRadius: 999, backgroundColor: colors.primary },
+    weekRow: {
+      flexDirection: "row",
+      gap: spacing.md,
+      marginTop: spacing.md,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+      paddingTop: spacing.md,
+    },
+
+    breakdown: { gap: 8, paddingTop: spacing.md },
     breakdownRow: { flexDirection: "row", alignItems: "center", gap: 10 },
     breakdownLabel: { width: 30, ...typography.micro, fontWeight: "700", color: colors.textMuted },
     breakdownTrack: {

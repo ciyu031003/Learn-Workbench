@@ -25,6 +25,7 @@ import { SwipeRow } from "@/components/swipe-row";
 import { WaterCard } from "@/components/water-card";
 import { WaterCupSheet } from "@/components/water-cup";
 import { NutritionStatsSheet } from "@/components/nutrition-stats-sheet";
+import { MealCardGrid, type MealCardData } from "@/components/meal-card-grid";
 import { LiveLogSheet } from "@/components/live-log-sheet";
 import { WeightCard } from "@/components/weight-card";
 import { TargetSheet, type TargetProfileInput } from "@/components/target-sheet";
@@ -221,7 +222,8 @@ export default function NutritionScreen() {
       end.setDate(end.getDate() - weekOffset * 7);
       return { days: 28, end: toDateKey(end) };
     }
-    return { days: 1, end: date };
+    // v11 P2：日视图也取 7 天，供顶部「近 7 天热量」周视图条使用（API 上限 31 天）
+    return { days: 7, end: date };
   }, [viewMode, monthView, weekOffset, date, todayKey]);
 
   const summaryWindowKey = `${summaryWindow.days}:${summaryWindow.end}`;
@@ -230,6 +232,29 @@ export default function NutritionScreen() {
     () => pickWindowSummary(summaryState, summaryWindowKey) ?? EMPTY_SUMMARY_MAP,
     [summaryState, summaryWindowKey]
   );
+
+  /** v11 P2：餐次卡组（本餐 kcal + 条目数）与近 7 天热量条 */
+  const mealCards = useMemo<MealCardData[]>(
+    () =>
+      MEALS.map((m) => {
+        const list = entries.filter((e) => e.meal === m);
+        return { meal: m, kcal: Math.round(list.reduce((sum, e) => sum + (e.kcal ?? 0), 0)), count: list.length };
+      }),
+    [entries]
+  );
+
+  const weekStrip = useMemo(() => {
+    const labels = ["日", "一", "二", "三", "四", "五", "六"];
+    const anchor = fromDateKey(date);
+    const rows: { key: string; label: string; kcal: number; active: boolean }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(anchor);
+      d.setDate(d.getDate() - i);
+      const key = toDateKey(d);
+      rows.push({ key, label: labels[d.getDay()], kcal: Math.round(daySummary[key]?.kcal ?? 0), active: key === date });
+    }
+    return rows;
+  }, [date, daySummary]);
 
   /** 日期条的 ✓ 仍按"当天有记录"判定，所以从富结构里派生一份 entryCount map（DayStrip 的 API 不变） */
   const doneMap = useMemo(() => {
@@ -896,6 +921,16 @@ export default function NutritionScreen() {
         title={isToday ? "今日饮食" : "饮食记录"}
         subtitle={isToday ? `已记录 ${entries.length} 条 · 目标 ${target.kcal} kcal` : `${date} · ${entries.length} 条`}
         compact
+      />
+
+      {/* v11 P2（参考图 4）：餐次彩色卡组 + 近 7 天热量条 */}
+      <MealCardGrid
+        cards={mealCards}
+        week={weekStrip}
+        onAdd={(nextMeal) => {
+          setMeal(nextMeal);
+          setSheetOpen(true);
+        }}
       />
 
       {/* v4 P4-a：日 / 周 / 月 视图切换（圆角胶囊分段控件，参考「吃一点」顶部那条） */}
