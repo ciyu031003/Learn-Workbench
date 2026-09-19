@@ -538,6 +538,36 @@ API：
 **验证**：web **1131 测试** / mobile **316 测试** / `pnpm test:scripts` 全绿；双端 typecheck 0 / lint 0 error；迁移 053 全新建库自检通过；APK **v1.18.1（versionCode 31）**。
 
 **线上冒烟（v1.18.0/v1.18.1）**：临时把测试档案设为公开 + 打开开关，`GET /api/sports/share/1` 返回 `showGearImages:true` 且装备带 `imageUrl`，随后**已还原**（is_public=false / 开关 false / 原 gear 5 行）；APK 与清单 sha256、二维码解码、图库图片 200 全部核对一致。
+### 12.12 扩品牌：川崎 / 蝴蝶 / VICTOR + 红双喜现状（v11.3）
+
+**① 川崎（`kawasaki-sport.eu`，欧洲官方店）**
+
+- 新适配器 `kawasaki`：分类页 `/en/menu/rackets-178.html`、`shoes-182`、`strings-190`、`grips-189`、`accessories-187`；商品卡 `<a href="…/en/products/…" title="…"><img src="…eng_il_….jpg">` 直接给出型号与主图。
+- 入库 **38 条**：球拍 19 / 球鞋 6 / 拍线 6 / 手胶配件 7。
+
+**② 蝴蝶（`butterfly.co.jp`，日本官网）**
+
+- 新适配器 `butterfly`：`/products/blade/`、`/products/rubber/`、`/products/shoes/`、`/products/ball/`；列表缩略图 600×600，详情图 `_01` 是 **1200×1200**（用 `_01` 拿大图）。
+- 入库 **142 条**：底板 81 / 胶皮 44 / 球鞋 8 / 球 9 —— 乒乓球「拍 / 胶皮」两类从几乎为零变成 101 / 56（含双鱼）。
+
+**③ 红双喜（DHS）：本轮抓不了，原因记录**
+
+- 可达性：`www.dhs-sports.com` 提示「网站升级中」，`https` 不通，只有 **`http://dhs-sports.com`（裸域）** 返回 200（服务器侧 `www` 的 HTTP 也 200）。
+- 结构：2015 年的自研 CMS + 前端渲染。Playwright 渲染 `/pingpang/` 能拿到分类（底板 / 纯木底板 / 复合底板 / 套胶 / 颗粒胶 / 乒乓球拍…），但**再进一层的列表页只有产品名与文案、没有商品图，也没有商品详情链接**（图片全是导航图标），因此拿不到「型号 → 图片」的对应关系。
+- 结论：要抓需要逆向它的 AJAX 接口；**本轮先用双鱼 + 蝴蝶覆盖乒乓球**，DHS 留待后续（选项：找它的接口 / 用第三方图源 / 放弃）。
+
+**④ VICTOR（`victorsport.com`）**
+
+- 官网是 Next.js，分类页只给分类树、商品由前端拉取；`sitemap_products.xml` 有 **4635** 条商品，只能逐条读 `og:title`/`og:image` 后才能判定品类（URL 是 `cr-3099-c` 这类 SKU，看不出品类）。
+- 适配器上限提到 球拍 80 / 球鞋 60 / 拍线 40 / 羽毛球 25 / 配件 40，后台长跑扫描（可 `--resume` 续跑）；**本轮先入库 85 条**（球拍 22 / 配件 18 / 羽毛球 11 / 球鞋 9 / 拍线 2 等分项随进度更新）。
+
+**⑤ 顺带修的两个爬虫 bug**
+
+- **无值开关**：`parseArgs` 按「成对」读参数，`--resume` 会把后面的 `--out` 当成自己的值吃掉，导致跑错目录、还因为 `manifest.length >= LIMIT` 直接空转。两个爬虫都改成「下一个 token 不是 `--` 开头才当值」。
+- **品类守卫顺序**：「Racket grip / 毛巾胶」名字里带 RACKET，被误判成球拍而挡在配件之外；手胶判定提前到球拍之前，并把 `BAG/BACKPACK/CASE/COVER` 归入服饰（线上下架 1 条工具套）。
+
+**图库现状（本轮结束）**：**828 条 / 6 个品牌**（YONEX 265、LI-NING 221、蝴蝶 142、VICTOR 85、双鱼 77、川崎 38）；乒乓球类共 205 条（球拍 101 / 胶皮 56 / 球鞋 28 / 球 20）—— 品类零错配（`scripts/lib/equipment-category.mjs` 守卫逐条校验）。
+
 
 
 

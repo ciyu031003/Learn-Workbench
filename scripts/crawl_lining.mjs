@@ -24,11 +24,17 @@ const CHROME =
 
 function parseArgs(argv) {
   const out = {};
-  for (let i = 0; i < argv.length; i += 2) {
+  for (let i = 0; i < argv.length; i++) {
     const key = argv[i];
     if (!key?.startsWith("--")) continue;
     const value = argv[i + 1];
-    out[key.slice(2)] = value && !String(value).startsWith("--") ? value : true;
+    // 无值开关（--dry / --resume）：下一个 token 若也是 -- 开头就不吃它
+    if (value && !String(value).startsWith("--")) {
+      out[key.slice(2)] = value;
+      i++;
+    } else {
+      out[key.slice(2)] = true;
+    }
   }
   return out;
 }

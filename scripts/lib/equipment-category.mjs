@@ -10,7 +10,10 @@
  */
 
 /** 非装备（服饰/周边），一律不收 */
-export const APPAREL_RE = /(短袖|文化衫|风衣|外套|长裤|短裤|背心|裙|帽|袜|毛巾|卫衣|T恤|服饰|运动服|球拍袋|发球机|球台|护腕|水壶)/;
+export const APPAREL_RE = /(短袖|文化衫|风衣|外套|长裤|短裤|背心|裙|帽|袜|毛巾|卫衣|T恤|服饰|运动服|球拍袋|发球机|球台|水壶|\bBAG\b|BACKPACK|\bCASE\b|\bCOVER\b)/i;
+
+/** 手胶/握把类（「Racket grip」这种名字里带 RACKET，必须排在球拍判定之前） */
+export const ACCESSORY_RE = /(手胶|握把|毛巾胶|\bGRIP\b|GRIPS|TOWEL ?GRIP|HEADBAND|WRISTBAND|头带|护腕带)/i;
 
 /** 品类后缀 → 判定用的「种类」 */
 export const KIND_BY_SUFFIX = {
@@ -36,6 +39,8 @@ export function kindFromModel(model) {
   if (!text.trim()) return "other";
   if (APPAREL_RE.test(text)) return "apparel";
   if (/鞋|SHOES/i.test(text)) return "shoes";
+  // 「Racket grip / 毛巾胶」是手胶不是球拍：配件判定要排在球拍前面
+  if (ACCESSORY_RE.test(text)) return "accessory";
   if (/球拍|底板|RACKET|RACQUET/i.test(text)) return "racket";
   if (/胶皮|套胶|RUBBER/i.test(text)) return "rubber";
   if (/手套|GLOVE/i.test(text)) return "glove";
@@ -43,7 +48,6 @@ export function kindFromModel(model) {
   if (/护膝|KNEE/i.test(text)) return "guard";
   if (/护腿|GUARD/i.test(text)) return "guard";
   if (/线|STRING/i.test(text)) return "string";
-  if (/手胶|GRIP/i.test(text)) return "accessory";
   if (/球|BALL/i.test(text)) return "ball";
   return "other";
 }

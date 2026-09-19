@@ -41,6 +41,13 @@ test("运动前缀与反向后缀唯一", () => {
   assert.equal(suffixForModel("短袖文化衫"), null);
 });
 
+test("「Racket grip」是手胶不是球拍", () => {
+  assert.equal(kindFromModel("Racket towel grip Kawasaki B10"), "accessory");
+  assert.equal(matchesCategory("badminton-accessory", "Racket towel grip Kawasaki B10"), true);
+  assert.equal(matchesCategory("badminton-racket", "Racket grip Kawasaki B10"), false);
+  assert.equal(kindFromModel("Racket bag Kawasaki"), "apparel");
+});
+
 test("护具/手套/球棒各自归位", () => {
   assert.equal(matchesCategory("soccer-guard", "护腿板"), true);
   assert.equal(matchesCategory("volleyball-knee", "护膝"), true);

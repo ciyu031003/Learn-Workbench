@@ -2,7 +2,7 @@
  * 装备图库爬取（v11 P1.5+ 扩品牌/品类）：只收「白底商品图」，统一裁边 + 铺白底 → WebP。
  *
  * 用法：
- *   node scripts/crawl_equipment.mjs [--sites yonex-global,yonex,doublefish] [--limit 300] [--out .local/equipment-out]
+ *   node scripts/crawl_equipment.mjs [--sites yonex-global,yonex,victor,doublefish,kawasaki] [--limit 300] [--out .local/equipment-out]
  *
  * 契约（加站点只写一个适配器）：
  *   categories()            → [{ id, name, category }]
@@ -26,10 +26,17 @@ const DELAY_MS = 1200;
 
 function parseArgs(argv) {
   const out = {};
-  for (let i = 0; i < argv.length; i += 2) {
+  for (let i = 0; i < argv.length; i++) {
     const key = argv[i];
     if (!key?.startsWith("--")) continue;
-    out[key.slice(2)] = argv[i + 1];
+    const next = argv[i + 1];
+    // 无值开关（--resume / --dry）：下一个 token 若也是 -- 开头就不吃它
+    if (next && !next.startsWith("--")) {
+      out[key.slice(2)] = next;
+      i++;
+    } else {
+      out[key.slice(2)] = true;
+    }
   }
   return out;
 }
@@ -216,11 +223,11 @@ const victorAdapter = {
   // 目标品类的上限（按关键词判定，逐条决定 category）
   async categories() {
     return [
-      { category: "badminton-racket", name: "球拍", cap: 60 },
-      { category: "badminton-shoes", name: "球鞋", cap: 45 },
-      { category: "badminton-string", name: "拍线", cap: 30 },
-      { category: "badminton-shuttle", name: "羽毛球", cap: 20 },
-      { category: "badminton-accessory", name: "配件/手胶", cap: 30 },
+      { category: "badminton-racket", name: "球拍", cap: 80 },
+      { category: "badminton-shoes", name: "球鞋", cap: 60 },
+      { category: "badminton-string", name: "拍线", cap: 40 },
+      { category: "badminton-shuttle", name: "羽毛球", cap: 25 },
+      { category: "badminton-accessory", name: "配件/手胶", cap: 40 },
     ];
   },
   async allProducts() {
@@ -288,11 +295,87 @@ const doubleFishAdapter = {
   },
 };
 
+/* ------------------------------ 川崎（欧洲官方店 kawasaki-sport.eu，商品图带型号名） ------------------------------ */
+
+const kawasakiAdapter = {
+  key: "kawasaki",
+  brand: "川崎",
+  base: "https://kawasaki-sport.eu",
+  async categories() {
+    return [
+      { id: "/en/menu/rackets-178.html", name: "川崎球拍", category: "badminton-racket" },
+      { id: "/en/menu/shoes-182.html", name: "川崎球鞋", category: "badminton-shoes" },
+      { id: "/en/menu/strings-190.html", name: "川崎拍线", category: "badminton-string" },
+      { id: "/en/menu/grips-189.html", name: "川崎手胶", category: "badminton-accessory" },
+      { id: "/en/menu/accessories-187.html", name: "川崎配件", category: "badminton-accessory" },
+    ];
+  },
+  async products(categoryId) {
+    const html = await fetchText(this.base + categoryId);
+    const out = [];
+    const seen = new Set();
+    const re = /<a[^>]+href="(https:\/\/kawasaki-sport\.eu\/en\/products\/[^"]+)"[^>]*title="([^"]+)"[\s\S]{0,600}?<img[^>]+src="([^"]+)"/g;
+    for (const m of html.matchAll(re)) {
+      const model = m[2].replace(/\s+/g, " ").trim();
+      if (!model || seen.has(model)) continue;
+      seen.add(model);
+      const abs = m[3].startsWith("http") ? m[3] : this.base + m[3];
+      out.push({ key: m[1], pageUrl: m[1], name: model, imageUrl: abs });
+    }
+    return out;
+  },
+  async detail(product) {
+    return { model: product.name, images: [product.imageUrl], sourceUrl: product.pageUrl };
+  },
+};
+
+/* ------------------------------ 蝴蝶（日本官网 butterfly.co.jp：底板 / 胶皮 / 球鞋 / 球） ------------------------------ */
+
+const butterflyAdapter = {
+  key: "butterfly",
+  brand: "蝴蝶",
+  base: "https://www.butterfly.co.jp",
+  async categories() {
+    return [
+      { id: "/products/blade/", name: "蝴蝶底板", category: "table-tennis-racket" },
+      { id: "/products/rubber/", name: "蝴蝶胶皮", category: "table-tennis-rubber" },
+      { id: "/products/shoes/", name: "蝴蝶球鞋", category: "table-tennis-shoes" },
+      { id: "/products/ball/", name: "蝴蝶乒乓球", category: "table-tennis-ball" },
+    ];
+  },
+  async products(categoryId) {
+    const html = await fetchText(this.base + categoryId);
+    const out = [];
+    const seen = new Set();
+    // 列表卡：<a href="/products/detail/37221.html" class="card"> … <img src="/products/item/37221.jpg" alt="樊振東 ALC">
+    const re = /<a href="(\/products\/detail\/\d+\.html)" class="card">[\s\S]{0,400}?<img src="([^"]+)" alt="([^"]*)"/g;
+    for (const m of html.matchAll(re)) {
+      const model = (m[3] || "").trim();
+      if (!model || seen.has(model)) continue;
+      seen.add(model);
+      const thumb = m[2].startsWith("http") ? m[2] : this.base + m[2];
+      // 缩略图 600×600 → 详情图 _01 是 1200×1200
+      out.push({
+        key: m[1],
+        pageUrl: this.base + m[1],
+        name: model,
+        imageUrl: thumb.replace(/\.(jpg|jpeg|png)$/i, "_01.$1"),
+      });
+    }
+    return out;
+  },
+  async detail(product) {
+    return { model: product.name, images: [product.imageUrl], sourceUrl: product.pageUrl };
+  },
+};
+
 const ADAPTERS = {
   "yonex-global": yonexGlobalAdapter,
   yonex: yonexCnAdapter,
   victor: victorAdapter,
   doublefish: doubleFishAdapter,
+  kawasaki: kawasakiAdapter,
+  butterfly: butterflyAdapter,
 };
 
 /** 下载一张图 → 白底判定 → 裁边铺白 → 落盘 + 记 manifest（成功返回 true） */
