@@ -448,6 +448,20 @@ API：
 
 **继续扩（下一轮可选）**：李宁（`store.lining.com` 是 SPA，需要 Playwright 渲染适配器）、VICTOR/川崎（域名待确认）、其余运动品类；App 里已预留 `sportKey` 过滤，扩品类只加数据不加代码。
 
+### 12.8 装备图库扩品牌与品类（v1.15.0）
+
+| 来源 | 适配器 | 产出 |
+| --- | --- | --- |
+| **YONEX 全球官网**（yonex.com，Magento） | 分类枚举 + `product_list_limit=36` 分页；列表页直接拿「型号 + 商品图」 | 羽毛球拍 85 / 鞋 40 / 球 30 / 配件 67 / 线 8；网球鞋 20 / 线 13 / 球 3 |
+| **YONEX 中国官网**（yonex.cn，服务端渲染） | 分类页 → 详情页（中文型号） | 已并入上面的羽毛球库 |
+| **VICTOR 全球官网**（victorsport.com，Next.js SSR） | `sitemap_products.xml`（4635 条）逐条取 `og:title`/`og:image`，**关键词判定品类**，扫到各类上限 | 首批 130+ 条（后台继续扫描） |
+
+**关键修复**：白底判定必须**先 `flatten` 到白底再采样** —— Magento 商品图多为透明 PNG，`removeAlpha` 会把透明当黑，导致大量误杀（YONEX 球拍从 7 → **85** 条）。
+
+**品类扩展**：品类白名单唯一事实源移到 `shared/EQUIPMENT_CATEGORIES`（图库接口从它派生），新增 **tennis-racket / tennis-shoes / tennis-string / tennis-ball** → App 装备选择器按 `sportKey` 自动出现网球品类，无需改 UI 代码。
+
+**仍然打不通**：李宁商城（umi SPA，接口 `api.store.lining.com` 需渠道/签名头）、川崎/凯胜/红双喜（域名在本网络不可达）→ 下一轮：李宁改用 Playwright 渲染适配器。
+
 ### 12.7 P2 设计升级 + 档案页真机修复 —— 已完成（v1.14.0）
 
 **触发（真机反馈）**：① 档案页最下面的「编辑档案」按钮被底部 tab 栏压住、点不到；② 装备一张图一个方框，页面太长要滑两屏；要求球拍横放、其余两列、把空白利用起来，整体压到 1–1.5 屏。
