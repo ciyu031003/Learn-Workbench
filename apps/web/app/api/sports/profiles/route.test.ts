@@ -5,7 +5,7 @@ vi.mock("@/lib/http", () => ({ parseBody: vi.fn() }));
 import { pgPool } from "@/lib/db";
 import { currentUserId, currentSessionToken } from "@/lib/session";
 import { parseBody } from "@/lib/http";
-import { GET, POST, normalizePairs } from "./route";
+import { GET, POST, normalizePairs, normalizeRecord, normalizeSignatureMove } from "./route";
 
 const queryMock = vi.mocked(pgPool.query);
 const tokenMock = vi.mocked(currentSessionToken);
@@ -95,5 +95,57 @@ describe("POST /api/sports/profiles", () => {
     queryMock.mockResolvedValue({ rows: [{ id: 1 }] } as never);
     await POST(new Request("http://localhost", { method: "POST" }));
     expect((queryMock.mock.calls[0][1] as unknown[])[4]).toBeNull();
+  });
+
+  it("把战绩（场次/胜/负）与绝技一起写库", async () => {
+    tokenMock.mockResolvedValue("tok-1");
+    userMock.mockResolvedValue("u-1");
+    parseBodyMock.mockResolvedValue({
+      ok: true,
+      data: { sportKey: "badminton", matchesPlayed: 20, wins: 15, losses: 5, signatureMove: "疾风·劈杀" },
+    });
+    queryMock.mockResolvedValue({ rows: [{ id: 1 }] } as never);
+    await POST(new Request("http://localhost", { method: "POST" }));
+    const args = queryMock.mock.calls[0][1] as unknown[];
+    expect(args[11]).toBe(20);
+    expect(args[12]).toBe(15);
+    expect(args[13]).toBe(5);
+    expect(args[14]).toBe("疾风·劈杀");
+  });
+
+  it("未填战绩时写 0（不产生 null 违反 NOT NULL）", async () => {
+    tokenMock.mockResolvedValue("tok-1");
+    userMock.mockResolvedValue("u-1");
+    parseBodyMock.mockResolvedValue({ ok: true, data: { sportKey: "tennis" } });
+    queryMock.mockResolvedValue({ rows: [{ id: 2 }] } as never);
+    await POST(new Request("http://localhost", { method: "POST" }));
+    const args = queryMock.mock.calls[0][1] as unknown[];
+    expect(args[11]).toBe(0);
+    expect(args[12]).toBe(0);
+    expect(args[13]).toBe(0);
+    expect(args[14]).toBeNull();
+  });
+});
+
+describe("normalizeRecord", () => {
+  it("场次取「填写场次」与「胜+负」的较大者，并算出胜率", () => {
+    expect(normalizeRecord({ matchesPlayed: 20, wins: 15, losses: 5 })).toEqual({ matches: 20, wins: 15, losses: 5, winRate: 75 });
+    // 只填胜负时场次自动补全，避免卡面显示 0 场
+    expect(normalizeRecord({ wins: 6, losses: 4 })).toEqual({ matches: 10, wins: 6, losses: 4, winRate: 60 });
+  });
+
+  it("负数与非法值归零，小数截断", () => {
+    expect(normalizeRecord({ matchesPlayed: -5, wins: "abc", losses: 2.7 })).toEqual({ matches: 2, wins: 0, losses: 2, winRate: 0 });
+    expect(normalizeRecord({})).toEqual({ matches: 0, wins: 0, losses: 0, winRate: null });
+  });
+});
+
+describe("normalizeSignatureMove", () => {
+  it("裁剪空白并截断到 40 字", () => {
+    expect(normalizeSignatureMove("  疾风·劈杀  ")).toBe("疾风·劈杀");
+    expect(normalizeSignatureMove("")).toBeNull();
+    expect(normalizeSignatureMove(null)).toBeNull();
+    expect(normalizeSignatureMove(undefined)).toBeNull();
+    expect(normalizeSignatureMove("x".repeat(80))?.length).toBe(40);
   });
 });

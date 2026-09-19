@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { pgPool } from "@/lib/db";
 import { currentUserId, currentSessionToken } from "@/lib/session";
 import { parseBody } from "@/lib/http";
-import { handSchema } from "@learn-workbench/shared";
+import { computeSportsRecord, handSchema } from "@learn-workbench/shared";
 
 const SELECT_COLS = `id, sport_key AS "sportKey", identity, level_text AS "levelText",
   handedness, play_style AS "playStyle", photo_url AS "photoUrl", gear, highlights,
+  matches_played AS "matchesPlayed", wins, losses, signature_move AS "signatureMove",
   is_public AS "isPublic", share_slug AS "shareSlug", updated_at AS "updatedAt"`;
 
 /** 归一化 gear/highlights 数组 */
@@ -21,6 +22,20 @@ export function normalizePairs(raw: unknown): { label: string; value: string }[]
     out.push({ label, value });
   }
   return out.slice(0, 20);
+}
+
+/** 归一化战绩数值（负数/NaN → 0，场次取 max(填写场次, 胜+负)） */
+export function normalizeRecord(body: Record<string, unknown>) {
+  return computeSportsRecord({
+    matchesPlayed: Number(body.matchesPlayed),
+    wins: Number(body.wins),
+    losses: Number(body.losses),
+  });
+}
+
+/** 归一化绝技文案 */
+export function normalizeSignatureMove(raw: unknown): string | null {
+  return typeof raw === "string" ? raw.trim().slice(0, 40) || null : null;
 }
 
 function pickHand(raw: unknown): "left" | "right" | null {
@@ -69,22 +84,28 @@ export async function POST(req: Request) {
   const photoUrl = typeof body.photoUrl === "string" ? body.photoUrl.trim().slice(0, 2000) || null : null;
   const gear = normalizePairs(body.gear);
   const highlights = normalizePairs(body.highlights);
+  const record = normalizeRecord(body);
+  const signatureMove = normalizeSignatureMove(body.signatureMove);
   const wantsPublic = Boolean(body.isPublic);
 
   const { rows } = await pgPool.query(
     `INSERT INTO sports_profiles
-       (user_id, sport_key, identity, level_text, handedness, play_style, photo_url, gear, highlights, is_public, share_slug)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+       (user_id, sport_key, identity, level_text, handedness, play_style, photo_url, gear, highlights, is_public, share_slug,
+        matches_played, wins, losses, signature_move)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
      ON CONFLICT (user_id, sport_key) WHERE deleted_at IS NULL
      DO UPDATE SET identity = EXCLUDED.identity, level_text = EXCLUDED.level_text,
        handedness = EXCLUDED.handedness, play_style = EXCLUDED.play_style, photo_url = EXCLUDED.photo_url,
        gear = EXCLUDED.gear, highlights = EXCLUDED.highlights, is_public = EXCLUDED.is_public,
+       matches_played = EXCLUDED.matches_played, wins = EXCLUDED.wins, losses = EXCLUDED.losses,
+       signature_move = EXCLUDED.signature_move,
        share_slug = COALESCE(sports_profiles.share_slug, EXCLUDED.share_slug),
        updated_at = now()
      RETURNING ${SELECT_COLS}`,
     [
       userId, sportKey, identity, levelText, handedness, playStyle, photoUrl,
       JSON.stringify(gear), JSON.stringify(highlights), wantsPublic, wantsPublic ? makeSlug() : null,
+      record.matches, record.wins, record.losses, signatureMove,
     ]
   );
   return NextResponse.json({ profile: rows[0] }, { status: 201 });

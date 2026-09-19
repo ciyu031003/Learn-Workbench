@@ -3,9 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  SPORT_CATALOG, handLabels, type Hand, type SportsGearItem, type SportsProfile,
+  SPORT_CATALOG, computeSportsRecord, handLabels, sportGearTemplate, type Hand, type SportsProfile,
 } from "@learn-workbench/shared";
 import { Card, CardContent } from "@/components/ui/card";
+import { HoloSportCardLazy } from "@/components/holo/holo-sport-card-lazy";
+import { cardModelFor } from "@/lib/sports-card-view";
+import { hasHoloArt } from "@/lib/holo-card-text";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +16,7 @@ import { Switch } from "@/components/ui/switch";
 import { GlassModal } from "@/components/ui/modal";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToastStore } from "@/store/toast-store";
-import { Plus, Trash2, Pencil, Share2, Trophy, ChevronLeft, Loader2, Dumbbell } from "lucide-react";
+import { Plus, Trash2, Pencil, Share2, Sparkles, Trophy, ChevronLeft, Loader2, Dumbbell } from "lucide-react";
 
 interface DraftPair {
   label: string;
@@ -30,7 +33,18 @@ interface FormState {
   photoUrl: string;
   gear: DraftPair[];
   highlights: DraftPair[];
+  /** 战绩（卡面右侧栏）—— 输入框里是字符串，保存时归一化 */
+  matchesPlayed: string;
+  wins: string;
+  losses: string;
+  /** 绝技（卡面主视觉大字） */
+  signatureMove: string;
   isPublic: boolean;
+}
+
+/** 按运动项目给出装备录入行（拍类区分球拍型号 / 球拍类型 / 球鞋类型） */
+function gearRows(sportKey: string): DraftPair[] {
+  return sportGearTemplate(sportKey).map((label) => ({ label, value: "" }));
 }
 
 const EMPTY_FORM: FormState = {
@@ -41,12 +55,14 @@ const EMPTY_FORM: FormState = {
   handedness: "",
   playStyle: "",
   photoUrl: "",
-  gear: [{ label: "球拍", value: "" }, { label: "球鞋", value: "" }, { label: "球线", value: "" }, { label: "手胶", value: "" }],
+  gear: gearRows("badminton"),
   highlights: [],
+  matchesPlayed: "",
+  wins: "",
+  losses: "",
+  signatureMove: "",
   isPublic: false,
 };
-
-const DEFAULT_GEAR_LABELS = ["球拍", "球鞋", "球线", "手胶"];
 
 export default function SportsProfilePage() {
   const pushToast = useToastStore((s) => s.push);
@@ -55,11 +71,19 @@ export default function SportsProfilePage() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  /** 正在看闪光卡的档案 */
+  const [cardProfile, setCardProfile] = useState<SportsProfile | null>(null);
 
   const sportName = useMemo(() => {
     const m = new Map(SPORT_CATALOG.map((s) => [s.key, s.name]));
     return (key: string) => m.get(key) ?? key;
   }, []);
+
+  const cardModel = useMemo(() => {
+    if (!cardProfile) return null;
+    const index = Math.max(1, profiles.findIndex((x) => x.id === cardProfile.id) + 1);
+    return cardModelFor(cardProfile, index, Math.max(1, profiles.length));
+  }, [cardProfile, profiles]);
 
   const load = useCallback(async () => {
     try {
@@ -80,7 +104,7 @@ export default function SportsProfilePage() {
   }, [load]);
 
   const openCreate = () => {
-    setForm({ ...EMPTY_FORM, gear: DEFAULT_GEAR_LABELS.map((label) => ({ label, value: "" })) });
+    setForm({ ...EMPTY_FORM, gear: gearRows(EMPTY_FORM.sportKey) });
     setOpen(true);
   };
 
@@ -93,8 +117,12 @@ export default function SportsProfilePage() {
       handedness: (p.handedness ?? "") as "" | Hand,
       playStyle: p.playStyle ?? "",
       photoUrl: p.photoUrl ?? "",
-      gear: (p.gear ?? []).length > 0 ? p.gear.map((g) => ({ label: g.label, value: g.value })) : DEFAULT_GEAR_LABELS.map((label) => ({ label, value: "" })),
+      gear: (p.gear ?? []).length > 0 ? p.gear.map((g) => ({ label: g.label, value: g.value })) : gearRows(p.sportKey),
       highlights: (p.highlights ?? []).map((g) => ({ label: g.label, value: g.value })),
+      matchesPlayed: p.matchesPlayed > 0 ? String(p.matchesPlayed) : "",
+      wins: p.wins > 0 ? String(p.wins) : "",
+      losses: p.losses > 0 ? String(p.losses) : "",
+      signatureMove: p.signatureMove ?? "",
       isPublic: p.isPublic,
     });
     setOpen(true);
@@ -114,6 +142,10 @@ export default function SportsProfilePage() {
         photoUrl: form.photoUrl,
         gear,
         highlights,
+        matchesPlayed: Number(form.matchesPlayed) || 0,
+        wins: Number(form.wins) || 0,
+        losses: Number(form.losses) || 0,
+        signatureMove: form.signatureMove,
         isPublic: form.isPublic,
       };
       const r = form.id
@@ -255,7 +287,26 @@ export default function SportsProfilePage() {
                   </div>
                 ) : null}
 
+                {(() => {
+                  const record = computeSportsRecord(p);
+                  return (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="rounded-lg bg-muted/60 px-2 py-1 text-[11px] font-semibold">{record.matches} 场</span>
+                      <span className="rounded-lg bg-muted/60 px-2 py-1 text-[11px]">{record.wins} 胜 / {record.losses} 负</span>
+                      <span className="rounded-lg bg-muted/60 px-2 py-1 text-[11px]">胜率 {record.winRate === null ? "—" : record.winRate.toFixed(1) + "%"}</span>
+                      {p.signatureMove ? (
+                        <span className="rounded-lg bg-primary/10 px-2 py-1 text-[11px] font-semibold text-primary">{p.signatureMove}</span>
+                      ) : null}
+                    </div>
+                  );
+                })()}
+
                 <div className="flex items-center justify-end gap-1 pt-1">
+                  {hasHoloArt(p.sportKey) ? (
+                    <button onClick={() => setCardProfile(p)} className="mr-auto inline-flex items-center gap-1 rounded-lg border border-border/60 px-2.5 py-1.5 text-[11px] font-semibold text-primary hover:bg-primary/10">
+                      <Sparkles className="size-3.5" /> 查看闪光卡
+                    </button>
+                  ) : null}
                   <button onClick={() => openEdit(p)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="编辑">
                     <Pencil className="size-3.5" />
                   </button>
@@ -276,7 +327,7 @@ export default function SportsProfilePage() {
               <label className="mb-1 block text-xs font-medium">运动项目</label>
               <select
                 value={form.sportKey}
-                onChange={(e) => setForm((s) => ({ ...s, sportKey: e.target.value }))}
+                onChange={(e) => setForm((s) => ({ ...s, sportKey: e.target.value, gear: gearRows(e.target.value) }))}
                 className="h-9 w-full rounded-xl border border-border bg-card/60 px-3 text-sm"
                 disabled={form.id !== null}
               >
@@ -336,6 +387,37 @@ export default function SportsProfilePage() {
           </div>
 
           <div>
+            <label className="mb-1.5 block text-xs font-medium">战绩（上卡面右侧栏）</label>
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                ["matchesPlayed", "比赛场次", "214"],
+                ["wins", "胜场", "178"],
+                ["losses", "负场", "36"],
+              ] as const).map(([key, label, placeholder]) => (
+                <label key={key} className="flex flex-col gap-1 text-[11px] text-muted-foreground">
+                  {label}
+                  <Input
+                    inputMode="numeric"
+                    value={form[key]}
+                    onChange={(e) => setForm((s) => ({ ...s, [key]: e.target.value.replace(/[^0-9]/g, "") }))}
+                    placeholder={placeholder}
+                  />
+                </label>
+              ))}
+            </div>
+            <p className="mt-1 text-[11px] text-muted-foreground">只填胜负也行：场次自动按「胜 + 负」补齐，胜率自动计算。</p>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium">绝技（卡面大字）</label>
+            <Input
+              value={form.signatureMove}
+              onChange={(e) => setForm((s) => ({ ...s, signatureMove: e.target.value }))}
+              placeholder="如：疾风·劈杀"
+            />
+          </div>
+
+          <div>
             <div className="mb-1.5 flex items-center justify-between">
               <label className="text-xs font-medium">公开成绩</label>
               <Button size="sm" variant="ghost" className="gap-1" onClick={() => setForm((s) => ({ ...s, highlights: [...s.highlights, { label: "", value: "" }] }))}>
@@ -378,6 +460,21 @@ export default function SportsProfilePage() {
           </div>
         </div>
       </GlassModal>
+
+      {cardModel ? (
+        <GlassModal
+          open
+          onClose={() => setCardProfile(null)}
+          title={`${cardModel.title} · 闪光卡`}
+          className="max-w-md"
+        >
+          <HoloSportCardLazy model={cardModel} />
+          <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
+            卡面由档案数据实时合成：等级与装备在左栏，战绩在右栏，绝技在底部大字；
+            拖动转卡、滚轮缩放，能看到镭射与景深随视角变化（导出为 PNG 也可以）。
+          </p>
+        </GlassModal>
+      ) : null}
     </div>
   );
 }

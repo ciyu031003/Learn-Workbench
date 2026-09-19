@@ -50,6 +50,21 @@ describe("PATCH /api/sports/profiles/[id]", () => {
     expect(String(queryMock.mock.calls[0][0])).toContain("share_slug = NULL");
   });
 
+  it("写入战绩三项与绝技（场次取 max(填写, 胜+负)）", async () => {
+    tokenMock.mockResolvedValue("tok-1");
+    userMock.mockResolvedValue("u-1");
+    parseBodyMock.mockResolvedValue({ ok: true, data: { wins: 15, losses: 5, signatureMove: "疾风·劈杀" } });
+    queryMock.mockResolvedValue({ rows: [{ id: 1 }] } as never);
+    await PATCH(new Request("http://localhost", { method: "PATCH" }), ctx("1"));
+    const sql = String(queryMock.mock.calls[0][0]);
+    const args = queryMock.mock.calls[0][1] as unknown[];
+    expect(sql).toContain("matches_played = $3");
+    expect(sql).toContain("wins = $4");
+    expect(sql).toContain("losses = $5");
+    expect(sql).toContain("signature_move = $6");
+    expect(args.slice(2)).toEqual([20, 15, 5, "疾风·劈杀"]);
+  });
+
   it("requires login", async () => {
     tokenMock.mockResolvedValue(null);
     parseBodyMock.mockResolvedValue({ ok: true, data: { identity: "x" } });

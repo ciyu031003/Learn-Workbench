@@ -1,0 +1,100 @@
+import { getApiUrl } from "@/config";
+import { useAppStore } from "@/store/app-store";
+import { sportGearTemplate, type SportsProfile } from "@learn-workbench/shared";
+
+/** 运动档案客户端（对齐 Web /api/sports/profiles，字段已是 camelCase） */
+function authHeaders(json = false): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (json) headers["Content-Type"] = "application/json";
+  const token = useAppStore.getState().token;
+  if (token) headers.Authorization = "Bearer " + token;
+  return headers;
+}
+
+export interface SportsGearPair {
+  label: string;
+  value: string;
+}
+
+export interface SportsProfileDraft {
+  sportKey: string;
+  identity: string;
+  levelText: string;
+  handedness: "left" | "right" | null;
+  playStyle: string;
+  photoUrl: string;
+  gear: SportsGearPair[];
+  highlights: SportsGearPair[];
+  matchesPlayed: number;
+  wins: number;
+  losses: number;
+  signatureMove: string;
+  isPublic: boolean;
+}
+
+/** 新建草稿：装备行按运动项目模板预填（拍类区分球拍型号 / 球拍类型 / 球鞋类型） */
+export function emptySportsDraft(sportKey = "badminton"): SportsProfileDraft {
+  return {
+    sportKey,
+    identity: "",
+    levelText: "",
+    handedness: null,
+    playStyle: "",
+    photoUrl: "",
+    gear: sportGearTemplate(sportKey).map((label) => ({ label, value: "" })),
+    highlights: [],
+    matchesPlayed: 0,
+    wins: 0,
+    losses: 0,
+    signatureMove: "",
+    isPublic: false,
+  };
+}
+
+export function draftFromProfile(p: SportsProfile): SportsProfileDraft {
+  return {
+    sportKey: p.sportKey,
+    identity: p.identity ?? "",
+    levelText: p.levelText ?? "",
+    handedness: p.handedness,
+    playStyle: p.playStyle ?? "",
+    photoUrl: p.photoUrl ?? "",
+    gear: (p.gear ?? []).length > 0 ? p.gear.map((g) => ({ label: g.label, value: g.value })) : sportGearTemplate(p.sportKey).map((label) => ({ label, value: "" })),
+    highlights: (p.highlights ?? []).map((g) => ({ label: g.label, value: g.value })),
+    matchesPlayed: p.matchesPlayed ?? 0,
+    wins: p.wins ?? 0,
+    losses: p.losses ?? 0,
+    signatureMove: p.signatureMove ?? "",
+    isPublic: p.isPublic,
+  };
+}
+
+export async function fetchSportsProfiles(): Promise<SportsProfile[]> {
+  const r = await fetch(getApiUrl() + "/api/sports/profiles", { headers: authHeaders() });
+  if (!r.ok) throw new Error("加载运动档案失败");
+  const d = await r.json();
+  return Array.isArray(d.profiles) ? (d.profiles as SportsProfile[]) : [];
+}
+
+export async function saveSportsProfile(draft: SportsProfileDraft, id: number | null): Promise<SportsProfile> {
+  const base = getApiUrl() + "/api/sports/profiles";
+  const r = await fetch(id ? base + "/" + id : base, {
+    method: id ? "PATCH" : "POST",
+    headers: authHeaders(true),
+    body: JSON.stringify(draft),
+  });
+  if (!r.ok) {
+    const d = await r.json().catch(() => null);
+    throw new Error(typeof d?.error === "string" ? d.error : "保存失败");
+  }
+  const d = await r.json();
+  return d.profile as SportsProfile;
+}
+
+export async function deleteSportsProfile(id: number): Promise<void> {
+  const r = await fetch(getApiUrl() + "/api/sports/profiles/" + id, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!r.ok) throw new Error("删除失败");
+}

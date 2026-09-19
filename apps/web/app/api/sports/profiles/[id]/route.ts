@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { pgPool } from "@/lib/db";
 import { currentUserId, currentSessionToken } from "@/lib/session";
 import { parseBody } from "@/lib/http";
-import { normalizePairs } from "../route";
+import { normalizePairs, normalizeRecord, normalizeSignatureMove } from "../route";
 
 const SELECT_COLS = `id, sport_key AS "sportKey", identity, level_text AS "levelText",
   handedness, play_style AS "playStyle", photo_url AS "photoUrl", gear, highlights,
+  matches_played AS "matchesPlayed", wins, losses, signature_move AS "signatureMove",
   is_public AS "isPublic", share_slug AS "shareSlug", updated_at AS "updatedAt"`;
 
 function parseId(raw: string): number | null {
@@ -13,7 +14,7 @@ function parseId(raw: string): number | null {
   return Number.isInteger(n) && n > 0 ? n : null;
 }
 
-/** PATCH /api/sports/profiles/[id] —— 更新档案（含公开开关） */
+/** PATCH /api/sports/profiles/[id] —— 更新档案（含战绩/绝技/公开开关） */
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id: rawId } = await ctx.params;
   const id = parseId(rawId);
@@ -38,6 +39,13 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   if (body.photoUrl !== undefined) push("photo_url", typeof body.photoUrl === "string" ? body.photoUrl.trim().slice(0, 2000) || null : null);
   if (body.gear !== undefined) push("gear", JSON.stringify(normalizePairs(body.gear)));
   if (body.highlights !== undefined) push("highlights", JSON.stringify(normalizePairs(body.highlights)));
+  if (body.matchesPlayed !== undefined || body.wins !== undefined || body.losses !== undefined) {
+    const record = normalizeRecord(body);
+    push("matches_played", record.matches);
+    push("wins", record.wins);
+    push("losses", record.losses);
+  }
+  if (body.signatureMove !== undefined) push("signature_move", normalizeSignatureMove(body.signatureMove));
   if (body.isPublic !== undefined) {
     const pub = Boolean(body.isPublic);
     push("is_public", pub);

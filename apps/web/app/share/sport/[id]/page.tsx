@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
-import { handLabels, type SportsShare } from "@learn-workbench/shared";
-import { Loader2, Share2 } from "lucide-react";
+import { computeSportsRecord, formatWinRate, handLabels, type SportsShare } from "@learn-workbench/shared";
+import { HoloSportCardLazy } from "@/components/holo/holo-sport-card-lazy";
+import { cardModelFromShare } from "@/lib/sports-card-view";
+import { hasHoloArt } from "@/lib/holo-card-text";
+import { Loader2, Share2, Sparkles } from "lucide-react";
 
 /** 公开运动档案页（无需登录）：只渲染白名单字段 */
 export default function PublicSportProfilePage({ params }: { params: Promise<{ id: string }> }) {
@@ -49,6 +52,8 @@ export default function PublicSportProfilePage({ params }: { params: Promise<{ i
   }
 
   const tags = [data.playStyle, data.handedness ? handLabels[data.handedness] : null, data.levelText].filter(Boolean);
+  const record = computeSportsRecord(data);
+  const holo = hasHoloArt(data.sportKey);
 
   return (
     <div className="flex min-h-dvh items-start justify-center bg-slate-100/60 p-4 sm:p-8">
@@ -61,7 +66,14 @@ export default function PublicSportProfilePage({ params }: { params: Promise<{ i
           </span>
         </header>
 
-        {data.photoUrl ? (
+        {holo ? (
+          <div className="px-3 pt-2">
+            <HoloSportCardLazy model={cardModelFromShare(data)} />
+            <p className="mt-2 flex items-center justify-center gap-1 text-[10px] uppercase tracking-[0.2em] text-slate-400">
+              <Sparkles className="size-3" /> 实时镭射 · 拖动转卡
+            </p>
+          </div>
+        ) : data.photoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={data.photoUrl} alt="" className="mt-4 h-56 w-full object-cover" />
         ) : (
@@ -78,6 +90,25 @@ export default function PublicSportProfilePage({ params }: { params: Promise<{ i
               <p className="mt-1.5 text-xs text-slate-600">{tags.join(" · ")}</p>
             ) : null}
           </div>
+
+          <section>
+            <h2 className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">战绩</h2>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              {([
+                ["总战绩", record.matches + " 场"],
+                ["胜 / 负", record.wins + " / " + record.losses],
+                ["胜率", formatWinRate(record.winRate)],
+              ] as const).map(([label, value]) => (
+                <div key={label} className="rounded-xl border border-slate-200 bg-slate-50/70 px-2 py-2">
+                  <p className="text-[10px] text-slate-500">{label}</p>
+                  <p className="mt-0.5 text-sm font-extrabold text-slate-900">{value}</p>
+                </div>
+              ))}
+            </div>
+            {data.signatureMove ? (
+              <p className="mt-2 text-center text-xs text-slate-600">绝技 · <span className="font-bold text-slate-900">{data.signatureMove}</span></p>
+            ) : null}
+          </section>
 
           {data.gear.length > 0 ? (
             <section>

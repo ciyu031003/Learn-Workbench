@@ -51,6 +51,7 @@ const WATER_COLOR = "#2FB3A6";
 const WEIGHT_COLOR = "#8D7BD8";
 const HABIT_COLOR = "#8D7BD8";
 const RECORD_COLOR = "#3DA35D";
+const CARD_COLOR = "#C79A3E";
 
 function tintOf(color: string) {
   return { iconColor: color, iconBg: color + "22" };
@@ -330,6 +331,19 @@ export default function WellnessScreen() {
           <Text style={styles.actionFoot}>{latestWeight === null ? "点这里记一次 ›" : "看趋势与目标 ›"}</Text>
         </PressableScale>
       </View>
+
+      <GroupLabel>运动档案</GroupLabel>
+      <ListGroup>
+        <ListRow
+          {...tintOf(CARD_COLOR)}
+          icon="sparkles-outline"
+          title="运动闪光卡"
+          subtitle="战绩 · 装备 · 绝技，实时镭射卡面"
+          showChevron
+          last
+          onPress={() => router.push("/sports-card" as never)}
+        />
+      </ListGroup>
 
       <GroupLabel>趋势与档案</GroupLabel>
       <ListGroup>

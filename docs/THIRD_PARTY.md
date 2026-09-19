@@ -55,6 +55,21 @@ v6 P1-3 的食物营养库支持从公开数据源导入（`scripts/import_food_
 
 ---
 
+## 2.6 第一方素材与代码（sports-cards → 运动闪光卡 v10）
+
+来源：`E:\Codex_output_files\sports-cards`（**用户自己的 AI 生成工程**，7 个球类的全息卡牌 demo）。
+
+| 内容 | 用途 | 许可 | 本项目处理 |
+|---|---|---|---|
+| `app.js` 的 three.js 镭射着色器与交互（front/edge/back 三段） | Web 三维闪光卡 | 第一方（自有） | 移植进 `apps/web/components/holo/holo-sport-card.tsx`；**卡面文字层重写**（源 `text.png` 是印死的 demo 数据，未采用） |
+| `<sport>/web/assets/card.glb` | 卡体模型 | 第一方 | 7 项运动 MD5 相同 → 只留一份 `apps/web/public/holo/card.glb` |
+| `<sport>/web/assets/{subject,background,lineart}.png`（1728×2368） | 双端卡面贴图 | 第一方 | `scripts/build-holo-assets.mjs` 压成 WebP 入库：Web 1152 宽 5.12MB / 移动端 896 宽 3.32MB |
+| gallery（`index.html`/`gallery-*`/`sports.json`）、`build_*.py`、`server.mjs`、`validate_glb.mjs`、`node_modules` | — | — | **未采用**（只取闪光卡片本体） |
+
+> 素材与代码均为第一方生成内容，无第三方版权义务；运行时依赖 `three`（MIT）是 v8 已引入的既有依赖。
+
+---
+
 ## 3. 依赖清单（由包管理器引入，非复制源码）
 
 | 依赖 | 版本 | 用途 | 许可 | 引入阶段 |

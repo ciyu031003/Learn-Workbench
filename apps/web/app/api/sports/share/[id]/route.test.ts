@@ -55,4 +55,21 @@ describe("GET /api/sports/share/[id]", () => {
     expect(sql).toContain("p.is_public = true");
     expect(sql).toContain("p.deleted_at IS NULL");
   });
+
+  it("公开战绩与绝技（仍不含任何身体数据）", async () => {
+    queryMock.mockResolvedValue({
+      rows: [{
+        sportKey: "badminton", identity: null, levelText: "业余 6 级", handedness: null,
+        playStyle: null, photoUrl: null, gear: [], highlights: [],
+        matchesPlayed: "20", wins: "15", losses: "5", signatureMove: "疾风·劈杀", displayName: "张三",
+      }],
+    } as never);
+    const res = await GET(new Request("http://localhost"), ctx("1"));
+    const { share } = await res.json();
+    expect(share.matchesPlayed).toBe(20);
+    expect(share.wins).toBe(15);
+    expect(share.losses).toBe(5);
+    expect(share.signatureMove).toBe("疾风·劈杀");
+    expect(share).not.toHaveProperty("weightKg");
+  });
 });

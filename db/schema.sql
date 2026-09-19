@@ -1184,6 +1184,20 @@ CREATE TABLE IF NOT EXISTS sports_profiles (
   created_at   timestamptz NOT NULL DEFAULT now(),
   updated_at   timestamptz NOT NULL DEFAULT now()
 );
+-- ---------- 来自迁移 049_sports_card.sql（运动闪光卡：战绩 + 绝技） ----------
+ALTER TABLE sports_profiles
+  ADD COLUMN IF NOT EXISTS matches_played integer NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS wins           integer NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS losses         integer NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS signature_move text;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'sports_profiles_record_nonneg') THEN
+    ALTER TABLE sports_profiles
+      ADD CONSTRAINT sports_profiles_record_nonneg
+      CHECK (matches_played >= 0 AND wins >= 0 AND losses >= 0);
+  END IF;
+END $$;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_sports_profiles_user_sport
   ON sports_profiles(user_id, sport_key) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_sports_profiles_public

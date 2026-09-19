@@ -2368,11 +2368,153 @@ export const sportsProfileSchema = z.object({
   photoUrl: z.string().nullable(),
   gear: z.array(sportsGearItemSchema).default([]),
   highlights: z.array(sportsGearItemSchema).default([]),
+  /** 比赛场次（卡面「总战绩」；迁移 049） */
+  matchesPlayed: z.number().default(0),
+  /** 胜场 */
+  wins: z.number().default(0),
+  /** 负场 */
+  losses: z.number().default(0),
+  /** 绝技 / 招式（卡面主视觉文案） */
+  signatureMove: z.string().nullable().default(null),
   isPublic: z.boolean(),
   shareSlug: z.string().nullable(),
   updatedAt: z.string().optional(),
 });
 export type SportsProfile = z.infer<typeof sportsProfileSchema>;
+
+/* ---------- 运动闪光卡（卡面数据模型；Web 三维卡与移动端闪光卡共用同一份映射） ---------- */
+
+/** 各项运动的英文档案名（卡面顶部小字） */
+export const SPORT_ARCHIVE_EN: Record<string, string> = {
+  badminton: "BADMINTON ARCHIVE",
+  tennis: "TENNIS ARCHIVE",
+  basketball: "BASKETBALL ARCHIVE",
+  volleyball: "VOLLEYBALL ARCHIVE",
+  "table-tennis": "TABLE TENNIS ARCHIVE",
+  soccer: "FOOTBALL ARCHIVE",
+  baseball: "BASEBALL ARCHIVE",
+};
+
+/** 通用兜底装备行 */
+export const DEFAULT_SPORT_GEAR_LABELS = ["球拍", "球鞋", "球线", "手胶"];
+
+/**
+ * 各运动的装备录入模板（填入运动档案后直接上卡面）：
+ * 拍类运动刻意区分「球拍型号 / 球拍类型 / 球鞋类型」，避免只写一个品牌名。
+ */
+export const SPORT_GEAR_TEMPLATES: Record<string, string[]> = {
+  badminton: ["球拍型号", "球拍类型", "球鞋类型", "拍线", "磅数"],
+  tennis: ["球拍型号", "球拍类型", "球鞋类型", "拍线", "磅数"],
+  "table-tennis": ["底板", "正手胶皮", "反手胶皮", "球鞋"],
+  basketball: ["球鞋", "球衣", "护具", "身高位置"],
+  soccer: ["球鞋（钉型）", "球衣", "护腿板", "比赛用球"],
+  volleyball: ["球鞋", "护膝", "比赛用球", "位置"],
+  baseball: ["手套", "球棒", "钉鞋", "位置"],
+};
+
+export function sportGearTemplate(sportKey: string): string[] {
+  return SPORT_GEAR_TEMPLATES[sportKey] ?? DEFAULT_SPORT_GEAR_LABELS;
+}
+
+export interface SportsRecord {
+  /** 总场次（取「填写的场次」与「胜+负」的较大者，避免只填胜负时卡面显示 0 场） */
+  matches: number;
+  wins: number;
+  losses: number;
+  /** 胜率百分比（0-100，一位小数）；无场次为 null */
+  winRate: number | null;
+}
+
+export function computeSportsRecord(input: {
+  matchesPlayed?: number | null;
+  wins?: number | null;
+  losses?: number | null;
+}): SportsRecord {
+  const wins = Math.max(0, Math.trunc(Number(input.wins) || 0));
+  const losses = Math.max(0, Math.trunc(Number(input.losses) || 0));
+  const declared = Math.max(0, Math.trunc(Number(input.matchesPlayed) || 0));
+  const matches = Math.max(declared, wins + losses);
+  const winRate = matches > 0 ? Math.round((wins / matches) * 1000) / 10 : null;
+  return { matches, wins, losses, winRate };
+}
+
+export function formatWinRate(rate: number | null): string {
+  return rate === null ? "—" : `${rate.toFixed(1)}%`;
+}
+
+export interface SportsCardModel {
+  sportKey: string;
+  /** 卡面标题（如「羽毛球档案」） */
+  title: string;
+  /** 卡面英文小标（如 BADMINTON ARCHIVE） */
+  subtitle: string;
+  /** 绝技（底部大字） */
+  technique: string;
+  /** 战绩一句话（绝技上方小字） */
+  tagline: string;
+  edition: string;
+  collection: string;
+  description: string;
+  panelTitle: string;
+  /** 信息面板左列 [标签, 值]（等级 + 装备） */
+  rowsLeft: [string, string][];
+  /** 信息面板右列 [标签, 值]（战绩） */
+  rowsRight: [string, string][];
+  /** 面板底部徽章（公开成绩） */
+  flags: string[];
+  record: SportsRecord;
+  /** 导出文件名用的安全串 */
+  fileStem: string;
+}
+
+export const SPORTS_CARD_PANEL_TITLE = "运动员档案 · ATHLETE PROFILE";
+
+/**
+ * 由档案数据生成卡面文案模型 —— 卡片只负责「画」，映射全在这里，
+ * 保证 Web（three.js 实时合成）与移动端（拟态闪光卡）显示同一份内容。
+ */
+export function buildSportsCardModel(
+  profile: Pick<SportsProfile, "sportKey" | "identity" | "levelText" | "playStyle" | "handedness" | "gear" | "highlights"> &
+    Partial<Pick<SportsProfile, "matchesPlayed" | "wins" | "losses" | "signatureMove">>,
+  opts: { sportName: string; index?: number; total?: number; year?: number }
+): SportsCardModel {
+  const record = computeSportsRecord(profile);
+  const gear = (profile.gear ?? []).filter((g) => g.label.trim());
+  const rowsLeft: [string, string][] = [
+    ["等级", profile.levelText?.trim() || "未填写"],
+    ...gear.slice(0, 3).map((g) => [g.label, g.value || "—"] as [string, string]),
+  ];
+  const rowsRight: [string, string][] = [
+    ["总战绩", `${record.matches} 场`],
+    ["胜 / 负", `${record.wins} 胜 / ${record.losses} 负`],
+    ["胜率", formatWinRate(record.winRate)],
+  ];
+  const flags = (profile.highlights ?? [])
+    .filter((h) => h.label.trim() || h.value.trim())
+    .map((h) => (h.label.trim() && h.value.trim() ? `${h.label} ${h.value}` : h.label.trim() || h.value.trim()))
+    .slice(0, 4);
+  const pad = (n: number) => String(Math.max(1, n)).padStart(3, "0");
+  const technique = profile.signatureMove?.trim() || profile.playStyle?.trim() || "未设定绝技";
+  return {
+    sportKey: profile.sportKey,
+    title: `${opts.sportName}档案`,
+    subtitle: SPORT_ARCHIVE_EN[profile.sportKey] ?? `${profile.sportKey.toUpperCase()} ARCHIVE`,
+    technique,
+    tagline:
+      record.matches > 0
+        ? `${record.matches} 战 · ${record.wins} 胜 · 胜率 ${formatWinRate(record.winRate)}`
+        : "还没有战绩数据",
+    edition: `NO.${pad(opts.index ?? 1)} / ${pad(opts.total ?? 1)}`,
+    collection: `${opts.year ?? new Date().getFullYear()} 个人运动典藏`,
+    description: `${opts.sportName}多层镭射闪光档案卡，记录等级、装备与完整战绩。`,
+    panelTitle: SPORTS_CARD_PANEL_TITLE,
+    rowsLeft,
+    rowsRight,
+    flags,
+    record,
+    fileStem: `${opts.sportName}档案-${profile.sportKey}`,
+  };
+}
 
 /**
  * 公开分享视图：**只包含白名单字段**。
@@ -2388,16 +2530,23 @@ export const sportsShareSchema = z.object({
   photoUrl: z.string().nullable(),
   gear: z.array(sportsGearItemSchema).default([]),
   highlights: z.array(sportsGearItemSchema).default([]),
+  /** 战绩属于「公开成绩」，与装备同级；同样不含任何身体数据 */
+  matchesPlayed: z.number().default(0),
+  wins: z.number().default(0),
+  losses: z.number().default(0),
+  signatureMove: z.string().nullable().default(null),
   displayName: z.string().nullable(),
 });
 export type SportsShare = z.infer<typeof sportsShareSchema>;
 
 /** 从完整档案投影出公开视图（唯一的脱敏出口，避免各处手写白名单） */
 export function toSportsShare(
-  profile: Pick<SportsProfile, "sportKey" | "identity" | "levelText" | "handedness" | "playStyle" | "photoUrl" | "gear" | "highlights">,
+  profile: Pick<SportsProfile, "sportKey" | "identity" | "levelText" | "handedness" | "playStyle" | "photoUrl" | "gear" | "highlights"> &
+    Partial<Pick<SportsProfile, "matchesPlayed" | "wins" | "losses" | "signatureMove">>,
   sportName: string,
   displayName: string | null
 ): SportsShare {
+  const record = computeSportsRecord(profile);
   return {
     sportKey: profile.sportKey,
     sportName,
@@ -2408,6 +2557,10 @@ export function toSportsShare(
     photoUrl: profile.photoUrl,
     gear: profile.gear ?? [],
     highlights: profile.highlights ?? [],
+    matchesPlayed: record.matches,
+    wins: record.wins,
+    losses: record.losses,
+    signatureMove: profile.signatureMove ?? null,
     displayName,
   };
 }
