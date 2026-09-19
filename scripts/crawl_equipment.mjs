@@ -14,7 +14,7 @@
  *  - 限速 ≥1.2s/请求 + 失败退避；只抓公开页面，不登录、不绕验证码；
  *  - 产出 `.local/equipment-out/{images,manifest.json}`，由 `scripts/import_equipment.mjs` 推桶入库。
  */
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
 
@@ -267,6 +267,8 @@ async function storeItem({ adapter, category, model, imageUrl, sourceUrl, images
       crawledAt: new Date().toISOString(),
     });
     console.log("  ✓ " + category + " " + model + " (" + Math.round(normalized.data.length / 1024) + "KB)");
+    // 每命中一条就落盘：长跑被中断也不会丢已抓数据（下次可用 --resume 跳过）
+    await writeFile(path.join(OUT_DIR, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n", "utf8");
     return true;
   } catch (error) {
     console.warn("  × 图片失败：" + error.message);
@@ -279,6 +281,19 @@ async function main() {
   await mkdir(imagesDir, { recursive: true });
   const manifest = [];
   const seen = new Set();
+  /** --resume：把上次 manifest 读进来，跳过已抓过的（型号 + 分类） */
+  if (args.resume) {
+    try {
+      const previous = JSON.parse(await readFile(path.join(OUT_DIR, "manifest.json"), "utf8"));
+      for (const item of previous) {
+        manifest.push(item);
+        seen.add(item.category + "|" + item.model);
+      }
+      console.log("[crawl] resume：已有 " + manifest.length + " 条，继续补抓");
+    } catch {
+      console.log("[crawl] resume：没有可用 manifest，从头抓");
+    }
+  }
 
   for (const siteKey of SITES) {
     const adapter = ADAPTERS[siteKey];
