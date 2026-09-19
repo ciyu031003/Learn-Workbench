@@ -1,4 +1,5 @@
 import * as ImagePicker from "expo-image-picker";
+import { gearKindFromLabel } from "@learn-workbench/shared";
 import { getApiUrl } from "@/config";
 import { useAppStore } from "@/store/app-store";
 
@@ -11,15 +12,9 @@ import { useAppStore } from "@/store/app-store";
 export const UPLOAD_KINDS = ["avatar", "racket", "shoes", "string", "grip", "ball", "other"] as const;
 export type UploadKind = (typeof UPLOAD_KINDS)[number];
 
-/** 由装备行标签猜上传类别（球拍 / 球鞋 / 拍线 / 手胶 / 球） */
+/** 由装备行标签猜上传类别（球拍 / 球鞋 / 拍线 / 手胶 / 球）—— 规则与网页端共用 shared 的实现 */
 export function kindFromGearLabel(label: string): UploadKind {
-  const text = label.toLowerCase();
-  if (/球拍|底板|racket/.test(text)) return "racket";
-  if (/鞋|shoe|战靴/.test(text)) return "shoes";
-  if (/线|string|胶皮|磅/.test(text)) return "string";
-  if (/手胶|grip|握把/.test(text)) return "grip";
-  if (/球$|ball/.test(text)) return "ball";
-  return "other";
+  return gearKindFromLabel(label);
 }
 
 /** 相对路径 → 绝对地址（已经是 http(s) 的原样返回） */

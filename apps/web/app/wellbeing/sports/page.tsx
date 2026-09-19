@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  SPORT_CATALOG, computeSportsRecord, equipmentCategoryForGearLabel, handLabels, sportGearTemplate, type Hand, type SportsProfile,
+  SPORT_CATALOG, computeSportsRecord, equipmentCategoryForGearLabel, gearRowWantsImage, handLabels, mergeGearWithTemplate, sportGearTemplate, type Hand, type SportsProfile,
 } from "@learn-workbench/shared";
 import { Card, CardContent } from "@/components/ui/card";
 import { HoloSportCardLazy } from "@/components/holo/holo-sport-card-lazy";
@@ -122,6 +122,8 @@ export default function SportsProfilePage() {
   };
 
   const openEdit = (p: SportsProfile) => {
+    // 老档案「球拍型号 / 球拍类型」合并为一行「球拍」，「磅数」行落到图鉴四宫格
+    const merged = mergeGearWithTemplate(p.sportKey, p.gear ?? []);
     setForm({
       id: p.id,
       sportKey: p.sportKey,
@@ -130,14 +132,19 @@ export default function SportsProfilePage() {
       handedness: (p.handedness ?? "") as "" | Hand,
       playStyle: p.playStyle ?? "",
       photoUrl: p.photoUrl ?? "",
-      gear: (p.gear ?? []).length > 0 ? p.gear.map((g) => ({ label: g.label, value: g.value })) : gearRows(p.sportKey),
+      gear: merged.gear.map((g) => ({ label: g.label, value: g.value, imageUrl: g.imageUrl ?? null })),
       highlights: (p.highlights ?? []).map((g) => ({ label: g.label, value: g.value })),
       matchesPlayed: p.matchesPlayed > 0 ? String(p.matchesPlayed) : "",
       wins: p.wins > 0 ? String(p.wins) : "",
       losses: p.losses > 0 ? String(p.losses) : "",
       signatureMove: p.signatureMove ?? "",
       shoeSize: p.shoeSize ?? "",
-      tensionLbs: p.tensionLbs === null || p.tensionLbs === undefined ? "" : String(p.tensionLbs),
+      tensionLbs:
+        p.tensionLbs === null || p.tensionLbs === undefined
+          ? merged.tensionLbs === null
+            ? ""
+            : String(merged.tensionLbs)
+          : String(p.tensionLbs),
       isPublic: p.isPublic,
     });
     setOpen(true);
@@ -311,7 +318,7 @@ export default function SportsProfilePage() {
                       {(p.gear ?? []).map((g, i) => (
                         <div key={i} className="flex items-center justify-between gap-2 text-xs">
                           <span className="flex min-w-0 items-center gap-2 text-muted-foreground">
-                            {g.imageUrl ? (
+                            {g.imageUrl && gearRowWantsImage(g.label) ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img src={g.imageUrl} alt="" className="size-8 shrink-0 rounded-lg border border-border/50 bg-white object-contain" />
                             ) : null}
@@ -450,42 +457,55 @@ export default function SportsProfilePage() {
 
           <div>
             <label className="mb-1.5 block text-xs font-medium">主力装备</label>
+            <p className="mb-1.5 text-[11px] text-muted-foreground">
+              只有球拍 / 球鞋 / 比赛用球配图；拍线、手胶这类只填文字，磅数填在图鉴四宫格。
+            </p>
             <div className="flex flex-col gap-2">
-              {form.gear.map((g, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <label className="grid size-11 shrink-0 cursor-pointer place-items-center overflow-hidden rounded-xl border border-dashed border-border/60 text-muted-foreground hover:bg-muted/50">
-                    {g.imageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={g.imageUrl} alt="" className="size-full object-contain" />
+              {form.gear.map((g, i) => {
+                // 只有球拍 / 球鞋 / 比赛用球配图，其余行（拍线、手胶、磅数…）纯文字
+                const wantsImage = gearRowWantsImage(g.label);
+                return (
+                  <div key={i} className="flex items-center gap-2">
+                    {wantsImage ? (
+                      <label className="grid size-11 shrink-0 cursor-pointer place-items-center overflow-hidden rounded-xl border border-dashed border-border/60 text-muted-foreground hover:bg-muted/50">
+                        {g.imageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={g.imageUrl} alt="" className="size-full object-contain" />
+                        ) : (
+                          <Camera className="size-4" />
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            e.target.value = "";
+                            void handleUpload("gear-" + i, kindFromGearLabel(g.label), file, (url) => {
+                              void replaceUpload(g.imageUrl, url);
+                              setPair("gear", i, { imageUrl: url });
+                            });
+                          }}
+                        />
+                      </label>
                     ) : (
-                      <Camera className="size-4" />
+                      <span className="size-11 shrink-0" />
                     )}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        e.target.value = "";
-                        void handleUpload("gear-" + i, kindFromGearLabel(g.label), file, (url) => {
-                          void replaceUpload(g.imageUrl, url);
-                          setPair("gear", i, { imageUrl: url });
-                        });
-                      }}
-                    />
-                  </label>
-                  <Input className="w-24" value={g.label} onChange={(e) => setPair("gear", i, { label: e.target.value })} placeholder="类别" />
-                  <Input className="flex-1" value={g.value} onChange={(e) => setPair("gear", i, { value: e.target.value })} placeholder="型号" />
-                  <button
-                    type="button"
-                    onClick={() => setPickerIndex(pickerIndex === i ? null : i)}
-                    className="shrink-0 rounded-xl border border-border/60 px-2.5 py-2 text-[11px] hover:bg-muted/60"
-                    aria-label="从图库选择"
-                  >
-                    图库
-                  </button>
-                </div>
-              ))}
+                    <Input className="w-24" value={g.label} onChange={(e) => setPair("gear", i, { label: e.target.value })} placeholder="类别" />
+                    <Input className="flex-1" value={g.value} onChange={(e) => setPair("gear", i, { value: e.target.value })} placeholder={wantsImage ? "型号 / 类型" : "文字即可"} />
+                    {wantsImage ? (
+                      <button
+                        type="button"
+                        onClick={() => setPickerIndex(pickerIndex === i ? null : i)}
+                        className="shrink-0 rounded-xl border border-border/60 px-2.5 py-2 text-[11px] hover:bg-muted/60"
+                        aria-label="从图库选择"
+                      >
+                        图库
+                      </button>
+                    ) : null}
+                  </div>
+                );
+              })}
             </div>
           </div>
 

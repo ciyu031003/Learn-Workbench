@@ -21,12 +21,11 @@ beforeEach(() => {
 });
 
 describe("emptySportsDraft", () => {
-  it("拍类运动预填「球拍型号 / 球拍类型 / 球鞋类型」", () => {
+  it("羽毛球预填「球拍 / 球鞋 / 羽毛球 / 拍线」（不含磅数行）", () => {
     const draft = emptySportsDraft("badminton");
     const labels = draft.gear.map((g) => g.label);
-    expect(labels).toContain("球拍型号");
-    expect(labels).toContain("球拍类型");
-    expect(labels).toContain("球鞋类型");
+    expect(labels).toEqual(["球拍", "球鞋", "羽毛球", "拍线"]);
+    expect(labels).not.toContain("磅数");
     expect(draft.matchesPlayed).toBe(0);
   });
 
@@ -61,7 +60,38 @@ describe("draftFromProfile", () => {
     expect(draft.shoeSize).toBe("40");
     expect(draft.tensionLbs).toBe(27.5);
     expect(draft.isPublic).toBe(true);
-    expect(draft.gear).toHaveLength(1);
+    // 老行的「球拍型号」归一到「球拍」，并按现模板补全其余行
+    expect(draft.gear.map((g) => g.label)).toEqual(["球拍", "球鞋", "羽毛球", "拍线"]);
+    expect(draft.gear[0].value).toBe("VICTOR 龙牙之刃 II");
+  });
+
+  it("老档案的「球拍型号 + 球拍类型」合并、磅数行落到四宫格", () => {
+    const draft = draftFromProfile({
+      id: 8,
+      sportKey: "badminton",
+      identity: null,
+      levelText: null,
+      handedness: null,
+      playStyle: null,
+      photoUrl: null,
+      gear: [
+        { label: "球拍型号", value: "YONEX 100ZZ" },
+        { label: "球拍类型", value: "进攻拍" },
+        { label: "磅数", value: "27.5" },
+      ],
+      highlights: [],
+      matchesPlayed: 0,
+      wins: 0,
+      losses: 0,
+      signatureMove: "",
+      shoeSize: "",
+      tensionLbs: null,
+      isPublic: false,
+      shareSlug: null,
+    });
+    expect(draft.gear[0]).toEqual({ label: "球拍", value: "YONEX 100ZZ · 进攻拍", imageUrl: null });
+    expect(draft.gear.map((g) => g.label)).not.toContain("磅数");
+    expect(draft.tensionLbs).toBe(27.5);
   });
 });
 

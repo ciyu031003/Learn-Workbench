@@ -1,6 +1,6 @@
 import { getApiUrl } from "@/config";
 import { useAppStore } from "@/store/app-store";
-import { sportGearTemplate, type SportsProfile } from "@learn-workbench/shared";
+import { mergeGearWithTemplate, sportGearTemplate, type SportsProfile } from "@learn-workbench/shared";
 
 /** 运动档案客户端（对齐 Web /api/sports/profiles，字段已是 camelCase） */
 function authHeaders(json = false): Record<string, string> {
@@ -59,6 +59,8 @@ export function emptySportsDraft(sportKey = "badminton"): SportsProfileDraft {
 }
 
 export function draftFromProfile(p: SportsProfile): SportsProfileDraft {
+  // 老档案的「球拍型号 / 球拍类型」合并成一行「球拍」，「磅数」行落到图鉴四宫格
+  const normalized = mergeGearWithTemplate(p.sportKey, p.gear ?? []);
   return {
     sportKey: p.sportKey,
     identity: p.identity ?? "",
@@ -66,17 +68,14 @@ export function draftFromProfile(p: SportsProfile): SportsProfileDraft {
     handedness: p.handedness,
     playStyle: p.playStyle ?? "",
     photoUrl: p.photoUrl ?? "",
-    gear:
-      (p.gear ?? []).length > 0
-        ? p.gear.map((g) => ({ label: g.label, value: g.value, imageUrl: g.imageUrl ?? null }))
-        : sportGearTemplate(p.sportKey).map((label) => ({ label, value: "", imageUrl: null })),
+    gear: normalized.gear.map((g) => ({ label: g.label, value: g.value, imageUrl: g.imageUrl ?? null })),
     highlights: (p.highlights ?? []).map((g) => ({ label: g.label, value: g.value })),
     matchesPlayed: p.matchesPlayed ?? 0,
     wins: p.wins ?? 0,
     losses: p.losses ?? 0,
     signatureMove: p.signatureMove ?? "",
     shoeSize: p.shoeSize ?? "",
-    tensionLbs: p.tensionLbs ?? null,
+    tensionLbs: p.tensionLbs ?? normalized.tensionLbs,
     isPublic: p.isPublic,
   };
 }

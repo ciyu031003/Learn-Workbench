@@ -2404,21 +2404,112 @@ export const SPORT_ARCHIVE_EN: Record<string, string> = {
 export const DEFAULT_SPORT_GEAR_LABELS = ["球拍", "球鞋", "球线", "手胶"];
 
 /**
- * 各运动的装备录入模板（填入运动档案后直接上卡面）：
- * 拍类运动刻意区分「球拍型号 / 球拍类型 / 球鞋类型」，避免只写一个品牌名。
+ * 各运动的装备录入模板（填入运动档案后直接上卡面）。
+ *
+ * v11.1 起：球拍只留一行「球拍」（型号与类型合并填写，如「VICTOR 龙牙之刃 II 进攻拍」）；
+ * 「磅数」不再占装备行 —— 它只是一组数字，走图鉴四宫格的数值输入，不配图。
  */
 export const SPORT_GEAR_TEMPLATES: Record<string, string[]> = {
-  badminton: ["球拍型号", "球拍类型", "球鞋类型", "拍线", "磅数"],
-  tennis: ["球拍型号", "球拍类型", "球鞋类型", "拍线", "磅数"],
+  badminton: ["球拍", "球鞋", "羽毛球", "拍线"],
+  tennis: ["球拍", "球鞋", "网球", "拍线"],
   "table-tennis": ["底板", "正手胶皮", "反手胶皮", "球鞋"],
   basketball: ["球鞋", "球衣", "护具", "身高位置"],
   soccer: ["球鞋（钉型）", "球衣", "护腿板", "比赛用球"],
   volleyball: ["球鞋", "护膝", "比赛用球", "位置"],
-  baseball: ["手套", "球棒", "钉鞋", "位置"],
+  baseball: ["手套", "球棒", "钉鞋", "比赛用球"],
 };
 
 export function sportGearTemplate(sportKey: string): string[] {
   return SPORT_GEAR_TEMPLATES[sportKey] ?? DEFAULT_SPORT_GEAR_LABELS;
+}
+
+/** 装备行类别（决定「是否配图位」与图库分类） */
+export type SportGearKind = "racket" | "shoes" | "string" | "grip" | "ball" | "other";
+
+/** 由装备行标签推测类别 */
+export function gearKindFromLabel(label: string): SportGearKind {
+  const text = String(label ?? "").toLowerCase();
+  if (/球拍|底板|rackets?/.test(text)) return "racket";
+  if (/鞋|shoe|战靴|钉鞋/.test(text)) return "shoes";
+  if (/线|string|胶皮|磅/.test(text)) return "string";
+  if (/手胶|grip|握把/.test(text)) return "grip";
+  if (/球$|ball/.test(text)) return "ball";
+  return "other";
+}
+
+/**
+ * 档案里只有三类装备配图（外加证件照）：球拍 / 球鞋 / 比赛用球。
+ * 其余装备行（拍线、手胶、球衣、护具、位置…）只填文字 —— 磅数这类纯数值更不该配图。
+ */
+export function gearRowWantsImage(label: string): boolean {
+  const kind = gearKindFromLabel(label);
+  return kind === "racket" || kind === "shoes" || kind === "ball";
+}
+
+/** 旧模板标签 → 现模板标签（v11.1 合并球拍型号 / 球拍类型，「球鞋类型」归并到「球鞋」） */
+export const LEGACY_GEAR_LABEL_ALIASES: Record<string, string> = {
+  球拍型号: "球拍",
+  球拍类型: "球拍",
+  球鞋类型: "球鞋",
+};
+
+export function normalizeGearLabel(label: string): string {
+  const text = String(label ?? "").trim();
+  return LEGACY_GEAR_LABEL_ALIASES[text] ?? text;
+}
+
+/** 装备行（网页 / App 共用） */
+export interface SportGearRow {
+  label: string;
+  value: string;
+  imageUrl?: string | null;
+}
+
+export interface NormalizedSportGear {
+  gear: SportGearRow[];
+  /** 老数据里「磅数」装备行的数值（现已移出装备行，落到图鉴四宫格） */
+  tensionLbs: number | null;
+}
+
+/**
+ * 老库存的装备行归一到现模板：同标签多行合并（球拍型号 + 球拍类型），
+ * 「磅数」行抽出成 tensionLbs 并弃用该行。
+ */
+export function normalizeSportGear(gear: SportGearRow[]): NormalizedSportGear {
+  const out: SportGearRow[] = [];
+  const indexOf = new Map<string, number>();
+  let tensionLbs: number | null = null;
+  for (const raw of gear ?? []) {
+    const label = normalizeGearLabel(raw?.label ?? "");
+    const value = String(raw?.value ?? "").trim();
+    if (!label && !value) continue;
+    if (label === "磅数" || label === "拉线磅数") {
+      const n = Number(value.replace(/[^0-9.]/g, ""));
+      if (tensionLbs === null && Number.isFinite(n) && n > 0) tensionLbs = n;
+      continue;
+    }
+    const imageUrl = raw?.imageUrl ?? null;
+    const hit = indexOf.get(label);
+    if (hit === undefined) {
+      indexOf.set(label, out.length);
+      out.push({ label, value, imageUrl });
+      continue;
+    }
+    const prev = out[hit];
+    const parts = prev.value && prev.value !== value ? [prev.value, value] : [prev.value || value];
+    out[hit] = { label, value: parts.filter(Boolean).join(" · "), imageUrl: prev.imageUrl || imageUrl };
+  }
+  return { gear: out, tensionLbs };
+}
+
+/** 归一 + 按当前模板排序补全（新模板新增的行即使空白也补上，方便填写）；自定义行保留在后面 */
+export function mergeGearWithTemplate(sportKey: string, gear: SportGearRow[]): NormalizedSportGear {
+  const { gear: normalized, tensionLbs } = normalizeSportGear(gear);
+  const template = sportGearTemplate(sportKey);
+  const byLabel = new Map(normalized.map((g) => [g.label, g]));
+  const ordered: SportGearRow[] = template.map((label) => byLabel.get(label) ?? { label, value: "", imageUrl: null });
+  const extras = normalized.filter((g) => !template.includes(g.label));
+  return { gear: [...ordered, ...extras], tensionLbs };
 }
 
 export interface SportsRecord {
@@ -2499,7 +2590,8 @@ export function buildSportsCardModel(
   opts: { sportName: string; index?: number; total?: number; year?: number; memberNo?: string }
 ): SportsCardModel {
   const record = computeSportsRecord(profile);
-  const gear = (profile.gear ?? []).filter((g) => g.label.trim());
+  // 卡面同样归一：老档案的「球拍型号 / 球拍类型」在卡上只占一行
+  const gear = normalizeSportGear((profile.gear ?? []).filter((g) => g.label.trim())).gear;
   const rowsLeft: [string, string][] = [
     ["等级", profile.levelText?.trim() || "未填写"],
     ...gear.slice(0, 3).map((g) => [g.label, g.value || "—"] as [string, string]),
@@ -2607,15 +2699,15 @@ export interface EquipmentCategoryMeta {
 }
 
 export const EQUIPMENT_CATEGORIES: EquipmentCategoryMeta[] = [
-  { key: "badminton-racket", label: "羽毛球拍", gearLabel: "球拍型号", sportKey: "badminton" },
-  { key: "badminton-shoes", label: "羽毛球鞋", gearLabel: "球鞋类型", sportKey: "badminton" },
+  { key: "badminton-racket", label: "羽毛球拍", gearLabel: "球拍", sportKey: "badminton" },
+  { key: "badminton-shoes", label: "羽毛球鞋", gearLabel: "球鞋", sportKey: "badminton" },
   { key: "badminton-string", label: "拍线", gearLabel: "拍线", sportKey: "badminton" },
-  { key: "badminton-shuttle", label: "羽毛球", gearLabel: "比赛用球", sportKey: "badminton" },
+  { key: "badminton-shuttle", label: "羽毛球", gearLabel: "羽毛球", sportKey: "badminton" },
   { key: "badminton-accessory", label: "手胶/配件", gearLabel: "手胶", sportKey: "badminton" },
-  { key: "tennis-racket", label: "网球拍", gearLabel: "球拍型号", sportKey: "tennis" },
-  { key: "tennis-shoes", label: "网球鞋", gearLabel: "球鞋类型", sportKey: "tennis" },
+  { key: "tennis-racket", label: "网球拍", gearLabel: "球拍", sportKey: "tennis" },
+  { key: "tennis-shoes", label: "网球鞋", gearLabel: "球鞋", sportKey: "tennis" },
   { key: "tennis-string", label: "网球线", gearLabel: "拍线", sportKey: "tennis" },
-  { key: "tennis-ball", label: "网球", gearLabel: "比赛用球", sportKey: "tennis" },
+  { key: "tennis-ball", label: "网球", gearLabel: "网球", sportKey: "tennis" },
   { key: "table-tennis-racket", label: "乒乓球拍/底板", gearLabel: "底板", sportKey: "table-tennis" },
   { key: "table-tennis-rubber", label: "乒乓球胶皮", gearLabel: "正手胶皮", sportKey: "table-tennis" },
   { key: "table-tennis-shoes", label: "乒乓球鞋", gearLabel: "球鞋", sportKey: "table-tennis" },

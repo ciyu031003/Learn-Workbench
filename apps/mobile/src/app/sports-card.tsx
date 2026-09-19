@@ -27,6 +27,9 @@ import {
   computeSportsRecord,
   equipmentCategoryForGearLabel,
   formatMemberNo,
+  gearKindFromLabel,
+  gearRowWantsImage,
+  normalizeSportGear,
   sportItemByKey,
   type SportsProfile,
 } from "@learn-workbench/shared";
@@ -39,7 +42,7 @@ import { SportsHoloCard } from "@/components/sports-holo-card";
 import { EquipmentPicker } from "@/components/equipment-picker-sheet";
 import type { EquipmentItem } from "@/lib/equipment";
 import { hasHoloImages, holoImages } from "@/lib/holo-images";
-import { absoluteMediaUrl, deleteUpload, kindFromGearLabel, pickAndUpload } from "@/lib/uploads";
+import { absoluteMediaUrl, deleteUpload, pickAndUpload } from "@/lib/uploads";
 import {
   deleteSportsProfile,
   draftFromProfile,
@@ -156,6 +159,17 @@ export default function SportsCardScreen() {
   }, [current, profiles, sportName]);
   const record = current ? computeSportsRecord(current) : null;
 
+  /**
+   * 展示用装备行：老档案的「球拍型号 / 球拍类型」在这里合并成一行「球拍」，
+   * 「磅数」行丢弃（它已经在图鉴四宫格里）。上传装备图时按归一后的整表写回，顺带完成迁移。
+   */
+  const gearRows = useMemo(() => {
+    if (!current) return [] as { label: string; value: string; imageUrl: string | null }[];
+    return normalizeSportGear(current.gear ?? [])
+      .gear.filter((g) => g.label.trim())
+      .map((g) => ({ label: g.label, value: g.value, imageUrl: g.imageUrl ?? null }));
+  }, [current]);
+
   const goBack = () => {
     if (router.canGoBack()) router.back();
     else router.replace("/wellness" as never);
@@ -248,19 +262,30 @@ export default function SportsCardScreen() {
     }
   };
 
-  /** 换装备图：选图 → 上传 → PATCH gear[i].imageUrl → 清理旧图 */
-  const uploadGearImage = async (index: number) => {
+  /** 换装备图：选图 → 上传 → 按归一后的整表 PATCH gear（同时把老装备行迁到新标签）→ 清理旧图 */
+  const uploadGearImage = async (label: string) => {
     if (!current) return;
     const target = current;
-    const item = (target.gear ?? [])[index];
-    if (!item) return;
+    const row = gearRows.find((g) => g.label === label);
+    if (!row) return;
     try {
-      const url = await pickAndUpload(kindFromGearLabel(item.label));
+      const url = await pickAndUpload(gearKindFromLabel(row.label));
       if (!url) return;
-      const nextGear = (target.gear ?? []).map((g, i) => (i === index ? { ...g, imageUrl: url } : g));
+      const nextGear = gearRows.map((g) => (g.label === label ? { ...g, imageUrl: url } : g));
       await patchSportsProfile(target.id, { gear: nextGear });
-      if (item.imageUrl?.startsWith("/uploads/")) void deleteUpload(item.imageUrl);
+      if (row.imageUrl?.startsWith("/uploads/")) void deleteUpload(row.imageUrl);
       await load();
+    } catch (e) {
+      Alert.alert("上传失败", e instanceof Error ? e.message : "请稍后重试");
+    }
+  };
+
+  /** 编辑表里换证件照：上传后回填草稿（保存时随档案一起提交） */
+  const pickDraftPhoto = async () => {
+    try {
+      const url = await pickAndUpload("avatar");
+      if (!url) return;
+      setDraft((d) => ({ ...d, photoUrl: url }));
     } catch (e) {
       Alert.alert("上传失败", e instanceof Error ? e.message : "请稍后重试");
     }
@@ -432,21 +457,22 @@ export default function SportsCardScreen() {
               </View>
             ) : null}
 
-            {/* 装备图鉴：球拍类横放通栏（长的拍子横过来），其余两列网格 —— 省一半高度 */}
-            {(() => {
-              const entries = (current.gear ?? [])
-                .map((item, index) => ({ item, index }))
-                .filter(({ item }) => item.label.trim());
-              const wideEntries = entries.filter(({ item }) => kindFromGearLabel(item.label) === "racket");
-              const gridEntries = entries.filter(({ item }) => kindFromGearLabel(item.label) !== "racket");
+            {/* 装备图鉴：只有球拍 / 球鞋 / 比赛用球配图（球拍横放通栏，球鞋与球两列），其余行纯文字 */}
+            {gearRows.length > 0 ? (() => {
+              const wideEntries = gearRows.filter((g) => gearKindFromLabel(g.label) === "racket");
+              const gridEntries = gearRows.filter((g) => {
+                const kind = gearKindFromLabel(g.label);
+                return kind === "shoes" || kind === "ball";
+              });
+              const textEntries = gearRows.filter((g) => !gearRowWantsImage(g.label));
               return (
                 <>
-                  {wideEntries.map(({ item, index }) => {
+                  {wideEntries.map((item) => {
                     const uri = absoluteMediaUrl(item.imageUrl);
                     return (
-                      <View key={item.label + index} style={styles.gearWide}>
+                      <View key={item.label} style={styles.gearWide}>
                         <Pressable
-                          onPress={() => void uploadGearImage(index)}
+                          onPress={() => void uploadGearImage(item.label)}
                           style={styles.gearWideImage}
                           accessibilityLabel={"上传" + item.label + "图片"}
                         >
@@ -469,12 +495,12 @@ export default function SportsCardScreen() {
 
                   {gridEntries.length > 0 ? (
                     <View style={styles.gearGrid}>
-                      {gridEntries.map(({ item, index }) => {
+                      {gridEntries.map((item) => {
                         const uri = absoluteMediaUrl(item.imageUrl);
                         return (
-                          <View key={item.label + index} style={styles.gearCell}>
+                          <View key={item.label} style={styles.gearCell}>
                             <Pressable
-                              onPress={() => void uploadGearImage(index)}
+                              onPress={() => void uploadGearImage(item.label)}
                               style={styles.gearCellImage}
                               accessibilityLabel={"上传" + item.label + "图片"}
                             >
@@ -491,9 +517,20 @@ export default function SportsCardScreen() {
                       })}
                     </View>
                   ) : null}
+
+                  {textEntries.length > 0 ? (
+                    <View style={styles.gearTextList}>
+                      {textEntries.map((item) => (
+                        <View key={item.label} style={styles.gearTextRow}>
+                          <Text style={styles.gearTextLabel} numberOfLines={1}>{item.label}</Text>
+                          <Text style={styles.gearTextValue} numberOfLines={1}>{item.value || "—"}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  ) : null}
                 </>
               );
-            })()}
+            })() : null}
 
             {/* 荣誉 */}
             {(current.highlights ?? []).length > 0 ? (
@@ -563,13 +600,26 @@ export default function SportsCardScreen() {
           <Field label="运动身份" value={draft.identity} onChangeText={(v) => setDraft((d) => ({ ...d, identity: v }))} placeholder="如：双打搭子" />
           <Field label="打法" value={draft.playStyle} onChangeText={(v) => setDraft((d) => ({ ...d, playStyle: v }))} placeholder="如：混双" />
           <Field label="绝技（卡面大字）" value={draft.signatureMove} onChangeText={(v) => setDraft((d) => ({ ...d, signatureMove: v }))} placeholder="如：疾风·劈杀" />
-          <Field
-            label="本人照片链接（下一版支持直接上传）"
-            value={draft.photoUrl}
-            onChangeText={(v) => setDraft((d) => ({ ...d, photoUrl: v }))}
-            placeholder="https://…"
-            autoCapitalize="none"
-          />
+          <GroupLabel>证件照</GroupLabel>
+          <Pressable onPress={() => void pickDraftPhoto()} style={styles.photoRow} accessibilityLabel="上传证件照">
+            {draft.photoUrl ? (
+              <Image
+                source={{ uri: absoluteMediaUrl(draft.photoUrl) ?? draft.photoUrl }}
+                style={styles.photoThumb}
+                contentFit="cover"
+                transition={200}
+              />
+            ) : (
+              <View style={[styles.photoThumb, styles.photoEmpty]}>
+                <ThemedIcon name="camera-outline" size={20} color={colors.textFaint} />
+              </View>
+            )}
+            <View style={styles.photoMeta}>
+              <Text style={styles.photoTitle}>证件照</Text>
+              <Text style={styles.photoHint}>{draft.photoUrl ? "点这里换一张" : "点这里拍照 / 从相册选择"}</Text>
+            </View>
+            <ThemedIcon name="chevron-forward" size={18} color={colors.textFaint} />
+          </Pressable>
 
           <GroupLabel>图鉴四宫格</GroupLabel>
           <View style={styles.triple}>
@@ -605,23 +655,35 @@ export default function SportsCardScreen() {
           </View>
 
           <GroupLabel>主力装备</GroupLabel>
-          {draft.gear.map((g, i) => (
-            <View key={i} style={styles.gearInputRow}>
-              <View style={styles.gearInputLabel}>
-                <Field value={g.label} onChangeText={(v) => setGear(i, { label: v })} placeholder="类别" />
+          {draft.gear.map((g, i) => {
+            const wantsImage = gearRowWantsImage(g.label);
+            return (
+              <View key={i} style={styles.gearInputRow}>
+                <View style={styles.gearInputLabel}>
+                  <Field value={g.label} onChangeText={(v) => setGear(i, { label: v })} placeholder="类别" />
+                </View>
+                <View style={styles.gearInputValue}>
+                  <Field
+                    value={g.value}
+                    onChangeText={(v) => setGear(i, { value: v })}
+                    placeholder={wantsImage ? "型号 / 类型" : "文字即可"}
+                  />
+                </View>
+                {wantsImage ? (
+                  <Pressable
+                    onPress={() => setPickerIndex(pickerIndex === i ? null : i)}
+                    style={styles.gearPickBtn}
+                    accessibilityLabel="从图库选择"
+                  >
+                    <ThemedIcon name="images-outline" size={16} color={colors.primary} />
+                  </Pressable>
+                ) : null}
               </View>
-              <View style={styles.gearInputValue}>
-                <Field value={g.value} onChangeText={(v) => setGear(i, { value: v })} placeholder="型号 / 类型" />
-              </View>
-              <Pressable
-                onPress={() => setPickerIndex(pickerIndex === i ? null : i)}
-                style={styles.gearPickBtn}
-                accessibilityLabel="从图库选择"
-              >
-                <ThemedIcon name="images-outline" size={16} color={colors.primary} />
-              </Pressable>
-            </View>
-          ))}
+            );
+          })}
+          <Text style={styles.tip}>
+            档案里只有证件照、球拍、球鞋、比赛用球配图；拍线 / 手胶这类只填文字，磅数在图鉴四宫格里填数值。
+          </Text>
 
           {pickerIndex !== null ? (
             <View style={styles.pickerBox}>
@@ -829,6 +891,26 @@ const makeStyles = (colors: ThemeColors) =>
     },
     gearCellImg: { width: "100%", height: "100%" },
     gearImageHint: { fontSize: 10, color: colors.textFaint },
+    // 不配图的装备行（拍线 / 手胶 / 球衣…）：一行文字，不占图片框
+    gearTextList: {
+      backgroundColor: colors.surfaceStrong,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      overflow: "hidden",
+    },
+    gearTextRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 12,
+      paddingHorizontal: 14,
+      paddingVertical: 11,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+    },
+    gearTextLabel: { fontSize: 12, color: colors.textMuted },
+    gearTextValue: { flex: 1, textAlign: "right", fontSize: 13, fontWeight: "700", color: colors.text },
     gearImage: { width: "100%", height: "100%" },
     gearValue: { fontSize: 13, fontWeight: "700", color: colors.text },
     gearLabel: { fontSize: 11, color: colors.textMuted },
@@ -881,6 +963,23 @@ const makeStyles = (colors: ThemeColors) =>
     triple: { flexDirection: "row", gap: 8 },
     tripleCell: { flex: 1 },
     tip: { fontSize: 11, lineHeight: 17, color: colors.textMuted },
+    // 证件照：一行「缩略图 + 说明」，点一下就能换
+    photoRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceStrong,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+    },
+    photoThumb: { width: 56, height: 72, borderRadius: radius.md, backgroundColor: "#ffffff" },
+    photoEmpty: { alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border },
+    photoMeta: { flex: 1, gap: 2 },
+    photoTitle: { fontSize: 14, fontWeight: "700", color: colors.text },
+    photoHint: { fontSize: 11, color: colors.textMuted },
     gearInputRow: { flexDirection: "row", gap: 8 },
     gearInputLabel: { width: 108 },
     gearInputValue: { flex: 1 },

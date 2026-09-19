@@ -48,7 +48,8 @@ describe("cardTextLayout", () => {
 
   it("装备与战绩分别落在左右两列，都在面板内", () => {
     const layout = cardTextLayout(model);
-    const left = layout.slots.filter((s) => s.text === "球拍型号" || s.text === "球鞋类型");
+    // 夹具用的是老标签「球拍型号 / 球鞋类型」，卡面模型会归一到「球拍 / 球鞋」
+    const left = layout.slots.filter((s) => s.text === "球拍" || s.text === "球鞋");
     const right = layout.slots.filter((s) => s.text === "总战绩");
     expect(left).toHaveLength(2);
     expect(right).toHaveLength(1);

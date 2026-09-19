@@ -4,6 +4,9 @@ import {
   computeSportsRecord,
   formatMemberNo,
   formatWinRate,
+  gearRowWantsImage,
+  mergeGearWithTemplate,
+  normalizeSportGear,
   sportGearTemplate,
   SPORT_GEAR_TEMPLATES,
 } from "@learn-workbench/shared";
@@ -34,14 +37,65 @@ describe("formatWinRate", () => {
 });
 
 describe("sportGearTemplate", () => {
-  it("拍类运动带「球拍类型 / 球鞋类型」行", () => {
-    expect(sportGearTemplate("badminton")).toContain("球拍类型");
-    expect(sportGearTemplate("badminton")).toContain("球鞋类型");
+  it("羽毛球装备行 = 球拍 / 球鞋 / 羽毛球 / 拍线（型号与类型合并，磅数不占装备行）", () => {
+    expect(sportGearTemplate("badminton")).toEqual(["球拍", "球鞋", "羽毛球", "拍线"]);
+    expect(sportGearTemplate("badminton")).not.toContain("球拍类型");
+    expect(sportGearTemplate("badminton")).not.toContain("球拍型号");
+    expect(sportGearTemplate("badminton")).not.toContain("磅数");
     expect(sportGearTemplate("tennis")).toEqual(SPORT_GEAR_TEMPLATES.tennis);
   });
 
   it("未知运动回退到通用装备行", () => {
     expect(sportGearTemplate("curling")).toEqual(["球拍", "球鞋", "球线", "手胶"]);
+  });
+});
+
+describe("gearRowWantsImage", () => {
+  it("只有球拍 / 球鞋 / 比赛用球配图", () => {
+    expect(gearRowWantsImage("球拍")).toBe(true);
+    expect(gearRowWantsImage("球鞋")).toBe(true);
+    expect(gearRowWantsImage("羽毛球")).toBe(true);
+    expect(gearRowWantsImage("网球")).toBe(true);
+    expect(gearRowWantsImage("比赛用球")).toBe(true);
+    expect(gearRowWantsImage("拍线")).toBe(false);
+    expect(gearRowWantsImage("手胶")).toBe(false);
+    expect(gearRowWantsImage("磅数")).toBe(false);
+    expect(gearRowWantsImage("球衣")).toBe(false);
+    expect(gearRowWantsImage("位置")).toBe(false);
+  });
+});
+
+describe("normalizeSportGear / mergeGearWithTemplate", () => {
+  it("「球拍型号 + 球拍类型」合并成一行，图片保留、值拼在一起", () => {
+    const { gear } = normalizeSportGear([
+      { label: "球拍型号", value: "VICTOR 龙牙之刃 II", imageUrl: "/uploads/u/racket.webp" },
+      { label: "球拍类型", value: "进攻拍" },
+      { label: "球鞋类型", value: "YONEX 65Z3" },
+    ]);
+    expect(gear).toEqual([
+      { label: "球拍", value: "VICTOR 龙牙之刃 II · 进攻拍", imageUrl: "/uploads/u/racket.webp" },
+      { label: "球鞋", value: "YONEX 65Z3", imageUrl: null },
+    ]);
+  });
+
+  it("「磅数」装备行抽成数值，不再留在装备里", () => {
+    const { gear, tensionLbs } = normalizeSportGear([
+      { label: "球拍", value: "YONEX 100ZZ" },
+      { label: "磅数", value: "27.5" },
+    ]);
+    expect(gear).toEqual([{ label: "球拍", value: "YONEX 100ZZ", imageUrl: null }]);
+    expect(tensionLbs).toBe(27.5);
+  });
+
+  it("按现模板排序补全，自定义行留在末尾", () => {
+    const { gear } = mergeGearWithTemplate("badminton", [
+      { label: "拍线", value: "BG65" },
+      { label: "球拍型号", value: "YONEX 100ZZ" },
+      { label: "自定义", value: "x" },
+    ]);
+    expect(gear.map((g) => g.label)).toEqual(["球拍", "球鞋", "羽毛球", "拍线", "自定义"]);
+    expect(gear[0].value).toBe("YONEX 100ZZ");
+    expect(gear[1].value).toBe("");
   });
 });
 
@@ -80,11 +134,11 @@ describe("buildSportsCardModel", () => {
     expect(model.tagline).toBe("214 战 · 178 胜 · 胜率 83.2%");
   });
 
-  it("左侧栏 = 等级 + 最多 3 行装备", () => {
+  it("左侧栏 = 等级 + 最多 3 行装备（老标签在卡面已归一合并）", () => {
     expect(model.rowsLeft[0]).toEqual(["等级", "业余 6 级"]);
-    expect(model.rowsLeft[1]).toEqual(["球拍型号", "VICTOR 龙牙之刃 II"]);
-    expect(model.rowsLeft[2]).toEqual(["球拍类型", "进攻拍"]);
-    expect(model.rowsLeft[3]).toEqual(["球鞋类型", "YONEX 65Z3"]);
+    expect(model.rowsLeft[1]).toEqual(["球拍", "VICTOR 龙牙之刃 II · 进攻拍"]);
+    expect(model.rowsLeft[2]).toEqual(["球鞋", "YONEX 65Z3"]);
+    expect(model.rowsLeft[3]).toEqual(["拍线", "BG65"]);
     expect(model.rowsLeft).toHaveLength(4);
   });
 
