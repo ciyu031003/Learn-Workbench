@@ -2616,6 +2616,22 @@ export const EQUIPMENT_CATEGORIES: EquipmentCategoryMeta[] = [
   { key: "tennis-shoes", label: "网球鞋", gearLabel: "球鞋类型", sportKey: "tennis" },
   { key: "tennis-string", label: "网球线", gearLabel: "拍线", sportKey: "tennis" },
   { key: "tennis-ball", label: "网球", gearLabel: "比赛用球", sportKey: "tennis" },
+  { key: "table-tennis-racket", label: "乒乓球拍/底板", gearLabel: "底板", sportKey: "table-tennis" },
+  { key: "table-tennis-rubber", label: "乒乓球胶皮", gearLabel: "正手胶皮", sportKey: "table-tennis" },
+  { key: "table-tennis-shoes", label: "乒乓球鞋", gearLabel: "球鞋", sportKey: "table-tennis" },
+  { key: "table-tennis-ball", label: "乒乓球", gearLabel: "比赛用球", sportKey: "table-tennis" },
+  { key: "basketball-shoes", label: "篮球鞋", gearLabel: "球鞋", sportKey: "basketball" },
+  { key: "basketball-ball", label: "篮球", gearLabel: "比赛用球", sportKey: "basketball" },
+  { key: "soccer-shoes", label: "足球鞋", gearLabel: "球鞋（钉型）", sportKey: "soccer" },
+  { key: "soccer-ball", label: "足球", gearLabel: "比赛用球", sportKey: "soccer" },
+  { key: "soccer-guard", label: "护腿板", gearLabel: "护腿板", sportKey: "soccer" },
+  { key: "volleyball-shoes", label: "排球鞋", gearLabel: "球鞋", sportKey: "volleyball" },
+  { key: "volleyball-ball", label: "排球", gearLabel: "比赛用球", sportKey: "volleyball" },
+  { key: "volleyball-knee", label: "护膝", gearLabel: "护膝", sportKey: "volleyball" },
+  { key: "baseball-glove", label: "棒球手套", gearLabel: "手套", sportKey: "baseball" },
+  { key: "baseball-bat", label: "棒球棒", gearLabel: "球棒", sportKey: "baseball" },
+  { key: "baseball-shoes", label: "棒球钉鞋", gearLabel: "钉鞋", sportKey: "baseball" },
+  { key: "baseball-ball", label: "棒球", gearLabel: "比赛用球", sportKey: "baseball" },
 ];
 
 export function equipmentCategoriesForSport(sportKey: string): EquipmentCategoryMeta[] {
@@ -2628,10 +2644,15 @@ export function equipmentCategoryForGearLabel(sportKey: string, label: string): 
   const text = label.toLowerCase();
   const hit = candidates.find((c) => {
     if (/球拍|底板|rackets?/.test(text)) return c.key.endsWith("racket");
-    if (/鞋|shoe|战靴/.test(text)) return c.key.endsWith("shoes");
-    if (/线|string/.test(text)) return c.key.endsWith("string");
-    if (/手胶|grip|配件/.test(text)) return c.key.endsWith("accessory");
-    if (/球$|ball|shuttle/.test(text)) return c.key.endsWith("shuttle");
+    if (/胶皮|rubber/.test(text)) return c.key.endsWith("rubber");
+    if (/鞋|shoe|战靴|钉鞋/.test(text)) return c.key.endsWith("shoes");
+    if (/线|string|磅/.test(text)) return c.key.endsWith("string");
+    if (/手胶|grip|配件|accessor/.test(text)) return c.key.endsWith("accessory");
+    if (/护膝|knee/.test(text)) return c.key.endsWith("knee");
+    if (/护腿|guard/.test(text)) return c.key.endsWith("guard");
+    if (/手套|glove/.test(text)) return c.key.endsWith("glove");
+    if (/球棒|bat/.test(text)) return c.key.endsWith("bat");
+    if (/球$|ball/.test(text)) return c.key.endsWith("ball");
     return false;
   });
   return hit?.key ?? candidates[0]?.key ?? "";
