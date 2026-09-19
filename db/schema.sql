@@ -1232,6 +1232,28 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_uploads_path ON uploads(path);
 CREATE INDEX IF NOT EXISTS idx_uploads_user
   ON uploads(user_id, created_at DESC) WHERE deleted_at IS NULL;
 
+-- ---------- 来自迁移 052_equipment_items.sql（装备图库：品牌白底商品图） ----------
+CREATE TABLE IF NOT EXISTS equipment_items (
+  id          bigserial PRIMARY KEY,
+  category    text NOT NULL,
+  brand       text NOT NULL,
+  model       text NOT NULL,
+  image_path  text NOT NULL,
+  width       integer,
+  height      integer,
+  bytes       integer,
+  source_url  text,
+  source_site text,
+  crawled_at  timestamptz,
+  is_listed   boolean NOT NULL DEFAULT true,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_equipment_items ON equipment_items(category, brand, model);
+CREATE INDEX IF NOT EXISTS idx_equipment_items_category
+  ON equipment_items(category) WHERE is_listed = true;
+CREATE INDEX IF NOT EXISTS idx_equipment_items_brand ON equipment_items(brand);
+
 -- 来自迁移 047_food_database.sql（食物营养库 v6：模糊搜索 + 营养基准库 + 导入审计）
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
