@@ -535,7 +535,9 @@ API：
   清洗后图库 **564 条**、品类零错配；两个爬虫都加了守卫，后续不会再进错品类。
 - **两个爬虫通用修复**：① 文件名兜底 —— 中文型号 `slugify` 后可能为空，末尾补 10 位 hash 防覆盖；② `Referer` 头必须是 ASCII，中文商品页 URL 先 `encodeURI`，否则 Node fetch 直接抛 ByteString 错误（本轮第一次跑全军覆没就是这个）。
 
-**验证**：web **1131 测试** / mobile **316 测试**；双端 typecheck 0 / lint 0 error；迁移 053 全新建库自检通过；APK v1.18.0（versionCode 30）。
+**验证**：web **1131 测试** / mobile **316 测试** / `pnpm test:scripts` 全绿；双端 typecheck 0 / lint 0 error；迁移 053 全新建库自检通过；APK **v1.18.1（versionCode 31）**。
+
+**线上冒烟（v1.18.0/v1.18.1）**：临时把测试档案设为公开 + 打开开关，`GET /api/sports/share/1` 返回 `showGearImages:true` 且装备带 `imageUrl`，随后**已还原**（is_public=false / 开关 false / 原 gear 5 行）；APK 与清单 sha256、二维码解码、图库图片 200 全部核对一致。
 
 
 
