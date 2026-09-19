@@ -46,10 +46,14 @@ import { absoluteMediaUrl, deleteUpload, pickAndUpload } from "@/lib/uploads";
 import {
   deleteSportsProfile,
   draftFromProfile,
+  emptyBodyMetrics,
   emptySportsDraft,
+  fetchBodyMetrics,
   fetchSportsProfiles,
   patchSportsProfile,
+  saveBodyMetrics,
   saveSportsProfile,
+  type BodyMetrics,
   type SportsProfileDraft,
 } from "@/lib/sports-client";
 import { getApiUrl } from "@/config";
@@ -61,17 +65,6 @@ import { useTheme } from "@/theme";
 
 /** 可做闪光卡的运动项目 */
 const CARD_SPORTS = ["badminton", "tennis", "basketball", "volleyball", "table-tennis", "soccer", "baseball"] as const;
-
-interface BodyInfo {
-  heightCm: number | null;
-  weightKg: number | null;
-  birthYear: number | null;
-}
-
-function num(value: unknown): number | null {
-  const n = Number(value);
-  return Number.isFinite(n) && n > 0 ? n : null;
-}
 
 function levelLabel(profile: SportsProfile, sportName: string): string {
   const level = profile.levelText?.trim();
@@ -88,7 +81,11 @@ export default function SportsCardScreen() {
 
   const [profiles, setProfiles] = useState<SportsProfile[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [body, setBody] = useState<BodyInfo>({ heightCm: null, weightKg: null, birthYear: null });
+  const [body, setBody] = useState<BodyMetrics>(() => emptyBodyMetrics());
+  /** 编辑表里的身体数据草稿（身高 / 体重，字符串便于输入） */
+  const [bodyDraft, setBodyDraft] = useState({ heightCm: "", weightKg: "" });
+  /** 用户是否真的改过身高/体重（没改就不提交，避免异步加载未完成时把已有数据清掉） */
+  const [bodyDirty, setBodyDirty] = useState(false);
   const [city, setCity] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
@@ -114,18 +111,11 @@ export default function SportsCardScreen() {
     // 身高/体重/生日 与 地区：只是图鉴上的补充信息，失败就不显示
     try {
       const headers: Record<string, string> = token ? { Authorization: "Bearer " + token } : {};
-      const [targetRes, infoRes] = await Promise.all([
-        fetch(getApiUrl() + "/api/nutrition/target", { headers }),
+      const [metrics, infoRes] = await Promise.all([
+        fetchBodyMetrics().catch(() => null),
         fetch(getApiUrl() + "/api/profile/info", { headers }),
       ]);
-      if (targetRes.ok) {
-        const d = await targetRes.json();
-        setBody({
-          heightCm: num(d.heightCm ?? d.target?.heightCm),
-          weightKg: num(d.weightKg ?? d.target?.weightKg),
-          birthYear: num(d.birthYear ?? d.target?.birthYear),
-        });
-      }
+      if (metrics) setBody(metrics);
       if (infoRes.ok) {
         const d = await infoRes.json();
         const value = d.currentCity ?? d.info?.currentCity ?? null;
@@ -214,21 +204,47 @@ export default function SportsCardScreen() {
     transform: [{ scale: interpolate(anim.value, [0, 1], [0.6, 1]) }],
   }));
 
+  /** 身体数据草稿 = 当前值（字符串） */
+  const bodyDraftFrom = (m: BodyMetrics) => ({
+    heightCm: m.heightCm ? String(m.heightCm) : "",
+    weightKg: m.weightKg ? String(m.weightKg) : "",
+  });
+
   const openNew = (sportKey = "badminton") => {
     setEditId(null);
     setDraft(emptySportsDraft(sportKey));
+    setBodyDraft(bodyDraftFrom(body));
+    setBodyDirty(false);
     setSheetOpen(true);
   };
 
   const openEdit = (p: SportsProfile) => {
     setEditId(p.id);
     setDraft(draftFromProfile(p));
+    setBodyDraft(bodyDraftFrom(body));
+    setBodyDirty(false);
     setSheetOpen(true);
+  };
+
+  /** 输入 → 正数（小数位可配），非法/清空 → null */
+  const parseMetric = (raw: string, decimals = 0): number | null => {
+    const n = Number(String(raw).replace(/[^0-9.]/g, ""));
+    if (!Number.isFinite(n) || n <= 0) return null;
+    const factor = Math.pow(10, decimals);
+    return Math.round(n * factor) / factor;
   };
 
   const save = async () => {
     setSaving(true);
     try {
+      // 身高 / 体重存在「营养目标」资料里（图鉴四宫格取的就是它）；整组回传避免清掉性别与活动量
+      if (bodyDirty) {
+        await saveBodyMetrics({
+          ...body,
+          heightCm: parseMetric(bodyDraft.heightCm),
+          weightKg: parseMetric(bodyDraft.weightKg, 1),
+        });
+      }
       await saveSportsProfile(
         {
           ...draft,
@@ -624,6 +640,32 @@ export default function SportsCardScreen() {
           <GroupLabel>图鉴四宫格</GroupLabel>
           <View style={styles.triple}>
             <View style={styles.tripleCell}>
+              <Field
+                label="身高 cm"
+                value={bodyDraft.heightCm}
+                keyboardType="number-pad"
+                onChangeText={(v) => {
+                  setBodyDirty(true);
+                  setBodyDraft((s) => ({ ...s, heightCm: v.replace(/[^0-9]/g, "") }));
+                }}
+                placeholder="175"
+              />
+            </View>
+            <View style={styles.tripleCell}>
+              <Field
+                label="体重 kg"
+                value={bodyDraft.weightKg}
+                keyboardType="decimal-pad"
+                onChangeText={(v) => {
+                  setBodyDirty(true);
+                  setBodyDraft((s) => ({ ...s, weightKg: v.replace(/[^0-9.]/g, "") }));
+                }}
+                placeholder="68.5"
+              />
+            </View>
+          </View>
+          <View style={styles.triple}>
+            <View style={styles.tripleCell}>
               <Field label="鞋码" value={draft.shoeSize} onChangeText={(v) => setDraft((d) => ({ ...d, shoeSize: v }))} placeholder="40" />
             </View>
             <View style={styles.tripleCell}>
@@ -639,7 +681,7 @@ export default function SportsCardScreen() {
               />
             </View>
           </View>
-          <Text style={styles.tip}>身高与体重取「营养目标」里的资料（网页端可改）。</Text>
+          <Text style={styles.tip}>身高与体重同时也用于营养目标计算，改完保存即生效。</Text>
 
           <GroupLabel>战绩</GroupLabel>
           <View style={styles.triple}>
@@ -724,7 +766,21 @@ export default function SportsCardScreen() {
 
           <View style={styles.switchRow}>
             <Text style={styles.switchLabel}>公开分享</Text>
-            <Switch value={draft.isPublic} onValueChange={(v) => setDraft((d) => ({ ...d, isPublic: v }))} />
+            <Switch
+              value={draft.isPublic}
+              onValueChange={(v) => setDraft((d) => ({ ...d, isPublic: v, showGearImages: v ? d.showGearImages : false }))}
+            />
+          </View>
+          <View style={[styles.switchRow, !draft.isPublic && styles.switchRowOff]}>
+            <View style={styles.switchText}>
+              <Text style={styles.switchLabel}>公开页显示装备图</Text>
+              <Text style={styles.switchHint}>只展示球拍 / 球鞋 / 比赛用球这几张图</Text>
+            </View>
+            <Switch
+              disabled={!draft.isPublic}
+              value={draft.isPublic && draft.showGearImages}
+              onValueChange={(v) => setDraft((d) => ({ ...d, showGearImages: v }))}
+            />
           </View>
           <Text style={styles.tip}>公开后只展示身份 / 等级 / 装备 / 战绩 / 公开成绩，不含身高体重等身体数据。</Text>
 
@@ -1013,4 +1069,7 @@ const makeStyles = (colors: ThemeColors) =>
       paddingVertical: 10,
     },
     switchLabel: { fontSize: 14, color: colors.text },
+    switchText: { flex: 1, gap: 2, paddingRight: 10 },
+    switchHint: { fontSize: 11, color: colors.textMuted },
+    switchRowOff: { opacity: 0.55 },
   });

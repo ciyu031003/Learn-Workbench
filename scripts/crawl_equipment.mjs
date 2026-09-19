@@ -2,7 +2,7 @@
  * 装备图库爬取（v11 P1.5+ 扩品牌/品类）：只收「白底商品图」，统一裁边 + 铺白底 → WebP。
  *
  * 用法：
- *   node scripts/crawl_equipment.mjs [--sites yonex-global,yonex] [--limit 300] [--out .local/equipment-out]
+ *   node scripts/crawl_equipment.mjs [--sites yonex-global,yonex,doublefish] [--limit 300] [--out .local/equipment-out]
  *
  * 契约（加站点只写一个适配器）：
  *   categories()            → [{ id, name, category }]
@@ -14,6 +14,7 @@
  *  - 限速 ≥1.2s/请求 + 失败退避；只抓公开页面，不登录、不绕验证码；
  *  - 产出 `.local/equipment-out/{images,manifest.json}`，由 `scripts/import_equipment.mjs` 推桶入库。
  */
+import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
@@ -49,7 +50,11 @@ async function fetchText(url) {
 }
 
 async function fetchBuffer(url, referer) {
-  const res = await fetch(url, { headers: { "User-Agent": UA, Referer: referer ?? "https://www.yonex.com/" } });
+  const headers = { "User-Agent": UA };
+  // Referer 必须是 ASCII（Node 的 fetch 拒绝非 ASCII 头值）：中文商品页 URL 先 percent-encode，仍不行就不带
+  const ref = referer ? encodeURI(referer) : "";
+  if (/^[\x20-\x7E]*$/.test(ref)) headers.Referer = ref || "https://www.yonex.com/";
+  const res = await fetch(url, { headers });
   if (!res.ok) throw new Error("HTTP " + res.status + " " + url);
   return Buffer.from(await res.arrayBuffer());
 }
@@ -238,7 +243,56 @@ const victorAdapter = {
   },
 };
 
-const ADAPTERS = { "yonex-global": yonexGlobalAdapter, yonex: yonexCnAdapter, victor: victorAdapter };
+/* ------------------------------ 双鱼（国产：乒乓球全套 + 足篮排 + 羽毛球拍） ------------------------------ */
+
+const doubleFishAdapter = {
+  key: "doublefish",
+  brand: "双鱼",
+  base: "https://www.doublefish.com",
+  async categories() {
+    // 分类页 URL 形如 /底板_c18；商品卡形如 <a href="/诗雯sw系列底板_p175" title="诗雯SW系列底板"><img src="…_thumb.jpg">
+    return [
+      { id: "/底板_c18", name: "双鱼底板", category: "table-tennis-racket" },
+      { id: "/乒乓球拍_c20", name: "双鱼成品拍", category: "table-tennis-racket" },
+      { id: "/套胶_c19", name: "双鱼套胶", category: "table-tennis-rubber" },
+      { id: "/乒乓球_c17", name: "双鱼乒乓球", category: "table-tennis-ball" },
+      { id: "/羽毛球拍系列_c23", name: "双鱼羽毛球拍", category: "badminton-racket" },
+      { id: "/长虹足球_c4", name: "双鱼足球", category: "soccer-ball" },
+      { id: "/长虹篮球_c14", name: "双鱼篮球", category: "basketball-ball" },
+      { id: "/长虹排球_c15", name: "双鱼排球", category: "volleyball-ball" },
+    ];
+  },
+  async products(categoryId) {
+    const html = await fetchText(this.base + encodeURI(categoryId));
+    const out = [];
+    const seen = new Set();
+    for (const m of html.matchAll(/<a href="([^"]*_p\d+)" title="([^"]*)">\s*<img[^>]+src="([^"]+)"/g)) {
+      const model = m[2].replace(/\s+/g, " ").trim();
+      if (!model || seen.has(model)) continue;
+      seen.add(model);
+      const abs = m[3].startsWith("http") ? m[3] : this.base + m[3];
+      // 列表图是 _thumb 缩略图：换成 _medium 大图（原图 500，不开放）
+      // pageUrl 用 encodeURI：中文 slug 直接进 Referer 头会被 Node 拒绝
+      out.push({
+        key: m[1],
+        pageUrl: this.base + encodeURI(m[1]),
+        name: model,
+        imageUrl: abs.replace(/_thumb\.(jpg|jpeg|png)$/i, "_medium.$1"),
+      });
+    }
+    return out;
+  },
+  async detail(product) {
+    return { model: product.name, images: [product.imageUrl], sourceUrl: product.pageUrl };
+  },
+};
+
+const ADAPTERS = {
+  "yonex-global": yonexGlobalAdapter,
+  yonex: yonexCnAdapter,
+  victor: victorAdapter,
+  doublefish: doubleFishAdapter,
+};
 
 /** 下载一张图 → 白底判定 → 裁边铺白 → 落盘 + 记 manifest（成功返回 true） */
 async function storeItem({ adapter, category, model, imageUrl, sourceUrl, imagesDir, seen, manifest }) {
@@ -248,7 +302,9 @@ async function storeItem({ adapter, category, model, imageUrl, sourceUrl, images
     const buffer = await fetchBuffer(imageUrl, sourceUrl);
     if (!(await isWhiteBackgroundProduct(buffer))) return false;
     const normalized = await normalizeProductImage(buffer);
-    const fileBase = slugify(adapter.brand + "-" + model) || slugify(adapter.brand + "-" + sourceUrl.split("/").pop());
+    // 中文型号 slug 后可能只剩几个字母：末尾补 6 位 hash，避免同品类文件互相覆盖
+    const rawSlug = slugify(adapter.brand + "-" + model) || slugify(adapter.brand + "-" + (sourceUrl.split("/").pop() ?? ""));
+    const fileBase = rawSlug.length >= 3 ? rawSlug : ("item-" + createHash("sha1").update(model + "|" + sourceUrl).digest("hex").slice(0, 10));
     const relPath = path.posix.join(category, fileBase + ".webp");
     await mkdir(path.join(imagesDir, category), { recursive: true });
     await writeFile(path.join(imagesDir, relPath), normalized.data);

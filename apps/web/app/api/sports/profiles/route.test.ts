@@ -139,6 +139,26 @@ describe("POST /api/sports/profiles", () => {
     expect(args[15]).toBe("40");
     expect(args[16]).toBe(27.5);
   });
+
+  it("公开 + 打开装备图开关才写 true；不公开时强制 false", async () => {
+    tokenMock.mockResolvedValue("tok-1");
+    userMock.mockResolvedValue("u-1");
+    parseBodyMock.mockResolvedValue({
+      ok: true,
+      data: { sportKey: "badminton", isPublic: true, showGearImages: true },
+    });
+    queryMock.mockResolvedValue({ rows: [{ id: 1 }] } as never);
+    await POST(new Request("http://localhost", { method: "POST" }));
+    expect((queryMock.mock.calls[0][1] as unknown[])[17]).toBe(true);
+
+    queryMock.mockClear();
+    parseBodyMock.mockResolvedValue({
+      ok: true,
+      data: { sportKey: "badminton", isPublic: false, showGearImages: true },
+    });
+    await POST(new Request("http://localhost", { method: "POST" }));
+    expect((queryMock.mock.calls[0][1] as unknown[])[17]).toBe(false);
+  });
 });
 
 describe("normalizeRecord", () => {

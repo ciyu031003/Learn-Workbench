@@ -35,6 +35,8 @@ export interface SportsProfileDraft {
   shoeSize: string;
   tensionLbs: number | null;
   isPublic: boolean;
+  /** 公开分享页是否展示装备图（迁移 053） */
+  showGearImages: boolean;
 }
 
 /** 新建草稿：装备行按运动项目模板预填（拍类区分球拍型号 / 球拍类型 / 球鞋类型） */
@@ -55,6 +57,7 @@ export function emptySportsDraft(sportKey = "badminton"): SportsProfileDraft {
     shoeSize: "",
     tensionLbs: null,
     isPublic: false,
+    showGearImages: false,
   };
 }
 
@@ -77,7 +80,63 @@ export function draftFromProfile(p: SportsProfile): SportsProfileDraft {
     shoeSize: p.shoeSize ?? "",
     tensionLbs: p.tensionLbs ?? normalized.tensionLbs,
     isPublic: p.isPublic,
+    showGearImages: p.showGearImages === true,
   };
+}
+
+/** 身体数据（档案图鉴四宫格的身高/体重来自营养目标里的资料） */
+export interface BodyMetrics {
+  heightCm: number | null;
+  weightKg: number | null;
+  birthYear: number | null;
+  sex: "male" | "female" | null;
+  activityLevel: string | null;
+}
+
+export function emptyBodyMetrics(): BodyMetrics {
+  return { heightCm: null, weightKg: null, birthYear: null, sex: null, activityLevel: null };
+}
+
+export async function fetchBodyMetrics(): Promise<BodyMetrics> {
+  const r = await fetch(getApiUrl() + "/api/nutrition/target", { headers: authHeaders() });
+  if (!r.ok) throw new Error("加载身体数据失败");
+  const d = await r.json();
+  const p = d.profile ?? d;
+  const n = (v: unknown) => {
+    const value = Number(v);
+    return Number.isFinite(value) && value > 0 ? value : null;
+  };
+  return {
+    heightCm: n(p.heightCm ?? d.heightCm),
+    weightKg: n(p.weightKg ?? d.weightKg),
+    birthYear: n(p.birthYear ?? d.birthYear),
+    sex: p.sex === "male" || p.sex === "female" ? p.sex : null,
+    activityLevel: typeof p.activityLevel === "string" ? p.activityLevel : null,
+  };
+}
+
+/**
+ * 保存身高 / 体重（档案图鉴四宫格）。
+ *
+ * 服务端 PUT 是「整组覆盖」语义：没带的字段会被清空（体重还会回落 60），
+ * 所以这里必须把 sex / activityLevel / birthYear 一起回传。
+ */
+export async function saveBodyMetrics(metrics: BodyMetrics): Promise<void> {
+  const r = await fetch(getApiUrl() + "/api/nutrition/target", {
+    method: "PUT",
+    headers: authHeaders(true),
+    body: JSON.stringify({
+      weightKg: metrics.weightKg,
+      heightCm: metrics.heightCm,
+      birthYear: metrics.birthYear,
+      sex: metrics.sex,
+      activityLevel: metrics.activityLevel,
+    }),
+  });
+  if (!r.ok) {
+    const d = await r.json().catch(() => null);
+    throw new Error(typeof d?.error === "string" ? d.error : "身体数据保存失败");
+  }
 }
 
 export async function fetchSportsProfiles(): Promise<SportsProfile[]> {

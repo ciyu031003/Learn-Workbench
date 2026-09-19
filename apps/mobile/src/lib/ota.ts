@@ -1,5 +1,5 @@
-export const APP_VERSION_NAME = "1.17.0";
-export const APP_VERSION_CODE = 29;
+export const APP_VERSION_NAME = "1.18.0";
+export const APP_VERSION_CODE = 30;
 export const APP_ICP_NUMBER = "赣ICP备2024031528号-3A";
 export const PRIVACY_POLICY_URL = "https://learn.yuanabd.cn/privacy.html";
 export const ICP_VERIFY_URL = "https://beian.miit.gov.cn/";

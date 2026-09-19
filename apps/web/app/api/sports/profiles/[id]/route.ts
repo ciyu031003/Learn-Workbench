@@ -8,7 +8,7 @@ const SELECT_COLS = `id, sport_key AS "sportKey", identity, level_text AS "level
   handedness, play_style AS "playStyle", photo_url AS "photoUrl", gear, highlights,
   matches_played AS "matchesPlayed", wins, losses, signature_move AS "signatureMove",
   shoe_size AS "shoeSize", tension_lbs AS "tensionLbs",
-  is_public AS "isPublic", share_slug AS "shareSlug", updated_at AS "updatedAt"`;
+  is_public AS "isPublic", show_gear_images AS "showGearImages", share_slug AS "shareSlug", updated_at AS "updatedAt"`;
 
 function parseId(raw: string): number | null {
   const n = Number(raw);
@@ -49,6 +49,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   if (body.signatureMove !== undefined) push("signature_move", normalizeSignatureMove(body.signatureMove));
   if (body.shoeSize !== undefined) push("shoe_size", normalizeShoeSize(body.shoeSize));
   if (body.tensionLbs !== undefined) push("tension_lbs", normalizeTension(body.tensionLbs));
+  if (body.showGearImages !== undefined) push("show_gear_images", Boolean(body.showGearImages));
   if (body.isPublic !== undefined) {
     const pub = Boolean(body.isPublic);
     push("is_public", pub);
@@ -57,7 +58,9 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       params.push(`sp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`);
       sets.push(`share_slug = COALESCE(share_slug, $${params.length})`);
     } else {
+      // 取消公开时把装备图开关一起关掉
       sets.push("share_slug = NULL");
+      sets.push("show_gear_images = false");
     }
   }
 

@@ -1210,6 +1210,9 @@ BEGIN
       CHECK (tension_lbs IS NULL OR (tension_lbs > 0 AND tension_lbs <= 40));
   END IF;
 END $$;
+-- ---------- 来自迁移 053_sports_share_gear_images.sql（公开分享页装备图开关） ----------
+ALTER TABLE sports_profiles
+  ADD COLUMN IF NOT EXISTS show_gear_images boolean NOT NULL DEFAULT false;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_sports_profiles_user_sport
   ON sports_profiles(user_id, sport_key) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_sports_profiles_public

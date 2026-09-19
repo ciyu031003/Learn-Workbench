@@ -30,6 +30,27 @@ describe("GET /api/sports/share/[id]", () => {
     }
   });
 
+  it("带出装备图开关（默认关，打开才为 true）", async () => {
+    queryMock.mockResolvedValue({
+      rows: [{
+        sportKey: "badminton", identity: null, levelText: null, handedness: null,
+        playStyle: null, photoUrl: null, gear: [{ label: "球拍", value: "雷霆80", imageUrl: "/uploads/u/a.webp" }],
+        highlights: [], matchesPlayed: 0, wins: 0, losses: 0, signatureMove: null,
+        showGearImages: true, displayName: null,
+      }],
+    } as never);
+    const res = await GET(new Request("http://localhost"), ctx("1"));
+    const { share } = await res.json();
+    expect(share.showGearImages).toBe(true);
+    expect(share.gear[0].imageUrl).toBe("/uploads/u/a.webp");
+  });
+
+  it("查库时带出 show_gear_images 列", async () => {
+    queryMock.mockResolvedValue({ rows: [] } as never);
+    await GET(new Request("http://localhost"), ctx("1"));
+    expect(String(queryMock.mock.calls[0][0])).toContain('p.show_gear_images AS "showGearImages"');
+  });
+
   it("looks up by share slug for non-numeric ids", async () => {
     queryMock.mockResolvedValue({ rows: [] } as never);
     await GET(new Request("http://localhost"), ctx("sp-abc123"));

@@ -50,6 +50,27 @@ describe("PATCH /api/sports/profiles/[id]", () => {
     expect(String(queryMock.mock.calls[0][0])).toContain("share_slug = NULL");
   });
 
+  it("取消公开时把装备图开关一起关掉", async () => {
+    tokenMock.mockResolvedValue("tok-1");
+    userMock.mockResolvedValue("u-1");
+    parseBodyMock.mockResolvedValue({ ok: true, data: { isPublic: false } });
+    queryMock.mockResolvedValue({ rows: [{ id: 1 }] } as never);
+    await PATCH(new Request("http://localhost", { method: "PATCH" }), ctx("1"));
+    expect(String(queryMock.mock.calls[0][0])).toContain("show_gear_images = false");
+  });
+
+  it("单独切换装备图开关（公开页展示装备图）", async () => {
+    tokenMock.mockResolvedValue("tok-1");
+    userMock.mockResolvedValue("u-1");
+    parseBodyMock.mockResolvedValue({ ok: true, data: { showGearImages: true } });
+    queryMock.mockResolvedValue({ rows: [{ id: 1 }] } as never);
+    await PATCH(new Request("http://localhost", { method: "PATCH" }), ctx("1"));
+    const sql = String(queryMock.mock.calls[0][0]);
+    const args = queryMock.mock.calls[0][1] as unknown[];
+    expect(sql).toContain("show_gear_images = $3");
+    expect(args[2]).toBe(true);
+  });
+
   it("写入战绩三项与绝技（场次取 max(填写, 胜+负)）", async () => {
     tokenMock.mockResolvedValue("tok-1");
     userMock.mockResolvedValue("u-1");

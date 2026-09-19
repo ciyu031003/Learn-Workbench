@@ -2382,6 +2382,8 @@ export const sportsProfileSchema = z.object({
   /** 磅数（档案图鉴四宫格；迁移 050） */
   tensionLbs: z.number().nullable().default(null),
   isPublic: z.boolean(),
+  /** 公开分享页是否展示装备图（迁移 053；默认关） */
+  showGearImages: z.boolean().default(false),
   shareSlug: z.string().nullable(),
   updatedAt: z.string().optional(),
 });
@@ -2656,6 +2658,8 @@ export const sportsShareSchema = z.object({
   wins: z.number().default(0),
   losses: z.number().default(0),
   signatureMove: z.string().nullable().default(null),
+  /** 档案主人是否允许公开页展示装备图（迁移 053，默认关） */
+  showGearImages: z.boolean().default(false),
   displayName: z.string().nullable(),
 });
 export type SportsShare = z.infer<typeof sportsShareSchema>;
@@ -2663,7 +2667,7 @@ export type SportsShare = z.infer<typeof sportsShareSchema>;
 /** 从完整档案投影出公开视图（唯一的脱敏出口，避免各处手写白名单） */
 export function toSportsShare(
   profile: Pick<SportsProfile, "sportKey" | "identity" | "levelText" | "handedness" | "playStyle" | "photoUrl" | "gear" | "highlights"> &
-    Partial<Pick<SportsProfile, "matchesPlayed" | "wins" | "losses" | "signatureMove">>,
+    Partial<Pick<SportsProfile, "matchesPlayed" | "wins" | "losses" | "signatureMove" | "showGearImages">>,
   sportName: string,
   displayName: string | null
 ): SportsShare {
@@ -2682,6 +2686,7 @@ export function toSportsShare(
     wins: record.wins,
     losses: record.losses,
     signatureMove: profile.signatureMove ?? null,
+    showGearImages: Boolean(profile.showGearImages),
     displayName,
   };
 }

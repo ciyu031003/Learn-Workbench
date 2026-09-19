@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
-import { computeSportsRecord, formatWinRate, handLabels, type SportsShare } from "@learn-workbench/shared";
+import { computeSportsRecord, formatWinRate, gearRowWantsImage, handLabels, type SportsShare } from "@learn-workbench/shared";
 import { HoloSportCardLazy } from "@/components/holo/holo-sport-card-lazy";
 import { cardModelFromShare } from "@/lib/sports-card-view";
 import { hasHoloArt } from "@/lib/holo-card-text";
@@ -115,8 +115,18 @@ export default function PublicSportProfilePage({ params }: { params: Promise<{ i
               <h2 className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">主力装备</h2>
               <dl className="flex flex-col gap-1.5">
                 {data.gear.map((g, i) => (
-                  <div key={i} className="flex items-center justify-between border-b border-dashed border-slate-100 pb-1.5 text-sm">
-                    <dt className="text-slate-500">{g.label}</dt>
+                  <div key={i} className="flex items-center justify-between gap-2 border-b border-dashed border-slate-100 pb-1.5 text-sm">
+                    <dt className="flex min-w-0 items-center gap-2 text-slate-500">
+                      {data.showGearImages && g.imageUrl && gearRowWantsImage(g.label) ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={g.imageUrl}
+                          alt=""
+                          className="size-9 shrink-0 rounded-lg border border-slate-200 bg-white object-contain"
+                        />
+                      ) : null}
+                      {g.label}
+                    </dt>
                     <dd className="font-semibold text-slate-900">{g.value}</dd>
                   </div>
                 ))}

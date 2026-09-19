@@ -8,7 +8,7 @@ const SELECT_COLS = `id, sport_key AS "sportKey", identity, level_text AS "level
   handedness, play_style AS "playStyle", photo_url AS "photoUrl", gear, highlights,
   matches_played AS "matchesPlayed", wins, losses, signature_move AS "signatureMove",
   shoe_size AS "shoeSize", tension_lbs AS "tensionLbs",
-  is_public AS "isPublic", share_slug AS "shareSlug", updated_at AS "updatedAt"`;
+  is_public AS "isPublic", show_gear_images AS "showGearImages", share_slug AS "shareSlug", updated_at AS "updatedAt"`;
 
 /** 归一化 gear/highlights 数组 */
 export function normalizePairs(raw: unknown): { label: string; value: string; imageUrl?: string | null }[] {
@@ -104,25 +104,28 @@ export async function POST(req: Request) {
   const shoeSize = normalizeShoeSize(body.shoeSize);
   const tensionLbs = normalizeTension(body.tensionLbs);
   const wantsPublic = Boolean(body.isPublic);
+  // 装备图开关只在公开时才有意义（取消公开时一并关掉，避免下次公开意外带图）
+  const showGearImages = wantsPublic && Boolean(body.showGearImages);
 
   const { rows } = await pgPool.query(
     `INSERT INTO sports_profiles
        (user_id, sport_key, identity, level_text, handedness, play_style, photo_url, gear, highlights, is_public, share_slug,
-        matches_played, wins, losses, signature_move, shoe_size, tension_lbs)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+        matches_played, wins, losses, signature_move, shoe_size, tension_lbs, show_gear_images)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
      ON CONFLICT (user_id, sport_key) WHERE deleted_at IS NULL
      DO UPDATE SET identity = EXCLUDED.identity, level_text = EXCLUDED.level_text,
        handedness = EXCLUDED.handedness, play_style = EXCLUDED.play_style, photo_url = EXCLUDED.photo_url,
        gear = EXCLUDED.gear, highlights = EXCLUDED.highlights, is_public = EXCLUDED.is_public,
        matches_played = EXCLUDED.matches_played, wins = EXCLUDED.wins, losses = EXCLUDED.losses,
        signature_move = EXCLUDED.signature_move, shoe_size = EXCLUDED.shoe_size, tension_lbs = EXCLUDED.tension_lbs,
+       show_gear_images = EXCLUDED.show_gear_images,
        share_slug = COALESCE(sports_profiles.share_slug, EXCLUDED.share_slug),
        updated_at = now()
      RETURNING ${SELECT_COLS}`,
     [
       userId, sportKey, identity, levelText, handedness, playStyle, photoUrl,
       JSON.stringify(gear), JSON.stringify(highlights), wantsPublic, wantsPublic ? makeSlug() : null,
-      record.matches, record.wins, record.losses, signatureMove, shoeSize, tensionLbs,
+      record.matches, record.wins, record.losses, signatureMove, shoeSize, tensionLbs, showGearImages,
     ]
   );
   return NextResponse.json({ profile: rows[0] }, { status: 201 });

@@ -47,6 +47,8 @@ interface FormState {
   shoeSize: string;
   tensionLbs: string;
   isPublic: boolean;
+  /** 公开分享页是否展示装备图（迁移 053） */
+  showGearImages: boolean;
 }
 
 /** 按运动项目给出装备录入行（拍类区分球拍型号 / 球拍类型 / 球鞋类型） */
@@ -71,6 +73,7 @@ const EMPTY_FORM: FormState = {
   shoeSize: "",
   tensionLbs: "",
   isPublic: false,
+  showGearImages: false,
 };
 
 export default function SportsProfilePage() {
@@ -146,6 +149,7 @@ export default function SportsProfilePage() {
             : String(merged.tensionLbs)
           : String(p.tensionLbs),
       isPublic: p.isPublic,
+      showGearImages: p.showGearImages === true,
     });
     setOpen(true);
   };
@@ -171,6 +175,7 @@ export default function SportsProfilePage() {
         shoeSize: form.shoeSize,
         tensionLbs: form.tensionLbs === "" ? null : Number(form.tensionLbs),
         isPublic: form.isPublic,
+        showGearImages: form.isPublic && form.showGearImages,
       };
       const r = form.id
         ? await fetch(`/api/sports/profiles/${form.id}`, {
@@ -590,7 +595,26 @@ export default function SportsProfilePage() {
 
           <label className="flex items-center justify-between rounded-xl border border-border/60 bg-card/40 px-3 py-2.5">
             <span className="text-sm">公开分享</span>
-            <Switch checked={form.isPublic} onCheckedChange={(v) => setForm((s) => ({ ...s, isPublic: v }))} />
+            <Switch
+              checked={form.isPublic}
+              onCheckedChange={(v) => setForm((s) => ({ ...s, isPublic: v, showGearImages: v ? s.showGearImages : false }))}
+            />
+          </label>
+          <label
+            className={
+              "flex items-center justify-between rounded-xl border border-border/60 bg-card/40 px-3 py-2.5" +
+              (form.isPublic ? "" : " opacity-50")
+            }
+          >
+            <span className="flex flex-col">
+              <span className="text-sm">公开页显示装备图</span>
+              <span className="text-[11px] text-muted-foreground">只展示球拍 / 球鞋 / 比赛用球这几张图，默认关闭</span>
+            </span>
+            <Switch
+              disabled={!form.isPublic}
+              checked={form.isPublic && form.showGearImages}
+              onCheckedChange={(v) => setForm((s) => ({ ...s, showGearImages: v }))}
+            />
           </label>
           <p className="text-[11px] leading-relaxed text-muted-foreground">
             公开后仅展示：运动身份、等级、惯用手、打法、装备、公开成绩、照片、昵称。

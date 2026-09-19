@@ -8,6 +8,7 @@ import {
   mergeGearWithTemplate,
   normalizeSportGear,
   sportGearTemplate,
+  toSportsShare,
   SPORT_GEAR_TEMPLATES,
 } from "@learn-workbench/shared";
 
@@ -62,6 +63,30 @@ describe("gearRowWantsImage", () => {
     expect(gearRowWantsImage("磅数")).toBe(false);
     expect(gearRowWantsImage("球衣")).toBe(false);
     expect(gearRowWantsImage("位置")).toBe(false);
+  });
+});
+
+describe("toSportsShare", () => {
+  it("装备图开关随档案带出（默认关），且不含任何身体数据", () => {
+    const base = {
+      sportKey: "badminton",
+      identity: "双打搭子",
+      levelText: "中羽 1 级",
+      handedness: "right" as const,
+      playStyle: "混双",
+      photoUrl: null,
+      gear: [{ label: "球拍", value: "雷霆80", imageUrl: "/uploads/u/a.webp" }],
+      highlights: [],
+      matchesPlayed: 20,
+      wins: 15,
+      losses: 5,
+    };
+    expect(toSportsShare(base, "羽毛球", null).showGearImages).toBe(false);
+    expect(toSportsShare({ ...base, showGearImages: true }, "羽毛球", null).showGearImages).toBe(true);
+    const share = toSportsShare({ ...base, showGearImages: true }, "羽毛球", "张三");
+    for (const forbidden of ["weightKg", "heightCm", "birthYear", "shoeSize", "tensionLbs"]) {
+      expect(share).not.toHaveProperty(forbidden);
+    }
   });
 });
 

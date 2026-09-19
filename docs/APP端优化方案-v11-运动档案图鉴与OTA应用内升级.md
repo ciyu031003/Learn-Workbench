@@ -511,6 +511,28 @@ API：
 **归一规则**（`packages/shared/src/index.ts`）：`normalizeSportGear(gear)` → `{ gear, tensionLbs }`；`mergeGearWithTemplate(sportKey, gear)` 在其之上按现模板排序补全（新增行即使空白也补上，方便填写），自定义行保留在末尾。App 档案页展示、Web 档案页展示与编辑、**闪光卡卡面**（`buildSportsCardModel`）三处都走同一份归一，所以老档案不用等用户重存也不会出现两个球拍块。
 
 **验证**：web typecheck 0 / mobile typecheck 0 / lint 0 error；**web 1125 测试**、**mobile 312 测试**；APK v1.17.0（versionCode 29）。
+### 12.11 公开页装备图开关 + App 内编辑身高体重 + 双鱼图源（v1.18.0）
+
+**① 公开分享页的装备图开关（迁移 053）**
+
+- 公开页此前**完全不展示装备图**（只有文字）。现在给档案加一个 `show_gear_images` 开关（默认 **false**）：用户在 App / 网页端主动打开后，公开页才展示装备图，且只展示**球拍 / 球鞋 / 比赛用球**这三类（与档案页同一份 `gearRowWantsImage` 规则）。
+- 语义收敛：取消「公开分享」时服务端强制把开关置 false（PATCH 里 `show_gear_images = false`），避免下次重新公开时意外带图；POST 时 `showGearImages = 公开 && body.showGearImages`。
+- 白名单出口仍是 `toSportsShare()` 一处：`showGearImages` 加进 `sportsShareSchema`，其余身体字段依旧不出门。
+
+**② App 内编辑身高体重（图鉴四宫格补齐）**
+
+- 四宫格 = 身高 / 体重 / 鞋码 / 磅数，此前身高体重只能在网页端改（App 里只读）。现在编辑表第一行就是身高、体重，保存时先 `PUT /api/nutrition/target` 再存档案。
+- **坑**：该接口是「整组覆盖」语义 —— 没带的字段会被清空（体重还会回落 60）。所以客户端把 `sex / activityLevel / birthYear` 一起回传（`saveBodyMetrics`），并用 `bodyDirty` 标记**只在用户真的改过时才提交**，避免身体数据异步加载未完成时把已有值清掉。
+
+**③ 双鱼图源（乒乓球拍/胶皮的空缺补上）**
+
+- 新增 `scripts/crawl_equipment.mjs` 的 `doublefish` 适配器（`www.doublefish.com`，国产全品类）：分类页商品卡 `<a href="…_p<id>" title="…"><img src="…_thumb.jpg">` 直接给出型号 + 主图，把 `_thumb` 换成 `_medium` 拿大图。
+- 覆盖 8 个分类：底板 / 成品拍 → `table-tennis-racket`，套胶 → `table-tennis-rubber`，乒乓球 → `table-tennis-ball`，羽毛球拍 → `badminton-racket`，长虹足球 / 篮球 / 排球 → `soccer-ball / basketball-ball / volleyball-ball`。
+- **本轮入库 77 条**：乒乓球拍 20（原 0）+ 胶皮 12（原 0）+ 乒乓球 7 + 羽毛球拍 12 + 足球 12 + 篮球 12 + 排球 2。
+- **两个爬虫通用修复**：① 文件名兜底 —— 中文型号 `slugify` 后可能为空，末尾补 10 位 hash 防覆盖；② `Referer` 头必须是 ASCII，中文商品页 URL 先 `encodeURI`，否则 Node fetch 直接抛 ByteString 错误（本轮第一次跑全军覆没就是这个）。
+
+**验证**：web **1131 测试** / mobile **316 测试**；双端 typecheck 0 / lint 0 error；迁移 053 全新建库自检通过；APK v1.18.0（versionCode 30）。
+
 
 
 
