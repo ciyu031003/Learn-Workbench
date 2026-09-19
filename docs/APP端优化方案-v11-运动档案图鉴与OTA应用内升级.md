@@ -529,6 +529,10 @@ API：
 - 新增 `scripts/crawl_equipment.mjs` 的 `doublefish` 适配器（`www.doublefish.com`，国产全品类）：分类页商品卡 `<a href="…_p<id>" title="…"><img src="…_thumb.jpg">` 直接给出型号 + 主图，把 `_thumb` 换成 `_medium` 拿大图。
 - 覆盖 8 个分类：底板 / 成品拍 → `table-tennis-racket`，套胶 → `table-tennis-rubber`，乒乓球 → `table-tennis-ball`，羽毛球拍 → `badminton-racket`，长虹足球 / 篮球 / 排球 → `soccer-ball / basketball-ball / volleyball-ball`。
 - **本轮入库 77 条**：乒乓球拍 20（原 0）+ 胶皮 12（原 0）+ 乒乓球 7 + 羽毛球拍 12 + 足球 12 + 篮球 12 + 排球 2。
+- **顺手做了一次全库品类清洗**（新增 `scripts/lib/equipment-category.mjs` 守卫 + `.local/reclassify-equipment.mjs` 一次性脚本）：
+  早期李宁爬虫按搜索词直接入库，导致「篮球鞋」进了篮球、「羽毛球拍」进了羽毛球 —— 清洗**移动 78 条**到正确品类目录、
+  **下架 6 条服饰**（李宁乒乓球系列短袖文化衫 / 风衣）、并去掉 **78 条与正确品类重复**的行。
+  清洗后图库 **564 条**、品类零错配；两个爬虫都加了守卫，后续不会再进错品类。
 - **两个爬虫通用修复**：① 文件名兜底 —— 中文型号 `slugify` 后可能为空，末尾补 10 位 hash 防覆盖；② `Referer` 头必须是 ASCII，中文商品页 URL 先 `encodeURI`，否则 Node fetch 直接抛 ByteString 错误（本轮第一次跑全军覆没就是这个）。
 
 **验证**：web **1131 测试** / mobile **316 测试**；双端 typecheck 0 / lint 0 error；迁移 053 全新建库自检通过；APK v1.18.0（versionCode 30）。
