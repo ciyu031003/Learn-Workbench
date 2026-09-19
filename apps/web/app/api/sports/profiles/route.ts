@@ -11,16 +11,17 @@ const SELECT_COLS = `id, sport_key AS "sportKey", identity, level_text AS "level
   is_public AS "isPublic", share_slug AS "shareSlug", updated_at AS "updatedAt"`;
 
 /** 归一化 gear/highlights 数组 */
-export function normalizePairs(raw: unknown): { label: string; value: string }[] {
+export function normalizePairs(raw: unknown): { label: string; value: string; imageUrl?: string | null }[] {
   if (!Array.isArray(raw)) return [];
-  const out: { label: string; value: string }[] = [];
+  const out: { label: string; value: string; imageUrl?: string | null }[] = [];
   for (const item of raw) {
     if (typeof item !== "object" || item === null) continue;
     const o = item as Record<string, unknown>;
     const label = String(o.label ?? "").trim().slice(0, 40);
     const value = String(o.value ?? "").trim().slice(0, 120);
     if (!label) continue;
-    out.push({ label, value });
+    const imageUrl = typeof o.imageUrl === "string" ? o.imageUrl.trim().slice(0, 2000) || null : null;
+    out.push(imageUrl ? { label, value, imageUrl } : { label, value });
   }
   return out.slice(0, 20);
 }

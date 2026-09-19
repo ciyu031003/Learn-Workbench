@@ -9,7 +9,10 @@ __pycache__/
 *.pyc
 
 # Node
-node_modules/
+node_modules
+
+# 用户上传的图片（运行期产物，生产挂 COS 桶）
+apps/web/public/uploads//
 .turbo/
 .next/
 .expo/

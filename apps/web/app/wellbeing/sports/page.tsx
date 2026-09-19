@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { HoloSportCardLazy } from "@/components/holo/holo-sport-card-lazy";
 import { cardModelFor } from "@/lib/sports-card-view";
 import { hasHoloArt } from "@/lib/holo-card-text";
+import { deleteUpload, kindFromGearLabel, uploadImageFile, type UploadKind } from "@/lib/media";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -16,11 +17,13 @@ import { Switch } from "@/components/ui/switch";
 import { GlassModal } from "@/components/ui/modal";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToastStore } from "@/store/toast-store";
-import { Plus, Trash2, Pencil, Share2, Sparkles, Trophy, ChevronLeft, Loader2, Dumbbell } from "lucide-react";
+import { Camera, Plus, Trash2, Pencil, Share2, Sparkles, Trophy, ChevronLeft, Loader2, Dumbbell } from "lucide-react";
 
 interface DraftPair {
   label: string;
   value: string;
+  /** 装备图片（用户上传或图库商品图） */
+  imageUrl?: string | null;
 }
 
 interface FormState {
@@ -76,6 +79,8 @@ export default function SportsProfilePage() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  /** 正在上传哪张图（用于禁用按钮） */
+  const [uploading, setUploading] = useState<string | null>(null);
   /** 正在看闪光卡的档案 */
   const [cardProfile, setCardProfile] = useState<SportsProfile | null>(null);
 
@@ -209,6 +214,26 @@ export default function SportsProfilePage() {
     }
   };
 
+  /** 上传一张图到站内并回填（avatar → 照片链接；gear → 对应装备行） */
+  const handleUpload = async (key: string, kind: UploadKind, file: File | undefined, apply: (url: string) => void) => {
+    if (!file) return;
+    setUploading(key);
+    try {
+      const { url } = await uploadImageFile(kind, file);
+      apply(url);
+      pushToast("图片已上传");
+    } catch (e) {
+      pushToast(e instanceof Error ? e.message : "上传失败", "error");
+    } finally {
+      setUploading(null);
+    }
+  };
+
+  /** 换图时把上一张自己传的图删掉 */
+  const replaceUpload = async (previous: string | null | undefined, next: string) => {
+    if (previous && previous.startsWith("/uploads/") && previous !== next) await deleteUpload(previous);
+  };
+
   const setPair = (kind: "gear" | "highlights", i: number, patch: Partial<DraftPair>) => {
     setForm((s) => ({ ...s, [kind]: s[kind].map((x, j) => (j === i ? { ...x, ...patch } : x)) }));
   };
@@ -281,8 +306,14 @@ export default function SportsProfilePage() {
                     <p className="mb-1.5 text-xs font-semibold text-muted-foreground">主力装备</p>
                     <div className="flex flex-col gap-1">
                       {(p.gear ?? []).map((g, i) => (
-                        <div key={i} className="flex items-center justify-between text-xs">
-                          <span className="text-muted-foreground">{g.label}</span>
+                        <div key={i} className="flex items-center justify-between gap-2 text-xs">
+                          <span className="flex min-w-0 items-center gap-2 text-muted-foreground">
+                            {g.imageUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={g.imageUrl} alt="" className="size-8 shrink-0 rounded-lg border border-border/50 bg-white object-contain" />
+                            ) : null}
+                            {g.label}
+                          </span>
                           <span className="font-medium">{g.value}</span>
                         </div>
                       ))}
@@ -384,8 +415,34 @@ export default function SportsProfilePage() {
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-medium">照片链接</label>
-            <Input value={form.photoUrl} onChange={(e) => setForm((s) => ({ ...s, photoUrl: e.target.value }))} placeholder="https://…" />
+            <label className="mb-1 block text-xs font-medium">本人照片</label>
+            <div className="flex items-center gap-2">
+              {form.photoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={form.photoUrl} alt="" className="size-12 shrink-0 rounded-xl object-cover" />
+              ) : (
+                <div className="grid size-12 shrink-0 place-items-center rounded-xl border border-dashed border-border/60 text-muted-foreground">
+                  <Camera className="size-4" />
+                </div>
+              )}
+              <Input value={form.photoUrl} onChange={(e) => setForm((s) => ({ ...s, photoUrl: e.target.value }))} placeholder="上传或粘贴图片地址" />
+              <label className="shrink-0 cursor-pointer rounded-xl border border-border/60 px-3 py-2 text-xs hover:bg-muted/60">
+                {uploading === "avatar" ? "上传中…" : "上传"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    void handleUpload("avatar", "avatar", file, (url) => {
+                      void replaceUpload(form.photoUrl, url);
+                      setForm((s) => ({ ...s, photoUrl: url }));
+                    });
+                  }}
+                />
+              </label>
+            </div>
           </div>
 
           <div>
@@ -393,6 +450,27 @@ export default function SportsProfilePage() {
             <div className="flex flex-col gap-2">
               {form.gear.map((g, i) => (
                 <div key={i} className="flex items-center gap-2">
+                  <label className="grid size-11 shrink-0 cursor-pointer place-items-center overflow-hidden rounded-xl border border-dashed border-border/60 text-muted-foreground hover:bg-muted/50">
+                    {g.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={g.imageUrl} alt="" className="size-full object-contain" />
+                    ) : (
+                      <Camera className="size-4" />
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = "";
+                        void handleUpload("gear-" + i, kindFromGearLabel(g.label), file, (url) => {
+                          void replaceUpload(g.imageUrl, url);
+                          setPair("gear", i, { imageUrl: url });
+                        });
+                      }}
+                    />
+                  </label>
                   <Input className="w-24" value={g.label} onChange={(e) => setPair("gear", i, { label: e.target.value })} placeholder="类别" />
                   <Input className="flex-1" value={g.value} onChange={(e) => setPair("gear", i, { value: e.target.value })} placeholder="型号" />
                 </div>

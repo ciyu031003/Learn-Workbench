@@ -80,6 +80,8 @@ services:
     volumes:
       # 每日 Bing 壁纸持久化：已迁移至 COS 存储桶（/data = cosfs 挂载，2026-09-06）
       - /data/learn-workbench/bing:/app/assets/backgrounds/bing
+      # 用户上传图片（COS 桶）：容器写盘即入桶，nginx 走 /uploads/ 直出
+      - /data/learn-workbench/uploads:/app/public/uploads
       # 信息源注册表 + 登录态 Cookie（宿主机直接改，无需重建镜像）
       - ./config/job-hosts:/app/config/job-hosts:ro
     networks: [lwb]

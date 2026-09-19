@@ -30,6 +30,8 @@ const SECURITY_HEADERS = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // 图片处理用 sharp（原生模块）：声明为外部依赖，避免被打进 bundle
+  serverExternalPackages: ["sharp"],
   async headers() {
     return [{ source: "/(.*)", headers: SECURITY_HEADERS }];
   },

@@ -2349,10 +2349,11 @@ export const handSchema = z.enum(["left", "right"]);
 export type Hand = z.infer<typeof handSchema>;
 export const handLabels: Record<Hand, string> = { left: "左手", right: "右手" };
 
-/** 装备 / 成绩条目 */
+/** 装备 / 成绩条目（`imageUrl` 为装备图片：用户上传或装备图库的商品图，迁移 051 起） */
 export const sportsGearItemSchema = z.object({
   label: z.string(),
   value: z.string(),
+  imageUrl: z.string().nullable().optional(),
 });
 export type SportsGearItem = z.infer<typeof sportsGearItemSchema>;
 

@@ -36,11 +36,13 @@ import { BottomSheet } from "@/components/bottom-sheet";
 import { GroupLabel } from "@/components/group-label";
 import { SportsHoloCard } from "@/components/sports-holo-card";
 import { hasHoloImages, holoImages } from "@/lib/holo-images";
+import { absoluteMediaUrl, deleteUpload, kindFromGearLabel, pickAndUpload } from "@/lib/uploads";
 import {
   deleteSportsProfile,
   draftFromProfile,
   emptySportsDraft,
   fetchSportsProfiles,
+  patchSportsProfile,
   saveSportsProfile,
   type SportsProfileDraft,
 } from "@/lib/sports-client";
@@ -224,6 +226,40 @@ export default function SportsCardScreen() {
     }
   };
 
+  /** 换本人照片：选图 → 上传 → PATCH photoUrl → 清理旧图 */
+  const uploadHeroPhoto = async () => {
+    if (!current) return;
+    const target = current;
+    try {
+      const url = await pickAndUpload("avatar");
+      if (!url) return;
+      const previous = target.photoUrl;
+      await patchSportsProfile(target.id, { photoUrl: url });
+      if (previous?.startsWith("/uploads/")) void deleteUpload(previous);
+      await load();
+    } catch (e) {
+      Alert.alert("上传失败", e instanceof Error ? e.message : "请稍后重试");
+    }
+  };
+
+  /** 换装备图：选图 → 上传 → PATCH gear[i].imageUrl → 清理旧图 */
+  const uploadGearImage = async (index: number) => {
+    if (!current) return;
+    const target = current;
+    const item = (target.gear ?? [])[index];
+    if (!item) return;
+    try {
+      const url = await pickAndUpload(kindFromGearLabel(item.label));
+      if (!url) return;
+      const nextGear = (target.gear ?? []).map((g, i) => (i === index ? { ...g, imageUrl: url } : g));
+      await patchSportsProfile(target.id, { gear: nextGear });
+      if (item.imageUrl?.startsWith("/uploads/")) void deleteUpload(item.imageUrl);
+      await load();
+    } catch (e) {
+      Alert.alert("上传失败", e instanceof Error ? e.message : "请稍后重试");
+    }
+  };
+
   const remove = (p: SportsProfile) => {
     Alert.alert("删除档案", "删除后闪光卡与公开分享链接都会失效", [
       { text: "取消", style: "cancel" },
@@ -326,19 +362,25 @@ export default function SportsCardScreen() {
         ) : (
           <>
             {/* Hero 头图 */}
-            <View style={styles.hero}>
+            <Pressable onPress={() => void uploadHeroPhoto()} style={styles.hero} accessibilityLabel="更换本人照片">
               {current.photoUrl ? (
                 <Image source={{ uri: current.photoUrl }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} />
               ) : (
                 <View style={styles.heroPlaceholder}>
-                  <ThemedIcon name="person-outline" size={40} color={colors.textMuted} />
-                  <Text style={styles.heroHint}>在「编辑档案」里粘贴照片链接（图片上传下一版接入）</Text>
+                  <ThemedIcon name="camera-outline" size={40} color={colors.textMuted} />
+                  <Text style={styles.heroHint}>点这里拍照 / 从相册选一张本人照片</Text>
                 </View>
               )}
               <View style={styles.vipBadge}>
                 <Text style={styles.vipText} numberOfLines={1}>{levelLabel(current, sportName)}</Text>
               </View>
-            </View>
+              {current.photoUrl ? (
+                <View style={styles.heroEditBadge}>
+                  <ThemedIcon name="camera-outline" size={12} color="#ffffff" />
+                  <Text style={styles.heroEditText}>换图</Text>
+                </View>
+              ) : null}
+            </Pressable>
 
             {/* 身份与编号 */}
             <View style={styles.identity}>
@@ -379,16 +421,33 @@ export default function SportsCardScreen() {
             ) : null}
 
             {/* 装备图鉴 */}
-            {(current.gear ?? []).filter((g) => g.label.trim()).map((item) => (
-              <View key={item.label} style={styles.gearCard}>
-                <View style={styles.gearImageArea}>
-                  <ThemedIcon name="image-outline" size={30} color={colors.textFaint} />
-                  <Text style={styles.gearImageHint}>商品图 / 自拍图下一版支持</Text>
+            {(current.gear ?? []).map((item, index) =>
+              item.label.trim() ? (
+                <View key={item.label + index} style={styles.gearCard}>
+                  <Pressable
+                    onPress={() => void uploadGearImage(index)}
+                    style={styles.gearImageArea}
+                    accessibilityLabel={"上传" + item.label + "图片"}
+                  >
+                    {absoluteMediaUrl(item.imageUrl) ? (
+                      <Image
+                        source={{ uri: absoluteMediaUrl(item.imageUrl) as string }}
+                        style={styles.gearImage}
+                        contentFit="contain"
+                        transition={200}
+                      />
+                    ) : (
+                      <>
+                        <ThemedIcon name="camera-outline" size={30} color={colors.textFaint} />
+                        <Text style={styles.gearImageHint}>点这里拍照 / 选图</Text>
+                      </>
+                    )}
+                  </Pressable>
+                  <Text style={styles.gearValue} numberOfLines={2}>{item.value || "—"}</Text>
+                  <Text style={styles.gearLabel}>{item.label}</Text>
                 </View>
-                <Text style={styles.gearValue} numberOfLines={2}>{item.value || "—"}</Text>
-                <Text style={styles.gearLabel}>{item.label}</Text>
-              </View>
-            ))}
+              ) : null
+            )}
 
             {/* 荣誉 */}
             {(current.highlights ?? []).length > 0 ? (
@@ -608,6 +667,19 @@ const makeStyles = (colors: ThemeColors) =>
       maxWidth: "70%",
     },
     vipText: { fontSize: 10, fontWeight: "800", color: "#4a3308", letterSpacing: 0.6 },
+    heroEditBadge: {
+      position: "absolute",
+      left: 10,
+      bottom: 10,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      backgroundColor: "rgba(0,0,0,0.55)",
+      borderRadius: 999,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+    },
+    heroEditText: { fontSize: 11, fontWeight: "700", color: "#ffffff" },
     identity: { gap: 2 },
     identityName: { fontSize: 24, fontWeight: "800", color: colors.text },
     identityNo: { fontSize: 12, color: colors.textMuted, letterSpacing: 1.2 },
@@ -661,6 +733,7 @@ const makeStyles = (colors: ThemeColors) =>
       gap: 6,
     },
     gearImageHint: { fontSize: 10, color: colors.textFaint },
+    gearImage: { width: "100%", height: "100%" },
     gearValue: { fontSize: 14, fontWeight: "700", color: colors.text, textAlign: "center" },
     gearLabel: { fontSize: 11, color: colors.textMuted },
     honorSection: { gap: 8, marginTop: 4 },

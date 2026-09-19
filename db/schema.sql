@@ -1215,6 +1215,23 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_sports_profiles_user_sport
 CREATE INDEX IF NOT EXISTS idx_sports_profiles_public
   ON sports_profiles(is_public) WHERE deleted_at IS NULL AND is_public = true;
 
+-- ---------- 来自迁移 051_uploads.sql（用户上传图片登记） ----------
+CREATE TABLE IF NOT EXISTS uploads (
+  id         bigserial PRIMARY KEY,
+  user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind       text NOT NULL DEFAULT 'other',
+  path       text NOT NULL,
+  mime       text NOT NULL DEFAULT 'image/webp',
+  bytes      integer NOT NULL,
+  width      integer,
+  height     integer,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  deleted_at timestamptz
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_uploads_path ON uploads(path);
+CREATE INDEX IF NOT EXISTS idx_uploads_user
+  ON uploads(user_id, created_at DESC) WHERE deleted_at IS NULL;
+
 -- 来自迁移 047_food_database.sql（食物营养库 v6：模糊搜索 + 营养基准库 + 导入审计）
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 

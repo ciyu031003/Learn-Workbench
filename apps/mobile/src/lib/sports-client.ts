@@ -11,9 +11,11 @@ function authHeaders(json = false): Record<string, string> {
   return headers;
 }
 
+/** 装备行：`imageUrl` 为装备图片（用户上传或装备图库商品图） */
 export interface SportsGearPair {
   label: string;
   value: string;
+  imageUrl?: string | null;
 }
 
 export interface SportsProfileDraft {
@@ -64,7 +66,10 @@ export function draftFromProfile(p: SportsProfile): SportsProfileDraft {
     handedness: p.handedness,
     playStyle: p.playStyle ?? "",
     photoUrl: p.photoUrl ?? "",
-    gear: (p.gear ?? []).length > 0 ? p.gear.map((g) => ({ label: g.label, value: g.value })) : sportGearTemplate(p.sportKey).map((label) => ({ label, value: "" })),
+    gear:
+      (p.gear ?? []).length > 0
+        ? p.gear.map((g) => ({ label: g.label, value: g.value, imageUrl: g.imageUrl ?? null }))
+        : sportGearTemplate(p.sportKey).map((label) => ({ label, value: "", imageUrl: null })),
     highlights: (p.highlights ?? []).map((g) => ({ label: g.label, value: g.value })),
     matchesPlayed: p.matchesPlayed ?? 0,
     wins: p.wins ?? 0,
@@ -96,6 +101,19 @@ export async function saveSportsProfile(draft: SportsProfileDraft, id: number | 
   }
   const d = await r.json();
   return d.profile as SportsProfile;
+}
+
+/** 局部更新（换照片 / 换装备图这类单字段改动） */
+export async function patchSportsProfile(id: number, patch: Record<string, unknown>): Promise<void> {
+  const r = await fetch(getApiUrl() + "/api/sports/profiles/" + id, {
+    method: "PATCH",
+    headers: authHeaders(true),
+    body: JSON.stringify(patch),
+  });
+  if (!r.ok) {
+    const d = await r.json().catch(() => null);
+    throw new Error(typeof d?.error === "string" ? d.error : "更新失败");
+  }
 }
 
 export async function deleteSportsProfile(id: number): Promise<void> {
