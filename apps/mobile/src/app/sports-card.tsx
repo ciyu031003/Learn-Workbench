@@ -165,6 +165,10 @@ export default function SportsCardScreen() {
     };
   }, [current]);
   const gearRows = gearView.rows;
+  /** 证件照绝对地址（站内相对路径必须补 apiUrl，否则 Image 加载不出来） */
+  const heroUri = absoluteMediaUrl(current?.photoUrl);
+  /** 公开成绩（荣誉墙） */
+  const honors = current?.highlights ?? [];
 
   const goBack = () => {
     if (router.canGoBack()) router.back();
@@ -254,7 +258,10 @@ export default function SportsCardScreen() {
       await saveSportsProfile(
         {
           ...draft,
-          gear: draft.gear.filter((g) => g.value.trim()),
+          // 只给球拍 / 球鞋 / 比赛用球留图片；拍线、手胶这类即使历史上被塞过图也在这里清掉
+          gear: draft.gear
+            .filter((g) => g.value.trim())
+            .map((g) => (gearRowWantsImage(g.label) ? g : { label: g.label, value: g.value })),
           highlights: draft.highlights.filter((h) => h.label.trim() || h.value.trim()),
         },
         editId
@@ -427,44 +434,84 @@ export default function SportsCardScreen() {
           </View>
         ) : (
           <>
-            {/* Hero 头图 + 身份叠字（省掉一整块，缩短页面） */}
+            {/* 证件照头图 + 身份叠字（图片走 absoluteMediaUrl，否则站内相对路径渲染不出来） */}
             <Pressable onPress={() => void uploadHeroPhoto()} style={styles.hero} accessibilityLabel="更换本人照片">
-              {current.photoUrl ? (
-                <Image source={{ uri: current.photoUrl }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} />
+              {heroUri ? (
+                <>
+                  <Image source={{ uri: heroUri }} style={styles.heroImg} contentFit="cover" transition={200} />
+                  <View style={styles.heroScrim} pointerEvents="none" />
+                  <View style={styles.heroScrimSoft} pointerEvents="none" />
+                  <View style={styles.vipBadge}>
+                    <Text style={styles.vipText} numberOfLines={1}>{levelLabel(current, sportName)}</Text>
+                  </View>
+                  <View style={styles.heroIdentity} pointerEvents="none">
+                    <Text style={styles.identityName} numberOfLines={1}>
+                      {current.identity?.trim() || "运动爱好者"}
+                    </Text>
+                    <Text style={styles.identityMeta} numberOfLines={1}>
+                      {[
+                        formatMemberNo(current.id),
+                        city ? "中国 " + city : null,
+                        body.birthYear ? body.birthYear + " 年生" : null,
+                        current.playStyle?.trim() || null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </Text>
+                  </View>
+                  <View style={styles.heroEditBadge}>
+                    <ThemedIcon name="camera-outline" size={12} color="#ffffff" />
+                    <Text style={styles.heroEditText}>换证件照</Text>
+                  </View>
+                </>
               ) : (
                 <View style={styles.heroPlaceholder}>
-                  <ThemedIcon name="camera-outline" size={34} color={colors.textMuted} />
-                  <Text style={styles.heroHint}>点这里拍照 / 选一张本人照片</Text>
+                  <View style={styles.heroPlaceholderIcon}>
+                    <ThemedIcon name="person-outline" size={30} color={colors.primary} />
+                  </View>
+                  {/* 没有照片也要能看见「我是谁」：身份与编号放在占位里，而不是只挂在图上 */}
+                  <Text style={styles.heroPlaceholderName} numberOfLines={1}>
+                    {current.identity?.trim() || "运动爱好者"}
+                  </Text>
+                  <Text style={styles.heroPlaceholderMeta} numberOfLines={1}>
+                    {[levelLabel(current, sportName), formatMemberNo(current.id), city ? "中国 " + city : null]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </Text>
+                  <Text style={styles.heroHint}>点这里，从相册选一张本人照片</Text>
+                  <Text style={styles.heroHintSub}>会用在档案头图与公开分享页</Text>
                 </View>
               )}
-              <View style={styles.heroScrim} pointerEvents="none" />
-              <View style={styles.vipBadge}>
-                <Text style={styles.vipText} numberOfLines={1}>{levelLabel(current, sportName)}</Text>
-              </View>
-              <View style={styles.heroIdentity} pointerEvents="none">
-                <Text style={styles.identityName} numberOfLines={1}>
-                  {current.identity?.trim() || "运动爱好者"}
-                </Text>
-                <Text style={styles.identityMeta} numberOfLines={1}>
-                  {[
-                    formatMemberNo(current.id),
-                    city ? "中国 " + city : null,
-                    body.birthYear ? body.birthYear + " 年生" : null,
-                    current.playStyle?.trim() || null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </Text>
-              </View>
-              {current.photoUrl ? (
-                <View style={styles.heroEditBadge}>
-                  <ThemedIcon name="camera-outline" size={12} color="#ffffff" />
-                  <Text style={styles.heroEditText}>换图</Text>
-                </View>
-              ) : null}
             </Pressable>
 
-            {/* 四宫格 */}
+            {/* 战绩：三张小卡，胜率用主色强调 */}
+            {record ? (
+              <View style={styles.statRow}>
+                <View style={styles.statCard}>
+                  <Text style={styles.statValue}>{record.matches}</Text>
+                  <Text style={styles.statLabel}>场次</Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statValue}>
+                    {record.wins}
+                    <Text style={styles.statUnit}> 胜</Text>
+                  </Text>
+                  <Text style={styles.statLabel}>{record.losses} 负</Text>
+                </View>
+                <View style={[styles.statCard, styles.statCardAccent]}>
+                  <Text style={[styles.statValue, styles.statValueAccent]}>
+                    {record.winRate === null ? "—" : record.winRate.toFixed(0) + "%"}
+                  </Text>
+                  <Text style={[styles.statLabel, styles.statLabelAccent]}>胜率</Text>
+                </View>
+              </View>
+            ) : null}
+
+            {/* 图鉴四宫格 */}
+            <View style={styles.sectionHead}>
+              <Text style={styles.sectionTitle}>图鉴</Text>
+              <Text style={styles.sectionHint}>身高体重与鞋码磅数</Text>
+            </View>
             <View style={styles.grid}>
               {grid.map((cell) => (
                 <View key={cell.label} style={styles.gridCell}>
@@ -474,18 +521,11 @@ export default function SportsCardScreen() {
               ))}
             </View>
 
-            {/* 战绩 */}
-            {record ? (
-              <View style={styles.recordRow}>
-                <Text style={styles.recordItem}>{record.matches} 场</Text>
-                <Text style={styles.recordItem}>{record.wins} 胜 / {record.losses} 负</Text>
-                <Text style={styles.recordItem}>
-                  胜率 {record.winRate === null ? "—" : record.winRate.toFixed(1) + "%"}
-                </Text>
-              </View>
-            ) : null}
-
-            {/* 装备图鉴：只有球拍 / 球鞋 / 比赛用球配图（球拍横放通栏，球鞋与球两列），其余行纯文字 */}
+            {/* 主力装备：只给球拍 / 球鞋 / 比赛用球配图（球拍横放通栏，球鞋与球两列），其余纯文字 */}
+            <View style={styles.sectionHead}>
+              <Text style={styles.sectionTitle}>主力装备</Text>
+              <Text style={styles.sectionHint}>{gearRows.length > 0 ? gearRows.length + " 项 · 点图可换" : "待填写"}</Text>
+            </View>
             {gearRows.length > 0 ? (() => {
               const wideEntries = gearRows.filter((g) => gearKindFromLabel(g.label) === "racket");
               const gridEntries = gearRows.filter((g) => {
@@ -501,21 +541,27 @@ export default function SportsCardScreen() {
                       <View key={item.label} style={styles.gearWide}>
                         <Pressable
                           onPress={() => void uploadGearImage(item.label)}
-                          style={styles.gearWideImage}
+                          style={[styles.gearWideImage, !uri && styles.gearImageEmpty]}
                           accessibilityLabel={"上传" + item.label + "图片"}
                         >
                           {uri ? (
-                            <Image source={{ uri }} style={styles.gearWideImg} contentFit="contain" transition={200} />
+                            <>
+                              <Image source={{ uri }} style={styles.gearWideImg} contentFit="contain" transition={200} />
+                              <View style={styles.gearSwapPill}>
+                                <ThemedIcon name="camera-outline" size={11} color="#ffffff" />
+                                <Text style={styles.gearSwapText}>换图</Text>
+                              </View>
+                            </>
                           ) : (
                             <>
-                              <ThemedIcon name="camera-outline" size={26} color={colors.textFaint} />
-                              <Text style={styles.gearImageHint}>点这里拍照 / 选图</Text>
+                              <ThemedIcon name="image-outline" size={24} color={colors.textFaint} />
+                              <Text style={styles.gearImageHint}>点这里选一张{item.label}图</Text>
                             </>
                           )}
                         </Pressable>
                         <View style={styles.gearWideMeta}>
-                          <Text style={styles.gearLabel} numberOfLines={1}>{item.label}</Text>
-                          <Text style={styles.gearValue} numberOfLines={2}>{item.value || "—"}</Text>
+                          <Text style={styles.gearWideLabel} numberOfLines={1}>{item.label}</Text>
+                          <Text style={styles.gearWideValue} numberOfLines={2}>{item.value || "—"}</Text>
                         </View>
                       </View>
                     );
@@ -526,21 +572,28 @@ export default function SportsCardScreen() {
                       {gridEntries.map((item) => {
                         const uri = absoluteMediaUrl(item.imageUrl);
                         return (
-                          <View key={item.label} style={styles.gearCell}>
-                            <Pressable
-                              onPress={() => void uploadGearImage(item.label)}
-                              style={styles.gearCellImage}
-                              accessibilityLabel={"上传" + item.label + "图片"}
-                            >
+                          <Pressable
+                            key={item.label}
+                            onPress={() => void uploadGearImage(item.label)}
+                            style={styles.gearCell}
+                            accessibilityLabel={"上传" + item.label + "图片"}
+                          >
+                            <View style={[styles.gearCellImage, !uri && styles.gearImageEmpty]}>
                               {uri ? (
-                                <Image source={{ uri }} style={styles.gearCellImg} contentFit="contain" transition={200} />
+                                <>
+                                  <Image source={{ uri }} style={styles.gearCellImg} contentFit="contain" transition={200} />
+                                  <View style={styles.gearSwapPill}>
+                                    <ThemedIcon name="camera-outline" size={11} color="#ffffff" />
+                                    <Text style={styles.gearSwapText}>换图</Text>
+                                  </View>
+                                </>
                               ) : (
-                                <ThemedIcon name="camera-outline" size={22} color={colors.textFaint} />
+                                <ThemedIcon name="image-outline" size={22} color={colors.textFaint} />
                               )}
-                            </Pressable>
+                            </View>
                             <Text style={styles.gearValue} numberOfLines={1}>{item.value || "—"}</Text>
                             <Text style={styles.gearLabel} numberOfLines={1}>{item.label}</Text>
-                          </View>
+                          </Pressable>
                         );
                       })}
                     </View>
@@ -558,21 +611,47 @@ export default function SportsCardScreen() {
                   ) : null}
                 </>
               );
-            })() : null}
+            })() : (
+              <Text style={styles.sectionEmpty}>还没有装备，编辑档案里填一条</Text>
+            )}
 
-            {/* 荣誉 */}
-            {(current.highlights ?? []).length > 0 ? (
-              <View style={styles.honorSection}>
-                <Text style={styles.sectionTitle}>公开成绩</Text>
-                {(current.highlights ?? []).map((honor, index) => (
+            {/* 荣誉墙：第一条做成主卡，其余按名次排下来 */}
+            <View style={styles.sectionHead}>
+              <Text style={styles.sectionTitle}>荣誉墙</Text>
+              <Text style={styles.sectionHint}>{honors.length > 0 ? honors.length + " 项" : "待添加"}</Text>
+            </View>
+            {honors.length > 0 ? (
+              <>
+                <View style={styles.honorHero}>
+                  <View style={styles.honorHeroGlow} pointerEvents="none" />
+                  <Text style={styles.honorHeroTrophy}>🏆</Text>
+                  <View style={styles.honorHeroBody}>
+                    <Text style={styles.honorHeroTitle} numberOfLines={1}>{honors[0].label || "公开成绩"}</Text>
+                    <Text style={styles.honorHeroSub} numberOfLines={2}>{honors[0].value || "点击编辑补充成绩"}</Text>
+                  </View>
+                  <View style={styles.honorHeroMark}>
+                    <Text style={styles.honorHeroMarkText}>TOP</Text>
+                  </View>
+                </View>
+
+                {honors.slice(1).map((honor, index) => (
                   <View key={honor.label + index} style={styles.honorRow}>
-                    <Text style={styles.honorRank}>{index === 0 ? "🏆" : "·"}</Text>
-                    <Text style={styles.honorName} numberOfLines={1}>{honor.label}</Text>
-                    <Text style={styles.honorPrize} numberOfLines={1}>{honor.value}</Text>
+                    <Text style={styles.honorMedal}>{["🥈", "🥉", "🎖️"][index] ?? "🎖️"}</Text>
+                    <Text style={styles.honorName} numberOfLines={1}>{honor.label || "公开成绩"}</Text>
+                    <Text style={styles.honorPrize} numberOfLines={1}>{honor.value || "—"}</Text>
                   </View>
                 ))}
-              </View>
-            ) : null}
+
+                {honors.length === 1 ? (
+                  <Text style={styles.honorHint}>再加几条（四强 / 卫冕 / 个人最佳…），荣誉墙会更完整</Text>
+                ) : null}
+              </>
+            ) : (
+              <Pressable onPress={() => openEdit(current)} style={styles.honorEmpty} accessibilityLabel="添加公开成绩">
+                <ThemedIcon name="trophy-outline" size={20} color={colors.textMuted} />
+                <Text style={styles.honorEmptyText}>还没有公开成绩，点这里补一条（如「林丹杯 · 亚军」）</Text>
+              </Pressable>
+            )}
           </>
         )}
 
@@ -644,7 +723,7 @@ export default function SportsCardScreen() {
             )}
             <View style={styles.photoMeta}>
               <Text style={styles.photoTitle}>证件照</Text>
-              <Text style={styles.photoHint}>{draft.photoUrl ? "点这里换一张" : "点这里拍照 / 从相册选择"}</Text>
+              <Text style={styles.photoHint}>{draft.photoUrl ? "点这里换一张" : "点这里从相册选择"}</Text>
             </View>
             <ThemedIcon name="chevron-forward" size={18} color={colors.textFaint} />
           </Pressable>
@@ -805,7 +884,7 @@ export default function SportsCardScreen() {
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
-    root: { flex: 1, backgroundColor: "#f5f6f8" },
+    root: { flex: 1, backgroundColor: colors.canvas },
     header: {
       flexDirection: "row",
       alignItems: "center",
@@ -854,15 +933,46 @@ const makeStyles = (colors: ThemeColors) =>
       borderWidth: 1,
       borderColor: colors.border,
     },
-    heroPlaceholder: { flex: 1, alignItems: "center", justifyContent: "center", gap: 10, paddingHorizontal: 24 },
-    heroHint: { fontSize: 11, color: colors.textMuted, textAlign: "center" },
+    heroImg: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
+    heroPlaceholder: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      paddingHorizontal: 24,
+      borderWidth: 1,
+      borderStyle: "dashed",
+      borderColor: colors.borderStrong,
+      borderRadius: radius.lg - 1,
+      margin: 6,
+    },
+    heroPlaceholderIcon: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.primarySoft,
+    },
+    heroPlaceholderName: { fontSize: 18, fontWeight: "800", color: colors.text },
+    heroPlaceholderMeta: { fontSize: 11, color: colors.textMuted, textAlign: "center" },
+    heroHint: { fontSize: 12, fontWeight: "600", color: colors.text },
+    heroHintSub: { fontSize: 10, color: colors.textMuted, textAlign: "center" },
     heroScrim: {
       position: "absolute",
       left: 0,
       right: 0,
       bottom: 0,
-      height: "58%",
-      backgroundColor: "rgba(0,0,0,0.45)",
+      height: "62%",
+      backgroundColor: "rgba(0,0,0,0.42)",
+    },
+    heroScrimSoft: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      top: 0,
+      height: "26%",
+      backgroundColor: "rgba(0,0,0,0.22)",
     },
     heroIdentity: { position: "absolute", left: 12, right: 12, bottom: 10, gap: 1 },
     vipBadge: {
@@ -908,19 +1018,23 @@ const makeStyles = (colors: ThemeColors) =>
     },
     gridValue: { fontSize: 17, fontWeight: "800", color: colors.text },
     gridLabel: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
-    recordRow: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
-    recordItem: {
+    statRow: { flexDirection: "row", gap: 8 },
+    statCard: {
       flex: 1,
-      textAlign: "center",
-      fontSize: 12,
-      fontWeight: "700",
-      color: colors.text,
+      alignItems: "center",
+      gap: 2,
       backgroundColor: colors.surfaceStrong,
       borderRadius: radius.md,
       borderWidth: 1,
       borderColor: colors.border,
-      paddingVertical: 10,
+      paddingVertical: 12,
     },
+    statCardAccent: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
+    statValue: { fontSize: 19, fontWeight: "800", color: colors.text, letterSpacing: 0.2 },
+    statValueAccent: { color: colors.primaryStrong },
+    statUnit: { fontSize: 11, fontWeight: "700", color: colors.textMuted },
+    statLabel: { fontSize: 11, color: colors.textMuted },
+    statLabelAccent: { color: colors.primaryStrong, fontWeight: "700" },
     // 球拍类：通栏横放（图片旋转 90°，容器裁掉上下空白，~104pt 高）
     gearWide: {
       backgroundColor: colors.surfaceStrong,
@@ -935,17 +1049,41 @@ const makeStyles = (colors: ThemeColors) =>
       width: "100%",
       height: 104,
       borderRadius: radius.md,
-      backgroundColor: "#ffffff",
+      backgroundColor: "#ffffff", // 商品图本身是白底，容器保持白色才不会出现色块
       alignItems: "center",
       justifyContent: "center",
       overflow: "hidden",
     },
+    // 没图时的虚线空态（跟随主题，深色下不再是一块白）
+    gearImageEmpty: {
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: 1,
+      borderStyle: "dashed",
+      borderColor: colors.borderStrong,
+      gap: 6,
+    },
     gearWideImg: { width: "100%", aspectRatio: 1, transform: [{ rotate: "90deg" }, { scale: 0.9 }] },
-    gearWideMeta: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
+    gearWideMeta: { gap: 2 },
+    gearWideLabel: { fontSize: 11, fontWeight: "700", color: colors.primaryStrong, letterSpacing: 0.4 },
+    gearWideValue: { fontSize: 14, fontWeight: "700", color: colors.text },
+    // 有图时右上角的「换图」浮标
+    gearSwapPill: {
+      position: "absolute",
+      right: 6,
+      bottom: 6,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 3,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 999,
+      backgroundColor: "rgba(0,0,0,0.55)",
+    },
+    gearSwapText: { fontSize: 10, fontWeight: "700", color: "#ffffff" },
 
     // 其余装备：两列网格，图片区矮一点，一行装两个
     gearGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-    gearCell: { width: "48%", gap: 3 },
+    gearCell: { width: "48%", gap: 4 },
     gearCellImage: {
       width: "100%",
       aspectRatio: 1.55,
@@ -982,22 +1120,81 @@ const makeStyles = (colors: ThemeColors) =>
     gearImage: { width: "100%", height: "100%" },
     gearValue: { fontSize: 13, fontWeight: "700", color: colors.text },
     gearLabel: { fontSize: 11, color: colors.textMuted },
-    honorSection: { gap: 8, marginTop: 4 },
+    // 段标题：左侧色条 + 右侧说明，深浅色都跟着主题
+    sectionHead: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 8,
+      marginTop: 6,
+      paddingLeft: 10,
+      borderLeftWidth: 3,
+      borderLeftColor: colors.primary,
+    },
     sectionTitle: { fontSize: 15, fontWeight: "800", color: colors.text },
+    sectionHint: { fontSize: 11, color: colors.textMuted },
+    sectionEmpty: { fontSize: 12, color: colors.textMuted, paddingVertical: 2 },
+    // 荣誉墙主卡：金调（浅色 #FDECD8 / 深色 accentSoft），不写死十六进制
+    honorHero: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.accent,
+      backgroundColor: colors.accentSoft,
+      paddingHorizontal: 14,
+      paddingVertical: 14,
+      overflow: "hidden",
+    },
+    honorHeroGlow: {
+      position: "absolute",
+      right: -30,
+      top: -30,
+      width: 120,
+      height: 120,
+      borderRadius: 60,
+      backgroundColor: colors.accent,
+      opacity: 0.16,
+    },
+    honorHeroTrophy: { fontSize: 30 },
+    honorHeroBody: { flex: 1, gap: 2 },
+    honorHeroTitle: { fontSize: 16, fontWeight: "800", color: colors.accentStrong },
+    honorHeroSub: { fontSize: 12, color: colors.textMuted },
+    honorHeroMark: {
+      borderRadius: 999,
+      backgroundColor: colors.accent,
+      paddingHorizontal: 9,
+      paddingVertical: 4,
+    },
+    honorHeroMarkText: { fontSize: 10, fontWeight: "800", color: "#3A2A08", letterSpacing: 0.6 },
     honorRow: {
       flexDirection: "row",
       alignItems: "center",
       gap: 8,
-      backgroundColor: "#fff8e8",
+      backgroundColor: colors.surfaceStrong,
       borderRadius: radius.md,
       borderWidth: 1,
-      borderColor: "rgba(217,185,120,0.6)",
+      borderColor: colors.border,
       paddingHorizontal: 12,
       paddingVertical: 10,
     },
-    honorRank: { fontSize: 16 },
-    honorName: { flex: 1, fontSize: 14, fontWeight: "700", color: "#5a4210" },
-    honorPrize: { fontSize: 14, fontWeight: "800", color: "#a9741a" },
+    honorMedal: { fontSize: 16 },
+    honorName: { flex: 1, fontSize: 14, fontWeight: "700", color: colors.text },
+    honorPrize: { fontSize: 13, fontWeight: "800", color: colors.accentStrong },
+    honorHint: { fontSize: 11, color: colors.textMuted, paddingLeft: 2 },
+    honorEmpty: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderStyle: "dashed",
+      borderColor: colors.borderStrong,
+      paddingHorizontal: 12,
+      paddingVertical: 14,
+    },
+    honorEmptyText: { flex: 1, fontSize: 12, color: colors.textMuted, lineHeight: 18 },
     bottomBar: {
       position: "absolute",
       left: 0,

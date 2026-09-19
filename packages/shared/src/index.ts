@@ -2749,7 +2749,8 @@ export function equipmentCategoryForGearLabel(sportKey: string, label: string): 
     if (/护腿|guard/.test(text)) return c.key.endsWith("guard");
     if (/手套|glove/.test(text)) return c.key.endsWith("glove");
     if (/球棒|bat/.test(text)) return c.key.endsWith("bat");
-    if (/球$|ball/.test(text)) return c.key.endsWith("ball");
+    // 羽毛球的「球」类后缀是 shuttle（badminton-shuttle），不是 ball
+    if (/球$|ball/.test(text)) return c.key.endsWith("ball") || c.key.endsWith("shuttle");
     return false;
   });
   return hit?.key ?? candidates[0]?.key ?? "";

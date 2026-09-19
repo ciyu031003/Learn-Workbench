@@ -1,4 +1,5 @@
 import * as ImagePicker from "expo-image-picker";
+import { Platform } from "react-native";
 import { gearKindFromLabel } from "@learn-workbench/shared";
 import { getApiUrl } from "@/config";
 import { useAppStore } from "@/store/app-store";
@@ -31,10 +32,28 @@ export interface PickedImage {
   mimeType: string;
 }
 
-/** 打开相册选图（不裁剪，服务端统一压到长边 ≤1600） */
+/**
+ * 打开相册选图（不裁剪，服务端统一压到长边 ≤1600）。
+ *
+ * 权限策略（这里是 v1.18.2 修掉的真机 bug）：
+ * - **Android 13+（API 33）**：系统相册选择器（Photo Picker）**不需要任何权限**，
+ *   旧代码先调 requestMediaLibraryPermissionsAsync() 会因为清单里没有 READ_MEDIA_IMAGES
+ *   而直接返回 denied → 什么都没发生（用户看到的就是「点了没反应」）。所以 33+ 直接开选择器。
+ * - **Android 12 及以下**：仍需 READ_EXTERNAL_STORAGE（清单里已声明，maxSdkVersion=32），拒绝时**抛错**，
+ *   由调用方弹窗告知去系统设置里开启，避免再次静默失败。
+ */
+export function needsMediaLibraryPermission(platformOS: string, version: number | string): boolean {
+  const v = Number(version);
+  return platformOS === "android" && Number.isFinite(v) && v < 33;
+}
+
 export async function pickImage(): Promise<PickedImage | null> {
-  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-  if (!permission.granted) return null;
+  if (needsMediaLibraryPermission(Platform.OS, Platform.Version)) {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      throw new Error("没有相册访问权限，请到「系统设置 → 应用 → 苦旅 → 权限」里允许访问照片后再试");
+    }
+  }
   const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ["images"],
     allowsEditing: false,

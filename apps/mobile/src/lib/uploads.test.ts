@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+vi.mock("react-native", () => ({ Platform: { OS: "android", Version: 34 } }));
 vi.mock("@/config", () => ({ getApiUrl: () => "https://learn.yuanabd.cn" }));
 vi.mock("@/store/app-store", () => ({ useAppStore: { getState: vi.fn(() => ({ token: "tok-1" })) } }));
 vi.mock("expo-image-picker", () => ({
@@ -7,7 +8,7 @@ vi.mock("expo-image-picker", () => ({
   launchImageLibraryAsync: vi.fn(),
 }));
 
-import { absoluteMediaUrl, kindFromGearLabel } from "./uploads";
+import { absoluteMediaUrl, kindFromGearLabel, needsMediaLibraryPermission } from "./uploads";
 
 describe("kindFromGearLabel", () => {
   it("按中文标签猜类别（拍 / 鞋 / 线 / 手胶 / 球）", () => {
@@ -19,6 +20,21 @@ describe("kindFromGearLabel", () => {
     expect(kindFromGearLabel("手胶")).toBe("grip");
     expect(kindFromGearLabel("比赛用球")).toBe("ball");
     expect(kindFromGearLabel("护具")).toBe("other");
+  });
+});
+
+describe("needsMediaLibraryPermission", () => {
+  it("Android 13+ 用系统相册选择器，不需要读相册权限", () => {
+    expect(needsMediaLibraryPermission("android", 33)).toBe(false);
+    expect(needsMediaLibraryPermission("android", 34)).toBe(false);
+    expect(needsMediaLibraryPermission("android", "35")).toBe(false);
+  });
+
+  it("Android 12 及以下仍要 READ_EXTERNAL_STORAGE，iOS 不请求", () => {
+    expect(needsMediaLibraryPermission("android", 32)).toBe(true);
+    expect(needsMediaLibraryPermission("android", 29)).toBe(true);
+    expect(needsMediaLibraryPermission("ios", 17)).toBe(false);
+    expect(needsMediaLibraryPermission("android", "abc")).toBe(false);
   });
 });
 

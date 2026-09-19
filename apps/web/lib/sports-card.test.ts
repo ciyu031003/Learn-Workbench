@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   buildSportsCardModel,
   computeSportsRecord,
+  equipmentCategoryForGearLabel,
   formatMemberNo,
   formatWinRate,
   gearRowWantsImage,
@@ -63,6 +64,18 @@ describe("gearRowWantsImage", () => {
     expect(gearRowWantsImage("磅数")).toBe(false);
     expect(gearRowWantsImage("球衣")).toBe(false);
     expect(gearRowWantsImage("位置")).toBe(false);
+  });
+});
+
+describe("equipmentCategoryForGearLabel", () => {
+  it("「羽毛球」要落到羽毛球分类，而不是回落到第一个候选（球拍）", () => {
+    expect(equipmentCategoryForGearLabel("badminton", "羽毛球")).toBe("badminton-shuttle");
+    expect(equipmentCategoryForGearLabel("badminton", "比赛用球")).toBe("badminton-shuttle");
+    expect(equipmentCategoryForGearLabel("badminton", "球拍")).toBe("badminton-racket");
+    expect(equipmentCategoryForGearLabel("badminton", "球鞋")).toBe("badminton-shoes");
+    expect(equipmentCategoryForGearLabel("badminton", "拍线")).toBe("badminton-string");
+    expect(equipmentCategoryForGearLabel("table-tennis", "正手胶皮")).toBe("table-tennis-rubber");
+    expect(equipmentCategoryForGearLabel("table-tennis", "底板")).toBe("table-tennis-racket");
   });
 });
 
