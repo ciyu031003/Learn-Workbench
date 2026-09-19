@@ -10,6 +10,7 @@
  *  - 白底判定与规范化复用与主爬虫一致的规则（先 flatten 到白底再采样）。
  */
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { matchesCategory } from "./lib/equipment-category.mjs";
 import path from "node:path";
 import sharp from "sharp";
 import { createRequire } from "node:module";
@@ -169,6 +170,9 @@ async function main() {
       if (!model || model.length < 3) continue;
       // 排除非装备（包/服饰/袜/帽/毛巾…）：图库只放「能上装备行」的东西
       if (/球拍包|球包|背包|腰包|双肩|服饰|短裤|长裤|T恤|卫衣|上衣|外套|裙|袜|帽|毛巾|护腕|发带|手胶纸|贴纸/.test(model)) continue;
+      // 品类守卫：搜「篮球」会搜到篮球鞋、搜「羽毛球」会搜到羽毛球拍 —— 名称与目标品类不符就跳过
+      // （早期没有这层守卫，图库里混进了 78 条错品类，v1.18.0 才清洗掉）
+      if (!matchesCategory(target.category, model)) continue;
       const dedupe = target.category + "|" + model;
       if (seen.has(dedupe)) continue;
       const imageUrl = largeImageUrl(card.src);

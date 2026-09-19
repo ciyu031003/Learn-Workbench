@@ -15,6 +15,7 @@
  *  - 产出 `.local/equipment-out/{images,manifest.json}`，由 `scripts/import_equipment.mjs` 推桶入库。
  */
 import { createHash } from "node:crypto";
+import { matchesCategory } from "./lib/equipment-category.mjs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
@@ -298,13 +299,24 @@ const ADAPTERS = {
 async function storeItem({ adapter, category, model, imageUrl, sourceUrl, imagesDir, seen, manifest }) {
   const dedupe = category + "|" + model;
   if (seen.has(dedupe)) return false;
+  // 品类守卫：抓到了「球鞋」却要存进「球」分类这类错误，直接跳过（服装/周边也在这里挡掉）
+  if (!matchesCategory(category, model)) {
+    console.warn("  × 品类不符，跳过：" + category + " ← " + model.slice(0, 30));
+    return false;
+  }
   try {
     const buffer = await fetchBuffer(imageUrl, sourceUrl);
     if (!(await isWhiteBackgroundProduct(buffer))) return false;
     const normalized = await normalizeProductImage(buffer);
-    // 中文型号 slug 后可能只剩几个字母：末尾补 6 位 hash，避免同品类文件互相覆盖
-    const rawSlug = slugify(adapter.brand + "-" + model) || slugify(adapter.brand + "-" + (sourceUrl.split("/").pop() ?? ""));
-    const fileBase = rawSlug.length >= 3 ? rawSlug : ("item-" + createHash("sha1").update(model + "|" + sourceUrl).digest("hex").slice(0, 10));
+    // 文件名：中文型号 slug 化后会退化（「1615长胶专业版」与「1615诡胶王」都只剩 1615，互相覆盖），
+    // 只要型号含 CJK 或 slug 太短，就补 6 位 hash 保证唯一（拉丁型号维持干净文件名）
+    const CJK = /[\u3400-\u9fff\uf900-\ufaff]/;
+    const asciiSlug =
+      slugify(adapter.brand + "-" + model) || slugify((sourceUrl.split("/").pop() ?? "").split("?")[0]);
+    const fileBase =
+      CJK.test(model) || asciiSlug.length < 3
+        ? (asciiSlug || "item") + "-" + createHash("sha1").update(model + "|" + sourceUrl).digest("hex").slice(0, 6)
+        : asciiSlug;
     const relPath = path.posix.join(category, fileBase + ".webp");
     await mkdir(path.join(imagesDir, category), { recursive: true });
     await writeFile(path.join(imagesDir, relPath), normalized.data);
