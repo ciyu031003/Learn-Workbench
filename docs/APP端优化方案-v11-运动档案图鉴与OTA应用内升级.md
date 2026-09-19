@@ -429,6 +429,25 @@ API：
 
 **下一批（P1.5）**：装备图库 —— 先抓 YONEX / VICTOR / 李宁 / 川崎的羽毛球装备白底图（球拍/球鞋/拍线/手胶/球），入 COS + `equipment_items` 表，App 里「从图库选择」回填型号与图片。
 
+### 12.6 P1.5 装备图库批次 —— 已完成（v1.13.0，首版羽毛球 40 款）
+
+| 层 | 改动 |
+| --- | --- |
+| 爬虫 | `scripts/crawl_equipment.mjs`：**站点适配器**架构（当前 YONEX 中国官网，服务端渲染好抓）；只收**白底商品图**（边框近白 ≥86% + 中心有内容才要）；`sharp` 裁白边 → 居中铺白 → WebP（900×900，平均 38KB） |
+| 数据 | 迁移 **052** `equipment_items`（唯一键 `(category, brand, model)`，`is_listed` 合规下架开关） |
+| 导入 | `scripts/import_equipment.mjs`：图片 `scp` 进 COS 桶 `/data/learn-workbench/equipment`，元数据走 `POST /api/internal/equipment/import`（`x-cron-secret`，运行时从服务器 .env 读密钥，不落盘） |
+| 读取 | `GET /api/equipment?category=&q=&brand=&limit=`（公开只读，10 分钟缓存）；nginx `^~ /equipment/` 一年 immutable 直出 |
+| App | `lib/equipment.ts` + `EquipmentPicker`（类别 chips + 搜索 + 三列白底图网格，**内嵌在编辑弹层里**避免 Modal 套 Modal）；装备行右侧「图库」按钮，选中回填型号 + 商品图 |
+| Web | `EquipmentPickerModal`（同一接口，同一套数据） |
+
+**首版产出**：球拍 8（天斧 99 PRO/TOUR/GAME/PLAY、100 ZZ/TOUR/GAME/ZZ VA）、球鞋 8（SUBAXIA GT 系列、POWER CUSHION AERUS/Z2/ECLIPSION）、拍线 8（EXBOLT 68/65/63、AEROSONIC、BG66UM/80/80P/BGT）、羽毛球 8（AEROSENSA 02–50）、手胶/配件 8（AC102C/104EX/108EX/130/133/136/140）——**合计 40 条，全部白底主体图**。
+
+**踩到的两个坑**：① `scp -r images/. remote/` 传完先后要确认桶里目录层级；② **nginx 的 `/uploads/`、`/equipment/` 必须写成 `^~`**，否则会被同 server 块里的 `.webp` 正则 location 抢走、落到 Next 变成 404（前端会看到 Next 的 404 页而不是 nginx 的）——已改服务器 + 回写模板。
+
+**验证**：web **1121 测试** / mobile **311 测试**；双端 typecheck、lint 全绿；线上 `GET /api/equipment` 返回 40 条、`/equipment/**.webp` 200 且 `Cache-Control: immutable`。
+
+**继续扩（下一轮可选）**：李宁（`store.lining.com` 是 SPA，需要 Playwright 渲染适配器）、VICTOR/川崎（域名待确认）、其余运动品类；App 里已预留 `sportKey` 过滤，扩品类只加数据不加代码。
+
 
 
 
