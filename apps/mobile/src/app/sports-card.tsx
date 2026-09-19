@@ -1,15 +1,41 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Alert,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { buildSportsCardModel, computeSportsRecord, sportItemByKey, SPORT_CATALOG, type SportsProfile } from "@learn-workbench/shared";
-import { ScreenHeader } from "@/components/screen-header";
-import { GroupLabel } from "@/components/group-label";
-import { Surface } from "@/components/surface";
+import { Image } from "expo-image";
+import { router } from "expo-router";
+import Animated, {
+  Easing,
+  interpolate,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
+import {
+  SPORT_CATALOG,
+  buildSportsCardModel,
+  computeSportsRecord,
+  formatMemberNo,
+  sportItemByKey,
+  type SportsProfile,
+} from "@learn-workbench/shared";
+import { ThemedIcon } from "@/components/themed-icon";
 import { Button } from "@/components/button";
 import { Field } from "@/components/field";
 import { BottomSheet } from "@/components/bottom-sheet";
+import { GroupLabel } from "@/components/group-label";
 import { SportsHoloCard } from "@/components/sports-holo-card";
-import { hasHoloImages } from "@/lib/holo-images";
+import { hasHoloImages, holoImages } from "@/lib/holo-images";
 import {
   deleteSportsProfile,
   draftFromProfile,
@@ -18,40 +44,153 @@ import {
   saveSportsProfile,
   type SportsProfileDraft,
 } from "@/lib/sports-client";
+import { getApiUrl } from "@/config";
+import { useAppStore } from "@/store/app-store";
 import { radius } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 
-/** 可做闪光卡的运动项目（其余项目仍可建档，只是没有卡面素材） */
+/** 可做闪光卡的运动项目 */
 const CARD_SPORTS = ["badminton", "tennis", "basketball", "volleyball", "table-tennis", "soccer", "baseball"] as const;
+
+interface BodyInfo {
+  heightCm: number | null;
+  weightKg: number | null;
+  birthYear: number | null;
+}
+
+function num(value: unknown): number | null {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function levelLabel(profile: SportsProfile, sportName: string): string {
+  const level = profile.levelText?.trim();
+  if (level) return level.toUpperCase().includes("VIP") ? level : level + " · VIP";
+  return sportName + " · VIP";
+}
 
 export default function SportsCardScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const token = useAppStore((s) => s.token);
 
   const [profiles, setProfiles] = useState<SportsProfile[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [body, setBody] = useState<BodyInfo>({ heightCm: null, weightKg: null, birthYear: null });
+  const [city, setCity] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [draft, setDraft] = useState<SportsProfileDraft>(() => emptySportsDraft());
   const [saving, setSaving] = useState(false);
 
+  // 闪光卡全屏弹层
+  const [cardOpen, setCardOpen] = useState(false);
+  const [origin, setOrigin] = useState<{ x: number; y: number } | null>(null);
+  const cardButtonRef = useRef<View | null>(null);
+  const anim = useSharedValue(0);
+
   const load = useCallback(async () => {
     try {
-      setProfiles(await fetchSportsProfiles());
+      const list = await fetchSportsProfiles();
+      setProfiles(list);
+      setSelectedId((prev) => (prev && list.some((p) => p.id === prev) ? prev : (list[0]?.id ?? null)));
     } catch {
       setProfiles([]);
-    } finally {
-      setLoading(false);
     }
-  }, []);
+    // 身高/体重/生日 与 地区：只是图鉴上的补充信息，失败就不显示
+    try {
+      const headers: Record<string, string> = token ? { Authorization: "Bearer " + token } : {};
+      const [targetRes, infoRes] = await Promise.all([
+        fetch(getApiUrl() + "/api/nutrition/target", { headers }),
+        fetch(getApiUrl() + "/api/profile/info", { headers }),
+      ]);
+      if (targetRes.ok) {
+        const d = await targetRes.json();
+        setBody({
+          heightCm: num(d.heightCm ?? d.target?.heightCm),
+          weightKg: num(d.weightKg ?? d.target?.weightKg),
+          birthYear: num(d.birthYear ?? d.target?.birthYear),
+        });
+      }
+      if (infoRes.ok) {
+        const d = await infoRes.json();
+        const value = d.currentCity ?? d.info?.currentCity ?? null;
+        setCity(typeof value === "string" && value.trim() ? value.trim() : null);
+      }
+    } catch {
+      // 忽略：图鉴依然可用
+    }
+  }, [token]);
 
   useEffect(() => {
     // 进屏即拉档案（数据加载后在 effect 中写状态是既有模式）
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
+
+  const current = useMemo(
+    () => profiles.find((p) => p.id === selectedId) ?? profiles[0] ?? null,
+    [profiles, selectedId]
+  );
+  const sportName = current ? (sportItemByKey(current.sportKey)?.name ?? current.sportKey) : "";
+  const model = useMemo(() => {
+    if (!current) return null;
+    const index = Math.max(1, profiles.findIndex((p) => p.id === current.id) + 1);
+    return buildSportsCardModel(current, {
+      sportName,
+      index,
+      total: Math.max(1, profiles.length),
+      memberNo: formatMemberNo(current.id),
+    });
+  }, [current, profiles, sportName]);
+  const record = current ? computeSportsRecord(current) : null;
+
+  const goBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace("/wellness" as never);
+  };
+
+  const openCard = () => {
+    cardButtonRef.current?.measureInWindow((x, y, w, h) => {
+      setOrigin({ x: x + w / 2, y: y + h / 2 });
+    });
+    setCardOpen(true);
+    anim.value = 0;
+    anim.value = withTiming(1, { duration: 620, easing: Easing.out(Easing.cubic) });
+  };
+
+  const closeCard = () => {
+    anim.value = withTiming(0, { duration: 420, easing: Easing.in(Easing.cubic) }, (finished) => {
+      if (finished) runOnJS(setCardOpen)(false);
+    });
+  };
+
+  const cardWrapStyle = useAnimatedStyle(() => {
+    const dx = origin ? origin.x - screenWidth / 2 : 0;
+    const dy = origin ? origin.y - screenHeight / 2 : 0;
+    return {
+      opacity: interpolate(anim.value, [0, 0.25, 1], [0, 1, 1]),
+      transform: [
+        { perspective: 1200 },
+        { translateX: interpolate(anim.value, [0, 1], [dx, 0]) },
+        { translateY: interpolate(anim.value, [0, 1], [dy, 0]) },
+        { scale: interpolate(anim.value, [0, 1], [0.08, 1]) },
+        { rotateY: `${interpolate(anim.value, [0, 1], [-180, 0])}deg` },
+      ],
+    };
+  });
+
+  const backdropStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(anim.value, [0, 1], [0, 0.88]),
+  }));
+
+  const closeRowStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(anim.value, [0, 0.7, 1], [0, 0, 1]),
+    transform: [{ scale: interpolate(anim.value, [0, 1], [0.6, 1]) }],
+  }));
 
   const openNew = (sportKey = "badminton") => {
     setEditId(null);
@@ -69,7 +208,11 @@ export default function SportsCardScreen() {
     setSaving(true);
     try {
       await saveSportsProfile(
-        { ...draft, gear: draft.gear.filter((g) => g.value.trim()), highlights: draft.highlights.filter((h) => h.label.trim() || h.value.trim()) },
+        {
+          ...draft,
+          gear: draft.gear.filter((g) => g.value.trim()),
+          highlights: draft.highlights.filter((h) => h.label.trim() || h.value.trim()),
+        },
         editId
       );
       setSheetOpen(false);
@@ -109,61 +252,161 @@ export default function SportsCardScreen() {
     setDraft((d) => ({ ...d, highlights: d.highlights.map((h, j) => (j === i ? { ...h, ...patch } : h)) }));
   };
 
+  const heroImages = current ? holoImages(current.sportKey) : null;
+  const grid = current
+    ? [
+        { label: "身高", value: body.heightCm ? body.heightCm + " cm" : "—" },
+        { label: "体重", value: body.weightKg ? body.weightKg + " kg" : "—" },
+        { label: "鞋码", value: current.shoeSize?.trim() || "—" },
+        { label: "磅数", value: current.tensionLbs ? current.tensionLbs + " lbs" : "—" },
+      ]
+    : [];
+
   return (
     <View style={styles.root}>
-      <ScreenHeader title="运动档案" subtitle="闪光卡 · 实时镭射" backTo="/wellness" />
+      <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
+        <Pressable onPress={goBack} hitSlop={10} style={styles.headerBtn} accessibilityLabel="返回">
+          <ThemedIcon name="chevron-back" size={22} color={colors.text} />
+        </Pressable>
+        <Text style={styles.headerTitle} numberOfLines={1}>
+          {current ? "我的" + sportName + "档案" : "运动档案"}
+        </Text>
+        {current && hasHoloImages(current.sportKey) ? (
+          <Pressable
+            ref={cardButtonRef}
+            onPress={openCard}
+            style={styles.cardEntry}
+            accessibilityRole="button"
+            accessibilityLabel="查看闪光卡"
+          >
+            {heroImages ? (
+              <Image source={heroImages.subject} style={styles.cardEntryImage} contentFit="cover" />
+            ) : null}
+            <Text style={styles.cardEntryText}>闪光卡</Text>
+          </Pressable>
+        ) : (
+          <View style={styles.headerBtn} />
+        )}
+      </View>
+
+      {profiles.length > 1 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipRow}
+          style={styles.chipScroll}
+        >
+          {profiles.map((p) => {
+            const name = sportItemByKey(p.sportKey)?.name ?? p.sportKey;
+            const active = current?.id === p.id;
+            return (
+              <Pressable
+                key={p.id}
+                onPress={() => setSelectedId(p.id)}
+                style={[styles.chip, active && styles.chipActive]}
+              >
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>{name}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      ) : null}
 
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 40 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 130 }]}
         showsVerticalScrollIndicator={false}
       >
-        {profiles.length === 0 && !loading ? (
-          <Surface style={styles.empty}>
+        {!current ? (
+          <View style={styles.empty}>
             <Text style={styles.emptyTitle}>还没有运动档案</Text>
-            <Text style={styles.emptyHint}>建档后即可生成一张镭射闪光卡：战绩、装备、绝技都会印在卡面上。</Text>
-          </Surface>
-        ) : null}
-
-        {profiles.map((p, index) => {
-          const sportName = sportItemByKey(p.sportKey)?.name ?? p.sportKey;
-          const record = computeSportsRecord(p);
-          const model = buildSportsCardModel(p, { sportName, index: index + 1, total: profiles.length });
-          return (
-            <View key={p.id} style={styles.block}>
-              {hasHoloImages(p.sportKey) ? (
-                <SportsHoloCard model={model} />
+            <Text style={styles.emptyHint}>
+              建一张档案，然后填战绩、装备与公开成绩 —— 右上角会生成一张镭射闪光卡。
+            </Text>
+          </View>
+        ) : (
+          <>
+            {/* Hero 头图 */}
+            <View style={styles.hero}>
+              {current.photoUrl ? (
+                <Image source={{ uri: current.photoUrl }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} />
               ) : (
-                <Surface style={styles.noArt}>
-                  <Text style={styles.noArtText}>{sportName}暂时没有闪光卡素材</Text>
-                </Surface>
+                <View style={styles.heroPlaceholder}>
+                  <ThemedIcon name="person-outline" size={40} color={colors.textMuted} />
+                  <Text style={styles.heroHint}>在「编辑档案」里粘贴照片链接（图片上传下一版接入）</Text>
+                </View>
               )}
+              <View style={styles.vipBadge}>
+                <Text style={styles.vipText} numberOfLines={1}>{levelLabel(current, sportName)}</Text>
+              </View>
+            </View>
 
-              <Surface style={styles.info}>
-                <Text style={styles.infoTitle}>{sportName} · {p.identity || "运动爱好者"}</Text>
-                <Text style={styles.infoMeta}>
-                  {[p.playStyle, p.levelText, record.matches > 0 ? record.matches + " 场" : null]
-                    .filter(Boolean)
-                    .join(" · ")}
+            {/* 身份与编号 */}
+            <View style={styles.identity}>
+              <Text style={styles.identityName} numberOfLines={1}>
+                {current.identity?.trim() || "运动爱好者"}
+              </Text>
+              <Text style={styles.identityNo}>{formatMemberNo(current.id)}</Text>
+              <Text style={styles.identityMeta} numberOfLines={1}>
+                {[
+                  city ? "中国 " + city : null,
+                  body.birthYear ? body.birthYear + " 年生" : null,
+                  current.playStyle?.trim() || null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ") || "地区与生日可在网页端资料里补充"}
+              </Text>
+            </View>
+
+            {/* 四宫格 */}
+            <View style={styles.grid}>
+              {grid.map((cell) => (
+                <View key={cell.label} style={styles.gridCell}>
+                  <Text style={styles.gridValue} numberOfLines={1}>{cell.value}</Text>
+                  <Text style={styles.gridLabel}>{cell.label}</Text>
+                </View>
+              ))}
+            </View>
+
+            {/* 战绩 */}
+            {record ? (
+              <View style={styles.recordRow}>
+                <Text style={styles.recordItem}>{record.matches} 场</Text>
+                <Text style={styles.recordItem}>{record.wins} 胜 / {record.losses} 负</Text>
+                <Text style={styles.recordItem}>
+                  胜率 {record.winRate === null ? "—" : record.winRate.toFixed(1) + "%"}
                 </Text>
-                {(p.gear ?? []).map((g, i) => (
-                  <View key={i} style={styles.gearRow}>
-                    <Text style={styles.gearLabel}>{g.label}</Text>
-                    <Text style={styles.gearValue} numberOfLines={1}>{g.value || "—"}</Text>
+              </View>
+            ) : null}
+
+            {/* 装备图鉴 */}
+            {(current.gear ?? []).filter((g) => g.label.trim()).map((item) => (
+              <View key={item.label} style={styles.gearCard}>
+                <View style={styles.gearImageArea}>
+                  <ThemedIcon name="image-outline" size={30} color={colors.textFaint} />
+                  <Text style={styles.gearImageHint}>商品图 / 自拍图下一版支持</Text>
+                </View>
+                <Text style={styles.gearValue} numberOfLines={2}>{item.value || "—"}</Text>
+                <Text style={styles.gearLabel}>{item.label}</Text>
+              </View>
+            ))}
+
+            {/* 荣誉 */}
+            {(current.highlights ?? []).length > 0 ? (
+              <View style={styles.honorSection}>
+                <Text style={styles.sectionTitle}>公开成绩</Text>
+                {(current.highlights ?? []).map((honor, index) => (
+                  <View key={honor.label + index} style={styles.honorRow}>
+                    <Text style={styles.honorRank}>{index === 0 ? "🏆" : "·"}</Text>
+                    <Text style={styles.honorName} numberOfLines={1}>{honor.label}</Text>
+                    <Text style={styles.honorPrize} numberOfLines={1}>{honor.value}</Text>
                   </View>
                 ))}
-                <View style={styles.actions}>
-                  <Button label="编辑" variant="secondary" size="sm" fullWidth={false} onPress={() => openEdit(p)} />
-                  <Button label="删除" variant="danger" size="sm" fullWidth={false} onPress={() => remove(p)} />
-                  <View style={styles.publicTag}>
-                    <Text style={styles.publicText}>{p.isPublic ? "公开分享中" : "仅自己可见"}</Text>
-                  </View>
-                </View>
-              </Surface>
-            </View>
-          );
-        })}
+              </View>
+            ) : null}
+          </>
+        )}
 
-        <GroupLabel>新建 / 编辑</GroupLabel>
+        <GroupLabel>新建档案</GroupLabel>
         <View style={styles.chipRow}>
           {SPORT_CATALOG.filter((s) => (CARD_SPORTS as readonly string[]).includes(s.key)).map((s) => (
             <Pressable key={s.key} onPress={() => openNew(s.key)} style={styles.chip}>
@@ -172,6 +415,37 @@ export default function SportsCardScreen() {
           ))}
         </View>
       </ScrollView>
+
+      {current ? (
+        <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 10 }]}>
+          <Button
+            label={"编辑" + sportName + "档案"}
+            icon="create-outline"
+            onPress={() => openEdit(current)}
+          />
+          <Pressable onPress={() => remove(current)} style={styles.deleteBtn} accessibilityLabel="删除档案">
+            <ThemedIcon name="trash-outline" size={20} color={colors.textMuted} />
+          </Pressable>
+        </View>
+      ) : null}
+
+      {/* 闪光卡全屏弹层：从小到 + 旋转弹出，下方叉号关闭 */}
+      <Modal visible={cardOpen} transparent animationType="none" onRequestClose={closeCard}>
+        <View style={styles.modalRoot}>
+          <Animated.View style={[StyleSheet.absoluteFill, styles.backdrop, backdropStyle]} />
+          <Pressable style={StyleSheet.absoluteFill} onPress={closeCard} accessibilityLabel="关闭闪光卡" />
+          {model ? (
+            <Animated.View style={[styles.cardWrap, cardWrapStyle]} pointerEvents="none">
+              <SportsHoloCard model={model} hint={false} />
+            </Animated.View>
+          ) : null}
+          <Animated.View style={[styles.closeRow, closeRowStyle]}>
+            <Pressable onPress={closeCard} style={styles.closeBtn} accessibilityLabel="关闭闪光卡">
+              <ThemedIcon name="close" size={26} color="#ffffff" />
+            </Pressable>
+          </Animated.View>
+        </View>
+      </Modal>
 
       <BottomSheet
         visible={sheetOpen}
@@ -184,6 +458,33 @@ export default function SportsCardScreen() {
           <Field label="运动身份" value={draft.identity} onChangeText={(v) => setDraft((d) => ({ ...d, identity: v }))} placeholder="如：双打搭子" />
           <Field label="打法" value={draft.playStyle} onChangeText={(v) => setDraft((d) => ({ ...d, playStyle: v }))} placeholder="如：混双" />
           <Field label="绝技（卡面大字）" value={draft.signatureMove} onChangeText={(v) => setDraft((d) => ({ ...d, signatureMove: v }))} placeholder="如：疾风·劈杀" />
+          <Field
+            label="本人照片链接（下一版支持直接上传）"
+            value={draft.photoUrl}
+            onChangeText={(v) => setDraft((d) => ({ ...d, photoUrl: v }))}
+            placeholder="https://…"
+            autoCapitalize="none"
+          />
+
+          <GroupLabel>图鉴四宫格</GroupLabel>
+          <View style={styles.triple}>
+            <View style={styles.tripleCell}>
+              <Field label="鞋码" value={draft.shoeSize} onChangeText={(v) => setDraft((d) => ({ ...d, shoeSize: v }))} placeholder="40" />
+            </View>
+            <View style={styles.tripleCell}>
+              <Field
+                label="磅数"
+                value={draft.tensionLbs === null ? "" : String(draft.tensionLbs)}
+                keyboardType="decimal-pad"
+                onChangeText={(v) => {
+                  const cleaned = v.replace(/[^0-9.]/g, "");
+                  setDraft((d) => ({ ...d, tensionLbs: cleaned ? Number(cleaned) : null }));
+                }}
+                placeholder="27.5"
+              />
+            </View>
+          </View>
+          <Text style={styles.tip}>身高与体重取「营养目标」里的资料（网页端可改）。</Text>
 
           <GroupLabel>战绩</GroupLabel>
           <View style={styles.triple}>
@@ -197,7 +498,6 @@ export default function SportsCardScreen() {
               <Field label="负场" value={String(draft.losses || "")} keyboardType="number-pad" onChangeText={(v) => setDraft((d) => ({ ...d, losses: Number(v.replace(/[^0-9]/g, "")) || 0 }))} placeholder="36" />
             </View>
           </View>
-          <Text style={styles.tip}>只填胜负也行：场次按「胜 + 负」补齐，胜率自动计算。</Text>
 
           <GroupLabel>主力装备</GroupLabel>
           {draft.gear.map((g, i) => (
@@ -211,7 +511,7 @@ export default function SportsCardScreen() {
             </View>
           ))}
 
-          <GroupLabel>公开成绩</GroupLabel>
+          <GroupLabel>公开成绩（第一条会放大到卡面）</GroupLabel>
           {draft.highlights.map((h, i) => (
             <View key={i} style={styles.gearInputRow}>
               <View style={styles.gearInputLabel}>
@@ -235,7 +535,7 @@ export default function SportsCardScreen() {
             <Text style={styles.switchLabel}>公开分享</Text>
             <Switch value={draft.isPublic} onValueChange={(v) => setDraft((d) => ({ ...d, isPublic: v }))} />
           </View>
-          <Text style={styles.tip}>公开后只展示身份 / 等级 / 装备 / 战绩 / 公开成绩，绝不包含体重、身体测量或训练细节。</Text>
+          <Text style={styles.tip}>公开后只展示身份 / 等级 / 装备 / 战绩 / 公开成绩，不含身高体重等身体数据。</Text>
 
           <Button label={saving ? "保存中…" : "保存档案"} onPress={() => void save()} loading={saving} disabled={saving} />
         </View>
@@ -246,32 +546,168 @@ export default function SportsCardScreen() {
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
-    root: { flex: 1, backgroundColor: colors.canvas },
-    content: { paddingHorizontal: 16, paddingTop: 12, gap: 14 },
-    block: { gap: 12 },
-    empty: { gap: 6 },
-    emptyTitle: { fontSize: 15, fontWeight: "700", color: colors.text },
-    emptyHint: { fontSize: 12, lineHeight: 19, color: colors.textMuted },
-    noArt: { alignItems: "center", paddingVertical: 28 },
-    noArtText: { fontSize: 12, color: colors.textMuted },
-    info: { gap: 8 },
-    infoTitle: { fontSize: 15, fontWeight: "700", color: colors.text },
-    infoMeta: { fontSize: 12, color: colors.textMuted },
-    gearRow: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
-    gearLabel: { fontSize: 12, color: colors.textMuted },
-    gearValue: { flex: 1, fontSize: 12, fontWeight: "600", color: colors.text, textAlign: "right" },
-    actions: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 },
-    publicTag: { marginLeft: "auto" },
-    publicText: { fontSize: 11, color: colors.textMuted },
-    chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    root: { flex: 1, backgroundColor: "#f5f6f8" },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      paddingHorizontal: 14,
+      paddingBottom: 8,
+      backgroundColor: colors.canvas,
+    },
+    headerBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+    headerTitle: { flex: 1, textAlign: "center", fontSize: 16, fontWeight: "700", color: colors.text },
+    cardEntry: {
+      width: 62,
+      height: 40,
+      borderRadius: 10,
+      overflow: "hidden",
+      borderWidth: 1,
+      borderColor: "rgba(217,185,120,0.8)",
+      alignItems: "center",
+      justifyContent: "flex-end",
+      backgroundColor: "#0b1017",
+    },
+    cardEntryImage: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, opacity: 0.85 },
+    cardEntryText: { fontSize: 9, fontWeight: "700", color: "#ffe6ad", paddingBottom: 3 },
+    chipScroll: { maxHeight: 48, backgroundColor: colors.canvas },
+    chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 16, paddingVertical: 6 },
     chip: {
       borderRadius: 999,
       borderWidth: 1,
       borderColor: colors.border,
       paddingHorizontal: 14,
-      paddingVertical: 8,
+      paddingVertical: 7,
+      backgroundColor: colors.surfaceStrong,
     },
+    chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
     chipText: { fontSize: 13, fontWeight: "600", color: colors.text },
+    chipTextActive: { color: "#ffffff" },
+    content: { paddingHorizontal: 16, paddingTop: 10, gap: 12 },
+    empty: { gap: 6, paddingVertical: 40, alignItems: "center" },
+    emptyTitle: { fontSize: 15, fontWeight: "700", color: colors.text },
+    emptyHint: { fontSize: 12, lineHeight: 19, color: colors.textMuted, textAlign: "center" },
+    hero: {
+      height: 230,
+      borderRadius: radius.lg,
+      overflow: "hidden",
+      backgroundColor: colors.surfaceStrong,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    heroPlaceholder: { flex: 1, alignItems: "center", justifyContent: "center", gap: 10, paddingHorizontal: 24 },
+    heroHint: { fontSize: 11, color: colors.textMuted, textAlign: "center" },
+    vipBadge: {
+      position: "absolute",
+      top: 10,
+      right: 10,
+      backgroundColor: "rgba(255,214,138,0.92)",
+      borderRadius: 999,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      maxWidth: "70%",
+    },
+    vipText: { fontSize: 10, fontWeight: "800", color: "#4a3308", letterSpacing: 0.6 },
+    identity: { gap: 2 },
+    identityName: { fontSize: 24, fontWeight: "800", color: colors.text },
+    identityNo: { fontSize: 12, color: colors.textMuted, letterSpacing: 1.2 },
+    identityMeta: { fontSize: 12, color: colors.textMuted },
+    grid: {
+      flexDirection: "row",
+      backgroundColor: colors.surfaceStrong,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      overflow: "hidden",
+    },
+    gridCell: {
+      flex: 1,
+      alignItems: "center",
+      paddingVertical: 14,
+      borderRightWidth: StyleSheet.hairlineWidth,
+      borderRightColor: colors.border,
+    },
+    gridValue: { fontSize: 17, fontWeight: "800", color: colors.text },
+    gridLabel: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
+    recordRow: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
+    recordItem: {
+      flex: 1,
+      textAlign: "center",
+      fontSize: 12,
+      fontWeight: "700",
+      color: colors.text,
+      backgroundColor: colors.surfaceStrong,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingVertical: 10,
+    },
+    gearCard: {
+      backgroundColor: colors.surfaceStrong,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 14,
+      alignItems: "center",
+      gap: 6,
+    },
+    gearImageArea: {
+      width: "100%",
+      height: 140,
+      borderRadius: radius.md,
+      backgroundColor: colors.surfaceMuted,
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+    },
+    gearImageHint: { fontSize: 10, color: colors.textFaint },
+    gearValue: { fontSize: 14, fontWeight: "700", color: colors.text, textAlign: "center" },
+    gearLabel: { fontSize: 11, color: colors.textMuted },
+    honorSection: { gap: 8, marginTop: 4 },
+    sectionTitle: { fontSize: 15, fontWeight: "800", color: colors.text },
+    honorRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      backgroundColor: "#fff8e8",
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: "rgba(217,185,120,0.6)",
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+    },
+    honorRank: { fontSize: 16 },
+    honorName: { flex: 1, fontSize: 14, fontWeight: "700", color: "#5a4210" },
+    honorPrize: { fontSize: 14, fontWeight: "800", color: "#a9741a" },
+    bottomBar: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: 0,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      paddingHorizontal: 16,
+      paddingTop: 10,
+      backgroundColor: colors.canvas,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+    },
+    deleteBtn: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
+    modalRoot: { flex: 1, alignItems: "center", justifyContent: "center" },
+    backdrop: { backgroundColor: "#05070b" },
+    cardWrap: { width: "100%", maxWidth: 420, paddingHorizontal: 20 },
+    closeRow: { position: "absolute", bottom: 54, alignItems: "center" },
+    closeBtn: {
+      width: 52,
+      height: 52,
+      borderRadius: 26,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: "rgba(255,255,255,0.18)",
+      borderWidth: 1,
+      borderColor: "rgba(255,255,255,0.45)",
+    },
     form: { gap: 12 },
     triple: { flexDirection: "row", gap: 8 },
     tripleCell: { flex: 1 },

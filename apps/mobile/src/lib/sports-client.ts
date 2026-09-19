@@ -29,6 +29,9 @@ export interface SportsProfileDraft {
   wins: number;
   losses: number;
   signatureMove: string;
+  /** 档案图鉴四宫格（迁移 050） */
+  shoeSize: string;
+  tensionLbs: number | null;
   isPublic: boolean;
 }
 
@@ -47,6 +50,8 @@ export function emptySportsDraft(sportKey = "badminton"): SportsProfileDraft {
     wins: 0,
     losses: 0,
     signatureMove: "",
+    shoeSize: "",
+    tensionLbs: null,
     isPublic: false,
   };
 }
@@ -65,6 +70,8 @@ export function draftFromProfile(p: SportsProfile): SportsProfileDraft {
     wins: p.wins ?? 0,
     losses: p.losses ?? 0,
     signatureMove: p.signatureMove ?? "",
+    shoeSize: p.shoeSize ?? "",
+    tensionLbs: p.tensionLbs ?? null,
     isPublic: p.isPublic,
   };
 }

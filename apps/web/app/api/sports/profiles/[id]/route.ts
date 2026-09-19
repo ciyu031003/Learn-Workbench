@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import { pgPool } from "@/lib/db";
 import { currentUserId, currentSessionToken } from "@/lib/session";
 import { parseBody } from "@/lib/http";
-import { normalizePairs, normalizeRecord, normalizeSignatureMove } from "../route";
+import { normalizePairs, normalizeRecord, normalizeSignatureMove, normalizeShoeSize, normalizeTension } from "../route";
 
 const SELECT_COLS = `id, sport_key AS "sportKey", identity, level_text AS "levelText",
   handedness, play_style AS "playStyle", photo_url AS "photoUrl", gear, highlights,
   matches_played AS "matchesPlayed", wins, losses, signature_move AS "signatureMove",
+  shoe_size AS "shoeSize", tension_lbs AS "tensionLbs",
   is_public AS "isPublic", share_slug AS "shareSlug", updated_at AS "updatedAt"`;
 
 function parseId(raw: string): number | null {
@@ -46,6 +47,8 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     push("losses", record.losses);
   }
   if (body.signatureMove !== undefined) push("signature_move", normalizeSignatureMove(body.signatureMove));
+  if (body.shoeSize !== undefined) push("shoe_size", normalizeShoeSize(body.shoeSize));
+  if (body.tensionLbs !== undefined) push("tension_lbs", normalizeTension(body.tensionLbs));
   if (body.isPublic !== undefined) {
     const pub = Boolean(body.isPublic);
     push("is_public", pub);

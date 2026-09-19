@@ -39,6 +39,9 @@ interface FormState {
   losses: string;
   /** 绝技（卡面主视觉大字） */
   signatureMove: string;
+  /** 档案图鉴四宫格（迁移 050） */
+  shoeSize: string;
+  tensionLbs: string;
   isPublic: boolean;
 }
 
@@ -61,6 +64,8 @@ const EMPTY_FORM: FormState = {
   wins: "",
   losses: "",
   signatureMove: "",
+  shoeSize: "",
+  tensionLbs: "",
   isPublic: false,
 };
 
@@ -123,6 +128,8 @@ export default function SportsProfilePage() {
       wins: p.wins > 0 ? String(p.wins) : "",
       losses: p.losses > 0 ? String(p.losses) : "",
       signatureMove: p.signatureMove ?? "",
+      shoeSize: p.shoeSize ?? "",
+      tensionLbs: p.tensionLbs === null || p.tensionLbs === undefined ? "" : String(p.tensionLbs),
       isPublic: p.isPublic,
     });
     setOpen(true);
@@ -146,6 +153,8 @@ export default function SportsProfilePage() {
         wins: Number(form.wins) || 0,
         losses: Number(form.losses) || 0,
         signatureMove: form.signatureMove,
+        shoeSize: form.shoeSize,
+        tensionLbs: form.tensionLbs === "" ? null : Number(form.tensionLbs),
         isPublic: form.isPublic,
       };
       const r = form.id
@@ -243,6 +252,11 @@ export default function SportsProfilePage() {
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       {[p.playStyle, p.handedness ? handLabels[p.handedness] : null, p.levelText].filter(Boolean).join(" · ")}
                     </p>
+                    {p.shoeSize || p.tensionLbs ? (
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        {[p.shoeSize ? "鞋码 " + p.shoeSize : null, p.tensionLbs ? "磅数 " + p.tensionLbs : null].filter(Boolean).join(" · ")}
+                      </p>
+                    ) : null}
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1.5">
                     <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
@@ -415,6 +429,26 @@ export default function SportsProfilePage() {
               onChange={(e) => setForm((s) => ({ ...s, signatureMove: e.target.value }))}
               placeholder="如：疾风·劈杀"
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium">鞋码（档案图鉴）</label>
+              <Input
+                value={form.shoeSize}
+                onChange={(e) => setForm((s) => ({ ...s, shoeSize: e.target.value }))}
+                placeholder="如：40"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium">磅数（档案图鉴）</label>
+              <Input
+                inputMode="decimal"
+                value={form.tensionLbs}
+                onChange={(e) => setForm((s) => ({ ...s, tensionLbs: e.target.value.replace(/[^0-9.]/g, "") }))}
+                placeholder="如：27.5"
+              />
+            </div>
           </div>
 
           <div>

@@ -1198,6 +1198,18 @@ BEGIN
       CHECK (matches_played >= 0 AND wins >= 0 AND losses >= 0);
   END IF;
 END $$;
+-- ---------- 来自迁移 050_sport_archive_metrics.sql（档案图鉴四宫格：鞋码 / 磅数） ----------
+ALTER TABLE sports_profiles
+  ADD COLUMN IF NOT EXISTS shoe_size  text,
+  ADD COLUMN IF NOT EXISTS tension_lbs numeric(4,1);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'sports_profiles_tension_range') THEN
+    ALTER TABLE sports_profiles
+      ADD CONSTRAINT sports_profiles_tension_range
+      CHECK (tension_lbs IS NULL OR (tension_lbs > 0 AND tension_lbs <= 40));
+  END IF;
+END $$;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_sports_profiles_user_sport
   ON sports_profiles(user_id, sport_key) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_sports_profiles_public

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   buildSportsCardModel,
   computeSportsRecord,
+  formatMemberNo,
   formatWinRate,
   sportGearTemplate,
   SPORT_GEAR_TEMPLATES,
@@ -89,6 +90,45 @@ describe("buildSportsCardModel", () => {
 
   it("徽章取公开成绩，最多 4 条", () => {
     expect(model.flags).toEqual(["城市联赛 八强"]);
+  });
+
+  it("主荣誉 = 第一条公开成绩（卡面放大展示），其余进 honors", () => {
+    expect(model.mainHonor).toEqual({ title: "城市联赛", detail: "八强" });
+    expect(model.honors).toEqual([]);
+    const many = buildSportsCardModel(
+      {
+        sportKey: "badminton",
+        identity: null,
+        levelText: "业余 6 级",
+        playStyle: null,
+        handedness: "right",
+        gear: [],
+        highlights: [{ label: "林丹杯", value: "亚军" }, { label: "高校杯", value: "季军" }, { label: "城市联赛", value: "八强" }, { label: "俱乐部赛", value: "4 冠" }],
+      },
+      { sportName: "羽毛球" }
+    );
+    expect(many.mainHonor).toEqual({ title: "林丹杯", detail: "亚军" });
+    expect(many.honors).toEqual([{ title: "高校杯", detail: "季军" }, { title: "城市联赛", detail: "八强" }]);
+  });
+
+  it("没有公开成绩时主荣誉为空（卡面走占位）", () => {
+    const empty = buildSportsCardModel(
+      { sportKey: "badminton", identity: null, levelText: null, playStyle: null, handedness: null, gear: [], highlights: [] },
+      { sportName: "羽毛球" }
+    );
+    expect(empty.mainHonor).toBeNull();
+    expect(empty.honors).toEqual([]);
+  });
+
+  it("档案编号由 id 派生（BN + 6 位），缺省 BN000000", () => {
+    expect(formatMemberNo(7)).toBe("BN000007");
+    expect(formatMemberNo(21288)).toBe("BN021288");
+    expect(formatMemberNo(null)).toBe("BN000000");
+    const withNo = buildSportsCardModel(
+      { sportKey: "badminton", identity: null, levelText: null, playStyle: null, handedness: null, gear: [], highlights: [] },
+      { sportName: "羽毛球", memberNo: "BN021288" }
+    );
+    expect(withNo.memberNo).toBe("BN021288");
   });
 });
 

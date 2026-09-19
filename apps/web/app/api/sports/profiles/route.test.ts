@@ -5,7 +5,7 @@ vi.mock("@/lib/http", () => ({ parseBody: vi.fn() }));
 import { pgPool } from "@/lib/db";
 import { currentUserId, currentSessionToken } from "@/lib/session";
 import { parseBody } from "@/lib/http";
-import { GET, POST, normalizePairs, normalizeRecord, normalizeSignatureMove } from "./route";
+import { GET, POST, normalizePairs, normalizeRecord, normalizeShoeSize, normalizeSignatureMove, normalizeTension } from "./route";
 
 const queryMock = vi.mocked(pgPool.query);
 const tokenMock = vi.mocked(currentSessionToken);
@@ -125,6 +125,20 @@ describe("POST /api/sports/profiles", () => {
     expect(args[13]).toBe(0);
     expect(args[14]).toBeNull();
   });
+
+  it("写入鞋码与磅数（档案图鉴四宫格）", async () => {
+    tokenMock.mockResolvedValue("tok-1");
+    userMock.mockResolvedValue("u-1");
+    parseBodyMock.mockResolvedValue({
+      ok: true,
+      data: { sportKey: "badminton", shoeSize: " 40 ", tensionLbs: "27.5" },
+    });
+    queryMock.mockResolvedValue({ rows: [{ id: 1 }] } as never);
+    await POST(new Request("http://localhost", { method: "POST" }));
+    const args = queryMock.mock.calls[0][1] as unknown[];
+    expect(args[15]).toBe("40");
+    expect(args[16]).toBe(27.5);
+  });
 });
 
 describe("normalizeRecord", () => {
@@ -137,6 +151,27 @@ describe("normalizeRecord", () => {
   it("负数与非法值归零，小数截断", () => {
     expect(normalizeRecord({ matchesPlayed: -5, wins: "abc", losses: 2.7 })).toEqual({ matches: 2, wins: 0, losses: 2, winRate: 0 });
     expect(normalizeRecord({})).toEqual({ matches: 0, wins: 0, losses: 0, winRate: null });
+  });
+});
+
+describe("normalizeShoeSize / normalizeTension", () => {
+  it("鞋码是自由文本，裁剪并限长", () => {
+    expect(normalizeShoeSize("  40 ")).toBe("40");
+    expect(normalizeShoeSize("255mm")).toBe("255mm");
+    expect(normalizeShoeSize("")).toBeNull();
+    expect(normalizeShoeSize(undefined)).toBeNull();
+    expect(normalizeShoeSize("x".repeat(30))?.length).toBe(12);
+  });
+
+  it("磅数限 0–40 并保留一位小数（越界/非法归 null）", () => {
+    expect(normalizeTension("27.5")).toBe(27.5);
+    expect(normalizeTension(26)).toBe(26);
+    expect(normalizeTension("27.46")).toBe(27.5);
+    expect(normalizeTension(0)).toBeNull();
+    expect(normalizeTension(41)).toBeNull();
+    expect(normalizeTension("abc")).toBeNull();
+    expect(normalizeTension("")).toBeNull();
+    expect(normalizeTension(null)).toBeNull();
   });
 });
 

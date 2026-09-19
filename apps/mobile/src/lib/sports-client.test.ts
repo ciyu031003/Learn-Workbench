@@ -51,11 +51,15 @@ describe("draftFromProfile", () => {
       wins: 178,
       losses: 36,
       signatureMove: "疾风·劈杀",
+      shoeSize: "40",
+      tensionLbs: 27.5,
       isPublic: true,
       shareSlug: "sp-1",
     });
     expect(draft.matchesPlayed).toBe(214);
     expect(draft.signatureMove).toBe("疾风·劈杀");
+    expect(draft.shoeSize).toBe("40");
+    expect(draft.tensionLbs).toBe(27.5);
     expect(draft.isPublic).toBe(true);
     expect(draft.gear).toHaveLength(1);
   });

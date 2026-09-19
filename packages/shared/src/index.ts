@@ -2376,6 +2376,10 @@ export const sportsProfileSchema = z.object({
   losses: z.number().default(0),
   /** 绝技 / 招式（卡面主视觉文案） */
   signatureMove: z.string().nullable().default(null),
+  /** 鞋码（档案图鉴四宫格；迁移 050） */
+  shoeSize: z.string().nullable().default(null),
+  /** 磅数（档案图鉴四宫格；迁移 050） */
+  tensionLbs: z.number().nullable().default(null),
   isPublic: z.boolean(),
   shareSlug: z.string().nullable(),
   updatedAt: z.string().optional(),
@@ -2462,12 +2466,27 @@ export interface SportsCardModel {
   rowsRight: [string, string][];
   /** 面板底部徽章（公开成绩） */
   flags: string[];
+  /** 主荣誉（放大展示的那一条）：highlights[0] */
+  mainHonor: { title: string; detail: string } | null;
+  /** 其余荣誉（最多 2 条） */
+  honors: { title: string; detail: string }[];
+  /** 档案编号（BN + 6 位） */
+  memberNo: string;
+  /** 装备清单（卡背用，顺序与档案一致） */
+  gear: { label: string; value: string }[];
   record: SportsRecord;
   /** 导出文件名用的安全串 */
   fileStem: string;
 }
 
 export const SPORTS_CARD_PANEL_TITLE = "运动员档案 · ATHLETE PROFILE";
+
+/** 档案编号：BN + 6 位（由档案 id 派生，稳定不变） */
+export function formatMemberNo(profileId: number | null | undefined): string {
+  const id = Number(profileId);
+  if (!Number.isFinite(id) || id <= 0) return "BN000000";
+  return "BN" + String(Math.trunc(id)).padStart(6, "0");
+}
 
 /**
  * 由档案数据生成卡面文案模型 —— 卡片只负责「画」，映射全在这里，
@@ -2476,7 +2495,7 @@ export const SPORTS_CARD_PANEL_TITLE = "运动员档案 · ATHLETE PROFILE";
 export function buildSportsCardModel(
   profile: Pick<SportsProfile, "sportKey" | "identity" | "levelText" | "playStyle" | "handedness" | "gear" | "highlights"> &
     Partial<Pick<SportsProfile, "matchesPlayed" | "wins" | "losses" | "signatureMove">>,
-  opts: { sportName: string; index?: number; total?: number; year?: number }
+  opts: { sportName: string; index?: number; total?: number; year?: number; memberNo?: string }
 ): SportsCardModel {
   const record = computeSportsRecord(profile);
   const gear = (profile.gear ?? []).filter((g) => g.label.trim());
@@ -2489,10 +2508,15 @@ export function buildSportsCardModel(
     ["胜 / 负", `${record.wins} 胜 / ${record.losses} 负`],
     ["胜率", formatWinRate(record.winRate)],
   ];
-  const flags = (profile.highlights ?? [])
+  const honorEntries = (profile.highlights ?? [])
     .filter((h) => h.label.trim() || h.value.trim())
-    .map((h) => (h.label.trim() && h.value.trim() ? `${h.label} ${h.value}` : h.label.trim() || h.value.trim()))
+    .map((h) => ({ title: h.label.trim() || h.value.trim(), detail: h.label.trim() ? h.value.trim() : "" }))
+    .filter((h) => h.title);
+  const flags = honorEntries
+    .map((h) => (h.detail ? `${h.title} ${h.detail}` : h.title))
     .slice(0, 4);
+  const mainHonor = honorEntries[0] ?? null;
+  const honors = honorEntries.slice(1, 3);
   const pad = (n: number) => String(Math.max(1, n)).padStart(3, "0");
   const technique = profile.signatureMove?.trim() || profile.playStyle?.trim() || "未设定绝技";
   return {
@@ -2511,6 +2535,10 @@ export function buildSportsCardModel(
     rowsLeft,
     rowsRight,
     flags,
+    mainHonor,
+    honors,
+    memberNo: opts.memberNo ?? formatMemberNo(0),
+    gear: gear.map((g) => ({ label: g.label, value: g.value })),
     record,
     fileStem: `${opts.sportName}档案-${profile.sportKey}`,
   };
