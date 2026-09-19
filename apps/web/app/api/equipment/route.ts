@@ -1,14 +1,9 @@
 import { NextResponse } from "next/server";
+import { EQUIPMENT_CATEGORIES as SHARED_EQUIPMENT_CATEGORIES } from "@learn-workbench/shared";
 import { pgPool } from "@/lib/db";
 
-/** 装备图库的分类（与爬虫产出一致） */
-export const EQUIPMENT_CATEGORIES = [
-  "badminton-racket",
-  "badminton-shoes",
-  "badminton-string",
-  "badminton-shuttle",
-  "badminton-accessory",
-] as const;
+/** 装备图库的分类白名单（唯一事实源在 shared，爬虫与双端选择器共用） */
+export const EQUIPMENT_CATEGORIES = SHARED_EQUIPMENT_CATEGORIES.map((c) => c.key);
 
 export interface EquipmentRow {
   id: number;

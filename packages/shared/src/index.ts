@@ -2612,6 +2612,10 @@ export const EQUIPMENT_CATEGORIES: EquipmentCategoryMeta[] = [
   { key: "badminton-string", label: "拍线", gearLabel: "拍线", sportKey: "badminton" },
   { key: "badminton-shuttle", label: "羽毛球", gearLabel: "比赛用球", sportKey: "badminton" },
   { key: "badminton-accessory", label: "手胶/配件", gearLabel: "手胶", sportKey: "badminton" },
+  { key: "tennis-racket", label: "网球拍", gearLabel: "球拍型号", sportKey: "tennis" },
+  { key: "tennis-shoes", label: "网球鞋", gearLabel: "球鞋类型", sportKey: "tennis" },
+  { key: "tennis-string", label: "网球线", gearLabel: "拍线", sportKey: "tennis" },
+  { key: "tennis-ball", label: "网球", gearLabel: "比赛用球", sportKey: "tennis" },
 ];
 
 export function equipmentCategoriesForSport(sportKey: string): EquipmentCategoryMeta[] {
