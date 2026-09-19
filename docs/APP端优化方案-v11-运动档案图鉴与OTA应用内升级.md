@@ -497,6 +497,21 @@ API：
 **饮食页（参考图 4）**：新增 `components/meal-card-grid.tsx` —— **餐次彩色卡组**（早/午/晚/加餐各一张语义色卡：本餐 kcal + 条数 + 右下角大加号一点即记）+ **近 7 天热量迷你柱**（当天高亮）；为支撑周视图条，日视图的 summary 取数窗口从 1 天放宽到 7 天。
 
 **验证**：mobile typecheck 0 / lint 0 error / **311 测试**；APK v1.14.0（70,316,879 B，sha256 与线上清单一致）；门户/二维码/OTA 三件套同步。
+### 12.10 羽毛球档案字段精简（v1.17.0）
+
+**触发（真机反馈）**：球拍「型号」和「类型」是两个输入行，重复；「磅数」被当成一条装备，界面上给它留了图片框、编辑里还挂了「图库」按钮 —— 磅数只是一组数字，不该配图。用户定调：**个人档案只需要四张图 —— 证件照 / 羽毛球图 / 球鞋图 / 球拍图**，其余都不需要。
+
+| 问题 | 处理 |
+| --- | --- |
+| 球拍型号 + 球拍类型两行 | shared 的 `SPORT_GEAR_TEMPLATES.badminton` 改成 `["球拍", "球鞋", "羽毛球", "拍线"]`（网球同构）；旧数据由 `normalizeSportGear()` 把「球拍型号 + 球拍类型」并成一行「球拍」（值用 ` · ` 拼，图片保留），「球鞋类型」并到「球鞋」 |
+| 磅数占了一条装备行（还配图） | 「磅数」从装备模板移除，只保留图鉴四宫格的**数值输入**（`tensionLbs`）；老档案装备里残留的「磅数」行由 `normalizeSportGear()` 抽出数值落到四宫格，行本身丢弃 |
+| 装备行无差别配图 | 新增 shared 判定 `gearRowWantsImage(label)` —— 只有 **球拍 / 球鞋 / 比赛用球** 三类配图（App 与 Web 同一份规则）；其余（拍线 / 手胶 / 球衣 / 护具 / 位置…）只填文字 |
+| 证件照还是「填链接」 | 编辑表顶部改成**证件照上传行**（缩略图 + 点一下拍照 / 选图），与档案页头图上传同一套 `POST /api/uploads` |
+
+**归一规则**（`packages/shared/src/index.ts`）：`normalizeSportGear(gear)` → `{ gear, tensionLbs }`；`mergeGearWithTemplate(sportKey, gear)` 在其之上按现模板排序补全（新增行即使空白也补上，方便填写），自定义行保留在末尾。App 档案页展示、Web 档案页展示与编辑、**闪光卡卡面**（`buildSportsCardModel`）三处都走同一份归一，所以老档案不用等用户重存也不会出现两个球拍块。
+
+**验证**：web typecheck 0 / mobile typecheck 0 / lint 0 error；**web 1125 测试**、**mobile 312 测试**；APK v1.17.0（versionCode 29）。
+
 
 
 
