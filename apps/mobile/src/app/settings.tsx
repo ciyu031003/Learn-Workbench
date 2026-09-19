@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
 import { useAppStore } from "@/store/app-store";
+import { useUpdateStore } from "@/store/update-store";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { getApiUrl } from "@/config";
@@ -13,7 +14,6 @@ import {
   DOWNLOAD_PAGE_URL,
   ICP_VERIFY_URL,
   PRIVACY_POLICY_URL,
-  checkForUpdate,
   clearPendingUpdate,
   readPendingUpdate,
   silentCheckForUpdate,
@@ -129,54 +129,29 @@ export default function SettingsScreen() {
 
   const checkUpdate = async () => {
     setUpdateState("checking");
-    try {
-      const result = await checkForUpdate();
-      if (!result.hasUpdate) {
-        setUpdateState("latest");
-        await clearPendingUpdate();
-        // 永远留一条「去下载页」：万一客户端缓存/服务端策略出问题，用户仍能自救
-        Alert.alert("已是最新版本", `当前版本：苦旅 v${APP_VERSION_NAME}`, [
-          { text: "知道了", style: "cancel" },
-          { text: "打开下载页", onPress: () => void Linking.openURL(DOWNLOAD_PAGE_URL).catch(() => {}) },
-        ]);
-        return;
-      }
+    // v11：检查与升级都走 update-store（发现新版本会直接弹出「应用内升级」弹层，不跳浏览器）
+    const outcome = await useUpdateStore.getState().check({ silent: false });
+    if (outcome === "available") {
       setUpdateState("update");
-      const notes =
-        result.releaseNotes && result.releaseNotes.length > 0
-          ? `\n\n${result.releaseNotes.join("\n")}`
-          : "";
-      Alert.alert("发现新版本", `苦旅 v${result.latestVersionName} 可下载${notes}`, [
-        {
-          text: "稍后",
-          style: "cancel",
-          onPress: () => {
-            void clearPendingUpdate();
-            setUpdateState("idle");
-          },
-        },
-        {
-          text: "去下载页",
-          onPress: () => void Linking.openURL(DOWNLOAD_PAGE_URL).catch(() => {}),
-        },
-        {
-          text: "立即更新",
-          onPress: () => {
-            if (!result.apkUrl) return;
-            Linking.openURL(result.apkUrl).catch(() => {
-              Alert.alert("无法打开下载链接", "请前往 learn.yuanabd.cn/download.html 手动下载");
-            });
-          },
-        },
-      ]);
-    } catch {
-      setUpdateState("failed");
-      Alert.alert("检查更新失败", "请确认网络可用，或前往 learn.yuanabd.cn/download.html 手动下载", [
+      return;
+    }
+    if (outcome === "latest") {
+      setUpdateState("latest");
+      await clearPendingUpdate();
+      // 永远留一条「去下载页」：万一客户端缓存/服务端策略出问题，用户仍能自救
+      Alert.alert("已是最新版本", `当前版本：苦旅 v${APP_VERSION_NAME}`, [
         { text: "知道了", style: "cancel" },
         { text: "打开下载页", onPress: () => void Linking.openURL(DOWNLOAD_PAGE_URL).catch(() => {}) },
       ]);
+      return;
     }
+    setUpdateState("failed");
+    Alert.alert("检查更新失败", "请确认网络可用，或前往 learn.yuanabd.cn/download.html 手动下载", [
+      { text: "知道了", style: "cancel" },
+      { text: "打开下载页", onPress: () => void Linking.openURL(DOWNLOAD_PAGE_URL).catch(() => {}) },
+    ]);
   };
+
 
   const switchCareer = async (key: string) => {
     setCareer(key);

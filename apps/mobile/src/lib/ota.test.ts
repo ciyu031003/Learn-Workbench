@@ -71,4 +71,23 @@ describe("ota", () => {
     expect(current.hasUpdate).toBe(false);
     expect(current.apkUrl).toBeUndefined();
   });
+
+  it("解析并校验 sizeBytes / sha256（非法 sha256 丢弃、大小写归一）", async () => {
+    mockOk({ ...manifest, sizeBytes: 70019264, sha256: "A".repeat(64) });
+    const parsed = await fetchOtaManifest("https://learn.yuanabd.cn");
+    expect(parsed.sizeBytes).toBe(70019264);
+    expect(parsed.sha256).toBe("a".repeat(64));
+
+    mockOk({ ...manifest, sizeBytes: 0, sha256: "not-a-hash" });
+    const bad = await fetchOtaManifest("https://learn.yuanabd.cn");
+    expect(bad.sizeBytes).toBeUndefined();
+    expect(bad.sha256).toBeUndefined();
+  });
+
+  it("有更新时把 sizeBytes/sha256 一起带出（应用内升级校验用）", async () => {
+    mockOk({ ...manifest, versionCode: APP_VERSION_CODE + 1, versionName: "1.10.0", sizeBytes: 70019264, sha256: "b".repeat(64) });
+    const result = await checkForUpdate("https://learn.yuanabd.cn");
+    expect(result.sizeBytes).toBe(70019264);
+    expect(result.sha256).toBe("b".repeat(64));
+  });
 });

@@ -17,6 +17,8 @@ import { resolveEdgeSwipeEnabled } from "@/lib/edge-swipe";
 import type { ThemeColors } from "@/theme/tokens";
 import { startSyncEngine } from "@/lib/sync-engine";
 import { silentCheckForUpdate } from "@/lib/ota";
+import { useUpdateStore } from "@/store/update-store";
+import { UpdateSheet } from "@/components/update-sheet";
 import { secureToken } from "@/lib/secure-token";
 import { useAppStore } from "@/store/app-store";
 import { migrateLegacySports } from "@/store/sport-legacy";
@@ -155,8 +157,14 @@ export default function RootLayout() {
       stopSync = startSyncEngine();
       // 旧运动记录一次性并入 app-store（入同步队列）
       void migrateLegacySports();
-      // OTA 静默检查：有新版本时只落盘标记，「我的」页展示（不弹窗、不打断启动）
-      void silentCheckForUpdate();
+      // OTA 静默检查：落盘标记（「我的」页展示「发现新版本」）
+      // v11 起：有新版本时弹「应用内升级」弹层（不跳浏览器）；延后 1.5s，避开首屏动画
+      void silentCheckForUpdate().then((pending) => {
+        if (!pending || cancelled) return;
+        setTimeout(() => {
+          if (!cancelled) useUpdateStore.getState().promptFromPending(pending);
+        }, 1500);
+      });
     });
     return () => {
       cancelled = true;
@@ -288,6 +296,8 @@ function ThemedShell() {
         <Tabs.Screen name="account-security" options={{ href: null }} />
         <Tabs.Screen name="domain-manager" options={{ href: null }} />
         <Tabs.Screen name="trackers" options={{ href: null }} />
+        {/* 运动档案（v10 新增页面）：必须显式 href:null，否则会变成第 6 个 Tab */}
+        <Tabs.Screen name="sports-card" options={{ href: null }} />
         <Tabs.Screen name="habits" options={{ href: null }} />
         <Tabs.Screen name="workout" options={{ href: null }} />
         <Tabs.Screen name="nutrition" options={{ href: null }} />
@@ -296,6 +306,7 @@ function ThemedShell() {
         <Tabs.Screen name="+not-found" options={{ href: null }} />
       </Tabs>
       <SwipeNavigator />
+      <UpdateSheet />
     </DailyBackground>
   );
 }
