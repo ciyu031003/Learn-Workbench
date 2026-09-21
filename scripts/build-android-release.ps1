@@ -1,4 +1,4 @@
-﻿# =============================================================================
+# =============================================================================
 # 一键构建 Android Release APK（把踩坑点 23 的隐性知识固化成脚本）
 #
 #   pwsh scripts/build-android-release.ps1 -VersionName 1.3.0 -VersionCode 9
@@ -220,6 +220,12 @@ Set-Content -Path $patchFile -Value $nativePatch -Encoding UTF8
 $r8Flag = if ($EnableR8) { "true" } else { "false" }
 & node $patchFile $android "#FDF8EF" "#171209" $r8Flag
 if ($LASTEXITCODE -ne 0) { Fail "原生清单/资源修补失败" }
+
+# 3.6) 手写原生代码（apps/mobile/native/**）：android/ 不进 git，prebuild 会重建它，
+# 所以自写的 Kotlin（专注计时前台服务 + 圆环通知）也要在这里幂等落回工程。
+Info "应用手写原生代码（专注计时前台服务 / 圆环通知）"
+& node (Join-Path $root "scripts\apply-android-native.mjs")
+if ($LASTEXITCODE -ne 0) { Fail "手写原生代码应用失败（scripts/apply-android-native.mjs）" }
 
 # 修补后断言（防止某次 prebuild 后静默回退）
 $manifest = Get-Content (Join-Path $android "app\src\main\AndroidManifest.xml") -Raw
