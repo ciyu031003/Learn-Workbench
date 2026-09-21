@@ -89,3 +89,13 @@ v6 P1-3 的食物营养库支持从公开数据源导入（`scripts/import_food_
 2. 新增运行时依赖（尤其是 GPL / AGPL / SSPL 类）；
 3. 使用外部数据集（职位数据、运动数据、食材营养库等）；
 4. 引入字体文件（本仓库当前仅使用系统字体栈，无外部字体 CDN）。
+---
+
+## 5. 外部 UI 元素参考（只借技法，不复制源码）
+
+| 来源 | 许可 | 用途 | 引入阶段 |
+|---|---|---|---|
+| [Uiverse.io](https://uiverse.io/) / 归档仓 [uiverse-io/galaxy](https://github.com/uiverse-io/galaxy) | MIT（README 明确 "available under the MIT License"） | 交互技法参考：骨架扫光、conic 进度环、按钮按压/长按确认、浮动标签输入、上传卡、勾选描边动画、日夜开关、成就卡、Toast 倒计时条、几何底纹 | v13（2026-09-21 方案，待确认后动工） |
+
+- 逐条作者与落点：`docs/第三方UI来源与署名.md`；改造项与批次：`docs/Web与移动端优化方案-v13-Uiverse参考.md`。
+- 约定：**不整段拷贝元素源码**；只用其技法（缓动曲线、遮罩/描边画法、构图），颜色/圆角/字体一律走本项目 token；对应代码注释保留 `// 技法参考: uiverse.io/<作者>/<元素> (MIT)`。

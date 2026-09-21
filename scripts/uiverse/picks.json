@@ -1,0 +1,147 @@
+{
+  "sheets": [
+    {
+      "name": "picks-1-loading",
+      "title": "① 骨架屏 / 加载 / 进度环",
+      "note": "落点：Web 全局 Skeleton 组件、移动端骨架屏、计时与健康进度环",
+      "items": [
+        [
+          "Cards",
+          "zanina-yassine_dangerous-pug-69"
+        ],
+        [
+          "loaders",
+          "VashonG_jolly-yak-23"
+        ],
+        [
+          "loaders",
+          "Nawsome_kind-mole-87"
+        ],
+        [
+          "loaders",
+          "Praashoo7_stale-bat-2"
+        ]
+      ]
+    },
+    {
+      "name": "picks-2-buttons",
+      "title": "② 按钮与按压反馈",
+      "note": "落点：components/ui/button.tsx 新增 pressed/loading/长按 三种态",
+      "items": [
+        [
+          "Buttons",
+          "seyed-mohsen-mousavi_bitter-snail-5"
+        ],
+        [
+          "Buttons",
+          "alessandrodesign_empty-rabbit-96"
+        ],
+        [
+          "Buttons",
+          "Sameer2244_friendly-wasp-57"
+        ],
+        [
+          "Buttons",
+          "elijahgummer_friendly-wasp-61"
+        ],
+        [
+          "Buttons",
+          "ShadowShahriar_nervous-goat-3"
+        ],
+        [
+          "Buttons",
+          "MuhammadHasann_tough-tiger-78"
+        ]
+      ]
+    },
+    {
+      "name": "picks-3-forms",
+      "title": "③ 输入 / 搜索 / 上传",
+      "note": "落点：简历与档案上传、招花筛选、设置表单",
+      "items": [
+        [
+          "Inputs",
+          "PhanDangKhoa96_swift-warthog-78"
+        ],
+        [
+          "Inputs",
+          "OnlyCodeChannel_ugly-penguin-43"
+        ],
+        [
+          "Inputs",
+          "Li-Deheng_tiny-chicken-50"
+        ],
+        [
+          "Forms",
+          "Jerome-W-90_shy-jellyfish-2"
+        ],
+        [
+          "Forms",
+          "sameer2malik_serious-duck-16"
+        ],
+        [
+          "Forms",
+          "zanina-yassine_yellow-jellyfish-91"
+        ]
+      ]
+    },
+    {
+      "name": "picks-4-cards",
+      "title": "④ 卡片质感：清单 / 开关 / 图鉴 / 成就",
+      "note": "落点：每日任务清单、设置主题开关、装备图鉴卡、证书与里程碑",
+      "items": [
+        [
+          "Checkboxes",
+          "JkHuger_warm-panther-74"
+        ],
+        [
+          "Toggle-switches",
+          "JkHuger_itchy-turtle-45"
+        ],
+        [
+          "Cards",
+          "Smit-Prajapati_funny-sloth-75"
+        ],
+        [
+          "Cards",
+          "sohoning_ugly-horse-87"
+        ],
+        [
+          "Cards",
+          "roroland_heavy-horse-27"
+        ],
+        [
+          "Cards",
+          "david-mohseni_young-frog-89"
+        ],
+        [
+          "Cards",
+          "VashonG_happy-insect-24"
+        ]
+      ]
+    },
+    {
+      "name": "picks-5-toast-pattern",
+      "title": "⑤ 通知 / 底纹",
+      "note": "落点：全局 toaster、空状态与 hero 底纹（低透明度）",
+      "items": [
+        [
+          "Notifications",
+          "Yaya12085_smooth-seahorse-63"
+        ],
+        [
+          "Notifications",
+          "WittyHydra_nervous-zebra-0"
+        ],
+        [
+          "Patterns",
+          "csemszepp_old-hound-37"
+        ],
+        [
+          "Patterns",
+          "csemszepp_kind-frog-70"
+        ]
+      ]
+    }
+  ]
+}
