@@ -58,6 +58,7 @@ export function ProgressArc({
   overBudget = false,
   beatOnChange = false,
   showDot = true,
+  pulseKey,
 }: {
   /** 0..1 */
   progress: number;
@@ -79,6 +80,11 @@ export function ProgressArc({
   beatOnChange?: boolean;
   /** 端点圆点与微光（小尺寸微环建议关） */
   showDot?: boolean;
+  /**
+   * 外部「点一下给个反馈」的键（如切换日期）：
+   * 即使进度值没变，也会让弧线跳动一次 —— 旧版切「今天/昨天」只有数字变化，圆环毫无反馈。
+   */
+  pulseKey?: string | number;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -108,26 +114,32 @@ export function ProgressArc({
     offset.value = withTiming(targetOffset, { duration: 420, easing: Easing.out(Easing.cubic) });
   }, [offset, reduce, targetOffset]);
 
-  // 数值变化 → 跳动一次（首次挂载不跳）
+  /**
+   * 跳动一次：**数值变化** 或 **外部 pulseKey 变化**（切日期这类"点一下"）都会触发，
+   * 首次挂载不跳（避免进页面就闪）。
+   * 合成一个 effect：react-hooks/immutability 不允许在两个 effect 里都改同一个 shared value。
+   */
+  const pulseSeen = useRef<typeof pulseKey>(undefined);
   useEffect(() => {
-    if (!seenRef.current) {
-      seenRef.current = true;
-      prevRef.current = targetOffset;
-      return;
-    }
-    if (!beatOnChange || reduce || Math.abs(prevRef.current - targetOffset) < 0.5) {
-      prevRef.current = targetOffset;
-      return;
-    }
+    const pulseChanged = pulseKey !== undefined && pulseSeen.current !== undefined && pulseSeen.current !== pulseKey;
+    pulseSeen.current = pulseKey;
+
+    const firstPaint = !seenRef.current;
+    const valueChanged = !firstPaint && Math.abs(prevRef.current - targetOffset) >= 0.5;
+    seenRef.current = true;
     prevRef.current = targetOffset;
+
+    if (firstPaint || reduce || !ARC_ANIMATION_ENABLED) return;
+    if (!pulseChanged && !(beatOnChange && valueChanged)) return;
+    const strong = pulseChanged && !valueChanged;
     beat.value = withSequence(
-      withTiming(1.35, { duration: 100, easing: Easing.out(Easing.quad) }),
-      withTiming(1, { duration: 300, easing: Easing.out(Easing.cubic) })
+      withTiming(strong ? 1.28 : 1.35, { duration: strong ? 110 : 100, easing: Easing.out(Easing.quad) }),
+      withTiming(1, { duration: strong ? 320 : 300, easing: Easing.out(Easing.cubic) })
     );
-  }, [beat, beatOnChange, reduce, targetOffset]);
+  }, [beat, beatOnChange, pulseKey, reduce, targetOffset]);
 
   const animatedProps = useAnimatedProps(() =>
-    beatOnChange && ARC_ANIMATION_ENABLED
+    ARC_ANIMATION_ENABLED
       ? { strokeDashoffset: offset.value, strokeWidth: strokeWidth * beat.value }
       : { strokeDashoffset: offset.value }
   );

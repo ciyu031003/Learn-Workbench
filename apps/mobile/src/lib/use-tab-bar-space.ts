@@ -1,7 +1,13 @@
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { tabBarSpaceFor } from "@/lib/tab-bar-metrics";
 
-export { TAB_BAR_BREATHING, TAB_BAR_HEIGHT, tabBarSpaceFor } from "@/lib/tab-bar-metrics";
+export {
+  TAB_BAR_BREATHING,
+  TAB_BAR_FLOAT_GAP,
+  TAB_BAR_HEIGHT,
+  tabBarBottomFor,
+  tabBarSpaceFor,
+} from "@/lib/tab-bar-metrics";
 
 /**
  * 可滚动内容底部应留的空白（底栏高 + 安全区 + 呼吸）。

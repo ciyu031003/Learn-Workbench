@@ -28,10 +28,13 @@ export function MealCardGrid({
   cards,
   week,
   onAdd,
+  onPickDay,
 }: {
   cards: MealCardData[];
   week: { key: string; label: string; kcal: number; active?: boolean }[];
   onAdd: (meal: MealKind) => void;
+  /** 点某一天的柱（含空白区域）切到那一天（v12 P0-6：旧版柱子是纯 View，点了没反应） */
+  onPickDay?: (key: string) => void;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -72,7 +75,15 @@ export function MealCardGrid({
           </View>
           <View style={styles.weekRow}>
             {week.map((day) => (
-              <View key={day.key} style={styles.weekCell}>
+              <Pressable
+                key={day.key}
+                onPress={onPickDay ? () => onPickDay(day.key) : undefined}
+                disabled={!onPickDay}
+                hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                accessibilityRole={onPickDay ? "button" : undefined}
+                accessibilityLabel={onPickDay ? `查看 ${day.label} 的饮食记录` : undefined}
+                style={styles.weekCell}
+              >
                 <View style={styles.weekTrack}>
                   <View
                     style={[
@@ -85,7 +96,7 @@ export function MealCardGrid({
                   />
                 </View>
                 <Text style={[styles.weekLabel, day.active && styles.weekLabelActive]}>{day.label}</Text>
-              </View>
+              </Pressable>
             ))}
           </View>
         </View>
@@ -133,7 +144,7 @@ const makeStyles = (colors: ThemeColors) =>
     weekTitle: { ...typography.micro, fontWeight: "700", color: colors.text },
     weekHint: { ...typography.micro, fontWeight: "500", color: colors.textMuted },
     weekRow: { flexDirection: "row", alignItems: "flex-end", gap: 6, height: 64 },
-    weekCell: { flex: 1, alignItems: "center", gap: 4 },
+    weekCell: { flex: 1, alignItems: "center", gap: 4, paddingVertical: 2 },
     weekTrack: {
       flex: 1,
       width: "70%",

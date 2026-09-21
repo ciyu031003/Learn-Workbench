@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { ThemedIcon } from "@/components/themed-icon";
 import { ScreenHeader } from "@/components/screen-header";
@@ -19,7 +19,8 @@ import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { useFocusRefresh } from "@/lib/use-focus-refresh";
 import { useRefreshable } from "@/lib/use-refresh";
-import { addHydration, fetchWeight, type WeightPointDto } from "@/lib/wellbeing-client";
+import { addHydration, fetchHydration, fetchWeight, type HydrationToday, type WeightPointDto } from "@/lib/wellbeing-client";
+import { todayAndYesterday } from "@/lib/nutrition-views";
 import { haptics } from "@/lib/haptics";
 import { getApiUrl } from "@/config";
 
@@ -74,17 +75,37 @@ export default function WellnessScreen() {
   const [weightPoints, setWeightPoints] = useState<WeightPointDto[]>([]);
   const [weekWorkouts, setWeekWorkouts] = useState(0);
   const [weekRows, setWeekRows] = useState<{ entryCount: number; kcal: number }[]>([]);
+  /**
+   * 饮水与饮食改为「与饮食页同源」的两路数据：
+   * - 饮水直接用 /api/wellbeing/hydration（饮食页也是它）；
+   * - 今日摄入用 /api/nutrition/summary 的当天行兜底。
+   * 这样不再只依赖 /api/daily 的聚合结果，避免"饮食页有、健康页没有"（v12 P0-2/P0-3）。
+   */
+  const { today: todayKey } = useMemo(() => todayAndYesterday(), []);
+  const [hydration, setHydration] = useState<HydrationToday | null>(null);
+  const [todayKcal, setTodayKcal] = useState<number | null>(null);
+  /** 聚合接口失败时的显式状态（不再静默显示 0） */
+  const [dailyFailed, setDailyFailed] = useState(false);
+  /** 正在补水的乐观增量（ml） */
+  const [waterDelta, setWaterDelta] = useState(0);
 
   const load = useCallback(async () => {
     const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     try {
-      const [dailyRes, weightRes, workoutRes, summaryRes] = await Promise.all([
+      const [dailyRes, weightRes, workoutRes, summaryRes, hydrationRes] = await Promise.all([
         fetch(getApiUrl() + "/api/daily", { headers }),
         fetchWeight(token, 30).catch(() => null),
         fetch(getApiUrl() + "/api/workouts?days=7", { headers }).catch(() => null),
         fetch(getApiUrl() + "/api/nutrition/summary?days=7", { headers }).catch(() => null),
+        fetchHydration(token).catch(() => null),
       ]);
-      if (dailyRes.ok) setData(await dailyRes.json());
+      if (dailyRes.ok) {
+        setData(await dailyRes.json());
+        setDailyFailed(false);
+      } else {
+        // 401/500 不再静默：页面给「重试」入口，同时保留上一次数据
+        setDailyFailed(true);
+      }
       if (weightRes) setWeightPoints(weightRes.points);
       if (workoutRes && workoutRes.ok) {
         const d = await workoutRes.json();
@@ -92,15 +113,24 @@ export default function WellnessScreen() {
       }
       if (summaryRes && summaryRes.ok) {
         const d = await summaryRes.json();
-        const rows = Object.values((d.summary ?? {}) as Record<string, { entryCount?: number; kcal?: number }>);
+        const map = (d.summary ?? {}) as Record<string, { entryCount?: number; kcal?: number }>;
+        const rows = Object.values(map);
         setWeekRows(rows.map((r) => ({ entryCount: Number(r?.entryCount ?? 0), kcal: Number(r?.kcal ?? 0) })));
+        // 当天有记录就用当天行（与饮食页同源），避免聚合接口滞后导致「健康页没有」
+        const todayRow = map[todayKey];
+        setTodayKcal(todayRow ? Number(todayRow.kcal ?? 0) : null);
+      }
+      if (hydrationRes) {
+        setHydration(hydrationRes);
+        setWaterDelta(0); // 拉回来的即真值，清掉乐观增量
       }
     } catch {
-      // 离线保留上次数据
+      // 离线保留上次数据，但标记失败让页面提示
+      setDailyFailed(true);
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, todayKey]);
 
   useEffect(() => {
     const t = setTimeout(() => void load(), 0);
@@ -128,7 +158,8 @@ export default function WellnessScreen() {
   );
 
   const dietEntries = data?.fitness.nutritionEntries ?? [];
-  const dietKcal = data?.fitness.nutritionKcal ?? 0;
+  // 当天摄入优先取「饮食页同源」的 summary 行，聚合接口滞后时不会显示 0
+  const dietKcal = todayKcal ?? data?.fitness.nutritionKcal ?? 0;
   const dietTarget = data?.fitness.nutritionTargetKcal ?? 2000;
   const dietRemaining = data?.fitness.nutritionRemainingKcal ?? (data ? dietTarget - dietKcal : 0);
   const dietPct = dietTarget > 0 ? Math.min(100, Math.round((dietKcal / dietTarget) * 100)) : 0;
@@ -152,8 +183,9 @@ export default function WellnessScreen() {
   );
   const goalPct = Math.min(100, Math.round(mainGoal.ratio * 100));
 
-  const waterMl = data?.hydration?.totalMl ?? 0;
-  const waterTarget = data?.hydration?.targetMl ?? 2000;
+  // 饮水以 /api/wellbeing/hydration 为准（与饮食页同一数据源），加上乐观增量
+  const waterMl = (hydration?.totalMl ?? data?.hydration?.totalMl ?? 0) + waterDelta;
+  const waterTarget = hydration?.targetMl ?? data?.hydration?.targetMl ?? 2000;
   const waterPct = Math.min(100, Math.round((waterMl / Math.max(1, waterTarget)) * 100));
 
   const recordDays = weekRows.filter((r) => r.entryCount > 0).length;
@@ -165,14 +197,23 @@ export default function WellnessScreen() {
       ? Math.round((latestWeight - weightPoints[0].weightKg) * 10) / 10
       : null;
 
-  /** 就地补水（复用已有 hydration 后端），记完刷新 /api/daily */
+  /**
+   * 就地补水：**先乐观更新**（点一下立刻看到数字与进度条变化），
+   * 再写服务端；失败则回滚并明确提示（旧版静默 catch，用户看到的就是"点了没反应"）。
+   */
   const quickWater = async (ml: number) => {
     haptics.light();
+    setWaterDelta((d) => d + ml); // 乐观
     try {
       await addHydration(token, ml);
-      await load();
-    } catch {
-      // 离线：保持现状，返回健康页时 useFocusRefresh 会再拉一次
+      const fresh = await fetchHydration(token).catch(() => null);
+      if (fresh) {
+        setHydration(fresh);
+        setWaterDelta(0);
+      }
+    } catch (e) {
+      setWaterDelta((d) => Math.max(0, d - ml)); // 回滚
+      Alert.alert("记录饮水失败", e instanceof Error ? e.message : "网络似乎不太顺，稍后再试");
     }
   };
 
@@ -186,6 +227,17 @@ export default function WellnessScreen() {
       }
     >
       <ScreenHeader title="健康" subtitle="训练 · 饮食 · 习惯，照顾好身体才有持续成长" compact />
+
+      {/* 聚合接口失败不再静默：明确提示 + 一键重试（v12 P0-2/P0-3） */}
+      {dailyFailed ? (
+        <PressableScale haptic scaleTo={0.98} style={styles.errorBar} onPress={() => void load()}>
+          <ThemedIcon name="cloud-offline-outline" size={16} color={colors.danger} />
+          <Text style={styles.errorText}>
+            {data ? "刚才的数据没刷新成功，点这里重试" : "健康数据没加载出来，点这里重试"}
+          </Text>
+          <ThemedIcon name="refresh" size={16} color={colors.danger} />
+        </PressableScale>
+      ) : null}
 
       {/* ① 今日状态：进度弧 + 四项分解 + 本周概览 */}
       {loading && !data ? (
@@ -462,6 +514,18 @@ const makeStyles = (colors: ThemeColors) =>
     scroll: { flex: 1, backgroundColor: "transparent" },
     content: { paddingHorizontal: spacing.lg, gap: spacing.md },
     /* ① 今日状态 */
+    errorBar: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.danger,
+      backgroundColor: colors.dangerSoft,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+    },
+    errorText: { flex: 1, fontSize: 12, fontWeight: "600", color: colors.danger },
     hero: { gap: spacing.md, paddingVertical: spacing.lg },
     heroTop: { flexDirection: "row", alignItems: "center", gap: spacing.lg },
     heroStats: { flex: 1, minWidth: 0, gap: spacing.sm },

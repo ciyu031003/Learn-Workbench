@@ -29,7 +29,6 @@ import { mainPhases, agentPhase } from "@learn-workbench/content";
 import { pct, formatDuration, taskTypeLabels, todayISO } from "@learn-workbench/shared";
 import { FocusTimer } from "@/components/focus-timer";
 import { QuickStartSheet, type QuickStartChoice } from "@/components/quick-start-sheet";
-import { TodayStack } from "@/components/today-stack";
 import { DailyOsSummary } from "@/components/daily-os-summary";
 import { Card } from "@/components/card";
 import { SectionHeader } from "@/components/section-header";
@@ -289,7 +288,6 @@ export default function TodayScreen() {
   const [sportSheetOpen, setSportSheetOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [celebrate, setCelebrate] = useState(false);
-  const [stackGestureActive, setStackGestureActive] = useState(false);
   /** v4 P2：一键开始（弹层选学习/运动/正向计时 → 选完立即进入计时） */
   const [quickOpen, setQuickOpen] = useState(false);
   const [timerAuto, setTimerAuto] = useState<QuickStartChoice | null>(null);
@@ -385,7 +383,7 @@ export default function TodayScreen() {
         onScroll={heroScroll}
         scrollEventThrottle={16}
         style={styles.scroll}
-        scrollEnabled={!stackGestureActive}
+        scrollEnabled
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 14, paddingBottom: tabBarSpace }]}
         showsVerticalScrollIndicator={false}
       >
@@ -421,8 +419,6 @@ export default function TodayScreen() {
 
         {/* 我的一天：完成度 + 剩余领域入口（学习/运动已并入上面的「一键开始」，不再重复） */}
         <DailyOsSummary />
-
-        <TodayStack onStartFocus={() => setFocusOpen(true)} onGestureActive={setStackGestureActive} />
 
         <View style={styles.sectionTitleRow}>
           <Text style={styles.sectionTitle}>运动 · 健康</Text>

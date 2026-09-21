@@ -931,6 +931,7 @@ export default function NutritionScreen() {
           setMeal(nextMeal);
           setSheetOpen(true);
         }}
+        onPickDay={(key) => setDate(key)}
       />
 
       {/* v4 P4-a：日 / 周 / 月 视图切换（圆角胶囊分段控件，参考「吃一点」顶部那条） */}
@@ -1169,6 +1170,7 @@ export default function NutritionScreen() {
           strokeWidth={12}
           overBudget={overBudget}
           beatOnChange
+          pulseKey={date}
           value={`${Math.round(ringProgress * 100)}%`}
           label="已完成"
         />

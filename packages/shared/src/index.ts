@@ -2440,12 +2440,16 @@ export function gearKindFromLabel(label: string): SportGearKind {
 }
 
 /**
- * 档案里只有三类装备配图（外加证件照）：球拍 / 球鞋 / 比赛用球。
- * 其余装备行（拍线、手胶、球衣、护具、位置…）只填文字 —— 磅数这类纯数值更不该配图。
+ * 档案里配图的装备行：**球拍 / 球鞋 / 拍线 / 比赛用球**（外加证件照）。
+ * 布局：头像横屏 → 球拍横屏 → 一行两列（球鞋｜拍线）。
+ * 其余装备行（手胶、球衣、护具、位置…）只填文字 —— 磅数这类纯数值更不该配图。
  */
 export function gearRowWantsImage(label: string): boolean {
-  const kind = gearKindFromLabel(label);
-  return kind === "racket" || kind === "shoes" || kind === "ball";
+  const text = String(label ?? "");
+  // 磅数是纯数值（图鉴四宫格里的输入框），**永远不配图** —— 它只是"看起来像拍线"的关键词
+  if (/磅/.test(text)) return false;
+  const kind = gearKindFromLabel(text);
+  return kind === "racket" || kind === "shoes" || kind === "string" || kind === "ball";
 }
 
 /** 旧模板标签 → 现模板标签（v11.1 合并球拍型号 / 球拍类型，「球鞋类型」归并到「球鞋」） */

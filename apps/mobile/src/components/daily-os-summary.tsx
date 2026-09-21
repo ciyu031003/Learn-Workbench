@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { ThemedIcon } from "@/components/themed-icon";
 import { Card } from "@/components/card";
+import { SkeletonCard } from "@/components/skeleton";
 import { PressableScale } from "@/components/pressable-scale";
 import { GlassSurface } from "@/components/surface";
 import { ProgressArc } from "@/components/progress-arc";
@@ -55,14 +56,26 @@ export function DailyOsSummary({ onNavigate }: { onNavigate?: (href: string) => 
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const token = useAppStore((s) => s.token);
   const [data, setData] = useState<DailyOs | null>(null);
+  /**
+   * 三态：loading（首屏骨架）/ ok / error（显式失败 + 重试）。
+   * 旧版在失败/为空时直接 `return null`，首页整块（含习惯入口）会**静默消失** —— 这就是
+   * "上午还在、下午打开就没了" 的根因（v12 P0-1）。
+   */
+  const [status, setStatus] = useState<"loading" | "ok" | "error">("loading");
 
   const load = useCallback(async () => {
     try {
       const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
       const r = await fetch(getApiUrl() + "/api/daily", { headers });
-      if (r.ok) setData(await r.json());
+      if (r.ok) {
+        setData(await r.json());
+        setStatus("ok");
+      } else {
+        setStatus("error");
+      }
     } catch {
-      // 离线：保留上一次数据，不阻塞首页
+      // 离线：保留上一次数据，但标记失败，页面给出「重试」
+      setStatus("error");
     }
   }, [token]);
 
@@ -106,8 +119,33 @@ export function DailyOsSummary({ onNavigate }: { onNavigate?: (href: string) => 
     ];
   }, [data]);
 
-  // 首次加载尚无数据时不占位（首页其余卡片已在渲染，避免骨架闪烁）
-  if (!data) return null;
+  // 首屏：给骨架而不是空（旧版这里是 `return null`）
+  if (!data && status === "loading") {
+    return (
+      <View style={styles.wrap}>
+        <SkeletonCard count={1} />
+      </View>
+    );
+  }
+
+  // 加载失败且没有任何可展示的数据：占位 + 重试，绝不让整块消失
+  if (!data) {
+    return (
+      <View style={styles.wrap}>
+        <Card style={styles.errorCard}>
+          <View style={styles.errorRow}>
+            <ThemedIcon name="cloud-offline-outline" size={20} color={colors.danger} />
+            <Text style={styles.errorTitle}>今天的数据没加载出来</Text>
+          </View>
+          <Text style={styles.muted}>点下面重试；如果一直失败，多半是网络或登录状态的问题。</Text>
+          <PressableScale haptic scaleTo={0.97} style={styles.retryBtn} onPress={() => { setStatus("loading"); void load(); }}>
+            <ThemedIcon name="refresh" size={16} color={colors.canvas} />
+            <Text style={styles.retryText}>重试</Text>
+          </PressableScale>
+        </Card>
+      </View>
+    );
+  }
 
   const entries = data.fitness.nutritionEntries ?? [];
   const pct = Math.max(0, Math.min(100, data.progress));
@@ -123,6 +161,13 @@ export function DailyOsSummary({ onNavigate }: { onNavigate?: (href: string) => 
 
   return (
     <View style={styles.wrap}>
+      {status === "error" ? (
+        <PressableScale haptic scaleTo={0.98} style={styles.staleBar} onPress={() => void load()}>
+          <ThemedIcon name="cloud-offline-outline" size={15} color={colors.danger} />
+          <Text style={styles.staleText}>这次没刷新成功，显示的是上次数据 · 点这里重试</Text>
+        </PressableScale>
+      ) : null}
+
       {/* ① 今日完成度 hero：进度弧（替代横条）+ 关键指标（每屏唯一 hero，玻璃只做层级） */}
       <GlassSurface corner={radius.xl} style={styles.hero}>
         <ProgressArc
@@ -214,6 +259,34 @@ export function DailyOsSummary({ onNavigate }: { onNavigate?: (href: string) => 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     wrap: { gap: spacing.md },
+    // 失败态：显式占位 + 重试（不再 return null 让整块消失）
+    errorCard: { gap: spacing.sm, borderColor: colors.danger, borderWidth: 1 },
+    errorRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+    errorTitle: { ...typography.callout, fontWeight: "800", color: colors.text },
+    retryBtn: {
+      alignSelf: "flex-start",
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      backgroundColor: colors.danger,
+      borderRadius: radius.pill,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      marginTop: 2,
+    },
+    retryText: { ...typography.micro, fontWeight: "800", color: colors.canvas },
+    staleBar: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.danger,
+      backgroundColor: colors.dangerSoft,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+    },
+    staleText: { flex: 1, ...typography.micro, fontWeight: "600", color: colors.danger },
     hero: {
       flexDirection: "row",
       alignItems: "center",

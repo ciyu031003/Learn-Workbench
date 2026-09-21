@@ -53,13 +53,13 @@ describe("sportGearTemplate", () => {
 });
 
 describe("gearRowWantsImage", () => {
-  it("只有球拍 / 球鞋 / 比赛用球配图", () => {
+  it("球拍 / 球鞋 / 拍线 / 比赛用球配图（v12：拍线也配图）", () => {
     expect(gearRowWantsImage("球拍")).toBe(true);
     expect(gearRowWantsImage("球鞋")).toBe(true);
+    expect(gearRowWantsImage("拍线")).toBe(true);
     expect(gearRowWantsImage("羽毛球")).toBe(true);
     expect(gearRowWantsImage("网球")).toBe(true);
     expect(gearRowWantsImage("比赛用球")).toBe(true);
-    expect(gearRowWantsImage("拍线")).toBe(false);
     expect(gearRowWantsImage("手胶")).toBe(false);
     expect(gearRowWantsImage("磅数")).toBe(false);
     expect(gearRowWantsImage("球衣")).toBe(false);

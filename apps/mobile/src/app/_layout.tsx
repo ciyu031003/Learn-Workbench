@@ -1,8 +1,15 @@
 import { useEffect , useMemo } from "react";
 import { Tabs, router, usePathname } from "expo-router";
-import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
-import { InteractionManager, Platform, Pressable, StyleSheet, View, type OpaqueColorValue } from "react-native";
+import {
+  InteractionManager,
+  Platform,
+  Pressable,
+  StatusBar as RNStatusBar,
+  StyleSheet,
+  View,
+  type OpaqueColorValue,
+} from "react-native";
 import * as ScreenOrientation from "expo-screen-orientation";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
@@ -45,39 +52,30 @@ function TabIcon({
   );
 }
 
-function FlatTabButton({ children, onPress, accessibilityState, style }: any) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
-  const focused = !!accessibilityState?.selected;
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityState={accessibilityState}
-      android_ripple={{ color: "transparent" }}
-      style={[styles.tabButton, style]}
-    >
-      {children}
-      {/* 激活项短下划线（参考图：通栏扁平 + 品牌色短横线） */}
-      <View style={[styles.tabUnderline, focused && styles.tabUnderlineActive]} />
-    </Pressable>
-  );
-}
-
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
   root: { flex: 1 },
   tabIcon: { width: 42, height: 30, alignItems: "center", justifyContent: "center" },
-  tabButton: { flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 8, paddingBottom: 10 },
-  tabUnderline: {
+  // 状态栏兜底底色：绝对定位贴顶，不参与布局（v12 P0-5）
+  statusBarFill: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 1 },
+  // 悬空玻璃底栏的底：半透明 + 高光描边 + 柔和投影（浅色亮玻璃 / 深色暗玻璃）
+  tabBarGlass: {
     position: "absolute",
-    bottom: 2,
-    width: 18,
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: "transparent",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    borderRadius: TAB_BAR_HEIGHT / 2,
+    // 画布色的高不透明度半透明：既透出后面的内容，又保证图标/文字可读
+    backgroundColor: colors.canvas.length === 7 ? colors.canvas + "E0" : colors.canvas,
+    borderWidth: StyleSheet.hairlineWidth * 2,
+    borderColor: colors.borderStrong,
+    shadowColor: "#000",
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
   },
-  tabUnderlineActive: { backgroundColor: colors.primary },
 });
 
 /**
@@ -209,7 +207,20 @@ function ThemedShell() {
   const insets = useSafeAreaInsets();
   return (
     <DailyBackground>
-      <StatusBar style={dark ? "light" : "dark"} />
+      {/*
+        状态栏：底色必须跟随**App 内主题**，不能只靠 Android 主题里的 @color/app_bar_color
+        —— 它是 DayNight 资源，会跟随**系统**深色模式；系统深色 + App 浅色时就会出现
+        "浅色页面顶上一条黑带"（v12 P0-5）。这里运行时指定底色 + 非透明。
+      */}
+      {/* RN 核心的 StatusBar：expo-status-bar 在 SDK 57 已去掉 backgroundColor/translucent，
+          而这两项正是「状态栏底色跟随 App 主题」的关键（本项目主题里 opt-out 了边到边） */}
+      <RNStatusBar
+        backgroundColor={colors.canvas}
+        barStyle={dark ? "light-content" : "dark-content"}
+        translucent={false}
+      />
+      {/* 兜底：即使系统忽略上面的底色（部分 ROM / 边到边），也用主题色铺一条状态栏高度的底 */}
+      <View pointerEvents="none" style={[styles.statusBarFill, { height: insets.top, backgroundColor: colors.canvas }]} />
       <Tabs
         screenOptions={{
           headerShown: false,
@@ -217,27 +228,35 @@ function ThemedShell() {
           tabBarInactiveTintColor: colors.textMuted,
           tabBarActiveBackgroundColor: "transparent",
           tabBarInactiveBackgroundColor: "transparent",
-          tabBarButton: FlatTabButton,
-          // 通栏扁平底栏（用户参考图）：实底、无圆角、无阴影、顶部 hairline 分隔
-          // 注意：底栏有文字，玻璃会削弱可读性 —— 底栏不走玻璃（决策 D10）
+          /**
+           * 悬空玻璃底栏（v12 P1-1，参考用户给的两张图）：
+           * 浮动圆角胶囊 + 半透明毛玻璃底 + 选中项胶囊高亮。刻意**不做低端机降级**（按用户要求）。
+           * 说明：Android 没有系统级液态玻璃，这里用「半透明底 + 高光描边 + 柔和投影」做出玻璃质感。
+           */
           tabBarStyle: {
             position: "absolute",
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: TAB_BAR_HEIGHT + insets.bottom,
-            paddingBottom: insets.bottom,
+            left: 18,
+            right: 18,
+            bottom: insets.bottom + 6,
+            height: TAB_BAR_HEIGHT,
+            borderRadius: TAB_BAR_HEIGHT / 2,
+            paddingHorizontal: 6,
+            paddingBottom: 0,
             paddingTop: 0,
-            backgroundColor: colors.surfaceStrong,
-            borderTopWidth: StyleSheet.hairlineWidth,
-            borderTopColor: colors.border,
+            backgroundColor: "transparent",
+            borderTopWidth: 0,
             borderWidth: 0,
-            borderRadius: 0,
             elevation: 0,
             shadowOpacity: 0,
           },
-          tabBarLabelStyle: { fontSize: 10, fontWeight: "600", letterSpacing: 0.2 },
-          tabBarItemStyle: { paddingVertical: 0 },
+          tabBarBackground: () => <View style={styles.tabBarGlass} pointerEvents="none" />,
+          tabBarLabelStyle: { fontSize: 10, fontWeight: "700", letterSpacing: 0.2, marginTop: 1 },
+          tabBarItemStyle: {
+            marginVertical: 7,
+            marginHorizontal: 2,
+            borderRadius: 999,
+            paddingVertical: 4,
+          },
           sceneStyle: { backgroundColor: "transparent" },
         }}
       >

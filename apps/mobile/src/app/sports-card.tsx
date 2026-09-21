@@ -57,7 +57,7 @@ import {
   type SportsProfileDraft,
 } from "@/lib/sports-client";
 import { getApiUrl } from "@/config";
-import { TAB_BAR_HEIGHT } from "@/lib/use-tab-bar-space";
+import { tabBarBottomFor } from "@/lib/use-tab-bar-space";
 import { useAppStore } from "@/store/app-store";
 import { radius } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
@@ -93,6 +93,13 @@ export default function SportsCardScreen() {
   const [saving, setSaving] = useState(false);
   /** 正在从图库选装备的装备行下标（null = 未打开） */
   const [pickerIndex, setPickerIndex] = useState<number | null>(null);
+  /**
+   * 点图片后的选择弹层（v12 P0-9）：不再直接跳相册，而是让用户选
+   * 「本地相册 / 图库里的图 / 删除」。
+   */
+  const [imgSheet, setImgSheet] = useState<{ kind: "hero" } | { kind: "gear"; label: string } | null>(null);
+  /** 档案页里的图库选择（点某一行装备图 → 从图库选） */
+  const [archivePickerLabel, setArchivePickerLabel] = useState<string | null>(null);
 
   // 闪光卡全屏弹层
   const [cardOpen, setCardOpen] = useState(false);
@@ -169,10 +176,21 @@ export default function SportsCardScreen() {
   const heroUri = absoluteMediaUrl(current?.photoUrl);
   /** 公开成绩（荣誉墙） */
   const honors = current?.highlights ?? [];
+  /** 当前弹层对应的那一行是否已有图片（决定要不要给「删除」） */
+  const hasCurrentImage =
+    imgSheet?.kind === "hero"
+      ? Boolean(heroUri)
+      : imgSheet?.kind === "gear"
+        ? Boolean(gearRows.find((g) => g.label === imgSheet.label)?.imageUrl)
+        : false;
 
+  /**
+   * 返回：固定回「健康」。
+   * /sports-card 是隐藏 tab（href: null），在这类路由上 router.back() 会退回**上一个访问过的 tab**
+   * （通常是「今日」），而档案只有「健康」一个入口 —— 所以这里不能依赖历史栈（v12 P0-4）。
+   */
   const goBack = () => {
-    if (router.canGoBack()) router.back();
-    else router.replace("/wellness" as never);
+    router.replace("/wellness" as never);
   };
 
   const openCard = () => {
@@ -320,6 +338,53 @@ export default function SportsCardScreen() {
     }
   };
 
+  /** 图库里选中某款 → 回填型号 + 商品图（并关掉两个弹层） */
+  const applyArchiveEquipment = async (item: EquipmentItem) => {
+    const label = archivePickerLabel;
+    if (!current || !label) return;
+    const target = current;
+    const nextGear = gearRows.map((g) => (g.label === label ? { ...g, value: item.model, imageUrl: item.imageUrl } : g));
+    setArchivePickerLabel(null);
+    setImgSheet(null);
+    try {
+      await patchSportsProfile(target.id, { gear: nextGear });
+      await load();
+    } catch {
+      Alert.alert("保存失败", "网络似乎不太顺，稍后再试");
+    }
+  };
+
+  /** 删掉某一行装备的图片（保留型号文字） */
+  const clearGearImage = async (label: string) => {
+    if (!current) return;
+    const target = current;
+    const row = gearRows.find((g) => g.label === label);
+    if (!row) return;
+    setImgSheet(null);
+    try {
+      const nextGear = gearRows.map((g) => (g.label === label ? { ...g, imageUrl: null } : g));
+      await patchSportsProfile(target.id, { gear: nextGear });
+      if (row.imageUrl?.startsWith("/uploads/")) void deleteUpload(row.imageUrl);
+      await load();
+    } catch {
+      Alert.alert("删除失败", "请稍后重试");
+    }
+  };
+
+  /** 删掉证件照 */
+  const clearHeroPhoto = async () => {
+    if (!current) return;
+    const target = current;
+    setImgSheet(null);
+    try {
+      await patchSportsProfile(target.id, { photoUrl: null });
+      if (target.photoUrl?.startsWith("/uploads/")) void deleteUpload(target.photoUrl);
+      await load();
+    } catch {
+      Alert.alert("删除失败", "请稍后重试");
+    }
+  };
+
   const remove = (p: SportsProfile) => {
     Alert.alert("删除档案", "删除后闪光卡与公开分享链接都会失效", [
       { text: "取消", style: "cancel" },
@@ -422,7 +487,7 @@ export default function SportsCardScreen() {
       ) : null}
 
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 96 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarBottomFor(insets.bottom) + 96 }]}
         showsVerticalScrollIndicator={false}
       >
         {!current ? (
@@ -435,7 +500,7 @@ export default function SportsCardScreen() {
         ) : (
           <>
             {/* 证件照头图 + 身份叠字（图片走 absoluteMediaUrl，否则站内相对路径渲染不出来） */}
-            <Pressable onPress={() => void uploadHeroPhoto()} style={styles.hero} accessibilityLabel="更换本人照片">
+            <Pressable onPress={() => setImgSheet({ kind: "hero" })} style={styles.hero} accessibilityLabel="更换本人照片">
               {heroUri ? (
                 <>
                   <Image source={{ uri: heroUri }} style={styles.heroImg} contentFit="cover" transition={200} />
@@ -530,7 +595,8 @@ export default function SportsCardScreen() {
               const wideEntries = gearRows.filter((g) => gearKindFromLabel(g.label) === "racket");
               const gridEntries = gearRows.filter((g) => {
                 const kind = gearKindFromLabel(g.label);
-                return kind === "shoes" || kind === "ball";
+                // 一行两列：球鞋 ｜ 拍线（比赛用球同理）
+                return kind === "shoes" || kind === "string" || kind === "ball";
               });
               const textEntries = gearRows.filter((g) => !gearRowWantsImage(g.label));
               return (
@@ -540,9 +606,9 @@ export default function SportsCardScreen() {
                     return (
                       <View key={item.label} style={styles.gearWide}>
                         <Pressable
-                          onPress={() => void uploadGearImage(item.label)}
+                          onPress={() => setImgSheet({ kind: "gear", label: item.label })}
                           style={[styles.gearWideImage, !uri && styles.gearImageEmpty]}
-                          accessibilityLabel={"上传" + item.label + "图片"}
+                          accessibilityLabel={"设置" + item.label + "图片"}
                         >
                           {uri ? (
                             <>
@@ -574,9 +640,9 @@ export default function SportsCardScreen() {
                         return (
                           <Pressable
                             key={item.label}
-                            onPress={() => void uploadGearImage(item.label)}
+                            onPress={() => setImgSheet({ kind: "gear", label: item.label })}
                             style={styles.gearCell}
-                            accessibilityLabel={"上传" + item.label + "图片"}
+                            accessibilityLabel={"设置" + item.label + "图片"}
                           >
                             <View style={[styles.gearCellImage, !uri && styles.gearImageEmpty]}>
                               {uri ? (
@@ -666,7 +732,7 @@ export default function SportsCardScreen() {
       </ScrollView>
 
       {current ? (
-        <View style={[styles.bottomBar, { bottom: TAB_BAR_HEIGHT + insets.bottom, paddingBottom: 10 }]}>
+        <View style={[styles.bottomBar, { bottom: tabBarBottomFor(insets.bottom), paddingBottom: 10 }]}>
           <Button
             label={"编辑" + sportName + "档案"}
             icon="create-outline"
@@ -695,6 +761,88 @@ export default function SportsCardScreen() {
           </Animated.View>
         </View>
       </Modal>
+
+      {/* 点图片：本地 / 图库 / 删除（v12 P0-9） */}
+      <BottomSheet
+        visible={imgSheet !== null}
+        onClose={() => setImgSheet(null)}
+        title={imgSheet?.kind === "hero" ? "证件照" : imgSheet?.kind === "gear" ? imgSheet.label + " · 图片" : "图片"}
+      >
+        <View style={styles.imageSheet}>
+          <Pressable
+            onPress={() => {
+              const s = imgSheet;
+              setImgSheet(null);
+              if (s?.kind === "hero") void uploadHeroPhoto();
+              else if (s?.kind === "gear") void uploadGearImage(s.label);
+            }}
+            style={styles.imageAction}
+            accessibilityLabel="从相册选一张"
+          >
+            <ThemedIcon name="images-outline" size={18} color={colors.primary} />
+            <View style={styles.imageActionBody}>
+              <Text style={styles.imageActionText}>从相册选一张</Text>
+              <Text style={styles.imageActionHint}>用手机里的照片（会自动压到 1600px 并转 WebP）</Text>
+            </View>
+            <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
+          </Pressable>
+
+          {imgSheet?.kind === "gear" && gearRowWantsImage(imgSheet.label) ? (
+            <Pressable
+              onPress={() => setArchivePickerLabel(imgSheet.label)}
+              style={styles.imageAction}
+              accessibilityLabel="从图库选择"
+            >
+              <ThemedIcon name="grid-outline" size={18} color={colors.primary} />
+              <View style={styles.imageActionBody}>
+                <Text style={styles.imageActionText}>从图库选择</Text>
+                <Text style={styles.imageActionHint}>品牌官方白底商品图（球拍 / 球鞋 / 拍线…）</Text>
+              </View>
+              <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
+            </Pressable>
+          ) : null}
+
+          {hasCurrentImage ? (
+            <Pressable
+              onPress={() => {
+                if (imgSheet?.kind === "hero") void clearHeroPhoto();
+                else if (imgSheet?.kind === "gear") void clearGearImage(imgSheet.label);
+              }}
+              style={styles.imageAction}
+              accessibilityLabel="删除图片"
+            >
+              <ThemedIcon name="trash-outline" size={18} color={colors.danger} />
+              <View style={styles.imageActionBody}>
+                <Text style={[styles.imageActionText, { color: colors.danger }]}>删除这张图</Text>
+                <Text style={styles.imageActionHint}>只删图片，型号文字保留</Text>
+              </View>
+              <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
+            </Pressable>
+          ) : null}
+        </View>
+      </BottomSheet>
+
+      {/* 档案页的图库选择（整屏 sheet 里嵌选择器） */}
+      <BottomSheet
+        visible={archivePickerLabel !== null}
+        onClose={() => setArchivePickerLabel(null)}
+        title={(archivePickerLabel ?? "装备") + " · 从图库选择"}
+        height="86%"
+      >
+        {archivePickerLabel ? (
+          <View style={styles.pickerBox}>
+            <EquipmentPicker
+              key={archivePickerLabel}
+              inline
+              visible
+              onClose={() => setArchivePickerLabel(null)}
+              onPick={(item) => void applyArchiveEquipment(item)}
+              sportKey={current?.sportKey ?? "badminton"}
+              defaultCategory={equipmentCategoryForGearLabel(current?.sportKey ?? "badminton", archivePickerLabel)}
+            />
+          </View>
+        ) : null}
+      </BottomSheet>
 
       <BottomSheet
         visible={sheetOpen}
@@ -815,7 +963,7 @@ export default function SportsCardScreen() {
             );
           })}
           <Text style={styles.tip}>
-            档案里只有证件照、球拍、球鞋、比赛用球配图；拍线 / 手胶这类只填文字，磅数在图鉴四宫格里填数值。
+            配图的是：证件照、球拍、球鞋、拍线（比赛用球同理）；手胶这类只填文字，磅数在图鉴四宫格里填数值。
           </Text>
 
           {pickerIndex !== null ? (
@@ -1228,6 +1376,22 @@ const makeStyles = (colors: ThemeColors) =>
     triple: { flexDirection: "row", gap: 8 },
     tripleCell: { flex: 1 },
     tip: { fontSize: 11, lineHeight: 17, color: colors.textMuted },
+    // 图片操作弹层：三行动作（相册 / 图库 / 删除）
+    imageSheet: { gap: 10 },
+    imageAction: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceStrong,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+    },
+    imageActionBody: { flex: 1, gap: 2 },
+    imageActionText: { fontSize: 14, fontWeight: "700", color: colors.text },
+    imageActionHint: { fontSize: 11, color: colors.textMuted },
     // 证件照：一行「缩略图 + 说明」，点一下就能换
     photoRow: {
       flexDirection: "row",
