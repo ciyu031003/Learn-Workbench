@@ -1536,6 +1536,12 @@ export const interviewQuestionSchema = z.object({
   module: z.string(),
   question: z.string(),
   difficulty: questionDifficultySchema,
+  /** 抓取来源的标签（目录 / 主题），v12 P2-1 */
+  tags: z.array(z.string()).default([]),
+  /** 来源可追溯：题目页地址 / 站点标识 / 许可证（合规要求） */
+  sourceUrl: z.string().nullable().default(null),
+  sourceSite: z.string().nullable().default(null),
+  license: z.string().nullable().default(null),
 });
 export type InterviewQuestion = z.infer<typeof interviewQuestionSchema>;
 

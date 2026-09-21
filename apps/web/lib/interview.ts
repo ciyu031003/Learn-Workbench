@@ -55,9 +55,12 @@ export async function listQuestions(opts: { module?: string; difficulty?: string
     params.push(opts.difficulty);
     conds.push(`difficulty = $${params.length}`);
   }
-  const where = conds.length ? `WHERE ${conds.join(" AND ")}` : "";
+  // 只出在架的（v12 P2-1：抓取来源可一键下架）
+  const where = conds.length ? `WHERE is_listed = true AND ${conds.join(" AND ")}` : "WHERE is_listed = true";
   const { rows } = await pgPool.query(
-    `SELECT id, module, question, difficulty FROM interview_questions ${where} ORDER BY module, id`,
+    `SELECT id, module, question, difficulty, tags, source_url AS "sourceUrl",
+            source_site AS "sourceSite", license
+       FROM interview_questions ${where} ORDER BY module, id`,
     params
   );
   return rows.map((r) => ({
@@ -65,6 +68,10 @@ export async function listQuestions(opts: { module?: string; difficulty?: string
     module: String(r.module),
     question: String(r.question),
     difficulty: (interviewQuestionDifficulty(r.difficulty)),
+    tags: Array.isArray(r.tags) ? (r.tags as unknown[]).map((t) => String(t)) : [],
+    sourceUrl: r.sourceUrl ? String(r.sourceUrl) : null,
+    sourceSite: r.sourceSite ? String(r.sourceSite) : null,
+    license: r.license ? String(r.license) : null,
   }));
 }
 
@@ -76,7 +83,7 @@ function interviewQuestionDifficulty(d: unknown): InterviewQuestion["difficulty"
 /** 题库按 module 分组计数 */
 export async function listQuestionModules(): Promise<{ module: string; count: number }[]> {
   const { rows } = await pgPool.query<{ module: string; n: number }>(
-    "SELECT module, count(*)::int AS n FROM interview_questions GROUP BY module ORDER BY module"
+    "SELECT module, count(*)::int AS n FROM interview_questions WHERE is_listed = true GROUP BY module ORDER BY module"
   );
   return rows.map((r) => ({ module: String(r.module), count: Number(r.n) }));
 }
