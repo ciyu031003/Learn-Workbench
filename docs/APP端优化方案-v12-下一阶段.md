@@ -169,9 +169,9 @@
 | P0-10 圆环与数字动效 | ✅ 已完成 | ProgressArc 支持 `pulseKey`，切「今天/昨天」也会跳动 |
 | P1-1 悬空玻璃 TabBar | ✅ 已完成（待真机看观感） | 浮动胶囊 + 半透明玻璃底 + 选中胶囊高亮；不做降级 |
 | P1-2 习惯重做（油画质感）+ 编辑/删除 + 同步每日任务 | ✅ 已完成 | 长按弹「编辑/删除」；卡片改油画质感；新建习惯同时建「[习惯] 名称」真任务 + 首页任务列表合并展示习惯排期（可打卡、按标题去重） |
-| P1-3 全站 UI 精修 | ⏳ 待做（下一步） | 按 首页 → 学习 → 我的 → 职业 → 招花 → 设置 逐页提质 |
+| P1-3 全站 UI 精修 | ✅ 已完成（首轮） | 把健康/饮食那套语言抽到共享组件，一次改动全站生效：<br>① `SectionHeader`/`BlockTitle` 统一加**主色小竖条**（career / nutrition / today 等页自动生效）；<br>② `GroupLabel` 同款竖条（settings / habits / sports-card 等分组标题一起提质）；<br>③ 「我的」账号卡升级为**玻璃材质 + 三格数据行**（账号 / 待同步 / 版本）；<br>④ 「今日」首屏 hero 加**日期 + 打卡状态**小标。后续可继续逐页做视觉细化 |
 | P2-1 面试题库（COS + 爬虫 + 参考答案） | ✅ 已完成（数据 + 接口 + 刷题界面） | `scripts/crawl_interview.mjs` 从公开仓库（JavaGuide / Apache-2.0）抓 **599 条**：<br>以「? 结尾标题」为问题、到下一标题为参考答案；带 `sourceUrl/sourceSite/license/externalKey`；<br>分块 JSON 进 COS `interview/`；`/api/internal/interview/import` 入库（`ON CONFLICT` 去重）；<br>刷题页加难度/「只看错题」筛选，作答后**我的答案 ↔ 参考答案并排对照** + 来源标注。线上在架 **611 条** |
-| P2-2 简历存 COS（PDF/Word ≤5MB） | ⏳ 待做 | 私有桶 + 签名 URL + 预览 |
+| P2-2 简历存 COS（PDF/Word ≤5MB） | ✅ 已完成 | 迁移 055 `resume_files`；`lib/resume-files.ts` 校验类型/大小并把文件写进 **同盘私有目录**（不经 nginx 直出）；<br>`POST/GET /api/resume-files` + `GET/DELETE /api/resume-files/[id]`（仅本人；移动端支持 `?token=`），两套路由 12 项单测；<br>App 用 `expo-document-picker` 选文件上传、点开用系统浏览器预览、长按删除；网页端简历编辑器同样有上传/预览/删除。<br>（想升级成 COS SDK 签名 URL 时只需换掉 lib 里的读写实现，接口与前端不动） |
 
 **当前验证**：web 1132 / mobile 319 测试全绿，双端 typecheck 0、lint 0 error（提交 `d31223c` 首批 + `e94603e` 习惯批次）。**尚未出包**（按"全部做完只出一个版本"）。
 
