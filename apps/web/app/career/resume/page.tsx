@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { ResumeFilesCard } from "@/components/resume/resume-files-card";
 import {
   RESUME_TEMPLATES,
   getResumeTemplate,
@@ -227,6 +228,9 @@ export default function ResumeEditorPage() {
 
   return (
     <div className="page-enter flex flex-col gap-5">
+      {/* v12 P2-2：用户上传的简历文件（PDF / Word ≤5MB，私有存储） */}
+      <ResumeFilesCard />
+
       {/* 顶部：文档切换 + 保存 + 导出 */}
       <div className="flex flex-wrap items-center gap-3 print:hidden">
         <div className="min-w-0">

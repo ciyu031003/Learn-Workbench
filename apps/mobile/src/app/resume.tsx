@@ -13,6 +13,7 @@ import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
 import { resumeAssetKindLabels, type ResumeAsset, type ResumeAssetKind } from "@learn-workbench/shared";
+import { ResumeFilesCard } from "@/components/resume-files-card";
 
 const KINDS: ResumeAssetKind[] = ["project", "skill", "github", "certificate"];
 
@@ -106,6 +107,9 @@ export default function ResumeScreen() {
         <ThemedIcon name="eye-outline" size={17} color={colors.primary} />
         <Text style={styles.addBtnText}>预览简历</Text>
       </PressableScale>
+
+      {/* v12 P2-2：上传的 PDF / Word 简历（文件在 COS 私有目录，只有本人能取） */}
+      <ResumeFilesCard />
 
       {loading ? (
         <ActivityIndicator color={colors.primary} style={styles.loading} />

@@ -262,6 +262,23 @@ CREATE INDEX IF NOT EXISTS idx_resume_docs_user ON resume_documents(user_id) WHE
 CREATE INDEX IF NOT EXISTS idx_resume_docs_anon ON resume_documents(anon_id) WHERE deleted_at IS NULL AND user_id IS NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_resume_documents_client
   ON resume_documents(user_id, client_id) WHERE user_id IS NOT NULL AND client_id IS NOT NULL;
+-- ---------- 来自迁移 055_resume_files.sql（用户上传的简历文件，v12 P2-2） ----------
+CREATE TABLE IF NOT EXISTS resume_files (
+  id         bigserial PRIMARY KEY,
+  user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  file_name  text NOT NULL,
+  path       text NOT NULL,
+  mime       text NOT NULL,
+  bytes      integer NOT NULL,
+  deleted_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_resume_files_user
+  ON resume_files(user_id) WHERE deleted_at IS NULL;
+DROP TRIGGER IF EXISTS trg_resume_files_updated ON resume_files;
+CREATE TRIGGER trg_resume_files_updated BEFORE UPDATE ON resume_files
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- ---------- 10. 面试题库 ----------
 

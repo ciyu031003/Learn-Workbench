@@ -208,8 +208,8 @@ export default function SettingsScreen() {
         <Text style={styles.heroSub}>账号 · 学习领域 · 数据同步</Text>
       </View>
 
-      {/* 账号英雄卡：头像 + 昵称 + 同步状态 + 一键同步 */}
-      <Card style={styles.profileCard}>
+      {/* 账号英雄卡（v12 P1-3：升级为玻璃材质 + 数据行，对齐健康/饮食的语言） */}
+      <Card variant="glass" style={styles.profileCard}>
         <View style={styles.profileHead}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{(username ?? "旅").slice(0, 1).toUpperCase()}</Text>
@@ -257,6 +257,24 @@ export default function SettingsScreen() {
           </ButtonRow>
         ) : null}
         {msg ? <Text style={styles.msg}>{msg}</Text> : null}
+
+        {/* 三格数据行：账号 / 待同步 / 版本 —— 与「今日饮食」的三指标行同款节奏（v12 P1-3） */}
+        <View style={styles.profileStats}>
+          <View style={styles.profileStat}>
+            <Text style={styles.profileStatValue}>{token ? "已登录" : "未登录"}</Text>
+            <Text style={styles.profileStatLabel}>账号</Text>
+          </View>
+          <View style={styles.profileStat}>
+            <Text style={[styles.profileStatValue, pendingCount > 0 && { color: colors.warning }]}>
+              {pendingCount > 0 ? pendingCount + " 条" : "0 条"}
+            </Text>
+            <Text style={styles.profileStatLabel}>待同步</Text>
+          </View>
+          <View style={styles.profileStat}>
+            <Text style={styles.profileStatValue}>{APP_VERSION_NAME}</Text>
+            <Text style={styles.profileStatLabel}>版本</Text>
+          </View>
+        </View>
       </Card>
 
       <GroupLabel>账号</GroupLabel>
@@ -494,6 +512,19 @@ const makeStyles = (colors: ThemeColors) =>
   scroll: { flex: 1, backgroundColor: "transparent" },
   content: { padding: 16, gap: 12 },
   hero: { paddingTop: 24, paddingBottom: 2, gap: 4 },
+  profileStats: { flexDirection: "row", gap: 8, marginTop: 4 },
+  profileStat: {
+    flex: 1,
+    alignItems: "center",
+    gap: 2,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceMuted,
+    paddingVertical: 8,
+  },
+  profileStatValue: { fontSize: 13, fontWeight: "800", color: colors.text },
+  profileStatLabel: { fontSize: 10, color: colors.textMuted },
   heroTitle: { color: colors.text, fontSize: 26, fontWeight: "800" },
   heroSub: { color: colors.textMuted, fontSize: 13 },
   /* 账号英雄卡 */

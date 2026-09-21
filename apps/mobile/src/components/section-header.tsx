@@ -17,17 +17,21 @@ export function SectionHeader({
   onAction,
   subtitle,
   style,
+  /** 左侧色条颜色（默认主色）—— 「今日饮食」那套语言：色条 + 标题 + 右侧说明 */
+  accentColor,
 }: {
   title: string;
   actionLabel?: string;
   onAction?: () => void;
   subtitle?: string;
   style?: StyleProp<ViewStyle>;
+  accentColor?: string;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={[styles.row, style]}>
+      <View style={[styles.accentBar, { backgroundColor: accentColor ?? colors.primary }]} />
       <View style={styles.textWrap}>
         <Text style={styles.title}>{title}</Text>
         {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
@@ -47,16 +51,19 @@ export function BlockTitle({
   title,
   right,
   style,
+  accentColor,
 }: {
   title: string;
   right?: ReactNode;
   style?: StyleProp<ViewStyle>;
+  accentColor?: string;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={[styles.blockRow, style]}>
-      <Text style={styles.blockTitle}>{title}</Text>
+      <View style={[styles.accentBar, { backgroundColor: accentColor ?? colors.primary }]} />
+      <Text style={[styles.blockTitle, styles.blockTitleFlex]}>{title}</Text>
       {right}
     </View>
   );
@@ -73,6 +80,8 @@ const makeStyles = (colors: ThemeColors) =>
       gap: 12,
       marginTop: 12,
     },
+    // 左侧色条：深浅色都由主色/自定义色驱动（与档案页、饮食页统一）
+    accentBar: { width: 3, height: 18, borderRadius: 2 },
     textWrap: { flex: 1, minWidth: 0, gap: 2 },
     title: { ...typography.title2, fontWeight: "800", color: colors.text },
     subtitle: { ...typography.caption, fontWeight: "400", color: colors.textMuted },
@@ -85,4 +94,5 @@ const makeStyles = (colors: ThemeColors) =>
       gap: 10,
     },
     blockTitle: { ...typography.headline, fontWeight: "800", color: colors.text },
+    blockTitleFlex: { flex: 1, minWidth: 0 },
   });

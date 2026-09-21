@@ -24,6 +24,24 @@ function hashToken(token: string | null | undefined): string {
   return createHash("sha256").update(String(token ?? "")).digest("hex");
 }
 
+/**
+ * 用**原始 token**（不是 cookie/header）换用户 id。
+ * 移动端用系统浏览器 / WebBrowser 打开「预览简历」时带不了 Authorization 头，
+ * 只能在 URL 里带 ?token=；这里用同一张 sessions 表校验（token_hash + 未过期）。
+ */
+export async function userIdFromToken(token: string | null | undefined): Promise<string | null> {
+  if (!token) return null;
+  try {
+    const { rows } = await pgPool.query<{ user_id: string }>(
+      "SELECT user_id FROM sessions WHERE token_hash = $1 AND expires_at > now()",
+      [hashToken(token)]
+    );
+    return rows[0]?.user_id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** 从 cookie 或 Authorization: Bearer 中解析当前登录用户 id */
 export async function currentUserId(): Promise<string | null> {
   const token = await resolveToken();

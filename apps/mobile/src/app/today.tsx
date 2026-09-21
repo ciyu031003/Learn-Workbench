@@ -472,6 +472,15 @@ export default function TodayScreen() {
       >
         <Animated.View style={[styles.hero, heroAnim]}>
           <Animated.View style={[styles.sunGlow, sunAnim]} />
+          {/* v12 P1-3：加一行「日期 + 打卡状态」小标，和健康/饮食页一样有信息层级 */}
+          <View style={styles.heroEyebrowRow}>
+            <Text style={styles.heroEyebrow}>{today}</Text>
+            <View style={[styles.heroPill, checkedInToday && styles.heroPillDone]}>
+              <Text style={[styles.heroPillText, checkedInToday && styles.heroPillTextDone]}>
+                {checkedInToday ? "今日已打卡" : "今天还没打卡"}
+              </Text>
+            </View>
+          </View>
           <Text style={styles.heroTitle}>
             {greet}，{"\n"}继续今天的 ICT 学习规划
           </Text>
@@ -760,6 +769,19 @@ const makeStyles = (colors: ThemeColors) =>
     right: -40,
     backgroundColor: "rgba(255, 210, 130, 0.35)",
   },
+  heroEyebrowRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 },
+  heroEyebrow: { fontSize: 11, fontWeight: "700", color: colors.textMuted, letterSpacing: 0.6 },
+  heroPill: {
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceMuted,
+  },
+  heroPillDone: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
+  heroPillText: { fontSize: 10, fontWeight: "700", color: colors.textMuted },
+  heroPillTextDone: { color: colors.primaryStrong },
   heroTitle: { fontSize: 26, lineHeight: 32, fontWeight: "800", color: colors.text },
   heroSub: { fontSize: 13, color: colors.textMuted, marginTop: 5 },
   quote: {
