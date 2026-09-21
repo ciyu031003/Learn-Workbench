@@ -273,6 +273,19 @@ CREATE TABLE interview_questions (
   difficulty text NOT NULL DEFAULT 'medium' CHECK (difficulty IN ('easy','medium','hard')),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+-- ---------- 来自迁移 054_interview_bank.sql（公开题库抓取：来源可追溯 + 可下架） ----------
+ALTER TABLE interview_questions
+  ADD COLUMN IF NOT EXISTS tags        jsonb NOT NULL DEFAULT '[]'::jsonb,
+  ADD COLUMN IF NOT EXISTS source_url  text,
+  ADD COLUMN IF NOT EXISTS source_site text,
+  ADD COLUMN IF NOT EXISTS license     text,
+  ADD COLUMN IF NOT EXISTS external_key text,
+  ADD COLUMN IF NOT EXISTS is_listed   boolean NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS crawled_at  timestamptz;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_interview_questions_external
+  ON interview_questions(external_key) WHERE external_key IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_interview_questions_listed
+  ON interview_questions(module) WHERE is_listed = true;
 
 -- ---------- 11. 设置（键值，user_id 为 NULL 表示全局默认） ----------
 
