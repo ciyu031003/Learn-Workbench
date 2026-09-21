@@ -164,7 +164,7 @@
 | P0-5 状态栏黑屏 | ✅ 已完成（待真机确认） | 根因：Android 主题 `app_bar_color` 跟随**系统**深色模式；改用 RN StatusBar 运行时底色 + 兜底条 + windowBackground |
 | P0-6 柱状图可点 | ✅ 已完成 | `weekCell` 改 Pressable，点哪条切哪一天 |
 | P0-7 删除今日焦点堆叠 | ✅ 已完成 | 移除组件与手势联动，删除 `today-stack.tsx` |
-| P0-8 计时常驻 + 精美通知 | ⏳ 进行中 | 需原生前台服务 + RemoteViews 圆环通知（Kotlin） |
+| P0-8 计时常驻 + 精美通知 | ✅ 已完成（待真机确认观感） | 原生前台服务 `FocusTimerService` + 自定义 RemoteViews 通知（左圆环：倒计时按剩余 / 正计时按已用，每秒重绘；右侧任务/习惯名与时间 + 「结束」按钮）；手写原生代码入库在 `apps/mobile/native/**`，由 `scripts/apply-android-native.mjs` 在构建前落回 `android/` |
 | P0-9 档案图片布局与弹窗 | ✅ 已完成 | 拍线纳入配图；头像/球拍横屏 + 一行两列（球鞋｜拍线）；点图弹「本地 / 图库 / 删除」 |
 | P0-10 圆环与数字动效 | ✅ 已完成 | ProgressArc 支持 `pulseKey`，切「今天/昨天」也会跳动 |
 | P1-1 悬空玻璃 TabBar | ✅ 已完成（待真机看观感） | 浮动胶囊 + 半透明玻璃底 + 选中胶囊高亮；不做降级 |
@@ -175,4 +175,7 @@
 
 **当前验证**：web 1132 / mobile 319 测试全绿，双端 typecheck 0、lint 0 error（提交 `d31223c` 首批 + `e94603e` 习惯批次）。**尚未出包**（按"全部做完只出一个版本"）。
 
-**下一批**：P0-8 计时常驻（原生前台服务 + RemoteViews 圆环通知）→ P1-3 全站 UI 精修 → P2-1 面试题库 → P2-2 简历上 COS。
+**下一批**：P1-3 全站 UI 精修（首页 → 学习 → 我的 → 职业 → 招花 → 设置）→ P2-1 面试题库（COS + 爬虫 + 参考答案）→ P2-2 简历上 COS。
+
+> 施工注意：`apps/mobile/android/` 是 gitignore 的生成目录，**自写原生代码必须放 `apps/mobile/native/android/**`**，
+> 构建脚本会在 gradle 之前调用 `scripts/apply-android-native.mjs` 幂等落回工程（否则 prebuild 一次就丢）。
