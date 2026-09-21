@@ -19,6 +19,7 @@ import * as ScreenOrientation from "expo-screen-orientation";
 import { getApiUrl } from "@/config";
 import { computeFocusStats, FOCUS_MOTIVATIONS } from "@/lib/focus-stats";
 import { elapsedSeconds } from "@/lib/focus-elapsed";
+import { startFocusNotification, stopFocusNotification } from "@/lib/focus-notification";
 import { RingProgress } from "@/components/ring-progress";
 import { getDailyQuote } from "@/lib/quotes";
 import type { FocusSession } from "@learn-workbench/shared";
@@ -360,6 +361,26 @@ export function FocusTimer({
     persist(K_MINUTES, String(v));
   };
 
+  /**
+   * 把计时状态同步到「通知栏常驻」（v12 P0-8）：
+   * 运行中 → 拉起前台服务并刷新圆环/任务名；暂停、结束、关弹层 → 收掉通知。
+   */
+  const syncNotification = (isRunning: boolean) => {
+    if (!isRunning) {
+      stopFocusNotification();
+      return;
+    }
+    const title =
+      task?.title?.trim() || contentLabel?.trim() || exerciseLabel?.trim() || (sessionMode === "exercise" ? "运动计时" : "专注学习");
+    const isCountdown = timerModeRef.current === "countdown";
+    void startFocusNotification({
+      title,
+      mode: isCountdown ? "countdown" : "stopwatch",
+      totalMs: isCountdown ? totalRef.current * 1000 : 0,
+      elapsedMs: currentElapsed() * 1000,
+    });
+  };
+
   const pause = () => {
     // 把当前运行段折算进累计（墙钟），暂停段不计入
     if (startRef.current !== null) {
@@ -368,12 +389,14 @@ export function FocusTimer({
     }
     if (timer.current) clearInterval(timer.current);
     setRunning(false);
+    stopFocusNotification();
   };
   const resume = () => {
     if (timer.current) clearInterval(timer.current);
     if (startRef.current === null) startRef.current = Date.now();
     setRunning(true);
     timer.current = setInterval(tick, 1000);
+    syncNotification(true);
   };
   const begin = () => {
     setStarted(true);
@@ -385,6 +408,15 @@ export function FocusTimer({
    * 声明在 resume 之后，依赖 open 的 false→true 变化（home 页的 FocusTimer 无 key，
    * tasks 页用 key={timerSession} 重挂载，两种入口都能触发）。
    */
+  // 弹层关闭或组件卸载 → 收掉常驻通知（计时不在跑时不该有残留）
+  useEffect(() => {
+    if (open) return;
+    stopFocusNotification();
+  }, [open]);
+  useEffect(() => {
+    return () => stopFocusNotification();
+  }, []);
+
   useEffect(() => {
     if (!open || !autoStart) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 一键开始：打开即进入计时态
@@ -402,6 +434,7 @@ export function FocusTimer({
   const reset = () => {
     if (timer.current) clearInterval(timer.current);
     setRunning(false);
+    stopFocusNotification();
     setRemaining(total);
     remainingRef.current = total;
     startRef.current = null;
