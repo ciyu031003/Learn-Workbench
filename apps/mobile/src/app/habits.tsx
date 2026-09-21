@@ -44,6 +44,10 @@ export default function HabitsScreen() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<number | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  /** 正在编辑的习惯 id（null = 新建） */
+  const [editingId, setEditingId] = useState<number | null>(null);
+  /** 长按卡片后的动作小窗（编辑 / 删除） */
+  const [actionHabit, setActionHabit] = useState<HabitRow | null>(null);
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
   const [icon, setIcon] = useState("✅");
@@ -131,8 +135,10 @@ export default function HabitsScreen() {
     }
     setSaving(true);
     try {
-      const r = await fetch(getApiUrl() + "/api/habits", {
-        method: "POST",
+      // 有 editingId 就是编辑（PATCH），否则新建（POST）
+      // 编辑走 /api/habits/{id}（PATCH），新建走集合（POST）
+      const r = await fetch(getApiUrl() + "/api/habits" + (editingId === null ? "" : "/" + editingId), {
+        method: editingId === null ? "POST" : "PATCH",
         headers: { "Content-Type": "application/json", ...headers() },
         body: JSON.stringify({
           name: name.trim(),
@@ -147,6 +153,16 @@ export default function HabitsScreen() {
         const d = await r.json().catch(() => ({}));
         throw new Error(d.error ?? "保存失败");
       }
+      // 新建习惯时**同时**在「每日任务」里建一条同名任务（v12 P1-2「两者都要」）。
+      // 首页任务列表会按标题去重，不会出现两条。
+      if (editingId === null) {
+        const today = toDateKey(new Date());
+        await fetch(getApiUrl() + "/api/tasks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...headers() },
+          body: JSON.stringify({ title: "[习惯] " + name.trim(), taskDate: today, taskType: "review" }),
+        }).catch(() => null);
+      }
       closeSheet();
       await load();
     } catch (err) {
@@ -156,8 +172,44 @@ export default function HabitsScreen() {
     }
   };
 
+  /** 打开「编辑习惯」：把现有值灌进表单 */
+  const openEdit = (h: HabitRow) => {
+    setEditingId(h.id);
+    setName(h.name);
+    setIcon(h.icon ?? "✅");
+    setCustomIcon(h.icon && !HABIT_ICONS.includes(h.icon) ? h.icon : "");
+    setIsBoolean(h.isBoolean);
+    setTargetValue(h.targetValue === null || h.targetValue === undefined ? "" : String(h.targetValue));
+    setRemindStart(h.remindStart ?? "");
+    setRemindEnd(h.remindEnd ?? "");
+    setSheetOpen(true);
+  };
+
+  /** 删除习惯（软删除：打卡历史保留） */
+  const removeHabit = (h: HabitRow) => {
+    Alert.alert("删除习惯", `确定删除「${h.name}」吗？历史打卡会保留，但不再计入统计。`, [
+      { text: "取消", style: "cancel" },
+      {
+        text: "删除",
+        style: "destructive",
+        onPress: () => {
+          void (async () => {
+            try {
+              const r = await fetch(getApiUrl() + "/api/habits/" + h.id, { method: "DELETE", headers: headers() });
+              if (!r.ok) throw new Error("删除失败");
+              await load();
+            } catch (e) {
+              Alert.alert("删除失败", e instanceof Error ? e.message : "请稍后重试");
+            }
+          })();
+        },
+      },
+    ]);
+  };
+
   const closeSheet = () => {
     setSheetOpen(false);
+    setEditingId(null);
     setName("");
     setIcon("✅");
     setIsBoolean(true);
@@ -215,7 +267,16 @@ export default function HabitsScreen() {
           const st = computeHabitStats(h, logs, today);
           const scheduled = isScheduled(h.schedule, today);
           return (
-            <Card key={h.id} style={[styles.item, !scheduled && { opacity: 0.6 }]}>
+            <Pressable
+              key={h.id}
+              onLongPress={() => setActionHabit(h)}
+              delayLongPress={280}
+              accessibilityLabel={`${h.name}，长按可编辑或删除`}
+            >
+            <Card style={[styles.item, styles.itemCanvas, { borderColor: h.color + "55", backgroundColor: h.color + "10" }, !scheduled && { opacity: 0.6 }]}>
+              {/* 油画质感：左侧厚涂色条 + 右上柔光 */}
+              <View pointerEvents="none" style={[styles.itemDaub, { backgroundColor: h.color + "2E" }]} />
+              <View pointerEvents="none" style={[styles.itemGlow, { backgroundColor: h.color + "18" }]} />
               <View style={styles.itemRow}>
                 <Pressable
                   onPress={() => void toggle(h)}
@@ -258,11 +319,48 @@ export default function HabitsScreen() {
                 </View>
               </View>
             </Card>
+            </Pressable>
           );
         })
       )}
 
-      <BottomSheet visible={sheetOpen} onClose={closeSheet} title="新建习惯" height="86%">
+      {/* 长按卡片：编辑 / 删除（v12 P1-2） */}
+      <BottomSheet
+        visible={actionHabit !== null}
+        onClose={() => setActionHabit(null)}
+        title={actionHabit?.name ?? "习惯"}
+      >
+        <View style={styles.actionSheet}>
+          <Pressable
+            style={styles.actionRow}
+            accessibilityLabel="编辑习惯"
+            onPress={() => {
+              const h = actionHabit;
+              setActionHabit(null);
+              if (h) openEdit(h);
+            }}
+          >
+            <ThemedIcon name="create-outline" size={18} color={colors.primary} />
+            <Text style={styles.actionText}>编辑</Text>
+            <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
+          </Pressable>
+          <Pressable
+            style={styles.actionRow}
+            accessibilityLabel="删除习惯"
+            onPress={() => {
+              const h = actionHabit;
+              setActionHabit(null);
+              if (h) removeHabit(h);
+            }}
+          >
+            <ThemedIcon name="trash-outline" size={18} color={colors.danger} />
+            <Text style={[styles.actionText, { color: colors.danger }]}>删除</Text>
+            <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
+          </Pressable>
+        </View>
+      </BottomSheet>
+
+      <BottomSheet visible={sheetOpen} onClose={closeSheet} title={editingId === null ? "新建习惯" : "编辑习惯"} height="86%">
         <View style={styles.form}>
           {/* 图标选择器：内置 ~24 个常用图标，点选高亮；也可自定义 emoji */}
           <Text style={styles.label}>图标</Text>
@@ -349,6 +447,23 @@ const makeStyles = (colors: ThemeColors) =>
     tplText: { fontSize: 12, color: colors.text },
     item: { gap: 8 },
     itemRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+    // 油画质感卡片：厚涂色条 + 柔光 + 手绘感描边
+    itemCanvas: { overflow: "hidden" },
+    itemDaub: { position: "absolute", left: 0, top: 0, bottom: 0, width: 6 },
+    itemGlow: { position: "absolute", right: -30, top: -30, width: 120, height: 120, borderRadius: 60 },
+    actionSheet: { gap: 10 },
+    actionRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceStrong,
+      paddingHorizontal: 14,
+      paddingVertical: 14,
+    },
+    actionText: { flex: 1, fontSize: 15, fontWeight: "700", color: colors.text },
     check: { width: 44, height: 44, borderRadius: 16, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceMuted },
     checkIcon: { fontSize: 18 },
     itemBody: { flex: 1, minWidth: 0, gap: 2 },

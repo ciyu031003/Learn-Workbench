@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/immutability */
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -26,7 +26,18 @@ import { useAppStore } from "@/store/app-store";
 import { SPORT_CATALOG, exerciseTypeOptions, type ExerciseType, type SportItem } from "@learn-workbench/shared";
 import { sportIconOf, sportColorsOf, sportAnimOf, sportSfOf } from "@/lib/sport-view";
 import { mainPhases, agentPhase } from "@learn-workbench/content";
-import { pct, formatDuration, taskTypeLabels, todayISO } from "@learn-workbench/shared";
+import {
+  isHabitDone,
+  isScheduled,
+  pct,
+  formatDuration,
+  taskTypeLabels,
+  todayISO,
+  type Habit,
+  type HabitLog,
+} from "@learn-workbench/shared";
+import { getApiUrl } from "@/config";
+import { useFocusRefresh } from "@/lib/use-focus-refresh";
 import { FocusTimer } from "@/components/focus-timer";
 import { QuickStartSheet, type QuickStartChoice } from "@/components/quick-start-sheet";
 import { DailyOsSummary } from "@/components/daily-os-summary";
@@ -283,6 +294,7 @@ export default function TodayScreen() {
   const removeSport = useAppStore((s) => s.removeSport);
   const aiTip = useAppStore((s) => s.aiTip);
   const setAiTip = useAppStore((s) => s.setAiTip);
+  const token = useAppStore((s) => s.token);
 
   const [focusOpen, setFocusOpen] = useState(false);
   const [sportSheetOpen, setSportSheetOpen] = useState(false);
@@ -293,9 +305,16 @@ export default function TodayScreen() {
   const [timerAuto, setTimerAuto] = useState<QuickStartChoice | null>(null);
   const [pendingChoice, setPendingChoice] = useState<QuickStartChoice | null>(null);
   const [timerSession, setTimerSession] = useState(0);
+  /**
+   * v12 P1-2：今天的习惯排期也进「今日任务」列表（新建习惯时还会自动建一条
+   * `[习惯] 名称` 的真任务，这里按标题去重，避免出现两条）。
+   */
+  const [habitRows, setHabitRows] = useState<{ id: number; name: string; icon: string | null; color: string; done: boolean }[]>([]);
 
   const quote = useDailyQuote();
   const today = todayISO();
+  /** isScheduled 需要 Date（按星期判定），字符串 key 只用于取数 */
+  const todayDate = useMemo(() => new Date(), []);
   const h = new Date().getHours();
   const greet = h < 6 ? "夜深了" : h < 11 ? "早上好" : h < 14 ? "中午好" : h < 18 ? "下午好" : "晚上好";
 
@@ -308,6 +327,70 @@ export default function TodayScreen() {
 
   const todayTasks = tasks.filter((t) => t.taskDate === today);
   const todayDone = todayTasks.filter((t) => t.done).length;
+
+  /** 已经在任务里出现过的习惯（标题形如「[习惯] 名称」） */
+  const linkedHabitNames = useMemo(
+    () =>
+      new Set(
+        todayTasks
+          .map((t) => (t.title?.startsWith("[习惯] ") ? t.title.slice(5).trim() : null))
+          .filter((v): v is string => Boolean(v))
+      ),
+    [todayTasks]
+  );
+  const habitOnlyRows = habitRows.filter((h) => !linkedHabitNames.has(h.name));
+  const habitDone = habitRows.filter((h) => h.done).length;
+
+  const loadHabits = useCallback(async () => {
+    try {
+      const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+      const r = await fetch(getApiUrl() + "/api/habits", { headers });
+      if (!r.ok) return;
+      const d = await r.json();
+      const list: Habit[] = Array.isArray(d.habits) ? d.habits : [];
+      const logs: HabitLog[] = Array.isArray(d.logs) ? d.logs : [];
+      const map = new Map<string, number>();
+      for (const l of logs) map.set(`${l.habitId}|${String(l.logDate).slice(0, 10)}`, Number(l.value));
+      setHabitRows(
+        list
+          .filter((h) => isScheduled(h.schedule, todayDate))
+          .map((h) => {
+            const v = map.get(`${h.id}|${today}`);
+            return { id: h.id, name: h.name, icon: h.icon ?? null, color: h.color, done: v !== undefined && isHabitDone(h, v) };
+          })
+      );
+    } catch {
+      // 离线：保留上次
+    }
+  }, [token, today, todayDate]);
+
+  useEffect(() => {
+    const t = setTimeout(() => void loadHabits(), 0);
+    return () => clearTimeout(t);
+  }, [loadHabits]);
+  useFocusRefresh(loadHabits);
+
+  /** 首页直接给习惯打卡（乐观 + 失败回滚） */
+  const toggleHabit = async (id: number, done: boolean) => {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+    setHabitRows((rows) => rows.map((r) => (r.id === id ? { ...r, done: !done } : r)));
+    try {
+      const r = done
+        ? await fetch(`${getApiUrl()}/api/habits/logs?habitId=${id}&date=${today}`, { method: "DELETE", headers })
+        : await fetch(getApiUrl() + "/api/habits/logs", {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ habitId: id, date: today, value: 1 }),
+          });
+      if (!r.ok) throw new Error("打卡失败");
+      await loadHabits();
+    } catch {
+      setHabitRows((rows) => rows.map((r) => (r.id === id ? { ...r, done } : r)));
+    }
+  };
   const focusStats = computeFocusStats(sessions);
   const sportsTotalMinutes = sports.reduce((sum, r) => sum + r.minutes, 0);
 
@@ -447,10 +530,11 @@ export default function TodayScreen() {
           <Text style={styles.sectionTitle}>今日任务</Text>
           <Text style={styles.sectionMore}>
             {todayDone} / {todayTasks.length} 已完成
+            {habitRows.length > 0 ? ` · 习惯 ${habitDone}/${habitRows.length}` : ""}
           </Text>
         </View>
 
-        {todayTasks.length === 0 ? (
+        {todayTasks.length === 0 && habitOnlyRows.length === 0 ? (
           <Card>
             <Text style={styles.taskEmpty}>今天还没有任务，去学习页添加一个吧</Text>
           </Card>
@@ -475,9 +559,25 @@ export default function TodayScreen() {
             </Pressable>
           ))
         )}
-        {todayTasks.length > 3 ? (
+        {/* 习惯排期（v12 P1-2）：与任务同列显示，点一下就地打卡 */}
+        {habitOnlyRows.slice(0, 2).map((h) => (
+          <Pressable key={"habit-" + h.id} onPress={() => void toggleHabit(h.id, h.done)} style={styles.task}>
+            <View style={[styles.taskBox, h.done && { backgroundColor: h.color, borderColor: h.color }]}>
+              {h.done ? <ThemedIcon name="checkmark" size={16} color="#fff" /> : null}
+            </View>
+            <Text style={[styles.taskTitle, h.done && styles.taskDone]} numberOfLines={1}>
+              {h.icon ? h.icon + " " : "🔁 "}
+              {h.name}
+            </Text>
+            <Text style={styles.taskMeta}>习惯</Text>
+          </Pressable>
+        ))}
+
+        {todayTasks.length > 3 || habitOnlyRows.length > 2 ? (
           <Pressable onPress={() => router.push("/tasks" as never)} hitSlop={6} style={styles.inlineMore}>
-            <Text style={styles.inlineMoreText}>还有 {todayTasks.length - 3} 条任务 · 查看全部</Text>
+            <Text style={styles.inlineMoreText}>
+              还有 {Math.max(0, todayTasks.length - 3) + Math.max(0, habitOnlyRows.length - 2)} 条 · 查看全部
+            </Text>
             <ThemedIcon name="chevron-forward" size={14} color={colors.textFaint} />
           </Pressable>
         ) : null}
