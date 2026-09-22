@@ -1,9 +1,10 @@
 /* eslint-disable react-hooks/immutability, react-hooks/set-state-in-effect */
-import { useEffect, useState , useMemo } from "react";
+import { useCallback, useEffect, useState , useMemo } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { ThemedIcon } from "@/components/themed-icon";
+import { InlineToast, TOAST_DEFAULT_LIFE_MS, type ToastKind } from "@/components/toast";
 import * as WebBrowser from "expo-web-browser";
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring } from "react-native-reanimated";
 import { Card } from "@/components/card";
@@ -46,6 +47,9 @@ export function JobDetailModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  /** v13 U4：轻提示的语义色与停留时长（与下面 setTimeout 的超时保持一致） */
+  const [toastKind, setToastKind] = useState<ToastKind>("success");
+  const [toastLifeMs, setToastLifeMs] = useState(TOAST_DEFAULT_LIFE_MS);
   const [enrolling, setEnrolling] = useState(false);
 
   const heartScale = useSharedValue(1);
@@ -82,6 +86,18 @@ export function JobDetailModal({
       alive = false;
     };
   }, [visible, jobId]);
+
+  /**
+   * v13 U4：轻提示统一入口 —— 文案/语义色/停留时长一起设置，
+   * 超时清除沿用旧版的 setTimeout 语义（只清掉"还是这一条"的那个，避免清掉更新的提示）。
+   * ⚠️ 必须声明在 `if (!display) return null` 之前：Hooks 不能出现在早退之后。
+   */
+  const showToast = useCallback((message: string, kind: ToastKind = "success", lifeMs = TOAST_DEFAULT_LIFE_MS) => {
+    setToast(message);
+    setToastKind(kind);
+    setToastLifeMs(lifeMs);
+    setTimeout(() => setToast((current) => (current === message ? null : current)), lifeMs);
+  }, []);
 
   const display = detail ?? job;
   if (!display) return null;
@@ -120,11 +136,10 @@ export function JobDetailModal({
         title: display.title,
         message: display.title + " - " + display.company + "\n" + display.url,
       });
-      setToast("已打开分享面板");
+      showToast("已打开分享面板", "info", 2200);
     } catch {
-      setToast("分享失败，请稍后重试");
+      showToast("分享失败，请稍后重试", "error", 2200);
     }
-    setTimeout(() => setToast(null), 2200);
   };
 
   const enrollPlan = async () => {
@@ -132,26 +147,23 @@ export function JobDetailModal({
     setEnrolling(true);
     try {
       const created = await enrollJobGaps(plan.gaps);
-      setToast(`已加入 ${created} 项学习任务到今日计划`);
+      showToast(`已加入 ${created} 项学习任务到今日计划`, "success", 2400);
     } catch (e) {
-      setToast(e instanceof Error ? e.message : "加入失败");
+      showToast(e instanceof Error ? e.message : "加入失败", "error", 2400);
     } finally {
       setEnrolling(false);
-      setTimeout(() => setToast(null), 2400);
     }
   };
 
   const openOriginal = async () => {
     if (!display.url) {
-      setToast("该职位暂未提供原文链接");
-      setTimeout(() => setToast(null), 2200);
+      showToast("该职位暂未提供原文链接", "info", 2200);
       return;
     }
     try {
       await WebBrowser.openBrowserAsync(display.url);
     } catch {
-      setToast("无法打开原文链接");
-      setTimeout(() => setToast(null), 2200);
+      showToast("无法打开原文链接", "error", 2200);
     }
   };
 
@@ -281,7 +293,12 @@ export function JobDetailModal({
               </Pressable>
             </View>
 
-            {toast ? <Text style={styles.toast}>{toast}</Text> : null}
+            {/* v13 U4：轻提示重做为"图标徽章 + 标题 + 底部剩余时间进度条"（API/时机不变） */}
+            {toast ? (
+              <View style={styles.toastWrap}>
+                <InlineToast message={toast} kind={toastKind} lifeMs={toastLifeMs} />
+              </View>
+            ) : null}
           </Card>
         </View>
       </View>
@@ -494,19 +511,11 @@ const makeStyles = (colors: ThemeColors) =>
     fontWeight: "700",
     color: colors.text,
   },
-  toast: {
+  toastWrap: {
     position: "absolute",
-    left: 24,
-    right: 24,
+    left: 20,
+    right: 20,
     bottom: 90,
-    backgroundColor: "rgba(24,24,27,0.82)",
-    color: "#ffffff",
-    textAlign: "center",
-    borderRadius: 999,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    fontSize: 13,
-    overflow: "hidden",
   },
   planBox: {
     marginTop: 8,

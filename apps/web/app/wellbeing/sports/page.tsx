@@ -319,17 +319,29 @@ export default function SportsProfilePage() {
                 {(p.gear ?? []).length > 0 ? (
                   <div>
                     <p className="mb-1.5 text-xs font-semibold text-muted-foreground">主力装备</p>
-                    <div className="flex flex-col gap-1">
+                    {/* v13 U10：装备行做成小图鉴卡（图 + 类别胶囊 + 型号），技法参考 uiverse.io/Smit-Prajapati/funny-sloth-75, MIT */}
+                    <div className="grid grid-cols-2 gap-2">
                       {(p.gear ?? []).map((g, i) => (
-                        <div key={i} className="flex items-center justify-between gap-2 text-xs">
-                          <span className="flex min-w-0 items-center gap-2 text-muted-foreground">
-                            {g.imageUrl && gearRowWantsImage(g.label) ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img src={g.imageUrl} alt="" className="size-8 shrink-0 rounded-lg border border-border/50 bg-white object-contain" />
-                            ) : null}
-                            {g.label}
+                        <div
+                          key={i}
+                          className="lift flex items-center gap-2 rounded-xl border border-border/60 bg-surface px-2 py-1.5"
+                        >
+                          {g.imageUrl && gearRowWantsImage(g.label) ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={g.imageUrl}
+                              alt=""
+                              className="size-10 shrink-0 rounded-lg border border-border/50 bg-white object-contain"
+                            />
+                          ) : (
+                            <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
+                              <Dumbbell className="size-4" />
+                            </span>
+                          )}
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-[11px] text-muted-foreground">{g.label}</span>
+                            <span className="block truncate text-xs font-medium">{g.value}</span>
                           </span>
-                          <span className="font-medium">{g.value}</span>
                         </div>
                       ))}
                     </div>

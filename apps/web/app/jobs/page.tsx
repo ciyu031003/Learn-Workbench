@@ -19,8 +19,9 @@ import {
 } from "@learn-workbench/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Input } from "@/components/ui/input";
+import { Input, SearchInput } from "@/components/ui/input";
 import { JobCard } from "@/components/jobs/job-card";
 import { JobModal } from "@/components/jobs/job-modal";
 import { JobDetailPanel } from "@/components/jobs/job-detail-panel";
@@ -45,7 +46,6 @@ import {
   Loader2,
   Play,
   RefreshCw,
-  Search,
   Sparkles,
   SlidersHorizontal,
   BarChart3,
@@ -137,23 +137,23 @@ function JobSkeleton() {
   return (
     <div className="grid grid-cols-1 justify-center gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
       {Array.from({ length: 8 }).map((_, i) => (
-        <div key={i} className="paper-card h-56 animate-pulse rounded-2xl p-4">
+        <div key={i} className="paper-card h-56 rounded-2xl p-4">
           <div className="flex items-start gap-3">
-            <div className="h-11 w-11 rounded-xl bg-white/15" />
+            <Skeleton className="h-11 w-11" />
             <div className="flex-1 space-y-2">
-              <div className="h-4 w-3/4 rounded bg-white/15" />
-              <div className="h-3 w-1/2 rounded bg-white/10" />
+              <Skeleton className="h-4 w-3/4" rounded="rounded-full" />
+              <Skeleton className="h-3 w-1/2" rounded="rounded-full" />
             </div>
-            <div className="h-5 w-20 rounded bg-white/15" />
+            <Skeleton className="h-5 w-20" rounded="rounded-full" />
           </div>
-          <div className="mt-5 h-3 w-2/3 rounded bg-white/10" />
+          <Skeleton className="mt-5 h-3 w-2/3" rounded="rounded-full" />
           <div className="mt-3 flex gap-1.5">
-            <div className="h-5 w-14 rounded-full bg-white/10" />
-            <div className="h-5 w-14 rounded-full bg-white/10" />
-            <div className="h-5 w-14 rounded-full bg-white/10" />
+            {[0, 1, 2].map((j) => (
+              <Skeleton key={j} className="h-5 w-14" rounded="rounded-full" />
+            ))}
           </div>
-          <div className="mt-5 h-px w-full bg-white/10" />
-          <div className="mt-3 h-3 w-1/2 rounded bg-white/10" />
+          <Skeleton className="mt-5 h-px w-full" rounded="rounded-none" />
+          <Skeleton className="mt-3 h-3 w-1/2" rounded="rounded-full" />
         </div>
       ))}
     </div>
@@ -505,15 +505,17 @@ export default function JobsPage() {
 
           {/* 第 2 层：搜索 + 排序 + 筛选 + 去重 */}
           <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
-            <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                placeholder="搜索职位、公司、公告标题或标签"
-                className="h-11 pl-10"
-              />
-            </div>
+            {/* v13 U6：胶囊搜索 + 内嵌圆形提交（技法参考 uiverse.io/OnlyCodeChannel/ugly-penguin-43, MIT） */}
+            <SearchInput
+              value={searchInput}
+              onChange={setSearchInput}
+              onSubmit={() => {
+                setSearch(searchInput.trim());
+                setPage(1);
+              }}
+              placeholder="搜索职位、公司、公告标题或标签"
+              className="flex-1"
+            />
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex rounded-2xl border border-white/20 bg-white/10 p-1 backdrop-blur-md">
                 <button

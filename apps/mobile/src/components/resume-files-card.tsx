@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import * as WebBrowser from "expo-web-browser";
 import { ThemedIcon } from "@/components/themed-icon";
 import { Card } from "@/components/card";
-import { PressableScale } from "@/components/pressable-scale";
+import { SkeletonList } from "@/components/skeleton";
+import { UploadCard, uploadAcceptHint } from "@/components/upload-card";
 import { useTheme } from "@/theme";
 import type { ThemeColors } from "@/theme/tokens";
 import { radius } from "@/theme/tokens";
@@ -134,9 +135,9 @@ export function ResumeFilesCard() {
       </View>
 
       {loading ? (
-        <ActivityIndicator color={colors.primary} />
+        <SkeletonList count={2} />
       ) : files.length === 0 ? (
-        <Text style={styles.empty}>还没有上传简历，点下面按钮选一个文件（存在你的私有目录里，只有你能看）</Text>
+        <Text style={styles.empty}>还没有上传简历，从下面选一个文件（存在你的私有目录里，只有你能看）</Text>
       ) : (
         <View style={styles.list}>
           {files.map((row) => (
@@ -161,16 +162,16 @@ export function ResumeFilesCard() {
         </View>
       )}
 
-      <PressableScale haptic scaleTo={0.97} style={styles.addBtn} onPress={() => void upload()} disabled={busy}>
-        {busy ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <>
-            <ThemedIcon name="cloud-upload-outline" size={16} color="#fff" />
-            <Text style={styles.addText}>上传简历（PDF / Word）</Text>
-          </>
-        )}
-      </PressableScale>
+      {/* v13 U7：上传卡（技法参考 uiverse.io/Jerome-W-90/shy-jellyfish-2, MIT）——
+          expo-document-picker 的选择逻辑、大小拦截与错误提示保持原样，只换视觉 */}
+      <UploadCard
+        title="上传简历（PDF / Word）"
+        hint="点「选择文件」挑一份，存在你的私有目录"
+        acceptHint={`PDF / Word · ${uploadAcceptHint(MAX_BYTES)}`}
+        busy={busy}
+        onPick={() => void upload()}
+        pickLabel={busy ? "上传中…" : "选择文件"}
+      />
       <Text style={styles.tip}>点文件预览、长按删除；文件存在你的专属目录，别人拿不到直链。</Text>
     </Card>
   );
@@ -199,16 +200,6 @@ function useMemo2(colors: ThemeColors) {
     rowBody: { flex: 1, gap: 2 },
     rowName: { fontSize: 13, fontWeight: "700", color: colors.text },
     rowMeta: { fontSize: 11, color: colors.textMuted },
-    addBtn: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 6,
-      borderRadius: radius.pill,
-      backgroundColor: colors.primary,
-      paddingVertical: 11,
-    },
-    addText: { fontSize: 13, fontWeight: "800", color: "#fff" },
     tip: { fontSize: 11, color: colors.textMuted },
   });
 }

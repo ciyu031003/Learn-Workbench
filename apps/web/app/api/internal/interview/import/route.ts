@@ -44,10 +44,10 @@ export async function POST(req: Request) {
   let imported = 0;
   const skipped: string[] = [];
   for (const raw of items) {
-    const module = text(raw?.module, 40);
+    const moduleName = text(raw?.module, 40);
     const question = text(raw?.question, 400);
     const externalKey = text(raw?.externalKey, 200);
-    if (!module || question.length < 6 || !externalKey) {
+    if (!moduleName || question.length < 6 || !externalKey) {
       skipped.push(question.slice(0, 40));
       continue;
     }
@@ -57,7 +57,7 @@ export async function POST(req: Request) {
     const tags = Array.isArray(raw?.tags) ? raw.tags.map((t) => text(t, 24)).filter(Boolean).slice(0, 8) : [];
 
     await pgPool.query(UPSERT_SQL, [
-      module,
+      moduleName,
       question,
       answer,
       difficulty,

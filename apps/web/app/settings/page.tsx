@@ -7,6 +7,7 @@ import { QuickLinks } from "@/components/settings/quick-links";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { ThemeSegmented } from "@/components/ui/theme-segmented";
 import { useUiStore } from "@/store/ui-store";
 import { FOCUS_GALLERY, useFocusBgStore } from "@/store/focus-bg-store";
 import { useToastStore } from "@/store/toast-store";
@@ -593,29 +594,7 @@ export default function SettingsPage() {
                 {theme === "auto" ? `（当前：${systemDark ? "深色" : "浅色"}）` : ""}
               </p>
             </div>
-            <div className="flex gap-2">
-              <Button
-                variant={theme === "light" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setTheme("light")}
-              >
-                浅色
-              </Button>
-              <Button
-                variant={theme === "dark" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setTheme("dark")}
-              >
-                深色
-              </Button>
-              <Button
-                variant={theme === "auto" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setTheme("auto")}
-              >
-                跟随系统
-              </Button>
-            </div>
+            <ThemeSegmented value={theme} onChange={setTheme} />
           </CardContent>
         </Card>
 

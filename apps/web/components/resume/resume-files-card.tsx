@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { FileText, Trash2, Upload, ExternalLink, Loader2 } from "lucide-react";
+import { FileText, Trash2, ExternalLink } from "lucide-react";
+import { UploadCard } from "@/components/ui/upload-card";
+import { HoldButton } from "@/components/ui/hold-button";
 import { useToastStore } from "@/store/toast-store";
 
 /** 简历文件（v12 P2-2）：PDF / Word ≤5MB，文件本体在 COS 桶的 resume/ 私有目录 */
@@ -27,7 +28,6 @@ export function ResumeFilesCard() {
   const [files, setFiles] = useState<ResumeFileRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
-  const inputRef = useRef<HTMLInputElement | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -62,7 +62,6 @@ export function ResumeFilesCard() {
   };
 
   const remove = async (row: ResumeFileRow) => {
-    if (!window.confirm("删除简历文件「" + row.fileName + "」？")) return;
     const r = await fetch("/api/resume-files/" + row.id, { method: "DELETE" });
     if (!r.ok) {
       pushToast("删除失败", "error");
@@ -77,24 +76,18 @@ export function ResumeFilesCard() {
         <FileText className="size-4 text-primary" />
         <span className="text-sm font-semibold">简历文件</span>
         <span className="text-xs text-muted-foreground">PDF / Word · ≤5MB · 存私有目录，仅自己可见</span>
-        <div className="ml-auto">
-          <Button size="sm" variant="secondary" className="gap-1.5" disabled={busy} onClick={() => inputRef.current?.click()}>
-            {busy ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
-            上传简历
-          </Button>
-        </div>
       </div>
-      <input
-        ref={inputRef}
-        type="file"
-        accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          e.target.value = "";
-          if (file) void upload(file);
-        }}
-      />
+
+      {/* v13 U7：上传卡（技法参考 uiverse.io/Jerome-W-90/shy-jellyfish-2, MIT） */}
+      <div className="px-4 pb-3">
+        <UploadCard
+          title="上传简历（PDF / Word）"
+          hint="拖拽到框里或点「选择文件」，单个不超过 5MB"
+          accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          busy={busy}
+          onPick={(file) => void upload(file)}
+        />
+      </div>
 
       <div className="flex flex-col gap-2 px-4 pb-4">
         {loading ? (
@@ -118,14 +111,13 @@ export function ResumeFilesCard() {
               >
                 <ExternalLink className="size-4" />
               </a>
-              <button
-                type="button"
-                onClick={() => void remove(row)}
-                className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted/60 hover:text-danger"
-                aria-label="删除"
+              <HoldButton
+                onConfirm={() => void remove(row)}
+                icon={<Trash2 className="size-4" />}
+                className="border-transparent bg-transparent px-2 py-1 text-xs text-muted-foreground hover:bg-muted/60 hover:text-danger"
               >
-                <Trash2 className="size-4" />
-              </button>
+                按住删除
+              </HoldButton>
             </div>
           ))
         )}

@@ -4,11 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { ReadinessHero } from "@/components/wellbeing/readiness-hero";
+import { Skeleton } from "@/components/ui/skeleton";
 
 /** 3D 水杯懒加载（ssr:false）：与状态球共用 three 异步 chunk */
 const WaterGlass3D = dynamic(() => import("@/components/three/water-glass-3d").then((m) => m.WaterGlass3D), {
   ssr: false,
-  loading: () => <div className="h-[145px] w-[116px] animate-pulse rounded-2xl bg-muted/30" />,
+  loading: () => <Skeleton className="h-[145px] w-[116px]" rounded="rounded-2xl" />,
 });
 import {
   Droplets,

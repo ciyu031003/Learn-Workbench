@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/immutability */
 import { useEffect, useState, useMemo } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import type { ThemeColors } from "@/theme/tokens";
 import { radius, spacing, typography } from "@/theme/tokens";
 import { useTheme } from "@/theme";
@@ -10,6 +10,7 @@ import { SectionHeader } from "@/components/section-header";
 import { ListGroup, ListRow } from "@/components/list-row";
 import { GlassSurface } from "@/components/surface";
 import { ProgressArc } from "@/components/progress-arc";
+import { Skeleton } from "@/components/skeleton";
 import { ProgressBar, Stat, StatLine } from "@/components/stat";
 import { Button } from "@/components/button";
 import { BottomSheet } from "@/components/bottom-sheet";
@@ -94,7 +95,8 @@ export default function CareerScreen() {
       {/* ① 职业准备度 hero：进度弧 + 结论 + 三个关键值 */}
       <GlassSurface corner={radius.xl} style={styles.hero}>
         {loading ? (
-          <ActivityIndicator color={colors.primary} style={styles.loader} />
+          /* v13 U1：首屏占位统一走骨架屏（原来是一个转圈，感知更慢） */
+          <Skeleton variant="hero" style={styles.heroSkeleton} />
         ) : (
           <>
             <ProgressArc
@@ -216,6 +218,8 @@ const makeStyles = (colors: ThemeColors) =>
     hero: { flexDirection: "row", alignItems: "center", gap: spacing.lg, paddingVertical: spacing.lg },
     heroStats: { flex: 1, minWidth: 0, gap: spacing.sm },
     loader: { marginVertical: 28, flex: 1 },
+    // v13 U1：hero 骨架在弧形卡里要能撑开
+    heroSkeleton: { flex: 1, alignSelf: "stretch" },
     moreRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
     moreItem: { flex: 1, alignItems: "center", gap: 6 },
     moreIcon: {

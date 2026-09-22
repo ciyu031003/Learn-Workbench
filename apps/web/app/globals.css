@@ -938,3 +938,232 @@ html.dark .ambient-glow::after {
     border-radius: 0 !important;
   }
 }
+
+/* ============ v13 · Uiverse 借鉴技法（只借技法；配色/圆角/字体仍走本项目 token） ============
+   出处与作者见 docs/第三方UI来源与署名.md（Uiverse.io · MIT）。所有动效只用 transform/opacity，
+   统一受 prefers-reduced-motion 约束。 */
+:root {
+  --motion-fast: 150ms;
+  --motion-base: 240ms;
+  --motion-slow: 400ms;
+  --ease-standard: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-overshoot: cubic-bezier(0.8, 0.5, 0.2, 1.4);
+  --toast-life: 3.2s;
+}
+
+@property --ring-value {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+
+/* 1) 骨架扫光（uiverse.io/Praashoo7/stale-bat-2）：斜切高光扫过，不用位图 */
+.shimmer {
+  position: relative;
+  overflow: hidden;
+  background: var(--color-muted);
+}
+.shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(105deg, transparent 22%, rgba(255, 255, 255, 0.66) 50%, transparent 78%);
+  animation: shimmer-sweep 1.6s var(--ease-standard) infinite;
+}
+html.dark .shimmer::after,
+html.bg-dark .shimmer::after {
+  background: linear-gradient(105deg, transparent 22%, rgba(255, 255, 255, 0.14) 50%, transparent 78%);
+}
+@keyframes shimmer-sweep {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* 2) conic + mask 圆环（uiverse.io/VashonG/jolly-yak-23）：改 --ring-value 即改进度，无需 SVG */
+.ring-conic {
+  position: relative;
+  border-radius: 9999px;
+  --ring-track: var(--color-muted);
+  background: conic-gradient(
+    from -90deg,
+    var(--ring-from, #2f74c0) 0%,
+    var(--ring-to, #5b93d6) calc(var(--ring-value) * 1%),
+    var(--ring-track) 0
+  );
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - var(--ring-size, 8px)), #000 calc(100% - var(--ring-size, 8px)));
+  mask: radial-gradient(farthest-side, transparent calc(100% - var(--ring-size, 8px)), #000 calc(100% - var(--ring-size, 8px)));
+  transition: --ring-value var(--motion-slow) ease;
+}
+.ring-conic-spin {
+  animation: ring-spin 1.1s linear infinite;
+}
+@keyframes ring-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 3) 聚焦旋转描边（uiverse.io/PhanDangKhoa96/swift-warthog-78）：只在聚焦时出现，6s 一圈 */
+.spin-border {
+  position: relative;
+}
+.spin-border::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--border-angle),
+    rgba(47, 116, 192, 0),
+    rgba(47, 116, 192, 0.7),
+    rgba(225, 120, 28, 0.6),
+    rgba(47, 116, 192, 0)
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--motion-base) var(--ease-standard);
+}
+.spin-border:focus-within::before,
+.spin-border[data-spin="on"]::before {
+  opacity: 1;
+  animation: glow-border-spin 6s linear infinite;
+}
+
+/* 4) 按压反馈（uiverse.io/seyed-mohsen-mousavi/bitter-snail-5） */
+.press {
+  transition: transform var(--motion-fast) var(--ease-standard), box-shadow var(--motion-base) var(--ease-standard);
+}
+.press:active {
+  transform: scale(0.975);
+}
+.press-soft:active {
+  transform: translateY(1px) scale(0.995);
+}
+
+/* 5) 卡片悬浮抬升（uiverse.io/Smit-Prajapati/funny-sloth-75） */
+@media (hover: hover) {
+  .lift {
+    transition: transform var(--motion-base) var(--ease-standard), box-shadow var(--motion-base) var(--ease-standard);
+  }
+  .lift:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(60, 50, 30, 0.08), 0 18px 40px -14px rgba(60, 50, 30, 0.22);
+  }
+  html.dark .lift:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 0 18px 40px -14px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* 6) 勾选绘制（uiverse.io/JkHuger/warm-panther-74）：对勾描边生长 */
+.check-draw path,
+.check-draw line,
+.check-draw polyline {
+  stroke-dasharray: 26;
+  stroke-dashoffset: 26;
+  animation: check-draw var(--motion-slow) var(--ease-standard) forwards;
+}
+@keyframes check-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* 7) 提示条倒计时（uiverse.io/WittyHydra/nervous-zebra-0）：进度条 = 剩余停留时间 */
+.toast-progress {
+  position: relative;
+  overflow: hidden;
+}
+.toast-progress::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  transform-origin: left center;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
+  animation: toast-shrink var(--toast-life) linear forwards;
+}
+.toast-progress:hover::after {
+  animation-play-state: paused;
+}
+@keyframes toast-shrink {
+  to {
+    transform: scaleX(0);
+  }
+}
+
+/* 8) 低透明度几何底纹（uiverse.io/csemszepp/old-hound-37）：只做氛围，不抢内容 */
+.pattern-bauhaus {
+  --pb-1: rgba(225, 120, 28, 0.1);
+  --pb-2: rgba(254, 212, 80, 0.1);
+  --pb-3: rgba(18, 92, 101, 0.06);
+  --pb-4: rgba(188, 74, 51, 0.06);
+  background-image:
+    conic-gradient(from 135deg at 25% 75%, var(--pb-1) 25%, var(--pb-2) 0 50%, transparent 0),
+    conic-gradient(from 225deg at 25% 25%, var(--pb-1) 25%, var(--pb-2) 0 50%, transparent 0),
+    conic-gradient(from 45deg at 75% 75%, var(--pb-1) 25%, var(--pb-2) 0 50%, transparent 0),
+    conic-gradient(from -45deg at 75% 25%, var(--pb-1) 25%, var(--pb-2) 0 50%, transparent 0),
+    repeating-conic-gradient(var(--pb-3) 0 45deg, var(--pb-4) 0 90deg);
+  background-size: 96px 96px;
+}
+html.dark .pattern-bauhaus {
+  --pb-1: rgba(244, 154, 74, 0.1);
+  --pb-2: rgba(255, 211, 130, 0.08);
+  --pb-3: rgba(255, 255, 255, 0.03);
+  --pb-4: rgba(255, 255, 255, 0.02);
+}
+
+/* 9) 灰阶 3D 人字纹（uiverse.io/csemszepp/kind-frog-70）：空状态专用，弱到几乎看不见 */
+.pattern-chevron {
+  --pc-1: rgba(120, 110, 95, 0.07);
+  --pc-2: rgba(120, 110, 95, 0.05);
+  --pc-3: rgba(120, 110, 95, 0.09);
+  --pc-s: 42px;
+  background-image:
+    conic-gradient(from 0deg at calc(500% / 6) calc(100% / 3), var(--pc-3) 0 120deg, transparent 0),
+    conic-gradient(from -120deg at calc(100% / 6) calc(100% / 3), var(--pc-2) 0 120deg, transparent 0),
+    conic-gradient(from 120deg at calc(100% / 3) calc(500% / 6), var(--pc-1) 0 120deg, transparent 0),
+    conic-gradient(from 120deg at calc(200% / 3) calc(500% / 6), var(--pc-1) 0 120deg, transparent 0),
+    conic-gradient(from -180deg at calc(100% / 3) 50%, var(--pc-2) 60deg, var(--pc-1) 0 120deg, transparent 0),
+    conic-gradient(from 60deg at calc(200% / 3) 50%, var(--pc-1) 60deg, var(--pc-3) 0 120deg, transparent 0),
+    conic-gradient(from -60deg at 50% calc(100% / 3), var(--pc-1) 120deg, var(--pc-2) 0 240deg, var(--pc-3) 0);
+  background-size: calc(var(--pc-s) * 1.732) var(--pc-s);
+}
+html.dark .pattern-chevron {
+  --pc-1: rgba(255, 255, 255, 0.035);
+  --pc-2: rgba(255, 255, 255, 0.022);
+  --pc-3: rgba(255, 255, 255, 0.05);
+}
+
+/* 10) 减弱动态：所有装饰动画直接关闭 */
+@media (prefers-reduced-motion: reduce) {
+  .shimmer::after,
+  .ring-conic-spin,
+  .spin-border::before,
+  .check-draw path,
+  .check-draw line,
+  .check-draw polyline {
+    animation: none;
+  }
+  .check-draw path,
+  .check-draw line,
+  .check-draw polyline {
+    stroke-dashoffset: 0;
+  }
+  .toast-progress::after {
+    display: none;
+  }
+  .press:active,
+  .press-soft:active,
+  .lift:hover {
+    transform: none;
+  }
+}
+

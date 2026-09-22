@@ -7,7 +7,8 @@ import { EmptyState } from "@/components/empty-state";
 import { SkeletonList } from "@/components/skeleton";
 import { ScreenHeader } from "@/components/screen-header";
 import { Card } from "@/components/card";
-import { Button } from "@/components/button";
+import { PressButton } from "@/components/press-button";
+import { FloatField } from "@/components/float-field";
 import { Field } from "@/components/field";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
@@ -241,7 +242,13 @@ export default function HabitsScreen() {
         <SkeletonList count={4} />
       ) : habits.length === 0 ? (
         <>
-          <EmptyState icon="repeat-outline" title="还没有习惯" hint="从下方模板快速开始，或自定义一个" />
+          {/* v13 U12：空状态加暖色几何底纹（3%–7% 不透明度） */}
+          <EmptyState
+            icon="repeat-outline"
+            title="还没有习惯"
+            hint="从下方模板快速开始，或自定义一个"
+            pattern="bauhaus"
+          />
           <View style={styles.tplRow}>
             {HABIT_TEMPLATES.map((t) => (
               <Pressable
@@ -389,7 +396,8 @@ export default function HabitsScreen() {
             placeholder="例如 🌱"
           />
 
-          <Field label="名称" value={name} onChangeText={setName} placeholder="例如：饮水 / 早睡" />
+          {/* v13 U6：浮动标签输入框（技法参考 uiverse.io/Li-Deheng/tiny-chicken-50, MIT） */}
+          <FloatField label="名称" value={name} onChangeText={setName} placeholder="例如：饮水 / 早睡" />
 
           <Text style={styles.label}>类型</Text>
           <View style={styles.kindRow}>
@@ -427,7 +435,14 @@ export default function HabitsScreen() {
           </View>
           <Text style={styles.muted}>留空表示不限定时间；本期只做记录与展示，不会触发提醒。</Text>
 
-          <Button label="保存习惯" loading={saving} onPress={() => void submit()} />
+          {/* v13 U5：主 CTA 用按压反馈按钮（按下 0.97 + loading 文案切换） */}
+          <PressButton
+            label="保存习惯"
+            loadingLabel="保存中…"
+            loading={saving}
+            icon="checkmark-circle-outline"
+            onPress={() => void submit()}
+          />
         </View>
       </BottomSheet>
     </ScrollView>

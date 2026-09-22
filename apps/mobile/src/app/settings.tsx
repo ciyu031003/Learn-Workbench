@@ -24,6 +24,7 @@ import { ListGroup, ListRow } from "@/components/list-row";
 import { GroupLabel } from "@/components/group-label";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
+import { DayNightSwitch } from "@/components/day-night-switch";
 import { router } from "expo-router";
 import { AuthSheet } from "@/components/auth-sheet";
 import { haptics } from "@/lib/haptics";
@@ -32,7 +33,7 @@ import { useTheme } from "@/theme";
 import { resolveEdgeSwipeEnabled } from "@/lib/edge-swipe";
 
 export default function SettingsScreen() {
-  const { colors } = useTheme();
+  const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const tabBarSpace = useTabBarSpace();
@@ -379,6 +380,16 @@ export default function SettingsScreen() {
           title="主题"
           subtitle="浅色 / 深色 / 跟随系统"
           value={themeLabel}
+          /* v13 U9：日夜开关负责"浅 ↔ 深"两态；"跟随系统"仍在下面的三档弹层里（API 不变） */
+          right={
+            <DayNightSwitch
+              value={dark ? "dark" : "light"}
+              onChange={(next) => {
+                haptics.soft();
+                setThemeMode(next);
+              }}
+            />
+          }
           showChevron
           onPress={() => setThemeOpen(true)}
         />

@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   RefreshControl,
-  ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+  Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
 import { EmptyState } from "@/components/empty-state";
 import { SkeletonList } from "@/components/skeleton";
+import { AchievementCard } from "@/components/achievement-card";
+import { FloatField } from "@/components/float-field";
+import { PressButton } from "@/components/press-button";
 import { ScreenHeader } from "@/components/screen-header";
-import { Card } from "@/components/card";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -127,41 +129,50 @@ export default function CertificatesScreen() {
           icon="ribbon-outline"
           title="还没有证书"
           hint="先添加一张 CISP / HCIP，简历与职业雷达会自动引用"
+          pattern="bauhaus"
         />
       ) : (
-        records.map((r) => {
+        records.map((r, index) => {
           const info = certificateExpiryInfo(r.expiryDate);
           const st = (r.status ?? "planned") as Status;
+          // v13 U11：证书/里程碑统一用成就卡（大图形 + 标题 + 达成日期 + 入场错峰）
           return (
-            <Card key={r.id} style={styles.item}>
-              <View style={styles.itemHead}>
-                <View style={styles.itemTitleWrap}>
-                  <View style={styles.tagRow}>
-                    <Text style={styles.tag}>{certificateStatusLabels[st]}</Text>
-                    {info.level === "soon" || info.level === "expired" ? (
-                      <Text style={[styles.warn, info.level === "expired" && styles.warnDanger]}>{info.label}</Text>
-                    ) : null}
-                  </View>
-                  <Text style={styles.itemTitle}>{r.name}</Text>
-                  {r.issuer ? <Text style={styles.itemMuted}>{r.issuer}</Text> : null}
-                </View>
-                <Pressable hitSlop={8} onPress={() => remove(r)}>
+            <AchievementCard
+              key={r.id}
+              index={index}
+              tone={st === "achieved" ? "gold" : st === "preparing" ? "blue" : "green"}
+              emoji={st === "achieved" ? "🏆" : st === "preparing" ? "🎯" : "📘"}
+              title={r.name}
+              subtitle={r.issuer || null}
+              date={info.level === "ok" ? info.label : null}
+              right={
+                <Pressable hitSlop={8} onPress={() => remove(r)} accessibilityLabel={"删除 " + r.name}>
                   <ThemedIcon name="trash-outline" size={18} color={colors.textFaint} />
                 </Pressable>
+              }
+            >
+              <View style={styles.tagRow}>
+                <Text style={styles.tag}>{certificateStatusLabels[st]}</Text>
+                {info.level === "soon" || info.level === "expired" ? (
+                  <Text style={[styles.warn, info.level === "expired" && styles.warnDanger]}>{info.label}</Text>
+                ) : null}
               </View>
-              {info.level === "ok" ? <Text style={styles.itemMuted}>{info.label}</Text> : null}
               {r.note ? <Text style={styles.itemContent} numberOfLines={3}>{r.note}</Text> : null}
-            </Card>
+            </AchievementCard>
           );
         })
       )}
 
       <BottomSheet visible={sheetOpen} onClose={() => setSheetOpen(false)} title="添加证书" height="66%">
         <View style={styles.form}>
-          <Text style={styles.label}>证书名称</Text>
-          <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="例如：CISP" placeholderTextColor={colors.textFaint} />
-          <Text style={styles.label}>颁发机构（选填）</Text>
-          <TextInput style={styles.input} value={issuer} onChangeText={setIssuer} placeholder="例如：中国信息安全测评中心" placeholderTextColor={colors.textFaint} />
+          {/* v13 U6：浮动标签输入框（技法参考 uiverse.io/Li-Deheng/tiny-chicken-50, MIT） */}
+          <FloatField label="证书名称" value={name} onChangeText={setName} placeholder="例如：CISP" />
+          <FloatField
+            label="颁发机构（选填）"
+            value={issuer}
+            onChangeText={setIssuer}
+            placeholder="例如：中国信息安全测评中心"
+          />
           <Text style={styles.label}>状态</Text>
           <View style={styles.kindRow}>
             {STATUSES.map((s) => (
@@ -170,11 +181,21 @@ export default function CertificatesScreen() {
               </Pressable>
             ))}
           </View>
-          <Text style={styles.label}>有效期至（YYYY-MM-DD，选填）</Text>
-          <TextInput style={styles.input} value={expiryDate} onChangeText={setExpiryDate} placeholder="2028-09-30" placeholderTextColor={colors.textFaint} autoCapitalize="none" />
-          <Pressable style={[styles.primaryBtn, saving && { opacity: 0.5 }]} disabled={saving} onPress={() => void submit()}>
-            {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>保存证书</Text>}
-          </Pressable>
+          <FloatField
+            label="有效期至（YYYY-MM-DD，选填）"
+            value={expiryDate}
+            onChangeText={setExpiryDate}
+            placeholder="2028-09-30"
+            autoCapitalize="none"
+          />
+          {/* v13 U5：主 CTA 用按压反馈按钮 */}
+          <PressButton
+            label="保存证书"
+            loadingLabel="保存中…"
+            loading={saving}
+            icon="ribbon-outline"
+            onPress={() => void submit()}
+          />
         </View>
       </BottomSheet>
     </ScrollView>

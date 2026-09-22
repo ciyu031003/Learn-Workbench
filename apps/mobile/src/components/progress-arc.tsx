@@ -12,6 +12,7 @@ import Animated, {
 import { tabularNums, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
+import { MOTION_SLOW, easingStandard } from "@/theme/motion";
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
@@ -36,6 +37,9 @@ function arcPath(cx: number, cy: number, r: number, sweepDeg: number) {
 
 /**
  * 进度弧（见 docs/APP端优化方案-v2 §1.5.3B + v3 M1/M5）
+ *
+ * v13 U2 参数对齐 Web `components/ui/progress-ring.tsx`（厚度 10 / 圆头 / 渐变 `primary → chart[1]` /
+ * 400ms 标准缓动 `cubic-bezier(.22,.61,.36,1)`）；RN 不支持 conic-gradient，所以**保持 react-native-svg**。
  *
  * v3 新增：
  * - `overBudget`：超出目标 → 轨道与进度转 danger（不做阻断，只做提示）
@@ -98,8 +102,9 @@ export function ProgressArc({
   const cy = size / 2;
   const arcLen = 2 * Math.PI * r * (SWEEP / 360);
   const targetOffset = arcLen * (1 - clamped);
+  // v13 U2：默认渐变与 Web 的 `--ring-from/-to` 一致（#2f74c0 → #5b93d6 的 token 等价色）
   const start = overBudget ? colors.danger : (from ?? colors.primary);
-  const end = overBudget ? colors.danger : (to ?? colors.accentStrong);
+  const end = overBudget ? colors.danger : (to ?? colors.chart[1]);
 
   const offset = useSharedValue(ARC_ANIMATION_ENABLED ? arcLen : targetOffset);
   const beat = useSharedValue(1);
@@ -111,7 +116,8 @@ export function ProgressArc({
       offset.value = targetOffset;
       return;
     }
-    offset.value = withTiming(targetOffset, { duration: 420, easing: Easing.out(Easing.cubic) });
+    // v13 U2：400ms + 标准缓动（与 Web 的 --motion-slow / --ease-standard 一致）
+    offset.value = withTiming(targetOffset, { duration: MOTION_SLOW, easing: easingStandard });
   }, [offset, reduce, targetOffset]);
 
   /**

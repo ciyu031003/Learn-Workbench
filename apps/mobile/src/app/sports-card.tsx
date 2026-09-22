@@ -40,6 +40,7 @@ import { BottomSheet } from "@/components/bottom-sheet";
 import { GroupLabel } from "@/components/group-label";
 import { SportsHoloCard } from "@/components/sports-holo-card";
 import { EquipmentPicker } from "@/components/equipment-picker-sheet";
+import { GearCard } from "@/components/gear-card";
 import type { EquipmentItem } from "@/lib/equipment";
 import { hasHoloImages, holoImages } from "@/lib/holo-images";
 import { absoluteMediaUrl, deleteUpload, pickAndUpload } from "@/lib/uploads";
@@ -633,35 +634,22 @@ export default function SportsCardScreen() {
                     );
                   })}
 
+                  {/* v13 U10：装备卡统一为"图片区 + 收藏角标 + 底部胶囊 + 抬起反馈"
+                      （技法参考 uiverse.io/Smit-Prajapati/funny-sloth-75, MIT） */}
                   {gridEntries.length > 0 ? (
                     <View style={styles.gearGrid}>
-                      {gridEntries.map((item) => {
-                        const uri = absoluteMediaUrl(item.imageUrl);
-                        return (
-                          <Pressable
-                            key={item.label}
-                            onPress={() => setImgSheet({ kind: "gear", label: item.label })}
-                            style={styles.gearCell}
-                            accessibilityLabel={"设置" + item.label + "图片"}
-                          >
-                            <View style={[styles.gearCellImage, !uri && styles.gearImageEmpty]}>
-                              {uri ? (
-                                <>
-                                  <Image source={{ uri }} style={styles.gearCellImg} contentFit="contain" transition={200} />
-                                  <View style={styles.gearSwapPill}>
-                                    <ThemedIcon name="camera-outline" size={11} color="#ffffff" />
-                                    <Text style={styles.gearSwapText}>换图</Text>
-                                  </View>
-                                </>
-                              ) : (
-                                <ThemedIcon name="image-outline" size={22} color={colors.textFaint} />
-                              )}
-                            </View>
-                            <Text style={styles.gearValue} numberOfLines={1}>{item.value || "—"}</Text>
-                            <Text style={styles.gearLabel} numberOfLines={1}>{item.label}</Text>
-                          </Pressable>
-                        );
-                      })}
+                      {gridEntries.map((item) => (
+                        <GearCard
+                          key={item.label}
+                          style={styles.gearCell}
+                          model={item.value || "—"}
+                          price={item.label}
+                          imageUrl={absoluteMediaUrl(item.imageUrl)}
+                          onPress={() => setImgSheet({ kind: "gear", label: item.label })}
+                          onLongPress={() => void clearGearImage(item.label)}
+                          accessibilityLabel={"设置" + item.label + "图片，长按移除"}
+                        />
+                      ))}
                     </View>
                   ) : null}
 
@@ -1231,7 +1219,7 @@ const makeStyles = (colors: ThemeColors) =>
 
     // 其余装备：两列网格，图片区矮一点，一行装两个
     gearGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-    gearCell: { width: "48%", gap: 4 },
+    gearCell: { width: "48%" },
     gearCellImage: {
       width: "100%",
       aspectRatio: 1.55,

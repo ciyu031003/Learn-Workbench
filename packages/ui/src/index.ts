@@ -73,3 +73,15 @@ export const oilPainting = {
 
 /** v1.3 对外别名：保留 oilPainting，同时提供语义名 sunny。 */
 export const sunny = oilPainting;
+
+/**
+ * 动效 tokens（v13 · Uiverse 借鉴技法）：跨端共用同一组时长与缓动，避免 Web 与 RN 各写一套。
+ * easeStandard 对应 CSS cubic-bezier(.22,.61,.36,1)；easeOvershoot 对应 cubic-bezier(.8,.5,.2,1.4)。
+ */
+export const motion = {
+  fast: 150,
+  base: 240,
+  slow: 400,
+  easeStandard: [0.22, 0.61, 0.36, 1] as const,
+  easeOvershoot: [0.8, 0.5, 0.2, 1.4] as const,
+} as const;

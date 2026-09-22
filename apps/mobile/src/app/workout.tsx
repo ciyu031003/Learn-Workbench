@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
 import { EmptyState } from "@/components/empty-state";
 import { SkeletonList } from "@/components/skeleton";
@@ -7,6 +7,7 @@ import { ScreenHeader } from "@/components/screen-header";
 import { Card } from "@/components/card";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
+import { PressButton } from "@/components/press-button";
 import { ExercisePickerSheet } from "@/components/exercise-picker-sheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
@@ -389,9 +390,15 @@ export default function WorkoutScreen() {
             <Text style={styles.ghostBtnText}>＋ 添加动作</Text>
           </Pressable>
 
-          <Pressable style={[styles.primaryBtn, saving && styles.btnDisabled]} disabled={saving} onPress={() => void save()}>
-            {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>{editingId === null ? "保存训练" : "保存修改"}</Text>}
-          </Pressable>
+          {/* v13 U5：主 CTA 用按压反馈按钮（按下 0.97 + loading 文案切换） */}
+          <PressButton
+            label={editingId === null ? "保存训练" : "保存修改"}
+            loadingLabel="保存中…"
+            loading={saving}
+            icon="save-outline"
+            style={styles.primaryBtnPressed}
+            onPress={() => void save()}
+          />
         </View>
       </BottomSheet>
 
@@ -544,5 +551,7 @@ const makeStyles = (colors: ThemeColors) =>
     ghostBtnText: { fontSize: 13, fontWeight: "700", color: colors.primary },
     primaryBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 12, alignItems: "center", marginTop: 2 },
     primaryBtnText: { color: "#fff", fontSize: 15, fontWeight: "800" },
+    // v13 U5：PressButton 的形态微调（高度/圆角由组件按 token 负责，这里只留间距）
+    primaryBtnPressed: { marginTop: 2 },
     btnDisabled: { opacity: 0.5 },
   });

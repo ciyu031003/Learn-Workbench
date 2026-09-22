@@ -5,12 +5,13 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { DAILY_WEAKEST_LABEL, computeDailyReadiness } from "@learn-workbench/shared";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 /** 3D 状态球懒加载（ssr:false）：three 只在客户端进入时拉取，不进首包 */
 const StateOrb = dynamic(() => import("@/components/three/state-orb").then((m) => m.StateOrb), {
   ssr: false,
-  loading: () => <div className="size-[220px] animate-pulse rounded-full bg-muted/30" />,
+  loading: () => <Skeleton className="size-[220px]" rounded="rounded-full" />,
 });
 
 interface DailyOs {

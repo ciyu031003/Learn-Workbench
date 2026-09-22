@@ -4,13 +4,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { certificateStatusLabels, certificateExpiryInfo, type Certificate } from "@learn-workbench/shared";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Input, FloatField } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { GlassModal } from "@/components/ui/modal";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToastStore } from "@/store/toast-store";
-import { Plus, Pencil, Trash2, Award, CalendarClock, ExternalLink } from "lucide-react";
+import { Plus, Pencil, Trash2, Award, CalendarClock, ExternalLink, Trophy } from "lucide-react";
 
 type Status = "planned" | "preparing" | "achieved";
 
@@ -205,14 +205,9 @@ export default function CareerCertificatesPage() {
 
       <GlassModal open={open} onClose={() => setOpen(false)} title={form.id ? "编辑证书" : "添加证书"}>
         <div className="flex flex-col gap-4">
-          <div>
-            <label className="mb-1 block text-xs font-medium">证书名称 *</label>
-            <Input value={form.name} onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))} placeholder="如：CISP" />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium">颁发机构</label>
-            <Input value={form.issuer} onChange={(e) => setForm((s) => ({ ...s, issuer: e.target.value }))} placeholder="如：中国信息安全测评中心" />
-          </div>
+          {/* v13 U6：浮动标签输入（技法参考 uiverse.io/Li-Deheng/tiny-chicken-50, MIT） */}
+          <FloatField label="证书名称 *" value={form.name} onChange={(v) => setForm((s) => ({ ...s, name: v }))} />
+          <FloatField label="颁发机构" value={form.issuer} onChange={(v) => setForm((s) => ({ ...s, issuer: v }))} />
           <div>
             <label className="mb-1 block text-xs font-medium">状态</label>
             <div className="flex gap-2">
@@ -275,13 +270,28 @@ function CertCard({
 }) {
   const status = (c.status ?? "planned") as Status;
   const info = certificateExpiryInfo(c.expiryDate);
+  const achieved = status === "achieved";
   return (
-    <Card className="relative overflow-hidden">
-      <CardContent className="flex flex-col gap-3 p-5">
+    <Card className="lift relative overflow-hidden">
+      {/* v13 U11：已达成证书做“奖杯卡”（技法参考 uiverse.io/sohoning/ugly-horse-87, MIT） */}
+      {achieved ? (
+        <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-accent via-warning to-primary" />
+      ) : null}
+      {achieved ? (
+        <span
+          aria-hidden
+          className="pattern-bauhaus pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full [mask-image:radial-gradient(circle_at_center,black,transparent_70%)]"
+        />
+      ) : null}
+      <CardContent className="relative flex flex-col gap-3 p-5">
         <div className="flex items-start justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/15">
-              <Award className="size-5 text-primary" />
+            <span
+              className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${
+                achieved ? "bg-accent/15 text-accent-strong ring-1 ring-accent/30" : "bg-primary/15 text-primary"
+              }`}
+            >
+              {achieved ? <Trophy className="size-5" /> : <Award className="size-5" />}
             </span>
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold">{c.name}</p>

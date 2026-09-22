@@ -21,6 +21,7 @@ import { computeFocusStats, FOCUS_MOTIVATIONS } from "@/lib/focus-stats";
 import { elapsedSeconds } from "@/lib/focus-elapsed";
 import { startFocusNotification, stopFocusNotification } from "@/lib/focus-notification";
 import { RingProgress } from "@/components/ring-progress";
+import { TimerDial } from "@/components/timer-dial";
 import { getDailyQuote } from "@/lib/quotes";
 import type { FocusSession } from "@learn-workbench/shared";
 
@@ -42,6 +43,9 @@ const K_MODE = "focus-bg-mode";
 const K_GALLERY = "focus-bg-gallery";
 const K_QUOTE = "focus-quote";
 const K_MINUTES = "focus-minutes";
+/** v13 U3：计时主视图（圆环 / 表盘），默认圆环，选择沿用 AsyncStorage 持久化 */
+const K_VIEW = "focus-timer-view";
+type TimerView = "ring" | "dial";
 /** Bing 壁纸 URL 最近一次解析结果（秒出图用；按天由服务端回退历史图，不会 404） */
 const K_BING = "focus-bg-bing-v1";
 
@@ -109,6 +113,8 @@ export function FocusTimer({
   const [recording, setRecording] = useState(false);
   /** V3 计时模式：countdown=倒计时（既有），stopwatch=正向秒表 */
   const [timerMode, setTimerMode] = useState<"countdown" | "stopwatch">("countdown");
+  /** v13 U3：主视图形态，默认仍是圆环 */
+  const [timerView, setTimerView] = useState<TimerView>("ring");
   // eslint-disable-next-line react-hooks/purity -- useState 初始每日一言（既有模式）
   const [quote, setQuote] = useState(getDailyQuote());
   const [editingQuote, setEditingQuote] = useState(false);
@@ -131,14 +137,16 @@ export function FocusTimer({
   useEffect(() => {
     (async () => {
       try {
-        const [m, c, u, g, q, mins] = await Promise.all([
+        const [m, c, u, g, q, mins, view] = await Promise.all([
           AsyncStorage.getItem(K_MODE),
           AsyncStorage.getItem(K_COLOR),
           AsyncStorage.getItem(K_URL),
           AsyncStorage.getItem(K_GALLERY),
           AsyncStorage.getItem(K_QUOTE),
           AsyncStorage.getItem(K_MINUTES),
+          AsyncStorage.getItem(K_VIEW),
         ]);
+        if (view === "dial" || view === "ring") setTimerView(view);
         if (m) setMode(m as BgMode);
         if (c) setColor(c);
         if (u) setUrl(u);
@@ -345,6 +353,11 @@ export function FocusTimer({
     setUrl(u);
     persist(K_URL, u);
   };
+  const pickView = (v: TimerView) => {
+    setTimerView(v);
+    persist(K_VIEW, v);
+  };
+
   const setMin = (m: number) => {
     const v = Math.min(180, Math.max(1, m));
     setMinutes(v);
@@ -659,18 +672,60 @@ export function FocusTimer({
                 </Text>
               </View>
 
-              {/* 环形进度 + 数字时钟 */}
+              {/* 圆环 / 表盘（v13 U3）+ 数字时钟 */}
               <View style={styles.ringWrap}>
-                <RingProgress
-                  size={300}
-                  strokeWidth={14}
-                  progress={1 - ratio}
-                  trackColor="rgba(255,255,255,0.16)"
-                  color="#FFB25E"
-                />
-                <Pressable style={styles.clockWrap} onPress={() => (running ? pause() : resume())}>
+                {timerView === "ring" ? (
+                  <>
+                    <RingProgress
+                      size={300}
+                      strokeWidth={14}
+                      progress={1 - ratio}
+                      trackColor="rgba(255,255,255,0.16)"
+                      color="#FFB25E"
+                    />
+                    <Pressable style={styles.clockWrap} onPress={() => (running ? pause() : resume())}>
+                      <Text style={styles.clock}>{fmt(remainingShown)}</Text>
+                    </Pressable>
+                  </>
+                ) : (
+                  <TimerDial
+                    size={300}
+                    progress={1 - ratio}
+                    color="#FFB25E"
+                    trackColor="rgba(255,255,255,0.16)"
+                    tickColor="rgba(255,255,255,0.6)"
+                  />
+                )}
+              </View>
+
+              {/* 表盘视图下时钟放到盘下方（指针扫过中心，数字放中间会互相压） */}
+              {timerView === "dial" ? (
+                <Pressable style={styles.dialClockWrap} onPress={() => (running ? pause() : resume())}>
                   <Text style={styles.clock}>{fmt(remainingShown)}</Text>
+                  <Text style={styles.dialClockHint}>点击暂停 / 继续</Text>
                 </Pressable>
+              ) : null}
+
+              {/* v13 U3：视图切换（默认圆环，选择持久化到 AsyncStorage） */}
+              <View style={styles.viewToggle}>
+                {(
+                  [
+                    { key: "ring", label: "圆环" },
+                    { key: "dial", label: "表盘" },
+                  ] as const
+                ).map((o) => (
+                  <Pressable
+                    key={o.key}
+                    onPress={() => pickView(o.key)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: timerView === o.key }}
+                    style={[styles.viewChip, timerView === o.key && styles.viewChipActive]}
+                  >
+                    <Text style={[styles.viewChipText, timerView === o.key && styles.viewChipTextActive]}>
+                      {o.label}
+                    </Text>
+                  </Pressable>
+                ))}
               </View>
 
               {/* 控制按钮 */}
@@ -836,6 +891,14 @@ const styles = StyleSheet.create({
   taskName: { color: "#fff", fontSize: 16, fontWeight: "600", maxWidth: "85%" },
   taskStatus: { color: "rgba(255,255,255,0.7)", fontSize: 12 },
   ringWrap: { alignItems: "center", justifyContent: "center" },
+  // v13 U3：表盘模式的时钟与视图切换
+  dialClockWrap: { alignItems: "center", gap: 2 },
+  dialClockHint: { color: "rgba(255,255,255,0.55)", fontSize: 11 },
+  viewToggle: { flexDirection: "row", gap: 8 },
+  viewChip: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.1)", borderWidth: 1, borderColor: "rgba(255,255,255,0.2)" },
+  viewChipActive: { backgroundColor: "rgba(232,147,12,0.4)", borderColor: "rgba(232,147,12,0.7)" },
+  viewChipText: { color: "rgba(255,255,255,0.8)", fontSize: 12 },
+  viewChipTextActive: { color: "#fff", fontWeight: "700" },
   clockWrap: { position: "absolute", alignItems: "center", justifyContent: "center" },
   clock: { color: "#fff", fontSize: 62, fontWeight: "800", fontVariant: ["tabular-nums"] },
   landscapeWrap: { alignItems: "center", gap: 14, paddingVertical: 8 },

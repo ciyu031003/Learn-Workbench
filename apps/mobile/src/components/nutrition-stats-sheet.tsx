@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { CalorieHeatmapCard, CalorieTrendCard } from "@/components/calorie-trend";
 import { FoodCalendar } from "@/components/food-calendar";
-import { SkeletonList } from "@/components/skeleton";
+import { Skeleton, SkeletonCard } from "@/components/skeleton";
 import { ThemedIcon } from "@/components/themed-icon";
 import { useTheme } from "@/theme";
 import { typography, type ThemeColors } from "@/theme/tokens";
@@ -85,7 +85,11 @@ export function NutritionStatsSheet({
     <BottomSheet visible={visible} onClose={onClose} title="饮食趋势" height="92%">
       <View style={styles.wrap}>
         {pending && Object.keys(rows).length === 0 ? (
-          <SkeletonList count={3} />
+          /* v13 U1：面板真实内容是"7 天曲线 + 26 周点阵 + 月历"，骨架用图表 + 卡片形状 */
+          <>
+            <Skeleton variant="chart" />
+            <SkeletonCard count={1} />
+          </>
         ) : failed && Object.keys(rows).length === 0 ? (
           <View style={styles.failBox}>
             <ThemedIcon name="cloud-offline-outline" size={24} color={colors.textFaint} />

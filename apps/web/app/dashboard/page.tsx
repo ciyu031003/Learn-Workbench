@@ -7,6 +7,7 @@ import { formatDuration, taskTypeLabels, formatDateCN, todayISO } from "@learn-w
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ProgressRing } from "@/components/ui/progress-ring";
 import { Input } from "@/components/ui/input";
 import { QuoteWidget } from "@/components/quote-widget";
 import { DomainIcon } from "@/components/domain-icon";
@@ -119,38 +120,25 @@ function FlameCluster({ streak, className }: { streak: number; className?: strin
   );
 }
 
-/** 整体进度环（SVG，CSS 过渡动画） */
+/**
+ * 整体进度环（v13 U2：conic-gradient + mask，技法参考 uiverse.io/VashonG/jolly-yak-23, MIT）。
+ * 只改 CSS 变量即可过渡，无 SVG 描边接缝。
+ */
 function OverallRing({ percent }: { percent: number }) {
-  const R = 56;
-  const C = 2 * Math.PI * R;
   const p = Math.max(0, Math.min(100, percent));
   return (
-        <div className="ring-halo relative h-28 w-28 shrink-0">
-      <svg viewBox="0 0 150 150" className="h-full w-full -rotate-90">
-        <defs>
-          <linearGradient id="hero-ring-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#2f74c0" />
-            <stop offset="100%" stopColor="#5b93d6" />
-          </linearGradient>
-        </defs>
-        <circle cx="75" cy="75" r={R} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="10" />
-        <circle
-          cx="75"
-          cy="75"
-          r={R}
-          fill="none"
-          stroke="url(#hero-ring-grad)"
-          strokeWidth="10"
-          strokeLinecap="round"
-          strokeDasharray={C}
-          strokeDashoffset={C * (1 - p / 100)}
-          style={{ transition: "stroke-dashoffset 0.8s ease" }}
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <StatValue value={p + "%"} className="text-2xl" />
+    <div className="ring-halo relative shrink-0">
+      <ProgressRing
+        value={p}
+        size={112}
+        thickness={10}
+        from="#2f74c0"
+        to="#5b93d6"
+        label={`整体进度 ${Math.round(p)}%`}
+      >
+        <StatValue value={Math.round(p) + "%"} className="text-2xl" />
         <span className="text-[11px] text-muted-foreground">整体进度</span>
-      </div>
+      </ProgressRing>
     </div>
   );
 }

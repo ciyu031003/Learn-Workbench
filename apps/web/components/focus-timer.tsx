@@ -6,7 +6,9 @@ import { FocusStatsCard } from "@/components/focus-stats-card";
 import {
   Pause, Play, RotateCcw, Square, X, Maximize, Minimize, Quote,
   Palette, ImagePlus, Images, Pencil, Check, Coffee, Droplets, Footprints, TreePine,
+  CircleDot, Gauge,
 } from "lucide-react";
+import { TimerDial } from "@/components/ui/timer-dial";
 import { cn } from "@/lib/utils";
 import { FOCUS_COLORS, FOCUS_GALLERY, useFocusBgStore } from "@/store/focus-bg-store";
 import { useToastStore } from "@/store/toast-store";
@@ -102,6 +104,29 @@ export function FocusTimer({
   const [recording, setRecording] = useState(false);
   /** V3 计时模式：countdown=倒计时（既有），stopwatch=正向秒表 */
   const [timerMode, setTimerMode] = useState<"countdown" | "stopwatch">("countdown");
+  /** v13 U3：计时视图（圆环 / 表盘），默认圆环，选择写进 localStorage */
+  const [timerView, setTimerView] = useState<"ring" | "dial">("ring");
+  useEffect(() => {
+    let saved: "ring" | "dial" = "ring";
+    try {
+      const raw = window.localStorage.getItem("lwb.timer.view");
+      if (raw === "dial" || raw === "ring") saved = raw;
+    } catch {
+      /* 隐私模式：读不到就用默认圆环 */
+    }
+    if (saved === "ring") return;
+    // 延后一拍再设，避免"effect 内同步 setState 触发级联渲染"
+    const t = setTimeout(() => setTimerView(saved), 0);
+    return () => clearTimeout(t);
+  }, []);
+  const chooseTimerView = useCallback((v: "ring" | "dial") => {
+    setTimerView(v);
+    try {
+      window.localStorage.setItem("lwb.timer.view", v);
+    } catch {
+      /* 隐私模式忽略 */
+    }
+  }, []);
   const [full, setFull] = useState(false);
   const [showBg, setShowBg] = useState(false);
   const [quote, setQuote] = useState(() => QUOTES[Math.floor(Math.random() * QUOTES.length)]);
@@ -783,48 +808,63 @@ export function FocusTimer({
             </span>
           </div>
 
-          {/* 环形进度 + 数字时钟（视觉正中） */}
-          <div className={cn("relative flex items-center justify-center", started && "timer-pop")}>
-            <svg width="min(72vw,340px)" height="min(72vw,340px)" viewBox="0 0 300 300" className="drop-shadow-[0_6px_30px_rgba(0,0,0,0.4)]">
-              <defs>
-                <linearGradient id="ring-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  {mode === "exercise" ? (
-                    <>
-                      <stop offset="0%" stopColor="#8bb7e8" />
-                      <stop offset="100%" stopColor="#2f74c0" />
-                    </>
-                  ) : (
-                    <>
-                      <stop offset="0%" stopColor="#ffb25e" />
-                      <stop offset="100%" stopColor="#ff6a5e" />
-                    </>
-                  )}
-                </linearGradient>
-              </defs>
-              <circle cx="150" cy="150" r={RING_R} fill="none" stroke="rgba(255,255,255,0.16)" strokeWidth="12" />
-              <circle
-                cx="150"
-                cy="150"
-                r={RING_R}
-                fill="none"
-                stroke="url(#ring-grad)"
-                strokeWidth="12"
-                strokeLinecap="round"
-                strokeDasharray={RING_C}
-                strokeDashoffset={RING_C * (1 - ratio)}
-                transform="rotate(-90 150 150)"
-                style={{ transition: "stroke-dashoffset 1s linear" }}
-              />
-            </svg>
-            <button
-              onClick={() => (running ? pause() : start())}
-              className="absolute inset-0 m-auto flex h-[min(40vw,190px)] w-[min(40vw,190px)] items-center justify-center rounded-full text-white"
-              aria-label={running ? "暂停" : "继续"}
-            >
-              <span className="font-mono text-[min(13vw,64px)] font-bold leading-none tabular-nums drop-shadow-[0_3px_18px_rgba(0,0,0,0.5)]">
-                {fmtClock(remainingShown)}
-              </span>
-            </button>
+          {/* 环形进度 / 表盘 + 数字时钟（视觉正中）· v13 U3 */}
+          <div className={cn("relative flex flex-col items-center justify-center gap-3", started && "timer-pop")}>
+            {timerView === "dial" ? (
+              <>
+                <TimerDial ratio={ratio} running={running} tone={mode === "exercise" ? "exercise" : "focus"} />
+                <button
+                  onClick={() => (running ? pause() : start())}
+                  className="rounded-full border border-white/25 bg-white/10 px-6 py-1.5 font-mono text-[min(10vw,40px)] font-bold tabular-nums text-white backdrop-blur-md transition-colors hover:bg-white/20"
+                  aria-label={running ? "暂停" : "继续"}
+                >
+                  {fmtClock(remainingShown)}
+                </button>
+              </>
+            ) : (
+              <div className="relative flex items-center justify-center">
+                <svg width="min(72vw,340px)" height="min(72vw,340px)" viewBox="0 0 300 300" className="drop-shadow-[0_6px_30px_rgba(0,0,0,0.4)]">
+                  <defs>
+                    <linearGradient id="ring-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      {mode === "exercise" ? (
+                        <>
+                          <stop offset="0%" stopColor="#8bb7e8" />
+                          <stop offset="100%" stopColor="#2f74c0" />
+                        </>
+                      ) : (
+                        <>
+                          <stop offset="0%" stopColor="#ffb25e" />
+                          <stop offset="100%" stopColor="#ff6a5e" />
+                        </>
+                      )}
+                    </linearGradient>
+                  </defs>
+                  <circle cx="150" cy="150" r={RING_R} fill="none" stroke="rgba(255,255,255,0.16)" strokeWidth="12" />
+                  <circle
+                    cx="150"
+                    cy="150"
+                    r={RING_R}
+                    fill="none"
+                    stroke="url(#ring-grad)"
+                    strokeWidth="12"
+                    strokeLinecap="round"
+                    strokeDasharray={RING_C}
+                    strokeDashoffset={RING_C * (1 - ratio)}
+                    transform="rotate(-90 150 150)"
+                    style={{ transition: "stroke-dashoffset 1s linear" }}
+                  />
+                </svg>
+                <button
+                  onClick={() => (running ? pause() : start())}
+                  className="absolute inset-0 m-auto flex h-[min(40vw,190px)] w-[min(40vw,190px)] items-center justify-center rounded-full text-white"
+                  aria-label={running ? "暂停" : "继续"}
+                >
+                  <span className="font-mono text-[min(13vw,64px)] font-bold leading-none tabular-nums drop-shadow-[0_3px_18px_rgba(0,0,0,0.5)]">
+                    {fmtClock(remainingShown)}
+                  </span>
+                </button>
+              </div>
+            )}
           </div>
 
           {/* 控制按钮：暂停/重置/结束 */}
@@ -851,6 +891,35 @@ export function FocusTimer({
             >
               <Square className="size-5" />
             </button>
+            {/* v13 U3：圆环 / 表盘视图切换 */}
+            <div
+              role="group"
+              aria-label="计时视图"
+              className="ml-1 flex items-center gap-0.5 rounded-full border border-white/20 bg-white/10 p-1 backdrop-blur-md"
+            >
+              <button
+                onClick={() => chooseTimerView("ring")}
+                aria-pressed={timerView === "ring"}
+                aria-label="圆环视图"
+                className={cn(
+                  "press grid h-8 w-8 place-items-center rounded-full transition-colors",
+                  timerView === "ring" ? "bg-white/25 text-white" : "text-white/60 hover:text-white"
+                )}
+              >
+                <CircleDot className="size-4" />
+              </button>
+              <button
+                onClick={() => chooseTimerView("dial")}
+                aria-pressed={timerView === "dial"}
+                aria-label="表盘视图"
+                className={cn(
+                  "press grid h-8 w-8 place-items-center rounded-full transition-colors",
+                  timerView === "dial" ? "bg-white/25 text-white" : "text-white/60 hover:text-white"
+                )}
+              >
+                <Gauge className="size-4" />
+              </button>
+            </div>
           </div>
 
           {/* 时长快速选择 */}

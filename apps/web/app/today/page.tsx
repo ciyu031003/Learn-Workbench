@@ -7,15 +7,16 @@ import Link from "next/link";
 /** 3D 完成度球（懒加载，ssr:false；three 只在客户端进入时拉取） */
 const StateOrb = dynamic(() => import("@/components/three/state-orb").then((m) => m.StateOrb), {
   ssr: false,
-  loading: () => <div className="size-[208px] animate-pulse rounded-full bg-muted/30" />,
+  loading: () => <Skeleton className="size-[208px]" rounded="rounded-full" />,
 });
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SectionLabel } from "@/components/ui/section-label";
 import { cn } from "@/lib/utils";
 import {
-  BookOpen, Briefcase, Dumbbell, Repeat, CheckCircle2, Circle, Loader2,
+  BookOpen, Briefcase, Dumbbell, Repeat, Circle, Loader2,
   ArrowRight, Flame, Target, Salad,
 } from "lucide-react";
 
@@ -126,6 +127,11 @@ export default function TodayPage() {
       <Card className="relative overflow-hidden border-white/20 bg-gradient-to-br from-primary/12 via-card/70 to-accent/12 shadow-[0_18px_60px_-30px_rgba(47,116,192,0.65)] backdrop-blur-xl">
         <div className="pointer-events-none absolute -left-24 -top-24 size-64 rounded-full bg-primary/20 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-28 -right-16 size-72 rounded-full bg-accent/15 blur-3xl" />
+        {/* v13 U12：低透明度几何底纹（技法参考 uiverse.io/csemszepp/old-hound-37, MIT），只做氛围 */}
+        <div
+          aria-hidden
+          className="pattern-bauhaus pointer-events-none absolute inset-0 opacity-60 [mask-image:linear-gradient(120deg,black,transparent_65%)]"
+        />
         <CardContent className="relative grid gap-7 p-6 lg:grid-cols-[236px_1fr] lg:p-8">
           <div className="flex flex-col items-center gap-2">
             <StateOrb score={data.progress} size={208} />
@@ -176,7 +182,19 @@ export default function TodayPage() {
               {data.learning.items.map((t) => (
                 <Link key={t.id} href="/tasks" className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-muted/40">
                   {t.done ? (
-                    <CheckCircle2 className="size-4 shrink-0 text-success" />
+                    // v13 U8：勾选描边绘制（技法参考 uiverse.io/JkHuger/warm-panther-74, MIT）
+                    <svg
+                      viewBox="0 0 24 24"
+                      aria-hidden
+                      className="check-draw size-4 shrink-0 text-success"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M8 12.4l2.7 2.7L16.4 9.4" />
+                    </svg>
                   ) : (
                     <Circle className="size-4 shrink-0 text-muted-foreground" />
                   )}

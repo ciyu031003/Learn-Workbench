@@ -151,3 +151,42 @@ Uiverse 上的元素**绝大多数是"炫技展示型"**（霓虹赛博、3D 水
 - 归档仓 `uiverse-io/galaxy`（MIT，13300+ star）：Buttons 1231 / Cards 726 / loaders 718 / Toggle-switches 260 / Inputs 226 / Forms 180 / Checkboxes 171 / Patterns 103 / Radio-buttons 102 / Tooltips 62 / Notifications 23，合计 3802 个元素，已全量拉到本地。
 - 自动排序脚本按"技法分"（conic/backdrop/mask/keyframes/cubic-bezier/3D/内阴影 + 调色偏好）取每个分类前 16–48 名出拼版，再人工挑选：见 `scripts/uiverse/`（fetch / build / screenshot 三件套 + `picks.json` 精选清单）。
 - 本文档 20 个参考的实拍拼版：`.local/uiverse/sheets/picks-1-loading.png` … `picks-5-toast-pattern.png`。
+
+---
+
+## 8. 实施进度（v13 执行记录，2026-09-21）
+
+> 口径：只有"代码已落地 + 该端 typecheck/测试通过"才标 ✅；未做或待真机验证的单独注明。
+
+| 项 | Web | 移动端 | 说明 / 落地文件 |
+| --- | --- | --- | --- |
+| U1 骨架屏体系 | ✅ | ✅ | Web：`components/ui/skeleton.tsx`（Skeleton/Text/Card/List）+ `globals.css` 的 `.shimmer`；已替换招花列表、今日/健康/状态球的 3D 懒加载占位 |
+| U2 进度环（conic+mask） | ✅ | ✅ | Web：`components/ui/progress-ring.tsx`（`@property --ring-value` 过渡）；仪表盘整体进度环已换用；计时环参数对齐（厚度 12 / 圆头 / 1s linear） |
+| U3 计时表盘 | ✅ | ✅ | Web：`components/ui/timer-dial.tsx`（刻度 + 指针 + 中心轴）+ 计时页「圆环 / 表盘」切换，选择写 localStorage，默认圆环 |
+| U4 提示条（Toast） | ✅ | ✅ | Web：`components/ui/toaster.tsx` 重做（图标徽章 + 副标题 + 剩余时间进度条）；`store/toast-store.ts` 增 `detail`/`lifeMs`（调用方 API 不变） |
+| U5 按压与长按确认 | ✅ | ✅ | Web：`Button` 增 `loading`（内嵌 spinner + 禁用）、全局 `.press`；新增 `components/ui/hold-button.tsx`，简历删除改为「按住删除」 |
+| U6 输入 / 搜索 | ✅ | ✅ | Web：`input.tsx` 增 `FloatField`（浮动标签 + 聚焦旋转描边）与 `SearchInput`（胶囊 + 内嵌圆形提交）；已用于证书表单、装备图库、招花搜索 |
+| U7 上传卡 | ✅ | ✅ | Web：`components/ui/upload-card.tsx`（拖拽 + 选择 + 进度 + 移除）；简历卡改用它 |
+| U8 勾选动画 | ✅ | ✅ | Web：`.check-draw`（SVG 描边绘制）用于今日任务清单已完成的勾 |
+| U9 主题开关 | ✅ | ✅ | Web：`components/ui/theme-segmented.tsx`（滑块过冲 + 图标形变），替换设置页三个按钮，仍保留浅色/深色/跟随系统三档 |
+| U10 装备图鉴卡 | ✅ | ✅ | Web：装备图库弹层（悬停抬升 + 品牌胶囊 + 选它提示）、运动档案「主力装备」改两列图鉴卡 |
+| U11 成就 / 里程碑卡 | ✅ | ✅ | Web：证书页已达成证书升级为奖杯卡（顶部色带 + 奖杯徽章 + 拼花角标 + 悬停抬升） |
+| U12 空状态与底纹 | ✅ | ✅ | Web：`empty-state.tsx` 支持 `bauhaus`/`chevron` 低透明度底纹（默认人字纹）；今日 hero 加 3%–6% 拼花底 |
+
+**Web 校验（2026-09-21）**
+- `tsc -p apps/web --noEmit`：0 错误。
+- `vitest run --root apps/web`：**170 文件 / 1152 用例全绿**（含新增 `lib/ui-kit.test.ts` 4 例）。
+- `eslint apps/web`：**0 error**（51 条既有 warning），顺手修掉两处历史 error：`api/internal/interview/import/route.ts` 的 `module` 变量名、计时页 effect 内同步 setState。
+- `next build` 生产构建通过（exit 0），产物 CSS 已确认包含全部新增类（`.shimmer`/`.ring-conic`/`.pattern-bauhaus`/`.pattern-chevron`/`.spin-border`/`.check-draw`/`.toast-progress`/`.press`/`.lift`）。
+**移动端校验（2026-09-21）**
+- `cd apps/mobile && node node_modules/typescript/bin/tsc --noEmit`：**0 错误**。
+- `vitest run --root apps/mobile`：**37 文件 / 343 用例全绿**（原 323 全保留 + 新增 20：`theme/motion.test.ts` 7 / `components/skeleton.test.ts` 9 / `components/pattern-backdrop.test.ts` 4）。
+- `npx eslint src`：**0 error**（69 条既有风格 warning）。
+- 移动端落地要点：`theme/motion.ts`（含 `MOTION_ENABLED` 总开关，低端机可一键停掉全部装饰动画）；骨架屏用「呼吸 + 8% 白色高光条横扫 1.6s」替代 RN 不支持的 CSS 渐变；进度环保持 `react-native-svg` 并统一厚度 10 / 圆头 / 400ms 标准缓动；表盘/勾选/开关全部 `Pressable + Reanimated`，**未改任何 `Gesture.*`**，worklet 内只读写共享值。
+- 与方案的两处诚实偏差：① 装备数据无价格字段，图鉴卡胶囊显示类别/标签而非价格；② Toast 的“副标题”能力已实现，但现网唯一调用点只有一句文案，未编造副标题。
+
+**待真机验证（本机无设备，留给用户）**
+- 新动效在低端机是否掉帧（掉帧就把 `theme/motion.ts` 的 `MOTION_ENABLED` 置 false）；
+- 深色档对比度、`MOTION_ENABLED=false` 与系统「减弱动态」两条降级路径；
+- 勾选 / 上传 / 日夜开关 / 表盘切换四条交互路径（按下 / 拖动 / 松手 / 取消）。
+

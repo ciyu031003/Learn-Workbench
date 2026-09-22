@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { ThemedIcon } from "@/components/themed-icon";
 import { Card } from "@/components/card";
-import { SkeletonCard } from "@/components/skeleton";
+import { Skeleton } from "@/components/skeleton";
 import { PressableScale } from "@/components/pressable-scale";
 import { GlassSurface } from "@/components/surface";
 import { ProgressArc } from "@/components/progress-arc";
@@ -123,7 +123,8 @@ export function DailyOsSummary({ onNavigate }: { onNavigate?: (href: string) => 
   if (!data && status === "loading") {
     return (
       <View style={styles.wrap}>
-        <SkeletonCard count={1} />
+        {/* v13 U1：首屏骨架用 hero 形状，和真实 hero（进度弧 + 指标）体量接近，减少跳动 */}
+        <Skeleton variant="hero" />
       </View>
     );
   }

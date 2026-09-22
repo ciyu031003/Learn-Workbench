@@ -9,6 +9,8 @@ import {
   type DimensionValue,
 } from "react-native";
 import { SportThemedIcon, ThemedIcon } from "@/components/themed-icon";
+import { AnimatedCheckMark } from "@/components/check-mark";
+import { PatternBackdrop } from "@/components/pattern-backdrop";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
@@ -544,7 +546,9 @@ export default function TodayScreen() {
         </View>
 
         {todayTasks.length === 0 && habitOnlyRows.length === 0 ? (
-          <Card>
+          <Card style={styles.taskEmptyCard}>
+            {/* v13 U12：任务页空状态的低透明度几何底纹 */}
+            <PatternBackdrop variant="chevron" />
             <Text style={styles.taskEmpty}>今天还没有任务，去学习页添加一个吧</Text>
           </Card>
         ) : (
@@ -553,13 +557,15 @@ export default function TodayScreen() {
               key={t.id}
               onPress={() => {
                 const willDone = !t.done;
+                haptics.light();
                 toggleTaskDone(t.id);
                 if (willDone) fireCelebrate();
               }}
               style={styles.task}
             >
               <View style={[styles.taskBox, t.done && styles.taskBoxDone]}>
-                {t.done ? <ThemedIcon name="checkmark" size={16} color="#fff" /> : null}
+                {/* v13 U8：勾选时用 strokeDashoffset 画对勾（组件常驻，靠 checked 驱动，才有"画"的过程） */}
+                <AnimatedCheckMark checked={t.done} size={16} color="#ffffff" />
               </View>
               <Text style={[styles.taskTitle, t.done && styles.taskDone]} numberOfLines={1}>
                 {t.title}
@@ -570,9 +576,16 @@ export default function TodayScreen() {
         )}
         {/* 习惯排期（v12 P1-2）：与任务同列显示，点一下就地打卡 */}
         {habitOnlyRows.slice(0, 2).map((h) => (
-          <Pressable key={"habit-" + h.id} onPress={() => void toggleHabit(h.id, h.done)} style={styles.task}>
+          <Pressable
+            key={"habit-" + h.id}
+            onPress={() => {
+              haptics.light();
+              void toggleHabit(h.id, h.done);
+            }}
+            style={styles.task}
+          >
             <View style={[styles.taskBox, h.done && { backgroundColor: h.color, borderColor: h.color }]}>
-              {h.done ? <ThemedIcon name="checkmark" size={16} color="#fff" /> : null}
+              <AnimatedCheckMark checked={h.done} size={16} color="#ffffff" />
             </View>
             <Text style={[styles.taskTitle, h.done && styles.taskDone]} numberOfLines={1}>
               {h.icon ? h.icon + " " : "🔁 "}
@@ -843,6 +856,8 @@ const makeStyles = (colors: ThemeColors) =>
   taskDone: { textDecorationLine: "line-through", color: colors.textMuted },
   taskMeta: { fontSize: 12, color: colors.textMuted },
   taskEmpty: { fontSize: 13, color: colors.textMuted, textAlign: "center", paddingVertical: 4 },
+  // v13 U12：底纹绝对定位铺满，卡片要裁切
+  taskEmptyCard: { overflow: "hidden" },
 
   statsGrid: { flexDirection: "row", gap: 10 },
   statCard: { flex: 1, gap: 6, padding: 14 },

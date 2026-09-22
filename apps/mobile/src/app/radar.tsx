@@ -4,7 +4,7 @@ import {
   ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { ScreenHeader } from "@/components/screen-header";
 import { EmptyState } from "@/components/empty-state";
-import { SkeletonList } from "@/components/skeleton";
+import { SkeletonCard } from "@/components/skeleton";
 import { Card } from "@/components/card";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
@@ -88,7 +88,8 @@ export default function RadarScreen() {
       ) : null}
 
       {loading && top.length === 0 ? (
-        <SkeletonList count={4} />
+        /* v13 U1：雷达是"匹配结果卡片流"，骨架用卡片形状而不是列表行 */
+        <SkeletonCard count={3} />
       ) : top.length === 0 ? (
         <EmptyState
           icon="radio-outline"
