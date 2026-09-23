@@ -185,6 +185,12 @@ Uiverse 上的元素**绝大多数是"炫技展示型"**（霓虹赛博、3D 水
 - 移动端落地要点：`theme/motion.ts`（含 `MOTION_ENABLED` 总开关，低端机可一键停掉全部装饰动画）；骨架屏用「呼吸 + 8% 白色高光条横扫 1.6s」替代 RN 不支持的 CSS 渐变；进度环保持 `react-native-svg` 并统一厚度 10 / 圆头 / 400ms 标准缓动；表盘/勾选/开关全部 `Pressable + Reanimated`，**未改任何 `Gesture.*`**，worklet 内只读写共享值。
 - 与方案的两处诚实偏差：① 装备数据无价格字段，图鉴卡胶囊显示类别/标签而非价格；② Toast 的“副标题”能力已实现，但现网唯一调用点只有一句文案，未编造副标题。
 
+**视觉核对（2026-09-22 补：本地生产构建 + Playwright 实拍）**
+- 新增本地核对页 `apps/web/app/ui-preview/`（服务端门禁：生产默认 404，只有 `UI_PREVIEW=1` 启动时可见），一页排出骨架屏 / 进度环 / 计时表盘 / 按钮三态与长按 / 浮动标签与胶囊搜索 / 上传卡 / 主题分段 / Toast / 空状态底纹 / 卡片质感。
+- 实拍结论（图存 `.local/ui-preview/`）：环与表盘形态正确、Toast 正确出现（图标徽章 + 副标题 + 底部剩余时间条）、「按住删除」有填充过程、主题分段可切换、深色档底纹不抢内容。
+- 顺带修掉 2 个观感问题：① 不确定进度的 `ProgressRing` 在 value=0 时整环都是轨道色（转起来看不见）→ spinning 时至少露出 28% 弧；② `FloatField` 在 `type=date` 时标签与原生「年/月/日」占位重叠 → date/time/month 一律常驻上浮。
+- 补 `apps/web/store/toast-store.test.ts` 两条用例（detail/lifeMs、3200/4200 自动移除），Web 用例数 1152 → **1154**。
+
 **待真机验证（本机无设备，留给用户）**
 - 新动效在低端机是否掉帧（掉帧就把 `theme/motion.ts` 的 `MOTION_ENABLED` 置 false）；
 - 深色档对比度、`MOTION_ENABLED=false` 与系统「减弱动态」两条降级路径；

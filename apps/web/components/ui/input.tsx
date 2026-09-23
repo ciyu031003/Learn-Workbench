@@ -38,7 +38,9 @@ export function FloatField({
   icon?: React.ReactNode;
 } & Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "className">) {
   const [focused, setFocused] = React.useState(false);
-  const floated = focused || value.length > 0;
+  // date/time 这类原生控件永远有内容，标签必须常驻上浮，否则会和"年/月/日"占位文字重叠
+  const alwaysFloated = type === "date" || type === "time" || type === "datetime-local" || type === "month";
+  const floated = focused || value.length > 0 || alwaysFloated;
   return (
     <div className={cn("spin-border rounded-xl", className)}>
       <div className="relative flex h-12 items-center rounded-xl border border-border bg-surface px-3">
