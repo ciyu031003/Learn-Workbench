@@ -54,8 +54,15 @@ function greetingFor(hour: number): string {
  * Daily OS 聚合（只读）：把 Learning / Career / Fitness / Habit 的当日数据汇总为「我的一天」。
  * 不写库、不新建表；各域数据实时读取（见各 Phase 的领域表）。
  */
-export async function buildDailyOs(scope: Scope, now: Date = new Date()): Promise<DailyOsResult> {
-  const dateKey = toDateKey(now);
+export async function buildDailyOs(
+  scope: Scope,
+  now: Date = new Date(),
+  /** 客户端本地日期（YYYY-MM-DD）。服务器跑在 UTC，东八区凌晨 0–8 点用 `now` 会算成前一天，
+   *  于是「饮食页有记录、健康主页/今日页却是 0」（2026-09-22 真机反馈）。 */
+  dateKeyOverride?: string | null
+): Promise<DailyOsResult> {
+  const dateKey =
+    dateKeyOverride && /^\d{4}-\d{2}-\d{2}$/.test(dateKeyOverride) ? dateKeyOverride : toDateKey(now);
 
   // ---- 学习：今日任务 + 专注时长 ----
   const taskWhere = scopeWhere(scope, [scope.uid, dateKey]);

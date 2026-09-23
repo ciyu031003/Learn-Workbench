@@ -21,6 +21,7 @@ import { ThemeProvider } from "@/theme";
 import { useTheme } from "@/theme";
 import { TAB_BAR_HEIGHT } from "@/lib/use-tab-bar-space";
 import { resolveEdgeSwipeEnabled } from "@/lib/edge-swipe";
+import { noteScreenPath } from "@/lib/back-target";
 import type { ThemeColors } from "@/theme/tokens";
 import { startSyncEngine } from "@/lib/sync-engine";
 import { silentCheckForUpdate } from "@/lib/ota";
@@ -47,7 +48,7 @@ function TabIcon({
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.tabIcon}>
-      <ThemedIcon ios={undefined} name={focused ? name : outlineName} size={22} color={typeof color === "string" ? color : undefined} />
+      <ThemedIcon ios={undefined} name={focused ? name : outlineName} size={24} color={typeof color === "string" ? color : undefined} />
     </View>
   );
 }
@@ -55,7 +56,7 @@ function TabIcon({
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
   root: { flex: 1 },
-  tabIcon: { width: 42, height: 30, alignItems: "center", justifyContent: "center" },
+  tabIcon: { width: 46, height: 32, alignItems: "center", justifyContent: "center" },
   // 状态栏兜底底色：绝对定位贴顶，不参与布局（v12 P0-5）
   statusBarFill: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 1 },
   // 悬空玻璃底栏的底：半透明 + 高光描边 + 柔和投影（浅色亮玻璃 / 深色暗玻璃）
@@ -205,6 +206,11 @@ function ThemedShell() {
   const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
+  // 记住"上一个展示过的页面"，供子页返回时判断是「同模块回退」还是「跨模块回模块首页」（v1.22）
+  const pathname = usePathname();
+  useEffect(() => {
+    noteScreenPath(pathname);
+  }, [pathname]);
   return (
     <DailyBackground>
       {/*
@@ -250,12 +256,18 @@ function ThemedShell() {
             shadowOpacity: 0,
           },
           tabBarBackground: () => <View style={styles.tabBarGlass} pointerEvents="none" />,
-          tabBarLabelStyle: { fontSize: 10, fontWeight: "700", letterSpacing: 0.2, marginTop: 1 },
+          /**
+           * v1.22：去掉文字标签，只留图标并让图标真正居中。
+           * 真机反馈：文字贴到胶囊底部、没有居中；图标本身足够直观，所以按用户要求只留图标。
+           */
+          tabBarShowLabel: false,
           tabBarItemStyle: {
-            marginVertical: 7,
+            marginVertical: 4,
             marginHorizontal: 2,
             borderRadius: 999,
-            paddingVertical: 4,
+            paddingVertical: 0,
+            alignItems: "center",
+            justifyContent: "center",
           },
           sceneStyle: { backgroundColor: "transparent" },
         }}

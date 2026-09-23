@@ -18,6 +18,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ScreenOrientation from "expo-screen-orientation";
 import { getApiUrl } from "@/config";
 import { computeFocusStats, FOCUS_MOTIVATIONS } from "@/lib/focus-stats";
+import { FocusShareSheet } from "@/components/focus-share-card";
+import { focusShareDataFromStats } from "@/lib/focus-share";
 import { elapsedSeconds } from "@/lib/focus-elapsed";
 import { startFocusNotification, stopFocusNotification } from "@/lib/focus-notification";
 import { RingProgress } from "@/components/ring-progress";
@@ -109,6 +111,7 @@ export function FocusTimer({
   const [remaining, setRemaining] = useState(25 * 60);
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [started, setStarted] = useState(false);
   const [recording, setRecording] = useState(false);
   /** V3 计时模式：countdown=倒计时（既有），stopwatch=正向秒表 */
@@ -506,22 +509,8 @@ export function FocusTimer({
     setEditingQuote(false);
   };
 
-  const shareCard = async () => {
-    const stats = computeFocusStats(sessions);
-    const msg = [
-      "📚 苦旅 · 专注打卡",
-      `📅 ${stats.date}`,
-      `🔥 连续专注 ${stats.streak} 天 ｜ 累计专注 ${stats.totalFocusDays} 天`,
-      `⏱ 今日专注 ${stats.todaySessions} 次 · ${stats.todayMinutes} 分钟`,
-      "",
-      `💪 ${FOCUS_MOTIVATIONS[Math.min(stats.streak, FOCUS_MOTIVATIONS.length - 1)]}`,
-    ].join("\n");
-    try {
-      await Share.share({ message: msg });
-    } catch {
-      // 忽略
-    }
-  };
+  /** v1.22：分享改为卡片图片弹层（截图 → 系统分享面板；不可用时弹层内退回文字） */
+  const shareCard = () => setShareOpen(true);
 
   const ratio = timerMode === "stopwatch" ? 0 : (total > 0 ? remaining / total : 0);
   // stopwatch 时 tick 已把「墙钟已跑秒数」写进 remaining 状态，render 内直接读 remaining 即可
@@ -626,6 +615,7 @@ export function FocusTimer({
               <Pressable style={styles.primaryBtn} onPress={shareCard}>
                 <Text style={styles.primaryBtnText}>分享打卡卡片</Text>
               </Pressable>
+              <FocusShareSheet visible={shareOpen} onClose={() => setShareOpen(false)} data={focusShareDataFromStats(stats)} />
               <View style={styles.doneBtns}>
                 <Pressable style={styles.secondaryBtn} onPress={() => { reset(); resume(); }}>
                   <Text style={styles.secondaryBtnText}>再来一次</Text>

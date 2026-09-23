@@ -5,6 +5,18 @@
 -- 说明     : 内容数据 + 用户数据 + 背景图记录，P1 云同步复用同一结构（Supabase）
 -- ============================================================================
 
+-- ---------- 0. updated_at 自动更新函数（**必须最先建**） ----------
+-- 说明：大量表都挂 `BEFORE UPDATE ... EXECUTE FUNCTION set_updated_at()` 触发器，
+-- 函数必须定义在**第一个使用者之前**，否则整份 schema.sql 全量执行会撞
+-- "function set_updated_at() does not exist"（check-schema-fresh 一直报的漂移就是这个）。
+
+CREATE OR REPLACE FUNCTION set_updated_at() RETURNS trigger AS $$
+BEGIN
+  NEW.updated_at := now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 -- ---------- 1. 用户（**必须先建**：内容表的 owner_id / user_id 外键引用它） ----------
 
 CREATE TABLE users (
@@ -390,14 +402,8 @@ CREATE TABLE sessions (
 );
 CREATE INDEX idx_sessions_user_id ON sessions(user_id);
 
--- ---------- updated_at 自动更新 ----------
-
-CREATE OR REPLACE FUNCTION set_updated_at() RETURNS trigger AS $$
-BEGIN
-  NEW.updated_at := now();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+-- ---------- 账号表上的 updated_at 触发器 ----------
+-- （set_updated_at() 的定义已上移到文件顶部「0. updated_at 自动更新函数」）
 CREATE TRIGGER trg_accounts_updated
   BEFORE UPDATE ON accounts FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 

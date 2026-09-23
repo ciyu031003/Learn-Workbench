@@ -57,3 +57,44 @@ export function resolveBackTarget(pathname: string | null | undefined): string {
   }
   return DEFAULT_BACK_TARGET;
 }
+
+/**
+ * 路径所属「模块」（一级 Tab 返回自身，子页返回所属 Hub）。
+ * 与 resolveBackTarget 的区别：Hub 自身返回自己而不是今日 —— 判断模块归属用这个。
+ */
+export function hubOf(pathname: string | null | undefined): string {
+  if (!pathname) return DEFAULT_BACK_TARGET;
+  const p = pathname === "/" || pathname === "/dashboard" ? "/today" : pathname;
+  if ((TAB_ROUTES as readonly string[]).includes(p)) return p;
+  for (const rule of HUB_RULES) {
+    if (p.startsWith(rule.prefix)) return rule.hub;
+  }
+  return DEFAULT_BACK_TARGET;
+}
+
+/**
+ * 上一个展示过的页面（由根布局在每次路径变化时记录）。
+ *
+ * 真机反馈（2026-09-22 v1.21.0）：在「职业 → 面试 / 证书」点返回，直接回到了「今日」首页。
+ * 原因是 Tab 结构下 `router.back()` 走的是 Tabs 的历史（上一个是哪个 Tab），
+ * 而不是"这个子页从哪个模块进来的"。现在的规则：
+ *   - 上一个页面与本页**同属一个模块** → 真实 `back()`（保留"从哪来回哪去"，如 路线图 → 阶段详情）
+ *   - **跨模块**（如 今日 → 面试）→ `replace(所属 Hub)`，回到该模块首页，而不是今日
+ */
+let lastPath: string | null = null;
+
+/** 根布局每次路径变化时调用 */
+export function noteScreenPath(pathname: string | null | undefined): void {
+  lastPath = pathname ?? null;
+}
+
+/** 本页与上一个展示过的页面是否同属一个模块 */
+export function isSameHubAsLast(pathname: string | null | undefined): boolean {
+  if (lastPath === null) return false;
+  return hubOf(lastPath) === hubOf(pathname);
+}
+
+/** 仅测试用：清空记忆 */
+export function __resetBackTargetMemory(): void {
+  lastPath = null;
+}

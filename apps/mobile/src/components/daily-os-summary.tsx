@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { ThemedIcon } from "@/components/themed-icon";
@@ -15,7 +15,13 @@ import { radius, spacing, tabularNums, typography } from "@/theme/tokens";
 import { mealKindLabels } from "@learn-workbench/shared";
 import { useAppStore } from "@/store/app-store";
 import { useFocusRefresh } from "@/lib/use-focus-refresh";
+import { todayAndYesterday } from "@/lib/nutrition-views";
 import { getApiUrl } from "@/config";
+
+/** 客户端本地日期：服务器在 UTC，直接用它做 `?date=` 才不会在凌晨算成前一天 */
+function localDateKey(): string {
+  return todayAndYesterday().today;
+}
 
 export interface DailyOs {
   date: string;
@@ -62,22 +68,37 @@ export function DailyOsSummary({ onNavigate }: { onNavigate?: (href: string) => 
    * "上午还在、下午打开就没了" 的根因（v12 P0-1）。
    */
   const [status, setStatus] = useState<"loading" | "ok" | "error">("loading");
+  /** 自动重试的定时器（卸载时清掉，避免页面离开后还 setState） */
+  const retryTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  useEffect(
+    () => () => {
+      retryTimers.current.forEach(clearTimeout);
+      retryTimers.current = [];
+    },
+    []
+  );
 
-  const load = useCallback(async () => {
-    try {
-      const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
-      const r = await fetch(getApiUrl() + "/api/daily", { headers });
-      if (r.ok) {
+  const load = useCallback(
+    async (attempt = 0) => {
+      try {
+        const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+        // 带上客户端本地日期：服务器在 UTC，东八区凌晨会算成前一天（2026-09-22 真机）
+        const r = await fetch(`${getApiUrl()}/api/daily?date=${localDateKey()}`, { headers });
+        if (!r.ok) throw new Error(`daily ${r.status}`);
         setData(await r.json());
         setStatus("ok");
-      } else {
+      } catch {
+        // 网络抖一下不该让整块变成"没加载出来"：先自动重试两次（1.2s / 3s），都失败才提示
+        if (attempt < 2) {
+          const t = setTimeout(() => void load(attempt + 1), attempt === 0 ? 1200 : 3000);
+          retryTimers.current.push(t);
+          return;
+        }
         setStatus("error");
       }
-    } catch {
-      // 离线：保留上一次数据，但标记失败，页面给出「重试」
-      setStatus("error");
-    }
-  }, [token]);
+    },
+    [token]
+  );
 
   useEffect(() => {
     const t = setTimeout(() => void load(), 0);

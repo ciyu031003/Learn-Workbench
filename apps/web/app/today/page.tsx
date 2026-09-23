@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SectionLabel } from "@/components/ui/section-label";
+import { todayISO } from "@learn-workbench/shared";
 import { cn } from "@/lib/utils";
 import {
   BookOpen, Briefcase, Dumbbell, Repeat, Circle, Loader2,
@@ -47,7 +48,7 @@ export default function TodayPage() {
 
   const load = useCallback(async () => {
     try {
-      const r = await fetch("/api/daily");
+      const r = await fetch(`/api/daily?date=${todayISO()}`);
       if (r.ok) setData(await r.json());
     } catch {
       // 静默

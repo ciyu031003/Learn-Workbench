@@ -1,5 +1,5 @@
 import { useState , useMemo } from "react";
-import { Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { useAppStore, type TaskType } from "@/store/app-store";
@@ -11,6 +11,8 @@ import { BottomSheet } from "@/components/bottom-sheet";
 import { FocusTimer } from "@/components/focus-timer";
 import { ContentPicker, EMPTY_CONTENT, contentLabelOf, type ContentChoice } from "@/components/content-picker";
 import { computeFocusStats, FOCUS_MOTIVATIONS } from "@/lib/focus-stats";
+import { FocusShareSheet } from "@/components/focus-share-card";
+import { focusShareDataFromStats } from "@/lib/focus-share";
 
 const TYPES: TaskType[] = ["study", "agent", "output", "review", "exam"];
 
@@ -32,6 +34,7 @@ export default function TasksScreen() {
   const [timerTask, setTimerTask] = useState<{ id: number | null; title: string | null } | null>(null);
   /** v4 P1：新建任务改为弹层输入（不再让输入框常驻首屏第一位） */
   const [newTaskOpen, setNewTaskOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   /**
    * v5 P2-1：「自由专注」入口先问"这次学什么"（复用 ContentPicker），选完立即开始。
    * 与首页一键开始同样的 Modal 串行处理：先关选择弹层，等它卸载后再开计时器。
@@ -76,21 +79,11 @@ export default function TasksScreen() {
     setNewTaskOpen(false);
   };
 
-  const shareCard = async () => {
-    const msg = [
-      "📚 苦旅 · 专注打卡",
-      `📅 ${stats.date}`,
-      `🔥 连续专注 ${stats.streak} 天 ｜ 累计专注 ${stats.totalFocusDays} 天`,
-      `⏱ 今日专注 ${stats.todaySessions} 次 · ${stats.todayMinutes} 分钟`,
-      "",
-      `💪 ${FOCUS_MOTIVATIONS[Math.min(stats.streak, FOCUS_MOTIVATIONS.length - 1)]}`,
-    ].join("\n");
-    try {
-      await Share.share({ message: msg });
-    } catch {
-      // 忽略
-    }
-  };
+  /**
+   * v1.22：分享打卡改为**卡片图片**（用户真机反馈："以卡片图片类型分享，不要几个文字分享"）。
+   * 弹层里预览卡片 → 截图 → 系统分享面板；不可用时弹层内会自动退回文字分享。
+   */
+  const shareCard = () => setShareOpen(true);
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
@@ -213,6 +206,8 @@ export default function TasksScreen() {
           <Text style={styles.shareBtnText}>📤 分享打卡卡片</Text>
         </Pressable>
       </Card>
+
+      <FocusShareSheet visible={shareOpen} onClose={() => setShareOpen(false)} data={focusShareDataFromStats(stats)} />
 
       <BottomSheet visible={newTaskOpen} onClose={() => setNewTaskOpen(false)} title="新建任务" height="52%">
         <View style={styles.sheetBody}>

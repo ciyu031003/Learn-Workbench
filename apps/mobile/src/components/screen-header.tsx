@@ -4,7 +4,7 @@ import { router, usePathname } from "expo-router";
 import { ThemedIcon } from "@/components/themed-icon";
 import { useTheme } from "@/theme";
 import { typography, type ThemeColors } from "@/theme/tokens";
-import { resolveBackTarget } from "@/lib/back-target";
+import { isSameHubAsLast, resolveBackTarget } from "@/lib/back-target";
 
 export function ScreenHeader({
   title,
@@ -23,8 +23,10 @@ export function ScreenHeader({
   const pathname = usePathname();
 
   const goBack = () => {
-    if (router.canGoBack()) router.back();
-    // 冷启动深链 / 切过 Tab 导致无历史时：回到该页所属 Hub（而不是一律回今日）
+    // 同模块内（路线图 → 阶段详情）：保留真实回退，从哪来回哪去；
+    // 跨模块（今日 → 面试这类从其它 Tab 跳进来的子页）：回该页所属 Hub，而不是回上一个 Tab。
+    // 真机反馈 2026-09-22：职业 → 面试/证书 点返回曾直接回「今日」。
+    if (isSameHubAsLast(pathname) && router.canGoBack()) router.back();
     else router.replace((backTo ?? resolveBackTarget(pathname)) as never);
   };
 

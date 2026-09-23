@@ -77,6 +77,11 @@ import {
   toDaySummaryMap,
   todayAndYesterday,
   weeksAgo,
+  weekKeysOf,
+  weekEndKey,
+  weekRangeLabel,
+  isCurrentWeek,
+  WEEK_TILE_LABELS,
   type DaySummaryRow,
 } from "@/lib/nutrition-views";
 import { spacing, tabularNums, typography, shadows } from "@/theme/tokens";
@@ -222,8 +227,8 @@ export default function NutritionScreen() {
       end.setDate(end.getDate() - weekOffset * 7);
       return { days: 28, end: toDateKey(end) };
     }
-    // v11 P2：日视图也取 7 天，供顶部「近 7 天热量」周视图条使用（API 上限 31 天）
-    return { days: 7, end: date };
+    // v1.22：日视图取**该自然周**（周一~周日）——end 取本周周日，这样点周内任一天都不用重新拉数
+    return { days: 7, end: weekEndKey(date) };
   }, [viewMode, monthView, weekOffset, date, todayKey]);
 
   const summaryWindowKey = `${summaryWindow.days}:${summaryWindow.end}`;
@@ -243,18 +248,32 @@ export default function NutritionScreen() {
     [entries]
   );
 
-  const weekStrip = useMemo(() => {
-    const labels = ["日", "一", "二", "三", "四", "五", "六"];
-    const anchor = fromDateKey(date);
-    const rows: { key: string; label: string; kcal: number; active: boolean }[] = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(anchor);
-      d.setDate(d.getDate() - i);
-      const key = toDateKey(d);
-      rows.push({ key, label: labels[d.getDay()], kcal: Math.round(daySummary[key]?.kcal ?? 0), active: key === date });
-    }
-    return rows;
-  }, [date, daySummary]);
+  /**
+   * v1.22：迷你柱固定为**自然周（周一 → 周日）**。
+   * 旧版是"以所选日期为终点往前滚 7 天"，所以点周六时整条柱会往前挪一格、把前面的数据顶出去
+   * （真机反馈 2026-09-22）。现在点某天只换高亮与详情，柱状图始终是这一周。
+   */
+  const weekStrip = useMemo(
+    () =>
+      weekKeysOf(date).map((key, i) => ({
+        key,
+        label: WEEK_TILE_LABELS[i],
+        kcal: Math.round(daySummary[key]?.kcal ?? 0),
+        active: key === date,
+      })),
+    [date, daySummary]
+  );
+
+  /** 上一周 / 下一周：保持同一星期几；不能翻到未来周 */
+  const shiftWeek = (dir: -1 | 1) => {
+    if (dir === 1 && isCurrentWeek(date, todayKey)) return;
+    const d = fromDateKey(date);
+    d.setDate(d.getDate() + dir * 7);
+    const next = toDateKey(d);
+    if (next > todayKey) return;
+    haptics.soft();
+    setDate(next);
+  };
 
   /** 日期条的 ✓ 仍按"当天有记录"判定，所以从富结构里派生一份 entryCount map（DayStrip 的 API 不变） */
   const doneMap = useMemo(() => {
@@ -927,11 +946,14 @@ export default function NutritionScreen() {
       <MealCardGrid
         cards={mealCards}
         week={weekStrip}
+        weekRange={weekRangeLabel(date)}
         onAdd={(nextMeal) => {
           setMeal(nextMeal);
           setSheetOpen(true);
         }}
         onPickDay={(key) => setDate(key)}
+        onPrevWeek={() => shiftWeek(-1)}
+        onNextWeek={isCurrentWeek(date, todayKey) ? undefined : () => shiftWeek(1)}
       />
 
       {/* v4 P4-a：日 / 周 / 月 视图切换（圆角胶囊分段控件，参考「吃一点」顶部那条） */}

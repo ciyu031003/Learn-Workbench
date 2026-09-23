@@ -20,7 +20,7 @@ import { useAppStore } from "@/store/app-store";
 import { useFocusRefresh } from "@/lib/use-focus-refresh";
 import { useRefreshable } from "@/lib/use-refresh";
 import { addHydration, fetchHydration, fetchWeight, type HydrationToday, type WeightPointDto } from "@/lib/wellbeing-client";
-import { todayAndYesterday } from "@/lib/nutrition-views";
+import { toDaySummaryMap, todayAndYesterday } from "@/lib/nutrition-views";
 import { haptics } from "@/lib/haptics";
 import { getApiUrl } from "@/config";
 
@@ -93,7 +93,7 @@ export default function WellnessScreen() {
     const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     try {
       const [dailyRes, weightRes, workoutRes, summaryRes, hydrationRes] = await Promise.all([
-        fetch(getApiUrl() + "/api/daily", { headers }),
+        fetch(`${getApiUrl()}/api/daily?date=${todayKey}`, { headers }),
         fetchWeight(token, 30).catch(() => null),
         fetch(getApiUrl() + "/api/workouts?days=7", { headers }).catch(() => null),
         fetch(getApiUrl() + "/api/nutrition/summary?days=7", { headers }).catch(() => null),
@@ -113,12 +113,13 @@ export default function WellnessScreen() {
       }
       if (summaryRes && summaryRes.ok) {
         const d = await summaryRes.json();
-        const map = (d.summary ?? {}) as Record<string, { entryCount?: number; kcal?: number }>;
+        // ⚠️ 后端返回的是**数组**（逐日行）。旧代码当 map 用，`map[todayKey]` 恒为 undefined，
+        // 于是"饮食页有记录、健康主页没数字"（2026-09-22 真机反馈）。统一用 toDaySummaryMap 解析。
+        const map = toDaySummaryMap(d.summary);
         const rows = Object.values(map);
-        setWeekRows(rows.map((r) => ({ entryCount: Number(r?.entryCount ?? 0), kcal: Number(r?.kcal ?? 0) })));
-        // 当天有记录就用当天行（与饮食页同源），避免聚合接口滞后导致「健康页没有」
-        const todayRow = map[todayKey];
-        setTodayKcal(todayRow ? Number(todayRow.kcal ?? 0) : null);
+        setWeekRows(rows.map((r) => ({ entryCount: r.entryCount, kcal: r.kcal })));
+        // 当天有记录就用当天行（与饮食页同源）；当天确实没记录时置 0（而不是 null 让上层回落到可能滞后的聚合值）
+        setTodayKcal(map[todayKey]?.kcal ?? 0);
       }
       if (hydrationRes) {
         setHydration(hydrationRes);

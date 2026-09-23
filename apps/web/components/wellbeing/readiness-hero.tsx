@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { DAILY_WEAKEST_LABEL, computeDailyReadiness } from "@learn-workbench/shared";
+import { DAILY_WEAKEST_LABEL, computeDailyReadiness, todayISO } from "@learn-workbench/shared";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -48,7 +48,7 @@ export function ReadinessHero() {
     (async () => {
       try {
         const [dailyRes, workoutRes, summaryRes] = await Promise.all([
-          fetch("/api/daily"),
+          fetch(`/api/daily?date=${todayISO()}`),
           fetch("/api/workouts?days=7"),
           fetch("/api/nutrition/summary?days=7"),
         ]);

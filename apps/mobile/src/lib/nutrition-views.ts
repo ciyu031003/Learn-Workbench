@@ -71,6 +71,44 @@ export function summarizeRange(rows: DaySummaryRow[]): {
   };
 }
 
+
+/** 自然周（周一~周日）的 7 个日期键；offsetWeeks=-1 为上一周 */
+export function weekKeysOf(dateKey: string, offsetWeeks = 0): string[] {
+  const d = fromDateKey(dateKey);
+  const dow = (d.getDay() + 6) % 7; // 0 = 周一
+  const monday = new Date(d.getFullYear(), d.getMonth(), d.getDate() - dow + offsetWeeks * 7);
+  const out: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    out.push(toDateKey(new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i)));
+  }
+  return out;
+}
+
+/**
+ * 所选日期所在**自然周**的周日日期键。
+ * 作为 summary 窗口的 end，保证周一~周日七天都取到（未来日返回 0，不影响展示）。
+ */
+export function weekEndKey(dateKey: string): string {
+  return weekKeysOf(dateKey)[6];
+}
+
+/** 柱状图的星期标签：周一 → 周日（固定顺序，不再随"今天"滚动） */
+export const WEEK_TILE_LABELS = ["一", "二", "三", "四", "五", "六", "日"] as const;
+
+/** 一周区间的展示文案：9月21日–9月27日 */
+export function weekRangeLabel(dateKey: string): string {
+  const keys = weekKeysOf(dateKey);
+  const a = fromDateKey(keys[0]);
+  const b = fromDateKey(keys[6]);
+  const fmt = (d: Date) => `${d.getMonth() + 1}月${d.getDate()}日`;
+  return `${fmt(a)}–${fmt(b)}`;
+}
+
+/** 是否就是"本周"（决定"下一周"能不能点） */
+export function isCurrentWeek(dateKey: string, todayKey: string): boolean {
+  return weekKeysOf(dateKey)[0] === weekKeysOf(todayKey)[0];
+}
+
 /**
  * 「今天 / 昨天」两个日期键（本地日）。
  * 用 `setDate(-1)` 而不是减 86400000：夏令时切换那天也不会错位。

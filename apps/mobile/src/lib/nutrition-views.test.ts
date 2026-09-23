@@ -8,8 +8,48 @@ import {
   toDaySummaryMap,
   todayAndYesterday,
   weeksAgo,
+  weekKeysOf,
+  weekEndKey,
+  weekRangeLabel,
+  isCurrentWeek,
+  WEEK_TILE_LABELS,
   type DaySummaryRow,
 } from "./nutrition-views";
+
+
+describe("自然周窗口（v1.22：柱状图按周固定，不再随所选日期滚动）", () => {
+  // 2026-09-24 是周四
+  it("weekKeysOf：周一到周日固定 7 天", () => {
+    expect(weekKeysOf("2026-09-24")).toEqual([
+      "2026-09-21",
+      "2026-09-22",
+      "2026-09-23",
+      "2026-09-24",
+      "2026-09-25",
+      "2026-09-26",
+      "2026-09-27",
+    ]);
+    expect(WEEK_TILE_LABELS).toEqual(["一", "二", "三", "四", "五", "六", "日"]);
+  });
+
+  it("同一周内换天，窗口不变（点周六不会把前面的数据顶出去）", () => {
+    expect(weekKeysOf("2026-09-26")).toEqual(weekKeysOf("2026-09-21"));
+    expect(weekEndKey("2026-09-26")).toBe("2026-09-27");
+    expect(weekRangeLabel("2026-09-24")).toBe("9月21日–9月27日");
+  });
+
+  it("跨周才换窗口；周日归上一周（周一开始）", () => {
+    expect(weekKeysOf("2026-09-28")[0]).toBe("2026-09-28");
+    expect(weekKeysOf("2026-09-27")[0]).toBe("2026-09-21");
+    expect(weekKeysOf("2026-09-24", -1)[0]).toBe("2026-09-14");
+  });
+
+  it("isCurrentWeek 决定能否翻到下一周", () => {
+    expect(isCurrentWeek("2026-09-24", "2026-09-24")).toBe(true);
+    expect(isCurrentWeek("2026-09-27", "2026-09-21")).toBe(true);
+    expect(isCurrentWeek("2026-09-14", "2026-09-24")).toBe(false);
+  });
+});
 
 const row = (date: string, kcal: number, entryCount = 1): DaySummaryRow => ({
   date,
