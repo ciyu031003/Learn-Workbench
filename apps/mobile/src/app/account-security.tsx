@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
+import { resolveBackTarget } from "@/lib/back-target";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
@@ -132,7 +133,7 @@ export default function AccountSecurityScreen() {
   return (
     <View style={styles.root}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
+        <Pressable onPress={() => router.replace(resolveBackTarget("/account-security") as never)} hitSlop={12} style={styles.backBtn}>
           <ThemedIcon name="chevron-back" size={22} color={colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>账号与安全</Text>

@@ -78,6 +78,9 @@ export function DailyOsSummary({ onNavigate }: { onNavigate?: (href: string) => 
     []
   );
 
+  /** 自引用重试的间接层：直接在 useCallback 体内引用 `load` 会被 react-hooks 判为"访问未声明变量" */
+  const loadRef = useRef<(attempt?: number) => void>(() => {});
+
   const load = useCallback(
     async (attempt = 0) => {
       try {
@@ -90,7 +93,7 @@ export function DailyOsSummary({ onNavigate }: { onNavigate?: (href: string) => 
       } catch {
         // 网络抖一下不该让整块变成"没加载出来"：先自动重试两次（1.2s / 3s），都失败才提示
         if (attempt < 2) {
-          const t = setTimeout(() => void load(attempt + 1), attempt === 0 ? 1200 : 3000);
+          const t = setTimeout(() => loadRef.current(attempt + 1), attempt === 0 ? 1200 : 3000);
           retryTimers.current.push(t);
           return;
         }
@@ -99,6 +102,10 @@ export function DailyOsSummary({ onNavigate }: { onNavigate?: (href: string) => 
     },
     [token]
   );
+
+  useEffect(() => {
+    loadRef.current = load;
+  }, [load]);
 
   useEffect(() => {
     const t = setTimeout(() => void load(), 0);

@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { taskTypeLabels, todayISO } from "@learn-workbench/shared";
 import { Card } from "@/components/card";
+import { ScreenHeader } from "@/components/screen-header";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { FocusTimer } from "@/components/focus-timer";
 import { ContentPicker, EMPTY_CONTENT, contentLabelOf, type ContentChoice } from "@/components/content-picker";
@@ -87,9 +88,10 @@ export default function TasksScreen() {
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
-      <View style={[styles.hero, { paddingTop: insets.top + 24 }]}>
-        <Text style={styles.heroTitle}>每日任务</Text>
-        <Text style={styles.heroSub}>计划 → 专注 → 复盘，形成学习闭环</Text>
+      {/* 真机反馈：这一页原来只有白字标题（浅底上完全看不清），且没有返回上一级的按钮。
+          改成与其它子页一致的 ScreenHeader（主题色 + 返回按钮 → 学习）。 */}
+      <View style={{ paddingTop: insets.top + 12 }}>
+        <ScreenHeader title="每日任务" subtitle="计划 → 专注 → 复盘，形成学习闭环" compact />
       </View>
 
       {/* ① 焦点 hero：今天第一件该做的事（v4 P1-3）。
@@ -290,8 +292,6 @@ const makeStyles = (colors: ThemeColors) =>
   scroll: { flex: 1 },
   content: { padding: 16, gap: 12 },
   hero: { paddingTop: 24, paddingBottom: 6, gap: 4 },
-  heroTitle: { color: "#ffffff", fontSize: 24, fontWeight: "700" },
-  heroSub: { color: "rgba(255,255,255,0.85)", fontSize: 13 },
   // 焦点 hero 内的"下一步"
   nextTitle: { fontSize: 19, fontWeight: "800", color: colors.text, lineHeight: 26 },
   nextMeta: { fontSize: 12, color: colors.textMuted, marginTop: -4 },

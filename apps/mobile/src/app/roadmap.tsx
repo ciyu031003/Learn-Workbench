@@ -8,6 +8,7 @@ import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { mainPhases, agentPhase } from "@learn-workbench/content";
 import { pct } from "@learn-workbench/shared";
 import { Card } from "@/components/card";
+import { ScreenHeader } from "@/components/screen-header";
 
 interface TopicView {
   id: number;
@@ -139,9 +140,9 @@ export default function RoadmapScreen() {
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
-      <View style={[styles.hero, { paddingTop: insets.top + 24 }]}>
-        <Text style={styles.heroTitle}>学习路线图</Text>
-        <Text style={styles.heroSub}>6 个主阶段 + Agent 应用副线，点击主题完成打勾</Text>
+      {/* 真机反馈：子页要有返回上一级的按钮（这里 → 学习） */}
+      <View style={{ paddingTop: insets.top + 12 }}>
+        <ScreenHeader title="学习路线图" subtitle="6 个主阶段 + Agent 应用副线，点击主题完成打勾" compact />
       </View>
 
       <Card>

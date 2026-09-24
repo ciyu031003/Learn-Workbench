@@ -46,7 +46,9 @@ import { DailyOsSummary } from "@/components/daily-os-summary";
 import { Card } from "@/components/card";
 import { SectionHeader } from "@/components/section-header";
 import { BottomSheet } from "@/components/bottom-sheet";
-import { Celebration } from "@/components/celebration";
+import { CelebrationModal } from "@/components/celebration-modal";
+import { EnergyBar } from "@/components/energy-bar";
+import { fetchLatestEnergy, logEnergy } from "@/lib/energy";
 import { PressableScale } from "@/components/pressable-scale";
 import { haptics } from "@/lib/haptics";
 import { radius, shadows } from "@/theme/tokens";
@@ -301,7 +303,11 @@ export default function TodayScreen() {
   const [focusOpen, setFocusOpen] = useState(false);
   const [sportSheetOpen, setSportSheetOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
-  const [celebrate, setCelebrate] = useState(false);
+  /** 完成任务的庆祝弹窗（null = 关闭） */
+  const [celebrateInfo, setCelebrateInfo] = useState<{ title: string; subtitle?: string } | null>(null);
+  /** 今日精力状态（1-5，来自 /api/wellbeing/energy） */
+  const [energyLevel, setEnergyLevel] = useState<number | null>(null);
+  const [energyBusy, setEnergyBusy] = useState(false);
   /** v4 P2：一键开始（弹层选学习/运动/正向计时 → 选完立即进入计时） */
   const [quickOpen, setQuickOpen] = useState(false);
   const [timerAuto, setTimerAuto] = useState<QuickStartChoice | null>(null);
@@ -372,6 +378,29 @@ export default function TodayScreen() {
   }, [loadHabits]);
   useFocusRefresh(loadHabits);
 
+  /** 今日精力：最近一次记录（接口幂等，按时间倒序取第一条） */
+  const loadEnergy = useCallback(async () => {
+    const latest = await fetchLatestEnergy(token).catch(() => null);
+    if (latest) setEnergyLevel(latest.level);
+  }, [token]);
+  useEffect(() => {
+    const t = setTimeout(() => void loadEnergy(), 0);
+    return () => clearTimeout(t);
+  }, [loadEnergy]);
+  useFocusRefresh(loadEnergy);
+
+  const pickEnergy = async (level: number) => {
+    setEnergyLevel(level); // 乐观：点一下立刻高亮
+    setEnergyBusy(true);
+    try {
+      await logEnergy(token, level);
+    } catch {
+      // 失败保留本地选中，下次进入页面会按服务端纠正
+    } finally {
+      setEnergyBusy(false);
+    }
+  };
+
   /** 首页直接给习惯打卡（乐观 + 失败回滚） */
   const toggleHabit = async (id: number, done: boolean) => {
     const headers: Record<string, string> = {
@@ -411,10 +440,8 @@ export default function TodayScreen() {
   const focusTask = todayTasks.find((t) => !t.done);
   const checkedInToday = checkins.includes(today);
 
-  const fireCelebrate = () => {
-    setCelebrate(false);
-    requestAnimationFrame(() => setCelebrate(true));
-    setTimeout(() => setCelebrate(false), 1300);
+  const fireCelebrate = (title: string, subtitle?: string) => {
+    setCelebrateInfo({ title, subtitle });
   };
 
   // iOS 大标题联动：滚动时 Hero 轻微上浮、缩小、淡出
@@ -489,6 +516,9 @@ export default function TodayScreen() {
           <Text style={styles.heroSub}>{heroTip}</Text>
         </Animated.View>
 
+        {/* 精力状态快捷选取（参考用户给的 reaction-bar） */}
+        <EnergyBar value={energyLevel} onSelect={(l) => void pickEnergy(l)} busy={energyBusy} />
+
         {/* v4 P2 一键开始：首页唯一的大动作按钮（实色强调色，不用玻璃——首屏已有两个 hero，避免互相抢戏） */}
         <PressableScale
           haptic
@@ -559,7 +589,7 @@ export default function TodayScreen() {
                 const willDone = !t.done;
                 haptics.light();
                 toggleTaskDone(t.id);
-                if (willDone) fireCelebrate();
+                if (willDone) fireCelebrate(t.title, "今日任务 · 已完成");
               }}
               style={styles.task}
             >
@@ -580,6 +610,7 @@ export default function TodayScreen() {
             key={"habit-" + h.id}
             onPress={() => {
               haptics.light();
+              if (!h.done) fireCelebrate(h.name, "习惯打卡完成");
               void toggleHabit(h.id, h.done);
             }}
             style={styles.task}
@@ -739,7 +770,12 @@ export default function TodayScreen() {
           if (timerAuto?.sportKey) addSportSeconds(timerAuto.sportKey, seconds);
         }}
       />
-      <Celebration play={celebrate} />
+      <CelebrationModal
+        visible={!!celebrateInfo}
+        onClose={() => setCelebrateInfo(null)}
+        title={celebrateInfo?.title ?? ""}
+        subtitle={celebrateInfo?.subtitle}
+      />
     </View>
   );
 }

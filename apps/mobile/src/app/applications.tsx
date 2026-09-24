@@ -7,6 +7,7 @@ import { ThemedIcon } from "@/components/themed-icon";
 import { ScreenHeader } from "@/components/screen-header";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
+import { useFocusRefresh } from "@/lib/use-focus-refresh";
 import { getApiUrl } from "@/config";
 import { useAppStore } from "@/store/app-store";
 import { Card } from "@/components/card";
@@ -49,6 +50,8 @@ export default function ApplicationsScreen() {
   }, [token]);
 
   useEffect(() => { load(); }, [load]);
+  // 从招花收藏后回到本页要立刻看到新条目（旧实现只在挂载时拉一次）
+  useFocusRefresh(load);
 
   const setStage = async (id: number, stage: JobApplicationStage) => {
     const r = await api("/api/jobs/applications/" + id, { method: "PUT", body: JSON.stringify({ stage }) });

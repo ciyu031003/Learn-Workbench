@@ -64,7 +64,7 @@ describe("GET /api/jobs/radar", () => {
     await GET(new Request("http://localhost/api/jobs/radar?city=北京&limit=999"));
     const opts = radarMock.mock.calls[0][1] as { city: string | null; limit?: number };
     expect(opts.city).toBe("北京");
-    expect(opts.limit).toBe(24);
+    expect(opts.limit).toBe(200);
   });
 
   it("returns 500 on unexpected failure", async () => {

@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/immutability */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
@@ -35,6 +35,8 @@ import {
   type MdImportResult,
 } from "@/lib/roadmap";
 import { Button } from "@/components/button";
+import { FocusShareSheet } from "@/components/focus-share-card";
+import { focusShareDataFromStats } from "@/lib/focus-share";
 
 const STAGE_GRADS: [string, string][] = [
   ["#2F74C0", "#78C2E8"],
@@ -332,12 +334,10 @@ export default function LearnScreen() {
   const tabBarSpace = useTabBarSpace();
   const progress = useAppStore((s) => s.progress);
   const sessions = useAppStore((s) => s.sessions);
-  const username = useAppStore((s) => s.username);
   const token = useAppStore((s) => s.token);
   const customTopics = useAppStore((s) => s.customTopics);
   const addCustomTopic = useAppStore((s) => s.addCustomTopic);
   const removeCustomTopic = useAppStore((s) => s.removeCustomTopic);
-  const sportRecords = useAppStore((s) => s.sports);
   const [stageSheet, setStageSheet] = useState(false);
   const [shareSheet, setShareSheet] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -500,7 +500,6 @@ export default function LearnScreen() {
   const ringPctNum = Math.round((todayMinutes / todayTarget) * 100);
   const weekMinutes = stats.last14.slice(7).reduce((sum, d) => sum + d.minutes, 0);
   const totalMinutes = sessions.reduce((sum, s) => sum + Math.max(0, Math.round((s.durationSeconds ?? 0) / 60)), 0);
-  const sportMinutes = sportRecords.reduce((sum, r) => sum + r.minutes, 0);
 
   const selectedPhase = roadmap.find((p) => p.id === selectedPhaseId) ?? firstPhase;
   const selectedCustomTopics = useMemo(
@@ -524,24 +523,14 @@ export default function LearnScreen() {
     })),
   ].slice(0, 4);
 
-  const shareMessage = [
-    `📚 ${username || "苦旅学习者"} 的 ICT 学习周报`,
-    "",
-    `🔥 连续专注 ${stats.streak} 天 · 累计专注 ${stats.totalFocusDays} 天`,
-    `⏱ 今日专注 ${stats.todaySessions} 次 · ${stats.todayMinutes} 分钟`,
-    `📈 本周专注 ${formatDuration(weekMinutes)}`,
-    `🏃 运动记录 ${sportMinutes} 分钟`,
-    "",
-    `💪 每一次专注，都是在为未来的自己投票。`,
-  ].join("\n");
-
-  const doShare = async () => {
-    try {
-      await Share.share({ message: shareMessage, title: "我的 ICT 学习统计" });
-    } catch {
-      // 忽略
-    }
-  };
+  /**
+   * v1.23：学习统计的分享与「今日任务」**统一为图片卡片**（旧实现这里是纯文字，
+   * 真机反馈"上面点分享是卡片，这里点分享却是文案"）。
+   */
+  const shareData = useMemo(
+    () => focusShareDataFromStats(stats, new Date(), "学习统计"),
+    [stats]
+  );
 
   const swapPhase = (from: number, to: number) => {
     if (to < 0 || to >= roadmap.length) return;
@@ -968,26 +957,8 @@ export default function LearnScreen() {
       </Card>
       </BottomSheet>
 
-      <BottomSheet visible={shareSheet} onClose={() => setShareSheet(false)} title="分享学习统计" height="50%">
-        <View style={styles.sharePreview}>
-          <Text style={styles.spTitle}>{username ? `${username} 的 ICT 学习周报` : "我的 ICT 学习周报"}</Text>
-          <Text style={styles.spSub}>把专注种成花 · 用热力记录每一次投入</Text>
-          <View style={styles.spRows}>
-            <View style={styles.spItem}><Text style={styles.spK}>本周专注</Text><Text style={styles.spV}>{formatDuration(weekMinutes)}</Text></View>
-            <View style={styles.spItem}><Text style={styles.spK}>连续打卡</Text><Text style={styles.spV}>{stats.streak} 天</Text></View>
-            <View style={styles.spItem}><Text style={styles.spK}>任务完成</Text><Text style={styles.spV}>{ringPctNum}%</Text></View>
-            <View style={styles.spItem}><Text style={styles.spK}>运动记录</Text><Text style={styles.spV}>{formatDuration(sportMinutes)}</Text></View>
-          </View>
-        </View>
-        <View style={styles.shareActions}>
-          <Pressable style={styles.ghostBtn} onPress={doShare}>
-            <Text style={styles.ghostBtnText}>复制文案</Text>
-          </Pressable>
-          <Pressable style={styles.primaryShareBtn} onPress={doShare}>
-            <Text style={styles.primaryShareText}>生成图片</Text>
-          </Pressable>
-        </View>
-      </BottomSheet>
+      {/* 分享统一走卡片图片（与今日任务同一个组件/同一张卡片，仅标题不同） */}
+      <FocusShareSheet visible={shareSheet} onClose={() => setShareSheet(false)} data={shareData} />
 
       <BottomSheet
         visible={calendarOpen}

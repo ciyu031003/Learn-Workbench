@@ -57,6 +57,16 @@ const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
   root: { flex: 1 },
   tabIcon: { width: 46, height: 32, alignItems: "center", justifyContent: "center" },
+  tabBarHighlight: {
+    position: "absolute",
+    top: 1,
+    right: 1,
+    bottom: 1,
+    left: 1,
+    borderRadius: TAB_BAR_HEIGHT / 2,
+    borderWidth: StyleSheet.hairlineWidth * 2,
+    borderColor: "rgba(255,255,255,0.34)",
+  },
   // 状态栏兜底底色：绝对定位贴顶，不参与布局（v12 P0-5）
   statusBarFill: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 1 },
   // 悬空玻璃底栏的底：半透明 + 高光描边 + 柔和投影（浅色亮玻璃 / 深色暗玻璃）
@@ -230,9 +240,10 @@ function ThemedShell() {
       <Tabs
         screenOptions={{
           headerShown: false,
-          tabBarActiveTintColor: colors.primary,
+          tabBarActiveTintColor: colors.primaryStrong,
           tabBarInactiveTintColor: colors.textMuted,
-          tabBarActiveBackgroundColor: "transparent",
+          // 参考用户给的 Tab 设计：选中项是一枚圆角胶囊高亮（玻璃底 + 内高光），不是整块变色
+          tabBarActiveBackgroundColor: colors.primarySoft,
           tabBarInactiveBackgroundColor: "transparent",
           /**
            * 悬空玻璃底栏（v12 P1-1，参考用户给的两张图）：
@@ -255,15 +266,20 @@ function ThemedShell() {
             elevation: 0,
             shadowOpacity: 0,
           },
-          tabBarBackground: () => <View style={styles.tabBarGlass} pointerEvents="none" />,
+          tabBarBackground: () => (
+            <View style={styles.tabBarGlass} pointerEvents="none">
+              {/* 内高光：模拟参考代码 menu::after 的 inset 高光 */}
+              <View style={styles.tabBarHighlight} pointerEvents="none" />
+            </View>
+          ),
           /**
            * v1.22：去掉文字标签，只留图标并让图标真正居中。
            * 真机反馈：文字贴到胶囊底部、没有居中；图标本身足够直观，所以按用户要求只留图标。
            */
           tabBarShowLabel: false,
           tabBarItemStyle: {
-            marginVertical: 4,
-            marginHorizontal: 2,
+            marginVertical: 6,
+            marginHorizontal: 3,
             borderRadius: 999,
             paddingVertical: 0,
             alignItems: "center",

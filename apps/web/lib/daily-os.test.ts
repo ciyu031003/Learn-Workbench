@@ -128,6 +128,35 @@ describe("buildDailyOs", () => {
     expect(queryMock.mock.calls.some(([sql]) => String(sql).includes("FROM habit_logs"))).toBe(false);
   });
 
+  /**
+   * 回归护栏（2026-09-24 真机）：**登录用户只要有习惯，/api/daily 就 500** ——
+   * 首页显示「今天的数据没加载出来」、健康页大圆环与饮水/训练恒为 0，
+   * 但饮食页能正常看到记录（它走 /api/nutrition/summary）。
+   * 根因：habit_logs 的 SQL 用了 `$2::date`，而基准参数只传了 [uid]；
+   * 登录分支不会追加 anonId → $2 未绑定，Postgres 直接报错。
+   *
+   * 注意：本文件把 scopeWhere mock 掉了，所以旧测试全绿也发现不了这个问题 ——
+   * 因此这里**直接断言绑定参数**，而不是只断言返回结构。
+   */
+  it("habit_logs 查询必须把 dateKey 作为第二个绑定参数", async () => {
+    setup({ habits: [{ id: 1, name: "早睡", isBoolean: true, targetValue: null, schedule: [0, 1, 2, 3, 4, 5, 6] }] });
+    await buildDailyOs({ uid: "u-1", anonId: null }, TODAY);
+    const call = queryMock.mock.calls.find(([sql]) => String(sql).includes("FROM habit_logs"));
+    expect(call).toBeTruthy();
+    expect(call?.[1]).toEqual(["u-1", "2026-09-14"]);
+    expect(String(call?.[0])).toContain("log_date = $2::date");
+  });
+
+  it("匿名作用域下 habit_logs 把 anonId 追加为 $3（真实 scopeWhere）", async () => {
+    const actual = await vi.importActual<typeof import("@/lib/anon")>("@/lib/anon");
+    scopeWhereMock.mockImplementation(actual.scopeWhere as never);
+    setup({ habits: [{ id: 1, name: "早睡", isBoolean: true, targetValue: null, schedule: [0, 1, 2, 3, 4, 5, 6] }] });
+    await buildDailyOs({ uid: null, anonId: "anon-1" }, TODAY);
+    const call = queryMock.mock.calls.find(([sql]) => String(sql).includes("FROM habit_logs"));
+    expect(call?.[1]).toEqual([null, "2026-09-14", "anon-1"]);
+    expect(String(call?.[0])).toContain("anon_id IS NOT DISTINCT FROM $3");
+  });
+
   // v3 M11 深化：今日饮食明细随聚合一起返回（Hub/今日页不必再发一次请求）
   it("returns today's nutrition entries (latest first, capped at 5)", async () => {
     setup({

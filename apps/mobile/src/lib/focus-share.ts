@@ -15,14 +15,20 @@ export interface FocusShareData {
   totalFocusDays: number;
   last14: { date: string; minutes: number }[];
   motivation: string;
+  /** 每日专注目标（分钟），用于卡片进度环；默认 150 */
+  goalMinutes?: number;
 }
 
-/** 由 `computeFocusStats` 的结果生成卡片数据 */
-export function focusShareDataFromStats(stats: FocusDaily, now: Date = new Date()): FocusShareData {
+/** 由 `computeFocusStats` 的结果生成卡片数据（title 可覆盖，学习统计复用同一张卡片） */
+export function focusShareDataFromStats(
+  stats: FocusDaily,
+  now: Date = new Date(),
+  title: string = "专注打卡"
+): FocusShareData {
   const streak = Math.max(0, Number(stats.streak) || 0);
   const pad = (n: number) => String(n).padStart(2, "0");
   return {
-    title: "专注打卡",
+    title,
     dateText: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
     minutes: Math.max(0, Math.round(Number(stats.todayMinutes) || 0)),
     sessions: Math.max(0, Math.round(Number(stats.todaySessions) || 0)),
@@ -30,6 +36,7 @@ export function focusShareDataFromStats(stats: FocusDaily, now: Date = new Date(
     totalFocusDays: Math.max(0, Math.round(Number(stats.totalFocusDays) || 0)),
     last14: (stats.last14 ?? []).map((d) => ({ date: d.date, minutes: Math.max(0, Math.round(Number(d.minutes) || 0)) })),
     motivation: FOCUS_MOTIVATIONS[Math.min(streak, FOCUS_MOTIVATIONS.length - 1)] ?? "",
+    goalMinutes: 150,
   };
 }
 

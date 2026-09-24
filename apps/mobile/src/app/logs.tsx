@@ -9,6 +9,7 @@ import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { logKindLabels } from "@learn-workbench/shared";
 import { Card } from "@/components/card";
 import { EmptyState } from "@/components/empty-state";
+import { ScreenHeader } from "@/components/screen-header";
 
 const KINDS: LogKind[] = ["feynman", "review", "project", "interview"];
 
@@ -59,9 +60,9 @@ export default function LogsScreen() {
 
   const header = (
     <View style={styles.headerWrap}>
-      <View style={[styles.hero, { paddingTop: insets.top + 24 }]}>
-        <Text style={styles.heroTitle}>学习日志</Text>
-        <Text style={styles.heroSub}>费曼讲稿 · 周复盘 · 项目笔记 · 面试记录</Text>
+      {/* 真机反馈：子页要有返回上一级的按钮（这里 → 学习） */}
+      <View style={{ paddingTop: insets.top + 12 }}>
+        <ScreenHeader title="学习日志" subtitle="费曼讲稿 · 周复盘 · 项目笔记 · 面试记录" compact />
       </View>
 
       <Card title="写一篇日志">

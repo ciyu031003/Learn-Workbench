@@ -10,7 +10,7 @@ import {
   type View as RNView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import Svg, { Rect } from "react-native-svg";
+import Svg, { Circle, Rect } from "react-native-svg";
 import { captureRef } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
 import { focusShareText, type FocusShareData } from "@/lib/focus-share";
@@ -19,16 +19,21 @@ import { radius, shadows, spacing, tabularNums, typography, type ThemeColors } f
 import { haptics } from "@/lib/haptics";
 
 /**
- * v1.22：专注/打卡的**卡片图片分享**（用户真机反馈："参考那个闪光卡片，以卡片图片类型分享数据，
- * 不要几个文字分享"）。
+ * 专注/学习的**卡片图片分享**（真机反馈：分享要卡片图片，不要几个文字）。
  *
  * 做法：把一张固定尺寸的卡片渲染在弹层里 → `react-native-view-shot` 截图成 PNG
  * → `expo-sharing` 交给系统分享面板（微信/QQ 里就是一张图）。
- * 兜底：截图或分享面板不可用时，退回原来的文字分享，**绝不让"分享"点了没反应**。
+ * 兜底：截图或分享面板不可用时，退回文字分享，**绝不让"分享"点了没反应**。
+ *
+ * 2026-09-24 精修：今日任务与「学习统计」共用同一张卡片（标题不同）；
+ * 版式改为「进度环 + 大数字 hero + 14 天柱 + 三格统计 + 金句块 + 品牌页脚」。
  */
 
 export type { FocusShareData } from "@/lib/focus-share";
 export { focusShareText };
+
+const RING_SIZE = 96;
+const RING_STROKE = 10;
 
 /** 卡片本体（`ref` 直接给 captureRef 截图用） */
 export function FocusShareCard({ data, cardRef }: { data: FocusShareData; cardRef: React.RefObject<RNView | null> }) {
@@ -36,67 +41,110 @@ export function FocusShareCard({ data, cardRef }: { data: FocusShareData; cardRe
   const styles = makeCardStyles(colors);
   const max = Math.max(1, ...data.last14.map((d) => d.minutes));
   const today = data.last14[data.last14.length - 1]?.date;
+  const goal = Math.max(1, data.goalMinutes ?? 150);
+  const ratio = Math.min(1, data.minutes / goal);
+  const pct = Math.round(ratio * 100);
+  const r = (RING_SIZE - RING_STROKE) / 2;
+  const circumference = 2 * Math.PI * r;
+  const avg = Math.round(data.minutes / Math.max(1, data.sessions));
+
   return (
     <View ref={cardRef} collapsable={false} style={styles.card}>
-      {/* 背景装饰：两团柔和色块（无渐变依赖） */}
+      {/* 背景装饰：两团柔和色块 + 右上细环（无渐变/图片依赖，截图稳定） */}
       <View pointerEvents="none" style={[styles.blob, styles.blobAccent]} />
       <View pointerEvents="none" style={[styles.blob, styles.blobPrimary]} />
+      <View pointerEvents="none" style={styles.decoRing} />
 
       <View style={styles.brandRow}>
         <View style={styles.brandChip}>
           <Ionicons name="book" size={14} color={colors.primaryStrong} />
         </View>
-        <Text style={styles.brandText}>学习工作台 · {data.title}</Text>
-      </View>
-      <Text style={styles.date}>{data.dateText}</Text>
-
-      <View style={styles.hero}>
-        <Text style={styles.heroLabel}>今日专注</Text>
-        <View style={styles.heroRow}>
-          <Text style={styles.heroValue}>{data.minutes}</Text>
-          <Text style={styles.heroUnit}>分钟</Text>
-        </View>
-        <View style={styles.streakPill}>
-          <Ionicons name="flame" size={13} color={colors.accentStrong} />
-          <Text style={styles.streakText}>连续 {data.streak} 天 · 累计 {data.totalFocusDays} 天</Text>
-        </View>
+        <Text style={styles.brandText} numberOfLines={1}>学习工作台 · {data.title}</Text>
+        <Text style={styles.date}>{data.dateText}</Text>
       </View>
 
-      <Svg width="100%" height={72} viewBox={`0 0 ${Math.max(14, data.last14.length) * 10} 72`} preserveAspectRatio="none">
+      <View style={styles.heroRow}>
+        <View style={styles.ringWrap}>
+          <Svg width={RING_SIZE} height={RING_SIZE}>
+            <Circle cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={r} stroke={colors.primary + "22"} strokeWidth={RING_STROKE} fill="none" />
+            <Circle
+              cx={RING_SIZE / 2}
+              cy={RING_SIZE / 2}
+              r={r}
+              stroke={colors.primary}
+              strokeWidth={RING_STROKE}
+              fill="none"
+              strokeDasharray={circumference}
+              strokeDashoffset={circumference * (1 - ratio)}
+              strokeLinecap="round"
+              transform={`rotate(-90 ${RING_SIZE / 2} ${RING_SIZE / 2})`}
+            />
+          </Svg>
+          <Text style={styles.ringPct}>{pct}%</Text>
+        </View>
+
+        <View style={styles.heroBody}>
+          <Text style={styles.heroLabel}>今日专注</Text>
+          <View style={styles.heroValueRow}>
+            <Text style={styles.heroValue}>{data.minutes}</Text>
+            <Text style={styles.heroUnit}>分钟</Text>
+          </View>
+          <View style={styles.streakPill}>
+            <Ionicons name="flame" size={13} color={colors.accentStrong} />
+            <Text style={styles.streakText}>连续 {data.streak} 天 · 累计 {data.totalFocusDays} 天</Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.chartHead}>
+        <Text style={styles.chartHint}>近 14 天专注分布</Text>
+        <Text style={styles.chartHint}>目标 {goal} 分钟</Text>
+      </View>
+      <Svg width="100%" height={64} viewBox={`0 0 ${Math.max(14, data.last14.length) * 10} 64`} preserveAspectRatio="none">
         {data.last14.map((d, i) => {
-          const h = Math.max(3, Math.round((d.minutes / max) * 64));
+          const h = Math.max(3, Math.round((d.minutes / max) * 56));
           return (
             <Rect
               key={d.date}
               x={i * 10 + 1}
-              y={72 - h}
+              y={64 - h}
               width={7}
               height={h}
               rx={3}
-              fill={d.date === today ? colors.primary : colors.primary + "5A"}
+              fill={d.date === today ? colors.primary : colors.primary + "4D"}
             />
           );
         })}
       </Svg>
-      <Text style={styles.chartHint}>近 14 天分布</Text>
 
       <View style={styles.statRow}>
         <View style={styles.statCell}>
           <Text style={styles.statValue}>{data.sessions}</Text>
           <Text style={styles.statLabel}>今日次数</Text>
         </View>
+        <View style={styles.statDivider} />
         <View style={styles.statCell}>
-          <Text style={styles.statValue}>{Math.round(data.minutes / Math.max(1, data.sessions))}</Text>
+          <Text style={styles.statValue}>{avg}</Text>
           <Text style={styles.statLabel}>单次均时长</Text>
         </View>
+        <View style={styles.statDivider} />
         <View style={styles.statCell}>
           <Text style={styles.statValue}>{data.totalFocusDays}</Text>
           <Text style={styles.statLabel}>累计天数</Text>
         </View>
       </View>
 
-      <Text style={styles.motivation}>{data.motivation}</Text>
-      <Text style={styles.footer}>学习工作台 · learn.yuanabd.cn</Text>
+      {data.motivation ? (
+        <View style={styles.quote}>
+          <Ionicons name="sparkles" size={13} color={colors.accentStrong} />
+          <Text style={styles.motivation}>{data.motivation}</Text>
+        </View>
+      ) : null}
+
+      <View style={styles.footerRow}>
+        <Text style={styles.footer}>学习工作台</Text>
+        <Text style={styles.footer}>learn.yuanabd.cn</Text>
+      </View>
     </View>
   );
 }
@@ -200,9 +248,9 @@ const makeCardStyles = (colors: ThemeColors) =>
 
     // ---- 卡片本体（固定宽度，截图产出稳定） ----
     card: {
-      width: 320,
+      width: 332,
       padding: spacing.lg,
-      borderRadius: radius.xl,
+      borderRadius: 28,
       backgroundColor: colors.surface,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.border,
@@ -211,8 +259,18 @@ const makeCardStyles = (colors: ThemeColors) =>
       ...shadows.card,
     },
     blob: { position: "absolute", borderRadius: 999 },
-    blobAccent: { width: 190, height: 190, right: -70, top: -80, backgroundColor: colors.accent + "1F" },
-    blobPrimary: { width: 220, height: 220, left: -90, bottom: -110, backgroundColor: colors.primary + "1A" },
+    blobAccent: { width: 200, height: 200, right: -80, top: -90, backgroundColor: colors.accent + "22" },
+    blobPrimary: { width: 230, height: 230, left: -100, bottom: -120, backgroundColor: colors.primary + "18" },
+    decoRing: {
+      position: "absolute",
+      width: 128,
+      height: 128,
+      borderRadius: 64,
+      right: -44,
+      top: -30,
+      borderWidth: 10,
+      borderColor: colors.primary + "12",
+    },
     brandRow: { flexDirection: "row", alignItems: "center", gap: 8 },
     brandChip: {
       width: 26,
@@ -222,13 +280,16 @@ const makeCardStyles = (colors: ThemeColors) =>
       justifyContent: "center",
       backgroundColor: colors.primary + "1A",
     },
-    brandText: { ...typography.caption, fontWeight: "800", color: colors.text },
-    date: { ...typography.micro, color: colors.textMuted, letterSpacing: 0.6 },
-    hero: { gap: 4, alignItems: "flex-start" },
+    brandText: { flex: 1, minWidth: 0, ...typography.caption, fontWeight: "800", color: colors.text },
+    date: { ...typography.micro, color: colors.textMuted, letterSpacing: 0.6, ...tabularNums },
+    heroRow: { flexDirection: "row", alignItems: "center", gap: spacing.lg },
+    ringWrap: { width: RING_SIZE, height: RING_SIZE, alignItems: "center", justifyContent: "center" },
+    ringPct: { position: "absolute", ...typography.callout, fontWeight: "900", color: colors.text, ...tabularNums },
+    heroBody: { flex: 1, minWidth: 0, gap: 4 },
     heroLabel: { ...typography.micro, fontWeight: "700", color: colors.textMuted },
-    heroRow: { flexDirection: "row", alignItems: "flex-end", gap: 6 },
-    heroValue: { fontSize: 54, lineHeight: 58, fontWeight: "900", color: colors.text, ...tabularNums },
-    heroUnit: { ...typography.body, fontWeight: "700", color: colors.textMuted, marginBottom: 8 },
+    heroValueRow: { flexDirection: "row", alignItems: "flex-end", gap: 6 },
+    heroValue: { fontSize: 46, lineHeight: 50, fontWeight: "900", color: colors.text, ...tabularNums },
+    heroUnit: { ...typography.caption, fontWeight: "700", color: colors.textMuted, marginBottom: 8 },
     streakPill: {
       flexDirection: "row",
       alignItems: "center",
@@ -240,11 +301,29 @@ const makeCardStyles = (colors: ThemeColors) =>
       backgroundColor: colors.accentSoft,
     },
     streakText: { ...typography.micro, fontWeight: "800", color: colors.accentStrong },
-    chartHint: { ...typography.micro, color: colors.textMuted, marginTop: -6 },
-    statRow: { flexDirection: "row", gap: spacing.sm },
-    statCell: { flex: 1, gap: 2 },
+    chartHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: -8 },
+    chartHint: { ...typography.micro, color: colors.textMuted },
+    statRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      borderRadius: radius.lg,
+      backgroundColor: colors.surfaceMuted,
+      paddingVertical: 10,
+    },
+    statCell: { flex: 1, alignItems: "center", gap: 2 },
+    statDivider: { width: StyleSheet.hairlineWidth, height: 26, backgroundColor: colors.border },
     statValue: { ...typography.title2, fontWeight: "900", color: colors.text, ...tabularNums },
     statLabel: { ...typography.micro, color: colors.textMuted },
-    motivation: { ...typography.caption, fontWeight: "700", color: colors.text, lineHeight: 19 },
+    quote: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 7,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: radius.md,
+      backgroundColor: colors.accentSoft,
+    },
+    motivation: { flex: 1, ...typography.caption, fontWeight: "700", color: colors.text, lineHeight: 18 },
+    footerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     footer: { ...typography.micro, color: colors.textMuted },
   });

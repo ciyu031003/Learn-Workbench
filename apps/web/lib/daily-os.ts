@@ -102,7 +102,11 @@ export async function buildDailyOs(
 
   let habitLogs: { habitId: number; logDate: string; value: number }[] = [];
   if (habits.length > 0) {
-    const logWhere = scopeWhere(scope, [scope.uid]);
+    // ⚠️ 基准参数必须含 dateKey：SQL 里的 `$2::date` 是**真实参数**，
+    // scopeWhere 只在「未登录」时把 anonId 追加到末尾（那时才是 $3）。
+    // 之前只传 [scope.uid]，登录用户一旦有习惯，这条查询就会因 $2 未绑定而 500，
+    // 于是「/api/daily 数据加载失败 + 健康页圆环恒为 0」（而饮食/饮水各自直连接口正常）。
+    const logWhere = scopeWhere(scope, [scope.uid, dateKey]);
     const { rows } = await pgPool.query<{ habitId: string; logDate: string; value: string }>(
       `SELECT habit_id AS "habitId", log_date AS "logDate", value
          FROM habit_logs

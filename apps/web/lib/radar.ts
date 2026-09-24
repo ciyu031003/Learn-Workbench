@@ -19,6 +19,10 @@ export interface RadarJob {
   url: string;
   source: string;
   publishedAt: string | null;
+  /** 岗位方向（function_key，来自市场字段回填） */
+  functionKey: string;
+  /** 行业（industry_sector） */
+  industrySector: string;
   /** 规则版匹配度 0-100（技能命中 0.7 + 学历 0.1 + 经验 0.1 + 城市 0.1） */
   overall: number;
   matchedSkills: RadarMatchedSkill[];
@@ -41,6 +45,10 @@ export interface RadarResult {
     urgent: RadarJob[];
   };
   top: RadarJob[];
+  /** 候选总数（不受 limit 截断影响），供前端做「筛选 + 排序 + 加载更多」 */
+  total: number;
+  /** 候选集里实际出现的筛选项 */
+  facets: { cities: string[]; functions: string[]; industries: string[] };
   counts: {
     candidates: number;
     matched: number;
@@ -50,7 +58,9 @@ export interface RadarResult {
 }
 
 const TOP_LIMIT = 12;
-const FILL_LIMIT = 60;
+/** 显式 limit 的上限：移动端一次拿全候选集，做「筛选 + 排序 + 加载更多」 */
+const MAX_RESULT_LIMIT = 200;
+const FILL_LIMIT = 150;
 const HIGH_MATCH_MIN = 75;
 const HIGH_VALUE_MIN = 55;
 const URGENT_DAYS = 7;
@@ -71,6 +81,8 @@ interface ScoredRow {
   url: string;
   source: string;
   published_at: Date | null;
+  function_key: string | null;
+  industry_sector: string | null;
   total_weight: string | number | null;
   hit_weight: string | number | null;
   missing: string[] | null;
@@ -86,7 +98,7 @@ export async function computeRadar(
   userId: string,
   opts: { city?: string | null; limit?: number } = {}
 ): Promise<RadarResult> {
-  const limit = Math.max(1, Math.min(TOP_LIMIT, opts.limit ?? TOP_LIMIT));
+  const limit = Math.max(1, Math.min(MAX_RESULT_LIMIT, opts.limit ?? TOP_LIMIT));
 
   // 1) 画像：技能 + 城市 + 目标岗位
   const [skillsRes, profileRes] = await Promise.all([
@@ -133,6 +145,8 @@ export async function computeRadar(
       hasProfile, profileCity, targetRole,
       buckets: { highMatch: [], highValue: [], urgent: [] },
       top: [],
+      total: 0,
+      facets: { cities: [], functions: [], industries: [] },
       counts: { candidates: 0, matched: 0, favorites: favIds.size, applications: appIds.size },
     };
   }
@@ -161,7 +175,7 @@ export async function computeRadar(
           FROM job_skills GROUP BY job_id
      )
      SELECT j.id, j.title, j.company, j.city, j.education, j.salary_text, j.salary_band,
-            j.url, j.source, j.published_at,
+            j.url, j.source, j.published_at, j.function_key, j.industry_sector,
             COALESCE(a.total_weight, 0) AS total_weight,
             COALESCE(a.hit_weight, 0) AS hit_weight,
             COALESCE(a.missing, '{}') AS missing,
@@ -176,6 +190,8 @@ export async function computeRadar(
       hasProfile, profileCity, targetRole,
       buckets: { highMatch: [], highValue: [], urgent: [] },
       top: [],
+      total: 0,
+      facets: { cities: [], functions: [], industries: [] },
       counts: { candidates: ids.length, matched: 0, favorites: favIds.size, applications: appIds.size },
     };
   }
@@ -240,6 +256,8 @@ export async function computeRadar(
       url: r.url,
       source: r.source,
       publishedAt: r.published_at ? new Date(r.published_at).toISOString() : null,
+      functionKey: r.function_key ?? "",
+      industrySector: r.industry_sector ?? "",
       overall: clamp(overall, 0, 100),
       matchedSkills,
       missingSkills: missing,
@@ -266,12 +284,22 @@ export async function computeRadar(
     .sort((a, b) => Date.parse(a.deadlineAt!) - Date.parse(b.deadlineAt!))
     .slice(0, limit);
 
+  const uniq = (xs: string[]) =>
+    [...new Set(xs.filter((x) => x && x.trim()))].sort((a, b) => a.localeCompare(b, "zh"));
+  const facets = {
+    cities: uniq(matched.map((j) => j.city)),
+    functions: uniq(matched.map((j) => j.functionKey)),
+    industries: uniq(matched.map((j) => j.industrySector)),
+  };
+
   return {
     hasProfile,
     profileCity,
     targetRole,
     buckets: { highMatch, highValue, urgent },
     top: byScore.slice(0, limit),
+    total: byScore.length,
+    facets,
     counts: { candidates: ids.length, matched: matched.length, favorites: favIds.size, applications: appIds.size },
   };
 }
@@ -280,15 +308,17 @@ export async function computeRadar(
 export async function radarFallback(
   opts: { city?: string | null; limit?: number } = {}
 ): Promise<RadarResult> {
-  const limit = Math.max(1, Math.min(TOP_LIMIT, opts.limit ?? TOP_LIMIT));
+  const limit = Math.max(1, Math.min(MAX_RESULT_LIMIT, opts.limit ?? TOP_LIMIT));
   try {
     const { rows } = await pgPool.query<ScoredRow>(
       opts.city
         ? `SELECT id, title, company, city, education, salary_text, salary_band, url, source, published_at,
+                  function_key, industry_sector,
                   NULL AS total_weight, NULL AS hit_weight, '{}'::text[] AS missing
              FROM job_postings WHERE is_active = true AND city = $1
             ORDER BY published_at DESC NULLS LAST, fetched_at DESC LIMIT $2`
         : `SELECT id, title, company, city, education, salary_text, salary_band, url, source, published_at,
+                  function_key, industry_sector,
                   NULL AS total_weight, NULL AS hit_weight, '{}'::text[] AS missing
              FROM job_postings WHERE is_active = true
             ORDER BY published_at DESC NULLS LAST, fetched_at DESC LIMIT $1`,
@@ -305,6 +335,8 @@ export async function radarFallback(
       url: r.url,
       source: r.source,
       publishedAt: r.published_at ? new Date(r.published_at).toISOString() : null,
+      functionKey: r.function_key ?? "",
+      industrySector: r.industry_sector ?? "",
       overall: 0,
       matchedSkills: [],
       missingSkills: [],
@@ -314,12 +346,19 @@ export async function radarFallback(
       fromFavorite: false,
       fromApplication: false,
     }));
+    const uniq = (xs: string[]) => [...new Set(xs.filter((x) => x && x.trim()))].sort((a, b) => a.localeCompare(b, "zh"));
     return {
       hasProfile: false,
       profileCity: opts.city ?? null,
       targetRole: null,
       buckets: { highMatch: [], highValue: [], urgent: [] },
       top: jobs,
+      total: jobs.length,
+      facets: {
+        cities: uniq(jobs.map((j) => j.city)),
+        functions: uniq(jobs.map((j) => j.functionKey)),
+        industries: uniq(jobs.map((j) => j.industrySector)),
+      },
       counts: { candidates: jobs.length, matched: 0, favorites: 0, applications: 0 },
     };
   } catch (e) {
@@ -330,6 +369,8 @@ export async function radarFallback(
       targetRole: null,
       buckets: { highMatch: [], highValue: [], urgent: [] },
       top: [],
+      total: 0,
+      facets: { cities: [], functions: [], industries: [] },
       counts: { candidates: 0, matched: 0, favorites: 0, applications: 0 },
     };
   }

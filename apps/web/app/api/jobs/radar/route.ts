@@ -15,7 +15,8 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const city = url.searchParams.get("city")?.trim() || null;
     const limitRaw = Number(url.searchParams.get("limit"));
-    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(24, Math.round(limitRaw)) : undefined;
+    // 上限 200：移动端一次取全候选集，在前端做「筛选 + 排序 + 加载更多」
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(200, Math.round(limitRaw)) : undefined;
 
     if (!token) {
       const result = await radarFallback({ city, limit });

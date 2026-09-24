@@ -38,6 +38,23 @@ describe("GET /api/wellbeing/exercise?days=N", () => {
     expect(queryMock.mock.calls[1][1]).toEqual(["u-1", expect.any(String), 14]);
     expect(String(queryMock.mock.calls[1][0])).toContain("GROUP BY type");
   });
+
+  /**
+   * 回归护栏（2026-09-24）：变量名 w / dw 用错时，匿名请求会把 anonId 当成 $3 去做 ::int，
+   * Postgres 直接 500。这里用**真实 scopeWhere** 断言参数排布。
+   */
+  it("匿名请求把 daysParam 放在 anonId 之前（真实 scopeWhere）", async () => {
+    const actual = await vi.importActual<typeof import("@/lib/anon")>("@/lib/anon");
+    scopeWhereMock.mockImplementation(actual.scopeWhere as never);
+    userScopeMock.mockResolvedValue({ uid: null, anonId: "anon-1" });
+    queryMock.mockResolvedValue({ rows: [] } as never);
+    const res = await GET(new Request("https://x.cn/api/wellbeing/exercise?days=7"));
+    expect(res.status).toBe(200);
+    const args = queryMock.mock.calls[0][1] as unknown[];
+    expect(args[2]).toBe(7);
+    expect(args[3]).toBe("anon-1");
+    expect(String(queryMock.mock.calls[0][0])).toContain("anon_id IS NOT DISTINCT FROM $4");
+  });
 });
 
 describe("GET /api/wellbeing/exercise", () => {

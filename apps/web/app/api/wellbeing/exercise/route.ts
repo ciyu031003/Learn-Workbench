@@ -17,23 +17,27 @@ export async function GET(req: Request) {
   const scope = await userScope();
   const w = scopeWhere(scope, [scope.uid, date]);
   if (daysParam > 1) {
+    // ⚠️ days 窗口查询的基准参数必须含 daysParam：SQL 里的 `$3::int` 是真实参数，
+    // scopeWhere 只在「未登录」时把 anonId 追加到末尾（那时是 $4）。
+    // 之前传 [...w.params, daysParam]，匿名请求会把 anonId 当成 $3 去做 ::int 转换 → 500。
+    const dw = scopeWhere(scope, [scope.uid, date, daysParam]);
     const recent = await pgPool.query(
       `SELECT id, type, type_label AS "typeLabel", duration_seconds AS "durationSeconds",
               source, started_at AS "startedAt"
        FROM exercise_logs
-       WHERE user_id IS NOT DISTINCT FROM $1${w.sql} AND deleted_at IS NULL
+       WHERE user_id IS NOT DISTINCT FROM $1${dw.sql} AND deleted_at IS NULL
          AND started_at >= ($2::date - ($3::int - 1)) AND started_at < ($2::date + 1)
        ORDER BY started_at DESC LIMIT 60`,
-      [...w.params, daysParam]
+      dw.params
     );
     // 按大类聚合窗口内分钟数（不受 LIMIT 60 截断，供周统计图）
     const byType = await pgPool.query(
       `SELECT type, COALESCE(SUM(duration_seconds), 0) AS seconds
        FROM exercise_logs
-       WHERE user_id IS NOT DISTINCT FROM $1${w.sql} AND deleted_at IS NULL
+       WHERE user_id IS NOT DISTINCT FROM $1${dw.sql} AND deleted_at IS NULL
          AND started_at >= ($2::date - ($3::int - 1)) AND started_at < ($2::date + 1)
        GROUP BY type`,
-      [...w.params, daysParam]
+      dw.params
     );
     return NextResponse.json({
       date,

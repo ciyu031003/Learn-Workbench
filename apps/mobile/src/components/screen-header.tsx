@@ -4,7 +4,7 @@ import { router, usePathname } from "expo-router";
 import { ThemedIcon } from "@/components/themed-icon";
 import { useTheme } from "@/theme";
 import { typography, type ThemeColors } from "@/theme/tokens";
-import { isSameHubAsLast, resolveBackTarget } from "@/lib/back-target";
+import { resolveBackTarget } from "@/lib/back-target";
 
 export function ScreenHeader({
   title,
@@ -23,11 +23,11 @@ export function ScreenHeader({
   const pathname = usePathname();
 
   const goBack = () => {
-    // 同模块内（路线图 → 阶段详情）：保留真实回退，从哪来回哪去；
-    // 跨模块（今日 → 面试这类从其它 Tab 跳进来的子页）：回该页所属 Hub，而不是回上一个 Tab。
-    // 真机反馈 2026-09-22：职业 → 面试/证书 点返回曾直接回「今日」。
-    if (isSameHubAsLast(pathname) && router.canGoBack()) router.back();
-    else router.replace((backTo ?? resolveBackTarget(pathname)) as never);
+    // 2026-09-24 定稿：**一律回到"上一级"**，不再用 router.back()。
+    // 因为 app/ 下所有页面都被 <Tabs> 注册成了 Tab（次级页只是 href:null），
+    // back() 回的是"上一个看过的 Tab"（常常是今日），而不是这个子页的父页面。
+    // 真机反馈：健康子页、招花页返回都直接回了今日首页。
+    router.replace((backTo ?? resolveBackTarget(pathname)) as never);
   };
 
   return (

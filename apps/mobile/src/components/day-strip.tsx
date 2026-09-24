@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
+import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
 import { fromDateKey, recentDateKeys, toDateKey } from "@learn-workbench/shared";
 import { haptics } from "@/lib/haptics";
@@ -17,11 +17,11 @@ function shortMonthDay(key: string): string {
 }
 
 /**
- * 日期条（v3 M2）——借「吃一点」的日期 pill：
- * - 7 天窗口，**今天用能量橙描边**（不是填充，克制不抢戏）
- * - 已完成（有记录）的日子在日期上方给一个小 ✓
- * - 选中日 = primarySoft 填充 + primary 描边
- * - ‹ › 按周翻页（上限 4 周），右侧显示当前窗口区间
+ * 日期条（v3 M2 → 2026-09-24 按用户给的参考代码重做版式）。
+ *
+ * 参考（meeting-card + date-nav + indicator）：圆角卡片里一排"数字块 + 星期块"，
+ * 选中日两块拼成一个圆角高亮；下方一排圆点用虚线连起来表示有记录的日子。
+ * 保留原有 props（selected / onSelect / weekOffset / onWeekOffsetChange / doneMap），调用方零改动。
  */
 export function DayStrip({
   selected,
@@ -38,7 +38,7 @@ export function DayStrip({
   /** 0 = 以今天结束的窗口；1 = 往前一周 */
   weekOffset: number;
   onWeekOffsetChange: (offset: number) => void;
-  /** 有记录的日子（画 ✓） */
+  /** 有记录的日子（画实心圆点） */
   doneMap?: Record<string, number>;
   todayKey?: string;
   style?: StyleProp<ViewStyle>;
@@ -55,11 +55,14 @@ export function DayStrip({
   const dates = useMemo(() => recentDateKeys(7, windowEnd), [windowEnd]);
 
   return (
-    <View style={[styles.wrap, style]}>
+    <View style={[styles.card, style]}>
       <View style={styles.head}>
-        <Text style={styles.range}>
-          {shortMonthDay(dates[0])} – {shortMonthDay(dates[dates.length - 1])}
-        </Text>
+        <View style={styles.dateSelector}>
+          <ThemedIcon name="calendar-outline" size={14} color={colors.textMuted} />
+          <Text style={styles.range}>
+            {shortMonthDay(dates[0])} – {shortMonthDay(dates[dates.length - 1])}
+          </Text>
+        </View>
         <View style={styles.nav}>
           <Pressable
             hitSlop={8}
@@ -96,59 +99,85 @@ export function DayStrip({
         </View>
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.row}
-        // 7 个 pill 通常一屏放得下；放不下时可横向滑动
-        scrollEnabled={false}
-      >
+      <View style={styles.dayRow}>
         {dates.map((key) => {
           const d = fromDateKey(key);
           const isToday = key === todayKey;
           const isSelected = key === selected;
-          const count = doneMap?.[key] ?? 0;
           return (
             <Pressable
               key={key}
               accessibilityRole="button"
-              accessibilityLabel={`${shortMonthDay(key)}${isToday ? " 今天" : ""}${count > 0 ? ` ${count} 条记录` : ""}`}
+              accessibilityLabel={`${shortMonthDay(key)}${isToday ? " 今天" : ""}${(doneMap?.[key] ?? 0) > 0 ? " 有记录" : ""}`}
+              accessibilityState={{ selected: isSelected }}
               onPress={() => {
                 if (!isSelected) haptics.soft();
                 onSelect(key);
               }}
-              style={[
-                styles.pill,
-                isToday && styles.pillToday,
-                isSelected && styles.pillSelected,
-              ]}
+              style={styles.dayItem}
             >
-              <Text style={[styles.weekday, isSelected && styles.weekdaySelected]}>
-                {isToday ? "今天" : WEEK_LABELS[d.getDay()]}
-              </Text>
-              <Text style={[styles.day, isSelected && styles.daySelected]}>{d.getDate()}</Text>
-              {count > 0 ? (
-                <ThemedIcon
-                  name="checkmark"
-                  size={10}
-                  color={isSelected ? colors.primary : colors.success}
-                />
-              ) : (
-                <View style={styles.dotPlaceholder} />
-              )}
+              <View
+                style={[
+                  styles.dayNumber,
+                  isToday && !isSelected && styles.dayNumberToday,
+                  isSelected && styles.dayActive,
+                ]}
+              >
+                <Text style={[styles.dayNumberText, isSelected && styles.dayTextActive]}>{d.getDate()}</Text>
+              </View>
+              <View
+                style={[
+                  styles.dayName,
+                  isToday && !isSelected && styles.dayNameToday,
+                  isSelected && styles.dayActive,
+                ]}
+              >
+                <Text style={[styles.dayNameText, isSelected && styles.dayTextActive]}>
+                  {isToday ? "今天" : WEEK_LABELS[d.getDay()]}
+                </Text>
+              </View>
             </Pressable>
           );
         })}
-      </ScrollView>
+      </View>
+
+      {/* 记录指示：虚线 + 圆点（有记录的日子实心） */}
+      <View style={styles.indicatorWrap}>
+        <View style={styles.indicatorLine} pointerEvents="none" />
+        <View style={styles.indicatorRow}>
+          {dates.map((key) => {
+            const has = (doneMap?.[key] ?? 0) > 0;
+            return <View key={key} style={[styles.dot, has && styles.dotActive]} />;
+          })}
+        </View>
+      </View>
     </View>
   );
 }
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
-    wrap: { gap: 8 },
+    card: {
+      gap: 12,
+      padding: 14,
+      borderRadius: 24,
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
     head: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    range: { ...typography.caption, fontWeight: "600", color: colors.textMuted },
+    dateSelector: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderRadius: 999,
+      backgroundColor: colors.surface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    range: { ...typography.caption, fontWeight: "600", color: colors.textMuted, ...tabularNums },
     nav: { flexDirection: "row", gap: 6 },
     navBtn: {
       width: 28,
@@ -156,26 +185,56 @@ const makeStyles = (colors: ThemeColors) =>
       borderRadius: 14,
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: colors.surfaceMuted,
-    },
-    navBtnOff: { opacity: 0.45 },
-    row: { gap: 8, paddingVertical: 2 },
-    pill: {
-      width: 46,
-      height: 62,
-      borderRadius: 18,
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 1,
-      backgroundColor: colors.surfaceStrong,
-      borderWidth: 1,
+      backgroundColor: colors.surface,
+      borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.border,
     },
-    pillToday: { borderColor: colors.accent, borderWidth: 2 },
-    pillSelected: { backgroundColor: colors.primarySoft, borderColor: colors.primary, borderWidth: 2 },
-    weekday: { ...typography.micro, fontSize: 10, fontWeight: "600", color: colors.textMuted },
-    weekdaySelected: { color: colors.primary },
-    day: { ...typography.headline, fontWeight: "800", color: colors.text, ...tabularNums },
-    daySelected: { color: colors.primary },
-    dotPlaceholder: { height: 10, width: 10 },
+    navBtnOff: { opacity: 0.45 },
+
+    dayRow: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      paddingVertical: 8,
+      paddingHorizontal: 4,
+    },
+    dayItem: { flex: 1, alignItems: "center" },
+    dayNumber: {
+      width: 36,
+      height: 28,
+      borderTopLeftRadius: 14,
+      borderTopRightRadius: 14,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingTop: 3,
+    },
+    dayName: {
+      width: 36,
+      height: 20,
+      borderBottomLeftRadius: 14,
+      borderBottomRightRadius: 14,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    dayActive: { backgroundColor: colors.primary },
+    dayNumberToday: { borderWidth: 1, borderColor: colors.accent, borderBottomWidth: 0 },
+    dayNameToday: { borderWidth: 1, borderColor: colors.accent, borderTopWidth: 0 },
+    dayNumberText: { ...typography.body, fontWeight: "800", color: colors.text, ...tabularNums },
+    dayNameText: { ...typography.micro, fontSize: 10, fontWeight: "600", color: colors.textMuted },
+    dayTextActive: { color: colors.canvas },
+
+    indicatorWrap: { position: "relative", justifyContent: "center", paddingHorizontal: 22 },
+    indicatorLine: {
+      position: "absolute",
+      left: 26,
+      right: 26,
+      height: 1,
+      borderTopWidth: 1.5,
+      borderStyle: "dashed",
+      borderColor: colors.borderStrong,
+    },
+    indicatorRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+    dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.borderStrong },
+    dotActive: { backgroundColor: colors.primary },
   });
