@@ -19,6 +19,7 @@ import { ScreenHeader } from "@/components/screen-header";
 import { Card } from "@/components/card";
 import { AuthSheet } from "@/components/auth-sheet";
 import { BottomSheet } from "@/components/bottom-sheet";
+import { ChipGroup, SheetSection, SheetSegmented, type SegmentOption } from "@/components/sheet";
 import { PressableScale } from "@/components/pressable-scale";
 import { haptics } from "@/lib/haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -41,6 +42,22 @@ import type { MarketGapItem } from "@learn-workbench/shared";
 
 type MarketStyles = ReturnType<typeof makeStyles>;
 type FilterKey = "city" | "function" | "industry" | "seniority" | "source";
+
+/** v16：筛选键的中文名（弹层标题/摘要共用一份，避免两处漂移） */
+const FILTER_LABEL: Record<FilterKey, string> = {
+  city: "城市",
+  function: "职能",
+  industry: "行业",
+  seniority: "资历",
+  source: "来源",
+};
+
+/** v16：时间范围换成滑动分段（原 RangeTabs 的等权胶囊） */
+const RANGE_OPTIONS: SegmentOption[] = [
+  { key: "7", label: "7天" },
+  { key: "30", label: "30天" },
+  { key: "90", label: "90天" },
+];
 
 function maxOf(values: number[], fallback = 1) {
   return Math.max(fallback, ...values);
@@ -124,35 +141,6 @@ function Chip({
     >
       <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
     </Component>
-  );
-}
-
-function RangeTabs({
-  styles,
-  range,
-  onChange,
-}: {
-  styles: MarketStyles;
-  range: MarketIntelligenceRange;
-  onChange: (range: MarketIntelligenceRange) => void;
-}) {
-  const tabs: Array<{ value: MarketIntelligenceRange; label: string }> = [
-    { value: 7, label: "7天" },
-    { value: 30, label: "30天" },
-    { value: 90, label: "90天" },
-  ];
-  return (
-    <View style={styles.rangeRow}>
-      {tabs.map((tab) => (
-        <Pressable
-          key={tab.value}
-          onPress={() => onChange(tab.value)}
-          style={[styles.rangeTab, range === tab.value && styles.rangeTabActive]}
-        >
-          <Text style={[styles.rangeText, range === tab.value && styles.rangeTextActive]}>{tab.label}</Text>
-        </Pressable>
-      ))}
-    </View>
   );
 }
 
@@ -311,13 +299,18 @@ export default function MarketScreen() {
   const summary = data?.summary;
   const dist = data?.distributions;
 
-  const filterLabels: Array<{ key: FilterKey; label: string; value: string }> = [
-    { key: "city", label: "城市", value: filters.city ?? "" },
-    { key: "function", label: "职能", value: filters.functionKey ?? "" },
-    { key: "industry", label: "行业", value: industryValue },
-    { key: "seniority", label: "资历", value: filters.seniorityBucket ?? "" },
-    { key: "source", label: "来源", value: filters.source ?? "" },
-  ];
+  /** 某个筛选键当前选中的值（弹层里用来点亮对应胶囊） */
+  const filterValueOf = (key: FilterKey): string => {
+    if (key === "city") return filters.city ?? "";
+    if (key === "function") return filters.functionKey ?? "";
+    if (key === "industry") return industryValue;
+    if (key === "seniority") return filters.seniorityBucket ?? "";
+    return filters.source ?? "";
+  };
+
+  const filterLabels: Array<{ key: FilterKey; label: string; value: string }> = (
+    ["city", "function", "industry", "seniority", "source"] as FilterKey[]
+  ).map((key) => ({ key, label: FILTER_LABEL[key], value: filterValueOf(key) }));
 
   const pickDecisionOptions = decisionPicker === "city"
     ? data?.facets.cities ?? []
@@ -344,10 +337,10 @@ export default function MarketScreen() {
         compact
       />
 
-      <RangeTabs
-        styles={styles}
-        range={filters.range ?? 90}
-        onChange={(range) => patchFilters({ range })}
+      <SheetSegmented
+        options={RANGE_OPTIONS}
+        value={String(filters.range ?? 90)}
+        onChange={(key) => patchFilters({ range: Number(key) as MarketIntelligenceRange })}
       />
 
       <View style={styles.searchRow}>
@@ -535,35 +528,25 @@ export default function MarketScreen() {
         visible={!!filterOpen}
         onClose={() => setFilterOpen(null)}
         title="选择筛选项"
+        subtitle={filterOpen ? `点一下「${FILTER_LABEL[filterOpen]}」即应用并关闭` : undefined}
+        icon="options-outline"
         height="62%"
       >
         {filterOpen ? (
-          <View style={styles.sheetBody}>
-            <PressableScale
-              haptic
-              style={styles.optionRow}
-              onPress={() => {
-                setFilterOption(filterOpen, "");
+          <SheetSection title={FILTER_LABEL[filterOpen]} hint="可横滑 / 换行查看全部选项" last>
+            <ChipGroup
+              options={pickFilterOptions(filterOpen).map((option) => ({ key: option.key, label: option.label, badge: option.count }))}
+              selected={[filterValueOf(filterOpen)]}
+              multiple={false}
+              allKey=""
+              allLabel="全部"
+              wrap
+              onToggle={(key) => {
+                setFilterOption(filterOpen, key);
                 setFilterOpen(null);
               }}
-            >
-              <Text style={styles.optionText}>全部</Text>
-            </PressableScale>
-            {pickFilterOptions(filterOpen).map((option) => (
-              <PressableScale
-                key={option.key}
-                haptic
-                style={styles.optionRow}
-                onPress={() => {
-                  setFilterOption(filterOpen, option.key);
-                  setFilterOpen(null);
-                }}
-              >
-                <Text style={styles.optionText}>{option.label} ({option.count})</Text>
-                <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
-              </PressableScale>
-            ))}
-          </View>
+            />
+          </SheetSection>
         ) : null}
       </BottomSheet>
 
@@ -571,25 +554,23 @@ export default function MarketScreen() {
         visible={!!decisionPicker}
         onClose={() => setDecisionPicker(null)}
         title={decisionPicker === "city" ? "选择目标城市" : "选择目标职能"}
+        subtitle="选择后立即重算 What If 场景"
+        icon="git-branch-outline"
         height="62%"
       >
-        <View style={styles.sheetBody}>
-          {pickDecisionOptions.map((option) => (
-            <PressableScale
-              key={option.key}
-              haptic
-              style={styles.optionRow}
-              onPress={() => {
-                if (decisionPicker === "city") setDecisionTarget((current) => ({ ...current, city: option.key }));
-                else setDecisionTarget((current) => ({ ...current, functionKey: option.key }));
-                setDecisionPicker(null);
-              }}
-            >
-              <Text style={styles.optionText}>{option.label} ({option.count})</Text>
-              <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
-            </PressableScale>
-          ))}
-        </View>
+        <SheetSection title={decisionPicker === "city" ? "城市" : "职能"} last>
+          <ChipGroup
+            options={pickDecisionOptions.map((option) => ({ key: option.key, label: option.label, badge: option.count }))}
+            selected={decisionPicker === "city" ? [decisionTarget.city] : [decisionTarget.functionKey]}
+            multiple={false}
+            wrap
+            onToggle={(key) => {
+              if (decisionPicker === "city") setDecisionTarget((current) => ({ ...current, city: key }));
+              else setDecisionTarget((current) => ({ ...current, functionKey: key }));
+              setDecisionPicker(null);
+            }}
+          />
+        </SheetSection>
       </BottomSheet>
 
       <AuthSheet visible={authOpen} onClose={() => setAuthOpen(false)} onAuthed={handleAuthed} />
@@ -602,18 +583,6 @@ const makeStyles = (colors: ThemeColors) =>
     scroll: { flex: 1, backgroundColor: "transparent" },
     content: { padding: 16, gap: 12 },
     body: { gap: 12 },
-    rangeRow: { flexDirection: "row", gap: 8 },
-    rangeTab: {
-      paddingHorizontal: 14,
-      paddingVertical: 8,
-      borderRadius: 999,
-      backgroundColor: colors.surfaceMuted,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.border,
-    },
-    rangeTabActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-    rangeText: { fontSize: 12, fontWeight: "800", color: colors.textMuted },
-    rangeTextActive: { color: "#FFFFFF" },
     searchRow: { flexDirection: "row", alignItems: "center", gap: 8 },
     searchInput: {
       flex: 1,
@@ -761,15 +730,4 @@ const makeStyles = (colors: ThemeColors) =>
       paddingVertical: 8,
     },
     retryText: { color: "#FFFFFF", fontSize: 12, fontWeight: "800" },
-    sheetBody: { gap: 2 },
-    optionRow: {
-      minHeight: 46,
-      paddingHorizontal: 10,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.border,
-    },
-    optionText: { fontSize: 14, fontWeight: "700", color: colors.text },
   });

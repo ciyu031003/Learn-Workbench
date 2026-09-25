@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Card } from "@/components/card";
 import { ScreenHeader } from "@/components/screen-header";
+import { BottomSheet } from "@/components/bottom-sheet";
+import { ChipGroup, SheetSection, SheetSegmented, SheetStickyCta, type SegmentOption } from "@/components/sheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
@@ -17,6 +19,14 @@ const DIFF_STYLE: Record<string, { color: string; backgroundColor: string }> = {
   medium: { color: "#A96A12", backgroundColor: "#FCF3DF" },
   hard: { color: "#A33", backgroundColor: "#FBEBEB" },
 };
+
+/** v16：难度筛选收敛到滑动分段（全部 / 简单 / 中等 / 困难） */
+const DIFFICULTY_OPTIONS: SegmentOption[] = [
+  { key: "all", label: "全部" },
+  { key: "easy", label: "简单" },
+  { key: "medium", label: "中等" },
+  { key: "hard", label: "困难" },
+];
 
 export default function InterviewScreen() {
   const { colors } = useTheme();
@@ -147,27 +157,19 @@ export default function InterviewScreen() {
         ))}
       </ScrollView>
 
-      {/* 难度 / 错题本 二级筛选（v12 P2-1） */}
-      <View style={styles.filterRow}>
-        {([["全部", null], ["简单", "easy"], ["中等", "medium"], ["困难", "hard"]] as const).map(([label, key]) => (
-          <Pressable
-            key={label}
-            onPress={() => selectDifficulty(key)}
-            style={[styles.filterChip, difficulty === key && styles.filterChipActive]}
-          >
-            <Text style={[styles.filterChipText, difficulty === key && styles.filterChipTextActive]}>{label}</Text>
-          </Pressable>
-        ))}
-        <Pressable
-          onPress={() => setOnlyWrong((v) => !v)}
-          style={[styles.filterChip, onlyWrong && styles.filterChipWrong]}
-          accessibilityLabel="只看错题"
-        >
-          <Text style={[styles.filterChipText, onlyWrong && styles.filterChipTextWrong]}>
-            只看错题{  wrongIds.length > 0 ? ` ${wrongIds.length}` : ""}
-          </Text>
-        </Pressable>
-      </View>
+      {/* 难度 / 错题本 二级筛选（v12 P2-1；v16：分段用滑动胶囊、错题本用胶囊 chip） */}
+      <SheetSegmented
+        options={DIFFICULTY_OPTIONS}
+        value={difficulty ?? "all"}
+        onChange={(key) => selectDifficulty(key === "all" ? null : key)}
+      />
+      <ChipGroup
+        options={[{ key: "wrong", label: wrongIds.length > 0 ? `只看错题 ${wrongIds.length}` : "只看错题" }]}
+        selected={onlyWrong ? ["wrong"] : []}
+        multiple={false}
+        onToggle={() => setOnlyWrong((v) => !v)}
+        wrap
+      />
 
       {loading ? (
         <ActivityIndicator color={colors.primary} style={styles.loading} />
@@ -192,71 +194,83 @@ export default function InterviewScreen() {
         ))
       )}
 
-      <Modal visible={!!active} transparent animationType="fade" onRequestClose={() => setActive(null)}>
-        <Pressable style={styles.modalScrim} onPress={() => setActive(null)}>
-          <Pressable style={styles.modalCard} onPress={() => {}}>
-            {active ? (
-              <>
-                <Text style={styles.modalTitle}>{active.module}</Text>
-                <Text style={styles.modalQuestion}>{active.question}</Text>
-                <TextInput
-                  style={styles.answerInput}
-                  value={answer}
-                  onChangeText={setAnswer}
-                  placeholder="写下你的答案"
-                  placeholderTextColor={colors.textFaint}
-                  multiline
-                />
-                {result ? (
-                  <>
-                    {/* v12 P2-1：自填答案 ↔ 参考答案 并排对照（这是"检查自己答得对不对"的关键） */}
-                    <View style={styles.compareRow}>
-                      <View style={[styles.compareCol, styles.compareMine]}>
-                        <Text style={styles.compareHead}>我的答案</Text>
-                        <Text style={styles.compareBody}>{answer.trim() || "（空）"}</Text>
-                      </View>
-                      <View style={[styles.compareCol, result.correct ? styles.compareGood : styles.compareRef]}>
-                        <Text style={styles.compareHead}>参考答案</Text>
-                        <Text style={styles.compareBody}>{result.answer || "暂无参考答案"}</Text>
-                      </View>
-                    </View>
-                    <Text style={[styles.verdict, result.correct ? { color: colors.success } : { color: colors.warning }]}>
-                      {result.correct ? "判定：答得不错 ✅" : "判定：再对照一下参考答案，把差异补上"}
-                    </Text>
-                    {active.sourceSite ? (
-                      <Text style={styles.sourceLine} numberOfLines={2}>
-                        来源：{active.sourceSite}
-                        {active.license ? " · " + active.license : ""}
-                      </Text>
-                    ) : null}
-                  </>
-                ) : null}
-                <View style={styles.modalActions}>
-                  <Pressable
-                    style={[styles.submitBtn, styles.submitGhost]}
-                    onPress={() => {
-                      setActive(null);
-                      setAnswer("");
-                      setResult(null);
-                    }}
-                  >
-                    <Text style={[styles.submitText, { color: colors.text }]}>关闭</Text>
-                  </Pressable>
-                  {result ? (
-                    <Pressable style={styles.submitBtn} onPress={nextQuestion}>
-                      <Text style={styles.submitText}>下一题</Text>
-                    </Pressable>
-                  ) : (
-                    <Pressable style={[styles.submitBtn, submitting && { opacity: 0.5 }]} disabled={submitting} onPress={() => void submit()}>
-                      {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>提交作答</Text>}
-                    </Pressable>
-                  )}
+      {/* v16：作答弹层迁移到 Sheet v3（头部有难度/来源副标题，底部动作收敛成吸底 CTA） */}
+      <BottomSheet
+        visible={!!active}
+        onClose={() => {
+          setActive(null);
+          setAnswer("");
+          setResult(null);
+        }}
+        title={active?.module ?? ""}
+        subtitle={
+          active
+            ? [DIFF_LABEL[active.difficulty] ?? active.difficulty, active.sourceSite ? `来源 ${active.sourceSite.replace("github:", "")}` : ""]
+                .filter(Boolean)
+                .join(" · ")
+            : undefined
+        }
+        icon="chatbubbles-outline"
+        height="88%"
+        footer={
+          <SheetStickyCta
+            label={result ? "下一题" : "提交作答"}
+            icon={result ? "arrow-forward" : "checkmark"}
+            loading={submitting}
+            onPress={() => (result ? nextQuestion() : void submit())}
+            secondaryLabel="关闭"
+            onSecondary={() => {
+              setActive(null);
+              setAnswer("");
+              setResult(null);
+            }}
+          />
+        }
+        footerHint={result ? undefined : "提交后会和参考答案并排对照"}
+      >
+        {active ? (
+          <>
+            <SheetSection title="题目">
+              <Text style={styles.questionText}>{active.question}</Text>
+            </SheetSection>
+
+            <SheetSection title="我的答案">
+              <TextInput
+                style={styles.answerInput}
+                value={answer}
+                onChangeText={setAnswer}
+                placeholder="写下你的答案"
+                placeholderTextColor={colors.textFaint}
+                multiline
+              />
+            </SheetSection>
+
+            {result ? (
+              <SheetSection title="我的答案 ↔ 参考答案" last>
+                <View style={styles.compareRow}>
+                  <View style={[styles.compareCol, styles.compareMine]}>
+                    <Text style={styles.compareHead}>我的答案</Text>
+                    <Text style={styles.compareBody}>{answer.trim() || "（空）"}</Text>
+                  </View>
+                  <View style={[styles.compareCol, result.correct ? styles.compareGood : styles.compareRef]}>
+                    <Text style={styles.compareHead}>参考答案</Text>
+                    <Text style={styles.compareBody}>{result.answer || "暂无参考答案"}</Text>
+                  </View>
                 </View>
-              </>
+                <Text style={[styles.verdict, result.correct ? { color: colors.success } : { color: colors.warning }]}>
+                  {result.correct ? "判定：答得不错 ✅" : "判定：再对照一下参考答案，把差异补上"}
+                </Text>
+                {active.sourceSite ? (
+                  <Text style={styles.sourceLine} numberOfLines={2}>
+                    来源：{active.sourceSite}
+                    {active.license ? " · " + active.license : ""}
+                  </Text>
+                ) : null}
+              </SheetSection>
             ) : null}
-          </Pressable>
-        </Pressable>
-      </Modal>
+          </>
+        ) : null}
+      </BottomSheet>
     </ScrollView>
   );
 }
@@ -266,21 +280,6 @@ const makeStyles = (colors: ThemeColors) =>
     scroll: { flex: 1, backgroundColor: "transparent" },
     content: { padding: 16, gap: 12 },
     hero: { marginBottom: 4 },
-    // 二级筛选（难度 / 错题本）
-    filterRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-    filterChip: {
-      borderRadius: 999,
-      borderWidth: 1,
-      borderColor: colors.border,
-      paddingHorizontal: 12,
-      paddingVertical: 5,
-      backgroundColor: colors.surfaceStrong,
-    },
-    filterChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-    filterChipText: { fontSize: 11, fontWeight: "700", color: colors.textMuted },
-    filterChipTextActive: { color: "#fff" },
-    filterChipWrong: { backgroundColor: colors.dangerSoft, borderColor: colors.danger },
-    filterChipTextWrong: { color: colors.danger },
     sourceTag: { flex: 1, textAlign: "right", fontSize: 10, color: colors.textFaint },
     // 作答对照
     compareRow: { flexDirection: "row", gap: 8 },
@@ -292,8 +291,6 @@ const makeStyles = (colors: ThemeColors) =>
     compareBody: { fontSize: 12, lineHeight: 18, color: colors.text },
     verdict: { fontSize: 12, fontWeight: "700" },
     sourceLine: { fontSize: 10, color: colors.textFaint },
-    modalActions: { flexDirection: "row", gap: 8 },
-    submitGhost: { backgroundColor: colors.surfaceMuted },
     heroTitle: { fontSize: 28, fontWeight: "800", color: colors.text },
     heroSub: { fontSize: 13, color: colors.textMuted, marginTop: 4 },
     moduleScroller: { flexGrow: 0 },
@@ -308,17 +305,10 @@ const makeStyles = (colors: ThemeColors) =>
     questionIndex: { width: 24, height: 24, borderRadius: 8, backgroundColor: colors.primarySoft, color: colors.primary, textAlign: "center", lineHeight: 24, fontWeight: "800", fontSize: 12 },
     difficulty: { fontSize: 11, color: colors.textMuted, fontWeight: "700" },
     questionText: { fontSize: 15, fontWeight: "700", color: colors.text, lineHeight: 22 },
-    modalScrim: { flex: 1, backgroundColor: colors.scrim, justifyContent: "center", padding: 20 },
-    modalCard: { backgroundColor: colors.surfaceStrong, borderRadius: 20, padding: 18, gap: 10 },
-    modalTitle: { fontSize: 12, fontWeight: "800", color: colors.primary },
-    modalQuestion: { fontSize: 17, fontWeight: "800", color: colors.text, lineHeight: 25 },
     answerInput: { minHeight: 120, textAlignVertical: "top", backgroundColor: colors.surfaceMuted, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: colors.text },
     resultBox: { borderRadius: 12, padding: 12, gap: 4 },
     resultGood: { backgroundColor: colors.successSoft },
     resultBad: { backgroundColor: colors.warningSoft },
     resultText: { fontSize: 12, fontWeight: "800", color: colors.text },
     resultAnswer: { fontSize: 13, color: colors.textMuted, lineHeight: 19 },
-    submitBtn: {
-      flex: 1, backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 12, alignItems: "center" },
-    submitText: { color: "#fff", fontSize: 14, fontWeight: "800" },
   });

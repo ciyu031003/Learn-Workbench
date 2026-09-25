@@ -1,13 +1,13 @@
-/* eslint-disable react-hooks/immutability, react-hooks/set-state-in-effect */
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useCallback, useEffect, useState , useMemo } from "react";
-import { ActivityIndicator, Modal, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, Share, StyleSheet, Text, View } from "react-native";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { ThemedIcon } from "@/components/themed-icon";
 import { InlineToast, TOAST_DEFAULT_LIFE_MS, type ToastKind } from "@/components/toast";
 import * as WebBrowser from "expo-web-browser";
-import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring } from "react-native-reanimated";
-import { Card } from "@/components/card";
+import { BottomSheet } from "@/components/bottom-sheet";
+import { SheetSection, SheetStickyCta } from "@/components/sheet";
 import { enrollJobGaps, fetchJobDetail, fetchJobPlan, type JobDetail } from "@/lib/jobs";
 import { formatRelativeTime, jobFreshness, jobSourceLabels, type JobLearningPlan, type JobPostingListItem } from "@learn-workbench/shared";
 
@@ -29,6 +29,13 @@ function salaryText(job: JobPostingListItem): string {
   return "面议";
 }
 
+/**
+ * 岗位详情（v16 弹层重构）：
+ * - 壳换成 `BottomSheet` 的 Sheet v3 槽位：subtitle / icon / headerAction（分享）/ footer（吸底 CTA）
+ * - 正文用 `SheetSection` 分成「岗位信息 / 匹配分析 / 来源」三段
+ * - 底部动作改 `SheetStickyCta`：主 = 查看原文，次 = 收藏（原三按钮里的「分享」上移到头部）
+ * - 请求、回调、轻提示与"加入学习任务"的逻辑**一行未改**
+ */
 export function JobDetailModal({
   job,
   visible,
@@ -51,11 +58,6 @@ export function JobDetailModal({
   const [toastKind, setToastKind] = useState<ToastKind>("success");
   const [toastLifeMs, setToastLifeMs] = useState(TOAST_DEFAULT_LIFE_MS);
   const [enrolling, setEnrolling] = useState(false);
-
-  const heartScale = useSharedValue(1);
-  const heartStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: heartScale.value }],
-  }));
 
   const jobId = job?.id;
   useEffect(() => {
@@ -126,7 +128,6 @@ export function JobDetailModal({
           : colors.surfaceMuted;
 
   const popHeart = () => {
-    heartScale.value = withSequence(withSpring(1.35, { damping: 10, stiffness: 260 }), withSpring(1));
     if (job) onToggleFavorite(job);
   };
 
@@ -167,175 +168,146 @@ export function JobDetailModal({
     }
   };
 
+  const subtitle = [display.company, display.city || "城市不限", display.experience || "经验不限", display.education || "学历不限"]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-      <View style={styles.overlay}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <View style={styles.sheetWrap}>
-          <Card style={styles.sheet}>
-            <View style={styles.grabber} />
-            <View style={styles.header}>
-              <View style={[styles.logo, { backgroundColor: AVATAR_COLORS[display.id % AVATAR_COLORS.length] }]}>
-                <Text style={styles.logoText}>{display.company.trim().charAt(0).toUpperCase() || "公"}</Text>
-              </View>
-              <View style={styles.headerMain}>
-                <Text style={styles.title}>{display.title}</Text>
-                <Text style={styles.salary}>{salaryText(display)}</Text>
-                <Text style={styles.meta}>
-                  {display.company} · {display.city || "城市不限"} · {display.experience || "经验不限"} · {display.education || "学历不限"}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.metaGrid}>
-              <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>经验</Text>
-                <Text style={styles.metaValue}>{display.experience || "不限"}</Text>
-              </View>
-              <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>学历</Text>
-                <Text style={styles.metaValue}>{display.education || "不限"}</Text>
-              </View>
-              <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>城市</Text>
-                <Text style={styles.metaValue}>{display.city || "不限"}</Text>
-              </View>
-              <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>发布</Text>
-                <Text style={styles.metaValue}>{formatRelativeTime(display.publishedAt)}</Text>
-              </View>
-            </View>
-
-            <View style={styles.sourceRow}>
-              <View style={styles.sourceBadge}>
-                <View style={[styles.sourceDot, { backgroundColor: SOURCE_COLORS[display.source] }]} />
-                <Text style={styles.sourceText}>{jobSourceLabels[display.source]}</Text>
-              </View>
-              {display.channel !== "announcement" ? (
-                <View style={[styles.freshBadge, { backgroundColor: freshnessBg }]}>
-                  <Text style={[styles.freshText, { color: freshnessColor }]}>{freshness.emoji} {freshness.label}</Text>
-                </View>
-              ) : null}
-              {display.isNew ? <Text style={styles.newBadge}>NEW</Text> : null}
-              {display.clusterSources && display.clusterSources.length > 1 ? (
-                <Text style={styles.clusterText} numberOfLines={1}>
-                  🔁 {display.clusterSources.map((s) => jobSourceLabels[s] ?? s).join("/")}
-                </Text>
-              ) : null}
-              <Text style={styles.fetchedAt}>更新于 {formatRelativeTime(display.fetchedAt)}</Text>
-            </View>
-
-            <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} showsVerticalScrollIndicator={false}>
-              {loading ? (
-                <View style={styles.loadingBox}>
-                  <ActivityIndicator color="#10b981" />
-                  <Text style={styles.loadingText}>正在绽放职位详情...</Text>
-                </View>
-              ) : null}
-              {error ? <Text style={styles.errorText}>{error}</Text> : null}
-              {!loading && !error ? (
-                <>
-                  <Text style={styles.sectionTitle}>职位描述</Text>
-                  <Text style={styles.sectionText}>{detail?.description || "暂无职位描述"}</Text>
-                  <Text style={styles.sectionTitle}>任职要求</Text>
-                  <Text style={styles.sectionText}>{detail?.requirements || "暂无任职要求"}</Text>
-                  <Text style={styles.sectionTitle}>公司信息</Text>
-                  <Text style={styles.sectionText}>{detail?.companyInfo || "暂无公司信息"}</Text>
-
-                  {plan && plan.gaps.length > 0 ? (
-                    <View style={styles.planBox}>
-                      <View style={styles.planHeader}>
-                        <Text style={styles.planTitle}>📋 岗位学习计划</Text>
-                        <View style={styles.matchBadge}>
-                          <Text style={styles.matchText}>匹配 {plan.match}% · 补完约 +{Math.max(0, 100 - plan.match)}%</Text>
-                        </View>
-                      </View>
-                      <Text style={styles.planMeta}>
-                        共 {plan.gaps.length} 项缺口 · 约 {plan.totalHours} 小时
-                        {plan.estimatedWeeks > 0 ? ` · 每周 10h 约 ${plan.estimatedWeeks} 周` : ""}
-                      </Text>
-                      {plan.phases.map((ph) => (
-                        <View key={ph.phaseId ?? "other"} style={styles.phaseBox}>
-                          <Text style={styles.phaseTitle}>
-                            {ph.phaseId ? `${(ph.phaseKey ?? "").replace("phase-", "P")} · ${ph.phaseTitle ?? "阶段"}` : "其他学习内容"}
-                            <Text style={styles.phaseHours}>  {ph.hours}h</Text>
-                          </Text>
-                          {ph.skills.map((g) => (
-                            <Text key={g.skill} style={styles.phaseSkill}>
-                              · {g.skill}{g.topicTitle ? ` → ${g.topicTitle}` : ""}{g.estimateHours ? `（${g.estimateHours}h）` : ""}
-                            </Text>
-                          ))}
-                        </View>
-                      ))}
-                      <Pressable style={[styles.enrollBtn, enrolling && styles.enrollBtnDisabled]} onPress={enrollPlan} disabled={enrolling}>
-                        <Text style={styles.enrollText}>{enrolling ? "加入中..." : "全部缺口加入学习任务"}</Text>
-                      </Pressable>
-                    </View>
-                  ) : null}
-                </>
-              ) : null}
-            </ScrollView>
-
-            <View style={styles.actions}>
-              <Animated.View style={heartStyle}>
-                <Pressable style={styles.actionBtn} onPress={popHeart}>
-                  <ThemedIcon name={job?.isFav ? "heart" : "heart-outline"} size={22} color={job?.isFav ? "#f43f5e" : colors.textMuted} />
-                  <Text style={styles.actionText}>{job?.isFav ? "已收藏" : "收藏"}</Text>
-                </Pressable>
-              </Animated.View>
-              <Pressable style={styles.actionBtn} onPress={shareJob}>
-                <ThemedIcon name="share-social-outline" size={22} color="#4f46e5" />
-                <Text style={styles.actionText}>分享</Text>
-              </Pressable>
-              <Pressable style={[styles.actionBtn, styles.actionPrimary]} onPress={openOriginal}>
-                <ThemedIcon name="open-outline" size={20} color="#ffffff" />
-                <Text style={[styles.actionText, { color: "#ffffff" }]}>查看原文</Text>
-              </Pressable>
-            </View>
-
-            {/* v13 U4：轻提示重做为"图标徽章 + 标题 + 底部剩余时间进度条"（API/时机不变） */}
-            {toast ? (
-              <View style={styles.toastWrap}>
-                <InlineToast message={toast} kind={toastKind} lifeMs={toastLifeMs} />
-              </View>
-            ) : null}
-          </Card>
+    <BottomSheet
+      visible={visible}
+      onClose={onClose}
+      title={display.title}
+      subtitle={subtitle}
+      icon="briefcase-outline"
+      height="94%"
+      headerAction={
+        <Pressable hitSlop={10} onPress={() => void shareJob()} accessibilityLabel="分享职位">
+          <ThemedIcon name="share-social-outline" size={19} color={colors.textMuted} />
+        </Pressable>
+      }
+      footer={
+        <>
+          {toast ? <InlineToast message={toast} kind={toastKind} lifeMs={toastLifeMs} /> : null}
+          <SheetStickyCta
+            label="查看原文"
+            icon="open-outline"
+            onPress={() => void openOriginal()}
+            secondaryLabel={job?.isFav ? "已收藏" : "收藏"}
+            onSecondary={popHeart}
+          />
+        </>
+      }
+      footerHint={job?.isFav ? "已收藏，可在「我的求职」里跟进" : "收藏后会同步到「我的求职」"}
+    >
+      {/* 企业首字 + 薪资：原来的头部信息压缩成一行，省下的纵向空间留给正文 */}
+      <View style={styles.heroRow}>
+        <View style={[styles.logo, { backgroundColor: AVATAR_COLORS[display.id % AVATAR_COLORS.length] }]}>
+          <Text style={styles.logoText}>{display.company.trim().charAt(0).toUpperCase() || "公"}</Text>
+        </View>
+        <View style={styles.heroMain}>
+          <Text style={styles.salary}>{salaryText(display)}</Text>
+          <Text style={styles.heroMeta}>更新于 {formatRelativeTime(display.fetchedAt)}</Text>
         </View>
       </View>
-    </Modal>
+
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+      <SheetSection title="岗位信息">
+        <View style={styles.metaGrid}>
+          <View style={styles.metaItem}>
+            <Text style={styles.metaLabel}>经验</Text>
+            <Text style={styles.metaValue}>{display.experience || "不限"}</Text>
+          </View>
+          <View style={styles.metaItem}>
+            <Text style={styles.metaLabel}>学历</Text>
+            <Text style={styles.metaValue}>{display.education || "不限"}</Text>
+          </View>
+          <View style={styles.metaItem}>
+            <Text style={styles.metaLabel}>城市</Text>
+            <Text style={styles.metaValue}>{display.city || "不限"}</Text>
+          </View>
+          <View style={styles.metaItem}>
+            <Text style={styles.metaLabel}>发布</Text>
+            <Text style={styles.metaValue}>{formatRelativeTime(display.publishedAt)}</Text>
+          </View>
+        </View>
+
+        {loading ? (
+          <View style={styles.loadingBox}>
+            <ActivityIndicator color={colors.primary} />
+            <Text style={styles.loadingText}>正在绽放职位详情...</Text>
+          </View>
+        ) : !error ? (
+          <>
+            <Text style={styles.paraTitle}>职位描述</Text>
+            <Text style={styles.paraText}>{detail?.description || "暂无职位描述"}</Text>
+            <Text style={styles.paraTitle}>任职要求</Text>
+            <Text style={styles.paraText}>{detail?.requirements || "暂无任职要求"}</Text>
+            <Text style={styles.paraTitle}>公司信息</Text>
+            <Text style={styles.paraText}>{detail?.companyInfo || "暂无公司信息"}</Text>
+          </>
+        ) : null}
+      </SheetSection>
+
+      {plan && plan.gaps.length > 0 ? (
+        <SheetSection title="匹配分析" hint={plan.estimatedWeeks > 0 ? `每周 10h 约 ${plan.estimatedWeeks} 周` : undefined}>
+          <View style={styles.planHeader}>
+            <View style={styles.matchBadge}>
+              <Text style={styles.matchText}>匹配 {plan.match}% · 补完约 +{Math.max(0, 100 - plan.match)}%</Text>
+            </View>
+          </View>
+          <Text style={styles.planMeta}>
+            共 {plan.gaps.length} 项缺口 · 约 {plan.totalHours} 小时
+          </Text>
+          {plan.phases.map((ph) => (
+            <View key={ph.phaseId ?? "other"} style={styles.phaseBox}>
+              <Text style={styles.phaseTitle}>
+                {ph.phaseId ? `${(ph.phaseKey ?? "").replace("phase-", "P")} · ${ph.phaseTitle ?? "阶段"}` : "其他学习内容"}
+                <Text style={styles.phaseHours}>  {ph.hours}h</Text>
+              </Text>
+              {ph.skills.map((g) => (
+                <Text key={g.skill} style={styles.phaseSkill}>
+                  · {g.skill}{g.topicTitle ? ` → ${g.topicTitle}` : ""}{g.estimateHours ? `（${g.estimateHours}h）` : ""}
+                </Text>
+              ))}
+            </View>
+          ))}
+          <Pressable style={[styles.enrollBtn, enrolling && styles.enrollBtnDisabled]} onPress={enrollPlan} disabled={enrolling}>
+            <Text style={styles.enrollText}>{enrolling ? "加入中..." : "全部缺口加入学习任务"}</Text>
+          </Pressable>
+        </SheetSection>
+      ) : null}
+
+      <SheetSection title="来源" last>
+        <View style={styles.sourceRow}>
+          <View style={styles.sourceBadge}>
+            <View style={[styles.sourceDot, { backgroundColor: SOURCE_COLORS[display.source] }]} />
+            <Text style={styles.sourceText}>{jobSourceLabels[display.source]}</Text>
+          </View>
+          {display.channel !== "announcement" ? (
+            <View style={[styles.freshBadge, { backgroundColor: freshnessBg }]}>
+              <Text style={[styles.freshText, { color: freshnessColor }]}>{freshness.emoji} {freshness.label}</Text>
+            </View>
+          ) : null}
+          {display.isNew ? <Text style={styles.newBadge}>NEW</Text> : null}
+          {display.clusterSources && display.clusterSources.length > 1 ? (
+            <Text style={styles.clusterText} numberOfLines={1}>
+              🔁 {display.clusterSources.map((s) => jobSourceLabels[s] ?? s).join("/")}
+            </Text>
+          ) : null}
+        </View>
+      </SheetSection>
+    </BottomSheet>
   );
 }
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: "flex-end",
-    backgroundColor: "rgba(5,8,18,0.52)",
-  },
-  sheetWrap: {
-    height: "85%",
-  },
-  sheet: {
-    flex: 1,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
-    paddingBottom: 20,
-  },
-  grabber: {
-    alignSelf: "center",
-    width: 42,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: colors.borderStrong,
-    marginBottom: 12,
-  },
-  header: {
+  heroRow: {
     flexDirection: "row",
     gap: 12,
-    alignItems: "flex-start",
+    alignItems: "center",
+    marginBottom: 16,
   },
   logo: {
     width: 52,
@@ -349,44 +321,32 @@ const makeStyles = (colors: ThemeColors) =>
     fontSize: 20,
     fontWeight: "800",
   },
-  headerMain: {
-    flex: 1,
-    minWidth: 0,
-    gap: 3,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: colors.text,
-    lineHeight: 24,
-  },
+  heroMain: { flex: 1, minWidth: 0, gap: 3 },
   salary: {
     fontSize: 20,
     fontWeight: "900",
-    color: "#f97316",
+    color: colors.accentStrong,
   },
-  meta: {
-    fontSize: 12.5,
-    color: colors.textMuted,
-    lineHeight: 18,
+  heroMeta: {
+    fontSize: 11.5,
+    color: colors.textFaint,
   },
   metaGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
-    marginTop: 14,
   },
   metaItem: {
     width: "48%",
     flexGrow: 1,
-    backgroundColor: "rgba(16,185,129,0.10)",
+    backgroundColor: colors.successSoft,
     borderRadius: 13,
     paddingVertical: 9,
     paddingHorizontal: 10,
   },
   metaLabel: {
     fontSize: 11,
-    color: "#047857",
+    color: colors.success,
     fontWeight: "700",
   },
   metaValue: {
@@ -394,11 +354,37 @@ const makeStyles = (colors: ThemeColors) =>
     color: colors.text,
     marginTop: 2,
   },
+  paraTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: colors.text,
+    marginTop: 6,
+  },
+  paraText: {
+    fontSize: 13.5,
+    lineHeight: 21,
+    color: colors.text,
+  },
+  loadingBox: {
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 24,
+  },
+  loadingText: {
+    fontSize: 12,
+    color: colors.textMuted,
+  },
+  errorText: {
+    fontSize: 13,
+    color: colors.danger,
+    lineHeight: 19,
+    marginBottom: 12,
+  },
   sourceRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    marginTop: 12,
+    flexWrap: "wrap",
   },
   sourceBadge: {
     flexDirection: "row",
@@ -422,19 +408,14 @@ const makeStyles = (colors: ThemeColors) =>
   newBadge: {
     fontSize: 10,
     fontWeight: "800",
-    color: "#047857",
-    backgroundColor: "rgba(52,211,153,0.22)",
+    color: colors.success,
+    backgroundColor: colors.successSoft,
     borderWidth: 1,
-    borderColor: "rgba(52,211,153,0.55)",
+    borderColor: colors.success,
     borderRadius: 999,
     paddingHorizontal: 7,
     paddingVertical: 2,
     overflow: "hidden",
-  },
-  fetchedAt: {
-    marginLeft: "auto",
-    fontSize: 11,
-    color: colors.textFaint,
   },
   freshBadge: {
     borderRadius: 999,
@@ -446,85 +427,11 @@ const makeStyles = (colors: ThemeColors) =>
     flexShrink: 1,
     fontSize: 10,
     fontWeight: "700",
-    color: "#7c3aed",
-    backgroundColor: "rgba(139,92,246,0.12)",
+    color: colors.lavender,
+    backgroundColor: colors.surfaceMuted,
     borderRadius: 999,
     paddingHorizontal: 7,
     paddingVertical: 3,
-  },
-  body: {
-    flex: 1,
-    marginTop: 12,
-  },
-  bodyContent: {
-    gap: 10,
-    paddingBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: colors.text,
-    marginTop: 4,
-  },
-  sectionText: {
-    fontSize: 13.5,
-    lineHeight: 21,
-    color: colors.text,
-  },
-  loadingBox: {
-    alignItems: "center",
-    gap: 8,
-    paddingVertical: 24,
-  },
-  loadingText: {
-    fontSize: 12,
-    color: colors.textMuted,
-  },
-  errorText: {
-    fontSize: 13,
-    color: "#dc2626",
-    lineHeight: 19,
-  },
-  actions: {
-    flexDirection: "row",
-    gap: 8,
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.borderStrong,
-  },
-  actionBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: 14,
-    paddingVertical: 11,
-  },
-  actionPrimary: {
-    backgroundColor: "#10b981",
-  },
-  actionText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: colors.text,
-  },
-  toastWrap: {
-    position: "absolute",
-    left: 20,
-    right: 20,
-    bottom: 90,
-  },
-  planBox: {
-    marginTop: 8,
-    backgroundColor: "rgba(79,70,229,0.07)",
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "rgba(79,70,229,0.25)",
-    padding: 12,
-    gap: 8,
   },
   planHeader: {
     flexDirection: "row",
@@ -533,13 +440,8 @@ const makeStyles = (colors: ThemeColors) =>
     gap: 8,
     flexWrap: "wrap",
   },
-  planTitle: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: colors.text,
-  },
   matchBadge: {
-    backgroundColor: "rgba(79,70,229,0.14)",
+    backgroundColor: colors.primarySoft,
     borderRadius: 999,
     paddingHorizontal: 9,
     paddingVertical: 4,
@@ -547,7 +449,7 @@ const makeStyles = (colors: ThemeColors) =>
   matchText: {
     fontSize: 11,
     fontWeight: "800",
-    color: "#4f46e5",
+    color: colors.primary,
   },
   planMeta: {
     fontSize: 12,
@@ -577,7 +479,7 @@ const makeStyles = (colors: ThemeColors) =>
     color: colors.text,
   },
   enrollBtn: {
-    backgroundColor: "#10b981",
+    backgroundColor: colors.success,
     borderRadius: 13,
     alignItems: "center",
     paddingVertical: 11,
