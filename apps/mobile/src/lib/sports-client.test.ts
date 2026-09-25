@@ -17,7 +17,13 @@ import {
 const fetchMock = vi.fn();
 vi.stubGlobal("fetch", fetchMock);
 
-const jsonResponse = (data: unknown, ok = true) => ({ ok, json: async () => data });
+// 贴近真实 Response：describeFailure() 会读 status 与 text() 来给出可定位的文案
+const jsonResponse = (data: unknown, ok = true, status = ok ? 200 : 400) => ({
+  ok,
+  status,
+  json: async () => data,
+  text: async () => JSON.stringify(data),
+});
 
 beforeEach(() => {
   fetchMock.mockReset();

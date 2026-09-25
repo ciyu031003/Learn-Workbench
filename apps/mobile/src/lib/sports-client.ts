@@ -146,6 +146,23 @@ export async function fetchSportsProfiles(): Promise<SportsProfile[]> {
   return Array.isArray(d.profiles) ? (d.profiles as SportsProfile[]) : [];
 }
 
+/**
+ * 把失败响应变成**能定位问题**的文案。
+ * 之前接口 500（返回 HTML 而非 JSON）时只会弹兜底文案「保存失败」，
+ * 排查时拿不到任何信息 —— 现在带上 HTTP 状态与响应片段。
+ */
+async function describeFailure(r: Response, fallback: string): Promise<string> {
+  const text = await r.text().catch(() => "");
+  try {
+    const parsed = JSON.parse(text) as { error?: unknown };
+    if (typeof parsed?.error === "string" && parsed.error.trim()) return parsed.error;
+  } catch {
+    // 非 JSON（多半是 500 的错误页）：下面把状态与片段带出去
+  }
+  const snippet = text.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
+  return fallback + "（HTTP " + r.status + (snippet ? " · " + snippet : "") + "）";
+}
+
 export async function saveSportsProfile(draft: SportsProfileDraft, id: number | null): Promise<SportsProfile> {
   const base = getApiUrl() + "/api/sports/profiles";
   const r = await fetch(id ? base + "/" + id : base, {
@@ -153,10 +170,7 @@ export async function saveSportsProfile(draft: SportsProfileDraft, id: number | 
     headers: authHeaders(true),
     body: JSON.stringify(draft),
   });
-  if (!r.ok) {
-    const d = await r.json().catch(() => null);
-    throw new Error(typeof d?.error === "string" ? d.error : "保存失败");
-  }
+  if (!r.ok) throw new Error(await describeFailure(r, id ? "更新失败" : "保存失败"));
   const d = await r.json();
   return d.profile as SportsProfile;
 }
@@ -168,10 +182,7 @@ export async function patchSportsProfile(id: number, patch: Record<string, unkno
     headers: authHeaders(true),
     body: JSON.stringify(patch),
   });
-  if (!r.ok) {
-    const d = await r.json().catch(() => null);
-    throw new Error(typeof d?.error === "string" ? d.error : "更新失败");
-  }
+  if (!r.ok) throw new Error(await describeFailure(r, "更新失败"));
 }
 
 export async function deleteSportsProfile(id: number): Promise<void> {
