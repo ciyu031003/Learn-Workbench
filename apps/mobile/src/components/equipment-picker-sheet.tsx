@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { BottomSheet } from "@/components/bottom-sheet";
-import { Field } from "@/components/field";
+import { ChipGroup, SheetSearchField } from "@/components/sheet";
 import { GearCard } from "@/components/gear-card";
 import { SkeletonList } from "@/components/skeleton";
 import { equipmentCategoriesForSport } from "@learn-workbench/shared";
@@ -93,26 +93,17 @@ export function EquipmentPicker({
 
   const body = (
     <View style={styles.wrap}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-        {categories.map((item) => {
-          const active = item.key === category;
-          return (
-            <Pressable
-              key={item.key}
-              onPress={() => setCategory(item.key)}
-              style={[styles.chip, active && styles.chipActive]}
-            >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>{item.label}</Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+      <ChipGroup
+        multiple={false}
+        options={categories.map((item) => ({ key: item.key, label: item.label }))}
+        selected={[category]}
+        onToggle={(key) => setCategory(key)}
+      />
 
-      <Field
+      <SheetSearchField
         value={query}
         onChangeText={setQuery}
         placeholder="搜型号或品牌，如 ASTROX / 天斧"
-        autoCapitalize="characters"
       />
 
       {loading ? (
@@ -147,7 +138,14 @@ export function EquipmentPicker({
   if (inline) return visible ? body : null;
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} title="从装备图库选择" height="86%">
+    <BottomSheet
+      visible={visible}
+      onClose={onClose}
+      title="从装备图库选择"
+      subtitle="点一张白底图即回填型号与商品图"
+      icon="images-outline"
+      height="86%"
+    >
       {body}
     </BottomSheet>
   );
@@ -159,18 +157,7 @@ export const EquipmentPickerSheet = EquipmentPicker;
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     wrap: { gap: 12 },
-    chipRow: { flexDirection: "row", gap: 8, paddingVertical: 2 },
-    chip: {
-      borderRadius: 999,
-      borderWidth: 1,
-      borderColor: colors.border,
-      paddingHorizontal: 14,
-      paddingVertical: 7,
-      backgroundColor: colors.surfaceStrong,
-    },
-    chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-    chipText: { fontSize: 13, fontWeight: "600", color: colors.text },
-    chipTextActive: { color: "#ffffff" },
+
     center: { paddingVertical: 40, alignItems: "center" },
     emptyText: { fontSize: 12, color: colors.textMuted, textAlign: "center" },
     grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },

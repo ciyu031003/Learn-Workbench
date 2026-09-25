@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { BottomSheet } from "@/components/bottom-sheet";
+import { SheetSearchField, SheetSection, SheetStickyCta } from "@/components/sheet";
 import { PressableScale } from "@/components/pressable-scale";
 import { ThemedIcon } from "@/components/themed-icon";
 import { useTheme } from "@/theme";
@@ -168,33 +169,37 @@ export function ExercisePickerSheet({ visible, onClose, onClosed, onConfirm, ini
       onClose={onClose}
       onClosed={onClosed}
       title={picked ? "填写组次" : "选择动作"}
+      subtitle={
+        picked
+          ? picked.key
+            ? picked.muscleGroup + (picked.equipment ? " · " + picked.equipment : "")
+            : "自定义动作"
+          : "先选动作，再填组次；点底部按钮才会加入训练"
+      }
+      icon="barbell-outline"
       height="82%"
       expandable
       scroll={false}
+      footer={
+        picked ? (
+          <SheetStickyCta
+            label="加入训练"
+            icon="checkmark"
+            onPress={confirm}
+            disabled={!picked.name.trim()}
+            secondaryLabel="返回列表"
+            onSecondary={() => setPicked(null)}
+          />
+        ) : null
+      }
+      footerHint={picked ? "确认后会回到训练记录弹层，把这条动作加进去" : undefined}
     >
       <View style={styles.root}>
         {!picked ? (
-          <>
-            <View style={styles.searchBar}>
-              <ThemedIcon name="search" size={17} color={colors.textFaint} />
-              <TextInput
-                style={styles.searchInput}
-                value={query}
-                onChangeText={setQuery}
-                placeholder="搜索动作 / 部位 / 器械（如 卧推、胸、哑铃）"
-                placeholderTextColor={colors.textFaint}
-                returnKeyType="search"
-                autoCorrect={false}
-              />
-              {query.length > 0 ? (
-                <Pressable onPress={() => setQuery("")} hitSlop={8} accessibilityLabel="清空搜索">
-                  <ThemedIcon name="close-circle" size={16} color={colors.textFaint} />
-                </Pressable>
-              ) : null}
-            </View>
-
-            {/* v6 P2-2：分类改 2 列大卡片（图标 + 名称 + 数量 + 按压缩放动效），把原来的空白地带用起来 */}
-            <View style={styles.catGrid}>
+          <View style={styles.flexOne}>
+            <SheetSection title="部位 / 分类">
+              {/* v6 P2-2：分类改 2 列大卡片（图标 + 名称 + 数量 + 按压缩放动效），把原来的空白地带用起来 */}
+              <View style={styles.catGrid}>
               {gridTabs.map((t) => {
                 const active = category === t.type;
                 const count = counts[t.type] ?? 0;
@@ -219,14 +224,23 @@ export function ExercisePickerSheet({ visible, onClose, onClosed, onConfirm, ini
                   </PressableScale>
                 );
               })}
-            </View>
+              </View>
+            </SheetSection>
 
-            <View style={styles.listHead}>
-              <Text style={styles.listHeadText}>
-                {loading ? "正在同步动作库…" : `${list.length} 个动作`}
-              </Text>
-              {loading ? <ActivityIndicator size="small" color={colors.primary} /> : null}
-            </View>
+            <View style={styles.listBox}>
+              <Text style={styles.sectionLabel}>动作</Text>
+              <SheetSearchField
+                value={query}
+                onChangeText={setQuery}
+                placeholder="搜索动作 / 部位 / 器械（如 卧推、胸、哑铃）"
+              />
+
+              <View style={styles.listHead}>
+                <Text style={styles.listHeadText}>
+                  {loading ? "正在同步动作库…" : list.length + " 个动作"}
+                </Text>
+                {loading ? <ActivityIndicator size="small" color={colors.primary} /> : null}
+              </View>
 
             <ScrollView style={styles.list} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
               {list.length === 0 ? (
@@ -247,31 +261,21 @@ export function ExercisePickerSheet({ visible, onClose, onClosed, onConfirm, ini
               )}
             </ScrollView>
 
-            <Pressable style={styles.freeRow} onPress={() => setPicked({ key: "", name: query.trim() || "自定义动作", muscleGroup: "全身", category: "STRENGTH", equipment: null })}>
-              <ThemedIcon name="create-outline" size={16} color={colors.primary} />
-              <Text style={styles.freeText}>没有？手动输入动作名</Text>
-            </Pressable>
-          </>
+              <Pressable style={styles.freeRow} onPress={() => setPicked({ key: "", name: query.trim() || "自定义动作", muscleGroup: "全身", category: "STRENGTH", equipment: null })}>
+                <ThemedIcon name="create-outline" size={16} color={colors.primary} />
+                <Text style={styles.freeText}>没有？手动输入动作名</Text>
+              </Pressable>
+            </View>
+          </View>
         ) : (
-          <>
-            {/* 第二步内容用可滚动容器包裹：键盘弹出时 BottomSheet 会收缩高度，
-                小屏机型上「加入训练」按钮会被裁掉且无处可滚（审查发现） */}
-            <ScrollView
-              style={styles.flexOne}
-              contentContainerStyle={styles.stepBody}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
-              <View style={styles.pickedCard}>
-                <Text style={styles.pickedName}>{picked.name}</Text>
-                <Text style={styles.pickedMeta}>
-                  {picked.key ? `${picked.muscleGroup}${picked.equipment ? ` · ${picked.equipment}` : ""}` : "自定义动作"}
-                </Text>
-              </View>
-
+          <ScrollView
+            style={styles.flexOne}
+            contentContainerStyle={styles.stepBody}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
             {picked.key === "" ? (
-              <View style={styles.fieldBlock}>
-                <Text style={styles.blockLabel}>动作名</Text>
+              <SheetSection title="动作名" hint="自定义动作">
                 <TextInput
                   style={styles.input}
                   value={picked.name}
@@ -280,63 +284,50 @@ export function ExercisePickerSheet({ visible, onClose, onClosed, onConfirm, ini
                   placeholderTextColor={colors.textFaint}
                   autoFocus
                 />
-              </View>
+              </SheetSection>
             ) : null}
 
-            <View style={styles.fieldBlock}>
-              <Text style={styles.blockLabel}>组数</Text>
-              <Stepper
-                colors={colors}
-                value={sets}
-                onMinus={() => setSets((v) => stepNumber(v, -1, SETS_MIN, SETS_MAX, Number(DEFAULT_SETS)))}
-                onPlus={() => setSets((v) => stepNumber(v, 1, SETS_MIN, SETS_MAX, Number(DEFAULT_SETS)))}
-                onChange={setSets}
-                suffix="组"
-              />
-            </View>
+            <SheetSection title="组数与次数" hint="数值也可以直接手打">
+              <View style={styles.fieldBlock}>
+                <Text style={styles.blockLabel}>组数</Text>
+                <Stepper
+                  colors={colors}
+                  value={sets}
+                  onMinus={() => setSets((v) => stepNumber(v, -1, SETS_MIN, SETS_MAX, Number(DEFAULT_SETS)))}
+                  onPlus={() => setSets((v) => stepNumber(v, 1, SETS_MIN, SETS_MAX, Number(DEFAULT_SETS)))}
+                  onChange={setSets}
+                  suffix="组"
+                />
+              </View>
+              <View style={styles.fieldBlock}>
+                <Text style={styles.blockLabel}>每组次数</Text>
+                <Stepper
+                  colors={colors}
+                  value={reps}
+                  onMinus={() => setReps((v) => stepNumber(v, -1, REPS_MIN, REPS_MAX, Number(DEFAULT_REPS)))}
+                  onPlus={() => setReps((v) => stepNumber(v, 1, REPS_MIN, REPS_MAX, Number(DEFAULT_REPS)))}
+                  onChange={setReps}
+                  suffix="次"
+                />
+              </View>
+            </SheetSection>
 
-            <View style={styles.fieldBlock}>
-              <Text style={styles.blockLabel}>每组次数</Text>
-              <Stepper
-                colors={colors}
-                value={reps}
-                onMinus={() => setReps((v) => stepNumber(v, -1, REPS_MIN, REPS_MAX, Number(DEFAULT_REPS)))}
-                onPlus={() => setReps((v) => stepNumber(v, 1, REPS_MIN, REPS_MAX, Number(DEFAULT_REPS)))}
-                onChange={setReps}
-                suffix="次"
-              />
-            </View>
-
-            <View style={styles.fieldBlock}>
-              <Text style={styles.blockLabel}>重量（kg，自重可留空）</Text>
-              <Stepper
-                colors={colors}
-                value={weight}
-                placeholder="自重"
-                onMinus={() => setWeight((v) => stepWeight(v, -WEIGHT_STEP))}
-                onPlus={() => setWeight((v) => stepWeight(v, WEIGHT_STEP))}
-                onChange={setWeight}
-                suffix="kg"
-                max={WEIGHT_MAX}
-              />
-            </View>
-
-            </ScrollView>
-
-            {/* 操作区固定在滚动区之外，任何屏幕高度下都能点到 */}
-            <View style={styles.actions}>
-              <Pressable style={styles.ghostBtn} onPress={() => setPicked(null)}>
-                <Text style={styles.ghostBtnText}>返回列表</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.primaryBtn, !picked.name.trim() && styles.btnDisabled]}
-                disabled={!picked.name.trim()}
-                onPress={confirm}
-              >
-                <Text style={styles.primaryBtnText}>加入训练</Text>
-              </Pressable>
-            </View>
-          </>
+            <SheetSection title="重量" hint="自重可留空" last>
+              <View style={styles.fieldBlock}>
+                <Text style={styles.blockLabel}>重量（kg）</Text>
+                <Stepper
+                  colors={colors}
+                  value={weight}
+                  placeholder="自重"
+                  onMinus={() => setWeight((v) => stepWeight(v, -WEIGHT_STEP))}
+                  onPlus={() => setWeight((v) => stepWeight(v, WEIGHT_STEP))}
+                  onChange={setWeight}
+                  suffix="kg"
+                  max={WEIGHT_MAX}
+                />
+              </View>
+            </SheetSection>
+          </ScrollView>
         )}
       </View>
     </BottomSheet>
@@ -394,18 +385,11 @@ function Stepper({
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     flexOne: { flex: 1 },
+    /* 动作区：搜索 + 计数 + 列表 + 手动输入，需要自己撑满剩余高度并保持间距 */
+    listBox: { flex: 1, gap: 10 },
     stepBody: { gap: 12, paddingBottom: 8 },
     root: { flex: 1, gap: 10 },
-    searchBar: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 8,
-      backgroundColor: colors.surfaceMuted,
-      borderRadius: 12,
-      paddingHorizontal: 12,
-      paddingVertical: 9,
-    },
-    searchInput: { flex: 1, fontSize: 14, color: colors.text, padding: 0 },
+    sectionLabel: { fontSize: 15, fontWeight: "800", color: colors.text },
     /* v6 P2-2：2 列大卡片（约 84 高，图标 26 + 名称 15 + 数量 11） */
     catGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
     catCard: {
@@ -447,9 +431,6 @@ const makeStyles = (colors: ThemeColors) =>
       backgroundColor: colors.surfaceMuted,
     },
     freeText: { fontSize: 13, fontWeight: "700", color: colors.primary },
-    pickedCard: { backgroundColor: colors.primarySoft, borderRadius: 14, padding: 14, gap: 3 },
-    pickedName: { fontSize: 18, fontWeight: "800", color: colors.text },
-    pickedMeta: { fontSize: 12, color: colors.textMuted },
     fieldBlock: { gap: 6 },
     blockLabel: { fontSize: 12, fontWeight: "700", color: colors.textMuted },
     input: {
@@ -480,10 +461,4 @@ const makeStyles = (colors: ThemeColors) =>
       color: colors.text,
     },
     stepSuffix: { fontSize: 12, color: colors.textMuted, width: 22 },
-    actions: { flexDirection: "row", gap: 10, marginTop: 4 },
-    ghostBtn: { flex: 1, borderRadius: 14, paddingVertical: 13, alignItems: "center", backgroundColor: colors.surfaceMuted },
-    ghostBtnText: { fontSize: 14, fontWeight: "700", color: colors.textMuted },
-    primaryBtn: { flex: 1.4, borderRadius: 14, paddingVertical: 13, alignItems: "center", backgroundColor: colors.primary },
-    primaryBtnText: { fontSize: 15, fontWeight: "800", color: "#fff" },
-    btnDisabled: { opacity: 0.45 },
   });

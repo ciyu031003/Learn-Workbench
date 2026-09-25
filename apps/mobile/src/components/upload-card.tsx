@@ -52,13 +52,26 @@ export function UploadCard({
   const pct = typeof progress === "number" ? Math.max(0, Math.min(100, progress)) : null;
 
   return (
-    <View testID={testID} style={[styles.wrap, busy && styles.wrapBusy, style]}>
+    <View
+      testID={testID}
+      style={[
+        styles.wrap,
+        !!fileName && styles.wrapSelected,
+        busy && styles.wrapBusy,
+        !!error && styles.wrapError,
+        style,
+      ]}
+    >
       <View style={styles.row}>
-        <View style={styles.badge}>
+        <View style={[styles.badge, !!error && styles.badgeError]}>
           {busy ? (
             <ActivityIndicator size="small" color={colors.primary} />
           ) : (
-            <ThemedIcon name={icon} size={18} color={colors.primary} />
+            <ThemedIcon
+              name={error ? "alert-circle-outline" : icon}
+              size={18}
+              color={error ? colors.danger : colors.primary}
+            />
           )}
         </View>
 
@@ -66,7 +79,7 @@ export function UploadCard({
           <Text style={styles.title} numberOfLines={1}>
             {fileName || title}
           </Text>
-          <Text style={styles.hint} numberOfLines={2}>
+          <Text style={[styles.hint, !!error && styles.hintError]} numberOfLines={2}>
             {error ? error : hint ?? acceptHint ?? "选择一个文件上传"}
           </Text>
 
@@ -86,22 +99,18 @@ export function UploadCard({
             >
               <Text style={styles.pickText}>{pickLabel ?? (fileName ? "重新选择" : "选择文件")}</Text>
             </Pressable>
-            {fileName && onRemove ? (
-              <Pressable
-                onPress={onRemove}
-                accessibilityRole="button"
-                accessibilityLabel="移除文件"
-                style={({ pressed }) => [styles.remove, pressed && styles.pressed]}
-              >
-                <Text style={styles.removeText}>移除</Text>
-              </Pressable>
-            ) : null}
           </View>
         </View>
 
         {fileName && onRemove ? (
-          <Pressable onPress={onRemove} hitSlop={8} accessibilityLabel="移除文件" style={styles.close}>
-            <ThemedIcon name="close" size={14} color={colors.textMuted} />
+          <Pressable
+            onPress={onRemove}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="移除文件"
+            style={styles.close}
+          >
+            <ThemedIcon name="close" size={15} color={colors.textMuted} />
           </Pressable>
         ) : null}
       </View>
@@ -121,7 +130,9 @@ const makeStyles = (colors: ThemeColors) =>
       paddingHorizontal: 14,
       paddingVertical: 14,
     },
-    wrapBusy: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
+    wrapSelected: { borderStyle: "solid", borderColor: colors.primary, backgroundColor: colors.surfaceStrong },
+    wrapBusy: { borderStyle: "solid", borderColor: colors.primary, backgroundColor: colors.primarySoft },
+    wrapError: { borderStyle: "solid", borderColor: colors.danger, backgroundColor: colors.dangerSoft },
     row: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
     badge: {
       width: 40,
@@ -131,9 +142,11 @@ const makeStyles = (colors: ThemeColors) =>
       justifyContent: "center",
       backgroundColor: colors.primarySoft,
     },
+    badgeError: { backgroundColor: colors.danger + "1F" },
     body: { flex: 1, minWidth: 0, gap: 3 },
     title: { ...typography.callout, fontWeight: "700", color: colors.text },
     hint: { ...typography.micro, fontWeight: "500", color: colors.textMuted, lineHeight: 15 },
+    hintError: { color: colors.danger, fontWeight: "600" },
     track: {
       marginTop: 6,
       height: 6,
@@ -152,11 +165,17 @@ const makeStyles = (colors: ThemeColors) =>
       backgroundColor: colors.surfaceStrong,
     },
     pickText: { ...typography.micro, fontWeight: "700", color: colors.text },
-    remove: { borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 5 },
-    removeText: { ...typography.micro, fontWeight: "600", color: colors.textMuted },
     pressed: { opacity: 0.7 },
     off: { opacity: 0.5 },
-    close: { padding: 2 },
+    // 与 BottomSheet 的关闭钮同一语言：28×28 圆底 + hitSlop
+    close: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surfaceMuted,
+    },
   });
 
 /** 与 Web 一致的默认文案（"支持拖拽…"在移动端改为"单个不超过…"） */
