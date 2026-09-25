@@ -35,8 +35,8 @@ import {
   type MdImportResult,
 } from "@/lib/roadmap";
 import { SheetSection, SheetStickyCta } from "@/components/sheet";
-import { FocusShareSheet } from "@/components/focus-share-card";
-import { focusShareDataFromStats } from "@/lib/focus-share";
+import { StudyShareSheet } from "@/components/study-share-card";
+import { buildStudyCardModel } from "@/lib/study-card-model";
 
 const STAGE_GRADS: [string, string][] = [
   ["#2F74C0", "#78C2E8"],
@@ -524,12 +524,21 @@ export default function LearnScreen() {
   ].slice(0, 4);
 
   /**
-   * v1.23：学习统计的分享与「今日任务」**统一为图片卡片**（旧实现这里是纯文字，
-   * 真机反馈"上面点分享是卡片，这里点分享却是文案"）。
+   * v16 P2：学习统计的分享升级为**闪光档案卡**（真 three.js 背景 + 数据面板），
+   * 数据口对齐参考项目 card-config 的 rows_left / rows_right / flags 契约。
    */
   const shareData = useMemo(
-    () => focusShareDataFromStats(stats, new Date(), "学习统计"),
-    [stats]
+    () =>
+      buildStudyCardModel({
+        todayMinutes: stats.todayMinutes,
+        todaySessions: stats.todaySessions,
+        streak: stats.streak,
+        totalFocusDays: stats.totalFocusDays,
+        last14: stats.last14,
+        weekMinutes,
+        goalMinutes: todayTarget,
+      }),
+    [stats, weekMinutes]
   );
 
   const swapPhase = (from: number, to: number) => {
@@ -974,7 +983,7 @@ export default function LearnScreen() {
       </BottomSheet>
 
       {/* 分享统一走卡片图片（与今日任务同一个组件/同一张卡片，仅标题不同） */}
-      <FocusShareSheet visible={shareSheet} onClose={() => setShareSheet(false)} data={shareData} />
+      <StudyShareSheet visible={shareSheet} onClose={() => setShareSheet(false)} model={shareData} />
 
       <BottomSheet
         visible={calendarOpen}
