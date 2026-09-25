@@ -57,6 +57,15 @@ const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
   root: { flex: 1 },
   tabIcon: { width: 46, height: 32, alignItems: "center", justifyContent: "center" },
+  tabBarTint: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    borderRadius: TAB_BAR_HEIGHT / 2,
+    backgroundColor: colors.primary + "1A",
+  },
   tabBarHighlight: {
     position: "absolute",
     top: 1,
@@ -242,8 +251,8 @@ function ThemedShell() {
           headerShown: false,
           tabBarActiveTintColor: colors.primaryStrong,
           tabBarInactiveTintColor: colors.textMuted,
-          // 参考用户给的 Tab 设计：选中项是一枚圆角胶囊高亮（玻璃底 + 内高光），不是整块变色
-          tabBarActiveBackgroundColor: colors.primarySoft,
+          // 参考代码 .menu a.active：选中项是一枚**浅色圆角胶囊** + 主色文字（不是整块变色）
+          tabBarActiveBackgroundColor: colors.surface + "B3",
           tabBarInactiveBackgroundColor: "transparent",
           /**
            * 悬空玻璃底栏（v12 P1-1，参考用户给的两张图）：
@@ -252,12 +261,13 @@ function ThemedShell() {
            */
           tabBarStyle: {
             position: "absolute",
-            left: 18,
-            right: 18,
+            // 参考代码 width: calc(100% - 20px) → 左右各留 10
+            left: 10,
+            right: 10,
             bottom: insets.bottom + 6,
             height: TAB_BAR_HEIGHT,
             borderRadius: TAB_BAR_HEIGHT / 2,
-            paddingHorizontal: 6,
+            paddingHorizontal: 8,
             paddingBottom: 0,
             paddingTop: 0,
             backgroundColor: "transparent",
@@ -268,20 +278,24 @@ function ThemedShell() {
           },
           tabBarBackground: () => (
             <View style={styles.tabBarGlass} pointerEvents="none">
-              {/* 内高光：模拟参考代码 menu::after 的 inset 高光 */}
+              {/* 参考代码的蓝色半透明底（这里用主色低透明度叠加，深浅色都成立） */}
+              <View style={styles.tabBarTint} pointerEvents="none" />
+              {/* 内高光：对应参考代码 menu::after 的 inset 高光 */}
               <View style={styles.tabBarHighlight} pointerEvents="none" />
             </View>
           ),
           /**
-           * v1.22：去掉文字标签，只留图标并让图标真正居中。
-           * 真机反馈：文字贴到胶囊底部、没有居中；图标本身足够直观，所以按用户要求只留图标。
+           * v1.26：按用户给的 Tab 参考代码恢复「图标 + 文字」两行结构，
+           * 并把文字做成 10pt/700、行高 1、marginTop 2 —— 上一版文字贴底正是因为缺这几项。
+           * 若真机仍嫌挤，把 LABELS 置 false 即回到只留图标。
            */
-          tabBarShowLabel: false,
+          tabBarShowLabel: true,
+          tabBarLabelStyle: { fontSize: 10, fontWeight: "700", lineHeight: 12, marginTop: 2, marginBottom: 0 },
           tabBarItemStyle: {
-            marginVertical: 6,
-            marginHorizontal: 3,
+            marginVertical: 4,
+            marginHorizontal: 2,
             borderRadius: 999,
-            paddingVertical: 0,
+            paddingVertical: 6,
             alignItems: "center",
             justifyContent: "center",
           },

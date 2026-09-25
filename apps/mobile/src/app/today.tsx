@@ -541,32 +541,6 @@ export default function TodayScreen() {
           </View>
         </PressableScale>
 
-        {/* 我的一天：完成度 + 剩余领域入口（学习/运动已并入上面的「一键开始」，不再重复） */}
-        <DailyOsSummary />
-
-        <View style={styles.sectionTitleRow}>
-          <Text style={styles.sectionTitle}>运动 · 健康</Text>
-          <Pressable onPress={() => setSportSheetOpen(true)} hitSlop={8} style={styles.addSportBtn}>
-            <ThemedIcon name="add" size={16} color={colors.accentStrong} />
-            <Text style={styles.addSportText}>添加记录</Text>
-          </Pressable>
-        </View>
-
-        {/* 首屏只留汇总；逐条明细收进「更多」（v2 §3） */}
-        <Card style={styles.sportCard}>
-          <View style={styles.sportTotal}>
-            <Text style={styles.sportTotalNum}>{(sportsTotalMinutes / 60).toFixed(1)}</Text>
-            <Text style={styles.sportTotalUnit}>小时</Text>
-            <Text style={styles.sportTotalNote}>今日能量 · 阳光满分</Text>
-          </View>
-          <Pressable onPress={() => setMoreOpen(true)} hitSlop={6} style={styles.inlineMore}>
-            <Text style={styles.inlineMoreText}>
-              {sports.length === 0 ? "今天还没有运动记录，去阳光下动一动吧" : `${sports.length} 条记录 · 查看明细`}
-            </Text>
-            <ThemedIcon name="chevron-forward" size={14} color={colors.textFaint} />
-          </Pressable>
-        </Card>
-
         <View style={styles.sectionTitleRow}>
           <Text style={styles.sectionTitle}>今日任务</Text>
           <Text style={styles.sectionMore}>
@@ -634,6 +608,32 @@ export default function TodayScreen() {
             <ThemedIcon name="chevron-forward" size={14} color={colors.textFaint} />
           </Pressable>
         ) : null}
+
+        {/* 我的一天：完成度 + 剩余领域入口（学习/运动已并入上面的「一键开始」，不再重复） */}
+        <DailyOsSummary />
+
+        <View style={styles.sectionTitleRow}>
+          <Text style={styles.sectionTitle}>运动 · 健康</Text>
+          <Pressable onPress={() => setSportSheetOpen(true)} hitSlop={8} style={styles.addSportBtn}>
+            <ThemedIcon name="add" size={16} color={colors.accentStrong} />
+            <Text style={styles.addSportText}>添加记录</Text>
+          </Pressable>
+        </View>
+
+        {/* 首屏只留汇总；逐条明细收进「更多」（v2 §3） */}
+        <Card style={styles.sportCard}>
+          <View style={styles.sportTotal}>
+            <Text style={styles.sportTotalNum}>{(sportsTotalMinutes / 60).toFixed(1)}</Text>
+            <Text style={styles.sportTotalUnit}>小时</Text>
+            <Text style={styles.sportTotalNote}>今日能量 · 阳光满分</Text>
+          </View>
+          <Pressable onPress={() => setMoreOpen(true)} hitSlop={6} style={styles.inlineMore}>
+            <Text style={styles.inlineMoreText}>
+              {sports.length === 0 ? "今天还没有运动记录，去阳光下动一动吧" : `${sports.length} 条记录 · 查看明细`}
+            </Text>
+            <ThemedIcon name="chevron-forward" size={14} color={colors.textFaint} />
+          </Pressable>
+        </Card>
 
         {/* 更多：本周节奏 / 打卡 / 运动明细 / AI 建议（首屏只留重点块） */}
         <SectionHeader title="更多" subtitle="本周节奏 · 打卡 · 运动明细 · AI 建议" actionLabel="展开" onAction={() => setMoreOpen(true)} />

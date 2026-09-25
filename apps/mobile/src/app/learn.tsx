@@ -340,6 +340,8 @@ export default function LearnScreen() {
   const removeCustomTopic = useAppStore((s) => s.removeCustomTopic);
   const [stageSheet, setStageSheet] = useState(false);
   const [shareSheet, setShareSheet] = useState(false);
+  /** v1.26：右上角 ☰ 的快捷入口弹层 */
+  const [quickOpen, setQuickOpen] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
   /** v5 P2-2：学习内容区块的时间范围（今日 / 本周） */
@@ -654,52 +656,17 @@ export default function LearnScreen() {
       <View style={styles.hero}>
         <Text style={styles.heroTitle}>学习</Text>
         <Text style={styles.heroSub}>路线图 · 主题 · 统计 · 日志</Text>
+        {/* v1.26：快捷入口收进右上角三条横线 */}
+        <Pressable
+          hitSlop={10}
+          style={styles.heroMenuBtn}
+          onPress={() => setQuickOpen(true)}
+          accessibilityLabel="快捷入口"
+          accessibilityRole="button"
+        >
+          <ThemedIcon name="menu" size={22} color={colors.text} />
+        </Pressable>
       </View>
-
-      {/* v9：今日专注 hero（进度环 + 关键值），与健康页同一套视觉语言 */}
-      <GlassSurface corner={radius.xl} style={styles.focusHero}>
-        <View style={styles.tomatoHero}>
-          <View style={styles.ringWrap}>
-            <RingProgress
-              size={104}
-              strokeWidth={11}
-              progress={ringRatio}
-              trackColor="rgba(47,116,192,0.14)"
-              color={colors.primary}
-            />
-            <Text style={styles.ringPct}>{ringPctNum}%</Text>
-          </View>
-          <View style={styles.tomatoHeroRight}>
-            <Text style={styles.hLabel}>今日已专注 · 目标 2.5 小时</Text>
-            <Text style={styles.hVal}>{formatDuration(todayMinutes)}</Text>
-            <View style={styles.focusMets}>
-              <Text style={styles.focusMet}>连续专注 {stats.streak} 天</Text>
-              <Text style={styles.focusMet}>本周 {formatDuration(weekMinutes)}</Text>
-            </View>
-          </View>
-        </View>
-      </GlassSurface>
-
-      <GroupLabel>快捷入口</GroupLabel>
-      <ListGroup>
-        {(
-          [
-            { key: "tasks", label: "今日任务", desc: "勾选今天要完成的事", icon: "list-outline", href: "/tasks" },
-            { key: "logs", label: "学习日志", desc: "记录今天学了什么", icon: "create-outline", href: "/logs" },
-            { key: "trackers", label: "领域记录", desc: "通用计量与按日打卡", icon: "stats-chart-outline", href: "/trackers" },
-          ] as const
-        ).map((q, i, list) => (
-          <ListRow
-            key={q.key}
-            icon={q.icon}
-            title={q.label}
-            subtitle={q.desc}
-            showChevron
-            last={i === list.length - 1}
-            onPress={() => router.push(q.href as never)}
-          />
-        ))}
-      </ListGroup>
 
       <GroupLabel>学习阶段</GroupLabel>
       <View style={styles.sectionHeadRow}>
@@ -982,6 +949,46 @@ export default function LearnScreen() {
       </Card>
       </BottomSheet>
 
+      {/* v1.26：快捷入口改为右上角 ☰ 弹出 */}
+      <BottomSheet
+        visible={quickOpen}
+        onClose={() => setQuickOpen(false)}
+        title="快捷入口"
+        subtitle="常用页面一步直达"
+        icon="menu-outline"
+        height="56%"
+      >
+        <SheetSection title="学习" last>
+          <ListGroup>
+            {(
+              [
+                { key: "tasks", label: "今日任务", desc: "勾选今天要完成的事", icon: "list-outline", href: "/tasks" },
+                { key: "logs", label: "学习日志", desc: "记录今天学了什么", icon: "create-outline", href: "/logs" },
+                { key: "trackers", label: "领域记录", desc: "通用计量与按日打卡", icon: "stats-chart-outline", href: "/trackers" },
+                { key: "stats", label: "学习统计", desc: "热力图 · 内容维度 · 分享闪光卡", icon: "stats-chart-outline", href: "" },
+              ] as const
+            ).map((q, i, list) => (
+              <ListRow
+                key={q.key}
+                icon={q.icon}
+                title={q.label}
+                subtitle={q.desc}
+                showChevron
+                last={i === list.length - 1}
+                onPress={() => {
+                  setQuickOpen(false);
+                  if (q.key === "stats") {
+                    setStatsOpen(true);
+                    return;
+                  }
+                  router.push(q.href as never);
+                }}
+              />
+            ))}
+          </ListGroup>
+        </SheetSection>
+      </BottomSheet>
+
       {/* 分享统一走卡片图片（与今日任务同一个组件/同一张卡片，仅标题不同） */}
       <StudyShareSheet visible={shareSheet} onClose={() => setShareSheet(false)} model={shareData} />
 
@@ -1191,7 +1198,20 @@ const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
   scroll: { flex: 1, backgroundColor: "transparent" },
   content: { paddingHorizontal: 16, gap: 12 },
-  hero: { marginBottom: 8 },
+  hero: { marginBottom: 8, paddingRight: 46 },
+  heroMenuBtn: {
+    position: "absolute",
+    right: 0,
+    top: 4,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
   heroTitle: { fontSize: 28, fontWeight: "800", color: colors.text },
   heroSub: { fontSize: 13, color: colors.textMuted, marginTop: 4 },
   /* v9：今日专注 hero */
