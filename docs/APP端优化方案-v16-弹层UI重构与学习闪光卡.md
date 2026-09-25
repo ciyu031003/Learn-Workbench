@@ -288,7 +288,7 @@ export interface StudyCardData {
 | P1a | `2d0704e` | ContentPicker 改胶囊分段 + ChipGroup；选择日期 / 添加学习内容 / 阶段表单 / Markdown 导入 补副标题+图标+吸底 CTA（MD 的预览与确认导入合成主次按钮） |
 | P1b | `55d0b06` | 招花：高级筛选改 Sheet v3（分组 + ChipGroup + 吸底应用/清空，重置移入 headerAction）；雷达三组 chips 收敛到 ChipGroup；我的求职 9 个阶段胶囊改「一行摘要 + 阶段单选弹层 + 吸底危险 CTA」 |
 | P2b | `f6b41d0` |
-| P3（进行中） | 待提交 | 通用 6 个弹层迁移：上传卡 / 装备图库选择 / 动作选择 / 每日目标 / 饮食编辑 / 登录注册（并行两个子代理，写作用域互不重叠） | 移动端**真 three.js** 闪光卡：`expo-gl@~57.0.2` + `three@^0.186`；`lib/holo-scene.ts`（参考卡着色器骨架的程序化复现：镭射/星点/扫光/描金框，无后处理以保低端机稳定）；`lib/study-card-model.ts`（数据口契约 = `rowsLeft`/`rowsRight`/`flags`/`parameters`/`safeArea` + 徽章优先级，11 条单测）；`components/study-share-card.tsx`（GL 背景 + RN 中文数据面板 → 先冻 GL 出图再 view-shot 合成整卡分享）；学习统计的分享已切到该卡 |
+| P3 | `dfc3c4f` + `bd4001c` + `edad2c0` | 通用 6 个弹层迁移：上传卡 / 装备图库选择 / 动作选择 / 每日目标 / 饮食编辑 / 登录注册（两个子代理并行，写作用域互不重叠；`edad2c0` 修回迁移中丢掉的搜索输入语义） | 移动端**真 three.js** 闪光卡：`expo-gl@~57.0.2` + `three@^0.186`；`lib/holo-scene.ts`（参考卡着色器骨架的程序化复现：镭射/星点/扫光/描金框，无后处理以保低端机稳定）；`lib/study-card-model.ts`（数据口契约 = `rowsLeft`/`rowsRight`/`flags`/`parameters`/`safeArea` + 徽章优先级，11 条单测）；`components/study-share-card.tsx`（GL 背景 + RN 中文数据面板 → 先冻 GL 出图再 view-shot 合成整卡分享）；学习统计的分享已切到该卡 |
 
 **关键工程决策（P2 落地时补充）**
 
@@ -306,3 +306,14 @@ export interface StudyCardData {
 | 发布物 | APK → `/data/learn-workbench/releases/learn-workbench-v1.24.0.apk`；OTA 清单 `1.24.0/37`（7 条说明）→ `landing/mobile-update.json`；`download.html` 与二维码更新（`?v=20260925a`，二维码按 v1.24.0 地址重新生成） |
 | 线上核验 | `download.html` / `mobile-update.json` / `img/learn-download-qr.png` 与本地 **MD5 全等**；APK `HEAD` 200 且 `Content-Length=72,865,827`，服务器 `md5sum` 与本地一致 |
 | 待真机复测 | ① 学习档案闪光卡的出图与分享（微信预览可读性）；② 各弹层观感 / 键盘 / 下滑关闭；③ 招花筛选与我的求职阶段；④ 低端机 running three.js 是否掉帧（掉帧可把动效降到静态卡面） |
+### 发布记录（v1.25.0 / 38，2026-09-25）
+
+| 项 | 值 |
+| --- | --- |
+| 提交 | `dfc3c4f` P3b（表单 3 个）· `bd4001c` P3a（选择器 / 上传卡 3 个）· `edad2c0` SheetSearchField 搜索语义修复 |
+| APK | **72,863,243 B** · MD5 `2acd1ea98d20830f48d82d7b78063ce6` · SHA256 `d8834c703ec7abce39064136be35fd5dbb6c5e02469e0ef16aa6e310ce38b0fb` · 签名 MD5 `3057105285981cc18597a95c1370c147`（与备案一致） |
+| 包体 | 与 v1.24.0 基本持平（72,865,827 → 72,863,243，**-2,584 B**，本轮纯 JS/布局改动） |
+| 发布物 | APK → `/data/learn-workbench/releases/learn-workbench-v1.25.0.apk`；OTA 清单 `1.25.0/38`（7 条说明）→ `landing/mobile-update.json`；`download.html` 与二维码更新（`?v=20260925b`） |
+| 线上核验 | 服务端 `md5sum` 与本地全等，且 curl 实测 `download.html`(11322B) / `mobile-update.json`(919B) / `learn-download-qr.png`(4363B) 三者 MD5 与本地一致；APK Range 请求返回 **206**、服务端 md5 与本地一致 |
+| 构建注意 | 打包脚本两次都卡在 gradle 之后的收尾阶段（与 v1.24.0 同因，踩坑 53/76）；本次用「JS bundle 生成时间 18:49:16 > 修复提交 18:47:52」确认 APK 确实产自最终树 |
+| 待真机复测 | ① 动作选择第一步长列表滚动与两步向导；② 上传卡空/已选/失败三态；③ 每日目标、饮食编辑（含删除危险态）、登录注册表单；④ 装备图库型号搜索自动大写是否恢复 |
