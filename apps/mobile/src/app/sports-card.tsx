@@ -959,10 +959,20 @@ export default function SportsCardScreen() {
                 {wantsImage ? (
                   <Pressable
                     onPress={() => setPickerIndex(pickerIndex === i ? null : i)}
-                    style={styles.gearPickBtn}
-                    accessibilityLabel="从图库选择"
+                    style={[styles.gearPickBtn, g.imageUrl ? styles.gearPickBtnFilled : null]}
+                    accessibilityLabel={g.imageUrl ? "换一张装备图" : "从图库选择装备图"}
                   >
-                    <ThemedIcon name="images-outline" size={16} color={colors.primary} />
+                    {/* 有图就显示缩略图：一眼看出哪一行已经配过图，而不是清一色图标 */}
+                    {g.imageUrl ? (
+                      <Image
+                        source={{ uri: absoluteMediaUrl(g.imageUrl) ?? g.imageUrl }}
+                        style={styles.gearPickThumb}
+                        contentFit="cover"
+                        transition={150}
+                      />
+                    ) : (
+                      <ThemedIcon name="images-outline" size={17} color={colors.primary} />
+                    )}
                   </Pressable>
                 ) : null}
               </View>
@@ -1423,19 +1433,22 @@ const makeStyles = (colors: ThemeColors) =>
     photoMeta: { flex: 1, gap: 2 },
     photoTitle: { fontSize: 14, fontWeight: "700", color: colors.text },
     photoHint: { fontSize: 11, color: colors.textMuted },
-    gearInputRow: { flexDirection: "row", gap: 8 },
-    gearInputLabel: { width: 108 },
+    gearInputRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+    gearInputLabel: { width: 100 },
     gearInputValue: { flex: 1 },
     gearPickBtn: {
-      width: 40,
-      height: 44,
+      width: 46,
+      height: 46,
       alignItems: "center",
       justifyContent: "center",
       borderRadius: radius.md,
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.surfaceStrong,
+      overflow: "hidden",
     },
+    gearPickBtnFilled: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
+    gearPickThumb: { width: "100%", height: "100%" },
     pickerBox: {
       gap: 10,
       padding: 12,
