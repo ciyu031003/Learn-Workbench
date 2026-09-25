@@ -1,6 +1,5 @@
 import { useEffect, useState , useMemo } from "react";
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,6 +9,7 @@ import {
 } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
 import { BottomSheet } from "@/components/bottom-sheet";
+import { SheetSection, SheetSegmented, SheetStickyCta } from "@/components/sheet";
 import { getApiUrl } from "@/config";
 import { apiLogin } from "@/lib/sync";
 import { haptics } from "@/lib/haptics";
@@ -131,8 +131,31 @@ export function AuthSheet({
       visible={visible}
       onClose={onClose}
       title={mode === "login" ? "登录苦旅" : "创建账号"}
+      subtitle="登录后本机数据自动同步云端；不登录也能离线使用"
+      icon="person-circle-outline"
       height="82%"
       scroll={false}
+      segmented={
+        <SheetSegmented
+          options={[
+            { key: "login", label: "登录" },
+            { key: "register", label: "注册" },
+          ]}
+          value={mode}
+          onChange={(k) => {
+            if (k !== mode) switchMode();
+          }}
+        />
+      }
+      footer={
+        <SheetStickyCta
+          label={mode === "login" ? "登 录" : "创建账号"}
+          icon={mode === "login" ? "log-in-outline" : "person-add-outline"}
+          loading={busy}
+          onPress={submit}
+        />
+      }
+      footerHint="不登录也可以离线使用全部功能"
     >
       <View style={styles.flex}>
         <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
@@ -144,25 +167,11 @@ export function AuthSheet({
             <Text style={styles.brandSub}>把每一天的学习，都变成面向未来的积累</Text>
           </View>
 
-          <View style={styles.seg}>
-            <Pressable
-              style={[styles.segItem, mode === "login" && styles.segItemActive]}
-              onPress={() => {
-                if (mode !== "login") switchMode();
-              }}
-            >
-              <Text style={[styles.segText, mode === "login" && styles.segTextActive]}>登录</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.segItem, mode === "register" && styles.segItemActive]}
-              onPress={() => {
-                if (mode !== "register") switchMode();
-              }}
-            >
-              <Text style={[styles.segText, mode === "register" && styles.segTextActive]}>注册</Text>
-            </Pressable>
-          </View>
-
+          <SheetSection
+            title="账号信息"
+            hint={mode === "register" ? "密码至少 6 位" : "用账号与密码登录"}
+            last
+          >
           <View style={styles.inputShell}>
             <ThemedIcon name="person-outline" size={16} color={colors.textMuted} />
             <TextInput
@@ -215,6 +224,7 @@ export function AuthSheet({
               ) : null}
             </View>
           ) : null}
+          </SheetSection>
 
           {error ? (
             <View style={styles.errorRow}>
@@ -223,18 +233,6 @@ export function AuthSheet({
             </View>
           ) : null}
           {notice && !error ? <Text style={styles.noticeText}>{notice}</Text> : null}
-
-          <Pressable
-            style={[styles.submit, busy || (mode === "register" && (!userInput.trim() || !passInput)) ? styles.submitDisabled : null]}
-            onPress={submit}
-            disabled={busy}
-          >
-            {busy ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.submitText}>{mode === "login" ? "登 录" : "创建账号"}</Text>
-            )}
-          </Pressable>
 
           <Pressable onPress={switchMode}>
             <Text style={styles.switchText}>{mode === "login" ? "还没有账号？立即注册" : "已有账号？返回登录"}</Text>
@@ -262,19 +260,6 @@ const makeStyles = (colors: ThemeColors) =>
   },
   brandTitle: { fontSize: 20, fontWeight: "900", color: colors.text },
   brandSub: { fontSize: 12, color: colors.textMuted, textAlign: "center", lineHeight: 17 },
-  seg: {
-    flexDirection: "row",
-    backgroundColor: colors.surfaceStrong,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    borderRadius: 14,
-    padding: 4,
-    marginTop: 4,
-  },
-  segItem: { flex: 1, borderRadius: 11, paddingVertical: 9, alignItems: "center" },
-  segItemActive: { backgroundColor: colors.primary },
-  segText: { fontSize: 14, fontWeight: "700", color: colors.textMuted },
-  segTextActive: { color: "#fff", fontWeight: "800" },
   inputShell: {
     flexDirection: "row",
     alignItems: "center",
@@ -291,15 +276,6 @@ const makeStyles = (colors: ThemeColors) =>
   errorRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   errorText: { flex: 1, fontSize: 13, color: colors.danger, fontWeight: "600" },
   noticeText: { fontSize: 12, color: colors.textMuted },
-  submit: {
-    backgroundColor: colors.primary,
-    borderRadius: 14,
-    paddingVertical: 13,
-    alignItems: "center",
-    marginTop: 2,
-  },
-  submitDisabled: { opacity: 0.55 },
-  submitText: { color: "#fff", fontSize: 15, fontWeight: "800", letterSpacing: 1 },
   switchText: { fontSize: 12, color: colors.primary, fontWeight: "600", textAlign: "center", paddingVertical: 2 },
   hint: { fontSize: 12, color: colors.textMuted, lineHeight: 18, textAlign: "center", marginTop: 2 },
 });
