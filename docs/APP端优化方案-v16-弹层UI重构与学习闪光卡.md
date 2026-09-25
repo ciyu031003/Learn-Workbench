@@ -287,7 +287,8 @@ export interface StudyCardData {
 | P0 | `fd4d508` | `bottom-sheet.tsx` 加 6 个槽位（几何未动）；`components/sheet/` 7 个原子组件（segmented / section / chip-group / list-row / sticky-cta / search-field / stepper-row）；一键开始、学习统计、新建任务、自由专注四个弹层重构 |
 | P1a | `2d0704e` | ContentPicker 改胶囊分段 + ChipGroup；选择日期 / 添加学习内容 / 阶段表单 / Markdown 导入 补副标题+图标+吸底 CTA（MD 的预览与确认导入合成主次按钮） |
 | P1b | `55d0b06` | 招花：高级筛选改 Sheet v3（分组 + ChipGroup + 吸底应用/清空，重置移入 headerAction）；雷达三组 chips 收敛到 ChipGroup；我的求职 9 个阶段胶囊改「一行摘要 + 阶段单选弹层 + 吸底危险 CTA」 |
-| P2b | `f6b41d0` | 移动端**真 three.js** 闪光卡：`expo-gl@~57.0.2` + `three@^0.186`；`lib/holo-scene.ts`（参考卡着色器骨架的程序化复现：镭射/星点/扫光/描金框，无后处理以保低端机稳定）；`lib/study-card-model.ts`（数据口契约 = `rowsLeft`/`rowsRight`/`flags`/`parameters`/`safeArea` + 徽章优先级，11 条单测）；`components/study-share-card.tsx`（GL 背景 + RN 中文数据面板 → 先冻 GL 出图再 view-shot 合成整卡分享）；学习统计的分享已切到该卡 |
+| P2b | `f6b41d0` |
+| P3（进行中） | 待提交 | 通用 6 个弹层迁移：上传卡 / 装备图库选择 / 动作选择 / 每日目标 / 饮食编辑 / 登录注册（并行两个子代理，写作用域互不重叠） | 移动端**真 three.js** 闪光卡：`expo-gl@~57.0.2` + `three@^0.186`；`lib/holo-scene.ts`（参考卡着色器骨架的程序化复现：镭射/星点/扫光/描金框，无后处理以保低端机稳定）；`lib/study-card-model.ts`（数据口契约 = `rowsLeft`/`rowsRight`/`flags`/`parameters`/`safeArea` + 徽章优先级，11 条单测）；`components/study-share-card.tsx`（GL 背景 + RN 中文数据面板 → 先冻 GL 出图再 view-shot 合成整卡分享）；学习统计的分享已切到该卡 |
 
 **关键工程决策（P2 落地时补充）**
 
