@@ -21,6 +21,7 @@ import { radius } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
+import { ChipGroup } from "@/components/sheet";
 import { haptics } from "@/lib/haptics";
 import {
   applyRadarFilter,
@@ -173,45 +174,27 @@ export default function RadarScreen() {
             </Pressable>
           </View>
 
-          {/* 领域分类 */}
+          {/* 领域分类（v16：收敛到 ChipGroup 的滑动胶囊） */}
           <Text style={styles.filterLabel}>领域</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-            {RADAR_CATEGORY_ORDER.map((c) => {
-              const active = category === c;
-              return (
-                <Pressable
-                  key={c}
-                  onPress={() => pick(() => setCategory(c))}
-                  style={[styles.chip, active && styles.chipActive]}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: active }}
-                >
-                  <Text style={[styles.chipText, active && styles.chipTextActive]}>{RADAR_CATEGORY_LABELS[c]}</Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
+          <ChipGroup
+            multiple={false}
+            options={RADAR_CATEGORY_ORDER.map((c) => ({ key: c, label: RADAR_CATEGORY_LABELS[c] }))}
+            selected={[category]}
+            onToggle={(k) => pick(() => setCategory(k as RadarCategory))}
+          />
 
           {/* 城市 */}
           {facets.cities.length > 0 ? (
             <>
               <Text style={styles.filterLabel}>城市</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-                {[null, ...facets.cities].map((c) => {
-                  const active = city === c;
-                  return (
-                    <Pressable
-                      key={c ?? "__all__"}
-                      onPress={() => pick(() => setCity(c))}
-                      style={[styles.chip, active && styles.chipActive]}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: active }}
-                    >
-                      <Text style={[styles.chipText, active && styles.chipTextActive]}>{c ?? "全部城市"}</Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
+              <ChipGroup
+                multiple={false}
+                allKey="__all__"
+                allLabel="全部城市"
+                options={facets.cities.map((c) => ({ key: c, label: c }))}
+                selected={[city ?? "__all__"]}
+                onToggle={(k) => pick(() => setCity(k === "__all__" ? null : k))}
+              />
             </>
           ) : null}
 
@@ -219,22 +202,14 @@ export default function RadarScreen() {
           {facets.functions.length > 0 ? (
             <>
               <Text style={styles.filterLabel}>岗位方向</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-                {[null, ...facets.functions].map((f) => {
-                  const active = functionKey === f;
-                  return (
-                    <Pressable
-                      key={f ?? "__all__"}
-                      onPress={() => pick(() => setFunctionKey(f))}
-                      style={[styles.chip, active && styles.chipActive]}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: active }}
-                    >
-                      <Text style={[styles.chipText, active && styles.chipTextActive]}>{f ?? "全部方向"}</Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
+              <ChipGroup
+                multiple={false}
+                allKey="__all__"
+                allLabel="全部方向"
+                options={facets.functions.map((f) => ({ key: f, label: f }))}
+                selected={[functionKey ?? "__all__"]}
+                onToggle={(k) => pick(() => setFunctionKey(k === "__all__" ? null : k))}
+              />
             </>
           ) : null}
 

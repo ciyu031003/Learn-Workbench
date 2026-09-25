@@ -3,10 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Modal,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -27,6 +25,8 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { Card } from "@/components/card";
+import { BottomSheet } from "@/components/bottom-sheet";
+import { ChipGroup, SheetSection, SheetStickyCta } from "@/components/sheet";
 import { JobDetailModal } from "@/components/job-detail-modal";
 import { radius } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
@@ -298,118 +298,108 @@ function FilterBottomSheet({
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [draft, setDraft] = useState("");
+  const salaryKey = SALARY_PRESETS.find((p) => p.min === salaryMin && p.max === salaryMax)?.label ?? "";
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-      <View style={styles.sheetWrap}>
-        <Card style={styles.sheet}>
-          <View style={styles.grabber} />
-          <View style={styles.sheetHeader}>
-            <Text style={styles.sheetTitle}>高级筛选</Text>
-            <Pressable onPress={onReset} hitSlop={8}>
-              <Text style={styles.sheetReset}>重置</Text>
-            </Pressable>
-          </View>
-
-          <ScrollView style={{ maxHeight: "62%" }} showsVerticalScrollIndicator={false}>
-            <Text style={styles.filterGroupTitle}>薪资区间</Text>
-            <View style={styles.chipWrap}>
-              {SALARY_PRESETS.map((p) => (
-                <Pressable
-                  key={p.label}
-                  onPress={() => onSalary(p.min, p.max)}
-                  style={[styles.sheetChip, salaryMin === p.min && salaryMax === p.max ? styles.sheetChipActive : styles.sheetChipIdle]}
-                >
-                  <Text style={salaryMin === p.min && salaryMax === p.max ? styles.sheetChipTextActive : styles.sheetChipText}>{p.label}</Text>
-                </Pressable>
-              ))}
-            </View>
-
-            <Text style={styles.filterGroupTitle}>城市</Text>
-            <View style={styles.chipWrap}>
-              {CITY_OPTIONS.map((c) => {
-                const cVal = c === "全部" ? "" : c;
-                const active = city === cVal;
-                return (
-                  <Pressable
-                    key={c}
-                    onPress={() => onCity(cVal)}
-                    style={[styles.sheetChip, active ? styles.sheetChipActive : styles.sheetChipIdle]}
-                  >
-                    <Text style={active ? styles.sheetChipTextActive : styles.sheetChipText}>{c}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <Text style={styles.filterGroupTitle}>学历</Text>
-            <View style={styles.chipWrap}>
-              {EDU_OPTIONS.map((e) => (
-                <Pressable key={e} onPress={() => onToggleEdu(e)} style={[styles.sheetChip, education.includes(e) ? styles.sheetChipActive : styles.sheetChipIdle]}>
-                  <Text style={education.includes(e) ? styles.sheetChipTextActive : styles.sheetChipText}>{e}</Text>
-                </Pressable>
-              ))}
-            </View>
-
-            <Text style={styles.filterGroupTitle}>经验</Text>
-            <View style={styles.chipWrap}>
-              {EXP_OPTIONS.map((e) => (
-                <Pressable key={e} onPress={() => onToggleExp(e)} style={[styles.sheetChip, experience.includes(e) ? styles.sheetChipActive : styles.sheetChipIdle]}>
-                  <Text style={experience.includes(e) ? styles.sheetChipTextActive : styles.sheetChipText}>{e}</Text>
-                </Pressable>
-              ))}
-            </View>
-
-            <Text style={styles.filterGroupTitle}>发布时间</Text>
-            <View style={styles.chipWrap}>
-              {PUBLISHED_OPTIONS.map((p) => (
-                <Pressable key={p.value} onPress={() => onPublished(p.value as never)} style={[styles.sheetChip, publishedWithin === p.value ? styles.sheetChipActive : styles.sheetChipIdle]}>
-                  <Text style={publishedWithin === p.value ? styles.sheetChipTextActive : styles.sheetChipText}>{p.label}</Text>
-                </Pressable>
-              ))}
-            </View>
-
-            <Text style={styles.filterGroupTitle}>技能标签</Text>
-            <View style={styles.chipWrap}>
-              {skills.map((s) => (
-                <Pressable key={s} onPress={() => onRemoveSkill(s)} style={[styles.sheetChip, styles.sheetChipActive]}>
-                  <Text style={styles.sheetChipTextActive}>{s} ✕</Text>
-                </Pressable>
-              ))}
-            </View>
-            <View style={styles.skillInputRow}>
-              <TextInput
-                style={styles.skillInput}
-                value={draft}
-                onChangeText={setDraft}
-                placeholder="输入技能后回车添加，如 Python"
-                placeholderTextColor={colors.textFaint}
-                returnKeyType="done"
-                onSubmitEditing={() => {
-                  const v = draft.trim();
-                  if (v) onAddSkill(v);
-                  setDraft("");
+    <BottomSheet
+      visible={visible}
+      onClose={onClose}
+      title="高级筛选"
+      subtitle="可叠加多个条件；应用后列表顶部会显示当前条件"
+      icon="options-outline"
+      height="84%"
+      headerAction={
+        <Pressable onPress={onReset} hitSlop={8} accessibilityLabel="重置筛选">
+          <Text style={styles.sheetReset}>重置</Text>
+        </Pressable>
+      }
+      footer={
+        <SheetStickyCta
+          label="应用筛选"
+          icon="checkmark"
+          onPress={onApply}
+          secondaryLabel="清空全部条件"
+          onSecondary={onReset}
+        />
+      }
+      footerHint="关闭不会清空已选条件，重新打开还在"
+    >
+            <SheetSection title="薪资区间">
+              <ChipGroup
+                multiple={false}
+                wrap
+                options={SALARY_PRESETS.map((p) => ({ key: p.label, label: p.label }))}
+                selected={salaryKey ? [salaryKey] : []}
+                onToggle={(k) => {
+                  const p = SALARY_PRESETS.find((x) => x.label === k);
+                  if (p) onSalary(p.min, p.max);
                 }}
               />
-              <Pressable
-                style={styles.skillAddBtn}
-                onPress={() => {
-                  const v = draft.trim();
-                  if (v) onAddSkill(v);
-                  setDraft("");
-                }}
-              >
-                <Text style={styles.skillAddText}>添加</Text>
-              </Pressable>
-            </View>
-          </ScrollView>
+            </SheetSection>
 
-          <Pressable style={styles.applyBtn} onPress={onApply}>
-            <Text style={styles.applyText}>应用筛选</Text>
-          </Pressable>
-        </Card>
-      </View>
-    </Modal>
+            <SheetSection title="城市">
+              <ChipGroup
+                multiple={false}
+                wrap
+                options={CITY_OPTIONS.map((c) => ({ key: c === "全部" ? "" : c, label: c }))}
+                selected={[city]}
+                onToggle={(k) => onCity(k)}
+              />
+            </SheetSection>
+
+            <SheetSection title="学历" hint="可多选">
+              <ChipGroup wrap options={EDU_OPTIONS.map((e) => ({ key: e, label: e }))} selected={education} onToggle={onToggleEdu} />
+            </SheetSection>
+
+            <SheetSection title="经验" hint="可多选">
+              <ChipGroup wrap options={EXP_OPTIONS.map((e) => ({ key: e, label: e }))} selected={experience} onToggle={onToggleExp} />
+            </SheetSection>
+
+            <SheetSection title="发布时间">
+              <ChipGroup
+                multiple={false}
+                wrap
+                options={PUBLISHED_OPTIONS.map((p) => ({ key: p.value, label: p.label }))}
+                selected={[publishedWithin]}
+                onToggle={(k) => onPublished(k as never)}
+              />
+            </SheetSection>
+
+            <SheetSection title="技能标签" hint="点标签可移除" last>
+              {skills.length > 0 ? (
+                <ChipGroup
+                  wrap
+                  options={skills.map((s) => ({ key: s, label: `${s} ✕` }))}
+                  selected={skills}
+                  onToggle={onRemoveSkill}
+                />
+              ) : null}
+              <View style={styles.skillInputRow}>
+                <TextInput
+                  style={styles.skillInput}
+                  value={draft}
+                  onChangeText={setDraft}
+                  placeholder="输入技能后回车添加，如 Python"
+                  placeholderTextColor={colors.textFaint}
+                  returnKeyType="done"
+                  onSubmitEditing={() => {
+                    const v = draft.trim();
+                    if (v) onAddSkill(v);
+                    setDraft("");
+                  }}
+                />
+                <Pressable
+                  style={styles.skillAddBtn}
+                  onPress={() => {
+                    const v = draft.trim();
+                    if (v) onAddSkill(v);
+                    setDraft("");
+                  }}
+                >
+                  <Text style={styles.skillAddText}>添加</Text>
+                </Pressable>
+              </View>
+            </SheetSection>
+    </BottomSheet>
   );
 }
 

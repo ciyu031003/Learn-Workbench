@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/immutability, react-hooks/set-state-in-effect */
 import { useCallback, useEffect, useState , useMemo } from "react";
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { ThemedIcon } from "@/components/themed-icon";
@@ -11,6 +12,8 @@ import { useFocusRefresh } from "@/lib/use-focus-refresh";
 import { getApiUrl } from "@/config";
 import { useAppStore } from "@/store/app-store";
 import { Card } from "@/components/card";
+import { BottomSheet } from "@/components/bottom-sheet";
+import { SheetListRow, SheetSection, SheetStickyCta } from "@/components/sheet";
 import {
   jobApplicationStageLabels,
   jobApplicationStageSchema,
@@ -31,6 +34,9 @@ export default function ApplicationsScreen() {
   const [apps, setApps] = useState<JobApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  /** v16：阶段选择收进弹层（原来 9 个胶囊挤在卡片里），id=null 表示关闭 */
+  const [stageSheetFor, setStageSheetFor] = useState<number | null>(null);
+  const editing = stageSheetFor === null ? null : apps.find((a) => a.id === stageSheetFor) ?? null;
 
   const api = (path: string, opts: RequestInit = {}) => {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -78,15 +84,10 @@ export default function ApplicationsScreen() {
           <Text style={styles.stageText}>{jobApplicationStageLabels[item.stage]}</Text>
         </View>
       </View>
-      <View style={styles.actions}>
-        {STAGES.map((s) => (
-          <Pressable key={s} onPress={() => setStage(item.id, s)} style={[styles.stageChip, item.stage === s && styles.stageChipActive]}>
-            <Text style={item.stage === s ? styles.stageChipTextActive : styles.stageChipText}>{jobApplicationStageLabels[s]}</Text>
-          </Pressable>
-        ))}
-      </View>
-      <Pressable onPress={() => remove(item.id)} hitSlop={8} style={styles.removeBtn}>
-        <ThemedIcon name="trash-outline" size={14} color="#dc2626" />
+      <Pressable onPress={() => setStageSheetFor(item.id)} style={styles.stageRow} accessibilityRole="button">
+        <Text style={styles.stageRowLabel}>更新阶段</Text>
+        <Text style={styles.stageRowValue}>{jobApplicationStageLabels[item.stage]}</Text>
+        <ThemedIcon name="chevron-forward" size={15} color={colors.textFaint} />
       </Pressable>
     </Card>
   );
@@ -115,6 +116,46 @@ export default function ApplicationsScreen() {
         }
         showsVerticalScrollIndicator={false}
       />
+
+      {/* v16：阶段选择改「单选列表 + 吸底危险 CTA」，卡片上只留一行摘要 */}
+      <BottomSheet
+        visible={stageSheetFor !== null}
+        onClose={() => setStageSheetFor(null)}
+        title="更新求职阶段"
+        subtitle={editing ? `${editing.jobTitle}${editing.jobCompany ? " · " + editing.jobCompany : ""}` : undefined}
+        icon="briefcase-outline"
+        height="78%"
+        footer={
+          <SheetStickyCta
+            label="移出我的求职"
+            icon="trash-outline"
+            danger
+            onPress={() => {
+              if (!editing) return;
+              void remove(editing.id);
+              setStageSheetFor(null);
+            }}
+          />
+        }
+        footerHint="移出后，若这条仍停在「收藏」阶段，收藏也会一并取消"
+      >
+        <SheetSection title="当前阶段" hint="点一下直接切到该阶段" last>
+          {STAGES.map((s, i) => (
+            <SheetListRow
+              key={s}
+              mode="radio"
+              title={jobApplicationStageLabels[s]}
+              selected={editing?.stage === s}
+              last={i === STAGES.length - 1}
+              onPress={() => {
+                if (!editing) return;
+                void setStage(editing.id, s);
+                setStageSheetFor(null);
+              }}
+            />
+          ))}
+        </SheetSection>
+      </BottomSheet>
     </View>
   );
 }
@@ -139,6 +180,17 @@ const makeStyles = (colors: ThemeColors) =>
   stageChipText: { fontSize: 10, fontWeight: "700", color: colors.textMuted },
   stageChipTextActive: { fontSize: 10, fontWeight: "800", color: "#ffffff" },
   removeBtn: { alignSelf: "flex-end" },
+  stageRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: colors.surfaceMuted,
+  },
+  stageRowLabel: { flex: 1, ...typography.caption, fontWeight: "700", color: colors.textMuted },
+  stageRowValue: { ...typography.caption, fontWeight: "800", color: colors.text },
   emptyBox: { alignItems: "center", gap: 8, paddingVertical: 40 },
   emptyText: { fontSize: 13, color: colors.textFaint, textAlign: "center" },
 });
