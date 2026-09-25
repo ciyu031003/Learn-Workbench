@@ -757,6 +757,23 @@ CREATE TABLE IF NOT EXISTS job_crawler_runs (
   error            text
 );
 
+-- 来自迁移 057_interview_crawl_runs.sql
+-- 面试题库每日爬虫的运行记录（与 job_crawler_runs 同形，来源线独立、守卫互不干扰）
+CREATE TABLE IF NOT EXISTS interview_crawl_runs (
+  id             bigserial PRIMARY KEY,
+  started_at     timestamptz NOT NULL DEFAULT now(),
+  finished_at    timestamptz,
+  status         text NOT NULL DEFAULT 'running',   -- running / success / partial / failed
+  started_by     text NOT NULL DEFAULT 'cron',      -- cron / admin / manual
+  fetched_count  int NOT NULL DEFAULT 0,
+  imported_count int NOT NULL DEFAULT 0,
+  skipped_count  int NOT NULL DEFAULT 0,
+  sources_result jsonb NOT NULL DEFAULT '{}',
+  error          text
+);
+
+CREATE INDEX IF NOT EXISTS idx_interview_runs_started ON interview_crawl_runs(started_at DESC);
+
 -- 来自迁移 009_job_sources.sql
 CREATE TABLE IF NOT EXISTS job_crawler_sources (
   id               text PRIMARY KEY,          -- 与 hosts 文件 id 一致

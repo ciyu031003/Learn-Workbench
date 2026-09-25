@@ -9,6 +9,10 @@ import {
   triggerCrawlerJobs,
   type CrawlerEngineResult,
 } from "@/lib/tasks/crawler";
+import {
+  interviewCrawlerRanSuccessfullyToday,
+  triggerInterviewCrawl,
+} from "@/lib/tasks/interview";
 import { triggerFoodImport } from "@/lib/tasks/food";
 import { logger } from "@/lib/logger";
 
@@ -19,7 +23,9 @@ import { logger } from "@/lib/logger";
  *   ?job=backfill     单独补跑市场职位字段回填（例如 12:30 crawl 后立即调度）
  *   ?job=maintenance  清理过期会话/审计/重置令牌
  *   ?job=food         食物营养库导入（v6 P1-3；默认自建库，可 ?source=off&query=番茄鸡蛋面 追加 OFF 数据）
- *   ?job=all          依次执行以上三项（**不含 food**，食物库按需手动/月频触发）
+ *   ?job=interview    面试题库抓取（v1.26；同款锁 + 幂等守卫，参数 ?limit=N&dry=1）
+ *   ?job=all          依次执行 crawl/aggregate/maintenance（**不含 food 与 interview**，
+ *                     两者体量与失败面独立，各自单独调度，避免互相拖累）
  *
  * 鉴权：请求头 x-cron-secret 必须等于环境变量 CRON_SECRET；
  *       CRON_SECRET 未配置时一律 403（部署脚本会生成并写入 crontab，见 deploy.sh）。
@@ -27,9 +33,10 @@ import { logger } from "@/lib/logger";
  *   30 4 * * *  flock -n /tmp/lwb-cron-crawl.lock  curl -fsS -X POST -H "x-cron-secret: …" "http://127.0.0.1:3001/api/internal/cron?job=crawl"
  *   40 5 * * *  … ?job=aggregate
  *   10 6 * * *  … ?job=maintenance
+ *   20 6 * * *  flock -n /tmp/lwb-cron-interview.lock curl -fsS -X POST -H "x-cron-secret: …" "http://127.0.0.1:3001/api/internal/cron?job=interview"
  */
 
-const VALID_JOBS = ["crawl", "aggregate", "backfill", "maintenance", "food", "all"] as const;
+const VALID_JOBS = ["crawl", "aggregate", "backfill", "maintenance", "food", "interview", "all"] as const;
 
 function authorize(req: Request): boolean {
   const expected = process.env.CRON_SECRET?.trim();
@@ -46,7 +53,7 @@ export async function POST(req: Request) {
   const job = new URL(req.url).searchParams.get("job") || "all";
   if (!(VALID_JOBS as readonly string[]).includes(job)) {
     return NextResponse.json(
-      { error: "job 无效，应为 crawl/aggregate/backfill/maintenance/food/all" },
+      { error: "job 无效，应为 crawl/aggregate/backfill/maintenance/food/interview/all" },
       { status: 400 }
     );
   }
@@ -84,6 +91,21 @@ export async function POST(req: Request) {
     const args = [`--source=${source}`];
     if (query) args.push(`--query=${query}`);
     result.food = await triggerFoodImport(args);
+  }
+
+  if (job === "interview") {
+    // v1.26：面试题库每日抓取（与岗位爬虫同款：锁 + 运行记录 + 当天已成功则跳过）
+    if (await interviewCrawlerRanSuccessfullyToday()) {
+      result.interview = { skipped: true, reason: "already-succeeded-today" };
+    } else {
+      const params = new URL(req.url).searchParams;
+      const limitRaw = Number(params.get("limit"));
+      const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(800, Math.round(limitRaw)) : undefined;
+      result.interview = await triggerInterviewCrawl("cron", {
+        limit,
+        dryRun: params.get("dry") === "1",
+      });
+    }
   }
 
   if (job === "maintenance" || job === "all") {
