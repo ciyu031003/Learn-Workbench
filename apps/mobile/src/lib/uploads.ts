@@ -57,12 +57,30 @@ export async function pickImage(): Promise<PickedImage | null> {
   const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ["images"],
     allowsEditing: false,
-    quality: 0.92,
+    // 0.92 → 0.75：手机直出照片常在 6–12MB，而服务端单张上限 8MB，
+    // 上一版「上传证件照失败」大概率就卡在这里（降采样后通常 1–3MB）
+    quality: 0.75,
   });
   if (result.canceled) return null;
   const asset = result.assets?.[0];
   if (!asset?.uri) return null;
-  return { uri: asset.uri, mimeType: asset.mimeType ?? "image/jpeg" };
+  return { uri: asset.uri, mimeType: normalizeImageMime(asset.mimeType, asset.uri) };
+}
+
+/** 服务端只接受 jpeg/png/webp/heic/heif；选择器偶尔给空值或 image/jpg，这里按扩展名兜底归一 */
+export const ALLOWED_UPLOAD_MIME = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"] as const;
+
+export function normalizeImageMime(mimeType: string | null | undefined, uri: string): string {
+  const raw = (mimeType ?? "").trim().toLowerCase();
+  const alias: Record<string, string> = { "image/jpg": "image/jpeg", "image/pjpeg": "image/jpeg", "image/x-png": "image/png" };
+  const normalized = alias[raw] ?? raw;
+  if ((ALLOWED_UPLOAD_MIME as readonly string[]).includes(normalized)) return normalized;
+  const ext = (uri.split("?")[0].split(".").pop() ?? "").toLowerCase();
+  if (ext === "png") return "image/png";
+  if (ext === "webp") return "image/webp";
+  if (ext === "heic") return "image/heic";
+  if (ext === "heif") return "image/heif";
+  return "image/jpeg";
 }
 
 /** 上传一张图；失败抛错（调用方展示文案） */
@@ -72,7 +90,9 @@ export async function uploadImage(
 ): Promise<{ url: string; id: number | null }> {
   const form = new FormData();
   // RN 的 FormData 接受 { uri, name, type } 形态的文件对象
-  form.append("file", { uri: picked.uri, name: "upload.jpg", type: picked.mimeType } as unknown as Blob);
+  // name 的扩展名与 type 保持一致：服务端会按 type 校验，两边对不上容易被判成非法类型
+  const ext = picked.mimeType === "image/png" ? "png" : picked.mimeType === "image/webp" ? "webp" : picked.mimeType === "image/heic" || picked.mimeType === "image/heif" ? "heic" : "jpg";
+  form.append("file", { uri: picked.uri, name: "upload." + ext, type: picked.mimeType } as unknown as Blob);
   form.append("kind", kind);
   const token = useAppStore.getState().token;
   const res = await fetch(getApiUrl() + "/api/uploads", {

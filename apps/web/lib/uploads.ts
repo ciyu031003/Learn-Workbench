@@ -11,8 +11,8 @@ import { mkdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
 
-/** 单张上限 8MB（手机直出照片通常 2–5MB） */
-export const UPLOAD_MAX_BYTES = 8 * 1024 * 1024;
+/** 单张上限 12MB（手机直出照片常见 6–10MB，8MB 偏紧；客户端已同步降到 quality 0.75 双重保险） */
+export const UPLOAD_MAX_BYTES = 12 * 1024 * 1024;
 /** 每用户最多 200 张 */
 export const UPLOAD_MAX_COUNT = 200;
 /** 每用户总量上限 500MB */
