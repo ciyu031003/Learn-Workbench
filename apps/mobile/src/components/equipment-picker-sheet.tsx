@@ -104,6 +104,8 @@ export function EquipmentPicker({
         value={query}
         onChangeText={setQuery}
         placeholder="搜型号或品牌，如 ASTROX / 天斧"
+        autoCapitalize="characters"
+        autoCorrect={false}
       />
 
       {loading ? (

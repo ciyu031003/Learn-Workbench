@@ -13,11 +13,17 @@ export function SheetSearchField({
   onChangeText,
   placeholder = "搜索",
   onSubmit,
+  autoCapitalize,
+  autoCorrect,
 }: {
   value: string;
   onChangeText: (text: string) => void;
   placeholder?: string;
   onSubmit?: () => void;
+  /** 型号类搜索需要强制大写（如 ASTROX），默认交给系统 */
+  autoCapitalize?: "none" | "sentences" | "words" | "characters";
+  /** 品牌/型号名不希望被自动纠错 */
+  autoCorrect?: boolean;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -32,6 +38,8 @@ export function SheetSearchField({
         placeholderTextColor={colors.textFaint}
         returnKeyType="search"
         onSubmitEditing={onSubmit}
+        autoCapitalize={autoCapitalize}
+        autoCorrect={autoCorrect}
       />
       {value.length > 0 ? (
         <Pressable onPress={() => onChangeText("")} hitSlop={10} accessibilityLabel="清空搜索">

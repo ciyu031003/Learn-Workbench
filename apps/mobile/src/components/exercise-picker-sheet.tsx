@@ -233,6 +233,7 @@ export function ExercisePickerSheet({ visible, onClose, onClosed, onConfirm, ini
                 value={query}
                 onChangeText={setQuery}
                 placeholder="搜索动作 / 部位 / 器械（如 卧推、胸、哑铃）"
+                autoCorrect={false}
               />
 
               <View style={styles.listHead}>
