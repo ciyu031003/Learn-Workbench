@@ -1,8 +1,13 @@
 import { useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { ThemedIcon } from "@/components/themed-icon";
 import { BottomSheet } from "@/components/bottom-sheet";
-import { PressableScale } from "@/components/pressable-scale";
+import {
+  ChipGroup,
+  SheetSection,
+  SheetSegmented,
+  SheetStickyCta,
+  StepperRow,
+  type SegmentOption,
+} from "@/components/sheet";
 import {
   ContentPicker,
   EMPTY_CONTENT,
@@ -10,9 +15,6 @@ import {
   type ContentChoice,
   type ContentSource,
 } from "@/components/content-picker";
-import { useTheme } from "@/theme";
-import { radius, spacing, typography } from "@/theme/tokens";
-import type { ThemeColors } from "@/theme/tokens";
 import { SPORT_CATALOG, exerciseTypeOptions, type SportItem } from "@learn-workbench/shared";
 
 /** 一键开始的会话类型（由 App 决定，随后直接进入计时） */
@@ -32,14 +34,18 @@ export interface QuickStartChoice {
   topicId?: number;
 }
 
+const MODE_OPTIONS: readonly SegmentOption<"countdown" | "stopwatch">[] = [
+  { key: "countdown", label: "倒计时", icon: "timer-outline" },
+  { key: "stopwatch", label: "正向计时", icon: "play-forward-outline" },
+];
+
 /**
- * 「一键开始」弹层。
+ * 「一键开始」弹层（v16 重构：Sheet v3 + 原子组件）。
  *
- * 交互（v1.4.2 修正）：**选择 ≠ 开始**。
- * 用户在这里只做选择（学什么 / 时长 / 倒计时还是秒表 / 运动项目），
- * **只有点底部的「开始计时」按钮才真正进入计时**；
- * 侧滑返回、点空白、返回键一律只是关闭弹层、退回首页（不启动任何计时）。
- * 之前"选完立即开始"会让"想退出的人"被动进入计时（真机反馈）。
+ * 交互不变（v1.4.2 的不变量）：**选择 ≠ 开始**。这里的点选只改选择态，
+ * 只有底部的吸底 CTA 会真正进入计时；侧滑 / 点空白 / 返回键一律只关闭。
+ * 观感升级：分段用滑动胶囊、分组用 SheetSection、时长用 ChipGroup + StepperRow、
+ * 启动按钮吸底（内容再长也不会被推走），并把"选择 ≠ 开始"写进副标题与底部提示。
  */
 export function QuickStartSheet({
   visible,
@@ -53,8 +59,6 @@ export function QuickStartSheet({
   /** 退场动画结束、Modal 卸载后回调（父级用它延后打开全屏计时器） */
   onClosed?: () => void;
 }) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [tab, setTab] = useState<"learning" | "exercise">("learning");
   const [sportType, setSportType] = useState<string>(exerciseTypeOptions[0]?.type ?? "AEROBIC");
   const [sport, setSport] = useState<SportItem | null>(null);
@@ -67,10 +71,8 @@ export function QuickStartSheet({
   /** 运动：模式的选择态 */
   const [exerciseMode, setExerciseMode] = useState<"countdown" | "stopwatch">("countdown");
 
-  const sports = useMemo(
-    () => SPORT_CATALOG.filter((s) => s.type === sportType),
-    [sportType]
-  );
+  const sports = useMemo(() => SPORT_CATALOG.filter((s) => s.type === sportType), [sportType]);
+  const pickedSport = sport ?? sports[0] ?? null;
 
   /** 每次关闭都回到默认选择（D4：不记住上次）——所有关闭路径（含侧滑/点空白）都会走它 */
   const reset = () => {
@@ -88,7 +90,6 @@ export function QuickStartSheet({
     onClose();
   };
 
-  const pickedSport = sport ?? sports[0] ?? null;
   /** 底部按钮文案：把当前选择说清楚，避免"点错才知道会开始" */
   const startLabel =
     tab === "learning"
@@ -115,8 +116,7 @@ export function QuickStartSheet({
       close();
       return;
     }
-    // 只接受"当前分类下真实存在"的项目：否则会静默回落到目录第一项，
-    // 出现"选的是拉伸、记的是篮球"这种错配
+    // 只接受"当前分类下真实存在"的项目：否则会静默回落到目录第一项
     if (!pickedSport) return;
     onPick({
       kind: "exercise",
@@ -128,289 +128,139 @@ export function QuickStartSheet({
     close();
   };
 
+  const learningBody = (
+    <>
+      <SheetSection title="这次学什么" hint="不指定就是自由专注">
+        <ContentPicker value={content} onChange={setContent} />
+      </SheetSection>
+
+      <SheetSection
+        title="时长"
+        hint={learningMode === "stopwatch" ? "正向计时不限时长" : "选常用档，或自己加减"}
+      >
+        <ChipGroup
+          multiple={false}
+          options={[
+            { key: "15", label: "15 分钟" },
+            { key: "25", label: "25 分钟" },
+            { key: "45", label: "45 分钟" },
+          ]}
+          selected={learningMode === "countdown" ? [String(learningMinutes)] : []}
+          onToggle={(k) => {
+            setLearningMode("countdown");
+            setLearningMinutes(Number(k));
+          }}
+        />
+        <StepperRow
+          label="自定义时长"
+          hint="5–180 分钟"
+          value={learningMinutes}
+          step={5}
+          min={5}
+          max={180}
+          unit="分钟"
+          onChange={(v) => {
+            setLearningMode("countdown");
+            setLearningMinutes(v);
+          }}
+        />
+      </SheetSection>
+
+      <SheetSection title="计时方式" last>
+        <SheetSegmented options={MODE_OPTIONS} value={learningMode} onChange={setLearningMode} />
+      </SheetSection>
+    </>
+  );
+
+  const exerciseBody = (
+    <>
+      <SheetSection title="项目类型">
+        <ChipGroup
+          multiple={false}
+          wrap
+          options={exerciseTypeOptions.map((t) => ({ key: t.type, label: t.label }))}
+          selected={[sportType]}
+          onToggle={(k) => {
+            setSportType(k);
+            setSport(null);
+          }}
+        />
+      </SheetSection>
+
+      <SheetSection title="项目">
+        <ChipGroup
+          multiple={false}
+          wrap
+          options={sports.map((s) => ({ key: s.key, label: s.name }))}
+          selected={pickedSport ? [pickedSport.key] : []}
+          onToggle={(k) => {
+            const next = sports.find((s) => s.key === k);
+            if (next) setSport(next);
+          }}
+        />
+      </SheetSection>
+
+      <SheetSection title="时长" hint={exerciseMode === "stopwatch" ? "正向计时不限时长" : "选常用档，或自己加减"}>
+        <ChipGroup
+          multiple={false}
+          options={[15, 30, 45, 60].map((m) => ({ key: String(m), label: `${m} 分钟` }))}
+          selected={exerciseMode === "countdown" ? [String(sportMinutes)] : []}
+          onToggle={(k) => {
+            setExerciseMode("countdown");
+            setSportMinutes(Number(k));
+          }}
+        />
+        <StepperRow
+          label="自定义时长"
+          hint="5–300 分钟"
+          value={sportMinutes}
+          step={5}
+          min={5}
+          max={300}
+          unit="分钟"
+          onChange={(v) => {
+            setExerciseMode("countdown");
+            setSportMinutes(v);
+          }}
+        />
+      </SheetSection>
+
+      <SheetSection title="计时方式" last>
+        <SheetSegmented options={MODE_OPTIONS} value={exerciseMode} onChange={setExerciseMode} />
+      </SheetSection>
+    </>
+  );
+
   return (
-    <BottomSheet visible={visible} onClose={close} title="一键开始" height="62%" onClosed={onClosed}>
-      <View style={styles.tabs}>
-        {(
-          [
+    <BottomSheet
+      visible={visible}
+      onClose={close}
+      title="一键开始"
+      subtitle="先选好这次做什么；只有点底部按钮才会开始计时"
+      icon="play-circle-outline"
+      height="78%"
+      onClosed={onClosed}
+      segmented={
+        <SheetSegmented
+          options={[
             { key: "learning", label: "学习", icon: "book-outline" },
             { key: "exercise", label: "运动", icon: "barbell-outline" },
-          ] as const
-        ).map((t) => {
-          const active = tab === t.key;
-          return (
-            <Pressable
-              key={t.key}
-              style={[styles.tab, active && styles.tabActive]}
-              onPress={() => setTab(t.key)}
-              accessibilityRole="button"
-            >
-              <ThemedIcon name={t.icon} size={16} color={active ? colors.primary : colors.textMuted} />
-              <Text style={[styles.tabText, active && styles.tabTextActive]}>{t.label}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      {tab === "learning" ? (
-        <View style={styles.body}>
-          {/* v5 P2-1：先定"这次学什么"，再选时长/模式；不选就是自由专注 */}
-          <ContentPicker value={content} onChange={setContent} />
-
-          <View style={styles.thisTime}>
-            <Text style={styles.thisTimeLabel}>本次学习</Text>
-            <Text style={styles.thisTimeValue} numberOfLines={1}>
-              {contentLabelOf(content) ?? "自由专注（不绑定内容）"}
-            </Text>
-          </View>
-
-          {/* 时长 / 模式：**只是选择**，不会开始计时（开始统一走底部按钮） */}
-          <View style={styles.minuteRow}>
-            {[15, 25, 45].map((m) => {
-              const active = learningMode === "countdown" && learningMinutes === m;
-              return (
-                <Pressable
-                  key={m}
-                  style={[styles.minuteChip, active && styles.minuteChipActive]}
-                  onPress={() => {
-                    setLearningMode("countdown");
-                    setLearningMinutes(m);
-                  }}
-                >
-                  <Text style={[styles.minuteChipText, active && styles.minuteChipTextActive]}>{m} 分钟</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <View style={styles.minuteRow}>
-            {(
-              [
-                { key: "countdown", label: "倒计时", icon: "timer-outline" },
-                { key: "stopwatch", label: "正向计时", icon: "play-forward-outline" },
-              ] as const
-            ).map((o) => {
-              const active = learningMode === o.key;
-              return (
-                <Pressable
-                  key={o.key}
-                  style={[styles.modeChip, active && styles.modeChipActive]}
-                  onPress={() => setLearningMode(o.key)}
-                >
-                  <ThemedIcon name={o.icon} size={16} color={active ? colors.primary : colors.textMuted} />
-                  <Text style={[styles.modeChipText, active && styles.modeChipTextActive]}>{o.label}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-      ) : (
-        <View style={styles.body}>
-          <View style={styles.typeRow}>
-            {exerciseTypeOptions.map((t) => {
-              const active = sportType === t.type;
-              return (
-                <Pressable
-                  key={t.type}
-                  style={[styles.typeChip, active && styles.typeChipActive]}
-                  onPress={() => {
-                    setSportType(t.type);
-                    setSport(null);
-                  }}
-                >
-                  <Text style={[styles.typeChipText, active && styles.typeChipTextActive]}>{t.label}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <View style={styles.sportGrid}>
-            {sports.map((s) => {
-              const active = (sport ?? sports[0])?.key === s.key;
-              return (
-                <Pressable
-                  key={s.key}
-                  style={[styles.sportChip, active && styles.sportChipActive]}
-                  onPress={() => setSport(s)}
-                >
-                  <Text style={[styles.sportChipText, active && styles.sportChipTextActive]} numberOfLines={1}>
-                    {s.name}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <View style={styles.minuteRow}>
-            {[15, 30, 45, 60].map((m) => {
-              const active = sportMinutes === m;
-              return (
-                <Pressable key={m} style={[styles.minuteChip, active && styles.minuteChipActive]} onPress={() => setSportMinutes(m)}>
-                  <Text style={[styles.minuteChipText, active && styles.minuteChipTextActive]}>{m} 分钟</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <View style={styles.minuteRow}>
-            {[15, 30, 45, 60].map((m) => {
-              const active = exerciseMode === "countdown" && sportMinutes === m;
-              return (
-                <Pressable
-                  key={m}
-                  style={[styles.minuteChip, active && styles.minuteChipActive]}
-                  onPress={() => {
-                    setExerciseMode("countdown");
-                    setSportMinutes(m);
-                  }}
-                >
-                  <Text style={[styles.minuteChipText, active && styles.minuteChipTextActive]}>{m} 分钟</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <View style={styles.minuteRow}>
-            {(
-              [
-                { key: "countdown", label: "倒计时", icon: "timer-outline" },
-                { key: "stopwatch", label: "正向计时", icon: "play-forward-outline" },
-              ] as const
-            ).map((o) => {
-              const active = exerciseMode === o.key;
-              return (
-                <Pressable
-                  key={o.key}
-                  style={[styles.modeChip, active && styles.modeChipActive]}
-                  onPress={() => setExerciseMode(o.key)}
-                >
-                  <ThemedIcon name={o.icon} size={16} color={active ? colors.primary : colors.textMuted} />
-                  <Text style={[styles.modeChipText, active && styles.modeChipTextActive]}>{o.label}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-      )}
-
-      {/*
-        唯一的启动入口（v1.4.2）：上面所有的点选都只改选择态，
-        只有这个按钮会调用 `onPick` 真正开始计时。
-        侧滑返回 / 点空白 / 返回键走 `close()`，只关闭弹层、退回首页。
-      */}
-      <View style={styles.startBar}>
-        <PressableScale haptic style={styles.startBtn} onPress={start}>
-          <ThemedIcon name="play" size={18} color="#fff" />
-          <Text style={styles.startBtnText} numberOfLines={1}>
-            {startLabel}
-          </Text>
-        </PressableScale>
-        <Text style={styles.startHint}>选好后点这里开始；返回或点空白处只会退出，不会开始计时</Text>
-      </View>
+          ]}
+          value={tab}
+          onChange={setTab}
+        />
+      }
+      footer={
+        <SheetStickyCta
+          label={startLabel}
+          icon="play"
+          onPress={start}
+          disabled={tab === "exercise" && !pickedSport}
+        />
+      }
+      footerHint="返回、点空白或下滑只会关闭，不会开始计时"
+    >
+      {tab === "learning" ? learningBody : exerciseBody}
     </BottomSheet>
   );
 }
-
-const makeStyles = (colors: ThemeColors) =>
-  StyleSheet.create({
-    tabs: { flexDirection: "row", gap: 8, marginBottom: spacing.md },
-    tab: {
-      flex: 1,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 6,
-      paddingVertical: 10,
-      borderRadius: radius.md,
-      backgroundColor: colors.surfaceMuted,
-    },
-    tabActive: { backgroundColor: colors.surfaceStrong, borderWidth: 1, borderColor: colors.borderStrong },
-    tabText: { fontSize: 14, fontWeight: "600", color: colors.textMuted },
-    tabTextActive: { color: colors.primary },
-    body: { gap: spacing.md, paddingBottom: spacing.md },
-    thisTime: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 8,
-      paddingHorizontal: 2,
-    },
-    thisTimeLabel: { ...typography.caption, color: colors.textMuted, fontWeight: "700" },
-    thisTimeValue: { flex: 1, ...typography.body, fontWeight: "700", color: colors.text },
-    bigCard: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: spacing.md,
-      padding: spacing.md,
-      borderRadius: radius.lg,
-      backgroundColor: colors.surfaceStrong,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.border,
-    },
-    bigIcon: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
-    bigBody: { flex: 1, gap: 2 },
-    bigTitle: { ...typography.headline, color: colors.text },
-    bigSub: { ...typography.caption, color: colors.textMuted },
-    lineCard: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: spacing.md,
-      padding: spacing.md,
-      borderRadius: radius.lg,
-      backgroundColor: colors.surfaceMuted,
-    },
-    lineTitle: { ...typography.body, fontWeight: "700", color: colors.text },
-    minuteRow: { flexDirection: "row", gap: 8 },
-    minuteChip: {
-      flex: 1,
-      paddingVertical: 9,
-      borderRadius: radius.md,
-      backgroundColor: colors.surfaceMuted,
-      alignItems: "center",
-    },
-    minuteChipActive: { backgroundColor: colors.surfaceStrong, borderWidth: 1, borderColor: colors.primary },
-    minuteChipText: { fontSize: 13, fontWeight: "600", color: colors.textMuted },
-    minuteChipTextActive: { color: colors.primary },
-    /** 模式选择（倒计时 / 正向计时） */
-    modeChip: {
-      flex: 1,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 6,
-      paddingVertical: 10,
-      borderRadius: radius.md,
-      backgroundColor: colors.surfaceMuted,
-    },
-    modeChipActive: { backgroundColor: colors.surfaceStrong, borderWidth: 1, borderColor: colors.primary },
-    modeChipText: { fontSize: 13, fontWeight: "600", color: colors.textMuted },
-    modeChipTextActive: { color: colors.primary },
-    /** 唯一的启动入口 */
-    startBar: { gap: 6, paddingTop: spacing.sm, paddingBottom: spacing.sm },
-    startBtn: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 8,
-      paddingVertical: 14,
-      borderRadius: radius.lg,
-      backgroundColor: colors.primary,
-    },
-    startBtnText: { color: "#fff", fontSize: 15, fontWeight: "800" },
-    startHint: { ...typography.caption, color: colors.textMuted, textAlign: "center" },
-    typeRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-    typeChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: colors.surfaceMuted },
-    typeChipActive: { backgroundColor: colors.surfaceStrong, borderWidth: 1, borderColor: colors.primary },
-    typeChipText: { fontSize: 12, color: colors.textMuted },
-    typeChipTextActive: { color: colors.primary, fontWeight: "700" },
-    sportGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-    sportChip: {
-      paddingHorizontal: 14,
-      paddingVertical: 9,
-      borderRadius: radius.md,
-      backgroundColor: colors.surfaceMuted,
-      maxWidth: "47%",
-    },
-    sportChipActive: { backgroundColor: colors.primary },
-    sportChipText: { fontSize: 13, color: colors.textMuted, fontWeight: "600" },
-    sportChipTextActive: { color: "#fff" },
-  });

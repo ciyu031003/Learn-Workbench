@@ -46,6 +46,12 @@ export function BottomSheet({
   visible,
   onClose,
   title,
+  subtitle,
+  icon,
+  headerAction,
+  segmented,
+  footer,
+  footerHint,
   children,
   body,
   expandable = false,
@@ -56,6 +62,18 @@ export function BottomSheet({
   visible: boolean;
   onClose: () => void;
   title: string;
+  /** v16：标题下一行小字（把"选择 ≠ 开始"这类规则直接写在界面上） */
+  subtitle?: string;
+  /** v16：标题左侧图标徽章 */
+  icon?: Parameters<typeof ThemedIcon>[0]["name"];
+  /** v16：右上角动作（如"重置"），渲染在关闭钮左侧 */
+  headerAction?: ReactNode;
+  /** v16：头部下方的分段槽位（固定不滚动，适合 2–4 段切换） */
+  segmented?: ReactNode;
+  /** v16：吸底 CTA —— 内容滚动、按钮不动（自带底部安全区） */
+  footer?: ReactNode;
+  /** v16：吸底 CTA 下方一句规则/说明 */
+  footerHint?: string;
   children?: ReactNode;
   body?: (expanded: boolean) => ReactNode;
   expandable?: boolean;
@@ -270,17 +288,32 @@ export function BottomSheet({
             </GestureDetector>
 
             <View style={styles.head}>
-              <Text style={styles.title} numberOfLines={1}>{title}</Text>
+              {icon ? (
+                <View style={styles.headIcon}>
+                  <ThemedIcon name={icon} size={16} color={colors.primary} />
+                </View>
+              ) : null}
+              <View style={styles.headText}>
+                <Text style={styles.title} numberOfLines={1}>{title}</Text>
+                {subtitle ? <Text style={styles.subtitle} numberOfLines={2}>{subtitle}</Text> : null}
+              </View>
+              {headerAction ? <View style={styles.headAction}>{headerAction}</View> : null}
               <Pressable onPress={close} hitSlop={10} style={styles.close} accessibilityLabel="关闭">
                 <ThemedIcon name="close" size={16} color={colors.textMuted} />
               </Pressable>
             </View>
 
+            {segmented ? <View style={styles.segmentedWrap}>{segmented}</View> : null}
+
             <View style={styles.flex}>
               {scroll ? (
                 <ScrollView
                   style={styles.flex}
-                  contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 16 }]}
+                  // 有吸底 footer 时，底部安全区由 footer 承担，内容只留一点呼吸
+                  contentContainerStyle={[
+                    styles.scrollContent,
+                    { paddingBottom: footer ? 16 : insets.bottom + 16 },
+                  ]}
                   keyboardShouldPersistTaps="handled"
                   keyboardDismissMode="on-drag"
                   showsVerticalScrollIndicator={false}
@@ -288,9 +321,17 @@ export function BottomSheet({
                   {content}
                 </ScrollView>
               ) : (
-                <View style={[styles.flex, { paddingBottom: insets.bottom + 8 }]}>{content}</View>
+                <View style={[styles.flex, { paddingBottom: footer ? 8 : insets.bottom + 8 }]}>{content}</View>
               )}
             </View>
+
+            {/* v16 吸底 CTA：不在 ScrollView 内，内容再长按钮也不会被推走 */}
+            {footer ? (
+              <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
+                {footer}
+                {footerHint ? <Text style={styles.footerHint}>{footerHint}</Text> : null}
+              </View>
+            ) : null}
           </GlassSurface>
         </Animated.View>
       </GestureHandlerRootView>
@@ -323,7 +364,27 @@ const makeStyles = (colors: ThemeColors) =>
       gap: 12,
       marginBottom: 12,
     },
-    title: { flex: 1, minWidth: 0, ...typography.title2, fontWeight: "700", color: colors.text },
+    headIcon: {
+      width: 32,
+      height: 32,
+      borderRadius: 12,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.primarySoft,
+    },
+    headText: { flex: 1, minWidth: 0, gap: 2 },
+    title: { ...typography.title2, fontWeight: "700", color: colors.text },
+    subtitle: { ...typography.caption, color: colors.textMuted },
+    headAction: { flexDirection: "row", alignItems: "center" },
+    segmentedWrap: { marginBottom: 12 },
+    footer: {
+      gap: 8,
+      paddingTop: 12,
+      marginTop: 4,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+    },
+    footerHint: { ...typography.micro, color: colors.textMuted, textAlign: "center" },
     close: {
       width: 28,
       height: 28,

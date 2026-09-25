@@ -35,6 +35,7 @@ import {
   type MdImportResult,
 } from "@/lib/roadmap";
 import { Button } from "@/components/button";
+import { SheetSection } from "@/components/sheet";
 import { FocusShareSheet } from "@/components/focus-share-card";
 import { focusShareDataFromStats } from "@/lib/focus-share";
 
@@ -795,16 +796,22 @@ export default function LearnScreen() {
         </Card>
       </PressableScale>
 
-      <BottomSheet visible={statsOpen} onClose={() => setStatsOpen(false)} title="学习统计" height="94%">
-      <Card style={styles.statsPanel}>
-        <View style={styles.panelHead}>
-          <Text style={styles.panelTitle}>热力统计</Text>
-          <Pressable style={styles.shareBtn} onPress={() => setShareSheet(true)}>
+      <BottomSheet
+        visible={statsOpen}
+        onClose={() => setStatsOpen(false)}
+        title="学习统计"
+        subtitle="热力图 · 内容维度 · 周期对比"
+        icon="stats-chart-outline"
+        height="94%"
+        headerAction={
+          <Pressable style={styles.shareBtn} onPress={() => setShareSheet(true)} accessibilityLabel="分享学习统计">
             <ThemedIcon name="share-social-outline" size={14} color={colors.primary} />
             <Text style={styles.shareBtnText}>分享</Text>
           </Pressable>
-        </View>
-
+        }
+      >
+      <Card style={styles.statsPanel}>
+        <SheetSection title="今日与周期" hint="点日期可切换">
         <View style={styles.dateNav}>
           <Pressable
             style={styles.dateArrow}
@@ -861,7 +868,10 @@ export default function LearnScreen() {
           ))}
         </View>
 
+        </SheetSection>
+
         {/* v5 P2-2：学习内容维度（今日 / 本周）—— 放在目标环之后、热力图之前，不抢 hero 焦点 */}
+        <SheetSection title="学习内容" hint={contentTab === "today" ? "今日维度" : "本周维度"}>
         <View style={styles.contentHead}>
           <Text style={styles.heatLabel}>学习内容</Text>
           <View style={styles.contentTabs}>
@@ -919,6 +929,9 @@ export default function LearnScreen() {
           </View>
         )}
 
+        </SheetSection>
+
+        <SheetSection title="可学习时长分布" hint="近 12 周热力图">
         <Text style={styles.heatLabel}>可学习时长分布 · 热力图</Text>
         <View
           style={styles.heat}
@@ -947,6 +960,9 @@ export default function LearnScreen() {
           <Text style={styles.heatLegendText}>多</Text>
         </View>
 
+        </SheetSection>
+
+        <SheetSection title="时段与趋势" last>
         <Text style={styles.chartLabel}>
           {statDate.getMonth() + 1}月{statDate.getDate()}日 · 学习 {formatDuration(selectedMinutes)}
         </Text>
@@ -954,6 +970,7 @@ export default function LearnScreen() {
 
         <Text style={styles.chartLabel}>近 14 天学习时长</Text>
         <LineChart data={dailySeries} height={150} color={colors.accent} />
+        </SheetSection>
       </Card>
       </BottomSheet>
 

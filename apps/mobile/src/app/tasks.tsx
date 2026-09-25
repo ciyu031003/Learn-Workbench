@@ -8,6 +8,7 @@ import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { taskTypeLabels, todayISO } from "@learn-workbench/shared";
 import { Card } from "@/components/card";
 import { ScreenHeader } from "@/components/screen-header";
+import { ChipGroup, SheetSection, SheetStickyCta } from "@/components/sheet";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { FocusTimer } from "@/components/focus-timer";
 import { ContentPicker, EMPTY_CONTENT, contentLabelOf, type ContentChoice } from "@/components/content-picker";
@@ -211,8 +212,24 @@ export default function TasksScreen() {
 
       <FocusShareSheet visible={shareOpen} onClose={() => setShareOpen(false)} data={focusShareDataFromStats(stats)} />
 
-      <BottomSheet visible={newTaskOpen} onClose={() => setNewTaskOpen(false)} title="新建任务" height="52%">
-        <View style={styles.sheetBody}>
+      <BottomSheet
+        visible={newTaskOpen}
+        onClose={() => setNewTaskOpen(false)}
+        title="新建任务"
+        subtitle="写清楚今天要做什么，越具体越容易开始"
+        icon="add-circle-outline"
+        height="58%"
+        footer={
+          <SheetStickyCta
+            label="添加任务"
+            icon="checkmark"
+            onPress={submit}
+            disabled={!title.trim()}
+          />
+        }
+        footerHint="任务会加到今天，可在首页直接勾选完成"
+      >
+        <SheetSection title="任务内容" hint="一句话就够，例如「把 Phase 5 读一遍」">
           <TextInput
             style={styles.input}
             placeholder="今天要学什么？"
@@ -223,26 +240,35 @@ export default function TasksScreen() {
             returnKeyType="done"
             autoFocus
           />
-          <View style={styles.typeRow}>
-            {TYPES.map((t) => (
-              <Pressable key={t} style={[styles.typeChip, type === t && styles.typeChipActive]} onPress={() => setType(t)}>
-                <Text style={[styles.typeChipText, type === t && styles.typeChipTextActive]}>
-                  {taskTypeLabels[t]}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-          <Pressable style={styles.primaryBtn} onPress={submit}>
-            <Text style={styles.primaryBtnText}>添加任务</Text>
-          </Pressable>
-        </View>
+        </SheetSection>
+        <SheetSection title="类型" last>
+          <ChipGroup
+            multiple={false}
+            wrap
+            options={TYPES.map((t) => ({ key: t, label: taskTypeLabels[t] }))}
+            selected={[type]}
+            onToggle={(k) => setType(k as TaskType)}
+          />
+        </SheetSection>
       </BottomSheet>
 
       <BottomSheet
         visible={contentOpen}
         onClose={() => setContentOpen(false)}
         title="自由专注"
-        height="76%"
+        subtitle="先定这次学什么，再点底部按钮开始"
+        icon="book-outline"
+        height="78%"
+        footer={
+          <SheetStickyCta
+            label={`开始倒计时 · ${contentLabelOf(content) ?? "自由专注"}`}
+            icon="timer-outline"
+            onPress={() => startFreeFocus("countdown")}
+            secondaryLabel="正向计时（秒表）"
+            onSecondary={() => startFreeFocus("stopwatch")}
+          />
+        }
+        footerHint="返回或点空白只会关闭，不会开始计时"
         onClosed={() => {
           // 等选择弹层真正卸载后再开计时器（两个 Modal 同帧 present 会互相吞掉）
           if (!pendingStart) return;
@@ -253,17 +279,9 @@ export default function TasksScreen() {
           setTimerOpen(true);
         }}
       >
-        <View style={styles.sheetBody}>
+        <SheetSection title="这次学什么" hint="不指定就是自由专注" last>
           <ContentPicker value={content} onChange={setContent} />
-          <Pressable style={styles.primaryBtn} onPress={() => startFreeFocus("countdown")}>
-            <Text style={styles.primaryBtnText}>
-              开始倒计时 · {contentLabelOf(content) ?? "自由专注"}
-            </Text>
-          </Pressable>
-          <Pressable style={[styles.primaryBtn, styles.ghostStartBtn]} onPress={() => startFreeFocus("stopwatch")}>
-            <Text style={[styles.primaryBtnText, styles.ghostStartText]}>正向计时（秒表）</Text>
-          </Pressable>
-        </View>
+        </SheetSection>
       </BottomSheet>
 
       <FocusTimer
