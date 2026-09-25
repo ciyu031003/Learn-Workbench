@@ -81,7 +81,8 @@ export default function RadarScreen() {
   const [city, setCity] = useState<string | null>(null);
   const [functionKey, setFunctionKey] = useState<string | null>(null);
   const [sort, setSort] = useState<RadarSort>("match_desc");
-  const [visible, setVisible] = useState(PAGE_SIZE);
+  /** v1.26：当前页（0 基）；筛选/排序变化时回到第 1 页 */
+  const [page, setPage] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -113,20 +114,24 @@ export default function RadarScreen() {
     [top, city, category, functionKey, sort]
   );
 
-  const shown = filtered.slice(0, visible);
-  const hasMore = filtered.length > shown.length;
+  // v1.26：真正分页（每页固定 PAGE_SIZE，底部给「已显示 x–y / 共 n」与翻页）
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const shown = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+  const from = filtered.length === 0 ? 0 : safePage * PAGE_SIZE + 1;
+  const to = Math.min(filtered.length, safePage * PAGE_SIZE + PAGE_SIZE);
   const activeFilters = (city ? 1 : 0) + (category !== "all" ? 1 : 0) + (functionKey ? 1 : 0);
 
   /** 改筛选/排序：先回到第一页（避免"筛完只剩 2 条却还停在原来的滚动深度"） */
   const pick = (fn: () => void) => {
     haptics.soft();
-    setVisible(PAGE_SIZE);
+    setPage(0);
     fn();
   };
 
-  const loadMore = () => {
+  const gotoPage = (next: number) => {
     haptics.soft();
-    setVisible((v) => v + PAGE_SIZE);
+    setPage(Math.max(0, Math.min(pageCount - 1, next)));
   };
 
   return (
@@ -288,18 +293,34 @@ export default function RadarScreen() {
             </Card>
           ))}
 
-          {hasMore ? (
+          <View style={styles.pager}>
             <Pressable
-              style={styles.moreBtn}
-              onPress={loadMore}
-              accessibilityLabel="加载更多岗位"
+              disabled={safePage <= 0}
+              onPress={() => gotoPage(safePage - 1)}
+              style={[styles.pagerBtn, safePage <= 0 && styles.pagerBtnOff]}
+              accessibilityRole="button"
+              accessibilityLabel="上一页"
             >
-              <ThemedIcon name="chevron-down" size={16} color={colors.primary} />
-              <Text style={styles.moreText}>加载更多（还有 {filtered.length - shown.length} 个）</Text>
+              <ThemedIcon name="chevron-back" size={16} color={safePage <= 0 ? colors.textFaint : colors.primary} />
+              <Text style={[styles.pagerBtnText, safePage <= 0 && styles.pagerTextOff]}>上一页</Text>
             </Pressable>
-          ) : (
-            <Text style={styles.endText}>已经到底了 · 共 {filtered.length} 个岗位</Text>
-          )}
+
+            <View style={styles.pagerMid}>
+              <Text style={styles.pagerPage}>第 {safePage + 1} / {pageCount} 页</Text>
+              <Text style={styles.pagerCount}>已显示 {from}–{to} / 共 {filtered.length} 个</Text>
+            </View>
+
+            <Pressable
+              disabled={safePage >= pageCount - 1}
+              onPress={() => gotoPage(safePage + 1)}
+              style={[styles.pagerBtn, safePage >= pageCount - 1 && styles.pagerBtnOff]}
+              accessibilityRole="button"
+              accessibilityLabel="下一页"
+            >
+              <Text style={[styles.pagerBtnText, safePage >= pageCount - 1 && styles.pagerTextOff]}>下一页</Text>
+              <ThemedIcon name="chevron-forward" size={16} color={safePage >= pageCount - 1 ? colors.textFaint : colors.primary} />
+            </Pressable>
+          </View>
         </>
       )}
     </ScrollView>
@@ -377,6 +398,29 @@ const makeStyles = (colors: ThemeColors) =>
     chipHit: { color: colors.text },
     footer: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     link: { fontSize: 12, color: colors.primary, fontWeight: "700" },
+    /* v1.26 分页条 */
+    pager: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 8,
+      paddingTop: 4,
+    },
+    pagerBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: 12,
+      paddingVertical: 9,
+      borderRadius: 999,
+      backgroundColor: colors.primarySoft,
+    },
+    pagerBtnOff: { backgroundColor: colors.surfaceMuted },
+    pagerBtnText: { fontSize: 12, fontWeight: "800", color: colors.primary },
+    pagerTextOff: { color: colors.textFaint },
+    pagerMid: { alignItems: "center", gap: 1 },
+    pagerPage: { fontSize: 12, fontWeight: "800", color: colors.text },
+    pagerCount: { fontSize: 10, color: colors.textMuted },
     moreBtn: {
       flexDirection: "row",
       alignItems: "center",
