@@ -21,12 +21,31 @@ import { radius, shadows, spacing, tabularNums, typography, type ThemeColors } f
 import { haptics } from "@/lib/haptics";
 
 /**
- * 学习闪光分享卡（v16 P2，**真 three.js**）。
+ * 学习闪光分享卡（v16 P2 → v1.26 修复闪退）。
  *
- * 分层：three.js 着色器背景（镭射/星点/扫光）→ RN 视图叠加中文数据面板
- * → view-shot 合成整卡导出。之所以不把文字画进 GL：中文排版在 GL 里代价极高；
- * 之所以先冻住 GL 再截图：view-shot 对 GLView 这类原生绘制表面的捕获并不稳定。
+ * 分层：闪光背景（三种实现见下）→ RN 视图叠加中文数据面板 → view-shot 合成整卡导出。
+ *
+ * ⚠️ `HOLO_GL_ENABLED` 默认 **false**：真机反馈「分享卡一出现 App 就闪退」，
+ * 崩点在 `GLView`（expo-gl 在 RN `Modal` 里创建 GL 表面）+ three r186 的 WebGL2 上下文，
+ * 属于**原生层**崩溃（JS 侧 try/catch 兜不住，所以不能靠 catch 解决，必须不去创建它）。
+ * 关闭后走纯 RN 的静态闪光底 —— 观感略逊于着色器，但**绝不闪退**；
+ * 等真机定位到具体原因（Modal 内 GL / WebGL2 能力 / 驱动）后再打开这个开关。
  */
+const HOLO_GL_ENABLED = false;
+
+/** 纯 RN 的静态闪光底：深色绒面 + 两团柔光 + 斜向扫光 + 描金内框（不创建任何 GL 表面） */
+function StaticHoloBackdrop() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeCardStyles(colors), [colors]);
+  return (
+    <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.staticBase]}>
+      <View style={[styles.staticBlob, styles.staticBlobA]} />
+      <View style={[styles.staticBlob, styles.staticBlobB]} />
+      <View style={styles.staticSheen} />
+      <View style={styles.staticFrame} />
+    </View>
+  );
+}
 
 function textOf(m: StudyCardModel): string {
   const rows = [...m.rowsLeft, ...m.rowsRight].map(([k, v]) => k + " " + v).join(" · ");
@@ -49,6 +68,12 @@ function HoloBackground({
 
   if (frozenUri) {
     return <Image source={{ uri: frozenUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />;
+  }
+
+  // 默认路径：不碰 GL，直接静态底（onReady 不会被调用 → 分享时跳过"冻结 GL"这一步）
+  if (!HOLO_GL_ENABLED) {
+    void foil;
+    return <StaticHoloBackdrop />;
   }
 
   return (
@@ -302,6 +327,44 @@ const makeCardStyles = (colors: ThemeColors) =>
       overflow: "hidden",
       backgroundColor: "#0E1220",
       ...shadows.card,
+    },
+    /* 静态闪光底（GL 关闭时的默认背景） */
+    staticBase: { backgroundColor: "#0B1020", borderRadius: 24 },
+    staticBlob: { position: "absolute", borderRadius: 999 },
+    staticBlobA: {
+      width: 260,
+      height: 260,
+      right: -90,
+      top: -70,
+      backgroundColor: "#5B2BB0",
+      opacity: 0.55,
+    },
+    staticBlobB: {
+      width: 240,
+      height: 240,
+      left: -80,
+      bottom: -90,
+      backgroundColor: "#0E5C7A",
+      opacity: 0.5,
+    },
+    staticSheen: {
+      position: "absolute",
+      top: -120,
+      bottom: -120,
+      left: 78,
+      width: 44,
+      backgroundColor: "rgba(255,246,214,0.18)",
+      transform: [{ rotate: "18deg" }],
+    },
+    staticFrame: {
+      position: "absolute",
+      top: 10,
+      right: 10,
+      bottom: 10,
+      left: 10,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: "rgba(242,217,160,0.42)",
     },
     overlay: { flex: 1, padding: 18, gap: 12 },
     brandRow: { flexDirection: "row", alignItems: "center", gap: 8 },
