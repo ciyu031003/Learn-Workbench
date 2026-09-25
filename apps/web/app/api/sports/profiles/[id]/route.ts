@@ -29,9 +29,15 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: parsed.status });
   const body = (parsed.data ?? {}) as Record<string, unknown>;
 
-  const sets: string[] = [];
-  const params: unknown[] = [userId, id];
-  const push = (col: string, v: unknown) => { params.push(v); sets.push(`${col} = $${params.length}`); };
+  /**
+   * 用 Map 收敛列赋值：同一列重复 push 会取**最后一次**的值。
+   * 之前用数组拼接，会出现 `show_gear_images = $k, ..., show_gear_images = false`，
+   * Postgres 直接报 "multiple assignments to same column" → 接口 500（真机表现为"更新失败 HTTP 500"）。
+   */
+  const assignments = new Map<string, unknown>();
+  const literal = new Map<string, string>();
+  const push = (col: string, v: unknown) => { assignments.set(col, v); literal.delete(col); };
+  const pushLiteral = (col: string, sql: string) => { literal.set(col, sql); assignments.delete(col); };
 
   if (body.identity !== undefined) push("identity", typeof body.identity === "string" ? body.identity.trim().slice(0, 40) || null : null);
   if (body.levelText !== undefined) push("level_text", typeof body.levelText === "string" ? body.levelText.trim().slice(0, 40) || null : null);
@@ -55,16 +61,31 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     push("is_public", pub);
     if (pub) {
       // 保留已有分享短链，仅在缺失时补发
-      params.push(`sp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`);
-      sets.push(`share_slug = COALESCE(share_slug, $${params.length})`);
+      push("share_slug", `sp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`);
     } else {
-      // 取消公开时把装备图开关一起关掉
-      sets.push("share_slug = NULL");
-      sets.push("show_gear_images = false");
+      // 取消公开时把装备图开关一起关掉（同列已有赋值时会被这里的"最后一次"覆盖，不会再重复赋值）
+      pushLiteral("share_slug", "NULL");
+      // 用字面量而非参数：与既有 SQL 形状/用例保持一致，也避免同一列两种写法
+      pushLiteral("show_gear_images", "false");
     }
   }
 
-  if (sets.length === 0) return NextResponse.json({ error: "没有要更新的字段" }, { status: 400 });
+  if (assignments.size === 0 && literal.size === 0) {
+    return NextResponse.json({ error: "没有要更新的字段" }, { status: 400 });
+  }
+
+  const params: unknown[] = [userId, id];
+  const sets: string[] = [];
+  for (const [col, value] of assignments) {
+    params.push(value);
+    // share_slug 的语义是"只在为空时补发"，用 COALESCE 保住已有短链
+    sets.push(
+      col === "share_slug" && typeof value === "string" && value.startsWith("sp-")
+        ? `share_slug = COALESCE(share_slug, $${params.length})`
+        : `${col} = $${params.length}`
+    );
+  }
+  for (const [col, sql] of literal) sets.push(`${col} = ${sql}`);
 
   const { rows } = await pgPool.query(
     `UPDATE sports_profiles SET ${sets.join(", ")}, updated_at = now()

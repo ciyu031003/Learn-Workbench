@@ -124,6 +124,14 @@ export default function WorkoutScreen() {
     // 新一轮开始：清掉上一轮可能残留的"确认返回"意图
     setPickerReturn(false);
     setPickerSession((s) => s + 1);
+    if (!sheetOpen) {
+      // 记录弹层本来就没开：直接开选择弹层。
+      // 之前这里无条件 setSheetOpen(false) —— 状态没变化 → onRecordSheetClosed 永不触发 →
+      // pickerPending 永久残留，之后**每次**关闭记录弹层都会把选择弹层弹回来（真机"关不掉"的另一半原因）。
+      setPickerPending(false);
+      setPickerOpen(true);
+      return;
+    }
     setSheetOpen(false);
   };
 

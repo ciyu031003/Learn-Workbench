@@ -75,10 +75,25 @@ export function ResumeFilesCard() {
         Alert.alert("文件太大", "简历文件上限 5MB，请压缩后再传");
         return;
       }
+      /**
+       * 服务端按**扩展名**校验（只认 pdf/doc/docx）。Android 各家文件提供方经常给不出带扩展名的
+       * 文件名，于是被 400 掉（真机"简历上传失败"）。这里按 mime 反推扩展名补齐。
+       */
+      const extFromMime = (mime?: string | null): string | null => {
+        const m = (mime ?? "").toLowerCase();
+        if (m === "application/pdf") return "pdf";
+        if (m === "application/msword") return "doc";
+        if (m.includes("wordprocessingml")) return "docx";
+        return null;
+      };
+      const rawName = asset.name ?? "";
+      const withExt = /\.(pdf|doc|docx)$/i.test(rawName)
+        ? rawName
+        : (rawName.replace(/\.[a-z0-9]+$/i, "").trim() || "resume") + "." + (extFromMime(asset.mimeType) ?? "pdf");
       const form = new FormData();
       form.append("file", {
         uri: asset.uri,
-        name: asset.name || "resume.pdf",
+        name: withExt,
         type: asset.mimeType || "application/pdf",
       } as unknown as Blob);
       setBusy(true);
