@@ -37,6 +37,7 @@ import { ThemedIcon } from "@/components/themed-icon";
 import { Button } from "@/components/button";
 import { Field } from "@/components/field";
 import { BottomSheet } from "@/components/bottom-sheet";
+import { SheetSection, SheetStickyCta } from "@/components/sheet";
 import { GroupLabel } from "@/components/group-label";
 import { SportsHoloCard } from "@/components/sports-holo-card";
 import { EquipmentPicker } from "@/components/equipment-picker-sheet";
@@ -836,14 +837,25 @@ export default function SportsCardScreen() {
         visible={sheetOpen}
         onClose={() => setSheetOpen(false)}
         title={editId ? "编辑运动档案" : "新建运动档案"}
-        height="88%"
+        subtitle="基础信息 · 装备 · 战绩 · 公开设置"
+        icon="create-outline"
+        height="90%"
+        footer={
+          <SheetStickyCta
+            label={saving ? "保存中…" : "保存档案"}
+            icon="checkmark"
+            loading={saving}
+            onPress={() => void save()}
+          />
+        }
+        footerHint="保存后档案、闪光卡与公开页会同步更新"
       >
         <View style={styles.form}>
           <Field label="等级" value={draft.levelText} onChangeText={(v) => setDraft((d) => ({ ...d, levelText: v }))} placeholder="如：业余 6 级" />
           <Field label="运动身份" value={draft.identity} onChangeText={(v) => setDraft((d) => ({ ...d, identity: v }))} placeholder="如：双打搭子" />
           <Field label="打法" value={draft.playStyle} onChangeText={(v) => setDraft((d) => ({ ...d, playStyle: v }))} placeholder="如：混双" />
           <Field label="绝技（卡面大字）" value={draft.signatureMove} onChangeText={(v) => setDraft((d) => ({ ...d, signatureMove: v }))} placeholder="如：疾风·劈杀" />
-          <GroupLabel>证件照</GroupLabel>
+          <SheetSection title="证件照" hint="会用在档案头图与公开分享页">
           <Pressable onPress={() => void pickDraftPhoto()} style={styles.photoRow} accessibilityLabel="上传证件照">
             {draft.photoUrl ? (
               <Image
@@ -864,7 +876,9 @@ export default function SportsCardScreen() {
             <ThemedIcon name="chevron-forward" size={18} color={colors.textFaint} />
           </Pressable>
 
-          <GroupLabel>图鉴四宫格</GroupLabel>
+          </SheetSection>
+
+          <SheetSection title="图鉴四宫格" hint="身高体重同时用于营养目标计算">
           <View style={styles.triple}>
             <View style={styles.tripleCell}>
               <Field
@@ -910,7 +924,9 @@ export default function SportsCardScreen() {
           </View>
           <Text style={styles.tip}>身高与体重同时也用于营养目标计算，改完保存即生效。</Text>
 
-          <GroupLabel>战绩</GroupLabel>
+          </SheetSection>
+
+          <SheetSection title="战绩" hint="场次 / 胜 / 负">
           <View style={styles.triple}>
             <View style={styles.tripleCell}>
               <Field label="比赛场次" value={String(draft.matchesPlayed || "")} keyboardType="number-pad" onChangeText={(v) => setDraft((d) => ({ ...d, matchesPlayed: Number(v.replace(/[^0-9]/g, "")) || 0 }))} placeholder="214" />
@@ -923,7 +939,9 @@ export default function SportsCardScreen() {
             </View>
           </View>
 
-          <GroupLabel>主力装备</GroupLabel>
+          </SheetSection>
+
+          <SheetSection title="主力装备" hint="球拍 / 球鞋 / 用球可配图">
           {draft.gear.map((g, i) => {
             const wantsImage = gearRowWantsImage(g.label);
             return (
@@ -971,7 +989,9 @@ export default function SportsCardScreen() {
             </View>
           ) : null}
 
-          <GroupLabel>公开成绩（第一条会放大到卡面）</GroupLabel>
+          </SheetSection>
+
+          <SheetSection title="公开成绩" hint="第一条会放大到卡面">
           {draft.highlights.map((h, i) => (
             <View key={i} style={styles.gearInputRow}>
               <View style={styles.gearInputLabel}>
@@ -991,6 +1011,9 @@ export default function SportsCardScreen() {
             onPress={() => setDraft((d) => ({ ...d, highlights: [...d.highlights, { label: "", value: "" }] }))}
           />
 
+          </SheetSection>
+
+          <SheetSection title="公开与分享" hint="公开后不含身高体重等身体数据" last>
           <View style={styles.switchRow}>
             <Text style={styles.switchLabel}>公开分享</Text>
             <Switch
@@ -1009,9 +1032,7 @@ export default function SportsCardScreen() {
               onValueChange={(v) => setDraft((d) => ({ ...d, showGearImages: v }))}
             />
           </View>
-          <Text style={styles.tip}>公开后只展示身份 / 等级 / 装备 / 战绩 / 公开成绩，不含身高体重等身体数据。</Text>
-
-          <Button label={saving ? "保存中…" : "保存档案"} onPress={() => void save()} loading={saving} disabled={saving} />
+          </SheetSection>
         </View>
       </BottomSheet>
     </View>
