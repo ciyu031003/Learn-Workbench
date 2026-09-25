@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
+import { ChipGroup, SheetSegmented } from "@/components/sheet";
 import { useTheme } from "@/theme";
 import { radius, spacing, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
@@ -144,38 +145,28 @@ export function ContentPicker({
 
   const selectedLabel = contentLabelOf(value);
 
+  /** 当前选中的主题 key（与 ChipGroup 的 key 规则一致：c-/b- 前缀区分自建与内置） */
+  const selectedTopicKey = (() => {
+    if (value.topicId === undefined) return [];
+    const t = topics.find((x) => x.id === value.topicId);
+    return t ? [`${t.custom ? "c" : "b"}-${t.id}`] : [];
+  })();
+
   return (
     <View style={styles.wrap}>
-      <View style={styles.head}>
-        <ThemedIcon name="bookmark-outline" size={15} color={colors.accentStrong} />
-        <Text style={styles.headTitle}>这次学什么</Text>
-        <Text style={styles.headHint} numberOfLines={1}>
-          {selectedLabel ?? "不指定"}
-        </Text>
-      </View>
-
-      <View style={styles.segRow}>
-        {(
-          [
-            { key: "none", label: "不指定" },
-            { key: "free", label: "自由输入" },
-            { key: "phase", label: "阶段→主题" },
-          ] as const
-        ).map((o) => {
-          const active = value.source === o.key;
-          return (
-            <Pressable
-              key={o.key}
-              style={[styles.seg, active && styles.segActive]}
-              onPress={() => setSource(o.key)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: active }}
-            >
-              <Text style={[styles.segText, active && styles.segTextActive]}>{o.label}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      {/* v16：分段改成滑动胶囊；标题由外层 SheetSection 承担，这里只留选择态摘要 */}
+      <SheetSegmented
+        options={[
+          { key: "none", label: "不指定" },
+          { key: "free", label: "自由输入" },
+          { key: "phase", label: "阶段→主题" },
+        ]}
+        value={value.source}
+        onChange={setSource}
+      />
+      <Text style={styles.headHint} numberOfLines={1}>
+        {selectedLabel ?? "不指定（自由专注，不绑定内容）"}
+      </Text>
 
       {value.source === "free" ? (
         <View style={styles.freeBox}>
@@ -194,46 +185,35 @@ export function ContentPicker({
 
       {value.source === "phase" ? (
         <View style={styles.phaseBox}>
-          <View style={styles.chipWrap}>
-            {phases.map((p) => {
-              const active = phase?.id === p.id;
-              return (
-                <Pressable
-                  key={p.id}
-                  style={[styles.chip, active && styles.chipActive]}
-                  onPress={() => {
-                    // 换阶段后原来的主题不再适用 → 回到"未选"，label 清空（= 不指定）；
-                    // 阶段本身由受控值 value.phaseId 驱动，不再用内部 state（避免残留上次阶段）
-                    onChange({ source: "phase", label: "", phaseId: p.id });
-                  }}
-                >
-                  <Text style={[styles.chipText, active && styles.chipTextActive]} numberOfLines={1}>
-                    {p.title}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+          <ChipGroup
+            multiple={false}
+            wrap
+            options={phases.map((p) => ({ key: String(p.id), label: p.title }))}
+            selected={phase ? [String(phase.id)] : []}
+            onToggle={(k) => {
+              // 换阶段后原来的主题不再适用 → 回到"未选"，label 清空（= 不指定）；
+              // 阶段本身由受控值 value.phaseId 驱动，不再用内部 state（避免残留上次阶段）
+              onChange({ source: "phase", label: "", phaseId: Number(k) });
+            }}
+          />
 
           {phase ? (
             topics.length > 0 ? (
-              <View style={styles.chipWrap}>
-                {topics.map((t) => {
-                  const active = value.topicId === t.id;
-                  return (
-                    <Pressable
-                      key={`${t.custom ? "c" : "b"}-${t.id}`}
-                      style={[styles.chip, styles.topicChip, active && styles.chipActive]}
-                      onPress={() => pickTopic(t.id, t.title)}
-                    >
-                      <Text style={[styles.chipText, active && styles.chipTextActive]} numberOfLines={1}>
-                        {t.title}
-                        {t.custom ? " · 自建" : ""}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+              <ChipGroup
+                multiple={false}
+                wrap
+                options={topics.map((t) => ({
+                  key: `${t.custom ? "c" : "b"}-${t.id}`,
+                  label: t.custom ? `${t.title} · 自建` : t.title,
+                }))}
+                selected={selectedTopicKey}
+                onToggle={(k) => {
+                  const custom = k.startsWith("c-");
+                  const id = Number(k.slice(2));
+                  const t = topics.find((x) => x.id === id && x.custom === custom);
+                  if (t) pickTopic(t.id, t.title);
+                }}
+              />
             ) : (
               <Text style={styles.empty}>该阶段还没有主题，可用「自由输入」写一个</Text>
             )

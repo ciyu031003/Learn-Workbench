@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/immutability */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
@@ -34,8 +34,7 @@ import {
   updatePhase,
   type MdImportResult,
 } from "@/lib/roadmap";
-import { Button } from "@/components/button";
-import { SheetSection } from "@/components/sheet";
+import { SheetSection, SheetStickyCta } from "@/components/sheet";
 import { FocusShareSheet } from "@/components/focus-share-card";
 import { focusShareDataFromStats } from "@/lib/focus-share";
 
@@ -981,7 +980,9 @@ export default function LearnScreen() {
         visible={calendarOpen}
         onClose={() => setCalendarOpen(false)}
         title="选择日期"
-        height="60%"
+        subtitle="点某一天，看那天的学习分布"
+        icon="calendar-outline"
+        height="62%"
       >
         <MonthCalendar
           selected={statDate}
@@ -994,10 +995,20 @@ export default function LearnScreen() {
         visible={customTopicSheet}
         onClose={() => setCustomTopicSheet(false)}
         title="添加学习内容"
-        height="46%"
+        subtitle={selectedPhase ? `加到「${selectedPhase.title}」` : "先选一个学习阶段"}
+        icon="bookmark-outline"
+        height="54%"
+        footer={
+          <SheetStickyCta
+            label="保存并同步"
+            icon="checkmark"
+            onPress={submitCustomTopic}
+            disabled={!customTopicTitle.trim()}
+          />
+        }
+        footerHint="保存后会出现在该阶段的主题列表里，可继续编辑"
       >
-        <View style={styles.formSheet}>
-          <Text style={styles.formLabel}>主题标题</Text>
+        <SheetSection title="主题标题" hint="必填，越长越具体越好">
           <TextInput
             style={styles.formInput}
             value={customTopicTitle}
@@ -1005,7 +1016,8 @@ export default function LearnScreen() {
             placeholder="例如：网络安全命令速查"
             placeholderTextColor={colors.textFaint}
           />
-          <Text style={styles.formLabel}>一句话说明（选填）</Text>
+        </SheetSection>
+        <SheetSection title="一句话说明" hint="选填" last>
           <TextInput
             style={[styles.formInput, styles.formInputArea]}
             value={customTopicSummary}
@@ -1014,20 +1026,28 @@ export default function LearnScreen() {
             placeholderTextColor={colors.textFaint}
             multiline
           />
-          <Pressable style={styles.primaryShareBtn} onPress={submitCustomTopic}>
-            <Text style={styles.primaryShareText}>保存并同步</Text>
-          </Pressable>
-        </View>
+        </SheetSection>
       </BottomSheet>
 
       <BottomSheet
         visible={customPhaseSheet}
         onClose={() => setCustomPhaseSheet(false)}
         title={editingPhase ? "编辑学习阶段" : "新建学习阶段"}
-        height="38%"
+        subtitle={editingPhase ? "改完保存会同步到所有端" : "阶段是路线图里的一层，下面可以放主题"}
+        icon="layers-outline"
+        height="52%"
+        footer={
+          <SheetStickyCta
+            label={editingPhase ? "保存并同步" : "创建并同步"}
+            icon="checkmark"
+            loading={roadmapLoading}
+            disabled={!customPhaseTitle.trim()}
+            onPress={() => void submitCustomPhase()}
+          />
+        }
+        footerHint="空阶段也可以先建，之后再补主题"
       >
-        <View style={styles.formSheet}>
-          <Text style={styles.formLabel}>阶段标题</Text>
+        <SheetSection title="阶段标题" hint="必填">
           <TextInput
             style={styles.formInput}
             value={customPhaseTitle}
@@ -1035,7 +1055,8 @@ export default function LearnScreen() {
             placeholder="例如：项目实战冲刺"
             placeholderTextColor={colors.textFaint}
           />
-          <Text style={styles.formLabel}>阶段说明（选填）</Text>
+        </SheetSection>
+        <SheetSection title="阶段说明" hint="选填" last>
           <TextInput
             style={[styles.formInput, styles.formInputArea]}
             value={customPhaseSummary}
@@ -1044,18 +1065,7 @@ export default function LearnScreen() {
             placeholderTextColor={colors.textFaint}
             multiline
           />
-          <Pressable
-            style={[styles.primaryShareBtn, roadmapLoading && styles.btnDisabled]}
-            disabled={roadmapLoading}
-            onPress={() => void submitCustomPhase()}
-          >
-            {roadmapLoading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.primaryShareText}>{editingPhase ? "保存并同步" : "创建并同步"}</Text>
-            )}
-          </Pressable>
-        </View>
+        </SheetSection>
       </BottomSheet>
 
       {/* v6 P3-2：粘贴 Markdown → 预览 → 导入（服务端解析 + 事务写入） */}
@@ -1063,8 +1073,22 @@ export default function LearnScreen() {
         visible={mdSheet}
         onClose={() => setMdSheet(false)}
         title="导入 Markdown 学习计划"
+        subtitle="一级标题=阶段，二级=主题，三级=学习内容"
+        icon="document-text-outline"
         height="86%"
         expandable
+        footer={
+          <SheetStickyCta
+            label="确认导入"
+            icon="add"
+            loading={mdBusy}
+            disabled={!mdPreview}
+            onPress={() => void confirmMd()}
+            secondaryLabel="先预览解析结果"
+            onSecondary={() => void previewMd()}
+          />
+        }
+        footerHint="导入按标题去重，可重复执行"
       >
         <View style={styles.formSheet}>
           <Text style={styles.mdHint}>
@@ -1103,20 +1127,6 @@ export default function LearnScreen() {
               ))}
             </View>
           ) : null}
-          <View style={styles.mdActions}>
-            <View style={styles.mdActionItem}>
-              <Button label="预览" variant="secondary" loading={mdBusy} onPress={() => void previewMd()} />
-            </View>
-            <View style={styles.mdActionItem}>
-              <Button
-                label="确认导入"
-                icon="add"
-                loading={mdBusy}
-                disabled={!mdPreview}
-                onPress={() => void confirmMd()}
-              />
-            </View>
-          </View>
         </View>
       </BottomSheet>
       <Modal visible={!!activeTopic} transparent animationType="fade" onRequestClose={() => setContentTopic(null)}>
