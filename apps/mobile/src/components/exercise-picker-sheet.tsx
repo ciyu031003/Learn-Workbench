@@ -161,7 +161,10 @@ export function ExercisePickerSheet({ visible, onClose, onClosed, onConfirm, ini
       reps,
       weightKg: weight,
     });
-  }, [onConfirm, picked, reps, sets, weight]);
+    // 双保险：确认后自己也请求关闭（父级 applyPicked 已会置 visible=false，
+    // 这里再关一次保证任何调用方都不会留下"弹层不消失"的状态）
+    onClose();
+  }, [onClose, onConfirm, picked, reps, sets, weight]);
 
   return (
     <BottomSheet

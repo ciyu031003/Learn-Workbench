@@ -131,6 +131,7 @@ export default function WorkoutScreen() {
   const onRecordSheetClosed = () => {
     // 防御：只有这轮确实是"为选动作而关"，且选择弹层尚未打开时才开
     if (!pickerPending || pickerOpen) return;
+    setPickerPending(false); // 消费掉意图：即使这次没开成，也不能留到下次关闭时再触发
     setPickerOpen(true);
   };
 
@@ -166,6 +167,8 @@ export default function WorkoutScreen() {
     });
     // 置位"确认返回"意图：onPickerClosed 才会把记录弹层接回来
     setPickerReturn(true);
+    // 串行意图已消费，避免"记录弹层关闭时又去开选择弹层"的乒乓
+    setPickerPending(false);
     setPickerOpen(false);
   };
 
@@ -203,7 +206,9 @@ export default function WorkoutScreen() {
         const d = await r.json().catch(() => ({}) as { error?: string });
         throw new Error((d as { error?: string }).error ?? "保存失败");
       }
-      setSheetOpen(false);
+      // 必须走 closeRecordSheet：直接 setSheetOpen(false) 会留下 pickerPending/pickerReturn，
+      // 于是 onRecordSheetClosed 又把选择弹层/记录弹层弹回来 —— 真机表现为"保存后抽屉一直弹出来关不掉"
+      closeRecordSheet();
       setEditingId(null);
       setItems([newDraftItem()]);
       setName("训练");

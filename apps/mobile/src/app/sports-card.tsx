@@ -60,7 +60,7 @@ import {
 import { getApiUrl } from "@/config";
 import { tabBarBottomFor } from "@/lib/use-tab-bar-space";
 import { useAppStore } from "@/store/app-store";
-import { radius } from "@/theme/tokens";
+import { radius, shadows } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 
@@ -1062,25 +1062,26 @@ const makeStyles = (colors: ThemeColors) =>
     emptyTitle: { fontSize: 15, fontWeight: "700", color: colors.text },
     emptyHint: { fontSize: 12, lineHeight: 19, color: colors.textMuted, textAlign: "center" },
     hero: {
-      height: 168,
-      borderRadius: radius.lg,
+      height: 182,
+      borderRadius: radius.xl,
       overflow: "hidden",
       backgroundColor: colors.surfaceStrong,
-      borderWidth: 1,
-      borderColor: colors.border,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderStrong,
+      ...shadows.card,
     },
     heroImg: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
     heroPlaceholder: {
       flex: 1,
       alignItems: "center",
       justifyContent: "center",
-      gap: 8,
+      gap: 10,
       paddingHorizontal: 24,
       borderWidth: 1,
       borderStyle: "dashed",
       borderColor: colors.borderStrong,
-      borderRadius: radius.lg - 1,
-      margin: 6,
+      borderRadius: radius.xl - 2,
+      margin: 8,
     },
     heroPlaceholderIcon: {
       width: 56,
@@ -1110,7 +1111,7 @@ const makeStyles = (colors: ThemeColors) =>
       height: "26%",
       backgroundColor: "rgba(0,0,0,0.22)",
     },
-    heroIdentity: { position: "absolute", left: 12, right: 12, bottom: 10, gap: 1 },
+    heroIdentity: { position: "absolute", left: 14, right: 14, bottom: 14, gap: 3 },
     vipBadge: {
       position: "absolute",
       top: 10,
@@ -1124,8 +1125,8 @@ const makeStyles = (colors: ThemeColors) =>
     vipText: { fontSize: 10, fontWeight: "800", color: "#4a3308", letterSpacing: 0.6 },
     heroEditBadge: {
       position: "absolute",
-      left: 10,
-      bottom: 10,
+      left: 12,
+      bottom: 12,
       flexDirection: "row",
       alignItems: "center",
       gap: 4,
@@ -1135,25 +1136,28 @@ const makeStyles = (colors: ThemeColors) =>
       paddingVertical: 5,
     },
     heroEditText: { fontSize: 11, fontWeight: "700", color: "#ffffff" },
-    identityName: { fontSize: 21, fontWeight: "800", color: "#ffffff" },
-    identityMeta: { fontSize: 11, color: "rgba(255,255,255,0.88)", letterSpacing: 0.3 },
+    identityName: { fontSize: 22, fontWeight: "800", color: "#ffffff", letterSpacing: 0.3 },
+    identityMeta: { fontSize: 11.5, color: "rgba(255,255,255,0.9)", letterSpacing: 0.4, lineHeight: 16 },
     grid: {
       flexDirection: "row",
       backgroundColor: colors.surfaceStrong,
-      borderRadius: radius.lg,
-      borderWidth: 1,
+      borderRadius: radius.xl,
+      borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.border,
       overflow: "hidden",
+      ...shadows.card,
     },
     gridCell: {
       flex: 1,
       alignItems: "center",
-      paddingVertical: 14,
+      justifyContent: "center",
+      paddingVertical: 16,
+      paddingHorizontal: 4,
       borderRightWidth: StyleSheet.hairlineWidth,
       borderRightColor: colors.border,
     },
-    gridValue: { fontSize: 17, fontWeight: "800", color: colors.text },
-    gridLabel: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
+    gridValue: { fontSize: 18, fontWeight: "800", color: colors.text, letterSpacing: 0.2 },
+    gridLabel: { fontSize: 11, color: colors.textMuted, marginTop: 3, letterSpacing: 0.2 },
     statRow: { flexDirection: "row", gap: 8 },
     statCard: {
       flex: 1,
@@ -1174,12 +1178,13 @@ const makeStyles = (colors: ThemeColors) =>
     // 球拍类：通栏横放（图片旋转 90°，容器裁掉上下空白，~104pt 高）
     gearWide: {
       backgroundColor: colors.surfaceStrong,
-      borderRadius: radius.lg,
-      borderWidth: 1,
+      borderRadius: radius.xl,
+      borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.border,
-      paddingVertical: 10,
-      paddingHorizontal: 12,
-      gap: 6,
+      paddingVertical: 12,
+      paddingHorizontal: 14,
+      gap: 8,
+      ...shadows.card,
     },
     gearWideImage: {
       width: "100%",
@@ -1199,9 +1204,9 @@ const makeStyles = (colors: ThemeColors) =>
       gap: 6,
     },
     gearWideImg: { width: "100%", aspectRatio: 1, transform: [{ rotate: "90deg" }, { scale: 0.9 }] },
-    gearWideMeta: { gap: 2 },
-    gearWideLabel: { fontSize: 11, fontWeight: "700", color: colors.primaryStrong, letterSpacing: 0.4 },
-    gearWideValue: { fontSize: 14, fontWeight: "700", color: colors.text },
+    gearWideMeta: { gap: 3 },
+    gearWideLabel: { fontSize: 10.5, fontWeight: "800", color: colors.primaryStrong, letterSpacing: 0.8 },
+    gearWideValue: { fontSize: 14.5, fontWeight: "700", color: colors.text },
     // 有图时右上角的「换图」浮标
     gearSwapPill: {
       position: "absolute",
@@ -1218,13 +1223,13 @@ const makeStyles = (colors: ThemeColors) =>
     gearSwapText: { fontSize: 10, fontWeight: "700", color: "#ffffff" },
 
     // 其余装备：两列网格，图片区矮一点，一行装两个
-    gearGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-    gearCell: { width: "48%" },
+    gearGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+    gearCell: { width: "47.8%" },
     gearCellImage: {
       width: "100%",
       aspectRatio: 1.55,
-      borderRadius: radius.md,
-      borderWidth: 1,
+      borderRadius: radius.lg,
+      borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.border,
       backgroundColor: "#ffffff",
       alignItems: "center",
@@ -1236,8 +1241,8 @@ const makeStyles = (colors: ThemeColors) =>
     // 不配图的装备行（拍线 / 手胶 / 球衣…）：一行文字，不占图片框
     gearTextList: {
       backgroundColor: colors.surfaceStrong,
-      borderRadius: radius.lg,
-      borderWidth: 1,
+      borderRadius: radius.xl,
+      borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.border,
       overflow: "hidden",
     },

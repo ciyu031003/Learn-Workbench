@@ -22,7 +22,11 @@ import { PressableScale } from "@/components/pressable-scale";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { useTheme } from "@/theme";
 import type { ThemeColors } from "@/theme/tokens";
+import { SheetListRow, SheetSection } from "@/components/sheet";
 import { domainIconName, fetchDomains, type DomainItem } from "@/lib/domains";
+
+/** 首屏直接展示的领域个数，其余收进「更多」 */
+const MAX_VISIBLE_DOMAINS = 4;
 import {
   fetchTrackers,
   fetchTrackerLogs,
@@ -50,6 +54,15 @@ export default function TrackersScreen() {
   const [loading, setLoading] = useState(true);
   const [domains, setDomains] = useState<DomainItem[]>([]);
   const [currentDomain, setCurrentDomain] = useState("ict");
+  /** v1.26：领域不再横向滚动找 —— 首屏 4 个 + 「更多」弹层 */
+  const [domainSheetOpen, setDomainSheetOpen] = useState(false);
+  /** 前 4 个；当前选中若不在其中则替换进来（保证选中态永远可见） */
+  const visibleDomains = (() => {
+    const head = domains.slice(0, MAX_VISIBLE_DOMAINS);
+    if (head.some((d) => d.career_key === currentDomain)) return head;
+    const active = domains.find((d) => d.career_key === currentDomain);
+    return active ? [active, ...head.slice(0, MAX_VISIBLE_DOMAINS - 1)] : head;
+  })();
   const [trackers, setTrackers] = useState<TrackerItem[]>([]);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -228,21 +241,32 @@ export default function TrackersScreen() {
           <>
             {domains.length > 1 ? (
               <Card title="领域" subtitle="切换查看不同领域的记录项">
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroller}>
-                  {domains.map((d) => {
+                <View style={styles.chipWrap}>
+                  {visibleDomains.map((d) => {
                     const active = d.career_key === currentDomain;
                     return (
                       <Pressable
                         key={d.career_key}
                         onPress={() => void pickDomain(d.career_key)}
                         style={[styles.chip, active ? styles.chipActive : styles.chipIdle]}
+                        accessibilityState={{ selected: active }}
                       >
                         <ThemedIcon name={domainIconName(d.icon)} size={14} color={active ? "#fff" : d.color} />
                         <Text style={active ? styles.chipTextActive : styles.chipTextIdle}>{d.name}</Text>
                       </Pressable>
                     );
                   })}
-                </ScrollView>
+                  {domains.length > MAX_VISIBLE_DOMAINS ? (
+                    <Pressable
+                      onPress={() => setDomainSheetOpen(true)}
+                      style={[styles.chip, styles.chipMore]}
+                      accessibilityLabel={`更多领域（共 ${domains.length} 个）`}
+                    >
+                      <ThemedIcon name="ellipsis-horizontal" size={14} color={colors.primary} />
+                      <Text style={styles.chipMoreText}>更多 {domains.length}</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
               </Card>
             ) : null}
 
@@ -274,6 +298,34 @@ export default function TrackersScreen() {
           </>
         )}
       </ScrollView>
+
+      {/* v1.26：领域「更多」——完整列表向下弹出，选中即回填并关闭 */}
+      <BottomSheet
+        visible={domainSheetOpen}
+        onClose={() => setDomainSheetOpen(false)}
+        title="选择领域"
+        subtitle={`共 ${domains.length} 个领域`}
+        icon="grid-outline"
+        height="64%"
+      >
+        <SheetSection title="全部领域" last>
+          {domains.map((d, i) => (
+            <SheetListRow
+              key={d.career_key}
+              mode="radio"
+              icon={domainIconName(d.icon)}
+              iconColor={d.color}
+              title={d.name}
+              selected={d.career_key === currentDomain}
+              last={i === domains.length - 1}
+              onPress={() => {
+                setDomainSheetOpen(false);
+                void pickDomain(d.career_key);
+              }}
+            />
+          ))}
+        </SheetSection>
+      </BottomSheet>
 
       {/* v4 P2：原来是自绘的居中弹层（无任何键盘适配，autoFocus 一弹键盘就看不到输入框），
           统一改用 BottomSheet（内置键盘高度收缩 + 滚动 + 安全区）。 */}
@@ -359,7 +411,9 @@ const makeStyles = (colors: ThemeColors) =>
     loading: { marginVertical: 24 },
     hint: { fontSize: 12, color: colors.textMuted, lineHeight: 18, paddingHorizontal: 4 },
     msg: { fontSize: 13, color: colors.success, fontWeight: "600", paddingHorizontal: 4 },
-    chipScroller: { flexDirection: "row", gap: 8, paddingVertical: 2 },
+    chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingVertical: 2 },
+    chipMore: { backgroundColor: colors.primarySoft, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.primary },
+    chipMoreText: { color: colors.primary, fontSize: 13, fontWeight: "700" },
     chip: { flexDirection: "row", alignItems: "center", gap: 5, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
     chipActive: { backgroundColor: colors.primary },
     chipIdle: { backgroundColor: colors.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
