@@ -9,7 +9,7 @@ vi.mock("@/lib/uploads", async (importOriginal) => {
 
 import { pgPool } from "@/lib/db";
 import { currentUserId, currentSessionToken } from "@/lib/session";
-import { processAndStoreImage, removeUploadFile } from "@/lib/uploads";
+import { processAndStoreImage, removeUploadFile, UPLOAD_MAX_BYTES } from "@/lib/uploads";
 import { POST, DELETE } from "./route";
 
 const queryMock = vi.mocked(pgPool.query);
@@ -61,7 +61,8 @@ describe("POST /api/uploads", () => {
   });
 
   it("超过单张上限返回 400", async () => {
-    const big = new File([new Uint8Array(9 * 1024 * 1024)], "big.png", { type: "image/png" });
+    // 从常量推导：上限调整（8MB→12MB）时这条用例不会变成假绿
+    const big = new File([new Uint8Array(UPLOAD_MAX_BYTES + 1)], "big.png", { type: "image/png" });
     const res = await POST(uploadRequest(big));
     expect(res.status).toBe(400);
     expect((await res.json()).error).toContain("太大了");
