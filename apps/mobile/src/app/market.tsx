@@ -308,7 +308,7 @@ export default function MarketScreen() {
     return filters.source ?? "";
   };
 
-  const filterLabels: Array<{ key: FilterKey; label: string; value: string }> = (
+  const filterLabels: { key: FilterKey; label: string; value: string }[] = (
     ["city", "function", "industry", "seniority", "source"] as FilterKey[]
   ).map((key) => ({ key, label: FILTER_LABEL[key], value: filterValueOf(key) }));
 
