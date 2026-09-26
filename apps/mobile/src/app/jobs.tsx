@@ -13,7 +13,12 @@ import {
 import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import { ThemedIcon } from "@/components/themed-icon";
 import { EmptyState } from "@/components/empty-state";
-import { ScreenHeader } from "@/components/screen-header";
+import {
+  ScreenHeaderLargeTitle,
+  ScreenHeaderStickyBar,
+  useHeaderTopInset,
+  useLargeTitleHeader,
+} from "@/components/screen-header";
 import { SkeletonList } from "@/components/skeleton";
 
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
@@ -407,8 +412,11 @@ function FilterBottomSheet({
 
 export default function JobsScreen() {
   const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const tabBarSpace = useTabBarSpace();
+  // v17-C2b：吸顶紧凑栏的滚动驱动 + 吸顶栏占位（44pt 高，用于 RefreshControl 的 progressViewOffset）
+  const headerScroll = useLargeTitleHeader();
+  const headerTop = useHeaderTopInset();
   const token = useAppStore((s) => s.token);
 
   const [jobs, setJobs] = useState<JobPostingListItem[]>([]);
@@ -579,10 +587,10 @@ export default function JobsScreen() {
 
   const renderHeader = () => (
     <View style={styles.listSide}>
-      <View style={[styles.hero]}>
-        {/* 页面级导航（原齿轮菜单已移除）：返回职业 Hub */}
-        <ScreenHeader title="招花" subtitle="让每一次机会，都像花一样准时绽放" compact backTo="/career" />
-      </View>
+      {/* v17-C2b：大标题留在滚动内容【内】随内容滚走；紧凑栏在 FlashList【外】真吸顶。
+          刻意不套 styles.hero —— 那是给紧凑栏用的 flexDirection:row 容器，会把块级大标题挤成内容宽、
+          副标题不再换行（且它没有顶部 padding，所以移出来也不会出现双倍留白）。 */}
+      <ScreenHeaderLargeTitle title="招花" subtitle="让每一次机会，都像花一样准时绽放" />
 
       <View style={styles.statsRow}>
         <Card style={styles.statCard}>
@@ -717,11 +725,16 @@ export default function JobsScreen() {
 
   return (
     <View style={styles.root}>
+      {/* v17-C2b（真吸顶）：紧凑栏必须是滚动容器**之外**的兄弟节点；组件内部已绝对定位在状态栏下方
+          一行高度，且 pointerEvents 穿透（空白处手势落到下方列表），不会变成全屏覆盖层。 */}
+      <ScreenHeaderStickyBar title="招花" backTo="/career" scrollY={headerScroll.scrollY} />
       {/* FlashList：职位列表可达数百条，回收式虚拟化（D3）；未提供 estimatedItemSize —— v2 自动测量
           注意：**FlashList v2 不消费 contentContainerStyle**（内部把 items 绝对定位，没有内容容器），
           所以 padding/gap 必须由 item wrapper、separator、header/footer 自己给（见 styles.listSide / cardSep）。 */}
       <FlashList
         ref={listRef}
+        onScroll={headerScroll.onScroll}
+        scrollEventThrottle={16}
         data={jobs}
         keyExtractor={(item) => String(item.id)}
         renderItem={({ item, index }) => (
@@ -740,8 +753,10 @@ export default function JobsScreen() {
             onRefresh={refreshJobs}
             tintColor={colors.primary}
             colors={[colors.primary]}
-                    progressBackgroundColor={colors.surfaceStrong}
-                    />
+            progressBackgroundColor={colors.surfaceStrong}
+            // 吸顶栏高 44 + 状态栏：不加偏移时下拉转圈会出现在吸顶栏底下被盖住
+            progressViewOffset={headerTop + 44}
+          />
         }
         showsVerticalScrollIndicator={false}
       />
@@ -785,12 +800,6 @@ const makeStyles = (colors: ThemeColors) =>
   /** 列表左右留白：FlashList v2 忽略 contentContainerStyle 的 padding，必须逐处显式给 */
   listSide: { paddingHorizontal: 16 },
   cardSep: { height: 12 },
-  hero: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingBottom: 6,
-  },
   statsRow: { flexDirection: "row", gap: 8, marginBottom: 4 },
 
   statCard: { flex: 1, padding: 12, gap: 4 },
