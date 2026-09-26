@@ -8,15 +8,18 @@ import type { ViewStyle } from "react-native";
  * `colors` 常量仅为浅色档快照，供模块级默认值与兼容旧引用，不随主题切换。
  */
 const lightColors = {
-  canvas: "#FDF8EF",
-  surface: "#FFFBEA",
+  // v17-A（D1 改良版）：转"暖中性"——保留一丝暖意，不再大面积奶油黄
+  canvas: "#F7F5F2",
+  surface: "#FFFFFF",
   surfaceStrong: "#FFFFFF",
   surfaceMuted: "rgba(24,24,27,0.04)",
-  text: "#3A342C",
-  textMuted: "#7A7367",
-  textFaint: "#A0998A",
-  border: "rgba(120,90,45,0.16)",
-  borderStrong: "rgba(120,90,45,0.30)",
+  // iOS 灰阶（label / secondaryLabel / tertiaryLabel）
+  text: "#1C1C1E",
+  textMuted: "#8E8E93",
+  textFaint: "#AEAEB2",
+  // iOS separator：中性 hairline，替掉原先的棕描边
+  border: "rgba(60,60,67,0.10)",
+  borderStrong: "rgba(60,60,67,0.22)",
 
   primary: "#2F74C0",
   primaryStrong: "#255FA8",
@@ -52,15 +55,16 @@ const lightColors = {
 
 /** 苦旅 · 夜航：暖炭底 + 提亮主色，避免纯黑的生硬 */
 const darkColors = {
-  canvas: "#171209",
-  surface: "#221B10",
-  surfaceStrong: "#2B2316",
-  surfaceMuted: "rgba(242,235,221,0.08)",
-  text: "#F2EBDD",
-  textMuted: "#C3B9A6",
-  textFaint: "#9F9683",
-  border: "rgba(242,235,221,0.14)",
-  borderStrong: "rgba(242,235,221,0.30)",
+  // v17-A：**不用纯黑 #000**（纯黑会让投影彻底失效、且与 #1C1C1E 卡片对比过强）
+  canvas: "#111113",
+  surface: "#1C1C1E",
+  surfaceStrong: "#2C2C2E",
+  surfaceMuted: "rgba(235,235,245,0.08)",
+  text: "#F2F2F7",
+  textMuted: "#A8A8AD",
+  textFaint: "#7C7C82",
+  border: "rgba(235,235,245,0.14)",
+  borderStrong: "rgba(235,235,245,0.28)",
 
   primary: "#6FA8E0",
   primaryStrong: "#8FC0F0",
@@ -112,18 +116,23 @@ export const radius = {
   pill: 999,
 } as const;
 
+/**
+ * v17-A：投影全部中性化（原先 card 用棕橙 #B8823F、floating 用橙 #E1781C —— 这是"土"的三大来源之一）。
+ * iOS 的投影是近黑、低透明度、大模糊半径；层级主要靠底色差表达，投影只做辅助。
+ * 注意：深色模式下投影几乎不可见，这是 iOS 的正常表现 —— 深色的层级请靠 surface / surfaceStrong 的底色差。
+ */
 export const shadows: Record<"card" | "floating", ViewStyle> = {
   card: {
-    shadowColor: "#B8823F",
-    shadowOpacity: 0.12,
-    shadowRadius: 18,
+    shadowColor: "#1C2430",
+    shadowOpacity: 0.06,
+    shadowRadius: 22,
     shadowOffset: { width: 0, height: 8 },
     elevation: 2,
   },
   floating: {
-    shadowColor: "#E1781C",
-    shadowOpacity: 0.24,
-    shadowRadius: 24,
+    shadowColor: "#1C2430",
+    shadowOpacity: 0.1,
+    shadowRadius: 28,
     shadowOffset: { width: 0, height: 12 },
     elevation: 6,
   },
@@ -153,14 +162,16 @@ export const spacing = {
  * 说明：不锁死行高以外的布局高度，避免系统字体放大时被截断（配合 allowFontScaling）。
  */
 export const typography = {
-  display: { fontSize: 30, lineHeight: 36, fontWeight: "800", letterSpacing: -0.4 },
-  title1: { fontSize: 24, lineHeight: 30, fontWeight: "800" },
-  title2: { fontSize: 19, lineHeight: 25, fontWeight: "700" },
-  headline: { fontSize: 16, lineHeight: 22, fontWeight: "700" },
-  body: { fontSize: 15, lineHeight: 22, fontWeight: "400" },
-  callout: { fontSize: 14, lineHeight: 20, fontWeight: "500" },
+  // v17-A（R7）：对齐 iOS 语义。中文正文 16pt 是可读性拐点；中文标题 600 比 700 秀气。
+  // lineHeight 按 1.19~1.5 取值，并保证在系统字号放大 130% 时单行仍能容纳（见 lib/text-scale.ts）。
+  display: { fontSize: 32, lineHeight: 38, fontWeight: "800", letterSpacing: -0.4 },
+  title1: { fontSize: 28, lineHeight: 34, fontWeight: "700" },
+  title2: { fontSize: 22, lineHeight: 28, fontWeight: "700" },
+  headline: { fontSize: 17, lineHeight: 23, fontWeight: "600" },
+  body: { fontSize: 16, lineHeight: 24, fontWeight: "400" },
+  callout: { fontSize: 15, lineHeight: 21, fontWeight: "500" },
   caption: { fontSize: 12, lineHeight: 16, fontWeight: "500" },
-  micro: { fontSize: 11, lineHeight: 14, fontWeight: "600" },
+  micro: { fontSize: 12, lineHeight: 16, fontWeight: "600" },
 } as const;
 
 export type TypographyToken = keyof typeof typography;
