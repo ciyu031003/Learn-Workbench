@@ -16,6 +16,7 @@ import { UpdateSheet } from "@/components/update-sheet";
 import { secureToken } from "@/lib/secure-token";
 import { useAppStore } from "@/store/app-store";
 import { migrateLegacySports } from "@/store/sport-legacy";
+import * as SplashScreen from "expo-splash-screen";
 
 /**
  * 根布局（v17 阶段 B：导航栈重构）。
@@ -29,6 +30,19 @@ import { migrateLegacySports } from "@/store/sport-legacy";
  * **URL 完全不变**（`(tabs)` 是括号分组，不进路径），有 route-manifest 快照测试守住。
  */
 
+/**
+ * v17-D（R10）：启动由"硬切"改为"渐隐"。
+ * - preventAutoHideAsync 让 splash 一直留到我们主动收（否则首帧之前的白/黑闪会暴露）
+ * - setOptions({ fade: true, duration: 250 }) 给出 250ms 淡出（平台不支持时静默忽略）
+ * - splash 底色已与首屏 canvas 同步（app.json：#F7F5F2 / 深色 #111113），所以观感是连续的一屏
+ */
+void SplashScreen.preventAutoHideAsync().catch(() => {});
+try {
+  SplashScreen.setOptions?.({ fade: true, duration: 250 });
+} catch {
+  // 平台不支持 setOptions：退化为默认隐藏行为，不影响功能
+}
+
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     root: { flex: 1 },
@@ -40,6 +54,14 @@ export default function RootLayout() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   // 启动期只做「必要且轻」的事；重活（同步引擎/旧数据迁移/令牌恢复）延后到首帧之后，
   // 避免与首屏渲染抢 JS 线程（TTI 优化，见 docs/APP端设计与打包方案.md §6.3）
+  /**
+   * 与上面的 preventAutoHideAsync 配对：首帧渲染完成后再撤掉 splash，
+   * 配合 setOptions 的 fade 得到 250ms 淡出（不再硬切）。
+   */
+  useEffect(() => {
+    void SplashScreen.hideAsync().catch(() => {});
+  }, []);
+
   useEffect(() => {
     let stopSync: (() => void) | undefined;
     let cancelled = false;

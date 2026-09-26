@@ -16,6 +16,14 @@ import { useTheme } from "@/theme";
 import { radius, typography, type ThemeColors } from "@/theme/tokens";
 import { MOTION_BASE, MOTION_FAST, easingStandard, isMotionActive } from "@/theme/motion";
 import { useReducedMotion } from "@/lib/motion";
+import {
+  BUTTON_DISABLED_OPACITY,
+  BUTTON_SIZES,
+  buttonBackground,
+  buttonForeground,
+  buttonIconSize,
+  type UnifiedButtonVariant,
+} from "@/lib/button-spec";
 import { haptics } from "@/lib/haptics";
 
 /**
@@ -29,7 +37,8 @@ import { haptics } from "@/lib/haptics";
  */
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-export type PressButtonVariant = "primary" | "secondary" | "danger";
+/** v17-D（R10）：与 Button 统一为四个变体（新增 ghost）；视觉规格共用 lib/button-spec.ts */
+export type PressButtonVariant = UnifiedButtonVariant;
 
 export function PressButton({
   label,
@@ -89,7 +98,7 @@ export function PressButton({
     onPress?.();
   }, [haptic, off, onPress]);
 
-  const fg = variant === "secondary" ? colors.primary : "#FFFFFF";
+  const fg = buttonForeground(colors, variant);
   const text = loading ? (loadingLabel ?? "处理中…") : label;
 
   return (
@@ -104,7 +113,7 @@ export function PressButton({
       style={[
         styles.base,
         size === "sm" && styles.baseSm,
-        styles[variant],
+        { backgroundColor: buttonBackground(colors, variant) },
         fullWidth && styles.full,
         off && styles.off,
         style,
@@ -112,7 +121,7 @@ export function PressButton({
       ]}
     >
       {loading ? <ActivityIndicator size="small" color={fg} /> : null}
-      {!loading && icon ? <ThemedIcon name={icon} size={size === "sm" ? 16 : 18} color={fg} /> : null}
+      {!loading && icon ? <ThemedIcon name={icon} size={buttonIconSize(size)} color={fg} /> : null}
       <Text style={[styles.label, size === "sm" && styles.labelSm, { color: fg }]} numberOfLines={1}>
         {text}
       </Text>
@@ -129,21 +138,23 @@ const rowStyles = StyleSheet.create({ row: { flexDirection: "row", gap: 10 } });
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
+    // v17-D：尺寸取 lib/button-spec.ts 的唯一出口（与 Button 共用）；底色也改由 buttonBackground 计算
     base: {
-      height: 48,
+      height: BUTTON_SIZES.md.height,
       borderRadius: radius.pill,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-      gap: 8,
-      paddingHorizontal: 20,
+      gap: BUTTON_SIZES.md.gap,
+      paddingHorizontal: BUTTON_SIZES.md.paddingHorizontal,
     },
-    baseSm: { height: 38, paddingHorizontal: 14, gap: 6 },
+    baseSm: {
+      height: BUTTON_SIZES.sm.height,
+      paddingHorizontal: BUTTON_SIZES.sm.paddingHorizontal,
+      gap: BUTTON_SIZES.sm.gap,
+    },
     full: { alignSelf: "stretch", flex: 1 },
-    primary: { backgroundColor: colors.primary },
-    secondary: { backgroundColor: colors.primarySoft },
-    danger: { backgroundColor: colors.danger },
-    off: { opacity: 0.4 },
+    off: { opacity: BUTTON_DISABLED_OPACITY },
     label: { ...typography.headline, fontWeight: "700" },
     labelSm: { fontSize: 14 },
   });

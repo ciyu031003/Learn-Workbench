@@ -4,6 +4,14 @@ import { ActivityIndicator, StyleSheet, Text, View, type StyleProp, type ViewSty
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
 import { radius, typography } from "@/theme/tokens";
+import {
+  BUTTON_DISABLED_OPACITY,
+  BUTTON_SIZES,
+  buttonBackground,
+  buttonForeground,
+  buttonIconSize,
+  type UnifiedButtonVariant,
+} from "@/lib/button-spec";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 
@@ -15,7 +23,8 @@ import { useTheme } from "@/theme";
  * - `danger`    危险态（删除/退出）
  * 禁用态 40% 透明。
  */
-export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
+/** v17-D（R10）：变体清单与 PressButton 统一，见 lib/button-spec.ts */
+export type ButtonVariant = UnifiedButtonVariant;
 
 export function Button({
   label,
@@ -23,6 +32,7 @@ export function Button({
   variant = "primary",
   icon,
   loading = false,
+  loadingLabel,
   disabled = false,
   size = "md",
   fullWidth = true,
@@ -33,6 +43,8 @@ export function Button({
   variant?: ButtonVariant;
   icon?: keyof typeof Ionicons.glyphMap;
   loading?: boolean;
+  /** v17-D：与 PressButton 对齐 —— loading 时可给一句替换文案（不传则只显示转圈） */
+  loadingLabel?: string;
   disabled?: boolean;
   size?: "sm" | "md";
   fullWidth?: boolean;
@@ -42,12 +54,7 @@ export function Button({
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const off = disabled || loading;
 
-  const fg =
-    variant === "primary" || variant === "danger"
-      ? "#FFFFFF"
-      : variant === "secondary"
-        ? colors.primary
-        : colors.text;
+  const fg = buttonForeground(colors, variant);
 
   return (
     <PressableScale
@@ -59,17 +66,22 @@ export function Button({
       style={[
         styles.base,
         size === "sm" && styles.baseSm,
-        styles[variant],
+        { backgroundColor: buttonBackground(colors, variant) },
         fullWidth && styles.full,
         off && styles.off,
         style,
       ]}
     >
       {loading ? (
-        <ActivityIndicator size="small" color={fg} />
+        <>
+          <ActivityIndicator size="small" color={fg} />
+          {loadingLabel ? (
+            <Text style={[styles.label, size === "sm" && styles.labelSm, { color: fg }]}>{loadingLabel}</Text>
+          ) : null}
+        </>
       ) : (
         <>
-          {icon ? <ThemedIcon name={icon} size={size === "sm" ? 16 : 18} color={fg} /> : null}
+          {icon ? <ThemedIcon name={icon} size={buttonIconSize(size)} color={fg} /> : null}
           <Text style={[styles.label, size === "sm" && styles.labelSm, { color: fg }]}>{label}</Text>
         </>
       )}
@@ -123,22 +135,23 @@ const rowStyles = StyleSheet.create({ row: { flexDirection: "row", gap: 10 } });
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
+    // v17-D：尺寸取 lib/button-spec.ts 的唯一出口（与 PressButton 共用，避免两边漂移）
     base: {
-      height: 48,
+      height: BUTTON_SIZES.md.height,
       borderRadius: radius.pill,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-      gap: 8,
-      paddingHorizontal: 20,
+      gap: BUTTON_SIZES.md.gap,
+      paddingHorizontal: BUTTON_SIZES.md.paddingHorizontal,
     },
-    baseSm: { height: 38, paddingHorizontal: 14, gap: 6 },
+    baseSm: {
+      height: BUTTON_SIZES.sm.height,
+      paddingHorizontal: BUTTON_SIZES.sm.paddingHorizontal,
+      gap: BUTTON_SIZES.sm.gap,
+    },
     full: { alignSelf: "stretch", flex: 1 },
-    primary: { backgroundColor: colors.primary },
-    secondary: { backgroundColor: colors.primarySoft },
-    ghost: { backgroundColor: "transparent" },
-    danger: { backgroundColor: colors.danger },
-    off: { opacity: 0.4 },
+    off: { opacity: BUTTON_DISABLED_OPACITY },
     label: { ...typography.headline, fontWeight: "700" },
     labelSm: { fontSize: 14 },
     iconBtn: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
