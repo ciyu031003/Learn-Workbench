@@ -882,7 +882,7 @@ const makeStyles = (colors: ThemeColors) =>
   heroSub: {
     ...typography.callout,
     // v18 对比度：callout(15pt) 属正文字号，textMuted(#8E8E93) 对白底仅约 3.0，低于 WCAG AA 4.5
-    color: colors.text,
+    color: colors.textSecondary,
     marginTop: 5,
   },
   quote: {

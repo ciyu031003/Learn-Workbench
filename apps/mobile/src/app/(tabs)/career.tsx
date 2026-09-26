@@ -262,7 +262,7 @@ const makeStyles = (colors: ThemeColors) =>
     dimLabel: { ...typography.caption, fontWeight: "600", color: colors.text },
     dimScore: { ...typography.caption, color: colors.textMuted },
     // v18 对比度：callout(15pt) 属正文字号，textMuted 对白底仅约 3.0，低于 WCAG AA 4.5
-  emptyHint: { ...typography.callout, color: colors.text, paddingVertical: spacing.md },
+  emptyHint: { ...typography.callout, color: colors.textSecondary, paddingVertical: spacing.md },
     skillsCard: { gap: spacing.md },
     skillsHead: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },
     skillsTitle: { ...typography.headline, fontWeight: "800", color: colors.text },

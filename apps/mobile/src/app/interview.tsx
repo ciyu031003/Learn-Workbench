@@ -413,8 +413,7 @@ const makeStyles = (colors: ThemeColors) =>
       ...typography.callout,
       // 任务4：正文级（callout 15pt）不能用 textMuted（浅色下对白底约 3.0，低于 WCAG AA 4.5）。
       // token 只有三档灰、不能新增，故用 text 加 0.72 透明（≈ #5A5A5C，约 7:1）保留副标题层级。
-      color: colors.text,
-      opacity: 0.72,
+      color: colors.textSecondary,
       marginTop: 4,
     },
     moduleRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 },

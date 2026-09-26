@@ -534,7 +534,7 @@ const makeStyles = (colors: ThemeColors) =>
   heroSub: {
     ...typography.callout,
     // 对比度：15pt 说明文字用 textMuted 会低于 WCAG AA 正文 4.5（浅色下约 3.0），改回正文色
-    color: colors.text,
+    color: colors.textSecondary,
   },
   /* 账号英雄卡 */
   profileCard: { gap: 12 },

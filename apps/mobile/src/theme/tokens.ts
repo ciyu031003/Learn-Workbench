@@ -16,6 +16,12 @@ const lightColors = {
   // iOS 灰阶（label / secondaryLabel / tertiaryLabel）
   text: "#1C1C1E",
   textMuted: "#8E8E93",
+  /**
+   * v18：次级正文灰（对 #F7F5F2 约 6.9:1、对白底约 7.5:1，满足 WCAG AA 正文 4.5）。
+   * 此前灰阶只有 textMuted（浅色对白底约 3.0）与 text（约 15.6）两档、中间为空，
+   * 导致「次要正文」要么对比度不达标、要么被迫用 text 而丢掉层级。
+   */
+  textSecondary: "#5A5A5F",
   textFaint: "#AEAEB2",
   // iOS separator：中性 hairline，替掉原先的棕描边
   border: "rgba(60,60,67,0.10)",
@@ -62,6 +68,7 @@ const darkColors = {
   surfaceMuted: "rgba(235,235,245,0.08)",
   text: "#F2F2F7",
   textMuted: "#A8A8AD",
+  textSecondary: "#C0C0C6",
   textFaint: "#7C7C82",
   border: "rgba(235,235,245,0.14)",
   borderStrong: "rgba(235,235,245,0.28)",

@@ -237,7 +237,7 @@ const makeStyles = (colors: ThemeColors) =>
       ...typography.callout,
       // 对比度：15pt 正文用 textMuted（#8E8E93 对白底约 3.0）低于 WCAG AA 正文 4.5。
       // 层级改由字号/字重承担（callout 15 vs headline 17），颜色回到正文色。
-      color: colors.text,
+      color: colors.textSecondary,
     },
     form: { gap: 10, paddingTop: 6 },
     label: { fontSize: typography.caption.fontSize, fontWeight: "700", color: colors.textMuted },
