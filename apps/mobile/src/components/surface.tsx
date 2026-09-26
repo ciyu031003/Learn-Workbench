@@ -36,8 +36,8 @@ export function Surface({
   corner?: number;
   padded?: boolean;
 }) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, dark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
   if (tier === "glass") {
     return (
       <GlassSurface style={style} corner={corner} padded={padded}>
@@ -82,7 +82,7 @@ export function GlassSurface({
   opaque?: boolean;
 }) {
   const { colors, dark } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
 
   /**
    * `opaque`：弹窗/抽屉要求"完全看不穿"（v1.5 反馈）。
@@ -128,21 +128,23 @@ function glassTintOverlay(colors: ThemeColors, dark: boolean, tint?: string): Vi
   return { backgroundColor: dark ? "rgba(20,24,28,0.72)" : "rgba(255,255,255,0.86)" };
 }
 
-const makeStyles = (colors: ThemeColors) =>
+const makeStyles = (colors: ThemeColors, dark: boolean) =>
   StyleSheet.create({
     base: {
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.border,
       overflow: "hidden",
     },
     padded: { padding: 16, gap: 10 },
+    /**
+     * v17 R6：表面层不再用描边界定边界（浅色下靠白底 + 中性柔影分层）。
+     * 深色下投影几乎不可见，改用一圈 hairline 表达层级 —— 这也是 iOS 深色分组列表的做法。
+     */
     surface: {
       backgroundColor: colors.surfaceStrong,
-      borderColor: colors.borderStrong,
+      ...(dark ? { borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border } : null),
     },
     elevated: {
       backgroundColor: colors.surfaceStrong,
-      borderColor: colors.borderStrong,
+      ...(dark ? { borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border } : null),
       ...shadows.card,
     },
     highlight: {

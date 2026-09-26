@@ -18,17 +18,23 @@ export function Card({
   title,
   subtitle,
   variant = "surface",
+  bordered = false,
 }: {
   children?: ReactNode;
   style?: StyleProp<ViewStyle>;
   title?: string;
   subtitle?: string;
   variant?: CardVariant;
+  /**
+   * v17 R6：默认**不再描边**（iOS 的卡片几乎不描边，层级靠底色差 + 中性投影）。
+   * 极少数确实需要边界的地方（二维码框、头像框、可点击区域提示）显式传 bordered。
+   */
+  bordered?: boolean;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
-    <View style={[styles.card, styles[variant], style]}>
+    <View style={[styles.card, styles[variant], bordered && styles.bordered, style]}>
       {title ? (
         <View style={styles.header}>
           <Text style={styles.title}>{title}</Text>
@@ -46,22 +52,25 @@ const makeStyles = (colors: ThemeColors) =>
       borderRadius: radius.lg,
       padding: 16,
       gap: 10,
-      borderWidth: 1,
-      borderColor: colors.borderStrong,
+    },
+    /** 需要边界的少数场景才用它（hairline，不再是 1px 棕描边） */
+    bordered: {
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
     },
     surface: {
       backgroundColor: colors.surfaceStrong,
       ...shadows.card,
     },
     glass: {
-      // 半透明表面 + 轻边框：仅作层级，不作为信息载体
+      // 玻璃必须有一圈 hairline 才读得出"材质边界"；它只作层级，不作为信息载体
       backgroundColor: colors.surface,
+      borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.border,
       ...shadows.floating,
     },
     hero: {
       backgroundColor: colors.surfaceStrong,
-      borderColor: colors.borderStrong,
       borderRadius: radius.xl,
       padding: 20,
       gap: 12,

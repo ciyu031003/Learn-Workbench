@@ -123,7 +123,7 @@ const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     wrap: {
       borderRadius: radius.lg,
-      borderWidth: 1,
+      borderWidth: StyleSheet.hairlineWidth,
       borderStyle: "dashed",
       borderColor: colors.borderStrong,
       backgroundColor: colors.surfaceMuted,
@@ -158,7 +158,7 @@ const makeStyles = (colors: ThemeColors) =>
     actions: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 },
     pick: {
       borderRadius: radius.pill,
-      borderWidth: 1,
+      borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.borderStrong,
       paddingHorizontal: 12,
       paddingVertical: 5,

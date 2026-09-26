@@ -363,7 +363,7 @@ const makeCardStyles = (colors: ThemeColors) =>
       bottom: 10,
       left: 10,
       borderRadius: 18,
-      borderWidth: 1,
+      borderWidth: StyleSheet.hairlineWidth,
       borderColor: "rgba(242,217,160,0.42)",
     },
     overlay: { flex: 1, padding: 18, gap: 12 },

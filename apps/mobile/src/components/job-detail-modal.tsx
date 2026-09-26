@@ -410,7 +410,7 @@ const makeStyles = (colors: ThemeColors) =>
     fontWeight: "800",
     color: colors.success,
     backgroundColor: colors.successSoft,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.success,
     borderRadius: 999,
     paddingHorizontal: 7,

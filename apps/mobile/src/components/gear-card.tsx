@@ -116,7 +116,7 @@ const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     wrap: {
       borderRadius: radius.lg,
-      borderWidth: 1,
+      borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.border,
       backgroundColor: colors.surfaceStrong,
       overflow: "hidden",

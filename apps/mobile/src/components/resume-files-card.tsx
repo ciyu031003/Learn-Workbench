@@ -206,7 +206,7 @@ function useMemo2(colors: ThemeColors) {
       alignItems: "center",
       gap: 10,
       borderRadius: radius.md,
-      borderWidth: 1,
+      borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.border,
       backgroundColor: colors.surfaceStrong,
       paddingHorizontal: 12,

@@ -119,8 +119,8 @@ export function buildSmoothPath(points: { x: number; y: number }[]) {
 export function LineChart({
   data,
   height = 150,
-  color = "#F28C28",
-  fillTo = ["#FFF0DB", "#FFF6EC"],
+  color,
+  fillTo,
   showLabels = true,
   labelStep = 3,
 }: {
@@ -131,6 +131,13 @@ export function LineChart({
   showLabels?: boolean;
   labelStep?: number;
 }) {
+  const { colors } = useTheme();
+  /**
+   * v17 R6/A4：默认色不再硬编码暖橙，改走主题 ——
+   * 浅色下仍是品牌橙（accent），深色下自动用提亮档，网格线也从棕色换成中性 hairline。
+   */
+  const stroke = color ?? colors.accent;
+  const fill = fillTo ?? [colors.accentSoft, colors.surfaceStrong];
   const { width, onLayout } = useChartWidth();
   const topPad = 16;
   const rightPad = 8;
@@ -160,23 +167,23 @@ export function LineChart({
         <Svg width={width} height={height}>
           <Defs>
             <LinearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor={fillTo[0]} stopOpacity={0.85} />
-              <Stop offset="1" stopColor={fillTo[1]} stopOpacity={0.2} />
+              <Stop offset="0" stopColor={fill[0]} stopOpacity={0.85} />
+              <Stop offset="1" stopColor={fill[1]} stopOpacity={0.2} />
             </LinearGradient>
           </Defs>
           {[0.25, 0.5, 0.75].map((r) => (
             <Path
               key={r}
               d={`M ${leftPad} ${topPad + plotH * r} L ${leftPad + plotW} ${topPad + plotH * r}`}
-              stroke="rgba(120,90,45,0.10)"
+              stroke={colors.border}
               strokeWidth={1}
               strokeDasharray="3 4"
             />
           ))}
           {areaPath ? <Path d={areaPath} fill={`url(#${gid})`} /> : null}
-          {linePath ? <Path d={linePath} fill="none" stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" /> : null}
+          {linePath ? <Path d={linePath} fill="none" stroke={stroke} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" /> : null}
           {pts.map((p, i) => (
-            <Circle key={i} cx={p.x} cy={p.y} r={i === pts.length - 1 ? 4.5 : 3} fill="#fff" stroke={color} strokeWidth={2.5} />
+            <Circle key={i} cx={p.x} cy={p.y} r={i === pts.length - 1 ? 4.5 : 3} fill={colors.surfaceStrong} stroke={stroke} strokeWidth={2.5} />
           ))}
           {showLabels
             ? data.map((d, i) =>

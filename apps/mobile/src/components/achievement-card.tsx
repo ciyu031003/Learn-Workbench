@@ -120,7 +120,7 @@ const makeStyles = (colors: ThemeColors, palette: { soft: string; strong: string
       alignItems: "flex-start",
       gap: spacing.md,
       borderRadius: radius.lg,
-      borderWidth: 1,
+      borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.borderStrong,
       backgroundColor: colors.surfaceStrong,
       padding: spacing.lg,

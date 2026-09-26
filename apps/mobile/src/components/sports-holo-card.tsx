@@ -222,7 +222,7 @@ const makeStyles = (colors: ThemeColors) =>
       aspectRatio: CARD_RATIO,
       borderRadius: radius.xl,
       backgroundColor: "#0b1017",
-      borderWidth: 1,
+      borderWidth: StyleSheet.hairlineWidth,
       borderColor: "rgba(217,185,120,0.55)",
       overflow: "hidden",
     },
@@ -252,7 +252,7 @@ const makeStyles = (colors: ThemeColors) =>
     panel: {
       backgroundColor: "rgba(18,24,32,0.7)",
       borderRadius: radius.md,
-      borderWidth: 1,
+      borderWidth: StyleSheet.hairlineWidth,
       borderColor: "rgba(217,185,120,0.32)",
       paddingHorizontal: 10,
       paddingVertical: 8,
@@ -270,7 +270,7 @@ const makeStyles = (colors: ThemeColors) =>
     },
     backFrame: {
       flex: 1,
-      borderWidth: 1,
+      borderWidth: StyleSheet.hairlineWidth,
       borderColor: "rgba(194,163,104,0.75)",
       borderRadius: radius.md,
       padding: 14,

@@ -64,11 +64,16 @@ export function ListRow({
       ) : null}
       {right}
       {showChevron ? <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} /> : null}
+      {/**
+       * v17 R6：iOS 分隔线**左端从文字起点开始**（有图标槽时让开图标槽），不是通栏。
+       * 绝对定位实现，不占布局、不影响 minHeight。
+       */}
+      {!last ? <View pointerEvents="none" style={[styles.divider, { left: icon ? 62 : 14 }]} /> : null}
     </>
   );
 
   if (!onPress) {
-    return <View style={[styles.row, !last && styles.divider, style]}>{body}</View>;
+    return <View style={styles.row}>{body}</View>;
   }
 
   return (
@@ -76,9 +81,11 @@ export function ListRow({
       haptic={haptic}
       disabled={disabled}
       onPress={onPress}
-      scaleTo={0.98}
+      /** v17 R6：整行"变色"取代"缩放"（iOS 列表行的标准反馈），所以 scale 归 1 */
+      scaleTo={1}
+      pressedStyle={styles.rowPressed}
       accessibilityRole="button"
-      style={[styles.row, !last && styles.divider, style]}
+      style={[styles.row, style]}
     >
       {body}
     </PressableScale>
@@ -97,8 +104,6 @@ const makeStyles = (colors: ThemeColors) =>
     group: {
       backgroundColor: colors.surfaceStrong,
       borderRadius: radius.lg,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.borderStrong,
       overflow: "hidden",
     },
     row: {
@@ -109,10 +114,16 @@ const makeStyles = (colors: ThemeColors) =>
       paddingHorizontal: 14,
       paddingVertical: 10,
     },
+    /** 绝对定位的分隔线：left 由行内容决定（见 body 里的 icon ? 62 : 14） */
     divider: {
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.border,
+      position: "absolute",
+      bottom: 0,
+      right: 0,
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: colors.border,
     },
+    /** 按压态：整行铺一层极淡的中性底（iOS 列表行反馈） */
+    rowPressed: { backgroundColor: colors.surfaceMuted },
     iconSlot: {
       width: 36,
       height: 36,

@@ -58,7 +58,7 @@ const makeStyles = (colors: ThemeColors) =>
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: colors.surfaceStrong,
-      borderWidth: 1,
+      borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.border,
       ...shadows.card,
     },
