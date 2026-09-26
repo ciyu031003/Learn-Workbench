@@ -63,7 +63,8 @@
     "lint": "expo lint",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint:fontscale": "node ../../scripts/check-font-scale.mjs"
   },
   "private": true
 }

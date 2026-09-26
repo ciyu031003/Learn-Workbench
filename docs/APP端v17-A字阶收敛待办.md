@@ -67,3 +67,33 @@ rules: {
 4. **配合 A6**：任何"高度写死"的文本容器，收敛时用 `lib/text-scale.ts` 的 `fitsAtMaxScale()` 校验
    130% 放大不截断。
 5. **验收**：每页收敛后跑 `npx tsc --noEmit` + 真机浅/深两套目检，再启用护栏。
+
+---
+
+## 收敛结果（v17 收尾批次）
+
+| 轮次 | 范围 | 结果 |
+| --- | --- | --- |
+| 第一轮（阶段 A3） | hero/分区标题/卡片标题/正文四档 | 27 个样式块归并，全 App hero 标题统一到 typography.display |
+| 第二轮（收尾批次，4 路并行） | 23 个页面逐页按语义归并 | 430 → 208 处（**降 52%**） |
+
+### 剩余 208 处的性质（全部为**刻意保留**，非遗漏）
+
+1. **图标/图形尺寸**：如 honorHeroTrophy 30、checkIcon 18、chevron 16 —— 它们是图形不是文字；
+2. **KPI 大数字展示**：如 sportTotalNum 30、statValue 20-24、hVal 24、padCount 40 —— 归并到档位会压平视觉层级；
+3. **≤13pt 的微信息**：徽标/时间戳/图例/图表刻度/胶囊内文字 —— 11→12 只涨 1pt、视觉收益低，却要动大量紧凑布局（会撑破胶囊）；
+4. **分数字号**：12.5 / 13.5 / 14.5 —— typography 里没有对应档位。
+
+### 护栏：为什么不用 eslint 规则，改用基线棘轮
+
+eslint 的 no-restricted-syntax 规则本身精确不误报，但上面 208 处是**真阳性**——启用即 208 error，等于把护栏变成阻塞；逐处 disable 又会淹没真正的新增违规。
+
+因此改为 **基线棘轮**：`scripts/check-font-scale.mjs` + `docs/font-scale-baseline.json`（当前基线 23 文件 / 208 处）。
+
+- 任何文件的裸写数字 `fontSize` **超过基线**即失败（退出码 1）；
+- 有意新增例外时用 `node scripts/check-font-scale.mjs --update` 刷新基线，并在提交信息里说明理由；
+- 移动端可跑 `pnpm -F mobile lint:fontscale`。
+
+### 仍未做的第三轮（可选）
+
+≤13pt 微信息层若要继续收敛，建议按页推进并在真机确认胶囊/徽标不被撑破；不建议全量脚本替换。
