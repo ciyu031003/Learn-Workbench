@@ -8,7 +8,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useHeaderTopInset, useLargeTitleHeader } from "@/components/screen-header";
+import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { EmptyState } from "@/components/empty-state";
 import { SkeletonCard } from "@/components/skeleton";
 import { Card } from "@/components/card";
@@ -75,7 +75,6 @@ export default function RadarScreen() {
   const reduced = useReducedMotion();
   const headerScroll = useLargeTitleHeader();
   /** v17-C2b：下拉转圈要出现在吸顶栏下方 */
-  const headerTop = useHeaderTopInset();
   const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
   const [data, setData] = useState<RadarResponse | null>(null);

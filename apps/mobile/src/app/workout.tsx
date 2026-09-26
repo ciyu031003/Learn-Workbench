@@ -5,7 +5,6 @@ import { ThemedIcon } from "@/components/themed-icon";
 import { EmptyState } from "@/components/empty-state";
 import { SkeletonList } from "@/components/skeleton";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Card } from "@/components/card";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
@@ -13,7 +12,7 @@ import { PressButton } from "@/components/press-button";
 import { ExercisePickerSheet } from "@/components/exercise-picker-sheet";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
-import { useRefreshable } from "@/lib/use-refresh";
+import { usePullRefresh } from "@/lib/use-pull-refresh";
 import { DURATION, useReducedMotion } from "@/lib/motion";
 import { staggerDelay } from "@/lib/stagger";
 import type { ThemeColors } from "@/theme/tokens";
@@ -42,7 +41,6 @@ export default function WorkoutScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const headerScroll = useLargeTitleHeader();
-  const insets = useSafeAreaInsets();
   const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
 
@@ -98,7 +96,8 @@ export default function WorkoutScreen() {
     return () => clearTimeout(t);
   }, [load]);
 
-  const { refreshing, onRefresh } = useRefreshable(load);
+  /** v18：统一走 usePullRefresh（本页有吸顶紧凑栏 → stickyHeader: true），偏移与配色由 hook 集中计算 */
+  const { control } = usePullRefresh(load, { stickyHeader: true });
   /** v17-D：减弱动态时不做入场错峰与 Layout 转场 */
   const reduced = useReducedMotion();
 
@@ -264,10 +263,7 @@ export default function WorkoutScreen() {
       style={styles.scroll}
       contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
       showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} progressBackgroundColor={colors.surfaceStrong}
-          progressViewOffset={insets.top + 44} />
-      }
+      refreshControl={<RefreshControl {...control} />}
     >
       <ScreenHeaderLargeTitle title="训练记录" subtitle={`近 60 天 ${workouts.length} 次 · 总容量 ${totals.volumeKg} kg`} />
 

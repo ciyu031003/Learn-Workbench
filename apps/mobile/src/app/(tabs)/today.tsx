@@ -944,7 +944,7 @@ const makeStyles = (colors: ThemeColors) =>
   },
   taskBoxDone: { backgroundColor: colors.success, borderColor: colors.success },
   taskTitle: { flex: 1, ...typography.callout, fontWeight: "600", color: colors.text },
-  taskDone: { textDecorationLine: "line-through", color: colors.textMuted },
+  taskDone: { textDecorationLine: "line-through", color: colors.textSecondary },
   taskMeta: { ...typography.caption, color: colors.textMuted },
   taskEmpty: { ...typography.caption, color: colors.textMuted, textAlign: "center", paddingVertical: 4 },
   // v13 U12：底纹绝对定位铺满，卡片要裁切

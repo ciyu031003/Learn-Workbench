@@ -48,7 +48,7 @@ const makeStyles = (colors: ThemeColors) =>
     backgroundColor: colors.accentSoft,
   },
   title: { fontSize: 20, fontWeight: "700", color: colors.text },
-  sub: { fontSize: 14, lineHeight: 21, color: colors.textMuted, textAlign: "center" },
+  sub: { fontSize: 14, lineHeight: 21, color: colors.textSecondary, textAlign: "center" },
   btn: {
     marginTop: 6,
     paddingHorizontal: 28,

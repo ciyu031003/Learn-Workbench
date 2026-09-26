@@ -4,7 +4,7 @@ import Animated, { FadeInUp, LinearTransition } from "react-native-reanimated";
 import { ThemedIcon } from "@/components/themed-icon";
 import { EmptyState } from "@/components/empty-state";
 import { SkeletonList } from "@/components/skeleton";
-import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useHeaderTopInset, useLargeTitleHeader } from "@/components/screen-header";
+import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { SectionHeader } from "@/components/section-header";
 import { Card } from "@/components/card";
 import { Button } from "@/components/button";
@@ -45,7 +45,7 @@ import {
 import { PressableScale } from "@/components/pressable-scale";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
-import { useRefreshable } from "@/lib/use-refresh";
+import { usePullRefresh } from "@/lib/use-pull-refresh";
 import { haptics } from "@/lib/haptics";
 import {
   EMPTY_OUTBOX,
@@ -123,8 +123,6 @@ export default function NutritionScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const headerScroll = useLargeTitleHeader();
-  /** v17-C2b：下拉转圈要出现在吸顶栏下方 */
-  const headerTop = useHeaderTopInset();
   const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
 
@@ -392,7 +390,8 @@ export default function NutritionScreen() {
     return () => clearTimeout(t);
   }, [load]);
 
-  const { refreshing, onRefresh } = useRefreshable(load);
+  /** v18：统一走 usePullRefresh（本页有吸顶紧凑栏 → stickyHeader: true） */
+  const { control } = usePullRefresh(load, { stickyHeader: true });
 
   /** v6 P0-3：「N 条待同步」状态条的重试入口 —— 先补发，再刷新列表 */
   const retryPending = useCallback(async () => {
@@ -936,9 +935,7 @@ export default function NutritionScreen() {
       style={styles.scroll}
       contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
       showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} progressBackgroundColor={colors.surfaceStrong} progressViewOffset={headerTop + 44} />
-      }
+      refreshControl={<RefreshControl {...control} />}
     >
       <ScreenHeaderLargeTitle
         title={isToday ? "今日饮食" : "饮食记录"}

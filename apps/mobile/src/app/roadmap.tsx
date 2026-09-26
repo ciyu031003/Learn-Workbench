@@ -275,7 +275,7 @@ const makeStyles = (colors: ThemeColors) =>
   topicCheck: { fontSize: 16, color: colors.textFaint, width: 18, textAlign: "center" },
   topicChecked: { color: "#16a34a" },
   topicTitle: { ...typography.callout, fontWeight: "500", color: colors.text },
-  topicTitleDone: { textDecorationLine: "line-through", color: colors.text },
+  topicTitleDone: { textDecorationLine: "line-through", color: colors.textSecondary },
   customTag: { ...typography.micro, color: "#e8930c", backgroundColor: "rgba(232,147,12,0.14)", paddingHorizontal: 5, paddingVertical: 1, borderRadius: 5, overflow: "hidden" },
   topicAgent: { ...typography.caption, marginTop: 2, color: "#ef6a5e" },
   topicSummary: { ...typography.caption, marginTop: 2, color: colors.textMuted },

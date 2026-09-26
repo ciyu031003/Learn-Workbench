@@ -515,7 +515,7 @@ const makeStyles = (colors: ThemeColors) =>
     addBtn: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.primarySoft, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9 },
     addBtnText: { ...typography.callout, color: colors.primary, fontWeight: "800" },
     loading: { marginTop: 24, alignSelf: "center" },
-    empty: { ...typography.callout, color: colors.text, textAlign: "center", paddingVertical: 8 },
+    empty: { ...typography.callout, color: colors.textSecondary, textAlign: "center", paddingVertical: 8 },
     tplRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     tplChip: { backgroundColor: colors.surfaceMuted, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7, borderWidth: 1, borderColor: colors.border },
     tplText: { ...typography.caption, color: colors.text },

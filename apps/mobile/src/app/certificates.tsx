@@ -10,13 +10,13 @@ import { SkeletonList } from "@/components/skeleton";
 import { AchievementCard } from "@/components/achievement-card";
 import { FloatField } from "@/components/float-field";
 import { PressButton } from "@/components/press-button";
-import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useHeaderTopInset, useLargeTitleHeader } from "@/components/screen-header";
+import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
 
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
-import { useRefreshable } from "@/lib/use-refresh";
+import { usePullRefresh } from "@/lib/use-pull-refresh";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
@@ -30,8 +30,6 @@ export default function CertificatesScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const headerScroll = useLargeTitleHeader();
-  /** v17-C2b：下拉转圈要出现在吸顶栏下方，得知道吸顶栏占位高度 */
-  const headerTop = useHeaderTopInset();
   const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
   const [records, setRecords] = useState<Certificate[]>([]);
@@ -64,7 +62,8 @@ export default function CertificatesScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  const { refreshing, onRefresh } = useRefreshable(load);
+  /** v18：统一走 usePullRefresh（本页有吸顶紧凑栏 → stickyHeader: true） */
+  const { control } = usePullRefresh(load, { stickyHeader: true });
 
   const submit = async () => {
     if (!name.trim()) {
@@ -119,9 +118,7 @@ export default function CertificatesScreen() {
       {/* v17-C2b：紧凑栏必须在滚动容器**之外**才能真吸顶（放在内容流里会跟着一起滚走） */}
       <ScreenHeaderStickyBar title="我的证书" scrollY={headerScroll.scrollY} />
       <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} progressBackgroundColor={colors.surfaceStrong} progressViewOffset={headerTop + 44} />
-        }>
+        refreshControl={<RefreshControl {...control} />}>
         {/* 大标题留在内容里随内容滚走；顶部让位高度由组件自己吃 insets */}
         <ScreenHeaderLargeTitle title="我的证书" subtitle="证书 / 资格 / 认证，简历与职业雷达共用" />
 

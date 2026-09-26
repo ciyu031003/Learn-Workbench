@@ -88,7 +88,7 @@ const makeStyles = (colors: ThemeColors) =>
     title: { ...typography.headline, color: colors.text, textAlign: "center" },
     hint: {
       ...typography.callout,
-      color: colors.textMuted,
+      color: colors.textSecondary,
       textAlign: "center",
       maxWidth: 280,
     },

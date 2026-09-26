@@ -4,7 +4,6 @@ import { Alert, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { ThemedIcon } from "@/components/themed-icon";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PressableScale } from "@/components/pressable-scale";
 import { SkeletonCard } from "@/components/skeleton";
 import { GlassSurface } from "@/components/surface";
@@ -19,7 +18,7 @@ import { radius, spacing, tabularNums, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { useFocusRefresh } from "@/lib/use-focus-refresh";
-import { useRefreshable } from "@/lib/use-refresh";
+import { usePullRefresh } from "@/lib/use-pull-refresh";
 import { addHydration, fetchHydration, fetchWeight, type HydrationToday, type WeightPointDto } from "@/lib/wellbeing-client";
 import { toDaySummaryMap, todayAndYesterday } from "@/lib/nutrition-views";
 import { haptics } from "@/lib/haptics";
@@ -69,7 +68,6 @@ export default function WellnessScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const headerScroll = useLargeTitleHeader();
-  const insets = useSafeAreaInsets();
   const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
   const [data, setData] = useState<DailyOs | null>(null);
@@ -140,7 +138,8 @@ export default function WellnessScreen() {
     return () => clearTimeout(t);
   }, [load]);
   useFocusRefresh(load);
-  const { refreshing, onRefresh } = useRefreshable(load);
+  /** v18：统一走 usePullRefresh（本页有吸顶紧凑栏 → stickyHeader: true），偏移与配色由 hook 集中计算 */
+  const { control } = usePullRefresh(load, { stickyHeader: true });
 
   const habitPct =
     data && data.habits.scheduled > 0 ? Math.round((data.habits.done / data.habits.scheduled) * 100) : 0;
@@ -227,10 +226,7 @@ export default function WellnessScreen() {
       style={styles.scroll}
       contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
       showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} progressBackgroundColor={colors.surfaceStrong}
-          progressViewOffset={insets.top + 44} />
-      }
+      refreshControl={<RefreshControl {...control} />}
     >
       <ScreenHeaderLargeTitle title="健康" subtitle="训练 · 饮食 · 习惯，照顾好身体才有持续成长" />
 
