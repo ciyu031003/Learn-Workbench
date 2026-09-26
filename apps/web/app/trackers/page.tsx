@@ -208,6 +208,7 @@ export default function TrackersPage() {
               icon={Gauge}
               title="还没有记录项"
               hint="先建一个，比如「每日单词量（个）」「羽毛球训练（分钟）」「阅读页数」"
+              pattern="bauhaus"
               action={
                 <Button size="sm" onClick={openCreate}>
                   <Plus className="size-4" /> 新建记录项
@@ -221,7 +222,7 @@ export default function TrackersPage() {
           <Card>
             <CardContent className="flex items-center justify-between gap-3 p-5">
               <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <span className="rise-in flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15">
                   <BarChart3 className="size-5" />
                 </span>
                 <div>
@@ -231,15 +232,15 @@ export default function TrackersPage() {
                   </p>
                 </div>
               </div>
-              <span className="text-2xl font-semibold tabular-nums">{totalTodayValue}</span>
+              <span className="stat-pop text-2xl font-semibold tabular-nums">{totalTodayValue}</span>
             </CardContent>
           </Card>
 
-          {trackers.map((t) => {
+          {trackers.map((t, ti) => {
             const logs = logsByTracker[t.id] ?? [];
             const todayLog = logs.find((l) => l.log_date === today);
             return (
-              <Card key={t.id}>
+              <Card key={t.id} style={{ animationDelay: `${Math.min(ti, 10) * 45}ms` }} className="rise-in lift">
                 <CardHeader className="flex-row items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span
@@ -257,7 +258,7 @@ export default function TrackersPage() {
                       onClick={() => openEdit(t)}
                       aria-label={`编辑${t.name}`}
                       title="编辑"
-                      className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                      className="press flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary"
                     >
                       <Pencil className="size-4" />
                     </button>
@@ -265,7 +266,7 @@ export default function TrackersPage() {
                       onClick={() => removeTracker(t)}
                       aria-label={`删除${t.name}`}
                       title="删除"
-                      className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-danger/15 hover:text-danger"
+                      className="press flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-danger/15 hover:text-danger"
                     >
                       <Trash2 className="size-4" />
                     </button>
@@ -275,7 +276,7 @@ export default function TrackersPage() {
                   {todayLog ? (
                     <div className="flex items-center justify-between rounded-xl border border-success/25 bg-success/5 px-3 py-2.5 text-sm">
                       <span>今日已记录</span>
-                      <span className="font-semibold tabular-nums">
+                      <span className="stat-pop font-semibold tabular-nums">
                         {todayLog.value}{t.unit ? ` ${t.unit}` : ""}
                       </span>
                     </div>
@@ -290,7 +291,7 @@ export default function TrackersPage() {
                         key={v}
                         onClick={() => recordToday(t.id, v)}
                         disabled={busy}
-                        className="rounded-lg border border-white/15 bg-white/10 px-3 py-1.5 text-sm font-medium transition-colors hover:bg-white/18 disabled:opacity-60"
+                        className="press rounded-lg border border-white/15 bg-white/10 px-3 py-1.5 text-sm font-medium transition-colors hover:border-primary/40 hover:bg-white/20 disabled:opacity-60"
                       >
                         +{v}{t.unit ? ` ${t.unit}` : ""}
                       </button>
@@ -298,8 +299,12 @@ export default function TrackersPage() {
                   </div>
                   {logs.length > 1 ? (
                     <div className="flex flex-col gap-1.5">
-                      {logs.slice(0, 7).map((l) => (
-                        <div key={l.id} className="flex items-center justify-between text-xs text-muted-foreground">
+                      {logs.slice(0, 7).map((l, li) => (
+                        <div
+                          key={l.id}
+                          style={{ animationDelay: `${li * 24}ms` }}
+                          className="rise-in flex items-center justify-between text-xs text-muted-foreground"
+                        >
                           <span>{l.log_date}</span>
                           <span className="tabular-nums text-foreground">{l.value}{t.unit ? ` ${t.unit}` : ""}</span>
                         </div>

@@ -158,8 +158,8 @@ export default function LogsPage() {
             </CardContent>
           </Card>
         ) : (
-          shown.map((l) => (
-            <Card key={l.id}>
+          shown.map((l, i) => (
+            <Card key={l.id} style={{ animationDelay: `${Math.min(i, 12) * 30}ms` }} className="rise-in lift">
               <CardContent className="p-5">
                 <div className="mb-1.5 flex flex-wrap items-center gap-2">
                   <Badge variant={kindVariant[l.kind] ?? "default"}>{logKindLabels[l.kind] ?? l.kind}</Badge>
@@ -167,7 +167,7 @@ export default function LogsPage() {
                     {new Date(l.createdAt).toLocaleString("zh-CN", { hour12: false })}
                   </span>
                 </div>
-                <h3 className="text-base font-semibold">{l.title}</h3>
+                <h3 className="text-base font-semibold transition-colors group-hover:text-primary">{l.title}</h3>
                 <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{l.content}</p>
               </CardContent>
             </Card>

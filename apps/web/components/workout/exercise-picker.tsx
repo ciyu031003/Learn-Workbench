@@ -120,7 +120,7 @@ export function ExercisePicker({
 
         {/* 分类大卡片（2×2/3 列）：与 APP v6 的分类卡一致 */}
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {tabs.map((t) => {
+          {tabs.map((t, ti) => {
             const Icon = CATEGORY_ICONS[t.type] ?? Activity;
             const active = category === t.type;
             return (
@@ -128,8 +128,9 @@ export function ExercisePicker({
                 key={t.type}
                 type="button"
                 onClick={() => setCategory(t.type)}
+                style={{ animationDelay: `${ti * 40}ms` }}
                 className={cn(
-                  "flex flex-col items-start gap-1 rounded-2xl border px-3 py-3 text-left transition-all duration-200 hover:-translate-y-0.5",
+                  "press rise-in flex flex-col items-start gap-1 rounded-2xl border px-3 py-3 text-left transition-all duration-200 hover:-translate-y-0.5",
                   active
                     ? "border-primary/60 bg-primary/12 text-primary shadow-[0_10px_30px_-18px_rgba(47,116,192,0.9)]"
                     : "border-border/60 bg-card/60 text-muted-foreground hover:border-primary/30"
@@ -145,15 +146,23 @@ export function ExercisePicker({
 
         <div className="max-h-72 overflow-y-auto rounded-2xl border border-border/60">
           {list.length === 0 ? (
-            <p className="p-4 text-center text-xs text-muted-foreground">没有匹配的动作，换个词或手动输入</p>
+            <div className="relative overflow-hidden px-4 py-8 text-center">
+              <span
+                aria-hidden
+                className="pattern-chevron pointer-events-none absolute inset-0 opacity-60 [mask-image:radial-gradient(ellipse_at_center,black,transparent_72%)]"
+              />
+              <p className="relative text-xs font-medium text-foreground">没有匹配的动作</p>
+              <p className="relative mt-1 text-[11px] text-muted-foreground">换个词，或用下面的「手动输入动作名」</p>
+            </div>
           ) : (
             <div className="flex flex-col divide-y divide-border/40">
-              {list.map((e) => (
+              {list.map((e, i) => (
                 <button
                   key={e.key}
                   type="button"
                   onClick={() => pick({ key: e.key, name: e.name })}
-                  className="flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-muted/40"
+                  style={{ animationDelay: `${Math.min(i, 12) * 26}ms` }}
+                  className="rise-in press-soft group flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-primary/8"
                 >
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-semibold">{e.name}</span>
@@ -162,7 +171,7 @@ export function ExercisePicker({
                       {e.equipment ? ` · ${e.equipment}` : ""}
                     </span>
                   </span>
-                  <span className="text-muted-foreground">›</span>
+                  <span className="text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary">›</span>
                 </button>
               ))}
             </div>
@@ -172,7 +181,7 @@ export function ExercisePicker({
         <button
           type="button"
           onClick={() => pick({ key: null, name: q.trim() || "自定义动作" })}
-          className="rounded-xl border border-border/60 bg-muted/40 py-2.5 text-xs font-semibold text-primary transition-colors hover:bg-muted/70"
+          className="press-scale rounded-xl border border-border/60 bg-muted/40 py-2.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/10"
         >
           没有？手动输入动作名
         </button>

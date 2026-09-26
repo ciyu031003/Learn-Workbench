@@ -452,7 +452,7 @@ export default function WellbeingPage() {
                 <button
                   key={ml}
                   onClick={() => addWater(ml)}
-                  className="rounded-full border border-border bg-muted/50 px-3 py-1.5 text-sm text-foreground transition-all hover:bg-muted/75"
+                  className="press rounded-full border border-border bg-muted/50 px-3 py-1.5 text-sm text-foreground transition-all hover:border-accent/40 hover:bg-accent/10 active:bg-accent/15"
                 >
                   +{ml}ml
                 </button>
@@ -474,9 +474,9 @@ export default function WellbeingPage() {
                     setCustomMl("");
                   }}
                   aria-label="记录饮水量"
-                  className="rounded-full p-1 text-accent transition-colors hover:bg-muted/75"
+                  className="press rounded-full p-1 text-accent transition-colors hover:bg-accent/12"
                 >
-                  <Check className="size-4" />
+                  <Check className="check-draw size-4" />
                 </button>
               </div>
             </div>
@@ -721,7 +721,7 @@ export default function WellbeingPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <TimerIcon className="size-5 text-success" />
-                  <span className="text-2xl font-bold tabular-nums">{timerText}</span>
+                  <span className="stat-pop text-2xl font-bold tabular-nums">{timerText}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Button size="sm" onClick={startTimer} disabled={timerRunning}>
@@ -751,8 +751,12 @@ export default function WellbeingPage() {
               {(exerciseToday?.logs ?? []).length === 0 ? (
                 <p className="py-2 text-center text-xs text-muted-foreground">今天还没有运动记录</p>
               ) : (
-                exerciseToday?.logs.map((l) => (
-                  <div key={l.id} className="flex items-center justify-between rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs">
+                exerciseToday?.logs.map((l, li) => (
+                  <div
+                    key={l.id}
+                    style={{ animationDelay: `${li * 30}ms` }}
+                    className="rise-in press-soft flex items-center justify-between rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs"
+                  >
                     <span className="flex items-center gap-1.5 text-foreground">
                       <Activity className="size-3.5 text-success" /> {l.typeLabel || exerciseTypeLabels[l.type]}
                     </span>
@@ -843,14 +847,19 @@ export default function WellbeingPage() {
               <CardTitle>本周运动分布</CardTitle>
             </div>
             <span className="rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs text-muted-foreground">
-              共 <span className="font-semibold text-foreground">{weekTotalMinutes}</span> 分钟 · ≈{weekKcal} kcal
+              共 <span className="stat-pop font-semibold text-foreground">{weekTotalMinutes}</span> 分钟 · ≈{weekKcal} kcal
             </span>
           </CardHeader>
           <CardContent className="flex flex-col gap-2.5">
             {weekTotalMinutes === 0 ? (
-              <p className="py-6 text-center text-xs text-muted-foreground">
-                本周还没有运动记录，去「今日运动」记一笔吧
-              </p>
+              <div className="relative overflow-hidden rounded-2xl px-4 py-7 text-center">
+                <span
+                  aria-hidden
+                  className="pattern-bauhaus pointer-events-none absolute inset-0 opacity-70 [mask-image:radial-gradient(ellipse_at_center,black,transparent_72%)]"
+                />
+                <p className="relative text-xs font-medium text-foreground">本周还没有运动记录</p>
+                <p className="relative mt-1 text-[11px] text-muted-foreground">去「今日运动」记一笔，这里就会出现分布</p>
+              </div>
             ) : (
               weekRows.map((row) => {
                 const Icon = exerciseTypeIcons[row.type] ?? Activity;
@@ -862,7 +871,7 @@ export default function WellbeingPage() {
                     </span>
                     <div className="h-4 flex-1 overflow-hidden rounded-full bg-muted">
                       <div
-                        className="h-full rounded-full bg-gradient-to-r from-success/80 to-success transition-all"
+                        className="rise-in h-full rounded-full bg-gradient-to-r from-success/80 to-success transition-[width] duration-700 ease-out motion-reduce:transition-none"
                         style={{ width: row.minutes > 0 ? `${Math.max(2, Math.round((row.minutes / weekMax) * 100))}%` : "0%" }}
                       />
                     </div>

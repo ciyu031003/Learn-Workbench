@@ -156,7 +156,12 @@ export function FoodLibrarySearch({
                     key={g}
                     type="button"
                     onClick={() => setGrams(String(g))}
-                    className="rounded-full border border-border/60 bg-muted/40 px-3 py-1.5 text-xs font-semibold tabular-nums transition-colors hover:bg-muted/70"
+                    className={
+                      "press rounded-full border px-3 py-1.5 text-xs font-semibold tabular-nums transition-colors " +
+                      (grams === String(g)
+                        ? "border-accent/50 bg-accent/12 text-accent-strong"
+                        : "border-border/60 bg-muted/40 hover:bg-accent/10")
+                    }
                   >
                     {g}
                   </button>
@@ -165,7 +170,7 @@ export function FoodLibrarySearch({
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="text-xs font-semibold text-primary tabular-nums">
+              <div className="stat-pop text-xs font-semibold text-primary tabular-nums">
                 {preview
                   ? `≈ ${Math.round(preview.kcal)} kcal · P${preview.proteinG} C${preview.carbsG} F${preview.fatG}`
                   : "—"}
@@ -178,7 +183,7 @@ export function FoodLibrarySearch({
           </div>
         ) : items.length > 0 ? (
           <div className="flex flex-col divide-y divide-border/40 overflow-hidden rounded-2xl border border-border/60">
-            {items.map((it) => (
+            {items.map((it, i) => (
               <button
                 key={it.id}
                 type="button"
@@ -186,7 +191,8 @@ export function FoodLibrarySearch({
                   setPicked(it);
                   setGrams(String(Number(it.basisAmount) || 100));
                 }}
-                className="flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40"
+                style={{ animationDelay: `${Math.min(i, 12) * 26}ms` }}
+                className="rise-in press-soft group flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/8"
               >
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-semibold">{it.name}</span>
@@ -195,12 +201,25 @@ export function FoodLibrarySearch({
                     {it.category ? ` · ${it.category}` : ""}
                   </span>
                 </span>
-                <span className="text-muted-foreground">›</span>
+                <span className="text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-accent">›</span>
               </button>
             ))}
           </div>
-        ) : query.trim().length > 0 && !searching ? (
-          <p className="text-xs text-muted-foreground">营养库没有匹配，换个词或手动添加。</p>
+        ) : searching ? (
+          <div className="flex flex-col gap-2" aria-hidden>
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="shimmer h-12 rounded-2xl" style={{ animationDelay: `${i * 120}ms` }} />
+            ))}
+          </div>
+        ) : query.trim().length > 0 ? (
+          <div className="relative overflow-hidden rounded-2xl border border-border/60 px-4 py-8 text-center">
+            <span
+              aria-hidden
+              className="pattern-bauhaus pointer-events-none absolute inset-0 opacity-70 [mask-image:radial-gradient(ellipse_at_center,black,transparent_72%)]"
+            />
+            <p className="relative text-xs font-medium text-foreground">营养库里没找到「{query.trim()}」</p>
+            <p className="relative mt-1 text-[11px] text-muted-foreground">换个说法试试，或直接在下方手动添加</p>
+          </div>
         ) : (
           <p className="text-xs text-muted-foreground">
             输入菜名即可（含 108 条自建中餐库；已接入 Open Food Facts / USDA 导入脚本）。

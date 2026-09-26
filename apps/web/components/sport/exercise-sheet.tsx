@@ -171,15 +171,16 @@ export function ExerciseSheet({
 
       {/* 项目网格 */}
       <div className="mb-4 grid max-h-[38vh] grid-cols-3 gap-2 overflow-y-auto pr-1 sm:grid-cols-4">
-        {visibleItems.map((item) => (
+        {visibleItems.map((item, i) => (
           <button
             key={item.key}
             type="button"
             onClick={() => pick(item)}
-            className={`sport-tile flex flex-col items-center gap-1.5 rounded-2xl border p-3 transition-all ${
+            style={{ animationDelay: `${Math.min(i, 16) * 30}ms` }}
+            className={`sport-tile press rise-in flex flex-col items-center gap-1.5 rounded-2xl border p-3 transition-all ${
               current?.key === item.key
-                ? "border-primary/50 bg-primary/10 shadow-[0_6px_20px_-8px_rgba(47,116,192,0.4)]"
-                : "border-border bg-muted/40 hover:border-primary/30 hover:bg-muted/70"
+                ? "border-primary/60 bg-primary/12 shadow-[0_8px_24px_-10px_rgba(47,116,192,0.55)] ring-1 ring-primary/25"
+                : "border-border bg-muted/40 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-muted/70"
             }`}
           >
             <SportAnimatedIcon itemKey={item.key} size={38} active={current?.key === item.key} />
@@ -189,9 +190,14 @@ export function ExerciseSheet({
           </button>
         ))}
         {visibleItems.length === 0 ? (
-          <p className="col-span-full py-6 text-center text-xs text-muted-foreground">
-            这个分类下还没有常练的项目，去其他分类选一个吧
-          </p>
+          <div className="relative col-span-full overflow-hidden rounded-2xl px-4 py-7 text-center">
+            <span
+              aria-hidden
+              className="pattern-bauhaus pointer-events-none absolute inset-0 opacity-70 [mask-image:radial-gradient(ellipse_at_center,black,transparent_72%)]"
+            />
+            <p className="relative text-xs font-medium text-foreground">这个分类下还没有常练的项目</p>
+            <p className="relative mt-1 text-[11px] text-muted-foreground">去其他分类选一个，或先用「最近」里的常练项</p>
+          </div>
         ) : null}
       </div>
 
@@ -204,7 +210,7 @@ export function ExerciseSheet({
           <button
             type="button"
             onClick={() => setMinutes((m) => Math.max(5, m - 5))}
-            className="h-8 w-8 rounded-lg border border-border bg-surface text-sm font-semibold transition-colors hover:bg-muted"
+            className="press h-8 w-8 rounded-lg border border-border bg-surface text-sm font-semibold transition-colors hover:border-primary/40 hover:bg-muted"
           >
             −
           </button>
@@ -215,7 +221,7 @@ export function ExerciseSheet({
           <button
             type="button"
             onClick={() => setMinutes((m) => Math.min(240, m + 5))}
-            className="h-8 w-8 rounded-lg border border-border bg-surface text-sm font-semibold transition-colors hover:bg-muted"
+            className="press h-8 w-8 rounded-lg border border-border bg-surface text-sm font-semibold transition-colors hover:border-primary/40 hover:bg-muted"
           >
             +
           </button>
@@ -226,8 +232,8 @@ export function ExerciseSheet({
               key={m}
               type="button"
               onClick={() => setMinutes(m)}
-              className={`rounded-lg px-2 py-1 text-xs font-medium transition-colors ${
-                minutes === m ? "bg-primary text-white" : "bg-muted/70 text-muted-foreground hover:bg-muted"
+              className={`press rounded-lg px-2 py-1 text-xs font-medium transition-colors ${
+                minutes === m ? "bg-primary text-primary-foreground" : "bg-muted/70 text-muted-foreground hover:bg-muted"
               }`}
             >
               {m}
@@ -243,7 +249,7 @@ export function ExerciseSheet({
             type="button"
             onClick={startTimer}
             disabled={!current}
-            className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-primary to-primary-strong text-sm font-semibold text-white shadow-[0_8px_24px_rgba(47,116,192,0.3)] transition-all hover:brightness-105 disabled:opacity-60"
+            className="press-scale flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-primary to-primary-strong text-sm font-semibold text-primary-foreground shadow-[0_8px_24px_rgba(47,116,192,0.3)] transition-all hover:brightness-105 disabled:opacity-60"
           >
             <Play className="size-4" /> 开始计时（全屏）
           </button>
@@ -251,7 +257,7 @@ export function ExerciseSheet({
             type="button"
             onClick={logNow}
             disabled={logging || !current}
-            className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-success/40 bg-success/10 text-sm font-semibold text-success transition-all hover:bg-success/15 disabled:opacity-60"
+            className="press-scale flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-success/40 bg-success/10 text-sm font-semibold text-success transition-all hover:bg-success/15 disabled:opacity-60"
           >
             {logging ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />} 直接记录
           </button>
@@ -268,9 +274,9 @@ function TabChip({ active, onClick, children }: { active: boolean; onClick: () =
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
+      className={`press rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
         active
-          ? "bg-primary text-white shadow-[0_4px_14px_-4px_rgba(47,116,192,0.5)]"
+          ? "bg-primary text-primary-foreground shadow-[0_4px_14px_-4px_rgba(47,116,192,0.5)]"
           : "border border-border bg-muted/50 text-muted-foreground hover:bg-muted"
       }`}
     >

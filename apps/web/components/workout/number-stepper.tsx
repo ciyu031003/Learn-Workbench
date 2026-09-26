@@ -40,7 +40,7 @@ export function NumberStepper({
           type="button"
           onClick={() => bump(-1)}
           aria-label={`减少${label}`}
-          className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-muted/40 transition-colors hover:bg-muted/70"
+          className="press flex size-9 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-muted/40 transition-colors hover:border-primary/40 hover:bg-primary/10 active:bg-primary/15"
         >
           <Minus className="size-4 text-primary" />
         </button>
@@ -49,14 +49,14 @@ export function NumberStepper({
           onChange={(e) => onChange(e.target.value.replace(/[^0-9.]/g, "").slice(0, 7))}
           inputMode="decimal"
           placeholder={placeholder}
-          className="h-9 min-w-0 flex-1 rounded-xl border border-border/60 bg-card/60 text-center text-sm font-bold tabular-nums outline-none transition-colors focus:border-primary/60"
+          className="h-9 min-w-0 flex-1 rounded-xl border border-border/60 bg-card/60 text-center text-sm font-bold tabular-nums outline-none transition-[border-color,box-shadow] focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
         />
         {suffix ? <span className="w-4 shrink-0 text-[11px] text-muted-foreground">{suffix}</span> : null}
         <button
           type="button"
           onClick={() => bump(1)}
           aria-label={`增加${label}`}
-          className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-muted/40 transition-colors hover:bg-muted/70"
+          className="press flex size-9 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-muted/40 transition-colors hover:border-primary/40 hover:bg-primary/10 active:bg-primary/15"
         >
           <Plus className="size-4 text-primary" />
         </button>

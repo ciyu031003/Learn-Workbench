@@ -153,13 +153,13 @@ export default function WorkoutPage() {
           <Loader2 className="size-4 animate-spin" /> 加载中…
         </CardContent></Card>
       ) : workouts.length === 0 ? (
-        <EmptyState icon={Dumbbell} title="还没有训练记录" hint="记录一次训练，动作与容量会自动汇总" />
+        <EmptyState icon={Dumbbell} title="还没有训练记录" hint="记录一次训练，动作与容量会自动汇总" pattern="bauhaus" />
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
-          {workouts.map((w) => {
+          {workouts.map((w, wi) => {
             const v = workoutVolume(w.items);
             return (
-              <Card key={w.id}>
+              <Card key={w.id} style={{ animationDelay: `${Math.min(wi, 10) * 45}ms` }} className="rise-in lift">
                 <CardHeader className="flex-row items-start justify-between pb-2">
                   <div className="min-w-0">
                     <CardTitle className="truncate text-sm">{w.name}</CardTitle>
@@ -170,7 +170,7 @@ export default function WorkoutPage() {
                       ) : null}
                     </p>
                   </div>
-                  <button onClick={() => void remove(w)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-danger" aria-label="删除">
+                  <button onClick={() => void remove(w)} className="press rounded-lg p-1.5 text-muted-foreground hover:bg-danger/12 hover:text-danger" aria-label="删除">
                     <Trash2 className="size-3.5" />
                   </button>
                 </CardHeader>
@@ -180,7 +180,11 @@ export default function WorkoutPage() {
                   ) : (
                     <div className="flex flex-col divide-y divide-border/50">
                       {w.items.map((it: WorkoutItem, i) => (
-                        <div key={it.id ?? i} className="flex items-center justify-between gap-3 py-1.5 text-xs">
+                        <div
+                          key={it.id ?? i}
+                          style={{ animationDelay: `${Math.min(i, 10) * 25}ms` }}
+                          className="rise-in press-soft flex items-center justify-between gap-3 rounded-md py-1.5 text-xs transition-colors hover:bg-muted/40"
+                        >
                           <span className="min-w-0 truncate font-medium">{it.exerciseLabel}</span>
                           <span className="shrink-0 text-muted-foreground tabular-nums">
                             {it.sets} × {it.reps}

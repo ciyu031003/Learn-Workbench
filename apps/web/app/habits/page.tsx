@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import {
   HABIT_TEMPLATES,
   HABIT_WEEKDAY_LABELS,
@@ -279,13 +279,33 @@ export default function HabitsPage() {
               { label: "今日打卡", value: `${doneToday}/${scheduledToday}`, unit: "项" },
               { label: "最长连续", value: String(bestStreak), unit: "天" },
               { label: "本周完成率", value: String(weekRate), unit: "%" },
-            ].map((s) => (
-              <div key={s.label} className="rounded-2xl border border-white/15 bg-white/45 px-4 py-3 backdrop-blur-md dark:bg-white/5">
-                <div className="text-[11px] font-medium text-muted-foreground">{s.label}</div>
-                <div className="mt-0.5 text-3xl font-black tabular-nums">
-                  {s.value}
-                  <span className="ml-1 text-xs font-medium text-muted-foreground">{s.unit}</span>
+            ].map((s, i) => (
+              <div
+                key={s.label}
+                style={{ animationDelay: `${i * 70}ms` }}
+                className="rise-in lift flex items-center justify-between gap-3 rounded-2xl border border-white/15 bg-white/45 px-4 py-3 backdrop-blur-md dark:bg-white/5"
+              >
+                <div className="min-w-0">
+                  <div className="text-[11px] font-medium text-muted-foreground">{s.label}</div>
+                  <div className="stat-pop mt-0.5 text-3xl font-black tabular-nums">
+                    {s.value}
+                    <span className="ml-1 text-xs font-medium text-muted-foreground">{s.unit}</span>
+                  </div>
                 </div>
+                {s.label === "本周完成率" ? (
+                  <span
+                    aria-hidden
+                    className="ring-conic size-12 shrink-0 motion-reduce:transition-none"
+                    style={
+                      {
+                        "--ring-value": Math.max(0, Math.min(100, weekRate)),
+                        "--ring-from": "#2fb3a6",
+                        "--ring-to": "#8d7bd8",
+                        "--ring-size": "4px",
+                      } as CSSProperties
+                    }
+                  />
+                ) : null}
               </div>
             ))}
           </CardContent>
@@ -298,13 +318,13 @@ export default function HabitsPage() {
         </CardContent></Card>
       ) : habits.length === 0 ? (
         <div className="flex flex-col gap-4">
-          <EmptyState icon={Repeat} title="还没有习惯" hint="从下面的模板快速开始，或自定义一个" />
+          <EmptyState icon={Repeat} title="还没有习惯" hint="从下面的模板快速开始，或自定义一个" pattern="bauhaus" />
           <div className="flex flex-wrap justify-center gap-2">
             {HABIT_TEMPLATES.map((t) => (
               <button
                 key={t.name}
                 onClick={() => openCreate(t)}
-                className="flex items-center gap-2 rounded-full border border-border/60 bg-card/50 px-3.5 py-2 text-sm transition-colors hover:bg-muted/60"
+                className="press-scale flex items-center gap-2 rounded-full border border-border/60 bg-card/50 px-3.5 py-2 text-sm transition-colors hover:border-primary/30 hover:bg-muted/60"
               >
                 <span>{t.icon}</span>
                 {t.name}
@@ -331,12 +351,20 @@ export default function HabitsPage() {
                         disabled={busy === h.id}
                         aria-label={done ? "取消打卡" : "打卡"}
                         className={cn(
-                          "flex size-10 shrink-0 items-center justify-center rounded-2xl border transition-all",
-                          done ? "border-transparent text-white" : "border-border/70 text-muted-foreground hover:bg-muted/50"
+                          "press flex size-10 shrink-0 items-center justify-center rounded-2xl border transition-all",
+                          done
+                            ? "border-transparent text-white shadow-[0_6px_18px_-8px_rgba(0,0,0,0.45)]"
+                            : "border-border/70 text-muted-foreground hover:scale-105 hover:bg-muted/50"
                         )}
                         style={done ? { background: h.color } : undefined}
                       >
-                        {busy === h.id ? <Loader2 className="size-4 animate-spin" /> : done ? <Check className="size-5" /> : <span className="text-lg">{h.icon ?? "○"}</span>}
+                        {busy === h.id ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : done ? (
+                          <Check className="check-draw size-5" />
+                        ) : (
+                          <span className="text-lg">{h.icon ?? "○"}</span>
+                        )}
                       </button>
 
                       <div className="min-w-0 flex-1">
@@ -344,7 +372,7 @@ export default function HabitsPage() {
                           <span className="truncate text-sm font-semibold">{h.icon} {h.name}</span>
                           {st && st.currentStreak > 0 ? (
                             <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-warning">
-                              <Flame className="size-3" />{st.currentStreak}
+                              <Flame className="sport-anim-breathe size-3" />{st.currentStreak}
                             </span>
                           ) : null}
                           {!scheduled ? <Badge variant="muted">今日不排期</Badge> : null}

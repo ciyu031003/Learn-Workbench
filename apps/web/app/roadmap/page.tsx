@@ -1172,7 +1172,7 @@ export default function RoadmapPage() {
                 onDragOver={(e) => onPhaseDragOver(e, phase)}
                 onDrop={(e) => onPhaseDrop(e, "main")}
                 onDragEnd={onPhaseDragEnd}
-                className={`roadmap-phase-card ${canEdit ? "cursor-grab active:cursor-grabbing" : ""} ${dragId === phase.id ? "opacity-50" : ""} ${dragOverId === phase.id && dragId !== phase.id ? "ring-2 ring-primary/60" : ""}`}
+                className={`roadmap-phase-card rise-in lift ${canEdit ? "cursor-grab active:cursor-grabbing" : ""} ${dragId === phase.id ? "opacity-50" : ""} ${dragOverId === phase.id && dragId !== phase.id ? "ring-2 ring-primary/60" : ""}`}
               >
                 <div className="flex items-center">
                   <button
@@ -1356,7 +1356,7 @@ export default function RoadmapPage() {
                 onDragOver={(e) => onPhaseDragOver(e, phase)}
                 onDrop={(e) => onPhaseDrop(e, "agent")}
                 onDragEnd={onPhaseDragEnd}
-                className={`roadmap-phase-card border-accent/20 ${canEdit ? "cursor-grab active:cursor-grabbing" : ""} ${dragId === phase.id ? "opacity-50" : ""} ${dragOverId === phase.id && dragId !== phase.id ? "ring-2 ring-accent/60" : ""}`}
+                className={`roadmap-phase-card rise-in lift border-accent/20 ${canEdit ? "cursor-grab active:cursor-grabbing" : ""} ${dragId === phase.id ? "opacity-50" : ""} ${dragOverId === phase.id && dragId !== phase.id ? "ring-2 ring-accent/60" : ""}`}
               >
                 <div className="flex items-center">
                   <button

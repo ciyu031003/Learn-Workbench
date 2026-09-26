@@ -285,6 +285,7 @@ export default function TasksPage() {
               icon={ListTodo}
               title="这一天还没有任务"
               hint="添加一个学习任务，开始「计划 → 专注 → 复盘」闭环"
+              pattern="bauhaus"
               action={
                 <Button
                   size="sm"
@@ -298,13 +299,22 @@ export default function TasksPage() {
               }
             />
           ) : (
-            tasks.map((t) => (
+            tasks.map((t, i) => (
               <div
                 key={t.id}
-                className={`flex items-center gap-3 rounded-xl border px-3 py-3 ${t.done ? "border-success/20 bg-success/5" : "border-border/60 bg-muted/30"}`}
+                style={{ animationDelay: `${Math.min(i, 14) * 28}ms` }}
+                className={`rise-in flex items-center gap-3 rounded-xl border px-3 py-3 transition-colors ${t.done ? "border-success/20 bg-success/5" : "border-border/60 bg-muted/30 hover:border-primary/30 hover:bg-muted/50"}`}
               >
-                <button onClick={() => toggleDone(t.id, !t.done)} aria-label={t.done ? "标记为未完成" : "标记为完成"} className="shrink-0 rounded-lg p-2 -m-2">
-                  {t.done ? <CheckCircle2 className="size-5 text-success" /> : <Circle className="size-5 text-muted-foreground/50 hover:text-primary" />}
+                <button
+                  onClick={() => toggleDone(t.id, !t.done)}
+                  aria-label={t.done ? "标记为未完成" : "标记为完成"}
+                  className="press -m-2 shrink-0 rounded-lg p-2"
+                >
+                  {t.done ? (
+                    <CheckCircle2 className="check-draw size-5 text-success" />
+                  ) : (
+                    <Circle className="size-5 text-muted-foreground/50 transition-transform hover:scale-110 hover:text-primary" />
+                  )}
                 </button>
                 <span className={`min-w-0 flex-1 text-sm font-medium ${t.done ? "text-muted-foreground line-through" : ""}`}>
                   {t.title}
@@ -333,14 +343,28 @@ export default function TasksPage() {
           {stats.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">还没有专注记录，开始一次倒计时吧</p>
           ) : (
-            stats.map((s) => (
+            stats.map((s, i) => (
               <div
                 key={s.phaseId ?? 0}
-                className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/30 px-3 py-2.5"
+                style={{ animationDelay: `${Math.min(i, 12) * 30}ms` }}
+                className="rise-in press-soft flex flex-col gap-1.5 rounded-xl border border-border/60 bg-muted/30 px-3 py-2.5"
               >
-                <span className="min-w-0 flex-1 truncate text-sm font-medium">{s.phaseTitle}</span>
-                <span className="shrink-0 text-sm text-muted-foreground">
-                  <span className="font-semibold text-foreground">{s.totalMinutes} 分钟</span> · {s.sessionCount} 次
+                <div className="flex items-center justify-between gap-3">
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{s.phaseTitle}</span>
+                  <span className="shrink-0 text-sm text-muted-foreground">
+                    <span className="stat-pop font-semibold text-foreground">{s.totalMinutes} 分钟</span> · {s.sessionCount} 次
+                  </span>
+                </div>
+                <span className="progress-track h-1.5 w-full overflow-hidden rounded-full">
+                  <span
+                    className="progress-fill block h-full rounded-full transition-[width] duration-700 ease-out motion-reduce:transition-none"
+                    style={{
+                      width: `${Math.max(
+                        4,
+                        Math.round((s.totalMinutes / Math.max(1, ...stats.map((x) => x.totalMinutes))) * 100)
+                      )}%`,
+                    }}
+                  />
                 </span>
               </div>
             ))
@@ -350,7 +374,7 @@ export default function TasksPage() {
 
       {/* 专注打卡统计（计时完成 / 完成当日全部任务后可分享） */}
       {tasks.length > 0 && tasks.every((t) => t.done) ? (
-        <div className="flex items-center gap-2 rounded-2xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-foreground">
+        <div className="rise-in cta-breathe flex items-center gap-2 rounded-2xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-foreground">
           🎉 今日任务已全部完成！生成你的专注打卡卡片分享一下吧
         </div>
       ) : null}

@@ -212,10 +212,16 @@ export default function NutritionPage() {
       {/* 营养环 */}
       <Card>
         <CardContent className="flex flex-wrap items-center justify-around gap-4 p-5">
-          <MacroRing label="热量" value={totals.kcal} target={targets.kcal} unit="kcal" color="var(--primary, #2f74c0)" />
-          <MacroRing label="蛋白质" value={totals.proteinG} target={targets.proteinG} unit="g" color="#16a34a" />
-          <MacroRing label="碳水" value={totals.carbsG} target={targets.carbsG} unit="g" color="#f59e0b" />
-          <MacroRing label="脂肪" value={totals.fatG} target={targets.fatG} unit="g" color="#dc2626" />
+          {[
+            { label: "热量", value: totals.kcal, target: targets.kcal, unit: "kcal", color: "var(--primary, #2f74c0)" },
+            { label: "蛋白质", value: totals.proteinG, target: targets.proteinG, unit: "g", color: "#16a34a" },
+            { label: "碳水", value: totals.carbsG, target: targets.carbsG, unit: "g", color: "#f59e0b" },
+            { label: "脂肪", value: totals.fatG, target: targets.fatG, unit: "g", color: "#dc2626" },
+          ].map((r, i) => (
+            <span key={r.label} className="rise-in" style={{ animationDelay: `${i * 70}ms` }}>
+              <MacroRing label={r.label} value={r.value} target={r.target} unit={r.unit} color={r.color} />
+            </span>
+          ))}
         </CardContent>
       </Card>
 
@@ -224,29 +230,29 @@ export default function NutritionPage() {
           <Loader2 className="size-4 animate-spin" /> 加载中…
         </CardContent></Card>
       ) : entries.length === 0 ? (
-        <EmptyState icon={Salad} title="今天还没有记录" hint="从常用食物里挑一个，或手动填写营养" />
+        <EmptyState icon={Salad} title="今天还没有记录" hint="从常用食物里挑一个，或手动填写营养" pattern="bauhaus" />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
-          {MEALS.map((m) => {
+          {MEALS.map((m, mi) => {
             const list = entries.filter((e) => e.meal === m);
             if (list.length === 0) return null;
             const sub = sumNutrition(list);
             return (
-              <Card key={m}>
+              <Card key={m} style={{ animationDelay: `${mi * 60}ms` }} className="rise-in lift">
                 <CardHeader className="flex-row items-center justify-between pb-2">
                   <CardTitle className="text-sm">{mealKindLabels[m]}</CardTitle>
                   <span className="text-[11px] text-muted-foreground tabular-nums">{sub.kcal} kcal</span>
                 </CardHeader>
                 <CardContent className="flex flex-col divide-y divide-border/50">
                   {list.map((e) => (
-                    <div key={e.id} className="flex items-center justify-between gap-3 py-2">
+                    <div key={e.id} className="press-soft flex items-center justify-between gap-3 rounded-lg py-2 transition-colors hover:bg-muted/40">
                       <div className="min-w-0">
                         <p className="truncate text-sm">{e.name}</p>
                         <p className="text-[11px] text-muted-foreground tabular-nums">
                           {e.amount} {e.unit} · {e.kcal} kcal · P{e.proteinG} C{e.carbsG} F{e.fatG}
                         </p>
                       </div>
-                      <button onClick={() => void remove(e.id)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-danger" aria-label="删除">
+                      <button onClick={() => void remove(e.id)} className="press rounded-lg p-1.5 text-muted-foreground hover:bg-danger/12 hover:text-danger" aria-label="删除">
                         <Trash2 className="size-3.5" />
                       </button>
                     </div>

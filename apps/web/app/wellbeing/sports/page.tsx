@@ -277,11 +277,11 @@ export default function SportsProfilePage() {
           <Loader2 className="size-4 animate-spin" /> 加载中…
         </CardContent></Card>
       ) : profiles.length === 0 ? (
-        <EmptyState icon={Trophy} title="还没有运动档案" hint="建立一张「羽球档案」风格的卡片，可选择性公开分享" />
+        <EmptyState icon={Trophy} title="还没有运动档案" hint="建立一张「羽球档案」风格的卡片，可选择性公开分享" pattern="bauhaus" />
       ) : (
         <div className="grid gap-5 lg:grid-cols-2">
-          {profiles.map((p) => (
-            <Card key={p.id} className="overflow-hidden">
+          {profiles.map((p, pi) => (
+            <Card key={p.id} style={{ animationDelay: `${Math.min(pi, 8) * 60}ms` }} className="rise-in lift overflow-hidden">
               <CardContent className="flex flex-col gap-4 p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
