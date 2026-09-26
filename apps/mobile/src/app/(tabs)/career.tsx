@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/immutability */
-import { useEffect, useState, useMemo } from "react";
-import Animated from "react-native-reanimated";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useState, useMemo } from "react";
+import Animated, { FadeInDown } from "react-native-reanimated";
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { ThemeColors } from "@/theme/tokens";
 import { radius, spacing, typography } from "@/theme/tokens";
 import { useTheme } from "@/theme";
@@ -18,6 +18,9 @@ import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
 import { router } from "expo-router";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
+import { usePullRefresh } from "@/lib/use-pull-refresh";
+import { DURATION, useReducedMotion } from "@/lib/motion";
+import { staggerDelay } from "@/lib/stagger";
 import { getApiUrl } from "@/config";
 import { useAppStore } from "@/store/app-store";
 import type { CareerReadiness, UserSkillView } from "@learn-workbench/shared";
@@ -47,36 +50,46 @@ export default function CareerScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const headerScroll = useLargeTitleHeader();
   const tabBarSpace = useTabBarSpace();
+  /** 入场错峰统一走 lib/stagger（步长取 token）；减弱动态时不传 entering，彻底不动 */
+  const reduced = useReducedMotion();
   const token = useAppStore((s) => s.token);
   const [readiness, setReadiness] = useState<CareerReadiness | null>(null);
   const [skills, setSkills] = useState<UserSkillView[]>([]);
   const [loading, setLoading] = useState(true);
   const [moreOpen, setMoreOpen] = useState(false);
 
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const headers: Record<string, string> = {};
-        if (token) headers.Authorization = "Bearer " + token;
-        const [rR, sR] = await Promise.all([
-          fetch(getApiUrl() + "/api/profile/readiness", { headers }),
-          fetch(getApiUrl() + "/api/profile/skills", { headers }),
-        ]);
-        const rd = await rR.json().catch(() => null);
-        const sd = await sR.json().catch(() => null);
-        if (alive && rR.ok && rd) setReadiness(rd);
-        if (alive && sR.ok && Array.isArray(sd.skills)) setSkills(sd.skills);
-      } catch {
-        // 离线或未登录：保持 null
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
+  /**
+   * v17/v18 收尾：把 loader 从 useEffect 内提到组件作用域（useCallback 稳定引用），
+   * 首次加载与下拉刷新共用同一条路径 —— 取数口径、端点与同步逻辑一行未改。
+   */
+  const loadCareer = useCallback(async () => {
+    try {
+      const headers: Record<string, string> = {};
+      if (token) headers.Authorization = "Bearer " + token;
+      const [rR, sR] = await Promise.all([
+        fetch(getApiUrl() + "/api/profile/readiness", { headers }),
+        fetch(getApiUrl() + "/api/profile/skills", { headers }),
+      ]);
+      const rd = await rR.json().catch(() => null);
+      const sd = await sR.json().catch(() => null);
+      if (rR.ok && rd) setReadiness(rd);
+      if (sR.ok && Array.isArray(sd.skills)) setSkills(sd.skills);
+    } catch {
+      // 离线或未登录：保持 null
+    } finally {
+      setLoading(false);
+    }
   }, [token]);
+
+  // 沿用本仓既有写法（today.tsx 同款）：首帧加载推迟一个宏任务 ——
+  // 既不触发 react-hooks/set-state-in-effect（同步 setState 级联渲染），也不与首帧渲染抢同一帧。
+  useEffect(() => {
+    const t = setTimeout(() => void loadCareer(), 0);
+    return () => clearTimeout(t);
+  }, [loadCareer]);
+
+  /** 本页有吸顶紧凑栏，下拉转圈需要让开它 */
+  const { control: careerRefresh } = usePullRefresh(loadCareer, { stickyHeader: true });
 
   const overall = readiness?.overall ?? 0;
   const goalVerdict =
@@ -91,7 +104,11 @@ export default function CareerScreen() {
   return (
     <View style={styles.root}>
       <ScreenHeaderStickyBar title="职业" scrollY={headerScroll.scrollY} />
-    <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
+    <Animated.ScrollView
+      onScroll={headerScroll.onScroll}
+      scrollEventThrottle={16}
+      refreshControl={<RefreshControl {...careerRefresh} />}
+      style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
       <ScreenHeaderLargeTitle title="职业" subtitle="画像 · 技能 · 简历 · 面试" />
 
       {/* ① 职业准备度 hero：进度弧 + 结论 + 三个关键值 */}
@@ -165,10 +182,14 @@ export default function CareerScreen() {
             <Stat value={skills.length} unit="项" size={22} />
           </View>
           <View style={styles.skillChips}>
-            {skills.slice(0, 12).map((s) => (
-              <View key={s.id} style={styles.skillChip}>
+            {skills.slice(0, 12).map((s, i) => (
+              <Animated.View
+                key={s.id}
+                style={styles.skillChip}
+                entering={reduced ? undefined : FadeInDown.duration(DURATION.base).delay(staggerDelay(i))}
+              >
                 <Text style={styles.skillChipText}>{s.name}</Text>
-              </View>
+              </Animated.View>
             ))}
           </View>
         </GlassSurface>
@@ -240,7 +261,8 @@ const makeStyles = (colors: ThemeColors) =>
     dimHeader: { flexDirection: "row", justifyContent: "space-between" },
     dimLabel: { ...typography.caption, fontWeight: "600", color: colors.text },
     dimScore: { ...typography.caption, color: colors.textMuted },
-    emptyHint: { ...typography.callout, color: colors.textMuted, paddingVertical: spacing.md },
+    // v18 对比度：callout(15pt) 属正文字号，textMuted 对白底仅约 3.0，低于 WCAG AA 4.5
+  emptyHint: { ...typography.callout, color: colors.text, paddingVertical: spacing.md },
     skillsCard: { gap: spacing.md },
     skillsHead: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },
     skillsTitle: { ...typography.headline, fontWeight: "800", color: colors.text },

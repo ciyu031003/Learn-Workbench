@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useHeaderTopInset } from "@/components/screen-header";
 import {
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,6 +17,7 @@ import { router } from "expo-router";
 
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import Animated, {
+  FadeInDown,
   useAnimatedStyle,
   useSharedValue,
   useAnimatedScrollHandler,
@@ -41,6 +43,9 @@ import {
 } from "@learn-workbench/shared";
 import { getApiUrl } from "@/config";
 import { useFocusRefresh } from "@/lib/use-focus-refresh";
+import { usePullRefresh } from "@/lib/use-pull-refresh";
+import { DURATION, useReducedMotion } from "@/lib/motion";
+import { staggerDelay } from "@/lib/stagger";
 import { FocusTimer } from "@/components/focus-timer";
 import { QuickStartSheet, type QuickStartChoice } from "@/components/quick-start-sheet";
 import { DailyOsSummary } from "@/components/daily-os-summary";
@@ -299,6 +304,8 @@ export default function TodayScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const headerTop = useHeaderTopInset("hero");
   const tabBarSpace = useTabBarSpace();
+  /** 入场错峰统一走 lib/stagger（步长取 token）；减弱动态时传 undefined，彻底不动 */
+  const reduced = useReducedMotion();
   const progress = useAppStore((s) => s.progress);
   const tasks = useAppStore((s) => s.tasks);
   const checkins = useAppStore((s) => s.checkins);
@@ -401,6 +408,17 @@ export default function TodayScreen() {
     return () => clearTimeout(t);
   }, [loadEnergy]);
   useFocusRefresh(loadEnergy);
+
+  /**
+   * v17/v18 收尾：下拉刷新 = 重跑本页两个网络数据源（习惯/打卡与精力）。
+   * 任务、日志与专注会话来自本地 store + 同步引擎，本页不重复拉取，口径未改。
+   * 今日是自绘 hero 的 hub 页、没有吸顶紧凑栏 → stickyHeader: false。
+   */
+  const refreshToday = useCallback(
+    () => Promise.all([loadHabits(), loadEnergy()]).then(() => undefined),
+    [loadHabits, loadEnergy]
+  );
+  const { control: todayRefresh } = usePullRefresh(refreshToday, { stickyHeader: false });
 
   const pickEnergy = async (level: number) => {
     setEnergyLevel(level); // 乐观：点一下立刻高亮
@@ -507,6 +525,7 @@ export default function TodayScreen() {
       <Animated.ScrollView
         onScroll={heroScroll}
         scrollEventThrottle={16}
+        refreshControl={<RefreshControl {...todayRefresh} />}
         style={styles.scroll}
         scrollEnabled
         contentContainerStyle={[styles.content, { paddingTop: headerTop, paddingBottom: tabBarSpace }]}
@@ -569,17 +588,20 @@ export default function TodayScreen() {
             <Text style={styles.taskEmpty}>今天还没有任务，去学习页添加一个吧</Text>
           </Card>
         ) : (
-          todayTasks.slice(0, 3).map((t) => (
-            <Pressable
+          todayTasks.slice(0, 3).map((t, i) => (
+            <Animated.View
               key={t.id}
-              onPress={() => {
-                const willDone = !t.done;
-                haptics.light();
-                toggleTaskDone(t.id);
-                if (willDone) fireCelebrate(t.title, "今日任务 · 已完成");
-              }}
               style={styles.task}
+              entering={reduced ? undefined : FadeInDown.duration(DURATION.base).delay(staggerDelay(i))}
             >
+              <Pressable
+                onPress={() => {
+                  const willDone = !t.done;
+                  haptics.light();
+                  toggleTaskDone(t.id);
+                  if (willDone) fireCelebrate(t.title, "今日任务 · 已完成");
+                }}
+              >
               <View style={[styles.taskBox, t.done && styles.taskBoxDone]}>
                 {/* v13 U8：勾选时用 strokeDashoffset 画对勾（组件常驻，靠 checked 驱动，才有"画"的过程） */}
                 <AnimatedCheckMark checked={t.done} size={16} color="#ffffff" />
@@ -588,20 +610,24 @@ export default function TodayScreen() {
                 {t.title}
               </Text>
               <Text style={styles.taskMeta}>{taskTypeLabels[t.taskType] ?? t.taskType}</Text>
-            </Pressable>
+              </Pressable>
+            </Animated.View>
           ))
         )}
         {/* 习惯排期（v12 P1-2）：与任务同列显示，点一下就地打卡 */}
-        {habitOnlyRows.slice(0, 2).map((h) => (
-          <Pressable
+        {habitOnlyRows.slice(0, 2).map((h, i) => (
+          <Animated.View
             key={"habit-" + h.id}
-            onPress={() => {
-              haptics.light();
-              if (!h.done) fireCelebrate(h.name, "习惯打卡完成");
-              void toggleHabit(h.id, h.done);
-            }}
             style={styles.task}
+            entering={reduced ? undefined : FadeInDown.duration(DURATION.base).delay(staggerDelay(i + 3))}
           >
+            <Pressable
+              onPress={() => {
+                haptics.light();
+                if (!h.done) fireCelebrate(h.name, "习惯打卡完成");
+                void toggleHabit(h.id, h.done);
+              }}
+            >
             <View style={[styles.taskBox, h.done && { backgroundColor: h.color, borderColor: h.color }]}>
               <AnimatedCheckMark checked={h.done} size={16} color="#ffffff" />
             </View>
@@ -610,7 +636,8 @@ export default function TodayScreen() {
               {h.name}
             </Text>
             <Text style={styles.taskMeta}>习惯</Text>
-          </Pressable>
+            </Pressable>
+          </Animated.View>
         ))}
 
         {todayTasks.length > 3 || habitOnlyRows.length > 2 ? (
@@ -693,10 +720,14 @@ export default function TodayScreen() {
         {sports.length === 0 ? (
           <Text style={styles.sportEmpty}>今天还没有运动记录，去阳光下动一动吧</Text>
         ) : (
-          sports.map((r) => {
+          sports.map((r, i) => {
             const { c1 } = sportColorsOf(r.type);
             return (
-              <View key={r.id} style={styles.sportItem}>
+              <Animated.View
+                key={r.id}
+                style={styles.sportItem}
+                entering={reduced ? undefined : FadeInDown.duration(DURATION.base).delay(staggerDelay(i))}
+              >
                 <View style={[styles.sportIco, { backgroundColor: `${c1}1f` }]}>
                   <SportIcon sportKey={r.sportKey} name={r.name} type={r.type} color={c1} active={false} />
                 </View>
@@ -707,7 +738,7 @@ export default function TodayScreen() {
                 <Pressable onPress={() => removeSport(r.clientId)} hitSlop={8}>
                   <ThemedIcon name="close" size={18} color={colors.textMuted} />
                 </Pressable>
-              </View>
+              </Animated.View>
             );
           })
         )}
@@ -832,7 +863,7 @@ const makeStyles = (colors: ThemeColors) =>
     backgroundColor: "rgba(255, 210, 130, 0.35)",
   },
   heroEyebrowRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 },
-  heroEyebrow: { fontSize: 11, fontWeight: "700", color: colors.textMuted, letterSpacing: 0.6 },
+  heroEyebrow: { ...typography.micro, fontWeight: "700", color: colors.textMuted, letterSpacing: 0.6 },
   heroPill: {
     borderRadius: 999,
     paddingHorizontal: 9,
@@ -850,7 +881,8 @@ const makeStyles = (colors: ThemeColors) =>
   },
   heroSub: {
     ...typography.callout,
-    color: colors.textMuted,
+    // v18 对比度：callout(15pt) 属正文字号，textMuted(#8E8E93) 对白底仅约 3.0，低于 WCAG AA 4.5
+    color: colors.text,
     marginTop: 5,
   },
   quote: {
@@ -865,30 +897,30 @@ const makeStyles = (colors: ThemeColors) =>
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
   },
-  quoteText: { flex: 1, fontSize: 13, lineHeight: 19, color: colors.textMuted },
+  quoteText: { flex: 1, ...typography.caption, lineHeight: 19, color: colors.textMuted },
 
   sectionTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
   sectionTitle: {
     ...typography.title2,
     color: colors.text,
   },
-  sectionMore: { fontSize: 12, color: colors.textMuted },
+  sectionMore: { ...typography.caption, color: colors.textMuted },
   inlineMore: { flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start", paddingVertical: 2 },
-  inlineMoreText: { fontSize: 12, fontWeight: "600", color: colors.textMuted },
+  inlineMoreText: { ...typography.caption, fontWeight: "600", color: colors.textMuted },
   addSportBtn: { flexDirection: "row", alignItems: "center", gap: 3 },
-  addSportText: { fontSize: 12, fontWeight: "700", color: colors.accentStrong },
+  addSportText: { ...typography.caption, fontWeight: "700", color: colors.accentStrong },
 
   sportCard: { gap: 8 },
   sportTotal: { flexDirection: "row", alignItems: "baseline", gap: 6 },
   sportTotalNum: { fontSize: 30, fontWeight: "800", color: colors.text },
-  sportTotalUnit: { fontSize: 13, color: colors.textMuted },
-  sportTotalNote: { marginLeft: "auto", fontSize: 11, color: colors.accentStrong },
-  sportEmpty: { fontSize: 13, color: colors.textMuted, paddingVertical: 4 },
+  sportTotalUnit: { ...typography.caption, color: colors.textMuted },
+  sportTotalNote: { marginLeft: "auto", ...typography.micro, color: colors.accentStrong },
+  sportEmpty: { ...typography.caption, color: colors.textMuted, paddingVertical: 4 },
   sportItem: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 4 },
   sportIco: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   sportItemInfo: { flex: 1 },
-  sportItemName: { fontSize: 14, fontWeight: "700", color: colors.text },
-  sportItemTime: { fontSize: 12, color: colors.textMuted, marginTop: 1 },
+  sportItemName: { ...typography.callout, fontWeight: "700", color: colors.text },
+  sportItemTime: { ...typography.caption, color: colors.textMuted, marginTop: 1 },
 
   task: {
     flexDirection: "row",
@@ -911,19 +943,19 @@ const makeStyles = (colors: ThemeColors) =>
     justifyContent: "center",
   },
   taskBoxDone: { backgroundColor: colors.success, borderColor: colors.success },
-  taskTitle: { flex: 1, fontSize: 14, fontWeight: "600", color: colors.text },
+  taskTitle: { flex: 1, ...typography.callout, fontWeight: "600", color: colors.text },
   taskDone: { textDecorationLine: "line-through", color: colors.textMuted },
-  taskMeta: { fontSize: 12, color: colors.textMuted },
-  taskEmpty: { fontSize: 13, color: colors.textMuted, textAlign: "center", paddingVertical: 4 },
+  taskMeta: { ...typography.caption, color: colors.textMuted },
+  taskEmpty: { ...typography.caption, color: colors.textMuted, textAlign: "center", paddingVertical: 4 },
   // v13 U12：底纹绝对定位铺满，卡片要裁切
   taskEmptyCard: { overflow: "hidden" },
 
   statsGrid: { flexDirection: "row", gap: 10 },
   statCard: { flex: 1, gap: 6, padding: 14 },
   statIconChip: { width: 34, height: 34, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  statLabel: { fontSize: 12, color: colors.textMuted },
+  statLabel: { ...typography.caption, color: colors.textMuted },
   statValue: { fontSize: 20, fontWeight: "800", color: colors.text },
-  statValueUnit: { fontSize: 12, fontWeight: "600", color: colors.textMuted },
+  statValueUnit: { ...typography.caption, fontWeight: "600", color: colors.textMuted },
 
   checkinRow: {
     flexDirection: "row",
@@ -934,7 +966,7 @@ const makeStyles = (colors: ThemeColors) =>
     borderRadius: radius.lg,
     backgroundColor: colors.accentSoft,
   },
-  checkinRowText: { fontSize: 13, fontWeight: "700", color: colors.accentStrong },
+  checkinRowText: { ...typography.caption, fontWeight: "700", color: colors.accentStrong },
 
   sportTabRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 },
   sportTab: {
@@ -946,7 +978,7 @@ const makeStyles = (colors: ThemeColors) =>
     borderColor: colors.border,
   },
   sportTabActive: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
-  sportTabText: { fontSize: 12, fontWeight: "700", color: colors.textMuted },
+  sportTabText: { ...typography.caption, fontWeight: "700", color: colors.textMuted },
   sportTabTextActive: { color: colors.accentStrong },
   sportGridScroll: { flex: 1 },
   sportTypeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, paddingBottom: 6 },
@@ -963,7 +995,7 @@ const makeStyles = (colors: ThemeColors) =>
   },
   sportTypeActive: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
   sportTypeIcon: { width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  sportTypeName: { fontSize: 12, fontWeight: "700", color: colors.text },
+  sportTypeName: { ...typography.caption, fontWeight: "700", color: colors.text },
   sportTypeNameActive: { color: colors.accentStrong },
   stepper: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 16, marginTop: 18 },
   stepBtn: {
@@ -979,7 +1011,7 @@ const makeStyles = (colors: ThemeColors) =>
   stepBtnText: { fontSize: 24, color: colors.text, lineHeight: 26 },
   stepperVal: { alignItems: "center", minWidth: 80 },
   stepperNum: { fontSize: 28, fontWeight: "800", color: colors.text },
-  stepperUnit: { fontSize: 12, color: colors.textMuted },
+  stepperUnit: { ...typography.caption, color: colors.textMuted },
   quickRow: { flexDirection: "row", gap: 8, justifyContent: "center", marginTop: 14 },
   quickChip: {
     borderRadius: 999,
@@ -990,7 +1022,7 @@ const makeStyles = (colors: ThemeColors) =>
     borderColor: colors.border,
   },
   quickChipActive: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
-  quickChipText: { fontSize: 13, fontWeight: "700", color: colors.text },
+  quickChipText: { ...typography.caption, fontWeight: "700", color: colors.text },
   quickChipTextActive: { color: colors.accentStrong },
   saveSport: {
     marginTop: 20,
@@ -999,5 +1031,5 @@ const makeStyles = (colors: ThemeColors) =>
     paddingVertical: 13,
     alignItems: "center",
   },
-  saveSportText: { color: "#fff", fontSize: 15, fontWeight: "800" },
+  saveSportText: { color: "#fff", ...typography.callout, fontWeight: "800" },
 });

@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/immutability */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useHeaderTopInset } from "@/components/screen-header";
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
+import { Alert, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
 
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
@@ -35,6 +35,7 @@ import {
   type MdImportResult,
 } from "@/lib/roadmap";
 import { SheetSection, SheetStickyCta } from "@/components/sheet";
+import { usePullRefresh } from "@/lib/use-pull-refresh";
 import { StudyShareSheet } from "@/components/study-share-card";
 import { buildStudyCardModel } from "@/lib/study-card-model";
 
@@ -402,6 +403,13 @@ export default function LearnScreen() {
     );
   }, []);
 
+  /**
+   * v17/v18 收尾：下拉刷新复用既有的 reloadRoadmap（本页唯一的权威网络数据源）。
+   * fetchRoadmapOrNull 返回 null 表示离线/失败 → 保留现状，不把页面清空（既有语义未改）。
+   * 学习页是自绘 hero 的 hub 页、没有吸顶紧凑栏 → stickyHeader: false。
+   */
+  const { control: learnRefresh } = usePullRefresh(reloadRoadmap, { stickyHeader: false });
+
   /** v6 P3-2：先让服务端解析 MD 出预览树（不写库） */
   const previewMd = async () => {
     const md = mdText.trim();
@@ -648,6 +656,7 @@ export default function LearnScreen() {
 
   return (
     <ScrollView
+      refreshControl={<RefreshControl {...learnRefresh} />}
       style={styles.scroll}
       contentContainerStyle={[styles.content, { paddingTop: headerTop, paddingBottom: tabBarSpace }]}
       showsVerticalScrollIndicator={false}
@@ -1218,19 +1227,20 @@ const makeStyles = (colors: ThemeColors) =>
   },
   heroSub: {
     ...typography.callout,
-    color: colors.textMuted,
+    // v18 对比度：callout(15pt) 属正文字号，textMuted 对白底仅约 3.0，低于 WCAG AA 4.5
+    color: colors.text,
     marginTop: 4,
   },
   /* v9：今日专注 hero */
   focusHero: { padding: 16 },
   focusMets: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 2 },
-  focusMet: { fontSize: 11, fontWeight: "700", color: colors.textMuted },
+  focusMet: { ...typography.micro, fontWeight: "700", color: colors.textMuted },
   sectionTitle: {
     ...typography.title2,
     color: colors.text,
     marginTop: 8,
   },
-  sectionTitleMore: { fontSize: 12, fontWeight: "600", color: colors.textMuted },
+  sectionTitleMore: { ...typography.caption, fontWeight: "600", color: colors.textMuted },
   sectionHeadRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 },
   addBtn: {
     flexDirection: "row",
@@ -1243,7 +1253,7 @@ const makeStyles = (colors: ThemeColors) =>
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "rgba(242,140,40,0.25)",
   },
-  addBtnText: { color: colors.accentStrong, fontSize: 12, fontWeight: "800" },
+  addBtnText: { color: colors.accentStrong, ...typography.caption, fontWeight: "800" },
 
   stageCard: {
     borderRadius: radius.lg,
@@ -1265,8 +1275,8 @@ const makeStyles = (colors: ThemeColors) =>
   stageBlob: { position: "absolute", width: 160, height: 160, borderRadius: 80, right: -46, top: -56, opacity: 0.5 },
   stageShine: { position: "absolute", top: -60, bottom: -60, left: 0, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.24)" },
   stageTop: { flexDirection: "row", alignItems: "center", gap: 8 },
-  stageTag: { color: "rgba(255,255,255,0.9)", fontSize: 11, fontWeight: "800", backgroundColor: "rgba(255,255,255,0.18)", borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
-  stageName: { color: "#fff", fontSize: 17, fontWeight: "800", flex: 1 },
+  stageTag: { color: "rgba(255,255,255,0.9)", ...typography.micro, fontWeight: "800", backgroundColor: "rgba(255,255,255,0.18)", borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
+  stageName: { color: "#fff", ...typography.headline, fontWeight: "800", flex: 1 },
   stageActions: { flexDirection: "row", alignItems: "center", gap: 6 },
   stageActionBtn: {
     width: 28,
@@ -1276,14 +1286,14 @@ const makeStyles = (colors: ThemeColors) =>
     alignItems: "center",
     justifyContent: "center",
   },
-  stageDesc: { color: "rgba(255,255,255,0.85)", fontSize: 12, marginTop: 6 },
+  stageDesc: { color: "rgba(255,255,255,0.85)", ...typography.caption, marginTop: 6 },
   stageBar: { height: 8, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.22)", marginTop: 12, overflow: "hidden" },
   stageBarFill: { height: "100%", borderRadius: 999 },
-  stagePct: { position: "absolute", right: 16, top: 12, color: "rgba(255,255,255,0.88)", fontSize: 12, fontWeight: "800" },
+  stagePct: { position: "absolute", right: 16, top: 12, color: "rgba(255,255,255,0.88)", ...typography.caption, fontWeight: "800" },
 
   moreCard: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: colors.surface, borderRadius: radius.lg, padding: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   moreLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
-  moreText: { color: colors.text, fontSize: 14, fontWeight: "700" },
+  moreText: { color: colors.text, ...typography.callout, fontWeight: "700" },
 
   themeCard: {
     borderRadius: radius.lg,
@@ -1301,8 +1311,8 @@ const makeStyles = (colors: ThemeColors) =>
   },
   themeBlob: { position: "absolute", width: 120, height: 120, borderRadius: 60, right: -30, top: -38, opacity: 0.5 },
   themeInner: { flex: 1 },
-  themeName: { color: "#fff", fontSize: 15, fontWeight: "800" },
-  themeMeta: { color: "rgba(255,255,255,0.78)", fontSize: 11, marginTop: 4 },
+  themeName: { color: "#fff", ...typography.callout, fontWeight: "800" },
+  themeMeta: { color: "rgba(255,255,255,0.78)", ...typography.micro, marginTop: 4 },
   themeDots: { flexDirection: "row", gap: 4, marginTop: 10 },
   dot: { width: 9, height: 9, borderRadius: 5 },
   dotOn: { backgroundColor: "rgba(255,255,255,0.92)" },
@@ -1312,50 +1322,52 @@ const makeStyles = (colors: ThemeColors) =>
   statsPanel: { padding: 16, gap: 14 },
   statsEntry: { flexDirection: "row", alignItems: "center", gap: 12 },
   statsEntryBody: { flex: 1, minWidth: 0, gap: 2 },
-  statsEntryTitle: { fontSize: 15, fontWeight: "800", color: colors.text },
-  statsEntrySub: { fontSize: 12, fontWeight: "500", color: colors.textMuted },
+  statsEntryTitle: { ...typography.callout, fontWeight: "800", color: colors.text },
+  statsEntrySub: { ...typography.caption, fontWeight: "500", color: colors.textMuted },
   panelHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   panelTitle: {
     ...typography.title2,
     color: colors.text,
   },
   shareBtn: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: colors.surface, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  shareBtnText: { fontSize: 12, fontWeight: "700", color: colors.primary },
+  shareBtnText: { ...typography.caption, fontWeight: "700", color: colors.primary },
 
   tomatoHero: { flexDirection: "row", alignItems: "center", gap: 16 },
   ringWrap: { width: 96, height: 96, alignItems: "center", justifyContent: "center" },
   ringPct: { position: "absolute", color: colors.text, fontSize: 20, fontWeight: "800" },
   tomatoHeroRight: { flex: 1, gap: 4 },
-  hLabel: { color: colors.textMuted, fontSize: 12 },
+  hLabel: { color: colors.textMuted, ...typography.caption },
   hVal: { color: colors.text, fontSize: 24, fontWeight: "800" },
 
   tomatoGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   tomatoMini: { flexBasis: "47%", flexGrow: 1, backgroundColor: colors.surface, borderRadius: radius.md, padding: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  tomatoMiniK: { color: colors.textMuted, fontSize: 11 },
+  tomatoMiniK: { color: colors.textMuted, ...typography.micro },
   tomatoMiniLine: { flexDirection: "row", alignItems: "flex-end", gap: 2, marginTop: 6 },
   tomatoMiniV: { color: colors.text, fontSize: 20, fontWeight: "800" },
-  tomatoMiniU: { color: colors.textMuted, fontSize: 12, marginBottom: 3 },
+  tomatoMiniU: { color: colors.textMuted, ...typography.caption, marginBottom: 3 },
 
-  heatLabel: { color: colors.text, fontSize: 13, fontWeight: "700" },
+  heatLabel: { color: colors.text, ...typography.caption, fontWeight: "700" },
   contentHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 14 },
   contentTabs: { flexDirection: "row", gap: 6 },
   contentTab: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999, backgroundColor: colors.surfaceMuted },
   contentTabActive: { backgroundColor: colors.accent },
-  contentTabText: { fontSize: 12, fontWeight: "700", color: colors.textMuted },
+  contentTabText: { ...typography.caption, fontWeight: "700", color: colors.textMuted },
   contentTabTextActive: { color: "#fff" },
   contentList: { gap: 10, marginTop: 10 },
   contentRow: { gap: 5 },
   contentTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
+  // 13.5 属分数字号，保留原值（不入四档 token）
   contentLabel: { flex: 1, fontSize: 13.5, fontWeight: "700", color: colors.text },
-  contentMeta: { fontSize: 12, color: colors.textMuted, fontWeight: "600" },
+  contentMeta: { ...typography.caption, color: colors.textMuted, fontWeight: "600" },
   contentTrack: { height: 6, borderRadius: 999, backgroundColor: colors.surfaceMuted, overflow: "hidden" },
   contentFill: { height: "100%", borderRadius: 999 },
+  // 12.5 属分数字号，保留原值
   contentEmpty: { fontSize: 12.5, color: colors.textMuted, marginTop: 8 },
   heat: { flexDirection: "row", gap: 4, alignItems: "flex-start" },
   heatWeek: { gap: 4 },
   heatCell: { width: 13, height: 13, borderRadius: 4 },
   heatLegend: { flexDirection: "row", alignItems: "center", gap: 5, justifyContent: "flex-end", marginTop: 8 },
-  heatLegendText: { color: colors.textMuted, fontSize: 11 },
+  heatLegendText: { color: colors.textMuted, ...typography.micro },
   heatSwatch: { width: 13, height: 13, borderRadius: 4 },
   heatCellActive: { borderWidth: 2, borderColor: colors.primary },
 
@@ -1379,20 +1391,20 @@ const makeStyles = (colors: ThemeColors) =>
     borderRadius: 999,
     backgroundColor: colors.accentSoft,
   },
-  dateText: { fontSize: 13, fontWeight: "700", color: colors.text },
+  dateText: { ...typography.caption, fontWeight: "700", color: colors.text },
   dateArrowDisabled: { opacity: 0.4 },
 
-  chartLabel: { fontSize: 13, fontWeight: "700", color: colors.text },
+  chartLabel: { ...typography.caption, fontWeight: "700", color: colors.text },
 
 
   sheetScroll: { flex: 1 },
   sheetStageItem: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 4 },
   sheetNum: { width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  sheetNumText: { color: "#fff", fontSize: 16, fontWeight: "800" },
+  sheetNumText: { color: "#fff", ...typography.body, fontWeight: "800" },
   sheetInfo: { flex: 1 },
-  sheetName: { color: colors.text, fontSize: 14, fontWeight: "700" },
-  sheetMeta: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
-  sheetPct: { color: colors.accent, fontSize: 13, fontWeight: "800" },
+  sheetName: { color: colors.text, ...typography.callout, fontWeight: "700" },
+  sheetMeta: { color: colors.textMuted, ...typography.caption, marginTop: 2 },
+  sheetPct: { color: colors.accent, ...typography.caption, fontWeight: "800" },
   newStageBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -1405,13 +1417,13 @@ const makeStyles = (colors: ThemeColors) =>
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "rgba(242,140,40,0.28)",
   },
-  newStageBtnText: { color: colors.accentStrong, fontSize: 13, fontWeight: "800" },
+  newStageBtnText: { color: colors.accentStrong, ...typography.caption, fontWeight: "800" },
 
   formSheet: { gap: 12, paddingTop: 4 },
   /* v6 P3-1：空态引导 */
   emptyCard: { gap: 10 },
-  emptyTitle: { fontSize: 16, fontWeight: "800", color: colors.text },
-  emptyHint: { fontSize: 12, lineHeight: 18, color: colors.textMuted },
+  emptyTitle: { ...typography.body, fontWeight: "800", color: colors.text },
+  emptyHint: { ...typography.caption, lineHeight: 18, color: colors.textMuted },
   emptyActions: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   emptyAction: {
     flexDirection: "row",
@@ -1422,30 +1434,30 @@ const makeStyles = (colors: ThemeColors) =>
     borderRadius: 14,
     backgroundColor: colors.primarySoft,
   },
-  emptyActionText: { fontSize: 13, fontWeight: "800", color: colors.primary },
+  emptyActionText: { ...typography.caption, fontWeight: "800", color: colors.primary },
   /* v6 P3-2：MD 导入 */
-  mdHint: { fontSize: 12, lineHeight: 18, color: colors.textMuted },
+  mdHint: { ...typography.caption, lineHeight: 18, color: colors.textMuted },
   mdInput: {
     minHeight: 180,
     maxHeight: 300,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    fontSize: 13,
+    ...typography.caption,
     lineHeight: 19,
     color: colors.text,
     backgroundColor: colors.surfaceMuted,
     textAlignVertical: "top",
   },
-  mdMsg: { fontSize: 12, color: colors.danger },
+  mdMsg: { ...typography.caption, color: colors.danger },
   mdPreview: { gap: 6, padding: 10, borderRadius: 12, backgroundColor: colors.surfaceMuted },
-  mdPreviewTitle: { fontSize: 12, fontWeight: "800", color: colors.primary },
+  mdPreviewTitle: { ...typography.caption, fontWeight: "800", color: colors.primary },
   mdPreviewPhase: { gap: 2 },
-  mdPreviewPhaseTitle: { fontSize: 13, fontWeight: "700", color: colors.text },
-  mdPreviewTopic: { fontSize: 12, color: colors.textMuted },
+  mdPreviewPhaseTitle: { ...typography.caption, fontWeight: "700", color: colors.text },
+  mdPreviewTopic: { ...typography.caption, color: colors.textMuted },
   mdActions: { flexDirection: "row", gap: 10 },
   mdActionItem: { flex: 1 },
-  formLabel: { color: colors.text, fontSize: 13, fontWeight: "800" },
+  formLabel: { color: colors.text, ...typography.caption, fontWeight: "800" },
   formInput: {
     backgroundColor: colors.surfaceStrong,
     borderWidth: StyleSheet.hairlineWidth,
@@ -1454,7 +1466,7 @@ const makeStyles = (colors: ThemeColors) =>
     paddingHorizontal: 14,
     paddingVertical: 12,
     color: colors.text,
-    fontSize: 14,
+    ...typography.callout,
   },
   formInputArea: { minHeight: 84, textAlignVertical: "top" },
   btnDisabled: { opacity: 0.6 },
@@ -1478,8 +1490,8 @@ const makeStyles = (colors: ThemeColors) =>
   modalHead: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 },
   modalDot: { width: 10, height: 10, borderRadius: 5 },
   modalTitle: { color: colors.text, fontSize: 19, fontWeight: "900", flex: 1 },
-  modalSub: { color: colors.textMuted, fontSize: 13, lineHeight: 19, marginBottom: 14 },
-  modalListTitle: { color: colors.text, fontSize: 13, fontWeight: "800", marginTop: 6, marginBottom: 8 },
+  modalSub: { color: colors.textMuted, ...typography.caption, lineHeight: 19, marginBottom: 14 },
+  modalListTitle: { color: colors.text, ...typography.caption, fontWeight: "800", marginTop: 6, marginBottom: 8 },
   modalRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 7 },
   modalRowText: {
     ...typography.callout,
@@ -1498,18 +1510,18 @@ const makeStyles = (colors: ThemeColors) =>
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.danger,
   },
-  deleteTopicText: { color: "#D64545", fontSize: 13, fontWeight: "800" },
+  deleteTopicText: { color: "#D64545", ...typography.caption, fontWeight: "800" },
 
   sharePreview: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   spTitle: { color: colors.text, fontSize: 18, fontWeight: "800" },
-  spSub: { color: colors.textMuted, fontSize: 12, marginTop: 4 },
+  spSub: { color: colors.textMuted, ...typography.caption, marginTop: 4 },
   spRows: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 14 },
   spItem: { width: "48%", backgroundColor: colors.canvas, borderRadius: radius.md, padding: 12 },
-  spK: { color: colors.textMuted, fontSize: 11 },
+  spK: { color: colors.textMuted, ...typography.micro },
   spV: { color: colors.text, fontSize: 18, fontWeight: "800", marginTop: 6 },
   shareActions: { flexDirection: "row", gap: 10, marginTop: 14 },
   ghostBtn: { flex: 1, backgroundColor: colors.surface, borderRadius: 999, paddingVertical: 12, alignItems: "center", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  ghostBtnText: { color: colors.text, fontSize: 14, fontWeight: "700" },
+  ghostBtnText: { color: colors.text, ...typography.callout, fontWeight: "700" },
   primaryShareBtn: { flex: 1, backgroundColor: colors.primary, borderRadius: 999, paddingVertical: 12, alignItems: "center" },
-  primaryShareText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+  primaryShareText: { color: "#fff", ...typography.callout, fontWeight: "700" },
 });
