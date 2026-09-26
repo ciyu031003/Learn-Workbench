@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import Animated from "react-native-reanimated";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { ActivityIndicator, Alert, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from "react-native";
 import { Card } from "@/components/card";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
+import { DURATION, useReducedMotion } from "@/lib/motion";
+import { shouldStagger, staggerDelay } from "@/lib/stagger";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { ChipGroup, SheetSection, SheetSegmented, SheetStickyCta, type SegmentOption } from "@/components/sheet";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
@@ -40,6 +42,8 @@ const DIFFICULTY_OPTIONS: SegmentOption[] = [
 export default function InterviewScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  /** v17-D（R8）：入场错峰；减弱动态不做（每屏封顶 12 项、只在首帧入场） */
+  const reduced = useReducedMotion();
   const headerScroll = useLargeTitleHeader();
   const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
@@ -223,7 +227,15 @@ export default function InterviewScreen() {
         </Card>
       ) : (
         paged.map((q, i) => (
-          <Pressable key={q.id} onPress={() => { setActive(q); setAnswer(""); setResult(null); }}>
+          <Animated.View
+            key={q.id}
+            entering={
+              reduced || !shouldStagger(i, paged.length)
+                ? undefined
+                : FadeInDown.duration(DURATION.base).delay(staggerDelay(i))
+            }
+          >
+          <Pressable onPress={() => { setActive(q); setAnswer(""); setResult(null); }}>
             <Card style={styles.questionCard}>
               <View style={styles.questionHead}>
                 <Text style={styles.questionIndex}>{safePage * PAGE_SIZE + i + 1}</Text>
@@ -235,6 +247,7 @@ export default function InterviewScreen() {
               <Text style={styles.questionText}>{q.question}</Text>
             </Card>
           </Pressable>
+          </Animated.View>
         ))
       )}
 
@@ -398,7 +411,10 @@ const makeStyles = (colors: ThemeColors) =>
     },
     heroSub: {
       ...typography.callout,
-      color: colors.textMuted,
+      // 任务4：正文级（callout 15pt）不能用 textMuted（浅色下对白底约 3.0，低于 WCAG AA 4.5）。
+      // token 只有三档灰、不能新增，故用 text 加 0.72 透明（≈ #5A5A5C，约 7:1）保留副标题层级。
+      color: colors.text,
+      opacity: 0.72,
       marginTop: 4,
     },
     moduleRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 },
@@ -423,8 +439,8 @@ const makeStyles = (colors: ThemeColors) =>
     questionHead: { flexDirection: "row", alignItems: "center", gap: 8 },
     questionIndex: { width: 24, height: 24, borderRadius: 8, backgroundColor: colors.primarySoft, color: colors.primary, textAlign: "center", lineHeight: 24, fontWeight: "800", fontSize: 12 },
     difficulty: { fontSize: 11, color: colors.textMuted, fontWeight: "700" },
-    questionText: { fontSize: 15, fontWeight: "700", color: colors.text, lineHeight: 22 },
-    answerInput: { minHeight: 120, textAlignVertical: "top", backgroundColor: colors.surfaceMuted, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: colors.text },
+    questionText: { ...typography.headline, fontWeight: "700", color: colors.text, lineHeight: 22 },
+    answerInput: { ...typography.callout, minHeight: 120, textAlignVertical: "top", backgroundColor: colors.surfaceMuted, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10,  color: colors.text },
     resultBox: { borderRadius: 12, padding: 12, gap: 4 },
     resultGood: { backgroundColor: colors.successSoft },
     resultBad: { backgroundColor: colors.warningSoft },

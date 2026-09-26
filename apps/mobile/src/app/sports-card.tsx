@@ -1069,7 +1069,7 @@ const makeStyles = (colors: ThemeColors) =>
       backgroundColor: colors.canvas,
     },
     headerBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-    headerTitle: { flex: 1, textAlign: "center", fontSize: 16, fontWeight: "700", color: colors.text },
+    headerTitle: { ...typography.headline, flex: 1, textAlign: "center",  fontWeight: "700", color: colors.text },
     cardEntry: {
       width: 62,
       height: 40,
@@ -1098,7 +1098,7 @@ const makeStyles = (colors: ThemeColors) =>
     chipTextActive: { color: "#ffffff" },
     content: { paddingHorizontal: 16, paddingTop: 8, gap: 10 },
     empty: { gap: 6, paddingVertical: 40, alignItems: "center" },
-    emptyTitle: { fontSize: 15, fontWeight: "700", color: colors.text },
+    emptyTitle: { ...typography.headline, fontWeight: "700", color: colors.text },
     emptyHint: { fontSize: 12, lineHeight: 19, color: colors.textMuted, textAlign: "center" },
     hero: {
       height: 182,
@@ -1175,7 +1175,7 @@ const makeStyles = (colors: ThemeColors) =>
       paddingVertical: 5,
     },
     heroEditText: { fontSize: 11, fontWeight: "700", color: "#ffffff" },
-    identityName: { fontSize: 22, fontWeight: "800", color: "#ffffff", letterSpacing: 0.3 },
+    identityName: { ...typography.title2, fontWeight: "800", color: "#ffffff", letterSpacing: 0.3 },
     identityMeta: { fontSize: 11.5, color: "rgba(255,255,255,0.9)", letterSpacing: 0.4, lineHeight: 16 },
     grid: {
       flexDirection: "row",
@@ -1342,7 +1342,7 @@ const makeStyles = (colors: ThemeColors) =>
     },
     honorHeroTrophy: { fontSize: 30 },
     honorHeroBody: { flex: 1, gap: 2 },
-    honorHeroTitle: { fontSize: 16, fontWeight: "800", color: colors.accentStrong },
+    honorHeroTitle: { ...typography.headline, fontWeight: "800", color: colors.accentStrong },
     honorHeroSub: { fontSize: 12, color: colors.textMuted },
     honorHeroMark: {
       borderRadius: 999,
@@ -1363,7 +1363,7 @@ const makeStyles = (colors: ThemeColors) =>
       paddingVertical: 10,
     },
     honorMedal: { fontSize: 16 },
-    honorName: { flex: 1, fontSize: 14, fontWeight: "700", color: colors.text },
+    honorName: { ...typography.callout, flex: 1,  fontWeight: "700", color: colors.text },
     honorPrize: { fontSize: 13, fontWeight: "800", color: colors.accentStrong },
     honorHint: { fontSize: 11, color: colors.textMuted, paddingLeft: 2 },
     honorEmpty: {
@@ -1425,7 +1425,7 @@ const makeStyles = (colors: ThemeColors) =>
       paddingVertical: 12,
     },
     imageActionBody: { flex: 1, gap: 2 },
-    imageActionText: { fontSize: 14, fontWeight: "700", color: colors.text },
+    imageActionText: { ...typography.callout, fontWeight: "700", color: colors.text },
     imageActionHint: { fontSize: 11, color: colors.textMuted },
     // 证件照：一行「缩略图 + 说明」，点一下就能换
     photoRow: {
@@ -1442,7 +1442,7 @@ const makeStyles = (colors: ThemeColors) =>
     photoThumb: { width: 56, height: 72, borderRadius: radius.md, backgroundColor: "#ffffff" },
     photoEmpty: { alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border },
     photoMeta: { flex: 1, gap: 2 },
-    photoTitle: { fontSize: 14, fontWeight: "700", color: colors.text },
+    photoTitle: { ...typography.callout, fontWeight: "700", color: colors.text },
     photoHint: { fontSize: 11, color: colors.textMuted },
     gearInputRow: { flexDirection: "row", alignItems: "center", gap: 8 },
     gearInputLabel: { width: 100 },
@@ -1479,7 +1479,7 @@ const makeStyles = (colors: ThemeColors) =>
       paddingHorizontal: 14,
       paddingVertical: 10,
     },
-    switchLabel: { fontSize: 14, color: colors.text },
+    switchLabel: { ...typography.callout, color: colors.text },
     switchText: { flex: 1, gap: 2, paddingRight: 10 },
     switchHint: { fontSize: 11, color: colors.textMuted },
     switchRowOff: { opacity: 0.55 },

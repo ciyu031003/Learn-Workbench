@@ -12,10 +12,11 @@ import {
   View,
   type DimensionValue,
 } from "react-native";
+import { typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { ThemedIcon } from "@/components/themed-icon";
-import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useHeaderTopInset, useLargeTitleHeader } from "@/components/screen-header";
+import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { Card } from "@/components/card";
 import { AuthSheet } from "@/components/auth-sheet";
 import { BottomSheet } from "@/components/bottom-sheet";
@@ -23,6 +24,7 @@ import { ChipGroup, SheetSection, SheetSegmented, type SegmentOption } from "@/c
 import { PressableScale } from "@/components/pressable-scale";
 import { haptics } from "@/lib/haptics";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
+import { usePullRefresh } from "@/lib/use-pull-refresh";
 import { useAppStore } from "@/store/app-store";
 import {
   enrollMarketGaps,
@@ -177,8 +179,6 @@ export default function MarketScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const headerScroll = useLargeTitleHeader();
-  /** v17-C2b：下拉转圈要出现在吸顶栏下方 */
-  const headerTop = useHeaderTopInset();
   const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
   const setAuth = useAppStore((s) => s.setAuth);
@@ -189,7 +189,6 @@ export default function MarketScreen() {
   const [decision, setDecision] = useState<MarketDecisionPayload | null>(null);
   const [decisionTarget, setDecisionTarget] = useState({ city: "", functionKey: "" });
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState<FilterKey | null>(null);
@@ -198,8 +197,7 @@ export default function MarketScreen() {
   const [search, setSearch] = useState("");
 
   const load = useCallback(async (refresh = false) => {
-    if (refresh) setRefreshing(true);
-    else setLoading(true);
+    if (!refresh) setLoading(true);
     setError(null);
     try {
       const [nextData, nextPersonal] = await Promise.all([
@@ -212,9 +210,11 @@ export default function MarketScreen() {
       setError(e instanceof Error ? e.message : "市场数据加载失败");
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }, [filters]);
+
+  // v17/v18 收尾：下拉刷新统一走 usePullRefresh（吸顶栏存在 → 偏移自动 = insets.top + 44）
+  const { control: pullControl } = usePullRefresh(() => load(true), { stickyHeader: true });
 
   useEffect(() => {
     void load();
@@ -328,16 +328,7 @@ export default function MarketScreen() {
       contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
       showsVerticalScrollIndicator={false}
       automaticallyAdjustKeyboardInsets
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={() => void load(true)}
-          tintColor={colors.primary}
-          colors={[colors.primary]}
-                progressBackgroundColor={colors.surfaceStrong}
-                progressViewOffset={headerTop + 44}
-                />
-      }
+      refreshControl={<RefreshControl {...pullControl} />}
     >
       <ScreenHeaderLargeTitle
         title="招聘市场工作台"
@@ -681,9 +672,9 @@ const makeStyles = (colors: ThemeColors) =>
       borderBottomColor: colors.border,
     },
     moveMain: { flex: 1, minWidth: 0 },
-    skillName: { fontSize: 14, fontWeight: "800", color: colors.text },
+    skillName: { ...typography.callout, fontWeight: "800", color: colors.text },
     skillMeta: { fontSize: 11, color: colors.textMuted, marginTop: 3, lineHeight: 16 },
-    matchText: { fontSize: 16, fontWeight: "900", color: colors.primary },
+    matchText: { ...typography.headline, fontWeight: "900", color: colors.primary },
     gapButton: {
       backgroundColor: colors.primary,
       borderRadius: 12,
@@ -727,7 +718,7 @@ const makeStyles = (colors: ThemeColors) =>
     },
     moveName: { fontSize: 13, fontWeight: "800", color: colors.text },
     moveMeta: { fontSize: 10, color: colors.textMuted, marginTop: 3 },
-    moveScore: { fontSize: 14, fontWeight: "900", color: colors.accent },
+    moveScore: { ...typography.callout, fontWeight: "900", color: colors.accent },
     centeredBox: { alignItems: "center", gap: 10, paddingVertical: 36 },
     mutedText: { fontSize: 13, color: colors.textMuted, textAlign: "center", lineHeight: 19 },
     errorText: { fontSize: 13, color: colors.danger, textAlign: "center" },

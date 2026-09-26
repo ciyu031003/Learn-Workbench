@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Animated from "react-native-reanimated";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import {
   Linking,
   Pressable,
@@ -15,8 +15,10 @@ import { Card } from "@/components/card";
 import { ThemedIcon } from "@/components/themed-icon";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
-import { useRefreshable } from "@/lib/use-refresh";
-import { radius } from "@/theme/tokens";
+import { usePullRefresh } from "@/lib/use-pull-refresh";
+import { DURATION, useReducedMotion } from "@/lib/motion";
+import { shouldStagger, staggerDelay } from "@/lib/stagger";
+import { radius, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
@@ -69,6 +71,8 @@ const FETCH_LIMIT = 200;
 export default function RadarScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  /** v17-D（R8）：入场错峰；减弱动态不做（每屏封顶 12 项、只在首帧入场） */
+  const reduced = useReducedMotion();
   const headerScroll = useLargeTitleHeader();
   /** v17-C2b：下拉转圈要出现在吸顶栏下方 */
   const headerTop = useHeaderTopInset();
@@ -103,7 +107,8 @@ export default function RadarScreen() {
     return () => clearTimeout(t);
   }, [load]);
 
-  const { refreshing, onRefresh } = useRefreshable(load);
+  // v17/v18 收尾：下拉刷新统一走 usePullRefresh（吸顶栏存在 → 偏移自动 = insets.top + 44）
+  const { control: pullControl } = usePullRefresh(load, { stickyHeader: true });
 
   const top = data?.top ?? [];
   const facets = useMemo(
@@ -144,7 +149,7 @@ export default function RadarScreen() {
       contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
       showsVerticalScrollIndicator={false}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} progressBackgroundColor={colors.surfaceStrong} progressViewOffset={headerTop + 44} />
+        <RefreshControl {...pullControl} tintColor={colors.primary} colors={[colors.primary]} progressBackgroundColor={colors.surfaceStrong} progressViewOffset={headerTop + 44} />
       }
     >
       <ScreenHeaderLargeTitle
@@ -259,8 +264,16 @@ export default function RadarScreen() {
         />
       ) : (
         <>
-          {shown.map((j) => (
-            <Card key={j.jobId} style={styles.item}>
+          {shown.map((j, i) => (
+            <Animated.View
+              key={j.jobId}
+              entering={
+                reduced || !shouldStagger(i, shown.length)
+                  ? undefined
+                  : FadeInDown.duration(DURATION.base).delay(staggerDelay(i))
+              }
+            >
+            <Card style={styles.item}>
               <View style={styles.head}>
                 <View style={styles.scoreWrap}>
                   <Text style={[styles.score, j.overall >= 75 && { color: colors.success ?? colors.primary }]}>{j.overall}%</Text>
@@ -293,6 +306,7 @@ export default function RadarScreen() {
                 ) : null}
               </View>
             </Card>
+            </Animated.View>
           ))}
 
           <View style={styles.pager}>
@@ -341,7 +355,7 @@ const makeStyles = (colors: ThemeColors) =>
     filterCard: { gap: 8, padding: 14 },
     filterHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     filterTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-    filterTitle: { fontSize: 14, fontWeight: "800", color: colors.text },
+    filterTitle: { ...typography.callout, fontWeight: "800", color: colors.text },
     filterBadge: {
       minWidth: 16,
       height: 16,
@@ -385,7 +399,7 @@ const makeStyles = (colors: ThemeColors) =>
     scoreWrap: { minWidth: 46, alignItems: "center", justifyContent: "center" },
     score: { fontSize: 18, fontWeight: "800", color: colors.primary },
     headInfo: { flex: 1, minWidth: 0, gap: 1 },
-    title: { fontSize: 15, fontWeight: "800", color: colors.text },
+    title: { ...typography.headline, fontWeight: "800", color: colors.text },
     muted: { fontSize: 11, color: colors.textMuted },
     salary: { fontSize: 12, fontWeight: "700", color: colors.text },
     deadline: { fontSize: 11, fontWeight: "700", color: colors.accentStrong },

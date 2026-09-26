@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Animated from "react-native-reanimated";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { Card } from "@/components/card";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
+import { usePullRefresh } from "@/lib/use-pull-refresh";
 import { useTheme } from "@/theme";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
@@ -29,31 +30,34 @@ export default function ResumePreviewScreen() {
   const [content, setContent] = useState<ResumeContent | null>(null);
   const [loading, setLoading] = useState(true);
 
+  /** v17/v18 收尾：loader 上提到组件作用域（useCallback 稳定引用）以便统一接入下拉刷新；取数口径与顺序不变 */
+  const load = useCallback(async () => {
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+    try {
+      const lr = await fetch(getApiUrl() + "/api/resumes", { headers });
+      const ld = await lr.json();
+      const list = Array.isArray(ld.documents) ? ld.documents : [];
+      if (list.length === 0) return;
+      const dr = await fetch(`${getApiUrl()}/api/resumes/${list[0].id}`, { headers });
+      const dd = await dr.json();
+      setDoc(dd.document ?? null);
+      setContent(dd.content ?? null);
+    } catch {
+      // 离线保持空态
+    }
+  }, [token]);
+
   useEffect(() => {
     let alive = true;
+    // 保持与改动前同构的 async IIFE 形态（load 内部已吞异常，不会 reject）
     (async () => {
-      const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
-      try {
-        const lr = await fetch(getApiUrl() + "/api/resumes", { headers });
-        const ld = await lr.json();
-        const list = Array.isArray(ld.documents) ? ld.documents : [];
-        if (list.length === 0) {
-          if (alive) setLoading(false);
-          return;
-        }
-        const dr = await fetch(`${getApiUrl()}/api/resumes/${list[0].id}`, { headers });
-        const dd = await dr.json();
-        if (!alive) return;
-        setDoc(dd.document ?? null);
-        setContent(dd.content ?? null);
-      } catch {
-        // 离线保持空态
-      } finally {
-        if (alive) setLoading(false);
-      }
+      await load();
+      if (alive) setLoading(false);
     })();
     return () => { alive = false; };
-  }, [token]);
+  }, [load]);
+
+  const { control: pullControl } = usePullRefresh(load, { stickyHeader: true });
 
   const rows = (key: ResumeSectionConfig["key"]) => {
     if (!content) return null;
@@ -126,7 +130,8 @@ export default function ResumePreviewScreen() {
   return (
     <View style={styles.root}>
       <ScreenHeaderStickyBar title="简历预览" scrollY={headerScroll.scrollY} />
-    <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
+    <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
+      refreshControl={<RefreshControl {...pullControl} />} showsVerticalScrollIndicator={false}>
       <ScreenHeaderLargeTitle title="简历预览" subtitle={doc ? `${doc.title} · ${doc.templateKey}` : "内容实时取自资料 / 证书 / 技能 / 资产"} />
 
       {loading ? (
@@ -159,7 +164,7 @@ const makeStyles = (colors: ThemeColors) =>
     section: { gap: 6 },
     sectionTitle: { fontSize: 13, fontWeight: "800", color: colors.primary },
     basicsBlock: { gap: 3 },
-    name: { fontSize: 22, fontWeight: "800", color: colors.text },
+    name: { ...typography.title2, fontWeight: "800", color: colors.text },
     muted: { fontSize: 12, color: colors.textMuted },
     body: {
       ...typography.body,
@@ -169,7 +174,7 @@ const makeStyles = (colors: ThemeColors) =>
     link: { fontSize: 12, color: colors.primary, marginTop: 2 },
     row: { gap: 1, marginBottom: 6 },
     rowBetween: { flexDirection: "row", justifyContent: "space-between", gap: 10, marginBottom: 4 },
-    rowTitle: { fontSize: 14, fontWeight: "700", color: colors.text, flexShrink: 1 },
+    rowTitle: { ...typography.callout, fontWeight: "700", color: colors.text, flexShrink: 1 },
     chips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
     chip: { fontSize: 12, color: colors.text, backgroundColor: colors.surfaceMuted, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
   });

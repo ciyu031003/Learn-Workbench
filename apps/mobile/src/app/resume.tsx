@@ -180,7 +180,10 @@ const makeStyles = (colors: ThemeColors) =>
     },
     heroSub: {
       ...typography.callout,
-      color: colors.textMuted,
+      // 任务4：正文级（callout 15pt）不能用 textMuted（浅色下对白底约 3.0，低于 WCAG AA 4.5）。
+      // token 只有三档灰、不能新增，故用 text 加 0.72 透明（≈ #5A5A5C，约 7:1）保留副标题层级。
+      color: colors.text,
+      opacity: 0.72,
       marginTop: 4,
     },
     addBtn: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.primarySoft, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9 },
@@ -198,7 +201,9 @@ const makeStyles = (colors: ThemeColors) =>
     },
     itemContent: {
       ...typography.callout,
-      color: colors.textMuted,
+      // 任务4：正文级（callout 15pt）改用加深度色（同上）
+      color: colors.text,
+      opacity: 0.72,
     },
     itemUrl: { fontSize: 12, color: colors.primary, lineHeight: 18 },
     form: { gap: 10, paddingTop: 6 },
@@ -208,8 +213,8 @@ const makeStyles = (colors: ThemeColors) =>
     kindChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
     kindChipText: { fontSize: 12, fontWeight: "700", color: colors.textMuted },
     kindChipTextActive: { color: "#ffffff" },
-    input: { backgroundColor: colors.surfaceMuted, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: colors.text },
+    input: { ...typography.callout, backgroundColor: colors.surfaceMuted, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10,  color: colors.text },
     area: { minHeight: 108, textAlignVertical: "top" },
     primaryBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 12, alignItems: "center", marginTop: 4 },
-    primaryBtnText: { color: "#fff", fontSize: 15, fontWeight: "800" },
+    primaryBtnText: { ...typography.callout, color: "#fff",  fontWeight: "800" },
   });

@@ -16,13 +16,16 @@ import { EmptyState } from "@/components/empty-state";
 import {
   ScreenHeaderLargeTitle,
   ScreenHeaderStickyBar,
-  useHeaderTopInset,
   useLargeTitleHeader,
 } from "@/components/screen-header";
 import { SkeletonList } from "@/components/skeleton";
 
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
+import { usePullRefresh } from "@/lib/use-pull-refresh";
+import { DURATION, useReducedMotion } from "@/lib/motion";
+import { shouldStagger, staggerDelay } from "@/lib/stagger";
 import Animated, {
+  FadeInDown,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -413,10 +416,11 @@ function FilterBottomSheet({
 export default function JobsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  /** v17-D（R8）：入场错峰；减弱动态时不做（任务纪律：每屏封顶 12 项、只在首帧入场） */
+  const reduced = useReducedMotion();
   const tabBarSpace = useTabBarSpace();
-  // v17-C2b：吸顶紧凑栏的滚动驱动 + 吸顶栏占位（44pt 高，用于 RefreshControl 的 progressViewOffset）
+  // v17-C2b：吸顶紧凑栏的滚动驱动（下拉刷新偏移已由 usePullRefresh 统一计算）
   const headerScroll = useLargeTitleHeader();
-  const headerTop = useHeaderTopInset();
   const token = useAppStore((s) => s.token);
 
   const [jobs, setJobs] = useState<JobPostingListItem[]>([]);
@@ -508,6 +512,9 @@ export default function JobsScreen() {
   const refreshJobs = useCallback(() => {
     loadJobs(1, "refresh");
   }, [loadJobs]);
+
+  // v17/v18 收尾：下拉刷新统一走 usePullRefresh（吸顶栏存在 → 偏移自动 = insets.top + 44）
+  const { control: pullControl } = usePullRefresh(refreshJobs, { stickyHeader: true });
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -738,26 +745,23 @@ export default function JobsScreen() {
         data={jobs}
         keyExtractor={(item) => String(item.id)}
         renderItem={({ item, index }) => (
-          <View style={styles.listSide}>
+          <Animated.View
+            style={styles.listSide}
+            entering={
+              reduced || !shouldStagger(index, jobs.length)
+                ? undefined
+                : FadeInDown.duration(DURATION.base).delay(staggerDelay(index))
+            }
+          >
             <JobCard job={item} index={index} onPress={openJob} onToggleFavorite={toggleFavorite} />
-          </View>
+          </Animated.View>
         )}
         ItemSeparatorComponent={JobCardSeparator}
         contentContainerStyle={{ paddingBottom: tabBarSpace }}
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={renderEmpty}
         ListFooterComponent={renderPager}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={refreshJobs}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
-            progressBackgroundColor={colors.surfaceStrong}
-            // 吸顶栏高 44 + 状态栏：不加偏移时下拉转圈会出现在吸顶栏底下被盖住
-            progressViewOffset={headerTop + 44}
-          />
-        }
+        refreshControl={<RefreshControl {...pullControl} />}
         showsVerticalScrollIndicator={false}
       />
       <JobDetailModal
@@ -823,7 +827,7 @@ const makeStyles = (colors: ThemeColors) =>
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
   },
-  searchInput: { flex: 1, fontSize: 14, color: colors.text, padding: 0 },
+  searchInput: { ...typography.callout, flex: 1,  color: colors.text, padding: 0 },
   filterBtn: {
     width: 46,
     height: 46,
@@ -891,7 +895,7 @@ const makeStyles = (colors: ThemeColors) =>
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
   },
-  logoText: { color: "#ffffff", fontSize: 17, fontWeight: "800" },
+  logoText: { ...typography.headline, color: "#ffffff",  fontWeight: "800" },
   jobMain: { flex: 1, minWidth: 0, gap: 2 },
   titleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   jobTitle: { flex: 1, fontSize: 15.5, fontWeight: "800", color: colors.text },
@@ -919,7 +923,7 @@ const makeStyles = (colors: ThemeColors) =>
     paddingVertical: 2,
     overflow: "hidden",
   },
-  salary: { fontSize: 16, fontWeight: "900", color: colors.accentStrong, letterSpacing: 0.2 },
+  salary: { ...typography.headline, fontWeight: "900", color: colors.accentStrong, letterSpacing: 0.2 },
   jobMeta: { fontSize: 12, color: colors.textMuted, marginTop: 1 },
   tags: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 10 },
   tag: {
@@ -968,7 +972,7 @@ const makeStyles = (colors: ThemeColors) =>
   time: { flex: 1, marginLeft: "auto", fontSize: 11, color: colors.textFaint, textAlign: "right" },
   emptyBox: { alignItems: "center", gap: 8, paddingVertical: 28, paddingHorizontal: 20 },
   skeletonWrap: { paddingHorizontal: 16, paddingTop: 8 },
-  emptyTitle: { fontSize: 16, fontWeight: "800", color: colors.text },
+  emptyTitle: { ...typography.headline, fontWeight: "800", color: colors.text },
   emptyText: { fontSize: 13, color: colors.textMuted, textAlign: "center", lineHeight: 19 },
   emptyPrimaryBtn: {
     marginTop: 6,
@@ -977,7 +981,7 @@ const makeStyles = (colors: ThemeColors) =>
     paddingVertical: 11,
     paddingHorizontal: 20,
   },
-  emptyPrimaryText: { color: "#ffffff", fontSize: 14, fontWeight: "800" },
+  emptyPrimaryText: { ...typography.callout, color: "#ffffff",  fontWeight: "800" },
   pager: {
     flexDirection: "row",
     alignItems: "center",
@@ -1038,5 +1042,5 @@ const makeStyles = (colors: ThemeColors) =>
     paddingVertical: 13,
     alignItems: "center",
   },
-  applyText: { color: "#ffffff", fontSize: 15, fontWeight: "800" },
+  applyText: { ...typography.callout, color: "#ffffff",  fontWeight: "800" },
 });
