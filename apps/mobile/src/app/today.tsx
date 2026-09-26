@@ -52,7 +52,7 @@ import { EnergyBar } from "@/components/energy-bar";
 import { fetchLatestEnergy, logEnergy } from "@/lib/energy";
 import { PressableScale } from "@/components/pressable-scale";
 import { haptics } from "@/lib/haptics";
-import { radius, shadows } from "@/theme/tokens";
+import { radius, shadows, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { computeFocusStats } from "@/lib/focus-stats";
@@ -843,8 +843,15 @@ const makeStyles = (colors: ThemeColors) =>
   heroPillDone: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
   heroPillText: { fontSize: 10, fontWeight: "700", color: colors.textMuted },
   heroPillTextDone: { color: colors.primaryStrong },
-  heroTitle: { fontSize: 26, lineHeight: 32, fontWeight: "800", color: colors.text },
-  heroSub: { fontSize: 13, color: colors.textMuted, marginTop: 5 },
+  heroTitle: {
+    ...typography.display,
+    color: colors.text,
+  },
+  heroSub: {
+    ...typography.callout,
+    color: colors.textMuted,
+    marginTop: 5,
+  },
   quote: {
     flexDirection: "row",
     alignItems: "center",
@@ -860,7 +867,10 @@ const makeStyles = (colors: ThemeColors) =>
   quoteText: { flex: 1, fontSize: 13, lineHeight: 19, color: colors.textMuted },
 
   sectionTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
-  sectionTitle: { fontSize: 17, fontWeight: "800", color: colors.text },
+  sectionTitle: {
+    ...typography.title2,
+    color: colors.text,
+  },
   sectionMore: { fontSize: 12, color: colors.textMuted },
   inlineMore: { flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start", paddingVertical: 2 },
   inlineMoreText: { fontSize: 12, fontWeight: "600", color: colors.textMuted },

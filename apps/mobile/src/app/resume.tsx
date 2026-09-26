@@ -14,6 +14,7 @@ import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
 import { resumeAssetKindLabels, type ResumeAsset, type ResumeAssetKind } from "@learn-workbench/shared";
 import { ResumeFilesCard } from "@/components/resume-files-card";
+import { typography } from "@/theme/tokens";
 
 const KINDS: ResumeAssetKind[] = ["project", "skill", "github", "certificate"];
 
@@ -162,8 +163,15 @@ const makeStyles = (colors: ThemeColors) =>
     scroll: { flex: 1, backgroundColor: "transparent" },
     content: { padding: 16, gap: 12 },
     hero: { marginBottom: 4 },
-    heroTitle: { fontSize: 28, fontWeight: "800", color: colors.text },
-    heroSub: { fontSize: 13, color: colors.textMuted, marginTop: 4 },
+    heroTitle: {
+      ...typography.display,
+      color: colors.text,
+    },
+    heroSub: {
+      ...typography.callout,
+      color: colors.textMuted,
+      marginTop: 4,
+    },
     addBtn: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.primarySoft, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9 },
     addBtnText: { color: colors.primary, fontSize: 13, fontWeight: "800" },
     loading: { marginTop: 24, alignSelf: "center" },
@@ -172,8 +180,15 @@ const makeStyles = (colors: ThemeColors) =>
     itemHead: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
     itemTitleWrap: { flex: 1, minWidth: 0 },
     kind: { fontSize: 11, fontWeight: "800", color: colors.primary },
-    itemTitle: { fontSize: 16, fontWeight: "800", color: colors.text, marginTop: 2 },
-    itemContent: { fontSize: 13, color: colors.textMuted, lineHeight: 19 },
+    itemTitle: {
+      ...typography.headline,
+      color: colors.text,
+      marginTop: 2,
+    },
+    itemContent: {
+      ...typography.callout,
+      color: colors.textMuted,
+    },
     itemUrl: { fontSize: 12, color: colors.primary, lineHeight: 18 },
     form: { gap: 10, paddingTop: 6 },
     label: { fontSize: 12, fontWeight: "700", color: colors.textMuted },

@@ -1,4 +1,5 @@
 import { useState , useMemo } from "react";
+import { typography } from "@/theme/tokens";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
@@ -209,8 +210,14 @@ const makeStyles = (colors: ThemeColors) =>
   scroll: { flex: 1 },
   content: { padding: 16, gap: 12 },
   hero: { paddingTop: 24, paddingBottom: 6, gap: 4 },
-  heroTitle: { color: "#ffffff", fontSize: 24, fontWeight: "700" },
-  heroSub: { color: "rgba(255,255,255,0.85)", fontSize: 13 },
+  heroTitle: {
+    ...typography.display,
+    color: "#ffffff",
+  },
+  heroSub: {
+    ...typography.callout,
+    color: "rgba(255,255,255,0.85)",
+  },
   addToggle: { alignItems: "center", paddingVertical: 10 },
   addToggleText: { fontSize: 14, fontWeight: "600", color: "#e8930c" },
   addForm: { gap: 8 },
@@ -235,7 +242,10 @@ const makeStyles = (colors: ThemeColors) =>
   phaseDotMain: { backgroundColor: "rgba(232,147,12,0.14)" },
   phaseDotAccent: { backgroundColor: "rgba(239,106,94,0.15)" },
   phaseDotText: { fontSize: 13, fontWeight: "700", color: "#e8930c" },
-  phaseTitle: { fontSize: 16, fontWeight: "600", color: colors.text },
+  phaseTitle: {
+    ...typography.headline,
+    color: colors.text,
+  },
   phaseWeeks: { fontSize: 11, color: colors.textMuted, backgroundColor: colors.surfaceMuted, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, overflow: "hidden" },
   phasePercent: { marginTop: 2, fontSize: 12, color: colors.textMuted },
   chevron: { fontSize: 16, color: colors.textFaint },

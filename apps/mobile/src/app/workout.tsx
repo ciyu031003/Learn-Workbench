@@ -17,6 +17,7 @@ import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
 import { toDateKey, workoutVolume, type Workout } from "@learn-workbench/shared";
+import { typography } from "@/theme/tokens";
 import {
   REPS_MAX,
   REPS_MIN,
@@ -256,7 +257,7 @@ export default function WorkoutScreen() {
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 24, paddingBottom: tabBarSpace }]}
       showsVerticalScrollIndicator={false}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} progressBackgroundColor={colors.surfaceStrong} />
       }
     >
       <ScreenHeader title="训练记录" subtitle={`近 60 天 ${workouts.length} 次 · 总容量 ${totals.volumeKg} kg`} compact />
@@ -499,7 +500,11 @@ const makeStyles = (colors: ThemeColors) =>
     addBtnText: { color: colors.primary, fontSize: 13, fontWeight: "800" },
     item: { gap: 6 },
     itemHead: { flexDirection: "row", alignItems: "center", gap: 8 },
-    itemTitle: { fontSize: 15, fontWeight: "800", color: colors.text, flexShrink: 1 },
+    itemTitle: {
+      ...typography.headline,
+      color: colors.text,
+      flexShrink: 1,
+    },
     itemActions: { flexDirection: "row", alignItems: "center", gap: 4, marginLeft: "auto" },
     iconBtn: { width: 30, height: 30, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceMuted },
     muted: { fontSize: 11, color: colors.textMuted },

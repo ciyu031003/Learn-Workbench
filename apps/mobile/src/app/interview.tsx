@@ -14,6 +14,7 @@ import type { InterviewQuestion, QuestionModule } from "@learn-workbench/shared"
 
 /** 难度徽章：文案 +配色（浅深色通用，靠文字/底色区分） */
 import { ThemedIcon } from "@/components/themed-icon";
+import { typography } from "@/theme/tokens";
 
 /** v1.26：题型只预览前 3 个，其余从「更多」弹层选（不再一行横滑找） */
 const MODULE_PREVIEW = 3;
@@ -379,8 +380,15 @@ const makeStyles = (colors: ThemeColors) =>
     compareBody: { fontSize: 12, lineHeight: 18, color: colors.text },
     verdict: { fontSize: 12, fontWeight: "700" },
     sourceLine: { fontSize: 10, color: colors.textFaint },
-    heroTitle: { fontSize: 28, fontWeight: "800", color: colors.text },
-    heroSub: { fontSize: 13, color: colors.textMuted, marginTop: 4 },
+    heroTitle: {
+      ...typography.display,
+      color: colors.text,
+    },
+    heroSub: {
+      ...typography.callout,
+      color: colors.textMuted,
+      marginTop: 4,
+    },
     moduleRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 },
     moduleChip: { borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7, backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.border, maxWidth: "46%" },
     moduleChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },

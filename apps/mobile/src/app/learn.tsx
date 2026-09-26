@@ -21,7 +21,7 @@ import { mainPhases, agentPhase } from "@learn-workbench/content";
 import type { Phase } from "@learn-workbench/shared";
 import { formatDuration, pct } from "@learn-workbench/shared";
 import { UNTAGGED_CONTENT, computeFocusStats } from "@/lib/focus-stats";
-import { radius } from "@/theme/tokens";
+import { radius, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import {
@@ -1212,13 +1212,24 @@ const makeStyles = (colors: ThemeColors) =>
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
   },
-  heroTitle: { fontSize: 28, fontWeight: "800", color: colors.text },
-  heroSub: { fontSize: 13, color: colors.textMuted, marginTop: 4 },
+  heroTitle: {
+    ...typography.display,
+    color: colors.text,
+  },
+  heroSub: {
+    ...typography.callout,
+    color: colors.textMuted,
+    marginTop: 4,
+  },
   /* v9：今日专注 hero */
   focusHero: { padding: 16 },
   focusMets: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 2 },
   focusMet: { fontSize: 11, fontWeight: "700", color: colors.textMuted },
-  sectionTitle: { fontSize: 17, fontWeight: "800", color: colors.text, marginTop: 8 },
+  sectionTitle: {
+    ...typography.title2,
+    color: colors.text,
+    marginTop: 8,
+  },
   sectionTitleMore: { fontSize: 12, fontWeight: "600", color: colors.textMuted },
   sectionHeadRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 },
   addBtn: {
@@ -1304,7 +1315,10 @@ const makeStyles = (colors: ThemeColors) =>
   statsEntryTitle: { fontSize: 15, fontWeight: "800", color: colors.text },
   statsEntrySub: { fontSize: 12, fontWeight: "500", color: colors.textMuted },
   panelHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  panelTitle: { fontSize: 16, fontWeight: "800", color: colors.text },
+  panelTitle: {
+    ...typography.title2,
+    color: colors.text,
+  },
   shareBtn: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: colors.surface, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   shareBtnText: { fontSize: 12, fontWeight: "700", color: colors.primary },
 
@@ -1467,7 +1481,11 @@ const makeStyles = (colors: ThemeColors) =>
   modalSub: { color: colors.textMuted, fontSize: 13, lineHeight: 19, marginBottom: 14 },
   modalListTitle: { color: colors.text, fontSize: 13, fontWeight: "800", marginTop: 6, marginBottom: 8 },
   modalRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 7 },
-  modalRowText: { color: colors.text, fontSize: 13, flex: 1, lineHeight: 18 },
+  modalRowText: {
+    ...typography.callout,
+    color: colors.text,
+    flex: 1,
+  },
   deleteTopicBtn: {
     flexDirection: "row",
     alignItems: "center",

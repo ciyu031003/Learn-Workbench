@@ -9,6 +9,7 @@ import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
 import { resumeSectionKeyLabels, type ResumeContent, type ResumeSectionConfig } from "@learn-workbench/shared";
+import { typography } from "@/theme/tokens";
 
 interface DocState {
   id: number;
@@ -156,7 +157,11 @@ const makeStyles = (colors: ThemeColors) =>
     basicsBlock: { gap: 3 },
     name: { fontSize: 22, fontWeight: "800", color: colors.text },
     muted: { fontSize: 12, color: colors.textMuted },
-    body: { fontSize: 13, color: colors.text, lineHeight: 19, marginTop: 2 },
+    body: {
+      ...typography.body,
+      color: colors.text,
+      marginTop: 2,
+    },
     link: { fontSize: 12, color: colors.primary, marginTop: 2 },
     row: { gap: 1, marginBottom: 6 },
     rowBetween: { flexDirection: "row", justifyContent: "space-between", gap: 10, marginBottom: 4 },

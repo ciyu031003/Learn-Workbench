@@ -328,7 +328,8 @@ export default function MarketScreen() {
           onRefresh={() => void load(true)}
           tintColor={colors.primary}
           colors={[colors.primary]}
-        />
+                progressBackgroundColor={colors.surfaceStrong}
+                />
       }
     >
       <ScreenHeader

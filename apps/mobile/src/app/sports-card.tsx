@@ -61,7 +61,7 @@ import {
 import { getApiUrl } from "@/config";
 import { tabBarBottomFor } from "@/lib/use-tab-bar-space";
 import { useAppStore } from "@/store/app-store";
-import { radius, shadows } from "@/theme/tokens";
+import { radius, shadows, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 
@@ -1303,7 +1303,10 @@ const makeStyles = (colors: ThemeColors) =>
       borderLeftWidth: 3,
       borderLeftColor: colors.primary,
     },
-    sectionTitle: { fontSize: 15, fontWeight: "800", color: colors.text },
+    sectionTitle: {
+      ...typography.title2,
+      color: colors.text,
+    },
     sectionHint: { fontSize: 11, color: colors.textMuted },
     sectionEmpty: { fontSize: 12, color: colors.textMuted, paddingVertical: 2 },
     // 荣誉墙主卡：金调（浅色 #FDECD8 / 深色 accentSoft），不写死十六进制

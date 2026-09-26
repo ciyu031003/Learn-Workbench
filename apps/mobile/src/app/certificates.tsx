@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { typography } from "@/theme/tokens";
 import {
   RefreshControl,
   Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -113,7 +114,7 @@ export default function CertificatesScreen() {
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top + 24, paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} progressBackgroundColor={colors.surfaceStrong} />
       }>
       <ScreenHeader title="我的证书" subtitle="证书 / 资格 / 认证，简历与职业雷达共用" compact />
 
@@ -217,9 +218,16 @@ const makeStyles = (colors: ThemeColors) =>
     tag: { fontSize: 11, fontWeight: "800", color: colors.primary },
     warn: { fontSize: 11, fontWeight: "700", color: colors.accentStrong },
     warnDanger: { color: colors.danger },
-    itemTitle: { fontSize: 16, fontWeight: "800", color: colors.text, marginTop: 2 },
+    itemTitle: {
+      ...typography.headline,
+      color: colors.text,
+      marginTop: 2,
+    },
     itemMuted: { fontSize: 12, color: colors.textMuted },
-    itemContent: { fontSize: 13, color: colors.textMuted, lineHeight: 19 },
+    itemContent: {
+      ...typography.callout,
+      color: colors.textMuted,
+    },
     form: { gap: 10, paddingTop: 6 },
     label: { fontSize: 12, fontWeight: "700", color: colors.textMuted },
     kindRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },

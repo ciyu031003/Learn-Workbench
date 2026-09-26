@@ -1,4 +1,5 @@
 import { useState , useMemo } from "react";
+import { typography } from "@/theme/tokens";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
@@ -347,7 +348,11 @@ const makeStyles = (colors: ThemeColors) =>
   taskRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   taskCheck: { fontSize: 16, color: colors.textFaint, width: 18 },
   taskChecked: { color: "#16a34a" },
-  taskTitle: { flex: 1, fontSize: 14, color: colors.text },
+  taskTitle: {
+    ...typography.headline,
+    flex: 1,
+    color: colors.text,
+  },
   taskTitleDone: { textDecorationLine: "line-through", color: colors.textMuted },
   taskMeta: { fontSize: 12, color: colors.textMuted },
   taskFocus: { fontSize: 12, color: "#0ea5e9" },

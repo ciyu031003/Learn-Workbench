@@ -28,7 +28,7 @@ import { Card } from "@/components/card";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { ChipGroup, SheetSection, SheetStickyCta } from "@/components/sheet";
 import { JobDetailModal } from "@/components/job-detail-modal";
-import { radius } from "@/theme/tokens";
+import {  radius, typography  } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import {
@@ -49,6 +49,7 @@ const CATEGORY_OPTIONS = [
   { id: "gongkao,gongbian", label: "考公考编" },
   { id: "yangqi", label: "央国企" },
 ];
+// 平台来源色：**仅作图表语义色**用于 6px 小色点（sourceDot），不参与页面强调色（强调色一律 colors.primary）
 const SOURCE_COLORS: Record<string, string> = {
   lagou: "#10b981",
   liepin: "#0ea5e9",
@@ -56,6 +57,7 @@ const SOURCE_COLORS: Record<string, string> = {
   job51: "#f97316",
   boss: "#f43f5e",
 };
+// 头像底色：同上，只用于公司 logo 圆底（小面积）
 const AVATAR_COLORS = ["#10b981", "#0ea5e9", "#8b5cf6", "#f97316", "#f43f5e", "#f59e0b"];
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -621,7 +623,7 @@ export default function JobsScreen() {
           ) : null}
         </View>
         <Pressable style={[styles.filterBtn, hasActiveFilter ? styles.filterBtnActive : null]} onPress={() => setFilterVisible(true)}>
-          <ThemedIcon name="options-outline" size={18} color={hasActiveFilter ? "#ffffff" : "#10b981"} />
+          <ThemedIcon name="options-outline" size={18} color={hasActiveFilter ? "#ffffff" : colors.primary} />
         </Pressable>
       </View>
 
@@ -737,9 +739,10 @@ export default function JobsScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={refreshJobs}
-            tintColor="#10b981"
-            colors={["#10b981"]}
-          />
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+                    progressBackgroundColor={colors.surfaceStrong}
+                    />
         }
         showsVerticalScrollIndicator={false}
       />
@@ -819,14 +822,14 @@ const makeStyles = (colors: ThemeColors) =>
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.successSoft,
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
-    borderColor: colors.success,
+    borderColor: colors.primary,
   },
-  filterBtnActive: { backgroundColor: colors.success },
+  filterBtnActive: { backgroundColor: colors.primary },
   catRow: { flexDirection: "row", gap: 8, paddingVertical: 4 },
   catChip: { borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6 },
-  catChipActive: { backgroundColor: colors.success },
+  catChipActive: { backgroundColor: colors.primary },
   catChipIdle: { backgroundColor: colors.surfaceStrong, borderWidth: 1, borderColor: colors.border },
   catChipTextActive: { color: "#ffffff", fontSize: 13, fontWeight: "800" },
   catChipTextIdle: { color: colors.textMuted, fontSize: 13, fontWeight: "600" },
@@ -912,14 +915,14 @@ const makeStyles = (colors: ThemeColors) =>
   jobMeta: { fontSize: 12, color: colors.textMuted, marginTop: 1 },
   tags: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 10 },
   tag: {
-    backgroundColor: colors.successSoft,
+    backgroundColor: colors.primarySoft,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     borderRadius: 9,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  tagText: { fontSize: 11, fontWeight: "700", color: colors.success },
+  tagText: { fontSize: 11, fontWeight: "700", color: colors.primary },
   jobFoot: {
     flexDirection: "row",
     alignItems: "center",
@@ -961,7 +964,7 @@ const makeStyles = (colors: ThemeColors) =>
   emptyText: { fontSize: 13, color: colors.textMuted, textAlign: "center", lineHeight: 19 },
   emptyPrimaryBtn: {
     marginTop: 6,
-    backgroundColor: "#10b981",
+    backgroundColor: colors.primary,
     borderRadius: 14,
     paddingVertical: 11,
     paddingHorizontal: 20,
@@ -997,12 +1000,15 @@ const makeStyles = (colors: ThemeColors) =>
   sheet: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0, padding: 18, gap: 14, maxHeight: "80%" },
   grabber: { width: 40, height: 4, borderRadius: 2, backgroundColor: colors.borderStrong, alignSelf: "center", marginBottom: 4 },
   sheetHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  sheetTitle: { fontSize: 17, fontWeight: "800", color: colors.text },
-  sheetReset: { fontSize: 13, fontWeight: "700", color: "#10b981" },
+  sheetTitle: {
+    ...typography.title2,
+    color: colors.text,
+  },
+  sheetReset: { fontSize: 13, fontWeight: "700", color: colors.primary },
   filterGroupTitle: { fontSize: 13, fontWeight: "800", color: colors.text, marginTop: 4 },
   chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   sheetChip: { borderRadius: 999, paddingHorizontal: 13, paddingVertical: 7 },
-  sheetChipActive: { backgroundColor: "#10b981" },
+  sheetChipActive: { backgroundColor: colors.primary },
   sheetChipIdle: { backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.borderStrong },
   sheetChipText: { fontSize: 12.5, fontWeight: "700", color: colors.textMuted },
   sheetChipTextActive: { fontSize: 12.5, fontWeight: "800", color: "#ffffff" },
@@ -1016,10 +1022,10 @@ const makeStyles = (colors: ThemeColors) =>
     fontSize: 13,
     color: colors.text,
   },
-  skillAddBtn: { backgroundColor: "#10b981", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 },
+  skillAddBtn: { backgroundColor: colors.primary, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 },
   skillAddText: { color: "#ffffff", fontSize: 13, fontWeight: "800" },
   applyBtn: {
-    backgroundColor: "#10b981",
+    backgroundColor: colors.primary,
     borderRadius: 16,
     paddingVertical: 13,
     alignItems: "center",

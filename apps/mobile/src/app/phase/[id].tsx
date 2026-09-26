@@ -16,6 +16,7 @@ import { mainPhases, agentPhase } from "@learn-workbench/content";
 import { fetchRoadmap, readCachedRoadmap } from "@/lib/roadmap";
 import type { Phase } from "@learn-workbench/shared";
 import { pct } from "@learn-workbench/shared";
+import { typography } from "@/theme/tokens";
 
 const THEME_COLORS: [string, string][] = [
   ["#2F74C0", "#78C2E8"],
@@ -252,7 +253,10 @@ const makeStyles = (colors: ThemeColors) =>
     progressTrack: { height: 8, borderRadius: 999, backgroundColor: colors.surfaceMuted, overflow: "hidden" },
     progressFill: { height: "100%", borderRadius: 999, backgroundColor: colors.primary },
     sectionRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 6 },
-    sectionTitle: { fontSize: 17, fontWeight: "800", color: colors.text },
+    sectionTitle: {
+      ...typography.title2,
+      color: colors.text,
+    },
     addBtn: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.primarySoft, borderRadius: 999, paddingHorizontal: 11, paddingVertical: 7 },
     addText: { color: colors.primary, fontSize: 12, fontWeight: "800" },
     empty: { fontSize: 13, color: colors.textMuted, textAlign: "center", paddingVertical: 10 },

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { typography } from "@/theme/tokens";
 import {
   RefreshControl,
   ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
@@ -233,7 +234,7 @@ const last7 = useMemo(() => {
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top + 24, paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} progressBackgroundColor={colors.surfaceStrong} />
       }>
       <ScreenHeader title="习惯" subtitle={`今日 ${doneToday}/${scheduledToday} 已完成`} compact />
 
@@ -532,7 +533,11 @@ const makeStyles = (colors: ThemeColors) =>
     checkIcon: { fontSize: 18 },
     itemBody: { flex: 1, minWidth: 0, gap: 2 },
     itemHeadRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-    itemTitle: { fontSize: 15, fontWeight: "800", color: colors.text, flexShrink: 1 },
+    itemTitle: {
+      ...typography.headline,
+      color: colors.text,
+      flexShrink: 1,
+    },
     streak: { fontSize: 12, fontWeight: "800", color: colors.accentStrong },
     timeBadge: { fontSize: 11, fontWeight: "700", color: colors.primary, backgroundColor: colors.primarySoft, borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 },
     muted: { fontSize: 11, color: colors.textMuted },

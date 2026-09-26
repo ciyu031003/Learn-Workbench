@@ -31,6 +31,7 @@ import { haptics } from "@/lib/haptics";
 import type { ThemeColors, ThemeMode } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { resolveEdgeSwipeEnabled } from "@/lib/edge-swipe";
+import { typography } from "@/theme/tokens";
 
 export default function SettingsScreen() {
   const { colors, dark } = useTheme();
@@ -536,8 +537,14 @@ const makeStyles = (colors: ThemeColors) =>
   },
   profileStatValue: { fontSize: 13, fontWeight: "800", color: colors.text },
   profileStatLabel: { fontSize: 10, color: colors.textMuted },
-  heroTitle: { color: colors.text, fontSize: 26, fontWeight: "800" },
-  heroSub: { color: colors.textMuted, fontSize: 13 },
+  heroTitle: {
+    ...typography.display,
+    color: colors.text,
+  },
+  heroSub: {
+    ...typography.callout,
+    color: colors.textMuted,
+  },
   /* 账号英雄卡 */
   profileCard: { gap: 12 },
   profileHead: { flexDirection: "row", alignItems: "center", gap: 12 },
