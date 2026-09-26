@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useHeaderTopInset } from "@/components/screen-header";
+import { usePullRefresh } from "@/lib/use-pull-refresh";
 import {
   ActivityIndicator,
   Alert,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -72,6 +74,9 @@ export default function AccountSecurityScreen() {
       setLoading(false);
     }
   }, [token]);
+
+  // v17-D（R9）：下拉刷新统一入口（无吸顶栏 → 只留安全区偏移）
+  const { control: pullControl } = usePullRefresh(load, { stickyHeader: false });
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -143,6 +148,7 @@ export default function AccountSecurityScreen() {
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
+        refreshControl={<RefreshControl {...pullControl} />}
         showsVerticalScrollIndicator={false}
       >
         {!token ? (

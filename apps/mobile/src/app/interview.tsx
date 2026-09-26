@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import Animated from "react-native-reanimated";
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from "react-native";
 import { Card } from "@/components/card";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
+import { usePullRefresh } from "@/lib/use-pull-refresh";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { ChipGroup, SheetSection, SheetSegmented, SheetStickyCta, type SegmentOption } from "@/components/sheet";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
@@ -78,6 +79,9 @@ export default function InterviewScreen() {
       setLoading(false);
     }
   };
+
+  // v17-D（R9）：下拉刷新走统一 hook（吸顶栏存在 → 偏移 = insets.top + 44）
+  const { control: pullControl } = usePullRefresh(() => load());
 
   /** 答题记录 → 错题 id 列表（错题本） */
   const loadWrong = async () => {
@@ -164,7 +168,10 @@ export default function InterviewScreen() {
     <View style={styles.root}>
       {/* v17-C2b：紧凑栏必须在滚动容器之外才能真吸顶 */}
       <ScreenHeaderStickyBar title="面试流程" scrollY={headerScroll.scrollY} />
-      <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
+      <Animated.ScrollView
+        onScroll={headerScroll.onScroll}
+        scrollEventThrottle={16}
+        refreshControl={<RefreshControl {...pullControl} />} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
         <ScreenHeaderLargeTitle title="面试流程" subtitle="题库刷题 · 记录每一次模拟与复盘" />
 
       {/* v1.26：题型只展示前 MODULE_PREVIEW 个 + 「更多」，其余从下方弹层选择（不再横滑长列表） */}

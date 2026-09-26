@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useHeaderTopInset } from "@/components/screen-header";
+import { usePullRefresh } from "@/lib/use-pull-refresh";
 import {
   ActivityIndicator,
   Alert,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -116,6 +118,9 @@ export default function TrackersScreen() {
       setLoading(false);
     }
   }, [loadTrackers]);
+
+  // v17-D（R9）：下拉刷新统一入口（本页无吸顶栏 → 只留安全区偏移）
+  const { control: pullControl } = usePullRefresh(load, { stickyHeader: false });
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -232,7 +237,10 @@ export default function TrackersScreen() {
         </Pressable>
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
+        refreshControl={<RefreshControl {...pullControl} />} showsVerticalScrollIndicator={false}>
         {!token ? (
           <Card title="未登录" subtitle="登录后可按领域记录计量与打卡">
             <Text style={styles.hint}>在「我的」页登录后，可为英语单词量、训练量、跑量等建立通用记录并每日打卡。</Text>

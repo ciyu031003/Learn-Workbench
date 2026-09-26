@@ -1,5 +1,5 @@
 import { useState , useMemo } from "react";
-import Animated from "react-native-reanimated";
+import Animated, { FadeInDown, LinearTransition } from "react-native-reanimated";
 import { typography } from "@/theme/tokens";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import type { ThemeColors } from "@/theme/tokens";
@@ -7,6 +7,9 @@ import { useTheme } from "@/theme";
 import { useAppStore, type TaskType } from "@/store/app-store";
 
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
+import { DURATION, useReducedMotion } from "@/lib/motion";
+import { staggerDelay } from "@/lib/stagger";
+import { haptics } from "@/lib/haptics";
 import { taskTypeLabels, todayISO } from "@learn-workbench/shared";
 import { Card } from "@/components/card";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
@@ -30,6 +33,15 @@ export default function TasksScreen() {
   const addTask = useAppStore((s) => s.addTask);
   const toggleTaskDone = useAppStore((s) => s.toggleTaskDone);
   const addSession = useAppStore((s) => s.addSession);
+
+  /** v17-D（R8）：入场错峰只在首帧做，滚动复现不做；减弱动态下完全不做 */
+  const reduced = useReducedMotion();
+  /** 勾选反馈语义化：完成给 success、取消给 soft（Apple 手感的核心是"轻且语义化"） */
+  const onToggleTask = (id: number, done: boolean) => {
+    if (done) haptics.soft();
+    else haptics.success();
+    toggleTaskDone(id);
+  };
 
   const [title, setTitle] = useState("");
   const [type, setType] = useState<TaskType>("study");
@@ -135,9 +147,14 @@ export default function TasksScreen() {
         {todayTasks.length === 0 ? (
           <Text style={styles.empty}>今天还没有任务</Text>
         ) : (
-          todayTasks.map((t) => (
-            <View key={t.id} style={styles.taskRow}>
-              <Pressable onPress={() => toggleTaskDone(t.id)} hitSlop={8}>
+          todayTasks.map((t, i) => (
+            <Animated.View
+              key={t.id}
+              style={styles.taskRow}
+              entering={reduced ? undefined : FadeInDown.duration(DURATION.base).delay(staggerDelay(i))}
+              layout={reduced ? undefined : LinearTransition}
+            >
+              <Pressable onPress={() => onToggleTask(t.id, t.done)} hitSlop={8}>
                 <Text style={[styles.taskCheck, t.done && styles.taskChecked]}>{t.done ? "✓" : "○"}</Text>
               </Pressable>
               <Text style={[styles.taskTitle, t.done && styles.taskTitleDone]} numberOfLines={1}>
@@ -148,7 +165,7 @@ export default function TasksScreen() {
               <Pressable onPress={() => openTimer(t.id, t.title)} hitSlop={8}>
                 <Text style={styles.taskPlay}>▶</Text>
               </Pressable>
-            </View>
+            </Animated.View>
           ))
         )}
       </Card>

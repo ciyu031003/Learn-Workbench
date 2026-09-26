@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Animated from "react-native-reanimated";
+import Animated, { FadeInDown, LinearTransition } from "react-native-reanimated";
 import { typography } from "@/theme/tokens";
 import {
   RefreshControl,
@@ -17,6 +17,9 @@ import { PressableScale } from "@/components/pressable-scale";
 
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { readableAccent } from "@/lib/habit-accent";
+import { DURATION, useReducedMotion } from "@/lib/motion";
+import { staggerDelay } from "@/lib/stagger";
+import { haptics } from "@/lib/haptics";
 import { useTheme } from "@/theme";
 import { useRefreshable } from "@/lib/use-refresh";
 import type { ThemeColors } from "@/theme/tokens";
@@ -111,8 +114,14 @@ const last7 = useMemo(() => {
     return out;
   }, [today]);
 
+  /** v17-D（R8）：入场错峰只在首帧做；减弱动态下完全不做 */
+  const reduced = useReducedMotion();
+
   const toggle = async (h: HabitRow) => {
     const done = logMap.get(`${h.id}|${todayKey}`) !== undefined;
+    // v17-D：语义化触觉 —— 打卡完成给 success、取消给 soft
+    if (done) haptics.soft();
+    else haptics.success();
     setBusy(h.id);
     try {
       const r = done
@@ -298,7 +307,7 @@ const last7 = useMemo(() => {
               </View>
             </View>
           ) : null}
-          {habits.map((h) => {
+          {habits.map((h, i) => {
           const v = logMap.get(`${h.id}|${todayKey}`);
           const done = v !== undefined && isHabitDone(h, v);
           const st = computeHabitStats(h, logs, today);
@@ -306,8 +315,12 @@ const last7 = useMemo(() => {
           /** 守门后的强调色：老数据的空串/近白色不会再把卡片刷成白条 */
           const accent = readableAccent(h.color, colors.primary);
           return (
-            <Pressable
+            <Animated.View
               key={h.id}
+              entering={reduced ? undefined : FadeInDown.duration(DURATION.base).delay(staggerDelay(i))}
+              layout={reduced ? undefined : LinearTransition}
+            >
+            <Pressable
               onLongPress={() => setActionHabit(h)}
               delayLongPress={280}
               accessibilityLabel={`${h.name}，长按可编辑或删除`}
@@ -381,6 +394,7 @@ const last7 = useMemo(() => {
               </View>
             </Card>
             </Pressable>
+            </Animated.View>
           );
           })}
         </>

@@ -1,10 +1,13 @@
 import { useCallback, useMemo, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import type { ThemeColors } from "@/theme/tokens";
 import { spacing, typography } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { useAppStore, type LogKind } from "@/store/app-store";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
+import { DURATION, useReducedMotion } from "@/lib/motion";
+import { STAGGER_MAX, staggerDelay } from "@/lib/stagger";
 import { logKindLabels } from "@learn-workbench/shared";
 import { Card } from "@/components/card";
 import { EmptyState } from "@/components/empty-state";
@@ -40,10 +43,20 @@ export default function LogsScreen() {
     setContent("");
   };
 
+  /** v17-D（R8）：只给首屏前 STAGGER_MAX 项加入场错峰 —— 虚拟化列表后挂载的项不再重复动画 */
+  const reduced = useReducedMotion();
+
   // 列表项：日志卡（虚拟化渲染，避免长列表全量挂载）
   const renderItem = useCallback(
-    ({ item }: { item: LogRow }) => (
-      <View style={styles.logItem}>
+    ({ item, index }: { item: LogRow; index: number }) => (
+      <Animated.View
+        entering={
+          reduced || index >= STAGGER_MAX
+            ? undefined
+            : FadeInDown.duration(DURATION.base).delay(staggerDelay(index))
+        }
+        style={styles.logItem}
+      >
         <View style={styles.logHeader}>
           <Text style={styles.logKind}>{logKindLabels[item.kind] ?? item.kind}</Text>
           <Text style={styles.logDate}>{new Date(item.createdAt).toLocaleDateString("zh-CN")}</Text>
@@ -52,9 +65,9 @@ export default function LogsScreen() {
         <Text style={styles.logContent} numberOfLines={4}>
           {item.content}
         </Text>
-      </View>
+      </Animated.View>
     ),
-    [styles]
+    [reduced, styles]
   );
 
   const header = (

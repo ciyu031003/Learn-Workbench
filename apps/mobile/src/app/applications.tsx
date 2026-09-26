@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/immutability, react-hooks/set-state-in-effect */
 import { useCallback, useEffect, useState, useMemo } from "react";
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
@@ -8,6 +8,7 @@ import { ThemedIcon } from "@/components/themed-icon";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useFocusRefresh } from "@/lib/use-focus-refresh";
+import { usePullRefresh } from "@/lib/use-pull-refresh";
 import { getApiUrl } from "@/config";
 import { useAppStore } from "@/store/app-store";
 import { Card } from "@/components/card";
@@ -99,6 +100,8 @@ export default function ApplicationsScreen() {
   useEffect(() => { load(); }, [load]);
   // 从招花收藏后回到本页要立刻看到新条目（旧实现只在挂载时拉一次）
   useFocusRefresh(load);
+  // v17-D（R9）：下拉刷新统一走 usePullRefresh（吸顶栏存在 → 偏移自动为 insets.top + 44）
+  const { control: pullControl } = usePullRefresh(load);
 
   const setStage = async (id: number, stage: JobApplicationStage) => {
     const r = await api("/api/jobs/applications/" + id, { method: "PUT", body: JSON.stringify({ stage }) });
@@ -163,6 +166,7 @@ export default function ApplicationsScreen() {
       {/* v17-C2b：紧凑栏放在 FlatList **之外**才能真吸顶；大标题留在 ListHeaderComponent 里随列表滚走 */}
       <ScreenHeaderStickyBar title="我的求职" scrollY={headerScroll.scrollY} />
       <FlatList onScroll={headerScroll.onScroll} scrollEventThrottle={16}
+        refreshControl={<RefreshControl {...pullControl} />}
         data={shown}
         keyExtractor={(item) => String(item.id)}
         renderItem={renderItem}

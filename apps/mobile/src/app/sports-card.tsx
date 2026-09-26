@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useHeaderTopInset } from "@/components/screen-header";
+import { usePullRefresh } from "@/lib/use-pull-refresh";
 import {
   Alert,
   Modal,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Switch,
@@ -136,6 +138,9 @@ export default function SportsCardScreen() {
       // 忽略：图鉴依然可用
     }
   }, [token]);
+
+  // v17-D（R9）：下拉刷新统一入口（本页自绘 hero、无吸顶栏 → 只留安全区偏移）
+  const { control: pullControl } = usePullRefresh(load, { stickyHeader: false });
 
   useEffect(() => {
     // 进屏即拉档案（数据加载后在 effect 中写状态是既有模式）
@@ -492,6 +497,7 @@ export default function SportsCardScreen() {
 
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: tabBarBottomFor(insets.bottom) + 96 }]}
+        refreshControl={<RefreshControl {...pullControl} />}
         showsVerticalScrollIndicator={false}
       >
         {!current ? (

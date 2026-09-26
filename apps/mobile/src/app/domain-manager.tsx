@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useHeaderTopInset } from "@/components/screen-header";
+import { usePullRefresh } from "@/lib/use-pull-refresh";
 import {
   ActivityIndicator,
   Alert,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -78,6 +80,9 @@ export default function DomainManagerScreen() {
       setLoading(false);
     }
   }, [token]);
+
+  // v17-D（R9）：下拉刷新统一入口（本页无吸顶栏 → 只留安全区偏移）
+  const { control: pullControl } = usePullRefresh(load, { stickyHeader: false });
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -233,7 +238,10 @@ export default function DomainManagerScreen() {
         </Pressable>
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
+        refreshControl={<RefreshControl {...pullControl} />} showsVerticalScrollIndicator={false}>
         {!token ? (
           <Card title="未登录" subtitle="登录后可创建与管理自定义领域">
             <Text style={styles.hint}>在「我的」页登录后，可新建英语、运动、阅读等任意学习领域并复用学习工具。</Text>

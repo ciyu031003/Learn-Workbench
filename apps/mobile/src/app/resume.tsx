@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Animated from "react-native-reanimated";
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
 import { ThemedIcon } from "@/components/themed-icon";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
@@ -8,6 +8,7 @@ import { Card } from "@/components/card";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
+import { usePullRefresh } from "@/lib/use-pull-refresh";
 import { useTheme } from "@/theme";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
@@ -47,6 +48,9 @@ export default function ResumeScreen() {
       setLoading(false);
     }
   };
+
+  // v17-D（R9）：下拉刷新统一入口（本页有吸顶栏 → 偏移 insets.top + 44）
+  const { control: pullControl } = usePullRefresh(load);
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), 0);
@@ -98,7 +102,10 @@ export default function ResumeScreen() {
   return (
     <View style={styles.root}>
       <ScreenHeaderStickyBar title="简历" scrollY={headerScroll.scrollY} />
-    <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
+    <Animated.ScrollView
+      onScroll={headerScroll.onScroll}
+      scrollEventThrottle={16}
+      refreshControl={<RefreshControl {...pullControl} />} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
       <ScreenHeaderLargeTitle title="简历" subtitle="技能 / 项目 / GitHub / 证书，整理成随时可投的资产" />
 
       <PressableScale style={styles.addBtn} haptic onPress={() => setSheetOpen(true)}>
