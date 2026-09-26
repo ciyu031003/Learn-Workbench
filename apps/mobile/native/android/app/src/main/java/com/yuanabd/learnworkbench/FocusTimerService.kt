@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -46,7 +47,13 @@ class FocusTimerService : Service() {
   private val ticker = object : Runnable {
     override fun run() {
       if (!running) return
-      pushNotification()
+      // 每秒刷新通知：任何异常（通知被系统禁用、RemoteViews 失效等）都必须吞掉，
+      // 否则 handler 里的未捕获异常会直接崩掉 App。
+      try {
+        pushNotification()
+      } catch (t: Throwable) {
+        // 忽略：下一拍继续尝试
+      }
       handler.postDelayed(this, 1000L)
     }
   }
@@ -72,7 +79,18 @@ class FocusTimerService : Service() {
 
     ensureChannel()
     running = true
-    startForeground(NOTIFICATION_ID, buildNotification())
+    /**
+     * 真机闪退修复（v1.27.1）：startForeground 在以下情况会抛未捕获异常并崩掉 App ——
+     * 通知权限被拒 / 通道被禁用 / Android 14+ 的前台服务类型不匹配 / 通知体非法。
+     * 处理策略：能起就起；起不来就立即 stopSelf()，绝不留下"启动了却没有 startForeground"
+     * 的状态（那会触发 ForegroundServiceDidNotStartInTimeException 同样崩 App）。
+     */
+    if (!startAsForeground()) {
+      running = false
+      handler.removeCallbacks(ticker)
+      stopSelf()
+      return START_NOT_STICKY
+    }
     handler.removeCallbacks(ticker)
     handler.post(ticker)
     return START_STICKY
@@ -177,6 +195,21 @@ class FocusTimerService : Service() {
       .setShowWhen(false)
       .setPriority(NotificationCompat.PRIORITY_LOW)
       .build()
+  }
+
+  /** 起前台：成功返回 true；任何异常一律吞掉并返回 false（由调用方 stopSelf） */
+  private fun startAsForeground(): Boolean {
+    return try {
+      val notification = buildNotification()
+      if (Build.VERSION.SDK_INT >= 34) {
+        startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+      } else {
+        startForeground(NOTIFICATION_ID, notification)
+      }
+      true
+    } catch (t: Throwable) {
+      false
+    }
   }
 
   private fun pushNotification() {
