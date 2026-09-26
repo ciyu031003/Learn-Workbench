@@ -1,11 +1,13 @@
 import { useCallback, useMemo, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import type { ThemeColors } from "@/theme/tokens";
 import { spacing, typography } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { useAppStore, type LogKind } from "@/store/app-store";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
+import { usePullRefresh } from "@/lib/use-pull-refresh";
+import { syncPull, syncPush } from "@/lib/sync";
 import { DURATION, useReducedMotion } from "@/lib/motion";
 import { STAGGER_MAX, staggerDelay } from "@/lib/stagger";
 import { logKindLabels } from "@learn-workbench/shared";
@@ -30,6 +32,14 @@ export default function LogsScreen() {
   const tabBarSpace = useTabBarSpace();
   const logs = useAppStore((s) => s.logs);
   const addLog = useAppStore((s) => s.addLog);
+  const token = useAppStore((s) => s.token);
+  /** v17 收尾：日志来自本地 store（无页面级 loader），下拉刷新 = 推本地变更 + 拉远端（不改取数口径） */
+  const refreshFromCloud = useCallback(async () => {
+    if (!token) return;
+    await syncPush(token);
+    await syncPull(token);
+  }, [token]);
+  const { control: pullControl } = usePullRefresh(refreshFromCloud);
   const [kind, setKind] = useState<LogKind>("feynman");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -130,6 +140,7 @@ export default function LogsScreen() {
             <EmptyState icon="create-outline" title="还没有日志" hint="写下第一篇费曼讲稿或周复盘" />
           }
           contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
+          refreshControl={<RefreshControl {...pullControl} />}
           showsVerticalScrollIndicator={false}
           automaticallyAdjustKeyboardInsets
           initialNumToRender={8}

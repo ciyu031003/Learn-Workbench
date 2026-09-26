@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { useHeaderTopInset } from "@/components/screen-header";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
 import {
@@ -19,11 +20,13 @@ import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
 import { haptics } from "@/lib/haptics";
+import { DURATION, useReducedMotion } from "@/lib/motion";
+import { staggerDelay } from "@/lib/stagger";
 import { Card } from "@/components/card";
 import { PressableScale } from "@/components/pressable-scale";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { useTheme } from "@/theme";
-import type { ThemeColors } from "@/theme/tokens";
+import { typography, type ThemeColors } from "@/theme/tokens";
 import { SheetListRow, SheetSection } from "@/components/sheet";
 import { domainIconName, fetchDomains, type DomainItem } from "@/lib/domains";
 
@@ -121,6 +124,8 @@ export default function TrackersScreen() {
 
   // v17-D（R9）：下拉刷新统一入口（本页无吸顶栏 → 只留安全区偏移）
   const { control: pullControl } = usePullRefresh(load, { stickyHeader: false });
+  /** v17 收尾（R8）：列表卡片只在首帧入场错峰（每屏封顶 12 项）；减弱动态下完全不做 */
+  const reduced = useReducedMotion();
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -285,9 +290,13 @@ export default function TrackersScreen() {
                 <Text style={styles.hint}>例如「单词量（个/日）」跟踪英语学习，「训练时长（分钟/日）」跟踪运动。</Text>
               </Card>
             ) : (
-              trackers.map((t) => {
+              trackers.map((t, i) => {
                 return (
-                  <Card key={t.id} title={t.name} subtitle={t.target_value != null ? `目标 ${t.target_value} ${t.unit}${t.target_cadence ? "（" + (t.target_cadence === "weekly" ? "每周" : "每日") + "）" : ""}` : t.unit || undefined}>
+                  <Animated.View
+                    key={t.id}
+                    entering={reduced ? undefined : FadeInDown.duration(DURATION.base).delay(staggerDelay(i))}
+                  >
+                  <Card title={t.name} subtitle={t.target_value != null ? `目标 ${t.target_value} ${t.unit}${t.target_cadence ? "（" + (t.target_cadence === "weekly" ? "每周" : "每日") + "）" : ""}` : t.unit || undefined}>
                     <View style={styles.trackerRow}>
                       <View style={[styles.trackerDot, { backgroundColor: t.color }]} />
                       <PressableScale style={styles.trackerLogBtn} onPress={() => void openLog(t)} disabled={busy}>
@@ -298,6 +307,7 @@ export default function TrackersScreen() {
                       </Pressable>
                     </View>
                   </Card>
+                  </Animated.View>
                 );
               })
             )}
@@ -413,36 +423,36 @@ const makeStyles = (colors: ThemeColors) =>
     root: { flex: 1, backgroundColor: "transparent" },
     header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingBottom: 10 },
     backBtn: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
-    headerTitle: { fontSize: 17, fontWeight: "800", color: colors.text },
+    headerTitle: { ...typography.headline, fontWeight: "800", color: colors.text },
     scroll: { flex: 1 },
     content: { padding: 16, gap: 12 },
     loading: { marginVertical: 24 },
-    hint: { fontSize: 12, color: colors.textMuted, lineHeight: 18, paddingHorizontal: 4 },
-    msg: { fontSize: 13, color: colors.success, fontWeight: "600", paddingHorizontal: 4 },
+    hint: { ...typography.caption, color: colors.textMuted, lineHeight: 18, paddingHorizontal: 4 },
+    msg: { ...typography.callout, color: colors.success, fontWeight: "600", paddingHorizontal: 4 },
     chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingVertical: 2 },
     chipMore: { backgroundColor: colors.primarySoft, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.primary },
-    chipMoreText: { color: colors.primary, fontSize: 13, fontWeight: "700" },
+    chipMoreText: { ...typography.caption, color: colors.primary, fontWeight: "700" },
     chip: { flexDirection: "row", alignItems: "center", gap: 5, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
     chipActive: { backgroundColor: colors.primary },
     chipIdle: { backgroundColor: colors.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-    chipTextActive: { color: "#fff", fontSize: 13, fontWeight: "600" },
-    chipTextIdle: { color: colors.text, fontSize: 13 },
+    chipTextActive: { ...typography.caption, color: "#fff", fontWeight: "600" },
+    chipTextIdle: { ...typography.caption, color: colors.text },
     trackerRow: { flexDirection: "row", alignItems: "center", gap: 10 },
     trackerDot: { width: 10, height: 10, borderRadius: 5 },
     trackerLogBtn: { flex: 1, backgroundColor: colors.primarySoft, borderRadius: 12, paddingVertical: 9, alignItems: "center" },
-    trackerLogText: { fontSize: 13, fontWeight: "700", color: colors.primary },
+    trackerLogText: { ...typography.callout, fontWeight: "700", color: colors.primary },
     modalMask: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center", padding: 24 },
     modal: { width: "100%", backgroundColor: colors.surfaceStrong, borderRadius: 20, padding: 20, gap: 12 },
-    modalTitle: { fontSize: 16, fontWeight: "800", color: colors.text },
-    logDate: { fontSize: 12, color: colors.textMuted },
+    modalTitle: { ...typography.headline, fontWeight: "800", color: colors.text },
+    logDate: { ...typography.caption, color: colors.textMuted },
     input: {
       backgroundColor: colors.surface, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border,
-      paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: colors.text,
+      paddingHorizontal: 12, paddingVertical: 10, ...typography.callout, color: colors.text,
     },
     cadenceRow: { flexDirection: "row", gap: 8 },
     cadenceChip: { borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7, backgroundColor: colors.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
     cadenceChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-    cadenceText: { fontSize: 13, fontWeight: "600", color: colors.textMuted },
+    cadenceText: { ...typography.caption, fontWeight: "600", color: colors.textMuted },
     cadenceTextActive: { color: "#fff" },
     palette: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
     swatch: { width: 30, height: 30, borderRadius: 15 },
@@ -451,12 +461,12 @@ const makeStyles = (colors: ThemeColors) =>
     row: { flexDirection: "row", gap: 8, marginTop: 4 },
     btn: { flex: 1, borderRadius: 12, paddingVertical: 11, alignItems: "center", justifyContent: "center" },
     btnGhost: { backgroundColor: colors.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-    btnGhostText: { color: colors.text, fontSize: 14, fontWeight: "600" },
+    btnGhostText: { ...typography.callout, color: colors.text, fontWeight: "600" },
     btnPrimary: { backgroundColor: colors.primary },
-    btnPrimaryText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+    btnPrimaryText: { ...typography.callout, color: "#fff", fontWeight: "700" },
     historyBox: { gap: 4, backgroundColor: colors.surface, borderRadius: 12, padding: 10 },
-    historyTitle: { fontSize: 12, color: colors.textMuted, fontWeight: "700", marginBottom: 2 },
+    historyTitle: { ...typography.caption, color: colors.textMuted, fontWeight: "700", marginBottom: 2 },
     historyRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 },
-    historyDate: { fontSize: 12, color: colors.textMuted },
-    historyValue: { fontSize: 12, color: colors.text, fontWeight: "600" },
+    historyDate: { ...typography.caption, color: colors.textMuted },
+    historyValue: { ...typography.caption, color: colors.text, fontWeight: "600" },
   });

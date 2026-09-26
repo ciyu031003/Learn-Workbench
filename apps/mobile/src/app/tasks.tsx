@@ -1,12 +1,14 @@
-import { useState , useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Animated, { FadeInDown, LinearTransition } from "react-native-reanimated";
 import { typography } from "@/theme/tokens";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from "react-native";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { useAppStore, type TaskType } from "@/store/app-store";
 
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
+import { usePullRefresh } from "@/lib/use-pull-refresh";
+import { syncPull, syncPush } from "@/lib/sync";
 import { DURATION, useReducedMotion } from "@/lib/motion";
 import { staggerDelay } from "@/lib/stagger";
 import { haptics } from "@/lib/haptics";
@@ -33,6 +35,20 @@ export default function TasksScreen() {
   const addTask = useAppStore((s) => s.addTask);
   const toggleTaskDone = useAppStore((s) => s.toggleTaskDone);
   const addSession = useAppStore((s) => s.addSession);
+  const token = useAppStore((s) => s.token);
+
+  /**
+   * v17 收尾：本页数据来自本地 store + 同步引擎（没有页面级 loader），
+   * 所以下拉刷新 = 推本地变更 + 拉远端（与「我的 → 立即同步」同一条链路，不改取数口径）。
+   * 未登录时直接返回，转圈由 hook 负责复位。
+   */
+  const refreshFromCloud = useCallback(async () => {
+    if (!token) return;
+    await syncPush(token);
+    await syncPull(token);
+  }, [token]);
+  /** 本页有吸顶紧凑栏 → stickyHeader 默认 true（转圈落在吸顶栏下方） */
+  const { control: pullControl } = usePullRefresh(refreshFromCloud);
 
   /** v17-D（R8）：入场错峰只在首帧做，滚动复现不做；减弱动态下完全不做 */
   const reduced = useReducedMotion();
@@ -105,7 +121,14 @@ export default function TasksScreen() {
     <View style={styles.root}>
       {/* v17-C2b：紧凑栏放到滚动容器**之外**才能真吸顶（原来它在内容流里，会跟着一起滚走） */}
       <ScreenHeaderStickyBar title="每日任务" scrollY={headerScroll.scrollY} />
-      <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
+      <Animated.ScrollView
+        onScroll={headerScroll.onScroll}
+        scrollEventThrottle={16}
+        style={styles.scroll}
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
+        refreshControl={<RefreshControl {...pullControl} />}
+        showsVerticalScrollIndicator={false}
+      >
         {/* 大标题留在内容里随内容滚走；顶部让位高度由组件自己吃 insets */}
         <ScreenHeaderLargeTitle title="每日任务" subtitle="计划 → 专注 → 复盘，形成学习闭环" />
 
@@ -332,8 +355,8 @@ const makeStyles = (colors: ThemeColors) =>
   content: { padding: 16, gap: 12 },
   hero: { paddingTop: 24, paddingBottom: 6, gap: 4 },
   // 焦点 hero 内的"下一步"
-  nextTitle: { fontSize: 19, fontWeight: "800", color: colors.text, lineHeight: 26 },
-  nextMeta: { fontSize: 12, color: colors.textMuted, marginTop: -4 },
+  nextTitle: { ...typography.title2, fontWeight: "800", color: colors.text },
+  nextMeta: { ...typography.caption, color: colors.textMuted, marginTop: -4 },
   // 今日任务进度条
   progressTrack: { height: 6, borderRadius: 999, backgroundColor: colors.surfaceMuted, overflow: "hidden", marginBottom: 10 },
   progressFill: { height: "100%", borderRadius: 999, backgroundColor: colors.success },
@@ -342,29 +365,29 @@ const makeStyles = (colors: ThemeColors) =>
   toolBtn: { flex: 1, borderRadius: 14, paddingVertical: 12, alignItems: "center" },
   toolBtnPrimary: { backgroundColor: colors.primary },
   toolBtnGhost: { backgroundColor: colors.surfaceMuted },
-  toolBtnTextPrimary: { color: "#fff", fontSize: 14, fontWeight: "700" },
-  toolBtnTextGhost: { color: colors.primary, fontSize: 14, fontWeight: "700" },
-  toolHint: { fontSize: 12, color: colors.textMuted, marginTop: 8 },
+  toolBtnTextPrimary: { ...typography.callout, color: "#fff", fontWeight: "700" },
+  toolBtnTextGhost: { ...typography.callout, color: colors.primary, fontWeight: "700" },
+  toolHint: { ...typography.caption, color: colors.textMuted, marginTop: 8 },
   sheetBody: { gap: 12, paddingTop: 4 },
   ghostStartBtn: { backgroundColor: colors.surfaceMuted },
   ghostStartText: { color: colors.primary },
   primaryBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 12, alignItems: "center" },
-  primaryBtnText: { color: "#fff", fontSize: 15, fontWeight: "600" },
+  primaryBtnText: { ...typography.callout, color: "#fff", fontWeight: "600" },
   input: {
     backgroundColor: colors.surfaceMuted,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    fontSize: 14,
+    ...typography.callout,
     color: colors.text,
   },
   typeRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   typeChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: colors.surfaceMuted },
   typeChipActive: { backgroundColor: "rgba(79,70,229,0.12)" },
-  typeChipText: { fontSize: 12, color: colors.textMuted },
+  typeChipText: { ...typography.caption, color: colors.textMuted },
   typeChipTextActive: { color: colors.primary, fontWeight: "600" },
   doneBanner: { backgroundColor: "rgba(22,163,74,0.12)", borderRadius: 12, padding: 10, marginBottom: 8 },
-  doneBannerText: { color: "#166534", fontSize: 13, fontWeight: "600" },
+  doneBannerText: { ...typography.callout, color: "#166534", fontWeight: "600" },
   taskRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   taskCheck: { fontSize: 16, color: colors.textFaint, width: 18 },
   taskChecked: { color: "#16a34a" },
@@ -373,25 +396,25 @@ const makeStyles = (colors: ThemeColors) =>
     flex: 1,
     color: colors.text,
   },
-  taskTitleDone: { textDecorationLine: "line-through", color: colors.textMuted },
-  taskMeta: { fontSize: 12, color: colors.textMuted },
-  taskFocus: { fontSize: 12, color: "#0ea5e9" },
+  taskTitleDone: { textDecorationLine: "line-through", color: colors.text },
+  taskMeta: { ...typography.caption, color: colors.textMuted },
+  taskFocus: { ...typography.caption, color: "#0ea5e9" },
   taskPlay: { fontSize: 14, color: colors.primary },
-  empty: { fontSize: 13, color: colors.textMuted, textAlign: "center", paddingVertical: 12 },
+  empty: { ...typography.callout, color: colors.text, textAlign: "center", paddingVertical: 12 },
   statGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, justifyContent: "center", marginBottom: 8 },
   statBox: { width: "46%", backgroundColor: "rgba(232,147,12,0.08)", borderRadius: 14, paddingVertical: 14, alignItems: "center" },
   statValue: { fontSize: 22, fontWeight: "800", color: colors.text },
-  statLabel: { fontSize: 12, color: colors.textMuted, marginTop: 3 },
-  sectionLabel: { fontSize: 13, fontWeight: "600", color: colors.text, marginTop: 12, marginBottom: 8 },
+  statLabel: { ...typography.caption, color: colors.textMuted, marginTop: 3 },
+  sectionLabel: { ...typography.caption, fontWeight: "700", color: colors.text, marginTop: 12, marginBottom: 8 },
   barChart: { flexDirection: "row", alignItems: "flex-end", height: 96, gap: 4 },
   barCol: { flex: 1, alignItems: "center", gap: 4, height: "100%" },
   barTrack: { flex: 1, width: "100%", justifyContent: "flex-end", backgroundColor: colors.surfaceMuted, borderRadius: 4, overflow: "hidden" },
   bar: { width: "100%", backgroundColor: "#e8930c", borderRadius: 4, minHeight: 4 },
   barLabel: { fontSize: 9, color: colors.textFaint },
   timelineRow: { flexDirection: "row", justifyContent: "space-between", backgroundColor: colors.surfaceMuted, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, marginBottom: 6 },
-  timelineTime: { fontSize: 13, color: colors.textMuted },
-  timelineMin: { fontSize: 13, fontWeight: "600", color: colors.text },
-  quoteLine: { fontSize: 13, color: "#b45309", lineHeight: 20, marginTop: 10 },
+  timelineTime: { ...typography.caption, color: colors.textMuted },
+  timelineMin: { ...typography.caption, fontWeight: "700", color: colors.text },
+  quoteLine: { ...typography.callout, color: "#b45309", marginTop: 10 },
   shareBtn: { backgroundColor: colors.primary, borderRadius: 999, paddingVertical: 11, alignItems: "center", marginTop: 10 },
-  shareBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+  shareBtnText: { ...typography.callout, color: "#fff", fontWeight: "700" },
 });

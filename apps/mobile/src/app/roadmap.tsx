@@ -1,12 +1,14 @@
-import { useState , useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Animated from "react-native-reanimated";
 import { typography } from "@/theme/tokens";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from "react-native";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { useAppStore } from "@/store/app-store";
 
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
+import { usePullRefresh } from "@/lib/use-pull-refresh";
+import { syncPull, syncPush } from "@/lib/sync";
 import { mainPhases, agentPhase } from "@learn-workbench/content";
 import { pct } from "@learn-workbench/shared";
 import { Card } from "@/components/card";
@@ -101,6 +103,15 @@ export default function RoadmapScreen() {
   const customTopics = useAppStore((s) => s.customTopics);
   const addCustomTopic = useAppStore((s) => s.addCustomTopic);
   const removeCustomTopic = useAppStore((s) => s.removeCustomTopic);
+  const token = useAppStore((s) => s.token);
+  /** v17 收尾：路线图进度来自本地 store（无页面级 loader），下拉刷新 = 推本地变更 + 拉远端 */
+  const refreshFromCloud = useCallback(async () => {
+    if (!token) return;
+    await syncPush(token);
+    await syncPull(token);
+  }, [token]);
+  /** 本页有吸顶紧凑栏 → stickyHeader 用默认 true（转圈落在吸顶栏下方） */
+  const { control: pullControl } = usePullRefresh(refreshFromCloud);
 
   const [adding, setAdding] = useState(false);
   const [phaseId, setPhaseId] = useState<number>(mainPhases[0]?.id ?? 1);
@@ -144,7 +155,14 @@ export default function RoadmapScreen() {
     <View style={styles.root}>
       {/* v17-C2b：紧凑栏在滚动容器之外 → 真吸顶 */}
       <ScreenHeaderStickyBar title="学习路线图" scrollY={headerScroll.scrollY} />
-      <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
+      <Animated.ScrollView
+        onScroll={headerScroll.onScroll}
+        scrollEventThrottle={16}
+        style={styles.scroll}
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
+        refreshControl={<RefreshControl {...pullControl} />}
+        showsVerticalScrollIndicator={false}
+      >
         <ScreenHeaderLargeTitle title="学习路线图" subtitle="6 个主阶段 + Agent 应用副线，点击主题完成打勾" />
 
       <Card>
@@ -222,44 +240,44 @@ const makeStyles = (colors: ThemeColors) =>
     color: "rgba(255,255,255,0.85)",
   },
   addToggle: { alignItems: "center", paddingVertical: 10 },
-  addToggleText: { fontSize: 14, fontWeight: "600", color: "#e8930c" },
+  addToggleText: { ...typography.callout, fontWeight: "600", color: "#e8930c" },
   addForm: { gap: 8 },
-  addLabel: { fontSize: 12, color: colors.textMuted },
+  addLabel: { ...typography.caption, color: colors.textMuted },
   phasePicker: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   chip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: colors.surfaceMuted },
   chipActive: { backgroundColor: "rgba(232,147,12,0.18)" },
-  chipText: { fontSize: 11, color: colors.textMuted, maxWidth: 120 },
+  chipText: { ...typography.micro, color: colors.textMuted, maxWidth: 120 },
   chipTextActive: { color: "#e8930c", fontWeight: "600" },
   input: {
     backgroundColor: colors.surfaceMuted,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    fontSize: 14,
+    ...typography.callout,
     color: colors.text,
   },
   primaryBtn: { backgroundColor: "#e8930c", borderRadius: 14, paddingVertical: 11, alignItems: "center" },
-  primaryBtnText: { color: "#fff", fontSize: 14, fontWeight: "600" },
+  primaryBtnText: { ...typography.callout, color: "#fff", fontWeight: "600" },
   phaseHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
   phaseDot: { width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   phaseDotMain: { backgroundColor: "rgba(232,147,12,0.14)" },
   phaseDotAccent: { backgroundColor: "rgba(239,106,94,0.15)" },
-  phaseDotText: { fontSize: 13, fontWeight: "700", color: "#e8930c" },
+  phaseDotText: { ...typography.caption, fontWeight: "700", color: "#e8930c" },
   phaseTitle: {
     ...typography.headline,
     color: colors.text,
   },
-  phaseWeeks: { fontSize: 11, color: colors.textMuted, backgroundColor: colors.surfaceMuted, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, overflow: "hidden" },
-  phasePercent: { marginTop: 2, fontSize: 12, color: colors.textMuted },
+  phaseWeeks: { ...typography.micro, color: colors.textMuted, backgroundColor: colors.surfaceMuted, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, overflow: "hidden" },
+  phasePercent: { ...typography.caption, marginTop: 2, color: colors.textMuted },
   chevron: { fontSize: 16, color: colors.textFaint },
   topicList: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 6, gap: 2 },
   topicRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, paddingVertical: 8, paddingHorizontal: 4, borderRadius: 10 },
   topicCheck: { fontSize: 16, color: colors.textFaint, width: 18, textAlign: "center" },
   topicChecked: { color: "#16a34a" },
-  topicTitle: { fontSize: 14, fontWeight: "500", color: colors.text },
-  topicTitleDone: { textDecorationLine: "line-through", color: colors.textMuted },
-  customTag: { fontSize: 10, color: "#e8930c", backgroundColor: "rgba(232,147,12,0.14)", paddingHorizontal: 5, paddingVertical: 1, borderRadius: 5, overflow: "hidden" },
-  topicAgent: { marginTop: 2, fontSize: 12, color: "#ef6a5e" },
-  topicSummary: { marginTop: 2, fontSize: 12, color: colors.textMuted },
-  deleteBtn: { fontSize: 13, color: "#dc2626", paddingHorizontal: 4 },
+  topicTitle: { ...typography.callout, fontWeight: "500", color: colors.text },
+  topicTitleDone: { textDecorationLine: "line-through", color: colors.text },
+  customTag: { ...typography.micro, color: "#e8930c", backgroundColor: "rgba(232,147,12,0.14)", paddingHorizontal: 5, paddingVertical: 1, borderRadius: 5, overflow: "hidden" },
+  topicAgent: { ...typography.caption, marginTop: 2, color: "#ef6a5e" },
+  topicSummary: { ...typography.caption, marginTop: 2, color: colors.textMuted },
+  deleteBtn: { ...typography.caption, color: "#dc2626", paddingHorizontal: 4 },
 });

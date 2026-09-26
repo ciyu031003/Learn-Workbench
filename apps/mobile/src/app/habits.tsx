@@ -7,7 +7,7 @@ import {
 import { ThemedIcon } from "@/components/themed-icon";
 import { EmptyState } from "@/components/empty-state";
 import { SkeletonList } from "@/components/skeleton";
-import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useHeaderTopInset, useLargeTitleHeader } from "@/components/screen-header";
+import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { Card } from "@/components/card";
 import { PressButton } from "@/components/press-button";
 import { FloatField } from "@/components/float-field";
@@ -21,7 +21,7 @@ import { DURATION, useReducedMotion } from "@/lib/motion";
 import { staggerDelay } from "@/lib/stagger";
 import { haptics } from "@/lib/haptics";
 import { useTheme } from "@/theme";
-import { useRefreshable } from "@/lib/use-refresh";
+import { usePullRefresh } from "@/lib/use-pull-refresh";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
@@ -45,8 +45,6 @@ export default function HabitsScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const headerScroll = useLargeTitleHeader();
   const tabBarSpace = useTabBarSpace();
-  // v17-C2b：吸顶栏占用的顶部高度（与组件内部口径一致，避免再写 insets.top + N 魔数）
-  const headerTop = useHeaderTopInset();
   const token = useAppStore((s) => s.token);
   const [habits, setHabits] = useState<HabitRow[]>([]);
   const [logs, setLogs] = useState<HabitLog[]>([]);
@@ -93,7 +91,7 @@ export default function HabitsScreen() {
     return () => clearTimeout(t);
   }, [load]);
 
-  const { refreshing, onRefresh } = useRefreshable(load);
+  const { control: pullControl } = usePullRefresh(load);
 
   const logMap = useMemo(() => {
     const m = new Map<string, number>();
@@ -248,17 +246,7 @@ const last7 = useMemo(() => {
       {/* v17-C2b：吸顶栏在滚动容器之外，下拉刷新与内容滚动都不受影响 */}
       <ScreenHeaderStickyBar title="习惯" scrollY={headerScroll.scrollY} />
       <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
-            progressBackgroundColor={colors.surfaceStrong}
-            /* v17-C2b：下拉转圈要出现在吸顶栏**下方**，否则会被那一行盖住 */
-            progressViewOffset={headerTop + 44}
-          />
-        }>
+        refreshControl={<RefreshControl {...pullControl} />}>
         <ScreenHeaderLargeTitle title="习惯" subtitle={`今日 ${doneToday}/${scheduledToday} 已完成`} />
 
       <PressableScale style={styles.addBtn} haptic onPress={() => setSheetOpen(true)}>
@@ -525,12 +513,12 @@ const makeStyles = (colors: ThemeColors) =>
   scroll: { flex: 1, backgroundColor: "transparent" },
     content: { padding: 16, gap: 12 },
     addBtn: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.primarySoft, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9 },
-    addBtnText: { color: colors.primary, fontSize: 13, fontWeight: "800" },
+    addBtnText: { ...typography.callout, color: colors.primary, fontWeight: "800" },
     loading: { marginTop: 24, alignSelf: "center" },
-    empty: { fontSize: 13, color: colors.textMuted, textAlign: "center", paddingVertical: 8 },
+    empty: { ...typography.callout, color: colors.text, textAlign: "center", paddingVertical: 8 },
     tplRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     tplChip: { backgroundColor: colors.surfaceMuted, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7, borderWidth: 1, borderColor: colors.border },
-    tplText: { fontSize: 12, color: colors.text },
+    tplText: { ...typography.caption, color: colors.text },
     item: { gap: 10 },
     itemRow: { flexDirection: "row", alignItems: "center", gap: 12 },
     // 中性卡面 + 仅状态用的左侧细轨（强调色不做大面积铺色）
@@ -545,7 +533,7 @@ const makeStyles = (colors: ThemeColors) =>
       borderBottomRightRadius: 999,
       backgroundColor: colors.border,
     },
-    doneTag: { fontSize: 11, fontWeight: "800" },
+    doneTag: { ...typography.micro, fontWeight: "800" },
     actionSheet: { gap: 10 },
     actionRow: {
       flexDirection: "row",
@@ -558,7 +546,7 @@ const makeStyles = (colors: ThemeColors) =>
       paddingHorizontal: 14,
       paddingVertical: 14,
     },
-    actionText: { flex: 1, fontSize: 15, fontWeight: "700", color: colors.text },
+    actionText: { ...typography.callout, flex: 1, fontWeight: "700", color: colors.text },
     check: { width: 44, height: 44, borderRadius: 16, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceMuted },
     checkIcon: { fontSize: 18 },
     itemBody: { flex: 1, minWidth: 0, gap: 2 },
@@ -568,12 +556,12 @@ const makeStyles = (colors: ThemeColors) =>
       color: colors.text,
       flexShrink: 1,
     },
-    streak: { fontSize: 12, fontWeight: "800", color: colors.accentStrong },
-    timeBadge: { fontSize: 11, fontWeight: "700", color: colors.primary, backgroundColor: colors.primarySoft, borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 },
-    muted: { fontSize: 11, color: colors.textMuted },
+    streak: { ...typography.caption, fontWeight: "800", color: colors.accentStrong },
+    timeBadge: { ...typography.micro, fontWeight: "700", color: colors.primary, backgroundColor: colors.primarySoft, borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 },
+    muted: { ...typography.micro, color: colors.textMuted },
     statRow: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 2 },
-    statItem: { fontSize: 11, color: colors.textMuted },
-    statValue: { fontSize: 12, fontWeight: "800", color: colors.text },
+    statItem: { ...typography.micro, color: colors.textMuted },
+    statValue: { ...typography.caption, fontWeight: "800", color: colors.text },
     stripTrack: {
       alignSelf: "flex-start",
       marginTop: 6,
@@ -598,14 +586,14 @@ const makeStyles = (colors: ThemeColors) =>
       paddingVertical: 12,
     },
     allDoneBody: { flex: 1, minWidth: 0, gap: 2 },
-    allDoneTitle: { fontSize: 14, fontWeight: "800", color: colors.text },
-    allDoneHint: { fontSize: 11, color: colors.textMuted },
+    allDoneTitle: { ...typography.callout, fontWeight: "800", color: colors.text },
+    allDoneHint: { ...typography.micro, color: colors.textMuted },
     stripLabel: { width: 16, textAlign: "center", fontSize: 9, color: colors.textFaint },
     stripDot: { height: 6, width: 16, borderRadius: 999, backgroundColor: colors.border },
     stripDotOff: { backgroundColor: colors.borderStrong },
     stripDotSkip: { backgroundColor: "transparent", borderWidth: 1, borderColor: colors.border },
     form: { gap: 10, paddingTop: 6 },
-    label: { fontSize: 12, fontWeight: "700", color: colors.textMuted },
+    label: { ...typography.caption, fontWeight: "700", color: colors.textMuted },
     iconGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     iconCell: {
       width: 44,
@@ -625,9 +613,9 @@ const makeStyles = (colors: ThemeColors) =>
     kindRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     kindChip: { borderRadius: 999, paddingHorizontal: 13, paddingVertical: 7, backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.border },
     kindChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-    kindChipText: { fontSize: 12, fontWeight: "700", color: colors.textMuted },
+    kindChipText: { ...typography.caption, fontWeight: "700", color: colors.textMuted },
     kindChipTextActive: { color: "#ffffff" },
-    input: { backgroundColor: colors.surfaceMuted, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: colors.text },
+    input: { backgroundColor: colors.surfaceMuted, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, ...typography.callout, color: colors.text },
     primaryBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 12, alignItems: "center", marginTop: 4 },
-    primaryBtnText: { color: "#fff", fontSize: 15, fontWeight: "800" },
+    primaryBtnText: { ...typography.callout, color: "#fff", fontWeight: "800" },
   });
