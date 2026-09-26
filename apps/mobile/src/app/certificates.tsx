@@ -10,7 +10,7 @@ import { SkeletonList } from "@/components/skeleton";
 import { AchievementCard } from "@/components/achievement-card";
 import { FloatField } from "@/components/float-field";
 import { PressButton } from "@/components/press-button";
-import { ScreenHeader, useLargeTitleHeader } from "@/components/screen-header";
+import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useHeaderTopInset, useLargeTitleHeader } from "@/components/screen-header";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
 
@@ -30,6 +30,8 @@ export default function CertificatesScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const headerScroll = useLargeTitleHeader();
+  /** v17-C2b：下拉转圈要出现在吸顶栏下方，得知道吸顶栏占位高度 */
+  const headerTop = useHeaderTopInset();
   const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
   const [records, setRecords] = useState<Certificate[]>([]);
@@ -113,11 +115,15 @@ export default function CertificatesScreen() {
   };
 
   return (
-    <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} progressBackgroundColor={colors.surfaceStrong} />
-      }>
-      <ScreenHeader large scrollY={headerScroll.scrollY} title="我的证书" subtitle="证书 / 资格 / 认证，简历与职业雷达共用" />
+    <View style={styles.root}>
+      {/* v17-C2b：紧凑栏必须在滚动容器**之外**才能真吸顶（放在内容流里会跟着一起滚走） */}
+      <ScreenHeaderStickyBar title="我的证书" scrollY={headerScroll.scrollY} />
+      <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} progressBackgroundColor={colors.surfaceStrong} progressViewOffset={headerTop + 44} />
+        }>
+        {/* 大标题留在内容里随内容滚走；顶部让位高度由组件自己吃 insets */}
+        <ScreenHeaderLargeTitle title="我的证书" subtitle="证书 / 资格 / 认证，简历与职业雷达共用" />
 
       <PressableScale style={styles.addBtn} haptic onPress={() => setSheetOpen(true)}>
         <ThemedIcon name="add" size={17} color={colors.primary} />
@@ -200,12 +206,14 @@ export default function CertificatesScreen() {
           />
         </View>
       </BottomSheet>
-    </Animated.ScrollView>
+      </Animated.ScrollView>
+    </View>
   );
 }
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
+    root: { flex: 1 },
     scroll: { flex: 1, backgroundColor: "transparent" },
     content: { padding: 16, gap: 12 },
     addBtn: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.primarySoft, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9 },

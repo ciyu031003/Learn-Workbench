@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Card } from "@/components/card";
 import { Button } from "@/components/button";
-import { ScreenHeader, useLargeTitleHeader } from "@/components/screen-header";
+import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
 import type { ThemeColors } from "@/theme/tokens";
@@ -119,12 +119,13 @@ export default function DiagnosticsScreen() {
 
   return (
     <View style={styles.root}>
-      <ScreenHeader large scrollY={headerScroll.scrollY} title="问题诊断" subtitle="触摸自检 · 排障用" />
+      <ScreenHeaderStickyBar title="问题诊断" scrollY={headerScroll.scrollY} />
       <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16}
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
         showsVerticalScrollIndicator={false}
       >
+      <ScreenHeaderLargeTitle title="问题诊断" subtitle="触摸自检 · 排障用" />
         <Card title="触摸测试区" subtitle="在这一片区域里点几下">
           <Pressable
             style={styles.pad}

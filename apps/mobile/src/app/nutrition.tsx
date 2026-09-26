@@ -4,7 +4,7 @@ import Animated, { FadeInUp, LinearTransition } from "react-native-reanimated";
 import { ThemedIcon } from "@/components/themed-icon";
 import { EmptyState } from "@/components/empty-state";
 import { SkeletonList } from "@/components/skeleton";
-import { ScreenHeader, useLargeTitleHeader } from "@/components/screen-header";
+import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useHeaderTopInset, useLargeTitleHeader } from "@/components/screen-header";
 import { SectionHeader } from "@/components/section-header";
 import { Card } from "@/components/card";
 import { Button } from "@/components/button";
@@ -123,6 +123,8 @@ export default function NutritionScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const headerScroll = useLargeTitleHeader();
+  /** v17-C2b：下拉转圈要出现在吸顶栏下方 */
+  const headerTop = useHeaderTopInset();
   const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
 
@@ -927,15 +929,18 @@ export default function NutritionScreen() {
   );
 
   return (
+    <View style={styles.root}>
+      {/* v17-C2b：紧凑栏在滚动容器之外才能真吸顶 */}
+      <ScreenHeaderStickyBar title={isToday ? "今日饮食" : "饮食记录"} scrollY={headerScroll.scrollY} />
     <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16}
       style={styles.scroll}
       contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
       showsVerticalScrollIndicator={false}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} progressBackgroundColor={colors.surfaceStrong} />
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} progressBackgroundColor={colors.surfaceStrong} progressViewOffset={headerTop + 44} />
       }
     >
-      <ScreenHeader large scrollY={headerScroll.scrollY}
+      <ScreenHeaderLargeTitle
         title={isToday ? "今日饮食" : "饮食记录"}
         subtitle={isToday ? `已记录 ${entries.length} 条 · 目标 ${target.kcal} kcal` : `${date} · ${entries.length} 条`} />
 
@@ -1780,11 +1785,13 @@ export default function NutritionScreen() {
         onSave={(next) => void onSaveTarget(next)}
       />
     </Animated.ScrollView>
+    </View>
   );
 }
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
+    root: { flex: 1 },
     scroll: { flex: 1, backgroundColor: "transparent" },
     content: { padding: spacing.lg, gap: spacing.md },
     /* ---- v4 P4-a：日 / 周 / 月 视图控件 ---- */

@@ -5,7 +5,7 @@ import { typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { ThemedIcon } from "@/components/themed-icon";
-import { ScreenHeader, useLargeTitleHeader } from "@/components/screen-header";
+import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useFocusRefresh } from "@/lib/use-focus-refresh";
 import { getApiUrl } from "@/config";
@@ -160,6 +160,8 @@ export default function ApplicationsScreen() {
 
   return (
     <View style={styles.root}>
+      {/* v17-C2b：紧凑栏放在 FlatList **之外**才能真吸顶；大标题留在 ListHeaderComponent 里随列表滚走 */}
+      <ScreenHeaderStickyBar title="我的求职" scrollY={headerScroll.scrollY} />
       <FlatList onScroll={headerScroll.onScroll} scrollEventThrottle={16}
         data={shown}
         keyExtractor={(item) => String(item.id)}
@@ -167,7 +169,7 @@ export default function ApplicationsScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
         ListHeaderComponent={
           <View style={styles.header}>
-            <ScreenHeader large scrollY={headerScroll.scrollY} title="我的求职" subtitle={`共 ${apps.length} 条 · 收藏 → Offer 全流程`} />
+            <ScreenHeaderLargeTitle title="我的求职" subtitle={`共 ${apps.length} 条 · 收藏 → Offer 全流程`} />
             {stageCounts.length > 0 ? (
               <View style={styles.stageStrip}>
                 {stageCounts.map((s) => (

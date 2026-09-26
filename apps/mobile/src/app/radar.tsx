@@ -8,7 +8,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { ScreenHeader, useLargeTitleHeader } from "@/components/screen-header";
+import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useHeaderTopInset, useLargeTitleHeader } from "@/components/screen-header";
 import { EmptyState } from "@/components/empty-state";
 import { SkeletonCard } from "@/components/skeleton";
 import { Card } from "@/components/card";
@@ -70,6 +70,8 @@ export default function RadarScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const headerScroll = useLargeTitleHeader();
+  /** v17-C2b：下拉转圈要出现在吸顶栏下方 */
+  const headerTop = useHeaderTopInset();
   const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
   const [data, setData] = useState<RadarResponse | null>(null);
@@ -134,15 +136,18 @@ export default function RadarScreen() {
   };
 
   return (
+    <View style={styles.root}>
+      {/* v17-C2b：紧凑栏在滚动容器之外才能真吸顶 */}
+      <ScreenHeaderStickyBar title="就业雷达" scrollY={headerScroll.scrollY} />
     <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16}
       style={styles.scroll}
       contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
       showsVerticalScrollIndicator={false}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} progressBackgroundColor={colors.surfaceStrong} />
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} progressBackgroundColor={colors.surfaceStrong} progressViewOffset={headerTop + 44} />
       }
     >
-      <ScreenHeader large scrollY={headerScroll.scrollY}
+      <ScreenHeaderLargeTitle
         title="就业雷达"
         subtitle={data?.targetRole ? `目标：${data.targetRole}${data.profileCity ? ` · ${data.profileCity}` : ""}` : "今日适合你的岗位信号"} />
 
@@ -321,11 +326,13 @@ export default function RadarScreen() {
         </>
       )}
     </Animated.ScrollView>
+    </View>
   );
 }
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
+    root: { flex: 1 },
     scroll: { flex: 1, backgroundColor: "transparent" },
     content: { padding: 16, gap: 12 },
     meta: { fontSize: 11, color: colors.textMuted },

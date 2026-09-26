@@ -6,7 +6,7 @@ import { ThemedIcon } from "@/components/themed-icon";
 import { Card } from "@/components/card";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
-import { ScreenHeader, useLargeTitleHeader } from "@/components/screen-header";
+import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { useLocalSearchParams } from "expo-router";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
@@ -115,12 +115,15 @@ export default function PhaseScreen() {
   };
 
   return (
+    <View style={styles.root}>
+      {/* v17-C2b：紧凑栏在滚动容器之外才能真吸顶 */}
+      <ScreenHeaderStickyBar title={phase?.title ?? "学习阶段"} scrollY={headerScroll.scrollY} />
     <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16}
       style={styles.scroll}
       contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
       showsVerticalScrollIndicator={false}
     >
-      <ScreenHeader large scrollY={headerScroll.scrollY}
+      <ScreenHeaderLargeTitle
         title={phase?.title ?? "学习阶段"}
         subtitle={phase?.summary || phase?.weeks || "管理这个阶段下的学习内容"} />
 
@@ -235,11 +238,13 @@ export default function PhaseScreen() {
         </Pressable>
       </Modal>
     </Animated.ScrollView>
+    </View>
   );
 }
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
+    root: { flex: 1 },
     scroll: { flex: 1, backgroundColor: "transparent" },
     content: { padding: 16, gap: 12 },
     loading: { marginTop: 36, alignSelf: "center" },

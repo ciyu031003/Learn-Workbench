@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import Animated from "react-native-reanimated";
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Card } from "@/components/card";
-import { ScreenHeader, useLargeTitleHeader } from "@/components/screen-header";
+import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { ChipGroup, SheetSection, SheetSegmented, SheetStickyCta, type SegmentOption } from "@/components/sheet";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
@@ -161,8 +161,11 @@ export default function InterviewScreen() {
   };
 
   return (
-    <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
-      <ScreenHeader large scrollY={headerScroll.scrollY} title="面试流程" subtitle="题库刷题 · 记录每一次模拟与复盘" />
+    <View style={styles.root}>
+      {/* v17-C2b：紧凑栏必须在滚动容器之外才能真吸顶 */}
+      <ScreenHeaderStickyBar title="面试流程" scrollY={headerScroll.scrollY} />
+      <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
+        <ScreenHeaderLargeTitle title="面试流程" subtitle="题库刷题 · 记录每一次模拟与复盘" />
 
       {/* v1.26：题型只展示前 MODULE_PREVIEW 个 + 「更多」，其余从下方弹层选择（不再横滑长列表） */}
       <View style={styles.moduleRow}>
@@ -360,12 +363,14 @@ export default function InterviewScreen() {
           </>
         ) : null}
       </BottomSheet>
-    </Animated.ScrollView>
+      </Animated.ScrollView>
+    </View>
   );
 }
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
+    root: { flex: 1 },
     scroll: { flex: 1, backgroundColor: "transparent" },
     content: { padding: 16, gap: 12 },
     hero: { marginBottom: 4 },

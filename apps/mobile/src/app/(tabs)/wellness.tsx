@@ -3,7 +3,8 @@ import Animated from "react-native-reanimated";
 import { Alert, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { ThemedIcon } from "@/components/themed-icon";
-import { ScreenHeader, useLargeTitleHeader } from "@/components/screen-header";
+import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PressableScale } from "@/components/pressable-scale";
 import { SkeletonCard } from "@/components/skeleton";
 import { GlassSurface } from "@/components/surface";
@@ -68,6 +69,7 @@ export default function WellnessScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const headerScroll = useLargeTitleHeader();
+  const insets = useSafeAreaInsets();
   const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
   const [data, setData] = useState<DailyOs | null>(null);
@@ -219,15 +221,18 @@ export default function WellnessScreen() {
   };
 
   return (
+    <View style={styles.root}>
+      <ScreenHeaderStickyBar title="健康" scrollY={headerScroll.scrollY} />
     <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16}
       style={styles.scroll}
       contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
       showsVerticalScrollIndicator={false}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} progressBackgroundColor={colors.surfaceStrong} />
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} progressBackgroundColor={colors.surfaceStrong}
+          progressViewOffset={insets.top + 44} />
       }
     >
-      <ScreenHeader large scrollY={headerScroll.scrollY} title="健康" subtitle="训练 · 饮食 · 习惯，照顾好身体才有持续成长" />
+      <ScreenHeaderLargeTitle title="健康" subtitle="训练 · 饮食 · 习惯，照顾好身体才有持续成长" />
 
       {/* 聚合接口失败不再静默：明确提示 + 一键重试（v12 P0-2/P0-3） */}
       {dailyFailed ? (
@@ -507,11 +512,13 @@ export default function WellnessScreen() {
         />
       </ListGroup>
     </Animated.ScrollView>
+    </View>
   );
 }
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
+  root: { flex: 1 },
     scroll: { flex: 1, backgroundColor: "transparent" },
     content: { paddingHorizontal: spacing.lg, gap: spacing.md },
     /* ① 今日状态 */

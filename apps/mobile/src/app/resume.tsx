@@ -3,7 +3,7 @@ import Animated from "react-native-reanimated";
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
 import { ThemedIcon } from "@/components/themed-icon";
-import { ScreenHeader, useLargeTitleHeader } from "@/components/screen-header";
+import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { Card } from "@/components/card";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
@@ -96,8 +96,10 @@ export default function ResumeScreen() {
   };
 
   return (
+    <View style={styles.root}>
+      <ScreenHeaderStickyBar title="简历" scrollY={headerScroll.scrollY} />
     <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
-      <ScreenHeader large scrollY={headerScroll.scrollY} title="简历" subtitle="技能 / 项目 / GitHub / 证书，整理成随时可投的资产" />
+      <ScreenHeaderLargeTitle title="简历" subtitle="技能 / 项目 / GitHub / 证书，整理成随时可投的资产" />
 
       <PressableScale style={styles.addBtn} haptic onPress={() => setSheetOpen(true)}>
         <ThemedIcon name="add" size={17} color={colors.primary} />
@@ -155,11 +157,13 @@ export default function ResumeScreen() {
         </View>
       </BottomSheet>
     </Animated.ScrollView>
+    </View>
   );
 }
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
+  root: { flex: 1 },
     scroll: { flex: 1, backgroundColor: "transparent" },
     content: { padding: 16, gap: 12 },
     hero: { marginBottom: 4 },

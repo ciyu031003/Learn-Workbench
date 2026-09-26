@@ -15,7 +15,7 @@ import {
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { ThemedIcon } from "@/components/themed-icon";
-import { ScreenHeader, useLargeTitleHeader } from "@/components/screen-header";
+import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useHeaderTopInset, useLargeTitleHeader } from "@/components/screen-header";
 import { Card } from "@/components/card";
 import { AuthSheet } from "@/components/auth-sheet";
 import { BottomSheet } from "@/components/bottom-sheet";
@@ -177,6 +177,8 @@ export default function MarketScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const headerScroll = useLargeTitleHeader();
+  /** v17-C2b：下拉转圈要出现在吸顶栏下方 */
+  const headerTop = useHeaderTopInset();
   const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
   const setAuth = useAppStore((s) => s.setAuth);
@@ -316,6 +318,9 @@ export default function MarketScreen() {
     : data?.facets.functions ?? [];
 
   return (
+    <View style={styles.root}>
+      {/* v17-C2b：紧凑栏在滚动容器之外才能真吸顶 */}
+      <ScreenHeaderStickyBar title="招聘市场工作台" scrollY={headerScroll.scrollY} />
     <Animated.ScrollView
       onScroll={headerScroll.onScroll}
       scrollEventThrottle={16}
@@ -330,10 +335,11 @@ export default function MarketScreen() {
           tintColor={colors.primary}
           colors={[colors.primary]}
                 progressBackgroundColor={colors.surfaceStrong}
+                progressViewOffset={headerTop + 44}
                 />
       }
     >
-      <ScreenHeader large scrollY={headerScroll.scrollY}
+      <ScreenHeaderLargeTitle
         title="招聘市场工作台"
         subtitle={`筛选 · 趋势 · 个人位置${summary ? ` · ${summary.total} 个样本` : ""}`} />
 
@@ -575,11 +581,13 @@ export default function MarketScreen() {
 
       <AuthSheet visible={authOpen} onClose={() => setAuthOpen(false)} onAuthed={handleAuthed} />
     </Animated.ScrollView>
+    </View>
   );
 }
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
+    root: { flex: 1 },
     scroll: { flex: 1, backgroundColor: "transparent" },
     content: { padding: 16, gap: 12 },
     body: { gap: 12 },

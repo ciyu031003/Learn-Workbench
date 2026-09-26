@@ -6,7 +6,7 @@ import type { ThemeColors } from "@/theme/tokens";
 import { radius, spacing, typography } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { ThemedIcon } from "@/components/themed-icon";
-import { ScreenHeader, useLargeTitleHeader } from "@/components/screen-header";
+import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { SectionHeader } from "@/components/section-header";
 import { ListGroup, ListRow } from "@/components/list-row";
 import { GlassSurface } from "@/components/surface";
@@ -89,8 +89,10 @@ export default function CareerScreen() {
           : "登录并记录技能 / 项目后显示";
 
   return (
+    <View style={styles.root}>
+      <ScreenHeaderStickyBar title="职业" scrollY={headerScroll.scrollY} />
     <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
-      <ScreenHeader large scrollY={headerScroll.scrollY} title="职业" subtitle="画像 · 技能 · 简历 · 面试" />
+      <ScreenHeaderLargeTitle title="职业" subtitle="画像 · 技能 · 简历 · 面试" />
 
       {/* ① 职业准备度 hero：进度弧 + 结论 + 三个关键值 */}
       <GlassSurface corner={radius.xl} style={styles.hero}>
@@ -208,11 +210,13 @@ export default function CareerScreen() {
         )}
       </BottomSheet>
     </Animated.ScrollView>
+    </View>
   );
 }
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
+  root: { flex: 1 },
     scroll: { flex: 1, backgroundColor: "transparent" },
     content: { paddingHorizontal: spacing.lg, gap: spacing.md },
     hero: { flexDirection: "row", alignItems: "center", gap: spacing.lg, paddingVertical: spacing.lg },

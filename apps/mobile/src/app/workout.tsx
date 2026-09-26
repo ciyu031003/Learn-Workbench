@@ -4,7 +4,8 @@ import { Alert, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } f
 import { ThemedIcon } from "@/components/themed-icon";
 import { EmptyState } from "@/components/empty-state";
 import { SkeletonList } from "@/components/skeleton";
-import { ScreenHeader, useLargeTitleHeader } from "@/components/screen-header";
+import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Card } from "@/components/card";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
@@ -39,6 +40,7 @@ export default function WorkoutScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const headerScroll = useLargeTitleHeader();
+  const insets = useSafeAreaInsets();
   const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
 
@@ -252,15 +254,18 @@ export default function WorkoutScreen() {
   const dateChoices = dateOptions(today, date);
 
   return (
+    <View style={styles.root}>
+      <ScreenHeaderStickyBar title="训练记录" scrollY={headerScroll.scrollY} />
     <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16}
       style={styles.scroll}
       contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
       showsVerticalScrollIndicator={false}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} progressBackgroundColor={colors.surfaceStrong} />
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} progressBackgroundColor={colors.surfaceStrong}
+          progressViewOffset={insets.top + 44} />
       }
     >
-      <ScreenHeader large scrollY={headerScroll.scrollY} title="训练记录" subtitle={`近 60 天 ${workouts.length} 次 · 总容量 ${totals.volumeKg} kg`} />
+      <ScreenHeaderLargeTitle title="训练记录" subtitle={`近 60 天 ${workouts.length} 次 · 总容量 ${totals.volumeKg} kg`} />
 
       <PressableScale style={styles.addBtn} haptic onPress={openCreate}>
         <ThemedIcon name="add" size={17} color={colors.primary} />
@@ -426,6 +431,7 @@ export default function WorkoutScreen() {
         initial={pickerInitial}
       />
     </Animated.ScrollView>
+    </View>
   );
 }
 
@@ -485,6 +491,7 @@ function MiniStepper({
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
+  root: { flex: 1 },
     scroll: { flex: 1, backgroundColor: "transparent" },
     content: { padding: 16, gap: 12 },
     addBtn: {

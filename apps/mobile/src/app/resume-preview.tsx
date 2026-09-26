@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Animated from "react-native-reanimated";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
-import { ScreenHeader, useLargeTitleHeader } from "@/components/screen-header";
+import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { Card } from "@/components/card";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
@@ -124,8 +124,10 @@ export default function ResumePreviewScreen() {
   const visible = (doc?.sectionOrder ?? []).filter((s) => s.visible);
 
   return (
+    <View style={styles.root}>
+      <ScreenHeaderStickyBar title="简历预览" scrollY={headerScroll.scrollY} />
     <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
-      <ScreenHeader large scrollY={headerScroll.scrollY} title="简历预览" subtitle={doc ? `${doc.title} · ${doc.templateKey}` : "内容实时取自资料 / 证书 / 技能 / 资产"} />
+      <ScreenHeaderLargeTitle title="简历预览" subtitle={doc ? `${doc.title} · ${doc.templateKey}` : "内容实时取自资料 / 证书 / 技能 / 资产"} />
 
       {loading ? (
         <ActivityIndicator color={colors.primary} style={styles.loading} />
@@ -142,11 +144,13 @@ export default function ResumePreviewScreen() {
         </Card>
       )}
     </Animated.ScrollView>
+    </View>
   );
 }
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
+  root: { flex: 1 },
     scroll: { flex: 1, backgroundColor: "transparent" },
     content: { padding: 16, gap: 12 },
     loading: { marginTop: 24, alignSelf: "center" },
