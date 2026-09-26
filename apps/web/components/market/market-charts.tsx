@@ -11,6 +11,37 @@ import { useToastStore } from "@/store/toast-store";
 import { cn } from "@/lib/utils";
 import { oilPainting } from "@learn-workbench/ui";
 
+/**
+ * 图表局部动效（不动 globals.css）。
+ * 用 transform 而非 width/height 做起落：目标尺寸是动态算出来的，
+ * scale 不需要知道具体数值即可正确"生长"，也不会触发重排。
+ */
+const CHART_STYLES = `
+@keyframes mc-grow-x { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes mc-grow-y { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes mc-pop {
+  0%   { transform: scale(0.35); opacity: 0; }
+  70%  { transform: scale(1.04); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes mc-fade-in { from { opacity: 0; } to { opacity: 1; } }
+.mc-grow-x { transform-origin: left center; animation: mc-grow-x 0.72s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.mc-grow-y { transform-origin: bottom center; animation: mc-grow-y 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.mc-pop { animation: mc-pop 0.44s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.mc-fade { animation: mc-fade-in 0.5s ease both; }
+.mc-row { border-radius: 10px; transition: background-color 0.18s ease, transform 0.18s ease; }
+/* SVG 节点：transform-box 让 scale 以自身中心为原点，否则会绕画布原点缩放 */
+.mc-node { transform-box: fill-box; transform-origin: center; animation: mc-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.mc-node:hover { filter: brightness(1.12); }
+.mc-row:hover { background-color: rgba(255, 255, 255, 0.06); transform: translateX(2px); }
+.mc-legend-row { transition: background-color 0.18s ease; border-radius: 8px; }
+.mc-legend-row:hover { background-color: rgba(255, 255, 255, 0.06); }
+@media (prefers-reduced-motion: reduce) {
+  .mc-grow-x, .mc-grow-y, .mc-pop, .mc-fade, .mc-node { animation: none; }
+  .mc-row:hover { transform: none; }
+}
+`;
+
 /** 油画图表序列（单一事实源：packages/ui oilPainting.chartSeries） */
 const CHART_SERIES = oilPainting.chartSeries as readonly string[];
 const grad = (i: number, vertical = false) =>
@@ -29,14 +60,15 @@ export function CapsuleRank({
   const max = Math.max(1, ...sorted.map((s) => s.value));
   return (
     <div className={cn("flex flex-col gap-2", className)}>
+      <style>{CHART_STYLES}</style>
       {sorted.map((it, i) => (
-        <div key={it.label} className="flex items-center gap-2.5">
+        <div key={it.label} className="mc-row flex items-center gap-2.5 px-1 py-0.5">
           <span
             className={cn(
-              "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-black",
+              "mc-pop flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-black",
               i < 3 ? "text-white" : "bg-white/12 text-muted-foreground"
             )}
-            style={i < 3 ? { background: fillColor(i) } : undefined}
+            style={{ ...(i < 3 ? { background: fillColor(i) } : undefined), animationDelay: `${Math.min(i, 12) * 45}ms` }}
           >
             {i + 1}
           </span>
@@ -45,8 +77,8 @@ export function CapsuleRank({
           </span>
           <div className="relative h-5 flex-1 overflow-hidden rounded-full bg-white/10">
             <div
-              className="h-full rounded-full transition-[width] duration-700 ease-out"
-              style={{ width: `${Math.max(6, Math.round((it.value / max) * 100))}%`, background: grad(i) }}
+              className="mc-grow-x h-full rounded-full"
+              style={{ width: `${Math.max(6, Math.round((it.value / max) * 100))}%`, background: grad(i), animationDelay: `${Math.min(i, 12) * 55}ms` }}
             />
           </div>
           <span className="w-14 shrink-0 text-right text-xs font-bold tabular-nums text-foreground">
@@ -64,19 +96,21 @@ export function TreemapChart({ items, className }: { items: { label: string; val
   const rects = squarify(items, 0, 0, 400, 260);
   return (
     <div className={cn("relative w-full overflow-hidden rounded-2xl bg-white/6", className)} style={{ height: 260 }}>
-      {rects.map((r) => {
+      <style>{CHART_STYLES}</style>
+      {rects.map((r, ri) => {
         const big = r.w > 84 && r.h > 46;
         const mid = r.w > 48 && r.h > 30;
         return (
           <div
             key={r.label}
-            className="absolute flex flex-col justify-between overflow-hidden rounded-[8px] p-1.5"
+            className="mc-pop absolute flex flex-col justify-between overflow-hidden rounded-[8px] p-1.5 transition-transform duration-200 hover:z-10 hover:scale-[1.02]"
             style={{
               left: `${(r.x / 400) * 100}%`,
               top: `${(r.y / 260) * 100}%`,
               width: `${(r.w / 400) * 100}%`,
               height: `${(r.h / 260) * 100}%`,
-              background: grad(rects.indexOf(r), true),
+              background: grad(ri, true),
+              animationDelay: `${Math.min(ri, 12) * 40}ms`,
             }}
           >
             <span className="truncate text-[10px] font-semibold leading-tight text-white/95">
@@ -99,13 +133,14 @@ export function HistogramBars({ items, className }: { items: { label: string; va
   const max = Math.max(1, ...items.map((h) => h.value));
   return (
     <div className={cn("flex h-40 items-end gap-2", className)}>
+      <style>{CHART_STYLES}</style>
       {items.map((d, i) => (
         <div key={d.label} className="flex min-w-0 flex-1 flex-col items-center gap-1.5" title={`${d.label}：${d.value} 个`}>
-          <span className="text-xs font-bold tabular-nums text-foreground">{d.value}</span>
+          <span className="mc-fade text-xs font-bold tabular-nums text-foreground" style={{ animationDelay: `${Math.min(i, 12) * 60}ms` }}>{d.value}</span>
           <div className="flex w-full flex-col justify-end overflow-hidden rounded-md bg-white/10" style={{ height: "100%" }}>
             <div
-              className="w-full rounded-md transition-[height] duration-700 ease-out"
-              style={{ height: `${Math.max(8, Math.round((d.value / max) * 100))}%`, background: grad(i, true) }}
+              className="mc-grow-y w-full rounded-md"
+              style={{ height: `${Math.max(8, Math.round((d.value / max) * 100))}%`, background: grad(i, true), animationDelay: `${Math.min(i, 12) * 55}ms` }}
             />
           </div>
           <span className="truncate text-[10px] text-muted-foreground">{d.label}</span>
@@ -438,7 +473,7 @@ export function SkillMarketMap({
             <line x1={P} x2={W - P} y1={py(midY)} y2={py(midY)} stroke="rgba(255,255,255,0.28)" strokeWidth="1" strokeDasharray="4 4" />
             <line x1={px(midX)} x2={px(midX)} y1={P} y2={H - P} stroke="rgba(255,255,255,0.28)" strokeWidth="1" strokeDasharray="4 4" />
             {/* 气泡（标签仅大气泡/选中显示，防重叠） */}
-            {usable.map((n) => {
+            {usable.map((n, ni) => {
               const cx = px(n.avgSalary as number);
               const cy = py(n.count);
               const rad = Math.min(24, 6 + Math.sqrt(n.count) * 2.2);
@@ -451,7 +486,8 @@ export function SkillMarketMap({
                   tabIndex={0}
                   role="button"
                   aria-label={`${n.skill}：${n.count} 个岗位，均薪 ${n.avgSalary}K`}
-                  className="cursor-pointer outline-none"
+                  className="mc-node cursor-pointer outline-none"
+                  style={{ animationDelay: `${Math.min(ni, 30) * 32}ms` }}
                   onClick={() => setSel(n)}
                   onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSel(n); } }}
                 >

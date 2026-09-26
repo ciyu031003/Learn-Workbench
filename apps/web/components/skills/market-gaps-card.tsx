@@ -9,6 +9,24 @@ import { Badge } from "@/components/ui/badge";
 import { useToastStore } from "@/store/toast-store";
 import { Loader2, TrendingUp, CheckCircle2, PlusCircle, Target, Sparkles, MapPin } from "lucide-react";
 
+/** 局部样式（不动 globals.css） */
+const GAP_STYLES = `
+@keyframes mgc-dot-in { from { transform: scale(0.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.mgc-row { transition: transform 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease; }
+.mgc-row:hover {
+  transform: translateY(-1px);
+  border-color: rgba(47, 116, 192, 0.35);
+  box-shadow: 0 10px 24px -16px rgba(0, 0, 0, 0.5);
+}
+.mgc-fill { transition: width 0.65s cubic-bezier(0.22, 1, 0.36, 1); }
+.mgc-dot { animation: mgc-dot-in 0.3s ease both; }
+@media (prefers-reduced-motion: reduce) {
+  .mgc-row:hover { transform: none; }
+  .mgc-fill { transition: none; }
+  .mgc-dot { animation: none; }
+}
+`;
+
 const CATEGORY_LABELS: Record<string, string> = {
   backend: "后端", frontend: "前端", data: "数据", ops: "运维/云",
   ai: "AI", network: "网络", security: "安全", cloud: "云计算", soft: "软技能", "": "其他",
@@ -22,6 +40,14 @@ export function MarketGapsCard({ limit = 10 }: { limit?: number }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [enrolling, setEnrolling] = useState<number | null>(null);
+  // 入场时把需求条从 0 展开到目标宽度（用 transition 而非 animation，便于逐行 delay）
+  const [barsReady, setBarsReady] = useState(false);
+
+  useEffect(() => {
+    if (!data || data.gaps.length === 0) return;
+    const t = setTimeout(() => setBarsReady(true), 60);
+    return () => clearTimeout(t);
+  }, [data]);
 
   const load = useCallback(async () => {
     try {
@@ -57,8 +83,11 @@ export function MarketGapsCard({ limit = 10 }: { limit?: number }) {
     }
   };
 
+  const maxJobCount = data && data.gaps.length > 0 ? Math.max(...data.gaps.map((g) => g.jobCount), 1) : 1;
+
   return (
     <Card>
+      <style>{GAP_STYLES}</style>
       <CardHeader className="flex-row items-center justify-between">
         <CardTitle className="flex items-center gap-2">
           <TrendingUp className="size-5 text-primary" /> 市场需求缺口
@@ -82,26 +111,52 @@ export function MarketGapsCard({ limit = 10 }: { limit?: number }) {
               <Sparkles className="mr-1 inline size-3.5 text-amber-500" />
               市场要求最多、你还未达标的技能 —— 补齐即可直接提升岗位匹配度
             </p>
-            {data.gaps.map((g) => (
-              <div key={g.skillId} className="flex flex-wrap items-center gap-2 rounded-xl border border-white/15 bg-muted/30 px-3 py-2.5">
-                <Target className="size-4 shrink-0 text-primary" />
-                <span className="min-w-0 text-sm font-semibold">{g.skill}</span>
-                <Badge variant="muted" className="text-[10px]">{CATEGORY_LABELS[g.category] ?? "其他"}</Badge>
-                <span className="text-xs text-muted-foreground">{g.jobCount} 岗位要求 · 我：{LEVEL_LABELS[g.myLevel]}</span>
-                {g.topicTitle ? (
-                  <Link
-                    href={g.phaseId ? `/roadmap#phase-${g.phaseId}` : "/roadmap"}
-                    title={g.phaseTitle ? `定位到路线图阶段：${g.phaseTitle}` : "前往学习路线图"}
-                    className="w-full text-xs text-muted-foreground hover:text-primary hover:underline sm:w-auto sm:flex-1 sm:truncate"
-                  >
-                    → {g.topicTitle}{g.estimateHours ? `（约 ${g.estimateHours}h）` : ""}
-                    {g.phaseId ? <MapPin className="ml-1 inline size-3" /> : null}
-                  </Link>
-                ) : null}
-                <Button size="sm" variant="secondary" onClick={() => enroll(g)} disabled={enrolling === g.skillId} className="ml-auto">
-                  {enrolling === g.skillId ? <Loader2 className="size-3.5 animate-spin" /> : <PlusCircle className="size-3.5" />}
-                  加入学习
-                </Button>
+            {data.gaps.map((g, i) => (
+              <div key={g.skillId} className="mgc-row flex flex-col gap-2 rounded-xl border border-white/15 bg-muted/30 px-3 py-2.5">
+                <div className="flex items-center gap-2">
+                  <Target className="size-4 shrink-0 text-primary" />
+                  <span className="min-w-0 truncate text-sm font-semibold">{g.skill}</span>
+                  <Badge variant="muted" className="shrink-0 text-[10px]">{CATEGORY_LABELS[g.category] ?? "其他"}</Badge>
+                  {/* 需求条：直观呈现"这个技能在市场上被要得多不多" */}
+                  <span className="hidden h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-muted sm:block">
+                    <span
+                      className="mgc-fill block h-full rounded-full bg-gradient-to-r from-primary to-emerald-500"
+                      style={{ width: barsReady ? `${Math.max(8, Math.round((g.jobCount / maxJobCount) * 100))}%` : "0%", transitionDelay: `${Math.min(i, 10) * 70}ms` }}
+                    />
+                  </span>
+                  <span className="ml-auto shrink-0 text-xs font-bold tabular-nums text-muted-foreground">{g.jobCount} 岗</span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* 我的掌握度：5 段点阵，替代原来一行文字里的"我：入门" */}
+                  <span className="inline-flex items-center gap-1" title={`我的水平：${LEVEL_LABELS[g.myLevel] ?? "未掌握"}`}>
+                    {[0, 1, 2, 3, 4].map((d) => (
+                      <span
+                        key={d}
+                        className={
+                          "mgc-dot size-1.5 rounded-full " +
+                          (d < g.myLevel ? "bg-emerald-500" : "bg-muted-foreground/25")
+                        }
+                        style={{ animationDelay: `${Math.min(i, 10) * 40 + d * 30}ms` }}
+                      />
+                    ))}
+                    <span className="ml-1 text-[11px] text-muted-foreground">{LEVEL_LABELS[g.myLevel] ?? "未掌握"}</span>
+                  </span>
+                  {g.topicTitle ? (
+                    <Link
+                      href={g.phaseId ? `/roadmap#phase-${g.phaseId}` : "/roadmap"}
+                      title={g.phaseTitle ? `定位到路线图阶段：${g.phaseTitle}` : "前往学习路线图"}
+                      className="min-w-0 text-xs text-muted-foreground hover:text-primary hover:underline sm:flex-1 sm:truncate"
+                    >
+                      → {g.topicTitle}{g.estimateHours ? `（约 ${g.estimateHours}h）` : ""}
+                      {g.phaseId ? <MapPin className="ml-1 inline size-3" /> : null}
+                    </Link>
+                  ) : null}
+                  <Button size="sm" variant="secondary" onClick={() => enroll(g)} disabled={enrolling === g.skillId} className="ml-auto">
+                    {enrolling === g.skillId ? <Loader2 className="size-3.5 animate-spin" /> : <PlusCircle className="size-3.5" />}
+                    加入学习
+                  </Button>
+                </div>
               </div>
             ))}
           </div>

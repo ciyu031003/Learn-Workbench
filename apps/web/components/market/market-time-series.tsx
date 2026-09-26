@@ -22,6 +22,22 @@ function linePath(
   return visible.map((point, index) => `${index === 0 ? "M" : "L"}${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(" ");
 }
 
+/**
+ * 入场"绘制"动效：pathLength={1} 把路径长度归一化，
+ * 于是 stroke-dasharray/offset 都能用 0~1 的无量纲值做动画（不必测真实路径长度）。
+ */
+const TS_STYLES = `
+@keyframes mts-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes mts-fade { from { opacity: 0; } to { opacity: 1; } }
+.mts-draw { stroke-dasharray: 1; animation: mts-draw 1.15s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.mts-fade { animation: mts-fade 0.9s ease 0.2s both; }
+.mts-dot  { animation: mts-fade 0.5s ease both; }
+@media (prefers-reduced-motion: reduce) {
+  .mts-draw { animation: none; stroke-dasharray: none; }
+  .mts-fade, .mts-dot { animation: none; }
+}
+`;
+
 export function MarketTimeSeries({
   series,
   className,
@@ -49,6 +65,7 @@ export function MarketTimeSeries({
 
   return (
     <div className={cn("flex flex-col gap-2", className)}>
+      <style>{TS_STYLES}</style>
       <svg
         viewBox={`0 0 ${width} ${height}`}
         className="h-auto w-full overflow-visible"
@@ -78,8 +95,9 @@ export function MarketTimeSeries({
           <>
             {jobsPath ? (
               <>
-                <path d={`${jobsPath} L${width - padding},${height - padding} L${padding},${height - padding} Z`} fill="url(#market-jobs-fill)" />
-                <path d={jobsPath} fill="none" stroke="#0ea5e9" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                <path className="mts-fade" d={`${jobsPath} L${width - padding},${height - padding} L${padding},${height - padding} Z`} fill="url(#market-jobs-fill)" />
+                {/* pathLength 归一化 + dashoffset 动画 = 折线"画出来"的入场 */}
+                <path className="mts-draw" pathLength={1} d={jobsPath} fill="none" stroke="#0ea5e9" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
               </>
             ) : null}
             {salaryPath ? (
@@ -97,7 +115,7 @@ export function MarketTimeSeries({
               : height - padding - (point.avgSalary / model.maxSalary) * (height - padding * 2);
           return (
             <g key={point.date}>
-              <circle cx={x} cy={y} r="2.5" fill="#0ea5e9">
+              <circle className="mts-dot" style={{ animationDelay: `${Math.min(index, 30) * 28 + 300}ms` }} cx={x} cy={y} r="2.5" fill="#0ea5e9">
                 <title>{`${point.date} ${point.newJobs} 个新职位`}</title>
               </circle>
               {salaryY != null ? (

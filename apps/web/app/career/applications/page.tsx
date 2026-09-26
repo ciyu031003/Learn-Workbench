@@ -9,7 +9,6 @@ import {
   jobApplicationStageColors,
 } from "@learn-workbench/shared";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { GlassModal } from "@/components/ui/modal";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,6 +20,28 @@ import {
 const STAGE_ORDER: JobApplicationStage[] = [
   "favorite", "ready", "applied", "online_test", "interview1", "interview2", "offer", "hired", "closed",
 ];
+
+/** 看板局部动效（不动 globals.css） */
+const BOARD_STYLES = `
+@keyframes ap-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes ap-pop  { 0% { opacity: 0; transform: scale(0.82); } 100% { opacity: 1; transform: scale(1); } }
+.ap-rise { animation: ap-rise 0.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.ap-pop  { animation: ap-pop 0.34s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.ap-stat { transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; }
+.ap-stat:hover { transform: translateY(-2px); box-shadow: 0 12px 28px -18px rgba(0, 0, 0, 0.6); }
+.ap-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.ap-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 34px -22px rgba(0, 0, 0, 0.7);
+}
+.ap-rail { display: block; height: 3px; width: 100%; border-radius: 999px; opacity: 0.85; }
+@media (prefers-reduced-motion: reduce) {
+  .ap-rise, .ap-pop { animation: none; }
+  .ap-stat:hover, .ap-card:hover { transform: none; }
+}
+`;
 
 export default function ApplicationsPage() {
   const pushToast = useToastStore((s) => s.push);
@@ -141,6 +162,7 @@ export default function ApplicationsPage() {
 
   return (
     <div className="page-enter flex flex-col gap-6">
+      <style>{BOARD_STYLES}</style>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="page-title text-2xl font-bold tracking-tight lg:text-3xl">我的求职</h1>
@@ -155,8 +177,13 @@ export default function ApplicationsPage() {
 
       {/* 统计 */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-9">
-        {STAGE_ORDER.map((s) => (
-          <div key={s} className="paper-card rounded-xl px-3 py-2.5 text-center">
+        {STAGE_ORDER.map((s, i) => (
+          <div
+            key={s}
+            className="ap-stat ap-pop paper-card rounded-xl px-3 py-2.5 text-center"
+            style={{ animationDelay: `${i * 35}ms`, borderTopColor: jobApplicationStageColors[s], borderTopWidth: 2 }}
+            title={`${jobApplicationStageLabels[s]}：${stats?.[s] ?? 0} 条`}
+          >
             <div className="text-lg font-black tabular-nums" style={{ color: jobApplicationStageColors[s] }}>
               {stats?.[s] ?? 0}
             </div>
@@ -182,18 +209,30 @@ export default function ApplicationsPage() {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           {KANBAN_COLUMNS.map((col) => {
             const colApps = apps.filter((a) => (col.stages as string[]).includes(a.stage));
+            // 列色取该列首个阶段的语义色：让看板四列一眼可分，也和统计条同源
+            const colColor = jobApplicationStageColors[col.stages[0] as JobApplicationStage] ?? "#10b981";
             return (
               <div key={col.key} className="flex flex-col gap-2">
+                <span className="ap-rail" style={{ backgroundColor: colColor }} aria-hidden />
                 <div className="flex items-center justify-between px-1">
                   <h3 className="text-sm font-bold text-foreground">{col.label}</h3>
-                  <Badge variant="muted">{colApps.length}</Badge>
+                  <span
+                    className="inline-flex min-w-6 items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-black text-white tabular-nums"
+                    style={{ backgroundColor: colColor }}
+                  >
+                    {colApps.length}
+                  </span>
                 </div>
                 <div className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-white/5 p-2 min-h-[120px]">
                   {colApps.length === 0 ? (
                     <p className="py-6 text-center text-xs text-muted-foreground">暂无</p>
                   ) : (
-                    colApps.map((app) => (
-                      <div key={app.id} className="paper-card rounded-xl p-3">
+                    colApps.map((app, ci) => (
+                      <div
+                        key={app.id}
+                        className="ap-card ap-rise paper-card rounded-xl p-3"
+                        style={{ animationDelay: `${Math.min(ci, 10) * 45}ms` }}
+                      >
                         <div className="flex items-start gap-2">
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-bold text-foreground">{app.jobTitle}</p>
@@ -211,6 +250,21 @@ export default function ApplicationsPage() {
                             style={{ backgroundColor: jobApplicationStageColors[app.stage] }}
                           >
                             {jobApplicationStageLabels[app.stage]}
+                          </span>
+                        </div>
+                        {/* 流程进度：这条求职走到全流程的第几步，一眼可见 */}
+                        <div className="mt-2 flex items-center gap-1.5" title={`流程进度 ${STAGE_ORDER.indexOf(app.stage) + 1}/${STAGE_ORDER.length}`}>
+                          <span className="h-1 flex-1 overflow-hidden rounded-full bg-white/10">
+                            <span
+                              className="block h-full rounded-full"
+                              style={{
+                                width: `${Math.round(((STAGE_ORDER.indexOf(app.stage) + 1) / STAGE_ORDER.length) * 100)}%`,
+                                backgroundColor: jobApplicationStageColors[app.stage],
+                              }}
+                            />
+                          </span>
+                          <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
+                            {STAGE_ORDER.indexOf(app.stage) + 1}/{STAGE_ORDER.length}
                           </span>
                         </div>
                         {app.note ? (

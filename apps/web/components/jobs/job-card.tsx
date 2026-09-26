@@ -8,10 +8,42 @@ import {
   jobCategoryLabels,
   jobSourceLabel,
 } from "@learn-workbench/shared";
+import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Building2, CalendarClock, Clock3, Heart, MapPin, Users } from "lucide-react";
+import { ArrowRight, Building2, CalendarClock, Clock3, Heart, MapPin, Users } from "lucide-react";
 import { FreshnessBadge } from "./freshness-badge";
+
+/** 职位卡局部动效（不动 globals.css，避免与其它流的样式互相覆盖） */
+const CARD_STYLES = `
+@keyframes jc-heart-pop {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.5); }
+  70%  { transform: scale(0.88); }
+  100% { transform: scale(1); }
+}
+.jc-heart-pop { animation: jc-heart-pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1); }
+/* 类别色轨：hover 时向两端"舒展"，给卡片一点性格又不喧哗 */
+.jc-rail {
+  position: absolute; left: 0; top: 16px; bottom: 16px; width: 3px;
+  border-radius: 0 999px 999px 0; opacity: 0.75;
+  transition: top 0.24s cubic-bezier(0.22, 1, 0.36, 1), bottom 0.24s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.24s ease;
+}
+@media (hover: hover) {
+  .job-card:hover .jc-rail { top: 6px; bottom: 6px; opacity: 1; }
+}
+/* 底部"查看详情"：hover / 键盘聚焦时滑入 */
+.jc-cta { opacity: 0; transform: translateX(-4px); transition: opacity 0.22s ease, transform 0.22s ease; }
+@media (hover: hover) {
+  .job-card:hover .jc-cta { opacity: 1; transform: none; }
+}
+.job-card:focus-visible .jc-cta { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .jc-rail, .jc-cta { transition: none; }
+  .jc-cta { opacity: 0; transform: none; }
+  .job-card:hover .jc-cta, .job-card:focus-visible .jc-cta { opacity: 1; }
+}
+`;
 
 const avatarGradients = [
   "from-indigo-500 to-blue-500",
@@ -68,6 +100,10 @@ export function JobCard({
   onToggleFavorite: (id: number) => void;
 }) {
   const isAnnouncement = job.channel === "announcement";
+  // 收藏成功的"心跳"反馈：只影响动画类名，不改任何回调语义
+  const [heartPop, setHeartPop] = useState(false);
+  const popTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (popTimer.current) clearTimeout(popTimer.current); }, []);
   const initials = (job.company || job.title).trim().charAt(0).toUpperCase() || (isAnnouncement ? "公" : "职");
   const gradient = avatarGradients[hashText(job.company || job.title || job.source) % avatarGradients.length];
   const deadline = deadlineText(job.deadlineAt);
@@ -89,9 +125,12 @@ export function JobCard({
         }
       }}
       className="job-card job-card-enter glass glass-hover group relative flex cursor-pointer flex-col overflow-hidden rounded-2xl p-4"
-      style={{ animationDelay: `${Math.min(index, 12) * 40}ms` }}
+      style={{ animationDelay: `${Math.min(index, 12) * 40}ms`, ["--jc-cat" as string]: catColor }}
     >
       <span className="job-card-glare pointer-events-none absolute inset-0 rounded-[inherit]" />
+      {/* 类别色轨：公告与职位共用同一套语言，靠颜色区分招花的三条来源线 */}
+      <span className="jc-rail" style={{ backgroundColor: catColor }} aria-hidden />
+      <style>{CARD_STYLES}</style>
 
       <div className="relative flex items-start gap-3">
         <span
@@ -216,21 +255,31 @@ export function JobCard({
           </span>
         ) : null}
         {job.isNew ? (
-          <span className="badge-new ml-auto rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-black text-emerald-600 dark:text-emerald-300">
+          <span className="badge-new rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-black text-emerald-600 dark:text-emerald-300">
             NEW
           </span>
         ) : null}
+        {/* hover / 聚焦时滑入的行内 CTA，让"可点"这件事更明确 */}
+        <span className="jc-cta ml-auto inline-flex items-center gap-0.5 text-[11px] font-bold text-primary">
+          查看详情
+          <ArrowRight className="size-3" />
+        </span>
         <button
           type="button"
           aria-label={job.isFav ? "取消收藏" : "收藏职位"}
           disabled={favoriteBusy}
           onClick={(e) => {
             e.stopPropagation();
+            if (!job.isFav) {
+              setHeartPop(true);
+              if (popTimer.current) clearTimeout(popTimer.current);
+              popTimer.current = setTimeout(() => setHeartPop(false), 440);
+            }
             onToggleFavorite(job.id);
           }}
-          className="ml-auto rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-white/15 hover:text-foreground disabled:opacity-50"
+          className="rounded-lg p-1.5 text-muted-foreground transition-all hover:scale-110 hover:bg-white/15 hover:text-foreground active:scale-95 disabled:opacity-50"
         >
-          <Heart className={cn("size-4", job.isFav && "fill-emerald-500 text-emerald-500")} />
+          <Heart className={cn("size-4", heartPop && "jc-heart-pop", job.isFav && "fill-emerald-500 text-emerald-500")} />
         </button>
       </div>
     </article>

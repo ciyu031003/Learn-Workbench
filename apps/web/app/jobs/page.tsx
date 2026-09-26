@@ -53,6 +53,18 @@ import {
 
 type JobDetail = JobPosting & { isFav: boolean };
 
+/** 招花页局部动效（不动 globals.css） */
+const JOBS_STYLES = `
+@keyframes jg-pop { 0% { opacity: 0; transform: scale(0.86) translateY(4px); } 100% { opacity: 1; transform: none; } }
+.jg-pop { animation: jg-pop 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.jg-stat { transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease; }
+.jg-stat:hover { transform: translateY(-2px); background-color: rgba(255, 255, 255, 0.16); box-shadow: 0 14px 30px -20px rgba(0, 0, 0, 0.65); }
+@media (prefers-reduced-motion: reduce) {
+  .jg-pop { animation: none; }
+  .jg-stat:hover { transform: none; }
+}
+`;
+
 const PAGE_SIZE = 12;
 const PLATFORM_OPTIONS = Object.keys(jobSourceLabel) as unknown as JobSource[];
 
@@ -401,6 +413,7 @@ export default function JobsPage() {
     ].filter(Boolean).length;
   return (
     <div className="page-enter flex flex-col gap-6">
+      <style>{JOBS_STYLES}</style>
       <section className="paper-card relative overflow-hidden rounded-[24px] p-6 lg:p-8">
         <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-emerald-400/25 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-24 -left-20 h-72 w-72 rounded-full bg-cyan-400/20 blur-3xl" />
@@ -441,8 +454,12 @@ export default function JobsPage() {
           </p>
 
           <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-            {statItems.map((item) => (
-              <div key={item.label} className="rounded-2xl border border-white/20 bg-white/10 px-4 py-3 backdrop-blur-md">
+            {statItems.map((item, si) => (
+              <div
+                key={item.label}
+                className="jg-stat jg-pop rounded-2xl border border-white/20 bg-white/10 px-4 py-3 backdrop-blur-md"
+                style={{ animationDelay: `${si * 55}ms` }}
+              >
                 <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                   <item.icon className={cn("size-3.5", item.accent)} />
                   {item.label}
@@ -716,6 +733,23 @@ export default function JobsPage() {
             />
           ) : null}
 
+          {/* 结果概览：条数 / 页码 / 生效筛选，替代原来"只有翻页器才看得到总数" */}
+          {jobs.length > 0 ? (
+            <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 px-1 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5 font-semibold text-foreground">
+                <Flower2 className="size-3.5 text-emerald-500" />
+                找到 {total} 个职位
+              </span>
+              <span className="tabular-nums">第 {page} / {totalPages} 页</span>
+              {filterCount > 0 ? (
+                <span className="jg-pop inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 font-bold text-emerald-600 dark:text-emerald-300">
+                  已筛 {filterCount} 项
+                </span>
+              ) : null}
+              <span className="ml-auto hidden sm:inline">点击卡片查看详情</span>
+            </div>
+          ) : null}
+
           {jobs.length > 0 ? (
             <div className="grid grid-cols-1 justify-center gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {jobs.map((job, index) => (
@@ -749,9 +783,18 @@ export default function JobsPage() {
                 <ChevronLeft className="size-4" />
                 上一页
               </Button>
-              <span className="text-sm text-muted-foreground tabular-nums">
-                第 {page} / {totalPages} 页 · 共 {total} 个
-              </span>
+              <div className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
+                <span className="text-sm text-muted-foreground tabular-nums">
+                  第 {page} / {totalPages} 页 · 共 {total} 个
+                </span>
+                {/* 页码进度轨：翻到哪儿了一眼可见 */}
+                <span className="h-1 w-full max-w-[220px] overflow-hidden rounded-full bg-white/10">
+                  <span
+                    className="block h-full rounded-full bg-gradient-to-r from-emerald-400 to-cyan-500"
+                    style={{ width: `${Math.round((page / Math.max(1, totalPages)) * 100)}%` }}
+                  />
+                </span>
+              </div>
               <Button
                 variant="outline"
                 size="sm"
