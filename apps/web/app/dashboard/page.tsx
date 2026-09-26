@@ -311,7 +311,14 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="page-enter flex flex-col gap-6">
+    <div className="page-enter relative">
+      {/* 流动呼吸光效层（与移动端流光呼应；减弱动态时静止） */}
+      <div className="lwb-page-aurora" aria-hidden>
+        <span className="lwb-page-orb lwb-page-orb-a" />
+        <span className="lwb-page-orb lwb-page-orb-b" />
+        <span className="lwb-page-orb lwb-page-orb-c" />
+      </div>
+      <div className="lwb-stagger relative z-[1] flex flex-col gap-6">
       {error ? (
         <Card>
           <CardContent className="p-6 text-sm text-danger">{error}</CardContent>
@@ -320,7 +327,7 @@ export default function DashboardPage() {
 
       {/* 问候条 + 整体进度 */}
       <section
-        className={`paper-card glow-border relative overflow-hidden ${
+        className={`lwb-sheen paper-card glow-border relative overflow-hidden ${
           mounted
             ? new Date().getHours() < 11
               ? "glow-morning"
@@ -672,7 +679,7 @@ export default function DashboardPage() {
           onDone={() => setCelebration(null)}
         />
       ) : null}
-
+      </div>
     </div>
   );
 }

@@ -117,7 +117,14 @@ export default function TodayPage() {
   ];
 
   return (
-    <div className="page-enter flex flex-col gap-6">
+    <div className="page-enter relative">
+      {/* 流动呼吸光效层（与移动端流光呼应；减弱动态时静止） */}
+      <div className="lwb-page-aurora" aria-hidden>
+        <span className="lwb-page-orb lwb-page-orb-a" />
+        <span className="lwb-page-orb lwb-page-orb-b" />
+        <span className="lwb-page-orb lwb-page-orb-c" />
+      </div>
+      <div className="lwb-stagger relative z-[1] flex flex-col gap-6">
       {/* 问候 + 今日完成度 */}
       <div>
         <h1 className="page-title text-2xl font-bold tracking-tight lg:text-3xl">{data.greeting}</h1>
@@ -125,7 +132,7 @@ export default function TodayPage() {
       </div>
 
       {/* v8：3D 完成度球 hero（今日页的视觉主角）+ 四个域入口 */}
-      <Card className="relative overflow-hidden border-white/20 bg-gradient-to-br from-primary/12 via-card/70 to-accent/12 shadow-[0_18px_60px_-30px_rgba(47,116,192,0.65)] backdrop-blur-xl">
+      <Card className="lwb-sheen relative overflow-hidden border-white/20 bg-gradient-to-br from-primary/12 via-card/70 to-accent/12 shadow-[0_18px_60px_-30px_rgba(47,116,192,0.65)] backdrop-blur-xl">
         <div className="pointer-events-none absolute -left-24 -top-24 size-64 rounded-full bg-primary/20 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-28 -right-16 size-72 rounded-full bg-accent/15 blur-3xl" />
         {/* v13 U12：低透明度几何底纹（技法参考 uiverse.io/csemszepp/old-hound-37, MIT），只做氛围 */}
@@ -148,7 +155,7 @@ export default function TodayPage() {
           <div className="grid gap-3 sm:grid-cols-2">
             {blocks.map((b) => (
               <Link key={b.key} href={b.href} className="group">
-                <Card className="h-full border-white/15 bg-white/45 backdrop-blur-md transition-all group-hover:-translate-y-0.5 group-hover:bg-white/60 dark:bg-white/5 dark:group-hover:bg-white/10">
+                <Card className="lwb-lift h-full border-white/15 bg-white/45 backdrop-blur-md transition-all group-hover:-translate-y-0.5 group-hover:bg-white/60 dark:bg-white/5 dark:group-hover:bg-white/10">
                   <CardContent className="flex items-center gap-3 p-4">
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary/15">
                       <b.icon className="size-5 text-primary" />
@@ -257,6 +264,7 @@ export default function TodayPage() {
           </CardContent>
         </Card>
       ) : null}
+      </div>
     </div>
   );
 }

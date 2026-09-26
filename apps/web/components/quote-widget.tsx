@@ -47,7 +47,8 @@ export function QuoteWidget({
   if (variant === "inline") {
     return (
       <div className={className}>
-        <div className="flex min-h-full flex-col gap-1.5 border-l-2 border-accent/60 pl-4">
+        <style dangerouslySetInnerHTML={{ __html: QUOTE_CSS }} />
+        <div className="lwb-quote-inline flex min-h-full flex-col gap-1.5 pl-4">
           <div className="flex items-center justify-between gap-3">
             <span className="flex items-center gap-1.5 text-xs font-semibold text-accent-strong">
               <Quote className="size-3.5" /> 每日一言
@@ -73,26 +74,57 @@ export function QuoteWidget({
 
   return (
     <div className={className}>
-      <div className="paper-card paper-hover flex max-w-md flex-col gap-2 p-4">
-        <div className="flex items-center justify-between">
+      <style dangerouslySetInnerHTML={{ __html: QUOTE_CSS }} />
+      <div className="paper-card paper-hover lwb-quote flex max-w-md flex-col gap-2 overflow-hidden p-4">
+        {/* 巨型引号水印：只做氛围，永远待在文字后面 */}
+        <span className="lwb-quote-mark" aria-hidden>
+          &ldquo;
+        </span>
+        <div className="relative z-[1] flex items-center justify-between">
           <span className="flex items-center gap-1.5 text-xs font-medium text-primary">
             <Quote className="size-3.5" /> 每日一言
           </span>
           <button
             onClick={next}
             aria-label="换一句"
-            className="rounded-lg p-2 text-muted-foreground transition-all active:rotate-90 hover:bg-muted hover:text-foreground"
+            className="lwb-quote-refresh rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             <RefreshCw className="size-4" />
           </button>
         </div>
-        <p key={"quote-" + index} className="quote-fade text-sm leading-relaxed text-foreground">{quote.text}</p>
+        <p key={"quote-" + index} className="quote-fade lwb-quote-text relative z-[1] text-sm leading-relaxed text-foreground">
+          {quote.text}
+        </p>
         {quote.author ? (
-          <span key={"author-" + index} className="quote-fade self-end text-xs text-muted-foreground">—— {quote.author}</span>
+          <span key={"author-" + index} className="quote-fade relative z-[1] self-end text-xs text-muted-foreground">
+            —— {quote.author}
+          </span>
         ) : null}
+        {/* 轮播进度条：与 8s 定时器同周期，换句时重新开始 */}
+        <span key={"bar-" + index} className="lwb-quote-bar" aria-hidden />
       </div>
     </div>
   );
 }
+
+/**
+ * 每日一言的动效样式（v1.27 Web 精修）。
+ * 全部为纯 CSS；prefers-reduced-motion 下关掉位移与进度条，文字仍然正常显示。
+ */
+const QUOTE_CSS = [
+  ".lwb-quote{position:relative;isolation:isolate}",
+  ".lwb-quote-mark{position:absolute;top:-18px;right:8px;z-index:0;font-family:Georgia,'Times New Roman',serif;font-size:88px;font-weight:800;line-height:1;color:color-mix(in srgb,var(--color-primary) 13%,transparent);pointer-events:none;user-select:none}",
+  ".lwb-quote-text{animation:lwb-quote-in .5s cubic-bezier(.22,.68,.32,1) both}",
+  "@keyframes lwb-quote-in{from{opacity:0;transform:translate3d(0,7px,0)}to{opacity:1;transform:none}}",
+  ".lwb-quote-bar{position:absolute;left:0;bottom:0;height:2px;width:100%;transform-origin:left;background:linear-gradient(90deg,var(--color-primary),var(--color-accent));opacity:.7;animation:lwb-quote-bar 8s linear both}",
+  "@keyframes lwb-quote-bar{from{transform:scaleX(0)}to{transform:scaleX(1)}}",
+  ".lwb-quote-refresh{transition:transform .45s cubic-bezier(.22,.68,.32,1),background-color .2s,color .2s}",
+  ".lwb-quote-refresh:hover{transform:rotate(-90deg)}",
+  ".lwb-quote-refresh:active{transform:rotate(-180deg)}",
+  ".lwb-quote-inline{position:relative}",
+  ".lwb-quote-inline::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;border-radius:9999px;background:linear-gradient(180deg,var(--color-primary),var(--color-accent));transform-origin:top;animation:lwb-quote-grow .6s cubic-bezier(.22,.68,.32,1) both}",
+  "@keyframes lwb-quote-grow{from{transform:scaleY(.25);opacity:0}to{transform:scaleY(1);opacity:1}}",
+  "@media (prefers-reduced-motion:reduce){.lwb-quote-text,.lwb-quote-bar,.lwb-quote-inline::before{animation:none}.lwb-quote-bar{display:none}.lwb-quote-refresh{transition:none}}",
+].join("\n");
 
 
