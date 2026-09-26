@@ -30,7 +30,6 @@ import { AuthSheet } from "@/components/auth-sheet";
 import { haptics } from "@/lib/haptics";
 import type { ThemeColors, ThemeMode } from "@/theme/tokens";
 import { useTheme } from "@/theme";
-import { resolveEdgeSwipeEnabled } from "@/lib/edge-swipe";
 import { typography } from "@/theme/tokens";
 
 export default function SettingsScreen() {
@@ -40,9 +39,6 @@ export default function SettingsScreen() {
   const tabBarSpace = useTabBarSpace();
   const backgroundEnabled = useAppStore((s) => s.backgroundEnabled);
   const toggleBackground = useAppStore((s) => s.toggleBackground);
-  const storedEdgeSwipe = useAppStore((s) => s.edgeSwipeEnabled);
-  const setEdgeSwipeEnabled = useAppStore((s) => s.setEdgeSwipeEnabled);
-  const edgeSwipeEnabled = resolveEdgeSwipeEnabled(storedEdgeSwipe, Platform.OS);
   const resetAll = useAppStore((s) => s.resetAll);
   const progress = useAppStore((s) => s.progress);
   const tasks = useAppStore((s) => s.tasks);
@@ -400,17 +396,11 @@ export default function SettingsScreen() {
           title="每日背景图"
           subtitle="每天自动更换风景壁纸"
           right={<Switch value={backgroundEnabled} onValueChange={toggleBackground} trackColor={{ true: colors.primary }} />}
+          last
           onPress={toggleBackground}
         />
-        <ListRow
-          {...tint(GROUP_TINT.orange)}
-          icon="swap-horizontal"
-          title="边缘横滑切换 Tab"
-          subtitle="Android 默认关闭：系统返回手势同样占用屏幕边缘，容易互相抢触摸"
-          right={<Switch value={edgeSwipeEnabled} onValueChange={setEdgeSwipeEnabled} trackColor={{ true: colors.primary }} />}
-          last
-          onPress={() => setEdgeSwipeEnabled(!edgeSwipeEnabled)}
-        />
+        {/* v17-B（D4）：SwipeNavigator 已退役，「边缘横滑切换 Tab」开关随之移除 —— 屏幕边缘完全交给原生侧滑返回，
+            否则会留下一个点了没有任何效果的"死开关"（真机最容易被当成 bug 反馈）。 */}
       </ListGroup>
 
       <GroupLabel>支持</GroupLabel>

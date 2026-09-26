@@ -23,10 +23,20 @@ export function ScreenHeader({
   const pathname = usePathname();
 
   const goBack = () => {
-    // 2026-09-24 定稿：**一律回到"上一级"**，不再用 router.back()。
-    // 因为 app/ 下所有页面都被 <Tabs> 注册成了 Tab（次级页只是 href:null），
-    // back() 回的是"上一个看过的 Tab"（常常是今日），而不是这个子页的父页面。
-    // 真机反馈：健康子页、招花页返回都直接回了今日首页。
+    /**
+     * v17 阶段 B：导航栈已真实存在（根 <Stack> 包 `(tabs)` + 子页），
+     * 所以**优先 pop** —— 才有原生的返回动画，且回到的一定是真正的上一页。
+     *
+     * 旧实现一律 `router.replace(上一级)` 是因为当时所有页面都是 Tab，
+     * `back()` 会回到"上一个看过的 Tab"（真机表现为"返回却回到今日首页"）。
+     * 那个问题随导航栈重构已消失；`resolveBackTarget` 只保留给**无栈历史**的兜底
+     * （深链直达、冷启动、外部协议唤起）。
+     */
+    const canPop = typeof router.canGoBack === "function" && router.canGoBack();
+    if (canPop) {
+      router.back();
+      return;
+    }
     router.replace((backTo ?? resolveBackTarget(pathname)) as never);
   };
 
