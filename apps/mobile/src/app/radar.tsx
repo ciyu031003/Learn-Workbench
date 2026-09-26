@@ -149,7 +149,7 @@ export default function RadarScreen() {
       contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
       showsVerticalScrollIndicator={false}
       refreshControl={
-        <RefreshControl {...pullControl} tintColor={colors.primary} colors={[colors.primary]} progressBackgroundColor={colors.surfaceStrong} progressViewOffset={headerTop + 44} />
+        <RefreshControl {...pullControl} />
       }
     >
       <ScreenHeaderLargeTitle
