@@ -1,19 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Animated from "react-native-reanimated";
 import { typography } from "@/theme/tokens";
 import {
   RefreshControl,
-  ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+  ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
 import { EmptyState } from "@/components/empty-state";
 import { SkeletonList } from "@/components/skeleton";
-import { ScreenHeader } from "@/components/screen-header";
+import { ScreenHeader, useLargeTitleHeader } from "@/components/screen-header";
 import { Card } from "@/components/card";
 import { PressButton } from "@/components/press-button";
 import { FloatField } from "@/components/float-field";
 import { Field } from "@/components/field";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { readableAccent } from "@/lib/habit-accent";
 import { useTheme } from "@/theme";
@@ -39,7 +40,7 @@ type HabitRow = Habit;
 export default function HabitsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const insets = useSafeAreaInsets();
+  const headerScroll = useLargeTitleHeader();
   const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
   const [habits, setHabits] = useState<HabitRow[]>([]);
@@ -232,11 +233,11 @@ const last7 = useMemo(() => {
   }).length;
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top + 24, paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}
+    <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} progressBackgroundColor={colors.surfaceStrong} />
       }>
-      <ScreenHeader title="习惯" subtitle={`今日 ${doneToday}/${scheduledToday} 已完成`} compact />
+      <ScreenHeader large scrollY={headerScroll.scrollY} title="习惯" subtitle={`今日 ${doneToday}/${scheduledToday} 已完成`} />
 
       <PressableScale style={styles.addBtn} haptic onPress={() => setSheetOpen(true)}>
         <ThemedIcon name="add" size={17} color={colors.primary} />
@@ -486,7 +487,7 @@ const last7 = useMemo(() => {
           />
         </View>
       </BottomSheet>
-    </ScrollView>
+    </Animated.ScrollView>
   );
 }
 

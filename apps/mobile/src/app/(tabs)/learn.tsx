@@ -1,11 +1,11 @@
 /* eslint-disable react-hooks/immutability */
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useHeaderTopInset } from "@/components/screen-header";
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { Card } from "@/components/card";
-import { GlassSurface } from "@/components/surface";
 import { GroupLabel } from "@/components/group-label";
 import { ListGroup, ListRow } from "@/components/list-row";
 import { BottomSheet } from "@/components/bottom-sheet";
@@ -330,7 +330,7 @@ function StageCard({
 export default function LearnScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const insets = useSafeAreaInsets();
+  const headerTop = useHeaderTopInset("hero");
   const tabBarSpace = useTabBarSpace();
   const progress = useAppStore((s) => s.progress);
   const sessions = useAppStore((s) => s.sessions);
@@ -649,7 +649,7 @@ export default function LearnScreen() {
   return (
     <ScrollView
       style={styles.scroll}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 24, paddingBottom: tabBarSpace }]}
+      contentContainerStyle={[styles.content, { paddingTop: headerTop, paddingBottom: tabBarSpace }]}
       showsVerticalScrollIndicator={false}
       scrollEnabled={!stageDragging}
     >

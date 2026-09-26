@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Dimensions, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import Animated from "react-native-reanimated";
+import { Dimensions, Platform, Pressable, Share, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Card } from "@/components/card";
 import { Button } from "@/components/button";
-import { ScreenHeader } from "@/components/screen-header";
+import { ScreenHeader, useLargeTitleHeader } from "@/components/screen-header";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
 import type { ThemeColors } from "@/theme/tokens";
@@ -28,6 +29,7 @@ export default function DiagnosticsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
+  const headerScroll = useLargeTitleHeader();
   const tabBarSpace = useTabBarSpace();
 
   const storedEdgeSwipe = useAppStore((s) => s.edgeSwipeEnabled);
@@ -117,8 +119,8 @@ export default function DiagnosticsScreen() {
 
   return (
     <View style={styles.root}>
-      <ScreenHeader title="问题诊断" subtitle="触摸自检 · 排障用" compact />
-      <ScrollView
+      <ScreenHeader large scrollY={headerScroll.scrollY} title="问题诊断" subtitle="触摸自检 · 排障用" />
+      <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16}
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
         showsVerticalScrollIndicator={false}
@@ -156,7 +158,7 @@ export default function DiagnosticsScreen() {
           </Text>
           <Button label="复制 / 分享诊断信息" onPress={share} />
         </Card>
-      </ScrollView>
+      </Animated.ScrollView>
     </View>
   );
 }

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { Alert, Pressable, RefreshControl, StyleSheet, Switch, Text, View } from "react-native";
 import Animated, { FadeInUp, LinearTransition } from "react-native-reanimated";
 import { ThemedIcon } from "@/components/themed-icon";
 import { EmptyState } from "@/components/empty-state";
 import { SkeletonList } from "@/components/skeleton";
-import { ScreenHeader } from "@/components/screen-header";
+import { ScreenHeader, useLargeTitleHeader } from "@/components/screen-header";
 import { SectionHeader } from "@/components/section-header";
 import { Card } from "@/components/card";
 import { Button } from "@/components/button";
@@ -43,7 +43,6 @@ import {
   type WeightPointDto,
 } from "@/lib/wellbeing-client";
 import { PressableScale } from "@/components/pressable-scale";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
 import { useRefreshable } from "@/lib/use-refresh";
@@ -123,7 +122,7 @@ const MACRO_COLORS = { proteinG: "#3DA35D", carbsG: "#F28C28", fatG: "#2FB3A6" }
 export default function NutritionScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const insets = useSafeAreaInsets();
+  const headerScroll = useLargeTitleHeader();
   const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
 
@@ -928,19 +927,17 @@ export default function NutritionScreen() {
   );
 
   return (
-    <ScrollView
+    <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16}
       style={styles.scroll}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: tabBarSpace }]}
+      contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
       showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} progressBackgroundColor={colors.surfaceStrong} />
       }
     >
-      <ScreenHeader
+      <ScreenHeader large scrollY={headerScroll.scrollY}
         title={isToday ? "今日饮食" : "饮食记录"}
-        subtitle={isToday ? `已记录 ${entries.length} 条 · 目标 ${target.kcal} kcal` : `${date} · ${entries.length} 条`}
-        compact
-      />
+        subtitle={isToday ? `已记录 ${entries.length} 条 · 目标 ${target.kcal} kcal` : `${date} · ${entries.length} 条`} />
 
       {/* v11 P2（参考图 4）：餐次彩色卡组 + 近 7 天热量条 */}
       <MealCardGrid
@@ -1782,7 +1779,7 @@ export default function NutritionScreen() {
         onClose={() => setTargetOpen(false)}
         onSave={(next) => void onSaveTarget(next)}
       />
-    </ScrollView>
+    </Animated.ScrollView>
   );
 }
 

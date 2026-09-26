@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
-import { ScreenHeader } from "@/components/screen-header";
+import Animated from "react-native-reanimated";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ScreenHeader, useLargeTitleHeader } from "@/components/screen-header";
 import { Card } from "@/components/card";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
 import type { ThemeColors } from "@/theme/tokens";
@@ -22,7 +22,7 @@ interface DocState {
 export default function ResumePreviewScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const insets = useSafeAreaInsets();
+  const headerScroll = useLargeTitleHeader();
   const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
   const [doc, setDoc] = useState<DocState | null>(null);
@@ -124,8 +124,8 @@ export default function ResumePreviewScreen() {
   const visible = (doc?.sectionOrder ?? []).filter((s) => s.visible);
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top + 24, paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
-      <ScreenHeader title="简历预览" subtitle={doc ? `${doc.title} · ${doc.templateKey}` : "内容实时取自资料 / 证书 / 技能 / 资产"} compact />
+    <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
+      <ScreenHeader large scrollY={headerScroll.scrollY} title="简历预览" subtitle={doc ? `${doc.title} · ${doc.templateKey}` : "内容实时取自资料 / 证书 / 技能 / 资产"} />
 
       {loading ? (
         <ActivityIndicator color={colors.primary} style={styles.loading} />
@@ -141,7 +141,7 @@ export default function ResumePreviewScreen() {
           ))}
         </Card>
       )}
-    </ScrollView>
+    </Animated.ScrollView>
   );
 }
 

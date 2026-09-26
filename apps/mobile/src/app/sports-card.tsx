@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useHeaderTopInset } from "@/components/screen-header";
 import {
   Alert,
   Modal,
@@ -78,6 +79,7 @@ export default function SportsCardScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
+  const headerTop = useHeaderTopInset("hero");
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const token = useAppStore((s) => s.token);
 
@@ -440,7 +442,7 @@ export default function SportsCardScreen() {
 
   return (
     <View style={styles.root}>
-      <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
+      <View style={[styles.header, { paddingTop: headerTop }]}>
         <Pressable onPress={goBack} hitSlop={10} style={styles.headerBtn} accessibilityLabel="返回">
           <ThemedIcon name="chevron-back" size={22} color={colors.text} />
         </Pressable>

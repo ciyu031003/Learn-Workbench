@@ -15,7 +15,7 @@ import { ThemedIcon } from "@/components/themed-icon";
 import { EmptyState } from "@/components/empty-state";
 import { ScreenHeader } from "@/components/screen-header";
 import { SkeletonList } from "@/components/skeleton";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import Animated, {
   useAnimatedStyle,
@@ -407,8 +407,7 @@ function FilterBottomSheet({
 
 export default function JobsScreen() {
   const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
-  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
 
@@ -580,7 +579,7 @@ export default function JobsScreen() {
 
   const renderHeader = () => (
     <View style={styles.listSide}>
-      <View style={[styles.hero, { paddingTop: insets.top + 22 }]}>
+      <View style={[styles.hero]}>
         {/* 页面级导航（原齿轮菜单已移除）：返回职业 Hub */}
         <ScreenHeader title="招花" subtitle="让每一次机会，都像花一样准时绽放" compact backTo="/career" />
       </View>

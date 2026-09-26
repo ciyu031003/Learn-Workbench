@@ -1,11 +1,11 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Animated from "react-native-reanimated";
 import {
   ActivityIndicator,
   Alert,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -15,14 +15,13 @@ import {
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { ThemedIcon } from "@/components/themed-icon";
-import { ScreenHeader } from "@/components/screen-header";
+import { ScreenHeader, useLargeTitleHeader } from "@/components/screen-header";
 import { Card } from "@/components/card";
 import { AuthSheet } from "@/components/auth-sheet";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { ChipGroup, SheetSection, SheetSegmented, type SegmentOption } from "@/components/sheet";
 import { PressableScale } from "@/components/pressable-scale";
 import { haptics } from "@/lib/haptics";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useAppStore } from "@/store/app-store";
 import {
@@ -177,7 +176,7 @@ function MoveList({ styles, items }: { styles: MarketStyles; items: MarketDecisi
 export default function MarketScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const insets = useSafeAreaInsets();
+  const headerScroll = useLargeTitleHeader();
   const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
   const setAuth = useAppStore((s) => s.setAuth);
@@ -317,9 +316,11 @@ export default function MarketScreen() {
     : data?.facets.functions ?? [];
 
   return (
-    <ScrollView
+    <Animated.ScrollView
+      onScroll={headerScroll.onScroll}
+      scrollEventThrottle={16}
       style={styles.scroll}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 20, paddingBottom: tabBarSpace }]}
+      contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
       showsVerticalScrollIndicator={false}
       automaticallyAdjustKeyboardInsets
       refreshControl={
@@ -332,11 +333,9 @@ export default function MarketScreen() {
                 />
       }
     >
-      <ScreenHeader
+      <ScreenHeader large scrollY={headerScroll.scrollY}
         title="招聘市场工作台"
-        subtitle={`筛选 · 趋势 · 个人位置${summary ? ` · ${summary.total} 个样本` : ""}`}
-        compact
-      />
+        subtitle={`筛选 · 趋势 · 个人位置${summary ? ` · ${summary.total} 个样本` : ""}`} />
 
       <SheetSegmented
         options={RANGE_OPTIONS}
@@ -358,7 +357,7 @@ export default function MarketScreen() {
         </PressableScale>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+      <Animated.ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
         {filterLabels.map((item) => (
           <Chip
             key={item.key}
@@ -376,7 +375,7 @@ export default function MarketScreen() {
             setFilters({ range: filters.range ?? 90 });
           }}
         />
-      </ScrollView>
+      </Animated.ScrollView>
 
       {loading ? (
         <View style={styles.centeredBox}>
@@ -575,7 +574,7 @@ export default function MarketScreen() {
       </BottomSheet>
 
       <AuthSheet visible={authOpen} onClose={() => setAuthOpen(false)} onAuthed={handleAuthed} />
-    </ScrollView>
+    </Animated.ScrollView>
   );
 }
 

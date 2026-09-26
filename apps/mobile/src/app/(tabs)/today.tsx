@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/immutability */
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useHeaderTopInset } from "@/components/screen-header";
 import {
   Pressable,
   ScrollView,
@@ -12,7 +13,7 @@ import { SportThemedIcon, ThemedIcon } from "@/components/themed-icon";
 import { AnimatedCheckMark } from "@/components/check-mark";
 import { PatternBackdrop } from "@/components/pattern-backdrop";
 import { router } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import Animated, {
   useAnimatedStyle,
@@ -296,7 +297,7 @@ function formatSport(minutes: number) {
 export default function TodayScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const insets = useSafeAreaInsets();
+  const headerTop = useHeaderTopInset("hero");
   const tabBarSpace = useTabBarSpace();
   const progress = useAppStore((s) => s.progress);
   const tasks = useAppStore((s) => s.tasks);
@@ -508,7 +509,7 @@ export default function TodayScreen() {
         scrollEventThrottle={16}
         style={styles.scroll}
         scrollEnabled
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 14, paddingBottom: tabBarSpace }]}
+        contentContainerStyle={[styles.content, { paddingTop: headerTop, paddingBottom: tabBarSpace }]}
         showsVerticalScrollIndicator={false}
       >
         <Animated.View style={[styles.hero, heroAnim]}>

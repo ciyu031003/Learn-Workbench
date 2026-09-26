@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import Animated from "react-native-reanimated";
+import { Alert, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { ThemedIcon } from "@/components/themed-icon";
-import { ScreenHeader } from "@/components/screen-header";
+import { ScreenHeader, useLargeTitleHeader } from "@/components/screen-header";
 import { PressableScale } from "@/components/pressable-scale";
 import { SkeletonCard } from "@/components/skeleton";
 import { GlassSurface } from "@/components/surface";
@@ -10,7 +11,6 @@ import { ProgressArc } from "@/components/progress-arc";
 import { StatLine } from "@/components/stat";
 import { ListGroup, ListRow } from "@/components/list-row";
 import { GroupLabel } from "@/components/group-label";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { computeReadiness, WEAKEST_LABEL } from "@/lib/readiness";
 import { useTheme } from "@/theme";
@@ -67,7 +67,7 @@ function tintOf(color: string) {
 export default function WellnessScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const insets = useSafeAreaInsets();
+  const headerScroll = useLargeTitleHeader();
   const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
   const [data, setData] = useState<DailyOs | null>(null);
@@ -219,15 +219,15 @@ export default function WellnessScreen() {
   };
 
   return (
-    <ScrollView
+    <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16}
       style={styles.scroll}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: tabBarSpace }]}
+      contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
       showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} progressBackgroundColor={colors.surfaceStrong} />
       }
     >
-      <ScreenHeader title="健康" subtitle="训练 · 饮食 · 习惯，照顾好身体才有持续成长" compact />
+      <ScreenHeader large scrollY={headerScroll.scrollY} title="健康" subtitle="训练 · 饮食 · 习惯，照顾好身体才有持续成长" />
 
       {/* 聚合接口失败不再静默：明确提示 + 一键重试（v12 P0-2/P0-3） */}
       {dailyFailed ? (
@@ -506,7 +506,7 @@ export default function WellnessScreen() {
           onPress={() => router.push("/trackers" as never)}
         />
       </ListGroup>
-    </ScrollView>
+    </Animated.ScrollView>
   );
 }
 

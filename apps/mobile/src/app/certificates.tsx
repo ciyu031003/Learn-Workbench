@@ -1,18 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
+import Animated from "react-native-reanimated";
 import { typography } from "@/theme/tokens";
 import {
   RefreshControl,
-  Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+  Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
 import { EmptyState } from "@/components/empty-state";
 import { SkeletonList } from "@/components/skeleton";
 import { AchievementCard } from "@/components/achievement-card";
 import { FloatField } from "@/components/float-field";
 import { PressButton } from "@/components/press-button";
-import { ScreenHeader } from "@/components/screen-header";
+import { ScreenHeader, useLargeTitleHeader } from "@/components/screen-header";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
 import { useRefreshable } from "@/lib/use-refresh";
@@ -28,7 +29,7 @@ const STATUSES: Status[] = ["planned", "preparing", "achieved"];
 export default function CertificatesScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const insets = useSafeAreaInsets();
+  const headerScroll = useLargeTitleHeader();
   const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
   const [records, setRecords] = useState<Certificate[]>([]);
@@ -112,11 +113,11 @@ export default function CertificatesScreen() {
   };
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top + 24, paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}
+    <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} progressBackgroundColor={colors.surfaceStrong} />
       }>
-      <ScreenHeader title="我的证书" subtitle="证书 / 资格 / 认证，简历与职业雷达共用" compact />
+      <ScreenHeader large scrollY={headerScroll.scrollY} title="我的证书" subtitle="证书 / 资格 / 认证，简历与职业雷达共用" />
 
       <PressableScale style={styles.addBtn} haptic onPress={() => setSheetOpen(true)}>
         <ThemedIcon name="add" size={17} color={colors.primary} />
@@ -199,7 +200,7 @@ export default function CertificatesScreen() {
           />
         </View>
       </BottomSheet>
-    </ScrollView>
+    </Animated.ScrollView>
   );
 }
 

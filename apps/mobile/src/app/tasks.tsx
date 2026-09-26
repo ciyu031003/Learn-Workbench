@@ -1,14 +1,15 @@
 import { useState , useMemo } from "react";
+import Animated from "react-native-reanimated";
 import { typography } from "@/theme/tokens";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { useAppStore, type TaskType } from "@/store/app-store";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { taskTypeLabels, todayISO } from "@learn-workbench/shared";
 import { Card } from "@/components/card";
-import { ScreenHeader } from "@/components/screen-header";
+import { ScreenHeader, useLargeTitleHeader } from "@/components/screen-header";
 import { ChipGroup, SheetSection, SheetStickyCta } from "@/components/sheet";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { FocusTimer } from "@/components/focus-timer";
@@ -22,7 +23,7 @@ const TYPES: TaskType[] = ["study", "agent", "output", "review", "exam"];
 export default function TasksScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const insets = useSafeAreaInsets();
+  const headerScroll = useLargeTitleHeader();
   const tabBarSpace = useTabBarSpace();
   const tasks = useAppStore((s) => s.tasks);
   const sessions = useAppStore((s) => s.sessions);
@@ -89,11 +90,11 @@ export default function TasksScreen() {
   const shareCard = () => setShareOpen(true);
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
+    <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
       {/* 真机反馈：这一页原来只有白字标题（浅底上完全看不清），且没有返回上一级的按钮。
           改成与其它子页一致的 ScreenHeader（主题色 + 返回按钮 → 学习）。 */}
-      <View style={{ paddingTop: insets.top + 12 }}>
-        <ScreenHeader title="每日任务" subtitle="计划 → 专注 → 复盘，形成学习闭环" compact />
+      <View>
+        <ScreenHeader large scrollY={headerScroll.scrollY} title="每日任务" subtitle="计划 → 专注 → 复盘，形成学习闭环" />
       </View>
 
       {/* ① 焦点 hero：今天第一件该做的事（v4 P1-3）。
@@ -302,7 +303,7 @@ export default function TasksScreen() {
           addSession(taskId, seconds, label ?? (taskId ? (timerTask?.title ?? null) : null))
         }
       />
-    </ScrollView>
+    </Animated.ScrollView>
   );
 }
 

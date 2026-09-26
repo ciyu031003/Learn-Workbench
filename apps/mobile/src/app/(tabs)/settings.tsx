@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import { useHeaderTopInset } from "@/components/screen-header";
 import { ActivityIndicator, Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
 import { useAppStore } from "@/store/app-store";
 import { useUpdateStore } from "@/store/update-store";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { getApiUrl } from "@/config";
 import { syncPush, syncPull } from "@/lib/sync";
@@ -35,7 +35,7 @@ import { typography } from "@/theme/tokens";
 export default function SettingsScreen() {
   const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const insets = useSafeAreaInsets();
+  const headerTop = useHeaderTopInset("hero");
   const tabBarSpace = useTabBarSpace();
   const backgroundEnabled = useAppStore((s) => s.backgroundEnabled);
   const toggleBackground = useAppStore((s) => s.toggleBackground);
@@ -201,7 +201,7 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
-      <View style={[styles.hero, { paddingTop: insets.top + 24 }]}>
+      <View style={[styles.hero, { paddingTop: headerTop }]}>
         <Text style={styles.heroTitle}>我的</Text>
         <Text style={styles.heroSub}>账号 · 学习领域 · 数据同步</Text>
       </View>

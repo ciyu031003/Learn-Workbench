@@ -4,12 +4,11 @@ import type { ThemeColors } from "@/theme/tokens";
 import { spacing, typography } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { useAppStore, type LogKind } from "@/store/app-store";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { logKindLabels } from "@learn-workbench/shared";
 import { Card } from "@/components/card";
 import { EmptyState } from "@/components/empty-state";
-import { ScreenHeader } from "@/components/screen-header";
+import { ScreenHeader, useLargeTitleHeader } from "@/components/screen-header";
 
 const KINDS: LogKind[] = ["feynman", "review", "project", "interview"];
 
@@ -24,7 +23,7 @@ interface LogRow {
 export default function LogsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const insets = useSafeAreaInsets();
+  const headerScroll = useLargeTitleHeader();
   const tabBarSpace = useTabBarSpace();
   const logs = useAppStore((s) => s.logs);
   const addLog = useAppStore((s) => s.addLog);
@@ -61,8 +60,8 @@ export default function LogsScreen() {
   const header = (
     <View style={styles.headerWrap}>
       {/* 真机反馈：子页要有返回上一级的按钮（这里 → 学习） */}
-      <View style={{ paddingTop: insets.top + 12 }}>
-        <ScreenHeader title="学习日志" subtitle="费曼讲稿 · 周复盘 · 项目笔记 · 面试记录" compact />
+      <View>
+        <ScreenHeader large scrollY={headerScroll.scrollY} title="学习日志" subtitle="费曼讲稿 · 周复盘 · 项目笔记 · 面试记录" />
       </View>
 
       <Card title="写一篇日志">
@@ -104,7 +103,7 @@ export default function LogsScreen() {
   );
 
   return (
-    <FlatList
+    <FlatList onScroll={headerScroll.onScroll} scrollEventThrottle={16}
       style={styles.scroll}
       data={logs as LogRow[]}
       keyExtractor={(l) => String(l.id)}

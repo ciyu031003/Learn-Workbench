@@ -1,19 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Animated from "react-native-reanimated";
 import {
   Linking,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import { ScreenHeader } from "@/components/screen-header";
+import { ScreenHeader, useLargeTitleHeader } from "@/components/screen-header";
 import { EmptyState } from "@/components/empty-state";
 import { SkeletonCard } from "@/components/skeleton";
 import { Card } from "@/components/card";
 import { ThemedIcon } from "@/components/themed-icon";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
 import { useRefreshable } from "@/lib/use-refresh";
@@ -70,7 +69,7 @@ const FETCH_LIMIT = 200;
 export default function RadarScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const insets = useSafeAreaInsets();
+  const headerScroll = useLargeTitleHeader();
   const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
   const [data, setData] = useState<RadarResponse | null>(null);
@@ -135,19 +134,17 @@ export default function RadarScreen() {
   };
 
   return (
-    <ScrollView
+    <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16}
       style={styles.scroll}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 24, paddingBottom: tabBarSpace }]}
+      contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
       showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} progressBackgroundColor={colors.surfaceStrong} />
       }
     >
-      <ScreenHeader
+      <ScreenHeader large scrollY={headerScroll.scrollY}
         title="就业雷达"
-        subtitle={data?.targetRole ? `目标：${data.targetRole}${data.profileCity ? ` · ${data.profileCity}` : ""}` : "今日适合你的岗位信号"}
-        compact
-      />
+        subtitle={data?.targetRole ? `目标：${data.targetRole}${data.profileCity ? ` · ${data.profileCity}` : ""}` : "今日适合你的岗位信号"} />
 
       {data && data.mode === "batch" ? (
         <Text style={styles.meta}>
@@ -323,7 +320,7 @@ export default function RadarScreen() {
           </View>
         </>
       )}
-    </ScrollView>
+    </Animated.ScrollView>
   );
 }
 

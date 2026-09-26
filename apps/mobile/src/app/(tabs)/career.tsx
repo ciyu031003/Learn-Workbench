@@ -1,11 +1,12 @@
 /* eslint-disable react-hooks/immutability */
 import { useEffect, useState, useMemo } from "react";
+import Animated from "react-native-reanimated";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import type { ThemeColors } from "@/theme/tokens";
 import { radius, spacing, typography } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { ThemedIcon } from "@/components/themed-icon";
-import { ScreenHeader } from "@/components/screen-header";
+import { ScreenHeader, useLargeTitleHeader } from "@/components/screen-header";
 import { SectionHeader } from "@/components/section-header";
 import { ListGroup, ListRow } from "@/components/list-row";
 import { GlassSurface } from "@/components/surface";
@@ -16,7 +17,6 @@ import { Button } from "@/components/button";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
 import { router } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { getApiUrl } from "@/config";
 import { useAppStore } from "@/store/app-store";
@@ -45,7 +45,7 @@ const MORE_SECTIONS = [
 export default function CareerScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const insets = useSafeAreaInsets();
+  const headerScroll = useLargeTitleHeader();
   const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
   const [readiness, setReadiness] = useState<CareerReadiness | null>(null);
@@ -89,8 +89,8 @@ export default function CareerScreen() {
           : "登录并记录技能 / 项目后显示";
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
-      <ScreenHeader title="职业" subtitle="画像 · 技能 · 简历 · 面试" compact />
+    <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
+      <ScreenHeader large scrollY={headerScroll.scrollY} title="职业" subtitle="画像 · 技能 · 简历 · 面试" />
 
       {/* ① 职业准备度 hero：进度弧 + 结论 + 三个关键值 */}
       <GlassSurface corner={radius.xl} style={styles.hero}>
@@ -207,7 +207,7 @@ export default function CareerScreen() {
           <Text style={styles.emptyHint}>登录并记录技能 / 项目 / 面试日志后，这里会呈现职业画像</Text>
         )}
       </BottomSheet>
-    </ScrollView>
+    </Animated.ScrollView>
   );
 }
 

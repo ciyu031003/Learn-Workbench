@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import Animated from "react-native-reanimated";
+import { Alert, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
 import { EmptyState } from "@/components/empty-state";
 import { SkeletonList } from "@/components/skeleton";
-import { ScreenHeader } from "@/components/screen-header";
+import { ScreenHeader, useLargeTitleHeader } from "@/components/screen-header";
 import { Card } from "@/components/card";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
 import { PressButton } from "@/components/press-button";
 import { ExercisePickerSheet } from "@/components/exercise-picker-sheet";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
 import { useRefreshable } from "@/lib/use-refresh";
@@ -38,7 +38,7 @@ import {
 export default function WorkoutScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const insets = useSafeAreaInsets();
+  const headerScroll = useLargeTitleHeader();
   const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
 
@@ -252,15 +252,15 @@ export default function WorkoutScreen() {
   const dateChoices = dateOptions(today, date);
 
   return (
-    <ScrollView
+    <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16}
       style={styles.scroll}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 24, paddingBottom: tabBarSpace }]}
+      contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
       showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} progressBackgroundColor={colors.surfaceStrong} />
       }
     >
-      <ScreenHeader title="训练记录" subtitle={`近 60 天 ${workouts.length} 次 · 总容量 ${totals.volumeKg} kg`} compact />
+      <ScreenHeader large scrollY={headerScroll.scrollY} title="训练记录" subtitle={`近 60 天 ${workouts.length} 次 · 总容量 ${totals.volumeKg} kg`} />
 
       <PressableScale style={styles.addBtn} haptic onPress={openCreate}>
         <ThemedIcon name="add" size={17} color={colors.primary} />
@@ -425,7 +425,7 @@ export default function WorkoutScreen() {
         onConfirm={applyPicked}
         initial={pickerInitial}
       />
-    </ScrollView>
+    </Animated.ScrollView>
   );
 }
 

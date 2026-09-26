@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import Animated from "react-native-reanimated";
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Card } from "@/components/card";
-import { ScreenHeader } from "@/components/screen-header";
+import { ScreenHeader, useLargeTitleHeader } from "@/components/screen-header";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { ChipGroup, SheetSection, SheetSegmented, SheetStickyCta, type SegmentOption } from "@/components/sheet";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
 import type { ThemeColors } from "@/theme/tokens";
@@ -39,7 +39,7 @@ const DIFFICULTY_OPTIONS: SegmentOption[] = [
 export default function InterviewScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const insets = useSafeAreaInsets();
+  const headerScroll = useLargeTitleHeader();
   const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
   const [questions, setQuestions] = useState<InterviewQuestion[]>([]);
@@ -161,8 +161,8 @@ export default function InterviewScreen() {
   };
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top + 24, paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
-      <ScreenHeader title="面试流程" subtitle="题库刷题 · 记录每一次模拟与复盘" compact />
+    <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
+      <ScreenHeader large scrollY={headerScroll.scrollY} title="面试流程" subtitle="题库刷题 · 记录每一次模拟与复盘" />
 
       {/* v1.26：题型只展示前 MODULE_PREVIEW 个 + 「更多」，其余从下方弹层选择（不再横滑长列表） */}
       <View style={styles.moduleRow}>
@@ -360,7 +360,7 @@ export default function InterviewScreen() {
           </>
         ) : null}
       </BottomSheet>
-    </ScrollView>
+    </Animated.ScrollView>
   );
 }
 

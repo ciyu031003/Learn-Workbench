@@ -1,15 +1,16 @@
 import { useState , useMemo } from "react";
+import Animated from "react-native-reanimated";
 import { typography } from "@/theme/tokens";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { useAppStore } from "@/store/app-store";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { mainPhases, agentPhase } from "@learn-workbench/content";
 import { pct } from "@learn-workbench/shared";
 import { Card } from "@/components/card";
-import { ScreenHeader } from "@/components/screen-header";
+import { ScreenHeader, useLargeTitleHeader } from "@/components/screen-header";
 
 interface TopicView {
   id: number;
@@ -93,7 +94,7 @@ function PhaseBlock({
 export default function RoadmapScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const insets = useSafeAreaInsets();
+  const headerScroll = useLargeTitleHeader();
   const tabBarSpace = useTabBarSpace();
   const progress = useAppStore((s) => s.progress);
   const toggleTopic = useAppStore((s) => s.toggleTopic);
@@ -140,10 +141,10 @@ export default function RoadmapScreen() {
   });
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
+    <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
       {/* 真机反馈：子页要有返回上一级的按钮（这里 → 学习） */}
-      <View style={{ paddingTop: insets.top + 12 }}>
-        <ScreenHeader title="学习路线图" subtitle="6 个主阶段 + Agent 应用副线，点击主题完成打勾" compact />
+      <View>
+        <ScreenHeader large scrollY={headerScroll.scrollY} title="学习路线图" subtitle="6 个主阶段 + Agent 应用副线，点击主题完成打勾" />
       </View>
 
       <Card>
@@ -201,7 +202,7 @@ export default function RoadmapScreen() {
           onDelete={removeCustomTopic}
         />
       ) : null}
-    </ScrollView>
+    </Animated.ScrollView>
   );
 }
 

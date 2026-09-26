@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useHeaderTopInset } from "@/components/screen-header";
 import {
   ActivityIndicator,
   Alert,
@@ -12,7 +13,6 @@ import {
 import { ThemedIcon } from "@/components/themed-icon";
 import { resolveBackTarget } from "@/lib/back-target";
 import { router } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
@@ -37,7 +37,7 @@ interface IdentityInfo {
 export default function AccountSecurityScreen() {
   const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
-  const insets = useSafeAreaInsets();
+  const headerTop = useHeaderTopInset("hero");
   const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
   const username = useAppStore((s) => s.username);
@@ -132,7 +132,7 @@ export default function AccountSecurityScreen() {
 
   return (
     <View style={styles.root}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+      <View style={[styles.header, { paddingTop: headerTop }]}>
         <Pressable onPress={() => router.replace(resolveBackTarget("/account-security") as never)} hitSlop={12} style={styles.backBtn}>
           <ThemedIcon name="chevron-back" size={22} color={colors.text} />
         </Pressable>

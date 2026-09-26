@@ -1,13 +1,13 @@
 /* eslint-disable react-hooks/immutability */
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import Animated from "react-native-reanimated";
+import { ActivityIndicator, Alert, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
 import { Card } from "@/components/card";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
-import { ScreenHeader } from "@/components/screen-header";
+import { ScreenHeader, useLargeTitleHeader } from "@/components/screen-header";
 import { useLocalSearchParams } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
 import type { ThemeColors } from "@/theme/tokens";
@@ -36,7 +36,7 @@ export default function PhaseScreen() {
   const phaseId = Number(params.id);
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const insets = useSafeAreaInsets();
+  const headerScroll = useLargeTitleHeader();
   const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
   const progress = useAppStore((s) => s.progress);
@@ -115,16 +115,14 @@ export default function PhaseScreen() {
   };
 
   return (
-    <ScrollView
+    <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16}
       style={styles.scroll}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: tabBarSpace }]}
+      contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
       showsVerticalScrollIndicator={false}
     >
-      <ScreenHeader
+      <ScreenHeader large scrollY={headerScroll.scrollY}
         title={phase?.title ?? "学习阶段"}
-        subtitle={phase?.summary || phase?.weeks || "管理这个阶段下的学习内容"}
-        compact
-      />
+        subtitle={phase?.summary || phase?.weeks || "管理这个阶段下的学习内容"} />
 
       {loading && !phase ? (
         <ActivityIndicator color={colors.primary} style={styles.loading} />
@@ -236,7 +234,7 @@ export default function PhaseScreen() {
           </Pressable>
         </Pressable>
       </Modal>
-    </ScrollView>
+    </Animated.ScrollView>
   );
 }
 

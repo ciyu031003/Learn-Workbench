@@ -5,8 +5,7 @@ import { typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { ThemedIcon } from "@/components/themed-icon";
-import { ScreenHeader } from "@/components/screen-header";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ScreenHeader, useLargeTitleHeader } from "@/components/screen-header";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useFocusRefresh } from "@/lib/use-focus-refresh";
 import { getApiUrl } from "@/config";
@@ -65,7 +64,7 @@ function stageTint(colors: ThemeColors, stage: JobApplicationStage): string {
 export default function ApplicationsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const insets = useSafeAreaInsets();
+  const headerScroll = useLargeTitleHeader();
   const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
   const [apps, setApps] = useState<JobApplication[]>([]);
@@ -161,14 +160,14 @@ export default function ApplicationsScreen() {
 
   return (
     <View style={styles.root}>
-      <FlatList
+      <FlatList onScroll={headerScroll.onScroll} scrollEventThrottle={16}
         data={shown}
         keyExtractor={(item) => String(item.id)}
         renderItem={renderItem}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 20, paddingBottom: tabBarSpace }]}
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
         ListHeaderComponent={
           <View style={styles.header}>
-            <ScreenHeader title="我的求职" subtitle={`共 ${apps.length} 条 · 收藏 → Offer 全流程`} compact />
+            <ScreenHeader large scrollY={headerScroll.scrollY} title="我的求职" subtitle={`共 ${apps.length} 条 · 收藏 → Offer 全流程`} />
             {stageCounts.length > 0 ? (
               <View style={styles.stageStrip}>
                 {stageCounts.map((s) => (
