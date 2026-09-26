@@ -114,7 +114,10 @@ export default function HabitsScreen() {
     return m;
   }, [logs]);
 
-  const last7 = useMemo(() => {
+  /** 7 天条下面的星期缩写（日→六） */
+const WEEKDAY_SHORT = ["日", "一", "二", "三", "四", "五", "六"] as const;
+
+const last7 = useMemo(() => {
     const out: { key: string; date: Date }[] = [];
     for (let i = 6; i >= 0; i--) {
       const d = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -289,7 +292,18 @@ export default function HabitsScreen() {
           </View>
         </>
       ) : (
-        habits.map((h) => {
+        <>
+          {/* 全部完成态：当天有排期且全部打卡时给一次明确的正反馈 */}
+          {scheduledToday > 0 && doneToday === scheduledToday ? (
+            <View style={styles.allDone}>
+              <ThemedIcon name="trophy-outline" size={18} color={colors.accentStrong} />
+              <View style={styles.allDoneBody}>
+                <Text style={styles.allDoneTitle}>今天的习惯全部完成</Text>
+                <Text style={styles.allDoneHint}>保持节奏，明天同一时间继续</Text>
+              </View>
+            </View>
+          ) : null}
+          {habits.map((h) => {
           const v = logMap.get(`${h.id}|${todayKey}`);
           const done = v !== undefined && isHabitDone(h, v);
           const st = computeHabitStats(h, logs, today);
@@ -303,10 +317,12 @@ export default function HabitsScreen() {
               delayLongPress={280}
               accessibilityLabel={`${h.name}，长按可编辑或删除`}
             >
-            <Card style={[styles.item, styles.itemCanvas, { borderColor: accent + "44", backgroundColor: accent + "0E" }, !scheduled && { opacity: 0.6 }]}>
-              {/* 油画质感：左侧厚涂色条（短、圆头，不会读成整条白边）+ 右上柔光 */}
-              <View pointerEvents="none" style={[styles.itemDaub, { backgroundColor: accent + "33" }]} />
-              <View pointerEvents="none" style={[styles.itemGlow, { backgroundColor: accent + "14" }]} />
+            <Card style={[styles.item, styles.itemCanvas, !scheduled && { opacity: 0.6 }]}>
+              {/*
+                强调色只表达状态：未打卡时左轨保持中性，今日打卡后才点亮。
+                原来整张卡用 accent 铺底 + 描边 + 厚涂块 + 柔光，四层大面积上色是"丑"的主因。
+              */}
+              <View pointerEvents="none" style={[styles.itemRail, done && { backgroundColor: accent }]} />
               <View style={styles.itemRow}>
                 <Pressable
                   onPress={() => void toggle(h)}
@@ -328,6 +344,7 @@ export default function HabitsScreen() {
                     {st.currentStreak > 0 ? <Text style={styles.streak}>🔥 {st.currentStreak}</Text> : null}
                     {habitTimeLabel(h) ? <Text style={styles.timeBadge}>{habitTimeLabel(h)}</Text> : null}
                     {!scheduled ? <Text style={styles.muted}>今日不排期</Text> : null}
+                    {done ? <Text style={[styles.doneTag, { color: accent }]}>已完成</Text> : null}
                   </View>
                   {/* 统计行改「标签 + 数值」，层次比一整句更清楚 */}
                   <View style={styles.statRow}>
@@ -357,12 +374,21 @@ export default function HabitsScreen() {
                       })}
                     </View>
                   </View>
+                  {/* 星期标签：让 7 天条能被读懂，而不是一排无意义的小点 */}
+                  <View style={styles.stripLabels}>
+                    {last7.map((d) => (
+                      <Text key={d.key} style={styles.stripLabel}>
+                        {WEEKDAY_SHORT[d.date.getDay()]}
+                      </Text>
+                    ))}
+                  </View>
                 </View>
               </View>
             </Card>
             </Pressable>
           );
-        })
+          })}
+        </>
       )}
 
       {/* 长按卡片：编辑 / 删除（v12 P1-2） */}
@@ -496,11 +522,19 @@ const makeStyles = (colors: ThemeColors) =>
     tplText: { fontSize: 12, color: colors.text },
     item: { gap: 10 },
     itemRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-    // 油画质感卡片：厚涂色条 + 柔光 + 手绘感描边
-    itemCanvas: { overflow: "hidden" },
-    // 短圆头色条：即使颜色偏浅也只是一段点缀，不会读成整条白边
-    itemDaub: { position: "absolute", left: 0, top: 12, bottom: 12, width: 4, borderTopRightRadius: 999, borderBottomRightRadius: 999 },
-    itemGlow: { position: "absolute", right: -36, top: -36, width: 130, height: 130, borderRadius: 65 },
+    // 中性卡面 + 仅状态用的左侧细轨（强调色不做大面积铺色）
+    itemCanvas: { overflow: "hidden", paddingLeft: 14 },
+    itemRail: {
+      position: "absolute",
+      left: 0,
+      top: 14,
+      bottom: 14,
+      width: 3,
+      borderTopRightRadius: 999,
+      borderBottomRightRadius: 999,
+      backgroundColor: colors.border,
+    },
+    doneTag: { fontSize: 11, fontWeight: "800" },
     actionSheet: { gap: 10 },
     actionRow: {
       flexDirection: "row",
@@ -536,6 +570,22 @@ const makeStyles = (colors: ThemeColors) =>
       paddingVertical: 6,
     },
     strip: { flexDirection: "row", gap: 4 },
+    stripLabels: { flexDirection: "row", gap: 4, paddingHorizontal: 8, marginTop: 3 },
+    allDone: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      borderRadius: 16,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.accentSoft,
+      backgroundColor: colors.accentSoft,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+    },
+    allDoneBody: { flex: 1, minWidth: 0, gap: 2 },
+    allDoneTitle: { fontSize: 14, fontWeight: "800", color: colors.text },
+    allDoneHint: { fontSize: 11, color: colors.textMuted },
+    stripLabel: { width: 16, textAlign: "center", fontSize: 9, color: colors.textFaint },
     stripDot: { height: 6, width: 16, borderRadius: 999, backgroundColor: colors.border },
     stripDotOff: { backgroundColor: colors.borderStrong },
     stripDotSkip: { backgroundColor: "transparent", borderWidth: 1, borderColor: colors.border },

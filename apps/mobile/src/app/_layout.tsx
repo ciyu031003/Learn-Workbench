@@ -56,7 +56,14 @@ function TabIcon({
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
   root: { flex: 1 },
-  tabIcon: { width: 46, height: 32, alignItems: "center", justifyContent: "center" },
+  /**
+   * 图标盒高度参与 TabBar 的几何标定（v1.27）：
+   * 内容高 = 图标盒 28 + 标签间距 2 + 标签行高 12 = 42；
+   * item 高 = 56 − 2×4(marginVertical) = 48；可用内高 = 48 − 2×2(paddingVertical) = 44；
+   * 余量 2pt 由 justifyContent:center 均分 → 上下各 ≈1pt，**几何居中**。
+   * 旧值 32 会让内容高变成 46 > 内高 36，溢出把文字压到底部（真机"图标和文字偏下"）。
+   */
+  tabIcon: { width: 40, height: 28, alignItems: "center", justifyContent: "center" },
   tabBarTint: {
     position: "absolute",
     top: 0,
@@ -252,7 +259,8 @@ function ThemedShell() {
           tabBarActiveTintColor: colors.primaryStrong,
           tabBarInactiveTintColor: colors.textMuted,
           // 参考代码 .menu a.active：选中项是一枚**浅色圆角胶囊** + 主色文字（不是整块变色）
-          tabBarActiveBackgroundColor: colors.surface + "B3",
+          // 用高不透明度 surface（而非 B3）：叠在玻璃底上不会发灰，深浅色都干净
+          tabBarActiveBackgroundColor: colors.surface + "E6",
           tabBarInactiveBackgroundColor: "transparent",
           /**
            * 悬空玻璃底栏（v12 P1-1，参考用户给的两张图）：
@@ -285,17 +293,26 @@ function ThemedShell() {
             </View>
           ),
           /**
-           * v1.26：按用户给的 Tab 参考代码恢复「图标 + 文字」两行结构，
-           * 并把文字做成 10pt/700、行高 1、marginTop 2 —— 上一版文字贴底正是因为缺这几项。
-           * 若真机仍嫌挤，把 LABELS 置 false 即回到只留图标。
+           * v1.27 几何重标定（真机反馈"图标和字体偏下、没有居中"）：
+           * 上一版 tabIcon 高 32 + 标签 14 = 内容 46，而 item 可用内高只有 56−8−12 = 36，
+           * 溢出 10pt 把文字压到底部。现在统一为：
+           *   内容 = 图标盒 28 + 标签 marginTop 2 + 标签 lineHeight 12 = 42
+           *   item = 56 − 2×4(marginVertical) = 48 → 可用内高 48 − 2×2(paddingVertical) = 44
+           *   余量 2pt 由 justifyContent:center 均分 → 上下各约 1pt，几何居中
+           * 三处数字（tabIcon 高度 / paddingVertical / lineHeight+marginTop）互为一体，改任一处都要重算。
            */
           tabBarShowLabel: true,
+          // 显式 below-icon：保证"图标在上、文字在下"的两行结构，不受平台默认值影响
+          tabBarLabelPosition: "below-icon",
+          // 行高 12 + marginTop 2 与下面的 paddingVertical 共同参与居中标定，改一处要一起改
           tabBarLabelStyle: { fontSize: 10, fontWeight: "700", lineHeight: 12, marginTop: 2, marginBottom: 0 },
           tabBarItemStyle: {
+            // 4 上下留白 + 2 内边距 → 选中胶囊高 48、内容高 42、余量 2pt 居中（见 tabIcon 注释）
             marginVertical: 4,
             marginHorizontal: 2,
+            paddingVertical: 2,
+            paddingHorizontal: 0,
             borderRadius: 999,
-            paddingVertical: 6,
             alignItems: "center",
             justifyContent: "center",
           },

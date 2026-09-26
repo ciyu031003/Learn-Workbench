@@ -46,6 +46,7 @@ import { DailyOsSummary } from "@/components/daily-os-summary";
 import { Card } from "@/components/card";
 import { SectionHeader } from "@/components/section-header";
 import { BottomSheet } from "@/components/bottom-sheet";
+import { SheetStickyCta } from "@/components/sheet";
 import { CelebrationModal } from "@/components/celebration-modal";
 import { EnergyBar } from "@/components/energy-bar";
 import { fetchLatestEnergy, logEnergy } from "@/lib/energy";
@@ -198,7 +199,31 @@ function SportSheet({ visible, onClose }: { visible: boolean; onClose: () => voi
   const current = SPORT_CATALOG.find((i) => i.key === sportKey) ?? items[0] ?? SPORT_CATALOG[0];
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} title="添加运动记录" height="72%">
+    <BottomSheet
+      visible={visible}
+      onClose={onClose}
+      title="添加运动记录"
+      subtitle="选项目 → 调时长 → 记录；想看得更全可拖动顶部把手继续上拉"
+      icon="barbell-outline"
+      // 真机反馈：默认高度不够、内容看不全，必须下滑才见到确认按钮。
+      // expandable 的手势只挂在**顶部把手**上，用户不会去拖它，所以把默认高度直接抬高到内容装得下。
+      height="88%"
+      // 真机反馈：原来不能上拖、内容看不全、必须下滑才能看到确认按钮。
+      // 打开 expandable（上拖到 94%）+ 把确认按钮移到吸底 CTA。
+      expandable
+      footer={
+        <SheetStickyCta
+          label={`记录 ${current?.name ?? "—"} ${minutes} 分钟`}
+          icon="checkmark"
+          onPress={() => {
+            if (!current) return;
+            addSport(current.key, minutes);
+            onClose();
+          }}
+        />
+      }
+      footerHint="选中的项目与时长会写进今天的运动记录"
+    >
       <View style={styles.sportTabRow}>
         <Pressable onPress={() => setTab("recent")} style={[styles.sportTab, tab === "recent" && styles.sportTabActive]}>
           <Text style={[styles.sportTabText, tab === "recent" && styles.sportTabTextActive]}>最近</Text>
@@ -256,19 +281,6 @@ function SportSheet({ visible, onClose }: { visible: boolean; onClose: () => voi
           </Pressable>
         ))}
       </View>
-      <PressableScale
-        style={styles.saveSport}
-        haptic
-        onPress={() => {
-          if (!current) return;
-          addSport(current.key, minutes);
-          onClose();
-        }}
-      >
-        <Text style={styles.saveSportText}>
-          记录 {current?.name ?? "—"} {minutes} 分钟
-        </Text>
-      </PressableScale>
     </BottomSheet>
   );
 }
