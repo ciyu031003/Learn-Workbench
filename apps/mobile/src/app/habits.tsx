@@ -14,6 +14,7 @@ import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
+import { readableAccent } from "@/lib/habit-accent";
 import { useTheme } from "@/theme";
 import { useRefreshable } from "@/lib/use-refresh";
 import type { ThemeColors } from "@/theme/tokens";
@@ -32,27 +33,6 @@ const HABIT_ICONS = [
 ];
 
 type HabitRow = Habit;
-
-/**
- * 习惯颜色的可读性守门（真机反馈：卡片中间出现「白色长方形条」）。
- *
- * 根因：老数据的 `color` 可能是空串或近白色，而卡片把它直接拼 alpha 用在了
- * 左侧厚涂条（`color+"2E"`）、右上柔光（`color+"18"`）、描边与 7 天条上 ——
- * 浅色/白色就会渲染成一条白光/白条。这里按**相对亮度**判断：
- * 不合法（空串、非 hex）或过亮（> 0.62）一律回落到主题主色。
- */
-export function readableAccent(raw: string | null | undefined, fallback: string): string {
-  const value = (raw ?? "").trim();
-  const m = /^#([0-9a-fA-F]{6})$/.exec(value) ?? /^#([0-9a-fA-F]{3})$/.exec(value);
-  if (!m) return fallback;
-  let hex = m[1];
-  if (hex.length === 3) hex = hex.split("").map((c) => c + c).join("");
-  const r = parseInt(hex.slice(0, 2), 16) / 255;
-  const g = parseInt(hex.slice(2, 4), 16) / 255;
-  const b = parseInt(hex.slice(4, 6), 16) / 255;
-  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  return luminance > 0.62 ? fallback : value;
-}
 
 /** V3 习惯打卡（移动端）：今日 One-Tap + streak + 近 7 天条 */
 export default function HabitsScreen() {
