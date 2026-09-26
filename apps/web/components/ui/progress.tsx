@@ -25,10 +25,11 @@ export function Progress({
       aria-valuenow={v}
       aria-valuemin={0}
       aria-valuemax={100}
-      className={cn("progress-track h-2 w-full overflow-hidden rounded-full", className)}
+      className={cn("progress-track h-2 w-full overflow-hidden rounded-full shadow-[var(--elev-inset)]", className)}
     >
       <div
-        className={cn("progress-fill h-full rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none", indicatorClassName)}
+        // progress-glow 给进度前端加一个柔光点，让"生长感"更明显（纯伪元素，无额外 DOM）
+        className={cn("progress-fill progress-glow h-full rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none", indicatorClassName)}
         style={{ width: `${display}%` }}
       />
     </div>

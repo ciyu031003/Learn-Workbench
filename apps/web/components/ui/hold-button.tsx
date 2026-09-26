@@ -62,7 +62,7 @@ export function HoldButton({
         }
       }}
       className={cn(
-        "press-soft relative inline-flex items-center gap-2 overflow-hidden rounded-xl border border-danger/40 bg-surface px-3.5 py-2 text-sm font-medium text-danger-strong transition-colors hover:border-danger/70 disabled:opacity-60",
+        "press-soft sheen relative inline-flex items-center gap-2 overflow-hidden rounded-xl border border-danger/40 bg-surface px-3.5 py-2 text-sm font-medium text-danger-strong shadow-[var(--elev-1)] transition-all duration-200 hover:border-danger/70 hover:shadow-[var(--elev-2)] disabled:opacity-60",
         className
       )}
     >

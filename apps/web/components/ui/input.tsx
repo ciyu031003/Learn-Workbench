@@ -8,7 +8,7 @@ export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttribute
       <input
         ref={ref}
         className={cn(
-          "flex h-10 w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground focus:border-primary/60 focus:ring-2 focus:ring-primary/30",
+          "flex h-10 w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-foreground shadow-[var(--elev-inset)] outline-none transition-all duration-200 placeholder:text-muted-foreground hover:border-primary/25 focus:border-primary/60 focus:ring-4 focus:ring-primary/12 disabled:cursor-not-allowed disabled:opacity-60",
           className
         )}
         {...props}
@@ -43,7 +43,7 @@ export function FloatField({
   const floated = focused || value.length > 0 || alwaysFloated;
   return (
     <div className={cn("spin-border rounded-xl", className)}>
-      <div className="relative flex h-12 items-center rounded-xl border border-border bg-surface px-3">
+      <div className="relative flex h-12 items-center rounded-xl border border-border bg-surface px-3 shadow-[var(--elev-inset)] transition-colors duration-200 hover:border-primary/25">
         {icon ? <span className="mr-2 text-muted-foreground">{icon}</span> : null}
         <input
           {...rest}
@@ -100,7 +100,7 @@ export function SearchInput({
         onSubmit?.();
       }}
       className={cn(
-        "spin-border flex h-11 items-center gap-2 rounded-full border border-border bg-surface pl-4 pr-1.5 transition-colors focus-within:border-primary/40",
+        "spin-border flex h-11 items-center gap-2 rounded-full border border-border bg-surface pl-4 pr-1.5 shadow-[var(--elev-1)] transition-all duration-200 focus-within:border-primary/45 focus-within:shadow-[var(--elev-2)]",
         className
       )}
     >
@@ -115,7 +115,7 @@ export function SearchInput({
       <button
         type="submit"
         aria-label={submitLabel}
-        className="press grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary-strong"
+        className="press grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[image:var(--grad-primary)] text-primary-foreground shadow-[var(--elev-1)] transition-all duration-200 hover:brightness-[1.06]"
       >
         <CornerDownLeft className="size-4" aria-hidden />
       </button>

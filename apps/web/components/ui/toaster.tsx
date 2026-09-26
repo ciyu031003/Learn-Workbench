@@ -33,7 +33,7 @@ function ToastCard({ toast, onClose }: { toast: ToastItem; onClose: () => void }
   return (
     <div
       role="status"
-      className="paper-card toast-progress page-enter relative flex items-start gap-3 overflow-hidden px-3.5 py-3 pr-9"
+      className="paper-card toast-progress toast-in edge-light relative flex items-start gap-3 overflow-hidden px-3.5 py-3 pr-9"
       style={{ ["--toast-life" as string]: `${toast.lifeMs ?? 3200}ms` }}
     >
       <span className={cn("icon-chip h-8 w-8 shrink-0", tone)}>

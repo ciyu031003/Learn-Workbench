@@ -19,7 +19,7 @@ export function SkeletonText({ lines = 3, className }: { lines?: number; classNa
 /** 卡片骨架：标题 + 若干行 + 可选底部按钮条。 */
 export function SkeletonCard({ lines = 3, className, withAction }: { lines?: number; className?: string; withAction?: boolean }) {
   return (
-    <div className={cn("paper-card p-4", className)}>
+    <div className={cn("paper-card edge-light p-4", className)}>
       <div className="flex items-center gap-3">
         <Skeleton className="h-9 w-9" rounded="rounded-full" />
         <Skeleton className="h-4 w-28" rounded="rounded-full" />

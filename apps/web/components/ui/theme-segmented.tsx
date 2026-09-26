@@ -29,11 +29,11 @@ export function ThemeSegmented({
     <div
       role="radiogroup"
       aria-label="主题模式"
-      className={cn("relative grid grid-cols-3 rounded-full border border-border bg-muted/60 p-1", className)}
+      className={cn("relative grid grid-cols-3 rounded-full border border-border bg-muted/60 p-1 shadow-[inset_0_1px_2px_rgba(60,50,30,0.07)]", className)}
     >
       <span
         aria-hidden
-        className="absolute inset-y-1 left-1 w-[calc((100%-0.5rem)/3)] rounded-full bg-surface shadow-[0_2px_8px_rgba(60,50,30,0.14)]"
+        className="absolute inset-y-1 left-1 w-[calc((100%-0.5rem)/3)] rounded-full bg-surface shadow-[var(--elev-2)]"
         style={{
           transform: "translateX(" + index * 100 + "%)",
           transition: "transform var(--motion-base) var(--ease-overshoot)",

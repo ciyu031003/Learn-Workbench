@@ -54,8 +54,10 @@ export function UploadCard({
         take(e.dataTransfer.files?.[0]);
       }}
       className={cn(
-        "group relative overflow-hidden rounded-2xl border border-dashed px-4 py-4 transition-all",
-        over ? "border-primary/70 bg-primary/5" : "border-border bg-surface/70 hover:border-primary/40",
+        "group relative overflow-hidden rounded-2xl border border-dashed px-4 py-4 transition-all duration-200",
+        over
+          ? "scale-[1.01] border-primary/70 bg-primary/5 shadow-[var(--elev-2)]"
+          : "border-border bg-surface/70 hover:border-primary/40 hover:shadow-[var(--elev-1)]",
         className
       )}
     >
@@ -70,7 +72,7 @@ export function UploadCard({
         }}
       />
       <div className="flex items-start gap-3">
-        <span className="icon-chip h-10 w-10 shrink-0 bg-primary/10 text-primary-strong">
+        <span className="icon-chip icon-chip-glow h-10 w-10 shrink-0 bg-primary/10 text-primary-strong">
           {busy ? <Loader2 className="size-4 animate-spin" /> : <CloudUpload className="size-4" />}
         </span>
         <div className="min-w-0 flex-1">
@@ -80,7 +82,7 @@ export function UploadCard({
           </p>
           {typeof progress === "number" ? (
             <div className="progress-track mt-2.5 h-1.5 w-full overflow-hidden rounded-full">
-              <div className="progress-fill h-full rounded-full transition-[width] duration-300" style={{ width: `${Math.max(0, Math.min(100, progress))}%` }} />
+              <div className="progress-fill progress-glow h-full rounded-full transition-[width] duration-300" style={{ width: `${Math.max(0, Math.min(100, progress))}%` }} />
             </div>
           ) : null}
           <div className="mt-2.5 flex items-center gap-2">

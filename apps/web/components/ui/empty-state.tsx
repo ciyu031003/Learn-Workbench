@@ -23,7 +23,7 @@ export function EmptyState({
   pattern?: "bauhaus" | "chevron" | "none";
 }) {
   return (
-    <div className={cn("relative flex flex-col items-center gap-3 overflow-hidden rounded-2xl px-6 py-10 text-center", className)}>
+    <div className={cn("fade-up edge-light relative flex flex-col items-center gap-3 overflow-hidden rounded-2xl px-6 py-10 text-center", className)}>
       {pattern !== "none" ? (
         <span
           aria-hidden
@@ -34,7 +34,7 @@ export function EmptyState({
           )}
         />
       ) : null}
-      <span className="icon-chip relative h-12 w-12">
+      <span className="icon-chip icon-chip-glow relative h-12 w-12">
         <Icon className="size-5 text-muted-foreground" />
       </span>
       <div className="relative">

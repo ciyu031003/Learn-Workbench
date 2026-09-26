@@ -38,7 +38,8 @@ export function ProgressRing({
     <div
       role="img"
       aria-label={label}
-      className={cn("ring-conic shrink-0", spinning && "ring-conic-spin", className)}
+      // ring-halo：外圈柔光；ring-ticks：一圈细刻度。两者都是伪元素，不影响 API 与布局
+      className={cn("ring-conic ring-halo ring-ticks shrink-0", spinning && "ring-conic-spin", className)}
       style={{ ...(ringStyle({ value: shown, thickness, from, to, track }) as CSSProperties), width: size, height: size }}
     >
       {children ? <div className="absolute inset-0 flex flex-col items-center justify-center">{children}</div> : null}

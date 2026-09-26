@@ -31,7 +31,7 @@ export function TimerDial({
       viewBox="0 0 300 300"
       role="img"
       aria-label={"计时表盘，进度 " + Math.round(p * 100) + "%"}
-      className="drop-shadow-[0_6px_30px_rgba(0,0,0,0.4)]"
+      className="dial-halo drop-shadow-[0_6px_30px_rgba(0,0,0,0.4)]"
     >
       <defs>
         <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
@@ -61,7 +61,8 @@ export function TimerDial({
         );
       })}
 
-      {/* 进度弧 */}
+      {/* 进度弧：先铺一层柔光垫底，让亮弧"浮"在表盘上 */}
+      <circle cx="150" cy="150" r={R} fill="none" stroke={to} strokeWidth="14" opacity="0.14" />
       <circle cx="150" cy="150" r={R} fill="none" stroke="rgba(255,255,255,0.14)" strokeWidth="6" />
       <circle
         cx="150"
@@ -81,6 +82,8 @@ export function TimerDial({
       <g transform={"rotate(" + p * 360 + " 150 150)"} style={{ transition: "transform 1s linear" }}>
         <line x1="150" y1="150" x2="150" y2="52" stroke={to} strokeWidth="4" strokeLinecap="round" />
       </g>
+      {/* 中心轴：外圈柔边 + 内核，运行中亮起主题色 */}
+      <circle cx="150" cy="150" r="13" fill={to} opacity={running ? 0.28 : 0.14} />
       <circle cx="150" cy="150" r="9" fill="rgba(255,255,255,0.92)" />
       <circle cx="150" cy="150" r="4" fill={running ? to : "rgba(255,255,255,0.5)"} />
     </svg>
