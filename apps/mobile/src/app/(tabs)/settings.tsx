@@ -533,7 +533,8 @@ const makeStyles = (colors: ThemeColors) =>
   },
   heroSub: {
     ...typography.callout,
-    color: colors.textMuted,
+    // 对比度：15pt 说明文字用 textMuted 会低于 WCAG AA 正文 4.5（浅色下约 3.0），改回正文色
+    color: colors.text,
   },
   /* 账号英雄卡 */
   profileCard: { gap: 12 },
@@ -550,8 +551,8 @@ const makeStyles = (colors: ThemeColors) =>
   },
   avatarText: { fontSize: 18, fontWeight: "800", color: colors.primary },
   profileBody: { flex: 1, minWidth: 0, gap: 3 },
-  profileName: { fontSize: 17, fontWeight: "800", color: colors.text },
-  profileSub: { fontSize: 12, color: colors.textMuted, lineHeight: 17 },
+  profileName: { fontSize: typography.headline.fontSize, fontWeight: "800", color: colors.text },
+  profileSub: { fontSize: typography.caption.fontSize, color: colors.textMuted, lineHeight: 17 },
   loginBtn: { backgroundColor: colors.primary, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 9 },
   loginBtnText: { fontSize: 13, fontWeight: "800", color: "#fff" },
   logoutBtn: {
@@ -569,12 +570,12 @@ const makeStyles = (colors: ThemeColors) =>
   msg: { fontSize: 13, color: colors.success, fontWeight: "600" },
   /* 领域选择（组内嵌块） */
   domainBlock: { gap: 8, paddingHorizontal: 14, paddingVertical: 12 },
-  domainLabel: { fontSize: 12, fontWeight: "700", color: colors.textMuted },
+  domainLabel: { fontSize: typography.caption.fontSize, fontWeight: "700", color: colors.textMuted },
   chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
   chipActive: { backgroundColor: colors.primary },
   chipIdle: { backgroundColor: colors.surfaceStrong, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   chipTextActive: { color: "#fff", fontSize: 13, fontWeight: "600" },
   chipTextIdle: { color: colors.text, fontSize: 13 },
-  footer: { fontSize: 12, color: colors.textFaint, lineHeight: 18, paddingHorizontal: 4 },
+  footer: { fontSize: typography.caption.fontSize, color: colors.textFaint, lineHeight: 18, paddingHorizontal: 4 },
 });

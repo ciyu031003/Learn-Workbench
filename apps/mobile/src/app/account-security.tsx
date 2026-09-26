@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { typography } from "@/theme/tokens";
 import { useHeaderTopInset } from "@/components/screen-header";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
 import {
@@ -255,18 +256,18 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       paddingBottom: 10,
     },
     backBtn: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
-    headerTitle: { fontSize: 17, fontWeight: "800", color: colors.text },
+    headerTitle: { fontSize: typography.headline.fontSize, fontWeight: "800", color: colors.text },
     scroll: { flex: 1 },
     content: { padding: 16, gap: 12 },
     boundRow: { flexDirection: "row", alignItems: "center", gap: 12 },
     badge: { width: 40, height: 40, borderRadius: 14, alignItems: "center", justifyContent: "center" },
     boundBody: { flex: 1, gap: 2 },
     boundTitle: { fontSize: 14, fontWeight: "700", color: colors.text },
-    boundSub: { fontSize: 12, color: colors.textMuted, lineHeight: 17 },
+    boundSub: { fontSize: typography.caption.fontSize, color: colors.textMuted, lineHeight: 17 },
     unlinkText: { fontSize: 13, fontWeight: "700", color: colors.danger },
-    msg: { fontSize: 12, color: colors.success, fontWeight: "600", marginTop: 8 },
+    msg: { fontSize: typography.caption.fontSize, color: colors.success, fontWeight: "600", marginTop: 8 },
     deleteBox: { gap: 10 },
-    deleteHint: { fontSize: 12, color: colors.textMuted, lineHeight: 17 },
+    deleteHint: { fontSize: typography.caption.fontSize, color: colors.textMuted, lineHeight: 17 },
     input: {
       backgroundColor: colors.surfaceStrong,
       borderRadius: 12,
@@ -289,5 +290,5 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
     btnDangerText: { color: "#fff", fontSize: 14, fontWeight: "700" },
     deleteEntry: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 4 },
     deleteEntryText: { fontSize: 14, fontWeight: "600", color: colors.danger },
-    hint: { fontSize: 12, color: colors.textMuted, lineHeight: 18, paddingHorizontal: 4 },
+    hint: { fontSize: typography.caption.fontSize, color: colors.textMuted, lineHeight: 18, paddingHorizontal: 4 },
   });

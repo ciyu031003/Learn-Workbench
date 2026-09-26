@@ -304,8 +304,8 @@ const makeStyles = (colors: ThemeColors) =>
     appCard: { padding: 14, gap: 10 },
     appTop: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
     appMain: { flex: 1, minWidth: 0, gap: 3 },
-    title: { fontSize: 15, fontWeight: "800", color: colors.text },
-    meta: { fontSize: 12, color: colors.textMuted },
+    title: { fontSize: typography.callout.fontSize, fontWeight: "800", color: colors.text },
+    meta: { fontSize: typography.caption.fontSize, color: colors.textMuted },
     stageBadge: {
       borderRadius: 999,
       paddingHorizontal: 9,
@@ -373,5 +373,5 @@ const makeStyles = (colors: ThemeColors) =>
 
     emptyBox: { alignItems: "center", gap: 6, paddingVertical: 44 },
     emptyText: { fontSize: 14, fontWeight: "800", color: colors.text },
-    emptyHint: { fontSize: 12, color: colors.textFaint, textAlign: "center" },
+    emptyHint: { fontSize: typography.caption.fontSize, color: colors.textFaint, textAlign: "center" },
   });

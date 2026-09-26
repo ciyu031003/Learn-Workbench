@@ -533,7 +533,7 @@ const makeStyles = (colors: ThemeColors) =>
       paddingHorizontal: 12,
       paddingVertical: 10,
     },
-    errorText: { flex: 1, fontSize: 12, fontWeight: "600", color: colors.danger },
+    errorText: { flex: 1, fontSize: typography.caption.fontSize, fontWeight: "600", color: colors.danger },
     hero: { gap: spacing.md, paddingVertical: spacing.lg },
     heroTop: { flexDirection: "row", alignItems: "center", gap: spacing.lg },
     heroStats: { flex: 1, minWidth: 0, gap: spacing.sm },

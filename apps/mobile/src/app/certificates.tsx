@@ -232,19 +232,21 @@ const makeStyles = (colors: ThemeColors) =>
       color: colors.text,
       marginTop: 2,
     },
-    itemMuted: { fontSize: 12, color: colors.textMuted },
+    itemMuted: { fontSize: typography.caption.fontSize, color: colors.textMuted },
     itemContent: {
       ...typography.callout,
-      color: colors.textMuted,
+      // 对比度：15pt 正文用 textMuted（#8E8E93 对白底约 3.0）低于 WCAG AA 正文 4.5。
+      // 层级改由字号/字重承担（callout 15 vs headline 17），颜色回到正文色。
+      color: colors.text,
     },
     form: { gap: 10, paddingTop: 6 },
-    label: { fontSize: 12, fontWeight: "700", color: colors.textMuted },
+    label: { fontSize: typography.caption.fontSize, fontWeight: "700", color: colors.textMuted },
     kindRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     kindChip: { borderRadius: 999, paddingHorizontal: 13, paddingVertical: 7, backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.border },
     kindChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-    kindChipText: { fontSize: 12, fontWeight: "700", color: colors.textMuted },
+    kindChipText: { fontSize: typography.caption.fontSize, fontWeight: "700", color: colors.textMuted },
     kindChipTextActive: { color: "#ffffff" },
     input: { backgroundColor: colors.surfaceMuted, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: colors.text },
     primaryBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 12, alignItems: "center", marginTop: 4 },
-    primaryBtnText: { color: "#fff", fontSize: 15, fontWeight: "800" },
+    primaryBtnText: { color: "#fff", fontSize: typography.callout.fontSize, fontWeight: "800" },
   });

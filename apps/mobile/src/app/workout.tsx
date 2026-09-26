@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Animated from "react-native-reanimated";
+import Animated, { FadeInDown, LinearTransition } from "react-native-reanimated";
 import { Alert, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
 import { EmptyState } from "@/components/empty-state";
@@ -14,6 +14,8 @@ import { ExercisePickerSheet } from "@/components/exercise-picker-sheet";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
 import { useRefreshable } from "@/lib/use-refresh";
+import { DURATION, useReducedMotion } from "@/lib/motion";
+import { staggerDelay } from "@/lib/stagger";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
@@ -97,6 +99,8 @@ export default function WorkoutScreen() {
   }, [load]);
 
   const { refreshing, onRefresh } = useRefreshable(load);
+  /** v17-D：减弱动态时不做入场错峰与 Layout 转场 */
+  const reduced = useReducedMotion();
 
   /* ---------- 弹层开关 ---------- */
 
@@ -277,10 +281,16 @@ export default function WorkoutScreen() {
       ) : workouts.length === 0 ? (
         <EmptyState icon="barbell-outline" title="还没有训练记录" hint="从动作库里选动作、填组次，自动汇总训练容量" />
       ) : (
-        workouts.map((w) => {
+        workouts.map((w, index) => {
           const v = workoutVolume(w.items);
           return (
-            <Card key={w.id} style={styles.item}>
+            /* v17-D：列表入场错峰（每屏封顶 12 项，滚动复现不做；减弱动态下不参与） */
+            <Animated.View
+              key={w.id}
+              entering={reduced ? undefined : FadeInDown.duration(DURATION.base).delay(staggerDelay(index))}
+              layout={reduced ? undefined : LinearTransition}
+            >
+            <Card style={styles.item}>
               <View style={styles.itemHead}>
                 <Text style={styles.itemTitle} numberOfLines={1}>{w.name}</Text>
                 <Text style={styles.muted}>{w.exercisedOn}</Text>
@@ -313,6 +323,7 @@ export default function WorkoutScreen() {
               ))}
               <Text style={styles.volume}>{v.sets} 组 · {v.reps} 次{v.volumeKg > 0 ? ` · ${v.volumeKg} kg` : ""}</Text>
             </Card>
+            </Animated.View>
           );
         })
       )}
@@ -520,7 +531,7 @@ const makeStyles = (colors: ThemeColors) =>
     volume: { fontSize: 11, fontWeight: "700", color: colors.primary },
 
     form: { gap: 10, paddingTop: 2 },
-    sectionLabel: { fontSize: 12, fontWeight: "800", color: colors.textMuted, letterSpacing: 0.3 },
+    sectionLabel: { fontSize: typography.caption.fontSize, fontWeight: "800", color: colors.textMuted, letterSpacing: 0.3 },
     input: {
       backgroundColor: colors.surfaceMuted,
       borderRadius: 12,
@@ -532,7 +543,7 @@ const makeStyles = (colors: ThemeColors) =>
     dateRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     dateChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, backgroundColor: colors.surfaceMuted },
     dateChipActive: { backgroundColor: colors.primarySoft },
-    dateChipText: { fontSize: 12, color: colors.textMuted, fontWeight: "600" },
+    dateChipText: { fontSize: typography.caption.fontSize, color: colors.textMuted, fontWeight: "600" },
     dateChipTextActive: { color: colors.primary, fontWeight: "800" },
     dateHint: { fontSize: 11, color: colors.textMuted },
     itemsHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 2 },
@@ -546,12 +557,12 @@ const makeStyles = (colors: ThemeColors) =>
     },
     itemCardHead: { flexDirection: "row", alignItems: "center", gap: 8 },
     exercisePick: { flex: 1, flexDirection: "row", alignItems: "center", gap: 6 },
-    exercisePickText: { fontSize: 15, fontWeight: "700", color: colors.text, flexShrink: 1 },
+    exercisePickText: { fontSize: typography.callout.fontSize, fontWeight: "700", color: colors.text, flexShrink: 1 },
     exercisePickPlaceholder: { color: colors.textFaint, fontWeight: "600" },
     /* v6 P2-1：字段独占一行，± 分离 */
     stepperStack: { gap: 12 },
     miniStepper: { flexDirection: "row", alignItems: "center", gap: 10 },
-    miniTitle: { width: 36, fontSize: 12, fontWeight: "700", color: colors.textMuted },
+    miniTitle: { width: 36, fontSize: typography.caption.fontSize, fontWeight: "700", color: colors.textMuted },
     miniBtn: {
       width: 36,
       height: 36,
@@ -565,17 +576,17 @@ const makeStyles = (colors: ThemeColors) =>
       minWidth: 44,
       textAlign: "center",
       paddingVertical: 9,
-      fontSize: 15,
+      fontSize: typography.callout.fontSize,
       fontWeight: "800",
       color: colors.text,
       backgroundColor: colors.surfaceStrong,
       borderRadius: 10,
     },
-    miniUnit: { width: 20, fontSize: 12, color: colors.textMuted },
+    miniUnit: { width: 20, fontSize: typography.caption.fontSize, color: colors.textMuted },
     ghostBtn: { borderRadius: 12, paddingVertical: 10, alignItems: "center", backgroundColor: colors.surfaceMuted },
     ghostBtnText: { fontSize: 13, fontWeight: "700", color: colors.primary },
     primaryBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 12, alignItems: "center", marginTop: 2 },
-    primaryBtnText: { color: "#fff", fontSize: 15, fontWeight: "800" },
+    primaryBtnText: { color: "#fff", fontSize: typography.callout.fontSize, fontWeight: "800" },
     // v13 U5：PressButton 的形态微调（高度/圆角由组件按 token 负责，这里只留间距）
     primaryBtnPressed: { marginTop: 2 },
     btnDisabled: { opacity: 0.5 },

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { typography } from "@/theme/tokens";
 import Animated from "react-native-reanimated";
 import { Dimensions, Platform, Pressable, Share, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -180,14 +181,14 @@ const makeStyles = (colors: ThemeColors) =>
       justifyContent: "center",
     },
     padCount: { fontSize: 40, fontWeight: "700", color: colors.text },
-    padHint: { marginTop: 4, fontSize: 12, color: colors.textMuted },
+    padHint: { marginTop: 4, fontSize: typography.caption.fontSize, color: colors.textMuted },
     buttonRow: { flexDirection: "row", gap: 8, marginTop: 12 },
-    note: { marginTop: 10, fontSize: 12, lineHeight: 18, color: colors.textMuted },
+    note: { marginTop: 10, fontSize: typography.caption.fontSize, lineHeight: 18, color: colors.textMuted },
     verdict: { borderRadius: 12, padding: 12, marginBottom: 10 },
     verdictOk: { backgroundColor: colors.successSoft ?? colors.surface },
     verdictWarn: { backgroundColor: colors.warningSoft ?? colors.surface },
     verdictPending: { backgroundColor: colors.surface },
     verdictTitle: { fontSize: 14, fontWeight: "700", color: colors.text, marginBottom: 4 },
-    verdictDetail: { fontSize: 12, lineHeight: 18, color: colors.textMuted },
+    verdictDetail: { fontSize: typography.caption.fontSize, lineHeight: 18, color: colors.textMuted },
     report: { fontSize: 11, lineHeight: 17, color: colors.textMuted, marginBottom: 10 },
   });
