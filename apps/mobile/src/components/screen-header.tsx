@@ -45,6 +45,13 @@ const HEADER_GAP = 6;
 const HERO_GAP = 16;
 /** 大标题块的高度（折叠时同步收到 0，避免留下空白） */
 const LARGE_BLOCK_HEIGHT = 62;
+/**
+ * v17-C2b 真吸顶：紧凑栏独立成层后，它占用的**一行**高度。
+ * 大标题块（在滚动内容里）要给这一行让位，否则静止态会被吸顶栏压住。
+ */
+const STICKY_ROW_HEIGHT = 44;
+/** 吸顶栏与内容的左右留白（与各页 contentContainerStyle 的 padding 16 对齐） */
+const STICKY_GUTTER = 16;
 
 /** 页面统一取顶部安全区 + 组件间距（自绘 hero 的页面用，避免再写 insets.top + N 魔数） */
 export function useHeaderTopInset(variant: "compact" | "hero" = "compact"): number {
@@ -72,6 +79,22 @@ export function useLargeTitleHeader(): {
   return { scrollY, onScroll };
 }
 
+/**
+ * 返回：优先真实 pop（阶段 B 后栈是真实存在的，才有原生返回动画），
+ * 无栈历史（深链直达/冷启动/外部协议）时兜底回所属 Hub。
+ */
+function useGoBack(backTo?: string): () => void {
+  const pathname = usePathname();
+  return () => {
+    const canPop = typeof router.canGoBack === "function" && router.canGoBack();
+    if (canPop) {
+      router.back();
+      return;
+    }
+    router.replace((backTo ?? resolveBackTarget(pathname)) as never);
+  };
+}
+
 export function ScreenHeader({
   title,
   subtitle,
@@ -96,7 +119,6 @@ export function ScreenHeader({
 }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const pathname = usePathname();
   const reduced = useReducedMotion();
 
   /**
@@ -131,19 +153,8 @@ export function ScreenHeader({
     opacity: interpolate(progress.value, [0.35, 1], [0, 1], Extrapolation.CLAMP),
   }));
 
-  const goBack = () => {
-    /**
-     * v17-B：导航栈已真实存在（根 <Stack> 包 (tabs) + 子页），所以**优先 pop** ——
-     * 才有原生返回动画，且回到的一定是真正的上一页。resolveBackTarget 只作无栈历史兜底
-     * （深链直达、冷启动、外部协议唤起）。
-     */
-    const canPop = typeof router.canGoBack === "function" && router.canGoBack();
-    if (canPop) {
-      router.back();
-      return;
-    }
-    router.replace((backTo ?? resolveBackTarget(pathname)) as never);
-  };
+  // v17-C2b：返回逻辑抽成 useGoBack，供本组件与新的 ScreenHeaderStickyBar 共用（行为不变）
+  const goBack = useGoBack(backTo);
 
   const BackButton = (
     <Pressable
@@ -207,6 +218,96 @@ export function ScreenHeader({
   );
 }
 
+/**
+ * v17-C2b（真吸顶）：大标题块 —— 放进滚动容器**内部**，随内容自然滚走。
+ *
+ * 为什么这里不做高度动画：大标题块本身已在滚动流里，滚动就会把它带走；再叠一层 height 动画
+ * 会与滚动位移打架（折叠瞬间"跳一下"）。高度动画只适用于旧版「整块头部在滚动容器之外」的形态。
+ */
+export function ScreenHeaderLargeTitle({ title, subtitle }: { title: string; subtitle?: string }) {
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => makeStyles(colors, false), [colors]);
+  return (
+    <View style={[styles.largeInFlow, { paddingTop: insets.top + STICKY_ROW_HEIGHT + HEADER_GAP }]}>
+      <Text style={styles.largeTitle} numberOfLines={2}>
+        {title}
+      </Text>
+      {subtitle ? (
+        <Text style={styles.subtitle} numberOfLines={2}>
+          {subtitle}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * v17-C2b（真吸顶）：紧凑栏 —— 必须是滚动容器**之外**的兄弟节点，绝对定位在状态栏下方**一行**高度。
+ *
+ * 触摸安全（OPPO/ColorOS 历史坑）：外层 pointerEvents="box-none" 且高度只有一行，
+ * 空白处的手势会穿透到下面的滚动内容，只有返回键与右侧动作可点 —— **不是全屏覆盖层**。
+ * 减弱动态时不做渐显，紧凑栏常显（功能完整、无动画）。
+ */
+export function ScreenHeaderStickyBar({
+  title,
+  backTo,
+  scrollY,
+  right,
+}: {
+  title: string;
+  backTo?: string;
+  scrollY?: SharedValue<number>;
+  right?: React.ReactNode;
+}) {
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  const reduced = useReducedMotion();
+  const styles = useMemo(() => makeStyles(colors, false), [colors]);
+  const goBack = useGoBack(backTo);
+  const animated = !reduced && !!scrollY;
+
+  const progress = useDerivedValue(() => {
+    if (!animated || !scrollY) return 0;
+    const p = scrollY.value / COLLAPSE_RANGE;
+    return p < 0 ? 0 : p > 1 ? 1 : p;
+  }, [animated, scrollY]);
+
+  const bgStyle = useAnimatedStyle(() => ({
+    opacity: animated ? interpolate(progress.value, [0.2, 1], [0, 1], Extrapolation.CLAMP) : 1,
+  }));
+  const titleStyle = useAnimatedStyle(() => ({
+    opacity: animated ? interpolate(progress.value, [0.45, 1], [0, 1], Extrapolation.CLAMP) : 1,
+  }));
+
+  return (
+    <View style={[styles.stickyWrap, { top: insets.top }]} pointerEvents="box-none">
+      <Animated.View style={[styles.stickyBg, bgStyle]} pointerEvents="none" />
+      <View style={styles.stickyRow} pointerEvents="box-none">
+        <Pressable
+          hitSlop={8}
+          onPress={goBack}
+          style={styles.back}
+          accessibilityRole="button"
+          accessibilityLabel="返回"
+        >
+          <ThemedIcon name="chevron-back" size={20} color={colors.text} />
+        </Pressable>
+        <Animated.View style={[styles.text, titleStyle]} pointerEvents="none">
+          <Text style={styles.title} numberOfLines={1}>
+            {title}
+          </Text>
+        </Animated.View>
+        {right ? (
+          <View style={styles.right} pointerEvents="box-none">
+            {right}
+          </View>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
 const makeStyles = (colors: ThemeColors, compactOnly: boolean) =>
   StyleSheet.create({
     root: { flexDirection: "row", alignItems: "center", gap: 10 },
@@ -230,6 +331,34 @@ const makeStyles = (colors: ThemeColors, compactOnly: boolean) =>
     largeTitle: { ...typography.display, color: colors.text },
     subtitle: { ...typography.caption, fontWeight: "400", color: colors.textMuted },
     right: { flexDirection: "row", alignItems: "center", gap: 8 },
+    /** v17-C2b：大标题块（在滚动内容里）——只补顶部让位，左右留白由页面 content 的 padding 提供 */
+    largeInFlow: { paddingBottom: 6, gap: 2 },
+    /** v17-C2b：真吸顶紧凑栏 —— 只占一行，绝不铺满全屏 */
+    stickyWrap: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      height: STICKY_ROW_HEIGHT,
+      zIndex: 20,
+      justifyContent: "center",
+    },
+    stickyBg: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: colors.canvas,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+    },
+    stickyRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      height: STICKY_ROW_HEIGHT,
+      paddingHorizontal: STICKY_GUTTER,
+    },
     // compactOnly 仅用于保持 makeStyles 依赖签名（样式差异走外层样式数组）
     ...(compactOnly ? {} : {}),
   });

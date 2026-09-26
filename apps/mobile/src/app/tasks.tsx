@@ -9,7 +9,7 @@ import { useAppStore, type TaskType } from "@/store/app-store";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { taskTypeLabels, todayISO } from "@learn-workbench/shared";
 import { Card } from "@/components/card";
-import { ScreenHeader, useLargeTitleHeader } from "@/components/screen-header";
+import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { ChipGroup, SheetSection, SheetStickyCta } from "@/components/sheet";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { FocusTimer } from "@/components/focus-timer";
@@ -90,12 +90,12 @@ export default function TasksScreen() {
   const shareCard = () => setShareOpen(true);
 
   return (
-    <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
-      {/* 真机反馈：这一页原来只有白字标题（浅底上完全看不清），且没有返回上一级的按钮。
-          改成与其它子页一致的 ScreenHeader（主题色 + 返回按钮 → 学习）。 */}
-      <View>
-        <ScreenHeader large scrollY={headerScroll.scrollY} title="每日任务" subtitle="计划 → 专注 → 复盘，形成学习闭环" />
-      </View>
+    <View style={styles.root}>
+      {/* v17-C2b：紧凑栏放到滚动容器**之外**才能真吸顶（原来它在内容流里，会跟着一起滚走） */}
+      <ScreenHeaderStickyBar title="每日任务" scrollY={headerScroll.scrollY} />
+      <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
+        {/* 大标题留在内容里随内容滚走；顶部让位高度由组件自己吃 insets */}
+        <ScreenHeaderLargeTitle title="每日任务" subtitle="计划 → 专注 → 复盘，形成学习闭环" />
 
       {/* ① 焦点 hero：今天第一件该做的事（v4 P1-3）。
           放在这里而不是 Card 列表里，是为了让"进页面 1 秒内知道先做什么"成立。 */}
@@ -303,12 +303,14 @@ export default function TasksScreen() {
           addSession(taskId, seconds, label ?? (taskId ? (timerTask?.title ?? null) : null))
         }
       />
-    </Animated.ScrollView>
+      </Animated.ScrollView>
+    </View>
   );
 }
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
+  root: { flex: 1 },
   scroll: { flex: 1 },
   content: { padding: 16, gap: 12 },
   hero: { paddingTop: 24, paddingBottom: 6, gap: 4 },

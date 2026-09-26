@@ -10,7 +10,7 @@ import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { mainPhases, agentPhase } from "@learn-workbench/content";
 import { pct } from "@learn-workbench/shared";
 import { Card } from "@/components/card";
-import { ScreenHeader, useLargeTitleHeader } from "@/components/screen-header";
+import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 
 interface TopicView {
   id: number;
@@ -141,11 +141,11 @@ export default function RoadmapScreen() {
   });
 
   return (
-    <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
-      {/* 真机反馈：子页要有返回上一级的按钮（这里 → 学习） */}
-      <View>
-        <ScreenHeader large scrollY={headerScroll.scrollY} title="学习路线图" subtitle="6 个主阶段 + Agent 应用副线，点击主题完成打勾" />
-      </View>
+    <View style={styles.root}>
+      {/* v17-C2b：紧凑栏在滚动容器之外 → 真吸顶 */}
+      <ScreenHeaderStickyBar title="学习路线图" scrollY={headerScroll.scrollY} />
+      <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
+        <ScreenHeaderLargeTitle title="学习路线图" subtitle="6 个主阶段 + Agent 应用副线，点击主题完成打勾" />
 
       <Card>
         <Pressable onPress={() => setAdding((v) => !v)} style={styles.addToggle}>
@@ -202,12 +202,14 @@ export default function RoadmapScreen() {
           onDelete={removeCustomTopic}
         />
       ) : null}
-    </Animated.ScrollView>
+      </Animated.ScrollView>
+    </View>
   );
 }
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
+  root: { flex: 1 },
   scroll: { flex: 1 },
   content: { padding: 16, gap: 12 },
   hero: { paddingTop: 24, paddingBottom: 6, gap: 4 },

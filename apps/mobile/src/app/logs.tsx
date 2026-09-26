@@ -8,7 +8,7 @@ import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { logKindLabels } from "@learn-workbench/shared";
 import { Card } from "@/components/card";
 import { EmptyState } from "@/components/empty-state";
-import { ScreenHeader, useLargeTitleHeader } from "@/components/screen-header";
+import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 
 const KINDS: LogKind[] = ["feynman", "review", "project", "interview"];
 
@@ -61,7 +61,7 @@ export default function LogsScreen() {
     <View style={styles.headerWrap}>
       {/* 真机反馈：子页要有返回上一级的按钮（这里 → 学习） */}
       <View>
-        <ScreenHeader large scrollY={headerScroll.scrollY} title="学习日志" subtitle="费曼讲稿 · 周复盘 · 项目笔记 · 面试记录" />
+        <ScreenHeaderLargeTitle title="学习日志" subtitle="费曼讲稿 · 周复盘 · 项目笔记 · 面试记录" />
       </View>
 
       <Card title="写一篇日志">
@@ -103,29 +103,35 @@ export default function LogsScreen() {
   );
 
   return (
-    <FlatList onScroll={headerScroll.onScroll} scrollEventThrottle={16}
-      style={styles.scroll}
-      data={logs as LogRow[]}
-      keyExtractor={(l) => String(l.id)}
-      renderItem={renderItem}
-      ListHeaderComponent={header}
-      ListEmptyComponent={
-        <EmptyState icon="create-outline" title="还没有日志" hint="写下第一篇费曼讲稿或周复盘" />
-      }
-      contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
-      showsVerticalScrollIndicator={false}
-      automaticallyAdjustKeyboardInsets
-      initialNumToRender={8}
-      maxToRenderPerBatch={8}
-      windowSize={7}
-      removeClippedSubviews
-    />
+    <View style={styles.root}>
+      {/* v17-C2b：FlatList 的 ListHeaderComponent 里是"大标题"（随列表滚走），
+          紧凑栏必须放在列表**之外**才能真吸顶 */}
+      <ScreenHeaderStickyBar title="学习日志" scrollY={headerScroll.scrollY} />
+        <FlatList onScroll={headerScroll.onScroll} scrollEventThrottle={16}
+          style={styles.scroll}
+          data={logs as LogRow[]}
+          keyExtractor={(l) => String(l.id)}
+          renderItem={renderItem}
+          ListHeaderComponent={header}
+          ListEmptyComponent={
+            <EmptyState icon="create-outline" title="还没有日志" hint="写下第一篇费曼讲稿或周复盘" />
+          }
+          contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
+          showsVerticalScrollIndicator={false}
+          automaticallyAdjustKeyboardInsets
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          windowSize={7}
+          removeClippedSubviews
+        />
+    </View>
   );
 }
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
-    scroll: { flex: 1 },
+    root: { flex: 1 },
+  scroll: { flex: 1 },
     content: { padding: spacing.lg, gap: spacing.md },
     headerWrap: { gap: spacing.md },
     hero: { paddingBottom: 6, gap: 4 },

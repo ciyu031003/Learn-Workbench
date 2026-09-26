@@ -7,7 +7,7 @@ import {
 import { ThemedIcon } from "@/components/themed-icon";
 import { EmptyState } from "@/components/empty-state";
 import { SkeletonList } from "@/components/skeleton";
-import { ScreenHeader, useLargeTitleHeader } from "@/components/screen-header";
+import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useHeaderTopInset, useLargeTitleHeader } from "@/components/screen-header";
 import { Card } from "@/components/card";
 import { PressButton } from "@/components/press-button";
 import { FloatField } from "@/components/float-field";
@@ -42,6 +42,8 @@ export default function HabitsScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const headerScroll = useLargeTitleHeader();
   const tabBarSpace = useTabBarSpace();
+  // v17-C2b：吸顶栏占用的顶部高度（与组件内部口径一致，避免再写 insets.top + N 魔数）
+  const headerTop = useHeaderTopInset();
   const token = useAppStore((s) => s.token);
   const [habits, setHabits] = useState<HabitRow[]>([]);
   const [logs, setLogs] = useState<HabitLog[]>([]);
@@ -233,11 +235,22 @@ const last7 = useMemo(() => {
   }).length;
 
   return (
-    <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} progressBackgroundColor={colors.surfaceStrong} />
-      }>
-      <ScreenHeader large scrollY={headerScroll.scrollY} title="习惯" subtitle={`今日 ${doneToday}/${scheduledToday} 已完成`} />
+    <View style={styles.root}>
+      {/* v17-C2b：吸顶栏在滚动容器之外，下拉刷新与内容滚动都不受影响 */}
+      <ScreenHeaderStickyBar title="习惯" scrollY={headerScroll.scrollY} />
+      <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+            progressBackgroundColor={colors.surfaceStrong}
+            /* v17-C2b：下拉转圈要出现在吸顶栏**下方**，否则会被那一行盖住 */
+            progressViewOffset={headerTop + 44}
+          />
+        }>
+        <ScreenHeaderLargeTitle title="习惯" subtitle={`今日 ${doneToday}/${scheduledToday} 已完成`} />
 
       <PressableScale style={styles.addBtn} haptic onPress={() => setSheetOpen(true)}>
         <ThemedIcon name="add" size={17} color={colors.primary} />
@@ -487,13 +500,15 @@ const last7 = useMemo(() => {
           />
         </View>
       </BottomSheet>
-    </Animated.ScrollView>
+      </Animated.ScrollView>
+    </View>
   );
 }
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
-    scroll: { flex: 1, backgroundColor: "transparent" },
+    root: { flex: 1 },
+  scroll: { flex: 1, backgroundColor: "transparent" },
     content: { padding: 16, gap: 12 },
     addBtn: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.primarySoft, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9 },
     addBtnText: { color: colors.primary, fontSize: 13, fontWeight: "800" },
