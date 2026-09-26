@@ -1,8 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { Stack, usePathname } from "expo-router";
-import { InteractionManager, StatusBar as RNStatusBar, StyleSheet, View } from "react-native";
+import { InteractionManager, StatusBar as RNStatusBar, StyleSheet } from "react-native";
 import * as ScreenOrientation from "expo-screen-orientation";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { DailyBackground } from "@/components/daily-background";
@@ -34,8 +33,7 @@ const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     root: { flex: 1 },
     // 状态栏兜底底色：绝对定位贴顶，不参与布局（v12 P0-5；阶段 C1 边到边时移除）
-    statusBarFill: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 1 },
-  });
+    });
 
 export default function RootLayout() {
   const { colors } = useTheme();
@@ -100,7 +98,6 @@ export default function RootLayout() {
 function ThemedShell() {
   const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const insets = useSafeAreaInsets();
   // 记住"上一个展示过的页面"，供 resolveBackTarget 在无栈历史时兜底（v1.22）
   const pathname = usePathname();
   useEffect(() => {
@@ -109,18 +106,16 @@ function ThemedShell() {
   return (
     <DailyBackground>
       {/*
-        状态栏：底色必须跟随**App 内主题**，不能只靠 Android 主题里的 @color/app_bar_color
-        —— 它是 DayNight 资源，会跟随**系统**深色模式；系统深色 + App 浅色时就会出现
-        "浅色页面顶上一条黑带"（v12 P0-5）。这里运行时指定底色 + 非透明。
-        （阶段 C1 会改为边到边并去掉这条底色带。）
+        v17-C1 边到边：内容从状态栏下穿过，不再用实色底把内容"顶开"。
+        只保留 barStyle —— 状态栏**图标颜色**仍由 App 内主题运行时决定，
+        这正是 v12 P0-5 的根因所在：当年那条黑带来自 Android 主题的 DayNight 资源
+        跟随**系统**深色（而非 App 主题），不是边到边本身的问题。
+        现在两者已解耦，因此可以安全重开边到边。
+        顶部留白由各页自己吃 insets（C2 折叠栏会统一收敛，本阶段不动）。
       */}
-      <RNStatusBar
-        backgroundColor={colors.canvas}
-        barStyle={dark ? "light-content" : "dark-content"}
-        translucent={false}
-      />
-      {/* 兜底：即使系统忽略上面的底色（部分 ROM / 边到边），也用主题色铺一条状态栏高度的底 */}
-      <View pointerEvents="none" style={[styles.statusBarFill, { height: insets.top, backgroundColor: colors.canvas }]} />
+      {/* 不再传 translucent/backgroundColor：Android targetSdk 35+ 边到边为系统行为，
+          RN 的 StatusBar 也没有 transparent 属性。图标颜色仍由 barStyle 运行时决定。 */}
+      <RNStatusBar barStyle={dark ? "light-content" : "dark-content"} />
       {/*
         导航栈：`(tabs)` 承载 5 个一级 Tab（自带底栏），其余页面都是它的 push 目标 ——
         子页天然盖住底栏（D2 期望的 iOS 层级气质），因此 useTabBarSpace() 在子页返回 0。

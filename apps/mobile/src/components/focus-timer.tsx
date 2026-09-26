@@ -5,6 +5,7 @@ import {
   Pressable,
   ScrollView,
   Share,
+  StatusBar as RNStatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -524,6 +525,10 @@ export function FocusTimer({
 
   return (
     <Modal visible={open} animationType="fade" presentationStyle="fullScreen" onRequestClose={() => record(elapsed)}>
+      {/* v17-C1 审计发现：本页是**暗色沉浸**画面，但状态栏图标色此前继承自 App 主题。
+          App 处于浅色主题时会变成「深色图标压深色背景」的低对比 —— 这里强制浅色图标；
+          弹层卸载后由根布局的 StatusBar 自动恢复。 */}
+      <RNStatusBar barStyle="light-content" />
       <View style={styles.root}>
         {/* 背景层 */}
         {showImage ? <ExpoImage source={{ uri: url! }} style={ABS_FILL} contentFit="cover" cachePolicy="memory-disk" transition={200} onError={() => setUrl(null)} /> : null}
