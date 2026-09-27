@@ -18,6 +18,8 @@ import { router } from "expo-router";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import Animated, {
   FadeInDown,
+  FadeOut,
+  LinearTransition,
   useAnimatedStyle,
   useSharedValue,
   useAnimatedScrollHandler,
@@ -738,6 +740,8 @@ export default function TodayScreen() {
                 key={r.id}
                 style={styles.sportItem}
                 entering={reduced ? undefined : FadeInDown.duration(DURATION.base).delay(staggerDelay(i))}
+                layout={reduced ? undefined : LinearTransition}
+                exiting={reduced ? undefined : FadeOut.duration(150)}
               >
                 <View style={[styles.sportIco, { backgroundColor: `${c1}1f` }]}>
                   <SportIcon sportKey={r.sportKey} name={r.name} type={r.type} color={c1} active={false} />
@@ -855,7 +859,8 @@ const makeStyles = (colors: ThemeColors) =>
     paddingVertical: 16,
     minHeight: 92,
     borderRadius: radius.xl,
-    backgroundColor: "#2F74C0",
+    // v19-V2：主色走主题 token（暗色下自动提亮为 #6FA8E0，不再发闷）
+    backgroundColor: colors.primary,
     ...shadows.floating,
   },
   quickStartIcon: {

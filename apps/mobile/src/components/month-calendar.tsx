@@ -1,7 +1,8 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { toDateKey } from "@learn-workbench/shared";
 import { ThemedIcon } from "@/components/themed-icon";
+import { PressableScale } from "@/components/pressable-scale";
 import { useTheme } from "@/theme";
 import type { ThemeColors } from "@/theme/tokens";
 import { monthGrid, shiftMonth } from "@/lib/month-grid";
@@ -52,15 +53,15 @@ export function MonthCalendar({
   return (
     <View style={styles.calendar}>
       <View style={styles.calNav}>
-        <Pressable hitSlop={8} style={styles.calNavBtn} onPress={() => go(-1)}>
+        <PressableScale hitSlop={8} style={styles.calNavBtn} scaleTo={0.88} onPress={() => go(-1)}>
           <ThemedIcon name="chevron-back" size={20} color={colors.text} />
-        </Pressable>
+        </PressableScale>
         <Text style={styles.calTitle}>
           {view.y} 年 {view.m + 1} 月
         </Text>
-        <Pressable hitSlop={8} style={styles.calNavBtn} onPress={() => go(1)}>
+        <PressableScale hitSlop={8} style={styles.calNavBtn} scaleTo={0.88} onPress={() => go(1)}>
           <ThemedIcon name="chevron-forward" size={20} color={colors.text} />
-        </Pressable>
+        </PressableScale>
       </View>
 
       <View style={styles.calWeekRow}>
@@ -79,9 +80,10 @@ export function MonthCalendar({
           const isToday = key === todayKey;
           const future = key > todayKey;
           return (
-            <Pressable
+            <PressableScale
               key={i}
               style={[styles.calCell, withBadge && styles.calCellTall]}
+              scaleTo={0.9}
               disabled={future}
               onPress={() => {
                 onSelect(d);
@@ -100,7 +102,7 @@ export function MonthCalendar({
                 </Text>
               </View>
               {withBadge ? <View style={styles.calBadgeSlot}>{renderDayBadge?.(key)}</View> : null}
-            </Pressable>
+            </PressableScale>
           );
         })}
       </View>

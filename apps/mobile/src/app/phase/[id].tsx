@@ -16,7 +16,7 @@ import { mainPhases, agentPhase } from "@learn-workbench/content";
 import { fetchRoadmap, readCachedRoadmap } from "@/lib/roadmap";
 import type { Phase } from "@learn-workbench/shared";
 import { pct } from "@learn-workbench/shared";
-import { typography } from "@/theme/tokens";
+import { shadows, typography } from "@/theme/tokens";
 
 const THEME_COLORS: [string, string][] = [
   ["#2F74C0", "#78C2E8"],
@@ -270,12 +270,9 @@ const makeStyles = (colors: ThemeColors) =>
       overflow: "hidden",
       flexDirection: "row",
       alignItems: "center",
-      backgroundColor: "#2F74C0",
-      shadowColor: "#14548D",
-      shadowOpacity: 0.18,
-      shadowRadius: 12,
-      shadowOffset: { width: 0, height: 6 },
-      elevation: 3,
+      backgroundColor: colors.primary,
+      // v19-V3：品牌藏青影收进 token（原裸写 #14548D）
+      ...shadows.brand,
     },
     topicBlob: { position: "absolute", width: 130, height: 130, borderRadius: 65, right: -28, top: -42, opacity: 0.5 },
     topicInner: { flex: 1, minWidth: 0 },

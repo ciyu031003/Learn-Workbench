@@ -1,6 +1,7 @@
 import { useMemo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
+import { PressableScale } from "@/components/pressable-scale";
 import { mealKindLabels, type MealKind } from "@learn-workbench/shared";
 import { radius, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
@@ -10,13 +11,20 @@ import { useTheme } from "@/theme";
  * 餐次卡组 + 周视图（v11 P2，参考图 4 的彩色卡片语言）：
  *  - 每餐一张语义色小卡：本餐 kcal + 条目数 + 右下角「大加号」一点即记；
  *  - 下方 7 天 kcal 迷你柱，当天高亮。
+ * v19-V1：语义色从模块级硬编码改为主题 token（accent/lavender 原硬编码值与 token 有偏差）。
  */
-const MEAL_COLORS: Record<MealKind, string> = {
-  breakfast: "#F2994A",
-  lunch: "#2F74C0",
-  dinner: "#8D7BD8",
-  snack: "#3DA35D",
-};
+function mealColorOf(meal: MealKind, colors: ThemeColors): string {
+  switch (meal) {
+    case "breakfast":
+      return colors.accent;
+    case "lunch":
+      return colors.primary;
+    case "dinner":
+      return colors.lavender;
+    case "snack":
+      return colors.success;
+  }
+}
 
 export interface MealCardData {
   meal: MealKind;
@@ -52,7 +60,7 @@ export function MealCardGrid({
     <View style={styles.wrap}>
       <View style={styles.grid}>
         {cards.map((card) => {
-          const color = MEAL_COLORS[card.meal];
+          const color = mealColorOf(card.meal, colors);
           return (
             <View key={card.meal} style={[styles.card, { backgroundColor: color + "1A", borderColor: color + "55" }]}>
               <View style={styles.cardHead}>
@@ -63,13 +71,14 @@ export function MealCardGrid({
                 {card.kcal}
                 <Text style={styles.cardUnit}> kcal</Text>
               </Text>
-              <Pressable
+              <PressableScale
                 onPress={() => onAdd(card.meal)}
+                scaleTo={0.86}
                 style={[styles.addBtn, { backgroundColor: color }]}
                 accessibilityLabel={"添加" + mealKindLabels[card.meal]}
               >
                 <ThemedIcon name="add" size={20} color="#ffffff" />
-              </Pressable>
+              </PressableScale>
             </View>
           );
         })}
@@ -79,37 +88,40 @@ export function MealCardGrid({
         <View style={styles.weekCard}>
           {/* v1.22：固定为"周一~周日"这一自然周，可整周前后翻；点某天只切详情，不移动柱状图 */}
           <View style={styles.weekHead}>
-            <Pressable
+            <PressableScale
               onPress={onPrevWeek}
               disabled={!onPrevWeek}
+              scaleTo={0.88}
               hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel="上一周"
               style={[styles.weekNav, !onPrevWeek && styles.weekNavOff]}
             >
               <ThemedIcon name="chevron-back" size={15} color={colors.textMuted} />
-            </Pressable>
+            </PressableScale>
             <View style={styles.weekTitleWrap}>
               <Text style={styles.weekTitle}>本周热量 · 周一至周日</Text>
               <Text style={styles.weekHint}>{weekRange ? `${weekRange} · 点某天只看那天` : "点某天只看那天"}</Text>
             </View>
-            <Pressable
+            <PressableScale
               onPress={onNextWeek}
               disabled={!onNextWeek}
+              scaleTo={0.88}
               hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel="下一周"
               style={[styles.weekNav, !onNextWeek && styles.weekNavOff]}
             >
               <ThemedIcon name="chevron-forward" size={15} color={colors.textMuted} />
-            </Pressable>
+            </PressableScale>
           </View>
           <View style={styles.weekRow}>
             {week.map((day) => (
-              <Pressable
+              <PressableScale
                 key={day.key}
                 onPress={onPickDay ? () => onPickDay(day.key) : undefined}
                 disabled={!onPickDay}
+                scaleTo={0.92}
                 hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
                 accessibilityRole={onPickDay ? "button" : undefined}
                 accessibilityLabel={onPickDay ? `查看 ${day.label} 的饮食记录` : undefined}
@@ -127,7 +139,7 @@ export function MealCardGrid({
                   />
                 </View>
                 <Text style={[styles.weekLabel, day.active && styles.weekLabelActive]}>{day.label}</Text>
-              </Pressable>
+              </PressableScale>
             ))}
           </View>
         </View>

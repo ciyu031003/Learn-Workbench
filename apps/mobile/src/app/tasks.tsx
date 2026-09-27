@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import Animated, { FadeInDown, LinearTransition } from "react-native-reanimated";
 import { typography } from "@/theme/tokens";
-import { Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from "react-native";
+import { RefreshControl, StyleSheet, Text, TextInput, View } from "react-native";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { useAppStore, type TaskType } from "@/store/app-store";
@@ -18,6 +18,7 @@ import { AnimatedNumber } from "@/components/animated-number";
 import { ProgressBar } from "@/components/stat";
 import { taskTypeLabels, todayISO } from "@learn-workbench/shared";
 import { Card } from "@/components/card";
+import { PressableScale } from "@/components/pressable-scale";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { ChipGroup, SheetSection, SheetStickyCta } from "@/components/sheet";
 import { BottomSheet } from "@/components/bottom-sheet";
@@ -159,12 +160,13 @@ export default function TasksScreen() {
               ? "可以再定一个小目标，或者早点休息"
               : "例如：把 V3 方案的 Phase 5 读一遍"}
         </Text>
-        <Pressable
+        <PressableScale
           style={styles.primaryBtn}
+          scaleTo={0.97}
           onPress={() => (nextTask ? openTimer(nextTask.id, nextTask.title) : setNewTaskOpen(true))}
         >
           <Text style={styles.primaryBtnText}>{nextTask ? "开始专注这 25 分钟" : "新建任务"}</Text>
-        </Pressable>
+        </PressableScale>
       </Card>
 
       {/* ② 今日任务：信息量最大的一张，升到工具区之前，并补进度条（v19-M2：动画进度条） */}
@@ -185,21 +187,21 @@ export default function TasksScreen() {
               entering={reduced ? undefined : FadeInDown.duration(DURATION.base).delay(staggerDelay(i))}
               layout={reduced ? undefined : LinearTransition}
             >
-              <Pressable onPress={() => onToggleTask(t.id, t.done)} hitSlop={8}>
+              <PressableScale onPress={() => onToggleTask(t.id, t.done)} hitSlop={8} scaleTo={0.88}>
                 {/* v19-M3：文本 ✓ 换成描边画勾 + 行内 ripple（与 today/health 同一语言） */}
                 <View style={[styles.taskBox, t.done && styles.taskBoxDone]}>
                   <AnimatedCheckMark checked={t.done} size={14} color="#ffffff" />
                   {bursts[t.id] ? <SuccessBurst key={bursts[t.id]} size={38} color={colors.success} /> : null}
                 </View>
-              </Pressable>
+              </PressableScale>
               <Text style={[styles.taskTitle, t.done && styles.taskTitleDone]} numberOfLines={1}>
                 {t.title}
               </Text>
               <Text style={styles.taskMeta}>{taskTypeLabels[t.taskType]}</Text>
               {t.focusMinutes > 0 ? <Text style={styles.taskFocus}>{t.focusMinutes}′</Text> : null}
-              <Pressable onPress={() => openTimer(t.id, t.title)} hitSlop={8}>
+              <PressableScale onPress={() => openTimer(t.id, t.title)} hitSlop={8} scaleTo={0.85}>
                 <Text style={styles.taskPlay}>▶</Text>
-              </Pressable>
+              </PressableScale>
             </Animated.View>
           ))
         )}
@@ -208,12 +210,12 @@ export default function TasksScreen() {
       {/* ③ 工具区收拢：原来「专注计时」「新建任务」两张等权卡占首屏前两位，现合成一张紧凑卡 */}
       <Card variant="glass" title="快速开始" subtitle={`当日累计专注 ${totalFocus} 分钟`}>
         <View style={styles.toolRow}>
-          <Pressable style={[styles.toolBtn, styles.toolBtnPrimary]} onPress={() => setContentOpen(true)}>
+          <PressableScale style={[styles.toolBtn, styles.toolBtnPrimary]} scaleTo={0.97} onPress={() => setContentOpen(true)}>
             <Text style={styles.toolBtnTextPrimary}>⏱ 自由专注 · 选内容</Text>
-          </Pressable>
-          <Pressable style={[styles.toolBtn, styles.toolBtnGhost]} onPress={() => setNewTaskOpen(true)}>
+          </PressableScale>
+          <PressableScale style={[styles.toolBtn, styles.toolBtnGhost]} scaleTo={0.97} onPress={() => setNewTaskOpen(true)}>
             <Text style={styles.toolBtnTextGhost}>＋ 新建任务</Text>
-          </Pressable>
+          </PressableScale>
         </View>
         <Text style={styles.toolHint}>自由专注可先选「这次学什么」；倒计时可切正向秒表、可换背景；新建任务在弹层里输入</Text>
       </Card>
@@ -268,9 +270,9 @@ export default function TasksScreen() {
         )}
 
         <Text style={styles.quoteLine}>{FOCUS_MOTIVATIONS[Math.min(stats.streak, FOCUS_MOTIVATIONS.length - 1)]}</Text>
-        <Pressable style={styles.shareBtn} onPress={shareCard}>
+        <PressableScale style={styles.shareBtn} scaleTo={0.97} onPress={shareCard}>
           <Text style={styles.shareBtnText}>📤 分享打卡卡片</Text>
-        </Pressable>
+        </PressableScale>
       </Card>
 
       <FocusShareSheet visible={shareOpen} onClose={() => setShareOpen(false)} data={focusShareDataFromStats(stats)} />
@@ -403,11 +405,11 @@ const makeStyles = (colors: ThemeColors) =>
   },
   typeRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   typeChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: colors.surfaceMuted },
-  typeChipActive: { backgroundColor: "rgba(79,70,229,0.12)" },
+  typeChipActive: { backgroundColor: colors.primarySoft },
   typeChipText: { ...typography.caption, color: colors.textMuted },
   typeChipTextActive: { color: colors.primary, fontWeight: "600" },
-  doneBanner: { backgroundColor: "rgba(22,163,74,0.12)", borderRadius: 12, padding: 10, marginBottom: 8 },
-  doneBannerText: { ...typography.callout, color: "#166534", fontWeight: "600" },
+  doneBanner: { backgroundColor: colors.successSoft, borderRadius: 12, padding: 10, marginBottom: 8 },
+  doneBannerText: { ...typography.callout, color: colors.success, fontWeight: "600" },
   taskRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   // v19-M3：勾选框（描边画勾的容器）+ 完成态点亮
   taskBox: {
@@ -427,11 +429,11 @@ const makeStyles = (colors: ThemeColors) =>
   },
   taskTitleDone: { textDecorationLine: "line-through", color: colors.textSecondary },
   taskMeta: { ...typography.caption, color: colors.textMuted },
-  taskFocus: { ...typography.caption, color: "#0ea5e9" },
+  taskFocus: { ...typography.caption, color: colors.primary },
   taskPlay: { fontSize: 14, color: colors.primary },
   empty: { ...typography.callout, color: colors.textSecondary, textAlign: "center", paddingVertical: 12 },
   statGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, justifyContent: "center", marginBottom: 8 },
-  statBox: { width: "46%", backgroundColor: "rgba(232,147,12,0.08)", borderRadius: 14, paddingVertical: 14, alignItems: "center" },
+  statBox: { width: "46%", backgroundColor: colors.accentSoft, borderRadius: 14, paddingVertical: 14, alignItems: "center" },
   statValue: { fontSize: 22, fontWeight: "800", color: colors.text },
   statValueRow: { flexDirection: "row", alignItems: "flex-end" },
   statLabel: { ...typography.caption, color: colors.textMuted, marginTop: 3 },
@@ -439,12 +441,12 @@ const makeStyles = (colors: ThemeColors) =>
   barChart: { flexDirection: "row", alignItems: "flex-end", height: 96, gap: 4 },
   barCol: { flex: 1, alignItems: "center", gap: 4, height: "100%" },
   barTrack: { flex: 1, width: "100%", justifyContent: "flex-end", backgroundColor: colors.surfaceMuted, borderRadius: 4, overflow: "hidden" },
-  bar: { width: "100%", backgroundColor: "#e8930c", borderRadius: 4, minHeight: 4 },
+  bar: { width: "100%", backgroundColor: colors.accent, borderRadius: 4, minHeight: 4 },
   barLabel: { fontSize: 9, color: colors.textFaint },
   timelineRow: { flexDirection: "row", justifyContent: "space-between", backgroundColor: colors.surfaceMuted, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, marginBottom: 6 },
   timelineTime: { ...typography.caption, color: colors.textMuted },
   timelineMin: { ...typography.caption, fontWeight: "700", color: colors.text },
-  quoteLine: { ...typography.callout, color: "#b45309", marginTop: 10 },
+  quoteLine: { ...typography.callout, color: colors.accentStrong, marginTop: 10 },
   shareBtn: { backgroundColor: colors.primary, borderRadius: 999, paddingVertical: 11, alignItems: "center", marginTop: 10 },
   shareBtnText: { ...typography.callout, color: "#fff", fontWeight: "700" },
 });

@@ -10,10 +10,12 @@ import Animated, {
   useAnimatedStyle,
   useDerivedValue,
   useSharedValue,
+  withSpring,
   withTiming,
 } from "react-native-reanimated";
 import { ThemedIcon } from "@/components/themed-icon";
 import { GlassSurface, glassSupported } from "@/components/surface";
+import { SPRING } from "@/lib/motion";
 import { motion, radius, shadows, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
@@ -168,6 +170,8 @@ export function BottomSheet({
   }, [collapsed, restOffset, collapsedSV, restOffsetSV]);
 
   // 滑入 / 滑出（Modal 不做动画，全部自己实现）
+  // v19-M6：入场/展开/回弹改用 SPRING.sheet 弹簧（阻尼比 0.86，iOS 手感）；
+  // 退场保持 timing 快出 —— "入弹出不弹"是弹层的惯例，退场弹簧会显得拖沓。
   useEffect(() => {
     if (visible) {
       setMounted(true);
@@ -178,7 +182,7 @@ export function BottomSheet({
       // 静止位 = restOffset：非展开弹层是 0；可展开弹层是 maxOffset
       // （元素本身按 full 高度渲染，靠 translateY 下移露出 height 比例的高度）——
       // 这样「上滑到全屏」才有可拖的余量（v6 决策 D12）。
-      translateY.value = withTiming(restOffsetSV.value, { duration: SLIDE_IN, easing: Easing.out(Easing.cubic) });
+      translateY.value = withSpring(restOffsetSV.value, SPRING.sheet);
     } else if (mounted) {
       scrim.value = withTiming(0, { duration: SLIDE_OUT, easing: Easing.in(Easing.cubic) });
       translateY.value = withTiming(collapsedSV.value, { duration: SLIDE_OUT, easing: Easing.in(Easing.cubic) }, (fin) => {
@@ -206,7 +210,7 @@ export function BottomSheet({
     if (!expandable) return;
     setExpanded((prev) => {
       const next = !prev;
-      translateY.value = withTiming(next ? 0 : maxOffset, { duration: SLIDE_IN, easing: Easing.out(Easing.cubic) });
+      translateY.value = withSpring(next ? 0 : maxOffset, SPRING.sheet);
       dragBase.value = next ? 0 : maxOffset;
       return next;
     });
@@ -234,17 +238,17 @@ export function BottomSheet({
         if (current - lift.value > 110 || e.velocityY > 900) {
           runOnJS(close)();
         } else {
-          translateY.value = withTiming(0, { duration: SLIDE_OUT, easing: Easing.out(Easing.cubic) });
+          translateY.value = withSpring(0, SPRING.sheet);
         }
         return;
       }
       if (current > maxOffset + 90) {
         runOnJS(close)();
       } else if (current < maxOffset * 0.5 || e.velocityY < -500) {
-        translateY.value = withTiming(0, { duration: SLIDE_IN, easing: Easing.out(Easing.cubic) });
+        translateY.value = withSpring(0, SPRING.sheet);
         runOnJS(setExpanded)(true);
       } else {
-        translateY.value = withTiming(maxOffset, { duration: SLIDE_IN, easing: Easing.out(Easing.cubic) });
+        translateY.value = withSpring(maxOffset, SPRING.sheet);
         runOnJS(setExpanded)(false);
       }
     });

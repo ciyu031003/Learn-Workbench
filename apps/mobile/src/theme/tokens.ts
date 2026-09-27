@@ -127,8 +127,11 @@ export const radius = {
  * v17-A：投影全部中性化（原先 card 用棕橙 #B8823F、floating 用橙 #E1781C —— 这是"土"的三大来源之一）。
  * iOS 的投影是近黑、低透明度、大模糊半径；层级主要靠底色差表达，投影只做辅助。
  * 注意：深色模式下投影几乎不可见，这是 iOS 的正常表现 —— 深色的层级请靠 surface / surfaceStrong 的底色差。
+ *
+ * v19-V3：新增 `brand` 档 —— 品牌藏青投影（#14548D），供学习域的 hero 卡使用；
+ * 中性档表达不了的"品牌深蓝层次"收进 token，禁止再裸写。
  */
-export const shadows: Record<"card" | "floating", ViewStyle> = {
+export const shadows: Record<"card" | "floating" | "brand", ViewStyle> = {
   card: {
     shadowColor: "#1C2430",
     shadowOpacity: 0.06,
@@ -142,6 +145,13 @@ export const shadows: Record<"card" | "floating", ViewStyle> = {
     shadowRadius: 28,
     shadowOffset: { width: 0, height: 12 },
     elevation: 6,
+  },
+  brand: {
+    shadowColor: "#14548D",
+    shadowOpacity: 0.16,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 3,
   },
 };
 

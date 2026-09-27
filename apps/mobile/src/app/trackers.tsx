@@ -44,8 +44,8 @@ import {
 } from "@/lib/trackers";
 
 const COLOR_PALETTE = [
-  "#6366f1", "#2563eb", "#0ea5e9", "#2fb3a6", "#16a34a",
-  "#7c3aed", "#ea580c", "#f59e0b", "#e11d48", "#3a342c",
+  "#8D7BD8", "#2F74C0", "#2FB3A6", "#5DAE74", "#F28C28",
+  "#B3A3EC", "#F26B5E", "#FFB25E", "#C04545", "#7A7367",
 ];
 
 /** 领域记录（Tracker）：通用计量项 + 按日打卡。挂「我的」域维度可读可写 */

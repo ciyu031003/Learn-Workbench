@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import Animated, { FadeInDown, LinearTransition } from "react-native-reanimated";
 import { ActivityIndicator, Alert, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from "react-native";
 import { Card } from "@/components/card";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
@@ -8,6 +8,7 @@ import { DURATION, useReducedMotion } from "@/lib/motion";
 import { shouldStagger, staggerDelay } from "@/lib/stagger";
 import { haptics } from "@/lib/haptics";
 import { BottomSheet } from "@/components/bottom-sheet";
+import { PressableScale } from "@/components/pressable-scale";
 import { ChipGroup, SheetSection, SheetSegmented, SheetStickyCta, type SegmentOption } from "@/components/sheet";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
@@ -232,13 +233,14 @@ export default function InterviewScreen() {
         paged.map((q, i) => (
           <Animated.View
             key={q.id}
+            layout={reduced ? undefined : LinearTransition}
             entering={
               reduced || !shouldStagger(i, paged.length)
                 ? undefined
                 : FadeInDown.duration(DURATION.base).delay(staggerDelay(i))
             }
           >
-          <Pressable onPress={() => { setActive(q); setAnswer(""); setResult(null); }}>
+          <PressableScale onPress={() => { setActive(q); setAnswer(""); setResult(null); }} scaleTo={0.98}>
             <Card style={styles.questionCard}>
               <View style={styles.questionHead}>
                 <Text style={styles.questionIndex}>{safePage * PAGE_SIZE + i + 1}</Text>
@@ -249,7 +251,7 @@ export default function InterviewScreen() {
               </View>
               <Text style={styles.questionText}>{q.question}</Text>
             </Card>
-          </Pressable>
+          </PressableScale>
           </Animated.View>
         ))
       )}

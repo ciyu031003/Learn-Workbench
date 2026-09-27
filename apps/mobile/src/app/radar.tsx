@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import Animated, { FadeInDown, LinearTransition } from "react-native-reanimated";
 import {
   Linking,
   Pressable,
@@ -266,6 +266,7 @@ export default function RadarScreen() {
           {shown.map((j, i) => (
             <Animated.View
               key={j.jobId}
+              layout={reduced ? undefined : LinearTransition}
               entering={
                 reduced || !shouldStagger(i, shown.length)
                   ? undefined

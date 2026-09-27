@@ -1,9 +1,11 @@
 /* eslint-disable react-hooks/immutability, react-hooks/set-state-in-effect */
 import { useCallback, useEffect, useState, useMemo } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import Animated, { FadeOut, LinearTransition } from "react-native-reanimated";
 import { typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
+import { useReducedMotion } from "@/lib/motion";
 import { ThemedIcon } from "@/components/themed-icon";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
@@ -68,6 +70,8 @@ export default function ApplicationsScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const headerScroll = useLargeTitleHeader();
   const tabBarSpace = useTabBarSpace();
+  /** v19-M4：删除/推进时行的退场与补位过渡 */
+  const reduced = useReducedMotion();
   const token = useAppStore((s) => s.token);
   const [apps, setApps] = useState<JobApplication[]>([]);
   const [loading, setLoading] = useState(true);
@@ -138,6 +142,10 @@ export default function ApplicationsScreen() {
     // RN 的 DimensionValue 需要 `${number}%` 字面量类型，普通字符串拼接会被 TS 拒绝
     const pctWidth = `${pct}%` as `${number}%`;
     return (
+      <Animated.View
+        layout={reduced ? undefined : LinearTransition}
+        exiting={reduced ? undefined : FadeOut.duration(150)}
+      >
       <Card style={styles.appCard}>
         <View style={styles.appTop}>
           <View style={styles.appMain}>
@@ -163,6 +171,7 @@ export default function ApplicationsScreen() {
           <ThemedIcon name="chevron-forward" size={15} color={colors.textFaint} />
         </Pressable>
       </Card>
+      </Animated.View>
     );
   };
 

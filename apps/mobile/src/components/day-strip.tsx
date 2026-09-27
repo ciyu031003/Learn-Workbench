@@ -1,6 +1,7 @@
 import { useMemo } from "react";
-import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
+import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
+import { PressableScale } from "@/components/pressable-scale";
 import { fromDateKey, recentDateKeys, toDateKey } from "@learn-workbench/shared";
 import { haptics } from "@/lib/haptics";
 import { typography, tabularNums } from "@/theme/tokens";
@@ -64,10 +65,11 @@ export function DayStrip({
           </Text>
         </View>
         <View style={styles.nav}>
-          <Pressable
+          <PressableScale
             hitSlop={8}
             accessibilityLabel="上一周"
             disabled={weekOffset >= DAY_STRIP_MAX_WEEKS}
+            scaleTo={0.88}
             onPress={() => {
               haptics.soft();
               onWeekOffsetChange(Math.min(DAY_STRIP_MAX_WEEKS, weekOffset + 1));
@@ -79,11 +81,12 @@ export function DayStrip({
               size={16}
               color={weekOffset >= DAY_STRIP_MAX_WEEKS ? colors.textFaint : colors.primary}
             />
-          </Pressable>
-          <Pressable
+          </PressableScale>
+          <PressableScale
             hitSlop={8}
             accessibilityLabel="下一周"
             disabled={weekOffset <= 0}
+            scaleTo={0.88}
             onPress={() => {
               haptics.soft();
               onWeekOffsetChange(Math.max(0, weekOffset - 1));
@@ -95,7 +98,7 @@ export function DayStrip({
               size={16}
               color={weekOffset <= 0 ? colors.textFaint : colors.primary}
             />
-          </Pressable>
+          </PressableScale>
         </View>
       </View>
 
@@ -105,11 +108,12 @@ export function DayStrip({
           const isToday = key === todayKey;
           const isSelected = key === selected;
           return (
-            <Pressable
+            <PressableScale
               key={key}
               accessibilityRole="button"
               accessibilityLabel={`${shortMonthDay(key)}${isToday ? " 今天" : ""}${(doneMap?.[key] ?? 0) > 0 ? " 有记录" : ""}`}
               accessibilityState={{ selected: isSelected }}
+              scaleTo={0.92}
               onPress={() => {
                 if (!isSelected) haptics.soft();
                 onSelect(key);
@@ -136,7 +140,7 @@ export function DayStrip({
                   {isToday ? "今天" : WEEK_LABELS[d.getDay()]}
                 </Text>
               </View>
-            </Pressable>
+            </PressableScale>
           );
         })}
       </View>

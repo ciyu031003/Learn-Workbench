@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from "react-native";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import Animated, { FadeInDown, FadeOut, LinearTransition } from "react-native-reanimated";
 import type { ThemeColors } from "@/theme/tokens";
 import { spacing, typography } from "@/theme/tokens";
 import { useTheme } from "@/theme";
@@ -68,6 +68,8 @@ export default function LogsScreen() {
             ? undefined
             : FadeInDown.duration(DURATION.base).delay(staggerDelay(index))
         }
+        layout={reduced ? undefined : LinearTransition}
+        exiting={reduced ? undefined : FadeOut.duration(150)}
         style={styles.logItem}
       >
         <View style={styles.logHeader}>

@@ -92,8 +92,8 @@ function TabIcon({
   color: string | OpaqueColorValue;
   focused?: boolean;
 }) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, dark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
   const reduceMotion = useReducedMotion();
   const active = isMotionActive(reduceMotion);
   const scale = useSharedValue(1);
@@ -127,7 +127,7 @@ function TabIcon({
 
 type Styles = ReturnType<typeof makeStyles>;
 
-const makeStyles = (colors: ThemeColors) =>
+const makeStyles = (colors: ThemeColors, dark: boolean) =>
   StyleSheet.create({
     /**
      * 图标盒高度参与 TabBar 的几何标定（v1.27 真机反馈"图标与文字偏下"）。
@@ -158,7 +158,8 @@ const makeStyles = (colors: ThemeColors) =>
       left: 1,
       borderRadius: TAB_BAR_HEIGHT / 2,
       borderWidth: StyleSheet.hairlineWidth * 2,
-      borderColor: "rgba(255,255,255,0.34)",
+      // v19-V2：内高光跟随明暗档（浅色玻璃上要更亮才可见，深色下压暗防刺眼）
+      borderColor: dark ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.5)",
     },
     /** iOS 26 真玻璃：只给圆角，材质由系统画；高光内描边仍保留以勾勒胶囊轮廓 */
     tabBarGlassIos: {
@@ -194,7 +195,7 @@ const makeStyles = (colors: ThemeColors) =>
 
 export default function TabsLayout() {
   const { colors, dark } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
   const insets = useSafeAreaInsets();
   // 能力探测只在渲染时做一次；失败安全回退实底
   const glass = liquidGlassAvailable();

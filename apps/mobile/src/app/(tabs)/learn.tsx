@@ -22,7 +22,7 @@ import { mainPhases, agentPhase } from "@learn-workbench/content";
 import type { Phase } from "@learn-workbench/shared";
 import { formatDuration, pct } from "@learn-workbench/shared";
 import { UNTAGGED_CONTENT, computeFocusStats } from "@/lib/focus-stats";
-import { radius, typography } from "@/theme/tokens";
+import { radius, shadows, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import {
@@ -1269,14 +1269,11 @@ const makeStyles = (colors: ThemeColors) =>
     padding: 16,
     overflow: "hidden",
     minHeight: 104,
-    backgroundColor: "#2F74C0",
+    backgroundColor: colors.primary,
     borderWidth: 1.5,
     borderColor: "rgba(255,255,255,0.18)",
-    shadowColor: "#14548D",
-    shadowOpacity: 0.22,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 7 },
-    elevation: 4,
+    // v19-V3：品牌藏青影收进 token（原裸写 #14548D）
+    ...shadows.brand,
   },
   stageCardActive: { borderColor: "rgba(255,255,255,0.92)", shadowOpacity: 0.28 },
   stageCardDragging: { opacity: 0.88 },
@@ -1311,12 +1308,9 @@ const makeStyles = (colors: ThemeColors) =>
     minHeight: 92,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#2F74C0",
-    shadowColor: "#14548D",
-    shadowOpacity: 0.20,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 3,
+    backgroundColor: colors.primary,
+    // v19-V3：品牌藏青影收进 token（原裸写 #14548D）
+    ...shadows.brand,
   },
   themeBlob: { position: "absolute", width: 120, height: 120, borderRadius: 60, right: -30, top: -38, opacity: 0.5 },
   themeInner: { flex: 1 },

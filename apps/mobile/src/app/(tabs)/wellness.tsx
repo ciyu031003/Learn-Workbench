@@ -40,20 +40,39 @@ interface DailyOs {
   habits: { scheduled: number; done: number };
 }
 
-/** v7 P2：hero 的四项分解（权重与 lib/readiness 一致），点一下直达对应模块 */
-const BREAKDOWN: { key: "tasks" | "habits" | "workout" | "nutrition"; label: string; color: string; href: string }[] = [
-  { key: "tasks", label: "任务", color: "#2F74C0", href: "/tasks" },
-  { key: "habits", label: "习惯", color: "#8D7BD8", href: "/habits" },
-  { key: "workout", label: "训练", color: "#E1781C", href: "/workout" },
-  { key: "nutrition", label: "饮食", color: "#2FB3A6", href: "/nutrition" },
+/**
+ * v7 P2：hero 的四项分解（权重与 lib/readiness 一致），点一下直达对应模块。
+ * v19-V1：语义色不再模块级硬编码 —— 存 token 键名，渲染时经 useTheme() 解析
+ * （旧值 #E1781C 是 v17 点名清理的"土橙"，且暗色下不会提亮）。
+ */
+const BREAKDOWN: { key: "tasks" | "habits" | "workout" | "nutrition"; label: string; color: SemanticColorKey; href: string }[] = [
+  { key: "tasks", label: "任务", color: "primary", href: "/tasks" },
+  { key: "habits", label: "习惯", color: "lavender", href: "/habits" },
+  { key: "workout", label: "训练", color: "accent", href: "/workout" },
+  { key: "nutrition", label: "饮食", color: "teal", href: "/nutrition" },
 ];
 
-const DIET_COLOR = "#E1781C";
-const WATER_COLOR = "#2FB3A6";
-const WEIGHT_COLOR = "#8D7BD8";
-const HABIT_COLOR = "#8D7BD8";
-const RECORD_COLOR = "#3DA35D";
-const CARD_COLOR = "#C79A3E";
+/** 语义色键名（v19-V1）：模块级只存键，真正取色走 useTheme() */
+type SemanticColorKey = "primary" | "accent" | "teal" | "lavender" | "success" | "warning" | "coral";
+
+function semanticColor(key: SemanticColorKey, colors: ThemeColors): string {
+  switch (key) {
+    case "primary":
+      return colors.primary;
+    case "accent":
+      return colors.accent;
+    case "teal":
+      return colors.teal;
+    case "lavender":
+      return colors.lavender;
+    case "success":
+      return colors.success;
+    case "warning":
+      return colors.warning;
+    case "coral":
+      return colors.coral;
+  }
+}
 
 function tintOf(color: string) {
   return { iconColor: color, iconBg: color + "22" };
@@ -67,6 +86,13 @@ function tintOf(color: string) {
  */
 export default function WellnessScreen() {
   const { colors } = useTheme();
+  // v19-V1：模块级旧色常量改为渲染期经 token 解析（暗色自动切换）
+  const DIET_COLOR = semanticColor("accent", colors);
+  const WATER_COLOR = semanticColor("teal", colors);
+  const WEIGHT_COLOR = semanticColor("lavender", colors);
+  const HABIT_COLOR = semanticColor("lavender", colors);
+  const RECORD_COLOR = semanticColor("success", colors);
+  const CARD_COLOR = semanticColor("warning", colors);
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const headerScroll = useLargeTitleHeader();
   const tabBarSpace = useTabBarSpace();
@@ -335,7 +361,7 @@ export default function WellnessScreen() {
                   onPress={() => router.push(b.href as never)}
                 >
                   <Text style={styles.breakdownLabel}>{b.label}</Text>
-                  <ProgressBar progress={Math.max(2, pct) / 100} height={6} color={b.color} style={styles.breakdownTrack} />
+                  <ProgressBar progress={Math.max(2, pct) / 100} height={6} color={semanticColor(b.color, colors)} style={styles.breakdownTrack} />
                   <Text style={styles.breakdownPct}>{pct}%</Text>
                 </PressableScale>
               );

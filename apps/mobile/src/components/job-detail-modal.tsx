@@ -12,14 +12,14 @@ import { enrollJobGaps, fetchJobDetail, fetchJobPlan, type JobDetail } from "@/l
 import { formatRelativeTime, jobFreshness, jobSourceLabels, type JobLearningPlan, type JobPostingListItem } from "@learn-workbench/shared";
 
 const SOURCE_COLORS: Record<string, string> = {
-  lagou: "#10b981",
-  liepin: "#0ea5e9",
-  zhilian: "#4f46e5",
-  job51: "#f97316",
-  boss: "#f43f5e",
+  lagou: "#5DAE74",
+  liepin: "#2FB3A6",
+  zhilian: "#8D7BD8",
+  job51: "#F28C28",
+  boss: "#F26B5E",
 };
 
-const AVATAR_COLORS = ["#10b981", "#0ea5e9", "#8b5cf6", "#f97316", "#f43f5e", "#f59e0b"];
+const AVATAR_COLORS = ["#5DAE74", "#2FB3A6", "#8D7BD8", "#F28C28", "#F26B5E", "#FFB25E"];
 
 function salaryText(job: JobPostingListItem): string {
   if (job.salaryText) return job.salaryText;
@@ -112,19 +112,19 @@ export function JobDetailModal({
   );
   const freshnessColor =
     freshness.level === "just" || freshness.level === "within3"
-      ? "#047857"
+      ? colors.success
       : freshness.level === "within7"
-        ? "#b45309"
+        ? colors.warning
         : freshness.level === "stale"
-          ? "#b91c1c"
+          ? colors.danger
           : colors.textMuted;
   const freshnessBg =
     freshness.level === "just" || freshness.level === "within3"
-      ? "rgba(16,185,129,0.14)"
+      ? "rgba(61,163,93,0.14)"
       : freshness.level === "within7"
-        ? "rgba(245,158,11,0.16)"
+        ? "rgba(217,144,0,0.16)"
         : freshness.level === "stale"
-          ? "rgba(239,68,68,0.14)"
+          ? "rgba(192,69,69,0.14)"
           : colors.surfaceMuted;
 
   const popHeart = () => {

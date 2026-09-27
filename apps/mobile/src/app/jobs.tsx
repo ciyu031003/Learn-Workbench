@@ -25,13 +25,17 @@ import { usePullRefresh } from "@/lib/use-pull-refresh";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
+  withSequence,
   withSpring,
+  withTiming,
 } from "react-native-reanimated";
 import { Card } from "@/components/card";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { ChipGroup, SheetSection, SheetStickyCta } from "@/components/sheet";
 import { JobDetailModal } from "@/components/job-detail-modal";
 import { AnimatedNumber } from "@/components/animated-number";
+import { PressableScale } from "@/components/pressable-scale";
+import { SPRING } from "@/lib/motion";
 import { haptics } from "@/lib/haptics";
 import {  radius, typography  } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
@@ -56,16 +60,14 @@ const CATEGORY_OPTIONS = [
 ];
 // 平台来源色：**仅作图表语义色**用于 6px 小色点（sourceDot），不参与页面强调色（强调色一律 colors.primary）
 const SOURCE_COLORS: Record<string, string> = {
-  lagou: "#10b981",
-  liepin: "#0ea5e9",
-  zhilian: "#4f46e5",
-  job51: "#f97316",
-  boss: "#f43f5e",
+  lagou: "#5DAE74",
+  liepin: "#2FB3A6",
+  zhilian: "#8D7BD8",
+  job51: "#F28C28",
+  boss: "#F26B5E",
 };
 // 头像底色：同上，只用于公司 logo 圆底（小面积）
-const AVATAR_COLORS = ["#10b981", "#0ea5e9", "#8b5cf6", "#f97316", "#f43f5e", "#f59e0b"];
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const AVATAR_COLORS = ["#5DAE74", "#2FB3A6", "#8D7BD8", "#F28C28", "#F26B5E", "#FFB25E"];
 
 function salaryText(job: JobPostingListItem): string {
   if (job.salaryText) return job.salaryText;
@@ -73,41 +75,6 @@ function salaryText(job: JobPostingListItem): string {
   if (job.salaryMin != null) return job.salaryMin + "K 起";
   if (job.salaryMax != null) return "最高 " + job.salaryMax + "K";
   return "面议";
-}
-
-function ScalePressable({
-  onPress,
-  children,
-  style,
-  hitSlop,
-  disabled,
-}: {
-  onPress?: () => void;
-  children: React.ReactNode;
-  style?: object;
-  hitSlop?: number;
-  disabled?: boolean;
-}) {
-  const scale = useSharedValue(1);
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-  return (
-    <AnimatedPressable
-      onPress={onPress}
-      onPressIn={() => {
-        scale.value = withSpring(0.92, { damping: 16, stiffness: 260 });
-      }}
-      onPressOut={() => {
-        scale.value = withSpring(1, { damping: 16, stiffness: 260 });
-      }}
-      hitSlop={hitSlop}
-      disabled={disabled}
-      style={[style, animatedStyle]}
-    >
-      {children}
-    </AnimatedPressable>
-  );
 }
 
 function FreshnessBadge({ job }: { job: JobPostingListItem }) {
@@ -121,19 +88,19 @@ function FreshnessBadge({ job }: { job: JobPostingListItem }) {
   );
   const color =
     f.level === "just" || f.level === "within3"
-      ? "#047857"
+      ? colors.success
       : f.level === "within7"
-        ? "#b45309"
+        ? colors.warning
         : f.level === "stale"
-          ? "#b91c1c"
+          ? colors.danger
           : colors.textMuted;
   const bg =
     f.level === "just" || f.level === "within3"
-      ? "rgba(16,185,129,0.14)"
+      ? "rgba(61,163,93,0.14)"
       : f.level === "within7"
-        ? "rgba(245,158,11,0.16)"
+        ? "rgba(217,144,0,0.16)"
         : f.level === "stale"
-          ? "rgba(239,68,68,0.14)"
+          ? "rgba(192,69,69,0.14)"
           : colors.surfaceMuted;
   return (
     <View style={[styles.freshBadge, { backgroundColor: bg }]}>
@@ -159,23 +126,15 @@ function JobCard({
    * 滚动全程反复触发 UI 线程动画；更早的 entering 版本则在原生层直接崩溃（踩坑 64422a9）。
    * 结论：虚拟化列表只保留**按压反馈**（scale），入场交给骨架屏与分页加载的既有节奏。
    */
-  const scale = useSharedValue(1);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
+  const heartScale = useSharedValue(1);
+  useEffect(() => {
+    // 收藏状态由父层数据驱动：变红瞬间给一个"心跳"回弹（SPRING.snappy 有回弹不甩尾）
+    heartScale.value = job.isFav ? withSequence(withSpring(1.35, SPRING.snappy), withSpring(1, SPRING.snappy)) : withTiming(1, { duration: 120 });
+  }, [job.isFav, heartScale]);
+  const heartStyle = useAnimatedStyle(() => ({ transform: [{ scale: heartScale.value }] }));
 
   return (
-    <AnimatedPressable
-      onPress={() => onPress(job)}
-      onPressIn={() => {
-        scale.value = withSpring(0.97, { damping: 18, stiffness: 240 });
-      }}
-      onPressOut={() => {
-        scale.value = withSpring(1, { damping: 18, stiffness: 240 });
-      }}
-      style={[styles.jobCard, animatedStyle]}
-    >
+    <PressableScale onPress={() => onPress(job)} scaleTo={0.97} style={styles.jobCard}>
       <View style={styles.jobTop}>
         <View style={[styles.logo, { backgroundColor: AVATAR_COLORS[job.id % AVATAR_COLORS.length] }]}>
           <Text style={styles.logoText}>{job.company.trim().charAt(0).toUpperCase() || "公"}</Text>
@@ -217,12 +176,15 @@ function JobCard({
           </Text>
         ) : null}
         <Text style={styles.time}>{formatRelativeTime(job.publishedAt)}</Text>
-        <Pressable hitSlop={10} onPress={() => onToggleFavorite(job)}>
-          <ThemedIcon name={job.isFav ? "heart" : "heart-outline"} size={18} color={job.isFav ? "#f43f5e" : "#8b8b94"} />
-        </Pressable>
+        <PressableScale hitSlop={10} onPress={() => onToggleFavorite(job)}>
+          <Animated.View style={heartStyle}>
+            {/* v19-M7：心形色收进主题 token（danger=收藏 / textFaint=未收藏） */}
+            <ThemedIcon name={job.isFav ? "heart" : "heart-outline"} size={18} color={job.isFav ? colors.danger : colors.textFaint} />
+          </Animated.View>
+        </PressableScale>
         <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
       </View>
-    </AnimatedPressable>
+    </PressableScale>
   );
 }
 
@@ -815,7 +777,7 @@ const makeStyles = (colors: ThemeColors) =>
     backgroundColor: colors.surfaceStrong,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
-    shadowColor: "#000",
+    shadowColor: "#1C2430",
     shadowOpacity: 0.06,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
@@ -870,7 +832,7 @@ const makeStyles = (colors: ThemeColors) =>
     borderColor: colors.border,
     borderRadius: 20,
     padding: 15,
-    shadowColor: "#000",
+    shadowColor: "#1C2430",
     shadowOpacity: 0.08,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 6 },
@@ -883,7 +845,7 @@ const makeStyles = (colors: ThemeColors) =>
     borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
+    shadowColor: "#1C2430",
     shadowOpacity: 0.14,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
@@ -896,10 +858,10 @@ const makeStyles = (colors: ThemeColors) =>
   announceBadge: {
     fontSize: 10,
     fontWeight: "800",
-    color: "#4f46e5",
-    backgroundColor: "rgba(99,102,241,0.18)",
+    color: colors.primary,
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
-    borderColor: "rgba(99,102,241,0.55)",
+    borderColor: colors.primary,
     borderRadius: 999,
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -908,10 +870,10 @@ const makeStyles = (colors: ThemeColors) =>
   newBadge: {
     fontSize: 10,
     fontWeight: "800",
-    color: "#047857",
-    backgroundColor: "rgba(52,211,153,0.24)",
+    color: colors.success,
+    backgroundColor: colors.successSoft,
     borderWidth: 1,
-    borderColor: "rgba(52,211,153,0.55)",
+    borderColor: colors.success,
     borderRadius: 999,
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -956,8 +918,8 @@ const makeStyles = (colors: ThemeColors) =>
     flexShrink: 1,
     fontSize: 10,
     fontWeight: "700",
-    color: "#7c3aed",
-    backgroundColor: "rgba(139,92,246,0.12)",
+    color: colors.lavender,
+    backgroundColor: colors.primarySoft,
     borderRadius: 999,
     paddingHorizontal: 7,
     paddingVertical: 3,
