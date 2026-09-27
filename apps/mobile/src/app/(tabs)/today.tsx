@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/immutability */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useHeaderTopInset } from "@/components/screen-header";
 import {
   Pressable,
@@ -16,6 +16,7 @@ import { PatternBackdrop } from "@/components/pattern-backdrop";
 import { router } from "expo-router";
 
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
+import { useScrollToTopHandler } from "@/lib/scroll-to-top";
 import Animated, {
   FadeInDown,
   FadeOut,
@@ -307,6 +308,9 @@ export default function TodayScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const headerTop = useHeaderTopInset("hero");
   const tabBarSpace = useTabBarSpace();
+  /** v19-M8：TabBar 双击回顶（再点已聚焦的「今日」时滚回顶部） */
+  const todayScrollRef = useRef<Animated.ScrollView>(null);
+  useScrollToTopHandler("/today", todayScrollRef);
   /** 入场错峰统一走 lib/stagger（步长取 token）；减弱动态时传 undefined，彻底不动 */
   const reduced = useReducedMotion();
   const progress = useAppStore((s) => s.progress);
@@ -526,6 +530,7 @@ export default function TodayScreen() {
   return (
     <View style={styles.root}>
       <Animated.ScrollView
+        ref={todayScrollRef}
         onScroll={heroScroll}
         scrollEventThrottle={16}
         refreshControl={<RefreshControl {...todayRefresh} />}

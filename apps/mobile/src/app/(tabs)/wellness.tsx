@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Animated from "react-native-reanimated";
 import { Alert, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
@@ -13,6 +13,7 @@ import { useScreenEntrance } from "@/lib/use-screen-entrance";
 import { ListGroup, ListRow } from "@/components/list-row";
 import { GroupLabel } from "@/components/group-label";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
+import { useScrollToTopHandler } from "@/lib/scroll-to-top";
 import { computeReadiness, WEAKEST_LABEL } from "@/lib/readiness";
 import { useTheme } from "@/theme";
 import { radius, spacing, tabularNums, typography } from "@/theme/tokens";
@@ -98,6 +99,9 @@ export default function WellnessScreen() {
   const tabBarSpace = useTabBarSpace();
   /** v19-M1：首屏入场错峰（Tab scene 常驻，只在首次挂载播放） */
   const entrance = useScreenEntrance();
+  /** v19-M8：TabBar 双击回顶 */
+  const wellnessScrollRef = useRef<Animated.ScrollView>(null);
+  useScrollToTopHandler("/wellness", wellnessScrollRef);
   const token = useAppStore((s) => s.token);
   const [data, setData] = useState<DailyOs | null>(null);
   const [loading, setLoading] = useState(true);
@@ -251,7 +255,7 @@ export default function WellnessScreen() {
   return (
     <View style={styles.root}>
       <ScreenHeaderStickyBar title="健康" scrollY={headerScroll.scrollY} />
-    <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16}
+    <Animated.ScrollView ref={wellnessScrollRef} onScroll={headerScroll.onScroll} scrollEventThrottle={16}
       style={styles.scroll}
       contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
       showsVerticalScrollIndicator={false}

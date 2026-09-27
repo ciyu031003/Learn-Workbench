@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useHeaderTopInset } from "@/components/screen-header";
 import { ActivityIndicator, Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import Animated from "react-native-reanimated";
@@ -7,6 +7,7 @@ import { useAppStore } from "@/store/app-store";
 import { useUpdateStore } from "@/store/update-store";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useScreenEntrance } from "@/lib/use-screen-entrance";
+import { useScrollToTopHandler } from "@/lib/scroll-to-top";
 import { getApiUrl } from "@/config";
 import { syncPush, syncPull } from "@/lib/sync";
 import { useSyncEngineStatus } from "@/lib/sync-engine";
@@ -41,6 +42,9 @@ export default function SettingsScreen() {
   const tabBarSpace = useTabBarSpace();
   /** v19-M1：首屏入场错峰（Tab scene 常驻，只在首次挂载播放） */
   const entrance = useScreenEntrance();
+  /** v19-M8：TabBar 双击回顶 */
+  const settingsScrollRef = useRef<ScrollView>(null);
+  useScrollToTopHandler("/settings", settingsScrollRef);
   const backgroundEnabled = useAppStore((s) => s.backgroundEnabled);
   const toggleBackground = useAppStore((s) => s.toggleBackground);
   const resetAll = useAppStore((s) => s.resetAll);
@@ -204,7 +208,7 @@ export default function SettingsScreen() {
             : "本机与云端已同步";
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
+    <ScrollView ref={settingsScrollRef} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
       <Animated.View style={[styles.hero, { paddingTop: headerTop }]} entering={entrance(0)}>
         <Text style={styles.heroTitle}>我的</Text>
         <Text style={styles.heroSub}>账号 · 学习领域 · 数据同步</Text>

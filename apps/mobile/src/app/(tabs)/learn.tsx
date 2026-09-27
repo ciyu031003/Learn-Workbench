@@ -1,11 +1,12 @@
 /* eslint-disable react-hooks/immutability */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useHeaderTopInset } from "@/components/screen-header";
 import { Alert, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
 
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useScreenEntrance } from "@/lib/use-screen-entrance";
+import { useScrollToTopHandler } from "@/lib/scroll-to-top";
 import { Card } from "@/components/card";
 import { GroupLabel } from "@/components/group-label";
 import { ListGroup, ListRow } from "@/components/list-row";
@@ -336,6 +337,9 @@ export default function LearnScreen() {
   const tabBarSpace = useTabBarSpace();
   /** v19-M1：首屏入场错峰（Tab scene 常驻，只在首次挂载播放） */
   const entrance = useScreenEntrance();
+  /** v19-M8：TabBar 双击回顶 */
+  const learnScrollRef = useRef<ScrollView>(null);
+  useScrollToTopHandler("/learn", learnScrollRef);
   const progress = useAppStore((s) => s.progress);
   const sessions = useAppStore((s) => s.sessions);
   const token = useAppStore((s) => s.token);
@@ -659,6 +663,7 @@ export default function LearnScreen() {
 
   return (
     <ScrollView
+      ref={learnScrollRef}
       refreshControl={<RefreshControl {...learnRefresh} />}
       style={styles.scroll}
       contentContainerStyle={[styles.content, { paddingTop: headerTop, paddingBottom: tabBarSpace }]}

@@ -16,7 +16,11 @@ import fs from "node:fs";
 import path from "node:path";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
-const APP_DIR = path.join(ROOT, "apps/mobile/src/app");
+// v19-V4：components/** 一并设防（此前组件库可以静默新增裸字号）
+const SCAN_DIRS = [
+  path.join(ROOT, "apps/mobile/src/app"),
+  path.join(ROOT, "apps/mobile/src/components"),
+];
 const BASELINE = path.join(ROOT, "docs/font-scale-baseline.json");
 const PATTERN = /fontSize:\s*[0-9]+(?:\.[0-9]+)?/g;
 
@@ -31,10 +35,12 @@ function walk(dir, out = []) {
 
 function count() {
   const rows = {};
-  for (const f of walk(APP_DIR)) {
-    const rel = path.relative(ROOT, f).split(path.sep).join("/");
-    const n = (fs.readFileSync(f, "utf8").match(PATTERN) ?? []).length;
-    if (n > 0) rows[rel] = n;
+  for (const dir of SCAN_DIRS) {
+    for (const f of walk(dir)) {
+      const rel = path.relative(ROOT, f).split(path.sep).join("/");
+      const n = (fs.readFileSync(f, "utf8").match(PATTERN) ?? []).length;
+      if (n > 0) rows[rel] = n;
+    }
   }
   return rows;
 }

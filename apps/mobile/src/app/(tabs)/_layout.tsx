@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { Tabs } from "expo-router";
+import { Tabs, useNavigation } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Platform, StyleSheet, View, type OpaqueColorValue } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
@@ -11,6 +11,7 @@ import { TAB_BAR_HEIGHT } from "@/lib/use-tab-bar-space";
 import { haptics } from "@/lib/haptics";
 import { SPRING, useReducedMotion } from "@/lib/motion";
 import { isMotionActive } from "@/theme/motion";
+import { scrollToTop } from "@/lib/scroll-to-top";
 import type { ThemeColors } from "@/theme/tokens";
 
 /**
@@ -197,6 +198,8 @@ export default function TabsLayout() {
   const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
   const insets = useSafeAreaInsets();
+  // v19-M8：双击回顶需要经导航状态判断"按压的是否为当前已聚焦 Tab"
+  const navigation = useNavigation();
   // 能力探测只在渲染时做一次；失败安全回退实底
   const glass = liquidGlassAvailable();
 
@@ -243,7 +246,22 @@ export default function TabsLayout() {
       }}
       screenListeners={{
         // Tab 切换触觉（v17 C3）：Apple 手感里"切换"属语义化柔和反馈
-        tabPress: () => haptics.soft(),
+        tabPress: (e) => {
+          haptics.soft();
+          /**
+           * v19-M8 · 双击回顶：再点**已聚焦**的 Tab = 该页滚回顶部（iOS 系统级心智）。
+           * 判定走导航状态而不是 pathname —— expo-router 的 Tabs.Screen options 不接受
+           * per-screen listeners，且 tabPress 事件在导航发生**前**触发：此时 getState()
+           * 的 index 还指向旧焦点，pressed 路由名 == 焦点路由名 即"再点了一次"。
+           * hub 侧经 lib/scroll-to-top 注册滚动容器；"index/dashboard"等重定向页不注册即忽略。
+           */
+          const st = navigation.getState();
+          const target = (e as { target?: string }).target;
+          const pressed = st?.routes.find((r) => r.key === target);
+          if (pressed && st && st.routes[st.index]?.name === pressed.name) {
+            scrollToTop(`/${pressed.name}`);
+          }
+        },
       }}
     >
       {/* 一级 Tab：今日 / 学习 / 职业 / 健康 / 我的 */}

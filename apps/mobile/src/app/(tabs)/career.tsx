@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/immutability */
-import { useCallback, useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo, useRef } from "react";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { ThemeColors } from "@/theme/tokens";
@@ -19,6 +19,7 @@ import { PressableScale } from "@/components/pressable-scale";
 import { router } from "expo-router";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
+import { useScrollToTopHandler } from "@/lib/scroll-to-top";
 import { DURATION, useReducedMotion } from "@/lib/motion";
 import { staggerDelay } from "@/lib/stagger";
 import { getApiUrl } from "@/config";
@@ -50,6 +51,9 @@ export default function CareerScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const headerScroll = useLargeTitleHeader();
   const tabBarSpace = useTabBarSpace();
+  /** v19-M8：TabBar 双击回顶 */
+  const careerScrollRef = useRef<Animated.ScrollView>(null);
+  useScrollToTopHandler("/career", careerScrollRef);
   /** 入场错峰统一走 lib/stagger（步长取 token）；减弱动态时不传 entering，彻底不动 */
   const reduced = useReducedMotion();
   const token = useAppStore((s) => s.token);
@@ -105,6 +109,7 @@ export default function CareerScreen() {
     <View style={styles.root}>
       <ScreenHeaderStickyBar title="职业" scrollY={headerScroll.scrollY} />
     <Animated.ScrollView
+      ref={careerScrollRef}
       onScroll={headerScroll.onScroll}
       scrollEventThrottle={16}
       refreshControl={<RefreshControl {...careerRefresh} />}

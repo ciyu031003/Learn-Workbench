@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
   Easing,
@@ -43,6 +43,15 @@ export function CelebrationModal({
 
   const appear = useSharedValue(0);
   const pulse = useSharedValue(0);
+  /**
+   * v19-S4：onClose 存 ref 再消费 —— 调用方（today 页）传的是内联箭头函数，
+   * 父级任何 re-render 都会换一个引用；此前它直接躺在 effect 依赖里，
+   * 每次父渲染都会清掉再重设 3.4s 自关计时（表现：弹窗"迟迟不自动关"）。
+   */
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!visible) {
@@ -52,9 +61,9 @@ export function CelebrationModal({
     haptics.success();
     appear.value = withSpring(1, { damping: 12, stiffness: 180 });
     pulse.value = withRepeat(withTiming(1, { duration: 1800, easing: Easing.inOut(Easing.quad) }), -1, true);
-    const t = setTimeout(onClose, autoCloseMs);
+    const t = setTimeout(() => onCloseRef.current(), autoCloseMs);
     return () => clearTimeout(t);
-  }, [visible, appear, pulse, onClose, autoCloseMs]);
+  }, [visible, appear, pulse, autoCloseMs]);
 
   const cardStyle = useAnimatedStyle(() => ({
     opacity: appear.value,
