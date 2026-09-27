@@ -113,5 +113,5 @@ const makeStyles = (colors: ThemeColors) =>
     textOff: { color: colors.textFaint },
     mid: { alignItems: "center", gap: 2, minWidth: 110 },
     page: { ...typography.caption, fontWeight: "700", color: colors.text },
-    count: { fontSize: 11, color: colors.textMuted },
+    count: { ...typography.micro, color: colors.textMuted },
   });

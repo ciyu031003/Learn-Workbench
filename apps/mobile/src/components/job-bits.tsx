@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { jobFreshness } from "@learn-workbench/shared";
 import { useTheme } from "@/theme";
-import type { ThemeColors } from "@/theme/tokens";
+import { typography, type ThemeColors } from "@/theme/tokens";
 
 /**
  * v20-J1 · 岗位视觉件单源（招花域）。
@@ -115,9 +115,9 @@ const makeStyles = (colors: ThemeColors) =>
       paddingVertical: 5,
     },
     sourceDot: { width: 7, height: 7, borderRadius: 4 },
-    sourceText: { fontSize: 11, color: colors.textMuted, fontWeight: "700" },
+    sourceText: { ...typography.caption, fontWeight: "700", color: colors.textMuted },
     freshBadge: { borderRadius: 999, paddingHorizontal: 7, paddingVertical: 3 },
-    freshText: { fontSize: 10, fontWeight: "800" },
+    freshText: { ...typography.micro },
     newBadge: {
       borderRadius: 999,
       paddingHorizontal: 7,
@@ -127,5 +127,5 @@ const makeStyles = (colors: ThemeColors) =>
       borderColor: colors.success,
       overflow: "hidden",
     },
-    newText: { fontSize: 10, fontWeight: "800", color: colors.success },
+    newText: { ...typography.micro, fontWeight: "800", color: colors.success },
   });

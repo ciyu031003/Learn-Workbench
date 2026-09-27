@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useCallback, useEffect, useState, useMemo } from "react";
-import { ActivityIndicator, Pressable, Share, StyleSheet, Text, View } from "react-native";
+import { Pressable, Share, StyleSheet, Text, View } from "react-native";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { ThemedIcon } from "@/components/themed-icon";
@@ -8,9 +8,34 @@ import { InlineToast, TOAST_DEFAULT_LIFE_MS, type ToastKind } from "@/components
 import * as WebBrowser from "expo-web-browser";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { SheetSection, SheetStickyCta } from "@/components/sheet";
+import { SkeletonList } from "@/components/skeleton";
+import { haptics } from "@/lib/haptics";
 import { JobFreshnessBadge, JobNewBadge, JobSourceBadge, avatarColorOf, jobSalaryText } from "@/components/job-bits";
 import { enrollJobGaps, fetchJobDetail, fetchJobPlan, type JobDetail } from "@/lib/jobs";
 import { formatRelativeTime, jobSourceLabels, type JobLearningPlan, type JobPostingListItem } from "@learn-workbench/shared";
+
+/**
+ * v20-A7 · 可折叠长文段落：JD 超过 6 行默认收起，避免"职位描述"把匹配分析推到看不见的地方。
+ * 判长用「字符数 > 120 或行数 > lines」的粗略启发（Text onLayout 计行成本高，不值得）。
+ */
+function CollapsibleParagraph({ text, lines = 6 }: { text: string; lines?: number }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const [expanded, setExpanded] = useState(false);
+  const long = text.length > 120 || text.split("\n").length > lines;
+  return (
+    <View style={styles.paraWrap}>
+      <Text style={styles.paraText} numberOfLines={expanded ? undefined : lines}>
+        {text}
+      </Text>
+      {long ? (
+        <Pressable hitSlop={6} onPress={() => setExpanded((v) => !v)} accessibilityLabel={expanded ? "收起" : "展开全文"}>
+          <Text style={styles.paraToggle}>{expanded ? "收起 ▲" : "展开全文 ▼"}</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
 
 /**
  * 岗位详情（v16 弹层重构）：
@@ -108,8 +133,11 @@ export function JobDetailModal({
     setEnrolling(true);
     try {
       const created = await enrollJobGaps(plan.gaps);
+      // v20-A7：与 market 的 enroll 对齐（语义化触觉 + toast）
+      haptics.success();
       showToast(`已加入 ${created} 项学习任务到今日计划`, "success", 2400);
     } catch (e) {
+      haptics.error();
       showToast(e instanceof Error ? e.message : "加入失败", "error", 2400);
     } finally {
       setEnrolling(false);
@@ -170,11 +198,35 @@ export function JobDetailModal({
         </View>
       </View>
 
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {error ? (
+        /* v20-A7：加载失败给重试出口（原先只能关掉重开） */
+        <View style={styles.errorBox}>
+          <Text style={styles.errorText}>{error}</Text>
+          <Pressable
+            hitSlop={8}
+            style={styles.retryBtn}
+            onPress={() => {
+              if (jobId == null) return;
+              setError(null);
+              setLoading(true);
+              Promise.all([fetchJobDetail(jobId), fetchJobPlan(jobId).catch(() => null)])
+                .then(([d, p]) => {
+                  setDetail(d);
+                  setPlan(p);
+                })
+                .catch((e2) => setError(e2 instanceof Error ? e2.message : "职位详情加载失败"))
+                .finally(() => setLoading(false));
+            }}
+          >
+            <Text style={styles.retryText}>重新加载</Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       <SheetSection title="岗位信息">
         <View style={styles.metaGrid}>
           <View style={styles.metaItem}>
+            {/* v20-A7：中性信息不再用 successSoft 绿底（绿=成功语义），回归 surfaceMuted 中性 */}
             <Text style={styles.metaLabel}>经验</Text>
             <Text style={styles.metaValue}>{display.experience || "不限"}</Text>
           </View>
@@ -194,17 +246,17 @@ export function JobDetailModal({
 
         {loading ? (
           <View style={styles.loadingBox}>
-            <ActivityIndicator color={colors.primary} />
-            <Text style={styles.loadingText}>正在绽放职位详情...</Text>
+            {/* v20-A7：转圈换骨架（与全 App 等待语言一致） */}
+            <SkeletonList count={3} />
           </View>
         ) : !error ? (
           <>
             <Text style={styles.paraTitle}>职位描述</Text>
-            <Text style={styles.paraText}>{detail?.description || "暂无职位描述"}</Text>
+            <CollapsibleParagraph text={detail?.description || "暂无职位描述"} />
             <Text style={styles.paraTitle}>任职要求</Text>
-            <Text style={styles.paraText}>{detail?.requirements || "暂无任职要求"}</Text>
+            <CollapsibleParagraph text={detail?.requirements || "暂无任职要求"} />
             <Text style={styles.paraTitle}>公司信息</Text>
-            <Text style={styles.paraText}>{detail?.companyInfo || "暂无公司信息"}</Text>
+            <CollapsibleParagraph text={detail?.companyInfo || "暂无公司信息"} />
           </>
         ) : null}
       </SheetSection>
@@ -298,14 +350,15 @@ const makeStyles = (colors: ThemeColors) =>
   metaItem: {
     width: "48%",
     flexGrow: 1,
-    backgroundColor: colors.successSoft,
+    // v20-A7：中性信息回归中性底（原 successSoft 绿底语义错位）
+    backgroundColor: colors.surfaceMuted,
     borderRadius: 13,
     paddingVertical: 9,
     paddingHorizontal: 10,
   },
   metaLabel: {
     fontSize: 11,
-    color: colors.success,
+    color: colors.textSecondary,
     fontWeight: "700",
   },
   metaValue: {
@@ -324,20 +377,38 @@ const makeStyles = (colors: ThemeColors) =>
     lineHeight: 21,
     color: colors.text,
   },
-  loadingBox: {
-    alignItems: "center",
-    gap: 8,
-    paddingVertical: 24,
-  },
-  loadingText: {
+  paraWrap: { gap: 2 },
+  paraToggle: {
     fontSize: 12,
-    color: colors.textMuted,
+    fontWeight: "700",
+    color: colors.primary,
+    marginTop: 4,
+  },
+  loadingBox: {
+    paddingVertical: 8,
+  },
+  errorBox: {
+    gap: 8,
+    marginBottom: 12,
   },
   errorText: {
     fontSize: 13,
     color: colors.danger,
     lineHeight: 19,
-    marginBottom: 12,
+  },
+  retryBtn: {
+    alignSelf: "flex-start",
+    backgroundColor: colors.primarySoft,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.primary,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  retryText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.primary,
   },
   sourceRow: {
     flexDirection: "row",
