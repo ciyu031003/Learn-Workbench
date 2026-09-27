@@ -1,18 +1,24 @@
 /* eslint-disable react-hooks/set-state-in-effect */
-import { useCallback, useEffect, useMemo, useState } from "react";
-import Animated from "react-native-reanimated";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Animated, {
+  cancelAnimation,
+  FadeIn,
+  FadeInDown,
+  FadeOut,
+  LinearTransition,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from "react-native-reanimated";
 import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
   RefreshControl,
   StyleSheet,
   Text,
-  TextInput,
   View,
-  type DimensionValue,
 } from "react-native";
-import { typography } from "@/theme/tokens";
+import { tabularNums, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { ThemedIcon } from "@/components/themed-icon";
@@ -20,8 +26,15 @@ import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } fr
 import { Card } from "@/components/card";
 import { AuthSheet } from "@/components/auth-sheet";
 import { BottomSheet } from "@/components/bottom-sheet";
-import { ChipGroup, SheetSection, SheetSegmented, type SegmentOption } from "@/components/sheet";
+import { ChipGroup, SheetSearchField, SheetSection, SheetSegmented, type SegmentOption } from "@/components/sheet";
 import { PressableScale } from "@/components/pressable-scale";
+import { SkeletonCard } from "@/components/skeleton";
+import { EmptyState } from "@/components/empty-state";
+import { InlineToast, TOAST_DEFAULT_LIFE_MS, type ToastKind } from "@/components/toast";
+import { AnimatedNumber } from "@/components/animated-number";
+import { ProgressBar } from "@/components/stat";
+import { useScreenEntrance } from "@/lib/use-screen-entrance";
+import { staggerDelay } from "@/lib/stagger";
 import { haptics } from "@/lib/haptics";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
@@ -64,6 +77,27 @@ function maxOf(values: number[], fallback = 1) {
   return Math.max(fallback, ...values);
 }
 
+/** v20-C1：筛选刷新细进度条（与 jobs 同款：换 range/搜索时保留旧内容） */
+function FilterRefreshBar() {
+  const { colors } = useTheme();
+  const opacity = useSharedValue(0.4);
+  useEffect(() => {
+    opacity.value = withRepeat(withSequence(withTiming(1, { duration: 380 }), withTiming(0.35, { duration: 380 })), -1, true);
+    return () => {
+      cancelAnimation(opacity);
+    };
+  }, [opacity]);
+  const bar = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  return (
+    <Animated.View
+      entering={FadeIn.duration(120)}
+      exiting={FadeOut.duration(150)}
+      style={[{ height: 2, borderRadius: 1, backgroundColor: colors.primary, marginBottom: 8 }, bar]}
+    />
+  );
+}
+
+/** v20-C2：KPI 数字滚动（AnimatedNumber）；卡片去描边、tabular 对齐 */
 function KpiCard({
   styles,
   colors,
@@ -76,7 +110,7 @@ function KpiCard({
   colors: ThemeColors;
   icon: Parameters<typeof ThemedIcon>[0]["name"];
   label: string;
-  value: string;
+  value: string | number;
   color: string;
 }) {
   return (
@@ -87,11 +121,16 @@ function KpiCard({
         </View>
         <Text style={styles.kpiLabel}>{label}</Text>
       </View>
-      <Text style={[styles.kpiValue, { color: colors.text }]}>{value}</Text>
+      {typeof value === "number" ? (
+        <AnimatedNumber value={value} style={styles.kpiValue} />
+      ) : (
+        <Text style={styles.kpiValue}>{value}</Text>
+      )}
     </View>
   );
 }
 
+/** v20-C2：分布条动画化（stat.tsx 的 ProgressBar，240ms 缓动），替代静态 width% */
 function BarRow({
   styles,
   label,
@@ -108,20 +147,19 @@ function BarRow({
   suffix?: string;
 }) {
   const safeMax = maxOf([max]);
-  const width = `${Math.max(6, Math.round((value / safeMax) * 100))}%` as DimensionValue;
+  const clamped = Math.max(0.06, value / safeMax);
   return (
     <View style={styles.row}>
       <Text style={styles.rowLabel} numberOfLines={1}>
         {label}
       </Text>
-      <View style={styles.rowTrack}>
-        <View style={[styles.rowFill, { width, backgroundColor: color }]} />
-      </View>
+      <ProgressBar progress={clamped} height={10} color={color} style={styles.rowFillTrack} />
       <Text style={styles.rowValue}>{suffix ? suffix : value}</Text>
     </View>
   );
 }
 
+/** v20-C6：筛选 chip 统一按压反馈 + 触觉（原先裸 Pressable） */
 function Chip({
   styles,
   label,
@@ -133,27 +171,56 @@ function Chip({
   active?: boolean;
   onPress?: () => void;
 }) {
-  const Component = onPress ? Pressable : View;
   return (
-    <Component
+    <PressableScale
+      scaleTo={0.94}
       style={[styles.chip, active && styles.chipActive]}
+      onPress={
+        onPress
+          ? () => {
+              haptics.soft();
+              onPress();
+            }
+          : undefined
+      }
       disabled={!onPress}
-      onPress={onPress}
     >
       <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
-    </Component>
+    </PressableScale>
   );
 }
 
+/**
+ * v20-C2：趋势柱状图——入场错峰 + 换 range 时高度过渡（LinearTransition）；
+ * 90 天档按周采样（≤31 根）防拥挤；末节点柱用 accent 高亮。
+ */
 function TrendChart({ styles, series }: { styles: MarketStyles; series: MarketIntelligencePayload["timeSeries"] }) {
-  const max = maxOf(series.map((point) => point.newJobs));
+  const sampled =
+    series.length > 31
+      ? series.filter((_, idx) => idx % Math.ceil(series.length / 31) === 0 || idx === series.length - 1)
+      : series;
+  const max = maxOf(sampled.map((point) => point.newJobs));
+  const last = sampled.at(-1);
   return (
     <View style={styles.trendBars}>
-      {series.map((point, index) => (
-        <View key={point.date} style={styles.trendBarWrap}>
-          <View style={[styles.trendBar, { height: Math.max(4, Math.round((point.newJobs / max) * 82)) }]} />
-          <Text style={styles.trendDate}>{index % Math.max(1, Math.ceil(series.length / 7)) === 0 ? point.date.slice(5) : ""}</Text>
-        </View>
+      {sampled.map((point, index) => (
+        <Animated.View
+          key={point.date}
+          style={styles.trendBarWrap}
+          layout={LinearTransition}
+          entering={FadeInDown.duration(240).delay(staggerDelay(index))}
+        >
+          <View style={styles.trendBarTrack}>
+            <View
+              style={[
+                styles.trendBar,
+                point === last ? styles.trendBarLast : null,
+                { height: Math.max(4, Math.round((point.newJobs / max) * 82)) },
+              ]}
+            />
+          </View>
+          <Text style={styles.trendDate}>{index % Math.max(1, Math.ceil(sampled.length / 7)) === 0 ? point.date.slice(5) : ""}</Text>
+        </Animated.View>
       ))}
     </View>
   );
@@ -180,6 +247,8 @@ export default function MarketScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const headerScroll = useLargeTitleHeader();
   const tabBarSpace = useTabBarSpace();
+  /** v20-C2：四张数据卡入场错峰 */
+  const entrance = useScreenEntrance();
   const token = useAppStore((s) => s.token);
   const setAuth = useAppStore((s) => s.setAuth);
 
@@ -189,15 +258,35 @@ export default function MarketScreen() {
   const [decision, setDecision] = useState<MarketDecisionPayload | null>(null);
   const [decisionTarget, setDecisionTarget] = useState({ city: "", functionKey: "" });
   const [loading, setLoading] = useState(true);
+  /** v20-C1：换 range/搜索时保留旧内容，只显示细进度条（不再整页闪 spinner） */
+  const [filterRefreshing, setFilterRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState<FilterKey | null>(null);
   const [decisionPicker, setDecisionPicker] = useState<"city" | "function" | null>(null);
+  /** v20-C3：What If 的重算中/失败态独立（失败不再伪装成"正在计算"） */
+  const [decisionLoading, setDecisionLoading] = useState(false);
+  const [decisionError, setDecisionError] = useState(false);
+  const [decisionNonce, setDecisionNonce] = useState(0);
   const [enrolling, setEnrolling] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [toastKind, setToastKind] = useState<ToastKind>("success");
   const [search, setSearch] = useState("");
 
+  const showToast = useCallback((message: string, kind: ToastKind = "success", lifeMs = TOAST_DEFAULT_LIFE_MS) => {
+    setToast(message);
+    setToastKind(kind);
+    setTimeout(() => setToast((current) => (current === message ? null : current)), lifeMs);
+  }, []);
+
+  const loadedOnceRef = useRef(false);
+
   const load = useCallback(async (refresh = false) => {
-    if (!refresh) setLoading(true);
+    if (!refresh) {
+      // v20-C1：首载走骨架；之后的筛选变化保留旧内容 + 细进度条
+      if (loadedOnceRef.current) setFilterRefreshing(true);
+      else setLoading(true);
+    }
     setError(null);
     try {
       const [nextData, nextPersonal] = await Promise.all([
@@ -206,10 +295,12 @@ export default function MarketScreen() {
       ]);
       setData(nextData);
       setPersonal(nextPersonal);
+      loadedOnceRef.current = true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "市场数据加载失败");
     } finally {
       setLoading(false);
+      setFilterRefreshing(false);
     }
   }, [filters]);
 
@@ -220,19 +311,27 @@ export default function MarketScreen() {
     void load();
   }, [load, token]);
 
+  // v20-C3：What If 重算带 loading/失败态（请求序号守卫防旧响应覆盖新响应）
+  const decisionSeq = useRef(0);
   useEffect(() => {
+    let seq = ++decisionSeq.current;
     let alive = true;
+    setDecisionLoading(true);
+    setDecisionError(false);
     fetchMarketDecision(decisionTarget.city || undefined, decisionTarget.functionKey || undefined)
       .then((payload) => {
-        if (alive) setDecision(payload);
+        if (alive && seq === decisionSeq.current) setDecision(payload);
       })
       .catch(() => {
-        if (alive) setDecision(null);
+        if (alive && seq === decisionSeq.current) setDecisionError(true);
+      })
+      .finally(() => {
+        if (alive && seq === decisionSeq.current) setDecisionLoading(false);
       });
     return () => {
       alive = false;
     };
-  }, [decisionTarget]);
+  }, [decisionTarget, decisionNonce]);
 
   const patchFilters = (patch: Partial<MarketIntelligenceFilters>) => {
     setFilters((current) => ({ ...current, ...patch }));
@@ -249,11 +348,12 @@ export default function MarketScreen() {
     try {
       const created = await enrollMarketGaps([gap]);
       haptics.success();
-      Alert.alert("已加入学习路线", `已创建 ${created} 项学习任务到今日计划。`);
+      // v20-C4：反馈统一走页内 toast（不再 Alert 打断）
+      showToast(`已创建 ${created} 项学习任务到今日计划`, "success");
       setPersonal(await fetchMarketPersonal());
     } catch (e) {
       haptics.error();
-      Alert.alert("加入失败", e instanceof Error ? e.message : "请稍后重试");
+      showToast(e instanceof Error ? e.message : "加入失败，请稍后重试", "error");
     } finally {
       setEnrolling(null);
     }
@@ -340,16 +440,18 @@ export default function MarketScreen() {
         onChange={(key) => patchFilters({ range: Number(key) as MarketIntelligenceRange })}
       />
 
+      {/* v20-J4：搜索框收单源（SheetSearchField，内嵌清空）；清除时同步清掉 q 筛选 */}
       <View style={styles.searchRow}>
-        <TextInput
+        <SheetSearchField
           value={search}
           onChangeText={setSearch}
-          onSubmitEditing={() => patchFilters({ q: search.trim() || undefined })}
           placeholder="搜索职位 / 公司 / 技能"
-          placeholderTextColor={colors.textFaint}
-          style={styles.searchInput}
+          autoCapitalize="none"
+          onSubmit={() => patchFilters({ q: search.trim() || undefined })}
+          onClear={() => patchFilters({ q: undefined })}
+          style={{ flex: 1 }}
         />
-        <PressableScale haptic style={styles.searchButton} onPress={() => patchFilters({ q: search.trim() || undefined })}>
+        <PressableScale haptic scaleTo={0.92} style={styles.searchButton} onPress={() => patchFilters({ q: search.trim() || undefined })}>
           <ThemedIcon name="search-outline" size={19} color="#FFFFFF" />
         </PressableScale>
       </View>
@@ -374,40 +476,50 @@ export default function MarketScreen() {
         />
       </Animated.ScrollView>
 
+      {toast ? <InlineToast message={toast} kind={toastKind} style={styles.toast} /> : null}
+      {filterRefreshing ? <FilterRefreshBar /> : null}
+
       {loading ? (
-        <View style={styles.centeredBox}>
-          <ActivityIndicator color={colors.primary} />
-          <Text style={styles.mutedText}>正在聚合市场数据</Text>
+        /* v20-C1：首载骨架（与全 App 等待语言一致） */
+        <View style={styles.body}>
+          <SkeletonCard count={3} />
         </View>
       ) : error ? (
-        <View style={styles.centeredBox}>
-          <ThemedIcon name="cloud-offline-outline" size={30} color={colors.textFaint} />
-          <Text style={styles.errorText}>{error}</Text>
-          <PressableScale style={styles.retryButton} onPress={() => void load()}>
-            <Text style={styles.retryText}>重新加载</Text>
-          </PressableScale>
-        </View>
+        <EmptyState
+          icon="cloud-offline-outline"
+          title="市场数据加载失败"
+          hint={error}
+          actionLabel="重新加载"
+          onAction={() => void load()}
+        />
       ) : !data || !summary || summary.total === 0 ? (
-        <View style={styles.centeredBox}>
-          <ThemedIcon name="trending-up-outline" size={30} color={colors.textFaint} />
-          <Text style={styles.mutedText}>暂无招聘数据，先抓取一些职位</Text>
-        </View>
+        <EmptyState
+          icon="trending-up-outline"
+          title="暂无招聘数据"
+          hint="先抓取一些职位，市场趋势与个人位置才会出现。"
+        />
       ) : (
         <View style={styles.body}>
+          {/* v20-C2：四张卡入场错峰（useScreenEntrance 统一节奏） */}
+          <Animated.View entering={entrance(0)}>
           <View style={styles.kpiGrid}>
-            <KpiCard styles={styles} colors={colors} icon="briefcase-outline" label="职位样本" value={String(summary.total)} color={colors.primary} />
-            <KpiCard styles={styles} colors={colors} icon="layers-outline" label="7天新增" value={String(summary.last7DaysJobs)} color={colors.teal} />
+            <KpiCard styles={styles} colors={colors} icon="briefcase-outline" label="职位样本" value={summary.total} color={colors.primary} />
+            <KpiCard styles={styles} colors={colors} icon="layers-outline" label="7天新增" value={summary.last7DaysJobs} color={colors.teal} />
             <KpiCard styles={styles} colors={colors} icon="cash-outline" label="薪资中位" value={summary.medianSalary != null ? `${summary.medianSalary}K` : "—"} color={colors.accent} />
-            <KpiCard styles={styles} colors={colors} icon="location-outline" label="覆盖城市" value={String(summary.cityCount)} color={colors.lavender} />
+            <KpiCard styles={styles} colors={colors} icon="location-outline" label="覆盖城市" value={summary.cityCount} color={colors.lavender} />
           </View>
+          </Animated.View>
 
+          <Animated.View entering={entrance(1)}>
           <Card title="市场时间趋势" subtitle="新增岗位数，7/30/90 天切换">
             <TrendChart styles={styles} series={data.timeSeries ?? []} />
             <Text style={styles.mutedText}>
               最近节点：{data.timeSeries?.at(-1)?.newJobs ?? 0} 个新岗位
             </Text>
           </Card>
+          </Animated.View>
 
+          <Animated.View entering={entrance(2)}>
           <Card title="需求分布" subtitle="城市、职能、行业、资历和薪资">
             <Text style={styles.groupTitle}>城市机会 TOP</Text>
             {(dist?.byCity ?? []).slice(0, 5).map((item: MarketRankItem) => (
@@ -438,13 +550,15 @@ export default function MarketScreen() {
               />
             ))}
           </Card>
+          </Animated.View>
 
+          <Animated.View entering={entrance(3)}>
           <Card title="我的市场位置" subtitle="技能覆盖、可触达岗位和推荐">
             {personal.loggedIn ? (
               <View style={styles.personalBody}>
                 <View style={styles.kpiGrid}>
                   <KpiCard styles={styles} colors={colors} icon="git-branch-outline" label="技能覆盖" value={`${personal.profile.skillCoveragePct}%`} color={colors.lavender} />
-                  <KpiCard styles={styles} colors={colors} icon="briefcase-outline" label="可触达" value={String(personal.reachableJobs)} color={colors.primary} />
+                  <KpiCard styles={styles} colors={colors} icon="briefcase-outline" label="可触达" value={personal.reachableJobs} color={colors.primary} />
                 </View>
                 <Text style={styles.groupTitle}>优先补什么</Text>
                 {personal.gaps.slice(0, 5).map((gap) => (
@@ -485,19 +599,30 @@ export default function MarketScreen() {
               </View>
             )}
           </Card>
+          </Animated.View>
 
+          <Animated.View entering={entrance(4)}>
           <Card title="What If 决策" subtitle="城市迁移、职能热度与升温预警">
             <View style={styles.decisionPickers}>
-              <Pressable style={styles.pickerButton} onPress={() => setDecisionPicker("city")}>
+              <PressableScale scaleTo={0.97} style={styles.pickerButton} onPress={() => setDecisionPicker("city")}>
                 <Text style={styles.pickerText}>{decisionTarget.city || "目标城市"}</Text>
                 <ThemedIcon name="chevron-down-outline" size={16} color={colors.textMuted} />
-              </Pressable>
-              <Pressable style={styles.pickerButton} onPress={() => setDecisionPicker("function")}>
+              </PressableScale>
+              <PressableScale scaleTo={0.97} style={styles.pickerButton} onPress={() => setDecisionPicker("function")}>
                 <Text style={styles.pickerText}>{decisionTarget.functionKey || "目标职能"}</Text>
                 <ThemedIcon name="chevron-down-outline" size={16} color={colors.textMuted} />
-              </Pressable>
+              </PressableScale>
             </View>
-            {decision ? (
+            {decisionError && !decision ? (
+              /* v20-C3：失败给明确错误 + 重试（原先永远伪装成"正在计算"） */
+              <View style={styles.centeredBox}>
+                <ThemedIcon name="warning-outline" size={24} color={colors.textFaint} />
+                <Text style={styles.mutedText}>场景计算失败</Text>
+                <PressableScale style={styles.retryButton} onPress={() => setDecisionNonce((n) => n + 1)}>
+                  <Text style={styles.retryText}>重新计算</Text>
+                </PressableScale>
+              </View>
+            ) : decision ? (
               <>
                 <View style={styles.kpiGrid}>
                   <KpiCard styles={styles} colors={colors} icon="briefcase-outline" label="目标岗位" value={String(decision.scenario.totalJobs)} color={colors.primary} />
@@ -515,9 +640,12 @@ export default function MarketScreen() {
                 <MoveList styles={styles} items={decision.alerts} />
               </>
             ) : (
-              <Text style={styles.mutedText}>正在计算决策场景</Text>
+              <Text style={styles.mutedText}>
+                {decisionLoading ? "正在计算决策场景…" : "选择目标城市 / 职能后开始计算"}
+              </Text>
             )}
           </Card>
+          </Animated.View>
         </View>
       )}
 
@@ -583,17 +711,6 @@ const makeStyles = (colors: ThemeColors) =>
     content: { padding: 16, gap: 12 },
     body: { gap: 12 },
     searchRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-    searchInput: {
-      flex: 1,
-      height: 42,
-      borderRadius: 14,
-      paddingHorizontal: 12,
-      color: colors.text,
-      backgroundColor: colors.surfaceMuted,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.border,
-      fontSize: 13,
-    },
     searchButton: {
       width: 42,
       height: 42,
@@ -613,7 +730,7 @@ const makeStyles = (colors: ThemeColors) =>
       paddingVertical: 6,
     },
     chipActive: { backgroundColor: colors.primary + "22", borderColor: colors.primary },
-    chipText: { fontSize: 11, fontWeight: "700", color: colors.textMuted },
+    chipText: { ...typography.caption, fontWeight: "700", color: colors.textSecondary },
     chipTextActive: { color: colors.primary },
     kpiGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
     kpiCard: {
@@ -621,8 +738,8 @@ const makeStyles = (colors: ThemeColors) =>
       flexGrow: 1,
       minWidth: 140,
       backgroundColor: colors.surfaceStrong,
-      borderWidth: 1,
-      borderColor: colors.borderStrong,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
       borderRadius: 18,
       padding: 14,
       gap: 12,
@@ -635,23 +752,28 @@ const makeStyles = (colors: ThemeColors) =>
       alignItems: "center",
       justifyContent: "center",
     },
-    kpiLabel: { fontSize: 12, color: colors.textMuted, fontWeight: "600" },
-    kpiValue: { fontSize: 24, fontWeight: "900", letterSpacing: 0 },
+    kpiLabel: { ...typography.caption, color: colors.textMuted, fontWeight: "600" },
+    // v20-C2：KPI 数字走 AnimatedNumber，tabular-nums 保证滚动时宽度稳定
+    kpiValue: { ...typography.title2, fontWeight: "800", color: colors.text, ...tabularNums },
     trendBars: { flexDirection: "row", alignItems: "flex-end", gap: 4, height: 112, paddingTop: 8 },
     trendBarWrap: { flex: 1, alignItems: "center", justifyContent: "flex-end", gap: 5 },
+    trendBarTrack: { width: "100%", height: 82, alignItems: "center", justifyContent: "flex-end" },
     trendBar: {
       width: "70%",
       minWidth: 5,
       borderRadius: 6,
       backgroundColor: colors.primary,
     },
-    trendDate: { fontSize: 8, color: colors.textFaint },
-    groupTitle: { fontSize: 12, fontWeight: "800", color: colors.text, marginTop: 4 },
+    // v20-C2：末节点高亮（accent）
+    trendBarLast: { backgroundColor: colors.accent },
+    trendDate: { ...typography.micro, fontWeight: "500", color: colors.textFaint },
+    groupTitle: { ...typography.caption, fontWeight: "800", color: colors.text, marginTop: 4 },
     row: { flexDirection: "row", alignItems: "center", gap: 8 },
-    rowLabel: { flexShrink: 1, minWidth: 0, width: 76, fontSize: 12, fontWeight: "700", color: colors.textMuted, textAlign: "right" },
-    rowTrack: { flex: 1, height: 10, borderRadius: 5, backgroundColor: colors.surfaceMuted, overflow: "hidden" },
-    rowFill: { height: 10, borderRadius: 5 },
-    rowValue: { width: 34, fontSize: 12, fontWeight: "800", color: colors.text, textAlign: "right" },
+    rowLabel: { flexShrink: 1, minWidth: 0, width: 76, ...typography.caption, fontWeight: "700", color: colors.textSecondary, textAlign: "right" },
+    rowTrack: { flex: 1, borderRadius: 5 },
+    rowFillTrack: { flex: 1 },
+    // v20-C5：定宽 34 会截断 4 位数值，改最小宽自适应
+    rowValue: { minWidth: 34, ...typography.caption, fontWeight: "800", color: colors.text, textAlign: "right" },
     personalBody: { gap: 10 },
     gapRow: {
       flexDirection: "row",
@@ -717,8 +839,10 @@ const makeStyles = (colors: ThemeColors) =>
       borderBottomColor: colors.border,
     },
     moveName: { fontSize: 13, fontWeight: "800", color: colors.text },
-    moveMeta: { fontSize: 10, color: colors.textMuted, marginTop: 3 },
+    moveMeta: { ...typography.micro, fontWeight: "500", color: colors.textMuted, marginTop: 3 },
     moveScore: { ...typography.callout, fontWeight: "900", color: colors.accent },
+    // v20-C4：页内 toast（enroll 反馈统一走 toast，不再 Alert）
+    toast: { marginBottom: 4 },
     centeredBox: { alignItems: "center", gap: 10, paddingVertical: 36 },
     mutedText: { fontSize: 13, color: colors.textMuted, textAlign: "center", lineHeight: 19 },
     errorText: { fontSize: 13, color: colors.danger, textAlign: "center" },

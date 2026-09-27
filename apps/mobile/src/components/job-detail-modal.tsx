@@ -15,6 +15,29 @@ import { enrollJobGaps, fetchJobDetail, fetchJobPlan, type JobDetail } from "@/l
 import { formatRelativeTime, jobSourceLabels, type JobLearningPlan, type JobPostingListItem } from "@learn-workbench/shared";
 
 /**
+ * v20-B1 · 详情弹层的"种子"入参：雷达等入口只拿到部分字段也能打开详情，
+ * 缺失字段由 fetchJobDetail 拉全量后覆盖（display = detail ?? job）。
+ */
+export type JobDetailSeed = {
+  id: number;
+  title: string;
+  company: string;
+  city?: string;
+  experience?: string;
+  education?: string;
+  salaryText?: string;
+  url?: string;
+  source?: string;
+  channel?: JobPostingListItem["channel"];
+  publishedAt?: string | null;
+  fetchedAt?: string;
+  deadlineAt?: string | null;
+  isNew?: boolean;
+  isFav?: boolean;
+  clusterSources?: string[];
+};
+
+/**
  * v20-A7 · 可折叠长文段落：JD 超过 6 行默认收起，避免"职位描述"把匹配分析推到看不见的地方。
  * 判长用「字符数 > 120 或行数 > lines」的粗略启发（Text onLayout 计行成本高，不值得）。
  */
@@ -50,10 +73,10 @@ export function JobDetailModal({
   onClose,
   onToggleFavorite,
 }: {
-  job: JobPostingListItem | null;
+  job: JobDetailSeed | null;
   visible: boolean;
   onClose: () => void;
-  onToggleFavorite: (job: JobPostingListItem) => void;
+  onToggleFavorite: (job: JobDetailSeed) => void;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -194,7 +217,7 @@ export function JobDetailModal({
         </View>
         <View style={styles.heroMain}>
           <Text style={styles.salary}>{jobSalaryText(display)}</Text>
-          <Text style={styles.heroMeta}>更新于 {formatRelativeTime(display.fetchedAt)}</Text>
+          <Text style={styles.heroMeta}>{display.fetchedAt ? `更新于 ${formatRelativeTime(display.fetchedAt)}` : "雷达匹配岗位"}</Text>
         </View>
       </View>
 
@@ -240,7 +263,7 @@ export function JobDetailModal({
           </View>
           <View style={styles.metaItem}>
             <Text style={styles.metaLabel}>发布</Text>
-            <Text style={styles.metaValue}>{formatRelativeTime(display.publishedAt)}</Text>
+            <Text style={styles.metaValue}>{formatRelativeTime(display.publishedAt ?? null)}</Text>
           </View>
         </View>
 
@@ -292,8 +315,11 @@ export function JobDetailModal({
 
       <SheetSection title="来源" last>
         <View style={styles.sourceRow}>
-          <JobSourceBadge source={display.source} label={jobSourceLabels[display.source]} />
-          {display.channel !== "announcement" ? (
+          {/* v20-B1：种子入参可能没有来源/抓取时间——有才渲染对应徽章，避免空标签 */}
+          {display.source && jobSourceLabels[display.source] ? (
+            <JobSourceBadge source={display.source} label={jobSourceLabels[display.source]} />
+          ) : null}
+          {display.channel !== "announcement" && display.fetchedAt ? (
             <JobFreshnessBadge
               publishedAt={display.publishedAt ?? null}
               fetchedAt={display.fetchedAt}

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Animated, { FadeInDown, LinearTransition } from "react-native-reanimated";
 import {
+  Alert,
   Linking,
   Pressable,
   RefreshControl,
@@ -8,6 +9,10 @@ import {
   Text,
   View,
 } from "react-native";
+import { JobDetailModal, type JobDetailSeed } from "@/components/job-detail-modal";
+import { PressableScale } from "@/components/pressable-scale";
+import { ProgressArc } from "@/components/progress-arc";
+import { toggleJobFavorite } from "@/lib/jobs";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { EmptyState } from "@/components/empty-state";
 import { SkeletonCard } from "@/components/skeleton";
@@ -19,7 +24,7 @@ import { useTheme } from "@/theme";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
 import { DURATION, useReducedMotion } from "@/lib/motion";
 import { shouldStagger, staggerDelay } from "@/lib/stagger";
-import { radius, typography } from "@/theme/tokens";
+import { typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
@@ -88,15 +93,25 @@ export default function RadarScreen() {
   const [sort, setSort] = useState<RadarSort>("match_desc");
   /** v1.26：当前页（0 基）；筛选/排序变化时回到第 1 页 */
   const [page, setPage] = useState(0);
+  /** v20-B5：筛选卡折叠态（默认展开，收起后只留标题行 + 结果数） */
+  const [filtersOpen, setFiltersOpen] = useState(true);
+  /** v20-B3：错误态独立于空态（断网不再伪装成"还没有岗位画像"） */
+  const [loadError, setLoadError] = useState(false);
+  /** v20-B1：点结果卡打开岗位详情弹层 */
+  const [detailJob, setDetailJob] = useState<JobDetailSeed | null>(null);
+  const [detailVisible, setDetailVisible] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(false);
     try {
       const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
       const r = await fetch(`${getApiUrl()}/api/jobs/radar?limit=${FETCH_LIMIT}`, { headers });
       if (r.ok) setData(await r.json());
+      else setLoadError(true);
     } catch {
-      // 离线保持空态
+      // v20-B3：网络失败 → 错误态（带重试），不再落到"还没有岗位画像"空态
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -140,6 +155,39 @@ export default function RadarScreen() {
     setPage(Math.max(0, Math.min(pageCount - 1, next)));
   };
 
+  /** v20-B1：雷达条目 → 详情弹层种子（缺的字段由弹层内 fetchJobDetail 拉全量补齐） */
+  const seedOf = (j: RadarJob): JobDetailSeed => ({
+    id: j.jobId,
+    title: j.title,
+    company: j.company,
+    city: j.city || undefined,
+    education: j.education || undefined,
+    salaryText: j.salaryText || undefined,
+    url: j.url || undefined,
+    channel: "job",
+  });
+
+  const openJob = (j: RadarJob) => {
+    haptics.light();
+    setDetailJob(seedOf(j));
+    setDetailVisible(true);
+  };
+
+  /** v20-B1：收藏与招花页同链路（同步到「我的求职」）；雷达条目无 isFav 字段，状态以收藏接口为准 */
+  const toggleFavorite = async (seed: JobDetailSeed) => {
+    if (!token) {
+      Alert.alert("请先登录", "收藏功能需要登录后使用。");
+      return;
+    }
+    try {
+      const favorited = await toggleJobFavorite(seed.id);
+      if (favorited) haptics.success();
+      else haptics.soft();
+    } catch {
+      Alert.alert("收藏失败", "请稍后重试");
+    }
+  };
+
   return (
     <View style={styles.root}>
       {/* v17-C2b：紧凑栏在滚动容器之外才能真吸顶 */}
@@ -162,11 +210,19 @@ export default function RadarScreen() {
         </Text>
       ) : null}
 
-      {/* ── 筛选区：领域 / 城市 / 岗位方向 + 匹配度排序 ───────────────── */}
+      {/* ── 筛选区：领域 / 城市 / 岗位方向 + 匹配度排序（v20-B5：可折叠，默认展开） ───────────────── */}
       {top.length > 0 ? (
         <Card style={styles.filterCard}>
           <View style={styles.filterHead}>
-            <View style={styles.filterTitleRow}>
+            <Pressable
+              style={styles.filterTitleRow}
+              onPress={() => {
+                haptics.soft();
+                setFiltersOpen((v) => !v);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={filtersOpen ? "收起筛选" : "展开筛选"}
+            >
               <ThemedIcon name="options-outline" size={16} color={colors.primary} />
               <Text style={styles.filterTitle}>筛选</Text>
               {activeFilters > 0 ? (
@@ -174,7 +230,11 @@ export default function RadarScreen() {
                   <Text style={styles.filterBadgeText}>{activeFilters}</Text>
                 </View>
               ) : null}
-            </View>
+              <Text style={styles.filterSummary}>
+                {filtersOpen ? "" : `${filtered.length} 个结果`}
+              </Text>
+              <ThemedIcon name={filtersOpen ? "chevron-up" : "chevron-down"} size={14} color={colors.textMuted} />
+            </Pressable>
             <Pressable
               hitSlop={8}
               onPress={() => pick(() => setSort((s) => (s === "match_desc" ? "match_asc" : "match_desc")))}
@@ -186,6 +246,8 @@ export default function RadarScreen() {
             </Pressable>
           </View>
 
+          {filtersOpen ? (
+          <>
           {/* 领域分类（v16：收敛到 ChipGroup 的滑动胶囊） */}
           <Text style={styles.filterLabel}>领域</Text>
           <ChipGroup
@@ -245,11 +307,22 @@ export default function RadarScreen() {
               </Pressable>
             ) : null}
           </View>
+          </>
+          ) : null}
         </Card>
       ) : null}
 
       {loading && top.length === 0 ? (
         <SkeletonCard count={3} />
+      ) : loadError && top.length === 0 ? (
+        /* v20-B3：网络失败给明确错误态 + 重试（原先断网伪装成"还没有岗位画像"） */
+        <EmptyState
+          icon="cloud-offline-outline"
+          title="雷达扫描失败"
+          hint="网络似乎不太顺，稍后再试试"
+          actionLabel="重新扫描"
+          onAction={() => void load()}
+        />
       ) : filtered.length === 0 ? (
         <EmptyState
           icon="radio-outline"
@@ -274,11 +347,18 @@ export default function RadarScreen() {
                   : FadeInDown.duration(DURATION.base).delay(staggerDelay(i))
               }
             >
+            {/* v20-B1：卡片可点进详情（收藏/学习计划在弹层内），动线不再断头 */}
+            <PressableScale onPress={() => openJob(j)} scaleTo={0.97}>
             <Card style={styles.item}>
               <View style={styles.head}>
-                <View style={styles.scoreWrap}>
-                  <Text style={[styles.score, j.overall >= 75 && { color: colors.success ?? colors.primary }]}>{j.overall}%</Text>
-                </View>
+                {/* v20-B2：匹配度从纯文本升级为小号进度圆环（雷达的核心指标该有视觉权重） */}
+                <ProgressArc
+                  progress={j.overall / 100}
+                  size={48}
+                  strokeWidth={5}
+                  value={`${j.overall}%`}
+                  beatOnChange
+                />
                 <View style={styles.headInfo}>
                   <Text style={styles.title} numberOfLines={1}>{j.title}</Text>
                   <Text style={styles.muted} numberOfLines={1}>
@@ -291,10 +371,16 @@ export default function RadarScreen() {
 
               <View style={styles.chips}>
                 {j.matchedSkills.slice(0, 3).map((s) => (
-                  <Text key={`m-${s.skill}`} style={[styles.chipTag, styles.chipHit]}>✓ {s.skill}</Text>
+                  <View key={`m-${s.skill}`} style={[styles.chipTag, styles.chipHit]}>
+                    <ThemedIcon name="checkmark-circle-outline" size={12} color={colors.success} />
+                    <Text style={[styles.chipTagText, styles.chipHitText]} numberOfLines={1}>{s.skill}</Text>
+                  </View>
                 ))}
                 {j.missingSkills.slice(0, 3).map((s) => (
-                  <Text key={`x-${s.skill}`} style={styles.chipTag}>○ {s.skill}</Text>
+                  <View key={`x-${s.skill}`} style={styles.chipTag}>
+                    <ThemedIcon name="ellipse-outline" size={12} color={colors.textFaint} />
+                    <Text style={styles.chipTagText} numberOfLines={1}>{s.skill}</Text>
+                  </View>
                 ))}
               </View>
 
@@ -307,6 +393,7 @@ export default function RadarScreen() {
                 ) : null}
               </View>
             </Card>
+            </PressableScale>
             </Animated.View>
           ))}
 
@@ -322,6 +409,13 @@ export default function RadarScreen() {
           />
         </>
       )}
+      {/* v20-B1：岗位详情弹层（与招花页同一组件；收藏同链路同步「我的求职」） */}
+      <JobDetailModal
+        job={detailJob}
+        visible={detailVisible}
+        onClose={() => setDetailVisible(false)}
+        onToggleFavorite={toggleFavorite}
+      />
     </Animated.ScrollView>
     </View>
   );
@@ -337,7 +431,8 @@ const makeStyles = (colors: ThemeColors) =>
     /* 筛选区 */
     filterCard: { gap: 8, padding: 14 },
     filterHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    filterTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+    filterTitleRow: { flexDirection: "row", alignItems: "center", gap: 6, flex: 1 },
+    filterSummary: { ...typography.caption, color: colors.textMuted, marginLeft: "auto", marginRight: 4 },
     filterTitle: { ...typography.callout, fontWeight: "800", color: colors.text },
     filterBadge: {
       minWidth: 16,
@@ -360,18 +455,6 @@ const makeStyles = (colors: ThemeColors) =>
     },
     sortText: { fontSize: 11, fontWeight: "800", color: colors.primary },
     filterLabel: { fontSize: 11, fontWeight: "700", color: colors.textMuted, marginTop: 2 },
-    chipRow: { gap: 6, paddingVertical: 2 },
-    chip: {
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: 999,
-      backgroundColor: colors.surfaceMuted,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.border,
-    },
-    chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-    chipText: { fontSize: 12, fontWeight: "700", color: colors.textMuted },
-    chipTextActive: { color: colors.canvas },
     filterFoot: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
     filterCount: { fontSize: 11, color: colors.textMuted },
     resetText: { fontSize: 12, fontWeight: "800", color: colors.primary },
@@ -379,36 +462,26 @@ const makeStyles = (colors: ThemeColors) =>
     /* 卡片 */
     item: { gap: 8 },
     head: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
-    scoreWrap: { minWidth: 46, alignItems: "center", justifyContent: "center" },
-    score: { fontSize: 18, fontWeight: "800", color: colors.primary },
     headInfo: { flex: 1, minWidth: 0, gap: 1 },
     title: { ...typography.headline, fontWeight: "800", color: colors.text },
     muted: { fontSize: 11, color: colors.textMuted },
     salary: { fontSize: 12, fontWeight: "700", color: colors.text },
     deadline: { fontSize: 11, fontWeight: "700", color: colors.accentStrong },
     chips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+    // v20-B4：技能 chips 改「图标 + 文本」小胶囊（原先 ✓/○ 拼进文本，命中/缺失不分色）
     chipTag: {
-      fontSize: 11,
-      color: colors.textMuted,
-      backgroundColor: colors.surfaceMuted,
-      borderRadius: 999,
-      paddingHorizontal: 8,
-      paddingVertical: 3,
-      overflow: "hidden",
-    },
-    chipHit: { color: colors.text },
-    footer: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    link: { fontSize: 12, color: colors.primary, fontWeight: "700" },
-    /* v20-J2：分页条样式收进 components/pager-bar.tsx */
-    moreBtn: {
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "center",
-      gap: 6,
-      paddingVertical: 12,
-      borderRadius: radius.lg,
-      backgroundColor: colors.primarySoft,
+      gap: 4,
+      backgroundColor: colors.surfaceMuted,
+      borderRadius: 999,
+      paddingHorizontal: 9,
+      paddingVertical: 4,
+      overflow: "hidden",
     },
-    moreText: { fontSize: 13, fontWeight: "800", color: colors.primary },
-    endText: { fontSize: 11, color: colors.textFaint, textAlign: "center", paddingVertical: 8 },
+    chipHit: { backgroundColor: colors.successSoft },
+    chipTagText: { fontSize: 11, fontWeight: "600", color: colors.textSecondary },
+    chipHitText: { color: colors.text },
+    footer: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    link: { fontSize: 12, color: colors.primary, fontWeight: "700" },
   });

@@ -698,7 +698,8 @@ export default function JobsScreen() {
     listRef.current?.scrollToOffset({ offset: 0, animated: true });
   };
 
-  const toggleFavorite = async (job: JobPostingListItem) => {
+  // v20-B1：参数放宽为 { id }（详情弹层的种子入参也走同一条收藏链路）
+  const toggleFavorite = async (job: { id: number }) => {
     if (!token) {
       Alert.alert("请先登录", "收藏功能需要登录后使用。");
       return;
