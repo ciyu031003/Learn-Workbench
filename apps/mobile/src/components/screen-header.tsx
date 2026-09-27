@@ -273,11 +273,18 @@ export function ScreenHeaderStickyBar({
     return p < 0 ? 0 : p > 1 ? 1 : p;
   }, [animated, scrollY]);
 
+  /**
+   * 真机反馈修复：吸顶栏的**背景与小标题必须同区间淡入**。
+   * 原来是 背景 [0.2,1] / 小标题 [0.45,1] —— 于是 p 在 0.2~0.45 之间会出现
+   * 「背景已经不透明、但一个字都没有」的空条，用户看到的正是页面顶部那块"空白面板"
+   * （内容较短的页面尤其明显：轻微滑动就落进这个区间并停住）。
+   */
+  const STICKY_FADE: [number, number] = [0.35, 1];
   const bgStyle = useAnimatedStyle(() => ({
-    opacity: animated ? interpolate(progress.value, [0.2, 1], [0, 1], Extrapolation.CLAMP) : 1,
+    opacity: animated ? interpolate(progress.value, STICKY_FADE, [0, 1], Extrapolation.CLAMP) : 1,
   }));
   const titleStyle = useAnimatedStyle(() => ({
-    opacity: animated ? interpolate(progress.value, [0.45, 1], [0, 1], Extrapolation.CLAMP) : 1,
+    opacity: animated ? interpolate(progress.value, STICKY_FADE, [0, 1], Extrapolation.CLAMP) : 1,
   }));
 
   return (

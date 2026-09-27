@@ -22,10 +22,7 @@ import { SkeletonList } from "@/components/skeleton";
 
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
-import { DURATION, useReducedMotion } from "@/lib/motion";
-import { shouldStagger, staggerDelay } from "@/lib/stagger";
 import Animated, {
-  FadeInDown,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -417,7 +414,6 @@ export default function JobsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   /** v17-D（R8）：入场错峰；减弱动态时不做（任务纪律：每屏封顶 12 项、只在首帧入场） */
-  const reduced = useReducedMotion();
   const tabBarSpace = useTabBarSpace();
   // v17-C2b：吸顶紧凑栏的滚动驱动（下拉刷新偏移已由 usePullRefresh 统一计算）
   const headerScroll = useLargeTitleHeader();
@@ -745,16 +741,13 @@ export default function JobsScreen() {
         data={jobs}
         keyExtractor={(item) => String(item.id)}
         renderItem={({ item, index }) => (
-          <Animated.View
-            style={styles.listSide}
-            entering={
-              reduced || !shouldStagger(index, jobs.length)
-                ? undefined
-                : FadeInDown.duration(DURATION.base).delay(staggerDelay(index))
-            }
-          >
+          /* 真机闪退修复：不要在 FlashList 的 item 上挂 Reanimated 的 entering 动画 ——
+             v2 的 item 是绝对定位并会回收复用，回收发生在动画进行中时会在原生层崩
+             （真机表现为「点开岗位详情后滑动列表就闪退」）。
+             入场错峰只保留在非虚拟化列表（见 radar / interview）。 */
+          <View style={styles.listSide}>
             <JobCard job={item} index={index} onPress={openJob} onToggleFavorite={toggleFavorite} />
-          </Animated.View>
+          </View>
         )}
         ItemSeparatorComponent={JobCardSeparator}
         contentContainerStyle={{ paddingBottom: tabBarSpace }}

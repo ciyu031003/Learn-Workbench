@@ -135,9 +135,11 @@ function ThemedShell() {
         现在两者已解耦，因此可以安全重开边到边。
         顶部留白由各页自己吃 insets（C2 折叠栏会统一收敛，本阶段不动）。
       */}
-      {/* 不再传 translucent/backgroundColor：Android targetSdk 35+ 边到边为系统行为，
-          RN 的 StatusBar 也没有 transparent 属性。图标颜色仍由 barStyle 运行时决定。 */}
-      <RNStatusBar barStyle={dark ? "light-content" : "dark-content"} />
+      {/* 真机黑带修复：C1 当时把 backgroundColor 一起删了，状态栏就回落到 Android 主题色（黑）——
+          即使 App 是浅色主题，顶部也会出现一条黑带（正是 v12 P0-5 的同一症状）。
+          backgroundColor 支持传 transparent（当时误以为没有该能力），配合 translucent 才是完整边到边：
+          内容从状态栏下穿过、状态栏自身不画任何底色。图标对比度仍由 barStyle 按 App 主题决定。 */}
+      <RNStatusBar translucent backgroundColor="transparent" barStyle={dark ? "light-content" : "dark-content"} />
       {/*
         导航栈：`(tabs)` 承载 5 个一级 Tab（自带底栏），其余页面都是它的 push 目标 ——
         子页天然盖住底栏（D2 期望的 iOS 层级气质），因此 useTabBarSpace() 在子页返回 0。
