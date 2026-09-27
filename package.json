@@ -20,5 +20,9 @@
     "turbo": "^2.10.9",
     "vitest": "^4.1.10"
   },
-  "packageManager": "pnpm@11.16.0"
+  "packageManager": "pnpm@11.16.0",
+  "dependencies": {
+    "jsqr": "^1.4.0",
+    "pngjs": "^7.0.0"
+  }
 }
