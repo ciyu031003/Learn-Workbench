@@ -9,6 +9,7 @@ import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
+import { haptics } from "@/lib/haptics";
 import { useTheme } from "@/theme";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
@@ -69,6 +70,8 @@ export default function ResumeScreen() {
         headers: { "Content-Type": "application/json", ...headers() },
         body: JSON.stringify({ kind, title: title.trim(), content: content.trim(), url: url.trim() }),
       });
+      // v19-M5：保存成功给 success 触觉
+      haptics.success();
       setSheetOpen(false);
       setTitle("");
       setContent("");

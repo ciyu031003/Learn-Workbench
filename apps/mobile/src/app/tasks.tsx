@@ -12,6 +12,10 @@ import { syncPull, syncPush } from "@/lib/sync";
 import { DURATION, useReducedMotion } from "@/lib/motion";
 import { staggerDelay } from "@/lib/stagger";
 import { haptics } from "@/lib/haptics";
+import { AnimatedCheckMark } from "@/components/check-mark";
+import { SuccessBurst } from "@/components/success-burst";
+import { AnimatedNumber } from "@/components/animated-number";
+import { ProgressBar } from "@/components/stat";
 import { taskTypeLabels, todayISO } from "@learn-workbench/shared";
 import { Card } from "@/components/card";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
@@ -52,10 +56,15 @@ export default function TasksScreen() {
 
   /** v17-D（R8）：入场错峰只在首帧做，滚动复现不做；减弱动态下完全不做 */
   const reduced = useReducedMotion();
+  /** v19-M3：勾选成功的行内 ripple（按任务 id 计数，换 key 重放 SuccessBurst） */
+  const [bursts, setBursts] = useState<Record<number, number>>({});
   /** 勾选反馈语义化：完成给 success、取消给 soft（Apple 手感的核心是"轻且语义化"） */
   const onToggleTask = (id: number, done: boolean) => {
     if (done) haptics.soft();
-    else haptics.success();
+    else {
+      haptics.success();
+      setBursts((b) => ({ ...b, [id]: (b[id] ?? 0) + 1 }));
+    }
     toggleTaskDone(id);
   };
 
@@ -89,6 +98,7 @@ export default function TasksScreen() {
   const maxMin = Math.max(1, ...stats.last14.map((d) => d.minutes));
 
   const openTimer = (taskId: number | null, taskTitle: string | null) => {
+    haptics.soft();
     setAutoTimer(null);
     setTimerTask({ id: taskId, title: taskTitle });
     setTimerSession((s) => s + 1);
@@ -157,11 +167,9 @@ export default function TasksScreen() {
         </Pressable>
       </Card>
 
-      {/* ② 今日任务：信息量最大的一张，升到工具区之前，并补进度条 */}
+      {/* ② 今日任务：信息量最大的一张，升到工具区之前，并补进度条（v19-M2：动画进度条） */}
       <Card title="今日任务" subtitle={`${doneCount}/${todayTasks.length} 已完成 · 专注 ${totalFocus} 分钟`}>
-        <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: `${donePct}%` }]} />
-        </View>
+        <ProgressBar progress={donePct / 100} color={colors.success} height={6} style={styles.progressTrack} />
         {allDone ? (
           <View style={styles.doneBanner}>
             <Text style={styles.doneBannerText}>🎉 今日任务已全部完成！生成打卡卡片分享吧</Text>
@@ -178,7 +186,11 @@ export default function TasksScreen() {
               layout={reduced ? undefined : LinearTransition}
             >
               <Pressable onPress={() => onToggleTask(t.id, t.done)} hitSlop={8}>
-                <Text style={[styles.taskCheck, t.done && styles.taskChecked]}>{t.done ? "✓" : "○"}</Text>
+                {/* v19-M3：文本 ✓ 换成描边画勾 + 行内 ripple（与 today/health 同一语言） */}
+                <View style={[styles.taskBox, t.done && styles.taskBoxDone]}>
+                  <AnimatedCheckMark checked={t.done} size={14} color="#ffffff" />
+                  {bursts[t.id] ? <SuccessBurst key={bursts[t.id]} size={38} color={colors.success} /> : null}
+                </View>
               </Pressable>
               <Text style={[styles.taskTitle, t.done && styles.taskTitleDone]} numberOfLines={1}>
                 {t.title}
@@ -210,13 +222,17 @@ export default function TasksScreen() {
       <Card variant="glass" title="专注打卡" subtitle={`${stats.date} · 分布图 / 时间轴`}>
         <View style={styles.statGrid}>
           {[
-            { label: "累计专注", value: `${stats.totalFocusDays}` },
-            { label: "连续专注", value: `${stats.streak}` },
-            { label: "今日次数", value: `${stats.todaySessions}` },
-            { label: "今日时长", value: `${stats.todayMinutes}′` },
+            { label: "累计专注", value: stats.totalFocusDays, suffix: "" },
+            { label: "连续专注", value: stats.streak, suffix: "" },
+            { label: "今日次数", value: stats.todaySessions, suffix: "" },
+            { label: "今日时长", value: stats.todayMinutes, suffix: "′" },
           ].map((s) => (
             <View key={s.label} style={styles.statBox}>
-              <Text style={styles.statValue}>{s.value}</Text>
+              <View style={styles.statValueRow}>
+                {/* v19-M2：统计数字滚动（400ms），不再瞬间跳变 */}
+                <AnimatedNumber value={s.value} style={styles.statValue} />
+                {s.suffix ? <Text style={styles.statValue}>{s.suffix}</Text> : null}
+              </View>
               <Text style={styles.statLabel}>{s.label}</Text>
             </View>
           ))}
@@ -224,13 +240,18 @@ export default function TasksScreen() {
 
         <Text style={styles.sectionLabel}>近 14 天分布</Text>
         <View style={styles.barChart}>
-          {stats.last14.map((d) => (
-            <View key={d.date} style={styles.barCol}>
+          {stats.last14.map((d, i) => (
+            <Animated.View
+              key={d.date}
+              style={styles.barCol}
+              entering={reduced ? undefined : FadeInDown.duration(DURATION.base).delay(staggerDelay(i))}
+              layout={reduced ? undefined : LinearTransition}
+            >
               <View style={styles.barTrack}>
                 <View style={[styles.bar, { height: `${Math.max(4, (d.minutes / maxMin) * 100)}%` }]} />
               </View>
               <Text style={styles.barLabel}>{d.date.slice(5)}</Text>
-            </View>
+            </Animated.View>
           ))}
         </View>
 
@@ -357,9 +378,8 @@ const makeStyles = (colors: ThemeColors) =>
   // 焦点 hero 内的"下一步"
   nextTitle: { ...typography.title2, fontWeight: "800", color: colors.text },
   nextMeta: { ...typography.caption, color: colors.textMuted, marginTop: -4 },
-  // 今日任务进度条
-  progressTrack: { height: 6, borderRadius: 999, backgroundColor: colors.surfaceMuted, overflow: "hidden", marginBottom: 10 },
-  progressFill: { height: "100%", borderRadius: 999, backgroundColor: colors.success },
+  // 今日任务进度条（v19-M2：填充宽度动画化，样式只保留轨道）
+  progressTrack: { backgroundColor: colors.surfaceMuted, overflow: "hidden", marginBottom: 10 },
   // 工具区
   toolRow: { flexDirection: "row", gap: 8 },
   toolBtn: { flex: 1, borderRadius: 14, paddingVertical: 12, alignItems: "center" },
@@ -389,8 +409,17 @@ const makeStyles = (colors: ThemeColors) =>
   doneBanner: { backgroundColor: "rgba(22,163,74,0.12)", borderRadius: 12, padding: 10, marginBottom: 8 },
   doneBannerText: { ...typography.callout, color: "#166534", fontWeight: "600" },
   taskRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  taskCheck: { fontSize: 16, color: colors.textFaint, width: 18 },
-  taskChecked: { color: "#16a34a" },
+  // v19-M3：勾选框（描边画勾的容器）+ 完成态点亮
+  taskBox: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: colors.borderStrong,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  taskBoxDone: { backgroundColor: colors.success, borderColor: colors.success },
   taskTitle: {
     ...typography.headline,
     flex: 1,
@@ -404,6 +433,7 @@ const makeStyles = (colors: ThemeColors) =>
   statGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, justifyContent: "center", marginBottom: 8 },
   statBox: { width: "46%", backgroundColor: "rgba(232,147,12,0.08)", borderRadius: 14, paddingVertical: 14, alignItems: "center" },
   statValue: { fontSize: 22, fontWeight: "800", color: colors.text },
+  statValueRow: { flexDirection: "row", alignItems: "flex-end" },
   statLabel: { ...typography.caption, color: colors.textMuted, marginTop: 3 },
   sectionLabel: { ...typography.caption, fontWeight: "700", color: colors.text, marginTop: 12, marginBottom: 8 },
   barChart: { flexDirection: "row", alignItems: "flex-end", height: 96, gap: 4 },

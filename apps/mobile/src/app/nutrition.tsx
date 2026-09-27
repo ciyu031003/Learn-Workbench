@@ -13,6 +13,7 @@ import { BottomSheet } from "@/components/bottom-sheet";
 import { GlassSurface } from "@/components/surface";
 import { ProgressArc } from "@/components/progress-arc";
 import { AnimatedNumber } from "@/components/animated-number";
+import { ProgressBar } from "@/components/stat";
 import { KcalBadge } from "@/components/kcal-badge";
 import { FoodSticker } from "@/components/food-sticker";
 import { DayStrip, DAY_STRIP_MAX_WEEKS } from "@/components/day-strip";
@@ -1027,35 +1028,43 @@ export default function NutritionScreen() {
           首屏只保留一个强视觉块（下面的热量 Hero），避免多个 hero 互相抢焦点 */}
       <View style={styles.summaryPill}>
         <View style={styles.summaryItem}>
-          <Text style={styles.summaryValue}>
-            {viewMode === "day" ? Math.round(totals.kcal) : viewMode === "week" ? weekSummary.kcal : monthSummary.kcal}
-          </Text>
+          {/* v19-M2：摘要数字滚动（400ms），切日/周/月时平滑过渡 */}
+          <AnimatedNumber
+            style={styles.summaryValue}
+            value={viewMode === "day" ? Math.round(totals.kcal) : viewMode === "week" ? weekSummary.kcal : monthSummary.kcal}
+          />
           <Text style={styles.summaryLabel}>
             {viewMode === "day" ? "已摄入 kcal" : viewMode === "week" ? "本周 kcal" : "本月 kcal"}
           </Text>
         </View>
         <View style={styles.summaryDivider} />
         <View style={styles.summaryItem}>
-          <Text style={[styles.summaryValue, viewMode === "day" && overBudget && { color: colors.danger }]}>
-            {viewMode === "day"
-              ? Math.abs(remaining)
-              : viewMode === "week"
-                ? weekSummary.avgKcal
-                : monthSummary.avgKcal}
-          </Text>
+          <AnimatedNumber
+            style={[styles.summaryValue, viewMode === "day" && overBudget && { color: colors.danger }]}
+            value={
+              viewMode === "day"
+                ? Math.abs(remaining)
+                : viewMode === "week"
+                  ? weekSummary.avgKcal
+                  : monthSummary.avgKcal
+            }
+          />
           <Text style={styles.summaryLabel}>
             {viewMode === "day" ? (overBudget ? "已超出 kcal" : "还能吃 kcal") : "日均 kcal"}
           </Text>
         </View>
         <View style={styles.summaryDivider} />
         <View style={styles.summaryItem}>
-          <Text style={styles.summaryValue}>
-            {viewMode === "day"
-              ? hydration.totalMl
-              : viewMode === "week"
-                ? weekSummary.daysLogged
-                : monthSummary.daysLogged}
-          </Text>
+          <AnimatedNumber
+            style={styles.summaryValue}
+            value={
+              viewMode === "day"
+                ? hydration.totalMl
+                : viewMode === "week"
+                  ? weekSummary.daysLogged
+                  : monthSummary.daysLogged
+            }
+          />
           <Text style={styles.summaryLabel}>{viewMode === "day" ? "饮水 ml" : "记录天数"}</Text>
         </View>
         <Pressable
@@ -1277,17 +1286,13 @@ export default function NutritionScreen() {
                   {mealKcal} / {mealTarget} kcal · {Math.round(share * 100)}%
                 </Text>
               </View>
-              <View style={styles.mealTrack}>
-                <View
-                  style={[
-                    styles.mealFill,
-                    {
-                      width: `${Math.round(mealPct * 100)}%`,
-                      backgroundColor: mealPct >= 1 ? colors.success : colors.accent,
-                    },
-                  ]}
-                />
-              </View>
+              {/* v19-M2：餐次进度条动画化（240ms 缓动），随记录增减平滑变化 */}
+              <ProgressBar
+                progress={Math.min(1, Number.isFinite(mealPct) ? mealPct : 0)}
+                height={5}
+                color={mealPct >= 1 ? colors.success : colors.accent}
+                style={styles.mealTrack}
+              />
               <View style={styles.timeline}>
                 {list.map((e, i) => {
                   const time = formatEntryTime(e.createdAt);

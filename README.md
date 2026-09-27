@@ -1,66 +1,54 @@
 # Learn-Workbench · ICT 学习工作台
 
-ICT 学习路线图追踪 + 学习规划工作台（**Web + Android 双端**），Liquid Glass 液态玻璃 UI + 每日 Bing 风景背景。
+集 **学习路线图、每日任务与专注计时、习惯与健康、求职工作台** 于一体的个人成长全栈应用（**Web + Android 双端**），Liquid Glass 液态玻璃 UI + 每日 Bing 风景背景。
 
-这是一个面向个人学习管理的全栈应用：内置「ICT 学习规划」等多条职业学习路线，支持按阶段/主题打勾记录进度、每日任务与专注倒计时、学习日志、打卡分享、健康提醒（喝水/站立/休息）、自定义学习内容，以及 Web 与移动端之间的云端数据同步。数据保存在 PostgreSQL，账号密码登录，数据按用户隔离。
+内置「ICT 学习规划」等多条职业学习路线，支持按阶段/主题打勾记录进度；每日任务、全屏专注倒计时、学习日志；习惯打卡与饮水/饮食/体重/训练记录；招聘信息每日抓取（卡片流 + 收藏）、面试题库、简历管理；运动档案图鉴与闪光卡。数据保存在 PostgreSQL，账号密码登录，数据按用户隔离，Web 与移动端云端同步。
 
 ## 功能特性
 
-- 📚 **多职业学习路线**：ICT（固定）+ 前端 / Java 后端 / 数据分析 / AI / 网络安全，选择职业即切换路线
-- ✅ **路线图追踪**：阶段折叠、主题打勾、进度聚合、资源/项目/验收点、自定义添加学习内容；**大阶段可拖拽排序（自动更名 P1/P2/…）、增删/编辑**
-- 📊 **仪表盘**：所选职业整体进度 + 每日 Bing 风景背景（Python 爬虫每日抓取）
-- ⏱️ **专注倒计时**：全屏环形倒计时、三种背景模式、专注打卡分享卡片（分布图/时间轴 + 导出/分享）
-- 📝 **任务 / 日志 / 设置**：每日任务、学习日志、密码修改、JSON 导入导出
-- 💾 **数据同步**：Web 与移动端数据一致，移动端「一键同步到云端 / 从云端恢复」
-- 🧑‍💻 **登录系统**：账号密码登录（scrypt 加密），数据按用户隔离，匿名数据自动认领
-- 🌸 **招花·招聘信息**：每日定时爬取拉勾/猎聘/智联/前程无忧等招聘网站的职位，卡片流展示 + 详情弹窗 + 收藏；爬虫关键词/行业/城市/平台按账号配置，数据按账号隔离
-- 🖼️ **Liquid Glass UI**：液态玻璃全站设计（blur + saturate + 渐变高光 + 每日一言）
+- 📚 **多职业学习路线**：ICT（固定）+ 前端 / Java 后端 / 数据分析 / AI / 网络安全；阶段折叠、主题打勾、进度聚合、资源/项目/验收点、自定义学习内容、大阶段拖拽排序（自动更名 P1/P2/…）
+- ✅ **任务 / 专注 / 日志**：每日任务、全屏环形专注倒计时（三背景模式、前台服务保活 + 圆环通知）、专注打卡分享卡片（分布图/时间轴 + 导出/分享）、学习日志、JSON 导入导出
+- 💪 **习惯与健康**：习惯打卡与热力趋势、饮水/饮食/体重记录（全局食物营养库 + 自建基准库）、训练动作库、3D 状态球健康总览、健康提醒（喝水/站立/休息）
+- 💼 **求职工作台**：每日定时爬取招聘信息（官方信息源 + 互联网平台，Node 双引擎），卡片流 + 详情 + 收藏；面试题库；简历管理（文件上 COS）
+- 🏸 **运动档案**：羽毛球/网球等多项目档案图鉴、装备图库、闪光卡（3D 卡面 + 荣誉墙）与公开分享页
+- 💾 **数据同步**：Web 与移动端数据一致，移动端「一键同步到云端 / 从云端恢复」；匿名数据登录后自动认领
+- 🧑‍💻 **账号系统**：注册 / 登录（scrypt 加密）/ 修改密码，数据按用户隔离
+- 🤖 **AI 建议**（可选）：`/api/ai/tip` 环境变量门控（`AI_API_KEY`），未配置自动回落规则版
+- 📲 **应用内升级**：安卓 APK OTA 升级（进度条 + sha256 校验），下载页 <https://learn.yuanabd.cn/download.html>
+- 🖼️ **Liquid Glass UI**：液态玻璃全站设计（blur + saturate + 渐变高光 + 每日一言），深浅色双主题
 
-## 技术栈
+## 技术架构
 
 | 层 | 技术 |
 | --- | --- |
-| 工程 | pnpm monorepo + Turborepo + Vitest |
+| 工程 | pnpm monorepo（pnpm 11）+ Turborepo + Vitest + Playwright（e2e） |
 | Web 端 | Next.js 16（App Router / Route Handlers）+ React 19 + Tailwind CSS 4 + Zustand + zod |
-| 移动端 | Expo SDK 57 / React Native 0.86（5 个 Tab，本地 AsyncStorage + 云同步客户端） |
-| 数据层 | PostgreSQL（`db/schema.sql` + `db/seed_content.sql` + `db/migrations/*.sql`） |
-| 其他 | Python 3（Bing 壁纸爬虫，仅标准库）、PM2 / Nginx（服务器部署）；生产默认 HTTPS（learn.yuanabd.cn） |
+| 移动端 | Expo SDK 57 / React Native 0.86（5 个 Tab：今日 / 学习 / 职业 / 健康 / 我的，本地 AsyncStorage + 云同步客户端 + OTA） |
+| 数据层 | PostgreSQL（`db/schema.sql` + `db/seed_content.sql` + `db/migrations/001~057`） |
+| 爬虫 | Node 双引擎（http 引擎 + Playwright 过 WAF）：招聘 / 面试题库 / 装备图库；Python 3 Bing 壁纸（仅标准库） |
+| 部署 | PM2 / Nginx 或 Docker Compose（db + init + web）；每日数据管线：宿主机 crontab → `POST /api/internal/cron?job=crawl\|aggregate\|backfill\|maintenance\|interview\|food`（`x-cron-secret` 鉴权） |
 
-## 目录结构
+### 目录结构
 
 ```
-apps/web        Next.js 16 Web 端（登录/仪表盘/路线图/任务/日志/设置/健康 + API 层 + proxy 守卫）
-apps/mobile     Expo 移动端（5 个 Tab 页，本地 AsyncStorage + 云同步客户端）
-packages/shared   zod 类型 / 工具函数（双端共用）
-packages/content  路线图内容数据（与 db/seed_content.sql 同源）
-packages/ui        设计 tokens
-db/              schema.sql + seed_content.sql + migrations/001~016
-scripts/         Bing 爬虫 + 招花招聘爬虫 + 数据库启停 + 管理员账号创建
-deploy.sh        服务器一键部署脚本（见下文「服务器部署」；HTTPS/域名见 docs/Learn-Workbench-2.0-改动记录.md）
-deploy-docker.sh Docker 一键部署脚本（docker-compose 包装）
-Dockerfile       Web 端 Docker 镜像（多阶段构建）
-docker-compose.yml Docker 编排（db + init + web）
+apps/web            Next.js 16 Web 端（登录/仪表盘/路线图/任务/习惯/健康/求职 + API 层 + proxy 守卫）
+apps/mobile         Expo 移动端（今日/学习/职业/健康/我的 5 个 Tab + OTA 应用内升级）
+packages/shared     zod 类型 / 工具函数（双端共用）
+packages/content    路线图内容数据（与 db/seed_content.sql 同源）
+packages/ui         设计 tokens
+packages/config     配置常量
+e2e/                Playwright 回归测试
+db/                 schema.sql + seed_content.sql + migrations/001~057
+scripts/            招聘/题库/装备爬虫、Bing 壁纸爬虫、数据库启停与 schema 校验、字阶护栏、管理员创建
+deploy/             Nginx 配置模板
+deploy.sh           服务器一键部署脚本（Node + PostgreSQL + PM2）
+deploy-docker.sh    Docker 一键部署脚本（docker-compose 包装）
+Dockerfile          Web 端 Docker 镜像（多阶段构建）
+docker-compose.yml  Docker 编排（db + init + web）
+docs/               改动记录与任务看板、第三方许可/署名、上架素材
 ```
 
-## 当前进度
-
-- ✅ **M0 数据层**：PostgreSQL 18.4 本地集群 `.pgdata` + 数据库 `Learn-Workbench`（业务表 + 内容种子 + 认证表）
-- ✅ **M1 工程骨架**：pnpm monorepo（apps/web Next.js 16 + apps/mobile Expo + packages/shared/content/ui）
-- ✅ **M2 路线图模块**：双端，阶段折叠、主题打勾、进度聚合、资源/项目/验收、**自定义添加学习内容**
-- ✅ **M3 仪表盘 + 每日 Bing 背景**：双端仪表盘 + 每日 Bing 壁纸（爬虫 + 双端展示）
-- ✅ **M4 任务/专注/日志/设置**：双端基础页 + JSON 导入导出
-- ✅ **M5.5 登录系统**：账号密码登录（账号通过 scripts/create-admin.mjs 创建，不再内置默认密码），数据按用户隔离，匿名数据自动认领
-- ✅ **M5.6 自定义内容 + GitHub 记录**：路线图自定义学习内容；仪表盘底部 GitHub 记录卡片
-- ✅ **M5.7 数据同步**：Web 与移动端数据一致；移动端「一键同步到云端 / 从云端恢复」
-- ✅ **M5.8 Liquid Glass UI**：全站液态玻璃重构（blur 24px + saturate 1.8 + 渐变高光边缘 + 动态文字对比 + 每日一言）
-- ✅ **M5.9 职业功能**：ICT（固定）+ 前端 / Java 后端 / 数据分析 / AI / 网络安全，选择职业路线即切换
-- ✅ **M5.10 全屏倒计时**：任务页横屏倒计时，4 种数字时钟样式 + 每日一言 + 路线图大类选择 + 分类时长统计
-- ✅ **M5.11 账号与日志**：设置页修改密码（登录页不显示默认密码）；日志输入框加大
-- ✅ **M5.12 计时界面升级**：Web/移动端全屏居中环形倒计时，三背景模式（纯色/上传/图库），专注打卡分享卡片（分布图/时间轴 + 导出/分享）
-- ✅ **M5.13 职业仪表盘**：仪表盘整体进度只统计所选职业；登录后首次进入弹出职业选择小窗
-- ✅ **M7 招花·招聘信息爬虫**：每日定时抓取招聘信息（拉勾/猎聘/智联/前程无忧 + Boss 实验）；双端卡片流 + 详情弹窗 + 收藏；爬虫配置按账号隔离；登录页支持注册
-- ⏳ **M6 APK 打包**：`expo prebuild` 已完成，因网络下载 Android SDK 受限暂缓，见 PROJECT_PLAN.md §12
-- ⏳ 后续：P1 Supabase 云同步、证书/简历/题库；P2 AI
+项目规则与协作约定见 [CLAUDE.md](CLAUDE.md)；各工作区的详细说明见各目录内 `CLAUDE.md`。
 
 ## 本地开发
 
@@ -85,11 +73,13 @@ psql -h 127.0.0.1 -p 5432 -U postgres -d Learn-Workbench
 | PGUSER | postgres |
 | PGPASSWORD | （空，本地 trust 认证） |
 
+改动 `db/schema.sql` 或 `db/migrations/` 后跑 `node scripts/check-schema-fresh.mjs`（对空库全量回放，报告漂移）。
+
 ### 2. Web 端（Next.js）
 
 ```powershell
 pnpm install
-pnpm web          # http://localhost:3001（管理员账号通过 scripts/create-admin.mjs 创建）
+pnpm web          # http://localhost:3001
 ```
 
 ### 3. 移动端（Expo）
@@ -99,15 +89,21 @@ pnpm mobile       # 启动 Expo，按 a 打开 Android / w 打开 Web
 # app.json extra.apiUrl 默认 http://10.0.2.2:3001（Android 模拟器）；真机改为电脑局域网 IP
 ```
 
-### 4. Bing 每日壁纸
+### 4. 创建管理员账号
+
+```powershell
+node scripts\create-admin.mjs --username admin            # 自动生成随机密码并打印一次
+node scripts\create-admin.mjs --username admin --password 你的强密码
+```
+
+### 5. Bing 每日壁纸
 
 ```powershell
 python scripts\fetch_bing_wallpaper.py --db "host=127.0.0.1 port=5432 dbname=Learn-Workbench user=postgres"
 powershell -ExecutionPolicy Bypass -File scripts\schedule_bing_daily.ps1   # 每日定时（管理员）
 ```
 
-
-### 4.5 招花 · 招聘信息爬虫（Node 双引擎）
+### 6. 招聘信息爬虫（Node 双引擎）
 
 ```bash
 # 官方信息源（考公/考编/央国企）：http 引擎 + Playwright 浏览器引擎 + iguopin API
@@ -116,34 +112,20 @@ node scripts/jobs_official.mjs [--sources a,b] [--limit 20] [--dry-run]
 node scripts/jobs_browser.mjs [--limit 60] [--dry-run]
 ```
 
-**关键参数**：`--dry-run`（不写库）、`--limit`、`--sources`（official 源白名单）、`--proxy http://user:pass@host:port`（住宅/干净代理，环境变量 `JOBS_PROXY`）、`--storage-state`（登录态 Cookie 文件，环境变量 `JOBS_STORAGE_STATE`）。
+关键参数：`--dry-run`（不写库）、`--limit`、`--proxy http://user:pass@host:port`（住宅/干净代理，环境变量 `JOBS_PROXY`）、`--storage-state`（登录态 Cookie 文件，环境变量 `JOBS_STORAGE_STATE`，含会话勿提交）。
 
-**说明**：
-- 官方源 hosts 注册表：`config/job-hosts/sources.json` → `node scripts/update_job_hosts.mjs` 落库
-- 登录态采集：`node scripts/harvest_cookies.mjs --out config/job-hosts/storageState.json`（含会话，勿提交）；详见 `docs/Learn-Workbench-2.0-改动记录.md`
-- 归一化统一在 `scripts/lib/normalize.js`；城市与平台编码单源 `scripts/lib/cities.js`
-- `job_postings.content_hash`：内容未变化则跳过 UPDATE，减少写放大
-
-> ⚠️ **废弃**：`scripts/fetch_jobs.py`（Python urllib 版）已被 Node 引擎取代（无法绕过浏览器级 JS 风控，不支持代理/登录态），仅保留 `--mock` 本地演示，计划后续删除。
-> **风控现状（2026）**：51job/智联在云服务器 IP 上会被 WAF 标记返回空，需住宅/干净代理（`JOBS_PROXY`）；猎聘对自动化浏览器识别最严，需登录态（storageState）或接受部分缺失。详见 `docs/Learn-Workbench-2.0-改动记录.md`。
-> 服务器定时：容器内 `node scripts/jobs_official.mjs` / `jobs_browser.mjs`（可在 Web 端「立即抓取」触发，管理员权限）。
-
-### 5. 创建管理员账号
-
-```powershell
-node scripts\create-admin.mjs --username admin            # 自动生成随机密码并打印一次
-node scripts\create-admin.mjs --username admin --password 你的强密码
-```
+> ⚠️ 云服务器 IP 会被 51job/智联 WAF 标记返回空，需住宅/干净代理；猎聘对自动化浏览器识别最严，需登录态或接受部分缺失。官方源 hosts 注册表：`config/job-hosts/sources.json` → `node scripts/update_job_hosts.mjs` 落库。服务器上由每日 crontab 触发（也可在 Web 端「立即抓取」，管理员权限）。
 
 ---
 
 ## 服务器部署
 
 项目内置两种一键部署方式：
-- **`deploy.sh`（直接部署）**：支持 **Debian / Ubuntu / CentOS / Rocky / AlmaLinux / Fedora**，自动完成：安装依赖 → 初始化 PostgreSQL → 构建 Web 端 → 创建管理员 → PM2 启动服务；已安装的工具会自动跳过下载。
-- **`deploy-docker.sh`（Docker 部署）**：服务器只需装好 Docker + Compose v2，一条命令容器化运行（见「方式三」）。
 
-### 方式一：一键脚本部署（推荐）
+- **`deploy.sh`（直接部署）**：支持 **Debian / Ubuntu / CentOS / Rocky / AlmaLinux / Fedora**，自动完成：安装依赖 → 初始化 PostgreSQL → 构建 Web 端 → 创建管理员 → PM2 启动服务；已安装的工具会自动跳过下载。
+- **`deploy-docker.sh`（Docker 部署）**：服务器只需装好 Docker + Compose v2，一条命令容器化运行。
+
+### 方式一：一键脚本部署
 
 #### 1. 上传项目到服务器
 
@@ -165,7 +147,7 @@ cd /opt/learn-workbench
 bash deploy.sh
 ```
 
-脚本会依次执行（可重复运行，幂等；已安装的工具会自动跳过下载/安装）：
+脚本会依次执行（幂等，可重复运行）：
 
 1. 安装 Node.js 22、pnpm 11.16.0、PostgreSQL、python3、PM2
 2. 创建数据库用户 `lwb` 和数据库 `Learn-Workbench`，执行 `db/schema.sql` + `db/seed_content.sql` + `db/migrations/*.sql`
@@ -174,10 +156,7 @@ bash deploy.sh
 5. 创建管理员账号（自动生成密码）
 6. 用 PM2 启动 Web 服务（端口 3001），并抓取一次今日 Bing 壁纸
 
-部署完成后：
-
-- 浏览器访问 `http://服务器IP:3001`
-- 管理员账号密码见项目根目录 `deploy-credentials.txt`（权限 600，确认后建议删除）
+部署完成后：浏览器访问 `http://服务器IP:3001`；管理员账号密码见项目根目录 `deploy-credentials.txt`（权限 600，确认后建议删除）。
 
 #### 3. 常用命令
 
@@ -208,66 +187,20 @@ bash deploy.sh --help       # 查看帮助
 | SKIP_BUILD | 0 | 跳过构建（0/1） |
 | NPM_REGISTRY | https://registry.npmmirror.com | npm/pnpm 镜像源（国内加速，改官方源：https://registry.npmjs.org） |
 
-示例：自定义端口、自动添加每日壁纸定时任务：
+示例：自定义端口、自动添加每日壁纸定时任务：`APP_PORT=8080 SETUP_CRON=1 bash deploy.sh`
 
-```bash
-APP_PORT=8080 SETUP_CRON=1 bash deploy.sh
-```
-
-### 方式二：手动部署
-
-如果不想用一键脚本，可按以下步骤手动部署：
-
-```bash
-# 1. 安装依赖（Debian/Ubuntu 示例）
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo bash -
-sudo apt-get update && sudo apt-get install -y nodejs postgresql postgresql-client python3
-sudo npm install -g pnpm@11.16.0 pm2
-
-# 2. 初始化数据库
-sudo -u postgres psql -c "CREATE ROLE lwb LOGIN PASSWORD '你的数据库密码';"
-sudo -u postgres createdb -O lwb -E UTF8 Learn-Workbench
-export PGPASSWORD='你的数据库密码'
-psql -h 127.0.0.1 -U lwb -d Learn-Workbench -f db/schema.sql
-psql -h 127.0.0.1 -U lwb -d Learn-Workbench -f db/seed_content.sql
-for m in db/migrations/*.sql; do psql -h 127.0.0.1 -U lwb -d Learn-Workbench -f "$m"; done
-
-# 3. 安装依赖并构建
-pnpm install
-pnpm --filter web build
-
-# 4. 写入 Web 端环境变量（apps/web/.env.local）
-#    PGHOST=127.0.0.1
-#    PGPORT=5432
-#    PGDATABASE=Learn-Workbench
-#    PGUSER=lwb
-#    PGPASSWORD=你的数据库密码
-
-# 5. 启动（PM2）
-cd apps/web
-pm2 start node_modules/next/dist/bin/next --name learn-workbench -- start -p 3000
-pm2 save
-
-# 6. 创建管理员账号
-ADMIN_USERNAME=admin ADMIN_PASSWORD='你的管理员密码' \
-PGHOST=127.0.0.1 PGDATABASE=Learn-Workbench PGUSER=lwb PGPASSWORD='你的数据库密码' \
-node scripts/create-admin.mjs
-```
-
-### 方式三：Docker 部署（推荐新服务器）
+### 方式二：Docker 部署（推荐新服务器）
 
 不需要手动装 Node / PostgreSQL，容器化一条命令跑起来（需要服务器已安装 **Docker + Compose v2 插件**，并让当前用户有 docker 权限，例如 `sudo usermod -aG docker 你的用户名` 后重新登录）。
-
-#### 1. 一键运行
 
 ```bash
 cd /opt/learn-workbench
 bash deploy-docker.sh
 ```
 
-脚本会自动：生成数据库密码与管理员密码 → 写入 `.env` → `docker compose up -d --build` 构建并启动 `db + init + web` 三个容器 → 初始化数据库（幂等，重复执行自动跳过）→ 创建管理员账号（密码保存到 `deploy-credentials.txt`）→ 等待 Web 就绪并打印访问地址。
+脚本会自动：生成数据库密码与管理员密码 → 写入 `.env` → `docker compose up -d --build` 构建并启动 `db + init + web` 三个容器 → 初始化数据库（幂等）→ 创建管理员账号（密码保存到 `deploy-credentials.txt`）→ 等待 Web 就绪并打印访问地址。
 
-#### 2. 常用命令
+常用命令：
 
 ```bash
 bash deploy-docker.sh --status     # 查看容器状态
@@ -277,7 +210,7 @@ bash deploy-docker.sh --down       # 停止并删除容器（保留数据卷）
 bash deploy-docker.sh --logs       # 查看 web 日志
 ```
 
-#### 3. 可配置环境变量
+可配置环境变量：
 
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
@@ -287,9 +220,7 @@ bash deploy-docker.sh --logs       # 查看 web 日志
 | ADMIN_PASSWORD | 自动生成 | 管理员密码 |
 | NPM_REGISTRY | https://registry.npmmirror.com | npm/pnpm 镜像源（构建时下载加速） |
 
-自定义端口示例：`APP_PORT=8080 bash deploy-docker.sh`
-
-#### 4. 数据持久化与备份
+数据持久化与备份：
 
 - 数据卷：`pgdata`（PostgreSQL 数据）、`bing`（每日 Bing 壁纸）；删除/重建容器不丢数据。
 - 备份数据库：
@@ -300,22 +231,13 @@ docker compose cp db:/tmp/lwb.dump ./lwb.dump
 ```
 
 - 彻底删除（含数据卷，谨慎）：`docker compose down -v`
-
-#### 5. 手动 docker compose 用法
-
-```bash
-export PG_PASSWORD=你的数据库密码
-docker compose up -d --build
-# 数据库初始化由 init 容器自动完成（幂等）
-```
+- 手动 compose：`export PG_PASSWORD=你的数据库密码 && docker compose up -d --build`
 
 > 提示：手机端 app.json 的 `extra.apiUrl` 需指向服务器：`http://<服务器IP>:<APP_PORT>`。
 
 ### Nginx 反向代理 + HTTPS
 
-> 当前生产（2026-08-31 起）：`www.yuanabd.cn` 的 80/443 已让给门户网站（其他项目），
-> 本项目改走端口访问：**http://www.yuanabd.cn:8080 → 127.0.0.1:3001**（nginx 配置见 `deploy/nginx/learn-workbench.conf`），
-> `https://learn.yuanabd.cn` 继续可用。注意需在腾讯云安全组放行 TCP 8080。
+当前生产：**https://learn.yuanabd.cn**（Nginx 反代 127.0.0.1:3001，配置模板见 `deploy/nginx/`）。
 
 用域名访问时配置 Nginx（把 `your-domain.com` 和端口改成实际的）：
 
@@ -342,7 +264,7 @@ sudo apt-get install -y nginx certbot python3-certbot-nginx
 sudo certbot --nginx -d your-domain.com
 ```
 
-### 数据备份
+### 数据备份（非 Docker 部署）
 
 ```bash
 # 备份
@@ -360,12 +282,14 @@ pg_restore -h 127.0.0.1 -U lwb -d Learn-Workbench --clean --if-exists learn-work
 - **重复运行 deploy.sh**：数据库已初始化会跳过 schema/seed/migrations（用 `app_meta` 中的 `deploy_init` 标记）；已存在的管理员账号不会被重置。
 - **新增了 migration 文件**：手动执行 `psql -h 127.0.0.1 -U lwb -d Learn-Workbench -f db/migrations/00X_xxx.sql`。
 - **Bing 壁纸抓不到**：服务器需能访问 `www.bing.com`；也可在 Web 端「设置」里手动触发，或运行 `python3 scripts/fetch_bing_wallpaper.py`。
-- **pnpm 报错 `ERR_UNKNOWN_BUILTIN_MODULE: node:sqlite` / 提示需要 Node ≥ 22.13**：服务器 Node 版本太老。升级到 Node 22.13+（`bash deploy.sh` 已会自动处理；若升级后仍生效，请删除旧 node 如 `/usr/local/bin/node` 或改用 nvm 再重跑）。
-- **依赖下载慢 / pnpm 一直卡在 Downloading**：默认已启用淘宝镜像 `registry.npmmirror.com`（脚本内 `NPM_REGISTRY` 环境变量，可覆盖）。如仍慢，可换其他镜像：`NPM_REGISTRY=https://registry.npm.taobao.org`（旧）或 `https://mirrors.cloud.tencent.com/npm/`；Docker 部署还可在 Docker daemon 配置 `registry-mirrors`（如 https://docker.m.daocloud.io）加速拉取基础镜像。
+- **pnpm 报错 `ERR_UNKNOWN_BUILTIN_MODULE: node:sqlite`**：服务器 Node 版本太老，升级到 Node 22.13+（`bash deploy.sh` 已会自动处理）。
+- **依赖下载慢**：默认已启用淘宝镜像（`NPM_REGISTRY` 可覆盖）；Docker 部署还可在 Docker daemon 配置 `registry-mirrors` 加速拉取基础镜像。
 - **数据库连接失败**：确认 `apps/web/.env.local` 里的 `PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD` 与部署时一致。
 
 ## 相关文档
 
-- [PROJECT_PLAN.md](PROJECT_PLAN.md) —— 详细规划、APK 打包指南（含 commandlinetools 版本说明）
-- [后台管理系统设计方案.md](后台管理系统设计方案.md) —— 后台管理设计
-- [docs/ui-redesign-proposal.md](docs/ui-redesign-proposal.md) —— UI 改版方案
+- [CLAUDE.md](CLAUDE.md) —— 项目规则与协作约定（新会话先读）
+- [docs/改动记录与任务看板.md](docs/改动记录与任务看板.md) —— 改动明细、任务看板、踩坑清单（活文档，持续更新）
+- [docs/THIRD_PARTY.md](docs/THIRD_PARTY.md) —— 第三方许可记录
+- [docs/第三方UI来源与署名.md](docs/第三方UI来源与署名.md) —— UI 技法来源与署名
+- [docs/APP端上架素材与隐私说明.md](docs/APP端上架素材与隐私说明.md) —— 安卓市场送审素材（上架前需更新版本信息）

@@ -8,6 +8,7 @@ import { useAppStore } from "@/store/app-store";
 
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
+import { haptics } from "@/lib/haptics";
 import { syncPull, syncPush } from "@/lib/sync";
 import { mainPhases, agentPhase } from "@learn-workbench/content";
 import { pct } from "@learn-workbench/shared";
@@ -50,7 +51,14 @@ function PhaseBlock({
 
   return (
     <Card>
-      <Pressable onPress={() => setOpen((o) => !o)} style={styles.phaseHeader}>
+      {/* v19-M5：阶段展开/收起给 soft 触觉 */}
+      <Pressable
+        onPress={() => {
+          haptics.soft();
+          setOpen((o) => !o);
+        }}
+        style={styles.phaseHeader}
+      >
         <View style={[styles.phaseDot, accent ? styles.phaseDotAccent : styles.phaseDotMain]}>
           <Text style={styles.phaseDotText}>{accent ? "A" : "P"}</Text>
         </View>

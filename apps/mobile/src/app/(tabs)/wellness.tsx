@@ -8,7 +8,8 @@ import { PressableScale } from "@/components/pressable-scale";
 import { SkeletonCard } from "@/components/skeleton";
 import { GlassSurface } from "@/components/surface";
 import { ProgressArc } from "@/components/progress-arc";
-import { StatLine } from "@/components/stat";
+import { ProgressBar, StatLine } from "@/components/stat";
+import { useScreenEntrance } from "@/lib/use-screen-entrance";
 import { ListGroup, ListRow } from "@/components/list-row";
 import { GroupLabel } from "@/components/group-label";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
@@ -69,6 +70,8 @@ export default function WellnessScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const headerScroll = useLargeTitleHeader();
   const tabBarSpace = useTabBarSpace();
+  /** v19-M1：首屏入场错峰（Tab scene 常驻，只在首次挂载播放） */
+  const entrance = useScreenEntrance();
   const token = useAppStore((s) => s.token);
   const [data, setData] = useState<DailyOs | null>(null);
   const [loading, setLoading] = useState(true);
@@ -245,6 +248,7 @@ export default function WellnessScreen() {
       {loading && !data ? (
         <SkeletonCard count={1} />
       ) : (
+        <Animated.View entering={entrance(0)}>
         <GlassSurface corner={radius.xl} style={styles.hero}>
           {/* 大圆环（参考图 1）：中心是完成度，环下一句结论 */}
           <View style={styles.ringWrap}>
@@ -255,6 +259,7 @@ export default function WellnessScreen() {
               value={readiness.score}
               label="已完成"
               caption=""
+              beatOnChange
             />
           </View>
           <Text style={styles.heroVerdict}>
@@ -303,9 +308,8 @@ export default function WellnessScreen() {
                 {mainGoal.item.label} {mainGoal.item.value} / {mainGoal.item.target} {mainGoal.item.unit} ›
               </Text>
             </View>
-            <View style={styles.goalTrack}>
-              <View style={[styles.goalFill, { width: `${Math.max(2, goalPct)}%` }]} />
-            </View>
+            {/* v19-M2：进度条统一走动画版 ProgressBar（240ms 缓动），替代 width% 跳变 */}
+            <ProgressBar progress={Math.max(2, goalPct) / 100} height={7} style={styles.goalTrack} />
           </PressableScale>
 
           {/* 本周概览（保留，压缩成一行） */}
@@ -331,19 +335,20 @@ export default function WellnessScreen() {
                   onPress={() => router.push(b.href as never)}
                 >
                   <Text style={styles.breakdownLabel}>{b.label}</Text>
-                  <View style={styles.breakdownTrack}>
-                    <View style={[styles.breakdownFill, { width: `${Math.max(2, pct)}%`, backgroundColor: b.color }]} />
-                  </View>
+                  <ProgressBar progress={Math.max(2, pct) / 100} height={6} color={b.color} style={styles.breakdownTrack} />
                   <Text style={styles.breakdownPct}>{pct}%</Text>
                 </PressableScale>
               );
             })}
           </View>
         </GlassSurface>
+        </Animated.View>
       )}
 
-      <GroupLabel>今日动作</GroupLabel>
-      <View style={styles.actionGrid}>
+      <Animated.View entering={entrance(1)}>
+        <GroupLabel>今日动作</GroupLabel>
+      </Animated.View>
+      <Animated.View style={styles.actionGrid} entering={entrance(2)}>
         {/* 饮食：剩余额度 */}
         <PressableScale
           haptic
@@ -456,9 +461,11 @@ export default function WellnessScreen() {
           </Text>
           <Text style={styles.actionFoot}>{latestWeight === null ? "点这里记一次 ›" : "看趋势与目标 ›"}</Text>
         </PressableScale>
-      </View>
+      </Animated.View>
 
-      <GroupLabel>运动档案</GroupLabel>
+      <Animated.View entering={entrance(3)}>
+        <GroupLabel>运动档案</GroupLabel>
+      </Animated.View>
       <ListGroup>
         <ListRow
           {...tintOf(CARD_COLOR)}

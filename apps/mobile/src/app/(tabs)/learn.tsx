@@ -5,6 +5,7 @@ import { Alert, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, 
 import { ThemedIcon } from "@/components/themed-icon";
 
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
+import { useScreenEntrance } from "@/lib/use-screen-entrance";
 import { Card } from "@/components/card";
 import { GroupLabel } from "@/components/group-label";
 import { ListGroup, ListRow } from "@/components/list-row";
@@ -333,6 +334,8 @@ export default function LearnScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const headerTop = useHeaderTopInset("hero");
   const tabBarSpace = useTabBarSpace();
+  /** v19-M1：首屏入场错峰（Tab scene 常驻，只在首次挂载播放） */
+  const entrance = useScreenEntrance();
   const progress = useAppStore((s) => s.progress);
   const sessions = useAppStore((s) => s.sessions);
   const token = useAppStore((s) => s.token);
@@ -662,7 +665,7 @@ export default function LearnScreen() {
       showsVerticalScrollIndicator={false}
       scrollEnabled={!stageDragging}
     >
-      <View style={styles.hero}>
+      <Animated.View style={styles.hero} entering={entrance(0)}>
         <Text style={styles.heroTitle}>学习</Text>
         <Text style={styles.heroSub}>路线图 · 主题 · 统计 · 日志</Text>
         {/* v1.26：快捷入口收进右上角三条横线 */}
@@ -675,10 +678,12 @@ export default function LearnScreen() {
         >
           <ThemedIcon name="menu" size={22} color={colors.text} />
         </Pressable>
-      </View>
+      </Animated.View>
 
-      <GroupLabel>学习阶段</GroupLabel>
-      <View style={styles.sectionHeadRow}>
+      <Animated.View entering={entrance(1)}>
+        <GroupLabel>学习阶段</GroupLabel>
+      </Animated.View>
+      <Animated.View style={styles.sectionHeadRow} entering={entrance(2)}>
         <Text style={styles.sectionTitle}>阶段路线</Text>
         <Pressable
           hitSlop={8}
@@ -693,7 +698,7 @@ export default function LearnScreen() {
           <ThemedIcon name="add" size={16} color={colors.primary} />
           <Text style={styles.addBtnText}>添加阶段</Text>
         </Pressable>
-      </View>
+      </Animated.View>
       {/* v6 P3-1：领域下没有任何阶段时的引导（跳过职业选择 / 新建领域后最常见） */}
       {!roadmapLoading && roadmap.length === 0 ? (
         <Card style={styles.emptyCard}>
@@ -766,8 +771,11 @@ export default function LearnScreen() {
         );
       })}
 
-      <GroupLabel>学习统计</GroupLabel>
+      <Animated.View entering={entrance(3)}>
+        <GroupLabel>学习统计</GroupLabel>
+      </Animated.View>
       {/* 统计明细收进「学习统计」全屏 Sheet（v2 §Bug 6）：首屏只留一行摘要 */}
+      <Animated.View entering={entrance(4)}>
       <PressableScale haptic scaleTo={0.98} onPress={() => setStatsOpen(true)}>
         <Card style={styles.statsEntry}>
           <View style={styles.statsEntryBody}>
@@ -779,6 +787,7 @@ export default function LearnScreen() {
           <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
         </Card>
       </PressableScale>
+      </Animated.View>
 
       <BottomSheet
         visible={statsOpen}

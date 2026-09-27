@@ -25,14 +25,14 @@ import { usePullRefresh } from "@/lib/use-pull-refresh";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
-  withDelay,
   withSpring,
-  withTiming,
 } from "react-native-reanimated";
 import { Card } from "@/components/card";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { ChipGroup, SheetSection, SheetStickyCta } from "@/components/sheet";
 import { JobDetailModal } from "@/components/job-detail-modal";
+import { AnimatedNumber } from "@/components/animated-number";
+import { haptics } from "@/lib/haptics";
 import {  radius, typography  } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
@@ -144,29 +144,25 @@ function FreshnessBadge({ job }: { job: JobPostingListItem }) {
 
 function JobCard({
   job,
-  index,
   onPress,
   onToggleFavorite,
 }: {
   job: JobPostingListItem;
-  index: number;
   onPress: (job: JobPostingListItem) => void;
   onToggleFavorite: (job: JobPostingListItem) => void;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const opacity = useSharedValue(0);
-  const translateY = useSharedValue(16);
+  /**
+   * v19-S1（真机闪退同源修复）：**FlashList item 上不允许任何依赖 index 的入场动画**。
+   * 上一版用 useEffect([index]) 驱动透明度/位移，item 回收复用拿到新 index 就会重放，
+   * 滚动全程反复触发 UI 线程动画；更早的 entering 版本则在原生层直接崩溃（踩坑 64422a9）。
+   * 结论：虚拟化列表只保留**按压反馈**（scale），入场交给骨架屏与分页加载的既有节奏。
+   */
   const scale = useSharedValue(1);
 
-  useEffect(() => {
-    opacity.value = withDelay(Math.min(index, 8) * 60, withTiming(1, { duration: 430 }));
-    translateY.value = withDelay(Math.min(index, 8) * 60, withTiming(0, { duration: 430 }));
-  }, [index, opacity, translateY]);
-
   const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{ translateY: translateY.value }, { scale: scale.value }],
+    transform: [{ scale: scale.value }],
   }));
 
   return (
@@ -527,6 +523,9 @@ export default function JobsScreen() {
     }
     try {
       const favorited = await toggleJobFavorite(job.id);
+      // v19-M5：收藏语义化触觉（收藏成功 success / 取消 soft）
+      if (favorited) haptics.success();
+      else haptics.soft();
       setJobs((prev) => prev.map((x) => (x.id === job.id ? { ...x, isFav: favorited } : x)));
     } catch (e) {
       Alert.alert("收藏失败", e instanceof Error ? e.message : "请稍后重试");
@@ -534,6 +533,7 @@ export default function JobsScreen() {
   };
 
   const openJob = (job: JobPostingListItem) => {
+    haptics.light();
     setSelectedId(job.id);
     setDetailVisible(true);
   };
@@ -597,15 +597,16 @@ export default function JobsScreen() {
 
       <View style={styles.statsRow}>
         <Card style={styles.statCard}>
-          <Text style={styles.statValue}>{stats ? stats.todayNew : "—"}</Text>
+          {/* v19-M2：统计数字滚动（400ms），刷新到新数据时平滑过渡 */}
+          {stats ? <AnimatedNumber value={stats.todayNew} style={styles.statValue} /> : <Text style={styles.statValue}>—</Text>}
           <Text style={styles.statLabel}>今日新增</Text>
         </Card>
         <Card style={styles.statCard}>
-          <Text style={styles.statValue}>{stats ? stats.total : "—"}</Text>
+          {stats ? <AnimatedNumber value={stats.total} style={styles.statValue} /> : <Text style={styles.statValue}>—</Text>}
           <Text style={styles.statLabel}>在库职位</Text>
         </Card>
         <Card style={styles.statCard}>
-          <Text style={styles.statValue}>{stats ? stats.platformCount : "—"}</Text>
+          {stats ? <AnimatedNumber value={stats.platformCount} style={styles.statValue} /> : <Text style={styles.statValue}>—</Text>}
           <Text style={styles.statLabel}>覆盖平台</Text>
         </Card>
       </View>
@@ -740,13 +741,13 @@ export default function JobsScreen() {
         scrollEventThrottle={16}
         data={jobs}
         keyExtractor={(item) => String(item.id)}
-        renderItem={({ item, index }) => (
+        renderItem={({ item }) => (
           /* 真机闪退修复：不要在 FlashList 的 item 上挂 Reanimated 的 entering 动画 ——
              v2 的 item 是绝对定位并会回收复用，回收发生在动画进行中时会在原生层崩
              （真机表现为「点开岗位详情后滑动列表就闪退」）。
              入场错峰只保留在非虚拟化列表（见 radar / interview）。 */
           <View style={styles.listSide}>
-            <JobCard job={item} index={index} onPress={openJob} onToggleFavorite={toggleFavorite} />
+            <JobCard job={item} onPress={openJob} onToggleFavorite={toggleFavorite} />
           </View>
         )}
         ItemSeparatorComponent={JobCardSeparator}

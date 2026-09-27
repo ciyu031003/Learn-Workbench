@@ -206,6 +206,7 @@ export function DailyOsSummary({ onNavigate }: { onNavigate?: (href: string) => 
           value={`${pct}%`}
           label="今日完成"
           caption={verdict}
+          beatOnChange
         />
         <View style={styles.heroStats}>
           <StatLine label="专注" value={`${data.learning.focusMinutes} 分`} />

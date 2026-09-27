@@ -125,6 +125,7 @@ export default function CareerScreen() {
               value={`${overall}%`}
               label="职业准备度"
               caption={goalVerdict}
+              beatOnChange
             />
             <View style={styles.heroStats}>
               <StatLine label="目标岗位" value={readiness?.targetRole ?? "未设置"} />

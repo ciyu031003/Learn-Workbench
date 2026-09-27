@@ -9,6 +9,7 @@ import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } fr
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useFocusRefresh } from "@/lib/use-focus-refresh";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
+import { haptics } from "@/lib/haptics";
 import { getApiUrl } from "@/config";
 import { useAppStore } from "@/store/app-store";
 import { Card } from "@/components/card";
@@ -105,7 +106,11 @@ export default function ApplicationsScreen() {
 
   const setStage = async (id: number, stage: JobApplicationStage) => {
     const r = await api("/api/jobs/applications/" + id, { method: "PUT", body: JSON.stringify({ stage }) });
-    if (r.ok) await load();
+    // v19-M5：状态推进成功给 success 触觉
+    if (r.ok) {
+      haptics.success();
+      await load();
+    }
   };
 
   const remove = async (id: number) => {

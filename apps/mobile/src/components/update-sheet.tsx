@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Linking, StyleSheet, Text, View } from "react-native";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { Button } from "@/components/button";
+import { ProgressBar } from "@/components/stat";
 import { useUpdateStore } from "@/store/update-store";
 import { APP_VERSION_NAME, DOWNLOAD_PAGE_URL } from "@/lib/ota";
 import type { ThemeColors } from "@/theme/tokens";
@@ -73,9 +74,8 @@ export function UpdateSheet() {
 
         {phase === "downloading" || phase === "paused" || phase === "verifying" || phase === "ready" ? (
           <View style={styles.progressBlock}>
-            <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: `${percent}%` }]} />
-            </View>
+            {/* v19-M2：下载进度条动画化（240ms 缓动），断点续传时不再跳变 */}
+            <ProgressBar progress={(progress.ratio || 0)} height={8} style={styles.progressTrack} />
             <View style={styles.metaRow}>
               <Text style={styles.progressText}>
                 {phase === "verifying"
@@ -156,12 +156,9 @@ const makeStyles = (colors: ThemeColors) =>
     noteText: { flex: 1, fontSize: 12, lineHeight: 19, color: colors.text },
     progressBlock: { gap: 6 },
     progressTrack: {
-      height: 8,
-      borderRadius: 4,
       backgroundColor: colors.surfaceMuted,
       overflow: "hidden",
     },
-    progressFill: { height: 8, borderRadius: 4, backgroundColor: colors.primary },
     progressText: { fontSize: 12, fontWeight: "700", color: colors.text },
     error: { fontSize: 12, lineHeight: 19, color: colors.danger },
     notice: { fontSize: 12, lineHeight: 19, color: colors.textMuted },

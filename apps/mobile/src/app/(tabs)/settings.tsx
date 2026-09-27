@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useHeaderTopInset } from "@/components/screen-header";
 import { ActivityIndicator, Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import Animated from "react-native-reanimated";
 import { ThemedIcon } from "@/components/themed-icon";
 import { useAppStore } from "@/store/app-store";
 import { useUpdateStore } from "@/store/update-store";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
+import { useScreenEntrance } from "@/lib/use-screen-entrance";
 import { getApiUrl } from "@/config";
 import { syncPush, syncPull } from "@/lib/sync";
 import { useSyncEngineStatus } from "@/lib/sync-engine";
@@ -37,6 +39,8 @@ export default function SettingsScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const headerTop = useHeaderTopInset("hero");
   const tabBarSpace = useTabBarSpace();
+  /** v19-M1：首屏入场错峰（Tab scene 常驻，只在首次挂载播放） */
+  const entrance = useScreenEntrance();
   const backgroundEnabled = useAppStore((s) => s.backgroundEnabled);
   const toggleBackground = useAppStore((s) => s.toggleBackground);
   const resetAll = useAppStore((s) => s.resetAll);
@@ -201,12 +205,13 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
-      <View style={[styles.hero, { paddingTop: headerTop }]}>
+      <Animated.View style={[styles.hero, { paddingTop: headerTop }]} entering={entrance(0)}>
         <Text style={styles.heroTitle}>我的</Text>
         <Text style={styles.heroSub}>账号 · 学习领域 · 数据同步</Text>
-      </View>
+      </Animated.View>
 
       {/* 账号英雄卡（v12 P1-3：升级为玻璃材质 + 数据行，对齐健康/饮食的语言） */}
+      <Animated.View entering={entrance(1)}>
       <Card variant="glass" style={styles.profileCard}>
         <View style={styles.profileHead}>
           <View style={styles.avatar}>
@@ -274,8 +279,12 @@ export default function SettingsScreen() {
           </View>
         </View>
       </Card>
+      </Animated.View>
 
-      <GroupLabel>账号</GroupLabel>
+      <Animated.View entering={entrance(2)}>
+        <GroupLabel>账号</GroupLabel>
+      </Animated.View>
+      <Animated.View entering={entrance(3)}>
       <ListGroup>
         <ListRow
           {...tint(GROUP_TINT.blue)}
@@ -302,8 +311,12 @@ export default function SettingsScreen() {
           />
         ) : null}
       </ListGroup>
+      </Animated.View>
 
-      <GroupLabel>学习与数据</GroupLabel>
+      <Animated.View entering={entrance(4)}>
+        <GroupLabel>学习与数据</GroupLabel>
+      </Animated.View>
+      <Animated.View entering={entrance(5)}>
       <ListGroup>
         {domains.length > 0 ? (
           <View style={styles.domainBlock}>
@@ -368,6 +381,7 @@ export default function SettingsScreen() {
           onPress={confirmReset}
         />
       </ListGroup>
+      </Animated.View>
 
       <GroupLabel>外观与体验</GroupLabel>
       <ListGroup>

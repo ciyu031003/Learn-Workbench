@@ -58,6 +58,7 @@ import { EnergyBar } from "@/components/energy-bar";
 import { fetchLatestEnergy, logEnergy } from "@/lib/energy";
 import { PressableScale } from "@/components/pressable-scale";
 import { haptics } from "@/lib/haptics";
+import { AnimatedNumber } from "@/components/animated-number";
 import { radius, shadows, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
@@ -687,21 +688,31 @@ export default function TodayScreen() {
               <ThemedIcon name="flame" size={18} color={colors.accent} />
             </View>
             <Text style={styles.statLabel}>连续打卡</Text>
-            <Text style={styles.statValue}>{streak}<Text style={styles.statValueUnit}> 天</Text></Text>
+            {/* v19-M2：统计数字滚动（400ms），不再瞬间跳变 */}
+            <View style={styles.statValueRow}>
+              <AnimatedNumber value={streak} style={styles.statValue} />
+              <Text style={styles.statValueUnit}> 天</Text>
+            </View>
           </Card>
           <Card style={styles.statCard}>
             <View style={[styles.statIconChip, { backgroundColor: colors.primarySoft }]}>
               <ThemedIcon name="timer" size={18} color={colors.primary} />
             </View>
             <Text style={styles.statLabel}>今日专注</Text>
-            <Text style={styles.statValue}>{focusStats.todayMinutes}<Text style={styles.statValueUnit}> 分</Text></Text>
+            <View style={styles.statValueRow}>
+              <AnimatedNumber value={focusStats.todayMinutes} style={styles.statValue} />
+              <Text style={styles.statValueUnit}> 分</Text>
+            </View>
           </Card>
           <Card style={styles.statCard}>
             <View style={[styles.statIconChip, { backgroundColor: colors.successSoft }]}>
               <ThemedIcon name="trending-up" size={18} color={colors.success} />
             </View>
             <Text style={styles.statLabel}>本周进度</Text>
-            <Text style={styles.statValue}>{overall}<Text style={styles.statValueUnit}>%</Text></Text>
+            <View style={styles.statValueRow}>
+              <AnimatedNumber value={overall} style={styles.statValue} />
+              <Text style={styles.statValueUnit}>%</Text>
+            </View>
           </Card>
         </View>
 
@@ -735,7 +746,14 @@ export default function TodayScreen() {
                   <Text style={styles.sportItemName}>{r.name}</Text>
                   <Text style={styles.sportItemTime}>{formatSport(r.minutes)} · 已完成</Text>
                 </View>
-                <Pressable onPress={() => removeSport(r.clientId)} hitSlop={8}>
+                <Pressable
+                  onPress={() => {
+                    // v19-M5：破坏性动作给 warning 触觉（配合删除确认的既有链路）
+                    haptics.warning();
+                    removeSport(r.clientId);
+                  }}
+                  hitSlop={8}
+                >
                   <ThemedIcon name="close" size={18} color={colors.textMuted} />
                 </Pressable>
               </Animated.View>
@@ -955,7 +973,8 @@ const makeStyles = (colors: ThemeColors) =>
   statIconChip: { width: 34, height: 34, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   statLabel: { ...typography.caption, color: colors.textMuted },
   statValue: { fontSize: 20, fontWeight: "800", color: colors.text },
-  statValueUnit: { ...typography.caption, fontWeight: "600", color: colors.textMuted },
+  statValueRow: { flexDirection: "row", alignItems: "flex-end" },
+  statValueUnit: { ...typography.caption, fontWeight: "600", color: colors.textMuted, marginBottom: 2 },
 
   checkinRow: {
     flexDirection: "row",

@@ -6,6 +6,7 @@ import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } fr
 import { usePullRefresh } from "@/lib/use-pull-refresh";
 import { DURATION, useReducedMotion } from "@/lib/motion";
 import { shouldStagger, staggerDelay } from "@/lib/stagger";
+import { haptics } from "@/lib/haptics";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { ChipGroup, SheetSection, SheetSegmented, SheetStickyCta, type SegmentOption } from "@/components/sheet";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
@@ -161,6 +162,8 @@ export default function InterviewScreen() {
   /** 下一题（在当前筛选结果里顺序往下） */
   const nextQuestion = () => {
     if (!active) return;
+    // v19-M5：切题给 soft 触觉
+    haptics.soft();
     const idx = shown.findIndex((q) => q.id === active.id);
     const next = idx >= 0 ? shown[idx + 1] : undefined;
     setActive(next ?? null);

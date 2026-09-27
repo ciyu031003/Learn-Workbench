@@ -1,13 +1,24 @@
-import { useMemo, type ReactNode } from "react";
-import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
+import { useEffect, useMemo, type ReactNode } from "react";
+import { StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
+import { MOTION_BASE, easingStandard } from "@/theme/motion";
 import { tabularNums, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
+import { AnimatedNumber } from "@/components/animated-number";
 
 /**
  * 记分牌式数字（见 docs/APP端优化方案-v2 §1.5.3C —— Orbix Pulse 手法）
  * 数字 28·800 + `tabular-nums` + 字距 -0.5；标签 11·600 muted，紧跟数字右下 2pt。
  * 深色下加极淡内阴影，模拟点阵屏质感。
+ *
+ * v19-M2：数值变化不再"跳变"——`value` 为 number 时默认走 AnimatedNumber 滚动
+ * （400ms 标准缓动，减弱动态自动落静态文本）；字符串值（如 "12/20"）保持原样。
  */
 export function Stat({
   value,
@@ -16,6 +27,7 @@ export function Stat({
   color,
   size = 28,
   style,
+  animated = true,
 }: {
   value: string | number;
   unit?: string;
@@ -23,23 +35,31 @@ export function Stat({
   color?: string;
   size?: number;
   style?: StyleProp<ViewStyle>;
+  /** 数值滚动开关（仅 number 生效；字符串值不受影响） */
+  animated?: boolean;
 }) {
   const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const valueStyle: TextStyle = {
+    ...styles.value,
+    fontSize: size,
+    lineHeight: Math.round(size * 1.16),
+    color: color ?? colors.text,
+  };
   return (
     <View style={[styles.stat, style]}>
       <View style={styles.valueRow}>
-        <Text
-          style={[
-            styles.value,
-            { fontSize: size, lineHeight: Math.round(size * 1.16), color: color ?? colors.text },
-            dark && styles.valueDark,
-          ]}
-          numberOfLines={1}
-          adjustsFontSizeToFit
-        >
-          {value}
-        </Text>
+        {animated && typeof value === "number" ? (
+          <AnimatedNumber value={value} duration={400} style={[valueStyle, dark && styles.valueDark]} />
+        ) : (
+          <Text
+            style={[valueStyle, dark && styles.valueDark]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+          >
+            {value}
+          </Text>
+        )}
         {unit ? <Text style={styles.unit}>{unit}</Text> : null}
       </View>
       {label ? <Text style={styles.label} numberOfLines={1}>{label}</Text> : null}
@@ -97,7 +117,11 @@ export function StatLine({
   );
 }
 
-/** 横条进度（明细/次级用；首屏重点位置改用 ProgressArc） */
+/**
+ * 横条进度（明细/次级用；首屏重点位置改用 ProgressArc）。
+ * v19-M2：填充宽度由共享值驱动（240ms 标准缓动），值变化/首帧都平滑——
+ * 替代此前 `width:${pct}%` 的瞬间跳变；减弱动态直接落终态。
+ */
 export function ProgressBar({
   progress,
   color,
@@ -111,16 +135,23 @@ export function ProgressBar({
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const clamped = Math.max(0, Math.min(1, progress));
+  const reduced = useReducedMotion();
+  const clamped = Math.max(0, Math.min(1, Number.isFinite(progress) ? progress : 0));
+  // ⚠️ 顺序约束：共享值先于引用它的 worklet 声明
+  const p = useSharedValue(clamped);
+  useEffect(() => {
+    p.value = reduced
+      ? clamped
+      : withTiming(clamped, { duration: MOTION_BASE, easing: easingStandard });
+  }, [clamped, p, reduced]);
+  const fill = useAnimatedStyle(() => ({ width: `${p.value * 100}%` }));
   return (
     <View style={[styles.bar, { height, borderRadius: height / 2 }, style]}>
-      <View
-        style={{
-          width: `${clamped * 100}%`,
-          height: "100%",
-          borderRadius: height / 2,
-          backgroundColor: color ?? colors.primary,
-        }}
+      <Animated.View
+        style={[
+          { height: "100%", borderRadius: height / 2, backgroundColor: color ?? colors.primary },
+          fill,
+        ]}
       />
     </View>
   );

@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/theme";
 import { buildRefreshControlProps, type RefreshControlLike } from "@/lib/pull-refresh-core";
+import { haptics } from "@/lib/haptics";
 
 export { STICKY_HEADER_ROW, pullRefreshOffset, buildRefreshControlProps } from "@/lib/pull-refresh-core";
 export type { RefreshControlLike } from "@/lib/pull-refresh-core";
@@ -40,12 +41,18 @@ export function usePullRefresh(
   /**
    * 重入保护直接用 refreshing 状态判定（不用 useRef —— react-hooks 的
    * "Cannot access refs during render" 规则会把 useCallback 内的 ref 读取判成渲染期访问）。
+   *
+   * v19-M5：语义化触觉 —— 触发时刻 light、数据返回 success（失败不加，避免"错也震一下"）。
    */
   const run = useCallback(() => {
     if (!enabled || refreshing) return;
+    haptics.light();
     setRefreshing(true);
     void Promise.resolve()
       .then(() => onRefresh())
+      .then(() => {
+        haptics.success();
+      })
       .catch(() => {
         // 页面自己的 loader 已处理错误提示，这里只保证状态复位
       })

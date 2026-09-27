@@ -14,6 +14,8 @@ import { FloatField } from "@/components/float-field";
 import { Field } from "@/components/field";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
+import { AnimatedCheckMark } from "@/components/check-mark";
+import { SuccessBurst } from "@/components/success-burst";
 
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { readableAccent } from "@/lib/habit-accent";
@@ -114,12 +116,17 @@ const last7 = useMemo(() => {
 
   /** v17-D（R8）：入场错峰只在首帧做；减弱动态下完全不做 */
   const reduced = useReducedMotion();
+  /** v19-M3：打卡成功的行内 ripple（按习惯 id 计数，换 key 重放 SuccessBurst） */
+  const [bursts, setBursts] = useState<Record<number, number>>({});
 
   const toggle = async (h: HabitRow) => {
     const done = logMap.get(`${h.id}|${todayKey}`) !== undefined;
     // v17-D：语义化触觉 —— 打卡完成给 success、取消给 soft
     if (done) haptics.soft();
-    else haptics.success();
+    else {
+      haptics.success();
+      setBursts((b) => ({ ...b, [h.id]: (b[h.id] ?? 0) + 1 }));
+    }
     setBusy(h.id);
     try {
       const r = done
@@ -328,10 +335,12 @@ const last7 = useMemo(() => {
                   {busy === h.id ? (
                     <ActivityIndicator color={done ? "#fff" : colors.primary} />
                   ) : done ? (
-                    <ThemedIcon name="checkmark" size={18} color="#fff" />
+                    /* v19-M3：静态图标换描边画勾 + 行内 ripple（与 today/tasks 同一语言） */
+                    <AnimatedCheckMark checked={done} size={16} color="#ffffff" />
                   ) : (
                     <Text style={styles.checkIcon}>{h.icon ?? "○"}</Text>
                   )}
+                  {bursts[h.id] ? <SuccessBurst key={bursts[h.id]} size={40} color={accent} /> : null}
                 </Pressable>
 
                 <View style={styles.itemBody}>

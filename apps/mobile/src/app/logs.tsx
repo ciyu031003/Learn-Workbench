@@ -14,6 +14,7 @@ import { logKindLabels } from "@learn-workbench/shared";
 import { Card } from "@/components/card";
 import { EmptyState } from "@/components/empty-state";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
+import { haptics } from "@/lib/haptics";
 
 const KINDS: LogKind[] = ["feynman", "review", "project", "interview"];
 
@@ -48,6 +49,8 @@ export default function LogsScreen() {
     const t = title.trim();
     const c = content.trim();
     if (!t || !c) return;
+    // v19-M5：提交成功给 success 触觉
+    haptics.success();
     addLog(kind, t, c);
     setTitle("");
     setContent("");

@@ -17,6 +17,7 @@ import { PressableScale } from "@/components/pressable-scale";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
+import { haptics } from "@/lib/haptics";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
@@ -82,6 +83,8 @@ export default function CertificatesScreen() {
           expiryDate: /^\d{4}-\d{2}-\d{2}$/.test(expiryDate.trim()) ? expiryDate.trim() : null,
         }),
       });
+      // v19-M5：保存成功给 success 触觉
+      haptics.success();
       setSheetOpen(false);
       setName("");
       setIssuer("");

@@ -56,8 +56,12 @@ export function RingProgress({
   const gradientEnd = to ?? colors.chart[1];
   const useGradient = !color;
 
-  const offset = useSharedValue(targetOffset);
+  /**
+   * v19-M2：入场生长——挂载时从 0%（整圈 offset）画到目标值（400ms 标准缓动），
+   * 对齐 ProgressArc 的既有模式；减弱动态/低端机直接落终态。
+   */
   const active = isMotionActive(reduceMotion);
+  const offset = useSharedValue(active ? c : targetOffset);
 
   useEffect(() => {
     if (!active) {
