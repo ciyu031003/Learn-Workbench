@@ -131,3 +131,23 @@
 6. 简历可编辑、预览可分享出图；空态有出路。
 7. 面试答对/答错有触觉与视觉反馈；DIFF_STYLE 随主题。
 8. 全程不违反 FlashList 红线与 worklet 约束；`pnpm -F mobile test` 全绿；字阶棘轮不回退。
+
+---
+
+## 9. 执行记录（2026-09-27，A/B/C/D 四批已提交）
+
+| 批次 | 提交 | 内容 |
+| --- | --- | --- |
+| A | `2f6af72` | J1 `components/job-bits.tsx`（岗位徽章/薪资/头像色单源）· J2 `components/pager-bar.tsx`（4 页分页条收单源）· J4 SheetSearchField 升级（onClear/style）+ jobs 接入 · jobs 死样式/死状态清理 |
+| B | `fe28ace` | A1 筛选回显 chips（单项移除+清空）· A2 防闪屏（FilterRefreshBar 细进度条，保留旧列表）· A3 统计卡 → StatRow 一行 · A4 死交互点 PressableScale+触觉、排序 → SheetSegmented · A5 列表头组件化（搜索态内聚）· A6 字阶收敛 · A7 详情弹层（中性 meta 色/Skeleton/重试/enroll 触觉/JD 折叠） |
+| C | `f2f049c` | B1 雷达卡可点 → JobDetailModal（JobDetailSeed 种子 + 收藏同链路）· B2 匹配度 ProgressArc · B3 错误态独立 · B4 技能 chips 图标化 · B5 筛选卡折叠 · C1 市场骨架+防闪屏 · C2 全量数据动效（KPI 滚动/BarRow→ProgressBar/趋势柱错峰+采样+末节点高亮/四卡错峰）· C3 What If 失败态+序号守卫 · C4 toast 统一 · C5 可读性 · C6 按压补全 |
+| D | `b03eb94` | D1 简历编辑（PATCH，后端已有）· D2 resume-share-card（截图分享+文字兜底）+ 预览页分享入口 + 空态出路 · D3 分组+StatRow 概览+主次按钮 · D4 FloatField/PressButton 表单 · E1 面试判定反馈链（haptics+SuccessBurst）+难度徽章 token+题型 chips 按压 · E2 乐观更新/骨架/EmptyState/阶段条横滑 · E3 hub 入场+四入口独立直达 · E4 AchievementTone 新增 neutral（计划中不再占绿） |
+
+**校验（每批实跑）**：`tsc` 0 错；`vitest` 48 文件 / 419 用例全绿；`eslint` 0 error / 69-70 warning（与基线一致）；字阶棘轮通过且基线收紧 **354 → 306 处**（v20 清理了 48 处裸字号）。
+
+**与方案的偏差**：
+1. J3 未新建 KPI 组件——直接复用 `stat.tsx` 的 Stat/StatRow/ProgressBar + AnimatedNumber（market 的 KpiCard 内部改造），避免再造一套容器。
+2. J5 的骨架/空态接线分散在 C/D 阶段与所属页面一起做（market=C1、applications=E2、interview=E1、resume/resume-preview=D），避免同文件二次触碰。
+3. market 的趋势图用 `LinearTransition` 做换档高度过渡 + FadeInDown 入场（非虚拟化 ScrollView，合规）。
+
+**发布**：版本 **v1.30.0 / versionCode 47**（构建与 OTA 推送流程同 v1.29.0，见看板 v19 节发布记录）。
