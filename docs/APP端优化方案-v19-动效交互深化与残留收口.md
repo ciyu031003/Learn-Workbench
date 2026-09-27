@@ -117,3 +117,25 @@
 7. jobs FlashList 上不存在任何 entering/layout/index-effect 动画；快速滚动 10 分钟无崩溃、无动画重放。
 8. 上述全部在「减弱动态」开启时静态降级、低端机 `MOTION_ENABLED=false` 时时长归零。
 
+---
+
+## v19.7 执行记录（2026-09-27，E/F/G 三批已提交）
+
+| 批次 | 提交 | 内容 |
+| --- | --- | --- |
+| E | `913c5e3` | M1 useScreenEntrance + 三 hub 入场；M2 数据三件套全覆盖；M3 打卡反馈链 + SuccessBurst；M5 触觉补全；S1 jobs 动画重放修复 |
+| F | `f3eadda` | M4 五页增删转场（LinearTransition + FadeOut）；M6 BottomSheet 弹簧；M7 按压补全 + jobs 归一 + 心跳收藏；V1 旧色清零（roadmap/tasks/wellness/jobs/job-detail-modal/trackers/meal-card-grid）；V2 暗色漏面；V3 阴影收 token（新增 `shadows.brand` 档） |
+| G | `fb25f38` | M8 Tab 双击回顶；V4 字阶棘轮扩面 components/**（基线 55 文件/354 处）；S3 双源 44 收单源；S4 celebration 计时器；S5 死代码清理 |
+
+**校验（每批实跑）**：`tsc --noEmit` 0 错；`vitest` 48 文件 / 419 用例全绿；`eslint` 0 error / 70 warning（与改造前基线完全一致）；`check-font-scale.mjs` 通过。
+
+**与方案的偏差 / 遗留（按最小惊讶原则记录）**：
+
+1. **M6 只做了 BottomSheet**：celebration（弹簧卡 + confetti）与 focus-timer（RN Modal fade）保持现状——两者容器动画语义不同（庆祝 vs 工具），强行统一收益低；update-sheet 进度条已随 M2 动画化。
+2. **M4 的 market 未加**：`MoveList` 是静态排行（无增删交互），转场无意义；certificates 的 AchievementCard 自带入场动画，未再叠 LinearTransition。
+3. **M8b thumbhash 未做**：需要构建期给图鉴图片生成 thumbhash 串（数据管线改造），留待图鉴专项；expo-image 的 `transition` 淡入已兜底。
+4. **M8 双击回顶的实现路径**：expo-router 的 `Tabs.Screen` options 不接受 per-screen `listeners`，改为全局 `screenListeners.tabPress` + 导航状态判定（pressed==焦点路由即"再点一次"），比 pathname 方案更可靠（事件先于导航触发）。
+5. **下拉刷新触觉从简**：`haptics.success()` 仅在刷新**成功返回**时触发（失败不震）——"错也震一下"语义不对。
+
+**发布门槛**：按 v19.5 建议出 **v1.29.0 / versionCode 46**；真机重点回归：jobs FlashList 快速滚动（S1 现场）、BottomSheet 弹簧拖拽「按下/拖动/松手/取消」四路径（踩坑 71/78/79 流程）、双击回顶 × 5 hub、减弱动态全量降级、深浅两套过 V1 改色页面（roadmap/wellness/tasks/trackers）。
+
