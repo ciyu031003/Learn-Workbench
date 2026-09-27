@@ -13,6 +13,7 @@ import { EmptyState } from "@/components/empty-state";
 import { SkeletonCard } from "@/components/skeleton";
 import { Card } from "@/components/card";
 import { ThemedIcon } from "@/components/themed-icon";
+import { PagerBar } from "@/components/pager-bar";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
@@ -309,34 +310,16 @@ export default function RadarScreen() {
             </Animated.View>
           ))}
 
-          <View style={styles.pager}>
-            <Pressable
-              disabled={safePage <= 0}
-              onPress={() => gotoPage(safePage - 1)}
-              style={[styles.pagerBtn, safePage <= 0 && styles.pagerBtnOff]}
-              accessibilityRole="button"
-              accessibilityLabel="上一页"
-            >
-              <ThemedIcon name="chevron-back" size={16} color={safePage <= 0 ? colors.textFaint : colors.primary} />
-              <Text style={[styles.pagerBtnText, safePage <= 0 && styles.pagerTextOff]}>上一页</Text>
-            </Pressable>
-
-            <View style={styles.pagerMid}>
-              <Text style={styles.pagerPage}>第 {safePage + 1} / {pageCount} 页</Text>
-              <Text style={styles.pagerCount}>已显示 {from}–{to} / 共 {filtered.length} 个</Text>
-            </View>
-
-            <Pressable
-              disabled={safePage >= pageCount - 1}
-              onPress={() => gotoPage(safePage + 1)}
-              style={[styles.pagerBtn, safePage >= pageCount - 1 && styles.pagerBtnOff]}
-              accessibilityRole="button"
-              accessibilityLabel="下一页"
-            >
-              <Text style={[styles.pagerBtnText, safePage >= pageCount - 1 && styles.pagerTextOff]}>下一页</Text>
-              <ThemedIcon name="chevron-forward" size={16} color={safePage >= pageCount - 1 ? colors.textFaint : colors.primary} />
-            </Pressable>
-          </View>
+          {/* v20-J2：分页条收单源 */}
+          <PagerBar
+            page={safePage}
+            pageCount={pageCount}
+            from={from}
+            to={to}
+            total={filtered.length}
+            unit="个"
+            onPageChange={gotoPage}
+          />
         </>
       )}
     </Animated.ScrollView>
@@ -416,29 +399,7 @@ const makeStyles = (colors: ThemeColors) =>
     chipHit: { color: colors.text },
     footer: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     link: { fontSize: 12, color: colors.primary, fontWeight: "700" },
-    /* v1.26 分页条 */
-    pager: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      gap: 8,
-      paddingTop: 4,
-    },
-    pagerBtn: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 4,
-      paddingHorizontal: 12,
-      paddingVertical: 9,
-      borderRadius: 999,
-      backgroundColor: colors.primarySoft,
-    },
-    pagerBtnOff: { backgroundColor: colors.surfaceMuted },
-    pagerBtnText: { fontSize: 12, fontWeight: "800", color: colors.primary },
-    pagerTextOff: { color: colors.textFaint },
-    pagerMid: { alignItems: "center", gap: 1 },
-    pagerPage: { fontSize: 12, fontWeight: "800", color: colors.text },
-    pagerCount: { fontSize: 10, color: colors.textMuted },
+    /* v20-J2：分页条样式收进 components/pager-bar.tsx */
     moreBtn: {
       flexDirection: "row",
       alignItems: "center",

@@ -31,10 +31,12 @@ import Animated, {
 } from "react-native-reanimated";
 import { Card } from "@/components/card";
 import { BottomSheet } from "@/components/bottom-sheet";
-import { ChipGroup, SheetSection, SheetStickyCta } from "@/components/sheet";
+import { ChipGroup, SheetSearchField, SheetSection, SheetStickyCta } from "@/components/sheet";
 import { JobDetailModal } from "@/components/job-detail-modal";
 import { AnimatedNumber } from "@/components/animated-number";
 import { PressableScale } from "@/components/pressable-scale";
+import { PagerBar } from "@/components/pager-bar";
+import { JobFreshnessBadge, JobNewBadge, JobSourceBadge, avatarColorOf, jobSalaryText } from "@/components/job-bits";
 import { SPRING } from "@/lib/motion";
 import { haptics } from "@/lib/haptics";
 import {  radius, typography  } from "@/theme/tokens";
@@ -48,7 +50,7 @@ import {
   type JobListResult,
 } from "@/lib/jobs";
 import { useAppStore } from "@/store/app-store";
-import { formatRelativeTime, jobFreshness, jobSourceLabels, type JobPostingListItem, type JobSource, type JobStats } from "@learn-workbench/shared";
+import { formatRelativeTime, jobSourceLabels, type JobPostingListItem, type JobSource, type JobStats } from "@learn-workbench/shared";
 
 const PAGE_SIZE = 12;
 const CITY_OPTIONS = ["全部", "上海", "北京", "深圳", "杭州", "成都", "广州", "乌鲁木齐"];
@@ -58,56 +60,7 @@ const CATEGORY_OPTIONS = [
   { id: "gongkao,gongbian", label: "考公考编" },
   { id: "yangqi", label: "央国企" },
 ];
-// 平台来源色：**仅作图表语义色**用于 6px 小色点（sourceDot），不参与页面强调色（强调色一律 colors.primary）
-const SOURCE_COLORS: Record<string, string> = {
-  lagou: "#5DAE74",
-  liepin: "#2FB3A6",
-  zhilian: "#8D7BD8",
-  job51: "#F28C28",
-  boss: "#F26B5E",
-};
-// 头像底色：同上，只用于公司 logo 圆底（小面积）
-const AVATAR_COLORS = ["#5DAE74", "#2FB3A6", "#8D7BD8", "#F28C28", "#F26B5E", "#FFB25E"];
-
-function salaryText(job: JobPostingListItem): string {
-  if (job.salaryText) return job.salaryText;
-  if (job.salaryMin != null && job.salaryMax != null) return job.salaryMin + "-" + job.salaryMax + "K";
-  if (job.salaryMin != null) return job.salaryMin + "K 起";
-  if (job.salaryMax != null) return "最高 " + job.salaryMax + "K";
-  return "面议";
-}
-
-function FreshnessBadge({ job }: { job: JobPostingListItem }) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
-  const f = jobFreshness(
-    job.publishedAt ?? null,
-    job.fetchedAt,
-    job.deadlineAt ?? null,
-    job.channel === "announcement" ? "announcement" : "job"
-  );
-  const color =
-    f.level === "just" || f.level === "within3"
-      ? colors.success
-      : f.level === "within7"
-        ? colors.warning
-        : f.level === "stale"
-          ? colors.danger
-          : colors.textMuted;
-  const bg =
-    f.level === "just" || f.level === "within3"
-      ? "rgba(61,163,93,0.14)"
-      : f.level === "within7"
-        ? "rgba(217,144,0,0.16)"
-        : f.level === "stale"
-          ? "rgba(192,69,69,0.14)"
-          : colors.surfaceMuted;
-  return (
-    <View style={[styles.freshBadge, { backgroundColor: bg }]}>
-      <Text style={[styles.freshText, { color }]}>{f.emoji} {f.label}</Text>
-    </View>
-  );
-}
+// v20-J1：平台来源色 / 头像底色 / 薪资文案 / 鲜度与 NEW 徽章已收进 components/job-bits.tsx 单源。
 
 function JobCard({
   job,
@@ -136,7 +89,7 @@ function JobCard({
   return (
     <PressableScale onPress={() => onPress(job)} scaleTo={0.97} style={styles.jobCard}>
       <View style={styles.jobTop}>
-        <View style={[styles.logo, { backgroundColor: AVATAR_COLORS[job.id % AVATAR_COLORS.length] }]}>
+        <View style={[styles.logo, { backgroundColor: avatarColorOf(job.id) }]}>
           <Text style={styles.logoText}>{job.company.trim().charAt(0).toUpperCase() || "公"}</Text>
         </View>
         <View style={styles.jobMain}>
@@ -145,9 +98,9 @@ function JobCard({
               {job.title}
             </Text>
             {job.channel === "announcement" ? <Text style={styles.announceBadge}>公告</Text> : null}
-            {job.isNew ? <Text style={styles.newBadge}>NEW</Text> : null}
+            {job.isNew ? <JobNewBadge /> : null}
           </View>
-          <Text style={styles.salary}>{salaryText(job)}</Text>
+          <Text style={styles.salary}>{jobSalaryText(job)}</Text>
           <Text style={styles.jobMeta} numberOfLines={1}>
             {job.company} · {job.city || "城市不限"} · {job.experience || "经验不限"} · {job.education || "学历不限"}
           </Text>
@@ -165,11 +118,14 @@ function JobCard({
       ) : null}
 
       <View style={styles.jobFoot}>
-        <View style={styles.sourceBadge}>
-          <View style={[styles.sourceDot, { backgroundColor: SOURCE_COLORS[job.source] }]} />
-          <Text style={styles.sourceText}>{jobSourceLabels[job.source]}</Text>
-        </View>
-        {job.channel !== "announcement" ? <FreshnessBadge job={job} /> : null}
+        <JobSourceBadge source={job.source} label={jobSourceLabels[job.source]} />
+        {job.channel !== "announcement" ? (
+          <JobFreshnessBadge
+            publishedAt={job.publishedAt ?? null}
+            fetchedAt={job.fetchedAt}
+            deadlineAt={job.deadlineAt ?? null}
+          />
+        ) : null}
         {job.clusterSources && job.clusterSources.length > 1 ? (
           <Text style={styles.clusterText} numberOfLines={1}>
             🔁 {job.clusterSources.map((s) => jobSourceLabels[s] ?? s).join("/")}
@@ -403,8 +359,6 @@ export default function JobsScreen() {
   const [experience, setExperience] = useState<string[]>([]);
   const [publishedWithin, setPublishedWithin] = useState<"" | "today" | "3d" | "7d">("");
   const [skillsFilter, setSkillsFilter] = useState<string[]>([]);
-  const [skillDraft, setSkillDraft] = useState("");
-
   const selectedJob = useMemo(() => jobs.find((j) => j.id === selectedId) ?? null, [jobs, selectedId]);
   const listRef = useRef<FlashListRef<JobPostingListItem>>(null);
   const hasActiveFilter =
@@ -574,30 +528,24 @@ export default function JobsScreen() {
       </View>
 
       <View style={styles.searchRow}>
-        <View style={styles.searchBar}>
-          <ThemedIcon name="search" size={18} color={colors.textFaint} />
-          <TextInput
-            style={styles.searchInput}
-            value={searchInput}
-            onChangeText={setSearchInput}
-            placeholder="搜索职位 / 公司 / 技能"
-            placeholderTextColor={colors.textFaint}
-            returnKeyType="search"
-            onSubmitEditing={() => setQuery(searchInput.trim())}
-            autoCapitalize="none"
-          />
-          {searchInput ? (
-            <Pressable onPress={() => {
-              setSearchInput("");
-              setQuery("");
-            }} hitSlop={8}>
-              <ThemedIcon name="close-circle" size={18} color={colors.textFaint} />
-            </Pressable>
-          ) : null}
-        </View>
-        <Pressable style={[styles.filterBtn, hasActiveFilter ? styles.filterBtnActive : null]} onPress={() => setFilterVisible(true)}>
+        {/* v20-J4：搜索框收单源（SheetSearchField，内嵌清空；清空同时复位 query） */}
+        <SheetSearchField
+          value={searchInput}
+          onChangeText={setSearchInput}
+          placeholder="搜索职位 / 公司 / 技能"
+          autoCapitalize="none"
+          onSubmit={() => setQuery(searchInput.trim())}
+          onClear={() => setQuery("")}
+          style={{ flex: 1 }}
+        />
+        <PressableScale
+          style={[styles.filterBtn, hasActiveFilter ? styles.filterBtnActive : null]}
+          scaleTo={0.92}
+          onPress={() => setFilterVisible(true)}
+          accessibilityLabel="高级筛选"
+        >
           <ThemedIcon name="options-outline" size={18} color={hasActiveFilter ? "#ffffff" : colors.primary} />
-        </Pressable>
+        </PressableScale>
       </View>
 
       <View style={styles.catRow}>
@@ -659,32 +607,18 @@ export default function JobsScreen() {
   const renderPager = () => {
     if (initialLoading || jobs.length === 0) return null;
     return (
-      <View style={[styles.pager, styles.listSide]}>
-        <Pressable
-          style={[styles.pagerBtn, (page <= 1 || paging) && styles.pagerBtnDisabled]}
-          disabled={page <= 1 || paging}
-          onPress={() => goToPage(page - 1)}
-        >
-          <ThemedIcon name="chevron-back" size={14} color={page <= 1 ? colors.textFaint : colors.primary} />
-          <Text style={[styles.pagerBtnText, page <= 1 && styles.pagerBtnTextDisabled]}>上一页</Text>
-        </Pressable>
-
-        <View style={styles.pagerCenter}>
-          {paging ? (
-            <ActivityIndicator color={colors.primary} size="small" />
-          ) : (
-            <Text style={styles.pagerInfo}>第 {page} / {totalPages} 页</Text>
-          )}
-        </View>
-
-        <Pressable
-          style={[styles.pagerBtn, (page >= totalPages || paging) && styles.pagerBtnDisabled]}
-          disabled={page >= totalPages || paging}
-          onPress={() => goToPage(page + 1)}
-        >
-          <Text style={[styles.pagerBtnText, page >= totalPages && styles.pagerBtnTextDisabled]}>下一页</Text>
-          <ThemedIcon name="chevron-forward" size={14} color={page >= totalPages ? colors.textFaint : colors.primary} />
-        </Pressable>
+      <View style={styles.listSide}>
+        {/* v20-J2：分页条收单源（0 基 API，jobs 1 基在此换算） */}
+        <PagerBar
+          page={page - 1}
+          pageCount={totalPages}
+          from={(page - 1) * PAGE_SIZE + 1}
+          to={Math.min(total, page * PAGE_SIZE)}
+          total={total}
+          unit="个"
+          loading={paging}
+          onPageChange={(p) => goToPage(p + 1)}
+        />
       </View>
     );
   };
@@ -759,31 +693,12 @@ const makeStyles = (colors: ThemeColors) =>
   root: { flex: 1 },
   /** 列表左右留白：FlashList v2 忽略 contentContainerStyle 的 padding，必须逐处显式给 */
   listSide: { paddingHorizontal: 16 },
-  cardSep: { height: 12 },
   statsRow: { flexDirection: "row", gap: 8, marginBottom: 4 },
 
   statCard: { flex: 1, padding: 12, gap: 4 },
   statValue: { fontSize: 20, fontWeight: "900", color: colors.text },
   statLabel: { fontSize: 11, color: colors.textMuted, fontWeight: "700" },
   searchRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  searchBar: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    backgroundColor: colors.surfaceStrong,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    shadowColor: "#1C2430",
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
-  },
-  searchInput: { ...typography.callout, flex: 1,  color: colors.text, padding: 0 },
   filterBtn: {
     width: 46,
     height: 46,
@@ -867,18 +782,6 @@ const makeStyles = (colors: ThemeColors) =>
     paddingVertical: 2,
     overflow: "hidden",
   },
-  newBadge: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: colors.success,
-    backgroundColor: colors.successSoft,
-    borderWidth: 1,
-    borderColor: colors.success,
-    borderRadius: 999,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    overflow: "hidden",
-  },
   salary: { ...typography.headline, fontWeight: "900", color: colors.accentStrong, letterSpacing: 0.2 },
   jobMeta: { fontSize: 12, color: colors.textMuted, marginTop: 1 },
   tags: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 10 },
@@ -900,20 +803,6 @@ const makeStyles = (colors: ThemeColors) =>
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
   },
-  sourceBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-  },
-  sourceDot: { width: 6, height: 6, borderRadius: 3 },
-  sourceText: { fontSize: 11, fontWeight: "700", color: colors.textMuted },
-  freshBadge: {
-    borderRadius: 999,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    marginLeft: 4,
-  },
-  freshText: { fontSize: 10, fontWeight: "800" },
   clusterText: {
     flexShrink: 1,
     fontSize: 10,
@@ -926,60 +815,9 @@ const makeStyles = (colors: ThemeColors) =>
     marginLeft: 4,
   },
   time: { flex: 1, marginLeft: "auto", fontSize: 11, color: colors.textFaint, textAlign: "right" },
-  emptyBox: { alignItems: "center", gap: 8, paddingVertical: 28, paddingHorizontal: 20 },
   skeletonWrap: { paddingHorizontal: 16, paddingTop: 8 },
-  emptyTitle: { ...typography.headline, fontWeight: "800", color: colors.text },
-  emptyText: { fontSize: 13, color: colors.textMuted, textAlign: "center", lineHeight: 19 },
-  emptyPrimaryBtn: {
-    marginTop: 6,
-    backgroundColor: colors.primary,
-    borderRadius: 14,
-    paddingVertical: 11,
-    paddingHorizontal: 20,
-  },
-  emptyPrimaryText: { ...typography.callout, color: "#ffffff",  fontWeight: "800" },
-  pager: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: 4,
-    paddingVertical: 6,
-  },
-  pagerBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-    minWidth: 92,
-    justifyContent: "center",
-    borderRadius: radius.pill,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    backgroundColor: colors.surfaceStrong,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  pagerBtnDisabled: { opacity: 0.45 },
-  pagerBtnText: { fontSize: 13, fontWeight: "700", color: colors.primary },
-  pagerBtnTextDisabled: { color: colors.textMuted },
-  pagerCenter: { alignItems: "center", justifyContent: "center", minWidth: 96 },
-  pagerInfo: { fontSize: 13, fontWeight: "700", color: colors.textMuted },
-  // ---- P1 筛选 Bottom Sheet ----
-  sheetWrap: { flex: 1, justifyContent: "flex-end" },
-  sheet: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0, padding: 18, gap: 14, maxHeight: "80%" },
-  grabber: { width: 40, height: 4, borderRadius: 2, backgroundColor: colors.borderStrong, alignSelf: "center", marginBottom: 4 },
-  sheetHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  sheetTitle: {
-    ...typography.title2,
-    color: colors.text,
-  },
+  // v20-J2：分页条与旧 sheet 样式已收进 components/pager-bar.tsx 与 sheet/*（v20-J1）；此处仅保留在用的表单件
   sheetReset: { fontSize: 13, fontWeight: "700", color: colors.primary },
-  filterGroupTitle: { fontSize: 13, fontWeight: "800", color: colors.text, marginTop: 4 },
-  chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  sheetChip: { borderRadius: 999, paddingHorizontal: 13, paddingVertical: 7 },
-  sheetChipActive: { backgroundColor: colors.primary },
-  sheetChipIdle: { backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.borderStrong },
-  sheetChipText: { fontSize: 12.5, fontWeight: "700", color: colors.textMuted },
-  sheetChipTextActive: { fontSize: 12.5, fontWeight: "800", color: "#ffffff" },
   skillInputRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 6 },
   skillInput: {
     flex: 1,
@@ -992,11 +830,4 @@ const makeStyles = (colors: ThemeColors) =>
   },
   skillAddBtn: { backgroundColor: colors.primary, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 },
   skillAddText: { color: "#ffffff", fontSize: 13, fontWeight: "800" },
-  applyBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: 16,
-    paddingVertical: 13,
-    alignItems: "center",
-  },
-  applyText: { ...typography.callout, color: "#ffffff",  fontWeight: "800" },
 });

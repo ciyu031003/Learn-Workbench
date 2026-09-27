@@ -7,6 +7,7 @@ import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { useReducedMotion } from "@/lib/motion";
 import { ThemedIcon } from "@/components/themed-icon";
+import { PagerBar } from "@/components/pager-bar";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useFocusRefresh } from "@/lib/use-focus-refresh";
@@ -214,34 +215,16 @@ export default function ApplicationsScreen() {
         }
         ListFooterComponent={
           apps.length > 0 ? (
-            <View style={styles.pager}>
-              <Pressable
-                disabled={safePage <= 0}
-                onPress={() => setPage(Math.max(0, safePage - 1))}
-                style={[styles.pagerBtn, safePage <= 0 && styles.pagerBtnOff]}
-                accessibilityRole="button"
-                accessibilityLabel="上一页"
-              >
-                <ThemedIcon name="chevron-back" size={16} color={safePage <= 0 ? colors.textFaint : colors.primary} />
-                <Text style={[styles.pagerBtnText, safePage <= 0 && styles.pagerTextOff]}>上一页</Text>
-              </Pressable>
-
-              <View style={styles.pagerMid}>
-                <Text style={styles.pagerPage}>第 {safePage + 1} / {pageCount} 页</Text>
-                <Text style={styles.pagerCount}>已显示 {from}–{to} / 共 {apps.length} 条</Text>
-              </View>
-
-              <Pressable
-                disabled={safePage >= pageCount - 1}
-                onPress={() => setPage(Math.min(pageCount - 1, safePage + 1))}
-                style={[styles.pagerBtn, safePage >= pageCount - 1 && styles.pagerBtnOff]}
-                accessibilityRole="button"
-                accessibilityLabel="下一页"
-              >
-                <Text style={[styles.pagerBtnText, safePage >= pageCount - 1 && styles.pagerTextOff]}>下一页</Text>
-                <ThemedIcon name="chevron-forward" size={16} color={safePage >= pageCount - 1 ? colors.textFaint : colors.primary} />
-              </Pressable>
-            </View>
+            /* v20-J2：分页条收单源 */
+            <PagerBar
+              page={safePage}
+              pageCount={pageCount}
+              from={from}
+              to={to}
+              total={apps.length}
+              onPageChange={setPage}
+              style={styles.pager}
+            />
           ) : null
         }
         showsVerticalScrollIndicator={false}
@@ -361,29 +344,10 @@ const makeStyles = (colors: ThemeColors) =>
       overflow: "hidden",
     },
 
-    /** 分页条 */
+    /** 分页条（v20-J2：本体收进 components/pager-bar.tsx，仅留外边距） */
     pager: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      gap: 8,
       paddingTop: 6,
     },
-    pagerBtn: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 4,
-      paddingHorizontal: 12,
-      paddingVertical: 9,
-      borderRadius: 999,
-      backgroundColor: colors.primarySoft,
-    },
-    pagerBtnOff: { backgroundColor: colors.surfaceMuted },
-    pagerBtnText: { ...typography.caption, fontWeight: "800", color: colors.primary },
-    pagerTextOff: { color: colors.textFaint },
-    pagerMid: { alignItems: "center", gap: 1 },
-    pagerPage: { ...typography.caption, fontWeight: "800", color: colors.text },
-    pagerCount: { ...typography.micro, color: colors.textMuted },
 
     emptyBox: { alignItems: "center", gap: 6, paddingVertical: 44 },
     emptyText: { fontSize: 14, fontWeight: "800", color: colors.text },

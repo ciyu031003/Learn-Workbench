@@ -9,6 +9,7 @@ import { shouldStagger, staggerDelay } from "@/lib/stagger";
 import { haptics } from "@/lib/haptics";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
+import { PagerBar } from "@/components/pager-bar";
 import { ChipGroup, SheetSection, SheetSegmented, SheetStickyCta, type SegmentOption } from "@/components/sheet";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
@@ -257,34 +258,17 @@ export default function InterviewScreen() {
       )}
 
       {shown.length > 0 ? (
-        <View style={styles.pager}>
-          <Pressable
-            disabled={safePage <= 0}
-            onPress={() => setPage(Math.max(0, safePage - 1))}
-            style={[styles.pagerBtn, safePage <= 0 && styles.pagerBtnOff]}
-            accessibilityRole="button"
-            accessibilityLabel="上一页"
-          >
-            <ThemedIcon name="chevron-back" size={16} color={safePage <= 0 ? colors.textFaint : colors.primary} />
-            <Text style={[styles.pagerBtnText, safePage <= 0 && styles.pagerTextOff]}>上一页</Text>
-          </Pressable>
-
-          <View style={styles.pagerMid}>
-            <Text style={styles.pagerPage}>第 {safePage + 1} / {pageCount} 页</Text>
-            <Text style={styles.pagerCount}>已显示 {from}–{to} / 共 {shown.length} 题</Text>
-          </View>
-
-          <Pressable
-            disabled={safePage >= pageCount - 1}
-            onPress={() => setPage(Math.min(pageCount - 1, safePage + 1))}
-            style={[styles.pagerBtn, safePage >= pageCount - 1 && styles.pagerBtnOff]}
-            accessibilityRole="button"
-            accessibilityLabel="下一页"
-          >
-            <Text style={[styles.pagerBtnText, safePage >= pageCount - 1 && styles.pagerTextOff]}>下一页</Text>
-            <ThemedIcon name="chevron-forward" size={16} color={safePage >= pageCount - 1 ? colors.textFaint : colors.primary} />
-          </Pressable>
-        </View>
+        /* v20-J2：分页条收单源 */
+        <PagerBar
+          page={safePage}
+          pageCount={pageCount}
+          from={from}
+          to={to}
+          total={shown.length}
+          unit="题"
+          onPageChange={setPage}
+          style={styles.pager}
+        />
       ) : null}
 
       {/* v1.26：题型「更多」弹层 —— 全量题型列表，选中即回填并关闭 */}
@@ -428,15 +412,8 @@ const makeStyles = (colors: ThemeColors) =>
     moduleChipTextActive: { color: colors.canvas },
     moduleMore: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.primarySoft, borderColor: colors.primarySoft, maxWidth: "100%" },
     moduleMoreText: { fontSize: 12, fontWeight: "800", color: colors.primary },
-    /* v1.26 分页条 */
-    pager: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, paddingTop: 6 },
-    pagerBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 999, backgroundColor: colors.primarySoft },
-    pagerBtnOff: { backgroundColor: colors.surfaceMuted },
-    pagerBtnText: { fontSize: 12, fontWeight: "800", color: colors.primary },
-    pagerTextOff: { color: colors.textFaint },
-    pagerMid: { alignItems: "center", gap: 1 },
-    pagerPage: { fontSize: 12, fontWeight: "800", color: colors.text },
-    pagerCount: { fontSize: 10, color: colors.textMuted },
+    /* v20-J2：分页条本体收进 components/pager-bar.tsx，仅留外边距 */
+    pager: { paddingTop: 6 },
     loading: { marginTop: 24, alignSelf: "center" },
     empty: { fontSize: 13, color: colors.textMuted, textAlign: "center", paddingVertical: 8 },
     questionCard: { gap: 6 },

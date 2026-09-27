@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/set-state-in-effect */
-import { useCallback, useEffect, useState , useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { ActivityIndicator, Pressable, Share, StyleSheet, Text, View } from "react-native";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
@@ -8,26 +8,9 @@ import { InlineToast, TOAST_DEFAULT_LIFE_MS, type ToastKind } from "@/components
 import * as WebBrowser from "expo-web-browser";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { SheetSection, SheetStickyCta } from "@/components/sheet";
+import { JobFreshnessBadge, JobNewBadge, JobSourceBadge, avatarColorOf, jobSalaryText } from "@/components/job-bits";
 import { enrollJobGaps, fetchJobDetail, fetchJobPlan, type JobDetail } from "@/lib/jobs";
-import { formatRelativeTime, jobFreshness, jobSourceLabels, type JobLearningPlan, type JobPostingListItem } from "@learn-workbench/shared";
-
-const SOURCE_COLORS: Record<string, string> = {
-  lagou: "#5DAE74",
-  liepin: "#2FB3A6",
-  zhilian: "#8D7BD8",
-  job51: "#F28C28",
-  boss: "#F26B5E",
-};
-
-const AVATAR_COLORS = ["#5DAE74", "#2FB3A6", "#8D7BD8", "#F28C28", "#F26B5E", "#FFB25E"];
-
-function salaryText(job: JobPostingListItem): string {
-  if (job.salaryText) return job.salaryText;
-  if (job.salaryMin != null && job.salaryMax != null) return job.salaryMin + "-" + job.salaryMax + "K";
-  if (job.salaryMin != null) return job.salaryMin + "K 起";
-  if (job.salaryMax != null) return "最高 " + job.salaryMax + "K";
-  return "面议";
-}
+import { formatRelativeTime, jobSourceLabels, type JobLearningPlan, type JobPostingListItem } from "@learn-workbench/shared";
 
 /**
  * 岗位详情（v16 弹层重构）：
@@ -104,29 +87,6 @@ export function JobDetailModal({
   const display = detail ?? job;
   if (!display) return null;
 
-  const freshness = jobFreshness(
-    display.publishedAt ?? null,
-    display.fetchedAt,
-    display.deadlineAt ?? null,
-    display.channel === "announcement" ? "announcement" : "job"
-  );
-  const freshnessColor =
-    freshness.level === "just" || freshness.level === "within3"
-      ? colors.success
-      : freshness.level === "within7"
-        ? colors.warning
-        : freshness.level === "stale"
-          ? colors.danger
-          : colors.textMuted;
-  const freshnessBg =
-    freshness.level === "just" || freshness.level === "within3"
-      ? "rgba(61,163,93,0.14)"
-      : freshness.level === "within7"
-        ? "rgba(217,144,0,0.16)"
-        : freshness.level === "stale"
-          ? "rgba(192,69,69,0.14)"
-          : colors.surfaceMuted;
-
   const popHeart = () => {
     if (job) onToggleFavorite(job);
   };
@@ -201,11 +161,11 @@ export function JobDetailModal({
     >
       {/* 企业首字 + 薪资：原来的头部信息压缩成一行，省下的纵向空间留给正文 */}
       <View style={styles.heroRow}>
-        <View style={[styles.logo, { backgroundColor: AVATAR_COLORS[display.id % AVATAR_COLORS.length] }]}>
+        <View style={[styles.logo, { backgroundColor: avatarColorOf(display.id) }]}>
           <Text style={styles.logoText}>{display.company.trim().charAt(0).toUpperCase() || "公"}</Text>
         </View>
         <View style={styles.heroMain}>
-          <Text style={styles.salary}>{salaryText(display)}</Text>
+          <Text style={styles.salary}>{jobSalaryText(display)}</Text>
           <Text style={styles.heroMeta}>更新于 {formatRelativeTime(display.fetchedAt)}</Text>
         </View>
       </View>
@@ -280,16 +240,15 @@ export function JobDetailModal({
 
       <SheetSection title="来源" last>
         <View style={styles.sourceRow}>
-          <View style={styles.sourceBadge}>
-            <View style={[styles.sourceDot, { backgroundColor: SOURCE_COLORS[display.source] }]} />
-            <Text style={styles.sourceText}>{jobSourceLabels[display.source]}</Text>
-          </View>
+          <JobSourceBadge source={display.source} label={jobSourceLabels[display.source]} />
           {display.channel !== "announcement" ? (
-            <View style={[styles.freshBadge, { backgroundColor: freshnessBg }]}>
-              <Text style={[styles.freshText, { color: freshnessColor }]}>{freshness.emoji} {freshness.label}</Text>
-            </View>
+            <JobFreshnessBadge
+              publishedAt={display.publishedAt ?? null}
+              fetchedAt={display.fetchedAt}
+              deadlineAt={display.deadlineAt ?? null}
+            />
           ) : null}
-          {display.isNew ? <Text style={styles.newBadge}>NEW</Text> : null}
+          {display.isNew ? <JobNewBadge /> : null}
           {display.clusterSources && display.clusterSources.length > 1 ? (
             <Text style={styles.clusterText} numberOfLines={1}>
               🔁 {display.clusterSources.map((s) => jobSourceLabels[s] ?? s).join("/")}
@@ -386,43 +345,6 @@ const makeStyles = (colors: ThemeColors) =>
     gap: 8,
     flexWrap: "wrap",
   },
-  sourceBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: 9,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-  },
-  sourceDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-  },
-  sourceText: {
-    fontSize: 11,
-    color: colors.textMuted,
-    fontWeight: "700",
-  },
-  newBadge: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: colors.success,
-    backgroundColor: colors.successSoft,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.success,
-    borderRadius: 999,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    overflow: "hidden",
-  },
-  freshBadge: {
-    borderRadius: 999,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-  },
-  freshText: { fontSize: 10, fontWeight: "800" },
   clusterText: {
     flexShrink: 1,
     fontSize: 10,
