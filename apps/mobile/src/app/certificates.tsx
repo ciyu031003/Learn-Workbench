@@ -144,11 +144,12 @@ export default function CertificatesScreen() {
           const info = certificateExpiryInfo(r.expiryDate);
           const st = (r.status ?? "planned") as Status;
           // v13 U11：证书/里程碑统一用成就卡（大图形 + 标题 + 达成日期 + 入场错峰）
+          // v20-E4：tone 语义修正——绿=成功语义只留给「达成」；计划中=中性、备考中=品牌蓝
           return (
             <AchievementCard
               key={r.id}
               index={index}
-              tone={st === "achieved" ? "gold" : st === "preparing" ? "blue" : "green"}
+              tone={st === "achieved" ? "gold" : st === "preparing" ? "blue" : "neutral"}
               emoji={st === "achieved" ? "🏆" : st === "preparing" ? "🎯" : "📘"}
               title={r.name}
               subtitle={r.issuer || null}

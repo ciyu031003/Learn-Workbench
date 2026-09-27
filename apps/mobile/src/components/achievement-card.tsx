@@ -21,7 +21,7 @@ import { MOTION_BASE, easingStandard, isMotionActive } from "@/theme/motion";
  * 入场：opacity 0→1 + translateY -10→0，按 `index` 做 40ms 错峰；
  * 降级：MOTION_ENABLED=false 或系统减弱动态 → 直接呈现终态（不动）。
  */
-export type AchievementTone = "gold" | "blue" | "green";
+export type AchievementTone = "gold" | "blue" | "green" | "neutral";
 
 /** 入场错峰由 tokens.motion.stagger 决定（与列表逐项入场同源） */
 export const ACHIEVEMENT_STAGGER_MS = motion.stagger;
@@ -30,12 +30,15 @@ const TONE_ICON: Record<AchievementTone, keyof typeof Ionicons.glyphMap> = {
   gold: "trophy",
   blue: "medal",
   green: "ribbon",
+  neutral: "ribbon",
 };
 
-/** 三档语义色（金色=已达成 / 蓝=备考中 / 绿=计划中），全部取现有 token */
+/** 四档语义色（金色=已达成 / 蓝=备考中 / 绿=达成语义 / 中性=计划中），全部取现有 token。
+ *  v20-E4：新增 neutral——计划中的证书不该占用"绿=成功"的语义。 */
 export function achievementTone(colors: ThemeColors, tone: AchievementTone): { soft: string; strong: string } {
   if (tone === "gold") return { soft: colors.accentSoft, strong: colors.accentStrong };
   if (tone === "blue") return { soft: colors.primarySoft, strong: colors.primary };
+  if (tone === "neutral") return { soft: colors.surfaceMuted, strong: colors.textSecondary };
   return { soft: colors.successSoft, strong: colors.success };
 }
 

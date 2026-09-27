@@ -20,6 +20,7 @@ import { router } from "expo-router";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
 import { useScrollToTopHandler } from "@/lib/scroll-to-top";
+import { useScreenEntrance } from "@/lib/use-screen-entrance";
 import { DURATION, useReducedMotion } from "@/lib/motion";
 import { staggerDelay } from "@/lib/stagger";
 import { getApiUrl } from "@/config";
@@ -56,6 +57,8 @@ export default function CareerScreen() {
   useScrollToTopHandler("/career", careerScrollRef);
   /** 入场错峰统一走 lib/stagger（步长取 token）；减弱动态时不传 entering，彻底不动 */
   const reduced = useReducedMotion();
+  /** v20-E3：首屏入场错峰 */
+  const entrance = useScreenEntrance();
   const token = useAppStore((s) => s.token);
   const [readiness, setReadiness] = useState<CareerReadiness | null>(null);
   const [skills, setSkills] = useState<UserSkillView[]>([]);
@@ -116,7 +119,8 @@ export default function CareerScreen() {
       style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
       <ScreenHeaderLargeTitle title="职业" subtitle="画像 · 技能 · 简历 · 面试" />
 
-      {/* ① 职业准备度 hero：进度弧 + 结论 + 三个关键值 */}
+      {/* ① 职业准备度 hero：进度弧 + 结论 + 三个关键值（v20-E3：首屏补入场错峰） */}
+      <Animated.View entering={entrance(0)}>
       <GlassSurface corner={radius.xl} style={styles.hero}>
         {loading ? (
           /* v13 U1：首屏占位统一走骨架屏（原来是一个转圈，感知更慢） */
@@ -140,6 +144,7 @@ export default function CareerScreen() {
           </>
         )}
       </GlassSurface>
+      </Animated.View>
 
       {readiness && readiness.matchedJobs > 0 ? (
         <Button
@@ -152,6 +157,7 @@ export default function CareerScreen() {
 
       {/* ② 三个主入口（首屏只留重点） */}
       <SectionHeader title="主入口" />
+      <Animated.View entering={entrance(1)}>
       <ListGroup>
         {FOCUS_SECTIONS.map((s, i) => (
           <ListRow
@@ -165,21 +171,28 @@ export default function CareerScreen() {
           />
         ))}
       </ListGroup>
+      </Animated.View>
 
-      {/* 非重点：更多职业工具 + 准备度维度明细 */}
+      {/* 非重点：更多职业工具（v20-E3：四个入口各自可点，1 步直达 + desc 不再丢失） */}
       <SectionHeader title="更多职业工具" actionLabel="全部" onAction={() => setMoreOpen(true)} />
-      <PressableScale haptic scaleTo={0.98} onPress={() => setMoreOpen(true)}>
-        <View style={styles.moreRow}>
-          {MORE_SECTIONS.map((s) => (
-            <View key={s.key} style={styles.moreItem}>
-              <View style={styles.moreIcon}>
-                <ThemedIcon name={s.icon} size={18} color={colors.primary} />
-              </View>
-              <Text style={styles.moreLabel} numberOfLines={1}>{s.title}</Text>
+      <View style={styles.moreRow}>
+        {MORE_SECTIONS.map((s) => (
+          <PressableScale
+            key={s.key}
+            haptic
+            scaleTo={0.94}
+            style={styles.moreItem}
+            accessibilityLabel={`${s.title}，${s.desc}`}
+            onPress={() => router.push(s.href as never)}
+          >
+            <View style={styles.moreIcon}>
+              <ThemedIcon name={s.icon} size={18} color={colors.primary} />
             </View>
-          ))}
-        </View>
-      </PressableScale>
+            <Text style={styles.moreLabel} numberOfLines={1}>{s.title}</Text>
+            <Text style={styles.moreDesc} numberOfLines={1}>{s.desc}</Text>
+          </PressableScale>
+        ))}
+      </View>
 
       {skills.length > 0 ? (
         <GlassSurface corner={radius.lg} style={styles.skillsCard}>
@@ -251,8 +264,9 @@ const makeStyles = (colors: ThemeColors) =>
     loader: { marginVertical: 28, flex: 1 },
     // v13 U1：hero 骨架在弧形卡里要能撑开
     heroSkeleton: { flex: 1, alignSelf: "stretch" },
-    moreRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
-    moreItem: { flex: 1, alignItems: "center", gap: 6 },
+    moreRow: { flexDirection: "row", alignItems: "stretch", justifyContent: "space-between", gap: spacing.sm },
+    // v20-E3：每个入口自带 desc 副标题（原先整行一个热区，desc 丢失）
+    moreItem: { flex: 1, alignItems: "center", gap: 6, backgroundColor: colors.surfaceMuted, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 6 },
     moreIcon: {
       width: 44,
       height: 44,
@@ -261,7 +275,8 @@ const makeStyles = (colors: ThemeColors) =>
       justifyContent: "center",
       backgroundColor: colors.primarySoft,
     },
-    moreLabel: { ...typography.micro, color: colors.textMuted },
+    moreLabel: { ...typography.micro, color: colors.text },
+    moreDesc: { ...typography.micro, fontWeight: "500", color: colors.textMuted },
     dimBlock: { gap: spacing.md, marginTop: spacing.sm },
     dim: { gap: 6 },
     dimHeader: { flexDirection: "row", justifyContent: "space-between" },

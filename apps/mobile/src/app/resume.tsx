@@ -1,22 +1,32 @@
-import { useEffect, useMemo, useState } from "react";
-import Animated from "react-native-reanimated";
-import { ActivityIndicator, Alert, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from "react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Animated, { FadeInDown, LinearTransition } from "react-native-reanimated";
+import { Alert, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { ThemedIcon } from "@/components/themed-icon";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { Card } from "@/components/card";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
+import { FloatField } from "@/components/float-field";
+import { PressButton } from "@/components/press-button";
+import { ChipGroup } from "@/components/sheet";
+import { SkeletonList } from "@/components/skeleton";
+import { EmptyState } from "@/components/empty-state";
+import { GroupLabel } from "@/components/group-label";
+import { StatRow } from "@/components/stat";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
+import { useScreenEntrance } from "@/lib/use-screen-entrance";
 import { haptics } from "@/lib/haptics";
 import { useTheme } from "@/theme";
 import type { ThemeColors } from "@/theme/tokens";
+import { typography } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
 import { resumeAssetKindLabels, type ResumeAsset, type ResumeAssetKind } from "@learn-workbench/shared";
 import { ResumeFilesCard } from "@/components/resume-files-card";
-import { typography } from "@/theme/tokens";
+import { DURATION, useReducedMotion } from "@/lib/motion";
+import { staggerDelay } from "@/lib/stagger";
 
 const KINDS: ResumeAssetKind[] = ["project", "skill", "github", "certificate"];
 
@@ -25,10 +35,15 @@ export default function ResumeScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const headerScroll = useLargeTitleHeader();
   const tabBarSpace = useTabBarSpace();
+  /** v20-D3：首屏入场错峰 */
+  const entrance = useScreenEntrance();
+  const reduced = useReducedMotion();
   const token = useAppStore((s) => s.token);
   const [records, setRecords] = useState<ResumeAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [sheetOpen, setSheetOpen] = useState(false);
+  /** v20-D1：编辑态（editingId 非空 = 编辑已有资产，保存走 PATCH） */
+  const [editing, setEditing] = useState<ResumeAsset | null>(null);
   const [kind, setKind] = useState<ResumeAssetKind>("project");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -37,9 +52,8 @@ export default function ResumeScreen() {
 
   const headers = (): Record<string, string> => (token ? { Authorization: `Bearer ${token}` } : {});
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
-      setLoading(true);
       const r = await fetch(getApiUrl() + "/api/resume-assets", { headers: headers() });
       const data = await r.json();
       if (r.ok) setRecords(data.records ?? []);
@@ -48,7 +62,8 @@ export default function ResumeScreen() {
     } finally {
       setLoading(false);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   // v17-D（R9）：下拉刷新统一入口（本页有吸顶栏 → 偏移 insets.top + 44）
   const { control: pullControl } = usePullRefresh(load);
@@ -56,7 +71,26 @@ export default function ResumeScreen() {
   useEffect(() => {
     const timer = setTimeout(() => void load(), 0);
     return () => clearTimeout(timer);
-  }, [token]);
+  }, [load]);
+
+  const openCreate = () => {
+    setEditing(null);
+    setKind("project");
+    setTitle("");
+    setContent("");
+    setUrl("");
+    setSheetOpen(true);
+  };
+
+  const openEdit = (record: ResumeAsset) => {
+    haptics.light();
+    setEditing(record);
+    setKind(record.kind);
+    setTitle(record.title);
+    setContent(record.content ?? "");
+    setUrl(record.url ?? "");
+    setSheetOpen(true);
+  };
 
   const submit = async () => {
     if (!title.trim()) {
@@ -65,14 +99,19 @@ export default function ResumeScreen() {
     }
     setSaving(true);
     try {
+      // v20-D1：编辑走 PATCH（后端已有），新建走 POST
       await fetch(getApiUrl() + "/api/resume-assets", {
-        method: "POST",
+        method: editing ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json", ...headers() },
-        body: JSON.stringify({ kind, title: title.trim(), content: content.trim(), url: url.trim() }),
+        body: JSON.stringify(
+          editing
+            ? { id: editing.id, kind, title: title.trim(), content: content.trim(), url: url.trim() }
+            : { kind, title: title.trim(), content: content.trim(), url: url.trim() }
+        ),
       });
-      // v19-M5：保存成功给 success 触觉
       haptics.success();
       setSheetOpen(false);
+      setEditing(null);
       setTitle("");
       setContent("");
       setUrl("");
@@ -102,6 +141,23 @@ export default function ResumeScreen() {
     ]);
   };
 
+  /** v20-D3：按类型分组的资产（概览 + 分节，替代原先四类混排一列） */
+  const grouped = useMemo(
+    () => KINDS.map((k) => ({ kind: k, items: records.filter((r) => r.kind === k) })).filter((g) => g.items.length > 0),
+    [records]
+  );
+  const overview = useMemo(
+    () => [
+      { key: "project", value: records.filter((r) => r.kind === "project").length, label: "项目" },
+      { key: "skill", value: records.filter((r) => r.kind === "skill").length, label: "技能" },
+      { key: "github", value: records.filter((r) => r.kind === "github").length, label: "GitHub" },
+      { key: "certificate", value: records.filter((r) => r.kind === "certificate").length, label: "证书" },
+    ],
+    [records]
+  );
+
+  let entranceIndex = -1;
+
   return (
     <View style={styles.root}>
       <ScreenHeaderStickyBar title="简历" scrollY={headerScroll.scrollY} />
@@ -111,59 +167,93 @@ export default function ResumeScreen() {
       refreshControl={<RefreshControl {...pullControl} />} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
       <ScreenHeaderLargeTitle title="简历" subtitle="技能 / 项目 / GitHub / 证书，整理成随时可投的资产" />
 
-      <PressableScale style={styles.addBtn} haptic onPress={() => setSheetOpen(true)}>
-        <ThemedIcon name="add" size={17} color={colors.primary} />
-        <Text style={styles.addBtnText}>添加资产</Text>
-      </PressableScale>
+      {/* v20-D3：主次分明——预览简历是高频主操作 */}
+      <Animated.View entering={entrance(0)}>
+      <View style={styles.actions}>
+        <View style={styles.actionItem}>
+        <PressButton label="预览简历" icon="eye-outline" onPress={() => router.push("/resume-preview" as never)} />
+        </View>
+        <View style={styles.actionItem}>
+        <PressButton label="添加资产" icon="add" variant="secondary" onPress={openCreate} />
+        </View>
+      </View>
+      </Animated.View>
 
-      <PressableScale style={styles.addBtn} haptic onPress={() => router.push("/resume-preview" as never)}>
-        <ThemedIcon name="eye-outline" size={17} color={colors.primary} />
-        <Text style={styles.addBtnText}>预览简历</Text>
-      </PressableScale>
+      {records.length > 0 ? (
+        <Animated.View entering={entrance(1)}>
+          <StatRow items={overview} />
+        </Animated.View>
+      ) : null}
 
       {/* v12 P2-2：上传的 PDF / Word 简历（文件在 COS 私有目录，只有本人能取） */}
       <ResumeFilesCard />
 
       {loading ? (
-        <ActivityIndicator color={colors.primary} style={styles.loading} />
+        <SkeletonList count={3} />
       ) : records.length === 0 ? (
-        <Card><Text style={styles.empty}>还没有简历资产，先加一条项目或技能吧</Text></Card>
+        <EmptyState
+          icon="document-text-outline"
+          title="还没有简历资产"
+          hint="先加一条项目或技能，预览页会自动组装成简历。"
+          actionLabel="添加资产"
+          onAction={openCreate}
+        />
       ) : (
-        records.map((r) => (
-          <Card key={r.id} style={styles.item}>
-            <View style={styles.itemHead}>
-              <View style={styles.itemTitleWrap}>
-                <Text style={styles.kind}>{resumeAssetKindLabels[r.kind]}</Text>
-                <Text style={styles.itemTitle}>{r.title}</Text>
-              </View>
-              <Pressable hitSlop={8} onPress={() => remove(r)}>
-                <ThemedIcon name="trash-outline" size={18} color={colors.textFaint} />
-              </Pressable>
+        grouped.map((group) => {
+          entranceIndex += 1;
+          return (
+            <View key={group.kind} style={styles.group}>
+              <GroupLabel>
+                {`${resumeAssetKindLabels[group.kind]} · ${group.items.length}`}
+              </GroupLabel>
+              {group.items.map((r, i) => (
+                <Animated.View
+                  key={r.id}
+                  layout={reduced ? undefined : LinearTransition}
+                  entering={reduced ? undefined : FadeInDown.duration(DURATION.base).delay(staggerDelay(entranceIndex))}
+                >
+                <Card style={styles.item}>
+                  <View style={styles.itemHead}>
+                    <View style={styles.itemTitleWrap}>
+                      <Text style={styles.itemTitle}>{r.title}</Text>
+                    </View>
+                    <PressableScale hitSlop={8} scaleTo={0.88} onPress={() => openEdit(r)} accessibilityLabel={`编辑 ${r.title}`}>
+                      <ThemedIcon name="create-outline" size={18} color={colors.primary} />
+                    </PressableScale>
+                    <PressableScale hitSlop={8} scaleTo={0.88} onPress={() => remove(r)} accessibilityLabel={`删除 ${r.title}`}>
+                      <ThemedIcon name="trash-outline" size={18} color={colors.textFaint} />
+                    </PressableScale>
+                  </View>
+                  {r.content ? <Text style={styles.itemContent} numberOfLines={4}>{r.content}</Text> : null}
+                  {r.url ? <Text style={styles.itemUrl} numberOfLines={1}>{r.url}</Text> : null}
+                </Card>
+                </Animated.View>
+              ))}
             </View>
-            {r.content ? <Text style={styles.itemContent} numberOfLines={4}>{r.content}</Text> : null}
-            {r.url ? <Text style={styles.itemUrl} numberOfLines={1}>{r.url}</Text> : null}
-          </Card>
-        ))
+          );
+        })
       )}
 
-      <BottomSheet visible={sheetOpen} onClose={() => setSheetOpen(false)} title="添加简历资产" height="62%">
+      <BottomSheet
+        visible={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        title={editing ? "编辑简历资产" : "添加简历资产"}
+        height="68%"
+      >
         <View style={styles.form}>
+          {/* v20-D4：表单对齐 certificates（ChipGroup 选类 + FloatField 输入 + PressButton 保存） */}
           <Text style={styles.label}>类型</Text>
-          <View style={styles.kindRow}>
-            {KINDS.map((k) => (
-              <Pressable key={k} onPress={() => setKind(k)} style={[styles.kindChip, kind === k && styles.kindChipActive]}>
-                <Text style={[styles.kindChipText, kind === k && styles.kindChipTextActive]}>{resumeAssetKindLabels[k]}</Text>
-              </Pressable>
-            ))}
-          </View>
-          <Text style={styles.label}>名称</Text>
-          <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder="例如：电商中台项目" placeholderTextColor={colors.textFaint} />
-          <Text style={styles.label}>说明 / 链接</Text>
-          <TextInput style={[styles.input, styles.area]} value={content} onChangeText={setContent} placeholder="亮点、职责或成果" placeholderTextColor={colors.textFaint} multiline />
-          <TextInput style={styles.input} value={url} onChangeText={setUrl} placeholder="链接（选填）" placeholderTextColor={colors.textFaint} autoCapitalize="none" />
-          <Pressable style={[styles.primaryBtn, saving && { opacity: 0.5 }]} disabled={saving} onPress={() => void submit()}>
-            {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>保存资产</Text>}
-          </Pressable>
+          <ChipGroup
+            multiple={false}
+            wrap
+            options={KINDS.map((k) => ({ key: k, label: resumeAssetKindLabels[k] }))}
+            selected={[kind]}
+            onToggle={(k) => setKind(k as ResumeAssetKind)}
+          />
+          <FloatField label="名称" value={title} onChangeText={setTitle} placeholder="例如：电商中台项目" />
+          <FloatField label="说明 / 亮点" value={content} onChangeText={setContent} placeholder="职责、成果或掌握程度" multiline />
+          <FloatField label="链接（选填）" value={url} onChangeText={setUrl} placeholder="https://…" autoCapitalize="none" />
+          <PressButton label={editing ? "保存修改" : "保存资产"} loadingLabel="保存中…" loading={saving} onPress={() => void submit()} disabled={saving} />
         </View>
       </BottomSheet>
     </Animated.ScrollView>
@@ -176,46 +266,21 @@ const makeStyles = (colors: ThemeColors) =>
   root: { flex: 1 },
     scroll: { flex: 1, backgroundColor: "transparent" },
     content: { padding: 16, gap: 12 },
-    hero: { marginBottom: 4 },
-    heroTitle: {
-      ...typography.display,
-      color: colors.text,
-    },
-    heroSub: {
-      ...typography.callout,
-      // 任务4：正文级（callout 15pt）不能用 textMuted（浅色下对白底约 3.0，低于 WCAG AA 4.5）。
-      // token 只有三档灰、不能新增，故用 text 加 0.72 透明（≈ #5A5A5C，约 7:1）保留副标题层级。
-      color: colors.textSecondary,
-      marginTop: 4,
-    },
-    addBtn: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.primarySoft, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9 },
-    addBtnText: { color: colors.primary, fontSize: 13, fontWeight: "800" },
-    loading: { marginTop: 24, alignSelf: "center" },
-    empty: { fontSize: 13, color: colors.textMuted, textAlign: "center", paddingVertical: 8 },
+    actions: { flexDirection: "row", gap: 10 },
+    actionItem: { flex: 1 },
+    group: { gap: 10 },
     item: { gap: 8 },
     itemHead: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
     itemTitleWrap: { flex: 1, minWidth: 0 },
-    kind: { fontSize: 11, fontWeight: "800", color: colors.primary },
     itemTitle: {
       ...typography.headline,
       color: colors.text,
-      marginTop: 2,
     },
     itemContent: {
       ...typography.callout,
-      // 任务4：正文级（callout 15pt）改用加深度色（同上）
       color: colors.textSecondary,
     },
-    itemUrl: { fontSize: 12, color: colors.primary, lineHeight: 18 },
-    form: { gap: 10, paddingTop: 6 },
-    label: { fontSize: 12, fontWeight: "700", color: colors.textMuted },
-    kindRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-    kindChip: { borderRadius: 999, paddingHorizontal: 13, paddingVertical: 7, backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.border },
-    kindChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-    kindChipText: { fontSize: 12, fontWeight: "700", color: colors.textMuted },
-    kindChipTextActive: { color: "#ffffff" },
-    input: { ...typography.callout, backgroundColor: colors.surfaceMuted, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10,  color: colors.text },
-    area: { minHeight: 108, textAlignVertical: "top" },
-    primaryBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 12, alignItems: "center", marginTop: 4 },
-    primaryBtnText: { ...typography.callout, color: "#fff",  fontWeight: "800" },
+    itemUrl: { ...typography.caption, color: colors.primary, lineHeight: 18 },
+    form: { gap: 12, paddingTop: 6 },
+    label: { ...typography.caption, fontWeight: "700", color: colors.textMuted },
   });

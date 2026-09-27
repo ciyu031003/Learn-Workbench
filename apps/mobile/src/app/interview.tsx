@@ -10,17 +10,17 @@ import { haptics } from "@/lib/haptics";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
 import { PagerBar } from "@/components/pager-bar";
+import { SuccessBurst } from "@/components/success-burst";
 import { ChipGroup, SheetSection, SheetSegmented, SheetStickyCta, type SegmentOption } from "@/components/sheet";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
-import type { ThemeColors } from "@/theme/tokens";
+import { typography, type ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
 import type { InterviewQuestion, QuestionModule } from "@learn-workbench/shared";
 
-/** 难度徽章：文案 +配色（浅深色通用，靠文字/底色区分） */
+/** 难度徽章：文案 +配色（v20-E1：色收进主题 token） */
 import { ThemedIcon } from "@/components/themed-icon";
-import { typography } from "@/theme/tokens";
 
 /** v1.26：题型只预览前 3 个，其余从「更多」弹层选（不再一行横滑找） */
 const MODULE_PREVIEW = 3;
@@ -28,11 +28,19 @@ const MODULE_PREVIEW = 3;
 const PAGE_SIZE = 10;
 
 const DIFF_LABEL: Record<string, string> = { easy: "简单", medium: "中等", hard: "困难" };
-const DIFF_STYLE: Record<string, { color: string; backgroundColor: string }> = {
-  easy: { color: "#2E7D4F", backgroundColor: "#E7F6EC" },
-  medium: { color: "#A96A12", backgroundColor: "#FCF3DF" },
-  hard: { color: "#A33", backgroundColor: "#FBEBEB" },
-};
+/** v20-E1：难度徽章色收进主题 token（原硬编码浅色 hex 在暗色模式下离群） */
+function diffStyleOf(colors: ThemeColors, level: string): { color: string; backgroundColor: string } {
+  switch (level) {
+    case "easy":
+      return { color: colors.success, backgroundColor: colors.successSoft };
+    case "medium":
+      return { color: colors.warning, backgroundColor: colors.warningSoft };
+    case "hard":
+      return { color: colors.danger, backgroundColor: colors.dangerSoft };
+    default:
+      return { color: colors.textSecondary, backgroundColor: colors.surfaceMuted };
+  }
+}
 
 /** v16：难度筛选收敛到滑动分段（全部 / 简单 / 中等 / 困难） */
 const DIFFICULTY_OPTIONS: SegmentOption[] = [
@@ -57,6 +65,8 @@ export default function InterviewScreen() {
   const [active, setActive] = useState<InterviewQuestion | null>(null);
   const [answer, setAnswer] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  /** v20-E1：判定成功光圈计数（换 key 重放 SuccessBurst） */
+  const [burstN, setBurstN] = useState(0);
   const [result, setResult] = useState<{ correct: boolean; answer: string } | null>(null);
   /** v12 P2-1：难度筛选 + 错题本（只看做错的） */
   const [difficulty, setDifficulty] = useState<string | null>(null);
@@ -140,7 +150,12 @@ export default function InterviewScreen() {
       });
       const data = await r.json();
       if (r.ok) {
-        setResult({ correct: !!data.isCorrect, answer: data.answer || "" });
+        const correct = !!data.isCorrect;
+        setResult({ correct, answer: data.answer || "" });
+        // v20-E1：判定反馈链——答对 success + SuccessBurst 光圈，答错 error 触觉
+        if (correct) haptics.success();
+        else haptics.error();
+        setBurstN((n) => n + 1);
         void loadWrong(); // 刷新错题本
       } else {
         Alert.alert("提交失败", data.error || "请稍后重试");
@@ -183,30 +198,32 @@ export default function InterviewScreen() {
         refreshControl={<RefreshControl {...pullControl} />} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
         <ScreenHeaderLargeTitle title="面试流程" subtitle="题库刷题 · 记录每一次模拟与复盘" />
 
-      {/* v1.26：题型只展示前 MODULE_PREVIEW 个 + 「更多」，其余从下方弹层选择（不再横滑长列表） */}
+      {/* v1.26：题型只展示前 MODULE_PREVIEW 个 + 「更多」；v20-E1：PressableScale + 触觉 */}
       <View style={styles.moduleRow}>
-        <Pressable
-          onPress={() => { setPage(0); selectModule(null); }}
+        <PressableScale
+          onPress={() => { haptics.soft(); setPage(0); selectModule(null); }}
+          scaleTo={0.94}
           style={[styles.moduleChip, moduleFilter === null && styles.moduleChipActive]}
         >
           <Text style={[styles.moduleChipText, moduleFilter === null && styles.moduleChipTextActive]}>全部</Text>
-        </Pressable>
+        </PressableScale>
         {modules.slice(0, MODULE_PREVIEW).map((m) => (
-          <Pressable
+          <PressableScale
             key={m.module}
-            onPress={() => { setPage(0); selectModule(m.module); }}
+            onPress={() => { haptics.soft(); setPage(0); selectModule(m.module); }}
+            scaleTo={0.94}
             style={[styles.moduleChip, moduleFilter === m.module && styles.moduleChipActive]}
           >
             <Text style={[styles.moduleChipText, moduleFilter === m.module && styles.moduleChipTextActive]} numberOfLines={1}>
               {m.module}
             </Text>
-          </Pressable>
+          </PressableScale>
         ))}
         {modules.length > MODULE_PREVIEW ? (
-          <Pressable onPress={() => setModuleSheet(true)} style={[styles.moduleChip, styles.moduleMore]} accessibilityLabel="更多题型">
+          <PressableScale onPress={() => setModuleSheet(true)} scaleTo={0.94} style={[styles.moduleChip, styles.moduleMore]} accessibilityLabel="更多题型">
             <Text style={styles.moduleMoreText}>更多</Text>
             <ThemedIcon name="chevron-down" size={13} color={colors.primary} />
-          </Pressable>
+          </PressableScale>
         ) : null}
       </View>
 
@@ -245,7 +262,7 @@ export default function InterviewScreen() {
             <Card style={styles.questionCard}>
               <View style={styles.questionHead}>
                 <Text style={styles.questionIndex}>{safePage * PAGE_SIZE + i + 1}</Text>
-                <Text style={[styles.difficulty, DIFF_STYLE[q.difficulty] ?? DIFF_STYLE.medium]}>
+                <Text style={[styles.difficulty, diffStyleOf(colors, q.difficulty)]}>
                   {DIFF_LABEL[q.difficulty] ?? q.difficulty}
                 </Text>
                 {q.sourceSite ? <Text style={styles.sourceTag} numberOfLines={1}>来源 {q.sourceSite.replace("github:", "")}</Text> : null}
@@ -358,9 +375,13 @@ export default function InterviewScreen() {
                     <Text style={styles.compareBody}>{result.answer || "暂无参考答案"}</Text>
                   </View>
                 </View>
-                <Text style={[styles.verdict, result.correct ? { color: colors.success } : { color: colors.warning }]}>
-                  {result.correct ? "判定：答得不错 ✅" : "判定：再对照一下参考答案，把差异补上"}
-                </Text>
+                <View style={styles.verdictRow}>
+                  {/* v20-E1：判定成功时行内光圈（SuccessBurst 终于有了第二处消费） */}
+                  {result.correct && burstN > 0 ? <SuccessBurst key={burstN} size={44} color={colors.success} /> : null}
+                  <Text style={[styles.verdict, result.correct ? { color: colors.success } : { color: colors.warning }]}>
+                    {result.correct ? "判定：答得不错 ✅" : "判定：再对照一下参考答案，把差异补上"}
+                  </Text>
+                </View>
                 {active.sourceSite ? (
                   <Text style={styles.sourceLine} numberOfLines={2}>
                     来源：{active.sourceSite}
@@ -393,6 +414,7 @@ const makeStyles = (colors: ThemeColors) =>
     compareHead: { fontSize: 11, fontWeight: "800", color: colors.textMuted },
     compareBody: { fontSize: 12, lineHeight: 18, color: colors.text },
     verdict: { fontSize: 12, fontWeight: "700" },
+    verdictRow: { flexDirection: "row", alignItems: "center", gap: 8 },
     sourceLine: { fontSize: 10, color: colors.textFaint },
     heroTitle: {
       ...typography.display,

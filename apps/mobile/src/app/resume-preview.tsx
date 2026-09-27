@@ -1,8 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Animated from "react-native-reanimated";
-import { ActivityIndicator, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { RefreshControl, StyleSheet, Text, View } from "react-native";
+import { router } from "expo-router";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { Card } from "@/components/card";
+import { SkeletonList } from "@/components/skeleton";
+import { EmptyState } from "@/components/empty-state";
+import { PressableScale } from "@/components/pressable-scale";
+import { ThemedIcon } from "@/components/themed-icon";
+import { ResumeShareSheet, resumeShareDataOf } from "@/components/resume-share-card";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
 import { useTheme } from "@/theme";
@@ -58,6 +64,10 @@ export default function ResumePreviewScreen() {
   }, [load]);
 
   const { control: pullControl } = usePullRefresh(load, { stickyHeader: true });
+
+  /** v20-D2：分享卡片（预览页终于有了"出口"） */
+  const [shareOpen, setShareOpen] = useState(false);
+  const shareData = useMemo(() => (content ? resumeShareDataOf(content) : null), [content]);
 
   const rows = (key: ResumeSectionConfig["key"]) => {
     if (!content) return null;
@@ -129,15 +139,32 @@ export default function ResumePreviewScreen() {
 
   return (
     <View style={styles.root}>
-      <ScreenHeaderStickyBar title="简历预览" scrollY={headerScroll.scrollY} />
+      <ScreenHeaderStickyBar
+        title="简历预览"
+        scrollY={headerScroll.scrollY}
+        right={
+          shareData ? (
+            <PressableScale hitSlop={8} scaleTo={0.88} onPress={() => setShareOpen(true)} accessibilityLabel="分享简历卡片">
+              <ThemedIcon name="share-social-outline" size={19} color={colors.text} />
+            </PressableScale>
+          ) : null
+        }
+      />
     <Animated.ScrollView onScroll={headerScroll.onScroll} scrollEventThrottle={16} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
       refreshControl={<RefreshControl {...pullControl} />} showsVerticalScrollIndicator={false}>
       <ScreenHeaderLargeTitle title="简历预览" subtitle={doc ? `${doc.title} · ${doc.templateKey}` : "内容实时取自资料 / 证书 / 技能 / 资产"} />
 
       {loading ? (
-        <ActivityIndicator color={colors.primary} style={styles.loading} />
+        <SkeletonList count={3} />
       ) : !doc || !content ? (
-        <Card><Text style={styles.empty}>还没有简历，先在 Web 端简历编辑器创建</Text></Card>
+        /* v20-D2：空态给出路（原先只有一句"去 Web 端"死胡同） */
+        <EmptyState
+          icon="document-text-outline"
+          title="还没有简历"
+          hint="添加技能 / 项目 / 证书后，这里会自动组装成简历。"
+          actionLabel="去完善简历资产"
+          onAction={() => router.push("/resume" as never)}
+        />
       ) : (
         <Card style={styles.paper}>
           {visible.map((s) => (
@@ -148,6 +175,7 @@ export default function ResumePreviewScreen() {
           ))}
         </Card>
       )}
+      <ResumeShareSheet visible={shareOpen} onClose={() => setShareOpen(false)} data={shareData} />
     </Animated.ScrollView>
     </View>
   );

@@ -1,12 +1,16 @@
 /* eslint-disable react-hooks/immutability, react-hooks/set-state-in-effect */
 import { useCallback, useEffect, useState, useMemo } from "react";
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { Alert, FlatList, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import Animated, { FadeOut, LinearTransition } from "react-native-reanimated";
 import { typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { useReducedMotion } from "@/lib/motion";
 import { ThemedIcon } from "@/components/themed-icon";
+import { EmptyState } from "@/components/empty-state";
+import { SkeletonList } from "@/components/skeleton";
+import { PressableScale } from "@/components/pressable-scale";
+import { router } from "expo-router";
 import { PagerBar } from "@/components/pager-bar";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
@@ -109,12 +113,21 @@ export default function ApplicationsScreen() {
   // v17-D（R9）：下拉刷新统一走 usePullRefresh（吸顶栏存在 → 偏移自动为 insets.top + 44）
   const { control: pullControl } = usePullRefresh(load);
 
+  /**
+   * v20-E2：乐观更新——本地先改（点完立即看到阶段变化），PUT 失败回滚 + Alert。
+   * 原实现"Sheet 先关 → 等全量重拉"，慢网下像"点了没反应"。
+   */
   const setStage = async (id: number, stage: JobApplicationStage) => {
-    const r = await api("/api/jobs/applications/" + id, { method: "PUT", body: JSON.stringify({ stage }) });
-    // v19-M5：状态推进成功给 success 触觉
-    if (r.ok) {
-      haptics.success();
+    const prevStage = apps.find((a) => a.id === id)?.stage;
+    setApps((prev) => prev.map((a) => (a.id === id ? { ...a, stage } : a)));
+    haptics.success();
+    try {
+      const r = await api("/api/jobs/applications/" + id, { method: "PUT", body: JSON.stringify({ stage }) });
+      if (!r.ok) throw new Error("请求失败");
       await load();
+    } catch {
+      if (prevStage) setApps((prev) => prev.map((a) => (a.id === id ? { ...a, stage: prevStage } : a)));
+      Alert.alert("更新失败", "请稍后重试");
     }
   };
 
@@ -165,12 +178,13 @@ export default function ApplicationsScreen() {
           <View style={[styles.progressFill, { width: pctWidth, backgroundColor: tint }]} />
         </View>
 
-        <Pressable onPress={() => setStageSheetFor(item.id)} style={styles.stageRow} accessibilityRole="button">
+        {/* v20-E2：更新阶段行按压反馈 */}
+        <PressableScale onPress={() => setStageSheetFor(item.id)} scaleTo={0.98} style={styles.stageRow} accessibilityRole="button">
           <ThemedIcon name="swap-horizontal-outline" size={15} color={colors.textMuted} />
           <Text style={styles.stageRowLabel}>更新阶段</Text>
           <Text style={styles.stageRowValue}>{jobApplicationStageLabels[item.stage]}</Text>
           <ThemedIcon name="chevron-forward" size={15} color={colors.textFaint} />
-        </Pressable>
+        </PressableScale>
       </Card>
       </Animated.View>
     );
@@ -190,7 +204,8 @@ export default function ApplicationsScreen() {
           <View style={styles.header}>
             <ScreenHeaderLargeTitle title="我的求职" subtitle={`共 ${apps.length} 条 · 收藏 → Offer 全流程`} />
             {stageCounts.length > 0 ? (
-              <View style={styles.stageStrip}>
+              /* v20-E2：阶段概览横滑（9 个 stage 全铺会折行成 2-3 排小 pills） */
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.stageStrip}>
                 {stageCounts.map((s) => (
                   <View key={s.stage} style={styles.stagePill}>
                     <View style={[styles.stageDot, { backgroundColor: stageTint(colors, s.stage) }]} />
@@ -198,19 +213,24 @@ export default function ApplicationsScreen() {
                     <Text style={styles.stagePillNum}>{s.n}</Text>
                   </View>
                 ))}
-              </View>
+              </ScrollView>
             ) : null}
           </View>
         }
         ListEmptyComponent={
           loading ? (
-            <View style={styles.emptyBox}><ActivityIndicator color={colors.primary} /></View>
-          ) : (
+            /* v20-J5：等待语言与全 App 统一（骨架） */
             <View style={styles.emptyBox}>
-              <ThemedIcon name="briefcase-outline" size={34} color={colors.primary} />
-              <Text style={styles.emptyText}>还没有求职记录</Text>
-              <Text style={styles.emptyHint}>去「招花」点爱心收藏岗位，这里会自动出现</Text>
+              <SkeletonList count={3} />
             </View>
+          ) : (
+            <EmptyState
+              icon="briefcase-outline"
+              title="还没有求职记录"
+              hint="去「招花」点爱心收藏岗位，这里会自动出现。"
+              actionLabel="去招花看看"
+              onAction={() => router.push("/jobs" as never)}
+            />
           )
         }
         ListFooterComponent={
