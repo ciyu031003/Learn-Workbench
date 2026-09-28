@@ -99,7 +99,16 @@ export function ResumeFilesCard() {
       setBusy(true);
       const r = await fetch(getApiUrl() + "/api/resume-files", { method: "POST", headers: headers(), body: form });
       const d = await r.json().catch(() => null);
-      if (!r.ok) throw new Error(typeof d?.error === "string" ? d.error : "上传失败");
+      if (!r.ok) {
+        /**
+         * 真机反馈修复：约 11MB 的 PDF 上传失败，却只弹兜底文案「上传失败」看不到原因。
+         * 真根因是 **nginx client_max_body_size 只有 10m → 回 413 + text/html**，
+         * 于是 r.json() 取不到 error 字段（服务端 nginx 已抬到 32m）。
+         * 这里把状态码与常见原因显式带出来，便于以后一眼定位。
+         */
+        if (r.status === 413) throw new Error("文件超过服务器上限，请压缩后重试");
+        throw new Error(typeof d?.error === "string" ? d.error : "上传失败（HTTP " + r.status + "）");
+      }
       await load();
     } catch (e) {
       Alert.alert("上传失败", e instanceof Error ? e.message : "请稍后重试");
