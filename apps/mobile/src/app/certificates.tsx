@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Animated from "react-native-reanimated";
-import { typography } from "@/theme/tokens";
+import { radius, typography } from "@/theme/tokens";
 import {
   RefreshControl,
   Alert, Pressable, StyleSheet, Text, View } from "react-native";
@@ -13,6 +13,7 @@ import { PressButton } from "@/components/press-button";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
+import { Image } from "expo-image";
 
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
@@ -22,6 +23,7 @@ import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
 import { certificateStatusLabels, certificateExpiryInfo, type Certificate } from "@learn-workbench/shared";
+import { absoluteMediaUrl, deleteUpload, pickAndUpload } from "@/lib/uploads";
 
 type Status = "planned" | "preparing" | "achieved";
 const STATUSES: Status[] = ["planned", "preparing", "achieved"];
@@ -41,6 +43,9 @@ export default function CertificatesScreen() {
   const [issuer, setIssuer] = useState("");
   const [status, setStatus] = useState<Status>("planned");
   const [expiryDate, setExpiryDate] = useState("");
+  /** v1.31：证书图片（复用 /api/uploads → 压 WebP → COS 桶，返回站内相对路径） */
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
 
   const headers = (): Record<string, string> => (token ? { Authorization: `Bearer ${token}` } : {});
 
@@ -66,6 +71,26 @@ export default function CertificatesScreen() {
   /** v18：统一走 usePullRefresh（本页有吸顶紧凑栏 → stickyHeader: true） */
   const { control } = usePullRefresh(load, { stickyHeader: true });
 
+  /**
+   * 证书图片：与运动档案的证件照入口同一套上传链路（选图 + 上传一步到位）。
+   * 换图时清理上一张自己上传的 /uploads/ 资源，避免桶里留孤儿文件。
+   */
+  const changePhoto = async () => {
+    if (photoUploading) return;
+    try {
+      setPhotoUploading(true);
+      const url = await pickAndUpload("other");
+      if (!url) return; // 用户取消
+      if (photoUrl?.startsWith("/uploads/")) void deleteUpload(photoUrl);
+      setPhotoUrl(url);
+      haptics.success();
+    } catch (e) {
+      Alert.alert("图片上传失败", e instanceof Error ? e.message : "请稍后重试");
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
+
   const submit = async () => {
     if (!name.trim()) {
       Alert.alert("请填写证书名称");
@@ -81,6 +106,7 @@ export default function CertificatesScreen() {
           issuer: issuer.trim(),
           status,
           expiryDate: /^\d{4}-\d{2}-\d{2}$/.test(expiryDate.trim()) ? expiryDate.trim() : null,
+          imageUrl: photoUrl,
         }),
       });
       // v19-M5：保存成功给 success 触觉
@@ -90,6 +116,7 @@ export default function CertificatesScreen() {
       setIssuer("");
       setStatus("planned");
       setExpiryDate("");
+      setPhotoUrl(null);
       await load();
     } catch (e) {
       Alert.alert("保存失败", e instanceof Error ? e.message : "请稍后重试");
@@ -160,6 +187,15 @@ export default function CertificatesScreen() {
                 </Pressable>
               }
             >
+              {/* v1.31：证书图一行一列（横向长图、满宽），不再竖版 */}
+              {r.imageUrl ? (
+                <Image
+                  source={{ uri: absoluteMediaUrl(r.imageUrl) ?? r.imageUrl }}
+                  style={styles.certImage}
+                  contentFit="cover"
+                  transition={200}
+                />
+              ) : null}
               <View style={styles.tagRow}>
                 <Text style={styles.tag}>{certificateStatusLabels[st]}</Text>
                 {info.level === "soon" || info.level === "expired" ? (
@@ -182,6 +218,29 @@ export default function CertificatesScreen() {
             onChangeText={setIssuer}
             placeholder="例如：中国信息安全测评中心"
           />
+          {/* v1.31：图片入口（视觉与运动档案的证件照入口一致：缩略图 + 说明 + 可点更换；缩略图取横向比例呼应证书横图） */}
+          <Pressable onPress={() => void changePhoto()} style={styles.certPhotoRow} accessibilityLabel="上传证书图片">
+            {photoUrl ? (
+              <Image
+                source={{ uri: absoluteMediaUrl(photoUrl) ?? photoUrl }}
+                style={styles.certPhotoThumb}
+                contentFit="cover"
+                transition={200}
+              />
+            ) : (
+              <View style={[styles.certPhotoThumb, styles.certPhotoEmpty]}>
+                <ThemedIcon name={photoUploading ? "cloud-upload-outline" : "camera-outline"} size={20} color={colors.textFaint} />
+              </View>
+            )}
+            <View style={styles.certPhotoMeta}>
+              <Text style={styles.certPhotoTitle}>证书图片</Text>
+              <Text style={styles.certPhotoHint}>
+                {photoUploading ? "上传中…" : photoUrl ? "点这里换一张" : "点这里从相册选择（横图更佳）"}
+              </Text>
+            </View>
+            <ThemedIcon name="chevron-forward" size={18} color={colors.textFaint} />
+          </Pressable>
+
           <Text style={styles.label}>状态</Text>
           <View style={styles.kindRow}>
             {STATUSES.map((s) => (
@@ -240,6 +299,33 @@ const makeStyles = (colors: ThemeColors) =>
       // 层级改由字号/字重承担（callout 15 vs headline 17），颜色回到正文色。
       color: colors.textSecondary,
     },
+    certImage: {
+      width: "100%",
+      aspectRatio: 16 / 10,
+      borderRadius: radius.md,
+      backgroundColor: colors.surfaceMuted,
+    },
+    certPhotoRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      borderRadius: radius.lg,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceStrong,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+    },
+    certPhotoThumb: { width: 92, height: 58, borderRadius: radius.md, backgroundColor: colors.canvas },
+    certPhotoEmpty: {
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderStrong,
+    },
+    certPhotoMeta: { flex: 1, gap: 2 },
+    certPhotoTitle: { fontSize: typography.callout.fontSize, fontWeight: "700", color: colors.text },
+    certPhotoHint: { fontSize: typography.caption.fontSize, color: colors.textMuted },
     form: { gap: 10, paddingTop: 6 },
     label: { fontSize: typography.caption.fontSize, fontWeight: "700", color: colors.textMuted },
     kindRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },

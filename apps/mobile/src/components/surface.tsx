@@ -104,6 +104,18 @@ export function GlassSurface({
     );
   }
 
+  /**
+   * 真机色差修复（v1.31）：不再叠半透明覆盖层。
+   *
+   * 原实现：styles.elevated（不透明 surfaceStrong）之后**再叠**一层 rgba(255,255,255,0.86)
+   * （浅色）/ rgba(20,24,28,0.72)（深色），把整卡变成了"半透明底"。
+   * 后果（Android）：shadows.card 带 elevation: 2，而 **elevation 在非不透明背景上无法生成
+   * 圆角轮廓**，系统改用背景色按**不透明矩形**算 outline —— 卡片周围于是出现一块
+   * "没盖满、四周发灰"的白色矩形，正是用户反馈的「中间白色方框 + 四周灰色色差」。
+   *
+   * 现在：玻璃兜底分支直接用 styles.elevated 的不透明底色（圆角阴影正常，内层同色小块也不再突兀）；
+   * 玻璃的受光观感由顶部 1px 高光 + 柔影承担。仅当调用方显式传 tint（实色）时才覆盖底色。
+   */
   return (
     <View
       style={[
@@ -111,7 +123,7 @@ export function GlassSurface({
         { borderRadius: corner },
         padded && styles.padded,
         styles.elevated,
-        opaque ? { backgroundColor: colors.surfaceStrong } : glassTintOverlay(colors, dark, tint),
+        tint ? { backgroundColor: tint } : null,
         style,
       ]}
     >
@@ -120,12 +132,6 @@ export function GlassSurface({
       {children}
     </View>
   );
-}
-
-/** 非 iOS 回落时的染色：深色下更暗、浅色下更亮，保证玻璃内文字对比度 */
-function glassTintOverlay(colors: ThemeColors, dark: boolean, tint?: string): ViewStyle {
-  if (tint) return { backgroundColor: tint };
-  return { backgroundColor: dark ? "rgba(20,24,28,0.72)" : "rgba(255,255,255,0.86)" };
 }
 
 const makeStyles = (colors: ThemeColors, dark: boolean) =>

@@ -594,7 +594,9 @@ const makeStyles = (colors: ThemeColors) =>
     goalRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
     goalLabel: { ...typography.micro, fontWeight: "700", color: colors.text },
     goalValue: { ...typography.micro, fontWeight: "600", color: colors.textMuted, ...tabularNums },
-    goalTrack: { height: 7, borderRadius: 999, backgroundColor: colors.surfaceStrong, overflow: "hidden" },
+    // v1.31：玻璃卡改为不透明底后，轨道不能再和卡面同为 surfaceStrong（白底白轨道会看不见）——
+    // 改用 surfaceMuted，深色下同样是可见的浅轨道（与 daily-os-summary 的约定一致）
+    goalTrack: { height: 7, borderRadius: 999, backgroundColor: colors.surfaceMuted, overflow: "hidden" },
     goalFill: { height: 7, borderRadius: 999, backgroundColor: colors.primary },
     weekRow: {
       flexDirection: "row",

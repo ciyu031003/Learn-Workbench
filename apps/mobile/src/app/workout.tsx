@@ -498,8 +498,15 @@ function MiniStepper({
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
-  root: { flex: 1 },
-    scroll: { flex: 1, backgroundColor: "transparent" },
+  /**
+   * 真机过渡修复（v1.31）：推入页必须自己铺**不透明**底色。
+   * 栈的 contentStyle 是 transparent（为了露出全局 DailyBackground），因此每个被推入的页面
+   * 都要自己兜底背景；此前这里只有 flex:1 —— 推入动画期间整页透明，上一屏（健康首页）会透出来，
+   * 再叠加本页训练卡的 entering 错峰入场（首帧卡片不可见），就出现了
+   * 「两页重合约 200ms、随后又自己好了」的现象。与同类推入页 sports-card 的约定保持一致。
+   */
+  root: { flex: 1, backgroundColor: colors.canvas },
+    scroll: { flex: 1 },
     content: { padding: 16, gap: 12 },
     addBtn: {
       alignSelf: "flex-start",

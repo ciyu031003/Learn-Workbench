@@ -596,23 +596,31 @@ export default function SportsCardScreen() {
               ))}
             </View>
 
-            {/* 主力装备：只给球拍 / 球鞋 / 比赛用球配图（球拍横放通栏，球鞋与球两列），其余纯文字 */}
+            {/* 主力装备：只给球拍 / 球鞋 / 比赛用球配图。
+                v1.31：**球拍与羽毛球都走"一行一列"通栏横展**（羽毛球图不再竖着显示），
+                球鞋 / 拍线仍是一行两列；其余纯文字 */}
             <View style={styles.sectionHead}>
               <Text style={styles.sectionTitle}>主力装备</Text>
               <Text style={styles.sectionHint}>{gearRows.length > 0 ? gearRows.length + " 项 · 点图可换" : "待填写"}</Text>
             </View>
             {gearRows.length > 0 ? (() => {
-              const wideEntries = gearRows.filter((g) => gearKindFromLabel(g.label) === "racket");
+              // 一行一列（通栏横展）：球拍 + 羽毛球
+              const wideEntries = gearRows.filter((g) => {
+                const kind = gearKindFromLabel(g.label);
+                return kind === "racket" || kind === "ball";
+              });
               const gridEntries = gearRows.filter((g) => {
                 const kind = gearKindFromLabel(g.label);
-                // 一行两列：球鞋 ｜ 拍线（比赛用球同理）
-                return kind === "shoes" || kind === "string" || kind === "ball";
+                // 一行两列：球鞋 ｜ 拍线
+                return kind === "shoes" || kind === "string";
               });
               const textEntries = gearRows.filter((g) => !gearRowWantsImage(g.label));
               return (
                 <>
                   {wideEntries.map((item) => {
                     const uri = absoluteMediaUrl(item.imageUrl);
+                    // 羽毛球是方形/横向商品图，**不能**套用球拍的 90° 旋转（那会把羽毛球竖起来显示）
+                    const flat = gearKindFromLabel(item.label) === "ball";
                     return (
                       <View key={item.label} style={styles.gearWide}>
                         <Pressable
@@ -622,7 +630,12 @@ export default function SportsCardScreen() {
                         >
                           {uri ? (
                             <>
-                              <Image source={{ uri }} style={styles.gearWideImg} contentFit="contain" transition={200} />
+                              <Image
+                                source={{ uri }}
+                                style={[styles.gearWideImg, flat && styles.gearWideImgFlat]}
+                                contentFit="contain"
+                                transition={200}
+                              />
                               <View style={styles.gearSwapPill}>
                                 <ThemedIcon name="camera-outline" size={11} color="#ffffff" />
                                 <Text style={styles.gearSwapText}>换图</Text>
@@ -1243,6 +1256,8 @@ const makeStyles = (colors: ThemeColors) =>
       gap: 6,
     },
     gearWideImg: { width: "100%", aspectRatio: 1, transform: [{ rotate: "90deg" }, { scale: 0.9 }] },
+    /** 羽毛球等"本来就横向"的图：不必旋转，直接铺满通栏图片区（104 高 → 横向长图） */
+    gearWideImgFlat: { width: "100%", height: "100%", transform: [{ rotate: "0deg" }, { scale: 1 }] },
     gearWideMeta: { gap: 3 },
     gearWideLabel: { fontSize: 10.5, fontWeight: "800", color: colors.primaryStrong, letterSpacing: 0.8 },
     gearWideValue: { fontSize: 14.5, fontWeight: "700", color: colors.text },
