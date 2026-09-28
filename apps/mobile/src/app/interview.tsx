@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Animated, { FadeInDown, LinearTransition } from "react-native-reanimated";
-import { ActivityIndicator, Alert, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Modal, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from "react-native";
 import { Card } from "@/components/card";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
@@ -12,9 +12,10 @@ import { PressableScale } from "@/components/pressable-scale";
 import { PagerBar } from "@/components/pager-bar";
 import { SuccessBurst } from "@/components/success-burst";
 import { ChipGroup, SheetSection, SheetSegmented, SheetStickyCta, type SegmentOption } from "@/components/sheet";
+import { QuizStack, type QuizItem } from "@/components/quiz-stack";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
-import { typography, type ThemeColors } from "@/theme/tokens";
+import { radius, spacing, typography, type ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
 import type { InterviewQuestion, QuestionModule } from "@learn-workbench/shared";
@@ -26,6 +27,8 @@ import { ThemedIcon } from "@/components/themed-icon";
 const MODULE_PREVIEW = 3;
 /** v1.26：每页题目数（分页展示，不再一路下滑） */
 const PAGE_SIZE = 10;
+/** v1.31 快速过题：可选题量（随机抽题） */
+const QUIZ_COUNTS = [10, 15, 20] as const;
 
 const DIFF_LABEL: Record<string, string> = { easy: "简单", medium: "中等", hard: "困难" };
 /** v20-E1：难度徽章色收进主题 token（原硬编码浅色 hex 在暗色模式下离群） */
@@ -176,6 +179,72 @@ export default function InterviewScreen() {
   const from = shown.length === 0 ? 0 : safePage * PAGE_SIZE + 1;
   const to = Math.min(shown.length, safePage * PAGE_SIZE + PAGE_SIZE);
 
+  /**
+   * v1.31 快速过题：屏幕中间选题型/题量 → 随机抽题 → 堆叠卡速览。
+   * 答案走**只读**接口 /api/questions/answers（不写 attempts、不改统计与错题本）。
+   */
+  const [quizPicker, setQuizPicker] = useState(false);
+  const [quizModule, setQuizModule] = useState<string>("__all__");
+  const [quizCount, setQuizCount] = useState<number>(QUIZ_COUNTS[0]);
+  const [quizItems, setQuizItems] = useState<QuizItem[]>([]);
+  const [quizVisible, setQuizVisible] = useState(false);
+  /** 每次开始速览都换 key 重挂 QuizStack —— 免掉"用 effect 重置内部状态"的反模式 */
+  const [quizSession, setQuizSession] = useState(0);
+  const [quizLoading, setQuizLoading] = useState(false);
+
+  const startQuiz = async () => {
+    if (quizLoading) return;
+    setQuizLoading(true);
+    try {
+      const qs = new URLSearchParams();
+      if (quizModule !== "__all__") qs.set("module", quizModule);
+      const r = await fetch(getApiUrl() + "/api/questions" + (qs.size ? "?" + qs.toString() : ""), { headers: headers() });
+      const data = (await r.json().catch(() => null)) as { questions?: InterviewQuestion[] } | null;
+      const pool: InterviewQuestion[] = Array.isArray(data?.questions) ? data!.questions! : [];
+      if (pool.length === 0) {
+        Alert.alert("暂无题目", "这个题型下还没有题目，换个题型试试");
+        return;
+      }
+      const want = Math.min(quizCount, pool.length);
+      const shuffled = [...pool];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const tmp = shuffled[i];
+        shuffled[i] = shuffled[j];
+        shuffled[j] = tmp;
+      }
+      const picked = shuffled.slice(0, want);
+      const ar = await fetch(
+        getApiUrl() + "/api/questions/answers?ids=" + picked.map((q) => q.id).join(","),
+        { headers: headers() }
+      );
+      const ad = (await ar.json().catch(() => null)) as { answers?: { id: number; answer: string }[] } | null;
+      const answerOf: Record<number, string> = {};
+      if (Array.isArray(ad?.answers)) {
+        for (const a of ad!.answers!) answerOf[Number(a.id)] = String(a.answer ?? "");
+      }
+      setQuizItems(
+        picked.map((q) => ({
+          id: q.id,
+          module: q.module,
+          question: q.question,
+          difficulty: q.difficulty,
+          answer: answerOf[q.id] ?? "",
+        }))
+      );
+      if (pool.length < quizCount) {
+        Alert.alert("题目不足", "该题型只有 " + pool.length + " 道题，本次抽取全部");
+      }
+      setQuizPicker(false);
+      setQuizSession((s) => s + 1);
+      setQuizVisible(true);
+    } catch {
+      Alert.alert("加载失败", "题库暂时不可用，请稍后重试");
+    } finally {
+      setQuizLoading(false);
+    }
+  };
+
   /** 下一题（在当前筛选结果里顺序往下） */
   const nextQuestion = () => {
     if (!active) return;
@@ -240,6 +309,23 @@ export default function InterviewScreen() {
         onToggle={() => { setPage(0); setOnlyWrong((v) => !v); }}
         wrap
       />
+
+      {/* v1.31：快速过题入口 —— 面试前把题目与答案快速过一遍 */}
+      <PressableScale
+        onPress={() => { haptics.soft(); setQuizPicker(true); }}
+        scaleTo={0.98}
+        style={styles.quizCta}
+        accessibilityLabel="快速过题"
+      >
+        <View style={styles.quizCtaIcon}>
+          <ThemedIcon name="flash-outline" size={16} color={colors.canvas} />
+        </View>
+        <View style={styles.quizCtaBody}>
+          <Text style={styles.quizCtaTitle}>快速过题</Text>
+          <Text style={styles.quizCtaHint}>随机 10~20 题 · 左右滑动速览题目与答案</Text>
+        </View>
+        <ThemedIcon name="chevron-forward" size={16} color={colors.canvas} />
+      </PressableScale>
 
       {loading ? (
         <ActivityIndicator color={colors.primary} style={styles.loading} />
@@ -394,6 +480,44 @@ export default function InterviewScreen() {
         ) : null}
       </BottomSheet>
       </Animated.ScrollView>
+
+      {/* v1.31：快速过题 —— 屏幕中间选题型与题量（点空白关闭，只有确认按钮提交） */}
+      <Modal visible={quizPicker} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setQuizPicker(false)}>
+        <View style={styles.quizModalRoot}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setQuizPicker(false)} accessibilityLabel="关闭快速过题" />
+          <Card style={styles.quizModalCard}>
+            <Text style={styles.quizModalTitle}>快速过题</Text>
+            <Text style={styles.quizModalHint}>选择题型与题量，随机抽题后左右滑动速览</Text>
+
+            <Text style={styles.quizFieldLabel}>题型</Text>
+            <ChipGroup
+              wrap
+              multiple={false}
+              options={[{ key: "__all__", label: "全部" }, ...modules.map((m) => ({ key: m.module, label: m.module }))]}
+              selected={[quizModule]}
+              onToggle={(k) => setQuizModule(k)}
+            />
+
+            <Text style={styles.quizFieldLabel}>题量</Text>
+            <ChipGroup
+              wrap
+              multiple={false}
+              options={QUIZ_COUNTS.map((n) => ({ key: String(n), label: n + " 题" }))}
+              selected={[String(quizCount)]}
+              onToggle={(k) => setQuizCount(Number(k))}
+            />
+
+            <SheetStickyCta
+              label={quizLoading ? "准备中…" : "开始快速过题"}
+              icon="flash-outline"
+              loading={quizLoading}
+              onPress={() => void startQuiz()}
+            />
+          </Card>
+        </View>
+      </Modal>
+
+      <QuizStack key={quizSession} visible={quizVisible} items={quizItems} onClose={() => setQuizVisible(false)} />
     </View>
   );
 }
@@ -436,6 +560,33 @@ const makeStyles = (colors: ThemeColors) =>
     moduleMoreText: { fontSize: 12, fontWeight: "800", color: colors.primary },
     /* v20-J2：分页条本体收进 components/pager-bar.tsx，仅留外边距 */
     pager: { paddingTop: 6 },
+    /** v1.31 快速过题：入口 CTA */
+    quizCta: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.md,
+      borderRadius: radius.lg,
+      backgroundColor: colors.primary,
+    },
+    quizCtaIcon: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: "rgba(255,255,255,0.22)",
+    },
+    quizCtaBody: { flex: 1, gap: 2 },
+    quizCtaTitle: { ...typography.headline, color: colors.canvas },
+    quizCtaHint: { ...typography.caption, color: colors.canvas, opacity: 0.85 },
+    /** v1.31 快速过题：居中选题弹窗 */
+    quizModalRoot: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.lg, backgroundColor: colors.scrim },
+    quizModalCard: { width: "100%", maxWidth: 420, gap: spacing.sm },
+    quizModalTitle: { ...typography.title2, color: colors.text },
+    quizModalHint: { ...typography.caption, color: colors.textMuted },
+    quizFieldLabel: { ...typography.caption, color: colors.primary, marginTop: spacing.xs },
     loading: { marginTop: 24, alignSelf: "center" },
     empty: { fontSize: 13, color: colors.textMuted, textAlign: "center", paddingVertical: 8 },
     questionCard: { gap: 6 },

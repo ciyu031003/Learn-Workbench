@@ -75,6 +75,24 @@ export async function listQuestions(opts: { module?: string; difficulty?: string
   }));
 }
 
+/**
+ * 快速过题（v1.31）：按 id 批量取答案。
+ *
+ * 为什么需要它：`listQuestions` **刻意不返回 answer**（防作弊，答案只在提交作答后由
+ * `/api/questions/attempt` 揭示）。而「面试前快速把题目和答案过一遍」这个场景**不能走提交** ——
+ * 否则会把一次浏览记成一次作答、污染统计与错题本。故新增只读接口，仅暴露答案文本，
+ * 不写 attempts、不改任何统计；路由侧限制单次 id 数量（见 app/api/questions/answers/route.ts）。
+ */
+export async function listQuestionAnswers(ids: number[]): Promise<{ id: number; answer: string }[]> {
+  if (ids.length === 0) return [];
+  const { rows } = await pgPool.query(
+    `SELECT id, answer FROM interview_questions
+      WHERE is_listed = true AND id = ANY($1::bigint[])`,
+    [ids]
+  );
+  return rows.map((r) => ({ id: Number(r.id), answer: r.answer == null ? "" : String(r.answer) }));
+}
+
 function interviewQuestionDifficulty(d: unknown): InterviewQuestion["difficulty"] {
   const s = ["easy", "medium", "hard"];
   return (s.includes(String(d)) ? String(d) : "medium") as InterviewQuestion["difficulty"];
