@@ -29,7 +29,6 @@ import Animated, {
   useSharedValue,
   withRepeat,
   withSequence,
-  withSpring,
   withTiming,
 } from "react-native-reanimated";
 import { BottomSheet } from "@/components/bottom-sheet";
@@ -39,7 +38,6 @@ import { PressableScale } from "@/components/pressable-scale";
 import { PagerBar } from "@/components/pager-bar";
 import { StatRow } from "@/components/stat";
 import { JobFreshnessBadge, JobNewBadge, JobSourceBadge, avatarColorOf, jobSalaryText } from "@/components/job-bits";
-import { SPRING } from "@/lib/motion";
 import { haptics } from "@/lib/haptics";
 import {  radius, typography  } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
@@ -81,12 +79,15 @@ function JobCard({
    * 滚动全程反复触发 UI 线程动画；更早的 entering 版本则在原生层直接崩溃（踩坑 64422a9）。
    * 结论：虚拟化列表只保留**按压反馈**（scale），入场交给骨架屏与分页加载的既有节奏。
    */
-  const heartScale = useSharedValue(1);
-  useEffect(() => {
-    // 收藏状态由父层数据驱动：变红瞬间给一个"心跳"回弹（SPRING.snappy 有回弹不甩尾）
-    heartScale.value = job.isFav ? withSequence(withSpring(1.35, SPRING.snappy), withSpring(1, SPRING.snappy)) : withTiming(1, { duration: 120 });
-  }, [job.isFav, heartScale]);
-  const heartStyle = useAnimatedStyle(() => ({ transform: [{ scale: heartScale.value }] }));
+  /**
+   * 真机闪退修复（第三次，这次是列表项本身）：
+   * 虚拟化列表项里**不跑任何 Reanimated 动画**。
+   * 此前这里用 Animated.View + heartScale 弹簧，由 useEffect 在 item **挂载时**启动 ——
+   * FlashList 滚动会不断回收并重挂 item，等于**滚动全程反复在 UI 线程启动弹簧动画**，
+   * 原生层崩溃（与历史上 entering 让列表崩掉同一类问题，见踩坑 64422a9 / v19-S1）。
+   * 收藏态改由颜色表达（danger / textFaint），按压反馈交给外层 PressableScale。
+   */
+  const heartColor = job.isFav ? colors.danger : colors.textFaint;
 
   return (
     <PressableScale onPress={() => onPress(job)} scaleTo={0.97} style={styles.jobCard}>
@@ -135,10 +136,8 @@ function JobCard({
         ) : null}
         <Text style={styles.time}>{formatRelativeTime(job.publishedAt)}</Text>
         <PressableScale hitSlop={10} onPress={() => onToggleFavorite(job)}>
-          <Animated.View style={heartStyle}>
-            {/* v19-M7：心形色收进主题 token（danger=收藏 / textFaint=未收藏） */}
-            <ThemedIcon name={job.isFav ? "heart" : "heart-outline"} size={18} color={job.isFav ? colors.danger : colors.textFaint} />
-          </Animated.View>
+          {/* v19-M7：心形色收进主题 token（danger=收藏 / textFaint=未收藏）；此处不做动画（见上方说明） */}
+          <ThemedIcon name={job.isFav ? "heart" : "heart-outline"} size={18} color={heartColor} />
         </PressableScale>
         <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
       </View>
