@@ -10,6 +10,7 @@ import Animated, {
   useAnimatedStyle,
   useDerivedValue,
   useSharedValue,
+  withDelay,
   withSpring,
   withTiming,
 } from "react-native-reanimated";
@@ -27,6 +28,8 @@ function parsePercent(value: string, fallback = 0.5) {
 
 const SLIDE_IN = motion.standard.duration;
 const SLIDE_OUT = 180;
+/** 抽屉内容的淡入时长（自上而下渐显） */
+const CONTENT_IN = 240;
 /** HIG Sheets：顶部圆角比常规卡大一档 */
 const SHEET_CORNER = radius.xl + 4;
 
@@ -122,6 +125,8 @@ export function BottomSheet({
   const translateY = useSharedValue(collapsed);
   const dragBase = useSharedValue(restOffset);
   const scrim = useSharedValue(0);
+  /** 抽屉内容的自上而下淡入进度（0→1） */
+  const reveal = useSharedValue(0);
 
   // ⚠️ 顺序约束（v1.4.2 真机崩溃根因，见看板踩坑 78）：worklet 会在**定义处**
   // 快照它引用的自由变量 —— 下面这些量都被 panGesture 的 worklet 读取，
@@ -170,8 +175,11 @@ export function BottomSheet({
   }, [collapsed, restOffset, collapsedSV, restOffsetSV]);
 
   // 滑入 / 滑出（Modal 不做动画，全部自己实现）
-  // v19-M6：入场/展开/回弹改用 SPRING.sheet 弹簧（阻尼比 0.86，iOS 手感）；
-  // 退场保持 timing 快出 —— "入弹出不弹"是弹层的惯例，退场弹簧会显得拖沓。
+  // 动效（真机反馈后定稿）：
+  // - 入场：与遮罩同一套 timing 曲线，平滑上滑到位，**零过冲**（原来弹簧 ratio 0.86 会上下弹动）；
+  // - 展开 / 拖拽落位：SPRING.sheetSettle（临界阻尼 ratio 1，同样不弹）；
+  // - 退场：timing 快出 —— 退场用弹簧会显得拖沓；
+  // - 内容：抽屉到位后自上而下淡入（reveal），关闭时快速淡出。
   useEffect(() => {
     if (visible) {
       setMounted(true);
@@ -182,8 +190,18 @@ export function BottomSheet({
       // 静止位 = restOffset：非展开弹层是 0；可展开弹层是 maxOffset
       // （元素本身按 full 高度渲染，靠 translateY 下移露出 height 比例的高度）——
       // 这样「上滑到全屏」才有可拖的余量（v6 决策 D12）。
-      translateY.value = withSpring(restOffsetSV.value, SPRING.sheet);
+      //
+      // 真机反馈：原来 withSpring + ratio 0.86 会让抽屉"上下弹动"，观感浮夸。
+      // 改为与遮罩同一套 timing 曲线 —— 平滑上滑到位、零过冲。
+      translateY.value = withTiming(restOffsetSV.value, { duration: SLIDE_IN, easing: Easing.out(Easing.cubic) });
+      // 抽屉到位后，内部组件与文字自上而下淡入（整体轻微下移 + 透明度渐显）
+      reveal.value = 0;
+      reveal.value = withDelay(
+        Math.round(SLIDE_IN * 0.45),
+        withTiming(1, { duration: CONTENT_IN, easing: Easing.out(Easing.quad) })
+      );
     } else if (mounted) {
+      reveal.value = withTiming(0, { duration: 120, easing: Easing.in(Easing.quad) });
       scrim.value = withTiming(0, { duration: SLIDE_OUT, easing: Easing.in(Easing.cubic) });
       translateY.value = withTiming(collapsedSV.value, { duration: SLIDE_OUT, easing: Easing.in(Easing.cubic) }, (fin) => {
         if (fin) {
@@ -193,7 +211,7 @@ export function BottomSheet({
       });
     }
     // 只在 visible/mounted 变化时播动画（collapsed/restOffset 走上面的共享值同步，不进依赖）
-  }, [visible, mounted, scrim, translateY, dragBase, collapsedSV, restOffsetSV]);
+  }, [visible, mounted, scrim, reveal, translateY, dragBase, collapsedSV, restOffsetSV]);
 
   const close = useCallback(() => {
     setExpanded(false);
@@ -210,7 +228,7 @@ export function BottomSheet({
     if (!expandable) return;
     setExpanded((prev) => {
       const next = !prev;
-      translateY.value = withSpring(next ? 0 : maxOffset, SPRING.sheet);
+      translateY.value = withSpring(next ? 0 : maxOffset, SPRING.sheetSettle);
       dragBase.value = next ? 0 : maxOffset;
       return next;
     });
@@ -238,17 +256,17 @@ export function BottomSheet({
         if (current - lift.value > 110 || e.velocityY > 900) {
           runOnJS(close)();
         } else {
-          translateY.value = withSpring(0, SPRING.sheet);
+          translateY.value = withSpring(0, SPRING.sheetSettle);
         }
         return;
       }
       if (current > maxOffset + 90) {
         runOnJS(close)();
       } else if (current < maxOffset * 0.5 || e.velocityY < -500) {
-        translateY.value = withSpring(0, SPRING.sheet);
+        translateY.value = withSpring(0, SPRING.sheetSettle);
         runOnJS(setExpanded)(true);
       } else {
-        translateY.value = withSpring(maxOffset, SPRING.sheet);
+        translateY.value = withSpring(maxOffset, SPRING.sheetSettle);
         runOnJS(setExpanded)(false);
       }
     });
@@ -266,6 +284,15 @@ export function BottomSheet({
     };
   });
   const animatedScrim = useAnimatedStyle(() => ({ opacity: scrim.value }));
+  /**
+   * 抽屉内容自上而下淡入：整体从上方 12pt 处落到最终位置，同时透明度 0 → 1。
+   * 只作用在**内容区**（head / footer 不参与）—— 标题与吸底 CTA 立刻可见，
+   * 主体信息有"落下来"的层次感，且不依赖任何子组件配合。
+   */
+  const animatedReveal = useAnimatedStyle(() => ({
+    opacity: reveal.value,
+    transform: [{ translateY: (1 - reveal.value) * 12 }],
+  }));
 
   const content = body ? body(expanded) : children;
 
@@ -309,7 +336,7 @@ export function BottomSheet({
 
             {segmented ? <View style={styles.segmentedWrap}>{segmented}</View> : null}
 
-            <View style={styles.flex}>
+            <Animated.View style={[styles.flex, animatedReveal]}>
               {scroll ? (
                 <ScrollView
                   style={styles.flex}
@@ -327,7 +354,7 @@ export function BottomSheet({
               ) : (
                 <View style={[styles.flex, { paddingBottom: footer ? 8 : insets.bottom + 8 }]}>{content}</View>
               )}
-            </View>
+            </Animated.View>
 
             {/* v16 吸底 CTA：不在 ScrollView 内，内容再长按钮也不会被推走 */}
             {footer ? (

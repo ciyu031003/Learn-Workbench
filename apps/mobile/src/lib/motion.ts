@@ -52,6 +52,12 @@ export function dampingForRatio(ratio: number, stiffness: number, mass = 1): num
  */
 export const SPRING = {
   sheet: { damping: dampingForRatio(0.86, 220), stiffness: 220 },
+  /**
+   * 弹层"落位"：**临界阻尼**（ratio 1，零过冲）。
+   * 真机反馈：抽屉打开时用 sheet（ratio 0.86）会来回弹两下，用户觉得"太浮夸" ——
+   * 抽屉的落位一律走这一档，只干净地停住；需要回弹感的按压/勾选仍用 snappy / press。
+   */
+  sheetSettle: { damping: dampingForRatio(1, 220), stiffness: 220 },
   snappy: { damping: dampingForRatio(0.86, 320), stiffness: 320 },
   gentle: { damping: dampingForRatio(0.86, 160), stiffness: 160 },
   press: { damping: dampingForRatio(0.9, 300), stiffness: 300 },
