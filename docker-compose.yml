@@ -82,6 +82,10 @@ services:
       - /data/learn-workbench/bing:/app/assets/backgrounds/bing
       # 用户上传图片（COS 桶）：容器写盘即入桶，nginx 走 /uploads/ 直出
       - /data/learn-workbench/uploads:/app/public/uploads
+      # 私密资料（简历等，COS 桶）：不经 nginx 直出，只由 API 校验归属后读取。
+      # 修复：此前简历写 <uploads 父目录>/resume 即 /app/public/resume —— 该路径没有挂载，
+      # 落在容器可写层（本地盘且随容器重建丢失），这是简历上传后不存在的另一半原因。
+      - /data/learn-workbench/private:/app/public/private
       # 信息源注册表 + 登录态 Cookie（宿主机直接改，无需重建镜像）
       - ./config/job-hosts:/app/config/job-hosts:ro
     networks: [lwb]

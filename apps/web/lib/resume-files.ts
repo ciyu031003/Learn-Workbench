@@ -21,10 +21,17 @@ export const RESUME_ALLOWED: Record<string, string[]> = {
 };
 
 export function resumeRootDir(): string {
-  // 默认与图片同盘：<UPLOAD_DIR 的父目录>/resume（服务器上即 /data/learn-workbench/resume）
+  /**
+   * 私密资料目录（简历等）。落点必须是宿主机挂进容器的卷，否则文件留在容器可写层：
+   * 本地盘、且容器每次重建（部署）就丢 —— 这正是简历上传后查不到的原因之一。
+   *
+   * compose 已把 COS 桶挂成 /app/public/private（与 /app/public/uploads 同级但 nginx 不直出，
+   * 只能经 API 校验 user_id 后读取）；服务器上的实际位置是 /data/learn-workbench/private
+   * （/data = cosfs 挂载 = COS 桶）。
+   */
   if (process.env.RESUME_DIR) return process.env.RESUME_DIR;
   const uploadDir = process.env.UPLOAD_DIR ?? path.join(process.cwd(), "public", "uploads");
-  return path.join(path.dirname(uploadDir), "resume");
+  return path.join(path.dirname(uploadDir), "private");
 }
 
 export function resumeExtOf(fileName: string): string | null {
