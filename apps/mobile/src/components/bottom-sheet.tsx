@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/immutability, react-hooks/set-state-in-effect */
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Dimensions, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Dimensions, Keyboard, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import { useReanimatedKeyboardAnimation } from "react-native-keyboard-controller";
@@ -186,6 +186,11 @@ export function BottomSheet({
       setExpanded(false);
       translateY.value = collapsedSV.value;
       dragBase.value = restOffsetSV.value;
+      // 真机闪退防护：打开抽屉前先收起键盘。
+      // 场景：招花列表的搜索框还聚焦（键盘弹着）→ 点进岗位详情 → 一滑动触发内容区的
+      // keyboardDismissMode="on-drag" 收键盘 → 而 Modal 在 Android 是独立 Window，
+      // 键盘动画在其中的驱动是已知的崩溃面；先收键盘即从源头避开这条路径（顺带体验也更好）。
+      Keyboard.dismiss();
       scrim.value = withTiming(1, { duration: SLIDE_IN, easing: Easing.out(Easing.cubic) });
       // 静止位 = restOffset：非展开弹层是 0；可展开弹层是 maxOffset
       // （元素本身按 full 高度渲染，靠 translateY 下移露出 height 比例的高度）——
