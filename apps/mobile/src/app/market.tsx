@@ -52,6 +52,7 @@ import {
   type MarketPersonalInsights,
   type MarketRankItem,
 } from "@/lib/market";
+import { aggregateTimeSeries, labelPositions } from "@/lib/market-series";
 import type { MarketGapItem } from "@learn-workbench/shared";
 
 type MarketStyles = ReturnType<typeof makeStyles>;
@@ -195,33 +196,47 @@ function Chip({
  * 90 天档按周采样（≤31 根）防拥挤；末节点柱用 accent 高亮。
  */
 function TrendChart({ styles, series }: { styles: MarketStyles; series: MarketIntelligencePayload["timeSeries"] }) {
-  const sampled =
-    series.length > 31
-      ? series.filter((_, idx) => idx % Math.ceil(series.length / 31) === 0 || idx === series.length - 1)
-      : series;
-  const max = maxOf(sampled.map((point) => point.newJobs));
-  const last = sampled.at(-1);
+  /**
+   * v1.31：真机反馈「胶囊柱状图与数字重合」—— 原来按 31 根柱采样，每根只有几 dp，
+   * 日期标签必然互相压住。现在改为**按时间间隔聚合**（每 3 小时 / 每天 / 每 3 天…，
+   * 柱数上限 10），并且只在前 5 个均匀位置渲染标签。
+   * 聚合口径标在图表上方（用户要求"要标明"）；数据来源与接口口径未改，只做前端聚合。
+   */
+  const { buckets, intervalLabel, aggregated, rawCount } = aggregateTimeSeries(series ?? []);
+  if (buckets.length === 0) {
+    return <Text style={styles.trendEmpty}>还没有足够的样本，抓取几次后就能看到趋势。</Text>;
+  }
+  const max = Math.max(1, ...buckets.map((point) => point.value));
+  const labels = labelPositions(buckets.length);
+  const lastIndex = buckets.length - 1;
   return (
-    <View style={styles.trendBars}>
-      {sampled.map((point, index) => (
-        <Animated.View
-          key={point.date}
-          style={styles.trendBarWrap}
-          layout={LinearTransition}
-          entering={FadeInDown.duration(240).delay(staggerDelay(index))}
-        >
-          <View style={styles.trendBarTrack}>
-            <View
-              style={[
-                styles.trendBar,
-                point === last ? styles.trendBarLast : null,
-                { height: Math.max(4, Math.round((point.newJobs / max) * 82)) },
-              ]}
-            />
-          </View>
-          <Text style={styles.trendDate}>{index % Math.max(1, Math.ceil(sampled.length / 7)) === 0 ? point.date.slice(5) : ""}</Text>
-        </Animated.View>
-      ))}
+    <View>
+      <Text style={styles.trendCaption}>
+        {aggregated ? "按" + intervalLabel + "聚合" : "按原始时间粒度"} · {buckets.length} 柱 / {rawCount} 条记录
+      </Text>
+      <View style={styles.trendBars}>
+        {buckets.map((point, index) => (
+          <Animated.View
+            key={point.key}
+            style={styles.trendBarWrap}
+            layout={LinearTransition}
+            entering={FadeInDown.duration(240).delay(staggerDelay(index))}
+          >
+            <View style={styles.trendBarTrack}>
+              <View
+                style={[
+                  styles.trendBar,
+                  index === lastIndex ? styles.trendBarLast : null,
+                  { height: Math.max(4, Math.round((point.value / max) * 82)) },
+                ]}
+              />
+            </View>
+            <Text style={styles.trendDate} numberOfLines={1}>
+              {labels.has(index) ? point.label : ""}
+            </Text>
+          </Animated.View>
+        ))}
+      </View>
     </View>
   );
 }
@@ -767,6 +782,9 @@ const makeStyles = (colors: ThemeColors) =>
     // v20-C2：末节点高亮（accent）
     trendBarLast: { backgroundColor: colors.accent },
     trendDate: { ...typography.micro, fontWeight: "500", color: colors.textFaint },
+    // v1.31：聚合口径说明（用户要求把"每 N 小时/每天"标在 UI 上）
+    trendCaption: { ...typography.micro, color: colors.textMuted, marginBottom: 2 },
+    trendEmpty: { ...typography.callout, color: colors.textSecondary, paddingVertical: 12 },
     groupTitle: { ...typography.caption, fontWeight: "800", color: colors.text, marginTop: 4 },
     row: { flexDirection: "row", alignItems: "center", gap: 8 },
     rowLabel: { flexShrink: 1, minWidth: 0, width: 76, ...typography.caption, fontWeight: "700", color: colors.textSecondary, textAlign: "right" },
