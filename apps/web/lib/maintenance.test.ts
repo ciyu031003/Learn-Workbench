@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("./db", () => ({ pgPool: { query: vi.fn() } }));
 vi.mock("./logger", () => ({ logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() } }));
+// 诊断包的 fs 清理/总览与 SQL 清理无关：测试里 mock 掉，保持用例确定性（不碰真实目录）
+vi.mock("./diagnostics-store", () => ({
+  pruneDiagnosticReports: vi.fn(async () => ({ files: 0, dirs: 0 })),
+  summarizeDiagnosticReports: vi.fn(async () => ({ total: 0, last24h: 0, byVersion: {} })),
+}));
 import { pgPool } from "./db";
 import { logger } from "./logger";
 import { cleanupExpiredData, securityAlerts } from "./maintenance";
@@ -16,7 +21,8 @@ beforeEach(() => {
 describe("cleanupExpiredData", () => {
   it("runs all cleanup statements and reports row counts", async () => {
     const r = await cleanupExpiredData();
-    expect(r).toEqual({ sessions: 3, authAttempts: 3, resetTokens: 3, syncChanges: 3 });
+    // v1.34.0：CleanupResult 增加 diagnosticFiles（诊断包 30 天保留策略）
+    expect(r).toEqual({ sessions: 3, authAttempts: 3, resetTokens: 3, syncChanges: 3, diagnosticFiles: 0 });
     expect(queryMock).toHaveBeenCalledTimes(4);
     expect(String(queryMock.mock.calls[0][0])).toContain("DELETE FROM sessions");
   });

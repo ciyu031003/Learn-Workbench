@@ -1,5 +1,6 @@
 import { pgPool } from "./db";
 import { logger } from "./logger";
+import { pruneDiagnosticReports, summarizeDiagnosticReports } from "./diagnostics-store";
 
 /**
  * 过期/审计数据定期清理（由 /api/internal/cron 每日触发）：
@@ -14,10 +15,12 @@ export interface CleanupResult {
   authAttempts: number;
   resetTokens: number;
   syncChanges: number;
+  /** 清理掉的过期客户端诊断包文件数（v1.34.0：30 天保留策略） */
+  diagnosticFiles: number;
 }
 
 export async function cleanupExpiredData(): Promise<CleanupResult> {
-  const result: CleanupResult = { sessions: 0, authAttempts: 0, resetTokens: 0, syncChanges: 0 };
+  const result: CleanupResult = { sessions: 0, authAttempts: 0, resetTokens: 0, syncChanges: 0, diagnosticFiles: 0 };
   const tasks: [keyof CleanupResult, string][] = [
     ["sessions", `DELETE FROM sessions WHERE expires_at < now() - interval '7 days'`],
     ["authAttempts", `DELETE FROM auth_attempts WHERE created_at < now() - interval '30 days'`],
@@ -35,6 +38,35 @@ export async function cleanupExpiredData(): Promise<CleanupResult> {
     } catch (e) {
       logger.warn("[maintenance] cleanup failed:", key, e);
     }
+  }
+  /**
+   * 客户端诊断包保留策略（v1.34.0，2026-10-07 评审）：
+   * 诊断包只在"排障窗口"里有价值，超过 30 天即删 —— 既是磁盘/COS 成本，也是隐私负担。
+   * 文件系统操作，与上面的 SQL 清理相互独立；失败只记日志。
+   */
+  try {
+    const pruned = await pruneDiagnosticReports(30);
+    result.diagnosticFiles = pruned.files;
+    if (pruned.files > 0 || pruned.dirs > 0) {
+      logger.info("[maintenance] diagnostics pruned:", pruned);
+    }
+  } catch (e) {
+    logger.warn("[maintenance] diagnostics prune failed:", e);
+  }
+  /**
+   * 崩溃率信号（v1.34.0）：最近 24h 诊断包按 App 版本聚合。
+   * 连续多版"修闪退"却只能靠用户反馈的时代该结束了 —— 超过阈值直接 warn，便于外部采集告警。
+   */
+  try {
+    const summary = await summarizeDiagnosticReports();
+    logger.info("[maintenance] diagnostics overview:", summary);
+    if (summary.last24h >= 10) {
+      logger.warn(
+        "[maintenance] ⚠️ 24h 内诊断包 " + summary.last24h + " 个，按版本：" + JSON.stringify(summary.byVersion)
+      );
+    }
+  } catch (e) {
+    logger.warn("[maintenance] diagnostics overview failed:", e);
   }
   return result;
 }

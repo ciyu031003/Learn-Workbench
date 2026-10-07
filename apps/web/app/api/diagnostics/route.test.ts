@@ -1,17 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/session", () => ({ currentUserId: vi.fn() }));
+vi.mock("@/lib/rate-limit", () => ({ rateLimit: vi.fn(async () => ({ ok: true, retryAfterSeconds: 0 })) }));
 vi.mock("@/lib/diagnostics-store", () => ({
   validateDiagnosticBody: vi.fn(() => ({ ok: true, bytes: 12 })),
   diagnosticRelPath: vi.fn((uid: string, id: string) => uid + "/" + id + ".json"),
   saveDiagnosticReport: vi.fn(async () => undefined),
+  redactDiagnosticsText: vi.fn((t: string) => "R(" + t + ")"),
 }));
 
 import { currentUserId } from "@/lib/session";
-import { diagnosticRelPath, saveDiagnosticReport, validateDiagnosticBody } from "@/lib/diagnostics-store";
+import { rateLimit } from "@/lib/rate-limit";
+import {
+  diagnosticRelPath,
+  redactDiagnosticsText,
+  saveDiagnosticReport,
+  validateDiagnosticBody,
+} from "@/lib/diagnostics-store";
 import { POST } from "./route";
 
 const userMock = vi.mocked(currentUserId);
+const limitMock = vi.mocked(rateLimit);
 const validateMock = vi.mocked(validateDiagnosticBody);
 const saveMock = vi.mocked(saveDiagnosticReport);
 
@@ -20,6 +29,8 @@ const req = (body = "{}", method = "POST") =>
 
 beforeEach(() => {
   vi.resetAllMocks();
+  limitMock.mockResolvedValue({ ok: true, retryAfterSeconds: 0 });
+  vi.mocked(redactDiagnosticsText).mockImplementation((t: string) => "R(" + t + ")");
   validateMock.mockReturnValue({ ok: true, bytes: 12 });
   vi.mocked(diagnosticRelPath).mockImplementation((uid: string, id: string) => uid + "/" + id + ".json");
   saveMock.mockResolvedValue(undefined);
@@ -49,7 +60,7 @@ describe("POST /api/diagnostics", () => {
     expect(res.status).toBe(413);
   });
 
-  it("成功时按 userId 分目录落盘并回 id", async () => {
+  it("成功时按 userId 分目录落盘并回 id（落盘内容经服务端兜底脱敏）", async () => {
     userMock.mockResolvedValue("u-9");
     const res = await POST(req('{"kind":"crash"}'));
     expect(res.status).toBe(201);
@@ -60,7 +71,20 @@ describe("POST /api/diagnostics", () => {
     const [rel, raw] = saveMock.mock.calls[0];
     expect(rel.startsWith("u-9/")).toBe(true);
     expect(rel.endsWith(".json")).toBe(true);
-    expect(raw).toBe('{"kind":"crash"}');
+    // 2026-10-07 评审：服务端必须兜底脱敏，不能只信客户端
+    expect(redactDiagnosticsText).toHaveBeenCalledWith('{"kind":"crash"}');
+    expect(raw).toBe('R({"kind":"crash"})');
+    expect(res.headers.get("cache-control")).toContain("no-store");
+  });
+
+  it("超过限流阈值回 429 + Retry-After（512KB 级写入必须有闸门）", async () => {
+    userMock.mockResolvedValue("u-9");
+    limitMock.mockResolvedValue({ ok: false, retryAfterSeconds: 1234 });
+    const res = await POST(req());
+    expect(res.status).toBe(429);
+    expect(res.headers.get("retry-after")).toBe("1234");
+    expect((await res.json()).error).toContain("太频繁");
+    expect(saveMock).not.toHaveBeenCalled();
   });
 
   it("落盘失败回 500（不让异常冒成 HTML 500）", async () => {
