@@ -27,7 +27,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useAppStore } from "@/store/app-store";
 import { router } from "expo-router";
-import { mainPhases, agentPhase } from "@learn-workbench/content";
+import { mainPhases } from "@learn-workbench/content";
 import type { Phase } from "@learn-workbench/shared";
 import { formatDuration, pct } from "@learn-workbench/shared";
 import { computeFocusStats } from "@/lib/focus-stats";
@@ -56,14 +56,7 @@ const STAGE_GRADS: [string, string][] = [
   ["#F26B5E", "#FFB77A"],
   ["#4F8CD6", "#78C2E8"],
   ["#3DA35D", "#7AC06E"],
-];
-
-const THEME_COLORS: [string, string][] = [
-  ["#2F74C0", "#78C2E8"],
-  ["#F28C28", "#FF8F6B"],
-  ["#8D7BD8", "#B39AD9"],
-];
-
+];
 /** 阶段卡之间的间距，必须与 `styles.content` 的 gap 一致（实时让位的位移量按"实测高度 + 这个值"算） */
 const STAGE_CARD_GAP = 12;
 
@@ -316,7 +309,7 @@ export default function LearnScreen() {
   const customTopics = useAppStore((s) => s.customTopics);
   const addCustomTopic = useAppStore((s) => s.addCustomTopic);
   const removeCustomTopic = useAppStore((s) => s.removeCustomTopic);
-  const [stageSheet, setStageSheet] = useState(false);
+  const [, setStageSheet] = useState(false);
   /** v1.26：右上角 ☰ 的快捷入口弹层 */
   const [quickOpen, setQuickOpen] = useState(false);
   const [roadmap, setRoadmap] = useState<Phase[]>(mainPhases.filter((p) => p.track === "main"));
@@ -456,7 +449,6 @@ export default function LearnScreen() {
   /** 入口卡只用这几个数；统计明细全部搬到 /study-stats 全屏页（v1.33.0） */
   const stats = useMemo(() => computeFocusStats(sessions), [sessions]);
   const firstPhase = roadmap[0];
-  const remainingPhases = roadmap.slice(2);
   const phaseDone = (phase: Phase) => {
     const doneTopics = phase.topics.filter((t) => progress[t.id]?.done).length;
     return { done: doneTopics, total: phase.topics.length };
@@ -975,14 +967,11 @@ const makeStyles = (colors: ThemeColors) =>
   },
   /* v9：今日专注 hero */
   focusHero: { padding: 16 },
-  focusMets: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 2 },
-  focusMet: { ...typography.micro, fontWeight: "700", color: colors.textMuted },
   sectionTitle: {
     ...typography.title2,
     color: colors.text,
     marginTop: 8,
   },
-  sectionTitleMore: { ...typography.caption, fontWeight: "600", color: colors.textMuted },
   sectionHeadRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 },
   addBtn: {
     flexDirection: "row",
@@ -1010,7 +999,6 @@ const makeStyles = (colors: ThemeColors) =>
   },
   /** v1.33.0：选中态不再用刺眼白边抢戏，把"主角感"交给流云光效；阴影略抬 */
   stageCardActive: { borderColor: "rgba(255,255,255,0.62)", shadowOpacity: 0.3 },
-  stageCardDragging: { opacity: 0.88 },
   stageCardBody: { flex: 1 },
   stageBlob: { position: "absolute", width: 160, height: 160, borderRadius: 80, right: -46, top: -56, opacity: 0.34 },
   /** 顶部高光：给纯色卡面一点"玻璃边缘"的层次（静态，不参与动画） */
@@ -1034,65 +1022,11 @@ const makeStyles = (colors: ThemeColors) =>
   stageDesc: { color: "rgba(255,255,255,0.85)", ...typography.caption, marginTop: 6 },
   stageBar: { height: 8, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.22)", marginTop: 12, overflow: "hidden" },
   stageBarFill: { height: "100%", borderRadius: 999 },
-  stagePct: { position: "absolute", right: 16, top: 12, color: "rgba(255,255,255,0.88)", ...typography.caption, fontWeight: "800" },
-
-  moreCard: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: colors.surface, borderRadius: radius.lg, padding: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  moreLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
-  moreText: { color: colors.text, ...typography.callout, fontWeight: "700" },
-
-  themeCard: {
-    borderRadius: radius.lg,
-    padding: 16,
-    overflow: "hidden",
-    minHeight: 92,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.primary,
-    // v19-V3：品牌藏青影收进 token（原裸写 #14548D）
-    ...shadows.brand,
-  },
-  themeBlob: { position: "absolute", width: 120, height: 120, borderRadius: 60, right: -30, top: -38, opacity: 0.5 },
-  themeInner: { flex: 1 },
-  themeName: { color: "#fff", ...typography.callout, fontWeight: "800" },
-  themeMeta: { color: "rgba(255,255,255,0.78)", ...typography.micro, marginTop: 4 },
-  themeDots: { flexDirection: "row", gap: 4, marginTop: 10 },
-  dot: { width: 9, height: 9, borderRadius: 5 },
-  dotOn: { backgroundColor: "rgba(255,255,255,0.92)" },
-  dotOff: { backgroundColor: "rgba(255,255,255,0.22)" },
-  themeNum: { color: "#fff", fontSize: 22, fontWeight: "800", marginLeft: 12 },
 
   statsEntry: { flexDirection: "row", alignItems: "center", gap: 12 },
   statsEntryBody: { flex: 1, minWidth: 0, gap: 2 },
   statsEntryTitle: { ...typography.callout, fontWeight: "800", color: colors.text },
   statsEntrySub: { ...typography.caption, fontWeight: "500", color: colors.textMuted },
-
-
-
-
-
-
-
-  sheetScroll: { flex: 1 },
-  sheetStageItem: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 4 },
-  sheetNum: { width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  sheetNumText: { color: "#fff", ...typography.body, fontWeight: "800" },
-  sheetInfo: { flex: 1 },
-  sheetName: { color: colors.text, ...typography.callout, fontWeight: "700" },
-  sheetMeta: { color: colors.textMuted, ...typography.caption, marginTop: 2 },
-  sheetPct: { color: colors.accent, ...typography.caption, fontWeight: "800" },
-  newStageBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    backgroundColor: colors.accentSoft,
-    borderRadius: 14,
-    paddingVertical: 11,
-    marginBottom: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(242,140,40,0.28)",
-  },
-  newStageBtnText: { color: colors.accentStrong, ...typography.caption, fontWeight: "800" },
 
   formSheet: { gap: 12, paddingTop: 4 },
   /* v6 P3-1：空态引导 */
@@ -1130,9 +1064,6 @@ const makeStyles = (colors: ThemeColors) =>
   mdPreviewPhase: { gap: 2 },
   mdPreviewPhaseTitle: { ...typography.caption, fontWeight: "700", color: colors.text },
   mdPreviewTopic: { ...typography.caption, color: colors.textMuted },
-  mdActions: { flexDirection: "row", gap: 10 },
-  mdActionItem: { flex: 1 },
-  formLabel: { color: colors.text, ...typography.caption, fontWeight: "800" },
   formInput: {
     backgroundColor: colors.surfaceStrong,
     borderWidth: StyleSheet.hairlineWidth,
@@ -1144,7 +1075,6 @@ const makeStyles = (colors: ThemeColors) =>
     ...typography.callout,
   },
   formInputArea: { minHeight: 84, textAlignVertical: "top" },
-  btnDisabled: { opacity: 0.6 },
 
   modalScrim: {
     flex: 1,
@@ -1185,18 +1115,4 @@ const makeStyles = (colors: ThemeColors) =>
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.danger,
   },
-  deleteTopicText: { color: "#D64545", ...typography.caption, fontWeight: "800" },
-
-  sharePreview: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  spTitle: { color: colors.text, fontSize: 18, fontWeight: "800" },
-  spSub: { color: colors.textMuted, ...typography.caption, marginTop: 4 },
-  spRows: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 14 },
-  spItem: { width: "48%", backgroundColor: colors.canvas, borderRadius: radius.md, padding: 12 },
-  spK: { color: colors.textMuted, ...typography.micro },
-  spV: { color: colors.text, fontSize: 18, fontWeight: "800", marginTop: 6 },
-  shareActions: { flexDirection: "row", gap: 10, marginTop: 14 },
-  ghostBtn: { flex: 1, backgroundColor: colors.surface, borderRadius: 999, paddingVertical: 12, alignItems: "center", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  ghostBtnText: { color: colors.text, ...typography.callout, fontWeight: "700" },
-  primaryShareBtn: { flex: 1, backgroundColor: colors.primary, borderRadius: 999, paddingVertical: 12, alignItems: "center" },
-  primaryShareText: { color: "#fff", ...typography.callout, fontWeight: "700" },
-});
+  deleteTopicText: { color: "#D64545", ...typography.caption, fontWeight: "800" }});

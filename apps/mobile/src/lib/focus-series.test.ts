@@ -30,6 +30,10 @@ describe("addDays / weekdayName", () => {
     expect(localKey(addDays(new Date(2026, 8, 30), 1))).toBe("2026-10-01");
     expect(localKey(addDays(new Date(2026, 9, 1), -1))).toBe("2026-09-30");
   });
+  it("跨年边界正确（v1.35.0 补：12/31 → 1/1 靠日期自动进位，之前没有测试钉住）", () => {
+    expect(localKey(addDays(new Date(2026, 11, 31), 1))).toBe("2027-01-01");
+    expect(localKey(addDays(new Date(2027, 0, 1), -1))).toBe("2026-12-31");
+  });
   it("星期名", () => {
     expect(weekdayName(new Date(2026, 8, 29))).toBe("周二");
   });
@@ -87,6 +91,20 @@ describe("buildHeatmap", () => {
     const last = weeks[weeks.length - 1][6];
     expect(last.key).toBe(localKey(now));
     expect(last.minutes).toBe(50);
+  });
+
+  it("now 可注入：跨年窗口也能钉死边界（v1.35.0 补）", () => {
+    const now = new Date(2027, 0, 1, 12); // 2027-01-01
+    const weeks = buildHeatmap(
+      [at("2027-01-01T10:00:00", 20), at("2026-12-31T10:00:00", 40)],
+      now
+    );
+    expect(weeks).toHaveLength(12);
+    const last = weeks[weeks.length - 1][6];
+    expect(last.key).toBe("2027-01-01");
+    expect(last.minutes).toBe(20);
+    // 84 天窗口的起点 = 2026-10-10（2026 年内）
+    expect(weeks[0][0].key).toBe("2026-10-10");
   });
 });
 

@@ -1,15 +1,12 @@
 /* eslint-disable react-hooks/immutability, react-hooks/set-state-in-effect */
 import { useCallback, useEffect, useState, useMemo } from "react";
-import { Alert, FlatList, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
-import Animated, { FadeOut, LinearTransition } from "react-native-reanimated";
+import { Alert, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
-import { useReducedMotion } from "@/lib/motion";
 import { ThemedIcon } from "@/components/themed-icon";
 import { EmptyState } from "@/components/empty-state";
 import { SkeletonList } from "@/components/skeleton";
-import { PressableScale } from "@/components/pressable-scale";
 import { router } from "expo-router";
 import { PagerBar } from "@/components/pager-bar";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
@@ -75,8 +72,6 @@ export default function ApplicationsScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const headerScroll = useLargeTitleHeader();
   const tabBarSpace = useTabBarSpace();
-  /** v19-M4：删除/推进时行的退场与补位过渡 */
-  const reduced = useReducedMotion();
   const token = useAppStore((s) => s.token);
   const [apps, setApps] = useState<JobApplication[]>([]);
   const [loading, setLoading] = useState(true);
@@ -155,11 +150,10 @@ export default function ApplicationsScreen() {
     const pct = idx < 0 ? 0 : Math.round(((idx + 1) / STAGES.length) * 100);
     // RN 的 DimensionValue 需要 `${number}%` 字面量类型，普通字符串拼接会被 TS 拒绝
     const pctWidth = `${pct}%` as `${number}%`;
+    // v1.35.0：列表项子树**零 Reanimated**（与 jobs.tsx 同一收口原则）——
+    // 虚拟化列表滚动会不断回收重挂 item，item 里的 layout/exiting/PressableScale（Reanimated 组件）
+    // 都会随滚动在 UI 线程反复启动，是踩坑 92/94/99 这族闪退的病灶；按压反馈改静态样式。
     return (
-      <Animated.View
-        layout={reduced ? undefined : LinearTransition}
-        exiting={reduced ? undefined : FadeOut.duration(150)}
-      >
       <Card style={styles.appCard}>
         <View style={styles.appTop}>
           <View style={styles.appMain}>
@@ -178,15 +172,18 @@ export default function ApplicationsScreen() {
           <View style={[styles.progressFill, { width: pctWidth, backgroundColor: tint }]} />
         </View>
 
-        {/* v20-E2：更新阶段行按压反馈 */}
-        <PressableScale onPress={() => setStageSheetFor(item.id)} scaleTo={0.98} style={styles.stageRow} accessibilityRole="button">
+        {/* v20-E2：更新阶段行按压反馈（v1.35.0 起用静态 Pressable，不再经 Reanimated） */}
+        <Pressable
+          onPress={() => setStageSheetFor(item.id)}
+          style={({ pressed }) => [styles.stageRow, pressed && { opacity: 0.7, transform: [{ scale: 0.98 }] }]}
+          accessibilityRole="button"
+        >
           <ThemedIcon name="swap-horizontal-outline" size={15} color={colors.textMuted} />
           <Text style={styles.stageRowLabel}>更新阶段</Text>
           <Text style={styles.stageRowValue}>{jobApplicationStageLabels[item.stage]}</Text>
           <ThemedIcon name="chevron-forward" size={15} color={colors.textFaint} />
-        </PressableScale>
+        </Pressable>
       </Card>
-      </Animated.View>
     );
   };
 

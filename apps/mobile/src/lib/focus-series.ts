@@ -77,14 +77,16 @@ export function buildDailySeries(sessions: FocusSession[], endDate: Date): { lab
   return out;
 }
 
-/** 近 12 周（84 天）热力图：按周分组，最后一周是本周 */
-export function buildHeatmap(sessions: FocusSession[]): { key: string; minutes: number }[][] {
+/**
+ * 近 12 周（84 天）热力图：按周分组，最后一周是本周。
+ * `now` 可注入（v1.35.0）：与 buildDailySeries 的 endDate 同一口径 —— 测试才能钉死
+ * 月末/年末边界，而不是永远"相对今天"。
+ */
+export function buildHeatmap(sessions: FocusSession[], now: Date = new Date()): { key: string; minutes: number }[][] {
   const map = buildDayMinutesMap(sessions);
   const days: { key: string; minutes: number }[] = [];
-  const now = new Date();
   for (let i = 83; i >= 0; i -= 1) {
-    const d = new Date(now);
-    d.setDate(now.getDate() - i);
+    const d = addDays(now, -i);
     const key = localKey(d);
     days.push({ key, minutes: map.get(key) ?? 0 });
   }

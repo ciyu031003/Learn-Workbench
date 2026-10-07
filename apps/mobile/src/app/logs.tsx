@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from "react-native";
-import Animated, { FadeInDown, FadeOut, LinearTransition } from "react-native-reanimated";
 import type { ThemeColors } from "@/theme/tokens";
 import { spacing, typography } from "@/theme/tokens";
 import { useTheme } from "@/theme";
@@ -8,8 +7,6 @@ import { useAppStore, type LogKind } from "@/store/app-store";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
 import { syncPull, syncPush } from "@/lib/sync";
-import { DURATION, useReducedMotion } from "@/lib/motion";
-import { STAGGER_MAX, staggerDelay } from "@/lib/stagger";
 import { logKindLabels } from "@learn-workbench/shared";
 import { Card } from "@/components/card";
 import { EmptyState } from "@/components/empty-state";
@@ -56,22 +53,12 @@ export default function LogsScreen() {
     setContent("");
   };
 
-  /** v17-D（R8）：只给首屏前 STAGGER_MAX 项加入场错峰 —— 虚拟化列表后挂载的项不再重复动画 */
-  const reduced = useReducedMotion();
-
-  // 列表项：日志卡（虚拟化渲染，避免长列表全量挂载）
+  // 列表项：日志卡（虚拟化渲染，避免长列表全量挂载）。
+  // v1.35.0：item 子树**零 Reanimated**（与 jobs.tsx 同一收口原则，踩坑 92/94/99 这族闪退的病灶
+  // 就是"回收重挂的 item 里挂着动画"）；入场错峰/退场/补位过渡随本项移除，按压反馈用静态样式。
   const renderItem = useCallback(
-    ({ item, index }: { item: LogRow; index: number }) => (
-      <Animated.View
-        entering={
-          reduced || index >= STAGGER_MAX
-            ? undefined
-            : FadeInDown.duration(DURATION.base).delay(staggerDelay(index))
-        }
-        layout={reduced ? undefined : LinearTransition}
-        exiting={reduced ? undefined : FadeOut.duration(150)}
-        style={styles.logItem}
-      >
+    ({ item }: { item: LogRow }) => (
+      <View style={styles.logItem}>
         <View style={styles.logHeader}>
           <Text style={styles.logKind}>{logKindLabels[item.kind] ?? item.kind}</Text>
           <Text style={styles.logDate}>{new Date(item.createdAt).toLocaleDateString("zh-CN")}</Text>
@@ -80,9 +67,9 @@ export default function LogsScreen() {
         <Text style={styles.logContent} numberOfLines={4}>
           {item.content}
         </Text>
-      </Animated.View>
+      </View>
     ),
-    [reduced, styles]
+    [styles]
   );
 
   const header = (
