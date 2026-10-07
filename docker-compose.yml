@@ -75,6 +75,11 @@ services:
       # 招花爬虫：住宅/干净代理 + 登录态 Cookie（storageState 放 config/job-hosts/storageState.json）
       JOBS_PROXY: ${JOBS_PROXY:-}
       JOBS_STORAGE_STATE: /app/config/job-hosts/storageState.json
+      # ⚠️ 落盘根目录必须显式指向 bind mount（v1.32.0 排查时发现）：Next standalone 的 `process.cwd()`
+      # 是 **/app/apps/web**，而代码里 `UPLOAD_DIR ?? cwd/public/uploads` 会解析成
+      # /app/apps/web/public/uploads —— 那是**容器可写层**：nginx 的 `^~ /uploads/` 指向 /data 桶 → 图片 404，
+      # 简历/诊断日志落在本地盘且每次重建即丢（踩坑 91 的根因层）。指向 /app/public/* 后走上面的两个挂载。
+      UPLOAD_DIR: /app/public/uploads
     ports:
       - "${APP_PORT:-3001}:3001"
     volumes:
