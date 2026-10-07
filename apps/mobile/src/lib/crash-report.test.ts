@@ -1,11 +1,13 @@
 import { describe, it, expect } from "vitest";
 import {
+  CLIENT_BUDGET_BYTES,
   CRUMB_LIMIT,
   HEARTBEAT_STALE_MS,
   buildReportJson,
   buildReportText,
   clampTail,
   clampText,
+  fitToBudget,
   pickCrashSnapshot,
   exitReasonName,
   formatCrumbs,
@@ -15,6 +17,7 @@ import {
   redactDeep,
   redactSecrets,
   reportFileName,
+  utf8Bytes,
   type Crumb,
   type DiagnosticInput,
 } from "./crash-report";
@@ -50,6 +53,14 @@ describe("redactSecrets", () => {
     expect(redactSecrets("版本 1.32.0 柱数 10")).toBe("版本 1.32.0 柱数 10");
   });
 
+  it("相邻的两个手机号都要抹掉（v1.35.0：旧尾界捕获组会吃掉分隔符漏第二个）", () => {
+    const out = redactSecrets("13800138000 13912345678");
+    expect(out).toBe("<phone> <phone>");
+    expect(redactSecrets("联系13800138000或13912345678谢谢")).toBe("联系<phone>或<phone>谢谢");
+    // 行尾/标点边界不受影响
+    expect(redactSecrets("电话:13912345678。")).toBe("电话:<phone>。");
+  });
+
   it("抹掉长随机串（会话 token / 签名）", () => {
     const tok = "a".repeat(40);
     expect(redactSecrets("session " + tok)).toContain("<redacted-token>");
@@ -79,6 +90,15 @@ describe("脱敏性能护栏（2026-10-07 评审：邮箱正则曾退化成 O(N�
   it("长 local part 的邮箱：local 被当作长串抹掉，域名不再被当成完整邮箱", () => {
     const out = redactSecrets("x".repeat(40) + "@example.com");
     expect(out).not.toContain("x".repeat(40));
+  });
+
+  it("**折叠后存活**的输入也必须线性（v1.35.0：旧用例被折叠规则塌缩，邮箱规则根本没被压到）", () => {
+    // 点号连接的 30 字符段：段内 <32 折叠不掉，正好整段打进邮箱/长串规则
+    const hostile = Array.from({ length: 6000 }, () => "a".repeat(30)).join(".");
+    const t0 = Date.now();
+    const out = redactSecrets(hostile + "@" + "b".repeat(30) + ".com");
+    expect(Date.now() - t0).toBeLessThan(250);
+    expect(out).toContain("<email>");
   });
 });
 
@@ -214,6 +234,49 @@ describe("buildReportJson", () => {
     expect(json.schema).toBe(1);
     expect(typeof json.report).toBe("string");
     expect(String(json.logcat)).not.toContain("abcdefghijklmnopqrstuvwxyz0123456789");
+  });
+
+  it("JSON 字段里的 lastExit.trace 也按 TRACE_MAX_CHARS 截断（v1.35.0：CJK trace 的 UTF-8 膨胀可单字段顶爆上限）", () => {
+    const json = buildReportJson(
+      baseInput({ lastExit: { reason: "CRASH", reasonCode: 4, timestamp: 1, description: "", trace: "崩".repeat(300000) } })
+    ) as { lastExit: { trace: string } };
+    expect(json.lastExit.trace.length).toBeLessThan(300000);
+    expect(utf8Bytes(JSON.stringify(json))).toBeLessThan(REPORT_MAX_BYTES_CEILING);
+  });
+});
+
+/** 512KB（服务端硬上限）：fitToBudget 的终态断言用它 */
+const REPORT_MAX_BYTES_CEILING = 512 * 1024;
+
+describe("utf8Bytes / fitToBudget（v1.35.0 从 crash-upload 下沉后补测）", () => {
+  it("utf8Bytes：ASCII 1 字节、中文 3 字节、emoji（代理对）4 字节", () => {
+    expect(utf8Bytes("abc")).toBe(3);
+    expect(utf8Bytes("崩溃")).toBe(6);
+    expect(utf8Bytes("😀")).toBe(4);
+    expect(utf8Bytes("a崩😀")).toBe(1 + 3 + 4);
+  });
+
+  it("fitToBudget：小包原样返回", () => {
+    const input = baseInput({ logcat: "short log" });
+    expect(fitToBudget(input)).toBe(input);
+  });
+
+  it("fitToBudget：超预算时 logcat 先被丢弃（用 CJK 构造 —— ASCII 长串会被折叠规则塌缩，压不爆体积；logcat 字段本身被 clampTail 封顶 120k 字符，需叠加其它内容才越界）", () => {
+    const input = baseInput({ logcat: "崩".repeat(120000), note: "崩".repeat(40000) }); // ≈ 360KB + 120KB
+    const out = fitToBudget(input);
+    expect(out.logcat).toBe("");
+  });
+
+  it("fitToBudget：终态（全丢正文性内容）后必然 ≤ 服务端上限 —— 不再靠上游兜底", () => {
+    // 最恶劣构造：CJK 大 trace（多字节膨胀）+ 大面包屑 + 大 logcat + 大备注
+    const input = baseInput({
+      logcat: "崩".repeat(300000),
+      note: "崩".repeat(50000),
+      crumbs: Array.from({ length: 120 }, (_, i) => ({ t: i, kind: "scroll", data: { v: "崩".repeat(2000) } })),
+      lastExit: { reason: "ANR", reasonCode: 6, timestamp: 1, description: "崩".repeat(50000), trace: "崩".repeat(600000) },
+    });
+    const out = fitToBudget(input);
+    expect(utf8Bytes(JSON.stringify(buildReportJson(out)))).toBeLessThanOrEqual(REPORT_MAX_BYTES_CEILING);
   });
 });
 

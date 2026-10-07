@@ -36,8 +36,14 @@ const PREV_FILE = DIR + "previous.json";
 const HEARTBEAT_FILE = DIR + "heartbeat.json";
 const PREV_HEARTBEAT_FILE = DIR + "previous-heartbeat.json";
 
-/** 心跳间隔：崩溃后"最后心跳时间"就是崩溃时刻的下界 */
-const HEARTBEAT_INTERVAL_MS = 5000;
+/**
+ * 心跳间隔：崩溃后"最后心跳时间"就是崩溃时刻的下界。
+ * v1.35.0 由 5s 放宽到 30s（2026-10-07 二轮评审）：5s 心跳 × 每次写 latest.json + heartbeat.json
+ * 两个文件 = 前台每小时 ~720 次重复写盘，服务的只是极少数排障会话。30s 仍是
+ * crash-report.HEARTBEAT_STALE_MS(90s) 的 1/3，"非正常退出"判据不受影响；
+ * 没有新面包屑时只续 heartbeat.json（十几字节），不再重写整个快照。
+ */
+const HEARTBEAT_INTERVAL_MS = 30000;
 /** 面包屑写盘防抖：太频繁会拖慢滚动，太稀疏会丢现场 */
 const FLUSH_DEBOUNCE_MS = 400;
 /** 同类高频面包屑的最小间隔（滚动事件每帧都来） */
@@ -63,6 +69,14 @@ let writing = false;
 let pendingWrite = false;
 /** 启动引导（建目录 + 另存崩溃现场）完成前不写盘，避免把上一份快照覆盖掉 */
 let ready: Promise<void> | null = null;
+/**
+ * v1.35.0：App 是否在前台。由 `_layout.tsx` 的 AppState 监听驱动（本文件**不 import react-native**，
+ * 踩坑 60/89 —— import 了 RN 的文件不能进单测/会拖垮整份 suite）。后台不写心跳：
+ * Android 冻结进程后定时器本来就不跑，主动停写还能省掉"冻结前最后几秒"的无谓写盘。
+ */
+let appStateActive = true;
+/** 上次写盘后有没有新面包屑/JS 错误（没有就只续心跳文件，不重写快照） */
+let dirtySinceWrite = true;
 
 function now(): number {
   return Date.now();
@@ -118,6 +132,16 @@ async function preservePreviousSnapshot(): Promise<void> {
   }
 }
 
+/** 心跳文件只承载"进程还活着"这一个信号（十几字节），与快照解耦 —— 心跳可以高频续，快照只在有新内容时写 */
+async function writeHeartbeat(): Promise<void> {
+  if (!DIR) return;
+  try {
+    await LegacyFileSystem.writeAsStringAsync(HEARTBEAT_FILE, String(now()), { encoding: "utf8" });
+  } catch {
+    // 写失败不抛：取证是"尽力而为"
+  }
+}
+
 /** 原子写：先写 .tmp 再 move，避免崩溃恰好发生在写一半留下坏 JSON */
 async function writeSnapshot(): Promise<void> {
   if (!DIR) return;
@@ -131,7 +155,8 @@ async function writeSnapshot(): Promise<void> {
     const body = JSON.stringify(serialize());
     await LegacyFileSystem.writeAsStringAsync(LATEST_TMP, body, { encoding: "utf8" });
     await LegacyFileSystem.moveAsync({ from: LATEST_TMP, to: LATEST_FILE });
-    await LegacyFileSystem.writeAsStringAsync(HEARTBEAT_FILE, String(now()), { encoding: "utf8" });
+    dirtySinceWrite = false;
+    await writeHeartbeat();
   } catch {
     // 写失败不抛：取证是"尽力而为"，绝不能让拿日志这件事本身把 App 弄崩
   } finally {
@@ -186,8 +211,25 @@ export async function setCaptureEnabled(next: boolean): Promise<void> {
   if (next) {
     recordCrumb("lifecycle", { event: "capture-on" });
   } else {
-    await clearLocalDiagnostics();
+    // v1.35.0（2026-10-07 二轮评审 B-6）：**关记录 ≠ 清现场**。
+    // 崩溃现场（previous.json / previous-heartbeat.json）必须保留 —— 用户完全可能
+    // "崩溃后先关掉记录省电，回头再上传现场"；旧实现连现场一起删，证据直接没了。
+    // 磁盘上的 latest.json 原样保留（里面是关开关前的会话轨迹）；删除走「清空」按钮。
+    if (flushTimer) {
+      clearTimeout(flushTimer);
+      flushTimer = null;
+    }
+    crumbs = [];
+    jsErrors = [];
   }
+}
+
+/**
+ * AppState 桥（v1.35.0）：由 `_layout.tsx` 的 `AppState.addEventListener("change", …)` 驱动。
+ * 放在 _layout 而不是这里，是为了让本文件保持零 react-native import（踩坑 60/89）。
+ */
+export function setCrashCaptureAppState(state: string): void {
+  appStateActive = state === "active";
 }
 
 // ---------------------------------------------------------------- 面包屑
@@ -204,6 +246,7 @@ export function recordCrumb(kind: string, data?: Record<string, unknown>): void 
     lastScrollCrumbAt = t;
   }
   crumbs = pushCrumb(crumbs, { t, kind, data });
+  dirtySinceWrite = true;
   scheduleFlush();
 }
 
@@ -223,6 +266,7 @@ function recordJsError(error: unknown, fatal: boolean): void {
     fatal,
   };
   jsErrors = jsErrors.concat([info]).slice(-JS_ERROR_LIMIT);
+  dirtySinceWrite = true;
   scheduleFlush(0);
 }
 
@@ -246,7 +290,12 @@ export function installCrashCapture(): void {
     await loadCaptureEnabled();
     if (heartbeatTimer) clearInterval(heartbeatTimer);
     heartbeatTimer = setInterval(() => {
-      if (!enabled) return;
+      if (!enabled || !appStateActive) return;
+      // 没有新内容只续心跳文件（v1.35.0：不再每次重写整个快照 —— 5s×2 文件的写盘量降到 30s×1 小文件）
+      if (!dirtySinceWrite) {
+        void writeHeartbeat();
+        return;
+      }
       void writeSnapshot();
     }, HEARTBEAT_INTERVAL_MS);
   })();
@@ -257,8 +306,15 @@ export function installCrashCapture(): void {
     if (eu?.getGlobalHandler && eu.setGlobalHandler) {
       const prev = eu.getGlobalHandler();
       eu.setGlobalHandler((error: unknown, fatal?: boolean) => {
-        recordJsError(error, !!fatal);
-        flushNow();
+        // 2026-10-07 二轮评审（B-3）：recordJsError 里的 String(e?.message) 遇到 getter 抛错的
+        // 宿主对象会 throw —— 全局 handler 里再抛 = 顶替掉真正的 fatal、取证链反而断掉。
+        // console.error 包装器一直包着，这里补齐一致性。
+        try {
+          recordJsError(error, !!fatal);
+          flushNow();
+        } catch {
+          // 忽略：绝不能让取证自身抛错影响原始 fatal 的传递
+        }
         try {
           prev?.(error, fatal);
         } catch {

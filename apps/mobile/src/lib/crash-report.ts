@@ -97,6 +97,8 @@ const REDACT_RULES: [RegExp, string][] = [
    * 2026-10-07 评审实测：原来把这条放在最后，前面的邮箱规则在 120k 连续字符上会退化成
    * **二次方**（40k→863ms / 80k→3528ms / 120k→7516ms，Hermes 上只会更糟）——
    * 用户点「上传」时整个 JS 线程会卡死几秒到几十秒。
+   * ⚠️ **已知代价（刻意接受）**：UUID / git SHA / requestId 这类 32+ 字符的合法标识符也会塌缩 ——
+   * 排障时不能再拿包里的 requestId 去对服务端日志（这是隐私收益换来的定位损失，不是 bug）。
    */
   [/[A-Za-z0-9_-]{32,}/g, "<redacted-token>"],
   /**
@@ -105,8 +107,10 @@ const REDACT_RULES: [RegExp, string][] = [
    * 是上面那次二次方的元凶；加上界后单点成本恒定 → 线性。
    */
   [/[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]{1,63}(?:\.[A-Za-z0-9-]{1,63})+/g, "<email>"],
-  // 4) 中国大陆手机号（用捕获组表达边界，避免 lookaround）
-  [/(^|[^0-9])1[3-9][0-9]{9}([^0-9]|$)/g, "$1<phone>$2"],
+  // 4) 中国大陆手机号。尾部边界用**零宽前瞻**（?!）而不是消费字符的捕获组：
+  //    旧写法 `([^0-9]|$)` 会把分隔符吃掉，`138... 139...` 这类**相邻两个号码只抹第一个**
+  //    （diagnostics 页对用户承诺过"自动抹掉手机号"，不能打折）。前瞻 Hermes 支持，禁的只是 lookbehind。
+  [/(^|[^0-9])1[3-9][0-9]{9}(?![0-9])/g, "$1<phone>"],
 ];
 
 /** 逐条套用脱敏规则（顺序有意义：键值对 → 长串折叠 → 邮箱 → 手机号，见 REDACT_RULES 注释） */
@@ -159,6 +163,51 @@ export function clampTail(text: string, max: number): string {
   return "…（前部已截断，原始 " + s.length + " 字符）\n" + s.slice(s.length - max);
 }
 
+// ---------------------------------------------------------------- 体积（v1.35.0 从 crash-upload.ts 下沉）
+
+/**
+ * 客户端实际上限：比服务端的 512KB 留 32KB 余量。
+ * ⚠️ 2026-10-07 评审修正：原来用 `JSON.stringify(...).length`（UTF-16 码元）当**字节数**，
+ * 中文/emoji 多的包实际字节可到 2~3 倍 → 客户端以为没超、服务端 413 → 正好在"包很大"时失败。
+ * 现在按 UTF-8 字节精确计算（Hermes 没有 TextEncoder，用码点累加）。
+ */
+export const CLIENT_BUDGET_BYTES = REPORT_MAX_BYTES - 32 * 1024;
+
+/** 精确 UTF-8 字节数（代理对按 4 字节算） */
+export function utf8Bytes(text: string): number {
+  let bytes = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    const c = text.charCodeAt(i);
+    if (c < 0x80) bytes += 1;
+    else if (c < 0x800) bytes += 2;
+    else if (c >= 0xd800 && c <= 0xdbff) {
+      bytes += 4;
+      i += 1; // 跳过低位代理
+    } else bytes += 3;
+  }
+  return bytes;
+}
+
+/**
+ * 体积兜底（**纯函数**，2026-10-07 评审后从 crash-upload.ts 下沉到这里才能写单测）：
+ * 先丢 logcat → 面包屑砍半 → 面包屑留 20 + 清 JS 错误 → **终态复查**。
+ * 终态复查是 2026-10-07 二轮评审补的：JSON 路径的 `lastExit.trace` 现在已按 TRACE_MAX_CHARS
+ * 截断（见 buildReportJson），理论上到不了这一步，但"兜底函数自己保证上限"比"指望上游"可靠。
+ */
+export function fitToBudget(input: DiagnosticInput): DiagnosticInput {
+  const size = (i: DiagnosticInput) => utf8Bytes(JSON.stringify(buildReportJson(i)));
+  let out = input;
+  if (size(out) <= CLIENT_BUDGET_BYTES) return out;
+  out = { ...out, logcat: "" };
+  if (size(out) <= CLIENT_BUDGET_BYTES) return out;
+  out = { ...out, crumbs: out.crumbs.slice(-Math.floor(out.crumbs.length / 2)) };
+  if (size(out) <= CLIENT_BUDGET_BYTES) return out;
+  out = { ...out, crumbs: out.crumbs.slice(-20), jsErrors: [] };
+  if (size(out) <= CLIENT_BUDGET_BYTES) return out;
+  // 终态：全丢正文性内容后**必然**只剩头部信息与截断过的 trace —— 再超就把 note 也清了
+  return { ...out, crumbs: [], note: "" };
+}
+
 // ---------------------------------------------------------------- 退出原因
 
 /** ApplicationExitInfo.REASON_* → 可读名（Android 11+，值为系统常量，写死避免引原生包） */
@@ -209,6 +258,14 @@ export function isLikelyUnclean(lastHeartbeatAt: number | null, now: number): bo
 
 // ---------------------------------------------------------------- 组装
 
+/**
+ * lastExit 的 JSON/正文安全形态：trace 与 description 都截断。
+ * description 系统侧通常很短，但"兜底函数自己保证上限"比"指望上游"可靠（与 trace 同一逻辑）。
+ */
+function safeExit(info: ExitInfo): ExitInfo {
+  return { ...info, description: clampText(info.description, 2000), trace: clampText(info.trace, TRACE_MAX_CHARS) };
+}
+
 /** 上报文件名：时间可排序 + 随机后缀避免同秒覆盖 */
 export function reportFileName(now: number, rand: string): string {
   const d = new Date(now);
@@ -258,9 +315,10 @@ export function buildReportText(input: DiagnosticInput): string {
   lines.push("");
   lines.push("--- 上次进程退出（Android ApplicationExitInfo）---");
   if (info) {
-    lines.push("原因: " + info.reason + " (" + info.reasonCode + ")");
-    lines.push("时间: " + fmtTime(info.timestamp));
-    lines.push("描述: " + (info.description || "(无)"));
+    const safe = safeExit(info);
+    lines.push("原因: " + safe.reason + " (" + safe.reasonCode + ")");
+    lines.push("时间: " + fmtTime(safe.timestamp));
+    lines.push("描述: " + (safe.description || "(无)"));
   } else {
     lines.push("(无记录：Android < 11，或原生模块不可用)");
   }
@@ -331,7 +389,10 @@ export function buildReportJson(input: DiagnosticInput): Record<string, unknown>
     installId: input.installId,
     app: input.app,
     captureEnabled: input.captureEnabled,
-    lastExit: input.lastExit,
+    // trace / description 在 JSON 字段里也要截断（2026-10-07 二轮评审）：native 侧最多给
+    // 200,000 字符 trace，遇上多字节字符（CJK trace）UTF-8 可膨胀到 ~600KB ——
+    // 单字段就能顶爆整包 512KB 上限。人读正文里的同一份见 buildReportText，口径一致。
+    lastExit: input.lastExit ? safeExit(input.lastExit) : null,
     lastHeartbeatAt: input.lastHeartbeatAt,
     lastScreen: input.lastScreen,
     crumbSource: input.crumbSource ?? "current",

@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { Stack, usePathname } from "expo-router";
-import { InteractionManager, StatusBar as RNStatusBar, StyleSheet } from "react-native";
+import { InteractionManager, AppState, StatusBar as RNStatusBar, StyleSheet } from "react-native";
 import * as ScreenOrientation from "expo-screen-orientation";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
@@ -12,7 +12,7 @@ import type { ThemeColors } from "@/theme/tokens";
 import { startSyncEngine } from "@/lib/sync-engine";
 import { silentCheckForUpdate } from "@/lib/ota";
 import { useUpdateStore } from "@/store/update-store";
-import { installCrashCapture, setCurrentScreen } from "@/lib/crash-capture";
+import { installCrashCapture, setCurrentScreen, setCrashCaptureAppState } from "@/lib/crash-capture";
 import { promptPendingCrash } from "@/lib/crash-upload";
 import { UpdateSheet } from "@/components/update-sheet";
 import { secureToken } from "@/lib/secure-token";
@@ -43,9 +43,12 @@ void SplashScreen.preventAutoHideAsync().catch(() => {});
  * v1.32.0 崩溃取证：**必须挂在模块顶层**（React 渲染之前）。
  * 若放在组件 effect 里，它会晚于子组件（ThemedShell）的 effect —— 那时新会话已经写过屏幕面包屑，
  * 甚至已经把上一份快照覆盖掉，崩溃现场就没了（首版真机上报正是这么丢的）。
- * 这里只挂 ErrorUtils / console 钩子 + 5s 心跳 + 启动时另存崩溃现场，不渲染任何东西。
+ * 这里只挂 ErrorUtils / console 钩子 + 心跳 + 启动时另存崩溃现场，不渲染任何东西。
  */
 installCrashCapture();
+// v1.35.0：心跳只在**前台**写（后台冻结前不必再写盘）。AppState 桥放在这里，
+// 让 crash-capture.ts 保持零 react-native import（踩坑 60/89，否则单测加载不了）。
+AppState.addEventListener("change", (state) => setCrashCaptureAppState(state));
 try {
   SplashScreen.setOptions?.({ fade: true, duration: 250 });
 } catch {

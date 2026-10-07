@@ -6,9 +6,9 @@ import { secureToken } from "./secure-token";
 import { crashNative } from "./crash-native";
 import {
   buildReportJson,
+  fitToBudget,
   isCrashExit,
   pickCrashSnapshot,
-  REPORT_MAX_BYTES,
   type DiagnosticInput,
   type ExitInfo,
 } from "./crash-report";
@@ -84,40 +84,9 @@ export async function collectDiagnostics(note?: string): Promise<DiagnosticInput
 }
 
 /**
- * 客户端实际上限：比服务端的 512KB 留 32KB 余量。
- * ⚠️ 2026-10-07 评审修正：原来用 `JSON.stringify(...).length`（UTF-16 码元）当**字节数**，
- * 中文/emoji 多的包实际字节可到 2~3 倍 → 客户端以为没超、服务端 413 → 正好在"包很大"时失败。
- * 现在按 UTF-8 字节精确计算（Hermes 没有 TextEncoder，用码点累加）。
+ * 客户端实际上限与 UTF-8 字节口径、体积兜底（fitToBudget）都在 crash-report.ts（纯函数、可单测）；
+ * 这里只负责"收集 → 兜底 → 上传"。
  */
-const CLIENT_BUDGET_BYTES = REPORT_MAX_BYTES - 32 * 1024;
-
-/** 精确 UTF-8 字节数（代理对按 4 字节算） */
-export function utf8Bytes(text: string): number {
-  let bytes = 0;
-  for (let i = 0; i < text.length; i += 1) {
-    const c = text.charCodeAt(i);
-    if (c < 0x80) bytes += 1;
-    else if (c < 0x800) bytes += 2;
-    else if (c >= 0xd800 && c <= 0xdbff) {
-      bytes += 4;
-      i += 1; // 跳过低位代理
-    } else bytes += 3;
-  }
-  return bytes;
-}
-
-/** 体积兜底：先把 logcat 丢掉，再砍面包屑、清空 JS 错误，别让服务端 413 变成"上传失败"（踩坑 90） */
-function fitToBudget(input: DiagnosticInput): DiagnosticInput {
-  const size = (i: DiagnosticInput) => utf8Bytes(JSON.stringify(buildReportJson(i)));
-  let out = input;
-  if (size(out) <= CLIENT_BUDGET_BYTES) return out;
-  out = { ...out, logcat: "" };
-  if (size(out) <= CLIENT_BUDGET_BYTES) return out;
-  out = { ...out, crumbs: out.crumbs.slice(-Math.floor(out.crumbs.length / 2)) };
-  if (size(out) <= CLIENT_BUDGET_BYTES) return out;
-  out = { ...out, crumbs: out.crumbs.slice(-20), jsErrors: [] };
-  return out;
-}
 
 export type UploadResult = { ok: true; id: string | null } | { ok: false; error: string };
 

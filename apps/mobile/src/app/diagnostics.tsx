@@ -75,7 +75,7 @@ export default function DiagnosticsScreen() {
     const next = !captureOn;
     await setCaptureEnabled(next);
     setCaptureOn(next);
-    setCrashMsg(next ? "已开启记录（只写本机，不会自动上传）" : "已关闭记录，并清空本机现场");
+    setCrashMsg(next ? "已开启记录（只写本机，不会自动上传）" : "已暂停记录（本机已有现场保留，可上传或清空）");
   };
 
   const uploadCrash = async () => {
