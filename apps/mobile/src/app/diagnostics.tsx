@@ -15,6 +15,9 @@ import { resolveEdgeSwipeEnabled } from "@/lib/edge-swipe";
 import { secureToken } from "@/lib/secure-token";
 import { formatDiagnostics, judgeTouch, type DiagnosticsInput } from "@/lib/diagnostics";
 import { APP_VERSION_NAME } from "@/lib/ota";
+import { clearLocalDiagnostics, isCaptureEnabled, readSnapshot, setCaptureEnabled } from "@/lib/crash-capture";
+import { collectDiagnostics, readPendingCrash, uploadDiagnostics } from "@/lib/crash-upload";
+import { buildReportText, type ExitInfo } from "@/lib/crash-report";
 
 /**
  * 「问题诊断」页（触控自检）——给内测用户 / 客服排障用。
@@ -44,6 +47,56 @@ export default function DiagnosticsScreen() {
   const [firstTouchMs, setFirstTouchMs] = useState<number | null>(null);
   /** null = 读取超时/抛错；true = 读到令牌；false = 正常读到「无令牌」 */
   const [tokenProbe, setTokenProbe] = useState<boolean | null>(null);
+
+  /** v1.32.0 崩溃取证：开关 / 上次退出记录 / 本机面包屑条数 / 上传状态 */
+  const [captureOn, setCaptureOn] = useState(true);
+  const [lastExit, setLastExit] = useState<ExitInfo | null>(null);
+  const [crumbCount, setCrumbCount] = useState<number | null>(null);
+  const [crashBusy, setCrashBusy] = useState(false);
+  const [crashMsg, setCrashMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      setCaptureOn(isCaptureEnabled());
+      const [pending, snap] = await Promise.all([readPendingCrash(), readSnapshot()]);
+      if (!alive) return;
+      setLastExit(pending.exit);
+      setCrumbCount(snap?.crumbs.length ?? 0);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const fmtTs = (ms: number) => new Date(ms).toISOString().replace("T", " ").slice(0, 19);
+
+  const toggleCapture = async () => {
+    const next = !captureOn;
+    await setCaptureEnabled(next);
+    setCaptureOn(next);
+    setCrashMsg(next ? "已开启记录（只写本机，不会自动上传）" : "已关闭记录，并清空本机现场");
+  };
+
+  const uploadCrash = async () => {
+    setCrashBusy(true);
+    setCrashMsg(null);
+    const r = await uploadDiagnostics("问题诊断页手动上传");
+    setCrashBusy(false);
+    setCrashMsg(r.ok ? "上传成功" + (r.id ? "（id " + r.id + "）" : "") : "上传失败：" + r.error);
+    if (r.ok) setCrumbCount((await readSnapshot())?.crumbs.length ?? 0);
+  };
+
+  const shareCrash = async () => {
+    const payload = await collectDiagnostics("分享诊断包");
+    await Share.share({ message: buildReportText(payload) }).catch(() => {});
+  };
+
+  const clearCrash = async () => {
+    await clearLocalDiagnostics();
+    setCrumbCount(0);
+    setCrashMsg("已清空本机现场");
+  };
 
   // 现场探测安全存储（ColorOS 的 Keystore 卡顿就体现在这里）：
   // 区分「本来就没登录（读得到，只是空）」与「读取超时/失败」两件完全不同的事。
@@ -148,6 +201,41 @@ export default function DiagnosticsScreen() {
             判断方法：数字会涨 = 触摸能到达 App；不涨 = 触摸在到达 App 前被拦截（系统悬浮窗 / 录屏 / 无障碍服务 /
             应用兼容模式），不是页面布局问题。
           </Text>
+        </Card>
+
+        {/*
+          v1.32.0 崩溃取证（招花滑动闪退）。为什么要有这一块：
+          闪退是**进程级死亡**，崩溃那一刻 JS 已死 → 写不了文件、也发不了请求。
+          所以做成两半：App 持续把面包屑写本机（documentDirectory/diag），
+          崩溃后**下次冷启动**向系统要"上次退出原因 + native 崩溃栈"（Android 11+ ApplicationExitInfo），
+          再由用户在这里点一下上传 —— 默认不自动上传。
+        */}
+        <Card title="崩溃取证" subtitle="闪退后把这段日志发给开发者">
+          <View style={styles.buttonRow}>
+            <Button label={captureOn ? "记录中 · 点此暂停" : "已暂停 · 点此开启"} onPress={() => void toggleCapture()} />
+          </View>
+          <Text style={styles.note}>
+            记录内容：页面切换、招花列表滚到第几条、点了哪个岗位、筛选口径、JS 错误。
+            只写本机；只有你点「上传」才会发出去，上传前自动抹掉 token / cookie / 邮箱 / 手机号。
+          </Text>
+          <Text style={styles.note}>
+            上次退出：
+            {lastExit
+              ? lastExit.reason + "（code " + lastExit.reasonCode + "）· " + fmtTs(lastExit.timestamp)
+              : "无记录（Android < 11 或原生模块不可用）"}
+          </Text>
+          <Text style={styles.note}>本机面包屑：{crumbCount === null ? "读取中…" : crumbCount + " 条"}</Text>
+          <View style={styles.buttonRow}>
+            <Button label={crashBusy ? "上传中…" : "上传诊断包"} onPress={() => void uploadCrash()} />
+            <Button label="分享文本" onPress={() => void shareCrash()} />
+            <Button label="清空" onPress={() => void clearCrash()} />
+          </View>
+          {crashMsg ? <Text style={styles.note}>{crashMsg}</Text> : null}
+          {lastExit?.trace ? (
+            <Text style={styles.report} selectable>
+              {lastExit.trace.slice(0, 1500)}
+            </Text>
+          ) : null}
         </Card>
 
         <Card title="自检结论" subtitle="可直接复制发给开发者">

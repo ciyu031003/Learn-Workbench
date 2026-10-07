@@ -12,6 +12,8 @@ import type { ThemeColors } from "@/theme/tokens";
 import { startSyncEngine } from "@/lib/sync-engine";
 import { silentCheckForUpdate } from "@/lib/ota";
 import { useUpdateStore } from "@/store/update-store";
+import { installCrashCapture, setCurrentScreen } from "@/lib/crash-capture";
+import { promptPendingCrash } from "@/lib/crash-upload";
 import { UpdateSheet } from "@/components/update-sheet";
 import { secureToken } from "@/lib/secure-token";
 import { useAppStore } from "@/store/app-store";
@@ -37,6 +39,13 @@ import * as SplashScreen from "expo-splash-screen";
  * - splash 底色已与首屏 canvas 同步（app.json：#F7F5F2 / 深色 #111113），所以观感是连续的一屏
  */
 void SplashScreen.preventAutoHideAsync().catch(() => {});
+/**
+ * v1.32.0 崩溃取证：**必须挂在模块顶层**（React 渲染之前）。
+ * 若放在组件 effect 里，它会晚于子组件（ThemedShell）的 effect —— 那时新会话已经写过屏幕面包屑，
+ * 甚至已经把上一份快照覆盖掉，崩溃现场就没了（首版真机上报正是这么丢的）。
+ * 这里只挂 ErrorUtils / console 钩子 + 5s 心跳 + 启动时另存崩溃现场，不渲染任何东西。
+ */
+installCrashCapture();
 try {
   SplashScreen.setOptions?.({ fade: true, duration: 250 });
 } catch {
@@ -79,6 +88,14 @@ export default function RootLayout() {
           if (!cancelled) useUpdateStore.getState().promptFromPending(pending);
         }, 1500);
       });
+      // v1.32.0：上次异常退出时问一次"要不要上传诊断包"（不静默上传）。
+      // 排在升级弹层之后（2.5s），且升级弹层已可见时不抢焦点 —— 崩溃现场不会丢，
+      // 用户随时可以在「设置 → 问题诊断 → 崩溃取证」里手动上传。
+      setTimeout(() => {
+        if (cancelled) return;
+        if (useUpdateStore.getState().visible) return;
+        void promptPendingCrash();
+      }, 2500);
     });
     return () => {
       cancelled = true;
@@ -124,6 +141,8 @@ function ThemedShell() {
   const pathname = usePathname();
   useEffect(() => {
     noteScreenPath(pathname);
+    // v1.32.0：崩溃取证要"最后停在哪个页面"（面包屑 + AsyncStorage 各留一份，供崩溃后参考）
+    setCurrentScreen(pathname);
   }, [pathname]);
   return (
     <DailyBackground>
@@ -158,6 +177,8 @@ function ThemedShell() {
         <Stack.Screen name="tasks" />
         <Stack.Screen name="logs" />
         <Stack.Screen name="trackers" />
+        {/* v1.33.0：学习统计从底部弹层升级为独立全屏页 */}
+        <Stack.Screen name="study-stats" />
         <Stack.Screen name="phase/[id]" />
         {/* 职业线 */}
         <Stack.Screen name="jobs" />

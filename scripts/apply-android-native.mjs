@@ -21,6 +21,15 @@ const FILES = [
   "app/src/main/java/com/yuanabd/learnworkbench/FocusTimerPackage.kt",
   "app/src/main/java/com/yuanabd/learnworkbench/FocusTimerService.kt",
   "app/src/main/res/layout/notification_focus.xml",
+  // v1.32.0：崩溃取证（Android 11+ ApplicationExitInfo 取 native 崩溃栈 + logcat 兜底）
+  "app/src/main/java/com/yuanabd/learnworkbench/CrashLogModule.kt",
+  "app/src/main/java/com/yuanabd/learnworkbench/CrashLogPackage.kt",
+];
+
+/** 需要注册到 MainApplication 的手写 ReactPackage（幂等：已存在就跳过） */
+const REACT_PACKAGES = [
+  { call: "FocusTimerPackage()", comment: "// 手写原生模块（不走 prebuild）：专注计时前台服务" },
+  { call: "CrashLogPackage()", comment: "// 手写原生模块（不走 prebuild）：崩溃取证（ApplicationExitInfo + logcat）" },
 ];
 
 /** Manifest：权限 + service 声明（按内容判断，重复执行不会插两遍） */
@@ -57,13 +66,31 @@ function patchManifest(text) {
   return out;
 }
 
-/** MainApplication：注册 ReactPackage（幂等） */
+/**
+ * MainApplication：注册手写 ReactPackage（幂等，可重复跑）。
+ *
+ * 插入点：`PackageList(this).packages.apply { ... }` 块里最后一个 `add(...)` 之后；
+ * 块内还没有 add 时插在 apply 行之后。逐个包判断，新增模块只加自己那一行。
+ */
 function patchMainApplication(text) {
-  if (text.includes("FocusTimerPackage()")) return text;
-  return text.replace(
-    /\/\/ Packages that cannot be autolinked yet can be added manually here, for example:[\s\S]*?\n(\s*)\}/,
-    (m, indent) => m.replace(/(\n\s*)\}/, "$1  // 手写原生模块（不走 prebuild）：专注计时前台服务\n$1  add(FocusTimerPackage())\n" + indent + "}")
-  );
+  const missing = REACT_PACKAGES.filter((p) => !text.includes(p.call));
+  if (missing.length === 0) return text;
+  let lines = text.split("\n");
+  for (const pkg of missing) {
+    const applyIdx = lines.findIndex((l) => l.includes("PackageList(this).packages.apply {"));
+    if (applyIdx < 0) return text; // 结构变了：宁可不改，让构建以"模块未注册"暴露出来
+    let lastAdd = -1;
+    for (let i = applyIdx + 1; i < lines.length; i++) {
+      if (lines[i].trim() === "}") break; // apply 块结束
+      if (lines[i].includes("add(")) lastAdd = i;
+    }
+    const insertAt = lastAdd >= 0 ? lastAdd + 1 : applyIdx + 1;
+    // 沿用块内已有 add 行的缩进（RN 模板的包列表可能嵌在 packageList = ... 里），保持文件干净
+    const guide = lines[lastAdd >= 0 ? lastAdd : applyIdx];
+    const indent = (guide.match(/^\s*/) ?? ["      "])[0];
+    lines.splice(insertAt, 0, indent + pkg.comment, indent + "add(" + pkg.call + ")");
+  }
+  return lines.join("\n");
 }
 
 let changed = 0;
