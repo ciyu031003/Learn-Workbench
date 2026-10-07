@@ -15,6 +15,7 @@ import path from "node:path";
  *   /jobs /roadmap /tasks /logs /market /radar /applications /resume /resume-preview
  *   /certificates /interview /phase/[id] /account-security /domain-manager
  *   /trackers /sports-card /habits /workout /nutrition /diagnostics
+ *   /study-stats（v1.33.0 新增：学习统计从弹层升级为独立全屏页）
  *
  * 若以后真的要新增/删除页面，改这里即等于显式声明"路由表变了"。
  */
@@ -43,6 +44,7 @@ const EXPECTED_ROUTES = [
   "/roadmap",
   "/settings",
   "/sports-card",
+  "/study-stats",
   "/tasks",
   "/today",
   "/trackers",

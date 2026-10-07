@@ -36,6 +36,7 @@ describe("resolveBackTarget · 返回上一级", () => {
     expect(resolveBackTarget("/roadmap")).toBe("/learn");
     expect(resolveBackTarget("/tasks")).toBe("/learn");
     expect(resolveBackTarget("/logs")).toBe("/learn");
+    expect(resolveBackTarget("/study-stats")).toBe("/learn");
   });
 
   it("设置域子页回到我的", () => {

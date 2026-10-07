@@ -25,6 +25,7 @@ const PARENT_RULES: { prefix: string; parent: string }[] = [
   { prefix: "/roadmap", parent: "/learn" },
   { prefix: "/tasks", parent: "/learn" },
   { prefix: "/logs", parent: "/learn" },
+  { prefix: "/study-stats", parent: "/learn" },
   // 职业
   { prefix: "/resume-preview", parent: "/resume" },
   { prefix: "/resume", parent: "/career" },
@@ -68,6 +69,7 @@ const HUB_RULES: { prefix: string; hub: string }[] = [
   { prefix: "/phase", hub: "/learn" },
   { prefix: "/tasks", hub: "/learn" },
   { prefix: "/logs", hub: "/learn" },
+  { prefix: "/study-stats", hub: "/learn" },
   { prefix: "/settings", hub: "/settings" },
   { prefix: "/account-security", hub: "/settings" },
   { prefix: "/domain-manager", hub: "/settings" },

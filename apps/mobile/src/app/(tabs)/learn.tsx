@@ -12,17 +12,25 @@ import { GroupLabel } from "@/components/group-label";
 import { ListGroup, ListRow } from "@/components/list-row";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
-import { RingProgress } from "@/components/ring-progress";
-import { MonthCalendar } from "@/components/month-calendar";
-import { BarChart, LineChart } from "@/components/charts";
+
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withRepeat, withTiming, type SharedValue } from "react-native-reanimated";
+import Animated, {
+  Easing,
+  cancelAnimation,
+  interpolateColor,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+  type SharedValue,
+} from "react-native-reanimated";
 import { useAppStore } from "@/store/app-store";
 import { router } from "expo-router";
 import { mainPhases, agentPhase } from "@learn-workbench/content";
 import type { Phase } from "@learn-workbench/shared";
 import { formatDuration, pct } from "@learn-workbench/shared";
-import { UNTAGGED_CONTENT, computeFocusStats } from "@/lib/focus-stats";
+import { computeFocusStats } from "@/lib/focus-stats";
 import { radius, shadows, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
@@ -38,8 +46,7 @@ import {
 } from "@/lib/roadmap";
 import { SheetSection, SheetStickyCta } from "@/components/sheet";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
-import { StudyShareSheet } from "@/components/study-share-card";
-import { buildStudyCardModel } from "@/lib/study-card-model";
+
 
 const STAGE_GRADS: [string, string][] = [
   ["#2F74C0", "#78C2E8"],
@@ -57,119 +64,81 @@ const THEME_COLORS: [string, string][] = [
   ["#8D7BD8", "#B39AD9"],
 ];
 
-const localKey = (d: Date) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-
-const addDays = (d: Date, n: number) => {
-  const r = new Date(d);
-  r.setDate(d.getDate() + n);
-  return r;
-};
-
-const weekdayName = (d: Date) => ["周日", "周一", "周二", "周三", "周四", "周五", "周六"][d.getDay()];
-
-const PERIODS = [
-  { label: "凌晨", start: 0, end: 6 },
-  { label: "清晨", start: 6, end: 9 },
-  { label: "上午", start: 9, end: 12 },
-  { label: "中午", start: 12, end: 14 },
-  { label: "下午", start: 14, end: 18 },
-  { label: "晚上", start: 18, end: 22 },
-  { label: "深夜", start: 22, end: 24 },
-] as const;
-
-function buildDayMinutesMap(sessions: ReturnType<typeof useAppStore.getState>["sessions"]) {
-  const map = new Map<string, number>();
-  for (const s of sessions) {
-    const d = new Date(s.startedAt);
-    if (Number.isNaN(d.getTime())) continue;
-    const key = localKey(d);
-    map.set(key, (map.get(key) ?? 0) + Math.max(0, Math.round((s.durationSeconds ?? 0) / 60)));
-  }
-  return map;
-}
-
-function buildPeriodBars(sessions: ReturnType<typeof useAppStore.getState>["sessions"], key: string) {
-  const bars = PERIODS.map((p) => ({ label: p.label, value: 0 }));
-  for (const s of sessions) {
-    const d = new Date(s.startedAt);
-    if (Number.isNaN(d.getTime()) || localKey(d) !== key) continue;
-    const h = d.getHours();
-    const idx = PERIODS.findIndex((p) => h >= p.start && h < p.end);
-    if (idx >= 0) bars[idx].value += Math.max(0, Math.round((s.durationSeconds ?? 0) / 60));
-  }
-  return bars;
-}
-
-function buildDailySeries(sessions: ReturnType<typeof useAppStore.getState>["sessions"], endDate: Date) {
-  const map = buildDayMinutesMap(sessions);
-  const out: { label: string; value: number }[] = [];
-  for (let i = 13; i >= 0; i -= 1) {
-    const d = addDays(endDate, -i);
-    out.push({ label: `${d.getMonth() + 1}/${d.getDate()}`, value: map.get(localKey(d)) ?? 0 });
-  }
-  return out;
-}
-
-function buildHeatmap(sessions: ReturnType<typeof useAppStore.getState>["sessions"]) {
-  const map = new Map<string, number>();
-  for (const s of sessions) {
-    const d = new Date(s.startedAt);
-    if (Number.isNaN(d.getTime())) continue;
-    const key = localKey(d);
-    map.set(key, (map.get(key) ?? 0) + Math.max(0, Math.round((s.durationSeconds ?? 0) / 60)));
-  }
-  const days: { key: string; minutes: number }[] = [];
-  const now = new Date();
-  for (let i = 83; i >= 0; i -= 1) {
-    const d = new Date(now);
-    d.setDate(now.getDate() - i);
-    days.push({ key: localKey(d), minutes: map.get(localKey(d)) ?? 0 });
-  }
-  const weeks: { key: string; minutes: number }[][] = [];
-  for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7));
-  return weeks;
-}
-
-function heatColor(minutes: number): string {
-  if (minutes <= 0) return "#F1E7D4";
-  if (minutes < 30) return "#FBE0B3";
-  if (minutes < 60) return "#F5A34B";
-  return "#E35D2F";
-}
-
-
 /** 阶段卡之间的间距，必须与 `styles.content` 的 gap 一致（实时让位的位移量按"实测高度 + 这个值"算） */
 const STAGE_CARD_GAP = 12;
 
-function StageShine({ active }: { active: boolean }) {
+/**
+ * 选中阶段卡的「流云呼吸」光效（v1.33.0，替换旧的白斜线扫光）。
+ *
+ * 三条动线同时跑，但**只在选中的那张卡上**（同一时刻最多一张；非选中直接不渲染 → 零开销）：
+ *  1. 呼吸：光晕透明度 + 缩放缓慢起伏（5.2s 往返）；
+ *  2. 变色：两层光晕各自 interpolateColor 在色环上往返 —— 颜色一直缓慢流转，不是七彩乱闪；
+ *  3. 流转：底部一条"云带"左右来回漂移（7.6s，与呼吸错拍），像流云在卡底游走。
+ *
+ * 为什么不用模糊/渐变：Android 的 View 没有 blur，低透明度叠层圆角块 + 缓慢运动才是这个
+ * 平台上的"柔光"通用做法；也没走 react-native-svg 的渐变（要动就得 animatedProps，踩坑 55）。
+ * ⚠️ worklet 快照约束（踩坑 71）：下面 useAnimatedStyle 用到的量必须全部声明在它们之前。
+ */
+const AURA_HUES = ["#9BD7FF", "#B9A6FF", "#FFAFD2", "#FFE0A3", "#9FF0DC"];
+
+function StageAura({ active, seed }: { active: boolean; seed: number }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { width } = useWindowDimensions();
-  const cardWidth = Math.max(140, width - 32);
-  const beamWidth = Math.max(68, cardWidth * 0.32);
-  const sweep = useSharedValue(-beamWidth);
+  const auraSize = Math.max(220, width * 0.88);
+  // 每张卡取相邻两个色相：同一张卡内缓慢变色，不同卡颜色不同（与阶段渐变呼应）
+  const hueA = AURA_HUES[seed % AURA_HUES.length];
+  const hueB = AURA_HUES[(seed + 1) % AURA_HUES.length];
+  const hueC = AURA_HUES[(seed + 3) % AURA_HUES.length];
+
+  const t = useSharedValue(0);
+  const drift = useSharedValue(0);
 
   useEffect(() => {
     if (!active) {
-      sweep.value = -beamWidth;
+      cancelAnimation(t);
+      cancelAnimation(drift);
+      t.value = 0;
+      drift.value = 0;
       return;
     }
-    sweep.value = withRepeat(
-      withTiming(cardWidth + beamWidth, { duration: 1500, easing: Easing.inOut(Easing.quad) }),
-      -1,
-      false
-    );
+    t.value = withRepeat(withTiming(1, { duration: 5200, easing: Easing.inOut(Easing.sin) }), -1, true);
+    drift.value = withRepeat(withTiming(1, { duration: 7600, easing: Easing.inOut(Easing.quad) }), -1, true);
     return () => {
-      sweep.value = -beamWidth;
+      cancelAnimation(t);
+      cancelAnimation(drift);
     };
-  }, [active, beamWidth, cardWidth, sweep]);
+  }, [active, drift, t]);
 
-  const sweepStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: sweep.value }, { rotate: "18deg" }],
+  const haloTop = useAnimatedStyle(() => ({
+    opacity: 0.16 + t.value * 0.2,
+    transform: [{ scale: 0.92 + t.value * 0.16 }],
+    backgroundColor: interpolateColor(t.value, [0, 1], [hueA, hueB]),
   }));
 
-  return <Animated.View pointerEvents="none" style={[styles.stageShine, { width: beamWidth }, sweepStyle]} />;
+  const haloBottom = useAnimatedStyle(() => ({
+    opacity: 0.1 + drift.value * 0.16,
+    transform: [{ scale: 1.04 - drift.value * 0.12 }],
+    backgroundColor: interpolateColor(drift.value, [0, 1], [hueC, hueA]),
+  }));
+
+  const cloud = useAnimatedStyle(() => ({
+    opacity: 0.16 + drift.value * 0.18,
+    transform: [
+      { translateX: -auraSize * 0.2 + drift.value * auraSize * 0.4 },
+      { scaleX: 1 + t.value * 0.1 },
+    ],
+  }));
+
+  if (!active) return null;
+
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      <Animated.View style={[styles.auraHaloTop, { width: auraSize, height: auraSize * 0.72 }, haloTop]} />
+      <Animated.View style={[styles.auraHaloBottom, { width: auraSize * 0.78, height: auraSize * 0.6 }, haloBottom]} />
+      <Animated.View style={[styles.auraCloud, { width: auraSize * 1.15 }, cloud]} />
+    </View>
+  );
 }
 
 function StageCard({
@@ -296,7 +265,8 @@ function StageCard({
       >
         <PressableScale style={styles.stageCardBody} haptic onPress={onSelect}>
           <View style={[styles.stageBlob, { backgroundColor: STAGE_GRADS[index % STAGE_GRADS.length][1] }]} />
-          <StageShine active={active} />
+          <View style={styles.stageTopLight} />
+          <StageAura active={active} seed={index} />
           <View style={styles.stageTop}>
             <Text style={styles.stageTag}>阶段 {index + 1}</Text>
             <Text style={styles.stageName} numberOfLines={1}>{phase.title}</Text>
@@ -347,14 +317,8 @@ export default function LearnScreen() {
   const addCustomTopic = useAppStore((s) => s.addCustomTopic);
   const removeCustomTopic = useAppStore((s) => s.removeCustomTopic);
   const [stageSheet, setStageSheet] = useState(false);
-  const [shareSheet, setShareSheet] = useState(false);
   /** v1.26：右上角 ☰ 的快捷入口弹层 */
   const [quickOpen, setQuickOpen] = useState(false);
-  const [calendarOpen, setCalendarOpen] = useState(false);
-  const [statsOpen, setStatsOpen] = useState(false);
-  /** v5 P2-2：学习内容区块的时间范围（今日 / 本周） */
-  const [contentTab, setContentTab] = useState<"today" | "week">("today");
-  const [statDate, setStatDate] = useState<Date>(() => new Date());
   const [roadmap, setRoadmap] = useState<Phase[]>(mainPhases.filter((p) => p.track === "main"));
   const [selectedPhaseId, setSelectedPhaseId] = useState<number | null>(mainPhases[0]?.id ?? null);
   const [contentTopic, setContentTopic] = useState<{ topicId: number; phaseId: number } | null>(null);
@@ -489,21 +453,8 @@ export default function LearnScreen() {
     };
   }, [token]);
 
+  /** 入口卡只用这几个数；统计明细全部搬到 /study-stats 全屏页（v1.33.0） */
   const stats = useMemo(() => computeFocusStats(sessions), [sessions]);
-  const heatmap = useMemo(() => buildHeatmap(sessions), [sessions]);
-  /** v5 P2-2：当前 tab 的内容汇总 + 占比基准 */
-  const contentRows = contentTab === "today" ? stats.byContent : stats.weekByContent;
-  const maxContentMinutes = contentRows.reduce((m, r) => Math.max(m, r.minutes), 0);
-  const [heatWidth, setHeatWidth] = useState(0);
-  const heatWeeks = heatmap.length;
-  const heatWeekGap = 4;
-  const heatCellGap = 4;
-  const heatCell = heatWidth > 0 ? Math.max(8, Math.floor((heatWidth - heatWeekGap * (heatWeeks - 1)) / heatWeeks)) : 13;
-  const selectedKey = localKey(statDate);
-  const isStatToday = selectedKey === localKey(new Date());
-  const selectedMinutes = useMemo(() => buildDayMinutesMap(sessions).get(selectedKey) ?? 0, [sessions, selectedKey]);
-  const periodBars = useMemo(() => buildPeriodBars(sessions, selectedKey), [sessions, selectedKey]);
-  const dailySeries = useMemo(() => buildDailySeries(sessions, statDate), [sessions, statDate]);
   const firstPhase = roadmap[0];
   const remainingPhases = roadmap.slice(2);
   const phaseDone = (phase: Phase) => {
@@ -512,11 +463,6 @@ export default function LearnScreen() {
   };
 
   const todayMinutes = stats.todayMinutes;
-  const todayTarget = 150;
-  const ringRatio = Math.min(1, todayMinutes / todayTarget);
-  const ringPctNum = Math.round((todayMinutes / todayTarget) * 100);
-  const weekMinutes = stats.last14.slice(7).reduce((sum, d) => sum + d.minutes, 0);
-  const totalMinutes = sessions.reduce((sum, s) => sum + Math.max(0, Math.round((s.durationSeconds ?? 0) / 60)), 0);
 
   const selectedPhase = roadmap.find((p) => p.id === selectedPhaseId) ?? firstPhase;
   const selectedCustomTopics = useMemo(
@@ -539,24 +485,6 @@ export default function LearnScreen() {
       isCustomSubject: true,
     })),
   ].slice(0, 4);
-
-  /**
-   * v16 P2：学习统计的分享升级为**闪光档案卡**（真 three.js 背景 + 数据面板），
-   * 数据口对齐参考项目 card-config 的 rows_left / rows_right / flags 契约。
-   */
-  const shareData = useMemo(
-    () =>
-      buildStudyCardModel({
-        todayMinutes: stats.todayMinutes,
-        todaySessions: stats.todaySessions,
-        streak: stats.streak,
-        totalFocusDays: stats.totalFocusDays,
-        last14: stats.last14,
-        weekMinutes,
-        goalMinutes: todayTarget,
-      }),
-    [stats, weekMinutes]
-  );
 
   const swapPhase = (from: number, to: number) => {
     if (to < 0 || to >= roadmap.length) return;
@@ -779,9 +707,9 @@ export default function LearnScreen() {
       <Animated.View entering={entrance(3)}>
         <GroupLabel>学习统计</GroupLabel>
       </Animated.View>
-      {/* 统计明细收进「学习统计」全屏 Sheet（v2 §Bug 6）：首屏只留一行摘要 */}
+      {/* v1.33.0：统计明细从弹层升级为**独立全屏页** /study-stats（push 进栈、原生转场、左滑返回）；首屏只留一行摘要 */}
       <Animated.View entering={entrance(4)}>
-      <PressableScale haptic scaleTo={0.98} onPress={() => setStatsOpen(true)}>
+      <PressableScale haptic scaleTo={0.98} onPress={() => router.push("/study-stats" as never)}>
         <Card style={styles.statsEntry}>
           <View style={styles.statsEntryBody}>
             <Text style={styles.statsEntryTitle}>今日已专注 {formatDuration(todayMinutes)}</Text>
@@ -793,184 +721,6 @@ export default function LearnScreen() {
         </Card>
       </PressableScale>
       </Animated.View>
-
-      <BottomSheet
-        visible={statsOpen}
-        onClose={() => setStatsOpen(false)}
-        title="学习统计"
-        subtitle="热力图 · 内容维度 · 周期对比"
-        icon="stats-chart-outline"
-        height="94%"
-        headerAction={
-          <Pressable style={styles.shareBtn} onPress={() => setShareSheet(true)} accessibilityLabel="分享学习统计">
-            <ThemedIcon name="share-social-outline" size={14} color={colors.primary} />
-            <Text style={styles.shareBtnText}>分享</Text>
-          </Pressable>
-        }
-      >
-      <Card style={styles.statsPanel}>
-        <SheetSection title="今日与周期" hint="点日期可切换">
-        <View style={styles.dateNav}>
-          <Pressable
-            style={styles.dateArrow}
-            onPress={() => setStatDate((d) => addDays(d, -1))}
-            hitSlop={8}
-          >
-            <ThemedIcon name="chevron-back" size={18} color={colors.primary} />
-          </Pressable>
-          <Pressable style={styles.dateCenter} onPress={() => setCalendarOpen(true)}>
-            <ThemedIcon name="calendar-outline" size={15} color={colors.accentStrong} />
-            <Text style={styles.dateText}>{statDate.getMonth() + 1}月{statDate.getDate()}日 · {weekdayName(statDate)}</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.dateArrow, isStatToday && styles.dateArrowDisabled]}
-            disabled={isStatToday}
-            onPress={() => setStatDate((d) => addDays(d, 1))}
-            hitSlop={8}
-          >
-            <ThemedIcon name="chevron-forward" size={18} color={isStatToday ? colors.textFaint : colors.primary} />
-          </Pressable>
-        </View>
-
-        <View style={styles.tomatoHero}>
-          <View style={styles.ringWrap}>
-            <RingProgress
-              size={96}
-              strokeWidth={11}
-              progress={ringRatio}
-              trackColor="rgba(242,140,40,0.14)"
-              color={colors.accent}
-            />
-            <Text style={styles.ringPct}>{ringPctNum}%</Text>
-          </View>
-          <View style={styles.tomatoHeroRight}>
-            <Text style={styles.hLabel}>今日专注 · 目标 2.5 小时</Text>
-            <Text style={styles.hVal}>{formatDuration(todayMinutes)}</Text>
-          </View>
-        </View>
-
-        <View style={styles.tomatoGrid}>
-          {[
-            { k: "累计专注", v: stats.totalFocusDays, unit: " 天" },
-            { k: "累计时长", v: Math.round((totalMinutes / 60) * 10) / 10, unit: " h" },
-            { k: "本周", v: Math.round((weekMinutes / 60) * 10) / 10, unit: " h" },
-            { k: "今日", v: todayMinutes, unit: " 分" },
-          ].map((item) => (
-            <View key={item.k} style={styles.tomatoMini}>
-              <Text style={styles.tomatoMiniK}>{item.k}</Text>
-              <View style={styles.tomatoMiniLine}>
-                <Text style={styles.tomatoMiniV}>{item.v}</Text>
-                <Text style={styles.tomatoMiniU}>{item.unit}</Text>
-              </View>
-            </View>
-          ))}
-        </View>
-
-        </SheetSection>
-
-        {/* v5 P2-2：学习内容维度（今日 / 本周）—— 放在目标环之后、热力图之前，不抢 hero 焦点 */}
-        <SheetSection title="学习内容" hint={contentTab === "today" ? "今日维度" : "本周维度"}>
-        <View style={styles.contentHead}>
-          <Text style={styles.heatLabel}>学习内容</Text>
-          <View style={styles.contentTabs}>
-            {(
-              [
-                { key: "today", label: "今日" },
-                { key: "week", label: "本周" },
-              ] as const
-            ).map((t) => {
-              const active = contentTab === t.key;
-              return (
-                <Pressable
-                  key={t.key}
-                  style={[styles.contentTab, active && styles.contentTabActive]}
-                  onPress={() => setContentTab(t.key)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: active }}
-                >
-                  <Text style={[styles.contentTabText, active && styles.contentTabTextActive]}>{t.label}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-
-        {contentRows.length === 0 ? (
-          <Text style={styles.contentEmpty}>
-            {contentTab === "today" ? "今天还没有绑定学习内容的专注" : "本周还没有绑定学习内容的专注"}
-          </Text>
-        ) : (
-          <View style={styles.contentList}>
-            {contentRows.map((row) => (
-              <View key={row.label} style={styles.contentRow}>
-                <View style={styles.contentTop}>
-                  <Text style={styles.contentLabel} numberOfLines={1}>
-                    {row.label}
-                  </Text>
-                  <Text style={styles.contentMeta}>
-                    {formatDuration(row.minutes)} · {row.sessions} 次
-                  </Text>
-                </View>
-                <View style={styles.contentTrack}>
-                  <View
-                    style={[
-                      styles.contentFill,
-                      {
-                        width: `${maxContentMinutes > 0 ? Math.round((row.minutes / maxContentMinutes) * 100) : 0}%`,
-                        backgroundColor: row.label === UNTAGGED_CONTENT ? colors.textFaint : colors.accent,
-                      },
-                    ]}
-                  />
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
-
-        </SheetSection>
-
-        <SheetSection title="可学习时长分布" hint="近 12 周热力图">
-        <Text style={styles.heatLabel}>可学习时长分布 · 热力图</Text>
-        <View
-          style={styles.heat}
-          onLayout={(e) => setHeatWidth(Math.round(e.nativeEvent.layout.width))}
-        >
-          {heatmap.map((week, wi) => (
-            <View key={wi} style={[styles.heatWeek, { gap: heatCellGap }]}>
-              {week.map((day) => (
-                <View
-                  key={day.key}
-                  style={[
-                    styles.heatCell,
-                    { width: heatCell, height: heatCell, borderRadius: Math.max(3, heatCell * 0.28), backgroundColor: heatColor(day.minutes) },
-                    day.key === selectedKey && styles.heatCellActive,
-                  ]}
-                />
-              ))}
-            </View>
-          ))}
-        </View>
-        <View style={styles.heatLegend}>
-          <Text style={styles.heatLegendText}>少</Text>
-          {["#F1E7D4", "#FBE0B3", "#F5A34B", "#E35D2F"].map((c) => (
-            <View key={c} style={[styles.heatSwatch, { backgroundColor: c }]} />
-          ))}
-          <Text style={styles.heatLegendText}>多</Text>
-        </View>
-
-        </SheetSection>
-
-        <SheetSection title="时段与趋势" last>
-        <Text style={styles.chartLabel}>
-          {statDate.getMonth() + 1}月{statDate.getDate()}日 · 学习 {formatDuration(selectedMinutes)}
-        </Text>
-        <BarChart data={periodBars} height={150} color={colors.primary} colorTo="#78C2E8" />
-
-        <Text style={styles.chartLabel}>近 14 天学习时长</Text>
-        <LineChart data={dailySeries} height={150} color={colors.accent} />
-        </SheetSection>
-      </Card>
-      </BottomSheet>
 
       {/* v1.26：快捷入口改为右上角 ☰ 弹出 */}
       <BottomSheet
@@ -1000,34 +750,12 @@ export default function LearnScreen() {
                 last={i === list.length - 1}
                 onPress={() => {
                   setQuickOpen(false);
-                  if (q.key === "stats") {
-                    setStatsOpen(true);
-                    return;
-                  }
-                  router.push(q.href as never);
+                  router.push((q.key === "stats" ? "/study-stats" : q.href) as never);
                 }}
               />
             ))}
           </ListGroup>
         </SheetSection>
-      </BottomSheet>
-
-      {/* 分享统一走卡片图片（与今日任务同一个组件/同一张卡片，仅标题不同） */}
-      <StudyShareSheet visible={shareSheet} onClose={() => setShareSheet(false)} model={shareData} />
-
-      <BottomSheet
-        visible={calendarOpen}
-        onClose={() => setCalendarOpen(false)}
-        title="选择日期"
-        subtitle="点某一天，看那天的学习分布"
-        icon="calendar-outline"
-        height="62%"
-      >
-        <MonthCalendar
-          selected={statDate}
-          onSelect={(d) => setStatDate(d)}
-          onClose={() => setCalendarOpen(false)}
-        />
       </BottomSheet>
 
       <BottomSheet
@@ -1270,21 +998,27 @@ const makeStyles = (colors: ThemeColors) =>
   addBtnText: { color: colors.accentStrong, ...typography.caption, fontWeight: "800" },
 
   stageCard: {
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     padding: 16,
     overflow: "hidden",
     minHeight: 104,
     backgroundColor: colors.primary,
     borderWidth: 1.5,
-    borderColor: "rgba(255,255,255,0.18)",
+    borderColor: "rgba(255,255,255,0.16)",
     // v19-V3：品牌藏青影收进 token（原裸写 #14548D）
     ...shadows.brand,
   },
-  stageCardActive: { borderColor: "rgba(255,255,255,0.92)", shadowOpacity: 0.28 },
+  /** v1.33.0：选中态不再用刺眼白边抢戏，把"主角感"交给流云光效；阴影略抬 */
+  stageCardActive: { borderColor: "rgba(255,255,255,0.62)", shadowOpacity: 0.3 },
   stageCardDragging: { opacity: 0.88 },
   stageCardBody: { flex: 1 },
-  stageBlob: { position: "absolute", width: 160, height: 160, borderRadius: 80, right: -46, top: -56, opacity: 0.5 },
-  stageShine: { position: "absolute", top: -60, bottom: -60, left: 0, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.24)" },
+  stageBlob: { position: "absolute", width: 160, height: 160, borderRadius: 80, right: -46, top: -56, opacity: 0.34 },
+  /** 顶部高光：给纯色卡面一点"玻璃边缘"的层次（静态，不参与动画） */
+  stageTopLight: { position: "absolute", top: 0, left: 18, right: 18, height: 2, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.22)" },
+  /** 流云光效三层：全部低透明度叠层 + 缓慢运动/变色（Android 无 blur，这是通用"柔光"做法） */
+  auraHaloTop: { position: "absolute", top: -76, left: -34, borderRadius: radius.pill },
+  auraHaloBottom: { position: "absolute", bottom: -64, right: -46, borderRadius: radius.pill },
+  auraCloud: { position: "absolute", bottom: -30, left: 0, height: 78, borderRadius: radius.pill },
   stageTop: { flexDirection: "row", alignItems: "center", gap: 8 },
   stageTag: { color: "rgba(255,255,255,0.9)", ...typography.micro, fontWeight: "800", backgroundColor: "rgba(255,255,255,0.18)", borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
   stageName: { color: "#fff", ...typography.headline, fontWeight: "800", flex: 1 },
@@ -1327,82 +1061,15 @@ const makeStyles = (colors: ThemeColors) =>
   dotOff: { backgroundColor: "rgba(255,255,255,0.22)" },
   themeNum: { color: "#fff", fontSize: 22, fontWeight: "800", marginLeft: 12 },
 
-  statsPanel: { padding: 16, gap: 14 },
   statsEntry: { flexDirection: "row", alignItems: "center", gap: 12 },
   statsEntryBody: { flex: 1, minWidth: 0, gap: 2 },
   statsEntryTitle: { ...typography.callout, fontWeight: "800", color: colors.text },
   statsEntrySub: { ...typography.caption, fontWeight: "500", color: colors.textMuted },
-  panelHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  panelTitle: {
-    ...typography.title2,
-    color: colors.text,
-  },
-  shareBtn: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: colors.surface, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  shareBtnText: { ...typography.caption, fontWeight: "700", color: colors.primary },
 
-  tomatoHero: { flexDirection: "row", alignItems: "center", gap: 16 },
-  ringWrap: { width: 96, height: 96, alignItems: "center", justifyContent: "center" },
-  ringPct: { position: "absolute", color: colors.text, fontSize: 20, fontWeight: "800" },
-  tomatoHeroRight: { flex: 1, gap: 4 },
-  hLabel: { color: colors.textMuted, ...typography.caption },
-  hVal: { color: colors.text, fontSize: 24, fontWeight: "800" },
 
-  tomatoGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  tomatoMini: { flexBasis: "47%", flexGrow: 1, backgroundColor: colors.surface, borderRadius: radius.md, padding: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  tomatoMiniK: { color: colors.textMuted, ...typography.micro },
-  tomatoMiniLine: { flexDirection: "row", alignItems: "flex-end", gap: 2, marginTop: 6 },
-  tomatoMiniV: { color: colors.text, fontSize: 20, fontWeight: "800" },
-  tomatoMiniU: { color: colors.textMuted, ...typography.caption, marginBottom: 3 },
 
-  heatLabel: { color: colors.text, ...typography.caption, fontWeight: "700" },
-  contentHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 14 },
-  contentTabs: { flexDirection: "row", gap: 6 },
-  contentTab: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999, backgroundColor: colors.surfaceMuted },
-  contentTabActive: { backgroundColor: colors.accent },
-  contentTabText: { ...typography.caption, fontWeight: "700", color: colors.textMuted },
-  contentTabTextActive: { color: "#fff" },
-  contentList: { gap: 10, marginTop: 10 },
-  contentRow: { gap: 5 },
-  contentTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
-  // 13.5 属分数字号，保留原值（不入四档 token）
-  contentLabel: { flex: 1, fontSize: 13.5, fontWeight: "700", color: colors.text },
-  contentMeta: { ...typography.caption, color: colors.textMuted, fontWeight: "600" },
-  contentTrack: { height: 6, borderRadius: 999, backgroundColor: colors.surfaceMuted, overflow: "hidden" },
-  contentFill: { height: "100%", borderRadius: 999 },
-  // 12.5 属分数字号，保留原值
-  contentEmpty: { fontSize: 12.5, color: colors.textMuted, marginTop: 8 },
-  heat: { flexDirection: "row", gap: 4, alignItems: "flex-start" },
-  heatWeek: { gap: 4 },
-  heatCell: { width: 13, height: 13, borderRadius: 4 },
-  heatLegend: { flexDirection: "row", alignItems: "center", gap: 5, justifyContent: "flex-end", marginTop: 8 },
-  heatLegendText: { color: colors.textMuted, ...typography.micro },
-  heatSwatch: { width: 13, height: 13, borderRadius: 4 },
-  heatCellActive: { borderWidth: 2, borderColor: colors.primary },
 
-  dateNav: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
-  dateArrow: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.surfaceStrong,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  dateCenter: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: colors.accentSoft,
-  },
-  dateText: { ...typography.caption, fontWeight: "700", color: colors.text },
-  dateArrowDisabled: { opacity: 0.4 },
 
-  chartLabel: { ...typography.caption, fontWeight: "700", color: colors.text },
 
 
   sheetScroll: { flex: 1 },

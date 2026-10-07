@@ -154,6 +154,19 @@ export default function NutritionScreen() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [foods, setFoods] = useState<Food[]>([]);
   const [meal, setMeal] = useState<MealKind>("lunch");
+  /**
+   * v1.33.0：「添加 <餐次>」按钮的文案随**当前时间段**自动变化（早餐/午餐/晚餐/加餐）。
+   * 只在"跨段"时 setState —— 每 30s 校准一次，不跨段就不触发重渲染。
+   * 边界口径与 lib/meal-time.ts 的 mealForNow 完全一致（<10 早餐 / <15 午餐 / <21 晚餐 / 其余加餐）。
+   */
+  const [mealNow, setMealNow] = useState<MealKind>(() => mealForNow());
+  useEffect(() => {
+    const id = setInterval(() => {
+      const next = mealForNow();
+      setMealNow((prev) => (prev === next ? prev : next));
+    }, 30_000);
+    return () => clearInterval(id);
+  }, []);
   const [picked, setPicked] = useState<Food | null>(null);
   const [amount, setAmount] = useState("1");
   const [saving, setSaving] = useState(false);
@@ -1071,9 +1084,9 @@ export default function NutritionScreen() {
           style={styles.summaryAdd}
           onPress={() => {
             haptics.soft();
-            setSheetOpen(true);
+            openSheet();
           }}
-          accessibilityLabel={`添加${mealKindLabels[meal]}`}
+          accessibilityLabel={`添加${mealKindLabels[mealNow]}`}
         >
           <ThemedIcon name="add" size={18} color="#fff" />
         </Pressable>
@@ -1257,7 +1270,7 @@ export default function NutritionScreen() {
       {viewMode === "month" ? null : (
         <PressableScale haptic style={styles.addBtn} onPress={openSheet}>
           <ThemedIcon name="add" size={18} color="#fff" />
-          <Text style={styles.addBtnText}>添加{mealKindLabels[meal]}</Text>
+          <Text style={styles.addBtnText}>添加{mealKindLabels[mealNow]}</Text>
         </PressableScale>
       )}
 
