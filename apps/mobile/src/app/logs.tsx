@@ -135,7 +135,8 @@ export default function LogsScreen() {
       {/* v17-C2b：FlatList 的 ListHeaderComponent 里是"大标题"（随列表滚走），
           紧凑栏必须放在列表**之外**才能真吸顶 */}
       <ScreenHeaderStickyBar title="学习日志" scrollY={headerScroll.scrollY} />
-        <FlatList onScroll={headerScroll.onScroll} scrollEventThrottle={16}
+        {/* ⚠️ v1.32.2：普通 FlatList 必须用 onScrollJS（见 screen-header.tsx 的根因注释） */}
+        <FlatList onScroll={headerScroll.onScrollJS} scrollEventThrottle={16}
           style={styles.scroll}
           data={logs as LogRow[]}
           keyExtractor={(l) => String(l.id)}

@@ -194,7 +194,9 @@ export default function ApplicationsScreen() {
     <View style={styles.root}>
       {/* v17-C2b：紧凑栏放在 FlatList **之外**才能真吸顶；大标题留在 ListHeaderComponent 里随列表滚走 */}
       <ScreenHeaderStickyBar title="我的求职" scrollY={headerScroll.scrollY} />
-      <FlatList onScroll={headerScroll.onScroll} scrollEventThrottle={16}
+      {/* ⚠️ v1.32.2：普通 FlatList 必须用 onScrollJS —— onScroll 是 Reanimated 的事件对象，
+          被 FlatList 当函数直接调用会抛 TypeError → 进程死（详见 screen-header.tsx 注释） */}
+      <FlatList onScroll={headerScroll.onScrollJS} scrollEventThrottle={16}
         refreshControl={<RefreshControl {...pullControl} />}
         data={shown}
         keyExtractor={(item) => String(item.id)}

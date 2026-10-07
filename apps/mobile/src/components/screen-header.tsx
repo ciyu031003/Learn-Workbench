@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
   Extrapolation,
@@ -60,12 +60,18 @@ export function useHeaderTopInset(variant: "compact" | "hero" = "compact"): numb
 
 /**
  * 拿到大标题折叠所需的滚动驱动。
- * 用法：`const header = useLargeTitleHeader();` → `<Animated.ScrollView onScroll={header.onScroll} scrollEventThrottle={16} />`
- * 与 `<ScreenHeaderLargeTitle …/>`（内容内）+ `<ScreenHeaderStickyBar scrollY={header.scrollY} …/>`（内容外）。
+ *
+ * 用法（**两种容器必须用不同的 prop，别混**）：
+ * - `<Animated.ScrollView onScroll={header.onScroll} scrollEventThrottle={16} />`
+ * - `<FlatList / FlashList onScroll={header.onScrollJS} scrollEventThrottle={16} />`
+ * 再配 `<ScreenHeaderLargeTitle …/>`（内容内）+ `<ScreenHeaderStickyBar scrollY={header.scrollY} …/>`（内容外）。
  */
 export function useLargeTitleHeader(): {
   scrollY: SharedValue<number>;
+  /** Reanimated 的事件处理器：**只能**挂到 `Animated.*` 容器上（见下面的 ⚠️） */
   onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  /** 普通 `FlatList` / `FlashList` / `ScrollView` 必须用这个 */
+  onScrollJS: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
 } {
   const scrollY = useSharedValue(0);
   // ⚠️ CLAUDE.md worklet 硬约束：worklet 内只读写共享值 + Reanimated API；
@@ -75,7 +81,30 @@ export function useLargeTitleHeader(): {
       scrollY.value = e.contentOffset.y;
     },
   });
-  return { scrollY, onScroll };
+  /**
+   * ⚠️⚠️ 2026-09-29 真机闪退**真根因**（v1.32.2 修）：
+   * `useAnimatedScrollHandler()` 返回的**不是函数**，而是 Reanimated `useEvent()` 的返回值 ——
+   * 一个 `{ workletEventHandler }` **对象**；只有 `Animated.createAnimatedComponent` 认得这个形状
+   * （Reanimated 源码注释："we handle it being a React Ref in createAnimatedComponent"）。
+   *
+   * 普通列表把它当普通 prop **直接调用**：FlashList v2 的源码里就是
+   * `recyclerViewManager.props.onScroll?.(event)`（dist/recyclerview/RecyclerView.js:188），
+   * 调用一个对象 → `TypeError: undefined is not a function` → RN 判为 fatal JS error
+   * → 抛 Java 异常 → **进程直接死**（ApplicationExitInfo = CRASH(4)）。
+   * 真机表现就是「招花岗位列表一往下滑就闪退」（jobs 是全仓唯一的 FlashList）。
+   *
+   * 所以：**非 Animated 容器一律用 onScrollJS** —— 一个真的 JS 函数，在 JS 线程写共享值
+   * （scrollEventThrottle 16ms 足够驱动吸顶栏，代价可忽略）。
+   * 回归护栏见 `src/lib/scroll-handler-guard.test.ts`。
+   */
+  const onScrollJS = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      // 用 `.set()` 而不是 `.value =`：后者会被 React Compiler 的 immutability 规则拦下（lint error）
+      scrollY.set(e.nativeEvent.contentOffset.y);
+    },
+    [scrollY]
+  );
+  return { scrollY, onScroll, onScrollJS };
 }
 
 /**

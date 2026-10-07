@@ -21,6 +21,7 @@ import { SkeletonList } from "@/components/skeleton";
 
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
+import { recordCrumb } from "@/lib/crash-capture";
 import Animated, {
   cancelAnimation,
   FadeIn,
@@ -85,12 +86,23 @@ function JobCard({
    * 此前这里用 Animated.View + heartScale 弹簧，由 useEffect 在 item **挂载时**启动 ——
    * FlashList 滚动会不断回收并重挂 item，等于**滚动全程反复在 UI 线程启动弹簧动画**，
    * 原生层崩溃（与历史上 entering 让列表崩掉同一类问题，见踩坑 64422a9 / v19-S1）。
-   * 收藏态改由颜色表达（danger / textFaint），按压反馈交给外层 PressableScale。
+   * 收藏态改由颜色表达（danger / textFaint）。
+   *
+   * v1.32.0（第四次收口）：此前"按压反馈交给外层 PressableScale"，但 **PressableScale 本身就是
+   * Reanimated 组件**（useSharedValue×2 + useAnimatedStyle×2 + withSpring/withTiming），
+   * 挂在 FlashList 的 item 上等于把"item 内 Reanimated"换个触发时机又留了回来
+   * （按下 → 滚动/回收时弹簧仍在 UI 线程跑）。
+   * 现在卡片**完全不含 Reanimated**：按压反馈改由 Pressable 的 pressed 状态样式表达
+   * （静态 transform + opacity，零 worklet、零共享值）。改这里前请确认本文件 FlashList 的
+   * item 子树里没有任何 react-native-reanimated 组件，见踩坑 92。
    */
   const heartColor = job.isFav ? colors.danger : colors.textFaint;
 
   return (
-    <PressableScale onPress={() => onPress(job)} scaleTo={0.97} style={styles.jobCard}>
+    <Pressable
+      onPress={() => onPress(job)}
+      style={({ pressed }) => [styles.jobCard, pressed ? styles.jobCardPressed : null]}
+    >
       <View style={styles.jobTop}>
         <View style={[styles.logo, { backgroundColor: avatarColorOf(job.id) }]}>
           <Text style={styles.logoText}>{job.company.trim().charAt(0).toUpperCase() || "公"}</Text>
@@ -135,13 +147,17 @@ function JobCard({
           </Text>
         ) : null}
         <Text style={styles.time}>{formatRelativeTime(job.publishedAt)}</Text>
-        <PressableScale hitSlop={10} onPress={() => onToggleFavorite(job)}>
+        <Pressable
+          hitSlop={10}
+          onPress={() => onToggleFavorite(job)}
+          style={({ pressed }) => (pressed ? styles.pressedFaint : null)}
+        >
           {/* v19-M7：心形色收进主题 token（danger=收藏 / textFaint=未收藏）；此处不做动画（见上方说明） */}
           <ThemedIcon name={job.isFav ? "heart" : "heart-outline"} size={18} color={heartColor} />
-        </PressableScale>
+        </Pressable>
         <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
       </View>
-    </PressableScale>
+    </Pressable>
   );
 }
 
@@ -570,6 +586,17 @@ export default function JobsScreen() {
   const [skillsFilter, setSkillsFilter] = useState<string[]>([]);
   const selectedJob = useMemo(() => jobs.find((j) => j.id === selectedId) ?? null, [jobs, selectedId]);
   const listRef = useRef<FlashListRef<JobPostingListItem>>(null);
+  /**
+   * v1.32.0 崩溃取证：记录"崩溃前滚到了第几屏"。
+   * 身份用 ref 固定（FlashList 会因回调换身份而整列表重渲染），
+   * 且**不做任何 setState / 动画** —— 面包屑写模块级缓冲 + 防抖落盘（lib/crash-capture.ts），
+   * 不参与 React 渲染，避免它自己变成新的闪退源（踩坑 92）。
+   */
+  const onViewableItemsChanged = useCallback((info: { viewableItems: Array<{ index?: number | null }> }) => {
+    const idx = info.viewableItems.map((v) => v.index).filter((i): i is number => typeof i === "number");
+    if (idx.length === 0) return;
+    recordCrumb("scroll", { first: Math.min(...idx), last: Math.max(...idx), visible: idx.length });
+  }, []);
   const hasActiveFilter =
     salaryMin != null || salaryMax != null || education.length > 0 || experience.length > 0 || publishedWithin !== "" || skillsFilter.length > 0;
 
@@ -598,6 +625,17 @@ export default function JobsScreen() {
         setTotal(data.total);
         setPage(data.page);
         setError(null);
+        // v1.32.0 崩溃取证：抓取结果也入库（崩溃前最后一次筛选/分页的口径）
+        recordCrumb("fetch", {
+          mode,
+          count: data.jobs.length,
+          total: data.total,
+          page: data.page,
+          q: String(query ?? "").slice(0, 40),
+          city,
+          category: category || null,
+          sort,
+        });
       } catch (e) {
         setError(e instanceof Error ? e.message : "职位列表加载失败");
       } finally {
@@ -699,6 +737,7 @@ export default function JobsScreen() {
 
   // v20-B1：参数放宽为 { id }（详情弹层的种子入参也走同一条收藏链路）
   const toggleFavorite = async (job: { id: number }) => {
+    recordCrumb("action", { name: "toggle-fav", id: job.id });
     if (!token) {
       Alert.alert("请先登录", "收藏功能需要登录后使用。");
       return;
@@ -715,6 +754,8 @@ export default function JobsScreen() {
   };
 
   const openJob = (job: JobPostingListItem) => {
+    // v1.32.0 崩溃取证：真机反馈是"点开岗位详情后滑动列表就闪退"，这一条必须留痕
+    recordCrumb("action", { name: "open-job", id: job.id, title: String(job.title ?? "").slice(0, 40) });
     haptics.light();
     setSelectedId(job.id);
     setDetailVisible(true);
@@ -821,10 +862,14 @@ export default function JobsScreen() {
           所以 padding/gap 必须由 item wrapper、separator、header/footer 自己给（见 styles.listSide / CARD_SEP_STYLE）。 */}
       <FlashList
         ref={listRef}
-        onScroll={headerScroll.onScroll}
+        // ⚠️ v1.32.2：FlashList 必须用 onScrollJS —— FlashList v2 内部是 `props.onScroll?.(event)`
+        // 直接调用，而 Reanimated 的 onScroll 是 {workletEventHandler} 对象 →
+        // TypeError: undefined is not a function → fatal → 进程死（招花下滑闪退的真根因）
+        onScroll={headerScroll.onScrollJS}
         scrollEventThrottle={16}
         data={jobs}
         keyExtractor={(item) => String(item.id)}
+        onViewableItemsChanged={onViewableItemsChanged}
         renderItem={({ item }) => (
           /* 真机闪退修复：不要在 FlashList 的 item 上挂 Reanimated 的 entering 动画 ——
              v2 的 item 是绝对定位并会回收复用，回收发生在动画进行中时会在原生层崩
@@ -955,6 +1000,12 @@ const makeStyles = (colors: ThemeColors) =>
     shadowOffset: { width: 0, height: 6 },
     elevation: 2,
   },
+  /**
+   * v1.32.0：零 Reanimated 的按压反馈（静态 transform + opacity，不走 worklet/共享值）。
+   * 虚拟化列表 item 里一旦出现 Reanimated 动画，按下→滚动/回收就会在 UI 线程重启动画并崩原生层（踩坑 92）。
+   */
+  jobCardPressed: { transform: [{ scale: 0.985 }], opacity: 0.96 },
+  pressedFaint: { opacity: 0.5 },
   jobTop: { flexDirection: "row", alignItems: "flex-start", gap: 11 },
   logo: {
     width: 46,
