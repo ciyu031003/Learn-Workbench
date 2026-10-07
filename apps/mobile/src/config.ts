@@ -25,10 +25,11 @@ const IS_DEV = typeof __DEV__ === "undefined" ? true : __DEV__;
 /**
  * v4 P2（决策 D7）：**正式包只允许 https**。
  *
- * 原因：正式包清单里 `usesCleartextTraffic=false`，任何 `http://` 请求都会被系统直接拒绝
+ * manifest 层：app.json 里 `usesCleartextTraffic=false`（v4 当时代码层先落地，
+ * manifest 层 2026-10-07 v1.35.0 补齐）——任何 `http://` 请求会被系统直接拒绝
  * （RN 表现为 "Network request failed"）。历史上这类失败会被上层统一报成
  * 「当前网络不可用」，害得排查方向完全跑偏（用户明明开着流量）。
- * 所以：非开发环境下，只要目标地址是 http:// 就回落到生产 https 域名。
+ * 所以：非开发环境下，只要目标地址是 http:// 就回落到生产 https 域名（代码层双保险）。
  */
 export function sanitizeApiUrl(raw: string): string {
   const trimmed = raw.trim().replace(/\/+$/, "");

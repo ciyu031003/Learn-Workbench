@@ -51,7 +51,7 @@
         {
           "android": {
             "cmakeVersion": "3.31.6",
-            "usesCleartextTraffic": true
+            "usesCleartextTraffic": false
           }
         }
       ]
@@ -63,9 +63,5 @@
     "extra": {
       "apiUrl": "https://learn.yuanabd.cn"
     }
-  },
-  "version": "1.2.0",
-  "android": {
-    "versionCode": 56
   }
 }

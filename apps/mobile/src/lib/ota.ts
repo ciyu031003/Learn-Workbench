@@ -6,8 +6,10 @@ export const ICP_VERIFY_URL = "https://beian.miit.gov.cn/";
 /**
  * 公安联网备案号（公安部，与工信部 ICP 是两套号）。
  * 2026-09-18 提交「新增APP」、**2026-09-29 审核通过**（beian.mps.gov.cn，包名 com.yuanabd.learnworkbench）。
- * 待用户从「我的APP → 苦旅」或审核通过通知里取出号码后填这里（形如 `赣公网安备 3601xxxxxxxxxx号`）；
- * 留空时「我的 → 关于」不渲染该行，填上即自动出现（门户 footer/privacy 同步展示同一号码）。
+ * 2026-10-07 v1.34.1 起在「我的 → 关于」与门户 footer/privacy 展示该号码。
+ * ⚠️ 已知存疑点（二轮评审标记，待人工核对）：号码省份为「粤」，而 ICP 是「赣」——
+ * 公安备案省份跟随**主体所在地**，与域名 ICP 可以不同省；但若与审核通知里的原文不符，请直接改这里的值
+ * （App 端改完需随下一版 APK 生效；门户 5 个页面是独立仓库 F:\CodeFiles\YuanAbd-Web，需同步改）。
  */
 export const APP_MPS_NUMBER = "粤公网安备44010602017246号";
 /** 公安备案查询链接前缀（拼上号码里的纯数字部分） */
