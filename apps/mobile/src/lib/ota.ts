@@ -1,5 +1,5 @@
-export const APP_VERSION_NAME = "1.34.0";
-export const APP_VERSION_CODE = 55;
+export const APP_VERSION_NAME = "1.34.1";
+export const APP_VERSION_CODE = 56;
 export const APP_ICP_NUMBER = "赣ICP备2024031528号-3A";
 export const PRIVACY_POLICY_URL = "https://learn.yuanabd.cn/privacy.html";
 export const ICP_VERIFY_URL = "https://beian.miit.gov.cn/";
@@ -9,7 +9,7 @@ export const ICP_VERIFY_URL = "https://beian.miit.gov.cn/";
  * 待用户从「我的APP → 苦旅」或审核通过通知里取出号码后填这里（形如 `赣公网安备 3601xxxxxxxxxx号`）；
  * 留空时「我的 → 关于」不渲染该行，填上即自动出现（门户 footer/privacy 同步展示同一号码）。
  */
-export const APP_MPS_NUMBER = "";
+export const APP_MPS_NUMBER = "粤公网安备44010602017246号";
 /** 公安备案查询链接前缀（拼上号码里的纯数字部分） */
 export const MPS_VERIFY_URL = "https://beian.mps.gov.cn/#/query/webSearch?code=";
 export const OTA_MANIFEST_BASE_URL = "https://learn.yuanabd.cn";
