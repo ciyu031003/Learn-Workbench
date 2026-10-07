@@ -60,7 +60,10 @@ if (existsSync(gradlePath)) {
   const g = readFileSync(gradlePath, "utf8");
   const gName = /versionName\s+"([^"]+)"/.exec(g)?.[1] ?? "";
   const gCode = Number(/versionCode\s+(\d+)/.exec(g)?.[1] ?? NaN);
-  info.push("build.gradle: " + gName + " / " + gCode);
+  info.push("build.gradle: " + (gName || "(解析不到)") + " / " + (Number.isFinite(gCode) ? gCode : "(解析不到)"));
+  // v1.35.0：文件存在却解析不到 = 被改坏，必须硬失败（旧实现静默跳过，检查形同虚设）
+  if (!gName) fail.push("build.gradle 里解析不到 versionName（文件被改坏？android/ 不进 git，prebuild 后需重新注入版本号）");
+  if (!Number.isFinite(gCode)) fail.push("build.gradle 里解析不到 versionCode（文件被改坏？）");
   if (gName && gName !== otaName) fail.push("版本号漂移：build.gradle=" + gName + " 与 ota.ts=" + otaName + " 不一致");
   if (Number.isFinite(gCode) && Number.isFinite(otaCode) && gCode !== otaCode) {
     fail.push("versionCode 漂移：build.gradle=" + gCode + " 与 ota.ts=" + otaCode + " 不一致");
