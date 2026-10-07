@@ -12,6 +12,7 @@ import {
   isCrashExit,
   isLikelyUnclean,
   pushCrumb,
+  redactDeep,
   redactSecrets,
   reportFileName,
   type Crumb,
@@ -57,6 +58,57 @@ describe("redactSecrets", () => {
   it("null / undefined 不炸", () => {
     expect(redactSecrets(undefined as unknown as string)).toBe("");
     expect(redactSecrets(null as unknown as string)).toBe("");
+  });
+});
+
+describe("脱敏性能护栏（2026-10-07 评审：邮箱正则曾退化成 O(N²)）", () => {
+  it("200k 连续字符必须在 250ms 内跑完（Hermes 上也留足余量）", () => {
+    const t0 = Date.now();
+    const out = redactSecrets("x".repeat(200000));
+    const ms = Date.now() - t0;
+    expect(out).toContain("<redacted-token>");
+    expect(ms).toBeLessThan(250);
+  });
+
+  it("长邮箱样式串（有 @ 无点）同样不能退化", () => {
+    const t0 = Date.now();
+    redactSecrets("a".repeat(60000) + "@" + "b".repeat(60000));
+    expect(Date.now() - t0).toBeLessThan(250);
+  });
+
+  it("长 local part 的邮箱：local 被当作长串抹掉，域名不再被当成完整邮箱", () => {
+    const out = redactSecrets("x".repeat(40) + "@example.com");
+    expect(out).not.toContain("x".repeat(40));
+  });
+});
+
+describe("redactDeep / buildReportJson 整包脱敏", () => {
+  it("递归抹掉对象与数组里的长串", () => {
+    const out = redactDeep({ a: "t" + "k".repeat(40), b: ["z".repeat(48)], c: 7 }) as {
+      a: string;
+      b: string[];
+      c: number;
+    };
+    expect(out.a).toBe("<redacted-token>");
+    expect(out.b[0]).toBe("<redacted-token>");
+    expect(out.c).toBe(7);
+  });
+
+  it("结构化字段（crumbs / jsErrors / lastExit.trace）不再原样上传", () => {
+    const json = buildReportJson(
+      baseInput({
+        crumbs: [{ t: 1, kind: "fetch", data: { token: "Bearer " + "A".repeat(40) } }],
+        jsErrors: [{ t: 1, message: "boom", stack: "at x " + "B".repeat(40), fatal: true }],
+        lastExit: { reason: "CRASH", reasonCode: 4, timestamp: 1, description: "", trace: "mem " + "C".repeat(40) },
+        note: "联系 zzz@example.com",
+      })
+    );
+    const body = JSON.stringify(json);
+    expect(body).not.toContain("A".repeat(40));
+    expect(body).not.toContain("B".repeat(40));
+    expect(body).not.toContain("C".repeat(40));
+    expect(body).not.toContain("zzz@example.com");
+    expect(body).toContain("<redacted");
   });
 });
 

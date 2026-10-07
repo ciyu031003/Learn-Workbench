@@ -22,6 +22,8 @@ export const TRACE_MAX_CHARS = 20000;
  * 噪音，真正致命的 FATAL EXCEPTION 反而被截掉。**logcat 必须取尾**（clampTail）。
  */
 export const LOGCAT_MAX_CHARS = 120000;
+/** 人读报告正文里 logcat 的节选长度（完整量在同包的 logcat 字段，避免包内存两份） */
+export const LOGCAT_IN_TEXT_CHARS = 4000;
 /** 上报正文上限（服务端也是这个口径，两边一致避免"客户端能传、服务端 413"） */
 export const REPORT_MAX_BYTES = 512 * 1024;
 
@@ -86,22 +88,50 @@ export interface DiagnosticInput {
  * → 直接变成一个新的闪退）。需要边界就用捕获组。
  */
 const REDACT_RULES: [RegExp, string][] = [
-  // Authorization / Bearer 这类键值对
+  // 1) 键值对先抹（Bearer / token=xxx 这类）
   [/(bearer)\s+[A-Za-z0-9._~+/-]{8,}=*/gi, "$1 <redacted>"],
   [/((?:authorization|cookie|set-cookie|x-cron-secret|token|secret|password|passwd|pwd|apikey|api_key)\s*[:=]\s*)[^\s,;"']+/gi, "$1<redacted>"],
-  // 邮箱
-  [/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, "<email>"],
-  // 中国大陆手机号（用捕获组表达边界，避免 lookaround）
-  [/(^|[^0-9])1[3-9][0-9]{9}([^0-9]|$)/g, "$1<phone>$2"],
-  // 长随机串（会话 token / JWT / 签名）：长度 >= 32 的连续 base64url-ish 串
+  /**
+   * 2) **长串先折叠**（顺序很关键）：把 ≥32 的连续 base64url-ish 串整体塌成占位符，
+   * 后面几条规则面对的字符串就没有"超长无分隔段"了。
+   * 2026-10-07 评审实测：原来把这条放在最后，前面的邮箱规则在 120k 连续字符上会退化成
+   * **二次方**（40k→863ms / 80k→3528ms / 120k→7516ms，Hermes 上只会更糟）——
+   * 用户点「上传」时整个 JS 线程会卡死几秒到几十秒。
+   */
   [/[A-Za-z0-9_-]{32,}/g, "<redacted-token>"],
+  /**
+   * 3) 邮箱：**量词必须带上界**（RFC 上限 local ≤64、label ≤63）。
+   * 无上界的 `[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}` 在长串上每个起点都要回溯到底，
+   * 是上面那次二次方的元凶；加上界后单点成本恒定 → 线性。
+   */
+  [/[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]{1,63}(?:\.[A-Za-z0-9-]{1,63})+/g, "<email>"],
+  // 4) 中国大陆手机号（用捕获组表达边界，避免 lookaround）
+  [/(^|[^0-9])1[3-9][0-9]{9}([^0-9]|$)/g, "$1<phone>$2"],
 ];
 
-/** 逐条套用脱敏规则（顺序有意义：先键值对，再长随机串） */
+/** 逐条套用脱敏规则（顺序有意义：键值对 → 长串折叠 → 邮箱 → 手机号，见 REDACT_RULES 注释） */
 export function redactSecrets(input: string): string {
   let out = String(input ?? "");
   for (const [re, to] of REDACT_RULES) out = out.replace(re, to);
   return out;
+}
+
+/**
+ * 深度脱敏：递归遍历对象/数组，把**每个字符串**都过一遍 redactSecrets。
+ *
+ * 为什么需要（2026-10-07 评审发现）：原来只脱敏了 `report` 正文与 `logcat`，
+ * 而 `lastExit.trace` / `jsErrors[].message+stack` / `crumbs[].data` 是**原样**上传的 ——
+ * 崩溃栈、crumb 数据里一样可能带 token。现在整包统一走这里。
+ */
+export function redactDeep<T>(value: T): T {
+  if (typeof value === "string") return redactSecrets(value) as unknown as T;
+  if (Array.isArray(value)) return value.map((item) => redactDeep(item)) as unknown as T;
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) out[k] = redactDeep(v);
+    return out as unknown as T;
+  }
+  return value;
 }
 
 // ---------------------------------------------------------------- 面包屑
@@ -245,8 +275,10 @@ export function buildReportText(input: DiagnosticInput): string {
     if (e.stack) lines.push(e.stack);
   }
   lines.push("");
-  lines.push("--- logcat 兜底（应用自身可见部分，取尾部）---");
-  lines.push(input.logcat ? clampTail(input.logcat, LOGCAT_MAX_CHARS) : "(无)");
+  // 正文里只放**尾部节选**（崩溃现场在最后几行），完整 logcat 在同包的 logcat 字段。
+  // 这样同一段 logcat 不会在包里存两份（2026-10-07 评审：整包体积直接减半）。
+  lines.push("--- logcat 兜底（尾部节选，完整见同包 logcat 字段）---");
+  lines.push(input.logcat ? clampTail(input.logcat, LOGCAT_IN_TEXT_CHARS) : "(无)");
   lines.push("");
   lines.push("--- 面包屑（崩溃前最后 " + input.crumbs.length + " 条）---");
   lines.push(formatCrumbs(input.crumbs));
@@ -284,9 +316,15 @@ export interface CrumbSnapshot {
   jsErrors?: JsErrorInfo[];
 }
 
-/** 上报 JSON（服务端按原样落盘，人读文本放在 report 字段里） */
+/**
+ * 上报 JSON（服务端按原样落盘，人读文本放在 report 字段里）。
+ *
+ * ⚠️ 2026-10-07 评审修正：这里必须**整包深度脱敏**（redactDeep），不能只脱敏 logcat ——
+ * lastExit.trace / jsErrors / crumbs[].data 同样可能夹带 token。
+ * logcat 这里先取尾截断再由 redactDeep 统一脱敏，避免同一段文本被脱敏两遍。
+ */
 export function buildReportJson(input: DiagnosticInput): Record<string, unknown> {
-  return {
+  return redactDeep({
     schema: 1,
     kind: "crash",
     generatedAt: input.generatedAt,
@@ -299,8 +337,8 @@ export function buildReportJson(input: DiagnosticInput): Record<string, unknown>
     crumbSource: input.crumbSource ?? "current",
     note: input.note ?? "",
     jsErrors: input.jsErrors,
-    logcat: redactSecrets(clampTail(input.logcat, LOGCAT_MAX_CHARS)),
+    logcat: clampTail(input.logcat, LOGCAT_MAX_CHARS),
     crumbs: input.crumbs,
     report: buildReportText(input),
-  };
+  });
 }
