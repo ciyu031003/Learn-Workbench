@@ -13,6 +13,8 @@ import { syncPush, syncPull } from "@/lib/sync";
 import { useSyncEngineStatus } from "@/lib/sync-engine";
 import {
   APP_ICP_NUMBER,
+  APP_MPS_NUMBER,
+  MPS_VERIFY_URL,
   APP_VERSION_NAME,
   DOWNLOAD_PAGE_URL,
   ICP_VERIFY_URL,
@@ -471,6 +473,18 @@ export default function SettingsScreen() {
           showChevron
           onPress={() => void Linking.openURL(ICP_VERIFY_URL).catch(() => {})}
         />
+        {APP_MPS_NUMBER ? (
+          <ListRow
+            {...tint(GROUP_TINT.gray)}
+            icon="shield-checkmark-outline"
+            title="公安联网备案"
+            subtitle={APP_MPS_NUMBER}
+            showChevron
+            onPress={() =>
+              void Linking.openURL(MPS_VERIFY_URL + APP_MPS_NUMBER.replace(/[^0-9]/g, "")).catch(() => {})
+            }
+          />
+        ) : null}
         <ListRow
           {...tint(GROUP_TINT.gray)}
           icon="document-text-outline"

@@ -1,8 +1,17 @@
-export const APP_VERSION_NAME = "1.33.0";
-export const APP_VERSION_CODE = 54;
+export const APP_VERSION_NAME = "1.34.0";
+export const APP_VERSION_CODE = 55;
 export const APP_ICP_NUMBER = "赣ICP备2024031528号-3A";
 export const PRIVACY_POLICY_URL = "https://learn.yuanabd.cn/privacy.html";
 export const ICP_VERIFY_URL = "https://beian.miit.gov.cn/";
+/**
+ * 公安联网备案号（公安部，与工信部 ICP 是两套号）。
+ * 2026-09-18 提交「新增APP」、**2026-09-29 审核通过**（beian.mps.gov.cn，包名 com.yuanabd.learnworkbench）。
+ * 待用户从「我的APP → 苦旅」或审核通过通知里取出号码后填这里（形如 `赣公网安备 3601xxxxxxxxxx号`）；
+ * 留空时「我的 → 关于」不渲染该行，填上即自动出现（门户 footer/privacy 同步展示同一号码）。
+ */
+export const APP_MPS_NUMBER = "";
+/** 公安备案查询链接前缀（拼上号码里的纯数字部分） */
+export const MPS_VERIFY_URL = "https://beian.mps.gov.cn/#/query/webSearch?code=";
 export const OTA_MANIFEST_BASE_URL = "https://learn.yuanabd.cn";
 /** 手动下载页（OTA 不通时的兜底路径，永远可用） */
 export const DOWNLOAD_PAGE_URL = "https://learn.yuanabd.cn/download.html";
