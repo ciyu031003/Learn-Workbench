@@ -10,6 +10,7 @@ import {
   isSafeDiagnosticPath,
   pruneDiagnosticReports,
   redactDiagnosticsText,
+  summarizeDiagnosticReports,
   validateDiagnosticBody,
 } from "./diagnostics-store";
 
@@ -61,6 +62,19 @@ describe("redactDiagnosticsText（服务端兜底脱敏）", () => {
     redactDiagnosticsText("x".repeat(200000));
     expect(Date.now() - t0).toBeLessThan(400);
   });
+
+  it("**折叠后存活**的输入也线性（v1.35.0：与移动端同款护栏 —— 纯长串会被折叠规则塌缩，压不到邮箱规则）", () => {
+    const hostile = Array.from({ length: 3000 }, () => "a".repeat(30)).join(".");
+    const t0 = Date.now();
+    const out = redactDiagnosticsText(hostile + "@" + "b".repeat(30) + ".com");
+    expect(Date.now() - t0).toBeLessThan(400);
+    expect(out).toContain("<email>");
+  });
+
+  it("相邻两个手机号都抹掉（与客户端规则同步：尾界零宽前瞻）", () => {
+    const out = redactDiagnosticsText("13800138000 13912345678");
+    expect(out).toBe("<phone> <phone>");
+  });
 });
 
 describe("pruneDiagnosticReports（30 天保留策略）", () => {
@@ -107,6 +121,60 @@ describe("pruneDiagnosticReports（30 天保留策略）", () => {
     } finally {
       if (prev === undefined) delete process.env.DIAGNOSTICS_DIR;
       else process.env.DIAGNOSTICS_DIR = prev;
+    }
+  });
+
+  it("归属目录里混入非 json 文件 → 整目录跳过（v1.35.0 自检：DIAGNOSTICS_DIR 配错时不当地毯删除器）", async () => {
+    const root = mkdtempSync(path.join(tmpdir(), "lwb-diag-"));
+    const prev = process.env.DIAGNOSTICS_DIR;
+    process.env.DIAGNOSTICS_DIR = root;
+    try {
+      const ownerDir = path.join(root, "u-1");
+      mkdirSync(ownerDir, { recursive: true });
+      const oldJson = path.join(ownerDir, "aaaaaaaa-1111-2222-3333-444444444444.json");
+      writeFileSync(oldJson, "{}", "utf8");
+      const oldTime = (Date.now() - 40 * 24 * 3600 * 1000) / 1000;
+      utimesSync(oldJson, oldTime, oldTime);
+      // 混入一个"不该在这里"的文件 → 这个目录不是我们写的形状
+      writeFileSync(path.join(ownerDir, "keep-me.txt"), "business data", "utf8");
+
+      const res = await pruneDiagnosticReports(30);
+      expect(res.files).toBe(0);
+      expect(existsSync(oldJson)).toBe(true);
+      expect(existsSync(path.join(ownerDir, "keep-me.txt"))).toBe(true);
+    } finally {
+      if (prev === undefined) delete process.env.DIAGNOSTICS_DIR;
+      else process.env.DIAGNOSTICS_DIR = prev;
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("summarizeDiagnosticReports（崩溃率总览，v1.35.0 加设备去重）", () => {
+  it("按 installId 去重设备数；byVersion 来自实际解析的文件", async () => {
+    const root = mkdtempSync(path.join(tmpdir(), "lwb-diag-"));
+    const prev = process.env.DIAGNOSTICS_DIR;
+    process.env.DIAGNOSTICS_DIR = root;
+    try {
+      const ownerDir = path.join(root, "u-1");
+      mkdirSync(ownerDir, { recursive: true });
+      const mk = (name: string, installId: string, version: string) => {
+        const f = path.join(ownerDir, name);
+        writeFileSync(f, JSON.stringify({ installId, app: { version } }), "utf8");
+      };
+      mk("aaaaaaaa-1111-2222-3333-444444444444.json", "dev-1", "1.35.0");
+      mk("bbbbbbbb-1111-2222-3333-444444444444.json", "dev-1", "1.35.0"); // 同设备第二份
+      mk("cccccccc-1111-2222-3333-444444444444.json", "dev-2", "1.34.1");
+      const res = await summarizeDiagnosticReports();
+      expect(res.total).toBe(3);
+      expect(res.last24h).toBe(3);
+      expect(res.devices24h).toBe(2); // dev-1 的两份只算一台
+      expect(res.parsed).toBe(3);
+      expect(res.byVersion).toEqual({ "1.35.0": 2, "1.34.1": 1 });
+    } finally {
+      if (prev === undefined) delete process.env.DIAGNOSTICS_DIR;
+      else process.env.DIAGNOSTICS_DIR = prev;
+      rmSync(root, { recursive: true, force: true });
     }
   });
 });

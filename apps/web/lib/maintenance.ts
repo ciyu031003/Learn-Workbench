@@ -2,6 +2,9 @@ import { pgPool } from "./db";
 import { logger } from "./logger";
 import { pruneDiagnosticReports, summarizeDiagnosticReports } from "./diagnostics-store";
 
+/** 崩溃率告警阈值：24h 内去重设备数 ≥ 10 台就 warn（单人刷上传不触发） */
+export const DIAGNOSTIC_ALERT_DEVICES = 10;
+
 /**
  * 过期/审计数据定期清理（由 /api/internal/cron 每日触发）：
  * - sessions：过期 7 天后的会话行（防止表无限膨胀；活跃会话不受影响）
@@ -56,13 +59,17 @@ export async function cleanupExpiredData(): Promise<CleanupResult> {
   /**
    * 崩溃率信号（v1.34.0）：最近 24h 诊断包按 App 版本聚合。
    * 连续多版"修闪退"却只能靠用户反馈的时代该结束了 —— 超过阈值直接 warn，便于外部采集告警。
+   * v1.35.0（2026-10-07 二轮评审）：告警口径从**文件数**改为**按 installId 去重的设备数** ——
+   * 文件数会被单人反复上传刷爆（限流允许 20 次/h），设备数才是"多点分布"的真实信号；
+   * 文案注明 byVersion 只统计最新 50 份（量大时版本占比会低估）。
    */
   try {
     const summary = await summarizeDiagnosticReports();
     logger.info("[maintenance] diagnostics overview:", summary);
-    if (summary.last24h >= 10) {
+    if (summary.devices24h >= DIAGNOSTIC_ALERT_DEVICES) {
       logger.warn(
-        "[maintenance] ⚠️ 24h 内诊断包 " + summary.last24h + " 个，按版本：" + JSON.stringify(summary.byVersion)
+        "[maintenance] ⚠️ 24h 内诊断包 " + summary.last24h + " 个（去重后 " + summary.devices24h + " 台设备，" +
+          "版本占比仅统计最新 " + summary.parsed + " 份）：" + JSON.stringify(summary.byVersion)
       );
     }
   } catch (e) {

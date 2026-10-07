@@ -26,32 +26,45 @@ export function GlassModal({
   children: React.ReactNode;
   className?: string;
 }) {
-  // 只在客户端 portal；并区分"打开中"与"正在离场"，让关闭也有动画
-  const [mounted, setMounted] = React.useState(false);
+  // 只在客户端 portal；并区分"打开中"与"正在离场"，让关闭也有动画。
+  // mounted 用 useSyncExternalStore 做 hydration 检测（SSR false / 客户端 true），
+  // 替代旧的 setState-in-effect 写法（react-hooks/set-state-in-effect 会报 error）。
+  const emptySubscribe = React.useCallback(() => () => {}, []);
+  const mounted = React.useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false
+  );
   const [visible, setVisible] = React.useState(false);
   const [closing, setClosing] = React.useState(false);
 
-  React.useEffect(() => setMounted(true), []);
-
-  React.useEffect(() => {
+  // open 的派生状态在**渲染期**调整（React 官方推荐的 props→state 模式）：
+  // 打开 → visible 且非离场；关闭 → 进入离场动画（reduced-motion 直接落位）。
+  const [prevOpen, setPrevOpen] = React.useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
     if (open) {
       setVisible(true);
       setClosing(false);
-      return;
+    } else if (visible) {
+      if (prefersReducedMotion()) {
+        setVisible(false);
+        setClosing(false);
+      } else {
+        setClosing(true);
+      }
     }
-    if (!visible) return;
-    if (prefersReducedMotion()) {
-      setVisible(false);
-      setClosing(false);
-      return;
-    }
-    setClosing(true);
+  }
+
+  // 离场动画计时器：外部系统（setTimeout）订阅，收尾落位
+  React.useEffect(() => {
+    if (!closing) return;
     const timer = window.setTimeout(() => {
       setVisible(false);
       setClosing(false);
     }, EXIT_MS);
     return () => window.clearTimeout(timer);
-  }, [open, visible]);
+  }, [closing]);
 
   // Esc 关闭（原生 dialog 的常规预期；不改变 onClose 的语义）
   React.useEffect(() => {

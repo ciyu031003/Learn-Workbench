@@ -2,13 +2,18 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("./db", () => ({ pgPool: { query: vi.fn() } }));
 vi.mock("./logger", () => ({ logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 // 诊断包的 fs 清理/总览与 SQL 清理无关：测试里 mock 掉，保持用例确定性（不碰真实目录）
+// vi.mock 工厂会被提升到文件顶部，mock 句柄必须用 vi.hoisted 创建
+const { pruneMock, summarizeMock } = vi.hoisted(() => ({
+  pruneMock: vi.fn(async () => ({ files: 0, dirs: 0 })),
+  summarizeMock: vi.fn(async () => ({ total: 0, last24h: 0, devices24h: 0, parsed: 0, byVersion: {} })),
+}));
 vi.mock("./diagnostics-store", () => ({
-  pruneDiagnosticReports: vi.fn(async () => ({ files: 0, dirs: 0 })),
-  summarizeDiagnosticReports: vi.fn(async () => ({ total: 0, last24h: 0, byVersion: {} })),
+  pruneDiagnosticReports: pruneMock,
+  summarizeDiagnosticReports: summarizeMock,
 }));
 import { pgPool } from "./db";
 import { logger } from "./logger";
-import { cleanupExpiredData, securityAlerts } from "./maintenance";
+import { cleanupExpiredData, securityAlerts, DIAGNOSTIC_ALERT_DEVICES } from "./maintenance";
 
 const queryMock = vi.mocked(pgPool.query);
 const warnMock = vi.mocked(logger.warn);
@@ -25,6 +30,9 @@ describe("cleanupExpiredData", () => {
     expect(r).toEqual({ sessions: 3, authAttempts: 3, resetTokens: 3, syncChanges: 3, diagnosticFiles: 0 });
     expect(queryMock).toHaveBeenCalledTimes(4);
     expect(String(queryMock.mock.calls[0][0])).toContain("DELETE FROM sessions");
+    // v1.35.0：两个诊断任务确实被调用（保留策略 30 天 + 崩溃率总览）
+    expect(pruneMock).toHaveBeenCalledWith(30);
+    expect(summarizeMock).toHaveBeenCalledTimes(1);
   });
 
   it("keeps going when one statement fails", async () => {
@@ -32,6 +40,40 @@ describe("cleanupExpiredData", () => {
     const r = await cleanupExpiredData();
     expect(r.sessions).toBe(0);
     expect(r.authAttempts).toBe(3);
+    expect(warnMock).toHaveBeenCalled();
+  });
+
+  it("alerts when deduped devices reach the threshold (v1.35.0：按设备去重后的真实告警)", async () => {
+    summarizeMock.mockResolvedValueOnce({
+      total: 12,
+      last24h: 12,
+      devices24h: DIAGNOSTIC_ALERT_DEVICES,
+      parsed: 12,
+      byVersion: { "1.35.0": 12 },
+    });
+    await cleanupExpiredData();
+    expect(warnMock).toHaveBeenCalledWith(expect.stringContaining("诊断包"));
+    expect(warnMock).toHaveBeenCalledWith(expect.stringContaining("台设备"));
+  });
+
+  it("does not alert on single-user upload bursts (文件数够多但设备数不够)", async () => {
+    summarizeMock.mockResolvedValueOnce({
+      total: 18,
+      last24h: 18,
+      devices24h: 1,
+      parsed: 18,
+      byVersion: { "1.35.0": 18 },
+    });
+    await cleanupExpiredData();
+    expect(warnMock).not.toHaveBeenCalledWith(expect.stringContaining("诊断包"));
+  });
+
+  it("keeps going when diagnostics fs tasks fail (prune/summarize 抛错不炸 cron)", async () => {
+    pruneMock.mockRejectedValueOnce(new Error("fs down"));
+    summarizeMock.mockRejectedValueOnce(new Error("fs down"));
+    const r = await cleanupExpiredData();
+    expect(r.diagnosticFiles).toBe(0);
+    expect(r.sessions).toBe(3); // SQL 清理不受影响
     expect(warnMock).toHaveBeenCalled();
   });
 });

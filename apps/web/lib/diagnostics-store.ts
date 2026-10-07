@@ -83,7 +83,7 @@ const SERVER_REDACT_RULES: [RegExp, string][] = [
   [/((?:authorization|cookie|set-cookie|x-cron-secret|token|secret|password|passwd|pwd|apikey|api_key)\s*[:=]\s*)[^\s,;"']+/gi, "$1<redacted>"],
   [/[A-Za-z0-9_-]{32,}/g, "<redacted-token>"],
   [/[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]{1,63}(?:\.[A-Za-z0-9-]{1,63})+/g, "<email>"],
-  [/(^|[^0-9])1[3-9][0-9]{9}([^0-9]|$)/g, "$1<phone>$2"],
+  [/(^|[^0-9])1[3-9][0-9]{9}(?![0-9])/g, "$1<phone>"],
 ];
 
 export function redactDiagnosticsText(text: string): string {
@@ -98,6 +98,9 @@ export function redactDiagnosticsText(text: string): string {
  * 清理超过 maxAgeDays 天的诊断包（由 maintenance cron 每日调用）。
  * 诊断包只在"排障窗口"里有价值，长期堆在 COS 上既占空间也是隐私负担。
  * 只删 .json、只删归属目录下的文件；顺带清掉清空后的归属目录。
+ *
+ * v1.35.0 自检（2026-10-07 二轮评审）：归属目录里出现**任何非 .json 文件**就整目录跳过 ——
+ * `DIAGNOSTICS_DIR` 万一配错指向了共享/业务目录，这里不能退化成一个"通用 30 天前 json 删除器"。
  */
 export async function pruneDiagnosticReports(maxAgeDays = 30): Promise<{ files: number; dirs: number }> {
   const root = diagnosticsRootDir();
@@ -112,14 +115,15 @@ export async function pruneDiagnosticReports(maxAgeDays = 30): Promise<{ files: 
   for (const owner of owners) {
     if (!isSafeDiagnosticOwner(owner)) continue;
     const dir = path.join(root, owner);
-    let names: string[] = [];
+    let entries;
     try {
-      names = (await readdir(dir, { withFileTypes: true }))
-        .filter((e) => e.isFile() && e.name.endsWith(".json"))
-        .map((e) => e.name);
+      entries = await readdir(dir, { withFileTypes: true });
     } catch {
       continue;
     }
+    // 自检：目录里混着非 .json 的东西（子目录/其它扩展名/隐藏文件）→ 不是我们写的形状，整个跳过
+    if (entries.some((e) => !e.isFile() || !e.name.endsWith(".json"))) continue;
+    const names = entries.map((e) => e.name);
     let alive = 0;
     for (const name of names) {
       const abs = path.join(dir, name);
@@ -151,13 +155,22 @@ export async function pruneDiagnosticReports(maxAgeDays = 30): Promise<{ files: 
  * 为什么要它：v1.32.0–v1.32.2 连续三版都在"修闪退"，期间只能靠用户主动反馈才知道没修好；
  * 诊断包本来就带 app.version，把最近 24h 的上报数按版本聚合一下，异常当天就能看出来。
  * 只读 + 有解析上限（默认最多 50 个文件），任何失败都不抛。
+ *
+ * v1.35.0（2026-10-07 二轮评审）：
+ *  - 新增 `devices24h`（按 installId 去重的设备数）：**文件数当"崩溃率"会被单人刷爆**
+ *    （限流允许 20 次/h，一人反复上传就能独自触发告警；反之 3 人各传 4 份也告警）。
+ *    告警口径改用设备数，文件数仅作参考量保留。
+ *  - 新增 `parsed`：byVersion 只来自最新 maxParse 份（量大时版本占比会低估），
+ *    把实际解析数带出去，告警文案据此注明口径。
  */
 export async function summarizeDiagnosticReports(maxParse = 50): Promise<{
   total: number;
   last24h: number;
+  devices24h: number;
+  parsed: number;
   byVersion: Record<string, number>;
 }> {
-  const out = { total: 0, last24h: 0, byVersion: {} as Record<string, number> };
+  const out = { total: 0, last24h: 0, devices24h: 0, parsed: 0, byVersion: {} as Record<string, number> };
   const root = diagnosticsRootDir();
   const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
   const recent: { abs: string; mtimeMs: number }[] = [];
@@ -193,15 +206,22 @@ export async function summarizeDiagnosticReports(maxParse = 50): Promise<{
     }
   }
   recent.sort((a, b) => b.mtimeMs - a.mtimeMs);
+  const devices = new Set<string>();
   for (const item of recent.slice(0, maxParse)) {
     try {
-      const parsed = JSON.parse(await readFile(item.abs, "utf8")) as { app?: { version?: string } };
+      const parsed = JSON.parse(await readFile(item.abs, "utf8")) as {
+        app?: { version?: string };
+        installId?: string;
+      };
+      out.parsed += 1;
+      devices.add(String(parsed?.installId ?? "unknown"));
       const version = String(parsed?.app?.version ?? "unknown");
       out.byVersion[version] = (out.byVersion[version] ?? 0) + 1;
     } catch {
-      // 坏 JSON：忽略
+      // 坏 JSON：忽略（不计入 parsed，但 last24h 已保守地把它算进文件数）
     }
   }
+  out.devices24h = devices.size;
   return out;
 }
 
