@@ -188,11 +188,13 @@ export default function CertificatesScreen() {
               }
             >
               {/* v1.31：证书图一行一列（横向长图、满宽），不再竖版 */}
+              {/* 2026-09-29 用户决策：cover → contain。证书是文档（带印章/边框），cover 会把边缘内容裁掉；
+                  留白由 certImage 的 surfaceMuted 底色承担，16:10 卡片框不变（网格观感一致）。 */}
               {r.imageUrl ? (
                 <Image
                   source={{ uri: absoluteMediaUrl(r.imageUrl) ?? r.imageUrl }}
                   style={styles.certImage}
-                  contentFit="cover"
+                  contentFit="contain"
                   transition={200}
                 />
               ) : null}
