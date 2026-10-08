@@ -12,6 +12,8 @@ import Animated, {
 import { ThemedIcon } from "@/components/themed-icon";
 import { portionPercent, snapPortion } from "@/lib/portion";
 import { haptics } from "@/lib/haptics";
+import { useReducedMotion } from "@/lib/motion";
+import { isMotionActive } from "@/theme/motion";
 import { shadows, tabularNums, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
@@ -48,6 +50,8 @@ export function PortionSlider({
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [width, setWidth] = useState(0);
   const [dragging, setDragging] = useState(false);
+  const reduced = useReducedMotion();
+  const motionActive = isMotionActive(reduced);
 
   const span = Math.max(1, max - min);
   const toPx = useCallback((v: number) => ((v - min) / span) * width, [min, span, width]);
@@ -58,8 +62,8 @@ export function PortionSlider({
 
   useEffect(() => {
     if (width <= 0 || dragging) return;
-    pos.value = withTiming(toPx(value), { duration: 160 });
-  }, [dragging, pos, toPx, value, width]);
+    pos.value = motionActive ? withTiming(toPx(value), { duration: 160 }) : toPx(value);
+  }, [dragging, motionActive, pos, toPx, value, width]);
 
   /**
    * 松手结算：**在 JS 线程**做吸附 + 回弹 + 回调（UI 线程只读一次 pos.value 再 runOnJS）。
@@ -70,13 +74,16 @@ export function PortionSlider({
     (px: number) => {
       const raw = min + (width > 0 ? px / width : 0) * span;
       const next = snapPortion(raw, min, max, step);
-      pos.value = withSpring(((next - min) / span) * width, { damping: 18, stiffness: 240 });
-      knob.value = withSpring(1, { damping: 18, stiffness: 240 });
+      const nextPos = ((next - min) / span) * width;
+      pos.value = motionActive
+        ? withSpring(nextPos, { damping: 18, stiffness: 240 })
+        : nextPos;
+      knob.value = motionActive ? withSpring(1, { damping: 18, stiffness: 240 }) : 1;
       setDragging(false);
       onChange(next);
       haptics.light();
     },
-    [knob, max, min, onChange, pos, span, step, width]
+    [knob, max, min, motionActive, onChange, pos, span, step, width]
   );
 
   const pan = useMemo(
@@ -84,7 +91,7 @@ export function PortionSlider({
       Gesture.Pan()
         .onBegin(() => {
           startPos.value = pos.value;
-          knob.value = withSpring(1.12, { damping: 18, stiffness: 260 });
+          knob.value = motionActive ? withSpring(1.12, { damping: 18, stiffness: 260 }) : 1.12;
           runOnJS(setDragging)(true);
         })
         .onUpdate((e) => {
@@ -94,7 +101,7 @@ export function PortionSlider({
           // worklet 里只做一件事：把当前位置交给 JS 线程结算（绝不在 UI 线程调普通函数）
           runOnJS(settleFromPos)(pos.value);
         }),
-    [knob, pos, settleFromPos, startPos, width]
+    [knob, motionActive, pos, settleFromPos, startPos, width]
   );
 
   const fillStyle = useAnimatedStyle(() => ({ width: pos.value }));

@@ -137,7 +137,7 @@ export function QuizStack({
         return;
       }
       // 未过阈值：回弹
-      dx.value = withSpring(0, { damping: 26, stiffness: 240 });
+      dx.value = reduced ? 0 : withSpring(0, { damping: 26, stiffness: 240 });
     });
 
   const cardStyle = useAnimatedStyle(() => ({

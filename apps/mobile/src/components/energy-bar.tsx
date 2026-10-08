@@ -5,6 +5,8 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-na
 import { ENERGY_LEVELS, energyLevelOf } from "@/lib/energy";
 import { useTheme } from "@/theme";
 import { haptics } from "@/lib/haptics";
+import { useReducedMotion } from "@/lib/motion";
+import { isMotionActive } from "@/theme/motion";
 import { radius, typography, type ThemeColors } from "@/theme/tokens";
 
 /**
@@ -31,10 +33,13 @@ function EnergyButton({
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const scale = useSharedValue(1);
+  const reduced = useReducedMotion();
+  const motionActive = isMotionActive(reduced);
 
   useEffect(() => {
-    scale.value = withSpring(active ? 1.16 : 1, { damping: 10, stiffness: 220 });
-  }, [active, scale]);
+    const target = active ? 1.16 : 1;
+    scale.value = motionActive ? withSpring(target, { damping: 10, stiffness: 220 }) : target;
+  }, [active, motionActive, scale]);
 
   const anim = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
@@ -42,10 +47,15 @@ function EnergyButton({
     <Animated.View style={[styles.btnWrap, anim, { opacity: dimmed ? 0.5 : 1 }]}>
       <Pressable
         onPressIn={() => {
-          scale.value = withSpring(1.28, { damping: 11, stiffness: 260 });
+          scale.value = motionActive
+            ? withSpring(1.28, { damping: 11, stiffness: 260 })
+            : 1.28;
         }}
         onPressOut={() => {
-          scale.value = withSpring(active ? 1.16 : 1, { damping: 10, stiffness: 220 });
+          const target = active ? 1.16 : 1;
+          scale.value = motionActive
+            ? withSpring(target, { damping: 10, stiffness: 220 })
+            : target;
         }}
         onPress={() => {
           haptics.light();

@@ -3,7 +3,9 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { ThemedIcon } from "@/components/themed-icon";
 import { haptics } from "@/lib/haptics";
+import { useReducedMotion } from "@/lib/motion";
 import { useTheme } from "@/theme";
+import { isMotionActive } from "@/theme/motion";
 import { typography, type ThemeColors } from "@/theme/tokens";
 
 export interface SegmentOption<T extends string = string> {
@@ -31,10 +33,12 @@ export function SheetSegmented<T extends string>({
   const index = Math.max(0, options.findIndex((o) => o.key === value));
   const count = Math.max(1, options.length);
   const pos = useSharedValue(index);
+  const reduced = useReducedMotion();
+  const motionActive = isMotionActive(reduced);
 
   useEffect(() => {
-    pos.value = withTiming(index, { duration: 220 });
-  }, [index, pos]);
+    pos.value = motionActive ? withTiming(index, { duration: 220 }) : index;
+  }, [index, motionActive, pos]);
 
   const indicator = useAnimatedStyle(() => ({
     left: `${(pos.value * 100) / count}%`,

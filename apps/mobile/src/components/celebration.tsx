@@ -2,6 +2,7 @@ import { useEffect , useMemo } from "react";
 import { StyleSheet, View } from "react-native";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
+import { useReducedMotion } from "@/lib/motion";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -63,6 +64,9 @@ function Particle({ index, play }: { index: number; play: boolean }) {
 export function Celebration({ play }: { play: boolean }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const reduced = useReducedMotion();
+  if (reduced) return null;
+
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
       <View style={styles.center}>

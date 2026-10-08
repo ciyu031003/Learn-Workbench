@@ -47,6 +47,7 @@ import { EquipmentPicker } from "@/components/equipment-picker-sheet";
 import { GearCard } from "@/components/gear-card";
 import type { EquipmentItem } from "@/lib/equipment";
 import { hasHoloImages, holoImages } from "@/lib/holo-images";
+import { useReducedMotion } from "@/lib/motion";
 import { absoluteMediaUrl, deleteUpload, pickAndUpload } from "@/lib/uploads";
 import {
   deleteSportsProfile,
@@ -67,6 +68,7 @@ import { useAppStore } from "@/store/app-store";
 import { radius, shadows, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
+import { isMotionActive } from "@/theme/motion";
 
 /** 可做闪光卡的运动项目 */
 const CARD_SPORTS = ["badminton", "tennis", "basketball", "volleyball", "table-tennis", "soccer", "baseball"] as const;
@@ -112,6 +114,8 @@ export default function SportsCardScreen() {
   const [origin, setOrigin] = useState<{ x: number; y: number } | null>(null);
   const cardButtonRef = useRef<View | null>(null);
   const anim = useSharedValue(0);
+  const reduced = useReducedMotion();
+  const motionActive = isMotionActive(reduced);
 
   const load = useCallback(async () => {
     try {
@@ -207,11 +211,17 @@ export default function SportsCardScreen() {
       setOrigin({ x: x + w / 2, y: y + h / 2 });
     });
     setCardOpen(true);
-    anim.value = 0;
-    anim.value = withTiming(1, { duration: 620, easing: Easing.out(Easing.cubic) });
+    anim.value = motionActive
+      ? withTiming(1, { duration: 620, easing: Easing.out(Easing.cubic) })
+      : 1;
   };
 
   const closeCard = () => {
+    if (!motionActive) {
+      anim.value = 0;
+      setCardOpen(false);
+      return;
+    }
     anim.value = withTiming(0, { duration: 420, easing: Easing.in(Easing.cubic) }, (finished) => {
       if (finished) runOnJS(setCardOpen)(false);
     });
