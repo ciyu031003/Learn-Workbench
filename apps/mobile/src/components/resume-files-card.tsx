@@ -38,7 +38,10 @@ export function ResumeFilesCard() {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const headers = (): Record<string, string> => (token ? { Authorization: "Bearer " + token } : {});
+  const headers = useCallback(
+    (): Record<string, string> => (token ? { Authorization: "Bearer " + token } : {}),
+    [token]
+  );
 
   const load = useCallback(async () => {
     try {
@@ -51,7 +54,7 @@ export function ResumeFilesCard() {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [headers]);
 
   useEffect(() => {
     const t = setTimeout(() => void load(), 0);

@@ -73,7 +73,7 @@ export function ListRow({
   );
 
   if (!onPress) {
-    return <View style={styles.row}>{body}</View>;
+    return <View style={[styles.row, style]}>{body}</View>;
   }
 
   return (

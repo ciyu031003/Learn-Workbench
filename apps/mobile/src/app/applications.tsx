@@ -1,4 +1,4 @@
-/* eslint-disable react-hooks/immutability, react-hooks/set-state-in-effect */
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useCallback, useEffect, useState, useMemo } from "react";
 import { Alert, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { typography } from "@/theme/tokens";
@@ -81,11 +81,14 @@ export default function ApplicationsScreen() {
   const [page, setPage] = useState(0);
   const editing = stageSheetFor === null ? null : apps.find((a) => a.id === stageSheetFor) ?? null;
 
-  const api = (path: string, opts: RequestInit = {}) => {
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (token) headers.Authorization = "Bearer " + token;
-    return fetch(getApiUrl() + path, { ...opts, headers });
-  };
+  const api = useCallback(
+    (path: string, opts: RequestInit = {}) => {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers.Authorization = "Bearer " + token;
+      return fetch(getApiUrl() + path, { ...opts, headers });
+    },
+    [token]
+  );
 
   const load = useCallback(async () => {
     try {
@@ -100,7 +103,7 @@ export default function ApplicationsScreen() {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [api]);
 
   useEffect(() => { load(); }, [load]);
   // 从招花收藏后回到本页要立刻看到新条目（旧实现只在挂载时拉一次）
@@ -342,6 +345,7 @@ const makeStyles = (colors: ThemeColors) =>
     progressFill: { height: 4, borderRadius: 999, backgroundColor: colors.primary },
 
     stageRow: {
+      minHeight: 44,
       flexDirection: "row",
       alignItems: "center",
       gap: 8,

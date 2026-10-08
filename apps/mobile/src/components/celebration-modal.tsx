@@ -11,7 +11,9 @@ import Animated, {
 import { Celebration } from "@/components/celebration";
 import { ThemedIcon } from "@/components/themed-icon";
 import { haptics } from "@/lib/haptics";
+import { useReducedMotion } from "@/lib/motion";
 import { useTheme } from "@/theme";
+import { isMotionActive } from "@/theme/motion";
 import { radius, shadows, tabularNums, typography, type ThemeColors } from "@/theme/tokens";
 
 /**
@@ -40,6 +42,8 @@ export function CelebrationModal({
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const reduced = useReducedMotion();
+  const motionActive = isMotionActive(reduced);
 
   const appear = useSharedValue(0);
   const pulse = useSharedValue(0);
@@ -59,11 +63,16 @@ export function CelebrationModal({
       return;
     }
     haptics.success();
-    appear.value = withSpring(1, { damping: 12, stiffness: 180 });
-    pulse.value = withRepeat(withTiming(1, { duration: 1800, easing: Easing.inOut(Easing.quad) }), -1, true);
+    if (motionActive) {
+      appear.value = withSpring(1, { damping: 12, stiffness: 180 });
+      pulse.value = withRepeat(withTiming(1, { duration: 1800, easing: Easing.inOut(Easing.quad) }), -1, true);
+    } else {
+      appear.value = 1;
+      pulse.value = 0.5;
+    }
     const t = setTimeout(() => onCloseRef.current(), autoCloseMs);
     return () => clearTimeout(t);
-  }, [visible, appear, pulse, autoCloseMs]);
+  }, [visible, appear, pulse, autoCloseMs, motionActive]);
 
   const cardStyle = useAnimatedStyle(() => ({
     opacity: appear.value,

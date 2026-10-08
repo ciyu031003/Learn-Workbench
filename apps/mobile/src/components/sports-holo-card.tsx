@@ -12,9 +12,11 @@ import Animated, {
 } from "react-native-reanimated";
 import type { SportsCardModel } from "@learn-workbench/shared";
 import { holoImages } from "@/lib/holo-images";
+import { useReducedMotion } from "@/lib/motion";
 import { radius } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
+import { isMotionActive } from "@/theme/motion";
 
 /**
  * 移动端闪光卡 v2（对齐 v11 方案 §2）：
@@ -34,6 +36,8 @@ export function SportsHoloCard({
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const reduced = useReducedMotion();
+  const motionActive = isMotionActive(reduced);
   const images = holoImages(model.sportKey);
 
   const tiltX = useSharedValue(0);
@@ -42,8 +46,12 @@ export function SportsHoloCard({
   const sheen = useSharedValue(0);
 
   useEffect(() => {
+    if (!motionActive) {
+      sheen.value = 0;
+      return;
+    }
     sheen.value = withRepeat(withTiming(1, { duration: 3600, easing: Easing.inOut(Easing.ease) }), -1, true);
-  }, [sheen]);
+  }, [sheen, motionActive]);
 
   const pan = Gesture.Pan()
     .onUpdate((e) => {

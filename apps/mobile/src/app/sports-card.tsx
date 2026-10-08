@@ -1095,7 +1095,7 @@ const makeStyles = (colors: ThemeColors) =>
     headerTitle: { ...typography.headline, flex: 1, textAlign: "center",  fontWeight: "700", color: colors.text },
     cardEntry: {
       width: 62,
-      height: 40,
+      height: 44,
       borderRadius: 10,
       overflow: "hidden",
       borderWidth: 1,

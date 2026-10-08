@@ -16,8 +16,9 @@ import Animated, {
 } from "react-native-reanimated";
 import { ThemedIcon } from "@/components/themed-icon";
 import { GlassSurface, glassSupported } from "@/components/surface";
-import { SPRING } from "@/lib/motion";
+import { SPRING, useReducedMotion } from "@/lib/motion";
 import { motion, radius, shadows, typography } from "@/theme/tokens";
+import { isMotionActive } from "@/theme/motion";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 
@@ -95,6 +96,8 @@ export function BottomSheet({
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
+  const reduced = useReducedMotion();
+  const motionActive = isMotionActive(reduced);
   /**
    * 高度基准一律用**屏幕高度**（`Dimensions.get("screen")`），不用 `useWindowDimensions()`：
    * Android `adjustResize` 在键盘弹出时会把 window 变矮，若拿它当基准，
@@ -127,6 +130,11 @@ export function BottomSheet({
   const scrim = useSharedValue(0);
   /** 抽屉内容的自上而下淡入进度（0→1） */
   const reveal = useSharedValue(0);
+  /** 最新回调放在 ref，避免把它写进 worklet 的依赖里（渲染期不写 ref，走 effect） */
+  const onClosedRef = useRef<(() => void) | undefined>(undefined);
+  useEffect(() => {
+    onClosedRef.current = onClosed;
+  }, [onClosed]);
 
   // ⚠️ 顺序约束（v1.4.2 真机崩溃根因，见看板踩坑 78）：worklet 会在**定义处**
   // 快照它引用的自由变量 —— 下面这些量都被 panGesture 的 worklet 读取，
@@ -191,53 +199,65 @@ export function BottomSheet({
       // keyboardDismissMode="on-drag" 收键盘 → 而 Modal 在 Android 是独立 Window，
       // 键盘动画在其中的驱动是已知的崩溃面；先收键盘即从源头避开这条路径（顺带体验也更好）。
       Keyboard.dismiss();
-      scrim.value = withTiming(1, { duration: SLIDE_IN, easing: Easing.out(Easing.cubic) });
+      scrim.value = motionActive
+        ? withTiming(1, { duration: SLIDE_IN, easing: Easing.out(Easing.cubic) })
+        : 1;
       // 静止位 = restOffset：非展开弹层是 0；可展开弹层是 maxOffset
       // （元素本身按 full 高度渲染，靠 translateY 下移露出 height 比例的高度）——
       // 这样「上滑到全屏」才有可拖的余量（v6 决策 D12）。
       //
       // 真机反馈：原来 withSpring + ratio 0.86 会让抽屉"上下弹动"，观感浮夸。
       // 改为与遮罩同一套 timing 曲线 —— 平滑上滑到位、零过冲。
-      translateY.value = withTiming(restOffsetSV.value, { duration: SLIDE_IN, easing: Easing.out(Easing.cubic) });
+      translateY.value = motionActive
+        ? withTiming(restOffsetSV.value, { duration: SLIDE_IN, easing: Easing.out(Easing.cubic) })
+        : restOffsetSV.value;
       // 抽屉到位后，内部组件与文字自上而下淡入（整体轻微下移 + 透明度渐显）
       reveal.value = 0;
-      reveal.value = withDelay(
-        Math.round(SLIDE_IN * 0.45),
-        withTiming(1, { duration: CONTENT_IN, easing: Easing.out(Easing.quad) })
-      );
+      reveal.value = motionActive
+        ? withDelay(
+            Math.round(SLIDE_IN * 0.45),
+            withTiming(1, { duration: CONTENT_IN, easing: Easing.out(Easing.quad) })
+          )
+        : 1;
     } else if (mounted) {
-      reveal.value = withTiming(0, { duration: 120, easing: Easing.in(Easing.quad) });
-      scrim.value = withTiming(0, { duration: SLIDE_OUT, easing: Easing.in(Easing.cubic) });
-      translateY.value = withTiming(collapsedSV.value, { duration: SLIDE_OUT, easing: Easing.in(Easing.cubic) }, (fin) => {
-        if (fin) {
-          runOnJS(setMounted)(false);
-          if (onClosedRef.current) runOnJS(onClosedRef.current)();
-        }
-      });
+      if (!motionActive) {
+        reveal.value = 0;
+        scrim.value = 0;
+        translateY.value = collapsedSV.value;
+        setMounted(false);
+        onClosedRef.current?.();
+      } else {
+        reveal.value = withTiming(0, { duration: 120, easing: Easing.in(Easing.quad) });
+        scrim.value = withTiming(0, { duration: SLIDE_OUT, easing: Easing.in(Easing.cubic) });
+        translateY.value = withTiming(collapsedSV.value, { duration: SLIDE_OUT, easing: Easing.in(Easing.cubic) }, (fin) => {
+          if (fin) {
+            runOnJS(setMounted)(false);
+            if (onClosedRef.current) runOnJS(onClosedRef.current)();
+          }
+        });
+      }
     }
     // 只在 visible/mounted 变化时播动画（collapsed/restOffset 走上面的共享值同步，不进依赖）
-  }, [visible, mounted, scrim, reveal, translateY, dragBase, collapsedSV, restOffsetSV]);
+  }, [visible, mounted, motionActive, scrim, reveal, translateY, dragBase, collapsedSV, restOffsetSV]);
 
   const close = useCallback(() => {
     setExpanded(false);
     onClose();
   }, [onClose]);
 
-  /** 用 ref 持有最新回调，避免把它写进 worklet 的依赖里（渲染期不写 ref，走 effect） */
-  const onClosedRef = useRef<(() => void) | undefined>(undefined);
-  useEffect(() => {
-    onClosedRef.current = onClosed;
-  }, [onClosed]);
-
   const toggle = useCallback(() => {
     if (!expandable) return;
     setExpanded((prev) => {
       const next = !prev;
-      translateY.value = withSpring(next ? 0 : maxOffset, SPRING.sheetSettle);
+      translateY.value = motionActive
+        ? withSpring(next ? 0 : maxOffset, SPRING.sheetSettle)
+        : next
+          ? 0
+          : maxOffset;
       dragBase.value = next ? 0 : maxOffset;
       return next;
     });
-  }, [expandable, dragBase, maxOffset, translateY]);
+  }, [expandable, dragBase, maxOffset, translateY, motionActive]);
 
   const tapGesture = Gesture.Tap()
     .enabled(expandable)
@@ -261,17 +281,17 @@ export function BottomSheet({
         if (current - lift.value > 110 || e.velocityY > 900) {
           runOnJS(close)();
         } else {
-          translateY.value = withSpring(0, SPRING.sheetSettle);
+          translateY.value = motionActive ? withSpring(0, SPRING.sheetSettle) : 0;
         }
         return;
       }
       if (current > maxOffset + 90) {
         runOnJS(close)();
       } else if (current < maxOffset * 0.5 || e.velocityY < -500) {
-        translateY.value = withSpring(0, SPRING.sheetSettle);
+        translateY.value = motionActive ? withSpring(0, SPRING.sheetSettle) : 0;
         runOnJS(setExpanded)(true);
       } else {
-        translateY.value = withSpring(maxOffset, SPRING.sheetSettle);
+        translateY.value = motionActive ? withSpring(maxOffset, SPRING.sheetSettle) : maxOffset;
         runOnJS(setExpanded)(false);
       }
     });
@@ -352,6 +372,7 @@ export function BottomSheet({
                   ]}
                   keyboardShouldPersistTaps="handled"
                   keyboardDismissMode="on-drag"
+                  nestedScrollEnabled
                   showsVerticalScrollIndicator={false}
                 >
                   {content}

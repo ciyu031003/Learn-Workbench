@@ -417,7 +417,6 @@ export default function SettingsScreen() {
           subtitle="每天自动更换风景壁纸"
           right={<Switch value={backgroundEnabled} onValueChange={toggleBackground} trackColor={{ true: colors.primary }} />}
           last
-          onPress={toggleBackground}
         />
         {/* v17-B（D4）：SwipeNavigator 已退役，「边缘横滑切换 Tab」开关随之移除 —— 屏幕边缘完全交给原生侧滑返回，
             否则会留下一个点了没有任何效果的"死开关"（真机最容易被当成 bug 反馈）。 */}

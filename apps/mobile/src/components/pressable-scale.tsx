@@ -4,6 +4,8 @@ import { Pressable, StyleSheet, type PressableProps, type StyleProp, type ViewSt
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { motion } from "@/theme/tokens";
 import { haptics } from "@/lib/haptics";
+import { useReducedMotion } from "@/lib/motion";
+import { isMotionActive } from "@/theme/motion";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -29,6 +31,8 @@ function PressableScale({
 }) {
   const scale = useSharedValue(1);
   const pressed = useSharedValue(0);
+  const reduced = useReducedMotion();
+  const motionActive = isMotionActive(reduced);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -37,14 +41,17 @@ function PressableScale({
   const pressedOpacity = useAnimatedStyle(() => ({ opacity: pressed.value }));
 
   const handlePressIn = useCallback(() => {
-    scale.value = withSpring(scaleTo ?? motion.pressScale, { damping: 20, stiffness: 320 });
-    pressed.value = withTiming(1, { duration: 90 });
-  }, [scale, scaleTo, pressed]);
+    const targetScale = scaleTo ?? motion.pressScale;
+    scale.value = motionActive
+      ? withSpring(targetScale, { damping: 20, stiffness: 320 })
+      : targetScale;
+    pressed.value = motionActive ? withTiming(1, { duration: 90 }) : 1;
+  }, [scale, scaleTo, pressed, motionActive]);
 
   const handlePressOut = useCallback(() => {
-    scale.value = withSpring(1, { damping: 16, stiffness: 280 });
-    pressed.value = withTiming(0, { duration: 180 });
-  }, [scale, pressed]);
+    scale.value = motionActive ? withSpring(1, { damping: 16, stiffness: 280 }) : 1;
+    pressed.value = motionActive ? withTiming(0, { duration: 180 }) : 0;
+  }, [scale, pressed, motionActive]);
 
   const handlePress = useCallback(
     (e: Parameters<NonNullable<PressableProps["onPress"]>>[0]) => {

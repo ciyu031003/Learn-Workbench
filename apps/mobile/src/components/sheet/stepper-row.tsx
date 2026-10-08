@@ -81,9 +81,9 @@ const makeStyles = (colors: ThemeColors) =>
     hint: { ...typography.micro, color: colors.textMuted },
     control: { flexDirection: "row", alignItems: "center", gap: 10 },
     btn: {
-      width: 38,
-      height: 38,
-      borderRadius: 19,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: colors.surfaceMuted,

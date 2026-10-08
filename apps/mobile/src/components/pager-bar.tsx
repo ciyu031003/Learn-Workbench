@@ -105,6 +105,7 @@ const makeStyles = (colors: ThemeColors) =>
       gap: 2,
       borderRadius: 999,
       backgroundColor: colors.surfaceMuted,
+      minHeight: 44,
       paddingHorizontal: 12,
       paddingVertical: 8,
     },

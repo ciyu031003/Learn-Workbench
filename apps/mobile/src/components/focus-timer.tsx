@@ -4,7 +4,6 @@ import {
   Modal,
   Pressable,
   ScrollView,
-  Share,
   StatusBar as RNStatusBar,
   StyleSheet,
   Text,
@@ -137,6 +136,13 @@ export function FocusTimer({
   const accumulatedMsRef = useRef(0);
   const totalRef = useRef(25 * 60);
   const timerModeRef = useRef<"countdown" | "stopwatch">("countdown");
+  const initialTimerModeRef = useRef(initialTimerMode);
+  const initialMinutesRef = useRef(initialMinutes);
+  useEffect(() => {
+    initialTimerModeRef.current = initialTimerMode;
+    initialMinutesRef.current = initialMinutes;
+  }, [initialTimerMode, initialMinutes]);
+
   // 初始化偏好
   useEffect(() => {
     (async () => {
@@ -160,7 +166,7 @@ export function FocusTimer({
           const v = Math.min(180, Math.max(1, Number(mins) || 25));
           // 调用方显式指定了时长/模式时以调用方为准
           //（"一键开始 → 学习 25 分钟"不该被历史偏好设置改掉）
-          if (typeof initialMinutes !== "number" && !initialTimerMode) {
+          if (typeof initialMinutesRef.current !== "number" && !initialTimerModeRef.current) {
             setMinutes(v);
             setTotal(v * 60);
             totalRef.current = v * 60;
@@ -217,13 +223,13 @@ export function FocusTimer({
     setStarted(false);
 
     // v4 P2 一键开始：应用调用方指定的模式/时长，并可选立即开始
-    const nextTimerMode = initialTimerMode ?? timerModeRef.current;
-    if (initialTimerMode) {
-      setTimerMode(initialTimerMode);
-      timerModeRef.current = initialTimerMode;
+    const nextTimerMode = initialTimerModeRef.current ?? timerModeRef.current;
+    if (initialTimerModeRef.current) {
+      setTimerMode(initialTimerModeRef.current);
+      timerModeRef.current = initialTimerModeRef.current;
     }
-    if (typeof initialMinutes === "number" && initialMinutes > 0) {
-      const v = Math.min(180, Math.max(1, Math.round(initialMinutes)));
+    if (typeof initialMinutesRef.current === "number" && initialMinutesRef.current > 0) {
+      const v = Math.min(180, Math.max(1, Math.round(initialMinutesRef.current)));
       setMinutes(v);
       setTotal(v * 60);
       totalRef.current = v * 60;
@@ -518,7 +524,6 @@ export function FocusTimer({
   const elapsed = timerMode === "stopwatch" ? remaining : total - remaining;
   const remainingShown = remaining;
   const stats = computeFocusStats(sessions);
-  const maxMin = Math.max(1, ...stats.last14.map((d) => d.minutes));
   const bgColor = mode === "color" ? color : mode === "upload" ? "#1f2937" : (GALLERY.find((g) => g.id === galleryId)?.color ?? "#1f2937");
   const showImage = mode === "upload" && !!url;
   const showBing = mode === "gallery" && galleryId === "bing" && !!bing;

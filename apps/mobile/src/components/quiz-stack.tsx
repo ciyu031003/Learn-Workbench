@@ -226,7 +226,13 @@ export function QuizStack({
                 <ThemedIcon name="swap-horizontal" size={14} color={colors.textMuted} />
                 <Text style={styles.footText}>左右滑动切题 · 点空白退出</Text>
               </View>
-              <PressableScale onPress={exit} style={styles.closeBtn} scaleTo={0.94}>
+              <PressableScale
+                onPress={exit}
+                style={styles.closeBtn}
+                scaleTo={0.94}
+                accessibilityRole="button"
+                accessibilityLabel="退出快速过题"
+              >
                 <ThemedIcon name="close" size={18} color={colors.text} />
               </PressableScale>
             </>
@@ -304,9 +310,9 @@ const makeStyles = (colors: ThemeColors) =>
     footText: { ...typography.caption, color: colors.textMuted },
     closeBtn: {
       marginTop: spacing.md,
-      width: 40,
-      height: 40,
-      borderRadius: 20,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: colors.surfaceStrong,

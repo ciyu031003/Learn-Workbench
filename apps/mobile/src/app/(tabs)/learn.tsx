@@ -26,7 +26,7 @@ import Animated, {
   type SharedValue,
 } from "react-native-reanimated";
 import { useAppStore } from "@/store/app-store";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { mainPhases } from "@learn-workbench/content";
 import type { Phase } from "@learn-workbench/shared";
 import { formatDuration, pct } from "@learn-workbench/shared";
@@ -46,6 +46,8 @@ import {
 } from "@/lib/roadmap";
 import { SheetSection, SheetStickyCta } from "@/components/sheet";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
+import { useReducedMotion } from "@/lib/motion";
+import { isMotionActive } from "@/theme/motion";
 
 
 const STAGE_GRADS: [string, string][] = [
@@ -74,7 +76,15 @@ const STAGE_CARD_GAP = 12;
  */
 const AURA_HUES = ["#9BD7FF", "#B9A6FF", "#FFAFD2", "#FFE0A3", "#9FF0DC"];
 
-function StageAura({ active, seed }: { active: boolean; seed: number }) {
+function StageAura({
+  active,
+  seed,
+  motionActive,
+}: {
+  active: boolean;
+  seed: number;
+  motionActive: boolean;
+}) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { width } = useWindowDimensions();
@@ -87,21 +97,23 @@ function StageAura({ active, seed }: { active: boolean; seed: number }) {
   const t = useSharedValue(0);
   const drift = useSharedValue(0);
 
-  useEffect(() => {
-    if (!active) {
-      cancelAnimation(t);
-      cancelAnimation(drift);
-      t.value = 0;
-      drift.value = 0;
-      return;
-    }
-    t.value = withRepeat(withTiming(1, { duration: 5200, easing: Easing.inOut(Easing.sin) }), -1, true);
-    drift.value = withRepeat(withTiming(1, { duration: 7600, easing: Easing.inOut(Easing.quad) }), -1, true);
-    return () => {
-      cancelAnimation(t);
-      cancelAnimation(drift);
-    };
-  }, [active, drift, t]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!active || !motionActive) {
+        cancelAnimation(t);
+        cancelAnimation(drift);
+        t.value = 0;
+        drift.value = 0;
+        return;
+      }
+      t.value = withRepeat(withTiming(1, { duration: 5200, easing: Easing.inOut(Easing.sin) }), -1, true);
+      drift.value = withRepeat(withTiming(1, { duration: 7600, easing: Easing.inOut(Easing.quad) }), -1, true);
+      return () => {
+        cancelAnimation(t);
+        cancelAnimation(drift);
+      };
+    }, [active, drift, motionActive, t])
+  );
 
   const haloTop = useAnimatedStyle(() => ({
     opacity: 0.16 + t.value * 0.2,
@@ -123,7 +135,7 @@ function StageAura({ active, seed }: { active: boolean; seed: number }) {
     ],
   }));
 
-  if (!active) return null;
+  if (!active || !motionActive) return null;
 
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
@@ -150,6 +162,7 @@ function StageCard({
   heights,
   onMeasure,
   onDragChange,
+  motionActive,
 }: {
   phase: Phase;
   index: number;
@@ -168,6 +181,7 @@ function StageCard({
   heights: SharedValue<number[]>;
   onMeasure: (index: number, height: number) => void;
   onDragChange: (index: number | null) => void;
+  motionActive: boolean;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -259,7 +273,7 @@ function StageCard({
         <PressableScale style={styles.stageCardBody} haptic onPress={onSelect}>
           <View style={[styles.stageBlob, { backgroundColor: STAGE_GRADS[index % STAGE_GRADS.length][1] }]} />
           <View style={styles.stageTopLight} />
-          <StageAura active={active} seed={index} />
+          <StageAura active={active} seed={index} motionActive={motionActive} />
           <View style={styles.stageTop}>
             <Text style={styles.stageTag}>阶段 {index + 1}</Text>
             <Text style={styles.stageName} numberOfLines={1}>{phase.title}</Text>
@@ -298,6 +312,8 @@ export default function LearnScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const headerTop = useHeaderTopInset("hero");
   const tabBarSpace = useTabBarSpace();
+  const reduced = useReducedMotion();
+  const motionActive = isMotionActive(reduced);
   /** v19-M1：首屏入场错峰（Tab scene 常驻，只在首次挂载播放） */
   const entrance = useScreenEntrance();
   /** v19-M8：TabBar 双击回顶 */
@@ -692,6 +708,7 @@ export default function LearnScreen() {
             heights={stageHeights}
             onMeasure={measureStage}
             onDragChange={onStageDragChange}
+            motionActive={motionActive}
           />
         );
       })}

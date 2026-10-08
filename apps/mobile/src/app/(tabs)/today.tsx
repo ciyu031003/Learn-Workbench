@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/immutability */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useHeaderTopInset } from "@/components/screen-header";
 import {
@@ -25,6 +24,7 @@ import Animated, {
   useSharedValue,
   useAnimatedScrollHandler,
   interpolate,
+  cancelAnimation,
   withRepeat,
   withSequence,
   withSpring,
@@ -48,6 +48,7 @@ import { getApiUrl } from "@/config";
 import { useFocusRefresh } from "@/lib/use-focus-refresh";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
 import { DURATION, useReducedMotion } from "@/lib/motion";
+import { isMotionActive } from "@/theme/motion";
 import { staggerDelay } from "@/lib/stagger";
 import { FocusTimer } from "@/components/focus-timer";
 import { QuickStartSheet, type QuickStartChoice } from "@/components/quick-start-sheet";
@@ -79,12 +80,14 @@ function SportIcon({
   type,
   color,
   active,
+  motionActive,
 }: {
   sportKey: string;
   name?: string;
   type: ExerciseType;
   color?: string;
   active: boolean;
+  motionActive: boolean;
 }) {
   const tx = useSharedValue(0);
   const ty = useSharedValue(0);
@@ -95,6 +98,17 @@ function SportIcon({
   const preset = sportAnimOf(sportKey);
 
   useEffect(() => {
+    if (!motionActive) {
+      cancelAnimation(tx);
+      cancelAnimation(ty);
+      cancelAnimation(rotate);
+      cancelAnimation(scale);
+      tx.value = 0;
+      ty.value = 0;
+      rotate.value = 0;
+      scale.value = 1;
+      return;
+    }
     if (!active) {
       tx.value = withTiming(0, { duration: 180 });
       ty.value = withTiming(0, { duration: 180 });
@@ -163,7 +177,7 @@ function SportIcon({
         scale.value = withSequence(withSpring(1.12, { damping: 9, stiffness: 220 }), withSpring(1));
         break;
     }
-  }, [active, preset, rotate, scale, tx, ty]);
+  }, [active, motionActive, preset, rotate, scale, tx, ty]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
@@ -181,7 +195,15 @@ function SportIcon({
     );
 }
 
-function SportSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+function SportSheet({
+  visible,
+  onClose,
+  motionActive,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  motionActive: boolean;
+}) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const sports = useAppStore((s) => s.sports);
@@ -259,7 +281,7 @@ function SportSheet({ visible, onClose }: { visible: boolean; onClose: () => voi
               style={[styles.sportType, active && styles.sportTypeActive]}
             >
               <View style={[styles.sportTypeIcon, { backgroundColor: `${sportColorsOf(t.type).c1}22` }]}>
-                <SportIcon sportKey={t.key} type={t.type} active={active} />
+                <SportIcon sportKey={t.key} type={t.type} active={active} motionActive={motionActive} />
               </View>
               <Text style={[styles.sportTypeName, active && styles.sportTypeNameActive]} numberOfLines={1}>
                 {t.name}
@@ -313,6 +335,7 @@ export default function TodayScreen() {
   useScrollToTopHandler("/today", todayScrollRef);
   /** 入场错峰统一走 lib/stagger（步长取 token）；减弱动态时传 undefined，彻底不动 */
   const reduced = useReducedMotion();
+  const motionActive = isMotionActive(reduced);
   const progress = useAppStore((s) => s.progress);
   const tasks = useAppStore((s) => s.tasks);
   const checkins = useAppStore((s) => s.checkins);
@@ -502,8 +525,13 @@ export default function TodayScreen() {
 
   const sunPulse = useSharedValue(0);
   useEffect(() => {
+    if (!motionActive) {
+      cancelAnimation(sunPulse);
+      sunPulse.value = 0;
+      return;
+    }
     sunPulse.value = withRepeat(withTiming(1, { duration: 4400 }), -1, true);
-  }, [sunPulse]);
+  }, [sunPulse, motionActive]);
   const sunAnim = useAnimatedStyle(() => ({
     transform: [{ scale: 1 + 0.08 * sunPulse.value }],
     opacity: 0.28 + 0.14 * sunPulse.value,
@@ -749,7 +777,14 @@ export default function TodayScreen() {
                 exiting={reduced ? undefined : FadeOut.duration(150)}
               >
                 <View style={[styles.sportIco, { backgroundColor: `${c1}1f` }]}>
-                  <SportIcon sportKey={r.sportKey} name={r.name} type={r.type} color={c1} active={false} />
+                  <SportIcon
+                    sportKey={r.sportKey}
+                    name={r.name}
+                    type={r.type}
+                    color={c1}
+                    active={false}
+                    motionActive={motionActive}
+                  />
                 </View>
                 <View style={styles.sportItemInfo}>
                   <Text style={styles.sportItemName}>{r.name}</Text>
@@ -777,7 +812,7 @@ export default function TodayScreen() {
         </Card>
       </BottomSheet>
 
-      <SportSheet visible={sportSheetOpen} onClose={() => setSportSheetOpen(false)} />
+      <SportSheet visible={sportSheetOpen} onClose={() => setSportSheetOpen(false)} motionActive={motionActive} />
       <QuickStartSheet
         visible={quickOpen}
         onClose={() => setQuickOpen(false)}

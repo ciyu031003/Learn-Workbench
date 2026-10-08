@@ -86,6 +86,8 @@ export default function LogsScreen() {
               key={k}
               style={[styles.typeChip, kind === k && styles.typeChipActive]}
               onPress={() => setKind(k)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: kind === k }}
             >
               <Text style={[styles.typeChipText, kind === k && styles.typeChipTextActive]}>
                 {logKindLabels[k]}
@@ -156,7 +158,15 @@ const makeStyles = (colors: ThemeColors) =>
     heroSub: { ...typography.caption, fontWeight: "400", color: "rgba(255,255,255,0.85)" },
     sectionTitle: { ...typography.headline, color: colors.text, marginTop: spacing.xs },
     typeRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-    typeChip: { paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: 999, backgroundColor: colors.surfaceMuted },
+    typeChip: {
+      minHeight: 44,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: spacing.md,
+      paddingVertical: 6,
+      borderRadius: 999,
+      backgroundColor: colors.surfaceMuted,
+    },
     typeChipActive: { backgroundColor: colors.primarySoft },
     typeChipText: { ...typography.caption, fontWeight: "400", color: colors.textMuted },
     typeChipTextActive: { color: colors.primary, fontWeight: "600" },

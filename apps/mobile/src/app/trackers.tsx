@@ -29,9 +29,6 @@ import { useTheme } from "@/theme";
 import { typography, type ThemeColors } from "@/theme/tokens";
 import { SheetListRow, SheetSection } from "@/components/sheet";
 import { domainIconName, fetchDomains, type DomainItem } from "@/lib/domains";
-
-/** 首屏直接展示的领域个数，其余收进「更多」 */
-const MAX_VISIBLE_DOMAINS = 4;
 import {
   fetchTrackers,
   fetchTrackerLogs,
@@ -42,6 +39,9 @@ import {
   type TrackerItem,
   type TrackerLogItem,
 } from "@/lib/trackers";
+
+/** 首屏直接展示的领域个数，其余收进「更多」 */
+const MAX_VISIBLE_DOMAINS = 4;
 
 const COLOR_PALETTE = [
   "#8D7BD8", "#2F74C0", "#2FB3A6", "#5DAE74", "#F28C28",

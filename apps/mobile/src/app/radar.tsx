@@ -125,7 +125,7 @@ export default function RadarScreen() {
   // v17/v18 收尾：下拉刷新统一走 usePullRefresh（吸顶栏存在 → 偏移自动 = insets.top + 44）
   const { control: pullControl } = usePullRefresh(load, { stickyHeader: true });
 
-  const top = data?.top ?? [];
+  const top = useMemo(() => data?.top ?? [], [data?.top]);
   const facets = useMemo(
     () => data?.facets ?? radarFacets(top),
     [data?.facets, top]
