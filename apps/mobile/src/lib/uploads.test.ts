@@ -8,7 +8,13 @@ vi.mock("expo-image-picker", () => ({
   launchImageLibraryAsync: vi.fn(),
 }));
 
-import { absoluteMediaUrl, kindFromGearLabel, needsMediaLibraryPermission, normalizeImageMime } from "./uploads";
+import {
+  absoluteMediaUrl,
+  kindFromGearLabel,
+  needsMediaLibraryPermission,
+  normalizeImageMime,
+  uploadImage,
+} from "./uploads";
 
 /**
  * 回归：真机「上传证件照失败」。服务端只认 jpeg/png/webp/heic/heif，
@@ -70,5 +76,49 @@ describe("absoluteMediaUrl", () => {
     expect(absoluteMediaUrl("https://cdn.example.com/a.webp")).toBe("https://cdn.example.com/a.webp");
     expect(absoluteMediaUrl(null)).toBeNull();
     expect(absoluteMediaUrl("  ")).toBeNull();
+  });
+});
+
+describe("uploadImage", () => {
+  it("成功后返回站内路径与上传 id，并携带登录 token", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ upload: { url: "/uploads/u/a.webp", id: 12 } }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      uploadImage("avatar", { uri: "file:///a.jpg", mimeType: "image/jpeg" })
+    ).resolves.toEqual({ url: "/uploads/u/a.webp", id: 12 });
+
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("https://learn.yuanabd.cn/api/uploads");
+    expect(init.method).toBe("POST");
+    expect(init.headers).toEqual({ Authorization: "Bearer tok-1" });
+    expect(init.body).toBeInstanceOf(FormData);
+    expect((init.body as FormData).get("kind")).toBe("avatar");
+  });
+
+  it("失败时优先抛出服务端错误，无结构化错误时使用兜底文案", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({ error: "文件过大" }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => {
+          throw new Error("not json");
+        },
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      uploadImage("avatar", { uri: "file:///a.jpg", mimeType: "image/jpeg" })
+    ).rejects.toThrow("文件过大");
+    await expect(
+      uploadImage("avatar", { uri: "file:///a.jpg", mimeType: "image/jpeg" })
+    ).rejects.toThrow("上传失败，请重试");
   });
 });
