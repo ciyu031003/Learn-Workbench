@@ -59,18 +59,39 @@ export function summarizeLearningAttempts(
 
 export function pickLearningQuestions(
   track: LearningTrack,
-  options: { stageKey?: string | null; count?: number; seed?: string; wrongKeys?: string[] } = {}
+  options: {
+    stageKey?: string | null;
+    topicKey?: string | null;
+    count?: number;
+    seed?: string;
+    wrongKeys?: string[];
+  } = {}
 ): LearningQuestion[] {
-  const { stageKey, count = 12, seed = "", wrongKeys = [] } = options;
+  const { stageKey, topicKey, count = 12, seed = "", wrongKeys = [] } = options;
   let pool = track.questions.filter((question) => !stageKey || question.stageKey === stageKey);
+  if (topicKey) {
+    const topicPool = pool.filter((question) => question.topicKey === topicKey);
+    if (topicPool.length > 0) {
+      const otherPool = pool.filter((question) => question.topicKey !== topicKey);
+      return [
+        ...shuffleQuestions(topicPool, `${track.slug}:${stageKey ?? "all"}:${topicKey}:${seed}`),
+        ...shuffleQuestions(otherPool, `${track.slug}:${stageKey ?? "all"}:stage:${seed}`),
+      ].slice(0, count);
+    }
+  }
   if (wrongKeys.length > 0) {
     const wrongSet = new Set(wrongKeys);
     const preferred = pool.filter((question) => wrongSet.has(question.key));
     if (preferred.length > 0) pool = preferred;
   }
   if (pool.length <= count) return [...pool];
+  return shuffleQuestions(pool, `${track.slug}:${stageKey ?? "all"}:${seed}`);
+}
+
+function shuffleQuestions(pool: LearningQuestion[], seed: string): LearningQuestion[] {
+  if (pool.length <= 1) return [...pool];
   let hash = 2166136261;
-  for (const char of `${track.slug}:${stageKey ?? "all"}:${seed}`) {
+  for (const char of seed) {
     hash ^= char.charCodeAt(0);
     hash = Math.imul(hash, 16777619);
   }
@@ -82,7 +103,7 @@ export function pickLearningQuestions(
     shuffled[i] = shuffled[j];
     shuffled[j] = current;
   }
-  return shuffled.slice(0, count);
+  return shuffled;
 }
 
 export async function loadLearningAttempts(): Promise<LearningAttempt[]> {

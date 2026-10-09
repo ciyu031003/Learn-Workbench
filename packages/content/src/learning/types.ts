@@ -29,6 +29,7 @@ export interface LearningQuestionOption {
 export interface LearningQuestion {
   key: string;
   stageKey: string;
+  topicKey?: string;
   type: LearningQuestionType;
   stem: string;
   options: LearningQuestionOption[];
@@ -37,6 +38,21 @@ export interface LearningQuestion {
   difficulty: LearningDifficulty;
   tags: string[];
   sourceKey: string;
+}
+
+export interface LearningCodeExample {
+  title: string;
+  language: string;
+  code: string;
+  explanation: string;
+}
+
+export interface LearningTopicLesson {
+  overview: string[];
+  mechanism: string[];
+  example: LearningCodeExample;
+  practiceSteps: string[];
+  masteryChecklist: string[];
 }
 
 export interface LearningTopic {
@@ -50,6 +66,19 @@ export interface LearningTopic {
   method: string;
   exercise: string;
   checkpoint: string;
+  lesson?: LearningTopicLesson;
+}
+
+export interface LearningStageMilestone {
+  title: string;
+  evidence: string;
+}
+
+export interface LearningStageLesson {
+  overview: string[];
+  studyLoop: string[];
+  milestones: LearningStageMilestone[];
+  completionCriteria: string[];
 }
 
 export interface LearningStage {
@@ -60,6 +89,7 @@ export interface LearningStage {
   outcome: string;
   topics: LearningTopic[];
   questionKeys: string[];
+  lesson?: LearningStageLesson;
 }
 
 export interface LearningTrack {

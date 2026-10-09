@@ -1,4 +1,6 @@
 import { judgeQuestion, singleQuestion } from "./question-builders";
+import { stageLessons, topicLessons } from "./lessons";
+import { topicQuestionPacks } from "./topic-question-packs";
 import type { LearningQuestion, LearningTrack } from "./types";
 
 const pythonExpansion: LearningQuestion[] = [
@@ -706,18 +708,33 @@ export const learningQuestionExpansions: Record<string, LearningQuestion[]> = {
 };
 
 export function expandLearningTrack(track: LearningTrack): LearningTrack {
-  const additions = learningQuestionExpansions[track.slug];
-  if (!additions || additions.length === 0) return track;
-
-  return {
+  const topicAdditions = topicQuestionPacks.filter((question) =>
+    track.stages.some((stage) => stage.key === question.stageKey)
+  );
+  const withLessons: LearningTrack = {
     ...track,
     stages: track.stages.map((stage) => ({
       ...stage,
+      lesson: stage.lesson ?? stageLessons[stage.key],
+      topics: stage.topics.map((topic) => ({
+        ...topic,
+        lesson: topic.lesson ?? topicLessons[topic.key],
+      })),
+    })),
+  };
+  const additions = learningQuestionExpansions[track.slug];
+  const allAdditions = [...topicAdditions, ...(additions ?? [])];
+  if (allAdditions.length === 0) return withLessons;
+
+  return {
+    ...withLessons,
+    stages: withLessons.stages.map((stage) => ({
+      ...stage,
       questionKeys: [
         ...stage.questionKeys,
-        ...additions.filter((question) => question.stageKey === stage.key).map((question) => question.key),
+        ...allAdditions.filter((question) => question.stageKey === stage.key).map((question) => question.key),
       ],
     })),
-    questions: [...track.questions, ...additions],
+    questions: [...withLessons.questions, ...allAdditions],
   };
 }

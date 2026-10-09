@@ -43,7 +43,8 @@ describe("learning library content contract", () => {
     ]);
     expect(new Set(learningTracks.map((track) => track.slug)).size).toBe(learningTracks.length);
     expect(learningCategories).toEqual([...new Set(learningTracks.map((track) => track.category))]);
-    expect(learningTracks.reduce((total, track) => total + track.questions.length, 0)).toBeGreaterThanOrEqual(160);
+    expect(learningTracks.reduce((total, track) => total + track.questions.length, 0)).toBe(328);
+    expect(learningTracks.flatMap((track) => track.questions).filter((question) => question.topicKey)).toHaveLength(168);
     expect(learningTracks.reduce((total, track) => total + track.stages.length, 0)).toBeGreaterThanOrEqual(28);
   });
 
@@ -67,6 +68,11 @@ describe("learning library content contract", () => {
         expect(nonEmpty(stage.goal), `${track.slug}/${stage.key}: goal`).toBe(true);
         expect(nonEmpty(stage.outcome), `${track.slug}/${stage.key}: outcome`).toBe(true);
         expect(stage.topics.length, `${track.slug}/${stage.key}: topics`).toBeGreaterThanOrEqual(3);
+        expect(stage.lesson, `${track.slug}/${stage.key}: lesson`).toBeDefined();
+        expect(stage.lesson?.overview.length, `${track.slug}/${stage.key}: lesson overview`).toBeGreaterThan(0);
+        expect(stage.lesson?.studyLoop.length, `${track.slug}/${stage.key}: study loop`).toBeGreaterThanOrEqual(3);
+        expect(stage.lesson?.milestones.length, `${track.slug}/${stage.key}: milestones`).toBeGreaterThanOrEqual(3);
+        expect(stage.lesson?.completionCriteria.length, `${track.slug}/${stage.key}: completion`).toBeGreaterThanOrEqual(3);
 
         for (const topic of stage.topics) {
           expect(topicKeys.has(topic.key), `${track.slug}: duplicate topic key ${topic.key}`).toBe(
@@ -87,6 +93,21 @@ describe("learning library content contract", () => {
             `${track.slug}/${topic.key}: applications`
           ).toBeGreaterThan(0);
           expect(topic.pitfalls.length, `${track.slug}/${topic.key}: pitfalls`).toBeGreaterThan(0);
+          expect(topic.lesson, `${track.slug}/${topic.key}: lesson`).toBeDefined();
+          expect(topic.lesson?.overview.length, `${track.slug}/${topic.key}: lesson overview`).toBeGreaterThanOrEqual(2);
+          expect(topic.lesson?.mechanism.length, `${track.slug}/${topic.key}: lesson mechanism`).toBeGreaterThanOrEqual(2);
+          expect(nonEmpty(topic.lesson?.example.title ?? ""), `${track.slug}/${topic.key}: example title`).toBe(true);
+          expect(nonEmpty(topic.lesson?.example.language ?? ""), `${track.slug}/${topic.key}: example language`).toBe(true);
+          expect(nonEmpty(topic.lesson?.example.code ?? ""), `${track.slug}/${topic.key}: example code`).toBe(true);
+          expect(nonEmpty(topic.lesson?.example.explanation ?? ""), `${track.slug}/${topic.key}: example explanation`).toBe(true);
+          expect(topic.lesson?.practiceSteps.length, `${track.slug}/${topic.key}: practice steps`).toBeGreaterThanOrEqual(3);
+          expect(topic.lesson?.masteryChecklist.length, `${track.slug}/${topic.key}: mastery checklist`).toBeGreaterThanOrEqual(2);
+
+          const topicQuestions = track.questions.filter((question) => question.topicKey === topic.key);
+          expect(topicQuestions.length, `${track.slug}/${topic.key}: topic questions`).toBeGreaterThanOrEqual(2);
+          for (const question of topicQuestions) {
+            expect(question.explanation.length, `${track.slug}/${question.key}: explanation quality`).toBeGreaterThanOrEqual(20);
+          }
         }
       }
     }

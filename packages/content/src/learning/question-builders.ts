@@ -5,6 +5,7 @@ const OPTION_KEYS = ["A", "B", "C", "D"] as const;
 export function singleQuestion(input: {
   key: string;
   stageKey: string;
+  topicKey?: string;
   stem: string;
   options: [string, string, string, string];
   answer: "A" | "B" | "C" | "D";
@@ -16,6 +17,7 @@ export function singleQuestion(input: {
   return {
     key: input.key,
     stageKey: input.stageKey,
+    ...(input.topicKey ? { topicKey: input.topicKey } : {}),
     type: "single",
     stem: input.stem,
     options: input.options.map((text, index) => ({ key: OPTION_KEYS[index], text })),
@@ -30,6 +32,7 @@ export function singleQuestion(input: {
 export function judgeQuestion(input: {
   key: string;
   stageKey: string;
+  topicKey?: string;
   stem: string;
   answer: boolean;
   explanation: string;
@@ -40,6 +43,7 @@ export function judgeQuestion(input: {
   return {
     key: input.key,
     stageKey: input.stageKey,
+    ...(input.topicKey ? { topicKey: input.topicKey } : {}),
     type: "judge",
     stem: input.stem,
     options: [

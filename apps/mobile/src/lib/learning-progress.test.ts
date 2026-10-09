@@ -77,4 +77,28 @@ describe("learning progress", () => {
       ])
     ).toEqual([]);
   });
+
+  it("prefers questions bound to the requested topic", () => {
+    const topicKey = python.stages[0].topics[0].key;
+    const picked = pickLearningQuestions(python, {
+      stageKey: "python-foundation",
+      topicKey,
+      count: 8,
+      seed: "topic-practice",
+    });
+    expect(picked).toHaveLength(8);
+    expect(picked.slice(0, 2).every((question) => question.topicKey === topicKey)).toBe(true);
+    expect(picked.every((question) => question.stageKey === "python-foundation")).toBe(true);
+  });
+
+  it("falls back to the stage when a topic has no dedicated questions", () => {
+    const picked = pickLearningQuestions(python, {
+      stageKey: "python-foundation",
+      topicKey: "missing-topic",
+      count: 8,
+      seed: "fallback",
+    });
+    expect(picked.length).toBeGreaterThan(0);
+    expect(picked.every((question) => question.stageKey === "python-foundation")).toBe(true);
+  });
 });

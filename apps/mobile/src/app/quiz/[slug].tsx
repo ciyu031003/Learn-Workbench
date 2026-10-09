@@ -68,13 +68,18 @@ function TrackContent({ track }: { track: LearningTrack }) {
   const progress = summarizeLearningAttempts(attempts, track.questions);
   const wrongKeys = wrongQuestionKeys(attempts, track.slug);
 
-  const startSession = (stageKey?: string, mode: "daily" | "stage" | "wrong" = "daily") => {
+  const startSession = (
+    stageKey?: string,
+    mode: "daily" | "stage" | "wrong" = "daily",
+    topicKey?: string
+  ) => {
     router.push({
       pathname: "/quiz/session",
       params: {
         track: track.slug,
         mode,
         ...(stageKey ? { stage: stageKey } : {}),
+        ...(topicKey ? { topic: topicKey } : {}),
       },
     } as never);
   };
@@ -171,6 +176,7 @@ function TrackContent({ track }: { track: LearningTrack }) {
                 }}
                 onTopicToggle={(topicKey) => setExpandedTopic((current) => (current === topicKey ? null : topicKey))}
                 onStart={() => startSession(stage.key, "stage")}
+                onTopicPractice={(topicKey) => startSession(stage.key, "stage", topicKey)}
               />
             ))}
           </View>
@@ -318,6 +324,7 @@ function StageSection({
   onToggle,
   onTopicToggle,
   onStart,
+  onTopicPractice,
 }: {
   track: LearningTrack;
   stage: LearningStage;
@@ -327,6 +334,7 @@ function StageSection({
   onToggle: () => void;
   onTopicToggle: (key: string) => void;
   onStart: () => void;
+  onTopicPractice: (topicKey: string) => void;
 }) {
   const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -357,6 +365,7 @@ function StageSection({
               topic={topic}
               expanded={expandedTopic === topic.key}
               onToggle={() => onTopicToggle(topic.key)}
+              onPractice={() => onTopicPractice(topic.key)}
             />
           ))}
           <PressableScale haptic scaleTo={0.97} onPress={onStart} style={[styles.stageCta, { backgroundColor: track.accent }]}>
@@ -373,10 +382,12 @@ function TopicRow({
   topic,
   expanded,
   onToggle,
+  onPractice,
 }: {
   topic: LearningTopic;
   expanded: boolean;
   onToggle: () => void;
+  onPractice: () => void;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -404,6 +415,17 @@ function TopicRow({
             <Text style={styles.exerciseLabel}>练习任务</Text>
             <Text style={styles.exerciseText}>{topic.exercise}</Text>
             <Text style={styles.checkpointText}>掌握标准：{topic.checkpoint}</Text>
+            <PressableScale
+              haptic
+              scaleTo={0.97}
+              onPress={onPractice}
+              accessibilityRole="button"
+              accessibilityLabel={`开始${topic.title}练习`}
+              style={styles.topicPracticeButton}
+            >
+              <ThemedIcon name="play" size={14} color="#FFFFFF" />
+              <Text style={styles.topicPracticeButtonText}>开始本知识点练习</Text>
+            </PressableScale>
           </View>
         </View>
       ) : null}
@@ -672,6 +694,8 @@ const makeStyles = (colors: ThemeColors) =>
     exerciseLabel: { ...typography.micro, color: colors.accent },
     exerciseText: { ...typography.caption, fontWeight: "400", color: colors.textSecondary },
     checkpointText: { ...typography.micro, color: colors.success, marginTop: 2 },
+    topicPracticeButton: { minHeight: 40, marginTop: spacing.sm, borderRadius: radius.md, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.primary },
+    topicPracticeButtonText: { ...typography.caption, color: "#FFFFFF", fontWeight: "700" },
     stageCta: { minHeight: 44, borderRadius: radius.md, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm },
     stageCtaText: { ...typography.callout, color: "#FFFFFF", fontWeight: "700" },
     bankSummary: { borderRadius: radius.lg, padding: spacing.lg, backgroundColor: colors.surfaceStrong, gap: 4, ...shadows.card },

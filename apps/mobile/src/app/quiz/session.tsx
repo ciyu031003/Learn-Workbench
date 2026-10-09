@@ -26,7 +26,13 @@ import { radius, shadows, spacing, typography, type ThemeColors } from "@/theme/
 type SessionMode = "daily" | "stage" | "wrong";
 
 export default function QuizSessionScreen() {
-  const params = useLocalSearchParams<{ track?: string; stage?: string; mode?: string; seed?: string }>();
+  const params = useLocalSearchParams<{
+    track?: string;
+    stage?: string;
+    topic?: string;
+    mode?: string;
+    seed?: string;
+  }>();
   const track = getLearningTrack(params.track);
   const { colors } = useTheme();
   if (!track) return <SessionMissing colors={colors} />;
@@ -34,6 +40,7 @@ export default function QuizSessionScreen() {
     <SessionContent
       track={track}
       stageKey={params.stage}
+      topicKey={params.topic}
       mode={(params.mode as SessionMode | undefined) ?? "daily"}
       seed={params.seed ?? ""}
     />
@@ -43,11 +50,13 @@ export default function QuizSessionScreen() {
 function SessionContent({
   track,
   stageKey,
+  topicKey,
   mode,
   seed,
 }: {
   track: LearningTrack;
   stageKey?: string;
+  topicKey?: string;
   mode: SessionMode;
   seed: string;
 }) {
@@ -63,17 +72,21 @@ function SessionContent({
   const [submitted, setSubmitted] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
   const [finished, setFinished] = useState(false);
+  const topicTitle = topicKey
+    ? track.stages.flatMap((item) => item.topics).find((topic) => topic.key === topicKey)?.title
+    : null;
 
   const loadSession = useCallback(async () => {
     const attempts = await loadLearningAttempts();
     const wrong = mode === "wrong" ? wrongQuestionKeys(attempts, track.slug) : [];
     return pickLearningQuestions(track, {
       stageKey: mode === "wrong" ? null : stageKey,
+      topicKey: mode === "wrong" ? null : topicKey,
       count: mode === "daily" ? 12 : 8,
       seed: seed || localKey(new Date()),
       wrongKeys: wrong,
     });
-  }, [mode, seed, stageKey, track]);
+  }, [mode, seed, stageKey, topicKey, track]);
 
   useEffect(() => {
     let active = true;
@@ -153,6 +166,7 @@ function SessionContent({
         track: track.slug,
         mode,
         ...(stageKey ? { stage: stageKey } : {}),
+        ...(topicKey ? { topic: topicKey } : {}),
         seed: String(Date.now()),
       },
     } as never);
@@ -208,7 +222,12 @@ function SessionContent({
         <Animated.View key={question.key} entering={reduced ? undefined : FadeIn.duration(220)} exiting={reduced ? undefined : FadeOut.duration(120)} style={styles.questionCard}>
           <View style={styles.questionTop}>
             <Text style={[styles.questionStage, { color: track.accent }]}>
-              {track.stages.find((stage) => stage.key === question.stageKey)?.title ?? track.title}
+              {[
+                track.stages.find((stage) => stage.key === question.stageKey)?.title,
+                question.topicKey === topicKey ? topicTitle : null,
+              ]
+                .filter(Boolean)
+                .join(" · ") || track.title}
             </Text>
             <Text style={styles.questionCount}>{index + 1} / {questions.length}</Text>
           </View>

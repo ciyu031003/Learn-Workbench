@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import Animated from "react-native-reanimated";
 import {
@@ -59,6 +59,18 @@ function KnowledgeReader({
     } as never);
   };
 
+  const startTopicPractice = (topicKey: string) => {
+    router.push({
+      pathname: "/quiz/session",
+      params: {
+        track: track.slug,
+        stage: stage.key,
+        topic: topicKey,
+        mode: "stage",
+      },
+    } as never);
+  };
+
   return (
     <View style={styles.root}>
       <ScreenHeaderStickyBar
@@ -106,10 +118,17 @@ function KnowledgeReader({
           <Text style={styles.outcomeText}>{stage.outcome}</Text>
         </Animated.View>
 
+        {stage.lesson ? <StageLessonCard track={track} lesson={stage.lesson} /> : null}
+
         <View style={styles.articleList}>
           {stage.topics.map((topic, index) => (
             <Animated.View key={topic.key} entering={entrance(index + 2)}>
-              <TopicArticle track={track} topic={topic} index={index} />
+              <TopicArticle
+                track={track}
+                topic={topic}
+                index={index}
+                onPractice={() => startTopicPractice(topic.key)}
+              />
             </Animated.View>
           ))}
         </View>
@@ -176,10 +195,12 @@ function TopicArticle({
   track,
   topic,
   index,
+  onPractice,
 }: {
   track: LearningTrack;
   topic: LearningTopic;
   index: number;
+  onPractice: () => void;
 }) {
   const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -198,6 +219,24 @@ function TopicArticle({
           <Text style={styles.articleSummary}>{topic.summary}</Text>
         </View>
       </View>
+
+      {topic.lesson ? (
+        <>
+          <KnowledgeBlock title="深入理解" icon="layers-outline" accent={track.accent}>
+            <ParagraphList items={topic.lesson.overview} />
+          </KnowledgeBlock>
+
+          <KnowledgeBlock title="运作机制" icon="git-network-outline" accent={track.accent}>
+            <ParagraphList items={topic.lesson.mechanism} />
+          </KnowledgeBlock>
+
+          <CodeExample example={topic.lesson.example} accent={track.accent} />
+
+          <KnowledgeBlock title="练习路径" icon="map-outline" accent={track.accent}>
+            <ParagraphList items={topic.lesson.practiceSteps} />
+          </KnowledgeBlock>
+        </>
+      ) : null}
 
       <KnowledgeBlock title="先建立概念" icon="bulb-outline" accent={track.accent}>
         <View style={styles.chipWrap}>
@@ -226,17 +265,123 @@ function TopicArticle({
         <Text style={styles.methodText}>{topic.method}</Text>
       </View>
 
-      <View style={styles.practice}>
+      <PressableScale
+        haptic
+        scaleTo={0.985}
+        onPress={onPractice}
+        accessibilityRole="button"
+        accessibilityLabel={`开始${topic.title}练习`}
+        style={styles.practice}
+      >
         <View style={styles.practiceHead}>
           <ThemedIcon name="create-outline" size={18} color={track.accent} />
           <Text style={styles.practiceTitle}>动手练习</Text>
         </View>
         <Text style={styles.practiceText}>{topic.exercise}</Text>
+        {topic.lesson ? (
+          <View style={styles.masteryList}>
+            {topic.lesson.masteryChecklist.map((item) => (
+              <View key={item} style={styles.masteryRow}>
+                <ThemedIcon name="checkmark-circle-outline" size={15} color={track.accent} />
+                <Text style={styles.masteryText}>{item}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
         <View style={styles.checkpoint}>
           <ThemedIcon name="checkmark-circle" size={16} color={colors.success} />
           <Text style={styles.checkpointText}>掌握检查：{topic.checkpoint}</Text>
         </View>
+        <View style={[styles.practiceAction, { backgroundColor: trackTint }]}>
+          <Text style={[styles.practiceActionText, { color: track.accent }]}>开始本知识点练习</Text>
+          <ThemedIcon name="arrow-forward" size={16} color={track.accent} />
+        </View>
+      </PressableScale>
+    </View>
+  );
+}
+
+function StageLessonCard({
+  track,
+  lesson,
+}: {
+  track: LearningTrack;
+  lesson: NonNullable<LearningStage["lesson"]>;
+}) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  return (
+    <View style={styles.stageLesson}>
+      <View style={styles.stageLessonHead}>
+        <View style={styles.stageLessonIcon}>
+          <ThemedIcon name="school-outline" size={19} color={track.accent} />
+        </View>
+        <View style={styles.stageLessonHeadBody}>
+          <Text style={styles.stageLessonTitle}>这一阶段怎么学</Text>
+          <Text style={styles.stageLessonMeta}>按主题拆解、动手验证、阶段交付</Text>
+        </View>
       </View>
+      <ParagraphList items={lesson.overview} />
+      <View style={styles.stageLoop}>
+        {lesson.studyLoop.map((item, index) => (
+          <View key={item} style={styles.stageLoopStep}>
+            <View style={[styles.stageLoopIndex, { backgroundColor: `${track.accent}18` }]}>
+              <Text style={[styles.stageLoopIndexText, { color: track.accent }]}>{index + 1}</Text>
+            </View>
+            <Text style={styles.stageLoopText}>{item}</Text>
+          </View>
+        ))}
+      </View>
+      <View style={styles.milestoneList}>
+        {lesson.milestones.map((milestone) => (
+          <View key={milestone.title} style={styles.milestoneRow}>
+            <ThemedIcon name="flag-outline" size={16} color={track.accent} />
+            <View style={styles.milestoneBody}>
+              <Text style={styles.milestoneTitle}>{milestone.title}</Text>
+              <Text style={styles.milestoneEvidence}>{milestone.evidence}</Text>
+            </View>
+          </View>
+        ))}
+      </View>
+      <View style={styles.completionBox}>
+        <Text style={styles.completionLabel}>阶段完成标准</Text>
+        {lesson.completionCriteria.map((item) => (
+          <View key={item} style={styles.completionRow}>
+            <ThemedIcon name="checkmark" size={14} color={colors.success} />
+            <Text style={styles.completionText}>{item}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function CodeExample({
+  example,
+  accent,
+}: {
+  example: NonNullable<LearningTopic["lesson"]>["example"];
+  accent: string;
+}) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  return (
+    <View style={styles.codeCard}>
+      <View style={styles.codeHead}>
+        <View style={styles.codeTitleWrap}>
+          <ThemedIcon name="code-slash" size={16} color={accent} />
+          <Text style={styles.codeTitle}>{example.title}</Text>
+        </View>
+        <Text style={[styles.codeLanguage, { color: accent }]}>{example.language}</Text>
+      </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.codeScroll}
+      >
+        <Text selectable style={styles.codeText}>{example.code}</Text>
+      </ScrollView>
+      <Text style={styles.codeExplanation}>{example.explanation}</Text>
     </View>
   );
 }
@@ -315,6 +460,26 @@ const makeStyles = (colors: ThemeColors) =>
     outcome: { borderRadius: radius.lg, padding: spacing.lg, backgroundColor: colors.surfaceStrong, gap: 5, ...shadows.card },
     outcomeLabel: { ...typography.micro, color: colors.primary },
     outcomeText: { ...typography.callout, color: colors.text },
+    stageLesson: { borderRadius: radius.xl, padding: spacing.lg, backgroundColor: colors.surfaceStrong, gap: spacing.md, ...shadows.card },
+    stageLessonHead: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+    stageLessonIcon: { width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceMuted },
+    stageLessonHeadBody: { flex: 1, gap: 2 },
+    stageLessonTitle: { ...typography.headline, color: colors.text },
+    stageLessonMeta: { ...typography.caption, color: colors.textMuted },
+    stageLoop: { gap: spacing.sm },
+    stageLoopStep: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+    stageLoopIndex: { width: 26, height: 26, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+    stageLoopIndexText: { ...typography.micro, fontWeight: "800" },
+    stageLoopText: { flex: 1, ...typography.callout, color: colors.textSecondary },
+    milestoneList: { gap: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingTop: spacing.md },
+    milestoneRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
+    milestoneBody: { flex: 1, gap: 2 },
+    milestoneTitle: { ...typography.callout, fontWeight: "700", color: colors.text },
+    milestoneEvidence: { ...typography.caption, color: colors.textMuted },
+    completionBox: { gap: 6, borderRadius: radius.md, padding: spacing.md, backgroundColor: colors.successSoft },
+    completionLabel: { ...typography.micro, color: colors.success },
+    completionRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
+    completionText: { flex: 1, ...typography.caption, color: colors.textSecondary },
     articleList: { gap: spacing.lg },
     article: { gap: spacing.lg, paddingVertical: spacing.sm },
     articleHead: { flexDirection: "row", alignItems: "flex-start", gap: spacing.md },
@@ -329,6 +494,14 @@ const makeStyles = (colors: ThemeColors) =>
     chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
     conceptChip: { maxWidth: "100%", borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 9 },
     conceptChipText: { ...typography.caption, fontWeight: "700" },
+    codeCard: { borderRadius: radius.lg, overflow: "hidden", backgroundColor: colors.surfaceMuted, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.borderStrong },
+    codeHead: { minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md, paddingHorizontal: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+    codeTitleWrap: { flex: 1, flexDirection: "row", alignItems: "center", gap: spacing.sm },
+    codeTitle: { flex: 1, ...typography.caption, fontWeight: "700", color: colors.text },
+    codeLanguage: { ...typography.micro, fontWeight: "700", textTransform: "uppercase" },
+    codeScroll: { minWidth: "100%", padding: spacing.md },
+    codeText: { ...typography.caption, lineHeight: 18, color: colors.text, fontFamily: Platform.select({ ios: "Menlo", android: "monospace", default: "monospace" }) },
+    codeExplanation: { ...typography.caption, color: colors.textSecondary, paddingHorizontal: spacing.md, paddingBottom: spacing.md },
     paragraphList: { gap: spacing.sm },
     paragraphRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
     paragraphDot: { width: 5, height: 5, borderRadius: 999, backgroundColor: colors.primary, marginTop: 8 },
@@ -340,8 +513,13 @@ const makeStyles = (colors: ThemeColors) =>
     practiceHead: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
     practiceTitle: { ...typography.headline, color: colors.text },
     practiceText: { ...typography.callout, color: colors.textSecondary },
+    masteryList: { gap: 6 },
+    masteryRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
+    masteryText: { flex: 1, ...typography.caption, color: colors.textSecondary },
     checkpoint: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, paddingTop: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
     checkpointText: { flex: 1, ...typography.caption, color: colors.textMuted },
+    practiceAction: { minHeight: 42, marginTop: spacing.xs, borderRadius: radius.md, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm },
+    practiceActionText: { ...typography.callout, fontWeight: "700" },
     finishCard: { alignItems: "center", borderRadius: radius.xl, padding: spacing.xl, backgroundColor: colors.surfaceStrong, gap: spacing.sm, ...shadows.card },
     finishIcon: { width: 54, height: 54, borderRadius: 18, alignItems: "center", justifyContent: "center" },
     finishTitle: { ...typography.title2, color: colors.text },
