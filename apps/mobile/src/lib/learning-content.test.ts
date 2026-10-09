@@ -31,15 +31,20 @@ function expectCompleteQuestion(question: LearningQuestion, track: LearningTrack
 }
 
 describe("learning library content contract", () => {
-  it("provides the four confirmed v1 tracks and stable categories", () => {
+  it("provides the expanded learning tracks and stable categories", () => {
     expect(learningTracks.map((track) => track.slug)).toEqual([
       "python",
       "java",
+      "javascript",
       "data-analysis",
       "power-bi",
+      "linux",
+      "ai-engineering",
     ]);
     expect(new Set(learningTracks.map((track) => track.slug)).size).toBe(learningTracks.length);
     expect(learningCategories).toEqual([...new Set(learningTracks.map((track) => track.category))]);
+    expect(learningTracks.reduce((total, track) => total + track.questions.length, 0)).toBeGreaterThanOrEqual(160);
+    expect(learningTracks.reduce((total, track) => total + track.stages.length, 0)).toBeGreaterThanOrEqual(28);
   });
 
   it("keeps every track, stage, topic and question fully authored", () => {
@@ -51,7 +56,7 @@ describe("learning library content contract", () => {
       expect(track.studyMethod.length, `${track.slug}: studyMethod`).toBeGreaterThan(0);
       expect(track.estimatedHours, `${track.slug}: estimatedHours`).toBeGreaterThan(0);
       expect(track.stages.length, `${track.slug}: stages`).toBeGreaterThanOrEqual(4);
-      expect(track.questions.length, `${track.slug}: questions`).toBeGreaterThanOrEqual(12);
+      expect(track.questions.length, `${track.slug}: questions`).toBeGreaterThanOrEqual(16);
 
       const stageKeys = new Set(track.stages.map((stage) => stage.key));
       expect(stageKeys.size, `${track.slug}: duplicate stage key`).toBe(track.stages.length);

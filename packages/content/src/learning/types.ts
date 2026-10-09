@@ -5,6 +5,7 @@ export type LearningCategory =
   | "后端开发"
   | "前端开发"
   | "人工智能"
+  | "操作系统"
   | "系统设计";
 
 export type LearningLevel = "入门" | "进阶" | "综合";
@@ -79,4 +80,3 @@ export interface LearningTrack {
   questions: LearningQuestion[];
   sources: LearningSource[];
 }
-

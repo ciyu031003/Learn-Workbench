@@ -1,15 +1,24 @@
+import { aiEngineeringTrack } from "./ai-engineering";
 import { dataAnalysisTrack } from "./data-analysis";
 import { javaTrack } from "./java";
+import { javascriptTrack } from "./javascript";
+import { linuxTrack } from "./linux";
 import { powerBiTrack } from "./power-bi";
 import { pythonTrack } from "./python";
+import { expandLearningTrack } from "./question-expansions";
 import type { LearningQuestion, LearningTrack } from "./types";
 
-export const learningTracks: LearningTrack[] = [
+const baseLearningTracks: LearningTrack[] = [
   pythonTrack,
   javaTrack,
+  javascriptTrack,
   dataAnalysisTrack,
   powerBiTrack,
+  linuxTrack,
+  aiEngineeringTrack,
 ];
+
+export const learningTracks: LearningTrack[] = baseLearningTracks.map(expandLearningTrack);
 
 export const learningCategories = [...new Set(learningTracks.map((track) => track.category))];
 
@@ -30,4 +39,3 @@ export function getStageQuestions(track: LearningTrack, stageKey?: string | null
 }
 
 export * from "./types";
-
