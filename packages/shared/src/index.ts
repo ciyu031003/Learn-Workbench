@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+export * from "./learning";
+
 /* ================= 内容模型（与 db/schema.sql 对齐） ================= */
 
 export const resourceKindSchema = z.enum(["course", "doc", "tool", "video"]);
@@ -2900,5 +2902,4 @@ export const DAILY_WEAKEST_LABEL: Record<NonNullable<DailyReadiness["weakest"]>,
   workout: "今天还没动",
   nutrition: "饮食还没记",
 };
-
 
