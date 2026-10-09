@@ -75,7 +75,7 @@ export default function QuizLibraryScreen() {
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder="搜索 Python、Java、数据分析、Power BI"
+            placeholder="搜索 Python、Java、Linux、AI"
             placeholderTextColor={colors.textFaint}
             style={styles.searchInput}
             returnKeyType="search"
@@ -132,7 +132,7 @@ export default function QuizLibraryScreen() {
                 <ThemedIcon name="search" size={24} color={colors.textMuted} />
               </View>
               <Text style={styles.emptyTitle}>没有匹配的技术</Text>
-              <Text style={styles.emptyText}>试试 Python、Java、SQL 或 Power BI</Text>
+              <Text style={styles.emptyText}>试试 Python、Java、JavaScript、Linux 或 AI 工程</Text>
             </View>
           ) : null}
         </View>
@@ -168,7 +168,7 @@ function TrackCard({ track, progress }: { track: LearningTrack; progress: Return
           {track.summary}
         </Text>
         <View style={styles.trackMeta}>
-          <Text style={styles.trackMetaText}>{track.stages.length} 个阶段</Text>
+          <Text style={styles.trackMetaText}>{track.stages.length} 章知识点</Text>
           <View style={styles.dot} />
           <Text style={styles.trackMetaText}>{track.questions.length} 道题</Text>
           <View style={styles.dot} />

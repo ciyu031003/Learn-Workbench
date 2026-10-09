@@ -2,12 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getLearningTrack, type LearningQuestion, type LearningTrack } from "@learn-workbench/content";
 import { getApiUrl } from "@/config";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
 import { haptics } from "@/lib/haptics";
 import { localKey } from "@/lib/focus-series";
+import { quizFooterPaddingBottom, quizTopBarPaddingTop } from "@/lib/quiz-layout";
 import {
   isLearningAnswerCorrect,
   loadLearningAttempts,
@@ -50,6 +52,7 @@ function SessionContent({
   seed: string;
 }) {
   const { colors, dark } = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const trackTint = dark ? `${track.accent}24` : track.softAccent;
   const reduced = useReducedMotion();
@@ -274,7 +277,7 @@ function SessionContent({
         ) : null}
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: 24 }]}>
+      <View style={[styles.footer, { paddingBottom: quizFooterPaddingBottom(insets.bottom) }]}>
         {!submitted ? (
           <PressableScale
             haptic
@@ -297,9 +300,10 @@ function SessionContent({
 
 function SessionTopBar({ title, progress, onClose }: { title: string; progress: number; onClose: () => void }) {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
-    <View style={styles.topBar}>
+    <View style={[styles.topBar, { paddingTop: quizTopBarPaddingTop(insets.top) }]}>
       <Pressable onPress={onClose} hitSlop={8} accessibilityRole="button" accessibilityLabel="退出练习" style={styles.closeButton}>
         <ThemedIcon name="close" size={21} color={colors.text} />
       </Pressable>
@@ -336,7 +340,6 @@ const makeStyles = (colors: ThemeColors) =>
       alignItems: "center",
       gap: spacing.md,
       paddingHorizontal: spacing.lg,
-      paddingTop: 8,
       backgroundColor: colors.canvas,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: colors.border,

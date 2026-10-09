@@ -36,6 +36,7 @@ describe("resolveBackTarget · 返回上一级", () => {
     expect(resolveBackTarget("/roadmap")).toBe("/learn");
     expect(resolveBackTarget("/quiz")).toBe("/learn");
     expect(resolveBackTarget("/quiz/python")).toBe("/quiz");
+    expect(resolveBackTarget("/quiz/read")).toBe("/quiz");
     expect(resolveBackTarget("/quiz/session")).toBe("/quiz");
     expect(resolveBackTarget("/tasks")).toBe("/learn");
     expect(resolveBackTarget("/logs")).toBe("/learn");

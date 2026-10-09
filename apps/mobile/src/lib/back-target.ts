@@ -23,6 +23,7 @@ const PARENT_RULES: { prefix: string; parent: string }[] = [
   // 学习
   { prefix: "/phase", parent: "/roadmap" },
   { prefix: "/quiz/session", parent: "/quiz" },
+  { prefix: "/quiz/read", parent: "/quiz" },
   { prefix: "/quiz/", parent: "/quiz" },
   { prefix: "/quiz", parent: "/learn" },
   { prefix: "/roadmap", parent: "/learn" },

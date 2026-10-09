@@ -40,7 +40,7 @@ export function LearningEntryCards({
         <View style={styles.cardBody}>
           <Text style={styles.eyebrow}>SEARCH · PRACTICE</Text>
           <Text style={styles.title}>技术题库</Text>
-          <Text style={styles.description}>按技术搜索路线，完成今天的一组练习</Text>
+          <Text style={styles.description}>先学章节知识点，再完成当天的一组练习</Text>
         </View>
         <View style={styles.metaRow}>
           <Text style={styles.metaStrong}>{todayQuestions}</Text>
@@ -169,4 +169,3 @@ const makeStyles = (colors: ThemeColors) =>
     shelfTitle: { ...typography.headline, color: colors.text },
     shelfSub: { ...typography.caption, color: colors.textMuted },
   });
-

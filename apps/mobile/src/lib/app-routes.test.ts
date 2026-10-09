@@ -40,6 +40,7 @@ const EXPECTED_ROUTES = [
   "/phase/[id]",
   "/quiz",
   "/quiz/[slug]",
+  "/quiz/read",
   "/quiz/session",
   "/radar",
   "/resume",

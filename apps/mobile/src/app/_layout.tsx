@@ -178,6 +178,7 @@ function ThemedShell() {
         {/* 学习线 */}
         <Stack.Screen name="quiz/index" />
         <Stack.Screen name="quiz/[slug]" />
+        <Stack.Screen name="quiz/read" />
         <Stack.Screen name="quiz/session" options={{ animation: "fade_from_bottom" }} />
         <Stack.Screen name="roadmap" />
         <Stack.Screen name="tasks" />

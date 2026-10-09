@@ -22,10 +22,11 @@ import {
 import { useTheme } from "@/theme";
 import { radius, shadows, spacing, typography, type ThemeColors } from "@/theme/tokens";
 
-type TabKey = "path" | "bank" | "records";
+type TabKey = "path" | "knowledge" | "bank" | "records";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "path", label: "学习路线" },
+  { key: "knowledge", label: "知识点" },
   { key: "bank", label: "题库" },
   { key: "records", label: "练习记录" },
 ];
@@ -78,6 +79,13 @@ function TrackContent({ track }: { track: LearningTrack }) {
     } as never);
   };
 
+  const startKnowledge = (stageKey: string) => {
+    router.push({
+      pathname: "/quiz/read",
+      params: { track: track.slug, stage: stageKey },
+    } as never);
+  };
+
   return (
     <View style={styles.root}>
       <ScreenHeaderStickyBar title={track.title} scrollY={header.scrollY} backTo="/quiz" />
@@ -97,7 +105,7 @@ function TrackContent({ track }: { track: LearningTrack }) {
             </View>
             <View style={styles.heroTags}>
               <Text style={[styles.heroCategory, { color: track.accent }]}>{track.category}</Text>
-              <Text style={styles.heroMeta}>{track.estimatedHours} 小时 · {track.questions.length} 道题</Text>
+              <Text style={styles.heroMeta}>{track.estimatedHours} 小时 · {track.stages.length} 章 · {track.questions.length} 道题</Text>
             </View>
           </View>
           <Text style={styles.heroSummary}>{track.summary}</Text>
@@ -168,6 +176,31 @@ function TrackContent({ track }: { track: LearningTrack }) {
           </View>
         ) : null}
 
+        {tab === "knowledge" ? (
+          <View style={styles.sectionList}>
+            <View style={styles.knowledgeIntro}>
+              <View style={[styles.knowledgeIntroIcon, { backgroundColor: trackTint }]}>
+                <ThemedIcon name="book-outline" size={23} color={track.accent} />
+              </View>
+              <View style={styles.knowledgeIntroBody}>
+                <Text style={styles.knowledgeIntroTitle}>按章节系统学习</Text>
+                <Text style={styles.knowledgeIntroText}>
+                  这里不是刷题。每个章节会把概念、原理、应用和方法按顺序讲清楚，读完再进入练习。
+                </Text>
+              </View>
+            </View>
+            {track.stages.map((stage, index) => (
+              <KnowledgeChapterCard
+                key={stage.key}
+                track={track}
+                stage={stage}
+                index={index}
+                onPress={() => startKnowledge(stage.key)}
+              />
+            ))}
+          </View>
+        ) : null}
+
         {tab === "bank" ? (
           <View style={styles.sectionList}>
             <View style={styles.bankSummary}>
@@ -233,6 +266,46 @@ function TrackContent({ track }: { track: LearningTrack }) {
         ) : null}
       </Animated.ScrollView>
     </View>
+  );
+}
+
+function KnowledgeChapterCard({
+  track,
+  stage,
+  index,
+  onPress,
+}: {
+  track: LearningTrack;
+  stage: LearningStage;
+  index: number;
+  onPress: () => void;
+}) {
+  const { colors, dark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const trackTint = dark ? `${track.accent}24` : track.softAccent;
+  const topicTitles = stage.topics.map((topic) => topic.title).join("、");
+
+  return (
+    <PressableScale haptic scaleTo={0.985} onPress={onPress} style={styles.knowledgeCard}>
+      <View style={[styles.knowledgeNumber, { backgroundColor: trackTint }]}>
+        <Text style={[styles.knowledgeNumberText, { color: track.accent }]}>
+          {String(index + 1).padStart(2, "0")}
+        </Text>
+      </View>
+      <View style={styles.knowledgeBody}>
+        <View style={styles.knowledgeTop}>
+          <Text style={[styles.knowledgeEyebrow, { color: track.accent }]}>CHAPTER</Text>
+          <Text style={styles.knowledgeMeta}>{stage.weeks} · {stage.topics.length} 个知识点</Text>
+        </View>
+        <Text style={styles.knowledgeTitle}>{stage.title}</Text>
+        <Text style={styles.knowledgeGoal} numberOfLines={2}>{stage.goal}</Text>
+        <Text style={styles.knowledgeTopics} numberOfLines={1}>{topicTitles}</Text>
+        <View style={styles.knowledgeCta}>
+          <Text style={[styles.knowledgeCtaText, { color: track.accent }]}>进入章节学习</Text>
+          <ThemedIcon name="chevron-forward" size={15} color={track.accent} />
+        </View>
+      </View>
+    </PressableScale>
   );
 }
 
@@ -519,6 +592,42 @@ const makeStyles = (colors: ThemeColors) =>
     segmentText: { ...typography.caption, color: colors.textMuted },
     segmentTextActive: { color: colors.text, fontWeight: "700" },
     sectionList: { gap: spacing.md },
+    knowledgeIntro: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: spacing.md,
+      borderRadius: radius.lg,
+      padding: spacing.lg,
+      backgroundColor: colors.surfaceStrong,
+      ...shadows.card,
+    },
+    knowledgeIntroIcon: { width: 46, height: 46, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+    knowledgeIntroBody: { flex: 1, gap: 3 },
+    knowledgeIntroTitle: { ...typography.headline, color: colors.text },
+    knowledgeIntroText: { ...typography.callout, color: colors.textSecondary },
+    knowledgeCard: {
+      minHeight: 148,
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: spacing.md,
+      borderRadius: radius.lg,
+      padding: spacing.lg,
+      backgroundColor: colors.surfaceStrong,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      ...shadows.card,
+    },
+    knowledgeNumber: { width: 42, height: 42, borderRadius: 15, alignItems: "center", justifyContent: "center" },
+    knowledgeNumberText: { ...typography.caption, fontWeight: "800" },
+    knowledgeBody: { flex: 1, gap: 4 },
+    knowledgeTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
+    knowledgeEyebrow: { ...typography.micro, letterSpacing: 0.7 },
+    knowledgeMeta: { ...typography.micro, color: colors.textMuted },
+    knowledgeTitle: { ...typography.title2, color: colors.text },
+    knowledgeGoal: { ...typography.callout, color: colors.textSecondary },
+    knowledgeTopics: { ...typography.caption, color: colors.textMuted },
+    knowledgeCta: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 3 },
+    knowledgeCtaText: { ...typography.callout, fontWeight: "700" },
     learningGuide: { borderRadius: radius.lg, padding: spacing.lg, backgroundColor: colors.surfaceStrong, gap: spacing.sm, ...shadows.card },
     learningGuideTitle: { ...typography.headline, color: colors.text },
     guideRow: { flexDirection: "row", gap: spacing.sm, alignItems: "flex-start" },
