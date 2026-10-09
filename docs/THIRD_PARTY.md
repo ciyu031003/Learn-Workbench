@@ -70,6 +70,28 @@ v6 P1-3 的食物营养库支持从公开数据源导入（`scripts/import_food_
 
 ---
 
+## 2.7 学习 2.0 技术题库 v1（2026-10-09）
+
+首版固定收录 Python、Java、SQL 与数据分析、Power BI 四个技术方向。路线、题目、解释、练习和验收标准均按本项目数据结构重新编写；第三方仓库只用于确认学习范围、知识主题和学习方法，不整段复制 README、课程正文或题库文本。
+
+| 资源 | 来源 | 许可证 | 使用方式 | 本项目处理 |
+|---|---|---|---|---|
+| Exercism Python | https://github.com/exercism/python | MIT | 结构化导入 | 参考测试驱动练习与概念学习顺序；题目为二次编写 |
+| TheAlgorithms/Python | https://github.com/TheAlgorithms/Python | MIT | 结构化导入 | 参考数据结构、算法与代码示例范围 |
+| Microsoft Data Science for Beginners | https://github.com/microsoft/Data-Science-For-Beginners | MIT | 结构化导入 | 参考 Pandas、数据清洗、可视化与项目学习路径 |
+| TheAlgorithms/Java | https://github.com/TheAlgorithms/Java | MIT | 结构化导入 | 参考集合、算法和数据结构主题 |
+| Java Design Patterns | https://github.com/iluwatar/java-design-patterns | MIT | 结构化导入 | 参考设计模式、重构和对象协作主题 |
+| Tech Interview Handbook | https://github.com/yangshun/tech-interview-handbook | MIT | 结构化导入 | 参考算法、工程实践和面试知识组织方式 |
+| Microsoft PL-300 Power BI Data Analyst | https://github.com/MicrosoftLearning/PL-300-Microsoft-Power-BI-Data-Analyst | MIT | 结构化导入 | 参考 Power BI 学习阶段与能力目标 |
+| Power BI Desktop Samples | https://github.com/microsoft/powerbi-desktop-samples | MIT | 结构化导入 | 参考语义模型、DAX、报表与项目练习范围 |
+| advanced-java | https://github.com/doocs/advanced-java | CC BY-SA 4.0 | 仅外链参考 | 不复制正文或题库，避免 ShareAlike 传染到本项目内容 |
+| Data Engineering Zoomcamp | https://github.com/DataTalksClub/data-engineering-zoomcamp | 未识别 | 仅外链参考 | 未确认可再分发许可证，不导入内容 |
+| System Design Primer | https://github.com/donnemartin/system-design-primer | CC BY 4.0 | 仅外链参考 | 首版保持保守处理，只做延伸阅读入口 |
+
+**内容事实源**：`packages/content/src/learning/`。每条路线包含分类、阶段目标、验收标准、学习方法、核心概念、原理、应用、误区、练习、掌握标准、题目、答案、解释和逐题 `sourceKey`。
+
+---
+
 ## 3. 依赖清单（由包管理器引入，非复制源码）
 
 | 依赖 | 版本 | 用途 | 许可 | 引入阶段 |
