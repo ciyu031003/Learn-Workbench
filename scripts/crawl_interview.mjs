@@ -227,12 +227,9 @@ async function postImport(items, run) {
   let duplicateInPayload = 0;
   const batches = [];
   for (let i = 0; i < items.length; i += BATCH_SIZE) batches.push(items.slice(i, i + BATCH_SIZE));
-  if (batches.length === 0) batches.push([]);
 
   for (let i = 0; i < batches.length; i++) {
-    const last = i === batches.length - 1;
     const body = { items: batches[i] };
-    if (last && run) body.run = run;
     const res = await fetch(url, {
       method: "POST",
       headers: { "content-type": "application/json", "x-cron-secret": CRON_SECRET },
@@ -245,6 +242,19 @@ async function postImport(items, run) {
     duplicateInPayload += Number(data?.duplicateInPayload ?? 0);
     console.log("[interview] 批次 " + (i + 1) + "/" + batches.length + " → 入库 " + Number(data?.imported ?? 0));
   }
+
+  // 分批响应只能看到当前批次的 imported；全部完成后用空 payload 回写整轮汇总，
+  // 避免 interview_crawl_runs.imported_count 被最后一批覆盖。
+  if (run) {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-cron-secret": CRON_SECRET },
+      body: JSON.stringify({ items: [], run: { ...run, imported, skipped } }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error("运行记录回写失败 HTTP " + res.status + " " + (data?.error ?? ""));
+  }
+
   return { imported, skipped, duplicateInPayload };
 }
 
