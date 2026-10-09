@@ -126,6 +126,11 @@ describe("POST /api/internal/interview/import", () => {
     expect(findCall(calls, "INSERT INTO interview_questions")).toBeUndefined();
     const update = findCall(calls, "UPDATE interview_questions");
     expect(update!.params[0]).toBe(42);
+    expect(update!.params[1]).toBe("Java");
+    expect(update!.params[2]).toBe("x".repeat(80));
+    expect(update!.params[3]).toBe("medium");
+    expect(update!.params[4]).toBe("[]");
+    expect(update!.params[6]).toBe("github:Snailclimb/JavaGuide");
   });
 
   it("同一份 payload 内重复题只入库一次", async () => {

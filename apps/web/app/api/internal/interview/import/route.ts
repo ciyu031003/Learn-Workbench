@@ -149,7 +149,17 @@ export async function POST(req: Request) {
         clean.crawledAt,
       ];
       if (entry.action === "update" && entry.targetId) {
-        await pgPool.query(UPDATE_SQL, [entry.targetId, ...params.slice(0, 8)]);
+        await pgPool.query(UPDATE_SQL, [
+          entry.targetId,
+          clean.module,
+          clean.answer,
+          clean.difficulty,
+          JSON.stringify(clean.tags),
+          clean.sourceUrl,
+          clean.sourceSite,
+          clean.license,
+          clean.crawledAt,
+        ]);
       } else {
         const { rows } = await pgPool.query<{ id: number }>(INSERT_SQL + " RETURNING id", params);
         // 让后续分块也能看到刚插入的这一条（同一次请求内的二次判重）
