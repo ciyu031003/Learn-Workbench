@@ -38,8 +38,8 @@ function parseArgs(argv) {
 
 const args = parseArgs(process.argv.slice(2));
 const OUT_DIR = path.resolve(args.out ?? ".local/interview-out");
-const TOTAL_LIMIT = Number(args.limit ?? 400);
-const FILE_LIMIT = Number(args.files ?? 120);
+const TOTAL_LIMIT = Number(args.limit ?? 1500);
+const FILE_LIMIT = Number(args.files ?? 300);
 /** 单次 POST 的条目数（服务端还会再按 1000 自动分块，这里只是控制请求体大小与超时） */
 const BATCH_SIZE = Math.max(1, Number(args.batch ?? 300));
 const RUN_ID = Number(args["run-id"]) || 0;
@@ -82,7 +82,7 @@ const SOURCES = [
     license: "Apache-2.0",
     sourceSite: "github:Snailclimb/JavaGuide",
     site: "https://github.com/Snailclimb/JavaGuide",
-    include: /^docs\/(java|database|cs-basics|distributed-system|system-design|open-source-project|interview-preparation)\//,
+    include: /^docs\/(java|database|cs-basics|distributed-system|system-design|open-source-project|interview-preparation|high-performance|high-availability|high-quality-technical-articles)\//,
     moduleOf: (file) => {
       const seg = file.replace(/^docs\//, "").split("/");
       const area = seg[0] ?? "其他";
@@ -91,6 +91,8 @@ const SOURCES = [
         java: "Java", database: "数据库", "cs-basics": "计算机基础",
         "distributed-system": "分布式与高并发", "system-design": "系统设计",
         "interview-preparation": "面试准备", "open-source-project": "项目经验",
+        "high-performance": "高性能", "high-availability": "高可用",
+        "high-quality-technical-articles": "技术文章",
       };
       const areaName = map[area] ?? area;
       const subName = SUB_NAME[sub.replace(/\.md$/, "")] ?? sub.replace(/\.md$/, "");
@@ -277,6 +279,7 @@ async function collect() {
       continue;
     }
     console.log("[interview] " + source.repo + " 命中 " + files.length + " 个 markdown（取前 " + FILE_LIMIT + "）");
+    files = files.sort((a, b) => a.localeCompare(b));
     for (const file of files.slice(0, FILE_LIMIT)) {
       if (all.length >= TOTAL_LIMIT) break;
       let md = "";
