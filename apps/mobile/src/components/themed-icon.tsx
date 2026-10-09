@@ -94,6 +94,8 @@ const MAP: Record<string, string> = {
   "water-outline": "drop",
   "sunny-outline": "sun.max",
   "restaurant-outline": "fork.knife",
+  "time-outline": "clock",
+  "bulb-outline": "lightbulb",
   "sparkles-outline": "sparkles",
 };
 

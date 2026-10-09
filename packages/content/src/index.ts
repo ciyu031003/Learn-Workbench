@@ -93,3 +93,4 @@ export const mainPhases = roadmapPhases.filter((p) => p.track === "main");
 export const agentPhase = roadmapPhases.find((p) => p.track === "agent") ?? null;
 export * from "./domain-templates";
 export * from "./learning";
+export * from "./health/recipes";

@@ -27,6 +27,7 @@ import { WaterCard } from "@/components/water-card";
 import { WaterCupSheet } from "@/components/water-cup";
 import { NutritionStatsSheet } from "@/components/nutrition-stats-sheet";
 import { MealCardGrid, type MealCardData } from "@/components/meal-card-grid";
+import { RecipeShelf } from "@/components/recipe-shelf";
 import { LiveLogSheet } from "@/components/live-log-sheet";
 import { WeightCard } from "@/components/weight-card";
 import { TargetSheet, type TargetProfileInput } from "@/components/target-sheet";
@@ -968,6 +969,9 @@ export default function NutritionScreen() {
         onPrevWeek={() => shiftWeek(-1)}
         onNextWeek={isCurrentWeek(date, todayKey) ? undefined : () => shiftWeek(1)}
       />
+
+      {/* 2026-10 扩充：与 Web 共用的精选食谱 */}
+      <RecipeShelf />
 
       {/* v4 P4-a：日 / 周 / 月 视图切换（圆角胶囊分段控件，参考「吃一点」顶部那条） */}
       <View style={styles.segment}>
