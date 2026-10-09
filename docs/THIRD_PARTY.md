@@ -72,7 +72,7 @@ v6 P1-3 的食物营养库支持从公开数据源导入（`scripts/import_food_
 
 ## 2.7 学习 2.0 技术题库 v1（2026-10-09）
 
-首版固定收录 Python、Java、SQL 与数据分析、Power BI 四个技术方向。路线、题目、解释、练习和验收标准均按本项目数据结构重新编写；第三方仓库只用于确认学习范围、知识主题和学习方法，不整段复制 README、课程正文或题库文本。
+首版固定收录 Python、Java、SQL 与数据分析、Power BI 四个技术方向；v1.38 起扩充 JavaScript、Linux 运维和 AI 应用工程，并为已有路线补充题库。路线、题目、解释、练习和验收标准均按本项目数据结构重新编写；第三方仓库只用于确认学习范围、知识主题和学习方法，不整段复制 README、课程正文或题库文本。
 
 | 资源 | 来源 | 许可证 | 使用方式 | 本项目处理 |
 |---|---|---|---|---|
@@ -84,6 +84,14 @@ v6 P1-3 的食物营养库支持从公开数据源导入（`scripts/import_food_
 | Tech Interview Handbook | https://github.com/yangshun/tech-interview-handbook | MIT | 结构化导入 | 参考算法、工程实践和面试知识组织方式 |
 | Microsoft PL-300 Power BI Data Analyst | https://github.com/MicrosoftLearning/PL-300-Microsoft-Power-BI-Data-Analyst | MIT | 结构化导入 | 参考 Power BI 学习阶段与能力目标 |
 | Power BI Desktop Samples | https://github.com/microsoft/powerbi-desktop-samples | MIT | 结构化导入 | 参考语义模型、DAX、报表与项目练习范围 |
+| freeCodeCamp | https://github.com/freeCodeCamp/freeCodeCamp | BSD-3-Clause | 结构化导入 | 参考 JavaScript 练习顺序、测试驱动和项目组织方式 |
+| TheAlgorithms/JavaScript | https://github.com/TheAlgorithms/JavaScript | MIT | 结构化导入 | 参考 JavaScript 算法、数据结构与示例范围 |
+| MDN Web Docs | https://github.com/mdn/content | CC BY-SA 2.5 | 仅外链参考 | 参考浏览器 API 与 JavaScript 语义，不复制正文，避免 ShareAlike 传染 |
+| TheAlgorithms/Shell | https://github.com/TheAlgorithms/Shell | MIT | 结构化导入 | 参考 Shell 文本处理与自动化练习主题 |
+| The Art of Command Line | https://github.com/jlevy/the-art-of-command-line | CC BY-NC-SA 4.0 | 仅外链参考 | 只参考命令行学习和排障方法，不复制正文 |
+| Generative AI for Beginners | https://github.com/microsoft/generative-ai-for-beginners | MIT | 结构化导入 | 参考生成式 AI、RAG 与安全主题的学习顺序 |
+| OpenAI Cookbook | https://github.com/openai/openai-cookbook | MIT | 结构化导入 | 参考结构化输出、检索、评测与工程实践 |
+| LangGraph | https://github.com/langchain-ai/langgraph | MIT | 结构化导入 | 参考有状态 Agent、工作流与人工确认设计 |
 | advanced-java | https://github.com/doocs/advanced-java | CC BY-SA 4.0 | 仅外链参考 | 不复制正文或题库，避免 ShareAlike 传染到本项目内容 |
 | Data Engineering Zoomcamp | https://github.com/DataTalksClub/data-engineering-zoomcamp | 未识别 | 仅外链参考 | 未确认可再分发许可证，不导入内容 |
 | System Design Primer | https://github.com/donnemartin/system-design-primer | CC BY 4.0 | 仅外链参考 | 首版保持保守处理，只做延伸阅读入口 |
