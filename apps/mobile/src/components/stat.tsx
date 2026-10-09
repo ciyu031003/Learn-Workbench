@@ -157,7 +157,7 @@ export function ProgressBar({
   );
 }
 
-export function StatHint({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
+export function StatHint({ children, style }: { children: ReactNode; style?: StyleProp<TextStyle> }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return <Text style={[styles.hint, style]}>{children}</Text>;

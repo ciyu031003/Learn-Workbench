@@ -34,6 +34,9 @@ describe("resolveBackTarget · 返回上一级", () => {
 
   it("学习域子页回到学习 Hub", () => {
     expect(resolveBackTarget("/roadmap")).toBe("/learn");
+    expect(resolveBackTarget("/quiz")).toBe("/learn");
+    expect(resolveBackTarget("/quiz/python")).toBe("/quiz");
+    expect(resolveBackTarget("/quiz/session")).toBe("/quiz");
     expect(resolveBackTarget("/tasks")).toBe("/learn");
     expect(resolveBackTarget("/logs")).toBe("/learn");
     expect(resolveBackTarget("/study-stats")).toBe("/learn");

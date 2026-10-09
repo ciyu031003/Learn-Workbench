@@ -6,6 +6,7 @@ import {
   View,
   type StyleProp,
   type TextInputProps,
+  type TextStyle,
   type ViewStyle,
 } from "react-native";
 import Animated, {
@@ -72,7 +73,7 @@ export function FloatField({
       : target;
   }, [active, float, floated]);
 
-  const labelStyle = useAnimatedStyle<ViewStyle>(() => ({
+  const labelStyle = useAnimatedStyle<TextStyle>(() => ({
     opacity: float.value,
     transform: [{ translateY: (1 - float.value) * 8 }],
   }));

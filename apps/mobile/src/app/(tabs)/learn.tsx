@@ -12,10 +12,14 @@ import { GroupLabel } from "@/components/group-label";
 import { ListGroup, ListRow } from "@/components/list-row";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
+import { LearningEntryCards, LearningShelfHeader } from "@/components/learning-entry-cards";
 
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   Easing,
+  FadeInDown,
+  FadeOutUp,
+  LinearTransition,
   cancelAnimation,
   interpolateColor,
   runOnJS,
@@ -27,7 +31,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useAppStore } from "@/store/app-store";
 import { router, useFocusEffect } from "expo-router";
-import { mainPhases } from "@learn-workbench/content";
+import { learningTracks, mainPhases } from "@learn-workbench/content";
 import type { Phase } from "@learn-workbench/shared";
 import { formatDuration, pct } from "@learn-workbench/shared";
 import { computeFocusStats } from "@/lib/focus-stats";
@@ -48,6 +52,7 @@ import { SheetSection, SheetStickyCta } from "@/components/sheet";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
 import { useReducedMotion } from "@/lib/motion";
 import { isMotionActive } from "@/theme/motion";
+import { loadLearningAttempts, summarizeLearningAttempts, type LearningAttempt } from "@/lib/learning-progress";
 
 
 const STAGE_GRADS: [string, string][] = [
@@ -61,6 +66,8 @@ const STAGE_GRADS: [string, string][] = [
 ];
 /** 阶段卡之间的间距，必须与 `styles.content` 的 gap 一致（实时让位的位移量按"实测高度 + 这个值"算） */
 const STAGE_CARD_GAP = 12;
+const DAILY_QUESTION_GOAL = 12;
+const ALL_LEARNING_QUESTIONS = learningTracks.flatMap((track) => track.questions);
 
 /**
  * 选中阶段卡的「流云呼吸」光效（v1.33.0，替换旧的白斜线扫光）。
@@ -328,6 +335,8 @@ export default function LearnScreen() {
   const [, setStageSheet] = useState(false);
   /** v1.26：右上角 ☰ 的快捷入口弹层 */
   const [quickOpen, setQuickOpen] = useState(false);
+  const [shelfOpen, setShelfOpen] = useState(false);
+  const [learningAttempts, setLearningAttempts] = useState<LearningAttempt[]>([]);
   const [roadmap, setRoadmap] = useState<Phase[]>(mainPhases.filter((p) => p.track === "main"));
   const [selectedPhaseId, setSelectedPhaseId] = useState<number | null>(mainPhases[0]?.id ?? null);
   const [contentTopic, setContentTopic] = useState<{ topicId: number; phaseId: number } | null>(null);
@@ -462,8 +471,27 @@ export default function LearnScreen() {
     };
   }, [token]);
 
+  useFocusEffect(
+    useCallback(() => {
+      void loadLearningAttempts().then(setLearningAttempts);
+    }, [])
+  );
+
   /** 入口卡只用这几个数；统计明细全部搬到 /study-stats 全屏页（v1.33.0） */
   const stats = useMemo(() => computeFocusStats(sessions), [sessions]);
+  const learningSummary = useMemo(
+    () => summarizeLearningAttempts(learningAttempts, ALL_LEARNING_QUESTIONS),
+    [learningAttempts]
+  );
+  const routeSummary = useMemo(() => {
+    const topics = roadmap.flatMap((phase) => phase.topics);
+    const done = topics.filter((topic) => progress[topic.id]?.done).length;
+    return {
+      done,
+      total: topics.length,
+      percent: topics.length === 0 ? 0 : Math.round((done / topics.length) * 100),
+    };
+  }, [progress, roadmap]);
   const firstPhase = roadmap[0];
   const phaseDone = (phase: Phase) => {
     const doneTopics = phase.topics.filter((t) => progress[t.id]?.done).length;
@@ -608,7 +636,7 @@ export default function LearnScreen() {
     >
       <Animated.View style={styles.hero} entering={entrance(0)}>
         <Text style={styles.heroTitle}>学习</Text>
-        <Text style={styles.heroSub}>路线图 · 主题 · 统计 · 日志</Text>
+        <Text style={styles.heroSub}>技术题库 · 阶段路线 · 统计 · 日志</Text>
         {/* v1.26：快捷入口收进右上角三条横线 */}
         <Pressable
           hitSlop={10}
@@ -622,96 +650,123 @@ export default function LearnScreen() {
       </Animated.View>
 
       <Animated.View entering={entrance(1)}>
-        <GroupLabel>学习阶段</GroupLabel>
+        <LearningEntryCards
+          todayQuestions={learningSummary.today}
+          todayGoal={DAILY_QUESTION_GOAL}
+          routePercent={routeSummary.percent}
+          routeDone={routeSummary.done}
+          routeTotal={routeSummary.total}
+        />
       </Animated.View>
-      <Animated.View style={styles.sectionHeadRow} entering={entrance(2)}>
-        <Text style={styles.sectionTitle}>阶段路线</Text>
-        <Pressable
-          hitSlop={8}
-          style={styles.addBtn}
-          onPress={() => {
-            setEditingPhase(null);
-            setCustomPhaseTitle("");
-            setCustomPhaseSummary("");
-            setCustomPhaseSheet(true);
-          }}
-        >
-          <ThemedIcon name="add" size={16} color={colors.primary} />
-          <Text style={styles.addBtnText}>添加阶段</Text>
-        </Pressable>
-      </Animated.View>
-      {/* v6 P3-1：领域下没有任何阶段时的引导（跳过职业选择 / 新建领域后最常见） */}
-      {!roadmapLoading && roadmap.length === 0 ? (
-        <Card style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>还没有学习阶段</Text>
-          <Text style={styles.emptyHint}>
-            这个学习领域下还没有任何阶段。可以自己新建，也可以导入 Markdown：
-            # 一级标题 = 学习阶段，## 二级 = 阶段里的主题，### 三级 = 主题下的学习内容。
-          </Text>
-          <View style={styles.emptyActions}>
-            <PressableScale
-              haptic
-              style={styles.emptyAction}
-              onPress={() => {
-                setMdText("");
-                setMdPreview(null);
-                setMdMsg(null);
-                setMdSheet(true);
-              }}
-            >
-              <ThemedIcon name="document-text-outline" size={18} color={colors.primary} />
-              <Text style={styles.emptyActionText}>导入 MD</Text>
-            </PressableScale>
-            <PressableScale
-              haptic
-              style={styles.emptyAction}
-              onPress={() => {
-                setEditingPhase(null);
-                setCustomPhaseTitle("");
-                setCustomPhaseSummary("");
-                setCustomPhaseSheet(true);
-              }}
-            >
-              <ThemedIcon name="add" size={18} color={colors.primary} />
-              <Text style={styles.emptyActionText}>新建阶段</Text>
-            </PressableScale>
-            <PressableScale
-              haptic
-              style={styles.emptyAction}
-              onPress={() => router.push("/domain-manager" as never)}
-            >
-              <ThemedIcon name="layers-outline" size={18} color={colors.primary} />
-              <Text style={styles.emptyActionText}>从模板创建</Text>
-            </PressableScale>
-          </View>
-        </Card>
-      ) : null}
 
-      {roadmap.map((phase, i) => {
-        const progressInfo = phaseDone(phase);
-        const active = phase.id === selectedPhaseId;
-        return (
-          <StageCard
-            key={phase.id}
-            phase={phase}
-            index={i}
-            total={roadmap.length}
-            active={active}
-            progressInfo={progressInfo}
-            onSelect={() => router.push(`/phase/${phase.id}` as never)}
-            onMove={swapPhase}
-            onDelete={() => removePhase(phase)}
-            onEdit={() => openEditPhase(phase)}
-            dragIndex={stageDragIndex}
-            dragTarget={stageDragTarget}
-            dragY={stageDragY}
-            heights={stageHeights}
-            onMeasure={measureStage}
-            onDragChange={onStageDragChange}
-            motionActive={motionActive}
-          />
-        );
-      })}
+      <Animated.View entering={entrance(2)} style={styles.shelfWrap}>
+        <LearningShelfHeader
+          open={shelfOpen}
+          onToggle={() => setShelfOpen((value) => !value)}
+          percent={routeSummary.percent}
+          stageCount={roadmap.length}
+        />
+        {shelfOpen ? (
+          <Animated.View
+            entering={motionActive ? FadeInDown.duration(180) : undefined}
+            exiting={motionActive ? FadeOutUp.duration(120) : undefined}
+            layout={motionActive ? LinearTransition.duration(180) : undefined}
+            style={styles.shelfContent}
+          >
+            <View style={styles.shelfActions}>
+              <Pressable
+                hitSlop={8}
+                style={styles.addBtn}
+                onPress={() => {
+                  setEditingPhase(null);
+                  setCustomPhaseTitle("");
+                  setCustomPhaseSummary("");
+                  setCustomPhaseSheet(true);
+                }}
+              >
+                <ThemedIcon name="add" size={16} color={colors.primary} />
+                <Text style={styles.addBtnText}>添加阶段</Text>
+              </Pressable>
+              <Pressable hitSlop={8} style={styles.shelfLink} onPress={() => router.push("/roadmap" as never)}>
+                <Text style={styles.shelfLinkText}>完整路线</Text>
+                <ThemedIcon name="chevron-forward" size={14} color={colors.primary} />
+              </Pressable>
+            </View>
+
+            {!roadmapLoading && roadmap.length === 0 ? (
+              <Card style={styles.emptyCard}>
+                <Text style={styles.emptyTitle}>还没有学习阶段</Text>
+                <Text style={styles.emptyHint}>
+                  这个学习领域下还没有任何阶段。可以自己新建，也可以导入 Markdown：
+                  # 一级标题 = 学习阶段，## 二级 = 阶段里的主题，### 三级 = 主题下的学习内容。
+                </Text>
+                <View style={styles.emptyActions}>
+                  <PressableScale
+                    haptic
+                    style={styles.emptyAction}
+                    onPress={() => {
+                      setMdText("");
+                      setMdPreview(null);
+                      setMdMsg(null);
+                      setMdSheet(true);
+                    }}
+                  >
+                    <ThemedIcon name="document-text-outline" size={18} color={colors.primary} />
+                    <Text style={styles.emptyActionText}>导入 MD</Text>
+                  </PressableScale>
+                  <PressableScale
+                    haptic
+                    style={styles.emptyAction}
+                    onPress={() => {
+                      setEditingPhase(null);
+                      setCustomPhaseTitle("");
+                      setCustomPhaseSummary("");
+                      setCustomPhaseSheet(true);
+                    }}
+                  >
+                    <ThemedIcon name="add" size={18} color={colors.primary} />
+                    <Text style={styles.emptyActionText}>新建阶段</Text>
+                  </PressableScale>
+                  <PressableScale
+                    haptic
+                    style={styles.emptyAction}
+                    onPress={() => router.push("/domain-manager" as never)}
+                  >
+                    <ThemedIcon name="layers-outline" size={18} color={colors.primary} />
+                    <Text style={styles.emptyActionText}>从模板创建</Text>
+                  </PressableScale>
+                </View>
+              </Card>
+            ) : null}
+
+            {roadmap.map((phase, i) => {
+              const progressInfo = phaseDone(phase);
+              const active = phase.id === selectedPhaseId;
+              return (
+                <StageCard
+                  key={phase.id}
+                  phase={phase}
+                  index={i}
+                  total={roadmap.length}
+                  active={active}
+                  progressInfo={progressInfo}
+                  onSelect={() => router.push(`/phase/${phase.id}` as never)}
+                  onMove={swapPhase}
+                  onDelete={() => removePhase(phase)}
+                  onEdit={() => openEditPhase(phase)}
+                  dragIndex={stageDragIndex}
+                  dragTarget={stageDragTarget}
+                  dragY={stageDragY}
+                  heights={stageHeights}
+                  onMeasure={measureStage}
+                  onDragChange={onStageDragChange}
+                  motionActive={motionActive}
+                />
+              );
+            })}
+          </Animated.View>
+        ) : null}
+      </Animated.View>
 
       <Animated.View entering={entrance(3)}>
         <GroupLabel>学习统计</GroupLabel>
@@ -956,7 +1011,7 @@ export default function LearnScreen() {
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: "transparent" },
+  scroll: { flex: 1, backgroundColor: colors.canvas },
   content: { paddingHorizontal: 16, gap: 12 },
   hero: { marginBottom: 8, paddingRight: 46 },
   heroMenuBtn: {
@@ -1002,6 +1057,11 @@ const makeStyles = (colors: ThemeColors) =>
     borderColor: "rgba(242,140,40,0.25)",
   },
   addBtnText: { color: colors.accentStrong, ...typography.caption, fontWeight: "800" },
+  shelfWrap: { gap: 10 },
+  shelfContent: { gap: 12, paddingTop: 2 },
+  shelfActions: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  shelfLink: { flexDirection: "row", alignItems: "center", gap: 2, paddingVertical: 6, paddingHorizontal: 4 },
+  shelfLinkText: { ...typography.caption, color: colors.primary, fontWeight: "700" },
 
   stageCard: {
     borderRadius: radius.xl,

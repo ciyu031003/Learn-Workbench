@@ -1,5 +1,14 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { StyleSheet, Text, TextInput, View, type StyleProp, type TextInputProps, type ViewStyle } from "react-native";
+import {
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  type StyleProp,
+  type TextInputProps,
+  type TextStyle,
+  type ViewStyle,
+} from "react-native";
 import { radius, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
@@ -29,7 +38,7 @@ export function Field({
   error?: string | null;
   hint?: string;
   right?: ReactNode;
-  style?: StyleProp<ViewStyle>;
+  style?: StyleProp<TextStyle>;
   containerStyle?: StyleProp<ViewStyle>;
   multiline?: boolean;
 } & Omit<TextInputProps, "value" | "onChangeText" | "style" | "multiline">) {

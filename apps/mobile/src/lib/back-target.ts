@@ -22,6 +22,9 @@
 const PARENT_RULES: { prefix: string; parent: string }[] = [
   // 学习
   { prefix: "/phase", parent: "/roadmap" },
+  { prefix: "/quiz/session", parent: "/quiz" },
+  { prefix: "/quiz/", parent: "/quiz" },
+  { prefix: "/quiz", parent: "/learn" },
   { prefix: "/roadmap", parent: "/learn" },
   { prefix: "/tasks", parent: "/learn" },
   { prefix: "/logs", parent: "/learn" },
@@ -67,6 +70,7 @@ const HUB_RULES: { prefix: string; hub: string }[] = [
   { prefix: "/learn", hub: "/learn" },
   { prefix: "/roadmap", hub: "/learn" },
   { prefix: "/phase", hub: "/learn" },
+  { prefix: "/quiz", hub: "/learn" },
   { prefix: "/tasks", hub: "/learn" },
   { prefix: "/logs", hub: "/learn" },
   { prefix: "/study-stats", hub: "/learn" },
