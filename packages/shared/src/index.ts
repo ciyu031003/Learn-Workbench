@@ -930,6 +930,10 @@ export const defaultCrawlerPlatforms: JobSource[] = ["lagou", "liepin", "zhilian
 export const SUPPORTED_CITIES = [
   "北京", "上海", "广州", "深圳", "杭州", "成都",
   "西安", "重庆", "南京", "武汉", "苏州",
+  "天津", "长沙", "郑州", "青岛", "宁波", "合肥",
+  "厦门", "福州", "济南", "大连", "沈阳", "哈尔滨",
+  "长春", "昆明", "贵阳", "南宁", "海口", "太原",
+  "石家庄", "南昌",
   "乌鲁木齐", "克拉玛依", "吐鲁番", "哈密", "昌吉",
   "伊犁", "喀什", "阿克苏", "和田",
 ];
@@ -2902,4 +2906,3 @@ export const DAILY_WEAKEST_LABEL: Record<NonNullable<DailyReadiness["weakest"]>,
   workout: "今天还没动",
   nutrition: "饮食还没记",
 };
-

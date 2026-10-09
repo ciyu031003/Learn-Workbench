@@ -51,10 +51,17 @@ import {
   type JobListResult,
 } from "@/lib/jobs";
 import { useAppStore } from "@/store/app-store";
-import { formatRelativeTime, jobSourceLabels, type JobPostingListItem, type JobSource, type JobStats } from "@learn-workbench/shared";
+import {
+  SUPPORTED_CITIES,
+  formatRelativeTime,
+  jobSourceLabels,
+  type JobPostingListItem,
+  type JobSource,
+  type JobStats,
+} from "@learn-workbench/shared";
 
 const PAGE_SIZE = 12;
-const CITY_OPTIONS = ["全部", "上海", "北京", "深圳", "杭州", "成都", "广州", "乌鲁木齐"];
+const CITY_OPTIONS = ["全部", ...SUPPORTED_CITIES];
 const CATEGORY_OPTIONS = [
   { id: "", label: "全部" },
   { id: "internet", label: "互联网" },

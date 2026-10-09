@@ -20,10 +20,12 @@
 import { createRequire } from "node:module";
 import { createHash } from "node:crypto";
 import { parseSalary, parsePublished, stripHtml, contentHash } from "./lib/normalize.js";
-import { CITY_MAP } from "./lib/cities.js";
+import { CITY_MAP, CITY_NAME_PATTERN } from "./lib/cities.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 const require = createRequire(import.meta.url);
+const CITY_RE = new RegExp("(" + CITY_NAME_PATTERN + ")");
+const CITY_BOUNDARY_RE = new RegExp("\\s(" + CITY_NAME_PATTERN + ")(?=[\\s·]|$)");
 
 let chromium = null;
 try {
@@ -242,7 +244,7 @@ const SITES = {
       const expM = t.match(/(经验不限|在校|应届|1年以下|\d+-\d+年|\d+年以下|\d+年以上|\d+年)/);
       const eduM = t.match(/(博士|硕士|统招本科|本科|大专|学历不限)/);
       const edu = eduM ? eduM[1] : "";
-      const cityM = t.match(/(北京|上海|广州|深圳|杭州|成都|西安|乌鲁木齐|克拉玛依|吐鲁番|哈密|昌吉|伊犁|喀什|阿克苏|和田|南京|武汉|苏州|重庆|东莞|大连|长沙|郑州|青岛|天津)/);
+      const cityM = t.match(CITY_RE);
       const compM = t.match(/([\u4e00-\u9fa5A-Za-z0-9（）()]{4,}(?:公司|集团|科技|信息|网络|数据|电子|智能|有限|证券|银行))/);
       const tags = t.split(/\s+/).filter((x) => /^[A-Za-z+#.]+$/.test(x)).slice(0, 8);
       return {
@@ -282,7 +284,7 @@ const SITES = {
       const t = d.text;
       const salary = salaryTextOf(t);
       const sm = parseSalary(salary);
-      const cityM = t.match(/\s(北京|上海|广州|深圳|杭州|成都|西安|乌鲁木齐|克拉玛依|吐鲁番|哈密|昌吉|伊犁|喀什|阿克苏|和田|南京|武汉|苏州|重庆|东莞|大连|长沙|郑州)(?=[\s·]|$)/);
+      const cityM = t.match(CITY_BOUNDARY_RE);
       const expM = t.match(/(经验不限|在校|应届|1年以下|\d+-\d+年|\d+年以下|\d+年以上|\d+年)/);
       const eduM = t.match(/(博士|硕士|本科|大专|学历不限)/);
       const edu = eduM ? eduM[1] : "";
