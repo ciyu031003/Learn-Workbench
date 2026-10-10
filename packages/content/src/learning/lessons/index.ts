@@ -1,4 +1,7 @@
 import { aiEngineeringTopicLessons } from "./ai-engineering";
+import { algorithmsTopicLessons } from "./algorithms";
+import { applicationSecurityTopicLessons } from "./application-security";
+import { backendEngineeringTopicLessons } from "./backend-engineering";
 import { cloudPlatformTopicLessons } from "./cloud-platform";
 import { dataAnalysisTopicLessons } from "./data-analysis";
 import { databaseTopicLessons } from "./database";
@@ -12,6 +15,9 @@ import { stageLessons } from "./stages";
 import type { LearningTopicLesson } from "../types";
 
 export const topicLessons: Record<string, LearningTopicLesson> = {
+  ...algorithmsTopicLessons,
+  ...applicationSecurityTopicLessons,
+  ...backendEngineeringTopicLessons,
   ...pythonTopicLessons,
   ...javaTopicLessons,
   ...javascriptTopicLessons,

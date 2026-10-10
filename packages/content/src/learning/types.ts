@@ -1,4 +1,5 @@
 export type LearningCategory =
+  | "计算机基础"
   | "编程语言"
   | "数据分析"
   | "商业智能"
@@ -9,7 +10,8 @@ export type LearningCategory =
   | "系统设计"
   | "数据库"
   | "云平台"
-  | "网络工程";
+  | "网络工程"
+  | "网络安全";
 
 export type LearningLevel = "入门" | "进阶" | "综合";
 export type LearningQuestionType = "single" | "judge";
