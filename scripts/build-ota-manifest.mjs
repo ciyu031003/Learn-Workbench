@@ -10,10 +10,14 @@
  *  - 不传 `--out` 只打印 JSON（用于预览/核对），传了就直接写文件；
  *  - sha256 用流式计算，67MB 包几百毫秒。
  */
-import { createHash } from "node:crypto";
-import { createReadStream } from "node:fs";
-import { readFile, stat, writeFile } from "node:fs/promises";
+import { stat, writeFile } from "node:fs/promises";
 import path from "node:path";
+import {
+  buildOtaManifest,
+  readReleaseNotesFile,
+  serializeOtaManifest,
+  sha256OfFile,
+} from "./lib/ota-manifest.mjs";
 
 function parseArgs(argv) {
   const out = {};
@@ -25,16 +29,6 @@ function parseArgs(argv) {
   return out;
 }
 
-function sha256OfFile(file) {
-  return new Promise((resolve, reject) => {
-    const hash = createHash("sha256");
-    createReadStream(file)
-      .on("data", (chunk) => hash.update(chunk))
-      .on("error", reject)
-      .on("end", () => resolve(hash.digest("hex")));
-  });
-}
-
 const args = parseArgs(process.argv.slice(2));
 const apk = args.apk;
 const versionName = args.version;
@@ -44,30 +38,19 @@ if (!apk || !versionName || !Number.isInteger(versionCode)) {
   process.exit(1);
 }
 
-const base = (args.base ?? "https://learn.yuanabd.cn").replace(/\/+$/, "");
 const info = await stat(apk);
 const sha256 = await sha256OfFile(apk);
 
-let releaseNotes = [];
-if (args.notes) {
-  const raw = await readFile(args.notes, "utf8");
-  releaseNotes = raw
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0 && !line.startsWith("#"));
-}
-
-const manifest = {
+const manifest = buildOtaManifest({
   versionName,
   versionCode,
-  apkUrl: `${base}/download/learn-workbench-v${versionName}.apk`,
   sizeBytes: info.size,
   sha256,
-  releaseNotes,
-  publishedAt: new Date().toISOString(),
-};
+  base: args.base,
+  releaseNotes: args.notes ? await readReleaseNotesFile(args.notes) : [],
+});
 
-const json = JSON.stringify(manifest, null, 2) + "\n";
+const json = serializeOtaManifest(manifest);
 if (args.out) {
   await writeFile(args.out, json, "utf8");
   console.log(`[ota] 已写入 ${path.resolve(args.out)}`);
