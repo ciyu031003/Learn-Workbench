@@ -276,6 +276,7 @@ if (!args.publish) {
     `test "$(stat -c%s /data/learn-workbench/.write-probe)" -eq 83886080`,
     `rm -f /data/learn-workbench/.write-probe`,
     `sudo mkdir -p "$RELEASES" "$LANDING/img"`,
+    `test "$(sha256sum ${tmp}.apk | cut -d' ' -f1)" = "${apkSha}"`,
     `sudo cp ${tmp}.apk "$RELEASES/learn-workbench-v${version}.apk"`,
     `sudo cp ${tmp}-download.html "$LANDING/download.html"`,
     `sudo cp ${tmp}-mobile-update.json "$LANDING/mobile-update.json"`,
@@ -294,7 +295,9 @@ if (!args.publish) {
   if (skipPortal) fail("--publish 需要门户文件（download.html / mobile-update.json / 二维码），但门户被跳过了");
 
   log("上传产物 …");
-  sh("scp", ["-o", "BatchMode=yes", ...staging.map((s) => s.src), `${host}:/tmp/`]);
+  for (const s of staging) {
+    sh("scp", ["-o", "BatchMode=yes", s.src, `${host}:${s.dst}`]);
+  }
   const remoteScript = path.join(localDir, `publish-v${String(version).replace(/\./g, "")}.sh`);
   await writeFile(remoteScript, remote + "\n", "utf8");
   const sshRes = spawnSync("ssh", ["-o", "BatchMode=yes", host, "bash -s"], {
