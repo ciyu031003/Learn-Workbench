@@ -1,17 +1,41 @@
 "use client";
 
-import { use, type ReactNode } from "react";
+import { use, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { getLearningTrack, type LearningTopic, type LearningTrack } from "@learn-workbench/content";
+import { getLearningTrack, knowledgePointKeyOf, type LearningTopic, type LearningTrack } from "@learn-workbench/content";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { LearningMastery } from "@/components/learning/mastery-badge";
+import { CodeCopyButton, FavoriteMark, ReadBadge, useLibraryState } from "@/components/learning/library-state";
 import { LEARNING_DIFFICULTY_LABEL, stageStats, topicQuestions, trackStats } from "@/lib/learning-stats";
-import { ArrowLeft, BookOpen, CheckCircle2, ListChecks, Sparkles, TriangleAlert, Wrench } from "lucide-react";
+import { ArrowLeft, BookOpen, CheckCircle2, ChevronLeft, ChevronRight, ListChecks, Sparkles, TriangleAlert, Wrench } from "lucide-react";
 
 export default function CourseDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
   const track = getLearningTrack(slug);
+  const library = useLibraryState(track?.slug);
+  const [openStages, setOpenStages] = useState<Set<string>>(
+    () => new Set(track?.stages[0] ? [track.stages[0].key] : [])
+  );
+  /** 课程内扁平顺序：上一节/下一节跨阶段自动落到相邻端点（与移动端阅读页同一套口径） */
+  const flatTopics = useMemo(
+    () =>
+      track
+        ? track.stages.flatMap((stage) =>
+            stage.topics.map((topic) => ({ stageKey: stage.key, topicKey: topic.key, title: topic.title }))
+          )
+        : [],
+    [track]
+  );
+  const openAndScroll = useCallback((stageKey: string, topicKey: string) => {
+    setOpenStages((current) => new Set(current).add(stageKey));
+    // 等展开动画/重排完成再滚动，否则目标位置还是折叠时的高度
+    const behavior: ScrollBehavior =
+      typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+    setTimeout(() => {
+      document.getElementById(`kp-${topicKey}`)?.scrollIntoView({ behavior, block: "start" });
+    }, 60);
+  }, []);
 
   if (!track) {
     return (
@@ -80,44 +104,130 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
 
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">课程大纲</h2>
-        <span className="text-xs text-muted-foreground">展开阶段查看知识点与配套题</span>
+        <span className="text-xs text-muted-foreground">
+          {library.status === "ready"
+            ? `已读 ${library.counts.read} 节 · 收藏 ${library.counts.favorites} 节`
+            : "点击目录定位知识点，展开阶段查看详情"}
+        </span>
       </div>
 
-      <div className="flex flex-col gap-3">
-        {track.stages.map((stage, index) => {
-          const scoped = stageStats(track, stage.key);
-          return (
-            <details key={stage.key} className="group rounded-xl border border-border/60 bg-card/60">
-              <summary className="flex cursor-pointer list-none items-center gap-3 p-4">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-primary">
-                  {String(index + 1).padStart(2, "0")}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold">{stage.title}</span>
-                  <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                    {stage.weeks} · {scoped.topics} 知识点 · {scoped.questions} 题
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+        <aside className="lg:sticky lg:top-20 lg:w-72 lg:shrink-0">
+          <Card>
+            <CardContent className="flex flex-col gap-2 p-4">
+              <h3 className="text-xs font-semibold text-muted-foreground">课程目录</h3>
+              <ol className="flex flex-col gap-2 text-sm">
+                {track.stages.map((stage, index) => (
+                  <li key={stage.key} className="flex flex-col gap-1">
+                    <button
+                      type="button"
+                      onClick={() => openAndScroll(stage.key, stage.topics[0]?.key ?? "")}
+                      className="flex items-start gap-2 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-muted/60"
+                    >
+                      <span className="mt-0.5 text-xs font-semibold tabular-nums text-muted-foreground">
+                        {String(index + 1).padStart(2, "0")}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-xs font-medium text-foreground">{stage.title}</span>
+                        <span className="block text-[11px] text-muted-foreground">
+                          {stage.topics.length} 知识点
+                        </span>
+                      </span>
+                    </button>
+                    <ul className="flex flex-col gap-0.5 pl-6">
+                      {stage.topics.map((topic) => {
+                        const pointKey = knowledgePointKeyOf({
+                          trackSlug: track.slug,
+                          stageKey: stage.key,
+                          topicKey: topic.key,
+                        });
+                        return (
+                          <li key={topic.key}>
+                            <button
+                              type="button"
+                              onClick={() => openAndScroll(stage.key, topic.key)}
+                              className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-[11px] text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+                            >
+                              <span className="min-w-0 flex-1 truncate">{topic.title}</span>
+                              {library.favorites.has(pointKey) ? <FavoriteMark /> : null}
+                              <ReadBadge progress={library.read.get(pointKey)} />
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </li>
+                ))}
+              </ol>
+            </CardContent>
+          </Card>
+        </aside>
+
+        <div className="flex min-w-0 flex-1 flex-col gap-3">
+          {track.stages.map((stage, index) => {
+            const scoped = stageStats(track, stage.key);
+            const open = openStages.has(stage.key);
+            return (
+              <details
+                key={stage.key}
+                open={open}
+                onToggle={(event) => {
+                  const isOpen = event.currentTarget.open;
+                  setOpenStages((current) => {
+                    if (current.has(stage.key) === isOpen) return current;
+                    const next = new Set(current);
+                    if (isOpen) next.add(stage.key);
+                    else next.delete(stage.key);
+                    return next;
+                  });
+                }}
+                className="group rounded-xl border border-border/60 bg-card/60"
+              >
+                <summary className="flex cursor-pointer list-none items-center gap-3 p-4">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-primary">
+                    {String(index + 1).padStart(2, "0")}
                   </span>
-                </span>
-                <span className="shrink-0 text-xs text-muted-foreground group-open:hidden">展开</span>
-                <span className="hidden shrink-0 text-xs text-muted-foreground group-open:inline">收起</span>
-              </summary>
-              <div className="flex flex-col gap-4 border-t border-border/50 p-4">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Labeled label="本章目标" text={stage.goal} />
-                  <Labeled label="本章验收" text={stage.outcome} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold">{stage.title}</span>
+                    <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                      {stage.weeks} · {scoped.topics} 知识点 · {scoped.questions} 题
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-xs text-muted-foreground group-open:hidden">展开</span>
+                  <span className="hidden shrink-0 text-xs text-muted-foreground group-open:inline">收起</span>
+                </summary>
+                <div className="flex flex-col gap-4 border-t border-border/50 p-4">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Labeled label="本章目标" text={stage.goal} />
+                    <Labeled label="本章验收" text={stage.outcome} />
+                  </div>
+                  {stage.lesson ? <StageLesson track={track} lesson={stage.lesson} /> : null}
+                  <ol className="flex flex-col gap-2">
+                    {stage.topics.map((topic, topicIndex) => {
+                      const flatIndex = flatTopics.findIndex(
+                        (entry) => entry.stageKey === stage.key && entry.topicKey === topic.key
+                      );
+                      return (
+                        <li key={topic.key} id={`kp-${topic.key}`} className="scroll-mt-24">
+                          <TopicCard
+                            track={track}
+                            topic={topic}
+                            index={topicIndex}
+                            stageKey={stage.key}
+                            library={library}
+                            previous={flatIndex > 0 ? flatTopics[flatIndex - 1] : null}
+                            next={flatIndex >= 0 && flatIndex < flatTopics.length - 1 ? flatTopics[flatIndex + 1] : null}
+                            onNavigate={openAndScroll}
+                          />
+                        </li>
+                      );
+                    })}
+                  </ol>
                 </div>
-                {stage.lesson ? <StageLesson track={track} lesson={stage.lesson} /> : null}
-                <ol className="flex flex-col gap-2">
-                  {stage.topics.map((topic, topicIndex) => (
-                    <li key={topic.key}>
-                      <TopicCard track={track} topic={topic} index={topicIndex} />
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            </details>
-          );
-        })}
+              </details>
+            );
+          })}
+        </div>
       </div>
 
       <Card>
@@ -207,8 +317,33 @@ function StageLesson({ track, lesson }: { track: LearningTrack; lesson: NonNulla
   );
 }
 
-function TopicCard({ track, topic, index }: { track: LearningTrack; topic: LearningTopic; index: number }) {
+interface FlatTopic {
+  stageKey: string;
+  topicKey: string;
+  title: string;
+}
+
+function TopicCard({
+  track,
+  topic,
+  index,
+  stageKey,
+  library,
+  previous,
+  next,
+  onNavigate,
+}: {
+  track: LearningTrack;
+  topic: LearningTopic;
+  index: number;
+  stageKey: string;
+  library: { read: Map<string, number>; favorites: Set<string> };
+  previous: FlatTopic | null;
+  next: FlatTopic | null;
+  onNavigate: (stageKey: string, topicKey: string) => void;
+}) {
   const questions = topicQuestions(track, topic.key);
+  const pointKey = knowledgePointKeyOf({ trackSlug: track.slug, stageKey, topicKey: topic.key });
   return (
     <details className="group rounded-lg border border-border/50 bg-background/40">
       <summary className="flex cursor-pointer list-none items-center gap-2.5 p-3">
@@ -219,6 +354,8 @@ function TopicCard({ track, topic, index }: { track: LearningTrack; topic: Learn
           <span className="block truncate text-sm font-medium">{topic.title}</span>
           <span className="mt-0.5 block truncate text-xs text-muted-foreground">{topic.summary}</span>
         </span>
+        {library.favorites.has(pointKey) ? <FavoriteMark /> : null}
+        <ReadBadge progress={library.read.get(pointKey)} />
         <Badge variant="muted" className="shrink-0">{questions.length} 题</Badge>
       </summary>
       <div className="flex flex-col gap-3 border-t border-border/50 p-3">
@@ -233,9 +370,12 @@ function TopicCard({ track, topic, index }: { track: LearningTrack; topic: Learn
             <Block title="深入理解" items={topic.lesson.overview} />
             <Block title="运作机制" items={topic.lesson.mechanism} />
             <div className="rounded-lg border border-border/50 bg-muted/40">
-              <p className="border-b border-border/50 px-3 py-1.5 text-xs font-semibold text-muted-foreground">
-                {topic.lesson.example.title} · {topic.lesson.example.language}
-              </p>
+              <div className="flex items-center justify-between gap-2 border-b border-border/50 px-3 py-1">
+                <p className="min-w-0 truncate text-xs font-semibold text-muted-foreground">
+                  {topic.lesson.example.title} · {topic.lesson.example.language}
+                </p>
+                <CodeCopyButton code={topic.lesson.example.code} />
+              </div>
               <pre className="overflow-x-auto p-3">
                 <code className="font-mono text-xs leading-relaxed">{topic.lesson.example.code}</code>
               </pre>
@@ -282,6 +422,34 @@ function TopicCard({ track, topic, index }: { track: LearningTrack; topic: Learn
           </ul>
           <p className="text-xs text-muted-foreground">答案与解析在 App 内作答时给出，作答会写入掌握度与复习队列。</p>
         </div>
+
+        {/* 上一节 / 下一节：跨阶段自动落到相邻端点，与移动端阅读页口径一致 */}
+        <nav className="flex items-center justify-between gap-2 border-t border-border/50 pt-3">
+          {previous ? (
+            <button
+              type="button"
+              onClick={() => onNavigate(previous.stageKey, previous.topicKey)}
+              className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <ChevronLeft className="size-3.5 shrink-0" />
+              <span className="min-w-0 truncate">上一节 · {previous.title}</span>
+            </button>
+          ) : (
+            <span className="text-xs text-muted-foreground">本课程第一节</span>
+          )}
+          {next ? (
+            <button
+              type="button"
+              onClick={() => onNavigate(next.stageKey, next.topicKey)}
+              className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <span className="min-w-0 truncate">下一节 · {next.title}</span>
+              <ChevronRight className="size-3.5 shrink-0" />
+            </button>
+          ) : (
+            <span className="text-xs text-muted-foreground">本课程最后一节</span>
+          )}
+        </nav>
       </div>
     </details>
   );
