@@ -1,4 +1,4 @@
-/* eslint-disable react-hooks/immutability, react-hooks/set-state-in-effect */
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
@@ -22,16 +22,8 @@ import { SkeletonList } from "@/components/skeleton";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
 import { recordCrumb } from "@/lib/crash-capture";
-import Animated, {
-  cancelAnimation,
-  FadeIn,
-  FadeOut,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withSequence,
-  withTiming,
-} from "react-native-reanimated";
+import Animated from "react-native-reanimated";
+import { FilterRefreshBar } from "@/components/filter-refresh-bar";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { ChipGroup, SheetSearchField, SheetSection, SheetSegmented, SheetStickyCta } from "@/components/sheet";
 import { JobDetailModal } from "@/components/job-detail-modal";
@@ -182,26 +174,6 @@ const CARD_SEP_STYLE = { height: 12 } as const;
 
 function JobCardSeparator() {
   return <View style={CARD_SEP_STYLE} />;
-}
-
-/** v20-A2：筛选刷新细进度条——筛选/排序期间**保留旧列表**，只在列表顶部脉冲一根 2pt 主色条 */
-function FilterRefreshBar() {
-  const { colors } = useTheme();
-  const opacity = useSharedValue(0.4);
-  useEffect(() => {
-    opacity.value = withRepeat(withSequence(withTiming(1, { duration: 380 }), withTiming(0.35, { duration: 380 })), -1, true);
-    return () => {
-      cancelAnimation(opacity);
-    };
-  }, [opacity]);
-  const bar = useAnimatedStyle(() => ({ opacity: opacity.value }));
-  return (
-    <Animated.View
-      entering={FadeIn.duration(120)}
-      exiting={FadeOut.duration(150)}
-      style={[{ height: 2, borderRadius: 1, backgroundColor: colors.primary, marginBottom: 8 }, bar]}
-    />
-  );
 }
 
 /** v20-A5：搜索行独立组件——输入态内聚，打字不再整列表头重渲染 */

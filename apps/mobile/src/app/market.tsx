@@ -1,17 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Animated, {
-  cancelAnimation,
-  FadeIn,
-  FadeInDown,
-  FadeOut,
-  LinearTransition,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withSequence,
-  withTiming,
-} from "react-native-reanimated";
+import Animated, { FadeInDown, LinearTransition } from "react-native-reanimated";
+import { FilterRefreshBar } from "@/components/filter-refresh-bar";
 import {
   RefreshControl,
   StyleSheet,
@@ -76,26 +66,6 @@ const RANGE_OPTIONS: SegmentOption[] = [
 
 function maxOf(values: number[], fallback = 1) {
   return Math.max(fallback, ...values);
-}
-
-/** v20-C1：筛选刷新细进度条（与 jobs 同款：换 range/搜索时保留旧内容） */
-function FilterRefreshBar() {
-  const { colors } = useTheme();
-  const opacity = useSharedValue(0.4);
-  useEffect(() => {
-    opacity.value = withRepeat(withSequence(withTiming(1, { duration: 380 }), withTiming(0.35, { duration: 380 })), -1, true);
-    return () => {
-      cancelAnimation(opacity);
-    };
-  }, [opacity]);
-  const bar = useAnimatedStyle(() => ({ opacity: opacity.value }));
-  return (
-    <Animated.View
-      entering={FadeIn.duration(120)}
-      exiting={FadeOut.duration(150)}
-      style={[{ height: 2, borderRadius: 1, backgroundColor: colors.primary, marginBottom: 8 }, bar]}
-    />
-  );
 }
 
 /** v20-C2：KPI 数字滚动（AnimatedNumber）；卡片去描边、tabular 对齐 */
