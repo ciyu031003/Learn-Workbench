@@ -41,12 +41,13 @@ describe("learning library content contract", () => {
       "linux",
       "ai-engineering",
       "database",
+      "cloud-platform",
     ]);
     expect(new Set(learningTracks.map((track) => track.slug)).size).toBe(learningTracks.length);
     expect(learningCategories).toEqual([...new Set(learningTracks.map((track) => track.category))]);
-    expect(learningTracks.reduce((total, track) => total + track.questions.length, 0)).toBe(352);
-    expect(learningTracks.flatMap((track) => track.questions).filter((question) => question.topicKey)).toHaveLength(192);
-    expect(learningTracks.reduce((total, track) => total + track.stages.length, 0)).toBeGreaterThanOrEqual(32);
+    expect(learningTracks.reduce((total, track) => total + track.questions.length, 0)).toBe(376);
+    expect(learningTracks.flatMap((track) => track.questions).filter((question) => question.topicKey)).toHaveLength(216);
+    expect(learningTracks.reduce((total, track) => total + track.stages.length, 0)).toBeGreaterThanOrEqual(36);
   });
 
   it("keeps every track, stage, topic and question fully authored", () => {

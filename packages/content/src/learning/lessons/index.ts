@@ -1,4 +1,5 @@
 import { aiEngineeringTopicLessons } from "./ai-engineering";
+import { cloudPlatformTopicLessons } from "./cloud-platform";
 import { dataAnalysisTopicLessons } from "./data-analysis";
 import { databaseTopicLessons } from "./database";
 import { javaTopicLessons } from "./java";
@@ -18,6 +19,7 @@ export const topicLessons: Record<string, LearningTopicLesson> = {
   ...linuxTopicLessons,
   ...aiEngineeringTopicLessons,
   ...databaseTopicLessons,
+  ...cloudPlatformTopicLessons,
 };
 
 export { stageLessons };

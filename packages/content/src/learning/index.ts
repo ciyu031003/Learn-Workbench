@@ -1,4 +1,5 @@
 import { aiEngineeringTrack } from "./ai-engineering";
+import { cloudPlatformTrack } from "./cloud-platform";
 import { dataAnalysisTrack } from "./data-analysis";
 import { databaseTrack } from "./database";
 import { javaTrack } from "./java";
@@ -18,6 +19,7 @@ const baseLearningTracks: LearningTrack[] = [
   linuxTrack,
   aiEngineeringTrack,
   databaseTrack,
+  cloudPlatformTrack,
 ];
 
 export const learningTracks: LearningTrack[] = baseLearningTracks.map(expandLearningTrack);
