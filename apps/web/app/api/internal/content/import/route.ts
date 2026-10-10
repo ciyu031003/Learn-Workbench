@@ -10,6 +10,7 @@ import { apiError, API_ERROR_CODES, type ApiErrorCode } from "@/lib/api-error";
 import { guardInternalRequest } from "@/lib/internal-guard";
 import { CONTENT_ROLES } from "@/lib/roles";
 import { writeAuditLog } from "@/lib/audit";
+import { inc, timed } from "@/lib/metrics";
 
 /** ContentImportError.status → 错误码（H2：状态码之外再给机器可读类型）。 */
 function importErrorCode(status: number): ApiErrorCode {
@@ -46,6 +47,9 @@ export async function POST(req: Request) {
     rollback?: unknown;
   } | null;
 
+  // H5：dry-run 与 apply 分开计数，成功率按 mode 分桶；mode 提到 try 外以便 catch 里也能打点。
+  let mode: "dry-run" | "apply" = "dry-run";
+
   try {
     const rollbackId = Number(body?.rollback);
     if (Number.isInteger(rollbackId) && rollbackId > 0) {
@@ -73,11 +77,14 @@ export async function POST(req: Request) {
     const scope = Array.isArray(body?.scope)
       ? body.scope.filter((s): s is string => typeof s === "string")
       : [];
-    const mode = body?.mode === "apply" ? "apply" : "dry-run";
+    mode = body?.mode === "apply" ? "apply" : "dry-run";
     const commitSha = typeof body?.commitSha === "string" ? body.commitSha.trim() : null;
     const createdBy = typeof body?.createdBy === "string" ? body.createdBy.trim() : "cli";
 
-    const result = await runContentImport({ sourceKey, mode, commitSha, scope, items, createdBy });
+    const result = await timed("lwb_content_import_duration_ms", { mode }, () =>
+      runContentImport({ sourceKey, mode, commitSha, scope, items, createdBy })
+    );
+    inc("lwb_content_import_total", { mode, status: result.status });
     logger.info("[internal/content/import] done:", JSON.stringify({ sourceKey, mode, batchId: result.batchId }));
     await writeAuditLog({
       action: "content.import",
@@ -91,6 +98,7 @@ export async function POST(req: Request) {
     });
     return NextResponse.json({ ok: true, requestId, ...result });
   } catch (error) {
+    inc("lwb_content_import_total", { mode, status: "error" });
     if (error instanceof ContentImportError) {
       return apiError(error.status, error.message, { code: importErrorCode(error.status), requestId });
     }

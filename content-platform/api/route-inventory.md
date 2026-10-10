@@ -8,15 +8,15 @@
 
 | 指标 | 数值 |
 |---|---|
-| 路由总数 | 134 |
-| 有同名单测 | 134 / 134 |
-| 已限流 | 14 / 134 |
-| 内部接口（`api/internal/**`） | 5（已限流 5） |
-| 已有 OpenAPI 条目 | 9 / 134 |
+| 路由总数 | 135 |
+| 有同名单测 | 135 / 135 |
+| 已限流 | 15 / 135 |
+| 内部接口（`api/internal/**`） | 6（已限流 6） |
+| 已有 OpenAPI 条目 | 9 / 135 |
 
 ## 2. 未文档化清单（H2 跟进，不阻断）
 
-共 125 个：`/api/ai/tip`、`/api/auth/account`、`/api/auth/forgot`、`/api/auth/identities`、`/api/auth/login`、`/api/auth/logout`、`/api/auth/me`、`/api/auth/password`、`/api/auth/register`、`/api/auth/reset`、`/api/auth/wechat/bind`、`/api/auth/wechat/callback`、`/api/auth/wechat/qrcode`、`/api/auth/wechat/status`、`/api/background`、`/api/background/img`、`/api/background/refresh`、`/api/careers`、`/api/certificates`、`/api/checkin`、`/api/daily`、`/api/dashboard`、`/api/diagnostics`、`/api/domains`、`/api/domains/[key]/duplicate`、`/api/domains/overview`、`/api/equipment`、`/api/exercises`、`/api/export`、`/api/focus`、`/api/focus/daily`、`/api/focus/stats`、`/api/foods/search`、`/api/github`、`/api/habits`、`/api/habits/[id]`、`/api/habits/logs`、`/api/import`、`/api/internal/cron`、`/api/internal/equipment/import`、`/api/internal/interview/import`、`/api/jobs`、`/api/jobs/[id]`、`/api/jobs/[id]/favorite`、`/api/jobs/[id]/gaps`、`/api/jobs/[id]/match`、`/api/jobs/[id]/plan`、`/api/jobs/applications`、`/api/jobs/applications/[id]`、`/api/jobs/calendar`、`/api/jobs/cluster`、`/api/jobs/config`、`/api/jobs/favorites`、`/api/jobs/gaps/enroll`、`/api/jobs/health`、`/api/jobs/hosts/update`、`/api/jobs/notifications`、`/api/jobs/notifications/read`、`/api/jobs/radar`、`/api/jobs/run`、`/api/jobs/runs`、`/api/jobs/skills`、`/api/jobs/sources`、`/api/jobs/stats`、`/api/jobs/subscriptions`、`/api/jobs/subscriptions/[id]`、`/api/logs`、`/api/market`、`/api/market/decision`、`/api/market/intelligence`、`/api/market/personal`、`/api/market/views`、`/api/market/views/[id]`、`/api/notes`、`/api/nutrition`、`/api/nutrition/foods`、`/api/nutrition/stickers`、`/api/nutrition/summary`、`/api/nutrition/target`、`/api/phases`、`/api/profile/info`、`/api/profile/readiness`、`/api/profile/skills`、`/api/progress`、`/api/public/stats`、`/api/questions`、`/api/questions/answers`、`/api/questions/attempt`、`/api/questions/attempts`、`/api/resume-assets`、`/api/resume-files`、`/api/resume-files/[id]`、`/api/resumes`、`/api/resumes/[id]`、`/api/roadmap`、`/api/roadmap/custom`、`/api/roadmap/import`、`/api/roadmap/phases`、`/api/roadmap/reorder`、`/api/settings/career`、`/api/skills/gaps`、`/api/skills/recommend`、`/api/sports`、`/api/sports/profiles`、`/api/sports/profiles/[id]`、`/api/sports/share/[id]`、`/api/summary`、`/api/sync/pull`、`/api/sync/push`、`/api/tasks`、`/api/trackers`、`/api/trackers/logs`、`/api/uploads`、`/api/wellbeing/breaks`、`/api/wellbeing/energy`、`/api/wellbeing/exercise`、`/api/wellbeing/exercise/goal`、`/api/wellbeing/goal`、`/api/wellbeing/hydration`、`/api/wellbeing/profile`、`/api/wellbeing/reminders`、`/api/wellbeing/today`、`/api/wellbeing/weight`、`/api/workouts`、`/api/workouts/[id]`
+共 126 个：`/api/ai/tip`、`/api/auth/account`、`/api/auth/forgot`、`/api/auth/identities`、`/api/auth/login`、`/api/auth/logout`、`/api/auth/me`、`/api/auth/password`、`/api/auth/register`、`/api/auth/reset`、`/api/auth/wechat/bind`、`/api/auth/wechat/callback`、`/api/auth/wechat/qrcode`、`/api/auth/wechat/status`、`/api/background`、`/api/background/img`、`/api/background/refresh`、`/api/careers`、`/api/certificates`、`/api/checkin`、`/api/daily`、`/api/dashboard`、`/api/diagnostics`、`/api/domains`、`/api/domains/[key]/duplicate`、`/api/domains/overview`、`/api/equipment`、`/api/exercises`、`/api/export`、`/api/focus`、`/api/focus/daily`、`/api/focus/stats`、`/api/foods/search`、`/api/github`、`/api/habits`、`/api/habits/[id]`、`/api/habits/logs`、`/api/import`、`/api/internal/cron`、`/api/internal/equipment/import`、`/api/internal/interview/import`、`/api/internal/metrics`、`/api/jobs`、`/api/jobs/[id]`、`/api/jobs/[id]/favorite`、`/api/jobs/[id]/gaps`、`/api/jobs/[id]/match`、`/api/jobs/[id]/plan`、`/api/jobs/applications`、`/api/jobs/applications/[id]`、`/api/jobs/calendar`、`/api/jobs/cluster`、`/api/jobs/config`、`/api/jobs/favorites`、`/api/jobs/gaps/enroll`、`/api/jobs/health`、`/api/jobs/hosts/update`、`/api/jobs/notifications`、`/api/jobs/notifications/read`、`/api/jobs/radar`、`/api/jobs/run`、`/api/jobs/runs`、`/api/jobs/skills`、`/api/jobs/sources`、`/api/jobs/stats`、`/api/jobs/subscriptions`、`/api/jobs/subscriptions/[id]`、`/api/logs`、`/api/market`、`/api/market/decision`、`/api/market/intelligence`、`/api/market/personal`、`/api/market/views`、`/api/market/views/[id]`、`/api/notes`、`/api/nutrition`、`/api/nutrition/foods`、`/api/nutrition/stickers`、`/api/nutrition/summary`、`/api/nutrition/target`、`/api/phases`、`/api/profile/info`、`/api/profile/readiness`、`/api/profile/skills`、`/api/progress`、`/api/public/stats`、`/api/questions`、`/api/questions/answers`、`/api/questions/attempt`、`/api/questions/attempts`、`/api/resume-assets`、`/api/resume-files`、`/api/resume-files/[id]`、`/api/resumes`、`/api/resumes/[id]`、`/api/roadmap`、`/api/roadmap/custom`、`/api/roadmap/import`、`/api/roadmap/phases`、`/api/roadmap/reorder`、`/api/settings/career`、`/api/skills/gaps`、`/api/skills/recommend`、`/api/sports`、`/api/sports/profiles`、`/api/sports/profiles/[id]`、`/api/sports/share/[id]`、`/api/summary`、`/api/sync/pull`、`/api/sync/push`、`/api/tasks`、`/api/trackers`、`/api/trackers/logs`、`/api/uploads`、`/api/wellbeing/breaks`、`/api/wellbeing/energy`、`/api/wellbeing/exercise`、`/api/wellbeing/exercise/goal`、`/api/wellbeing/goal`、`/api/wellbeing/hydration`、`/api/wellbeing/profile`、`/api/wellbeing/reminders`、`/api/wellbeing/today`、`/api/wellbeing/weight`、`/api/workouts`、`/api/workouts/[id]`
 
 ## 3. 全量台账
 
@@ -65,6 +65,7 @@
 | `/api/internal/cron` | POST | 内部密钥 | ✅ | ✅ | — |
 | `/api/internal/equipment/import` | POST | 内部密钥 | ✅ | ✅ | — |
 | `/api/internal/interview/import` | POST | 内部密钥 | ✅ | ✅ | — |
+| `/api/internal/metrics` | GET | 公开 | ✅ | ✅ | — |
 | `/api/jobs` | GET | 登录 | — | ✅ | — |
 | `/api/jobs/[id]` | GET | 登录 | — | ✅ | — |
 | `/api/jobs/[id]/favorite` | POST | 登录 | — | ✅ | — |
