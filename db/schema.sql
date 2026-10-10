@@ -1512,6 +1512,33 @@ DROP TRIGGER IF EXISTS trg_knowledge_points_updated ON knowledge_points;
 CREATE TRIGGER trg_knowledge_points_updated BEFORE UPDATE ON knowledge_points
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+-- 题目生命周期（迁移 067）：题目维度的 draft/review/published/archived
+CREATE TABLE IF NOT EXISTS learning_questions (
+  key             text PRIMARY KEY,
+  track_slug      text NOT NULL,
+  stage_key       text NOT NULL,
+  topic_key       text,
+  type            text NOT NULL
+                  CONSTRAINT ck_learning_questions_type CHECK (type IN ('single','judge')),
+  difficulty      text NOT NULL DEFAULT 'medium'
+                  CONSTRAINT ck_learning_questions_difficulty CHECK (difficulty IN ('easy','medium','hard')),
+  status          text NOT NULL DEFAULT 'published'
+                  CONSTRAINT ck_learning_questions_status CHECK (status IN ('draft','review','published','archived')),
+  source_key      text,
+  content_version text NOT NULL DEFAULT 'unknown',
+  fingerprint     text NOT NULL DEFAULT '',
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  updated_at      timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_learning_questions_track ON learning_questions(track_slug, stage_key);
+CREATE INDEX IF NOT EXISTS idx_learning_questions_status ON learning_questions(status);
+CREATE INDEX IF NOT EXISTS idx_learning_questions_topic ON learning_questions(topic_key) WHERE topic_key IS NOT NULL;
+
+DROP TRIGGER IF EXISTS trg_learning_questions_updated ON learning_questions;
+CREATE TRIGGER trg_learning_questions_updated BEFORE UPDATE ON learning_questions
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
 CREATE TABLE IF NOT EXISTS question_knowledge_point (
   question_key        text NOT NULL,
   knowledge_point_key text NOT NULL REFERENCES knowledge_points(key) ON DELETE CASCADE,
@@ -1809,5 +1836,34 @@ CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_log_actor   ON audit_log(actor_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_log_action  ON audit_log(action, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_log_target  ON audit_log(target_type, target_id);
+
+-- ---------- 内容来源扩容第二批（迁移 066 同步登记）许可经 GitHub License API 核验 ----------
+INSERT INTO content_source (key, name, url, repo, ref, license, usage, obligation, note, verified_at)
+VALUES
+  ('algorithms-go', 'TheAlgorithms/Go', 'https://github.com/TheAlgorithms/Go', 'TheAlgorithms/Go', 'master', 'MIT', 'import',
+   '保留 LICENSE 与署名；仅导入许可范围内内容（MIT）', '算法与数据结构的 Go 实现，用于核对边界与复杂度', now()),
+  ('fastapi', 'FastAPI', 'https://github.com/fastapi/fastapi', 'fastapi/fastapi', 'master', 'MIT', 'import',
+   '保留 LICENSE 与署名；仅导入许可范围内内容（MIT）', '依赖注入、请求校验与 OpenAPI 契约生成的工程范式', now()),
+  ('gin', 'Gin', 'https://github.com/gin-gonic/gin', 'gin-gonic/gin', 'master', 'MIT', 'import',
+   '保留 LICENSE 与署名；仅导入许可范围内内容（MIT）', 'Go Web 框架的中间件链与上下文传递实现参考', now()),
+  ('pytest', 'pytest', 'https://github.com/pytest-dev/pytest', 'pytest-dev/pytest', 'main', 'MIT', 'import',
+   '保留 LICENSE 与署名；仅导入许可范围内内容（MIT）', 'fixture、参数化与断言重写的测试工程参考', now()),
+  ('vitest', 'Vitest', 'https://github.com/vitest-dev/vitest', 'vitest-dev/vitest', 'main', 'MIT', 'import',
+   '保留 LICENSE 与署名；仅导入许可范围内内容（MIT）', 'JS/TS 侧测试运行器与覆盖率的实现参考', now()),
+  ('js-testing-best-practices', 'JavaScript Testing Best Practices', 'https://github.com/goldbergyoni/javascript-testing-best-practices', 'goldbergyoni/javascript-testing-best-practices', 'master', 'MIT', 'import',
+   '保留 LICENSE 与署名；仅导入许可范围内内容（MIT）', '测试分层、可读性与维护性的实践清单', now()),
+  ('juice-shop', 'OWASP Juice Shop', 'https://github.com/juice-shop/juice-shop', 'juice-shop/juice-shop', 'master', 'MIT', 'import',
+   '保留 LICENSE 与署名；仅导入许可范围内内容（MIT）', '故意含漏洞的靶场，用于说明漏洞成因与修复验证', now()),
+  ('project-based-learning', 'Project Based Learning', 'https://github.com/practical-tutorials/project-based-learning', 'practical-tutorials/project-based-learning', 'master', 'MIT', 'import',
+   '保留 LICENSE 与署名；仅导入许可范围内内容（MIT）', '按项目组织的学习路径索引，用于实践选题', now()),
+  ('owasp-cheatsheets', 'OWASP Cheat Sheet Series', 'https://github.com/OWASP/CheatSheetSeries', 'OWASP/CheatSheetSeries', 'master', 'CC BY-SA 4.0', 'reference',
+   '仅外链引用，不复制正文；保留署名（CC BY-SA 4.0，含相同方式共享义务）', '防护措施速查表，作为写原理时的权威参照', now()),
+  ('owasp-wstg', 'OWASP Web Security Testing Guide', 'https://github.com/OWASP/wstg', 'OWASP/wstg', 'master', 'CC BY-SA 4.0', 'reference',
+   '仅外链引用，不复制正文；保留署名（CC BY-SA 4.0，含相同方式共享义务）', '测试与验证方法参考，不复制正文', now()),
+  ('spring-boot', 'Spring Boot', 'https://github.com/spring-projects/spring-boot', 'spring-projects/spring-boot', 'main', 'Apache-2.0', 'reference',
+   '仅外链引用，不复制正文；保留署名（Apache-2.0）', '自动配置与约定优于配置的实现参考', now()),
+  ('coding-interview-university', 'Coding Interview University', 'https://github.com/jwasham/coding-interview-university', 'jwasham/coding-interview-university', 'main', 'CC BY-SA 4.0', 'reference',
+   '仅外链引用，不复制正文；保留署名（CC BY-SA 4.0）', '计算机基础知识清单，用于校对知识覆盖面', now())
+ON CONFLICT (key) DO NOTHING;
 
 
