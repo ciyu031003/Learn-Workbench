@@ -32,27 +32,46 @@ CREATE TABLE users (
 CREATE TABLE content_phases (
   id         serial PRIMARY KEY,
   phase_key  text NOT NULL UNIQUE,            -- 'phase-1' .. 'phase-N' / 'agent-track'
+  slug       text,                            -- 稳定 ID（迁移 060：默认等于 phase_key，由触发器兜底）
   career_key text NOT NULL DEFAULT 'ict',     -- 所属职业路线（见 careers 表）
   title      text NOT NULL,
   weeks      text,                            -- 如 '第 1-2 周'
   track      text NOT NULL DEFAULT 'main' CHECK (track IN ('main','agent')),
   summary    text,
   sort_order int NOT NULL DEFAULT 0,
+  status     text NOT NULL DEFAULT 'published'
+             CONSTRAINT ck_content_phases_status CHECK (status IN ('draft','review','published','archived')),
+  estimated_minutes int NOT NULL DEFAULT 0,   -- 迁移 060：阶段级预计时长（分钟）
   is_custom  boolean NOT NULL DEFAULT false,  -- 用户自建大阶段
   owner_id   uuid REFERENCES users(id) ON DELETE CASCADE,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (career_key, track, sort_order)
+  UNIQUE (career_key, track, sort_order),
+  CONSTRAINT uq_content_phases_slug UNIQUE (slug)
 );
 
 CREATE TABLE content_topics (
   id         serial PRIMARY KEY,
   phase_id   int NOT NULL REFERENCES content_phases(id) ON DELETE CASCADE,
   topic_key  text NOT NULL UNIQUE,
+  slug       text,                            -- 稳定 ID（迁移 060：默认等于 topic_key）
   title      text NOT NULL,
   summary    text,
   agent_task text,                            -- 该主题绑定的 Agent 副线任务
-  sort_order int NOT NULL DEFAULT 0
+  sort_order int NOT NULL DEFAULT 0,
+  status     text NOT NULL DEFAULT 'published'
+             CONSTRAINT ck_content_topics_status CHECK (status IN ('draft','review','published','archived')),
+  difficulty text NOT NULL DEFAULT 'medium'
+             CONSTRAINT ck_content_topics_difficulty CHECK (difficulty IN ('easy','medium','hard')),
+  quality_level text NOT NULL DEFAULT 'L1'
+             CONSTRAINT ck_content_topics_quality CHECK (quality_level IN ('L0','L1','L2','L3','L4')),
+  estimated_minutes  int NOT NULL DEFAULT 0,  -- 迁移 060：知识点级预计时长（分钟）
+  content_version    text NOT NULL DEFAULT 'unknown',
+  content_updated_at timestamptz,
+  published_at       timestamptz,
+  stale_after        timestamptz,             -- 迁移 060：过期日期（Phase G 时效提示依赖它）
+  deleted_at         timestamptz,
+  CONSTRAINT uq_content_topics_slug UNIQUE (slug)
 );
 
 CREATE TABLE content_resources (
@@ -1415,5 +1434,147 @@ CREATE INDEX IF NOT EXISTS idx_learning_review_track
 DROP TRIGGER IF EXISTS trg_learning_review_cards_updated ON learning_review_cards;
 CREATE TRIGGER trg_learning_review_cards_updated BEFORE UPDATE ON learning_review_cards
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+
+-- ---------- 22. 统一内容模型与稳定 ID（迁移 060：组二 · 阶段 7 = V3 纵轨 Phase A） ----------
+-- 路线图侧（content_phases/content_topics）与学习库侧（knowledge_points）**不做物理合并**，
+-- 只统一字段词汇与稳定 ID 规则，并用三张关联表 + 作答统一视图搭桥（见 content-platform/adr/ADR-001）。
+-- 学习库正文仍在 packages/content（TS 内容包为准），库里只存稳定 ID 索引与运营元数据。
+
+-- slug 兜底：外部写入（seed_content.sql 等）不带 slug 时自动取自己的稳定键，避免出现空 slug 行。
+CREATE OR REPLACE FUNCTION content_topic_fill_slug() RETURNS trigger AS $$
+BEGIN
+  IF NEW.slug IS NULL THEN
+    NEW.slug := NEW.topic_key;
+  END IF;
+  IF NEW.status = 'published' AND NEW.published_at IS NULL THEN
+    NEW.published_at := now();
+  END IF;
+  RETURN NEW;
+END $$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION content_phase_fill_slug() RETURNS trigger AS $$
+BEGIN
+  IF NEW.slug IS NULL THEN
+    NEW.slug := NEW.phase_key;
+  END IF;
+  RETURN NEW;
+END $$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_content_topics_fill_slug ON content_topics;
+CREATE TRIGGER trg_content_topics_fill_slug BEFORE INSERT ON content_topics
+  FOR EACH ROW EXECUTE FUNCTION content_topic_fill_slug();
+
+DROP TRIGGER IF EXISTS trg_content_phases_fill_slug ON content_phases;
+CREATE TRIGGER trg_content_phases_fill_slug BEFORE INSERT ON content_phases
+  FOR EACH ROW EXECUTE FUNCTION content_phase_fill_slug();
+
+CREATE INDEX IF NOT EXISTS idx_topics_status ON content_topics(status, sort_order);
+
+CREATE TABLE IF NOT EXISTS knowledge_points (
+  key                text PRIMARY KEY,              -- <trackSlug>/<stageKey>/<topicKey>，禁止用数组下标
+  track_slug         text NOT NULL,
+  stage_key          text NOT NULL,
+  topic_key          text NOT NULL,
+  track_title        text NOT NULL DEFAULT '',
+  stage_title        text NOT NULL DEFAULT '',
+  title              text NOT NULL,
+  summary            text NOT NULL DEFAULT '',
+  sort_order         int  NOT NULL DEFAULT 0,       -- 课程内全局顺序（跨阶段连续）
+  stage_order        int  NOT NULL DEFAULT 0,
+  topic_order        int  NOT NULL DEFAULT 0,
+  status             text NOT NULL DEFAULT 'published'
+                     CONSTRAINT ck_knowledge_points_status CHECK (status IN ('draft','review','published','archived')),
+  quality_level      text NOT NULL DEFAULT 'L1'
+                     CONSTRAINT ck_knowledge_points_quality CHECK (quality_level IN ('L0','L1','L2','L3','L4')),
+  quality_missing    jsonb NOT NULL DEFAULT '[]'::jsonb,
+  difficulty         text NOT NULL DEFAULT 'medium'
+                     CONSTRAINT ck_knowledge_points_level CHECK (difficulty IN ('easy','medium','hard')),
+  estimated_minutes  int  NOT NULL DEFAULT 5 CHECK (estimated_minutes >= 0),
+  fingerprint        text NOT NULL DEFAULT '',      -- 内容指纹（导入去重 / 变更判定）
+  content_version    text NOT NULL DEFAULT 'unknown',
+  content_updated_at timestamptz,
+  published_at       timestamptz,
+  stale_after        timestamptz,                   -- 过期日期（Phase G 时效提示依赖它）
+  source_key         text,
+  tags               jsonb NOT NULL DEFAULT '[]'::jsonb,
+  deleted_at         timestamptz,
+  created_at         timestamptz NOT NULL DEFAULT now(),
+  updated_at         timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_knowledge_points_track ON knowledge_points(track_slug, sort_order);
+CREATE INDEX IF NOT EXISTS idx_knowledge_points_stage ON knowledge_points(track_slug, stage_key, topic_order);
+CREATE INDEX IF NOT EXISTS idx_knowledge_points_status ON knowledge_points(status, quality_level);
+CREATE INDEX IF NOT EXISTS idx_knowledge_points_stale ON knowledge_points(stale_after) WHERE stale_after IS NOT NULL;
+
+DROP TRIGGER IF EXISTS trg_knowledge_points_updated ON knowledge_points;
+CREATE TRIGGER trg_knowledge_points_updated BEFORE UPDATE ON knowledge_points
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TABLE IF NOT EXISTS question_knowledge_point (
+  question_key        text NOT NULL,
+  knowledge_point_key text NOT NULL REFERENCES knowledge_points(key) ON DELETE CASCADE,
+  track_slug          text NOT NULL,
+  stage_key           text NOT NULL,
+  topic_key           text NOT NULL,
+  link_source         text NOT NULL DEFAULT 'explicit'
+                      CONSTRAINT ck_qkp_link_source CHECK (link_source IN ('explicit','stage-fallback','curated')),
+  created_at          timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (question_key, knowledge_point_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_qkp_point ON question_knowledge_point(knowledge_point_key);
+CREATE INDEX IF NOT EXISTS idx_qkp_stage ON question_knowledge_point(track_slug, stage_key);
+
+CREATE TABLE IF NOT EXISTS knowledge_prerequisite (
+  knowledge_point_key text NOT NULL REFERENCES knowledge_points(key) ON DELETE CASCADE,
+  prerequisite_key    text NOT NULL REFERENCES knowledge_points(key) ON DELETE CASCADE,
+  relation_source     text NOT NULL DEFAULT 'derived'
+                      CONSTRAINT ck_knowledge_prereq_source CHECK (relation_source IN ('derived','curated')),
+  note                text,
+  created_at          timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (knowledge_point_key, prerequisite_key),
+  CONSTRAINT ck_knowledge_prereq_not_self CHECK (knowledge_point_key <> prerequisite_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_knowledge_prereq_of ON knowledge_prerequisite(prerequisite_key);
+
+CREATE TABLE IF NOT EXISTS knowledge_relation (
+  from_key        text NOT NULL REFERENCES knowledge_points(key) ON DELETE CASCADE,
+  to_key          text NOT NULL REFERENCES knowledge_points(key) ON DELETE CASCADE,
+  kind            text NOT NULL
+                  CONSTRAINT ck_knowledge_relation_kind CHECK (kind IN ('next','related')),
+  relation_source text NOT NULL DEFAULT 'derived'
+                  CONSTRAINT ck_knowledge_relation_source CHECK (relation_source IN ('derived','curated')),
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (from_key, to_key, kind),
+  CONSTRAINT ck_knowledge_relation_not_self CHECK (from_key <> to_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_knowledge_relation_to ON knowledge_relation(to_key, kind);
+
+-- 作答记录统一视图（桥，不搬数据）：学习库作答 + 职业面试作答的最小公共口径。
+CREATE OR REPLACE VIEW learning_attempts_unified AS
+  SELECT
+    'library'::text      AS domain,
+    la.user_id,
+    la.track_slug,
+    la.stage_key,
+    la.question_key,
+    la.is_correct,
+    la.created_at
+  FROM learning_attempts la
+  UNION ALL
+  SELECT
+    ('interview:' || ia.mode)::text AS domain,
+    ia.user_id,
+    NULL::text           AS track_slug,
+    NULL::text           AS stage_key,
+    ('interview:' || ia.question_id::text) AS question_key,
+    ia.is_correct,
+    ia.created_at
+  FROM interview_attempts ia
+  WHERE ia.question_id IS NOT NULL;
 
 
