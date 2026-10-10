@@ -24,6 +24,7 @@ describe("GET /api/learning/progress", () => {
       correct: 1,
       wrong: 1,
       mastery: 50,
+      masteryBasis: { window: 5, accuracyWeight: 0.6, recencyWeight: 0.4, lambda: 0.05, weightedAccuracy: 0.5, decay: 1 },
       today: 2,
       recent: [],
     });
@@ -32,4 +33,3 @@ describe("GET /api/learning/progress", () => {
     expect(progressMock).toHaveBeenCalledWith("u-1", "python");
   });
 });
-

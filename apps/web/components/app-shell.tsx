@@ -30,6 +30,7 @@ import {
   Salad,
   Sparkles,
   Trophy,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { todayISO } from "@learn-workbench/shared";
@@ -46,6 +47,7 @@ const NAV = [
 
 /** 学习分组（路线图 / 今日任务 / 专注 / 日志 / 项目） */
 const LEARN_ITEMS: { href: string; label: string; icon: typeof Map; hash?: string }[] = [
+  { href: "/learn", label: "技术课程", icon: BookOpen },
   { href: "/roadmap", label: "路线图", icon: Map },
   { href: "/tasks", label: "今日任务", icon: ListTodo },
   { href: "/tasks", label: "专注", icon: Timer, hash: "#focus" },

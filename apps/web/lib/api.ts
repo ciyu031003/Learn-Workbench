@@ -63,6 +63,14 @@ interface CheckpointRow {
   sort_order: number;
 }
 
+interface TopicItemRow {
+  id: number;
+  topic_id: number;
+  title: string;
+  content_md: string;
+  sort_order: number;
+}
+
 /** 匿名数据读取作用域：登录用户不追加过滤；匿名用户按设备过滤（含遗留行） */
 function anonParams(uid: string | null, anonId: string | null): { sql: string; params: unknown[] } {
   if (uid) return { sql: "", params: [uid] };
@@ -115,6 +123,9 @@ export async function getRoadmapWithProgress(
     const checkpointsResult = await client.query<CheckpointRow>(
       `SELECT id, topic_id, text, sort_order FROM content_checkpoints ORDER BY sort_order, id`
     );
+    const itemsResult = await client.query<TopicItemRow>(
+      `SELECT id, topic_id, title, content_md, sort_order FROM content_topic_items ORDER BY sort_order, id`
+    );
     const scope = anonParams(uid, anonId);
     const progressResult = await client.query<ProgressRow>(
       `SELECT topic_id, done, note FROM topic_progress WHERE user_id IS NOT DISTINCT FROM $1${scope.sql}`,
@@ -138,6 +149,7 @@ export async function getRoadmapWithProgress(
         done,
         note,
         isCustom: t.is_custom,
+        items: [],
         resources: [],
         practices: [],
         projects: [],
@@ -155,6 +167,14 @@ export async function getRoadmapWithProgress(
     }
     for (const c of checkpointsResult.rows) {
       topicMap.get(c.topic_id)?.checkpoints.push({ id: c.id, text: c.text, sortOrder: c.sort_order });
+    }
+    for (const item of itemsResult.rows) {
+      topicMap.get(item.topic_id)?.items.push({
+        id: item.id,
+        title: item.title,
+        contentMd: item.content_md,
+        sortOrder: item.sort_order,
+      });
     }
 
     return phasesResult.rows.map((p): RoadmapPhase => ({

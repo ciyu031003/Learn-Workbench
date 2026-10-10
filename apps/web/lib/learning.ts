@@ -1,15 +1,18 @@
 import { getLearningQuestion, type LearningQuestion, type LearningTrack, learningTracks } from "@learn-workbench/content";
-import type { LearningAttemptInput, LearningAttemptResult, LearningProgress } from "@learn-workbench/shared";
+import {
+  gradeLearningAnswer,
+  summarizeLearningAttempts,
+  type LearningAttemptInput,
+  type LearningAttemptResult,
+  type LearningProgress,
+  type LearningReviewCard,
+  type LearningReviewResponse,
+  type LearningReviewStatus,
+} from "@learn-workbench/shared";
 import { pgPool } from "@/lib/db";
 
-function normalize(value: string): string {
-  return value.trim().toLowerCase().replace(/\s+/g, " ");
-}
-
 function grade(question: LearningQuestion, chosenAnswer: string[]): boolean {
-  const expected = [...new Set(question.answer.map(normalize))].sort();
-  const chosen = [...new Set(chosenAnswer.map(normalize))].sort();
-  return chosen.length === expected.length && chosen.every((value, index) => value === expected[index]);
+  return gradeLearningAnswer(question.answer, chosenAnswer);
 }
 
 export function learningCatalog(): Array<LearningTrack & { questionCount: number }> {
@@ -87,7 +90,11 @@ export async function recordLearningAttempt(userId: string, input: LearningAttem
   };
 }
 
-export async function learningProgress(userId: string, trackSlug?: string): Promise<LearningProgress> {
+export async function learningProgress(
+  userId: string,
+  trackSlug?: string,
+  now: Date = new Date()
+): Promise<LearningProgress> {
   const params: unknown[] = [userId];
   let where = "WHERE user_id = $1";
   if (trackSlug) {
@@ -109,10 +116,11 @@ export async function learningProgress(userId: string, trackSlug?: string): Prom
     isCorrect: Boolean(row.is_correct),
     createdAt: new Date(row.created_at as string).toISOString(),
   }));
-  const correct = latest.filter((attempt) => attempt.isCorrect).length;
-  const wrong = latest.length - correct;
-  const today = new Date().toISOString().slice(0, 10);
-  const todayCount = latest.filter((attempt) => attempt.createdAt.slice(0, 10) === today).length;
+  // 掌握度口径下沉到 @learn-workbench/shared（与移动端同一实现），见 LEARNING_MASTERY。
+  const summary = summarizeLearningAttempts(latest, {
+    todayKey: now.toISOString().slice(0, 10),
+    now,
+  });
   const { rows: recentRows } = await pgPool.query(
     `SELECT question_key, track_slug, stage_key, is_correct, created_at
        FROM learning_attempts
@@ -122,11 +130,12 @@ export async function learningProgress(userId: string, trackSlug?: string): Prom
     params
   );
   return {
-    attempted: latest.length,
-    correct,
-    wrong,
-    mastery: latest.length === 0 ? 0 : Math.round((correct / latest.length) * 100),
-    today: todayCount,
+    attempted: summary.attempted,
+    correct: summary.correct,
+    wrong: summary.wrong,
+    mastery: summary.mastery,
+    masteryBasis: summary.masteryBasis,
+    today: summary.today,
     recent: recentRows.map((row) => {
       const question = getLearningQuestion(String(row.track_slug), String(row.question_key));
       return {
@@ -139,5 +148,57 @@ export async function learningProgress(userId: string, trackSlug?: string): Prom
         explanation: question?.explanation ?? "",
       };
     }),
+  };
+}
+
+interface ReviewCardRow {
+  question_key: string;
+  track_slug: string;
+  stage_key: string;
+  status: LearningReviewStatus;
+  interval_days: number;
+  ease: string | number;
+  streak: number;
+  lapses: number;
+  due_at: string;
+  last_result: boolean | null;
+}
+
+/**
+ * 到期复习队列：读 learning_review_cards（SM-2 状态机由 recordLearningAttempt 维护）。
+ *
+ * 只返回**现在该复习的**卡片（未掌握且 due_at ≤ now），并按到期时间升序；
+ * 计数信息（总数/已掌握）用于界面说明，避免把"待复习"和"练过"混成一个数。
+ */
+export async function learningReviewQueue(
+  userId: string,
+  now: Date = new Date()
+): Promise<LearningReviewResponse> {
+  const { rows } = await pgPool.query<ReviewCardRow>(
+    `SELECT question_key, track_slug, stage_key, status, interval_days, ease, streak, lapses, due_at, last_result
+       FROM learning_review_cards
+      WHERE user_id = $1
+      ORDER BY due_at ASC, question_key ASC`,
+    [userId]
+  );
+  const cards: LearningReviewCard[] = rows.map((row) => ({
+    questionKey: String(row.question_key),
+    trackSlug: String(row.track_slug),
+    stageKey: String(row.stage_key),
+    status: row.status,
+    intervalDays: Number(row.interval_days),
+    ease: Number(row.ease),
+    streak: Number(row.streak),
+    lapses: Number(row.lapses),
+    dueAt: new Date(row.due_at).toISOString(),
+    lastResult: row.last_result === null ? null : Boolean(row.last_result),
+  }));
+  const nowMs = now.getTime();
+  const due = cards.filter((card) => card.status !== "mastered" && Date.parse(card.dueAt) <= nowMs);
+  return {
+    cards: due,
+    dueCount: due.length,
+    totalCount: cards.length,
+    masteredCount: cards.filter((card) => card.status === "mastered").length,
   };
 }

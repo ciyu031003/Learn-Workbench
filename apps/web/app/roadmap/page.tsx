@@ -25,10 +25,12 @@ import {
   Copy,
   Archive,
   ArchiveRestore,
+  FileText,
 } from "lucide-react";
 import { useToastStore } from "@/store/toast-store";
 import { DomainIcon, DOMAIN_ICONS, toDomainIdentity } from "@/components/domain-icon";
 import { useDomainStore } from "@/store/domain-store";
+import { MarkdownLite } from "@/components/md-lite";
 
 interface RoadmapResponse {
   phases: RoadmapPhase[];
@@ -1330,6 +1332,22 @@ export default function RoadmapPage() {
                                         </li>
                                       ))}
                                     </ul>
+                                  </div>
+                                ) : null}
+
+                                {topic.items && topic.items.length > 0 ? (
+                                  <div>
+                                    <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                                      <FileText className="size-3.5" /> 学习内容（{topic.items.length}）
+                                    </p>
+                                    <div className="space-y-3">
+                                      {topic.items.map((item) => (
+                                        <div key={item.id} className="rounded-lg bg-card px-3 py-2.5 shadow-sm">
+                                          <p className="mb-1 font-medium text-foreground">{item.title}</p>
+                                          <MarkdownLite markdown={item.contentMd} />
+                                        </div>
+                                      ))}
+                                    </div>
                                   </div>
                                 ) : null}
                               </div>

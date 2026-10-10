@@ -6,7 +6,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import { pgPool } from "@/lib/db";
-import { learningCatalog, learningProgress, recordLearningAttempt } from "./learning";
+import { learningCatalog, learningProgress, learningReviewQueue, recordLearningAttempt } from "./learning";
 
 const queryMock = vi.mocked(pgPool.query);
 
@@ -88,7 +88,7 @@ describe("learningProgress", () => {
       .mockResolvedValueOnce({
         rows: [
           row({ question_key: "py-q1" }),
-          row({ question_key: "py-q2", is_correct: false }),
+          row({ question_key: "py-q2", is_correct: false, created_at: "2026-10-09T09:00:00.000Z" }),
         ],
       } as never)
       .mockResolvedValueOnce({
@@ -98,10 +98,32 @@ describe("learningProgress", () => {
         ],
       } as never);
 
-    const progress = await learningProgress("u-1");
+    const now = new Date("2026-10-09T09:00:00.000Z");
+    const progress = await learningProgress("u-1", undefined, now);
 
-    expect(progress).toMatchObject({ attempted: 2, correct: 1, wrong: 1, mastery: 50 });
+    // 掌握度=加权正确率×(0.6+0.4×时间新鲜度)：最近一次答错、前一次答对且刚练过 → 33
+    expect(progress).toMatchObject({ attempted: 2, correct: 1, wrong: 1, mastery: 33, today: 2 });
+    expect(progress.masteryBasis).toMatchObject({ window: 5, accuracyWeight: 0.6, recencyWeight: 0.4 });
+    expect(progress.masteryBasis.decay).toBeCloseTo(1, 5);
     expect(progress.recent.map((attempt) => attempt.questionKey)).toEqual(["py-q2", "py-q1"]);
     expect(String(queryMock.mock.calls[1]?.[0])).toContain("ORDER BY created_at DESC");
+  });
+});
+
+describe("learningReviewQueue", () => {
+  it("keeps only cards that are due and not mastered, newest-due first", async () => {
+    queryMock.mockResolvedValueOnce({
+      rows: [
+        { question_key: "a", track_slug: "python", stage_key: "s1", status: "review", interval_days: 3, ease: "2.50", streak: 2, lapses: 0, due_at: "2026-10-01T00:00:00.000Z", last_result: true },
+        { question_key: "b", track_slug: "python", stage_key: "s1", status: "mastered", interval_days: 30, ease: "2.80", streak: 6, lapses: 0, due_at: "2026-10-01T00:00:00.000Z", last_result: true },
+        { question_key: "c", track_slug: "java", stage_key: "s2", status: "learning", interval_days: 1, ease: "2.30", streak: 0, lapses: 1, due_at: "2026-12-31T00:00:00.000Z", last_result: false },
+      ],
+    } as never);
+
+    const queue = await learningReviewQueue("u-1", new Date("2026-10-10T00:00:00.000Z"));
+
+    expect(queue.cards.map((card) => card.questionKey)).toEqual(["a"]);
+    expect(queue.cards[0]).toMatchObject({ ease: 2.5, dueAt: "2026-10-01T00:00:00.000Z", status: "review" });
+    expect(queue).toMatchObject({ dueCount: 1, totalCount: 3, masteredCount: 1 });
   });
 });

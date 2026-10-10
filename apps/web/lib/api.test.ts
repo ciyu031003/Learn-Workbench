@@ -56,6 +56,7 @@ describe("getRoadmapWithProgress", () => {
       if (sql.includes("FROM content_practices")) return { rows: [{ id: 200, topic_id: 10, text: "p", sort_order: 0 }] };
       if (sql.includes("FROM content_projects")) return { rows: [{ id: 300, topic_id: 10, name: "pr", description: null, repo_url: null, deliverable: null, sort_order: 0 }] };
       if (sql.includes("FROM content_checkpoints")) return { rows: [{ id: 400, topic_id: 10, text: "c", sort_order: 0 }] };
+      if (sql.includes("FROM content_topic_items")) return { rows: [{ id: 500, topic_id: 10, title: "MD 条目", content_md: "# 标题\n正文", sort_order: 0 }] };
       if (sql.includes("FROM topic_progress")) return { rows: [{ topic_id: 10, done: true, note: "note!" }] };
       return { rows: [] };
     };
@@ -76,6 +77,7 @@ describe("getRoadmapWithProgress", () => {
     expect(topic.practices).toEqual([{ id: 200, text: "p", sortOrder: 0 }]);
     expect(topic.projects).toEqual([{ id: 300, name: "pr", description: null, repoUrl: null, deliverable: null, sortOrder: 0 }]);
     expect(topic.checkpoints).toEqual([{ id: 400, text: "c", sortOrder: 0 }]);
+    expect(topic.items).toEqual([{ id: 500, title: "MD 条目", contentMd: "# 标题\n正文", sortOrder: 0 }]);
     expect(release).toHaveBeenCalled();
   });
 
