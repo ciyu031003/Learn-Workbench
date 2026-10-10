@@ -355,11 +355,13 @@ export default function WorkoutScreen() {
                 {dateChoices.map((d) => {
                   const active = d.key === date;
                   return (
-                    <Pressable
-                      key={d.key}
-                      style={[styles.dateChip, active && styles.dateChipActive]}
-                      onPress={() => setDate(d.key)}
-                    >
+          <Pressable
+            key={d.key}
+            // 组一 · 阶段 2：chip 视觉高 34，只补纵向热区到 44（横向留给相邻 chip 的 gap）
+            hitSlop={{ top: 5, bottom: 5 }}
+            style={[styles.dateChip, active && styles.dateChipActive]}
+            onPress={() => setDate(d.key)}
+          >
                       {active ? <ThemedIcon name="checkmark" size={12} color={colors.primary} /> : null}
                       <Text style={[styles.dateChipText, active && styles.dateChipTextActive]}>{d.label}</Text>
                     </Pressable>
@@ -492,9 +494,14 @@ function MiniStepper({
   return (
     <View style={styles.miniStepper}>
       <Text style={styles.miniTitle}>{title}</Text>
-      <Pressable style={styles.miniBtn} onPress={() => onStep(-1)} accessibilityLabel={`减少${title}`}>
-        <ThemedIcon name="remove" size={16} color={colors.primary} />
-      </Pressable>
+        <Pressable
+          style={styles.miniBtn}
+          hitSlop={{ top: 5, bottom: 5 }}
+          onPress={() => onStep(-1)}
+          accessibilityLabel={`减少${title}`}
+        >
+          <ThemedIcon name="remove" size={16} color={colors.primary} />
+        </Pressable>
       <TextInput
         style={styles.miniInput}
         value={value}
@@ -509,9 +516,14 @@ function MiniStepper({
         placeholderTextColor={colors.textFaint}
       />
       <Text style={styles.miniUnit}>{label}</Text>
-      <Pressable style={styles.miniBtn} onPress={() => onStep(1)} accessibilityLabel={`增加${title}`}>
-        <ThemedIcon name="add" size={16} color={colors.primary} />
-      </Pressable>
+        <Pressable
+          style={styles.miniBtn}
+          hitSlop={{ top: 5, bottom: 5 }}
+          onPress={() => onStep(1)}
+          accessibilityLabel={`增加${title}`}
+        >
+          <ThemedIcon name="add" size={16} color={colors.primary} />
+        </Pressable>
     </View>
   );
 }

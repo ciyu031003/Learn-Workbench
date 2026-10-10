@@ -21,10 +21,12 @@ import {
   BUTTON_SIZES,
   buttonBackground,
   buttonForeground,
+  buttonHitSlop,
   buttonIconSize,
   type UnifiedButtonVariant,
 } from "@/lib/button-spec";
 import { haptics } from "@/lib/haptics";
+import { TEXT_SCALE_POLICY } from "@/lib/text-scale";
 
 /**
  * v13 U5 · 按压反馈按钮（技法参考 uiverse.io/seyed-mohsen-mousavi/bitter-snail-5 的"按下收一档"，
@@ -103,6 +105,8 @@ export function PressButton({
 
   return (
     <AnimatedPressable
+      // 组一 · 阶段 2：视觉高度允许 <44，触控目标不允许
+      hitSlop={buttonHitSlop(size)}
       disabled={off}
       onPress={handlePress}
       onPressIn={handlePressIn}
@@ -122,7 +126,11 @@ export function PressButton({
     >
       {loading ? <ActivityIndicator size="small" color={fg} /> : null}
       {!loading && icon ? <ThemedIcon name={icon} size={buttonIconSize(size)} color={fg} /> : null}
-      <Text style={[styles.label, size === "sm" && styles.labelSm, { color: fg }]} numberOfLines={1}>
+      <Text
+        {...TEXT_SCALE_POLICY.chrome}
+        style={[styles.label, size === "sm" && styles.labelSm, { color: fg }]}
+        numberOfLines={1}
+      >
         {text}
       </Text>
     </AnimatedPressable>

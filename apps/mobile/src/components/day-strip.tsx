@@ -7,6 +7,7 @@ import { haptics } from "@/lib/haptics";
 import { typography, tabularNums } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
+import { TEXT_SCALE_POLICY, minTouchboxHeight } from "@/lib/text-scale";
 
 const WEEK_LABELS = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
 /** 最多可回看 4 周（28 天）历史，避免无限翻页把 UI 做复杂 */
@@ -127,7 +128,9 @@ export function DayStrip({
                   isSelected && styles.dayActive,
                 ]}
               >
-                <Text style={[styles.dayNumberText, isSelected && styles.dayTextActive]}>{d.getDate()}</Text>
+                <Text {...TEXT_SCALE_POLICY.chrome} style={[styles.dayNumberText, isSelected && styles.dayTextActive]}>
+                  {d.getDate()}
+                </Text>
               </View>
               <View
                 style={[
@@ -136,7 +139,7 @@ export function DayStrip({
                   isSelected && styles.dayActive,
                 ]}
               >
-                <Text style={[styles.dayNameText, isSelected && styles.dayTextActive]}>
+                <Text {...TEXT_SCALE_POLICY.chrome} style={[styles.dayNameText, isSelected && styles.dayTextActive]}>
                   {isToday ? "今天" : WEEK_LABELS[d.getDay()]}
                 </Text>
               </View>
@@ -206,7 +209,8 @@ const makeStyles = (colors: ThemeColors) =>
     dayItem: { flex: 1, alignItems: "center" },
     dayNumber: {
       width: 36,
-      height: 28,
+      // 组一 · 阶段 2：高度由字号策略推导（系统字号 130% 时单行仍装得下，不再靠"看起来够高"）
+      height: minTouchboxHeight(typography.body.lineHeight),
       borderTopLeftRadius: 14,
       borderTopRightRadius: 14,
       alignItems: "center",
@@ -215,7 +219,7 @@ const makeStyles = (colors: ThemeColors) =>
     },
     dayName: {
       width: 36,
-      height: 20,
+      height: minTouchboxHeight(typography.micro.lineHeight),
       borderBottomLeftRadius: 14,
       borderBottomRightRadius: 14,
       alignItems: "center",

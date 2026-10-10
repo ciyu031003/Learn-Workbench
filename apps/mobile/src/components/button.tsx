@@ -9,11 +9,13 @@ import {
   BUTTON_SIZES,
   buttonBackground,
   buttonForeground,
+  buttonHitSlop,
   buttonIconSize,
   type UnifiedButtonVariant,
 } from "@/lib/button-spec";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
+import { TEXT_SCALE_POLICY } from "@/lib/text-scale";
 
 /**
  * 统一按钮（见 docs/APP端优化方案-v2 §8.3②）
@@ -58,6 +60,8 @@ export function Button({
 
   return (
     <PressableScale
+      // 组一 · 阶段 2：视觉高度允许 <44，触控目标不允许
+      hitSlop={buttonHitSlop(size)}
       haptic={!off}
       disabled={off}
       onPress={onPress}
@@ -76,13 +80,17 @@ export function Button({
         <>
           <ActivityIndicator size="small" color={fg} />
           {loadingLabel ? (
-            <Text style={[styles.label, size === "sm" && styles.labelSm, { color: fg }]}>{loadingLabel}</Text>
+            <Text {...TEXT_SCALE_POLICY.chrome} style={[styles.label, size === "sm" && styles.labelSm, { color: fg }]}>
+              {loadingLabel}
+            </Text>
           ) : null}
         </>
       ) : (
         <>
           {icon ? <ThemedIcon name={icon} size={buttonIconSize(size)} color={fg} /> : null}
-          <Text style={[styles.label, size === "sm" && styles.labelSm, { color: fg }]}>{label}</Text>
+          <Text {...TEXT_SCALE_POLICY.chrome} style={[styles.label, size === "sm" && styles.labelSm, { color: fg }]}>
+            {label}
+          </Text>
         </>
       )}
     </PressableScale>

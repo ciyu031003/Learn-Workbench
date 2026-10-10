@@ -21,6 +21,27 @@ export const BUTTON_SIZES = {
 
 export type ButtonSize = keyof typeof BUTTON_SIZES;
 
+/**
+ * 触控热区下限（组一 · 阶段 2，HIG 44pt）。
+ *
+ * `BUTTON_SIZES.sm.height = 38` 是**视觉高度**——它在密集表单里比 44 更协调，
+ * 但触控目标必须 ≥44，否则真机上「点不中」的反馈会集中出现在这一档。
+ * 做法：视觉高度不动，用 `hitSlop` 把可点区域补到 44（四周各补 (44 − height) / 2）。
+ */
+export const MIN_TOUCH_TARGET = 44;
+
+/** 给定视觉高度 → 需要补的四周 hitSlop（已达标返回 0） */
+export function hitSlopForHeight(height: number): number {
+  const h = Number.isFinite(height) ? height : 0;
+  const gap = MIN_TOUCH_TARGET - h;
+  return gap > 0 ? Math.ceil(gap / 2) : 0;
+}
+
+/** 尺寸档位 → hitSlop（md 48 → 0；sm 38 → 3） */
+export function buttonHitSlop(size: ButtonSize): number {
+  return hitSlopForHeight(BUTTON_SIZES[size].height);
+}
+
 /** 禁用/加载态统一 40% 透明 */
 export const BUTTON_DISABLED_OPACITY = 0.4;
 
