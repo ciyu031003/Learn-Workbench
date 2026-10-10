@@ -39,8 +39,8 @@ pnpm import:content -- --source=algorithms-java --mode=apply --limit=20
 | 阶段（stage） | 40 |
 | 知识点（knowledge point） | 120（每课程 12） |
 | 题目 | 400 |
-| 已绑定知识点的题 | 240（60%） |
-| 待分类题 | 160 |
+| 已绑定知识点的题 | 400（100%） |
+| 待分类题 | 0（阶段 12 已清零） |
 | 知识点关系（next + related） | 150 |
 | 前置边（prerequisite） | 30 |
 | 质量分级 | L4 = 120（无 L0/L1/L2/L3 缺口） |
