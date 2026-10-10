@@ -48,7 +48,9 @@ import { GearCard } from "@/components/gear-card";
 import type { EquipmentItem } from "@/lib/equipment";
 import { hasHoloImages, holoImages } from "@/lib/holo-images";
 import { useReducedMotion } from "@/lib/motion";
-import { absoluteMediaUrl, deleteUpload, pickAndUpload } from "@/lib/uploads";
+import { absoluteMediaUrl, deleteUpload, pickAndUploadPhoto } from "@/lib/uploads";
+import { onUploadResolved } from "@/lib/upload-sync";
+import { isLocalFileUri } from "@/lib/upload-outbox";
 import {
   deleteSportsProfile,
   draftFromProfile,
@@ -185,6 +187,26 @@ export default function SportsCardScreen() {
     };
   }, [current]);
   const gearRows = gearView.rows;
+
+  /**
+   * 图片发件箱回填（组一 · 阶段 1）：图片排队补发成功后，把本机暂存 uri 换成服务端 url 并保存档案。
+   * 用 ref 持最新 gearRows，避免排队时闭包拿到旧行。
+   */
+  const pendingApply = useRef(new Map<string, (url: string) => void>());
+  const gearRowsRef = useRef(gearRows);
+  useEffect(() => {
+    gearRowsRef.current = gearRows;
+  }, [gearRows]);
+  useEffect(
+    () =>
+      onUploadResolved(({ clientId, url }) => {
+        const apply = pendingApply.current.get(clientId);
+        if (!apply) return;
+        pendingApply.current.delete(clientId);
+        apply(url);
+      }),
+    []
+  );
   /** 证件照绝对地址（站内相对路径必须补 apiUrl，否则 Image 加载不出来） */
   const heroUri = absoluteMediaUrl(current?.photoUrl);
   /** 公开成绩（荣誉墙） */
@@ -295,10 +317,15 @@ export default function SportsCardScreen() {
       await saveSportsProfile(
         {
           ...draft,
+          // 待补发的图只有本机 uri：绝不能写进服务端（空串 = null，补发成功后由 onUploadResolved 回填并重存）
+          photoUrl: isLocalFileUri(draft.photoUrl) ? "" : draft.photoUrl,
           // 只给球拍 / 球鞋 / 比赛用球留图片；拍线、手胶这类即使历史上被塞过图也在这里清掉
           gear: draft.gear
             .filter((g) => g.value.trim())
-            .map((g) => (gearRowWantsImage(g.label) ? g : { label: g.label, value: g.value })),
+            .map((g) => {
+              const cleaned = isLocalFileUri(g.imageUrl) ? { ...g, imageUrl: null } : g;
+              return gearRowWantsImage(cleaned.label) ? cleaned : { label: cleaned.label, value: cleaned.value };
+            }),
           highlights: draft.highlights.filter((h) => h.label.trim() || h.value.trim()),
         },
         editId
@@ -312,15 +339,30 @@ export default function SportsCardScreen() {
     }
   };
 
-  /** 换本人照片：选图 → 上传 → PATCH photoUrl → 清理旧图 */
+  /** 换本人照片：选图 → 上传 → PATCH photoUrl → 清理旧图（离线则排队，补发后自动回填） */
   const uploadHeroPhoto = async () => {
     if (!current) return;
     const target = current;
     try {
-      const url = await pickAndUpload("avatar");
-      if (!url) return;
+      const result = await pickAndUploadPhoto("avatar");
+      if (result.status === "canceled") return;
       const previous = target.photoUrl;
-      await patchSportsProfile(target.id, { photoUrl: url });
+      if (result.status === "queued") {
+        pendingApply.current.set(result.clientId, (url) => {
+          void (async () => {
+            try {
+              await patchSportsProfile(target.id, { photoUrl: url });
+              if (previous?.startsWith("/uploads/")) void deleteUpload(previous);
+              await load();
+            } catch {
+              Alert.alert("图片已上传，但档案没保存成功", "请下拉刷新后重试");
+            }
+          })();
+        });
+        Alert.alert("网络不太顺，图片已存在本机", "联网后会自动上传并写进档案");
+        return;
+      }
+      await patchSportsProfile(target.id, { photoUrl: result.url });
       if (previous?.startsWith("/uploads/")) void deleteUpload(previous);
       await load();
     } catch (e) {
@@ -335,9 +377,28 @@ export default function SportsCardScreen() {
     const row = gearRows.find((g) => g.label === label);
     if (!row) return;
     try {
-      const url = await pickAndUpload(gearKindFromLabel(row.label));
-      if (!url) return;
-      const nextGear = gearRows.map((g) => (g.label === label ? { ...g, imageUrl: url } : g));
+      const result = await pickAndUploadPhoto(gearKindFromLabel(row.label));
+      if (result.status === "canceled") return;
+      if (result.status === "queued") {
+        pendingApply.current.set(result.clientId, (url) => {
+          void (async () => {
+            try {
+              const rows = gearRowsRef.current;
+              await patchSportsProfile(target.id, {
+                gear: rows.map((g) => (g.label === label ? { ...g, imageUrl: url } : g)),
+              });
+              const old = rows.find((g) => g.label === label)?.imageUrl;
+              if (old?.startsWith("/uploads/")) void deleteUpload(old);
+              await load();
+            } catch {
+              Alert.alert("图片已上传，但装备没保存成功", "请下拉刷新后重试");
+            }
+          })();
+        });
+        Alert.alert("网络不太顺，图片已存在本机", "联网后会自动上传并写进装备");
+        return;
+      }
+      const nextGear = gearRows.map((g) => (g.label === label ? { ...g, imageUrl: result.url } : g));
       await patchSportsProfile(target.id, { gear: nextGear });
       if (row.imageUrl?.startsWith("/uploads/")) void deleteUpload(row.imageUrl);
       await load();
@@ -346,12 +407,21 @@ export default function SportsCardScreen() {
     }
   };
 
-  /** 编辑表里换证件照：上传后回填草稿（保存时随档案一起提交） */
+  /** 编辑表里换证件照：上传后回填草稿（保存时随档案一起提交；离线排队后补发再回填） */
   const pickDraftPhoto = async () => {
     try {
-      const url = await pickAndUpload("avatar");
-      if (!url) return;
-      setDraft((d) => ({ ...d, photoUrl: url }));
+      const result = await pickAndUploadPhoto("avatar");
+      if (result.status === "canceled") return;
+      if (result.status === "queued") {
+        // 本机 uri 只用于当场预览；保存时由 photoUrlForSubmit 拦掉，补发成功再换成服务端 url
+        setDraft((d) => ({ ...d, photoUrl: result.localUri }));
+        pendingApply.current.set(result.clientId, (url) => {
+          setDraft((d) => ({ ...d, photoUrl: url }));
+        });
+        Alert.alert("网络不太顺，图片已存在本机", "联网后会自动上传；先保存会自动带上");
+        return;
+      }
+      setDraft((d) => ({ ...d, photoUrl: result.url }));
     } catch (e) {
       Alert.alert("上传失败", e instanceof Error ? e.message : "请稍后重试");
     }

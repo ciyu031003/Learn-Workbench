@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Animated from "react-native-reanimated";
 import { radius, typography } from "@/theme/tokens";
 import {
@@ -23,7 +23,9 @@ import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
 import { certificateStatusLabels, certificateExpiryInfo, type Certificate } from "@learn-workbench/shared";
-import { absoluteMediaUrl, deleteUpload, pickAndUpload } from "@/lib/uploads";
+import { absoluteMediaUrl, deleteUpload, pickAndUploadPhoto } from "@/lib/uploads";
+import { onUploadResolved } from "@/lib/upload-sync";
+import { isLocalFileUri } from "@/lib/upload-outbox";
 
 type Status = "planned" | "preparing" | "achieved";
 const STATUSES: Status[] = ["planned", "preparing", "achieved"];
@@ -46,6 +48,22 @@ export default function CertificatesScreen() {
   /** v1.31：证书图片（复用 /api/uploads → 压 WebP → COS 桶，返回站内相对路径） */
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [photoUploading, setPhotoUploading] = useState(false);
+
+  /**
+   * 图片发件箱回填（组一 · 阶段 1）：离线排队补发成功后，把本机暂存 uri 换成服务端 url。
+   * 本机 uri 只用于当场预览，保存时会被 isLocalFileUri 拦掉，绝不会写进服务端。
+   */
+  const pendingApply = useRef(new Map<string, (url: string) => void>());
+  useEffect(
+    () =>
+      onUploadResolved(({ clientId, url }) => {
+        const apply = pendingApply.current.get(clientId);
+        if (!apply) return;
+        pendingApply.current.delete(clientId);
+        apply(url);
+      }),
+    []
+  );
 
   const headers = (): Record<string, string> => (token ? { Authorization: `Bearer ${token}` } : {});
 
@@ -79,10 +97,17 @@ export default function CertificatesScreen() {
     if (photoUploading) return;
     try {
       setPhotoUploading(true);
-      const url = await pickAndUpload("other");
-      if (!url) return; // 用户取消
+      const result = await pickAndUploadPhoto("other");
+      if (result.status === "canceled") return;
+      if (result.status === "queued") {
+        // 本机 uri 只用于当场预览（保存时被 isLocalFileUri 拦掉），补发成功后自动换成服务端 url
+        setPhotoUrl(result.localUri);
+        pendingApply.current.set(result.clientId, (url) => setPhotoUrl(url));
+        Alert.alert("网络不太顺，图片已存在本机", "联网后会自动上传；先保存不会写入图片");
+        return;
+      }
       if (photoUrl?.startsWith("/uploads/")) void deleteUpload(photoUrl);
-      setPhotoUrl(url);
+      setPhotoUrl(result.url);
       haptics.success();
     } catch (e) {
       Alert.alert("图片上传失败", e instanceof Error ? e.message : "请稍后重试");
@@ -106,7 +131,8 @@ export default function CertificatesScreen() {
           issuer: issuer.trim(),
           status,
           expiryDate: /^\d{4}-\d{2}-\d{2}$/.test(expiryDate.trim()) ? expiryDate.trim() : null,
-          imageUrl: photoUrl,
+          // 待补发的图只有本机 uri：不要写进服务端（补发成功后回填再重存）
+          imageUrl: isLocalFileUri(photoUrl) ? null : photoUrl,
         }),
       });
       // v19-M5：保存成功给 success 触觉

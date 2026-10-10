@@ -3,6 +3,20 @@ import { Platform } from "react-native";
 import { gearKindFromLabel } from "@learn-workbench/shared";
 import { getApiUrl } from "@/config";
 import { useAppStore } from "@/store/app-store";
+import {
+  enqueue,
+  extForMime,
+  loadOutbox,
+  makeClientId,
+  makeUploadOp,
+  persistPickedImage,
+  removeByUri,
+  removeLocalFile,
+  saveOutbox,
+  type UploadOp,
+} from "./upload-outbox";
+import { sendUploadOp } from "./upload-sync";
+import { toFlushOutcome } from "./send-outcome";
 
 /**
  * 图片上传（运动档案的头图 / 装备图）。
@@ -83,17 +97,19 @@ export function normalizeImageMime(mimeType: string | null | undefined, uri: str
   return "image/jpeg";
 }
 
-/** 上传一张图；失败抛错（调用方展示文案） */
+/** 上传一张图；失败抛错（调用方展示文案）。带 `clientId` 时服务端按它去重（离线补发幂等）。 */
 export async function uploadImage(
   kind: UploadKind,
-  picked: PickedImage
+  picked: PickedImage,
+  clientId?: string
 ): Promise<{ url: string; id: number | null }> {
   const form = new FormData();
   // RN 的 FormData 接受 { uri, name, type } 形态的文件对象
   // name 的扩展名与 type 保持一致：服务端会按 type 校验，两边对不上容易被判成非法类型
-  const ext = picked.mimeType === "image/png" ? "png" : picked.mimeType === "image/webp" ? "webp" : picked.mimeType === "image/heic" || picked.mimeType === "image/heif" ? "heic" : "jpg";
+  const ext = extForMime(picked.mimeType);
   form.append("file", { uri: picked.uri, name: "upload." + ext, type: picked.mimeType } as unknown as Blob);
   form.append("kind", kind);
+  if (clientId) form.append("clientId", clientId);
   const token = useAppStore.getState().token;
   const res = await fetch(getApiUrl() + "/api/uploads", {
     method: "POST",
@@ -108,7 +124,10 @@ export async function uploadImage(
   return { url: String(data?.upload?.url ?? ""), id: Number(data?.upload?.id) || null };
 }
 
-/** 选图 + 上传一步到位（用户取消返回 null） */
+/**
+ * 选图 + 上传一步到位（用户取消返回 null）。
+ * 保留旧语义：不走发件箱、失败直接抛错。需要「离线不丢图」请用 `pickAndUploadPhoto`。
+ */
 export async function pickAndUpload(kind: UploadKind): Promise<string | null> {
   const picked = await pickImage();
   if (!picked) return null;
@@ -116,8 +135,60 @@ export async function pickAndUpload(kind: UploadKind): Promise<string | null> {
   return url || null;
 }
 
-/** 删除自己的图片（换图时清理，失败静默） */
+/** 选图结果：直接传成功 / 已落本机待补发 / 用户取消 */
+export type PhotoUploadResult =
+  | { status: "uploaded"; url: string }
+  | { status: "queued"; clientId: string; localUri: string }
+  | { status: "canceled" };
+
+/**
+ * 选图 + 落本机 + 上传（组一 · 阶段 1）。
+ *
+ * 与 `pickAndUpload` 的区别：
+ *  - 先把图复制到 document 目录并**入队**，再尝试上传 —— 杀进程 / 离线都不丢图；
+ *  - 离线、5xx、401 等可重试失败返回 `{ status: "queued" }`，由 sync-engine 联网后补发；
+ *  - 4xx（格式 / 容量 / 校验）丢弃并抛错，让用户看到服务端原因。
+ */
+export async function pickAndUploadPhoto(kind: UploadKind): Promise<PhotoUploadResult> {
+  const picked = await pickImage();
+  if (!picked) return { status: "canceled" };
+
+  const clientId = makeClientId();
+  const fileUri = await persistPickedImage(picked.uri, picked.mimeType, clientId);
+  const op = makeUploadOp({ clientId, kind, fileUri, mimeType: picked.mimeType, displayUri: picked.uri });
+
+  // 先入队再上传：即使上传中途崩溃，重启后仍能补发（clientId 保证不重复落两份）
+  await saveOutbox(enqueue(await loadOutbox(), op));
+
+  const result = await sendUploadOp(op, useAppStore.getState().token);
+  if (result.ok) {
+    await saveOutbox(removeByUri(await loadOutbox(), op.clientId).state);
+    void removeLocalFile(fileUri);
+    return { status: "uploaded", url: result.url };
+  }
+
+  const { outcome } = result;
+  // 4xx（格式 / 容量 / 校验）：重试永远不会成功，出队并抛错让用户看到服务端原因
+  if (toFlushOutcome(outcome) === "drop" && !outcome.ok) {
+    await saveOutbox(removeByUri(await loadOutbox(), op.clientId).state);
+    void removeLocalFile(fileUri);
+    throw new Error(outcome.message ?? "上传失败，请重试");
+  }
+
+  return { status: "queued", clientId, localUri: fileUri };
+}
+
+/** 取消一条待补发的图片（换图 / 删图时调用）：出队并删本机副本 */
+export async function cancelPendingUpload(ref: string): Promise<void> {
+  const { state, removed } = removeByUri(await loadOutbox(), ref);
+  if (removed.length === 0) return;
+  await saveOutbox(state);
+  await Promise.all(removed.map((op: UploadOp) => removeLocalFile(op.fileUri)));
+}
+
+/** 删除自己的图片（换图时清理，失败静默）；同时清掉指向它的待发送项 */
 export async function deleteUpload(url: string): Promise<void> {
+  await cancelPendingUpload(url);
   try {
     const token = useAppStore.getState().token;
     await fetch(getApiUrl() + "/api/uploads?url=" + encodeURIComponent(url), {

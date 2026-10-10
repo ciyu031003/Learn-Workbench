@@ -3,6 +3,7 @@ import { AppState, type AppStateStatus } from "react-native";
 import * as Network from "expo-network";
 import { syncPull, syncPush } from "@/lib/sync";
 import { flushNutritionOutbox } from "@/lib/nutrition-sync";
+import { flushUploadOutbox } from "@/lib/upload-sync";
 import { useAppStore } from "@/store/app-store";
 
 /**
@@ -65,10 +66,12 @@ async function runSync(): Promise<void> {
   }
 }
 
-/** 网络恢复 / 回前台时的统一动作：推拉业务变更 + 补发饮食发件箱（后者不依赖登录态） */
+/** 网络恢复 / 回前台时的统一动作：推拉业务变更 + 补发饮食与图片发件箱（后两者不依赖业务同步成功） */
 function onOnlineOrForeground(): void {
   void runSync();
-  void flushNutritionOutbox(useAppStore.getState().token);
+  const token = useAppStore.getState().token;
+  void flushNutritionOutbox(token);
+  void flushUploadOutbox(token);
 }
 
 async function refreshOnline(): Promise<void> {

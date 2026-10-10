@@ -1,5 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+const mem = vi.hoisted(() => ({ data: {} as Record<string, string> }));
+vi.mock("@react-native-async-storage/async-storage", () => ({
+  default: {
+    getItem: async (k: string) => mem.data[k] ?? null,
+    setItem: async (k: string, v: string) => {
+      mem.data[k] = v;
+    },
+    removeItem: async (k: string) => {
+      delete mem.data[k];
+    },
+  },
+}));
+
 vi.mock("react-native", () => ({ Platform: { OS: "android", Version: 34 } }));
 vi.mock("@/config", () => ({ getApiUrl: () => "https://learn.yuanabd.cn" }));
 vi.mock("@/store/app-store", () => ({ useAppStore: { getState: vi.fn(() => ({ token: "tok-1" })) } }));
@@ -8,13 +21,43 @@ vi.mock("expo-image-picker", () => ({
   launchImageLibraryAsync: vi.fn(),
 }));
 
+const net = vi.hoisted(() => ({ type: "WIFI" as string, reachable: true as boolean | undefined }));
+vi.mock("expo-network", () => ({
+  NetworkStateType: { NONE: "NONE", WIFI: "WIFI", CELLULAR: "CELLULAR" },
+  getNetworkStateAsync: async () => ({ type: net.type, isInternetReachable: net.reachable }),
+}));
+
+const fsMock = vi.hoisted(() => ({ deleted: [] as string[] }));
+vi.mock("expo-file-system/legacy", () => ({
+  documentDirectory: "file:///doc/",
+  getInfoAsync: async () => ({ exists: true }),
+  makeDirectoryAsync: async () => undefined,
+  copyAsync: async () => undefined,
+  deleteAsync: async (uri: string) => {
+    fsMock.deleted.push(uri);
+  },
+}));
+
 import {
   absoluteMediaUrl,
   kindFromGearLabel,
   needsMediaLibraryPermission,
   normalizeImageMime,
+  pickAndUploadPhoto,
   uploadImage,
 } from "./uploads";
+import { loadOutbox, UPLOAD_OUTBOX_KEY } from "./upload-outbox";
+import * as ImagePicker from "expo-image-picker";
+
+const launchMock = vi.mocked(ImagePicker.launchImageLibraryAsync);
+
+beforeEach(() => {
+  mem.data = {};
+  fsMock.deleted = [];
+  net.type = "WIFI";
+  net.reachable = true;
+  launchMock.mockReset();
+});
 
 /**
  * 回归：真机「上传证件照失败」。服务端只认 jpeg/png/webp/heic/heif，
@@ -120,5 +163,89 @@ describe("uploadImage", () => {
     await expect(
       uploadImage("avatar", { uri: "file:///a.jpg", mimeType: "image/jpeg" })
     ).rejects.toThrow("上传失败，请重试");
+  });
+
+  it("带 clientId 时一并提交（服务端据此去重，离线补发不落两份）", async () => {
+    const fetchMock = vi.fn(async (_url: string, _init: RequestInit) => ({
+      ok: true,
+      json: async () => ({ upload: { url: "/uploads/u/a.webp", id: 3 } }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await uploadImage("avatar", { uri: "file:///a.jpg", mimeType: "image/jpeg" }, "c-9");
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    expect((init.body as FormData).get("clientId")).toBe("c-9");
+
+    fetchMock.mockClear();
+    await uploadImage("avatar", { uri: "file:///a.jpg", mimeType: "image/jpeg" });
+    expect((fetchMock.mock.calls[0][1] as RequestInit).body as FormData).toBeInstanceOf(FormData);
+    expect(((fetchMock.mock.calls[0][1] as RequestInit).body as FormData).get("clientId")).toBeNull();
+  });
+});
+
+/**
+ * 组一 · 阶段 1：图片上传发件箱。
+ * 旧链路「选图 → 直接 POST」在离线/5xx/杀进程时会把用户选好的图丢掉。
+ */
+describe("pickAndUploadPhoto", () => {
+  it("用户取消：返回 canceled，不落盘不入队", async () => {
+    launchMock.mockResolvedValueOnce({ canceled: true, assets: null } as never);
+    await expect(pickAndUploadPhoto("avatar")).resolves.toEqual({ status: "canceled" });
+    expect(mem.data[UPLOAD_OUTBOX_KEY]).toBeUndefined();
+  });
+
+  it("在线成功：返回服务端 url，队列清空并删掉本机副本", async () => {
+    launchMock.mockResolvedValueOnce({
+      canceled: false,
+      assets: [{ uri: "content://media/1", mimeType: "image/png" }],
+    } as never);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: true, json: async () => ({ upload: { url: "/uploads/u/a.webp", id: 4 } }) }))
+    );
+
+    await expect(pickAndUploadPhoto("avatar")).resolves.toEqual({
+      status: "uploaded",
+      url: "/uploads/u/a.webp",
+    });
+    expect((await loadOutbox()).ops).toHaveLength(0);
+    expect(fsMock.deleted.some((u) => u.includes("pending-uploads/"))).toBe(true);
+  });
+
+  it("离线：先落本机并排队，返回 queued（重启后仍能补发）", async () => {
+    launchMock.mockResolvedValueOnce({
+      canceled: false,
+      assets: [{ uri: "content://media/2", mimeType: "image/jpeg" }],
+    } as never);
+    net.type = "NONE";
+    net.reachable = false;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("Network request failed");
+      })
+    );
+
+    const result = await pickAndUploadPhoto("racket");
+    expect(result.status).toBe("queued");
+    if (result.status !== "queued") throw new Error("unreachable");
+    expect(result.localUri.startsWith("file:///doc/pending-uploads/")).toBe(true);
+    const queued = await loadOutbox();
+    expect(queued.ops).toHaveLength(1);
+    expect(queued.ops[0]).toMatchObject({ clientId: result.clientId, kind: "racket", mimeType: "image/jpeg" });
+  });
+
+  it("4xx（格式/容量/校验）：丢弃并抛错，队列不留毒丸", async () => {
+    launchMock.mockResolvedValueOnce({
+      canceled: false,
+      assets: [{ uri: "content://media/3", mimeType: "image/jpeg" }],
+    } as never);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: false, status: 400, json: async () => ({ error: "文件太大了" }) }))
+    );
+
+    await expect(pickAndUploadPhoto("avatar")).rejects.toThrow("文件太大了");
+    expect((await loadOutbox()).ops).toHaveLength(0);
   });
 });
