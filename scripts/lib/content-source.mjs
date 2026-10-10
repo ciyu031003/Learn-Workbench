@@ -13,6 +13,67 @@ import { fingerprintOf, inScope, normalizeExternalKey } from "../../apps/web/lib
 const SKIP_DIRS = new Set([".git", "node_modules", ".github", "vendor"]);
 const DOC_EXT = new Set([".md", ".mdx"]);
 
+/**
+ * 允许克隆的宿主（组三 · H3 安全纵深）。
+ * 内容来源已登记在这几个宿主上；收紧白名单是为了挡住
+ * `file://` / `ext::` / 内网地址 这类**git 传输层**攻击面
+ * （`git clone` 支持 ext 传输，诱饵 URL 可以直接转成命令执行）。
+ */
+const ALLOWED_REPO_HOSTS = new Set([
+  "github.com",
+  "codeload.github.com",
+  "raw.githubusercontent.com",
+  "objects.githubusercontent.com",
+]);
+
+/** 只允许 https + 白名单宿主 + 不带内嵌凭据的来源 URL。 */
+export function assertSafeRepoUrl(rawUrl) {
+  let url;
+  try {
+    url = new URL(String(rawUrl));
+  } catch {
+    throw new Error(`来源 URL 不合法：${rawUrl}`);
+  }
+  if (url.protocol !== "https:") throw new Error(`来源 URL 只允许 https，收到 ${url.protocol}`);
+  if (url.username || url.password) throw new Error("来源 URL 不允许内嵌用户名/密码");
+  if (!ALLOWED_REPO_HOSTS.has(url.hostname.toLowerCase())) {
+    throw new Error(`来源宿主不在白名单：${url.hostname}`);
+  }
+  return url.toString();
+}
+
+/**
+ * git ref 形状校验。
+ * 不校验的话 `--ref=--upload-pack=/tmp/evil.sh` 会被 git 当成选项（execFileSync 不做 shell 转义也一样中招）。
+ */
+export function assertSafeGitRef(rawRef) {
+  const ref = String(rawRef ?? "").trim();
+  if (!/^[0-9A-Za-z._/-]{1,100}$/.test(ref)) throw new Error(`git ref 含非法字符：${ref}`);
+  if (
+    ref.startsWith("-") ||
+    ref.includes("..") ||
+    ref.includes("//") ||
+    ref.endsWith("/") ||
+    ref.endsWith(".lock")
+  ) {
+    throw new Error(`git ref 形状不合法：${ref}`);
+  }
+  return ref;
+}
+
+/** 仓库相对路径：拒绝绝对路径、`..` 穿越、反斜杠与 NUL（读盘前的最后一道闸）。 */
+export function assertSafeRelativePath(rawRel) {
+  const rel = String(rawRel ?? "");
+  if (!rel) throw new Error("相对路径不能为空");
+  if (rel.includes("\0") || rel.includes("\\")) throw new Error(`相对路径含非法字符：${rel}`);
+  if (path.posix.isAbsolute(rel) || /^[A-Za-z]:/.test(rel)) throw new Error(`相对路径不允许绝对路径：${rel}`);
+  const normalized = path.posix.normalize(rel);
+  if (normalized.startsWith("..") || path.posix.isAbsolute(normalized)) {
+    throw new Error(`相对路径越出仓库根：${rel}`);
+  }
+  return rel;
+}
+
 /** 递归收集文档文件，返回仓库相对路径（正斜杠、已排序、稳定）。 */
 export function walkDocs(dir, out = [], base = dir) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
