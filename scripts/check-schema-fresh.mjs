@@ -114,7 +114,10 @@ async function main() {
   process.exitCode = 1;
 }
 
-main().catch((e) => {
-  console.error("[check-schema-fresh] 失败：" + (e instanceof Error ? e.message : String(e)));
-  process.exitCode = 1;
-});
+// 仅在被直接执行时跑；被 import（如 scripts/migration-drill.mjs 复用 splitStatements）时只导出函数。
+if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {
+  main().catch((e) => {
+    console.error("[check-schema-fresh] 失败：" + (e instanceof Error ? e.message : String(e)));
+    process.exitCode = 1;
+  });
+}
