@@ -20,10 +20,11 @@ const removeMock = vi.mocked(removeUploadFile);
 
 const USER_ID = "11111111-2222-3333-4444-555555555555";
 
-function uploadRequest(file: Blob | null, kind = "racket") {
+function uploadRequest(file: Blob | null, kind = "racket", clientId?: string) {
   const form = new FormData();
   if (file) form.append("file", file);
   form.append("kind", kind);
+  if (clientId) form.append("clientId", clientId);
   return new Request("http://localhost/api/uploads", { method: "POST", body: form });
 }
 
@@ -93,6 +94,45 @@ describe("POST /api/uploads", () => {
       .mockResolvedValueOnce({ rows: [{ id: 8 }] } as never);
     await POST(uploadRequest(new File(["abc"], "a.png", { type: "image/png" }), "not-a-kind"));
     expect(storeMock).toHaveBeenCalledWith(USER_ID, "other", expect.anything());
+  });
+
+  it("带 clientId 首次上传：INSERT 带上 clientId", async () => {
+    queryMock
+      .mockResolvedValueOnce({ rows: [] } as never) // 幂等查询：没有已存在记录
+      .mockResolvedValueOnce({ rows: [{ count: "0", bytes: "0" }] } as never)
+      .mockResolvedValueOnce({ rows: [{ id: 9 }] } as never);
+    const res = await POST(uploadRequest(new File(["abc"], "a.png", { type: "image/png" }), "avatar", "c-1"));
+    expect(res.status).toBe(201);
+    const insertCall = queryMock.mock.calls[2] as unknown as [string, unknown[]];
+    expect(String(insertCall[0])).toContain("client_id");
+    expect(insertCall[1][6]).toBe("c-1");
+  });
+
+  it("同一 clientId 重复提交（离线补发）：回已存在记录，不落盘、不占配额", async () => {
+    queryMock.mockResolvedValueOnce({
+      rows: [{ id: 42, kind: "racket", path: USER_ID + "/old.webp", bytes: 999, width: 800, height: 600 }],
+    } as never);
+    const res = await POST(uploadRequest(new File(["abc"], "a.png", { type: "image/png" }), "racket", "c-dup"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.upload).toMatchObject({ id: 42, kind: "racket", bytes: 999, width: 800 });
+    expect(body.upload.url).toBe("/uploads/" + USER_ID + "/old.webp");
+    // 只打了一条幂等查询，没有配额查询、没有落盘、没有再 INSERT
+    expect(queryMock).toHaveBeenCalledTimes(1);
+    expect(storeMock).not.toHaveBeenCalled();
+  });
+
+  it("并发重复补发撞唯一索引（23505）：回查已有记录返回 200", async () => {
+    queryMock
+      .mockResolvedValueOnce({ rows: [] } as never) // 首次幂等查询未命中
+      .mockResolvedValueOnce({ rows: [{ count: "0", bytes: "0" }] } as never)
+      .mockRejectedValueOnce(Object.assign(new Error("duplicate key"), { code: "23505" }))
+      .mockResolvedValueOnce({
+        rows: [{ id: 43, kind: "racket", path: USER_ID + "/race.webp", bytes: 111, width: 640, height: 480 }],
+      } as never);
+    const res = await POST(uploadRequest(new File(["abc"], "a.png", { type: "image/png" }), "racket", "c-race"));
+    expect(res.status).toBe(200);
+    expect((await res.json()).upload.id).toBe(43);
   });
 
   it("图片处理失败返回 400", async () => {

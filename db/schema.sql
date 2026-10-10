@@ -1281,12 +1281,17 @@ CREATE TABLE IF NOT EXISTS uploads (
   bytes      integer NOT NULL,
   width      integer,
   height     integer,
+  -- 来自迁移 059：移动端图片发件箱的幂等键（NULL = 网页端直传，不参与去重）
+  client_id  text,
   created_at timestamptz NOT NULL DEFAULT now(),
   deleted_at timestamptz
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_uploads_path ON uploads(path);
 CREATE INDEX IF NOT EXISTS idx_uploads_user
   ON uploads(user_id, created_at DESC) WHERE deleted_at IS NULL;
+-- 来自迁移 059：图片发件箱幂等（同一用户 + 同一 clientId 只落一行）
+CREATE UNIQUE INDEX IF NOT EXISTS uq_uploads_user_client
+  ON uploads(user_id, client_id) WHERE client_id IS NOT NULL AND deleted_at IS NULL;
 
 -- ---------- 来自迁移 052_equipment_items.sql（装备图库：品牌白底商品图） ----------
 CREATE TABLE IF NOT EXISTS equipment_items (
