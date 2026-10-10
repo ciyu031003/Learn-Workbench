@@ -1,0 +1,5 @@
+{
+  "_comment": "H2 门槛的存量欠账台账（棘轮：只许减少，不许新增）。missingTests 的键是 API 路径，值是原因；新增路由不在其中就必须自带同名 route.test.ts。unthrottled 同理，用于 api/internal/** 的限流例外。",
+  "missingTests": {},
+  "unthrottled": {}
+}

@@ -15,6 +15,7 @@ import {
 } from "@/lib/tasks/interview";
 import { triggerFoodImport } from "@/lib/tasks/food";
 import { triggerContentImport } from "@/lib/tasks/content-import";
+import { guardInternalRequest } from "@/lib/internal-guard";
 import { buildContentSyncPlan, readContentPackageVersion, syncKnowledgeModel } from "@/lib/content/knowledge-model";
 import { logger } from "@/lib/logger";
 
@@ -52,17 +53,11 @@ const VALID_JOBS = [
   "all",
 ] as const;
 
-function authorize(req: Request): boolean {
-  const expected = process.env.CRON_SECRET?.trim();
-  if (!expected) return false;
-  const got = req.headers.get("x-cron-secret")?.trim();
-  return !!got && got === expected;
-}
-
 export async function POST(req: Request) {
-  if (!authorize(req)) {
-    return NextResponse.json({ error: "未授权" }, { status: 403 });
-  }
+  // H2：内部接口统一前门（先限流再验密钥）。cron 由 crontab flock 调度，
+  // 宽松限流（120/分钟）只为拦住"误配代理把内部接口暴露到公网后的暴力探测"。
+  const guard = await guardInternalRequest(req, "cron", { limit: 120 });
+  if (!guard.ok) return guard.response;
 
   const job = new URL(req.url).searchParams.get("job") || "all";
   if (!(VALID_JOBS as readonly string[]).includes(job)) {

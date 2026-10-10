@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { pgPool } from "@/lib/db";
+import { guardInternalRequest } from "@/lib/internal-guard";
 import {
   chunkItems,
   planImport,
@@ -108,10 +109,8 @@ function parseSourcesResult(raw: unknown): Record<string, number> | undefined {
  *   - 允许 items 为空，只要带 run 回报（抓取失败时也能把运行记录写成 failed）。
  */
 export async function POST(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret || req.headers.get("x-cron-secret") !== secret) {
-    return NextResponse.json({ error: "未授权" }, { status: 403 });
-  }
+  const guard = await guardInternalRequest(req, "interview-import");
+  if (!guard.ok) return guard.response;
 
   const body = (await req.json().catch(() => null)) as { items?: unknown; run?: unknown } | null;
   const rawItems = Array.isArray(body?.items) ? (body.items as InterviewImportItem[]) : [];

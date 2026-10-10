@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { pgPool } from "@/lib/db";
+import { guardInternalRequest } from "@/lib/internal-guard";
 import { EQUIPMENT_CATEGORIES } from "../../../equipment/route";
 
 const MAX_ITEMS = 500;
@@ -32,10 +33,8 @@ export function isSafeEquipmentPath(value: string): boolean {
  * body: { items: EquipmentImportItem[] }
  */
 export async function POST(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret || req.headers.get("x-cron-secret") !== secret) {
-    return NextResponse.json({ error: "未授权" }, { status: 403 });
-  }
+  const guard = await guardInternalRequest(req, "equipment-import");
+  if (!guard.ok) return guard.response;
 
   const body = (await req.json().catch(() => null)) as { items?: unknown } | null;
   const items = Array.isArray(body?.items) ? body.items : [];

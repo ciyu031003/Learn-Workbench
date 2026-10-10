@@ -17,18 +17,55 @@ const PG_ERROR_MESSAGES: Record<string, string> = {
   "22003": "数值超出允许范围", // numeric_value_out_of_range
 };
 
-/** 统一的错误响应体：{ error } */
-export function apiError(status: number, error: string): Response {
-  return Response.json({ error }, { status });
+/**
+ * 机器可读错误码（组三 · H2 API 治理）。
+ *
+ * 为什么在 `{ error }` 之外再加 `code`：
+ *  - 客户端要按错误**类型**分流（去登录 / 重试 / 提示校验），中文文案不适合当契约；
+ *  - 文案可以随时改，`code` 一旦发布就稳定，是版本策略的一部分。
+ * 兼容：不传 options 时响应体仍是 `{ error }`，存量接口零改动。
+ */
+export const API_ERROR_CODES = {
+  unauthorized: "unauthorized",
+  forbidden: "forbidden",
+  not_found: "not_found",
+  validation_failed: "validation_failed",
+  conflict: "conflict",
+  rate_limited: "rate_limited",
+  internal_error: "internal_error",
+} as const;
+
+export type ApiErrorCode = (typeof API_ERROR_CODES)[keyof typeof API_ERROR_CODES];
+
+export interface ApiErrorOptions {
+  code?: ApiErrorCode;
+  requestId?: string;
+  retryAfterSeconds?: number;
+}
+
+export interface ApiErrorBody {
+  error: string;
+  code?: ApiErrorCode;
+  requestId?: string;
+  retryAfterSeconds?: number;
+}
+
+/** 统一的错误响应体：{ error }（传 options 时追加 code / requestId） */
+export function apiError(status: number, error: string, options: ApiErrorOptions = {}): Response {
+  const body: ApiErrorBody = { error };
+  if (options.code) body.code = options.code;
+  if (options.requestId) body.requestId = options.requestId;
+  if (typeof options.retryAfterSeconds === "number") body.retryAfterSeconds = options.retryAfterSeconds;
+  return Response.json(body, { status });
 }
 
 /** 把数据库异常转成结构化响应 */
-export function dbErrorResponse(e: unknown, fallback = "保存失败，请稍后重试"): Response {
+export function dbErrorResponse(e: unknown, fallback = "保存失败，请稍后重试", options: ApiErrorOptions = {}): Response {
   const code = (e as { code?: string } | null | undefined)?.code;
   const message = code ? PG_ERROR_MESSAGES[code] : undefined;
-  if (message) return apiError(400, message);
+  if (message) return apiError(400, message, { code: API_ERROR_CODES.validation_failed, ...options });
   console.error("[api] database error", e);
-  return apiError(500, fallback);
+  return apiError(500, fallback, { code: API_ERROR_CODES.internal_error, ...options });
 }
 
 /** 供测试复用：Postgres 错误码 → 用户可读文案 */
