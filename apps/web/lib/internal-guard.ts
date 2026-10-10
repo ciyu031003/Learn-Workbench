@@ -5,6 +5,7 @@ import { clientIp } from "./auth";
 import { currentUserId } from "./session";
 import { roleOf, type Role } from "./roles";
 import type { AuditActorType } from "./audit";
+import { isFlagEnabled } from "./flags";
 
 /**
  * `api/internal/**` 的统一前门（组三 · H2 API 治理）。
@@ -77,7 +78,8 @@ export async function guardInternalRequest(
     return { ok: true, requestId, actorId: null, actorType: "cron", ip };
   }
 
-  if (opts.allowRoles?.length) {
+  // H4：会话通道有独立 kill switch（出问题先关闸，不必回滚代码）。
+  if (opts.allowRoles?.length && isFlagEnabled("internal_content_web")) {
     const actor = await sessionActor();
     if (actor && opts.allowRoles.includes(actor.role)) {
       return { ok: true, requestId, actorId: actor.id, actorType: "user", ip };

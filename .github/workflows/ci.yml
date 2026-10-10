@@ -13,7 +13,25 @@ jobs:
   quality:
     name: Lint / Typecheck / Test / Build
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
+    # H4：结构门禁与回滚演练需要真库 —— 门禁只在本地能跑就不算门禁。
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: postgres
     steps:
       - uses: actions/checkout@v4
 
@@ -40,6 +58,18 @@ jobs:
 
       - name: Script checks (normalize + migrations)
         run: pnpm test:scripts
+
+      - name: DB schema gate (empty DB: schema.sql + all migrations)
+        run: node scripts/check-schema-fresh.mjs
+
+      - name: Migration rollback drill (up -> down -> up)
+        run: node scripts/migration-drill.mjs
+
+      - name: Dependency audit (high and above)
+        run: node scripts/check-deps-audit.mjs
+
+      - name: Coverage gate (ratchet thresholds)
+        run: pnpm test:coverage
 
       - name: Build (web)
         run: pnpm --filter web build

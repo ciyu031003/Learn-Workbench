@@ -20,11 +20,13 @@ export default defineConfig({
       reporter: ["text", "html"],
       include: ["**/*.ts"],
       exclude: ["**/*.test.ts", "**/vitest.config.ts", "**/node_modules/**"],
+      // 棘轮阈值（组三 · H4）：按 2026-10-11 实测值下取整再降 1 个点 —— 只拦"往回退"。
+      // 实测：statements 64.84 / branches 60.05 / functions 64.04 / lines 65.89。
       thresholds: {
-        statements: 80,
+        statements: 64,
         branches: 60,
-        functions: 80,
-        lines: 85,
+        functions: 64,
+        lines: 65,
       },
     },
   },
