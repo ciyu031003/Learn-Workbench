@@ -31,19 +31,28 @@ pnpm import:content -- --source=algorithms-java
 pnpm import:content -- --source=algorithms-java --mode=apply --limit=20
 ```
 
-## 内容库当前规模（2026-10-10 实跑）
+## 内容库当前规模（2026-10-11 实跑）
 
 | 指标 | 数值 |
 |---|---|
-| 课程（track） | 7 |
-| 阶段（stage） | 28 |
-| 知识点（knowledge point） | 84（每课程 12） |
-| 题目 | 328 |
-| 已绑定知识点的题 | 168（51%） |
+| 课程（track） | 10 |
+| 阶段（stage） | 40 |
+| 知识点（knowledge point） | 120（每课程 12） |
+| 题目 | 400 |
+| 已绑定知识点的题 | 240（60%） |
 | 待分类题 | 160 |
-| 知识点关系（next + related） | 105 |
-| 前置边（prerequisite） | 21 |
-| 质量分级 | L4 = 84（无 L0/L1/L2/L3 缺口） |
-| 估算学习时长合计 | 627 分钟 |
+| 知识点关系（next + related） | 150 |
+| 前置边（prerequisite） | 30 |
+| 质量分级 | L4 = 120（无 L0/L1/L2/L3 缺口） |
+| 估算学习时长合计 | 940 分钟 |
 
 数字来源是 `buildKnowledgeModel(learningTracks)` 的真实统计，不是人工估算；复跑方式见上面第 3 步。
+`id-mapping.md` 由 `node scripts/generate-id-mapping.mjs` 从**库里已有数据**再生，同样不是手写。
+
+阶段 11（内容扩容）新增三个方向，每个方向 4 阶段 × 3 知识点 × 2 题：
+
+| 课程 | 分类 | 覆盖主线 |
+|---|---|---|
+| `database` 数据库基础 | 数据库 | 关系模型与 SQL → 索引与执行计划 → 事务与并发 → 建模、迁移与备份 |
+| `cloud-platform` 云平台与容器 | 云平台 | 责任边界与网络/身份 → 容器与编排 → 存储与接入 → 可观测性、IaC、成本安全 |
+| `network-engineering` 网络工程 | 网络工程 | 分层与编址 → 交换与路由 → 策略与互联 → 抓包、自动化与分层排障 |

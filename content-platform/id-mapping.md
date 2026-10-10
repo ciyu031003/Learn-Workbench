@@ -17,10 +17,10 @@
 
 ## 2. 关联规模
 
-- 知识点：84
-- 知识点关系：next 77 · related 28
-- 前置边：21
-- 题 ↔ 知识点：explicit 168
+- 知识点：120
+- 知识点关系：next 110 · related 40
+- 前置边：30
+- 题 ↔ 知识点：explicit 240
 - 作答统一视图行数（当前库）：0
 
 ## 3. 全量映射（按课程 → 阶段 → 知识点）
@@ -59,6 +59,40 @@
 | 2 | 安全、权限与内容边界 (`ai-safety`) | `ai-engineering/ai-production/ai-safety` | L4 | medium | 7 | 2 | microsoft-generative-ai | published |
 | 3 | 成本、可靠性与治理 (`ai-cost-reliability`) | `ai-engineering/ai-production/ai-cost-reliability` | L4 | medium | 6 | 2 | microsoft-generative-ai | published |
 
+### 云平台与容器（`cloud-platform`）
+
+**阶段 1 · 云基础与责任边界**（`cloud-foundation`）
+
+| # | 知识点 | 稳定 ID | 质量 | 难度 | 分钟 | 关联题 | 来源 | 状态 |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 服务模型与责任边界 (`cloud-service-models`) | `cloud-platform/cloud-foundation/cloud-service-models` | L4 | medium | 10 | 2 | az104 | published |
+| 2 | 计算与网络基础 (`cloud-compute-network`) | `cloud-platform/cloud-foundation/cloud-compute-network` | L4 | medium | 11 | 2 | az104 | published |
+| 3 | 身份与最小权限 (`cloud-identity`) | `cloud-platform/cloud-foundation/cloud-identity` | L4 | medium | 12 | 2 | az104 | published |
+
+**阶段 2 · 容器与编排**（`cloud-container`）
+
+| # | 知识点 | 稳定 ID | 质量 | 难度 | 分钟 | 关联题 | 来源 | 状态 |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 容器与镜像 (`cloud-container-basics`) | `cloud-platform/cloud-container/cloud-container-basics` | L4 | medium | 11 | 2 | az104 | published |
+| 2 | 编排与工作负载 (`cloud-k8s-workloads`) | `cloud-platform/cloud-container/cloud-k8s-workloads` | L4 | medium | 13 | 2 | az104 | published |
+| 3 | 发布、探针与回滚 (`cloud-k8s-ops`) | `cloud-platform/cloud-container/cloud-k8s-ops` | L4 | medium | 11 | 2 | az104 | published |
+
+**阶段 3 · 存储与数据接入**（`cloud-storage-data`）
+
+| # | 知识点 | 稳定 ID | 质量 | 难度 | 分钟 | 关联题 | 来源 | 状态 |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 对象存储与块存储 (`cloud-object-block`) | `cloud-platform/cloud-storage-data/cloud-object-block` | L4 | medium | 10 | 2 | az104 | published |
+| 2 | 托管数据库与缓存 (`cloud-db-cache`) | `cloud-platform/cloud-storage-data/cloud-db-cache` | L4 | medium | 8 | 2 | az104 | published |
+| 3 | CDN 与 DNS 接入 (`cloud-cdn-dns`) | `cloud-platform/cloud-storage-data/cloud-cdn-dns` | L4 | medium | 8 | 2 | az104 | published |
+
+**阶段 4 · 可观测性、IaC 与成本**（`cloud-reliability`）
+
+| # | 知识点 | 稳定 ID | 质量 | 难度 | 分钟 | 关联题 | 来源 | 状态 |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 可观测性与告警 (`cloud-observability`) | `cloud-platform/cloud-reliability/cloud-observability` | L4 | medium | 7 | 2 | az104 | published |
+| 2 | 基础设施即代码 (`cloud-iac`) | `cloud-platform/cloud-reliability/cloud-iac` | L4 | medium | 7 | 2 | az104 | published |
+| 3 | 成本与安全治理 (`cloud-cost-security`) | `cloud-platform/cloud-reliability/cloud-cost-security` | L4 | medium | 9 | 2 | az104 | published |
+
 ### SQL 与数据分析（`data-analysis`）
 
 **阶段 1 · 关系模型与 SQL 查询**（`data-relational`）
@@ -92,6 +126,40 @@
 | 1 | 图表选择与表达 (`data-chart-choice`) | `data-analysis/data-visual-delivery/data-chart-choice` | L4 | medium | 6 | 2 | ms-data-science | published |
 | 2 | 仪表板与信息架构 (`data-dashboard`) | `data-analysis/data-visual-delivery/data-dashboard` | L4 | medium | 5 | 2 | ms-data-science | published |
 | 3 | 分析叙事与交付 (`data-story`) | `data-analysis/data-visual-delivery/data-story` | L4 | medium | 5 | 2 | ms-data-science | published |
+
+### 数据库基础（`database`）
+
+**阶段 1 · 关系模型与 SQL 基础**（`db-relational`）
+
+| # | 知识点 | 稳定 ID | 质量 | 难度 | 分钟 | 关联题 | 来源 | 状态 |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 表、键与约束 (`db-relational-model`) | `database/db-relational/db-relational-model` | L4 | easy | 13 | 2 | cmu-bustub | published |
+| 2 | 查询与连接 (`db-select-join`) | `database/db-relational/db-select-join` | L4 | easy | 12 | 2 | cmu-bustub | published |
+| 3 | 聚合与窗口函数 (`db-aggregate-window`) | `database/db-relational/db-aggregate-window` | L4 | easy | 6 | 2 | cmu-bustub | published |
+
+**阶段 2 · 索引与查询性能**（`db-index`）
+
+| # | 知识点 | 稳定 ID | 质量 | 难度 | 分钟 | 关联题 | 来源 | 状态 |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 索引结构与选择性 (`db-index-basics`) | `database/db-index/db-index-basics` | L4 | easy | 8 | 2 | cmu-bustub | published |
+| 2 | 执行计划与代价 (`db-explain`) | `database/db-index/db-explain` | L4 | easy | 7 | 2 | cmu-bustub | published |
+| 3 | 查询改写与调优 (`db-query-tuning`) | `database/db-index/db-query-tuning` | L4 | easy | 8 | 2 | cmu-bustub | published |
+
+**阶段 3 · 事务与并发**（`db-transaction`）
+
+| # | 知识点 | 稳定 ID | 质量 | 难度 | 分钟 | 关联题 | 来源 | 状态 |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 事务与 ACID (`db-acid`) | `database/db-transaction/db-acid` | L4 | easy | 8 | 2 | cmu-bustub | published |
+| 2 | 隔离级别与异常 (`db-isolation`) | `database/db-transaction/db-isolation` | L4 | easy | 7 | 2 | cmu-bustub | published |
+| 3 | 锁、死锁与重试 (`db-lock-deadlock`) | `database/db-transaction/db-lock-deadlock` | L4 | easy | 9 | 2 | cmu-bustub | published |
+
+**阶段 4 · 建模、迁移与运维**（`db-modeling-ops`）
+
+| # | 知识点 | 稳定 ID | 质量 | 难度 | 分钟 | 关联题 | 来源 | 状态 |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 范式与建模取舍 (`db-normalization`) | `database/db-modeling-ops/db-normalization` | L4 | easy | 11 | 2 | cmu-bustub | published |
+| 2 | 安全迁移与在线变更 (`db-migration-safe`) | `database/db-modeling-ops/db-migration-safe` | L4 | easy | 9 | 2 | cmu-bustub | published |
+| 3 | 备份、恢复与容量 (`db-backup-recovery`) | `database/db-modeling-ops/db-backup-recovery` | L4 | easy | 6 | 2 | cmu-bustub | published |
 
 ### Java（`java`）
 
@@ -194,6 +262,40 @@
 | 1 | 可靠 Shell 脚本 (`linux-bash`) | `linux/linux-automation-ops/linux-bash` | L4 | easy | 8 | 2 | algorithms-shell | published |
 | 2 | 定时任务与编排 (`linux-scheduling`) | `linux/linux-automation-ops/linux-scheduling` | L4 | easy | 4 | 2 | algorithms-shell | published |
 | 3 | 故障排查与备份恢复 (`linux-troubleshooting`) | `linux/linux-automation-ops/linux-troubleshooting` | L4 | easy | 6 | 2 | algorithms-shell | published |
+
+### 网络工程（`network-engineering`）
+
+**阶段 1 · 网络基础与模型**（`net-foundation`）
+
+| # | 知识点 | 稳定 ID | 质量 | 难度 | 分钟 | 关联题 | 来源 | 状态 |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 分层模型与封装 (`net-osi-tcpip`) | `network-engineering/net-foundation/net-osi-tcpip` | L4 | easy | 6 | 2 | tailscale | published |
+| 2 | IP 编址与子网 (`net-ip-addressing`) | `network-engineering/net-foundation/net-ip-addressing` | L4 | easy | 6 | 2 | tailscale | published |
+| 3 | TCP/UDP 与端口 (`net-tcp-udp`) | `network-engineering/net-foundation/net-tcp-udp` | L4 | easy | 8 | 2 | tailscale | published |
+
+**阶段 2 · 交换与园区网**（`net-lan`）
+
+| # | 知识点 | 稳定 ID | 质量 | 难度 | 分钟 | 关联题 | 来源 | 状态 |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 以太网与 VLAN (`net-ethernet-vlan`) | `network-engineering/net-lan/net-ethernet-vlan` | L4 | easy | 7 | 2 | tailscale | published |
+| 2 | 路由与网关 (`net-routing`) | `network-engineering/net-lan/net-routing` | L4 | easy | 7 | 2 | tailscale | published |
+| 3 | NAT、DHCP 与地址服务 (`net-nat-dhcp`) | `network-engineering/net-lan/net-nat-dhcp` | L4 | easy | 8 | 2 | tailscale | published |
+
+**阶段 3 · 安全与互联**（`net-security`）
+
+| # | 知识点 | 稳定 ID | 质量 | 难度 | 分钟 | 关联题 | 来源 | 状态 |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 防火墙与 ACL (`net-firewall-acl`) | `network-engineering/net-security/net-firewall-acl` | L4 | easy | 9 | 2 | tailscale | published |
+| 2 | 站点互联与 VPN (`net-vpn-site`) | `network-engineering/net-security/net-vpn-site` | L4 | easy | 9 | 2 | tailscale | published |
+| 3 | 无线与接入控制 (`net-wireless`) | `network-engineering/net-security/net-wireless` | L4 | easy | 7 | 2 | tailscale | published |
+
+**阶段 4 · 自动化与排障**（`net-automation`）
+
+| # | 知识点 | 稳定 ID | 质量 | 难度 | 分钟 | 关联题 | 来源 | 状态 |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 抓包与流量分析 (`net-monitor-capture`) | `network-engineering/net-automation/net-monitor-capture` | L4 | easy | 9 | 2 | tailscale | published |
+| 2 | 配置自动化与备份 (`net-config-automation`) | `network-engineering/net-automation/net-config-automation` | L4 | easy | 8 | 2 | tailscale | published |
+| 3 | 分层排障方法 (`net-troubleshoot`) | `network-engineering/net-automation/net-troubleshoot` | L4 | easy | 8 | 2 | tailscale | published |
 
 ### Power BI（`power-bi`）
 
