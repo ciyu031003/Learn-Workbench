@@ -74,7 +74,24 @@ function parseRun(raw: unknown): (InterviewRunPatch & { runId: number }) | null 
     imported: Number.isFinite(Number(obj.imported)) ? Number(obj.imported) : undefined,
     skipped: Number.isFinite(Number(obj.skipped)) ? Number(obj.skipped) : undefined,
     error: typeof obj.error === "string" ? obj.error.slice(0, 500) : null,
+    sourcesResult: parseSourcesResult(obj.sourcesResult),
   };
+}
+
+/**
+ * 抓取侧统计（阶段 6）：只收固定几个数字字段，避免把任意 JSON 灌进 sources_result。
+ * 缺字段时返回 undefined —— markInterviewRun 里是 COALESCE，不会覆盖已有值。
+ */
+function parseSourcesResult(raw: unknown): Record<string, number> | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const obj = raw as Record<string, unknown>;
+  const keys = ["filesOk", "filesFailed", "filesTotal", "requests", "retried"] as const;
+  const out: Record<string, number> = {};
+  for (const key of keys) {
+    const value = Number(obj[key]);
+    if (Number.isFinite(value) && value >= 0) out[key] = Math.floor(value);
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
 /**
@@ -176,6 +193,7 @@ export async function POST(req: Request) {
       imported: run.imported ?? imported,
       skipped: run.skipped ?? skipped.length,
       error: run.error ?? null,
+      sourcesResult: run.sourcesResult,
     });
   }
 

@@ -164,4 +164,35 @@ describe("POST /api/internal/interview/import", () => {
     const res = await POST(req({ items: [] }));
     expect(res.status).toBe(400);
   });
+
+  it("run.sourcesResult 只收固定数字字段，写入 sources_result", async () => {
+    const calls = fakeDb();
+    const res = await POST(
+      req({
+        items: [],
+        run: {
+          runId: 11,
+          status: "partial",
+          fetched: 120,
+          sourcesResult: { filesOk: 117, filesFailed: 3, requests: 260, retried: 7, evil: "x", filesTotal: -1 },
+        },
+      })
+    );
+    expect(res.status).toBe(200);
+    const updateRun = findCall(calls, "UPDATE interview_crawl_runs");
+    expect(updateRun!.params[1]).toBe("partial");
+    expect(JSON.parse(String(updateRun!.params[5]))).toEqual({
+      filesOk: 117,
+      filesFailed: 3,
+      requests: 260,
+      retried: 7,
+    });
+  });
+
+  it("run.sourcesResult 为空/非法时传 null（不覆盖库里已有统计）", async () => {
+    const calls = fakeDb();
+    await POST(req({ items: [], run: { runId: 12, status: "success", sourcesResult: { evil: "x" } } }));
+    const updateRun = findCall(calls, "UPDATE interview_crawl_runs");
+    expect(updateRun!.params[5]).toBeNull();
+  });
 });
