@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Animated, { FadeInDown, LinearTransition } from "react-native-reanimated";
-import { Alert, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
 import { EmptyState } from "@/components/empty-state";
 import { SkeletonList } from "@/components/skeleton";
@@ -9,7 +9,8 @@ import { Card } from "@/components/card";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
 import { PressButton } from "@/components/press-button";
-import { ExercisePickerSheet } from "@/components/exercise-picker-sheet";
+import { ExercisePickerPanel } from "@/components/exercise-picker-panel";
+import { SheetSection } from "@/components/sheet";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
@@ -56,20 +57,10 @@ export default function WorkoutScreen() {
   const [date, setDate] = useState(() => toDateKey(new Date()));
   const [items, setItems] = useState<DraftItem[]>([newDraftItem()]);
 
-  /**
-   * 选择动作弹层。它与记录弹层都是 `Modal`，而 BottomSheet 明确「一次只 present 一个 sheet」，
-   * 所以这里用 `onClosed` 串行切换：关闭记录弹层 → 动画结束 → 打开选择弹层（反之亦然）。
-   */
+  /** 动作选择改为当前 BottomSheet 内的内联面板，不再创建第二个 Modal。 */
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerIndex, setPickerIndex] = useState<number | null>(null);
-  const [pickerPending, setPickerPending] = useState(false);
-  /**
-   * 「用户是**确认选了动作**才关掉选择弹层」的意图标记（v5 P1-4）。
-   * 没有它时：`onPickerClosed` 无条件重开记录弹层 → 用户点空白只关一层又自动弹回，弹窗关不掉。
-   * 只有 `applyPicked`（用户点了「加入训练」）才置位；关闭出口一律清零。
-   */
-  const [pickerReturn, setPickerReturn] = useState(false);
-  /** 每次打开选择弹层自增 → 换 key 让它重新挂载，状态天然重置（不在 effect 里 setState） */
+  /** 每次进入动作面板自增 → 换 key 重新挂载，状态天然重置。 */
   const [pickerSession, setPickerSession] = useState(0);
 
   const headers = useCallback(
@@ -108,6 +99,7 @@ export default function WorkoutScreen() {
     setName("训练");
     setDate(today);
     setItems([newDraftItem()]);
+    setPickerOpen(false);
     setSheetOpen(true);
   };
 
@@ -117,73 +109,42 @@ export default function WorkoutScreen() {
     setName(draft.name);
     setDate(draft.date);
     setItems(draft.items);
+    setPickerOpen(false);
     setSheetOpen(true);
   };
 
   /** 打开动作选择（index = null → 追加一行；数字 → 替换该行） */
   const openPicker = (index: number | null) => {
-    // 已在等待串行切换（记录弹层正在退场）时忽略重复点击：
-    // 否则第二次点击会被第一次的 onClosed 清掉 pending，表现为"点了没反应"（审查发现）
-    if (pickerPending) return;
     setPickerIndex(index);
-    setPickerPending(true);
-    // 新一轮开始：清掉上一轮可能残留的"确认返回"意图
-    setPickerReturn(false);
     setPickerSession((s) => s + 1);
-    if (!sheetOpen) {
-      // 记录弹层本来就没开：直接开选择弹层。
-      // 之前这里无条件 setSheetOpen(false) —— 状态没变化 → onRecordSheetClosed 永不触发 →
-      // pickerPending 永久残留，之后**每次**关闭记录弹层都会把选择弹层弹回来（真机"关不掉"的另一半原因）。
-      setPickerPending(false);
-      setPickerOpen(true);
-      return;
-    }
-    setSheetOpen(false);
-  };
-
-  /** 记录弹层退场结束后，若用户刚才是去选动作，则接着打开选择弹层 */
-  const onRecordSheetClosed = () => {
-    // 防御：只有这轮确实是"为选动作而关"，且选择弹层尚未打开时才开
-    if (!pickerPending || pickerOpen) return;
-    setPickerPending(false); // 消费掉意图：即使这次没开成，也不能留到下次关闭时再触发
     setPickerOpen(true);
   };
 
-  /**
-   * 选择弹层退场结束后：**只有用户确认选了动作**才回到记录弹层；
-   * 点空白/返回键关闭一律不回（P1-4：否则"关一层又弹回来"，弹窗关不掉）。
-   */
-  const onPickerClosed = () => {
-    setPickerPending(false);
-    if (pickerReturn) setSheetOpen(true);
-    setPickerReturn(false);
+  /** 新建动作优先复用第一个空行，避免默认空卡被永久留在表单里。 */
+  const openNewAction = () => {
+    const emptyIndex = items.findIndex((item) => !item.exerciseLabel.trim());
+    openPicker(emptyIndex >= 0 ? emptyIndex : null);
   };
 
-  /** 记录弹层被用户关闭（点空白/关闭钮/返回键）：无条件清零两个标记 */
+  /** 记录弹层被用户关闭（点空白/关闭钮/返回键）。 */
   const closeRecordSheet = () => {
-    setPickerPending(false);
-    setPickerReturn(false);
+    setPickerOpen(false);
     setSheetOpen(false);
   };
 
-  /** 选择弹层被用户关闭：清掉"等待串行"标记，但保留 return（确认路径由 onClosed 消费） */
-  const closePickerSheet = () => {
-    setPickerPending(false);
-    setPickerOpen(false);
-  };
-
   const applyPicked = (item: DraftItem) => {
-    // 退场动画期间 Modal 仍可点：不做守卫会 append 两行（审查发现）
     if (!pickerOpen) return;
     setItems((prev) => {
       if (pickerIndex === null) return [...prev, item];
       return prev.map((x, i) => (i === pickerIndex ? item : x));
     });
-    // 置位"确认返回"意图：onPickerClosed 才会把记录弹层接回来
-    setPickerReturn(true);
-    // 串行意图已消费，避免"记录弹层关闭时又去开选择弹层"的乒乓
-    setPickerPending(false);
     setPickerOpen(false);
+    setPickerIndex(null);
+  };
+
+  const cancelPicked = () => {
+    setPickerOpen(false);
+    setPickerIndex(null);
   };
 
   /* ---------- 动作行编辑 ---------- */
@@ -220,8 +181,7 @@ export default function WorkoutScreen() {
         const d = await r.json().catch(() => ({}) as { error?: string });
         throw new Error((d as { error?: string }).error ?? "保存失败");
       }
-      // 必须走 closeRecordSheet：直接 setSheetOpen(false) 会留下 pickerPending/pickerReturn，
-      // 于是 onRecordSheetClosed 又把选择弹层/记录弹层弹回来 —— 真机表现为"保存后抽屉一直弹出来关不掉"
+      // 单 Modal 结构下直接关闭即可；这里仍统一走 closeRecordSheet 复位动作面板状态。
       closeRecordSheet();
       setEditingId(null);
       setItems([newDraftItem()]);
@@ -328,115 +288,175 @@ export default function WorkoutScreen() {
       <BottomSheet
         visible={sheetOpen}
         onClose={closeRecordSheet}
-        onClosed={onRecordSheetClosed}
-        title={editingId === null ? "记录训练" : "编辑训练"}
-        height="80%"
-        expandable
+        title={pickerOpen ? "添加动作" : editingId === null ? "记录训练" : "编辑训练"}
+        subtitle={
+          pickerOpen
+            ? "选择动作并填写组次，确认后会回到当前训练草稿"
+            : editingId === null
+              ? "记录动作、组次与重量，训练容量会自动汇总"
+              : "修改后会覆盖这次训练的原记录"
+        }
+        icon="barbell-outline"
+        height="86%"
+        scroll={false}
+        footer={
+          pickerOpen ? undefined : (
+            <PressButton
+              label={editingId === null ? "保存训练" : "保存修改"}
+              loadingLabel="保存中…"
+              loading={saving}
+              icon="save-outline"
+              onPress={() => void save()}
+            />
+          )
+        }
       >
-        <View style={styles.form}>
-          <Text style={styles.sectionLabel}>训练信息</Text>
-          <TextInput
-            style={styles.input}
-            value={name}
-            onChangeText={setName}
-            placeholder="训练名称，例如：胸 + 三头"
-            placeholderTextColor={colors.textFaint}
+        {pickerOpen ? (
+          <ExercisePickerPanel
+            key={pickerSession}
+            initial={pickerInitial}
+            onCancel={cancelPicked}
+            onConfirm={applyPicked}
           />
-          <View style={styles.dateRow}>
-            {dateChoices.map((d) => {
-              const active = d.key === date;
-              return (
-                <Pressable
-                  key={d.key}
-                  style={[styles.dateChip, active && styles.dateChipActive]}
-                  onPress={() => setDate(d.key)}
-                >
-                  <Text style={[styles.dateChipText, active && styles.dateChipTextActive]}>{d.label}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-          <Text style={styles.dateHint}>记录日期：{date}</Text>
-
-          <View style={styles.itemsHead}>
-            <Text style={styles.sectionLabel}>动作明细（{items.length}）</Text>
-            <Text style={styles.muted}>点动作名可更换</Text>
-          </View>
-
-          {items.map((it, i) => (
-            <View key={i} style={styles.itemCard}>
-              <View style={styles.itemCardHead}>
-                <Pressable style={styles.exercisePick} onPress={() => openPicker(i)}>
-                  <Text style={[styles.exercisePickText, !it.exerciseLabel && styles.exercisePickPlaceholder]} numberOfLines={1}>
-                    {it.exerciseLabel || "选择动作"}
-                  </Text>
-                  <ThemedIcon name="chevron-down" size={14} color={colors.textFaint} />
-                </Pressable>
-                <Pressable
-                  hitSlop={8}
-                  style={styles.iconBtn}
-                  onPress={() => removeItem(i)}
-                  accessibilityLabel="移除动作"
-                >
-                  <ThemedIcon name="trash-outline" size={16} color={colors.danger} />
-                </Pressable>
+        ) : (
+          <ScrollView
+            style={styles.formScroll}
+            contentContainerStyle={styles.form}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.formHero}>
+              <View style={styles.formHeroIcon}>
+                <ThemedIcon name="trending-up-outline" size={21} color={colors.primary} />
               </View>
-              <View style={styles.stepperStack}>
-                <MiniStepper
-                  colors={colors}
-                  title="组数"
-                  label="组"
-                  value={it.sets}
-                  onChange={(v) => patchItem(i, { sets: v })}
-                  onStep={(d) => patchItem(i, { sets: stepNumber(it.sets, d, SETS_MIN, SETS_MAX, 4) })}
-                />
-                <MiniStepper
-                  colors={colors}
-                  title="次数"
-                  label="次"
-                  value={it.reps}
-                  onChange={(v) => patchItem(i, { reps: v })}
-                  onStep={(d) => patchItem(i, { reps: stepNumber(it.reps, d, REPS_MIN, REPS_MAX, 8) })}
-                />
-                <MiniStepper
-                  colors={colors}
-                  title="重量"
-                  label="kg"
-                  value={it.weightKg}
-                  placeholder="自重"
-                  onChange={(v) => patchItem(i, { weightKg: v })}
-                  onStep={(d) => patchItem(i, { weightKg: stepWeight(it.weightKg, d * WEIGHT_STEP) })}
-                  max={WEIGHT_MAX}
-                />
+              <View style={styles.formHeroText}>
+                <Text style={styles.formHeroTitle}>训练草稿</Text>
+                <Text style={styles.formHeroHint}>
+                  {items.length} 个动作 · {dateChoices.find((d) => d.key === date)?.label ?? date}
+                </Text>
+              </View>
+              <View style={styles.formHeroBadge}>
+                <Text style={styles.formHeroBadgeText}>{items.length}</Text>
               </View>
             </View>
-          ))}
 
-          <Pressable style={styles.ghostBtn} onPress={() => openPicker(null)}>
-            <Text style={styles.ghostBtnText}>＋ 添加动作</Text>
-          </Pressable>
+            <SheetSection title="训练信息" hint="名称与日期会显示在训练历史中">
+              <View style={styles.inputShell}>
+                <ThemedIcon name="create-outline" size={17} color={colors.textMuted} />
+                <TextInput
+                  style={styles.input}
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="训练名称，例如：胸 + 三头"
+                  placeholderTextColor={colors.textFaint}
+                />
+              </View>
+              <View style={styles.dateRow}>
+                {dateChoices.map((d) => {
+                  const active = d.key === date;
+                  return (
+                    <Pressable
+                      key={d.key}
+                      style={[styles.dateChip, active && styles.dateChipActive]}
+                      onPress={() => setDate(d.key)}
+                    >
+                      {active ? <ThemedIcon name="checkmark" size={12} color={colors.primary} /> : null}
+                      <Text style={[styles.dateChipText, active && styles.dateChipTextActive]}>{d.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <View style={styles.dateFoot}>
+                <ThemedIcon name="calendar-outline" size={14} color={colors.textMuted} />
+                <Text style={styles.dateHint}>记录日期：{date}</Text>
+              </View>
+            </SheetSection>
 
-          {/* v13 U5：主 CTA 用按压反馈按钮（按下 0.97 + loading 文案切换） */}
-          <PressButton
-            label={editingId === null ? "保存训练" : "保存修改"}
-            loadingLabel="保存中…"
-            loading={saving}
-            icon="save-outline"
-            style={styles.primaryBtnPressed}
-            onPress={() => void save()}
-          />
-        </View>
+            <SheetSection
+              title={`动作明细 · ${items.length}`}
+              hint="点动作名称可以更换，数值支持手动输入"
+              last
+            >
+              {items.map((it, i) => (
+                <View key={`${i}-${it.exerciseKey ?? "custom"}`} style={styles.itemCard}>
+                  <View style={styles.itemCardHead}>
+                    <View style={styles.itemIndex}>
+                      <Text style={styles.itemIndexText}>{i + 1}</Text>
+                    </View>
+                    <Pressable
+                      style={({ pressed }) => [styles.exercisePick, pressed && styles.exercisePickPressed]}
+                      onPress={() => openPicker(i)}
+                      accessibilityLabel={`更换动作 ${it.exerciseLabel || i + 1}`}
+                    >
+                      <View style={styles.exercisePickTextWrap}>
+                        <Text
+                          style={[styles.exercisePickText, !it.exerciseLabel && styles.exercisePickPlaceholder]}
+                          numberOfLines={1}
+                        >
+                          {it.exerciseLabel || "选择动作"}
+                        </Text>
+                        <Text style={styles.exercisePickMeta}>
+                          {it.sets || "0"} 组 × {it.reps || "0"} 次
+                          {it.weightKg ? ` · ${it.weightKg} kg` : " · 自重"}
+                        </Text>
+                      </View>
+                      <ThemedIcon name="chevron-down" size={15} color={colors.textFaint} />
+                    </Pressable>
+                    <Pressable
+                      hitSlop={8}
+                      style={styles.removeBtn}
+                      onPress={() => removeItem(i)}
+                      accessibilityLabel="移除动作"
+                    >
+                      <ThemedIcon name="trash-outline" size={16} color={colors.danger} />
+                    </Pressable>
+                  </View>
+                  <View style={styles.stepperStack}>
+                    <MiniStepper
+                      colors={colors}
+                      title="组数"
+                      label="组"
+                      value={it.sets}
+                      onChange={(v) => patchItem(i, { sets: v })}
+                      onStep={(d) => patchItem(i, { sets: stepNumber(it.sets, d, SETS_MIN, SETS_MAX, 4) })}
+                    />
+                    <MiniStepper
+                      colors={colors}
+                      title="次数"
+                      label="次"
+                      value={it.reps}
+                      onChange={(v) => patchItem(i, { reps: v })}
+                      onStep={(d) => patchItem(i, { reps: stepNumber(it.reps, d, REPS_MIN, REPS_MAX, 8) })}
+                    />
+                    <MiniStepper
+                      colors={colors}
+                      title="重量"
+                      label="kg"
+                      value={it.weightKg}
+                      placeholder="自重"
+                      onChange={(v) => patchItem(i, { weightKg: v })}
+                      onStep={(d) => patchItem(i, { weightKg: stepWeight(it.weightKg, d * WEIGHT_STEP) })}
+                      max={WEIGHT_MAX}
+                    />
+                  </View>
+                </View>
+              ))}
+
+              <PressableScale style={styles.addActionCard} haptic onPress={openNewAction}>
+                <View style={styles.addActionIcon}>
+                  <ThemedIcon name="add" size={18} color={colors.primary} />
+                </View>
+                <View style={styles.addActionText}>
+                  <Text style={styles.addActionTitle}>添加动作</Text>
+                  <Text style={styles.addActionHint}>从动作库选择，或创建自定义动作</Text>
+                </View>
+                <ThemedIcon name="chevron-forward" size={17} color={colors.textFaint} />
+              </PressableScale>
+
+            </SheetSection>
+          </ScrollView>
+        )}
       </BottomSheet>
-
-      {/* 选择动作（两步：选动作 → 填组次）。key=pickerSession → 每次打开都是干净状态 */}
-      <ExercisePickerSheet
-        key={pickerSession}
-        visible={pickerOpen}
-        onClose={closePickerSheet}
-        onClosed={onPickerClosed}
-        onConfirm={applyPicked}
-        initial={pickerInitial}
-      />
     </Animated.ScrollView>
     </View>
   );
@@ -518,7 +538,7 @@ const makeStyles = (colors: ThemeColors) =>
       paddingHorizontal: 14,
       paddingVertical: 9,
     },
-    addBtnText: { color: colors.primary, fontSize: 13, fontWeight: "800" },
+    addBtnText: { color: colors.primary, fontSize: typography.callout.fontSize, fontWeight: "800" },
     item: { gap: 6 },
     itemHead: { flexDirection: "row", alignItems: "center", gap: 8 },
     itemTitle: {
@@ -528,69 +548,178 @@ const makeStyles = (colors: ThemeColors) =>
     },
     itemActions: { flexDirection: "row", alignItems: "center", gap: 4, marginLeft: "auto" },
     iconBtn: { width: 30, height: 30, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceMuted },
-    muted: { fontSize: 11, color: colors.textMuted },
+    muted: { fontSize: typography.caption.fontSize, color: colors.textMuted },
     entryRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
-    entryName: { fontSize: 13, color: colors.text, flexShrink: 1 },
-    volume: { fontSize: 11, fontWeight: "700", color: colors.primary },
+    entryName: { fontSize: typography.callout.fontSize, color: colors.text, flexShrink: 1 },
+    volume: { fontSize: typography.caption.fontSize, fontWeight: "700", color: colors.primary },
 
-    form: { gap: 10, paddingTop: 2 },
-    sectionLabel: { fontSize: typography.caption.fontSize, fontWeight: "800", color: colors.textMuted, letterSpacing: 0.3 },
-    input: {
-      backgroundColor: colors.surfaceMuted,
-      borderRadius: 12,
-      paddingHorizontal: 12,
-      paddingVertical: 10,
-      fontSize: 14,
-      color: colors.text,
+    formScroll: { flex: 1 },
+    form: { gap: 16, paddingTop: 2, paddingBottom: 8 },
+    formHero: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      padding: 14,
+      borderRadius: 18,
+      backgroundColor: colors.primarySoft,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.primary,
     },
-    dateRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-    dateChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, backgroundColor: colors.surfaceMuted },
-    dateChipActive: { backgroundColor: colors.primarySoft },
-    dateChipText: { fontSize: typography.caption.fontSize, color: colors.textMuted, fontWeight: "600" },
-    dateChipTextActive: { color: colors.primary, fontWeight: "800" },
-    dateHint: { fontSize: 11, color: colors.textMuted },
-    itemsHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 2 },
-    itemCard: {
-      gap: 8,
-      borderRadius: 14,
-      padding: 10,
+    formHeroIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: 15,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surfaceStrong,
+    },
+    formHeroText: { flex: 1, minWidth: 0, gap: 2 },
+    formHeroTitle: { fontSize: typography.callout.fontSize, fontWeight: "800", color: colors.text },
+    formHeroHint: { fontSize: typography.caption.fontSize, color: colors.textMuted },
+    formHeroBadge: {
+      minWidth: 36,
+      height: 36,
+      paddingHorizontal: 9,
+      borderRadius: 13,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surfaceStrong,
+    },
+    formHeroBadgeText: {
+      fontSize: typography.body.fontSize,
+      fontWeight: "900",
+      color: colors.primary,
+      fontVariant: ["tabular-nums"],
+    },
+    inputShell: {
+      minHeight: 48,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 9,
+      paddingHorizontal: 13,
+      borderRadius: 15,
       backgroundColor: colors.surfaceMuted,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.border,
     },
-    itemCardHead: { flexDirection: "row", alignItems: "center", gap: 8 },
-    exercisePick: { flex: 1, flexDirection: "row", alignItems: "center", gap: 6 },
-    exercisePickText: { fontSize: typography.callout.fontSize, fontWeight: "700", color: colors.text, flexShrink: 1 },
-    exercisePickPlaceholder: { color: colors.textFaint, fontWeight: "600" },
-    /* v6 P2-1：字段独占一行，± 分离 */
-    stepperStack: { gap: 12 },
-    miniStepper: { flexDirection: "row", alignItems: "center", gap: 10 },
-    miniTitle: { width: 36, fontSize: typography.caption.fontSize, fontWeight: "700", color: colors.textMuted },
-    miniBtn: {
-      width: 36,
-      height: 36,
+    input: {
+      flex: 1,
+      minWidth: 0,
+      paddingVertical: 11,
+      fontSize: typography.callout.fontSize,
+      color: colors.text,
+    },
+    dateRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    dateChip: {
+      minHeight: 34,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      paddingHorizontal: 12,
+      borderRadius: 999,
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    dateChipActive: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
+    dateChipText: { fontSize: typography.caption.fontSize, color: colors.textMuted, fontWeight: "700" },
+    dateChipTextActive: { color: colors.primary, fontWeight: "800" },
+    dateFoot: { flexDirection: "row", alignItems: "center", gap: 6 },
+    dateHint: { fontSize: typography.caption.fontSize, color: colors.textMuted, fontVariant: ["tabular-nums"] },
+    itemCard: {
+      gap: 11,
+      borderRadius: 18,
+      padding: 12,
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    itemCardHead: { flexDirection: "row", alignItems: "center", gap: 9 },
+    itemIndex: {
+      width: 32,
+      height: 32,
       borderRadius: 12,
       alignItems: "center",
       justifyContent: "center",
+      backgroundColor: colors.primarySoft,
+    },
+    itemIndexText: { fontSize: typography.caption.fontSize, fontWeight: "900", color: colors.primary, fontVariant: ["tabular-nums"] },
+    exercisePick: {
+      flex: 1,
+      minWidth: 0,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      paddingVertical: 2,
+    },
+    exercisePickPressed: { opacity: 0.65 },
+    exercisePickTextWrap: { flex: 1, minWidth: 0, gap: 1 },
+    exercisePickText: { fontSize: typography.callout.fontSize, fontWeight: "800", color: colors.text },
+    exercisePickMeta: { fontSize: typography.caption.fontSize, color: colors.textMuted, fontVariant: ["tabular-nums"] },
+    exercisePickPlaceholder: { color: colors.textFaint, fontWeight: "700" },
+    removeBtn: {
+      width: 34,
+      height: 34,
+      borderRadius: 12,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.dangerSoft,
+    },
+    stepperStack: { gap: 8 },
+    miniStepper: {
+      minHeight: 48,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 9,
+      paddingHorizontal: 9,
+      paddingVertical: 6,
+      borderRadius: 15,
       backgroundColor: colors.surfaceStrong,
+    },
+    miniTitle: { width: 34, fontSize: typography.caption.fontSize, fontWeight: "800", color: colors.textSecondary },
+    miniBtn: {
+      width: 34,
+      height: 34,
+      borderRadius: 11,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surfaceMuted,
     },
     miniInput: {
       flex: 1,
       minWidth: 44,
       textAlign: "center",
-      paddingVertical: 9,
+      paddingVertical: 8,
       fontSize: typography.callout.fontSize,
-      fontWeight: "800",
+      fontWeight: "900",
       color: colors.text,
-      backgroundColor: colors.surfaceStrong,
-      borderRadius: 10,
+      backgroundColor: colors.surfaceMuted,
+      borderRadius: 11,
+      fontVariant: ["tabular-nums"],
     },
-    miniUnit: { width: 20, fontSize: typography.caption.fontSize, color: colors.textMuted },
-    ghostBtn: { borderRadius: 12, paddingVertical: 10, alignItems: "center", backgroundColor: colors.surfaceMuted },
-    ghostBtnText: { fontSize: 13, fontWeight: "700", color: colors.primary },
-    primaryBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 12, alignItems: "center", marginTop: 2 },
-    primaryBtnText: { color: "#fff", fontSize: typography.callout.fontSize, fontWeight: "800" },
-    // v13 U5：PressButton 的形态微调（高度/圆角由组件按 token 负责，这里只留间距）
-    primaryBtnPressed: { marginTop: 2 },
-    btnDisabled: { opacity: 0.5 },
+    miniUnit: { width: 20, fontSize: typography.caption.fontSize, color: colors.textMuted, fontWeight: "700" },
+    addActionCard: {
+      minHeight: 60,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 11,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: 17,
+      backgroundColor: colors.primarySoft,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.primary,
+      borderStyle: "dashed",
+    },
+    addActionIcon: {
+      width: 38,
+      height: 38,
+      borderRadius: 13,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surfaceStrong,
+    },
+    addActionText: { flex: 1, minWidth: 0, gap: 1 },
+    addActionTitle: { fontSize: typography.callout.fontSize, fontWeight: "800", color: colors.primary },
+    addActionHint: { fontSize: typography.caption.fontSize, color: colors.textMuted },
   });

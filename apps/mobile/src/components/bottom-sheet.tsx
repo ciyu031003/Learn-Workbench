@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/immutability, react-hooks/set-state-in-effect */
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Dimensions, Keyboard, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Dimensions, Keyboard, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import { useReanimatedKeyboardAnimation } from "react-native-keyboard-controller";
@@ -104,7 +104,10 @@ export function BottomSheet({
    * 弹层高度会跟着缩小 → 视觉上"顶边往下缩"（v1.4.0 真机反馈）。
    * "窗口是否已被键盘 resize 吃掉一部分"改用**实测根容器高度**判断（见 eatenByResize）。
    */
-  const screenHeight = Dimensions.get("screen").height;
+  const screenHeight =
+    Platform.OS === "web" && typeof window !== "undefined"
+      ? window.innerHeight
+      : Dimensions.get("screen").height;
   const ratio = parsePercent(height, 0.5);
   /**
    * 高度基准用"屏幕高 − 状态栏 − 底部安全区"，而不是裸 screen 高度：
@@ -450,6 +453,6 @@ const makeStyles = (colors: ThemeColors) =>
       alignItems: "center",
       justifyContent: "center",
     },
-    flex: { flex: 1 },
+    flex: { flex: 1, minHeight: 0 },
     scrollContent: { gap: 12 },
   });

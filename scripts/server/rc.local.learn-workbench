@@ -1,0 +1,9 @@
+#!/bin/bash
+/usr/local/qcloud/irq/net_smp_affinity.sh >/tmp/net_affinity.log 2>&1
+/usr/local/qcloud/cpuidle/cpuidle_support.sh &> /tmp/cpuidle_support.log
+/usr/local/qcloud/rps/set_rps.sh >/tmp/setRps.log 2>&1
+/usr/local/qcloud/xps/set_xps.sh &> /tmp/set_xps.log &
+/usr/local/qcloud/irq/virtio_blk_smp_affinity.sh > /tmp/virtio_blk_affinity.log 2>&1
+/usr/local/qcloud/gpu/nv_gpu_conf.sh >/tmp/nv_gpu_conf.log 2>&1
+/usr/local/qcloud/scripts/disable_rt_runtime_share.sh >/tmp/disable_rt_runtime_share.log 2>&1
+/usr/local/sbin/cosfs-data.sh mount >>/var/log/cosfs-data.log 2>&1
