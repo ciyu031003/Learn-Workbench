@@ -104,6 +104,65 @@ export const learningReviewResponseSchema = z.object({
 });
 export type LearningReviewResponse = z.infer<typeof learningReviewResponseSchema>;
 
+/* ================= 阅读体验状态（阶段 8 = V3 Phase B） ================= */
+
+/** 知识点定位（三段稳定 ID，与 knowledge_points.key / question_knowledge_point 同一套口径） */
+export const knowledgePointRefSchema = z.object({
+  pointKey: z.string().min(3).max(200),
+  trackSlug: z.string().min(1).max(80),
+  stageKey: z.string().min(1).max(120),
+  topicKey: z.string().min(1).max(120),
+});
+export type KnowledgePointRef = z.infer<typeof knowledgePointRefSchema>;
+
+/** 阅读状态上报：progress 可选（不传表示"打开了"）；clientId 用于客户端侧幂等重放 */
+export const learningReadStateInputSchema = knowledgePointRefSchema.extend({
+  progress: z.number().int().min(0).max(100).optional(),
+  clientId: z.string().min(1).max(80).optional(),
+});
+export type LearningReadStateInput = z.infer<typeof learningReadStateInputSchema>;
+
+/** 收藏开关：favorite=false 表示取消收藏（软删除，历史保留可审计） */
+export const learningFavoriteInputSchema = knowledgePointRefSchema.extend({
+  favorite: z.boolean(),
+  note: z.string().max(200).optional(),
+});
+export type LearningFavoriteInput = z.infer<typeof learningFavoriteInputSchema>;
+
+export const learningReadStateSchema = z.object({
+  pointKey: z.string(),
+  trackSlug: z.string(),
+  stageKey: z.string(),
+  topicKey: z.string(),
+  firstReadAt: z.string(),
+  lastReadAt: z.string(),
+  progress: z.number(),
+  readCount: z.number(),
+});
+export type LearningReadState = z.infer<typeof learningReadStateSchema>;
+
+export const learningFavoriteSchema = z.object({
+  pointKey: z.string(),
+  trackSlug: z.string(),
+  stageKey: z.string(),
+  topicKey: z.string(),
+  note: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type LearningFavorite = z.infer<typeof learningFavoriteSchema>;
+
+export const learningLibraryStateSchema = z.object({
+  read: z.array(learningReadStateSchema),
+  favorites: z.array(learningFavoriteSchema),
+  counts: z.object({
+    read: z.number(),
+    favorites: z.number(),
+    /** 近 7 天读过（"本周在读"而不是"历史读过"） */
+    readThisWeek: z.number(),
+  }),
+});
+export type LearningLibraryState = z.infer<typeof learningLibraryStateSchema>;
+
 /** 归一化作答 token：大小写/空白差异不影响判分 */
 export function normalizeAnswerToken(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, " ");

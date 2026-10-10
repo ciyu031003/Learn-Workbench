@@ -1554,6 +1554,54 @@ CREATE TABLE IF NOT EXISTS knowledge_relation (
 
 CREATE INDEX IF NOT EXISTS idx_knowledge_relation_to ON knowledge_relation(to_key, kind);
 
+-- 阅读体验状态（迁移 061：组二 · 阶段 8 = V3 Phase B）
+-- 不设 point_key → knowledge_points(key) 外键：用户学习痕迹优先于内容索引（内容归档不得影响阅读记录）。
+CREATE TABLE IF NOT EXISTS knowledge_read_state (
+  user_id        uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  point_key      text NOT NULL,
+  track_slug     text NOT NULL,
+  stage_key      text NOT NULL,
+  topic_key      text NOT NULL,
+  first_read_at  timestamptz NOT NULL DEFAULT now(),
+  last_read_at   timestamptz NOT NULL DEFAULT now(),
+  progress       int NOT NULL DEFAULT 0 CHECK (progress >= 0 AND progress <= 100),
+  read_count     int NOT NULL DEFAULT 1 CHECK (read_count >= 1),
+  client_id      text,
+  updated_at     timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, point_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_knowledge_read_recent
+  ON knowledge_read_state(user_id, last_read_at DESC);
+CREATE INDEX IF NOT EXISTS idx_knowledge_read_track
+  ON knowledge_read_state(user_id, track_slug, stage_key);
+
+CREATE TABLE IF NOT EXISTS knowledge_favorites (
+  id         bigserial PRIMARY KEY,
+  user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  point_key  text NOT NULL,
+  track_slug text NOT NULL,
+  stage_key  text NOT NULL,
+  topic_key  text NOT NULL,
+  note       text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  deleted_at timestamptz
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_knowledge_favorites_active
+  ON knowledge_favorites(user_id, point_key) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_knowledge_favorites_recent
+  ON knowledge_favorites(user_id, created_at DESC) WHERE deleted_at IS NULL;
+
+DROP TRIGGER IF EXISTS trg_knowledge_read_state_updated ON knowledge_read_state;
+CREATE TRIGGER trg_knowledge_read_state_updated BEFORE UPDATE ON knowledge_read_state
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_knowledge_favorites_updated ON knowledge_favorites;
+CREATE TRIGGER trg_knowledge_favorites_updated BEFORE UPDATE ON knowledge_favorites
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
 -- 作答记录统一视图（桥，不搬数据）：学习库作答 + 职业面试作答的最小公共口径。
 CREATE OR REPLACE VIEW learning_attempts_unified AS
   SELECT
