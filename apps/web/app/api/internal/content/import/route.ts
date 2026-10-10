@@ -6,6 +6,16 @@ import {
   type ContentImportItemInput,
 } from "@/lib/content/import-pipeline";
 import { logger } from "@/lib/logger";
+import { apiError, API_ERROR_CODES, type ApiErrorCode } from "@/lib/api-error";
+import { guardInternalRequest } from "@/lib/internal-guard";
+
+/** ContentImportError.status → 错误码（H2：状态码之外再给机器可读类型）。 */
+function importErrorCode(status: number): ApiErrorCode {
+  if (status === 404) return API_ERROR_CODES.not_found;
+  if (status === 409) return API_ERROR_CODES.conflict;
+  if (status === 401 || status === 403) return API_ERROR_CODES.forbidden;
+  return API_ERROR_CODES.validation_failed;
+}
 
 /**
  * POST /api/internal/content/import —— 内容导入管线（组二 · 阶段 10 = V3 纵线 Phase F）。
@@ -19,10 +29,10 @@ import { logger } from "@/lib/logger";
  *        usage='reference' 的来源只允许 dry-run。冲突/失败不回滚整批（要落明细给人工看）。
  */
 export async function POST(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret || req.headers.get("x-cron-secret") !== secret) {
-    return NextResponse.json({ error: "未授权" }, { status: 403 });
-  }
+  // H2：内部接口统一前门（先限流再验密钥），见 lib/internal-guard.ts。
+  const guard = await guardInternalRequest(req, "content-import");
+  if (!guard.ok) return guard.response;
+  const { requestId } = guard;
 
   const body = (await req.json().catch(() => null)) as {
     sourceKey?: unknown;
@@ -39,11 +49,13 @@ export async function POST(req: Request) {
     if (Number.isInteger(rollbackId) && rollbackId > 0) {
       const result = await rollbackContentImport(rollbackId);
       logger.info("[internal/content/import] rolled back:", JSON.stringify(result));
-      return NextResponse.json({ ok: true, rollback: true, ...result });
+      return NextResponse.json({ ok: true, rollback: true, requestId, ...result });
     }
 
     const sourceKey = typeof body?.sourceKey === "string" ? body.sourceKey.trim() : "";
-    if (!sourceKey) return NextResponse.json({ error: "sourceKey 不能为空" }, { status: 400 });
+    if (!sourceKey) {
+      return apiError(400, "sourceKey 不能为空", { code: API_ERROR_CODES.validation_failed, requestId });
+    }
 
     const items = Array.isArray(body?.items) ? (body.items as ContentImportItemInput[]) : [];
     const scope = Array.isArray(body?.scope)
@@ -55,12 +67,12 @@ export async function POST(req: Request) {
 
     const result = await runContentImport({ sourceKey, mode, commitSha, scope, items, createdBy });
     logger.info("[internal/content/import] done:", JSON.stringify({ sourceKey, mode, batchId: result.batchId }));
-    return NextResponse.json({ ok: true, ...result });
+    return NextResponse.json({ ok: true, requestId, ...result });
   } catch (error) {
     if (error instanceof ContentImportError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return apiError(error.status, error.message, { code: importErrorCode(error.status), requestId });
     }
-    logger.error("content import error", error);
-    return NextResponse.json({ error: "内容导入失败" }, { status: 500 });
+    logger.error("content import error", error, requestId);
+    return apiError(500, "内容导入失败", { code: API_ERROR_CODES.internal_error, requestId });
   }
 }

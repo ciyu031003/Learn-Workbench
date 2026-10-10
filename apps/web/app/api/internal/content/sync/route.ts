@@ -5,6 +5,8 @@ import {
   syncKnowledgeModel,
 } from "@/lib/content/knowledge-model";
 import { logger } from "@/lib/logger";
+import { apiError, API_ERROR_CODES } from "@/lib/api-error";
+import { guardInternalRequest } from "@/lib/internal-guard";
 
 /**
  * POST /api/internal/content/sync —— 把内容包（packages/content）同步进统一内容模型（组二 · 阶段 7 = Phase A）。
@@ -17,10 +19,10 @@ import { logger } from "@/lib/logger";
  *   —— dryRun 只回报 inserted/updated/unchanged 预览，不写库（迁移/上线前先看差异）。
  */
 export async function POST(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret || req.headers.get("x-cron-secret") !== secret) {
-    return NextResponse.json({ error: "未授权" }, { status: 403 });
-  }
+  // H2：内部接口统一前门（先限流再验密钥），见 lib/internal-guard.ts。
+  const guard = await guardInternalRequest(req, "content-sync");
+  if (!guard.ok) return guard.response;
+  const { requestId } = guard;
 
   const body = (await req.json().catch(() => null)) as {
     dryRun?: unknown;
@@ -46,9 +48,9 @@ export async function POST(req: Request) {
     const result = await syncKnowledgeModel(plan, { dryRun });
     logger.info("[internal/content/sync] done:", JSON.stringify({ dryRun, contentVersion, result }));
     // result 自带 contentVersion，这里只补 dryRun / contentUpdatedAt
-    return NextResponse.json({ ok: true, dryRun, contentUpdatedAt, ...result });
+    return NextResponse.json({ ok: true, dryRun, contentUpdatedAt, requestId, ...result });
   } catch (error) {
-    logger.error("content sync error", error);
-    return NextResponse.json({ error: "内容模型同步失败" }, { status: 500 });
+    logger.error("content sync error", error, requestId);
+    return apiError(500, "内容模型同步失败", { code: API_ERROR_CODES.internal_error, requestId });
   }
 }
