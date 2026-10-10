@@ -8,11 +8,11 @@
 
 | 指标 | 数值 |
 |---|---|
-| 路由总数 | 135 |
-| 有同名单测 | 135 / 135 |
-| 已限流 | 15 / 135 |
-| 内部接口（`api/internal/**`） | 6（已限流 6） |
-| 已有 OpenAPI 条目 | 9 / 135 |
+| 路由总数 | 139 |
+| 有同名单测 | 139 / 139 |
+| 已限流 | 16 / 139 |
+| 内部接口（`api/internal/**`） | 7（已限流 7） |
+| 已有 OpenAPI 条目 | 13 / 139 |
 
 ## 2. 未文档化清单（H2 跟进，不阻断）
 
@@ -61,6 +61,7 @@
 | `/api/habits/logs` | GET POST DELETE | 公开 | — | ✅ | — |
 | `/api/import` | POST | 登录 | — | ✅ | — |
 | `/api/internal/content/import` | POST | 内部密钥 | ✅ | ✅ | ✅ |
+| `/api/internal/content/question-status` | POST | 内部密钥 | ✅ | ✅ | ✅ |
 | `/api/internal/content/sync` | POST | 内部密钥 | ✅ | ✅ | ✅ |
 | `/api/internal/cron` | POST | 内部密钥 | ✅ | ✅ | — |
 | `/api/internal/equipment/import` | POST | 内部密钥 | ✅ | ✅ | — |
@@ -93,9 +94,12 @@
 | `/api/jobs/subscriptions/[id]` | DELETE | 登录 | — | ✅ | — |
 | `/api/learning/attempt` | POST | 登录 | — | ✅ | ✅ |
 | `/api/learning/catalog` | GET | 公开 | — | ✅ | ✅ |
+| `/api/learning/content-freshness` | GET | 公开 | — | ✅ | ✅ |
 | `/api/learning/favorite` | POST | 登录 | — | ✅ | ✅ |
 | `/api/learning/library-state` | GET | 登录 | — | ✅ | ✅ |
+| `/api/learning/point-states` | GET | 登录 | — | ✅ | ✅ |
 | `/api/learning/progress` | GET | 登录 | — | ✅ | ✅ |
+| `/api/learning/question-status` | GET | 公开 | — | ✅ | ✅ |
 | `/api/learning/read` | POST | 登录 | — | ✅ | ✅ |
 | `/api/learning/review` | GET | 登录 | — | ✅ | ✅ |
 | `/api/logs` | GET POST | 登录 | — | ✅ | — |
