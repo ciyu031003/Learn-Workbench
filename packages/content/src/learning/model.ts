@@ -56,6 +56,31 @@ export const QUALITY_LEVEL_HINT: Record<KnowledgeQualityLevel, string> = {
   L4: "模板齐全，可正式学习",
 };
 
+/**
+ * 能不能进正式学习列表（Phase C 的门槛）：
+ * L0/L1 只是占位或摘要，**不进**课程列表；L2 起可学习，其中只有 L4 算"已审核可学习"。
+ */
+export const LEARNABLE_QUALITY_LEVELS: readonly KnowledgeQualityLevel[] = ["L2", "L3", "L4"];
+/** UI 上"已审核可学习"的等级（与 L2/L3 的"待补充"区分开） */
+export const REVIEWED_QUALITY_LEVEL: KnowledgeQualityLevel = "L4";
+
+/** UI 角标文案（Web / 移动端共用同一份，避免各写各的） */
+export const QUALITY_LEVEL_LABEL: Record<KnowledgeQualityLevel, string> = {
+  L0: "占位",
+  L1: "仅摘要",
+  L2: "待补讲解",
+  L3: "待补全",
+  L4: "已审核",
+};
+
+export function isLearnable(level: KnowledgeQualityLevel): boolean {
+  return LEARNABLE_QUALITY_LEVELS.includes(level);
+}
+
+export function isReviewed(level: KnowledgeQualityLevel): boolean {
+  return level === REVIEWED_QUALITY_LEVEL;
+}
+
 export interface KnowledgeQuality {
   level: KnowledgeQualityLevel;
   missing: string[];
@@ -261,6 +286,28 @@ function primarySourceKey(track: LearningTrack): string | null {
 
 function knowledgePointTags(track: LearningTrack, stage: LearningStage): string[] {
   return [...new Set([track.category, stage.title].map((tag) => String(tag).trim()).filter(Boolean))];
+}
+
+/**
+ * 某个知识点关联到几道题（与 buildKnowledgeModel 同一口径）：
+ * 题目自带 `topicKey` 命中即算；该阶段只有一个知识点时，阶段内的题按回退口径也算。
+ * UI 侧只需要单个知识点的质量等级时用它，不必跑整棵模型。
+ */
+export function linkedQuestionCount(track: LearningTrack, stage: LearningStage, topic: LearningTopic): number {
+  const stageTopics = stage.topics.length;
+  return track.questions.filter((question) => {
+    if (question.stageKey !== stage.key) return false;
+    if (question.topicKey) return question.topicKey === topic.key;
+    return stageTopics === 1;
+  }).length;
+}
+
+/** 单个知识点的质量分级（UI 角标 / 校验脚本共用；口径与 buildKnowledgeModel 完全一致）。 */
+export function qualityOfTopic(track: LearningTrack, stage: LearningStage, topic: LearningTopic): KnowledgeQuality {
+  return gradeKnowledgeTopic(topic, {
+    linkedQuestions: linkedQuestionCount(track, stage, topic),
+    licenseKnown: primarySourceKey(track) !== null,
+  });
 }
 
 /**
