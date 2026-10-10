@@ -230,6 +230,14 @@ function TrackContent({ track }: { track: LearningTrack }) {
               disabled={wrongKeys.length === 0}
               onPress={() => startSession(undefined, "wrong")}
             />
+            <PracticeModeCard
+              icon="repeat"
+              title="复习队列"
+              desc="到期复习（间隔复习）+ 错题，统一入口"
+              meta="按间隔安排"
+              accent={track.accent}
+              onPress={() => router.push("/quiz/review" as never)}
+            />
             <Text style={styles.stageBankLabel}>按阶段练习</Text>
             {track.stages.map((stage) => {
               const points = track.questions.filter((question) => question.stageKey === stage.key);
@@ -266,6 +274,9 @@ function TrackContent({ track }: { track: LearningTrack }) {
                 <RecordStat value={String(progress.correct)} label="最近答对" />
                 <RecordStat value={String(progress.wrong)} label="需要复习" />
               </View>
+              <Text style={styles.masteryBasis}>
+                掌握度口径：近 5 次加权正确率 × 时间新鲜度（久未练会衰减），与到期复习分开统计。
+              </Text>
             </View>
             <RecentAttempts track={track} attempts={attempts} />
           </View>
@@ -728,6 +739,7 @@ const makeStyles = (colors: ThemeColors) =>
     recordValue: { ...typography.display, color: colors.text },
     recordLabel: { ...typography.callout, color: colors.textMuted },
     recordGrid: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md },
+    masteryBasis: { ...typography.micro, color: colors.textMuted, marginTop: spacing.sm, lineHeight: 15 },
     recordStat: { flex: 1, borderRadius: radius.md, padding: spacing.md, backgroundColor: colors.surfaceMuted, gap: 2 },
     recordStatValue: { ...typography.title2, color: colors.text },
     recordStatLabel: { ...typography.micro, color: colors.textMuted },

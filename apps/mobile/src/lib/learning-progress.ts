@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { LearningQuestion, LearningTrack } from "@learn-workbench/content";
+import { gradeLearningAnswer, summarizeLearningAttempts as summarizeShared, type MasteryBasis } from "@learn-workbench/shared";
 import { localKey } from "@/lib/focus-series";
 
 const ATTEMPTS_KEY = "lwb-learning-attempts-v1";
@@ -20,40 +21,33 @@ export interface TrackProgressSummary {
   mastery: number;
   wrong: number;
   today: number;
-}
-
-function normalize(value: string): string {
-  return value.trim().toLowerCase().replace(/\s+/g, " ");
+  masteryBasis: MasteryBasis;
 }
 
 export function isLearningAnswerCorrect(question: LearningQuestion, chosenAnswer: string[]): boolean {
-  const chosen = [...new Set(chosenAnswer.map(normalize))].sort();
-  const expected = [...new Set(question.answer.map(normalize))].sort();
-  return chosen.length === expected.length && chosen.every((value, index) => value === expected[index]);
+  return gradeLearningAnswer(question.answer, chosenAnswer);
 }
 
 export function summarizeLearningAttempts(
   attempts: LearningAttempt[],
   points: LearningQuestion[],
-  today = localKey(new Date())
+  today = localKey(new Date()),
+  now: Date = new Date()
 ): TrackProgressSummary {
-  const pointKeys = new Set(points.map((point) => point.key));
-  const scoped = attempts.filter((attempt) => pointKeys.has(attempt.questionKey));
-  const latest = new Map<string, LearningAttempt>();
-  for (const attempt of scoped) {
-    const current = latest.get(attempt.questionKey);
-    if (!current || current.createdAt < attempt.createdAt) latest.set(attempt.questionKey, attempt);
-  }
-  const unique = [...latest.values()];
-  const correct = unique.filter((attempt) => attempt.isCorrect).length;
-  const wrong = unique.filter((attempt) => !attempt.isCorrect).length;
-  const attempted = unique.length;
+  // 口径与 Web 端一致（@learn-workbench/shared）；日期按设备本地日历切分。
+  const summary = summarizeShared(attempts, {
+    pointKeys: new Set(points.map((point) => point.key)),
+    todayKey: today,
+    dayKey: (iso) => localKey(new Date(iso)),
+    now,
+  });
   return {
-    attempted,
-    correct,
-    wrong,
-    mastery: attempted === 0 ? 0 : Math.round((correct / attempted) * 100),
-    today: scoped.filter((attempt) => localKey(new Date(attempt.createdAt)) === today).length,
+    attempted: summary.attempted,
+    correct: summary.correct,
+    wrong: summary.wrong,
+    mastery: summary.mastery,
+    today: summary.today,
+    masteryBasis: summary.masteryBasis,
   };
 }
 

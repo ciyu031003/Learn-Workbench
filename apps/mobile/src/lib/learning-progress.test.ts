@@ -46,9 +46,12 @@ describe("learning progress", () => {
         attempt(second, true, "2026-10-09T11:00:00.000Z"),
       ],
       python.questions.slice(0, 2),
-      "2026-10-09"
+      "2026-10-09",
+      new Date("2026-10-09T11:00:00.000Z")
     );
-    expect(summary).toEqual({ attempted: 2, correct: 2, wrong: 0, mastery: 100, today: 2 });
+    expect(summary).toMatchObject({ attempted: 2, correct: 2, wrong: 0, mastery: 100, today: 2 });
+    expect(summary.masteryBasis).toMatchObject({ window: 5, weightedAccuracy: 1 });
+    expect(summary.masteryBasis.decay).toBeCloseTo(1, 5);
   });
 
   it("counts today on the device's local calendar", () => {

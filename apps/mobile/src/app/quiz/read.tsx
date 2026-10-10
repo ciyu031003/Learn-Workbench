@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import Animated from "react-native-reanimated";
@@ -10,6 +10,7 @@ import {
 } from "@learn-workbench/content";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
+import { BottomSheet } from "@/components/bottom-sheet";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { useScreenEntrance } from "@/lib/use-screen-entrance";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
@@ -17,7 +18,7 @@ import { useTheme } from "@/theme";
 import { radius, shadows, spacing, typography, type ThemeColors } from "@/theme/tokens";
 
 export default function KnowledgeReaderScreen() {
-  const params = useLocalSearchParams<{ track?: string; stage?: string }>();
+  const params = useLocalSearchParams<{ track?: string; stage?: string; topic?: string }>();
   const track = getLearningTrack(params.track);
   const { colors } = useTheme();
 
@@ -26,36 +27,57 @@ export default function KnowledgeReaderScreen() {
   }
 
   const stageIndex = track.stages.findIndex((item) => item.key === params.stage);
-  const stage = stageIndex >= 0 ? track.stages[stageIndex] : track.stages[0];
-  if (!stage) {
+  const resolvedStageIndex = stageIndex >= 0 ? stageIndex : 0;
+  const stage = track.stages[resolvedStageIndex];
+  if (!stage || stage.topics.length === 0) {
     return <MissingChapter colors={colors} />;
   }
+  const topicIndex = stage.topics.findIndex((topic) => topic.key === params.topic);
 
-  return <KnowledgeReader track={track} stage={stage} stageIndex={stageIndex < 0 ? 0 : stageIndex} />;
+  return (
+    <KnowledgeReader
+      track={track}
+      stage={stage}
+      stageIndex={resolvedStageIndex}
+      topicIndex={topicIndex >= 0 ? topicIndex : 0}
+    />
+  );
 }
 
 function KnowledgeReader({
   track,
   stage,
   stageIndex,
+  topicIndex,
 }: {
   track: LearningTrack;
   stage: LearningStage;
   stageIndex: number;
+  topicIndex: number;
 }) {
   const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const header = useLargeTitleHeader();
   const entrance = useScreenEntrance();
   const tabBarSpace = useTabBarSpace();
+  const [outlineOpen, setOutlineOpen] = useState(false);
   const trackTint = dark ? `${track.accent}24` : track.softAccent;
-  const previous = stageIndex > 0 ? track.stages[stageIndex - 1] : null;
-  const next = stageIndex + 1 < track.stages.length ? track.stages[stageIndex + 1] : null;
+  const topic = stage.topics[topicIndex] ?? stage.topics[0];
+  const topicCount = stage.topics.length;
 
-  const openChapter = (chapterKey: string) => {
+  // 扁平化的"上一节 / 下一节"：跨章节时自动落到相邻章的边界知识点
+  const flat = track.stages.flatMap((item, si) =>
+    item.topics.map((entry, ti) => ({ stage: item, stageIndex: si, topic: entry, topicIndex: ti }))
+  );
+  const cursor = flat.findIndex((entry) => entry.stageIndex === stageIndex && entry.topicIndex === topicIndex);
+  const previous = cursor > 0 ? flat[cursor - 1] : null;
+  const next = cursor >= 0 && cursor < flat.length - 1 ? flat[cursor + 1] : null;
+
+  const openTopic = (stageKey: string, topicKey: string) => {
+    setOutlineOpen(false);
     router.replace({
       pathname: "/quiz/read",
-      params: { track: track.slug, stage: chapterKey },
+      params: { track: track.slug, stage: stageKey, topic: topicKey },
     } as never);
   };
 
@@ -74,9 +96,21 @@ function KnowledgeReader({
   return (
     <View style={styles.root}>
       <ScreenHeaderStickyBar
-        title={stage.title}
+        title={topic.title}
         scrollY={header.scrollY}
         backTo={`/quiz/${track.slug}`}
+        right={
+          <PressableScale
+            haptic
+            scaleTo={0.94}
+            onPress={() => setOutlineOpen(true)}
+            style={styles.outlineButton}
+            accessibilityRole="button"
+            accessibilityLabel="打开课程目录"
+          >
+            <ThemedIcon name="list-outline" size={20} color={colors.text} />
+          </PressableScale>
+        }
       />
       <Animated.ScrollView
         onScroll={header.onScroll}
@@ -90,21 +124,33 @@ function KnowledgeReader({
           subtitle={`第 ${stageIndex + 1} 章 · ${stage.title}`}
         />
 
-        <Animated.View entering={entrance(0)} style={[styles.hero, { backgroundColor: trackTint }]}>
+        <Animated.View entering={entrance(0)} style={styles.progressRow}>
+          <View style={[styles.progressChip, { backgroundColor: trackTint }]}>
+            <Text style={[styles.progressChipText, { color: track.accent }]}>
+              知识点 {topicIndex + 1} / {topicCount}
+            </Text>
+          </View>
+          <PressableScale haptic onPress={() => setOutlineOpen(true)} style={styles.progressOutline}>
+            <ThemedIcon name="list-outline" size={15} color={colors.textSecondary} />
+            <Text style={styles.progressOutlineText}>目录</Text>
+          </PressableScale>
+        </Animated.View>
+
+        <Animated.View entering={entrance(1)} style={[styles.hero, { backgroundColor: trackTint }]}>
           <View style={styles.heroTop}>
             <View style={styles.chapterBadge}>
               <Text style={[styles.chapterBadgeText, { color: track.accent }]}>
-                CHAPTER {String(stageIndex + 1).padStart(2, "0")}
+                CHAPTER {String(stageIndex + 1).padStart(2, "0")} · {String(topicIndex + 1).padStart(2, "0")}
               </Text>
             </View>
             <Text style={styles.heroWeeks}>{stage.weeks}</Text>
           </View>
-          <Text style={styles.heroTitle}>{stage.title}</Text>
-          <Text style={styles.heroSummary}>{stage.goal}</Text>
+          <Text style={styles.heroTitle}>{topic.title}</Text>
+          <Text style={styles.heroSummary}>{topic.summary}</Text>
           <View style={styles.heroMeta}>
             <View style={styles.heroMetaItem}>
               <ThemedIcon name="book-outline" size={17} color={track.accent} />
-              <Text style={styles.heroMetaText}>{stage.topics.length} 个知识点</Text>
+              <Text style={styles.heroMetaText}>{stage.title}</Text>
             </View>
             <View style={styles.heroMetaItem}>
               <ThemedIcon name="checkmark-circle" size={17} color={track.accent} />
@@ -113,60 +159,37 @@ function KnowledgeReader({
           </View>
         </Animated.View>
 
-        <Animated.View entering={entrance(1)} style={styles.outcome}>
-          <Text style={styles.outcomeLabel}>本章验收</Text>
-          <Text style={styles.outcomeText}>{stage.outcome}</Text>
+        {topicIndex === 0 ? (
+          <Animated.View entering={entrance(2)} style={styles.outcome}>
+            <Text style={styles.outcomeLabel}>本章目标</Text>
+            <Text style={styles.outcomeText}>{stage.goal}</Text>
+            <Text style={[styles.outcomeLabel, styles.outcomeLabelSpaced]}>本章验收</Text>
+            <Text style={styles.outcomeText}>{stage.outcome}</Text>
+          </Animated.View>
+        ) : null}
+
+        {topicIndex === 0 && stage.lesson ? <StageLessonCard track={track} lesson={stage.lesson} /> : null}
+
+        <Animated.View entering={entrance(3)}>
+          <TopicArticle
+            track={track}
+            topic={topic}
+            index={topicIndex}
+            onPractice={() => startTopicPractice(topic.key)}
+          />
         </Animated.View>
 
-        {stage.lesson ? <StageLessonCard track={track} lesson={stage.lesson} /> : null}
-
-        <View style={styles.articleList}>
-          {stage.topics.map((topic, index) => (
-            <Animated.View key={topic.key} entering={entrance(index + 2)}>
-              <TopicArticle
-                track={track}
-                topic={topic}
-                index={index}
-                onPractice={() => startTopicPractice(topic.key)}
-              />
-            </Animated.View>
-          ))}
-        </View>
-
-        <Animated.View entering={entrance(7)} style={styles.finishCard}>
-          <View style={[styles.finishIcon, { backgroundColor: trackTint }]}>
-            <ThemedIcon name="checkmark-done" size={24} color={track.accent} />
-          </View>
-          <Text style={styles.finishTitle}>这一章读完了</Text>
-          <Text style={styles.finishText}>
-            用自己的话复述一次核心概念，再去题库完成对应阶段练习，学习效果最好。
-          </Text>
-          <PressableScale
-            haptic
-            onPress={() =>
-              router.push({
-                pathname: "/quiz/session",
-                params: { track: track.slug, stage: stage.key, mode: "stage" },
-              } as never)
-            }
-            style={[styles.finishPrimary, { backgroundColor: track.accent }]}
-          >
-            <ThemedIcon name="play" size={17} color="#FFFFFF" />
-            <Text style={styles.finishPrimaryText}>练习本章题库</Text>
-          </PressableScale>
-        </Animated.View>
-
-        <View style={styles.chapterNav}>
+        <Animated.View entering={entrance(4)} style={styles.chapterNav}>
           {previous ? (
             <PressableScale
               haptic
-              onPress={() => openChapter(previous.key)}
+              onPress={() => openTopic(previous.stage.key, previous.topic.key)}
               style={styles.chapterNavButton}
             >
               <ThemedIcon name="chevron-back" size={17} color={colors.textSecondary} />
               <View style={styles.chapterNavBody}>
-                <Text style={styles.chapterNavLabel}>上一章</Text>
-                <Text style={styles.chapterNavTitle} numberOfLines={1}>{previous.title}</Text>
+                <Text style={styles.chapterNavLabel}>上一节</Text>
+                <Text style={styles.chapterNavTitle} numberOfLines={1}>{previous.topic.title}</Text>
               </View>
             </PressableScale>
           ) : (
@@ -175,18 +198,71 @@ function KnowledgeReader({
           {next ? (
             <PressableScale
               haptic
-              onPress={() => openChapter(next.key)}
+              onPress={() => openTopic(next.stage.key, next.topic.key)}
               style={[styles.chapterNavButton, styles.chapterNavNext]}
             >
               <View style={[styles.chapterNavBody, styles.chapterNavBodyNext]}>
-                <Text style={styles.chapterNavLabel}>下一章</Text>
-                <Text style={styles.chapterNavTitle} numberOfLines={1}>{next.title}</Text>
+                <Text style={styles.chapterNavLabel}>下一节</Text>
+                <Text style={styles.chapterNavTitle} numberOfLines={1}>{next.topic.title}</Text>
               </View>
               <ThemedIcon name="chevron-forward" size={17} color={colors.textSecondary} />
             </PressableScale>
           ) : null}
-        </View>
+        </Animated.View>
       </Animated.ScrollView>
+
+      <BottomSheet visible={outlineOpen} onClose={() => setOutlineOpen(false)} title="课程目录" height="78%">
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.outlineScroll}>
+          {track.stages.map((item, si) => {
+            const activeStage = si === stageIndex;
+            return (
+              <View key={item.key} style={styles.outlineStage}>
+                <PressableScale
+                  haptic
+                  onPress={() => openTopic(item.key, item.topics[0]?.key ?? "")}
+                  style={[styles.outlineStageRow, activeStage && { backgroundColor: trackTint }]}
+                >
+                  <Text style={[styles.outlineStageIndex, activeStage && { color: track.accent }]}>
+                    {String(si + 1).padStart(2, "0")}
+                  </Text>
+                  <View style={styles.outlineStageBody}>
+                    <Text style={styles.outlineStageTitle} numberOfLines={1}>{item.title}</Text>
+                    <Text style={styles.outlineStageMeta}>
+                      {item.topics.length} 个知识点{item.weeks ? ` · ${item.weeks}` : ""}
+                    </Text>
+                  </View>
+                </PressableScale>
+                {activeStage
+                  ? item.topics.map((entry, ti) => (
+                      <PressableScale
+                        key={entry.key}
+                        haptic
+                        onPress={() => openTopic(item.key, entry.key)}
+                        style={styles.outlineTopicRow}
+                      >
+                        <View
+                          style={[
+                            styles.outlineDot,
+                            ti === topicIndex && { backgroundColor: track.accent },
+                          ]}
+                        />
+                        <Text
+                          style={[
+                            styles.outlineTopicText,
+                            ti === topicIndex && { color: track.accent, fontWeight: "800" },
+                          ]}
+                          numberOfLines={2}
+                        >
+                          {ti + 1}. {entry.title}
+                        </Text>
+                      </PressableScale>
+                    ))
+                  : null}
+              </View>
+            );
+          })}
+        </ScrollView>
+      </BottomSheet>
     </View>
   );
 }
@@ -447,6 +523,29 @@ const makeStyles = (colors: ThemeColors) =>
     root: { flex: 1, backgroundColor: colors.canvas },
     scroll: { flex: 1 },
     content: { padding: spacing.lg, gap: spacing.lg },
+    outlineButton: {
+      width: 36,
+      height: 36,
+      borderRadius: 12,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surfaceMuted,
+    },
+    progressRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    progressChip: { borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 7 },
+    progressChipText: { ...typography.caption, fontWeight: "800" },
+    progressOutline: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: spacing.sm, paddingVertical: 6 },
+    progressOutlineText: { ...typography.caption, fontWeight: "700", color: colors.textSecondary },
+    outlineScroll: { paddingBottom: spacing.xl, gap: spacing.sm },
+    outlineStage: { gap: 2, marginBottom: spacing.md },
+    outlineStageRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, borderRadius: radius.md, padding: spacing.sm },
+    outlineStageIndex: { ...typography.caption, fontWeight: "900", color: colors.textMuted, width: 26 },
+    outlineStageBody: { flex: 1, gap: 1 },
+    outlineStageTitle: { ...typography.callout, fontWeight: "800", color: colors.text },
+    outlineStageMeta: { ...typography.caption, color: colors.textMuted },
+    outlineTopicRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, paddingVertical: 8, paddingLeft: spacing.xl },
+    outlineDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.borderStrong, marginTop: 7 },
+    outlineTopicText: { flex: 1, ...typography.caption, color: colors.textSecondary, lineHeight: 19 },
     hero: { borderRadius: radius.xl, padding: spacing.xl, gap: spacing.md, ...shadows.card },
     heroTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md },
     chapterBadge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.pill, backgroundColor: colors.surfaceStrong },
@@ -459,6 +558,7 @@ const makeStyles = (colors: ThemeColors) =>
     heroMetaText: { ...typography.caption, color: colors.textSecondary },
     outcome: { borderRadius: radius.lg, padding: spacing.lg, backgroundColor: colors.surfaceStrong, gap: 5, ...shadows.card },
     outcomeLabel: { ...typography.micro, color: colors.primary },
+    outcomeLabelSpaced: { marginTop: spacing.sm },
     outcomeText: { ...typography.callout, color: colors.text },
     stageLesson: { borderRadius: radius.xl, padding: spacing.lg, backgroundColor: colors.surfaceStrong, gap: spacing.md, ...shadows.card },
     stageLessonHead: { flexDirection: "row", alignItems: "center", gap: spacing.md },
@@ -480,7 +580,6 @@ const makeStyles = (colors: ThemeColors) =>
     completionLabel: { ...typography.micro, color: colors.success },
     completionRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
     completionText: { flex: 1, ...typography.caption, color: colors.textSecondary },
-    articleList: { gap: spacing.lg },
     article: { gap: spacing.lg, paddingVertical: spacing.sm },
     articleHead: { flexDirection: "row", alignItems: "flex-start", gap: spacing.md },
     articleNumber: { width: 44, height: 44, borderRadius: 15, alignItems: "center", justifyContent: "center" },
@@ -520,12 +619,6 @@ const makeStyles = (colors: ThemeColors) =>
     checkpointText: { flex: 1, ...typography.caption, color: colors.textMuted },
     practiceAction: { minHeight: 42, marginTop: spacing.xs, borderRadius: radius.md, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm },
     practiceActionText: { ...typography.callout, fontWeight: "700" },
-    finishCard: { alignItems: "center", borderRadius: radius.xl, padding: spacing.xl, backgroundColor: colors.surfaceStrong, gap: spacing.sm, ...shadows.card },
-    finishIcon: { width: 54, height: 54, borderRadius: 18, alignItems: "center", justifyContent: "center" },
-    finishTitle: { ...typography.title2, color: colors.text },
-    finishText: { ...typography.body, textAlign: "center", color: colors.textSecondary },
-    finishPrimary: { width: "100%", minHeight: 50, marginTop: spacing.sm, borderRadius: radius.md, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm },
-    finishPrimaryText: { ...typography.callout, color: "#FFFFFF", fontWeight: "700" },
     chapterNav: { flexDirection: "row", gap: spacing.md },
     chapterNavSpacer: { flex: 1 },
     chapterNavButton: { flex: 1, minHeight: 68, flexDirection: "row", alignItems: "center", gap: spacing.sm, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.surfaceMuted },

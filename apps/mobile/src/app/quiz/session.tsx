@@ -18,12 +18,13 @@ import {
   wrongQuestionKeys,
   type LearningAttempt,
 } from "@/lib/learning-progress";
+import { fetchDueReviewKeys } from "@/lib/learning-review";
 import { useAppStore } from "@/store/app-store";
 import { useReducedMotion } from "@/lib/motion";
 import { useTheme } from "@/theme";
 import { radius, shadows, spacing, typography, type ThemeColors } from "@/theme/tokens";
 
-type SessionMode = "daily" | "stage" | "wrong";
+type SessionMode = "daily" | "stage" | "wrong" | "due";
 
 export default function QuizSessionScreen() {
   const params = useLocalSearchParams<{
@@ -78,10 +79,18 @@ function SessionContent({
 
   const loadSession = useCallback(async () => {
     const attempts = await loadLearningAttempts();
-    const wrong = mode === "wrong" ? wrongQuestionKeys(attempts, track.slug) : [];
+    // wrong/due 都按"错题池"取题；due 优先用服务端到期队列，拿不到再回退本地错题
+    const poolMode = mode === "wrong" || mode === "due";
+    let wrong: string[] = [];
+    if (mode === "wrong") {
+      wrong = wrongQuestionKeys(attempts, track.slug);
+    } else if (mode === "due") {
+      const due = await fetchDueReviewKeys(track.slug);
+      wrong = due.length > 0 ? due : wrongQuestionKeys(attempts, track.slug);
+    }
     return pickLearningQuestions(track, {
-      stageKey: mode === "wrong" ? null : stageKey,
-      topicKey: mode === "wrong" ? null : topicKey,
+      stageKey: poolMode ? null : stageKey,
+      topicKey: poolMode ? null : topicKey,
       count: mode === "daily" ? 12 : 8,
       seed: seed || localKey(new Date()),
       wrongKeys: wrong,

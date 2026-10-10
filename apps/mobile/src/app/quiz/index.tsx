@@ -70,6 +70,26 @@ export default function QuizLibraryScreen() {
       >
         <ScreenHeaderLargeTitle title="技术题库" subtitle="搜索技术 · 学习路线 · 每日练习" />
 
+        <Animated.View entering={entrance(0)}>
+          <PressableScale
+            haptic
+            scaleTo={0.985}
+            onPress={() => router.push("/quiz/review" as never)}
+            style={styles.reviewBanner}
+            accessibilityRole="button"
+            accessibilityLabel="打开复习队列"
+          >
+            <View style={styles.reviewBannerIcon}>
+              <ThemedIcon name="repeat-outline" size={20} color={colors.primary} />
+            </View>
+            <View style={styles.reviewBannerBody}>
+              <Text style={styles.reviewBannerTitle}>复习队列</Text>
+              <Text style={styles.reviewBannerText}>到期复习 + 错题重练，统一入口</Text>
+            </View>
+            <ThemedIcon name="chevron-forward" size={18} color={colors.textFaint} />
+          </PressableScale>
+        </Animated.View>
+
         <Animated.View entering={entrance(0)} style={styles.searchShell}>
           <ThemedIcon name="search" size={19} color={colors.textMuted} />
           <TextInput
@@ -185,6 +205,25 @@ const makeStyles = (colors: ThemeColors) =>
     root: { flex: 1, backgroundColor: colors.canvas },
     scroll: { flex: 1 },
     content: { padding: spacing.lg, gap: spacing.lg },
+    reviewBanner: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.md,
+      borderRadius: radius.lg,
+      padding: spacing.md,
+      backgroundColor: colors.primarySoft,
+    },
+    reviewBannerIcon: {
+      width: 42,
+      height: 42,
+      borderRadius: 14,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surfaceStrong,
+    },
+    reviewBannerBody: { flex: 1, gap: 2 },
+    reviewBannerTitle: { ...typography.callout, fontWeight: "800", color: colors.text },
+    reviewBannerText: { ...typography.caption, color: colors.textMuted },
     searchShell: {
       minHeight: 52,
       flexDirection: "row",

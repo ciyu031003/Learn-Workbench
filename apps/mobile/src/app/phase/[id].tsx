@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/immutability */
 import { useEffect, useMemo, useState } from "react";
 import Animated from "react-native-reanimated";
-import { ActivityIndicator, Alert, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
 import { Card } from "@/components/card";
 import { BottomSheet } from "@/components/bottom-sheet";
@@ -17,6 +17,24 @@ import { fetchRoadmap, readCachedRoadmap } from "@/lib/roadmap";
 import type { Phase } from "@learn-workbench/shared";
 import { pct } from "@learn-workbench/shared";
 import { shadows, typography } from "@/theme/tokens";
+import { MarkdownLite } from "@/components/md-lite";
+
+type RoadmapItem = { id: number; title: string; contentMd: string; sortOrder: number };
+
+/** 读取 MD 导入的学习内容条目（/api/roadmap 返回的 topic.items），做一次运行时校验 */
+function readItems(topic: unknown): RoadmapItem[] {
+  const raw = (topic as { items?: unknown } | null)?.items;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((item): item is RoadmapItem => {
+    if (!item || typeof item !== "object") return false;
+    const candidate = item as Partial<RoadmapItem>;
+    return (
+      typeof candidate.id === "number" &&
+      typeof candidate.title === "string" &&
+      typeof candidate.contentMd === "string"
+    );
+  });
+}
 
 const THEME_COLORS: [string, string][] = [
   ["#2F74C0", "#78C2E8"],
@@ -52,7 +70,7 @@ export default function PhaseScreen() {
   const [topicSheet, setTopicSheet] = useState(false);
   const [topicTitle, setTopicTitle] = useState("");
   const [topicSummary, setTopicSummary] = useState("");
-  const [activeTopic, setActiveTopic] = useState<{ id: number; title: string; summary: string | null; isCustom?: boolean } | null>(null);
+  const [activeTopic, setActiveTopic] = useState<{ id: number; title: string; summary: string | null; isCustom?: boolean; items: RoadmapItem[] } | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -166,7 +184,15 @@ export default function PhaseScreen() {
                 <PressableScale
                   key={topic.topicKey}
                   haptic
-                  onPress={() => setActiveTopic({ id: topic.id, title: topic.title, summary: topic.summary ?? null, isCustom: "isCustomSubject" in topic && !!topic.isCustomSubject })}
+                  onPress={() =>
+                    setActiveTopic({
+                      id: topic.id,
+                      title: topic.title,
+                      summary: topic.summary ?? null,
+                      isCustom: "isCustomSubject" in topic && !!topic.isCustomSubject,
+                      items: readItems(topic),
+                    })
+                  }
                   style={styles.topicCard}
                 >
                   <View style={[styles.topicBlob, { backgroundColor: c[1] }]} />
@@ -223,6 +249,19 @@ export default function PhaseScreen() {
                   <Text style={styles.modalTitle}>{activeTopic.title}</Text>
                 </View>
                 <Text style={styles.modalSub}>{activeTopic.summary || "这个阶段的学习内容会在这里展开。"}</Text>
+                {activeTopic.items.length > 0 ? (
+                  <ScrollView style={styles.modalItems} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                    <Text style={styles.modalItemsLabel}>学习内容 · {activeTopic.items.length} 条</Text>
+                    <View style={styles.modalItemsList}>
+                      {activeTopic.items.map((item, index) => (
+                        <View key={item.id} style={styles.modalItemCard}>
+                          <Text style={styles.modalItemTitle}>{index + 1}. {item.title}</Text>
+                          <MarkdownLite markdown={item.contentMd} colors={colors} />
+                        </View>
+                      ))}
+                    </View>
+                  </ScrollView>
+                ) : null}
                 <Pressable style={styles.modalPrimary} onPress={() => { toggleTopic(activeTopic.id); setActiveTopic(null); }}>
                   <ThemedIcon name={progress[activeTopic.id]?.done ? "checkmark-done" : "checkmark-circle"} size={16} color="#fff" />
                   <Text style={styles.modalPrimaryText}>{progress[activeTopic.id]?.done ? "已完成" : "标记为已完成"}</Text>
@@ -297,6 +336,11 @@ const makeStyles = (colors: ThemeColors) =>
     modalDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.accent },
     modalTitle: { flex: 1, fontSize: 18, fontWeight: "800", color: colors.text },
     modalSub: { fontSize: 13, lineHeight: 20, color: colors.textMuted },
+    modalItems: { maxHeight: 260 },
+    modalItemsLabel: { fontSize: typography.micro.fontSize, fontWeight: "800", color: colors.textMuted, marginBottom: 8 },
+    modalItemsList: { gap: 10 },
+    modalItemCard: { borderRadius: 12, backgroundColor: colors.surfaceMuted, padding: 12, gap: 6 },
+    modalItemTitle: { fontSize: typography.caption.fontSize, fontWeight: "800", color: colors.text },
     modalPrimary: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 12 },
     modalPrimaryText: { color: "#fff", fontSize: 14, fontWeight: "800" },
     modalDelete: { alignSelf: "center", padding: 8 },
