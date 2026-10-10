@@ -13,6 +13,8 @@
  *   - 模型里已消失的知识点只做**软归档**（status='archived'），不物理删 —— 历史作答与复习卡片仍可追溯。
  */
 import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
 import {
   buildKnowledgeModel,
   learningTracks,
@@ -23,6 +25,25 @@ import { pgPool } from "@/lib/db";
 
 /** 内容复查周期：超过这个天数没更新就标记 stale（Phase G 的"可能过时"提示依赖它）。 */
 export const DEFAULT_REVIEW_TTL_DAYS = 180;
+
+/**
+ * 内容包在仓库中的固定相对位置。用它向上找仓库根，而不是直接用 `process.cwd()`：
+ * Next dev/build 的 cwd 是 `apps/web`，从那里跑 `git log -- packages/content/...` 什么也读不到，
+ * 于是版本号会静默退化成 `unknown`（阶段 10 实测到）。
+ */
+const CONTENT_PACKAGE_MARKER = join("packages", "content", "src", "learning");
+
+/** 从 cwd 逐级向上找到包含内容包的仓库根；找不到就返回 cwd，由调用方按"拿不到版本"处理。 */
+export function resolveContentRepoRoot(cwd: string = process.cwd()): string {
+  let dir = cwd;
+  for (let depth = 0; depth < 4; depth++) {
+    if (existsSync(join(dir, CONTENT_PACKAGE_MARKER))) return dir;
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return cwd;
+}
 
 export interface KnowledgePointWriteRow {
   key: string;
@@ -347,7 +368,7 @@ export async function syncKnowledgeModel(
  * 内容包版本：`packages/content/src/learning` 的最后一次 git 提交时间 + 短 sha。
  * 拿不到 git（例如打包环境）时返回 unknowns，调用方据此写入 'unknown'，不编造日期。
  */
-export function readContentPackageVersion(cwd: string = process.cwd()): {
+export function readContentPackageVersion(cwd: string = resolveContentRepoRoot()): {
   version: string;
   updatedAt: string | null;
 } {

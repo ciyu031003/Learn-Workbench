@@ -4,6 +4,7 @@ import {
   DEFAULT_REVIEW_TTL_DAYS,
   buildContentSyncPlan,
   readContentPackageVersion,
+  resolveContentRepoRoot,
 } from "./knowledge-model";
 
 const model = buildKnowledgeModel(learningTracks);
@@ -66,8 +67,14 @@ describe("buildContentSyncPlan（纯函数，dry-run 与正式同步共用）", 
 describe("readContentPackageVersion", () => {
   it("从 git 读内容包版本（真实调用，非 mock）", () => {
     const { version, updatedAt } = readContentPackageVersion();
-    expect(version === "unknown" || /^[0-9a-f]{7,12}$/.test(version)).toBe(true);
+    // 默认路径必须解析到仓库根，所以这里应当是真实短 sha，而不是 unknown
+    expect(version, "默认应能解析到仓库根并读到内容包版本").toMatch(/^[0-9a-f]{7,12}$/);
     if (updatedAt) expect(Number.isNaN(Date.parse(updatedAt))).toBe(false);
+  });
+
+  it("从 apps/web 子目录也能向上找到仓库根（Next dev 的 cwd 就是这里）", () => {
+    const root = resolveContentRepoRoot(process.cwd());
+    expect(readContentPackageVersion(root).version).toBe(readContentPackageVersion().version);
   });
 
   it("目录不是仓库时返回 unknown，而不是抛错", () => {
