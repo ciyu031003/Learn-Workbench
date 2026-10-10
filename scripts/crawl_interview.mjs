@@ -8,12 +8,22 @@
  *   node scripts/crawl_interview.mjs --from-file a.md --import --dry-run
  *                                                            # 离线解析本地 markdown → 证明解析/判重/分块链路
  *   node scripts/crawl_interview.mjs --limit 50 --files 5     # 小样本
+ *   node scripts/crawl_interview.mjs --concurrency 6 --timeout 30000
+ *                                                            # 调并发/超时（默认 4 并发、20s 超时、失败重试 2 次）
+ *   node scripts/crawl_interview.mjs --no-cache               # 忽略本地缓存、整轮重新下载
  *
  * 合规约定（用户已确认「抓公开内容、保留来源」）：
  *  - 只抓公开仓库的 markdown（经 jsDelivr CDN 读取，不绕任何反爬）；
  *  - 每条都带 sourceUrl / sourceSite / license，入库后可一键下架（is_listed）；
  *  - 只存「问题 + 答案文本」，不搬运图片等资源；
  *  - 抓取限速，且只取每个文件里结构清晰的问答标题。
+ *
+ * 韧性口径（组一 · 阶段 6 加固）：
+ *  - 每个请求带 20s 超时（AbortController），失败按 400/800ms 指数退避重试 2 次 → 单文件抖动不再丢一批题；
+ *  - 并发 4（可 --concurrency 调），每个请求之间仍 sleep 160ms，整体限速不放松；
+ *  - 抓成功的原文落 .local/interview-out/raw/ 缓存，重跑默认走缓存 → **可续跑**、也少打扰 CDN；
+ *  - 抓失败的文件写 .local/interview-out/failures.json，下一轮**优先重爬**这些文件；
+ *  - 抓取统计（请求数/重试数/成功失败文件数）落 crawl-stats.json 并打印。
  *
  * 去重口径（v1.26 起**由服务端负责**，见 apps/web/lib/interview/import-core.ts）：
  *  归一化 = 全角空格→半角 + 转小写 + 去掉所有空白；external_key = <sourceSite>#<sha1(归一化题目前 16 位)>。
@@ -23,6 +33,17 @@
  */
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { createHash } from "node:crypto";
+import {
+  DEFAULT_FETCH_POLICY,
+  backoffDelay,
+  crawlStats,
+  normalizeFileList,
+  recordFailure,
+  restoreFailures,
+  serializeFailures,
+  splitIntoBatches,
+} from "./lib/crawl-core.mjs";
 
 function parseArgs(argv) {
   const out = {};
@@ -49,6 +70,20 @@ const API_BASE = String(args.api ?? process.env.LWB_API_URL ?? "http://127.0.0.1
 const CRON_SECRET = (process.env.CRON_SECRET ?? "").trim();
 const UA = { "user-agent": "Mozilla/5.0 (compatible; LWB-InterviewCrawler/1.0)" };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** 抓取策略（阶段 6：超时 / 重试 / 限速 / 并发） */
+const POLICY = {
+  timeoutMs: Math.max(1000, Number(args.timeout ?? DEFAULT_FETCH_POLICY.timeoutMs)),
+  retries: Math.max(0, Number(args.retries ?? DEFAULT_FETCH_POLICY.retries)),
+  backoffMs: DEFAULT_FETCH_POLICY.backoffMs,
+  gapMs: DEFAULT_FETCH_POLICY.gapMs,
+  concurrency: Math.min(8, Math.max(1, Number(args.concurrency ?? DEFAULT_FETCH_POLICY.concurrency))),
+};
+/** 原文缓存（可续跑）；--no-cache 时整轮重新下载 */
+const USE_CACHE = !args["no-cache"];
+const RAW_DIR = path.join(OUT_DIR, "raw");
+const FAILURES_FILE = path.join(OUT_DIR, "failures.json");
+const STATS_FILE = path.join(OUT_DIR, "crawl-stats.json");
 
 /** 目录名 → 中文模块名（让题库的模块筛选更可读） */
 const SUB_NAME = {
@@ -101,16 +136,80 @@ const SOURCES = [
   },
 ];
 
-async function fetchText(url) {
-  const res = await fetch(url, { headers: UA });
-  if (!res.ok) throw new Error("HTTP " + res.status + " " + url);
-  return res.text();
+/**
+ * 带超时 + 指数退避重试的 GET。每次尝试都计入 stats.requests，重试计入 stats.retried。
+ * 超时用 AbortController 实现（fetch 原生没有 timeout 参数）。
+ */
+async function fetchText(url, options = {}) {
+  const stats = options.stats;
+  const tries = 1 + Math.max(0, Number(options.retries ?? POLICY.retries));
+  let lastError = null;
+  for (let attempt = 1; attempt <= tries; attempt++) {
+    if (stats) stats.requests++;
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), POLICY.timeoutMs);
+    try {
+      const res = await fetch(url, { headers: UA, signal: ac.signal });
+      if (!res.ok) throw new Error("HTTP " + res.status + " " + url);
+      return await res.text();
+    } catch (e) {
+      // undici 会把 abort 包成 TypeError("fetch failed"，cause=AbortError)，两种都要认得
+      const aborted = e?.name === "AbortError" || e?.cause?.name === "AbortError";
+      lastError = aborted ? new Error("超时 " + POLICY.timeoutMs + "ms " + url) : e;
+      if (attempt < tries) {
+        if (stats) stats.retried++;
+        await sleep(backoffDelay(attempt, POLICY.backoffMs));
+      }
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  throw lastError ?? new Error("抓取失败 " + url);
+}
+
+function rawCachePath(url) {
+  return path.join(RAW_DIR, createHash("sha1").update(url).digest("hex") + ".md");
+}
+
+/** 读原文：默认先看本地缓存（可续跑），未命中再抓网络并回写缓存。 */
+async function readDoc(url, stats) {
+  if (USE_CACHE) {
+    try {
+      return { text: await readFile(rawCachePath(url), "utf8"), cached: true };
+    } catch {
+      /* 缓存未命中，走网络 */
+    }
+  }
+  const text = await fetchText(url, { stats });
+  if (USE_CACHE) {
+    await mkdir(RAW_DIR, { recursive: true });
+    await writeFile(rawCachePath(url), text, "utf8");
+  }
+  return { text, cached: false };
+}
+
+/** 上一轮的失败清单（URL → 错误），本轮用来优先重爬。 */
+async function loadFailures() {
+  try {
+    return restoreFailures(JSON.parse(await readFile(FAILURES_FILE, "utf8")));
+  } catch {
+    return new Map();
+  }
+}
+
+async function saveFailures(failures) {
+  await mkdir(OUT_DIR, { recursive: true });
+  await writeFile(
+    FAILURES_FILE,
+    JSON.stringify({ generatedAt: new Date().toISOString(), failures: serializeFailures(failures) }, null, 2) + "\n",
+    "utf8"
+  );
 }
 
 /** jsDelivr 文件清单（flat 结构），便于只挑 markdown */
-async function listFiles(source) {
+async function listFiles(source, stats) {
   const url = "https://data.jsdelivr.com/v1/packages/gh/" + source.repo + "@" + source.ref + "?structure=flat";
-  const data = JSON.parse(await fetchText(url));
+  const data = JSON.parse(await fetchText(url, { stats, retries: 1 }));
   const files = (data?.files ?? []).map((f) => String(f.name ?? "").replace(/^\//, ""));
   return files.filter((f) => f.endsWith(".md") && source.include.test(f));
 }
@@ -258,10 +357,15 @@ async function postImport(items, run) {
   return { imported, skipped, duplicateInPayload };
 }
 
-/** 抓取（默认网络；--from-file 时只读本地文件，用于离线自检） */
-async function collect() {
+/**
+ * 抓取（默认网络；--from-file 时只读本地文件，用于离线自检）。
+ * 网络分支：并发下载（默认 4）+ 每请求超时/重试 + 原文缓存续跑 + 失败清单优先重爬。
+ * `stats` 会就地累加请求数/重试数/成功失败文件数，供调用方落盘与回填运行记录。
+ */
+async function collect(stats) {
   const all = [];
   const seen = new Set();
+  const failures = new Map();
 
   if (FROM_FILE) {
     const source = SOURCES[0];
@@ -277,45 +381,79 @@ async function collect() {
     const fresh = dedupe(items, seen);
     all.push(...fresh.slice(0, TOTAL_LIMIT));
     console.log("[interview] --from-file 解析出 " + items.length + " 条，去重后 " + all.length + " 条");
-    return all;
+    return { all, failures };
+  }
+
+  const previousFailures = await loadFailures();
+  if (previousFailures.size > 0) {
+    console.log("[interview] 上次失败清单 " + previousFailures.size + " 个文件（本轮优先重爬）");
   }
 
   for (const source of SOURCES) {
     let files = [];
     try {
-      files = await listFiles(source);
+      files = await listFiles(source, stats);
     } catch (e) {
       console.warn("[interview] 文件清单失败：" + source.repo + " " + e.message);
       continue;
     }
+    let targets = normalizeFileList(files).slice(0, FILE_LIMIT);
+    // 上轮抓失败的排到最前：先补上缺的，再按文件名顺序拿新的
+    if (previousFailures.size > 0) {
+      const retryFirst = targets.filter((f) => previousFailures.has(rawUrl(source, f)));
+      if (retryFirst.length > 0) {
+        const retrySet = new Set(retryFirst);
+        targets = [...retryFirst, ...targets.filter((f) => !retrySet.has(f))];
+        console.log("[interview] " + source.repo + " 本轮优先重爬 " + retryFirst.length + " 个历史失败文件");
+      }
+    }
     console.log("[interview] " + source.repo + " 命中 " + files.length + " 个 markdown（取前 " + FILE_LIMIT + "）");
-    files = files.sort((a, b) => a.localeCompare(b));
-    for (const file of files.slice(0, FILE_LIMIT)) {
+
+    const batches = splitIntoBatches(targets, POLICY.concurrency);
+    for (const batch of batches) {
       if (all.length >= TOTAL_LIMIT) break;
-      let md = "";
-      try {
-        md = await fetchText(rawUrl(source, file));
-      } catch {
-        continue;
+      // 并发下载这一批；单文件失败只记进 failures，不影响整批
+      const docs = await Promise.all(
+        batch.map(async (file) => {
+          const url = rawUrl(source, file);
+          try {
+            const { text, cached } = await readDoc(url, stats);
+            if (!cached && POLICY.gapMs > 0) await sleep(POLICY.gapMs); // 限速只对真实网络请求生效
+            return { file, text };
+          } catch (e) {
+            recordFailure(failures, url, e);
+            console.warn("  ! 跳过 " + file + "（" + String(e?.message ?? e).slice(0, 80) + "）");
+            return null;
+          }
+        })
+      );
+
+      // 排序后再解析，保证并发下产物顺序仍然是确定的
+      const ok = docs.filter(Boolean).sort((a, b) => a.file.localeCompare(b.file));
+      stats.filesOk += ok.length;
+      stats.filesFailed += docs.length - ok.length;
+      for (const { file, text } of ok) {
+        const module = source.moduleOf(file);
+        const tags = file.replace(/^docs\//, "").split("/").slice(0, 3).map((s) => s.replace(/\.md$/, ""));
+        const items = parseQA(text, { module, tags, sourceUrl: blobUrl(source, file), sourceSite: source.sourceSite, license: source.license });
+        const fresh = dedupe(items, seen);
+        let added = 0;
+        for (const item of fresh) {
+          if (all.length >= TOTAL_LIMIT) break;
+          all.push(item);
+          added++;
+        }
+        if (added > 0) console.log("  +" + String(added).padStart(3) + " " + module + "  ← " + file);
       }
-      const module = source.moduleOf(file);
-      const tags = file.replace(/^docs\//, "").split("/").slice(0, 3).map((s) => s.replace(/\.md$/, ""));
-      const items = parseQA(md, { module, tags, sourceUrl: blobUrl(source, file), sourceSite: source.sourceSite, license: source.license });
-      const fresh = dedupe(items, seen);
-      let added = 0;
-      for (const item of fresh) {
-        if (all.length >= TOTAL_LIMIT) break;
-        all.push(item);
-        added++;
-      }
-      if (added > 0) console.log("  +" + String(added).padStart(3) + " " + module + "  ← " + file);
-      await sleep(160);
     }
   }
-  return all;
+
+  await saveFailures(failures);
+  if (failures.size > 0) console.warn("[interview] 本轮失败 " + failures.size + " 个文件 → " + FAILURES_FILE);
+  return { all, failures };
 }
 
-async function writeLocal(all) {
+async function writeLocal(all, stats) {
   await mkdir(OUT_DIR, { recursive: true });
   await writeFile(path.join(OUT_DIR, "manifest.json"), JSON.stringify(all, null, 2) + "\n", "utf8");
 
@@ -337,13 +475,38 @@ async function writeLocal(all) {
   console.log("[interview] 完成：" + all.length + " 条 → " + OUT_DIR);
   console.log("[interview] 模块分布：" + JSON.stringify(counts));
   console.log("[interview] 分块：" + byModule.size + " 个（chunks/）");
+
+  const summary = crawlStats(stats);
+  await writeFile(
+    STATS_FILE,
+    JSON.stringify({ generatedAt: new Date().toISOString(), items: all.length, ...summary }, null, 2) + "\n",
+    "utf8"
+  );
+  console.log(
+    "[interview] 抓取统计：文件成功 " + summary.filesOk + " / 失败 " + summary.filesFailed +
+      "（共 " + summary.filesTotal + "），请求 " + summary.requests + " 次，其中重试 " + summary.retried + " 次"
+  );
+  return summary;
+}
+
+/** 失败清单压缩成一行，写进运行记录（status=partial 时可见），避免"部分失败仍报成功"。 */
+function failuresSummary(failures, limit = 400) {
+  if (!failures || failures.size === 0) return null;
+  const parts = [...failures.entries()].map(([url, error]) => {
+    const file = url.split("/").pop() ?? url;
+    return file + "(" + String(error).slice(0, 60) + ")";
+  });
+  const text = failures.size + " 个文件抓取失败：" + parts.join("; ");
+  return text.length > limit ? text.slice(0, limit - 1) + "…" : text;
 }
 
 async function main() {
+  const stats = { requests: 0, retried: 0, filesOk: 0, filesFailed: 0 };
   let all = [];
+  let failures = new Map();
   try {
-    all = await collect();
-    await writeLocal(all);
+    ({ all, failures } = await collect(stats));
+    await writeLocal(all, stats);
   } catch (e) {
     // 抓取阶段就失败：把运行记录写成 failed，避免 cron 侧一直停在 running
     if (DO_IMPORT && RUN_ID) {
@@ -361,12 +524,14 @@ async function main() {
     return;
   }
 
-  const stats = await postImport(all, {
+  const result = await postImport(all, {
     runId: RUN_ID || undefined,
-    status: all.length > 0 ? "success" : "partial",
+    status: failures.size > 0 || all.length === 0 ? "partial" : "success",
     fetched: all.length,
+    error: failuresSummary(failures),
+    sourcesResult: crawlStats(stats),
   });
-  console.log("[interview] 入库 " + stats.imported + " 条（跳过 " + stats.skipped + "，payload 内重复 " + stats.duplicateInPayload + "）");
+  console.log("[interview] 入库 " + result.imported + " 条（跳过 " + result.skipped + "，payload 内重复 " + result.duplicateInPayload + "）");
 }
 
 await main();
