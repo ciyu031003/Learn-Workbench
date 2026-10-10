@@ -5,6 +5,7 @@ import { todayISO } from "@learn-workbench/shared";
 import { logger } from "@/lib/logger";
 import { rateLimit } from "@/lib/rate-limit";
 import { dailyCacheGet, dailyCacheSet } from "@/lib/daily-cache";
+import { isFlagEnabled } from "@/lib/flags";
 
 /**
  * AI 每日建议（P2）：把今日学习/运动/精力上下文交给 LLM，生成一句可执行的小建议。
@@ -26,6 +27,11 @@ function aiConfig(): { apiKey: string; baseUrl: string; model: string } | null {
 }
 
 export async function GET() {
+  // H4：特性开关（kill switch）。关掉时按"未启用"返回，前端回落规则版建议。
+  if (!isFlagEnabled("ai_tip")) {
+    return NextResponse.json({ enabled: false, tip: null, error: "AI 建议已关闭" }, { status: 503 });
+  }
+
   const cfg = aiConfig();
   if (!cfg) {
     return NextResponse.json({ enabled: false, tip: null, error: "未配置 AI_API_KEY" }, { status: 503 });
