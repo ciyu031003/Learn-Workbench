@@ -1,5 +1,6 @@
 import { aiEngineeringTrack } from "./ai-engineering";
 import { dataAnalysisTrack } from "./data-analysis";
+import { databaseTrack } from "./database";
 import { javaTrack } from "./java";
 import { javascriptTrack } from "./javascript";
 import { linuxTrack } from "./linux";
@@ -16,6 +17,7 @@ const baseLearningTracks: LearningTrack[] = [
   powerBiTrack,
   linuxTrack,
   aiEngineeringTrack,
+  databaseTrack,
 ];
 
 export const learningTracks: LearningTrack[] = baseLearningTracks.map(expandLearningTrack);

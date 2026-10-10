@@ -6,7 +6,10 @@ export type LearningCategory =
   | "前端开发"
   | "人工智能"
   | "操作系统"
-  | "系统设计";
+  | "系统设计"
+  | "数据库"
+  | "云平台"
+  | "网络工程";
 
 export type LearningLevel = "入门" | "进阶" | "综合";
 export type LearningQuestionType = "single" | "judge";

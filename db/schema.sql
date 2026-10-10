@@ -1723,4 +1723,29 @@ VALUES
   ('langgraph', 'LangGraph', 'https://github.com/langchain-ai/langgraph', 'langchain-ai/langgraph', 'main', 'MIT', 'import', '保留 LICENSE 与署名；仅导入许可范围内内容（MIT）', '有状态 Agent、工作流和人工确认节点')
 ON CONFLICT (key) DO NOTHING;
 
+-- 内容扩容新增来源（迁移 063：组二 · 阶段 11）许可经 GitHub License API 核验
+INSERT INTO content_source (key, name, url, repo, ref, license, usage, obligation, note, verified_at)
+VALUES
+  ('cmu-bustub', 'CMU 15-445 BusTub', 'https://github.com/cmu-db/bustub', 'cmu-db/bustub', 'master', 'MIT', 'import',
+   '保留 LICENSE 与署名；仅导入许可范围内内容（MIT）', '教学数据库引擎：缓冲池、B-Tree 索引与查询执行的实现参考', now()),
+  ('postgresql', 'PostgreSQL', 'https://github.com/postgres/postgres', 'postgres/postgres', 'master', 'PostgreSQL License', 'reference',
+   '仅外链引用，不复制正文；保留署名（PostgreSQL License）', '官方实现与回归测试，SQL 语义和查询计划的行为依据', now()),
+  ('sqlite', 'SQLite', 'https://github.com/sqlite/sqlite', 'sqlite/sqlite', 'master', 'Public Domain (SQLite Blessing)', 'reference',
+   '仅外链引用，不复制正文；保留署名（Public Domain）', '精简 SQL 引擎实现，用于理解 B-Tree 组织与查询计划', now()),
+  ('az104', 'Microsoft AZ-104 Azure Administrator', 'https://github.com/MicrosoftLearning/AZ-104-MicrosoftAzureAdministrator', 'MicrosoftLearning/AZ-104-MicrosoftAzureAdministrator', 'main', 'MIT', 'import',
+   '保留 LICENSE 与署名；仅导入许可范围内内容（MIT）', '微软官方 Azure 管理实验室与运维任务结构', now()),
+  ('aks-labs', 'Azure Samples AKS Labs', 'https://github.com/Azure-Samples/aks-labs', 'Azure-Samples/aks-labs', 'main', 'MIT', 'import',
+   '保留 LICENSE 与署名；仅导入许可范围内内容（MIT）', 'AKS 集群动手实验：发布、扩缩与排障', now()),
+  ('kubernetes', 'Kubernetes', 'https://github.com/kubernetes/kubernetes', 'kubernetes/kubernetes', 'master', 'Apache-2.0', 'reference',
+   '仅外链引用，不复制正文；保留署名（Apache-2.0）', '上游实现与 API 约定参考', now()),
+  ('k8s-hard-way', 'Kubernetes The Hard Way', 'https://github.com/kelseyhightower/kubernetes-the-hard-way', 'kelseyhightower/kubernetes-the-hard-way', 'master', 'Apache-2.0', 'reference',
+   '仅外链引用，不复制正文；保留署名（Apache-2.0）', '从零搭建集群的步骤参考', now()),
+  ('tailscale', 'Tailscale', 'https://github.com/tailscale/tailscale', 'tailscale/tailscale', 'main', 'BSD-3-Clause', 'import',
+   '保留 LICENSE 与署名；仅导入许可范围内内容（BSD-3-Clause）', 'WireGuard 组网与密钥管理的工程实现参考', now()),
+  ('napalm', 'NAPALM', 'https://github.com/napalm-automation/napalm', 'napalm-automation/napalm', 'develop', 'Apache-2.0', 'reference',
+   '仅外链引用，不复制正文；保留署名（Apache-2.0）', '多厂商设备自动化抽象层参考', now()),
+  ('wireshark', 'Wireshark', 'https://github.com/wireshark/wireshark', 'wireshark/wireshark', 'master', 'GPL-2.0', 'reference',
+   '仅外链引用，不复制正文；保留署名（GPL-2.0）', '抓包与协议解析参考，不复制正文', now())
+ON CONFLICT (key) DO NOTHING;
+
 

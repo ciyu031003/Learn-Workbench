@@ -40,12 +40,13 @@ describe("learning library content contract", () => {
       "power-bi",
       "linux",
       "ai-engineering",
+      "database",
     ]);
     expect(new Set(learningTracks.map((track) => track.slug)).size).toBe(learningTracks.length);
     expect(learningCategories).toEqual([...new Set(learningTracks.map((track) => track.category))]);
-    expect(learningTracks.reduce((total, track) => total + track.questions.length, 0)).toBe(328);
-    expect(learningTracks.flatMap((track) => track.questions).filter((question) => question.topicKey)).toHaveLength(168);
-    expect(learningTracks.reduce((total, track) => total + track.stages.length, 0)).toBeGreaterThanOrEqual(28);
+    expect(learningTracks.reduce((total, track) => total + track.questions.length, 0)).toBe(352);
+    expect(learningTracks.flatMap((track) => track.questions).filter((question) => question.topicKey)).toHaveLength(192);
+    expect(learningTracks.reduce((total, track) => total + track.stages.length, 0)).toBeGreaterThanOrEqual(32);
   });
 
   it("keeps every track, stage, topic and question fully authored", () => {
