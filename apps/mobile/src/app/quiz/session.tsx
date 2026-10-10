@@ -184,6 +184,22 @@ function SessionContent({
   if (finished) {
     const total = questions.length;
     const percent = total === 0 ? 0 : Math.round((correctCount / total) * 100);
+    // 双向关联：答完能回到对应知识点（优先用本次练习的 topic，退回首题所属阶段）
+    const knowledgeStageKey = stageKey ?? questions[0]?.stageKey;
+    const goToKnowledge = () => {
+      if (!knowledgeStageKey) {
+        router.back();
+        return;
+      }
+      router.push({
+        pathname: "/quiz/read",
+        params: {
+          track: track.slug,
+          stage: knowledgeStageKey,
+          ...(topicKey ? { topic: topicKey } : {}),
+        },
+      } as never);
+    };
     return (
       <View style={styles.root}>
         <SessionTopBar title={track.title} progress={1} onClose={() => router.back()} />
@@ -201,6 +217,9 @@ function SessionContent({
               <Text style={styles.finishPrimaryText}>再来一组</Text>
             </PressableScale>
           ) : null}
+          <PressableScale haptic onPress={goToKnowledge} style={styles.finishSecondary}>
+            <Text style={styles.finishSecondaryText}>回看知识点</Text>
+          </PressableScale>
           <PressableScale haptic onPress={() => router.back()} style={styles.finishSecondary}>
             <Text style={styles.finishSecondaryText}>返回题库</Text>
           </PressableScale>

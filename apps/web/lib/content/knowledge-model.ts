@@ -93,11 +93,25 @@ export interface PrerequisiteWriteRow {
   relationSource: string;
 }
 
+/** 题目生命周期行（迁移 067）：内容同步只负责登记/刷新元数据，**不覆盖人工设定的 status**。 */
+export interface QuestionWriteRow {
+  key: string;
+  trackSlug: string;
+  stageKey: string;
+  topicKey: string | null;
+  type: string;
+  difficulty: string;
+  sourceKey: string | null;
+  fingerprint: string;
+  contentVersion: string;
+}
+
 export interface ContentSyncPlan {
   points: KnowledgePointWriteRow[];
   links: QuestionLinkWriteRow[];
   relations: RelationWriteRow[];
   prerequisites: PrerequisiteWriteRow[];
+  questions: QuestionWriteRow[];
   unlinkedQuestions: string[];
   stats: KnowledgeModelStats;
   contentVersion: string;
@@ -123,7 +137,8 @@ export function buildContentSyncPlan(options: BuildContentSyncPlanOptions = {}):
   const contentUpdatedAt = options.contentUpdatedAt ?? null;
   const reviewTtlDays = Math.max(1, Number(options.reviewTtlDays ?? DEFAULT_REVIEW_TTL_DAYS));
   const now = options.now ?? new Date();
-  const model = buildKnowledgeModel(options.tracks ?? learningTracks);
+  const tracks = options.tracks ?? learningTracks;
+  const model = buildKnowledgeModel(tracks);
   // 复查基准：优先用内容包最后提交时间；拿不到就退回当前时间（并如实写进 content_updated_at 为 null）
   const reviewBase = contentUpdatedAt ? new Date(contentUpdatedAt) : now;
   const publishedAt = (contentUpdatedAt ? new Date(contentUpdatedAt) : now).toISOString();
@@ -155,11 +170,26 @@ export function buildContentSyncPlan(options: BuildContentSyncPlanOptions = {}):
     tags: point.tags,
   }));
 
+  const questions: QuestionWriteRow[] = tracks.flatMap((track) =>
+    track.questions.map((question) => ({
+      key: question.key,
+      trackSlug: track.slug,
+      stageKey: question.stageKey,
+      topicKey: question.topicKey ?? null,
+      type: question.type,
+      difficulty: question.difficulty,
+      sourceKey: question.sourceKey,
+      fingerprint: `${question.type}|${question.difficulty}|${question.stem}`,
+      contentVersion,
+    }))
+  );
+
   return {
     points,
     links: model.questionLinks.map((link) => ({ ...link })),
     relations: model.relations.map((relation) => ({ ...relation })),
     prerequisites: model.prerequisites.map((edge) => ({ ...edge })),
+    questions,
     unlinkedQuestions: model.unlinkedQuestionKeys,
     stats: model.stats,
     contentVersion,
@@ -176,6 +206,7 @@ export interface ContentSyncResult {
   links: number;
   relations: number;
   prerequisites: number;
+  questions: number;
   unlinkedQuestions: number;
   contentVersion: string;
   stalePoints: number;
@@ -261,6 +292,7 @@ export async function syncKnowledgeModel(
     links: 0,
     relations: 0,
     prerequisites: 0,
+    questions: 0,
     unlinkedQuestions: plan.unlinkedQuestions.length,
     contentVersion: plan.contentVersion,
     stalePoints: 0,
@@ -284,6 +316,38 @@ export async function syncKnowledgeModel(
 
     if (!options.dryRun) {
       const keys = plan.points.map((point) => point.key);
+      // 题目生命周期：登记/刷新元数据；人工设定的 status（draft/review/archived）不被同步覆盖。
+      if (plan.questions.length > 0) {
+        const upserted = await client.query(
+          `INSERT INTO learning_questions
+             (key, track_slug, stage_key, topic_key, type, difficulty, source_key, fingerprint, content_version)
+           SELECT * FROM unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::text[],
+                                $6::text[], $7::text[], $8::text[], $9::text[])
+           ON CONFLICT (key) DO UPDATE SET
+             track_slug = EXCLUDED.track_slug,
+             stage_key = EXCLUDED.stage_key,
+             topic_key = EXCLUDED.topic_key,
+             type = EXCLUDED.type,
+             difficulty = EXCLUDED.difficulty,
+             source_key = EXCLUDED.source_key,
+             fingerprint = EXCLUDED.fingerprint,
+             content_version = EXCLUDED.content_version,
+             updated_at = now()`,
+          [
+            plan.questions.map((question) => question.key),
+            plan.questions.map((question) => question.trackSlug),
+            plan.questions.map((question) => question.stageKey),
+            plan.questions.map((question) => question.topicKey),
+            plan.questions.map((question) => question.type),
+            plan.questions.map((question) => question.difficulty),
+            plan.questions.map((question) => question.sourceKey),
+            plan.questions.map((question) => question.fingerprint),
+            plan.questions.map((question) => question.contentVersion),
+          ]
+        );
+        result.questions = upserted.rowCount ?? 0;
+      }
+
       // 只归档**内容包管的 published 行**：draft / review 是人工或导入的暂存稿，
       // 内容包里没有它们不代表"内容消失"，不能顺手归档（否则草稿区每同步一次就被清空）。
       const archived = await client.query(

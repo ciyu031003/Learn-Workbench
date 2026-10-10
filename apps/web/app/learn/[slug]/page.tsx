@@ -17,6 +17,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { LearningMastery } from "@/components/learning/mastery-badge";
 import { CodeCopyButton, FavoriteMark, ReadBadge, useLibraryState } from "@/components/learning/library-state";
+import { FreshnessBadge, PointStateSummary, StateDots, useContentFreshness, usePointStates } from "@/components/learning/point-states";
+import type { PointStateResult } from "@/lib/learning-states";
 import { LEARNING_DIFFICULTY_LABEL, stageStats, topicQuestions, trackStats } from "@/lib/learning-stats";
 import { ArrowLeft, BookOpen, CheckCircle2, ChevronLeft, ChevronRight, ListChecks, Sparkles, TriangleAlert, Wrench } from "lucide-react";
 
@@ -24,6 +26,9 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
   const { slug } = use(params);
   const track = getLearningTrack(slug);
   const library = useLibraryState(track?.slug);
+  // 阶段 13/14：知识点五状态 + 内容时效
+  const pointStates = usePointStates(track?.slug);
+  const staleKeys = useContentFreshness(track?.slug);
   const [openStages, setOpenStages] = useState<Set<string>>(
     () => new Set(track?.stages[0] ? [track.stages[0].key] : [])
   );
@@ -49,6 +54,16 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
       document.getElementById(`kp-${topicKey}`)?.scrollIntoView({ behavior, block: "start" });
     }, 60);
   }, []);
+
+  // 深链：#kp-<topicKey> 由题库「回知识点」与分享链接带上；自动展开所在阶段并滚动过去
+  useEffect(() => {
+    if (!track) return;
+    const hash = typeof window !== "undefined" ? window.location.hash : "";
+    if (!hash.startsWith("#kp-")) return;
+    const topicKey = decodeURIComponent(hash.slice(4));
+    const stage = track.stages.find((item) => item.topics.some((topic) => topic.key === topicKey));
+    if (stage) openAndScroll(stage.key, topicKey);
+  }, [track, openAndScroll]);
 
   if (!track) {
     return (
@@ -112,6 +127,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
               </ul>
             </Section>
           </div>
+          {pointStates.status === "ready" ? <PointStateSummary points={pointStates.points} /> : null}
         </CardContent>
       </Card>
 
@@ -222,6 +238,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                       const flatIndex = flatTopics.findIndex(
                         (entry) => entry.stageKey === stage.key && entry.topicKey === topic.key
                       );
+                      const kpKey = knowledgePointKeyOf({ trackSlug: track.slug, stageKey: stage.key, topicKey: topic.key });
                       return (
                         <li key={topic.key} id={`kp-${topic.key}`} className="scroll-mt-24">
                           <TopicCard
@@ -231,6 +248,8 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                             stage={stage}
                             stageKey={stage.key}
                             library={library}
+                            pointState={pointStates.points[kpKey]}
+                            stale={staleKeys.has(kpKey)}
                             previous={flatIndex > 0 ? flatTopics[flatIndex - 1] : null}
                             next={flatIndex >= 0 && flatIndex < flatTopics.length - 1 ? flatTopics[flatIndex + 1] : null}
                             onNavigate={openAndScroll}
@@ -346,6 +365,8 @@ function TopicCard({
   stage,
   stageKey,
   library,
+  pointState,
+  stale,
   previous,
   next,
   onNavigate,
@@ -356,6 +377,8 @@ function TopicCard({
   stage: LearningStage;
   stageKey: string;
   library: { read: Map<string, number>; favorites: Set<string> };
+  pointState?: PointStateResult;
+  stale: boolean;
   previous: FlatTopic | null;
   next: FlatTopic | null;
   onNavigate: (stageKey: string, topicKey: string) => void;
@@ -374,6 +397,8 @@ function TopicCard({
           <span className="mt-0.5 block truncate text-xs text-muted-foreground">{topic.summary}</span>
         </span>
         {library.favorites.has(pointKey) ? <FavoriteMark /> : null}
+        <StateDots state={pointState} />
+        <FreshnessBadge stale={stale} />
         <QualityBadge level={quality.level} />
         <ReadBadge progress={library.read.get(pointKey)} />
         <Badge variant="muted" className="shrink-0">{questions.length} 题</Badge>
@@ -440,7 +465,16 @@ function TopicCard({
               </li>
             ))}
           </ul>
-          <p className="text-xs text-muted-foreground">答案与解析在 App 内作答时给出，作答会写入掌握度与复习队列。</p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground">答案与解析在 App 内作答时给出，作答会写入掌握度与复习队列。</p>
+            {/* 双向关联：知识点页 → 题库（按本题知识点过滤） */}
+            <Link
+              href={`/learn/questions?track=${track.slug}&topic=${topic.key}`}
+              className="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-2.5 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/15"
+            >
+              在题库中练习本节 <ChevronRight className="size-3.5" />
+            </Link>
+          </div>
         </div>
 
         {/* 上一节 / 下一节：跨阶段自动落到相邻端点，与移动端阅读页口径一致 */}

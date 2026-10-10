@@ -12,6 +12,10 @@
 | `POST /api/learning/read` | 登录 | **幂等**：进度只增不减，重复上报同 `clientId` 不重复计数 |
 | `POST /api/learning/favorite` | 登录 | **幂等**：`favorite=false` 即取消（软删除），可再次收藏 |
 | `POST /api/learning/attempt` | 登录 | 追加型（每次作答都是新事实） |
+| `GET  /api/learning/point-states?track=` | 登录 | 读（知识点五状态：阅读/练习/掌握/复习/实践） |
+| `GET  /api/learning/question-status` | 无 | 读（题目生命周期状态，库不可用降级为空） |
+| `GET  /api/learning/content-freshness?track=` | 无 | 读（`stale_after` 过期知识点，库不可用降级为空） |
+| `POST /api/internal/content/question-status` | `x-cron-secret` 或内容角色 | **幂等**：设置目标状态，重复调用结果相同 |
 | `POST /api/internal/content/sync` | `x-cron-secret` | **幂等**：按稳定 key upsert + 指纹判等，只重写 derived 关联 |
 
 ## POST /api/learning/attempt

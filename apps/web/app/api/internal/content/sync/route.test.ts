@@ -33,6 +33,7 @@ const emptyResult = {
   links: 168,
   relations: 105,
   prerequisites: 21,
+  questions: 200,
   unlinkedQuestions: 160,
   contentVersion: "abc1234",
   stalePoints: 0,
@@ -43,7 +44,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   process.env.CRON_SECRET = "s3cr3t";
   versionMock.mockReturnValue({ version: "abc1234", updatedAt: "2026-10-01T00:00:00.000Z" });
-  planMock.mockReturnValue({ points: [], links: [], relations: [], prerequisites: [], unlinkedQuestions: [], stats: {} as never, contentVersion: "abc1234", contentUpdatedAt: null, reviewTtlDays: 180 });
+  planMock.mockReturnValue({ points: [], links: [], relations: [], prerequisites: [], questions: [], unlinkedQuestions: [], stats: {} as never, contentVersion: "abc1234", contentUpdatedAt: null, reviewTtlDays: 180 });
   syncMock.mockResolvedValue(emptyResult);
 });
 
