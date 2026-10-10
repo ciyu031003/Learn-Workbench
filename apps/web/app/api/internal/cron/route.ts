@@ -14,6 +14,7 @@ import {
   triggerInterviewCrawl,
 } from "@/lib/tasks/interview";
 import { triggerFoodImport } from "@/lib/tasks/food";
+import { buildContentSyncPlan, readContentPackageVersion, syncKnowledgeModel } from "@/lib/content/knowledge-model";
 import { logger } from "@/lib/logger";
 
 /**
@@ -24,8 +25,9 @@ import { logger } from "@/lib/logger";
  *   ?job=maintenance  清理过期会话/审计/重置令牌
  *   ?job=food         食物营养库导入（v6 P1-3；默认自建库，可 ?source=off&query=番茄鸡蛋面 追加 OFF 数据）
  *   ?job=interview    面试题库抓取（v1.26；同款锁 + 幂等守卫，参数 ?limit=N&dry=1）
+ *   ?job=content      内容包 → 统一内容模型同步（组二 · 阶段 7；幂等，参数 ?dry=1 只预览差异）
  *   ?job=all          依次执行 crawl/aggregate/maintenance（**不含 food 与 interview**，
- *                     两者体量与失败面独立，各自单独调度，避免互相拖累）
+ *                     content 同理不并入 all：排障时希望"内容模型"和"抓取"互不影响）
  *
  * 鉴权：请求头 x-cron-secret 必须等于环境变量 CRON_SECRET；
  *       CRON_SECRET 未配置时一律 403（部署脚本会生成并写入 crontab，见 deploy.sh）。
@@ -36,7 +38,7 @@ import { logger } from "@/lib/logger";
  *   20 6 * * *  flock -n /tmp/lwb-cron-interview.lock curl -fsS -X POST -H "x-cron-secret: …" "http://127.0.0.1:3001/api/internal/cron?job=interview"
  */
 
-const VALID_JOBS = ["crawl", "aggregate", "backfill", "maintenance", "food", "interview", "all"] as const;
+const VALID_JOBS = ["crawl", "aggregate", "backfill", "maintenance", "food", "interview", "content", "all"] as const;
 
 function authorize(req: Request): boolean {
   const expected = process.env.CRON_SECRET?.trim();
@@ -53,7 +55,7 @@ export async function POST(req: Request) {
   const job = new URL(req.url).searchParams.get("job") || "all";
   if (!(VALID_JOBS as readonly string[]).includes(job)) {
     return NextResponse.json(
-      { error: "job 无效，应为 crawl/aggregate/backfill/maintenance/food/interview/all" },
+      { error: "job 无效，应为 crawl/aggregate/backfill/maintenance/food/interview/content/all" },
       { status: 400 }
     );
   }
@@ -106,6 +108,16 @@ export async function POST(req: Request) {
         dryRun: params.get("dry") === "1",
       });
     }
+  }
+
+  if (job === "content") {
+    // 组二 · 阶段 7：把内容包（packages/content）同步进统一内容模型；
+    // 幂等（指纹相同即 unchanged），?dry=1 只回报差异不写库。
+    const params = new URL(req.url).searchParams;
+    const git = readContentPackageVersion();
+    const plan = buildContentSyncPlan({ contentVersion: git.version, contentUpdatedAt: git.updatedAt });
+    const synced = await syncKnowledgeModel(plan, { dryRun: params.get("dry") === "1" });
+    result.content = { dryRun: params.get("dry") === "1", ...synced, stats: undefined };
   }
 
   if (job === "maintenance" || job === "all") {

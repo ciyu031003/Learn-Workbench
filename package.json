@@ -16,6 +16,7 @@
     "check:release": "node scripts/check-release-hygiene.mjs",
     "release": "node scripts/release.mjs",
     "release:check": "node scripts/release.mjs --check-only",
+    "sync:content": "node scripts/sync-content-model.mjs",
     "test:e2e": "pnpm --filter @learn-workbench/e2e test:e2e"
   },
   "devDependencies": {

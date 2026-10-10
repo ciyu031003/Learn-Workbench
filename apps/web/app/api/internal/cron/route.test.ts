@@ -21,6 +21,14 @@ vi.mock("@/lib/tasks/crawler", () => ({
   triggerCrawlerJobs: vi.fn(async () => [{ name: "crawler:official", started: true, runId: 1 }]),
 }));
 vi.mock("@/lib/tasks/food", () => ({ triggerFoodImport: vi.fn(async () => ({ started: true, runId: 7 })) }));
+vi.mock("@/lib/content/knowledge-model", () => ({
+  readContentPackageVersion: vi.fn(() => ({ version: "abc1234", updatedAt: "2026-10-01T00:00:00.000Z" })),
+  buildContentSyncPlan: vi.fn((options: unknown) => ({ options })),
+  syncKnowledgeModel: vi.fn(async () => ({
+    inserted: 0, updated: 0, unchanged: 84, archived: 0, links: 168, relations: 105,
+    prerequisites: 21, unlinkedQuestions: 160, contentVersion: "abc1234", stalePoints: 0, stats: {},
+  })),
+}));
 vi.mock("@/lib/logger", () => ({ logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 
 import { analyzeMarket } from "@/lib/domains/market/analysis";
@@ -30,6 +38,7 @@ import { writeMarketDimensionSnapshots } from "@/lib/domains/market/snapshots";
 import { cleanupExpiredData, securityAlerts } from "@/lib/maintenance";
 import { crawlerRanSuccessfullyToday, triggerCrawlerJobs } from "@/lib/tasks/crawler";
 import { triggerFoodImport } from "@/lib/tasks/food";
+import { buildContentSyncPlan, readContentPackageVersion, syncKnowledgeModel } from "@/lib/content/knowledge-model";
 import { POST } from "./route";
 
 const analyzeMock = vi.mocked(analyzeMarket);
@@ -41,6 +50,9 @@ const securityMock = vi.mocked(securityAlerts);
 const ranTodayMock = vi.mocked(crawlerRanSuccessfullyToday);
 const triggerMock = vi.mocked(triggerCrawlerJobs);
 const foodMock = vi.mocked(triggerFoodImport);
+const planMock = vi.mocked(buildContentSyncPlan);
+const versionMock = vi.mocked(readContentPackageVersion);
+const syncMock = vi.mocked(syncKnowledgeModel);
 
 function post(job?: string, secret?: string) {
   const headers: Record<string, string> = {};
@@ -144,5 +156,29 @@ describe("POST /api/internal/cron", () => {
     expect(snapshotMock).toHaveBeenCalledTimes(1);
     expect(cleanupMock).toHaveBeenCalledTimes(1);
     expect(body.ok).toBe(true);
+  });
+
+  it("content job 用 git 内容包版本同步（幂等）", async () => {
+    const res = await post("content", "s3cret");
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(versionMock).toHaveBeenCalledTimes(1);
+    expect(planMock).toHaveBeenCalledWith({
+      contentVersion: "abc1234",
+      contentUpdatedAt: "2026-10-01T00:00:00.000Z",
+    });
+    expect(syncMock).toHaveBeenCalledWith(expect.anything(), { dryRun: false });
+    expect(body.content).toMatchObject({ dryRun: false, unchanged: 84, links: 168 });
+    // 不与其他 job 串味
+    expect(triggerMock).not.toHaveBeenCalled();
+    expect(cleanupMock).not.toHaveBeenCalled();
+  });
+
+  it("content job ?dry=1 只预览差异，不写库", async () => {
+    const res = await post("content&dry=1", "s3cret");
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(syncMock).toHaveBeenCalledWith(expect.anything(), { dryRun: true });
+    expect(body.content.dryRun).toBe(true);
   });
 });
