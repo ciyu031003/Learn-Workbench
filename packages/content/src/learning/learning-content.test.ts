@@ -4,7 +4,7 @@ import {
   learningTracks,
   type LearningQuestion,
   type LearningTrack,
-} from "@learn-workbench/content";
+} from "./index";
 
 const nonEmpty = (value: string) => value.trim().length > 0;
 
