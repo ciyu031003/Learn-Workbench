@@ -7,6 +7,7 @@ const pythonExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "py-q13",
     stageKey: "python-foundation",
+    topicKey: "python-values-control",
     stem: "Python 中变量赋值最准确的理解是什么？",
     options: ["把值复制到固定盒子", "让名称绑定到一个对象", "每次创建新类型", "编译时决定全部类型"],
     answer: "B",
@@ -18,6 +19,7 @@ const pythonExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "py-q14",
     stageKey: "python-foundation",
+    topicKey: "python-functions",
     stem: "函数默认参数使用可变对象时的主要风险是什么？",
     options: ["函数无法调用", "多次调用共享同一个可变对象", "参数自动复制", "返回值变为字符串"],
     answer: "B",
@@ -29,6 +31,7 @@ const pythonExpansion: LearningQuestion[] = [
   judgeQuestion({
     key: "py-q15",
     stageKey: "python-foundation",
+    topicKey: "python-debug",
     stem: "try/except 捕获异常后，至少应保留可诊断的错误上下文。",
     answer: true,
     explanation: "静默吞掉异常会隐藏根因；至少应记录异常类型、消息和必要的调用上下文。",
@@ -39,6 +42,7 @@ const pythonExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "py-q16",
     stageKey: "python-foundation",
+    topicKey: "python-debug",
     stem: "定位复杂 traceback 时，第一原则是什么？",
     options: ["只看最后一行", "从触发点沿调用链找到真正源头", "删除报错代码", "关闭日志"],
     answer: "B",
@@ -50,6 +54,7 @@ const pythonExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "py-q17",
     stageKey: "python-data-structures",
+    topicKey: "python-collections",
     stem: "需要频繁按唯一键查找值，通常优先选择什么结构？",
     options: ["list", "dict", "tuple", "set"],
     answer: "B",
@@ -61,6 +66,7 @@ const pythonExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "py-q18",
     stageKey: "python-data-structures",
+    topicKey: "python-files",
     stem: "读写文件时使用 with 的主要价值是什么？",
     options: ["自动增加编码", "确保资源在作用域结束时释放", "让文件更小", "自动修复内容"],
     answer: "B",
@@ -72,6 +78,7 @@ const pythonExpansion: LearningQuestion[] = [
   judgeQuestion({
     key: "py-q19",
     stageKey: "python-data-structures",
+    topicKey: "python-testing",
     stem: "pytest 只需要覆盖成功路径，异常和边界输入可以省略。",
     answer: false,
     explanation: "边界、空输入和失败路径通常最容易出现回归，是测试契约的重要部分。",
@@ -82,6 +89,7 @@ const pythonExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "py-q20",
     stageKey: "python-data-structures",
+    topicKey: "python-files",
     stem: "项目依赖应通过什么方式保证可复现？",
     options: ["口头说明", "锁定版本并记录在项目依赖文件中", "依赖全局环境", "每次重装不同版本"],
     answer: "B",
@@ -93,6 +101,7 @@ const pythonExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "py-q21",
     stageKey: "python-oop-typing",
+    topicKey: "python-classes",
     stem: "类之间优先使用组合而非继承，通常是为了什么？",
     options: ["增加层级", "降低耦合并让职责边界更清晰", "隐藏所有方法", "减少对象数量"],
     answer: "B",
@@ -104,6 +113,7 @@ const pythonExpansion: LearningQuestion[] = [
   judgeQuestion({
     key: "py-q22",
     stageKey: "python-oop-typing",
+    topicKey: "python-typing",
     stem: "Python 类型标注会在运行时自动阻止所有错误类型调用。",
     answer: false,
     explanation: "类型标注主要由静态检查器使用，运行时通常不会自动强制类型。",
@@ -114,6 +124,7 @@ const pythonExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "py-q23",
     stageKey: "python-oop-typing",
+    topicKey: "python-context",
     stem: "生成器相比一次返回完整列表，最直接的优势是什么？",
     options: ["一定更快", "按需产出并降低峰值内存", "自动并行", "避免异常"],
     answer: "B",
@@ -125,6 +136,7 @@ const pythonExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "py-q24",
     stageKey: "python-oop-typing",
+    topicKey: "python-context",
     stem: "上下文管理器最适合封装哪类逻辑？",
     options: ["纯字符串拼接", "成对出现的建立与清理操作", "颜色计算", "静态常量"],
     answer: "B",
@@ -136,6 +148,7 @@ const pythonExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "py-q25",
     stageKey: "python-data-project",
+    topicKey: "python-pandas",
     stem: "Pandas 中合并后行数异常增加，首先检查什么？",
     options: ["连接键是否重复", "列名颜色", "图表尺寸", "Python 版本"],
     answer: "A",
@@ -147,6 +160,7 @@ const pythonExpansion: LearningQuestion[] = [
   judgeQuestion({
     key: "py-q26",
     stageKey: "python-data-project",
+    topicKey: "python-pandas",
     stem: "分析过程中删除缺失值前，应比较删除前后的样本结构。",
     answer: true,
     explanation: "缺失可能集中在特定组群，直接删除会引入样本偏差和错误结论。",
@@ -157,6 +171,7 @@ const pythonExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "py-q27",
     stageKey: "python-data-project",
+    topicKey: "python-visualization",
     stem: "选择可视化图型前，最先要明确什么？",
     options: ["图要回答的问题", "颜色数量", "图表动画", "字体大小"],
     answer: "A",
@@ -168,6 +183,7 @@ const pythonExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "py-q28",
     stageKey: "python-data-project",
+    topicKey: "python-capstone",
     stem: "数据分析项目可复现交付至少应记录什么？",
     options: ["随机截图", "数据版本、处理步骤和运行方式", "只写结论", "文件颜色"],
     answer: "B",
@@ -182,6 +198,7 @@ const javaExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "java-q13",
     stageKey: "java-foundation",
+    topicKey: "java-oop",
     stem: "比较两个对象内容是否相等，通常应调用什么？",
     options: ["==", "equals", "hashCode", "toString"],
     answer: "B",
@@ -193,6 +210,7 @@ const javaExpansion: LearningQuestion[] = [
   judgeQuestion({
     key: "java-q14",
     stageKey: "java-foundation",
+    topicKey: "java-oop",
     stem: "接口适合定义能力契约，抽象类更适合共享部分实现和状态。",
     answer: true,
     explanation: "接口强调可替换能力，抽象类可提供基础实现，但设计时仍应避免过深继承。",
@@ -203,6 +221,7 @@ const javaExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "java-q15",
     stageKey: "java-foundation",
+    topicKey: "java-exceptions",
     stem: "受检异常通常要求调用方做什么？",
     options: ["忽略", "在编译期处理或声明抛出", "自动转成断言", "变成警告"],
     answer: "B",
@@ -214,6 +233,7 @@ const javaExpansion: LearningQuestion[] = [
   judgeQuestion({
     key: "java-q16",
     stageKey: "java-foundation",
+    topicKey: "java-exceptions",
     stem: "捕获异常后记录日志并原样继续执行，通常比保留并向上抛出更安全。",
     answer: false,
     explanation: "如果当前层无法恢复，静默继续会让错误扩散；应保留上下文并交给能处理的层。",
@@ -224,6 +244,7 @@ const javaExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "java-q17",
     stageKey: "java-collections",
+    topicKey: "java-collections",
     stem: "需要频繁在两端插入删除，通常优先考虑什么集合？",
     options: ["ArrayList", "LinkedList", "HashSet", "TreeMap"],
     answer: "B",
@@ -235,6 +256,7 @@ const javaExpansion: LearningQuestion[] = [
   judgeQuestion({
     key: "java-q18",
     stageKey: "java-collections",
+    topicKey: "java-generics",
     stem: "Java 泛型信息通常会经历类型擦除，不能把所有泛型参数当运行时类型使用。",
     answer: true,
     explanation: "类型擦除会让部分泛型信息在运行时不可直接获取，应通过类型 token 或边界设计补偿。",
@@ -245,6 +267,7 @@ const javaExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "java-q19",
     stageKey: "java-collections",
+    topicKey: "java-stream",
     stem: "同一个 Stream 被终止操作消费后再次使用会遇到什么问题？",
     options: ["自动重置", "抛出 IllegalStateException", "变成并行流", "自动缓存"],
     answer: "B",
@@ -256,6 +279,7 @@ const javaExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "java-q20",
     stageKey: "java-collections",
+    topicKey: "java-stream",
     stem: "使用 Stream 时，最重要的工程判断之一是什么？",
     options: ["是否让代码更短", "是否产生副作用以及数据规模是否合适", "是否使用更多方法", "是否增加字符串"],
     answer: "B",
@@ -267,6 +291,7 @@ const javaExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "java-q21",
     stageKey: "java-concurrency",
+    topicKey: "java-threads",
     stem: "volatile 主要能保证什么？",
     options: ["原子复合操作", "变量可见性和一定有序性", "自动加锁", "线程池扩容"],
     answer: "B",
@@ -278,6 +303,7 @@ const javaExpansion: LearningQuestion[] = [
   judgeQuestion({
     key: "java-q22",
     stageKey: "java-concurrency",
+    topicKey: "java-threads",
     stem: "线程池使用后应明确关闭策略，避免进程无法退出或任务持续积压。",
     answer: true,
     explanation: "ExecutorService 的生命周期应受应用管理，结合拒绝策略、超时和优雅关闭。",
@@ -288,6 +314,7 @@ const javaExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "java-q23",
     stageKey: "java-concurrency",
+    topicKey: "java-jvm",
     stem: "定位疑似内存泄漏时，哪种证据最直接？",
     options: ["堆转储中持续增长且不可回收的对象链", "代码行数", "接口名称", "日志颜色"],
     answer: "A",
@@ -299,6 +326,7 @@ const javaExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "java-q24",
     stageKey: "java-concurrency",
+    topicKey: "java-performance",
     stem: "性能优化为什么要使用同一套基准复测？",
     options: ["为了增加变量", "为了比较同一条件下的前后差异", "为了让结果更好看", "为了跳过测试"],
     answer: "B",
@@ -310,6 +338,7 @@ const javaExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "java-q25",
     stageKey: "java-engineering",
+    topicKey: "java-build",
     stem: "处理依赖冲突时，最可靠的第一步是什么？",
     options: ["盲目排除所有版本", "查看依赖树并确认冲突来源", "删除测试", "升级全部依赖"],
     answer: "B",
@@ -321,6 +350,7 @@ const javaExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "java-q26",
     stageKey: "java-engineering",
+    topicKey: "java-patterns",
     stem: "策略模式最适合隔离什么变化？",
     options: ["可变算法或规则", "字体大小", "CPU 核数", "日志时间"],
     answer: "A",
@@ -332,6 +362,7 @@ const javaExpansion: LearningQuestion[] = [
   judgeQuestion({
     key: "java-q27",
     stageKey: "java-engineering",
+    topicKey: "java-patterns",
     stem: "事务边界应尽量围绕一个需要保持一致性的业务不变量。",
     answer: true,
     explanation: "围绕业务不变量设计事务能减少锁范围，避免跨网络和长时间事务。",
@@ -342,6 +373,7 @@ const javaExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "java-q28",
     stageKey: "java-engineering",
+    topicKey: "java-service",
     stem: "服务层返回错误模型的主要目标是什么？",
     options: ["隐藏所有错误", "让调用方稳定区分错误类型和恢复方式", "增加状态码数量", "替换日志"],
     answer: "B",
@@ -356,6 +388,7 @@ const dataAnalysisExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "data-q13",
     stageKey: "data-relational",
+    topicKey: "data-relational-model",
     stem: "表的主键最核心的性质是什么？",
     options: ["必须为数字", "唯一标识一行且不能为空", "只能包含一列", "必须自动增长"],
     answer: "B",
@@ -367,6 +400,7 @@ const dataAnalysisExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "data-q14",
     stageKey: "data-relational",
+    topicKey: "data-joins",
     stem: "聚合后筛选分组结果应使用哪个子句？",
     options: ["WHERE", "HAVING", "ORDER BY", "LIMIT"],
     answer: "B",
@@ -378,6 +412,7 @@ const dataAnalysisExpansion: LearningQuestion[] = [
   judgeQuestion({
     key: "data-q15",
     stageKey: "data-relational",
+    topicKey: "data-joins",
     stem: "LEFT JOIN 中保留左表全部行，即使右表没有匹配记录。",
     answer: true,
     explanation: "LEFT JOIN 保留左表每一行，右表无匹配时相关列为 NULL。",
@@ -388,6 +423,7 @@ const dataAnalysisExpansion: LearningQuestion[] = [
   judgeQuestion({
     key: "data-q16",
     stageKey: "data-relational",
+    topicKey: "data-joins",
     stem: "只要列名相同，两个表就可以安全地直接连接。",
     answer: false,
     explanation: "连接键必须表达相同业务身份和粒度，仅列名相同不足以保证关系正确。",
@@ -398,6 +434,7 @@ const dataAnalysisExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "data-q17",
     stageKey: "data-analysis-sql",
+    topicKey: "data-window",
     stem: "ROW_NUMBER 与 RANK 在并列值上的关键区别是什么？",
     options: ["ROW_NUMBER 并列后产生相同序号", "RANK 并列后可能跳号", "两者完全相同", "RANK 不能排序"],
     answer: "B",
@@ -409,6 +446,7 @@ const dataAnalysisExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "data-q18",
     stageKey: "data-analysis-sql",
+    topicKey: "data-window",
     stem: "窗口函数 LAG 主要用于什么？",
     options: ["读取同一分区中的前一行", "删除一行", "创建表", "修改排序"],
     answer: "A",
@@ -420,6 +458,7 @@ const dataAnalysisExpansion: LearningQuestion[] = [
   judgeQuestion({
     key: "data-q19",
     stageKey: "data-analysis-sql",
+    topicKey: "data-cte",
     stem: "CTE 中的每一步都应尽量保持明确的输入输出粒度。",
     answer: true,
     explanation: "稳定的中间粒度让每步可验证、可复用，也更容易发现行数膨胀问题。",
@@ -430,6 +469,7 @@ const dataAnalysisExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "data-q20",
     stageKey: "data-analysis-sql",
+    topicKey: "data-funnel-retention",
     stem: "留存分析的分子通常是什么？",
     options: ["所有用户数", "初始同期群中在指定后续时间活跃的用户数", "页面数量", "事件总数"],
     answer: "B",
@@ -441,6 +481,7 @@ const dataAnalysisExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "data-q21",
     stageKey: "data-cleaning",
+    topicKey: "data-exploration",
     stem: "发现极端值时，最先应该做什么？",
     options: ["立即删除", "检查是否来自输入错误、业务事件或真实长尾", "统一替换为均值", "隐藏图表"],
     answer: "B",
@@ -452,6 +493,7 @@ const dataAnalysisExpansion: LearningQuestion[] = [
   judgeQuestion({
     key: "data-q22",
     stageKey: "data-cleaning",
+    topicKey: "data-quality",
     stem: "数据清洗规则应记录影响范围和决策依据。",
     answer: true,
     explanation: "可追溯规则有助于复现、审计和评估清洗对指标与样本的影响。",
@@ -462,6 +504,7 @@ const dataAnalysisExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "data-q23",
     stageKey: "data-cleaning",
+    topicKey: "data-experiment",
     stem: "A/B 实验中的对照组代表什么？",
     options: ["接受新策略的用户", "保持原策略或基线的用户", "被删除的样本", "只在高价值用户中的样本"],
     answer: "B",
@@ -473,6 +516,7 @@ const dataAnalysisExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "data-q24",
     stageKey: "data-cleaning",
+    topicKey: "data-experiment",
     stem: "实验看到显著提升后，仍需要检查什么？",
     options: ["样本偏差、指标口径和实际业务影响", "只检查颜色", "只看平均值", "立即停止观察"],
     answer: "A",
@@ -484,6 +528,7 @@ const dataAnalysisExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "data-q25",
     stageKey: "data-visual-delivery",
+    topicKey: "data-chart-choice",
     stem: "比较多个类别的大小时，条形图通常比饼图更适合，因为什么？",
     options: ["更短", "长度更容易精确比较", "颜色更多", "不需要标签"],
     answer: "B",
@@ -495,6 +540,7 @@ const dataAnalysisExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "data-q26",
     stageKey: "data-visual-delivery",
+    topicKey: "data-dashboard",
     stem: "仪表板最重要的结构原则是什么？",
     options: ["图表越多越好", "围绕决策路径组织层级和重点", "所有指标同等大小", "只用一种图形"],
     answer: "B",
@@ -506,6 +552,7 @@ const dataAnalysisExpansion: LearningQuestion[] = [
   judgeQuestion({
     key: "data-q27",
     stageKey: "data-visual-delivery",
+    topicKey: "data-story",
     stem: "分析结论可以省略数据来源和限制条件，只要表达更有说服力。",
     answer: false,
     explanation: "来源和限制决定结论可信边界，省略会误导决策并让结果不可复现。",
@@ -516,6 +563,7 @@ const dataAnalysisExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "data-q28",
     stageKey: "data-visual-delivery",
+    topicKey: "data-story",
     stem: "给业务方的行动建议应具备什么特征？",
     options: ["抽象且宏观", "对应具体动作、负责人和预期影响", "只描述算法", "隐藏风险"],
     answer: "B",
@@ -530,6 +578,7 @@ const powerBiExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "pbi-q13",
     stageKey: "powerbi-ingest",
+    topicKey: "powerbi-connect",
     stem: "DirectQuery 相比 Import 的典型优势是什么？",
     options: ["支持全部 DAX", "更接近数据源实时状态", "查询通常更快", "不需要权限"],
     answer: "B",
@@ -541,6 +590,7 @@ const powerBiExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "pbi-q14",
     stageKey: "powerbi-ingest",
+    topicKey: "powerbi-power-query",
     stem: "Power Query 查询折叠的主要价值是什么？",
     options: ["让源系统执行更多转换以提升刷新效率", "改变报表颜色", "自动创建关系", "跳过数据校验"],
     answer: "A",
@@ -552,6 +602,7 @@ const powerBiExpansion: LearningQuestion[] = [
   judgeQuestion({
     key: "pbi-q15",
     stageKey: "powerbi-ingest",
+    topicKey: "powerbi-power-query",
     stem: "在 Power Query 中提前统一数据类型和字段名称，有助于后续关系与 DAX 稳定。",
     answer: true,
     explanation: "稳定的类型和命名能减少关系错误、刷新失败和度量值结果的歧义。",
@@ -562,6 +613,7 @@ const powerBiExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "pbi-q16",
     stageKey: "powerbi-ingest",
+    topicKey: "powerbi-power-query",
     stem: "刷新失败后，应该优先查看什么？",
     options: ["图表动画", "具体查询步骤、源错误和凭据状态", "报表页数", "主题颜色"],
     answer: "B",
@@ -573,6 +625,7 @@ const powerBiExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "pbi-q17",
     stageKey: "powerbi-model",
+    topicKey: "powerbi-star-schema",
     stem: "星型模型中将维度与事实连接的主要目的之一是什么？",
     options: ["减少筛选传播歧义", "增加文本列", "隐藏所有键", "替代数据源"],
     answer: "A",
@@ -584,6 +637,7 @@ const powerBiExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "pbi-q18",
     stageKey: "powerbi-model",
+    topicKey: "powerbi-star-schema",
     stem: "事实表粒度不一致会导致什么问题？",
     options: ["指标难以正确聚合和解释", "字体变小", "关系自动删除", "页面无法保存"],
     answer: "A",
@@ -595,6 +649,7 @@ const powerBiExpansion: LearningQuestion[] = [
   judgeQuestion({
     key: "pbi-q19",
     stageKey: "powerbi-model",
+    topicKey: "powerbi-date-table",
     stem: "日期表应连续并独立于事实表，才能稳定支持时间智能。",
     answer: true,
     explanation: "连续、标记为日期表并建立一对多关系的日期维度是时间智能的稳定基础。",
@@ -605,6 +660,7 @@ const powerBiExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "pbi-q20",
     stageKey: "powerbi-model",
+    topicKey: "powerbi-relationships",
     stem: "多对多关系增加复杂性时，常见处理方式是什么？",
     options: ["使用桥接表并明确筛选路径", "所有关系都改双向", "删除维度表", "把键改成文本"],
     answer: "A",
@@ -616,6 +672,7 @@ const powerBiExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "pbi-q21",
     stageKey: "powerbi-dax",
+    topicKey: "powerbi-dax-basics",
     stem: "DAX 中 VAR 的一个重要作用是什么？",
     options: ["保存一次计算结果并提升可读性", "自动创建关系", "修改数据源", "替代所有筛选器"],
     answer: "A",
@@ -627,6 +684,7 @@ const powerBiExpansion: LearningQuestion[] = [
   judgeQuestion({
     key: "pbi-q22",
     stageKey: "powerbi-dax",
+    topicKey: "powerbi-calculate",
     stem: "KEEPFILTERS 会影响 CALCULATE 中筛选器对已有筛选上下文的处理方式。",
     answer: true,
     explanation: "KEEPFILTERS 保留已有筛选并与新筛选交集，而不是默认覆盖。",
@@ -637,6 +695,7 @@ const powerBiExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "pbi-q23",
     stageKey: "powerbi-dax",
+    topicKey: "powerbi-calculate",
     stem: "验证占比度量值最直接的方法是什么？",
     options: ["手工核对一个筛选组合下的分子分母", "只看图表颜色", "增加页面", "删除日期表"],
     answer: "A",
@@ -648,6 +707,7 @@ const powerBiExpansion: LearningQuestion[] = [
   judgeQuestion({
     key: "pbi-q24",
     stageKey: "powerbi-dax",
+    topicKey: "powerbi-time-intelligence",
     stem: "同一时间智能度量值在正确的日期表和错误日期表下可能得到完全不同的结果。",
     answer: true,
     explanation: "时间智能依赖日期关系、连续性和当前筛选，日期维度错误会直接改变结果。",
@@ -658,6 +718,7 @@ const powerBiExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "pbi-q25",
     stageKey: "powerbi-report",
+    topicKey: "powerbi-report-design",
     stem: "报表页面最重要指标通常放在哪里？",
     options: ["视觉层级最高的位置", "页面最底部隐藏起来", "多个重复位置", "工具提示里"],
     answer: "A",
@@ -669,6 +730,7 @@ const powerBiExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "pbi-q26",
     stageKey: "powerbi-report",
+    topicKey: "powerbi-report-design",
     stem: "钻取交互应保证什么？",
     options: ["用户能明确返回上一级", "隐藏当前筛选", "强制放大字体", "自动改变业务口径"],
     answer: "A",
@@ -680,6 +742,7 @@ const powerBiExpansion: LearningQuestion[] = [
   judgeQuestion({
     key: "pbi-q27",
     stageKey: "powerbi-report",
+    topicKey: "powerbi-security-service",
     stem: "RLS 应由服务端模型统一执行，不能只依赖前端隐藏图表。",
     answer: true,
     explanation: "视觉隐藏不能阻止数据访问，权限必须在模型和数据源层执行。",
@@ -690,6 +753,7 @@ const powerBiExpansion: LearningQuestion[] = [
   singleQuestion({
     key: "pbi-q28",
     stageKey: "powerbi-report",
+    topicKey: "powerbi-security-service",
     stem: "报表发布上线后仍需要持续监控什么？",
     options: ["刷新状态、权限和使用反馈", "页面背景", "鼠标大小", "文件名长度"],
     answer: "A",

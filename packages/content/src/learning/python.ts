@@ -228,8 +228,9 @@ export const pythonTrack: LearningTrack = {
   ],
   questions: [
     {
-      key: "py-q1",
-      stageKey: "python-foundation",
+    key: "py-q1",
+    stageKey: "python-foundation",
+    topicKey: "python-values-control",
       type: "single",
       stem: "下面哪一项最适合表示“是否完成任务”的状态？",
       options: [
@@ -245,8 +246,9 @@ export const pythonTrack: LearningTrack = {
       sourceKey: "exercism-python",
     },
     {
-      key: "py-q2",
-      stageKey: "python-foundation",
+    key: "py-q2",
+    stageKey: "python-foundation",
+    topicKey: "python-functions",
       type: "judge",
       stem: "函数没有显式 return 时，调用结果默认是 None。",
       options: [
@@ -260,8 +262,9 @@ export const pythonTrack: LearningTrack = {
       sourceKey: "exercism-python",
     },
     {
-      key: "py-q3",
-      stageKey: "python-foundation",
+    key: "py-q3",
+    stageKey: "python-foundation",
+    topicKey: "python-debug",
       type: "single",
       stem: "遇到 traceback 时，最有效的第一步是什么？",
       options: [
@@ -277,8 +280,9 @@ export const pythonTrack: LearningTrack = {
       sourceKey: "exercism-python",
     },
     {
-      key: "py-q4",
-      stageKey: "python-data-structures",
+    key: "py-q4",
+    stageKey: "python-data-structures",
+    topicKey: "python-collections",
       type: "single",
       stem: "需要频繁按用户 ID 查找记录时，首选哪种结构？",
       options: [
@@ -294,8 +298,9 @@ export const pythonTrack: LearningTrack = {
       sourceKey: "algorithms-python",
     },
     {
-      key: "py-q5",
-      stageKey: "python-data-structures",
+    key: "py-q5",
+    stageKey: "python-data-structures",
+    topicKey: "python-collections",
       type: "judge",
       stem: "遍历列表时直接删除元素一定会安全保持所有元素的遍历顺序。",
       options: [
@@ -309,8 +314,9 @@ export const pythonTrack: LearningTrack = {
       sourceKey: "exercism-python",
     },
     {
-      key: "py-q6",
-      stageKey: "python-data-structures",
+    key: "py-q6",
+    stageKey: "python-data-structures",
+    topicKey: "python-files",
       type: "single",
       stem: "虚拟环境最重要的作用是什么？",
       options: [
@@ -326,8 +332,9 @@ export const pythonTrack: LearningTrack = {
       sourceKey: "exercism-python",
     },
     {
-      key: "py-q7",
-      stageKey: "python-oop-typing",
+    key: "py-q7",
+    stageKey: "python-oop-typing",
+    topicKey: "python-classes",
       type: "single",
       stem: "以下哪种做法通常更利于降低耦合？",
       options: [
@@ -343,8 +350,9 @@ export const pythonTrack: LearningTrack = {
       sourceKey: "algorithms-python",
     },
     {
-      key: "py-q8",
-      stageKey: "python-oop-typing",
+    key: "py-q8",
+    stageKey: "python-oop-typing",
+    topicKey: "python-typing",
       type: "judge",
       stem: "静态类型标注可以完全替代运行时数据校验。",
       options: [
@@ -358,8 +366,9 @@ export const pythonTrack: LearningTrack = {
       sourceKey: "exercism-python",
     },
     {
-      key: "py-q9",
-      stageKey: "python-oop-typing",
+    key: "py-q9",
+    stageKey: "python-oop-typing",
+    topicKey: "python-context",
       type: "single",
       stem: "生成器最适合下面哪种场景？",
       options: [
@@ -375,8 +384,9 @@ export const pythonTrack: LearningTrack = {
       sourceKey: "algorithms-python",
     },
     {
-      key: "py-q10",
-      stageKey: "python-data-project",
+    key: "py-q10",
+    stageKey: "python-data-project",
+    topicKey: "python-pandas",
       type: "single",
       stem: "合并两个表后行数突然暴涨，最可能的原因是什么？",
       options: [
@@ -392,8 +402,9 @@ export const pythonTrack: LearningTrack = {
       sourceKey: "ms-data-science",
     },
     {
-      key: "py-q11",
-      stageKey: "python-data-project",
+    key: "py-q11",
+    stageKey: "python-data-project",
+    topicKey: "python-visualization",
       type: "judge",
       stem: "分析图表的纵轴从非零值开始时，仍可能误导读者高估差异。",
       options: [
@@ -407,8 +418,9 @@ export const pythonTrack: LearningTrack = {
       sourceKey: "ms-data-science",
     },
     {
-      key: "py-q12",
-      stageKey: "python-data-project",
+    key: "py-q12",
+    stageKey: "python-data-project",
+    topicKey: "python-capstone",
       type: "single",
       stem: "数据项目要保证可复现，最少需要记录什么？",
       options: [
@@ -425,4 +437,3 @@ export const pythonTrack: LearningTrack = {
     },
   ],
 };
-

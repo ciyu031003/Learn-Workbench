@@ -228,8 +228,9 @@ export const dataAnalysisTrack: LearningTrack = {
   ],
   questions: [
     {
-      key: "data-q1",
-      stageKey: "data-relational",
+    key: "data-q1",
+    stageKey: "data-relational",
+    topicKey: "data-relational-model",
       type: "judge",
       stem: "在关系模型中，一张表的一行应代表明确且一致的数据粒度。",
       options: [
@@ -243,8 +244,9 @@ export const dataAnalysisTrack: LearningTrack = {
       sourceKey: "ms-data-science",
     },
     {
-      key: "data-q2",
-      stageKey: "data-relational",
+    key: "data-q2",
+    stageKey: "data-relational",
+    topicKey: "data-select-filter",
       type: "single",
       stem: "判断某列是否为空，正确写法是什么？",
       options: [
@@ -260,8 +262,9 @@ export const dataAnalysisTrack: LearningTrack = {
       sourceKey: "ms-data-science",
     },
     {
-      key: "data-q3",
-      stageKey: "data-relational",
+    key: "data-q3",
+    stageKey: "data-relational",
+    topicKey: "data-joins",
       type: "single",
       stem: "连接后指标翻倍，首先应该检查什么？",
       options: [
@@ -277,8 +280,9 @@ export const dataAnalysisTrack: LearningTrack = {
       sourceKey: "ms-data-science",
     },
     {
-      key: "data-q4",
-      stageKey: "data-analysis-sql",
+    key: "data-q4",
+    stageKey: "data-analysis-sql",
+    topicKey: "data-window",
       type: "single",
       stem: "窗口函数与 GROUP BY 的核心区别是什么？",
       options: [
@@ -294,8 +298,9 @@ export const dataAnalysisTrack: LearningTrack = {
       sourceKey: "ms-data-science",
     },
     {
-      key: "data-q5",
-      stageKey: "data-analysis-sql",
+    key: "data-q5",
+    stageKey: "data-analysis-sql",
+    topicKey: "data-cte",
       type: "judge",
       stem: "CTE 的主要价值之一是把复杂查询拆成可命名、可逐段验证的步骤。",
       options: [
@@ -309,8 +314,9 @@ export const dataAnalysisTrack: LearningTrack = {
       sourceKey: "ms-data-science",
     },
     {
-      key: "data-q6",
-      stageKey: "data-analysis-sql",
+    key: "data-q6",
+    stageKey: "data-analysis-sql",
+    topicKey: "data-funnel-retention",
       type: "single",
       stem: "计算 7 日留存时，最关键的定义不包括下列哪一项？",
       options: [
@@ -326,8 +332,9 @@ export const dataAnalysisTrack: LearningTrack = {
       sourceKey: "ms-data-science",
     },
     {
-      key: "data-q7",
-      stageKey: "data-cleaning",
+    key: "data-q7",
+    stageKey: "data-cleaning",
+    topicKey: "data-quality",
       type: "single",
       stem: "发现缺失值时，最先应该做什么？",
       options: [
@@ -343,8 +350,9 @@ export const dataAnalysisTrack: LearningTrack = {
       sourceKey: "ms-data-science",
     },
     {
-      key: "data-q8",
-      stageKey: "data-cleaning",
+    key: "data-q8",
+    stageKey: "data-cleaning",
+    topicKey: "data-experiment",
       type: "judge",
       stem: "发现相关关系后可以直接断定一个变量导致另一个变量变化。",
       options: [
@@ -358,8 +366,9 @@ export const dataAnalysisTrack: LearningTrack = {
       sourceKey: "ms-data-science",
     },
     {
-      key: "data-q9",
-      stageKey: "data-cleaning",
+    key: "data-q9",
+    stageKey: "data-cleaning",
+    topicKey: "data-experiment",
       type: "single",
       stem: "A/B 实验能够支持因果判断的关键条件是什么？",
       options: [
@@ -375,8 +384,9 @@ export const dataAnalysisTrack: LearningTrack = {
       sourceKey: "ms-data-science",
     },
     {
-      key: "data-q10",
-      stageKey: "data-visual-delivery",
+    key: "data-q10",
+    stageKey: "data-visual-delivery",
+    topicKey: "data-chart-choice",
       type: "single",
       stem: "展示 12 个分类的构成时，通常优先选择什么图？",
       options: [
@@ -392,8 +402,9 @@ export const dataAnalysisTrack: LearningTrack = {
       sourceKey: "ms-data-science",
     },
     {
-      key: "data-q11",
-      stageKey: "data-visual-delivery",
+    key: "data-q11",
+    stageKey: "data-visual-delivery",
+    topicKey: "data-dashboard",
       type: "judge",
       stem: "仪表板设计应优先围绕决策问题组织指标，而不是尽可能放更多图表。",
       options: [
@@ -407,8 +418,9 @@ export const dataAnalysisTrack: LearningTrack = {
       sourceKey: "ms-data-science",
     },
     {
-      key: "data-q12",
-      stageKey: "data-visual-delivery",
+    key: "data-q12",
+    stageKey: "data-visual-delivery",
+    topicKey: "data-story",
       type: "single",
       stem: "数据结论的强度应该满足什么要求？",
       options: [
@@ -425,4 +437,3 @@ export const dataAnalysisTrack: LearningTrack = {
     },
   ],
 };
-

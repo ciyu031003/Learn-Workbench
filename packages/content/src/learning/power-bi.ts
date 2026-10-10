@@ -220,8 +220,9 @@ export const powerBiTrack: LearningTrack = {
   ],
   questions: [
     {
-      key: "pbi-q1",
-      stageKey: "powerbi-ingest",
+    key: "pbi-q1",
+    stageKey: "powerbi-ingest",
+    topicKey: "powerbi-connect",
       type: "single",
       stem: "选择 Import 还是 DirectQuery 时，最应优先考虑什么？",
       options: [
@@ -237,8 +238,9 @@ export const powerBiTrack: LearningTrack = {
       sourceKey: "pl300",
     },
     {
-      key: "pbi-q2",
-      stageKey: "powerbi-ingest",
+    key: "pbi-q2",
+    stageKey: "powerbi-ingest",
+    topicKey: "powerbi-power-query",
       type: "judge",
       stem: "Power Query 中的每一步转换都应该能被读懂、验证和回退。",
       options: [
@@ -252,8 +254,9 @@ export const powerBiTrack: LearningTrack = {
       sourceKey: "pl300",
     },
     {
-      key: "pbi-q3",
-      stageKey: "powerbi-ingest",
+    key: "pbi-q3",
+    stageKey: "powerbi-ingest",
+    topicKey: "powerbi-parameters",
       type: "single",
       stem: "同一套查询需要频繁切换环境路径，最适合使用什么？",
       options: [
@@ -269,8 +272,9 @@ export const powerBiTrack: LearningTrack = {
       sourceKey: "pl300",
     },
     {
-      key: "pbi-q4",
-      stageKey: "powerbi-model",
+    key: "pbi-q4",
+    stageKey: "powerbi-model",
+    topicKey: "powerbi-star-schema",
       type: "single",
       stem: "星型模型中，事实表最典型地记录什么？",
       options: [
@@ -286,8 +290,9 @@ export const powerBiTrack: LearningTrack = {
       sourceKey: "pl300",
     },
     {
-      key: "pbi-q5",
-      stageKey: "powerbi-model",
+    key: "pbi-q5",
+    stageKey: "powerbi-model",
+    topicKey: "powerbi-relationships",
       type: "judge",
       stem: "为了解决问题，可以默认把所有关系设置为双向筛选。",
       options: [
@@ -301,8 +306,9 @@ export const powerBiTrack: LearningTrack = {
       sourceKey: "pl300",
     },
     {
-      key: "pbi-q6",
-      stageKey: "powerbi-model",
+    key: "pbi-q6",
+    stageKey: "powerbi-model",
+    topicKey: "powerbi-date-table",
       type: "single",
       stem: "时间智能稳定工作的关键前提是什么？",
       options: [
@@ -318,8 +324,9 @@ export const powerBiTrack: LearningTrack = {
       sourceKey: "pl300",
     },
     {
-      key: "pbi-q7",
-      stageKey: "powerbi-dax",
+    key: "pbi-q7",
+    stageKey: "powerbi-dax",
+    topicKey: "powerbi-dax-basics",
       type: "single",
       stem: "计算列与度量值的关键区别是什么？",
       options: [
@@ -335,8 +342,9 @@ export const powerBiTrack: LearningTrack = {
       sourceKey: "pl300",
     },
     {
-      key: "pbi-q8",
-      stageKey: "powerbi-dax",
+    key: "pbi-q8",
+    stageKey: "powerbi-dax",
+    topicKey: "powerbi-calculate",
       type: "judge",
       stem: "CALCULATE 的本质之一是修改筛选上下文后再计算表达式。",
       options: [
@@ -350,8 +358,9 @@ export const powerBiTrack: LearningTrack = {
       sourceKey: "pl300",
     },
     {
-      key: "pbi-q9",
-      stageKey: "powerbi-dax",
+    key: "pbi-q9",
+    stageKey: "powerbi-dax",
+    topicKey: "powerbi-time-intelligence",
       type: "single",
       stem: "同比计算返回空值，最先检查什么？",
       options: [
@@ -367,8 +376,9 @@ export const powerBiTrack: LearningTrack = {
       sourceKey: "pl300",
     },
     {
-      key: "pbi-q10",
-      stageKey: "powerbi-report",
+    key: "pbi-q10",
+    stageKey: "powerbi-report",
+    topicKey: "powerbi-report-design",
       type: "single",
       stem: "报表设计的第一步应是什么？",
       options: [
@@ -384,8 +394,9 @@ export const powerBiTrack: LearningTrack = {
       sourceKey: "pl300",
     },
     {
-      key: "pbi-q11",
-      stageKey: "powerbi-report",
+    key: "pbi-q11",
+    stageKey: "powerbi-report",
+    topicKey: "powerbi-analytics",
       type: "judge",
       stem: "自动化异常检测的输出应结合业务解释，不能直接当作最终事实。",
       options: [
@@ -399,8 +410,9 @@ export const powerBiTrack: LearningTrack = {
       sourceKey: "powerbi-samples",
     },
     {
-      key: "pbi-q12",
-      stageKey: "powerbi-report",
+    key: "pbi-q12",
+    stageKey: "powerbi-report",
+    topicKey: "powerbi-security-service",
       type: "single",
       stem: "Power BI 中实现按区域限制数据访问，优先使用什么？",
       options: [
@@ -417,4 +429,3 @@ export const powerBiTrack: LearningTrack = {
     },
   ],
 };
-

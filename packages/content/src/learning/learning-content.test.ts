@@ -47,7 +47,8 @@ describe("learning library content contract", () => {
     expect(new Set(learningTracks.map((track) => track.slug)).size).toBe(learningTracks.length);
     expect(learningCategories).toEqual([...new Set(learningTracks.map((track) => track.category))]);
     expect(learningTracks.reduce((total, track) => total + track.questions.length, 0)).toBe(400);
-    expect(learningTracks.flatMap((track) => track.questions).filter((question) => question.topicKey)).toHaveLength(240);
+    // 阶段 12：160 道「待分类题」已全部绑定知识点 → 400 道题全部带 topicKey，待分类清零
+    expect(learningTracks.flatMap((track) => track.questions).filter((question) => question.topicKey)).toHaveLength(400);
     expect(learningTracks.reduce((total, track) => total + track.stages.length, 0)).toBe(40);
   });
 

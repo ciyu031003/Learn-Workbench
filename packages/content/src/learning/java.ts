@@ -236,8 +236,9 @@ export const javaTrack: LearningTrack = {
   ],
   questions: [
     {
-      key: "java-q1",
-      stageKey: "java-foundation",
+    key: "java-q1",
+    stageKey: "java-foundation",
+    topicKey: "java-types-control",
       type: "judge",
       stem: "Java 方法重载可以只通过不同的返回类型区分。",
       options: [
@@ -251,8 +252,9 @@ export const javaTrack: LearningTrack = {
       sourceKey: "algorithms-java",
     },
     {
-      key: "java-q2",
-      stageKey: "java-foundation",
+    key: "java-q2",
+    stageKey: "java-foundation",
+    topicKey: "java-oop",
       type: "single",
       stem: "面向对象设计中，封装最核心的目的是什么？",
       options: [
@@ -268,8 +270,9 @@ export const javaTrack: LearningTrack = {
       sourceKey: "java-patterns",
     },
     {
-      key: "java-q3",
-      stageKey: "java-foundation",
+    key: "java-q3",
+    stageKey: "java-foundation",
+    topicKey: "java-exceptions",
       type: "single",
       stem: "读取文件后必须可靠关闭资源，优先使用哪种结构？",
       options: [
@@ -285,8 +288,9 @@ export const javaTrack: LearningTrack = {
       sourceKey: "algorithms-java",
     },
     {
-      key: "java-q4",
-      stageKey: "java-collections",
+    key: "java-q4",
+    stageKey: "java-collections",
+    topicKey: "java-collections",
       type: "single",
       stem: "需要在 HashMap 中把自定义对象作为键，通常必须正确实现什么？",
       options: [
@@ -302,8 +306,9 @@ export const javaTrack: LearningTrack = {
       sourceKey: "algorithms-java",
     },
     {
-      key: "java-q5",
-      stageKey: "java-collections",
+    key: "java-q5",
+    stageKey: "java-collections",
+    topicKey: "java-generics",
       type: "single",
       stem: "PECS 原则中的 “Producer extends” 表示什么？",
       options: [
@@ -319,8 +324,9 @@ export const javaTrack: LearningTrack = {
       sourceKey: "algorithms-java",
     },
     {
-      key: "java-q6",
-      stageKey: "java-collections",
+    key: "java-q6",
+    stageKey: "java-collections",
+    topicKey: "java-stream",
       type: "judge",
       stem: "Stream 的中间操作在没有终止操作时通常不会执行。",
       options: [
@@ -334,8 +340,9 @@ export const javaTrack: LearningTrack = {
       sourceKey: "algorithms-java",
     },
     {
-      key: "java-q7",
-      stageKey: "java-concurrency",
+    key: "java-q7",
+    stageKey: "java-concurrency",
+    topicKey: "java-threads",
       type: "single",
       stem: "多个线程同时读写普通 HashMap 的主要风险是什么？",
       options: [
@@ -351,8 +358,9 @@ export const javaTrack: LearningTrack = {
       sourceKey: "advanced-java-reference",
     },
     {
-      key: "java-q8",
-      stageKey: "java-concurrency",
+    key: "java-q8",
+    stageKey: "java-concurrency",
+    topicKey: "java-jvm",
       type: "judge",
       stem: "JVM 只要发现对象没有被任何直接变量引用，就一定会立即回收该对象。",
       options: [
@@ -366,8 +374,9 @@ export const javaTrack: LearningTrack = {
       sourceKey: "advanced-java-reference",
     },
     {
-      key: "java-q9",
-      stageKey: "java-concurrency",
+    key: "java-q9",
+    stageKey: "java-concurrency",
+    topicKey: "java-performance",
       type: "single",
       stem: "评估接口性能时，为什么不能只看平均响应时间？",
       options: [
@@ -383,8 +392,9 @@ export const javaTrack: LearningTrack = {
       sourceKey: "tech-interview-handbook",
     },
     {
-      key: "java-q10",
-      stageKey: "java-engineering",
+    key: "java-q10",
+    stageKey: "java-engineering",
+    topicKey: "java-build",
       type: "single",
       stem: "构建工具最重要的可复现能力之一是？",
       options: [
@@ -400,8 +410,9 @@ export const javaTrack: LearningTrack = {
       sourceKey: "tech-interview-handbook",
     },
     {
-      key: "java-q11",
-      stageKey: "java-engineering",
+    key: "java-q11",
+    stageKey: "java-engineering",
+    topicKey: "java-patterns",
       type: "judge",
       stem: "设计模式应优先于简单实现，只要项目变大就必须全部使用。",
       options: [
@@ -415,8 +426,9 @@ export const javaTrack: LearningTrack = {
       sourceKey: "java-patterns",
     },
     {
-      key: "java-q12",
-      stageKey: "java-engineering",
+    key: "java-q12",
+    stageKey: "java-engineering",
+    topicKey: "java-service",
       type: "single",
       stem: "服务分层设计中，业务规则最适合放在哪里？",
       options: [
