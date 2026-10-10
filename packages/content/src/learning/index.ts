@@ -1,4 +1,7 @@
 import { aiEngineeringTrack } from "./ai-engineering";
+import { algorithmsTrack } from "./algorithms";
+import { applicationSecurityTrack } from "./application-security";
+import { backendEngineeringTrack } from "./backend-engineering";
 import { cloudPlatformTrack } from "./cloud-platform";
 import { dataAnalysisTrack } from "./data-analysis";
 import { databaseTrack } from "./database";
@@ -12,6 +15,9 @@ import { expandLearningTrack } from "./question-expansions";
 import type { LearningQuestion, LearningTrack } from "./types";
 
 const baseLearningTracks: LearningTrack[] = [
+  algorithmsTrack,
+  backendEngineeringTrack,
+  applicationSecurityTrack,
   pythonTrack,
   javaTrack,
   javascriptTrack,

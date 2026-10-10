@@ -16,7 +16,7 @@ vi.mock("@react-native-async-storage/async-storage", () => ({
   },
 }));
 
-const python = learningTracks[0];
+const python = learningTracks.find((track) => track.slug === "python") ?? learningTracks[0];
 
 function attempt(key: string, isCorrect: boolean, createdAt: string): LearningAttempt {
   return {
