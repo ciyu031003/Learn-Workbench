@@ -1,0 +1,15 @@
+{
+  "sourceKey": "<content_source.key>",
+  "ref": "main",
+  "entries": {
+    "path/to/chapter.md": {
+      "trackSlug": "<课程 slug，如 java>",
+      "stageKey": "<阶段 key，如 java-foundation>",
+      "topicKey": "<知识点 key，如 java-types-control>",
+      "difficulty": "medium",
+      "tags": ["示例标签"],
+      "estimatedMinutes": 10,
+      "qualityLevel": "L2"
+    }
+  }
+}

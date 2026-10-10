@@ -11,6 +11,7 @@
 | `id-mapping.md` | 稳定 ID 规则与全量映射表（课程 → 阶段 → 知识点 → 题目） | 阶段 7（Phase A） |
 | `adr/` | 架构决策记录（每次关键选型留痕：决策 / 备选 / 依据 / 影响） | 阶段 7 起持续 |
 | `templates/` | 知识点标准模板与质量分级规范 | 阶段 9（Phase C） |
+| `import-maps/` | 外部来源 → 知识点的归属映射（管线不猜归属，没映射就记 unmapped） | 阶段 10（Phase F） |
 | `openapi/` | 新增接口的契约片段（随接口一起提交，不等 H2） | 阶段 8 起持续 |
 
 ## 一分钟上手
@@ -25,6 +26,9 @@ pnpm -F @learn-workbench/content test
 # 4) 落库：把内容包同步进统一内容模型（幂等；--dry-run 只预览差异）
 pnpm sync:content --dry-run
 pnpm sync:content
+# 5) 外部来源导入：先 dry-run 看报告，再小批量试导入（物化成 review 草稿）
+pnpm import:content -- --source=algorithms-java
+pnpm import:content -- --source=algorithms-java --mode=apply --limit=20
 ```
 
 ## 内容库当前规模（2026-10-10 实跑）

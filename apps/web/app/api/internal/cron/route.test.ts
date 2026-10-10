@@ -21,6 +21,14 @@ vi.mock("@/lib/tasks/crawler", () => ({
   triggerCrawlerJobs: vi.fn(async () => [{ name: "crawler:official", started: true, runId: 1 }]),
 }));
 vi.mock("@/lib/tasks/food", () => ({ triggerFoodImport: vi.fn(async () => ({ started: true, runId: 7 })) }));
+vi.mock("@/lib/tasks/content-import", () => ({
+  triggerContentImport: vi.fn(async () => ({
+    started: true,
+    sourceKey: "algorithms-java",
+    mode: "dry-run",
+    pid: 99,
+  })),
+}));
 vi.mock("@/lib/content/knowledge-model", () => ({
   readContentPackageVersion: vi.fn(() => ({ version: "abc1234", updatedAt: "2026-10-01T00:00:00.000Z" })),
   buildContentSyncPlan: vi.fn((options: unknown) => ({ options })),
@@ -38,6 +46,7 @@ import { writeMarketDimensionSnapshots } from "@/lib/domains/market/snapshots";
 import { cleanupExpiredData, securityAlerts } from "@/lib/maintenance";
 import { crawlerRanSuccessfullyToday, triggerCrawlerJobs } from "@/lib/tasks/crawler";
 import { triggerFoodImport } from "@/lib/tasks/food";
+import { triggerContentImport } from "@/lib/tasks/content-import";
 import { buildContentSyncPlan, readContentPackageVersion, syncKnowledgeModel } from "@/lib/content/knowledge-model";
 import { POST } from "./route";
 
@@ -50,6 +59,7 @@ const securityMock = vi.mocked(securityAlerts);
 const ranTodayMock = vi.mocked(crawlerRanSuccessfullyToday);
 const triggerMock = vi.mocked(triggerCrawlerJobs);
 const foodMock = vi.mocked(triggerFoodImport);
+const contentImportMock = vi.mocked(triggerContentImport);
 const planMock = vi.mocked(buildContentSyncPlan);
 const versionMock = vi.mocked(readContentPackageVersion);
 const syncMock = vi.mocked(syncKnowledgeModel);
@@ -180,5 +190,32 @@ describe("POST /api/internal/cron", () => {
     expect(res.status).toBe(200);
     expect(syncMock).toHaveBeenCalledWith(expect.anything(), { dryRun: true });
     expect(body.content.dryRun).toBe(true);
+  });
+
+  it("content-import job 默认 dry-run，?mode=apply&limit 透传给触发函数", async () => {
+    const res = await post("content-import&source=algorithms-java&mode=apply&limit=20", "s3cret");
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(contentImportMock).toHaveBeenCalledWith("cron", {
+      sourceKey: "algorithms-java",
+      mode: "apply",
+      limit: 20,
+      ref: undefined,
+    });
+    expect(body.contentImport).toMatchObject({ started: true, mode: "dry-run" });
+    // 不与其他 job 串味
+    expect(syncMock).not.toHaveBeenCalled();
+    expect(triggerMock).not.toHaveBeenCalled();
+  });
+
+  it("content-import 缺 source 时仍交给触发函数判定（不在路由层崩）", async () => {
+    const res = await post("content-import", "s3cret");
+    expect(res.status).toBe(200);
+    expect(contentImportMock).toHaveBeenCalledWith("cron", {
+      sourceKey: "",
+      mode: "dry-run",
+      limit: undefined,
+      ref: undefined,
+    });
   });
 });

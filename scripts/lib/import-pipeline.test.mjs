@@ -133,6 +133,29 @@ test("planImport：scope 之外直接 skip，不参与 new/update", () => {
   assert.equal(plan.new.length, 0);
 });
 
+test("planImport：未映射的条目进 skip(unmapped)，不判失败、不判新增", () => {
+  const plan = planImport({
+    incoming: [
+      { kind: "knowledge-point", externalKey: "src/x.md#abc", targetKey: "", title: "外部章节", unmapped: true },
+    ],
+  });
+  assert.equal(plan.skip.length, 1);
+  assert.equal(plan.skip[0].reason, IMPORT_REASONS.unmapped);
+  assert.equal(plan.failed.length, 0);
+  assert.equal(plan.new.length, 0);
+});
+
+test("planImport：scope 优先于 unmapped 判定（范围外的不进明细）", () => {
+  const plan = planImport({
+    incoming: [
+      { kind: "knowledge-point", externalKey: "vendor/x.md#abc", targetKey: "", title: "t", unmapped: true, path: "vendor/x.md" },
+    ],
+    scope: ["src"],
+  });
+  assert.equal(plan.skip.length, 1);
+  assert.equal(plan.skip[0].reason, IMPORT_REASONS.outOfScope);
+});
+
 test("detectConflicts：同一外部键内容不同 → duplicate-external-key", () => {
   const conflicts = detectConflicts(
     [],

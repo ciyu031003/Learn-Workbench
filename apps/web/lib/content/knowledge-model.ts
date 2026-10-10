@@ -263,10 +263,12 @@ export async function syncKnowledgeModel(
 
     if (!options.dryRun) {
       const keys = plan.points.map((point) => point.key);
+      // 只归档**内容包管的 published 行**：draft / review 是人工或导入的暂存稿，
+      // 内容包里没有它们不代表"内容消失"，不能顺手归档（否则草稿区每同步一次就被清空）。
       const archived = await client.query(
         `UPDATE knowledge_points
             SET status = 'archived', updated_at = now()
-          WHERE status <> 'archived' AND NOT (key = ANY($1::text[]))`,
+          WHERE status = 'published' AND NOT (key = ANY($1::text[]))`,
         [keys]
       );
       result.archived = archived.rowCount ?? 0;
