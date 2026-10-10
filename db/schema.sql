@@ -1748,4 +1748,35 @@ VALUES
    '仅外链引用，不复制正文；保留署名（GPL-2.0）', '抓包与协议解析参考，不复制正文', now())
 ON CONFLICT (key) DO NOTHING;
 
+-- ---------- 组三 H1：审计列与乐观锁 + 外键支撑索引（064 同步登记） ----------
+-- 与 db/migrations/064_h1_data_hardening.sql 保持一致：全新库在此登记，
+-- 既有库由迁移补齐，两条路径收敛到同一结构（check-schema-fresh 可验）。
+
+ALTER TABLE content_phases   ADD COLUMN IF NOT EXISTS created_by text;
+ALTER TABLE content_phases   ADD COLUMN IF NOT EXISTS updated_by text;
+ALTER TABLE content_phases   ADD COLUMN IF NOT EXISTS version    int NOT NULL DEFAULT 1;
+ALTER TABLE content_topics   ADD COLUMN IF NOT EXISTS created_by text;
+ALTER TABLE content_topics   ADD COLUMN IF NOT EXISTS updated_by text;
+ALTER TABLE content_topics   ADD COLUMN IF NOT EXISTS version    int NOT NULL DEFAULT 1;
+ALTER TABLE knowledge_points ADD COLUMN IF NOT EXISTS created_by text;
+ALTER TABLE knowledge_points ADD COLUMN IF NOT EXISTS updated_by text;
+ALTER TABLE knowledge_points ADD COLUMN IF NOT EXISTS version    int NOT NULL DEFAULT 1;
+ALTER TABLE content_source   ADD COLUMN IF NOT EXISTS created_by text;
+ALTER TABLE content_source   ADD COLUMN IF NOT EXISTS updated_by text;
+ALTER TABLE content_source   ADD COLUMN IF NOT EXISTS version    int NOT NULL DEFAULT 1;
+
+CREATE INDEX IF NOT EXISTS idx_accounts_user             ON accounts(user_id);
+CREATE INDEX IF NOT EXISTS idx_daily_tasks_phase         ON daily_tasks(phase_id);
+CREATE INDEX IF NOT EXISTS idx_daily_tasks_topic         ON daily_tasks(topic_id);
+CREATE INDEX IF NOT EXISTS idx_focus_sessions_task       ON focus_sessions(task_id);
+CREATE INDEX IF NOT EXISTS idx_interview_attempts_phase  ON interview_attempts(phase_id);
+CREATE INDEX IF NOT EXISTS idx_job_notifications_job     ON job_notifications(job_id);
+CREATE INDEX IF NOT EXISTS idx_job_notifications_sub     ON job_notifications(subscription_id);
+CREATE INDEX IF NOT EXISTS idx_job_skill_links_skill     ON job_skill_links(skill_id);
+CREATE INDEX IF NOT EXISTS idx_knowledge_note_tags_tag   ON knowledge_note_tags(tag_id);
+CREATE INDEX IF NOT EXISTS idx_meal_entries_food         ON meal_entries(food_id);
+CREATE INDEX IF NOT EXISTS idx_skill_content_links_topic ON skill_content_links(topic_id);
+CREATE INDEX IF NOT EXISTS idx_user_skills_skill         ON user_skills(skill_id);
+CREATE INDEX IF NOT EXISTS idx_workout_items_user        ON workout_items(user_id);
+
 
