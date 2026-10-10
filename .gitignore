@@ -55,3 +55,7 @@ prototype/tmp/
 # 登录态 Cookie（含敏感会话，禁止提交）
 config/job-hosts/storageState.json
 scripts/.audit_cookie.txt
+
+# docs 文档仅本地保留，不提交或推送
+docs/*.md
+docs/**/*.md

@@ -1,10 +1,11 @@
 # CLAUDE.md — Learn-Workbench
 
-> **新会话先读** [`docs/改动记录与任务看板.md`](docs/改动记录与任务看板.md)——近期改动明细、待办任务看板、踩坑点清单（部署链路/CRLF/迁移/图标管线等全在里面），持续更新。
+> **新会话优先读取本机** [`docs/改动记录与任务看板.md`](docs/改动记录与任务看板.md)——近期改动明细、待办任务看板、踩坑点清单（部署链路/CRLF/迁移/图标管线等全在里面），持续更新。`docs` 下的 Markdown **只保留本地，不随 Git 提交或推送**；新克隆环境没有这些文档属于预期。
 
 ## Project-wide rules
 - Monorepo: pnpm workspace + Turborepo. Commands run from repo root: `pnpm -F web dev` (web), `pnpm mobile` (Expo).
 - Never edit compiled output (`.next`, `dist`, `/build`). Never commit `.env`, `deploy-credentials.txt`, `config/job-hosts/storageState.json`.
+- `docs/*.md` and `docs/**/*.md` are local-only project notes. Never stage, commit, or push them; keep the working-tree files in place. `docs/font-scale-baseline.json` remains tracked because `scripts/check-font-scale.mjs` depends on it.
 - Every `app/api/**/route.ts` ships a sibling `route.test.ts`. Run `pnpm -F web test` before touching routes.
 - Database: PostgreSQL (`scripts/start_pg.ps1` → `127.0.0.1:5432`, db `Learn-Workbench`, user `lwb`). Schema in `db/schema.sql`; `db/migrations/` are incremental, appended not modified. After touching either, run `node scripts/check-schema-fresh.mjs` (applies schema.sql + all migrations to an empty DB and reports drift — production only runs new migrations, so drift otherwise stays invisible).
 - Data isolation: every business query filters by `user_id` (or `anon_id` when anonymous).
