@@ -53,6 +53,12 @@ import { usePullRefresh } from "@/lib/use-pull-refresh";
 import { useReducedMotion } from "@/lib/motion";
 import { isMotionActive } from "@/theme/motion";
 import { loadLearningAttempts, summarizeLearningAttempts, type LearningAttempt } from "@/lib/learning-progress";
+import {
+  continueReading,
+  loadReadingStore,
+  syncReadingState,
+  type ReadingStore,
+} from "@/lib/reading-state";
 
 
 const STAGE_GRADS: [string, string][] = [
@@ -68,6 +74,14 @@ const STAGE_GRADS: [string, string][] = [
 const STAGE_CARD_GAP = 12;
 const DAILY_QUESTION_GOAL = 12;
 const ALL_LEARNING_QUESTIONS = learningTracks.flatMap((track) => track.questions);
+
+/** 阅读卡片用的标题查表（找不到就退回 key，界面不会出现空白行） */
+function readingTitle(trackSlug: string, stageKey: string, topicKey: string): string {
+  const track = learningTracks.find((entry) => entry.slug === trackSlug);
+  const stage = track?.stages.find((entry) => entry.key === stageKey);
+  const topic = stage?.topics.find((entry) => entry.key === topicKey);
+  return topic?.title ?? topicKey;
+}
 
 /**
  * 选中阶段卡的「流云呼吸」光效（v1.33.0，替换旧的白斜线扫光）。
@@ -477,6 +491,46 @@ export default function LearnScreen() {
     }, [])
   );
 
+  /**
+   * 阅读进度（组二 · 阶段 8）：先读本地（离线也有），再尽力与服务端同步（跨设备）。
+   * 拿不到远端时 syncReadingState 返回本地状态，不会把卡片清空。
+   */
+  const [readingStore, setReadingStore] = useState<ReadingStore | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      void loadReadingStore().then((store) => {
+        if (alive) setReadingStore(store);
+      });
+      void syncReadingState().then((store) => {
+        if (alive) setReadingStore(store);
+      });
+      return () => {
+        alive = false;
+      };
+    }, [])
+  );
+  const resume = readingStore ? continueReading(readingStore) : null;
+  const readingCards = useMemo(() => {
+    if (!readingStore) return [] as { key: string; label: string; title: string; trackSlug: string; stageKey: string; topicKey: string; favorite: boolean }[];
+    const favoriteKeys = Object.keys(readingStore.favorites);
+    const items = favoriteKeys.slice(0, 3).map((key) => {
+      const item = readingStore.favorites[key];
+      const track = learningTracks.find((entry) => entry.slug === item.trackSlug);
+      const topic = track?.stages.find((stage) => stage.key === item.stageKey)?.topics.find((entry) => entry.key === item.topicKey);
+      return {
+        key,
+        label: "收藏",
+        title: topic?.title ?? item.topicKey,
+        trackSlug: item.trackSlug,
+        stageKey: item.stageKey,
+        topicKey: item.topicKey,
+        favorite: true,
+      };
+    });
+    return items;
+  }, [readingStore]);
+
   /** 入口卡只用这几个数；统计明细全部搬到 /study-stats 全屏页（v1.33.0） */
   const stats = useMemo(() => computeFocusStats(sessions), [sessions]);
   const learningSummary = useMemo(
@@ -658,6 +712,66 @@ export default function LearnScreen() {
           routeTotal={routeSummary.total}
         />
       </Animated.View>
+
+      {resume || readingCards.length > 0 ? (
+        <Animated.View entering={entrance(2)} style={styles.readingWrap}>
+          <GroupLabel>阅读</GroupLabel>
+          <Card style={styles.readingCard}>
+            {resume ? (
+              <PressableScale
+                haptic
+                scaleTo={0.98}
+                style={styles.readingRow}
+                accessibilityRole="button"
+                accessibilityLabel={`继续学习 ${resume.topicKey}`}
+                onPress={() =>
+                  router.push({
+                    pathname: "/quiz/read",
+                    params: { track: resume.trackSlug, stage: resume.stageKey, topic: resume.topicKey },
+                  } as never)
+                }
+              >
+                <View style={styles.readingIcon}>
+                  <ThemedIcon name="book-outline" size={18} color={colors.primary} />
+                </View>
+                <View style={styles.readingBody}>
+                  <Text style={styles.readingLabel}>继续学习</Text>
+                  <Text style={styles.readingTitle} numberOfLines={1}>
+                    {readingTitle(resume.trackSlug, resume.stageKey, resume.topicKey)}
+                  </Text>
+                  <Text style={styles.readingMeta}>读到 {resume.progress}%</Text>
+                </View>
+                <ThemedIcon name="chevron-forward" size={16} color={colors.textMuted} />
+              </PressableScale>
+            ) : null}
+            {readingCards.map((item) => (
+              <PressableScale
+                key={item.key}
+                haptic
+                scaleTo={0.98}
+                style={styles.readingRow}
+                accessibilityRole="button"
+                accessibilityLabel={`收藏 ${item.title}`}
+                onPress={() =>
+                  router.push({
+                    pathname: "/quiz/read",
+                    params: { track: item.trackSlug, stage: item.stageKey, topic: item.topicKey },
+                  } as never)
+                }
+              >
+                <View style={styles.readingIcon}>
+                  <ThemedIcon name="star" size={18} color={colors.warning} />
+                </View>
+                <View style={styles.readingBody}>
+                  <Text style={styles.readingLabel}>收藏</Text>
+                  <Text style={styles.readingTitle} numberOfLines={1}>{item.title}</Text>
+                </View>
+                <ThemedIcon name="chevron-forward" size={16} color={colors.textMuted} />
+              </PressableScale>
+            ))}
+          </Card>
+        </Animated.View>
+      ) : null}
 
       <Animated.View entering={entrance(2)} style={styles.shelfWrap}>
         <LearningShelfHeader
@@ -1058,6 +1172,28 @@ const makeStyles = (colors: ThemeColors) =>
   },
   addBtnText: { color: colors.accentStrong, ...typography.caption, fontWeight: "800" },
   shelfWrap: { gap: 10 },
+  readingWrap: { gap: 10 },
+  readingCard: { padding: 0, overflow: "hidden" },
+  readingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 14,
+    minHeight: 60,
+    paddingVertical: 10,
+  },
+  readingIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surfaceMuted,
+  },
+  readingBody: { flex: 1, minWidth: 0 },
+  readingLabel: { ...typography.micro, color: colors.textMuted, fontWeight: "700" },
+  readingTitle: { ...typography.body, color: colors.text, fontWeight: "700" },
+  readingMeta: { ...typography.micro, color: colors.textSecondary },
   shelfContent: { gap: 12, paddingTop: 2 },
   shelfActions: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   shelfLink: { flexDirection: "row", alignItems: "center", gap: 2, paddingVertical: 6, paddingHorizontal: 4 },

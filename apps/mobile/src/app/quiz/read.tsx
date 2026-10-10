@@ -1,9 +1,11 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import Animated from "react-native-reanimated";
+import * as Clipboard from "expo-clipboard";
 import {
   getLearningTrack,
+  knowledgePointKeyOf,
   type LearningStage,
   type LearningTopic,
   type LearningTrack,
@@ -11,11 +13,25 @@ import {
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
 import { BottomSheet } from "@/components/bottom-sheet";
+import { InlineToast, TOAST_DEFAULT_LIFE_MS, type ToastKind } from "@/components/toast";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { useScreenEntrance } from "@/lib/use-screen-entrance";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
+import {
+  isFavorite as isFavoriteIn,
+  loadReadingStore,
+  markTopicRead,
+  readStateOf,
+  toggleTopicFavorite,
+  type LocalReadState,
+  type ReadingPointRef,
+  type ReadingStore,
+} from "@/lib/reading-state";
 import { useTheme } from "@/theme";
 import { radius, shadows, spacing, typography, type ThemeColors } from "@/theme/tokens";
+
+/** 读到这个百分比即视为"读完本节"（进度条只增不减） */
+const READ_COMPLETE_PERCENT = 85;
 
 export default function KnowledgeReaderScreen() {
   const params = useLocalSearchParams<{ track?: string; stage?: string; topic?: string }>();
@@ -65,6 +81,85 @@ function KnowledgeReader({
   const topic = stage.topics[topicIndex] ?? stage.topics[0];
   const topicCount = stage.topics.length;
 
+  // ---- 阅读状态（本地优先 + 跨设备同步，见 lib/reading-state.ts） ----
+  // 稳定引用：React Compiler 要求 memo 依赖可被保持（否则整个组件跳过编译优化）
+  const pointRef = useMemo<ReadingPointRef>(
+    () => ({
+      pointKey: knowledgePointKeyOf({ trackSlug: track.slug, stageKey: stage.key, topicKey: topic.key }),
+      trackSlug: track.slug,
+      stageKey: stage.key,
+      topicKey: topic.key,
+    }),
+    [track.slug, stage.key, topic.key]
+  );
+  const [readingStore, setReadingStore] = useState<ReadingStore | null>(null);
+  const [toast, setToast] = useState<{ message: string; kind: ToastKind } | null>(null);
+  const progressRef = useRef(0);
+  const reportedRef = useRef(0);
+  const readState: LocalReadState | null = readingStore ? readStateOf(readingStore, pointRef.pointKey) : null;
+  const favorited = readingStore ? isFavoriteIn(readingStore, pointRef.pointKey) : false;
+  const readKeys = useMemo(() => new Set(Object.keys(readingStore?.read ?? {})), [readingStore]);
+  const favoriteKeys = useMemo(() => new Set(Object.keys(readingStore?.favorites ?? {})), [readingStore]);
+
+  const notify = useCallback((message: string, kind: ToastKind = "success") => {
+    setToast({ message, kind });
+  }, []);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), TOAST_DEFAULT_LIFE_MS);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
+  /**
+   * 打开本节：先读本地状态（离线也有），再记一次阅读并尽力推送。
+   * 离开本节时把滚动进度补上去 —— progress 只增不减，重复上报是幂等的。
+   */
+  useEffect(() => {
+    let alive = true;
+    progressRef.current = 0;
+    reportedRef.current = 0;
+    const ref: ReadingPointRef = {
+      pointKey: knowledgePointKeyOf({ trackSlug: track.slug, stageKey: stage.key, topicKey: topic.key }),
+      trackSlug: track.slug,
+      stageKey: stage.key,
+      topicKey: topic.key,
+    };
+    loadReadingStore().then((loaded) => {
+      if (alive) setReadingStore(loaded);
+    });
+    markTopicRead(ref).then((next) => {
+      if (alive) setReadingStore(next);
+    });
+    return () => {
+      alive = false;
+      const progress = Math.round(progressRef.current);
+      if (progress > reportedRef.current) void markTopicRead({ ...ref, progress });
+    };
+  }, [track.slug, stage.key, topic.key]);
+
+  const onToggleFavorite = useCallback(async () => {
+    const next = await toggleTopicFavorite(pointRef);
+    setReadingStore(next);
+    notify(isFavoriteIn(next, pointRef.pointKey) ? "已收藏本节" : "已取消收藏", "info");
+  }, [pointRef, notify]);
+
+  const handleScroll = useCallback(
+    (event: Parameters<typeof header.onScroll>[0]) => {
+      header.onScroll(event);
+      const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+      const scrollable = contentSize.height - layoutMeasurement.height;
+      const percent = scrollable <= 0 ? 100 : Math.round((contentOffset.y / scrollable) * 100);
+      progressRef.current = Math.max(progressRef.current, Math.min(100, Math.max(0, percent)));
+      // 读到 85% 就立刻把"已读"记上（不必等用户退出页面）
+      if (progressRef.current >= READ_COMPLETE_PERCENT && reportedRef.current < READ_COMPLETE_PERCENT) {
+        reportedRef.current = progressRef.current;
+        void markTopicRead({ ...pointRef, progress: progressRef.current }).then(setReadingStore);
+      }
+    },
+    [header, pointRef]
+  );
+
   // 扁平化的"上一节 / 下一节"：跨章节时自动落到相邻章的边界知识点
   const flat = track.stages.flatMap((item, si) =>
     item.topics.map((entry, ti) => ({ stage: item, stageIndex: si, topic: entry, topicIndex: ti }))
@@ -100,20 +195,37 @@ function KnowledgeReader({
         scrollY={header.scrollY}
         backTo={`/quiz/${track.slug}`}
         right={
-          <PressableScale
-            haptic
-            scaleTo={0.94}
-            onPress={() => setOutlineOpen(true)}
-            style={styles.outlineButton}
-            accessibilityRole="button"
-            accessibilityLabel="打开课程目录"
-          >
-            <ThemedIcon name="list-outline" size={20} color={colors.text} />
-          </PressableScale>
+          <View style={styles.headerActions}>
+            <PressableScale
+              haptic
+              scaleTo={0.94}
+              onPress={onToggleFavorite}
+              style={styles.outlineButton}
+              accessibilityRole="button"
+              accessibilityLabel={favorited ? "取消收藏本节" : "收藏本节"}
+              accessibilityState={{ selected: favorited }}
+            >
+              <ThemedIcon
+                name={favorited ? "star" : "star-outline"}
+                size={20}
+                color={favorited ? colors.warning : colors.text}
+              />
+            </PressableScale>
+            <PressableScale
+              haptic
+              scaleTo={0.94}
+              onPress={() => setOutlineOpen(true)}
+              style={styles.outlineButton}
+              accessibilityRole="button"
+              accessibilityLabel="打开课程目录"
+            >
+              <ThemedIcon name="list-outline" size={20} color={colors.text} />
+            </PressableScale>
+          </View>
         }
       />
       <Animated.ScrollView
-        onScroll={header.onScroll}
+        onScroll={handleScroll}
         scrollEventThrottle={16}
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace + 36 }]}
@@ -125,10 +237,24 @@ function KnowledgeReader({
         />
 
         <Animated.View entering={entrance(0)} style={styles.progressRow}>
-          <View style={[styles.progressChip, { backgroundColor: trackTint }]}>
-            <Text style={[styles.progressChipText, { color: track.accent }]}>
-              知识点 {topicIndex + 1} / {topicCount}
-            </Text>
+          <View style={styles.progressLeft}>
+            <View style={[styles.progressChip, { backgroundColor: trackTint }]}>
+              <Text style={[styles.progressChipText, { color: track.accent }]}>
+                知识点 {topicIndex + 1} / {topicCount}
+              </Text>
+            </View>
+            {readState && readState.progress > 0 ? (
+              <View style={styles.readChip} accessibilityLabel={`阅读进度 ${readState.progress}%`}>
+                <ThemedIcon
+                  name={readState.progress >= READ_COMPLETE_PERCENT ? "checkmark-circle" : "book-outline"}
+                  size={13}
+                  color={readState.progress >= READ_COMPLETE_PERCENT ? colors.success : colors.textSecondary}
+                />
+                <Text style={styles.readChipText}>
+                  {readState.progress >= READ_COMPLETE_PERCENT ? "已读" : `读到 ${readState.progress}%`}
+                </Text>
+              </View>
+            ) : null}
           </View>
           <PressableScale haptic onPress={() => setOutlineOpen(true)} style={styles.progressOutline}>
             <ThemedIcon name="list-outline" size={15} color={colors.textSecondary} />
@@ -175,6 +301,7 @@ function KnowledgeReader({
             track={track}
             topic={topic}
             index={topicIndex}
+            onCopied={notify}
             onPractice={() => startTopicPractice(topic.key)}
           />
         </Animated.View>
@@ -255,6 +382,16 @@ function KnowledgeReader({
                         >
                           {ti + 1}. {entry.title}
                         </Text>
+                        {favoriteKeys.has(
+                          knowledgePointKeyOf({ trackSlug: track.slug, stageKey: item.key, topicKey: entry.key })
+                        ) ? (
+                          <ThemedIcon name="star" size={13} color={colors.warning} />
+                        ) : null}
+                        {readKeys.has(
+                          knowledgePointKeyOf({ trackSlug: track.slug, stageKey: item.key, topicKey: entry.key })
+                        ) ? (
+                          <ThemedIcon name="checkmark-circle" size={14} color={colors.success} />
+                        ) : null}
                       </PressableScale>
                     ))
                   : null}
@@ -263,6 +400,8 @@ function KnowledgeReader({
           })}
         </ScrollView>
       </BottomSheet>
+
+      {toast ? <InlineToast message={toast.message} kind={toast.kind} style={styles.toast} /> : null}
     </View>
   );
 }
@@ -271,11 +410,13 @@ function TopicArticle({
   track,
   topic,
   index,
+  onCopied,
   onPractice,
 }: {
   track: LearningTrack;
   topic: LearningTopic;
   index: number;
+  onCopied: (message: string, kind?: ToastKind) => void;
   onPractice: () => void;
 }) {
   const { colors, dark } = useTheme();
@@ -306,7 +447,7 @@ function TopicArticle({
             <ParagraphList items={topic.lesson.mechanism} />
           </KnowledgeBlock>
 
-          <CodeExample example={topic.lesson.example} accent={track.accent} />
+          <CodeExample example={topic.lesson.example} accent={track.accent} onCopied={onCopied} />
 
           <KnowledgeBlock title="练习路径" icon="map-outline" accent={track.accent}>
             <ParagraphList items={topic.lesson.practiceSteps} />
@@ -435,12 +576,22 @@ function StageLessonCard({
 function CodeExample({
   example,
   accent,
+  onCopied,
 }: {
   example: NonNullable<LearningTopic["lesson"]>["example"];
   accent: string;
+  onCopied: (message: string, kind?: ToastKind) => void;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const copyCode = useCallback(async () => {
+    try {
+      await Clipboard.setStringAsync(example.code);
+      onCopied("已复制代码");
+    } catch {
+      onCopied("复制失败，可长按选中代码", "error");
+    }
+  }, [example.code, onCopied]);
   return (
     <View style={styles.codeCard}>
       <View style={styles.codeHead}>
@@ -448,7 +599,20 @@ function CodeExample({
           <ThemedIcon name="code-slash" size={16} color={accent} />
           <Text style={styles.codeTitle}>{example.title}</Text>
         </View>
-        <Text style={[styles.codeLanguage, { color: accent }]}>{example.language}</Text>
+        <View style={styles.codeHeadActions}>
+          <Text style={[styles.codeLanguage, { color: accent }]}>{example.language}</Text>
+          <PressableScale
+            haptic
+            scaleTo={0.92}
+            onPress={copyCode}
+            style={styles.codeCopy}
+            accessibilityRole="button"
+            accessibilityLabel="复制代码"
+          >
+            <ThemedIcon name="copy-outline" size={15} color={accent} />
+            <Text style={[styles.codeCopyText, { color: accent }]}>复制</Text>
+          </PressableScale>
+        </View>
       </View>
       <ScrollView
         horizontal
@@ -533,6 +697,20 @@ const makeStyles = (colors: ThemeColors) =>
     },
     progressRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     progressChip: { borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 7 },
+    progressLeft: { flexDirection: "row", alignItems: "center", gap: spacing.sm, flexShrink: 1 },
+    readChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      borderRadius: radius.pill,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 5,
+    },
+    readChipText: { ...typography.micro, color: colors.textSecondary, fontWeight: "600" },
+    headerActions: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+    toast: { position: "absolute", left: spacing.lg, right: spacing.lg, bottom: spacing.xl },
     progressChipText: { ...typography.caption, fontWeight: "800" },
     progressOutline: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: spacing.sm, paddingVertical: 6 },
     progressOutlineText: { ...typography.caption, fontWeight: "700", color: colors.textSecondary },
@@ -598,6 +776,17 @@ const makeStyles = (colors: ThemeColors) =>
     codeTitleWrap: { flex: 1, flexDirection: "row", alignItems: "center", gap: spacing.sm },
     codeTitle: { flex: 1, ...typography.caption, fontWeight: "700", color: colors.text },
     codeLanguage: { ...typography.micro, fontWeight: "700", textTransform: "uppercase" },
+    codeHeadActions: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+    codeCopy: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      borderRadius: radius.pill,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 6,
+      backgroundColor: colors.surfaceMuted,
+    },
+    codeCopyText: { ...typography.micro, fontWeight: "700" },
     codeScroll: { minWidth: "100%", padding: spacing.md },
     codeText: { ...typography.caption, lineHeight: 18, color: colors.text, fontFamily: Platform.select({ ios: "Menlo", android: "monospace", default: "monospace" }) },
     codeExplanation: { ...typography.caption, color: colors.textSecondary, paddingHorizontal: spacing.md, paddingBottom: spacing.md },
