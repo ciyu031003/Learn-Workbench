@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export * from "./learning";
+export * from "./md-lite";
 
 /* ================= 内容模型（与 db/schema.sql 对齐） ================= */
 
@@ -64,6 +65,17 @@ export const roadmapTopicSchema = topicSchema.extend({
   done: z.boolean(),
   note: z.string().nullable(),
   isCustom: z.boolean().default(false),
+  /** MD 导入的「学习内容」条目（content_topic_items），Web 由 /api/roadmap 返回 */
+  items: z
+    .array(
+      z.object({
+        id: z.number(),
+        title: z.string(),
+        contentMd: z.string(),
+        sortOrder: z.number(),
+      })
+    )
+    .default([]),
 });
 export type RoadmapTopic = z.infer<typeof roadmapTopicSchema>;
 
