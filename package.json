@@ -12,7 +12,7 @@
     "mobile": "pnpm --filter mobile start",
     "test": "pnpm -r test",
     "test:coverage": "vitest run --coverage",
-    "test:scripts": "node --test scripts/lib/normalize.test.mjs scripts/lib/cities.test.mjs scripts/lib/equipment-category.test.mjs scripts/lib/ota-manifest.test.mjs scripts/lib/qr-png.test.mjs scripts/lib/crawl-core.test.mjs && node scripts/verify-migrations.mjs && node scripts/check-content-quality.mjs && node scripts/check-release-hygiene.mjs",
+    "test:scripts": "node --test scripts/lib/normalize.test.mjs scripts/lib/cities.test.mjs scripts/lib/equipment-category.test.mjs scripts/lib/ota-manifest.test.mjs scripts/lib/qr-png.test.mjs scripts/lib/crawl-core.test.mjs scripts/lib/import-pipeline.test.mjs && node scripts/verify-migrations.mjs && node scripts/check-content-quality.mjs && node scripts/check-release-hygiene.mjs",
     "check:content": "node scripts/check-content-quality.mjs --strict",
     "check:release": "node scripts/check-release-hygiene.mjs",
     "release": "node scripts/release.mjs",
