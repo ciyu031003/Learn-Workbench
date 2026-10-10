@@ -21,7 +21,14 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
-import { buildImportItems, loadMappingFile, walkDocs } from "./lib/content-source.mjs";
+import {
+  assertSafeGitRef,
+  assertSafeRelativePath,
+  assertSafeRepoUrl,
+  buildImportItems,
+  loadMappingFile,
+  walkDocs,
+} from "./lib/content-source.mjs";
 
 const require = createRequire(import.meta.url);
 const { Pool } = require("pg");
@@ -89,22 +96,37 @@ async function loadSource() {
  * 固定版本落地：已克隆则 fetch + 强制 checkout 到该版本；否则浅克隆。
  * 分支 / tag 用 `--branch` 克隆最省事；裸 sha 只能克隆后再 fetch+checkout（git 不支持 --branch <sha>）。
  */
+/**
+ * 所有 git 调用统一走这里（组三 · H3）：
+ *  - `GIT_ALLOW_PROTOCOL=https` 关掉 file/ext/ssh 等传输，堵住"诱饵 URL → 命令执行"；
+ *  - 传参一律走 argv 数组（不经 shell），配合 assertSafeGitRef 防选项注入。
+ */
+function runGit(gitArgs, opts = {}) {
+  return execFileSync("git", gitArgs, {
+    timeout: 600_000,
+    ...opts,
+    env: { ...process.env, GIT_ALLOW_PROTOCOL: "https", GIT_TERMINAL_PROMPT: "0", ...(opts.env ?? {}) },
+  });
+}
+
 function syncRepo(url, ref) {
+  assertSafeRepoUrl(url);
+  assertSafeGitRef(ref);
   const bySha = /^[0-9a-f]{7,40}$/i.test(ref);
   if (fs.existsSync(path.join(repoDir, ".git"))) {
-    execFileSync("git", ["-C", repoDir, "fetch", "--quiet", "--depth", "1", "origin", ref], { timeout: 180_000 });
-    execFileSync("git", ["-C", repoDir, "checkout", "--quiet", "--force", "FETCH_HEAD"], { timeout: 60_000 });
+    runGit(["-C", repoDir, "fetch", "--quiet", "--depth", "1", "origin", ref], { timeout: 180_000 });
+    runGit(["-C", repoDir, "checkout", "--quiet", "--force", "FETCH_HEAD"], { timeout: 60_000 });
   } else {
     fs.mkdirSync(path.dirname(repoDir), { recursive: true });
     if (bySha) {
-      execFileSync("git", ["clone", "--quiet", url, repoDir], { timeout: 600_000 });
-      execFileSync("git", ["-C", repoDir, "fetch", "--quiet", "--depth", "1", "origin", ref], { timeout: 180_000 });
-      execFileSync("git", ["-C", repoDir, "checkout", "--quiet", "--force", "FETCH_HEAD"], { timeout: 60_000 });
+      runGit(["clone", "--quiet", url, repoDir]);
+      runGit(["-C", repoDir, "fetch", "--quiet", "--depth", "1", "origin", ref], { timeout: 180_000 });
+      runGit(["-C", repoDir, "checkout", "--quiet", "--force", "FETCH_HEAD"], { timeout: 60_000 });
     } else {
-      execFileSync("git", ["clone", "--quiet", "--depth", "1", "--branch", ref, url, repoDir], { timeout: 600_000 });
+      runGit(["clone", "--quiet", "--depth", "1", "--branch", ref, url, repoDir]);
     }
   }
-  return execFileSync("git", ["-C", repoDir, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+  return runGit(["-C", repoDir, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
 }
 
 /** 许可核验：仓库根必须有 LICENSE*；许可为 UNKNOWN 且要物化时直接拒绝。 */
@@ -130,7 +152,7 @@ async function main() {
     throw new Error(`来源 usage=${source.usage} 只允许 dry-run：只保留外链，不复制正文`);
   }
 
-  const ref = String(args.ref ?? source.ref ?? "main").trim();
+  const ref = assertSafeGitRef(args.ref ?? source.ref ?? "main");
   log(`来源 ${source.key}（${source.name}）· 固定版本 ${ref} · 模式 ${mode}`);
   const commitSha = syncRepo(source.url, ref);
   log(`commit ${commitSha.slice(0, 12)}`);
@@ -143,7 +165,7 @@ async function main() {
   const docs = walkDocs(repoDir);
   const { items, parsed } = buildImportItems({
     docs,
-    readText: (rel) => fs.readFileSync(path.join(repoDir, rel), "utf8"),
+    readText: (rel) => fs.readFileSync(path.join(repoDir, assertSafeRelativePath(rel)), "utf8"),
     mapping: mapping.entries,
     scope,
     limit,

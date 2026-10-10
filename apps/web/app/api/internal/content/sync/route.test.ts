@@ -5,6 +5,7 @@ vi.mock("@/lib/content/knowledge-model", () => ({
   syncKnowledgeModel: vi.fn(),
 }));
 vi.mock("@/lib/logger", () => ({ logger: { info: vi.fn(), error: vi.fn() } }));
+vi.mock("@/lib/audit", () => ({ writeAuditLog: vi.fn(async () => {}), listAuditLog: vi.fn() }));
 import {
   buildContentSyncPlan,
   readContentPackageVersion,

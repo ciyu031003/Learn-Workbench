@@ -7,6 +7,8 @@ import {
 import { logger } from "@/lib/logger";
 import { apiError, API_ERROR_CODES } from "@/lib/api-error";
 import { guardInternalRequest } from "@/lib/internal-guard";
+import { CONTENT_ROLES } from "@/lib/roles";
+import { writeAuditLog } from "@/lib/audit";
 
 /**
  * POST /api/internal/content/sync —— 把内容包（packages/content）同步进统一内容模型（组二 · 阶段 7 = Phase A）。
@@ -20,7 +22,7 @@ import { guardInternalRequest } from "@/lib/internal-guard";
  */
 export async function POST(req: Request) {
   // H2：内部接口统一前门（先限流再验密钥），见 lib/internal-guard.ts。
-  const guard = await guardInternalRequest(req, "content-sync");
+  const guard = await guardInternalRequest(req, "content-sync", { allowRoles: CONTENT_ROLES });
   if (!guard.ok) return guard.response;
   const { requestId } = guard;
 
@@ -47,6 +49,16 @@ export async function POST(req: Request) {
     const plan = buildContentSyncPlan({ contentVersion, contentUpdatedAt, reviewTtlDays });
     const result = await syncKnowledgeModel(plan, { dryRun });
     logger.info("[internal/content/sync] done:", JSON.stringify({ dryRun, contentVersion, result }));
+    await writeAuditLog({
+      action: "content.sync",
+      actorId: guard.actorId,
+      actorType: guard.actorType,
+      targetType: "content_model",
+      targetId: contentVersion,
+      meta: { dryRun, contentUpdatedAt },
+      requestId,
+      ip: guard.ip,
+    });
     // result 自带 contentVersion，这里只补 dryRun / contentUpdatedAt
     return NextResponse.json({ ok: true, dryRun, contentUpdatedAt, requestId, ...result });
   } catch (error) {

@@ -8,6 +8,7 @@ vi.mock("@/lib/content/import-pipeline", async (importOriginal) => {
   };
 });
 vi.mock("@/lib/logger", () => ({ logger: { info: vi.fn(), error: vi.fn() } }));
+vi.mock("@/lib/audit", () => ({ writeAuditLog: vi.fn(async () => {}), listAuditLog: vi.fn() }));
 import {
   ContentImportError,
   rollbackContentImport,

@@ -8,6 +8,8 @@ import {
 import { logger } from "@/lib/logger";
 import { apiError, API_ERROR_CODES, type ApiErrorCode } from "@/lib/api-error";
 import { guardInternalRequest } from "@/lib/internal-guard";
+import { CONTENT_ROLES } from "@/lib/roles";
+import { writeAuditLog } from "@/lib/audit";
 
 /** ContentImportError.status → 错误码（H2：状态码之外再给机器可读类型）。 */
 function importErrorCode(status: number): ApiErrorCode {
@@ -30,7 +32,7 @@ function importErrorCode(status: number): ApiErrorCode {
  */
 export async function POST(req: Request) {
   // H2：内部接口统一前门（先限流再验密钥），见 lib/internal-guard.ts。
-  const guard = await guardInternalRequest(req, "content-import");
+  const guard = await guardInternalRequest(req, "content-import", { allowRoles: CONTENT_ROLES });
   if (!guard.ok) return guard.response;
   const { requestId } = guard;
 
@@ -49,6 +51,16 @@ export async function POST(req: Request) {
     if (Number.isInteger(rollbackId) && rollbackId > 0) {
       const result = await rollbackContentImport(rollbackId);
       logger.info("[internal/content/import] rolled back:", JSON.stringify(result));
+      await writeAuditLog({
+        action: "content.import.rollback",
+        actorId: guard.actorId,
+        actorType: guard.actorType,
+        targetType: "content_import_batch",
+        targetId: String(rollbackId),
+        meta: { ...result },
+        requestId,
+        ip: guard.ip,
+      });
       return NextResponse.json({ ok: true, rollback: true, requestId, ...result });
     }
 
@@ -67,6 +79,16 @@ export async function POST(req: Request) {
 
     const result = await runContentImport({ sourceKey, mode, commitSha, scope, items, createdBy });
     logger.info("[internal/content/import] done:", JSON.stringify({ sourceKey, mode, batchId: result.batchId }));
+    await writeAuditLog({
+      action: "content.import",
+      actorId: guard.actorId,
+      actorType: guard.actorType,
+      targetType: "content_source",
+      targetId: sourceKey,
+      meta: { mode, batchId: result.batchId, counts: result.counts, commitSha },
+      requestId,
+      ip: guard.ip,
+    });
     return NextResponse.json({ ok: true, requestId, ...result });
   } catch (error) {
     if (error instanceof ContentImportError) {
