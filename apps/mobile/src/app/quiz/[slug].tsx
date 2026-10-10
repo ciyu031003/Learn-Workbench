@@ -3,7 +3,12 @@ import { StyleSheet, Text, View } from "react-native";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import Animated from "react-native-reanimated";
 import {
+  QUALITY_LEVEL_LABEL,
   getLearningTrack,
+  isLearnable,
+  isReviewed,
+  qualityOfTopic,
+  type KnowledgeQuality,
   type LearningStage,
   type LearningTopic,
   type LearningTrack,
@@ -350,6 +355,17 @@ function StageSection({
   const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const trackTint = dark ? `${track.accent}24` : track.softAccent;
+  /**
+   * 质量分级门槛（组二 · 阶段 9 = V3 Phase C）：
+   * L0/L1（占位/仅摘要）不进正式学习列表；L2/L3 可学但要标"待补充"，只有 L4 展示"已审核"。
+   */
+  const learnableTopics = useMemo(
+    () =>
+      stage.topics
+        .map((topic) => ({ topic, quality: qualityOfTopic(track, stage, topic) }))
+        .filter((entry) => isLearnable(entry.quality.level)),
+    [stage, track]
+  );
   return (
     <View style={[styles.stageCard, expanded && styles.stageCardOpen]}>
       <PressableScale haptic scaleTo={0.99} onPress={onToggle} style={styles.stageHead}>
@@ -370,10 +386,11 @@ function StageSection({
             <Text style={styles.outcomeText}>{stage.goal}</Text>
             <Text style={styles.outcomeResult}>验收：{stage.outcome}</Text>
           </View>
-          {stage.topics.map((topic) => (
+          {learnableTopics.map(({ topic, quality }) => (
             <TopicRow
               key={topic.key}
               topic={topic}
+              quality={quality}
               expanded={expandedTopic === topic.key}
               onToggle={() => onTopicToggle(topic.key)}
               onPractice={() => onTopicPractice(topic.key)}
@@ -391,23 +408,36 @@ function StageSection({
 
 function TopicRow({
   topic,
+  quality,
   expanded,
   onToggle,
   onPractice,
 }: {
   topic: LearningTopic;
+  quality: KnowledgeQuality;
   expanded: boolean;
   onToggle: () => void;
   onPractice: () => void;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const reviewed = isReviewed(quality.level);
   return (
     <View style={styles.topicShell}>
       <PressableScale haptic scaleTo={0.99} onPress={onToggle} style={styles.topicHead}>
         <View style={styles.topicBullet} />
         <View style={styles.topicBody}>
-          <Text style={styles.topicTitle}>{topic.title}</Text>
+          <View style={styles.topicTitleRow}>
+            <Text style={styles.topicTitle} numberOfLines={2}>{topic.title}</Text>
+            <View
+              style={[styles.qualityBadge, reviewed ? styles.qualityBadgeOk : styles.qualityBadgePending]}
+              accessibilityLabel={`内容质量 ${QUALITY_LEVEL_LABEL[quality.level]}`}
+            >
+              <Text style={[styles.qualityBadgeText, reviewed ? { color: colors.success } : { color: colors.warning }]}>
+                {QUALITY_LEVEL_LABEL[quality.level]}
+              </Text>
+            </View>
+          </View>
           <Text style={styles.topicSummary} numberOfLines={expanded ? undefined : 2}>{topic.summary}</Text>
         </View>
         <ThemedIcon name={expanded ? "chevron-up" : "chevron-down"} size={16} color={colors.textFaint} />
@@ -690,7 +720,17 @@ const makeStyles = (colors: ThemeColors) =>
     topicHead: { minHeight: 64, flexDirection: "row", alignItems: "center", gap: spacing.sm, padding: spacing.md },
     topicBullet: { width: 7, height: 7, borderRadius: 999, backgroundColor: colors.primary },
     topicBody: { flex: 1, gap: 2 },
-    topicTitle: { ...typography.callout, fontWeight: "700", color: colors.text },
+    topicTitleRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
+    topicTitle: { ...typography.callout, fontWeight: "700", color: colors.text, flexShrink: 1 },
+    qualityBadge: {
+      borderRadius: radius.pill,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      marginTop: 2,
+    },
+    qualityBadgeOk: { backgroundColor: colors.successSoft },
+    qualityBadgePending: { backgroundColor: colors.warningSoft },
+    qualityBadgeText: { ...typography.micro, fontWeight: "700" },
     topicSummary: { ...typography.caption, fontWeight: "400", color: colors.textMuted },
     topicDetails: { paddingHorizontal: spacing.md, paddingBottom: spacing.md, gap: spacing.md },
     detailBlock: { gap: 5 },

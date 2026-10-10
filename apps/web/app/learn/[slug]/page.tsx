@@ -2,7 +2,17 @@
 
 import { use, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { getLearningTrack, knowledgePointKeyOf, type LearningTopic, type LearningTrack } from "@learn-workbench/content";
+import {
+  QUALITY_LEVEL_LABEL,
+  getLearningTrack,
+  isLearnable,
+  isReviewed,
+  knowledgePointKeyOf,
+  qualityOfTopic,
+  type LearningStage,
+  type LearningTopic,
+  type LearningTrack,
+} from "@learn-workbench/content";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { LearningMastery } from "@/components/learning/mastery-badge";
@@ -22,7 +32,10 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
     () =>
       track
         ? track.stages.flatMap((stage) =>
-            stage.topics.map((topic) => ({ stageKey: stage.key, topicKey: topic.key, title: topic.title }))
+            stage.topics
+              // 阶段 9 门槛：L0/L1（占位/仅摘要）不进正式学习列表
+              .filter((topic) => isLearnable(qualityOfTopic(track, stage, topic).level))
+              .map((topic) => ({ stageKey: stage.key, topicKey: topic.key, title: topic.title }))
           )
         : [],
     [track]
@@ -135,7 +148,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                       </span>
                     </button>
                     <ul className="flex flex-col gap-0.5 pl-6">
-                      {stage.topics.map((topic) => {
+                      {stage.topics.filter((topic) => isLearnable(qualityOfTopic(track, stage, topic).level)).map((topic) => {
                         const pointKey = knowledgePointKeyOf({
                           trackSlug: track.slug,
                           stageKey: stage.key,
@@ -203,7 +216,9 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                   </div>
                   {stage.lesson ? <StageLesson track={track} lesson={stage.lesson} /> : null}
                   <ol className="flex flex-col gap-2">
-                    {stage.topics.map((topic, topicIndex) => {
+                    {stage.topics
+                      .filter((topic) => isLearnable(qualityOfTopic(track, stage, topic).level))
+                      .map((topic, topicIndex) => {
                       const flatIndex = flatTopics.findIndex(
                         (entry) => entry.stageKey === stage.key && entry.topicKey === topic.key
                       );
@@ -213,6 +228,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                             track={track}
                             topic={topic}
                             index={topicIndex}
+                            stage={stage}
                             stageKey={stage.key}
                             library={library}
                             previous={flatIndex > 0 ? flatTopics[flatIndex - 1] : null}
@@ -327,6 +343,7 @@ function TopicCard({
   track,
   topic,
   index,
+  stage,
   stageKey,
   library,
   previous,
@@ -336,6 +353,7 @@ function TopicCard({
   track: LearningTrack;
   topic: LearningTopic;
   index: number;
+  stage: LearningStage;
   stageKey: string;
   library: { read: Map<string, number>; favorites: Set<string> };
   previous: FlatTopic | null;
@@ -344,6 +362,7 @@ function TopicCard({
 }) {
   const questions = topicQuestions(track, topic.key);
   const pointKey = knowledgePointKeyOf({ trackSlug: track.slug, stageKey, topicKey: topic.key });
+  const quality = qualityOfTopic(track, stage, topic);
   return (
     <details className="group rounded-lg border border-border/50 bg-background/40">
       <summary className="flex cursor-pointer list-none items-center gap-2.5 p-3">
@@ -355,6 +374,7 @@ function TopicCard({
           <span className="mt-0.5 block truncate text-xs text-muted-foreground">{topic.summary}</span>
         </span>
         {library.favorites.has(pointKey) ? <FavoriteMark /> : null}
+        <QualityBadge level={quality.level} />
         <ReadBadge progress={library.read.get(pointKey)} />
         <Badge variant="muted" className="shrink-0">{questions.length} 题</Badge>
       </summary>
@@ -452,6 +472,21 @@ function TopicCard({
         </nav>
       </div>
     </details>
+  );
+}
+
+/** 内容质量分级角标（阶段 9）：L4 = 已审核；L2/L3 = 待补充（L0/L1 不会出现在列表里） */
+function QualityBadge({ level }: { level: keyof typeof QUALITY_LEVEL_LABEL }) {
+  const reviewed = isReviewed(level);
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+        reviewed ? "bg-success/10 text-success-strong" : "bg-warning/10 text-warning"
+      }`}
+      title={QUALITY_LEVEL_LABEL[level]}
+    >
+      {QUALITY_LEVEL_LABEL[level]}
+    </span>
   );
 }
 

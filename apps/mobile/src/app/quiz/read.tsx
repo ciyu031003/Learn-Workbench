@@ -4,8 +4,11 @@ import { router, useLocalSearchParams } from "expo-router";
 import Animated from "react-native-reanimated";
 import * as Clipboard from "expo-clipboard";
 import {
+  QUALITY_LEVEL_LABEL,
   getLearningTrack,
+  isReviewed,
   knowledgePointKeyOf,
+  qualityOfTopic,
   type LearningStage,
   type LearningTopic,
   type LearningTrack,
@@ -100,6 +103,9 @@ function KnowledgeReader({
   const favorited = readingStore ? isFavoriteIn(readingStore, pointRef.pointKey) : false;
   const readKeys = useMemo(() => new Set(Object.keys(readingStore?.read ?? {})), [readingStore]);
   const favoriteKeys = useMemo(() => new Set(Object.keys(readingStore?.favorites ?? {})), [readingStore]);
+  /** 内容质量分级（阶段 9）：L4 = 已审核；L2/L3 可读但标"待补充"（L0/L1 根本不会出现在课程列表里） */
+  const quality = useMemo(() => qualityOfTopic(track, stage, topic), [track, stage, topic]);
+  const qualityReviewed = isReviewed(quality.level);
 
   const notify = useCallback((message: string, kind: ToastKind = "success") => {
     setToast({ message, kind });
@@ -281,6 +287,22 @@ function KnowledgeReader({
             <View style={styles.heroMetaItem}>
               <ThemedIcon name="checkmark-circle" size={17} color={track.accent} />
               <Text style={styles.heroMetaText}>读完后完成练习</Text>
+            </View>
+            <View
+              style={[
+                styles.qualityChip,
+                { backgroundColor: qualityReviewed ? colors.successSoft : colors.warningSoft },
+              ]}
+              accessibilityLabel={`内容质量 ${QUALITY_LEVEL_LABEL[quality.level]}`}
+            >
+              <ThemedIcon
+                name={qualityReviewed ? "shield-checkmark" : "construct"}
+                size={13}
+                color={qualityReviewed ? colors.success : colors.warning}
+              />
+              <Text style={[styles.qualityChipText, { color: qualityReviewed ? colors.success : colors.warning }]}>
+                {QUALITY_LEVEL_LABEL[quality.level]}
+              </Text>
             </View>
           </View>
         </Animated.View>
@@ -709,6 +731,15 @@ const makeStyles = (colors: ThemeColors) =>
       paddingVertical: 5,
     },
     readChipText: { ...typography.micro, color: colors.textSecondary, fontWeight: "600" },
+    qualityChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      borderRadius: radius.pill,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 4,
+    },
+    qualityChipText: { ...typography.micro, fontWeight: "700" },
     headerActions: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
     toast: { position: "absolute", left: spacing.lg, right: spacing.lg, bottom: spacing.xl },
     progressChipText: { ...typography.caption, fontWeight: "800" },
