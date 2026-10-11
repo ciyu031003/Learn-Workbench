@@ -1,0 +1,10 @@
+DROP TABLE IF EXISTS exam_408_knowledge_point_tags;
+DROP TABLE IF EXISTS exam_408_question_tags;
+DROP TABLE IF EXISTS exam_408_question_knowledge_points;
+DROP TABLE IF EXISTS exam_408_tags;
+DROP TABLE IF EXISTS exam_408_questions;
+DROP TABLE IF EXISTS exam_408_papers;
+DROP TABLE IF EXISTS exam_408_knowledge_points;
+DROP TABLE IF EXISTS exam_408_chapters;
+DROP TABLE IF EXISTS exam_408_subjects;
+DROP TABLE IF EXISTS exam_408_source_snapshots;
