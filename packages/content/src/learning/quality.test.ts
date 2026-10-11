@@ -25,9 +25,12 @@ const model = buildKnowledgeModel(learningTracks);
 
 const ALLOWED_CODE_LANGUAGES = new Set([
   "asm",
+  "asp",
   "bash",
   "c",
   "css",
+  "cpp",
+  "csharp",
   "dax",
   "go",
   "html",
@@ -37,12 +40,14 @@ const ALLOWED_CODE_LANGUAGES = new Set([
   "json",
   "kotlin",
   "powerquery",
+  "php",
   "python",
   "sql",
   "swift",
   "text",
   "tsx",
   "typescript",
+  "vue",
   "xml",
   "yaml",
 ]);

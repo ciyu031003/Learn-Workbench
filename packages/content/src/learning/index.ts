@@ -16,6 +16,9 @@ import { networkEngineeringTrack } from "./network-engineering";
 import { operatingSystemsTrack } from "./operating-systems";
 import { powerBiTrack } from "./power-bi";
 import { pythonTrack } from "./python";
+import { runoobCsToolsTrack } from "./runoob-cs-tools";
+import { runoobFrontendTrack } from "./runoob-frontend";
+import { runoobLangTrack } from "./runoob-lang";
 import { expandLearningTrack } from "./question-expansions";
 import type { LearningQuestion, LearningTrack } from "./types";
 
@@ -38,6 +41,9 @@ const baseLearningTracks: LearningTrack[] = [
   computerOrganizationTrack,
   exam408Track,
   exam408GradTrack,
+  runoobFrontendTrack,
+  runoobLangTrack,
+  runoobCsToolsTrack,
 ];
 
 export const learningTracks: LearningTrack[] = baseLearningTracks.map(expandLearningTrack);
