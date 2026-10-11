@@ -41,22 +41,28 @@ Prometheus 文本格式（`text/plain; version=0.0.4`）。内容：
 
 ## 2. 备份与恢复
 
-### 2.1 备份（**手动为主，尚未入 crontab —— 待办**）
+### 2.1 备份（**已入 crontab**；主机版脚本在 `scripts/backup-db.sh`）
+
+生产机（`106.55.2.197`）的实际部署：
+
+- crontab：`17 3 * * * /usr/local/bin/backup-db.sh >> /data/backups/backup.log 2>&1`（每日 03:17）；
+- 落地脚本 `/usr/local/bin/backup-db.sh`（宿主版，走 `docker exec` 从容器内 dump，不暴露端口）；
+  - PG：`pg_dump -Fc` → `/data/backups/learn-workbench/pg-YYYY-MM-DD.dump`，写完立刻
+    `cat … | docker exec -i learn-workbench-db-1 pg_restore --list` 做**可恢复性自检**，
+    不可读就删除并记 `FAILED`（注意：`pg_restore --list` 读完 TOC 就退出会让上游 `cat` 收 SIGPIPE，
+    所以脚本不用 `pipefail`，改读 `PIPESTATUS[1]`）；
+  - MySQL（甜途）：`mysqldump | gzip` → `/data/backups/travel-notes/mysql-YYYY-MM-DD.sql.gz`；
+  - 保留周期 14 天（`find -mtime +14 -delete`）；
+- 目录属主必须是 `ubuntu`：`/data/backups` 曾因 root 属主导致 crontab 连日志都写不出、备份静默失败
+  （已 `chown -R ubuntu:ubuntu /data/backups` 修复，并用一次真实运行验证 `pg ok … 自检通过`）。
+
+仓库里的主机版（在**装了 pg_dump 的机器**上手动/另接 cron 使用）：
 
 ```bash
-# 在仓库目录下
 BACKUP_DIR=/data/learn-workbench/backups KEEP_DAYS=14 bash scripts/backup-db.sh
 ```
 
-- 归档格式 `-Fc`（自定义格式，可选择性恢复单表）；
-- 脚本自带**可恢复性自检**（`pg_restore --list`），坏备份会被删掉并以退出码 1 报警；
-- 保留周期默认 14 天，由 `KEEP_DAYS` 控制。
-
-建议的 crontab（**尚未启用**，H5 的收口项）：
-
-```cron
-15 3 * * * cd /data/learn-workbench && BACKUP_DIR=/data/learn-workbench/backups bash scripts/backup-db.sh >> /var/log/lwb-backup.log 2>&1
-```
+验证备份是否真的在产出：`ssh ubuntu@106.55.2.197 "tail -5 /data/backups/backup.log; ls -lt /data/backups/learn-workbench | head"`。
 
 ### 2.2 恢复演练（每季度至少一次，在临时库上做）
 

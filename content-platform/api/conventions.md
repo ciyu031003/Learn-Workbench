@@ -21,6 +21,10 @@
 
 > 已有接口不强制改造（保留 `{ error }`），但**新增接口必须带 `code`**，避免再把中文文案当契约用。
 > 用 `apiError(status, message, { code, requestId })`；数据库异常走 `dbErrorResponse(e, fallback, { requestId })`。
+>
+> **棘轮**：未迁移的存量路由数登记在 `api/test-exceptions.json` 的 `unmigratedErrorEnvelopeBaseline`，
+> 由 `scripts/api-inventory.mjs --check` 只拦「变多」——新路由必须用统一 envelope，存量迁移一条就把基线减一。
+> 未迁移清单见 `route-inventory.md` 第 3 节。
 
 ## 2. 分页与排序
 

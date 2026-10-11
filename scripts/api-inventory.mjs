@@ -6,6 +6,8 @@
  *   ① 每个 `route.ts` 必须有同名 `route.test.ts`（存量欠账在 test-exceptions.json 显式登记）；
  *   ② `api/internal/**` 必须过限流（`rateLimit(`），否则内部重操作可被反复触发；
  *   ③ 契约范围内的命名空间（见 CONTRACT_SCOPE）必须在 `content-platform/openapi/*.md` 有条目。
+ *   ④ 统一错误 envelope 棘轮：用 `apiError(` / `dbErrorResponse(` 的路由数不得低于基线
+ *      （基线在 test-exceptions.json 的 `unmigratedErrorEnvelopeBaseline`，只许减少）。
  *
  * 用法：
  *   node scripts/api-inventory.mjs          # 写入台账
@@ -46,7 +48,11 @@ function apiPath(file) {
 function readExceptions() {
   if (!existsSync(EXCEPTIONS)) return { missingTests: {}, unthrottled: {} };
   const parsed = JSON.parse(readFileSync(EXCEPTIONS, "utf8"));
-  return { missingTests: parsed.missingTests ?? {}, unthrottled: parsed.unthrottled ?? {} };
+  return {
+    missingTests: parsed.missingTests ?? {},
+    unthrottled: parsed.unthrottled ?? {},
+    unmigratedErrorEnvelopeBaseline: parsed.unmigratedErrorEnvelopeBaseline ?? null,
+  };
 }
 
 function loadOpenApiText() {
@@ -73,6 +79,8 @@ function collect() {
         throttledViaGuard: /guardInternalRequest\(/.test(src),
         hasTest: existsSync(path.join(dir, "route.test.ts")),
         documented: openapi.includes(apiPath(file)),
+        // 统一错误 envelope（组三 · H2）：用 apiError / dbErrorResponse 出错误响应
+        errorEnvelope: /apiError\(|dbErrorResponse\(/.test(src),
       };
     })
     .sort((a, b) => a.api.localeCompare(b.api));
@@ -84,6 +92,7 @@ function render(routes) {
   const throttled = routes.filter((r) => r.rateLimited).length;
   const internal = routes.filter((r) => r.api.startsWith("/api/internal/"));
   const documented = routes.filter((r) => r.documented).length;
+  const enveloped = routes.filter((r) => r.errorEnvelope).length;
   const lines = [];
   lines.push("# API 路由台账（组三 · H2）");
   lines.push("");
@@ -100,19 +109,29 @@ function render(routes) {
   lines.push(`| 已限流 | ${throttled} / ${total} |`);
   lines.push(`| 内部接口（\`api/internal/**\`） | ${internal.length}（已限流 ${internal.filter((r) => r.rateLimited).length}） |`);
   lines.push(`| 已有 OpenAPI 条目 | ${documented} / ${total} |`);
+  lines.push(`| 已用统一错误 envelope | ${enveloped} / ${total} |`);
   lines.push("");
   lines.push("## 2. 未文档化清单（H2 跟进，不阻断）");
   lines.push("");
   const undocumented = routes.filter((r) => !r.documented && !CONTRACT_SCOPE.some((s) => r.api.startsWith(s)));
   lines.push(`共 ${undocumented.length} 个：${undocumented.map((r) => `\`${r.api}\``).join("、") || "无"}`);
   lines.push("");
-  lines.push("## 3. 全量台账");
+  lines.push("## 3. 未迁移统一错误 envelope 清单（棘轮：只许减少，不许新增）");
   lines.push("");
-  lines.push("| 路由 | 方法 | 鉴权 | 限流 | 单测 | 文档 |");
-  lines.push("|---|---|---|---|---|---|");
+  const unmigratedEnvelope = routes.filter((r) => !r.errorEnvelope);
+  lines.push(
+    `共 ${unmigratedEnvelope.length} 个：` +
+      (unmigratedEnvelope.map((r) => `\`${r.api}\``).join("、") || "无") +
+      "。新路由必须用 `apiError(...)`／`dbErrorResponse(...)` 出错误响应；存量迁移一条就把基线减一。"
+  );
+  lines.push("");
+  lines.push("## 4. 全量台账");
+  lines.push("");
+  lines.push("| 路由 | 方法 | 鉴权 | 限流 | 单测 | 文档 |信封 |");
+  lines.push("|---|---|---|---|---|---|---|");
   for (const r of routes) {
     lines.push(
-      `| \`${r.api}\` | ${r.methods.join(" ") || "-"} | ${r.auth} | ${r.rateLimited ? "✅" : "—"} | ${r.hasTest ? "✅" : "❌"} | ${r.documented ? "✅" : "—"} |`
+      `| \`${r.api}\` | ${r.methods.join(" ") || "-"} | ${r.auth} | ${r.rateLimited ? "✅" : "—"} | ${r.hasTest ? "✅" : "❌"} | ${r.documented ? "✅" : "—"} | ${r.errorEnvelope ? "✅" : "—"} |`
     );
   }
   lines.push("");
@@ -131,6 +150,17 @@ for (const r of routes) {
   if (CONTRACT_SCOPE.some((s) => r.api.startsWith(s)) && !r.documented) {
     violations.push(`契约范围内缺 OpenAPI 条目：\`${r.api}\``);
   }
+}
+
+// ④ 统一错误 envelope 棘轮：只许减少，不许新增（存量迁移一条就把基线减一）
+const unmigratedEnvelopeCount = routes.filter((r) => !r.errorEnvelope).length;
+if (
+  typeof exceptions.unmigratedErrorEnvelopeBaseline === "number" &&
+  unmigratedEnvelopeCount > exceptions.unmigratedErrorEnvelopeBaseline
+) {
+  violations.push(
+    `统一错误 envelope 倒退：未迁移 ${unmigratedEnvelopeCount} > 基线 ${exceptions.unmigratedErrorEnvelopeBaseline}（新路由必须用 apiError/dbErrorResponse）`
+  );
 }
 
 const markdown = render(routes);
