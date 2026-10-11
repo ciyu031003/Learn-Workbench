@@ -122,3 +122,18 @@ export function planImport(items: readonly InterviewImportItem[], existing: read
 
   return { entries, duplicateInPayload };
 }
+
+/**
+ * 「408 / 考研真题」类题源模块的判定（用户口径：408 相关内容一律不进面试题库，只进技术题库）。
+ *
+ * 这些模块来自本机 408 备考资料（统考真题、数据结构模拟题、各校 408 考研回忆版），
+ * 已在技术题库的「408」分类中收编；留在面试题库会造成重复且多数无参考答案。
+ *
+ * 判定按模块名前缀，导入侧据此**跳过**，避免下次重爬又灌回来。
+ */
+const EXAM_BANK_MODULE_PREFIXES = ["408", "考研真题"] as const;
+
+export function isExamBankModule(module: string): boolean {
+  const name = String(module ?? "").trim();
+  return EXAM_BANK_MODULE_PREFIXES.some((prefix) => name.startsWith(prefix));
+}

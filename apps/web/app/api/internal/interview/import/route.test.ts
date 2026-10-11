@@ -195,4 +195,24 @@ describe("POST /api/internal/interview/import", () => {
     const updateRun = findCall(calls, "UPDATE interview_crawl_runs");
     expect(updateRun!.params[5]).toBeNull();
   });
+
+  it("408/考研真题模块的条目被跳过，不写库", async () => {
+    const calls = fakeDb();
+    const res = await POST(
+      req({
+        items: [
+          { module: "408统考真题", question: "栈是后进先出的结构，队列是先进先出。", answer: "A", externalKey: "local-material#ex1" },
+          { module: "考研真题·上海大学", question: "下列排序算法稳定的是（）。", answer: "A", externalKey: "local-material#ex2" },
+          { module: "Java · 并发", question: "什么是线程和进程？", answer: "……", externalKey: "k1" },
+        ],
+      })
+    );
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.imported).toBe(1);
+    expect(body.skipped).toHaveLength(2);
+    const inserts = calls.filter((c) => c.sql.includes("INSERT INTO interview_questions"));
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0].params[0]).toBe("Java · 并发");
+  });
 });

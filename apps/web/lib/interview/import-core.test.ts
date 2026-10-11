@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   chunkItems,
   externalKeyFor,
+  isExamBankModule,
   normalizeQuestion,
   planImport,
   shouldRunInterviewCrawl,
@@ -117,5 +118,23 @@ describe("planImport（去重编排）", () => {
   it("题目为空/纯空白的条目被丢弃", () => {
     const plan = planImport([item({ question: "   " }), item({ question: "" })], []);
     expect(plan.entries).toHaveLength(0);
+  });
+});
+
+describe("isExamBankModule（408 / 考研真题不进面试题库）", () => {
+  it("408 开头的模块命中", () => {
+    expect(isExamBankModule("408统考真题")).toBe(true);
+    expect(isExamBankModule("408·数据结构模拟题")).toBe(true);
+  });
+
+  it("考研真题·学校的模块命中", () => {
+    expect(isExamBankModule("考研真题·上海大学")).toBe(true);
+  });
+
+  it("正常面试模块不命中", () => {
+    expect(isExamBankModule("Java · 并发")).toBe(false);
+    expect(isExamBankModule("面试·计算机基础")).toBe(false);
+    expect(isExamBankModule("计算机基础 · 网络")).toBe(false);
+    expect(isExamBankModule("")).toBe(false);
   });
 });
