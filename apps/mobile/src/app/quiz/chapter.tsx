@@ -20,14 +20,27 @@ import { useTheme } from "@/theme";
 import { radius, shadows, spacing, typography, type ThemeColors } from "@/theme/tokens";
 
 export default function QuizChapterScreen() {
-  const params = useLocalSearchParams<{ track?: string; stage?: string }>();
+  const params = useLocalSearchParams<{
+    track?: string;
+    stage?: string;
+    returnTo?: string;
+  }>();
   const track = getLearningTrack(params.track);
   const stage = track?.stages.find((item) => item.key === params.stage);
   if (!track || !stage) return <MissingChapter />;
-  return <ChapterContent track={track} stage={stage} />;
+  const returnTo = params.returnTo?.startsWith("/") ? params.returnTo : undefined;
+  return <ChapterContent track={track} stage={stage} returnTo={returnTo} />;
 }
 
-function ChapterContent({ track, stage }: { track: LearningTrack; stage: LearningStage }) {
+function ChapterContent({
+  track,
+  stage,
+  returnTo,
+}: {
+  track: LearningTrack;
+  stage: LearningStage;
+  returnTo?: string;
+}) {
   const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const header = useLargeTitleHeader();
@@ -65,7 +78,11 @@ function ChapterContent({ track, stage }: { track: LearningTrack; stage: Learnin
 
   return (
     <View style={styles.root}>
-      <ScreenHeaderStickyBar title={stage.title} scrollY={header.scrollY} backTo={`/quiz/${track.slug}`} />
+      <ScreenHeaderStickyBar
+        title={stage.title}
+        scrollY={header.scrollY}
+        backTo={returnTo ?? `/quiz/${track.slug}`}
+      />
       <Animated.ScrollView
         onScroll={header.onScroll}
         scrollEventThrottle={16}
@@ -122,7 +139,12 @@ function ChapterContent({ track, stage }: { track: LearningTrack; stage: Learnin
                 onPress={() =>
                   router.push({
                     pathname: "/quiz/read",
-                    params: { track: track.slug, stage: stage.key, topic: topic.key },
+                    params: {
+                      track: track.slug,
+                      stage: stage.key,
+                      topic: topic.key,
+                      ...(returnTo ? { returnTo } : {}),
+                    },
                   } as never)
                 }
                 style={styles.topicCard}

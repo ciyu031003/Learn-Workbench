@@ -25,6 +25,13 @@ describe("autoStudyZoneForPathname", () => {
     expect(autoStudyZoneForPathname("/quiz-notes")).toBeNull();
   });
 
+  it("把独立 408 专区纳入学习计时", () => {
+    expect(autoStudyZoneForPathname("/exam-408")).toMatchObject({
+      key: "exam408",
+      label: "408 考研",
+    });
+  });
+
   it("忽略查询参数并修正无前导斜杠路径", () => {
     expect(autoStudyZoneForPathname("quiz/read?topic=x")).toMatchObject({ key: "quiz" });
     expect(autoStudyZoneForPathname("/interview?module=os")).toMatchObject({

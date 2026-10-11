@@ -1,4 +1,4 @@
-export type AutoStudyZoneKey = "quiz" | "interview";
+export type AutoStudyZoneKey = "quiz" | "interview" | "exam408";
 
 export interface AutoStudyZone {
   key: AutoStudyZoneKey;
@@ -7,6 +7,7 @@ export interface AutoStudyZone {
 
 const QUIZ_ZONE: AutoStudyZone = { key: "quiz", label: "题库学习" };
 const INTERVIEW_ZONE: AutoStudyZone = { key: "interview", label: "面试刷题" };
+const EXAM_408_ZONE: AutoStudyZone = { key: "exam408", label: "408 考研" };
 
 /**
  * 自动学习计时覆盖“题库”和“面试”两个完整区间。
@@ -20,6 +21,9 @@ export function autoStudyZoneForPathname(
   const raw = (pathname ?? "").split(/[?#]/, 1)[0]?.trim();
   if (!raw) return null;
   const path = raw.startsWith("/") ? raw : `/${raw}`;
+  if (path === "/exam-408" || path.startsWith("/exam-408/")) {
+    return EXAM_408_ZONE;
+  }
   if (path === "/quiz" || path.startsWith("/quiz/")) return QUIZ_ZONE;
   if (path === "/interview" || path.startsWith("/interview/")) return INTERVIEW_ZONE;
   return null;

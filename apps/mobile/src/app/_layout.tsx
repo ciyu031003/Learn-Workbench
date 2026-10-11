@@ -187,6 +187,7 @@ function ThemedShell() {
         <Stack.Screen name="quiz/read" />
         <Stack.Screen name="quiz/review" />
         <Stack.Screen name="quiz/session" options={{ animation: "fade_from_bottom" }} />
+        <Stack.Screen name="exam-408" />
         <Stack.Screen name="roadmap" />
         <Stack.Screen name="tasks" />
         <Stack.Screen name="logs" />
