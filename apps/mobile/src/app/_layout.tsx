@@ -15,6 +15,7 @@ import { useUpdateStore } from "@/store/update-store";
 import { installCrashCapture, setCurrentScreen, setCrashCaptureAppState } from "@/lib/crash-capture";
 import { promptPendingCrash } from "@/lib/crash-upload";
 import { UpdateSheet } from "@/components/update-sheet";
+import { StudyTimeTracker } from "@/components/study-time-tracker";
 import { secureToken } from "@/lib/secure-token";
 import { useAppStore } from "@/store/app-store";
 import { migrateLegacySports } from "@/store/sport-legacy";
@@ -214,6 +215,7 @@ function ThemedShell() {
         <Stack.Screen name="diagnostics" options={{ animation: "fade_from_bottom" }} />
         <Stack.Screen name="+not-found" />
       </Stack>
+      <StudyTimeTracker />
       <UpdateSheet />
     </DailyBackground>
   );
