@@ -73,6 +73,11 @@ export interface LearningTopic {
   exercise: string;
   checkpoint: string;
   lesson?: LearningTopicLesson;
+  /**
+   * 算法演示动图的 key（见 `algorithm-animations.ts` 的 `algorithmAnimations` 注册表）。
+   * 每个 key 对应一组按帧播放的 SVG：渲染层按帧切换到下一帧，浏览器/移动端都可播放。
+   */
+  animations?: string[];
 }
 
 export interface LearningStageMilestone {
