@@ -5,8 +5,12 @@
 """
 import hashlib
 import json
+import os
 import re
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import dirty_filter as df  # noqa: E402
 
 NOISE = [
     re.compile(r"^各个学校计算机"),
@@ -38,6 +42,9 @@ def normalize(text):
     for ln in text.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
         s = ln.rstrip()
         if has_noise(s):
+            continue
+        # 目录行（行尾引导点 / 纯点号填充）直接丢弃，避免被当成题干或正文
+        if df.is_toc_line(s):
             continue
         out.append(s)
     return out
@@ -131,6 +138,8 @@ def parse_paper(text, subject, source):
     for _i, blk in blocks(q_lines, Q_RE):
         num = Q_RE.match(blk[0]).group(1)
         stem, opts = split_mcq(blk)
+        if df.is_dirty_question(stem):
+            continue
         if len(opts) == 4 and len(stem) >= 6:
             letter, expl = answers.get(num, ("", ""))
             if not letter:
@@ -154,6 +163,8 @@ def parse_generic_mcq(text, subject, source):
     items = []
     for _i, blk in blocks(lines, Q_RE):
         stem, opts = split_mcq(blk)
+        if df.is_dirty_question(stem):
+            continue
         if len(opts) == 4 and len(stem) >= 6:
             letter = ""
             expl = ""
@@ -185,6 +196,9 @@ def parse_qa(text, subject, source):
                 body.append(am.group(1).strip() if am else lines[j].strip())
                 j += 1
             ans = "\n".join(x for x in body if x)
+            if df.is_dirty_question(q) or df.is_dirty_answer(ans):
+                i = j
+                continue
             if len(q) >= 6 and len(ans) >= 20:
                 items.append({"type": "qa", "subject": subject, "question": q[:380],
                               "options": [], "correct": "", "explanation": ans[:7000],
@@ -207,11 +221,16 @@ def parse_headings(text, subject, source, min_body=40):
         s = ln.strip()
         if len(s) < 5 or len(s) > 70:
             continue
+        # 目录行（如 '1.1 算法的复杂度.......'）不是标题，直接跳过
+        if df.is_toc_line(s):
+            continue
         m = HEAD_RE.match(s)
         if not m:
             continue
         num = m.group(1)
         title = m.group(2).strip()
+        if df.is_toc_line(title):
+            continue
         multi_level = ("." in num) or ("．" in num)
         is_question = s.endswith(("？", "?")) or HEAD_KW.search(title)
         if (is_question or multi_level) and 2 <= len(title) <= 50 and not title.endswith(("。", "，", "、", "；")):
@@ -220,6 +239,8 @@ def parse_headings(text, subject, source, min_body=40):
     for k, (i, q) in enumerate(heads):
         end = heads[k + 1][0] if k + 1 < len(heads) else len(lines)
         body = "\n".join(lines[i + 1:end]).strip()
+        if df.is_dirty_question(q) or df.is_dirty_answer(body):
+            continue
         if len(body) >= min_body:
             items.append({"type": "qa", "subject": subject, "question": q[:380],
                           "options": [], "correct": "", "explanation": body[:7000],
