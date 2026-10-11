@@ -23,9 +23,34 @@ const expoConfig = require("eslint-config-expo/flat");
  * 不会误伤 `fontSize: someToken.fontSize` 这类表达式；启用时还需要给
  * `src/theme/**` 开一个 ignores 覆盖，否则 tokens.ts 自己的 typography 也会被判红。
  */
+/**
+ * v1.44.0（门禁可信度修复）：lint 覆盖面补齐 + scripts/ 的 Node 全局
+ *
+ * 问题 1：`expo lint` 的 DEFAULT_INPUTS = ['src','app','components']（见
+ *   node_modules/@expo/cli/build/src/lint/lintAsync.js:90），`scripts/` 长期不在扫描范围内 ——
+ *   apps/mobile/scripts/gen-icons.mjs:48 的 'Buffer' is not defined (no-undef) 因此隐形了很久。
+ *   修法：在 package.json 的 lint 脚本里显式传目录（`expo lint src scripts`），而不是依赖
+ *   expo 的默认输入；同时这里给 scripts/** 补上 Node 全局，避免误报。
+ *   注意：只列**实际存在**的目录 —— apps/mobile 下没有顶层 app/ 与 components/
+ *   （它们位于 src/ 内），传不存在的目录会让 eslint 直接 "No files matching the pattern" 退出 2。
+ *
+ * 问题 2：eslint-config-expo/flat 只注入 browser globals（flat/default.js 的 globals.browser），
+ *   对 Node 侧脚本（scripts/*.js|mjs、eslint.config.js 自己）会报 no-undef。
+ */
+const globals = require('globals');
+
 module.exports = defineConfig([
   expoConfig,
   {
     ignores: ["dist/*"],
-  }
+  },
+  {
+    // 工程脚本跑在 Node 里（不是 RN 运行时）：显式声明 Node 全局。
+    files: ["scripts/**/*.{js,mjs,cjs}", "*.config.{js,mjs,cjs}"],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
 ]);
