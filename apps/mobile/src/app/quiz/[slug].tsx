@@ -15,6 +15,7 @@ import {
 } from "@learn-workbench/content";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
+import { AlgorithmAnimation } from "@/components/algorithm-animation";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useScreenEntrance } from "@/lib/use-screen-entrance";
@@ -446,6 +447,7 @@ function TopicRow({
         <View style={styles.topicDetails}>
           <DetailBlock title="核心概念" items={topic.concepts} />
           <DetailBlock title="工作原理" items={topic.principles} />
+          {topic.animations?.length ? <AlgorithmAnimation keys={topic.animations} /> : null}
           <DetailBlock title="实际应用" items={topic.applications} />
           <DetailBlock title="常见误区" items={topic.pitfalls} warning />
           <View style={styles.methodCard}>

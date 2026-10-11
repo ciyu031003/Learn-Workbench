@@ -18,6 +18,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { LearningMastery } from "@/components/learning/mastery-badge";
 import { CodeCopyButton, FavoriteMark, ReadBadge, useLibraryState } from "@/components/learning/library-state";
 import { FreshnessBadge, PointStateSummary, StateDots, useContentFreshness, usePointStates } from "@/components/learning/point-states";
+import { AlgorithmAnimation } from "@/components/learning/algorithm-animation";
 import type { PointStateResult } from "@/lib/learning-states";
 import { LEARNING_DIFFICULTY_LABEL, stageStats, topicQuestions, trackStats } from "@/lib/learning-stats";
 import { ArrowLeft, BookOpen, CheckCircle2, ChevronLeft, ChevronRight, ListChecks, Sparkles, TriangleAlert, Wrench } from "lucide-react";
@@ -429,6 +430,8 @@ function TopicCard({
             <Block title="练习路径" items={topic.lesson.practiceSteps} />
           </>
         ) : null}
+
+        {topic.animations?.length ? <AlgorithmAnimation keys={topic.animations} /> : null}
 
         <Block title="原理" items={topic.principles} />
         <Block title="应用场景" items={topic.applications} />
