@@ -44,5 +44,7 @@ ssh ubuntu@<host> "docker cp /tmp/bank.csv learn-workbench-db-1:/tmp/bank.csv &&
 
 ## 口径
 
-个人自用、不商用。题目来源如实记录在 `source`（文件名）与 DB 的 `source_site/license` 字段；
+408 / 考研真题类题源只进**学习题库**（`ex-408` 的「408」分类），
+不进面试题库：`import_bank.sql` 已按 `module LIKE '408%' / '考研真题%'` 过滤，
+服务端导入接口也走 `isExamBankModule()` 同口径拦截。个人自用、不商用。题目来源如实记录在 `source`（文件名）与 DB 的 `source_site/license` 字段；
 许可字段只作登记，不作为可用性门槛。
