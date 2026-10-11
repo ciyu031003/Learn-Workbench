@@ -325,6 +325,14 @@ export const operatingSystemsTrack: LearningTrack = {
       usage: "reference",
       note: "操作系统知识覆盖面清单，仅作外链引用与校对",
     },
+    {
+      key: "local-exam",
+      name: "本地真题题库（个人整理）",
+      url: "https://github.com/csseky/cskaoyan",
+      license: "个人自用（本地整理）",
+      usage: "reference",
+      note: "从本地考研真题/等级考试/教材资料整理的题目，个人自用",
+    },
   ],
   stages: [
     {

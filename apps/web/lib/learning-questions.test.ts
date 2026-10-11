@@ -20,8 +20,11 @@ describe("flattenLearningQuestions", () => {
       expect(item.trackSlug, item.key).not.toBe("");
       expect(item.trackTitle, item.key).not.toBe("");
       expect(item.stageKey, item.key).not.toBe("");
-      expect(item.topicKey, `${item.key} 缺 topicKey`).not.toBeNull();
-      expect(item.topicTitle, `${item.key} 缺 topicTitle`).not.toBeNull();
+      // 阶段级附加题（本地真题题库）不绑知识点 → topicKey 可为 null；
+      // 但只要绑了知识点，标题就必须一起解析出来（双向跳转的前提）。
+      if (item.topicKey !== null) {
+        expect(item.topicTitle, `${item.key} 缺 topicTitle`).not.toBeNull();
+      }
       expect(item.sourceName, `${item.key} 来源未解析`).not.toBeNull();
       expect(item.options.length, item.key).toBeGreaterThanOrEqual(2);
       expect(item.answer.length, item.key).toBeGreaterThan(0);

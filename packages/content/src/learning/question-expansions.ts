@@ -1,4 +1,5 @@
 import { judgeQuestion, singleQuestion } from "./question-builders";
+import { examBankExpansions } from "./exam-bank";
 import { stageLessons, topicLessons } from "./lessons";
 import { topicQuestionPacks } from "./topic-question-packs";
 import type { LearningQuestion, LearningTrack } from "./types";
@@ -766,9 +767,12 @@ const powerBiExpansion: LearningQuestion[] = [
 
 export const learningQuestionExpansions: Record<string, LearningQuestion[]> = {
   python: pythonExpansion,
-  java: javaExpansion,
+  java: [...javaExpansion, ...(examBankExpansions.java ?? [])],
   "data-analysis": dataAnalysisExpansion,
   "power-bi": powerBiExpansion,
+  ...Object.fromEntries(
+    Object.entries(examBankExpansions).filter(([slug]) => !["java"].includes(slug))
+  ),
 };
 
 export function expandLearningTrack(track: LearningTrack): LearningTrack {
