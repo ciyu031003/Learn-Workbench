@@ -92,7 +92,7 @@ function TrackContent({ track }: { track: LearningTrack }) {
 
   const startKnowledge = (stageKey: string) => {
     router.push({
-      pathname: "/quiz/read",
+      pathname: "/quiz/chapter",
       params: { track: track.slug, stage: stageKey },
     } as never);
   };

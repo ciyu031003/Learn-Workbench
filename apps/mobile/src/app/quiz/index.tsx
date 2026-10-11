@@ -211,14 +211,15 @@ function TrackCard({ track, progress }: { track: LearningTrack; progress: Return
   const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const trackTint = dark ? `${track.accent}24` : track.softAccent;
+  const isExam408 = track.slug === "ex-408-grad";
   return (
     <PressableScale
       haptic
       scaleTo={0.985}
       style={styles.trackCard}
-      onPress={() => router.push(`/quiz/${track.slug}` as never)}
+      onPress={() => router.push((isExam408 ? "/quiz/408" : `/quiz/${track.slug}`) as never)}
       accessibilityRole="button"
-      accessibilityLabel={`打开 ${track.title} 题库`}
+      accessibilityLabel={`打开 ${isExam408 ? "408 考研专项" : `${track.title} 题库`}`}
     >
       <View style={[styles.trackAccent, { backgroundColor: track.accent }]} />
       <View style={[styles.trackIcon, { backgroundColor: trackTint }]}>
@@ -229,16 +230,20 @@ function TrackCard({ track, progress }: { track: LearningTrack; progress: Return
           <Text style={[styles.trackCategory, { color: track.accent }]}>{track.category}</Text>
           <Text style={styles.trackLevel}>{track.level}</Text>
         </View>
-        <Text style={styles.trackTitle}>{track.title}</Text>
+        <Text style={styles.trackTitle}>{isExam408 ? "408 考研专项" : track.title}</Text>
         <Text style={styles.trackSummary} numberOfLines={2}>
-          {track.summary}
+          {isExam408
+            ? "四科知识体系与 2009–2026 年原卷真题，按章节或年份进入。"
+            : track.summary}
         </Text>
         <View style={styles.trackMeta}>
-          <Text style={styles.trackMetaText}>{track.stages.length} 章知识点</Text>
+          <Text style={styles.trackMetaText}>
+            {isExam408 ? "4 科 · 99 知识点" : `${track.stages.length} 章知识点`}
+          </Text>
           <View style={styles.dot} />
-          <Text style={styles.trackMetaText}>{track.questions.length} 道题</Text>
+          <Text style={styles.trackMetaText}>{isExam408 ? "846 道真题" : `${track.questions.length} 道题`}</Text>
           <View style={styles.dot} />
-          <Text style={styles.trackMetaText}>{progress.mastery}% 掌握度</Text>
+          <Text style={styles.trackMetaText}>{isExam408 ? "2009–2026" : `${progress.mastery}% 掌握度`}</Text>
         </View>
       </View>
       <ThemedIcon name="chevron-forward" size={18} color={colors.textFaint} />
