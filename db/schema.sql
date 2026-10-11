@@ -1891,4 +1891,14 @@ VALUES
    '如实登记许可；个人自用', '计算机科学自学路径索引，用于校对知识覆盖面', now())
 ON CONFLICT (key) DO NOTHING;
 
+-- 迁移 069：csgraduates（计算机考研杂货铺）408 来源登记
+-- 许可如实登记站点声明（保留所有权利）；个人自用、不商用，只进本地学习环境。
+INSERT INTO content_source (key, name, url, repo, ref, license, usage, obligation, note, verified_at)
+VALUES
+  ('csgraduates-408', '计算机考研杂货铺 · 408 知识库', 'https://www.csgraduates.com/', NULL, 'site-2026-10-11',
+   '保留所有权利（站点声明）· 个人自用不商用', 'import',
+   '如实登记许可；个人自用、不商用，仅在本地学习环境使用',
+   '408 知识点（四门课 25 章 / 88 节）与 2009–2026 真题选择题（717 道，含解析）', now())
+ON CONFLICT (key) DO NOTHING;
+
 
