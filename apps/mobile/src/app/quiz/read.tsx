@@ -151,8 +151,15 @@ function KnowledgeReader({
   }, [pointRef, notify]);
 
   const handleScroll = useCallback(
-    (event: Parameters<typeof header.onScroll>[0]) => {
-      header.onScroll(event);
+    (event: Parameters<typeof header.onScrollJS>[0]) => {
+      /**
+       * v1.43.1 修闪退（2026-10-11 真机诊断包 root cause）：
+       * `header.onScroll` 是 Reanimated 的**事件处理器对象**（`{ workletEventHandler }`，见
+       * components/screen-header.tsx 的 ⚠️ 注释），把它当函数直接调用 →
+       * `TypeError: Object is not a function` → RN 判为 fatal JS error → 进程死（CRASH(4)）。
+       * 崩溃栈正是 `_handleScroll` → 本回调。JS 侧驱动吸顶栏必须用 `onScrollJS`（真函数）。
+       */
+      header.onScrollJS(event);
       const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
       const scrollable = contentSize.height - layoutMeasurement.height;
       const percent = scrollable <= 0 ? 100 : Math.round((contentOffset.y / scrollable) * 100);

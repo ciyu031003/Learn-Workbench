@@ -19,6 +19,9 @@ import { describe, expect, it } from "vitest";
  *      直接赋值的标识符，出现在 `onScroll={` 里；
  *   C. **解构式**（2026-10-07 二轮评审补的洞）：`const { onScroll } = useLargeTitleHeader()`
  *      再 `onScroll={onScroll}` —— 与踩坑 99 同形，旧正则两个形态都匹配不到。
+ *   D. **直接调用式**（2026-10-11 真机闪退补的洞）：`const header = useLargeTitleHeader()`
+ *      之后 `header.onScroll(event)` —— 把处理器对象当函数调用。A/B/C 只看 `onScroll={…}`
+ *      绑定形态，这种"写在 JS 回调里转手调用"完全漏检，真机上点开知识点页一滑就死。
  * 这三类都要求最近的容器是 `Animated.*`；普通容器必须改用 hook 暴露的 `onScrollJS`。
  *
  * ⚠️ 检测逻辑抽成 `scanText()` 并配**合成用例**（自守）：否则将来任何人改坏正则，
@@ -35,6 +38,14 @@ const DESTRUCTURE_RE =
 const PROP_HANDLER_RE = /onScroll=\{[^}]*\.onScroll\}/;
 /** 标识符式处理器（来源由 FACTORY_RE / DESTRUCTURE_RE 判定，见下） */
 const IDENT_HANDLER_RE = /onScroll=\{([A-Za-z0-9_$]+)\}/;
+/** 规则 D：持有 Reanimated 处理器的对象（`const header = useLargeTitleHeader()` 这类） */
+const HOLDER_RE =
+  /(?:const|let|var)\s+([A-Za-z0-9_$]+)[^=\n]*=\s*(?:useLargeTitleHeader|useAnimatedScrollHandler|useEvent|useAnimatedGestureHandler)\s*\(/g;
+/**
+ * 规则 D：把处理器**当函数调用**（`header.onScroll(event)`）。
+ * 只认 `onScroll`（`\.onScroll\s*\(` 不会误中 `onScrollJS(`，因为那后面不是 `(`）。
+ */
+const INVOKE_RE = /([A-Za-z0-9_$]+)\.onScroll\s*\(/g;
 
 function containerOf(lines: string[], index: number): string | null {
   for (let j = index; j >= Math.max(0, index - 40); j--) {
@@ -54,6 +65,9 @@ export function scanText(text: string): string[] {
   // 本文件里由 Reanimated 工厂产出的处理器标识符（直接赋值 + 解构两种来源）
   const fromFactory = new Set<string>();
   for (const m of text.matchAll(FACTORY_RE)) fromFactory.add(m[1]);
+  // 规则 D：持有 header 句柄的对象（header / heroScroll …）
+  const holders = new Set<string>();
+  for (const m of text.matchAll(HOLDER_RE)) holders.add(m[1]);
   for (const m of text.matchAll(DESTRUCTURE_RE)) {
     for (const part of m[1].split(",")) {
       const seg = part.trim();
@@ -64,6 +78,12 @@ export function scanText(text: string): string[] {
     }
   }
   lines.forEach((line, i) => {
+    // 规则 D：<holder>.onScroll(event) —— 处理器是对象，直接调用必闪退
+    for (const m of line.matchAll(INVOKE_RE)) {
+      if (holders.has(m[1])) {
+        offenders.push((i + 1) + " → 直接调用 Reanimated 处理器：" + line.trim().slice(0, 60));
+      }
+    }
     const isPropForm = PROP_HANDLER_RE.test(line);
     const ident = IDENT_HANDLER_RE.exec(line)?.[1];
     const isIdentForm = !!ident && fromFactory.has(ident);
@@ -128,6 +148,30 @@ describe("合成用例：护栏自身必须能抓住并放行典型写法（自�
   it("抓住：onScroll={x.y.onScroll} 属性访问形态挂普通容器", () => {
     const src = 'function Demo() {\n  return <FlatList onScroll={headerScroll.onScroll} />;\n}';
     expect(scanText(src)).toHaveLength(1);
+  });
+
+  it("抓住：把处理器当函数直接调用（quiz/read.tsx 原形态，一滑即闪退）", () => {
+    const src = [
+      "function Demo() {",
+      "  const header = useLargeTitleHeader();",
+      "  const handleScroll = useCallback((e) => { header.onScroll(e); }, [header]);",
+      "  return <Animated.ScrollView onScroll={handleScroll} />;",
+      "}",
+    ].join("\n");
+    const offenders = scanText(src);
+    expect(offenders).toHaveLength(1);
+    expect(offenders[0]).toContain("直接调用 Reanimated 处理器");
+  });
+
+  it("放行：句柄转手调用 onScrollJS（真 JS 函数，合法）", () => {
+    const src = [
+      "function Demo() {",
+      "  const header = useLargeTitleHeader();",
+      "  const handleScroll = useCallback((e) => { header.onScrollJS(e); }, [header]);",
+      "  return <Animated.ScrollView onScroll={handleScroll} />;",
+      "}",
+    ].join("\n");
+    expect(scanText(src)).toEqual([]);
   });
 
   it("放行：Animated.ScrollView 配 onScroll（合法配对）", () => {
