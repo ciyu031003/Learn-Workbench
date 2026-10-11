@@ -1,6 +1,6 @@
 {
   "totals": {
-    "animationSites": 246,
+    "animationSites": 245,
     "animatedStyleFiles": 29,
     "repeatFiles": 9,
     "filesWithAnimations": 33
@@ -14,7 +14,7 @@
     "apps/mobile/src/components/achievement-card.tsx": 4,
     "apps/mobile/src/components/animated-number.tsx": 3,
     "apps/mobile/src/components/bottom-sheet.tsx": 15,
-    "apps/mobile/src/components/celebration-modal.tsx": 6,
+    "apps/mobile/src/components/celebration-modal.tsx": 5,
     "apps/mobile/src/components/celebration.tsx": 3,
     "apps/mobile/src/components/check-mark.tsx": 6,
     "apps/mobile/src/components/daily-background.tsx": 10,
