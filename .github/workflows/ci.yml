@@ -32,6 +32,8 @@ jobs:
       PGPORT: "5432"
       PGUSER: postgres
       PGPASSWORD: postgres
+      # 库侧内容门禁（fail-closed）要连的库：由下面的 Prepare 步骤用 schema.sql + 全部迁移造出来。
+      PGDATABASE: lwb_content_ci
     steps:
       - uses: actions/checkout@v4
 
@@ -56,11 +58,37 @@ jobs:
       - name: Test
         run: pnpm test
 
+      # v1.44.0：check-content-quality.mjs 改为 fail-closed（拿不到库即失败），
+      # 而 pnpm test:scripts 会以无参数方式调用它。CI 的质量作业虽有 postgres service，
+      # 但默认库里没有业务表 —— 所以先造一个「schema.sql + 全部迁移」的真实库并保留
+      # （专用库名 lwb_content_ci，绝不复用/覆盖 Learn-Workbench），
+      # 让库侧内容门禁在 CI 里真正生效，而不是靠「跳过」混过去。
+      - name: Prepare content DB (schema.sql + all migrations, kept)
+        run: node scripts/check-schema-fresh.mjs --db=lwb_content_ci --keep
+
       - name: Script checks (normalize + migrations)
         run: pnpm test:scripts
 
-      - name: DB schema gate (empty DB: schema.sql + all migrations)
+      # v1.44.0：三套移动端门禁此前只在本地手跑，CI 完全没覆盖 —— 门禁不进 CI 就不算门禁。
+      # 三个脚本都是纯静态分析（读 apps/mobile/src 源码 + docs/*-baseline.json 棘轮基线），
+      # 不依赖 Android SDK / 模拟器，可在 ubuntu-latest 直接跑。
+      - name: Mobile font-scale gate (裸写数字字号不得增加)
+        run: node scripts/check-font-scale.mjs
+
+      - name: Mobile UI matrix gate (hitSlop / tab 安全区 / 钉桩)
+        run: node scripts/check-mobile-ui-matrix.mjs
+
+      - name: Mobile motion budget gate (动效点预算棘轮)
+        run: node scripts/check-motion-budget.mjs
+
+      # 注意：name 里的 ": " 会被 YAML 当成嵌套映射键 —— 必须加引号，
+      # 否则整个 ci.yml 解析失败、workflow 直接不触发（HEAD 上这个坑一直存在，见 PR 说明）。
+      - name: "DB schema gate (empty DB: schema.sql + all migrations)"
         run: node scripts/check-schema-fresh.mjs
+
+      # 质量作业本身带 postgres service，所以库侧内容门禁必须真连库（fail-closed）。
+      - name: Content quality gate (DB-backed, fail-closed)
+        run: node scripts/check-content-quality.mjs --strict --require-db
 
       - name: Migration rollback drill (up -> down -> up)
         run: node scripts/migration-drill.mjs

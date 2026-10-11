@@ -7,22 +7,65 @@
  *   - 本脚本（库侧）：**已经同步进库、准备给用户看的内容**是否真的合格 ——
  *     有没有把 L0/L1 占位内容发出去、有没有少于 2 题的孤儿知识点、有没有悬空关联、有没有过期没复查的章节。
  *
- * 为什么无库时跳过而不是失败：CI 的质量作业没有数据库（只有 e2e 作业有），
- * 这里按"拿不到库就跳过"处理，本地/发布机上再真正把关（退出码 0 表示没有发现违规）。
+ * 门禁语义（v1.44.0 修复，此前是静默通过）：
+ *   旧实现连不上库时打印「跳过」并 exit 0（--strict 也一样），于是"全绿"根本不能证明内容合格。
+ *   现在**默认 fail-closed**：拿不到数据库 = 无法判定 = 失败（exit 1）。
  *
- * 用法：node scripts/check-content-quality.mjs [--strict]
- *   --strict 时**警告也当失败**（发布前用）
- * 退出码：0 = 通过（或跳过）；1 = 有违规
+ * 用法：node scripts/check-content-quality.mjs [--strict] [--require-db] [--allow-skip]
+ *   --strict      警告也当失败（发布前用）
+ *   --require-db  显式要求必须真连库（CI / 发布前用）；即使同时给了 --allow-skip 也以它为准
+ *   --allow-skip  本地无库时**显式**跳过（打印醒目提示，exit 0）；必须手动加，绝不隐式跳过
+ *
+ * 三种场景：
+ *   1. CI 质量作业（有 postgres service）：node scripts/check-content-quality.mjs --require-db
+ *   2. 发布前：node scripts/check-content-quality.mjs --strict --require-db
+ *   3. 本地没起库、只想跑别的检查：node scripts/check-content-quality.mjs --allow-skip
+ *
+ * 退出码：0 = 通过（或**显式** --allow-skip 跳过）；1 = 有违规 / 无法连库 / 库未初始化
  */
 import { execFileSync } from "node:child_process";
+import { closeSync, mkdtempSync, openSync, readFileSync, rmSync } from "node:fs";
 import { createRequire } from "node:module";
+import os from "node:os";
+import path from "node:path";
+
+const ROOT = path.resolve(import.meta.dirname, "..");
 
 const require = createRequire(import.meta.url);
-const { Pool } = require("pg");
 
-const strict = process.argv.includes("--strict");
+const argv = process.argv.slice(2);
+const strict = argv.includes("--strict");
+const requireDb = argv.includes("--require-db");
+const allowSkip = argv.includes("--allow-skip");
 const errors = [];
 const warnings = [];
+
+/**
+ * 无法判定时的统一出口：默认失败；只有**显式** --allow-skip（且未 --require-db）才跳过。
+ * 返回 true 表示已按"显式跳过"处理（调用方直接 return）。
+ */
+function failOrSkip(reason) {
+  if (allowSkip && !requireDb) {
+    console.log("[content-quality] 显式跳过（--allow-skip）：" + reason);
+    console.log("[content-quality] ⚠️ 跳过 ≠ 通过：本次没有校验任何库侧内容，CI/发布前请用 --require-db。");
+    return true;
+  }
+  console.error("[content-quality] 未通过：" + reason);
+  if (requireDb) console.error("[content-quality] 已指定 --require-db：必须真连库，不允许跳过。");
+  console.error("[content-quality] 门禁语义：拿不到库就无法判定内容质量，必须失败（旧实现打印「跳过」并 exit 0 = 静默通过）。");
+  console.error("[content-quality] 本地确实无库：加 --allow-skip 显式跳过；CI/发布前：加 --require-db。");
+  process.exitCode = 1;
+  return false;
+}
+
+/** 懒加载 pg：模块缺失也走 failOrSkip，而不是顶层 MODULE_NOT_FOUND 崩栈。 */
+function loadPool() {
+  try {
+    return require("pg").Pool;
+  } catch (error) {
+    return { __loadError: error };
+  }
+}
 
 const CONN = {
   host: process.env.PGHOST || "127.0.0.1",
@@ -32,32 +75,53 @@ const CONN = {
   database: process.env.PGDATABASE || "Learn-Workbench",
 };
 
+// 注意：受限执行环境禁止管道 stdio（spawnSync EPERM），必须走临时文件描述符，
+// 否则这里会永远返回 ""，第 7 项「内容版本一致性」就静默失效。
 function shortSha() {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "lwb-cq-sha-"));
+  const outFile = path.join(dir, "stdout.txt");
+  let fd;
   try {
-    return execFileSync("git", ["log", "-1", "--format=%h", "--", "packages/content/src/learning"], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
+    fd = openSync(outFile, "w");
+    execFileSync("git", ["log", "-1", "--format=%h", "--", "packages/content/src/learning"], {
+      cwd: ROOT,
+      stdio: ["ignore", fd, "ignore"],
+    });
   } catch {
     return "";
+  } finally {
+    if (fd !== undefined) closeSync(fd);
+  }
+  try {
+    return readFileSync(outFile, "utf8").trim();
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
 }
 
 async function main() {
+  const Pool = loadPool();
+  if (Pool.__loadError) {
+    failOrSkip("无法加载 pg 模块（" + (Pool.__loadError.code ?? Pool.__loadError.message) + "）");
+    return;
+  }
+
   const pool = new Pool({ ...CONN, connectionTimeoutMillis: 3000, statement_timeout: 10_000 });
   let client;
   try {
     client = await pool.connect();
   } catch (error) {
-    console.log(`[content-quality] 跳过：连不上数据库（${error.code ?? error.message}）—— TS 侧契约检查仍由 pnpm test 覆盖`);
+    const reason =
+      "连不上数据库（" + (error.code ?? error.message) + "，目标 " + CONN.host + ":" + CONN.port + "/" + CONN.database + "）";
     await pool.end().catch(() => {});
+    failOrSkip(reason);
     return;
   }
 
   try {
     const table = await client.query("SELECT to_regclass('public.knowledge_points') AS t");
     if (!table.rows[0]?.t) {
-      console.log("[content-quality] 跳过：本库还没有 knowledge_points（迁移 060 尚未应用）");
+      failOrSkip("库已连上但没有 knowledge_points（迁移 060 尚未应用），无法校验内容质量");
       return;
     }
 

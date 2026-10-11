@@ -2,6 +2,7 @@
 // 用法: cd apps/mobile && node scripts/gen-icons.mjs
 import sharp from 'sharp';
 import path from 'node:path';
+import { Buffer } from 'node:buffer';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

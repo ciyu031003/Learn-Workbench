@@ -15,9 +15,18 @@
  * WARN（不失败）：
  *   4. 版本号等于最新 tag 但工作区脏（发布后跟进改动，正常）；
  *   5. 有未推送提交（未发版时也值得提醒）。
+ *
+ * v1.44.0（门禁可信度修复）：git 调用失败**不再等同于空结果**。
+ *   旧实现把 try/catch 的异常吞成 ""，于是 git 不可用（PATH 缺 git / 非 git 工作区 / 沙箱禁止）
+ *   时会打印「最新 tag: (无)」「origin/main: ahead ?」却仍然 exit 0 —— 检查形同虚设。
+ *   现在任一 git 调用失败即 FAIL 并打印原因（命令 + 退出码/错误），绝不当成通过。
+ *
+ * 沙箱说明：本仓库的受限执行环境禁止管道 stdio（spawnSync ... EPERM），
+ *   所以 git 输出走**临时文件**（file descriptor）而不是 pipe，避免误报"git 不可用"。
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { closeSync, existsSync, mkdtempSync, openSync, readFileSync, rmSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
@@ -25,11 +34,35 @@ const fail = [];
 const warn = [];
 const info = [];
 
+/** git 调用失败时抛这个，调用方必须当成 FAIL（绝不能降级成空值）。 */
+class GitUnavailableError extends Error {}
+
+/**
+ * 跑一条 git 命令并返回 trim 后的 stdout。
+ * 失败（git 不存在 / 退出码非 0 / 沙箱拒绝）时抛 GitUnavailableError —— 由调用方判 FAIL。
+ *
+ * 为什么用临时文件而不是 pipe：受限环境禁止管道 stdio（spawnSync EPERM），
+ * 用 pipe 会把"环境限制"误报成"git 不可用"。文件描述符方式在本机实测可用。
+ */
 function git(args) {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "lwb-hygiene-"));
+  const outFile = path.join(dir, "stdout.txt");
+  let fd;
   try {
-    return execFileSync("git", args, { cwd: ROOT, encoding: "utf8" }).trim();
-  } catch {
-    return "";
+    fd = openSync(outFile, "w");
+    execFileSync("git", args, { cwd: ROOT, stdio: ["ignore", fd, "ignore"] });
+  } catch (error) {
+    const code = error?.code ?? error?.status ?? "?";
+    throw new GitUnavailableError(
+      "git " + args.join(" ") + " 执行失败（" + code + "）：" + (error?.message ?? String(error)).split("\n")[0]
+    );
+  } finally {
+    if (fd !== undefined) closeSync(fd);
+  }
+  try {
+    return readFileSync(outFile, "utf8").trim();
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
 }
 
@@ -71,7 +104,23 @@ if (existsSync(gradlePath)) {
 }
 
 // ---------- 2. 最新 tag / 工作区 / 远端 ----------
-const tags = git(["tag", "--list", "v*"])
+// 任一 git 调用失败都要 FAIL：拿不到 git 事实就无法判断"已发版是否已提交/已推送"，
+// 这种"不知道"必须显式失败，不能静默当成"没有问题"。
+const gitErrors = [];
+function readGit(label, args) {
+  try {
+    return git(args);
+  } catch (error) {
+    if (error instanceof GitUnavailableError) {
+      gitErrors.push(label + "：" + error.message);
+      return null;
+    }
+    throw error;
+  }
+}
+
+const tagsRaw = readGit("读取 tag 列表", ["tag", "--list", "v*"]);
+const tags = (tagsRaw ?? "")
   .split("\n")
   .map((t) => t.trim())
   .filter(Boolean)
@@ -79,30 +128,43 @@ const tags = git(["tag", "--list", "v*"])
   .filter((t) => t.v);
 tags.sort((a, b) => cmp(a.v, b.v));
 const latest = tags[tags.length - 1] ?? null;
-info.push("最新 tag: " + (latest ? latest.tag : "(无)"));
+info.push("最新 tag: " + (tagsRaw === null ? "(读取失败)" : latest ? latest.tag : "(无)"));
 
-const dirty = git(["status", "--porcelain"]).split("\n").filter(Boolean);
-const ahead = git(["rev-list", "--count", "origin/main..HEAD"]);
-const behind = git(["rev-list", "--count", "HEAD..origin/main"]);
-info.push("工作区: " + (dirty.length ? dirty.length + " 处未提交" : "干净") + " | origin/main: ahead " + (ahead || "?") + " / behind " + (behind || "?"));
+const dirtyRaw = readGit("读取工作区状态", ["status", "--porcelain"]);
+const dirty = (dirtyRaw ?? "").split("\n").filter(Boolean);
+const aheadRaw = readGit("统计未推送提交", ["rev-list", "--count", "origin/main..HEAD"]);
+const behindRaw = readGit("统计远端领先提交", ["rev-list", "--count", "HEAD..origin/main"]);
+const ahead = aheadRaw ?? "";
+const behind = behindRaw ?? "";
+info.push(
+  "工作区: " + (dirtyRaw === null ? "(读取失败)" : dirty.length ? dirty.length + " 处未提交" : "干净") +
+    " | origin/main: ahead " + (ahead || "?") + " / behind " + (behind || "?")
+);
+
+for (const line of gitErrors) {
+  fail.push("git 不可用，发布卫生无法判定：" + line);
+}
+if (gitErrors.length > 0) {
+  info.push("提示：git 不可用时本检查一律 FAIL（旧实现会打印「最新 tag: (无)」并 exit 0，属于静默通过）");
+}
 
 const current = parseSemver(otaName);
 const newerThanTag = current && latest ? cmp(current, latest.v) > 0 : false;
 
-if (newerThanTag && dirty.length > 0) {
+if (gitErrors.length === 0 && newerThanTag && dirty.length > 0) {
   fail.push(
     "已发版但没提交：ota.ts 版本 " + otaName + " > 最新 tag " + latest.tag + "，而工作区还有 " +
       dirty.length + " 处未提交改动（参考事故：v1.32.0–v1.33.0 四个线上版本躺了一周）"
   );
 }
-if (newerThanTag && Number(ahead) > 0) {
+if (gitErrors.length === 0 && newerThanTag && Number(ahead) > 0) {
   fail.push("已发版但没推到远端：有 " + ahead + " 个提交未 push（origin/main 落后）");
 }
-if (!newerThanTag && dirty.length > 0) {
+if (gitErrors.length === 0 && !newerThanTag && dirty.length > 0) {
   warn.push("工作区有 " + dirty.length + " 处未提交改动（版本号 == 最新 tag，属发布后跟进，记得提交）");
 }
-if (Number(ahead) > 0 && !newerThanTag) warn.push("有 " + ahead + " 个提交未 push");
-if (Number(behind) > 0) warn.push("origin/main 领先本地 " + behind + " 个提交，先 fetch/rebase 再推送");
+if (gitErrors.length === 0 && Number(ahead) > 0 && !newerThanTag) warn.push("有 " + ahead + " 个提交未 push");
+if (gitErrors.length === 0 && Number(behind) > 0) warn.push("origin/main 领先本地 " + behind + " 个提交，先 fetch/rebase 再推送");
 
 // ---------- 输出 ----------
 for (const line of info) console.log("[hygiene] " + line);
