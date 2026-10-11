@@ -68,3 +68,4 @@ export function getStageQuestions(track: LearningTrack, stageKey?: string | null
 
 export * from "./types";
 export * from "./model";
+export * from "./algorithm-animations";

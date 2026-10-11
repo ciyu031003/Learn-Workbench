@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  algorithmAnimations,
   learningCategories,
   learningTracks,
   type LearningQuestion,
@@ -75,7 +76,7 @@ describe("learning library content contract", () => {
     ]);
     expect(new Set(learningTracks.map((track) => track.slug)).size).toBe(learningTracks.length);
     expect(learningCategories).toEqual([...new Set(learningTracks.map((track) => track.category))]);
-    expect(learningTracks.reduce((total, track) => total + track.questions.length, 0)).toBe(1981);
+    expect(learningTracks.reduce((total, track) => total + track.questions.length, 0)).toBe(2059);
     // 阶段 12：160 道「待分类题」已全部绑定知识点 → 全部题目都带 topicKey，待分类清零
     // ex-408 自带 12 个知识点 × 2 题 = 24 道带 topicKey 的原创题
     // 408 真题库（exam-bank）为「阶段级附加题」，不绑知识点 → 568 有 topicKey + 260 无
@@ -83,8 +84,11 @@ describe("learning library content contract", () => {
     // → 合计 1257 有 topicKey + 288 无（260 exam-bank + 28 跨章/无链接）
     // runoob（菜鸟教程）三课程：92 个知识点全部带 topicKey，436 道题全部挂在知识点上
     // → 1257 + 436 = 1693
-    expect(learningTracks.flatMap((track) => track.questions).filter((question) => question.topicKey)).toHaveLength(1693);
-    expect(learningTracks.reduce((total, track) => total + track.stages.length, 0)).toBe(91);
+    // 数据结构扩容（algorithms 课程 DS 十章）：39 个知识点全部带 topicKey，78 道题全部挂在知识点上
+    // → 1693 + 78 = 1771
+    expect(learningTracks.flatMap((track) => track.questions).filter((question) => question.topicKey)).toHaveLength(1771);
+    // 数据结构扩容新增 10 个阶段：91 + 10 = 101
+    expect(learningTracks.reduce((total, track) => total + track.stages.length, 0)).toBe(101);
   });
 
   it("keeps every track, stage, topic and question fully authored", () => {
@@ -211,6 +215,35 @@ describe("learning library content contract", () => {
       expect(referencedQuestionKeys.size, `${track.slug}: referenced questions`).toBe(
         track.questions.length
       );
+    }
+  });
+});
+
+describe("algorithm animations contract", () => {
+  it("知识点引用的动图 key 都能解析，且每张动图都是多帧、有说明、无危险片段", () => {
+    const dangerous = /<\s*(script|iframe|object|embed|style|link|meta)\b|on(error|load|click)\s*=|\bjavascript:/i;
+    const referenced = new Set<string>();
+
+    for (const track of learningTracks) {
+      for (const stage of track.stages) {
+        for (const topic of stage.topics) {
+          for (const key of topic.animations ?? []) {
+            const frames = algorithmAnimations[key];
+            expect(frames, `${track.slug}/${topic.key}: 未知动图 ${key}`).toBeDefined();
+            referenced.add(key);
+          }
+        }
+      }
+    }
+
+    expect(referenced.size).toBeGreaterThanOrEqual(10);
+    for (const [key, frames] of Object.entries(algorithmAnimations)) {
+      expect(frames.length, `${key}: 动图帧数`).toBeGreaterThanOrEqual(3);
+      for (const frame of frames) {
+        expect(frame.caption.trim().length, `${key}: 帧说明`).toBeGreaterThan(0);
+        expect(frame.svg.startsWith("<svg"), `${key}: 帧 SVG 结构`).toBe(true);
+        expect(dangerous.test(frame.svg) || dangerous.test(frame.caption), `${key}: 危险片段`).toBe(false);
+      }
     }
   });
 });

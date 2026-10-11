@@ -1,4 +1,5 @@
 import { topicQuestionPair } from "./topic-question-builders";
+import { dsExpansionQuestions, dsExpansionStages } from "./ds-expansion";
 import type { LearningTrack } from "./types";
 
 const complexityQuestions = [
@@ -567,6 +568,13 @@ export const algorithmsTrack: LearningTrack = {
       ],
       questionKeys: sortGraphQuestions.map((question) => question.key),
     },
+    ...dsExpansionStages,
   ],
-  questions: [...complexityQuestions, ...linearQuestions, ...hashTreeQuestions, ...sortGraphQuestions],
+  questions: [
+    ...complexityQuestions,
+    ...linearQuestions,
+    ...hashTreeQuestions,
+    ...sortGraphQuestions,
+    ...dsExpansionQuestions,
+  ],
 };
