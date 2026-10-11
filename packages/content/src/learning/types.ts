@@ -1,4 +1,5 @@
 export type LearningCategory =
+  | "408"
   | "计算机基础"
   | "编程语言"
   | "数据分析"

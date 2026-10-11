@@ -7,6 +7,7 @@ import { computerNetworkingTopicLessons } from "./computer-networking";
 import { computerOrganizationTopicLessons } from "./computer-organization";
 import { dataAnalysisTopicLessons } from "./data-analysis";
 import { databaseTopicLessons } from "./database";
+import { exam408TopicLessons } from "./exam-408";
 import { javaTopicLessons } from "./java";
 import { javascriptTopicLessons } from "./javascript";
 import { linuxTopicLessons } from "./linux";
@@ -34,6 +35,7 @@ export const topicLessons: Record<string, LearningTopicLesson> = {
   ...computerNetworkingTopicLessons,
   ...operatingSystemsTopicLessons,
   ...computerOrganizationTopicLessons,
+  ...exam408TopicLessons,
 };
 
 export { stageLessons };
