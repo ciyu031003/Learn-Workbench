@@ -47,6 +47,14 @@ export default function LearnLibraryPage() {
     });
   }, [category, query]);
 
+  const categoryCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const track of learningTracks) {
+      counts.set(track.category, (counts.get(track.category) ?? 0) + 1);
+    }
+    return counts;
+  }, []);
+
   const matchingQuestions = useMemo(() => {
     const keyword = query.trim().toLowerCase();
     if (!keyword) return [];
@@ -110,22 +118,36 @@ export default function LearnLibraryPage() {
         </section>
       ) : null}
 
-      <div className="flex flex-wrap gap-2">
-        {["全部", ...learningCategories].map((item) => (
-          <button
-            key={item}
-            type="button"
-            onClick={() => setCategory(item)}
-            aria-pressed={item === category}
-            className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-              item === category
-                ? "border-primary/40 bg-primary/10 text-primary"
-                : "border-border/60 text-muted-foreground hover:border-primary/30 hover:text-foreground"
-            }`}
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+          <span>分类</span>
+          <select
+            value={category}
+            onChange={(event) => setCategory(event.target.value)}
+            aria-label="按分类筛选课程"
+            className="paper-select h-9 rounded-lg px-2 text-sm"
           >
-            {item}
+            <option value="全部">全部（{learningTracks.length} 门）</option>
+            {learningCategories.map((item) => (
+              <option key={item} value={item}>
+                {item}（{categoryCounts.get(item) ?? 0} 门）
+              </option>
+            ))}
+          </select>
+        </label>
+        {category !== "全部" ? (
+          <button
+            type="button"
+            onClick={() => setCategory("全部")}
+            className="text-xs font-medium text-primary hover:underline"
+          >
+            清除筛选
           </button>
-        ))}
+        ) : (
+          <span className="text-xs text-muted-foreground">
+            共 {learningCategories.length} 个方向 · {learningTracks.length} 门课程
+          </span>
+        )}
       </div>
 
       {visible.length === 0 ? (
