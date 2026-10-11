@@ -10,3 +10,45 @@ allowBuilds:
   playwright-core: true
   "@playwright/test": true
 nodeLinker: hoisted
+
+# 安全补丁上顶（v1.44）。
+#
+# 背景：看板/阶段 21 报告此前把依赖漏洞登记为「等上游发布补丁版本」，实测 2026-10-11
+# 逐条复核 registry 后，除 braces / node-forge 外补丁版**均已发布**，53 条 advisory 中
+# 51 条可修、4 条 critical 全部可修。这里用 overrides 把可修的顶上去。
+#
+# 注意：pnpm 11 起 **不再读取 package.json 的 pnpm 字段**，overrides 必须写在本文件
+# （写在 package.json 会被静默忽略，只在 stderr 给一行 WARN —— 极易误判为"已生效"）。
+#
+# 仍然无法修的两条（等上游）：
+#   - braces      需要 >=3.0.4，registry 最新仍 3.0.3（2024-05-21 之后未再发布）
+#   - node-forge  需要 >=1.4.1，registry 最新仍 1.4.0
+#
+# 改完这里必须重跑 node scripts/check-deps-audit.mjs --update 收紧棘轮基线。
+#
+# ⚠️ 大版本上顶必须**按范围限定**，不能写裸包名。
+# 教训（本文件第一次写成裸 `brace-expansion: ^5.0.12`）：把 1.x 一起顶到 5.x 后，
+# minimatch@3 仍然 `require("brace-expansion")` 并当函数调用（1.x 的 `module.exports = fn`），
+# 而 5.x 只导出 `{ expand }` → `expand is not a function` → eslint / 任何依赖 minimatch@3 的
+# 工具直接 EXIT=2。改 overrides 后必须实跑 `pnpm lint` 与 `pnpm -F web build` 再提交。
+overrides:
+  shell-quote: ^1.11.0
+  js-yaml@<4.3.2: ^4.3.2
+  # ⚠️ image-size **不修**（2026-10-11 实测后决定）：
+  #   - 两条 advisory（GHSA-5p2g-fcmc-qvqq / GHSA-w3rx-r6r6-pgpr）的补丁版都是 2.0.3+；
+  #   - 但唯一使用者 metro@0.84.4 声明的是 `^1.0.2`，而 1.x 线**停在 1.2.1 且无补丁**
+  #     （registry 实测：image-size 1.x 的 latest 就是 1.2.1）。
+  #   - 上顶到 2.x 会让 Expo 打资产直接崩（2.x 改成具名导出 `{ imageSize }`，metro 仍按
+  #     1.x 默认导出调用 → `getAssetData` 抛错）。因此维持 1.2.1，在基线里如实保留。
+  # image-size 只能停在 1.x 的最新版（1.2.1）：两条 advisory 的补丁版都在 2.x，
+  # 而 2.x 与 metro 不兼容（见上）。这是**已知且接受**的残余风险：它是构建期依赖，
+  # 解析的是本仓库自己的图片资源，攻击面是"本地恶意图片让构建卡住"，不是线上运行时。
+  image-size@1: ^1.2.1
+  # 按大版本分别顶到各自的补丁版（1.x → 1.1.21，5.x → 5.0.12）
+  brace-expansion@1: ^1.1.21
+  brace-expansion@5: ^5.0.12
+  source-map-js: ^1.2.2
+  compression: ^1.8.2
+  fast-copy: ^4.1.2
+  uuid: ^11.1.1
+  "@xmldom/xmldom": ^0.9.12
