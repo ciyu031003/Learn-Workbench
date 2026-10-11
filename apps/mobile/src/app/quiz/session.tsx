@@ -19,6 +19,7 @@ import {
   type LearningAttempt,
 } from "@/lib/learning-progress";
 import { fetchDueReviewKeys } from "@/lib/learning-review";
+import { CelebrationModal } from "@/components/celebration-modal";
 import { useAppStore } from "@/store/app-store";
 import { useReducedMotion } from "@/lib/motion";
 import { useTheme } from "@/theme";
@@ -73,6 +74,11 @@ function SessionContent({
   const [submitted, setSubmitted] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
   const [finished, setFinished] = useState(false);
+  /**
+   * v1.44：完成一组练习（含整章）时弹庆祝弹窗。
+   * 只在**真正做完题**时庆祝 —— 空题库（total===0）与中途退出都不弹，避免"没做也庆祝"。
+   */
+  const [celebrate, setCelebrate] = useState<{ title: string; subtitle: string; badge: string } | null>(null);
   const topicTitle = topicKey
     ? track.stages.flatMap((item) => item.topics).find((topic) => topic.key === topicKey)?.title
     : null;
@@ -160,6 +166,19 @@ function SessionContent({
     if (index + 1 >= questions.length) {
       setFinished(true);
       haptics.success();
+      /**
+       * v1.44：完成一组/一章练习后庆祝。
+       * correctCount 此时仍是**含最后一题**的累计值（submit 里已经加过），可直接算正确率。
+       */
+      const total = questions.length;
+      if (total > 0) {
+        const percent = Math.round((correctCount / total) * 100);
+        setCelebrate({
+          title: topicTitle ? topicTitle + " 已练完" : track.title + " · 本组完成",
+          subtitle: `答对 ${correctCount} / ${total} 题${percent >= 80 ? "，这一章掌握得不错" : "，错题已进入复习队列"}`,
+          badge: `${percent}%`,
+        });
+      }
       return;
     }
     haptics.soft();
@@ -224,6 +243,14 @@ function SessionContent({
             <Text style={styles.finishSecondaryText}>返回题库</Text>
           </PressableScale>
         </Animated.View>
+        {/* v1.44：完成一组练习的庆祝弹窗（烟花 + 彩带） */}
+        <CelebrationModal
+          visible={!!celebrate}
+          onClose={() => setCelebrate(null)}
+          title={celebrate?.title ?? ""}
+          subtitle={celebrate?.subtitle}
+          badge={celebrate?.badge}
+        />
       </View>
     );
   }
