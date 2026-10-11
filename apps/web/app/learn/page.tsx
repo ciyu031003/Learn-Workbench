@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LearningMastery } from "@/components/learning/mastery-badge";
 import { trackStats } from "@/lib/learning-stats";
-import { BookOpen, GraduationCap, ListChecks, Search } from "lucide-react";
+import { BookOpen, ChevronRight, GraduationCap, ListChecks, Search } from "lucide-react";
 
 type CategoryFilter = "全部" | string;
 
@@ -96,6 +96,26 @@ export default function LearnLibraryPage() {
         </div>
       </header>
 
+      <Link
+        href="/learn/408"
+        className="group flex flex-col gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 transition-colors hover:border-primary/40 hover:bg-primary/8 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <span className="flex items-start gap-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <GraduationCap className="size-5" />
+          </span>
+          <span>
+            <span className="block text-sm font-semibold text-foreground">408 考研专项</span>
+            <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
+              四科知识体系、99 个知识点与 2009–2026 年原卷真题，按章节或年份进入
+            </span>
+          </span>
+        </span>
+        <span className="inline-flex items-center gap-1 text-xs font-medium text-primary">
+          打开专区 <ChevronRight className="size-3.5" />
+        </span>
+      </Link>
+
       {query.trim() && matchingQuestions.length > 0 ? (
         <section className="flex flex-col gap-2 rounded-xl border border-border/60 bg-card/40 p-4">
           <p className="text-xs font-semibold text-muted-foreground">
@@ -160,12 +180,15 @@ export default function LearnLibraryPage() {
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {visible.map((track) => {
             const stats = trackStats(track);
+            const isExam408 = track.slug === "ex-408-grad";
             return (
               <Card key={track.slug} rail="study" className="flex flex-col">
                 <CardContent className="flex h-full flex-col gap-3 p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <h2 className="truncate text-base font-semibold">{track.title}</h2>
+                      <h2 className="truncate text-base font-semibold">
+                        {isExam408 ? "408 考研专项" : track.title}
+                      </h2>
                       <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                         <Badge variant="outline">{track.category}</Badge>
                         <span>{track.level}</span>
@@ -181,21 +204,25 @@ export default function LearnLibraryPage() {
                     </span>
                   </div>
 
-                  <p className="text-sm text-muted-foreground">{track.summary}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {isExam408
+                      ? "四科知识体系与历年原卷真题：章节知识点、完整题型、原题号、配图与参考答案。"
+                      : track.summary}
+                  </p>
 
                   <dl className="grid grid-cols-3 gap-2 rounded-lg bg-muted/40 px-3 py-2 text-center">
-                    <Stat label="阶段" value={stats.stages} />
-                    <Stat label="知识点" value={stats.topics} />
-                    <Stat label="配套题" value={stats.questions} />
+                    <Stat label={isExam408 ? "科目" : "阶段"} value={isExam408 ? 4 : stats.stages} />
+                    <Stat label="知识点" value={isExam408 ? 99 : stats.topics} />
+                    <Stat label="配套题" value={isExam408 ? 846 : stats.questions} />
                   </dl>
 
                   <LearningMastery trackSlug={track.slug} />
 
                   <Link
-                    href={`/learn/${track.slug}`}
+                    href={isExam408 ? "/learn/408" : `/learn/${track.slug}`}
                     className="mt-auto inline-flex h-9 items-center justify-center rounded-lg bg-primary/10 px-4 text-sm font-medium text-primary transition-colors hover:bg-primary/15"
                   >
-                    查看课程大纲
+                    {isExam408 ? "进入 408 专区" : "查看课程大纲"}
                   </Link>
                 </CardContent>
               </Card>
@@ -207,7 +234,7 @@ export default function LearnLibraryPage() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function Stat({ label, value }: { label: string; value: number | string }) {
   return (
     <div>
       <dt className="text-xs text-muted-foreground">{label}</dt>
