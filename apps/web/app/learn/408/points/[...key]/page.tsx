@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +8,11 @@ import { getExam408Point } from "@/lib/exam-408";
 import { ArrowLeft, BookOpen, Layers3 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
+
+/** 来源许可要求「不再分发」（db/migrations/071_exam_408_content.sql:226）：知识点页不收录 */
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default async function Exam408PointPage({
   params,

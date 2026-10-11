@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { use, useCallback, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import Link from "next/link";
 import {
   QUALITY_LEVEL_LABEL,
@@ -23,6 +23,33 @@ import type { PointStateResult } from "@/lib/learning-states";
 import { LEARNING_DIFFICULTY_LABEL, stageStats, topicQuestions, trackStats } from "@/lib/learning-stats";
 import { ArrowLeft, BookOpen, CheckCircle2, ChevronLeft, ChevronRight, ListChecks, Sparkles, TriangleAlert, Wrench } from "lucide-react";
 
+/**
+ * 深链 hash 订阅（useSyncExternalStore 的 subscribe/getSnapshot）。
+ * 只监听 hashchange：同页内换深链、浏览器前进后退都能拿到，且不触发任何 setState。
+ */
+function subscribeHash(onHashChange: () => void): () => void {
+  window.addEventListener("hashchange", onHashChange);
+  return () => window.removeEventListener("hashchange", onHashChange);
+}
+
+function readHash(): string {
+  return typeof window === "undefined" ? "" : window.location.hash;
+}
+
+/** 服务端没有 hash：返回 ""，客户端水合时由 React 校验一致性 */
+function readHashServer(): string {
+  return "";
+}
+
+/** 滚到某个知识点：等展开动画/重排完成再滚，否则目标位置还是折叠时的高度（纯 DOM 副作用，无 setState） */
+function scrollToTopic(topicKey: string): void {
+  const behavior: ScrollBehavior =
+    typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+  setTimeout(() => {
+    document.getElementById(`kp-${topicKey}`)?.scrollIntoView({ behavior, block: "start" });
+  }, 60);
+}
+
 export default function CourseDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
   const track = getLearningTrack(slug);
@@ -30,8 +57,40 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
   // 阶段 13/14：知识点五状态 + 内容时效
   const pointStates = usePointStates(track?.slug);
   const staleKeys = useContentFreshness(track?.slug);
-  const [openStages, setOpenStages] = useState<Set<string>>(
-    () => new Set(track?.stages[0] ? [track.stages[0].key] : [])
+  /**
+   * 深链：#kp-<topicKey> 由题库「回知识点」与分享链接带上。
+   * 用 useSyncExternalStore 订阅 hash（而不是 useEffect + 同步 setState）：
+   * effect 体内同步 setState 会级联渲染（react-hooks/set-state-in-effect）；订阅还顺带
+   * 支持"同页内 hash 变化"，这是原先只在挂载时读一次 window.location.hash 做不到的。
+   * 服务端快照返回 ""，客户端返回真实 hash —— 由 React 做水合一致性校验。
+   */
+  const hash = useSyncExternalStore(subscribeHash, readHash, readHashServer);
+  const deepLinkTopic = useMemo(() => {
+    if (!track || !hash.startsWith("#kp-")) return null;
+    try {
+      return decodeURIComponent(hash.slice(4));
+    } catch {
+      return null; // hash 里的 % 不合法：当作没有深链，不要让整页崩掉
+    }
+  }, [track, hash]);
+  const deepLinkStageKey = useMemo(
+    () =>
+      deepLinkTopic
+        ? track?.stages.find((stage) => stage.topics.some((topic) => topic.key === deepLinkTopic))?.key ?? null
+        : null,
+    [track, deepLinkTopic]
+  );
+
+  /**
+   * 阶段展开状态：**显式记录用户的展开/收起**（没有记录就走默认值）。
+   * 默认 = 首个阶段展开；深链 #kp-<topicKey> 指向的阶段额外展开。
+   * 这样深链的展开是"渲染期派生"而不是 effect 里同步 setState —— 后者会触发级联渲染
+   * （react-hooks/set-state-in-effect），且用户手动收起深链阶段后还会被 effect 反复顶开。
+   */
+  const [stageToggles, setStageToggles] = useState<Record<string, boolean>>({});
+  const isStageOpen = useCallback(
+    (stageKey: string, index: number) => stageToggles[stageKey] ?? (index === 0 || stageKey === deepLinkStageKey),
+    [stageToggles, deepLinkStageKey]
   );
   /** 课程内扁平顺序：上一节/下一节跨阶段自动落到相邻端点（与移动端阅读页同一套口径） */
   const flatTopics = useMemo(
@@ -46,25 +105,21 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
         : [],
     [track]
   );
+  /** 目录/上一节下一节点击：**事件驱动**的 setState（effect 里不再同步 setState），再滚动过去 */
   const openAndScroll = useCallback((stageKey: string, topicKey: string) => {
-    setOpenStages((current) => new Set(current).add(stageKey));
-    // 等展开动画/重排完成再滚动，否则目标位置还是折叠时的高度
-    const behavior: ScrollBehavior =
-      typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
-    setTimeout(() => {
-      document.getElementById(`kp-${topicKey}`)?.scrollIntoView({ behavior, block: "start" });
-    }, 60);
+    setStageToggles((current) => (current[stageKey] ? current : { ...current, [stageKey]: true }));
+    scrollToTopic(topicKey);
   }, []);
 
-  // 深链：#kp-<topicKey> 由题库「回知识点」与分享链接带上；自动展开所在阶段并滚动过去
+  /**
+   * 深链：#kp-<topicKey> 由题库「回知识点」与分享链接带上。
+   * 展开已由 isStageOpen 从 deepLinkStageKey 派生，effect 只做"滚动过去"这一个 DOM 副作用
+   * （不调用 openAndScroll —— 它含 setState，在 effect 同步路径里会级联渲染）。
+   */
   useEffect(() => {
-    if (!track) return;
-    const hash = typeof window !== "undefined" ? window.location.hash : "";
-    if (!hash.startsWith("#kp-")) return;
-    const topicKey = decodeURIComponent(hash.slice(4));
-    const stage = track.stages.find((item) => item.topics.some((topic) => topic.key === topicKey));
-    if (stage) openAndScroll(stage.key, topicKey);
-  }, [track, openAndScroll]);
+    if (!deepLinkTopic) return;
+    scrollToTopic(deepLinkTopic);
+  }, [deepLinkTopic]);
 
   if (!track) {
     return (
@@ -196,20 +251,15 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
         <div className="flex min-w-0 flex-1 flex-col gap-3">
           {track.stages.map((stage, index) => {
             const scoped = stageStats(track, stage.key);
-            const open = openStages.has(stage.key);
+            const open = isStageOpen(stage.key, index);
             return (
               <details
                 key={stage.key}
                 open={open}
                 onToggle={(event) => {
+                  // <details> 的原生展开/收起：把用户意图记进 stageToggles（事件驱动，非 effect）
                   const isOpen = event.currentTarget.open;
-                  setOpenStages((current) => {
-                    if (current.has(stage.key) === isOpen) return current;
-                    const next = new Set(current);
-                    if (isOpen) next.add(stage.key);
-                    else next.delete(stage.key);
-                    return next;
-                  });
+                  setStageToggles((current) => (current[stage.key] === isOpen ? current : { ...current, [stage.key]: isOpen }));
                 }}
                 className="group rounded-xl border border-border/60 bg-card/60"
               >

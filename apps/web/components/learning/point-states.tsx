@@ -15,34 +15,44 @@ export interface PointStatesView {
   points: Record<string, PointStateResult>;
 }
 
-/** 拉取当前课程的知识点五状态；未登录/失败一律退回 "anon"（不假装有进度）。 */
+/** 未登录 / 无课程：常量引用，避免每次渲染返回新对象把下游 memo 打穿 */
+const POINT_STATES_ANON: PointStatesView = { status: "anon", points: {} };
+const POINT_STATES_LOADING: PointStatesView = { status: "loading", points: {} };
+
+/**
+ * 拉取当前课程的知识点五状态；未登录/失败一律退回 "anon"（不假装有进度）。
+ *
+ * 实现要点（修 react-hooks/set-state-in-effect）：effect 体里**不再同步 setState**。
+ * "没有 trackSlug 就是 anon" 是入参派生出来的事实，渲染期直接算即可；effect 只负责
+ * 订阅外部系统（fetch）并在回调里 setState —— 这正是 effect 该做的事。
+ * state 里额外记住结果对应的 slug，切换课程时不会串到上一门课的进度。
+ */
 export function usePointStates(trackSlug: string | undefined): PointStatesView {
-  const [view, setView] = useState<PointStatesView>({ status: "loading", points: {} });
+  const [loaded, setLoaded] = useState<{ slug: string; view: PointStatesView } | null>(null);
   useEffect(() => {
-    if (!trackSlug) {
-      setView({ status: "anon", points: {} });
-      return;
-    }
+    if (!trackSlug) return; // 派生分支：下面直接返回 POINT_STATES_ANON
     let alive = true;
     (async () => {
       try {
         const response = await fetch(`/api/learning/point-states?track=${encodeURIComponent(trackSlug)}`);
         if (!response.ok) {
-          if (alive) setView({ status: "anon", points: {} });
+          if (alive) setLoaded({ slug: trackSlug, view: POINT_STATES_ANON });
           return;
         }
         const data = (await response.json()) as { points?: Record<string, PointStateResult> };
         if (!alive) return;
-        setView({ status: "ready", points: data.points ?? {} });
+        setLoaded({ slug: trackSlug, view: { status: "ready", points: data.points ?? {} } });
       } catch {
-        if (alive) setView({ status: "anon", points: {} });
+        if (alive) setLoaded({ slug: trackSlug, view: POINT_STATES_ANON });
       }
     })();
     return () => {
       alive = false;
     };
   }, [trackSlug]);
-  return view;
+
+  if (!trackSlug) return POINT_STATES_ANON;
+  return loaded?.slug === trackSlug ? loaded.view : POINT_STATES_LOADING;
 }
 
 /** 内容时效：返回已过期（stale_after < now）的知识点 key 集合。 */

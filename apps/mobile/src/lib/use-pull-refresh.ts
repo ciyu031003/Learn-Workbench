@@ -8,7 +8,15 @@ export { STICKY_HEADER_ROW, pullRefreshOffset, buildRefreshControlProps } from "
 export type { RefreshControlLike } from "@/lib/pull-refresh-core";
 
 export interface UsePullRefreshOptions {
-  /** 页面是否有吸顶紧凑栏（默认 true：v17 之后绝大多数子页都有） */
+  /**
+   * 页面是否有顶栏（默认 true：v17 之后绝大多数子页都有）。
+   *
+   * ⚠️ v1.43.10：该开关**不再影响下拉刷新偏移** —— df275f7 起顶栏是普通文档流节点
+   * （components/screen-header.tsx:165/213），它占的高度已体现在滚动容器原点上，
+   * 再叠加 STICKY_HEADER_ROW 就是双重计算（转圈被额外下推 44pt，v1.43.9 回归）。
+   * 保留该入参只为不改动 app/** 下 13 个调用点（去掉字段会因多余属性而类型报错）。
+   * 语义与护栏见 lib/pull-refresh-core.ts 文件头注释与 pull-refresh-core.test.ts。
+   */
   stickyHeader?: boolean;
   /** 关闭时 onRefresh 不触发（无数据源页面） */
   enabled?: boolean;
