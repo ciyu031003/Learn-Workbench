@@ -1,11 +1,13 @@
 import { useCallback, useMemo, useState } from "react";
-import { RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { RefreshControl, StyleSheet, Text, TextInput, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import Animated from "react-native-reanimated";
 import { learningCategories, learningTracks, type LearningTrack } from "@learn-workbench/content";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
+import { BottomSheet } from "@/components/bottom-sheet";
+import { SheetListRow } from "@/components/sheet";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useScreenEntrance } from "@/lib/use-screen-entrance";
@@ -23,6 +25,7 @@ export default function QuizLibraryScreen() {
   const entrance = useScreenEntrance();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<CategoryFilter>("全部");
+  const [categorySheet, setCategorySheet] = useState(false);
   const [attempts, setAttempts] = useState<LearningAttempt[]>([]);
 
   const load = useCallback(async () => {
@@ -55,6 +58,14 @@ export default function QuizLibraryScreen() {
       return searchText.includes(q);
     });
   }, [category, query]);
+
+  const categoryCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const track of learningTracks) {
+      counts.set(track.category, (counts.get(track.category) ?? 0) + 1);
+    }
+    return counts;
+  }, []);
 
   return (
     <View style={styles.root}>
@@ -114,22 +125,22 @@ export default function QuizLibraryScreen() {
         </Animated.View>
 
         <Animated.View entering={entrance(1)}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-            {["全部", ...learningCategories].map((item) => {
-              const active = item === category;
-              return (
-                <PressableScale
-                  key={item}
-                  haptic
-                  scaleTo={0.96}
-                  onPress={() => setCategory(item)}
-                  style={[styles.chip, active && styles.chipActive]}
-                >
-                  <Text style={[styles.chipText, active && styles.chipTextActive]}>{item}</Text>
-                </PressableScale>
-              );
-            })}
-          </ScrollView>
+          <PressableScale
+            haptic
+            scaleTo={0.98}
+            onPress={() => setCategorySheet(true)}
+            style={styles.categoryTrigger}
+            accessibilityRole="button"
+            accessibilityLabel={`选择分类，当前 ${category}`}
+          >
+            <ThemedIcon name="funnel-outline" size={16} color={colors.primary} />
+            <Text style={styles.categoryTriggerLabel}>分类</Text>
+            <Text style={styles.categoryTriggerValue} numberOfLines={1}>{category}</Text>
+            <Text style={styles.categoryTriggerHint}>
+              {category === "全部" ? `${learningTracks.length} 门` : `${categoryCounts.get(category) ?? 0} 门`}
+            </Text>
+            <ThemedIcon name="chevron-down" size={16} color={colors.textMuted} />
+          </PressableScale>
         </Animated.View>
 
         <Animated.View entering={entrance(2)} style={styles.sectionHead}>
@@ -157,6 +168,41 @@ export default function QuizLibraryScreen() {
           ) : null}
         </View>
       </Animated.ScrollView>
+
+      <BottomSheet
+        visible={categorySheet}
+        onClose={() => setCategorySheet(false)}
+        title="选择分类"
+        subtitle="按方向收纳课程，免去横向滑动"
+        icon="funnel-outline"
+        height="64%"
+      >
+        <SheetListRow
+          title="全部"
+          subtitle={`${learningTracks.length} 门课程`}
+          icon="apps-outline"
+          selected={category === "全部"}
+          mode="radio"
+          onPress={() => {
+            setCategory("全部");
+            setCategorySheet(false);
+          }}
+        />
+        {learningCategories.map((item, index) => (
+          <SheetListRow
+            key={item}
+            title={item}
+            subtitle={`${categoryCounts.get(item) ?? 0} 门课程`}
+            selected={category === item}
+            mode="radio"
+            last={index === learningCategories.length - 1}
+            onPress={() => {
+              setCategory(item);
+              setCategorySheet(false);
+            }}
+          />
+        ))}
+      </BottomSheet>
     </View>
   );
 }
@@ -238,20 +284,21 @@ const makeStyles = (colors: ThemeColors) =>
     },
     searchInput: { flex: 1, minHeight: 48, ...typography.body, color: colors.text, paddingVertical: 0 },
     clearButton: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
-    chips: { gap: spacing.sm, paddingVertical: 2 },
-    chip: {
-      minHeight: 38,
-      paddingHorizontal: spacing.lg,
-      borderRadius: radius.pill,
-      backgroundColor: colors.surfaceMuted,
+    categoryTrigger: {
+      minHeight: 48,
+      flexDirection: "row",
       alignItems: "center",
-      justifyContent: "center",
+      gap: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      borderRadius: radius.md + 2,
+      backgroundColor: colors.surfaceStrong,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.border,
+      ...shadows.card,
     },
-    chipActive: { backgroundColor: colors.text, borderColor: colors.text },
-    chipText: { ...typography.callout, color: colors.textSecondary },
-    chipTextActive: { color: colors.canvas },
+    categoryTriggerLabel: { ...typography.callout, color: colors.textMuted },
+    categoryTriggerValue: { ...typography.callout, fontWeight: "800", color: colors.text, flexShrink: 1 },
+    categoryTriggerHint: { ...typography.micro, color: colors.textFaint, marginLeft: "auto" },
     sectionHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" },
     sectionTitle: { ...typography.title2, color: colors.text },
     sectionCount: { ...typography.caption, color: colors.textMuted },
