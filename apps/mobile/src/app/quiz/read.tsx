@@ -330,7 +330,6 @@ function KnowledgeReader({
           <TopicArticle
             track={track}
             topic={topic}
-            index={topicIndex}
             onCopied={notify}
             onPractice={() => startTopicPractice(topic.key)}
           />
@@ -439,13 +438,11 @@ function KnowledgeReader({
 function TopicArticle({
   track,
   topic,
-  index,
   onCopied,
   onPractice,
 }: {
   track: LearningTrack;
   topic: LearningTopic;
-  index: number;
   onCopied: (message: string, kind?: ToastKind) => void;
   onPractice: () => void;
 }) {
@@ -455,18 +452,6 @@ function TopicArticle({
 
   return (
     <View style={styles.article}>
-      <View style={styles.articleHead}>
-        <View style={[styles.articleNumber, { backgroundColor: trackTint }]}>
-          <Text style={[styles.articleNumberText, { color: track.accent }]}>
-            {String(index + 1).padStart(2, "0")}
-          </Text>
-        </View>
-        <View style={styles.articleHeadBody}>
-          <Text style={styles.articleTitle}>{topic.title}</Text>
-          <Text style={styles.articleSummary}>{topic.summary}</Text>
-        </View>
-      </View>
-
       {topic.lesson ? (
         <>
           <KnowledgeBlock title="深入理解" icon="layers-outline" accent={track.accent}>
