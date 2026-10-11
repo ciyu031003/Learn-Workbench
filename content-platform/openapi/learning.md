@@ -17,6 +17,8 @@
 | `GET  /api/learning/content-freshness?track=` | 无 | 读（`stale_after` 过期知识点，库不可用降级为空） |
 | `POST /api/internal/content/question-status` | `x-cron-secret` 或内容角色 | **幂等**：设置目标状态，重复调用结果相同 |
 | `POST /api/internal/content/sync` | `x-cron-secret` | **幂等**：按稳定 key upsert + 指纹判等，只重写 derived 关联 |
+| `GET  /api/internal/content/knowledge-point?key=` | `x-cron-secret` 或内容角色 | 读（当前快照 + 乐观锁 `version`） |
+| `POST /api/internal/content/knowledge-point` | `x-cron-secret` 或内容角色 | **乐观锁**：`version` 不匹配即 409，绝不静默覆盖 |
 
 ## POST /api/learning/attempt
 
@@ -80,3 +82,30 @@
 
 **幂等口径**：知识点按稳定 key（`<trackSlug>/<stageKey>/<topicKey>`）upsert，`fingerprint` 相同即 `unchanged`；
 模型里消失的知识点只软归档（`status='archived'`），历史作答仍可追溯；人工审定的 `curated` 关联边不被覆盖。
+
+## POST /api/internal/content/knowledge-point
+
+组三 · H1 收口的**应用层乐观锁写入路径**（迁移 `064` 的 `version` 列至此才真正被应用层使用）。
+
+```jsonc
+// GET 预读：/api/internal/content/knowledge-point?key=algorithms/ds-sort/ds-insertion-sort
+{ "key": "...", "title": "插入排序", "summary": "...", "status": "published",
+  "tags": ["排序", "408"], "version": 3, "updatedAt": "...", "updatedBy": "editor-1" }
+
+// POST 请求（title/summary/status/tags 至少给一个）
+{ "key": "algorithms/ds-sort/ds-insertion-sort", "expectedVersion": 3, "status": "review" }
+// 响应 200
+{ "ok": true, "key": "...", "version": 4, "requestId": "..." }
+```
+
+| 状态 | code | 场景 |
+|---|---|---|
+| 400 | `validation_failed` | 缺 key / `expectedVersion` 非正整数 / 补丁非法（空标题、超长、非法状态、tags 非数组） |
+| 403 | `forbidden` | 缺少 / 不匹配 `x-cron-secret`，且会话不具备内容角色 |
+| 404 | `not_found` | 知识点不存在或已软删除（先跑内容同步登记） |
+| 409 | `conflict` | `expectedVersion` 与库中 `version` 不一致（别人先改了），响应带 `currentVersion` |
+| 429 | `rate_limited` | 同一 IP 每分钟超过 30 次 |
+| 500 | `internal_error` | 落库失败（不泄漏内部细节） |
+
+**并发口径**：`UPDATE ... WHERE key = $1 AND version = $2`，命中 0 行时分清「不存在」与「版本冲突」；
+成功写入 `version = version + 1` 并记录 `updated_by`。**永不**用后写覆盖先写。
