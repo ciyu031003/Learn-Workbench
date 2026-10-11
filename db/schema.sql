@@ -1901,4 +1901,14 @@ VALUES
    '408 知识点（四门课 25 章 / 88 节）与 2009–2026 真题选择题（717 道，含解析）', now())
 ON CONFLICT (key) DO NOTHING;
 
+-- 迁移 070：runoob（菜鸟教程）——19 个教程的知识点与官方测验题（436 道）。
+-- 许可如实登记站点声明（页脚 Copyright © 2013-2026，未声明开源许可）；个人自用、不商用。
+INSERT INTO content_source (key, name, url, repo, ref, license, usage, obligation, note, verified_at)
+VALUES
+  ('runoob-com', '菜鸟教程（runoob.com）', 'https://www.runoob.com/', NULL, 'site-2026-10-11',
+   '站点声明 Copyright © 2013-2026（保留所有权利，未声明开源许可）· 个人自用不商用', 'import',
+   '如实登记许可；个人自用、不商用，仅在本地学习环境使用',
+   '19 个教程的知识点（1031 页 → 92 个知识点）与官方测验题（436 道，含答案与解析）', now())
+ON CONFLICT (key) DO NOTHING;
+
 
