@@ -3,6 +3,7 @@ import { pgPool } from "@/lib/db";
 import { guardInternalRequest } from "@/lib/internal-guard";
 import {
   chunkItems,
+  isExamBankModule,
   planImport,
   type ExistingQuestion,
   type InterviewImportItem,
@@ -43,6 +44,8 @@ function cleanItem(raw: InterviewImportItem): CleanItem | null {
   const moduleName = text(raw?.module, 40);
   const question = text(raw?.question, 400);
   if (!moduleName || question.length < 6) return null;
+  // 408 / 考研真题类题源一律不进面试题库（用户口径：归技术题库的 408 分类）
+  if (isExamBankModule(moduleName)) return null;
   const rawDifficulty = text(raw?.difficulty, 10).toLowerCase();
   return {
     module: moduleName,
