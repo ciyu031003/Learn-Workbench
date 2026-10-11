@@ -69,17 +69,22 @@ describe("learning library content contract", () => {
       "computer-organization",
       "ex-408",
       "ex-408-grad",
+      "rn-frontend",
+      "rn-lang",
+      "rn-cs-tools",
     ]);
     expect(new Set(learningTracks.map((track) => track.slug)).size).toBe(learningTracks.length);
     expect(learningCategories).toEqual([...new Set(learningTracks.map((track) => track.category))]);
-    expect(learningTracks.reduce((total, track) => total + track.questions.length, 0)).toBe(1545);
+    expect(learningTracks.reduce((total, track) => total + track.questions.length, 0)).toBe(1981);
     // 阶段 12：160 道「待分类题」已全部绑定知识点 → 全部题目都带 topicKey，待分类清零
     // ex-408 自带 12 个知识点 × 2 题 = 24 道带 topicKey 的原创题
     // 408 真题库（exam-bank）为「阶段级附加题」，不绑知识点 → 568 有 topicKey + 260 无
     // ex-408-grad（csgraduates）：717 道真题，689 挂章级知识点 + 28 阶段级
     // → 合计 1257 有 topicKey + 288 无（260 exam-bank + 28 跨章/无链接）
-    expect(learningTracks.flatMap((track) => track.questions).filter((question) => question.topicKey)).toHaveLength(1257);
-    expect(learningTracks.reduce((total, track) => total + track.stages.length, 0)).toBe(72);
+    // runoob（菜鸟教程）三课程：92 个知识点全部带 topicKey，436 道题全部挂在知识点上
+    // → 1257 + 436 = 1693
+    expect(learningTracks.flatMap((track) => track.questions).filter((question) => question.topicKey)).toHaveLength(1693);
+    expect(learningTracks.reduce((total, track) => total + track.stages.length, 0)).toBe(91);
   });
 
   it("keeps every track, stage, topic and question fully authored", () => {
