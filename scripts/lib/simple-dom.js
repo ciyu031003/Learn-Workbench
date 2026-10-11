@@ -45,7 +45,11 @@ export function parseHtml(html) {
   let textBuf = "";
 
   const flushText = () => {
-    if (textBuf.trim() !== "") {
+    // `<pre>/<code>` 里的**空白文本节点是有意义的**（代码缩进/词间空格），
+    // 丢掉的代价是 `typedef struct` 变成 `typedefstruct`；其它位置仍按原口径丢弃，
+    // 避免给「招花」等既有消费方塞进一堆纯空白节点。
+    const inPre = stack.some((el) => el.tag === "pre" || el.tag === "code");
+    if (textBuf.trim() !== "" || inPre) {
       const parent = stack[stack.length - 1];
       parent.children.push({ tag: "#text", attrs: {}, children: [], parent, text: decodeEntities(textBuf) });
     }
