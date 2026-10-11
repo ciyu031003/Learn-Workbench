@@ -8,6 +8,7 @@ import { computerOrganizationTrack } from "./computer-organization";
 import { dataAnalysisTrack } from "./data-analysis";
 import { databaseTrack } from "./database";
 import { exam408Track } from "./exam-408";
+import { exam408GradTrack } from "./exam-408-grad";
 import { javaTrack } from "./java";
 import { javascriptTrack } from "./javascript";
 import { linuxTrack } from "./linux";
@@ -36,6 +37,7 @@ const baseLearningTracks: LearningTrack[] = [
   operatingSystemsTrack,
   computerOrganizationTrack,
   exam408Track,
+  exam408GradTrack,
 ];
 
 export const learningTracks: LearningTrack[] = baseLearningTracks.map(expandLearningTrack);

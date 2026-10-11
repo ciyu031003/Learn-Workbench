@@ -16,8 +16,14 @@ const nonEmpty = (value: string) => value.trim().length > 0;
  * 仍然拦下的：空串 / `unknown` / `NOASSERTION` —— 连许可文本都没有的仓库，连"依据"都没有。
  * 许可字段本身仍如实登记（核验方式见 db/migrations/068_*.sql 头注释）。
  */
-const IMPORTABLE_LICENSE_RE =
-  /^(MIT(-0)?|BSD(-[23]-Clause)?|Apache-2\.0|CC BY( |-|$)|CC0-1\.0|ISC|MPL-2\.0|Unlicense|PostgreSQL|(A|L)?GPL-[23]\.[01])/i;
+/**
+ * 历史口径：import 来源必须是「可再分发的开放许可」。
+ *
+ * 口径变更（2026-10-11，用户决策 + 迁移 068）：个人自用、不商用，不再按「许可是否允许再分发」
+ * 限制 `usage: import`；但仍要求**如实登记的已知许可** —— 空串 / unknown / NOASSERTION / n/a
+ * 依然拦下（连来源依据都没有才是不合格的）。开放许可（MIT / BSD / Apache-2.0 / CC BY / GPL 等）
+ * 仍然更受欢迎：选源时优先挑开放许可。
+ */
 const BLOCKED_LICENSE_RE = /^(unknown|noassertion|none|n\/?a|)$/i;
 
 function expectCompleteQuestion(question: LearningQuestion, track: LearningTrack) {
@@ -62,15 +68,18 @@ describe("learning library content contract", () => {
       "operating-systems",
       "computer-organization",
       "ex-408",
+      "ex-408-grad",
     ]);
     expect(new Set(learningTracks.map((track) => track.slug)).size).toBe(learningTracks.length);
     expect(learningCategories).toEqual([...new Set(learningTracks.map((track) => track.category))]);
-    expect(learningTracks.reduce((total, track) => total + track.questions.length, 0)).toBe(828);
+    expect(learningTracks.reduce((total, track) => total + track.questions.length, 0)).toBe(1545);
     // 阶段 12：160 道「待分类题」已全部绑定知识点 → 全部题目都带 topicKey，待分类清零
     // ex-408 自带 12 个知识点 × 2 题 = 24 道带 topicKey 的原创题
     // 408 真题库（exam-bank）为「阶段级附加题」，不绑知识点 → 568 有 topicKey + 260 无
-    expect(learningTracks.flatMap((track) => track.questions).filter((question) => question.topicKey)).toHaveLength(568);
-    expect(learningTracks.reduce((total, track) => total + track.stages.length, 0)).toBe(68);
+    // ex-408-grad（csgraduates）：717 道真题，689 挂章级知识点 + 28 阶段级
+    // → 合计 1257 有 topicKey + 288 无（260 exam-bank + 28 跨章/无链接）
+    expect(learningTracks.flatMap((track) => track.questions).filter((question) => question.topicKey)).toHaveLength(1257);
+    expect(learningTracks.reduce((total, track) => total + track.stages.length, 0)).toBe(72);
   });
 
   it("keeps every track, stage, topic and question fully authored", () => {
@@ -154,8 +163,9 @@ describe("learning library content contract", () => {
         expect(nonEmpty(source.license), `${track.slug}/${source.key}: source license`).toBe(true);
         expect(nonEmpty(source.note), `${track.slug}/${source.key}: source note`).toBe(true);
         if (source.usage === "import") {
+          // 只要求「如实登记的已知许可」；空 / unknown / NOASSERTION 仍然拦下。
           expect(
-            !BLOCKED_LICENSE_RE.test(source.license.trim()) && IMPORTABLE_LICENSE_RE.test(source.license),
+            !BLOCKED_LICENSE_RE.test(source.license.trim()),
             `${track.slug}/${source.key}: import license ${source.license}`
           ).toBe(true);
         }

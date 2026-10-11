@@ -24,6 +24,7 @@ import type { LearningTopic } from "./types";
 const model = buildKnowledgeModel(learningTracks);
 
 const ALLOWED_CODE_LANGUAGES = new Set([
+  "asm",
   "bash",
   "c",
   "css",
