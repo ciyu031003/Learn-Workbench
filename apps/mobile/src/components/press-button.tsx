@@ -147,8 +147,21 @@ const rowStyles = StyleSheet.create({ row: { flexDirection: "row", gap: 10 } });
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     // v17-D：尺寸取 lib/button-spec.ts 的唯一出口（与 Button 共用）；底色也改由 buttonBackground 计算
+    /**
+     * v1.44 真机修复：`height` 之外必须再给一个同值的 `minHeight`。
+     *
+     * 根因：`fullWidth`（默认开）会叠上 `full: { alignSelf: "stretch", flex: 1 }`。
+     * `flex: 1` 的 flexBasis 在主轴上优先于 `height`；当父容器高度**由内容决定**（auto）时，
+     * 主轴（纵向）上没有可分配的自由空间 → 按钮被压成 0 高。`BottomSheet` 的 footer 正是
+     * 这种 auto 高度容器（只有 paddingTop + 一条 hairline），于是训练记录弹层的
+     * 「保存训练」整条不可见 —— 真机表现就是"选完动作没法保存"（截图里 footer 只剩分隔线）。
+     *
+     * `SheetStickyCta` 之所以没这个毛病，正是因为它的高度写在 `minHeight` 上
+     * （flexBasis 压不动 minHeight）。这里用同一招：视觉高度不变，只是压不塌。
+     */
     base: {
       height: BUTTON_SIZES.md.height,
+      minHeight: BUTTON_SIZES.md.height,
       borderRadius: radius.pill,
       flexDirection: "row",
       alignItems: "center",
@@ -158,6 +171,7 @@ const makeStyles = (colors: ThemeColors) =>
     },
     baseSm: {
       height: BUTTON_SIZES.sm.height,
+      minHeight: BUTTON_SIZES.sm.height,
       paddingHorizontal: BUTTON_SIZES.sm.paddingHorizontal,
       gap: BUTTON_SIZES.sm.gap,
     },

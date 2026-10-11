@@ -5,6 +5,8 @@ import { Image } from "expo-image";
 import Animated from "react-native-reanimated";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
+import { CelebrationModal } from "@/components/celebration-modal";
+import { haptics } from "@/lib/haptics";
 import { ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import {
   cleanAnswerText,
@@ -45,6 +47,8 @@ function PaperSession({ year, start }: { year: number; start: number }) {
   const [finished, setFinished] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  /** v1.44：做完一套真题后的庆祝弹窗 */
+  const [celebrate, setCelebrate] = useState<{ title: string; subtitle: string; badge: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -94,6 +98,22 @@ function PaperSession({ year, start }: { year: number; start: number }) {
     if (!paper) return;
     if (index >= paper.questions.length - 1) {
       setFinished(true);
+      haptics.success();
+      /**
+       * v1.44：做完一整套 408 真题后庆祝（含本次实际作答的正确率）。
+       * 综合题按"已作答"计入总数，但不参与正确率分子 —— 与 FinishSession 的口径一致。
+       */
+      const choiceResults = Object.values(results);
+      const answered = choiceResults.filter((value) => value === "correct" || value === "wrong").length;
+      const correct = choiceResults.filter((value) => value === "correct").length;
+      if (answered > 0) {
+        const percent = Math.round((correct / answered) * 100);
+        setCelebrate({
+          title: `${year} 年 408 真题 已完成`,
+          subtitle: `选择题答对 ${correct} / ${answered} 题${percent >= 80 ? "，这套卷子很稳" : "，错题值得再复盘一次"}`,
+          badge: `${percent}%`,
+        });
+      }
       return;
     }
     const nextQuestion = paper.questions[index + 1];
@@ -154,15 +174,25 @@ function PaperSession({ year, start }: { year: number; start: number }) {
 
   if (finished) {
     return (
-      <FinishSession
-        paper={paper}
-        results={results}
-        onRestart={restart}
-        onJump={(number) => {
-          setFinished(false);
-          jump(number);
-        }}
-      />
+      <>
+        <FinishSession
+          paper={paper}
+          results={results}
+          onRestart={restart}
+          onJump={(number) => {
+            setFinished(false);
+            jump(number);
+          }}
+        />
+        {/* v1.44：做完一整套真题的庆祝弹窗（烟花 + 彩带） */}
+        <CelebrationModal
+          visible={!!celebrate}
+          onClose={() => setCelebrate(null)}
+          title={celebrate?.title ?? ""}
+          subtitle={celebrate?.subtitle}
+          badge={celebrate?.badge}
+        />
+      </>
     );
   }
 
