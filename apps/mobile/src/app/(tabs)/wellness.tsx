@@ -516,7 +516,7 @@ export default function WellnessScreen() {
           title="饮食趋势与目标"
           subtitle="7 天曲线 · 6 个月日历 · 热量目标 · 食物营养库"
           showChevron
-          onPress={() => router.push("/nutrition" as never)}
+          onPress={() => router.push({ pathname: "/nutrition", params: { stats: "1" } } as never)}
         />
         <ListRow
           {...tintOf(DIET_COLOR)}

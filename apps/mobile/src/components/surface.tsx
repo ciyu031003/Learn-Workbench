@@ -83,6 +83,7 @@ export function GlassSurface({
 }) {
   const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
+  const themeKey = dark ? "dark" : "light";
 
   /**
    * `opaque`：弹窗/抽屉要求"完全看不穿"（v1.5 反馈）。
@@ -93,6 +94,7 @@ export function GlassSurface({
   if (glassSupported() && !opaque) {
     return (
       <GlassView
+        key={themeKey}
         glassEffectStyle="regular"
         colorScheme={dark ? "dark" : "light"}
         tintColor={tint}
@@ -118,6 +120,7 @@ export function GlassSurface({
    */
   return (
     <View
+      key={themeKey}
       style={[
         styles.base,
         { borderRadius: corner },

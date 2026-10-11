@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { CalorieHeatmapCard, CalorieTrendCard } from "@/components/calorie-trend";
@@ -51,17 +51,7 @@ export function NutritionStatsSheet({
    * 165~170 天 → 最左侧两三周会出现"明明有记录却显示空白"的假空档。多取一个月（多 1 个请求）
    * 就能把 182 天全覆盖，显示仍然是 26 周（≈6 个月）。
    */
-  const { rows, pending, failed, retry, reload } = useMonthSummaries({ visible, headers, todayKey, months: 7 });
-  /**
-   * 每次**打开**面板都强制刷新一次：hook 的缓存键是「月窗口 + 今天」，
-   * 同一天内新增记录不会改变键 —— 用户"开→关→记一条→开"会看到旧总量（审查发现）。
-   * 只在 false→true 时刷新，避免打开期间反复请求。
-   */
-  const wasVisible = useRef(false);
-  useEffect(() => {
-    if (visible && !wasVisible.current) reload();
-    wasVisible.current = visible;
-  }, [visible, reload]);
+  const { rows, pending, failed, retry } = useMonthSummaries({ visible, headers, todayKey, months: 7 });
   /** Food Calendar 当前翻到的月份（翻月只影响缩略图补拉范围，不重新请求汇总） */
   const [monthView, setMonthView] = useState(() => ({
     y: Number(todayKey.slice(0, 4)),
