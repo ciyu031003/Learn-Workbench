@@ -64,8 +64,9 @@ describe("learning library content contract", () => {
     ]);
     expect(new Set(learningTracks.map((track) => track.slug)).size).toBe(learningTracks.length);
     expect(learningCategories).toEqual([...new Set(learningTracks.map((track) => track.category))]);
-    expect(learningTracks.reduce((total, track) => total + track.questions.length, 0)).toBe(544);
+    expect(learningTracks.reduce((total, track) => total + track.questions.length, 0)).toBe(840);
     // 阶段 12：160 道「待分类题」已全部绑定知识点 → 全部题目都带 topicKey，待分类清零
+    // 本地真题题库（exam-bank）为「阶段级附加题」，不绑知识点 → 544 有 topicKey + 296 无
     expect(learningTracks.flatMap((track) => track.questions).filter((question) => question.topicKey)).toHaveLength(544);
     expect(learningTracks.reduce((total, track) => total + track.stages.length, 0)).toBe(64);
   });

@@ -333,6 +333,14 @@ export const algorithmsTrack: LearningTrack = {
       usage: "reference",
       note: "复杂度与取舍的工程视角参考，仅作外链",
     },
+    {
+      key: "local-exam",
+      name: "本地真题题库（个人整理）",
+      url: "https://github.com/csseky/cskaoyan",
+      license: "个人自用（本地整理）",
+      usage: "reference",
+      note: "从本地考研真题/等级考试/教材资料整理的题目，个人自用",
+    },
   ],
   stages: [
     {
