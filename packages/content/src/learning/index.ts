@@ -3,12 +3,15 @@ import { algorithmsTrack } from "./algorithms";
 import { applicationSecurityTrack } from "./application-security";
 import { backendEngineeringTrack } from "./backend-engineering";
 import { cloudPlatformTrack } from "./cloud-platform";
+import { computerNetworkingTrack } from "./computer-networking";
+import { computerOrganizationTrack } from "./computer-organization";
 import { dataAnalysisTrack } from "./data-analysis";
 import { databaseTrack } from "./database";
 import { javaTrack } from "./java";
 import { javascriptTrack } from "./javascript";
 import { linuxTrack } from "./linux";
 import { networkEngineeringTrack } from "./network-engineering";
+import { operatingSystemsTrack } from "./operating-systems";
 import { powerBiTrack } from "./power-bi";
 import { pythonTrack } from "./python";
 import { expandLearningTrack } from "./question-expansions";
@@ -28,6 +31,9 @@ const baseLearningTracks: LearningTrack[] = [
   databaseTrack,
   cloudPlatformTrack,
   networkEngineeringTrack,
+  computerNetworkingTrack,
+  operatingSystemsTrack,
+  computerOrganizationTrack,
 ];
 
 export const learningTracks: LearningTrack[] = baseLearningTracks.map(expandLearningTrack);
