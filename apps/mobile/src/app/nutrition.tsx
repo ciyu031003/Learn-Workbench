@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Pressable, RefreshControl, StyleSheet, Switch, Text, View } from "react-native";
 import Animated, { FadeInUp, LinearTransition } from "react-native-reanimated";
+import { useLocalSearchParams } from "expo-router";
 import { ThemedIcon } from "@/components/themed-icon";
 import { EmptyState } from "@/components/empty-state";
 import { SkeletonList } from "@/components/skeleton";
@@ -124,6 +125,7 @@ const MACRO_COLORS = { proteinG: "#3DA35D", carbsG: "#F28C28", fatG: "#2FB3A6" }
 export default function NutritionScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const params = useLocalSearchParams<{ stats?: string }>();
   const headerScroll = useLargeTitleHeader();
   const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
@@ -201,7 +203,7 @@ export default function NutritionScreen() {
   // M9 深化：收集册弹层
   const [bookOpen, setBookOpen] = useState(false);
   // v4 P4-c：趋势面板（7 天曲线 / 6 个月点阵 / Food Calendar）、水杯、LiveLog
-  const [statsOpen, setStatsOpen] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(params.stats === "1");
   const [cupOpen, setCupOpen] = useState(false);
   const [liveOpen, setLiveOpen] = useState(false);
 

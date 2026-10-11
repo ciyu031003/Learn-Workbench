@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getApiUrl } from "@/config";
 import { mergeSummaryMaps, monthWindowsBack } from "@/lib/nutrition-stats";
 import { toDaySummaryMap, type DaySummaryRow } from "@/lib/nutrition-views";
@@ -50,7 +50,12 @@ export function useMonthSummaries({
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   /** 请求令牌：快速切换/重试时丢弃过期响应（旧响应不得覆盖新数据） */
-  const [token, setToken] = useState(0);
+  /**
+   * 请求令牌只放 ref。旧实现把它放在 state 并让请求闭包与旧 state 比较，
+   * 请求返回时令牌已经变化，结果会被自己丢弃，趋势面板永远停在骨架屏。
+   */
+  const requestSeq = useRef(0);
+  const wasVisible = useRef(false);
 
   const load = useCallback(
     async (myToken: number) => {
@@ -69,47 +74,44 @@ export function useMonthSummaries({
             }
           })
         );
-        if (myToken !== token) return;
+        if (myToken !== requestSeq.current) return;
         const merged = mergeSummaryMaps(results);
-        const anyOk = results.some((m) => m && Object.keys(m).length > 0);
+        // 空数组也是有效响应（用户当月可能没有记录），不能把它当成接口失败。
+        const anyOk = results.some((result) => result !== null);
         setRows(merged);
         // 只有"至少一个月成功"才记已加载：全部失败时留空，下次打开面板会自动重试（审查发现）
         setFailed(!anyOk);
         if (anyOk) setLoadedKey(windowKey);
       } catch {
-        if (myToken === token) setFailed(true);
+        if (myToken === requestSeq.current) setFailed(true);
       }
     },
-    [headers, token, windowKey, windows]
+    [headers, windowKey, windows]
   );
 
   useEffect(() => {
+    const reopening = visible && !wasVisible.current;
+    wasVisible.current = visible;
     if (!visible) return;
-    if (loadedKey === windowKey) return;
-    const myToken = token + 1;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- 令牌自增只用于作废在飞请求
-    setToken(myToken);
-    void (async () => {
-      await load(myToken);
-    })();
+    if (!reopening && loadedKey === windowKey) return;
+    const myToken = requestSeq.current + 1;
+    requestSeq.current = myToken;
+    void load(myToken);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, loadedKey, windowKey]);
 
   const retry = useCallback(() => {
     setFailed(false);
-    const myToken = token + 1;
-    setToken(myToken);
+    const myToken = requestSeq.current + 1;
+    requestSeq.current = myToken;
     void load(myToken);
-  }, [load, token]);
+  }, [load]);
 
   /** 面板重新打开时强制刷新（同一天内新增记录后也能看到最新数字） */
   const reload = useCallback(() => {
     setLoadedKey(null);
     setFailed(false);
-    const myToken = token + 1;
-    setToken(myToken);
-    void load(myToken);
-  }, [load, token]);
+  }, []);
 
   return { rows, pending: loadedKey !== windowKey && !failed, failed, retry, reload };
 }

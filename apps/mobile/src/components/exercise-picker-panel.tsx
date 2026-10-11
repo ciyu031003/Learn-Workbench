@@ -175,12 +175,13 @@ export function ExercisePickerPanel({ onCancel, onConfirm, initial }: ExercisePi
       </View>
 
       {!picked ? (
-        <ScrollView
-          style={styles.flexOne}
-          contentContainerStyle={styles.scrollBody}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
+        <>
+          <ScrollView
+            style={styles.flexOne}
+            contentContainerStyle={styles.scrollBody}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
           <SheetSection title="按分类浏览" hint={`动作库同步了 ${catalog.length} 个动作`}>
             <View style={styles.catGrid}>
               {gridTabs.map((t) => {
@@ -280,6 +281,15 @@ export function ExercisePickerPanel({ onCancel, onConfirm, initial }: ExercisePi
             </Pressable>
           </SheetSection>
         </ScrollView>
+          <View style={styles.footer}>
+          <SheetStickyCta
+            label="先选择动作"
+            icon="barbell-outline"
+            onPress={onCancel}
+            disabled
+          />
+          </View>
+        </>
       ) : (
         <>
           <ScrollView
@@ -373,7 +383,7 @@ export function ExercisePickerPanel({ onCancel, onConfirm, initial }: ExercisePi
 
           <View style={styles.footer}>
             <SheetStickyCta
-              label="加入训练"
+              label="保存动作并返回训练"
               icon="checkmark"
               onPress={confirm}
               disabled={!picked.name.trim()}
@@ -623,5 +633,11 @@ const makeStyles = (colors: ThemeColors) =>
       backgroundColor: colors.primarySoft,
     },
     volumeHintText: { flex: 1, fontSize: typography.caption.fontSize, fontWeight: "700", color: colors.primary },
-    footer: { paddingTop: 2 },
+    footer: {
+      paddingTop: 10,
+      marginTop: 2,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+      backgroundColor: colors.surfaceStrong,
+    },
   });

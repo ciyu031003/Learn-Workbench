@@ -65,7 +65,6 @@ import {
   type SportsProfileDraft,
 } from "@/lib/sports-client";
 import { getApiUrl } from "@/config";
-import { tabBarBottomFor } from "@/lib/use-tab-bar-space";
 import { useAppStore } from "@/store/app-store";
 import { radius, shadows, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
@@ -576,7 +575,7 @@ export default function SportsCardScreen() {
       ) : null}
 
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: tabBarBottomFor(insets.bottom) + 96 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: Math.max(24, insets.bottom + 16) }]}
         refreshControl={<RefreshControl {...pullControl} />}
         showsVerticalScrollIndicator={false}
       >
@@ -819,10 +818,9 @@ export default function SportsCardScreen() {
             </Pressable>
           ))}
         </View>
-      </ScrollView>
 
       {current ? (
-        <View style={[styles.bottomBar, { bottom: tabBarBottomFor(insets.bottom), paddingBottom: 10 }]}>
+        <View style={[styles.bottomBar, { paddingBottom: Math.max(16, insets.bottom + 8) }]}>
           <Button
             label={"编辑" + sportName + "档案"}
             icon="create-outline"
@@ -833,6 +831,7 @@ export default function SportsCardScreen() {
           </Pressable>
         </View>
       ) : null}
+      </ScrollView>
 
       {/* 闪光卡全屏弹层：从小到 + 旋转弹出，下方叉号关闭 */}
       <Modal visible={cardOpen} transparent animationType="none" onRequestClose={closeCard}>
@@ -1474,18 +1473,17 @@ const makeStyles = (colors: ThemeColors) =>
     },
     honorEmptyText: { flex: 1, fontSize: 12, color: colors.textMuted, lineHeight: 18 },
     bottomBar: {
-      position: "absolute",
-      left: 0,
-      right: 0,
-      bottom: 0,
       flexDirection: "row",
       alignItems: "center",
       gap: 10,
       paddingHorizontal: 16,
-      paddingTop: 10,
-      backgroundColor: colors.canvas,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: colors.border,
+      paddingTop: 14,
+      marginTop: 18,
+      borderRadius: radius.lg,
+      backgroundColor: colors.surfaceStrong,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      ...shadows.card,
     },
     deleteBtn: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
     modalRoot: { flex: 1, alignItems: "center", justifyContent: "center" },

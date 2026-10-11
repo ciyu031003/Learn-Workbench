@@ -20,7 +20,7 @@ import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
 import { toDateKey, workoutVolume, type Workout } from "@learn-workbench/shared";
-import { typography } from "@/theme/tokens";
+import { shadows, typography } from "@/theme/tokens";
 import {
   REPS_MAX,
   REPS_MIN,
@@ -69,6 +69,28 @@ export default function WorkoutScreen() {
   );
   const totals = useMemo(() => workoutVolume(workouts.flatMap((w) => w.items)), [workouts]);
   const today = toDateKey(new Date());
+  const weekBars = useMemo(() => {
+    const labels = ["日", "一", "二", "三", "四", "五", "六"];
+    const values = Array.from({ length: 7 }, (_, index) => {
+      const day = new Date();
+      day.setDate(day.getDate() - (6 - index));
+      const key = toDateKey(day);
+      const volume = workouts
+        .filter((workout) => workout.exercisedOn.slice(0, 10) === key)
+        .reduce((sum, workout) => sum + workoutVolume(workout.items).volumeKg, 0);
+      return { key, label: labels[day.getDay()], volume };
+    });
+    const max = Math.max(1, ...values.map((item) => item.volume));
+    return values.map((item) => ({ ...item, height: Math.round((item.volume / max) * 100) }));
+  }, [workouts]);
+  const weekWorkouts = useMemo(() => {
+    const weekKeys = new Set(weekBars.map((day) => day.key));
+    return workouts.filter((workout) => weekKeys.has(workout.exercisedOn.slice(0, 10)));
+  }, [weekBars, workouts]);
+  const weekTotals = useMemo(
+    () => workoutVolume(weekWorkouts.flatMap((workout) => workout.items)),
+    [weekWorkouts]
+  );
 
   const load = useCallback(async () => {
     try {
@@ -231,6 +253,55 @@ export default function WorkoutScreen() {
         <ThemedIcon name="add" size={17} color={colors.primary} />
         <Text style={styles.addBtnText}>记录训练</Text>
       </PressableScale>
+
+      <View style={styles.insightCard}>
+        <View style={styles.insightHead}>
+          <View>
+            <Text style={styles.insightTitle}>近 7 天训练负荷</Text>
+            <Text style={styles.insightHint}>
+              {weekWorkouts.length > 0 ? "柱高按每日训练容量计算" : "记录一次训练后开始生成趋势"}
+            </Text>
+          </View>
+          <View style={styles.insightBadge}>
+            <Text style={styles.insightBadgeValue}>{weekTotals.sets}</Text>
+            <Text style={styles.insightBadgeUnit}>组</Text>
+          </View>
+        </View>
+        <View style={styles.barRow}>
+          {weekBars.map((day) => (
+            <View key={day.key} style={styles.barCell}>
+              <View style={styles.barTrack}>
+                <View
+                  style={[
+                    styles.barFill,
+                    {
+                      height: `${Math.max(day.volume > 0 ? 12 : 4, day.height)}%`,
+                      backgroundColor: day.volume > 0 ? colors.primary : colors.surfaceMuted,
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={styles.barLabel}>{day.label}</Text>
+            </View>
+          ))}
+        </View>
+        <View style={styles.insightStats}>
+          <View style={styles.insightStat}>
+            <Text style={styles.insightStatValue}>{weekWorkouts.length}</Text>
+            <Text style={styles.insightStatLabel}>训练次数</Text>
+          </View>
+          <View style={styles.insightDivider} />
+          <View style={styles.insightStat}>
+            <Text style={styles.insightStatValue}>{weekTotals.reps}</Text>
+            <Text style={styles.insightStatLabel}>总次数</Text>
+          </View>
+          <View style={styles.insightDivider} />
+          <View style={styles.insightStat}>
+            <Text style={styles.insightStatValue}>{Math.round(weekTotals.volumeKg)}</Text>
+            <Text style={styles.insightStatLabel}>总容量 kg</Text>
+          </View>
+        </View>
+      </View>
 
       {loading ? (
         <SkeletonList count={4} />
@@ -551,6 +622,52 @@ const makeStyles = (colors: ThemeColors) =>
       paddingVertical: 9,
     },
     addBtnText: { color: colors.primary, fontSize: typography.callout.fontSize, fontWeight: "800" },
+    insightCard: {
+      gap: 14,
+      padding: 15,
+      borderRadius: 20,
+      backgroundColor: colors.surfaceStrong,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      ...shadows.card,
+    },
+    insightHead: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 },
+    insightTitle: { fontSize: typography.headline.fontSize, fontWeight: "800", color: colors.text },
+    insightHint: { marginTop: 3, fontSize: typography.caption.fontSize, color: colors.textMuted },
+    insightBadge: {
+      minWidth: 52,
+      height: 46,
+      paddingHorizontal: 10,
+      borderRadius: 15,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.primarySoft,
+    },
+    insightBadgeValue: { fontSize: typography.headline.fontSize, fontWeight: "900", color: colors.primary, fontVariant: ["tabular-nums"] },
+    insightBadgeUnit: { ...typography.micro, fontWeight: "700", color: colors.primaryStrong },
+    barRow: { height: 94, flexDirection: "row", alignItems: "flex-end", gap: 7 },
+    barCell: { flex: 1, alignItems: "center", gap: 6 },
+    barTrack: {
+      width: "100%",
+      height: 68,
+      justifyContent: "flex-end",
+      overflow: "hidden",
+      borderRadius: 8,
+      backgroundColor: colors.surfaceMuted,
+    },
+    barFill: { width: "100%", minHeight: 3, borderRadius: 8 },
+    barLabel: { ...typography.micro, fontWeight: "700", color: colors.textMuted },
+    insightStats: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingTop: 12,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+    },
+    insightStat: { flex: 1, alignItems: "center", gap: 2 },
+    insightStatValue: { fontSize: typography.headline.fontSize, fontWeight: "900", color: colors.text, fontVariant: ["tabular-nums"] },
+    insightStatLabel: { ...typography.micro, fontWeight: "600", color: colors.textMuted },
+    insightDivider: { width: StyleSheet.hairlineWidth, height: 28, backgroundColor: colors.border },
     item: { gap: 6 },
     itemHead: { flexDirection: "row", alignItems: "center", gap: 8 },
     itemTitle: {

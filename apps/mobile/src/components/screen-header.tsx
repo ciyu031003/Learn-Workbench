@@ -1,14 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import Animated, {
-  Extrapolation,
-  interpolate,
-  useAnimatedScrollHandler,
-  useAnimatedStyle,
-  useDerivedValue,
-  useSharedValue,
-  type SharedValue,
-} from "react-native-reanimated";
+import { useAnimatedScrollHandler, useSharedValue, type SharedValue } from "react-native-reanimated";
 import { router, usePathname } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
@@ -16,24 +8,15 @@ import { ThemedIcon } from "@/components/themed-icon";
 import { useTheme } from "@/theme";
 import { typography, type ThemeColors } from "@/theme/tokens";
 import { resolveBackTarget } from "@/lib/back-target";
-import { useReducedMotion } from "@/lib/motion";
 import { STICKY_HEADER_ROW as STICKY_ROW_HEIGHT } from "@/lib/pull-refresh-core";
 
 /**
- * ScreenHeader v2（v17-C2）：受滚动驱动的**双态折叠栏**（真吸顶三件套）。
+ * ScreenHeader v3：一级 Tab 不渲染返回栏；详情页返回栏放回文档流，避免覆盖状态栏与内容。
  *
- * 设计（对齐 iOS Large Title 的心智，但跨平台自绘、保持 headerShown:false 的既有语言）：
- *   `ScreenHeaderLargeTitle` 放进滚动内容**内部**随内容滚走；
- *   `ScreenHeaderStickyBar` 是滚动容器**之外**的兄弟节点，滚过阈值后吸顶淡入。
- *   页面用 `useLargeTitleHeader()` 拿 scrollY/onScroll，挂到自己的 Animated.ScrollView 上。
- *
- * 顶部留白收归组件：组件自己吃 insets.top + HEADER_GAP，页面不再手写 padding。
- * 自绘 hero 的页面可用导出的 `useHeaderTopInset()` 取同一个间距，保持全 App 一致。
- * （v19-S5：旧版单组件 `ScreenHeader` 已删——真吸顶落地后全仓库零消费。）
+ * `ScreenHeaderLargeTitle` 仍在滚动内容内部；`ScreenHeaderStickyBar` 只承担详情页的普通顶部导航。
+ * 页面可继续用 `useLargeTitleHeader()` 统一拿滚动事件，组件不再依赖滚动值显示或隐藏返回栏。
  */
 
-/** 折叠行程：滚动多少像素完成"大标题 → 紧凑栏"的过渡（≈ 一个导航栏的高度） */
-const COLLAPSE_RANGE = 44;
 /** 状态栏之下的统一间距（替代此前 23 个页面里 +6~+24 的 8 种取值）：折叠栏/紧凑栏页 */
 const HEADER_GAP = 6;
 /**
@@ -43,14 +26,28 @@ const HEADER_GAP = 6;
  */
 const HERO_GAP = 16;
 /**
- * v17-C2b 真吸顶：紧凑栏独立成层后，它占用的**一行**高度。
- * 大标题块（在滚动内容里）要给这一行让位，否则静止态会被吸顶栏压住。
+ * 详情页顶部栏仍统一占一行高度，保持历史页面间距与下拉刷新偏移不跳变。
  *
  * v19-S3：数值收单源 —— `STICKY_HEADER_ROW` 定义在 lib/pull-refresh-core.ts（纯逻辑、有单测），
  * 此处以别名引用；此前两处各写一份 44，漏改一处会导致下拉转圈与吸顶栏错位。
  */
 /** 吸顶栏与内容的左右留白（与各页 contentContainerStyle 的 padding 16 对齐） */
 const STICKY_GUTTER = 16;
+
+/**
+ * 一级 Tab 没有“返回上一页”的语义，旧版悬浮紧凑栏会在首页制造悬挂返回键。
+ * 一级 Tab 直接不渲染紧凑头；详情页改为普通文档流头部，不再覆盖内容。
+ */
+const TAB_ROOT_PATHS = new Set(["/today", "/learn", "/career", "/wellness", "/settings"]);
+
+function isTabRootPath(pathname: string): boolean {
+  const normalized = pathname
+    .split("/")
+    .filter((segment) => !segment.startsWith("(") || !segment.endsWith(")"))
+    .join("/")
+    .replace(/\/+/g, "/");
+  return TAB_ROOT_PATHS.has(normalized || "/");
+}
 
 /** 页面统一取顶部安全区 + 组件间距（自绘 hero 的页面用，避免再写 insets.top + N 魔数） */
 export function useHeaderTopInset(variant: "compact" | "hero" = "compact"): number {
@@ -59,12 +56,12 @@ export function useHeaderTopInset(variant: "compact" | "hero" = "compact"): numb
 }
 
 /**
- * 拿到大标题折叠所需的滚动驱动。
+ * 统一挂载页面滚动事件。预览与下拉刷新仍复用同一套事件入口。
  *
  * 用法（**两种容器必须用不同的 prop，别混**）：
  * - `<Animated.ScrollView onScroll={header.onScroll} scrollEventThrottle={16} />`
  * - `<FlatList / FlashList onScroll={header.onScrollJS} scrollEventThrottle={16} />`
- * 再配 `<ScreenHeaderLargeTitle …/>`（内容内）+ `<ScreenHeaderStickyBar scrollY={header.scrollY} …/>`（内容外）。
+ * 再配 `<ScreenHeaderLargeTitle …/>`（内容内）+ `<ScreenHeaderStickyBar …/>`（内容外）。
  */
 export function useLargeTitleHeader(): {
   scrollY: SharedValue<number>;
@@ -124,17 +121,16 @@ function useGoBack(backTo?: string): () => void {
 }
 
 /**
- * v17-C2b（真吸顶）：大标题块 —— 放进滚动容器**内部**，随内容自然滚走。
- *
- * 为什么这里不做高度动画：大标题块本身已在滚动流里，滚动就会把它带走；再叠一层 height 动画
- * 会与滚动位移打架（折叠瞬间"跳一下"）。高度动画只适用于旧版「整块头部在滚动容器之外」的形态。
+ * 大标题块放进滚动容器内部，随内容自然滚走。
  */
 export function ScreenHeaderLargeTitle({ title, subtitle }: { title: string; subtitle?: string }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const pathname = usePathname();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const topPadding = isTabRootPath(pathname) ? insets.top + HERO_GAP : HEADER_GAP;
   return (
-    <View style={[styles.largeInFlow, { paddingTop: insets.top + STICKY_ROW_HEIGHT + HEADER_GAP }]}>
+    <View style={[styles.largeInFlow, { paddingTop: topPadding }]}>
       <Text style={styles.largeTitle} numberOfLines={2}>
         {title}
       </Text>
@@ -147,17 +143,10 @@ export function ScreenHeaderLargeTitle({ title, subtitle }: { title: string; sub
   );
 }
 
-/**
- * v17-C2b（真吸顶）：紧凑栏 —— 必须是滚动容器**之外**的兄弟节点，绝对定位在状态栏下方**一行**高度。
- *
- * 触摸安全（OPPO/ColorOS 历史坑）：外层 pointerEvents="box-none" 且高度只有一行，
- * 空白处的手势会穿透到下面的滚动内容，只有返回键与右侧动作可点 —— **不是全屏覆盖层**。
- * 减弱动态时不做渐显，紧凑栏常显（功能完整、无动画）。
- */
+/** 详情页顶部栏：滚动容器外、状态栏下方的一行普通文档流导航。 */
 export function ScreenHeaderStickyBar({
   title,
   backTo,
-  scrollY,
   right,
 }: {
   title: string;
@@ -167,35 +156,15 @@ export function ScreenHeaderStickyBar({
 }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const reduced = useReducedMotion();
+  const pathname = usePathname();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const goBack = useGoBack(backTo);
-  const animated = !reduced && !!scrollY;
-
-  const progress = useDerivedValue(() => {
-    if (!animated || !scrollY) return 0;
-    const p = scrollY.value / COLLAPSE_RANGE;
-    return p < 0 ? 0 : p > 1 ? 1 : p;
-  }, [animated, scrollY]);
-
-  /**
-   * 真机反馈修复：吸顶栏的**背景与小标题必须同区间淡入**。
-   * 原来是 背景 [0.2,1] / 小标题 [0.45,1] —— 于是 p 在 0.2~0.45 之间会出现
-   * 「背景已经不透明、但一个字都没有」的空条，用户看到的正是页面顶部那块"空白面板"
-   * （内容较短的页面尤其明显：轻微滑动就落进这个区间并停住）。
-   */
-  const STICKY_FADE: [number, number] = [0.35, 1];
-  const bgStyle = useAnimatedStyle(() => ({
-    opacity: animated ? interpolate(progress.value, STICKY_FADE, [0, 1], Extrapolation.CLAMP) : 1,
-  }));
-  const titleStyle = useAnimatedStyle(() => ({
-    opacity: animated ? interpolate(progress.value, STICKY_FADE, [0, 1], Extrapolation.CLAMP) : 1,
-  }));
+  if (isTabRootPath(pathname)) return null;
 
   return (
-    <View style={[styles.stickyWrap, { top: insets.top }]} pointerEvents="box-none">
-      <Animated.View style={[styles.stickyBg, bgStyle]} pointerEvents="none" />
-      <View style={styles.stickyRow} pointerEvents="box-none">
+    <View style={[styles.stickyWrap, { paddingTop: insets.top }]}>
+      <View style={styles.stickyBg} pointerEvents="none" />
+      <View style={styles.stickyRow}>
         <Pressable
           hitSlop={8}
           onPress={goBack}
@@ -205,13 +174,13 @@ export function ScreenHeaderStickyBar({
         >
           <ThemedIcon name="chevron-back" size={20} color={colors.text} />
         </Pressable>
-        <Animated.View style={[styles.text, titleStyle]} pointerEvents="none">
+        <View style={styles.text} pointerEvents="none">
           <Text style={styles.title} numberOfLines={1}>
             {title}
           </Text>
-        </Animated.View>
+        </View>
         {right ? (
-          <View style={styles.right} pointerEvents="box-none">
+          <View style={styles.right}>
             {right}
           </View>
         ) : null}
@@ -238,16 +207,13 @@ const makeStyles = (colors: ThemeColors) =>
     largeTitle: { ...typography.display, color: colors.text },
     subtitle: { ...typography.caption, fontWeight: "400", color: colors.textMuted },
     right: { flexDirection: "row", alignItems: "center", gap: 8 },
-    /** v17-C2b：大标题块（在滚动内容里）——只补顶部让位，左右留白由页面 content 的 padding 提供 */
+    /** 大标题块（在滚动内容里）——只补顶部让位，左右留白由页面 content 的 padding 提供 */
     largeInFlow: { paddingBottom: 6, gap: 2 },
-    /** v17-C2b：真吸顶紧凑栏 —— 只占一行，绝不铺满全屏 */
+    /** 详情页顶部栏只占一行，绝不铺满全屏 */
     stickyWrap: {
-      position: "absolute",
-      left: 0,
-      right: 0,
-      height: STICKY_ROW_HEIGHT,
-      zIndex: 20,
+      position: "relative",
       justifyContent: "center",
+      backgroundColor: colors.canvas,
     },
     stickyBg: {
       position: "absolute",
