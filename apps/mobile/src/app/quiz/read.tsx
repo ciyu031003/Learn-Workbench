@@ -15,6 +15,7 @@ import {
 } from "@learn-workbench/content";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
+import { AlgorithmAnimation } from "@/components/algorithm-animation";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { InlineToast, TOAST_DEFAULT_LIFE_MS, type ToastKind } from "@/components/toast";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
@@ -483,6 +484,8 @@ function TopicArticle({
           </KnowledgeBlock>
         </>
       ) : null}
+
+      {topic.animations?.length ? <AlgorithmAnimation keys={topic.animations} /> : null}
 
       <KnowledgeBlock title="先建立概念" icon="bulb-outline" accent={track.accent}>
         <View style={styles.chipWrap}>
