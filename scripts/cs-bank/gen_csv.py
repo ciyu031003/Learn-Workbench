@@ -2,7 +2,12 @@
 """bank.jsonl -> 导入用 CSV（interview_questions）。"""
 import csv
 import json
+import os
 import re
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import dirty_filter as df  # noqa: E402
 
 rows = [json.loads(l) for l in open(".local/csimport/bank.jsonl", encoding="utf-8")]
 
@@ -17,9 +22,16 @@ def difficulty(text, kind):
     return "medium"
 
 
+skipped = []
 with open(".local/csimport/bank.csv", "w", encoding="utf-8", newline="") as f:
     w = csv.writer(f, quoting=csv.QUOTE_ALL)
     for r in rows:
+        # 入库前最后一道闸：目录行（行尾引导点 / 纯点号填充）不进 interview_questions
+        if df.is_dirty_question(r["question"]) or df.is_dirty_answer(
+            (r.get("explanation") or r.get("answer_text") or "")
+        ):
+            skipped.append((r["subject"], r["question"][:60], r["source"]["note"]))
+            continue
         q = r["question"].strip()[:400]
         if r["type"] == "mcq":
             opts = "  ".join("%s. %s" % (o[0], o[1]) for o in r["options"])
@@ -36,4 +48,6 @@ with open(".local/csimport/bank.csv", "w", encoding="utf-8", newline="") as f:
         ext = "local-material#" + r["sig"]
         w.writerow([r["subject"][:40], q, ans[:8000], difficulty(r["question"], r["type"]),
                     tags, "", "local-material", "个人自用（本地资料整理）", ext])
-print("csv rows:", len(rows))
+print("csv rows:", len(rows) - len(skipped), "(skipped toc-noise: %d)" % len(skipped))
+for subj, q, note in skipped[:20]:
+    print("  SKIP", subj, "|", q, "|", note)
