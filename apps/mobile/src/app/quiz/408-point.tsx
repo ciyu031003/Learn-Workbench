@@ -71,7 +71,7 @@ function PointContent({ pointKey }: { pointKey: string }) {
 
   return (
     <View style={styles.root}>
-      <ScreenHeaderStickyBar title={detail.point.title} scrollY={header.scrollY} backTo="/quiz/408" />
+      <ScreenHeaderStickyBar title={detail.point.title} scrollY={header.scrollY} backTo="/exam-408" />
       <Animated.ScrollView
         onScroll={header.onScroll}
         scrollEventThrottle={16}
@@ -142,7 +142,7 @@ function MissingPoint() {
     <View style={styles.centerState}>
       <ThemedIcon name="book-outline" size={26} color={colors.textMuted} />
       <Text style={styles.centerTitle}>缺少知识点参数</Text>
-      <PressableScale haptic onPress={() => router.replace("/quiz/408" as never)} style={styles.retry}>
+      <PressableScale haptic onPress={() => router.replace("/exam-408" as never)} style={styles.retry}>
         <Text style={styles.retryText}>返回 408 专区</Text>
       </PressableScale>
     </View>

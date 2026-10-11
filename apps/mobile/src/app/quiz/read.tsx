@@ -38,7 +38,12 @@ import { radius, shadows, spacing, typography, type ThemeColors } from "@/theme/
 const READ_COMPLETE_PERCENT = 85;
 
 export default function KnowledgeReaderScreen() {
-  const params = useLocalSearchParams<{ track?: string; stage?: string; topic?: string }>();
+  const params = useLocalSearchParams<{
+    track?: string;
+    stage?: string;
+    topic?: string;
+    returnTo?: string;
+  }>();
   const track = getLearningTrack(params.track);
   const { colors } = useTheme();
 
@@ -60,6 +65,7 @@ export default function KnowledgeReaderScreen() {
       stage={stage}
       stageIndex={resolvedStageIndex}
       topicIndex={topicIndex >= 0 ? topicIndex : 0}
+      returnTo={params.returnTo?.startsWith("/") ? params.returnTo : undefined}
     />
   );
 }
@@ -69,11 +75,13 @@ function KnowledgeReader({
   stage,
   stageIndex,
   topicIndex,
+  returnTo,
 }: {
   track: LearningTrack;
   stage: LearningStage;
   stageIndex: number;
   topicIndex: number;
+  returnTo?: string;
 }) {
   const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -186,7 +194,12 @@ function KnowledgeReader({
     setOutlineOpen(false);
     router.replace({
       pathname: "/quiz/read",
-      params: { track: track.slug, stage: stageKey, topic: topicKey },
+      params: {
+        track: track.slug,
+        stage: stageKey,
+        topic: topicKey,
+        ...(returnTo ? { returnTo } : {}),
+      },
     } as never);
   };
 
@@ -207,7 +220,7 @@ function KnowledgeReader({
       <ScreenHeaderStickyBar
         title={topic.title}
         scrollY={header.scrollY}
-        backTo={`/quiz/${track.slug}`}
+        backTo={returnTo ?? `/quiz/${track.slug}`}
         right={
           <View style={styles.headerActions}>
             <PressableScale

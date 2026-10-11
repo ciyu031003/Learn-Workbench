@@ -461,7 +461,7 @@ function SessionMissing() {
     <View style={styles.centerState}>
       <ThemedIcon name="document-text-outline" size={26} color={colors.textMuted} />
       <Text style={styles.centerTitle}>缺少有效年份</Text>
-      <PressableScale haptic onPress={() => router.replace("/quiz/408" as never)} style={styles.primaryButton}>
+      <PressableScale haptic onPress={() => router.replace("/exam-408" as never)} style={styles.primaryButton}>
         <Text style={styles.primaryButtonText}>返回 408 专区</Text>
       </PressableScale>
     </View>

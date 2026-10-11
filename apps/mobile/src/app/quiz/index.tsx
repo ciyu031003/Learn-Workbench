@@ -17,6 +17,10 @@ import { radius, shadows, spacing, typography, type ThemeColors } from "@/theme/
 
 type CategoryFilter = "全部" | string;
 
+const LIBRARY_TRACKS = learningTracks.filter(
+  (track) => track.category !== "408" && track.slug !== "ex-408-grad"
+);
+
 export default function QuizLibraryScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -42,7 +46,7 @@ export default function QuizLibraryScreen() {
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return learningTracks.filter((track) => {
+    return LIBRARY_TRACKS.filter((track) => {
       const categoryMatch = category === "全部" || track.category === category;
       if (!categoryMatch) return false;
       if (!q) return true;
@@ -61,7 +65,7 @@ export default function QuizLibraryScreen() {
 
   const categoryCounts = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const track of learningTracks) {
+    for (const track of LIBRARY_TRACKS) {
       counts.set(track.category, (counts.get(track.category) ?? 0) + 1);
     }
     return counts;
@@ -137,7 +141,7 @@ export default function QuizLibraryScreen() {
             <Text style={styles.categoryTriggerLabel}>分类</Text>
             <Text style={styles.categoryTriggerValue} numberOfLines={1}>{category}</Text>
             <Text style={styles.categoryTriggerHint}>
-              {category === "全部" ? `${learningTracks.length} 门` : `${categoryCounts.get(category) ?? 0} 门`}
+              {category === "全部" ? `${LIBRARY_TRACKS.length} 门` : `${categoryCounts.get(category) ?? 0} 门`}
             </Text>
             <ThemedIcon name="chevron-down" size={16} color={colors.textMuted} />
           </PressableScale>
@@ -188,14 +192,14 @@ export default function QuizLibraryScreen() {
             setCategorySheet(false);
           }}
         />
-        {learningCategories.map((item, index) => (
+        {learningCategories.filter((item) => (categoryCounts.get(item) ?? 0) > 0).map((item, index, items) => (
           <SheetListRow
             key={item}
             title={item}
             subtitle={`${categoryCounts.get(item) ?? 0} 门课程`}
             selected={category === item}
             mode="radio"
-            last={index === learningCategories.length - 1}
+            last={index === items.length - 1}
             onPress={() => {
               setCategory(item);
               setCategorySheet(false);
@@ -211,15 +215,14 @@ function TrackCard({ track, progress }: { track: LearningTrack; progress: Return
   const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const trackTint = dark ? `${track.accent}24` : track.softAccent;
-  const isExam408 = track.slug === "ex-408-grad";
   return (
     <PressableScale
       haptic
       scaleTo={0.985}
       style={styles.trackCard}
-      onPress={() => router.push((isExam408 ? "/quiz/408" : `/quiz/${track.slug}`) as never)}
+      onPress={() => router.push(`/quiz/${track.slug}` as never)}
       accessibilityRole="button"
-      accessibilityLabel={`打开 ${isExam408 ? "408 考研专项" : `${track.title} 题库`}`}
+      accessibilityLabel={`打开 ${track.title} 题库`}
     >
       <View style={[styles.trackAccent, { backgroundColor: track.accent }]} />
       <View style={[styles.trackIcon, { backgroundColor: trackTint }]}>
@@ -230,20 +233,16 @@ function TrackCard({ track, progress }: { track: LearningTrack; progress: Return
           <Text style={[styles.trackCategory, { color: track.accent }]}>{track.category}</Text>
           <Text style={styles.trackLevel}>{track.level}</Text>
         </View>
-        <Text style={styles.trackTitle}>{isExam408 ? "408 考研专项" : track.title}</Text>
+        <Text style={styles.trackTitle}>{track.title}</Text>
         <Text style={styles.trackSummary} numberOfLines={2}>
-          {isExam408
-            ? "四科知识体系与 2009–2026 年原卷真题，按章节或年份进入。"
-            : track.summary}
+          {track.summary}
         </Text>
         <View style={styles.trackMeta}>
-          <Text style={styles.trackMetaText}>
-            {isExam408 ? "4 科 · 99 知识点" : `${track.stages.length} 章知识点`}
-          </Text>
+          <Text style={styles.trackMetaText}>{`${track.stages.length} 章知识点`}</Text>
           <View style={styles.dot} />
-          <Text style={styles.trackMetaText}>{isExam408 ? "846 道真题" : `${track.questions.length} 道题`}</Text>
+          <Text style={styles.trackMetaText}>{`${track.questions.length} 道题`}</Text>
           <View style={styles.dot} />
-          <Text style={styles.trackMetaText}>{isExam408 ? "2009–2026" : `${progress.mastery}% 掌握度`}</Text>
+          <Text style={styles.trackMetaText}>{`${progress.mastery}% 掌握度`}</Text>
         </View>
       </View>
       <ThemedIcon name="chevron-forward" size={18} color={colors.textFaint} />

@@ -31,6 +31,7 @@ const EXPECTED_ROUTES = [
   "/dashboard",
   "/diagnostics",
   "/domain-manager",
+  "/exam-408",
   "/habits",
   "/interview",
   "/jobs",
