@@ -48,7 +48,14 @@ export function parseHtml(html) {
     // `<pre>/<code>` 里的**空白文本节点是有意义的**（代码缩进/词间空格），
     // 丢掉的代价是 `typedef struct` 变成 `typedefstruct`；其它位置仍按原口径丢弃，
     // 避免给「招花」等既有消费方塞进一堆纯空白节点。
-    const inPre = stack.some((el) => el.tag === "pre" || el.tag === "code");
+    // runoob（菜鸟教程）把示例代码放在 `div.example_code > div.hl-main > span.hl-code`，
+    // 词间空格就是这些 span 里的纯空白文本节点 —— 同样必须保留，否则 `width: 100%` 会粘成 `width:100%`。
+    const inPre = stack.some(
+      (el) =>
+        el.tag === "pre" ||
+        el.tag === "code" ||
+        /\b(?:hl-main|hl-code|example_code|language-[\w-]+)\b/.test(el.attrs?.class ?? "")
+    );
     if (textBuf.trim() !== "" || inPre) {
       const parent = stack[stack.length - 1];
       parent.children.push({ tag: "#text", attrs: {}, children: [], parent, text: decodeEntities(textBuf) });
