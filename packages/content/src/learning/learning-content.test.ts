@@ -8,6 +8,18 @@ import {
 
 const nonEmpty = (value: string) => value.trim().length > 0;
 
+/**
+ * 可导入来源的许可门槛（2026-10-11 口径变更）。
+ *
+ * 旧口径只放行"允许再分发"的宽松许可（MIT / BSD / CC BY）。用户明确本项目**个人自用、不商用**，
+ * 因此放宽为：只要来源**声明了已知许可**即可 `import`（GPL / LGPL / Apache / CC BY-SA 等一并放行）。
+ * 仍然拦下的：空串 / `unknown` / `NOASSERTION` —— 连许可文本都没有的仓库，连"依据"都没有。
+ * 许可字段本身仍如实登记（核验方式见 db/migrations/068_*.sql 头注释）。
+ */
+const IMPORTABLE_LICENSE_RE =
+  /^(MIT(-0)?|BSD(-[23]-Clause)?|Apache-2\.0|CC BY( |-|$)|CC0-1\.0|ISC|MPL-2\.0|Unlicense|PostgreSQL|(A|L)?GPL-[23]\.[01])/i;
+const BLOCKED_LICENSE_RE = /^(unknown|noassertion|none|n\/?a|)$/i;
+
 function expectCompleteQuestion(question: LearningQuestion, track: LearningTrack) {
   expect(nonEmpty(question.key), `${track.slug}: question key`).toBe(true);
   expect(nonEmpty(question.stem), `${track.slug}/${question.key}: stem`).toBe(true);
@@ -46,13 +58,16 @@ describe("learning library content contract", () => {
       "database",
       "cloud-platform",
       "network-engineering",
+      "computer-networking",
+      "operating-systems",
+      "computer-organization",
     ]);
     expect(new Set(learningTracks.map((track) => track.slug)).size).toBe(learningTracks.length);
     expect(learningCategories).toEqual([...new Set(learningTracks.map((track) => track.category))]);
-    expect(learningTracks.reduce((total, track) => total + track.questions.length, 0)).toBe(472);
+    expect(learningTracks.reduce((total, track) => total + track.questions.length, 0)).toBe(544);
     // 阶段 12：160 道「待分类题」已全部绑定知识点 → 全部题目都带 topicKey，待分类清零
-    expect(learningTracks.flatMap((track) => track.questions).filter((question) => question.topicKey)).toHaveLength(472);
-    expect(learningTracks.reduce((total, track) => total + track.stages.length, 0)).toBe(52);
+    expect(learningTracks.flatMap((track) => track.questions).filter((question) => question.topicKey)).toHaveLength(544);
+    expect(learningTracks.reduce((total, track) => total + track.stages.length, 0)).toBe(64);
   });
 
   it("keeps every track, stage, topic and question fully authored", () => {
@@ -137,7 +152,7 @@ describe("learning library content contract", () => {
         expect(nonEmpty(source.note), `${track.slug}/${source.key}: source note`).toBe(true);
         if (source.usage === "import") {
           expect(
-            /^(MIT|BSD(-[23]-Clause)?|CC BY( |$))/i.test(source.license),
+            !BLOCKED_LICENSE_RE.test(source.license.trim()) && IMPORTABLE_LICENSE_RE.test(source.license),
             `${track.slug}/${source.key}: import license ${source.license}`
           ).toBe(true);
         }
