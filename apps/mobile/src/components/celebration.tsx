@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import Animated, {
   Easing,
+  cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -137,12 +138,19 @@ export function Celebration({ play }: { play: boolean }) {
   const particles = useMemo(() => buildParticles(play ? 0x9e3779b9 : 0x1234567), [play]);
 
   useEffect(() => {
+    // 卸载/重放前先取消上一次动画（v1.45）。
+    // 这里有一百多个 Animated.View 订阅 progress：若动画还在跑时组件被卸载，
+    // Reanimated 会继续给已经不存在的 tag 同步 props —— 真机 logcat 里
+    // "RetryableMountingLayerException: Unable to find SurfaceMountingManager for tag" /
+    // "Fabric View [-1] does not have SurfaceId" 就是这一类。取消动画可以掐掉这个尾巴。
+    cancelAnimation(progress);
     if (!play) {
       progress.value = 0;
       return;
     }
     progress.value = 0;
     progress.value = withTiming(1, { duration: TOTAL_MS, easing: Easing.linear });
+    return () => cancelAnimation(progress);
   }, [play, progress]);
 
   if (reduced) return null;
