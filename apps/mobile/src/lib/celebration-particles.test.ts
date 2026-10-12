@@ -3,8 +3,10 @@ import {
   BURSTS,
   CONFETTI_COUNT,
   PALETTE,
+  RING_MS,
   TOTAL_MS,
   buildParticles,
+  burstRingStateAt,
   makeRandom,
   particleStateAt,
 } from "./celebration-particles";
@@ -85,6 +87,29 @@ describe("buildParticles", () => {
 
   it("烟花火花有重力（g > 0），彩带也有（否则不像飘落）", () => {
     for (const p of particles) expect(p.g).toBeGreaterThan(0);
+  });
+});
+
+describe("burstRingStateAt（爆点扩散光环）", () => {
+  it("起爆前不可见", () => {
+    expect(burstRingStateAt(500, 0).opacity).toBe(0);
+    expect(burstRingStateAt(500, 400 / TOTAL_MS).opacity).toBe(0);
+  });
+
+  it("爆发中可见并向外扩散（scale 递增、opacity 递减）", () => {
+    const early = burstRingStateAt(0, (RING_MS * 0.15) / TOTAL_MS);
+    const late = burstRingStateAt(0, (RING_MS * 0.8) / TOTAL_MS);
+    expect(early.opacity).toBeGreaterThan(0);
+    expect(early.opacity).toBeGreaterThan(late.opacity);
+    expect(late.scale).toBeGreaterThan(early.scale);
+  });
+
+  it("光环演完后完全消失（不会留一个静止的圈）", () => {
+    expect(burstRingStateAt(0, (RING_MS + 1) / TOTAL_MS).opacity).toBe(0);
+  });
+
+  it("三个爆点的光环都在时间轴内演完", () => {
+    for (const b of BURSTS) expect(b.delayMs + RING_MS).toBeLessThanOrEqual(TOTAL_MS);
   });
 });
 

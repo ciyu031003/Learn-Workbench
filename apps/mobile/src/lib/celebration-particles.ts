@@ -153,9 +153,40 @@ export function buildParticles(seed: number): Particle[] {
   return out;
 }
 
+/** 爆点扩散光环的持续时间（ms） */
+export const RING_MS = 700;
+
+/**
+ * 爆点扩散光环在全局进度下的瞬时状态。同样是 **worklet**（理由见下），
+ * 抽出来是为了让组件里的 `useAnimatedStyle` 只引用 worklet，不直接引用 `TOTAL_MS`
+ * 这种跨模块常量 —— 少一类"worklet 里用了捕获不到的东西"的风险。
+ */
+export function burstRingStateAt(
+  delayMs: number,
+  progress: number
+): { opacity: number; scale: number } {
+  "worklet";
+  const elapsed = progress * TOTAL_MS - delayMs;
+  const started = elapsed > 0;
+  const life = started ? Math.min(1, elapsed / RING_MS) : 0;
+  return { opacity: started ? (1 - life) * 0.55 : 0, scale: 0.25 + life * 1.15 };
+}
+
 /**
  * 单个粒子在全局进度 `progress`（0–1，映射到 TOTAL_MS）下的瞬时状态。
  * 抽成纯函数是为了让"运动学算得对不对"可单测，而不是只能靠肉眼在真机上看。
+ *
+ * ## ⚠️ 必须带 "worklet" 指令（v1.44.1 真机闪退的根因）
+ * 这个函数是在 `celebration.tsx` 的 `useAnimatedStyle` **worklet 内部**被调用的。
+ * worklet 跑在 UI 线程，只能调用同样是 worklet 的函数；调用普通 JS 函数会抛
+ * "Tried to synchronously call a non-worklet function on the UI thread"，
+ * 在 release 包上表现为**打开庆祝弹窗的瞬间直接闪退**（弹窗还没画出来就崩）。
+ *
+ * v1.44.0 把粒子数学从组件里抽到本文件时漏了这行指令，导致「每日任务打勾」与
+ * 「题库做完一章」两条路径双双闪退。改这个文件前请先读 apps/mobile/CLAUDE.md 的
+ * 「手势与 worklet（硬约束）」一节。
+ *
+ * 指令对 JS 线程无害：单测里照样直接调用它（见 celebration-particles.test.ts）。
  */
 export function particleStateAt(
   particle: Particle,
@@ -163,6 +194,7 @@ export function particleStateAt(
   width: number,
   height: number
 ): { x: number; y: number; rotate: number; scaleY: number; opacity: number; angle: number } {
+  "worklet";
   const elapsed = progress * TOTAL_MS - particle.delayMs;
   const started = elapsed > 0;
   const life = started ? Math.min(1, elapsed / particle.lifeMs) : 0;

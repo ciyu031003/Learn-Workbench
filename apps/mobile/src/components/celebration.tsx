@@ -12,6 +12,7 @@ import {
   PALETTE,
   TOTAL_MS,
   buildParticles,
+  burstRingStateAt,
   particleStateAt,
   type Particle,
 } from "@/lib/celebration-particles";
@@ -101,13 +102,8 @@ function BurstRing({
   size: number;
 }) {
   const style = useAnimatedStyle(() => {
-    const elapsed = progress.value * TOTAL_MS - delayMs;
-    const started = elapsed > 0;
-    const life = started ? Math.min(1, elapsed / 700) : 0;
-    return {
-      opacity: started ? (1 - life) * 0.55 : 0,
-      transform: [{ scale: 0.25 + life * 1.15 }],
-    };
+    const s = burstRingStateAt(delayMs, progress.value);
+    return { opacity: s.opacity, transform: [{ scale: s.scale }] };
   });
 
   return (
