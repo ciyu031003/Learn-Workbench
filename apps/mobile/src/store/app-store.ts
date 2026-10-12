@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { DailyTask, FocusSession, LogEntry, TopicProgress, ExerciseType } from "@learn-workbench/shared";
-import { todayISO, sportItemByKey, SPORT_CATALOG } from "@learn-workbench/shared";
+import { todayISO, sportItemByKey, SPORT_CATALOG, fromDateKey } from "@learn-workbench/shared";
 import type { ThemeMode } from "@/theme/tokens";
 import { secureToken } from "@/lib/secure-token";
 
@@ -130,6 +130,13 @@ interface AppState {
   addSport: (sportKey: string, minutes: number) => void;
   /** v4 P2：按秒记录运动（正向计时结束），避免 45 秒被取整成 1 分钟 */
   addSportSeconds: (sportKey: string, seconds: number) => void;
+  /**
+   * v1.45：**补录任意日期**的运动（趋势页「补录」入口）。
+   * `addSport` / `addSportSeconds` 都把 `createdAt` 钉死在 `now()`，语义不改；
+   * 这里接收 `dateISO`（YYYY-MM-DD）并归到当天**本地正午**写入，
+   * 避免 UTC 偏移把记录挤到前后一天。
+   */
+  addSportAt: (sportKey: string, minutes: number, dateISO: string) => void;
   removeSport: (clientId: string) => void;
   importLegacySports: (records: { sportKey: string; minutes: number; createdAt: string }[]) => void;
 
@@ -485,6 +492,51 @@ export const useAppStore = create<AppState>()(
               startedAt: now,
             },
             updatedAt: now,
+          };
+          return { sports: [...s.sports, rec], pendingChanges: [change, ...s.pendingChanges] };
+        }),
+
+      /**
+       * v1.45：补录**指定日期**的运动。
+       *
+       * 与 `addSport` 的差异只有"日期从哪来"：这里用传入的 `dateISO` 归到本地正午，
+       * 同步 payload 的结构、字段名与 source 完全照抄 `addSport`（entityType exerciseLogs），
+       * 因此服务端与 addSport 走的是同一条 exercise_logs 写入路径，不需要后端改动。
+       */
+      addSportAt: (sportKey, minutes, dateISO) =>
+        set((s) => {
+          const item = sportItemByKey(sportKey);
+          if (!item) return s;
+          const day = fromDateKey(dateISO);
+          if (Number.isNaN(day.getTime())) return s;
+          day.setHours(12, 0, 0, 0);
+          const createdAt = day.toISOString();
+          const clientId = uid();
+          const mins = Math.max(1, Math.min(600, Math.round(minutes || item.defaultMinutes)));
+          const rec: LocalSportLog = {
+            id: nextId(),
+            clientId,
+            sportKey: item.key,
+            name: item.name,
+            type: item.type,
+            minutes: mins,
+            createdAt,
+          };
+          const change: PendingChange = {
+            changeId: uid(),
+            entityType: "exerciseLogs",
+            entityId: clientId,
+            operation: "CREATE",
+            version: 1,
+            payload: {
+              clientId,
+              type: item.type,
+              typeLabel: item.name,
+              durationSeconds: mins * 60,
+              source: "MANUAL",
+              startedAt: createdAt,
+            },
+            updatedAt: createdAt,
           };
           return { sports: [...s.sports, rec], pendingChanges: [change, ...s.pendingChanges] };
         }),

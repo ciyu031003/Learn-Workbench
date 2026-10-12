@@ -13,6 +13,7 @@ vi.mock("@react-native-async-storage/async-storage", () => ({
   },
 }));
 
+import { toDateKey } from "@learn-workbench/shared";
 import { useAppStore, type SyncChange } from "./app-store";
 
 const change = (partial: Partial<SyncChange> & { entityType: SyncChange["entityType"]; entityId: string }): SyncChange => ({
@@ -167,6 +168,40 @@ describe("local mutations queue pending changes", () => {
       { sportKey: "cycling", minutes: 40, createdAt: "2026-09-01T08:00:00.000Z" },
     ]);
     expect(useAppStore.getState().sports).toHaveLength(1);
+  });
+
+  /**
+   * v1.45：趋势页「补录运动」写任意日期。
+   * 既有 addSport / addSportSeconds 语义不动（createdAt = now），这里只验证新 action：
+   * 日期归到所选本地日的正午，payload 与 addSport 同构。
+   */
+  it("addSportAt 补录指定日期：createdAt 归到当天本地正午，payload 与 addSport 同构", () => {
+    useAppStore.getState().addSportAt("yoga", 45, "2026-09-10");
+    const s = useAppStore.getState();
+    expect(s.sports).toHaveLength(1);
+    const rec = s.sports[0];
+    expect(rec).toMatchObject({ sportKey: "yoga", name: "瑜伽", type: "STRETCH", minutes: 45 });
+    expect(toDateKey(new Date(rec.createdAt))).toBe("2026-09-10");
+    expect(new Date(rec.createdAt).getHours()).toBe(12);
+    expect(s.pendingChanges[0]).toMatchObject({
+      entityType: "exerciseLogs",
+      operation: "CREATE",
+      entityId: rec.clientId,
+      payload: {
+        type: "STRETCH",
+        typeLabel: "瑜伽",
+        durationSeconds: 2700,
+        source: "MANUAL",
+        startedAt: rec.createdAt,
+      },
+    });
+  });
+
+  it("addSportAt 未知项目 / 非法日期不写入也不排同步", () => {
+    useAppStore.getState().addSportAt("not-a-sport", 30, "2026-09-10");
+    useAppStore.getState().addSportAt("run", 30, "not-a-date");
+    expect(useAppStore.getState().sports).toHaveLength(0);
+    expect(useAppStore.getState().pendingChanges).toHaveLength(0);
   });
 });
 

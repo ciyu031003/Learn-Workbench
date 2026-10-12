@@ -207,6 +207,8 @@ function ThemedShell() {
         <Stack.Screen name="habits" />
         <Stack.Screen name="workout" />
         <Stack.Screen name="nutrition" />
+        {/* v1.45：饮食趋势升级为独立全屏页（饮食/运动/训练负荷三段） */}
+        <Stack.Screen name="trends" />
         <Stack.Screen name="sports-card" />
         {/* 我的 */}
         <Stack.Screen name="account-security" />

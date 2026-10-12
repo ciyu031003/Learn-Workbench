@@ -17,6 +17,7 @@ import path from "node:path";
  *   /trackers /sports-card /habits /workout /nutrition /diagnostics
  *   /study-stats（v1.33.0 新增：学习统计从弹层升级为独立全屏页）
  *   /quiz/review（本次新增：到期复习 + 错题统一入口）
+ *   /trends（v1.45 新增：饮食趋势从底部弹层升级为独立全屏页，含运动 / 训练负荷）
  *
  * 若以后真的要新增/删除页面，改这里即等于显式声明"路由表变了"。
  */
@@ -60,6 +61,7 @@ const EXPECTED_ROUTES = [
   "/tasks",
   "/today",
   "/trackers",
+  "/trends",
   "/wellness",
   "/workout",
 ];

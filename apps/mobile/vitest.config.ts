@@ -2,7 +2,9 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { defineConfig } from "vitest/config";
 
-const dir = fileURLToPath(new URL(".", import.meta.url));
+// v1.45：显式 `.toString()` —— 根 node_modules 的 tsc 5.9 会把全局 `URL` 判成
+// 与 `import("url").URL` 不兼容（TS2345，与本功能无关的历史环境问题），转成 string 后两边一致。
+const dir = fileURLToPath(new URL(".", import.meta.url).toString());
 
 export default defineConfig({
   resolve: {
