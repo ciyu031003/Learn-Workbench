@@ -779,7 +779,7 @@ export default function SportsCardScreen() {
               <>
                 <View style={styles.honorHero}>
                   <View style={styles.honorHeroGlow} pointerEvents="none" />
-                  <Text style={styles.honorHeroTrophy}>🏆</Text>
+                  <ThemedIcon name="trophy" size={30} color="#FFD166" />
                   <View style={styles.honorHeroBody}>
                     <Text style={styles.honorHeroTitle} numberOfLines={1}>{honors[0].label || "公开成绩"}</Text>
                     <Text style={styles.honorHeroSub} numberOfLines={2}>{honors[0].value || "点击编辑补充成绩"}</Text>
@@ -791,7 +791,8 @@ export default function SportsCardScreen() {
 
                 {honors.slice(1).map((honor, index) => (
                   <View key={honor.label + index} style={styles.honorRow}>
-                    <Text style={styles.honorMedal}>{["🥈", "🥉", "🎖️"][index] ?? "🎖️"}</Text>
+                    {/* v1.44.2 去 emoji：名次用图标 + 序号表达，不再用奖牌 emoji */}
+                    <ThemedIcon name="medal" size={18} color={colors.accent} />
                     <Text style={styles.honorName} numberOfLines={1}>{honor.label || "公开成绩"}</Text>
                     <Text style={styles.honorPrize} numberOfLines={1}>{honor.value || "—"}</Text>
                   </View>

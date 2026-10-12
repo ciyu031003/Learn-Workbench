@@ -13,6 +13,7 @@ import { syncPull, syncPush } from "@/lib/sync";
 import { mainPhases, agentPhase } from "@learn-workbench/content";
 import { pct } from "@learn-workbench/shared";
 import { Card } from "@/components/card";
+import { ThemedIcon } from "@/components/themed-icon";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 
 interface TopicView {
@@ -71,26 +72,33 @@ function PhaseBlock({
             {doneCount}/{topics.length} · {percent}%
           </Text>
         </View>
-        <Text style={styles.chevron}>{open ? "▾" : "▸"}</Text>
+        <ThemedIcon name={open ? "chevron-down" : "chevron-forward"} size={16} color={colors.textMuted} />
       </Pressable>
       {open ? (
         <View style={styles.topicList}>
           {topics.map((t) => (
             <Pressable key={`${t.id}-${t.isCustom ? "c" : "b"}`} style={styles.topicRow} onPress={() => onToggle(t.id)}>
-              <Text style={[styles.topicCheck, t.done && styles.topicChecked]}>{t.done ? "✓" : "○"}</Text>
+              <ThemedIcon
+                name={t.done ? "checkmark-circle" : "ellipse-outline"}
+                size={18}
+                color={t.done ? colors.primary : colors.textMuted}
+              />
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                   <Text style={[styles.topicTitle, t.done && styles.topicTitleDone]}>{t.title}</Text>
                   {t.isCustom ? <Text style={styles.customTag}>自定义</Text> : null}
                 </View>
                 {t.agentTask ? (
-                  <Text style={styles.topicAgent} numberOfLines={2}>✦ {t.agentTask}</Text>
+                  <View style={styles.agentRow}>
+                    <ThemedIcon name="sparkles" size={12} color={colors.accent} />
+                    <Text style={styles.topicAgent} numberOfLines={2}>{t.agentTask}</Text>
+                  </View>
                 ) : null}
                 {t.summary ? <Text style={styles.topicSummary} numberOfLines={2}>{t.summary}</Text> : null}
               </View>
               {t.isCustom && onDelete ? (
                 <Pressable onPress={() => onDelete(t.id)} hitSlop={8}>
-                  <Text style={styles.deleteBtn}>✕</Text>
+                  <ThemedIcon name="close" size={16} color={colors.textMuted} />
                 </Pressable>
               ) : null}
             </Pressable>
@@ -285,7 +293,8 @@ const makeStyles = (colors: ThemeColors) =>
   topicTitle: { ...typography.callout, fontWeight: "500", color: colors.text },
   topicTitleDone: { textDecorationLine: "line-through", color: colors.textSecondary },
   customTag: { ...typography.micro, color: colors.accent, backgroundColor: colors.accentSoft, paddingHorizontal: 5, paddingVertical: 1, borderRadius: 5, overflow: "hidden" },
-  topicAgent: { ...typography.caption, marginTop: 2, color: colors.coral },
+  agentRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
+  topicAgent: { ...typography.caption, flexShrink: 1, color: colors.coral },
   topicSummary: { ...typography.caption, marginTop: 2, color: colors.textMuted },
   deleteBtn: { ...typography.caption, color: colors.danger, paddingHorizontal: 4 },
 });

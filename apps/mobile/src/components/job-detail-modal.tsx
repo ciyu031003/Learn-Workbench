@@ -53,7 +53,7 @@ function CollapsibleParagraph({ text, lines = 6 }: { text: string; lines?: numbe
       </Text>
       {long ? (
         <Pressable hitSlop={6} onPress={() => setExpanded((v) => !v)} accessibilityLabel={expanded ? "收起" : "展开全文"}>
-          <Text style={styles.paraToggle}>{expanded ? "收起 ▲" : "展开全文 ▼"}</Text>
+          <Text style={styles.paraToggle}>{expanded ? "收起" : "展开全文"}</Text>
         </Pressable>
       ) : null}
     </View>
@@ -329,7 +329,7 @@ export function JobDetailModal({
           {display.isNew ? <JobNewBadge /> : null}
           {display.clusterSources && display.clusterSources.length > 1 ? (
             <Text style={styles.clusterText} numberOfLines={1}>
-              🔁 {display.clusterSources.map((s) => jobSourceLabels[s] ?? s).join("/")}
+              {display.clusterSources.map((s) => jobSourceLabels[s] ?? s).join("/")}
             </Text>
           ) : null}
         </View>

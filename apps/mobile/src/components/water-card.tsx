@@ -125,7 +125,7 @@ export function WaterCard({
           <Text style={styles.unit}>/ {targetMl} ml</Text>
         </View>
         <Text style={styles.hint}>
-          {done ? "今天的水够了 👍" : `还差 ${remain} ml`}
+          {done ? "今天的水够了" : `还差 ${remain} ml`}
         </Text>
         <View style={styles.actions}>
           {PRESETS.map((p) => (

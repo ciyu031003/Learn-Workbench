@@ -49,7 +49,8 @@ function StaticHoloBackdrop() {
 
 function textOf(m: StudyCardModel): string {
   const rows = [...m.rowsLeft, ...m.rowsRight].map(([k, v]) => k + " " + v).join(" · ");
-  return ["📘 " + m.title + " · " + m.collection, rows, m.tagline, "💪 " + m.technique].join("\n");
+  // v1.44.2 去 emoji（纯文本分享，无法承载图标）
+  return [m.title + " · " + m.collection, rows, m.tagline, m.technique].join("\n");
 }
 
 /** 背景层：能出图就用冻结图（截图稳定），否则跑实时 GL */

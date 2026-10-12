@@ -5,6 +5,12 @@ import {
   RefreshControl,
   ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
+import {
+  DEFAULT_HABIT_EMOJI,
+  HABIT_ICON_CHOICES,
+  habitIconName,
+  isKnownHabitEmoji,
+} from "@/lib/habit-icons";
 import { EmptyState } from "@/components/empty-state";
 import { SkeletonList } from "@/components/skeleton";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
@@ -32,12 +38,11 @@ import {
   type Habit, type HabitLog,
 } from "@learn-workbench/shared";
 
-/** 内置习惯图标（约 24 个，覆盖常见健康 / 学习 / 生活场景） */
-const HABIT_ICONS = [
-  "💧", "🌙", "🧘", "📖", "👟", "✍️", "🥗", "🏃",
-  "💪", "🧠", "☀️", "🎯", "🛏️", "🦷", "🧴", "🍵",
-  "🚭", "📵", "🎧", "🧹", "💊", "🐶", "💰", "🙏",
-];
+/**
+ * 内置习惯图标：**存储值仍是 emoji，渲染走 habitIconName 映射成开源图标**
+ * （v1.44.2 去 emoji）。详见 lib/habit-icons.ts 顶部关于"为什么不动存储格式"的说明。
+ */
+const HABIT_ICONS = HABIT_ICON_CHOICES;
 
 type HabitRow = Habit;
 
@@ -59,13 +64,12 @@ export default function HabitsScreen() {
   const [actionHabit, setActionHabit] = useState<HabitRow | null>(null);
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
-  const [icon, setIcon] = useState("✅");
+  const [icon, setIcon] = useState<string>(DEFAULT_HABIT_EMOJI);
   const [isBoolean, setIsBoolean] = useState(true);
   const [targetValue, setTargetValue] = useState("");
-  // Bug 7c：可选时间段（HH:MM，留空 = 不限定）+ 自定义 emoji 入口
+  // Bug 7c：可选时间段（HH:MM，留空 = 不限定）
   const [remindStart, setRemindStart] = useState("");
   const [remindEnd, setRemindEnd] = useState("");
-  const [customIcon, setCustomIcon] = useState("");
 
   const today = useMemo(() => new Date(), []);
   const todayKey = toDateKey(today);
@@ -199,8 +203,8 @@ const last7 = useMemo(() => {
   const openEdit = (h: HabitRow) => {
     setEditingId(h.id);
     setName(h.name);
-    setIcon(h.icon ?? "✅");
-    setCustomIcon(h.icon && !HABIT_ICONS.includes(h.icon) ? h.icon : "");
+    // 未登记过的自定义值一律回落到默认图标（渲染层由 habitIconName 兜底）
+    setIcon(isKnownHabitEmoji(h.icon) ? (h.icon ?? DEFAULT_HABIT_EMOJI) : DEFAULT_HABIT_EMOJI);
     setIsBoolean(h.isBoolean);
     setTargetValue(h.targetValue === null || h.targetValue === undefined ? "" : String(h.targetValue));
     setRemindStart(h.remindStart ?? "");
@@ -234,12 +238,11 @@ const last7 = useMemo(() => {
     setSheetOpen(false);
     setEditingId(null);
     setName("");
-    setIcon("✅");
+    setIcon(DEFAULT_HABIT_EMOJI);
     setIsBoolean(true);
     setTargetValue("");
     setRemindStart("");
     setRemindEnd("");
-    setCustomIcon("");
   };
 
   const scheduledToday = habits.filter((h) => isScheduled(h.schedule, today)).length;
@@ -285,7 +288,10 @@ const last7 = useMemo(() => {
                   setSheetOpen(true);
                 }}
               >
-                <Text style={styles.tplText}>{t.icon} {t.name}</Text>
+                <View style={styles.tplInner}>
+                  <ThemedIcon name={habitIconName(t.icon)} size={14} color={colors.primary} />
+                  <Text style={styles.tplText}>{t.name}</Text>
+                </View>
               </Pressable>
             ))}
           </View>
@@ -338,7 +344,7 @@ const last7 = useMemo(() => {
                     /* v19-M3：静态图标换描边画勾 + 行内 ripple（与 today/tasks 同一语言） */
                     <AnimatedCheckMark checked={done} size={16} color="#ffffff" />
                   ) : (
-                    <Text style={styles.checkIcon}>{h.icon ?? "○"}</Text>
+                    <ThemedIcon name={habitIconName(h.icon)} size={17} color={colors.primary} />
                   )}
                   {bursts[h.id] ? <SuccessBurst key={bursts[h.id]} size={40} color={accent} /> : null}
                 </Pressable>
@@ -346,7 +352,12 @@ const last7 = useMemo(() => {
                 <View style={styles.itemBody}>
                   <View style={styles.itemHeadRow}>
                     <Text style={styles.itemTitle} numberOfLines={1}>{h.name}</Text>
-                    {st.currentStreak > 0 ? <Text style={styles.streak}>🔥 {st.currentStreak}</Text> : null}
+                    {st.currentStreak > 0 ? (
+                      <View style={styles.streakChip}>
+                        <ThemedIcon name="flame" size={11} color={colors.accentStrong} />
+                        <Text style={styles.streak}>{st.currentStreak}</Text>
+                      </View>
+                    ) : null}
                     {habitTimeLabel(h) ? <Text style={styles.timeBadge}>{habitTimeLabel(h)}</Text> : null}
                     {!scheduled ? <Text style={styles.muted}>今日不排期</Text> : null}
                     {done ? <Text style={[styles.doneTag, { color: accent }]}>已完成</Text> : null}
@@ -440,27 +451,15 @@ const last7 = useMemo(() => {
           <View style={styles.iconGrid}>
             {HABIT_ICONS.map((ic) => (
               <Pressable
-                key={ic}
-                onPress={() => {
-                  setIcon(ic);
-                  setCustomIcon("");
-                }}
-                style={[styles.iconCell, icon === ic && customIcon === "" && styles.iconCellActive]}
+                key={ic.emoji}
+                accessibilityLabel={ic.emoji}
+                onPress={() => setIcon(ic.emoji)}
+                style={[styles.iconCell, icon === ic.emoji && styles.iconCellActive]}
               >
-                <Text style={styles.iconGlyph}>{ic}</Text>
+                <ThemedIcon name={ic.name} size={20} color={icon === ic.emoji ? colors.primary : colors.textMuted} />
               </Pressable>
             ))}
           </View>
-          <Field
-            label="自定义 emoji（可选）"
-            value={customIcon}
-            onChangeText={(v) => {
-              const t = v.slice(0, 2);
-              setCustomIcon(t);
-              if (t.trim()) setIcon(t.trim());
-            }}
-            placeholder="例如 🌱"
-          />
 
           {/* v13 U6：浮动标签输入框（技法参考 uiverse.io/Li-Deheng/tiny-chicken-50, MIT） */}
           <FloatField label="名称" value={name} onChangeText={setName} placeholder="例如：饮水 / 早睡" />
@@ -527,6 +526,7 @@ const makeStyles = (colors: ThemeColors) =>
     empty: { ...typography.callout, color: colors.textSecondary, textAlign: "center", paddingVertical: 8 },
     tplRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     tplChip: { backgroundColor: colors.surfaceMuted, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7, borderWidth: 1, borderColor: colors.border },
+    tplInner: { flexDirection: "row", alignItems: "center", gap: 6 },
     tplText: { ...typography.caption, color: colors.text },
     item: { gap: 10 },
     itemRow: { flexDirection: "row", alignItems: "center", gap: 12 },
@@ -557,7 +557,6 @@ const makeStyles = (colors: ThemeColors) =>
     },
     actionText: { ...typography.callout, flex: 1, fontWeight: "700", color: colors.text },
     check: { width: 44, height: 44, borderRadius: 16, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceMuted },
-    checkIcon: { fontSize: 18 },
     itemBody: { flex: 1, minWidth: 0, gap: 2 },
     itemHeadRow: { flexDirection: "row", alignItems: "center", gap: 8 },
     itemTitle: {
@@ -565,6 +564,7 @@ const makeStyles = (colors: ThemeColors) =>
       color: colors.text,
       flexShrink: 1,
     },
+    streakChip: { flexDirection: "row", alignItems: "center", gap: 2 },
     streak: { ...typography.caption, fontWeight: "800", color: colors.accentStrong },
     timeBadge: { ...typography.micro, fontWeight: "700", color: colors.primary, backgroundColor: colors.primarySoft, borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 },
     muted: { ...typography.micro, color: colors.textMuted },
@@ -615,7 +615,6 @@ const makeStyles = (colors: ThemeColors) =>
       borderColor: colors.border,
     },
     iconCellActive: { backgroundColor: colors.primarySoft, borderColor: colors.primary, borderWidth: 2 },
-    iconGlyph: { fontSize: 20 },
     timeRow: { flexDirection: "row", alignItems: "center", gap: 8 },
     timeField: { flex: 1, minWidth: 0 },
     timeDash: { fontSize: 16, color: colors.textMuted },

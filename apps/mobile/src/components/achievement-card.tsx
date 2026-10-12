@@ -49,6 +49,7 @@ export function AchievementCard({
   tone = "gold",
   index = 0,
   emoji,
+  icon,
   right,
   children,
   style,
@@ -61,8 +62,10 @@ export function AchievementCard({
   tone?: AchievementTone;
   /** 列表位置：用于入场错峰 */
   index?: number;
-  /** 大图形用 emoji（可选，优先级高于 tone 图标） */
+  /** @deprecated v1.44.2 去 emoji：改用 `icon`（保留仅为兼容，勿新增调用） */
   emoji?: string;
+  /** 大图形用的开源图标名（优先级最高） */
+  icon?: React.ComponentProps<typeof ThemedIcon>["name"];
   right?: React.ReactNode;
   children?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
@@ -96,11 +99,8 @@ export function AchievementCard({
   return (
     <Animated.View testID={testID} style={[styles.wrap, enterStyle, style]}>
       <View style={styles.graphic}>
-        {emoji ? (
-          <Text style={styles.emoji}>{emoji}</Text>
-        ) : (
-          <ThemedIcon name={TONE_ICON[tone]} size={26} color={palette.strong} />
-        )}
+        {/* v1.44.2：统一渲染开源图标（`icon` 优先；旧 `emoji` 调用一并走 tone 图标，不再画 emoji） */}
+        <ThemedIcon name={icon ?? TONE_ICON[tone]} size={26} color={palette.strong} />
       </View>
 
       <View style={styles.body}>

@@ -18,6 +18,9 @@ type IoniconName = keyof typeof Ionicons.glyphMap;
  */
 export const DEFAULT_HABIT_ICON: IoniconName = "repeat-outline";
 
+/** 新建习惯时的默认存储值（emoji，兼容旧数据与 Web 端） */
+export const DEFAULT_HABIT_EMOJI = "✅";
+
 /** 内置习惯图标（顺序即选择器里的展示顺序）；emoji 是**存储值**，name 是渲染用的图标 */
 export const HABIT_ICON_CHOICES: { emoji: string; name: IoniconName }[] = [
   { emoji: "💧", name: "water-outline" },

@@ -142,7 +142,7 @@ function JobCard({
         ) : null}
         {job.clusterSources && job.clusterSources.length > 1 ? (
           <Text style={styles.clusterText} numberOfLines={1}>
-            🔁 {job.clusterSources.map((s) => jobSourceLabels[s] ?? s).join("/")}
+            {job.clusterSources.map((s) => jobSourceLabels[s] ?? s).join("/")}
           </Text>
         ) : null}
         <Text style={styles.time}>{formatRelativeTime(job.publishedAt)}</Text>
@@ -493,7 +493,7 @@ function FilterBottomSheet({
               {skills.length > 0 ? (
                 <ChipGroup
                   wrap
-                  options={skills.map((s) => ({ key: s, label: `${s} ✕` }))}
+                  options={skills.map((s) => ({ key: s, label: s }))}
                   selected={skills}
                   onToggle={onRemoveSkill}
                 />

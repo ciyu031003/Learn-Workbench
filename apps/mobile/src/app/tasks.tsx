@@ -18,6 +18,7 @@ import { AnimatedNumber } from "@/components/animated-number";
 import { ProgressBar } from "@/components/stat";
 import { taskTypeLabels, todayISO } from "@learn-workbench/shared";
 import { Card } from "@/components/card";
+import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { ChipGroup, SheetSection, SheetStickyCta } from "@/components/sheet";
@@ -151,7 +152,7 @@ export default function TasksScreen() {
         subtitle={todayTasks.length > 0 ? `共 ${todayTasks.length} 项 · 已完成 ${doneCount}` : "先写下一个今天要学的东西"}
       >
         <Text style={styles.nextTitle} numberOfLines={2}>
-          {nextTask ? nextTask.title : allDone ? "🎉 收工，明天继续" : "任务越具体，越容易开始"}
+          {nextTask ? nextTask.title : allDone ? "收工，明天继续" : "任务越具体，越容易开始"}
         </Text>
         <Text style={styles.nextMeta}>
           {nextTask
@@ -174,7 +175,7 @@ export default function TasksScreen() {
         <ProgressBar progress={donePct / 100} color={colors.success} height={6} style={styles.progressTrack} />
         {allDone ? (
           <View style={styles.doneBanner}>
-            <Text style={styles.doneBannerText}>🎉 今日任务已全部完成！生成打卡卡片分享吧</Text>
+            <Text style={styles.doneBannerText}>今日任务已全部完成！生成打卡卡片分享吧</Text>
           </View>
         ) : null}
         {todayTasks.length === 0 ? (
@@ -200,7 +201,7 @@ export default function TasksScreen() {
               <Text style={styles.taskMeta}>{taskTypeLabels[t.taskType]}</Text>
               {t.focusMinutes > 0 ? <Text style={styles.taskFocus}>{t.focusMinutes}′</Text> : null}
               <PressableScale onPress={() => openTimer(t.id, t.title)} hitSlop={8} scaleTo={0.85}>
-                <Text style={styles.taskPlay}>▶</Text>
+                <ThemedIcon name="play" size={15} color={colors.primary} />
               </PressableScale>
             </Animated.View>
           ))
@@ -211,7 +212,7 @@ export default function TasksScreen() {
       <Card variant="glass" title="快速开始" subtitle={`当日累计专注 ${totalFocus} 分钟`}>
         <View style={styles.toolRow}>
           <PressableScale style={[styles.toolBtn, styles.toolBtnPrimary]} scaleTo={0.97} onPress={() => setContentOpen(true)}>
-            <Text style={styles.toolBtnTextPrimary}>⏱ 自由专注 · 选内容</Text>
+            <Text style={styles.toolBtnTextPrimary}>自由专注 · 选内容</Text>
           </PressableScale>
           <PressableScale style={[styles.toolBtn, styles.toolBtnGhost]} scaleTo={0.97} onPress={() => setNewTaskOpen(true)}>
             <Text style={styles.toolBtnTextGhost}>＋ 新建任务</Text>
@@ -271,7 +272,7 @@ export default function TasksScreen() {
 
         <Text style={styles.quoteLine}>{FOCUS_MOTIVATIONS[Math.min(stats.streak, FOCUS_MOTIVATIONS.length - 1)]}</Text>
         <PressableScale style={styles.shareBtn} scaleTo={0.97} onPress={shareCard}>
-          <Text style={styles.shareBtnText}>📤 分享打卡卡片</Text>
+          <Text style={styles.shareBtnText}>分享打卡卡片</Text>
         </PressableScale>
       </Card>
 

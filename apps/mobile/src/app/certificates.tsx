@@ -203,7 +203,7 @@ export default function CertificatesScreen() {
               key={r.id}
               index={index}
               tone={st === "achieved" ? "gold" : st === "preparing" ? "blue" : "neutral"}
-              emoji={st === "achieved" ? "🏆" : st === "preparing" ? "🎯" : "📘"}
+              icon={st === "achieved" ? "trophy" : st === "preparing" ? "locate" : "book"}
               title={r.name}
               subtitle={r.issuer || null}
               date={info.level === "ok" ? info.label : null}

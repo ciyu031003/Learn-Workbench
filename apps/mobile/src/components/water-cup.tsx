@@ -149,7 +149,7 @@ export function WaterCupSheet({
           <View pointerEvents="none" style={styles.centerReadout}>
             <Text style={styles.centerValue}>{groupThousands(totalMl)}</Text>
             <Text style={styles.centerUnit}>/ {groupThousands(targetMl)} ml</Text>
-            <Text style={styles.centerHint}>{done ? "今天的水够了 👍" : `还差 ${remain} ml`}</Text>
+            <Text style={styles.centerHint}>{done ? "今天的水够了" : `还差 ${remain} ml`}</Text>
           </View>
         </View>
 

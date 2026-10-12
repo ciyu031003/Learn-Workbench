@@ -704,7 +704,7 @@ export function FocusTimer({
               <View style={styles.landscapeWrap}>
                 <View style={styles.landscapeTop}>
                   <Text style={styles.taskName} numberOfLines={1}>{task?.title ?? "自由专注"}</Text>
-                  <Text style={styles.taskStatus}>{running ? "● 专注中" : "❚❚ 已暂停"}</Text>
+                  <Text style={styles.taskStatus}>{running ? "专注中" : "已暂停"}</Text>
                 </View>
                 <Pressable style={styles.landscapeClockWrap} onPress={() => (running ? pause() : resume())}>
                   <Text style={styles.landscapeClock}>{fmt(remainingShown)}</Text>
@@ -732,7 +732,7 @@ export function FocusTimer({
               <View style={styles.taskWrap}>
                 <Text style={styles.taskName} numberOfLines={1}>{task?.title ?? "自由专注"}</Text>
                 <Text style={styles.taskStatus}>
-                  {running ? "● 专注中 · 保持节奏" : "❚❚ 已暂停"}
+                  {running ? "专注中 · 保持节奏" : "已暂停"}
                 </Text>
               </View>
 
