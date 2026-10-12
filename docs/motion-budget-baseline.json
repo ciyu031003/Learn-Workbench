@@ -1,12 +1,12 @@
 {
   "totals": {
-    "animationSites": 245,
+    "animationSites": 246,
     "animatedStyleFiles": 29,
     "repeatFiles": 9,
     "filesWithAnimations": 33
   },
   "sites": {
-    "apps/mobile/src/app/(tabs)/_layout.tsx": 7,
+    "apps/mobile/src/app/(tabs)/_layout.tsx": 8,
     "apps/mobile/src/app/(tabs)/learn.tsx": 7,
     "apps/mobile/src/app/(tabs)/today.tsx": 94,
     "apps/mobile/src/app/jobs.tsx": 2,

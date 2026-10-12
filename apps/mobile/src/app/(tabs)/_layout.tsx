@@ -98,22 +98,36 @@ function TabIcon({
   const reduceMotion = useReducedMotion();
   const active = isMotionActive(reduceMotion);
   const scale = useSharedValue(1);
+  /**
+   * 选中态白色圆环（v1.44.2 真机反馈：「当前页的图标那里加一个白色圆环」）。
+   * 用 0→1 的进度控制显隐，而不是条件挂载节点 —— 挂/摘会在切换瞬间闪一下，
+   * 且拿不到淡入淡出的过渡。
+   */
+  const ring = useSharedValue(0);
 
   useEffect(() => {
     if (!active) {
       scale.value = 1;
+      ring.value = focused ? 1 : 0;
       return;
     }
     // 选中：先弹到 1.12 再回 1（一次"点一下"的手感）；取消选中：直接柔和收回
     scale.value = focused
       ? withSequence(withSpring(1.12, SPRING.press), withSpring(1, SPRING.press))
       : withTiming(1, { duration: 120 });
-  }, [active, focused, scale]);
+    ring.value = withTiming(focused ? 1 : 0, { duration: focused ? 200 : 140 });
+  }, [active, focused, scale, ring]);
 
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const ringStyle = useAnimatedStyle(() => ({
+    opacity: ring.value,
+    // 轻微放大入场，让圆环"兜住"图标而不是硬贴上去
+    transform: [{ scale: 0.72 + ring.value * 0.28 }],
+  }));
 
   return (
     <View style={styles.tabIcon}>
+      <Animated.View pointerEvents="none" style={[styles.tabIconRing, ringStyle]} />
       <Animated.View style={animatedStyle}>
         <ThemedIcon
           ios={focused ? iosFilled : iosOutline}
@@ -142,6 +156,25 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
      * 改任一处都要照上式重算，否则又会出现"偏下"。
      */
     tabIcon: { width: 40, height: 27, alignItems: "center", justifyContent: "center" },
+    /**
+     * 选中态白色圆环。尺寸取 30（图标 24 → 留 3pt 环隙），比 tabIcon 的 27 高 3pt，
+     * 正好落在 tabBarItemStyle 的 paddingVertical(2) + marginVertical(4) 余量里，
+     * **不会**顶动上面那段"几何居中"的标定（改 tabIcon 的 27 才会）。
+     * 浅色玻璃上纯白环对比不足，所以补一圈极淡投影让它在两种主题下都读得出来。
+     */
+    tabIconRing: {
+      position: "absolute",
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      borderWidth: 2,
+      borderColor: "#FFFFFF",
+      shadowColor: "#0B1220",
+      shadowOpacity: 0.22,
+      shadowRadius: 4,
+      shadowOffset: { width: 0, height: 1 },
+      elevation: 3,
+    },
     tabBarTint: {
       position: "absolute",
       top: 0,
@@ -278,8 +311,16 @@ export default function TabsLayout() {
         name="learn"
         options={{
           title: "学习",
+          // school（学位帽）比 book 更圆润，也更贴「学习」的语义
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon name="book" outlineName="book-outline" iosFilled="book.fill" iosOutline="book" color={color} focused={focused} />
+            <TabIcon
+              name="school"
+              outlineName="school-outline"
+              iosFilled="graduationcap.fill"
+              iosOutline="graduationcap"
+              color={color}
+              focused={focused}
+            />
           ),
         }}
       />
@@ -312,10 +353,11 @@ export default function TabsLayout() {
         name="settings"
         options={{
           title: "我的",
+          // person-circle：圆形轮廓比人形剪影更圆润，与白色圆环的形态也更统一
           tabBarIcon: ({ color, focused }) => (
             <TabIcon
-              name="person"
-              outlineName="person-outline"
+              name="person-circle"
+              outlineName="person-circle-outline"
               iosFilled="person.crop.circle.fill"
               iosOutline="person.crop.circle"
               color={color}
