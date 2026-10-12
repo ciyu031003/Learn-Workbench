@@ -512,11 +512,11 @@ export default function WellnessScreen() {
       <ListGroup>
         <ListRow
           {...tintOf(WATER_COLOR)}
-          icon="restaurant-outline"
-          title="饮食趋势与目标"
-          subtitle="7 天曲线 · 6 个月日历 · 热量目标 · 食物营养库"
+          icon="stats-chart-outline"
+          title="趋势分析"
+          subtitle="饮食热量 · 运动时长 · 训练负荷，全屏一起看"
           showChevron
-          onPress={() => router.push({ pathname: "/nutrition", params: { stats: "1" } } as never)}
+          onPress={() => router.push("/trends" as never)}
         />
         <ListRow
           {...tintOf(DIET_COLOR)}

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Pressable, RefreshControl, StyleSheet, Switch, Text, View } from "react-native";
 import Animated, { FadeInUp, LinearTransition } from "react-native-reanimated";
-import { useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { ThemedIcon } from "@/components/themed-icon";
 import { EmptyState } from "@/components/empty-state";
 import { SkeletonList } from "@/components/skeleton";
@@ -26,7 +26,7 @@ import { StickerBookSheet } from "@/components/sticker-book";
 import { SwipeRow } from "@/components/swipe-row";
 import { WaterCard } from "@/components/water-card";
 import { WaterCupSheet } from "@/components/water-cup";
-import { NutritionStatsSheet } from "@/components/nutrition-stats-sheet";
+import { isDateKey } from "@/lib/nutrition-stats";
 import { MealCardGrid, type MealCardData } from "@/components/meal-card-grid";
 import { RecipeShelf } from "@/components/recipe-shelf";
 import { LiveLogSheet } from "@/components/live-log-sheet";
@@ -125,20 +125,21 @@ const MACRO_COLORS = { proteinG: "#3DA35D", carbsG: "#F28C28", fatG: "#2FB3A6" }
 export default function NutritionScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const params = useLocalSearchParams<{ stats?: string }>();
+  const params = useLocalSearchParams<{ stats?: string; date?: string }>();
   const headerScroll = useLargeTitleHeader();
   const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
 
   const { today: todayKey, yesterday: yesterdayKey } = useMemo(() => todayAndYesterday(), []);
-  const [date, setDate] = useState(todayKey);
+  /** v1.45：`?date=YYYY-MM-DD` 从趋势页的 Food Calendar 跳进来（非法值回落今天） */
+  const [date, setDate] = useState(() => (isDateKey(params.date) ? params.date : todayKey));
   const [weekOffset, setWeekOffset] = useState(0);
   /** v4 P4-a：日 / 周 / 月 日期视图（默认「日」） */
   const [viewMode, setViewMode] = useState<ViewMode>("day");
-  /** 月视图当前翻到的月份（切到「月」时对齐所选日期的月份，避免停在今天的月份） */
+  /** 月视图当前翻到的月份（切到「月」时对齐所选日期的月份，避免停在今天的月份；从趋势页带 date 进来时也跟随） */
   const [monthView, setMonthView] = useState(() => ({
-    y: Number(todayKey.slice(0, 4)),
-    m: Number(todayKey.slice(5, 7)) - 1,
+    y: Number(date.slice(0, 4)),
+    m: Number(date.slice(5, 7)) - 1,
   }));
   const [entries, setEntries] = useState<MealEntry[]>([]);
   /** 逐日汇总（**保留 kcal 等完整字段**，月历徽标与周/月汇总都靠它；不再只存条数） */
@@ -202,8 +203,14 @@ export default function NutritionScreen() {
   const [weightDraft, setWeightDraft] = useState("");
   // M9 深化：收集册弹层
   const [bookOpen, setBookOpen] = useState(false);
-  // v4 P4-c：趋势面板（7 天曲线 / 6 个月点阵 / Food Calendar）、水杯、LiveLog
-  const [statsOpen, setStatsOpen] = useState(params.stats === "1");
+  /**
+   * v1.45：原「饮食趋势」底部弹层已升级为独立全屏页 `/trends`。
+   * 保留 `?stats=1` 的重定向，兼容旧链接/深链（不再从饮食页弹抽屉）。
+   */
+  useEffect(() => {
+    if (params.stats === "1") router.replace("/trends" as never);
+  }, [params.stats]);
+  // 水杯、LiveLog
   const [cupOpen, setCupOpen] = useState(false);
   const [liveOpen, setLiveOpen] = useState(false);
 
@@ -1098,16 +1105,16 @@ export default function NutritionScreen() {
         </Pressable>
       </View>
 
-      {/* v4 P4-c 进阶入口：趋势（7 天曲线 / 6 个月点阵 / Food Calendar）、水杯、LiveLog。
+      {/* v1.45 进阶入口：趋势（升级为独立全屏页 /trends）、水杯、LiveLog。
           做成一行**低权重胶囊**而不是卡片：既让功能可发现，又不会在首屏和热量 Hero 抢焦点。 */}
       <View style={styles.advancedRow}>
         <Pressable
           style={styles.advancedChip}
           onPress={() => {
             haptics.soft();
-            setStatsOpen(true);
+            router.push("/trends" as never);
           }}
-          accessibilityLabel="打开饮食趋势"
+          accessibilityLabel="打开趋势分析"
         >
           <ThemedIcon name="stats-chart-outline" size={15} color={colors.primary} />
           <Text style={styles.advancedText}>趋势</Text>
@@ -1487,19 +1494,6 @@ export default function NutritionScreen() {
           onUndo={() => void onUndoWater()}
         />
       </BottomSheet>
-
-      {/* v4 P4-c：饮食趋势（7 天曲线 / 6 个月点阵 / Food Calendar 缩略图） */}
-      <NutritionStatsSheet
-        visible={statsOpen}
-        onClose={() => setStatsOpen(false)}
-        headers={headers}
-        targetKcal={target.kcal}
-        todayKey={todayKey}
-        onPickDate={(key) => {
-          setDate(key);
-          setViewMode("day");
-        }}
-      />
 
       {/* v4 P4-c：LiveLog 贴纸画布（本机保存） */}
       <LiveLogSheet visible={liveOpen} onClose={() => setLiveOpen(false)} names={liveNames} />
