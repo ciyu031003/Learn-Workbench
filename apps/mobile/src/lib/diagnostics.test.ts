@@ -86,11 +86,12 @@ describe("formatDiagnostics", () => {
     expect(t).toContain("首个触摸：尚未收到");
     expect(t).toContain("触摸计数：0 次");
     expect(t).not.toContain("最后落点");
-    expect(t).toContain("⚠️");
+    // v1.44.2 去 emoji：报告文本里的符号标记改成文字标记
+    expect(t).toContain("[注意]");
   });
 
-  it("心跳为 0 时结论是 pending（⏳）", () => {
+  it("心跳为 0 时结论是 pending（[待定]）", () => {
     const t = formatDiagnostics({ ...base, heartbeatTicks: 0 });
-    expect(t).toContain("⏳");
+    expect(t).toContain("[待定]");
   });
 });

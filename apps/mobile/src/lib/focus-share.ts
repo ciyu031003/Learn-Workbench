@@ -42,12 +42,13 @@ export function focusShareDataFromStats(
 
 /** 文字兜底（与旧版分享文案一致） */
 export function focusShareText(data: FocusShareData): string {
+  // v1.44.2 去 emoji：分享文案是纯文本，无法承载图标，改为去掉前缀符号（保留文字）
   return [
-    "📚 苦旅 · " + data.title,
-    `📅 ${data.dateText}`,
-    `🔥 连续专注 ${data.streak} 天 ｜ 累计专注 ${data.totalFocusDays} 天`,
-    `⏱ 今日专注 ${data.sessions} 次 · ${data.minutes} 分钟`,
+    "苦旅 · " + data.title,
+    data.dateText,
+    `连续专注 ${data.streak} 天 ｜ 累计专注 ${data.totalFocusDays} 天`,
+    `今日专注 ${data.sessions} 次 · ${data.minutes} 分钟`,
     "",
-    `💪 ${data.motivation}`,
+    data.motivation,
   ].join("\n");
 }

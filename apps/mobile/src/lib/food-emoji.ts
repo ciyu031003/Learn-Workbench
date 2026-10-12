@@ -33,6 +33,108 @@ const RULES: [string, string][] = [
   ["蛋白粉", "🥤"], ["能量棒", "🍫"], ["补剂", "💊"],
 ];
 
+/**
+ * 食物 → 开源图标（v1.44.2 去 emoji）。
+ *
+ * 原先贴纸直接渲染 emoji。改图标时**不动 RULES 表**：它同时是"食物名 → 视觉分类"的
+ * 唯一映射，而且 `foodEmoji()` 已被单测与「贴纸墙」复用；这里只加一层
+ * 「emoji → MaterialCommunityIcons 名」的渲染映射，改动面最小。
+ *
+ * 选 MCI 是因为它的食物图标族最全（rice / noodles / fruit-grapes / glass-wine…），
+ * 项目里也已装了 @expo/vector-icons。名字逐个核对过 glyphMap，不存在拼错变空白的风险。
+ */
+export const FOOD_ICON_BY_EMOJI: Record<string, string> = {
+  "🍚": "rice",
+  "🥣": "bowl-mix-outline",
+  "🍜": "noodles",
+  "🍝": "pasta",
+  "🥟": "food-croissant",
+  "🍞": "bread-slice-outline",
+  "🥪": "food-croissant",
+  "🍔": "hamburger",
+  "🍕": "pizza",
+  "🌯": "food-takeout-box-outline",
+  "🌽": "corn",
+  "🍠": "food-apple-outline",
+  "🥔": "food",
+  "🍟": "french-fries",
+  "🥚": "egg-outline",
+  "🍳": "egg-fried",
+  "🍗": "food-drumstick-outline",
+  "🥩": "food-steak",
+  "🥓": "food-drumstick-outline",
+  "🍖": "food-drumstick",
+  "🐟": "fish",
+  "🍣": "fish",
+  "🦐": "fish",
+  "🦀": "fish",
+  "🦪": "fish",
+  "🧊": "cube-outline",
+  "🌭": "food-hot-dog",
+  "🥗": "food-apple-outline",
+  "🥬": "leaf",
+  "🥦": "sprout",
+  "🍅": "fruit-cherries",
+  "🥒": "food-apple-outline",
+  "🥕": "carrot",
+  "🍄": "mushroom-outline",
+  "🧅": "food-apple-outline",
+  "🧄": "food-apple-outline",
+  "🌶️": "chili-hot",
+  "🍆": "food-apple-outline",
+  "🍎": "food-apple",
+  "🍌": "food-apple",
+  "🍊": "fruit-citrus",
+  "🍇": "fruit-grapes",
+  "🍉": "fruit-watermelon",
+  "🍓": "fruit-cherries",
+  "🫐": "fruit-cherries",
+  "🍑": "fruit-cherries",
+  "🍐": "food-apple",
+  "🍍": "fruit-pineapple",
+  "🥭": "fruit-cherries",
+  "🥑": "fruit-cherries",
+  "🍋": "fruit-citrus",
+  "🥥": "fruit-cherries",
+  "🍒": "fruit-cherries",
+  "🥝": "fruit-cherries",
+  "🥛": "cup",
+  "🧀": "cheese",
+  "☕": "coffee",
+  "🧋": "cup",
+  "🍵": "tea",
+  "🥤": "cup-outline",
+  "🧃": "bottle-soda-outline",
+  "🍺": "beer",
+  "🍷": "glass-wine",
+  "🍶": "glass-mug-variant",
+  "💧": "water",
+  "🍰": "cake-variant",
+  "🍪": "cookie",
+  "🍫": "candy",
+  "🍦": "ice-cream",
+  "🥜": "peanut",
+  "🍬": "candy",
+  "🍯": "beehive-outline",
+  "🥮": "cake-variant",
+  "🍲": "pot-steam",
+  "🍢": "food-drumstick-outline",
+  "🍱": "food-takeout-box-outline",
+  "🍛": "rice",
+  "🌮": "taco",
+  "💊": "pill",
+  "🍽️": "silverware-fork-knife",
+};
+
+/** 兜底图标（无法识别食物时） */
+export const FOOD_ICON_FALLBACK = "silverware-fork-knife";
+
+/** 取食物对应的图标名；先按指定 emoji，再按食物名推导，最后兜底 */
+export function foodIcon(name: string | null | undefined, emoji?: string): string {
+  const key = (emoji ?? foodEmoji(name)).trim();
+  return FOOD_ICON_BY_EMOJI[key] ?? FOOD_ICON_FALLBACK;
+}
+
 /** 默认兜底（无法识别时） */
 export const FOOD_EMOJI_FALLBACK = "🍽️";
 

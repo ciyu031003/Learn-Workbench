@@ -16,6 +16,7 @@ import { useReducedMotion } from "@/lib/motion";
 import { radius } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
+import { ThemedIcon } from "@/components/themed-icon";
 import { isMotionActive } from "@/theme/motion";
 
 /**
@@ -129,7 +130,7 @@ export function SportsHoloCard({
                 {model.mainHonor ? (
                   <>
                     <View style={styles.honorMainRow}>
-                      <Text style={styles.honorCup}>🏆</Text>
+                      <ThemedIcon name="trophy" size={30} color="#FFD166" />
                       <Text style={styles.honorTitle} numberOfLines={1}>
                         {model.mainHonor.title}
                       </Text>

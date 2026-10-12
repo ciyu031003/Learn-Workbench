@@ -465,7 +465,7 @@ export default function InterviewScreen() {
                   {/* v20-E1：判定成功时行内光圈（SuccessBurst 终于有了第二处消费） */}
                   {result.correct && burstN > 0 ? <SuccessBurst key={burstN} size={44} color={colors.success} /> : null}
                   <Text style={[styles.verdict, result.correct ? { color: colors.success } : { color: colors.warning }]}>
-                    {result.correct ? "判定：答得不错 ✅" : "判定：再对照一下参考答案，把差异补上"}
+                    {result.correct ? "判定：答得不错" : "判定：再对照一下参考答案，把差异补上"}
                   </Text>
                 </View>
                 {active.sourceSite ? (

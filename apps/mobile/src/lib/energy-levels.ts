@@ -7,17 +7,23 @@
  */
 export interface EnergyLevel {
   level: number;
+  /**
+   * @deprecated v1.44.2 去 emoji：改用 `icon`。
+   * 保留字段是因为它可能已经写进服务端记录（历史数据），删掉会破坏类型兼容。
+   */
   emoji: string;
+  /** 渲染用开源图标名（Ionicons） */
+  icon: string;
   label: string;
   color: string;
 }
 
 export const ENERGY_LEVELS: EnergyLevel[] = [
-  { level: 1, emoji: "😪", label: "耗尽", color: "#E15A5A" },
-  { level: 2, emoji: "🙁", label: "疲惫", color: "#E1781C" },
-  { level: 3, emoji: "🙂", label: "一般", color: "#C79A3E" },
-  { level: 4, emoji: "😄", label: "不错", color: "#3DA35D" },
-  { level: 5, emoji: "🤩", label: "满格", color: "#2FB3A6" },
+  { level: 1, emoji: "😪", icon: "sad-outline", label: "耗尽", color: "#E15A5A" },
+  { level: 2, emoji: "🙁", icon: "remove-circle-outline", label: "疲惫", color: "#E1781C" },
+  { level: 3, emoji: "🙂", icon: "ellipse-outline", label: "一般", color: "#C79A3E" },
+  { level: 4, emoji: "😄", icon: "happy-outline", label: "不错", color: "#3DA35D" },
+  { level: 5, emoji: "🤩", icon: "sparkles", label: "满格", color: "#2FB3A6" },
 ];
 
 export function energyLevelOf(level: number | null | undefined): EnergyLevel | null {

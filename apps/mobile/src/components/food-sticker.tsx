@@ -1,6 +1,7 @@
 import { useMemo } from "react";
-import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
-import { foodEmoji } from "@/lib/food-emoji";
+import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { foodIcon } from "@/lib/food-emoji";
 import { shadows } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
@@ -8,8 +9,9 @@ import { useTheme } from "@/theme";
 /**
  * 食物 emoji 贴纸（v3 M3/M4）
  *
- * 借「吃一点」的**贴纸 craft**（白描边 + 轻投影），但视觉主体是 emoji 而不是照片
- * —— 我们不做相机/AI（决策 D5），emoji 让每条记录都有可识别的视觉锚点。
+ * 借「吃一点」的**贴纸 craft**（白描边 + 轻投影），视觉主体改用开源图标而不是照片
+ * —— 我们不做相机/AI（决策 D5），图标让每条记录都有可识别的视觉锚点。
+ * （v1.44.2：原先画 emoji，按用户要求全站换成开源图标组件。）
  */
 export function FoodSticker({
   name,
@@ -35,7 +37,6 @@ export function FoodSticker({
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const glyph = emoji ?? foodEmoji(name);
   return (
     <View
       style={[
@@ -47,7 +48,16 @@ export function FoodSticker({
       ]}
       accessibilityLabel={name}
     >
-      <Text style={{ fontSize: Math.round(size * 0.5), lineHeight: Math.round(size * 0.62) }}>{glyph}</Text>
+      {/*
+       * v1.44.2 去 emoji：原来这里画的是 emoji 字符，现在换成 MaterialCommunityIcons ——
+       * 它的食物图标族最全（rice / noodles / fruit-grapes / glass-wine…），
+       * 名字在 lib/food-emoji.ts 的 FOOD_ICON_BY_EMOJI 里逐个核对过 glyphMap。
+       */}
+      <MaterialCommunityIcons
+        name={foodIcon(name, emoji) as never}
+        size={Math.round(size * 0.52)}
+        color={colors.text}
+      />
     </View>
   );
 }

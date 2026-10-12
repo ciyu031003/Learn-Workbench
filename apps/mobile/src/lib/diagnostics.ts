@@ -78,7 +78,8 @@ const secs = (ms: number) => `${fmt(ms / 1000)}s`;
 /** 生成可直接粘贴发送的诊断文本 */
 export function formatDiagnostics(input: DiagnosticsInput, now: Date = new Date()): string {
   const verdict = judgeTouch(input);
-  const icon = verdict.level === "ok" ? "✅" : verdict.level === "warn" ? "⚠️" : "⏳";
+  // v1.44.2 去 emoji：诊断报告是纯文本，用文字标记代替符号
+  const icon = verdict.level === "ok" ? "[正常]" : verdict.level === "warn" ? "[注意]" : "[待定]";
   const lines = [
     `苦旅 v${input.appVersion} 触控自检报告`,
     `生成时间：${now.toISOString()}`,

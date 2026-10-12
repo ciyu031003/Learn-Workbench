@@ -125,7 +125,12 @@ export function CelebrationModal({
 
           <Text style={styles.kicker}>恭喜完成</Text>
           <Animated.View style={[styles.badge, badgeStyle]}>
-            <Text style={styles.badgeText}>{badge ?? "✓"}</Text>
+            {badge ? (
+              <Text style={styles.badgeText}>{badge}</Text>
+            ) : (
+              /* v1.44.2 去 emoji：原来兜底是一个 "✓" 字符，改成图标 */
+              <ThemedIcon name="checkmark" size={30} color="#FFFFFF" />
+            )}
           </Animated.View>
           <Text style={styles.resultLabel}>又向前一步</Text>
 

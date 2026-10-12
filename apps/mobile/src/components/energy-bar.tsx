@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { ENERGY_LEVELS, energyLevelOf } from "@/lib/energy";
 import { useTheme } from "@/theme";
+import { ThemedIcon } from "@/components/themed-icon";
 import { haptics } from "@/lib/haptics";
 import { useReducedMotion } from "@/lib/motion";
 import { isMotionActive } from "@/theme/motion";
@@ -17,14 +18,15 @@ import { radius, typography, type ThemeColors } from "@/theme/tokens";
  */
 function EnergyButton({
   level,
-  emoji,
+  icon,
   color,
   active,
   dimmed,
   onPress,
 }: {
   level: number;
-  emoji: string;
+  /** 开源图标名（v1.44.2 去 emoji；原来是 emoji 字符） */
+  icon: string;
   color: string;
   active: boolean;
   dimmed: boolean;
@@ -69,7 +71,11 @@ function EnergyButton({
         accessibilityLabel={`精力 ${level} 档`}
         accessibilityState={{ selected: active }}
       >
-        <Text style={styles.emoji}>{emoji}</Text>
+        <ThemedIcon
+          name={icon as React.ComponentProps<typeof ThemedIcon>["name"]}
+          size={22}
+          color={active ? color : colors.textMuted}
+        />
       </Pressable>
     </Animated.View>
   );
@@ -99,7 +105,7 @@ export function EnergyBar({
           <EnergyButton
             key={e.level}
             level={e.level}
-            emoji={e.emoji}
+            icon={e.icon}
             color={e.color}
             active={value === e.level}
             dimmed={value !== null && value !== e.level}
