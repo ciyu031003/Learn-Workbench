@@ -81,6 +81,11 @@ jobs:
       - name: Mobile motion budget gate (动效点预算棘轮)
         run: node scripts/check-motion-budget.mjs
 
+      # worklet 里调用普通模块函数 = 真机闪退（v1.44.0 两次闪退的根因）。
+      # 类型检查与单测都发现不了，只能靠这条静态检查兜住。
+      - name: Worklet call gate (worklet 不得调用无 "worklet" 指令的模块函数)
+        run: node scripts/check-worklet-calls.mjs
+
       # 注意：name 里的 ": " 会被 YAML 当成嵌套映射键 —— 必须加引号，
       # 否则整个 ci.yml 解析失败、workflow 直接不触发（HEAD 上这个坑一直存在，见 PR 说明）。
       - name: "DB schema gate (empty DB: schema.sql + all migrations)"
