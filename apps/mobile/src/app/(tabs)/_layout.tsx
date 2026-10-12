@@ -99,35 +99,26 @@ function TabIcon({
   const active = isMotionActive(reduceMotion);
   const scale = useSharedValue(1);
   /**
-   * 选中态白色圆环（v1.44.2 真机反馈：「当前页的图标那里加一个白色圆环」）。
-   * 用 0→1 的进度控制显隐，而不是条件挂载节点 —— 挂/摘会在切换瞬间闪一下，
-   * 且拿不到淡入淡出的过渡。
+   * v1.44.2 曾按反馈在选中图标外加一圈白色圆环；v1.45 用户给了参考图
+   * （选中态是一块更大的实色圆角块、并无圆环），据此把圆环去掉，
+   * 选中态改由 tabBarItemStyle 的圆角块承担。
    */
-  const ring = useSharedValue(0);
 
   useEffect(() => {
     if (!active) {
       scale.value = 1;
-      ring.value = focused ? 1 : 0;
       return;
     }
     // 选中：先弹到 1.12 再回 1（一次"点一下"的手感）；取消选中：直接柔和收回
     scale.value = focused
       ? withSequence(withSpring(1.12, SPRING.press), withSpring(1, SPRING.press))
       : withTiming(1, { duration: 120 });
-    ring.value = withTiming(focused ? 1 : 0, { duration: focused ? 200 : 140 });
-  }, [active, focused, scale, ring]);
+  }, [active, focused, scale]);
 
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-  const ringStyle = useAnimatedStyle(() => ({
-    opacity: ring.value,
-    // 轻微放大入场，让圆环"兜住"图标而不是硬贴上去
-    transform: [{ scale: 0.72 + ring.value * 0.28 }],
-  }));
 
   return (
     <View style={styles.tabIcon}>
-      <Animated.View pointerEvents="none" style={[styles.tabIconRing, ringStyle]} />
       <Animated.View style={animatedStyle}>
         <ThemedIcon
           ios={focused ? iosFilled : iosOutline}
@@ -156,25 +147,6 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
      * 改任一处都要照上式重算，否则又会出现"偏下"。
      */
     tabIcon: { width: 40, height: 27, alignItems: "center", justifyContent: "center" },
-    /**
-     * 选中态白色圆环。尺寸取 30（图标 24 → 留 3pt 环隙），比 tabIcon 的 27 高 3pt，
-     * 正好落在 tabBarItemStyle 的 paddingVertical(2) + marginVertical(4) 余量里，
-     * **不会**顶动上面那段"几何居中"的标定（改 tabIcon 的 27 才会）。
-     * 浅色玻璃上纯白环对比不足，所以补一圈极淡投影让它在两种主题下都读得出来。
-     */
-    tabIconRing: {
-      position: "absolute",
-      width: 30,
-      height: 30,
-      borderRadius: 15,
-      borderWidth: 2,
-      borderColor: "#FFFFFF",
-      shadowColor: "#0B1220",
-      shadowOpacity: 0.22,
-      shadowRadius: 4,
-      shadowOffset: { width: 0, height: 1 },
-      elevation: 3,
-    },
     tabBarTint: {
       position: "absolute",
       top: 0,
@@ -242,8 +214,13 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: colors.primaryStrong,
         tabBarInactiveTintColor: colors.textMuted,
-        // 选中项是一枚浅色圆角胶囊 + 主色文字（不是整块变色）
-        tabBarActiveBackgroundColor: colors.surface + "E6",
+        /**
+         * 选中项 = 一枚**实色圆角块** + 主色图标/文字（v1.45 按用户给的参考图调整）。
+         * 旧版是 90% 透明度的胶囊（`surface + "E6"`）+ 图标外一圈白色圆环，
+         * 参考图里选中态是一块**更大、更实**的圆角矩形，且没有额外圆环 ——
+         * 所以这里改成不透明 surface，并去掉圆环（见 TabIcon）。
+         */
+        tabBarActiveBackgroundColor: colors.surface,
         tabBarInactiveBackgroundColor: "transparent",
         tabBarStyle: {
           position: "absolute",
@@ -267,11 +244,13 @@ export default function TabsLayout() {
         // 字号 10 → 11（真机 10pt 发虚）；行高与 marginTop 参与居中标定，见 tabIcon 注释
         tabBarLabelStyle: { fontSize: 11, fontWeight: "700", lineHeight: 13, marginTop: 2, marginBottom: 0 },
         tabBarItemStyle: {
-          marginVertical: 4,
+          // v1.45：参考图里选中块几乎占满底栏高度、四角是大圆角矩形而非胶囊。
+          // marginVertical 4→3 让圆角块更高；上下对称改动，不影响图标的几何居中标定。
+          marginVertical: 3,
           marginHorizontal: 2,
           paddingVertical: 2,
           paddingHorizontal: 0,
-          borderRadius: 999,
+          borderRadius: 18,
           alignItems: "center",
           justifyContent: "center",
         },

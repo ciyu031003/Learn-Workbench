@@ -51,10 +51,14 @@ export function LearningEntryCards({
           <View style={[styles.iconBubble, { backgroundColor: colors.surface }]}>
             <ThemedIcon name="search" size={22} color={colors.primary} />
           </View>
+          {/*
+           * v1.45 真机反馈：「技术题库和阶段路线上面不要有那么多文字描述」。
+           * 原先这里是「英文小标 + 标题 + 一句中文说明」三层，
+           * 而下面已经有 进度数字 + 进度条 + CTA，说明文字纯属重复。
+           * 现在只留标题，卡片更矮、信息密度更高。
+           */}
           <View style={styles.cardBody}>
-            <Text style={styles.eyebrow}>SEARCH · PRACTICE</Text>
             <Text style={styles.title}>技术题库</Text>
-            <Text style={styles.description}>先学章节知识点，再完成当天的一组练习</Text>
           </View>
           <View style={styles.metaRow}>
             <Text style={styles.metaStrong}>{todayQuestions}</Text>
@@ -79,9 +83,7 @@ export function LearningEntryCards({
             <ThemedIcon name="git-branch-outline" size={22} color={colors.accent} />
           </View>
           <View style={styles.cardBody}>
-            <Text style={styles.eyebrow}>ROADMAP · PROGRESS</Text>
             <Text style={styles.title}>阶段路线</Text>
-            <Text style={styles.description}>把长期目标拆成可完成、可验收的阶段</Text>
           </View>
           <View style={styles.metaRow}>
             <Text style={styles.metaStrong}>{routeDone}</Text>
@@ -119,7 +121,8 @@ export function LearningEntryCards({
             <Text style={styles.examBadgeText}>2009–2026</Text>
           </View>
         </View>
-        <Text style={styles.examDescription}>四科完整知识体系、章节专项题与历年原卷真题</Text>
+        {/* v1.45：与上面两张卡同样精简 —— 章节/知识点/真题套数下面已经列出来了，
+            再来一句"四科完整知识体系、章节专项题与历年原卷真题"属于重复描述 */}
         <View style={styles.examFooter}>
           <Text style={[styles.examMeta, { color: examColor }]}>{exam408Chapters} 章</Text>
           <View style={styles.examDot} />
@@ -198,10 +201,9 @@ const makeStyles = (colors: ThemeColors) =>
       justifyContent: "center",
       ...shadows.card,
     },
-    cardBody: { gap: 3, flex: 1 },
-    eyebrow: { ...typography.micro, letterSpacing: 0.7, color: colors.textMuted },
+    cardBody: { gap: 3, flex: 1, justifyContent: "center" },
+    // eyebrow / description 随 v1.45 的精简一并移除（文字描述只留标题）
     title: { ...typography.title2, color: colors.text },
-    description: { ...typography.caption, fontWeight: "400", color: colors.textSecondary },
     metaRow: { flexDirection: "row", alignItems: "baseline", marginTop: "auto" },
     metaStrong: { ...typography.title2, color: colors.text },
     metaText: { ...typography.caption, color: colors.textMuted },
@@ -259,7 +261,6 @@ const makeStyles = (colors: ThemeColors) =>
       backgroundColor: "#F7C95C",
     },
     examBadgeText: { ...typography.micro, fontWeight: "900", color: "#5A3B00" },
-    examDescription: { ...typography.callout, color: colors.textSecondary },
     examFooter: { flexDirection: "row", alignItems: "center", gap: 7, marginTop: "auto" },
     examMeta: { ...typography.micro, fontWeight: "800" },
     examDot: { width: 3, height: 3, borderRadius: 999, backgroundColor: "#196B6370" },

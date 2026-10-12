@@ -239,6 +239,13 @@ export function QuickStartSheet({
       subtitle="先选好这次做什么；只有点底部按钮才会开始计时"
       icon="play-circle-outline"
       height="78%"
+      /**
+       * v1.45：允许把抽屉往上拉直到全屏（也可以点一下顶部横线切换）。
+       * 用户反馈："点击抽屉弹窗上方的横线，可以把组件往上拉…可以直接拖动直至全屏显示"，
+       * 这样挑内容时不用先在小窗里上下滚。
+       * BottomSheet 的下拉关闭手势只挂在 grabber 区，展开后内容区滚动不受影响。
+       */
+      expandable
       onClosed={onClosed}
       segmented={
         <SheetSegmented
