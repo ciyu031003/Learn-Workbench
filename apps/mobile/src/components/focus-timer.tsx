@@ -21,6 +21,12 @@ import { computeFocusStats, FOCUS_MOTIVATIONS } from "@/lib/focus-stats";
 import { FocusShareSheet } from "@/components/focus-share-card";
 import { focusShareDataFromStats } from "@/lib/focus-share";
 import { elapsedSeconds } from "@/lib/focus-elapsed";
+import {
+  clearRunningFocus,
+  loadRunningFocus,
+  recoveredSeconds,
+  saveRunningFocus,
+} from "@/lib/focus-session-recovery";
 import { startFocusNotification, stopFocusNotification } from "@/lib/focus-notification";
 import { RingProgress } from "@/components/ring-progress";
 import { TimerDial } from "@/components/timer-dial";
@@ -130,6 +136,18 @@ export function FocusTimer({
   const recordedRef = useRef(false);
   /** 倒计时自然结束时只自动记一次 */
   const autoRecordedRef = useRef(false);
+  /**
+   * v1.44.2：冷启动补记只做一次 + 回调走 ref。
+   * 这个 effect 只跑一次（[]），若直接闭包捕获 props 会拿到挂载那一刻的引用；
+   * 用 ref 跟随最新值更稳。
+   */
+  const recoveredRef = useRef(false);
+  const onRecordedRef = useRef(onRecorded);
+  const onExerciseRecordedRef = useRef(onExerciseRecorded);
+  useEffect(() => {
+    onRecordedRef.current = onRecorded;
+    onExerciseRecordedRef.current = onExerciseRecorded;
+  }, [onRecorded, onExerciseRecorded]);
   const remainingRef = useRef(25 * 60);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   // V3 墙钟对时：累计跨暂停段的毫秒；startRef 为当前运行段墙钟起点。
@@ -420,6 +438,20 @@ export function FocusTimer({
     setRunning(true);
     timer.current = setInterval(tick, 1000);
     syncNotification(true);
+    /**
+     * v1.44.2：把"运行中会话"落盘。原先计时状态只在内存里，把 App 划掉/进程被杀
+     * 那一段专注就彻底丢了（用户：「我退出去，也要能自动记录我计时了多久」）。
+     * 正常记录或重置时会清掉这个标记（见 record / reset）。
+     */
+    void saveRunningFocus({
+      startedAt: startRef.current ?? Date.now(),
+      sessionMode,
+      kind: timerModeRef.current,
+      plannedSeconds: timerModeRef.current === "countdown" ? totalRef.current : 0,
+      taskId: task?.id ?? null,
+      contentLabel: contentLabel ?? null,
+      exerciseLabel: exerciseLabel ?? null,
+    });
   };
   const begin = () => {
     setStarted(true);
@@ -440,6 +472,34 @@ export function FocusTimer({
     return () => stopFocusNotification();
   }, []);
 
+  /**
+   * v1.44.2：冷启动补记"上次退出时还在跑"的计时。
+   *
+   * 用户反馈：「不单单点击『记住本次记录』那个按钮才能记录时间。我退出去，
+   * 也能自动记录我计时了多久。」原先只有按钮 / 倒计时结束 / 返回键三条落库路径，
+   * 把 App 划掉那一段就丢了。现在 resume 时会把会话落盘，进程被杀后下次启动在这里补记。
+   *
+   * FocusTimer 在 today / tasks 页是常驻挂载的（open=false 也挂着），
+   * 所以"启动后第一个挂载的实例"就会把残留标记消费掉，不需要额外的 App 级引导。
+   */
+  useEffect(() => {
+    if (recoveredRef.current) return;
+    recoveredRef.current = true;
+    void (async () => {
+      const stale = await loadRunningFocus();
+      if (!stale) return;
+      await clearRunningFocus();
+      const seconds = recoveredSeconds(stale, Date.now());
+      if (seconds <= 0) return;
+      if (stale.sessionMode === "exercise") {
+        onExerciseRecordedRef.current?.(seconds, stale.exerciseLabel);
+      } else {
+        onRecordedRef.current(stale.taskId, seconds, stale.contentLabel);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (!open || !autoStart) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 一键开始：打开即进入计时态
@@ -458,6 +518,8 @@ export function FocusTimer({
     if (timer.current) clearInterval(timer.current);
     setRunning(false);
     stopFocusNotification();
+    // 用户主动重来 = 放弃这一段，不该在下次启动被补记
+    void clearRunningFocus();
     setRemaining(total);
     remainingRef.current = total;
     startRef.current = null;
@@ -470,6 +532,8 @@ export function FocusTimer({
     // 用 ref 去重：同一帧内"连点记录"或"到点自动记录 + 用户手动点"都只写一条
     if (recording || recordedRef.current) return;
     recordedRef.current = true;
+    // 已经走记录流程了，清掉"运行中"标记，避免下次冷启动又补记一遍
+    void clearRunningFocus();
     if (elapsedSeconds < 10) {
       onClose();
       return;
