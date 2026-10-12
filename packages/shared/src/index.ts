@@ -2064,6 +2064,128 @@ export function workoutVolume(items: Pick<WorkoutItem, "sets" | "reps" | "weight
   return { sets, reps, volumeKg: Math.round(volumeKg) };
 }
 
+/* ================= 训练负荷口径（v1.44.2） ================= */
+
+/**
+ * 训练负荷的统计口径。
+ *
+ * ## 为什么要多档口径
+ * 原来只有一种：「重量容量 = 组 × 次 × kg」。但**自重动作**（俯卧撑、引体、平板支撑、
+ * 跑步机等）的 `weightKg` 按约定是 `null`（见 /api/workouts 的 normalizeItems 注释），
+ * 于是容量恒为 0 —— 用户明明记录了训练，「近 7 天训练负荷」却全 0、柱状图只剩几个
+ * 3px 的灰色小条，看起来就是"没有数据"（2026-10-12 真机反馈）。
+ *
+ * 现在按优先级自动退档，保证**只要记录了训练就有可见的柱**：
+ *   volume(kg) → reps(次) → sets(组) → sessions(次训练)
+ *
+ * 取「整周里有没有出现过非 0 值」来决定口径，而不是逐日切换 —— 一周内口径必须统一，
+ * 否则同一条柱状图里混着 kg 和 次，没有任何可读性。
+ */
+export type TrainingLoadMetric = "volume" | "reps" | "sets" | "sessions";
+
+/** 各口径在界面上的标题与单位 */
+export const TRAINING_LOAD_METRIC_META: Record<TrainingLoadMetric, { title: string; unit: string }> = {
+  volume: { title: "训练容量", unit: "kg" },
+  reps: { title: "总次数", unit: "次" },
+  sets: { title: "总组数", unit: "组" },
+  sessions: { title: "训练次数", unit: "次" },
+};
+
+/** 当天有训练、但没有可量化负荷时的最小柱高（%），保证肉眼看得见 */
+export const TRAINING_LOAD_MIN_HEIGHT = 16;
+
+export interface TrainingLoadDay {
+  /** YYYY-MM-DD（本地日） */
+  key: string;
+  /** 当天星期几，0=周日 */
+  weekday: number;
+  sessions: number;
+  sets: number;
+  reps: number;
+  volumeKg: number;
+  durationSeconds: number;
+  /** 按选定口径算出的当天数值 */
+  value: number;
+  /** 柱高百分比 0–100 */
+  height: number;
+}
+
+export interface TrainingLoadSeries {
+  metric: TrainingLoadMetric;
+  /** 选定口径下的最大值（至少为 1，避免除零） */
+  max: number;
+  days: TrainingLoadDay[];
+  /** 区间合计，便于直接显示"本周 X" */
+  total: { sessions: number; sets: number; reps: number; volumeKg: number; durationSeconds: number };
+}
+
+/**
+ * 生成最近 `dayCount` 天（含 `endDate` 当天）的训练负荷序列。
+ * 纯函数，不读系统时间之外的东西 —— 便于单测与 Web/移动端共用。
+ */
+export function trainingLoadSeries(
+  workouts: Pick<Workout, "exercisedOn" | "items" | "durationSeconds">[],
+  dayCount: number,
+  endDate: Date = new Date()
+): TrainingLoadSeries {
+  const safeCount = Math.max(1, Math.round(dayCount));
+  const days: TrainingLoadDay[] = [];
+
+  for (let i = 0; i < safeCount; i += 1) {
+    const d = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate() - (safeCount - 1 - i));
+    const key = toDateKey(d);
+    const ofDay = workouts.filter((w) => String(w.exercisedOn ?? "").slice(0, 10) === key);
+    const v = workoutVolume(ofDay.flatMap((w) => w.items ?? []));
+    days.push({
+      key,
+      weekday: d.getDay(),
+      sessions: ofDay.length,
+      sets: v.sets,
+      reps: v.reps,
+      volumeKg: v.volumeKg,
+      durationSeconds: ofDay.reduce((sum, w) => sum + (Number(w.durationSeconds) || 0), 0),
+      value: 0,
+      height: 0,
+    });
+  }
+
+  const hasPositive = (pick: (d: TrainingLoadDay) => number) => days.some((d) => pick(d) > 0);
+  const metric: TrainingLoadMetric = hasPositive((d) => d.volumeKg)
+    ? "volume"
+    : hasPositive((d) => d.reps)
+      ? "reps"
+      : hasPositive((d) => d.sets)
+        ? "sets"
+        : "sessions";
+
+  const valueOf = (d: TrainingLoadDay) =>
+    metric === "volume" ? d.volumeKg : metric === "reps" ? d.reps : metric === "sets" ? d.sets : d.sessions;
+
+  for (const d of days) d.value = valueOf(d);
+  const max = Math.max(1, ...days.map((d) => d.value));
+  for (const d of days) {
+    d.height =
+      d.value > 0
+        ? Math.max(TRAINING_LOAD_MIN_HEIGHT, Math.round((d.value / max) * 100))
+        : d.sessions > 0
+          ? TRAINING_LOAD_MIN_HEIGHT
+          : 0;
+  }
+
+  return {
+    metric,
+    max,
+    days,
+    total: {
+      sessions: days.reduce((s, d) => s + d.sessions, 0),
+      sets: days.reduce((s, d) => s + d.sets, 0),
+      reps: days.reduce((s, d) => s + d.reps, 0),
+      volumeKg: days.reduce((s, d) => s + d.volumeKg, 0),
+      durationSeconds: days.reduce((s, d) => s + d.durationSeconds, 0),
+    },
+  };
+}
+
 /* ================= V3 · Nutrition v1（迁移 041） ================= */
 
 export const mealKindSchema = z.enum(["breakfast", "lunch", "dinner", "snack"]);

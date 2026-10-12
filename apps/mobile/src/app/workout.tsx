@@ -19,7 +19,16 @@ import { staggerDelay } from "@/lib/stagger";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
-import { toDateKey, workoutVolume, type Workout } from "@learn-workbench/shared";
+import {
+  TRAINING_LOAD_METRIC_META,
+  toDateKey,
+  trainingLoadSeries,
+  workoutVolume,
+  type Workout,
+} from "@learn-workbench/shared";
+
+/** 柱状图横轴标签（训练负荷按「最近 7 天」聚合） */
+const WEEKDAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"];
 import { shadows, typography } from "@/theme/tokens";
 import {
   REPS_MAX,
@@ -69,27 +78,21 @@ export default function WorkoutScreen() {
   );
   const totals = useMemo(() => workoutVolume(workouts.flatMap((w) => w.items)), [workouts]);
   const today = toDateKey(new Date());
-  const weekBars = useMemo(() => {
-    const labels = ["日", "一", "二", "三", "四", "五", "六"];
-    const values = Array.from({ length: 7 }, (_, index) => {
-      const day = new Date();
-      day.setDate(day.getDate() - (6 - index));
-      const key = toDateKey(day);
-      const volume = workouts
-        .filter((workout) => workout.exercisedOn.slice(0, 10) === key)
-        .reduce((sum, workout) => sum + workoutVolume(workout.items).volumeKg, 0);
-      return { key, label: labels[day.getDay()], volume };
-    });
-    const max = Math.max(1, ...values.map((item) => item.volume));
-    return values.map((item) => ({ ...item, height: Math.round((item.volume / max) * 100) }));
-  }, [workouts]);
-  const weekWorkouts = useMemo(() => {
-    const weekKeys = new Set(weekBars.map((day) => day.key));
-    return workouts.filter((workout) => weekKeys.has(workout.exercisedOn.slice(0, 10)));
-  }, [weekBars, workouts]);
-  const weekTotals = useMemo(
-    () => workoutVolume(weekWorkouts.flatMap((workout) => workout.items)),
-    [weekWorkouts]
+  /**
+   * 近 7 天训练负荷。
+   *
+   * 口径由 trainingLoadSeries 自动选择：容量(kg) → 次数 → 组数 → 训练次数。
+   * 此前只用「组 × 次 × kg」，而**自重动作的 weightKg 是 null**（俯卧撑/引体/跑步机…），
+   * 容量恒为 0 → 柱状图只剩几个 3px 灰条、总容量显示 0，用户看到的就是"没有数据"。
+   * 现在只要记录了训练就一定有可见的柱子，并明确标出当前用的是哪个口径。
+   */
+  const weekLoad = useMemo(() => trainingLoadSeries(workouts, 7), [workouts]);
+  const weekMeta = TRAINING_LOAD_METRIC_META[weekLoad.metric];
+  const weekBars = weekLoad.days;
+  const weekTotals = weekLoad.total;
+  const weekTotalValue = useMemo(
+    () => weekLoad.days.reduce((sum, day) => sum + day.value, 0),
+    [weekLoad]
   );
 
   const load = useCallback(async () => {
@@ -259,11 +262,13 @@ export default function WorkoutScreen() {
           <View>
             <Text style={styles.insightTitle}>近 7 天训练负荷</Text>
             <Text style={styles.insightHint}>
-              {weekWorkouts.length > 0 ? "柱高按每日训练容量计算" : "记录一次训练后开始生成趋势"}
+              {weekLoad.total.sessions > 0
+                ? `柱高按每日${weekMeta.title}计算（${weekMeta.unit}）`
+                : "记录一次训练后开始生成趋势"}
             </Text>
           </View>
           <View style={styles.insightBadge}>
-            <Text style={styles.insightBadgeValue}>{weekTotals.sets}</Text>
+            <Text style={styles.insightBadgeValue}>{weekLoad.total.sets}</Text>
             <Text style={styles.insightBadgeUnit}>组</Text>
           </View>
         </View>
@@ -275,19 +280,21 @@ export default function WorkoutScreen() {
                   style={[
                     styles.barFill,
                     {
-                      height: `${Math.max(day.volume > 0 ? 12 : 4, day.height)}%`,
-                      backgroundColor: day.volume > 0 ? colors.primary : colors.surfaceMuted,
+                      // day.height 已含"当天有训练但无可量化负荷"的最小柱高，
+                      // 不会再出现 4% 那种肉眼看不见的小灰条
+                      height: `${day.height}%`,
+                      backgroundColor: day.sessions > 0 ? colors.primary : colors.surfaceMuted,
                     },
                   ]}
                 />
               </View>
-              <Text style={styles.barLabel}>{day.label}</Text>
+              <Text style={styles.barLabel}>{WEEKDAY_LABELS[day.weekday]}</Text>
             </View>
           ))}
         </View>
         <View style={styles.insightStats}>
           <View style={styles.insightStat}>
-            <Text style={styles.insightStatValue}>{weekWorkouts.length}</Text>
+            <Text style={styles.insightStatValue}>{weekLoad.total.sessions}</Text>
             <Text style={styles.insightStatLabel}>训练次数</Text>
           </View>
           <View style={styles.insightDivider} />
@@ -297,8 +304,8 @@ export default function WorkoutScreen() {
           </View>
           <View style={styles.insightDivider} />
           <View style={styles.insightStat}>
-            <Text style={styles.insightStatValue}>{Math.round(weekTotals.volumeKg)}</Text>
-            <Text style={styles.insightStatLabel}>总容量 kg</Text>
+            <Text style={styles.insightStatValue}>{weekTotalValue}</Text>
+            <Text style={styles.insightStatLabel}>{weekMeta.title}（{weekMeta.unit}）</Text>
           </View>
         </View>
       </View>
