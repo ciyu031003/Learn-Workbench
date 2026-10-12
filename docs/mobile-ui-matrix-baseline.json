@@ -1,7 +1,7 @@
 {
   "hitSlop": {
     "apps/mobile/src/app/(tabs)/learn.tsx": 5,
-    "apps/mobile/src/app/(tabs)/today.tsx": 4,
+    "apps/mobile/src/app/(tabs)/today.tsx": 5,
     "apps/mobile/src/app/account-security.tsx": 1,
     "apps/mobile/src/app/certificates.tsx": 1,
     "apps/mobile/src/app/domain-manager.tsx": 6,

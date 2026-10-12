@@ -33,6 +33,7 @@ import Animated, {
 import { useAppStore } from "@/store/app-store";
 import { SPORT_CATALOG, exerciseTypeOptions, type ExerciseType, type SportItem } from "@learn-workbench/shared";
 import { sportIconOf, sportColorsOf, sportAnimOf, sportSfOf } from "@/lib/sport-view";
+import { habitIconName } from "@/lib/habit-icons";
 import { mainPhases, agentPhase } from "@learn-workbench/content";
 import {
   isHabitDone,
@@ -52,7 +53,6 @@ import { isMotionActive } from "@/theme/motion";
 import { staggerDelay } from "@/lib/stagger";
 import { FocusTimer } from "@/components/focus-timer";
 import { QuickStartSheet, type QuickStartChoice } from "@/components/quick-start-sheet";
-import { DailyOsSummary } from "@/components/daily-os-summary";
 import { Card } from "@/components/card";
 import { SectionHeader } from "@/components/section-header";
 import { BottomSheet } from "@/components/bottom-sheet";
@@ -598,8 +598,15 @@ export default function TodayScreen() {
           }}
         >
           <View style={styles.quickStart}>
+            {/*
+             * v1.44.2：图标美化 —— 半透明外环 + 纯白实心圆心 + 主色播放三角。
+             * 旧版是"半透明圆底 + 白色三角"，在实色主色按钮上对比弱、看着发糊；
+             * 白底主色三角既跳得出来，又和下面的圆角几何一致。
+             */}
             <View style={styles.quickStartIcon}>
-              <ThemedIcon name="play" size={24} color="#fff" />
+              <View style={styles.quickStartIconCore}>
+                <ThemedIcon name="play" size={19} color={colors.primary} />
+              </View>
             </View>
             <View style={styles.quickStartBody}>
               <Text style={styles.quickStartTitle}>一键开始</Text>
@@ -667,10 +674,17 @@ export default function TodayScreen() {
             <View style={[styles.taskBox, h.done && { backgroundColor: h.color, borderColor: h.color }]}>
               <AnimatedCheckMark checked={h.done} size={16} color="#ffffff" />
             </View>
-            <Text style={[styles.taskTitle, h.done && styles.taskDone]} numberOfLines={1}>
-              {h.icon ? h.icon + " " : "🔁 "}
-              {h.name}
-            </Text>
+            <View style={styles.taskTitleRow}>
+              {/*
+               * v1.44.2：不再渲染 emoji（原先直接拼 h.icon + " "，没有时用 🔁 兜底）。
+               * h.icon 存的是 emoji，经 habitIconName 映射成开源图标；
+               * 未登记的自定义值回落到默认图标，不会出现空白。
+               */}
+              <ThemedIcon name={habitIconName(h.icon)} size={14} color={colors.textMuted} />
+              <Text style={[styles.taskTitle, h.done && styles.taskDone]} numberOfLines={1}>
+                {h.name}
+              </Text>
+            </View>
             <Text style={styles.taskMeta}>习惯</Text>
             </Pressable>
           </Animated.View>
@@ -685,8 +699,61 @@ export default function TodayScreen() {
           </Pressable>
         ) : null}
 
-        {/* 我的一天：完成度 + 剩余领域入口（学习/运动已并入上面的「一键开始」，不再重复） */}
-        <DailyOsSummary />
+        {/*
+         * 今日概览（v1.44.2 真机反馈）：
+         * 「打卡、今日专注、本周进度…不应该放在收藏夹里面，应该在首页展示出来」。
+         * 这三项原先藏在「更多」抽屉里，现在提到首屏做成等宽三格。
+         * 同时把原来的「健康」大组件（DailyOsSummary，约 380-400pt、占首屏一半）
+         * 从今日页撤掉 —— 它统计的专注/习惯/饮食饮水在「健康」页已经有一整块，
+         * 首屏重复展示只会把真正要看的今日数据挤下去。
+         */}
+        <View style={styles.overviewGrid}>
+          {/* 打卡：未打卡时这一格本身就是可点的入口，不再需要单独一行 */}
+          <Pressable
+            style={styles.overviewTile}
+            hitSlop={6}
+            accessibilityLabel={checkedInToday ? "今日已打卡" : "点此打卡"}
+            onPress={() => {
+              if (!checkedInToday) haptics.success();
+              checkinToday();
+            }}
+          >
+            <View style={[styles.overviewIcon, { backgroundColor: colors.accentSoft }]}>
+              <ThemedIcon
+                name={checkedInToday ? "checkmark-circle" : "flame"}
+                size={16}
+                color={colors.accent}
+              />
+            </View>
+            <View style={styles.overviewValueRow}>
+              <AnimatedNumber value={streak} style={styles.overviewValue} />
+              <Text style={styles.overviewUnit}> 天</Text>
+            </View>
+            <Text style={styles.overviewLabel}>{checkedInToday ? "连续打卡" : "点此打卡"}</Text>
+          </Pressable>
+
+          <View style={styles.overviewTile}>
+            <View style={[styles.overviewIcon, { backgroundColor: colors.primarySoft }]}>
+              <ThemedIcon name="timer" size={16} color={colors.primary} />
+            </View>
+            <View style={styles.overviewValueRow}>
+              <AnimatedNumber value={focusStats.todayMinutes} style={styles.overviewValue} />
+              <Text style={styles.overviewUnit}> 分</Text>
+            </View>
+            <Text style={styles.overviewLabel}>今日专注</Text>
+          </View>
+
+          <View style={styles.overviewTile}>
+            <View style={[styles.overviewIcon, { backgroundColor: colors.successSoft }]}>
+              <ThemedIcon name="trending-up" size={16} color={colors.success} />
+            </View>
+            <View style={styles.overviewValueRow}>
+              <AnimatedNumber value={overall} style={styles.overviewValue} />
+              <Text style={styles.overviewUnit}>%</Text>
+            </View>
+            <Text style={styles.overviewLabel}>本周进度</Text>
+          </View>
+        </View>
 
         <View style={styles.sectionTitleRow}>
           <Text style={styles.sectionTitle}>运动 · 健康</Text>
@@ -712,56 +779,14 @@ export default function TodayScreen() {
         </Card>
 
         {/* 更多：本周节奏 / 打卡 / 运动明细 / AI 建议（首屏只留重点块） */}
-        <SectionHeader title="更多" subtitle="本周节奏 · 打卡 · 运动明细 · AI 建议" actionLabel="展开" onAction={() => setMoreOpen(true)} />
+        <SectionHeader title="更多" subtitle="运动明细 · 今日建议" actionLabel="展开" onAction={() => setMoreOpen(true)} />
       </Animated.ScrollView>
 
       <BottomSheet visible={moreOpen} onClose={() => setMoreOpen(false)} title="更多" height="82%">
-        <SectionHeader title="本周节奏" />
-        <View style={styles.statsGrid}>
-          <Card style={styles.statCard}>
-            <View style={[styles.statIconChip, { backgroundColor: colors.accentSoft }]}>
-              <ThemedIcon name="flame" size={18} color={colors.accent} />
-            </View>
-            <Text style={styles.statLabel}>连续打卡</Text>
-            {/* v19-M2：统计数字滚动（400ms），不再瞬间跳变 */}
-            <View style={styles.statValueRow}>
-              <AnimatedNumber value={streak} style={styles.statValue} />
-              <Text style={styles.statValueUnit}> 天</Text>
-            </View>
-          </Card>
-          <Card style={styles.statCard}>
-            <View style={[styles.statIconChip, { backgroundColor: colors.primarySoft }]}>
-              <ThemedIcon name="timer" size={18} color={colors.primary} />
-            </View>
-            <Text style={styles.statLabel}>今日专注</Text>
-            <View style={styles.statValueRow}>
-              <AnimatedNumber value={focusStats.todayMinutes} style={styles.statValue} />
-              <Text style={styles.statValueUnit}> 分</Text>
-            </View>
-          </Card>
-          <Card style={styles.statCard}>
-            <View style={[styles.statIconChip, { backgroundColor: colors.successSoft }]}>
-              <ThemedIcon name="trending-up" size={18} color={colors.success} />
-            </View>
-            <Text style={styles.statLabel}>本周进度</Text>
-            <View style={styles.statValueRow}>
-              <AnimatedNumber value={overall} style={styles.statValue} />
-              <Text style={styles.statValueUnit}>%</Text>
-            </View>
-          </Card>
-        </View>
-
-        <Pressable
-          style={styles.checkinRow}
-          onPress={() => {
-            if (!checkedInToday) haptics.success();
-            checkinToday();
-          }}
-        >
-          <Text style={styles.checkinRowText}>今日打卡 · 给自己一个正向信号</Text>
-          <ThemedIcon name="chevron-forward" size={18} color={colors.accentStrong} />
-        </Pressable>
-
+        {/*
+         * 「本周节奏」三卡与「今日打卡」行已在 v1.44.2 提到首屏（上方 overviewGrid），
+         * 这里不再重复；抽屉只保留仍需展开看的明细与建议。
+         */}
         <SectionHeader title="运动明细" actionLabel="添加" onAction={() => { setMoreOpen(false); setSportSheetOpen(true); }} />
         {sports.length === 0 ? (
           <Text style={styles.sportEmpty}>今天还没有运动记录，去阳光下动一动吧</Text>
@@ -903,13 +928,29 @@ const makeStyles = (colors: ThemeColors) =>
     backgroundColor: colors.primary,
     ...shadows.floating,
   },
+  /** 外环：半透明 + 1pt 高光描边，给"按钮"一个可点的轮廓 */
   quickStartIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.18)",
+    backgroundColor: "rgba(255,255,255,0.16)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.30)",
+  },
+  /**
+   * 圆心：纯白实心底 + 主色播放三角。
+   * play 三角的视觉重心偏左，paddingLeft 让它在圆里几何居中。
+   */
+  quickStartIconCore: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingLeft: 2,
+    backgroundColor: "#FFFFFF",
   },
   quickStartBody: { flex: 1, gap: 3 },
   quickStartTitle: { fontSize: 20, fontWeight: "800", color: "#ffffff", letterSpacing: 0.2 },
@@ -1013,24 +1054,31 @@ const makeStyles = (colors: ThemeColors) =>
   // v13 U12：底纹绝对定位铺满，卡片要裁切
   taskEmptyCard: { overflow: "hidden" },
 
-  statsGrid: { flexDirection: "row", gap: 10 },
-  statCard: { flex: 1, gap: 6, padding: 14 },
-  statIconChip: { width: 34, height: 34, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  statLabel: { ...typography.caption, color: colors.textMuted },
-  statValue: { fontSize: 20, fontWeight: "800", color: colors.text },
-  statValueRow: { flexDirection: "row", alignItems: "flex-end" },
-  statValueUnit: { ...typography.caption, fontWeight: "600", color: colors.textMuted, marginBottom: 2 },
-
-  checkinRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+  /**
+   * 今日概览三格（v1.44.2）：等宽、居中、比原来抽屉里的大卡片更紧凑。
+   * 目的是在首屏一眼看完"今天打没打卡 / 专注了多久 / 本周走了多少"。
+   * 原来的 statsGrid/statCard/checkinRow 随「本周节奏」一起移到首屏后已无引用，予删。
+   */
+  overviewGrid: { flexDirection: "row", gap: 10 },
+  overviewTile: {
+    flex: 1,
+    gap: 6,
+    paddingVertical: 13,
+    paddingHorizontal: 8,
     borderRadius: radius.lg,
-    backgroundColor: colors.accentSoft,
+    alignItems: "center",
+    backgroundColor: colors.surfaceStrong,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
   },
-  checkinRowText: { ...typography.caption, fontWeight: "700", color: colors.accentStrong },
+  overviewIcon: { width: 30, height: 30, borderRadius: 11, alignItems: "center", justifyContent: "center" },
+  overviewValueRow: { flexDirection: "row", alignItems: "flex-end" },
+  overviewValue: { fontSize: 19, fontWeight: "800", color: colors.text },
+  overviewUnit: { ...typography.caption, fontWeight: "600", color: colors.textMuted, marginBottom: 2 },
+  overviewLabel: { ...typography.micro, fontWeight: "700", color: colors.textMuted },
+
+  /** 任务 / 习惯行的「图标 + 标题」横排（原来是把 emoji 直接拼进文案） */
+  taskTitleRow: { flexDirection: "row", alignItems: "center", gap: 6, flex: 1 },
 
   sportTabRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 },
   sportTab: {
