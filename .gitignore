@@ -4,6 +4,13 @@
 # 本地工具链（conda 安装的 PostgreSQL）
 .tools/
 
+# 构建用的 Gradle 用户目录（v1.45）。
+# 为什么要放在仓库根、而不是 .local/ 下：Java/Gradle 子进程只能写工作区内的路径，
+# 但 Windows 的 260 字符路径上限又卡住了 CMake/ninja（react-native 的 prefab 头文件路径很长）——
+# 放在 .local/gradle-home 时实测 269 字符超限，报
+# "Filename longer than 260 characters"。.g 比它短 17 字符，刚好留出余量。
+.g/
+
 # Python
 __pycache__/
 *.pyc
