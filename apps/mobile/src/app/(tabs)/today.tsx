@@ -638,6 +638,7 @@ export default function TodayScreen() {
               entering={reduced ? undefined : FadeInDown.duration(DURATION.base).delay(staggerDelay(i))}
             >
               <Pressable
+                style={styles.taskRow}
                 onPress={() => {
                   const willDone = !t.done;
                   haptics.light();
@@ -649,10 +650,12 @@ export default function TodayScreen() {
                 {/* v13 U8：勾选时用 strokeDashoffset 画对勾（组件常驻，靠 checked 驱动，才有"画"的过程） */}
                 <AnimatedCheckMark checked={t.done} size={16} color="#ffffff" />
               </View>
-              <Text style={[styles.taskTitle, t.done && styles.taskDone]} numberOfLines={1}>
-                {t.title}
-              </Text>
-              <Text style={styles.taskMeta}>{taskTypeLabels[t.taskType] ?? t.taskType}</Text>
+              <View style={styles.taskBody}>
+                <Text style={[styles.taskTitle, t.done && styles.taskDone]} numberOfLines={1}>
+                  {t.title}
+                </Text>
+                <Text style={styles.taskMeta}>{taskTypeLabels[t.taskType] ?? t.taskType}</Text>
+              </View>
               </Pressable>
             </Animated.View>
           ))
@@ -665,6 +668,7 @@ export default function TodayScreen() {
             entering={reduced ? undefined : FadeInDown.duration(DURATION.base).delay(staggerDelay(i + 3))}
           >
             <Pressable
+              style={styles.taskRow}
               onPress={() => {
                 haptics.light();
                 if (!h.done) fireCelebrate(h.name, "习惯打卡完成");
@@ -674,6 +678,7 @@ export default function TodayScreen() {
             <View style={[styles.taskBox, h.done && { backgroundColor: h.color, borderColor: h.color }]}>
               <AnimatedCheckMark checked={h.done} size={16} color="#ffffff" />
             </View>
+            <View style={styles.taskBody}>
             <View style={styles.taskTitleRow}>
               {/*
                * v1.44.2：不再渲染 emoji（原先直接拼 h.icon + " "，没有时用 🔁 兜底）。
@@ -686,6 +691,7 @@ export default function TodayScreen() {
               </Text>
             </View>
             <Text style={styles.taskMeta}>习惯</Text>
+            </View>
             </Pressable>
           </Animated.View>
         ))}
@@ -1047,7 +1053,20 @@ const makeStyles = (colors: ThemeColors) =>
     justifyContent: "center",
   },
   taskBoxDone: { backgroundColor: colors.success, borderColor: colors.success },
-  taskTitle: { flex: 1, ...typography.callout, fontWeight: "600", color: colors.text },
+  /**
+   * 任务 / 习惯行的可点区域。
+   *
+   * ⚠️ 必须显式写成 row：它是 `styles.task`（row 卡片）的子节点，不声明方向就默认 **column**，
+   * 而里面的标题用了 `flex: 1` —— 在 column 里 flexBasis 作用在**高度**上，
+   * 父级高度又是内容撑开的（没有剩余空间可分配）→ 标题高度被压成 0，整条文字看不见。
+   * 这与 components/press-button.tsx 里记的是同一个 Yoga 陷阱。
+   */
+  taskRow: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
+  /** 标题 + 副标题的纵向容器；flex: 1 在这里是横向撑满，安全 */
+  taskBody: { flex: 1, minWidth: 0, gap: 1 },
+  // flexShrink 而不是 flex：在 taskBody(column) 里高度仍需自适应，
+  // 在习惯行的 taskTitleRow(row) 里则靠它把过长标题截断而不是撑破
+  taskTitle: { ...typography.callout, fontWeight: "600", color: colors.text, flexShrink: 1 },
   taskDone: { textDecorationLine: "line-through", color: colors.textSecondary },
   taskMeta: { ...typography.caption, color: colors.textMuted },
   taskEmpty: { ...typography.caption, color: colors.textMuted, textAlign: "center", paddingVertical: 4 },
@@ -1078,7 +1097,8 @@ const makeStyles = (colors: ThemeColors) =>
   overviewLabel: { ...typography.micro, fontWeight: "700", color: colors.textMuted },
 
   /** 任务 / 习惯行的「图标 + 标题」横排（原来是把 emoji 直接拼进文案） */
-  taskTitleRow: { flexDirection: "row", alignItems: "center", gap: 6, flex: 1 },
+  /** 习惯行的「图标 + 标题」横排（父级是 taskBody 的 column，这里不能再写 flex: 1） */
+  taskTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
 
   sportTabRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 },
   sportTab: {
