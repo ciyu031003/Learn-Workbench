@@ -1911,6 +1911,18 @@ VALUES
    '19 个教程的知识点（1031 页 → 92 个知识点）与官方测验题（436 道，含答案与解析）', now())
 ON CONFLICT (key) DO NOTHING;
 
+-- 迁移 072：408 快照进入通用导入审计台账（exam_408_* 仍是内容权威表）。
+-- 站点未声明转载许可；只允许个人学习自用，不扩大分发。
+INSERT INTO content_source (key, name, url, repo, ref, license, usage, obligation, note, verified_at)
+VALUES
+  ('beokayy-408', '四〇八档案室 · 408 历年真题', 'https://zhenti.beokayy.club/', NULL,
+   'bundle-2026-10-11',
+   '站点未声明开源或转载许可；仅个人、非商业、本地学习使用，不再分发。', 'import',
+   '保留站点原始声明；个人学习自用，不扩大分发',
+   '408 四门课章节/知识点与 2009-2026 历年真题快照；导入批次只做审计与回滚，不替代 exam_408_* 表。',
+   now())
+ON CONFLICT (key) DO NOTHING;
+
 -- ---------- 26. 408 真题内容域（迁移 071 同步登记） ----------
 -- 网站快照独立落在 exam_408_* 表；来源、标签、知识点和整卷题目均可直接查询。
 
@@ -2144,5 +2156,3 @@ ON CONFLICT (key) DO UPDATE SET
   usage_scope = EXCLUDED.usage_scope,
   note = EXCLUDED.note,
   updated_at = now();
-
-
