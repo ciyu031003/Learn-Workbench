@@ -25,6 +25,8 @@ import {
   type LearningWeakTopic,
 } from "@learn-workbench/shared";
 import { pgPool } from "@/lib/db";
+import { advanceFsrsShadow } from "@/lib/fsrs-shadow";
+import { shouldComputeFsrsShadow } from "@/lib/learning-scheduler";
 
 function grade(question: LearningQuestion, chosenAnswer: string[]): boolean {
   return gradeLearningAnswer(question.answer, chosenAnswer);
@@ -63,6 +65,7 @@ interface ReviewCardRow {
   schedule_reason: string;
   suspended_from_status: LearningReviewStatus | null;
   updated_at: string;
+  fsrs_state?: unknown;
 }
 
 function reviewCardFromRow(row: ReviewCardRow): LearningReviewCard {
@@ -167,7 +170,7 @@ export async function recordLearningAttempt(
     const cardResult = await client.query<ReviewCardRow>(
       `SELECT question_key, track_slug, stage_key, topic_key, status, interval_days, ease, streak,
               lapses, due_at, last_result, algorithm_version, schedule_reason,
-              suspended_from_status, updated_at
+              suspended_from_status, updated_at, fsrs_state
          FROM learning_review_cards
         WHERE user_id = $1 AND question_key = $2
         FOR UPDATE`,
@@ -175,6 +178,14 @@ export async function recordLearningAttempt(
     );
     const current = reviewCardFromRow(cardResult.rows[0]);
     const next = scheduleLearningReview({ state: scheduleState(current), isCorrect, now });
+    const shadowEnabled = await shouldComputeFsrsShadow(
+      (sql, values) => client.query(sql, values),
+      userId,
+      input.trackSlug
+    );
+    const shadow = shadowEnabled
+      ? advanceFsrsShadow(cardResult.rows[0]?.fsrs_state ?? null, isCorrect, now)
+      : null;
     await client.query(
       `UPDATE learning_review_cards
           SET track_slug = $3,
@@ -193,6 +204,12 @@ export async function recordLearningAttempt(
               suspended_at = NULL,
               completed_at = $15,
               last_attempt_id = $16,
+              fsrs_state = CASE WHEN $17 THEN $18::jsonb ELSE fsrs_state END,
+              fsrs_due_at = CASE WHEN $17 THEN $19::timestamptz ELSE fsrs_due_at END,
+              fsrs_stability = CASE WHEN $17 THEN $20::numeric ELSE fsrs_stability END,
+              fsrs_difficulty = CASE WHEN $17 THEN $21::numeric ELSE fsrs_difficulty END,
+              fsrs_last_review_at = CASE WHEN $17 THEN $22::timestamptz ELSE fsrs_last_review_at END,
+              fsrs_updated_at = CASE WHEN $17 THEN $23::timestamptz ELSE fsrs_updated_at END,
               updated_at = now()
         WHERE user_id = $1 AND question_key = $2`,
       [
@@ -212,6 +229,13 @@ export async function recordLearningAttempt(
         next.scheduleReason,
         next.completedAt,
         attempt.id,
+        shadow !== null,
+        shadow ? JSON.stringify(shadow.card) : null,
+        shadow?.dueAt ?? null,
+        shadow?.stability ?? null,
+        shadow?.difficulty ?? null,
+        shadow?.lastReviewAt ?? null,
+        shadow?.updatedAt ?? null,
       ]
     );
     await client.query("COMMIT");

@@ -8,12 +8,12 @@
 
 | 指标 | 数值 |
 |---|---|
-| 路由总数 | 143 |
-| 有同名单测 | 143 / 143 |
-| 已限流 | 17 / 143 |
+| 路由总数 | 144 |
+| 有同名单测 | 144 / 144 |
+| 已限流 | 17 / 144 |
 | 内部接口（`api/internal/**`） | 8（已限流 8） |
-| 已有 OpenAPI 条目 | 14 / 143 |
-| 已用统一错误 envelope | 28 / 143 |
+| 已有 OpenAPI 条目 | 15 / 144 |
+| 已用统一错误 envelope | 29 / 144 |
 
 ## 2. 未文档化清单（H2 跟进，不阻断）
 
@@ -111,6 +111,7 @@
 | `/api/learning/question-status` | GET | 公开 | — | ✅ | ✅ | — |
 | `/api/learning/read` | POST | 登录 | — | ✅ | ✅ | — |
 | `/api/learning/review` | GET PATCH | 登录 | — | ✅ | ✅ | ✅ |
+| `/api/learning/scheduler` | GET PATCH | 登录 | — | ✅ | ✅ | ✅ |
 | `/api/logs` | GET POST | 登录 | — | ✅ | — | ✅ |
 | `/api/market` | GET | 公开 | — | ✅ | — | — |
 | `/api/market/decision` | GET | 登录 | — | ✅ | — | — |
