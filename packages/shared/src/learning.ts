@@ -161,6 +161,52 @@ export const learningReviewMutationResponseSchema = learningReviewResponseSchema
 });
 export type LearningReviewMutationResponse = z.infer<typeof learningReviewMutationResponseSchema>;
 
+export const learningSchedulerModeSchema = z.enum(["off", "shadow"]);
+export type LearningSchedulerMode = z.infer<typeof learningSchedulerModeSchema>;
+
+export const learningSchedulerActionSchema = z.object({
+  action: z.enum(["enable_shadow", "disable_shadow"]),
+  trackSlug: z.string().min(1).max(80).optional(),
+});
+export type LearningSchedulerActionInput = z.infer<typeof learningSchedulerActionSchema>;
+
+export const learningSchedulerHorizonSchema = z.object({
+  days: z.number(),
+  sm2DueCount: z.number(),
+  fsrsDueCount: z.number(),
+  overlapCount: z.number(),
+  sm2OnlyCount: z.number(),
+  fsrsOnlyCount: z.number(),
+});
+export type LearningSchedulerHorizon = z.infer<typeof learningSchedulerHorizonSchema>;
+
+export const learningSchedulerEvaluationSchema = z.object({
+  algorithmVersion: z.string(),
+  source: z.enum(["stored_shadow", "replayed_attempts"]),
+  generatedAt: z.string(),
+  sampleCount: z.number(),
+  shadowedCount: z.number(),
+  coverage: z.number(),
+  meanAbsoluteDueDayDiff: z.number().nullable(),
+  p90AbsoluteDueDayDiff: z.number().nullable(),
+  horizons: z.array(learningSchedulerHorizonSchema),
+  stateCounts: z.object({
+    new: z.number(),
+    learning: z.number(),
+    review: z.number(),
+    relearning: z.number(),
+  }),
+});
+export type LearningSchedulerEvaluation = z.infer<typeof learningSchedulerEvaluationSchema>;
+
+export const learningSchedulerResponseSchema = z.object({
+  mode: learningSchedulerModeSchema,
+  modeSource: z.enum(["track", "global", "default"]),
+  trackSlug: z.string().nullable(),
+  evaluation: learningSchedulerEvaluationSchema,
+});
+export type LearningSchedulerResponse = z.infer<typeof learningSchedulerResponseSchema>;
+
 export interface LearningReviewScheduleState {
   status: LearningReviewStatus;
   intervalDays: number;

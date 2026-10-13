@@ -1439,6 +1439,12 @@ CREATE TABLE IF NOT EXISTS learning_review_cards (
   suspended_at   timestamptz,
   completed_at   timestamptz,
   last_attempt_id bigint REFERENCES learning_attempts(id) ON DELETE SET NULL,
+  fsrs_state     jsonb,
+  fsrs_due_at    timestamptz,
+  fsrs_stability numeric(12,4),
+  fsrs_difficulty numeric(12,4),
+  fsrs_last_review_at timestamptz,
+  fsrs_updated_at timestamptz,
   updated_at     timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, question_key)
 );
@@ -1451,6 +1457,9 @@ CREATE INDEX IF NOT EXISTS idx_learning_review_topic
   ON learning_review_cards(user_id, track_slug, stage_key, topic_key);
 CREATE INDEX IF NOT EXISTS idx_learning_review_status_due
   ON learning_review_cards(user_id, status, due_at);
+CREATE INDEX IF NOT EXISTS idx_learning_review_fsrs_due
+  ON learning_review_cards(user_id, fsrs_due_at)
+  WHERE fsrs_due_at IS NOT NULL;
 
 DROP TRIGGER IF EXISTS trg_learning_review_cards_updated ON learning_review_cards;
 CREATE TRIGGER trg_learning_review_cards_updated BEFORE UPDATE ON learning_review_cards
@@ -1472,6 +1481,25 @@ CREATE TABLE IF NOT EXISTS learning_review_events (
 
 CREATE INDEX IF NOT EXISTS idx_learning_review_events_user_created
   ON learning_review_events(user_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS learning_scheduler_settings (
+  user_id      uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  track_slug   text NOT NULL DEFAULT '*',
+  mode         text NOT NULL DEFAULT 'shadow'
+               CONSTRAINT ck_learning_scheduler_settings_mode
+               CHECK (mode IN ('off', 'shadow')),
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  updated_at   timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, track_slug)
+);
+
+CREATE INDEX IF NOT EXISTS idx_learning_scheduler_settings_mode
+  ON learning_scheduler_settings(mode);
+
+DROP TRIGGER IF EXISTS trg_learning_scheduler_settings_updated ON learning_scheduler_settings;
+CREATE TRIGGER trg_learning_scheduler_settings_updated
+  BEFORE UPDATE ON learning_scheduler_settings
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 
 -- ---------- 22. 统一内容模型与稳定 ID（迁移 060：组二 · 阶段 7 = V3 纵轨 Phase A） ----------

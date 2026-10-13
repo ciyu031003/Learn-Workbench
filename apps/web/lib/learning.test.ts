@@ -82,6 +82,7 @@ describe("recordLearningAttempt", () => {
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [reviewRow()] })
       .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
 
     const result = await recordLearningAttempt(
@@ -112,7 +113,37 @@ describe("recordLearningAttempt", () => {
     const update = client.query.mock.calls.find(([sql]) => String(sql).includes("UPDATE learning_review_cards"));
     expect(update?.[1]).toContain(1);
     expect(update?.[1]).toContain("correct_answer");
+    expect(String(update?.[0])).toContain("fsrs_state = CASE WHEN $17");
+    expect(update?.[1]).toContain(true);
     expect(client.release).toHaveBeenCalled();
+  });
+
+  it("leaves the stored shadow untouched when the user has disabled shadow mode", async () => {
+    const client = mockClient();
+    client.query
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ id: "12", created_at: "2026-10-09T08:00:00.000Z" }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [reviewRow({ fsrs_state: { due: "2026-10-20T00:00:00.000Z" } })] })
+      .mockResolvedValueOnce({ rows: [{ track_slug: "*", mode: "off" }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    await recordLearningAttempt(
+      "u-1",
+      {
+        questionKey: "py-q1",
+        trackSlug: "python",
+        stageKey: "python-foundation",
+        chosenAnswer: ["B"],
+        clientId: "attempt-client-2",
+      },
+      new Date("2026-10-09T08:00:00.000Z")
+    );
+
+    const update = client.query.mock.calls.find(([sql]) => String(sql).includes("UPDATE learning_review_cards"));
+    expect(update?.[1]).toContain(false);
+    expect(String(update?.[0])).toContain("CASE WHEN $17 THEN $18::jsonb ELSE fsrs_state END");
   });
 
   it("does not advance the card again when clientId is replayed", async () => {

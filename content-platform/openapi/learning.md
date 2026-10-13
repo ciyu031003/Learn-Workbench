@@ -10,6 +10,8 @@
 | `GET  /api/learning/library-state?track=` | 登录 | 读 |
 | `GET  /api/learning/review?scope=due\|all` | 登录 | 读（`due` 为到期队列；`all` 用于计划管理，SM-2） |
 | `PATCH /api/learning/review` | 登录 | **幂等**：`clientId` 标识一次延后/暂停/恢复/完成操作 |
+| `GET  /api/learning/scheduler?track=` | 登录 | 读（当前调度模式 + 7/14/30 天 SM-2 / FSRS 到期差异评估） |
+| `PATCH /api/learning/scheduler` | 登录 | **幂等**：目标状态 `shadow` / `off`，重复调用结果相同 |
 | `POST /api/learning/read` | 登录 | **幂等**：进度只增不减，重复上报同 `clientId` 不重复计数 |
 | `POST /api/learning/favorite` | 登录 | **幂等**：`favorite=false` 即取消（软删除），可再次收藏 |
 | `POST /api/learning/attempt` | 登录 | 追加型（每次作答都是新事实） |
@@ -70,6 +72,62 @@
 ```
 
 服务端在事务内锁定卡片后再动作，重复 `clientId` 返回 `duplicate=true` 且不二次延长间隔。
+
+## GET /api/learning/scheduler
+
+读取当前用户（可限定课程）的调度模式，以及同一批卡片在 SM-2 与 `ts-fsrs` 下的
+未来 7 / 14 / 30 天到期分布差异。`due_at` 仍由 `sm2-lwb-v2` 维护，FSRS 只做影子评估。
+
+```jsonc
+// 响应 200（learningSchedulerResponseSchema）
+{
+  "mode": "shadow",                       // shadow | off
+  "modeSource": "default",                // track | global | default
+  "trackSlug": null,
+  "evaluation": {
+    "algorithmVersion": "ts-fsrs@5.4.2/fsrs-v6",
+    "source": "replayed_attempts",         // stored_shadow | replayed_attempts
+    "generatedAt": "2026-10-13T00:00:00.000Z",
+    "sampleCount": 120,
+    "shadowedCount": 96,
+    "coverage": 0.8,
+    "meanAbsoluteDueDayDiff": 1.75,
+    "p90AbsoluteDueDayDiff": 4.2,
+    "horizons": [
+      { "days": 7, "sm2DueCount": 12, "fsrsDueCount": 15, "overlapCount": 9,
+        "sm2OnlyCount": 3, "fsrsOnlyCount": 6 }
+    ],
+    "stateCounts": { "new": 0, "learning": 5, "review": 90, "relearning": 1 }
+  }
+}
+```
+
+| 状态 | code | 场景 |
+|---|---|---|
+| 400 | `validation_failed` | `track` 参数超过 80 字符 |
+| 401 | `unauthorized` | 未登录 |
+| 500 | `internal_error` | 评估读取失败 |
+
+## PATCH /api/learning/scheduler
+
+打开或关闭 FSRS 影子双跑。请求体里的 `trackSlug` 省略时作用于该用户的全局开关。
+写入的是目标状态，因此重复调用不会产生副作用。
+
+```jsonc
+// 打开全局影子双跑
+{ "action": "enable_shadow" }
+
+// 只关闭算法课程的影子双跑（全局仍可为 shadow）
+{ "action": "disable_shadow", "trackSlug": "algorithms" }
+```
+
+响应同 `GET /api/learning/scheduler`。
+
+| 状态 | code | 场景 |
+|---|---|---|
+| 400 | `validation_failed` | `action` 非法或 `trackSlug` 超长 |
+| 401 | `unauthorized` | 未登录 |
+| 500 | `internal_error` | 设置写入或评估读取失败 |
 
 ## POST /api/learning/read
 
