@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 生成 `content-platform/db/index-inventory.md`（组三 · H1 数据工程严谨性工件）。
+ * 生成 `content-platform/db/index-inventory.md`（组三 · H1 数据工程严谨性工件，仅本地留存）。
  *
  * 为什么从 DDL 文本解析而不是查库：
  *  - 工件要能进 CI，不依赖本地/远端 Postgres；
@@ -9,7 +9,7 @@
  *
  * 用法：
  *   node scripts/db-index-inventory.mjs          # 写入工件
- *   node scripts/db-index-inventory.mjs --check  # 只比对，不写入（CI 门禁：漂移即失败）
+ *   node scripts/db-index-inventory.mjs --check  # 有本地工件时比对漂移；全新克隆没有工件时跳过比对
  */
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -176,7 +176,9 @@ const markdown = render(tables);
 
 if (CHECK) {
   const current = existsSync(OUT) ? readFileSync(OUT, "utf8") : "";
-  if (current !== markdown) {
+  if (!existsSync(OUT)) {
+    console.log("[db-index-inventory] 工件未生成（文档仅本地保留，跳过漂移比对）");
+  } else if (current !== markdown) {
     console.error("[db-index-inventory] 工件与 DDL 不一致，请运行 node scripts/db-index-inventory.mjs 重新生成");
     process.exitCode = 1;
   } else {

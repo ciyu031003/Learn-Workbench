@@ -63,6 +63,11 @@ prototype/tmp/
 config/job-hosts/storageState.json
 scripts/.audit_cookie.txt
 
-# docs 文档仅本地保留，不提交或推送
-docs/*.md
-docs/**/*.md
+# 文档仅本地保留，不提交或推送；只允许 README 进入 Git。
+# 架构设计、ADR、改动记录、阶段报告、运行手册等继续保存在工作区，但默认不会被 git add。
+*.md
+!README.md
+!**/README.md
+*.mdx
+!README.mdx
+!**/README.mdx

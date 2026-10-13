@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /**
- * 生成 `content-platform/api/route-inventory.md`（组三 · H2 台账）并做三条硬门槛检查。
+ * 生成 `content-platform/api/route-inventory.md`（组三 · H2 台账，仅本地留存）并做三条硬门槛检查。
  *
  * 门槛（`--check`，已进 test:scripts → CI）：
  *   ① 每个 `route.ts` 必须有同名 `route.test.ts`（存量欠账在 test-exceptions.json 显式登记）；
  *   ② `api/internal/**` 必须过限流（`rateLimit(`），否则内部重操作可被反复触发；
- *   ③ 契约范围内的命名空间（见 CONTRACT_SCOPE）必须在 `content-platform/openapi/*.md` 有条目。
+ *   ③ 契约范围内的命名空间（见 CONTRACT_SCOPE）在本地保留 OpenAPI 文档时必须有条目；
+ *      仓库只保留 README，因此全新克隆没有文档时跳过“文档覆盖”这一条，不把缺文档误报成漂移。
  *   ④ 统一错误 envelope 棘轮：用 `apiError(` / `dbErrorResponse(` 的路由数不得低于基线
  *      （基线在 test-exceptions.json 的 `unmigratedErrorEnvelopeBaseline`，只许减少）。
  *
@@ -28,6 +29,8 @@ const OPENAPI_DIR = path.join(ROOT, "content-platform", "openapi");
 const CONTRACT_SCOPE = ["/api/internal/content", "/api/learning"];
 
 const CHECK = process.argv.includes("--check");
+const hasOpenApiDocs =
+  existsSync(OPENAPI_DIR) && readdirSync(OPENAPI_DIR).some((f) => f.endsWith(".md"));
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
 
 function walk(dir, out = []) {
@@ -147,7 +150,7 @@ for (const r of routes) {
   if (r.api.startsWith("/api/internal/") && !r.rateLimited && !exceptions.unthrottled[r.api]) {
     violations.push(`内部接口未限流：\`${r.api}\``);
   }
-  if (CONTRACT_SCOPE.some((s) => r.api.startsWith(s)) && !r.documented) {
+  if (hasOpenApiDocs && CONTRACT_SCOPE.some((s) => r.api.startsWith(s)) && !r.documented) {
     violations.push(`契约范围内缺 OpenAPI 条目：\`${r.api}\``);
   }
 }
@@ -168,7 +171,9 @@ const markdown = render(routes);
 if (CHECK) {
   const current = existsSync(OUT) ? readFileSync(OUT, "utf8") : "";
   let failed = false;
-  if (current !== markdown) {
+  if (!existsSync(OUT)) {
+    console.log("[api-inventory] 台账未生成（文档仅本地保留，跳过漂移比对）");
+  } else if (current !== markdown) {
     console.error("[api-inventory] 台账过期，请运行 node scripts/api-inventory.mjs 重新生成");
     failed = true;
   }
