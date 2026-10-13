@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "sourceKey": "beokayy-408",
+  "minimum": {
+    "years": 18,
+    "papers": 18,
+    "questions": 846,
+    "subjects": 4,
+    "subjectsByKey": {
+      "data-structure": {
+        "chapters": 7,
+        "points": 31,
+        "questionLinks": 296
+      },
+      "computer-organization": {
+        "chapters": 7,
+        "points": 27,
+        "questionLinks": 365
+      },
+      "operating-system": {
+        "chapters": 5,
+        "points": 17,
+        "questionLinks": 257
+      },
+      "computer-network": {
+        "chapters": 6,
+        "points": 24,
+        "questionLinks": 211
+      }
+    }
+  }
+}

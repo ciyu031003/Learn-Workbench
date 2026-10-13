@@ -3,6 +3,7 @@
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   EXPECTED,
@@ -15,6 +16,9 @@ import {
   writeJson,
 } from "./common.mjs";
 
+const BASELINE = JSON.parse(
+  await readFile(new URL("./baseline.json", import.meta.url), "utf8"),
+);
 const require = createRequire(import.meta.url);
 const SOURCE_KEY = "beokayy-408";
 const KEY_PREFIX = "beokayy-408";
@@ -410,17 +414,19 @@ function buildImportModel(input) {
 }
 
 function validateModel(model) {
-  if (model.counts.subjects !== 4) {
-    throw new Error(`Expected 4 subjects, got ${model.counts.subjects}.`);
-  }
-  if (model.counts.papers !== EXPECTED.years) {
+  if (model.counts.subjects < BASELINE.minimum.subjects) {
     throw new Error(
-      `Expected ${EXPECTED.years} papers, got ${model.counts.papers}.`,
+      `Expected at least ${BASELINE.minimum.subjects} subjects, got ${model.counts.subjects}.`,
     );
   }
-  if (model.counts.questions !== EXPECTED.years * EXPECTED.questionsPerYear) {
+  if (model.counts.papers < BASELINE.minimum.papers) {
     throw new Error(
-      `Expected ${EXPECTED.years * EXPECTED.questionsPerYear} questions, got ${model.counts.questions}.`,
+      `Expected at least ${BASELINE.minimum.papers} papers, got ${model.counts.papers}.`,
+    );
+  }
+  if (model.counts.questions < BASELINE.minimum.questions) {
+    throw new Error(
+      `Expected at least ${BASELINE.minimum.questions} questions, got ${model.counts.questions}.`,
     );
   }
 
@@ -666,29 +672,35 @@ async function upsertRows(client, spec, rows) {
   await client.query(sql, [JSON.stringify(rows)]);
 }
 
-async function readDatabaseCounts(client) {
+async function readDatabaseCounts(client, sourceKey = SOURCE_KEY) {
   const { rows } = await client.query(
     `SELECT
-       (SELECT count(*)::int FROM exam_408_subjects) AS subjects,
-       (SELECT count(*)::int FROM exam_408_chapters) AS chapters,
-       (SELECT count(*)::int FROM exam_408_knowledge_points) AS points,
-       (SELECT count(*)::int FROM exam_408_papers) AS papers,
-       (SELECT count(*)::int FROM exam_408_questions) AS questions,
-       (SELECT count(*)::int FROM exam_408_question_knowledge_points) AS links,
-       (SELECT count(*)::int FROM exam_408_tags) AS tags,
+       (SELECT count(*)::int FROM exam_408_subjects WHERE source_key = $1) AS subjects,
+       (SELECT count(*)::int FROM exam_408_chapters WHERE source_key = $1) AS chapters,
+       (SELECT count(*)::int FROM exam_408_knowledge_points WHERE source_key = $1) AS points,
+       (SELECT count(*)::int FROM exam_408_papers WHERE source_key = $1) AS papers,
+       (SELECT count(*)::int FROM exam_408_questions WHERE source_key = $1) AS questions,
+       (SELECT count(*)::int FROM exam_408_question_knowledge_points link
+          JOIN exam_408_questions q ON q.key = link.question_key
+         WHERE q.source_key = $1) AS links,
+       (SELECT count(*)::int FROM exam_408_tags WHERE source_key = $1) AS tags,
        (SELECT count(*)::int FROM exam_408_questions
-          WHERE type = 'choice'
+          WHERE source_key = $1
+            AND type = 'choice'
             AND jsonb_array_length(options) = 4
             AND answer_letter IS NOT NULL) AS valid_choices,
        (SELECT count(*)::int FROM exam_408_questions
-          WHERE has_image AND jsonb_array_length(image_refs) > 0) AS image_questions,
+          WHERE source_key = $1
+            AND has_image
+            AND jsonb_array_length(image_refs) > 0) AS image_questions,
        (SELECT count(*)::int FROM (
           SELECT paper_year
           FROM exam_408_questions
+          WHERE source_key = $1
           GROUP BY paper_year
-          HAVING count(*) <> $1 OR sum(points) <> $2
+          HAVING count(*) <> $2 OR sum(points) <> $3
         ) bad) AS invalid_papers`,
-    [EXPECTED.questionsPerYear, EXPECTED.pointsPerYear],
+    [sourceKey, EXPECTED.questionsPerYear, EXPECTED.pointsPerYear],
   );
   return rows[0];
 }
@@ -773,4 +785,17 @@ function fingerprint(value) {
   return sha256(JSON.stringify(value));
 }
 
-await main();
+const IS_MAIN =
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
+
+export {
+  assertSchema,
+  buildImportModel,
+  readDatabaseCounts,
+  validateDatabaseCounts,
+  validateModel,
+  writeModel,
+};
+
+if (IS_MAIN) await main();

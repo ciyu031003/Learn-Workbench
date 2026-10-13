@@ -19,6 +19,7 @@ node scripts/beokayy-408/parse.mjs
 node scripts/beokayy-408/validate.mjs --online
 node scripts/beokayy-408/download-assets.mjs --apply
 node scripts/beokayy-408/import-db.mjs --apply
+node scripts/beokayy-408/audit.mjs --require-db
 ```
 
 Useful options:
@@ -32,6 +33,8 @@ node scripts/beokayy-408/download-assets.mjs
 node scripts/beokayy-408/download-assets.mjs --apply --concurrency=2 --gap=180
 node scripts/beokayy-408/import-db.mjs
 node scripts/beokayy-408/import-db.mjs --apply --database=Learn-Workbench
+node scripts/beokayy-408/audit.mjs --skip-db
+node scripts/beokayy-408/audit.mjs --require-db --database=Learn-Workbench
 ```
 
 ## Output
@@ -75,3 +78,8 @@ Choice questions additionally receive parsed `stem`, `options`, and
   `apps/web/public/content-images/` so production CSP can serve them locally.
 - `import-db.mjs` is dry-run by default. Pass `--apply` to upsert the parsed
   snapshot into the `exam_408_*` tables.
+- `baseline.json` records the minimum accepted chapter, point, link, paper and
+  question counts. Validation fails when a later snapshot regresses below it.
+- `audit.mjs` joins the local snapshot, import model and database counts. It
+  writes `.local/beokayy-408/audit/report.json` and is read-only with respect to
+  PostgreSQL.
