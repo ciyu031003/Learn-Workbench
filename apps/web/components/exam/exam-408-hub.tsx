@@ -56,7 +56,7 @@ export function Exam408Hub({ overview }: { overview: Exam408Overview }) {
               四门科目按章节组织 99 个知识点，保留 2009–2026 年原卷题号、题型、分值、配图与参考答案。先读章节，再按年份整套刷。
             </p>
           </div>
-          <dl className="grid grid-cols-3 gap-2 text-center sm:grid-cols-5 lg:min-w-[440px]">
+          <dl className="grid grid-cols-2 gap-2 text-center sm:grid-cols-5 lg:min-w-[440px]">
             <Stat label="科目" value={overview.stats.subjects} />
             <Stat label="章节" value={overview.stats.chapters} />
             <Stat label="知识点" value={overview.stats.points} />
@@ -83,13 +83,14 @@ export function Exam408Hub({ overview }: { overview: Exam408Overview }) {
                 key={item.key}
                 type="button"
                 onClick={() => setSubjectKey(item.key)}
+                aria-pressed={subject?.key === item.key}
                 className={`min-w-[150px] rounded-lg border px-3 py-2 text-left transition-colors ${
                   subject?.key === item.key
                     ? "border-primary/35 bg-primary/10"
                     : "border-border/60 bg-card/60 hover:border-primary/25"
                 }`}
               >
-                <span className="block text-sm font-semibold">{item.shortName}</span>
+                <span className="block text-sm font-semibold">{item.title}</span>
                 <span className="mt-0.5 block text-[11px] text-muted-foreground">
                   {item.chapterCount} 章 · {item.pointCount} 知识点 · {item.questionCount} 题
                 </span>
@@ -148,7 +149,7 @@ export function Exam408Hub({ overview }: { overview: Exam408Overview }) {
         open={chapter !== null}
         onClose={() => setChapter(null)}
         title={chapter ? `${subject?.shortName ?? ""} · ${chapter.title}` : "章节知识点"}
-        className="max-w-2xl"
+        className="max-w-2xl max-sm:max-h-[82dvh] max-sm:max-w-none max-sm:self-end max-sm:rounded-b-none max-sm:bg-card max-sm:backdrop-blur-none"
       >
         {chapter ? (
           <div className="flex flex-col gap-3">
@@ -225,6 +226,7 @@ function SubjectChapters({
               key={chapter.key}
               type="button"
               onClick={() => onOpenChapter(chapter)}
+              aria-label={`打开第 ${chapter.chapterNumber} 章 ${chapter.title}`}
               className="group rounded-xl border border-border/60 bg-card/60 p-4 text-left transition-colors hover:border-primary/30 hover:bg-primary/5"
             >
               <div className="flex items-start gap-3">
