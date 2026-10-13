@@ -7,6 +7,7 @@ const ATTEMPTS_KEY = "lwb-learning-attempts-v1";
 const MAX_ATTEMPTS = 2000;
 
 export interface LearningAttempt {
+  clientId: string;
   questionKey: string;
   trackSlug: string;
   stageKey: string;
@@ -106,20 +107,34 @@ export async function loadLearningAttempts(): Promise<LearningAttempt[]> {
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isLearningAttempt);
+    return parsed
+      .filter(isLearningAttempt)
+      .map((attempt) => ({
+        ...attempt,
+        clientId: attempt.clientId || `legacy-${attempt.createdAt}-${attempt.questionKey}`.slice(0, 120),
+      }));
   } catch {
     return [];
   }
 }
 
-export async function recordLearningAttempt(attempt: LearningAttempt): Promise<void> {
+export function newLearningAttemptId(): string {
+  return `attempt-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
+export async function recordLearningAttempt(attempt: LearningAttempt): Promise<LearningAttempt> {
+  const normalized: LearningAttempt = {
+    ...attempt,
+    clientId: attempt.clientId || newLearningAttemptId(),
+  };
   try {
     const current = await loadLearningAttempts();
-    const next = [...current, attempt].slice(-MAX_ATTEMPTS);
+    const next = [...current, normalized].slice(-MAX_ATTEMPTS);
     await AsyncStorage.setItem(ATTEMPTS_KEY, JSON.stringify(next));
   } catch {
     // 本地记录失败不应中断刷题。
   }
+  return normalized;
 }
 
 export function wrongQuestionKeys(attempts: LearningAttempt[], trackSlug?: string): string[] {
@@ -136,6 +151,7 @@ function isLearningAttempt(value: unknown): value is LearningAttempt {
   if (!value || typeof value !== "object") return false;
   const item = value as Partial<LearningAttempt>;
   return (
+    (item.clientId === undefined || typeof item.clientId === "string") &&
     typeof item.questionKey === "string" &&
     typeof item.trackSlug === "string" &&
     typeof item.stageKey === "string" &&

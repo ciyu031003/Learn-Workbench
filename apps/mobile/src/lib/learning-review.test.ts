@@ -1,17 +1,27 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchDueReviewKeys, fetchLearningReview } from "./learning-review";
+import { applyLearningReviewAction, fetchDueReviewKeys, fetchLearningReview } from "./learning-review";
 
 const state = vi.hoisted(() => ({ token: "tok" as string | null }));
+const storage = vi.hoisted(() => ({ value: null as string | null }));
 
 vi.mock("@/config", () => ({ getApiUrl: () => "https://api.test" }));
 vi.mock("@/store/app-store", () => ({
   useAppStore: { getState: () => state },
+}));
+vi.mock("@react-native-async-storage/async-storage", () => ({
+  default: {
+    getItem: vi.fn(async () => storage.value),
+    setItem: vi.fn(async (_key: string, value: string) => {
+      storage.value = value;
+    }),
+  },
 }));
 
 const fetchMock = vi.fn();
 
 beforeEach(() => {
   state.token = "tok";
+  storage.value = null;
   vi.stubGlobal("fetch", fetchMock);
 });
 afterEach(() => {
@@ -33,7 +43,7 @@ describe("fetchLearningReview", () => {
     });
     const review = await fetchLearningReview();
     expect(review).toMatchObject({ dueCount: 1, totalCount: 3, masteredCount: 1 });
-    expect(fetchMock).toHaveBeenCalledWith("https://api.test/api/learning/review", expect.objectContaining({
+    expect(fetchMock).toHaveBeenCalledWith("https://api.test/api/learning/review?scope=due", expect.objectContaining({
       headers: expect.objectContaining({ Authorization: "Bearer tok" }),
     }));
   });
@@ -58,5 +68,18 @@ describe("fetchLearningReview", () => {
     });
     expect(await fetchDueReviewKeys("python")).toEqual(["py-1"]);
     expect(await fetchDueReviewKeys()).toEqual(["py-1", "java-1"]);
+  });
+
+  it("queues review actions offline with a stable clientId", async () => {
+    state.token = null;
+    fetchMock.mockRejectedValue(new Error("offline"));
+    const result = await applyLearningReviewAction({
+      action: "snooze",
+      questionKeys: ["py-1", "py-1"],
+      snoozeDays: 1,
+    });
+    expect(result.queued).toBe(true);
+    expect(storage.value).toContain("snooze");
+    expect(storage.value).toContain("py-1");
   });
 });

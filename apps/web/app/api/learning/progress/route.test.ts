@@ -24,12 +24,23 @@ describe("GET /api/learning/progress", () => {
       correct: 1,
       wrong: 1,
       mastery: 50,
-      masteryBasis: { window: 5, accuracyWeight: 0.6, recencyWeight: 0.4, lambda: 0.05, weightedAccuracy: 0.5, decay: 1 },
+      masteryBasis: {
+        window: 5,
+        accuracyWeight: 0.6,
+        recencyWeight: 0.4,
+        lambda: 0.05,
+        sampleSize: 2,
+        questionCount: 2,
+        latestAttemptAt: "2026-10-09T00:00:00.000Z",
+        method: "bounded_recent_accuracy_with_recency",
+        weightedAccuracy: 0.5,
+        decay: 1,
+      },
       today: 2,
       recent: [],
     });
     const res = await GET(new Request("http://localhost?track=python"));
     expect(res.status).toBe(200);
-    expect(progressMock).toHaveBeenCalledWith("u-1", "python");
+    expect(progressMock).toHaveBeenCalledWith("u-1", "python", expect.any(Date), undefined);
   });
 });

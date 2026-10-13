@@ -22,7 +22,11 @@ export function LearningMastery({ trackSlug, className }: { trackSlug?: string; 
     (async () => {
       try {
         const query = trackSlug ? `?track=${encodeURIComponent(trackSlug)}` : "";
-        const response = await fetch(`/api/learning/progress${query}`);
+        const timeZone =
+          typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : undefined;
+        const response = await fetch(`/api/learning/progress${query}`, {
+          headers: timeZone ? { "x-timezone": timeZone } : undefined,
+        });
         if (!response.ok) {
           if (alive) setState("anon");
           return;

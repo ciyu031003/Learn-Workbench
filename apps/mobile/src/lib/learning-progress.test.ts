@@ -20,6 +20,7 @@ const python = learningTracks.find((track) => track.slug === "python") ?? learni
 
 function attempt(key: string, isCorrect: boolean, createdAt: string): LearningAttempt {
   return {
+    clientId: `attempt-${key}-${createdAt}`,
     questionKey: key,
     trackSlug: python.slug,
     stageKey: python.questions[0].stageKey,

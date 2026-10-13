@@ -3,14 +3,18 @@ import { RefreshControl, StyleSheet, Text, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import Animated from "react-native-reanimated";
 import { getLearningTrack } from "@learn-workbench/content";
-import type { LearningReviewResponse } from "@learn-workbench/shared";
+import type { LearningReviewCard, LearningReviewResponse, LearningWeakTopic } from "@learn-workbench/shared";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useScreenEntrance } from "@/lib/use-screen-entrance";
-import { fetchLearningReview } from "@/lib/learning-review";
+import {
+  applyLearningReviewAction,
+  fetchLearningReview,
+  flushLearningReviewActions,
+} from "@/lib/learning-review";
 import {
   loadLearningAttempts,
   wrongQuestionKeys,
@@ -53,9 +57,12 @@ export default function QuizReviewScreen() {
   const [review, setReview] = useState<LearningReviewResponse | null>(null);
   const [attempts, setAttempts] = useState<LearningAttempt[]>([]);
   const [loading, setLoading] = useState(true);
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [notice, setNotice] = useState("");
 
   const load = useCallback(async () => {
-    const [remote, local] = await Promise.all([fetchLearningReview(), loadLearningAttempts()]);
+    await flushLearningReviewActions();
+    const [remote, local] = await Promise.all([fetchLearningReview("all"), loadLearningAttempts()]);
     setReview(remote);
     setAttempts(local);
     setLoading(false);
@@ -72,7 +79,15 @@ export default function QuizReviewScreen() {
   // 服务端到期队列（SM-2）；本地错题按"最近一次作答"口径兜底
   const dueQueues = useMemo(() => {
     if (!review) return [];
-    return groupDueCards(review);
+    return groupDueCards({
+      ...review,
+      cards: review.cards.filter(
+        (card) =>
+          card.status !== "mastered" &&
+          card.status !== "suspended" &&
+          Date.parse(card.dueAt) <= Date.parse(review.generatedAt)
+      ),
+    });
   }, [review]);
   const localWrong = useMemo(() => wrongQuestionKeys(attempts), [attempts]);
   const localQueues = useMemo(() => groupByTrack(localWrong, attempts), [localWrong, attempts]);
@@ -82,6 +97,34 @@ export default function QuizReviewScreen() {
       pathname: "/quiz/session",
       params: { track: trackSlug, mode },
     } as never);
+  };
+
+  const startWeakTopic = (topic: LearningWeakTopic) => {
+    router.push({
+      pathname: "/quiz/session",
+      params: {
+        track: topic.trackSlug,
+        mode: "due",
+        stage: topic.stageKey,
+        topic: topic.topicKey,
+      },
+    } as never);
+  };
+
+  const runAction = async (
+    card: LearningReviewCard,
+    action: "snooze" | "pause" | "resume" | "complete"
+  ) => {
+    setBusyKey(`${card.questionKey}:${action}`);
+    setNotice("");
+    const result = await applyLearningReviewAction({
+      action,
+      questionKeys: [card.questionKey],
+      ...(action === "snooze" ? { snoozeDays: 1 } : {}),
+    });
+    if (result.review) setReview(result.review);
+    if (result.queued) setNotice("当前离线，操作已保存，联网后会自动同步。");
+    setBusyKey(null);
   };
 
   return (
@@ -105,10 +148,31 @@ export default function QuizReviewScreen() {
           </View>
           <Text style={styles.summaryHint}>
             {review
-              ? "按间隔复习（SM-2）安排：答错即入列，答对逐次拉长间隔，连续掌握后自动移出。"
+              ? "按间隔复习（SM-2）安排：答错即入列，答对逐次拉长间隔，连续掌握后自动移出；可延后、暂停或手动完成。"
               : "未登录或离线：当前用本机错题兜底；登录后会自动接入服务端间隔复习队列。"}
           </Text>
         </Animated.View>
+
+        {review && review.weakTopics.length > 0 ? (
+          <>
+            <Animated.View entering={entrance(1)} style={styles.sectionHead}>
+              <Text style={styles.sectionTitle}>薄弱知识点</Text>
+              <Text style={styles.sectionCount}>{review.weakTopics.length} 个</Text>
+            </Animated.View>
+            <View style={styles.list}>
+              {review.weakTopics.slice(0, 6).map((topic, index) => (
+                <Animated.View key={`${topic.trackSlug}:${topic.topicKey}`} entering={entrance(2 + index)}>
+                  <WeakTopicCard
+                    topic={topic}
+                    styles={styles}
+                    colors={colors}
+                    onPress={() => startWeakTopic(topic)}
+                  />
+                </Animated.View>
+              ))}
+            </View>
+          </>
+        ) : null}
 
         <Animated.View entering={entrance(1)} style={styles.sectionHead}>
           <Text style={styles.sectionTitle}>到期复习</Text>
@@ -137,6 +201,28 @@ export default function QuizReviewScreen() {
             />
           ) : null}
         </View>
+
+        {review && review.cards.length > 0 ? (
+          <>
+            <Animated.View entering={entrance(4)} style={styles.sectionHead}>
+              <Text style={styles.sectionTitle}>复习计划</Text>
+              <Text style={styles.sectionCount}>{review.totalCount} 张卡</Text>
+            </Animated.View>
+            {notice ? <Text style={styles.notice}>{notice}</Text> : null}
+            <View style={styles.list}>
+              {review.cards.slice(0, 30).map((card) => (
+                <PlanCard
+                  key={card.questionKey}
+                  card={card}
+                  colors={colors}
+                  styles={styles}
+                  busyKey={busyKey}
+                  onAction={runAction}
+                />
+              ))}
+            </View>
+          </>
+        ) : null}
 
         <Animated.View entering={entrance(4)} style={styles.sectionHead}>
           <Text style={styles.sectionTitle}>本地错题</Text>
@@ -181,6 +267,158 @@ function groupDueCards(review: LearningReviewResponse): TrackQueue[] {
     })
     .filter((item): item is TrackQueue => item !== null)
     .sort((a, b) => b.count - a.count);
+}
+
+function WeakTopicCard({
+  topic,
+  styles,
+  colors,
+  onPress,
+}: {
+  topic: LearningWeakTopic;
+  styles: ReturnType<typeof makeStyles>;
+  colors: ThemeColors;
+  onPress: () => void;
+}) {
+  return (
+    <PressableScale
+      haptic
+      scaleTo={0.985}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`复习薄弱知识点 ${topic.title}`}
+      style={styles.weakCard}
+    >
+      <View style={styles.weakIcon}>
+        <ThemedIcon name="alert-circle-outline" size={20} color={colors.danger} />
+      </View>
+      <View style={styles.weakBody}>
+        <Text style={styles.weakTitle} numberOfLines={1}>{topic.title}</Text>
+        <Text style={styles.weakMeta}>
+          到期 {topic.dueCount} 题 · 错题 {topic.wrongCount} 题
+        </Text>
+      </View>
+      <ThemedIcon name="arrow-forward" size={17} color={colors.textMuted} />
+    </PressableScale>
+  );
+}
+
+const REVIEW_STATUS_LABEL: Record<LearningReviewCard["status"], string> = {
+  learning: "学习中",
+  review: "待复习",
+  mastered: "已掌握",
+  suspended: "已暂停",
+};
+
+function PlanCard({
+  card,
+  styles,
+  colors,
+  busyKey,
+  onAction,
+}: {
+  card: LearningReviewCard;
+  styles: ReturnType<typeof makeStyles>;
+  colors: ThemeColors;
+  busyKey: string | null;
+  onAction: (
+    card: LearningReviewCard,
+    action: "snooze" | "pause" | "resume" | "complete"
+  ) => Promise<void>;
+}) {
+  const question = getLearningTrack(card.trackSlug)?.questions.find((item) => item.key === card.questionKey);
+  const due = new Date(card.dueAt);
+  const statusColor =
+    card.status === "mastered"
+      ? colors.success
+      : card.status === "suspended"
+        ? colors.textMuted
+        : card.status === "learning"
+          ? colors.warning
+          : colors.primary;
+  return (
+    <View style={styles.planCard}>
+      <View style={styles.planTop}>
+        <View style={styles.planTitleWrap}>
+          <Text style={styles.planTitle} numberOfLines={2}>
+            {question?.stem ?? card.questionKey}
+          </Text>
+          <Text style={styles.planMeta}>
+            {REVIEW_STATUS_LABEL[card.status]} · 下次 {Number.isNaN(due.getTime()) ? "未知" : due.toLocaleDateString()}
+          </Text>
+        </View>
+        <View style={[styles.planStatus, { backgroundColor: statusColor + "18" }]}>
+          <Text style={[styles.planStatusText, { color: statusColor }]}>{REVIEW_STATUS_LABEL[card.status]}</Text>
+        </View>
+      </View>
+      <View style={styles.planActions}>
+        {card.status === "suspended" ? (
+          <PlanAction
+            label={busyKey === `${card.questionKey}:resume` ? "处理中" : "恢复"}
+            styles={styles}
+            colors={colors}
+            onPress={() => void onAction(card, "resume")}
+          />
+        ) : (
+          <>
+            {card.status !== "mastered" ? (
+              <>
+                <PlanAction
+                  label={busyKey === `${card.questionKey}:snooze` ? "处理中" : "延后 1 天"}
+                  styles={styles}
+                  colors={colors}
+                  onPress={() => void onAction(card, "snooze")}
+                />
+                <PlanAction
+                  label={busyKey === `${card.questionKey}:pause` ? "处理中" : "暂停"}
+                  styles={styles}
+                  colors={colors}
+                  onPress={() => void onAction(card, "pause")}
+                />
+              </>
+            ) : null}
+            {card.status !== "mastered" ? (
+              <PlanAction
+                label={busyKey === `${card.questionKey}:complete` ? "处理中" : "完成"}
+                styles={styles}
+                colors={colors}
+                strong
+                onPress={() => void onAction(card, "complete")}
+              />
+            ) : null}
+          </>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function PlanAction({
+  label,
+  styles,
+  colors,
+  strong = false,
+  onPress,
+}: {
+  label: string;
+  styles: ReturnType<typeof makeStyles>;
+  colors: ThemeColors;
+  strong?: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <PressableScale
+      haptic
+      scaleTo={0.96}
+      onPress={onPress}
+      style={[
+        styles.planAction,
+        strong ? { backgroundColor: colors.primary, borderColor: colors.primary } : null,
+      ]}
+    >
+      <Text style={[styles.planActionText, strong && { color: "#FFFFFF" }]}>{label}</Text>
+    </PressableScale>
+  );
 }
 
 function SummaryStat({
@@ -277,7 +515,54 @@ const makeStyles = (colors: ThemeColors) =>
     sectionHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", marginTop: spacing.sm },
     sectionTitle: { ...typography.title2, color: colors.text },
     sectionCount: { ...typography.caption, color: colors.textMuted },
+    notice: { ...typography.caption, color: colors.warning, paddingHorizontal: spacing.xs },
     list: { gap: spacing.sm },
+    weakCard: {
+      minHeight: 72,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.md,
+      borderRadius: radius.lg,
+      padding: spacing.md,
+      backgroundColor: colors.surfaceStrong,
+      ...shadows.card,
+    },
+    weakIcon: {
+      width: 42,
+      height: 42,
+      borderRadius: 14,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.dangerSoft,
+    },
+    weakBody: { flex: 1, gap: 2 },
+    weakTitle: { ...typography.callout, fontWeight: "800", color: colors.text },
+    weakMeta: { ...typography.caption, color: colors.textMuted },
+    planCard: {
+      borderRadius: radius.lg,
+      padding: spacing.md,
+      backgroundColor: colors.surfaceStrong,
+      gap: spacing.md,
+      ...shadows.card,
+    },
+    planTop: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
+    planTitleWrap: { flex: 1, gap: 3 },
+    planTitle: { ...typography.callout, fontWeight: "700", color: colors.text },
+    planMeta: { ...typography.micro, color: colors.textMuted },
+    planStatus: { borderRadius: radius.pill, paddingHorizontal: 9, paddingVertical: 4 },
+    planStatusText: { ...typography.micro, fontWeight: "800" },
+    planActions: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+    planAction: {
+      minHeight: 36,
+      borderRadius: radius.md,
+      paddingHorizontal: spacing.md,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderStrong,
+      backgroundColor: colors.surface,
+    },
+    planActionText: { ...typography.caption, fontWeight: "700", color: colors.textSecondary },
     queueCard: {
       flexDirection: "row",
       alignItems: "center",

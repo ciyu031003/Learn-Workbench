@@ -1,13 +1,28 @@
-import { getLearningQuestion, type LearningQuestion, type LearningTrack, learningTracks } from "@learn-workbench/content";
 import {
+  getLearningQuestion,
+  getLearningTrack,
+  type LearningQuestion,
+  type LearningTrack,
+  learningTracks,
+} from "@learn-workbench/content";
+import {
+  applyLearningReviewAction as applyReviewAction,
   gradeLearningAnswer,
+  isLearningReviewDue,
+  learningDayKey,
+  learningReviewAlgorithmVersion,
+  scheduleLearningReview,
   summarizeLearningAttempts,
   type LearningAttemptInput,
   type LearningAttemptResult,
   type LearningProgress,
+  type LearningReviewActionInput,
   type LearningReviewCard,
+  type LearningReviewMutationResponse,
   type LearningReviewResponse,
+  type LearningReviewScheduleState,
   type LearningReviewStatus,
+  type LearningWeakTopic,
 } from "@learn-workbench/shared";
 import { pgPool } from "@/lib/db";
 
@@ -27,73 +42,202 @@ export function learningCatalog(): Array<LearningTrack & { questionCount: number
   }));
 }
 
-export async function recordLearningAttempt(userId: string, input: LearningAttemptInput): Promise<LearningAttemptResult> {
+interface AttemptRow {
+  id: string | number;
+  created_at: string;
+}
+
+interface ReviewCardRow {
+  question_key: string;
+  track_slug: string;
+  stage_key: string;
+  topic_key: string | null;
+  status: LearningReviewStatus;
+  interval_days: number;
+  ease: string | number;
+  streak: number;
+  lapses: number;
+  due_at: string;
+  last_result: boolean | null;
+  algorithm_version: string;
+  schedule_reason: string;
+  suspended_from_status: LearningReviewStatus | null;
+  updated_at: string;
+}
+
+function reviewCardFromRow(row: ReviewCardRow): LearningReviewCard {
+  const question = getLearningQuestion(String(row.track_slug), String(row.question_key));
+  return {
+    questionKey: String(row.question_key),
+    trackSlug: String(row.track_slug),
+    stageKey: String(row.stage_key),
+    topicKey: row.topic_key ?? question?.topicKey ?? null,
+    status: row.status,
+    intervalDays: Number(row.interval_days),
+    ease: Number(row.ease),
+    streak: Number(row.streak),
+    lapses: Number(row.lapses),
+    dueAt: new Date(row.due_at).toISOString(),
+    lastResult: row.last_result === null ? null : Boolean(row.last_result),
+    algorithmVersion: String(row.algorithm_version || learningReviewAlgorithmVersion),
+    scheduleReason: String(row.schedule_reason || "legacy"),
+    suspendedFromStatus: row.suspended_from_status ?? null,
+    updatedAt: new Date(row.updated_at).toISOString(),
+  };
+}
+
+function scheduleState(card: LearningReviewCard): LearningReviewScheduleState {
+  return {
+    status: card.status,
+    intervalDays: card.intervalDays,
+    ease: card.ease,
+    streak: card.streak,
+    lapses: card.lapses,
+    dueAt: card.dueAt,
+    suspendedFromStatus: card.suspendedFromStatus,
+  };
+}
+
+export async function recordLearningAttempt(
+  userId: string,
+  input: LearningAttemptInput,
+  now: Date = new Date()
+): Promise<LearningAttemptResult> {
   const question = getLearningQuestion(input.trackSlug, input.questionKey);
   if (!question) throw new Error("学习题目不存在");
   const isCorrect = grade(question, input.chosenAnswer);
-  const { rows } = await pgPool.query<{ created_at: string }>(
-    `INSERT INTO learning_attempts
-       (user_id, track_slug, stage_key, question_key, chosen_answer, is_correct)
-     VALUES ($1, $2, $3, $4, $5::jsonb, $6)
-     RETURNING created_at`,
-    [userId, input.trackSlug, question.stageKey, input.questionKey, JSON.stringify(input.chosenAnswer), isCorrect]
-  );
+  const clientId = input.clientId ?? null;
+  const client = await pgPool.connect();
 
-  await pgPool.query(
-    `INSERT INTO learning_review_cards
-       (user_id, question_key, track_slug, stage_key, status, interval_days, ease, streak, lapses, due_at, last_result)
-     VALUES
-       ($1, $2, $3, $4, 'learning', 0, 2.5, 0, 0, now(), $5)
-     ON CONFLICT (user_id, question_key) DO UPDATE SET
-       track_slug = EXCLUDED.track_slug,
-       stage_key = EXCLUDED.stage_key,
-       status = CASE
-         WHEN $5 AND learning_review_cards.streak + 1 >= 4 THEN 'mastered'
-         WHEN $5 THEN 'review'
-         ELSE 'learning'
-       END,
-       interval_days = CASE
-         WHEN NOT $5 THEN 1
-         WHEN learning_review_cards.interval_days = 0 THEN 1
-         WHEN learning_review_cards.interval_days = 1 THEN 3
-         WHEN learning_review_cards.interval_days = 3 THEN 7
-         ELSE LEAST(60, GREATEST(7, ROUND(learning_review_cards.interval_days * learning_review_cards.ease)::int))
-       END,
-       ease = CASE
-         WHEN $5 THEN LEAST(3.50, learning_review_cards.ease + 0.05)
-         ELSE GREATEST(1.30, learning_review_cards.ease - 0.20)
-       END,
-       streak = CASE WHEN $5 THEN learning_review_cards.streak + 1 ELSE 0 END,
-       lapses = CASE WHEN $5 THEN learning_review_cards.lapses ELSE learning_review_cards.lapses + 1 END,
-       due_at = now() + (
-         CASE
-           WHEN NOT $5 THEN 1
-           WHEN learning_review_cards.interval_days = 0 THEN 1
-           WHEN learning_review_cards.interval_days = 1 THEN 3
-           WHEN learning_review_cards.interval_days = 3 THEN 7
-           ELSE LEAST(60, GREATEST(7, ROUND(learning_review_cards.interval_days * learning_review_cards.ease)::int))
-         END || ' days'
-       )::interval,
-       last_result = EXCLUDED.last_result,
-       updated_at = now()`,
-    [userId, input.questionKey, input.trackSlug, question.stageKey, isCorrect]
-  );
+  try {
+    await client.query("BEGIN");
+    const inserted = await client.query<AttemptRow>(
+      `INSERT INTO learning_attempts
+         (user_id, track_slug, stage_key, question_key, chosen_answer, is_correct, client_id)
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7)
+       ON CONFLICT (user_id, client_id) WHERE client_id IS NOT NULL DO NOTHING
+       RETURNING id, created_at`,
+      [
+        userId,
+        input.trackSlug,
+        question.stageKey,
+        input.questionKey,
+        JSON.stringify(input.chosenAnswer),
+        isCorrect,
+        clientId,
+      ]
+    );
 
-  return {
-    questionKey: question.key,
-    trackSlug: input.trackSlug,
-    stageKey: question.stageKey,
-    isCorrect,
-    answer: question.answer,
-    explanation: question.explanation,
-    createdAt: new Date(rows[0]?.created_at ?? Date.now()).toISOString(),
-  };
+    if (clientId && inserted.rows.length === 0) {
+      const existing = await client.query<AttemptRow>(
+        `SELECT id, created_at
+           FROM learning_attempts
+          WHERE user_id = $1 AND client_id = $2`,
+        [userId, clientId]
+      );
+      await client.query("COMMIT");
+      return {
+        questionKey: question.key,
+        trackSlug: input.trackSlug,
+        stageKey: question.stageKey,
+        isCorrect,
+        answer: question.answer,
+        explanation: question.explanation,
+        createdAt: new Date(existing.rows[0]?.created_at ?? now).toISOString(),
+      };
+    }
+
+    const attempt = inserted.rows[0];
+    await client.query(
+      `INSERT INTO learning_review_cards
+         (user_id, question_key, track_slug, stage_key, topic_key, status, interval_days, ease,
+          streak, lapses, due_at, last_result, algorithm_version, schedule_reason)
+       VALUES ($1, $2, $3, $4, $5, 'learning', 0, 2.50, 0, 0, $6, NULL, $7, 'initial')
+       ON CONFLICT (user_id, question_key) DO NOTHING`,
+      [
+        userId,
+        input.questionKey,
+        input.trackSlug,
+        question.stageKey,
+        question.topicKey ?? null,
+        now.toISOString(),
+        learningReviewAlgorithmVersion,
+      ]
+    );
+    const cardResult = await client.query<ReviewCardRow>(
+      `SELECT question_key, track_slug, stage_key, topic_key, status, interval_days, ease, streak,
+              lapses, due_at, last_result, algorithm_version, schedule_reason,
+              suspended_from_status, updated_at
+         FROM learning_review_cards
+        WHERE user_id = $1 AND question_key = $2
+        FOR UPDATE`,
+      [userId, input.questionKey]
+    );
+    const current = reviewCardFromRow(cardResult.rows[0]);
+    const next = scheduleLearningReview({ state: scheduleState(current), isCorrect, now });
+    await client.query(
+      `UPDATE learning_review_cards
+          SET track_slug = $3,
+              stage_key = $4,
+              topic_key = $5,
+              status = $6,
+              interval_days = $7,
+              ease = $8,
+              streak = $9,
+              lapses = $10,
+              due_at = $11,
+              last_result = $12,
+              algorithm_version = $13,
+              schedule_reason = $14,
+              suspended_from_status = NULL,
+              suspended_at = NULL,
+              completed_at = $15,
+              last_attempt_id = $16,
+              updated_at = now()
+        WHERE user_id = $1 AND question_key = $2`,
+      [
+        userId,
+        input.questionKey,
+        input.trackSlug,
+        question.stageKey,
+        question.topicKey ?? null,
+        next.status,
+        next.intervalDays,
+        next.ease,
+        next.streak,
+        next.lapses,
+        next.dueAt,
+        isCorrect,
+        next.algorithmVersion,
+        next.scheduleReason,
+        next.completedAt,
+        attempt.id,
+      ]
+    );
+    await client.query("COMMIT");
+
+    return {
+      questionKey: question.key,
+      trackSlug: input.trackSlug,
+      stageKey: question.stageKey,
+      isCorrect,
+      answer: question.answer,
+      explanation: question.explanation,
+      createdAt: new Date(attempt.created_at ?? now).toISOString(),
+    };
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function learningProgress(
   userId: string,
   trackSlug?: string,
-  now: Date = new Date()
+  now: Date = new Date(),
+  timeZone?: string
 ): Promise<LearningProgress> {
   const params: unknown[] = [userId];
   let where = "WHERE user_id = $1";
@@ -116,9 +260,9 @@ export async function learningProgress(
     isCorrect: Boolean(row.is_correct),
     createdAt: new Date(row.created_at as string).toISOString(),
   }));
-  // 掌握度口径下沉到 @learn-workbench/shared（与移动端同一实现），见 LEARNING_MASTERY。
   const summary = summarizeLearningAttempts(latest, {
-    todayKey: now.toISOString().slice(0, 10),
+    todayKey: learningDayKey(now.toISOString(), timeZone),
+    dayKey: (iso) => learningDayKey(iso, timeZone),
     now,
   });
   const { rows: recentRows } = await pgPool.query(
@@ -151,54 +295,151 @@ export async function learningProgress(
   };
 }
 
-interface ReviewCardRow {
-  question_key: string;
-  track_slug: string;
-  stage_key: string;
-  status: LearningReviewStatus;
-  interval_days: number;
-  ease: string | number;
-  streak: number;
-  lapses: number;
-  due_at: string;
-  last_result: boolean | null;
+function weakTopicsFromCards(cards: LearningReviewCard[], now: Date): LearningWeakTopic[] {
+  const grouped = new Map<string, LearningWeakTopic>();
+  for (const card of cards) {
+    if (!card.topicKey || card.status === "mastered" || card.status === "suspended") continue;
+    const due = isLearningReviewDue(card, now);
+    const wrong = card.lastResult === false || card.lapses > 0;
+    if (!due && !wrong) continue;
+    const key = `${card.trackSlug}\u0000${card.stageKey}\u0000${card.topicKey}`;
+    const current = grouped.get(key) ?? {
+      trackSlug: card.trackSlug,
+      stageKey: card.stageKey,
+      topicKey: card.topicKey,
+      title: card.topicKey,
+      dueCount: 0,
+      wrongCount: 0,
+    };
+    current.dueCount += due ? 1 : 0;
+    current.wrongCount += wrong ? 1 : 0;
+    const track = getLearningTrack(card.trackSlug);
+    const stage = track?.stages.find((item) => item.key === card.stageKey);
+    current.title = stage?.topics.find((item) => item.key === card.topicKey)?.title ?? current.title;
+    grouped.set(key, current);
+  }
+  return [...grouped.values()].sort(
+    (a, b) =>
+      b.dueCount - a.dueCount ||
+      b.wrongCount - a.wrongCount ||
+      a.trackSlug.localeCompare(b.trackSlug) ||
+      a.stageKey.localeCompare(b.stageKey) ||
+      a.topicKey.localeCompare(b.topicKey)
+  );
 }
 
-/**
- * 到期复习队列：读 learning_review_cards（SM-2 状态机由 recordLearningAttempt 维护）。
- *
- * 只返回**现在该复习的**卡片（未掌握且 due_at ≤ now），并按到期时间升序；
- * 计数信息（总数/已掌握）用于界面说明，避免把"待复习"和"练过"混成一个数。
- */
 export async function learningReviewQueue(
   userId: string,
-  now: Date = new Date()
+  now: Date = new Date(),
+  scope: "due" | "all" = "due"
 ): Promise<LearningReviewResponse> {
   const { rows } = await pgPool.query<ReviewCardRow>(
-    `SELECT question_key, track_slug, stage_key, status, interval_days, ease, streak, lapses, due_at, last_result
+    `SELECT question_key, track_slug, stage_key, topic_key, status, interval_days, ease, streak,
+            lapses, due_at, last_result, algorithm_version, schedule_reason,
+            suspended_from_status, updated_at
        FROM learning_review_cards
       WHERE user_id = $1
-      ORDER BY due_at ASC, question_key ASC`,
+      ORDER BY
+        CASE WHEN status = 'suspended' THEN 1 WHEN status = 'mastered' THEN 2 ELSE 0 END,
+        due_at ASC,
+        question_key ASC`,
     [userId]
   );
-  const cards: LearningReviewCard[] = rows.map((row) => ({
-    questionKey: String(row.question_key),
-    trackSlug: String(row.track_slug),
-    stageKey: String(row.stage_key),
-    status: row.status,
-    intervalDays: Number(row.interval_days),
-    ease: Number(row.ease),
-    streak: Number(row.streak),
-    lapses: Number(row.lapses),
-    dueAt: new Date(row.due_at).toISOString(),
-    lastResult: row.last_result === null ? null : Boolean(row.last_result),
-  }));
-  const nowMs = now.getTime();
-  const due = cards.filter((card) => card.status !== "mastered" && Date.parse(card.dueAt) <= nowMs);
+  const allCards = rows.map(reviewCardFromRow);
+  const dueCards = allCards.filter((card) => isLearningReviewDue(card, now));
   return {
-    cards: due,
-    dueCount: due.length,
-    totalCount: cards.length,
-    masteredCount: cards.filter((card) => card.status === "mastered").length,
+    cards: scope === "all" ? allCards : dueCards,
+    weakTopics: weakTopicsFromCards(allCards, now),
+    dueCount: dueCards.length,
+    totalCount: allCards.length,
+    masteredCount: allCards.filter((card) => card.status === "mastered").length,
+    suspendedCount: allCards.filter((card) => card.status === "suspended").length,
+    generatedAt: now.toISOString(),
   };
+}
+
+export async function mutateLearningReview(
+  userId: string,
+  input: LearningReviewActionInput,
+  now: Date = new Date()
+): Promise<LearningReviewMutationResponse> {
+  const questionKeys = [...new Set(input.questionKeys)];
+  const client = await pgPool.connect();
+  try {
+    await client.query("BEGIN");
+    const event = await client.query<{ id: string }>(
+      `INSERT INTO learning_review_events
+         (user_id, client_id, action, question_keys, payload)
+       VALUES ($1, $2, $3, $4::jsonb, $5::jsonb)
+       ON CONFLICT (user_id, client_id) DO NOTHING
+       RETURNING id`,
+      [
+        userId,
+        input.clientId,
+        input.action,
+        JSON.stringify(questionKeys),
+        JSON.stringify({ snoozeDays: input.snoozeDays, snoozeUntil: input.snoozeUntil }),
+      ]
+    );
+    if (event.rows.length === 0) {
+      await client.query("COMMIT");
+      const queue = await learningReviewQueue(userId, now, "all");
+      return { ...queue, applied: 0, duplicate: true };
+    }
+
+    const result = await client.query<ReviewCardRow>(
+      `SELECT question_key, track_slug, stage_key, topic_key, status, interval_days, ease, streak,
+              lapses, due_at, last_result, algorithm_version, schedule_reason,
+              suspended_from_status, updated_at
+         FROM learning_review_cards
+        WHERE user_id = $1 AND question_key = ANY($2::text[])
+        FOR UPDATE`,
+      [userId, questionKeys]
+    );
+    let applied = 0;
+    for (const row of result.rows) {
+      const current = reviewCardFromRow(row);
+      const next = applyReviewAction({
+        card: current,
+        action: input.action,
+        now,
+        snoozeDays: input.snoozeDays,
+        snoozeUntil: input.snoozeUntil,
+      });
+      if (next === current) continue;
+      await client.query(
+        `UPDATE learning_review_cards
+            SET status = $3,
+                due_at = $4,
+                schedule_reason = $5,
+                suspended_from_status = $6,
+                suspended_at = CASE WHEN $3 = 'suspended' THEN $7 ELSE NULL END,
+                completed_at = CASE WHEN $3 = 'mastered' THEN $7 ELSE completed_at END,
+                updated_at = now()
+          WHERE user_id = $1 AND question_key = $2`,
+        [
+          userId,
+          current.questionKey,
+          next.status,
+          next.dueAt,
+          next.scheduleReason,
+          next.suspendedFromStatus,
+          now.toISOString(),
+        ]
+      );
+      applied += 1;
+    }
+    await client.query(`UPDATE learning_review_events SET applied_count = $2 WHERE id = $1`, [
+      event.rows[0].id,
+      applied,
+    ]);
+    await client.query("COMMIT");
+    const queue = await learningReviewQueue(userId, now, "all");
+    return { ...queue, applied, duplicate: false };
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
 }
