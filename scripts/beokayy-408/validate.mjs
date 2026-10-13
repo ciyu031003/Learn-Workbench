@@ -2,6 +2,7 @@
 
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   EXPECTED,
@@ -17,6 +18,10 @@ import {
   sourceUrl,
   writeJson,
 } from "./common.mjs";
+
+const BASELINE = JSON.parse(
+  await readFile(new URL("./baseline.json", import.meta.url), "utf8"),
+);
 
 const args = parseArgs(process.argv.slice(2));
 const OUT_DIR = resolveOutDir(args);
@@ -40,9 +45,9 @@ async function main() {
   const errors = [];
   const warnings = [];
 
-  validateQuestions(questions, errors, warnings);
-  validatePapers(papers, questions, errors, warnings);
-  validateKnowledge(subjects, questions, errors, warnings);
+  validateQuestions(questions, errors, warnings, BASELINE);
+  validatePapers(papers, questions, errors, warnings, BASELINE);
+  validateKnowledge(subjects, questions, errors, warnings, BASELINE);
   validateSamples(manifest, papers, errors, warnings);
 
   const imageCheck = CHECK_ONLINE_IMAGES
@@ -96,6 +101,7 @@ async function main() {
       `[beokayy-408] validation ${report.ok ? "passed" : "failed"}`,
       `years=${report.summary.years}`,
       `questions=${report.summary.questions}`,
+      `baseline=${BASELINE.minimum.papers}p/${BASELINE.minimum.questions}q`,
       `errors=${errors.length}`,
       `warnings=${warnings.length}`,
       `onlineImages=${imageCheck.checked}`,
@@ -105,8 +111,15 @@ async function main() {
   if (!report.ok) process.exitCode = 1;
 }
 
-function validateQuestions(questions, errors, warnings) {
+function validateQuestions(questions, errors, warnings, baseline = BASELINE) {
   const ids = new Set();
+
+  if (questions.length < baseline.minimum.questions) {
+    errors.push({
+      code: "question_count_regression",
+      message: `Expected at least ${baseline.minimum.questions} questions, got ${questions.length}.`,
+    });
+  }
 
   for (const question of questions) {
     if (!/^\d{4}-\d{2}$/.test(question.id)) {
@@ -202,11 +215,11 @@ function validateQuestions(questions, errors, warnings) {
   }
 }
 
-function validatePapers(papers, questions, errors, warnings) {
-  if (papers.length !== EXPECTED.years) {
+function validatePapers(papers, questions, errors, warnings, baseline = BASELINE) {
+  if (papers.length < baseline.minimum.papers) {
     errors.push({
       code: "invalid_year_count",
-      message: `Expected ${EXPECTED.years} papers, got ${papers.length}.`,
+      message: `Expected at least ${baseline.minimum.papers} papers, got ${papers.length}.`,
     });
   }
 
@@ -310,15 +323,15 @@ function validatePapers(papers, questions, errors, warnings) {
   }
 }
 
-function validateKnowledge(subjects, questions, errors, warnings) {
-  if (subjects.length !== SUBJECTS.length) {
+function validateKnowledge(subjects, questions, errors, warnings, baseline = BASELINE) {
+  if (subjects.length < baseline.minimum.subjects) {
     errors.push({
       code: "invalid_knowledge_subject_count",
-      message: `Expected ${SUBJECTS.length} knowledge subjects, got ${subjects.length}.`,
+      message: `Expected at least ${baseline.minimum.subjects} knowledge subjects, got ${subjects.length}.`,
     });
   }
 
-  const expectedKeys = new Set(SUBJECTS.map((subject) => subject.key));
+  const expectedKeys = new Set(Object.keys(baseline.minimum.subjectsByKey));
   const actualKeys = new Set(subjects.map((subject) => subject.key));
   for (const key of expectedKeys) {
     if (!actualKeys.has(key)) {
@@ -334,6 +347,50 @@ function validateKnowledge(subjects, questions, errors, warnings) {
   const pointKeys = new Set();
 
   for (const subject of subjects) {
+    const minimum = baseline.minimum.subjectsByKey[subject.key];
+    if (!minimum) {
+      warnings.push({
+        code: "unknown_knowledge_subject",
+        subjectKey: subject.key,
+        message: "Knowledge subject is not present in the tracked baseline.",
+      });
+    } else {
+      const pointCount = subject.chapters.reduce(
+        (total, chapter) => total + chapter.points.length,
+        0,
+      );
+      const questionLinks = subject.chapters.reduce(
+        (total, chapter) =>
+          total +
+          chapter.points.reduce(
+            (pointTotal, point) => pointTotal + point.questionIds.length,
+            0,
+          ),
+        0,
+      );
+      if (subject.chapters.length < minimum.chapters) {
+        errors.push({
+          code: "knowledge_chapter_regression",
+          subjectKey: subject.key,
+          message: `Expected at least ${minimum.chapters} chapters, got ${subject.chapters.length}.`,
+        });
+      }
+      if (pointCount < minimum.points) {
+        errors.push({
+          code: "knowledge_point_regression",
+          subjectKey: subject.key,
+          message: `Expected at least ${minimum.points} points, got ${pointCount}.`,
+        });
+      }
+      if (questionLinks < minimum.questionLinks) {
+        errors.push({
+          code: "knowledge_link_regression",
+          subjectKey: subject.key,
+          message: `Expected at least ${minimum.questionLinks} question links, got ${questionLinks}.`,
+        });
+      }
+    }
+
     if (subject.chapters.length === 0) {
       errors.push({
         code: "empty_knowledge_subject",
@@ -343,6 +400,14 @@ function validateKnowledge(subjects, questions, errors, warnings) {
     }
 
     for (const chapter of subject.chapters) {
+      if (!String(chapter.title ?? "").trim()) {
+        errors.push({
+          code: "empty_knowledge_chapter_title",
+          subjectKey: subject.key,
+          chapterKey: chapter.key,
+          message: "Knowledge chapter title is empty.",
+        });
+      }
       if (chapter.points.length === 0) {
         warnings.push({
           code: "empty_knowledge_chapter",
@@ -353,6 +418,14 @@ function validateKnowledge(subjects, questions, errors, warnings) {
       }
 
       for (const point of chapter.points) {
+        if (!String(point.title ?? "").trim()) {
+          errors.push({
+            code: "empty_knowledge_point_title",
+            subjectKey: subject.key,
+            pointKey: point.key,
+            message: "Knowledge point title is empty.",
+          });
+        }
         if (pointKeys.has(point.key)) {
           errors.push({
             code: "duplicate_knowledge_point",
@@ -496,4 +569,14 @@ async function checkImage(url) {
   return { url, status, contentType, error };
 }
 
-await main();
+const IS_MAIN =
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
+
+export {
+  validateKnowledge,
+  validatePapers,
+  validateQuestions,
+};
+
+if (IS_MAIN) await main();
