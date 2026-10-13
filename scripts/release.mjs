@@ -335,5 +335,5 @@ if (version) {
   log("\n后续（必须人工完成）：");
   log("  1. 提交并推送代码，打 tag：" + `git tag -a v${version} -m "v${version}" && git push origin main v${version}`);
   log("  2. 门户仓库提交（download.html / mobile-update.json / 二维码）并推送");
-  log("  3. 更新 docs/改动记录与任务看板.md 的发布取证表");
+  log("  3. 更新本地 docs/改动记录与任务看板.md 的发布取证表（仅本地，不入 Git）");
 }

@@ -8,6 +8,7 @@
 
 - 📚 **多职业学习路线**：ICT（固定）+ 前端 / Java 后端 / 数据分析 / AI / 网络安全；阶段折叠、主题打勾、进度聚合、资源/项目/验收点、自定义学习内容、大阶段拖拽排序（自动更名 P1/P2/…）
 - ✅ **任务 / 专注 / 日志**：每日任务、全屏环形专注倒计时（三背景模式、前台服务保活 + 圆环通知）、专注打卡分享卡片（分布图/时间轴 + 导出/分享）、学习日志、JSON 导入导出
+- 🧠 **学习与复习**：技术题库、知识点阅读、408 考研专区、练习记录与 SM-2 间隔复习；服务端同时运行 FSRS 影子双跑评估，但到期时间仍由 SM-2 决定
 - 💪 **习惯与健康**：习惯打卡与热力趋势、饮水/饮食/体重记录（全局食物营养库 + 自建基准库）、训练动作库、3D 状态球健康总览、健康提醒（喝水/站立/休息）
 - 💼 **求职工作台**：每日定时爬取招聘信息（官方信息源 + 互联网平台，Node 双引擎），卡片流 + 详情 + 收藏；面试题库；简历管理（文件上 COS）
 - 🏸 **运动档案**：羽毛球/网球等多项目档案图鉴、装备图库、闪光卡（3D 卡面 + 荣誉墙）与公开分享页
@@ -24,7 +25,7 @@
 | 工程 | pnpm monorepo（pnpm 11）+ Turborepo + Vitest + Playwright（e2e） |
 | Web 端 | Next.js 16（App Router / Route Handlers）+ React 19 + Tailwind CSS 4 + Zustand + zod |
 | 移动端 | Expo SDK 57 / React Native 0.86（5 个 Tab：今日 / 学习 / 职业 / 健康 / 我的，本地 AsyncStorage + 云同步客户端 + OTA） |
-| 数据层 | PostgreSQL（`db/schema.sql` + `db/seed_content.sql` + `db/migrations/001~057`） |
+| 数据层 | PostgreSQL（`db/schema.sql` + `db/seed_content.sql` + `db/migrations/001~074`） |
 | 爬虫 | Node 双引擎（http 引擎 + Playwright 过 WAF）：招聘 / 面试题库 / 装备图库；Python 3 Bing 壁纸（仅标准库） |
 | 部署 | PM2 / Nginx 或 Docker Compose（db + init + web）；每日数据管线：宿主机 crontab → `POST /api/internal/cron?job=crawl\|aggregate\|backfill\|maintenance\|interview\|food`（`x-cron-secret` 鉴权） |
 
@@ -38,17 +39,17 @@ packages/content    路线图内容数据（与 db/seed_content.sql 同源）
 packages/ui         设计 tokens
 packages/config     配置常量
 e2e/                Playwright 回归测试
-db/                 schema.sql + seed_content.sql + migrations/001~057
+db/                 schema.sql + seed_content.sql + migrations/001~074
 scripts/            招聘/题库/装备爬虫、Bing 壁纸爬虫、数据库启停与 schema 校验、字阶护栏、管理员创建
 deploy/             Nginx 配置模板
 deploy.sh           服务器一键部署脚本（Node + PostgreSQL + PM2）
 deploy-docker.sh    Docker 一键部署脚本（docker-compose 包装）
 Dockerfile          Web 端 Docker 镜像（多阶段构建）
 docker-compose.yml  Docker 编排（db + init + web）
-docs/               改动记录与任务看板、第三方许可/署名、上架素材
+content-platform/   ADR、API 契约、索引台账、阶段报告（仅本地保留，不入 Git）
 ```
 
-项目规则与协作约定见 [CLAUDE.md](CLAUDE.md)；各工作区的详细说明见各目录内 `CLAUDE.md`。
+本仓库的 Git 只保留 README；架构设计、ADR、改动记录、运行手册、阶段报告和发布取证继续保存在本地工作区，但不会上传 GitHub。
 
 ## 本地开发
 
@@ -286,10 +287,8 @@ pg_restore -h 127.0.0.1 -U lwb -d Learn-Workbench --clean --if-exists learn-work
 - **依赖下载慢**：默认已启用淘宝镜像（`NPM_REGISTRY` 可覆盖）；Docker 部署还可在 Docker daemon 配置 `registry-mirrors` 加速拉取基础镜像。
 - **数据库连接失败**：确认 `apps/web/.env.local` 里的 `PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD` 与部署时一致。
 
-## 相关文档
+## 文档策略
 
-- [CLAUDE.md](CLAUDE.md) —— 项目规则与协作约定（新会话先读）
-- [docs/改动记录与任务看板.md](docs/改动记录与任务看板.md) —— 改动明细、任务看板、踩坑清单（活文档，持续更新）
-- [docs/THIRD_PARTY.md](docs/THIRD_PARTY.md) —— 第三方许可记录
-- [docs/第三方UI来源与署名.md](docs/第三方UI来源与署名.md) —— UI 技法来源与署名
-- [docs/APP端上架素材与隐私说明.md](docs/APP端上架素材与隐私说明.md) —— 安卓市场送审素材（上架前需更新版本信息）
+- Git 仓库只保留 `README.md`，用于项目介绍、技术栈、安装部署和常用命令。
+- 架构设计、ADR、改动记录、运行手册、发布清单、阶段报告等文档只保存在本地工作区，默认被 `.gitignore` 忽略，不会上传 GitHub。
+- 后续新增文档也遵循同一规则；如果文档需要对外发布，应先把稳定结论回写到 README，再单独评估是否将文档放入其他发布渠道。
