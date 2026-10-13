@@ -8,7 +8,8 @@
 | `GET  /api/learning/catalog` | 无 | 读 |
 | `GET  /api/learning/progress?track=` | 登录（`user_id` 隔离） | 读 |
 | `GET  /api/learning/library-state?track=` | 登录 | 读 |
-| `GET  /api/learning/review` | 登录 | 读（到期队列，SM-2） |
+| `GET  /api/learning/review?scope=due\|all` | 登录 | 读（`due` 为到期队列；`all` 用于计划管理，SM-2） |
+| `PATCH /api/learning/review` | 登录 | **幂等**：`clientId` 标识一次延后/暂停/恢复/完成操作 |
 | `POST /api/learning/read` | 登录 | **幂等**：进度只增不减，重复上报同 `clientId` 不重复计数 |
 | `POST /api/learning/favorite` | 登录 | **幂等**：`favorite=false` 即取消（软删除），可再次收藏 |
 | `POST /api/learning/attempt` | 登录 | 追加型（每次作答都是新事实） |
@@ -28,7 +29,8 @@
   "questionKey": "java-async-01",        // 1..120
   "trackSlug": "java",
   "stageKey": "java-async-browser",
-  "chosenAnswer": ["A"]                   // 1..8 项
+  "chosenAnswer": ["A"],                  // 1..8 项
+  "clientId": "mobile-attempt-abc123"      // 可选；离线重试去重
 }
 // 响应 201（learningAttemptResultSchema）
 {
@@ -42,6 +44,32 @@
 | 400 | `validation_failed` | body 不满足 `learningAttemptInputSchema` |
 | 401 | `unauthorized` | 未登录 |
 | 500 | `internal_error` | 落库失败（不泄漏内部细节） |
+
+**幂等口径**：同一用户携带相同 `clientId` 重放作答只写一条 `learning_attempts`，
+并且只推进一次复习卡。无 `clientId` 的旧客户端仍按追加型处理。
+
+## PATCH /api/learning/review
+
+```jsonc
+// 延后：snoozeDays 与 snoozeUntil 可同时给；后者保留客户端本地时间语义。
+{
+  "action": "snooze",                    // snooze | pause | resume | complete
+  "questionKeys": ["java-async-01"],
+  "clientId": "mobile-review-abc123",
+  "snoozeDays": 1,
+  "snoozeUntil": "2026-10-14T12:00:00.000Z"
+}
+
+// 暂停 / 恢复 / 完成只需 action + questionKeys + clientId。
+```
+
+响应在 `learningReviewResponseSchema` 基础上追加：
+
+```jsonc
+{ "applied": 1, "duplicate": false, "cards": [], "weakTopics": [] }
+```
+
+服务端在事务内锁定卡片后再动作，重复 `clientId` 返回 `duplicate=true` 且不二次延长间隔。
 
 ## POST /api/learning/read
 

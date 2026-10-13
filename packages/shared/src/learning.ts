@@ -5,6 +5,8 @@ export const learningAttemptInputSchema = z.object({
   trackSlug: z.string().min(1).max(80),
   stageKey: z.string().min(1).max(120),
   chosenAnswer: z.array(z.string().min(1).max(120)).min(1).max(8),
+  /** 客户端稳定幂等键；重试同一作答不会重复推进复习计划 */
+  clientId: z.string().min(8).max(120).optional(),
 });
 export type LearningAttemptInput = z.infer<typeof learningAttemptInputSchema>;
 
@@ -62,6 +64,14 @@ export interface MasteryBasis {
   accuracyWeight: number;
   recencyWeight: number;
   lambda: number;
+  /** 参与计算的最近题数（窗口内） */
+  sampleSize: number;
+  /** 参与计算的去重题目数 */
+  questionCount: number;
+  /** 最近一次练习时间；没有作答时为 null */
+  latestAttemptAt: string | null;
+  /** 固定口径标识，便于 Web / 移动端解释同一套数字 */
+  method: "bounded_recent_accuracy_with_recency";
   /** 指数加权正确率 0..1 */
   weightedAccuracy: number;
   /** 时间新鲜度 0..1 */
@@ -79,13 +89,37 @@ export interface LearningSummary {
 
 /* ================= 间隔复习（SM-2 卡片，服务端状态） ================= */
 
-export const learningReviewStatusSchema = z.enum(["learning", "review", "mastered"]);
+export const learningReviewStatusSchema = z.enum(["learning", "review", "mastered", "suspended"]);
 export type LearningReviewStatus = z.infer<typeof learningReviewStatusSchema>;
+
+export const learningReviewAlgorithmVersion = "sm2-lwb-v2" as const;
+
+export const learningReviewActionSchema = z
+  .object({
+    action: z.enum(["snooze", "pause", "resume", "complete"]),
+    questionKeys: z.array(z.string().min(1).max(120)).min(1).max(100),
+    clientId: z.string().min(8).max(120),
+    /** 延后天数与绝对时间二选一；绝对时间用于保留客户端时区语义 */
+    snoozeDays: z.number().int().min(1).max(30).optional(),
+    snoozeUntil: z.string().datetime({ offset: true }).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.action !== "snooze") return;
+    if (!value.snoozeDays && !value.snoozeUntil) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["snoozeDays"],
+        message: "snooze requires snoozeDays or snoozeUntil",
+      });
+    }
+  });
+export type LearningReviewActionInput = z.infer<typeof learningReviewActionSchema>;
 
 export const learningReviewCardSchema = z.object({
   questionKey: z.string(),
   trackSlug: z.string(),
   stageKey: z.string(),
+  topicKey: z.string().nullable(),
   status: learningReviewStatusSchema,
   intervalDays: z.number(),
   ease: z.number(),
@@ -93,16 +127,221 @@ export const learningReviewCardSchema = z.object({
   lapses: z.number(),
   dueAt: z.string(),
   lastResult: z.boolean().nullable(),
+  algorithmVersion: z.string(),
+  scheduleReason: z.string(),
+  suspendedFromStatus: learningReviewStatusSchema.nullable(),
+  updatedAt: z.string(),
 });
 export type LearningReviewCard = z.infer<typeof learningReviewCardSchema>;
 
+export const learningWeakTopicSchema = z.object({
+  trackSlug: z.string(),
+  stageKey: z.string(),
+  topicKey: z.string(),
+  title: z.string(),
+  dueCount: z.number(),
+  wrongCount: z.number(),
+});
+export type LearningWeakTopic = z.infer<typeof learningWeakTopicSchema>;
+
 export const learningReviewResponseSchema = z.object({
   cards: z.array(learningReviewCardSchema),
+  weakTopics: z.array(learningWeakTopicSchema),
   dueCount: z.number(),
   totalCount: z.number(),
   masteredCount: z.number(),
+  suspendedCount: z.number(),
+  generatedAt: z.string(),
 });
 export type LearningReviewResponse = z.infer<typeof learningReviewResponseSchema>;
+
+export const learningReviewMutationResponseSchema = learningReviewResponseSchema.extend({
+  applied: z.number(),
+  duplicate: z.boolean(),
+});
+export type LearningReviewMutationResponse = z.infer<typeof learningReviewMutationResponseSchema>;
+
+export interface LearningReviewScheduleState {
+  status: LearningReviewStatus;
+  intervalDays: number;
+  ease: number;
+  streak: number;
+  lapses: number;
+  dueAt: string;
+  suspendedFromStatus: LearningReviewStatus | null;
+}
+
+export interface LearningReviewScheduleResult extends LearningReviewScheduleState {
+  algorithmVersion: typeof learningReviewAlgorithmVersion;
+  scheduleReason: string;
+  completedAt: string | null;
+  suspendedAt: string | null;
+}
+
+const REVIEW_INTERVAL_MIN = 7;
+const REVIEW_INTERVAL_MAX = 60;
+const REVIEW_EASE_MIN = 1.3;
+const REVIEW_EASE_MAX = 3.5;
+
+function isoAfterDays(from: Date, days: number): string {
+  return new Date(from.getTime() + days * 86_400_000).toISOString();
+}
+
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+/**
+ * 当前服务端调度器的纯函数版本。
+ *
+ * 算法仍是可迁移的 SM-2 变体，而不是直接套 FSRS：
+ *   - 首次答对 1 天，之后 3 天、7 天；
+ *   - 再往后按 interval × ease 扩展，限制在 7..60 天；
+ *   - 答错回到 1 天并降低 ease；连续答对 4 次视为 mastered；
+ *   - 暂停卡在被作答时自动恢复，避免离线补交把用户永久留在暂停态。
+ */
+export function scheduleLearningReview(input: {
+  state: LearningReviewScheduleState;
+  isCorrect: boolean;
+  now: Date;
+}): LearningReviewScheduleResult {
+  const { state, isCorrect, now } = input;
+  const resumedByAttempt = state.status === "suspended";
+
+  if (!isCorrect) {
+    return {
+      status: "learning",
+      intervalDays: 1,
+      ease: round2(Math.max(REVIEW_EASE_MIN, state.ease - 0.2)),
+      streak: 0,
+      lapses: state.lapses + 1,
+      dueAt: isoAfterDays(now, 1),
+      suspendedFromStatus: null,
+      algorithmVersion: learningReviewAlgorithmVersion,
+      scheduleReason: resumedByAttempt ? "resumed_by_wrong_attempt" : "wrong_answer",
+      completedAt: null,
+      suspendedAt: null,
+    };
+  }
+
+  const intervalDays =
+    state.intervalDays === 0
+      ? 1
+      : state.intervalDays === 1
+        ? 3
+        : state.intervalDays === 3
+          ? 7
+          : Math.min(
+              REVIEW_INTERVAL_MAX,
+              Math.max(REVIEW_INTERVAL_MIN, Math.round(state.intervalDays * state.ease))
+            );
+  const streak = state.streak + 1;
+  return {
+    status: streak >= 4 ? "mastered" : "review",
+    intervalDays,
+    ease: round2(Math.min(REVIEW_EASE_MAX, state.ease + 0.05)),
+    streak,
+    lapses: state.lapses,
+    dueAt: isoAfterDays(now, intervalDays),
+    suspendedFromStatus: null,
+    algorithmVersion: learningReviewAlgorithmVersion,
+    scheduleReason: resumedByAttempt
+      ? "resumed_by_correct_attempt"
+      : streak >= 4
+        ? "mastered_after_four_correct"
+        : "correct_answer",
+    completedAt: null,
+    suspendedAt: null,
+  };
+}
+
+export function applyLearningReviewAction(input: {
+  card: LearningReviewCard;
+  action: LearningReviewActionInput["action"];
+  now: Date;
+  snoozeDays?: number;
+  snoozeUntil?: string;
+}): LearningReviewCard {
+  const { card, action, now } = input;
+  if (action === "snooze") {
+    const until = input.snoozeUntil ? Date.parse(input.snoozeUntil) : Number.NaN;
+    const base = Math.max(
+      now.getTime(),
+      Date.parse(card.dueAt),
+      Number.isFinite(until) ? until : 0
+    );
+    const days = input.snoozeDays ?? 0;
+    const target = input.snoozeUntil ? base : base + Math.max(1, days) * 86_400_000;
+    return {
+      ...card,
+      dueAt: new Date(target).toISOString(),
+      scheduleReason: input.snoozeDays ? `snoozed_${input.snoozeDays}d` : "snoozed_until_local",
+      updatedAt: now.toISOString(),
+    };
+  }
+  if (action === "pause") {
+    if (card.status === "suspended") return card;
+    return {
+      ...card,
+      status: "suspended",
+      suspendedFromStatus: card.status,
+      scheduleReason: "paused_by_user",
+      updatedAt: now.toISOString(),
+    };
+  }
+  if (action === "resume") {
+    if (card.status !== "suspended") return card;
+    const resumedStatus =
+      card.suspendedFromStatus && card.suspendedFromStatus !== "suspended"
+        ? card.suspendedFromStatus
+        : card.intervalDays > 0
+          ? "review"
+          : "learning";
+    return {
+      ...card,
+      status: resumedStatus,
+      suspendedFromStatus: null,
+      dueAt: new Date(Math.max(now.getTime(), Date.parse(card.dueAt))).toISOString(),
+      scheduleReason: "resumed_by_user",
+      updatedAt: now.toISOString(),
+    };
+  }
+  return {
+    ...card,
+    status: "mastered",
+    suspendedFromStatus: null,
+    scheduleReason: "completed_by_user",
+    dueAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+  };
+}
+
+export function isLearningReviewDue(card: LearningReviewCard, now: Date): boolean {
+  return card.status !== "mastered" && card.status !== "suspended" && Date.parse(card.dueAt) <= now.getTime();
+}
+
+export function learningDayKey(iso: string, timeZone?: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  if (timeZone) {
+    try {
+      const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).formatToParts(date);
+      const pick = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
+      const year = pick("year");
+      const month = pick("month");
+      const day = pick("day");
+      if (year && month && day) return `${year}-${month}-${day}`;
+    } catch {
+      // 非法时区回退到 UTC，不让统计接口报错。
+    }
+  }
+  return date.toISOString().slice(0, 10);
+}
 
 /* ================= 阅读体验状态（阶段 8 = V3 Phase B） ================= */
 
@@ -249,6 +488,10 @@ export function summarizeLearningAttempts(
     accuracyWeight: LEARNING_MASTERY.accuracyWeight,
     recencyWeight: LEARNING_MASTERY.recencyWeight,
     lambda: LEARNING_MASTERY.lambda,
+    sampleSize: Math.min(unique.length, LEARNING_MASTERY.window),
+    questionCount: unique.length,
+    latestAttemptAt: newest?.createdAt ?? null,
+    method: "bounded_recent_accuracy_with_recency",
     weightedAccuracy: weightedAccuracy(unique.map((attempt) => attempt.isCorrect)),
     decay: newest ? masteryDecay(daysSince) : 0,
   };

@@ -13,7 +13,7 @@
 | 已限流 | 17 / 143 |
 | 内部接口（`api/internal/**`） | 8（已限流 8） |
 | 已有 OpenAPI 条目 | 14 / 143 |
-| 已用统一错误 envelope | 26 / 143 |
+| 已用统一错误 envelope | 28 / 143 |
 
 ## 2. 未文档化清单（H2 跟进，不阻断）
 
@@ -21,7 +21,7 @@
 
 ## 3. 未迁移统一错误 envelope 清单（棘轮：只许减少，不许新增）
 
-共 117 个：`/api/ai/tip`、`/api/auth/account`、`/api/auth/forgot`、`/api/auth/identities`、`/api/auth/login`、`/api/auth/logout`、`/api/auth/me`、`/api/auth/password`、`/api/auth/register`、`/api/auth/reset`、`/api/auth/wechat/bind`、`/api/auth/wechat/callback`、`/api/auth/wechat/qrcode`、`/api/auth/wechat/status`、`/api/background`、`/api/background/img`、`/api/background/refresh`、`/api/careers`、`/api/daily`、`/api/dashboard`、`/api/diagnostics`、`/api/domains`、`/api/domains/[key]/duplicate`、`/api/domains/overview`、`/api/equipment`、`/api/exercises`、`/api/export`、`/api/focus/daily`、`/api/focus/stats`、`/api/github`、`/api/import`、`/api/internal/cron`、`/api/internal/equipment/import`、`/api/internal/interview/import`、`/api/internal/metrics`、`/api/jobs`、`/api/jobs/[id]`、`/api/jobs/[id]/favorite`、`/api/jobs/[id]/gaps`、`/api/jobs/[id]/match`、`/api/jobs/[id]/plan`、`/api/jobs/applications`、`/api/jobs/applications/[id]`、`/api/jobs/calendar`、`/api/jobs/cluster`、`/api/jobs/config`、`/api/jobs/favorites`、`/api/jobs/gaps/enroll`、`/api/jobs/health`、`/api/jobs/hosts/update`、`/api/jobs/notifications`、`/api/jobs/notifications/read`、`/api/jobs/radar`、`/api/jobs/run`、`/api/jobs/runs`、`/api/jobs/skills`、`/api/jobs/sources`、`/api/jobs/stats`、`/api/jobs/subscriptions`、`/api/jobs/subscriptions/[id]`、`/api/learning/attempt`、`/api/learning/catalog`、`/api/learning/content-freshness`、`/api/learning/favorite`、`/api/learning/library-state`、`/api/learning/point-states`、`/api/learning/progress`、`/api/learning/question-status`、`/api/learning/read`、`/api/learning/review`、`/api/market`、`/api/market/decision`、`/api/market/intelligence`、`/api/market/personal`、`/api/market/views`、`/api/market/views/[id]`、`/api/notes`、`/api/nutrition/summary`、`/api/phases`、`/api/profile/info`、`/api/profile/readiness`、`/api/profile/skills`、`/api/public/stats`、`/api/questions`、`/api/questions/answers`、`/api/questions/attempt`、`/api/questions/attempts`、`/api/resume-assets`、`/api/resume-files`、`/api/resume-files/[id]`、`/api/resumes`、`/api/resumes/[id]`、`/api/roadmap`、`/api/roadmap/custom`、`/api/roadmap/phases`、`/api/roadmap/reorder`、`/api/settings/career`、`/api/skills/gaps`、`/api/skills/recommend`、`/api/sports`、`/api/sports/profiles`、`/api/sports/profiles/[id]`、`/api/sports/share/[id]`、`/api/summary`、`/api/sync/pull`、`/api/sync/push`、`/api/trackers/logs`、`/api/uploads`、`/api/wellbeing/breaks`、`/api/wellbeing/energy`、`/api/wellbeing/exercise`、`/api/wellbeing/exercise/goal`、`/api/wellbeing/goal`、`/api/wellbeing/profile`、`/api/wellbeing/reminders`、`/api/wellbeing/today`、`/api/workouts/[id]`。新路由必须用 `apiError(...)`／`dbErrorResponse(...)` 出错误响应；存量迁移一条就把基线减一。
+共 115 个：`/api/ai/tip`、`/api/auth/account`、`/api/auth/forgot`、`/api/auth/identities`、`/api/auth/login`、`/api/auth/logout`、`/api/auth/me`、`/api/auth/password`、`/api/auth/register`、`/api/auth/reset`、`/api/auth/wechat/bind`、`/api/auth/wechat/callback`、`/api/auth/wechat/qrcode`、`/api/auth/wechat/status`、`/api/background`、`/api/background/img`、`/api/background/refresh`、`/api/careers`、`/api/daily`、`/api/dashboard`、`/api/diagnostics`、`/api/domains`、`/api/domains/[key]/duplicate`、`/api/domains/overview`、`/api/equipment`、`/api/exercises`、`/api/export`、`/api/focus/daily`、`/api/focus/stats`、`/api/github`、`/api/import`、`/api/internal/cron`、`/api/internal/equipment/import`、`/api/internal/interview/import`、`/api/internal/metrics`、`/api/jobs`、`/api/jobs/[id]`、`/api/jobs/[id]/favorite`、`/api/jobs/[id]/gaps`、`/api/jobs/[id]/match`、`/api/jobs/[id]/plan`、`/api/jobs/applications`、`/api/jobs/applications/[id]`、`/api/jobs/calendar`、`/api/jobs/cluster`、`/api/jobs/config`、`/api/jobs/favorites`、`/api/jobs/gaps/enroll`、`/api/jobs/health`、`/api/jobs/hosts/update`、`/api/jobs/notifications`、`/api/jobs/notifications/read`、`/api/jobs/radar`、`/api/jobs/run`、`/api/jobs/runs`、`/api/jobs/skills`、`/api/jobs/sources`、`/api/jobs/stats`、`/api/jobs/subscriptions`、`/api/jobs/subscriptions/[id]`、`/api/learning/attempt`、`/api/learning/catalog`、`/api/learning/content-freshness`、`/api/learning/favorite`、`/api/learning/library-state`、`/api/learning/point-states`、`/api/learning/question-status`、`/api/learning/read`、`/api/market`、`/api/market/decision`、`/api/market/intelligence`、`/api/market/personal`、`/api/market/views`、`/api/market/views/[id]`、`/api/notes`、`/api/nutrition/summary`、`/api/phases`、`/api/profile/info`、`/api/profile/readiness`、`/api/profile/skills`、`/api/public/stats`、`/api/questions`、`/api/questions/answers`、`/api/questions/attempt`、`/api/questions/attempts`、`/api/resume-assets`、`/api/resume-files`、`/api/resume-files/[id]`、`/api/resumes`、`/api/resumes/[id]`、`/api/roadmap`、`/api/roadmap/custom`、`/api/roadmap/phases`、`/api/roadmap/reorder`、`/api/settings/career`、`/api/skills/gaps`、`/api/skills/recommend`、`/api/sports`、`/api/sports/profiles`、`/api/sports/profiles/[id]`、`/api/sports/share/[id]`、`/api/summary`、`/api/sync/pull`、`/api/sync/push`、`/api/trackers/logs`、`/api/uploads`、`/api/wellbeing/breaks`、`/api/wellbeing/energy`、`/api/wellbeing/exercise`、`/api/wellbeing/exercise/goal`、`/api/wellbeing/goal`、`/api/wellbeing/profile`、`/api/wellbeing/reminders`、`/api/wellbeing/today`、`/api/workouts/[id]`。新路由必须用 `apiError(...)`／`dbErrorResponse(...)` 出错误响应；存量迁移一条就把基线减一。
 
 ## 4. 全量台账
 
@@ -107,10 +107,10 @@
 | `/api/learning/favorite` | POST | 登录 | — | ✅ | ✅ | — |
 | `/api/learning/library-state` | GET | 登录 | — | ✅ | ✅ | — |
 | `/api/learning/point-states` | GET | 登录 | — | ✅ | ✅ | — |
-| `/api/learning/progress` | GET | 登录 | — | ✅ | ✅ | — |
+| `/api/learning/progress` | GET | 登录 | — | ✅ | ✅ | ✅ |
 | `/api/learning/question-status` | GET | 公开 | — | ✅ | ✅ | — |
 | `/api/learning/read` | POST | 登录 | — | ✅ | ✅ | — |
-| `/api/learning/review` | GET | 登录 | — | ✅ | ✅ | — |
+| `/api/learning/review` | GET PATCH | 登录 | — | ✅ | ✅ | ✅ |
 | `/api/logs` | GET POST | 登录 | — | ✅ | — | ✅ |
 | `/api/market` | GET | 公开 | — | ✅ | — | — |
 | `/api/market/decision` | GET | 登录 | — | ✅ | — | — |

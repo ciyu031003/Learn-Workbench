@@ -4,7 +4,6 @@ import { router, useLocalSearchParams } from "expo-router";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getLearningTrack, type LearningQuestion, type LearningTrack } from "@learn-workbench/content";
-import { getApiUrl } from "@/config";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
 import { haptics } from "@/lib/haptics";
@@ -13,11 +12,13 @@ import { quizFooterPaddingBottom, quizTopBarPaddingTop } from "@/lib/quiz-layout
 import {
   isLearningAnswerCorrect,
   loadLearningAttempts,
+  newLearningAttemptId,
   pickLearningQuestions,
   recordLearningAttempt,
   wrongQuestionKeys,
   type LearningAttempt,
 } from "@/lib/learning-progress";
+import { flushLearningAttempts, syncLearningAttempt } from "@/lib/learning-sync";
 import { fetchDueReviewKeys } from "@/lib/learning-review";
 import { CelebrationModal } from "@/components/celebration-modal";
 import { useAppStore } from "@/store/app-store";
@@ -96,7 +97,7 @@ function SessionContent({
     }
     return pickLearningQuestions(track, {
       stageKey: poolMode ? null : stageKey,
-      topicKey: poolMode ? null : topicKey,
+      topicKey: mode === "due" ? topicKey : poolMode ? null : topicKey,
       count: mode === "daily" ? 12 : 8,
       seed: seed || localKey(new Date()),
       wrongKeys: wrong,
@@ -119,6 +120,10 @@ function SessionContent({
     };
   }, [loadSession]);
 
+  useEffect(() => {
+    if (token) void flushLearningAttempts(token);
+  }, [token]);
+
   const question = questions[index];
   const isCorrect = question ? isLearningAnswerCorrect(question, selected) : false;
   const source = question ? track.sources.find((item) => item.key === question.sourceKey) : null;
@@ -140,6 +145,7 @@ function SessionContent({
       haptics.error();
     }
     const attempt: LearningAttempt = {
+      clientId: newLearningAttemptId(),
       questionKey: question.key,
       trackSlug: track.slug,
       stageKey: question.stageKey,
@@ -147,19 +153,8 @@ function SessionContent({
       isCorrect: correct,
       createdAt: new Date().toISOString(),
     };
-    await recordLearningAttempt(attempt);
-    if (token) {
-      fetch(getApiUrl() + "/api/learning/attempt", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          questionKey: question.key,
-          trackSlug: track.slug,
-          stageKey: question.stageKey,
-          chosenAnswer: selected,
-        }),
-      }).catch(() => {});
-    }
+    const saved = await recordLearningAttempt(attempt);
+    if (token) void syncLearningAttempt(saved, token);
   };
 
   const next = () => {

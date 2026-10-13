@@ -1399,6 +1399,7 @@ CREATE TABLE IF NOT EXISTS learning_attempts (
   question_key   text NOT NULL,
   chosen_answer  jsonb NOT NULL DEFAULT '[]'::jsonb,
   is_correct     boolean NOT NULL,
+  client_id      text,
   created_at     timestamptz NOT NULL DEFAULT now()
 );
 
@@ -1408,20 +1409,36 @@ CREATE INDEX IF NOT EXISTS idx_learning_attempts_user_question
   ON learning_attempts(user_id, question_key, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_learning_attempts_track
   ON learning_attempts(user_id, track_slug, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_learning_attempts_user_client
+  ON learning_attempts(user_id, client_id)
+  WHERE client_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS learning_review_cards (
   user_id        uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   question_key   text NOT NULL,
   track_slug     text NOT NULL,
   stage_key      text NOT NULL,
+  topic_key      text,
   status         text NOT NULL DEFAULT 'learning'
-                 CHECK (status IN ('learning', 'review', 'mastered')),
+                 CONSTRAINT ck_learning_review_cards_status
+                 CHECK (status IN ('learning', 'review', 'mastered', 'suspended')),
   interval_days  int NOT NULL DEFAULT 0 CHECK (interval_days >= 0),
   ease           numeric(4,2) NOT NULL DEFAULT 2.50 CHECK (ease >= 1.30 AND ease <= 3.50),
   streak         int NOT NULL DEFAULT 0 CHECK (streak >= 0),
   lapses         int NOT NULL DEFAULT 0 CHECK (lapses >= 0),
   due_at         timestamptz NOT NULL DEFAULT now(),
   last_result    boolean,
+  algorithm_version text NOT NULL DEFAULT 'sm2-lwb-v1',
+  schedule_reason text NOT NULL DEFAULT 'legacy',
+  suspended_from_status text
+                         CONSTRAINT ck_learning_review_cards_suspended_from
+                         CHECK (
+                           suspended_from_status IS NULL
+                           OR suspended_from_status IN ('learning', 'review', 'mastered')
+                         ),
+  suspended_at   timestamptz,
+  completed_at   timestamptz,
+  last_attempt_id bigint REFERENCES learning_attempts(id) ON DELETE SET NULL,
   updated_at     timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, question_key)
 );
@@ -1430,10 +1447,31 @@ CREATE INDEX IF NOT EXISTS idx_learning_review_due
   ON learning_review_cards(user_id, due_at);
 CREATE INDEX IF NOT EXISTS idx_learning_review_track
   ON learning_review_cards(user_id, track_slug);
+CREATE INDEX IF NOT EXISTS idx_learning_review_topic
+  ON learning_review_cards(user_id, track_slug, stage_key, topic_key);
+CREATE INDEX IF NOT EXISTS idx_learning_review_status_due
+  ON learning_review_cards(user_id, status, due_at);
 
 DROP TRIGGER IF EXISTS trg_learning_review_cards_updated ON learning_review_cards;
 CREATE TRIGGER trg_learning_review_cards_updated BEFORE UPDATE ON learning_review_cards
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TABLE IF NOT EXISTS learning_review_events (
+  id             bigserial PRIMARY KEY,
+  user_id        uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  client_id      text NOT NULL,
+  action         text NOT NULL
+                 CONSTRAINT ck_learning_review_events_action
+                 CHECK (action IN ('snooze', 'pause', 'resume', 'complete')),
+  question_keys  jsonb NOT NULL DEFAULT '[]'::jsonb,
+  payload        jsonb NOT NULL DEFAULT '{}'::jsonb,
+  applied_count  int NOT NULL DEFAULT 0 CHECK (applied_count >= 0),
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (user_id, client_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_learning_review_events_user_created
+  ON learning_review_events(user_id, created_at DESC);
 
 
 -- ---------- 22. 统一内容模型与稳定 ID（迁移 060：组二 · 阶段 7 = V3 纵轨 Phase A） ----------

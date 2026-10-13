@@ -16,6 +16,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { LearningMastery } from "@/components/learning/mastery-badge";
+import { ReviewPlan } from "@/components/learning/review-plan";
 import { CodeCopyButton, FavoriteMark, ReadBadge, useLibraryState } from "@/components/learning/library-state";
 import { FreshnessBadge, PointStateSummary, StateDots, useContentFreshness, usePointStates } from "@/components/learning/point-states";
 import { AlgorithmAnimation } from "@/components/learning/algorithm-animation";
@@ -186,6 +187,8 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
           {pointStates.status === "ready" ? <PointStateSummary points={pointStates.points} /> : null}
         </CardContent>
       </Card>
+
+      <ReviewPlan trackSlug={track.slug} />
 
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">课程大纲</h2>
