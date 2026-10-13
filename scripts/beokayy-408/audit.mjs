@@ -189,6 +189,15 @@ async function inspectDatabase(report, model) {
       [SOURCE_KEY],
     );
     const row = source.rows[0] ?? null;
+    const batchResult = await client.query(
+      `SELECT id, mode, status, commit_sha, report, started_at, finished_at
+         FROM content_import_batch
+        WHERE source_key = $1
+        ORDER BY id DESC
+        LIMIT 1`,
+      [SOURCE_KEY],
+    );
+    const batch = batchResult.rows[0] ?? null;
 
     report.database = {
       status: "connected",
@@ -199,6 +208,17 @@ async function inspectDatabase(report, model) {
             manifestSha256: row.manifest_sha256,
             usageScope: row.usage_scope,
             capturedAt: row.captured_at,
+          }
+        : null,
+      batch: batch
+        ? {
+            id: Number(batch.id),
+            mode: batch.mode,
+            status: batch.status,
+            commitSha: batch.commit_sha,
+            report: batch.report,
+            startedAt: batch.started_at,
+            finishedAt: batch.finished_at,
           }
         : null,
     };
@@ -221,6 +241,26 @@ async function inspectDatabase(report, model) {
         code: "manifest_hash_mismatch",
         message: `Database manifest hash ${row.manifest_sha256} does not match snapshot ${model.source.manifest_sha256}.`,
       });
+    }
+    if (!batch) {
+      report.issues.push({
+        code: "missing_import_batch",
+        message: `No content_import_batch row exists for ${SOURCE_KEY}; run import-db.mjs first.`,
+      });
+    } else {
+      if (batch.status === "failed") {
+        report.issues.push({
+          code: "failed_import_batch",
+          message: `Latest import batch ${batch.id} is failed.`,
+        });
+      }
+      const batchBundleHash = batch.report?.bundleSha256;
+      if (batchBundleHash && batchBundleHash !== model.source.bundle_sha256) {
+        report.issues.push({
+          code: "batch_bundle_hash_mismatch",
+          message: `Latest import batch bundle hash ${batchBundleHash} does not match snapshot ${model.source.bundle_sha256}.`,
+        });
+      }
     }
   } catch (error) {
     report.issues.push({

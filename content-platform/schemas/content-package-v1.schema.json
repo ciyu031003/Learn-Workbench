@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://learn-workbench.local/schemas/content-package-v1.schema.json",
+  "title": "Learn-Workbench Content Package v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "formatVersion",
+    "packageKey",
+    "title",
+    "domain",
+    "status",
+    "source",
+    "course",
+    "chapters",
+    "questions"
+  ],
+  "properties": {
+    "formatVersion": { "const": 1 },
+    "packageKey": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,120}$" },
+    "title": { "type": "string", "minLength": 1 },
+    "domain": { "enum": ["learning", "exam-408"] },
+    "status": { "const": "review" },
+    "source": {
+      "type": "object",
+      "required": ["key", "name", "url", "license", "usage"],
+      "properties": {
+        "key": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "url": { "type": "string", "format": "uri", "pattern": "^https://" },
+        "license": { "type": "string", "minLength": 1 },
+        "usage": { "enum": ["import", "reference", "personal-study"] },
+        "ref": { "type": "string" },
+        "capturedAt": { "type": "string" }
+      }
+    },
+    "course": {
+      "type": "object",
+      "required": ["key", "title", "category"],
+      "properties": {
+        "key": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "category": { "type": "string", "minLength": 1 }
+      }
+    },
+    "chapters": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["key", "title", "points"],
+        "properties": {
+          "key": { "type": "string", "minLength": 1 },
+          "title": { "type": "string", "minLength": 1 },
+          "subjectKey": { "type": "string" },
+          "subjectTitle": { "type": "string" },
+          "chapterNumber": { "type": "integer", "minimum": 1 },
+          "points": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["key", "title"],
+              "properties": {
+                "key": { "type": "string", "minLength": 1 },
+                "title": { "type": "string", "minLength": 1 },
+                "summary": { "type": "string" },
+                "tags": { "type": "array", "items": { "type": "string" } },
+                "sourceUrl": { "type": "string", "pattern": "^https://" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "questions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["key", "type", "prompt", "answer", "knowledgePointKeys"],
+        "properties": {
+          "key": { "type": "string", "minLength": 1 },
+          "externalId": { "type": "string" },
+          "type": { "enum": ["choice", "comprehensive"] },
+          "subjectKey": { "type": "string" },
+          "year": { "type": "integer" },
+          "number": { "type": "integer" },
+          "pointsPossible": { "type": "number", "exclusiveMinimum": 0 },
+          "prompt": { "type": "string", "minLength": 1 },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["key", "text"],
+              "properties": {
+                "key": { "enum": ["A", "B", "C", "D"] },
+                "text": { "type": "string", "minLength": 1 }
+              }
+            }
+          },
+          "answer": {
+            "type": "object",
+            "required": ["text"],
+            "properties": {
+              "choice": { "enum": ["", "A", "B", "C", "D"] },
+              "text": { "type": "string", "minLength": 1 }
+            }
+          },
+          "knowledgePointKeys": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "sourceUrl": { "type": "string", "pattern": "^https://" }
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "properties": {
+        "status": { "enum": ["pending", "approved", "rejected"] },
+        "reviewer": { "type": "string" },
+        "reviewedAt": { "type": "string" },
+        "note": { "type": "string" }
+      }
+    }
+  }
+}

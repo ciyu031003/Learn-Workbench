@@ -1,0 +1,215 @@
+{
+  "version": 1,
+  "reviewedAt": "2026-10-13",
+  "method": "GitHub REST repository and license endpoints; repository trees and manifest files inspected at the recorded default branch. No repository was cloned or added as a dependency.",
+  "policy": {
+    "copyRule": "Only small, independently extractable modules with a permissive license and a clear dependency boundary may be adapted. GPL-family and unidentified licenses are reference-only.",
+    "contentRule": "Code license and content license are separate. 408/site content remains personal-study and is not made redistributable by this audit."
+  },
+  "projects": [
+    {
+      "key": "learn-from-materials",
+      "name": "learn-from-materials",
+      "url": "https://github.com/dmoshehun-prog/learn-from-materials",
+      "defaultBranch": "main",
+      "license": {
+        "spdx": "MIT",
+        "name": "MIT License",
+        "path": "LICENSE.md",
+        "status": "verified",
+        "evidence": "GitHub License API plus repository NOTICE.md"
+      },
+      "activity": {
+        "pushedAt": "2026-10-07T09:01:32Z",
+        "stars": 1029,
+        "archived": false
+      },
+      "stack": {
+        "languages": ["Python", "HTML"],
+        "manifests": ["SKILL.md", "scripts", "templates"],
+        "runtimeDependencies": ["Python 3.10+", "optional Node.js/Playwright for verification"]
+      },
+      "reusableModules": [
+        "source locator and traceability model",
+        "coverage/quality gate reports",
+        "material facts separated from model-added content"
+      ],
+      "securityNotes": [
+        "Extraction outputs must be sanitized before rendering.",
+        "Keep source quotes and generated content distinguishable."
+      ],
+      "decision": "adapt-small-module",
+      "decisionReason": "Adopt the traceability and validation concepts, not the HTML renderer or agent runtime."
+    },
+    {
+      "key": "exameow",
+      "name": "Exameow",
+      "url": "https://github.com/heshengtao/exameow",
+      "defaultBranch": "main",
+      "license": {
+        "spdx": "Apache-2.0",
+        "name": "Apache License 2.0",
+        "path": "LICENSE",
+        "status": "verified",
+        "evidence": "GitHub License API and THIRD_PARTY_LICENSES.csv"
+      },
+      "activity": {
+        "pushedAt": "2026-10-06T11:58:30Z",
+        "stars": 70,
+        "archived": false
+      },
+      "stack": {
+        "languages": ["TypeScript", "Vue", "Rust/Tauri"],
+        "manifests": ["frontend/package.json", "Cargo.toml", "THIRD_PARTY_LICENSES.csv"],
+        "runtimeDependencies": ["Vue", "Vite", "Tauri", "PDF/OCR tooling"]
+      },
+      "reusableModules": [
+        "question kind and review-state domain model",
+        "bulk question import/export workflow",
+        "human review before generated questions are published"
+      ],
+      "securityNotes": [
+        "OCR/PDF inputs are untrusted.",
+        "AI-generated answers require answer-change review and source checks."
+      ],
+      "decision": "adapt-small-module",
+      "decisionReason": "Reuse the state machine and review boundaries; do not embed Tauri/Vue or its AI runtime."
+    },
+    {
+      "key": "aether",
+      "name": "Aether",
+      "url": "https://github.com/StilyanX/aether",
+      "defaultBranch": "main",
+      "license": {
+        "spdx": "NOASSERTION",
+        "name": "Other",
+        "path": "LICENSE",
+        "status": "blocked",
+        "evidence": "GitHub License API returned Other/NOASSERTION; LICENSE text is not a recognized standard license"
+      },
+      "activity": {
+        "pushedAt": "2026-09-13T22:32:31Z",
+        "stars": 3,
+        "archived": false
+      },
+      "stack": {
+        "languages": ["JavaScript", "React"],
+        "manifests": ["package.json"],
+        "runtimeDependencies": ["React", "Vite", "MathJax/Prism CDN assets"]
+      },
+      "reusableModules": [
+        "reading and recall separation",
+        "prerequisite graph concepts",
+        "flashcard/active-recall product ideas"
+      ],
+      "securityNotes": [
+        "Do not copy source until the license is clarified.",
+        "CDN-loaded rendering assets require a separate CSP and availability review."
+      ],
+      "decision": "reference-only",
+      "decisionReason": "License is not sufficiently identified and the implementation is small; use product ideas only."
+    },
+    {
+      "key": "learning-platform",
+      "name": "learning-platform",
+      "url": "https://github.com/pblrvo/learning-platform",
+      "defaultBranch": "main",
+      "license": {
+        "spdx": "MIT",
+        "name": "MIT License",
+        "path": "LICENSE",
+        "status": "verified",
+        "evidence": "GitHub License API"
+      },
+      "activity": {
+        "pushedAt": "2026-08-28T16:02:01Z",
+        "stars": 0,
+        "archived": false
+      },
+      "stack": {
+        "languages": ["TypeScript", "Next.js"],
+        "manifests": ["webapp/package.json"],
+        "runtimeDependencies": ["Next.js", "Prisma", "zod", "ts-fsrs", "React"]
+      },
+      "reusableModules": [
+        "course-content and platform-code separation",
+        "schema-driven import validation",
+        "quiz and coding-exercise boundaries"
+      ],
+      "securityNotes": [
+        "Prisma/SQLite persistence is not a drop-in fit for PostgreSQL.",
+        "Avoid importing its authentication or execution surface without a separate threat review."
+      ],
+      "decision": "reference-only",
+      "decisionReason": "Useful schema ideas, but low maintenance signal and tightly coupled webapp make direct extraction a poor tradeoff."
+    },
+    {
+      "key": "moodle",
+      "name": "Moodle",
+      "url": "https://github.com/moodle/moodle",
+      "defaultBranch": "main",
+      "license": {
+        "spdx": "GPL-3.0",
+        "name": "GNU General Public License v3.0",
+        "path": "COPYING.txt",
+        "status": "verified",
+        "evidence": "GitHub License API and composer.json license field"
+      },
+      "activity": {
+        "pushedAt": "2026-10-13T12:07:26Z",
+        "stars": 7476,
+        "archived": false
+      },
+      "stack": {
+        "languages": ["PHP", "JavaScript"],
+        "manifests": ["composer.json", "package.json"],
+        "runtimeDependencies": ["PHP 8.3+", "many PHP extensions and Composer packages"]
+      },
+      "reusableModules": [
+        "Moodle XML/GIFT question interchange concepts",
+        "question categories, tags and feedback structures",
+        "question-engine lifecycle ideas"
+      ],
+      "securityNotes": [
+        "Do not copy GPL code into this project without an explicit distribution decision.",
+        "Question XML must be parsed defensively and HTML sanitized."
+      ],
+      "decision": "reference-only",
+      "decisionReason": "Use the documented interchange formats and lifecycle ideas; do not embed or copy the GPL platform."
+    },
+    {
+      "key": "examination-system",
+      "name": "Examination-System",
+      "url": "https://github.com/Scorpio-meow/Examination-System",
+      "defaultBranch": "version_3",
+      "license": {
+        "spdx": "MIT",
+        "name": "MIT License",
+        "path": "LICENSE",
+        "status": "verified",
+        "evidence": "GitHub License API and package.json"
+      },
+      "activity": {
+        "pushedAt": "2026-10-09T15:27:49Z",
+        "stars": 0,
+        "archived": false
+      },
+      "stack": {
+        "languages": ["HTML", "CSS", "JavaScript"],
+        "manifests": ["package.json"],
+        "runtimeDependencies": []
+      },
+      "reusableModules": [
+        "exam-session progress persistence",
+        "wrong-answer review and score trend ideas",
+        "defensive JSON/CSV import/export validation"
+      ],
+      "securityNotes": [
+        "Browser-local storage is not a substitute for server-side progress.",
+        "Imported question banks need duplicate and schema checks."
+      ],
+      "decision": "adapt-small-module",
+      "decisionReason": "Small zero-runtime-dependency modules and interaction patterns can be adapted after targeted tests."
+    }
+  ]
+}

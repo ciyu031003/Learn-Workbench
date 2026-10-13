@@ -18,8 +18,10 @@ node scripts/beokayy-408/crawl.mjs
 node scripts/beokayy-408/parse.mjs
 node scripts/beokayy-408/validate.mjs --online
 node scripts/beokayy-408/download-assets.mjs --apply
+node scripts/beokayy-408/import-db.mjs
 node scripts/beokayy-408/import-db.mjs --apply
 node scripts/beokayy-408/audit.mjs --require-db
+node scripts/beokayy-408/export-package.mjs --chapter=ds-02
 ```
 
 Useful options:
@@ -33,6 +35,7 @@ node scripts/beokayy-408/download-assets.mjs
 node scripts/beokayy-408/download-assets.mjs --apply --concurrency=2 --gap=180
 node scripts/beokayy-408/import-db.mjs
 node scripts/beokayy-408/import-db.mjs --apply --database=Learn-Workbench
+node scripts/beokayy-408/import-db.mjs --apply --publish
 node scripts/beokayy-408/audit.mjs --skip-db
 node scripts/beokayy-408/audit.mjs --require-db --database=Learn-Workbench
 ```
@@ -77,9 +80,17 @@ Choice questions additionally receive parsed `stem`, `options`, and
   public question images under `.local/` and publish them to
   `apps/web/public/content-images/` so production CSP can serve them locally.
 - `import-db.mjs` is dry-run by default. Pass `--apply` to upsert the parsed
-  snapshot into the `exam_408_*` tables.
+  snapshot into the `exam_408_*` tables. New or updated rows default to
+  `status='review'`; published rows are guarded until an operator explicitly
+  adds `--publish`.
+- Every dry-run/apply writes a `content_import_batch` plus per-point/per-question
+  `content_import_item` rows. This is the audit trail for the snapshot and lets
+  later tooling see `new/update/skip/conflict` without changing the UI.
+- `export-package.mjs` exports one chapter into the unified content-package v1
+  format under `.local/` for strict validation; it never writes PostgreSQL.
 - `baseline.json` records the minimum accepted chapter, point, link, paper and
   question counts. Validation fails when a later snapshot regresses below it.
 - `audit.mjs` joins the local snapshot, import model and database counts. It
-  writes `.local/beokayy-408/audit/report.json` and is read-only with respect to
+  also checks the latest `content_import_batch` hash and status. It writes
+  `.local/beokayy-408/audit/report.json` and is read-only with respect to
   PostgreSQL.

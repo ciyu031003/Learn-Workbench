@@ -15,6 +15,11 @@ import {
   sha256,
   writeJson,
 } from "./common.mjs";
+import {
+  batchStatusFromCounts,
+  buildSnapshotImportPlan,
+  withSnapshotStatus,
+} from "./plan.mjs";
 
 const BASELINE = JSON.parse(
   await readFile(new URL("./baseline.json", import.meta.url), "utf8"),
@@ -30,6 +35,8 @@ const TYPE_LABELS = {
 const args = parseArgs(process.argv.slice(2));
 const OUT_DIR = resolveOutDir(args);
 const APPLY = Boolean(args.apply);
+const PUBLISH = Boolean(args.publish);
+const MATERIALIZED_STATUS = PUBLISH ? "published" : "review";
 
 function loadPg() {
   try {
@@ -52,6 +59,10 @@ function loadPg() {
 }
 
 async function main() {
+  if (PUBLISH && !APPLY) {
+    throw new Error("--publish is only valid together with --apply");
+  }
+
   const manifestFile = path.join(OUT_DIR, "raw", "manifest.json");
   const [manifest, papersFile, questionsFile, knowledgeFile, manifestBytes] =
     await Promise.all([
@@ -73,6 +84,7 @@ async function main() {
   });
 
   validateModel(model);
+  const materializedModel = withSnapshotStatus(model, MATERIALIZED_STATUS);
 
   const database = {
     host: process.env.PGHOST || "127.0.0.1",
@@ -94,17 +106,28 @@ async function main() {
   try {
     await assertSchema(client);
 
-    if (APPLY) {
-      await client.query("BEGIN");
-      try {
-        await writeModel(client, model);
+    await client.query("BEGIN");
+    try {
+      const batch = await recordSnapshotImportBatch(client, materializedModel, {
+        apply: APPLY,
+        publish: PUBLISH,
+      });
+      if (APPLY && batch.materialize) {
+        await writeModel(client, materializedModel, { publish: PUBLISH });
         dbCounts = await readDatabaseCounts(client);
-        validateDatabaseCounts(dbCounts, model);
-        await client.query("COMMIT");
-      } catch (error) {
-        await client.query("ROLLBACK");
-        throw error;
+        validateDatabaseCounts(dbCounts, materializedModel);
       }
+      await client.query("COMMIT");
+      reportBatch = {
+        batchId: batch.batchId,
+        status: batch.status,
+        counts: batch.plan.counts,
+        stale: batch.plan.stale,
+        materialized: batch.materialize,
+      };
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
     }
   } finally {
     client.release();
@@ -124,6 +147,10 @@ async function main() {
     source: model.source,
     planned: model.counts,
     databaseCounts: dbCounts,
+    batch: reportBatch,
+    materializedStatus: MATERIALIZED_STATUS,
+    materialized: reportBatch?.materialized ?? false,
+    publish: PUBLISH,
   };
   await writeJson(path.join(OUT_DIR, "db-import-report.json"), report);
 
@@ -138,9 +165,14 @@ async function main() {
       `questions=${model.counts.questions}`,
       `links=${model.counts.questionKnowledgeLinks}`,
       `tags=${model.counts.tags}`,
+      `batch=${reportBatch?.batchId ?? "none"}`,
+      `status=${reportBatch?.status ?? "unknown"}`,
+      `materialized=${reportBatch?.materialized === true ? MATERIALIZED_STATUS : "no"}`,
     ].join(" "),
   );
 }
+
+let reportBatch = null;
 
 function buildImportModel(input) {
   const tags = new TagRegistry();
@@ -456,7 +488,171 @@ async function assertSchema(client) {
   }
 }
 
-async function writeModel(client, model) {
+async function recordSnapshotImportBatch(client, model, { apply, publish }) {
+  const source = await client.query(
+    `SELECT key FROM content_source WHERE key = $1 AND status = 'active'`,
+    [model.source.key],
+  );
+  if (!source.rows[0]) {
+    throw new Error(
+      "content_source does not contain an active beokayy-408 row; apply db/migrations/072_exam_408_import_audit.sql first.",
+    );
+  }
+
+  const existing = {
+    points: (
+      await client.query(
+        `SELECT key, status, fingerprint
+           FROM exam_408_knowledge_points
+          WHERE source_key = $1`,
+        [model.source.key],
+      )
+    ).rows,
+    questions: (
+      await client.query(
+        `SELECT key, status, fingerprint
+           FROM exam_408_questions
+          WHERE source_key = $1`,
+        [model.source.key],
+      )
+    ).rows,
+  };
+  const plan = buildSnapshotImportPlan({ existing, model, publish });
+  const status = batchStatusFromCounts(plan.counts);
+  // A conflict means the source changed something already published. Do not
+  // touch any content rows in that run; the batch is the review artifact.
+  const materialize = apply && plan.counts.conflict === 0 && plan.counts.failed === 0;
+  const mode = apply ? "apply" : "dry-run";
+  const commitSha = model.source.bundle_sha256
+    ? `bundle:${model.source.bundle_sha256}`
+    : null;
+  const scope = (model.subjects ?? []).map((subject) => subject.key);
+
+  const batchResult = await client.query(
+    `INSERT INTO content_import_batch
+       (source_key, mode, status, commit_sha, scope, planned_new, planned_update,
+        planned_skip, planned_conflict, planned_failed, created_by)
+     VALUES ($1, $2, 'running', $3, $4::jsonb, $5, $6, $7, $8, $9, 'beokayy-408-import')
+     RETURNING id`,
+    [
+      model.source.key,
+      mode,
+      commitSha,
+      JSON.stringify(scope),
+      plan.counts.new,
+      plan.counts.update,
+      plan.counts.skip,
+      plan.counts.conflict,
+      plan.counts.failed,
+    ],
+  );
+  const batchId = Number(batchResult.rows[0].id);
+
+  const payloadByKey = new Map();
+  for (const point of model.points ?? []) {
+    payloadByKey.set(`knowledge-point:${point.key}`, {
+      fingerprint: point.fingerprint,
+      status: point.status,
+      subjectKey: point.subject_key,
+      chapterKey: point.chapter_key,
+      title: point.title,
+    });
+  }
+  for (const question of model.questions ?? []) {
+    payloadByKey.set(`question:${question.key}`, {
+      fingerprint: question.fingerprint,
+      status: question.status,
+      questionId: question.question_id,
+      subjectKey: question.subject_key,
+      type: question.type,
+      answerLetter: question.answer_letter,
+    });
+  }
+
+  const itemRows = plan.items.map((item) => [
+    item.kind,
+    item.externalKey,
+    item.targetKey,
+    item.action,
+    item.reason,
+    JSON.stringify(payloadByKey.get(`${item.kind}:${item.externalKey}`) ?? {}),
+  ]);
+  for (let index = 0; index < itemRows.length; index += 500) {
+    const chunk = itemRows.slice(index, index + 500);
+    await client.query(
+      `INSERT INTO content_import_item
+         (batch_id, kind, external_key, target_key, action, reason, payload)
+       SELECT $1, * FROM unnest(
+         $2::text[], $3::text[], $4::text[], $5::text[], $6::text[], $7::jsonb[]
+       )
+       ON CONFLICT (batch_id, kind, external_key) DO UPDATE SET
+         target_key = EXCLUDED.target_key,
+         action = EXCLUDED.action,
+         reason = EXCLUDED.reason,
+         payload = EXCLUDED.payload`,
+      [
+        batchId,
+        chunk.map((row) => row[0]),
+        chunk.map((row) => row[1]),
+        chunk.map((row) => row[2]),
+        chunk.map((row) => row[3]),
+        chunk.map((row) => row[4]),
+        chunk.map((row) => row[5]),
+      ],
+    );
+  }
+
+  const report = {
+    domain: "exam-408",
+    sourceKey: model.source.key,
+    capturedAt: model.source.captured_at,
+    bundleSha256: model.source.bundle_sha256,
+    manifestSha256: model.source.manifest_sha256,
+    mode,
+    status,
+    materializedStatus: publish ? "published" : "review",
+    materialized: materialize,
+    counts: plan.counts,
+    stale: {
+      points: plan.stale.points.length,
+      questions: plan.stale.questions.length,
+      sample: [...plan.stale.points.slice(0, 20), ...plan.stale.questions.slice(0, 20)],
+    },
+  };
+
+  await client.query(
+    `UPDATE content_import_batch
+        SET status = $2,
+            applied_new = $3,
+            applied_update = $4,
+            applied_skipped = $5,
+            report = $6::jsonb,
+            finished_at = now()
+      WHERE id = $1`,
+    [
+      batchId,
+      status,
+      materialize ? plan.counts.new : 0,
+      materialize ? plan.counts.update : 0,
+      plan.counts.skip,
+      JSON.stringify(report),
+    ],
+  );
+  if (materialize) {
+    await client.query(
+      `UPDATE content_source
+          SET last_synced_at = now(),
+              commit_sha = COALESCE($2, commit_sha)
+        WHERE key = $1`,
+      [model.source.key, commitSha],
+    );
+  }
+
+  return { batchId, status, plan, materialize };
+}
+
+async function writeModel(client, model, options = {}) {
+  const preservePublished = options.publish !== true;
   await client.query(
     `INSERT INTO exam_408_source_snapshots (
        key, name, base_url, license_note, usage_scope, captured_at,
@@ -533,7 +729,7 @@ async function writeModel(client, model) {
       ["fingerprint", "text"],
       ["status", "text"],
     ],
-  }, model.points);
+  }, model.points, { preservePublished });
 
   await upsertRows(client, {
     table: "exam_408_papers",
@@ -549,7 +745,7 @@ async function writeModel(client, model) {
       ["fingerprint", "text"],
       ["status", "text"],
     ],
-  }, model.papers);
+  }, model.papers, { preservePublished });
 
   await upsertRows(client, {
     table: "exam_408_questions",
@@ -580,7 +776,7 @@ async function writeModel(client, model) {
       ["fingerprint", "text"],
       ["status", "text"],
     ],
-  }, model.questions);
+  }, model.questions, { preservePublished });
 
   await upsertRows(client, {
     table: "exam_408_tags",
@@ -645,7 +841,7 @@ async function writeModel(client, model) {
   }, model.pointTagLinks);
 }
 
-async function upsertRows(client, spec, rows) {
+async function upsertRows(client, spec, rows, options = {}) {
   if (rows.length === 0) return;
 
   const conflictColumns = spec.conflict
@@ -661,7 +857,11 @@ async function upsertRows(client, spec, rows) {
     .map((name) => `${name} = EXCLUDED.${name}`)
     .join(", ");
   const conflict = conflictColumns.join(", ");
-  const updateSql = updates ? `DO UPDATE SET ${updates}` : "DO NOTHING";
+  const guard =
+    options.preservePublished && spec.columns.some(([name]) => name === "status")
+      ? ` WHERE ${spec.table}.status <> 'published'`
+      : "";
+  const updateSql = updates ? `DO UPDATE SET ${updates}${guard}` : "DO NOTHING";
   const sql = `
     INSERT INTO ${spec.table} (${insertColumns.join(", ")})
     SELECT ${selectColumns}

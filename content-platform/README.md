@@ -11,6 +11,8 @@
 | `id-mapping.md` | 稳定 ID 规则与全量映射表（课程 → 阶段 → 知识点 → 题目） | 阶段 7（Phase A） |
 | `adr/` | 架构决策记录（每次关键选型留痕：决策 / 备选 / 依据 / 影响） | 阶段 7 起持续 |
 | `templates/` | 知识点标准模板与质量分级规范 | 阶段 9（Phase C） |
+| `schemas/` + `content-package-v1.md` | 统一课程包 / 题库导入格式与校验口径 | 阶段 23（Phase 3） |
+| `open-source-audit.json` | 候选开源项目的许可证、依赖边界和复用决策 | 阶段 23（Phase 3） |
 | `import-maps/` | 外部来源 → 知识点的归属映射（管线不猜归属，没映射就记 unmapped） | 阶段 10（Phase F） |
 | `openapi/` | 新增接口的契约片段（随接口一起提交，不等 H2） | 阶段 8 起持续 |
 | `api/` | API 约定与路由台账（错误 envelope / 分页幂等 / 限流；`route-inventory.md` 由脚本再生） | 阶段 16（H2） |
@@ -33,6 +35,10 @@ pnpm sync:content
 # 5) 外部来源导入：先 dry-run 看报告，再小批量试导入（物化成 review 草稿）
 pnpm import:content -- --source=algorithms-java
 pnpm import:content -- --source=algorithms-java --mode=apply --limit=20
+# 6) 统一包格式：先校验，再决定是否交给导入管线；包只能是 review
+pnpm validate:package -- --file .local/beokayy-408/pilots/data-structure-ds-02.package.json --strict
+# 7) 开源准入：离线检查记录；--online 会再核对 GitHub 仓库与 LICENSE
+pnpm audit:sources -- --online
 ```
 
 ## 内容库当前规模（2026-10-11 实跑）
