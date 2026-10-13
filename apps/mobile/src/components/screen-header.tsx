@@ -1,5 +1,12 @@
 import { useCallback, useMemo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Platform,
+  Pressable,
+  StatusBar as RNStatusBar,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useAnimatedScrollHandler, useSharedValue, type SharedValue } from "react-native-reanimated";
 import { router, usePathname } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -50,9 +57,17 @@ function isTabRootPath(pathname: string): boolean {
 }
 
 /** 页面统一取顶部安全区 + 组件间距（自绘 hero 的页面用，避免再写 insets.top + N 魔数） */
+function resolveTopInset(insetTop: number) {
+  return Math.max(
+    insetTop,
+    Platform.OS === "android" ? RNStatusBar.currentHeight ?? 0 : 0,
+  );
+}
+
 export function useHeaderTopInset(variant: "compact" | "hero" = "compact"): number {
   const insets = useSafeAreaInsets();
-  return insets.top + (variant === "hero" ? HERO_GAP : HEADER_GAP);
+  const topInset = resolveTopInset(insets.top);
+  return topInset + (variant === "hero" ? HERO_GAP : HEADER_GAP);
 }
 
 /**
@@ -126,9 +141,10 @@ function useGoBack(backTo?: string): () => void {
 export function ScreenHeaderLargeTitle({ title, subtitle }: { title: string; subtitle?: string }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const topInset = resolveTopInset(insets.top);
   const pathname = usePathname();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const topPadding = isTabRootPath(pathname) ? insets.top + HERO_GAP : HEADER_GAP;
+  const topPadding = isTabRootPath(pathname) ? topInset + HERO_GAP : HEADER_GAP;
   return (
     <View style={[styles.largeInFlow, { paddingTop: topPadding }]}>
       <Text style={styles.largeTitle} numberOfLines={2}>
@@ -156,13 +172,14 @@ export function ScreenHeaderStickyBar({
 }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const topInset = resolveTopInset(insets.top);
   const pathname = usePathname();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const goBack = useGoBack(backTo);
   if (isTabRootPath(pathname)) return null;
 
   return (
-    <View style={[styles.stickyWrap, { paddingTop: insets.top }]}>
+    <View style={[styles.stickyWrap, { paddingTop: topInset }]}>
       <View style={styles.stickyBg} pointerEvents="none" />
       <View style={styles.stickyRow}>
         <Pressable
