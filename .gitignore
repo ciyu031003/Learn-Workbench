@@ -71,3 +71,6 @@ scripts/.audit_cookie.txt
 *.mdx
 !README.mdx
 !**/README.mdx
+
+# Visual Studio 本地目录（IDE 缓存，不提交）
+.vs/
