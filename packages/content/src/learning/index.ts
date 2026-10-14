@@ -20,6 +20,7 @@ import { runoobCsToolsTrack } from "./runoob-cs-tools";
 import { runoobFrontendTrack } from "./runoob-frontend";
 import { runoobLangTrack } from "./runoob-lang";
 import { expandLearningTrack } from "./question-expansions";
+import { applyContentOverrides } from "./overrides";
 import type { LearningQuestion, LearningTrack } from "./types";
 
 const baseLearningTracks: LearningTrack[] = [
@@ -46,7 +47,10 @@ const baseLearningTracks: LearningTrack[] = [
   runoobCsToolsTrack,
 ];
 
-export const learningTracks: LearningTrack[] = baseLearningTracks.map(expandLearningTrack);
+export const learningTracks: LearningTrack[] = baseLearningTracks
+  .map(expandLearningTrack)
+  // 数据库 → 内容包 的回写覆盖（scripts/export-content-from-db.mjs 生成）
+  .map((track) => applyContentOverrides(track));
 
 export const learningCategories = [...new Set(learningTracks.map((track) => track.category))];
 
@@ -68,4 +72,5 @@ export function getStageQuestions(track: LearningTrack, stageKey?: string | null
 
 export * from "./types";
 export * from "./model";
+export * from "./overrides";
 export * from "./algorithm-animations";

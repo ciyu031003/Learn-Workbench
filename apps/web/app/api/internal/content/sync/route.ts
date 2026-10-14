@@ -4,6 +4,7 @@ import {
   readContentPackageVersion,
   syncKnowledgeModel,
 } from "@/lib/content/knowledge-model";
+import { buildLearningContentPlan, syncLearningContent } from "@/lib/content/learning-content-sync";
 import { logger } from "@/lib/logger";
 import { apiError, API_ERROR_CODES } from "@/lib/api-error";
 import { guardInternalRequest } from "@/lib/internal-guard";
@@ -48,7 +49,11 @@ export async function POST(req: Request) {
   try {
     const plan = buildContentSyncPlan({ contentVersion, contentUpdatedAt, reviewTtlDays });
     const result = await syncKnowledgeModel(plan, { dryRun });
-    logger.info("[internal/content/sync] done:", JSON.stringify({ dryRun, contentVersion, result }));
+    // 075：内容包全量落库（课程/阶段/知识点/讲义/题目/来源/动图），运行时改为只读数据库
+    // force=1：显式以内容包为准（清掉人工编辑标记后再覆盖），默认保护后台改动
+    const force = new URL(req.url).searchParams.get("force") === "1";
+    const learning = await syncLearningContent(buildLearningContentPlan(undefined, contentVersion), { dryRun, force });
+    logger.info("[internal/content/sync] done:", JSON.stringify({ dryRun, contentVersion, result, learning }));
     await writeAuditLog({
       action: "content.sync",
       actorId: guard.actorId,
@@ -60,7 +65,7 @@ export async function POST(req: Request) {
       ip: guard.ip,
     });
     // result 自带 contentVersion，这里只补 dryRun / contentUpdatedAt
-    return NextResponse.json({ ok: true, dryRun, contentUpdatedAt, requestId, ...result });
+    return NextResponse.json({ ok: true, dryRun, contentUpdatedAt, requestId, ...result, learning });
   } catch (error) {
     logger.error("content sync error", error, requestId);
     return apiError(500, "内容模型同步失败", { code: API_ERROR_CODES.internal_error, requestId });

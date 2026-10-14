@@ -4,6 +4,15 @@ vi.mock("@/lib/content/knowledge-model", () => ({
   readContentPackageVersion: vi.fn(),
   syncKnowledgeModel: vi.fn(),
 }));
+vi.mock("@/lib/content/learning-content-sync", () => ({
+  buildLearningContentPlan: vi.fn(() => ({ counts: {} })),
+  syncLearningContent: vi.fn(async () => ({
+    contentVersion: "abc1234",
+    dryRun: false,
+    tracks: 0, stages: 0, topics: 0, sources: 0, questions: 0, animations: 0,
+    archived: { tracks: 0, topics: 0, questions: 0 },
+  })),
+}));
 vi.mock("@/lib/logger", () => ({ logger: { info: vi.fn(), error: vi.fn() } }));
 vi.mock("@/lib/audit", () => ({ writeAuditLog: vi.fn(async () => {}), listAuditLog: vi.fn() }));
 import {
