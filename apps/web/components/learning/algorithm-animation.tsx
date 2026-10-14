@@ -1,10 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { algorithmAnimations } from "@learn-workbench/content";
 import { ChevronLeft, ChevronRight, Pause, Play, RotateCcw } from "lucide-react";
 
 const FRAME_MS = 1200;
+
+export interface AnimationFrame {
+  caption: string;
+  svg: string;
+}
+export type AnimationFrames = Record<string, AnimationFrame[]>;
+
+/**
+ * 动图帧的注入点（075）：内容已入库，服务端用 `loadAlgorithmAnimations()` 取出来通过这个 Provider 传下来。
+ * 没有 Provider（或库里缺这个 key）时回退内置内容包 —— 保证离线/首屏永远有图可放。
+ */
+const AnimationFramesContext = createContext<AnimationFrames | null>(null);
+
+export function AnimationFramesProvider({ frames, children }: { frames: AnimationFrames; children: ReactNode }) {
+  return <AnimationFramesContext.Provider value={frames}>{children}</AnimationFramesContext.Provider>;
+}
 
 /**
  * 算法动图播放器：把 `algorithmAnimations[key]` 的多帧 SVG 逐帧播放出来。
@@ -20,7 +36,8 @@ export function AlgorithmAnimation({ keys }: { keys: string[] }) {
 
   const safeIndex = Math.min(keyIndex, keys.length - 1);
   const activeKey = keys[safeIndex];
-  const frames = algorithmAnimations[activeKey] ?? [];
+  const registry = useContext(AnimationFramesContext);
+  const frames = registry?.[activeKey] ?? algorithmAnimations[activeKey] ?? [];
   const total = frames.length;
 
   useEffect(() => {

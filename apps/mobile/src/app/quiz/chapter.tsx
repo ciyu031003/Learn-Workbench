@@ -3,13 +3,14 @@ import { StyleSheet, Text, View } from "react-native";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import Animated from "react-native-reanimated";
 import {
-  getLearningTrack,
+  
   isLearnable,
   knowledgePointKeyOf,
   qualityOfTopic,
   type LearningStage,
   type LearningTrack,
 } from "@learn-workbench/content";
+import { useLearningTrack } from "@/lib/content-store";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
 import { ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
@@ -25,7 +26,7 @@ export default function QuizChapterScreen() {
     stage?: string;
     returnTo?: string;
   }>();
-  const track = getLearningTrack(params.track);
+  const track = useLearningTrack(params.track);
   const stage = track?.stages.find((item) => item.key === params.stage);
   if (!track || !stage) return <MissingChapter />;
   const returnTo = params.returnTo?.startsWith("/") ? params.returnTo : undefined;
