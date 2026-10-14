@@ -1,6 +1,8 @@
 import {
   learningTracks,
+  levelOfQuestion,
   type LearningDifficulty,
+  type LearningLevel,
   type LearningQuestionOption,
   type LearningQuestionType,
   type LearningTrack,
@@ -28,6 +30,7 @@ export interface LearningQuestionItem {
   topicTitle: string | null;
   type: LearningQuestionType;
   difficulty: LearningDifficulty;
+  level: LearningLevel;
   stem: string;
   options: LearningQuestionOption[];
   answer: string[];
@@ -61,6 +64,7 @@ export function flattenLearningQuestions(tracks: readonly LearningTrack[] = lear
         topicTitle: question.topicKey ? (topicTitleOf.get(question.topicKey) ?? null) : null,
         type: question.type,
         difficulty: question.difficulty,
+        level: levelOfQuestion(question),
         stem: question.stem,
         options: question.options,
         answer: question.answer,
@@ -80,6 +84,7 @@ export interface LearningQuestionFilters {
   topic?: string | null;
   type?: LearningQuestionType | null;
   difficulty?: LearningDifficulty | null;
+  level?: LearningLevel | null;
   tag?: string | null;
   source?: string | null;
   keyword?: string | null;
@@ -116,6 +121,7 @@ export function filterLearningQuestions(
     if (filters.topic && item.topicKey !== filters.topic) return false;
     if (filters.type && item.type !== filters.type) return false;
     if (filters.difficulty && item.difficulty !== filters.difficulty) return false;
+    if (filters.level && item.level !== filters.level) return false;
     if (filters.tag && !item.tags.includes(filters.tag)) return false;
     if (filters.source && item.sourceKey !== filters.source) return false;
     if (keyword && !matchesKeyword(item, keyword)) return false;
@@ -134,6 +140,7 @@ export interface LearningQuestionFacets {
   stages: FacetCount[];
   types: FacetCount[];
   difficulties: FacetCount[];
+  levels: FacetCount[];
   tags: FacetCount[];
   sources: FacetCount[];
 }
@@ -171,6 +178,7 @@ export function learningQuestionFacets(items: readonly LearningQuestionItem[]): 
     stages: countBy(items, (item) => [item.stageKey as string], (key) => stageTitle.get(key) ?? key),
     types: countBy(items, (item) => [item.type], (key) => TYPE_LABEL[key]),
     difficulties: countBy(items, (item) => [item.difficulty], (key) => DIFFICULTY_LABEL[key]),
+    levels: countBy(items, (item) => [item.level], (key) => key),
     tags: countBy(items, (item) => item.tags, (key) => key),
     sources: countBy(items, (item) => [item.sourceKey as string], (key) => key),
   };

@@ -76,7 +76,8 @@ describe("learning library content contract", () => {
     ]);
     expect(new Set(learningTracks.map((track) => track.slug)).size).toBe(learningTracks.length);
     expect(learningCategories).toEqual([...new Set(learningTracks.map((track) => track.category))]);
-    expect(learningTracks.reduce((total, track) => total + track.questions.length, 0)).toBe(1935);
+    // 2026-10 题库扩容：16 门技术课各补 30 题（java 28），合计 +478 → 2413
+    expect(learningTracks.reduce((total, track) => total + track.questions.length, 0)).toBe(2413);
     // 阶段 12：160 道「待分类题」已全部绑定知识点 → 全部题目都带 topicKey，待分类清零
     // ex-408 自带 12 个知识点 × 2 题 = 24 道带 topicKey 的原创题
     // 408 真题库（exam-bank）为「阶段级附加题」，不绑知识点
@@ -84,12 +85,13 @@ describe("learning library content contract", () => {
     // runoob（菜鸟教程）三课程：92 个知识点全部带 topicKey，436 道题全部挂在知识点上
     // 数据结构扩容（algorithms 课程 DS 十章）：39 个知识点全部带 topicKey，78 道题全部挂在知识点上
     // → 1693 + 78 = 1771
-    expect(learningTracks.flatMap((track) => track.questions).filter((question) => question.topicKey)).toHaveLength(1771);
+    // 题库扩容后：1771 + 478 = 2249（新增题全部带 topicKey）
+    expect(learningTracks.flatMap((track) => track.questions).filter((question) => question.topicKey)).toHaveLength(2249);
     // v1.44 跨源去重：exam-bank 的 ex-408 与 csgraduates 是同一批统考真题（124 道重复），
     // 已由 scripts/cs-bank/dedup_exam_bank.py 从 exam-bank 侧剔除（保留带解析的 csgraduates 那份）。
     // 总数 2059 → 1935；有 topicKey 的 1771 不变（被删的都是无 topicKey 的阶段级题）。
     // 这里加一条**方向性**断言：如果哪天又出现重复，题量会重新上涨并被这条测试抓住。
-    expect(learningTracks.reduce((total, track) => total + track.questions.length, 0)).toBeLessThanOrEqual(1935);
+    expect(learningTracks.reduce((total, track) => total + track.questions.length, 0)).toBeLessThanOrEqual(2413);
     // 数据结构扩容新增 10 个阶段：91 + 10 = 101
     expect(learningTracks.reduce((total, track) => total + track.stages.length, 0)).toBe(101);
   });
