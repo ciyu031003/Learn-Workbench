@@ -11,7 +11,7 @@ import { listTopics, normalizeTopicPatch, updateTopic } from "@/lib/content/cont
  *   GET   ?q=&track=&limit=&offset=                 列表（分页）
  *   PATCH { trackSlug, key, patch }                 改标题/摘要/概念/原理/应用/坑/方法/练习/检查点/讲义/状态
  *
- * 鉴权同题目接口；改完清内容缓存，前台下一跳即新内容。
+ * 鉴权：x-cron-secret 或内容角色（admin/editor/reviewer）会话；改完清内容缓存，前台下一跳即新内容。
  */
 export const dynamic = "force-dynamic";
 
