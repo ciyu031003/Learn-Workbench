@@ -17,6 +17,7 @@ import { triggerFoodImport } from "@/lib/tasks/food";
 import { triggerContentImport } from "@/lib/tasks/content-import";
 import { guardInternalRequest } from "@/lib/internal-guard";
 import { buildContentSyncPlan, readContentPackageVersion, syncKnowledgeModel } from "@/lib/content/knowledge-model";
+import { buildLearningContentPlan, syncLearningContent } from "@/lib/content/learning-content-sync";
 import { logger } from "@/lib/logger";
 
 /**
@@ -124,7 +125,12 @@ export async function POST(req: Request) {
     const git = readContentPackageVersion();
     const plan = buildContentSyncPlan({ contentVersion: git.version, contentUpdatedAt: git.updatedAt });
     const synced = await syncKnowledgeModel(plan, { dryRun: params.get("dry") === "1" });
-    result.content = { dryRun: params.get("dry") === "1", ...synced, stats: undefined };
+    // 075：内容包全量落库（课程/阶段/知识点/讲义/题目/来源/动图）
+    const learning = await syncLearningContent(buildLearningContentPlan(undefined, git.version), {
+      dryRun: params.get("dry") === "1",
+      force: params.get("force") === "1",
+    });
+    result.content = { dryRun: params.get("dry") === "1", ...synced, stats: undefined, learning };
   }
 
   if (job === "content-import") {

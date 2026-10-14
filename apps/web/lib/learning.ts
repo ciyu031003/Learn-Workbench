@@ -32,8 +32,10 @@ function grade(question: LearningQuestion, chosenAnswer: string[]): boolean {
   return gradeLearningAnswer(question.answer, chosenAnswer);
 }
 
-export function learningCatalog(): Array<LearningTrack & { questionCount: number }> {
-  return learningTracks.map((track) => ({
+export function learningCatalog(
+  tracks: readonly LearningTrack[] = learningTracks
+): Array<LearningTrack & { questionCount: number }> {
+  return tracks.map((track) => ({
     ...track,
     questions: track.questions.map(({ answer: _answer, explanation: _explanation, ...question }) => ({
       ...question,

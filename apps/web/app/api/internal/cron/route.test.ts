@@ -37,6 +37,15 @@ vi.mock("@/lib/content/knowledge-model", () => ({
     prerequisites: 21, unlinkedQuestions: 160, contentVersion: "abc1234", stalePoints: 0, stats: {},
   })),
 }));
+vi.mock("@/lib/content/learning-content-sync", () => ({
+  buildLearningContentPlan: vi.fn(() => ({ counts: {} })),
+  syncLearningContent: vi.fn(async () => ({
+    contentVersion: "abc1234",
+    dryRun: false,
+    tracks: 0, stages: 0, topics: 0, sources: 0, questions: 0, animations: 0,
+    archived: { tracks: 0, topics: 0, questions: 0 },
+  })),
+}));
 vi.mock("@/lib/logger", () => ({ logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 
 import { analyzeMarket } from "@/lib/domains/market/analysis";
