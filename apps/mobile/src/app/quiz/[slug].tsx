@@ -4,7 +4,7 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import Animated from "react-native-reanimated";
 import {
   QUALITY_LEVEL_LABEL,
-  getLearningTrack,
+  
   isLearnable,
   isReviewed,
   qualityOfTopic,
@@ -13,6 +13,7 @@ import {
   type LearningTopic,
   type LearningTrack,
 } from "@learn-workbench/content";
+import { useLearningTrack } from "@/lib/content-store";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
 import { AlgorithmAnimation } from "@/components/algorithm-animation";
@@ -39,7 +40,7 @@ const TABS: { key: TabKey; label: string }[] = [
 
 export default function QuizTrackScreen() {
   const params = useLocalSearchParams<{ slug?: string }>();
-  const track = getLearningTrack(params.slug);
+  const track = useLearningTrack(params.slug);
   const { colors } = useTheme();
 
   if (!track) {

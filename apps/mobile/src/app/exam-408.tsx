@@ -7,10 +7,8 @@ import {
 } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import Animated from "react-native-reanimated";
-import {
-  getLearningTrack,
-  type LearningTrack,
-} from "@learn-workbench/content";
+import { type LearningTrack } from "@learn-workbench/content";
+import { useLearningTrack } from "@/lib/content-store";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
@@ -80,7 +78,7 @@ const SUBJECT_TONES: Record<
 };
 
 export default function Exam408Screen() {
-  const track = getLearningTrack(TRACK_SLUG);
+  const track = useLearningTrack(TRACK_SLUG);
   if (!track) return <MissingExam408 />;
   return <Exam408Content track={track} />;
 }

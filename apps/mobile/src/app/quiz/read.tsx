@@ -5,7 +5,7 @@ import Animated from "react-native-reanimated";
 import * as Clipboard from "expo-clipboard";
 import {
   QUALITY_LEVEL_LABEL,
-  getLearningTrack,
+  
   isReviewed,
   knowledgePointKeyOf,
   qualityOfTopic,
@@ -13,6 +13,7 @@ import {
   type LearningTopic,
   type LearningTrack,
 } from "@learn-workbench/content";
+import { useLearningTrack } from "@/lib/content-store";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
 import { AlgorithmAnimation } from "@/components/algorithm-animation";
@@ -44,7 +45,7 @@ export default function KnowledgeReaderScreen() {
     topic?: string;
     returnTo?: string;
   }>();
-  const track = getLearningTrack(params.track);
+  const track = useLearningTrack(params.track);
   const { colors } = useTheme();
 
   if (!track) {

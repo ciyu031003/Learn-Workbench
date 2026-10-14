@@ -31,7 +31,8 @@ import Animated, {
 } from "react-native-reanimated";
 import { useAppStore } from "@/store/app-store";
 import { router, useFocusEffect } from "expo-router";
-import { learningTracks, mainPhases } from "@learn-workbench/content";
+import { mainPhases } from "@learn-workbench/content";
+import { getLearningTrackNow, useLearningTracks } from "@/lib/content-store";
 import type { Phase } from "@learn-workbench/shared";
 import { formatDuration, pct } from "@learn-workbench/shared";
 import { computeFocusStats } from "@/lib/focus-stats";
@@ -73,11 +74,10 @@ const STAGE_GRADS: [string, string][] = [
 /** 阶段卡之间的间距，必须与 `styles.content` 的 gap 一致（实时让位的位移量按"实测高度 + 这个值"算） */
 const STAGE_CARD_GAP = 12;
 const DAILY_QUESTION_GOAL = 12;
-const ALL_LEARNING_QUESTIONS = learningTracks.flatMap((track) => track.questions);
 
 /** 阅读卡片用的标题查表（找不到就退回 key，界面不会出现空白行） */
 function readingTitle(trackSlug: string, stageKey: string, topicKey: string): string {
-  const track = learningTracks.find((entry) => entry.slug === trackSlug);
+  const track = getLearningTrackNow(trackSlug);
   const stage = track?.stages.find((entry) => entry.key === stageKey);
   const topic = stage?.topics.find((entry) => entry.key === topicKey);
   return topic?.title ?? topicKey;
@@ -329,6 +329,9 @@ function StageCard({
 
 
 export default function LearnScreen() {
+  /** 内容来自数据库（content-store）：改库即生效，无需发版 */
+  const learningTracks = useLearningTracks();
+  const allLearningQuestions = useMemo(() => learningTracks.flatMap((track) => track.questions), [learningTracks]);
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const headerTop = useHeaderTopInset("hero");
@@ -516,7 +519,7 @@ export default function LearnScreen() {
     const favoriteKeys = Object.keys(readingStore.favorites);
     const items = favoriteKeys.slice(0, 3).map((key) => {
       const item = readingStore.favorites[key];
-      const track = learningTracks.find((entry) => entry.slug === item.trackSlug);
+      const track = getLearningTrackNow(item.trackSlug);
       const topic = track?.stages.find((stage) => stage.key === item.stageKey)?.topics.find((entry) => entry.key === item.topicKey);
       return {
         key,
@@ -534,8 +537,8 @@ export default function LearnScreen() {
   /** 入口卡只用这几个数；统计明细全部搬到 /study-stats 全屏页（v1.33.0） */
   const stats = useMemo(() => computeFocusStats(sessions), [sessions]);
   const learningSummary = useMemo(
-    () => summarizeLearningAttempts(learningAttempts, ALL_LEARNING_QUESTIONS),
-    [learningAttempts]
+    () => summarizeLearningAttempts(learningAttempts, allLearningQuestions),
+    [learningAttempts, allLearningQuestions]
   );
   const routeSummary = useMemo(() => {
     const topics = roadmap.flatMap((phase) => phase.topics);

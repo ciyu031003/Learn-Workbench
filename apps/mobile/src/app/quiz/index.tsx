@@ -2,7 +2,8 @@ import { useCallback, useMemo, useState } from "react";
 import { RefreshControl, StyleSheet, Text, TextInput, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import Animated from "react-native-reanimated";
-import { learningCategories, learningTracks, type LearningTrack } from "@learn-workbench/content";
+import { type LearningTrack } from "@learn-workbench/content";
+import { useLearningCategories, useLearningTracks } from "@/lib/content-store";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
@@ -17,11 +18,14 @@ import { radius, shadows, spacing, typography, type ThemeColors } from "@/theme/
 
 type CategoryFilter = "全部" | string;
 
-const LIBRARY_TRACKS = learningTracks.filter(
-  (track) => track.category !== "408" && track.slug !== "ex-408-grad"
-);
-
 export default function QuizLibraryScreen() {
+  /** 课程来自数据库（content-store） */
+  const learningTracks = useLearningTracks();
+  const learningCategories = useLearningCategories();
+  const LIBRARY_TRACKS = useMemo(
+    () => learningTracks.filter((track) => track.category !== "408" && track.slug !== "ex-408-grad"),
+    [learningTracks]
+  );
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const header = useLargeTitleHeader();
@@ -61,7 +65,7 @@ export default function QuizLibraryScreen() {
         .toLowerCase();
       return searchText.includes(q);
     });
-  }, [category, query]);
+  }, [category, query, LIBRARY_TRACKS]);
 
   const categoryCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -69,7 +73,7 @@ export default function QuizLibraryScreen() {
       counts.set(track.category, (counts.get(track.category) ?? 0) + 1);
     }
     return counts;
-  }, []);
+  }, [LIBRARY_TRACKS]);
 
   return (
     <View style={styles.root}>

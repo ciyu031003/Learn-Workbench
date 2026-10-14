@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SvgXml } from "react-native-svg";
 import { algorithmAnimations } from "@learn-workbench/content";
+import { useAnimationFrames } from "@/lib/content-store";
 import { radius, spacing, typography, type ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 
@@ -23,7 +24,8 @@ export function AlgorithmAnimation({ keys }: { keys: string[] }): React.JSX.Elem
 
   const safeIndex = Math.min(keyIndex, keys.length - 1);
   const activeKey = keys[safeIndex];
-  const frames = algorithmAnimations[activeKey] ?? [];
+  const registry = useAnimationFrames();
+  const frames = registry[activeKey] ?? algorithmAnimations[activeKey] ?? [];
   const total = frames.length;
 
   useEffect(() => {

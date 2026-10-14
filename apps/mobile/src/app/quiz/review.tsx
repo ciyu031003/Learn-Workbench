@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { RefreshControl, StyleSheet, Text, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import Animated from "react-native-reanimated";
-import { getLearningTrack } from "@learn-workbench/content";
+import { getLearningTrackNow, useLearningTrack, useLearningTracks } from "@/lib/content-store";
 import type { LearningReviewCard, LearningReviewResponse, LearningWeakTopic } from "@learn-workbench/shared";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
@@ -41,7 +41,7 @@ function groupByTrack(keys: string[], attempts: LearningAttempt[]): TrackQueue[]
   }
   return [...counts.entries()]
     .map(([slug, count]) => {
-      const track = getLearningTrack(slug);
+      const track = getLearningTrackNow(slug);
       return track ? { slug, title: track.title, accent: track.accent, softAccent: track.softAccent, count } : null;
     })
     .filter((item): item is TrackQueue => item !== null)
@@ -76,6 +76,8 @@ export default function QuizReviewScreen() {
 
   const { control: pullControl } = usePullRefresh(load);
 
+  // 订阅内容（数据库 hydrate 后队列标题/配色要跟着刷新）
+  const contentTracks = useLearningTracks();
   // 服务端到期队列（SM-2）；本地错题按"最近一次作答"口径兜底
   const dueQueues = useMemo(() => {
     if (!review) return [];
@@ -88,7 +90,7 @@ export default function QuizReviewScreen() {
           Date.parse(card.dueAt) <= Date.parse(review.generatedAt)
       ),
     });
-  }, [review]);
+  }, [review, contentTracks]);
   const localWrong = useMemo(() => wrongQuestionKeys(attempts), [attempts]);
   const localQueues = useMemo(() => groupByTrack(localWrong, attempts), [localWrong, attempts]);
 
@@ -262,7 +264,7 @@ function groupDueCards(review: LearningReviewResponse): TrackQueue[] {
   for (const card of review.cards) counts.set(card.trackSlug, (counts.get(card.trackSlug) ?? 0) + 1);
   return [...counts.entries()]
     .map(([slug, count]) => {
-      const track = getLearningTrack(slug);
+      const track = getLearningTrackNow(slug);
       return track ? { slug, title: track.title, accent: track.accent, softAccent: track.softAccent, count } : null;
     })
     .filter((item): item is TrackQueue => item !== null)
@@ -326,7 +328,8 @@ function PlanCard({
     action: "snooze" | "pause" | "resume" | "complete"
   ) => Promise<void>;
 }) {
-  const question = getLearningTrack(card.trackSlug)?.questions.find((item) => item.key === card.questionKey);
+  const cardTrack = useLearningTrack(card.trackSlug);
+  const question = cardTrack?.questions.find((item) => item.key === card.questionKey);
   const due = new Date(card.dueAt);
   const statusColor =
     card.status === "mastered"

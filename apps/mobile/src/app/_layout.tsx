@@ -10,6 +10,7 @@ import { useTheme } from "@/theme";
 import { noteScreenPath } from "@/lib/back-target";
 import type { ThemeColors } from "@/theme/tokens";
 import { startSyncEngine } from "@/lib/sync-engine";
+import { hydrateLearningContent } from "@/lib/content-store";
 import { silentCheckForUpdate } from "@/lib/ota";
 import { useUpdateStore } from "@/store/update-store";
 import { installCrashCapture, setCurrentScreen, setCrashCaptureAppState } from "@/lib/crash-capture";
@@ -80,6 +81,8 @@ export default function RootLayout() {
     let cancelled = false;
     const task = InteractionManager.runAfterInteractions(() => {
       if (cancelled) return;
+      // 学习内容：从数据库拉一次（改库即生效，App 只读 + 模板渲染）；失败保持内置内容包兜底
+      void hydrateLearningContent();
       // 离线优先：后台同步引擎（联网/回前台/登录后自动推送本地变更）
       stopSync = startSyncEngine();
       // 旧运动记录一次性并入 app-store（入同步队列）

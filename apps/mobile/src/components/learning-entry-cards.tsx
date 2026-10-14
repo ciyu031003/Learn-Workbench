@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
-import { getLearningTrack } from "@learn-workbench/content";
+import { useLearningTrack } from "@/lib/content-store";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
 import { useTheme } from "@/theme";
@@ -27,7 +27,7 @@ export function LearningEntryCards({
   const examColor = dark ? "#73D4C6" : "#196B63";
   const examSurface = dark ? "#123A36" : "#E2F3EF";
   const examBorder = dark ? "#2F7F7450" : "#196B6335";
-  const exam408 = getLearningTrack("ex-408-grad");
+  const exam408 = useLearningTrack("ex-408-grad");
   const exam408Chapters =
     exam408?.stages.reduce((total, stage) => total + stage.topics.length, 0) ?? 0;
   const exam408Points =
