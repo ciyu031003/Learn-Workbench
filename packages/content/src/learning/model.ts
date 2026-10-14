@@ -101,6 +101,18 @@ export const LEVEL_TO_DIFFICULTY: Record<LearningLevel, LearningDifficulty> = {
   综合: "hard",
 };
 
+/** 「难度」→「分级」反查（题目未显式填 level 时据此推导）：easy→入门、medium→进阶、hard→综合。 */
+export const DIFFICULTY_TO_LEVEL: Record<LearningDifficulty, LearningLevel> = {
+  easy: "入门",
+  medium: "进阶",
+  hard: "综合",
+} as const;
+
+/** 取题目分级：优先用显式 `level`，否则按 `difficulty` 推导，保证 UI 永远有值。 */
+export function levelOfQuestion(question: { level?: LearningLevel; difficulty: LearningDifficulty }): LearningLevel {
+  return question.level ?? DIFFICULTY_TO_LEVEL[question.difficulty];
+}
+
 /**
  * 阅读时长估算（可复算）：
  *   中文技术文本约 350 字/分钟；代码按 0.6 分钟/非空行计；再加 1 分钟起步（进入 + 回看）。

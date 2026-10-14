@@ -36,6 +36,8 @@ export interface LearningQuestion {
   key: string;
   stageKey: string;
   topicKey?: string;
+  /** 题目分级：入门级 / 进阶级 / 综合级。缺省时由 difficulty 推导（easy→入门、medium→进阶、hard→综合）。 */
+  level?: LearningLevel;
   type: LearningQuestionType;
   stem: string;
   options: LearningQuestionOption[];

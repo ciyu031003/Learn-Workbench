@@ -3,6 +3,22 @@ import { examBankExpansions } from "./exam-bank";
 import { stageLessons, topicLessons } from "./lessons";
 import { topicQuestionPacks } from "./topic-question-packs";
 import type { LearningQuestion, LearningTrack } from "./types";
+import { algorithmsSupplementQuestions } from "./supplement-algorithms";
+import { applicationsecuritySupplementQuestions } from "./supplement-application-security";
+import { backendengineeringSupplementQuestions } from "./supplement-backend-engineering";
+import { pythonSupplementQuestions } from "./supplement-python";
+import { javaSupplementQuestions } from "./supplement-java";
+import { javascriptSupplementQuestions } from "./supplement-javascript";
+import { dataanalysisSupplementQuestions } from "./supplement-data-analysis";
+import { databaseSupplementQuestions } from "./supplement-database";
+import { linuxSupplementQuestions } from "./supplement-linux";
+import { aiengineeringSupplementQuestions } from "./supplement-ai-engineering";
+import { cloudplatformSupplementQuestions } from "./supplement-cloud-platform";
+import { computernetworkingSupplementQuestions } from "./supplement-computer-networking";
+import { operatingsystemsSupplementQuestions } from "./supplement-operating-systems";
+import { computerorganizationSupplementQuestions } from "./supplement-computer-organization";
+import { networkengineeringSupplementQuestions } from "./supplement-network-engineering";
+import { powerbiSupplementQuestions } from "./supplement-power-bi";
 
 const pythonExpansion: LearningQuestion[] = [
   singleQuestion({
@@ -765,7 +781,26 @@ const powerBiExpansion: LearningQuestion[] = [
   }),
 ];
 
-export const learningQuestionExpansions: Record<string, LearningQuestion[]> = {
+const supplementExpansions: Record<string, LearningQuestion[]> = {
+  algorithms: algorithmsSupplementQuestions,
+  "application-security": applicationsecuritySupplementQuestions,
+  "backend-engineering": backendengineeringSupplementQuestions,
+  python: pythonSupplementQuestions,
+  java: javaSupplementQuestions,
+  javascript: javascriptSupplementQuestions,
+  "data-analysis": dataanalysisSupplementQuestions,
+  database: databaseSupplementQuestions,
+  linux: linuxSupplementQuestions,
+  "ai-engineering": aiengineeringSupplementQuestions,
+  "cloud-platform": cloudplatformSupplementQuestions,
+  "computer-networking": computernetworkingSupplementQuestions,
+  "operating-systems": operatingsystemsSupplementQuestions,
+  "computer-organization": computerorganizationSupplementQuestions,
+  "network-engineering": networkengineeringSupplementQuestions,
+  "power-bi": powerbiSupplementQuestions,
+};
+
+const baseExpansions: Record<string, LearningQuestion[]> = {
   python: pythonExpansion,
   java: [...javaExpansion, ...(examBankExpansions.java ?? [])],
   "data-analysis": dataAnalysisExpansion,
@@ -774,6 +809,13 @@ export const learningQuestionExpansions: Record<string, LearningQuestion[]> = {
     Object.entries(examBankExpansions).filter(([slug]) => !["java"].includes(slug))
   ),
 };
+
+const mergedExpansions: Record<string, LearningQuestion[]> = { ...baseExpansions };
+for (const [slug, questions] of Object.entries(supplementExpansions)) {
+  mergedExpansions[slug] = [...(mergedExpansions[slug] ?? []), ...questions];
+}
+
+export const learningQuestionExpansions: Record<string, LearningQuestion[]> = mergedExpansions;
 
 export function expandLearningTrack(track: LearningTrack): LearningTrack {
   const topicAdditions = topicQuestionPacks.filter((question) =>
