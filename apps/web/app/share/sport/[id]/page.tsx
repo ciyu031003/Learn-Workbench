@@ -75,7 +75,7 @@ export default function PublicSportProfilePage({ params }: { params: Promise<{ i
           </div>
         ) : data.photoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={data.photoUrl} alt="" className="mt-4 h-56 w-full object-cover" />
+          <img src={data.photoUrl} alt="" loading="lazy" decoding="async" className="mt-4 h-56 w-full object-cover" />
         ) : (
           <div className="mt-4 h-32 w-full bg-gradient-to-br from-slate-100 to-slate-200" />
         )}
