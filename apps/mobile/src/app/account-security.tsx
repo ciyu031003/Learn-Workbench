@@ -139,7 +139,7 @@ export default function AccountSecurityScreen() {
   return (
     <View style={styles.root}>
       <View style={[styles.header, { paddingTop: headerTop }]}>
-        <Pressable onPress={() => router.replace(resolveBackTarget("/account-security") as never)} hitSlop={12} style={styles.backBtn}>
+        <Pressable accessibilityLabel="返回" onPress={() => router.replace(resolveBackTarget("/account-security") as never)} hitSlop={12} style={styles.backBtn}>
           <ThemedIcon name="chevron-back" size={22} color={colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>账号与安全</Text>

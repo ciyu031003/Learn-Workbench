@@ -334,6 +334,9 @@ const last7 = useMemo(() => {
               <View pointerEvents="none" style={[styles.itemRail, done && { backgroundColor: accent }]} />
               <View style={styles.itemRow}>
                 <Pressable
+                  accessibilityRole="checkbox"
+                  accessibilityLabel={h.name}
+                  accessibilityState={{ checked: done, disabled: busy === h.id }}
                   onPress={() => void toggle(h)}
                   disabled={busy === h.id}
                   style={[styles.check, done && { backgroundColor: accent, borderColor: accent }]}

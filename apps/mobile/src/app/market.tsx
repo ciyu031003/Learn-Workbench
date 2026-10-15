@@ -436,7 +436,7 @@ export default function MarketScreen() {
           onClear={() => patchFilters({ q: undefined })}
           style={{ flex: 1 }}
         />
-        <PressableScale haptic scaleTo={0.92} style={styles.searchButton} onPress={() => patchFilters({ q: search.trim() || undefined })}>
+        <PressableScale accessibilityLabel="搜索" haptic scaleTo={0.92} style={styles.searchButton} onPress={() => patchFilters({ q: search.trim() || undefined })}>
           <ThemedIcon name="search-outline" size={19} color="#FFFFFF" />
         </PressableScale>
       </View>

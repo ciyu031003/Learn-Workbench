@@ -465,7 +465,7 @@ export default function WellbeingPage() {
                   value={customMl}
                   onChange={(e) => setCustomMl(e.target.value)}
                   placeholder="自定义"
-                  className="w-16 bg-transparent text-center text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                  className="w-16 bg-transparent text-center text-sm text-foreground placeholder:text-muted-foreground"
                 />
                 <button
                   onClick={() => {
@@ -951,7 +951,7 @@ export default function WellbeingPage() {
                   <select
                     value={rmType}
                     onChange={(e) => setRmType(e.target.value)}
-                    className="paper-select h-10 rounded-xl px-3 text-sm outline-none"
+                    className="paper-select h-10 rounded-xl px-3 text-sm"
                     aria-label="提醒类型"
                   >
                     {Object.entries(reminderTypeLabels).map(([k, v]) => (

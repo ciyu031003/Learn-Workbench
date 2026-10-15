@@ -821,7 +821,7 @@ export default function TodayScreen() {
                   <Text style={styles.sportItemName}>{r.name}</Text>
                   <Text style={styles.sportItemTime}>{formatSport(r.minutes)} · 已完成</Text>
                 </View>
-                <Pressable
+                <Pressable accessibilityLabel="关闭"
                   onPress={() => {
                     // v19-M5：破坏性动作给 warning 触觉（配合删除确认的既有链路）
                     haptics.warning();

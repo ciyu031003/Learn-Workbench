@@ -299,14 +299,14 @@ function StageCard({
             <Text style={styles.stageTag}>阶段 {index + 1}</Text>
             <Text style={styles.stageName} numberOfLines={1}>{phase.title}</Text>
             <View style={styles.stageActions}>
-              <Pressable
+              <Pressable accessibilityLabel="编辑"
                 hitSlop={6}
                 style={styles.stageActionBtn}
                 onPress={onEdit}
               >
                 <ThemedIcon name="create-outline" size={14} color="rgba(255,255,255,0.92)" />
               </Pressable>
-              <Pressable
+              <Pressable accessibilityLabel="删除"
                 hitSlop={6}
                 style={styles.stageActionBtn}
                 onPress={onDelete}

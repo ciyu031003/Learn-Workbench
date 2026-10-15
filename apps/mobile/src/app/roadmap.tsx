@@ -97,7 +97,7 @@ function PhaseBlock({
                 {t.summary ? <Text style={styles.topicSummary} numberOfLines={2}>{t.summary}</Text> : null}
               </View>
               {t.isCustom && onDelete ? (
-                <Pressable onPress={() => onDelete(t.id)} hitSlop={8}>
+                <Pressable accessibilityLabel="关闭" onPress={() => onDelete(t.id)} hitSlop={8}>
                   <ThemedIcon name="close" size={16} color={colors.textMuted} />
                 </Pressable>
               ) : null}

@@ -53,13 +53,13 @@ export function MonthCalendar({
   return (
     <View style={styles.calendar}>
       <View style={styles.calNav}>
-        <PressableScale hitSlop={8} style={styles.calNavBtn} scaleTo={0.88} onPress={() => go(-1)}>
+        <PressableScale accessibilityLabel="返回" hitSlop={8} style={styles.calNavBtn} scaleTo={0.88} onPress={() => go(-1)}>
           <ThemedIcon name="chevron-back" size={20} color={colors.text} />
         </PressableScale>
         <Text style={styles.calTitle}>
           {view.y} 年 {view.m + 1} 月
         </Text>
-        <PressableScale hitSlop={8} style={styles.calNavBtn} scaleTo={0.88} onPress={() => go(1)}>
+        <PressableScale accessibilityLabel="下一步" hitSlop={8} style={styles.calNavBtn} scaleTo={0.88} onPress={() => go(1)}>
           <ThemedIcon name="chevron-forward" size={20} color={colors.text} />
         </PressableScale>
       </View>
