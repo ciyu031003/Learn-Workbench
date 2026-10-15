@@ -2342,3 +2342,17 @@ CREATE INDEX IF NOT EXISTS idx_learning_questions_manual
   ON learning_questions(manually_edited_at) WHERE manually_edited_at IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_learning_topics_manual
   ON learning_topics(manually_edited_at) WHERE manually_edited_at IS NOT NULL;
+
+-- ---------- 077：知识点来源标记（库里新增的知识点不被同步归档） ----------
+ALTER TABLE learning_topics
+  ADD COLUMN IF NOT EXISTS origin text NOT NULL DEFAULT 'package';
+
+DO $
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_learning_topics_origin') THEN
+    ALTER TABLE learning_topics
+      ADD CONSTRAINT ck_learning_topics_origin CHECK (origin IN ('package','db'));
+  END IF;
+END $;
+
+CREATE INDEX IF NOT EXISTS idx_learning_topics_origin ON learning_topics(origin);

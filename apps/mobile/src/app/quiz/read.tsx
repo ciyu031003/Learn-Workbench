@@ -477,6 +477,26 @@ function TopicArticle({
             <ParagraphList items={topic.lesson.mechanism} />
           </KnowledgeBlock>
 
+          {topic.lesson.summary?.length ? (
+            <KnowledgeBlock title="本章小结" icon="checkmark-done-outline" accent={track.accent}>
+              <ParagraphList items={topic.lesson.summary} />
+            </KnowledgeBlock>
+          ) : null}
+
+          {topic.lesson.terms?.length ? (
+            <KnowledgeBlock title="术语白话" icon="book-outline" accent={track.accent}>
+              <View style={styles.termList}>
+                {topic.lesson.terms.map((term) => (
+                  <View key={term.term} style={styles.termRow}>
+                    <Text style={[styles.termName, { color: track.accent }]}>{term.term}</Text>
+                    <RichText text={term.plain} style={styles.termPlain} />
+                    {term.detail ? <RichText text={term.detail} style={styles.termDetail} /> : null}
+                  </View>
+                ))}
+              </View>
+            </KnowledgeBlock>
+          ) : null}
+
           <CodeExample example={topic.lesson.example} accent={track.accent} onCopied={onCopied} />
 
           <KnowledgeBlock title="练习路径" icon="map-outline" accent={track.accent}>
@@ -834,6 +854,18 @@ const makeStyles = (colors: ThemeColors) =>
     paragraphList: { gap: spacing.sm },
     paragraphRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
     paragraphDot: { width: 5, height: 5, borderRadius: 999, backgroundColor: colors.primary, marginTop: 8 },
+    termList: { gap: 8 },
+    termRow: {
+      borderRadius: 12,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: "rgba(127,127,127,0.28)",
+      paddingHorizontal: 12,
+      paddingVertical: 9,
+      gap: 3,
+    },
+    termName: { ...typography.caption, fontWeight: "800", fontFamily: "monospace" },
+    termPlain: { ...typography.body, color: "inherit" },
+    termDetail: { ...typography.caption, opacity: 0.85 },
     paragraphText: { flex: 1, ...typography.callout, color: colors.textSecondary },
     method: { borderRadius: radius.lg, padding: spacing.lg, backgroundColor: colors.primarySoft, gap: 5 },
     methodLabel: { ...typography.micro, color: colors.primary },

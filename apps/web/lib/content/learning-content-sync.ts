@@ -125,6 +125,8 @@ export function buildLearningContentPlan(
           animations: JSON.stringify(topic.animations ?? []),
           sort_order: topicOrdinal++,
           status: "published",
+          // 内容包同步进来的行：受软归档管辖；库里新增的行 origin='db'，同步不动它们（077）
+          origin: "package",
           fingerprint: fingerprintOf([topic.title, topic.summary, topic.method, topic.exercise, topic.checkpoint, topic.lesson ?? null]),
         });
       });
@@ -256,9 +258,9 @@ export async function syncLearningContent(
     );
     await upsertRows(
       client, "learning_topics",
-      ["track_slug","key","stage_key","title","summary","concepts","principles","applications","pitfalls","method","exercise","checkpoint","lesson","animations","sort_order","status","fingerprint"],
+      ["track_slug","key","stage_key","title","summary","concepts","principles","applications","pitfalls","method","exercise","checkpoint","lesson","animations","sort_order","status","fingerprint","origin"],
       plan.topics, ["track_slug","key"],
-      ["stage_key","title","summary","concepts","principles","applications","pitfalls","method","exercise","checkpoint","lesson","animations","sort_order","fingerprint"],
+      ["stage_key","title","summary","concepts","principles","applications","pitfalls","method","exercise","checkpoint","lesson","animations","sort_order","fingerprint","origin"],
       // 后台改过的知识点不再被内容包覆盖（076）
       "learning_topics.manually_edited_at IS NULL"
     );
@@ -293,7 +295,8 @@ export async function syncLearningContent(
       [trackSlugs]
     );
     const archivedTopics = await client.query(
-      "UPDATE learning_topics SET status = 'archived' WHERE status = 'published' AND NOT ((track_slug || '::' || key) = ANY($1::text[]))",
+      // 只归档「来自内容包」的行；库里新增（origin='db'）的知识点不归同步管（077）
+      "UPDATE learning_topics SET status = 'archived' WHERE status = 'published' AND origin = 'package' AND NOT ((track_slug || '::' || key) = ANY($1::text[]))",
       [topicKeys]
     );
     // 题目：内容包里删掉的题，或整门课消失后遗留的孤儿题，都软归档
