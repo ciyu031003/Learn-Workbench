@@ -12,16 +12,21 @@ import { trackStats } from "@/lib/learning-stats";
 import { BookOpen, ChevronRight, GraduationCap, ListChecks, Search } from "lucide-react";
 
 type CategoryFilter = "全部" | string;
+type LevelFilter = "全部" | "入门" | "进阶" | "综合";
+const LEVEL_OPTIONS: LevelFilter[] = ["全部", "入门", "进阶", "综合"];
 
 export default function LearnLibrary({ tracks }: { tracks: LearningTrack[] }) {
   const categories = useMemo(() => [...new Set(tracks.map((track) => track.category))], [tracks]);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<CategoryFilter>("全部");
+  /** 分级浏览（2026-10-15）：入门 / 进阶 / 综合 */
+  const [level, setLevel] = useState<LevelFilter>("全部");
 
   const visible = useMemo(() => {
     const keyword = query.trim().toLowerCase();
     return tracks.filter((track) => {
       if (category !== "全部" && track.category !== category) return false;
+      if (level !== "全部" && track.level !== level) return false;
       if (!keyword) return true;
       const haystack = [
         track.title,
@@ -46,7 +51,13 @@ export default function LearnLibrary({ tracks }: { tracks: LearningTrack[] }) {
         .toLowerCase();
       return haystack.includes(keyword);
     });
-  }, [category, query, tracks]);
+  }, [category, level, query, tracks]);
+
+  const levelCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const track of tracks) counts.set(track.level, (counts.get(track.level) ?? 0) + 1);
+    return counts;
+  }, [tracks]);
 
   const categoryCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -156,10 +167,28 @@ export default function LearnLibrary({ tracks }: { tracks: LearningTrack[] }) {
             ))}
           </select>
         </label>
-        {category !== "全部" ? (
+        <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+          <span>分级</span>
+          <select
+            value={level}
+            onChange={(event) => setLevel(event.target.value as LevelFilter)}
+            aria-label="按分级筛选课程"
+            className="paper-select h-9 rounded-lg px-2 text-sm"
+          >
+            {LEVEL_OPTIONS.map((item) => (
+              <option key={item} value={item}>
+                {item === "全部" ? `全部（${tracks.length} 门）` : `${item}级（${levelCounts.get(item) ?? 0} 门）`}
+              </option>
+            ))}
+          </select>
+        </label>
+        {category !== "全部" || level !== "全部" ? (
           <button
             type="button"
-            onClick={() => setCategory("全部")}
+            onClick={() => {
+              setCategory("全部");
+              setLevel("全部");
+            }}
             className="text-xs font-medium text-primary hover:underline"
           >
             清除筛选

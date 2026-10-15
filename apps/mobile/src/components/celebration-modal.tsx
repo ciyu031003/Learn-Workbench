@@ -7,6 +7,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { Celebration } from "@/components/celebration";
+import type { CelebrationTone } from "@/lib/celebration-copy";
 import { TOTAL_MS } from "@/lib/celebration-particles";
 import { ThemedIcon } from "@/components/themed-icon";
 import { haptics } from "@/lib/haptics";
@@ -46,6 +47,7 @@ export function CelebrationModal({
    * 直接引用 TOTAL_MS 而不是写死数字 —— 改特效时长时这里自动跟随。
    */
   autoCloseMs = TOTAL_MS + 1700,
+  tone,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -55,6 +57,8 @@ export function CelebrationModal({
   /** 圆形徽章里的文字，如 "100%" 或 "✓" */
   badge?: string;
   autoCloseMs?: number;
+  /** 按正确率分档的文案与配色（不传则用中性默认） */
+  tone?: CelebrationTone;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -112,10 +116,16 @@ export function CelebrationModal({
     <Modal visible transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
       <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="关闭庆祝弹窗">
         <Celebration play={visible} />
-        <Animated.View style={[styles.card, cardStyle]}>
+        <Animated.View style={[styles.card, cardStyle, tone ? { backgroundColor: tone.cardColor } : null]}>
           {/* 氛围光斑（模拟渐变）：静态铺底，不呼吸 */}
-          <Animated.View pointerEvents="none" style={[styles.glow, styles.glowA, glowStyle]} />
-          <Animated.View pointerEvents="none" style={[styles.glow, styles.glowB, glowStyle]} />
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.glow, styles.glowA, glowStyle, tone ? { backgroundColor: tone.glowA } : null]}
+          />
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.glow, styles.glowB, glowStyle, tone ? { backgroundColor: tone.glowB } : null]}
+          />
           {/* 放射光线 */}
           <Animated.View pointerEvents="none" style={[styles.rays, raysStyle]}>
             {[0, 45, 90, 135].map((deg) => (
@@ -123,8 +133,8 @@ export function CelebrationModal({
             ))}
           </Animated.View>
 
-          <Text style={styles.kicker}>恭喜完成</Text>
-          <Animated.View style={[styles.badge, badgeStyle]}>
+          <Text style={styles.kicker}>{tone?.kicker ?? "恭喜完成"}</Text>
+          <Animated.View style={[styles.badge, badgeStyle, tone ? { backgroundColor: tone.badgeColor } : null]}>
             {badge ? (
               <Text style={styles.badgeText}>{badge}</Text>
             ) : (
@@ -132,7 +142,7 @@ export function CelebrationModal({
               <ThemedIcon name="checkmark" size={30} color="#FFFFFF" />
             )}
           </Animated.View>
-          <Text style={styles.resultLabel}>又向前一步</Text>
+          <Text style={styles.resultLabel}>{tone?.resultLabel ?? "又向前一步"}</Text>
 
           <Text style={styles.title} numberOfLines={2}>{title}</Text>
           {subtitle ? <Text style={styles.subtitle} numberOfLines={2}>{subtitle}</Text> : null}
@@ -146,7 +156,7 @@ export function CelebrationModal({
             accessibilityRole="button"
           >
             <ThemedIcon name="sparkles" size={16} color="#fff" />
-            <Text style={styles.btnText}>继续加油</Text>
+            <Text style={styles.btnText}>{tone?.buttonText ?? "继续加油"}</Text>
           </Pressable>
         </Animated.View>
       </Pressable>

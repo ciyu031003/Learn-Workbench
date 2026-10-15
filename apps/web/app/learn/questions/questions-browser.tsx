@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { LEARNING_DIFFICULTY_LABEL } from "@/lib/learning-stats";
 import { QUESTION_STATUS_LABEL, isQuestionStatus, type QuestionStatus } from "@/lib/question-status";
+import { RichText } from "@/components/rich-text";
 import {
   filterLearningQuestions,
   learningQuestionFacets,
@@ -286,7 +287,7 @@ function QuestionCard({ item, status }: { item: LearningQuestionItem; status: Qu
           ) : null}
         </div>
 
-        <p className="text-sm font-medium leading-relaxed">{item.stem}</p>
+        <p className="text-sm font-medium leading-relaxed"><RichText text={item.stem} /></p>
 
         <ul className="flex flex-col gap-1.5">
           {item.options.map((option) => {
@@ -299,7 +300,7 @@ function QuestionCard({ item, status }: { item: LearningQuestionItem; status: Qu
                 }`}
               >
                 <span className="mt-0.5 font-mono text-xs text-muted-foreground">{option.key}</span>
-                <span className="flex-1">{option.text}</span>
+                <span className="flex-1"><RichText text={option.text} /></span>
                 {correct ? <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-success" /> : null}
               </li>
             );
@@ -312,7 +313,7 @@ function QuestionCard({ item, status }: { item: LearningQuestionItem; status: Qu
               <span className="font-medium text-foreground">答案：</span>
               {item.answer.join(" / ")}
             </p>
-            <p className="mt-1 leading-relaxed">{item.explanation}</p>
+            <p className="mt-1 leading-relaxed"><RichText text={item.explanation} /></p>
           </div>
         ) : null}
 

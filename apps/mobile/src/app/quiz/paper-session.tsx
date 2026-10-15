@@ -6,6 +6,7 @@ import Animated from "react-native-reanimated";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
 import { CelebrationModal } from "@/components/celebration-modal";
+import { celebrationSummary, celebrationTone, type CelebrationTone } from "@/lib/celebration-copy";
 import { haptics } from "@/lib/haptics";
 import { ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import {
@@ -48,7 +49,7 @@ function PaperSession({ year, start }: { year: number; start: number }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   /** v1.44：做完一套真题后的庆祝弹窗 */
-  const [celebrate, setCelebrate] = useState<{ title: string; subtitle: string; badge: string } | null>(null);
+  const [celebrate, setCelebrate] = useState<{ title: string; subtitle: string; badge: string; tone?: CelebrationTone } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -110,8 +111,9 @@ function PaperSession({ year, start }: { year: number; start: number }) {
         const percent = Math.round((correct / answered) * 100);
         setCelebrate({
           title: `${year} 年 408 真题 已完成`,
-          subtitle: `选择题答对 ${correct} / ${answered} 题${percent >= 80 ? "，这套卷子很稳" : "，错题值得再复盘一次"}`,
+          subtitle: celebrationSummary(correct, answered),
           badge: `${percent}%`,
+          tone: celebrationTone(percent),
         });
       }
       return;
@@ -191,6 +193,7 @@ function PaperSession({ year, start }: { year: number; start: number }) {
           title={celebrate?.title ?? ""}
           subtitle={celebrate?.subtitle}
           badge={celebrate?.badge}
+          tone={celebrate?.tone}
         />
       </>
     );
