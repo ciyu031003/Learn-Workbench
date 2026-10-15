@@ -2,6 +2,7 @@ import { judgeQuestion, singleQuestion } from "./question-builders";
 import { examBankExpansions } from "./exam-bank";
 import { stageLessons, topicLessons } from "./lessons";
 import { topicQuestionPacks } from "./topic-question-packs";
+import { topicExpansions } from "./topic-expansions";
 import type { LearningQuestion, LearningTrack } from "./types";
 import { algorithmsSupplementQuestions } from "./supplement-algorithms";
 import { applicationsecuritySupplementQuestions } from "./supplement-application-security";
@@ -833,13 +834,24 @@ export function expandLearningTrack(track: LearningTrack): LearningTrack {
     })),
   };
   const additions = learningQuestionExpansions[track.slug];
-  const allAdditions = [...topicAdditions, ...(additions ?? [])];
-  if (allAdditions.length === 0) return withLessons;
+  /** 知识点扩容：新知识点插进对应阶段，配套题与其它追加题一起合并 */
+  const expansions = topicExpansions.filter((expansion) => expansion.trackSlug === track.slug);
+  const expansionAdditions = expansions.flatMap((expansion) => expansion.questions);
+  const allAdditions = [...topicAdditions, ...(additions ?? []), ...expansionAdditions];
+  if (allAdditions.length === 0 && expansions.length === 0) return withLessons;
 
   return {
     ...withLessons,
     stages: withLessons.stages.map((stage) => ({
       ...stage,
+      // 追加知识点（同 key 已存在则跳过，避免重复注入）
+      topics: [
+        ...stage.topics,
+        ...expansions
+          .filter((expansion) => expansion.stageKey === stage.key)
+          .map((expansion) => expansion.topic)
+          .filter((topic) => !stage.topics.some((existing) => existing.key === topic.key)),
+      ],
       questionKeys: [
         ...stage.questionKeys,
         ...allAdditions.filter((question) => question.stageKey === stage.key).map((question) => question.key),
