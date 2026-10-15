@@ -103,7 +103,7 @@ export function MarketGapsCard({ limit = 10 }: { limit?: number }) {
           <p className="py-4 text-sm text-danger">{error}</p>
         ) : !data || data.gaps.length === 0 ? (
           <div className="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-3 text-sm text-success">
-            <CheckCircle2 className="size-4" /> 技能已覆盖市场高频需求 🎉 继续巩固即可
+            <CheckCircle2 className="size-4" /> 技能已覆盖市场高频需求，继续巩固即可
           </div>
         ) : (
           <div className="flex flex-col gap-2">

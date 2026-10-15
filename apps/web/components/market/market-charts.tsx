@@ -8,6 +8,7 @@
  */
 import { useState } from "react";
 import { useToastStore } from "@/store/toast-store";
+import { Check, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { oilPainting } from "@learn-workbench/ui";
 
@@ -566,7 +567,16 @@ export function SkillMarketMap({
           <span className="text-sm font-bold text-foreground">{sel.skill}</span>
           <span className="text-muted-foreground">在招 {sel.count} 岗</span>
           <span className="text-muted-foreground">均薪 {sel.avgSalary}K</span>
-          <span className="text-muted-foreground">热度 {"★".repeat(heatStars)}{"☆".repeat(5 - heatStars)}</span>
+          <span className="flex items-center gap-0.5 text-muted-foreground" aria-label={`热度 ${heatStars} / 5`}>
+            热度
+            {Array.from({ length: 5 }, (_, index) => (
+              <Star
+                key={index}
+                className={index < heatStars ? "size-3 fill-current text-warning" : "size-3 text-muted-foreground/40"}
+                aria-hidden
+              />
+            ))}
+          </span>
           <span className="text-muted-foreground">
             我的：{sel.myLevel == null ? (loggedIn ? "未维护" : "未登录") : SKILL_LEVEL_LABELS[sel.myLevel]}
           </span>
@@ -588,7 +598,9 @@ export function SkillMarketMap({
               {enrolling === sel.skill ? "加入中…" : "加入学习路线"}
             </button>
           ) : loggedIn && sel.myLevel != null && sel.myLevel >= 2 ? (
-            <span className="ml-auto text-success">已达标，无需补齐 ✓</span>
+            <span className="ml-auto flex items-center gap-1 text-success">
+              <Check className="size-3.5" aria-hidden />已达标，无需补齐
+            </span>
           ) : null}
         </div>
       ) : (
