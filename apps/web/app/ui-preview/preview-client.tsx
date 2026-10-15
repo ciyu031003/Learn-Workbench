@@ -158,6 +158,7 @@ export function PreviewClient() {
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="lift paper-card flex flex-col gap-2 p-3">
             <div className="grid aspect-square place-items-center rounded-xl bg-white text-muted-foreground">
+              {/* icon-scale-ok：空态/插图级大图标（32-96px），不属于行内图标体系 */}
               <FileText className="size-8" />
             </div>
             <span className="text-sm font-semibold">ASTROX 100 ZZ</span>

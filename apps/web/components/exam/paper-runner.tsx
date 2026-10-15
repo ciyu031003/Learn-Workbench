@@ -401,7 +401,7 @@ function FinishPanel({
     <Card>
       <CardContent className="flex flex-col items-center gap-4 p-6 text-center">
         <span className="flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <FileText className="size-7" />
+          <FileText className="size-6" />
         </span>
         <div>
           <h2 className="text-xl font-semibold">{paper.paper.year} 年真题本轮完成</h2>

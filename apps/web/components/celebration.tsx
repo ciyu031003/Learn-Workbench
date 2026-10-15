@@ -145,6 +145,7 @@ function SparkleBurst({ origin }: { origin: { x: number; y: number } }) {
         style={{ left: origin.x, top: origin.y, color: "#2f74c0" }}
       >
         <span className="lwb-halo-core" aria-hidden />
+        {/* icon-scale-ok：空态/插图级大图标（32-96px），不属于行内图标体系 */}
         <CheckCircle2 className="relative z-[1] size-8" />
       </span>
     </>

@@ -206,7 +206,7 @@ function SubjectChapters({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="flex size-9 items-center justify-center rounded-lg" style={{ backgroundColor: style.soft, color: style.color }}>
-            <Icon className="size-4.5" />
+            <Icon className="size-5" />
           </span>
           <div>
             <h2 className="text-lg font-semibold">{subject.title}</h2>

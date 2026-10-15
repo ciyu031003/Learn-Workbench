@@ -104,6 +104,7 @@ export function ExamCalendarModal({
             <p className="rounded-xl border border-danger/30 bg-danger/15 px-3 py-3 text-sm text-foreground">{error}</p>
           ) : events.length === 0 ? (
             <div className="py-16 text-center">
+              {/* icon-scale-ok：空态/插图级大图标（32-96px），不属于行内图标体系 */}
               <CalendarDays className="mx-auto size-10 text-muted-foreground/40" />
               <p className="mt-3 text-sm text-muted-foreground">暂无已解析的考试时间节点</p>
               <p className="mt-1 text-xs text-muted-foreground/70">抓取公告后，报名/笔试/面试时间会自动出现在这里</p>

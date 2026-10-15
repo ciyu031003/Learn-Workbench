@@ -262,7 +262,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   isActive(item.href) ? "text-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                <item.icon className="lwb-nav-icon size-4.5" />
+                <item.icon className="lwb-nav-icon size-5" />
                 {item.label}
               </Link>
             ))}
@@ -282,7 +282,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   learnActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                <GraduationCap className="lwb-nav-icon size-4.5" />
+                <GraduationCap className="lwb-nav-icon size-5" />
                 学习
                 <ChevronDown className={cn("size-3.5 transition-transform duration-300", openMenu === "learn" && "rotate-180")} />
               </button>
@@ -314,7 +314,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 isJobs ? "text-foreground" : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <Flower className="lwb-nav-icon size-4.5" />
+              <Flower className="lwb-nav-icon size-5" />
               招花
             </Link>
 
@@ -333,7 +333,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   isCareer ? "text-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                <Rocket className="lwb-nav-icon size-4.5" />
+                <Rocket className="lwb-nav-icon size-5" />
                 职业
                 <ChevronDown className={cn("size-3.5 transition-transform duration-300", openMenu === "career" && "rotate-180")} />
               </button>
@@ -364,7 +364,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 isActive("/settings") ? "text-foreground" : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <Settings className="lwb-nav-icon size-4.5" />
+              <Settings className="lwb-nav-icon size-5" />
               设置
             </Link>
           </nav>

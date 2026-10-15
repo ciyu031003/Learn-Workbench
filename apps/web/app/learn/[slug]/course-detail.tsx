@@ -123,7 +123,7 @@ export default function CourseDetail({ track }: { track: LearningTrack }) {
   if (!track) {
     return (
       <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-3 p-10 text-center">
-        <BookOpen className="size-7 text-muted-foreground" />
+        <BookOpen className="size-6 text-muted-foreground" />
         <h1 className="text-lg font-semibold">没有这门课程</h1>
         <p className="text-sm text-muted-foreground">课程不存在或已下线。</p>
         <Link href="/learn" className="mt-1 text-sm font-medium text-primary hover:underline">

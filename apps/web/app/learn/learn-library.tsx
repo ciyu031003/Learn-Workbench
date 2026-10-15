@@ -230,7 +230,7 @@ export default function LearnLibrary({ tracks }: { tracks: LearningTrack[] }) {
                       className="flex size-9 shrink-0 items-center justify-center rounded-lg"
                       style={{ backgroundColor: track.softAccent, color: track.accent }}
                     >
-                      <GraduationCap className="size-4.5" />
+                      <GraduationCap className="size-5" />
                     </span>
                   </div>
 
