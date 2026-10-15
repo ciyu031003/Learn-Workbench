@@ -732,7 +732,7 @@ export function FocusTimer({
       {done ? (
         <div className="relative z-10 flex-1 overflow-y-auto px-4 pb-6 pt-4">
           <div className="mx-auto flex max-w-2xl flex-col items-center gap-4">
-            <p className="text-2xl font-bold text-white drop-shadow">🎉 {mode === "exercise" ? "运动完成" : "专注完成"}！</p>
+            <p className="text-2xl font-bold text-white drop-shadow">{mode === "exercise" ? "运动完成" : "专注完成"}！</p>
             <p className="text-sm text-white/70">本次{mode === "exercise" ? "运动" : "专注"} {fmtClock(elapsed)}，已自动记录</p>
             <div className="inline-flex items-center gap-2 rounded-full border border-success/40 bg-success/20 px-4 py-2 text-sm text-white backdrop-blur-md">
               <TreePine className="size-4 text-success" />

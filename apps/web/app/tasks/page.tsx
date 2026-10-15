@@ -375,7 +375,7 @@ export default function TasksPage() {
       {/* 专注打卡统计（计时完成 / 完成当日全部任务后可分享） */}
       {tasks.length > 0 && tasks.every((t) => t.done) ? (
         <div className="rise-in cta-breathe flex items-center gap-2 rounded-2xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-foreground">
-          🎉 今日任务已全部完成！生成你的专注打卡卡片分享一下吧
+          今日任务已全部完成！生成你的专注打卡卡片分享一下吧
         </div>
       ) : null}
       <div id="focus" className="scroll-mt-24" />

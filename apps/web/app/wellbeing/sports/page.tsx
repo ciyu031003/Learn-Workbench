@@ -286,7 +286,7 @@ export default function SportsProfilePage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="flex items-center gap-2 text-base font-extrabold">
-                      🏸 {sportName(p.sportKey)}档案
+                      <Dumbbell className="inline size-4" aria-hidden /> {sportName(p.sportKey)}档案
                     </p>
                     {p.identity ? <p className="mt-1 text-sm font-semibold">{p.identity}</p> : null}
                     <p className="mt-0.5 text-xs text-muted-foreground">

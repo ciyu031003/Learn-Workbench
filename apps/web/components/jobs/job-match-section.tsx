@@ -180,7 +180,7 @@ export function JobMatchSection({ jobId }: { jobId: number }) {
       ) : null}
 
       {match && match.missingSkills.length === 0 && match.hasUserProfile ? (
-        <p className="text-xs text-success">技能已全部覆盖该岗位要求 🎉</p>
+        <p className="flex items-center gap-1 text-xs text-success"><Sparkles className="size-3.5" aria-hidden />技能已全部覆盖该岗位要求</p>
       ) : null}
     </div>
   );

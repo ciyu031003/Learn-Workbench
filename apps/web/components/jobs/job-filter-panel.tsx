@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { Check, RotateCcw, SlidersHorizontal } from "lucide-react";
+import { Check, RotateCcw, SlidersHorizontal, X } from "lucide-react";
 
 /**
  * 局部样式：只在筛选面板内生效（不动 globals.css，避免与其它流互相覆盖）。
@@ -209,7 +209,8 @@ export function JobFilterPanel({
         ) : (
           filters.skills.map((s) => (
             <Chip key={s} active onClick={() => set({ skills: filters.skills.filter((v) => v !== s) })}>
-              {s} ✕
+              {s}
+              <X className="inline size-3" aria-hidden />
             </Chip>
           ))
         )}
