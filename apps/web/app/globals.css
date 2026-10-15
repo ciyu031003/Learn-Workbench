@@ -48,6 +48,11 @@ html.dark {
 }
 
 @theme inline {
+  /* 动效时长令牌（skill P7）：新代码用 duration-fast|base|slow|reveal，不要再写裸数字 */
+  --duration-fast: var(--motion-fast);
+  --duration-base: var(--motion-base);
+  --duration-slow: var(--motion-slow);
+  --duration-reveal: var(--motion-reveal);
   --color-background: var(--color-canvas);
   --color-foreground: var(--color-text);
   --color-card: var(--color-surface);
@@ -971,6 +976,8 @@ html.dark .ambient-glow::after {
   --motion-fast: 150ms;
   --motion-base: 240ms;
   --motion-slow: 400ms;
+  /* 页面级大揭示（入场/大块展开）：只在整页或大区块用，别用在按钮上 */
+  --motion-reveal: 700ms;
   --ease-standard: cubic-bezier(0.22, 0.61, 0.36, 1);
   --ease-overshoot: cubic-bezier(0.8, 0.5, 0.2, 1.4);
   --toast-life: 3.2s;

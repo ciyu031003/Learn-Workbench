@@ -357,7 +357,7 @@ export default function TasksPage() {
                 </div>
                 <span className="progress-track h-1.5 w-full overflow-hidden rounded-full">
                   <span
-                    className="progress-fill block h-full rounded-full transition-[width] duration-700 ease-out motion-reduce:transition-none"
+                    className="progress-fill block h-full rounded-full transition-[width] duration-reveal ease-out motion-reduce:transition-none"
                     style={{
                       width: `${Math.max(
                         4,

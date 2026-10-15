@@ -161,7 +161,7 @@ export function ReadinessHero() {
                   <span className="w-9 shrink-0 text-xs font-semibold text-muted-foreground">{d.label}</span>
                   <span className="relative h-2 flex-1 overflow-hidden rounded-full bg-muted/50">
                     <span
-                      className="absolute inset-y-0 left-0 rounded-full transition-[width] duration-700 ease-out"
+                      className="absolute inset-y-0 left-0 rounded-full transition-[width] duration-reveal ease-out"
                       style={{ width: `${Math.max(2, pct)}%`, background: `linear-gradient(90deg, ${d.color}, ${d.color}cc)` }}
                     />
                   </span>

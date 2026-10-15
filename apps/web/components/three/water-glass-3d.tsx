@@ -212,7 +212,7 @@ export function WaterGlass3D({ ratio, size = 176, className }: { ratio: number; 
     <div ref={hostRef} className={className} style={{ width: size, height: size * 1.25, position: "relative" }} aria-hidden>
       {/* CSS 回落：一个带液面的圆角杯 */}
       <div
-        className="absolute inset-0 overflow-hidden rounded-b-[26px] rounded-t-[14px] transition-opacity duration-700"
+        className="absolute inset-0 overflow-hidden rounded-b-[26px] rounded-t-[14px] transition-opacity duration-reveal"
         style={{
           opacity: live ? 0 : 1,
           border: "1px solid rgba(255,255,255,0.35)",
@@ -224,7 +224,7 @@ export function WaterGlass3D({ ratio, size = 176, className }: { ratio: number; 
           style={{ height: `${Math.round(clamped * 100)}%`, background: "linear-gradient(180deg, #57c7b2, #2fb3a6)" }}
         />
       </div>
-      <canvas ref={canvasRef} className="absolute inset-0 h-full w-full transition-opacity duration-700" style={{ opacity: live ? 1 : 0 }} />
+      <canvas ref={canvasRef} className="absolute inset-0 h-full w-full transition-opacity duration-reveal" style={{ opacity: live ? 1 : 0 }} />
     </div>
   );
 }

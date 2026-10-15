@@ -181,14 +181,14 @@ export function StateOrb({ score, size = 220, className }: { score: number; size
     >
       {/* CSS 回落：3D 未就绪 / 无 WebGL 时显示渐变球，不白屏 */}
       <div
-        className="absolute inset-0 rounded-full transition-opacity duration-700"
+        className="absolute inset-0 rounded-full transition-opacity duration-reveal"
         style={{
           opacity: live ? 0 : 1,
           background: `radial-gradient(circle at 32% 28%, ${color}, transparent 62%), radial-gradient(circle at 68% 74%, rgba(255,255,255,0.35), transparent 55%)`,
           filter: "blur(2px)",
         }}
       />
-      <canvas ref={canvasRef} className="absolute inset-0 h-full w-full transition-opacity duration-700" style={{ opacity: live ? 1 : 0 }} />
+      <canvas ref={canvasRef} className="absolute inset-0 h-full w-full transition-opacity duration-reveal" style={{ opacity: live ? 1 : 0 }} />
     </div>
   );
 }

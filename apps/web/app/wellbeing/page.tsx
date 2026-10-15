@@ -871,7 +871,7 @@ export default function WellbeingPage() {
                     </span>
                     <div className="h-4 flex-1 overflow-hidden rounded-full bg-muted">
                       <div
-                        className="rise-in h-full rounded-full bg-gradient-to-r from-success/80 to-success transition-[width] duration-700 ease-out motion-reduce:transition-none"
+                        className="rise-in h-full rounded-full bg-gradient-to-r from-success/80 to-success transition-[width] duration-reveal ease-out motion-reduce:transition-none"
                         style={{ width: row.minutes > 0 ? `${Math.max(2, Math.round((row.minutes / weekMax) * 100))}%` : "0%" }}
                       />
                     </div>
