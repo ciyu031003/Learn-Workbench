@@ -12,7 +12,11 @@
  *   - `topic.lesson` 必须完整：overview ≥2、mechanism ≥2、example（title/language/code/explanation）、
  *     practiceSteps ≥3、masteryChecklist ≥2；建议再给 `summary`（本章小结）与 `terms`（术语白话）。
  */
+import { applicationSecurityTopicExpansions } from "./topic-expansion-application-security";
 import { backendEngineeringTopicExpansions } from "./topic-expansion-backend-engineering";
+import { databaseTopicExpansions } from "./topic-expansion-database";
+import { javaTopicExpansions } from "./topic-expansion-java";
+import { pythonTopicExpansions } from "./topic-expansion-python";
 import type { LearningQuestion, LearningTopic } from "./types";
 
 export interface TopicExpansion {
@@ -24,5 +28,9 @@ export interface TopicExpansion {
 
 /** 各 track 的知识点扩容（新增文件后在下面登记） */
 export const topicExpansions: TopicExpansion[] = [
+  ...applicationSecurityTopicExpansions,
   ...backendEngineeringTopicExpansions,
+  ...databaseTopicExpansions,
+  ...javaTopicExpansions,
+  ...pythonTopicExpansions,
 ];
