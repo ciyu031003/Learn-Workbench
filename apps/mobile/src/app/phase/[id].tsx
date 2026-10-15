@@ -211,11 +211,17 @@ export default function PhaseScreen() {
                     </View>
                   </View>
                   <View style={styles.topicActions}>
-                    <Pressable hitSlop={6} onPress={() => toggleTopic(topic.id)}>
+                    <Pressable
+                  accessibilityRole="checkbox"
+                  accessibilityLabel={done ? "标记为未完成" : "标记为已完成"}
+                  accessibilityState={{ checked: done > 0 }}
+                  hitSlop={6}
+                  onPress={() => toggleTopic(topic.id)}
+                >
                       <ThemedIcon name={done ? "checkmark-circle" : "ellipse-outline"} size={20} color={done ? "#ffffff" : "rgba(255,255,255,0.72)"} />
                     </Pressable>
                     {("isCustomSubject" in topic && !!topic.isCustomSubject) ? (
-                      <Pressable hitSlop={6} onPress={() => remove({ id: topic.id, isCustom: true })}>
+                      <Pressable accessibilityLabel="删除" hitSlop={6} onPress={() => remove({ id: topic.id, isCustom: true })}>
                         <ThemedIcon name="trash-outline" size={18} color="rgba(255,255,255,0.72)" />
                       </Pressable>
                     ) : null}

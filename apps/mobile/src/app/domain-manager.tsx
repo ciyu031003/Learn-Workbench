@@ -230,11 +230,11 @@ export default function DomainManagerScreen() {
   return (
     <View style={styles.root}>
       <View style={[styles.header, { paddingTop: headerTop }]}>
-        <Pressable onPress={() => router.replace(resolveBackTarget("/domain-manager") as never)} hitSlop={12} style={styles.backBtn}>
+        <Pressable accessibilityLabel="返回" onPress={() => router.replace(resolveBackTarget("/domain-manager") as never)} hitSlop={12} style={styles.backBtn}>
           <ThemedIcon name="chevron-back" size={22} color={colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>学习领域管理</Text>
-        <Pressable onPress={openCreate} hitSlop={12} style={styles.backBtn}>
+        <Pressable accessibilityLabel="新增" onPress={openCreate} hitSlop={12} style={styles.backBtn}>
           <ThemedIcon name="add" size={22} color={colors.primary} />
         </Pressable>
       </View>
@@ -382,10 +382,10 @@ function DomainRow({
       </PressableScale>
       {item.owner_id !== null ? (
         <View style={styles.domainActions}>
-          <Pressable onPress={onEdit} hitSlop={8}>
+          <Pressable accessibilityLabel="更多选项" onPress={onEdit} hitSlop={8}>
             <ThemedIcon name="options-outline" size={16} color={colors.textMuted} />
           </Pressable>
-          <Pressable onPress={onArchive} hitSlop={8}>
+          <Pressable accessibilityLabel="归档" onPress={onArchive} hitSlop={8}>
             <ThemedIcon name="archive-outline" size={16} color={colors.textMuted} />
           </Pressable>
         </View>

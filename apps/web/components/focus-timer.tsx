@@ -948,7 +948,7 @@ export function FocusTimer({
                   const v = Math.min(180, Math.max(1, Number(e.target.value) || 1));
                   changePreset(v);
                 }}
-                className="w-10 bg-transparent text-center text-white outline-none"
+                className="w-10 bg-transparent text-center text-white outline-none focus-visible:ring-2 focus-visible:ring-white/70"
               />
               <span className="text-xs text-white/60">分</span>
             </label>
@@ -977,7 +977,7 @@ export function FocusTimer({
                   value={quoteInput}
                   onChange={(e) => setQuoteInput(e.target.value)}
                   placeholder="输入你的励志短句…"
-                  className="h-9 flex-1 rounded-lg border border-white/25 bg-white/10 px-3 text-sm text-white outline-none placeholder:text-white/40"
+                  className="h-9 flex-1 rounded-lg border border-white/25 bg-white/10 px-3 text-sm text-white outline-none focus-visible:ring-2 focus-visible:ring-white/70 placeholder:text-white/40"
                 />
                 <button
                   onClick={saveQuote}
@@ -1059,7 +1059,7 @@ export function FocusTimer({
                       const v = Math.min(180, Math.max(1, Number(e.target.value) || 1));
                       changePreset(v);
                     }}
-                    className="w-10 bg-transparent text-center text-white outline-none"
+                    className="w-10 bg-transparent text-center text-white outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                   />
                   <span className="text-xs text-white/60">分</span>
                 </label>

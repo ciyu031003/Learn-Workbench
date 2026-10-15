@@ -201,7 +201,12 @@ export function AuthSheet({
               secureTextEntry={!showPass}
               autoComplete={mode === "login" ? "current-password" : "new-password"}
             />
-            <Pressable onPress={() => setShowPass((v) => !v)} hitSlop={8}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={showPass ? "隐藏密码" : "显示密码"}
+              onPress={() => setShowPass((v) => !v)}
+              hitSlop={8}
+            >
               <ThemedIcon name={showPass ? "eye-off-outline" : "eye-outline"} size={18} color={colors.textMuted} />
             </Pressable>
           </View>

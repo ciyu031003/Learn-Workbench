@@ -148,6 +148,9 @@ function JobCard({
         <Text style={styles.time}>{formatRelativeTime(job.publishedAt)}</Text>
         <Pressable
           hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel={job.isFav ? "取消收藏" : "收藏该岗位"}
+          accessibilityState={{ selected: job.isFav }}
           onPress={() => onToggleFavorite(job)}
           style={({ pressed }) => (pressed ? styles.pressedFaint : null)}
         >

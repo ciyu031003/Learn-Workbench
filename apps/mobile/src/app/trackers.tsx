@@ -233,11 +233,11 @@ export default function TrackersScreen() {
   return (
     <View style={styles.root}>
       <View style={[styles.header, { paddingTop: headerTop }]}>
-        <Pressable onPress={() => router.replace(resolveBackTarget("/trackers") as never)} hitSlop={12} style={styles.backBtn}>
+        <Pressable accessibilityLabel="返回" onPress={() => router.replace(resolveBackTarget("/trackers") as never)} hitSlop={12} style={styles.backBtn}>
           <ThemedIcon name="chevron-back" size={22} color={colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>领域记录</Text>
-        <Pressable onPress={openCreate} hitSlop={12} style={styles.backBtn}>
+        <Pressable accessibilityLabel="新增" onPress={openCreate} hitSlop={12} style={styles.backBtn}>
           <ThemedIcon name="add" size={22} color={colors.primary} />
         </Pressable>
       </View>
@@ -302,7 +302,7 @@ export default function TrackersScreen() {
                       <PressableScale style={styles.trackerLogBtn} onPress={() => void openLog(t)} disabled={busy}>
                         <Text style={styles.trackerLogText}>打卡</Text>
                       </PressableScale>
-                      <Pressable onPress={() => doDeleteTracker(t)} hitSlop={8}>
+                      <Pressable accessibilityLabel="删除" onPress={() => doDeleteTracker(t)} hitSlop={8}>
                         <ThemedIcon name="trash-outline" size={16} color={colors.textFaint} />
                       </Pressable>
                     </View>

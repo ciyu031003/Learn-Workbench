@@ -614,7 +614,7 @@ export function FocusTimer({
               <Text style={styles.topBtnText}>背景</Text>
             </View>
           </Pressable>
-          <Pressable style={styles.topBtn} onPress={() => record(elapsed)}>
+          <Pressable accessibilityLabel="关闭" style={styles.topBtn} onPress={() => record(elapsed)}>
             <ThemedIcon name="close" size={20} color="rgba(255,255,255,0.9)" />
           </Pressable>
         </View>
@@ -711,13 +711,18 @@ export function FocusTimer({
                   <Text style={styles.landscapeClockHint}>点击计时 · 暂停 / 继续</Text>
                 </Pressable>
                 <View style={styles.controls}>
-                  <Pressable style={styles.ctrlBtn} onPress={() => (running ? pause() : resume())}>
+                  <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={running ? "暂停计时" : "继续计时"}
+            style={styles.ctrlBtn}
+            onPress={() => (running ? pause() : resume())}
+          >
                     <ThemedIcon name={running ? "pause" : "play"} size={26} color="#fff" />
                   </Pressable>
-                  <Pressable style={styles.ctrlBtn} onPress={reset}>
+                  <Pressable accessibilityLabel="刷新" style={styles.ctrlBtn} onPress={reset}>
                     <ThemedIcon name="refresh" size={26} color="#fff" />
                   </Pressable>
-                  <Pressable style={styles.ctrlBtn} onPress={() => record(elapsed)}>
+                  <Pressable accessibilityLabel="停止" style={styles.ctrlBtn} onPress={() => record(elapsed)}>
                     <ThemedIcon name="stop" size={26} color="#fff" />
                   </Pressable>
                 </View>
@@ -794,13 +799,18 @@ export function FocusTimer({
 
               {/* 控制按钮 */}
               <View style={styles.controls}>
-                <Pressable style={styles.ctrlBtn} onPress={() => (running ? pause() : resume())}>
+                <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={running ? "暂停计时" : "继续计时"}
+            style={styles.ctrlBtn}
+            onPress={() => (running ? pause() : resume())}
+          >
                   <ThemedIcon name={running ? "pause" : "play"} size={26} color="#fff" />
                 </Pressable>
-                <Pressable style={styles.ctrlBtn} onPress={reset}>
+                <Pressable accessibilityLabel="刷新" style={styles.ctrlBtn} onPress={reset}>
                   <ThemedIcon name="refresh" size={26} color="#fff" />
                 </Pressable>
-                <Pressable style={styles.ctrlBtn} onPress={() => record(elapsed)}>
+                <Pressable accessibilityLabel="停止" style={styles.ctrlBtn} onPress={() => record(elapsed)}>
                   <ThemedIcon name="stop" size={26} color="#fff" />
                 </Pressable>
               </View>

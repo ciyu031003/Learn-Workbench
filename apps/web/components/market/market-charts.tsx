@@ -487,7 +487,7 @@ export function SkillMarketMap({
                   tabIndex={0}
                   role="button"
                   aria-label={`${n.skill}：${n.count} 个岗位，均薪 ${n.avgSalary}K`}
-                  className="mc-node cursor-pointer outline-none"
+                  className="mc-node cursor-pointer rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
                   style={{ animationDelay: `${Math.min(ni, 30) * 32}ms` }}
                   onClick={() => setSel(n)}
                   onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSel(n); } }}

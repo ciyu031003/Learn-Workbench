@@ -200,7 +200,7 @@ export default function TasksScreen() {
               </Text>
               <Text style={styles.taskMeta}>{taskTypeLabels[t.taskType]}</Text>
               {t.focusMinutes > 0 ? <Text style={styles.taskFocus}>{t.focusMinutes}′</Text> : null}
-              <PressableScale onPress={() => openTimer(t.id, t.title)} hitSlop={8} scaleTo={0.85}>
+              <PressableScale accessibilityLabel="开始" onPress={() => openTimer(t.id, t.title)} hitSlop={8} scaleTo={0.85}>
                 <ThemedIcon name="play" size={15} color={colors.primary} />
               </PressableScale>
             </Animated.View>
