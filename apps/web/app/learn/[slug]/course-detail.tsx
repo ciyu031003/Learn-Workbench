@@ -19,6 +19,7 @@ import { ReviewPlan } from "@/components/learning/review-plan";
 import { CodeCopyButton, FavoriteMark, ReadBadge, useLibraryState } from "@/components/learning/library-state";
 import { FreshnessBadge, PointStateSummary, StateDots, useContentFreshness, usePointStates } from "@/components/learning/point-states";
 import { AlgorithmAnimation } from "@/components/learning/algorithm-animation";
+import { RichText } from "@/components/rich-text";
 import type { PointStateResult } from "@/lib/learning-states";
 import { LEARNING_DIFFICULTY_LABEL, stageStats, topicQuestions, trackStats } from "@/lib/learning-stats";
 import { ArrowLeft, BookOpen, CheckCircle2, ChevronLeft, ChevronRight, ListChecks, Sparkles, TriangleAlert, Wrench } from "lucide-react";
@@ -176,7 +177,7 @@ export default function CourseDetail({ track }: { track: LearningTrack }) {
             <Section title="学习方法" icon={<Wrench className="size-4 text-primary" />}>
               <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
                 {track.studyMethod.map((item) => (
-                  <li key={item}>{item}</li>
+                  <li key={item}><RichText text={item} /></li>
                 ))}
               </ul>
             </Section>

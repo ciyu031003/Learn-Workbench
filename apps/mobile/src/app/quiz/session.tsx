@@ -22,6 +22,8 @@ import {
 import { flushLearningAttempts, syncLearningAttempt } from "@/lib/learning-sync";
 import { fetchDueReviewKeys } from "@/lib/learning-review";
 import { CelebrationModal } from "@/components/celebration-modal";
+import { RichText } from "@/components/rich-text";
+import { celebrationSummary, celebrationTone } from "@/lib/celebration-copy";
 import { useAppStore } from "@/store/app-store";
 import { useReducedMotion } from "@/lib/motion";
 import { useTheme } from "@/theme";
@@ -171,7 +173,7 @@ function SessionContent({
         const percent = Math.round((correctCount / total) * 100);
         setCelebrate({
           title: topicTitle ? topicTitle + " 已练完" : track.title + " · 本组完成",
-          subtitle: `答对 ${correctCount} / ${total} 题${percent >= 80 ? "，这一章掌握得不错" : "，错题已进入复习队列"}`,
+          subtitle: celebrationSummary(correctCount, total),
           badge: `${percent}%`,
         });
       }
@@ -199,6 +201,8 @@ function SessionContent({
   if (finished) {
     const total = questions.length;
     const percent = total === 0 ? 0 : Math.round((correctCount / total) * 100);
+    // 2026-10-15：庆祝弹窗按正确率分档（全对 / 优秀 / 及格 / 加油）
+    const tone = celebrationTone(percent);
     // 双向关联：答完能回到对应知识点（优先用本次练习的 topic，退回首题所属阶段）
     const knowledgeStageKey = stageKey ?? questions[0]?.stageKey;
     const goToKnowledge = () => {
@@ -246,6 +250,7 @@ function SessionContent({
           title={celebrate?.title ?? ""}
           subtitle={celebrate?.subtitle}
           badge={celebrate?.badge}
+          tone={tone}
         />
       </View>
     );
@@ -282,7 +287,7 @@ function SessionContent({
             </Text>
             <Text style={styles.questionCount}>{index + 1} / {questions.length}</Text>
           </View>
-          <Text style={styles.questionStem}>{question.stem}</Text>
+          <RichText text={question.stem} style={styles.questionStem} />
           <View style={styles.optionList}>
             {question.options.map((option) => {
               const chosen = selected.includes(option.key);
@@ -312,7 +317,7 @@ function SessionContent({
                   >
                     <Text style={[styles.optionKeyText, state !== "idle" && styles.optionKeyTextActive]}>{option.key}</Text>
                   </View>
-                  <Text style={styles.optionText}>{option.text}</Text>
+                  <RichText text={option.text} style={styles.optionText} />
                   {state === "correct" ? <ThemedIcon name="checkmark" size={18} color={colors.success} /> : null}
                   {state === "wrong" ? <ThemedIcon name="close" size={18} color={colors.danger} /> : null}
                 </Pressable>
@@ -334,7 +339,7 @@ function SessionContent({
             <Text style={styles.answerLine}>
               正确答案：{question.answer.join("、")}
             </Text>
-            <Text style={styles.explanation}>{question.explanation}</Text>
+            <RichText text={question.explanation} style={styles.explanation} />
             {source ? (
               <View style={styles.sourceRow}>
                 <ThemedIcon name="document-text-outline" size={14} color={colors.textMuted} />

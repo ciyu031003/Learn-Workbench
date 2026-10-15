@@ -13,6 +13,7 @@ import {
   type LearningTopic,
   type LearningTrack,
 } from "@learn-workbench/content";
+import { RichText } from "@/components/rich-text";
 import { useLearningTrack } from "@/lib/content-store";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
@@ -691,7 +692,7 @@ function ParagraphList({ items, danger = false }: { items: string[]; danger?: bo
       {items.map((item) => (
         <View key={item} style={styles.paragraphRow}>
           <View style={[styles.paragraphDot, danger && { backgroundColor: colors.danger }]} />
-          <Text style={styles.paragraphText}>{item}</Text>
+          <RichText text={item} style={styles.paragraphText} />
         </View>
       ))}
     </View>

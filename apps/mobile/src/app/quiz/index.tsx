@@ -17,6 +17,8 @@ import { useTheme } from "@/theme";
 import { radius, shadows, spacing, typography, type ThemeColors } from "@/theme/tokens";
 
 type CategoryFilter = "全部" | string;
+type LevelFilter = "全部" | "入门" | "进阶" | "综合";
+const LEVEL_OPTIONS: LevelFilter[] = ["全部", "入门", "进阶", "综合"];
 
 export default function QuizLibraryScreen() {
   /** 课程来自数据库（content-store） */
@@ -34,6 +36,9 @@ export default function QuizLibraryScreen() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<CategoryFilter>("全部");
   const [categorySheet, setCategorySheet] = useState(false);
+  /** 分级浏览（2026-10-15）：入门 / 进阶 / 综合 —— 用来按"能学到什么程度"挑内容 */
+  const [level, setLevel] = useState<LevelFilter>("全部");
+  const [levelSheet, setLevelSheet] = useState(false);
   const [attempts, setAttempts] = useState<LearningAttempt[]>([]);
 
   const load = useCallback(async () => {
@@ -53,6 +58,7 @@ export default function QuizLibraryScreen() {
     return LIBRARY_TRACKS.filter((track) => {
       const categoryMatch = category === "全部" || track.category === category;
       if (!categoryMatch) return false;
+      if (level !== "全部" && track.level !== level) return false;
       if (!q) return true;
       const searchText = [
         track.title,
@@ -65,7 +71,15 @@ export default function QuizLibraryScreen() {
         .toLowerCase();
       return searchText.includes(q);
     });
-  }, [category, query, LIBRARY_TRACKS]);
+  }, [category, level, query, LIBRARY_TRACKS]);
+
+  const levelCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const track of LIBRARY_TRACKS) {
+      counts.set(track.level, (counts.get(track.level) ?? 0) + 1);
+    }
+    return counts;
+  }, [LIBRARY_TRACKS]);
 
   const categoryCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -151,8 +165,27 @@ export default function QuizLibraryScreen() {
           </PressableScale>
         </Animated.View>
 
+        <Animated.View entering={entrance(1)}>
+          <PressableScale
+            haptic
+            scaleTo={0.98}
+            onPress={() => setLevelSheet(true)}
+            style={styles.categoryTrigger}
+            accessibilityRole="button"
+            accessibilityLabel={`选择分级，当前 ${level}`}
+          >
+            <ThemedIcon name="trending-up-outline" size={16} color={colors.primary} />
+            <Text style={styles.categoryTriggerLabel}>分级</Text>
+            <Text style={styles.categoryTriggerValue} numberOfLines={1}>{level}</Text>
+            <Text style={styles.categoryTriggerHint}>
+              {level === "全部" ? `${LIBRARY_TRACKS.length} 门` : `${levelCounts.get(level) ?? 0} 门`}
+            </Text>
+            <ThemedIcon name="chevron-down" size={16} color={colors.textMuted} />
+          </PressableScale>
+        </Animated.View>
+
         <Animated.View entering={entrance(2)} style={styles.sectionHead}>
-          <Text style={styles.sectionTitle}>{query || category !== "全部" ? "搜索结果" : "正在学习"}</Text>
+          <Text style={styles.sectionTitle}>{query || category !== "全部" || level !== "全部" ? "搜索结果" : "正在学习"}</Text>
           <Text style={styles.sectionCount}>{visible.length} 个技术方向</Text>
         </Animated.View>
 
@@ -207,6 +240,31 @@ export default function QuizLibraryScreen() {
             onPress={() => {
               setCategory(item);
               setCategorySheet(false);
+            }}
+          />
+        ))}
+      </BottomSheet>
+
+      <BottomSheet
+        visible={levelSheet}
+        onClose={() => setLevelSheet(false)}
+        title="选择分级"
+        subtitle="入门打基础 / 进阶补深度，按当前水平挑内容"
+        icon="trending-up-outline"
+        height="52%"
+      >
+        {LEVEL_OPTIONS.map((item, index, items) => (
+          <SheetListRow
+            key={item}
+            title={item === "全部" ? "全部分级" : item + "级"}
+            subtitle={item === "全部" ? `${LIBRARY_TRACKS.length} 门课程` : `${levelCounts.get(item) ?? 0} 门课程`}
+            icon={item === "全部" ? "apps-outline" : "school-outline"}
+            selected={level === item}
+            mode="radio"
+            last={index === items.length - 1}
+            onPress={() => {
+              setLevel(item);
+              setLevelSheet(false);
             }}
           />
         ))}
