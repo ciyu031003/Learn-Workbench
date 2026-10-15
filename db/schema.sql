@@ -2347,12 +2347,12 @@ CREATE INDEX IF NOT EXISTS idx_learning_topics_manual
 ALTER TABLE learning_topics
   ADD COLUMN IF NOT EXISTS origin text NOT NULL DEFAULT 'package';
 
-DO $
+DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_learning_topics_origin') THEN
     ALTER TABLE learning_topics
       ADD CONSTRAINT ck_learning_topics_origin CHECK (origin IN ('package','db'));
   END IF;
-END $;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_learning_topics_origin ON learning_topics(origin);
