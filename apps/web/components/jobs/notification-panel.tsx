@@ -73,7 +73,7 @@ export function NotificationPanel() {
         }}
         className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-white/20 bg-white/10 text-muted-foreground backdrop-blur-md transition-all hover:bg-white/15 hover:text-foreground"
       >
-        <Bell className="size-4.5" />
+        <Bell className="size-5" />
         {unread > 0 ? (
           <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-black text-white">
             {unread > 99 ? "99+" : unread}
@@ -102,6 +102,7 @@ export function NotificationPanel() {
               </div>
             ) : notifications.length === 0 ? (
               <div className="px-4 py-10 text-center">
+                {/* icon-scale-ok：空态/插图级大图标（32-96px），不属于行内图标体系 */}
                 <Bell className="mx-auto size-8 text-muted-foreground/40" />
                 <p className="mt-2 text-xs text-muted-foreground">暂无订阅提醒，去设置页创建订阅吧</p>
               </div>
@@ -125,7 +126,7 @@ export function NotificationPanel() {
                       <p className="mt-0.5 text-[11px] text-muted-foreground">{n.body}</p>
                       <p className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground/70">
                         {formatRelativeTime(n.createdAt)}
-                        <ExternalLink className="size-2.5" />
+                        <ExternalLink className="size-3" />
                       </p>
                     </div>
                   </div>

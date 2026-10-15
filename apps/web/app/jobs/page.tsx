@@ -418,6 +418,7 @@ export default function JobsPage() {
         <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-emerald-400/25 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-24 -left-20 h-72 w-72 rounded-full bg-cyan-400/20 blur-3xl" />
         <div className="pointer-events-none absolute right-8 top-8 hidden text-emerald-500/40 lg:block">
+          {/* icon-scale-ok：空态/插图级大图标（32-96px），不属于行内图标体系 */}
           <Flower2 className="size-24" strokeWidth={1.1} />
         </div>
 

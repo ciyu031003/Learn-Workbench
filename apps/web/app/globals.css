@@ -117,6 +117,31 @@ html.dark {
   }
 }
 
+/* ============ 图标尺寸令牌（skill P6） ============
+   视图层统一用 .icon-xs|sm|md|lg；不允许再散落任意 size-*。
+   取值是 4 的倍数节奏：14 / 16 / 20 / 24。
+   新增任意尺寸会被 scripts/check-icon-scale.mjs 拦下（确需例外时在该行加 icon-scale-ok 注释）。 */
+:root {
+  --icon-2xs: 12px;
+  --icon-xs: 14px;
+  --icon-sm: 16px;
+  --icon-md: 20px;
+  --icon-lg: 24px;
+}
+.icon-2xs,
+.icon-xs,
+.icon-sm,
+.icon-md,
+.icon-lg {
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+.icon-2xs { width: var(--icon-2xs); height: var(--icon-2xs); }
+.icon-xs { width: var(--icon-xs); height: var(--icon-xs); }
+.icon-sm { width: var(--icon-sm); height: var(--icon-sm); }
+.icon-md { width: var(--icon-md); height: var(--icon-md); }
+.icon-lg { width: var(--icon-lg); height: var(--icon-lg); }
+
 /* ============ 玻璃卡片：克制化（无渐变描边 / 无内高光 / 单层阴影） ============ */
 .glass {
   position: relative;

@@ -905,7 +905,7 @@ export default function RoadmapPage() {
                           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
                           style={{ backgroundColor: `${d.color}26`, color: d.color }}
                         >
-                          <DomainIcon icon={d.icon} className="size-4.5" />
+                          <DomainIcon icon={d.icon} className="size-5" />
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="flex flex-wrap items-center gap-1.5">
@@ -979,7 +979,7 @@ export default function RoadmapPage() {
                             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
                             style={{ backgroundColor: `${d.color}1f`, color: d.color }}
                           >
-                            <DomainIcon icon={d.icon} className="size-4.5" />
+                            <DomainIcon icon={d.icon} className="size-5" />
                           </span>
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-sm font-medium">{d.name}</span>
@@ -1034,7 +1034,7 @@ export default function RoadmapPage() {
                 className="flex items-center gap-3 rounded-xl border border-white/15 bg-white/10 px-3 py-2.5 text-left transition-colors hover:bg-white/14 disabled:opacity-60"
               >
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
-                  <Plus className="size-4.5" />
+                  <Plus className="size-5" />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="text-sm font-medium">空白领域</span>
@@ -1053,7 +1053,7 @@ export default function RoadmapPage() {
                     className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
                     style={{ backgroundColor: `${t.color}26`, color: t.color }}
                   >
-                    <DomainIcon icon={t.icon} className="size-4.5" />
+                    <DomainIcon icon={t.icon} className="size-5" />
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="flex flex-wrap items-center gap-1.5">
