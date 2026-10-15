@@ -310,7 +310,7 @@ function PracticeQuestion({
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 {question.answerImageRefs.map((url) => (
                   <a key={url} href={url} target="_blank" rel="noreferrer" className="overflow-hidden rounded-lg bg-white">
-                    <img src={url} alt={`第 ${question.number} 题答案图`} className="max-h-80 w-full object-contain" />
+                    <img src={url} alt={`第 ${question.number} 题答案图`} loading="lazy" decoding="async" className="max-h-80 w-full object-contain" />
                   </a>
                 ))}
               </div>
@@ -474,7 +474,7 @@ function QuestionImages({ question }: { question: Exam408Question }) {
           rel="noreferrer"
           className="overflow-hidden rounded-xl border border-border/60 bg-white"
         >
-          <img src={url} alt={`第 ${question.number} 题配图`} loading="lazy" className="max-h-96 w-full object-contain" />
+          <img src={url} alt={`第 ${question.number} 题配图`} loading="lazy" decoding="async" className="max-h-96 w-full object-contain" />
         </a>
       ))}
     </div>

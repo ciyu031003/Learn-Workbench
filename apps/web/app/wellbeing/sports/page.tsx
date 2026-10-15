@@ -313,7 +313,7 @@ export default function SportsProfilePage() {
 
                 {p.photoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={p.photoUrl} alt="" className="h-40 w-full rounded-xl object-cover" />
+                  <img src={p.photoUrl} alt="" loading="lazy" decoding="async" className="h-40 w-full rounded-xl object-cover" />
                 ) : null}
 
                 {(p.gear ?? []).length > 0 ? (
@@ -487,7 +487,7 @@ export default function SportsProfilePage() {
                       <label className="grid size-11 shrink-0 cursor-pointer place-items-center overflow-hidden rounded-xl border border-dashed border-border/60 text-muted-foreground hover:bg-muted/50">
                         {g.imageUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={g.imageUrl} alt="" className="size-full object-contain" />
+                          <img src={g.imageUrl} alt="" loading="lazy" decoding="async" className="size-full object-contain" />
                         ) : (
                           <Camera className="size-4" />
                         )}
