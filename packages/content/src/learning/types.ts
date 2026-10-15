@@ -55,12 +55,34 @@ export interface LearningCodeExample {
   explanation: string;
 }
 
+/**
+ * 专业术语的「小白解释」。
+ *
+ * 知识点正文里难免出现行话（幂等、索引覆盖、N+1、CORS…）。对刚入门的人，术语本身就是门槛：
+ * 这里给每条术语一句**人话**，再补一段**更细的说明**（可选，讲清"为什么"和"什么时候会踩坑"）。
+ */
+export interface LearningTerm {
+  /** 术语本身（保留英文原词，便于搜索） */
+  term: string;
+  /** 一句话人话解释（≤60 字，先让人"看懂"） */
+  plain: string;
+  /** 展开说明：为什么、怎么用、常见误解（可选） */
+  detail?: string;
+}
+
 export interface LearningTopicLesson {
   overview: string[];
   mechanism: string[];
   example: LearningCodeExample;
   practiceSteps: string[];
   masteryChecklist: string[];
+  /**
+   * 本章小结（3-6 条）：把这一节"该记住什么"收口成可复述的短句。
+   * 与 overview（展开讲）和 masteryChecklist（自检项）分工不同 —— 小结是"合上书能背出来"的那几句。
+   */
+  summary?: string[];
+  /** 术语小白解释（本章出现的行话） */
+  terms?: LearningTerm[];
 }
 
 export interface LearningTopic {

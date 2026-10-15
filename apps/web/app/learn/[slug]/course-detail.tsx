@@ -466,6 +466,8 @@ function TopicCard({
           <>
             <Block title="深入理解" items={topic.lesson.overview} />
             <Block title="运作机制" items={topic.lesson.mechanism} />
+            {topic.lesson.summary?.length ? <Block title="本章小结" items={topic.lesson.summary} /> : null}
+            {topic.lesson.terms?.length ? <TermGlossary terms={topic.lesson.terms} /> : null}
             <div className="rounded-lg border border-border/50 bg-muted/40">
               <div className="flex items-center justify-between gap-2 border-b border-border/50 px-3 py-1">
                 <p className="min-w-0 truncate text-xs font-semibold text-muted-foreground">
@@ -575,6 +577,34 @@ function QualityBadge({ level }: { level: keyof typeof QUALITY_LEVEL_LABEL }) {
     >
       {QUALITY_LEVEL_LABEL[level]}
     </span>
+  );
+}
+
+/**
+ * 术语白话：把这一节的行话逐条翻译成"人话"。
+ * 入门的人卡住的往往不是逻辑，而是术语 —— 所以术语单独成块，先给一句人话，再给展开说明。
+ */
+function TermGlossary({ terms }: { terms: NonNullable<LearningTopic["lesson"]>["terms"] }) {
+  if (!terms?.length) return null;
+  return (
+    <div className="flex flex-col gap-1.5">
+      <p className="text-xs font-semibold text-muted-foreground">术语白话</p>
+      <ul className="flex flex-col gap-1.5">
+        {terms.map((term) => (
+          <li key={term.term} className="rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
+            <p className="text-sm">
+              <span className="font-mono text-xs font-semibold text-primary">{term.term}</span>
+              <span className="ml-2 text-muted-foreground"><RichText text={term.plain} /></span>
+            </p>
+            {term.detail ? (
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground/90">
+                <RichText text={term.detail} />
+              </p>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
