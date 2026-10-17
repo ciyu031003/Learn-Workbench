@@ -12,13 +12,17 @@
  *   - `topic.lesson` 必须完整：overview ≥2、mechanism ≥2、example（title/language/code/explanation）、
  *     practiceSteps ≥3、masteryChecklist ≥2；建议再给 `summary`（本章小结）与 `terms`（术语白话）。
  */
+import { aiEngineeringTopicExpansions } from "./topic-expansion-ai-engineering";
 import { algorithmsTopicExpansions } from "./topic-expansion-algorithms";
 import { applicationSecurityTopicExpansions } from "./topic-expansion-application-security";
 import { javascriptTopicExpansions } from "./topic-expansion-javascript";
+import { linuxTopicExpansions } from "./topic-expansion-linux";
 import { pythonTopicExpansionsB } from "./topic-expansion-python-b";
 import { backendEngineeringTopicExpansions } from "./topic-expansion-backend-engineering";
 import { backendEngineeringTopicExpansionsB } from "./topic-expansion-backend-engineering-b";
 import { backendEngineeringTopicExpansionsC } from "./topic-expansion-backend-engineering-c";
+import { dataAnalysisTopicExpansions } from "./topic-expansion-data-analysis";
+import { cloudPlatformTopicExpansions } from "./topic-expansion-cloud-platform";
 import { databaseTopicExpansions } from "./topic-expansion-database";
 import { javaTopicExpansions } from "./topic-expansion-java";
 import { pythonTopicExpansions } from "./topic-expansion-python";
@@ -33,13 +37,17 @@ export interface TopicExpansion {
 
 /** 各 track 的知识点扩容（新增文件后在下面登记） */
 export const topicExpansions: TopicExpansion[] = [
+  ...aiEngineeringTopicExpansions,
   ...algorithmsTopicExpansions,
   ...applicationSecurityTopicExpansions,
   ...javascriptTopicExpansions,
+  ...linuxTopicExpansions,
   ...pythonTopicExpansionsB,
   ...backendEngineeringTopicExpansions,
   ...backendEngineeringTopicExpansionsB,
   ...backendEngineeringTopicExpansionsC,
+  ...dataAnalysisTopicExpansions,
+  ...cloudPlatformTopicExpansions,
   ...databaseTopicExpansions,
   ...javaTopicExpansions,
   ...pythonTopicExpansions,
