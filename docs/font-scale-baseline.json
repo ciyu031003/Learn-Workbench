@@ -6,7 +6,7 @@
   "apps/mobile/src/app/+not-found.tsx": 3,
   "apps/mobile/src/app/account-security.tsx": 6,
   "apps/mobile/src/app/applications.tsx": 2,
-  "apps/mobile/src/app/certificates.tsx": 5,
+  "apps/mobile/src/app/certificates.tsx": 2,
   "apps/mobile/src/app/diagnostics.tsx": 3,
   "apps/mobile/src/app/domain-manager.tsx": 9,
   "apps/mobile/src/app/habits.tsx": 2,

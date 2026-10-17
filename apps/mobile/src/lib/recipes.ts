@@ -422,13 +422,19 @@ export interface DailyRecipe {
 /**
  * 按日期取「每日推荐」：每个餐次一条（早/午/晚/加餐），同一天内稳定、跨天变化。
  * 某个餐次在池子里没有候选时跳过（不会返回 undefined 卡片）。
+ * 同一天内四个餐次尽量不重复（像水果杯这种跨餐次的条目先被早餐挑走，加餐就换一条），
+ * 只有候选被挑完时才允许复用 —— 否则小池子会直接少一张卡。
  */
 export function dailyRecipes(dateKey: string, pool: readonly RecipeIdea[] = RECIPE_IDEAS): DailyRecipe[] {
   const out: DailyRecipe[] = [];
+  const used = new Set<string>();
   for (const meal of RECIPE_MEALS) {
-    const candidates = pool.filter((idea) => idea.meals.includes(meal));
-    const recipe = pickForDay(candidates, dateKey, meal);
-    if (recipe) out.push({ meal, recipe });
+    const all = pool.filter((idea) => idea.meals.includes(meal));
+    const fresh = all.filter((idea) => !used.has(idea.id));
+    const recipe = pickForDay(fresh.length > 0 ? fresh : all, dateKey, meal);
+    if (!recipe) continue;
+    used.add(recipe.id);
+    out.push({ meal, recipe });
   }
   return out;
 }

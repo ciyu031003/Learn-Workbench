@@ -501,8 +501,16 @@ export default function NutritionScreen() {
       const d = await entriesRes.json();
       if (entriesRes.ok) {
         const server: MealEntry[] = Array.isArray(d.entries) ? d.entries : [];
-        // 合并发件箱里还没上传成功的条目（v6 P0-3）：否则这次 load 会把乐观入账抹掉
-        setEntries(mergePendingEntries(server, await loadOutbox()));
+        /**
+         * 合并发件箱里还没上传成功的条目（v6 P0-3）：否则这次 load 会把乐观入账抹掉。
+         * 只合并**当天**的 create —— 需求 3 的「+ 今日」允许在翻看历史日期时把条目记到今天，
+         * 若不过滤，那条待补发的记录会被并进"昨天"的列表里（看起来像记错了日子）。
+         */
+        const outboxNow = await loadOutbox();
+        const forThisDate: OutboxState = {
+          ops: outboxNow.ops.filter((op) => op.kind !== "create" || op.body.date === date),
+        };
+        setEntries(mergePendingEntries(server, forThisDate));
       }
       const s = await summaryRes.json();
       // 与窗口一起落库：窗口不匹配时消费方按空处理，宁可不显示也不显示错的月份数字
@@ -777,11 +785,18 @@ export default function NutritionScreen() {
         foodId: food.id,
       };
       const op = makeCreateOp(body, localId);
-      setEntries((prev) => [...prev, toLocalEntry(body, localId)]);
-      setPendingIds((prev) => [...prev, localId]);
-      rememberPortion(food.name, amount, food.unit);
+      /**
+       * 只在"记的就是当前正在看的那天"时做乐观入账：
+       * 「+ 今日」允许在翻看历史日期时记到今天，这时把条目塞进当前列表会闪一下错日期的行。
+       */
+      if (targetDate === date) {
+        setEntries((prev) => [...prev, toLocalEntry(body, localId)]);
+        setPendingIds((prev) => [...prev, localId]);
+      }
       const outcome = await submitOp(op);
       if (outcome.ok) {
+        // 只有真的记上了才记「上次分量」，否则用户下次会被一次失败的尝试带偏
+        rememberPortion(food.name, amount, food.unit);
         haptics.success();
         flashAdded(food.id);
         await load();
@@ -794,6 +809,8 @@ export default function NutritionScreen() {
         Alert.alert("这条没有记上", outcome.message ?? "服务端拒绝了这条记录，请稍后重试。");
         return false;
       }
+      // 离线 / 5xx / 未登录：先落本机（发件箱），分量记忆也随之更新
+      rememberPortion(food.name, amount, food.unit);
       const next = enqueue(outbox, op);
       setOutbox(next);
       await saveOutbox(next);
@@ -802,7 +819,7 @@ export default function NutritionScreen() {
       if (outcome.kind === "auth") Alert.alert("已记在本机", "登录后会自动同步到云端。");
       return true;
     },
-    [flashAdded, load, meal, outbox, rememberPortion, submitOp]
+    [date, flashAdded, load, meal, outbox, rememberPortion, submitOp]
   );
 
   /** 「以往添加的食物」：recent 接口已按「最近使用」排序，这里只保留真的吃过的（times > 0） */
@@ -1182,7 +1199,7 @@ export default function NutritionScreen() {
         <View style={styles.dailyWrap}>
           <SectionHeader
             title="每日推荐"
-            subtitle={`按日期轮换 · ${isToday ? "今天" : dayLabel(date, todayKey)}这组全天不变`}
+            subtitle={`按日期确定性轮换 · ${isToday ? "今天" : dayLabel(date, todayKey)}内不变`}
           />
           <ScrollView
             horizontal
@@ -1858,7 +1875,7 @@ export default function NutritionScreen() {
           <AccordionGroup
             id="common"
             title="常用食物"
-            hint="点一下记 1 份 · 长按按分量添加"
+            hint="点一下记 1 份 · 长按选分量"
             count={visibleFoods.length}
             open={!!openGroups.common}
             onToggle={toggleGroup}
