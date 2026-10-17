@@ -209,6 +209,8 @@ function ThemedShell() {
         {/* 健康线 */}
         <Stack.Screen name="habits" />
         <Stack.Screen name="workout" />
+        {/* v1.47：记录/编辑训练从抽屉改为独立全屏页（动作明细太长，弹层放不下） */}
+        <Stack.Screen name="workout-add" />
         <Stack.Screen name="nutrition" />
         {/* v1.45：饮食趋势升级为独立全屏页（饮食/运动/训练负荷三段） */}
         <Stack.Screen name="trends" />

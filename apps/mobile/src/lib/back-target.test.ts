@@ -9,6 +9,8 @@ import { resolveBackTarget, DEFAULT_BACK_TARGET, hubOf } from "./back-target";
 describe("resolveBackTarget · 返回上一级", () => {
   it("健康域子页回到健康 Hub", () => {
     expect(resolveBackTarget("/workout")).toBe("/wellness");
+    // v1.47：全屏记录训练页回列表，而不是回健康 Hub
+    expect(resolveBackTarget("/workout-add")).toBe("/workout");
     expect(resolveBackTarget("/nutrition")).toBe("/wellness");
     expect(resolveBackTarget("/habits")).toBe("/wellness");
     expect(resolveBackTarget("/sports-card")).toBe("/wellness");

@@ -1,3 +1,4 @@
+import { makeUploadPart } from "@/lib/upload-part";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
@@ -94,11 +95,8 @@ export function ResumeFilesCard() {
         ? rawName
         : (rawName.replace(/\.[a-z0-9]+$/i, "").trim() || "resume") + "." + (extFromMime(asset.mimeType) ?? "pdf");
       const form = new FormData();
-      form.append("file", {
-        uri: asset.uri,
-        name: withExt,
-        type: asset.mimeType || "application/pdf",
-      } as unknown as Blob);
+      const { part, filename } = await makeUploadPart(asset.uri, asset.mimeType || "application/pdf", withExt);
+      form.append("file", part, filename);
       setBusy(true);
       const r = await fetch(getApiUrl() + "/api/resume-files", { method: "POST", headers: headers(), body: form });
       const d = await r.json().catch(() => null);

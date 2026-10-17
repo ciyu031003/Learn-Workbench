@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Animated from "react-native-reanimated";
 import { radius, typography } from "@/theme/tokens";
 import {
@@ -7,11 +7,13 @@ import {
 import { ThemedIcon } from "@/components/themed-icon";
 import { EmptyState } from "@/components/empty-state";
 import { SkeletonList } from "@/components/skeleton";
-import { AchievementCard } from "@/components/achievement-card";
+import { CertCard, CERT_STATUSES, CERT_STATUS_DESC, CERT_STATUS_ICON, certStatusPalette, type CertStatus } from "@/components/cert-card";
+import { CertImagePreview } from "@/components/cert-image-preview";
 import { FloatField } from "@/components/float-field";
 import { PressButton } from "@/components/press-button";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { BottomSheet } from "@/components/bottom-sheet";
+import { SheetListRow, SheetSection } from "@/components/sheet";
 import { PressableScale } from "@/components/pressable-scale";
 import { Image } from "expo-image";
 
@@ -22,15 +24,12 @@ import { haptics } from "@/lib/haptics";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
-import { certificateStatusLabels, certificateExpiryInfo, type Certificate } from "@learn-workbench/shared";
+import { certificateStatusLabels, type Certificate } from "@learn-workbench/shared";
 import { absoluteMediaUrl, deleteUpload, pickAndUploadPhoto } from "@/lib/uploads";
 import { onUploadResolved } from "@/lib/upload-sync";
 import { isLocalFileUri } from "@/lib/upload-outbox";
 
-type Status = "planned" | "preparing" | "achieved";
-const STATUSES: Status[] = ["planned", "preparing", "achieved"];
-
-/** V3 独立证书领域：移动端证书列表 + 新增（直连 /api/certificates，与 resume 页同模式） */
+/** V3 独立证书领域：移动端证书列表 + 新增 + 状态流程 + 已取得图片（直连 /api/certificates） */
 export default function CertificatesScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -43,40 +42,114 @@ export default function CertificatesScreen() {
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
   const [issuer, setIssuer] = useState("");
-  const [status, setStatus] = useState<Status>("planned");
+  const [status, setStatus] = useState<CertStatus>("planned");
   const [expiryDate, setExpiryDate] = useState("");
-  /** v1.31：证书图片（复用 /api/uploads → 压 WebP → COS 桶，返回站内相对路径） */
+  /** v1.31：新增表单里的证书图片（复用 /api/uploads → 压 WebP → COS 桶，返回站内相对路径） */
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [photoUploading, setPhotoUploading] = useState(false);
+
+  /** 卡片上的状态流程：id=null 表示「更新状态」弹层关闭（交互与「我的求职」更新阶段一致） */
+  const [statusSheetFor, setStatusSheetFor] = useState<number | null>(null);
+  /** 正在上传图片的证书 id：同一时间只允许一条（避免并发 PATCH 同一张卡） */
+  const [uploadingId, setUploadingId] = useState<number | null>(null);
+  /** 离线补发期间的本机预览图：只用于当场展示，绝不写进服务端 */
+  const [localPreview, setLocalPreview] = useState<Record<number, string>>({});
+  /** 全屏预览的图片地址与标题（null 表示关闭） */
+  const [preview, setPreview] = useState<{ uri: string; title: string } | null>(null);
 
   /**
    * 图片发件箱回填（组一 · 阶段 1）：离线排队补发成功后，把本机暂存 uri 换成服务端 url。
    * 本机 uri 只用于当场预览，保存时会被 isLocalFileUri 拦掉，绝不会写进服务端。
+   *
+   * 两张 Map 分开存：新增表单是「把 url 写回表单 state」，证书卡片是「PATCH 到对应记录」，
+   * 两者语义不同，混用会让离线回填写错目标。
    */
-  const pendingApply = useRef(new Map<string, (url: string) => void>());
+  const formPendingApply = useRef(new Map<string, (url: string) => void>());
+  const cardPendingApply = useRef(new Map<string, { id: number; oldUrl: string | null }>());
+
+  /**
+   * PATCH 一张证书。token 从 store 现取而不是用闭包里的 `token`：
+   * 离线补发回调可能在登录态变化之后才触发，闭包快照会拿旧 token 打 401。
+   */
+  const patchCertificate = useCallback(async (id: number, patch: Record<string, unknown>): Promise<Certificate | null> => {
+    const authToken = useAppStore.getState().token;
+    const r = await fetch(getApiUrl() + "/api/certificates", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...(authToken ? { Authorization: "Bearer " + authToken } : {}) },
+      body: JSON.stringify({ id, ...patch }),
+    });
+    if (!r.ok) {
+      const data = await r.json().catch(() => null);
+      throw new Error(typeof data?.error === "string" ? data.error : "更新失败，请重试");
+    }
+    const data = await r.json().catch(() => null);
+    return (data?.record ?? null) as Certificate | null;
+  }, []);
+
+  /** 清掉某张证书的本机预览（上传成功 / 失败都要清，避免展示一张没保存的图） */
+  const clearLocalPreview = useCallback((id: number) => {
+    setLocalPreview((prev) => {
+      if (!(id in prev)) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  }, []);
+
+  /**
+   * 把上传成功的 url 写进证书的 imageUrl（PATCH）。
+   * 成功后替换旧图并清理上一张自己上传的 /uploads/ 资源 —— 与新增表单的换图逻辑一致，
+   * 避免桶里留孤儿文件（外部 http 图不动）。
+   */
+  const applyImageUrl = useCallback(
+    async (id: number, url: string, oldUrl: string | null | undefined) => {
+      await patchCertificate(id, { imageUrl: url });
+      setRecords((prev) => prev.map((x) => (x.id === id ? { ...x, imageUrl: url } : x)));
+      clearLocalPreview(id);
+      if (oldUrl && oldUrl !== url && oldUrl.startsWith("/uploads/")) void deleteUpload(oldUrl);
+    },
+    [patchCertificate, clearLocalPreview]
+  );
+
   useEffect(
     () =>
       onUploadResolved(({ clientId, url }) => {
-        const apply = pendingApply.current.get(clientId);
-        if (!apply) return;
-        pendingApply.current.delete(clientId);
-        apply(url);
+        const formApply = formPendingApply.current.get(clientId);
+        if (formApply) {
+          formPendingApply.current.delete(clientId);
+          formApply(url);
+          return;
+        }
+        const pending = cardPendingApply.current.get(clientId);
+        if (!pending) return;
+        cardPendingApply.current.delete(clientId);
+        void applyImageUrl(pending.id, url, pending.oldUrl).catch((e) => {
+          clearLocalPreview(pending.id);
+          // 图已进桶但 PATCH 失败：没有记录会引用它，删掉避免孤儿文件
+          void deleteUpload(url);
+          Alert.alert("证书图片保存失败", e instanceof Error ? e.message : "图片已上传，但没能关联到证书，请重新上传");
+        });
       }),
-    []
+    [applyImageUrl, clearLocalPreview]
   );
 
-  const headers = (): Record<string, string> => (token ? { Authorization: `Bearer ${token}` } : {});
+  const headers = (): Record<string, string> => (token ? { Authorization: "Bearer " + token } : {});
 
-  const load = async () => {
+  /**
+   * `silent`：状态切换/传图成功后的静默刷新。
+   * 非静默才拉骨架屏 —— 否则每次切状态整页闪成骨架，用户会以为数据丢了。
+   */
+  const load = async (options?: { silent?: boolean }) => {
+    const silent = options?.silent === true;
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const r = await fetch(getApiUrl() + "/api/certificates", { headers: headers() });
       const data = await r.json();
       if (r.ok) setRecords(data.records ?? []);
     } catch {
       // 离线保持现状
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -90,7 +163,7 @@ export default function CertificatesScreen() {
   const { control } = usePullRefresh(load, { stickyHeader: true });
 
   /**
-   * 证书图片：与运动档案的证件照入口同一套上传链路（选图 + 上传一步到位）。
+   * 证书图片（新增表单）：与运动档案的证件照入口同一套上传链路（选图 + 上传一步到位）。
    * 换图时清理上一张自己上传的 /uploads/ 资源，避免桶里留孤儿文件。
    */
   const changePhoto = async () => {
@@ -102,7 +175,7 @@ export default function CertificatesScreen() {
       if (result.status === "queued") {
         // 本机 uri 只用于当场预览（保存时被 isLocalFileUri 拦掉），补发成功后自动换成服务端 url
         setPhotoUrl(result.localUri);
-        pendingApply.current.set(result.clientId, (url) => setPhotoUrl(url));
+        formPendingApply.current.set(result.clientId, (url) => setPhotoUrl(url));
         Alert.alert("网络不太顺，图片已存在本机", "联网后会自动上传；先保存不会写入图片");
         return;
       }
@@ -131,8 +204,8 @@ export default function CertificatesScreen() {
           issuer: issuer.trim(),
           status,
           expiryDate: /^\d{4}-\d{2}-\d{2}$/.test(expiryDate.trim()) ? expiryDate.trim() : null,
-          // 待补发的图只有本机 uri：不要写进服务端（补发成功后回填再重存）
-          imageUrl: isLocalFileUri(photoUrl) ? null : photoUrl,
+          // 业务规则：只有「已取得」才带证书图片；待补发的图只有本机 uri，一律不入库
+          imageUrl: status === "achieved" && !isLocalFileUri(photoUrl) ? photoUrl : null,
         }),
       });
       // v19-M5：保存成功给 success 触觉
@@ -143,11 +216,66 @@ export default function CertificatesScreen() {
       setStatus("planned");
       setExpiryDate("");
       setPhotoUrl(null);
-      await load();
+      await load({ silent: true });
     } catch (e) {
       Alert.alert("保存失败", e instanceof Error ? e.message : "请稍后重试");
     } finally {
       setSaving(false);
+    }
+  };
+
+  /**
+   * 状态流程（卡片）：乐观更新 → PATCH → 成功静默重拉；失败回滚 + 错误触觉 + 弹窗。
+   * 交互与「我的求职」的更新阶段保持同构（点开动作面板 → 单选 → 立即生效）。
+   */
+  const changeStatus = async (record: Certificate, next: CertStatus) => {
+    const prevStatus = (record.status ?? "planned") as CertStatus;
+    setStatusSheetFor(null);
+    if (prevStatus === next) return;
+
+    setRecords((prev) => prev.map((x) => (x.id === record.id ? { ...x, status: next } : x)));
+    haptics.success();
+    try {
+      await patchCertificate(record.id, { status: next });
+      // 服务端确认成功才刷新（离线/失败时保留乐观态没有意义，下面会回滚）
+      await load({ silent: true });
+    } catch (e) {
+      setRecords((prev) => prev.map((x) => (x.id === record.id ? { ...x, status: prevStatus } : x)));
+      haptics.error();
+      Alert.alert("状态更新失败", e instanceof Error ? e.message : "请稍后重试");
+    }
+  };
+
+  /**
+   * 已取得证书传图：复用 lib/uploads 的 pickAndUploadPhoto（expo/fetch FormData 已修好，不自己拼）。
+   * - 上传成功：PATCH 写入 imageUrl，并替换卡片图片；
+   * - 离线/服务端暂不可用：返回 queued，先本机预览，联网补发成功后再 PATCH；
+   * - PATCH 失败：刚上传的图无人引用，顺手删掉避免桶里留孤儿。
+   */
+  const uploadCertificatePhoto = async (record: Certificate) => {
+    if (uploadingId !== null) return;
+    setUploadingId(record.id);
+    try {
+      const result = await pickAndUploadPhoto("other");
+      if (result.status === "canceled") return;
+      if (result.status === "queued") {
+        setLocalPreview((prev) => ({ ...prev, [record.id]: result.localUri }));
+        cardPendingApply.current.set(result.clientId, { id: record.id, oldUrl: record.imageUrl ?? null });
+        Alert.alert("网络不太顺，图片已存在本机", "联网后会自动上传并保存到这张证书");
+        return;
+      }
+      try {
+        await applyImageUrl(record.id, result.url, record.imageUrl ?? null);
+      } catch (e) {
+        // 图已进桶，但 PATCH 没成功：这是唯一引用它的机会，清掉再抛给用户
+        void deleteUpload(result.url);
+        throw e;
+      }
+      haptics.success();
+    } catch (e) {
+      Alert.alert("图片上传失败", e instanceof Error ? e.message : "请稍后重试");
+    } finally {
+      setUploadingId(null);
     }
   };
 
@@ -160,7 +288,11 @@ export default function CertificatesScreen() {
         onPress: async () => {
           try {
             const r = await fetch(`${getApiUrl()}/api/certificates?id=${record.id}`, { method: "DELETE", headers: headers() });
-            if (r.ok) setRecords((prev) => prev.filter((x) => x.id !== record.id));
+            if (r.ok) {
+              setRecords((prev) => prev.filter((x) => x.id !== record.id));
+              clearLocalPreview(record.id);
+              if (statusSheetFor === record.id) setStatusSheetFor(null);
+            }
           } catch (e) {
             Alert.alert("删除失败", e instanceof Error ? e.message : "");
           }
@@ -168,6 +300,9 @@ export default function CertificatesScreen() {
       },
     ]);
   };
+
+  const statusTarget = statusSheetFor === null ? null : records.find((r) => r.id === statusSheetFor) ?? null;
+  const statusTargetCurrent = (statusTarget?.status ?? "planned") as CertStatus;
 
   return (
     <View style={styles.root}>
@@ -178,7 +313,14 @@ export default function CertificatesScreen() {
         {/* 大标题留在内容里随内容滚走；顶部让位高度由组件自己吃 insets */}
         <ScreenHeaderLargeTitle title="我的证书" subtitle="证书 / 资格 / 认证，简历与职业雷达共用" />
 
-      <PressableScale style={styles.addBtn} haptic onPress={() => setSheetOpen(true)}>
+      <PressableScale
+        style={styles.addBtn}
+        haptic
+        hitSlop={8}
+        onPress={() => setSheetOpen(true)}
+        accessibilityRole="button"
+        accessibilityLabel="添加证书"
+      >
         <ThemedIcon name="add" size={17} color={colors.primary} />
         <Text style={styles.addBtnText}>添加证书</Text>
       </PressableScale>
@@ -194,44 +336,22 @@ export default function CertificatesScreen() {
         />
       ) : (
         records.map((r, index) => {
-          const info = certificateExpiryInfo(r.expiryDate);
-          const st = (r.status ?? "planned") as Status;
-          // v13 U11：证书/里程碑统一用成就卡（大图形 + 标题 + 达成日期 + 入场错峰）
-          // v20-E4：tone 语义修正——绿=成功语义只留给「达成」；计划中=中性、备考中=品牌蓝
+          // 本机暂存的图片优先（离线补发期间），其次是服务端 imageUrl（相对路径转绝对）
+          const localUri = localPreview[r.id];
+          const rawImage = localUri ?? r.imageUrl ?? null;
+          const imageUri = rawImage ? (isLocalFileUri(rawImage) ? rawImage : absoluteMediaUrl(rawImage) ?? rawImage) : null;
           return (
-            <AchievementCard
+            <CertCard
               key={r.id}
               index={index}
-              tone={st === "achieved" ? "gold" : st === "preparing" ? "blue" : "neutral"}
-              icon={st === "achieved" ? "trophy" : st === "preparing" ? "locate" : "book"}
-              title={r.name}
-              subtitle={r.issuer || null}
-              date={info.level === "ok" ? info.label : null}
-              right={
-                <Pressable hitSlop={8} onPress={() => remove(r)} accessibilityLabel={"删除 " + r.name}>
-                  <ThemedIcon name="trash-outline" size={18} color={colors.textFaint} />
-                </Pressable>
-              }
-            >
-              {/* v1.31：证书图一行一列（横向长图、满宽），不再竖版 */}
-              {/* 2026-09-29 用户决策：cover → contain。证书是文档（带印章/边框），cover 会把边缘内容裁掉；
-                  留白由 certImage 的 surfaceMuted 底色承担，16:10 卡片框不变（网格观感一致）。 */}
-              {r.imageUrl ? (
-                <Image
-                  source={{ uri: absoluteMediaUrl(r.imageUrl) ?? r.imageUrl }}
-                  style={styles.certImage}
-                  contentFit="contain"
-                  transition={200}
-                />
-              ) : null}
-              <View style={styles.tagRow}>
-                <Text style={styles.tag}>{certificateStatusLabels[st]}</Text>
-                {info.level === "soon" || info.level === "expired" ? (
-                  <Text style={[styles.warn, info.level === "expired" && styles.warnDanger]}>{info.label}</Text>
-                ) : null}
-              </View>
-              {r.note ? <Text style={styles.itemContent} numberOfLines={3}>{r.note}</Text> : null}
-            </AchievementCard>
+              record={r}
+              imageUri={imageUri}
+              uploading={uploadingId === r.id}
+              onOpenStatus={() => setStatusSheetFor(r.id)}
+              onUpload={() => void uploadCertificatePhoto(r)}
+              onDelete={() => remove(r)}
+              onPreview={(uri) => setPreview({ uri, title: r.name })}
+            />
           );
         })
       )}
@@ -246,33 +366,55 @@ export default function CertificatesScreen() {
             onChangeText={setIssuer}
             placeholder="例如：中国信息安全测评中心"
           />
-          {/* v1.31：图片入口（视觉与运动档案的证件照入口一致：缩略图 + 说明 + 可点更换；缩略图取横向比例呼应证书横图） */}
-          <Pressable onPress={() => void changePhoto()} style={styles.certPhotoRow} accessibilityLabel="上传证书图片">
-            {photoUrl ? (
-              <Image
-                source={{ uri: absoluteMediaUrl(photoUrl) ?? photoUrl }}
-                style={styles.certPhotoThumb}
-                contentFit="cover"
-                transition={200}
-              />
-            ) : (
-              <View style={[styles.certPhotoThumb, styles.certPhotoEmpty]}>
-                <ThemedIcon name={photoUploading ? "cloud-upload-outline" : "camera-outline"} size={20} color={colors.textFaint} />
+          {/* 业务规则：只有「已取得」才有证书可拍；未取得时给一行说明，而不是把入口藏得无影无踪 */}
+          {status === "achieved" ? (
+            <Pressable
+              onPress={() => void changePhoto()}
+              disabled={photoUploading}
+              style={styles.certPhotoRow}
+              accessibilityRole="button"
+              accessibilityLabel="上传证书图片"
+              accessibilityState={{ busy: photoUploading, disabled: photoUploading }}
+            >
+              {photoUrl ? (
+                <Image
+                  source={{ uri: isLocalFileUri(photoUrl) ? photoUrl : absoluteMediaUrl(photoUrl) ?? photoUrl }}
+                  style={styles.certPhotoThumb}
+                  contentFit="cover"
+                  transition={200}
+                />
+              ) : (
+                <View style={[styles.certPhotoThumb, styles.certPhotoEmpty]}>
+                  <ThemedIcon ios="camera" name={photoUploading ? "cloud-upload-outline" : "camera-outline"} size={20} color={colors.textFaint} />
+                </View>
+              )}
+              <View style={styles.certPhotoMeta}>
+                <Text style={styles.certPhotoTitle}>证书图片</Text>
+                <Text style={styles.certPhotoHint}>
+                  {photoUploading ? "上传中…" : photoUrl ? "点这里换一张" : "点这里从相册选择（横图更佳）"}
+                </Text>
               </View>
-            )}
-            <View style={styles.certPhotoMeta}>
-              <Text style={styles.certPhotoTitle}>证书图片</Text>
-              <Text style={styles.certPhotoHint}>
-                {photoUploading ? "上传中…" : photoUrl ? "点这里换一张" : "点这里从相册选择（横图更佳）"}
-              </Text>
+              <ThemedIcon name="chevron-forward" size={18} color={colors.textFaint} />
+            </Pressable>
+          ) : (
+            <View style={styles.photoLockedRow}>
+              <ThemedIcon name="lock-closed-outline" size={15} color={colors.textFaint} />
+              <Text style={styles.photoLockedText}>状态改为「已取得」后可上传证书照片</Text>
             </View>
-            <ThemedIcon name="chevron-forward" size={18} color={colors.textFaint} />
-          </Pressable>
+          )}
 
           <Text style={styles.label}>状态</Text>
           <View style={styles.kindRow}>
-            {STATUSES.map((s) => (
-              <Pressable key={s} onPress={() => setStatus(s)} style={[styles.kindChip, status === s && styles.kindChipActive]}>
+            {CERT_STATUSES.map((s) => (
+              <Pressable
+                key={s}
+                onPress={() => setStatus(s)}
+                hitSlop={8}
+                style={[styles.kindChip, status === s && styles.kindChipActive]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: status === s }}
+                accessibilityLabel={`状态设为${certificateStatusLabels[s]}`}
+              >
                 <Text style={[styles.kindChipText, status === s && styles.kindChipTextActive]}>{certificateStatusLabels[s]}</Text>
               </Pressable>
             ))}
@@ -294,6 +436,50 @@ export default function CertificatesScreen() {
           />
         </View>
       </BottomSheet>
+
+      {/*
+        状态动作面板：与「我的求职」更新阶段同构（单选行 + 当前标记）。
+        为什么不直接在卡片上排三个分段按钮：三档中文标签 + 44pt 命中区会挤占卡片宽度，
+        而行内「更新状态」入口既省空间，又能把每档的业务含义写清楚。
+      */}
+      <BottomSheet
+        visible={statusTarget !== null}
+        onClose={() => setStatusSheetFor(null)}
+        title="更新证书状态"
+        subtitle={statusTarget?.name}
+        icon="ribbon-outline"
+        height="62%"
+      >
+        <SheetSection title="状态" hint="点一下立即切换并保存" last>
+          {CERT_STATUSES.map((s, i) => {
+            const palette = certStatusPalette(colors, s);
+            const current = statusTargetCurrent === s;
+            return (
+              <SheetListRow
+                key={s}
+                mode="radio"
+                title={certificateStatusLabels[s]}
+                subtitle={CERT_STATUS_DESC[s]}
+                icon={CERT_STATUS_ICON[s]}
+                iconColor={palette.strong}
+                selected={current}
+                trailing={current ? <Text style={styles.currentTag}>当前</Text> : undefined}
+                last={i === CERT_STATUSES.length - 1}
+                onPress={() => {
+                  if (statusTarget) void changeStatus(statusTarget, s);
+                }}
+              />
+            );
+          })}
+        </SheetSection>
+      </BottomSheet>
+
+      <CertImagePreview
+        visible={preview !== null}
+        uri={preview?.uri ?? null}
+        title={preview?.title ?? ""}
+        onClose={() => setPreview(null)}
+      />
       </Animated.ScrollView>
     </View>
   );
@@ -306,33 +492,6 @@ const makeStyles = (colors: ThemeColors) =>
     content: { padding: 16, gap: 12 },
     addBtn: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.primarySoft, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9 },
     addBtnText: { color: colors.primary, fontSize: 13, fontWeight: "800" },
-    loading: { marginTop: 24, alignSelf: "center" },
-    empty: { fontSize: 13, color: colors.textMuted, textAlign: "center", paddingVertical: 8 },
-    item: { gap: 6 },
-    itemHead: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
-    itemTitleWrap: { flex: 1, minWidth: 0 },
-    tagRow: { flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" },
-    tag: { fontSize: 11, fontWeight: "800", color: colors.primary },
-    warn: { fontSize: 11, fontWeight: "700", color: colors.accentStrong },
-    warnDanger: { color: colors.danger },
-    itemTitle: {
-      ...typography.headline,
-      color: colors.text,
-      marginTop: 2,
-    },
-    itemMuted: { fontSize: typography.caption.fontSize, color: colors.textMuted },
-    itemContent: {
-      ...typography.callout,
-      // 对比度：15pt 正文用 textMuted（#8E8E93 对白底约 3.0）低于 WCAG AA 正文 4.5。
-      // 层级改由字号/字重承担（callout 15 vs headline 17），颜色回到正文色。
-      color: colors.textSecondary,
-    },
-    certImage: {
-      width: "100%",
-      aspectRatio: 16 / 10,
-      borderRadius: radius.md,
-      backgroundColor: colors.surfaceMuted,
-    },
     certPhotoRow: {
       flexDirection: "row",
       alignItems: "center",
@@ -354,6 +513,19 @@ const makeStyles = (colors: ThemeColors) =>
     certPhotoMeta: { flex: 1, gap: 2 },
     certPhotoTitle: { fontSize: typography.callout.fontSize, fontWeight: "700", color: colors.text },
     certPhotoHint: { fontSize: typography.caption.fontSize, color: colors.textMuted },
+    photoLockedRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderStyle: "dashed",
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceMuted,
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+    },
+    photoLockedText: { ...typography.caption, color: colors.textMuted, flex: 1 },
     form: { gap: 10, paddingTop: 6 },
     label: { fontSize: typography.caption.fontSize, fontWeight: "700", color: colors.textMuted },
     kindRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
@@ -361,6 +533,7 @@ const makeStyles = (colors: ThemeColors) =>
     kindChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
     kindChipText: { fontSize: typography.caption.fontSize, fontWeight: "700", color: colors.textMuted },
     kindChipTextActive: { color: "#ffffff" },
+    currentTag: { ...typography.micro, fontWeight: "800", color: colors.primary },
     input: { backgroundColor: colors.surfaceMuted, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: colors.text },
     primaryBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 12, alignItems: "center", marginTop: 4 },
     primaryBtnText: { color: "#fff", fontSize: typography.callout.fontSize, fontWeight: "800" },

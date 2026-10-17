@@ -20,7 +20,23 @@ vi.mock("expo-network", () => ({
 }));
 
 const fsMock = vi.hoisted(() => ({ deleted: [] as string[] }));
+vi.mock("expo-file-system", () => ({
+  // 上传部件现在走 expo-file-system 的 File（expo/fetch 只认 Blob / 带 bytes() 的部件）。
+  // 测试环境里必须让它**真的是 Blob**：Node 的 FormData 在「非 Blob + 带 filename」时会抛 TypeError。
+  File: class MockFile extends Blob {
+    uri: string;
+    name = "upload.jpg";
+    constructor(uri: string) {
+      super([new Uint8Array()], { type: "image/jpeg" });
+      this.uri = uri;
+    }
+    async bytes() {
+      return new Uint8Array(await this.arrayBuffer());
+    }
+  },
+}));
 vi.mock("expo-file-system/legacy", () => ({
+  cacheDirectory: "file:///cache/",
   documentDirectory: "file:///doc/",
   getInfoAsync: async () => ({ exists: true }),
   makeDirectoryAsync: async () => undefined,

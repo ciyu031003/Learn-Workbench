@@ -18,6 +18,7 @@ import path from "node:path";
  *   /study-stats（v1.33.0 新增：学习统计从弹层升级为独立全屏页）
  *   /quiz/review（本次新增：到期复习 + 错题统一入口）
  *   /trends（v1.45 新增：饮食趋势从底部弹层升级为独立全屏页，含运动 / 训练负荷）
+ *   /workout-add（v1.47 新增：记录/编辑训练从抽屉升级为独立全屏页）
  *
  * 若以后真的要新增/删除页面，改这里即等于显式声明"路由表变了"。
  */
@@ -64,6 +65,7 @@ const EXPECTED_ROUTES = [
   "/trends",
   "/wellness",
   "/workout",
+  "/workout-add",
 ];
 
 /** 文件相对路径 → 路由路径；返回 null 表示不产生路由（布局文件 / expo 特殊文件） */

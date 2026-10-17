@@ -40,6 +40,8 @@ const PARENT_RULES: { prefix: string; parent: string }[] = [
   { prefix: "/certificates", parent: "/career" },
   { prefix: "/interview", parent: "/career" },
   // 健康
+  // v1.47：全屏「记录训练」页的上一级是训练记录列表（必须先于 /workout 匹配）
+  { prefix: "/workout-add", parent: "/workout" },
   { prefix: "/workout", parent: "/wellness" },
   { prefix: "/nutrition", parent: "/wellness" },
   { prefix: "/habits", parent: "/wellness" },

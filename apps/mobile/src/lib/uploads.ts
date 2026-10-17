@@ -1,3 +1,4 @@
+import { makeUploadPart } from "@/lib/upload-part";
 import * as ImagePicker from "expo-image-picker";
 import { Platform } from "react-native";
 import { gearKindFromLabel } from "@learn-workbench/shared";
@@ -104,10 +105,8 @@ export async function uploadImage(
   clientId?: string
 ): Promise<{ url: string; id: number | null }> {
   const form = new FormData();
-  // RN 的 FormData 接受 { uri, name, type } 形态的文件对象
-  // name 的扩展名与 type 保持一致：服务端会按 type 校验，两边对不上容易被判成非法类型
-  const ext = extForMime(picked.mimeType);
-  form.append("file", { uri: picked.uri, name: "upload." + ext, type: picked.mimeType } as unknown as Blob);
+    const { part, filename } = await makeUploadPart(picked.uri, picked.mimeType);
+  form.append("file", part, filename);
   form.append("kind", kind);
   if (clientId) form.append("clientId", clientId);
   const token = useAppStore.getState().token;
@@ -138,7 +137,13 @@ export async function pickAndUpload(kind: UploadKind): Promise<string | null> {
 /** 选图结果：直接传成功 / 已落本机待补发 / 用户取消 */
 export type PhotoUploadResult =
   | { status: "uploaded"; url: string }
-  | { status: "queued"; clientId: string; localUri: string }
+  | {
+      status: "queued";
+      clientId: string;
+      localUri: string;
+      /** 为什么没传上去：offline 真没网 / server 有网但服务端失败 / auth 未登录。用于给用户准确文案，别一律说「网络不顺」 */
+      reason?: "offline" | "server" | "auth";
+    }
   | { status: "canceled" };
 
 /**
@@ -175,7 +180,13 @@ export async function pickAndUploadPhoto(kind: UploadKind): Promise<PhotoUploadR
     throw new Error(outcome.message ?? "上传失败，请重试");
   }
 
-  return { status: "queued", clientId, localUri: fileUri };
+  return {
+    status: "queued",
+    clientId,
+    localUri: fileUri,
+    // client(4xx) 上面已经 throw 了，走到这里不可能是 client
+    reason: outcome.ok || outcome.kind === "client" ? undefined : outcome.kind,
+  };
 }
 
 /** 取消一条待补发的图片（换图 / 删图时调用）：出队并删本机副本 */
