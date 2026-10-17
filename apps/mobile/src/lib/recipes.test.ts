@@ -75,6 +75,8 @@ describe("按日期确定性取数（同一天稳定、跨天变化，不用 Mat
     for (const item of first) {
       expect(item.recipe.meals).toContain(item.meal);
     }
+    // 同一天内四个餐次不重复（跨餐次的条目由先挑到的餐次占用）
+    expect(new Set(first.map((d) => d.recipe.id)).size).toBe(first.length);
   });
 
   it("dailyRecipes：跨天会换菜（连续 14 天，每个餐次至少出现 3 种不同食谱）", () => {

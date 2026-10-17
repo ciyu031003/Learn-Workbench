@@ -234,13 +234,16 @@ export default function WorkoutAddScreen() {
         const d = (await r.json().catch(() => ({}))) as { error?: string };
         throw new Error(d.error ?? "保存失败");
       }
-      // 父页 /workout 在 focus 时会 useFocusRefresh(load)，所以这里只负责返回
-      goBack();
     } catch (e) {
-      Alert.alert("保存失败", e instanceof Error ? e.message : "请稍后重试");
-    } finally {
+      // 先把 loading 复位再弹窗：返回键/重试时按钮不能一直转圈
       setSaving(false);
+      Alert.alert("保存失败", e instanceof Error ? e.message : "请稍后重试");
+      return;
     }
+    // 先复位再导航：避免 back() 之后还在已卸载组件上 setState
+    setSaving(false);
+    // 父页 /workout 在 focus 时会 useFocusRefresh(load)，所以这里只负责返回
+    goBack();
   };
 
   /* ---------- 渲染数据 ---------- */
