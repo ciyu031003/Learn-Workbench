@@ -29,6 +29,7 @@ import { networkEngineeringTopicExpansions } from "./topic-expansion-network-eng
 import { operatingSystemsTopicExpansions } from "./topic-expansion-operating-systems";
 import { databaseTopicExpansions } from "./topic-expansion-database";
 import { javaTopicExpansions } from "./topic-expansion-java";
+import { powerBiTopicExpansions } from "./topic-expansion-power-bi";
 import { pythonTopicExpansions } from "./topic-expansion-python";
 import type { LearningQuestion, LearningTopic } from "./types";
 
@@ -58,5 +59,6 @@ export const topicExpansions: TopicExpansion[] = [
   ...operatingSystemsTopicExpansions,
   ...databaseTopicExpansions,
   ...javaTopicExpansions,
+  ...powerBiTopicExpansions,
   ...pythonTopicExpansions,
 ];
