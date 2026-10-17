@@ -23,6 +23,10 @@ import { backendEngineeringTopicExpansionsB } from "./topic-expansion-backend-en
 import { backendEngineeringTopicExpansionsC } from "./topic-expansion-backend-engineering-c";
 import { dataAnalysisTopicExpansions } from "./topic-expansion-data-analysis";
 import { cloudPlatformTopicExpansions } from "./topic-expansion-cloud-platform";
+import { computerNetworkingTopicExpansions } from "./topic-expansion-computer-networking";
+import { computerOrganizationTopicExpansions } from "./topic-expansion-computer-organization";
+import { networkEngineeringTopicExpansions } from "./topic-expansion-network-engineering";
+import { operatingSystemsTopicExpansions } from "./topic-expansion-operating-systems";
 import { databaseTopicExpansions } from "./topic-expansion-database";
 import { javaTopicExpansions } from "./topic-expansion-java";
 import { pythonTopicExpansions } from "./topic-expansion-python";
@@ -48,6 +52,10 @@ export const topicExpansions: TopicExpansion[] = [
   ...backendEngineeringTopicExpansionsC,
   ...dataAnalysisTopicExpansions,
   ...cloudPlatformTopicExpansions,
+  ...computerNetworkingTopicExpansions,
+  ...computerOrganizationTopicExpansions,
+  ...networkEngineeringTopicExpansions,
+  ...operatingSystemsTopicExpansions,
   ...databaseTopicExpansions,
   ...javaTopicExpansions,
   ...pythonTopicExpansions,
