@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Pressable, RefreshControl, StyleSheet, Switch, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Animated, { FadeInUp, LinearTransition } from "react-native-reanimated";
 import { router, useLocalSearchParams } from "expo-router";
 import { ThemedIcon } from "@/components/themed-icon";
@@ -21,7 +22,6 @@ import { DayStrip, DAY_STRIP_MAX_WEEKS } from "@/components/day-strip";
 import { MonthCalendar } from "@/components/month-calendar";
 import { MacroMiniRings, type MacroRingItem } from "@/components/macro-mini-rings";
 import { MealEditSheet, type MealUpdate } from "@/components/meal-edit-sheet";
-import { PortionSlider } from "@/components/portion-slider";
 import { StickerBookSheet } from "@/components/sticker-book";
 import { SwipeRow } from "@/components/swipe-row";
 import { WaterCard } from "@/components/water-card";
@@ -32,7 +32,8 @@ import { RecipeShelf } from "@/components/recipe-shelf";
 import { LiveLogSheet } from "@/components/live-log-sheet";
 import { WeightCard } from "@/components/weight-card";
 import { TargetSheet, type TargetProfileInput } from "@/components/target-sheet";
-import { portionPreviewText } from "@/lib/portion";
+import { scaleNutrition } from "@/lib/portion";
+import { dailyRecipes } from "@/lib/recipes";
 import {
   addHydration,
   addWeight,
@@ -122,6 +123,114 @@ type ViewMode = "day" | "week" | "month";
 /** 三大营养素环的配色（借 吃一点：绿=达标、橙=碳水、青=脂肪） */
 const MACRO_COLORS = { proteinG: "#3DA35D", carbsG: "#F28C28", fatG: "#2FB3A6" } as const;
 
+/** 餐次语义色（与 meal-card-grid 同一套口径；那里没导出，饮食页的推荐卡复用同一色系） */
+function mealAccentColor(meal: MealKind, colors: ThemeColors): string {
+  switch (meal) {
+    case "breakfast":
+      return colors.accent;
+    case "lunch":
+      return colors.primary;
+    case "dinner":
+      return colors.lavender;
+    case "snack":
+      return colors.success;
+  }
+}
+
+/**
+ * 本机「上次分量」记忆（需求 3）。
+ *
+ * 为什么放在本机：`/api/nutrition/foods?sort=recent` 只回名称/单位/单位营养与使用频次，
+ * **没有「上次分量」字段**；那个接口是 Web 与 App 共用的，本次不动。于是由客户端在每次
+ * 添加成功后顺手记住一份，键 = 食物名（与 `foods` 的口径一致），读不到就按 1 份。
+ */
+const PORTION_MEMO_KEY = "lwb.nutrition.last-portion.v1";
+
+interface PortionMemoEntry {
+  amount: number;
+  unit: string;
+}
+
+/** 带使用频次的常用食物（recent 排序接口会多回 times/lastUsed，Food 类型里没有） */
+type RecentFood = Food & { times?: number; lastUsed?: string | null };
+
+/**
+ * 份量选项（需求 1）：质量单位按 50/100/150/200 走，其余按 0.5/1/1.5/2 份。
+ * 单位原样带在标签上（份 / 碗 / 个 / g / ml），避免"1"看不出是什么单位。
+ */
+function portionOptions(food: { unit: string }): { value: number; label: string }[] {
+  const unit = (food.unit ?? "份").trim() || "份";
+  if (/^(g|ml|克|毫升)$/i.test(unit)) {
+    return [50, 100, 150, 200].map((grams) => ({ value: grams, label: `${grams} ${unit}` }));
+  }
+  return [0.5, 1, 1.5, 2].map((multiplier) => ({ value: multiplier, label: `${multiplier} ${unit}` }));
+}
+
+/**
+ * 添加弹层的折叠收纳栏（需求 1）。
+ *
+ * 为什么做成组件而不是就地写四份：四个分组（常用 / 按分量 / 以往 / 手动）的标题、条目数、
+ * 展开态与动效完全一致，抽出来才能保证"点标题展开/收起 + 折叠时显示条目数"只有一处实现。
+ */
+function AccordionGroup({
+  id,
+  title,
+  hint,
+  count,
+  open,
+  onToggle,
+  styles,
+  colors,
+  children,
+}: {
+  id: string;
+  title: string;
+  hint?: string;
+  /** 折叠标题上的条目数（undefined = 这组不是列表，不显示数字） */
+  count?: number;
+  open: boolean;
+  onToggle: (id: string) => void;
+  styles: ReturnType<typeof makeStyles>;
+  colors: ThemeColors;
+  children: ReactNode;
+}) {
+  return (
+    <Animated.View layout={LinearTransition.duration(180)} style={styles.group}>
+      <Pressable
+        onPress={() => onToggle(id)}
+        style={styles.groupHead}
+        hitSlop={6}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        accessibilityLabel={`${title}${typeof count === "number" ? `，${count} 项` : ""}，${open ? "点击收起" : "点击展开"}`}
+      >
+        <View style={styles.groupTitleWrap}>
+          <Text style={styles.groupTitle}>{title}</Text>
+          {hint ? (
+            <Text style={styles.groupHint} numberOfLines={1}>
+              {hint}
+            </Text>
+          ) : null}
+        </View>
+        {typeof count === "number" ? (
+          <View style={styles.groupCount}>
+            <Text style={styles.groupCountText}>{count}</Text>
+          </View>
+        ) : null}
+        <ThemedIcon name={open ? "chevron-up" : "chevron-down"} size={16} color={colors.textMuted} />
+      </Pressable>
+      {open ? (
+        <Animated.View entering={FadeInUp.duration(180)} style={styles.groupBody}>
+          {children}
+        </Animated.View>
+      ) : null}
+    </Animated.View>
+  );
+}
+
+/** 折叠栏展开态的初始值：只有第一组（常用食物）默认展开，其余收起（需求 1） */
+const INITIAL_OPEN_GROUPS: Record<string, boolean> = { common: true };
+
 export default function NutritionScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -156,7 +265,8 @@ export default function NutritionScreen() {
   const [dateSheetOpen, setDateSheetOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [foods, setFoods] = useState<Food[]>([]);
+  /** recent 排序接口会多带 times/lastUsed，用来区分「以往添加过的」与「食物库里的」 */
+  const [foods, setFoods] = useState<RecentFood[]>([]);
   const [meal, setMeal] = useState<MealKind>("lunch");
   /**
    * v1.33.0：「添加 <餐次>」按钮的文案随**当前时间段**自动变化（早餐/午餐/晚餐/加餐）。
@@ -171,9 +281,19 @@ export default function NutritionScreen() {
     }, 30_000);
     return () => clearInterval(id);
   }, []);
-  const [picked, setPicked] = useState<Food | null>(null);
-  const [amount, setAmount] = useState("1");
   const [saving, setSaving] = useState(false);
+  /**
+   * 需求 1：添加弹层的分组收纳态 —— 默认只展开「常用食物」（INITIAL_OPEN_GROUPS），
+   * 其余三组折叠后标题上只留条目数，弹层首屏不再一眼铺开几十行。
+   */
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(INITIAL_OPEN_GROUPS);
+  /** 需求 1：按分量添加时，每种食物当前选中的分量（键 = food.id；缺省 = 选项里的 1 倍） */
+  const [portionById, setPortionById] = useState<Record<number, number>>({});
+  /** 需求 3：「+ 今日」/「按分量」成功后让按钮短暂变成「已加入」，给一次明确的成功反馈 */
+  const [justAdded, setJustAdded] = useState<Record<number, boolean>>({});
+  /** 需求 3：本机记住的「上次分量」（名称 → 分量），服务端接口没有这个字段（见 PORTION_MEMO_KEY 注释） */
+  const [portionMemo, setPortionMemo] = useState<Record<string, PortionMemoEntry>>({});
+  const portionMemoRef = useRef<Record<string, PortionMemoEntry>>({});
   // 手动录入（v2 Bug 7a 保留）
   const [manual, setManual] = useState({ name: "", unit: "份", kcal: "", proteinG: "", carbsG: "", fatG: "" });
   const [saveAsCommon, setSaveAsCommon] = useState(false);
@@ -578,19 +698,150 @@ export default function NutritionScreen() {
 
   const closeSheet = useCallback(() => {
     setSheetOpen(false);
-    setPicked(null);
     setPickedItem(null);
     setItemGrams("100");
-    setAmount("1");
     setManual({ name: "", unit: "份", kcal: "", proteinG: "", carbsG: "", fatG: "" });
     setSaveAsCommon(false);
     setFoodQuery("");
+    // 收纳态归零：下次打开仍是「只展开第一组」，不会记住上次随手点开的组
+    setOpenGroups(INITIAL_OPEN_GROUPS);
   }, []);
 
   /** v6 P1-2：打开「添加饮食」时按当前时间预选餐次（用户仍可手动切） */
   const openSheet = useCallback(() => {
     setMeal(mealForNow());
     setSheetOpen(true);
+  }, []);
+
+  /** 折叠栏开关（需求 1）：收纳是浏览动作，用最轻的一档触感 */
+  const toggleGroup = useCallback((id: string) => {
+    haptics.soft();
+    setOpenGroups((prev) => ({ ...prev, [id]: !prev[id] }));
+  }, []);
+
+  /** 选中某种食物的分量（需求 1）：只改选择，热量/三大营养素在渲染时按「单位营养 × 分量」实时算 */
+  const choosePortion = useCallback((foodId: number, value: number) => {
+    haptics.light();
+    setPortionById((prev) => ({ ...prev, [foodId]: value }));
+  }, []);
+
+  /** 记住「上次用的分量」（需求 3）：写内存 + 本机存储；失败静默，不能因为存储失败挡住记录 */
+  const rememberPortion = useCallback((name: string, amount: number, unit: string) => {
+    const key = name.trim();
+    if (!key || !Number.isFinite(amount) || amount <= 0) return;
+    const next = { ...portionMemoRef.current, [key]: { amount, unit: unit.trim() || "份" } };
+    portionMemoRef.current = next;
+    setPortionMemo(next);
+    void AsyncStorage.setItem(PORTION_MEMO_KEY, JSON.stringify(next)).catch(() => {});
+  }, []);
+
+  /** 成功反馈：按钮短暂显示「已加入」（需求 3 的「成功给反馈」） */
+  const flashAdded = useCallback((foodId: number) => {
+    setJustAdded((prev) => ({ ...prev, [foodId]: true }));
+    setTimeout(() => {
+      setJustAdded((prev) => {
+        if (!prev[foodId]) return prev;
+        const next = { ...prev };
+        delete next[foodId];
+        return next;
+      });
+    }, 1600);
+  }, []);
+
+  /** 网格长按 → 展开「按分量添加」组（原来长按是弹滑杆，现在收进折叠组里，行为等价） */
+  const focusPortionRow = useCallback((food: RecentFood) => {
+    haptics.soft();
+    setOpenGroups((prev) => ({ ...prev, portion: true }));
+    const options = portionOptions(food);
+    setPortionById((prev) => ({ ...prev, [food.id]: prev[food.id] ?? options[1]?.value ?? 1 }));
+  }, []);
+
+  /**
+   * 按指定分量入账（需求 1 的「按分量添加」与需求 3 的「+ 今日」共用）。
+   *
+   * 与 quickAdd 的差别：**先乐观入账**再上传 —— 按钮点下去立刻能在时间线里看到这条；
+   * 服务端 4xx 明确拒绝时撤回（失败回滚）并说明原因；离线/5xx/未登录则进发件箱等补发。
+   */
+  const addFoodByPortion = useCallback(
+    async (food: Food, amount: number, targetDate: string): Promise<boolean> => {
+      if (!Number.isFinite(amount) || amount <= 0) return false;
+      const scaled = scaleNutrition(food, amount);
+      const localId = nextLocalId();
+      const body: MealEntryInput = {
+        date: targetDate,
+        meal,
+        name: food.name,
+        amount,
+        unit: food.unit,
+        ...scaled,
+        foodId: food.id,
+      };
+      const op = makeCreateOp(body, localId);
+      setEntries((prev) => [...prev, toLocalEntry(body, localId)]);
+      setPendingIds((prev) => [...prev, localId]);
+      rememberPortion(food.name, amount, food.unit);
+      const outcome = await submitOp(op);
+      if (outcome.ok) {
+        haptics.success();
+        flashAdded(food.id);
+        await load();
+        return true;
+      }
+      if (!isRetryable(outcome)) {
+        // 失败回滚：撤回乐观入账，别让用户以为已经记上了
+        setEntries((prev) => prev.filter((e) => e.id !== localId));
+        setPendingIds((prev) => prev.filter((id) => id !== localId));
+        Alert.alert("这条没有记上", outcome.message ?? "服务端拒绝了这条记录，请稍后重试。");
+        return false;
+      }
+      const next = enqueue(outbox, op);
+      setOutbox(next);
+      await saveOutbox(next);
+      haptics.success();
+      flashAdded(food.id);
+      if (outcome.kind === "auth") Alert.alert("已记在本机", "登录后会自动同步到云端。");
+      return true;
+    },
+    [flashAdded, load, meal, outbox, rememberPortion, submitOp]
+  );
+
+  /** 「以往添加的食物」：recent 接口已按「最近使用」排序，这里只保留真的吃过的（times > 0） */
+  const recentFoods = useMemo(() => {
+    const eaten = foods.filter((f) => (f.times ?? 0) > 0);
+    // 接口没回频次时（旧数据/异常）退回前几个，至少别让这组空着
+    return (eaten.length > 0 ? eaten : foods).slice(0, 8);
+  }, [foods]);
+
+  /** 某种食物「上次分量」：本机记忆优先，没有就按 1 个默认单位（需求 3 的「含上次分量」） */
+  const lastPortionOf = useCallback(
+    (food: Food): PortionMemoEntry => portionMemo[food.name.trim()] ?? { amount: 1, unit: food.unit },
+    [portionMemo]
+  );
+
+  /** 每日推荐（需求 2）：同一天稳定、跨天轮换（见 lib/recipes.ts 的日期种子） */
+  const dailyPicks = useMemo(() => dailyRecipes(date), [date]);
+
+  /** 启动时读回本机「上次分量」（需求 3）；读不到/损坏一律按空处理，等价于「都按 1 份」 */
+  useEffect(() => {
+    void (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(PORTION_MEMO_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw) as unknown;
+        if (!parsed || typeof parsed !== "object") return;
+        const memo: Record<string, PortionMemoEntry> = {};
+        for (const [name, value] of Object.entries(parsed as Record<string, unknown>)) {
+          const v = value as Partial<PortionMemoEntry> | null;
+          const amount = Number(v?.amount);
+          if (!name.trim() || !Number.isFinite(amount) || amount <= 0) continue;
+          memo[name] = { amount, unit: typeof v?.unit === "string" && v.unit.trim() ? v.unit : "份" };
+        }
+        portionMemoRef.current = memo;
+        setPortionMemo(memo);
+      } catch {
+        // 读不到就当作没有记忆（默认 1 份）
+      }
+    })();
   }, []);
 
   /** 从常用食物添加：默认 1 份，立即入账（v3 M4 一点即记）；离线时进发件箱 */
@@ -609,6 +860,8 @@ export default function NutritionScreen() {
       foodId: food.id,
     };
     const op = makeCreateOp(body, localId);
+    // 顺手记住这次用的分量（1 份），下次「以往添加的食物」里的「+ 今日」按它入账
+    rememberPortion(food.name, 1, food.unit);
     // 乐观入账：先显示，再上传
     setEntries((prev) => [...prev, toLocalEntry(body, localId)]);
     setPendingIds((prev) => [...prev, localId]);
@@ -634,62 +887,6 @@ export default function NutritionScreen() {
     });
     if (outcome.kind === "auth") {
       Alert.alert("已记在本机", "登录后会自动同步到云端。");
-    }
-  };
-
-  /** 从常用食物按指定份量添加（编辑面板里改份量后保存时走 PATCH） */
-  const addPicked = async () => {
-    if (!picked) {
-      Alert.alert("请选择食物");
-      return;
-    }
-    const amountNum = Number(amount) || 1;
-    if (amountNum === 1) {
-      await quickAdd(picked);
-      closeSheet();
-      return;
-    }
-    setSaving(true);
-    try {
-      const scaled = {
-        kcal: Math.round(picked.kcal * amountNum * 10) / 10,
-        proteinG: Math.round(picked.proteinG * amountNum * 10) / 10,
-        carbsG: Math.round(picked.carbsG * amountNum * 10) / 10,
-        fatG: Math.round(picked.fatG * amountNum * 10) / 10,
-      };
-      const localId = nextLocalId();
-      const body: MealEntryInput = {
-        date,
-        meal,
-        name: picked.name,
-        amount: amountNum,
-        unit: picked.unit,
-        ...scaled,
-        foodId: picked.id,
-      };
-      const op = makeCreateOp(body, localId);
-      // 走统一的四分类发货（离线静默入队 / 4xx 才报错），不再用 try/catch 把所有失败都当"没网"
-      const outcome = await submitOp(op);
-      if (outcome.ok) {
-        haptics.success();
-        closeSheet();
-        await load();
-        return;
-      }
-      if (!isRetryable(outcome)) {
-        Alert.alert("这条没有记上", outcome.message ?? "服务端拒绝了这条记录，请稍后重试。");
-        return;
-      }
-      // 离线 / 服务端错误 / 未登录：乐观入账 + 进发件箱，联网后自动补发
-      setEntries((prev) => [...prev, toLocalEntry(body, localId)]);
-      setPendingIds((prev) => [...prev, localId]);
-      const next = enqueue(outbox, op);
-      setOutbox(next);
-      await saveOutbox(next);
-      closeSheet();
-      if (outcome.kind === "auth") Alert.alert("已记在本机", "登录后会自动同步到云端。");
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -978,6 +1175,47 @@ export default function NutritionScreen() {
         onPrevWeek={() => shiftWeek(-1)}
         onNextWeek={isCurrentWeek(date, todayKey) ? undefined : () => shiftWeek(1)}
       />
+
+      {/* 需求 2：每日推荐 —— 按日期确定性轮换（同一天稳定、跨天变化），
+          与下方「精选食谱」分工：这里回答"今天吃什么"，那里看配料与做法 */}
+      {dailyPicks.length > 0 ? (
+        <View style={styles.dailyWrap}>
+          <SectionHeader
+            title="每日推荐"
+            subtitle={`按日期轮换 · ${isToday ? "今天" : dayLabel(date, todayKey)}这组全天不变`}
+          />
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.dailyRow}
+            nestedScrollEnabled
+          >
+            {dailyPicks.map(({ meal: pickMeal, recipe }) => {
+              const accent = mealAccentColor(pickMeal, colors);
+              return (
+                <View
+                  key={`${pickMeal}-${recipe.id}`}
+                  accessible
+                  accessibilityLabel={`${mealKindLabels[pickMeal]}推荐：${recipe.name}，${recipe.kcal} 千卡`}
+                  style={styles.dailyCard}
+                >
+                  <View style={styles.dailyTop}>
+                    <Text style={[styles.dailyMeal, { color: accent }]}>{mealKindLabels[pickMeal]}</Text>
+                    <View style={[styles.dailyTag, { backgroundColor: accent + "1A" }]}>
+                      <Text style={[styles.dailyTagText, { color: accent }]}>{recipe.tag}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.dailyName} numberOfLines={2}>{recipe.name}</Text>
+                  <Text style={styles.dailyKcal}>{recipe.kcal} kcal</Text>
+                  <Text style={styles.dailyMacro}>
+                    P{recipe.proteinG} C{recipe.carbsG} F{recipe.fatG} · {recipe.minutes} 分钟
+                  </Text>
+                </View>
+              );
+            })}
+          </ScrollView>
+        </View>
+      ) : null}
 
       {/* 2026-10 扩充：与 Web 共用的精选食谱 */}
       <RecipeShelf />
@@ -1552,12 +1790,31 @@ export default function NutritionScreen() {
                     />
                     <Text style={styles.gramsUnit}>{pickedItem.basisUnit}</Text>
                   </View>
+                  {/* 需求 1：按「基准量（如每 100g）」的倍数选分量，点一下下面那行预览立刻重算 */}
                   <View style={styles.gramsQuick}>
-                    {[100, 200, 300, 500].map((g) => (
-                      <Pressable key={g} onPress={() => setItemGrams(String(g))} style={styles.gramsChip}>
-                        <Text style={styles.gramsChipText}>{g}</Text>
-                      </Pressable>
-                    ))}
+                    {[0.5, 1, 1.5, 2].map((multiplier) => {
+                      const base = Number(pickedItem.basisAmount) > 0 ? Number(pickedItem.basisAmount) : 100;
+                      const grams = Math.round(base * multiplier * 10) / 10;
+                      const active = Math.abs((Number(itemGrams) || 0) - grams) < 0.01;
+                      return (
+                        <Pressable
+                          key={multiplier}
+                          onPress={() => {
+                            haptics.light();
+                            setItemGrams(String(grams));
+                          }}
+                          hitSlop={4}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: active }}
+                          accessibilityLabel={`${grams} ${pickedItem.basisUnit}`}
+                          style={[styles.gramsChip, active && styles.gramsChipActive]}
+                        >
+                          <Text style={[styles.gramsChipText, active && styles.gramsChipTextActive]}>
+                            {grams} {pickedItem.basisUnit}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
                   </View>
                   {itemScaled ? (
                     <Text style={styles.itemPreview}>
@@ -1597,122 +1854,240 @@ export default function NutritionScreen() {
             </View>
           ) : null}
 
-          <SectionHeader title="常用食物" subtitle="按当前餐次推荐 · 点一下记 1 份，长按改份量" style={styles.sheetSection} />
-          {/* v6 P1-1：两列大图标网格（原来一食物一行太占地方） */}
-          <View style={styles.foodGrid}>
-            {visibleFoods.slice(0, 12).map((f) => (
-              <PressableScale
-                key={f.id}
-                haptic
-                scaleTo={0.96}
-                onPress={() => void quickAdd(f)}
-                onLongPress={() => setPicked(f)}
-                style={styles.foodCard}
-                accessibilityLabel={`记一份 ${f.name}`}
-              >
-                <View style={styles.foodCardTop}>
-                  <FoodSticker name={f.name} size={46} />
-                  <ThemedIcon name="add-circle" size={18} color={colors.accentStrong} />
+          {/* 需求 1：分组收纳栏 —— 默认只展开「常用食物」，其余折叠；折叠标题上带条目数 */}
+          <AccordionGroup
+            id="common"
+            title="常用食物"
+            hint="点一下记 1 份 · 长按按分量添加"
+            count={visibleFoods.length}
+            open={!!openGroups.common}
+            onToggle={toggleGroup}
+            styles={styles}
+            colors={colors}
+          >
+            {/* v6 P1-1：两列大图标网格（原来一食物一行太占地方） */}
+            <View style={styles.foodGrid}>
+              {visibleFoods.slice(0, 12).map((f) => (
+                <PressableScale
+                  key={f.id}
+                  haptic
+                  scaleTo={0.96}
+                  onPress={() => void quickAdd(f)}
+                  onLongPress={() => focusPortionRow(f)}
+                  style={styles.foodCard}
+                  accessibilityLabel={`记一份 ${f.name}`}
+                >
+                  <View style={styles.foodCardTop}>
+                    <FoodSticker name={f.name} size={46} />
+                    <ThemedIcon name="add-circle" size={18} color={colors.accentStrong} />
+                  </View>
+                  <Text style={styles.foodCardName} numberOfLines={2}>{f.name}</Text>
+                  <Text style={styles.foodCardMeta} numberOfLines={1}>
+                    {Math.round(f.kcal)} kcal · {f.unit}
+                  </Text>
+                </PressableScale>
+              ))}
+              {visibleFoods.length === 0 ? <Text style={styles.muted}>没有匹配的食物，试试手动添加</Text> : null}
+            </View>
+            {visibleFoods.length > 12 ? (
+              <Text style={styles.muted}>还有 {visibleFoods.length - 12} 种没铺出来：用上方搜索能直接找到</Text>
+            ) : null}
+          </AccordionGroup>
+
+          {/* 需求 1：按分量添加 —— 选中分量时该行的热量与 P/C/F 立刻按「单位营养 × 分量」重算 */}
+          <AccordionGroup
+            id="portion"
+            title="按分量添加"
+            hint="选分量后热量与三大营养素实时重算"
+            count={visibleFoods.length}
+            open={!!openGroups.portion}
+            onToggle={toggleGroup}
+            styles={styles}
+            colors={colors}
+          >
+            {visibleFoods.slice(0, 12).map((f) => {
+              const options = portionOptions(f);
+              const amountValue = portionById[f.id] ?? options[1]?.value ?? 1;
+              const scaled = scaleNutrition(f, amountValue);
+              const added = !!justAdded[f.id];
+              return (
+                <View key={f.id} style={styles.portionRow}>
+                  <View style={styles.portionHead}>
+                    <FoodSticker name={f.name} size={34} />
+                    <View style={styles.portionBody}>
+                      <Text style={styles.portionName} numberOfLines={1}>{f.name}</Text>
+                      <Text style={styles.portionMeta} numberOfLines={1}>
+                        每 {f.unit}：{Math.round(f.kcal)} kcal · P{f.proteinG} C{f.carbsG} F{f.fatG}
+                      </Text>
+                    </View>
+                    <Pressable
+                      onPress={() => void addFoodByPortion(f, amountValue, date)}
+                      hitSlop={6}
+                      accessibilityRole="button"
+                      accessibilityLabel={`添加 ${amountValue} ${f.unit} ${f.name} 到${mealKindLabels[meal]}`}
+                      style={[styles.portionAdd, added && styles.portionAddDone]}
+                    >
+                      <ThemedIcon name={added ? "checkmark" : "add"} size={13} color={added ? colors.success : "#ffffff"} />
+                      <Text style={[styles.portionAddText, added && styles.portionAddTextDone]}>
+                        {added ? "已加入" : "添加"}
+                      </Text>
+                    </Pressable>
+                  </View>
+                  <View style={styles.portionChips}>
+                    {options.map((o) => {
+                      const active = o.value === amountValue;
+                      return (
+                        <Pressable
+                          key={o.value}
+                          onPress={() => choosePortion(f.id, o.value)}
+                          hitSlop={4}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: active }}
+                          accessibilityLabel={`${f.name} 选 ${o.label}`}
+                          style={[styles.portionChip, active && styles.portionChipActive]}
+                        >
+                          <Text style={[styles.portionChipText, active && styles.portionChipTextActive]}>
+                            {o.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  {/* 实时联动：每份营养 × 当前分量（scaleNutrition），不是只改标签 */}
+                  <Text style={styles.portionPreview}>
+                    ≈ {Math.round(scaled.kcal)} kcal · P{scaled.proteinG} C{scaled.carbsG} F{scaled.fatG}
+                  </Text>
                 </View>
-                <Text style={styles.foodCardName} numberOfLines={2}>{f.name}</Text>
-                <Text style={styles.foodCardMeta} numberOfLines={1}>
-                  {Math.round(f.kcal)} kcal · {f.unit}
-                </Text>
-              </PressableScale>
-            ))}
-            {visibleFoods.length === 0 ? <Text style={styles.muted}>没有匹配的食物，试试下方手动添加</Text> : null}
-          </View>
+              );
+            })}
+            {visibleFoods.length === 0 ? <Text style={styles.muted}>没有匹配的食物，试试手动添加</Text> : null}
+            {visibleFoods.length > 12 ? (
+              <Text style={styles.muted}>还有 {visibleFoods.length - 12} 种没列出来：用上方搜索能直接找到</Text>
+            ) : null}
+          </AccordionGroup>
 
-          <SectionHeader title="按份量添加" subtitle="需要精确份量时选一个再拖滑杆" style={styles.sheetSection} />
-          <View style={styles.kindRow}>
-            {visibleFoods.map((f) => (
-              <Pressable
-                key={f.id}
-                onPress={() => setPicked(f)}
-                style={[styles.kindChip, picked?.id === f.id && styles.kindChipActive]}
-              >
-                <Text style={[styles.kindChipText, picked?.id === f.id && styles.kindChipTextActive]}>
-                  {f.name}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-          {picked ? (
-            <>
-              <PortionSlider
-                value={Number(amount) || 1}
-                onChange={(v) => setAmount(String(v))}
-                min={0.5}
-                max={3}
-                step={0.5}
-                unitLabel={picked.unit}
-                hint={portionPreviewText(picked, Number(amount) || 1)}
+          {/* 需求 3：以往添加的食物 —— 右侧「+ 今日」按上次分量一键入账 */}
+          <AccordionGroup
+            id="history"
+            title="以往添加的食物"
+            hint={
+              isToday
+                ? `按上次分量，一键记到${mealKindLabels[meal]}`
+                : `「+ 今日」始终记到今天；当前在看 ${dayLabel(date, todayKey)}`
+            }
+            count={recentFoods.length}
+            open={!!openGroups.history}
+            onToggle={toggleGroup}
+            styles={styles}
+            colors={colors}
+          >
+            {recentFoods.map((f) => {
+              const last = lastPortionOf(f);
+              const added = !!justAdded[f.id];
+              return (
+                <View key={f.id} style={styles.historyRow}>
+                  <FoodSticker name={f.name} size={32} />
+                  <View style={styles.historyBody}>
+                    <Text style={styles.historyName} numberOfLines={1}>{f.name}</Text>
+                    <Text style={styles.historyMeta} numberOfLines={1}>
+                      上次 {last.amount} {last.unit}
+                      {typeof f.times === "number" && f.times > 0 ? ` · 吃过 ${f.times} 次` : ""}
+                    </Text>
+                  </View>
+                  <Pressable
+                    onPress={() => void addFoodByPortion(f, last.amount, todayKey)}
+                    hitSlop={6}
+                    accessibilityRole="button"
+                    accessibilityLabel={`把 ${f.name} 加入今天记录`}
+                    style={[styles.historyAdd, added && styles.historyAddDone]}
+                  >
+                    <ThemedIcon
+                      name={added ? "checkmark" : "add"}
+                      size={13}
+                      color={added ? colors.success : colors.accentStrong}
+                    />
+                    <Text style={[styles.historyAddText, added && styles.historyAddTextDone]}>
+                      {added ? "已加入" : "+ 今日"}
+                    </Text>
+                  </Pressable>
+                </View>
+              );
+            })}
+            {recentFoods.length === 0 ? (
+              <Text style={styles.muted}>还没有吃过的记录：从上方常用食物开始记一条吧</Text>
+            ) : null}
+          </AccordionGroup>
+
+          <AccordionGroup
+            id="manual"
+            title="手动添加"
+            hint="只填名称与热量也能记一条"
+            open={!!openGroups.manual}
+            onToggle={toggleGroup}
+            styles={styles}
+            colors={colors}
+          >
+            <Field
+              label="名称"
+              value={manual.name}
+              onChangeText={(v) => setManual((s) => ({ ...s, name: v }))}
+              placeholder="例如：食堂番茄鸡蛋面"
+            />
+            <View style={styles.macroInputRow}>
+              <Field
+                label="单位"
+                value={manual.unit}
+                onChangeText={(v) => setManual((s) => ({ ...s, unit: v }))}
+                placeholder="份"
+                containerStyle={styles.macroInput}
               />
-              <Button label={`添加到${mealKindLabels[meal]}`} icon="add" loading={saving} onPress={() => void addPicked()} />
-            </>
-          ) : null}
-
-          <SectionHeader title="手动添加" subtitle="只填名称与热量也能记一条" style={styles.sheetSection} />
-          <Field
-            label="名称"
-            value={manual.name}
-            onChangeText={(v) => setManual((s) => ({ ...s, name: v }))}
-            placeholder="例如：食堂番茄鸡蛋面"
-          />
-          <View style={styles.macroInputRow}>
-            <Field
-              label="单位"
-              value={manual.unit}
-              onChangeText={(v) => setManual((s) => ({ ...s, unit: v }))}
-              placeholder="份"
-              containerStyle={styles.macroInput}
+              <Field
+                label="热量 kcal"
+                value={manual.kcal}
+                onChangeText={(v) => setManual((s) => ({ ...s, kcal: v }))}
+                keyboardType="numeric"
+                placeholder="520"
+                containerStyle={styles.macroInput}
+              />
+            </View>
+            <View style={styles.macroInputRow}>
+              <Field
+                label="蛋白 g"
+                value={manual.proteinG}
+                onChangeText={(v) => setManual((s) => ({ ...s, proteinG: v }))}
+                keyboardType="numeric"
+                placeholder="选填"
+                containerStyle={styles.macroInput}
+              />
+              <Field
+                label="碳水 g"
+                value={manual.carbsG}
+                onChangeText={(v) => setManual((s) => ({ ...s, carbsG: v }))}
+                keyboardType="numeric"
+                placeholder="选填"
+                containerStyle={styles.macroInput}
+              />
+              <Field
+                label="脂肪 g"
+                value={manual.fatG}
+                onChangeText={(v) => setManual((s) => ({ ...s, fatG: v }))}
+                keyboardType="numeric"
+                placeholder="选填"
+                containerStyle={styles.macroInput}
+              />
+            </View>
+            <Pressable style={styles.switchRow} onPress={() => setSaveAsCommon((v) => !v)}>
+              <Switch value={saveAsCommon} onValueChange={setSaveAsCommon} trackColor={{ true: colors.primary }} />
+              <Text style={styles.switchLabel}>存入常用食物（下次可直接选）</Text>
+            </Pressable>
+            <Button
+              label="手动添加到这天"
+              icon="create-outline"
+              variant="secondary"
+              loading={saving}
+              onPress={() => void addManual()}
             />
-            <Field
-              label="热量 kcal"
-              value={manual.kcal}
-              onChangeText={(v) => setManual((s) => ({ ...s, kcal: v }))}
-              keyboardType="numeric"
-              placeholder="520"
-              containerStyle={styles.macroInput}
-            />
-          </View>
-          <View style={styles.macroInputRow}>
-            <Field
-              label="蛋白 g"
-              value={manual.proteinG}
-              onChangeText={(v) => setManual((s) => ({ ...s, proteinG: v }))}
-              keyboardType="numeric"
-              placeholder="选填"
-              containerStyle={styles.macroInput}
-            />
-            <Field
-              label="碳水 g"
-              value={manual.carbsG}
-              onChangeText={(v) => setManual((s) => ({ ...s, carbsG: v }))}
-              keyboardType="numeric"
-              placeholder="选填"
-              containerStyle={styles.macroInput}
-            />
-            <Field
-              label="脂肪 g"
-              value={manual.fatG}
-              onChangeText={(v) => setManual((s) => ({ ...s, fatG: v }))}
-              keyboardType="numeric"
-              placeholder="选填"
-              containerStyle={styles.macroInput}
-            />
-          </View>
-          <Pressable style={styles.switchRow} onPress={() => setSaveAsCommon((v) => !v)}>
-            <Switch value={saveAsCommon} onValueChange={setSaveAsCommon} trackColor={{ true: colors.primary }} />
-            <Text style={styles.switchLabel}>存入常用食物（下次可直接选）</Text>
-          </Pressable>
-          <Button
-            label="手动添加到这天"
-            icon="create-outline"
-            variant="secondary"
-            loading={saving}
-            onPress={() => void addManual()}
-          />
+          </AccordionGroup>
         </View>
       </BottomSheet>
 
@@ -2028,4 +2403,122 @@ const makeStyles = (colors: ThemeColors) =>
     stickerCell: { alignItems: "center", gap: 2, width: 64 },
     stickerName: { ...typography.micro, fontSize: 10, color: colors.textMuted },
     stickerTimes: { ...typography.micro, fontSize: 10, fontWeight: "800", color: colors.accentStrong },
+    /* ---- 需求 2：每日推荐（横向卡片，与「精选食谱」同色系但不抢焦点） ---- */
+    dailyWrap: { gap: spacing.sm },
+    dailyRow: { gap: spacing.sm, paddingRight: 4 },
+    dailyCard: {
+      width: 168,
+      minHeight: 126,
+      gap: 4,
+      padding: 12,
+      borderRadius: 16,
+      backgroundColor: colors.surfaceStrong,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      ...shadows.card,
+    },
+    dailyTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 6 },
+    dailyMeal: { ...typography.micro, fontWeight: "800" },
+    dailyTag: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 999 },
+    dailyTagText: { ...typography.micro, fontWeight: "800" },
+    dailyName: { ...typography.callout, fontWeight: "800", color: colors.text, lineHeight: 19 },
+    dailyKcal: { ...typography.caption, fontWeight: "800", color: colors.accentStrong, ...tabularNums },
+    dailyMacro: { ...typography.micro, fontWeight: "500", color: colors.textMuted, ...tabularNums },
+    /* ---- 需求 1：折叠收纳栏（标题 + 条目数 + 展开态） ---- */
+    group: {
+      borderRadius: 16,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceStrong,
+      overflow: "hidden",
+    },
+    groupHead: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+      minHeight: 44,
+    },
+    groupTitleWrap: { flex: 1, minWidth: 0, gap: 1 },
+    groupTitle: { ...typography.callout, fontWeight: "800", color: colors.text },
+    groupHint: { ...typography.micro, fontWeight: "400", color: colors.textMuted },
+    /** 折叠标题上的条目数：小圆角胶囊，读起来像"这组有多少条"而不是按钮 */
+    groupCount: {
+      minWidth: 24,
+      paddingHorizontal: 7,
+      paddingVertical: 2,
+      borderRadius: 999,
+      backgroundColor: colors.surfaceMuted,
+      alignItems: "center",
+    },
+    groupCountText: { ...typography.micro, fontWeight: "800", color: colors.textMuted, ...tabularNums },
+    groupBody: { gap: 8, paddingHorizontal: 12, paddingBottom: 12 },
+    /* ---- 需求 1：按分量添加（行内选分量，热量与 P/C/F 实时联动） ---- */
+    portionRow: {
+      gap: 6,
+      paddingVertical: 9,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+    },
+    portionHead: { flexDirection: "row", alignItems: "center", gap: 9 },
+    portionBody: { flex: 1, minWidth: 0, gap: 1 },
+    portionName: { ...typography.callout, fontWeight: "700", color: colors.text },
+    portionMeta: { ...typography.micro, fontWeight: "400", color: colors.textMuted, ...tabularNums },
+    portionChips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+    portionChip: {
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 999,
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    portionChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+    portionChipText: { ...typography.micro, fontWeight: "700", color: colors.textMuted, ...tabularNums },
+    portionChipTextActive: { color: "#ffffff" },
+    portionAdd: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 3,
+      paddingHorizontal: 11,
+      paddingVertical: 7,
+      minHeight: 32,
+      borderRadius: 999,
+      backgroundColor: colors.accentStrong,
+    },
+    portionAddDone: { backgroundColor: colors.successSoft },
+    portionAddText: { ...typography.micro, fontWeight: "800", color: "#ffffff" },
+    portionAddTextDone: { color: colors.success },
+    portionPreview: { ...typography.micro, fontWeight: "700", color: colors.accentStrong, ...tabularNums },
+    /* ---- 需求 3：以往添加的食物（右侧「+ 今日」） ---- */
+    historyRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 9,
+      paddingVertical: 8,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+    },
+    historyBody: { flex: 1, minWidth: 0, gap: 1 },
+    historyName: { ...typography.callout, fontWeight: "700", color: colors.text },
+    historyMeta: { ...typography.micro, fontWeight: "400", color: colors.textMuted, ...tabularNums },
+    historyAdd: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 2,
+      paddingHorizontal: 10,
+      paddingVertical: 7,
+      minHeight: 32,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: colors.accentStrong + "66",
+      backgroundColor: colors.accentSoft,
+    },
+    historyAddDone: { borderColor: colors.success + "66", backgroundColor: colors.successSoft },
+    historyAddText: { ...typography.micro, fontWeight: "800", color: colors.accentStrong },
+    historyAddTextDone: { color: colors.success },
+    /* 需求 1：营养基准库的「基准量倍数」胶囊选中态 */
+    gramsChipActive: { backgroundColor: colors.primary },
+    gramsChipTextActive: { color: "#ffffff" },
   });

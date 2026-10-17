@@ -1,3 +1,4 @@
+import { makeUploadPart } from "@/lib/upload-part";
 import { getApiUrl } from "@/config";
 import { classifyFetchFailure, classifyResponse, toFlushOutcome, type SendOutcome } from "./send-outcome";
 import {
@@ -20,14 +21,11 @@ export type UploadSendResult =
   | { ok: true; url: string; id: number | null }
   | { ok: false; outcome: SendOutcome };
 
-function buildForm(op: UploadOp): FormData {
+async function buildForm(op: UploadOp): Promise<FormData> {
   const form = new FormData();
-  // RN 的 FormData 接受 { uri, name, type } 形态（name 的扩展名要与 type 一致）
-  form.append("file", {
-    uri: op.fileUri,
-    name: "upload." + extForMime(op.mimeType),
-    type: op.mimeType,
-  } as unknown as Blob);
+  // expo/fetch 只认 Blob/带 bytes() 的部件（见 lib/upload-part.ts 的说明）
+  const { part, filename } = await makeUploadPart(op.fileUri, op.mimeType);
+  form.append("file", part, filename);
   form.append("kind", op.kind);
   form.append("clientId", op.clientId);
   return form;
@@ -39,7 +37,7 @@ export async function sendUploadOp(op: UploadOp, token: string | null): Promise<
     res = await fetch(getApiUrl() + "/api/uploads", {
       method: "POST",
       headers: token ? { Authorization: "Bearer " + token } : {},
-      body: buildForm(op),
+      body: await buildForm(op),
     });
   } catch {
     return { ok: false, outcome: await classifyFetchFailure() };

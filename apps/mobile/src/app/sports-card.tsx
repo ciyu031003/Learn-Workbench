@@ -71,6 +71,16 @@ import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { isMotionActive } from "@/theme/motion";
 
+/**
+ * 待补发提示文案：按真实原因给话，不再一律说「网络不顺」。
+ * 之前 FormData 用法错误会让上传在**网络正常时**失败，却被归为离线，用户看到「网络不顺」很困惑。
+ */
+function queuedUploadCopy(reason: "offline" | "server" | "auth" | undefined, target: string) {
+  if (reason === "offline") return { title: "当前离线，图片已存在本机", body: "联网后会自动上传并写进" + target };
+  if (reason === "auth") return { title: "登录后才能上传", body: "图片已存在本机，登录后会自动上传并写进" + target };
+  return { title: "上传没成功，图片已存在本机", body: "网络是通的，可能是服务端临时异常；稍后会自动重试并写进" + target };
+}
+
 /** 可做闪光卡的运动项目 */
 const CARD_SPORTS = ["badminton", "tennis", "basketball", "volleyball", "table-tennis", "soccer", "baseball"] as const;
 
@@ -358,7 +368,8 @@ export default function SportsCardScreen() {
             }
           })();
         });
-        Alert.alert("网络不太顺，图片已存在本机", "联网后会自动上传并写进档案");
+        const copy = queuedUploadCopy(result.reason, "档案");
+      Alert.alert(copy.title, copy.body);
         return;
       }
       await patchSportsProfile(target.id, { photoUrl: result.url });
@@ -394,7 +405,8 @@ export default function SportsCardScreen() {
             }
           })();
         });
-        Alert.alert("网络不太顺，图片已存在本机", "联网后会自动上传并写进装备");
+        const copy = queuedUploadCopy(result.reason, "装备");
+      Alert.alert(copy.title, copy.body);
         return;
       }
       const nextGear = gearRows.map((g) => (g.label === label ? { ...g, imageUrl: result.url } : g));
@@ -417,7 +429,8 @@ export default function SportsCardScreen() {
         pendingApply.current.set(result.clientId, (url) => {
           setDraft((d) => ({ ...d, photoUrl: url }));
         });
-        Alert.alert("网络不太顺，图片已存在本机", "联网后会自动上传；先保存会自动带上");
+        const copy = queuedUploadCopy(result.reason, "档案");
+      Alert.alert(copy.title, copy.body);
         return;
       }
       setDraft((d) => ({ ...d, photoUrl: result.url }));
