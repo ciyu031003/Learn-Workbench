@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { ThemeSegmented } from "@/components/ui/theme-segmented";
+import { useSystemDark } from "@/components/theme-provider";
 import { useUiStore } from "@/store/ui-store";
 import { FOCUS_GALLERY, useFocusBgStore } from "@/store/focus-bg-store";
 import { useToastStore } from "@/store/toast-store";
@@ -213,22 +214,10 @@ export default function SettingsPage() {
       .catch(() => {});
   }, []);
 
-  // 「跟随系统」档位：用 prefers-color-scheme 决定 html.dark，并实时监听系统切换。
-  const [systemDark, setSystemDark] = useState(false);
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) return;
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const update = () => setSystemDark(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
-
-  useEffect(() => {
-    const applyDark = theme === "dark" || (theme === "auto" && systemDark);
-    document.documentElement.classList.toggle("dark", applyDark);
-    document.documentElement.classList.remove("bg-dark");
-  }, [theme, systemDark]);
+  // 「跟随系统」档位：只用于本页文案提示（当前：深色/浅色）。
+  // html.dark 的写入统一由根布局的 <ThemeProvider> 负责（全仓唯一出口），
+  // 本页不再自己 toggle，保证切换主题后刷新任何页面都保持深色。
+  const systemDark = useSystemDark();
 
   const loadCrawlerData = async () => {
     try {
@@ -591,7 +580,7 @@ export default function SettingsPage() {
               <p className="text-sm font-medium">主题模式</p>
               <p className="text-xs text-muted-foreground">
                 浅色 / 深色 / 跟随系统
-                {theme === "auto" ? `（当前：${systemDark ? "深色" : "浅色"}）` : ""}
+                {theme === "auto" ? `（当前：${systemDark === true ? "深色" : "浅色"}）` : ""}
               </p>
             </div>
             <ThemeSegmented value={theme} onChange={setTheme} />

@@ -34,6 +34,7 @@ import {
   BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { isPublicPath } from "@/lib/public-routes";
 import { todayISO } from "@learn-workbench/shared";
 import { Toaster } from "@/components/ui/toaster";
 import { DomainIcon, toDomainIdentity } from "@/components/domain-icon";
@@ -181,23 +182,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     };
   }, [domainKey]);
 
-  // 会话有效性校验（保持不变）
+  // 会话有效性校验：仅保护非公开路径。
+  // 公开路径（/、/login、/share/**）直接放行 —— 分享页必须对匿名访客可用，
+  // 否则未登录访客一进来就会被踢到 /login。登出只允许用户主动触发（见设置页），
+  // 这里不再因为"查不到 user"而 POST /api/auth/logout，避免误清会话。
   useEffect(() => {
-    // 公开页（登录页 / 落地页）不校验会话，否则未登录访客会被直接弹到 /login
-    if (pathname === "/login" || pathname === "/") return;
+    if (isPublicPath(pathname)) return;
     let alive = true;
     fetch("/api/auth/me")
       .then(async (r) => {
         if (!r.ok) return { __error: true };
         return r.json();
       })
-      .then(async (d: { __error?: boolean; user?: unknown } | null) => {
+      .then((d: { __error?: boolean; user?: unknown } | null) => {
         if (!alive || !d || d.__error) return;
         if (!d.user) {
-          try {
-            await fetch("/api/auth/logout", { method: "POST" });
-          } catch {}
-          if (!alive) return;
           router.replace(`/login?from=${encodeURIComponent(pathname)}`);
         }
       })

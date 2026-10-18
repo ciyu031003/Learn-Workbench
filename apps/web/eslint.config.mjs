@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // 测试覆盖率产物（vitest --coverage 生成，非源码）
+    "coverage/**",
+    // 静态资源（图片/字体），不是可 lint 的源码
+    "public/**",
   ]),
 ]);
 

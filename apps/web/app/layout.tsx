@@ -1,6 +1,25 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AppShell } from "@/components/app-shell";
+import { ThemeProvider } from "@/components/theme-provider";
+
+/**
+ * 主题防闪（FOUC）脚本读取的 localStorage key。
+ *
+ * 必须与 `store/ui-store.ts` 的 persist `name` 完全一致（当前 "lwb-web-ui"），
+ * 也与 `lib/theme.test.ts` 的断言一致 —— 三者任一改名都要同步改，否则刷新会回浅色。
+ */
+const THEME_STORAGE_KEY = "lwb-web-ui";
+
+/**
+ * 首屏内联脚本（同步、static 字符串，不依赖任何客户端包）。
+ *
+ * 在 `<head>` 里执行，早于 body 绘制：读 localStorage 里 zustand persist 的
+ * `{ state: { theme } }`，按 light/dark/auto + 系统偏好预置 `html.dark`，
+ * 避免"先渲染浅色再切深色"的闪动。判定规则与 `components/theme-provider.tsx`
+ * 的 `resolveIsDark` 一致（默认 light，auto 跟随 prefers-color-scheme）。
+ */
+const THEME_INIT_SCRIPT = `(function(){try{var theme="light";var raw=window.localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});if(raw){var parsed=JSON.parse(raw);if(parsed&&parsed.state&&typeof parsed.state.theme==="string"){theme=parsed.state.theme;}}var prefersDark=typeof window.matchMedia==="function"&&window.matchMedia("(prefers-color-scheme: dark)").matches;var root=document.documentElement;root.classList.toggle("dark",theme==="dark"||(theme==="auto"&&prefersDark));root.classList.remove("bg-dark");}catch(e){}})();`;
 
 export const metadata: Metadata = {
   title: { default: "学习工作台", template: "%s · 学习工作台" },
@@ -25,8 +44,13 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="zh-CN" data-scroll-behavior="smooth">
+    <html lang="zh-CN" data-scroll-behavior="smooth" suppressHydrationWarning>
+      <head>
+        {/* 防闪：同步给 <html> 预置 dark 类，早于首屏绘制（与 store persist key 一致） */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body>
+        <ThemeProvider />
         <AppShell>{children}</AppShell>
       </body>
     </html>

@@ -109,7 +109,16 @@ function QuestionsPanel() {
     }
   }, [query, status]);
 
-  useEffect(() => { void load(); }, [load]);
+  // 首屏加载 / 筛选条件变化后重新拉取。
+  // 延迟到下一个宏任务再触发：load 内部会同步 setLoading(true)，
+  // 直接在 effect 里同步调用会让 react-hooks/set-state-in-effect 报错，
+  // 行为与原来一致（请求仍在挂载后立刻发出）。
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void load();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
 
   return (
     <div className="flex flex-col gap-3">
@@ -297,7 +306,16 @@ function TopicsPanel() {
     }
   }, [query]);
 
-  useEffect(() => { void load(); }, [load]);
+  // 首屏加载 / 筛选条件变化后重新拉取。
+  // 延迟到下一个宏任务再触发：load 内部会同步 setLoading(true)，
+  // 直接在 effect 里同步调用会让 react-hooks/set-state-in-effect 报错，
+  // 行为与原来一致（请求仍在挂载后立刻发出）。
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void load();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
 
   return (
     <div className="flex flex-col gap-3">
