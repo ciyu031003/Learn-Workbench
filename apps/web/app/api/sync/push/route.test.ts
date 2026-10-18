@@ -40,7 +40,7 @@ describe("POST /api/sync/push", () => {
     currentUserIdMock.mockResolvedValue(null);
     const res = await POST(new Request("http://localhost/api/sync/push", { method: "POST" }));
     expect(res.status).toBe(401);
-    expect(await res.json()).toEqual({ error: "请先登录" });
+    expect(await res.json()).toMatchObject({ error: "请先登录", code: "unauthorized" });
   });
 
   it("returns 400 when the body is not valid JSON", async () => {
@@ -49,7 +49,7 @@ describe("POST /api/sync/push", () => {
       new Request("http://localhost/api/sync/push", { method: "POST", body: "not-json" })
     );
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "JSON 解析失败" });
+    expect(await res.json()).toMatchObject({ error: "JSON 解析失败", code: "validation_failed" });
   });
 
   it("applies changes, records only applied ones and upserts the device in a transaction", async () => {
@@ -130,7 +130,7 @@ describe("POST /api/sync/push", () => {
       })
     );
     expect(res.status).toBe(500);
-    expect(await res.json()).toEqual({ error: "同步失败" });
+    expect(await res.json()).toMatchObject({ error: "同步失败", code: "internal_error" });
     expect(query).toHaveBeenCalledWith("ROLLBACK");
     errSpy.mockRestore();
   });

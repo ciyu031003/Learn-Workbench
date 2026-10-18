@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { dbErrorResponse } from "@/lib/api-error";
+import { API_ERROR_CODES, apiError } from "@/lib/api-error";
+import { withRoute } from "@/lib/api/with-route";
 import { pgPool } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
 import { getAnonId, anonFilterSql } from "@/lib/anon";
@@ -37,32 +38,44 @@ export async function GET(req: Request) {
   return NextResponse.json({ logs: rows });
 }
 
-export async function POST(req: Request) {
-  try {
-  const body = await req.json().catch(() => null);
-  const kind = String(body?.kind || "");
-  const career = String(body?.career || "ict");
-  const title = String(body?.title || "").trim();
-  const content = String(body?.content || "").trim();
-  if (!KINDS.includes(kind)) return NextResponse.json({ error: "kind 无效" }, { status: 400 });
-  if (!title || !content) return NextResponse.json({ error: "标题与内容不能为空" }, { status: 400 });
-  const uid = await currentUserId();
-  if (uid) {
+/**
+ * POST /api/logs —— 新增一条学习日志。
+ *
+ * S2-2/S2-8：迁移到 withRoute，统一 30 次/分钟限流 + 匿名写配额（log_entries 500 条/设备）
+ * + 200KB 流式体积上限 + 统一错误 envelope。
+ */
+export const POST = withRoute(
+  {
+    auth: "anon",
+    bodyLimit: 200_000,
+    limit: { key: "logs:post", n: 30, windowMs: 60_000 },
+    anonWriteTable: "log_entries",
+  },
+  async ({ uid, anonId, rawBody }) => {
+    const body = (rawBody ?? {}) as Record<string, unknown>;
+    const kind = String(body.kind || "");
+    const career = String(body.career || "ict");
+    const title = String(body.title || "").trim();
+    const content = String(body.content || "").trim();
+    if (!KINDS.includes(kind)) {
+      return apiError(400, "kind 无效", { code: API_ERROR_CODES.validation_failed });
+    }
+    if (!title || !content) {
+      return apiError(400, "标题与内容不能为空", { code: API_ERROR_CODES.validation_failed });
+    }
+    if (uid) {
+      const { rows } = await pgPool.query(
+        `INSERT INTO log_entries (user_id, kind, career_key, title, content) VALUES ($1, $2, $3, $4, $5)
+         RETURNING id, kind, career_key, title, content, created_at, updated_at`,
+        [uid, kind, career, title, content]
+      );
+      return NextResponse.json({ log: rows[0] }, { status: 201 });
+    }
     const { rows } = await pgPool.query(
-      `INSERT INTO log_entries (user_id, kind, career_key, title, content) VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO log_entries (user_id, anon_id, kind, career_key, title, content) VALUES (NULL, $1, $2, $3, $4, $5)
        RETURNING id, kind, career_key, title, content, created_at, updated_at`,
-      [uid, kind, career, title, content]
+      [anonId, kind, career, title, content]
     );
     return NextResponse.json({ log: rows[0] }, { status: 201 });
   }
-  const anonId = await getAnonId();
-  const { rows } = await pgPool.query(
-    `INSERT INTO log_entries (user_id, anon_id, kind, career_key, title, content) VALUES (NULL, $1, $2, $3, $4, $5)
-     RETURNING id, kind, career_key, title, content, created_at, updated_at`,
-    [anonId, kind, career, title, content]
-  );
-  return NextResponse.json({ log: rows[0] }, { status: 201 });
-  } catch (e) {
-    return dbErrorResponse(e);
-  }
-}
+);
