@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 vi.mock("@/lib/db", () => ({ pgPool: { query: vi.fn(), connect: vi.fn() } }));
 vi.mock("@/lib/session", () => ({ currentUserId: vi.fn() }));
 vi.mock("@/lib/anon", () => ({ getAnonId: vi.fn() }));
@@ -36,6 +36,45 @@ describe("clientIp", () => {
 
   it("returns unknown when no headers are present", () => {
     expect(clientIp(new Request("http://localhost"))).toBe("unknown");
+  });
+
+  it("prefers the nginx-set X-Real-IP over a client-supplied XFF", () => {
+    const req = new Request("http://localhost", {
+      headers: { "x-real-ip": "9.9.9.9", "x-forwarded-for": "6.6.6.6, 7.7.7.7" },
+    });
+    expect(clientIp(req)).toBe("9.9.9.9");
+  });
+});
+
+describe("clientIp — production proxy boundary (S2-7)", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("ignores client-supplied XFF in production when nginx X-Real-IP is absent", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const req = new Request("http://localhost", { headers: { "x-forwarded-for": "6.6.6.6" } });
+    expect(clientIp(req)).toBe("unknown");
+  });
+
+  it("ignores an empty X-Real-IP in production", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const req = new Request("http://localhost", {
+      headers: { "x-real-ip": "   ", "x-forwarded-for": "6.6.6.6" },
+    });
+    expect(clientIp(req)).toBe("unknown");
+  });
+
+  it("trusts X-Real-IP in production (nginx overwrites client values)", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const req = new Request("http://localhost", {
+      headers: { "x-real-ip": "9.9.9.9", "x-forwarded-for": "6.6.6.6" },
+    });
+    expect(clientIp(req)).toBe("9.9.9.9");
+  });
+
+  it("keeps parsing the XFF last segment outside production", () => {
+    vi.stubEnv("NODE_ENV", "test");
+    const req = new Request("http://localhost", { headers: { "x-forwarded-for": "1.2.3.4, 5.6.7.8" } });
+    expect(clientIp(req)).toBe("5.6.7.8");
   });
 });
 

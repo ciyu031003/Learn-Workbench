@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { apiError, API_ERROR_CODES } from "./api-error";
 import { requestIdFrom } from "./request-id";
 import { rateLimit } from "./rate-limit";
@@ -48,6 +49,18 @@ async function sessionActor(): Promise<{ id: string; role: Role } | null> {
   }
 }
 
+/**
+ * x-cron-secret 常量时间比较（S2-7）：避免逐字符短路比较泄漏密钥前缀的时序信息。
+ * 长度不同直接 false（timingSafeEqual 对不等长入参抛错，且长度本身不是秘密）。
+ */
+function cronSecretMatches(expected: string, got: string | undefined): boolean {
+  if (!got) return false;
+  const a = Buffer.from(expected);
+  const b = Buffer.from(got);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
+
 export async function guardInternalRequest(
   req: Request,
   name: string,
@@ -74,7 +87,7 @@ export async function guardInternalRequest(
 
   const expected = process.env.CRON_SECRET?.trim();
   const got = req.headers.get("x-cron-secret")?.trim();
-  if (expected && got === expected) {
+  if (expected && cronSecretMatches(expected, got)) {
     return { ok: true, requestId, actorId: null, actorType: "cron", ip };
   }
 

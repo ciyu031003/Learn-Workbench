@@ -3040,3 +3040,88 @@ export const DAILY_WEAKEST_LABEL: Record<NonNullable<DailyReadiness["weakest"]>,
   workout: "今天还没动",
   nutrition: "饮食还没记",
 };
+
+/* ================= 密码策略（P0 安全加固 · S2-6） ================= */
+
+/**
+ * 常见弱口令黑名单（小写精确相等比较）：
+ * 覆盖弱口令排行前端（123456/password/qwerty…）+ 中文场景高频（woaini/5201314…）。
+ * 只做整串相等判断（不做子串/模式识别）：误伤少、可解释，作为长度策略之外的兜底。
+ */
+export const COMMON_WEAK_PASSWORDS: readonly string[] = [
+  "123456",
+  "12345",
+  "1234567",
+  "12345678",
+  "123456789",
+  "1234567890",
+  "password",
+  "password1",
+  "password123",
+  "passw0rd",
+  "111111",
+  "11111111",
+  "000000",
+  "666666",
+  "888888",
+  "123123",
+  "123321",
+  "654321",
+  "qwerty",
+  "qwerty123",
+  "qazwsx",
+  "asdfgh",
+  "asdfghjkl",
+  "zxcvbnm",
+  "abc123",
+  "abcd1234",
+  "a123456",
+  "aa123456",
+  "123qwe",
+  "1q2w3e4r",
+  "admin",
+  "admin123",
+  "root123",
+  "letmein",
+  "welcome",
+  "monkey",
+  "dragon",
+  "sunshine",
+  "princess",
+  "football",
+  "baseball",
+  "master",
+  "shadow",
+  "superman",
+  "batman",
+  "iloveyou",
+  "trustno1",
+  "changeme",
+  "test1234",
+  "guest123",
+  "woaini",
+  "woaini1314",
+  "5201314",
+];
+
+/** 是否命中弱口令黑名单（大小写不敏感，忽略首尾空白） */
+export function isCommonWeakPassword(value: string): boolean {
+  return COMMON_WEAK_PASSWORDS.includes(value.trim().toLowerCase());
+}
+
+/**
+ * 注册 / 修改密码 / 重置密码 的统一密码策略（S2-6）：
+ * 8-128 位 + 拒绝常见弱口令。三处接口共用同一份定义，避免校验标准漂移。
+ */
+export const passwordSchema = z
+  .string()
+  .min(8, "密码至少 8 位")
+  .max(128, "密码最多 128 位")
+  .refine((value) => !isCommonWeakPassword(value), "密码过于简单，请更换更强的密码");
+
+/** 统一校验入口：通过返回空串，失败返回可直接展示给用户的中文文案 */
+export function validatePassword(value: unknown): string {
+  const parsed = passwordSchema.safeParse(value);
+  if (parsed.success) return "";
+  return parsed.error.issues[0]?.message ?? "密码不符合要求";
+}

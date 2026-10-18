@@ -15,6 +15,15 @@ import { getAnonId } from "@/lib/anon";
 
 const COOKIE_SECURE = process.env.NODE_ENV === "production";
 
+/**
+ * 固定 dummy 哈希（S2-6）：账号不存在时也对同一密码跑一次同成本 scrypt，
+ * 消除「账号存在 / 不存在」的响应耗时差（防用户名枚举）。
+ * 成本参数与 lib/password.ts 的新格式一致（N=65536,r=8,p=1）；明文是随机占位串，
+ * 不对应任何真实账号，校验必然失败。
+ */
+const DUMMY_HASH =
+  "scrypt:65536:8:1:34299b56d751ed21f8423bb81cac656c:f125a859a0859937242164d7dded2facd8a3f3595935b2c83f4adc17adb45bcef45c7cdcfc092a39a51ab626253031a6750a21b860a27c5c8c865d8ffd9921ac";
+
 export async function POST(req: Request) {
   // 第一道防线：按 IP 限流（进程内，单实例有效）
   const ip = clientIp(req);
@@ -50,7 +59,8 @@ export async function POST(req: Request) {
     [username]
   );
   const account = rows[0];
-  const ok = await verifyPassword(password, account?.password_hash ?? "");
+  // 账号不存在时走 DUMMY_HASH：两条路径都执行一次相同成本的 scrypt，耗时不可区分
+  const ok = await verifyPassword(password, account?.password_hash ?? DUMMY_HASH);
   if (!account || !ok) {
     await recordLoginFailure(username, ip);
     const lock = await loginLocked(username);

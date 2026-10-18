@@ -9,16 +9,35 @@ import { ANON_CLAIM_TABLES } from "@/lib/anon-tables";
 
 /**
  * 从代理头解析客户端 IP（nginx 反代场景）。
- * nginx `$proxy_add_x_forwarded_for` 是追加式：前面的段都是客户端可伪造的自报值，
- * 只有最后一段才是代理追加的可信地址——取第一段会让按 IP 的限流/审计被伪造头绕过。
+ *
+ * deploy/nginx/learn-workbench.conf 里显式设置：
+ *   proxy_set_header X-Real-IP $remote_addr;              （单值，nginx 会覆盖客户端自报值）
+ *   proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;  （追加式）
+ * XFF 前面的段都是客户端可伪造的自报值，只有最后一段才是代理追加的可信地址 ——
+ * 取第一段会让按 IP 的限流/审计被伪造头绕过。
+ *
+ * S2-7：生产环境只信任「带 nginx 可信头」的请求。
+ * nginx 一定会设置 X-Real-IP；若生产请求里没有它，说明请求可能是绕过反代直连应用端口的，
+ * 此时客户端自报的 X-Forwarded-For 一律不采信，统一归到 "unknown"。
+ * 代价：这些请求共用一个限流桶（宁可误伤也不让伪造头绕过限流）；直连入口已在
+ * docker-compose 中收敛到 127.0.0.1，正常公网流量都会带 X-Real-IP。
+ * 非生产环境保留 XFF 解析，方便本地与测试。
  */
 export function clientIp(req: Request): string {
+  // 1) nginx 设置的单值头（客户端自报会被 proxy_set_header 覆盖）——最可信
+  const realIp = req.headers.get("x-real-ip")?.trim();
+  if (realIp) return realIp;
+
+  // 2) 生产环境没有 nginx 可信头时，不信任客户端自报的 XFF
+  if (process.env.NODE_ENV === "production") return "unknown";
+
+  // 3) 非生产：XFF 末段（本地/测试无 nginx，保留原有解析行为）
   const xff = req.headers.get("x-forwarded-for");
   if (xff) {
     const parts = xff.split(",").map((s) => s.trim()).filter(Boolean);
     if (parts.length > 0) return parts[parts.length - 1];
   }
-  return req.headers.get("x-real-ip") || "unknown";
+  return "unknown";
 }
 
 /** 管理员鉴权（users.is_admin，由 create-admin.mjs / 首个注册用户设置） */

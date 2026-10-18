@@ -17,6 +17,15 @@ vi.mock("@/lib/session", () => ({
 import { POST } from "./route";
 import { resetRateLimits } from "@/lib/rate-limit";
 
+/** 满足 S2-6 密码策略（8-128 位 + 非弱口令）的测试口令 */
+const STRONG = "Str0ngPass123";
+
+function register(body: unknown) {
+  return POST(new Request("http://localhost/api/auth/register", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  }));
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   resetRateLimits();
@@ -26,14 +35,20 @@ beforeEach(() => {
 
 describe("POST /api/auth/register", () => {
   it("rejects invalid username / short password", async () => {
-    const r1 = await POST(new Request("http://localhost/api/auth/register", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: "a", password: "123" }),
-    }));
+    const r1 = await register({ username: "a", password: "123" });
     expect(r1.status).toBe(400);
-    const r2 = await POST(new Request("http://localhost/api/auth/register", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: "ok_user", password: "123" }),
-    }));
+    const r2 = await register({ username: "ok_user", password: "123" });
     expect(r2.status).toBe(400);
+    expect(clientMock.query).not.toHaveBeenCalledWith(expect.stringContaining("INSERT INTO accounts"));
+  });
+
+  it("rejects common weak passwords from the shared policy (S2-6)", async () => {
+    const weak = await register({ username: "weak_user", password: "password123" });
+    expect(weak.status).toBe(400);
+    expect((await weak.json()).error).toBe("密码过于简单，请更换更强的密码");
+    const long = await register({ username: "long_user", password: "a".repeat(129) });
+    expect(long.status).toBe(400);
+    expect((await long.json()).error).toBe("密码最多 128 位");
     expect(clientMock.query).not.toHaveBeenCalledWith(expect.stringContaining("INSERT INTO accounts"));
   });
 
@@ -41,9 +56,7 @@ describe("POST /api/auth/register", () => {
     clientMock.query
       .mockImplementationOnce(async () => ({ rows: [] }))   // BEGIN
       .mockImplementationOnce(async () => ({ rows: [{ 1: 1 }] })); // SELECT dup
-    const res = await POST(new Request("http://localhost/api/auth/register", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: "dup_user", password: "123456" }),
-    }));
+    const res = await register({ username: "dup_user", password: STRONG });
     expect(res.status).toBe(409);
     const body = await res.json();
     expect(body.error).not.toContain("已被注册");
@@ -52,9 +65,7 @@ describe("POST /api/auth/register", () => {
   it("returns 429 when the same IP registers too often", async () => {
     let res: Response | undefined;
     for (let i = 0; i < 6; i++) {
-      res = await POST(new Request("http://localhost/api/auth/register", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: `user_${i}`, password: "123456" }),
-      }));
+      res = await register({ username: `user_${i}`, password: STRONG });
     }
     expect(res!.status).toBe(429);
   });
@@ -62,9 +73,7 @@ describe("POST /api/auth/register", () => {
   it("grants admin only to ADMIN_USERNAME in production", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("ADMIN_USERNAME", "boss");
-    const res = await POST(new Request("http://localhost/api/auth/register", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: "boss", password: "123456" }),
-    }));
+    const res = await register({ username: "boss", password: STRONG });
     expect(res.status).toBe(200);
     const insertCall = clientMock.query.mock.calls.find((c) => String(c[0]).includes("INSERT INTO users"));
     expect((insertCall![1] as unknown[])[3]).toBe(true);
@@ -72,17 +81,13 @@ describe("POST /api/auth/register", () => {
     // 非指定账号：即使是首个用户也不授予管理员
     vi.clearAllMocks();
     clientMock.query.mockImplementation(async () => ({ rows: [] }));
-    await POST(new Request("http://localhost/api/auth/register", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: "someone", password: "123456" }),
-    }));
+    await register({ username: "someone", password: STRONG });
     const insert2 = clientMock.query.mock.calls.find((c) => String(c[0]).includes("INSERT INTO users"));
     expect((insert2![1] as unknown[])[3]).toBe(false);
   });
 
   it("creates account + session on success", async () => {
-    const res = await POST(new Request("http://localhost/api/auth/register", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: "new_user", password: "123456" }),
-    }));
+    const res = await register({ username: "new_user", password: STRONG });
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.ok).toBe(true);

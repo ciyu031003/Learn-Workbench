@@ -42,6 +42,13 @@ describe("POST /api/auth/reset", () => {
     expect(res.status).toBe(400);
   });
 
+  it("rejects common weak passwords from the shared policy (S2-6)", async () => {
+    const res = await post("password123");
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("密码过于简单，请更换更强的密码");
+    expect(connectMock).not.toHaveBeenCalled();
+  });
+
   it("rejects invalid tokens", async () => {
     const client = await connectMock();
     (client.query as ReturnType<typeof vi.fn>).mockImplementation(async (sql: string) => {

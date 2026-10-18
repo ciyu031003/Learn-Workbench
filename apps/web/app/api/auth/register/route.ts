@@ -7,6 +7,7 @@ import { parseBody } from "@/lib/http";
 import { logger } from "@/lib/logger";
 import { rateLimit } from "@/lib/rate-limit";
 import { clientIp } from "@/lib/auth";
+import { validatePassword } from "@learn-workbench/shared";
 
 const USERNAME_RE = /^[a-zA-Z0-9_.-]{3,32}$/;
 const COOKIE_SECURE = process.env.NODE_ENV === "production";
@@ -31,8 +32,10 @@ export async function POST(req: Request) {
   if (!USERNAME_RE.test(username)) {
     return NextResponse.json({ error: "账号需为 3-32 位字母、数字、下划线、点或短横线" }, { status: 400 });
   }
-  if (password.length < 6) {
-    return NextResponse.json({ error: "密码至少 6 位" }, { status: 400 });
+  // S2-6：统一密码策略（8-128 位 + 弱口令黑名单），与修改/重置密码共用 shared 定义
+  const passwordError = validatePassword(password);
+  if (passwordError) {
+    return NextResponse.json({ error: passwordError }, { status: 400 });
   }
 
   const client = await pgPool.connect();

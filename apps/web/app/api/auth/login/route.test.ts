@@ -57,6 +57,27 @@ describe("POST /api/auth/login", () => {
     expect(await res.json()).toEqual({ error: "账号或密码错误" });
   });
 
+  it("runs the same dummy-hash scrypt when the account does not exist (anti-enumeration timing)", async () => {
+    queryMock.mockResolvedValue({ rows: [] } as never);
+    verifyMock.mockReturnValue(Promise.resolve(false) as never);
+    const res = await post({ username: "ghost", password: "whatever" });
+    expect(res.status).toBe(401);
+    // 账号不存在也必须执行一次 verifyPassword（内部跑同成本 scrypt），耗时不可区分
+    expect(verifyMock).toHaveBeenCalledTimes(1);
+    expect(verifyMock).toHaveBeenCalledWith(
+      "whatever",
+      expect.stringMatching(/^scrypt:65536:8:1:[0-9a-f]{32}:[0-9a-f]{128}$/)
+    );
+  });
+
+  it("verifies against the stored hash when the account exists", async () => {
+    queryMock.mockResolvedValue(ACCOUNT as never);
+    verifyMock.mockReturnValue(Promise.resolve(false) as never);
+    await post({ username: "alice", password: "bad" });
+    expect(verifyMock).toHaveBeenCalledTimes(1);
+    expect(verifyMock).toHaveBeenCalledWith("bad", "scrypt:65536:8:1:salt:hash");
+  });
+
   it("returns 429 when the same username exceeds the username throttle", async () => {
     queryMock.mockResolvedValue({ rows: [] } as never);
     verifyMock.mockReturnValue(Promise.resolve(false) as never);

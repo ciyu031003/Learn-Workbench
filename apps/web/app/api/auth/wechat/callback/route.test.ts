@@ -6,9 +6,11 @@ vi.mock("@/lib/session", () => ({
   sessionCookieName: "lwb_session",
 }));
 vi.mock("@/lib/wechat", () => ({
-  verifyState: vi.fn(() => true),
+  consumeState: vi.fn(() => true),
+  readStateNonceCookie: vi.fn(() => "nonce-1"),
   exchangeCode: vi.fn(),
   isWechatEnabled: vi.fn(() => true),
+  WECHAT_STATE_COOKIE: "lwb_wx_state",
 }));
 vi.mock("@/lib/identities", () => ({
   findUserIdByWechat: vi.fn(),
@@ -20,12 +22,20 @@ vi.mock("@/lib/anon", () => ({ getAnonId: vi.fn(async () => "anon-1") }));
 
 import { pgPool } from "@/lib/db";
 import { currentUser } from "@/lib/session";
-import { exchangeCode } from "@/lib/wechat";
+import {
+  consumeState,
+  exchangeCode,
+  isWechatEnabled,
+  readStateNonceCookie,
+} from "@/lib/wechat";
 import { findUserIdByWechat, createWechatUser, bindWechatIdentity } from "@/lib/identities";
 import { POST } from "./route";
 
 const queryMock = vi.mocked(pgPool.query);
 const currentUserMock = vi.mocked(currentUser);
+const consumeStateMock = vi.mocked(consumeState);
+const readCookieMock = vi.mocked(readStateNonceCookie);
+const enabledMock = vi.mocked(isWechatEnabled);
 const exchangeCodeMock = vi.mocked(exchangeCode);
 const findMock = vi.mocked(findUserIdByWechat);
 const createMock = vi.mocked(createWechatUser);
@@ -39,12 +49,43 @@ function post(body: unknown) {
   }));
 }
 
-beforeEach(() => vi.resetAllMocks());
+beforeEach(() => {
+  vi.resetAllMocks();
+  enabledMock.mockReturnValue(true);
+  consumeStateMock.mockReturnValue(true);
+  readCookieMock.mockReturnValue("nonce-1");
+});
 
 describe("POST /api/auth/wechat/callback", () => {
   it("rejects missing code/state", async () => {
     const res = await post({ code: "", state: "" });
     expect(res.status).toBe(400);
+  });
+
+  it("rejects callbacks without the one-time state cookie", async () => {
+    readCookieMock.mockReturnValue(null);
+    const res = await post({ code: "c", state: "s" });
+    expect(res.status).toBe(400);
+    expect(consumeStateMock).not.toHaveBeenCalled();
+    expect(res.cookies.get("lwb_wx_state")?.value).toBe("");
+  });
+
+  it("rejects replayed states (nonce already consumed)", async () => {
+    consumeStateMock.mockReturnValue(false);
+    const res = await post({ code: "c", state: "s" });
+    expect(res.status).toBe(400);
+    expect(consumeStateMock).toHaveBeenCalledWith("s", "nonce-1");
+  });
+
+  it("consumes the nonce and clears the state cookie on success", async () => {
+    currentUserMock.mockResolvedValue(null);
+    exchangeCodeMock.mockResolvedValue({ openid: "ox-1", unionid: null, nickname: "n", avatarUrl: null });
+    findMock.mockResolvedValue("u-9");
+    queryMock.mockResolvedValue({ rows: [{ username: "wx_ab12" }] } as never);
+    const res = await post({ code: "c", state: "s" });
+    expect(res.status).toBe(200);
+    expect(consumeStateMock).toHaveBeenCalledWith("s", "nonce-1");
+    expect(res.cookies.get("lwb_wx_state")?.value).toBe("");
   });
 
   it("binds when already logged in", async () => {

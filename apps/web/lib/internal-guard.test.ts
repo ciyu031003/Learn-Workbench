@@ -53,6 +53,29 @@ describe("guardInternalRequest（H2 内部接口前门）", () => {
     }
   });
 
+  it("密钥长度不同 → 403（timingSafeEqual 不等长入参不抛错）", async () => {
+    const res = await guardInternalRequest(req({ "x-cron-secret": "s3cr" }), "len-short");
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.response.status).toBe(403);
+      expect(await res.response.json()).toMatchObject({ code: "forbidden" });
+    }
+    const longer = await guardInternalRequest(req({ "x-cron-secret": "s3cr3t-extra" }), "len-long");
+    expect(longer.ok).toBe(false);
+  });
+
+  it("前缀正确但后面不同 → 403（常量时间比较）", async () => {
+    const res = await guardInternalRequest(req({ "x-cron-secret": "s3cr3u" }), "prefix");
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.response.status).toBe(403);
+  });
+
+  it("缺少 x-cron-secret → 403", async () => {
+    const res = await guardInternalRequest(req(), "missing");
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.response.status).toBe(403);
+  });
+
   it("先限流再验密钥：错密钥探测也会被计入桶（防止无限探测）", async () => {
     const opts = { limit: 1, windowMs: 60_000 };
     await guardInternalRequest(req({ "x-cron-secret": "wrong" }), "probe", opts);

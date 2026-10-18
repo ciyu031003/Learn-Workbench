@@ -4,6 +4,7 @@ import { parseBody } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
 import { clientIp } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
+import { validatePassword } from "@learn-workbench/shared";
 
 /** 重置密码：一次性令牌，30 分钟内有效 */
 export async function POST(req: Request) {
@@ -17,7 +18,9 @@ export async function POST(req: Request) {
   const token = String(body.token ?? "").trim();
   const newPassword = String(body.newPassword ?? "");
   if (!token) return NextResponse.json({ error: "缺少重置令牌" }, { status: 400 });
-  if (newPassword.length < 6) return NextResponse.json({ error: "密码至少 6 位" }, { status: 400 });
+  // S2-6：统一密码策略（8-128 位 + 弱口令黑名单）
+  const passwordError = validatePassword(newPassword);
+  if (passwordError) return NextResponse.json({ error: passwordError }, { status: 400 });
 
   const client = await pgPool.connect();
   try {

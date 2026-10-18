@@ -1,12 +1,33 @@
 import { NextResponse } from "next/server";
 import { pgPool } from "@/lib/db";
 import { createSession, currentUser, sessionCookieName } from "@/lib/session";
-import { verifyState, exchangeCode, isWechatEnabled } from "@/lib/wechat";
+import {
+  WECHAT_STATE_COOKIE,
+  consumeState,
+  exchangeCode,
+  isWechatEnabled,
+  readStateNonceCookie,
+} from "@/lib/wechat";
 import { findUserIdByWechat, createWechatUser, bindWechatIdentity } from "@/lib/identities";
 import { claimAnonData } from "@/lib/auth";
 import { getAnonId } from "@/lib/anon";
 
 const COOKIE_SECURE = process.env.NODE_ENV === "production";
+
+/**
+ * state 一次性（S2-5）：校验后立即清掉 qrcode 下发的 HttpOnly nonce cookie。
+ * 服务端 consumeState 已把 nonce 登记为已用，即使 cookie 未被清除，同一 state 重放也会 400。
+ */
+function clearStateCookie(res: NextResponse): NextResponse {
+  res.cookies.set(WECHAT_STATE_COOKIE, "", {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+    secure: COOKIE_SECURE,
+  });
+  return res;
+}
 
 /**
  * 微信扫码回调兑换：
@@ -24,20 +45,26 @@ export async function POST(req: Request) {
   }
   const code = String(body.code ?? "").trim();
   const state = String(body.state ?? "").trim();
-  if (!code || !verifyState(state)) {
-    return NextResponse.json({ error: "授权状态无效或已过期，请重新扫码" }, { status: 400 });
+  // state 必须与 qrcode 下发的一次性 cookie 对得上，且未消费过：缺 cookie / 不一致 / 重放 → 400
+  const cookieNonce = readStateNonceCookie(req);
+  if (!code || !cookieNonce || !consumeState(state, cookieNonce)) {
+    return clearStateCookie(
+      NextResponse.json({ error: "授权状态无效或已过期，请重新扫码" }, { status: 400 })
+    );
   }
 
   const profile = await exchangeCode(code);
-  if (!profile) return NextResponse.json({ error: "微信授权失败，请重试" }, { status: 401 });
+  if (!profile) {
+    return clearStateCookie(NextResponse.json({ error: "微信授权失败，请重试" }, { status: 401 }));
+  }
 
   const user = await currentUser();
   if (user) {
     const result = await bindWechatIdentity(user.id, profile);
     if (result === "conflict") {
-      return NextResponse.json({ error: "该微信已绑定其他账号" }, { status: 409 });
+      return clearStateCookie(NextResponse.json({ error: "该微信已绑定其他账号" }, { status: 409 }));
     }
-    return NextResponse.json({ ok: true, bound: true });
+    return clearStateCookie(NextResponse.json({ ok: true, bound: true }));
   }
 
   const existingUserId = await findUserIdByWechat(profile.openid, profile.unionid);
@@ -55,7 +82,9 @@ export async function POST(req: Request) {
     username = rows[0]?.username ?? null;
   }
 
-  if (!userId) return NextResponse.json({ error: "登录失败，请重试" }, { status: 500 });
+  if (!userId) {
+    return clearStateCookie(NextResponse.json({ error: "登录失败，请重试" }, { status: 500 }));
+  }
 
   // 匿名数据认领：新用户/换设备登录时认领本机匿名数据（与密码登录一致）
   try {
@@ -73,7 +102,7 @@ export async function POST(req: Request) {
     expires: expiresAt,
     secure: COOKIE_SECURE,
   });
-  return res;
+  return clearStateCookie(res);
 }
 
 function pgUsername(userId: string) {

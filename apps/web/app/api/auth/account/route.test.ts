@@ -9,15 +9,23 @@ vi.mock("@/lib/session", () => ({
   sessionCookieName: "lwb_session",
 }));
 vi.mock("@/lib/password", () => ({ verifyPassword: vi.fn() }));
+vi.mock("@/lib/rate-limit", () => ({
+  rateLimit: vi.fn(async () => ({ ok: true, retryAfterSeconds: 0 })),
+}));
 import { pgPool } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
 import { verifyPassword } from "@/lib/password";
+import { rateLimit } from "@/lib/rate-limit";
 import { DELETE } from "./route";
 
 const userIdMock = vi.mocked(currentUserId);
 const queryMock = vi.mocked(pgPool.query);
 const verifyMock = vi.mocked(verifyPassword);
-beforeEach(() => vi.resetAllMocks());
+const rateLimitMock = vi.mocked(rateLimit);
+beforeEach(() => {
+  vi.resetAllMocks();
+  rateLimitMock.mockResolvedValue({ ok: true, retryAfterSeconds: 0 });
+});
 
 function del(body: unknown = {}) {
   return DELETE(new Request("https://x.cn/api/auth/account", {
@@ -32,6 +40,16 @@ describe("DELETE /api/auth/account", () => {
     userIdMock.mockResolvedValue(null);
     const res = await del();
     expect(res.status).toBe(401);
+  });
+
+  it("returns 429 with retryAfterSeconds when the per-user throttle trips (S2-2)", async () => {
+    userIdMock.mockResolvedValue("u-1");
+    rateLimitMock.mockResolvedValue({ ok: false, retryAfterSeconds: 12 });
+    const res = await del({ password: "x" });
+    expect(res.status).toBe(429);
+    expect(await res.json()).toEqual({ error: "操作过于频繁，请稍后再试", retryAfter: 12 });
+    expect(rateLimitMock).toHaveBeenCalledWith("auth:account:u-1", { limit: 5, windowMs: 60_000 });
+    expect(queryMock).not.toHaveBeenCalled();
   });
 
   it("requires password confirmation for password accounts", async () => {
