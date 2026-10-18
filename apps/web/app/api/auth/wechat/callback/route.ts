@@ -59,7 +59,7 @@ export async function POST(req: Request) {
 
   // 匿名数据认领：新用户/换设备登录时认领本机匿名数据（与密码登录一致）
   try {
-    await claimAnonData(userId, { anonId: await getAnonId(), claimLegacy: false });
+    await claimAnonData(userId, { anonId: await getAnonId() });
   } catch {
     // 认领失败不阻塞登录
   }

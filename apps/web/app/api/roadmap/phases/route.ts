@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { pgPool } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
+import { ADMIN_ROLES, hasRole } from "@/lib/roles";
+import { writeAuditLog } from "@/lib/audit";
 import { renumberTrack, type RoadmapTrack } from "@/lib/roadmap-admin";
 
 const TRACKS: RoadmapTrack[] = ["main", "agent"];
@@ -22,7 +24,12 @@ interface PhaseOwnerRow {
   owner_id: string | null;
 }
 
-/** 读取阶段归属；校验：用户自建阶段必须归属当前用户，否则 403 */
+/**
+ * 读取阶段归属并做写权限校验（2026-10-18 S1-3 加固）：
+ *  - 系统内置阶段（is_custom=false）：只有管理员可改/删，否则 403；
+ *  - 用户自建阶段：只有 owner 可改/删，否则 403。
+ * 之前只校验了「自建阶段 owner」，系统阶段对所有登录用户放行，属于越权（可级联删全局内容）。
+ */
 async function loadPhaseForWrite(id: number, uid: string): Promise<PhaseOwnerRow | NextResponse> {
   const cur = await pgPool.query<PhaseOwnerRow>(
     `SELECT career_key, track, is_custom, owner_id FROM content_phases WHERE id = $1`,
@@ -30,7 +37,13 @@ async function loadPhaseForWrite(id: number, uid: string): Promise<PhaseOwnerRow
   );
   if (!cur.rows[0]) return NextResponse.json({ error: "阶段不存在" }, { status: 400 });
   const phase = cur.rows[0];
-  if (phase.is_custom && phase.owner_id !== uid) {
+  if (!phase.is_custom) {
+    if (!(await hasRole(uid, ADMIN_ROLES))) {
+      return NextResponse.json({ error: "系统阶段仅管理员可修改" }, { status: 403 });
+    }
+    return phase;
+  }
+  if (phase.owner_id !== uid) {
     return NextResponse.json({ error: "无权操作他人自定义阶段" }, { status: 403 });
   }
   return phase;
@@ -108,8 +121,13 @@ export async function PATCH(req: Request) {
   if (newTrack) { params.push(newTrack); sets.push(`track = $${params.length}`); }
   if (sets.length === 0) return NextResponse.json({ error: "没有可更新的字段" }, { status: 400 });
   params.push(id);
+  // 双保险：SQL 层再做一次归属校验（系统阶段仅管理员 / 自建阶段仅 owner）
+  const allowSystem = !phaseOrErr.is_custom;
+  params.push(uid, allowSystem);
   await pgPool.query(
-    `UPDATE content_phases SET ${sets.join(", ")} WHERE id = $${params.length}`,
+    `UPDATE content_phases SET ${sets.join(", ")}
+      WHERE id = $${params.length - 2}
+        AND ((is_custom = TRUE AND owner_id = $${params.length - 1}) OR ($${params.length}::boolean AND is_custom = FALSE))`,
     params
   );
 
@@ -119,6 +137,14 @@ export async function PATCH(req: Request) {
   } else {
     await renumberTrack(career, oldTrack);
   }
+  void writeAuditLog({
+    action: "roadmap.phase.update",
+    actorId: uid,
+    actorType: "user",
+    targetType: "content_phase",
+    targetId: String(id),
+    meta: { career, track: newTrack ?? oldTrack, isCustom: phaseOrErr.is_custom },
+  });
   return NextResponse.json({ ok: true });
 }
 
@@ -135,7 +161,22 @@ export async function DELETE(req: Request) {
   if (phaseOrErr instanceof NextResponse) return phaseOrErr;
   const { career_key: career, track } = phaseOrErr;
 
-  await pgPool.query(`DELETE FROM content_phases WHERE id = $1`, [id]);
+  // 双保险：系统阶段仅管理员可删（防级联删光全局主题/资源/检查点）
+  const allowSystem = !phaseOrErr.is_custom;
+  await pgPool.query(
+    `DELETE FROM content_phases
+      WHERE id = $1
+        AND ((is_custom = TRUE AND owner_id = $2) OR ($3::boolean AND is_custom = FALSE))`,
+    [id, uid, allowSystem]
+  );
   await renumberTrack(career, track);
+  void writeAuditLog({
+    action: "roadmap.phase.delete",
+    actorId: uid,
+    actorType: "user",
+    targetType: "content_phase",
+    targetId: String(id),
+    meta: { career, track, isCustom: phaseOrErr.is_custom },
+  });
   return NextResponse.json({ ok: true });
 }

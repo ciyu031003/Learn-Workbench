@@ -1,13 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("@/lib/db", () => ({ pgPool: { query: vi.fn(), connect: vi.fn() } }));
 vi.mock("@/lib/session", () => ({ currentUserId: vi.fn() }));
+vi.mock("@/lib/roles", () => ({ hasRole: vi.fn(), ADMIN_ROLES: ["admin"] }));
+vi.mock("@/lib/audit", () => ({ writeAuditLog: vi.fn() }));
 import { pgPool } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
+import { hasRole } from "@/lib/roles";
+import { writeAuditLog } from "@/lib/audit";
 import { POST, PATCH, DELETE } from "./route";
 
 const queryMock = vi.mocked(pgPool.query);
 const connectMock = vi.mocked(pgPool.connect);
 const currentUserIdMock = vi.mocked(currentUserId);
+const hasRoleMock = vi.mocked(hasRole);
+const auditMock = vi.mocked(writeAuditLog);
 
 function req(method: string, body?: unknown, query = "") {
   return new Request(`http://localhost/api/roadmap/phases${query}`, {
@@ -26,6 +32,7 @@ function fakeClient() {
 beforeEach(() => {
   vi.clearAllMocks();
   currentUserIdMock.mockResolvedValue("u-1");
+  hasRoleMock.mockResolvedValue(false); // 默认普通用户
 });
 
 describe("POST /api/roadmap/phases", () => {
@@ -90,7 +97,16 @@ describe("PATCH /api/roadmap/phases", () => {
     expect(res.status).toBe(403);
     expect(await res.json()).toEqual({ error: "无权操作他人自定义阶段" });
   });
-  it("updates title/summary/weeks and renumbers the same track", async () => {
+  it("普通用户不能修改系统内置阶段（S1-3 越权修复）", async () => {
+    queryMock.mockResolvedValueOnce({ rows: [{ career_key: "ict", track: "main", is_custom: false, owner_id: null }] } as never);
+    const res = await PATCH(req("PATCH", { id: 1, title: "hack" }));
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "系统阶段仅管理员可修改" });
+    expect(hasRoleMock).toHaveBeenCalledWith("u-1", ["admin"]);
+  });
+
+  it("管理员可以修改系统阶段，且 SQL 双保险允许 is_custom=false", async () => {
+    hasRoleMock.mockResolvedValue(true);
     const client = fakeClient();
     queryMock
       .mockResolvedValueOnce({ rows: [{ career_key: "ict", track: "main", is_custom: false, owner_id: null }] } as never) // SELECT current
@@ -100,13 +116,18 @@ describe("PATCH /api/roadmap/phases", () => {
     const res = await PATCH(req("PATCH", { id: 1, title: "改后", summary: "s", weeks: "第 1-2 周" }));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
-    expect(queryMock).toHaveBeenNthCalledWith(2, expect.stringContaining("UPDATE content_phases"), [
-      "改后", "s", "第 1-2 周", 1,
-    ]);
+    const updateCall = queryMock.mock.calls[1];
+    expect(updateCall[0]).toContain("UPDATE content_phases");
+    expect(updateCall[0]).toContain("owner_id = $5");
+    expect(updateCall[1]).toEqual(["改后", "s", "第 1-2 周", 1, "u-1", true]);
+    expect(auditMock).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "roadmap.phase.update", actorId: "u-1", targetId: "1" })
+    );
     expect(client.query).toHaveBeenCalledWith(expect.stringContaining("SELECT id FROM content_phases"), ["ict", "main"]);
   });
 
-  it("renumbers both tracks when moving to another track", async () => {
+  it("管理员换轨时两条 track 都重编号", async () => {
+    hasRoleMock.mockResolvedValue(true);
     const client = fakeClient();
     queryMock
       .mockResolvedValueOnce({ rows: [{ career_key: "ict", track: "agent", is_custom: false, owner_id: null }] } as never)
@@ -117,6 +138,19 @@ describe("PATCH /api/roadmap/phases", () => {
     expect(res.status).toBe(200);
     expect(client.query).toHaveBeenCalledWith(expect.stringContaining("SELECT id FROM content_phases"), ["ict", "agent"]);
     expect(client.query).toHaveBeenCalledWith(expect.stringContaining("SELECT id FROM content_phases"), ["ict", "main"]);
+  });
+
+  it("普通用户可以修改自己的自建阶段", async () => {
+    const client = fakeClient();
+    queryMock
+      .mockResolvedValueOnce({ rows: [{ career_key: "ict", track: "main", is_custom: true, owner_id: "u-1" }] } as never)
+      .mockResolvedValueOnce({ rows: [] } as never);
+    connectMock.mockResolvedValue(client as never);
+
+    const res = await PATCH(req("PATCH", { id: 7, title: "我的阶段" }));
+    expect(res.status).toBe(200);
+    const updateCall = queryMock.mock.calls[1];
+    expect(updateCall[1]).toEqual(["我的阶段", 7, "u-1", false]);
   });
 });
 
@@ -144,7 +178,15 @@ describe("DELETE /api/roadmap/phases", () => {
     expect(res.status).toBe(403);
     expect(await res.json()).toEqual({ error: "无权操作他人自定义阶段" });
   });
-  it("deletes the phase and renumbers the track", async () => {
+  it("普通用户不能删除系统内置阶段（级联删全局内容）", async () => {
+    queryMock.mockResolvedValueOnce({ rows: [{ career_key: "ict", track: "main", is_custom: false, owner_id: null }] } as never);
+    const res = await DELETE(req("DELETE", undefined, "?id=3"));
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "系统阶段仅管理员可修改" });
+  });
+
+  it("管理员删除系统阶段：SQL 带双保险条件并写审计", async () => {
+    hasRoleMock.mockResolvedValue(true);
     const client = fakeClient();
     queryMock
       .mockResolvedValueOnce({ rows: [{ career_key: "ict", track: "main", is_custom: false, owner_id: null }] } as never) // SELECT current
@@ -154,7 +196,25 @@ describe("DELETE /api/roadmap/phases", () => {
     const res = await DELETE(req("DELETE", undefined, "?id=3"));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
-    expect(queryMock).toHaveBeenNthCalledWith(2, expect.stringContaining("DELETE FROM content_phases"), [3]);
+    const delCall = queryMock.mock.calls[1];
+    expect(delCall[0]).toContain("DELETE FROM content_phases");
+    expect(delCall[0]).toContain("owner_id = $2");
+    expect(delCall[1]).toEqual([3, "u-1", true]);
+    expect(auditMock).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "roadmap.phase.delete", targetId: "3" })
+    );
     expect(client.query).toHaveBeenCalledWith(expect.stringContaining("SELECT id FROM content_phases"), ["ict", "main"]);
+  });
+
+  it("普通用户可以删除自己的自建阶段", async () => {
+    const client = fakeClient();
+    queryMock
+      .mockResolvedValueOnce({ rows: [{ career_key: "ict", track: "main", is_custom: true, owner_id: "u-1" }] } as never)
+      .mockResolvedValueOnce({ rows: [] } as never);
+    connectMock.mockResolvedValue(client as never);
+
+    const res = await DELETE(req("DELETE", undefined, "?id=7"));
+    expect(res.status).toBe(200);
+    expect(queryMock.mock.calls[1][1]).toEqual([7, "u-1", false]);
   });
 });

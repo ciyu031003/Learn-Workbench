@@ -1,0 +1,23 @@
+-- 078 回滚：只删除约束（NULL 池的孤儿化不回滚，回滚不应让数据重新跨设备可见）
+ALTER TABLE break_sessions DROP CONSTRAINT IF EXISTS break_sessions_scope_required;
+ALTER TABLE certificates DROP CONSTRAINT IF EXISTS certificates_scope_required;
+ALTER TABLE checkins DROP CONSTRAINT IF EXISTS checkins_scope_required;
+ALTER TABLE daily_tasks DROP CONSTRAINT IF EXISTS daily_tasks_scope_required;
+ALTER TABLE energy_logs DROP CONSTRAINT IF EXISTS energy_logs_scope_required;
+ALTER TABLE exercise_goals DROP CONSTRAINT IF EXISTS exercise_goals_scope_required;
+ALTER TABLE exercise_logs DROP CONSTRAINT IF EXISTS exercise_logs_scope_required;
+ALTER TABLE focus_sessions DROP CONSTRAINT IF EXISTS focus_sessions_scope_required;
+ALTER TABLE habits DROP CONSTRAINT IF EXISTS habits_scope_required;
+ALTER TABLE hydration_goals DROP CONSTRAINT IF EXISTS hydration_goals_scope_required;
+ALTER TABLE hydration_logs DROP CONSTRAINT IF EXISTS hydration_logs_scope_required;
+ALTER TABLE knowledge_notes DROP CONSTRAINT IF EXISTS knowledge_notes_scope_required;
+ALTER TABLE log_entries DROP CONSTRAINT IF EXISTS log_entries_scope_required;
+ALTER TABLE meal_entries DROP CONSTRAINT IF EXISTS meal_entries_scope_required;
+ALTER TABLE resume_assets DROP CONSTRAINT IF EXISTS resume_assets_scope_required;
+ALTER TABLE resume_documents DROP CONSTRAINT IF EXISTS resume_documents_scope_required;
+ALTER TABLE topic_progress DROP CONSTRAINT IF EXISTS topic_progress_scope_required;
+ALTER TABLE user_settings DROP CONSTRAINT IF EXISTS user_settings_scope_required;
+ALTER TABLE weight_logs DROP CONSTRAINT IF EXISTS weight_logs_scope_required;
+ALTER TABLE wellbeing_reminders DROP CONSTRAINT IF EXISTS wellbeing_reminders_scope_required;
+ALTER TABLE workouts DROP CONSTRAINT IF EXISTS workouts_scope_required;
+ALTER TABLE xp_events DROP CONSTRAINT IF EXISTS xp_events_scope_required;

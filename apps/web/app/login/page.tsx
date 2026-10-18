@@ -215,10 +215,10 @@ function LoginForm() {
 
     try {
       const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/register";
+      // 匿名数据按设备标识自动认领（S1-7：已移除 claimLegacy 参数，不再允许吞并他人遗留数据）
       const body =
         mode === "login"
-          ? // claimLegacy：登录时把本机（该浏览器）遗留的匿名数据并入账号；新匿名数据按设备标识自动认领
-            { username, password, claimLegacy: true }
+          ? { username, password }
           : { username, password, displayName: displayName.trim() || undefined };
       const r = await fetch(endpoint, {
         method: "POST",

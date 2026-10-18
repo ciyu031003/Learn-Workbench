@@ -131,13 +131,10 @@ describe("claimAnonData", () => {
     expect(updates.every((c) => c[1]?.[0] === "u-1" && c[1]?.[1] === "dev-1")).toBe(true);
   });
 
-  it("also claims legacy rows when claimLegacy is enabled", async () => {
-    const client = makeClient();
-    connectMock.mockResolvedValue(client as never);
-    const claimed = await claimAnonData("u-1", { anonId: "dev-1", claimLegacy: true });
-    expect(claimed).toBe(32); // 8 device + 8 legacy × 2 rows
-    const updates = client.query.mock.calls.filter((c) => String(c[0]).includes("UPDATE"));
-    expect(updates).toHaveLength(16);
+  it("匿名设备标识缺失时直接返回 0，不连库也不做 UPDATE（S1-7 移除 claimLegacy）", async () => {
+    const claimed = await claimAnonData("u-1", {});
+    expect(claimed).toBe(0);
+    expect(connectMock).not.toHaveBeenCalled();
   });
 
   it("rolls back and rethrows on failure", async () => {

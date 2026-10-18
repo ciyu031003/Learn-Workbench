@@ -59,9 +59,22 @@ export function apiError(status: number, error: string, options: ApiErrorOptions
   return Response.json(body, { status });
 }
 
-/** 把数据库异常转成结构化响应 */
+/**
+ * 把数据库异常转成结构化响应。
+ *
+ * 2026-10-18 S1-7：匿名作用域 CHECK 约束（<table>_scope_required）触发时，
+ * 说明请求既没有登录会话、也没有合法的匿名设备标识 —— 要让客户端"刷新后重试"，
+ * 而不是笼统的"数值超出范围"。
+ */
 export function dbErrorResponse(e: unknown, fallback = "保存失败，请稍后重试", options: ApiErrorOptions = {}): Response {
-  const code = (e as { code?: string } | null | undefined)?.code;
+  const err = e as { code?: string; constraint?: string } | null | undefined;
+  const code = err?.code;
+  if (code === "23514" && /_scope_required$/.test(err?.constraint ?? "")) {
+    return apiError(400, "缺少设备标识，请刷新页面后重试", {
+      code: API_ERROR_CODES.validation_failed,
+      ...options,
+    });
+  }
   const message = code ? PG_ERROR_MESSAGES[code] : undefined;
   if (message) return apiError(400, message, { code: API_ERROR_CODES.validation_failed, ...options });
   console.error("[api] database error", e);

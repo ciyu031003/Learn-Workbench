@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("next/headers", () => ({
   cookies: vi.fn(),
@@ -11,6 +11,7 @@ vi.mock("./db", () => ({
 import { cookies, headers } from "next/headers";
 import { pgPool } from "./db";
 import { ANON_COOKIE, anonFilterSql, getAnonId, scopeWhere, userScope } from "./anon";
+import { signAnonCookieValue } from "./anon-cookie";
 
 const cookiesMock = vi.mocked(cookies);
 const headersMock = vi.mocked(headers);
@@ -74,6 +75,45 @@ describe("userScope 匿名路径（回归）", () => {
 
     await expect(userScope()).resolves.toEqual({ uid: "u-1", anonId: null });
     expect(String(queryMock.mock.calls[0][0])).toContain("FROM sessions WHERE token_hash = $1");
+  });
+});
+
+describe("签名匿名 cookie（S1-7）", () => {
+  const SECRET = "test-secret-0123456789";
+  const withCookie = (value: string) =>
+    cookiesMock.mockResolvedValue({
+      get: vi.fn((name: string) => (name === ANON_COOKIE ? { value } : undefined)),
+    } as never);
+
+  beforeEach(() => {
+    process.env.ANON_COOKIE_SECRET = SECRET;
+    headersMock.mockResolvedValue({ get: vi.fn().mockReturnValue(undefined) } as never);
+  });
+  afterEach(() => {
+    delete process.env.ANON_COOKIE_SECRET;
+  });
+
+  it("接受服务端签名的值", async () => {
+    withCookie(signAnonCookieValue(ANON));
+    await expect(getAnonId()).resolves.toBe(ANON);
+  });
+
+  it("签名被篡改时返回 null（不能靠伪造 cookie 冒用他人匿名数据）", async () => {
+    const signed = signAnonCookieValue(ANON);
+    const tampered = signed.slice(0, signed.length - 2) + "zz";
+    withCookie(tampered);
+    await expect(getAnonId()).resolves.toBeNull();
+  });
+
+  it("非 UUID 形态的任意字符串返回 null", async () => {
+    withCookie("not-a-uuid");
+    await expect(getAnonId()).resolves.toBeNull();
+  });
+
+  it("anonFilterSql 不再并入 NULL 池（回归：跨设备读写漏洞）", () => {
+    const sql = anonFilterSql(2);
+    expect(sql).not.toContain("anon_id IS NULL");
+    expect(sql).toContain("anon_id IS NOT DISTINCT FROM $2");
   });
 });
 

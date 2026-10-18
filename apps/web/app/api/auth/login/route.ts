@@ -65,11 +65,8 @@ export async function POST(req: Request) {
   await recordLoginSuccess(username, ip);
 
   const uid = account.user_id as string;
-  // 匿名数据认领：仅认领当前设备（anon_id）产生的匿名行；历史遗留行需显式 claimLegacy
-  await claimAnonData(uid, {
-    anonId: await getAnonId(),
-    claimLegacy: body.claimLegacy === true,
-  });
+  // 匿名数据认领：仅认领当前设备（anon_id）产生的匿名行（S1-7 已移除 claimLegacy 后门）
+  await claimAnonData(uid, { anonId: await getAnonId() });
 
   // 旧格式密码哈希登录成功后自动升级（scrypt 成本参数）
   if (needsRehash(account.password_hash)) {

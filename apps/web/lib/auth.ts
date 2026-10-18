@@ -1,6 +1,7 @@
 import { pgPool } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
 import { getAnonId } from "@/lib/anon";
+import { ANON_CLAIM_TABLES } from "@/lib/anon-tables";
 
 /* ============================================================================
  * P0 安全加固：管理员鉴权 + 登录防爆破 + 匿名数据设备化认领
@@ -77,51 +78,31 @@ export async function loginLocked(
   return { locked: false, retryAfterSeconds: 0 };
 }
 
-/* ---------------- 匿名数据设备化认领（H5） ---------------- */
-
-/** 匿名数据表清单（与 login 原 claimAnonData 一致） */
-const ANON_TABLES = [
-  "topic_progress",
-  "daily_tasks",
-  "focus_sessions",
-  "checkins",
-  "log_entries",
-  "certificates",
-  "xp_events",
-  "resume_assets",
-];
+/* ---------------- 匿名数据设备化认领（H5 / S1-7） ---------------- */
 
 /**
- * 认领匿名数据：
- * - 默认只认领当前设备（anon_id 匹配）产生的匿名行，避免「先注册者继承所有匿名数据」；
- * - 迁移前的遗留匿名行（anon_id IS NULL）仅在调用方显式声明 claimLegacy 时认领。
+ * 认领匿名数据：只认领**当前设备**（anon_id 匹配）产生的匿名行。
+ *
+ * 2026-10-18 S1-7：**移除 claimLegacy**。旧实现允许客户端传 claimLegacy:true，
+ * 把全站所有遗留匿名行（anon_id IS NULL）一次性并入任意账号 —— 越权获取 + 原设备数据消失。
+ * 遗留 NULL 池已由迁移 078 孤儿化（分配随机 anon_id），不再存在"无人认领的共享池"。
  */
 export async function claimAnonData(
   userId: string,
-  opts: { anonId?: string | null; claimLegacy?: boolean } = {}
+  opts: { anonId?: string | null } = {}
 ): Promise<number> {
-  const { anonId, claimLegacy } = opts;
+  const { anonId } = opts;
+  if (!anonId) return 0;
   const client = await pgPool.connect();
   let claimed = 0;
   try {
     await client.query("BEGIN");
-    if (anonId) {
-      for (const table of ANON_TABLES) {
-        const r = await client.query(
-          `UPDATE ${table} SET user_id = $1, anon_id = NULL WHERE user_id IS NULL AND anon_id = $2`,
-          [userId, anonId]
-        );
-        claimed += r.rowCount ?? 0;
-      }
-    }
-    if (claimLegacy) {
-      for (const table of ANON_TABLES) {
-        const r = await client.query(
-          `UPDATE ${table} SET user_id = $1 WHERE user_id IS NULL AND anon_id IS NULL`,
-          [userId]
-        );
-        claimed += r.rowCount ?? 0;
-      }
+    for (const table of ANON_CLAIM_TABLES) {
+      const r = await client.query(
+        `UPDATE ${table} SET user_id = $1, anon_id = NULL WHERE user_id IS NULL AND anon_id = $2`,
+        [userId, anonId]
+      );
+      claimed += r.rowCount ?? 0;
     }
     await client.query("COMMIT");
     return claimed;
