@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/db", () => ({ pgPool: { query: vi.fn() } }));
-vi.mock("@/lib/session", () => ({ currentUserId: vi.fn(), userIdFromToken: vi.fn() }));
+vi.mock("@/lib/session", () => ({ currentUserId: vi.fn() }));
+vi.mock("@/lib/file-ticket", () => ({ verifyFileTicket: vi.fn() }));
 vi.mock("node:fs/promises", () => ({ readFile: vi.fn(async () => Buffer.from("PDFDATA")) }));
 vi.mock("@/lib/resume-files", () => ({
   contentTypeFor: () => "application/pdf",
@@ -12,12 +13,13 @@ vi.mock("@/lib/resume-files", () => ({
 }));
 
 import { pgPool } from "@/lib/db";
-import { currentUserId, userIdFromToken } from "@/lib/session";
+import { currentUserId } from "@/lib/session";
+import { verifyFileTicket } from "@/lib/file-ticket";
 import { GET, DELETE } from "./route";
 
 const queryMock = vi.mocked(pgPool.query);
 const userMock = vi.mocked(currentUserId);
-const tokenMock = vi.mocked(userIdFromToken);
+const ticketMock = vi.mocked(verifyFileTicket);
 const ctx = (id: string) => ({ params: Promise.resolve({ id }) });
 
 beforeEach(() => {
@@ -26,24 +28,61 @@ beforeEach(() => {
 });
 
 describe("GET /api/resume-files/[id]", () => {
-  it("未登录 401", async () => {
+  it("未登录且没有 sig → 401", async () => {
     userMock.mockResolvedValue(null);
     const res = await GET(new Request("http://localhost"), ctx("1"));
     expect(res.status).toBe(401);
+    expect(ticketMock).not.toHaveBeenCalled();
+    expect(queryMock).not.toHaveBeenCalled();
   });
 
-  it("用 ?token= 也能取（移动端预览）", async () => {
-    tokenMock.mockResolvedValue("u-1");
-    const res = await GET(new Request("http://localhost/api/resume-files/1?token=abc"), ctx("1"));
+  it("不再接受 ?token= 长期会话 token（防 URL 泄漏回归）", async () => {
+    userMock.mockResolvedValue(null);
+    const res = await GET(new Request("http://localhost/api/resume-files/1?token=1e2f-session-token"), ctx("1"));
+    expect(res.status).toBe(401);
+    expect(queryMock).not.toHaveBeenCalled();
+  });
+
+  it("合法 sig → 200（inline + 私有缓存）", async () => {
+    ticketMock.mockReturnValue({ fileId: 1, uid: "u-1" });
+    const res = await GET(new Request("http://localhost/api/resume-files/1?sig=body.mac"), ctx("1"));
     expect(res.status).toBe(200);
+    expect(ticketMock).toHaveBeenCalledWith("body.mac");
+    expect(queryMock).toHaveBeenCalledWith(expect.stringContaining("FROM resume_files WHERE id = $1 AND user_id = $2"), [1, "u-1"]);
     expect(res.headers.get("Content-Disposition")).toContain("inline");
     expect(res.headers.get("Cache-Control")).toContain("private");
   });
 
-  it("不是本人 / 不存在 → 404", async () => {
+  it("sig 无效/过期 → 401", async () => {
+    ticketMock.mockReturnValue(null);
+    const res = await GET(new Request("http://localhost/api/resume-files/1?sig=bad"), ctx("1"));
+    expect(res.status).toBe(401);
+    expect(queryMock).not.toHaveBeenCalled();
+  });
+
+  it("sig 对应的 fileId 与 URL id 不符 → 403（票据串文件）", async () => {
+    ticketMock.mockReturnValue({ fileId: 2, uid: "u-1" });
+    const res = await GET(new Request("http://localhost/api/resume-files/1?sig=body.mac"), ctx("1"));
+    expect(res.status).toBe(403);
+    expect(queryMock).not.toHaveBeenCalled();
+  });
+
+  it("Web 端无 sig 时回落到 cookie/Bearer 会话", async () => {
     userMock.mockResolvedValue("u-1");
+    const res = await GET(new Request("http://localhost/api/resume-files/1"), ctx("1"));
+    expect(res.status).toBe(200);
+    expect(ticketMock).not.toHaveBeenCalled();
+  });
+
+  it("id 非法 → 400", async () => {
+    const res = await GET(new Request("http://localhost"), ctx("abc"));
+    expect(res.status).toBe(400);
+  });
+
+  it("不是本人 / 不存在 → 404", async () => {
+    ticketMock.mockReturnValue({ fileId: 1, uid: "u-1" });
     queryMock.mockResolvedValue({ rows: [] } as never);
-    const res = await GET(new Request("http://localhost"), ctx("1"));
+    const res = await GET(new Request("http://localhost/api/resume-files/1?sig=body.mac"), ctx("1"));
     expect(res.status).toBe(404);
   });
 

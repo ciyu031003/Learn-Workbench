@@ -118,13 +118,26 @@ export function ResumeFilesCard() {
     }
   };
 
-  /** 预览：走私有接口 + 会话 token（浏览器带不了 Bearer 头） */
+  /**
+   * 预览（S2-3）：先用 Bearer 换一张 5 分钟一次性票据，再把 **票据** 拼进 URL。
+   * 旧实现把 30 天会话 token 放在 ?token= 里，会被 nginx access log / 浏览器历史 /
+   * Referer 带走；票据只对这一份文件有效且很快过期，泄漏面小得多。
+   */
   const open = async (row: ResumeFileRow) => {
-    const url = getApiUrl() + "/api/resume-files/" + row.id + (token ? "?token=" + encodeURIComponent(token) : "");
     try {
+      const r = await fetch(getApiUrl() + "/api/resume-files/" + row.id + "/ticket", {
+        method: "POST",
+        headers: headers(),
+      });
+      const d = await r.json().catch(() => null);
+      const sig = typeof d?.sig === "string" ? d.sig : "";
+      if (!r.ok || !sig) {
+        throw new Error(typeof d?.error === "string" ? d.error : "预览票据获取失败（HTTP " + r.status + "）");
+      }
+      const url = getApiUrl() + "/api/resume-files/" + row.id + "?sig=" + encodeURIComponent(sig);
       await WebBrowser.openBrowserAsync(url);
-    } catch {
-      Alert.alert("打不开", "请稍后重试");
+    } catch (e) {
+      Alert.alert("打不开", e instanceof Error ? e.message : "请稍后重试");
     }
   };
 

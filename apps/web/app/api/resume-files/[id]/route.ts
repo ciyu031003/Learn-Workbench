@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { readFile } from "node:fs/promises";
 import { pgPool } from "@/lib/db";
-import { currentUserId, userIdFromToken } from "@/lib/session";
+import { currentUserId } from "@/lib/session";
+import { verifyFileTicket } from "@/lib/file-ticket";
 import { contentTypeFor, isSafeResumePath, removeResumeFile, resumeAbsPath, resumeExtOf } from "@/lib/resume-files";
 
 function parseId(raw: string): number | null {
@@ -10,13 +11,25 @@ function parseId(raw: string): number | null {
 }
 
 /**
- * 取当前用户：优先 Authorization/cookie；移动端预览时浏览器带不了头，
- * 允许 URL 上带 ?token=<会话 token>（同一张 sessions 表校验）。
+ * 取预览身份（S2-3 起不再接受 URL 上的长期会话 token）：
+ *  - `?sig=xxx`：5 分钟一次性票据（移动端系统浏览器带不了 Authorization 头）；
+ *    票据里带 fileId + uid，下面必须再校验 fileId 与路由 id 一致。
+ *  - 无 sig：回落 cookie / Bearer 会话 —— Web 端直接点 `<a href="/api/resume-files/id">` 走这条。
+ *
+ * ⚠️ 历史实现支持 `?token=<30 天会话 token>`，会进 nginx access log / 浏览器历史 /
+ * Referer；该分支已删除（`userIdFromToken` 一并下线），不要再加回来。
  */
-async function viewerId(req: Request): Promise<string | null> {
-  const token = new URL(req.url).searchParams.get("token");
-  if (token) return userIdFromToken(token);
-  return currentUserId();
+async function viewerId(req: Request, id: number): Promise<{ userId: string } | { error: NextResponse }> {
+  const sig = new URL(req.url).searchParams.get("sig");
+  if (sig) {
+    const ticket = verifyFileTicket(sig);
+    if (!ticket) return { error: NextResponse.json({ error: "预览链接已失效，请重新打开" }, { status: 401 }) };
+    if (ticket.fileId !== id) return { error: NextResponse.json({ error: "票据与文件不匹配" }, { status: 403 }) };
+    return { userId: ticket.uid };
+  }
+  const userId = await currentUserId();
+  if (!userId) return { error: NextResponse.json({ error: "请先登录" }, { status: 401 }) };
+  return { userId };
 }
 
 /**
@@ -27,8 +40,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   const id = parseId((await ctx.params).id);
   if (!id) return NextResponse.json({ error: "id 无效" }, { status: 400 });
 
-  const userId = await viewerId(req);
-  if (!userId) return NextResponse.json({ error: "请先登录" }, { status: 401 });
+  const viewer = await viewerId(req, id);
+  if ("error" in viewer) return viewer.error;
+  const userId = viewer.userId;
 
   const { rows } = await pgPool.query<{ path: string; fileName: string; mime: string }>(
     "SELECT path, file_name AS \"fileName\", mime FROM resume_files WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL",
