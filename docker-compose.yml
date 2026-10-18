@@ -70,6 +70,8 @@ services:
       CRON_SECRET: ${CRON_SECRET:-}
       # 对外站点地址（邮件重置链接/微信回跳用；不设则回退代理头）
       WEB_BASE_URL: ${WEB_BASE_URL:-}
+      # 简历预览一次性票据的 HMAC 密钥（S2-3；不设则回退 CRON_SECRET）
+      FILE_TICKET_SECRET: ${FILE_TICKET_SECRET:-}
       # 生产注册管理员白名单：注册接口仅向该用户名授予 is_admin（空 = 不自动授予）
       ADMIN_USERNAME: ${ADMIN_USERNAME:-}
       # 招花爬虫：住宅/干净代理 + 登录态 Cookie（storageState 放 config/job-hosts/storageState.json）
@@ -81,7 +83,7 @@ services:
       # 简历/诊断日志落在本地盘且每次重建即丢（踩坑 91 的根因层）。指向 /app/public/* 后走上面的两个挂载。
       UPLOAD_DIR: /app/public/uploads
     ports:
-      - "${APP_PORT:-3001}:3001"
+      - "127.0.0.1:${APP_PORT:-3001}:3001"
     volumes:
       # 每日 Bing 壁纸持久化：已迁移至 COS 存储桶（/data = cosfs 挂载，2026-09-06）
       - /data/learn-workbench/bing:/app/assets/backgrounds/bing

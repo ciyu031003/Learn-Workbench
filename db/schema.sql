@@ -413,13 +413,23 @@ CREATE TABLE accounts (
   updated_at    timestamptz NOT NULL DEFAULT now()
 );
 
+-- 会话（S2-3b / 迁移 079 后形态：代理主键 id；token 仅作过渡兼容列，代码只读写 token_hash）
 CREATE TABLE sessions (
-  token      text PRIMARY KEY,
-  user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  expires_at timestamptz NOT NULL
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  token         text,
+  token_hash    text,
+  user_id       uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  expires_at    timestamptz NOT NULL,
+  last_used_at  timestamptz,
+  user_agent    text,
+  device_label  text
 );
 CREATE INDEX idx_sessions_user_id ON sessions(user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_sessions_token_hash ON sessions(token_hash) WHERE token_hash IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_sessions_token ON sessions(token) WHERE token IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_sessions_user_active ON sessions(user_id, expires_at);
 
 -- ---------- 账号表上的 updated_at 触发器 ----------
 -- （set_updated_at() 的定义已上移到文件顶部「0. updated_at 自动更新函数」）
