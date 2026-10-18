@@ -32,7 +32,16 @@ describe("apiError 错误 envelope（H2）", () => {
 
   it("错误码集合是稳定枚举（发布后不可随意改名）", () => {
     expect(Object.values(API_ERROR_CODES).sort()).toEqual(
-      ["conflict", "forbidden", "internal_error", "not_found", "rate_limited", "unauthorized", "validation_failed"].sort()
+      [
+        "conflict",
+        "forbidden",
+        "internal_error",
+        "not_found",
+        "quota_exceeded",
+        "rate_limited",
+        "unauthorized",
+        "validation_failed",
+      ].sort()
     );
   });
 

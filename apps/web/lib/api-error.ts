@@ -8,6 +8,8 @@
  * 语义：能把错误归因到客户端的 → 4xx；其余 → 结构化 500（带服务端日志，绝不裸抛）。
  */
 
+import { logger } from "@/lib/logger";
+
 const PG_ERROR_MESSAGES: Record<string, string> = {
   "23514": "数值超出允许范围", // check_violation
   "23505": "已存在同名记录", // unique_violation
@@ -32,6 +34,8 @@ export const API_ERROR_CODES = {
   validation_failed: "validation_failed",
   conflict: "conflict",
   rate_limited: "rate_limited",
+  /** S2-8：匿名设备写入量达到上限（与 rate_limited 区分：后者是频率，前者是总量） */
+  quota_exceeded: "quota_exceeded",
   internal_error: "internal_error",
 } as const;
 
@@ -77,7 +81,19 @@ export function dbErrorResponse(e: unknown, fallback = "保存失败，请稍后
   }
   const message = code ? PG_ERROR_MESSAGES[code] : undefined;
   if (message) return apiError(400, message, { code: API_ERROR_CODES.validation_failed, ...options });
-  console.error("[api] database error", e);
+  /**
+   * S2-9：不再把整个异常对象丢进日志。Postgres 错误的 detail/parameters 可能包含
+   * "Key (username)=(xxx) already exists" 这类用户数据；这里只记归因字段（不记 message/stack 细节）。
+   * 需要在排障时看堆栈的调用方应显式 logger.error 并自行脱敏。
+   */
+  logger.error(
+    {
+      code: err?.code ?? "unknown",
+      constraint: err?.constraint ?? null,
+      requestId: options.requestId ?? null,
+    },
+    "[api] database error"
+  );
   return apiError(500, fallback, { code: API_ERROR_CODES.internal_error, ...options });
 }
 
