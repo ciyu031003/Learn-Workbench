@@ -14,7 +14,7 @@ vi.mock("@react-native-async-storage/async-storage", () => ({
 }));
 
 import { toDateKey } from "@learn-workbench/shared";
-import { useAppStore, type SyncChange } from "./app-store";
+import { selectForeignPendingChanges, useAppStore, type SyncChange } from "./app-store";
 
 const change = (partial: Partial<SyncChange> & { entityType: SyncChange["entityType"]; entityId: string }): SyncChange => ({
   operation: "UPDATE",
@@ -335,5 +335,74 @@ describe("B5 幂等键", () => {
     expect(changes[0].changeId).toBeTruthy();
     expect(changes[1].changeId).toBeTruthy();
     expect(changes[0].changeId).not.toBe(changes[1].changeId);
+  });
+});
+
+
+describe("S1-6 换账号本地清理（ownerUserId）", () => {
+  it("A 写 2 条 pending -> 登出 -> B 登录 -> 待推送队列为空", () => {
+    const st = useAppStore.getState();
+    st.setAuth("token-a", "alice");
+    st.addTask("A 的任务", "study");
+    st.toggleTopic(11);
+    expect(useAppStore.getState().pendingChanges).toHaveLength(2);
+    // 每条变更都带上写入时的账号归属
+    expect(useAppStore.getState().pendingChanges.every((c) => c.ownerUserId === "alice")).toBe(true);
+
+    // 偏好（主题 / 边缘横滑 / deviceId）在登出后必须保留
+    st.setThemeMode("dark");
+    st.setEdgeSwipeEnabled(true);
+    const deviceId = useAppStore.getState().deviceId;
+
+    useAppStore.getState().resetForLogout();
+
+    const out = useAppStore.getState();
+    expect(out.pendingChanges).toEqual([]); // syncPush 读的就是这个队列：空队列直接返回，不再发请求
+    expect(out.tasks).toEqual([]);
+    expect(out.logs).toEqual([]);
+    expect(out.sessions).toEqual([]);
+    expect(out.checkins).toEqual([]);
+    expect(out.progress).toEqual({});
+    expect(out.sports).toEqual([]);
+    expect(out.token).toBeNull();
+    expect(out.username).toBeNull();
+    expect(out.ownerUserId).toBeNull();
+    expect(out.themeMode).toBe("dark");
+    expect(out.edgeSwipeEnabled).toBe(true);
+    expect(out.deviceId).toBe(deviceId);
+
+    // B 登录后：没有 A 的任何待推送条目
+    useAppStore.getState().setAuth("token-b", "bob");
+    expect(useAppStore.getState().ownerUserId).toBe("bob");
+    expect(useAppStore.getState().pendingChanges).toEqual([]);
+  });
+
+  it("没走登出就直接换账号（崩溃/令牌失效）：旧账号 pending 被识别为 foreign", () => {
+    const st = useAppStore.getState();
+    st.setAuth("token-a", "alice");
+    st.addTask("A 任务 1", "study");
+    st.addTask("A 任务 2", "study");
+    expect(useAppStore.getState().pendingChanges).toHaveLength(2);
+
+    useAppStore.getState().setAuth("token-b", "bob");
+    const foreign = selectForeignPendingChanges(
+      useAppStore.getState().pendingChanges,
+      useAppStore.getState().ownerUserId
+    );
+    expect(foreign).toHaveLength(2);
+    expect(foreign.every((c) => c.ownerUserId === "alice")).toBe(true);
+
+    useAppStore.getState().clearPendingChanges(foreign);
+    expect(useAppStore.getState().pendingChanges).toEqual([]);
+  });
+
+  it("匿名创建的 pending（owner=null）登录后不丢，归属当前账号", () => {
+    useAppStore.setState({ token: null, username: null, ownerUserId: null });
+    useAppStore.getState().addTask("离线任务", "study");
+    expect(useAppStore.getState().pendingChanges[0]?.ownerUserId).toBeNull();
+
+    useAppStore.getState().setAuth("token-a", "alice");
+    expect(selectForeignPendingChanges(useAppStore.getState().pendingChanges, "alice")).toEqual([]);
+    expect(useAppStore.getState().pendingChanges).toHaveLength(1);
   });
 });

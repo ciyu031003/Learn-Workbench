@@ -20,7 +20,12 @@ param(
   [switch]$SkipVersionBump,
   # R8/资源裁剪默认关闭：包体已达标（约 66MB），而 R8 只能在真机上验证是否破坏反射。
   # 需要更小包体时加 -EnableR8，并在真机回归通过后再考虑设为默认。
-  [switch]$EnableR8
+  [switch]$EnableR8,
+  # S1-5 干跑：只做版本/清单/资源修补 + 源清单断言，不跑 gradle。
+  # 本地验证补丁逻辑用：pwsh scripts/build-android-release.ps1 -PatchOnly -SkipVersionBump
+  [switch]$PatchOnly,
+  # S1-5 干跑：只对现有 release APK 做权限白名单断言（不构建），用于验证断言本身是否生效。
+  [switch]$CheckApkOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -32,6 +37,87 @@ $outDir = Join-Path $root ".local\accept"
 
 function Info($m) { Write-Host "[build] $m" -ForegroundColor Cyan }
 function Fail($m) { Write-Host "[build][FAIL] $m" -ForegroundColor Red; exit 1 }
+
+# ---------- 权限白名单（S1-5） ----------
+# 期望集合 = 对本机现有 release APK 实测 `aapt2 dump badging`（v1.48.0：16 条），
+# 去掉本轮用 tools:node="remove" 移除的 CAMERA 后 = 15 条。
+# 任何「多一条 / 少一条」都 FAIL 并打印差异 —— 防止 prebuild 或新依赖静默加权限
+# （2026-10 实测 release APK 仍声明 CAMERA，与 app.json blockedPermissions 和隐私文档矛盾）。
+# 调整期望集合前，必须先对产物跑 `aapt2 dump badging` 取实测清单。
+$ExpectedPermissions = @(
+  "android.permission.INTERNET",
+  "android.permission.REQUEST_INSTALL_PACKAGES",
+  "android.permission.READ_EXTERNAL_STORAGE",
+  "android.permission.READ_MEDIA_IMAGES",
+  "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+  "android.permission.VIBRATE",
+  "android.permission.FOREGROUND_SERVICE",
+  "android.permission.FOREGROUND_SERVICE_SPECIAL_USE",
+  "android.permission.POST_NOTIFICATIONS",
+  "android.permission.WRITE_EXTERNAL_STORAGE",
+  "android.permission.ACCESS_NETWORK_STATE",
+  "android.permission.ACCESS_WIFI_STATE",
+  "android.permission.USE_BIOMETRIC",
+  "android.permission.USE_FINGERPRINT",
+  "com.yuanabd.learnworkbench.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+)
+# 明确禁止：CAMERA / RECORD_AUDIO / SYSTEM_ALERT_WINDOW（即使意外混进 expected 也直接判违规）
+$ForbiddenPermissions = @(
+  "android.permission.CAMERA",
+  "android.permission.RECORD_AUDIO",
+  "android.permission.SYSTEM_ALERT_WINDOW"
+)
+
+function Find-Aapt2 {
+  $sdk = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } else { $env:ANDROID_SDK_ROOT }
+  if (-not $sdk) { return $null }
+  return Get-ChildItem "$sdk\build-tools\*\aapt2.exe" -ErrorAction SilentlyContinue |
+    Sort-Object { try { [version]$_.Directory.Name } catch { [version]"0.0.0" } } -Descending |
+    Select-Object -First 1
+}
+
+function Assert-ApkPermissions([string]$ApkPath) {
+  if (-not (Test-Path $ApkPath)) { Fail "未找到 APK：$ApkPath" }
+  $aapt2 = Find-Aapt2
+  if (-not $aapt2) { Fail "找不到 aapt2.exe（build-tools 未安装？）" }
+  $prevEap = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  $badging = (& $aapt2.FullName dump badging $ApkPath 2>&1 | Out-String)
+  $aaptExit = $LASTEXITCODE
+  $ErrorActionPreference = $prevEap
+  if ($aaptExit -ne 0 -or -not $badging) { Fail "aapt2 dump badging 失败（exit $aaptExit）：$ApkPath" }
+
+  $actual = @([regex]::Matches($badging, "(?m)^uses-permission: name='([^']+)'") |
+    ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
+  $missing = @($ExpectedPermissions | Where-Object { $actual -notcontains $_ })
+  $unexpected = @($actual | Where-Object { $ExpectedPermissions -notcontains $_ })
+  foreach ($bad in $ForbiddenPermissions) {
+    if ($actual -contains $bad) { $unexpected += $bad }
+  }
+  $unexpected = @($unexpected | Sort-Object -Unique)
+
+  if ($missing.Count -gt 0 -or $unexpected.Count -gt 0) {
+    Info ("实测权限（{0} 条）：{1}" -f $actual.Count, ($actual -join ", "))
+    if ($missing.Count -gt 0) { Write-Host "  [缺失] $($missing -join ', ')" -ForegroundColor Yellow }
+    if ($unexpected.Count -gt 0) { Write-Host "  [多余] $($unexpected -join ', ')" -ForegroundColor Yellow }
+    Fail ("APK 权限白名单不一致：期望 {0} 条，实测 {1} 条" -f $ExpectedPermissions.Count, $actual.Count)
+  }
+
+  # CAMERA 权限被移除后，其隐式引入的 required 硬件特性也必须消失（否则市场仍按「需相机」过滤）
+  if ($badging -match "(?m)^\s*uses-feature: name='android\.hardware\.camera'") {
+    Fail "APK 仍把 android.hardware.camera 声明为必需硬件（应 required=false / 不声明）"
+  }
+  Info "APK 权限白名单一致（$($actual.Count) 条）· camera 为非必需硬件"
+}
+
+# S1-5 干跑：只对现有 APK 验证白名单断言本身（不需要重新构建）
+if ($CheckApkOnly) {
+  $existingApk = Join-Path $android "app\build\outputs\apk\release\app-release.apk"
+  Info "CheckApkOnly：对现有 APK 断言权限白名单（不构建）：$existingApk"
+  Assert-ApkPermissions $existingApk
+  Info "CheckApkOnly 通过"
+  exit 0
+}
 
 # ---------- 1) 前置检查 ----------
 Info "检查前置条件"
@@ -124,11 +210,26 @@ function ensureItem(xml, name, value) {
 //    b) 关闭 Android 13+ 预测返回（enableOnBackInvokedCallback=false）：
 //       RN/expo-router 在预测返回链路上实现不完整，回到经典返回是最稳的；
 //       Android 15 起「不声明」的默认值本就是 false，这里显式钉死避免回退。
+//    c) S1-5 权限合规：expo-image-picker 的库 manifest 声明 CAMERA，合并后 release APK
+//       实测带 CAMERA 权限 + 隐式 uses-feature android.hardware.camera（required）。
+//       source manifest 删不掉库里的声明，只能用 tools:node="remove" 在合并期剔除；
+//       同时显式声明 camera 硬件 required=false，避免市场按「必须有相机」过滤设备。
 const manifestPath = path.join(androidDir, "app", "src", "main", "AndroidManifest.xml");
 let m = fs.readFileSync(manifestPath, "utf8");
 const m0 = m;
 m = m.split("\n").filter((l) => !/SYSTEM_ALERT_WINDOW/.test(l)).join("\n");
 m = m.replace(/android:enableOnBackInvokedCallback="[^"]*"/, 'android:enableOnBackInvokedCallback="false"');
+// 幂等：先清掉历史插入/手写的 camera 节点，再在 <manifest> 后插入唯一的规范节点
+m = m
+  .split("\n")
+  .filter((l) => !/android\.permission\.CAMERA/.test(l) && !/android\.hardware\.camera/.test(l))
+  .join("\n");
+if (!/xmlns:tools=/.test(m)) {
+  m = m.replace(/<manifest\b([^>]*)>/, '<manifest$1 xmlns:tools="http://schemas.android.com/tools">');
+}
+const cameraPermissionRemove = '  <uses-permission android:name="android.permission.CAMERA" tools:node="remove" />';
+const cameraFeatureOptional = '  <uses-feature android:name="android.hardware.camera" android:required="false" />';
+m = m.replace(/(<manifest\b[^>]*>)/, '$1\n' + cameraPermissionRemove + '\n' + cameraFeatureOptional);
 if (m !== m0) { fs.writeFileSync(manifestPath, m, "utf8"); log.push("AndroidManifest 已修补"); }
 else { log.push("AndroidManifest 无需修补"); }
 
@@ -229,7 +330,13 @@ if ($LASTEXITCODE -ne 0) { Fail "手写原生代码应用失败（scripts/apply-
 
 # 修补后断言（防止某次 prebuild 后静默回退）
 $manifest = Get-Content (Join-Path $android "app\src\main\AndroidManifest.xml") -Raw
+# S1-5 解析自检：补丁写坏 XML（tools 命名空间/引号/重复节点）时必须在构建前就炸，
+# 否则要等到 gradle manifest merger 阶段才报错，排查成本高得多。
+try { $null = [xml]$manifest } catch { Fail "AndroidManifest.xml 补丁后不是合法 XML：$($_.Exception.Message)" }
 if ($manifest -match "SYSTEM_ALERT_WINDOW") { Fail "AndroidManifest 仍声明 SYSTEM_ALERT_WINDOW" }
+if ($manifest -notmatch 'android\.permission\.CAMERA"[^>]*tools:node="remove"') { Fail "缺 CAMERA tools:node=remove（库 manifest 的 CAMERA 会再次合入 APK）" }
+if ($manifest -notmatch 'android\.hardware\.camera"[^>]*android:required="false"') { Fail "缺 uses-feature android.hardware.camera required=false" }
+if ($manifest -notmatch 'xmlns:tools="http://schemas.android.com/tools"') { Fail "AndroidManifest 缺 xmlns:tools（tools:node=remove 不会生效）" }
 if ($manifest -notmatch 'android:enableOnBackInvokedCallback="false"') { Fail "未关闭预测返回（enableOnBackInvokedCallback 应为 false）" }
 
 $stylesXml = Get-Content (Join-Path $android "app\src\main\res\values\styles.xml") -Raw
@@ -256,6 +363,12 @@ if ($manifest -notmatch 'android:windowSoftInputMode="adjustResize"') {
   Fail "AndroidManifest 的 windowSoftInputMode 必须是 adjustResize（键盘避让依赖它）"
 }
 
+# S1-5 干跑出口：修补与源清单断言已通过，不再触发 gradle（本地验证补丁逻辑用）
+if ($PatchOnly) {
+  Info "PatchOnly：清单/资源修补与源清单断言全部通过，跳过 gradle / 签名 / APK 权限断言"
+  exit 0
+}
+
 # ---------- 4) 构建 ----------
 # 注意：gradle 把进度写在 stderr；在 $ErrorActionPreference='Stop' 下 PowerShell 5.1 会把
 # native stderr 视为终止错误。这里改为「重定向到日志 + 只看退出码」，失败时打印日志尾部。
@@ -276,6 +389,12 @@ if ($gradleExit -ne 0) { Fail "gradlew assembleRelease 失败（exit $gradleExit
 
 $apk = Join-Path $android "app\build\outputs\apk\release\app-release.apk"
 if (-not (Test-Path $apk)) { Fail "未找到产物 $apk" }
+
+# ---------- 4.5) APK 权限白名单断言（S1-5） ----------
+# 断言的是**合并后**的最终清单（aapt2 dump badging）：source manifest 的删除只能挡住自写声明，
+# expo-image-picker 等库的 CAMERA 必须靠 tools:node="remove" 在合并期剔除，这里验证它真的生效。
+Info "断言 release APK 权限白名单（aapt2 dump badging）"
+Assert-ApkPermissions $apk
 
 # ---------- 5) 签名校验（MD5 必须与备案一致） ----------
 $sdk = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } else { $env:ANDROID_SDK_ROOT }

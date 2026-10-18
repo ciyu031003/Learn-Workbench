@@ -10,7 +10,7 @@ import { useScreenEntrance } from "@/lib/use-screen-entrance";
 import { useScrollToTopHandler } from "@/lib/scroll-to-top";
 import { getApiUrl } from "@/config";
 import { syncPush, syncPull } from "@/lib/sync";
-import { useSyncEngineStatus } from "@/lib/sync-engine";
+import { discardForeignPendingChanges, useSyncEngineStatus } from "@/lib/sync-engine";
 import {
   APP_ICP_NUMBER,
   APP_MPS_NUMBER,
@@ -50,6 +50,7 @@ export default function SettingsScreen() {
   const backgroundEnabled = useAppStore((s) => s.backgroundEnabled);
   const toggleBackground = useAppStore((s) => s.toggleBackground);
   const resetAll = useAppStore((s) => s.resetAll);
+  const resetForLogout = useAppStore((s) => s.resetForLogout);
   const progress = useAppStore((s) => s.progress);
   const tasks = useAppStore((s) => s.tasks);
   const logs = useAppStore((s) => s.logs);
@@ -105,8 +106,28 @@ export default function SettingsScreen() {
     setMsg(`欢迎回来，${username}：本机数据将自动同步云端`);
   };
 
+  /** 退出登录：先尽力通知服务端销毁会话，再清本地（接口不可用也必须清，安全优先） */
+  const doLogout = async () => {
+    if (!token) return;
+    // 退出前先丢弃不属于当前账号的队列（换账号兜底；sync-engine 的 push 前校验是第二道防线）
+    const dropped = discardForeignPendingChanges("退出登录");
+    try {
+      await fetch(getApiUrl() + "/api/auth/logout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+      });
+    } catch {
+      // 离线/接口不可用：忽略。本地清理必须继续，否则 token 与会话数据会留在本机
+    } finally {
+      resetForLogout();
+      setMsg(dropped > 0 ? `已退出登录（丢弃 ${dropped} 条非本账号待同步变更）` : "已退出登录，本机数据已清理");
+    }
+  };
+
   const doPush = async () => {
     if (!token) return;
+    // 手动同步前同样校验归属，避免把上一个账号的离线队列推给当前 Bearer
+    discardForeignPendingChanges("手动同步");
     setBusy(true);
     setMsg(null);
     try {
@@ -235,10 +256,14 @@ export default function SettingsScreen() {
               accessibilityLabel="退出登录"
               onPress={() => {
                 haptics.warning();
-                Alert.alert("退出登录", "退出后本机数据保留，云端数据不受影响。", [
-                  { text: "取消", style: "cancel" },
-                  { text: "退出", style: "destructive", onPress: () => setAuth(null, null) },
-                ]);
+                Alert.alert(
+                  "退出登录",
+                  "退出后本机学习记录与未同步的变更会被清空（云端数据不受影响），重新登录会从云端恢复。",
+                  [
+                    { text: "取消", style: "cancel" },
+                    { text: "退出", style: "destructive", onPress: () => void doLogout() },
+                  ]
+                );
               }}
             >
               <ThemedIcon name="log-out-outline" size={15} color={colors.danger} />

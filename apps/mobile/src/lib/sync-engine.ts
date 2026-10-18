@@ -4,7 +4,7 @@ import * as Network from "expo-network";
 import { syncPull, syncPush } from "@/lib/sync";
 import { flushNutritionOutbox } from "@/lib/nutrition-sync";
 import { flushUploadOutbox } from "@/lib/upload-sync";
-import { useAppStore } from "@/store/app-store";
+import { selectForeignPendingChanges, useAppStore } from "@/store/app-store";
 
 /**
  * 离线优先同步引擎：
@@ -49,9 +49,31 @@ function isOnlineState(state: Network.NetworkState): boolean {
   return state.type !== Network.NetworkStateType.NONE && state.isInternetReachable !== false;
 }
 
+/**
+ * 换账号保护（S1-6）：丢弃不属于当前账号的待同步变更，返回丢弃条数。
+ *
+ * 为什么必须有：A 的离线队列若在 B 登录后仍留在 pendingChanges，会被以 B 的 Bearer
+ * 推到 /api/sync/push —— 既污染 B 的云端数据，也把 A 的记录暴露给 B。
+ * 诊断记录：console.warn（真机 logcat / 开发面板可查）+ status.lastError（同步状态可见；
+ * 下一次同步开始时会清空，所以 console.warn 是主要留痕手段）。
+ */
+export function discardForeignPendingChanges(reason: string): number {
+  const s = useAppStore.getState();
+  const foreign = selectForeignPendingChanges(s.pendingChanges, s.ownerUserId);
+  if (foreign.length === 0) return 0;
+  useAppStore.getState().clearPendingChanges(foreign);
+  const fromOwner = foreign[0]?.ownerUserId ?? "未知";
+  const message = "已丢弃 " + foreign.length + " 条不属于当前账号（" + (s.ownerUserId ?? "未登录") + "）的待同步变更（原账号 " + fromOwner + "）：" + reason;
+  console.warn("[sync-engine]", message);
+  setStatus({ lastError: message });
+  return foreign.length;
+}
+
 async function runSync(): Promise<void> {
   const s = useAppStore.getState();
   if (running || !status.online || !s.token) return;
+  // 推前最后一道校验：即使订阅回调被绕过，也绝不用当前 Bearer 推旧账号的发件箱
+  discardForeignPendingChanges("push 前校验");
   running = true;
   setStatus({ syncing: true, lastError: null });
   try {
@@ -116,6 +138,8 @@ export function startSyncEngine(): () => void {
 
   const storeUnsub = useAppStore.subscribe((s, prev) => {
     if (s.token && s.token !== prev.token) {
+      // 登录/换账号：先按 ownerUserId 丢弃旧账号队列，再触发同步（runSync 内还有一次校验）
+      discardForeignPendingChanges("token 变化");
       void runSync();
     } else if (s.token && s.pendingChanges.length > prev.pendingChanges.length) {
       scheduleSync();

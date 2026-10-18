@@ -44,7 +44,8 @@ export default function AccountSecurityScreen() {
   const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
   const username = useAppStore((s) => s.username);
-  const setAuth = useAppStore((s) => s.setAuth);
+  const resetAll = useAppStore((s) => s.resetAll);
+  const resetForLogout = useAppStore((s) => s.resetForLogout);
 
   const [loading, setLoading] = useState(true);
   const [identities, setIdentities] = useState<IdentityInfo[]>([]);
@@ -126,7 +127,9 @@ export default function AccountSecurityScreen() {
         const d = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(d.error ?? "注销失败");
         haptics.success();
-        setAuth(null, null);
+        // 注销 = 云端账号已删除：先清业务数据（resetAll），再清登录态 + 待同步发件箱（resetForLogout）
+        resetAll();
+        resetForLogout();
         router.replace("/settings");
       })
       .catch((e: unknown) => {

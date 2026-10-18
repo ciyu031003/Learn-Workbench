@@ -26,6 +26,12 @@ export interface SyncChange {
   payload: Record<string, unknown> | null;
   updatedAt: string;
   changeId?: string; // B5 幂等键：创建变更时生成，重试推送按 (user_id, change_id) 去重
+  /**
+   * 写入这条变更时的登录账号（= ownerUserId，取 username）。
+   * 换账号保护：A 的离线队列在 B 登录后必须被丢弃，绝不能拿 B 的 Bearer 推上去。
+   * 未登录时写入为 null（匿名 -> 登录后归当前账号，属于正常晋升，不丢）。
+   */
+  ownerUserId?: string | null;
 }
 
 export type PendingChange = SyncChange;
@@ -90,6 +96,8 @@ interface AppState {
   backgroundEnabled: boolean;
   token: string | null;
   username: string | null;
+  /** 当前登录账号的归属标识（取 username；未登录/无法判定为 null）。用于 pendingChanges 打标 + 换账号清空旧发件箱（S1-6） */
+  ownerUserId: string | null;
   github: GithubRecord[];
   customTopics: CustomTopic[];
   sports: LocalSportLog[];
@@ -116,7 +124,14 @@ interface AppState {
   addSession: (taskId: number | null, seconds: number, label?: string | null) => void;
   toggleBackground: () => void;
   setEdgeSwipeEnabled: (enabled: boolean) => void;
+  /** 清空本机业务数据（保留登录态与偏好）：设置页「清空本机数据」用 */
   resetAll: () => void;
+  /**
+   * 退出登录 / 换账号：清业务数据 + 待同步发件箱 + 安全存储 token，
+   * 保留 themeMode / deviceId / edgeSwipeEnabled / backgroundEnabled / apiUrl 等偏好。
+   * 与 resetAll 分工：resetAll 只清业务数据、不动登录态；注销场景先 resetAll 再 resetForLogout。
+   */
+  resetForLogout: () => void;
 
   themeMode: ThemeMode;
   setThemeMode: (mode: ThemeMode) => void;
@@ -162,6 +177,7 @@ export const useAppStore = create<AppState>()(
       themeMode: "system" as ThemeMode,
       token: null,
       username: null,
+      ownerUserId: null,
       github: [],
       customTopics: [],
       sports: [],
@@ -184,6 +200,7 @@ export const useAppStore = create<AppState>()(
           };
           const change: PendingChange = {
             changeId: uid(),
+            ownerUserId: s.ownerUserId,
             entityType: "progress",
             entityId: String(topicId),
             operation: "UPDATE",
@@ -213,6 +230,7 @@ export const useAppStore = create<AppState>()(
           };
           const change: PendingChange = {
             changeId: uid(),
+            ownerUserId: s.ownerUserId,
             entityType: "tasks",
             entityId: clientId,
             operation: "CREATE",
@@ -232,6 +250,7 @@ export const useAppStore = create<AppState>()(
             const next = { ...t, done: !t.done };
             changed = {
               changeId: uid(),
+              ownerUserId: s.ownerUserId,
               entityType: "tasks",
               entityId: next.clientId || "srv-" + next.id,
               operation: "UPDATE",
@@ -253,6 +272,7 @@ export const useAppStore = create<AppState>()(
           const log: LocalLog = { id: nextId(), clientId, kind, title, content, createdAt: now, updatedAt: now };
           const change: PendingChange = {
             changeId: uid(),
+            ownerUserId: s.ownerUserId,
             entityType: "logs",
             entityId: clientId,
             operation: "CREATE",
@@ -270,6 +290,7 @@ export const useAppStore = create<AppState>()(
           const now = new Date().toISOString();
           const change: PendingChange = {
             changeId: uid(),
+            ownerUserId: s.ownerUserId,
             entityType: "checkins",
             entityId: date,
             operation: "CREATE",
@@ -299,6 +320,7 @@ export const useAppStore = create<AppState>()(
           const changes: PendingChange[] = [
             {
               changeId: uid(),
+              ownerUserId: s.ownerUserId,
               entityType: "sessions",
               entityId: clientId,
               operation: "CREATE",
@@ -313,6 +335,7 @@ export const useAppStore = create<AppState>()(
               if (t.id !== taskId) return t;
               const next = { ...t, focusMinutes: t.focusMinutes + Math.round(seconds / 60) };
               changes.push({
+                ownerUserId: s.ownerUserId,
                 entityType: "tasks",
                 entityId: next.clientId || "srv-" + next.id,
                 operation: "UPDATE",
@@ -343,10 +366,37 @@ export const useAppStore = create<AppState>()(
           lastSyncedAt: null,
         }),
 
+      resetForLogout: () => {
+        // 安全存储里的 token 必须同步清掉，否则下次启动 _layout 会用它把会话恢复回来
+        void secureToken.clear();
+        // 业务数据 + 发件箱全清；偏好（themeMode/deviceId/edgeSwipe/background/apiUrl）保留
+        set({
+          progress: {},
+          tasks: [],
+          logs: [],
+          sessions: [],
+          checkins: [],
+          github: [],
+          customTopics: [],
+          sports: [],
+          pendingChanges: [],
+          lastSyncedAt: null,
+          aiTip: null,
+          token: null,
+          username: null,
+          ownerUserId: null,
+        });
+      },
+
       setAuth: (token, username) => {
         if (token) void secureToken.save(token);
         else void secureToken.clear();
-        set({ token, username });
+        set({
+          token,
+          username,
+          // 登录成功写入归属、登出清空。换账号时旧队列按 ownerUserId 丢弃（见 selectForeignPendingChanges）
+          ownerUserId: token ? (username?.trim() || null) : null,
+        });
       },
       setApiUrl: (url) => set({ apiUrl: url }),
 
@@ -357,6 +407,7 @@ export const useAppStore = create<AppState>()(
           const g: GithubRecord = { id: nextId(), clientId, title, url, content };
           const change: PendingChange = {
             changeId: uid(),
+            ownerUserId: s.ownerUserId,
             entityType: "github",
             entityId: clientId,
             operation: "CREATE",
@@ -374,6 +425,7 @@ export const useAppStore = create<AppState>()(
           const now = new Date().toISOString();
           const change: PendingChange = {
             changeId: uid(),
+            ownerUserId: s.ownerUserId,
             entityType: "github",
             entityId: g.clientId || "srv-" + g.id,
             operation: "DELETE",
@@ -391,6 +443,7 @@ export const useAppStore = create<AppState>()(
           const t: CustomTopic = { id: nextId(), clientId, phaseId, title, summary };
           const change: PendingChange = {
             changeId: uid(),
+            ownerUserId: s.ownerUserId,
             entityType: "customTopics",
             entityId: clientId,
             operation: "CREATE",
@@ -408,6 +461,7 @@ export const useAppStore = create<AppState>()(
           const now = new Date().toISOString();
           const change: PendingChange = {
             changeId: uid(),
+            ownerUserId: s.ownerUserId,
             entityType: "customTopics",
             entityId: t.clientId || "srv-" + t.id,
             operation: "DELETE",
@@ -439,6 +493,7 @@ export const useAppStore = create<AppState>()(
           };
           const change: PendingChange = {
             changeId: uid(),
+            ownerUserId: s.ownerUserId,
             entityType: "exerciseLogs",
             entityId: clientId,
             operation: "CREATE",
@@ -479,6 +534,7 @@ export const useAppStore = create<AppState>()(
           };
           const change: PendingChange = {
             changeId: uid(),
+            ownerUserId: s.ownerUserId,
             entityType: "exerciseLogs",
             entityId: clientId,
             operation: "CREATE",
@@ -524,6 +580,7 @@ export const useAppStore = create<AppState>()(
           };
           const change: PendingChange = {
             changeId: uid(),
+            ownerUserId: s.ownerUserId,
             entityType: "exerciseLogs",
             entityId: clientId,
             operation: "CREATE",
@@ -548,6 +605,7 @@ export const useAppStore = create<AppState>()(
           const now = new Date().toISOString();
           const change: PendingChange = {
             changeId: uid(),
+            ownerUserId: s.ownerUserId,
             entityType: "exerciseLogs",
             entityId: rec.clientId || "srv-" + rec.id,
             operation: "DELETE",
@@ -578,6 +636,7 @@ export const useAppStore = create<AppState>()(
             sports.push({ id: nextId(), clientId, sportKey: item.key, name: item.name, type: item.type, minutes, createdAt });
             changes.unshift({
               changeId: uid(),
+              ownerUserId: s.ownerUserId,
               entityType: "exerciseLogs",
               entityId: clientId,
               operation: "CREATE",
@@ -786,7 +845,29 @@ export const useAppStore = create<AppState>()(
       name: "lwb-mobile-store",
       storage: createJSONStorage(() => AsyncStorage),
       // token 改存 expo-secure-store（Keychain/Keystore），AsyncStorage 持久化里置空
+      // ownerUserId 属于本地归属标记，允许持久化（换账号时靠它识别旧队列）
       partialize: (s) => ({ ...s, token: null as string | null }),
     }
   )
 );
+
+/**
+ * 换账号隔离（S1-6）：判断一条待同步变更是否属于「当前账号之外」的账号。
+ *
+ * - 当前未登录（ownerUserId 为 null）：无法判定，保留（匿名 → 登录后归当前账号是正常路径）
+ * - 变更自身没有 owner（旧版本持久化 / 匿名创建）：保留
+ * - 双方都有明确归属且不一致：旧账号的队列，必须丢弃（否则会用新 Bearer 推上去）
+ */
+export function isForeignPendingChange(c: PendingChange, ownerUserId: string | null): boolean {
+  if (!ownerUserId) return false;
+  if (!c.ownerUserId) return false;
+  return c.ownerUserId !== ownerUserId;
+}
+
+/** 从队列中挑出不属于当前账号的待同步变更（供 sync-engine 丢弃并记诊断） */
+export function selectForeignPendingChanges(
+  pending: PendingChange[],
+  ownerUserId: string | null
+): PendingChange[] {
+  return pending.filter((c) => isForeignPendingChange(c, ownerUserId));
+}
