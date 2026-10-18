@@ -1,0 +1,203 @@
+{
+  "generatedAt": "2026-10-18T14:35:12.734Z",
+  "generatedBy": "scripts/capture-baseline.mjs",
+  "git": {
+    "branch": "main",
+    "head": "a79104b",
+    "headSubject": "feat(mobile): 饮食分量收纳栏与每日食谱、证书图片自适应、字号/动效基线收紧",
+    "describe": "v1.48.0",
+    "dirtyFiles": 2
+  },
+  "versions": {
+    "root": "0.2.0",
+    "web": "0.2.0",
+    "mobile": "1.48.0",
+    "androidVersionCode": 81,
+    "androidVersionName": "1.48.0",
+    "latestTag": "v1.48.0"
+  },
+  "db": {
+    "migrationsCount": 77,
+    "lastMigration": "077_topic_origin.sql",
+    "schemaCreateTableStatements": 83
+  },
+  "counts": {
+    "webRoutes": 147,
+    "webRouteTests": 147,
+    "webPages": 34,
+    "webTestFiles": 221,
+    "mobileTestFiles": 68,
+    "e2eSpecs": 7
+  },
+  "sizes": {
+    "publicBytes": 15962623,
+    "nextChunks": {
+      "totalFiles": 68,
+      "top5": [
+        {
+          "name": "27zxzh2fwr5so.js",
+          "bytes": 3434236
+        },
+        {
+          "name": "0i-5efvfrwjiv.js",
+          "bytes": 383187
+        },
+        {
+          "name": "1ogzic9gn6tkm.js",
+          "bytes": 381443
+        },
+        {
+          "name": "0if3fh5hso7z2.js",
+          "bytes": 339841
+        },
+        {
+          "name": "43_qjkbquh-3k.js",
+          "bytes": 251812
+        }
+      ]
+    },
+    "content": {
+      "fileCount": 104,
+      "top5ByLines": [
+        {
+          "path": "packages/content/src/learning/exam-408-grad-bank.ts",
+          "bytes": 847870,
+          "lines": 9306
+        },
+        {
+          "path": "packages/content/src/learning/runoob-frontend.ts",
+          "bytes": 390405,
+          "lines": 8740
+        },
+        {
+          "path": "packages/content/src/learning/runoob-lang.ts",
+          "bytes": 414182,
+          "lines": 8297
+        },
+        {
+          "path": "packages/content/src/learning/runoob-cs-tools.ts",
+          "bytes": 217593,
+          "lines": 4547
+        },
+        {
+          "path": "packages/content/src/learning/ds-expansion.ts",
+          "bytes": 201595,
+          "lines": 2852
+        }
+      ]
+    },
+    "apk": {
+      "path": "apps/mobile/android/app/build/outputs/apk/release/app-release.apk",
+      "bytes": 77733903,
+      "sha256": "0222ec290b0c1bab0b205ca23061bb14df82ebba190cb6d7d9319fdb3f24e3dc"
+    }
+  },
+  "gates": {
+    "capturedAt": "2026-10-18T22:00:00+08:00",
+    "typecheck": "pass（pnpm -F web typecheck）",
+    "lint": "fail：2 errors / 60 warnings（app/settings/content/page.tsx:112,300）",
+    "webTests": "1464 passed / 16 skipped（221 文件，39.75s，本机 vitest run）",
+    "mobileTests": "未在本轮实跑（68 个测试文件）",
+    "e2e": "未在本轮实跑（7 条 spec）",
+    "schemaFresh": "未在本轮实跑",
+    "bundle": "内容包 chunk 27zxzh2fwr5so.js 3354KB raw / 999KB gz（3 条路由）"
+  },
+  "production": {
+    "capturedAt": "2026-10-18T22:33:27+08:00",
+    "host": "VM-0-6-ubuntu / 106.55.2.197",
+    "disk": {
+      "total": "59G",
+      "used": "32G",
+      "avail": "25G",
+      "usedPct": 57
+    },
+    "db": {
+      "size": "79 MB",
+      "tables": 112,
+      "migrationsApplied": 77
+    },
+    "web": {
+      "image": "learn-workbench-web:latest",
+      "imageId": "d5c4ddbd2969",
+      "imageCreated": "2026-10-17T19:43:17+08:00",
+      "imageSize": "7.14GB",
+      "containerUpHours": 27,
+      "portPublish": "0.0.0.0:3001->3001"
+    },
+    "rollback": {
+      "imageTag": "learn-workbench-web:rollback-2026-10-18",
+      "drill": "同一镜像以 :3999 重启 → /login 200, /api/public/stats 200, /api/market 200",
+      "note": "本次之前无历史镜像 tag；镜像化回滚在 S4-4 落地"
+    },
+    "apk": [
+      {
+        "version": "v1.48.0",
+        "bytes": 77733903,
+        "sha256": "0222ec290b0c1bab0b205ca23061bb14df82ebba190cb6d7d9319fdb3f24e3dc"
+      },
+      {
+        "version": "v1.47.0",
+        "bytes": 77018699,
+        "sha256": "2065cdc82cbad7d09668aa86b8c36836522f3c7f98cbffdd9bc9c7f6f1fccef2"
+      }
+    ],
+    "otaManifest": {
+      "versionName": "1.48.0",
+      "versionCode": 81,
+      "sha256MatchesApk": true
+    },
+    "endpoints": {
+      "/login": 200,
+      "/api/public/stats": 200,
+      "/api/market": 200,
+      "/api/jobs/health": 401
+    },
+    "backup": {
+      "dailyCron": "03:17",
+      "latest": "pg-2026-10-18.dump",
+      "bytes": 10308367,
+      "selfCheck": "pg_restore --list 通过（备份脚本内置）"
+    },
+    "p0Snapshot": {
+      "path": "/home/ubuntu/p0-snapshots/lwb-2026-10-18.dump",
+      "bytes": 10334084,
+      "sha256": "b5fbbe9a29b1aaf638c95d619f82d44964c4ad41bcf4032033751de214685246",
+      "tocEntries": 1083
+    },
+    "restoreDrill": {
+      "scratchDb": "lwb_p0_drill",
+      "tables": 112,
+      "users": 8,
+      "jobPostings": 25663,
+      "learningQuestions": 2826,
+      "dropped": true
+    },
+    "cronJobs": {
+      "crawl": [
+        "08:00",
+        "12:30"
+      ],
+      "aggregate": "05:40",
+      "backfill": "12:50",
+      "interview": "06:20",
+      "maintenance": "06:10",
+      "backup": "03:17",
+      "diskClean": "Sun 05:00"
+    },
+    "envKeys": [
+      "PG_PASSWORD",
+      "APP_PORT",
+      "NPM_REGISTRY",
+      "JOBS_PROXY",
+      "CRON_SECRET",
+      "WEB_BASE_URL"
+    ],
+    "knownGaps": [
+      "无 /api/health 端点",
+      "本次之前无历史 web 镜像 tag（回滚只能重建）",
+      "3001 端口发布在 0.0.0.0",
+      "未配置 Redis（限流/缓存为进程内）",
+      "无告警通道，指标只能手工 curl /api/internal/metrics"
+    ]
+  }
+}
