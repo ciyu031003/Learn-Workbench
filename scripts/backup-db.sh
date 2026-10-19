@@ -102,9 +102,13 @@ log "target=$BACKUP_TARGET mode=$BACKUP_MODE dir=$BACKUP_DIR db=$DB keepDays=$KE
 log "开始备份 $DB → $OUT"
 
 if [ "$BACKUP_MODE" = "docker" ]; then
+  # 用 docker exec（而不是 compose exec）承接二进制流：
+  # compose exec 在部分版本下对大输出会报 "write /dev/stdout: input/output error"（S4 实测）。
   # shellcheck disable=SC2086
-  $COMPOSE_CMD exec -T db pg_dump -Fc -U "${PGUSER:-lwb}" "$DB" > "$TMP" \
-    || { rm -f "$TMP"; fail "docker compose exec db pg_dump 失败"; }
+  DB_CONTAINER="$($COMPOSE_CMD ps -q db 2>/dev/null | head -1 || true)"
+  [ -n "$DB_CONTAINER" ] || fail "找不到 db 容器（$COMPOSE_CMD ps -q db 为空）"
+  docker exec -i "$DB_CONTAINER" pg_dump -Fc -U "${PGUSER:-lwb}" "$DB" > "$TMP" \
+    || { rm -f "$TMP"; fail "docker exec db pg_dump 失败"; }
 else
   # 用 stdout 重定向而不是 -f：Linux/macOS/Git Bash 行为一致，
   # 也绕开个别 Windows conda 构建的 pg_dump 对 -f 打开文件的权限问题。
@@ -118,7 +122,7 @@ SIZE="$(stat -c%s "$TMP" 2>/dev/null || stat -f%z "$TMP")" || fail "无法读取
 log "dump 完成：$SIZE 字节；开始可恢复性自检（pg_restore --list）"
 if [ "$BACKUP_MODE" = "docker" ]; then
   # shellcheck disable=SC2086
-  if ! $COMPOSE_CMD exec -T db pg_restore --list < "$TMP" > "$LIST" 2>/dev/null; then
+  if ! docker exec -i "$DB_CONTAINER" pg_restore --list < "$TMP" > "$LIST" 2>/dev/null; then
     rm -f "$TMP" "$LIST"
     fail "归档不可读（pg_restore --list 失败），已删除坏备份"
   fi

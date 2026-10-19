@@ -149,6 +149,7 @@ APP_PORT=$APP_PORT
 CRON_SECRET=$CRON_SECRET
 WEB_BASE_URL=$WEB_BASE_URL
 NPM_REGISTRY=$NPM_REGISTRY
+APP_VERSION=${APP_VERSION:-$(git rev-parse --short HEAD 2>/dev/null || date +%Y%m%d%H%M)}
 EOF
 chmod 600 .env
 info "已写入 .env（权限 600）"
@@ -165,7 +166,8 @@ if ! BACKUP_LINE="$(BACKUP_MODE=docker BACKUP_TARGET=cos bash scripts/backup-db.
 fi
 info "备份完成：$BACKUP_LINE"
 # 入口统一：scripts/migrate.mjs 会先 pg_dump 备份并自检，再应用未登记的迁移
-docker compose run --rm -T web node /app/scripts/migrate.mjs </dev/null
+# 备份已由上一段（BACKUP_MODE=docker → db 容器内 pg_dump）完成，这里不再让 web 容器重复备份
+docker compose run --rm -T web node /app/scripts/migrate.mjs --no-backup </dev/null
 # 移除上一次的一次性 init 容器（首次部署仍由 init 负责 schema+seed）
 docker compose rm -sf init >/dev/null 2>&1 || true
 docker compose up -d --no-build

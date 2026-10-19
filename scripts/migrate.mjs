@@ -75,10 +75,22 @@ function backup(label) {
   const out = path.join(dir, `pre-migrate-${stamp}-${label}.dump`);
   console.log("[migrate] 备份数据库 → " + out);
   const env = { ...process.env, PGPASSWORD: PG.password };
-  execFileSync("pg_dump", ["-h", PG.host, "-p", String(PG.port), "-U", PG.user, "-d", PG.database, "-Fc", "-f", out], {
-    env,
-    stdio: ["ignore", "inherit", "inherit"],
-  });
+  try {
+    execFileSync("pg_dump", ["-h", PG.host, "-p", String(PG.port), "-U", PG.user, "-d", PG.database, "-Fc", "-f", out], {
+      env,
+      stdio: ["ignore", "inherit", "inherit"],
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (/server version mismatch/i.test(msg)) {
+      throw new Error(
+        "容器内 pg_dump 版本低于数据库（PostgreSQL 主版本不匹配）。" +
+          "替代方案：1) 在宿主机用 db 容器备份：BACKUP_MODE=docker bash scripts/backup-db.sh；" +
+          "2) 再以 --no-backup 运行本脚本；3) 或把 web 镜像的 postgresql-client 升到与数据库同主版本。"
+      );
+    }
+    throw e;
+  }
   // 退出码 0 不代表可恢复：必须能读目录
   const toc = execFileSync("pg_restore", ["--list", out], { env, encoding: "utf8" });
   const entries = toc.split("\n").filter(Boolean).length;

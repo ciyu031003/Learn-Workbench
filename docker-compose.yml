@@ -72,6 +72,8 @@ services:
       WEB_BASE_URL: ${WEB_BASE_URL:-}
       # 简历预览一次性票据的 HMAC 密钥（S2-3；不设则回退 CRON_SECRET）
       FILE_TICKET_SECRET: ${FILE_TICKET_SECRET:-}
+      # 版本号（S4-2 /api/health 用；部署脚本传 git short sha，缺省 dev）
+      APP_VERSION: ${APP_VERSION:-dev}
       # 生产注册管理员白名单：注册接口仅向该用户名授予 is_admin（空 = 不自动授予）
       ADMIN_USERNAME: ${ADMIN_USERNAME:-}
       # 招花爬虫：住宅/干净代理 + 登录态 Cookie（storageState 放 config/job-hosts/storageState.json）
