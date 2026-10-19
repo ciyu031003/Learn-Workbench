@@ -18,7 +18,7 @@ test.describe("/dashboard 首页", () => {
     const today = new Date().toISOString().slice(0, 10);
     await expect(page.locator("header").first().getByText(new RegExp(`今日\\s*${today}`))).toBeVisible();
 
-    // 3) 主标题问候语渲染（客户端挂载后出现真实问候）
-    await expect(page.locator("h1").first()).toContainText("继续今天的");
+    // 3) 主标题问候语渲染（S6-2 起由服务端/客户端按时间给出问候；文案随小时变化）
+    await expect(page.locator("h1").first()).toContainText(/(夜深了|早上好|中午好|下午好|晚上好|你好)，/);
   });
 });

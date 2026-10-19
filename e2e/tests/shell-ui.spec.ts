@@ -36,8 +36,13 @@ test.describe("AppShell UI 回归（下拉 / 弹窗）", () => {
 
     const box = await dialog.boundingBox();
     expect(box).toBeTruthy();
-    const vw = 1489;
-    const vh = 911;
+    // 视口尺寸从运行环境取（旧版写死 1489x911，换机器就红）；S6-5 后弹窗 fixed 居中
+    const vp = page.viewportSize();
+    expect(vp).toBeTruthy();
+    const vw = vp!.width;
+    const vh = vp!.height;
+    const pos = await dialog.evaluate((el) => getComputedStyle(el).position);
+    expect(pos).toBe("fixed");
     const cx = box!.x + box!.width / 2;
     const cy = box!.y + box!.height / 2;
     expect(Math.abs(cx - vw / 2)).toBeLessThanOrEqual(48);

@@ -20,7 +20,13 @@ export function attachConsole(page: Page): Collector {
     if (m.type() === "error") state.errors.push(m.text());
   });
   page.on("pageerror", (e) => state.errors.push("PAGEERROR: " + e.message));
-  page.on("requestfailed", (r) => state.failed.push("FAILED: " + r.url()));
+  page.on("requestfailed", (r) => {
+    // Next Link 预取（?_rsc=）在页面跳转时会被主动取消，属于正常噪声，不算资源失败
+    const url = r.url();
+    const aborted = /ERR_ABORTED/.test(r.failure()?.errorText ?? "");
+    if (url.includes("_rsc=") && aborted) return;
+    state.failed.push("FAILED: " + url);
+  });
   page.on("response", (r) => {
     if (r.status() >= 400 && r.request().resourceType() === "document") {
       state.failed.push("HTTP" + r.status() + ": " + r.url());

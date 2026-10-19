@@ -26,17 +26,19 @@ test.describe("匿名分享页 + 登录写日志（S5-7a 回归）", () => {
     await page.goto("/logs");
     await expect(page).toHaveURL(/\/login/);
 
-    // 2) 登录
-    await page.getByPlaceholder("请输入账号").fill(username!);
-    await page.getByPlaceholder("请输入密码").fill(password!);
-    await page.getByRole("button", { name: "登录", exact: true }).click();
-    await expect(page).not.toHaveURL(/\/login$/, { timeout: 30_000 });
+    // 2) 登录：直接点表单的 submit 按钮（页面里还有「登录/注册」模式切换按钮，按名字会点错）
+    await page.getByPlaceholder(/账号/).fill(username!);
+    await page.getByPlaceholder(/密码/).fill(password!);
+    await page.locator('form button[type="submit"]').first().click();
 
-    // 首次登录可能弹职业选择：能跳过就跳过
+    // 首次登录会弹「选择职业」弹窗（此时 URL 仍是 /login?from=...），先处理弹窗再判断跳转
+    await page.waitForTimeout(2500);
     const skip = page.getByRole("button", { name: /跳过/ }).first();
     if (await skip.isVisible().catch(() => false)) {
       await skip.click().catch(() => {});
     }
+    // 登录失败时会停在 /login?from=...（不以 /login 结尾），所以用"包含"判断
+    await expect(page).not.toHaveURL(/\/login(\?|$)/, { timeout: 30_000 });
 
     // 3) 写一篇日志（标题带时间戳，避免与历史数据冲突）
     const title = "S5-7a 双端一致 " + Date.now();

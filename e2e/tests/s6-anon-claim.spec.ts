@@ -47,7 +47,7 @@ test.describe("S6-9 匿名写 → 登录 → 数据认领", () => {
       expect(write.status(), await write.text()).toBe(201);
 
       // 登录前：同一匿名设备能读到自己的行
-      const anonList = await context.request.get("/api/logs?limit=50", { failOnStatusCode: false });
+      const anonList = await context.request.get("/api/logs?limit=50&career=ict", { failOnStatusCode: false });
       expect(anonList.status()).toBe(200);
       const anonTitles = ((await anonList.json()).logs ?? []).map((l: LogItem) => l.title);
       expect(anonTitles).toContain(title);
@@ -60,7 +60,7 @@ test.describe("S6-9 匿名写 → 登录 → 数据认领", () => {
       expect(login.status(), await login.text()).toBe(200);
 
       // 4) 登录后：账号作用域能看到被认领的行
-      const authedList = await context.request.get("/api/logs?limit=50", { failOnStatusCode: false });
+      const authedList = await context.request.get("/api/logs?limit=50&career=ict", { failOnStatusCode: false });
       expect(authedList.status()).toBe(200);
       const authedTitles = ((await authedList.json()).logs ?? []).map((l: LogItem) => l.title);
       expect(authedTitles).toContain(title);
@@ -70,7 +70,7 @@ test.describe("S6-9 匿名写 → 登录 → 数据认领", () => {
       try {
         const otherPage = await other.newPage();
         await otherPage.goto("/login");
-        const otherList = await other.request.get("/api/logs?limit=50", { failOnStatusCode: false });
+        const otherList = await other.request.get("/api/logs?limit=50&career=ict", { failOnStatusCode: false });
         const otherTitles = ((await otherList.json()).logs ?? []).map((l: LogItem) => l.title);
         expect(otherTitles, "认领后的日志不应在另一台设备的匿名作用域可见").not.toContain(title);
       } finally {

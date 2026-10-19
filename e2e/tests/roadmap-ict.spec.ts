@@ -9,8 +9,8 @@ test.describe("/roadmap ICT 学习规划自定义", () => {
     await page.waitForLoadState("domcontentloaded");
     await page.waitForTimeout(1800);
 
-    // 1) ICT 已解锁：副标题 + 按钮，无"固定"badge
-    await expect(page.getByText("可自定义添加主题")).toBeVisible();
+    // 1) ICT 已解锁：副标题 + 按钮，无"固定"badge（S6-4 起副标题改为描述可编辑能力）
+    await expect(page.getByText(/拖动排序.*添加主题|添加主题/).first()).toBeVisible();
     await expect(page.getByRole("button", { name: "自定义主题" })).toBeVisible();
     await expect(page.getByText("ICT 规划固定")).toHaveCount(0);
 
@@ -107,8 +107,10 @@ test.describe("/roadmap 大阶段自定义（拖拽排序/增删）", () => {
       const main = (j.phases || []).filter((p: { track: string }) => p.track === "main");
       return main.find((p: { id: number }) => p.id === pid) ?? null;
     }, phaseId!);
-    expect(after?.phase_key).toBe("phase-1");
-    expect(after?.is_custom).toBe(true);
+    // 契约：/api/roadmap 自 S5 起对外返回 camelCase（phaseKey/isCustom）
+    const phase = after as { phaseKey?: string; isCustom?: boolean } | null;
+    expect(phase?.phaseKey).toBe("phase-1");
+    expect(phase?.isCustom).toBe(true);
 
     // 4) 删除该大阶段
     const del = await page.evaluate(async (pid: number) => {

@@ -58,7 +58,8 @@ test.describe("技能冷启动 + 路线图定位", () => {
       const r = await fetch("/api/roadmap?career=ict");
       const j = await r.json();
       const main = (j.phases || []).filter((p: { track: string }) => p.track === "main");
-      const ph = main[3];
+      // 取第 4 个主阶段；不足 4 个时退到最后一个（不同环境 seed 的阶段数可能不同）
+      const ph = main[3] ?? main[main.length - 1];
       return { pid: ph?.id as number | undefined, firstTopic: ph?.topics?.[0]?.title as string | undefined };
     });
     expect(pid).toBeTruthy();
@@ -71,7 +72,8 @@ test.describe("技能冷启动 + 路线图定位", () => {
     const card = page.locator("#phase-" + pid);
     await expect(card).toBeVisible();
     // 展开态：该阶段的首个主题标题可见（默认只展开前 2 个阶段，此处由 hash 定位展开）
-    await expect(card.getByText(firstTopic!)).toBeVisible();
+    // 阶段 summary 也可能包含该词，用 exact 消除 strict mode 冲突
+    await expect(card.getByText(firstTopic!, { exact: true })).toBeVisible();
     expect(collector.errors).toEqual([]);
   });
 });
