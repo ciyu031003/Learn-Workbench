@@ -8,7 +8,8 @@ import { jobDedupKey } from "@learn-workbench/shared";
  */
 export async function runJobClustering(lookbackDays = 7): Promise<{ clusters: number; merged: number }> {
   const { rows } = await pgPool.query<{
-    id: number; title: string; company: string; city: string; source: string;
+    // 与 S5-4 对齐：job_postings.id 是 bigint，驱动返回 string
+    id: string; title: string; company: string; city: string; source: string;
     published_at: string | null; fetched_at: string;
   }>(
     `SELECT id, title, company, city, source, published_at, fetched_at
@@ -58,14 +59,14 @@ export async function runJobClustering(lookbackDays = 7): Promise<{ clusters: nu
 }
 
 /** 查询职位所属簇的来源聚合（用于卡片展示「发现来源：猎聘/智联」） */
-export async function jobClusterSources(jobIds: number[]): Promise<Record<number, string[]>> {
+export async function jobClusterSources(jobIds: string[]): Promise<Record<string, string[]>> {
   if (jobIds.length === 0) return {};
-  const { rows } = await pgPool.query<{ job_ids: number[]; source_list: string[] }>(
+  const { rows } = await pgPool.query<{ job_ids: string[]; source_list: string[] }>(
     `SELECT job_ids, source_list FROM job_clusters
       WHERE job_ids && $1::bigint[]`,
     [jobIds]
   );
-  const map: Record<number, string[]> = {};
+  const map: Record<string, string[]> = {};
   for (const r of rows) {
     for (const id of r.job_ids) {
       if (jobIds.includes(id)) map[id] = r.source_list ?? [];

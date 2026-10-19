@@ -14,7 +14,8 @@ import { Loader2, Sparkles, TrendingUp, CheckCircle2, AlertCircle, PlusCircle, M
  * - 缺口：岗位技能 - 用户技能，可一键加入学习路线
  * - 学习计划：缺口按路线图阶段分组（顺序=学习顺序），链接定位 roadmap#phase-<id>
  */
-export function JobMatchSection({ jobId }: { jobId: number }) {
+// S5-4：jobId 走字符串（bigint id 不在前端做 Number 转换，避免精度丢失）
+export function JobMatchSection({ jobId }: { jobId: string }) {
   const pushToast = useToastStore((s) => s.push);
   const [match, setMatch] = useState<JobMatchResult | null>(null);
   const [gaps, setGaps] = useState<SkillGapsResult | null>(null);

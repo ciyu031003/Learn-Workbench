@@ -1,4 +1,5 @@
 import { pgPool } from "@/lib/db";
+import { todayISOInZone } from "@learn-workbench/shared/domains";
 import type { JobLearningPlan, JobMatchResult, MarketGapItem, SkillGapItem, SkillRecommend, UserSkillView } from "@learn-workbench/shared";
 
 /* ================= 技能归一化 ================= */
@@ -127,7 +128,8 @@ export async function removeUserSkill(userId: string, skillId: number): Promise<
  */
 export async function computeJobMatch(
   userId: string | null,
-  jobId: number,
+  // S5-4：bigint id 以 string 传入（pg 参数化查询可直接接收），兼容历史 number 调用
+  jobId: string | number,
   opts: { city?: string; education?: string; experience?: string } = {}
 ): Promise<JobMatchResult> {
   // 岗位技能
@@ -177,7 +179,8 @@ export async function computeJobMatch(
   );
 
   return {
-    jobId,
+    // S5-4：对外契约统一 string（bigint 不转 Number，避免 >2^53 精度丢失）
+    jobId: String(jobId),
     overall,
     matchedSkills: matched,
     missingSkills: missing,
@@ -291,7 +294,7 @@ export const WEEKLY_PLAN_HOURS = 10;
 
 /** 缺口一键加入学习路线：生成 daily_tasks */
 export async function enrollGapsToTasks(userId: string, gaps: { skill: string; topicId: number | null; hours: number }[]): Promise<number> {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISOInZone();
   // 批量取主题标题，任务标题用「学习技能：主题标题」（修复旧实现把 topicId 当标题的 bug）
   const topicIds = gaps.map((g) => g.topicId).filter((x): x is number => x != null);
   const titleById = new Map<number, string>();

@@ -21,7 +21,8 @@ import { formatRelativeTime } from "@learn-workbench/shared/dates";
  * 缺失字段由 fetchJobDetail 拉全量后覆盖（display = detail ?? job）。
  */
 export type JobDetailSeed = {
-  id: number;
+  // S5-4：对外 id 统一 string
+  id: string;
   title: string;
   company: string;
   city?: string;

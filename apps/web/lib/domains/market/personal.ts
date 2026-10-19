@@ -8,7 +8,8 @@ import {
 import type { MarketGapItem, UserSkillView } from "@learn-workbench/shared";
 
 export interface MarketPersonalJob {
-  id: number;
+  // S5-4：对外 id 契约统一 string
+  id: string;
   title: string;
   company: string;
   city: string;

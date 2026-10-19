@@ -157,7 +157,8 @@ export default function RadarScreen() {
 
   /** v20-B1：雷达条目 → 详情弹层种子（缺的字段由弹层内 fetchJobDetail 拉全量补齐） */
   const seedOf = (j: RadarJob): JobDetailSeed => ({
-    id: j.jobId,
+    // S5-4：JobDetailSeed.id 为 string
+    id: String(j.jobId),
     title: j.title,
     company: j.company,
     city: j.city || undefined,

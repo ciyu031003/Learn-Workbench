@@ -24,8 +24,10 @@ export const JOB_SOURCE_COLORS: Record<string, string> = {
 /** 公司 logo 圆底色（小面积语义色轮换，v20-V1 起 token 等价） */
 export const JOB_AVATAR_COLORS = ["#5DAE74", "#2FB3A6", "#8D7BD8", "#F28C28", "#F26B5E", "#FFB25E"];
 
-export function avatarColorOf(id: number): string {
-  return JOB_AVATAR_COLORS[Math.abs(id) % JOB_AVATAR_COLORS.length];
+export function avatarColorOf(id: string | number): string {
+  // S5-4：bigint id 以 string 传入；按字符和取模，避免 Number() 精度问题（只决定配色）
+  const n = typeof id === "number" ? Math.abs(id) : Array.from(id).reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
+  return JOB_AVATAR_COLORS[n % JOB_AVATAR_COLORS.length];
 }
 
 type SalaryJob = { salaryText?: string | null; salaryMin?: number | null; salaryMax?: number | null };

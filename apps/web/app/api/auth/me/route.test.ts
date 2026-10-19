@@ -16,6 +16,8 @@ describe("GET /api/auth/me", () => {
     expect(await res.json()).toEqual({
       user: { id: "u-1", username: "alice", displayName: "Alice" },
     });
+    // S5-5：/api/auth/me 必须 private, no-store
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
   });
 
   it("returns user null when anonymous", async () => {

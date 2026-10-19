@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { pgPool } from "@/lib/db";
 import { currentSessionToken, currentUserId } from "@/lib/session";
+import { withPrivateNoStore } from "@/lib/api/cache";
 import {
   UPLOAD_MAX_COUNT,
   UPLOAD_MAX_TOTAL_BYTES,
@@ -19,7 +20,8 @@ function parseRelativePath(raw: string): string {
 }
 
 interface UploadRow {
-  id: number;
+  /** S5-4：uploads.id 是 DB bigint，驱动返回 string；对外契约统一 string */
+  id: string;
   kind: string;
   path: string;
   bytes: number;
@@ -59,7 +61,7 @@ async function findExistingUpload(userId: string, clientId: string): Promise<Upl
  * `clientId`（可选）来自移动端图片发件箱：同一 clientId 重复提交直接回已存在的那条，
  * 避免离线补发把同一张图落两份。
  */
-export async function POST(req: Request) {
+async function postImpl(req: Request) {
   const token = await currentSessionToken();
   const userId = token ? await currentUserId() : null;
   if (!userId) return NextResponse.json({ error: "请先登录" }, { status: 401 });
@@ -107,10 +109,10 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { rows } = await pgPool.query<{ id: number }>(
+    const { rows } = await pgPool.query<{ id: string }>(
       `INSERT INTO uploads (user_id, kind, path, mime, bytes, width, height, client_id)
        VALUES ($1, $2, $3, 'image/webp', $4, $5, $6, $7)
-       RETURNING id`,
+       RETURNING id::text AS id`,
       [userId, kind, stored.path, stored.bytes, stored.width, stored.height, clientId]
     );
     return NextResponse.json({ upload: { id: rows[0]?.id ?? null, kind, ...stored } }, { status: 201 });
@@ -128,7 +130,7 @@ export async function POST(req: Request) {
  * DELETE /api/uploads?url=/uploads/<uid>/<uuid>.webp —— 删除自己的图片（换图时清理）
  * url 传相对路径或完整地址都行。
  */
-export async function DELETE(req: Request) {
+async function deleteImpl(req: Request) {
   const token = await currentSessionToken();
   const userId = token ? await currentUserId() : null;
   if (!userId) return NextResponse.json({ error: "请先登录" }, { status: 401 });
@@ -146,4 +148,13 @@ export async function DELETE(req: Request) {
   );
   await removeUploadFile(relative);
   return NextResponse.json({ ok: true });
+}
+
+/* S5-5：登录态业务接口统一 private, no-store */
+export async function POST(req: Request) {
+  return withPrivateNoStore(await postImpl(req));
+}
+
+export async function DELETE(req: Request) {
+  return withPrivateNoStore(await deleteImpl(req));
 }

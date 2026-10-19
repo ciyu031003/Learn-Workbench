@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { pgPool } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
 import { FILE_TICKET_TTL_SECONDS, FileTicketConfigError, issueFileTicket } from "@/lib/file-ticket";
+import { withPrivateNoStore } from "@/lib/api/cache";
 
 function parseId(raw: string): number | null {
   const n = Number(raw);
@@ -19,7 +20,7 @@ function parseId(raw: string): number | null {
  * 鉴权：必须登录，且该 id 属于本人（不能替别人的文件签票）。
  * 返回：{ sig, expiresIn: 300 }；生产未配密钥 → 503（fail-closed）。
  */
-export async function POST(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+async function postImpl(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const id = parseId((await ctx.params).id);
   if (!id) return NextResponse.json({ error: "id 无效" }, { status: 400 });
 
@@ -41,4 +42,9 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
     }
     return NextResponse.json({ error: "票据签发失败" }, { status: 500 });
   }
+}
+
+/** S5-5：票据属于敏感登录态响应，private, no-store */
+export async function POST(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+  return withPrivateNoStore(await postImpl(_req, ctx));
 }

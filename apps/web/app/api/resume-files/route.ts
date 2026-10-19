@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { pgPool } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
+import { withPrivateNoStore } from "@/lib/api/cache";
 import {
   contentTypeFor,
   RESUME_MAX_BYTES,
@@ -10,10 +11,10 @@ import {
   validateResumeFile,
 } from "@/lib/resume-files";
 
-const SELECT_COLS = "id, file_name AS \"fileName\", mime, bytes, created_at AS \"createdAt\"";
+const SELECT_COLS = "id::text AS id, file_name AS \"fileName\", mime, bytes, created_at AS \"createdAt\"";
 
 /** GET /api/resume-files —— 我的简历文件列表（不含文件本体） */
-export async function GET() {
+async function getImpl() {
   const userId = await currentUserId();
   if (!userId) return NextResponse.json({ error: "请先登录" }, { status: 401 });
   const { rows } = await pgPool.query(
@@ -30,7 +31,7 @@ export async function GET() {
  * POST /api/resume-files —— 上传简历（multipart/form-data：file）
  * 校验：PDF / DOC / DOCX，≤5MB；原样落盘（不走图片处理），库里只登记元数据。
  */
-export async function POST(req: Request) {
+async function postImpl(req: Request) {
   const userId = await currentUserId();
   if (!userId) return NextResponse.json({ error: "请先登录" }, { status: 401 });
 
@@ -54,4 +55,13 @@ export async function POST(req: Request) {
     [userId, String(file.name).slice(0, 200) || "简历", rel, file.type || contentTypeFor(check.ext), file.size]
   );
   return NextResponse.json({ file: { ...rows[0], bytes: Number(rows[0]?.bytes ?? 0) } }, { status: 201 });
+}
+
+/* S5-5：登录态业务接口统一 private, no-store */
+export async function GET() {
+  return withPrivateNoStore(await getImpl());
+}
+
+export async function POST(req: Request) {
+  return withPrivateNoStore(await postImpl(req));
 }

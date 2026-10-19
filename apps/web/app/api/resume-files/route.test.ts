@@ -34,10 +34,15 @@ describe("GET /api/resume-files", () => {
 
   it("返回列表并把 bytes 转成数字", async () => {
     userMock.mockResolvedValue("u-1");
-    queryMock.mockResolvedValue({ rows: [{ id: 1, fileName: "简历.pdf", mime: "application/pdf", bytes: "1234" }] } as never);
+    queryMock.mockResolvedValue({ rows: [{ id: "1", fileName: "简历.pdf", mime: "application/pdf", bytes: "1234" }] } as never);
     const res = await GET();
     const body = await res.json();
     expect(body.files[0].bytes).toBe(1234);
+    // S5-5：登录态业务响应 private, no-store
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+    // S5-4 契约：resume-files 列表 id 一律 string
+    expect(typeof body.files[0].id).toBe("string");
+    expect(body.files[0].id).toBe("1");
     expect(body.maxBytes).toBe(5 * 1024 * 1024);
   });
 });
@@ -70,7 +75,7 @@ describe("POST /api/resume-files", () => {
 
   it("成功上传 201：落库带原始文件名与 mime", async () => {
     userMock.mockResolvedValue("2f1b1f2e-0000-4000-8000-000000000000");
-    queryMock.mockResolvedValue({ rows: [{ id: 9, fileName: "简历.pdf", mime: "application/pdf", bytes: "2048" }] } as never);
+    queryMock.mockResolvedValue({ rows: [{ id: "9", fileName: "简历.pdf", mime: "application/pdf", bytes: "2048" }] } as never);
     const form = new FormData();
     form.append("file", new File([new Uint8Array(2048)], "简历.pdf", { type: "application/pdf" }));
     const res = await POST(new Request("http://localhost", { method: "POST", body: form }));
@@ -80,5 +85,7 @@ describe("POST /api/resume-files", () => {
     expect(args[1]).toBe("简历.pdf");
     expect(args[3]).toBe("application/pdf");
     expect(args[4]).toBe(2048);
+    // S5-5：登录态业务响应 private, no-store
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
   });
 });

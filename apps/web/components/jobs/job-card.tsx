@@ -93,7 +93,7 @@ export function JobCard({
   index?: number;
   favoriteBusy?: boolean;
   onOpen: (job: JobPostingListItem) => void;
-  onToggleFavorite: (id: number) => void;
+  onToggleFavorite: (id: string) => void;
 }) {
   const isAnnouncement = job.channel === "announcement";
   // 收藏成功的"心跳"反馈：只影响动画类名，不改任何回调语义

@@ -78,20 +78,24 @@ describe("POST /api/uploads", () => {
   it("成功：压缩落盘 + 写 uploads 表 + 返回站内相对 url", async () => {
     queryMock
       .mockResolvedValueOnce({ rows: [{ count: "0", bytes: "0" }] } as never)
-      .mockResolvedValueOnce({ rows: [{ id: 7 }] } as never);
+      .mockResolvedValueOnce({ rows: [{ id: "7" }] } as never);
     const res = await POST(uploadRequest(new File(["abc"], "a.png", { type: "image/png" }), "avatar"));
     expect(res.status).toBe(201);
     const body = await res.json();
-    expect(body.upload).toMatchObject({ id: 7, kind: "avatar", bytes: 12345, width: 1200 });
+    expect(body.upload).toMatchObject({ id: "7", kind: "avatar", bytes: 12345, width: 1200 });
+    // S5-4 契约：上传返回的 id 一律 string
+    expect(typeof body.upload.id).toBe("string");
     expect(body.upload.url).toBe("/uploads/" + USER_ID + "/abc.webp");
     expect(storeMock).toHaveBeenCalledWith(USER_ID, "avatar", expect.anything());
     expect(String(queryMock.mock.calls[1][0])).toContain("INSERT INTO uploads");
+    // S5-5：登录态业务响应 private, no-store
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
   });
 
   it("非法 kind 归一到 other", async () => {
     queryMock
       .mockResolvedValueOnce({ rows: [{ count: "0", bytes: "0" }] } as never)
-      .mockResolvedValueOnce({ rows: [{ id: 8 }] } as never);
+      .mockResolvedValueOnce({ rows: [{ id: "8" }] } as never);
     await POST(uploadRequest(new File(["abc"], "a.png", { type: "image/png" }), "not-a-kind"));
     expect(storeMock).toHaveBeenCalledWith(USER_ID, "other", expect.anything());
   });
@@ -100,7 +104,7 @@ describe("POST /api/uploads", () => {
     queryMock
       .mockResolvedValueOnce({ rows: [] } as never) // 幂等查询：没有已存在记录
       .mockResolvedValueOnce({ rows: [{ count: "0", bytes: "0" }] } as never)
-      .mockResolvedValueOnce({ rows: [{ id: 9 }] } as never);
+      .mockResolvedValueOnce({ rows: [{ id: "9" }] } as never);
     const res = await POST(uploadRequest(new File(["abc"], "a.png", { type: "image/png" }), "avatar", "c-1"));
     expect(res.status).toBe(201);
     const insertCall = queryMock.mock.calls[2] as unknown as [string, unknown[]];
@@ -110,12 +114,12 @@ describe("POST /api/uploads", () => {
 
   it("同一 clientId 重复提交（离线补发）：回已存在记录，不落盘、不占配额", async () => {
     queryMock.mockResolvedValueOnce({
-      rows: [{ id: 42, kind: "racket", path: USER_ID + "/old.webp", bytes: 999, width: 800, height: 600 }],
+      rows: [{ id: "42", kind: "racket", path: USER_ID + "/old.webp", bytes: 999, width: 800, height: 600 }],
     } as never);
     const res = await POST(uploadRequest(new File(["abc"], "a.png", { type: "image/png" }), "racket", "c-dup"));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.upload).toMatchObject({ id: 42, kind: "racket", bytes: 999, width: 800 });
+    expect(body.upload).toMatchObject({ id: "42", kind: "racket", bytes: 999, width: 800 });
     expect(body.upload.url).toBe("/uploads/" + USER_ID + "/old.webp");
     // 只打了一条幂等查询，没有配额查询、没有落盘、没有再 INSERT
     expect(queryMock).toHaveBeenCalledTimes(1);
@@ -128,11 +132,11 @@ describe("POST /api/uploads", () => {
       .mockResolvedValueOnce({ rows: [{ count: "0", bytes: "0" }] } as never)
       .mockRejectedValueOnce(Object.assign(new Error("duplicate key"), { code: "23505" }))
       .mockResolvedValueOnce({
-        rows: [{ id: 43, kind: "racket", path: USER_ID + "/race.webp", bytes: 111, width: 640, height: 480 }],
+        rows: [{ id: "43", kind: "racket", path: USER_ID + "/race.webp", bytes: 111, width: 640, height: 480 }],
       } as never);
     const res = await POST(uploadRequest(new File(["abc"], "a.png", { type: "image/png" }), "racket", "c-race"));
     expect(res.status).toBe(200);
-    expect((await res.json()).upload.id).toBe(43);
+    expect((await res.json()).upload.id).toBe("43");
   });
 
   it("图片处理失败返回 400", async () => {
@@ -168,5 +172,7 @@ describe("DELETE /api/uploads", () => {
     expect(res.status).toBe(200);
     expect(removeMock).toHaveBeenCalledWith(USER_ID + "/abc.webp");
     expect(String(queryMock.mock.calls[0][0])).toContain("UPDATE uploads SET deleted_at");
+    // S5-5：登录态业务响应 private, no-store
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
   });
 });

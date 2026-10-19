@@ -21,7 +21,7 @@ describe("GET /api/jobs", () => {
     queryJobsMock.mockResolvedValue({
       jobs: [
         {
-          id: 1, source: "lagou", sourceJobId: "l1", title: "前端工程师", company: "星辰科技",
+          id: "1", source: "lagou", sourceJobId: "l1", title: "前端工程师", company: "星辰科技",
           city: "上海", district: "徐汇", salaryMin: 15, salaryMax: 25, salaryText: "15-25K",
           experience: "1-3年", education: "本科", tags: ["React"], description: "d",
           requirements: "r", companyInfo: "c", url: "https://x", logoUrl: "",
@@ -36,6 +36,10 @@ describe("GET /api/jobs", () => {
     const data = await res.json();
     expect(data.total).toBe(1);
     expect(data.page).toBe(2);
+    // S5-4 契约：列表 id 一律 string（前端用 === 做字符串比较）
+    expect(typeof data.jobs[0].id).toBe("string");
+    const selectedId = new URL("http://localhost/jobs?jobId=" + encodeURIComponent(data.jobs[0].id)).searchParams.get("jobId");
+    expect(data.jobs[0].id === selectedId).toBe(true);
     expect(queryJobsMock).toHaveBeenCalledWith(expect.objectContaining({
       q: "前端",
       city: "上海",

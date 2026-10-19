@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { pgPool } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
 import { verifyFileTicket } from "@/lib/file-ticket";
+import { withPrivateNoStore } from "@/lib/api/cache";
 import { contentTypeFor, isSafeResumePath, removeResumeFile, resumeAbsPath, resumeExtOf } from "@/lib/resume-files";
 
 function parseId(raw: string): number | null {
@@ -36,7 +37,7 @@ async function viewerId(req: Request, id: number): Promise<{ userId: string } | 
  * GET /api/resume-files/[id] —— 预览 / 下载自己的简历文件
  * 默认 inline（浏览器里直接看 PDF）；加 ?download=1 触发下载。**只有本人能取。**
  */
-export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
+async function getImpl(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const id = parseId((await ctx.params).id);
   if (!id) return NextResponse.json({ error: "id 无效" }, { status: 400 });
 
@@ -62,14 +63,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
       "Content-Type": row.mime || contentTypeFor(ext),
       "Content-Length": String(data.length),
       "Content-Disposition": (download ? "attachment" : "inline") + "; filename*=UTF-8\x27\x27" + encodeURIComponent(row.fileName),
-      // 私有内容：只允许浏览器私有缓存，别让 CDN/代理缓存
-      "Cache-Control": "private, max-age=300",
+      // S5-5：私有内容同样不落任何缓存层（登录态业务响应 → private, no-store）
+      "Cache-Control": "private, no-store",
     },
   });
 }
 
 /** DELETE /api/resume-files/[id] —— 删除自己的简历（软删 + 清文件） */
-export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+async function deleteImpl(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const id = parseId((await ctx.params).id);
   if (!id) return NextResponse.json({ error: "id 无效" }, { status: 400 });
   const userId = await currentUserId();
@@ -82,4 +83,13 @@ export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string 
   if (!rows[0]) return NextResponse.json({ error: "文件不存在" }, { status: 404 });
   await removeResumeFile(rows[0].path);
   return NextResponse.json({ ok: true });
+}
+
+/* S5-5：私有内容的所有响应（含 401/403/404）一律 private, no-store */
+export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  return withPrivateNoStore(await getImpl(req, ctx));
+}
+
+export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+  return withPrivateNoStore(await deleteImpl(_req, ctx));
 }

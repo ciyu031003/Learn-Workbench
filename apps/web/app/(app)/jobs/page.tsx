@@ -183,7 +183,8 @@ export default function JobsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
-  const [favoriteBusyId, setFavoriteBusyId] = useState<number | null>(null);
+  // S5-4：id 契约统一 string；前端用 === 做字符串比较
+  const [favoriteBusyId, setFavoriteBusyId] = useState<string | null>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
   // P1：多条件筛选 + 双栏详情面板
   const [filters, setFilters] = useState<JobFilterState>({ ...DEFAULT_FILTERS });
@@ -330,7 +331,7 @@ export default function JobsPage() {
     }
   };
 
-  const toggleFavorite = async (id: number) => {
+  const toggleFavorite = async (id: string) => {
     setFavoriteBusyId(id);
     try {
       const r = await fetch(`/api/jobs/${id}/favorite`, { method: "POST" });

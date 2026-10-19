@@ -83,7 +83,7 @@ export function JobDetailPanel({
   error: string | null;
   favoriteBusy: boolean;
   onClose: () => void;
-  onToggleFavorite: (id: number) => void;
+  onToggleFavorite: (id: string) => void;
 }) {
   const pushToast = useToastStore((s) => s.push);
   if (!open || !summary) return null;

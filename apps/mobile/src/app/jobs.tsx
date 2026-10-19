@@ -551,7 +551,8 @@ export default function JobsScreen() {
   const [cityExpand, setCityExpand] = useState(false);
   const [category, setCategory] = useState("");
   const [sort, setSort] = useState<"new" | "salary">("new");
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  // S5-4：id 契约统一 string（与 API 响应一致，避免 bigint 精度丢失）
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailVisible, setDetailVisible] = useState(false);
   // P1 多条件筛选（Bottom Sheet）
   const [filterVisible, setFilterVisible] = useState(false);
@@ -713,7 +714,7 @@ export default function JobsScreen() {
   };
 
   // v20-B1：参数放宽为 { id }（详情弹层的种子入参也走同一条收藏链路）
-  const toggleFavorite = async (job: { id: number }) => {
+  const toggleFavorite = async (job: { id: string }) => {
     recordCrumb("action", { name: "toggle-fav", id: job.id });
     if (!token) {
       Alert.alert("请先登录", "收藏功能需要登录后使用。");

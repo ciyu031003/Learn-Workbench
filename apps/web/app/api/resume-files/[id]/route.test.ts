@@ -50,7 +50,8 @@ describe("GET /api/resume-files/[id]", () => {
     expect(ticketMock).toHaveBeenCalledWith("body.mac");
     expect(queryMock).toHaveBeenCalledWith(expect.stringContaining("FROM resume_files WHERE id = $1 AND user_id = $2"), [1, "u-1"]);
     expect(res.headers.get("Content-Disposition")).toContain("inline");
-    expect(res.headers.get("Cache-Control")).toContain("private");
+    // S5-5：私有内容也不进任何缓存层
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
   });
 
   it("sig 无效/过期 → 401", async () => {

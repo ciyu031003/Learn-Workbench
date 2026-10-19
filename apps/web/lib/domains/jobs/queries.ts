@@ -2,7 +2,8 @@ import { pgPool } from "@/lib/db";
 import type { JobPosting } from "@learn-workbench/shared";
 
 export interface JobRow {
-  id: number;
+  /** bigint 在 pg 驱动里是 string；边界统一 String() 后对外就是 string id */
+  id: string;
   source: string;
   source_job_id: string;
   title: string;
@@ -28,14 +29,15 @@ export interface JobRow {
   fetched_at: string;
 }
 export const JOB_CARD_SELECT = `
-  id, source, source_job_id, title, company, city, district,
+  id::text AS id, source, source_job_id, title, company, city, district,
   salary_min, salary_max, salary_text, experience, education, tags,
   description, requirements, company_info, url, logo_url,
   category, channel, deadline_at, extra, published_at, fetched_at
 `;
 export function jobRowToPosting(row: JobRow): JobPosting {
   return {
-    id: row.id,
+    // S5-4：DB bigint 在边界显式 String()，API 响应的 id 一律 string
+    id: String(row.id),
     source: row.source,
     sourceJobId: row.source_job_id,
     title: row.title,

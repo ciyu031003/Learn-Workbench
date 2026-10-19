@@ -523,7 +523,9 @@ export const jobSourceSchema = z.enum(["lagou", "liepin", "zhilian", "job51", "b
 export type JobSource = z.infer<typeof jobSourceSchema>;
 
 export const jobPostingSchema = z.object({
-  id: z.number(),
+  // S5-4：job_postings.id 是 DB bigint，node-postgres 在边界返回 string；
+  // 对外契约统一为 string（前端用 === 做字符串比较，避免 bigint 精度丢失）。
+  id: z.string(),
   source: z.string(),
   sourceJobId: z.string(),
   title: z.string(),
@@ -896,7 +898,8 @@ export const userSkillViewSchema = z.object({
 export type UserSkillView = z.infer<typeof userSkillViewSchema>;
 
 export const jobMatchResultSchema = z.object({
-  jobId: z.number(),
+  // S5-4：岗位 id 对外一律 string
+  jobId: z.string(),
   overall: z.number(),      // 0-100 匹配度
   matchedSkills: z.array(z.object({ skill: z.string(), level: z.number(), hit: z.boolean(), partial: z.boolean() })),
   missingSkills: z.array(z.object({ skill: z.string() })),

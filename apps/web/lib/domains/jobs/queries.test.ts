@@ -12,7 +12,8 @@ beforeEach(() => vi.resetAllMocks());
 
 function row(overrides: Record<string, unknown> = {}) {
   return {
-    id: 1, source: "lagou", source_job_id: "l1", title: "前端工程师", company: "星辰",
+    // pg 驱动对 bigint(int8) 返回 string，测试数据与真实运行时保持一致
+    id: "1", source: "lagou", source_job_id: "l1", title: "前端工程师", company: "星辰",
     city: "上海", district: "徐汇", salary_min: 15, salary_max: 25, salary_text: "15-25K",
     experience: "1-3年", education: "本科", tags: ["React"], description: "d",
     requirements: "r", company_info: "c", url: "https://x", logo_url: "",
@@ -25,7 +26,9 @@ function row(overrides: Record<string, unknown> = {}) {
 describe("jobRowToPosting", () => {
   it("maps all snake_case fields to the posting shape", () => {
     const p = jobRowToPosting(row() as never);
-    expect(p.id).toBe(1);
+    // S5-4：API 响应 id 一律 string
+    expect(p.id).toBe("1");
+    expect(typeof p.id).toBe("string");
     expect(p.source).toBe("lagou");
     expect(p.sourceJobId).toBe("l1");
     expect(p.title).toBe("前端工程师");
@@ -106,7 +109,7 @@ describe("queryJobs", () => {
   it("attaches cluster sources when includeSources and a job has >1 sources", async () => {
     queryMock.mockResolvedValueOnce({ rows: [{ ...row(), is_new: false, is_fav: false }] } as never);
     queryMock.mockResolvedValueOnce({ rows: [{ n: 1 }] } as never);
-    sourcesMock.mockResolvedValue({ 1: ["lagou", "boss"] });
+    sourcesMock.mockResolvedValue({ "1": ["lagou", "boss"] });
     const res = await queryJobs({ includeSources: true, page: 1, pageSize: 10 });
     expect((res.jobs[0] as unknown as { clusterSources?: string[] }).clusterSources).toEqual(["lagou", "boss"]);
   });

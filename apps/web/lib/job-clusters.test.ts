@@ -48,12 +48,12 @@ describe("jobClusterSources (P1)", () => {
   it("maps cluster sources by job id", async () => {
     queryMock.mockResolvedValue({
       rows: [
-        { job_ids: [1, 2], source_list: ["boss", "liepin"] },
+        { job_ids: ["1", "2"], source_list: ["boss", "liepin"] },
       ],
     } as never);
-    const map = await jobClusterSources([1, 2, 3]);
-    expect(map[1]).toEqual(["boss", "liepin"]);
-    expect(map[2]).toEqual(["boss", "liepin"]);
-    expect(map[3]).toBeUndefined();
+    const map = await jobClusterSources(["1", "2", "3"]);
+    expect(map["1"]).toEqual(["boss", "liepin"]);
+    expect(map["2"]).toEqual(["boss", "liepin"]);
+    expect(map["3"]).toBeUndefined();
   });
 });

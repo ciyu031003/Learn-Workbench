@@ -25,10 +25,13 @@ describe("GET /api/jobs/[id]", () => {
 
   it("returns the job for a logged-out user", async () => {
     currentUserIdMock.mockResolvedValue(null);
-    getJobDetailMock.mockResolvedValue({ id: 1, isFav: false } as never);
+    getJobDetailMock.mockResolvedValue({ id: "1", isFav: false } as never);
     const res = await GET(new Request("http://localhost"), ctx);
     expect(res.status).toBe(200);
-    expect((await res.json()).job).toMatchObject({ id: 1 });
+    // S5-4 契约：详情 id 一律 string
+    const body = await res.json();
+    expect(body.job).toMatchObject({ id: "1" });
+    expect(typeof body.job.id).toBe("string");
     expect(getJobDetailMock).toHaveBeenCalledWith(1, null);
   });
 });
