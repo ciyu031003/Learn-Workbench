@@ -8,6 +8,7 @@ import { guardInternalRequest } from "@/lib/internal-guard";
 import { rateLimit } from "@/lib/rate-limit";
 import { assertAnonWriteAllowed } from "@/lib/anon-quota";
 import { logRequest } from "@/lib/api/log-request";
+import { inc, observe } from "@/lib/metrics";
 import { REQUEST_ID_HEADER, requestIdFrom } from "@/lib/request-id";
 import { logger } from "@/lib/logger";
 import type { Role } from "@/lib/roles";
@@ -140,6 +141,9 @@ export function withRoute<TBody = unknown>(
       const ms = Date.now() - started;
       // 请求级访问日志：只记 pathname（不含 query，避免 token/票据落日志）
       logRequest(req, res.status, ms, requestId);
+      // 指标（S4-5）：基数纪律——标签只允许 method / status，绝不带 path/user
+      inc("lwb_http_requests_total", { method: req.method, status: String(res.status) }, 1);
+      observe("lwb_http_request_duration_ms", ms, { method: req.method });
       return res;
     };
 

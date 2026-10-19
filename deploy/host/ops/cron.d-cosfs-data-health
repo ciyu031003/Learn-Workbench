@@ -1,0 +1,3 @@
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+15 6 * * * root /usr/local/sbin/cosfs-data.sh health >>/var/log/cosfs-data.log 2>&1

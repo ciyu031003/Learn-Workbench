@@ -1,0 +1,1 @@
+30 7 * * * root cd /home/ubuntu/learn-workbench && /usr/bin/python3 scripts/fetch_bing_wallpaper.py --out /var/lib/docker/volumes/learn-workbench_bing/_data >> /home/ubuntu/bing.log 2>&1

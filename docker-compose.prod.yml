@@ -1,0 +1,18 @@
+# =============================================================================
+# 生产覆盖层（S4-4）：用不可变镜像 + 一键回滚，不在服务器现场构建
+#
+# 用法：
+#   WEB_IMAGE=ghcr.io/ciyu031003/learn-workbench-web:<sha|tag> \
+#     docker compose -f docker-compose.yml -f docker-compose.prod.yml pull web
+#   WEB_IMAGE=... docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build web
+#
+# 日常部署仍可用 bash deploy-docker.sh（现场构建）；本文件是"回滚 / 预发 / 灰度"通道，
+# 与主 compose 合并后只覆盖 web 的 image 与拉取策略。
+# =============================================================================
+services:
+  web:
+    image: ${WEB_IMAGE:?WEB_IMAGE 未设置，例如 ghcr.io/ciyu031003/learn-workbench-web:<sha>}
+    pull_policy: if_not_present
+    labels:
+      - "lwb.deploy.mode=image"
+      - "lwb.deploy.image=${WEB_IMAGE}"

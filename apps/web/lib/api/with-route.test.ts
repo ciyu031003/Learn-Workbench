@@ -172,6 +172,21 @@ describe("withRoute · 错误与缓存", () => {
   });
 });
 
+describe("withRoute · 指标埋点（S4-5）", () => {
+  it("请求结束会记录 lwb_http_requests_total（method/status 标签，低基数）", async () => {
+    const { renderMetrics } = await import("@/lib/metrics");
+    currentUserIdMock.mockResolvedValue("u-1");
+    const route = withRoute({ auth: "user" }, async () => Response.json({ ok: true }));
+    await route(post("/api/x", {}));
+    const text = renderMetrics();
+    expect(text).toContain("lwb_http_requests_total");
+    expect(text).toContain('method="POST"');
+    expect(text).toContain('status="200"');
+    // 基数纪律：不得把 path 放进标签
+    expect(text).not.toContain('path="/api/x"');
+  });
+});
+
 describe("readJsonBody", () => {
   it("空 body 返回 null，不抛错", async () => {
     const res = await readJsonBody(new Request("http://localhost/x", { method: "POST" }), 100);

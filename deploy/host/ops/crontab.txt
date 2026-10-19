@@ -1,0 +1,17 @@
+# 招花：每日 08:00 官方源+互联网源
+0 8 * * * cd /home/ubuntu/learn-workbench && sudo docker compose exec -T web node /app/scripts/jobs_official.mjs >> logs/jobs-cron.log 2>&1 && sudo docker compose exec -T web node /app/scripts/jobs_browser.mjs >> logs/jobs-cron.log 2>&1
+# 招花：每周一 06:00 更新 hosts 注册表并增量抓取
+0 6 * * 1 cd /home/ubuntu/learn-workbench && sudo docker compose exec -T web node /app/scripts/update_job_hosts.mjs >> logs/hosts-cron.log 2>&1 && sudo docker compose exec -T web node /app/scripts/jobs_official.mjs >> logs/hosts-cron.log 2>&1
+# travel-notes：每周日 04:30 docker 磁盘清理，防构建缓存打满
+30 4 * * 0 bash /home/ubuntu/travel-notes/scripts/disk-clean.sh >> /home/ubuntu/travel-notes/logs/disk-clean-cron.log 2>&1
+# learn-workbench：每周日 05:00 docker 磁盘清理，防构建缓存打满
+0 5 * * 0 bash /home/ubuntu/learn-workbench/scripts/disk-clean.sh >> /home/ubuntu/learn-workbench/logs/disk-clean-cron.log 2>&1
+# 数据库每日备份 → /data（cosfs），保留 14 天
+17 3 * * * /usr/local/bin/backup-db.sh >> /data/backups/backup.log 2>&1
+30 4 * * * flock -n /tmp/lwb-cron-crawl.lock curl -fsS -m 60 -X POST -H 'x-cron-secret: <REDACTED> 'http://127.0.0.1:3001/api/internal/cron?job=crawl' >> /home/ubuntu/learn-workbench/cron-jobs.log 2>&1 || true
+30 12 * * * flock -n /tmp/lwb-cron-crawl.lock curl -fsS -m 60 -X POST -H 'x-cron-secret: <REDACTED> 'http://127.0.0.1:3001/api/internal/cron?job=crawl' >> /home/ubuntu/learn-workbench/cron-jobs.log 2>&1 || true
+40 5 * * * flock -n /tmp/lwb-cron-agg.lock curl -fsS -m 300 -X POST -H 'x-cron-secret: <REDACTED> 'http://127.0.0.1:3001/api/internal/cron?job=aggregate' >> /home/ubuntu/learn-workbench/cron-jobs.log 2>&1 || true
+50 12 * * * flock -n /tmp/lwb-cron-backfill.lock curl -fsS -m 300 -X POST -H 'x-cron-secret: <REDACTED> 'http://127.0.0.1:3001/api/internal/cron?job=backfill' >> /home/ubuntu/learn-workbench/cron-jobs.log 2>&1 || true
+10 6 * * * flock -n /tmp/lwb-cron-maint.lock curl -fsS -m 120 -X POST -H 'x-cron-secret: <REDACTED> 'http://127.0.0.1:3001/api/internal/cron?job=maintenance' >> /home/ubuntu/learn-workbench/cron-jobs.log 2>&1 || true
+# 修盒子后台：数据库 + 内容仓库备份 → /data(cosfs)，保留 30 天
+37 3 * * * /usr/local/bin/backup-yuanabd-pc-fixboxs.sh >> /data/backups/yuanabd-pc-fixboxs/backup.log 2>&1

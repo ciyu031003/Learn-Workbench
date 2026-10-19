@@ -64,11 +64,12 @@ export function observe(name: string, valueMs: number, labels: Labels = {}): voi
   }
 }
 
-/** 只给测试与"预算重置"用；生产不要在运行中调用。 */
+/** 只给测试与"预算重置"用；生产不要在运行中调用（会清掉 counters 并使路由缓存失效）。 */
 export function resetMetrics(): void {
   counters.clear();
   gauges.clear();
   histograms.clear();
+  metricsGeneration += 1;
 }
 
 export interface ExternalMetric {
@@ -160,4 +161,85 @@ export async function timed<T>(name: string, labels: Labels, fn: () => Promise<T
   } finally {
     observe(name, Date.now() - started, labels);
   }
+}
+
+/* ============================================================================
+ * S4-5：进程/连接池指标 + 指标代际（供 /api/internal/metrics 与告警脚本）
+ * ==========================================================================*/
+
+/**
+ * 指标"代际"：每次 resetMetrics() 自增。
+ * 用途：路由内的短周期缓存（如 /api/internal/metrics 的 60s COUNT 缓存）据此失效 ——
+ * 单测里 beforeEach(resetMetrics) 能拿到干净数据，不会出现"上一个用例的缓存串到下一个"。
+ */
+let metricsGeneration = 0;
+
+export function metricsGenerationId(): number {
+  return metricsGeneration;
+}
+
+export interface ProcessMetricInput {
+  /** 进程启动时间（Date.now() 口径） */
+  bootAt: number;
+  /** 当前时间（测试注入） */
+  now?: number;
+  /** process.memoryUsage()（测试注入） */
+  memory?: NodeJS.MemoryUsage;
+}
+
+/** 进程运行时长 / 内存指标（gauge）。字段名与 docs/运维告警规则.md 对齐。 */
+export function collectProcessMetrics(input: ProcessMetricInput): ExternalMetric[] {
+  const now = input.now ?? Date.now();
+  const mem = input.memory ?? process.memoryUsage();
+  const uptime = Math.max(0, Math.floor((now - input.bootAt) / 1000));
+  return [
+    { name: "lwb_process_uptime_seconds", help: "进程运行时长（秒）", type: "gauge", value: uptime },
+    { name: "lwb_process_resident_memory_bytes", help: "RSS 常驻内存（字节）", type: "gauge", value: mem.rss },
+    { name: "lwb_process_heap_used_bytes", help: "V8 heap 已用（字节）", type: "gauge", value: mem.heapUsed },
+    { name: "lwb_process_heap_total_bytes", help: "V8 heap 总量（字节）", type: "gauge", value: mem.heapTotal },
+  ];
+}
+
+/** pg.Pool 的最小结构（只读字段，便于测试注入；不要传真实连接对象）。 */
+export interface PoolStatsLike {
+  totalCount?: unknown;
+  idleCount?: unknown;
+  waitingCount?: unknown;
+  options?: { max?: unknown } | unknown;
+}
+
+function finiteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() !== "") {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+/**
+ * PG 连接池指标（gauge）：total / idle / waiting / max / usage_ratio。
+ * usage_ratio = totalCount / max（0~1），告警阈值 0.8 见 docs/运维告警规则.md。
+ * 任何字段缺失都跳过该项（老版本 pg / 测试 mock 只提供 query 时不抛错）。
+ */
+export function collectPoolMetrics(pool: PoolStatsLike, maxOverride?: unknown): ExternalMetric[] {
+  const total = finiteNumber(pool.totalCount);
+  const idle = finiteNumber(pool.idleCount);
+  const waiting = finiteNumber(pool.waitingCount);
+  const options = pool.options as { max?: unknown } | undefined;
+  const max = finiteNumber(maxOverride ?? options?.max);
+
+  const out: ExternalMetric[] = [];
+  const push = (name: string, help: string, value: number | null) => {
+    if (value === null) return;
+    out.push({ name, help, type: "gauge", value });
+  };
+  push("lwb_pg_pool_total_connections", "连接池已建连接数（含空闲）", total);
+  push("lwb_pg_pool_idle_connections", "连接池空闲连接数", idle);
+  push("lwb_pg_pool_waiting_requests", "等待拿连接的请求数", waiting);
+  push("lwb_pg_pool_max_connections", "连接池上限（PGPOOL_MAX）", max);
+  if (total !== null && max !== null && max > 0) {
+    push("lwb_pg_pool_usage_ratio", "连接池占用率 total/max", Math.round((total / max) * 1000) / 1000);
+  }
+  return out;
 }

@@ -1,0 +1,39 @@
+# =============================================================================
+# Learn-Workbench 宿主告警 crontab 片段（S4-5）
+#   crontab -e 后把下面内容追加进去（按实际路径/用户修改）
+#   详细规则与演练方法见 docs/运维告警规则.md
+# =============================================================================
+SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/bin
+# 收告警邮件（可选；配置了 ALERT_WEBHOOK_URL 后可注释掉）
+MAILTO=ops@example.com
+# 服务器时区（让 cron 的 6:00 宽限窗口 / 日志时间与业务一致）
+TZ=Asia/Shanghai
+
+# 每 10 分钟检查一次：磁盘 <10GiB、PG 连接池 >80%、5xx >5%、当日抓取是否成功
+# 有告警且未配置 webhook 时 exit 1 -> cron 会给 MAILTO 发信
+*/10 * * * * bash /opt/learn-workbench/deploy/host/alert-check.sh >> /var/log/lwb-alert.log 2>&1
+
+# 可选：每天 9:05 跑一次 --dry-run 做配置自检（输出到日志，便于确认阈值没被改坏）
+# 5 9 * * * bash /opt/learn-workbench/deploy/host/alert-check.sh --dry-run >> /var/log/lwb-alert.log 2>&1
+
+# =============================================================================
+# S4-6 数据库备份 + 恢复演练（2026-10-19 追加；与上面的告警 cron 共存）
+#   详细说明：docs/备份与恢复演练.md
+#   与现有生产 crontab 的 03:17 /usr/local/bin/backup-db.sh 二选一，避免同一天备份两次。
+# =============================================================================
+LWB_HOME=/home/ubuntu/learn-workbench
+LWB_LOG=/var/log/learn-workbench
+
+# 每日 03:17 数据库全量备份：docker 模式（宿主机无需 pg_dump/pg_restore），写 /data COSFS 挂载。
+# 成功行：BACKUP_OK <path> <bytes> <sha256>；失败退出码非 0。
+17 3 * * * cd $LWB_HOME && BACKUP_MODE=docker BACKUP_TARGET=cos bash scripts/backup-db.sh >> $LWB_LOG/backup.log 2>&1
+
+# 宿主机已装 postgresql-client 且能连 DB 时，可改用 host 模式：
+# 17 3 * * * cd $LWB_HOME && BACKUP_MODE=host BACKUP_TARGET=cos bash scripts/backup-db.sh >> $LWB_LOG/backup.log 2>&1
+
+# 每周日 04:00 恢复演练：从最新 dump 恢复到 lwb_restore_drill_<ts>、断言表数/关键表行数后 DROP。
+# 前提：node >= 20 + postgresql-client，且宿主机能连到 DB；连接参数放 $LWB_HOME/.pgdrill.env（chmod 600）。
+# 生产 compose 未向宿主机发布 DB 端口；无法直连时见 docs/备份与恢复演练.md「无直连时在容器内演练」。
+0 4 * * 0 cd $LWB_HOME && set -a && . ./.pgdrill.env && set +a && node scripts/restore-drill.mjs --latest /data/learn-workbench/backups >> $LWB_LOG/restore-drill.log 2>&1
+
