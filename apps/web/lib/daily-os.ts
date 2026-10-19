@@ -1,6 +1,7 @@
 import { pgPool } from "@/lib/db";
 import { scopeWhere } from "@/lib/anon";
-import { computeHabitStats, isScheduled, toDateKey, sumNutrition, buildNutritionTargetView, ACTIVITY_LEVELS, type ActivityLevel, type Habit, type Sex } from "@learn-workbench/shared";
+import { computeHabitStats, isScheduled, sumNutrition, buildNutritionTargetView, ACTIVITY_LEVELS, type ActivityLevel, type Habit, type Sex } from "@learn-workbench/shared";
+import { computeDailyCompletion, dateKeyInZone } from "@learn-workbench/shared/domains";
 
 export interface Scope {
   uid: string | null;
@@ -61,8 +62,10 @@ export async function buildDailyOs(
    *  于是「饮食页有记录、健康主页/今日页却是 0」（2026-09-22 真机反馈）。 */
   dateKeyOverride?: string | null
 ): Promise<DailyOsResult> {
+  // 业务日期统一东八区（S5-1，shared/domains）：服务器 TZ=UTC 时旧实现 `toDateKey(now)`
+  // 会在东八区 00:00–08:00 把「今天」算成前一天（/api/daily 与客户端 date 对不上）。
   const dateKey =
-    dateKeyOverride && /^\d{4}-\d{2}-\d{2}$/.test(dateKeyOverride) ? dateKeyOverride : toDateKey(now);
+    dateKeyOverride && /^\d{4}-\d{2}-\d{2}$/.test(dateKeyOverride) ? dateKeyOverride : dateKeyInZone(now);
 
   // ---- 学习：今日任务 + 专注时长 ----
   const taskWhere = scopeWhere(scope, [scope.uid, dateKey]);
@@ -228,12 +231,10 @@ export async function buildDailyOs(
     expiringCertificates = Number(certRows[0]?.n ?? 0);
   }
 
-  // ---- 完成度：学习 40% + 习惯 30% + 运动 15% + 饮食 15% ----
+  // ---- 完成度：口径唯一实现在 @learn-workbench/shared/domains（S5-1）----
+  // 学习 40% + 习惯 30% + 运动 15% + 饮食 15%（含夹取 0–100、脏值兜底）
   const tasksTotal = taskRows.length;
   const tasksDone = taskRows.filter((t) => t.done).length;
-  const taskPart = tasksTotal > 0 ? tasksDone / tasksTotal : 0;
-  const habitPart = scheduled > 0 ? habitsDone / scheduled : 0;
-  const workoutPart = workoutRows.length > 0 ? 1 : 0;
 
   // 目标热量：优先手动覆盖，其次按身体数据算（v3 M6），最后默认 2000
   const profileRow = profRows[0];
@@ -252,8 +253,15 @@ export async function buildDailyOs(
     now
   );
   const nutritionTargetKcal = targetView.kcal;
-  const nutritionPart = Math.min(1, nutrition.kcal / Math.max(1, nutritionTargetKcal));
-  const progress = Math.round((taskPart * 40 + habitPart * 30 + workoutPart * 15 + nutritionPart * 15));
+  const { progress } = computeDailyCompletion({
+    tasksTotal,
+    tasksDone,
+    habitsScheduled: scheduled,
+    habitsDone,
+    workoutDone: workoutRows.length > 0,
+    nutritionKcal: nutrition.kcal,
+    nutritionTargetKcal,
+  });
 
   return {
     date: dateKey,

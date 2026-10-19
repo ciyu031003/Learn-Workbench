@@ -1,6 +1,7 @@
 import { pgPool } from "@/lib/db";
 import type { MarketAnalysis, MarketCityRow, MarketExpRow, MarketJobTypeRow, MarketOverview, MarketPlatformRow, MarketSkillRow, MarketSkillSalaryRow, MarketTrend } from "./types";
 import { functionRules, jobTypeRules, makeFunctionRule, companyNameRe, salaryBuckets, sourceLabels } from "@learn-workbench/config";
+import { todayISOInZone } from "@learn-workbench/shared/domains";
 
 /* ================= 招聘市场分析（P4，预聚合 + DB 缓存） =================
  * P1：聚合结果落 market_stats 表（多实例共享、重启不丢）；
@@ -264,7 +265,7 @@ export async function analyzeMarket(options: { force?: boolean } = {}): Promise<
   };
 
   // P5 趋势：每日落一次快照（DO NOTHING），并与上一日快照环比
-  const snapDate = new Date().toISOString().slice(0, 10);
+  const snapDate = todayISOInZone();
   await pgPool
     .query(
       `INSERT INTO market_stats_history (snap_date, payload) VALUES ($1, $2::jsonb)

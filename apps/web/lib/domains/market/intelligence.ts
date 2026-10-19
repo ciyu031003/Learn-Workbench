@@ -1,4 +1,5 @@
 import { pgPool } from "@/lib/db";
+import { addDaysToDateKey, todayISOInZone } from "@learn-workbench/shared/domains";
 import { analyzeMarket } from "./analysis";
 import { readGlobalMarketTimeSeries } from "./snapshots";
 
@@ -115,18 +116,13 @@ function buildWhere(filters: MarketIntelligenceFilters) {
   return { where: parts.join(" AND "), args };
 }
 
-function dateKey(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
 function fillSeries(rows: MarketTimePoint[], range: number): MarketTimePoint[] {
   const points = new Map(rows.map((row) => [row.date, row]));
   const result: MarketTimePoint[] = [];
-  const today = new Date();
+  // S5-1：日期键用业务时区（东八区）的日历日 + 纯日历加减
+  const today = todayISOInZone();
   for (let offset = range - 1; offset >= 0; offset -= 1) {
-    const current = new Date(today);
-    current.setDate(today.getDate() - offset);
-    const date = dateKey(current);
+    const date = addDaysToDateKey(today, -offset);
     const matched = points.get(date);
     result.push(
       matched ?? {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { pgPool } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
+import { todayISOInZone } from "@learn-workbench/shared/domains";
 
 /** 领域投入概览：当前领域 记录项数 + 今日记录数 + 今日投入值合计 */
 export async function GET(req: Request) {
@@ -8,7 +9,7 @@ export async function GET(req: Request) {
   const career = url.searchParams.get("career") || "ict";
   const uid = await currentUserId();
   if (!uid) return NextResponse.json({ error: "请先登录" }, { status: 401 });
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISOInZone();
   const { rows } = await pgPool.query<{ n: string }>(
     `SELECT COUNT(*)::text AS n FROM domain_trackers
      WHERE user_id = $1 AND domain_key = $2 AND deleted_at IS NULL`,

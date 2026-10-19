@@ -1,4 +1,5 @@
 import { pgPool } from "@/lib/db";
+import { addDaysToDateKey, todayISOInZone } from "@learn-workbench/shared/domains";
 import type { MarketTimePoint } from "./intelligence";
 
 export interface MarketDimensionSnapshot {
@@ -40,7 +41,7 @@ function insertSnapshots(rows: MarketDimensionSnapshot[]): Promise<unknown> {
 }
 
 export async function writeMarketDimensionSnapshots(
-  snapDate = new Date().toISOString().slice(0, 10)
+  snapDate = todayISOInZone()
 ): Promise<number> {
   const global = await pgPool.query<{
     total_jobs: number;
@@ -110,11 +111,10 @@ export function fillMarketSeries(
 ): MarketTimePoint[] {
   const points = new Map(rows.map((row) => [String(row.date ?? ""), row]));
   const result: MarketTimePoint[] = [];
-  const today = new Date();
+  // S5-1：日期键用业务时区（东八区）的日历日 + 纯日历加减
+  const today = todayISOInZone();
   for (let offset = range - 1; offset >= 0; offset -= 1) {
-    const current = new Date(today);
-    current.setDate(today.getDate() - offset);
-    const date = current.toISOString().slice(0, 10);
+    const date = addDaysToDateKey(today, -offset);
     const matched = points.get(date);
     const toNumber = (value: unknown): number | null => {
       if (value == null || value === "") return null;

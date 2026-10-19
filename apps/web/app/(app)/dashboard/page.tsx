@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { CareerReadiness, DashboardSummary, WellbeingToday } from "@learn-workbench/shared/schemas";
 import { taskTypeLabels } from "@learn-workbench/shared/labels";
 import { formatDuration, formatDateCN, todayISO } from "@learn-workbench/shared/dates";
+import { todayISOInZone } from "@learn-workbench/shared/domains";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -288,7 +289,7 @@ export default function DashboardPage() {
     }
   };
 
-  const today = mounted ? new Date().toISOString().slice(0, 10) : "";
+  const today = mounted ? todayISOInZone() : "";
   const greet = mounted ? greeting() : "";
 
   const tasks = data?.todayTasks ?? [];

@@ -4,6 +4,7 @@
  * 由原 src/index.ts 拆出（S3-2 subpath exports）；index.ts 仍以 barrel 形式保留兼容。
  */
 import type { LearningAttemptResult, LearningReviewActionInput, LearningReviewCard, LearningReviewStatus } from "./schemas";
+import { dateKeyInUtc } from "./domains/date";
 
 export interface LearningProgress {
   attempted: number;
@@ -255,7 +256,7 @@ export function learningDayKey(iso: string, timeZone?: string): string {
       // 非法时区回退到 UTC，不让统计接口报错。
     }
   }
-  return date.toISOString().slice(0, 10);
+  return dateKeyInUtc(date);
 }
 
 /** 归一化作答 token：大小写/空白差异不影响判分 */

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { LogEntry } from "@learn-workbench/shared/schemas";
 import { logKindLabels } from "@learn-workbench/shared/labels";
+import { todayISOInZone } from "@learn-workbench/shared/domains";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -65,7 +66,7 @@ export default function LogsPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `learn-workbench-export-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `learn-workbench-export-${todayISOInZone()}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };

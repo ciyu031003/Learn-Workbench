@@ -70,7 +70,7 @@ const STAGE_GRADS: [string, string][] = [
   ["#F26B5E", "#FFB77A"],
   ["#4F8CD6", "#78C2E8"],
   ["#3DA35D", "#7AC06E"],
-];
+];
 /** 阶段卡之间的间距，必须与 `styles.content` 的 gap 一致（实时让位的位移量按"实测高度 + 这个值"算） */
 const STAGE_CARD_GAP = 12;
 const DAILY_QUESTION_GOAL = 12;
@@ -694,6 +694,17 @@ export default function LearnScreen() {
       <Animated.View style={styles.hero} entering={entrance(0)}>
         <Text style={styles.heroTitle}>学习</Text>
         <Text style={styles.heroSub}>技术题库 · 阶段路线 · 统计 · 日志</Text>
+        {/*
+         * S5-1：原「今日页 · 本周进度」实为**课程完成度**（已完成主题 / 全部主题），
+         * 与「今天」无关，移到学习页展示（口径仍由 store.progress 派生，双端同一数据源）。
+         */}
+        <View style={styles.courseStat}>
+          <Text style={styles.courseStatLabel}>课程完成度</Text>
+          <Text style={styles.courseStatValue}>{routeSummary.percent}%</Text>
+          <Text style={styles.courseStatMeta}>
+            {routeSummary.done}/{routeSummary.total} 主题
+          </Text>
+        </View>
         {/* v1.26：快捷入口收进右上角三条横线 */}
         <Pressable
           hitSlop={10}
@@ -1154,6 +1165,10 @@ const makeStyles = (colors: ThemeColors) =>
     color: colors.textSecondary,
     marginTop: 4,
   },
+  courseStat: { flexDirection: "row", alignItems: "baseline", gap: 8, marginTop: 10 },
+  courseStatLabel: { ...typography.caption, color: colors.textMuted, fontWeight: "700" },
+  courseStatValue: { ...typography.title2, color: colors.accentStrong },
+  courseStatMeta: { ...typography.caption, color: colors.textMuted },
   /* v9：今日专注 hero */
   focusHero: { padding: 16 },
   sectionTitle: {

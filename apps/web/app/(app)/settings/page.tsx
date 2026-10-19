@@ -16,6 +16,7 @@ import { useRouter } from "next/navigation";
 import type { JobCrawlerConfig, JobRun, JobSource, JobSourceInfo, JobStats, JobSubscription } from "@learn-workbench/shared/schemas";
 import { allJobCategories, experimentalJobSources, jobCategoryLabels, jobSourceLabels } from "@learn-workbench/shared/labels";
 import { formatRelativeTime } from "@learn-workbench/shared/dates";
+import { todayISOInZone } from "@learn-workbench/shared/domains";
 import {
   Database,
   Download,
@@ -390,7 +391,7 @@ export default function SettingsPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `learn-workbench-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `learn-workbench-backup-${todayISOInZone()}.json`;
     a.click();
     URL.revokeObjectURL(url);
     setMsg("已导出备份文件");

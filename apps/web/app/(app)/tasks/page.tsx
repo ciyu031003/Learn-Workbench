@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { DailyTask } from "@learn-workbench/shared/schemas";
 import { taskTypeLabels } from "@learn-workbench/shared/labels";
-import { todayISO, formatDateCN } from "@learn-workbench/shared/dates";
+import { formatDateCN } from "@learn-workbench/shared/dates";
+import { addDaysToDateKey, todayISOInZone } from "@learn-workbench/shared/domains";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,7 +35,7 @@ export default function TasksPage() {
   const router = useRouter();
   const domain = useDomainStore((s) => s.current);
   const careerKey = domain?.careerKey ?? "ict";
-  const [date, setDate] = useState(todayISO());
+  const [date, setDate] = useState(todayISOInZone());
   const [tasks, setTasks] = useState<DailyTask[]>([]);
   const [title, setTitle] = useState("");
   const titleRef = useRef<HTMLInputElement>(null);
@@ -97,10 +98,9 @@ export default function TasksPage() {
     })();
   }, [careerKey]);
 
+  // S5-1：日期键 ±N 天走 shared 的纯日历运算（旧实现用本地 Date + toISOString，东八区晚 8 点后会少一天）
   const shiftDate = (delta: number) => {
-    const d = new Date(date + "T00:00:00");
-    d.setDate(d.getDate() + delta);
-    setDate(d.toISOString().slice(0, 10));
+    setDate(addDaysToDateKey(date, delta));
   };
 
   const addTask = async () => {

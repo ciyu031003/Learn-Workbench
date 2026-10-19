@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { pgPool } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
 import { getAnonId, anonFilterSql } from "@/lib/anon";
-import { todayISO } from "@learn-workbench/shared";
+import { addDaysToDateKey, computeStreak, dateKeyInZone } from "@learn-workbench/shared/domains";
 import { logger } from "@/lib/logger";
 
 interface TopicRow { id: number; phase_id: number; }
@@ -13,22 +13,6 @@ interface TaskRow {
   task_type: string; done: boolean; focus_minutes: number; sort_order: number;
 }
 interface CheckinRow { checkin_date: string; }
-
-function localKey(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function computeStreak(dates: string[], today: string): number {
-  const set = new Set(dates);
-  let streak = 0;
-  const cursor = new Date(today + "T00:00:00");
-  if (!set.has(today)) cursor.setDate(cursor.getDate() - 1);
-  while (set.has(localKey(cursor))) {
-    streak += 1;
-    cursor.setDate(cursor.getDate() - 1);
-  }
-  return streak;
-}
 
 /** 匿名作用域：未登录时在 user_id 过滤之外追加 anon_id 过滤（含遗留行） */
 function anonScope(uid: string | null, anonId: string | null, base: unknown[]): { params: unknown[]; sql: string } {
@@ -43,10 +27,10 @@ export async function GET() {
   try {
     const uid = await currentUserId();
     const anonId = uid ? null : await getAnonId();
-    const today = todayISO();
-    const weekAgo = new Date(today + "T00:00:00");
-    weekAgo.setDate(weekAgo.getDate() - 6);
-    const weekStart = localKey(weekAgo);
+    // S5-1：业务日期/streak 口径唯一实现在 shared/domains（东八区，跨零点正确）
+    const now = new Date();
+    const today = dateKeyInZone(now);
+    const weekStart = addDaysToDateKey(today, -6);
 
     // 当前职业：仪表盘整体进度只展示该职业的学习路径
     let career = "ict";
@@ -144,7 +128,7 @@ export async function GET() {
       todayTasks: todayTasksResult.rows,
       weekTaskCount: weekTasksResult.rows.length,
       weekTaskDone: weekTasksResult.rows.filter((r) => r.done).length,
-      streak: computeStreak(checkinsResult.rows.map((r) => r.checkin_date), today),
+      streak: computeStreak(checkinsResult.rows.map((r) => r.checkin_date), { now }),
       totalFocusMinutes: Math.round(Number(focusResult.rows[0]?.s ?? 0) / 60),
       xp: Number(xpResult.rows[0]?.x ?? 0),
       certificates: certsResult.rows,

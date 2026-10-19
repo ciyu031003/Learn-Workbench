@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import { pgPool } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
 import { getAnonId, anonFilterSql } from "@/lib/anon";
-import { todayISO } from "@learn-workbench/shared";
+import { addDaysToDateKey, computeStreak, dateKeyInZone } from "@learn-workbench/shared/domains";
 
 export async function GET() {
   const uid = await currentUserId();
   const anonId = uid ? null : await getAnonId();
-  const today = todayISO();
+  const now = new Date();
+  const today = dateKeyInZone(now);
 
   const scope = (baseParams: unknown[]): { params: unknown[]; sql: string } => {
     const params = [...baseParams];
@@ -52,23 +53,12 @@ export async function GET() {
     s3.params
   );
 
-  const localKey = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-
-  const daySet = new Set(daysRows.map((r) => r.d));
-  let streak = 0;
-  const cursor = new Date(today + "T00:00:00");
-  if (!daySet.has(today)) cursor.setDate(cursor.getDate() - 1);
-  while (daySet.has(localKey(cursor))) {
-    streak += 1;
-    cursor.setDate(cursor.getDate() - 1);
-  }
+  // S5-1：连续天数 / 日期键都走 shared/domains（与 dashboard、移动端同口径）
+  const streak = computeStreak(daysRows.map((r) => r.d), { now });
 
   const last14: { date: string; minutes: number; sessions: number }[] = [];
   for (let i = 13; i >= 0; i -= 1) {
-    const d = new Date(today + "T00:00:00");
-    d.setDate(d.getDate() - i);
-    const key = localKey(d);
+    const key = addDaysToDateKey(today, -i);
     const found = daysRows.find((r) => r.d === key);
     last14.push({ date: key, minutes: found ? Math.round(found.secs / 60) : 0, sessions: found ? found.cnt : 0 });
   }

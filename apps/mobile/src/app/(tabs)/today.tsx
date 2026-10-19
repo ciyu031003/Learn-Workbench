@@ -34,9 +34,9 @@ import { useAppStore } from "@/store/app-store";
 import type { ExerciseType, Habit, HabitLog } from "@learn-workbench/shared/schemas";
 import type { SportItem } from "@learn-workbench/shared/types";
 import { SPORT_CATALOG, exerciseTypeOptions, taskTypeLabels } from "@learn-workbench/shared/labels";
-import { isScheduled, pct, formatDuration, todayISO } from "@learn-workbench/shared/dates";
+import { isScheduled, formatDuration } from "@learn-workbench/shared/dates";
+import { computeStreak, todayISOInZone } from "@learn-workbench/shared/domains";
 import { isHabitDone } from "@learn-workbench/shared/pure";
-import { mainPhases, agentPhase } from "@learn-workbench/content/roadmap";
 import { sportIconOf, sportColorsOf, sportAnimOf, sportSfOf } from "@/lib/sport-view";
 import { habitIconName } from "@/lib/habit-icons";
 import { getApiUrl } from "@/config";
@@ -330,7 +330,6 @@ export default function TodayScreen() {
   /** 入场错峰统一走 lib/stagger（步长取 token）；减弱动态时传 undefined，彻底不动 */
   const reduced = useReducedMotion();
   const motionActive = isMotionActive(reduced);
-  const progress = useAppStore((s) => s.progress);
   const tasks = useAppStore((s) => s.tasks);
   const checkins = useAppStore((s) => s.checkins);
   const sessions = useAppStore((s) => s.sessions);
@@ -364,18 +363,12 @@ export default function TodayScreen() {
   const [habitRows, setHabitRows] = useState<{ id: number; name: string; icon: string | null; color: string; done: boolean }[]>([]);
 
   const quote = useDailyQuote();
-  const today = todayISO();
+  /** S5-1：业务日期统一东八区（shared/domains），不再用设备本地/UTC 拼日期 */
+  const today = todayISOInZone();
   /** isScheduled 需要 Date（按星期判定），字符串 key 只用于取数 */
   const todayDate = useMemo(() => new Date(), []);
   const h = new Date().getHours();
   const greet = h < 6 ? "夜深了" : h < 11 ? "早上好" : h < 14 ? "中午好" : h < 18 ? "下午好" : "晚上好";
-
-  const allTopics = useMemo(
-    () => mainPhases.flatMap((p) => p.topics).concat(agentPhase?.topics ?? []),
-    []
-  );
-  const doneCount = allTopics.filter((t) => progress[t.id]?.done).length;
-  const overall = pct(doneCount, allTopics.length);
 
   const todayTasks = tasks.filter((t) => t.taskDate === today);
   const todayDone = todayTasks.filter((t) => t.done).length;
@@ -480,17 +473,11 @@ export default function TodayScreen() {
   const focusStats = computeFocusStats(sessions);
   const sportsTotalMinutes = sports.reduce((sum, r) => sum + r.minutes, 0);
 
-  const streak = useMemo(() => {
-    const set = new Set(checkins);
-    let s = 0;
-    const d = new Date();
-    if (!set.has(today)) d.setDate(d.getDate() - 1);
-    while (set.has(d.toISOString().slice(0, 10))) {
-      s += 1;
-      d.setDate(d.getDate() - 1);
-    }
-    return s;
-  }, [checkins, today]);
+  /**
+   * S5-1：连续打卡天数走 shared/domains（东八区口径，与 Web /api/dashboard 的 streak 同源）。
+   * 旧实现用 `toISOString().slice(0,10)` 逐日回退 —— 东八区 00:00–08:00 会按 UTC 日期算错。
+   */
+  const streak = useMemo(() => computeStreak(checkins, { now: new Date() }), [checkins, today]);
 
   const focusTask = todayTasks.find((t) => !t.done);
   const checkedInToday = checkins.includes(today);
@@ -700,12 +687,10 @@ export default function TodayScreen() {
         ) : null}
 
         {/*
-         * 今日概览（v1.44.2 真机反馈）：
-         * 「打卡、今日专注、本周进度…不应该放在收藏夹里面，应该在首页展示出来」。
-         * 这三项原先藏在「更多」抽屉里，现在提到首屏做成等宽三格。
-         * 同时把原来的「健康」大组件（DailyOsSummary，约 380-400pt、占首屏一半）
-         * 从今日页撤掉 —— 它统计的专注/习惯/饮食饮水在「健康」页已经有一整块，
-         * 首屏重复展示只会把真正要看的今日数据挤下去。
+         * 今日概览（v1.44.2 真机反馈）：「打卡、今日专注」提到首屏做成等宽两格。
+         * S5-1：「本周进度」其实是**课程完成度**（主题 done/total），与「今日」无关，
+         * 已移到学习页（见 learn.tsx 的「课程完成度」），今日页不再重复展示。
+         * 原来的「健康」大组件（DailyOsSummary）也从今日页撤掉 —— 健康页已有整块。
          */}
         <View style={styles.overviewGrid}>
           {/* 打卡：未打卡时这一格本身就是可点的入口，不再需要单独一行 */}
@@ -743,16 +728,6 @@ export default function TodayScreen() {
             <Text style={styles.overviewLabel}>今日专注</Text>
           </View>
 
-          <View style={styles.overviewTile}>
-            <View style={[styles.overviewIcon, { backgroundColor: colors.successSoft }]}>
-              <ThemedIcon name="trending-up" size={16} color={colors.success} />
-            </View>
-            <View style={styles.overviewValueRow}>
-              <AnimatedNumber value={overall} style={styles.overviewValue} />
-              <Text style={styles.overviewUnit}>%</Text>
-            </View>
-            <Text style={styles.overviewLabel}>本周进度</Text>
-          </View>
         </View>
 
         <View style={styles.sectionTitleRow}>
@@ -778,7 +753,7 @@ export default function TodayScreen() {
           </Pressable>
         </Card>
 
-        {/* 更多：本周节奏 / 打卡 / 运动明细 / AI 建议（首屏只留重点块） */}
+        {/* 更多：运动明细 / AI 建议（打卡、专注已在首屏；课程完成度在学习页） */}
         <SectionHeader title="更多" subtitle="运动明细 · 今日建议" actionLabel="展开" onAction={() => setMoreOpen(true)} />
       </Animated.ScrollView>
 
