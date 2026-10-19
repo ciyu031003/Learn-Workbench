@@ -5,8 +5,7 @@ vi.mock("@/lib/session", () => ({
   currentUserId: vi.fn(),
   currentSessionToken: vi.fn(),
   sessionCookieName: "lwb_session",
-  sessionTokenHash: vi.fn(),
-}));
+  sessionTokenHash: vi.fn(), isSecureRequest: () => false }));
 
 import { pgPool } from "@/lib/db";
 import { currentSessionToken, currentUserId, sessionTokenHash } from "@/lib/session";

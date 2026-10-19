@@ -11,8 +11,7 @@ vi.mock("@/lib/db", () => ({
 }));
 vi.mock("@/lib/session", () => ({
   createSession: vi.fn(async () => ({ token: "tok-1", expiresAt: new Date("2030-01-01") })),
-  sessionCookieName: "lwb_session",
-}));
+  sessionCookieName: "lwb_session", isSecureRequest: () => false }));
 
 import { POST } from "./route";
 import { resetRateLimits } from "@/lib/rate-limit";

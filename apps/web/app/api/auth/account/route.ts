@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 import { pgPool } from "@/lib/db";
 import { parseBody } from "@/lib/http";
-import { currentUserId, destroySession } from "@/lib/session";
+import { currentUserId, destroySession, isSecureRequest } from "@/lib/session";
 import { sessionCookieName } from "@/lib/session";
 import { verifyPassword } from "@/lib/password";
 import { rateLimit } from "@/lib/rate-limit";
 
-const COOKIE_SECURE = process.env.NODE_ENV === "production";
 
 /**
  * 注销账号（合规必需）：删除 users 行，业务数据经 ON DELETE CASCADE 一并清除。
@@ -42,6 +41,6 @@ export async function DELETE(req: Request) {
   await pgPool.query("DELETE FROM users WHERE id = $1", [userId]);
 
   const res = NextResponse.json({ ok: true, deleted: true });
-  res.cookies.set(sessionCookieName, "", { httpOnly: true, sameSite: "lax", path: "/", maxAge: 0, secure: COOKIE_SECURE });
+  res.cookies.set(sessionCookieName, "", { httpOnly: true, sameSite: "lax", path: "/", maxAge: 0, secure: isSecureRequest(req) });
   return res;
 }

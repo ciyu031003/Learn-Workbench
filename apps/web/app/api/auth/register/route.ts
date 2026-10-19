@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { pgPool } from "@/lib/db";
 import { hashPassword } from "@/lib/password";
-import { createSession, sessionCookieName } from "@/lib/session";
+import { createSession, sessionCookieName, isSecureRequest } from "@/lib/session";
 import { parseBody } from "@/lib/http";
 import { logger } from "@/lib/logger";
 import { rateLimit } from "@/lib/rate-limit";
@@ -10,7 +10,6 @@ import { clientIp } from "@/lib/auth";
 import { validatePassword } from "@learn-workbench/shared";
 
 const USERNAME_RE = /^[a-zA-Z0-9_.-]{3,32}$/;
-const COOKIE_SECURE = process.env.NODE_ENV === "production";
 
 export async function POST(req: Request) {
   // 注册入口限流：防批量刷号/批量探测用户名（进程内，单实例有效）
@@ -80,7 +79,7 @@ export async function POST(req: Request) {
       sameSite: "lax",
       path: "/",
       expires: expiresAt,
-      secure: COOKIE_SECURE,
+      secure: isSecureRequest(req),
     });
     return res;
   } catch (e) {

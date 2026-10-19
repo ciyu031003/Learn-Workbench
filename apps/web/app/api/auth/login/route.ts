@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { pgPool } from "@/lib/db";
 import { verifyPassword, hashPassword, needsRehash } from "@/lib/password";
-import { createSession, sessionCookieName } from "@/lib/session";
+import { createSession, sessionCookieName, isSecureRequest } from "@/lib/session";
 import { parseBody } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
 import {
@@ -13,7 +13,6 @@ import {
 } from "@/lib/auth";
 import { getAnonId } from "@/lib/anon";
 
-const COOKIE_SECURE = process.env.NODE_ENV === "production";
 
 /**
  * 固定 dummy 哈希（S2-6）：账号不存在时也对同一密码跑一次同成本 scrypt，
@@ -97,7 +96,7 @@ export async function POST(req: Request) {
     sameSite: "lax",
     path: "/",
     expires: expiresAt,
-    secure: COOKIE_SECURE,
+    secure: isSecureRequest(req),
   });
   return res;
 }

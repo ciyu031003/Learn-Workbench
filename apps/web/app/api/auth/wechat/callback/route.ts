@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { pgPool } from "@/lib/db";
-import { createSession, currentUser, sessionCookieName } from "@/lib/session";
+import { createSession, currentUser, sessionCookieName, isSecureRequest } from "@/lib/session";
 import {
   WECHAT_STATE_COOKIE,
   consumeState,
@@ -12,7 +12,6 @@ import { findUserIdByWechat, createWechatUser, bindWechatIdentity } from "@/lib/
 import { claimAnonData } from "@/lib/auth";
 import { getAnonId } from "@/lib/anon";
 
-const COOKIE_SECURE = process.env.NODE_ENV === "production";
 
 /**
  * state 一次性（S2-5）：校验后立即清掉 qrcode 下发的 HttpOnly nonce cookie。
@@ -24,7 +23,7 @@ function clearStateCookie(res: NextResponse): NextResponse {
     sameSite: "lax",
     path: "/",
     maxAge: 0,
-    secure: COOKIE_SECURE,
+    secure: isSecureRequest(),
   });
   return res;
 }
@@ -100,7 +99,7 @@ export async function POST(req: Request) {
     sameSite: "lax",
     path: "/",
     expires: expiresAt,
-    secure: COOKIE_SECURE,
+    secure: isSecureRequest(req),
   });
   return clearStateCookie(res);
 }

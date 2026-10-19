@@ -6,7 +6,7 @@ vi.mock("@/lib/password", () => ({
   hashPassword: vi.fn(async () => "scrypt:65536:8:1:salt:hash"),
   needsRehash: vi.fn(() => false),
 }));
-vi.mock("@/lib/session", () => ({ createSession: vi.fn(), sessionCookieName: "lwb_session" }));
+vi.mock("@/lib/session", () => ({ createSession: vi.fn(), sessionCookieName: "lwb_session", isSecureRequest: () => false }));
 vi.mock("@/lib/anon", () => ({ getAnonId: vi.fn(async () => "anon-1") }));
 
 import { pgPool } from "@/lib/db";

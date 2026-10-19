@@ -1,3 +1,4 @@
+import { isSecureRequest } from "@/lib/session";
 import { NextResponse } from "next/server";
 import {
   WECHAT_STATE_COOKIE,
@@ -10,7 +11,6 @@ import {
 import { rateLimit } from "@/lib/rate-limit";
 import { clientIp } from "@/lib/auth";
 
-const COOKIE_SECURE = process.env.NODE_ENV === "production";
 
 /** 生成微信扫码授权链接（code 由微信回跳到 /login 时携带） */
 export async function GET(req: Request) {
@@ -36,7 +36,7 @@ export async function GET(req: Request) {
     sameSite: "lax",
     path: "/",
     maxAge: WECHAT_STATE_MAX_AGE_SECONDS,
-    secure: COOKIE_SECURE,
+    secure: isSecureRequest(),
   });
   return res;
 }

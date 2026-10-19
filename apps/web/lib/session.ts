@@ -174,3 +174,20 @@ export async function destroySession(token: string | null | undefined): Promise<
 }
 
 export const sessionCookieName = COOKIE_NAME;
+
+/**
+ * 会话 cookie 是否加 Secure（S7 修复）：
+ * 不能用 NODE_ENV 判断 —— `next start` 在本机/内网 http 下也是 production，
+ * 加 Secure 会让「非 https 直连」的客户端（含 e2e APIRequestContext、内网调试）收不到会话。
+ * 优先看反代协议头，其次请求 URL；拿不到 Request 时退回生产默认（安全优先）。
+ */
+export function isSecureRequest(req?: Request | null): boolean {
+  if (!req) return process.env.NODE_ENV === "production";
+  const proto = req.headers.get("x-forwarded-proto")?.split(",")[0]?.trim().toLowerCase();
+  if (proto) return proto === "https";
+  try {
+    return new URL(req.url).protocol === "https:";
+  } catch {
+    return process.env.NODE_ENV === "production";
+  }
+}

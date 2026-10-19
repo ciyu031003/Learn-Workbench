@@ -3,8 +3,7 @@ vi.mock("@/lib/db", () => ({ pgPool: { query: vi.fn(), connect: vi.fn() } }));
 vi.mock("@/lib/session", () => ({
   createSession: vi.fn(async () => ({ token: "t-1", expiresAt: new Date() })),
   currentUser: vi.fn(),
-  sessionCookieName: "lwb_session",
-}));
+  sessionCookieName: "lwb_session", isSecureRequest: () => false }));
 vi.mock("@/lib/wechat", () => ({
   consumeState: vi.fn(() => true),
   readStateNonceCookie: vi.fn(() => "nonce-1"),

@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { pgPool } from "@/lib/db";
-import { currentSessionToken, currentUserId, sessionCookieName, sessionTokenHash } from "@/lib/session";
+import { currentSessionToken, currentUserId, sessionCookieName, sessionTokenHash, isSecureRequest } from "@/lib/session";
 
-const COOKIE_SECURE = process.env.NODE_ENV === "production";
 
 /** 对外只暴露会话 id 的前 12 位（48 bit，用户内唯一；不暴露 token/token_hash 全量） */
 const ID_PREFIX_LEN = 12;
@@ -89,7 +88,7 @@ export async function DELETE(req: Request) {
   const isCurrent = !!token && target.token_hash === sessionTokenHash(token);
   const res = NextResponse.json({ ok: true, current: isCurrent });
   if (isCurrent) {
-    res.cookies.set(sessionCookieName, "", { httpOnly: true, sameSite: "lax", path: "/", maxAge: 0, secure: COOKIE_SECURE });
+    res.cookies.set(sessionCookieName, "", { httpOnly: true, sameSite: "lax", path: "/", maxAge: 0, secure: isSecureRequest(req) });
   }
   return res;
 }

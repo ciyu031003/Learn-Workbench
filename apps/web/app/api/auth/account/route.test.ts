@@ -6,8 +6,7 @@ vi.mock("@/lib/http", () => ({
 vi.mock("@/lib/session", () => ({
   currentUserId: vi.fn(),
   destroySession: vi.fn(async () => {}),
-  sessionCookieName: "lwb_session",
-}));
+  sessionCookieName: "lwb_session", isSecureRequest: () => false }));
 vi.mock("@/lib/password", () => ({ verifyPassword: vi.fn() }));
 vi.mock("@/lib/rate-limit", () => ({
   rateLimit: vi.fn(async () => ({ ok: true, retryAfterSeconds: 0 })),
