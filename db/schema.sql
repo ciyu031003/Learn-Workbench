@@ -414,6 +414,13 @@ CREATE TABLE accounts (
 );
 
 -- 会话（S2-3b / 迁移 079 后形态：代理主键 id；token 仅作过渡兼容列，代码只读写 token_hash）
+-- ---------- 迁移台账（S4-1：迁移执行器用；checksum 防止历史迁移被就地修改） ----------
+CREATE TABLE IF NOT EXISTS schema_migrations (
+  filename   text PRIMARY KEY,
+  applied_at timestamptz NOT NULL DEFAULT now(),
+  checksum   text
+);
+
 CREATE TABLE sessions (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   token         text,

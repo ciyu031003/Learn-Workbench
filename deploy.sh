@@ -144,6 +144,27 @@ case "${1:-}" in
     ;;
 esac
 
+# ---------------------------------------------------------------- S4-3 部署前置闸门
+# 目的：把「磁盘打满 / 备份目录不可写」这类事故挡在部署开始之前（历史事故：根盘 100% 后全站写失败）
+check_deploy_gates() {
+  local avail_kb
+  avail_kb="$(df -Pk / | awk 'NR==2{print $4}')"
+  if [ -n "$avail_kb" ] && [ "$avail_kb" -lt $((10 * 1024 * 1024)) ]; then
+    error "根盘可用空间不足 10GiB（当前 $((avail_kb / 1024 / 1024))GiB）。请先清理：docker builder prune -af / 清理旧 release"
+  fi
+  local backup_dir="${BACKUP_DIR:-}"
+  if [ -z "$backup_dir" ]; then
+    if [ -d /data ]; then backup_dir="/data/backups/learn-workbench"; else backup_dir="$ROOT/.backup"; fi
+  fi
+  mkdir -p "$backup_dir" 2>/dev/null || true
+  if ! ( : > "$backup_dir/.write-probe" ) 2>/dev/null; then
+    error "备份目录不可写：$backup_dir（检查属主/挂载）"
+  fi
+  rm -f "$backup_dir/.write-probe"
+  info "部署闸门通过（磁盘 $((avail_kb / 1024 / 1024))GiB 可用，备份目录 $backup_dir）"
+}
+check_deploy_gates
+
 info "======================================================"
 info " Learn-Workbench 一键部署"
 info " 项目目录: $ROOT"
@@ -351,22 +372,77 @@ if [ -n "$HBA_FILE" ] && [ -f "$HBA_FILE" ]; then
   fi
 fi
 
-# 数据库初始化（幂等：用 app_meta 标记记录是否已初始化）
-MARKER="$(PGPASSWORD="$PG_PASSWORD" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d "$PG_DB" -tAc "SELECT value->>'v' FROM app_meta WHERE key='deploy_init'" 2>/dev/null || true)"
-if [ "$MARKER" = "1" ]; then
-  info "数据库已初始化过，跳过 schema / seed / migrations"
-else
+# ---------------------------------------------------------------- 数据库初始化与迁移（S4-1）
+# 与 docker 路径统一语义：逐文件台账 + checksum + 单事务；不再用 deploy_init 一刀切跳过。
+psql_cmd -c "CREATE TABLE IF NOT EXISTS schema_migrations (
+  filename text PRIMARY KEY,
+  applied_at timestamptz NOT NULL DEFAULT now()
+)" >/dev/null
+psql_cmd -c "ALTER TABLE schema_migrations ADD COLUMN IF NOT EXISTS checksum text" >/dev/null
+
+FRESH="$(psql_cmd -tAc "SELECT CASE WHEN to_regclass('public.app_meta') IS NULL THEN '1' ELSE '0' END")"
+if [ "$FRESH" = "1" ]; then
   info "执行 db/schema.sql ..."
   psql_cmd -f db/schema.sql >/dev/null
   info "执行 db/seed_content.sql ..."
   psql_cmd -f db/seed_content.sql >/dev/null
-  for m in db/migrations/*.sql; do
-    info "执行迁移 $m ..."
-    psql_cmd -f "$m" >/dev/null
-  done
-  psql_cmd -c "INSERT INTO app_meta(key, value) VALUES ('deploy_init', '{\"v\":1}'::jsonb) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=now()" >/dev/null
-  info "数据库初始化完成"
 fi
+
+# 旧 PM2 机器（曾经 deploy_init=1、台账从未建立）：一次性登记存量迁移，避免重放历史迁移。
+LEDGER_COUNT="$(psql_cmd -tAc "SELECT count(*) FROM schema_migrations")"
+if [ "$LEDGER_COUNT" = "0" ] && [ "$FRESH" = "0" ]; then
+  warn "检测到旧库（已初始化但迁移台账为空）：按「存量迁移视为已应用」登记（不重新执行）。"
+  warn "如怀疑生产缺过迁移，请手动核对 schema_migrations 与 db/migrations/。"
+  for m in db/migrations/*.sql; do
+    base="$(basename "$m")"
+    sum="$(sha256sum "$m" | cut -d' ' -f1)"
+    psql_cmd -c "INSERT INTO schema_migrations(filename, checksum) VALUES ('$base','$sum') ON CONFLICT (filename) DO NOTHING" >/dev/null
+  done
+fi
+
+# 计算待应用清单 + 校验已应用文件的 checksum
+PENDING=""
+for m in db/migrations/*.sql; do
+  base="$(basename "$m")"
+  sum="$(sha256sum "$m" | cut -d' ' -f1)"
+  row="$(psql_cmd -tAc "SELECT coalesce(checksum,'') FROM schema_migrations WHERE filename='$base'" | tr -d '[:space:]')"
+  if [ -n "$row" ]; then
+    if [ "$row" != "$sum" ]; then
+      error "已应用的迁移 $base 内容被修改（checksum 不一致）。如确需变更请新增迁移文件。"
+    fi
+    continue
+  fi
+  PENDING="$PENDING $m"
+done
+
+if [ -z "$PENDING" ]; then
+  info "数据库已是最新（schema_migrations 覆盖全部迁移）"
+else
+  # 迁移前强制备份（S4-1/S4-6）
+  BACKUP_DIR="${BACKUP_DIR:-}"
+  if [ -z "$BACKUP_DIR" ]; then
+    if [ -d /data ]; then BACKUP_DIR="/data/backups/learn-workbench"; else BACKUP_DIR="$ROOT/.backup"; fi
+  fi
+  mkdir -p "$BACKUP_DIR"
+  BACKUP_FILE="$BACKUP_DIR/pre-migrate-$(date +%Y%m%d-%H%M%S).dump"
+  info "迁移前备份：$BACKUP_FILE"
+  PGPASSWORD="$PG_PASSWORD" pg_dump -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d "$PG_DB" -Fc -f "$BACKUP_FILE"
+  PGPASSWORD="$PG_PASSWORD" pg_restore --list "$BACKUP_FILE" >/dev/null || error "备份自检失败（归档不可读），已中止迁移"
+  info "备份自检通过（$BACKUP_FILE）"
+  for m in $PENDING; do
+    base="$(basename "$m")"
+    sum="$(sha256sum "$m" | cut -d' ' -f1)"
+    info "执行迁移 $base ..."
+    if grep -qiE '^[[:space:]]*BEGIN[[:space:]]*;' "$m"; then
+      psql_cmd -f "$m" >/dev/null
+    else
+      psql_cmd -1 -f "$m" >/dev/null
+    fi
+    psql_cmd -c "INSERT INTO schema_migrations(filename, checksum) VALUES ('$base','$sum') ON CONFLICT (filename) DO UPDATE SET checksum=EXCLUDED.checksum" >/dev/null
+  done
+fi
+psql_cmd -c "INSERT INTO app_meta(key, value) VALUES ('deploy_init','{\"v\":1}'::jsonb) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=now()" >/dev/null
+info "数据库初始化/迁移完成"
 
 # ---------------------------------------------------------------- 安装依赖 + 构建
 info "---------- 步骤 3/6：安装项目依赖 ----------"
@@ -441,7 +517,7 @@ start_service() {
     if [ "$use_pm2" = "1" ]; then
       info "通过 PM2 启动 Web 服务 (端口 $APP_PORT) ..."
       pm2 describe learn-workbench >/dev/null 2>&1 && pm2 delete learn-workbench
-      pm2 start node_modules/next/dist/bin/next --name learn-workbench -- start -p "$APP_PORT"
+      pm2 start node_modules/next/dist/bin/next --name learn-workbench --max-memory-restart 1G -- start -p "$APP_PORT"
       pm2 save
       info "PM2 已保存进程列表"
       if [ "$(id -u)" != "0" ]; then

@@ -22,11 +22,12 @@ psql_run() {
   psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -v ON_ERROR_STOP=1 "$@"
 }
 
-# 创建迁移跟踪表（幂等）
+# 创建迁移跟踪表（幂等）+ S4-1 checksum 列
 psql_run -c "CREATE TABLE IF NOT EXISTS schema_migrations (
   filename text PRIMARY KEY,
   applied_at timestamptz NOT NULL DEFAULT now()
 )" >/dev/null
+psql_run -c "ALTER TABLE schema_migrations ADD COLUMN IF NOT EXISTS checksum text" >/dev/null
 
 # 判断是否全新初始化（app_meta 或核心表不存在）
 is_fresh() {
@@ -40,17 +41,31 @@ if is_fresh; then
   psql_run -f "$INIT_DIR/db/seed_content.sql" >/dev/null
 fi
 
-# 逐个应用未执行的迁移（幂等：已应用的文件跳过）
+# 逐个应用未执行的迁移（S4-1：单事务 + checksum + 台账同事务）
 for m in "$INIT_DIR"/db/migrations/*.sql; do
   base="$(basename "$m")"
-  applied="$(psql_run -tAc "SELECT 1 FROM schema_migrations WHERE filename='$base'" 2>/dev/null | tr -d '[:space:]')"
-  if [ "$applied" = "1" ]; then
+  sum="$(sha256sum "$m" | cut -d' ' -f1)"
+  row="$(psql_run -tAF'|' -c "SELECT checksum FROM schema_migrations WHERE filename='$base'" 2>/dev/null | tr -d '[:space:]')"
+  if [ -n "$row" ]; then
+    if [ -n "$row" ] && [ "$row" != "|" ] && [ "$row" != "$sum" ]; then
+      echo "[init] 失败：已应用的迁移 $base 内容被修改（checksum 不一致）" >&2
+      exit 1
+    fi
+    # 历史行没有 checksum：回填
+    if [ -z "$row" ] || [ "$row" = "|" ]; then
+      psql_run -c "UPDATE schema_migrations SET checksum='$sum' WHERE filename='$base'" >/dev/null
+    fi
     echo "[init] 跳过已应用的迁移 $base"
     continue
   fi
   echo "[init] 执行迁移 $base ..."
-  psql_run -f "$m" >/dev/null
-  psql_run -c "INSERT INTO schema_migrations(filename) VALUES ('$base')" >/dev/null
+  # 少数历史迁移自带 BEGIN/COMMIT：不能再用 psql -1；其余用 -1 保证失败整体回滚
+  if grep -qiE '^[[:space:]]*BEGIN[[:space:]]*;' "$m"; then
+    psql_run -f "$m" >/dev/null
+  else
+    psql_run -1 -f "$m" >/dev/null
+  fi
+  psql_run -c "INSERT INTO schema_migrations(filename, checksum) VALUES ('$base','$sum') ON CONFLICT (filename) DO UPDATE SET checksum=EXCLUDED.checksum" >/dev/null
 done
 
 psql_run -c "INSERT INTO app_meta(key, value) VALUES ('deploy_init','{\"v\":1}'::jsonb) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=now()" >/dev/null

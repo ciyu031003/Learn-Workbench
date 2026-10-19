@@ -99,6 +99,34 @@ esac
 command -v docker >/dev/null 2>&1 || error "未找到 docker，请先安装 Docker：https://docs.docker.com/engine/install/"
 docker compose version >/dev/null 2>&1 || error "未找到 docker compose 插件（Compose v2），请先安装"
 
+# ---------------------------------------------------------------- S4-3 部署闸门（fail-fast）
+AVAIL_KB="$(df -Pk / | awk 'NR==2{print $4}')"
+if [ -n "${AVAIL_KB:-}" ] && [ "$AVAIL_KB" -lt $((10 * 1024 * 1024)) ]; then
+  error "根盘可用空间不足 10GiB（当前 $((AVAIL_KB / 1024 / 1024))GiB）。先清理：docker builder prune -af / docker image prune -f"
+fi
+if [ -d /data ]; then
+  if ! grep -qE '[[:space:]]/data(/learn-workbench)?[[:space:]]' /proc/mounts; then
+    error "/data 未挂载（COSFS 掉挂载？）。历史事故：掉挂载时 Docker 会在系统盘静默建目录，上传/备份会落到错误位置"
+  fi
+  if ! ( : > /data/learn-workbench/.write-probe ) 2>/dev/null; then
+    error "/data/learn-workbench 不可写（检查 COSFS 健康：cosfs-data.sh health）"
+  fi
+  rm -f /data/learn-workbench/.write-probe
+fi
+info "部署闸门通过（磁盘 $((AVAIL_KB / 1024 / 1024))GiB 可用）"
+
+# ---------------------------------------------------------------- 复用已有 .env（避免重复部署改掉数据库密码/密钥）
+if [ -f .env ]; then
+  # .env 是本脚本生成的简单 KEY=VALUE；用 set -a 导入，不覆盖调用方显式传入的环境变量
+  PG_PASSWORD_SAVED="$(grep -E '^PG_PASSWORD=' .env | cut -d= -f2- || true)"
+  CRON_SECRET_SAVED="$(grep -E '^CRON_SECRET=' .env | cut -d= -f2- || true)"
+  WEB_BASE_URL_SAVED="$(grep -E '^WEB_BASE_URL=' .env | cut -d= -f2- || true)"
+  [ -z "$PG_PASSWORD" ] && [ -n "$PG_PASSWORD_SAVED" ] && PG_PASSWORD="$PG_PASSWORD_SAVED"
+  [ -z "$CRON_SECRET" ] && [ -n "$CRON_SECRET_SAVED" ] && CRON_SECRET="$CRON_SECRET_SAVED"
+  [ -z "$WEB_BASE_URL" ] && [ -n "$WEB_BASE_URL_SAVED" ] && WEB_BASE_URL="$WEB_BASE_URL_SAVED"
+  info "检测到已有 .env：复用其中的数据库密码 / CRON_SECRET"
+fi
+
 # ---------------------------------------------------------------- 生成密码
 if [ -z "$PG_PASSWORD" ]; then
   PG_PASSWORD="$(gen_password)"
@@ -129,14 +157,31 @@ info "已写入 .env（权限 600）"
 info "======================================================"
 info " 构建并启动容器（db + init + web）..."
 info "======================================================"
-# 移除上一次的一次性 init 容器，确保本次重新执行初始化（幂等，已初始化会跳过）
+# S4-1：先在镜像里构建，再用统一执行器跑迁移（单事务 + checksum + 迁移前备份），最后切 web
+docker compose build web
+info "迁移前备份（docker 模式，BACKUP_TARGET=cos）..."
+if ! BACKUP_LINE="$(BACKUP_MODE=docker BACKUP_TARGET=cos bash scripts/backup-db.sh)"; then
+  error "迁移前备份失败（保护性中止）。请检查 /data 挂载与 db 容器健康"
+fi
+info "备份完成：$BACKUP_LINE"
+# 入口统一：scripts/migrate.mjs 会先 pg_dump 备份并自检，再应用未登记的迁移
+docker compose run --rm -T web node /app/scripts/migrate.mjs </dev/null
+# 移除上一次的一次性 init 容器（首次部署仍由 init 负责 schema+seed）
 docker compose rm -sf init >/dev/null 2>&1 || true
-docker compose up -d --build
+docker compose up -d --no-build
 
 # ---------------------------------------------------------------- 等待 Web 就绪
-info "等待 Web 服务就绪 (http://127.0.0.1:$APP_PORT) ..."
+# 优先用 /api/health（DB 不可用会 503）；老镜像没有该端点时回退到首页探测
+health_ok() {
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsS -o /dev/null "http://127.0.0.1:$APP_PORT/api/health" 2>/dev/null
+  else
+    return 1
+  fi
+}
+info "等待 Web 服务就绪 (http://127.0.0.1:$APP_PORT/api/health) ..."
 i=0
-until http_ok; do
+until health_ok || http_ok; do
   i=$((i+1))
   if [ "$i" -ge 60 ]; then
     warn "等待超时（约 2 分钟），请查看日志：bash deploy-docker.sh --logs"
@@ -146,6 +191,13 @@ until http_ok; do
   sleep 2
 done
 info "Web 服务已就绪"
+
+# S4-6：部署成功后打印最近备份与校验和（出事时第一时间知道从哪恢复）
+LATEST_BACKUP="$(ls -t /data/learn-workbench/backups/*.dump 2>/dev/null | head -1 || true)"
+if [ -n "$LATEST_BACKUP" ]; then
+  info "最近备份：$LATEST_BACKUP"
+  if [ -f "$LATEST_BACKUP.sha256" ]; then info "校验：$(cat "$LATEST_BACKUP.sha256" 2>/dev/null)"; fi
+fi
 
 # ---------------------------------------------------------------- 创建管理员
 info "检查管理员账号 ..."
