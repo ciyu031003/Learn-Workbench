@@ -19,6 +19,8 @@
   --glass-bg-strong: rgba(255, 255, 255, 0.2);
   --glass-border: rgba(255, 255, 255, 0.3);
   --glass-highlight: rgba(255, 255, 255, 0.22);
+  /* S6-5：iPhone Home Indicator 安全区（底栏/浮层/Toast 统一用这个 token） */
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 /* 壁纸亮度自动：暗图 → 白字 + 深玻璃 */
 html.bg-dark {
@@ -396,10 +398,10 @@ html.dark .glass-3 {
     grid-template-columns: repeat(5, 1fr);
   }
   .app-main {
-    padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+    padding-bottom: calc(5rem + var(--safe-bottom, 0px));
   }
   .app-bottomnav {
-    padding-bottom: env(safe-area-inset-bottom);
+    padding-bottom: var(--safe-bottom, 0px);
   }
 }
 
@@ -1613,3 +1615,109 @@ html.dark {
   }
 }
 
+
+
+/* ============================================================================
+   S6-5（a11y）+ S6-8（首屏分档）：弹窗焦点管理 / 安全区 / 动效分档
+   ========================================================================== */
+
+/* 1) Radix Dialog 出入场：动画绑在 [data-state] 上，Radix Presence 会等退场动画结束再卸载节点。
+   注意 keyframes 里必须带上 translate(-50%, -50%)：Content 用 fixed + 居中 transform 定位。 */
+@keyframes s6-dialog-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) translateY(14px) scale(0.975);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
+@keyframes s6-dialog-out {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) translateY(10px) scale(0.985);
+  }
+}
+@keyframes s6-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes s6-overlay-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+/* 居中用 transform（而不是 Tailwind v4 的 translate-* 属性）：keyframes 里的 translate(-50%,-50%)
+   与动画写同一属性，避免 CSS translate 与 transform 叠加导致弹窗偏移半屏。 */
+.dialog-content {
+  /* 注意：globals.css 的规则是 unlayered，会压过 Tailwind utilities 层；
+     .surface-nav 自带 position: relative，会把 Dialog 的 fixed 覆盖掉（S6 实测弹窗掉到页面底部）。
+     所以这里必须显式声明 position: fixed，而不是依赖类名里的 fixed。 */
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+.dialog-overlay[data-state="open"] {
+  animation: s6-overlay-in 0.24s var(--ease-standard) both;
+}
+.dialog-overlay[data-state="closed"] {
+  animation: s6-overlay-out 0.18s var(--ease-standard) both;
+}
+.dialog-content[data-state="open"] {
+  animation: s6-dialog-in 0.34s var(--ease-overshoot) both;
+}
+.dialog-content[data-state="closed"] {
+  animation: s6-dialog-out 0.18s var(--ease-standard) both;
+}
+
+/* 2) Toast 栈避开 Home Indicator（桌面下 env() = 0，与原来的 bottom-5 一致） */
+.toast-stack {
+  bottom: calc(1.25rem + var(--safe-bottom, 0px));
+}
+
+/* 3) 首屏动效分档（S6-8）：由 components/vitals-reporter.tsx 写 html[data-motion]。
+   reduced = 关掉无限装饰动画 + 毛玻璃合成层；none = 连过渡时长也压到 1ms（低端机/省流）。 */
+html[data-motion="reduced"] .lwb-page-orb,
+html[data-motion="reduced"] .lwb-sheen::after,
+html[data-motion="reduced"] .sheen-loop::after,
+html[data-motion="reduced"] .cta-breathe,
+html[data-motion="reduced"] .glow-breathe,
+html[data-motion="reduced"] .stat-pop {
+  animation: none !important;
+}
+html[data-motion="reduced"] .surface-nav {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+html[data-motion="none"] .lwb-page-orb,
+html[data-motion="none"] .lwb-sheen::after,
+html[data-motion="none"] .sheen-loop::after {
+  display: none;
+}
+html[data-motion="none"] {
+  --motion-fast: 1ms;
+  --motion-base: 1ms;
+  --motion-slow: 1ms;
+  --motion-reveal: 1ms;
+}
+
+/* 4) 弹窗在减弱动效下直接落位（Radix Presence 不会卡在退场动画） */
+@media (prefers-reduced-motion: reduce) {
+  .dialog-overlay,
+  .dialog-content {
+    animation: none !important;
+  }
+}

@@ -20,7 +20,7 @@ export function Toaster() {
   const dismiss = useToastStore((s) => s.dismiss);
   if (toasts.length === 0) return null;
   return (
-    <div className="fixed bottom-5 right-5 z-[200] flex w-[min(92vw,22rem)] flex-col gap-2" aria-live="polite">
+    <div className="toast-stack fixed right-5 z-[200] flex w-[min(92vw,22rem)] flex-col gap-2" aria-live="polite">
       {toasts.map((t) => (
         <ToastCard key={t.id} toast={t} onClose={() => dismiss(t.id)} />
       ))}

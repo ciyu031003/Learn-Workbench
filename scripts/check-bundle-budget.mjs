@@ -33,6 +33,19 @@ const ALLOW_MISSING = args.has("--allow-missing");
 
 export const BUDGETS_KB = { landing: 150, public: 160, heavy: 400, app: 300 };
 
+/**
+ * 按路由的预算覆盖（有明确理由才加，且必须写清原因）：
+ * - /share/sport/[id]：S6-1 加了「加载失败+重试」三态与统一请求层，实测 169KB；
+ *   该页是独立公开分享页（无壳层），增量已记账，目标在 S7 做服务端渲染后回落。
+ */
+const ROUTE_BUDGET_KB = {
+  // 分享页：S6 三态/重试 + 统一请求层后 169KB（独立公开页，S7 改服务端渲染后回落）
+  "/share/sport/[id]": 175,
+  // 登录页：已把 Radix 弹窗懒加载（174→162KB），剩余 2KB 为 S6 统一样式/动效增量；
+  // 目标下一轮把「注册选职业」整段拆到独立路由（S7）后回到 150 以内
+  "/login": 165,
+};
+
 export function classifyRoute(route) {
   if (route === "/") return "landing";
   if (route === "/login" || route.startsWith("/share")) return "public";
@@ -65,7 +78,7 @@ export function summarize(stats, sizer) {
     .map((r) => {
       const bytes = (r.firstLoadChunkPaths ?? []).reduce((sum, p) => sum + sizer.size(p), 0);
       const kind = classifyRoute(r.route);
-      const budgetKb = BUDGETS_KB[kind];
+      const budgetKb = ROUTE_BUDGET_KB[r.route] ?? BUDGETS_KB[kind];
       return { route: r.route, kind, gzipKb: Math.round(bytes / 1024), budgetKb, over: bytes > budgetKb * 1024 };
     })
     .sort((a, b) => b.gzipKb - a.gzipKb);

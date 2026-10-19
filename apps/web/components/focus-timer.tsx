@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { FOCUS_COLORS, FOCUS_GALLERY, useFocusBgStore } from "@/store/focus-bg-store";
 import { useToastStore } from "@/store/toast-store";
 import { MIN_FOCUS_SECONDS, MIN_EXERCISE_SECONDS } from "@/lib/focus-session";
+import { useFocusSession } from "@/lib/use-focus-session";
 import { Celebration } from "@/components/celebration";
 
 const PRESETS = [15, 25, 45];
@@ -95,15 +96,24 @@ export function FocusTimer({
 }) {
   const bg = useFocusBgStore();
   const initMinutes = initialMinutes ?? (bg.minutes || 25);
-  const [minutes, setMinutesState] = useState(initMinutes);
-  const [total, setTotal] = useState(initMinutes * 60);
-  const [remaining, setRemaining] = useState(initMinutes * 60);
-  const [running, setRunning] = useState(false);
-  const [done, setDone] = useState(false);
-  const [started, setStarted] = useState(false);
   const [recording, setRecording] = useState(false);
   /** V3 计时模式：countdown=倒计时（既有），stopwatch=正向秒表 */
   const [timerMode, setTimerMode] = useState<"countdown" | "stopwatch">("countdown");
+  // S6-4：计时状态机 / 持久化 / 跨刷新恢复统一下沉到 useFocusSession
+  //（纯 TS reducer，可被移动端复用；组件只负责 UI 与服务端入账）
+  const focus = useFocusSession({
+    open,
+    mode: timerMode,
+    taskId: task?.id ?? null,
+    initialMinutes: initMinutes,
+  });
+  const {
+    running, started, finished, phase: focusPhase, minutes, total, remaining, ratio, elapsedSeconds,
+    reset: resetFocusSession, persistNow, startBreak: startBreakSession,
+  } = focus;
+  const done = finished;
+  /** 结束页：完成或休息中都复用同一块结果面板 */
+  const doneView = finished || focusPhase === "break";
   /** v13 U3：计时视图（圆环 / 表盘），默认圆环，选择写进 localStorage */
   const [timerView, setTimerView] = useState<"ring" | "dial">("ring");
   useEffect(() => {
@@ -119,6 +129,11 @@ export function FocusTimer({
     const t = setTimeout(() => setTimerView(saved), 0);
     return () => clearTimeout(t);
   }, []);
+  // timerMode 是「受控值」：同时更新本地 state（UI 立即反馈）与状态机（归零 elapsed）
+  const changeTimerMode = (next: "countdown" | "stopwatch") => {
+    setTimerMode(next);
+    focus.setMode(next);
+  };
   const chooseTimerView = useCallback((v: "ring" | "dial") => {
     setTimerView(v);
     try {
@@ -134,30 +149,30 @@ export function FocusTimer({
   const [quoteInput, setQuoteInput] = useState("");
   const [wbDone, setWbDone] = useState<{ break?: boolean; water?: boolean }>({});
   const [celebration, setCelebration] = useState<"sparkle" | "confetti" | null>(null);
-  const timerModeRef = useRef<"countdown" | "stopwatch">("countdown");
-  const startRef = useRef<number | null>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const remainingRef = useRef(initMinutes * 60);
-  const totalRef = useRef(initMinutes * 60);
   const fileRef = useRef<HTMLInputElement>(null);
   const autoStartedRef = useRef(false);
   const exerciseRecordedRef = useRef(false);
   const exerciseLabelRef = useRef<string | null>(exerciseLabel ?? null);
   const exerciseTypeRef = useRef<string | null>(exerciseType ?? null);
-  // V3 正向计时（秒表）：accumulatedMsRef 累计跨暂停段的已跑毫秒；startRef 为当前运行段的墙钟起点。
-  const accumulatedMsRef = useRef(0);
-  useEffect(() => {
-    timerModeRef.current = timerMode;
-  }, [timerMode]);
   useEffect(() => {
     exerciseLabelRef.current = exerciseLabel ?? null;
     exerciseTypeRef.current = exerciseType ?? null;
   }, [exerciseLabel, exerciseType]);
   const sessionRef = useRef<{ id: string; startedAt: string; settled: boolean; recorded: boolean } | null>(null);
+  // 状态机生成/恢复的 client_id 同步到服务端入账层（刷新恢复后继续用同一个幂等键）
+  useEffect(() => {
+    if (!focus.sessionId || !focus.sessionStartedAt) return;
+    if (sessionRef.current?.id === focus.sessionId) return;
+    sessionRef.current = {
+      id: focus.sessionId,
+      startedAt: focus.sessionStartedAt,
+      settled: false,
+      recorded: false,
+    };
+  }, [focus.sessionId, focus.sessionStartedAt]);
   const lastFlushRef = useRef<number>(0);
   const lastVisibleRef = useRef<number>(0);
   const idleStartedAtRef = useRef<number | null>(null);
-  const visibleElapsedRef = useRef(0);
 
   const taskIdRef = useRef(task?.id ?? null);
   const modeRef = useRef(mode);
@@ -171,66 +186,8 @@ export function FocusTimer({
     onCloseRef.current = onClose;
   }, [task, mode, onRecorded, onClose]);
 
-  const setRemainingSafe = useCallback((n: number) => {
-    remainingRef.current = n;
-    setRemaining(n);
-  }, []);
-
-  const clearTimerRef = useCallback(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-  }, []);
-  // 计算本会话实际时长（墙钟：accumulatedMs + 当前运行段）。后台继续计时；暂停段不计入。
-  // ⚠️ 运行状态一律看 startRef（ref），**不能看 running（state）**：
-  //    setInterval 注册的是「注册那一刻的闭包」，而 setRunning(true) 是异步的，
-  //    若用 state 判断，interval 里的旧闭包永远读到 running=false → 已跑时长恒为 0（计时器不动）。
-  const currentElapsed = useCallback(() => {
-    const acc = accumulatedMsRef.current;
-    const runningMs = startRef.current !== null ? Date.now() - startRef.current : 0;
-    return Math.round((acc + runningMs) / 1000);
-  }, []);
-
-  // 每秒重算：墙钟为唯一事实来源。
-  // countdown：remaining = total - elapsed（后台继续计时，切走/隐藏不暂停）。
-  // stopwatch：仅刷新展示（elapsed 计数由 currentElapsed 实时算），无归零。
-  const tick = useCallback(() => {
-    if (!document.hidden) visibleElapsedRef.current += 1;
-    if (timerModeRef.current === "stopwatch") {
-      // 秒表：用 remaining 状态存当前墙钟秒数，驱动每秒重渲染
-      setRemaining(currentElapsed());
-      return;
-    }
-    const el = currentElapsed();
-    const next = Math.max(0, totalRef.current - el);
-    remainingRef.current = next;
-    setRemaining(next);
-    if (next === 0) {
-      // 冻结时长：把当前运行段折进累计并清空起点，避免完成之后 elapsed 继续增长
-      if (startRef.current !== null) {
-        accumulatedMsRef.current += Date.now() - startRef.current;
-        startRef.current = null;
-      }
-      setRunning(false);
-      setDone(true);
-      clearTimerRef();
-    }
-  }, [clearTimerRef, currentElapsed]);
-
-  // 会话开始时只登记本地 session（生成稳定 client_id），
-  // 服务端记录在首次「有实际学习秒数」的续写/结算时创建（client_id 幂等 upsert），
-  // 避免「开始即退」产生 0 秒噪音记录；学了 2 分钟退出也会在结算时完整入库。
-  const ensureSession = useCallback(() => {
-    if (sessionRef.current) return;
-    const clientId = `focus-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-    sessionRef.current = {
-      id: clientId,
-      startedAt: new Date().toISOString(),
-      settled: false,
-      recorded: false,
-    };
-  }, []);
+  // 墙钟 elapsed 由状态机统一计算（与旧 currentElapsed 语义一致：后台继续、暂停不计）
+  const currentElapsed = elapsedSeconds;
 
   // 结算会话：把已学时长一次性写入服务端并标记（不关闭弹层；供自然结束自动入账）
   const settleSession = useCallback(async (elapsedSeconds: number) => {
@@ -386,7 +343,6 @@ export function FocusTimer({
   // 打开：等待用户点击「开始专注」后再启动计时并请求全屏；首次开始即建服务端 session
   useEffect(() => {
     if (!open) return;
-    clearTimerRef();
     lastFlushRef.current = 0;
     lastVisibleRef.current = Date.now();
 
@@ -403,7 +359,11 @@ export function FocusTimer({
     };
     document.addEventListener("visibilitychange", onVisibility);
 
-    const onPageHide = () => void settleOnExit();
+    const onPageHide = () => {
+      // 刷新/关页兜底：先把状态机快照写盘（跨刷新恢复），再结算服务端时长
+      persistNow();
+      void settleOnExit();
+    };
 
     // 定时把已学习秒数写进服务端（专注模式；运动模式只在结束时整笔写入）
     const flushId = window.setInterval(() => {
@@ -411,14 +371,13 @@ export function FocusTimer({
     }, FLUSH_INTERVAL_MS);
 
     return () => {
-      clearTimerRef();
       clearInterval(flushId);
       document.removeEventListener("fullscreenchange", onFs);
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("pagehide", onPageHide);
       if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     };
-  }, [open, clearTimerRef, flushElapsed, settleOnExit]);
+  }, [open, flushElapsed, settleOnExit, persistNow]);
 
   // 打开时若有尚未结算的 session，用户在页面任意关闭流程（X/结束/返回/离开）都会统一结算；
   // 卸载前最后一次 flush（确保拿到最终 elapsed 才销毁）。
@@ -433,27 +392,28 @@ export function FocusTimer({
   }, [open, settleOnExit]);
 
   const start = () => {
-    clearTimerRef();
-    if (startRef.current === null) {
-      startRef.current = Date.now();
-      // 全新会话：清空累计，重置起点
-      if (!sessionRef.current) {
-        accumulatedMsRef.current = 0;
-        visibleElapsedRef.current = 0;
-      }
-    }
-    setRunning(true);
-    if (!sessionRef.current) void ensureSession();
-    timerRef.current = setInterval(tick, 1000);
+    // 状态机：idle → running；paused/break → 继续
+    if (focusPhase === "paused" || focusPhase === "break") focus.resume();
+    else focus.start();
   };
 
   const begin = () => {
-    setStarted(true);
     if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
       document.documentElement.requestFullscreen().then(() => setFull(true)).catch(() => {});
     }
     start();
   };
+
+  // 关闭弹层 = 本次计时结束：清空状态机与持久化快照，下次打开从 idle 重新开始
+  const wasOpenRef = useRef(false);
+  useEffect(() => {
+    if (wasOpenRef.current && !open) {
+      sessionRef.current = null;
+      setCelebration(null);
+      resetFocusSession();
+    }
+    wasOpenRef.current = open;
+  }, [open, resetFocusSession]);
 
   // 快捷开始：autoStart 时挂载后自动进入倒计时（仍允许暂停/结束）
   useEffect(() => {
@@ -464,21 +424,10 @@ export function FocusTimer({
   }, [open, autoStart]);
 
   const pause = () => {
-    // 把当前运行段折算进累计（墙钟），暂停段不计入
-    if (startRef.current !== null) {
-      accumulatedMsRef.current += Date.now() - startRef.current;
-      startRef.current = null;
-    }
-    clearTimerRef();
-    setRunning(false);
+    focus.pause();
   };
 
   const reset = () => {
-    clearTimerRef();
-    setRunning(false);
-    setRemainingSafe(total);
-    startRef.current = null;
-    accumulatedMsRef.current = 0;
     exerciseRecordedRef.current = false;
     setCelebration(null);
     // 重置前把已学时长结算入库（含中间切换预设/再来一次的场景）
@@ -491,25 +440,17 @@ export function FocusTimer({
       lastVisibleRef.current = Date.now();
       idleStartedAtRef.current = null;
     }
-    visibleElapsedRef.current = 0;
-    setDone(false);
+    resetFocusSession();
   };
 
   const changePreset = (m: number) => {
-    clearTimerRef();
-    setMinutesState(m);
+    // 状态机负责目标时长 + 归零；已有未结算会话先 flush 一次
+    focus.setMinutes(m);
     bg.setMinutes(m);
-    setTotal(m * 60);
-    totalRef.current = m * 60;
-    setRemainingSafe(m * 60);
-    setRunning(false);
-    startRef.current = null;
-    accumulatedMsRef.current = 0;
     exerciseRecordedRef.current = false;
     if (sessionRef.current && !sessionRef.current.settled) {
       void flushElapsed();
     }
-    setDone(false);
   };
 
   // 专注模式：倒计时自然结束自动入账（不关闭，done 页继续展示统计）
@@ -558,6 +499,8 @@ export function FocusTimer({
       body: JSON.stringify({ kind: "MOVEMENT", minutes: 5 }),
     });
     setWbDone((s) => ({ ...s, break: true }));
+    // S6-4：进入状态机的 break 阶段（结束页保持展示，休息完可「再来一次」继续）
+    startBreakSession();
   };
 
   const recordWaterDone = async () => {
@@ -581,10 +524,8 @@ export function FocusTimer({
     setEditingQuote(false);
   };
 
-  // 显示层：countdown 用 remaining 作剩余时间；stopwatch 时 tick 已把「墙钟已跑秒数」写进 remaining 状态。
-  // 因此这里直接读 remaining 状态即可，不在 render 内读 ref。
+  // 显示层：countdown 用剩余时间；stopwatch 用已跑秒数（状态机统一给出 remaining 语义与 ratio）
   const elapsed = timerMode === "stopwatch" ? remaining : total - remaining;
-  const ratio = timerMode === "stopwatch" ? 0 : (remaining > 0 ? remaining / total : 0);
   const remainingShown = remaining;
   const sessionLabel = mode === "exercise" ? "运动中" : (task?.title ?? "自由专注");
   const shownQuote = bg.customQuote ? { text: bg.customQuote, author: undefined as string | undefined } : quote;
@@ -729,10 +670,10 @@ export function FocusTimer({
       ) : null}
 
       {/* 主区域 */}
-      {done ? (
+      {doneView ? (
         <div className="relative z-10 flex-1 overflow-y-auto px-4 pb-6 pt-4">
           <div className="mx-auto flex max-w-2xl flex-col items-center gap-4">
-            <p className="text-2xl font-bold text-white drop-shadow">{mode === "exercise" ? "运动完成" : "专注完成"}！</p>
+            <p className="text-2xl font-bold text-white drop-shadow">{focusPhase === "break" ? "休息中 · 本次已记录" : mode === "exercise" ? "运动完成" : "专注完成"}！</p>
             <p className="text-sm text-white/70">本次{mode === "exercise" ? "运动" : "专注"} {fmtClock(elapsed)}，已自动记录</p>
             <div className="inline-flex items-center gap-2 rounded-full border border-success/40 bg-success/20 px-4 py-2 text-sm text-white backdrop-blur-md">
               <TreePine className="size-4 text-success" />
@@ -1020,7 +961,7 @@ export function FocusTimer({
               ).map((o) => (
                 <button
                   key={o.key}
-                  onClick={() => setTimerMode(o.key)}
+                  onClick={() => changeTimerMode(o.key)}
                   className={cn(
                     "rounded-full px-4 py-1.5 text-sm transition-all",
                     timerMode === o.key ? "bg-primary/40 text-white" : "text-white/70 hover:text-white"

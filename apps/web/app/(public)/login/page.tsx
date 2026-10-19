@@ -9,14 +9,19 @@ import {
   Loader2,
   Lock,
   Mail,
-  MessageCircle,
+  MessageCircle,
   User,
   UserRoundPlus,
 } from "lucide-react";
-import { GlassModal } from "@/components/ui/modal";
+// S6：Radix 弹窗只在「注册后选职业」这一步用，懒加载让登录首载不背 dialog（约 -24KB gz）
+import dynamic from "next/dynamic";
 import { Input } from "@/components/ui/input";
 
 type AuthMode = "login" | "register";
+
+const GlassModal = dynamic(() => import("@/components/ui/modal").then((m) => m.GlassModal), {
+  ssr: false,
+});
 
 function LoginForm() {
   const router = useRouter();
