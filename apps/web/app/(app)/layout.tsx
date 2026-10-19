@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
+import { VitalsReporter } from "@/components/vitals-reporter";
 import { getShellData } from "@/lib/shell-data";
 
 /**
@@ -14,5 +15,11 @@ export const dynamic = "force-dynamic";
 export default async function AppGroupLayout({ children }: { children: React.ReactNode }) {
   const shellData = await getShellData();
   if (!shellData) redirect("/login");
-  return <AppShell shellData={shellData}>{children}</AppShell>;
+  return (
+    <AppShell shellData={shellData}>
+      {/* S6-8：首屏动效分档（html[data-motion]）+ Web Vitals 采样（仅登录区，匿名聚合） */}
+      <VitalsReporter />
+      {children}
+    </AppShell>
+  );
 }

@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
-import { VitalsReporter } from "@/components/vitals-reporter";
 
 /**
  * 主题防闪（FOUC）脚本读取的 localStorage key。
@@ -51,8 +50,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <ThemeProvider />
-        {/* S6-8：首屏动效分档（html[data-motion]）+ Web Vitals 采样（生产环境，匿名聚合） */}
-        <VitalsReporter />
+        {/* S7：VitalsReporter 移到 (app) 组（公开页不背 ~9KB 客户端包；公开页也不需要动效分档） */}
         {children}
       </body>
     </html>

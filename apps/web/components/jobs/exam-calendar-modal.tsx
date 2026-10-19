@@ -124,16 +124,16 @@ export function ExamCalendarModal({
                     />
                     <div className="glass rounded-2xl p-3 transition-all hover:-translate-y-0.5">
                       <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="muted" className="text-[10px]" style={{ color: st.color }}>
+                        <Badge variant="muted" className="text-[11px]" style={{ color: st.color }}>
                           {st.label}
                         </Badge>
                         <span className="text-sm font-black tabular-nums text-foreground">{md}</span>
                         {ev.daysLeft <= 3 ? (
-                          <span className="rounded-full bg-rose-500/15 px-2 py-0.5 text-[10px] font-bold text-rose-500 dark:text-rose-300">
+                          <span className="rounded-full bg-rose-500/15 px-2 py-0.5 text-[11px] font-bold text-rose-500 dark:text-rose-300">
                             {ev.daysLeft === 0 ? "就是今天" : `${ev.daysLeft} 天后`}
                           </span>
                         ) : (
-                          <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                          <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
                             还剩 {ev.daysLeft} 天
                           </span>
                         )}

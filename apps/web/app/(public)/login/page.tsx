@@ -496,7 +496,7 @@ function LoginForm() {
               <span className="min-w-0">
                 <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
                   {c.name}
-                  {c.is_locked ? <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] text-muted-foreground">固定</span> : null}
+                  {c.is_locked ? <span className="rounded-full bg-white/15 px-2 py-0.5 text-[11px] text-muted-foreground">固定</span> : null}
                 </span>
                 {c.description ? (
                   <span className="mt-0.5 block text-xs text-muted-foreground">{c.description}</span>

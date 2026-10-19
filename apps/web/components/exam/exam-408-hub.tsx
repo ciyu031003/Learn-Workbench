@@ -175,7 +175,7 @@ export function Exam408Hub({ overview }: { overview: Exam408Overview }) {
                         .filter((tag) => tag !== "408" && tag !== "四〇八档案室")
                         .slice(0, 4)
                         .map((tag) => (
-                          <span key={tag} className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                          <span key={tag} className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
                             {tag}
                           </span>
                         ))}
@@ -281,7 +281,7 @@ function TabButton({
 function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-lg bg-muted/40 px-2 py-2">
-      <dt className="text-[10px] text-muted-foreground">{label}</dt>
+      <dt className="text-[11px] text-muted-foreground">{label}</dt>
       <dd className="text-lg font-semibold tabular-nums">{value}</dd>
     </div>
   );

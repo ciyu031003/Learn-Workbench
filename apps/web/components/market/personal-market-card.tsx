@@ -40,12 +40,12 @@ function MatchJobRow({ job }: { job: MarketPersonalJob }) {
       {job.matchedSkills.length ? (
         <div className="flex flex-wrap gap-1">
           {job.matchedSkills.slice(0, 4).map((skill) => (
-            <Badge key={skill} variant="muted" className="text-[10px]">{skill}</Badge>
+            <Badge key={skill} variant="muted" className="text-[11px]">{skill}</Badge>
           ))}
         </div>
       ) : null}
       {job.missingSkills.length ? (
-        <p className="text-[10px] text-muted-foreground">
+        <p className="text-[11px] text-muted-foreground">
           <Target className="mr-1 inline size-3 text-amber-500" />
           还缺 {job.missingSkills.slice(0, 4).join(" / ")}
         </p>
@@ -67,7 +67,7 @@ function GapRow({
     <div className="flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-muted/20 px-3 py-2.5">
       <Target className="size-3.5 shrink-0 text-primary" />
       <span className="min-w-0 text-xs font-semibold text-foreground">{gap.skill}</span>
-      <Badge variant="muted" className="text-[10px]">{gap.jobCount} 岗位</Badge>
+      <Badge variant="muted" className="text-[11px]">{gap.jobCount} 岗位</Badge>
       {gap.topicTitle ? (
         <Link
           href={gap.phaseId ? `/roadmap#phase-${gap.phaseId}` : "/roadmap"}
@@ -174,22 +174,22 @@ export function PersonalMarketCard() {
           <UserRound className="size-4 text-primary" />
           我的市场位置
         </CardTitle>
-        <Badge variant="muted" className="text-[10px]">
+        <Badge variant="muted" className="text-[11px]">
           {profile.profileSkillCount}/{profile.marketSkillCount} 技能覆盖
         </Badge>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <div className="rounded-xl border border-white/10 bg-muted/20 p-3">
-            <p className="text-[10px] text-muted-foreground">技能覆盖率</p>
+            <p className="text-[11px] text-muted-foreground">技能覆盖率</p>
             <p className="mt-1 text-2xl font-black tabular-nums text-foreground">{profile.skillCoveragePct}%</p>
           </div>
           <div className="rounded-xl border border-white/10 bg-muted/20 p-3">
-            <p className="text-[10px] text-muted-foreground">可触达岗位</p>
+            <p className="text-[11px] text-muted-foreground">可触达岗位</p>
             <p className="mt-1 text-2xl font-black tabular-nums text-foreground">{data.reachableJobs}</p>
           </div>
           <div className="rounded-xl border border-white/10 bg-muted/20 p-3">
-            <p className="text-[10px] text-muted-foreground">市场缺口</p>
+            <p className="text-[11px] text-muted-foreground">市场缺口</p>
             <p className="mt-1 text-2xl font-black tabular-nums text-foreground">{data.gaps.length}</p>
           </div>
         </div>

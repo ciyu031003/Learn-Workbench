@@ -116,7 +116,7 @@ export function JobsSettingsCard({ jobs }: { jobs: JobsSettingsApi }) {
                     className={active ? CATEGORY_BUTTON_ON : CATEGORY_BUTTON_OFF}
                   >
                     {jobSourceLabels[source]}
-                    {experimentalJobSources.includes(source) ? <span className="rounded-full bg-white/20 px-1.5 py-0.5 text-[10px]">实验</span> : null}
+                    {experimentalJobSources.includes(source) ? <span className="rounded-full bg-white/20 px-1.5 py-0.5 text-[11px]">实验</span> : null}
                   </button>
                 );
               })}
@@ -168,7 +168,7 @@ export function JobsSettingsCard({ jobs }: { jobs: JobsSettingsApi }) {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
                       <span className="truncate text-xs font-semibold text-foreground">{src.name}</span>
-                      <Badge variant={src.risk === "L1" ? "success" : src.risk === "L2" ? "accent" : "muted"} className="text-[9px]">
+                      <Badge variant={src.risk === "L1" ? "success" : src.risk === "L2" ? "accent" : "muted"} className="text-[11px]">
                         {src.risk === "L3" ? "实验" : "官方"}
                       </Badge>
                     </div>
@@ -176,7 +176,7 @@ export function JobsSettingsCard({ jobs }: { jobs: JobsSettingsApi }) {
                       <div className="h-1 flex-1 overflow-hidden rounded-full bg-white/10">
                         <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-cyan-500" style={{ width: rate + "%" }} />
                       </div>
-                      <span className="w-8 text-right text-[10px] tabular-nums text-muted-foreground">{rate}%</span>
+                      <span className="w-8 text-right text-[11px] tabular-nums text-muted-foreground">{rate}%</span>
                     </div>
                   </div>
                 </div>

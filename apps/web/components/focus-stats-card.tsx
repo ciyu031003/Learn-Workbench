@@ -245,7 +245,7 @@ export function FocusStatsCard() {
                     title={`${d.date} · ${d.minutes} 分钟`}
                   />
                 </div>
-                <span className="text-[10px] text-muted-foreground">{d.date.slice(5)}</span>
+                <span className="text-[11px] text-muted-foreground">{d.date.slice(5)}</span>
               </div>
             ))}
           </div>

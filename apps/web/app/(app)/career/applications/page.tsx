@@ -242,7 +242,7 @@ export default function ApplicationsPage() {
                             </p>
                           </div>
                           <span
-                            className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold text-white"
+                            className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold text-white"
                             style={{ backgroundColor: jobApplicationStageColors[app.stage] }}
                           >
                             {jobApplicationStageLabels[app.stage]}
@@ -259,7 +259,7 @@ export default function ApplicationsPage() {
                               }}
                             />
                           </span>
-                          <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
+                          <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
                             {STAGE_ORDER.indexOf(app.stage) + 1}/{STAGE_ORDER.length}
                           </span>
                         </div>

@@ -446,7 +446,7 @@ export default function HabitsPage() {
                     <div className="flex gap-2">
                       <div className="flex flex-col gap-[3px] pt-[13px]">
                         {HABIT_WEEKDAY_LABELS.map((w, i) => (
-                          <span key={w} className="h-3 text-[9px] leading-3 text-muted-foreground">
+                          <span key={w} className="h-3 text-[11px] leading-3 text-muted-foreground">
                             {i % 2 === 1 ? w : ""}
                           </span>
                         ))}

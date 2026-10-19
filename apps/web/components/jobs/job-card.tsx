@@ -145,7 +145,7 @@ export function JobCard({
           <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
             {isAnnouncement ? (
               <>
-                <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold text-white" style={{ backgroundColor: catColor }}>
+                <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] font-bold text-white" style={{ backgroundColor: catColor }}>
                   {catLabel}
                 </span>
                 <MapPin className="size-3.5" />
@@ -203,19 +203,19 @@ export function JobCard({
       {isAnnouncement ? (
         <div className="relative mt-3 flex flex-wrap items-center gap-1.5">
           {recruitCount ? (
-            <Badge variant="muted" className="inline-flex items-center gap-1 text-[10px]">
+            <Badge variant="muted" className="inline-flex items-center gap-1 text-[11px]">
               <Users className="size-3" />
               招录 {recruitCount} 人
             </Badge>
           ) : null}
           {job.deadlineAt ? (
-            <Badge variant={overdue ? "muted" : "accent"} className="inline-flex items-center gap-1 text-[10px]">
+            <Badge variant={overdue ? "muted" : "accent"} className="inline-flex items-center gap-1 text-[11px]">
               <CalendarClock className="size-3" />
               报名截止
             </Badge>
           ) : null}
           {job.tags.slice(0, 3).map((tag) => (
-            <Badge key={tag} variant="muted" className="text-[10px]">
+            <Badge key={tag} variant="muted" className="text-[11px]">
               {tag}
             </Badge>
           ))}
@@ -223,7 +223,7 @@ export function JobCard({
       ) : job.tags.length > 0 ? (
         <div className="relative mt-3 flex flex-wrap gap-1.5">
           {job.tags.slice(0, 4).map((tag) => (
-            <Badge key={tag} variant="muted" className="text-[10px]">
+            <Badge key={tag} variant="muted" className="text-[11px]">
               {tag}
             </Badge>
           ))}
@@ -235,7 +235,7 @@ export function JobCard({
           <span className="size-1.5 rounded-full" style={{ backgroundColor: catColor }} />
           {jobSourceLabel(job.source)}
           {experimentalJobSources.includes(job.source as never) ? (
-            <span className="rounded-full bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-300">
+            <span className="rounded-full bg-emerald-500/20 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-300">
               实验
             </span>
           ) : null}
@@ -246,12 +246,12 @@ export function JobCard({
           {formatRelativeTime(job.publishedAt ?? job.fetchedAt)}
         </span>
         {job.clusterSources && job.clusterSources.length > 1 ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-600 dark:text-violet-300" title="多平台发布同一职位">
+          <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/10 px-2 py-0.5 text-[11px] font-semibold text-violet-600 dark:text-violet-300" title="多平台发布同一职位">
             发现来源：{job.clusterSources.map(jobSourceLabel).join(" / ")}
           </span>
         ) : null}
         {job.isNew ? (
-          <span className="badge-new rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-black text-emerald-600 dark:text-emerald-300">
+          <span className="badge-new rounded-full bg-emerald-500/20 px-2 py-0.5 text-[11px] font-black text-emerald-600 dark:text-emerald-300">
             NEW
           </span>
         ) : null}

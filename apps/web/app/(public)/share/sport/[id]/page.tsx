@@ -94,7 +94,7 @@ export default function PublicSportProfilePage({ params }: { params: Promise<{ i
       <article className="w-full max-w-md overflow-hidden rounded-3xl border border-border/60 bg-white shadow-[0_10px_40px_rgba(15,23,42,0.10)]">
         <header className="flex items-center justify-between px-6 pt-6">
           <span className="text-sm font-black tracking-wide text-slate-900">{data.sportName}档案</span>
-          <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+          <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
             <Share2 className="size-3" /> Public
           </span>
         </header>
@@ -102,7 +102,7 @@ export default function PublicSportProfilePage({ params }: { params: Promise<{ i
         {holo ? (
           <div className="px-3 pt-2">
             <HoloSportCardLazy model={cardModelFromShare(data)} />
-            <p className="mt-2 flex items-center justify-center gap-1 text-[10px] uppercase tracking-[0.2em] text-slate-400">
+            <p className="mt-2 flex items-center justify-center gap-1 text-[11px] uppercase tracking-[0.2em] text-slate-400">
               <Sparkles className="size-3" /> 实时镭射 · 拖动转卡
             </p>
           </div>
@@ -133,7 +133,7 @@ export default function PublicSportProfilePage({ params }: { params: Promise<{ i
                 ["胜率", formatWinRate(record.winRate)],
               ] as const).map(([label, value]) => (
                 <div key={label} className="rounded-xl border border-slate-200 bg-slate-50/70 px-2 py-2">
-                  <p className="text-[10px] text-slate-500">{label}</p>
+                  <p className="text-[11px] text-slate-500">{label}</p>
                   <p className="mt-0.5 text-sm font-extrabold text-slate-900">{value}</p>
                 </div>
               ))}
@@ -180,7 +180,7 @@ export default function PublicSportProfilePage({ params }: { params: Promise<{ i
             </section>
           ) : null}
 
-          <p className="pt-1 text-center text-[10px] uppercase tracking-[0.2em] text-slate-300">
+          <p className="pt-1 text-center text-[11px] uppercase tracking-[0.2em] text-slate-300">
             {data.sportName} Profile
           </p>
         </div>

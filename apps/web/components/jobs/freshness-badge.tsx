@@ -19,7 +19,7 @@ export function FreshnessBadge({
     job.channel === "announcement" ? "announcement" : "job"
   );
   return (
-    <span className={cn("inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold", f.badgeClass, className)}>
+    <span className={cn("inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold", f.badgeClass, className)}>
       <span aria-hidden>{f.emoji}</span>
       {f.label}
     </span>

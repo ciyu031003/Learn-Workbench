@@ -75,7 +75,7 @@ export function NotificationPanel() {
       >
         <Bell className="size-5" />
         {unread > 0 ? (
-          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-black text-white">
+          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[11px] font-black text-white">
             {unread > 99 ? "99+" : unread}
           </span>
         ) : null}
@@ -124,7 +124,7 @@ export function NotificationPanel() {
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-semibold leading-snug text-foreground">{n.title}</p>
                       <p className="mt-0.5 text-[11px] text-muted-foreground">{n.body}</p>
-                      <p className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground/70">
+                      <p className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground/70">
                         {formatRelativeTime(n.createdAt)}
                         <ExternalLink className="size-3" />
                       </p>

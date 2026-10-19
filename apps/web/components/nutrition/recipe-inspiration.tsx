@@ -66,7 +66,7 @@ export function RecipeInspiration() {
           >
             <div className="flex items-start justify-between gap-2">
               <h3 className="line-clamp-2 text-sm font-semibold text-foreground">{recipe.name}</h3>
-              <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+              <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
                 {recipe.kcal} kcal
               </span>
             </div>
@@ -79,13 +79,13 @@ export function RecipeInspiration() {
               <Macro label="脂肪" value={recipe.fatG} />
             </div>
             <div className="mt-auto flex items-center justify-between gap-2 pt-3">
-              <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+              <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
                 <Clock3 className="size-3" />
                 {recipe.prepMinutes + recipe.cookMinutes} 分钟
               </span>
               <div className="flex flex-wrap justify-end gap-1">
                 {recipe.tags.slice(0, 2).map((tag) => (
-                  <span key={tag} className="rounded-full bg-muted/70 px-2 py-0.5 text-[10px] text-muted-foreground">
+                  <span key={tag} className="rounded-full bg-muted/70 px-2 py-0.5 text-[11px] text-muted-foreground">
                     {recipeTagLabels[tag]}
                   </span>
                 ))}
@@ -109,7 +109,7 @@ export function RecipeInspiration() {
               ].map((item) => (
                 <div key={item.label} className="rounded-lg border border-border/60 bg-muted/25 px-3 py-2">
                   <item.icon className="mb-1 size-3.5 text-primary" />
-                  <p className="text-[10px] text-muted-foreground">{item.label}</p>
+                  <p className="text-[11px] text-muted-foreground">{item.label}</p>
                   <p className="mt-0.5 text-xs font-semibold tabular-nums">{item.value}</p>
                 </div>
               ))}
@@ -132,7 +132,7 @@ export function RecipeInspiration() {
               <ol className="flex flex-col gap-2">
                 {active.steps.map((step, index) => (
                   <li key={step} className="flex gap-3 text-sm leading-relaxed text-foreground/85">
-                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/12 text-[10px] font-bold text-primary">
+                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/12 text-[11px] font-bold text-primary">
                       {index + 1}
                     </span>
                     <span>{step}</span>
@@ -149,7 +149,7 @@ export function RecipeInspiration() {
 
             <div className="flex flex-wrap gap-1.5">
               {active.tags.map((tag) => (
-                <span key={tag} className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-medium text-primary">
+                <span key={tag} className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary">
                   {recipeTagLabels[tag]}
                 </span>
               ))}

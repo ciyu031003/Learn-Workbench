@@ -63,9 +63,9 @@ export function MarketDecisionPanel({
       <div key={`${item.reason}-${item.key}`} className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-muted/20 px-3 py-2.5">
         <div className="min-w-0">
           <p className="truncate text-xs font-bold text-foreground">{item.label}</p>
-          <p className="text-[10px] text-muted-foreground">{item.reason} · {item.count} 岗{item.medianSalary != null ? ` · ${item.medianSalary}K` : ""}</p>
+          <p className="text-[11px] text-muted-foreground">{item.reason} · {item.count} 岗{item.medianSalary != null ? ` · ${item.medianSalary}K` : ""}</p>
         </div>
-        <Badge variant="muted" className="shrink-0 text-[10px]">{Math.round(item.score)}</Badge>
+        <Badge variant="muted" className="shrink-0 text-[11px]">{Math.round(item.score)}</Badge>
       </div>
     ));
 
@@ -74,7 +74,7 @@ export function MarketDecisionPanel({
       <CardHeader className="flex-row items-center gap-2">
         <Target className="size-4 text-emerald-400" />
         <CardTitle className="text-sm">What If 决策引擎</CardTitle>
-        <Badge variant="muted" className="ml-auto text-[10px]">参考建议</Badge>
+        <Badge variant="muted" className="ml-auto text-[11px]">参考建议</Badge>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -119,19 +119,19 @@ export function MarketDecisionPanel({
           <>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div className="rounded-xl border border-white/10 bg-muted/20 p-3">
-                <p className="text-[10px] text-muted-foreground">目标岗位</p>
+                <p className="text-[11px] text-muted-foreground">目标岗位</p>
                 <p className="mt-1 text-2xl font-black tabular-nums text-foreground">{data.scenario.totalJobs}</p>
               </div>
               <div className="rounded-xl border border-white/10 bg-muted/20 p-3">
-                <p className="text-[10px] text-muted-foreground">薪资中位</p>
+                <p className="text-[11px] text-muted-foreground">薪资中位</p>
                 <p className="mt-1 text-2xl font-black tabular-nums text-foreground">{data.scenario.medianSalary != null ? `${data.scenario.medianSalary}K` : "--"}</p>
               </div>
               <div className="rounded-xl border border-white/10 bg-muted/20 p-3">
-                <p className="text-[10px] text-muted-foreground">可触达</p>
+                <p className="text-[11px] text-muted-foreground">可触达</p>
                 <p className="mt-1 text-2xl font-black tabular-nums text-foreground">{data.scenario.reachableJobs ?? "--"}</p>
               </div>
               <div className="rounded-xl border border-white/10 bg-muted/20 p-3">
-                <p className="text-[10px] text-muted-foreground">待补技能</p>
+                <p className="text-[11px] text-muted-foreground">待补技能</p>
                 <p className="mt-1 text-2xl font-black tabular-nums text-foreground">{data.scenario.missingSkills.length}</p>
               </div>
             </div>

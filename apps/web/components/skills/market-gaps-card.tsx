@@ -116,7 +116,7 @@ export function MarketGapsCard({ limit = 10 }: { limit?: number }) {
                 <div className="flex items-center gap-2">
                   <Target className="size-4 shrink-0 text-primary" />
                   <span className="min-w-0 truncate text-sm font-semibold">{g.skill}</span>
-                  <Badge variant="muted" className="shrink-0 text-[10px]">{CATEGORY_LABELS[g.category] ?? "其他"}</Badge>
+                  <Badge variant="muted" className="shrink-0 text-[11px]">{CATEGORY_LABELS[g.category] ?? "其他"}</Badge>
                   {/* 需求条：直观呈现"这个技能在市场上被要得多不多" */}
                   <span className="hidden h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-muted sm:block">
                     <span

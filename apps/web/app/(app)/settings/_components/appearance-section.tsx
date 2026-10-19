@@ -77,8 +77,8 @@ export function AppearanceSection({ backup }: { backup: BackupSettingsApi }) {
                       onClick={() => focusBg.setGalleryId(g.id)}
                       className={
                         focusGalleryId === g.id
-                          ? "flex h-12 items-center justify-center overflow-hidden rounded-xl border-2 border-primary px-1 text-[10px] font-semibold text-white"
-                          : "flex h-12 items-center justify-center overflow-hidden rounded-xl border border-border px-1 text-[10px] font-semibold text-white/85"
+                          ? "flex h-12 items-center justify-center overflow-hidden rounded-xl border-2 border-primary px-1 text-[11px] font-semibold text-white"
+                          : "flex h-12 items-center justify-center overflow-hidden rounded-xl border border-border px-1 text-[11px] font-semibold text-white/85"
                       }
                       style={g.css ? { background: g.css } : { backgroundImage: "linear-gradient(135deg,#3b6b8f,#8b5f8f)" }}
                     >

@@ -44,7 +44,7 @@ function MacroRing({
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className="text-sm font-bold tabular-nums">{Math.round(value)}</span>
-          <span className="text-[9px] text-muted-foreground">/ {target}{unit}</span>
+          <span className="text-[11px] text-muted-foreground">/ {target}{unit}</span>
         </div>
       </div>
       <span className="text-[11px] font-medium text-muted-foreground">{label}</span>

@@ -66,7 +66,7 @@ export function CapsuleRank({
         <div key={it.label} className="mc-row flex items-center gap-2.5 px-1 py-0.5">
           <span
             className={cn(
-              "mc-pop flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-black",
+              "mc-pop flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-black",
               i < 3 ? "text-white" : "bg-white/12 text-muted-foreground"
             )}
             style={{ ...(i < 3 ? { background: fillColor(i) } : undefined), animationDelay: `${Math.min(i, 12) * 45}ms` }}
@@ -84,7 +84,7 @@ export function CapsuleRank({
           </div>
           <span className="w-14 shrink-0 text-right text-xs font-bold tabular-nums text-foreground">
             {it.value}
-            {it.note ? <span className="ml-1 text-[10px] font-medium text-muted-foreground">{it.note}</span> : null}
+            {it.note ? <span className="ml-1 text-[11px] font-medium text-muted-foreground">{it.note}</span> : null}
           </span>
         </div>
       ))}
@@ -114,13 +114,13 @@ export function TreemapChart({ items, className }: { items: { label: string; val
               animationDelay: `${Math.min(ri, 12) * 40}ms`,
             }}
           >
-            <span className="truncate text-[10px] font-semibold leading-tight text-white/95">
+            <span className="truncate text-[11px] font-semibold leading-tight text-white/95">
               {big || mid ? r.label : ""}
             </span>
             {big ? (
               <span className="text-sm font-black tabular-nums leading-none text-white">{r.value}</span>
             ) : mid ? (
-              <span className="text-[10px] font-bold tabular-nums text-white/90">{r.value}</span>
+              <span className="text-[11px] font-bold tabular-nums text-white/90">{r.value}</span>
             ) : null}
           </div>
         );
@@ -144,7 +144,7 @@ export function HistogramBars({ items, className }: { items: { label: string; va
               style={{ height: `${Math.max(8, Math.round((d.value / max) * 100))}%`, background: grad(i, true), animationDelay: `${Math.min(i, 12) * 55}ms` }}
             />
           </div>
-          <span className="truncate text-[10px] text-muted-foreground">{d.label}</span>
+          <span className="truncate text-[11px] text-muted-foreground">{d.label}</span>
         </div>
       ))}
     </div>
@@ -196,7 +196,7 @@ export function DonutChart({
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className="text-xl font-black tabular-nums text-foreground">{centerValue ?? total}</span>
-          {centerLabel ? <span className="text-[10px] text-muted-foreground">{centerLabel}</span> : null}
+          {centerLabel ? <span className="text-[11px] text-muted-foreground">{centerLabel}</span> : null}
         </div>
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -256,16 +256,16 @@ export function BubbleQuadrant({
             );
           })}
         </svg>
-        <span className="absolute left-1.5 top-1 text-[9px] font-semibold text-muted-foreground">{yLabel ?? "需求热度"}</span>
-        <span className="absolute bottom-1.5 right-2 text-[9px] font-semibold text-muted-foreground">{xLabel ?? "平均薪资"}</span>
+        <span className="absolute left-1.5 top-1 text-[11px] font-semibold text-muted-foreground">{yLabel ?? "需求热度"}</span>
+        <span className="absolute bottom-1.5 right-2 text-[11px] font-semibold text-muted-foreground">{xLabel ?? "平均薪资"}</span>
       </div>
       <div className="flex flex-wrap gap-x-3 gap-y-0.5">
         {items.slice(0, 6).map((d) => (
-          <span key={d.label} className="text-[10px] text-muted-foreground">
+          <span key={d.label} className="text-[11px] text-muted-foreground">
             {d.label} <span className="font-bold tabular-nums text-foreground">{d.x}K</span>
           </span>
         ))}
-        {items.length > 6 ? <span className="text-[10px] text-muted-foreground">+{items.length - 6}…</span> : null}
+        {items.length > 6 ? <span className="text-[11px] text-muted-foreground">+{items.length - 6}…</span> : null}
       </div>
     </div>
   );
@@ -516,17 +516,17 @@ export function SkillMarketMap({
             })}
           </svg>
           {/* 象限标签 */}
-          <span className="pointer-events-none absolute right-2 top-1.5 text-[10px] font-semibold text-muted-foreground/60">明星技能</span>
-          <span className="pointer-events-none absolute left-2 top-1.5 text-[10px] font-semibold text-muted-foreground/60">潜力技能</span>
-          <span className="pointer-events-none absolute bottom-1.5 right-2 text-[10px] font-semibold text-muted-foreground/60">基础技能</span>
-          <span className="pointer-events-none absolute bottom-1.5 left-2 text-[10px] font-semibold text-muted-foreground/60">长尾技能</span>
+          <span className="pointer-events-none absolute right-2 top-1.5 text-[11px] font-semibold text-muted-foreground/60">明星技能</span>
+          <span className="pointer-events-none absolute left-2 top-1.5 text-[11px] font-semibold text-muted-foreground/60">潜力技能</span>
+          <span className="pointer-events-none absolute bottom-1.5 right-2 text-[11px] font-semibold text-muted-foreground/60">基础技能</span>
+          <span className="pointer-events-none absolute bottom-1.5 left-2 text-[11px] font-semibold text-muted-foreground/60">长尾技能</span>
           {/* 轴标签 */}
-          <span className="pointer-events-none absolute left-1/2 top-1.5 -translate-x-1/2 text-[10px] text-muted-foreground/70">平均薪资（K/月）</span>
-          <span className="pointer-events-none absolute bottom-1.5 left-1/2 -translate-x-1/2 text-[10px] text-muted-foreground/70">需求职位数 →</span>
+          <span className="pointer-events-none absolute left-1/2 top-1.5 -translate-x-1/2 text-[11px] text-muted-foreground/70">平均薪资（K/月）</span>
+          <span className="pointer-events-none absolute bottom-1.5 left-1/2 -translate-x-1/2 text-[11px] text-muted-foreground/70">需求职位数 →</span>
         </div>
         {/* 状态描边图例（登录后） */}
         {loggedIn ? (
-          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
+          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
             <span><span className="mr-1 inline-block size-2 rounded-full bg-green-600" />已熟练/掌握</span>
             <span><span className="mr-1 inline-block size-2 rounded-full bg-amber-600" />学习中</span>
             <span><span className="mr-1 inline-block size-2 rounded-full bg-zinc-400" />未掌握</span>
@@ -549,7 +549,7 @@ export function SkillMarketMap({
                 <span className="size-1.5 rounded-full" style={{ backgroundColor: tone(n.avgSalary as number, n.count) }} />
                 {n.skill}
               </span>
-              <span className="text-[10px] text-muted-foreground">
+              <span className="text-[11px] text-muted-foreground">
                 {n.count} 岗 · {n.avgSalary}K
                 {loggedIn && n.myLevel != null ? ` · ${SKILL_LEVEL_LABELS[n.myLevel]}` : ""}
               </span>
@@ -676,7 +676,7 @@ export function SalaryBoxPlot({
             <span className="mr-1 inline-block size-2 rounded-full" style={{ backgroundColor: fillColor(i) }} />
             {b.label}
             <span className="ml-1 font-bold tabular-nums text-foreground">{b.count}</span>
-            <span className="ml-0.5 text-[10px]">({total ? ((b.count / total) * 100).toFixed(1) : 0}%)</span>
+            <span className="ml-0.5 text-[11px]">({total ? ((b.count / total) * 100).toFixed(1) : 0}%)</span>
           </span>
         ))}
       </div>

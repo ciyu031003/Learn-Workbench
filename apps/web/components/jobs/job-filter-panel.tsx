@@ -97,7 +97,7 @@ function Group({ title, count = 0, children }: { title: string; count?: number; 
       <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">
         {title}
         {count > 0 ? (
-          <span className="jf-badge inline-flex min-w-4 items-center justify-center rounded-full bg-emerald-500/20 px-1.5 text-[10px] font-black text-emerald-600 dark:text-emerald-300">
+          <span className="jf-badge inline-flex min-w-4 items-center justify-center rounded-full bg-emerald-500/20 px-1.5 text-[11px] font-black text-emerald-600 dark:text-emerald-300">
             {count}
           </span>
         ) : null}

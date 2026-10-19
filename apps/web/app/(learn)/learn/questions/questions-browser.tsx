@@ -270,7 +270,7 @@ function FilterRow({
       {options.map((option) => (
         <Chip key={option.key} active={value === option.key} onClick={() => onChange(option.key)}>
           {option.label}
-          <span className="ml-1 text-[10px] tabular-nums opacity-70">{option.count}</span>
+          <span className="ml-1 text-[11px] tabular-nums opacity-70">{option.count}</span>
         </Chip>
       ))}
     </div>

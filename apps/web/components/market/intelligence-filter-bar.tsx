@@ -139,7 +139,7 @@ export function MarketIntelligenceFilterBar({
             />
             {/* 输入了但还没回车时给个明确提示：避免"我搜了怎么没反应" */}
             {queryPending ? (
-              <span className="absolute -bottom-4 left-3 text-[10px] font-medium text-primary">回车应用搜索</span>
+              <span className="absolute -bottom-4 left-3 text-[11px] font-medium text-primary">回车应用搜索</span>
             ) : null}
           </div>
           <FilterSelect

@@ -135,7 +135,7 @@ export function ExercisePicker({
               >
                 <Icon className="size-4" />
                 <span className="text-xs font-semibold">{t.label}</span>
-                <span className="text-[10px] opacity-70">{counts[t.type] ?? 0} 个</span>
+                <span className="text-[11px] opacity-70">{counts[t.type] ?? 0} 个</span>
               </button>
             );
           })}

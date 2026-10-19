@@ -139,7 +139,7 @@ export function JobMatchSection({ jobId }: { jobId: string }) {
           <div className="flex items-center gap-1.5 text-sm font-bold text-foreground">
             <ListChecks className="size-4 text-primary" />
             岗位学习计划
-            <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
+            <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold text-primary">
               补完约 +{Math.max(0, 100 - plan.match)}% 匹配度
             </span>
           </div>

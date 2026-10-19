@@ -162,7 +162,7 @@ export function PreviewClient() {
               <FileText className="size-8" />
             </div>
             <span className="text-sm font-semibold">ASTROX 100 ZZ</span>
-            <span className="w-fit rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">YONEX</span>
+            <span className="w-fit rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">YONEX</span>
           </div>
           <div className="lift paper-card relative overflow-hidden p-5">
             <span aria-hidden className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-accent via-warning to-primary" />

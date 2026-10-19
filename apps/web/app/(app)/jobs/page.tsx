@@ -591,7 +591,7 @@ export default function JobsPage() {
                 <SlidersHorizontal className="size-3.5" />
                 筛选
                 {filterCount > 0 ? (
-                  <span className="rounded-full bg-white/20 px-1.5 text-[10px] font-bold tabular-nums">{filterCount}</span>
+                  <span className="rounded-full bg-white/20 px-1.5 text-[11px] font-bold tabular-nums">{filterCount}</span>
                 ) : null}
                 <ChevronDown className={cn("size-3.5 transition-transform", showFilters && "rotate-180")} />
               </button>
@@ -646,7 +646,7 @@ export default function JobsPage() {
                   <FilterChip key={source} active={platforms.includes(source)} onClick={() => togglePlatform(source)}>
                     {jobSourceLabel(source)}
                     {experimentalJobSources.includes(source) ? (
-                      <span className="rounded-full bg-white/20 px-1.5 py-0.5 text-[10px]">实验</span>
+                      <span className="rounded-full bg-white/20 px-1.5 py-0.5 text-[11px]">实验</span>
                     ) : null}
                   </FilterChip>
                 ))}

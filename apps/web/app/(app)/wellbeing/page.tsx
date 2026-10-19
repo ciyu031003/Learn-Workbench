@@ -571,7 +571,7 @@ export default function WellbeingPage() {
                   style={energyLevel === lv ? { backgroundColor: energyLevelColors[lv] } : undefined}
                 >
                   <span className="text-base font-bold">{lv}</span>
-                  <span className="text-[10px]">{energyLevelLabels[lv]}</span>
+                  <span className="text-[11px]">{energyLevelLabels[lv]}</span>
                 </button>
               ))}
             </div>

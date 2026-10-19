@@ -115,12 +115,12 @@ export function EquipmentPickerModal({
                   <span className="relative grid aspect-square w-full place-items-center overflow-hidden rounded-xl bg-white">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={item.imageUrl} alt="" className="size-full object-contain" loading="lazy" />
-                    <span className="absolute bottom-1 left-1 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
+                    <span className="absolute bottom-1 left-1 rounded-full bg-black/55 px-2 py-0.5 text-[11px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
                       选它
                     </span>
                   </span>
                   <span className="line-clamp-2 text-[11px] font-semibold">{item.model}</span>
-                  <span className="mt-auto inline-flex w-fit rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                  <span className="mt-auto inline-flex w-fit rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
                     {item.brand}
                   </span>
                 </button>

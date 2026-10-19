@@ -166,7 +166,7 @@ export default function CareerSkillsPage() {
                   >
                     <Plus className="size-3 text-primary" />
                     {r.name}
-                    <span className="text-[10px] text-muted-foreground">{CATEGORY_LABELS[r.category] ?? "其他"}</span>
+                    <span className="text-[11px] text-muted-foreground">{CATEGORY_LABELS[r.category] ?? "其他"}</span>
                   </button>
                 ))}
             </div>
@@ -255,7 +255,7 @@ export default function CareerSkillsPage() {
                     </div>
                     <span className="w-10 text-right text-xs text-muted-foreground">{LEVEL_LABELS[s.level]}</span>
                     {s.source !== "manual" ? (
-                      <Badge variant="muted" className="text-[10px]">{s.source === "resume" ? "简历" : s.source}</Badge>
+                      <Badge variant="muted" className="text-[11px]">{s.source === "resume" ? "简历" : s.source}</Badge>
                     ) : null}
                     <button type="button" onClick={() => removeSkill(s.id)} aria-label={`移除 ${s.name}`} className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-danger/15 hover:text-danger">
                       <X className="size-3.5" />

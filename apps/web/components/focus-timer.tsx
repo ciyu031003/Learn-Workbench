@@ -656,7 +656,7 @@ export function FocusTimer({
                   key={g.id}
                   onClick={() => bg.setGalleryId(g.id)}
                   className={cn(
-                    "flex h-14 items-center justify-center overflow-hidden rounded-xl border text-[10px] text-white transition-all",
+                    "flex h-14 items-center justify-center overflow-hidden rounded-xl border text-[11px] text-white transition-all",
                     bg.galleryId === g.id ? "border-white ring-2 ring-primary/50" : "border-white/20"
                   )}
                   style={g.css ? { background: g.css } : { background: "linear-gradient(135deg,#1e293b,#0f172a)" }}

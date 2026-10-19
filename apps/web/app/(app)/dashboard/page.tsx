@@ -10,7 +10,8 @@ import { DashboardView } from "./dashboard-view";
  *   force-dynamic + 会话校验约束，不会跨用户共享）。
  * - 交互仍由 dashboard-view.tsx（"use client"）承担，刷新走 router.refresh()。
  */
-export const revalidate = 30;
+// 注：父级 (app)/layout 是 force-dynamic（服务端会话守卫），这里的 revalidate 实际不会生效。
+// 保留导出是为了将来把会话守卫下沉到 middleware 后再启用 30s 缓存；当前按请求动态渲染。
 
 export default async function DashboardPage() {
   const data = await getDashboardPageData();

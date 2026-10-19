@@ -99,7 +99,7 @@ function ChartCard({
       <CardHeader className="flex-row items-center gap-2">
         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10">{icon}</span>
         <CardTitle className="text-sm text-foreground">{title}</CardTitle>
-        {badge ? <Badge variant="muted" className="ml-auto text-[10px]">{badge}</Badge> : null}
+        {badge ? <Badge variant="muted" className="ml-auto text-[11px]">{badge}</Badge> : null}
       </CardHeader>
       <CardContent className="flex flex-col gap-2">{children}</CardContent>
     </Card>
