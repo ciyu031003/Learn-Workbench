@@ -2,6 +2,9 @@
 # 一键构建 Android Release APK（把踩坑点 23 的隐性知识固化成脚本）
 #
 #   pwsh scripts/build-android-release.ps1 -VersionName 1.3.0 -VersionCode 9
+#   干跑自检（只打补丁、不构建）：pwsh scripts/build-android-release.ps1 -PatchOnly
+#   OTA 单包（关闭 ABI 拆分）：  pwsh scripts/build-android-release.ps1 -UniversalApk -VersionName x -VersionCode n
+#   分 ABI 包（默认，S3-7）：    pwsh scripts/build-android-release.ps1 -VersionName x -VersionCode n
 #
 # 设计要点：
 #  1. 版本号唯一事实源 = android/app/build.gradle（与踩坑点 23 一致），脚本负责同步
@@ -16,13 +19,19 @@ param(
   [string]$VersionName = "1.3.1",
   [int]$VersionCode = 10,
   [string]$Abis = "armeabi-v7a,arm64-v8a",
+  # S3-7 ABI 拆分：默认开启，产物为 app-<abi>-release.apk（单设备下载量约减半）。
+  # ⚠️ 应用内升级（src/lib/ota.ts）只认清单里的单个 apkUrl、无法自选 ABI ——
+  #    需要发布 OTA 单包时加 -UniversalApk（等价于关闭拆分）。
+  [bool]$SplitAbi = $true,
+  [switch]$UniversalApk,
   [string]$ExpectedMd5 = "3057105285981cc18597a95c1370c147",
   [switch]$SkipVersionBump,
   # R8/资源裁剪默认关闭：包体已达标（约 66MB），而 R8 只能在真机上验证是否破坏反射。
   # 需要更小包体时加 -EnableR8，并在真机回归通过后再考虑设为默认。
   [switch]$EnableR8,
-  # S1-5 干跑：只做版本/清单/资源修补 + 源清单断言，不跑 gradle。
-  # 本地验证补丁逻辑用：pwsh scripts/build-android-release.ps1 -PatchOnly -SkipVersionBump
+  # S1-5 干跑：只做清单/资源/ABI 拆分补丁 + 源清单断言，不跑 gradle、不签名。
+  # 版本号自动沿用 build.gradle 现值（不会被默认值覆盖）：pwsh scripts/build-android-release.ps1 -PatchOnly
+  # 幂等：连续跑两次，第二次所有补丁项应输出「无需修补」。
   [switch]$PatchOnly,
   # S1-5 干跑：只对现有 release APK 做权限白名单断言（不构建），用于验证断言本身是否生效。
   [switch]$CheckApkOnly
@@ -34,6 +43,9 @@ $mobile = Join-Path $root "apps\mobile"
 $android = Join-Path $mobile "android"
 $gradleFile = Join-Path $android "app\build.gradle"
 $outDir = Join-Path $root ".local\accept"
+
+# S3-7：-UniversalApk 是「关闭拆分、出单包」的显式逃生口（OTA 发布用）
+if ($UniversalApk) { $SplitAbi = $false }
 
 function Info($m) { Write-Host "[build] $m" -ForegroundColor Cyan }
 function Fail($m) { Write-Host "[build][FAIL] $m" -ForegroundColor Red; exit 1 }
@@ -111,26 +123,35 @@ function Assert-ApkPermissions([string]$ApkPath) {
 }
 
 # S1-5 干跑：只对现有 APK 验证白名单断言本身（不需要重新构建）
+# S3-7 起产物可能是 app-<abi>-release.apk（拆分）或 app-release.apk（单包），两种都支持
 if ($CheckApkOnly) {
-  $existingApk = Join-Path $android "app\build\outputs\apk\release\app-release.apk"
-  Info "CheckApkOnly：对现有 APK 断言权限白名单（不构建）：$existingApk"
-  Assert-ApkPermissions $existingApk
-  Info "CheckApkOnly 通过"
+  $checkDir = Join-Path $android "app\build\outputs\apk\release"
+  $existing = @(Get-ChildItem $checkDir -Filter "app-*-release.apk" -ErrorAction SilentlyContinue | Sort-Object Name)
+  if ($existing.Count -eq 0) { $existing = @(Get-ChildItem $checkDir -Filter "app-release.apk" -ErrorAction SilentlyContinue) }
+  if ($existing.Count -eq 0) { Fail "CheckApkOnly：$checkDir 下没有 release APK" }
+  foreach ($apkItem in $existing) {
+    Info ("CheckApkOnly：断言权限白名单（{0}）" -f $apkItem.Name)
+    Assert-ApkPermissions $apkItem.FullName
+  }
+  Info "CheckApkOnly 通过（$($existing.Count) 个 APK）"
   exit 0
 }
 
 # ---------- 1) 前置检查 ----------
 Info "检查前置条件"
 if (-not (Test-Path $gradleFile)) { Fail "找不到 $gradleFile（android/ 工程缺失）" }
-foreach ($f in @("keystore\release.keystore", "keystore.properties")) {
-  if (-not (Test-Path (Join-Path $android $f))) {
-    $bak = Join-Path $root ".local\keystore-backup"
-    if (-not (Test-Path $bak)) { Fail "缺少 $f 且没有备份目录 $bak —— 禁止在无签名的情况下打包" }
-    Fail "缺少 android\$f；请先从 $bak 恢复（换签名会导致备案/微信登记全部失效）"
+# PatchOnly 只改文件、不构建不签名：不要求 keystore / JDK（CI 干跑也能跑通）
+if (-not $PatchOnly) {
+  foreach ($f in @("keystore\release.keystore", "keystore.properties")) {
+    if (-not (Test-Path (Join-Path $android $f))) {
+      $bak = Join-Path $root ".local\keystore-backup"
+      if (-not (Test-Path $bak)) { Fail "缺少 $f 且没有备份目录 $bak —— 禁止在无签名的情况下打包" }
+      Fail "缺少 android\$f；请先从 $bak 恢复（换签名会导致备案/微信登记全部失效）"
+    }
   }
+  if (-not $env:JAVA_HOME) { Fail "JAVA_HOME 未设置（需要 JDK 17+）" }
+  Info "JAVA_HOME = $env:JAVA_HOME"
 }
-if (-not $env:JAVA_HOME) { Fail "JAVA_HOME 未设置（需要 JDK 17+）" }
-Info "JAVA_HOME = $env:JAVA_HOME"
 
 # Gradle 工具链要求 languageVersion=17；若系统 JAVA_HOME 是 21/其它版本，Gradle 会尝试联网下载 JDK 17
 # （本网络常被阻断 → 构建失败）。因此优先使用仓库内自带的 JDK 17。
@@ -143,7 +164,7 @@ Info "JAVA_HOME = $env:JAVA_HOME"
 
 # ---------- 2) 版本号（单一事实源） ----------
 # 注意：版本同步走 Node（utf8 安全）。禁止用 PowerShell Set-Content 改含中文的 app.json —— 会破坏多字节字符（看板踩坑点 40）
-if (-not $SkipVersionBump) {
+if (-not $SkipVersionBump -and -not $PatchOnly) {
   Info "写入版本号到 build.gradle：versionName=$VersionName versionCode=$VersionCode"
   $syncScript = @'
 const fs = require("fs");
@@ -174,6 +195,14 @@ console.log("[build] 版本号已同步（gradle/app.json/package.json/ota.ts）
   if ($LASTEXITCODE -ne 0) { Fail "版本号同步失败" }
 }
 
+# PatchOnly 干跑不写版本号：沿用 build.gradle 现有值，避免默认 1.3.1/10 让下面的断言误报
+if ($PatchOnly) {
+  $gNow = Get-Content $gradleFile -Raw
+  if ($gNow -match 'versionCode\s+(\d+)') { $VersionCode = [int]$Matches[1] }
+  if ($gNow -match 'versionName\s+"([^"]+)"') { $VersionName = $Matches[1] }
+  Info "PatchOnly：沿用 build.gradle 现有版本 versionName=$VersionName versionCode=$VersionCode"
+}
+
 # ---------- 3) 签名配置断言（踩坑点 23 的三要素） ----------
 Info "断言 build.gradle 签名配置"
 $g = Get-Content $gradleFile -Raw
@@ -191,7 +220,7 @@ Info "修补原生清单与资源（权限收敛 / 经典系统栏 / targetSdk /
 $nativePatch = @'
 const fs = require("fs");
 const path = require("path");
-const [androidDir, canvasLight, canvasDark, enableR8] = process.argv.slice(2);
+const [androidDir, canvasLight, canvasDark, enableR8, splitAbi] = process.argv.slice(2);
 const log = [];
 
 /** 确保主题里存在 <item name="X">V</item>：已存在则原位改值，否则插到第一个 </style> 之前 */
@@ -314,12 +343,51 @@ p += managedKeys.map((k) => `${k}=${managed[k]}`).join("\n") + "\n";
 fs.writeFileSync(propsPath, p, "utf8");
 log.push(`targetSdk=35 · edgeToEdgeEnabled=false · R8/资源裁剪=${want}`);
 
+// 5) ABI 拆分（S3-7）：android/app/build.gradle 幂等注入 splits 块。
+//    android/ 不进 git、prebuild 会重建它，所以这里和清单/资源一样用「标记块 + 重写」保证可重复。
+//    - 开启：splits.abi { enable true; reset(); include 'armeabi-v7a','arm64-v8a'; universalApk false }
+//      → 产物 app-armeabi-v7a-release.apk / app-arm64-v8a-release.apk（每个只含一套 .so）
+//    - 关闭（-UniversalApk）：移除标记块，回到单包 app-release.apk（OTA 发布必须用这个）。
+const gradlePath = path.join(androidDir, "app", "build.gradle");
+const ABI_START = "    // [lwb-abi-split:start]";
+const ABI_END = "    // [lwb-abi-split:end]";
+const abiBlock = [
+  ABI_START,
+  "    splits {",
+  "        abi {",
+  "            enable true",
+  "            reset()",
+  "            include \"armeabi-v7a\", \"arm64-v8a\"",
+  "            universalApk false",
+  "        }",
+  "    }",
+  ABI_END,
+].join("\n") + "\n";
+let gb = fs.readFileSync(gradlePath, "utf8");
+const gb0 = gb;
+// 先无条件移除历史标记块（保证「关闭拆分」也能恢复干净的单包配置，且重复运行结果稳定）
+gb = gb.replace(/\n?[ \t]*\/\/ \[lwb-abi-split:start\][\s\S]*?\/\/ \[lwb-abi-split:end\][ \t]*\n?/g, "\n");
+gb = gb.replace(/\n{3,}/g, "\n\n");
+if (splitAbi === "true") {
+  if (!/\n[ \t]*android[ \t]*\{[^\n]*\n/.test(gb)) {
+    throw new Error("app/build.gradle 找不到 android { 块，无法注入 ABI 拆分");
+  }
+  gb = gb.replace(/(\n[ \t]*android[ \t]*\{[^\n]*\n)/, (m) => m + abiBlock);
+}
+if (gb !== gb0) {
+  fs.writeFileSync(gradlePath, gb, "utf8");
+  log.push(splitAbi === "true" ? "ABI 拆分块已注入" : "ABI 拆分块已移除（通用单包）");
+} else {
+  log.push(splitAbi === "true" ? "ABI 拆分块无需修补" : "ABI 拆分块无需移除");
+}
+
 console.log("[build] " + log.join(" · "));
 '@
 $patchFile = Join-Path $env:TEMP "lwb-patch-native.cjs"
 Set-Content -Path $patchFile -Value $nativePatch -Encoding UTF8
 $r8Flag = if ($EnableR8) { "true" } else { "false" }
-& node $patchFile $android "#FDF8EF" "#171209" $r8Flag
+$splitFlag = if ($SplitAbi) { "true" } else { "false" }
+& node $patchFile $android "#FDF8EF" "#171209" $r8Flag $splitFlag
 if ($LASTEXITCODE -ne 0) { Fail "原生清单/资源修补失败" }
 
 # 3.6) 手写原生代码（apps/mobile/native/**）：android/ 不进 git，prebuild 会重建它，
@@ -348,6 +416,18 @@ if ($stylesXml -notmatch 'windowLayoutInDisplayCutoutMode">shortEdges') { Fail "
 $gradleProps = Get-Content (Join-Path $android "gradle.properties") -Raw
 if ($gradleProps -notmatch "(?m)^android\.targetSdkVersion=35\r?$") { Fail "gradle.properties 未把 targetSdk 固定为 35" }
 if ($gradleProps -notmatch "(?m)^edgeToEdgeEnabled=false\r?$") { Fail "edgeToEdgeEnabled 未置 false" }
+
+# S3-7：ABI 拆分块断言（幂等注入结果必须与 -SplitAbi / -UniversalApk 一致）
+$buildGradle = Get-Content $gradleFile -Raw
+if ($SplitAbi) {
+  if ($buildGradle -notmatch '\[lwb-abi-split:start\]') { Fail "build.gradle 未注入 ABI 拆分块（S3-7）" }
+  if ($buildGradle -notmatch 'universalApk false') { Fail "ABI 拆分块缺 universalApk false（会额外产出 74MB 通用包）" }
+  if ($buildGradle -notmatch 'include "armeabi-v7a", "arm64-v8a"') { Fail "ABI 拆分块 include 列表不是 armeabi-v7a/arm64-v8a" }
+  Info "ABI 拆分已启用：产物 app-armeabi-v7a-release.apk / app-arm64-v8a-release.apk"
+} else {
+  if ($buildGradle -match '\[lwb-abi-split:start\]') { Fail "仍存在 ABI 拆分块（-UniversalApk 时应移除，否则拿不到单包）" }
+  Info "ABI 拆分已关闭：产物为单包 app-release.apk（OTA 发布用）"
+}
 
 $boolsXml = Get-Content (Join-Path $android "app\src\main\res\values\bools.xml") -Raw -ErrorAction SilentlyContinue
 if ($boolsXml -notmatch 'name="system_bars_light">true') { Fail "缺少 values/bools.xml（系统栏图标明暗资源）" }
@@ -387,42 +467,67 @@ try {
 if (Test-Path $log) { Get-Content $log -Tail 30 | ForEach-Object { Write-Host "  $_" } }
 if ($gradleExit -ne 0) { Fail "gradlew assembleRelease 失败（exit $gradleExit），完整日志：$log" }
 
-$apk = Join-Path $android "app\build\outputs\apk\release\app-release.apk"
-if (-not (Test-Path $apk)) { Fail "未找到产物 $apk" }
+# ---------- 4.5) 收集产物（S3-7：拆分后是 app-<abi>-release.apk；单包是 app-release.apk） ----------
+$releaseDir = Join-Path $android "app\build\outputs\apk\release"
+if ($SplitAbi) {
+  $apks = @(Get-ChildItem $releaseDir -Filter "app-*-release.apk" -ErrorAction SilentlyContinue | Sort-Object Name)
+} else {
+  $apks = @(Get-ChildItem $releaseDir -Filter "app-release.apk" -ErrorAction SilentlyContinue)
+}
+if ($apks.Count -eq 0) {
+  Fail ("未找到 release APK（split={0}）：{1}" -f $SplitAbi, $releaseDir)
+}
+Info ("发现 {0} 个产物：{1}" -f $apks.Count, (($apks | ForEach-Object { $_.Name }) -join ", "))
 
-# ---------- 4.5) APK 权限白名单断言（S1-5） ----------
-# 断言的是**合并后**的最终清单（aapt2 dump badging）：source manifest 的删除只能挡住自写声明，
-# expo-image-picker 等库的 CAMERA 必须靠 tools:node="remove" 在合并期剔除，这里验证它真的生效。
-Info "断言 release APK 权限白名单（aapt2 dump badging）"
-Assert-ApkPermissions $apk
-
-# ---------- 5) 签名校验（MD5 必须与备案一致） ----------
 $sdk = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } else { $env:ANDROID_SDK_ROOT }
 if (-not $sdk) { Fail "ANDROID_HOME 未设置，无法定位 apksigner" }
 $apksigner = Get-ChildItem "$sdk\build-tools\*\apksigner.bat" -ErrorAction SilentlyContinue |
   Sort-Object FullName -Descending | Select-Object -First 1
 if (-not $apksigner) { Fail "找不到 apksigner.bat（build-tools 未安装？）" }
 
-Info "校验签名（apksigner verify --print-certs）"
-$prevEap2 = $ErrorActionPreference
-$ErrorActionPreference = "Continue"
-# ⚠️ 必须 `< nul` 重定向 stdin：apksigner 在 PowerShell 管道里会**等 stdin 而挂死**
-# （2026-09-17 连踩两次：gradle 早已 BUILD SUCCESSFUL，脚本却卡在这一步很久，只能手动取产物）
-$certs = (& cmd /c "`"$($apksigner.FullName)`" verify --print-certs `"$apk`" < nul 2>&1" | Out-String)
-$ErrorActionPreference = $prevEap2
-$md5 = ([regex]::Match($certs, "certificate MD5 digest:\s*([0-9a-fA-F]{32})")).Groups[1].Value.ToLower()
-if (-not $md5) { Info $certs; Fail "未能从 apksigner 输出解析 MD5" }
-Info "签名 MD5 = $md5"
-if ($md5 -ne $ExpectedMd5.ToLower()) {
-  Fail "签名 MD5 与备案不一致（期望 $ExpectedMd5）—— 禁止发布该包；检查 keystore 是否被换过"
+New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+foreach ($item in $apks) {
+  $apkPath = $item.FullName
+  $abi = if ($SplitAbi) { ($item.BaseName -replace '^app-', '') -replace '-release$', '' } else { "" }
+  if ($SplitAbi -and ($abi -notmatch '^(arm64-v8a|armeabi-v7a)$')) {
+    Fail "拆分产物文件名不符合预期（app-<abi>-release.apk）：$($item.Name)"
+  }
+
+  # 权限白名单断言：断言的是**合并后**的最终清单（aapt2 dump badging）。
+  # source manifest 的删除只能挡住自写声明；expo-image-picker 等库的 CAMERA 靠 tools:node="remove" 在合并期剔除。
+  Info ("断言 APK 权限白名单（{0}）" -f $item.Name)
+  Assert-ApkPermissions $apkPath
+
+  # 签名校验（MD5 必须与备案一致；每个拆分包都要过）
+  Info ("校验签名（apksigner verify --print-certs）：{0}" -f $item.Name)
+  $prevEap2 = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  # ⚠️ 必须 `< nul` 重定向 stdin：apksigner 在 PowerShell 管道里会**等 stdin 而挂死**
+  # （2026-09-17 连踩两次：gradle 早已 BUILD SUCCESSFUL，脚本却卡在这一步很久，只能手动取产物）
+  $certs = (& cmd /c "`"$($apksigner.FullName)`" verify --print-certs `"$apkPath`" < nul 2>&1" | Out-String)
+  $ErrorActionPreference = $prevEap2
+  $md5 = ([regex]::Match($certs, "certificate MD5 digest:\s*([0-9a-fA-F]{32})")).Groups[1].Value.ToLower()
+  if (-not $md5) { Info $certs; Fail ("未能从 apksigner 输出解析 MD5：{0}" -f $item.Name) }
+  Info "签名 MD5 = $md5"
+  if ($md5 -ne $ExpectedMd5.ToLower()) {
+    Fail "签名 MD5 与备案不一致（期望 $ExpectedMd5）—— 禁止发布该包；检查 keystore 是否被换过"
+  }
+
+  # 产出（拆分：learn-workbench-v<ver>-<abi>.apk；单包：learn-workbench-v<ver>.apk）
+  $target = if ($SplitAbi) {
+    Join-Path $outDir ("learn-workbench-v{0}-{1}.apk" -f $VersionName, $abi)
+  } else {
+    Join-Path $outDir ("learn-workbench-v{0}.apk" -f $VersionName)
+  }
+  Copy-Item $apkPath $target -Force
+  $sizeMb = [math]::Round((Get-Item $target).Length / 1MB, 1)
+  Info ("产物：{0}（{1} MB，ABI={2}）" -f $target, $sizeMb, ($(if ($SplitAbi) { $abi } else { "universal" })))
+  if ($sizeMb -gt 70) { Write-Host "[build][WARN] 包体 $sizeMb MB 超过 70MB 预算，检查是否打入了多 ABI 或死资源" -ForegroundColor Yellow }
 }
 
-# ---------- 6) 产出 ----------
-New-Item -ItemType Directory -Force -Path $outDir | Out-Null
-$target = Join-Path $outDir "learn-workbench-v$VersionName.apk"
-Copy-Item $apk $target -Force
-$sizeMb = [math]::Round((Get-Item $target).Length / 1MB, 1)
-Info "产物：$target（$sizeMb MB）"
-Info "versionName=$VersionName versionCode=$VersionCode abi=$Abis"
-if ($sizeMb -gt 70) { Write-Host "[build][WARN] 包体 $sizeMb MB 超过 70MB 预算，检查是否打入了多 ABI 或死资源" -ForegroundColor Yellow }
+Info "versionName=$VersionName versionCode=$VersionCode gradleAbis=$Abis split=$SplitAbi"
+if ($SplitAbi) {
+  Write-Host "[build][NOTE] ABI 拆分包用于市场/手动下载；应用内升级（OTA）只认单个 apkUrl，" -ForegroundColor Yellow
+  Write-Host "             发布 mobile-update.json 请改用 -UniversalApk 出单包，或用 scripts/build-ota-manifest.mjs --abi 生成按 ABI 清单。" -ForegroundColor Yellow
+}
 Info "完成 ✅"

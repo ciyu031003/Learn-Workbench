@@ -22,6 +22,32 @@ test("apkUrlFor 与文件名口径固定（门户 / nginx /download/ 路径）",
   assert.equal(apkUrlFor("1.42.0", "https://example.test/"), "https://example.test/download/learn-workbench-v1.42.0.apk");
 });
 
+test("S3-7 ABI 拆分：apkFileName/apkUrlFor 支持按 ABI 命名", () => {
+  assert.equal(apkFileName("1.48.0", "arm64-v8a"), "learn-workbench-v1.48.0-arm64-v8a.apk");
+  assert.equal(apkFileName("1.48.0", "armeabi-v7a"), "learn-workbench-v1.48.0-armeabi-v7a.apk");
+  assert.equal(
+    apkUrlFor("1.48.0", "https://example.test/", "arm64-v8a"),
+    "https://example.test/download/learn-workbench-v1.48.0-arm64-v8a.apk"
+  );
+});
+
+test("S3-7 ABI 清单：带 abi 字段，且不破坏通用单包键集", () => {
+  const abiManifest = buildOtaManifest({
+    versionName: "1.48.0",
+    versionCode: 81,
+    sizeBytes: 100,
+    sha256: sha,
+    releaseNotes: ["a"],
+    abi: "arm64-v8a",
+    publishedAt: "2026-10-19T00:00:00.000Z",
+  });
+  assert.equal(abiManifest.abi, "arm64-v8a");
+  assert.match(abiManifest.apkUrl, /-arm64-v8a\.apk$/);
+  // 通用单包不能多出 abi 字段（当前客户端只认 apkUrl，保持清单形状不变）
+  const universal = buildOtaManifest({ versionName: "1.48.0", versionCode: 81, sizeBytes: 100, sha256: sha, releaseNotes: ["a"] });
+  assert.equal("abi" in universal, false);
+});
+
 test("buildOtaManifest：字段齐全，publishedAt 可显式指定", () => {
   const m = buildOtaManifest({
     versionName: "1.42.0",

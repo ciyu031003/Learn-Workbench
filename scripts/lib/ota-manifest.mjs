@@ -33,12 +33,20 @@ export async function readReleaseNotesFile(file) {
   return parseReleaseNotes(await readFile(file, "utf8"));
 }
 
-export function apkFileName(versionName) {
-  return `learn-workbench-v${versionName}.apk`;
+/**
+ * APK 文件名（S3-7 ABI 拆分后按 ABI 分文件）。
+ * @param {string} versionName 版本名
+ * @param {string=} abi 可选：arm64-v8a / armeabi-v7a；
+ *   不传 = 通用单包（learn-workbench-v1.42.0.apk），
+ *   传了 = 分 ABI 包（learn-workbench-v1.42.0-arm64-v8a.apk）。
+ */
+export function apkFileName(versionName, abi) {
+  const suffix = abi ? "-" + String(abi).trim() : "";
+  return `learn-workbench-v${versionName}${suffix}.apk`;
 }
 
-export function apkUrlFor(versionName, base = DEFAULT_OTA_BASE) {
-  return `${String(base).replace(/\/+$/, "")}/download/${apkFileName(versionName)}`;
+export function apkUrlFor(versionName, base = DEFAULT_OTA_BASE, abi) {
+  return `${String(base).replace(/\/+$/, "")}/download/${apkFileName(versionName, abi)}`;
 }
 
 /**
@@ -47,15 +55,22 @@ export function apkUrlFor(versionName, base = DEFAULT_OTA_BASE) {
  */
 export function buildOtaManifest(input) {
   const base = input.base ?? DEFAULT_OTA_BASE;
-  return {
+  const abi = input.abi ? String(input.abi).trim() : "";
+  const manifest = {
     versionName: String(input.versionName),
     versionCode: Number(input.versionCode),
-    apkUrl: apkUrlFor(input.versionName, base),
+    apkUrl: apkUrlFor(input.versionName, base, abi || undefined),
     sizeBytes: Number(input.sizeBytes),
     sha256: String(input.sha256),
     releaseNotes: Array.isArray(input.releaseNotes) ? input.releaseNotes : [],
     publishedAt: input.publishedAt ?? new Date().toISOString(),
   };
+  // S3-7：按 ABI 的清单额外带 abi 字段。
+  // 当前客户端（apps/mobile/src/lib/ota.ts 的 fetchOtaManifest）只读 versionName/versionCode/apkUrl，
+  // 多出的字段会被忽略 —— 所以按 ABI 清单只能给「会自选 ABI 的下载页/未来客户端」用，
+  // 应用内升级（单 apkUrl）仍必须发布通用单包（见 scripts/build-android-release.ps1 -UniversalApk）。
+  if (abi) manifest.abi = abi;
+  return manifest;
 }
 
 export function serializeOtaManifest(manifest) {
