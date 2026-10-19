@@ -36,10 +36,19 @@ if [ -z "${CRON_SECRET:-}" ] && [ -f "$ROOT/apps/web/.env.local" ]; then
   set +a
 fi
 
-# 3) 交给 Node 脚本（--dry-run / --verbose 等参数原样透传）
-if ! command -v node >/dev/null 2>&1; then
-  echo "[alert-check] 找不到 node（crontab 的 PATH 里没有）；请在 crontab.example 里补 PATH" >&2
-  exit 2
+# 3) 优先宿主 node；docker 部署的服务器通常没装 node，则退回 web 容器（S4 实测：prod 宿主无 node）
+if command -v node >/dev/null 2>&1; then
+  exec node "$ROOT/scripts/alert-check.mjs" "$@"
 fi
 
-exec node "$ROOT/scripts/alert-check.mjs" "$@"
+if command -v docker >/dev/null 2>&1 && ( cd "$ROOT" && docker compose version >/dev/null 2>&1 ); then
+  # 容器内 127.0.0.1:3001 即 Web 自身；只透传告警需要的变量，避免把无关环境带进容器
+  ENV_ARGS=()
+  for v in CRON_SECRET ALERT_WEBHOOK_URL ALERT_METRICS_URL ALERT_METRICS_FILE DISK_MIN_FREE_GIB PGPOOL_MAX_RATIO HTTP_5XX_RATIO HTTP_5XX_MIN_SAMPLES ALERT_DB_CHECK PGHOST PGPORT PGDATABASE PGUSER PGPASSWORD; do
+    if [ -n "${!v:-}" ]; then ENV_ARGS+=("-e" "$v=${!v}"); fi
+  done
+  exec docker compose -f "$ROOT/docker-compose.yml" exec -T "${ENV_ARGS[@]}" web node /app/scripts/alert-check.mjs "$@"
+fi
+
+echo "[alert-check] 既没有 node，也没有可用的 docker compose；无法执行检查" >&2
+exit 2
