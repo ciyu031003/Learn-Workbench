@@ -4,6 +4,7 @@ import {
   applyChanges,
   collectChangesSince,
   recordSyncChanges,
+  serverTimeISO,
   upsertSyncDevice,
   SYNC_ENTITY_TYPES,
   type SyncChange,
@@ -13,13 +14,14 @@ const AT = "2026-08-13T10:00:00.000Z";
 const EARLIER = "2026-08-13T09:00:00.000Z";
 const LATER = "2026-08-13T11:00:00.000Z";
 
-function change(partial: Partial<SyncChange> & { entityType: string; entityId: string }): SyncChange {
+function change(partial: Omit<Partial<SyncChange>, "entityType"> & { entityType: string; entityId: string }): SyncChange {
   return {
     operation: "UPDATE",
     version: 1,
     payload: null,
     updatedAt: AT,
     ...partial,
+    entityType: partial.entityType as SyncChange["entityType"],
   };
 }
 
@@ -574,7 +576,7 @@ describe("B5 幂等键 (changeId)", () => {
     ]);
     expect(applied).toBe(0);
     expect(query).toHaveBeenCalledWith(
-      expect.stringContaining("SELECT 1 FROM sync_changes WHERE user_id = $1 AND change_id = $2"),
+      expect.stringContaining("SELECT seq FROM sync_changes WHERE user_id = $1 AND change_id = $2"),
       ["u-1", "chg-1"]
     );
   });
@@ -599,5 +601,165 @@ describe("B5 幂等键 (changeId)", () => {
     expect(calls).toHaveLength(1);
     expect(calls[0][0]).not.toContain("ON CONFLICT");
     expect(calls[0][1]).toEqual(["u-1", "dev-1", "checkins", "2026-08-13", "UPDATE", 1, null, new Date(AT)]);
+  });
+});
+
+/* ============================================================================
+   S5-2：逐条回执 / seq 单调序号 / entities 白名单
+   ========================================================================== */
+
+describe("S5-2 applyChanges 逐条回执", () => {
+  it("未知实体 → rejected(unknown_entity_type)，不调用任何 applier", async () => {
+    const { client, query } = makeClient(() => ({ rows: [] }));
+    const { applied, receipts } = await applyChanges(client, "u-1", [
+      change({ entityType: "futureEntity", entityId: "x", changeId: "c-1" }),
+      change({ entityType: "progress", entityId: "abc" }),
+    ]);
+    expect(applied).toBe(0);
+    expect(query.mock.calls.some(([sql]) => sql.includes("SELECT seq FROM sync_changes"))).toBe(false);
+    expect(receipts.map((r) => [r.index, r.result, r.reason])).toEqual([
+      [0, "rejected", "unknown_entity_type"],
+      [1, "rejected", "invalid_entity_id"],
+    ]);
+    expect(receipts.every((r) => r.seq === null && r.recordIndex === null)).toBe(true);
+  });
+
+  it("changeId 重复 → stale(duplicate)，回执带上既有 seq", async () => {
+    const { client, query } = makeClient((sql) =>
+      sql.includes("SELECT seq FROM sync_changes") ? { rows: [{ seq: "7" }] } : { rows: [] }
+    );
+    const { applied, receipts } = await applyChanges(client, "u-1", [
+      change({ entityType: "progress", entityId: "42", changeId: "chg-dup" }),
+    ]);
+    expect(applied).toBe(0);
+    expect(receipts).toEqual([
+      { changeId: "chg-dup", index: 0, result: "stale", reason: "duplicate", seq: 7, recordIndex: null },
+    ]);
+    // 幂等命中时不再执行 applier（不会写业务表）
+    expect(query.mock.calls.some(([sql]) => sql.includes("INSERT INTO topic_progress"))).toBe(false);
+  });
+
+  it("回执 index 与请求下标一一对应，applied 带 recordIndex", async () => {
+    const { client } = makeClient((sql) =>
+      sql.includes("SELECT updated_at, deleted_at FROM topic_progress")
+        ? { rows: [{ updated_at: new Date(EARLIER), deleted_at: null }] }
+        : { rows: [] }
+    );
+    const { applied, receipts, okChanges } = await applyChanges(client, "u-1", [
+      change({ entityType: "progress", entityId: "1", payload: { done: true, note: null }, changeId: "a" }),
+      change({ entityType: "futureEntity", entityId: "x", changeId: "b" }),
+      change({ entityType: "progress", entityId: "2", payload: { done: false, note: null }, changeId: "c" }),
+    ]);
+    expect(applied).toBe(2);
+    expect(okChanges).toHaveLength(2);
+    expect(receipts).toEqual([
+      { changeId: "a", index: 0, result: "applied", reason: "applied", seq: null, recordIndex: 0 },
+      { changeId: "b", index: 1, result: "rejected", reason: "unknown_entity_type", seq: null, recordIndex: null },
+      { changeId: "c", index: 2, result: "applied", reason: "applied", seq: null, recordIndex: 1 },
+    ]);
+  });
+
+  it("applier 抛错 → rejected(apply_failed)，不中断同批其它条", async () => {
+    let calls = 0;
+    const { client } = makeClient((sql) => {
+      if (sql.includes("FROM topic_progress")) {
+        calls += 1;
+        if (calls === 1) throw new Error("boom");
+      }
+      return { rows: [] };
+    });
+    const { receipts } = await applyChanges(client, "u-1", [
+      change({ entityType: "progress", entityId: "1", payload: { done: true, note: null } }),
+      change({ entityType: "checkins", entityId: "2026-08-13", payload: { checkinDate: "2026-08-13", note: null } }),
+    ]);
+    expect(receipts[0]).toMatchObject({ result: "rejected", reason: "apply_failed" });
+    expect(receipts[1]).toMatchObject({ result: "applied" });
+  });
+});
+
+describe("S5-2 seq 单调序号（recordSyncChanges RETURNING seq）", () => {
+  it("按入参顺序返回 seq（同 updatedAt 平局时后者 seq 更大）", async () => {
+    let seq = 40;
+    const { client } = makeClient((sql) =>
+      sql.includes("INSERT INTO sync_changes") ? { rows: [{ seq: String(++seq) }] } : { rows: [] }
+    );
+    const seqs = await recordSyncChanges(client, "u-1", "dev-1", [
+      change({ entityType: "progress", entityId: "1", payload: { done: true, note: null }, changeId: "a" }),
+      change({ entityType: "progress", entityId: "1", payload: { done: false, note: null }, changeId: "b" }),
+    ]);
+    expect(seqs).toEqual([41, 42]);
+    expect(seqs[0]!).toBeLessThan(seqs[1]!);
+  });
+
+  it("并发重复（ON CONFLICT 无返回行）→ 回读既有 seq", async () => {
+    const { client } = makeClient((sql) => {
+      if (sql.includes("INSERT INTO sync_changes")) return { rows: [] }; // 冲突：DO NOTHING
+      if (sql.includes("SELECT seq FROM sync_changes")) return { rows: [{ seq: "12" }] };
+      return { rows: [] };
+    });
+    const seqs = await recordSyncChanges(client, "u-1", "dev-1", [
+      change({ entityType: "progress", entityId: "1", payload: { done: true, note: null }, changeId: "dup" }),
+    ]);
+    expect(seqs).toEqual([12]);
+  });
+
+  it("数据库未返回 seq 时保留 null（不伪造序号）", async () => {
+    const { client } = makeClient(() => ({ rows: [] }));
+    const seqs = await recordSyncChanges(client, "u-1", "dev-1", [
+      change({ entityType: "checkins", entityId: "2026-08-13" }),
+    ]);
+    expect(seqs).toEqual([null]);
+  });
+});
+
+describe("S5-2 collectChangesSince entities 白名单与稳定排序", () => {
+  const progressRow = { id: 1, done: true, note: null, u: new Date(AT), d: null };
+  const taskRow = {
+    id: 5, cid: "c-5", td: "2026-08-13", title: "任务", pid: null, tid: null,
+    tt: "study", ck: "ict", done: false, fm: 0, so: 0, u: new Date(AT), d: null,
+  };
+  const script = (sql: string) => {
+    if (sql.includes("FROM topic_progress")) return { rows: [progressRow] };
+    if (sql.includes("FROM daily_tasks")) return { rows: [taskRow] };
+    return { rows: [] };
+  };
+
+  it("只返回白名单内的实体", async () => {
+    const { client } = makeClient(script);
+    const changes = await collectChangesSince(client, "u-1", new Date(EARLIER), { entities: ["tasks"] });
+    expect(changes.map((c) => c.entityType)).toEqual(["tasks"]);
+    expect(changes[0].entityId).toBe("c-5");
+  });
+
+  it("不传白名单时保持 v1 行为（全部实体）", async () => {
+    const { client } = makeClient(script);
+    const changes = await collectChangesSince(client, "u-1", new Date(EARLIER));
+    expect(new Set(changes.map((c) => c.entityType))).toEqual(new Set(["progress", "tasks"]));
+  });
+
+  it("按 updatedAt → entityType → entityId 稳定排序（游标分页可复现）", async () => {
+    const { client } = makeClient((sql) => {
+      if (sql.includes("FROM topic_progress")) {
+        return {
+          rows: [
+            { id: 2, done: true, note: null, u: new Date(AT), d: null },
+            { id: 1, done: false, note: null, u: new Date(EARLIER), d: null },
+          ],
+        };
+      }
+      return { rows: [] };
+    });
+    const changes = await collectChangesSince(client, "u-1", new Date(0));
+    expect(changes.map((c) => [c.entityId, c.updatedAt])).toEqual([
+      ["1", EARLIER],
+      ["2", AT],
+    ]);
+  });
+});
+
+describe("S5-2 serverTimeISO", () => {
+  it("固定按 Asia/Shanghai（+08:00）输出 ISO-8601", () => {
+    expect(serverTimeISO(new Date("2026-08-13T10:00:00.000Z"))).toBe("2026-08-13T18:00:00.000+08:00");
+    expect(serverTimeISO("2026-08-13T10:00:00.000Z")).toBe("2026-08-13T18:00:00.000+08:00");
   });
 });

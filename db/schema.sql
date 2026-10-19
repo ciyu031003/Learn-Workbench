@@ -564,6 +564,8 @@ CREATE INDEX IF NOT EXISTS idx_sync_devices_user ON sync_devices(user_id);
 
 CREATE TABLE IF NOT EXISTS sync_changes (
   id          bigserial PRIMARY KEY,
+  -- S5-2：单调冲突裁决序号（与 id 分开：清理日志不影响裁决语义）；081_sync_seq.sql 负责存量库加列
+  seq         bigserial,
   user_id     uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   device_id   text,
   entity_type text NOT NULL,
@@ -576,6 +578,8 @@ CREATE TABLE IF NOT EXISTS sync_changes (
 );
 CREATE INDEX IF NOT EXISTS idx_sync_changes_user   ON sync_changes(user_id);
 CREATE INDEX IF NOT EXISTS idx_sync_changes_synced ON sync_changes(synced_at);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_sync_changes_seq     ON sync_changes(seq);
+CREATE INDEX IF NOT EXISTS idx_sync_changes_user_seq ON sync_changes(user_id, seq);
 
 -- 6) 存量数据回填 client_id（'srv-' + id），保证旧行可被增量同步识别
 UPDATE daily_tasks    SET client_id = 'srv-' || id WHERE client_id IS NULL;

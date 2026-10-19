@@ -13,7 +13,9 @@
     "./dates": "./src/dates.ts",
     "./pure": "./src/pure.ts",
     "./learning": "./src/learning.ts",
-    "./md-lite": "./src/md-lite.ts"
+    "./md-lite": "./src/md-lite.ts",
+    "./domains": "./src/domains/index.ts",
+    "./sync": "./src/sync.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

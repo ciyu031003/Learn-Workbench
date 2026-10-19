@@ -1,6 +1,12 @@
 import type { PoolClient } from "pg";
 import { logger } from "@/lib/logger";
 import { exerciseTypeSchema } from "@learn-workbench/shared";
+import {
+  SYNC_ENTITY_TYPES,
+  SYNC_RECEIPT_REASONS,
+  type SyncEntityType,
+  type SyncReceiptResult,
+} from "@learn-workbench/shared/sync";
 
 // ============================================================================
 // 增量同步核心（方案 §37-§40）
@@ -13,7 +19,8 @@ import { exerciseTypeSchema } from "@learn-workbench/shared";
 export type SyncOperation = "CREATE" | "UPDATE" | "DELETE";
 
 export interface SyncChange {
-  entityType: string;
+  /** S5-2：实体白名单来自 shared/sync（双端单一事实源） */
+  entityType: SyncEntityType;
   entityId: string;
   operation: SyncOperation;
   version: number;
@@ -23,19 +30,38 @@ export interface SyncChange {
   changeId?: string;
 }
 
-export const SYNC_ENTITY_TYPES = [
-  "progress",
-  "tasks",
-  "sessions",
-  "checkins",
-  "logs",
-  "github",
-  "customTopics",
-  "exerciseLogs",
-  "certificates",
-  "habits",
-  "habitLogs",
-] as const;
+// 白名单单一事实源在 packages/shared/src/sync.ts；此处 re-export 供 web 侧与测试沿用旧导入路径
+export { SYNC_ENTITY_TYPES };
+
+/**
+ * 同步服务端时间（v2 游标唯一可信来源）：
+ * 以 Asia/Shanghai（UTC+8）ISO-8601 返回，例如 `2026-08-13T18:00:00.000+08:00`。
+ *
+ * 为什么不用 `toISOString()`：客户端把 serverTime 当游标回传，`+08:00` 与 `Z` 表示同一瞬间，
+ * 但产品/排障口径统一按北京时间，日志、看板、SQL 对照时不用再做时区心算。
+ * 中国无夏令时，固定 +08:00 安全。
+ */
+export const SYNC_SERVER_TIMEZONE = "Asia/Shanghai";
+
+export function serverTimeISO(date: Date | string = new Date()): string {
+  const value = typeof date === "string" ? new Date(date) : date;
+  const ms = value.getTime();
+  const safe = Number.isNaN(ms) ? Date.now() : ms;
+  return new Date(safe + 8 * 60 * 60 * 1000).toISOString().replace("Z", "+08:00");
+}
+
+/** 逐条回执（push 响应 receipts[] 的服务端内部形态，seq 由 recordSyncChanges 回填） */
+export interface SyncApplyReceipt {
+  changeId: string | null;
+  /** 该变更在请求 changes[] 中的下标（0-based） */
+  index: number;
+  result: SyncReceiptResult;
+  reason: string;
+  /** 服务端单调序号；rejected 时为 null（stale-duplicate 为既有行 seq） */
+  seq: number | null;
+  /** applied 时指向 okChanges 的下标（路由据此回填 seq）；其余为 null */
+  recordIndex: number | null;
+}
 
 function atOf(c: SyncChange): Date {
   const d = new Date(c.updatedAt);
@@ -471,44 +497,98 @@ export function sanitizeDeviceName(raw: string | null | undefined): string | nul
   return typeof raw === "string" ? raw.slice(0, 50) : null;
 }
 
+/**
+ * 逐条应用变更并产出**逐条回执**（S5-2）。
+ *
+ * 回执语义（结果判定完全集中在服务端，客户端不用猜）：
+ *  - `applied`：applier 成功执行（**注意**：applier 目前返回 boolean，LWW 下"本地更新、未覆盖"
+ *    也返回 true —— 这类变更同样计入 applied，是已知取舍：为它改 11 个 applier 的签名收益低、
+ *    回归面大；客户端只需按 applied 清除本地队列，LWW 语义仍由服务端负责）；
+ *  - `stale` + reason=duplicate：changeId 已在 sync_changes（客户端重试），不重复应用；
+ *  - `rejected` + reason=unknown_entity_type / invalid_entity_id / apply_failed：本条未生效，
+ *    不影响同批其它条（applier 异常被捕获，不会回滚整批）。
+ *
+ * seq 由 `recordSyncChanges`（RETURNING seq）回填，本函数只给 recordIndex 指针。
+ */
 export async function applyChanges(
   client: PoolClient, uid: string, changes: SyncChange[]
-): Promise<{ applied: number; okChanges: SyncChange[] }> {
+): Promise<{ applied: number; okChanges: SyncChange[]; receipts: SyncApplyReceipt[] }> {
   let applied = 0;
   const okChanges: SyncChange[] = [];
-  for (const c of changes) {
+  const receipts: SyncApplyReceipt[] = [];
+  for (const [index, c] of changes.entries()) {
     const fn = APPLIERS[c.entityType];
-    if (!fn) continue;
-    // B5 幂等：该 changeId 已应用过（客户端重试），直接跳过
-    if (c.changeId) {
+    const changeId = typeof c.changeId === "string" && c.changeId.length > 0 ? c.changeId : null;
+    if (!fn) {
+      receipts.push({
+        changeId, index, result: "rejected",
+        reason: SYNC_RECEIPT_REASONS.unknownEntityType, seq: null, recordIndex: null,
+      });
+      continue;
+    }
+    // B5 幂等：该 changeId 已应用过（客户端重试）→ stale(duplicate)，回执带上原 seq 便于客户端对齐
+    if (changeId) {
       const { rows } = await client.query(
-        `SELECT 1 FROM sync_changes WHERE user_id = $1 AND change_id = $2`,
-        [uid, c.changeId]
+        `SELECT seq FROM sync_changes WHERE user_id = $1 AND change_id = $2`,
+        [uid, changeId]
       );
-      if (rows.length > 0) continue;
+      if (rows.length > 0) {
+        const rawSeq = (rows[0] as { seq?: unknown } | undefined)?.seq;
+        const seq = rawSeq === null || rawSeq === undefined || !Number.isFinite(Number(rawSeq)) ? null : Number(rawSeq);
+        receipts.push({
+          changeId, index, result: "stale",
+          reason: SYNC_RECEIPT_REASONS.duplicate, seq, recordIndex: null,
+        });
+        continue;
+      }
     }
     try {
       const ok = await fn(client, uid, c, atOf(c));
       if (ok) {
-        applied++;
+        const recordIndex = okChanges.length;
         okChanges.push(c);
+        applied++;
+        receipts.push({
+          changeId, index, result: "applied",
+          reason: SYNC_RECEIPT_REASONS.applied, seq: null, recordIndex,
+        });
+      } else {
+        receipts.push({
+          changeId, index, result: "rejected",
+          reason: SYNC_RECEIPT_REASONS.invalidEntityId, seq: null, recordIndex: null,
+        });
       }
     } catch (e) {
       logger.error("[sync] apply failed", c.entityType, c.entityId, e);
+      receipts.push({
+        changeId, index, result: "rejected",
+        reason: SYNC_RECEIPT_REASONS.applyFailed, seq: null, recordIndex: null,
+      });
     }
   }
-  return { applied, okChanges };
+  return { applied, okChanges, receipts };
 }
 
 // ---------------- collect (pull) ----------------
 function change(
-  entityType: string, entityId: string, operation: SyncOperation,
+  entityType: SyncEntityType, entityId: string, operation: SyncOperation,
   payload: Record<string, unknown> | null, updatedAt: Date
 ): SyncChange {
   return { entityType, entityId, operation, version: 1, payload, updatedAt: updatedAt.toISOString() };
 }
 
-export async function collectChangesSince(client: PoolClient, uid: string, since: Date): Promise<SyncChange[]> {
+export interface CollectChangesOptions {
+  /** 只返回这些实体（不传 = 全部，保持 v1 行为）；白名单由 shared/sync 定义 */
+  entities?: readonly SyncEntityType[];
+}
+
+export async function collectChangesSince(
+  client: PoolClient,
+  uid: string,
+  since: Date,
+  options: CollectChangesOptions = {}
+): Promise<SyncChange[]> {
+  const wanted = new Set<SyncEntityType>(options.entities ?? SYNC_ENTITY_TYPES);
   const out: SyncChange[] = [];
   const q = (sql: string, params: unknown[]) => client.query(sql, params);
 
@@ -675,29 +755,69 @@ export async function collectChangesSince(client: PoolClient, uid: string, since
         r.u));
     }
   }
-  return out;
+
+  /**
+   * v2 后处理两步（保证游标分页跨请求稳定 + entities 白名单语义）：
+   *  1) 白名单过滤（未知实体不返回）；
+   *  2) 稳定排序：updatedAt 升序 → entityType → entityId。
+   * 各实体的 SQL 未加 ORDER BY（避免 11 处改动 + 依赖 PG 执行计划），
+   * 由这里统一排序，cursor(offset) 才可复现。
+   */
+  return out
+    .filter((c) => wanted.has(c.entityType))
+    .sort((a, b) => {
+      if (a.updatedAt !== b.updatedAt) return a.updatedAt < b.updatedAt ? -1 : 1;
+      if (a.entityType !== b.entityType) return a.entityType < b.entityType ? -1 : 1;
+      return a.entityId < b.entityId ? -1 : a.entityId > b.entityId ? 1 : 0;
+    });
 }
 
+/**
+ * 写同步变更日志并用 `RETURNING seq` 取回**单调序号**（S5-2）。
+ *
+ * 返回与入参 changes 等长的 seq 数组（并发/罕见冲突时可能为 null）：
+ * 路由按回执的 recordIndex 把 seq 回填到 applied 回执里，客户端据此在
+ * 同 updatedAt 平局时比较"谁的 seq 更大"。
+ */
 export async function recordSyncChanges(
   client: PoolClient, uid: string, deviceId: string | null, changes: SyncChange[]
-): Promise<void> {
+): Promise<Array<number | null>> {
+  const seqs: Array<number | null> = [];
+  const toSeq = (raw: unknown): number | null =>
+    raw === null || raw === undefined || !Number.isFinite(Number(raw)) ? null : Number(raw);
+
   for (const c of changes) {
+    const payloadJson = c.payload ? JSON.stringify(c.payload) : null;
     if (c.changeId) {
-      // B5 幂等：重复推送不重复记录审计日志
-      await client.query(
+      // B5 幂等：重复推送不重复记录审计日志；RETURNING seq 让回执能带回既有序号
+      const { rows } = await client.query(
         `INSERT INTO sync_changes (user_id, device_id, entity_type, entity_id, operation, version, payload, created_at, synced_at, change_id)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now(), $9)
-         ON CONFLICT (user_id, change_id) WHERE change_id IS NOT NULL DO NOTHING`,
-        [uid, deviceId, c.entityType, c.entityId, c.operation, c.version, c.payload ? JSON.stringify(c.payload) : null, new Date(c.updatedAt), c.changeId]
+         ON CONFLICT (user_id, change_id) WHERE change_id IS NOT NULL DO NOTHING
+         RETURNING seq`,
+        [uid, deviceId, c.entityType, c.entityId, c.operation, c.version, payloadJson, new Date(c.updatedAt), c.changeId]
       );
+      if (rows.length > 0) {
+        seqs.push(toSeq((rows[0] as { seq?: unknown }).seq));
+        continue;
+      }
+      // 并发重复推送：另一个事务先写入（ON CONFLICT DO NOTHING 不返回行）→ 读回既有 seq
+      const existing = await client.query(
+        `SELECT seq FROM sync_changes WHERE user_id = $1 AND change_id = $2`,
+        [uid, c.changeId]
+      );
+      seqs.push(toSeq((existing.rows[0] as { seq?: unknown } | undefined)?.seq));
       continue;
     }
-    await client.query(
+    const { rows } = await client.query(
       `INSERT INTO sync_changes (user_id, device_id, entity_type, entity_id, operation, version, payload, created_at, synced_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())`,
-      [uid, deviceId, c.entityType, c.entityId, c.operation, c.version, c.payload ? JSON.stringify(c.payload) : null, new Date(c.updatedAt)]
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())
+       RETURNING seq`,
+      [uid, deviceId, c.entityType, c.entityId, c.operation, c.version, payloadJson, new Date(c.updatedAt)]
     );
+    seqs.push(toSeq((rows[0] as { seq?: unknown } | undefined)?.seq));
   }
+  return seqs;
 }
 
 export async function upsertSyncDevice(
