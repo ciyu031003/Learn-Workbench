@@ -46,9 +46,14 @@ if (!username) {
 
 function hashPassword(pw) {
   // 与 apps/web/lib/password.ts 一致：scrypt + 成本参数（N=65536, r=8, p=1）
-  const salt = randomBytes(16).toString("hex");
-  const hash = scryptSync(pw, salt, 64, { N: 65536, r: 8, p: 1 }).toString("hex");
-  return `scrypt:65536:8:1:${salt}:${hash}`;
+  // 与 web 的 hashPassword 完全一致：scrypt 的 salt 必须是 **16 字节 Buffer**（hex 只用于存储）。
+  // 历史 bug：这里曾把 salt.toString("hex") 直接当盐字符串传给 scrypt，
+  // 而 verifyPassword 会把存储的 hex 解码回 Buffer → 新建管理员永远登录失败（S5 实测修复）。
+  const salt = randomBytes(16);
+  // Node 24 起 scrypt 默认 maxmem=32MiB，N=65536/r=8 需要 128*N*r=64MiB；
+  // 不显式传 maxmem 会在「新建管理员」时抛 ERR_CRYPTO_INVALID_SCRYPT_PARAMS（S5 实测）。
+  const hash = scryptSync(pw, salt, 64, { N: 65536, r: 8, p: 1, maxmem: 128 * 1024 * 1024 }).toString("hex");
+  return `scrypt:65536:8:1:${salt.toString("hex")}:${hash}`;
 }
 
 let generated = false;
