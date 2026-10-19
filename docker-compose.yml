@@ -95,6 +95,15 @@ services:
       - /data/learn-workbench/private:/app/public/private
       # 信息源注册表 + 登录态 Cookie（宿主机直接改，无需重建镜像）
       - ./config/job-hosts:/app/config/job-hosts:ro
+    # 健康检查（S4-2）：探 GET /api/health —— DB down 时接口返回 503，curl -f 判失败。
+    # 镜像内已装 curl（Dockerfile runtime 层）；应用内 DB 探活 800ms 超时 << 这里 timeout 3s，
+    # 避免「探活自己把 timeout 吃满」。start_period 40s 覆盖 Next 冷启动。
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:3001/api/health"]
+      interval: 20s
+      timeout: 3s
+      retries: 3
+      start_period: 40s
     networks: [lwb]
 
 volumes:
