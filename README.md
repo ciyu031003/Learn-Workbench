@@ -2,7 +2,7 @@
 
 集 **学习路线图、每日任务与专注计时、习惯与健康、求职工作台** 于一体的个人成长全栈应用（**Web + Android 双端**），Liquid Glass 液态玻璃 UI + 每日 Bing 风景背景。
 
-内置「ICT 学习规划」等多条职业学习路线，支持按阶段/主题打勾记录进度；每日任务、全屏专注倒计时、学习日志；习惯打卡与饮水/饮食/体重/训练记录；招聘信息每日抓取（卡片流 + 收藏）、面试题库、简历管理；运动档案图鉴与闪光卡。数据保存在 PostgreSQL，账号密码登录，数据按用户隔离，Web 与移动端云端同步。
+内置「ICT 学习规划」等多条职业学习路线，支持按阶段/主题打勾记录进度；每日任务、全屏专注倒计时、学习日志；习惯打卡与饮水/饮食/体重/训练记录；招聘信息每日抓取（卡片流 + 收藏）、面试题库、简历管理；运动档案图鉴与闪光卡。数据保存在 PostgreSQL，账号密码登录，数据按用户隔离；匿名设备数据登录后自动认领。按用户隔离，Web 与移动端云端同步。
 
 ## 功能特性
 
@@ -15,7 +15,7 @@
 - 💾 **数据同步**：Web 与移动端数据一致，移动端「一键同步到云端 / 从云端恢复」；匿名数据登录后自动认领
 - 🧑‍💻 **账号系统**：注册 / 登录（scrypt 加密）/ 修改密码，数据按用户隔离
 - 🤖 **AI 建议**（可选）：`/api/ai/tip` 环境变量门控（`AI_API_KEY`），未配置自动回落规则版
-- 📲 **应用内升级**：安卓 APK OTA 升级（进度条 + sha256 校验），下载页 <https://learn.yuanabd.cn/download.html>
+- 📲 **应用内升级**：安卓 APK OTA 升级（清单 Ed25519 签名验签 + sha256 必填 + 按设备灰度 + 最低支持版本），下载页 <https://learn.yuanabd.cn/download.html>
 - 🖼️ **Liquid Glass UI**：液态玻璃全站设计（blur + saturate + 渐变高光 + 每日一言），深浅色双主题
 
 ## 技术架构
@@ -23,11 +23,12 @@
 | 层 | 技术 |
 | --- | --- |
 | 工程 | pnpm monorepo（pnpm 11）+ Turborepo + Vitest + Playwright（e2e） |
-| Web 端 | Next.js 16（App Router / Route Handlers）+ React 19 + Tailwind CSS 4 + Zustand + zod |
-| 移动端 | Expo SDK 57 / React Native 0.86（5 个 Tab：今日 / 学习 / 职业 / 健康 / 我的，本地 AsyncStorage + 云同步客户端 + OTA） |
-| 数据层 | PostgreSQL（`db/schema.sql` + `db/seed_content.sql` + `db/migrations/001~074`） |
+| Web 端 | Next.js 16（App Router / Route Handlers / RSC）+ React 19 + Tailwind CSS 4 + Zustand |
+| 移动端 | Expo SDK 57 / React Native 0.86（5 个 Tab：今日 / 学习 / 职业 / 健康 / 我的，本地持久化 + 同步协议 v2 + 签名 OTA） |
+| 数据层 | PostgreSQL 16（`db/schema.sql` + `db/seed_content.sql` + `db/migrations/001~081`，迁移台账带 checksum） |
 | 爬虫 | Node 双引擎（http 引擎 + Playwright 过 WAF）：招聘 / 面试题库 / 装备图库；Python 3 Bing 壁纸（仅标准库） |
-| 部署 | PM2 / Nginx 或 Docker Compose（db + init + web）；每日数据管线：宿主机 crontab → `POST /api/internal/cron?job=crawl\|aggregate\|backfill\|maintenance\|interview\|food`（`x-cron-secret` 鉴权） |
+| 部署 | Docker Compose（db + init + web，web 非 root）+ Nginx/HTTPS；镜像化发布：GHCR workflow + 一键回滚（`deploy/host/rollback-web.sh`）。历史 PM2 路径保留作逃生。每日数据管线：宿主机 crontab → `POST /api/internal/cron?job=crawl\|aggregate\|backfill\|maintenance\|interview\|food`（`x-cron-secret` 鉴权） |
+| 可观测 | `/api/health`（DB 探活 + 迁移版本）、`/api/internal/metrics`（进程/连接池/请求计数）、Web Vitals 聚合、`scripts/alert-check.mjs` 四规则告警、三类演练脚本 |
 
 ### 目录结构
 
@@ -39,13 +40,14 @@ packages/content    路线图内容数据（与 db/seed_content.sql 同源）
 packages/ui         设计 tokens
 packages/config     配置常量
 e2e/                Playwright 回归测试
-db/                 schema.sql + seed_content.sql + migrations/001~074
-scripts/            招聘/题库/装备爬虫、Bing 壁纸爬虫、数据库启停与 schema 校验、字阶护栏、管理员创建
-deploy/             Nginx 配置模板
-deploy.sh           服务器一键部署脚本（Node + PostgreSQL + PM2）
-deploy-docker.sh    Docker 一键部署脚本（docker-compose 包装）
-Dockerfile          Web 端 Docker 镜像（多阶段构建）
-docker-compose.yml  Docker 编排（db + init + web）
+db/                 schema.sql + seed_content.sql + migrations/001~081（migrations 只追加，含 down/）
+scripts/            爬虫、内容同步、迁移执行器(migrate.mjs)、备份/恢复演练、告警检查、发布与门禁脚本
+deploy/             部署说明 + 宿主资产快照（ops/：crontab/nginx/备份/磁盘清理/COSFS）+ 回滚与发布脚本
+deploy.sh           历史一键部署（Node + PostgreSQL + PM2，逃生路径）
+deploy-docker.sh    Docker 一键部署：磁盘闸门 → 备份 → 构建 → 迁移 → up（幂等）
+docker-compose.prod.yml  生产覆盖层：用不可变镜像 + 一键回滚
+Dockerfile          Web 镜像（node:24-slim，多阶段，非 root，HEALTHCHECK）
+docker-compose.yml  Docker 编排（db + init + web，web 健康检查）
 content-platform/   ADR、API 契约、索引台账、阶段报告（仅本地保留，不入 Git）
 ```
 
@@ -199,7 +201,18 @@ cd /opt/learn-workbench
 bash deploy-docker.sh
 ```
 
-脚本会自动：生成数据库密码与管理员密码 → 写入 `.env` → `docker compose up -d --build` 构建并启动 `db + init + web` 三个容器 → 初始化数据库（幂等）→ 创建管理员账号（密码保存到 `deploy-credentials.txt`）→ 等待 Web 就绪并打印访问地址。
+脚本会自动（幂等，可重复执行）：**磁盘闸门**（根盘 <30GiB 自动清构建缓存，清理后仍 <20GiB 直接中止）→ 生成/复用数据库密码与管理员密码 → 写入 `.env` → **迁移前备份**（失败即中止）→ 构建镜像 → 运行统一迁移执行器 `scripts/migrate.mjs`（逐文件台账 + checksum + 单事务）→ `up -d` 启动 `db + init + web` → 创建管理员账号（`deploy-credentials.txt`）→ 等待 `/api/health` 通过并打印访问地址与最近备份。
+
+发布后检查：`curl -fsS http://127.0.0.1:3001/api/health`（应 200 且 `migrations` 为最新迁移文件）；容器应为 `healthy`（compose/Dockerfile 双探活）。
+
+升级与回滚（推荐走镜像，不在服务器现场构建）：
+
+```bash
+# CI：推 v* tag 或手动触发 Deploy Image (GHCR) → 生成 ghcr.io/<owner>/learn-workbench-web:<sha>
+# 服务器一次性登录：echo <PAT> | docker login ghcr.io -u <user> --password-stdin
+WEB_IMAGE=ghcr.io/<owner>/learn-workbench-web:<sha> bash deploy/host/pull-and-up.sh
+bash deploy/host/rollback-web.sh <上一版本 sha|tag>   # 本地/远端镜像 + 健康检查，失败 exit 1
+```
 
 常用命令：
 
@@ -220,6 +233,8 @@ bash deploy-docker.sh --logs       # 查看 web 日志
 | ADMIN_USERNAME | admin | 管理员用户名 |
 | ADMIN_PASSWORD | 自动生成 | 管理员密码 |
 | NPM_REGISTRY | https://registry.npmmirror.com | npm/pnpm 镜像源（构建时下载加速） |
+| APP_VERSION | git short sha | 写入 /api/health 的版本号（部署脚本自动取） |
+| WEB_IMAGE | — | 配合 `docker-compose.prod.yml`：指定不可变镜像 tag（镜像化发布/回滚） |
 
 数据持久化与备份：
 
@@ -265,14 +280,35 @@ sudo apt-get install -y nginx certbot python3-certbot-nginx
 sudo certbot --nginx -d your-domain.com
 ```
 
-### 数据备份（非 Docker 部署）
+### 备份与恢复演练
+
+统一入口（自动 sha256 + `pg_restore --list` 自检 + 保留周期 + 机读 `BACKUP_OK` 行）：
 
 ```bash
-# 备份
-pg_dump -h 127.0.0.1 -U lwb -d Learn-Workbench -Fc -f learn-workbench-$(date +%F).dump
+bash scripts/backup-db.sh                        # 默认写 /data/learn-workbench/backups（COSFS）
+BACKUP_TARGET=local bash scripts/backup-db.sh    # 写本地盘
+BACKUP_MODE=docker bash scripts/backup-db.sh     # 宿主机无 pg 客户端时走 db 容器
+node scripts/restore-drill.mjs --latest /data/learn-workbench/backups   # 恢复演练（临时库，自动 DROP）
+bash deploy/host/restore-drill-docker.sh         # docker 环境演练（db 容器内 pg_restore，版本一致）
+```
 
-# 恢复
-pg_restore -h 127.0.0.1 -U lwb -d Learn-Workbench --clean --if-exists learn-workbench-2026-08-16.dump
+**磁盘红线**：`/data` 是 COSFS 挂载（`ensure_diskfree=10240`），根盘可用 <10GiB 时 `/data` 写入会 EIO（上传/备份一起失败）。发布前根盘 **≥20GiB**，构建前先 `docker builder prune -af`（`deploy-docker.sh` 已内置该闸门）。
+
+### 质量门禁
+
+合并/发布前（CI 与本地同一套）：
+
+```bash
+pnpm -F web typecheck && pnpm -F web lint && pnpm -F web test
+pnpm -F mobile typecheck && pnpm -F mobile test
+node scripts/check-schema-fresh.mjs && node scripts/migration-drill.mjs   # 改 db 时
+node scripts/api-inventory.mjs --check                                   # 改 route 时
+node scripts/check-bundle-budget.mjs --check                             # 首载体积预算（需先 build）
+node scripts/check-anon-tables.mjs && node scripts/check-worklet-calls.mjs
+node scripts/check-font-scale.mjs && node scripts/check-mobile-ui-matrix.mjs && node scripts/check-motion-budget.mjs
+node scripts/mobile-sync-matrix.mjs && node scripts/sync-parity.mjs      # 同步一致性
+pnpm test:scripts                                                        # 上面大部分脚本 + 内容/发布/迁移门禁
+node scripts/drill.mjs                                                   # 备份/回滚/告警 三类演练（S7）
 ```
 
 ### 常见问题（FAQ）
@@ -281,7 +317,9 @@ pg_restore -h 127.0.0.1 -U lwb -d Learn-Workbench --clean --if-exists learn-work
 - **服务器访问不了 3001 端口**：检查云厂商安全组 / 防火墙（`ufw allow 3001` 或安全组放行）。
 - **PM2 开机自启**：执行 `pm2 startup`，并按提示用 root 运行它输出的命令。
 - **重复运行 deploy.sh**：数据库已初始化会跳过 schema/seed/migrations（用 `app_meta` 中的 `deploy_init` 标记）；已存在的管理员账号不会被重置。
-- **新增了 migration 文件**：手动执行 `psql -h 127.0.0.1 -U lwb -d Learn-Workbench -f db/migrations/00X_xxx.sql`。
+- **新增了 migration 文件**：不要手写 psql 逐条执行，统一跑 `node scripts/migrate.mjs`（单事务 + 台账 checksum + 迁移前自动备份）；docker 环境用 `docker compose run --rm -T web node /app/scripts/migrate.mjs`。已应用的迁移文件**禁止修改**（checksum 不一致会直接失败），要改结构请新增迁移。
+- **构建/发布时磁盘打满**：先 `docker builder prune -af` + 清理旧镜像（保留最近一代 `pre-*`）；根盘 <20GiB 时 `deploy-docker.sh` 会中止。COSFS 掉挂载时 `/data` 写入报 EIO，用 `dd if=/dev/zero of=/data/learn-workbench/.probe bs=1M count=4` 自检。
+- **服务异常/更新失败如何回滚**：`bash deploy/host/rollback-web.sh <上一版本 sha|tag>`（自动健康检查，失败 exit 1）；数据库迁移回滚用 `db/migrations/down/` 或备份恢复（见备份演练）。
 - **Bing 壁纸抓不到**：服务器需能访问 `www.bing.com`；也可在 Web 端「设置」里手动触发，或运行 `python3 scripts/fetch_bing_wallpaper.py`。
 - **pnpm 报错 `ERR_UNKNOWN_BUILTIN_MODULE: node:sqlite`**：服务器 Node 版本太老，升级到 Node 22.13+（`bash deploy.sh` 已会自动处理）。
 - **依赖下载慢**：默认已启用淘宝镜像（`NPM_REGISTRY` 可覆盖）；Docker 部署还可在 Docker daemon 配置 `registry-mirrors` 加速拉取基础镜像。
