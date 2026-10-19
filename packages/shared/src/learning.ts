@@ -1,25 +1,9 @@
-import { z } from "zod";
-
-export const learningAttemptInputSchema = z.object({
-  questionKey: z.string().min(1).max(120),
-  trackSlug: z.string().min(1).max(80),
-  stageKey: z.string().min(1).max(120),
-  chosenAnswer: z.array(z.string().min(1).max(120)).min(1).max(8),
-  /** 客户端稳定幂等键；重试同一作答不会重复推进复习计划 */
-  clientId: z.string().min(8).max(120).optional(),
-});
-export type LearningAttemptInput = z.infer<typeof learningAttemptInputSchema>;
-
-export const learningAttemptResultSchema = z.object({
-  questionKey: z.string(),
-  trackSlug: z.string(),
-  stageKey: z.string(),
-  isCorrect: z.boolean(),
-  answer: z.array(z.string()),
-  explanation: z.string(),
-  createdAt: z.string(),
-});
-export type LearningAttemptResult = z.infer<typeof learningAttemptResultSchema>;
+/**
+ * 学习判分 / 掌握度 / 间隔复习纯函数（不含 zod）。
+ *
+ * 由原 src/index.ts 拆出（S3-2 subpath exports）；index.ts 仍以 barrel 形式保留兼容。
+ */
+import type { LearningAttemptResult, LearningReviewActionInput, LearningReviewCard, LearningReviewStatus } from "./schemas";
 
 export interface LearningProgress {
   attempted: number;
@@ -87,125 +71,7 @@ export interface LearningSummary {
   masteryBasis: MasteryBasis;
 }
 
-/* ================= 间隔复习（SM-2 卡片，服务端状态） ================= */
-
-export const learningReviewStatusSchema = z.enum(["learning", "review", "mastered", "suspended"]);
-export type LearningReviewStatus = z.infer<typeof learningReviewStatusSchema>;
-
 export const learningReviewAlgorithmVersion = "sm2-lwb-v2" as const;
-
-export const learningReviewActionSchema = z
-  .object({
-    action: z.enum(["snooze", "pause", "resume", "complete"]),
-    questionKeys: z.array(z.string().min(1).max(120)).min(1).max(100),
-    clientId: z.string().min(8).max(120),
-    /** 延后天数与绝对时间二选一；绝对时间用于保留客户端时区语义 */
-    snoozeDays: z.number().int().min(1).max(30).optional(),
-    snoozeUntil: z.string().datetime({ offset: true }).optional(),
-  })
-  .superRefine((value, ctx) => {
-    if (value.action !== "snooze") return;
-    if (!value.snoozeDays && !value.snoozeUntil) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["snoozeDays"],
-        message: "snooze requires snoozeDays or snoozeUntil",
-      });
-    }
-  });
-export type LearningReviewActionInput = z.infer<typeof learningReviewActionSchema>;
-
-export const learningReviewCardSchema = z.object({
-  questionKey: z.string(),
-  trackSlug: z.string(),
-  stageKey: z.string(),
-  topicKey: z.string().nullable(),
-  status: learningReviewStatusSchema,
-  intervalDays: z.number(),
-  ease: z.number(),
-  streak: z.number(),
-  lapses: z.number(),
-  dueAt: z.string(),
-  lastResult: z.boolean().nullable(),
-  algorithmVersion: z.string(),
-  scheduleReason: z.string(),
-  suspendedFromStatus: learningReviewStatusSchema.nullable(),
-  updatedAt: z.string(),
-});
-export type LearningReviewCard = z.infer<typeof learningReviewCardSchema>;
-
-export const learningWeakTopicSchema = z.object({
-  trackSlug: z.string(),
-  stageKey: z.string(),
-  topicKey: z.string(),
-  title: z.string(),
-  dueCount: z.number(),
-  wrongCount: z.number(),
-});
-export type LearningWeakTopic = z.infer<typeof learningWeakTopicSchema>;
-
-export const learningReviewResponseSchema = z.object({
-  cards: z.array(learningReviewCardSchema),
-  weakTopics: z.array(learningWeakTopicSchema),
-  dueCount: z.number(),
-  totalCount: z.number(),
-  masteredCount: z.number(),
-  suspendedCount: z.number(),
-  generatedAt: z.string(),
-});
-export type LearningReviewResponse = z.infer<typeof learningReviewResponseSchema>;
-
-export const learningReviewMutationResponseSchema = learningReviewResponseSchema.extend({
-  applied: z.number(),
-  duplicate: z.boolean(),
-});
-export type LearningReviewMutationResponse = z.infer<typeof learningReviewMutationResponseSchema>;
-
-export const learningSchedulerModeSchema = z.enum(["off", "shadow"]);
-export type LearningSchedulerMode = z.infer<typeof learningSchedulerModeSchema>;
-
-export const learningSchedulerActionSchema = z.object({
-  action: z.enum(["enable_shadow", "disable_shadow"]),
-  trackSlug: z.string().min(1).max(80).optional(),
-});
-export type LearningSchedulerActionInput = z.infer<typeof learningSchedulerActionSchema>;
-
-export const learningSchedulerHorizonSchema = z.object({
-  days: z.number(),
-  sm2DueCount: z.number(),
-  fsrsDueCount: z.number(),
-  overlapCount: z.number(),
-  sm2OnlyCount: z.number(),
-  fsrsOnlyCount: z.number(),
-});
-export type LearningSchedulerHorizon = z.infer<typeof learningSchedulerHorizonSchema>;
-
-export const learningSchedulerEvaluationSchema = z.object({
-  algorithmVersion: z.string(),
-  source: z.enum(["stored_shadow", "replayed_attempts"]),
-  generatedAt: z.string(),
-  sampleCount: z.number(),
-  shadowedCount: z.number(),
-  coverage: z.number(),
-  meanAbsoluteDueDayDiff: z.number().nullable(),
-  p90AbsoluteDueDayDiff: z.number().nullable(),
-  horizons: z.array(learningSchedulerHorizonSchema),
-  stateCounts: z.object({
-    new: z.number(),
-    learning: z.number(),
-    review: z.number(),
-    relearning: z.number(),
-  }),
-});
-export type LearningSchedulerEvaluation = z.infer<typeof learningSchedulerEvaluationSchema>;
-
-export const learningSchedulerResponseSchema = z.object({
-  mode: learningSchedulerModeSchema,
-  modeSource: z.enum(["track", "global", "default"]),
-  trackSlug: z.string().nullable(),
-  evaluation: learningSchedulerEvaluationSchema,
-});
-export type LearningSchedulerResponse = z.infer<typeof learningSchedulerResponseSchema>;
 
 export interface LearningReviewScheduleState {
   status: LearningReviewStatus;
@@ -225,8 +91,11 @@ export interface LearningReviewScheduleResult extends LearningReviewScheduleStat
 }
 
 const REVIEW_INTERVAL_MIN = 7;
+
 const REVIEW_INTERVAL_MAX = 60;
+
 const REVIEW_EASE_MIN = 1.3;
+
 const REVIEW_EASE_MAX = 3.5;
 
 function isoAfterDays(from: Date, days: number): string {
@@ -388,65 +257,6 @@ export function learningDayKey(iso: string, timeZone?: string): string {
   }
   return date.toISOString().slice(0, 10);
 }
-
-/* ================= 阅读体验状态（阶段 8 = V3 Phase B） ================= */
-
-/** 知识点定位（三段稳定 ID，与 knowledge_points.key / question_knowledge_point 同一套口径） */
-export const knowledgePointRefSchema = z.object({
-  pointKey: z.string().min(3).max(200),
-  trackSlug: z.string().min(1).max(80),
-  stageKey: z.string().min(1).max(120),
-  topicKey: z.string().min(1).max(120),
-});
-export type KnowledgePointRef = z.infer<typeof knowledgePointRefSchema>;
-
-/** 阅读状态上报：progress 可选（不传表示"打开了"）；clientId 用于客户端侧幂等重放 */
-export const learningReadStateInputSchema = knowledgePointRefSchema.extend({
-  progress: z.number().int().min(0).max(100).optional(),
-  clientId: z.string().min(1).max(80).optional(),
-});
-export type LearningReadStateInput = z.infer<typeof learningReadStateInputSchema>;
-
-/** 收藏开关：favorite=false 表示取消收藏（软删除，历史保留可审计） */
-export const learningFavoriteInputSchema = knowledgePointRefSchema.extend({
-  favorite: z.boolean(),
-  note: z.string().max(200).optional(),
-});
-export type LearningFavoriteInput = z.infer<typeof learningFavoriteInputSchema>;
-
-export const learningReadStateSchema = z.object({
-  pointKey: z.string(),
-  trackSlug: z.string(),
-  stageKey: z.string(),
-  topicKey: z.string(),
-  firstReadAt: z.string(),
-  lastReadAt: z.string(),
-  progress: z.number(),
-  readCount: z.number(),
-});
-export type LearningReadState = z.infer<typeof learningReadStateSchema>;
-
-export const learningFavoriteSchema = z.object({
-  pointKey: z.string(),
-  trackSlug: z.string(),
-  stageKey: z.string(),
-  topicKey: z.string(),
-  note: z.string().nullable(),
-  createdAt: z.string(),
-});
-export type LearningFavorite = z.infer<typeof learningFavoriteSchema>;
-
-export const learningLibraryStateSchema = z.object({
-  read: z.array(learningReadStateSchema),
-  favorites: z.array(learningFavoriteSchema),
-  counts: z.object({
-    read: z.number(),
-    favorites: z.number(),
-    /** 近 7 天读过（"本周在读"而不是"历史读过"） */
-    readThisWeek: z.number(),
-  }),
-});
-export type LearningLibraryState = z.infer<typeof learningLibraryStateSchema>;
 
 /** 归一化作答 token：大小写/空白差异不影响判分 */
 export function normalizeAnswerToken(value: string): string {
