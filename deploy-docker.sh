@@ -159,12 +159,21 @@ info "======================================================"
 info " 构建并启动容器（db + init + web）..."
 info "======================================================"
 # S4-1：先在镜像里构建，再用统一执行器跑迁移（单事务 + checksum + 迁移前备份），最后切 web
-docker compose build web
+# S4-3/S4-6：先腾空间 + 备份，再构建（构建 + 镜像解包实测约需 17GiB；/data 是 COSFS，
+# 根盘 <10GiB 时写 /data 会 EIO，上传/备份一起挂；2026-10-19 S5/S6 发布两次踩到）。
+AVAIL_KB_NOW=$(df -Pk / | awk 'NR==2{print $4}')
+if [ "$AVAIL_KB_NOW" -lt $((30 * 1024 * 1024)) ]; then
+  info "可用空间 <30GiB，先清理构建缓存（docker builder prune -af）..."
+  docker builder prune -af >/dev/null 2>&1 || true
+  AVAIL_KB_NOW=$(df -Pk / | awk 'NR==2{print $4}')
+  [ "$AVAIL_KB_NOW" -ge $((20 * 1024 * 1024)) ] || error "清理后仍不足 20GiB（当前 $((AVAIL_KB_NOW / 1024 / 1024))GiB），请人工清理旧镜像/旧备份"
+fi
 info "迁移前备份（docker 模式，BACKUP_TARGET=cos）..."
 if ! BACKUP_LINE="$(BACKUP_MODE=docker BACKUP_TARGET=cos bash scripts/backup-db.sh)"; then
   error "迁移前备份失败（保护性中止）。请检查 /data 挂载与 db 容器健康"
 fi
 info "备份完成：$BACKUP_LINE"
+docker compose build web
 # 入口统一：scripts/migrate.mjs 会先 pg_dump 备份并自检，再应用未登记的迁移
 # 备份已由上一段（BACKUP_MODE=docker → db 容器内 pg_dump）完成，这里不再让 web 容器重复备份
 docker compose run --rm -T web node /app/scripts/migrate.mjs --no-backup </dev/null

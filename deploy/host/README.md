@@ -29,7 +29,7 @@
 ## 磁盘与 COSFS（2026-10-19 事故）
 
 - `/data` 是 COSFS 挂载，挂载参数含 `-oensure_diskfree=10240`：**宿主根盘可用 <10GiB 时 /data 写入直接 EIO**（上传、备份、壁纸都会失败）。
-- 发布/构建前的硬规则：根盘可用 **≥15GiB** 才构建；建议先 `docker builder prune -af`（`deploy-docker.sh` 现在会在 <25GiB 时自动清理，<15GiB 直接中止）。
+- 发布/构建前的硬规则：根盘可用 **≥20GiB** 才构建（构建缓存 + 镜像解包实测约 17GiB，S6 发布时 11GiB 曾在解包阶段写满）；`deploy-docker.sh` 现在 <30GiB 自动 `docker builder prune -af`，清理后 <20GiB 直接中止。
 - 排障命令：`df -h /`、`dd if=/dev/zero of=/data/learn-workbench/backups/.probe bs=1M count=4`（成功即 COSFS 可写）。
 - 可安全清理：旧镜像 `learn-workbench-web:pre-*`（保留最近一代）、`/home/ubuntu/lwb-src-backup-v*.tgz`、`docker builder prune -af`。
 ## 注意
