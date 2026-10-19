@@ -166,7 +166,7 @@ if [ "$AVAIL_KB_NOW" -lt $((30 * 1024 * 1024)) ]; then
   info "可用空间 <30GiB，先清理构建缓存（docker builder prune -af）..."
   docker builder prune -af >/dev/null 2>&1 || true
   AVAIL_KB_NOW=$(df -Pk / | awk 'NR==2{print $4}')
-  [ "$AVAIL_KB_NOW" -ge $((20 * 1024 * 1024)) ] || error "清理后仍不足 20GiB（当前 $((AVAIL_KB_NOW / 1024 / 1024))GiB），请人工清理旧镜像/旧备份"
+  [ "$AVAIL_KB_NOW" -ge $((18 * 1024 * 1024)) ] || error "清理后仍不足 18GiB（当前 $((AVAIL_KB_NOW / 1024 / 1024))GiB），请人工清理旧镜像/旧备份"
 fi
 info "迁移前备份（docker 模式，BACKUP_TARGET=cos）..."
 if ! BACKUP_LINE="$(BACKUP_MODE=docker BACKUP_TARGET=cos bash scripts/backup-db.sh)"; then
