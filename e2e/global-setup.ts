@@ -15,7 +15,23 @@ export default async function globalSetup() {
     return;
   }
   const api = await request.newContext({ baseURL, ignoreHTTPSErrors: true });
-  const res = await api.post("/api/auth/login", { data: { username, password, claimLegacy: true } });
+  // S6-9：目标服务不可达时**不要炸 global setup**。
+  // 以前这里直接 await post，连不上就 reject → Playwright 判定 global setup 失败，
+  // 一条用例都不会跑（也看不到 fixture 的「服务不可达」SKIP 原因）。
+  // 现在降级成 warn + return：所有用例由 helpers/fixture.ts 的探活统一 SKIP。
+  let res;
+  try {
+    res = await api.post("/api/auth/login", { data: { username, password, claimLegacy: true } });
+  } catch (e) {
+    console.warn(
+      "[e2e] 目标服务不可达（" +
+        baseURL +
+        "），跳过登录；全部用例将由 fixture 探活统一 SKIP：" +
+        (e instanceof Error ? e.message.split("\n")[0] : String(e))
+    );
+    await api.dispose().catch(() => undefined);
+    return;
+  }
   if (!res.ok()) {
     console.warn(`[e2e] 登录失败 HTTP ${res.status()}，登录相关测试将被跳过`);
     await api.dispose();
