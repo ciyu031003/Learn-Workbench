@@ -1,12 +1,13 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { DailyTask, FocusSession, LogEntry, TopicProgress, ExerciseType } from "@learn-workbench/shared/schemas";
 import { todayISO, fromDateKey } from "@learn-workbench/shared/dates";
 import { sportItemByKey } from "@learn-workbench/shared/pure";
 import { SPORT_CATALOG } from "@learn-workbench/shared/labels";
 import type { ThemeMode } from "@/theme/tokens";
 import { secureToken } from "@/lib/secure-token";
+import { normalizePendingQueue } from "@/lib/persist-core";
+import { createSplitStorage, reportRehydrate } from "@/lib/persist";
 
 export type TaskType = "study" | "agent" | "output" | "review" | "exam";
 export type LogKind = "feynman" | "review" | "project" | "interview";
@@ -18,7 +19,9 @@ export type SyncEntityType =
   | "logs"
   | "github"
   | "customTopics"
-  | "exerciseLogs";
+  | "exerciseLogs"
+  | "habits"
+  | "habitLogs";
 
 export interface SyncChange {
   entityType: SyncEntityType;
@@ -76,6 +79,34 @@ export interface LocalSportLog {
   createdAt: string;
 }
 
+/**
+ * 本地习惯（S5-3 applier 目标）：字段对齐服务端 habits 表 / Web 端，
+ * 多一个 clientId 作为跨设备稳定寻址（习惯打卡 entityId = `<habitClientId>|<YYYY-MM-DD>`）。
+ */
+export interface LocalHabit {
+  id: number;
+  clientId?: string;
+  name: string;
+  icon: string | null;
+  isBoolean: boolean;
+  targetValue: number | null;
+  unit: string | null;
+  schedule: number[];
+  color: string;
+  sortOrder: number;
+  updatedAt?: string;
+}
+
+/** 本地习惯打卡（habitLogs 实体；自然键 = 习惯 clientId + 日期） */
+export interface LocalHabitLog {
+  entityId: string; // <habitClientId>|<YYYY-MM-DD>
+  habitClientId: string;
+  logDate: string;
+  value: number;
+  note: string | null;
+  updatedAt: string;
+}
+
 /** 生成跨设备稳定 ID（client_id） */
 
 /** payload 字段类型收窄（payload: Record<string, unknown>） */
@@ -103,6 +134,9 @@ interface AppState {
   github: GithubRecord[];
   customTopics: CustomTopic[];
   sports: LocalSportLog[];
+  /** S5-3：远端习惯 / 打卡（pull 落库；离线时页面可回落本机数据） */
+  habits: LocalHabit[];
+  habitLogs: LocalHabitLog[];
   deviceId: string;
   apiUrl: string | null;
   pendingChanges: PendingChange[];
@@ -169,7 +203,21 @@ const nextId = () => seq++;
 
 export const useAppStore = create<AppState>()(
   persist(
-    (set) => ({
+    (rawSet) => {
+      /**
+       * 统一收口（S5-6）：任何一次会写 pendingChanges 的 set 都先做归一化
+       * （同实体只留最新 + 上限 2000 条；队列首=最新，超限丢最旧），
+       * 避免离线队列无限膨胀、同一实体重复推送。
+       */
+      const set = ((partial: any, replace?: any) =>
+        rawSet((state: AppState) => {
+          const next = typeof partial === "function" ? partial(state) : partial;
+          if (next && typeof next === "object" && Array.isArray(next.pendingChanges)) {
+            return { ...next, pendingChanges: normalizePendingQueue(next.pendingChanges as PendingChange[]) };
+          }
+          return next;
+        }, replace)) as typeof rawSet;
+      return ({
       progress: {},
       tasks: [],
       logs: [],
@@ -183,6 +231,8 @@ export const useAppStore = create<AppState>()(
       github: [],
       customTopics: [],
       sports: [],
+      habits: [],
+      habitLogs: [],
       deviceId: uid(),
       apiUrl: null,
       pendingChanges: [],
@@ -364,6 +414,8 @@ export const useAppStore = create<AppState>()(
           github: [],
           customTopics: [],
           sports: [],
+          habits: [],
+          habitLogs: [],
           pendingChanges: [],
           lastSyncedAt: null,
         }),
@@ -381,6 +433,8 @@ export const useAppStore = create<AppState>()(
           github: [],
           customTopics: [],
           sports: [],
+          habits: [],
+          habitLogs: [],
           pendingChanges: [],
           lastSyncedAt: null,
           aiTip: null,
@@ -667,6 +721,8 @@ export const useAppStore = create<AppState>()(
           let github = [...s.github];
           let customTopics = [...s.customTopics];
           let sports = [...s.sports];
+          let habits = [...s.habits];
+          let habitLogs = [...s.habitLogs];
 
           for (const c of changes) {
             // LWW：本地未推送的更新应获胜
@@ -704,6 +760,12 @@ export const useAppStore = create<AppState>()(
                   break;
                 case "exerciseLogs":
                   sports = sports.filter((x) => (x.clientId || "srv-" + x.id) !== c.entityId);
+                  break;
+                case "habits":
+                  habits = habits.filter((x) => (x.clientId || "srv-" + x.id) !== c.entityId);
+                  break;
+                case "habitLogs":
+                  habitLogs = habitLogs.filter((x) => x.entityId !== c.entityId);
                   break;
               }
               continue;
@@ -820,10 +882,57 @@ export const useAppStore = create<AppState>()(
                 else sports = [...sports, rec];
                 break;
               }
+              case "habits": {
+                // 服务端 payload：{ name, icon, isBoolean, targetValue, unit, schedule, color, sortOrder }
+                const color = sval(p.color, "#6366f1");
+                const habit: LocalHabit = {
+                  id: nval(p.id, nextId()),
+                  clientId: c.entityId.startsWith("srv-") ? undefined : c.entityId,
+                  name: sval(p.name, "习惯"),
+                  icon: snull(p.icon),
+                  isBoolean: typeof p.isBoolean === "boolean" ? p.isBoolean : true,
+                  targetValue: nnull(p.targetValue),
+                  unit: snull(p.unit),
+                  schedule: (() => {
+                    const days = Array.isArray(p.schedule)
+                      ? [...new Set(p.schedule.map((n) => nval(n)).filter((n) => Number.isInteger(n) && n >= 0 && n <= 6))].sort(
+                          (a, b) => a - b
+                        )
+                      : [];
+                    return days.length > 0 ? days : [0, 1, 2, 3, 4, 5, 6];
+                  })(),
+                  color: /^#[0-9a-fA-F]{6}$/.test(color) ? color : "#6366f1",
+                  sortOrder: nval(p.sortOrder),
+                  updatedAt: c.updatedAt,
+                };
+                const idx = habits.findIndex((x) => (x.clientId || "srv-" + x.id) === c.entityId);
+                if (idx >= 0) habits[idx] = habit;
+                else habits = [...habits, habit];
+                break;
+              }
+              case "habitLogs": {
+                // entityId = "<habitClientId>|<YYYY-MM-DD>"；服务端 payload 也带 habitClientId/logDate
+                const [entityHabitId, entityDate] = c.entityId.split("|");
+                const habitClientId = sval(p.habitClientId, entityHabitId ?? "");
+                const logDate = sval(p.logDate, entityDate ?? "");
+                if (!habitClientId || !/^\d{4}-\d{2}-\d{2}$/.test(logDate)) break;
+                const log: LocalHabitLog = {
+                  entityId: c.entityId,
+                  habitClientId,
+                  logDate,
+                  value: Math.max(0, nval(p.value, 1)),
+                  note: snull(p.note),
+                  updatedAt: c.updatedAt,
+                };
+                const idx = habitLogs.findIndex((x) => x.entityId === c.entityId);
+                if (idx >= 0) habitLogs[idx] = log;
+                else habitLogs = [...habitLogs, log];
+                break;
+              }
             }
           }
 
-          return { progress, tasks, logs, sessions, checkins, github, customTopics, sports };
+          return { progress, tasks, logs, sessions, checkins, github, customTopics, sports, habits, habitLogs };
         }),
 
       clearPendingChanges: (sent) => {
@@ -842,13 +951,20 @@ export const useAppStore = create<AppState>()(
       },
       setLastSyncedAt: (t) => set({ lastSyncedAt: t }),
       setAiTip: (text) => set({ aiTip: { date: todayISO(), text } }),
-    }),
+      });
+    },
     {
       name: "lwb-mobile-store",
-      storage: createJSONStorage(() => AsyncStorage),
+      // S5-6：物理上拆成轻（偏好/会话）+ 重（业务数据/发件箱）两个 key，见 lib/persist.ts；
+      // 旧版单 key（lwb-mobile-store）在首次读取时自动迁移并删除。
+      storage: createJSONStorage(() => createSplitStorage()),
       // token 改存 expo-secure-store（Keychain/Keystore），AsyncStorage 持久化里置空
       // ownerUserId 属于本地归属标记，允许持久化（换账号时靠它识别旧队列）
       partialize: (s) => ({ ...s, token: null as string | null }),
+      // S5-6：恢复结果（条数/体积/是否超限/错误）走现有 diagnostics（persist.reportRehydrate）
+      onRehydrateStorage: () => (state, error) => {
+        reportRehydrate(state as unknown as Record<string, unknown> | undefined, error);
+      },
     }
   )
 );

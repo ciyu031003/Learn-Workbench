@@ -13,7 +13,10 @@ vi.mock("@react-native-async-storage/async-storage", () => ({
   },
 }));
 
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { toDateKey } from "@learn-workbench/shared";
+import { PENDING_QUEUE_LIMIT } from "@/lib/persist-core";
+import { HEAVY_STORAGE_KEY, LIGHT_STORAGE_KEY, __resetPersistRuntimeForTests, flushPersistWrites } from "@/lib/persist";
 import { selectForeignPendingChanges, useAppStore, type SyncChange } from "./app-store";
 
 const change = (partial: Partial<SyncChange> & { entityType: SyncChange["entityType"]; entityId: string }): SyncChange => ({
@@ -25,6 +28,9 @@ const change = (partial: Partial<SyncChange> & { entityType: SyncChange["entityT
 });
 
 beforeEach(() => {
+  __resetPersistRuntimeForTests();
+  vi.mocked(AsyncStorage.setItem).mockClear();
+  vi.mocked(AsyncStorage.getItem).mockClear();
   useAppStore.getState().resetAll();
 });
 
@@ -404,5 +410,135 @@ describe("S1-6 换账号本地清理（ownerUserId）", () => {
     useAppStore.getState().setAuth("token-a", "alice");
     expect(selectForeignPendingChanges(useAppStore.getState().pendingChanges, "alice")).toEqual([]);
     expect(useAppStore.getState().pendingChanges).toHaveLength(1);
+  });
+});
+
+
+describe("S5-6 pendingChanges 归一化（同实体合并 + 上限）", () => {
+  it("同一实体连续操作只保留最新一条（不产生 N 条推送）", () => {
+    const st = useAppStore.getState();
+    st.toggleTopic(7); // done=true
+    st.toggleTopic(7); // done=false
+    const pending = useAppStore.getState().pendingChanges;
+    expect(pending).toHaveLength(1);
+    expect(pending[0]).toMatchObject({ entityType: "progress", entityId: "7" });
+    expect((pending[0].payload as { done: boolean }).done).toBe(false);
+  });
+
+  it("超过 2000 条时丢弃最旧（队列首=最新）", () => {
+    const big = Array.from({ length: PENDING_QUEUE_LIMIT + 100 }, (_, i) =>
+      change({ entityType: "sessions", entityId: "c-" + i, operation: "CREATE" })
+    );
+    useAppStore.setState({ pendingChanges: big });
+    useAppStore.getState().toggleTopic(9999);
+    const pending = useAppStore.getState().pendingChanges;
+    expect(pending).toHaveLength(PENDING_QUEUE_LIMIT);
+    expect(pending[0].entityType).toBe("progress");
+    expect(pending.some((c) => c.entityId === "c-" + (PENDING_QUEUE_LIMIT + 99))).toBe(false);
+  });
+});
+
+describe("S5-3 habits / habitLogs applier", () => {
+  it("upsert 远端习惯与打卡，DELETE 能移除", () => {
+    useAppStore.getState().applyRemoteChanges([
+      change({
+        entityType: "habits",
+        entityId: "c-h1",
+        payload: {
+          id: 11,
+          name: "喝水",
+          icon: "💧",
+          isBoolean: false,
+          targetValue: 8,
+          unit: "杯",
+          schedule: [1, 2, 3],
+          color: "#3366ff",
+          sortOrder: 2,
+        },
+      }),
+      change({
+        entityType: "habitLogs",
+        entityId: "c-h1|2026-08-13",
+        payload: { habitClientId: "c-h1", logDate: "2026-08-13", value: 2, note: "两杯" },
+      }),
+    ]);
+
+    let s = useAppStore.getState();
+    expect(s.habits).toHaveLength(1);
+    expect(s.habits[0]).toMatchObject({
+      clientId: "c-h1",
+      name: "喝水",
+      isBoolean: false,
+      targetValue: 8,
+      schedule: [1, 2, 3],
+      color: "#3366ff",
+    });
+    expect(s.habitLogs).toHaveLength(1);
+    expect(s.habitLogs[0]).toMatchObject({ entityId: "c-h1|2026-08-13", habitClientId: "c-h1", value: 2 });
+
+    // 同实体更新：原位覆盖，不追加
+    useAppStore.getState().applyRemoteChanges([
+      change({
+        entityType: "habits",
+        entityId: "c-h1",
+        updatedAt: "2026-08-13T11:00:00.000Z",
+        payload: { id: 11, name: "多喝水", isBoolean: true, schedule: [0], color: "#ff6600", sortOrder: 1 },
+      }),
+    ]);
+    s = useAppStore.getState();
+    expect(s.habits).toHaveLength(1);
+    expect(s.habits[0].name).toBe("多喝水");
+
+    // DELETE
+    useAppStore.getState().applyRemoteChanges([
+      change({ entityType: "habitLogs", entityId: "c-h1|2026-08-13", operation: "DELETE" }),
+      change({ entityType: "habits", entityId: "c-h1", operation: "DELETE" }),
+    ]);
+    s = useAppStore.getState();
+    expect(s.habits).toEqual([]);
+    expect(s.habitLogs).toEqual([]);
+  });
+
+  it("非法习惯打卡 entityId（缺日期）被忽略，不写脏数据", () => {
+    useAppStore.getState().applyRemoteChanges([
+      change({ entityType: "habitLogs", entityId: "c-h1", payload: { habitClientId: "c-h1", value: 1 } }),
+    ]);
+    expect(useAppStore.getState().habitLogs).toEqual([]);
+  });
+
+  it("重账号清理会同时清空 habits / habitLogs", () => {
+    useAppStore.getState().applyRemoteChanges([
+      change({ entityType: "habits", entityId: "c-h1", payload: { id: 1, name: "跑步" } }),
+      change({ entityType: "habitLogs", entityId: "c-h1|2026-08-13", payload: { habitClientId: "c-h1", logDate: "2026-08-13", value: 1 } }),
+    ]);
+    useAppStore.getState().resetForLogout();
+    expect(useAppStore.getState().habits).toEqual([]);
+    expect(useAppStore.getState().habitLogs).toEqual([]);
+  });
+});
+
+describe("S5-6 持久化拆轻/重两份 key", () => {
+  it("写入落到 light/heavy 两个 key；token 永不落 AsyncStorage", async () => {
+    useAppStore.getState().setAuth("tok-a", "alice");
+    useAppStore.getState().addTask("持久化任务", "study");
+    useAppStore.getState().setThemeMode("dark");
+    await flushPersistWrites();
+
+    const calls = vi.mocked(AsyncStorage.setItem).mock.calls;
+    const keys = calls.map((c) => c[0]);
+    expect(keys).toContain(LIGHT_STORAGE_KEY);
+    expect(keys).toContain(HEAVY_STORAGE_KEY);
+
+    const lastHeavy = calls.filter((c) => c[0] === HEAVY_STORAGE_KEY).pop();
+    const heavy = JSON.parse(lastHeavy?.[1] as string);
+    expect(heavy.tasks).toHaveLength(1);
+    expect(heavy.pendingChanges).toHaveLength(1);
+
+    const lastLight = calls.filter((c) => c[0] === LIGHT_STORAGE_KEY).pop();
+    const light = JSON.parse(lastLight?.[1] as string);
+    expect(light.themeMode).toBe("dark");
+    expect(light.username).toBe("alice");
+    expect(light.token).toBeNull();
+    expect(light.tasks).toBeUndefined();
   });
 });

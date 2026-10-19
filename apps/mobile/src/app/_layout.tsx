@@ -13,7 +13,8 @@ import { startSyncEngine } from "@/lib/sync-engine";
 import { hydrateLearningContent } from "@/lib/content-store";
 import { silentCheckForUpdate } from "@/lib/ota";
 import { useUpdateStore } from "@/store/update-store";
-import { installCrashCapture, setCurrentScreen, setCrashCaptureAppState } from "@/lib/crash-capture";
+import { installCrashCapture, recordCrumb, setCurrentScreen, setCrashCaptureAppState } from "@/lib/crash-capture";
+import { flushPersistWrites, setPersistDiagnosticSink } from "@/lib/persist";
 import { promptPendingCrash } from "@/lib/crash-upload";
 import { UpdateSheet } from "@/components/update-sheet";
 import { StudyTimeTracker } from "@/components/study-time-tracker";
@@ -48,9 +49,18 @@ void SplashScreen.preventAutoHideAsync().catch(() => {});
  * 这里只挂 ErrorUtils / console 钩子 + 心跳 + 启动时另存崩溃现场，不渲染任何东西。
  */
 installCrashCapture();
+/**
+ * S5-6：持久化诊断统一出口 —— 写盘 >1.5MB、恢复结果/失败都复用崩溃取证的**面包屑**通道
+ * （真机 logcat + 诊断包可回溯），而不是各写一套日志。
+ */
+setPersistDiagnosticSink((event) => recordCrumb("persist", { kind: event.kind, message: event.message, ...event.data }));
 // v1.35.0：心跳只在**前台**写（后台冻结前不必再写盘）。AppState 桥放在这里，
 // 让 crash-capture.ts 保持零 react-native import（踩坑 60/89，否则单测加载不了）。
-AppState.addEventListener("change", (state) => setCrashCaptureAppState(state));
+AppState.addEventListener("change", (state) => {
+  setCrashCaptureAppState(state);
+  // S5-6：退后台前把排队中的写盘冲刷掉（进程可能随后被系统回收，fire-and-forget 的写会丢）
+  if (state !== "active") void flushPersistWrites();
+});
 try {
   SplashScreen.setOptions?.({ fade: true, duration: 250 });
 } catch {

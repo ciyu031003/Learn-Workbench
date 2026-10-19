@@ -11,6 +11,7 @@ import { useScrollToTopHandler } from "@/lib/scroll-to-top";
 import { getApiUrl } from "@/config";
 import { syncPush, syncPull } from "@/lib/sync";
 import { discardForeignPendingChanges, useSyncEngineStatus } from "@/lib/sync-engine";
+import { clockSkewHint, useServerClock } from "@/lib/sync-clock";
 import {
   APP_ICP_NUMBER,
   APP_MPS_NUMBER,
@@ -63,6 +64,8 @@ export default function SettingsScreen() {
   const setThemeMode = useAppStore((s) => s.setThemeMode);
   const lastSyncedAt = useAppStore((s) => s.lastSyncedAt);
   const engine = useSyncEngineStatus();
+  /** S5-3：设备时钟与服务器偏移（>5min 提示校准；游标本身只认 serverTime，不依赖本机时钟） */
+  const clock = useServerClock();
 
   const [authOpen, setAuthOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -220,15 +223,17 @@ export default function SettingsScreen() {
           : `v${APP_VERSION_NAME}`;
   const syncHint = engine.syncing
     ? "正在同步…"
-    : !engine.online
-      ? `当前离线${pendingCount ? ` · ${pendingCount} 条待同步` : ""}`
-      : !token
-        ? "登录后自动同步到云端"
-        : pendingCount
-          ? `${pendingCount} 条待同步，稍后自动上传`
-          : lastSyncedAt
-            ? `已同步 · ${lastSyncedAt.slice(0, 16).replace("T", " ")}`
-            : "本机与云端已同步";
+    : engine.lastError
+      ? `上次同步失败：${engine.lastError.slice(0, 60)}`
+      : !engine.online
+        ? `当前离线${pendingCount ? ` · ${pendingCount} 条待同步` : ""}`
+        : !token
+          ? "登录后自动同步到云端"
+          : pendingCount
+            ? `${pendingCount} 条待同步，稍后自动上传`
+            : lastSyncedAt
+              ? `已同步 · ${lastSyncedAt.slice(0, 16).replace("T", " ")}`
+              : "本机与云端已同步";
 
   return (
     <ScrollView ref={settingsScrollRef} style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]} showsVerticalScrollIndicator={false}>
@@ -336,8 +341,35 @@ export default function SettingsScreen() {
             {...tint(GROUP_TINT.blue)}
             icon="pulse-outline"
             title="同步状态"
-            subtitle={pendingCount ? `还有 ${pendingCount} 条待上传` : "本机与云端一致"}
-            value={engine.syncing ? "同步中" : engine.online ? "在线" : "离线"}
+            subtitle={
+              engine.syncing
+                ? "正在上传 / 拉取变更…"
+                : engine.lastError
+                  ? `上次失败：${engine.lastError.slice(0, 40)}`
+                  : pendingCount
+                    ? `${pendingCount} 条待同步，稍后自动上传`
+                    : "本机与云端一致"
+            }
+            value={
+              engine.syncing
+                ? "同步中"
+                : engine.retryInMs !== null
+                  ? `重试 ${Math.ceil(engine.retryInMs / 1000)}s`
+                  : engine.online
+                    ? "在线"
+                    : "离线"
+            }
+            last={!clock.skewed}
+          />
+        ) : null}
+        {/* S5-3：设备时钟偏移 >5min 时提示校准（游标只认 serverTime，但本地 updatedAt 会受时钟影响） */}
+        {token && clock.skewed ? (
+          <ListRow
+            {...tint(GROUP_TINT.orange)}
+            icon="time-outline"
+            title="设备时间与服务器不一致"
+            subtitle={`${clockSkewHint(clock.offsetMs)}，可能影响同步；请开启系统「自动设置时间」`}
+            value="需校准"
             last
           />
         ) : null}
