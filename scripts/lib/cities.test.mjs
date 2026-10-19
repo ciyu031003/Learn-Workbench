@@ -24,10 +24,17 @@ test("城市名单覆盖全国重点城市且解析正则完整", () => {
 });
 
 test("packages/shared 城市名单与爬虫字典保持一致", async () => {
-  const sharedSource = await readFile(
-    new URL("../../packages/shared/src/index.ts", import.meta.url),
-    "utf8"
-  );
+  // S3-2 拆分后 SUPPORTED_CITIES 在 labels.ts（index.ts 只是兼容 barrel）；
+  // 两个位置都尝试，避免下次再拆分时门禁误红。
+  let sharedSource = "";
+  for (const rel of ["../../packages/shared/src/labels.ts", "../../packages/shared/src/index.ts"]) {
+    try {
+      sharedSource = await readFile(new URL(rel, import.meta.url), "utf8");
+    } catch {
+      continue;
+    }
+    if (/export const SUPPORTED_CITIES = \[/.test(sharedSource)) break;
+  }
   const declaration = sharedSource.match(/export const SUPPORTED_CITIES = \[([\s\S]*?)\];/);
   assert.ok(declaration, "未找到 shared SUPPORTED_CITIES 声明");
   const sharedCities = [...declaration[1].matchAll(/"([^"]+)"/g)].map((match) => match[1]);
