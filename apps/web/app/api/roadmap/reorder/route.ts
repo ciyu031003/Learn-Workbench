@@ -38,11 +38,13 @@ export async function POST(req: Request) {
   const client = await pgPool.connect();
   try {
     await client.query("BEGIN");
+    // 与 /api/roadmap 的可见性规则保持一致（系统阶段 + 本人自定义阶段）：
+    // 否则当同一领域存在其他用户的自定义阶段时，前端拿到的 id 列表永远与这里不等，排序必 400。
     const { rows } = await client.query<{ id: number }>(
       `SELECT id FROM content_phases
-       WHERE career_key = $1 AND track = $2
+       WHERE career_key = $1 AND track = $2 AND (is_custom = FALSE OR owner_id = $3)
        ORDER BY sort_order, id`,
-      [career, track]
+      [career, track, uid]
     );
     const current = rows.map((r) => r.id);
     const sameSet =

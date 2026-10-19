@@ -22,14 +22,26 @@ export async function renumberTrack(
   order?: number[]
 ): Promise<void> {
   const run = async (c: PoolClient) => {
+    // 用「-1000000-id」而不是「-(sort+1)」：后者在交换两个相邻值（如 -1 与 0、或两个负数）时
+    // 会命中中间态唯一约束 (career_key,track,sort_order) → 23505（S7 e2e 实测删除阶段 500）。
+    // id 唯一保证临时值唯一，且离正常区间足够远不会撞到待写入的 0..N。
     await c.query(
-      `UPDATE content_phases SET sort_order = -(sort_order + 1), phase_key = 'ren-' || id
+      `UPDATE content_phases SET sort_order = -(1000000 + id), phase_key = 'ren-' || id
        WHERE career_key = $1 AND track = $2`,
       [careerKey, track]
     );
     let ids: number[];
     if (order) {
-      ids = order;
+      // 显式顺序只覆盖「当前用户可见」的阶段；把同一轨道其余阶段（其他 owner 的历史自建阶段）
+      // 追加到末尾，避免它们永远停留在临时负数序上。
+      const { rows } = await c.query<{ id: number }>(
+        `SELECT id FROM content_phases
+         WHERE career_key = $1 AND track = $2
+         ORDER BY sort_order, id`,
+        [careerKey, track]
+      );
+      const listed = new Set(order);
+      ids = [...order, ...rows.map((r) => r.id).filter((id) => !listed.has(id))];
     } else {
       const { rows } = await c.query<{ id: number }>(
         `SELECT id FROM content_phases
