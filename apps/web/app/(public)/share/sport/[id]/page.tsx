@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useCallback, useEffect, useState, use } from "react";
 import type { SportsShare } from "@learn-workbench/shared/schemas";
 import { handLabels } from "@learn-workbench/shared/labels";
 import { computeSportsRecord, formatWinRate, gearRowWantsImage } from "@learn-workbench/shared/pure";
 import { HoloSportCardLazy } from "@/components/holo/holo-sport-card-lazy";
 import { cardModelFromShare } from "@/lib/sports-card-view";
 import { hasHoloArt } from "@/lib/holo-card-text";
+import { apiGet, ApiError, isAbortError } from "@/lib/client-api";
+import { AsyncSection } from "@/components/async-section";
 import { Loader2, Share2, Sparkles } from "lucide-react";
 
 /** 公开运动档案页（无需登录）：只渲染白名单字段 */
@@ -15,31 +17,60 @@ export default function PublicSportProfilePage({ params }: { params: Promise<{ i
   const [data, setData] = useState<SportsShare | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // S6-1：统一请求层（8s 超时 + AbortController 切页取消）；500/断网 -> 错误态可重试
+  const load = useCallback(async (signal?: AbortSignal) => {
+    setLoading(true);
+    setError(null);
+    setNotFound(false);
+    try {
+      const d = await apiGet<{ share?: SportsShare | null }>(
+        "/api/sports/share/" + encodeURIComponent(id),
+        { signal }
+      );
+      if (signal?.aborted) return;
+      if (!d?.share) setNotFound(true);
+      else setData(d.share);
+    } catch (e) {
+      if (isAbortError(e)) return;
+      if (e instanceof ApiError && e.status === 404) setNotFound(true);
+      else setError(e instanceof ApiError ? e.message : "加载失败，请稍后重试");
+    } finally {
+      if (!signal?.aborted) setLoading(false);
+    }
+  }, [id]);
 
   useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const r = await fetch(`/api/sports/share/${encodeURIComponent(id)}`);
-        if (!r.ok) {
-          if (alive) setNotFound(true);
-          return;
-        }
-        const d = await r.json();
-        if (alive) setData(d.share ?? null);
-      } catch {
-        if (alive) setNotFound(true);
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => { alive = false; };
-  }, [id]);
+    const controller = new AbortController();
+    // 延迟一宏任务再发请求：load 开头会同步 setState，直接调用会触发
+    // react-hooks/set-state-in-effect，且保证首帧先渲染骨架
+    const timer = window.setTimeout(() => {
+      void load(controller.signal);
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [load]);
 
   if (loading) {
     return (
       <div className="flex min-h-dvh items-center justify-center text-sm text-muted-foreground">
         <Loader2 className="mr-2 size-4 animate-spin" /> 加载中…
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center p-4">
+        <AsyncSection
+          status="error"
+          errorMessage={error}
+          onRetry={() => void load()}
+          className="w-full max-w-md"
+        />
       </div>
     );
   }

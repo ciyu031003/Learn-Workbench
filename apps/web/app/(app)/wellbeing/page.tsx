@@ -41,6 +41,9 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { apiGet, apiMutate, ApiError, isAbortError } from "@/lib/client-api";
+import { AsyncSection } from "@/components/async-section";
+import { useToastStore } from "@/store/toast-store";
 import { ExerciseSheet, useSportCatalog } from "@/components/sport/exercise-sheet";
 import type { ExerciseType, WellbeingToday, WellbeingReminder, DailyPlanItem } from "@learn-workbench/shared/schemas";
 import type { SportItem } from "@learn-workbench/shared/types";
@@ -118,6 +121,9 @@ export default function WellbeingPage() {
   const [today, setToday] = useState<WellbeingToday | null>(null);
   const [reminders, setReminders] = useState<WellbeingReminder[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // S6-1：数据块三态（loading / error / ready），错误态提供「重试」
+  const [status, setStatus] = useState<"loading" | "error" | "ready">("loading");
+  const pushToast = useToastStore((s) => s.push);
 
   const [customMl, setCustomMl] = useState("");
   const [editingGoal, setEditingGoal] = useState(false);
@@ -141,12 +147,10 @@ export default function WellbeingPage() {
 
   const loadProfile = useCallback(async () => {
     try {
-      const r = await fetch("/api/wellbeing/profile");
-      if (r.ok) {
-        const d = await r.json();
-        setWeightKg(Number(d.weightKg) || 60);
-      }
-    } catch {
+      const d = await apiGet<{ weightKg?: number }>("/api/wellbeing/profile");
+      setWeightKg(Number(d?.weightKg) || 60);
+    } catch (e) {
+      if (isAbortError(e)) return;
       // 读不到就保持默认 60kg
     }
   }, []);
@@ -154,14 +158,11 @@ export default function WellbeingPage() {
   const saveWeight = async () => {
     const v = Number(weightInput);
     if (!Number.isFinite(v) || v < 20 || v > 300) return;
-    const r = await fetch("/api/wellbeing/profile", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ weightKg: v }),
-    });
-    if (r.ok) {
-      const d = await r.json();
-      setWeightKg(Number(d.weightKg) || 60);
+    try {
+      const d = await apiMutate<{ weightKg?: number }>("/api/wellbeing/profile", "PUT", { weightKg: v });
+      setWeightKg(Number(d?.weightKg) || 60);
+    } catch (e) {
+      pushToast(e instanceof ApiError ? e.message : "体重保存失败，请重试", "error");
     }
     setEditingWeight(false);
   };
@@ -177,57 +178,75 @@ export default function WellbeingPage() {
   const [timerLeft, setTimerLeft] = useState(0);
   const [timerRunning, setTimerRunning] = useState(false);
 
-  const loadToday = useCallback(async () => {
+  const loadToday = useCallback(async (signal?: AbortSignal) => {
     try {
-      const r = await fetch("/api/wellbeing/today");
-      if (!r.ok) throw new Error("load failed");
-      const t = await r.json();
+      const t = await apiGet<WellbeingToday>("/api/wellbeing/today", { signal });
+      if (signal?.aborted) return;
       setToday(t);
       setExTarget(String(t?.exercise?.targetMinutes ?? 30));
       setError(null);
-    } catch {
-      setError("健康数据加载失败，请确认数据库已启动");
+      setStatus("ready");
+    } catch (e) {
+      if (isAbortError(e)) return;
+      setError(e instanceof ApiError ? e.message : "健康数据加载失败，请确认数据库已启动");
+      setStatus("error");
     }
   }, []);
 
   const loadReminders = useCallback(async () => {
-    const r = await fetch("/api/wellbeing/reminders");
-    if (r.ok) setReminders((await r.json()).reminders ?? []);
+    try {
+      const d = await apiGet<{ reminders?: WellbeingReminder[] }>("/api/wellbeing/reminders");
+      setReminders(d?.reminders ?? []);
+    } catch {
+      // 提醒列表加载失败不阻塞主流程
+    }
   }, []);
 
   const loadWeekly = useCallback(async () => {
     try {
-      const r = await fetch("/api/wellbeing/exercise?days=7");
-      if (r.ok) {
-        const d = await r.json();
-        setWeekByType(Array.isArray(d.byType) ? d.byType : []);
-      }
+      const d = await apiGet<{ byType?: { type: ExerciseType; minutes: number }[] }>("/api/wellbeing/exercise?days=7");
+      setWeekByType(Array.isArray(d?.byType) ? d.byType : []);
     } catch {
       // 周统计加载失败不影响主流程
     }
   }, []);
 
+  // 数据加载：AbortController 随组件卸载/重试取消，避免切页后 setState 警告；
+  // 延迟一宏任务再发请求，避免在 effect body 同步 setState（react-hooks/set-state-in-effect）
   useEffect(() => {
-    // 数据加载：异步拉取外部系统后 setState
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadToday();
-    loadReminders();
-    loadProfile();
-    loadWeekly();
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      void loadToday(controller.signal);
+      void loadReminders();
+      void loadProfile();
+      void loadWeekly();
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
   }, [loadToday, loadReminders, loadProfile, loadWeekly]);
+
+  // 错误态「重试」：重新拉起主数据（保留页头/状态球，不等整页刷新）
+  const retryLoad = useCallback(() => {
+    setStatus("loading");
+    void loadToday();
+    void loadReminders();
+    void loadWeekly();
+  }, [loadToday, loadReminders, loadWeekly]);
 
   const logExercise = useCallback(
     async (durationSeconds: number, source = "MANUAL") => {
       if (durationSeconds <= 0) return;
-      await fetch("/api/wellbeing/exercise", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: exerciseType, typeLabel: exLabel.trim() || null, durationSeconds, source }),
-      });
-      loadToday();
-      loadWeekly();
+      try {
+        await apiMutate("/api/wellbeing/exercise", "POST", { type: exerciseType, typeLabel: exLabel.trim() || null, durationSeconds, source });
+        loadToday();
+        loadWeekly();
+      } catch (e) {
+        pushToast(e instanceof ApiError ? e.message : "运动记录失败，请重试", "error");
+      }
     },
-    [exerciseType, exLabel, loadToday, loadWeekly]
+    [exerciseType, exLabel, loadToday, loadWeekly, pushToast]
   );
 
   const startTimer = () => {
@@ -270,91 +289,111 @@ export default function WellbeingPage() {
   const saveExTarget = async () => {
     const v = Number(exTarget);
     if (!Number.isFinite(v) || v < 1 || v > 600) return;
-    await fetch("/api/wellbeing/exercise/goal", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ targetMinutes: v }),
-    });
-    setEditingExTarget(false);
-    loadToday();
+    try {
+      await apiMutate("/api/wellbeing/exercise/goal", "PUT", { targetMinutes: v });
+      setEditingExTarget(false);
+      loadToday();
+    } catch (e) {
+      pushToast(e instanceof ApiError ? e.message : "目标保存失败，请重试", "error");
+    }
   };
 
 
 
   const addWater = async (ml: number) => {
-    await fetch("/api/wellbeing/hydration", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ amountMl: ml, source: "MANUAL" }),
-    });
-    loadToday();
+    // 乐观更新：先加毫升数，失败回滚 + toast（不再等接口返回才有反馈）
+    const snapshot = today;
+    setToday((prev) =>
+      prev && prev.hydration
+        ? { ...prev, hydration: { ...prev.hydration, totalMl: prev.hydration.totalMl + ml } }
+        : prev
+    );
+    try {
+      await apiMutate("/api/wellbeing/hydration", "POST", { amountMl: ml, source: "MANUAL" });
+      await loadToday();
+    } catch (e) {
+      setToday(snapshot);
+      pushToast(e instanceof ApiError ? e.message : "饮水记录失败，已回滚", "error");
+    }
   };
 
   const saveGoal = async () => {
     const v = Number(goalInput);
     if (!Number.isFinite(v) || v < 200) return;
-    await fetch("/api/wellbeing/goal", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ targetMl: v }),
-    });
-    setEditingGoal(false);
-    loadToday();
+    try {
+      await apiMutate("/api/wellbeing/goal", "PUT", { targetMl: v });
+      setEditingGoal(false);
+      loadToday();
+    } catch (e) {
+      pushToast(e instanceof ApiError ? e.message : "饮水目标保存失败，请重试", "error");
+    }
   };
 
   const saveEnergy = async () => {
     if (energyLevel === null) return;
-    await fetch("/api/wellbeing/energy", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ level: energyLevel, note: energyNote || null, source: "MANUAL" }),
-    });
-    setEnergyNote("");
-    loadToday();
+    try {
+      await apiMutate("/api/wellbeing/energy", "POST", { level: energyLevel, note: energyNote || null, source: "MANUAL" });
+      setEnergyNote("");
+      loadToday();
+    } catch (e) {
+      pushToast(e instanceof ApiError ? e.message : "精力记录失败，请重试", "error");
+    }
   };
 
   const recordBreak = async (kind: string, minutes: number) => {
-    await fetch("/api/wellbeing/breaks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ kind, minutes }),
-    });
-    loadToday();
+    try {
+      await apiMutate("/api/wellbeing/breaks", "POST", { kind, minutes });
+      loadToday();
+    } catch (e) {
+      pushToast(e instanceof ApiError ? e.message : "休息记录失败，请重试", "error");
+    }
   };
 
   const addReminderPreset = async (p: { type: string; title: string; intervalMinutes: number }) => {
-    await fetch("/api/wellbeing/reminders", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(p),
-    });
-    loadReminders();
+    try {
+      await apiMutate("/api/wellbeing/reminders", "POST", p);
+      loadReminders();
+    } catch (e) {
+      pushToast(e instanceof ApiError ? e.message : "提醒添加失败，请重试", "error");
+    }
   };
 
   const addReminder = async () => {
     if (!rmTitle.trim()) return;
-    await fetch("/api/wellbeing/reminders", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: rmType, title: rmTitle.trim(), intervalMinutes: Number(rmInterval) || 60 }),
-    });
-    setRmTitle("");
-    setShowAddReminder(false);
-    loadReminders();
+    try {
+      await apiMutate("/api/wellbeing/reminders", "POST", { type: rmType, title: rmTitle.trim(), intervalMinutes: Number(rmInterval) || 60 });
+      setRmTitle("");
+      setShowAddReminder(false);
+      loadReminders();
+    } catch (e) {
+      pushToast(e instanceof ApiError ? e.message : "提醒添加失败，请重试", "error");
+    }
   };
 
   const toggleReminder = async (id: number, enabled: boolean) => {
-    await fetch("/api/wellbeing/reminders", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, enabled }),
-    });
-    loadReminders();
+    // 乐观更新开关，失败回滚 + toast
+    const snapshot = reminders;
+    setReminders((prev) => prev.map((r) => (r.id === id ? { ...r, enabled } : r)));
+    try {
+      await apiMutate("/api/wellbeing/reminders", "PATCH", { id, enabled });
+      await loadReminders();
+    } catch (e) {
+      setReminders(snapshot);
+      pushToast(e instanceof ApiError ? e.message : "提醒更新失败，已回滚", "error");
+    }
   };
 
   const deleteReminder = async (id: number) => {
-    await fetch(`/api/wellbeing/reminders?id=${id}`, { method: "DELETE" });
-    loadReminders();
+    // 乐观移除，失败回滚 + toast
+    const snapshot = reminders;
+    setReminders((prev) => prev.filter((r) => r.id !== id));
+    try {
+      await apiMutate("/api/wellbeing/reminders?id=" + id, "DELETE");
+      await loadReminders();
+    } catch (e) {
+      setReminders(snapshot);
+      pushToast(e instanceof ApiError ? e.message : "提醒删除失败，已回滚", "error");
+    }
   };
 
   const latestEnergy = today?.energy ?? null;
@@ -415,10 +454,11 @@ export default function WellbeingPage() {
       {/* v8 P3：3D 状态球 hero（状态分 + 四项分解 + 本周概览） */}
       <ReadinessHero />
 
-      {error ? (
-        <Card>
-          <CardContent className="p-6 text-sm text-danger">{error}</CardContent>
-        </Card>
+      {/* S6-1：数据块三态 —— 断网/500 显示「加载失败 + 重试」，加载中显示骨架 */}
+      {status === "error" ? (
+        <AsyncSection status="error" errorMessage={error ?? "加载失败，请稍后重试"} onRetry={retryLoad} />
+      ) : status === "loading" ? (
+        <AsyncSection status="loading" loadingLabel="正在加载健康数据…" skeletonRows={4} />
       ) : null}
 
       <div className="grid gap-6 lg:grid-cols-3">

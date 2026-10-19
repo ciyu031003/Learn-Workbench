@@ -3,6 +3,7 @@
  * 拆自 `components/app-shell.tsx`（原 27 个 lucide 图标）。
  */
 export {
+  Activity,
   Award,
   BarChart3,
   BookOpen,
@@ -12,6 +13,7 @@ export {
   Dumbbell,
   FileText,
   Flower,
+  FolderCog,
   FolderGit2,
   Gauge,
   GraduationCap,

@@ -1,17 +1,18 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
-import { currentUserId } from "@/lib/session";
+import { getShellData } from "@/lib/shell-data";
 
 /**
- * 登录区路由组（S3-3）：服务端守卫 + AppShell。
+ * 登录区路由组（S3-3 / S6-2）：服务端守卫 + AppShell。
  *
- * - 服务端先校验会话：未登录直接 307 到 /login，不渲染任何页面壳（不再"先闪一下再被客户端弹走"）；
- * - AppShell 只在这一组挂载：公开页（/、/login、/share）不再下载 nav/toast/浮层那套客户端包。
+ * - 服务端先校验会话：未登录直接 307 到 /login，不渲染任何页面壳；
+ * - S6-2：外壳所需的 user/domains/currentCareer/overallPercent 也在这里**服务端取数**，
+ *   一次传给 AppShell（首屏不再有 /api/domains、/api/summary、/api/auth/me 等壳层 XHR）。
  */
 export const dynamic = "force-dynamic";
 
 export default async function AppGroupLayout({ children }: { children: React.ReactNode }) {
-  const uid = await currentUserId().catch(() => null);
-  if (!uid) redirect("/login");
-  return <AppShell>{children}</AppShell>;
+  const shellData = await getShellData();
+  if (!shellData) redirect("/login");
+  return <AppShell shellData={shellData}>{children}</AppShell>;
 }

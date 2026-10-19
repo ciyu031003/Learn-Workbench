@@ -20,32 +20,17 @@ export function buildLoginRedirect(pathname: string): string {
 }
 
 /**
- * 会话有效性校验（从 app-shell.tsx 的 effect 原样抽出，行为不变）。
+ * 会话守卫（S6-2：不再请求 /api/auth/me）。
  *
- * - 只保护非公开路径；
- * - 不再因"查不到 user"而 POST /api/auth/logout（登出仅由用户主动触发）；
- * - 组件卸载后不再 setState / 跳转（alive 守卫）。
+ * 会话有效性由 (app)/layout.tsx 在**服务端**校验（未登录直接 redirect，页面不会渲染）；
+ * 这里只做客户端兜底：如果服务端给的 user 为空（例如刷新后会话被吊销），跳登录页。
+ * 相比原实现省掉一次壳层请求。
  */
-export function useSessionGuard(pathname: string): void {
+export function useSessionGuard(pathname: string, hasUser: boolean): void {
   const router = useRouter();
 
   useEffect(() => {
     if (!shouldGuardSession(pathname)) return;
-    let alive = true;
-    fetch("/api/auth/me")
-      .then(async (r) => {
-        if (!r.ok) return { __error: true };
-        return r.json();
-      })
-      .then((d: { __error?: boolean; user?: unknown } | null) => {
-        if (!alive || !d || d.__error) return;
-        if (!d.user) {
-          router.replace(buildLoginRedirect(pathname));
-        }
-      })
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, [pathname, router]);
+    if (!hasUser) router.replace(buildLoginRedirect(pathname));
+  }, [pathname, hasUser, router]);
 }

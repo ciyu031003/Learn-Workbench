@@ -20,6 +20,14 @@ describe("parseAutofocusParams", () => {
     expect(parseAutofocusParams("?autofocus=study&minutes=25&label=X")).toEqual({ mode: "focus", minutes: 25 });
   });
 
+  it("专注独立入口 /tasks?focus=1 解析为 focus 模式（S6-6）", () => {
+    expect(parseAutofocusParams("?focus=1")).toEqual({ mode: "focus", minutes: undefined });
+    expect(parseAutofocusParams("?focus=1&minutes=25")).toEqual({ mode: "focus", minutes: 25 });
+    // 非 1 的 focus 值不触发
+    expect(parseAutofocusParams("?focus=0")).toBeNull();
+    expect(parseAutofocusParams("?focus=2")).toBeNull();
+  });
+
   it("autofocus 缺省或非法时返回 null（忽略）", () => {
     expect(parseAutofocusParams("")).toBeNull();
     expect(parseAutofocusParams("?minutes=25")).toBeNull();
