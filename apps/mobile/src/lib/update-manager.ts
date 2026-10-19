@@ -30,6 +30,24 @@ export interface VerifyResult {
 
 type DownloadResumable = ReturnType<typeof LegacyFileSystem.createDownloadResumable>;
 
+/**
+ * 下载失败的用户文案（S6-7）：按真实能力写 —— 本下载器支持暂停/续传，
+ * 所以「继续下载」失败时提示重新下载（而不是谎称支持断点续传/秒传）。
+ */
+export function describeDownloadError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  if (/network|timeout|timed out|socket|ECONN|ENET|unreachable|network error/i.test(message)) {
+    return "网络中断，下载失败，请重新下载";
+  }
+  if (/enospc|no space|磁盘|storage/i.test(message)) {
+    return "存储空间不足，下载失败，请清理后重新下载";
+  }
+  if (/403|404|410|not found|forbidden/i.test(message)) {
+    return "安装包地址失效（可能已发布新版本），请重新下载";
+  }
+  return "下载失败，请重新下载";
+}
+
 function sanitize(versionName: string): string {
   return versionName.replace(/[^0-9A-Za-z._-]/g, "");
 }
@@ -91,8 +109,13 @@ export class ApkDownloader {
     if (!this.resumable) {
       this.resumable = LegacyFileSystem.createDownloadResumable(this.url, this.destination, {}, this.handle);
     }
-    const result = await this.resumable.downloadAsync();
-    return Boolean(result?.uri);
+    try {
+      const result = await this.resumable.downloadAsync();
+      return Boolean(result?.uri);
+    } catch (error) {
+      // 半包保留在缓存里也没用（下次会重新下载覆盖），文案统一按「重新下载」
+      throw new Error(describeDownloadError(error));
+    }
   }
 
   async pause(): Promise<void> {
@@ -106,8 +129,12 @@ export class ApkDownloader {
 
   async resume(): Promise<boolean> {
     if (!this.resumable) return this.start();
-    const result = await this.resumable.resumeAsync();
-    return Boolean(result?.uri);
+    try {
+      const result = await this.resumable.resumeAsync();
+      return Boolean(result?.uri);
+    } catch (error) {
+      throw new Error(describeDownloadError(error));
+    }
   }
 
   async cancel(): Promise<void> {
@@ -124,7 +151,10 @@ export class ApkDownloader {
   }
 }
 
-/** 校验：大小必须严格一致；sha256 能算就算，算不了就退化为「仅大小校验」 */
+/**
+ * 校验：大小必须严格一致；sha256 **必须**提供且必须匹配（S6-7 起清单强制 sha256）。
+ * 读文件/计算失败也判失败（fail closed）—— 宁可让用户重新下载，也不装未校验的包。
+ */
 export async function verifyApk(
   uri: string,
   expected: { sizeBytes?: number; sha256?: string },
@@ -140,16 +170,18 @@ export async function verifyApk(
       sha256Checked: false,
     };
   }
-  if (!expected.sha256) return { ok: true, size, sha256Checked: false };
+  const expectedSha = expected.sha256?.trim().toLowerCase();
+  if (!expectedSha || !/^[0-9a-f]{64}$/.test(expectedSha)) {
+    return { ok: false, reason: "清单缺少 sha256 校验值，已拒绝安装，请重新下载", size, sha256Checked: false };
+  }
   try {
     const actual = await hashFileSha256(uri, size, onProgress);
-    if (actual.toLowerCase() !== expected.sha256.toLowerCase()) {
+    if (actual.toLowerCase() !== expectedSha) {
       return { ok: false, reason: "安装包校验失败（sha256 不一致），请重新下载", size, sha256: actual, sha256Checked: true };
     }
     return { ok: true, size, sha256: actual, sha256Checked: true };
   } catch {
-    // 读文件失败：不阻塞安装（大小已核对），但把情况说明白
-    return { ok: true, size, sha256Checked: false, reason: "sha256 校验不可用，已按文件大小校验" };
+    return { ok: false, reason: "sha256 计算失败（文件读取异常），请重新下载", size, sha256Checked: false };
   }
 }
 

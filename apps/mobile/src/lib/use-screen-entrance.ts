@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { FadeInDown } from "react-native-reanimated";
 import { DURATION, useReducedMotion } from "@/lib/motion";
 import { staggerDelay } from "@/lib/stagger";
+import { isLowEndDevice } from "@/lib/startup-gate";
 
 type EntranceBuilder = ReturnType<typeof FadeInDown.duration>;
 
@@ -16,6 +17,9 @@ type EntranceBuilder = ReturnType<typeof FadeInDown.duration>;
  *   const entrance = useScreenEntrance();
  *   <Animated.View entering={entrance(0)}>…</Animated.View>
  *
+ * S6-8 设备分档：低端机（startup-gate.isLowEndDevice()）直接返回 undefined ——
+ * 与「减弱动态」同一条降级路径（首屏不播 stagger，页面立即可用）。
+ *
  * 纪律不变（lib/stagger.ts）：只在**首帧**入场做，滚动复现不做；Tab scene 常驻不销毁，
  * 切回同一 Tab 不会重放 —— 这正是想要的"切 Tab 即时、首进有过渡"。
  */
@@ -24,7 +28,7 @@ export function useScreenEntrance(): (index: number) => EntranceBuilder | undefi
   return useMemo(
     () =>
       (index: number) =>
-        reduced ? undefined : FadeInDown.duration(DURATION.base).delay(staggerDelay(index)),
+        reduced || isLowEndDevice() ? undefined : FadeInDown.duration(DURATION.base).delay(staggerDelay(index)),
     [reduced]
   );
 }

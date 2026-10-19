@@ -1,6 +1,7 @@
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Stack, usePathname } from "expo-router";
 import { InteractionManager, AppState, StatusBar as RNStatusBar, StyleSheet } from "react-native";
+import * as Device from "expo-device";
 import * as ScreenOrientation from "expo-screen-orientation";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
@@ -21,6 +22,14 @@ import { StudyTimeTracker } from "@/components/study-time-tracker";
 import { secureToken } from "@/lib/secure-token";
 import { useAppStore } from "@/store/app-store";
 import { migrateLegacySports } from "@/store/sport-legacy";
+import {
+  classifyDeviceTier,
+  describeStartupDecision,
+  evaluateStartupGate,
+  setDeviceTier,
+  type DeviceTier,
+  type StartupGateDecision,
+} from "@/lib/startup-gate";
 import * as SplashScreen from "expo-splash-screen";
 
 /**
@@ -42,6 +51,18 @@ import * as SplashScreen from "expo-splash-screen";
  * - splash 底色已与首屏 canvas 同步（app.json：#F7F5F2 / 深色 #111113），所以观感是连续的一屏
  */
 void SplashScreen.preventAutoHideAsync().catch(() => {});
+/** S6-8：JS bundle 开始执行的时间（启动水位计时基准，写崩溃面包屑） */
+const BOOT_STARTED_AT = Date.now();
+/**
+ * S6-8 设备分档：低端机（总内存 <3GB）首屏入场动画 / 页面转场降级。
+ * 必须在**渲染前**判定并写入运行时档位，动画出口在首帧 render 时就会读它。
+ * EXPO_PUBLIC_FORCE_DEVICE_TIER=low|high 可强制档位（真机灰度/调试用）。
+ */
+const DEVICE_TIER: DeviceTier = classifyDeviceTier({
+  totalMemoryBytes: Device.totalMemory,
+  forcedTier: process.env.EXPO_PUBLIC_FORCE_DEVICE_TIER,
+});
+setDeviceTier(DEVICE_TIER);
 /**
  * v1.32.0 崩溃取证：**必须挂在模块顶层**（React 渲染之前）。
  * 若放在组件 effect 里，它会晚于子组件（ThemedShell）的 effect —— 那时新会话已经写过屏幕面包屑，
@@ -79,12 +100,77 @@ export default function RootLayout() {
   // 启动期只做「必要且轻」的事；重活（同步引擎/旧数据迁移/令牌恢复）延后到首帧之后，
   // 避免与首屏渲染抢 JS 线程（TTI 优化，见 docs/APP端设计与打包方案.md §6.3）
   /**
-   * 与上面的 preventAutoHideAsync 配对：首帧渲染完成后再撤掉 splash，
-   * 配合 setOptions 的 fade 得到 250ms 淡出（不再硬切）。
+   * S6-8 启动水位：**等 zustand persist 恢复完成 + 首帧绘制完成**再撤 splash。
+   * 为什么：persist 的 AsyncStorage 恢复是异步的，旧实现首帧就撤 → 深色模式先画一帧浅色（白闪），
+   * 主题/离线队列晚一拍出现。这里用 onFinishHydration 订阅 + rAF 双条件；
+   * 另有 4s 兜底（持久化卡死时不能永远白屏），超时也记面包屑便于真机复盘。
    */
+  const subscribeHydration = useCallback(
+    (cb: () => void) => useAppStore.persist.onFinishHydration(cb),
+    []
+  );
+  const hasHydrated = useSyncExternalStore(
+    subscribeHydration,
+    () => useAppStore.persist.hasHydrated(),
+    () => useAppStore.persist.hasHydrated()
+  );
+  const [firstFramePainted, setFirstFramePainted] = useState(false);
+  const splashReleasedRef = useRef(false);
+
   useEffect(() => {
-    void SplashScreen.hideAsync().catch(() => {});
+    const raf = requestAnimationFrame(() => setFirstFramePainted(true));
+    return () => cancelAnimationFrame(raf);
   }, []);
+
+  const releaseSplash = useCallback(
+    (decision: StartupGateDecision) => {
+      if (splashReleasedRef.current) return;
+      splashReleasedRef.current = true;
+      try {
+        // 低端机不做淡出（少一次整屏合成），直接撤
+        SplashScreen.setOptions?.({ fade: DEVICE_TIER !== "low", duration: DEVICE_TIER === "low" ? 0 : 250 });
+      } catch {
+        // 平台不支持 setOptions：退化为默认隐藏行为
+      }
+      void SplashScreen.hideAsync().catch(() => {});
+      // 冷启动耗时写崩溃面包屑（真机 logcat / 诊断包可回溯）
+      recordCrumb("startup", {
+        phase: "splash-released",
+        summary: describeStartupDecision({ decision, tier: DEVICE_TIER, hasHydrated, firstFramePainted }),
+        coldStartMs: decision.waitedMs,
+        release: decision.reason,
+        tier: DEVICE_TIER,
+        hydrated: hasHydrated,
+      });
+    },
+    [hasHydrated, firstFramePainted]
+  );
+
+  useEffect(() => {
+    if (splashReleasedRef.current) return;
+    const decision = evaluateStartupGate({
+      startedAt: BOOT_STARTED_AT,
+      now: Date.now(),
+      hasHydrated,
+      firstFramePainted,
+    });
+    if (decision.state !== "waiting") {
+      releaseSplash(decision);
+      return;
+    }
+    // 兜底：到达 hardTimeout 后无条件放行（evaluate 会返回 timeout）
+    const timer = setTimeout(() => {
+      releaseSplash(
+        evaluateStartupGate({
+          startedAt: BOOT_STARTED_AT,
+          now: Date.now(),
+          hasHydrated,
+          firstFramePainted,
+        })
+      );
+    }, decision.remainingMs + 16);
+    return () => clearTimeout(timer);
+  }, [hasHydrated, firstFramePainted, releaseSplash]);
 
   useEffect(() => {
     let stopSync: (() => void) | undefined;
@@ -143,7 +229,7 @@ export default function RootLayout() {
           供 BottomSheet 的键盘高度动画与 KeyboardAwareScrollView 使用 */}
       <KeyboardProvider>
         <ThemeProvider>
-          <ThemedShell />
+          <ThemedShell tier={DEVICE_TIER} />
         </ThemeProvider>
       </KeyboardProvider>
     </GestureHandlerRootView>
@@ -151,7 +237,7 @@ export default function RootLayout() {
 }
 
 /** 壳层（吃主题）：导航栈 / StatusBar / 每日背景 */
-function ThemedShell() {
+function ThemedShell({ tier }: { tier: DeviceTier }) {
   const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   // 记住"上一个展示过的页面"，供 resolveBackTarget 在无栈历史时兜底（v1.22）
@@ -184,7 +270,8 @@ function ThemedShell() {
       <Stack
         screenOptions={{
           headerShown: false,
-          animation: "default",
+          // S6-8：低端机转场降级为淡入（少一层整屏位移动画）
+          animation: tier === "low" ? "fade" : "default",
           contentStyle: { backgroundColor: "transparent" },
         }}
       >

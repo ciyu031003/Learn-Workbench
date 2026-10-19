@@ -26,6 +26,7 @@ import {
   ApkDownloader,
   apkUriFor,
   installApk,
+  describeDownloadError,
   isInstallPermissionError,
   openUnknownSourcesSettings,
   removeApk,
@@ -73,9 +74,10 @@ describe("verifyApk", () => {
     expect(result.size).toBe(0);
   });
 
-  it("清单没给 sha256 时只校验大小", async () => {
+  it("S6-7：清单没给 sha256 直接拒绝安装（fail closed）", async () => {
     const result = await verifyApk("file:///a.apk", { sizeBytes: 3 });
-    expect(result.ok).toBe(true);
+    expect(result.ok).toBe(false);
+    expect(result.reason).toContain("sha256");
     expect(result.sha256Checked).toBe(false);
   });
 
@@ -90,12 +92,12 @@ describe("verifyApk", () => {
     expect(badResult.reason).toContain("sha256");
   });
 
-  it("读文件失败时不阻塞安装（退化为仅大小校验）", async () => {
+  it("读文件失败时 fail closed（不装未校验的包）", async () => {
     readAsStringAsync.mockRejectedValue(new Error("read failed"));
     const result = await verifyApk("file:///a.apk", { sizeBytes: 3, sha256: "a".repeat(64) });
-    expect(result.ok).toBe(true);
+    expect(result.ok).toBe(false);
     expect(result.sha256Checked).toBe(false);
-    expect(result.reason).toContain("sha256 校验不可用");
+    expect(result.reason).toContain("重新下载");
   });
 });
 
@@ -132,6 +134,16 @@ describe("ApkDownloader", () => {
     expect(await downloader.resume()).toBe(true);
   });
 
+  it("下载抛错时转成「重新下载」文案（S6-7）", async () => {
+    createDownloadResumable.mockReturnValue({
+      downloadAsync: vi.fn().mockRejectedValue(new Error("Network request failed")),
+      pauseAsync: vi.fn(),
+      resumeAsync: vi.fn(),
+    });
+    const downloader = new ApkDownloader("https://x/app.apk", "file:///cache/updates/app.apk");
+    await expect(downloader.start()).rejects.toThrow("请重新下载");
+  });
+
   it("cancel 会暂停并删掉半包", async () => {
     createDownloadResumable.mockReturnValue({
       downloadAsync: vi.fn(),
@@ -141,6 +153,15 @@ describe("ApkDownloader", () => {
     const downloader = new ApkDownloader("https://x/app.apk", "file:///cache/updates/app.apk");
     await downloader.cancel();
     expect(deleteAsync).toHaveBeenCalledWith("file:///cache/updates/app.apk", { idempotent: true });
+  });
+});
+
+describe("describeDownloadError", () => {
+  it("网络/空间/地址失效分别给可执行文案", () => {
+    expect(describeDownloadError(new Error("Network request failed"))).toContain("网络中断");
+    expect(describeDownloadError(new Error("ENOSPC: no space left"))).toContain("存储空间不足");
+    expect(describeDownloadError(new Error("404 Not Found"))).toContain("地址失效");
+    expect(describeDownloadError(new Error("weird"))).toBe("下载失败，请重新下载");
   });
 });
 
