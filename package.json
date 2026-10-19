@@ -13,7 +13,7 @@
     "test": "pnpm -r test",
     "test:coverage": "pnpm -r test:coverage",
     "baseline": "node scripts/capture-baseline.mjs",
-    "test:scripts": "node --test scripts/lib/normalize.test.mjs scripts/lib/cities.test.mjs scripts/lib/equipment-category.test.mjs scripts/lib/ota-manifest.test.mjs scripts/lib/qr-png.test.mjs scripts/lib/crawl-core.test.mjs scripts/lib/import-pipeline.test.mjs scripts/lib/content-source.test.mjs scripts/lib/content-source-security.test.mjs scripts/lib/migration-drill.test.mjs scripts/lib/csgraduates.test.mjs scripts/lib/runoob.test.mjs scripts/lib/beokayy-408.test.mjs scripts/lib/beokayy-408-plan.test.mjs scripts/lib/content-package.test.mjs scripts/lib/open-source-audit.test.mjs && node scripts/verify-migrations.mjs && node scripts/check-content-quality.mjs && node scripts/check-release-hygiene.mjs && node scripts/db-index-inventory.mjs --check && node scripts/api-inventory.mjs --check && node scripts/check-anon-tables.mjs && node scripts/check-bundle-budget.mjs --check --allow-missing && node scripts/check-worklet-calls.mjs && node scripts/check-icon-scale.mjs && node scripts/mobile-sync-matrix.mjs",
+    "test:scripts": "node --test scripts/lib/normalize.test.mjs scripts/lib/cities.test.mjs scripts/lib/equipment-category.test.mjs scripts/lib/ota-manifest.test.mjs scripts/lib/qr-png.test.mjs scripts/lib/crawl-core.test.mjs scripts/lib/import-pipeline.test.mjs scripts/lib/content-source.test.mjs scripts/lib/content-source-security.test.mjs scripts/lib/migration-drill.test.mjs scripts/lib/csgraduates.test.mjs scripts/lib/runoob.test.mjs scripts/lib/beokayy-408.test.mjs scripts/lib/beokayy-408-plan.test.mjs scripts/lib/content-package.test.mjs scripts/lib/open-source-audit.test.mjs && node scripts/verify-migrations.mjs && node scripts/check-content-quality.mjs && node scripts/check-release-hygiene.mjs && node scripts/db-index-inventory.mjs --check && node scripts/api-inventory.mjs --check && node scripts/check-anon-tables.mjs && node scripts/check-bundle-budget.mjs --check --allow-missing && node scripts/check-worklet-calls.mjs && node scripts/check-icon-scale.mjs && node scripts/mobile-sync-matrix.mjs && node --test scripts/lib/content-freshness.test.mjs",
     "db:drill": "node scripts/migration-drill.mjs",
     "db:inventory": "node scripts/db-index-inventory.mjs",
     "check:content": "node scripts/check-content-quality.mjs --strict",
@@ -31,7 +31,10 @@
     "test:e2e": "pnpm --filter @learn-workbench/e2e test:e2e",
     "sync:parity": "node scripts/sync-parity.mjs",
     "test:shared": "node --import ./packages/shared/src/domains/node-loader.mjs --test packages/shared/src/domains/domains.test.mjs",
-    "check:sync-matrix": "node scripts/mobile-sync-matrix.mjs"
+    "check:sync-matrix": "node scripts/mobile-sync-matrix.mjs",
+    "check:content-freshness": "node scripts/content-freshness.mjs",
+    "drill": "node scripts/drill.mjs",
+    "drill:ci": "node scripts/drill.mjs --json"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.1.10",

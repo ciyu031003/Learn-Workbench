@@ -2377,3 +2377,10 @@ BEGIN
 END $$;
 
 CREATE INDEX IF NOT EXISTS idx_learning_topics_origin ON learning_topics(origin);
+
+-- ---------- 082：内容版本 marker（content-freshness 门禁读取；S7-4b） ----------
+CREATE TABLE IF NOT EXISTS content_meta (
+  key        text PRIMARY KEY,
+  value      text NOT NULL,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);

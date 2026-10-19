@@ -30,6 +30,7 @@ export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as {
     dryRun?: unknown;
     contentVersion?: unknown;
+    contentFingerprint?: unknown;
     contentUpdatedAt?: unknown;
     reviewTtlDays?: unknown;
   } | null;
@@ -43,6 +44,10 @@ export async function POST(req: Request) {
     typeof body?.contentUpdatedAt === "string" && body.contentUpdatedAt.trim()
       ? new Date(body.contentUpdatedAt).toISOString()
       : git.updatedAt;
+  // S7-4b：仓库内容包指纹（64 位 sha256 hex，由 scripts/sync-content-model.mjs 计算并传入）；
+  // 用于写入 content_meta.content_fingerprint，供 content-freshness 门禁做「指纹命中」比对。
+  const fingerprintRaw = typeof body?.contentFingerprint === "string" ? body.contentFingerprint.trim() : "";
+  const contentFingerprint = /^[0-9a-f]{16,64}$/i.test(fingerprintRaw) ? fingerprintRaw.toLowerCase() : undefined;
   const reviewTtlDays = Number.isFinite(Number(body?.reviewTtlDays)) ? Number(body!.reviewTtlDays) : undefined;
   const dryRun = body?.dryRun === true;
 
@@ -52,7 +57,7 @@ export async function POST(req: Request) {
     // 075：内容包全量落库（课程/阶段/知识点/讲义/题目/来源/动图），运行时改为只读数据库
     // force=1：显式以内容包为准（清掉人工编辑标记后再覆盖），默认保护后台改动
     const force = new URL(req.url).searchParams.get("force") === "1";
-    const learning = await syncLearningContent(buildLearningContentPlan(undefined, contentVersion), { dryRun, force });
+    const learning = await syncLearningContent(buildLearningContentPlan(undefined, contentVersion, contentFingerprint), { dryRun, force });
     logger.info("[internal/content/sync] done:", JSON.stringify({ dryRun, contentVersion, result, learning }));
     await writeAuditLog({
       action: "content.sync",

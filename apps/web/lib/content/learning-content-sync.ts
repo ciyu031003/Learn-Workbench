@@ -18,6 +18,8 @@ import { pgPool } from "@/lib/db";
 
 export interface LearningContentPlan {
   contentVersion: string;
+  /** 仓库内容包指纹（S7-4b：随同步写入 content_meta，供 content-freshness 门禁比对） */
+  contentFingerprint?: string;
   tracks: Record<string, unknown>[];
   stages: Record<string, unknown>[];
   topics: Record<string, unknown>[];
@@ -48,10 +50,12 @@ function fingerprintOf(value: unknown): string {
 /** 纯函数：把内容包拍平成各表待写入行（顺序即展示顺序）。 */
 export function buildLearningContentPlan(
   tracks: readonly LearningTrack[] = learningTracks,
-  contentVersion = "unknown"
+  contentVersion = "unknown",
+  contentFingerprint?: string
 ): LearningContentPlan {
   const plan: LearningContentPlan = {
     contentVersion,
+    contentFingerprint: contentFingerprint || undefined,
     tracks: [],
     stages: [],
     topics: [],
@@ -323,6 +327,34 @@ export async function syncLearningContent(
       questions: preservedQuestions.rows[0]?.n ?? 0,
       topics: preservedTopics.rows[0]?.n ?? 0,
     };
+
+    // S7-4b：内容版本 marker（content-freshness 门禁读取）。
+    // 082 之前的库没有 content_meta 表 → 先探测再写，绝不阻断同步（滚动发布/旧库兼容）。
+    const metaTable = await client.query<{ table: string | null }>(
+      "SELECT to_regclass('public.content_meta')::text AS table"
+    );
+    if (metaTable.rows[0]?.table) {
+      const metaKeys: string[] = [];
+      const metaValues: string[] = [];
+      if (plan.contentVersion && plan.contentVersion !== "unknown") {
+        metaKeys.push("content_version");
+        metaValues.push(plan.contentVersion);
+      }
+      if (plan.contentFingerprint) {
+        metaKeys.push("content_fingerprint");
+        metaValues.push(plan.contentFingerprint);
+      }
+      if (metaKeys.length > 0) {
+        metaKeys.push("content_synced_at");
+        metaValues.push(new Date().toISOString());
+        await client.query(
+          `INSERT INTO content_meta (key, value)
+           SELECT * FROM unnest($1::text[], $2::text[])
+           ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+          [metaKeys, metaValues]
+        );
+      }
+    }
 
     await client.query("COMMIT");
   } catch (error) {

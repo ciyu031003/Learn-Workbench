@@ -12,6 +12,12 @@
  * 需要服务已启动（同步逻辑在 Web 侧，因为它要读 packages/content 的 TS 内容包 + 写库）。
  */
 import { execFileSync } from "node:child_process";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { computeContentFingerprint } from "./lib/content-freshness.mjs";
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 function parseArgs(argv) {
   const out = {};
@@ -49,13 +55,21 @@ function readContentVersion() {
 
 async function main() {
   if (!CRON_SECRET) throw new Error("缺少 CRON_SECRET（同步接口鉴权需要）");
-  const body = { ...readContentVersion() };
+  // S7-4b：内容 marker（content_meta）。contentVersion 优先 git 语义版本，无 git 时用仓库指纹前 12 位；
+  // contentFingerprint = 仓库内容包 sha256 指纹（content-freshness 门禁用它做指纹命中比对）。
+  const repo = computeContentFingerprint({ root: ROOT });
+  const gitVersion = readContentVersion();
+  const body = { ...gitVersion };
+  if (repo.fileCount > 0) {
+    body.contentFingerprint = repo.fingerprint;
+    if (!body.contentVersion) body.contentVersion = repo.short;
+  }
   if (DRY_RUN) body.dryRun = true;
   if (args.force) body.force = true;
   const ttl = Number(args["review-ttl"]);
   if (Number.isFinite(ttl) && ttl > 0) body.reviewTtlDays = ttl;
 
-  console.log("[content-sync] 内容包版本：" + (body.contentVersion ?? "(服务端取 git)") + (DRY_RUN ? "（dry-run）" : ""));
+  console.log("[content-sync] 内容包版本：" + (body.contentVersion ?? "(服务端取 git)") + " · 指纹 " + (body.contentFingerprint ? body.contentFingerprint.slice(0, 12) : "(无)") + (DRY_RUN ? "（dry-run）" : ""));
   const query = body.force && !DRY_RUN ? "?force=1" : "";
   const res = await fetch(API_BASE + "/api/internal/content/sync" + query, {
     method: "POST",
