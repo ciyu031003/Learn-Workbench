@@ -37,3 +37,16 @@ LWB_LOG=/var/log/learn-workbench
 # 生产 compose 未向宿主机发布 DB 端口；无法直连时见 docs/备份与恢复演练.md「无直连时在容器内演练」。
 0 4 * * 0 cd $LWB_HOME && set -a && . ./.pgdrill.env && set +a && node scripts/restore-drill.mjs --latest /data/learn-workbench/backups >> $LWB_LOG/restore-drill.log 2>&1
 
+
+# =============================================================================
+# S7-4 内容漂移门禁（2026-10-19 追加）
+#   DB 是唯一事实源：content_meta.content_version / content_fingerprint 由内容同步写入。
+#   FRESH exit 0 / STALE exit 1 / UNKNOWN exit 2；--warn 只记日志不失败。
+# =============================================================================
+# 每日 06:40：仓库内容包 vs DB marker 比对（STALE 时日志里出现 CONTENT_FRESHNESS=STALE）
+40 6 * * * cd /home/ubuntu/learn-workbench && docker compose exec -T web node /app/scripts/content-freshness.mjs --warn >> /home/ubuntu/learn-workbench/logs/content-freshness.log 2>&1
+
+# =============================================================================
+# S7-2 三类演练（可选：每周一 05:30 跑回滚/告警演练；备份演练需 PG，容器内跑会自动 SKIP）
+# =============================================================================
+30 5 * * 1 cd /home/ubuntu/learn-workbench && docker compose exec -T web node /app/scripts/drill.mjs --only=rollback,alert >> /home/ubuntu/learn-workbench/logs/drill.log 2>&1
