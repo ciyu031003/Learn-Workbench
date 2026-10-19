@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { readNavigatorHints, shouldDegrade3d } from "@/lib/device-capability";
 
 /**
  * 3D 今日状态球（v8 P3）
@@ -30,17 +31,44 @@ export function StateOrb({ score, size = 220, className }: { score: number; size
     let visible = true;
     let inView = true;
     let cleanup: (() => void) | undefined;
+    /** S3-6 视口门闩：首次进入视口前不拉 three；卸载时断开，避免泄漏 */
+    let gate: IntersectionObserver | null = null;
 
     const reduce = typeof window !== "undefined" && window.matchMedia
       ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
       : false;
 
+    // S3-6 低端设备 / 省流量模式：直接保留 CSS 回退，连 three 的 chunk 都不请求
+    if (shouldDegrade3d(readNavigatorHints())) return;
+
     // WebGL 探测：拿不到上下文就保持 CSS 回落
     const probe = canvas.getContext("webgl2") || canvas.getContext("webgl");
     if (!probe) return;
 
+    /** 等组件进入视口（rootMargin 200px）再加载 three，避免折叠线以下的 3D 抢首屏主线程 */
+    const whenInView = () =>
+      new Promise<void>((resolve) => {
+        if (typeof IntersectionObserver === "undefined") {
+          resolve();
+          return;
+        }
+        gate = new IntersectionObserver(
+          (entries) => {
+            if (entries.some((entry) => entry.isIntersecting)) {
+              gate?.disconnect();
+              gate = null;
+              resolve();
+            }
+          },
+          { rootMargin: "200px" }
+        );
+        gate.observe(host);
+      });
+
     (async () => {
       try {
+        await whenInView();
+        if (disposed) return;
         const THREE = await import("three");
         if (disposed) return;
         const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: "low-power" });
@@ -167,6 +195,7 @@ export function StateOrb({ score, size = 220, className }: { score: number; size
 
     return () => {
       disposed = true;
+      gate?.disconnect();
       if (raf) cancelAnimationFrame(raf);
       cleanup?.();
     };

@@ -1,7 +1,5 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element */
-
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import type { Exam408Question } from "@/lib/exam-408";
 import { ExternalLink, Eye, EyeOff } from "lucide-react";
 import { cleanAnswerText, cleanExamStem } from "./question-utils";
+import { QuestionImage } from "./question-image";
 
 export function ExamQuestionCard({
   question,
@@ -52,20 +51,12 @@ export function ExamQuestionCard({
         {question.imageRefs.length > 0 ? (
           <div className="grid gap-3 sm:grid-cols-2">
             {question.imageRefs.map((url) => (
-              <a
+              <QuestionImage
                 key={url}
-                href={url}
-                target="_blank"
-                rel="noreferrer"
-                className="overflow-hidden rounded-lg border border-border/60 bg-white"
-              >
-                <img
-                  src={url}
-                  alt={`第 ${question.number} 题配图`}
-                  loading="lazy"
-                  className="max-h-80 w-full object-contain"
-                />
-              </a>
+                src={url}
+                alt={`第 ${question.number} 题配图`}
+                className="max-h-80"
+              />
             ))}
           </div>
         ) : null}
@@ -100,14 +91,13 @@ export function ExamQuestionCard({
             {question.answerImageRefs.length > 0 ? (
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 {question.answerImageRefs.map((url) => (
-                  <a key={url} href={url} target="_blank" rel="noreferrer" className="overflow-hidden rounded-lg bg-white">
-                    <img
-                      src={url}
-                      alt={`第 ${question.number} 题答案图`}
-                      loading="lazy"
-                      className="max-h-80 w-full object-contain"
-                    />
-                  </a>
+                  <QuestionImage
+                    key={url}
+                    src={url}
+                    alt={`第 ${question.number} 题答案图`}
+                    className="max-h-80"
+                    wrapperClassName="border-border/50"
+                  />
                 ))}
               </div>
             ) : null}

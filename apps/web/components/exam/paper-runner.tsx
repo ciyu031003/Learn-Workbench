@@ -1,7 +1,5 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element */
-
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +17,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { ExamQuestionCard } from "./exam-question-card";
+import { QuestionImage } from "./question-image";
 import { cleanAnswerText, cleanExamStem } from "./question-utils";
 
 type PaperMode = "practice" | "review";
@@ -309,9 +308,13 @@ function PracticeQuestion({
             {question.answerImageRefs.length > 0 ? (
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 {question.answerImageRefs.map((url) => (
-                  <a key={url} href={url} target="_blank" rel="noreferrer" className="overflow-hidden rounded-lg bg-white">
-                    <img src={url} alt={`第 ${question.number} 题答案图`} loading="lazy" decoding="async" className="max-h-80 w-full object-contain" />
-                  </a>
+                  <QuestionImage
+                    key={url}
+                    src={url}
+                    alt={`第 ${question.number} 题答案图`}
+                    className="max-h-80"
+                    wrapperClassName="border-border/50"
+                  />
                 ))}
               </div>
             ) : null}
@@ -467,15 +470,13 @@ function QuestionImages({ question }: { question: Exam408Question }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       {question.imageRefs.map((url) => (
-        <a
+        <QuestionImage
           key={url}
-          href={url}
-          target="_blank"
-          rel="noreferrer"
-          className="overflow-hidden rounded-xl border border-border/60 bg-white"
-        >
-          <img src={url} alt={`第 ${question.number} 题配图`} loading="lazy" decoding="async" className="max-h-96 w-full object-contain" />
-        </a>
+          src={url}
+          alt={`第 ${question.number} 题配图`}
+          className="max-h-96"
+          wrapperClassName="rounded-xl border-border/60"
+        />
       ))}
     </div>
   );

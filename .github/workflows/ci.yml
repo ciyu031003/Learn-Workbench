@@ -107,6 +107,10 @@ jobs:
       - name: Build (web)
         run: pnpm --filter web build
 
+      # S3-4 首载体积预算：公开页 ≤150KB / 应用页 ≤300KB / 重型页 ≤400KB（gzip）
+      - name: Bundle budget gate (first-load gzip)
+        run: node scripts/check-bundle-budget.mjs --check
+
   e2e:
     name: E2E (Playwright · Docker 全栈)
     runs-on: ubuntu-latest
