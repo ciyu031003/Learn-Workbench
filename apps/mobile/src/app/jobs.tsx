@@ -43,14 +43,9 @@ import {
   type JobListResult,
 } from "@/lib/jobs";
 import { useAppStore } from "@/store/app-store";
-import {
-  SUPPORTED_CITIES,
-  formatRelativeTime,
-  jobSourceLabels,
-  type JobPostingListItem,
-  type JobSource,
-  type JobStats,
-} from "@learn-workbench/shared";
+import type { JobPostingListItem, JobSource, JobStats } from "@learn-workbench/shared/schemas";
+import { SUPPORTED_CITIES, jobSourceLabels } from "@learn-workbench/shared/labels";
+import { formatRelativeTime } from "@learn-workbench/shared/dates";
 
 const PAGE_SIZE = 12;
 const CITY_OPTIONS = ["全部", ...SUPPORTED_CITIES];

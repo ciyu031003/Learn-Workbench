@@ -15,7 +15,8 @@ import {
   type ContentChoice,
   type ContentSource,
 } from "@/components/content-picker";
-import { SPORT_CATALOG, exerciseTypeOptions, type SportItem } from "@learn-workbench/shared";
+import type { SportItem } from "@learn-workbench/shared/types";
+import { SPORT_CATALOG, exerciseTypeOptions } from "@learn-workbench/shared/labels";
 
 /** 一键开始的会话类型（由 App 决定，随后直接进入计时） */
 export interface QuickStartChoice {

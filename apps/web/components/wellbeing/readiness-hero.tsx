@@ -1,18 +1,13 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import { DAILY_WEAKEST_LABEL, computeDailyReadiness, todayISO } from "@learn-workbench/shared";
+import { DAILY_WEAKEST_LABEL } from "@learn-workbench/shared/labels";
+import { todayISO } from "@learn-workbench/shared/dates";
+import { computeDailyReadiness } from "@learn-workbench/shared/pure";
 import { Card, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { LazyStateOrb } from "@/components/three/lazy-three";
 import { cn } from "@/lib/utils";
-
-/** 3D 状态球懒加载（ssr:false）：three 只在客户端进入时拉取，不进首包 */
-const StateOrb = dynamic(() => import("@/components/three/state-orb").then((m) => m.StateOrb), {
-  ssr: false,
-  loading: () => <Skeleton className="size-[220px]" rounded="rounded-full" />,
-});
 
 interface DailyOs {
   learning: { tasksTotal: number; tasksDone: number; focusMinutes: number };
@@ -114,7 +109,8 @@ export function ReadinessHero() {
                 } as CSSProperties
               }
             />
-            <StateOrb score={readiness.score} size={220} />
+            {/* S3-6：进入视口才拉 three chunk；低端设备/省流模式自动降级为静态回退 */}
+            <LazyStateOrb score={readiness.score} size={220} />
           </div>
           <div className="text-center">
             <div className="stat-pop bg-gradient-to-r from-primary to-accent bg-clip-text text-5xl font-black tabular-nums text-transparent">

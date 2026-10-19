@@ -17,12 +17,9 @@ import { staggerDelay } from "@/lib/stagger";
 import { shadows, typography, type ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
-import {
-  TRAINING_LOAD_METRIC_META,
-  trainingLoadSeries,
-  workoutVolume,
-  type Workout,
-} from "@learn-workbench/shared";
+import type { Workout } from "@learn-workbench/shared/schemas";
+import { TRAINING_LOAD_METRIC_META } from "@learn-workbench/shared/labels";
+import { trainingLoadSeries, workoutVolume } from "@learn-workbench/shared/pure";
 
 /** 柱状图横轴标签（训练负荷按「最近 7 天」聚合） */
 const WEEKDAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"];

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { LearningReviewCard, LearningReviewResponse } from "@learn-workbench/shared";
+import type { LearningReviewCard, LearningReviewResponse } from "@learn-workbench/shared/schemas";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";

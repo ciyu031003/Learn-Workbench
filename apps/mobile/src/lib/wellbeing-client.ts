@@ -1,5 +1,6 @@
 import { getApiUrl } from "@/config";
-import type { ActivityLevel, Sex } from "@learn-workbench/shared";
+import type { Sex } from "@learn-workbench/shared/types";
+import type { ActivityLevel } from "@learn-workbench/shared/labels";
 
 /** 打卡类接口的轻量客户端（v3 P3：饮水 / 体重 / 目标），全部走 Bearer 鉴权 */
 

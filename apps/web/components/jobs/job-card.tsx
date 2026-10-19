@@ -1,13 +1,9 @@
 "use client";
 
-import type { JobPostingListItem } from "@learn-workbench/shared";
-import {
-  experimentalJobSources,
-  formatRelativeTime,
-  jobCategoryColors,
-  jobCategoryLabels,
-  jobSourceLabel,
-} from "@learn-workbench/shared";
+import type { JobPostingListItem } from "@learn-workbench/shared/schemas";
+import { experimentalJobSources, jobCategoryColors, jobCategoryLabels } from "@learn-workbench/shared/labels";
+import { formatRelativeTime } from "@learn-workbench/shared/dates";
+import { jobSourceLabel } from "@learn-workbench/shared/pure";
 import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";

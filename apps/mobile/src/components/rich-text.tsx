@@ -1,5 +1,5 @@
 import { Text, type StyleProp, type TextStyle } from "react-native";
-import { parseInlineRich } from "@learn-workbench/shared";
+import { parseInlineRich } from "@learn-workbench/shared/md-lite";
 
 /**
  * 行内富文本（移动端）：把 `**加粗**` / `` `代码` `` / `$公式$` 渲染成原生 Text 嵌套节点。

@@ -1,8 +1,10 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import type { DailyTask, FocusSession, LogEntry, TopicProgress, ExerciseType } from "@learn-workbench/shared";
-import { todayISO, sportItemByKey, SPORT_CATALOG, fromDateKey } from "@learn-workbench/shared";
+import type { DailyTask, FocusSession, LogEntry, TopicProgress, ExerciseType } from "@learn-workbench/shared/schemas";
+import { todayISO, fromDateKey } from "@learn-workbench/shared/dates";
+import { sportItemByKey } from "@learn-workbench/shared/pure";
+import { SPORT_CATALOG } from "@learn-workbench/shared/labels";
 import type { ThemeMode } from "@/theme/tokens";
 import { secureToken } from "@/lib/secure-token";
 

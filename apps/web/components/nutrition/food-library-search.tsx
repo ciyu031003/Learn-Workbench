@@ -6,7 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToastStore } from "@/store/toast-store";
-import { formatBasisLabel, mealKindLabels, scaleFoodByAmount, type FoodItemHit, type MealKind } from "@learn-workbench/shared";
+import type { MealKind } from "@learn-workbench/shared/schemas";
+import type { FoodItemHit } from "@learn-workbench/shared/types";
+import { mealKindLabels } from "@learn-workbench/shared/labels";
+import { formatBasisLabel, scaleFoodByAmount } from "@learn-workbench/shared/pure";
 
 /**
  * 食物营养库搜索 + 按克录入（v8 P1，与 APP v6 的功能对齐）

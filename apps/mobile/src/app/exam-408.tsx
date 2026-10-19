@@ -7,7 +7,7 @@ import {
 } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import Animated from "react-native-reanimated";
-import { type LearningTrack } from "@learn-workbench/content";
+import type { LearningTrack } from "@learn-workbench/content/types";
 import { useLearningTrack } from "@/lib/content-store";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { ThemedIcon } from "@/components/themed-icon";

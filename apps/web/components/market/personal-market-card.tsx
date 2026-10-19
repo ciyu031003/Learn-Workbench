@@ -18,7 +18,7 @@ import type {
   MarketPersonalInsights,
   MarketPersonalJob,
 } from "@/lib/domains/market/personal";
-import type { MarketGapItem } from "@learn-workbench/shared";
+import type { MarketGapItem } from "@learn-workbench/shared/schemas";
 
 function MatchJobRow({ job }: { job: MarketPersonalJob }) {
   const tone =

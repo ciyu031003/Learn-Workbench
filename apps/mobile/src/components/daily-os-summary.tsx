@@ -12,7 +12,7 @@ import { FoodSticker } from "@/components/food-sticker";
 import { useTheme } from "@/theme";
 import type { ThemeColors } from "@/theme/tokens";
 import { radius, spacing, tabularNums, typography } from "@/theme/tokens";
-import { mealKindLabels } from "@learn-workbench/shared";
+import { mealKindLabels } from "@learn-workbench/shared/labels";
 import { useAppStore } from "@/store/app-store";
 import { useFocusRefresh } from "@/lib/use-focus-refresh";
 import { todayAndYesterday } from "@/lib/nutrition-views";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { SportsCardModel } from "@learn-workbench/shared";
+import type { SportsCardModel } from "@learn-workbench/shared/types";
 import { Button } from "@/components/ui/button";
 import {
   CARD_TEXT_HEIGHT,

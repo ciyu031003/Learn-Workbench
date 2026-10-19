@@ -18,7 +18,7 @@ import { useTheme } from "@/theme";
 import { radius, spacing, typography, type ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
-import type { InterviewQuestion, QuestionModule } from "@learn-workbench/shared";
+import type { InterviewQuestion, QuestionModule } from "@learn-workbench/shared/schemas";
 
 /** 难度徽章：文案 +配色（v20-E1：色收进主题 token） */
 import { ThemedIcon } from "@/components/themed-icon";

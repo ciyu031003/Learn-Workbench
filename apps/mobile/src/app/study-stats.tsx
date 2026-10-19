@@ -25,7 +25,7 @@ import {
   localKey,
   weekdayName,
 } from "@/lib/focus-series";
-import { formatDuration } from "@learn-workbench/shared";
+import { formatDuration } from "@learn-workbench/shared/dates";
 import { radius, tabularNums, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";

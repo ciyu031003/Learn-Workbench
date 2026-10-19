@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SvgXml } from "react-native-svg";
-import { algorithmAnimations } from "@learn-workbench/content";
+import { algorithmAnimations } from "@learn-workbench/content/learning";
 import { useAnimationFrames } from "@/lib/content-store";
 import { radius, spacing, typography, type ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";

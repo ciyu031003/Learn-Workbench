@@ -1,4 +1,4 @@
-import type { MealKind } from "@learn-workbench/shared";
+import type { MealKind } from "@learn-workbench/shared/schemas";
 
 /**
  * 饮食页「每日推荐」的食谱池（需求 2）。

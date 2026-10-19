@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { JobNotification } from "@learn-workbench/shared";
-import { formatRelativeTime } from "@learn-workbench/shared";
+import type { JobNotification } from "@learn-workbench/shared/schemas";
+import { formatRelativeTime } from "@learn-workbench/shared/dates";
 import { cn } from "@/lib/utils";
 import { Bell, CheckCheck, ExternalLink, Loader2 } from "lucide-react";
 

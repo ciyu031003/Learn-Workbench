@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { toDateKey } from "@learn-workbench/shared";
+import { toDateKey } from "@learn-workbench/shared/dates";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
 import { useTheme } from "@/theme";

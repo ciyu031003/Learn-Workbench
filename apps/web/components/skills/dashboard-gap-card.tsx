@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { MarketGapItem } from "@learn-workbench/shared";
+import type { MarketGapItem } from "@learn-workbench/shared/schemas";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowRight, Target } from "lucide-react";
 

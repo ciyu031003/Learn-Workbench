@@ -10,11 +10,8 @@
  * 这样"改内容只改库"，App 不需要跟着发版；内置内容包退化为纯离线兜底。
  */
 import { useMemo, useSyncExternalStore } from "react";
-import {
-  algorithmAnimations as bundledAnimations,
-  learningTracks as bundledTracks,
-  type LearningTrack,
-} from "@learn-workbench/content";
+import { algorithmAnimations as bundledAnimations, learningTracks as bundledTracks } from "@learn-workbench/content/learning";
+import type { LearningTrack } from "@learn-workbench/content/types";
 import { getApiUrl } from "@/config";
 
 export interface AnimationFrame {

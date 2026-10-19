@@ -1,6 +1,7 @@
 import { getApiUrl } from "@/config";
 import { useAppStore } from "@/store/app-store";
-import { mergeGearWithTemplate, sportGearTemplate, type SportsProfile } from "@learn-workbench/shared";
+import type { SportsProfile } from "@learn-workbench/shared/schemas";
+import { mergeGearWithTemplate, sportGearTemplate } from "@learn-workbench/shared/pure";
 
 /** 运动档案客户端（对齐 Web /api/sports/profiles，字段已是 camelCase） */
 function authHeaders(json = false): Record<string, string> {

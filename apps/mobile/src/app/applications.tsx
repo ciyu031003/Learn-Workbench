@@ -19,11 +19,8 @@ import { useAppStore } from "@/store/app-store";
 import { Card } from "@/components/card";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { SheetListRow, SheetSection, SheetStickyCta } from "@/components/sheet";
-import {
-  jobApplicationStageLabels,
-  type JobApplication,
-  type JobApplicationStage,
-} from "@learn-workbench/shared";
+import type { JobApplication, JobApplicationStage } from "@learn-workbench/shared/schemas";
+import { jobApplicationStageLabels } from "@learn-workbench/shared/labels";
 
 const STAGES: JobApplicationStage[] = [
   "favorite", "ready", "applied", "online_test", "interview1", "interview2", "offer", "hired", "closed",

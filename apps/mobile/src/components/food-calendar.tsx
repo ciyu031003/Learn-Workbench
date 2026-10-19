@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { toDateKey } from "@learn-workbench/shared";
-import type { MealEntry } from "@learn-workbench/shared";
+import type { MealEntry } from "@learn-workbench/shared/schemas";
+import { toDateKey } from "@learn-workbench/shared/dates";
 import { ThemedIcon } from "@/components/themed-icon";
 import { FoodSticker } from "@/components/food-sticker";
 import { useTheme } from "@/theme";

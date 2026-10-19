@@ -24,11 +24,9 @@ import {
 import { useTheme } from "@/theme";
 import { radius, shadows, spacing, typography, type ThemeColors } from "@/theme/tokens";
 import { MOTION_BASE, easingStandard, isMotionActive } from "@/theme/motion";
-import {
-  certificateExpiryInfo,
-  certificateStatusLabels,
-  type Certificate,
-} from "@learn-workbench/shared";
+import type { Certificate } from "@learn-workbench/shared/schemas";
+import { certificateStatusLabels } from "@learn-workbench/shared/labels";
+import { certificateExpiryInfo } from "@learn-workbench/shared/pure";
 
 /**
  * 证书卡（V3 证书页专用）。

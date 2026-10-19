@@ -3,7 +3,7 @@ import { RefreshControl, StyleSheet, Text, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import Animated from "react-native-reanimated";
 import { getLearningTrackNow, useLearningTrack, useLearningTracks } from "@/lib/content-store";
-import type { LearningReviewCard, LearningReviewResponse, LearningWeakTopic } from "@learn-workbench/shared";
+import type { LearningReviewCard, LearningReviewResponse, LearningWeakTopic } from "@learn-workbench/shared/schemas";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";

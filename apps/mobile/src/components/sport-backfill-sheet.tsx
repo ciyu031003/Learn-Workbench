@@ -1,15 +1,9 @@
 import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import {
-  SPORT_CATALOG,
-  exerciseTypeOptions,
-  formatDateCN,
-  fromDateKey,
-  toDateKey,
-  todayISO,
-  type ExerciseType,
-  type SportItem,
-} from "@learn-workbench/shared";
+import type { ExerciseType } from "@learn-workbench/shared/schemas";
+import type { SportItem } from "@learn-workbench/shared/types";
+import { SPORT_CATALOG, exerciseTypeOptions } from "@learn-workbench/shared/labels";
+import { formatDateCN, fromDateKey, toDateKey, todayISO } from "@learn-workbench/shared/dates";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { MonthCalendar } from "@/components/month-calendar";
 import { ChipGroup, SheetSection, SheetStickyCta, StepperRow } from "@/components/sheet";

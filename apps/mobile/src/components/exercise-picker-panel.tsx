@@ -15,13 +15,9 @@ import { useTheme } from "@/theme";
 import { typography, type ThemeColors } from "@/theme/tokens";
 import { getApiUrl } from "@/config";
 import { useAppStore } from "@/store/app-store";
-import {
-  EXERCISE_CATALOG,
-  exerciseByKey,
-  exerciseTypeOptions,
-  filterExercises,
-  type ExerciseFilterable,
-} from "@learn-workbench/shared";
+import type { ExerciseFilterable } from "@learn-workbench/shared/types";
+import { EXERCISE_CATALOG, exerciseTypeOptions } from "@learn-workbench/shared/labels";
+import { exerciseByKey, filterExercises } from "@learn-workbench/shared/pure";
 import {
   DEFAULT_REPS,
   DEFAULT_SETS,

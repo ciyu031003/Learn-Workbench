@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
-import { fromDateKey, recentDateKeys, toDateKey } from "@learn-workbench/shared";
+import { fromDateKey, recentDateKeys, toDateKey } from "@learn-workbench/shared/dates";
 import { haptics } from "@/lib/haptics";
 import { typography, tabularNums } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";

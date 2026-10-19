@@ -1,6 +1,6 @@
 import { getApiUrl } from "@/config";
 import { useAppStore } from "@/store/app-store";
-import type { JobCrawlerConfig, JobLearningPlan, JobPostingListItem, JobRun, JobSource, JobStats, SkillGapItem } from "@learn-workbench/shared";
+import type { JobCrawlerConfig, JobLearningPlan, JobPostingListItem, JobRun, JobSource, JobStats, SkillGapItem } from "@learn-workbench/shared/schemas";
 
 export type JobDetail = JobPostingListItem & {
   description: string;

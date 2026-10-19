@@ -4,14 +4,10 @@ import { StyleSheet, Text, View } from "react-native";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { ChipGroup, SheetSection, SheetStickyCta } from "@/components/sheet";
 import { Field } from "@/components/field";
-import {
-  ACTIVITY_FACTORS,
-  ACTIVITY_LABELS,
-  ACTIVITY_LEVELS,
-  nutritionTargetRange,
-  type ActivityLevel,
-  type Sex,
-} from "@learn-workbench/shared";
+import type { Sex } from "@learn-workbench/shared/types";
+import { ACTIVITY_FACTORS, ACTIVITY_LABELS, ACTIVITY_LEVELS } from "@learn-workbench/shared/labels";
+import type { ActivityLevel } from "@learn-workbench/shared/labels";
+import { nutritionTargetRange } from "@learn-workbench/shared/pure";
 import { tabularNums, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";

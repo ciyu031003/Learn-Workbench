@@ -7,7 +7,7 @@ import { useAppStore, type LogKind } from "@/store/app-store";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
 import { syncPull, syncPush } from "@/lib/sync";
-import { logKindLabels } from "@learn-workbench/shared";
+import { logKindLabels } from "@learn-workbench/shared/labels";
 import { Card } from "@/components/card";
 import { EmptyState } from "@/components/empty-state";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";

@@ -1,14 +1,9 @@
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import {
-  mealKindLabels,
-  type MealKind,
-} from "@learn-workbench/shared";
-import {
-  recipeTagLabels,
-  recipesForMeal,
-  type Recipe,
-} from "@learn-workbench/content";
+import type { MealKind } from "@learn-workbench/shared/schemas";
+import { mealKindLabels } from "@learn-workbench/shared/labels";
+import { recipeTagLabels, recipesForMeal } from "@learn-workbench/content/health";
+import type { Recipe } from "@learn-workbench/content/health";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
 import { ThemedIcon } from "@/components/themed-icon";

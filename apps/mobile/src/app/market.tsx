@@ -43,7 +43,7 @@ import {
   type MarketRankItem,
 } from "@/lib/market";
 import { aggregateTimeSeries, labelPositions } from "@/lib/market-series";
-import type { MarketGapItem } from "@learn-workbench/shared";
+import type { MarketGapItem } from "@learn-workbench/shared/schemas";
 
 type MarketStyles = ReturnType<typeof makeStyles>;
 type FilterKey = "city" | "function" | "industry" | "seniority" | "source";

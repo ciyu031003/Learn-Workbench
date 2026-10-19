@@ -1,11 +1,7 @@
 /** 把运动档案（或公开分享视图）投影成卡面数据模型 —— 页面只负责把它交给卡片组件 */
-import {
-  buildSportsCardModel,
-  sportItemByKey,
-  type SportsCardModel,
-  type SportsProfile,
-  type SportsShare,
-} from "@learn-workbench/shared";
+import { buildSportsCardModel, sportItemByKey } from "@learn-workbench/shared/pure";
+import type { SportsCardModel } from "@learn-workbench/shared/types";
+import type { SportsProfile, SportsShare } from "@learn-workbench/shared/schemas";
 
 export function cardModelFor(profile: SportsProfile, index: number, total: number): SportsCardModel {
   const sportName = sportItemByKey(profile.sportKey)?.name ?? profile.sportKey;

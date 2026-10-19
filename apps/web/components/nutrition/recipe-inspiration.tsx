@@ -3,12 +3,10 @@
 import { useMemo, useState } from "react";
 import { ChefHat, Clock3, Flame, Wheat } from "lucide-react";
 import { GlassModal } from "@/components/ui/modal";
-import { mealKindLabels, type MealKind } from "@learn-workbench/shared";
-import {
-  recipeTagLabels,
-  recipesForMeal,
-  type Recipe,
-} from "@learn-workbench/content";
+import type { MealKind } from "@learn-workbench/shared/schemas";
+import { mealKindLabels } from "@learn-workbench/shared/labels";
+import { recipeTagLabels, recipesForMeal } from "@learn-workbench/content/health";
+import type { Recipe } from "@learn-workbench/content/health";
 import { cn } from "@/lib/utils";
 
 const MEALS: MealKind[] = ["breakfast", "lunch", "dinner", "snack"];

@@ -1,4 +1,4 @@
-import type { MarketAnalysis, MarketGapItem, UserSkillView } from "@learn-workbench/shared";
+import type { MarketAnalysis, MarketGapItem, UserSkillView } from "@learn-workbench/shared/schemas";
 
 export interface MarketKpis {
   total: number;

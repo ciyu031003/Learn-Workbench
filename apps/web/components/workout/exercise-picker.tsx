@@ -1,12 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  EXERCISE_CATALOG,
-  exerciseTypeOptions,
-  filterExercises,
-  type ExerciseFilterable,
-} from "@learn-workbench/shared";
+import type { ExerciseFilterable } from "@learn-workbench/shared/types";
+import { EXERCISE_CATALOG, exerciseTypeOptions } from "@learn-workbench/shared/labels";
+import { filterExercises } from "@learn-workbench/shared/pure";
 import { GlassModal } from "@/components/ui/modal";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";

@@ -1,9 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import type {
-  LearningReviewActionInput,
-  LearningReviewMutationResponse,
-  LearningReviewResponse,
-} from "@learn-workbench/shared";
+import type { LearningReviewActionInput, LearningReviewMutationResponse, LearningReviewResponse } from "@learn-workbench/shared/schemas";
 import { getApiUrl } from "@/config";
 import { useAppStore } from "@/store/app-store";
 

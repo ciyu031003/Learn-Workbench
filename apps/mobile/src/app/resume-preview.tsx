@@ -15,7 +15,8 @@ import { useTheme } from "@/theme";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
-import { resumeSectionKeyLabels, type ResumeContent, type ResumeSectionConfig } from "@learn-workbench/shared";
+import type { ResumeContent, ResumeSectionConfig } from "@learn-workbench/shared/schemas";
+import { resumeSectionKeyLabels } from "@learn-workbench/shared/labels";
 import { typography } from "@/theme/tokens";
 
 interface DocState {

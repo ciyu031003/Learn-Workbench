@@ -1,4 +1,4 @@
-import type { FocusSession } from "@learn-workbench/shared";
+import type { FocusSession } from "@learn-workbench/shared/schemas";
 
 /** 没有绑定学习内容的会话在统计里的归集名（历史数据 `tag=null` 也走这里） */
 export const UNTAGGED_CONTENT = "未分类";

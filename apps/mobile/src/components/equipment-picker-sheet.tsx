@@ -5,7 +5,7 @@ import { BottomSheet } from "@/components/bottom-sheet";
 import { ChipGroup, SheetSearchField } from "@/components/sheet";
 import { GearCard } from "@/components/gear-card";
 import { SkeletonList } from "@/components/skeleton";
-import { equipmentCategoriesForSport } from "@learn-workbench/shared";
+import { equipmentCategoriesForSport } from "@learn-workbench/shared/pure";
 import { fetchEquipment, type EquipmentItem } from "@/lib/equipment";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";

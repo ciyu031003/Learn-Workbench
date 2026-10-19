@@ -1,7 +1,6 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { algorithmAnimations } from "@learn-workbench/content";
 import { ChevronLeft, ChevronRight, Pause, Play, RotateCcw } from "lucide-react";
 
 const FRAME_MS = 1200;
@@ -37,8 +36,25 @@ export function AlgorithmAnimation({ keys }: { keys: string[] }) {
   const safeIndex = Math.min(keyIndex, keys.length - 1);
   const activeKey = keys[safeIndex];
   const registry = useContext(AnimationFramesContext);
-  const frames = registry?.[activeKey] ?? algorithmAnimations[activeKey] ?? [];
+  // S3：内容包（3MB+ 题库）不再静态进首载；只在「服务端没给帧」时按需异步加载兜底。
+  const [fallback, setFallback] = useState<AnimationFrames | null>(null);
+  const frames = registry?.[activeKey] ?? fallback?.[activeKey] ?? [];
   const total = frames.length;
+
+  useEffect(() => {
+    if (registry) return;
+    let alive = true;
+    void import("@learn-workbench/content/learning")
+      .then((mod) => {
+        if (alive) setFallback(mod.algorithmAnimations as AnimationFrames);
+      })
+      .catch(() => {
+        // 兜底内容加载失败：动图区不渲染即可，不影响正文
+      });
+    return () => {
+      alive = false;
+    };
+  }, [registry]);
 
   useEffect(() => {
     if (!playing || total <= 1) return;

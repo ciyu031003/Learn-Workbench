@@ -1,12 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import {
-  getResumeTemplate,
-  type ResumeContent,
-  type ResumeSectionConfig,
-  type ResumeStyle,
-} from "@learn-workbench/shared";
+import type { ResumeContent, ResumeSectionConfig, ResumeStyle } from "@learn-workbench/shared/schemas";
+import { getResumeTemplate } from "@learn-workbench/shared/pure";
 
 const SPACING: Record<ResumeStyle["spacing"], { gap: string; block: string; line: number }> = {
   compact: { gap: "10px", block: "12px", line: 1.45 },

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { JobLearningPlan, JobMatchResult, SkillGapsResult } from "@learn-workbench/shared";
+import type { JobLearningPlan, JobMatchResult, SkillGapsResult } from "@learn-workbench/shared/schemas";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useToastStore } from "@/store/toast-store";

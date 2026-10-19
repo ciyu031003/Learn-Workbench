@@ -6,7 +6,8 @@ import {
   learningQuestionFacets,
 } from "./learning-questions";
 
-const items = flattenLearningQuestions();
+// S3 后 flatten 必须显式传入内容（避免模块顶层把题库拖进客户端依赖图）
+const items = flattenLearningQuestions(learningTracks);
 const totalQuestions = learningTracks.reduce((total, track) => total + track.questions.length, 0);
 
 describe("flattenLearningQuestions", () => {

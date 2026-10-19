@@ -31,7 +31,7 @@ import { startFocusNotification, stopFocusNotification } from "@/lib/focus-notif
 import { RingProgress } from "@/components/ring-progress";
 import { TimerDial } from "@/components/timer-dial";
 import { getDailyQuote } from "@/lib/quotes";
-import type { FocusSession } from "@learn-workbench/shared";
+import type { FocusSession } from "@learn-workbench/shared/schemas";
 
 const PRESETS = [15, 25, 45];
 const GALLERY = [

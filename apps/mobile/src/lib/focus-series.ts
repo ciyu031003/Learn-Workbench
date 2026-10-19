@@ -1,4 +1,4 @@
-import type { FocusSession } from "@learn-workbench/shared";
+import type { FocusSession } from "@learn-workbench/shared/schemas";
 
 /**
  * 学习统计的**纯计算层**（v1.33.0 从 `app/(tabs)/learn.tsx` 抽出）。

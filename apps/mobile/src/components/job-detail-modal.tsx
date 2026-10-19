@@ -12,7 +12,9 @@ import { SkeletonList } from "@/components/skeleton";
 import { haptics } from "@/lib/haptics";
 import { JobFreshnessBadge, JobNewBadge, JobSourceBadge, avatarColorOf, jobSalaryText } from "@/components/job-bits";
 import { enrollJobGaps, fetchJobDetail, fetchJobPlan, type JobDetail } from "@/lib/jobs";
-import { formatRelativeTime, jobSourceLabels, type JobLearningPlan, type JobPostingListItem } from "@learn-workbench/shared";
+import type { JobLearningPlan, JobPostingListItem } from "@learn-workbench/shared/schemas";
+import { jobSourceLabels } from "@learn-workbench/shared/labels";
+import { formatRelativeTime } from "@learn-workbench/shared/dates";
 
 /**
  * v20-B1 · 详情弹层的"种子"入参：雷达等入口只拿到部分字段也能打开详情，

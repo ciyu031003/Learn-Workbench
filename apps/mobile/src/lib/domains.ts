@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { getApiUrl } from "@/config";
 import { useAppStore } from "@/store/app-store";
-import type { DomainKind } from "@learn-workbench/shared";
+import type { DomainKind } from "@learn-workbench/shared/schemas";
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 

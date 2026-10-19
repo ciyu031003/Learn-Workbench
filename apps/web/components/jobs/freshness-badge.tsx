@@ -1,7 +1,7 @@
 "use client";
 
-import type { JobPostingListItem } from "@learn-workbench/shared";
-import { jobFreshness } from "@learn-workbench/shared";
+import type { JobPostingListItem } from "@learn-workbench/shared/schemas";
+import { jobFreshness } from "@learn-workbench/shared/pure";
 import { cn } from "@/lib/utils";
 
 /** 职位新鲜度徽标（P1，按渠道区分：job 用发布时间，公告用截止倒计时） */

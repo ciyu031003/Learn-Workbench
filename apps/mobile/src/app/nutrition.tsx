@@ -91,26 +91,11 @@ import { spacing, tabularNums, typography, shadows } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
-import {
-  DEFAULT_NUTRITION_TARGETS,
-  MEAL_KCAL_SHARES,
-  buildNutritionTargetView,
-  formatEntryTime,
-  fromDateKey,
-  mealKindLabels,
-  nutritionTargetRange,
-  recentDateKeys,
-  remainingKcal,
-  toDateKey,
-  kcalEquivalentText,
-  sumNutrition,
-  scaleFoodByAmount,
-  formatBasisLabel,
-  type FoodItemHit,
-  type Food,
-  type MealEntry,
-  type MealKind,
-} from "@learn-workbench/shared";
+import type { Food, MealEntry, MealKind } from "@learn-workbench/shared/schemas";
+import type { FoodItemHit } from "@learn-workbench/shared/types";
+import { DEFAULT_NUTRITION_TARGETS, MEAL_KCAL_SHARES, mealKindLabels } from "@learn-workbench/shared/labels";
+import { formatEntryTime, fromDateKey, recentDateKeys, toDateKey } from "@learn-workbench/shared/dates";
+import { buildNutritionTargetView, nutritionTargetRange, remainingKcal, kcalEquivalentText, sumNutrition, scaleFoodByAmount, formatBasisLabel } from "@learn-workbench/shared/pure";
 
 /** 窗口不匹配时的占位（引用恒定，避免 useMemo 抖动） */
 const EMPTY_SUMMARY_MAP: Record<string, DaySummaryRow> = {};

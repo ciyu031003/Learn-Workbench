@@ -13,7 +13,7 @@
  *   - 收藏：服务端"生效中"的收藏与本地并集（本地以 pending op 的形式表达取消，push 之后再拉取，所以不会打架）。
  */
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import type { LearningFavorite, LearningLibraryState, LearningReadState } from "@learn-workbench/shared";
+import type { LearningFavorite, LearningLibraryState, LearningReadState } from "@learn-workbench/shared/schemas";
 import { getApiUrl } from "@/config";
 import { useAppStore } from "@/store/app-store";
 

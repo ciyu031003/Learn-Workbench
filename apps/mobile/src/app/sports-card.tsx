@@ -24,18 +24,9 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import {
-  SPORT_CATALOG,
-  buildSportsCardModel,
-  computeSportsRecord,
-  equipmentCategoryForGearLabel,
-  formatMemberNo,
-  gearKindFromLabel,
-  gearRowWantsImage,
-  normalizeSportGear,
-  sportItemByKey,
-  type SportsProfile,
-} from "@learn-workbench/shared";
+import type { SportsProfile } from "@learn-workbench/shared/schemas";
+import { SPORT_CATALOG } from "@learn-workbench/shared/labels";
+import { buildSportsCardModel, computeSportsRecord, equipmentCategoryForGearLabel, formatMemberNo, gearKindFromLabel, gearRowWantsImage, normalizeSportGear, sportItemByKey } from "@learn-workbench/shared/pure";
 import { ThemedIcon } from "@/components/themed-icon";
 import { Button } from "@/components/button";
 import { Field } from "@/components/field";

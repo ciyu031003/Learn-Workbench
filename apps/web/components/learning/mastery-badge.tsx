@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { LearningProgress } from "@learn-workbench/shared";
+import type { LearningProgress } from "@learn-workbench/shared/learning";
 import { cn } from "@/lib/utils";
 
 type State = "loading" | "ready" | "anon";

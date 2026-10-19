@@ -31,20 +31,14 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useAppStore } from "@/store/app-store";
-import { SPORT_CATALOG, exerciseTypeOptions, type ExerciseType, type SportItem } from "@learn-workbench/shared";
+import type { ExerciseType, Habit, HabitLog } from "@learn-workbench/shared/schemas";
+import type { SportItem } from "@learn-workbench/shared/types";
+import { SPORT_CATALOG, exerciseTypeOptions, taskTypeLabels } from "@learn-workbench/shared/labels";
+import { isScheduled, pct, formatDuration, todayISO } from "@learn-workbench/shared/dates";
+import { isHabitDone } from "@learn-workbench/shared/pure";
+import { mainPhases, agentPhase } from "@learn-workbench/content/roadmap";
 import { sportIconOf, sportColorsOf, sportAnimOf, sportSfOf } from "@/lib/sport-view";
 import { habitIconName } from "@/lib/habit-icons";
-import { mainPhases, agentPhase } from "@learn-workbench/content";
-import {
-  isHabitDone,
-  isScheduled,
-  pct,
-  formatDuration,
-  taskTypeLabels,
-  todayISO,
-  type Habit,
-  type HabitLog,
-} from "@learn-workbench/shared";
 import { getApiUrl } from "@/config";
 import { useFocusRefresh } from "@/lib/use-focus-refresh";
 import { usePullRefresh } from "@/lib/use-pull-refresh";

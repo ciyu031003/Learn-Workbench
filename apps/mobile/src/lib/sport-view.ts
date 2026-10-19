@@ -1,6 +1,7 @@
 import type { ComponentProps } from "react";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { SPORT_CATALOG, type ExerciseType } from "@learn-workbench/shared";
+import type { ExerciseType } from "@learn-workbench/shared/schemas";
+import { SPORT_CATALOG } from "@learn-workbench/shared/labels";
 
 /**
  * 移动端运动视图层：与 packages/shared SPORT_CATALOG（31 项）对齐。

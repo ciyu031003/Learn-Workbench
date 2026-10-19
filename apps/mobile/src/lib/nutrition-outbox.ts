@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import type { MealEntry, MealKind } from "@learn-workbench/shared";
+import type { MealEntry, MealKind } from "@learn-workbench/shared/schemas";
 
 /**
  * 饮食记录的离线发件箱（v3 M4，基础设施）

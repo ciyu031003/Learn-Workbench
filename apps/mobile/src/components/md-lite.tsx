@@ -1,6 +1,7 @@
 import { Fragment, useMemo } from "react";
 import { Platform, StyleSheet, Text, View } from "react-native";
-import { parseMarkdownLite, splitInlineCode, type MdBlock } from "@learn-workbench/shared";
+import { parseMarkdownLite, splitInlineCode } from "@learn-workbench/shared/md-lite";
+import type { MdBlock } from "@learn-workbench/shared/md-lite";
 import { useTheme } from "@/theme";
 import { typography, type ThemeColors } from "@/theme/tokens";
 

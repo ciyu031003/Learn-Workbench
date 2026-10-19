@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { getApiUrl } from "@/config";
-import type { MealEntry } from "@learn-workbench/shared";
+import type { MealEntry } from "@learn-workbench/shared/schemas";
 import { planDayEntryFetches } from "@/lib/nutrition-stats";
 
 /**

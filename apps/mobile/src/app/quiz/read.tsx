@@ -3,16 +3,8 @@ import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import Animated from "react-native-reanimated";
 import * as Clipboard from "expo-clipboard";
-import {
-  QUALITY_LEVEL_LABEL,
-  
-  isReviewed,
-  knowledgePointKeyOf,
-  qualityOfTopic,
-  type LearningStage,
-  type LearningTopic,
-  type LearningTrack,
-} from "@learn-workbench/content";
+import { QUALITY_LEVEL_LABEL, isReviewed, knowledgePointKeyOf, qualityOfTopic } from "@learn-workbench/content/learning";
+import type { LearningStage, LearningTopic, LearningTrack } from "@learn-workbench/content/types";
 import { RichText } from "@/components/rich-text";
 import { useLearningTrack } from "@/lib/content-store";
 import { ThemedIcon } from "@/components/themed-icon";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { LearningLibraryState } from "@learn-workbench/shared";
+import type { LearningLibraryState } from "@learn-workbench/shared/schemas";
 import { CheckCircle2, Copy, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 

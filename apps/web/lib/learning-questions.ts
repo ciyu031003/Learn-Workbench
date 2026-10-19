@@ -1,12 +1,12 @@
-import {
-  learningTracks,
-  levelOfQuestion,
-  type LearningDifficulty,
-  type LearningLevel,
-  type LearningQuestionOption,
-  type LearningQuestionType,
-  type LearningTrack,
-} from "@learn-workbench/content";
+// S3：只从纯逻辑子路径取（content/learning 是数据 barrel，会把 3MB+ 题库拖进客户端）
+import { levelOfQuestion } from "@learn-workbench/content/learning/model";
+import type {
+  LearningDifficulty,
+  LearningLevel,
+  LearningQuestionOption,
+  LearningQuestionType,
+  LearningTrack,
+} from "@learn-workbench/content/types";
 
 /**
  * 题库统一视图（组二 · 阶段 12 剩余）。
@@ -41,7 +41,7 @@ export interface LearningQuestionItem {
 }
 
 /** 拍平全部题：一条题目携带足够的定位信息，供筛选与「回知识点」双向跳转。 */
-export function flattenLearningQuestions(tracks: readonly LearningTrack[] = learningTracks): LearningQuestionItem[] {
+export function flattenLearningQuestions(tracks: readonly LearningTrack[]): LearningQuestionItem[] {
   const items: LearningQuestionItem[] = [];
   for (const track of tracks) {
     const topicTitleOf = new Map<string, string>();

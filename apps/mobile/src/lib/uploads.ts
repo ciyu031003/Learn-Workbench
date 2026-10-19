@@ -1,7 +1,7 @@
 import { makeUploadPart } from "@/lib/upload-part";
 import * as ImagePicker from "expo-image-picker";
 import { Platform } from "react-native";
-import { gearKindFromLabel } from "@learn-workbench/shared";
+import { gearKindFromLabel } from "@learn-workbench/shared/pure";
 import { getApiUrl } from "@/config";
 import { useAppStore } from "@/store/app-store";
 import {

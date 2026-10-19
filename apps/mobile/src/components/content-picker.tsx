@@ -5,9 +5,9 @@ import { ChipGroup, SheetSegmented } from "@/components/sheet";
 import { useTheme } from "@/theme";
 import { radius, spacing, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
-import { mainPhases } from "@learn-workbench/content";
+import type { Phase } from "@learn-workbench/shared/schemas";
+import { mainPhases } from "@learn-workbench/content/roadmap";
 import { readCachedRoadmap } from "@/lib/roadmap";
-import type { Phase } from "@learn-workbench/shared";
 import { useAppStore } from "@/store/app-store";
 
 /** 「这次学什么」的来源：不指定 / 自由输入 / 从阶段→主题里选 */

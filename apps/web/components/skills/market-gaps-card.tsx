@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import type { MarketGapItem, MarketGapsResult } from "@learn-workbench/shared";
+import type { MarketGapItem, MarketGapsResult } from "@learn-workbench/shared/schemas";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";

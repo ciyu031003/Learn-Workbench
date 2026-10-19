@@ -1,4 +1,5 @@
-import { toDateKey, fromDateKey, type Workout } from "@learn-workbench/shared";
+import type { Workout } from "@learn-workbench/shared/schemas";
+import { toDateKey, fromDateKey } from "@learn-workbench/shared/dates";
 
 /**
  * 训练记录「草稿」纯逻辑（v4 P3）。

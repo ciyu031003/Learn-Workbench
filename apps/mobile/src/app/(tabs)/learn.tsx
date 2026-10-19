@@ -31,10 +31,10 @@ import Animated, {
 } from "react-native-reanimated";
 import { useAppStore } from "@/store/app-store";
 import { router, useFocusEffect } from "expo-router";
-import { mainPhases } from "@learn-workbench/content";
+import type { Phase } from "@learn-workbench/shared/schemas";
+import { formatDuration, pct } from "@learn-workbench/shared/dates";
+import { mainPhases } from "@learn-workbench/content/roadmap";
 import { getLearningTrackNow, useLearningTracks } from "@/lib/content-store";
-import type { Phase } from "@learn-workbench/shared";
-import { formatDuration, pct } from "@learn-workbench/shared";
 import { computeFocusStats } from "@/lib/focus-stats";
 import { radius, shadows, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";

@@ -24,7 +24,9 @@ import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
 import { useTheme } from "@/theme";
 import { typography, type ThemeColors } from "@/theme/tokens";
-import { toDateKey, workoutVolume, type Workout } from "@learn-workbench/shared";
+import type { Workout } from "@learn-workbench/shared/schemas";
+import { toDateKey } from "@learn-workbench/shared/dates";
+import { workoutVolume } from "@learn-workbench/shared/pure";
 import {
   REPS_MAX,
   REPS_MIN,

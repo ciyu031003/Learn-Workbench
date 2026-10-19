@@ -7,12 +7,8 @@ import { Field } from "@/components/field";
 import { PortionSlider } from "@/components/portion-slider";
 import { portionPreviewText } from "@/lib/portion";
 import { haptics } from "@/lib/haptics";
-import {
-  mealKindLabels,
-  type Food,
-  type MealEntry,
-  type MealKind,
-} from "@learn-workbench/shared";
+import type { Food, MealEntry, MealKind } from "@learn-workbench/shared/schemas";
+import { mealKindLabels } from "@learn-workbench/shared/labels";
 import { typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";

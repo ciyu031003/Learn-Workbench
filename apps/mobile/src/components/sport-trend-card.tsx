@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { StyleSheet, Text, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from "react-native";
 import Svg, { Defs, LinearGradient, Rect, Stop, Text as SvgText } from "react-native-svg";
-import { exerciseTypeLabels } from "@learn-workbench/shared";
+import { exerciseTypeLabels } from "@learn-workbench/shared/labels";
 import { ChipGroup } from "@/components/sheet";
 import { ThemedIcon } from "@/components/themed-icon";
 import { useTheme } from "@/theme";

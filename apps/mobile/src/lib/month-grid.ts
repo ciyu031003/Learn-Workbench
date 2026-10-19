@@ -1,4 +1,4 @@
-import { toDateKey } from "@learn-workbench/shared";
+import { toDateKey } from "@learn-workbench/shared/dates";
 
 /**
  * 月历的纯逻辑（零 react-native import，因此可以直接写 vitest —— 见看板踩坑点 48）。

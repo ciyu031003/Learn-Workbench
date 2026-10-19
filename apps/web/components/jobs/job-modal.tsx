@@ -2,14 +2,10 @@
 
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
-import type { JobPosting, JobPostingListItem } from "@learn-workbench/shared";
-import {
-  experimentalJobSources,
-  formatRelativeTime,
-  jobCategoryColors,
-  jobCategoryLabels,
-  jobSourceLabel,
-} from "@learn-workbench/shared";
+import type { JobPosting, JobPostingListItem } from "@learn-workbench/shared/schemas";
+import { experimentalJobSources, jobCategoryColors, jobCategoryLabels } from "@learn-workbench/shared/labels";
+import { formatRelativeTime } from "@learn-workbench/shared/dates";
+import { jobSourceLabel } from "@learn-workbench/shared/pure";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";

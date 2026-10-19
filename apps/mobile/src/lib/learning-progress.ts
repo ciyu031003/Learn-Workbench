@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import type { LearningQuestion, LearningTrack } from "@learn-workbench/content";
-import { gradeLearningAnswer, summarizeLearningAttempts as summarizeShared, type MasteryBasis } from "@learn-workbench/shared";
+import { gradeLearningAnswer, summarizeLearningAttempts as summarizeShared } from "@learn-workbench/shared/learning";
+import type { MasteryBasis } from "@learn-workbench/shared/learning";
+import type { LearningQuestion, LearningTrack } from "@learn-workbench/content/types";
 import { localKey } from "@/lib/focus-series";
 
 const ATTEMPTS_KEY = "lwb-learning-attempts-v1";

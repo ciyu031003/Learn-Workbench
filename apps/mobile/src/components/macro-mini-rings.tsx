@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import { ProgressArc } from "@/components/progress-arc";
-import { macroStatus, withinRange, type NutritionRange } from "@learn-workbench/shared";
+import type { NutritionRange } from "@learn-workbench/shared/types";
+import { macroStatus, withinRange } from "@learn-workbench/shared/pure";
 import { tabularNums, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";

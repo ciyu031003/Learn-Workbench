@@ -25,7 +25,7 @@ import { DURATION, useReducedMotion } from "@/lib/motion";
 import { staggerDelay } from "@/lib/stagger";
 import { getApiUrl } from "@/config";
 import { useAppStore } from "@/store/app-store";
-import type { CareerReadiness, UserSkillView } from "@learn-workbench/shared";
+import type { CareerReadiness, UserSkillView } from "@learn-workbench/shared/schemas";
 
 type IconName = Parameters<typeof ThemedIcon>[0]["name"];
 

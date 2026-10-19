@@ -1,4 +1,4 @@
-import { fromDateKey, toDateKey } from "@learn-workbench/shared";
+import { fromDateKey, toDateKey } from "@learn-workbench/shared/dates";
 
 /**
  * 饮食页「日 / 周 / 月」视图的纯计算（零 react-native import → 可单测，见看板踩坑点 48）。

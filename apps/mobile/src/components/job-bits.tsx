@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { jobFreshness } from "@learn-workbench/shared";
+import { jobFreshness } from "@learn-workbench/shared/pure";
 import { useTheme } from "@/theme";
 import { typography, type ThemeColors } from "@/theme/tokens";
 

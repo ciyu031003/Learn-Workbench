@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getApiUrl } from "@/config";
 import { useAppStore } from "@/store/app-store";
-import type { RoadmapPhase } from "@learn-workbench/shared";
+import type { RoadmapPhase } from "@learn-workbench/shared/schemas";
 
 const CACHE_KEY = "lwb-roadmap-cache";
 /**

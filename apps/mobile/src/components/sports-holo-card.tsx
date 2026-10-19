@@ -10,7 +10,7 @@ import Animated, {
   withRepeat,
   withTiming,
 } from "react-native-reanimated";
-import type { SportsCardModel } from "@learn-workbench/shared";
+import type { SportsCardModel } from "@learn-workbench/shared/types";
 import { holoImages } from "@/lib/holo-images";
 import { useReducedMotion } from "@/lib/motion";
 import { radius } from "@/theme/tokens";

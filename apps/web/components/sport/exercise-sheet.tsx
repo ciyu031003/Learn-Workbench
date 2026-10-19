@@ -6,13 +6,9 @@ import { Loader2, Play, Check, Clock3 } from "lucide-react";
 import { GlassModal } from "@/components/ui/modal";
 import { SportAnimatedIcon } from "@/components/sport/sport-animated-icon";
 import { useToastStore } from "@/store/toast-store";
-import {
-  SPORT_CATALOG,
-  exerciseTypeLabels,
-  exerciseTypeOptions,
-  type ExerciseType,
-  type SportItem,
-} from "@learn-workbench/shared";
+import type { ExerciseType } from "@learn-workbench/shared/schemas";
+import type { SportItem } from "@learn-workbench/shared/types";
+import { SPORT_CATALOG, exerciseTypeLabels, exerciseTypeOptions } from "@learn-workbench/shared/labels";
 
 interface SportLogRow {
   type: ExerciseType;

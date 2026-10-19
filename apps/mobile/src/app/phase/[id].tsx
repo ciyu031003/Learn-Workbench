@@ -12,10 +12,10 @@ import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
-import { mainPhases, agentPhase } from "@learn-workbench/content";
+import type { Phase } from "@learn-workbench/shared/schemas";
+import { pct } from "@learn-workbench/shared/dates";
+import { mainPhases, agentPhase } from "@learn-workbench/content/roadmap";
 import { fetchRoadmap, readCachedRoadmap } from "@/lib/roadmap";
-import type { Phase } from "@learn-workbench/shared";
-import { pct } from "@learn-workbench/shared";
 import { shadows, typography } from "@/theme/tokens";
 import { MarkdownLite } from "@/components/md-lite";
 

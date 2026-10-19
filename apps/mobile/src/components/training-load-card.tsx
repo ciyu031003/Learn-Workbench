@@ -1,11 +1,9 @@
 import { useMemo } from "react";
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
-import {
-  TRAINING_LOAD_METRIC_META,
-  fromDateKey,
-  trainingLoadSeries,
-  type Workout,
-} from "@learn-workbench/shared";
+import type { Workout } from "@learn-workbench/shared/schemas";
+import { TRAINING_LOAD_METRIC_META } from "@learn-workbench/shared/labels";
+import { fromDateKey } from "@learn-workbench/shared/dates";
+import { trainingLoadSeries } from "@learn-workbench/shared/pure";
 import { ThemedIcon } from "@/components/themed-icon";
 import { useTheme } from "@/theme";
 import { shadows, tabularNums, typography, type ThemeColors } from "@/theme/tokens";

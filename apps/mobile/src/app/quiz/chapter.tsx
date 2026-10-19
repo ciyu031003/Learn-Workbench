@@ -2,14 +2,8 @@ import { useCallback, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import Animated from "react-native-reanimated";
-import {
-  
-  isLearnable,
-  knowledgePointKeyOf,
-  qualityOfTopic,
-  type LearningStage,
-  type LearningTrack,
-} from "@learn-workbench/content";
+import { isLearnable, knowledgePointKeyOf, qualityOfTopic } from "@learn-workbench/content/learning";
+import type { LearningStage, LearningTrack } from "@learn-workbench/content/types";
 import { useLearningTrack } from "@/lib/content-store";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";

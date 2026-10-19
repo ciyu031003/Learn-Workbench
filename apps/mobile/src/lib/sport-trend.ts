@@ -1,4 +1,5 @@
-import { fromDateKey, toDateKey, type ExerciseType } from "@learn-workbench/shared";
+import type { ExerciseType } from "@learn-workbench/shared/schemas";
+import { fromDateKey, toDateKey } from "@learn-workbench/shared/dates";
 
 /**
  * 运动趋势的**纯计算**（零 react-native import → 可单测，见看板踩坑 48）。

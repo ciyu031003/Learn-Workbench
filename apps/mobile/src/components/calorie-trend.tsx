@@ -7,7 +7,7 @@ import { useTheme } from "@/theme";
 import { tabularNums, typography, type ThemeColors } from "@/theme/tokens";
 import { buildHeatmapWeeks, buildTrendSeries, formatDelta, type HeatLevel } from "@/lib/nutrition-stats";
 import { groupThousands, type DaySummaryRow } from "@/lib/nutrition-views";
-import { fromDateKey } from "@learn-workbench/shared";
+import { fromDateKey } from "@learn-workbench/shared/dates";
 
 /**
  * 饮食进阶可视化（v4 P4-c）——复刻「吃一点」的 Calorie Stats 两张图：

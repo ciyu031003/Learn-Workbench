@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Animated from "react-native-reanimated";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
-import type { Workout } from "@learn-workbench/shared";
+import type { Workout } from "@learn-workbench/shared/schemas";
 import { CalorieHeatmapCard, CalorieTrendCard } from "@/components/calorie-trend";
 import { FoodCalendar } from "@/components/food-calendar";
 import { GroupLabel } from "@/components/group-label";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { equipmentCategoriesForSport } from "@learn-workbench/shared";
+import { equipmentCategoriesForSport } from "@learn-workbench/shared/pure";
 import { GlassModal } from "@/components/ui/modal";
 import { SearchInput } from "@/components/ui/input";
 import { SkeletonList } from "@/components/ui/skeleton";

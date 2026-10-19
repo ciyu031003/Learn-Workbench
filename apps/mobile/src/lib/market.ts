@@ -1,7 +1,7 @@
 import { getApiUrl } from "@/config";
 import { useAppStore } from "@/store/app-store";
 import { enrollJobGaps } from "./jobs";
-import type { MarketAnalysis, MarketGapItem, UserSkillView } from "@learn-workbench/shared";
+import type { MarketAnalysis, MarketGapItem, UserSkillView } from "@learn-workbench/shared/schemas";
 
 function authHeaders(json = false): Record<string, string> {
   const headers: Record<string, string> = {};

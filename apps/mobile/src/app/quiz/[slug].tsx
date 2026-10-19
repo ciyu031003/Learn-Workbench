@@ -2,17 +2,9 @@ import { useCallback, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import Animated from "react-native-reanimated";
-import {
-  QUALITY_LEVEL_LABEL,
-  
-  isLearnable,
-  isReviewed,
-  qualityOfTopic,
-  type KnowledgeQuality,
-  type LearningStage,
-  type LearningTopic,
-  type LearningTrack,
-} from "@learn-workbench/content";
+import { QUALITY_LEVEL_LABEL, isLearnable, isReviewed, qualityOfTopic } from "@learn-workbench/content/learning";
+import type { KnowledgeQuality } from "@learn-workbench/content/learning";
+import type { LearningStage, LearningTopic, LearningTrack } from "@learn-workbench/content/types";
 import { useLearningTrack } from "@/lib/content-store";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";

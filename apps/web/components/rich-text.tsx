@@ -1,4 +1,4 @@
-import { parseInlineRich } from "@learn-workbench/shared";
+import { parseInlineRich } from "@learn-workbench/shared/md-lite";
 
 /**
  * 行内富文本渲染（题库 / 知识点正文）。

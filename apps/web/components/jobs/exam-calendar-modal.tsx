@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import type { ExamEvent } from "@learn-workbench/shared";
-import { jobSourceLabel } from "@learn-workbench/shared";
+import type { ExamEvent } from "@learn-workbench/shared/schemas";
+import { jobSourceLabel } from "@learn-workbench/shared/pure";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";

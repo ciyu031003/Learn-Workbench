@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { HeartPulse, Droplets, Coffee } from "lucide-react";
-import type { WellbeingToday } from "@learn-workbench/shared";
+import type { WellbeingToday } from "@learn-workbench/shared/schemas";
 
 /**
  * 健康提醒 · 系统级浮层（2.0：wellbeing 不再占一级导航）

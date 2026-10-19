@@ -6,7 +6,8 @@ import * as Sharing from "expo-sharing";
 import { useTheme } from "@/theme";
 import { radius, tabularNums, typography, type ThemeColors } from "@/theme/tokens";
 import { haptics } from "@/lib/haptics";
-import { resumeSectionKeyLabels, type ResumeContent } from "@learn-workbench/shared";
+import type { ResumeContent } from "@learn-workbench/shared/schemas";
+import { resumeSectionKeyLabels } from "@learn-workbench/shared/labels";
 
 /**
  * v20-D2 · 简历**卡片图片分享**（与专注卡/学习卡同一套机制：view-shot 截图 → 系统分享面板）。

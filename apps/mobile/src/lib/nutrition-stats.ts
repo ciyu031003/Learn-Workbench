@@ -1,4 +1,4 @@
-import { fromDateKey, toDateKey } from "@learn-workbench/shared";
+import { fromDateKey, toDateKey } from "@learn-workbench/shared/dates";
 import { daysInMonth } from "@/lib/month-grid";
 import type { DaySummaryRow } from "@/lib/nutrition-views";
 

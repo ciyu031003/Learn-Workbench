@@ -33,10 +33,10 @@ import { usePullRefresh } from "@/lib/use-pull-refresh";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
-import {
-  HABIT_TEMPLATES, HABIT_WEEKDAY_LABELS, computeHabitStats, habitTimeLabel, isHabitDone, isScheduled, normalizeHabitTime, toDateKey,
-  type Habit, type HabitLog,
-} from "@learn-workbench/shared";
+import type { Habit, HabitLog } from "@learn-workbench/shared/schemas";
+import { HABIT_TEMPLATES, HABIT_WEEKDAY_LABELS } from "@learn-workbench/shared/labels";
+import { isScheduled, toDateKey } from "@learn-workbench/shared/dates";
+import { computeHabitStats, habitTimeLabel, isHabitDone, normalizeHabitTime } from "@learn-workbench/shared/pure";
 
 /**
  * 内置习惯图标：**存储值仍是 emoji，渲染走 habitIconName 映射成开源图标**

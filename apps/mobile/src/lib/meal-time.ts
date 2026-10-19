@@ -1,4 +1,4 @@
-import type { MealKind } from "@learn-workbench/shared";
+import type { MealKind } from "@learn-workbench/shared/schemas";
 
 /**
  * 按当前时间推断默认餐次（v6 P1-2）。
