@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { currentUserId } from "@/lib/session";
 
 /**
@@ -122,10 +121,10 @@ export default async function Home() {
             <a href="https://learn.yuanabd.cn/download.html" className="lwb-ghost">
               下载 App
             </a>
-            <Link href="/login" className="lwb-solid">
+            <a href="/login" className="lwb-solid">
               进入工作台
               <Icon name="arrow" className="lwb-i" />
-            </Link>
+            </a>
           </nav>
         </div>
       </header>
@@ -146,10 +145,10 @@ export default async function Home() {
             <span className="lwb-sub-strong">你只记录一次，三条线一起往前走。</span>
           </p>
           <div className="lwb-cta-row lwb-rise" style={{ animationDelay: "210ms" }}>
-            <Link href="/login" className="lwb-cta">
+            <a href="/login" className="lwb-cta">
               立即开始
               <Icon name="arrow" className="lwb-i" />
-            </Link>
+            </a>
             <a href="https://learn.yuanabd.cn/download.html" className="lwb-cta-ghost">
               下载 Android 版
             </a>
@@ -177,10 +176,10 @@ export default async function Home() {
                   </li>
                 ))}
               </ul>
-              <Link href={p.href} className="lwb-card-link">
+              <a href={p.href} className="lwb-card-link">
                 {p.cta}
                 <Icon name="arrow" className="lwb-i" />
-              </Link>
+              </a>
             </article>
           ))}
         </section>
@@ -205,10 +204,10 @@ export default async function Home() {
             <h2 className="lwb-h2">今天就把第一条线跑起来</h2>
             <p className="lwb-final-sub">先记一条训练、勾一个任务、看一眼岗位匹配 —— 五分钟就能看到三条线同时前进。</p>
             <div className="lwb-cta-row">
-              <Link href="/login" className="lwb-cta">
+              <a href="/login" className="lwb-cta">
                 进入工作台
                 <Icon name="arrow" className="lwb-i" />
-              </Link>
+              </a>
               <a href="https://learn.yuanabd.cn/download.html" className="lwb-cta-ghost">
                 下载 APK
               </a>
@@ -220,7 +219,7 @@ export default async function Home() {
       <footer className="lwb-foot">
         <span>学习工作台 · 学习 / 职业 / 健康三线成长工作台</span>
         <span className="lwb-foot-links">
-          <Link href="/login">登录</Link>
+          <a href="/login">登录</a>
           <a href="https://learn.yuanabd.cn/download.html">下载</a>
         </span>
       </footer>

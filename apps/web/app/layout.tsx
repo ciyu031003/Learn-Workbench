@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { ClientProviders } from "@/components/client-providers";
 
 /**
  * 主题防闪（FOUC）脚本读取的 localStorage key。
@@ -49,8 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
       <body>
-        {/* S8-b：ThemeProvider 改为空闲时异步挂载（内联脚本已预置首屏主题），公开页首载不再背 zustand chunk */}
-        <ClientProviders />
+        {/* S8-c：ThemeProvider 只在登录区异步挂载（内联脚本已预置首屏主题，公开页无需客户端主题同步） */}
         {/* S7：VitalsReporter 移到 (app) 组（公开页不背 ~9KB 客户端包；公开页也不需要动效分档） */}
         {children}
       </body>

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
+import { ClientProviders } from "@/components/client-providers";
 import { VitalsReporter } from "@/components/vitals-reporter";
 import { getShellData } from "@/lib/shell-data";
 
@@ -19,6 +20,8 @@ export default async function AppGroupLayout({ children }: { children: React.Rea
     <AppShell shellData={shellData}>
       {/* S6-8：首屏动效分档（html[data-motion]）+ Web Vitals 采样（仅登录区，匿名聚合） */}
       <VitalsReporter />
+      {/* S8-c：主题运行时同步（空闲时加载）；公开页不加载，靠根布局内联脚本兜底首屏主题 */}
+      <ClientProviders />
       {children}
     </AppShell>
   );

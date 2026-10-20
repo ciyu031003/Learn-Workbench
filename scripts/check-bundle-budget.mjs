@@ -32,7 +32,8 @@ const CHECK = args.has("--check");
 const JSON_OUT = args.has("--json");
 const ALLOW_MISSING = args.has("--allow-missing");
 
-export const BUDGETS_KB = { landing: 138, public: 158, heavy: 400, app: 300 };
+// landing 135 = 实测 Next16 App Router 首载 JS 地板（react-dom 69.9 + App Router 41.8 + router 8.3 + turbopack 4.2 + BFCache 3.6 + next/link 3.5 + error-styles 3.5 ≈ 134.8KB，业务 JS 已为 0）
+export const BUDGETS_KB = { landing: 135, public: 158, heavy: 400, app: 300 };
 
 /**
  * 按路由的预算覆盖（有明确理由才加，且必须写清原因）：
