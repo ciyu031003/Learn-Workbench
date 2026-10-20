@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { currentUserId } from "@/lib/session";
+import { logger } from "@/lib/logger";
 import { rateLimit } from "@/lib/rate-limit";
 import {
   diagnosticRelPath,
@@ -55,7 +56,9 @@ export async function POST(req: Request) {
   const id = randomUUID();
   try {
     await saveDiagnosticReport(diagnosticRelPath(userId, id), safe);
-  } catch {
+  } catch (e) {
+    // 落盘失败要留服务端证据（COSFS 满/掉挂载/权限问题都表现为 500，客户端只能看到"上传失败"）
+    logger.error("diagnostics save failed", e);
     return json({ error: "日志保存失败，请重试" }, 500);
   }
   // 排障时按这个前缀捞日志：docker compose logs web | grep diagnostics

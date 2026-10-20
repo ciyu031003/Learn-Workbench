@@ -77,6 +77,7 @@ describe("POST /api/roadmap/reorder", () => {
     client.query
       .mockResolvedValueOnce({ rows: [] } as never) // BEGIN
       .mockResolvedValueOnce({ rows: [{ id: 3 }, { id: 1 }, { id: 2 }] } as never) // SELECT current (P3, P1, P2)
+      .mockResolvedValueOnce({ rows: [{ id: 3 }, { id: 1 }, { id: 2 }] } as never) // renumberTrack: 追加不可见阶段（S8 新增查询）
       .mockResolvedValueOnce({ rowCount: 1 } as never) // renumberTrack: 全部置临时（负 sort + ren- key）
       .mockResolvedValueOnce({ rowCount: 1 } as never) // final phase-1/sort0 -> id=3
       .mockResolvedValueOnce({ rowCount: 1 } as never) // final phase-2/sort1 -> id=1

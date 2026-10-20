@@ -34,22 +34,23 @@ export async function renumberTrack(
     if (order) {
       // 显式顺序只覆盖「当前用户可见」的阶段；把同一轨道其余阶段（其他 owner 的历史自建阶段）
       // 追加到末尾，避免它们永远停留在临时负数序上。
-      const { rows } = await c.query<{ id: number }>(
+      const res = await c.query<{ id: number }>(
         `SELECT id FROM content_phases
          WHERE career_key = $1 AND track = $2
          ORDER BY sort_order, id`,
         [careerKey, track]
       );
+      const all = res.rows ?? [];
       const listed = new Set(order);
-      ids = [...order, ...rows.map((r) => r.id).filter((id) => !listed.has(id))];
+      ids = [...order, ...all.map((r) => r.id).filter((id) => !listed.has(id))];
     } else {
-      const { rows } = await c.query<{ id: number }>(
+      const res = await c.query<{ id: number }>(
         `SELECT id FROM content_phases
          WHERE career_key = $1 AND track = $2
          ORDER BY sort_order, id`,
         [careerKey, track]
       );
-      ids = rows.map((r) => r.id);
+      ids = (res.rows ?? []).map((r) => r.id);
     }
     for (let i = 0; i < ids.length; i++) {
       const phaseKey =
