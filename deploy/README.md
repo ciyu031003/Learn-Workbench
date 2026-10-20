@@ -33,6 +33,14 @@ bash deploy-docker.sh          # 或 bash deploy.sh（PM2）
 - **路由目录/页面删除后，服务器旧文件必须同步删除**（2026-10-19 的构建失败根因；镜像化后天然解决）。
 
 
+
+## OTA 签名私钥迁移到 CI（S8）
+
+1. GitHub 仓库 → Settings → Secrets and variables → Actions → New repository secret：
+   - Name：`OTA_SIGNING_KEY_PEM`；Value：本机 `.local/ota-signing-key.pem` 的完整内容（含 BEGIN/END 行）。
+2. 发版流程改为：本地 `build-android-release.ps1` 出 APK → 上传到 `/data/learn-workbench/releases/` → 触发 **Sign OTA Manifest** workflow（填 version/code/apk_url/rollout/notes）→ 下载 Artifact `mobile-update.json` → 覆盖 `/data/learn-workbench/landing/mobile-update.json`。
+3. 确认 CI 能签名后，删除本机私钥副本（`.local/ota-signing-key.pem`），只在密码库/CI Secret 保留。
+4. 轮换：新公钥先随 App 发版（`EXPO_PUBLIC_OTA_PUBLIC_KEY` 可同时信任新旧），再切 Secret；下版本移除旧公钥。
 ## 发布检查单（S7-1，每次发布照单执行）
 
 ### 0) 发布前（本地/CI）

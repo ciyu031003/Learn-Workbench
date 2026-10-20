@@ -1,0 +1,59 @@
+name: Sign OTA Manifest
+
+# OTA 清单签名（S6-7 / S8）：私钥只存在 GitHub Secrets（OTA_SIGNING_KEY_PEM），不入库。
+# 触发：Actions → Sign OTA Manifest → Run workflow（填版本/包 URL/灰度）。
+# 产物：mobile-update.json（Artifact），下载后放到 /data/learn-workbench/landing/mobile-update.json。
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "versionName（例如 1.49.1）"
+        required: true
+      code:
+        description: "versionCode（整数，例如 83）"
+        required: true
+      apk_url:
+        description: "APK 直链（https://learn.yuanabd.cn/download/...）"
+        required: true
+      rollout:
+        description: "灰度比例 0-100（默认 100=全量）"
+        required: false
+        default: "100"
+      min_supported:
+        description: "最低支持 versionCode（低于则强制升级）"
+        required: false
+        default: "60"
+      notes:
+        description: "更新说明（一行一条，可用 ; 分隔）"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  sign:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download APK
+        run: curl -fsSL --retry 3 -o app.apk "${{ inputs.apk_url }}" && ls -lh app.apk
+      - name: Sign manifest
+        env:
+          OTA_SIGNING_KEY_PEM: ${{ secrets.OTA_SIGNING_KEY_PEM }}
+        run: |
+          if [ -z "$OTA_SIGNING_KEY_PEM" ]; then echo "缺少 secret OTA_SIGNING_KEY_PEM"; exit 1; fi
+          printf '%s\n' "$OTA_SIGNING_KEY_PEM" > key.pem
+          printf '%s\n' "${{ inputs.notes }}" | tr ';' '\n' > notes.txt
+          node scripts/build-ota-manifest.mjs --apk app.apk --version "${{ inputs.version }}" --code "${{ inputs.code }}" \
+            --key key.pem --rollout "${{ inputs.rollout }}" --min-supported-code "${{ inputs.min_supported }}" \
+            --notes notes.txt --out mobile-update.json
+          rm -f key.pem
+      - name: Verify signature with in-app public key
+        run: |
+          node -e "const fs=require('fs');const m=JSON.parse(fs.readFileSync('mobile-update.json','utf8'));if(!m.signature)process.exit(1);console.log('signed version',m.versionName,'code',m.versionCode);"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mobile-update.json
+          path: mobile-update.json
