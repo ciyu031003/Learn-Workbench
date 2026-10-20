@@ -5,9 +5,10 @@
  * 数据源：next build 生成的 .next/diagnostics/route-bundle-stats.json
  *   [{ route, firstLoadUncompressedJsBytes, firstLoadChunkPaths: string[] }]
  * 预算（gzip）：
- *   - 落地页 / ≤ 150KB（S3 后实测 136KB）；
- *   - 其余公开页（/login、/share/**）≤ 160KB：它们是"单用途入口页"（登录表单 / 分享卡），
- *     自身业务代码约 17–21KB，压到 150 以下需要继续拆页面内部模块（排期 S6）；
+ *   - 落地页 / ≤ 138KB（S8-b 后实测 134.8KB；框架基线 131.0KB + 根布局 client shell 3.8KB，
+ *     目标 ≤130KB 已被 Next16/React19 框架基线本身顶住，详见 S8-b 汇报的瓶颈构成）；
+ *   - 其余公开页（/login、/share/**）≤ 158KB（S8-b 后实测 login 155.6KB / share 151.0KB，
+ *     改造前分别是 157.8 / 165.0KB）；
  *   - 重型页（/learn/**、/wellbeing/nutrition）≤ 400KB；
  *   - 其余应用页 ≤ 300KB。
  *
@@ -31,20 +32,14 @@ const CHECK = args.has("--check");
 const JSON_OUT = args.has("--json");
 const ALLOW_MISSING = args.has("--allow-missing");
 
-export const BUDGETS_KB = { landing: 150, public: 160, heavy: 400, app: 300 };
+export const BUDGETS_KB = { landing: 138, public: 158, heavy: 400, app: 300 };
 
 /**
  * 按路由的预算覆盖（有明确理由才加，且必须写清原因）：
- * - /share/sport/[id]：S6-1 加了「加载失败+重试」三态与统一请求层，实测 169KB；
- *   该页是独立公开分享页（无壳层），增量已记账，目标在 S7 做服务端渲染后回落。
+ * - S8-b 起不再需要覆盖：/login 与 /share 已回落到 158KB 通用公开页预算内
+ *   （改造前 165/175KB 的覆盖已删除，避免预算长期虚高）。
  */
-const ROUTE_BUDGET_KB = {
-  // 分享页：S6 三态/重试 + 统一请求层后 169KB（独立公开页，S7 改服务端渲染后回落）
-  "/share/sport/[id]": 175,
-  // 登录页：已把 Radix 弹窗懒加载（174→162KB），剩余 2KB 为 S6 统一样式/动效增量；
-  // 目标下一轮把「注册选职业」整段拆到独立路由（S7）后回到 150 以内
-  "/login": 165,
-};
+const ROUTE_BUDGET_KB = {};
 
 export function classifyRoute(route) {
   if (route === "/") return "landing";

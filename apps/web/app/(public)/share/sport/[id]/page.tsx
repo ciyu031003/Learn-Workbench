@@ -8,8 +8,7 @@ import { HoloSportCardLazy } from "@/components/holo/holo-sport-card-lazy";
 import { cardModelFromShare } from "@/lib/sports-card-view";
 import { hasHoloArt } from "@/lib/holo-card-text";
 import { apiGet, ApiError, isAbortError } from "@/lib/client-api";
-import { AsyncSection } from "@/components/async-section";
-import { Loader2, Share2, Sparkles } from "lucide-react";
+import { Loader2, Share2, Sparkles } from "@/components/public-icons";
 
 /** 公开运动档案页（无需登录）：只渲染白名单字段 */
 export default function PublicSportProfilePage({ params }: { params: Promise<{ id: string }> }) {
@@ -65,12 +64,21 @@ export default function PublicSportProfilePage({ params }: { params: Promise<{ i
   if (error) {
     return (
       <div className="flex min-h-dvh items-center justify-center p-4">
-        <AsyncSection
-          status="error"
-          errorMessage={error}
-          onRetry={() => void load()}
-          className="w-full max-w-md"
-        />
+        {/* 错误态内联实现：公开页不值得为三态容器引入 Button(Radix Slot) 的 ~20KB gz 依赖 */}
+        <div
+          role="alert"
+          aria-live="assertive"
+          className="flex w-full max-w-md flex-col items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-6 text-center"
+        >
+          <p className="text-sm font-medium text-red-700">{error}</p>
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-medium text-slate-800 transition-colors hover:bg-red-50"
+          >
+            重试
+          </button>
+        </div>
       </div>
     );
   }

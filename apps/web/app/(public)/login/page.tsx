@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+// S8-b：公开页改用内联 SVG 图标，避免为 8 个图标额外下载 ~9KB gz 的 lucide 共享 chunk
 import {
   CheckCircle2,
   KeyRound,
@@ -12,7 +13,7 @@ import {
   MessageCircle,
   User,
   UserRoundPlus,
-} from "lucide-react";
+} from "@/components/public-icons";
 // S6：Radix 弹窗只在「注册后选职业」这一步用，懒加载让登录首载不背 dialog（约 -24KB gz）
 import dynamic from "next/dynamic";
 import { Input } from "@/components/ui/input";

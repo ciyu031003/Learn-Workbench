@@ -1,6 +1,25 @@
 import * as React from "react";
-import { Search, CornerDownLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+/** 内联图标（S8-b）：ui/input 会被公开页 /login 导入，若这里 import lucide，
+ *  整块 lucide 共享 chunk（~9KB gz）就会被带进登录页首载。两个图标直接内联。 */
+function SearchIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden className={className}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m16.5 16.5 4 4" />
+    </svg>
+  );
+}
+
+function CornerDownLeftIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden className={className}>
+      <path d="M20 5v7a2 2 0 0 1-2 2H5" />
+      <path d="m9 10-4 4 4 4" />
+    </svg>
+  );
+}
 
 export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
   function Input({ className, ...props }, ref) {
@@ -104,7 +123,7 @@ export function SearchInput({
         className
       )}
     >
-      <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+      <SearchIcon className="size-4 shrink-0 text-muted-foreground" />
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -117,7 +136,7 @@ export function SearchInput({
         aria-label={submitLabel}
         className="press grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[image:var(--grad-primary)] text-primary-foreground shadow-[var(--elev-1)] transition-all duration-200 hover:brightness-[1.06]"
       >
-        <CornerDownLeft className="size-4" aria-hidden />
+        <CornerDownLeftIcon className="size-4" />
       </button>
     </form>
   );
