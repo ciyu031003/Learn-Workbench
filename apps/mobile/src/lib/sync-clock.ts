@@ -21,6 +21,7 @@ let sample: ClockSample | null = null;
 const listeners = new Set<() => void>();
 
 function emit(): void {
+  snapshotCache = null; // 样本变了：失效缓存，下次 getSnapshot 生成新对象（引用只在此刻变化）
   listeners.forEach((l) => l());
 }
 
@@ -75,26 +76,36 @@ export function subscribeServerClock(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
-const EMPTY_SNAPSHOT = { offsetMs: 0, sampled: false, skewed: false };
+type ServerClockSnapshot = { offsetMs: number; sampled: boolean; skewed: boolean };
+const EMPTY_SNAPSHOT: ServerClockSnapshot = { offsetMs: 0, sampled: false, skewed: false };
+/**
+ * 快照必须**引用稳定**：useSyncExternalStore 要求 getSnapshot 在数据未变时返回同一个对象，
+ * 否则 React 会判定"快照每次都变"→ 无限重渲染（生产表现为打开设置页直接闪退）。
+ * 这里按「样本变化才重建」缓存，emit() 时失效。
+ */
+let snapshotCache: ServerClockSnapshot | null = null;
+export function getServerClockSnapshot(): ServerClockSnapshot {
+  if (!sample) return EMPTY_SNAPSHOT;
+  if (!snapshotCache) {
+    snapshotCache = { offsetMs: sample.offsetMs, sampled: true, skewed: isClockSkewed() };
+  }
+  return snapshotCache;
+}
+function subscribeServerClockStore(cb: () => void): () => void {
+  listeners.add(cb);
+  return () => {
+    listeners.delete(cb);
+  };
+}
 
 /** 订阅服务端时钟样本（设置页时钟提示用） */
-export function useServerClock(): { offsetMs: number; sampled: boolean; skewed: boolean } {
-  return useSyncExternalStore(
-    (cb) => {
-      listeners.add(cb);
-      return () => {
-        listeners.delete(cb);
-      };
-    },
-    () => {
-      if (!sample) return EMPTY_SNAPSHOT;
-      return { offsetMs: sample.offsetMs, sampled: true, skewed: isClockSkewed() };
-    }
-  );
+export function useServerClock(): ServerClockSnapshot {
+  return useSyncExternalStore(subscribeServerClockStore, getServerClockSnapshot);
 }
 
 /** 测试用：清空样本 */
 export function __resetServerClockForTests(): void {
   sample = null;
+  snapshotCache = null;
   listeners.clear();
 }

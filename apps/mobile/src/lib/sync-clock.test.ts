@@ -5,6 +5,7 @@ import {
   clockSkewHint,
   getServerClockOffsetMs,
   getServerClockSample,
+  getServerClockSnapshot,
   hasServerClockSample,
   isClockSkewed,
   noteServerTime,
@@ -44,6 +45,19 @@ describe("服务端时钟偏移（S5-3）", () => {
   it("clockSkewHint 说明快/慢方向", () => {
     expect(clockSkewHint(62 * 60_000)).toContain("慢约 62 分钟");
     expect(clockSkewHint(-62 * 60_000)).toContain("快约 62 分钟");
+  });
+
+  it("快照引用稳定（useSyncExternalStore 要求；否则设置页无限重渲染会闪退）", () => {
+    const emptyA = getServerClockSnapshot();
+    expect(getServerClockSnapshot()).toBe(emptyA);
+    noteServerTime("2026-08-13T11:00:00.000Z", new Date("2026-08-13T10:00:00.000Z").getTime());
+    const sampled = getServerClockSnapshot();
+    expect(sampled).not.toBe(emptyA);
+    expect(sampled).toMatchObject({ sampled: true, skewed: true });
+    // 未采样期间多次读取必须同一引用
+    expect(getServerClockSnapshot()).toBe(sampled);
+    noteServerTime("2026-08-13T10:02:00.000Z", new Date("2026-08-13T10:00:00.000Z").getTime());
+    expect(getServerClockSnapshot()).not.toBe(sampled);
   });
 
   it("订阅者在采样时被通知", () => {

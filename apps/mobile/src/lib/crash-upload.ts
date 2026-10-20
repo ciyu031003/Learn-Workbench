@@ -96,16 +96,23 @@ export type UploadResult = { ok: true; id: string | null } | { ok: false; error:
  */
 export async function uploadDiagnostics(note?: string): Promise<UploadResult> {
   try {
-    const payload = buildReportJson(fitToBudget(await collectDiagnostics(note)));
+    const payloadText = JSON.stringify(buildReportJson(fitToBudget(await collectDiagnostics(note))));
     const token = await secureToken.loadWithTimeout(3000);
-    const res = await fetch(getApiUrl() + "/api/diagnostics", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: "Bearer " + token } : {}),
-      },
-      body: JSON.stringify(payload),
-    });
+    const post = () =>
+      fetch(getApiUrl() + "/api/diagnostics", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: "Bearer " + token } : {}),
+        },
+        body: payloadText,
+      });
+    let res = await post();
+    // 服务端落盘偶发失败（COSFS 抖动/磁盘紧张）会回 5xx：串行重试一次，避免用户看到"上传失败"
+    if (res.status >= 500) {
+      await new Promise((r) => setTimeout(r, 1200));
+      res = await post();
+    }
     const type = res.headers.get("content-type") ?? "";
     if (!res.ok) {
       if (type.includes("application/json")) {
