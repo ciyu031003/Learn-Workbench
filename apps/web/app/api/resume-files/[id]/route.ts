@@ -4,6 +4,7 @@ import { pgPool } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
 import { verifyFileTicket } from "@/lib/file-ticket";
 import { withPrivateNoStore } from "@/lib/api/cache";
+import { parseBody } from "@/lib/http";
 import { contentTypeFor, isSafeResumePath, removeResumeFile, resumeAbsPath, resumeExtOf } from "@/lib/resume-files";
 
 function parseId(raw: string): number | null {
@@ -85,6 +86,40 @@ async function deleteImpl(_req: Request, ctx: { params: Promise<{ id: string }> 
   return NextResponse.json({ ok: true });
 }
 
+/** PATCH /api/resume-files/[id] —— 重命名自己的简历（只改显示名 file_name，不动存储路径） */
+async function patchImpl(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const id = parseId((await ctx.params).id);
+  if (!id) return NextResponse.json({ error: "id 无效" }, { status: 400 });
+  const userId = await currentUserId();
+  if (!userId) return NextResponse.json({ error: "请先登录" }, { status: 401 });
+
+  const body = await parseBody(req);
+  if (!body.ok) return NextResponse.json({ error: body.error }, { status: body.status });
+  const raw = (body.data as { fileName?: unknown } | null)?.fileName;
+  if (typeof raw !== "string") return NextResponse.json({ error: "fileName 无效" }, { status: 400 });
+  // 控制字符压成空格 + 限长：file_name 会进 Content-Disposition，不能带换行
+  const cleaned = raw.replace(/[\r\n\t\u0000-\u001f]+/g, " ").trim().slice(0, 120);
+  if (!cleaned) return NextResponse.json({ error: "文件名不能为空" }, { status: 400 });
+
+  const { rows } = await pgPool.query<{ path: string }>(
+    "SELECT path FROM resume_files WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL",
+    [id, userId]
+  );
+  const row = rows[0];
+  if (!row) return NextResponse.json({ error: "文件不存在" }, { status: 404 });
+
+  // 重命名的是显示名不是文件类型：新名字没写扩展名时沿用原扩展
+  const ext = resumeExtOf(row.path);
+  const fileName = ext && !/\.[a-z0-9]{1,8}$/i.test(cleaned) ? `${cleaned}.${ext}` : cleaned;
+
+  const { rows: updated } = await pgPool.query<{ fileName: string }>(
+    `UPDATE resume_files SET file_name = $3 WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL
+     RETURNING file_name AS "fileName"`,
+    [id, userId, fileName]
+  );
+  return NextResponse.json({ ok: true, fileName: updated[0]?.fileName ?? fileName });
+}
+
 /* S5-5：私有内容的所有响应（含 401/403/404）一律 private, no-store */
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
   return withPrivateNoStore(await getImpl(req, ctx));
@@ -92,4 +127,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
 
 export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   return withPrivateNoStore(await deleteImpl(_req, ctx));
+}
+
+export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  return withPrivateNoStore(await patchImpl(req, ctx));
 }

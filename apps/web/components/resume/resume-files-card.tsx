@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
-import { FileText, Trash2, ExternalLink } from "lucide-react";
+import { FileText, Trash2, ExternalLink, Pencil, Check, X } from "lucide-react";
 import { UploadCard } from "@/components/ui/upload-card";
 import { HoldButton } from "@/components/ui/hold-button";
+import { Input } from "@/components/ui/input";
 import { useToastStore } from "@/store/toast-store";
 
 /** 简历文件（v12 P2-2）：PDF / Word ≤5MB，文件本体在 COS 桶的 resume/ 私有目录 */
@@ -28,6 +29,8 @@ export function ResumeFilesCard() {
   const [files, setFiles] = useState<ResumeFileRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
+  /** 重命名中的行：id + 输入框当前值（null = 没有行在编辑） */
+  const [renaming, setRenaming] = useState<{ id: number; value: string } | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -70,6 +73,30 @@ export function ResumeFilesCard() {
     await load();
   };
 
+  /** 重命名只改显示名：不写扩展名时服务端会沿用原扩展 */
+  const rename = async () => {
+    if (!renaming) return;
+    const value = renaming.value.trim();
+    if (!value || value === files.find((f) => f.id === renaming.id)?.fileName) {
+      setRenaming(null);
+      return;
+    }
+    try {
+      const r = await fetch("/api/resume-files/" + renaming.id, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileName: value }),
+      });
+      const d = await r.json().catch(() => null);
+      if (!r.ok) throw new Error(typeof d?.error === "string" ? d.error : "重命名失败");
+      pushToast("已重命名");
+      setRenaming(null);
+      await load();
+    } catch (e) {
+      pushToast(e instanceof Error ? e.message : "重命名失败", "error");
+    }
+  };
+
   return (
     <Card className="print:hidden">
       <div className="flex flex-wrap items-center gap-2 p-4 pb-2">
@@ -95,31 +122,74 @@ export function ResumeFilesCard() {
         ) : files.length === 0 ? (
           <span className="text-xs text-muted-foreground">还没有上传简历；上传后可以在手机 App 里直接预览。</span>
         ) : (
-          files.map((row) => (
-            <div key={row.id} className="flex items-center gap-2 rounded-xl border border-border/60 bg-card/40 px-3 py-2">
-              <FileText className="size-4 shrink-0 text-muted-foreground" />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{row.fileName}</p>
-                <p className="text-xs text-muted-foreground">{sizeText(row.bytes)} · {String(row.createdAt).slice(0, 10)}</p>
+          files.map((row) =>
+            renaming?.id === row.id ? (
+              <div
+                key={row.id}
+                className="flex items-center gap-2 rounded-xl border border-primary/40 bg-primary/5 px-3 py-2"
+              >
+                <Input
+                  autoFocus
+                  value={renaming.value}
+                  onChange={(e) => setRenaming({ id: row.id, value: e.target.value })}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void rename();
+                    if (e.key === "Escape") setRenaming(null);
+                  }}
+                  aria-label="新的文件名"
+                  className="h-8 flex-1"
+                />
+                <button
+                  type="button"
+                  onClick={() => void rename()}
+                  className="rounded-lg p-1.5 text-success-strong transition-colors hover:bg-success/10"
+                  aria-label="确认重命名"
+                >
+                  <Check className="size-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRenaming(null)}
+                  className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted/60"
+                  aria-label="取消重命名"
+                >
+                  <X className="size-4" />
+                </button>
               </div>
-              <a
-                href={"/api/resume-files/" + row.id}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted/60"
-                aria-label="预览"
-              >
-                <ExternalLink className="size-4" />
-              </a>
-              <HoldButton
-                onConfirm={() => void remove(row)}
-                icon={<Trash2 className="size-4" />}
-                className="border-transparent bg-transparent px-2 py-1 text-xs text-muted-foreground hover:bg-muted/60 hover:text-danger"
-              >
-                按住删除
-              </HoldButton>
-            </div>
-          ))
+            ) : (
+              <div key={row.id} className="flex items-center gap-2 rounded-xl border border-border/60 bg-card/40 px-3 py-2">
+                <FileText className="size-4 shrink-0 text-muted-foreground" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{row.fileName}</p>
+                  <p className="text-xs text-muted-foreground">{sizeText(row.bytes)} · {String(row.createdAt).slice(0, 10)}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setRenaming({ id: row.id, value: row.fileName })}
+                  className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+                  aria-label="重命名"
+                >
+                  <Pencil className="size-4" />
+                </button>
+                <a
+                  href={"/api/resume-files/" + row.id}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted/60"
+                  aria-label="预览"
+                >
+                  <ExternalLink className="size-4" />
+                </a>
+                <HoldButton
+                  onConfirm={() => void remove(row)}
+                  icon={<Trash2 className="size-4" />}
+                  className="border-transparent bg-transparent px-2 py-1 text-xs text-muted-foreground hover:bg-muted/60 hover:text-danger"
+                >
+                  按住删除
+                </HoldButton>
+              </div>
+            )
+          )
         )}
       </div>
     </Card>

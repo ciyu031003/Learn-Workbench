@@ -15,7 +15,7 @@ vi.mock("@/lib/resume-files", () => ({
 import { pgPool } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
 import { verifyFileTicket } from "@/lib/file-ticket";
-import { GET, DELETE } from "./route";
+import { GET, DELETE, PATCH } from "./route";
 
 const queryMock = vi.mocked(pgPool.query);
 const userMock = vi.mocked(currentUserId);
@@ -107,5 +107,71 @@ describe("DELETE /api/resume-files/[id]", () => {
     queryMock.mockResolvedValue({ rows: [] } as never);
     const res = await DELETE(new Request("http://localhost", { method: "DELETE" }), ctx("1"));
     expect(res.status).toBe(404);
+  });
+});
+
+describe("PATCH /api/resume-files/[id]（重命名）", () => {
+  const patch = (fileName: unknown) =>
+    PATCH(
+      new Request("http://localhost", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileName }),
+      }),
+      ctx("1")
+    );
+
+  it("未登录 → 401", async () => {
+    userMock.mockResolvedValue(null);
+    const res = await patch("新名字.pdf");
+    expect(res.status).toBe(401);
+  });
+
+  it("fileName 缺失 / 非字符串 → 400", async () => {
+    userMock.mockResolvedValue("u-1");
+    expect((await patch(undefined)).status).toBe(400);
+    expect((await patch(123)).status).toBe(400);
+  });
+
+  it("空白或只剩控制字符 → 400", async () => {
+    userMock.mockResolvedValue("u-1");
+    expect((await patch("   ")).status).toBe(400);
+    expect((await patch("\n\r\t")).status).toBe(400);
+  });
+
+  it("不是本人 / 不存在 → 404", async () => {
+    userMock.mockResolvedValue("u-1");
+    queryMock.mockResolvedValue({ rows: [] } as never);
+    const res = await patch("新名字.pdf");
+    expect(res.status).toBe(404);
+  });
+
+  it("没写扩展名 → 沿用原扩展；带换行的输入被压成空格", async () => {
+    userMock.mockResolvedValue("u-1");
+    queryMock.mockResolvedValue({
+      rows: [
+        { path: "2f1b1f2e-0000-4000-8000-000000000000/abc.pdf" },
+        { fileName: "秋招-后端.pdf" },
+      ],
+    } as never);
+    const res = await patch("秋招\r\n后端简历");
+    expect(res.status).toBe(200);
+    const d = await res.json();
+    expect(d.ok).toBe(true);
+    expect(d.fileName).toBe("秋招 后端简历.pdf");
+    expect(queryMock).toHaveBeenLastCalledWith(
+      expect.stringContaining("UPDATE resume_files SET file_name = $3"),
+      expect.arrayContaining(["秋招 后端简历.pdf"])
+    );
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+  });
+
+  it("自己带了扩展名 → 不重复追加", async () => {
+    userMock.mockResolvedValue("u-1");
+    queryMock.mockResolvedValue({
+      rows: [{ path: "2f1b1f2e-0000-4000-8000-000000000000/abc.pdf" }, { fileName: "x.pdf" }],
+    } as never);
+    const res = await patch("社招-V2.PDF");
+    expect((await res.json()).fileName).toBe("社招-V2.PDF");
   });
 });
