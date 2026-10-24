@@ -19,6 +19,8 @@ import {
 import { ExamQuestionCard } from "./exam-question-card";
 import { QuestionImage } from "./question-image";
 import { cleanAnswerText, cleanExamStem } from "./question-utils";
+import { QuestionBlocks } from "@/components/question-blocks";
+import { RichText } from "@/components/rich-text";
 
 type PaperMode = "practice" | "review";
 type ResultKind = "correct" | "wrong" | "reviewed";
@@ -228,6 +230,7 @@ function PracticeQuestion({
 }) {
   const progress = Math.round(((index + 1) / paper.questions.length) * 100);
   const isCorrect = question.type === "choice" && result === "correct";
+  const answerText = cleanAnswerText(question.answerText);
 
   return (
     <Card className="overflow-hidden">
@@ -248,9 +251,10 @@ function PracticeQuestion({
           <TextQuestionNav paper={paper} current={question.number} onJump={onJump} />
         </div>
 
-        <div className="whitespace-pre-wrap text-[15px] leading-7 text-foreground">
-          {cleanExamStem(question.stem)}
-        </div>
+        <QuestionBlocks
+          text={cleanExamStem(question.stem)}
+          className="text-[15px] leading-7 text-foreground"
+        />
 
         <QuestionImages question={question} />
 
@@ -279,7 +283,9 @@ function PracticeQuestion({
                   <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border border-current font-mono text-xs font-semibold">
                     {option.letter}
                   </span>
-                  <span className="min-w-0 flex-1 text-sm leading-6">{option.text}</span>
+                  <span className="min-w-0 flex-1 text-sm leading-6">
+                    <RichText text={option.text} />
+                  </span>
                   {correct ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success" /> : null}
                   {wrong ? <XCircle className="mt-0.5 size-4 shrink-0 text-danger" /> : null}
                 </button>
@@ -301,10 +307,12 @@ function PracticeQuestion({
             <p className="font-semibold">
               {question.type === "choice" ? (isCorrect ? "回答正确" : "回答错误") : "参考答案"}
             </p>
-            <p className="mt-1 whitespace-pre-wrap leading-6 text-muted-foreground">
+            <p className="mt-1 leading-6 text-muted-foreground">
               {question.answerLetter ? `答案：${question.answerLetter}。` : ""}
-              {cleanAnswerText(question.answerText)}
             </p>
+            {answerText ? (
+              <QuestionBlocks text={answerText} className="mt-1 text-sm text-muted-foreground" compact />
+            ) : null}
             {question.answerImageRefs.length > 0 ? (
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 {question.answerImageRefs.map((url) => (

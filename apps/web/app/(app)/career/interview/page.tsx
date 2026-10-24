@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyState } from "@/components/ui/empty-state";
+import { QuestionBlocks } from "@/components/question-blocks";
+import { RichText } from "@/components/rich-text";
 import { cn } from "@/lib/utils";
 import { useToastStore } from "@/store/toast-store";
 import {
@@ -219,7 +221,9 @@ export default function CareerInterviewPage() {
                     <Badge variant="muted">{current.module}</Badge>
                     <Badge style={{ backgroundColor: `${DIFF_COLOR[current.difficulty]}22`, color: DIFF_COLOR[current.difficulty] }}>{DIFF_LABEL[current.difficulty]}</Badge>
                   </div>
-                  <p className="text-sm font-medium leading-relaxed text-foreground">{current.question}</p>
+                  <p className="text-sm font-medium leading-relaxed text-foreground">
+                    <RichText text={current.question} />
+                  </p>
                 </div>
                 <Textarea value={answer} onChange={(e) => setAnswer(e.target.value)} rows={3} placeholder="输入你的回答…" />
                 <div className="flex items-center gap-2">
@@ -234,7 +238,9 @@ export default function CareerInterviewPage() {
                       {result.isCorrect ? <CheckCircle2 className="size-4 text-emerald-400" /> : <XCircle className="size-4 text-amber-400" />}
                       {result.isCorrect ? "回答正确" : "参考答案如下"}
                     </p>
-                    {result.answer ? <p className="mt-1.5 text-muted-foreground">{result.answer}</p> : null}
+                    {result.answer ? (
+                      <QuestionBlocks text={result.answer} className="mt-1.5 text-sm text-muted-foreground" compact />
+                    ) : null}
                   </div>
                 ) : null}
               </>

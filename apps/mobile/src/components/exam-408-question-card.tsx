@@ -3,6 +3,8 @@ import { Linking, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
+import { QuestionBlocks } from "@/components/question-blocks";
+import { RichText } from "@/components/rich-text";
 import { cleanAnswerText, cleanExamStem, resolveExamAssetUrl, type Exam408Question } from "@/lib/exam-408";
 import { useTheme } from "@/theme";
 import { radius, shadows, spacing, typography, type ThemeColors } from "@/theme/tokens";
@@ -34,9 +36,11 @@ export function Exam408QuestionCard({
         <Text style={styles.metaText}>{question.subject.title}</Text>
       </View>
 
-      <Text selectable style={[styles.stem, compact && styles.stemCompact]}>
-        {cleanExamStem(question.stem)}
-      </Text>
+      <QuestionBlocks
+        text={cleanExamStem(question.stem)}
+        style={[styles.stem, compact && styles.stemCompact]}
+        compact
+      />
 
       {question.imageRefs.length > 0 ? (
         <View style={styles.imageGrid}>
@@ -68,7 +72,7 @@ export function Exam408QuestionCard({
             return (
               <View key={option.letter} style={[styles.option, correct && styles.optionCorrect]}>
                 <Text style={styles.optionLetter}>{option.letter}</Text>
-                <Text style={styles.optionText}>{option.text}</Text>
+                <RichText text={option.text} style={styles.optionText} />
                 {correct ? <ThemedIcon name="checkmark-circle" size={16} color={colors.success} /> : null}
               </View>
             );
@@ -82,9 +86,7 @@ export function Exam408QuestionCard({
             参考答案：{question.answerLetter ?? answerText}
           </Text>
           {answerText && answerText !== question.answerLetter ? (
-            <Text selectable style={styles.answerText}>
-              {answerText}
-            </Text>
+            <QuestionBlocks text={answerText} style={styles.answerText} compact />
           ) : null}
           {question.answerImageRefs.map((url) => (
             <PressableScale

@@ -6,6 +6,8 @@ import Animated from "react-native-reanimated";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
 import { CelebrationModal } from "@/components/celebration-modal";
+import { QuestionBlocks } from "@/components/question-blocks";
+import { RichText } from "@/components/rich-text";
 import { celebrationSummary, celebrationTone, type CelebrationTone } from "@/lib/celebration-copy";
 import { haptics } from "@/lib/haptics";
 import { ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
@@ -75,6 +77,8 @@ function PaperSession({ year, start }: { year: number; start: number }) {
   const question = paper?.questions[index];
   const result = question ? results[question.number] : undefined;
   const progress = paper ? ((index + 1) / paper.questions.length) * 100 : 0;
+  // 答案正文（去掉「答案：X」前缀后仍有内容才渲染富文本块）
+  const answerBody = question ? cleanAnswerText(question.answerText) : "";
 
   const select = (letter: string) => {
     if (!question || submitted) return;
@@ -240,9 +244,7 @@ function PaperSession({ year, start }: { year: number; start: number }) {
               </PressableScale>
             </View>
 
-            <Text selectable style={styles.stem}>
-              {cleanExamStem(question.stem)}
-            </Text>
+            <QuestionBlocks text={cleanExamStem(question.stem)} style={styles.stem} compact />
 
             <QuestionImages question={question} />
 
@@ -269,7 +271,7 @@ function PaperSession({ year, start }: { year: number; start: number }) {
                       <View style={styles.optionLetter}>
                         <Text style={styles.optionLetterText}>{option.letter}</Text>
                       </View>
-                      <Text style={styles.optionText}>{option.text}</Text>
+                      <RichText text={option.text} style={styles.optionText} />
                       {correct ? <ThemedIcon name="checkmark-circle" size={19} color={colors.success} /> : null}
                       {wrong ? <ThemedIcon name="close-circle" size={19} color={colors.danger} /> : null}
                     </PressableScale>
@@ -293,10 +295,14 @@ function PaperSession({ year, start }: { year: number; start: number }) {
                       ? "回答正确"
                       : "回答错误"}
                 </Text>
-                <Text selectable style={styles.answerText}>
-                  {question.answerLetter ? `答案：${question.answerLetter}。` : ""}
-                  {cleanAnswerText(question.answerText)}
-                </Text>
+                {question.answerLetter ? (
+                  <Text selectable style={styles.answerText}>
+                    {`答案：${question.answerLetter}。`}
+                  </Text>
+                ) : null}
+                {answerBody ? (
+                  <QuestionBlocks text={answerBody} style={styles.answerText} compact />
+                ) : null}
                 {question.answerImageRefs.map((url) => (
                   <PressableScale
                     key={url}

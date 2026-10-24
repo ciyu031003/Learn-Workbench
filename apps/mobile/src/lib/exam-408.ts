@@ -121,6 +121,9 @@ export async function getExam408Point(key: string): Promise<Exam408PointDetail> 
 export function cleanExamStem(stem: string): string {
   return stem
     .replace(/!\[[^\]]*\]\([^)]+\)/g, "")
+    // 非惊叹号的 [题X图 …](/content-images/…) 链接与 imageRefs 重复（快照已核实 38/38 覆盖），
+    // 图片统一走 imageRefs 渲染，文本里只留说明文字
+    .replace(/\[([^\]\n]*)\]\(\/content-images\/[^)\s]+\)/g, "$1")
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();

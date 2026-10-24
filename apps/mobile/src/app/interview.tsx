@@ -13,6 +13,8 @@ import { PagerBar } from "@/components/pager-bar";
 import { SuccessBurst } from "@/components/success-burst";
 import { ChipGroup, SheetSection, SheetSegmented, SheetStickyCta, type SegmentOption } from "@/components/sheet";
 import { QuizStack, type QuizItem } from "@/components/quiz-stack";
+import { QuestionBlocks } from "@/components/question-blocks";
+import { RichText } from "@/components/rich-text";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
 import { radius, spacing, typography, type ThemeColors } from "@/theme/tokens";
@@ -353,7 +355,7 @@ export default function InterviewScreen() {
                 </Text>
                 {q.sourceSite ? <Text style={styles.sourceTag} numberOfLines={1}>来源 {q.sourceSite.replace("github:", "")}</Text> : null}
               </View>
-              <Text style={styles.questionText}>{q.question}</Text>
+              <RichText text={q.question} style={styles.questionText} />
             </Card>
           </PressableScale>
           </Animated.View>
@@ -435,7 +437,7 @@ export default function InterviewScreen() {
         {active ? (
           <>
             <SheetSection title="题目">
-              <Text style={styles.questionText}>{active.question}</Text>
+              <RichText text={active.question} style={styles.questionText} />
             </SheetSection>
 
             <SheetSection title="我的答案">
@@ -458,7 +460,11 @@ export default function InterviewScreen() {
                   </View>
                   <View style={[styles.compareCol, result.correct ? styles.compareGood : styles.compareRef]}>
                     <Text style={styles.compareHead}>参考答案</Text>
-                    <Text style={styles.compareBody}>{result.answer || "暂无参考答案"}</Text>
+                    {result.answer ? (
+                      <QuestionBlocks text={result.answer} style={styles.compareBody} compact />
+                    ) : (
+                      <Text style={styles.compareBody}>暂无参考答案</Text>
+                    )}
                   </View>
                 </View>
                 <View style={styles.verdictRow}>

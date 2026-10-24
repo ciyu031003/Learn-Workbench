@@ -8,6 +8,8 @@ import type { Exam408Question } from "@/lib/exam-408";
 import { ExternalLink, Eye, EyeOff } from "lucide-react";
 import { cleanAnswerText, cleanExamStem } from "./question-utils";
 import { QuestionImage } from "./question-image";
+import { QuestionBlocks } from "@/components/question-blocks";
+import { RichText } from "@/components/rich-text";
 
 export function ExamQuestionCard({
   question,
@@ -44,9 +46,10 @@ export function ExamQuestionCard({
           ) : null}
         </div>
 
-        <div className="whitespace-pre-wrap text-[15px] leading-7 text-foreground">
-          {cleanExamStem(question.stem)}
-        </div>
+        <QuestionBlocks
+          text={cleanExamStem(question.stem)}
+          className="text-[15px] leading-7 text-foreground"
+        />
 
         {question.imageRefs.length > 0 ? (
           <div className="grid gap-3 sm:grid-cols-2">
@@ -73,7 +76,9 @@ export function ExamQuestionCard({
                   }`}
                 >
                   <span className="mt-0.5 font-mono text-xs font-semibold text-muted-foreground">{option.letter}</span>
-                  <span className="min-w-0 flex-1 leading-relaxed">{option.text}</span>
+                  <span className="min-w-0 flex-1 leading-relaxed">
+                    <RichText text={option.text} />
+                  </span>
                 </li>
               );
             })}
@@ -86,7 +91,7 @@ export function ExamQuestionCard({
               参考答案：{question.answerLetter ?? question.answerText}
             </p>
             {answerText ? (
-              <p className="mt-1 whitespace-pre-wrap leading-relaxed text-muted-foreground">{answerText}</p>
+              <QuestionBlocks text={answerText} className="text-muted-foreground" />
             ) : null}
             {question.answerImageRefs.length > 0 ? (
               <div className="mt-3 grid gap-2 sm:grid-cols-2">

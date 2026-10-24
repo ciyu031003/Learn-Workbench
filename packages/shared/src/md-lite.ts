@@ -143,7 +143,14 @@ export type InlineToken =
   | { type: "strong"; value: string }
   | { type: "math"; value: string };
 
-const INLINE_RE = /(`[^`\n]+`)|(\*\*[^*\n]+\*\*)|(\$[^$\n]{1,40}\$)/g;
+/**
+ * 行内标记口径：
+ *  - `` `代码` ``、`**加粗**`、`$公式$`；
+ *  - `\(公式\)`（LaTeX 行内定界符）：408 真题答案里 150+ 处，纯文本渲染会露出反斜杠括号。
+ *    定界符本身不会误伤自然语言，所以内部允许空格（`\( p \)` 是合法写法），只要求非空、单行、≤160 字符。
+ *  - 单星 `*x*` **刻意不支持**：408 内容里单星几乎全是 C 指针（`*p`、`LinkNode *lchild`）与乘号，认了必误伤。
+ */
+const INLINE_RE = /(`[^`\n]+`)|(\*\*[^*\n]+\*\*)|(\\\([^\\\n]{1,160}?\\\))|(\$[^$\n]{1,40}\$)/g;
 
 function looksLikeMath(inner: string): boolean {
   if (!inner) return false;
@@ -164,7 +171,10 @@ export function parseInlineRich(text: string): InlineToken[] {
     let token: InlineToken | null = null;
     if (raw.startsWith("`")) token = { type: "code", value: raw.slice(1, -1) };
     else if (raw.startsWith("**")) token = { type: "strong", value: raw.slice(2, -2) };
-    else if (raw.startsWith("$")) {
+    else if (raw.startsWith("\\(")) {
+      const inner = raw.slice(2, -2).trim();
+      if (inner) token = { type: "math", value: inner };
+    } else if (raw.startsWith("$")) {
       const inner = raw.slice(1, -1);
       if (looksLikeMath(inner)) token = { type: "math", value: inner };
     }
@@ -175,4 +185,140 @@ export function parseInlineRich(text: string): InlineToken[] {
   }
   if (last < source.length) tokens.push({ type: "text", value: source.slice(last) });
   return tokens.length > 0 ? tokens : [{ type: "text", value: source }];
+}
+
+/* ------------------------------------------------------------------ */
+/* 题库块级解析（408 真题 / 面试题的题干与答案）                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 题库内容的结构块。
+ *
+ * 与 `parseMarkdownLite` 的关键差异：**段落保留原始行**（`lines`）而不是 join 成一句 ——
+ * 题干里的手工换行（伪代码、`[ data | link ]` 结构图、①②③ 分步）是排版语义，
+ * 标准 markdown 的"段落内换行合并"会把这些压成一团。
+ */
+export type QuestionBlock =
+  | { type: "heading"; level: number; text: string }
+  | { type: "code"; lang: string; code: string }
+  | { type: "table"; rows: string[][] }
+  | { type: "list"; ordered: boolean; items: string[] }
+  | { type: "paragraph"; lines: string[] };
+
+const TABLE_SEPARATOR = /^:?-{2,}:?$/;
+
+function isTableLine(line: string): boolean {
+  const t = line.trim();
+  return t.startsWith("|") && t.indexOf("|", 1) >= 0;
+}
+
+/** `| a | b |` → ["a","b"]（首尾空段丢弃；行内仍是纯文本，交给 parseInlineRich） */
+function tableCells(line: string): string[] {
+  const t = line.trim();
+  const body = t.startsWith("|") ? t.slice(1) : t;
+  const body2 = body.endsWith("|") ? body.slice(0, -1) : body;
+  return body2.split("|").map((cell) => cell.trim());
+}
+
+/**
+ * 把题库文本解析成结构块；`<br>`（含 `<br/>`）换成换行 —— 数据里唯一的真 HTML 标签就是它，
+ * 其余尖括号内容（`<v0,v1>`、`<net1,16>`）是数学记号，必须原样保留。
+ */
+export function parseQuestionBlocks(text: string): QuestionBlock[] {
+  const source = String(text ?? "");
+  if (!source.trim()) return [];
+  const lines = source
+    .replace(/\r\n?/g, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .split("\n");
+  const blocks: QuestionBlock[] = [];
+  let paragraph: string[] = [];
+  let list: { ordered: boolean; items: string[] } | null = null;
+
+  const flushParagraph = () => {
+    const kept = paragraph.filter((line) => line.trim().length > 0);
+    if (kept.length > 0) blocks.push({ type: "paragraph", lines: kept.map((l) => l.trim()) });
+    paragraph = [];
+  };
+  const flushList = () => {
+    if (list) {
+      blocks.push({ type: "list", ordered: list.ordered, items: list.items });
+      list = null;
+    }
+  };
+  const flush = () => {
+    flushParagraph();
+    flushList();
+  };
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? "";
+    const trimmed = line.trim();
+
+    if (trimmed === "") {
+      flush();
+      continue;
+    }
+
+    const fence = FENCE.exec(line);
+    if (fence) {
+      flush();
+      const marker = fence[1];
+      const lang = (fence[2] ?? "").trim();
+      const body: string[] = [];
+      index += 1;
+      while (index < lines.length) {
+        const next = lines[index] ?? "";
+        if (new RegExp(`^\\s*${marker}\\s*$`).test(next)) break;
+        body.push(next);
+        index += 1;
+      }
+      blocks.push({ type: "code", lang, code: body.join("\n").replace(/\n+$/, "") });
+      continue;
+    }
+
+    const heading = HEADING.exec(line);
+    if (heading) {
+      flush();
+      blocks.push({
+        type: "heading",
+        level: heading[1].length,
+        text: heading[2].replace(/\s+#+\s*$/, "").trim(),
+      });
+      continue;
+    }
+
+    if (isTableLine(line)) {
+      flush();
+      const rows: string[][] = [];
+      while (index < lines.length && isTableLine(lines[index] ?? "")) {
+        const cells = tableCells(lines[index] ?? "");
+        // 分隔行（| --- | --- |）不进数据
+        if (!cells.every((cell) => TABLE_SEPARATOR.test(cell))) rows.push(cells);
+        index += 1;
+      }
+      index -= 1; // 外层 for 会再 +1
+      if (rows.length > 0) blocks.push({ type: "table", rows });
+      continue;
+    }
+
+    const unordered = UL.exec(line);
+    const ordered = OL.exec(line);
+    if (unordered || ordered) {
+      flushParagraph();
+      const isOrdered = Boolean(ordered);
+      if (!list || list.ordered !== isOrdered) {
+        flushList();
+        list = { ordered: isOrdered, items: [] };
+      }
+      list.items.push(((unordered ?? ordered)?.[1] ?? "").trim());
+      continue;
+    }
+
+    flushList();
+    paragraph.push(line);
+  }
+
+  flush();
+  return blocks;
 }
