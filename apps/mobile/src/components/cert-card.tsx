@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -14,7 +14,7 @@ import Animated, {
   withDelay,
   withTiming,
 } from "react-native-reanimated";
-import { Image } from "expo-image";
+import { Image, type ImageLoadEventData } from "expo-image";
 import { ThemedIcon } from "@/components/themed-icon";
 import {
   ACHIEVEMENT_STAGGER_MS,
@@ -31,13 +31,12 @@ import { certificateExpiryInfo } from "@learn-workbench/shared/pure";
 /**
  * 证书卡（V3 证书页专用）。
  *
- * 为什么不再直接用 AchievementCard：状态流程 + 右侧证书缩略图要求「左图标 / 中信息 / 右图片」
- * 三栏，而 AchievementCard 的 body 是单列（图片只能塞在标题下方，卡片会变得很高）。
- * 这里复用它的三样东西，保证观感不跑偏：
+ * 为什么不再直接用 AchievementCard：状态流程 + 证书图展示要求「头行徽章 / 信息 / 整宽证书图」
+ * 的纵向分区，而 AchievementCard 的 body 是单列且没有凭证位。这里复用它的三样东西，保证观感不跑偏：
  *  1. `achievementTone()` 状态语义色（金=已取得 / 蓝=备考中 / 中性=计划中）；
  *  2. 52×52 图形徽章、radius.lg 圆角、shadows.card 投影、spacing 间距；
  *  3. 同一套入场错峰（40ms/项、减弱动态时直接呈现终态）。
- * 卡片**不写死高度**：所有行都是内容撑开，图片靠 aspectRatio 由宽度推导高度（不裁切）。
+ * 卡片**不写死高度**：所有行都是内容撑开，证书图 onLoad 读原图比例后按整卡宽推导高度。
  */
 export type CertStatus = "planned" | "preparing" | "achieved";
 
@@ -98,6 +97,22 @@ export function CertCard({
   const reduceMotion = useReducedMotion();
   const active = isMotionActive(reduceMotion);
 
+  /**
+   * 证书图按**原始宽高比**占满整卡宽（v1.50 布局修正）。
+   * 旧版是「左信息 + 右侧 36% 缩略框（固定 4:3 + contain）」：没有备注时左边整块空白，
+   * contain 又在框里留边，证书看起来缩在右下角。现在改为 onLoad 读出原图比例
+   * （expo-image 事件自带 source 尺寸，零额外请求），加载前先按 4:3 占位防跳变；
+   * 竖版照片 / 超宽横版各设上下限，避免极端比例把卡片撑得没法看。
+   */
+  const [imageAspect, setImageAspect] = useState(4 / 3);
+  const onImageLoad = (e: ImageLoadEventData) => {
+    const w = e.source?.width;
+    const h = e.source?.height;
+    if (w && h && w > 0 && h > 0) {
+      setImageAspect(Math.min(2.6, Math.max(0.7, w / h)));
+    }
+  };
+
   // ⚠️ 顺序约束（见 CLAUDE.md「手势与 worklet」）：shared value 必须声明在 useAnimatedStyle 之前
   const enter = useSharedValue(active ? 0 : 1);
 
@@ -150,9 +165,9 @@ export function CertCard({
       </View>
 
       {hasInfo || imageUri ? (
-        <View style={styles.contentRow}>
-          <View style={styles.infoCol}>
-            {hasInfo ? (
+        <>
+          {hasInfo ? (
+            <View style={styles.infoCol}>
               <View style={styles.metaRow}>
                 {record.earnedDate ? (
                   <Text style={styles.meta}>取得 {record.earnedDate.slice(0, 10)}</Text>
@@ -164,16 +179,15 @@ export function CertCard({
                   </Text>
                 ) : null}
               </View>
-            ) : null}
-            {record.note ? (
-              <Text style={styles.note} numberOfLines={2}>
-                {record.note}
-              </Text>
-            ) : null}
-          </View>
+              {record.note ? (
+                <Text style={styles.note} numberOfLines={2}>
+                  {record.note}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
 
-          {/* 右侧按比例缩放的证书图片：宽度固定、高度由 aspectRatio 推导；
-              无图时整个节点不渲染，右侧不占位（也不留空白虚线框） */}
+          {/* 证书图占满整卡宽、按原图比例给高（点开全屏预览不变） */}
           {imageUri ? (
             <Pressable
               onPress={() => onPreview(imageUri)}
@@ -182,7 +196,13 @@ export function CertCard({
               accessibilityLabel={`查看「${record.name}」的证书图片`}
               accessibilityHint="打开全屏预览"
             >
-              <Image source={{ uri: imageUri }} style={styles.image} contentFit="contain" transition={200} />
+              <Image
+                source={{ uri: imageUri }}
+                style={[styles.image, { aspectRatio: imageAspect }]}
+                contentFit="cover"
+                transition={200}
+                onLoad={onImageLoad}
+              />
               <View style={styles.imageExpand} pointerEvents="none">
                 <ThemedIcon
                   ios="arrow.up.left.and.arrow.down.right"
@@ -193,7 +213,7 @@ export function CertCard({
               </View>
             </Pressable>
           ) : null}
-        </View>
+        </>
       ) : null}
 
       {/* 已取得才出现上传入口：计划中/备考中还没有证书可拍，提前露出只会造成误解 */}
@@ -296,8 +316,7 @@ const makeStyles = (colors: ThemeColors, palette: { soft: string; strong: string
     },
     badgeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: palette.strong },
     badgeText: { ...typography.micro, fontWeight: "800", color: palette.strong },
-    contentRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.md },
-    infoCol: { flex: 1, minWidth: 0, gap: 3 },
+    infoCol: { gap: 3 },
     metaRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 },
     meta: { ...typography.micro, fontWeight: "600", color: colors.textMuted },
     metaStrong: { ...typography.micro, fontWeight: "700", color: palette.strong },
@@ -305,25 +324,22 @@ const makeStyles = (colors: ThemeColors, palette: { soft: string; strong: string
     metaDanger: { ...typography.micro, fontWeight: "700", color: colors.danger },
     note: { ...typography.callout, color: colors.textSecondary },
     imageBtn: {
-      // 宽度按卡片内容区比例给（手机上约 110pt、平板封顶 140pt），高度由 aspectRatio 推导：
-      // 屏幕变宽图片等比变大、卡片高度跟着内容走，任何一端都不写死高度（不会裁切）
-      width: "36%",
-      maxWidth: 140,
-      aspectRatio: 4 / 3,
+      // 全卡宽 + onLoad 实测的原图 aspectRatio（极端比例在 onImageLoad 里夹在 0.7~2.6）
+      width: "100%",
       borderRadius: radius.md,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.border,
       backgroundColor: colors.surfaceMuted,
       overflow: "hidden",
     },
-    image: { width: "100%", height: "100%" },
+    image: { width: "100%" },
     imageExpand: {
       position: "absolute",
-      right: 6,
-      bottom: 6,
-      width: 20,
-      height: 20,
-      borderRadius: 10,
+      right: 8,
+      top: 8,
+      width: 22,
+      height: 22,
+      borderRadius: 11,
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: colors.surfaceStrong,

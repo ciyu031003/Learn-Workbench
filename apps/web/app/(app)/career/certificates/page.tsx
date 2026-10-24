@@ -316,10 +316,30 @@ function CertCard({
 
         {c.note ? <p className="line-clamp-2 text-xs text-muted-foreground">{c.note}</p> : null}
 
+        {/* 证书图片内嵌展示：全卡宽、原生比例，点开新窗口看原图（移动端上传的 /uploads/ 由 nginx 直出） */}
+        {c.imageUrl ? (
+          <a
+            href={c.imageUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="block overflow-hidden rounded-xl border border-border/60 bg-white"
+            aria-label={`查看「${c.name}」的证书图片`}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element -- 外部/COS 任意域名，next/image 需逐域配置 */}
+            <img
+              src={c.imageUrl}
+              alt={`${c.name} 证书图片`}
+              loading="lazy"
+              decoding="async"
+              className="h-auto max-h-96 w-full object-contain"
+            />
+          </a>
+        ) : null}
+
         <div className="flex items-center justify-between pt-1">
           <div className="flex gap-1">
             {c.imageUrl ? (
-              <a href={c.imageUrl} target="_blank" rel="noreferrer" className="rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-muted hover:text-foreground" aria-label="查看证书图片">
+              <a href={c.imageUrl} target="_blank" rel="noreferrer" className="rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-muted hover:text-foreground" aria-label="新窗口打开证书图片">
                 <ExternalLink className="size-3.5" />
               </a>
             ) : null}
