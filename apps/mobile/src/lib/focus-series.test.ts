@@ -6,8 +6,11 @@ import {
   addDays,
   buildDailySeries,
   buildDayMinutesMap,
+  buildHeatMonthMarks,
   buildHeatmap,
+  buildPeakPeriod,
   buildPeriodBars,
+  buildWeekCompare,
   heatColor,
   localKey,
   sessionMinutes,
@@ -114,5 +117,48 @@ describe("heatColor", () => {
     expect(heatColor(29)).toBe(HEAT_LEGEND[1]);
     expect(heatColor(59)).toBe(HEAT_LEGEND[2]);
     expect(heatColor(60)).toBe(HEAT_LEGEND[3]);
+  });
+});
+
+describe("buildWeekCompare", () => {
+  it("0..6 上周、7..13 本周，delta 为差值", () => {
+    const last14 = Array.from({ length: 14 }, (_, i) => ({ minutes: i < 7 ? 10 : 30 }));
+    expect(buildWeekCompare(last14)).toEqual({ thisWeek: 210, lastWeek: 70, delta: 140 });
+  });
+
+  it("不足 14 天 → null（新用户不显示环比）", () => {
+    expect(buildWeekCompare([{ minutes: 30 }])).toBeNull();
+  });
+});
+
+describe("buildPeakPeriod", () => {
+  it("取累计分钟最多的时段，带小时区间文案", () => {
+    const peak = buildPeakPeriod([
+      at("2026-09-28T20:00:00", 40),
+      at("2026-09-29T21:00:00", 50),
+      at("2026-09-30T08:00:00", 20),
+      { startedAt: "bad", durationSeconds: 600 } as unknown as FocusSession,
+    ]);
+    expect(peak).toEqual({ label: "晚上", range: "18:00–22:00", minutes: 90 });
+  });
+
+  it("没有任何有效会话 → null", () => {
+    expect(buildPeakPeriod([])).toBeNull();
+    expect(buildPeakPeriod([{ startedAt: "bad" } as unknown as FocusSession])).toBeNull();
+  });
+});
+
+describe("buildHeatMonthMarks", () => {
+  it("每列首天换月才标，同月为 null", () => {
+    const weeks = [
+      [{ key: "2026-09-01" }, { key: "2026-09-02" }],
+      [{ key: "2026-09-07" }, { key: "2026-09-08" }],
+      [{ key: "2026-10-05" }, { key: "2026-10-06" }],
+    ];
+    expect(buildHeatMonthMarks(weeks)).toEqual(["9月", null, "10月"]);
+  });
+
+  it("空列 → null（不推进月份游标）", () => {
+    expect(buildHeatMonthMarks([[], [{ key: "2026-09-07" }]])).toEqual([null, "9月"]);
   });
 });

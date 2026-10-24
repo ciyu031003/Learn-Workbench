@@ -13,14 +13,16 @@ import { SportBackfillSheet } from "@/components/sport-backfill-sheet";
 import { SportTrendCard } from "@/components/sport-trend-card";
 import { ThemedIcon } from "@/components/themed-icon";
 import { TrainingLoadCard } from "@/components/training-load-card";
+import { addDays, localKey } from "@/lib/focus-series";
 import { loggedDaysInMonth } from "@/lib/nutrition-stats";
 import { todayAndYesterday } from "@/lib/nutrition-views";
+import { buildSportTrend, formatSportDuration } from "@/lib/sport-trend";
 import { useDayEntries } from "@/lib/use-day-entries";
 import { useMonthSummaries } from "@/lib/use-month-summaries";
 import { fetchNutritionTarget } from "@/lib/wellbeing-client";
 import { getApiUrl } from "@/config";
 import { useTheme } from "@/theme";
-import { typography, type ThemeColors } from "@/theme/tokens";
+import { typography, tabularNums, type ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 
 /**
@@ -115,6 +117,51 @@ export default function TrendsScreen() {
 
   const [backfillOpen, setBackfillOpen] = useState(false);
 
+  /**
+   * 顶部总览条（v1.50）：三段数据的「一眼版」，全部复用本页已加载的数据，零新增请求。
+   * 饮食 = 近 7 天有热量记录的天数 + 日均；运动 = 近 7 天本地记录合计；训练 = 近 30 天次数。
+   */
+  const overview = useMemo(() => {
+    let loggedDays = 0;
+    let kcalSum = 0;
+    const todayDate = new Date(
+      Number(todayKey.slice(0, 4)),
+      Number(todayKey.slice(5, 7)) - 1,
+      Number(todayKey.slice(8, 10))
+    );
+    for (let i = 0; i < 7; i += 1) {
+      const row = rows[localKey(addDays(todayDate, -i))];
+      if (row && row.kcal > 0) {
+        loggedDays += 1;
+        kcalSum += row.kcal;
+      }
+    }
+    const sport = buildSportTrend(sports, todayKey, 7);
+    return [
+      {
+        key: "diet",
+        icon: "restaurant-outline" as const,
+        label: "近 7 天饮食",
+        value: nutritionPending ? "…" : loggedDays > 0 ? `${loggedDays}/7 天` : "—",
+        sub: loggedDays > 0 ? `日均 ${Math.round(kcalSum / loggedDays)} kcal` : "记一笔就有了",
+      },
+      {
+        key: "sport",
+        icon: "barbell-outline" as const,
+        label: "近 7 天运动",
+        value: sport.totalSessions > 0 ? formatSportDuration(sport.totalMinutes) : "—",
+        sub: `共 ${sport.totalSessions} 次`,
+      },
+      {
+        key: "workout",
+        icon: "fitness-outline" as const,
+        label: "近 30 天训练",
+        value: workouts.length > 0 ? `${workouts.length} 次` : "—",
+        sub: "力量 / 训练记录",
+      },
+    ];
+  }, [rows, sports, workouts, todayKey, nutritionPending]);
+
   return (
     <View style={styles.root}>
       <ScreenHeaderStickyBar title="趋势" scrollY={headerScroll.scrollY} />
@@ -126,6 +173,20 @@ export default function TrendsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <ScreenHeaderLargeTitle title="趋势" subtitle="饮食热量 · 运动时长 · 训练负荷" />
+
+        {/* 总览条：三段数据的一眼版（复用本页数据，零新增请求） */}
+        <View style={styles.overviewRow}>
+          {overview.map((item) => (
+            <View key={item.key} style={styles.overviewCard} accessibilityLabel={`${item.label} ${item.value} ${item.sub}`}>
+              <ThemedIcon name={item.icon} size={15} color={colors.accentStrong} />
+              <Text style={styles.overviewLabel}>{item.label}</Text>
+              <Text style={[styles.overviewValue, tabularNums]}>{item.value}</Text>
+              <Text style={styles.overviewSub} numberOfLines={1}>
+                {item.sub}
+              </Text>
+            </View>
+          ))}
+        </View>
 
         {/* ① 饮食 */}
         <GroupLabel accentColor={colors.accent}>饮食趋势</GroupLabel>
@@ -209,6 +270,21 @@ const makeStyles = (colors: ThemeColors) =>
     root: { flex: 1, backgroundColor: colors.canvas },
     scroll: { flex: 1 },
     content: { padding: 16, gap: 12, paddingBottom: 40 },
+    overviewRow: { flexDirection: "row", gap: 8 },
+    overviewCard: {
+      flex: 1,
+      minWidth: 0,
+      gap: 3,
+      borderRadius: 20,
+      backgroundColor: colors.surfaceStrong,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+    },
+    overviewLabel: { ...typography.micro, color: colors.textMuted },
+    overviewValue: { ...typography.headline, color: colors.text },
+    overviewSub: { ...typography.micro, color: colors.textFaint },
     failBox: { alignItems: "center", gap: 6, paddingVertical: 40, paddingHorizontal: 16 },
     failTitle: { ...typography.headline, color: colors.text },
     failHint: { ...typography.caption, color: colors.textMuted, textAlign: "center" },

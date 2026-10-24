@@ -123,6 +123,7 @@ export function LineChart({
   fillTo,
   showLabels = true,
   labelStep = 3,
+  average = false,
 }: {
   data: ChartDatum[];
   height?: number;
@@ -130,6 +131,8 @@ export function LineChart({
   fillTo?: [string, string];
   showLabels?: boolean;
   labelStep?: number;
+  /** 在「有记录的天」的均值处画一条虚线 + 角标（全 0 时不画）。分母不含 0 天，避免被空白日稀释 */
+  average?: boolean;
 }) {
   const { colors } = useTheme();
   /**
@@ -159,6 +162,12 @@ export function LineChart({
     ? `${linePath} L ${pts[pts.length - 1].x} ${topPad + plotH} L ${pts[0].x} ${topPad + plotH} Z`
     : "";
 
+  // 均值线：只在有数据时计算（全 0 → avg 0 → 不画）
+  const activeDays = data.filter((d) => d.value > 0);
+  const avgValue =
+    average && activeDays.length > 0 ? activeDays.reduce((sum, d) => sum + d.value, 0) / activeDays.length : 0;
+  const avgY = avgValue > 0 ? topPad + plotH - (avgValue / max) * plotH : null;
+
   const gid = "lineFill";
 
   return (
@@ -181,6 +190,19 @@ export function LineChart({
             />
           ))}
           {areaPath ? <Path d={areaPath} fill={`url(#${gid})`} /> : null}
+          {avgY !== null ? (
+            <>
+              <Path
+                d={`M ${leftPad} ${avgY} L ${leftPad + plotW} ${avgY}`}
+                stroke={colors.textFaint}
+                strokeWidth={1}
+                strokeDasharray="4 4"
+              />
+              <SvgText x={leftPad + plotW} y={avgY - 4} fontSize={9} fill={colors.textFaint} textAnchor="end">
+                {`均 ${Math.round(avgValue)} 分`}
+              </SvgText>
+            </>
+          ) : null}
           {linePath ? <Path d={linePath} fill="none" stroke={stroke} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" /> : null}
           {pts.map((p, i) => (
             <Circle key={i} cx={p.x} cy={p.y} r={i === pts.length - 1 ? 4.5 : 3} fill={colors.surfaceStrong} stroke={stroke} strokeWidth={2.5} />

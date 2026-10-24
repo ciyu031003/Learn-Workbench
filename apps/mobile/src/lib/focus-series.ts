@@ -105,3 +105,67 @@ export function heatColor(minutes: number): string {
 
 /** 热力图色阶图例（与 heatColor 的阈值一一对应，别再各写一份） */
 export const HEAT_LEGEND = ["#F1E7D4", "#FBE0B3", "#F5A34B", "#E35D2F"];
+
+/**
+ * 本周 vs 上周（last14 与 `computeFocusStats().last14` 同源：0..6 = 上周、7..13 = 本周含今天）。
+ * 不足 14 天（新用户）返回 null，界面不显示环比。
+ */
+export interface WeekCompare {
+  thisWeek: number;
+  lastWeek: number;
+  /** 本周 − 上周（分钟，正 = 增长） */
+  delta: number;
+}
+
+export function buildWeekCompare(last14: { minutes: number }[]): WeekCompare | null {
+  if (last14.length < 14) return null;
+  const lastWeek = last14.slice(0, 7).reduce((sum, day) => sum + day.minutes, 0);
+  const thisWeek = last14.slice(7).reduce((sum, day) => sum + day.minutes, 0);
+  return { thisWeek, lastWeek, delta: thisWeek - lastWeek };
+}
+
+/** 黄金时段：全部会话里累计分钟最多的时段（统计口径与 buildPeriodBars 一致） */
+export interface PeakPeriod {
+  label: string;
+  /** 如 "18:00–22:00" */
+  range: string;
+  minutes: number;
+}
+
+export function buildPeakPeriod(sessions: FocusSession[]): PeakPeriod | null {
+  const totals = PERIODS.map(() => 0);
+  for (const session of sessions) {
+    const d = new Date(session.startedAt);
+    if (Number.isNaN(d.getTime())) continue;
+    const idx = PERIODS.findIndex((p) => d.getHours() >= p.start && d.getHours() < p.end);
+    if (idx >= 0) totals[idx] += sessionMinutes(session);
+  }
+  let best = -1;
+  for (let i = 0; i < totals.length; i += 1) {
+    if (totals[i] > 0 && (best < 0 || totals[i] > totals[best])) best = i;
+  }
+  if (best < 0) return null;
+  const period = PERIODS[best];
+  const hh = (n: number) => String(n).padStart(2, "0");
+  return {
+    label: period.label,
+    range: `${hh(period.start)}:00–${hh(period.end)}:00`,
+    minutes: totals[best],
+  };
+}
+
+/**
+ * 热力图列的月份标：每列取该列第一天的月份，与前列不同 → "M月"，同月 → null。
+ * 渲染层用绝对定位放到列起点上（文本比格子宽，不能进固定宽的格子）。
+ */
+export function buildHeatMonthMarks(heatmap: { key: string }[][]): (string | null)[] {
+  let prevMonth = -1;
+  return heatmap.map((week) => {
+    const first = week[0]?.key;
+    if (!first) return null;
+    const month = Number(first.slice(5, 7));
+    if (Number.isNaN(month) || month === prevMonth) return null;
+    prevMonth = month;
+    return `${month}月`;
+  });
+}

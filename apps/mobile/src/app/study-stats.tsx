@@ -19,8 +19,11 @@ import {
   addDays,
   buildDailySeries,
   buildDayMinutesMap,
+  buildHeatMonthMarks,
   buildHeatmap,
+  buildPeakPeriod,
   buildPeriodBars,
+  buildWeekCompare,
   heatColor,
   localKey,
   weekdayName,
@@ -60,7 +63,14 @@ export default function StudyStatsScreen() {
   const stats = useMemo(() => computeFocusStats(sessions), [sessions]);
   const heatmap = useMemo(() => buildHeatmap(sessions), [sessions]);
   const contentRows = contentTab === "today" ? stats.byContent : stats.weekByContent;
+  const contentTotalMinutes = contentRows.reduce((sum, row) => sum + row.minutes, 0);
   const maxContentMinutes = contentRows.reduce((m, r) => Math.max(m, r.minutes), 0);
+  /** 本周 vs 上周环比（不足 14 天记录 → null 不显示） */
+  const weekCompare = useMemo(() => buildWeekCompare(stats.last14), [stats.last14]);
+  /** 黄金时段（全部会话累计分钟最多的时段） */
+  const peakPeriod = useMemo(() => buildPeakPeriod(sessions), [sessions]);
+  /** 热力图 12 列的月份标（换月列才有文案） */
+  const heatMonthMarks = useMemo(() => buildHeatMonthMarks(heatmap), [heatmap]);
 
   const selectedKey = localKey(statDate);
   const isStatToday = selectedKey === localKey(new Date());
@@ -155,6 +165,24 @@ export default function StudyStatsScreen() {
                 <ThemedIcon name="flame-outline" size={14} color={colors.accentStrong} />
                 <Text style={styles.heroSub}>连续 {stats.streak} 天 · 今日 {stats.todaySessions} 次</Text>
               </View>
+              {weekCompare && weekCompare.lastWeek > 0 ? (
+                <View
+                  style={[
+                    styles.deltaChip,
+                    weekCompare.delta >= 0 ? styles.deltaUp : styles.deltaDown,
+                  ]}
+                  accessibilityLabel={`本周比上周${weekCompare.delta >= 0 ? "多" : "少"} ${formatDuration(Math.abs(weekCompare.delta))}`}
+                >
+                  <ThemedIcon
+                    name={weekCompare.delta >= 0 ? "trending-up-outline" : "trending-down-outline"}
+                    size={13}
+                    color={weekCompare.delta >= 0 ? colors.success : colors.danger}
+                  />
+                  <Text style={[styles.deltaText, weekCompare.delta >= 0 ? { color: colors.success } : { color: colors.danger }]}>
+                    本周较上周 {weekCompare.delta >= 0 ? "+" : "−"}{formatDuration(Math.abs(weekCompare.delta))}
+                  </Text>
+                </View>
+              ) : null}
             </View>
           </View>
 
@@ -211,16 +239,18 @@ export default function StudyStatsScreen() {
             </Text>
           ) : (
             <View style={styles.contentList}>
-              {contentRows.map((row) => (
-                <View key={row.label} style={styles.contentRow}>
-                  <View style={styles.contentTop}>
-                    <Text style={styles.contentLabel} numberOfLines={1}>
-                      {row.label}
-                    </Text>
-                    <Text style={styles.contentMeta}>
-                      {formatDuration(row.minutes)} · {row.sessions} 次
-                    </Text>
-                  </View>
+              {contentRows.map((row) => {
+                const share = contentTotalMinutes > 0 ? Math.round((row.minutes / contentTotalMinutes) * 100) : 0;
+                return (
+                  <View key={row.label} style={styles.contentRow}>
+                    <View style={styles.contentTop}>
+                      <Text style={styles.contentLabel} numberOfLines={1}>
+                        {row.label}
+                      </Text>
+                      <Text style={styles.contentMeta}>
+                        {formatDuration(row.minutes)} · {row.sessions} 次{share > 0 ? ` · 占 ${share}%` : ""}
+                      </Text>
+                    </View>
                   <View style={styles.contentTrack}>
                     <View
                       style={[
@@ -233,7 +263,8 @@ export default function StudyStatsScreen() {
                     />
                   </View>
                 </View>
-              ))}
+                );
+              })}
             </View>
           )}
         </Card>
@@ -241,6 +272,21 @@ export default function StudyStatsScreen() {
         {/* 可学习时长分布（近 12 周热力图） */}
         <Card style={styles.panel}>
           <SectionHeader title="可学习时长分布" subtitle="近 12 周 · 颜色越深专注越多" accentColor={colors.accent} />
+          {/* 月份标：文本比格子宽，绝对定位到换月列的起点上（heatWidth 量宽后才能定位） */}
+          {heatWidth > 0 ? (
+            <View style={styles.heatMarks} pointerEvents="none" importantForAccessibility="no-hide-descendants">
+              {heatMonthMarks.map((mark, wi) =>
+                mark ? (
+                  <Text
+                    key={wi}
+                    style={[styles.heatMark, { left: wi * (heatCell + HEAT_GAP) }]}
+                  >
+                    {mark}
+                  </Text>
+                ) : null
+              )}
+            </View>
+          ) : null}
           <View style={styles.heat} onLayout={onHeatLayout}>
             {heatmap.map((week, wi) => (
               <View key={wi} style={[styles.heatWeek, { gap: HEAT_GAP }]}>
@@ -278,10 +324,18 @@ export default function StudyStatsScreen() {
             subtitle={`${statDate.getMonth() + 1}月${statDate.getDate()}日 · 学习 ${formatDuration(selectedMinutes)}`}
             accentColor={colors.accent}
           />
+          {peakPeriod ? (
+            <View style={styles.peakRow} accessibilityLabel={`黄金时段是${peakPeriod.label}${peakPeriod.range}，累计专注 ${formatDuration(peakPeriod.minutes)}`}>
+              <ThemedIcon name="flash-outline" size={14} color={colors.warning} />
+              <Text style={styles.peakText}>
+                黄金时段：{peakPeriod.label}（{peakPeriod.range}）· 累计专注 {formatDuration(peakPeriod.minutes)}
+              </Text>
+            </View>
+          ) : null}
           <Text style={styles.chartLabel}>时段分布</Text>
           <BarChart data={periodBars} height={150} color={colors.primary} colorTo={colors.primarySoft} />
           <Text style={[styles.chartLabel, styles.chartLabelGap]}>近 14 天学习时长</Text>
-          <LineChart data={dailySeries} height={150} color={colors.accent} />
+          <LineChart data={dailySeries} height={150} color={colors.accent} average />
         </Card>
       </Animated.ScrollView>
 
@@ -340,6 +394,19 @@ const makeStyles = (colors: ThemeColors) =>
     heroValue: { ...typography.title1, fontWeight: "800", color: colors.text, ...tabularNums },
     heroSubRow: { flexDirection: "row", alignItems: "center", gap: 4 },
     heroSub: { ...typography.caption, color: colors.textSecondary, fontWeight: "600" },
+    deltaChip: {
+      alignSelf: "flex-start",
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      borderRadius: radius.pill,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      marginTop: 2,
+    },
+    deltaUp: { backgroundColor: colors.successSoft },
+    deltaDown: { backgroundColor: colors.dangerSoft },
+    deltaText: { ...typography.micro, fontWeight: "800", ...tabularNums },
 
     miniGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     mini: {
@@ -383,6 +450,15 @@ const makeStyles = (colors: ThemeColors) =>
     contentEmpty: { ...typography.caption, color: colors.textMuted },
 
     heat: { flexDirection: "row", gap: 4, alignItems: "flex-start" },
+    /** 月份标行：标签绝对定位（文本比格子宽，不进格子）；高度按 micro 行高给 */
+    heatMarks: { position: "relative", height: typography.micro.lineHeight, marginLeft: 0 },
+    heatMark: {
+      position: "absolute",
+      top: 0,
+      ...typography.micro,
+      color: colors.textMuted,
+      fontWeight: "700",
+    },
     heatWeek: { gap: 4 },
     heatCell: { width: 13, height: 13, borderRadius: 4 },
     heatCellActive: { borderWidth: 2, borderColor: colors.primary },
@@ -392,4 +468,14 @@ const makeStyles = (colors: ThemeColors) =>
 
     chartLabel: { ...typography.caption, fontWeight: "700", color: colors.text },
     chartLabelGap: { marginTop: 6 },
+    peakRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      borderRadius: radius.md,
+      backgroundColor: colors.warningSoft,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+    },
+    peakText: { flex: 1, ...typography.caption, color: colors.textSecondary, fontWeight: "700" },
   });
