@@ -22,6 +22,7 @@ import {
 import { flushLearningAttempts, syncLearningAttempt } from "@/lib/learning-sync";
 import { fetchDueReviewKeys } from "@/lib/learning-review";
 import { CelebrationModal } from "@/components/celebration-modal";
+import { QuestionSwipe } from "@/components/question-swipe";
 import { RichText } from "@/components/rich-text";
 import { celebrationSummary, celebrationTone } from "@/lib/celebration-copy";
 import { useAppStore } from "@/store/app-store";
@@ -185,6 +186,15 @@ function SessionContent({
     setSubmitted(false);
   };
 
+  /** 上一题（v1.50：左右滑动 + 上一题按钮共用）：回到已答过的题重新看/重做，作答记录照常追加 */
+  const previous = () => {
+    if (index <= 0) return;
+    haptics.soft();
+    setIndex((value) => value - 1);
+    setSelected([]);
+    setSubmitted(false);
+  };
+
   const restart = () => {
     // 字符串 href（防同名路由 params 冻结）：seed 每次换新 → 换一组题
     const query = [`track=${encodeURIComponent(track.slug)}`, `mode=${encodeURIComponent(mode)}`, `seed=${Date.now()}`];
@@ -265,6 +275,13 @@ function SessionContent({
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
+        {/* v1.50：左右滑动切换题目（右滑上一题 / 左滑下一题，边界橡皮筋） */}
+        <QuestionSwipe
+          canPrev={index > 0}
+          canNext={index + 1 < questions.length}
+          onPrev={previous}
+          onNext={next}
+        >
         <Animated.View key={question.key} entering={reduced ? undefined : FadeIn.duration(220)} exiting={reduced ? undefined : FadeOut.duration(120)} style={styles.questionCard}>
           <View style={styles.questionTop}>
             <Text style={[styles.questionStage, { color: track.accent }]}>
@@ -314,6 +331,12 @@ function SessionContent({
               );
             })}
           </View>
+          {index === 0 && questions.length > 1 ? (
+            <View style={styles.swipeHintRow}>
+              <ThemedIcon name="swap-horizontal-outline" size={13} color={colors.textFaint} />
+              <Text style={styles.swipeHintText}>左右滑动切换题目</Text>
+            </View>
+          ) : null}
         </Animated.View>
 
         {submitted ? (
@@ -340,9 +363,20 @@ function SessionContent({
             ) : null}
           </Animated.View>
         ) : null}
+        </QuestionSwipe>
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: quizFooterPaddingBottom(insets.bottom) }]}>
+      <View style={[styles.footer, styles.footerRow, { paddingBottom: quizFooterPaddingBottom(insets.bottom) }]}>
+        {index > 0 ? (
+          <PressableScale
+            haptic
+            onPress={previous}
+            style={styles.secondaryButton}
+            accessibilityLabel="上一题"
+          >
+            <ThemedIcon name="chevron-back" size={17} color={colors.text} />
+          </PressableScale>
+        ) : null}
         {!submitted ? (
           <PressableScale
             haptic
@@ -457,7 +491,21 @@ const makeStyles = (colors: ThemeColors) =>
     sourceRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingTop: spacing.md },
     sourceText: { flex: 1, ...typography.caption, color: colors.textMuted },
     footer: { position: "absolute", left: 0, right: 0, bottom: 0, padding: spacing.lg, backgroundColor: colors.canvas, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
-    primaryButton: { minHeight: 52, borderRadius: radius.md, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm },
+    footerRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+    swipeHintRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, marginTop: spacing.sm },
+    swipeHintText: { ...typography.micro, color: colors.textFaint },
+    primaryButton: { flex: 1, minHeight: 52, borderRadius: radius.md, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm },
+    /** 上一题（v1.50）：与主按钮并排；44pt 命中区 */
+    secondaryButton: {
+      width: 52,
+      minHeight: 52,
+      borderRadius: radius.md,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
     primaryButtonText: { ...typography.headline, color: "#FFFFFF" },
     finishWrap: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xl, gap: spacing.md },
     finishIcon: { width: 80, height: 80, borderRadius: 28, alignItems: "center", justifyContent: "center" },

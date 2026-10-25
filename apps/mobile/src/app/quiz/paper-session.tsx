@@ -6,6 +6,7 @@ import Animated from "react-native-reanimated";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
 import { CelebrationModal } from "@/components/celebration-modal";
+import { QuestionSwipe } from "@/components/question-swipe";
 import { QuestionBlocks } from "@/components/question-blocks";
 import { RichText } from "@/components/rich-text";
 import { celebrationSummary, celebrationTone, type CelebrationTone } from "@/lib/celebration-copy";
@@ -226,6 +227,13 @@ function PaperSession({ year, start }: { year: number; start: number }) {
         </Animated.View>
 
         {question ? (
+          /* v1.50：左右滑动切题（右滑上一题 / 左滑下一题；最后一题左滑 = 查看结果，与按钮一致） */
+          <QuestionSwipe
+            canPrev={index > 0}
+            canNext
+            onPrev={previous}
+            onNext={next}
+          >
           <Animated.View entering={entrance(1)} style={styles.questionCard}>
             <View style={styles.meta}>
               <View style={styles.numberBadge}>
@@ -277,6 +285,13 @@ function PaperSession({ year, start }: { year: number; start: number }) {
                     </PressableScale>
                   );
                 })}
+              </View>
+            ) : null}
+
+            {index === 0 && paper.questions.length > 1 ? (
+              <View style={styles.swipeHintRow}>
+                <ThemedIcon name="swap-horizontal-outline" size={13} color={colors.textFaint} />
+                <Text style={styles.swipeHintText}>左右滑动切换题目</Text>
               </View>
             ) : null}
 
@@ -372,6 +387,7 @@ function PaperSession({ year, start }: { year: number; start: number }) {
               </View>
             </View>
           </Animated.View>
+          </QuestionSwipe>
         ) : null}
       </Animated.ScrollView>
     </View>
@@ -600,6 +616,8 @@ const makeStyles = (colors: ThemeColors) =>
     answerText: { ...typography.callout, color: colors.textSecondary, lineHeight: 22 },
     videoLink: { minHeight: 42, flexDirection: "row", alignItems: "center", gap: spacing.sm },
     videoText: { ...typography.callout, fontWeight: "700", color: colors.primary },
+    swipeHintRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4 },
+    swipeHintText: { ...typography.micro, color: colors.textFaint },
     actions: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
     actionsRight: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
     primaryButton: {
