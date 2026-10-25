@@ -186,27 +186,20 @@ function KnowledgeReader({
 
   const openTopic = (stageKey: string, topicKey: string) => {
     setOutlineOpen(false);
-    router.replace({
-      pathname: "/quiz/read",
-      params: {
-        track: track.slug,
-        stage: stageKey,
-        topic: topicKey,
-        ...(returnTo ? { returnTo } : {}),
-      },
-    } as never);
+    // 字符串 href（防同名路由 params 冻结：目录里换节时 replace 也要带上全新参数）
+    const query = [
+      `track=${encodeURIComponent(track.slug)}`,
+      `stage=${encodeURIComponent(stageKey)}`,
+      `topic=${encodeURIComponent(topicKey)}`,
+    ];
+    if (returnTo) query.push(`returnTo=${encodeURIComponent(returnTo)}`);
+    router.replace(`/quiz/read?${query.join("&")}` as never);
   };
 
   const startTopicPractice = (topicKey: string) => {
-    router.push({
-      pathname: "/quiz/session",
-      params: {
-        track: track.slug,
-        stage: stage.key,
-        topic: topicKey,
-        mode: "stage",
-      },
-    } as never);
+    router.push(
+      `/quiz/session?track=${encodeURIComponent(track.slug)}&stage=${encodeURIComponent(stage.key)}&topic=${encodeURIComponent(topicKey)}&mode=stage` as never,
+    );
   };
 
   return (

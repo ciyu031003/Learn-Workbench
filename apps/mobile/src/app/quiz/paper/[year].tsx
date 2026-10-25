@@ -72,11 +72,11 @@ function PaperContent({ year }: { year: number }) {
 
   const choiceCount = paper.questions.filter((item) => item.type === "choice").length;
   const comprehensiveCount = paper.questions.length - choiceCount;
+  // 字符串 href（防同名路由 params 冻结：start 是动态值）
   const start = (number?: number) =>
-    router.push({
-      pathname: "/quiz/paper-session",
-      params: { year: String(year), ...(number ? { start: String(number) } : {}) },
-    } as never);
+    router.push(
+      `/quiz/paper-session?year=${year}${number ? `&start=${number}` : ""}` as never,
+    );
 
   return (
     <View style={styles.root}>

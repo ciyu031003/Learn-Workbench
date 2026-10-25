@@ -95,22 +95,13 @@ export default function QuizReviewScreen() {
   const localQueues = useMemo(() => groupByTrack(localWrong, attempts), [localWrong, attempts]);
 
   const startReview = (trackSlug: string, mode: "due" | "wrong") => {
-    router.push({
-      pathname: "/quiz/session",
-      params: { track: trackSlug, mode },
-    } as never);
+    router.push(`/quiz/session?track=${encodeURIComponent(trackSlug)}&mode=${mode}` as never);
   };
 
   const startWeakTopic = (topic: LearningWeakTopic) => {
-    router.push({
-      pathname: "/quiz/session",
-      params: {
-        track: topic.trackSlug,
-        mode: "due",
-        stage: topic.stageKey,
-        topic: topic.topicKey,
-      },
-    } as never);
+    router.push(
+      `/quiz/session?track=${encodeURIComponent(topic.trackSlug)}&mode=due&stage=${encodeURIComponent(topic.stageKey)}&topic=${encodeURIComponent(topic.topicKey)}` as never,
+    );
   };
 
   const runAction = async (

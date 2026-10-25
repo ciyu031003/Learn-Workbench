@@ -28,6 +28,7 @@ import {
   exam408ChapterPreview,
   exam408DisplayTags,
   exam408OverviewStats,
+  exam408PointHref,
   resolveExam408Subject,
 } from "@/lib/exam-408-view";
 import { useScreenEntrance } from "@/lib/use-screen-entrance";
@@ -154,23 +155,17 @@ function Exam408Content({ track }: { track: LearningTrack }) {
     setChapterSheetSnapshot(null);
     setPendingPointKey("");
     if (!pointKey) return;
-    router.push({
-      pathname: "/quiz/408-point",
-      params: { key: pointKey },
-    } as never);
+    // 字符串 href（而非 {pathname, params} 对象形式）：对象形式在 native-stack 重复
+    // 推入同名路由时 params 会冻结在首次值 → 点开任何章节都显示第一次的知识点（v1.50 修复）
+    router.push(exam408PointHref(pointKey) as never);
   }, [pendingPointKey]);
 
   const startTrackPractice = (stageKey?: string, topicKey?: string) => {
-    router.push({
-      pathname: "/quiz/session",
-      params: {
-        track: track.slug,
-        mode: "stage",
-        ...(stageKey ? { stage: stageKey } : {}),
-        ...(topicKey ? { topic: topicKey } : {}),
-        returnTo: "/exam-408",
-      },
-    } as never);
+    // 同上：字符串 href 防同名路由 params 冻结（stage/topic 是动态值）
+    const query = [`track=${encodeURIComponent(track.slug)}`, "mode=stage", `returnTo=${encodeURIComponent("/exam-408")}`];
+    if (stageKey) query.push(`stage=${encodeURIComponent(stageKey)}`);
+    if (topicKey) query.push(`topic=${encodeURIComponent(topicKey)}`);
+    router.push(`/quiz/session?${query.join("&")}` as never);
   };
 
   return (

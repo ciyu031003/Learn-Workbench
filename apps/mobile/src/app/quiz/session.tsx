@@ -186,16 +186,11 @@ function SessionContent({
   };
 
   const restart = () => {
-    router.replace({
-      pathname: "/quiz/session",
-      params: {
-        track: track.slug,
-        mode,
-        ...(stageKey ? { stage: stageKey } : {}),
-        ...(topicKey ? { topic: topicKey } : {}),
-        seed: String(Date.now()),
-      },
-    } as never);
+    // 字符串 href（防同名路由 params 冻结）：seed 每次换新 → 换一组题
+    const query = [`track=${encodeURIComponent(track.slug)}`, `mode=${encodeURIComponent(mode)}`, `seed=${Date.now()}`];
+    if (stageKey) query.push(`stage=${encodeURIComponent(stageKey)}`);
+    if (topicKey) query.push(`topic=${encodeURIComponent(topicKey)}`);
+    router.replace(`/quiz/session?${query.join("&")}` as never);
   };
 
   if (finished) {
@@ -210,14 +205,9 @@ function SessionContent({
         router.back();
         return;
       }
-      router.push({
-        pathname: "/quiz/read",
-        params: {
-          track: track.slug,
-          stage: knowledgeStageKey,
-          ...(topicKey ? { topic: topicKey } : {}),
-        },
-      } as never);
+      const query = [`track=${encodeURIComponent(track.slug)}`, `stage=${encodeURIComponent(knowledgeStageKey)}`];
+      if (topicKey) query.push(`topic=${encodeURIComponent(topicKey)}`);
+      router.push(`/quiz/read?${query.join("&")}` as never);
     };
     return (
       <View style={styles.root}>

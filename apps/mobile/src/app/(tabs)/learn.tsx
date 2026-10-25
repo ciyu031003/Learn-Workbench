@@ -739,10 +739,10 @@ export default function LearnScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={`继续学习 ${resume.topicKey}`}
                 onPress={() =>
-                  router.push({
-                    pathname: "/quiz/read",
-                    params: { track: resume.trackSlug, stage: resume.stageKey, topic: resume.topicKey },
-                  } as never)
+                  // 字符串 href（防同名路由 params 冻结）
+                  router.push(
+                    `/quiz/read?track=${encodeURIComponent(resume.trackSlug)}&stage=${encodeURIComponent(resume.stageKey)}&topic=${encodeURIComponent(resume.topicKey)}` as never,
+                  )
                 }
               >
                 <View style={styles.readingIcon}>
@@ -767,10 +767,10 @@ export default function LearnScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={`收藏 ${item.title}`}
                 onPress={() =>
-                  router.push({
-                    pathname: "/quiz/read",
-                    params: { track: item.trackSlug, stage: item.stageKey, topic: item.topicKey },
-                  } as never)
+                  // 字符串 href（防同名路由 params 冻结）
+                  router.push(
+                    `/quiz/read?track=${encodeURIComponent(item.trackSlug)}&stage=${encodeURIComponent(item.stageKey)}&topic=${encodeURIComponent(item.topicKey)}` as never,
+                  )
                 }
               >
                 <View style={styles.readingIcon}>

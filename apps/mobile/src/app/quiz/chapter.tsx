@@ -65,10 +65,10 @@ function ChapterContent({
   );
 
   const startPractice = () => {
-    router.push({
-      pathname: "/quiz/session",
-      params: { track: track.slug, stage: stage.key, mode: "stage" },
-    } as never);
+    // 字符串 href（防同名路由 params 冻结）
+    router.push(
+      `/quiz/session?track=${encodeURIComponent(track.slug)}&stage=${encodeURIComponent(stage.key)}&mode=stage` as never,
+    );
   };
 
   return (
@@ -131,17 +131,16 @@ function ChapterContent({
                 key={topic.key}
                 haptic
                 scaleTo={0.985}
-                onPress={() =>
-                  router.push({
-                    pathname: "/quiz/read",
-                    params: {
-                      track: track.slug,
-                      stage: stage.key,
-                      topic: topic.key,
-                      ...(returnTo ? { returnTo } : {}),
-                    },
-                  } as never)
-                }
+                onPress={() => {
+                  // 字符串 href（防同名路由 params 冻结）
+                  const query = [
+                    `track=${encodeURIComponent(track.slug)}`,
+                    `stage=${encodeURIComponent(stage.key)}`,
+                    `topic=${encodeURIComponent(topic.key)}`,
+                  ];
+                  if (returnTo) query.push(`returnTo=${encodeURIComponent(returnTo)}`);
+                  router.push(`/quiz/read?${query.join("&")}` as never);
+                }}
                 style={styles.topicCard}
               >
                 <View style={[styles.topicNumber, { backgroundColor: trackTint }]}>

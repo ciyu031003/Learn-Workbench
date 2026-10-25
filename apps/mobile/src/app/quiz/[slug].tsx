@@ -72,22 +72,17 @@ function TrackContent({ track }: { track: LearningTrack }) {
     mode: "daily" | "stage" | "wrong" = "daily",
     topicKey?: string
   ) => {
-    router.push({
-      pathname: "/quiz/session",
-      params: {
-        track: track.slug,
-        mode,
-        ...(stageKey ? { stage: stageKey } : {}),
-        ...(topicKey ? { topic: topicKey } : {}),
-      },
-    } as never);
+    // 字符串 href（防同名路由 params 冻结：stage/topic 是动态值，对象形式重复 push 会拿到首次值）
+    const query = [`track=${encodeURIComponent(track.slug)}`, `mode=${encodeURIComponent(mode)}`];
+    if (stageKey) query.push(`stage=${encodeURIComponent(stageKey)}`);
+    if (topicKey) query.push(`topic=${encodeURIComponent(topicKey)}`);
+    router.push(`/quiz/session?${query.join("&")}` as never);
   };
 
   const startKnowledge = (stageKey: string) => {
-    router.push({
-      pathname: "/quiz/chapter",
-      params: { track: track.slug, stage: stageKey },
-    } as never);
+    router.push(
+      `/quiz/chapter?track=${encodeURIComponent(track.slug)}&stage=${encodeURIComponent(stageKey)}` as never,
+    );
   };
 
   return (
