@@ -25,6 +25,7 @@ export const LIGHT_STATE_KEYS = [
   "edgeSwipeEnabled",
   "backgroundEnabled",
   "lastSyncedAt",
+  "lastSyncedSeq",
   "aiTip",
 ] as const;
 

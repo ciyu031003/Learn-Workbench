@@ -141,6 +141,12 @@ interface AppState {
   apiUrl: string | null;
   pendingChanges: PendingChange[];
   lastSyncedAt: string | null;
+  /**
+   * v2.1（评审 2026-10-31）：ledger seq 游标——服务端 sync_changes 的单调序号，
+   * pull 循环翻页的起点。null = 尚未用 v2.1 拉过（首次全量重拉）。与 lastSyncedAt
+   * 并存：serverTime 仍用于展示/legacy 兜底，seq 是唯一拉取进度。
+   */
+  lastSyncedSeq: number | null;
   /** AI 每日建议（按日缓存；未拉到/未登录为 null，前端回落规则版） */
   aiTip: { date: string; text: string } | null;
   /**
@@ -195,6 +201,8 @@ interface AppState {
   /** 清空推送队列；传入本批已成功推送的变更时按引用/幂等键精确移除（分批推送用） */
   clearPendingChanges: (sent?: PendingChange[]) => void;
   setLastSyncedAt: (t: string | null) => void;
+  /** v2.1：ledger seq 游标（见 lastSyncedSeq 注释） */
+  setLastSyncedSeq: (seq: number | null) => void;
   setAiTip: (text: string) => void;
 }
 
@@ -237,6 +245,7 @@ export const useAppStore = create<AppState>()(
       apiUrl: null,
       pendingChanges: [],
       lastSyncedAt: null,
+      lastSyncedSeq: null,
       aiTip: null,
       // null = 跟随平台默认（iOS 开 / Android 关），用户手动开关后才写入显式值
       edgeSwipeEnabled: null,
@@ -392,6 +401,9 @@ export const useAppStore = create<AppState>()(
                 entityId: next.clientId || "srv-" + next.id,
                 operation: "UPDATE",
                 version: 1,
+                // changeId 缺失会让服务端按 (user_id, change_id) 的幂等去重失效：
+                // 推送超时重试时这条 UPDATE 会被重复应用（评审 P2，2026-10-31）
+                changeId: uid(),
                 payload: { ...next, updatedAt: now },
                 updatedAt: now,
               });
@@ -418,6 +430,7 @@ export const useAppStore = create<AppState>()(
           habitLogs: [],
           pendingChanges: [],
           lastSyncedAt: null,
+          lastSyncedSeq: null,
         }),
 
       resetForLogout: () => {
@@ -437,6 +450,7 @@ export const useAppStore = create<AppState>()(
           habitLogs: [],
           pendingChanges: [],
           lastSyncedAt: null,
+          lastSyncedSeq: null,
           aiTip: null,
           token: null,
           username: null,
@@ -950,6 +964,7 @@ export const useAppStore = create<AppState>()(
         }));
       },
       setLastSyncedAt: (t) => set({ lastSyncedAt: t }),
+      setLastSyncedSeq: (seq) => set({ lastSyncedSeq: seq }),
       setAiTip: (text) => set({ aiTip: { date: todayISO(), text } }),
       });
     },

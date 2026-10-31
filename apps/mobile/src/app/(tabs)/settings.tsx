@@ -9,8 +9,7 @@ import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useScreenEntrance } from "@/lib/use-screen-entrance";
 import { useScrollToTopHandler } from "@/lib/scroll-to-top";
 import { getApiUrl } from "@/config";
-import { syncPush, syncPull } from "@/lib/sync";
-import { discardForeignPendingChanges, useSyncEngineStatus } from "@/lib/sync-engine";
+import { discardForeignPendingChanges, requestSync, useSyncEngineStatus } from "@/lib/sync-engine";
 import { clockSkewHint, useServerClock } from "@/lib/sync-clock";
 import {
   APP_ICP_NUMBER,
@@ -68,7 +67,8 @@ export default function SettingsScreen() {
   const clock = useServerClock();
 
   const [authOpen, setAuthOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
+  // 手动同步按钮的 loading 跟随引擎状态（v2.1：手动同步已并入引擎 single-flight）
+  const busy = engine.syncing;
   const [msg, setMsg] = useState<string | null>(null);
   const [updateState, setUpdateState] = useState<"idle" | "checking" | "latest" | "update" | "failed">("idle");
   // v7 P1：主题改为弹层选择（分组卡片范式里没有折叠卡）
@@ -127,36 +127,25 @@ export default function SettingsScreen() {
     }
   };
 
-  const doPush = async () => {
+  // v2.1（评审 2026-10-31）：手动同步改走引擎 single-flight——此前直接调 syncPush/syncPull，
+  // 会绕过 runSync 的 running 守卫与自动同步并发执行（同一批 pending 被两路发送、pull 双写）。
+  // requestSync 在引擎空闲时立即跑一轮（推送 + 拉取），running 时只置 dirty、本轮结束自动补跑。
+  const doPush = () => {
     if (!token) return;
     // 手动同步前同样校验归属，避免把上一个账号的离线队列推给当前 Bearer
     discardForeignPendingChanges("手动同步");
-    setBusy(true);
     setMsg(null);
-    try {
-      await syncPush(token);
-      haptics.success();
-      setMsg("已一键同步到云端");
-    } catch (e) {
-      setMsg(e instanceof Error ? e.message : "同步失败");
-    } finally {
-      setBusy(false);
-    }
+    requestSync();
+    haptics.success();
+    setMsg("已加入同步队列：推送 + 拉取");
   };
 
-  const doPull = async () => {
+  const doPull = () => {
     if (!token) return;
-    setBusy(true);
     setMsg(null);
-    try {
-      await syncPull(token);
-      haptics.soft();
-      setMsg("已从云端拉取最新数据");
-    } catch (e) {
-      setMsg(e instanceof Error ? e.message : "拉取失败");
-    } finally {
-      setBusy(false);
-    }
+    requestSync();
+    haptics.soft();
+    setMsg("已加入同步队列：推送 + 拉取");
   };
 
   const checkUpdate = async () => {
