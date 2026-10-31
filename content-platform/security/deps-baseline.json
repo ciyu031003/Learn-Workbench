@@ -1,19 +1,42 @@
 {
   "_comment": "依赖漏洞基线（棘轮）：只许减少。由 node scripts/check-deps-audit.mjs --update 写入。更新时必须说明原因（修了什么 / 为什么新增可接受）。",
-  "updatedAt": "2026-10-11T14:16:51.486Z",
+  "updatedAt": "2026-10-31T04:22:42.566Z",
   "registry": "https://registry.npmjs.org",
   "counts": {
     "info": 0,
-    "low": 0,
-    "moderate": 1,
-    "high": 4,
+    "low": 5,
+    "moderate": 12,
+    "high": 11,
     "critical": 0
   },
   "advisories": [
-    "high:braces:GHSA-vfj7-8cjw-p6xm",
+    "high:decode-uri-component:GHSA-qr28-fpjm-wq7f",
     "high:image-size:GHSA-5p2g-fcmc-qvqq",
     "high:image-size:GHSA-w3rx-r6r6-pgpr",
+    "high:node-forge:GHSA-5x38-2vff-x55p",
+    "high:node-forge:GHSA-7wch-p9px-956x",
     "high:node-forge:GHSA-86w9-cpqp-85rv",
-    "moderate:decode-uri-component:GHSA-vcc3-ghjq-m6fr"
+    "high:node-forge:GHSA-8hrf-8g6f-7xwp",
+    "high:node-forge:GHSA-hqq3-7jhf-c5jx",
+    "high:node-forge:GHSA-jc66-7q78-782g",
+    "high:vite:GHSA-587h-7wmj-h5pm",
+    "high:zod:GHSA-mrhx-c7xc-m3w5",
+    "low:deepmerge:GHSA-gcqx-w48m-w2h4",
+    "low:node-forge:GHSA-4487-j8r4-4g2f",
+    "low:node-forge:GHSA-4642-5mcj-2rqw",
+    "low:node-forge:GHSA-h6cr-wjv9-3cpp",
+    "low:vite:GHSA-9jrq-w75r-8gcw",
+    "moderate:@vitest/mocker:GHSA-qxg6-89mg-rqv8",
+    "moderate:@vitest/mocker:GHSA-xp26-3454-mjgp",
+    "moderate:decode-uri-component:GHSA-vcc3-ghjq-m6fr",
+    "moderate:glob:GHSA-3g3m-2fjr-6pw4",
+    "moderate:minimatch:GHSA-g3hv-75wg-m249",
+    "moderate:node-forge:GHSA-525v-9gp9-w22h",
+    "moderate:node-forge:GHSA-5cwg-6vw7-rj6p",
+    "moderate:node-forge:GHSA-6wvx-3r32-xmcg",
+    "moderate:vite:GHSA-698v-4r3x-3vcv",
+    "moderate:vite:GHSA-r825-w8mm-5pxw",
+    "moderate:vite:GHSA-rq7h-c2jc-7f22",
+    "moderate:vite:GHSA-vfpm-58rq-9qcg"
   ]
 }

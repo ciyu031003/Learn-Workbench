@@ -318,6 +318,9 @@ export function FocusTimer({
       persistNow();
       void settleOnExit();
     };
+    // 评审 2026-10-31 P1 修复：此前 onPageHide 只定义未注册（cleanup 里的
+    // removeEventListener 一直在移除一个不存在的监听），刷新/关页结算实际不生效
+    window.addEventListener("pagehide", onPageHide);
 
     // 定时把已学习秒数写进服务端（专注模式；运动模式只在结束时整笔写入）
     const flushId = window.setInterval(() => {
