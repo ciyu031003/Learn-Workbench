@@ -37,6 +37,7 @@
     "drill:ci": "node scripts/drill.mjs --json"
   },
   "devDependencies": {
+    "playwright-core": "^1.62.1",
     "@vitest/coverage-v8": "^4.1.10",
     "turbo": "^2.10.9",
     "vitest": "^4.1.11"

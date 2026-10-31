@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+# 最小权限（评审 2026-10-31 P3）：CI 只需要读代码；任何子步骤都不应拿到写权限 token
+permissions:
+  contents: read
+
 env:
   # E2E/Playwright 相关依赖在 install 阶段不下载浏览器（e2e 作业按需安装）
   PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"

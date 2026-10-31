@@ -38,16 +38,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Download APK
-        run: curl -fsSL --retry 3 -o app.apk "${{ inputs.apk_url }}" && ls -lh app.apk
+        # workflow_dispatch 的 inputs 一律经 env 传入 shell（评审 2026-10-31 P3）：
+        # 直接 ${{ inputs.* }} 内插等于把原始字符串拼进脚本，输入含引号/反引号即成注入面
+        env:
+          INPUT_APK_URL: ${{ inputs.apk_url }}
+        run: curl -fsSL --retry 3 -o app.apk "$INPUT_APK_URL" && ls -lh app.apk
       - name: Sign manifest
         env:
           OTA_SIGNING_KEY_PEM: ${{ secrets.OTA_SIGNING_KEY_PEM }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_CODE: ${{ inputs.code }}
+          INPUT_ROLLOUT: ${{ inputs.rollout }}
+          INPUT_MIN_SUPPORTED: ${{ inputs.min_supported }}
+          INPUT_NOTES: ${{ inputs.notes }}
         run: |
           if [ -z "$OTA_SIGNING_KEY_PEM" ]; then echo "缺少 secret OTA_SIGNING_KEY_PEM"; exit 1; fi
           printf '%s\n' "$OTA_SIGNING_KEY_PEM" > key.pem
-          printf '%s\n' "${{ inputs.notes }}" | tr ';' '\n' > notes.txt
-          node scripts/build-ota-manifest.mjs --apk app.apk --version "${{ inputs.version }}" --code "${{ inputs.code }}" \
-            --key key.pem --rollout "${{ inputs.rollout }}" --min-supported-code "${{ inputs.min_supported }}" \
+          printf '%s\n' "$INPUT_NOTES" | tr ';' '\n' > notes.txt
+          node scripts/build-ota-manifest.mjs --apk app.apk --version "$INPUT_VERSION" --code "$INPUT_CODE" \
+            --key key.pem --rollout "$INPUT_ROLLOUT" --min-supported-code "$INPUT_MIN_SUPPORTED" \
             --notes notes.txt --out mobile-update.json
           rm -f key.pem
       - name: Verify signature with in-app public key

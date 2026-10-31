@@ -23,7 +23,9 @@ COPY packages/shared/package.json packages/shared/package.json
 COPY packages/content/package.json packages/content/package.json
 COPY packages/ui/package.json packages/ui/package.json
 COPY packages/config/package.json packages/config/package.json
-RUN pnpm install --frozen-lockfile || pnpm install
+# 只接受锁文件安装（评审 2026-10-31）：失败回退到非 frozen 会静默装进未锁定的版本，
+# 破坏镜像可复现性与供应链审计口径——失败就让它失败
+RUN pnpm install --frozen-lockfile
 
 # ---------- 构建层 ----------
 FROM base AS builder
