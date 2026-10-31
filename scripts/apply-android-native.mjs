@@ -52,6 +52,14 @@ const SERVICE_BLOCK = [
 
 function patchManifest(text) {
   let out = text;
+  // allowBackup=false（评审 2026-10-31 P3）：业务数据/离线发件箱不随云备份或 adb backup
+  // 迁出。app.json 已配 expo.android.allowBackup（管 prebuild），这里兜底管「存量 manifest
+  // 未重新 prebuild」的场景：改写或补上 application 标签上的属性（幂等）。
+  if (/android:allowBackup="[^"]*"/.test(out)) {
+    out = out.replace(/android:allowBackup="[^"]*"/, 'android:allowBackup="false"');
+  } else if (/<application\b/.test(out) && !/android:allowBackup=/.test(out)) {
+    out = out.replace(/<application\b/, '<application\n      android:allowBackup="false"');
+  }
   for (const p of PERMISSIONS) {
     if (!out.includes(p)) {
       // 插在最后一个 uses-permission 之后

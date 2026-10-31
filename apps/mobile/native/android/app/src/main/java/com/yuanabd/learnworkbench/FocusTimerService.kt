@@ -43,6 +43,9 @@ class FocusTimerService : Service() {
   private var totalMs: Long = 0L
   private var startAtMs: Long = 0L
   private var running = false
+  // 圆环位图缓存（评审 2026-10-31 P3）：此前每秒 createBitmap 新分配 132px ARGB_8888，
+  // 25 分钟会话约 1500 次分配造成 GC 抖动；改为复用同一张，每拍清空重画
+  private var ringCache: Bitmap? = null
 
   private val ticker = object : Runnable {
     override fun run() {
@@ -99,6 +102,8 @@ class FocusTimerService : Service() {
   override fun onDestroy() {
     running = false
     handler.removeCallbacks(ticker)
+    ringCache?.recycle()
+    ringCache = null
     super.onDestroy()
   }
 
@@ -122,7 +127,9 @@ class FocusTimerService : Service() {
 
   /** 圆环位图：底环 + 进度弧（倒计时=已用/总时长 的"消耗"用剩余表示） */
   private fun ringBitmap(progress: Float, sizePx: Int): Bitmap {
-    val bmp = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+    val bmp = ringCache?.takeIf { it.width == sizePx && it.height == sizePx && !it.isRecycled }
+      ?: Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888).also { ringCache = it }
+    bmp.eraseColor(android.graphics.Color.TRANSPARENT)
     val canvas = Canvas(bmp)
     val stroke = sizePx * 0.12f
     val inset = stroke / 2f

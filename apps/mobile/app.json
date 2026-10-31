@@ -19,6 +19,7 @@
       },
       "predictiveBackGestureEnabled": true,
       "softwareKeyboardLayoutMode": "resize",
+      "allowBackup": false,
       "package": "com.yuanabd.learnworkbench",
       "permissions": [
         "android.permission.REQUEST_INSTALL_PACKAGES",
