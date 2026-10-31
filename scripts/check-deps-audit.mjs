@@ -47,6 +47,11 @@ if (auditJsonIdx >= 0 && !process.argv[auditJsonIdx + 1]) {
  * 定位 pnpm 的 **JS 入口**（不是 .cmd 包装器）。
  * 为什么：Windows 上 pnpm.cmd 必须经 cmd.exe 才能执行，而受限环境禁止 spawn cmd.exe（EPERM）。
  * 找到 pnpm.mjs/.cjs 后用 process.execPath 直接跑，既不需要 shell，也不受平台限制。
+ *
+ * CI 教训（2026-10-31）：pnpm/action-setup@v4 在 Linux 上的 PNPM_HOME 里放的是**无扩展名**
+ * 的单文件 JS 入口 `pnpm`（node 可直接执行），按 pnpm.cjs/pnpm.mjs 找永远找不到 →
+ * 依赖门禁在 CI 上 fail-closed 连红两个多月（8-23 起）。因此候选补上无扩展名入口，
+ * 并以 PATH 解析（execFileSync("pnpm")）做最终兜底——返回 "__PATH__" 交由调用方识别。
  */
 function resolvePnpmCli() {
   if (process.env.AUDIT_PNPM) {
@@ -60,15 +65,17 @@ function resolvePnpmCli() {
     path.join(process.env.APPDATA ?? "", "npm", "node_modules", "pnpm", "bin", "pnpm.cjs"),
     path.join(process.env.APPDATA ?? "", "npm", "node_modules", "pnpm", "bin", "pnpm.mjs"),
     path.join(process.env.LOCALAPPDATA ?? "", "pnpm", "pnpm.cjs"),
-    // pnpm 自带 shim 目录
+    // pnpm 自带 shim 目录（action-setup v4 在 CI 上的布局：无扩展名单文件 JS 入口）
     path.join(process.env.PNPM_HOME ?? "", "pnpm.cjs"),
+    path.join(process.env.PNPM_HOME ?? "", "pnpm.js"),
+    path.join(process.env.PNPM_HOME ?? "", "pnpm"),
     // 仓库内（pnpm 作为依赖时）
     path.join(ROOT, "node_modules", "pnpm", "bin", "pnpm.cjs"),
   ];
   for (const c of candidates) {
     if (c && existsSync(c)) return c;
   }
-  return null;
+  return "__PATH__"; // 兜底：PATH 解析（Linux/CI 可用；Windows 无 .cmd 后缀时由调用方 catch）
 }
 
 /** JSON.parse 前先剥掉 UTF-8 BOM —— PowerShell `>` 重定向导出的 JSON 常带 BOM，会直接 SyntaxError。 */
@@ -101,7 +108,10 @@ function execPnpmCapture(args) {
   try {
     fdOut = openSync(outFile, "w");
     fdErr = openSync(errFile, "w");
-    execFileSync(process.execPath, [cli, ...args], {
+    // "__PATH__" 兜底：直接按 PATH 解析 pnpm（CI Linux 上 action-setup 已把它加进 PATH）
+    const cmd = cli === "__PATH__" ? "pnpm" : process.execPath;
+    const cliArgs = cli === "__PATH__" ? args : [cli, ...args];
+    execFileSync(cmd, cliArgs, {
       cwd: ROOT,
       stdio: ["ignore", fdOut, fdErr],
     });
