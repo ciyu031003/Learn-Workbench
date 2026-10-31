@@ -297,9 +297,44 @@ export const syncPullResponseSchema = z.object({
   hasMore: z.boolean().optional(),
   /** 下一页游标；hasMore=false 时为 null */
   cursor: z.string().nullable().optional(),
+  /**
+   * v2.1（ledger 单源 pull）：本页最后一行的 seq（本页为空时 = 请求的起点）。
+   * 客户端持久化它作为下一轮拉取起点，并把它作为平局裁决口径（与 push 回执 seq 同源）。
+   */
+  lastSeq: z.number().int().nonnegative().optional(),
+  /**
+   * v2.1：该用户在 sync_changes 中现存的最小 seq（0 = 无行）。
+   * 维护任务按 90 天修剪 ledger；客户端发现 `ledgerMinSeq > lastSeq + 1` 时说明
+   * 自己的游标已被修剪越过，应重置为 0 全量重拉（否则会静默漏掉被修剪的变更）。
+   */
+  ledgerMinSeq: z.number().int().nonnegative().optional(),
 });
 
 export type SyncPullResponse = z.infer<typeof syncPullResponseSchema>;
+
+/* ============================ pull 游标 v2（ledger seq） ============================ */
+
+/**
+ * v2 游标：`base64url(JSON { v: 2, seq })`，seq = 上一页最后一行的全局单调序号。
+ * 编码/解码放在服务端路由（Node Buffer）；客户端只把它当不透明字符串回传，
+ * seq 数值走响应里的 `lastSeq` 字段，避免移动端自行 base64 解码。
+ */
+export interface SyncPullCursorV2 {
+  v: 2;
+  seq: number;
+}
+
+export function isValidSyncPullCursorV2(value: unknown): value is SyncPullCursorV2 {
+  if (typeof value !== "object" || value === null) return false;
+  const candidate = value as Partial<SyncPullCursorV2>;
+  return candidate.v === 2 && typeof candidate.seq === "number" && Number.isInteger(candidate.seq) && candidate.seq >= 0;
+}
+
+/**
+ * v2.1 请求参数：`sinceSeq`（首次 seq 拉取的起点，等价于 cursor={v:2,seq}）。
+ * 与 legacy `since`（时间窗）互斥：服务端见 sinceSeq/cursor v2 即走 ledger 路径。
+ */
+export const SYNC_PULL_SINCE_SEQ_PARAM = "sinceSeq";
 
 /* ============================ 纯工具（双端共用） ============================ */
 

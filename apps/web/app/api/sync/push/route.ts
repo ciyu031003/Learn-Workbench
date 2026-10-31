@@ -109,6 +109,10 @@ export const POST = withRoute<Record<string, unknown>>(
     const client = await pgPool.connect();
     try {
       await client.query("BEGIN");
+      // v2.1：applyChanges 的实体写入会触发 083 ledger 触发器；本事务的 ledger 记录
+      // 统一由下方 recordSyncChanges 完成（带 change_id 幂等、seq 回填回执），
+      // 故对触发器让路，避免同一变更双记两行。
+      await client.query("SET LOCAL app.sync_ledger = 'off'");
       const result = await applyChanges(client, ownerId, changes);
       // P1：只把成功应用的变更写入幂等表——失败变更若也记 changeId，客户端重试会被
       // 当作"已应用"跳过，造成静默丢数据

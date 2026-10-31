@@ -178,3 +178,50 @@ describe("parseSyncEntityList", () => {
     expect(parseSyncEntityList("tasks,nope")).toEqual({ ok: false, invalid: ["nope"] });
   });
 });
+
+describe("v2.1 ledger pull（评审 2026-10-31）", () => {
+  /** 触发器行（snake_case 原始行）经 ledgerRowToChange 映射后的代表性 payload */
+  const LEDGER_TRIGGER_PAYLOADS: Record<string, unknown> = {
+    tasks: {
+      id: "11", clientId: null, taskDate: "2026-08-13", title: "写周报", phaseId: 3,
+      topicId: null, taskType: "study", careerKey: "backend", done: true,
+      focusMinutes: 25, sortOrder: 2,
+    },
+    habits: {
+      id: "31", clientId: "c-31", name: "饮水", icon: null, isBoolean: true, targetValue: null,
+      unit: null, schedule: [0, 1, 2, 3, 4, 5, 6], color: "#2fb3a6", sortOrder: 0,
+    },
+    habitLogs: { habitClientId: "c-31", logDate: "2026-09-14", value: 2.5, note: null },
+    checkins: { checkinDate: "2026-08-13", note: null },
+  };
+
+  it("触发器行映射出的 payload 通过 syncChangeSchema", () => {
+    for (const [entityType, payload] of Object.entries(LEDGER_TRIGGER_PAYLOADS)) {
+      const parsed = syncChangeSchema.safeParse({
+        entityType,
+        entityId: entityType === "checkins" ? "2026-08-13" : `srv-1`,
+        operation: "UPDATE",
+        version: 1,
+        payload,
+        updatedAt: SHANGHAI,
+      });
+      expect(parsed.success, `${entityType}: ${JSON.stringify(parsed.error?.issues ?? [])}`).toBe(true);
+    }
+  });
+
+  it("v2 响应字段（lastSeq/ledgerMinSeq）在契约内且可缺省", () => {
+    const base = {
+      changes: [],
+      serverTime: SHANGHAI,
+      hasMore: false,
+      cursor: null,
+    };
+    expect(syncPullResponseSchema.safeParse(base).success).toBe(true);
+    expect(
+      syncPullResponseSchema.safeParse({ ...base, lastSeq: 33, ledgerMinSeq: 3 }).success
+    ).toBe(true);
+    expect(
+      syncPullResponseSchema.safeParse({ ...base, lastSeq: -1 }).success
+    ).toBe(false);
+  });
+});

@@ -7,18 +7,27 @@ vi.mock("@/lib/sync-service", async (importOriginal) => {
   return {
     ...mod, // sanitizeDeviceId / sanitizeDeviceName / serverTimeISO 走真实实现
     collectChangesSince: vi.fn(),
+    collectChangesFromLedger: vi.fn(),
+    getLedgerMinSeq: vi.fn(),
     upsertSyncDevice: vi.fn(),
   };
 });
 
 import { currentUserId } from "@/lib/session";
 import { pgPool } from "@/lib/db";
-import { collectChangesSince, upsertSyncDevice } from "@/lib/sync-service";
+import {
+  collectChangesFromLedger,
+  collectChangesSince,
+  getLedgerMinSeq,
+  upsertSyncDevice,
+} from "@/lib/sync-service";
 import { GET } from "./route";
 
 const currentUserIdMock = vi.mocked(currentUserId);
 const connectMock = vi.mocked(pgPool.connect);
 const collectMock = vi.mocked(collectChangesSince);
+const ledgerCollectMock = vi.mocked(collectChangesFromLedger);
+const ledgerMinSeqMock = vi.mocked(getLedgerMinSeq);
 const upsertMock = vi.mocked(upsertSyncDevice);
 
 const AT = "2026-08-13T10:00:00.000Z";
@@ -44,6 +53,8 @@ function change(entityType: string, entityId: string, payload: Record<string, un
 beforeEach(() => {
   vi.clearAllMocks();
   collectMock.mockResolvedValue([] as never);
+  ledgerCollectMock.mockResolvedValue({ changes: [], hasMore: false, lastSeq: 0 });
+  ledgerMinSeqMock.mockResolvedValue(0);
   upsertMock.mockResolvedValue(undefined);
 });
 
@@ -165,5 +176,87 @@ describe("GET /api/sync/pull (v2)", () => {
     const longName = "x".repeat(80);
     await GET(new Request(`http://localhost/api/sync/pull?deviceId=dev-1&deviceName=${longName}`));
     expect(upsertMock).toHaveBeenCalledWith(expect.anything(), "u-1", "dev-1", "x".repeat(50));
+  });
+});
+
+describe("GET /api/sync/pull (v2.1 ledger 单源)", () => {
+  it("sinceSeq=0 走 ledger 路径：返回 lastSeq/ledgerMinSeq，无更多时 cursor 为 null", async () => {
+    currentUserIdMock.mockResolvedValue("u-1");
+    makeClient();
+    const item = change("tasks", "srv-11", { id: "11", title: "t" });
+    ledgerCollectMock.mockResolvedValue({ changes: [item] as never, hasMore: false, lastSeq: 41 });
+    ledgerMinSeqMock.mockResolvedValue(3);
+
+    const res = await GET(new Request("http://localhost/api/sync/pull?sinceSeq=0&deviceId=dev-1"));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.changes).toEqual([item]);
+    expect(json.hasMore).toBe(false);
+    expect(json.cursor).toBeNull();
+    expect(json.lastSeq).toBe(41);
+    expect(json.ledgerMinSeq).toBe(3);
+    expect(ledgerCollectMock).toHaveBeenCalledWith(expect.anything(), "u-1", 0, 500, { entities: undefined });
+    expect(collectMock).not.toHaveBeenCalled();
+    expect(upsertMock).toHaveBeenCalledWith(expect.anything(), "u-1", "dev-1", null);
+  });
+
+  it("取满 limit 时返回 v2 cursor，第二页以 cursor.seq 续拉且两页 lastSeq 单调递增", async () => {
+    currentUserIdMock.mockResolvedValue("u-1");
+    makeClient();
+    ledgerCollectMock.mockResolvedValueOnce({
+      changes: [change("progress", "1", { done: true, note: null }), change("progress", "2", { done: false, note: null })] as never,
+      hasMore: true,
+      lastSeq: 20,
+    });
+    const res = await GET(new Request("http://localhost/api/sync/pull?sinceSeq=0&limit=2"));
+    const json = await res.json();
+    expect(json.hasMore).toBe(true);
+    expect(json.lastSeq).toBe(20);
+
+    // 第二页：带 v2 cursor；路由应把 cursor 解出的 seq 传给 collectChangesFromLedger
+    ledgerCollectMock.mockResolvedValueOnce({
+      changes: [change("progress", "3", { done: true, note: null })] as never,
+      hasMore: false,
+      lastSeq: 33,
+    });
+    const res2 = await GET(
+      new Request(`http://localhost/api/sync/pull?limit=2&cursor=${encodeURIComponent(json.cursor)}`)
+    );
+    const json2 = await res2.json();
+    expect(json2.hasMore).toBe(false);
+    expect(json2.cursor).toBeNull();
+    expect(json2.lastSeq).toBe(33);
+    expect(ledgerCollectMock).toHaveBeenLastCalledWith(expect.anything(), "u-1", 20, 2, { entities: undefined });
+    // 两页 seq 单调递增，客户端据此推进游标
+    expect(json2.lastSeq).toBeGreaterThan(json.lastSeq);
+  });
+
+  it("entities 白名单同样作用于 ledger 路径", async () => {
+    currentUserIdMock.mockResolvedValue("u-1");
+    makeClient();
+    await GET(new Request("http://localhost/api/sync/pull?sinceSeq=5&entities=logs,tasks"));
+    expect(ledgerCollectMock).toHaveBeenCalledWith(expect.anything(), "u-1", 5, 500, {
+      entities: ["tasks", "logs"],
+    });
+  });
+
+  it("拒绝非法 sinceSeq（负数/非整数）", async () => {
+    currentUserIdMock.mockResolvedValue("u-1");
+    makeClient();
+    for (const bad of ["-1", "1.5", "abc"]) {
+      const res = await GET(new Request(`http://localhost/api/sync/pull?sinceSeq=${bad}`));
+      expect(res.status).toBe(400);
+      expect((await res.json()).code).toBe("validation_failed");
+    }
+    expect(ledgerCollectMock).not.toHaveBeenCalled();
+  });
+
+  it("v1 legacy cursor 仍走实体表路径（老客户端语义不变）", async () => {
+    currentUserIdMock.mockResolvedValue("u-1");
+    makeClient();
+    const v1Cursor = Buffer.from(JSON.stringify({ v: 1, offset: 2 }), "utf8").toString("base64url");
+    await GET(new Request(`http://localhost/api/sync/pull?since=2026-08-13T09:00:00.000Z&cursor=${encodeURIComponent(v1Cursor)}`));
+    expect(collectMock).toHaveBeenCalledTimes(1);
+    expect(ledgerCollectMock).not.toHaveBeenCalled();
   });
 });

@@ -43,6 +43,9 @@ export function parseDownContract(sql) {
   const constraints = [...sql.matchAll(/ALTER\s+TABLE\s+([a-z0-9_]+)\s+DROP\s+CONSTRAINT\s+IF\s+EXISTS\s+([a-z0-9_]+)/gi)].map(
     (m) => ({ table: m[1], name: m[2] })
   );
+  // v2.1（083）：触发器/函数也是回滚契约的对象（DROP TRIGGER IF EXISTS x / DROP FUNCTION IF EXISTS x(...)）
+  const triggers = [...sql.matchAll(/DROP\s+TRIGGER\s+IF\s+EXISTS\s+([a-z0-9_]+)/gi)].map((m) => m[1]);
+  const functions = [...sql.matchAll(/DROP\s+FUNCTION\s+IF\s+EXISTS\s+([a-z0-9_]+)/gi)].map((m) => m[1]);
   const columns = [];
   for (const m of sql.matchAll(/ALTER\s+TABLE\s+([a-z0-9_]+)\s+DROP\s+COLUMN\s+IF\s+EXISTS\s+([^;]+);/gi)) {
     const table = m[1];
@@ -52,11 +55,19 @@ export function parseDownContract(sql) {
       columns.push({ table, name: col });
     }
   }
-  return { indexes, constraints, columns };
+  return { indexes, constraints, columns, triggers, functions };
 }
 
 async function indexExists(db, name) {
   const r = await db.query("SELECT 1 FROM pg_class WHERE relkind = 'i' AND relname = $1", [name]);
+  return r.rowCount > 0;
+}
+async function triggerExists(db, name) {
+  const r = await db.query("SELECT 1 FROM pg_trigger WHERE tgname = $1 AND NOT tgisinternal", [name]);
+  return r.rowCount > 0;
+}
+async function functionExists(db, name) {
+  const r = await db.query("SELECT 1 FROM pg_proc WHERE proname = $1", [name]);
   return r.rowCount > 0;
 }
 async function columnExists(db, table, name) {
@@ -116,7 +127,9 @@ async function main() {
         continue;
       }
       const contract = parseDownContract(readFileSync(path.join(DOWN_DIR, downFile), "utf8"));
-      const total = contract.indexes.length + contract.constraints.length + contract.columns.length;
+      const total =
+        contract.indexes.length + contract.constraints.length + contract.columns.length +
+        contract.triggers.length + contract.functions.length;
       if (total === 0) {
         failures.push(`${downFile}: 未解析出任何 DROP 对象，回滚契约形同空文`);
         continue;
@@ -127,6 +140,8 @@ async function main() {
       for (const n of contract.indexes) if (await indexExists(db, n)) leftover.push(`索引 ${n}`);
       for (const c of contract.constraints) if (await constraintExists(db, c.table, c.name)) leftover.push(`约束 ${c.name}`);
       for (const c of contract.columns) if (await columnExists(db, c.table, c.name)) leftover.push(`列 ${c.table}.${c.name}`);
+      for (const n of contract.triggers) if (await triggerExists(db, n)) leftover.push(`触发器 ${n}`);
+      for (const n of contract.functions) if (await functionExists(db, n)) leftover.push(`函数 ${n}`);
       if (leftover.length) failures.push(`${downFile}: 回滚后仍残留 ${leftover.join(", ")}`);
 
       await applyFile(db, path.join(UP_DIR, upFile));
@@ -134,6 +149,8 @@ async function main() {
       for (const n of contract.indexes) if (!(await indexExists(db, n))) missing.push(`索引 ${n}`);
       for (const c of contract.constraints) if (!(await constraintExists(db, c.table, c.name))) missing.push(`约束 ${c.name}`);
       for (const c of contract.columns) if (!(await columnExists(db, c.table, c.name))) missing.push(`列 ${c.table}.${c.name}`);
+      for (const n of contract.triggers) if (!(await triggerExists(db, n))) missing.push(`触发器 ${n}`);
+      for (const n of contract.functions) if (!(await functionExists(db, n))) missing.push(`函数 ${n}`);
       if (missing.length) failures.push(`${upFile}: 重新正向应用后仍缺 ${missing.join(", ")}`);
 
       if (leftover.length === 0 && missing.length === 0) {

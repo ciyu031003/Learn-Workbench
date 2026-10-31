@@ -772,6 +772,217 @@ export async function collectChangesSince(
     });
 }
 
+/* ============================ ledger 单源 pull（v2.1） ============================ */
+
+/**
+ * v2.1（评审 2026-10-31）：pull 的唯一事实源从"实体表 + updated_at 时间窗"迁移到
+ * sync_changes ledger（seq 单调、写入顺序即到达顺序）。
+ *
+ * 为什么：
+ *  - push 采纳客户端 updatedAt（LWW），设备离线补传旧时间戳变更时，其他设备
+ *    时间窗游标已越过该时刻 → 永久不可见（评审 P1）；
+ *  - offset 分页在集合变动时跳条/重复，且每页全量载入内存切片（评审 P0/P2）。
+ * ledger 由 083 触发器对 11 张实体表的全部写路径自动填充；push 路径仍在事务内
+ * recordSyncChanges（带 change_id 幂等），触发器经 `SET LOCAL app.sync_ledger` 让路。
+ */
+
+/** sync_changes 行（pg 原始形态：bigint→string，jsonb→object，timestamptz→Date） */
+interface SyncChangeRow {
+  seq: unknown;
+  entity_type: string;
+  entity_id: string;
+  operation: string;
+  version: unknown;
+  payload: Record<string, unknown> | null;
+  created_at: Date;
+}
+
+/** collect 口径：bigint id 一律 string（pg bigint 默认序列化） */
+const idString = (value: unknown): string | null =>
+  value === null || value === undefined ? null : String(value);
+
+/**
+ * ledger 行 → SyncChange。两种行来源、一种出口：
+ *  - push 行（recordSyncChanges）：payload 已是 shared 契约形状（camelCase），原样透传；
+ *  - 触发器行（083）：payload = to_jsonb(NEW/OLD) 原始 snake_case 行，按实体映射；
+ *    字段逐一对照 collectChangesSince 的 SELECT 别名（本文件上方），保证两路径产出一致。
+ * 软删除（payload.deleted_at 非空）与物理 DELETE 同 collect：operation=DELETE + payload=null。
+ * 返回 null = 白名单外/无法表达的行（调用方跳过）。
+ */
+export function ledgerRowToChange(row: SyncChangeRow): SyncChange | null {
+  const entityType = row.entity_type as SyncEntityType;
+  if (!SYNC_ENTITY_TYPES.includes(entityType)) return null;
+  const p = row.payload;
+  const updatedAt = row.created_at instanceof Date ? row.created_at.toISOString() : new Date(row.created_at).toISOString();
+  const version = Number(row.version);
+  const base = {
+    entityType,
+    entityId: row.entity_id,
+    version: Number.isFinite(version) && version > 0 ? version : 1,
+    updatedAt,
+  } as const;
+
+  if (row.operation === "DELETE") {
+    return { ...base, operation: "DELETE", payload: null };
+  }
+  // 软删除：触发器行存的是 UPDATE 后的整行，deleted_at 非空即视为删除（与 collect 一致）
+  if (p && p.deleted_at !== null && p.deleted_at !== undefined) {
+    return { ...base, operation: "DELETE", payload: null };
+  }
+  if (!p) return null;
+
+  // 双键取值：触发器行 payload 是 snake_case 原始行；push 行 payload 已是契约形状
+  // （camelCase，字段名与 collect 输出一致）。两来源统一出口为 collect 口径的 camelCase。
+  let payload: Record<string, unknown>;
+  switch (entityType) {
+    case "progress":
+      payload = { done: p.done, note: p.note ?? null };
+      break;
+    case "tasks":
+      payload = {
+        id: idString(p.id), clientId: p.clientId ?? p.client_id ?? null,
+        taskDate: p.taskDate ?? p.task_date, title: p.title,
+        phaseId: p.phaseId ?? p.phase_id, topicId: p.topicId ?? p.topic_id,
+        taskType: p.taskType ?? p.task_type, careerKey: p.careerKey ?? p.career_key,
+        done: p.done, focusMinutes: p.focusMinutes ?? p.focus_minutes,
+        sortOrder: p.sortOrder ?? p.sort_order,
+      };
+      break;
+    case "sessions":
+      payload = {
+        id: idString(p.id), clientId: p.clientId ?? p.client_id ?? null,
+        taskId: p.taskId ?? p.task_id,
+        startedAt: p.startedAt ?? p.started_at, endedAt: p.endedAt ?? p.ended_at,
+        durationSeconds: p.durationSeconds ?? p.duration_seconds, tag: p.tag ?? null,
+      };
+      break;
+    case "checkins":
+      payload = { checkinDate: p.checkinDate ?? p.checkin_date, note: p.note ?? null };
+      break;
+    case "logs":
+      payload = {
+        id: idString(p.id), clientId: p.clientId ?? p.client_id ?? null, kind: p.kind,
+        careerKey: p.careerKey ?? p.career_key, title: p.title, content: p.content,
+        createdAt: p.createdAt ?? p.created_at,
+      };
+      break;
+    case "github":
+      payload = {
+        id: idString(p.id), clientId: p.clientId ?? p.client_id ?? null, title: p.title,
+        url: p.url ?? null, content: p.content ?? null,
+      };
+      break;
+    case "customTopics":
+      payload = {
+        id: idString(p.id), clientId: p.clientId ?? p.client_id ?? null,
+        phaseId: p.phaseId ?? p.phase_id, title: p.title, summary: p.summary ?? null,
+        sortOrder: p.sortOrder ?? p.sort_order,
+      };
+      break;
+    case "exerciseLogs":
+      payload = {
+        id: idString(p.id), clientId: p.clientId ?? p.client_id ?? null, type: p.type,
+        typeLabel: p.typeLabel ?? p.type_label ?? null,
+        durationSeconds: p.durationSeconds ?? p.duration_seconds, source: p.source ?? null,
+        note: p.note ?? null, startedAt: p.startedAt ?? p.started_at,
+      };
+      break;
+    case "certificates":
+      payload = {
+        id: idString(p.id), clientId: p.clientId ?? p.client_id ?? null, name: p.name,
+        issuer: p.issuer ?? null, status: p.status,
+        targetDate: p.targetDate ?? p.target_date, earnedDate: p.earnedDate ?? p.earned_date,
+        expiryDate: p.expiryDate ?? p.expiry_date, imageUrl: p.imageUrl ?? p.image_url,
+        sortOrder: p.sortOrder ?? p.sort_order, note: p.note ?? null,
+      };
+      break;
+    case "habits":
+      payload = {
+        id: idString(p.id), clientId: p.clientId ?? p.client_id ?? null, name: p.name,
+        icon: p.icon ?? null, isBoolean: p.isBoolean ?? p.is_boolean,
+        targetValue: (p.targetValue ?? p.target_value) === null || (p.targetValue ?? p.target_value) === undefined
+          ? null
+          : Number(p.targetValue ?? p.target_value),
+        unit: p.unit ?? null,
+        schedule: Array.isArray(p.schedule) ? p.schedule.map(Number) : [0, 1, 2, 3, 4, 5, 6],
+        color: p.color ?? null, sortOrder: p.sortOrder ?? p.sort_order,
+      };
+      break;
+    case "habitLogs":
+      payload = {
+        // 触发器的 entity_id = '<habitClientId>|<logDate>'；push 行 payload 自带 habitClientId
+        habitClientId: typeof p.habitClientId === "string" ? p.habitClientId : row.entity_id.split("|")[0] ?? "",
+        logDate: String(p.logDate ?? p.log_date ?? "").slice(0, 10),
+        value: Number(p.value),
+        note: p.note ?? null,
+      };
+      break;
+    default:
+      return null;
+  }
+  return { ...base, operation: row.operation === "CREATE" ? "CREATE" : "UPDATE", payload };
+}
+
+export interface LedgerCollectResult {
+  changes: SyncChange[];
+  hasMore: boolean;
+  /** 本页最后一行的 seq（本页为空时 = 传入的 afterSeq）；客户端持久化为下一轮起点 */
+  lastSeq: number;
+}
+
+/**
+ * ledger 顺序回放：`seq > afterSeq ORDER BY seq LIMIT n`。
+ * - seq 全局单调 → 新写入自然落在后续页/后续轮，无 offset 跳条问题；
+ * - 多取 1 行判断 hasMore，避免"取满即有下一页"的歧义；
+ * - entities 白名单由 SQL 侧 `entity_type = ANY` 过滤（与 legacy 语义一致）。
+ */
+export async function collectChangesFromLedger(
+  client: PoolClient,
+  uid: string,
+  afterSeq: number,
+  limit: number,
+  options: CollectChangesOptions = {}
+): Promise<LedgerCollectResult> {
+  const wanted = options.entities ?? null;
+  const fetchLimit = limit + 1;
+  const { rows } = wanted
+    ? await client.query(
+        `SELECT seq, entity_type, entity_id, operation, version, payload, created_at
+         FROM sync_changes WHERE user_id = $1 AND seq > $2 AND entity_type = ANY($3)
+         ORDER BY seq LIMIT $4`,
+        [uid, afterSeq, wanted, fetchLimit]
+      )
+    : await client.query(
+        `SELECT seq, entity_type, entity_id, operation, version, payload, created_at
+         FROM sync_changes WHERE user_id = $1 AND seq > $2
+         ORDER BY seq LIMIT $3`,
+        [uid, afterSeq, fetchLimit]
+      );
+
+  const page = rows.slice(0, limit) as SyncChangeRow[];
+  const changes = page
+    .map(ledgerRowToChange)
+    .filter((c): c is SyncChange => c !== null);
+  const lastRow = page[page.length - 1];
+  const lastSeq = lastRow ? Number(lastRow.seq) : afterSeq;
+  return {
+    changes,
+    hasMore: rows.length > limit,
+    lastSeq: Number.isFinite(lastSeq) ? lastSeq : afterSeq,
+  };
+}
+
+/**
+ * 该用户 ledger 现存最小 seq（无行返回 0）。维护任务按 90 天修剪 sync_changes；
+ * 客户端发现 `ledgerMinSeq > lastSeq + 1`（且 lastSeq>0）说明游标已被修剪越过，须重置全量重拉。
+ */
+export async function getLedgerMinSeq(client: PoolClient, uid: string): Promise<number> {
+  const { rows } = await client.query(`SELECT MIN(seq) AS min_seq FROM sync_changes WHERE user_id = $1`, [uid]);
+  const raw = (rows[0] as { min_seq?: unknown } | undefined)?.min_seq;
+  const n = raw === null || raw === undefined ? 0 : Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
 /**
  * 写同步变更日志并用 `RETURNING seq` 取回**单调序号**（S5-2）。
  *

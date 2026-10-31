@@ -2,7 +2,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { PoolClient } from "pg";
 import {
   applyChanges,
+  collectChangesFromLedger,
   collectChangesSince,
+  getLedgerMinSeq,
+  ledgerRowToChange,
   recordSyncChanges,
   serverTimeISO,
   upsertSyncDevice,
@@ -761,5 +764,147 @@ describe("S5-2 serverTimeISO", () => {
   it("固定按 Asia/Shanghai（+08:00）输出 ISO-8601", () => {
     expect(serverTimeISO(new Date("2026-08-13T10:00:00.000Z"))).toBe("2026-08-13T18:00:00.000+08:00");
     expect(serverTimeISO("2026-08-13T10:00:00.000Z")).toBe("2026-08-13T18:00:00.000+08:00");
+  });
+});
+
+/* ============================ v2.1 ledger 单源 pull ============================ */
+
+describe("ledgerRowToChange", () => {
+  const row = (over: Partial<Parameters<typeof ledgerRowToChange>[0]>) => ({
+    seq: 7,
+    entity_type: "tasks",
+    entity_id: "srv-11",
+    operation: "UPDATE",
+    version: 1,
+    payload: {},
+    created_at: new Date(AT),
+    ...over,
+  });
+
+  it("软删除（payload.deleted_at 非空）与物理 DELETE 都转 DELETE + payload=null", () => {
+    const soft = ledgerRowToChange(
+      row({ operation: "UPDATE", payload: { title: "t", deleted_at: AT } }) as never
+    );
+    expect(soft?.operation).toBe("DELETE");
+    expect(soft?.payload).toBeNull();
+
+    const hard = ledgerRowToChange(row({ operation: "DELETE", payload: { title: "t" } }) as never);
+    expect(hard?.operation).toBe("DELETE");
+    expect(hard?.payload).toBeNull();
+  });
+
+  it("触发器行（snake_case）按 collect 口径映射 tasks/progress/checkins", () => {
+    const tasks = ledgerRowToChange(
+      row({
+        entity_type: "tasks",
+        entity_id: "srv-11",
+        payload: {
+          id: 11, client_id: null, task_date: "2026-08-13", title: "写周报", phase_id: 3,
+          topic_id: null, task_type: "deep", career_key: "backend", done: true,
+          focus_minutes: 25, sort_order: 2,
+        },
+      }) as never
+    );
+    // collect 的 SELECT 别名即此形状：bigint id → string，snake → camel
+    expect(tasks?.payload).toEqual({
+      id: "11", clientId: null, taskDate: "2026-08-13", title: "写周报", phaseId: 3,
+      topicId: null, taskType: "deep", careerKey: "backend", done: true,
+      focusMinutes: 25, sortOrder: 2,
+    });
+
+    const progress = ledgerRowToChange(
+      row({ entity_type: "progress", entity_id: "42", payload: { done: true, note: "ok" } }) as never
+    );
+    expect(progress?.payload).toEqual({ done: true, note: "ok" });
+
+    const checkin = ledgerRowToChange(
+      row({ entity_type: "checkins", entity_id: "2026-08-13", payload: { checkin_date: "2026-08-13", note: null } }) as never
+    );
+    expect(checkin?.payload).toEqual({ checkinDate: "2026-08-13", note: null });
+  });
+
+  it("habits：target_value 数值化、schedule 非数组回退全周；habitLogs 从 entity_id 取 habitClientId", () => {
+    const habits = ledgerRowToChange(
+      row({
+        entity_type: "habits",
+        entity_id: "srv-9",
+        payload: { id: 9, client_id: "c-9", name: "喝水", icon: null, is_boolean: true, target_value: null, unit: null, schedule: null, color: "#fff", sort_order: 1 },
+      }) as never
+    );
+    expect(habits?.payload).toMatchObject({ id: "9", clientId: "c-9", targetValue: null, schedule: [0, 1, 2, 3, 4, 5, 6] });
+
+    const log = ledgerRowToChange(
+      row({
+        entity_type: "habitLogs",
+        entity_id: "c-9|2026-08-13",
+        payload: { habit_id: 9, log_date: "2026-08-13T00:00:00", value: "2.5", note: null },
+      }) as never
+    );
+    expect(log?.payload).toEqual({ habitClientId: "c-9", logDate: "2026-08-13", value: 2.5, note: null });
+  });
+
+  it("push 行（payload 已是 camelCase 契约形状）原样透传", () => {
+    const pushed = ledgerRowToChange(
+      row({
+        entity_type: "sessions",
+        entity_id: "srv-5",
+        payload: { id: "5", clientId: "c-5", taskId: "srv-1", startedAt: AT, endedAt: AT, durationSeconds: 90, tag: "focus" },
+      }) as never
+    );
+    expect(pushed?.payload).toEqual({
+      id: "5", clientId: "c-5", taskId: "srv-1", startedAt: AT, endedAt: AT, durationSeconds: 90, tag: "focus",
+    });
+  });
+
+  it("白名单外实体返回 null", () => {
+    expect(ledgerRowToChange(row({ entity_type: "notAThing" }) as never)).toBeNull();
+  });
+});
+
+describe("collectChangesFromLedger", () => {
+  it("按 seq 顺序回放并多取 1 行判断 hasMore，lastSeq 取本页末行", async () => {
+    const { client, query } = makeClient((sql) => {
+      if (sql.includes("FROM sync_changes")) {
+        return {
+          rows: [
+            { seq: "10", entity_type: "tasks", entity_id: "srv-1", operation: "UPDATE", version: "1", payload: { title: "a" }, created_at: new Date(EARLIER) },
+            { seq: "11", entity_type: "tasks", entity_id: "srv-2", operation: "CREATE", version: "1", payload: { title: "b" }, created_at: new Date(AT) },
+            { seq: "12", entity_type: "tasks", entity_id: "srv-3", operation: "UPDATE", version: "1", payload: { title: "c" }, created_at: new Date(LATER) },
+          ],
+        };
+      }
+      return { rows: [] };
+    });
+    const result = await collectChangesFromLedger(client, "u-1", 9, 2);
+    expect(result.hasMore).toBe(true);
+    expect(result.lastSeq).toBe(11);
+    expect(result.changes).toHaveLength(2);
+    expect(result.changes.map((c) => c.entityId)).toEqual(["srv-1", "srv-2"]);
+    // SQL 带占位符参数：afterSeq=9、limit=3（page+1）
+    const call = query.mock.calls.find((c) => String(c[0]).includes("FROM sync_changes"));
+    expect(call?.[1]).toEqual(["u-1", 9, 3]);
+  });
+
+  it("空页：hasMore=false 且 lastSeq 回落为传入起点", async () => {
+    const { client } = makeClient(() => ({ rows: [] }));
+    const result = await collectChangesFromLedger(client, "u-1", 41, 500);
+    expect(result).toEqual({ changes: [], hasMore: false, lastSeq: 41 });
+  });
+
+  it("entities 白名单走 entity_type = ANY 分支", async () => {
+    const { client, query } = makeClient(() => ({ rows: [] }));
+    await collectChangesFromLedger(client, "u-1", 0, 500, { entities: ["tasks", "logs"] });
+    const call = query.mock.calls.find((c) => String(c[0]).includes("ANY"));
+    expect(call?.[1]).toEqual(["u-1", 0, ["tasks", "logs"], 501]);
+  });
+});
+
+describe("getLedgerMinSeq", () => {
+  it("无行返回 0；有行返回 MIN(seq)", async () => {
+    const empty = makeClient(() => ({ rows: [{ min_seq: null }] }));
+    expect(await getLedgerMinSeq(empty.client, "u-1")).toBe(0);
+
+    const some = makeClient(() => ({ rows: [{ min_seq: "120" }] }));
+    expect(await getLedgerMinSeq(some.client, "u-1")).toBe(120);
   });
 });
