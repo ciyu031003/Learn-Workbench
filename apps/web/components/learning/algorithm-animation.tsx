@@ -101,7 +101,8 @@ export function AlgorithmAnimation({ keys }: { keys: string[] }) {
 
       <div
         className="mx-auto w-full max-w-md [&>svg]:h-auto [&>svg]:w-full"
-        // 内容自产（packages/content）且已过危险片段门禁，因此可安全内联
+        // 内容自产（packages/content）且经两层危险片段门禁（写库 learning-content-sync +
+        // 读库 learning-repo，见 lib/content/animation-safety.ts），因此可安全内联
         dangerouslySetInnerHTML={{ __html: current.svg }}
       />
 

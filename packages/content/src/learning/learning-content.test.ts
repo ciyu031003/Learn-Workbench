@@ -227,7 +227,9 @@ describe("learning library content contract", () => {
 
 describe("algorithm animations contract", () => {
   it("知识点引用的动图 key 都能解析，且每张动图都是多帧、有说明、无危险片段", () => {
-    const dangerous = /<\s*(script|iframe|object|embed|style|link|meta)\b|on(error|load|click)\s*=|\bjavascript:/i;
+    // 与 apps/web/lib/content/animation-safety.ts 的运行时正则同口径（2026-10-31 扩展：
+    // SMIL onbegin/onend/onrepeat、foreignObject、use/image 外部引用、data:text/html）
+    const dangerous = /<\s*(script|iframe|object|embed|style|link|meta|foreignObject)\b|\bon[a-z]+\s*=|\bjavascript\s*:|\bdata\s*:\s*text\s*\/\s*html|<\s*(use|image)\b[^>]*\b(xlink:)?href\s*=\s*(["'])\s*(?!#)/i;
     const referenced = new Set<string>();
 
     for (const track of learningTracks) {

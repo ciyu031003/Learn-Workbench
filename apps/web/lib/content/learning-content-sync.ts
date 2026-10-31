@@ -15,6 +15,7 @@ import { createHash } from "node:crypto";
 import { algorithmAnimations, learningTracks, levelOfQuestion, type LearningTrack } from "@learn-workbench/content";
 import type { PoolClient } from "pg";
 import { pgPool } from "@/lib/db";
+import { assertAnimationFramesSafe } from "@/lib/content/animation-safety";
 
 export interface LearningContentPlan {
   contentVersion: string;
@@ -159,6 +160,8 @@ export function buildLearningContentPlan(
   });
 
   for (const [key, frames] of Object.entries(algorithmAnimations ?? {})) {
+    // P2（评审 2026-10-31）：入库前危险片段检查（fail-closed），坏内容包进不了 DB
+    assertAnimationFramesSafe(frames, key);
     plan.animations.push({ key, frames: JSON.stringify(frames) });
   }
 

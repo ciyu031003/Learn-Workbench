@@ -199,6 +199,8 @@ export async function loadLearningTrack(slug: string): Promise<LearningTrack | n
   return tracks.find((track) => track.slug === slug) ?? null;
 }
 
+import { isDangerousSvg } from "@/lib/content/animation-safety";
+
 export interface LearningAnimationFrame {
   caption: string;
   svg: string;
@@ -210,6 +212,15 @@ export async function loadAlgorithmAnimations(): Promise<Record<string, Learning
     "SELECT key, frames FROM learning_animations"
   );
   const out: Record<string, LearningAnimationFrame[]> = {};
-  for (const row of rows) out[row.key] = asArray<LearningAnimationFrame>(row.frames);
+  for (const row of rows) {
+    const frames = asArray<LearningAnimationFrame>(row.frames);
+    // P2（评审 2026-10-31）出库兜底：拦截写库门禁启用前已入库的危险行——
+    // 丢弃该 key 的帧（页面回落为无动图）并告警，不让整页 500
+    if (frames.some((f) => typeof f?.svg === "string" && isDangerousSvg(f.svg))) {
+      console.error(`[learning] 动图 ${row.key} 含危险片段，已跳过（请重跑内容同步清理）`);
+      continue;
+    }
+    out[row.key] = frames;
+  }
   return out;
 }
