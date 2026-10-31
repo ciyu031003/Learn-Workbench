@@ -30,6 +30,15 @@ export function anonCookieSecret(): string | null {
   return raw.length >= ANON_COOKIE_SECRET_MIN_LEN ? raw : null;
 }
 
+// 可观测性（评审 2026-10-31 P2-3）：生产缺可用密钥时签名静默退化为形态校验
+// （任何 UUID 都被当作可信 anon_id，可伪造他人匿名身份）。部署脚本自 2026-10-31 起
+// 自动生成 ANON_COOKIE_SECRET；这条告警是给「手写 env 部署」路径的兜底提醒。
+if (process.env.NODE_ENV === "production" && !anonCookieSecret()) {
+  console.warn(
+    "[anon-cookie] 生产环境未配置 ANON_COOKIE_SECRET/CRON_SECRET（或长度 <16）：匿名 cookie 退化为仅形态校验，可被伪造，请立即配置。"
+  );
+}
+
 export function isUuid(value: unknown): value is string {
   return typeof value === "string" && UUID_RE.test(value);
 }

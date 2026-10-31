@@ -25,6 +25,12 @@ export async function POST(req: Request) {
   if (!isEmailSendingConfigured()) {
     return NextResponse.json({ ok: false, reason: "EMAIL_UNCONFIGURED" });
   }
+  // P1 fail-closed（评审 2026-10-31）：生产必须显式配置 WEB_BASE_URL 才发信——
+  // siteOrigin 的代理头回落会让携带有效 token 的重置链接被 X-Forwarded-Host 投毒到
+  // 攻击者域（nginx 只覆盖 Host/X-Real-IP/XFF，不覆盖 X-Forwarded-Host）。
+  if (process.env.NODE_ENV === "production" && !process.env.WEB_BASE_URL?.trim()) {
+    return NextResponse.json({ ok: false, reason: "WEB_BASE_URL_UNCONFIGURED" });
+  }
 
   const { rows } = await pgPool.query<{ id: string }>(
     "SELECT id FROM users WHERE lower(email) = $1 LIMIT 1",

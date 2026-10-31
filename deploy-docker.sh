@@ -28,7 +28,8 @@
 #    ADMIN_USERNAME=admin   管理员用户名
 #    ADMIN_PASSWORD=<自动生成> 管理员密码
 #    CRON_SECRET=<自动生成>  内部 cron 触发密钥（/api/internal/cron）
-#    WEB_BASE_URL=<可选>     对外站点地址（邮件链接/微信回跳）
+#    ANON_COOKIE_SECRET=<自动生成> 匿名设备 cookie 签名密钥（>=16 字符）
+#    WEB_BASE_URL=<可选>     对外站点地址（邮件链接/微信回跳；生产未配置时忘记密码拒绝发信）
 #    SETUP_JOBS_CRON=1      是否添加每日爬虫/聚合/维护 crontab（0/1）
 # =============================================================================
 set -euo pipefail
@@ -41,6 +42,7 @@ PG_PASSWORD="${PG_PASSWORD:-}"
 ADMIN_USERNAME="${ADMIN_USERNAME:-admin}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-}"
 CRON_SECRET="${CRON_SECRET:-}"
+ANON_COOKIE_SECRET="${ANON_COOKIE_SECRET:-}"
 WEB_BASE_URL="${WEB_BASE_URL:-}"
 SETUP_JOBS_CRON="${SETUP_JOBS_CRON:-1}"
 NPM_REGISTRY="${NPM_REGISTRY:-https://registry.npmmirror.com}"
@@ -120,9 +122,11 @@ if [ -f .env ]; then
   # .env 是本脚本生成的简单 KEY=VALUE；用 set -a 导入，不覆盖调用方显式传入的环境变量
   PG_PASSWORD_SAVED="$(grep -E '^PG_PASSWORD=' .env | cut -d= -f2- || true)"
   CRON_SECRET_SAVED="$(grep -E '^CRON_SECRET=' .env | cut -d= -f2- || true)"
+  ANON_COOKIE_SECRET_SAVED="$(grep -E '^ANON_COOKIE_SECRET=' .env | cut -d= -f2- || true)"
   WEB_BASE_URL_SAVED="$(grep -E '^WEB_BASE_URL=' .env | cut -d= -f2- || true)"
   [ -z "$PG_PASSWORD" ] && [ -n "$PG_PASSWORD_SAVED" ] && PG_PASSWORD="$PG_PASSWORD_SAVED"
   [ -z "$CRON_SECRET" ] && [ -n "$CRON_SECRET_SAVED" ] && CRON_SECRET="$CRON_SECRET_SAVED"
+  [ -z "$ANON_COOKIE_SECRET" ] && [ -n "$ANON_COOKIE_SECRET_SAVED" ] && ANON_COOKIE_SECRET="$ANON_COOKIE_SECRET_SAVED"
   [ -z "$WEB_BASE_URL" ] && [ -n "$WEB_BASE_URL_SAVED" ] && WEB_BASE_URL="$WEB_BASE_URL_SAVED"
   info "检测到已有 .env：复用其中的数据库密码 / CRON_SECRET"
 fi
@@ -140,6 +144,12 @@ if [ -z "$CRON_SECRET" ]; then
   CRON_SECRET="$(gen_password)$(gen_password)"
   info "已生成内部 cron 触发密钥 CRON_SECRET"
 fi
+# 评审 2026-10-31 P2-3：匿名 cookie 签名密钥独立生成（此前回落 CRON_SECRET，跨用途共享密钥）；
+# 生产缺可用密钥时签名静默退化为形态校验（任意 UUID 可被当作他人 anon_id）
+if [ -z "$ANON_COOKIE_SECRET" ]; then
+  ANON_COOKIE_SECRET="$(gen_password)$(gen_password)"
+  info "已生成匿名 cookie 签名密钥 ANON_COOKIE_SECRET"
+fi
 
 # ---------------------------------------------------------------- 写入 .env
 cat > .env << EOF
@@ -147,6 +157,10 @@ cat > .env << EOF
 PG_PASSWORD=$PG_PASSWORD
 APP_PORT=$APP_PORT
 CRON_SECRET=$CRON_SECRET
+ANON_COOKIE_SECRET=$ANON_COOKIE_SECRET
+# 匿名 cookie 签名迁移已完成（2026-10-18 起下发签名 cookie）：关闭旧版未签名 UUID 接受，
+# 堵住「知道目标 anon_id 即可伪造其匿名身份」的最后路径（评审 2026-10-31 P2-3）
+ANON_COOKIE_ALLOW_LEGACY=0
 WEB_BASE_URL=$WEB_BASE_URL
 NPM_REGISTRY=$NPM_REGISTRY
 APP_VERSION=${APP_VERSION:-$(git rev-parse --short HEAD 2>/dev/null || date +%Y%m%d%H%M)}

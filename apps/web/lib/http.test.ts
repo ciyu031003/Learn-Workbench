@@ -60,9 +60,17 @@ describe("parseBody", () => {
     expect(res).toEqual({ ok: true, data: null });
   });
 
-  it("returns 400 when the body cannot be read", async () => {
-    const bad = new Request("http://localhost", { method: "POST" });
-    vi.spyOn(bad, "text").mockRejectedValue(new Error("read failed"));
+  it("returns 400 when the body stream errors (streaming read, not req.text)", async () => {
+    const failing = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.error(new Error("read failed"));
+      },
+    });
+    const bad = new Request("http://localhost", {
+      method: "POST",
+      body: failing,
+      duplex: "half",
+    } as RequestInit);
     const res = await parseBody(bad);
     expect(res).toEqual({ ok: false, status: 400, error: "无法读取请求体" });
   });
