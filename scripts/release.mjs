@@ -22,6 +22,8 @@
  *   --size-warn-mb <n>  体积告警阈值，默认 90（**只告警不阻断**，见下）
  *   --check-only        只做版本一致性与产物核对，不写文件、不构建、不上传
  *   --dry-run           构建与改写都跳过，只打印将要做什么
+ *   --skip-ci-check     越过 CI 绿灯前置（红灯/未运行时放行；需在看板说明原因）
+ *   --require-ci-green  gh 不可用时也阻断（离线环境的强口径）
  *
  * 体积口径（本轮调整）：安装包不再以 70MB 为硬阈值。体积超过 `--size-warn-mb`
  * 时只打印 WARN 并把数字记进发布小结；只有"清单与 APK 不一致"这类**完整性**问题才阻断。
@@ -135,6 +137,51 @@ if (version) {
       `工作区的版本号与 --version ${version} / --code ${code} 不一致（${mismatch.join(", ")}）。\n` +
         "       先同步版本号（参考 scripts/build-android-release.ps1 的同步逻辑）再发布。"
     );
+  }
+}
+
+// ---------------------------------------------------------------- CI 绿灯前置（评审 2026-10-31 流程规矩）
+// 背景：v1.50.0 是在依赖门禁与 motion 门禁红灯期间发的版。发布前必须确认该 commit 的 CI 绿：
+//  - gh CLI 可用：查 main 上该 commit 的 CI run 结论，红/运行中 → 阻断（--skip-ci-check 越过，需在看板说明）；
+//  - gh 不可用（离线环境）：打印人工确认提醒并继续；--require-ci-green 时改为阻断。
+step("1.5/6 CI 绿灯检查（当前 commit 的 main CI 运行）");
+{
+  const headSha = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+  const gh = spawnSync(
+    "gh",
+    ["run", "list", "--branch", "main", "--limit", "20", "--json", "headSha,status,conclusion,name"],
+    { encoding: "utf8" }
+  );
+  if (gh.error || gh.status !== 0) {
+    const why = gh.error ? String(gh.error.message ?? gh.error) : String(gh.stderr ?? `gh 退出码 ${gh.status}`).slice(0, 200);
+    const msg =
+      `无法自动确认 CI 状态（gh 不可用：${why}）。\n` +
+      "       请人工确认 https://github.com/ciyu031003/Learn-Workbench/actions 该 commit 为绿后继续。";
+    if (args["require-ci-green"]) fail(msg);
+    warn(msg + "（加 --require-ci-green 可让此提醒变为阻断）");
+  } else {
+    let runs = [];
+    try {
+      runs = JSON.parse(gh.stdout || "[]");
+    } catch {
+      fail("gh run list 输出无法解析，请手动确认 CI 状态");
+    }
+    const run = runs.find((r) => r.headSha === headSha && r.name === "CI");
+    if (!run) {
+      const msg = `当前 commit ${headSha.slice(0, 8)} 尚无 CI 运行记录（push 后等 CI 出结果再发布）。`;
+      if (args["skip-ci-check"]) warn(msg + "（--skip-ci-check 已越过）");
+      else fail(msg);
+    } else if (run.status !== "completed") {
+      const msg = `CI 仍在运行（${run.status}），等它出结果再发布。`;
+      if (args["skip-ci-check"]) warn(msg + "（--skip-ci-check 已越过）");
+      else fail(msg);
+    } else if (run.conclusion !== "success") {
+      const msg = `CI 结论为 ${run.conclusion}——红灯期间禁止发版（v1.50.0 教训）。`;
+      if (args["skip-ci-check"]) warn(msg + "（--skip-ci-check 已越过）");
+      else fail(msg);
+    } else {
+      log("CI 绿灯 ✔");
+    }
   }
 }
 

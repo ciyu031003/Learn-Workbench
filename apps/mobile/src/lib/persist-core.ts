@@ -106,19 +106,30 @@ export function isHeavyWriteOverBudget(bytes: number): boolean {
   return bytes > HEAVY_WRITE_BUDGET_BYTES;
 }
 
+/** 归一化丢弃报告（评审 2026-10-31 P3）：被上限裁掉的不是"挤掉了"而是**永久丢同步**，必须可观测 */
+export interface PendingQueueDropReport {
+  /** 被裁掉的条目总数（仅上限裁剪；同实体去重不算丢——最新条已包含其语义） */
+  total: number;
+  /** 按实体类型计数（"sessions": 12 这样），打面包屑/诊断用 */
+  byEntity: Record<string, number>;
+  /** 被裁掉条目里最旧的 updatedAt（定位丢失时间窗） */
+  oldestUpdatedAt: string | null;
+}
+
 /**
  * pendingChanges 归一化（S5-6）：
  *  1) 同一实体（entityType + entityId）只保留 updatedAt 最新的一条 —— 离线期间同一任务反复勾选
  *     不该产生 N 条推送；保留最新即可（服务端 LWW 语义一致）。
- *  2) 条数上限 2000，超出丢弃队列尾部（最旧）。
+ *  2) 条数上限 2000，超出丢弃队列尾部（最旧）——被裁条目将**永远不同步**，
+ *     返回值带 drop 报告供调用方打面包屑（评审 2026-10-31 P3）。
  *
  * 时间相同则保留队列中靠前（= 更晚入队）的那条。返回新数组，不修改入参。
  */
 export function normalizePendingQueue<T extends PersistChangeLike>(
   queue: T[],
   limit: number = PENDING_QUEUE_LIMIT
-): T[] {
-  if (queue.length === 0) return queue;
+): { changes: T[]; dropped: PendingQueueDropReport } {
+  if (queue.length === 0) return { changes: queue, dropped: { total: 0, byEntity: {}, oldestUpdatedAt: null } };
   const keptIndex = new Map<string, number>();
   const out: T[] = [];
   for (const change of queue) {
@@ -132,7 +143,17 @@ export function normalizePendingQueue<T extends PersistChangeLike>(
     const existing = out[existingIndex];
     if (Date.parse(change.updatedAt) > Date.parse(existing.updatedAt)) out[existingIndex] = change;
   }
-  return out.length > limit ? out.slice(0, limit) : out;
+  if (out.length <= limit) return { changes: out, dropped: { total: 0, byEntity: {}, oldestUpdatedAt: null } };
+  const droppedItems = out.slice(limit);
+  const byEntity: Record<string, number> = {};
+  let oldestUpdatedAt: string | null = null;
+  for (const item of droppedItems) {
+    byEntity[item.entityType] = (byEntity[item.entityType] ?? 0) + 1;
+    if (oldestUpdatedAt === null || Date.parse(item.updatedAt) < Date.parse(oldestUpdatedAt)) {
+      oldestUpdatedAt = item.updatedAt;
+    }
+  }
+  return { changes: out.slice(0, limit), dropped: { total: droppedItems.length, byEntity, oldestUpdatedAt } };
 }
 
 export interface PersistReport {

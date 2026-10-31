@@ -132,19 +132,24 @@ describe("persist-core 拆分 / 体积 / 队列归一化", () => {
       ch("tasks", "c-1", "2026-08-13T10:00:01.500Z"),
     ];
     const out = normalizePendingQueue(queue);
-    expect(out).toHaveLength(2);
-    expect(out[0].updatedAt).toBe("2026-08-13T10:00:02.000Z");
-    expect(out[1].entityType).toBe("progress");
+    expect(out.changes).toHaveLength(2);
+    expect(out.changes[0].updatedAt).toBe("2026-08-13T10:00:02.000Z");
+    expect(out.changes[1].entityType).toBe("progress");
+    expect(out.dropped.total).toBe(0);
   });
 
-  it("上限 " + PENDING_QUEUE_LIMIT + " 条：超出丢弃最旧（队列首=最新）", () => {
+  it("上限 " + PENDING_QUEUE_LIMIT + " 条：超出丢弃最旧（队列首=最新），并带丢弃报告", () => {
     const queue = Array.from({ length: PENDING_QUEUE_LIMIT + 25 }, (_, i) =>
       ch("sessions", "c-" + i, "2026-08-13T10:00:00.000Z")
     );
     const out = normalizePendingQueue(queue);
-    expect(out).toHaveLength(PENDING_QUEUE_LIMIT);
-    expect(out[0].entityId).toBe("c-0");
-    expect(out[out.length - 1].entityId).toBe("c-" + (PENDING_QUEUE_LIMIT - 1));
+    expect(out.changes).toHaveLength(PENDING_QUEUE_LIMIT);
+    expect(out.changes[0].entityId).toBe("c-0");
+    expect(out.changes[out.changes.length - 1].entityId).toBe("c-" + (PENDING_QUEUE_LIMIT - 1));
+    // 评审 2026-10-31 P3：丢弃必须可观测——按实体计数 + 最旧时间窗
+    expect(out.dropped.total).toBe(25);
+    expect(out.dropped.byEntity).toEqual({ sessions: 25 });
+    expect(out.dropped.oldestUpdatedAt).toBe("2026-08-13T10:00:00.000Z");
   });
 });
 

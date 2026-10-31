@@ -221,7 +221,15 @@ export const useAppStore = create<AppState>()(
         rawSet((state: AppState) => {
           const next = typeof partial === "function" ? partial(state) : partial;
           if (next && typeof next === "object" && Array.isArray(next.pendingChanges)) {
-            return { ...next, pendingChanges: normalizePendingQueue(next.pendingChanges as PendingChange[]) };
+            const { changes, dropped } = normalizePendingQueue(next.pendingChanges as PendingChange[]);
+            if (dropped.total > 0) {
+              // 评审 2026-10-31 P3：被上限裁掉的条目将永远不同步——打告警面包屑定位丢失窗口
+              console.warn(
+                `[persist] 离线队列超限裁剪：丢弃 ${dropped.total} 条 ` +
+                  `(明细 ${JSON.stringify(dropped.byEntity)}，最旧 ${dropped.oldestUpdatedAt})`
+              );
+            }
+            return { ...next, pendingChanges: changes };
           }
           return next;
         }, replace)) as typeof rawSet;
