@@ -25,6 +25,7 @@ import { dataAnalysisTopicExpansions } from "./topic-expansion-data-analysis";
 import { cloudPlatformTopicExpansions } from "./topic-expansion-cloud-platform";
 import { computerNetworkingTopicExpansions } from "./topic-expansion-computer-networking";
 import { computerNetworkingTopicExpansionsB } from "./topic-expansion-computer-networking-b";
+import { computerNetworkingTopicExpansionsC } from "./topic-expansion-computer-networking-c";
 import { computerOrganizationTopicExpansions } from "./topic-expansion-computer-organization";
 import { computerOrganizationTopicExpansionsB } from "./topic-expansion-computer-organization-b";
 import { computerOrganizationTopicExpansionsC } from "./topic-expansion-computer-organization-c";
@@ -59,6 +60,7 @@ export const topicExpansions: TopicExpansion[] = [
   ...cloudPlatformTopicExpansions,
   ...computerNetworkingTopicExpansions,
   ...computerNetworkingTopicExpansionsB,
+  ...computerNetworkingTopicExpansionsC,
   ...computerOrganizationTopicExpansions,
   ...computerOrganizationTopicExpansionsB,
   ...computerOrganizationTopicExpansionsC,
