@@ -33,6 +33,7 @@ import { networkEngineeringTopicExpansions } from "./topic-expansion-network-eng
 import { operatingSystemsTopicExpansions } from "./topic-expansion-operating-systems";
 import { operatingSystemsTopicExpansionsB } from "./topic-expansion-operating-systems-b";
 import { operatingSystemsTopicExpansionsC } from "./topic-expansion-operating-systems-c";
+import { dsGapFillExpansions } from "./topic-expansion-ds";
 import { databaseTopicExpansions } from "./topic-expansion-database";
 import { javaTopicExpansions } from "./topic-expansion-java";
 import { powerBiTopicExpansions } from "./topic-expansion-power-bi";
@@ -69,6 +70,7 @@ export const topicExpansions: TopicExpansion[] = [
   ...operatingSystemsTopicExpansions,
   ...operatingSystemsTopicExpansionsB,
   ...operatingSystemsTopicExpansionsC,
+  ...dsGapFillExpansions,
   ...databaseTopicExpansions,
   ...javaTopicExpansions,
   ...powerBiTopicExpansions,
