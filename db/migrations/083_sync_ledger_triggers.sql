@@ -19,7 +19,9 @@
 --  - habit_logs：habit 未带 client_id 的打卡不入 ledger（与 collect 的 JOIN 条件一致）；
 --  - resume_assets 只记 kind='github'；content_topics 只记自定义主题（is_custom + owner_id）；
 --  - 软删除（deleted_at 非空）在 TS 映射层（ledgerRowToChange）转 DELETE，触发器原样存行；
---  - created_at 取业务行 updated_at（作为变更的 updatedAt 供 LWW），synced_at=now()。
+--  - created_at 取业务行 updated_at（作为变更的 updatedAt 供 LWW），synced_at=now()；
+--  - 匿名行（user_id/owner_id 为空）不入 ledger（生产事故 2026-10-31：exercise_logs
+--    存量匿名行令回填撞 NOT NULL，init 容器 exit 3，迁移整体回滚）。
 --
 -- 双记抑制
 --  - push 事务内应用层已自行 recordSyncChanges（带 change_id 供幂等去重），
@@ -42,6 +44,14 @@ BEGIN
   END IF;
 
   v_row := CASE WHEN TG_OP = 'DELETE' THEN to_jsonb(OLD) ELSE to_jsonb(NEW) END;
+
+  -- 匿名行（user_id/owner_id 均为空）不入 ledger：同步只服务登录用户，
+  -- 且 sync_changes.user_id 非空约束也不允许。匿名数据的可见性由各业务表自身管理。
+  -- 生产事故记录（2026-10-31）：exercise_logs 等表存在匿名行，缺失此检查时
+  -- 运行期任何匿名写入都会令触发器撞 NOT NULL 约束。
+  IF COALESCE(NULLIF(v_row->>'user_id', ''), v_row->>'owner_id') IS NULL THEN
+    RETURN COALESCE(NEW, OLD);
+  END IF;
 
   CASE TG_TABLE_NAME
     WHEN 'topic_progress' THEN
@@ -171,45 +181,45 @@ CREATE TRIGGER trg_sync_ledger_habit_logs
 -- ============================================================================
 INSERT INTO sync_changes (user_id, device_id, entity_type, entity_id, operation, version, payload, created_at, synced_at)
 SELECT user_id, 'web', 'progress', topic_id::text, 'UPDATE', 1, to_jsonb(t.*), updated_at, now()
-FROM topic_progress t;
+FROM topic_progress t WHERE t.user_id IS NOT NULL;
 
 INSERT INTO sync_changes (user_id, device_id, entity_type, entity_id, operation, version, payload, created_at, synced_at)
 SELECT user_id, 'web', 'tasks', COALESCE(NULLIF(client_id, ''), 'srv-' || id), 'UPDATE', 1, to_jsonb(t.*), updated_at, now()
-FROM daily_tasks t;
+FROM daily_tasks t WHERE t.user_id IS NOT NULL;
 
 INSERT INTO sync_changes (user_id, device_id, entity_type, entity_id, operation, version, payload, created_at, synced_at)
 SELECT user_id, 'web', 'sessions', COALESCE(NULLIF(client_id, ''), 'srv-' || id), 'UPDATE', 1, to_jsonb(t.*), updated_at, now()
-FROM focus_sessions t;
+FROM focus_sessions t WHERE t.user_id IS NOT NULL;
 
 INSERT INTO sync_changes (user_id, device_id, entity_type, entity_id, operation, version, payload, created_at, synced_at)
 SELECT user_id, 'web', 'checkins', checkin_date::text, 'UPDATE', 1, to_jsonb(t.*), updated_at, now()
-FROM checkins t;
+FROM checkins t WHERE t.user_id IS NOT NULL;
 
 INSERT INTO sync_changes (user_id, device_id, entity_type, entity_id, operation, version, payload, created_at, synced_at)
 SELECT user_id, 'web', 'logs', COALESCE(NULLIF(client_id, ''), 'srv-' || id), 'UPDATE', 1, to_jsonb(t.*), updated_at, now()
-FROM log_entries t;
+FROM log_entries t WHERE t.user_id IS NOT NULL;
 
 INSERT INTO sync_changes (user_id, device_id, entity_type, entity_id, operation, version, payload, created_at, synced_at)
 SELECT user_id, 'web', 'github', COALESCE(NULLIF(client_id, ''), 'srv-' || id), 'UPDATE', 1, to_jsonb(t.*), updated_at, now()
-FROM resume_assets t WHERE kind = 'github';
+FROM resume_assets t WHERE kind = 'github' AND t.user_id IS NOT NULL;
 
 INSERT INTO sync_changes (user_id, device_id, entity_type, entity_id, operation, version, payload, created_at, synced_at)
 SELECT owner_id, 'web', 'customTopics', COALESCE(NULLIF(client_id, ''), 'srv-' || id), 'UPDATE', 1, to_jsonb(t.*), updated_at, now()
-FROM content_topics t WHERE is_custom IS TRUE AND owner_id IS NOT NULL;
+FROM content_topics t WHERE is_custom IS TRUE AND owner_id IS NOT NULL AND t.owner_id IS NOT NULL;
 
 INSERT INTO sync_changes (user_id, device_id, entity_type, entity_id, operation, version, payload, created_at, synced_at)
 SELECT user_id, 'web', 'exerciseLogs', COALESCE(NULLIF(client_id, ''), 'srv-' || id), 'UPDATE', 1, to_jsonb(t.*), updated_at, now()
-FROM exercise_logs t;
+FROM exercise_logs t WHERE t.user_id IS NOT NULL;
 
 INSERT INTO sync_changes (user_id, device_id, entity_type, entity_id, operation, version, payload, created_at, synced_at)
 SELECT user_id, 'web', 'certificates', COALESCE(NULLIF(client_id, ''), 'srv-' || id), 'UPDATE', 1, to_jsonb(t.*), updated_at, now()
-FROM certificates t;
+FROM certificates t WHERE t.user_id IS NOT NULL;
 
 INSERT INTO sync_changes (user_id, device_id, entity_type, entity_id, operation, version, payload, created_at, synced_at)
 SELECT user_id, 'web', 'habits', COALESCE(NULLIF(client_id, ''), 'srv-' || id), 'UPDATE', 1, to_jsonb(t.*), updated_at, now()
-FROM habits t;
+FROM habits t WHERE t.user_id IS NOT NULL;
 
 INSERT INTO sync_changes (user_id, device_id, entity_type, entity_id, operation, version, payload, created_at, synced_at)
 SELECT l.user_id, 'web', 'habitLogs', h.client_id || '|' || left(l.log_date::text, 10), 'UPDATE', 1, to_jsonb(l.*), l.updated_at, now()
 FROM habit_logs l JOIN habits h ON h.id = l.habit_id
-WHERE h.client_id IS NOT NULL;
+WHERE h.client_id IS NOT NULL AND l.user_id IS NOT NULL;
