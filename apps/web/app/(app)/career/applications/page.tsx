@@ -49,7 +49,7 @@ export default function ApplicationsPage() {
   const [recRating, setRecRating] = useState<number>(0);
   const [recNote, setRecNote] = useState("");
   const [recBusy, setRecBusy] = useState(false);
-  const [attemptsByApp, setAttemptsByApp] = useState<Record<number, number>>({});
+  const [attemptsByApp, setAttemptsByApp] = useState<Record<string, number>>({});
 
   const load = useCallback(async () => {
     try {
@@ -83,7 +83,7 @@ export default function ApplicationsPage() {
     const idx = STAGE_ORDER.indexOf(app.stage);
     const next = STAGE_ORDER[idx + delta];
     if (!next) return;
-    setBusyId(app.id);
+    setBusyId(Number(app.id));
     try {
       const r = await fetch(`/api/jobs/applications/${app.id}`, {
         method: "PUT",
@@ -100,7 +100,7 @@ export default function ApplicationsPage() {
   };
 
   const remove = async (app: JobApplication) => {
-    setBusyId(app.id);
+    setBusyId(Number(app.id));
     try {
       const r = await fetch(`/api/jobs/applications/${app.id}`, { method: "DELETE" });
       if (!r.ok) throw new Error("删除失败");
@@ -113,7 +113,7 @@ export default function ApplicationsPage() {
   };
 
   const setStage = async (app: JobApplication, stage: JobApplicationStage) => {
-    setBusyId(app.id);
+    setBusyId(Number(app.id));
     try {
       const r = await fetch(`/api/jobs/applications/${app.id}`, {
         method: "PUT",
@@ -271,15 +271,15 @@ export default function ApplicationsPage() {
                             <Button variant="ghost" size="sm" className="h-7 gap-1 px-2 text-[11px]" onClick={() => { setRecordTarget(app); setRecRating(0); setRecNote(""); }}>
                               <MessageSquare className="size-3" /> 记录面试
                             </Button>
-                            {attemptsByApp[app.id] ? (
+                            {attemptsByApp[String(app.id)] ? (
                               <Link href="/career/interview" className="text-[11px] text-sky-300 hover:underline">
-                                已记录 {attemptsByApp[app.id]} 场 · 去复盘
+                                已记录 {attemptsByApp[String(app.id)]} 场 · 去复盘
                               </Link>
                             ) : null}
                           </div>
                         ) : null}
                         <div className="mt-2.5 flex items-center gap-1 border-t border-white/10 pt-2">
-                          <Button variant="ghost" size="sm" className="h-7 px-2 text-[11px]" disabled={busyId === app.id} onClick={() => move(app, -1)}>
+                          <Button variant="ghost" size="sm" className="h-7 px-2 text-[11px]" disabled={busyId === Number(app.id)} onClick={() => move(app, -1)}>
                             ←
                           </Button>
                           <select
@@ -291,7 +291,7 @@ export default function ApplicationsPage() {
                               <option key={s} value={s}>{jobApplicationStageLabels[s]}</option>
                             ))}
                           </select>
-                          <Button variant="ghost" size="sm" className="h-7 px-2 text-[11px]" disabled={busyId === app.id} onClick={() => move(app, 1)}>
+                          <Button variant="ghost" size="sm" className="h-7 px-2 text-[11px]" disabled={busyId === Number(app.id)} onClick={() => move(app, 1)}>
                             →
                           </Button>
                           {app.jobUrl ? (

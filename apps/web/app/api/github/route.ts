@@ -3,6 +3,8 @@ import { pgPool } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
 import { getAnonId, anonFilterSql } from "@/lib/anon";
 import { parseBody } from "@/lib/http";
+import { assertAnonWriteAllowed } from "@/lib/anon-quota";
+import { API_ERROR_CODES } from "@/lib/api-error";
 
 export async function GET() {
   const uid = await currentUserId();
@@ -39,6 +41,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ record: rows[0] }, { status: 201 });
   }
   const anonId = await getAnonId();
+  // P2（评审 2026-10-31）：fail-closed——此前 anon_id 为空时 INSERT NULL 靠 DB CHECK
+  // 兜底变 400；现在显式拦截，并接入匿名写配额（resume_assets 与 logs 同一口径）
+  if (!anonId) return NextResponse.json({ error: "缺少设备标识" }, { status: 400 });
+  const quota = await assertAnonWriteAllowed({ uid: null, anonId }, "resume_assets");
+  if (!quota.ok) {
+    return NextResponse.json(
+      { error: `该设备的此类记录已达上限（${quota.limit} 条），请登录后继续`, code: API_ERROR_CODES.quota_exceeded },
+      { status: 429 }
+    );
+  }
   const { rows } = await pgPool.query(
     `INSERT INTO resume_assets (user_id, anon_id, kind, title, url, content) VALUES (NULL, $1, 'github', $2, $3, $4)
      RETURNING id, title, url, content`,

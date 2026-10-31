@@ -975,9 +975,17 @@ export const jobApplicationStageSchema = z.enum([
 
 export type JobApplicationStage = z.infer<typeof jobApplicationStageSchema>;
 
+/**
+ * DB bigint 经 pg/node-postgres 默认序列化为 string；契约按「数字或数字字符串」双收
+ * （与 sync.ts 的 syncLooseIdSchema 同口径；评审 2026-10-31 P2：此前 jobApplication /
+ * interviewAttempt 仍按 z.number() 建模，路由必须手工 Number() 回转，漏一处即校验失败，
+ * 且 >2^53 有静默精度丢失风险）。
+ */
+const looseBigIntIdSchema = z.union([z.number(), z.string()]);
+
 export const jobApplicationSchema = z.object({
-  id: z.number(),
-  jobId: z.number(),
+  id: looseBigIntIdSchema,
+  jobId: looseBigIntIdSchema,
   stage: jobApplicationStageSchema,
   note: z.string().default(""),
   appliedAt: z.string().nullable(),
@@ -1026,11 +1034,11 @@ export const interviewQuestionSchema = z.object({
 
 export type InterviewQuestion = z.infer<typeof interviewQuestionSchema>;
 
-/** 答题 / 面试记录（含关联题目与申请信息） */
+/** 答题 / 面试记录（含关联题目与申请信息；id 类字段为 DB bigint，双收 number|string） */
 export const interviewAttemptSchema = z.object({
-  id: z.number(),
-  questionId: z.number().nullable(),
-  applicationId: z.number().nullable(),
+  id: looseBigIntIdSchema,
+  questionId: looseBigIntIdSchema.nullable(),
+  applicationId: looseBigIntIdSchema.nullable(),
   phaseId: z.number().nullable(),
   mode: interviewModeSchema,
   selfRating: z.number().nullable(),

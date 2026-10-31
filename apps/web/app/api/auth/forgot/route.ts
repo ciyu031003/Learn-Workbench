@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { pgPool } from "@/lib/db";
 import { parseBody, siteOrigin } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
@@ -38,9 +38,13 @@ export async function POST(req: Request) {
   );
   if (rows[0]) {
     const token = randomBytes(24).toString("hex");
+    // P3（评审 2026-10-31）：库里只存 sha256(token)——DB/备份泄露不再直接得到可用
+    // 重置凭证；明文 token 只出现在邮件链接里（与 session token 只存哈希同一口径）。
+    // 注意：切换瞬间旧格式（未哈希）的存量 token 会失效，TTL 30 分钟影响可忽略。
+    const tokenHash = createHash("sha256").update(token).digest("hex");
     await pgPool.query(
       "INSERT INTO password_reset_tokens (token, user_id, expires_at) VALUES ($1, $2, now() + interval '30 minutes')",
-      [token, rows[0].id]
+      [tokenHash, rows[0].id]
     );
     // P0：链接域名走固定配置/代理头（siteOrigin），不再信任 Origin 头，防重置链接投毒
     await sendResetEmail(email, `${siteOrigin(req)}/login?reset=${token}`);

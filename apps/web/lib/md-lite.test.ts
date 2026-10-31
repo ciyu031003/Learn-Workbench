@@ -138,3 +138,42 @@ describe("parseQuestionBlocks（题库块级解析）", () => {
     expect(parseQuestionBlocks("  \n\n")).toEqual([]);
   });
 });
+
+describe("md-lite 微修与性能（评审 2026-10-31 P3）", () => {
+  it("围栏 info string 容许空格（```js extra），``` 的 info 里再含反引号则整行落段落", () => {
+    const ok = parseMarkdownLite(["```js extra", "let a = 1;", "```"].join("\n"));
+    expect(ok).toEqual([{ type: "code", lang: "js extra", code: "let a = 1;" }]);
+
+    const bad = parseMarkdownLite(["```a`b", "x", "```"].join("\n"));
+    expect(bad[0]?.type).toBe("paragraph");
+  });
+
+  it("表格单元格支持 \\| 转义竖线", () => {
+    const blocks = parseQuestionBlocks(["| a\\|b | c |", "|---|---|", "| 1 | 2 |"].join("\n"));
+    expect(blocks).toEqual([
+      {
+        type: "table",
+        rows: [
+          ["a\\|b", "c"],
+          ["1", "2"],
+        ],
+      },
+    ]);
+  });
+
+  it("1MB 输入（万行代码块）解析无性能悬崖", () => {
+    // 此前围栏闭合行在 while 循环里每行 new RegExp，万行块纯编译开销可测；
+    // 预编译后 1MB 输入应在数百毫秒内完成（CI 机放宽到 3s）
+    const chunk = "int main() { return 0; } // padding line for the perf regression case\n";
+    const lines: string[] = ["```c"];
+    for (let i = 0; i < 20_000; i += 1) lines.push(chunk);
+    lines.push("```");
+    const input = lines.join("\n");
+    expect(input.length).toBeGreaterThan(1_000_000);
+    const started = Date.now();
+    const blocks = parseQuestionBlocks(input);
+    const elapsed = Date.now() - started;
+    expect(blocks).toHaveLength(1);
+    expect(elapsed).toBeLessThan(3000);
+  });
+});

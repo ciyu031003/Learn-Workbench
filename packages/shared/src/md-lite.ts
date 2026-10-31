@@ -17,11 +17,24 @@ export type MdBlock =
   | { type: "quote"; text: string }
   | { type: "paragraph"; text: string };
 
-const FENCE = /^\s*(```|~~~)\s*([\w+#.-]*)\s*$/;
+const FENCE = /^\s*(```|~~~)\s*(.*?)\s*$/;
+// 围栏闭合行预编译（评审 2026-10-31 P3）：此前在 while 循环里对每行 new RegExp（万行
+// 代码块时纯浪费）；marker 只可能 ``` / ~~~，两个常量正好覆盖
+const FENCE_CLOSE = { "```": /^\s*```\s*$/, "~~~": /^\s*~~~\s*$/ } as const;
 const HEADING = /^(#{1,6})\s+(.*)$/;
 const UL = /^\s*[-*+]\s+(.*)$/;
 const OL = /^\s*\d+[.)]\s+(.*)$/;
 const QUOTE = /^\s*>\s?(.*)$/;
+
+/** 是否为合法围栏开行（``` 的 info string 按 CommonMark 不允许再含反引号，如 "```js x" 合法、"```a`b" 整行落段落） */
+function matchFence(line: string): { marker: "```" | "~~~"; lang: string } | null {
+  const fence = FENCE.exec(line);
+  if (!fence) return null;
+  const marker = fence[1] as "```" | "~~~";
+  const info = fence[2] ?? "";
+  if (marker === "```" && info.includes("`")) return null;
+  return { marker, lang: info.trim() };
+}
 
 /** 把 Markdown 正文解析成结构块；空输入返回空数组 */
 export function parseMarkdownLite(markdown: string): MdBlock[] {
@@ -50,16 +63,16 @@ export function parseMarkdownLite(markdown: string): MdBlock[] {
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index] ?? "";
 
-    const fence = FENCE.exec(line);
+    const fence = matchFence(line);
     if (fence) {
       flush();
-      const marker = fence[1];
-      const lang = (fence[2] ?? "").trim();
+      const lang = fence.lang;
+      const closeRe = FENCE_CLOSE[fence.marker];
       const body: string[] = [];
       index += 1;
       while (index < lines.length) {
         const next = lines[index] ?? "";
-        if (new RegExp(`^\\s*${marker}\\s*$`).test(next)) break;
+        if (closeRe.test(next)) break;
         body.push(next);
         index += 1;
       }
@@ -217,7 +230,12 @@ function tableCells(line: string): string[] {
   const t = line.trim();
   const body = t.startsWith("|") ? t.slice(1) : t;
   const body2 = body.endsWith("|") ? body.slice(0, -1) : body;
-  return body2.split("|").map((cell) => cell.trim());
+  // `\|` 是转义竖线（评审 2026-10-31 P3，此前含 \| 的单元格被错误切开）：先占位再还原
+  const ESC = "\u0000";
+  return body2
+    .replace(/\\\|/g, ESC)
+    .split("|")
+    .map((cell) => cell.trim().split(ESC).join("\\|"));
 }
 
 /**
@@ -260,16 +278,16 @@ export function parseQuestionBlocks(text: string): QuestionBlock[] {
       continue;
     }
 
-    const fence = FENCE.exec(line);
+    const fence = matchFence(line);
     if (fence) {
       flush();
-      const marker = fence[1];
-      const lang = (fence[2] ?? "").trim();
+      const lang = fence.lang;
+      const closeRe = FENCE_CLOSE[fence.marker];
       const body: string[] = [];
       index += 1;
       while (index < lines.length) {
         const next = lines[index] ?? "";
-        if (new RegExp(`^\\s*${marker}\\s*$`).test(next)) break;
+        if (closeRe.test(next)) break;
         body.push(next);
         index += 1;
       }

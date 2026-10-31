@@ -25,7 +25,7 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
     await pgPool.query("DELETE FROM job_favorites WHERE user_id = $1 AND job_id = $2", [userId, num]);
     // 仍停在「收藏」阶段 → 一起移除；已推进到后续阶段（投递/面试…）→ 保留，不误删进度
     const app = await getApplicationByJob(userId, num);
-    if (app && app.stage === "favorite") await deleteApplication(userId, app.id);
+    if (app && app.stage === "favorite") await deleteApplication(userId, Number(app.id));
     return NextResponse.json({ favorited: false });
   }
   await pgPool.query("INSERT INTO job_favorites (user_id, job_id) VALUES ($1, $2)", [userId, num]);

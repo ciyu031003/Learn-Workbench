@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 import { pgPool } from "@/lib/db";
 import { parseBody } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
@@ -25,11 +26,13 @@ export async function POST(req: Request) {
   const client = await pgPool.connect();
   try {
     await client.query("BEGIN");
+    // 库里存的是 sha256(token)（评审 2026-10-31 P3）：先哈希再查/作废
+    const tokenHash = createHash("sha256").update(token).digest("hex");
     const { rows } = await client.query<{ user_id: string }>(
       `SELECT user_id FROM password_reset_tokens
        WHERE token = $1 AND used_at IS NULL AND expires_at > now()
        FOR UPDATE`,
-      [token]
+      [tokenHash]
     );
     if (!rows[0]) {
       await client.query("ROLLBACK");
@@ -47,7 +50,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "该账号未设置密码登录，无法重置" }, { status: 400 });
     }
     // 令牌作废 + 全端下线
-    await client.query("UPDATE password_reset_tokens SET used_at = now() WHERE token = $1", [token]);
+    await client.query("UPDATE password_reset_tokens SET used_at = now() WHERE token = $1", [tokenHash]);
     await client.query("DELETE FROM sessions WHERE user_id = $1", [userId]);
     await client.query("COMMIT");
     return NextResponse.json({ ok: true });

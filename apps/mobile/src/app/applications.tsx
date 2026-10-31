@@ -174,7 +174,7 @@ export default function ApplicationsScreen() {
 
         {/* v20-E2：更新阶段行按压反馈（v1.35.0 起用静态 Pressable，不再经 Reanimated） */}
         <Pressable
-          onPress={() => setStageSheetFor(item.id)}
+          onPress={() => setStageSheetFor(Number(item.id))}
           style={({ pressed }) => [styles.stageRow, pressed && { opacity: 0.7, transform: [{ scale: 0.98 }] }]}
           accessibilityRole="button"
         >
@@ -264,7 +264,7 @@ export default function ApplicationsScreen() {
             danger
             onPress={() => {
               if (!editing) return;
-              void remove(editing.id);
+              void remove(Number(editing.id));
               setStageSheetFor(null);
             }}
           />
@@ -284,7 +284,7 @@ export default function ApplicationsScreen() {
               last={i === STAGES.length - 1}
               onPress={() => {
                 if (!editing) return;
-                void setStage(editing.id, s);
+                void setStage(Number(editing.id), s);
                 setStageSheetFor(null);
               }}
             />

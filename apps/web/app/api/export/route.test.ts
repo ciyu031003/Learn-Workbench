@@ -18,7 +18,7 @@ describe("GET /api/export", () => {
     const query = vi.fn().mockResolvedValue({ rows: [] });
     const release = vi.fn();
     connectMock.mockResolvedValue({ query, release } as never);
-    const res = await GET();
+    const res = await GET(new Request("http://localhost/api/export"));
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.app).toBe("learn-workbench");
