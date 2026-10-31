@@ -26,6 +26,7 @@ import { cloudPlatformTopicExpansions } from "./topic-expansion-cloud-platform";
 import { computerNetworkingTopicExpansions } from "./topic-expansion-computer-networking";
 import { computerNetworkingTopicExpansionsB } from "./topic-expansion-computer-networking-b";
 import { computerOrganizationTopicExpansions } from "./topic-expansion-computer-organization";
+import { computerOrganizationTopicExpansionsB } from "./topic-expansion-computer-organization-b";
 import { networkEngineeringTopicExpansions } from "./topic-expansion-network-engineering";
 import { operatingSystemsTopicExpansions } from "./topic-expansion-operating-systems";
 import { operatingSystemsTopicExpansionsB } from "./topic-expansion-operating-systems-b";
@@ -58,6 +59,7 @@ export const topicExpansions: TopicExpansion[] = [
   ...computerNetworkingTopicExpansions,
   ...computerNetworkingTopicExpansionsB,
   ...computerOrganizationTopicExpansions,
+  ...computerOrganizationTopicExpansionsB,
   ...networkEngineeringTopicExpansions,
   ...operatingSystemsTopicExpansions,
   ...operatingSystemsTopicExpansionsB,
