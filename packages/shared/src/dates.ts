@@ -6,6 +6,13 @@
 
 /* ================= 工具函数 ================= */
 
+/**
+ * 本地时区的今天（YYYY-MM-DD）。
+ *
+ * @deprecated 业务"今天"一律用 domains/date.ts 的 todayISOInZone()（Asia/Shanghai 口径，
+ * 评审 2026-10-31 P2 / S5-1 决策 D3）：本函数跟随运行环境时区，UTC 服务器与 +8 设备
+ * 会在 00:00–08:00（CST）给出不同答案。仅限纯本地 UI 语义使用。
+ */
 export function todayISO(offsetDays = 0): string {
   const d = new Date();
   d.setDate(d.getDate() + offsetDays);

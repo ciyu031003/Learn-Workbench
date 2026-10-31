@@ -56,10 +56,14 @@ export function useNutritionScreen({ initialDate }: NutritionScreenInput) {
   // v2.1（评审 2026-10-31）：同名路由复用实例时 params 变化必须跟随——此前 date 只在
   // 首渲染取一次 initialDate，趋势页换个日期再跳进来永远显示第一次的日期
   // （「参数冻结」家族，与 408 专区 bug 同根因）。月视图一并对齐所选日期所在月份。
-  useEffect(() => {
+  // 写法用 React 官方的「render 期间调整 state」模式（替代 effect 内同步 setState，
+  // 避免 lint 的级联渲染告警）：比较 prevInitialDate 决定是否重置。
+  const [prevInitialDate, setPrevInitialDate] = useState(initialDate);
+  if (prevInitialDate !== initialDate) {
+    setPrevInitialDate(initialDate);
     setDate(initialDate);
     setMonthView({ y: Number(initialDate.slice(0, 4)), m: Number(initialDate.slice(5, 7)) - 1 });
-  }, [initialDate]);
+  }
   const [entries, setEntries] = useState<MealEntry[]>([]);
   /** 逐日汇总（**保留 kcal 等完整字段**，月历徽标与周/月汇总都靠它；不再只存条数） */
   /**

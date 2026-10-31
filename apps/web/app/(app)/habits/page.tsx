@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import type { Habit, HabitLog } from "@learn-workbench/shared/schemas";
 import { HABIT_TEMPLATES, HABIT_WEEKDAY_LABELS } from "@learn-workbench/shared/labels";
-import { isScheduled, toDateKey } from "@learn-workbench/shared/dates";
+import { fromDateKey, isScheduled, toDateKey } from "@learn-workbench/shared/dates";
+import { todayISOInZone } from "@learn-workbench/shared/domains";
 import { computeHabitStats, isHabitDone } from "@learn-workbench/shared/pure";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -52,8 +53,10 @@ export default function HabitsPage() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
 
-  const today = useMemo(() => new Date(), []);
-  const todayKey = toDateKey(today);
+  // 业务日期统一东八区（评审 2026-10-31 P2，D3 口径）：此前用客户端本地时区，
+  // 非 +8 用户的"今天"与服务端 streak/daily-os 口径漂移
+  const today = useMemo(() => fromDateKey(todayISOInZone()), []);
+  const todayKey = todayISOInZone();
 
   const load = useCallback(async () => {
     try {

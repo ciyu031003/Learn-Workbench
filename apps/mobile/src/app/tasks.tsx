@@ -17,7 +17,7 @@ import { SuccessBurst } from "@/components/success-burst";
 import { AnimatedNumber } from "@/components/animated-number";
 import { ProgressBar } from "@/components/stat";
 import { taskTypeLabels } from "@learn-workbench/shared/labels";
-import { todayISO } from "@learn-workbench/shared/dates";
+import { todayISOInZone } from "@learn-workbench/shared/domains";
 import { Card } from "@/components/card";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
@@ -89,7 +89,8 @@ export default function TasksScreen() {
   /** 由"自由专注"弹出的计时器：需要自动开始 + 指定模式 + 带内容名 */
   const [autoTimer, setAutoTimer] = useState<{ label: string | null; timerMode: "countdown" | "stopwatch" } | null>(null);
 
-  const today = todayISO();
+  // 业务日期统一东八区（评审 2026-10-31 P2，S5-1 同款），与 dashboard/today 页口径一致
+  const today = todayISOInZone();
   const todayTasks = tasks.filter((t) => t.taskDate === today);
   const totalFocus = todayTasks.reduce((a, t) => a + t.focusMinutes, 0);
   const stats = computeFocusStats(sessions);

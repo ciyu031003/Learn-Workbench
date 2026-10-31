@@ -7,6 +7,8 @@ import {
   type HabitLog,
   type HabitStats,
 } from "@learn-workbench/shared";
+import { todayISOInZone } from "@learn-workbench/shared/domains";
+import { fromDateKey } from "@learn-workbench/shared/dates";
 
 export interface Scope {
   uid: string | null;
@@ -53,10 +55,10 @@ export async function listLogs(scope: Scope, from: string, to: string): Promise<
   }));
 }
 
-/** 习惯 + 统计 + 近 90 天打卡（一次取回，前端画周条与热力图） */
+/** 习惯 + 统计 + 近 90 天打卡（一次取回，前端画周条与热力图；today 用业务日历帧，默认 Asia/Shanghai） */
 export async function listHabitsWithStats(
   scope: Scope,
-  today: Date = new Date()
+  today: Date = fromDateKey(todayISOInZone())
 ): Promise<{ habits: Habit[]; logs: HabitLog[]; stats: HabitStats[] }> {
   const habits = await listHabits(scope);
   if (habits.length === 0) return { habits: [], logs: [], stats: [] };
@@ -72,6 +74,6 @@ export async function listHabitsWithStats(
 }
 
 /** 今日应打卡的习惯数（供 Daily OS 聚合） */
-export function countScheduledToday(habits: Habit[], today: Date = new Date()): number {
+export function countScheduledToday(habits: Habit[], today: Date = fromDateKey(todayISOInZone())): number {
   return habits.filter((h) => isScheduled(h.schedule, today)).length;
 }

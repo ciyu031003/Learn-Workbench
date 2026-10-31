@@ -6,7 +6,8 @@
 import type { Habit, HabitStats, JobCrawlerConfig, MealEntry, SportsProfile, SportsShare, Workout, WorkoutItem } from "./schemas";
 import type { BodyProfile, CalorieTargetResult, DailyReadiness, DailyReadinessInput, EquipmentCategoryMeta, ExerciseCatalogItem, ExerciseFilterable, FoodItemHit, HabitLogLike, JobFreshness, MacroStatus, NormalizedSportGear, NutritionRange, NutritionTargetView, NutritionTotals, ResumeTemplate, SportGearKind, SportGearRow, SportItem, SportsCardModel, SportsRecord, TrainingLoadDay, TrainingLoadMetric, TrainingLoadSeries } from "./types";
 import { ACTIVITY_FACTORS, COMMON_WEAK_PASSWORDS, DAILY_READINESS_WEIGHTS, DEFAULT_NUTRITION_TARGETS, DEFAULT_SPORT_GEAR_LABELS, EQUIPMENT_CATEGORIES, EXERCISE_CATALOG, KCAL_TARGET_MAX, KCAL_TARGET_MIN, LEGACY_GEAR_LABEL_ALIASES, RESUME_TEMPLATES, SPORTS_CARD_PANEL_TITLE, SPORT_ARCHIVE_EN, SPORT_CATALOG, SPORT_GEAR_TEMPLATES, TRAINING_LOAD_MIN_HEIGHT, allJobCategories, defaultCrawlerPlatforms, jobSourceLabels } from "./labels";
-import { isScheduled, toDateKey } from "./dates";
+import { isScheduled, toDateKey, fromDateKey } from "./dates";
+import { todayISOInZone } from "./domains/date";
 
 /** 证书有效期提醒（V3）：按到期天数分档，供 UI 显示「30 天后到期」等徽标 */
 export function certificateExpiryInfo(
@@ -183,7 +184,10 @@ export function isHabitDone(habit: Pick<Habit, "isBoolean" | "targetValue">, val
 export function computeHabitStats(
   habit: Pick<Habit, "id" | "isBoolean" | "targetValue" | "schedule">,
   logs: HabitLogLike[],
-  today: Date = new Date()
+  // 契约（评审 2026-10-31 P2）：today 必须是**业务日历帧**——其本地日历日 = 业务上的今天
+  // （引擎全程按日历日步进，与帧的时区无关）。默认 Asia/Shanghai（D3 口径）；
+  // 此前默认 new Date() 会让 UTC 服务器在 00:00–08:00（CST）把"今天"算成昨天。
+  today: Date = fromDateKey(todayISOInZone())
 ): HabitStats {
   const doneByDate = new Map<string, boolean>();
   for (const l of logs) {

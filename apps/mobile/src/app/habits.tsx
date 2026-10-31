@@ -35,7 +35,8 @@ import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
 import type { Habit, HabitLog } from "@learn-workbench/shared/schemas";
 import { HABIT_TEMPLATES, HABIT_WEEKDAY_LABELS } from "@learn-workbench/shared/labels";
-import { isScheduled, toDateKey } from "@learn-workbench/shared/dates";
+import { isScheduled, toDateKey, fromDateKey } from "@learn-workbench/shared/dates";
+import { todayISOInZone } from "@learn-workbench/shared/domains";
 import { computeHabitStats, habitTimeLabel, isHabitDone, normalizeHabitTime } from "@learn-workbench/shared/pure";
 
 /**
@@ -183,7 +184,7 @@ const last7 = useMemo(() => {
       // 新建习惯时**同时**在「每日任务」里建一条同名任务（v12 P1-2「两者都要」）。
       // 首页任务列表会按标题去重，不会出现两条。
       if (editingId === null) {
-        const today = toDateKey(new Date());
+        const today = todayISOInZone();
         await fetch(getApiUrl() + "/api/tasks", {
           method: "POST",
           headers: { "Content-Type": "application/json", ...headers() },
