@@ -1,9 +1,9 @@
 {
   "totals": {
-    "animationSites": 249,
-    "animatedStyleFiles": 30,
+    "animationSites": 252,
+    "animatedStyleFiles": 31,
     "repeatFiles": 9,
-    "filesWithAnimations": 34
+    "filesWithAnimations": 35
   },
   "sites": {
     "apps/mobile/src/app/(tabs)/_layout.tsx": 7,
@@ -27,6 +27,7 @@
     "apps/mobile/src/components/press-button.tsx": 3,
     "apps/mobile/src/components/pressable-scale.tsx": 6,
     "apps/mobile/src/components/progress-arc.tsx": 6,
+    "apps/mobile/src/components/question-swipe.tsx": 3,
     "apps/mobile/src/components/quiz-stack.tsx": 9,
     "apps/mobile/src/components/ring-progress.tsx": 2,
     "apps/mobile/src/components/sheet/segmented.tsx": 3,

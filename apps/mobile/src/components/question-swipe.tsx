@@ -53,11 +53,12 @@ export function QuestionSwipe({
       const goNext = canNext && (event.translationX < -SWIPE_DISTANCE || event.velocityX < -SWIPE_VELOCITY);
       const goPrev = canPrev && (event.translationX > SWIPE_DISTANCE || event.velocityX > SWIPE_VELOCITY);
       if (goNext || goPrev) {
-        dx.value = withTiming(goPrev ? 56 : -56, { duration: 130 }, () => {
-          dx.value = 0;
-          if (goPrev) runOnJS(onPrev)();
-          else runOnJS(onNext)();
-        });
+        // 翻题回调**立即**触发（v1.50.1 评审修复）：此前挂在滑出动画的完成回调里，
+        // 快速连滑时第二笔 onUpdate 直接写 dx.value 会取消进行中的动画 → 回调永不执行
+        // → 连滑吞翻页。现在动画只做手势余韵（新卡片滑回原位），不再承载任何逻辑。
+        if (goPrev) runOnJS(onPrev)();
+        else runOnJS(onNext)();
+        dx.value = withTiming(0, { duration: 120 });
       } else {
         dx.value = withTiming(0, { duration: 160 });
       }

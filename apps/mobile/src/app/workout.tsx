@@ -101,9 +101,9 @@ export default function WorkoutScreen() {
     router.push("/workout-add" as never);
   };
 
-  /** 编辑：带 id 进同一个全屏页，由它拉取明细回填 */
+  /** 编辑：带 id 进同一个全屏页，由它拉取明细回填（字符串 href 防同名路由参数冻结，v2.1 评审） */
   const openEdit = (w: Workout) => {
-    router.push({ pathname: "/workout-add", params: { id: String(w.id) } } as never);
+    router.push(`/workout-add?id=${String(w.id)}` as never);
   };
 
   const removeWorkout = (w: Workout) => {
