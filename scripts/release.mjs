@@ -49,6 +49,20 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DEFAULT_HOST = "ubuntu@106.55.2.197";
 const DEFAULT_SIZE_WARN_MB = 90;
 
+/** 上一版线上清单的 minSupportedVersionCode（强制升级门槛的策略连续性，v1.51.0 教训：漏传退到 0） */
+async function fetchLastLiveMinSupported() {
+  try {
+    const { execFileSync } = await import("node:child_process");
+    const raw = execFileSync("curl", ["-sS", "-m", "20", "https://learn.yuanabd.cn/mobile-update.json"], {
+      encoding: "utf8",
+    });
+    const value = Number(JSON.parse(raw).minSupportedVersionCode);
+    return Number.isInteger(value) && value >= 0 ? value : 0;
+  } catch {
+    return 0;
+  }
+}
+
 // ---------------------------------------------------------------- 参数与输出
 function parseArgs(argv) {
   const out = { _: [] };
@@ -235,6 +249,11 @@ let manifest = buildOtaManifest({
   sizeBytes: apkStat.size,
   sha256: apkSha,
   releaseNotes,
+  // 强制升级门槛：默认沿用上一版线上清单的 minSupportedVersionCode（策略连续），
+  // 可用 --min-supported-code 覆盖。漏掉会退到 0（不强制），老设备只收普通升级提示。
+  minSupportedVersionCode: args["min-supported-code"]
+    ? Number(args["min-supported-code"])
+    : await fetchLastLiveMinSupported(),
 });
 // S6-7：客户端对清单验签 fail-closed（无 signature 直接拒绝提示更新）。
 // 签名私钥解析顺序：env OTA_SIGNING_KEY_PEM > OTA_SIGNING_KEY_PATH > 发布机默认 .local/ota-signing-key.pem。
