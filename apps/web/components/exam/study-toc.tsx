@@ -217,7 +217,7 @@ export function StudyToc({ items, className }: StudyTocProps) {
   if (items.length === 0) return null;
 
   return (
-    <nav className={cn("flex flex-col gap-3", className)} aria-label="本节目录">
+    <nav className={cn("flex max-h-full min-h-0 w-full flex-col gap-3", className)} aria-label="本节目录">
       <div className="flex items-center justify-between gap-2">
         <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           <ListTree className="size-3.5" /> 本节目录
@@ -230,7 +230,8 @@ export function StudyToc({ items, className }: StudyTocProps) {
           style={{ width: progress + "%" }}
         />
       </div>
-      <div className="max-h-[calc(100dvh-12rem)] overflow-y-auto pr-1">
+      {/* 标题/进度固定，只有目录列表滚动：侧栏整体 sticky 到 top-24，列表在自己高度内独立滚动 */}
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
         <TocList sections={sections} activeId={activeId} collapsed={collapsed} onToggle={toggle} onNavigate={() => {}} compact />
       </div>
     </nav>

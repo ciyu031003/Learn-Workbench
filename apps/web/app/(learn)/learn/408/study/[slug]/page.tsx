@@ -22,13 +22,14 @@ export const metadata: Metadata = {
 /**
  * 408 精读阅读器（宽屏三栏）。
  *
- *   ┌ 左：本节目录（scrollspy / 阅读进度 / 折叠 / 键盘可达）  260px sticky
- *   ├ 中：正文列 720–780px（15.5px / 行高 1.95，KaTeX 公式排版）
- *   └ 右：本文章信息 / 相邻文章 / 来源与授权  240px
+ *   ┌ 左：本节目录（scrollspy / 阅读进度 / 折叠 / 键盘可达）   240 / 260 / 300px，贴左边缘
+ *   ├ 中：正文列 max-w-[980px]（15.5px / 行高 1.95，KaTeX 公式排版）
+ *   └ 右：本文章信息 / 相邻文章 / 来源与授权   260 / 300px，贴右边缘
  *
- * xl（≥1280）三栏；lg（1024–1279）两栏（目录 + 正文）；更窄单栏 + 目录抽屉。
- * 容器放宽到 1440px：外层 (learn) layout 的 main 仍是 max-w-5xl，这里用「左偏移 50% + 反向平移」
- * 让阅读器在宽屏上占满可用宽度、同时保持居中对齐（不修改公共 layout）。
+ * 版式：全幅铺满（上限 1880px）——左右两栏离视口边缘约 12–24px，中间正文最宽 980px；
+ * 两栏 sticky(top 24) 且各自可滚动。lg（1024–1279）两栏；更窄单栏 + 目录抽屉。
+ * 破出方式：外层 (learn) layout 的 main 仍是 max-w-5xl（公共 layout 不在本任务可改范围），
+ * 所以在本页内用「左移 50% + 反向平移」把内容拉到视口宽度，并限制上限 1880px。
  *
  * 公式：正文里的 $...$ 与 $$...$$ 由 markdown-article 用 KaTeX 渲染，katex 只在服务端执行，
  * 因此不进客户端首载包；katex.min.css 在本路由引入，字体由 Next 静态资源管线输出。
@@ -53,7 +54,9 @@ export default async function Exam408StudyArticlePage({
   const knowledgeMap = mapRecord ? buildKnowledgeMapPresentation(mapRecord) : null;
 
   return (
-    <div className="relative left-1/2 w-[min(1440px,calc(100vw-2rem))] -translate-x-1/2 px-1 sm:px-3">
+    // 全幅铺满视口（上限 1880，超宽屏才收）：外层路由组的 main 仍是 max-w-5xl（公共 layout 不在本任务
+    // 可改范围），所以只能在这里「左移 50% + 反向平移」破出版心；再靠左右各 12px 内边距让栏体贴边 ≤24px。
+    <div className="relative left-1/2 w-[min(1880px,calc(100vw-1rem))] -translate-x-1/2 px-3 sm:px-4 lg:px-5 2xl:px-1">
       <div className="flex flex-wrap items-center justify-between gap-2 pb-3 text-xs text-muted-foreground">
         <nav className="flex flex-wrap items-center gap-1.5">
           <Link href="/learn" className="inline-flex items-center gap-1 hover:text-foreground">
@@ -74,21 +77,24 @@ export default async function Exam408StudyArticlePage({
       </div>
 
       {/*
-        三档栅格（不写死 items-start：让左右两栏跟正文等高，sticky 才有可吸附的滚动行程）：
-          lg  1024–1279：目录 220 + 正文（≈748）
-          xl  1280–1535：目录 220 + 正文（≈764）+ 信息栏 200
-          2xl ≥1536     ：目录 260 + 正文 760 + 信息栏 240，整组居中
+        三栏左右贴边、中间宽正文（对齐 cs408 参考布局）：
+          lg  1024–1279：目录 240 + 正文（无右栏）
+          xl  1280–1535：目录 260 + 正文 + 信息栏 260
+          2xl ≥1536     ：目录 300 + 正文 + 信息栏 300
+        正文列内层 max-w-[980px] 居中（表格/图片/公式块可占满整列，不额外缩）。
+        栅格默认 stretch：侧栏跟正文等高，sticky 才有滚动行程；两栏各自 max-h + overflow-y-auto 独立滚动。
       */}
-      <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)_200px] 2xl:grid-cols-[260px_minmax(0,760px)_240px] 2xl:justify-center 2xl:gap-8">
-        {/* 左栏：目录 */}
-        <aside className="hidden lg:block">
-          <div className="sticky top-6 flex max-h-[calc(100dvh-3rem)] flex-col">
+      <div className="grid gap-5 lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)_260px] xl:gap-6 2xl:grid-cols-[300px_minmax(0,1fr)_300px]">
+        {/* 左栏：目录（贴左边缘，独立滚动，与正文之间一条极淡分隔） */}
+        <aside className="hidden min-h-0 lg:block">
+          <div className="sticky top-6 flex max-h-[calc(100dvh-3rem)] flex-col border-r border-border/40 pr-4">
             <StudyToc items={toc} />
           </div>
         </aside>
 
-        {/* 中栏：正文 */}
-        <main className="flex min-w-0 flex-col gap-5">
+        {/* 中栏：正文（列宽上限 980，两侧留白交给栅格） */}
+        <main className="flex min-w-0 flex-col">
+          <div className="mx-auto flex w-full max-w-[980px] flex-col gap-5">
           <Card rail="study">
             <CardContent className="flex flex-col gap-3 p-5 sm:p-6">
               <div className="flex flex-wrap items-center gap-1.5">
@@ -180,17 +186,18 @@ export default async function Exam408StudyArticlePage({
               ) : null}
             </CardContent>
           </Card>
+          </div>
         </main>
 
-        {/* 右栏：文章信息 / 相邻文章 / 来源 */}
-        <aside className="hidden flex-col gap-4 xl:flex">
-          <div className="sticky top-6 flex flex-col gap-4">
-            <Card>
-              <CardContent className="flex flex-col gap-3 p-4">
-                <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {/* 右栏：本文章 / 相邻文章 / 来源（贴右边缘，独立滚动；单一面板 + 分隔线，不再卡片套卡片） */}
+        <aside className="hidden min-h-0 xl:block">
+          <div className="sticky top-6 flex max-h-[calc(100dvh-3rem)] flex-col overflow-y-auto overscroll-contain border-l border-border/40 pl-5">
+            <div className="flex flex-col divide-y divide-border/40 rounded-xl border border-border/40 bg-muted/20 text-xs">
+              <section className="flex flex-col gap-2.5 p-3.5">
+                <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   <ScrollText className="size-3.5" /> 本文章
                 </p>
-                <dl className="flex flex-col gap-2 text-xs">
+                <dl className="flex flex-col gap-2">
                   <InfoRow label="科目" value={detail.subject.title} />
                   <InfoRow label="章节" value={topic.chapter} />
                   <InfoRow label="重要度" value={topic.importanceLabel} />
@@ -200,22 +207,20 @@ export default async function Exam408StudyArticlePage({
                 {topic.knowledgePointKey ? (
                   <Link
                     href={exam408PointHref(topic.knowledgePointKey)}
-                    className="inline-flex w-fit items-center gap-1 text-xs font-medium text-primary hover:underline"
+                    className="inline-flex w-fit items-center gap-1 font-medium text-primary hover:underline"
                   >
                     对应知识点与真题 <ChevronRight className="size-3.5" />
                   </Link>
                 ) : null}
-              </CardContent>
-            </Card>
+              </section>
 
-            {detail.prev || detail.next ? (
-              <Card>
-                <CardContent className="flex flex-col gap-2 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">相邻文章</p>
+              {detail.prev || detail.next ? (
+                <section className="flex flex-col gap-1.5 p-3.5">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">相邻文章</p>
                   {detail.prev ? (
                     <Link
                       href={studyTopicHref(detail.prev.slug)}
-                      className="group flex items-start gap-1.5 rounded-lg px-1.5 py-1 text-xs transition-colors hover:bg-muted/60"
+                      className="group flex items-start gap-1.5 rounded-lg px-1.5 py-1 transition-colors hover:bg-muted/60"
                     >
                       <ChevronLeft className="mt-0.5 size-3.5 shrink-0 text-muted-foreground group-hover:text-primary" />
                       <span className="min-w-0">
@@ -227,7 +232,7 @@ export default async function Exam408StudyArticlePage({
                   {detail.next ? (
                     <Link
                       href={studyTopicHref(detail.next.slug)}
-                      className="group flex items-start justify-end gap-1.5 rounded-lg px-1.5 py-1 text-right text-xs transition-colors hover:bg-muted/60"
+                      className="group flex items-start justify-end gap-1.5 rounded-lg px-1.5 py-1 text-right transition-colors hover:bg-muted/60"
                     >
                       <span className="min-w-0">
                         <span className="block text-[11px] text-muted-foreground">下一节</span>
@@ -236,13 +241,11 @@ export default async function Exam408StudyArticlePage({
                       <ChevronRight className="mt-0.5 size-3.5 shrink-0 text-muted-foreground group-hover:text-primary" />
                     </Link>
                   ) : null}
-                </CardContent>
-              </Card>
-            ) : null}
+                </section>
+              ) : null}
 
-            <Card>
-              <CardContent className="flex flex-col gap-1.5 p-4 text-[11px] leading-5 text-muted-foreground">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">来源与授权</p>
+              <section className="flex flex-col gap-1.5 p-3.5 text-[11px] leading-5 text-muted-foreground">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">来源与授权</p>
                 <p>
                   {detail.source.name}（{detail.source.baseUrl}）。{detail.source.licenseNote}
                 </p>
@@ -256,8 +259,8 @@ export default async function Exam408StudyArticlePage({
                     查看原文 <ExternalLink className="size-3" />
                   </a>
                 ) : null}
-              </CardContent>
-            </Card>
+              </section>
+            </div>
           </div>
         </aside>
       </div>
