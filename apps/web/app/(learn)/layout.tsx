@@ -7,7 +7,7 @@ import Link from "next/link";
 export default function LearnGroupLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh bg-[var(--color-canvas)] text-[var(--color-text)]">
-      <header className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4 text-sm">
+      <header className="mx-auto flex w-full max-w-[1880px] items-center justify-between px-3 py-4 text-sm sm:px-5 2xl:px-2">
         <Link href="/learn" className="font-semibold tracking-tight">
           学习内容库
         </Link>
