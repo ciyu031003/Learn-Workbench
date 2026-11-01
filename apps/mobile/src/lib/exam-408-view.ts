@@ -33,6 +33,30 @@ export function exam408PointHref(key: string): string {
   return `/quiz/408-point?key=${encodeURIComponent(trimmed)}`;
 }
 
+/** 知识点正文的一段：heading 为 true 时按「小标题感」加粗渲染（段落以【开头）。 */
+export type Exam408BodyParagraph = {
+  text: string;
+  heading: boolean;
+};
+
+/**
+ * 知识点正文段落归一化（v1.54.0）。
+ *
+ * 数据库 exam_408_knowledge_points.body 是 jsonb string[]，但旧快照行没有正文列，
+ * 线上接口可能返回 []、null 或整字段缺省；这里统一吸收成空数组，调用方据此整块不渲染。
+ * 另外顺手丢弃空白串（服务端 trim 过，但客户端不能假设），保留段落顺序。
+ */
+export function exam408BodyParagraphs(
+  body: readonly string[] | null | undefined,
+): Exam408BodyParagraph[] {
+  if (!Array.isArray(body)) return [];
+  return body
+    .filter((paragraph): paragraph is string => typeof paragraph === "string")
+    .map((paragraph) => paragraph.trim())
+    .filter((paragraph) => paragraph.length > 0)
+    .map((text) => ({ text, heading: text.startsWith("【") }));
+}
+
 
 export function resolveExam408Subject(
   overview: Exam408Overview | null,

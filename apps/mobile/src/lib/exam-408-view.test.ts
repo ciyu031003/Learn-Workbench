@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Exam408Overview } from "@/lib/exam-408";
 import {
   EXAM_408_EMPTY_STATS,
+  exam408BodyParagraphs,
   exam408ChapterPreview,
   exam408DisplayTags,
   exam408GradStageForSubject,
@@ -126,5 +127,38 @@ describe("exam408GradStageForSubject（真题索引科目 → ex-408-grad 讲义
     expect(exam408GradStageForSubject("beokayy-408/unknown-subject")).toBeNull();
     expect(exam408GradStageForSubject("")).toBeNull();
     expect(exam408GradStageForSubject("   ")).toBeNull();
+  });
+});
+
+describe("exam408BodyParagraphs（知识点正文归一化，v1.54.0）", () => {
+  it("按原顺序返回段落，并 trim 首尾空白", () => {
+    expect(exam408BodyParagraphs(["  第一段。 ", "第二段。"])).toEqual([
+      { text: "第一段。", heading: false },
+      { text: "第二段。", heading: false },
+    ]);
+  });
+
+  it("以【】开头的段落标记为小标题（加粗渲染）", () => {
+    const paragraphs = exam408BodyParagraphs([
+      "线性表的顺序表示把逻辑相邻的元素放成物理相邻。",
+      "【地址公式】第 i 个元素的地址等于首地址加 (i−1) 乘元素长度 L。",
+    ]);
+    expect(paragraphs.map((paragraph) => paragraph.heading)).toEqual([false, true]);
+    // 只按前缀判定，段落内部的【 不当标题
+    expect(exam408BodyParagraphs(["正文里提到【地址公式】这种写法"])[0]?.heading).toBe(false);
+  });
+
+  it("缺省 / null / 空数组都归一成空数组（旧接口无 body 列时整块不渲染）", () => {
+    expect(exam408BodyParagraphs(undefined)).toEqual([]);
+    expect(exam408BodyParagraphs(null)).toEqual([]);
+    expect(exam408BodyParagraphs([])).toEqual([]);
+    // 防御线上脏数据：非数组（历史字段曾按 string 返回）不能让页面崩
+    expect(exam408BodyParagraphs("字符串不是段落数组" as unknown as string[])).toEqual([]);
+  });
+
+  it("丢弃空串与纯空白段，避免渲染出空行", () => {
+    expect(exam408BodyParagraphs(["", "  ", "\n", "唯一一段。"])).toEqual([
+      { text: "唯一一段。", heading: false },
+    ]);
   });
 });

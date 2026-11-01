@@ -128,6 +128,7 @@ describe("getExam408Point", () => {
             key: "beokayy-408/ds-01-01",
             title: "顺序表",
             summary: "数据结构 · 线性表",
+            body: ["【定位】顺序表用连续存储单元依次存放元素。", "【地址公式】LOC(ai) = LOC(a1) + (i - 1) × L。"],
             question_count: 2,
             tags: ["408", "顺序表"],
             subject_key: "beokayy-408/ds",
@@ -159,7 +160,65 @@ describe("getExam408Point", () => {
       subject: { key: "beokayy-408/ds", title: "数据结构" },
       chapter: { title: "线性表", chapterNumber: 1 },
     });
+    expect(detail?.point.body).toEqual([
+      "【定位】顺序表用连续存储单元依次存放元素。",
+      "【地址公式】LOC(ai) = LOC(a1) + (i - 1) × L。",
+    ]);
     expect(detail?.questions[0]?.knowledgePoints).toEqual([{ key: "beokayy-408/ds-01-01", title: "顺序表" }]);
+  });
+
+  it("旧数据缺少 body 列或 body 不是数组时返回空数组", async () => {
+    queryMock
+      .mockResolvedValueOnce({ rows: [sourceRow] } as never)
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            key: "beokayy-408/ds-01-02",
+            title: "单链表",
+            summary: "数据结构 · 线性表",
+            // 迁移 084 之前的历史行没有 body 列
+            question_count: 1,
+            tags: [],
+            subject_key: "beokayy-408/ds",
+            subject_title: "数据结构",
+            chapter_key: "beokayy-408/ds-01",
+            chapter_title: "线性表",
+            chapter_number: 1,
+          },
+        ],
+      } as never)
+      .mockResolvedValueOnce({ rows: [] } as never);
+
+    const detail = await getExam408Point("beokayy-408/ds-01-02");
+
+    expect(detail?.point.body).toEqual([]);
+  });
+
+  it("body 里混入非字符串元素时只保留字符串", async () => {
+    queryMock
+      .mockResolvedValueOnce({ rows: [sourceRow] } as never)
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            key: "beokayy-408/ds-01-03",
+            title: "循环链表",
+            summary: "数据结构 · 线性表",
+            body: ["第一段", 42, null, "第二段"],
+            question_count: 1,
+            tags: [],
+            subject_key: "beokayy-408/ds",
+            subject_title: "数据结构",
+            chapter_key: "beokayy-408/ds-01",
+            chapter_title: "线性表",
+            chapter_number: 1,
+          },
+        ],
+      } as never)
+      .mockResolvedValueOnce({ rows: [] } as never);
+
+    const detail = await getExam408Point("beokayy-408/ds-01-03");
+
+    expect(detail?.point.body).toEqual(["第一段", "第二段"]);
   });
 
   it("知识点不存在返回 null", async () => {

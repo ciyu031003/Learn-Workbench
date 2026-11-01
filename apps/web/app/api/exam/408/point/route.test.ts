@@ -41,6 +41,7 @@ describe("GET /api/exam/408/point", () => {
         key: "beokayy-408/ds-01-01",
         title: "顺序表",
         summary: "数据结构 · 线性表",
+        body: ["【定位】顺序表用连续存储单元依次存放元素。", "【地址公式】LOC(ai) = LOC(a1) + (i - 1) × L。"],
         questionCount: 8,
         tags: ["408"],
         subject: { key: "beokayy-408/ds", title: "数据结构" },
@@ -54,6 +55,12 @@ describe("GET /api/exam/408/point", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ point: { title: "顺序表", questionCount: 8 } });
+    const payload = await response.json();
+
+    expect(payload).toMatchObject({ point: { title: "顺序表", questionCount: 8 } });
+    expect(payload.point.body).toEqual([
+      "【定位】顺序表用连续存储单元依次存放元素。",
+      "【地址公式】LOC(ai) = LOC(a1) + (i - 1) × L。",
+    ]);
   });
 });

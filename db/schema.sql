@@ -2061,6 +2061,8 @@ CREATE TABLE IF NOT EXISTS exam_408_knowledge_points (
   point_number   int NOT NULL CHECK (point_number > 0),
   title          text NOT NULL,
   summary        text NOT NULL DEFAULT '',
+  -- 迁移 084：知识点正文段落（string[]），App/Web 点开知识点即可先读正文
+  body           jsonb NOT NULL DEFAULT '[]'::jsonb,
   sort_order     int NOT NULL DEFAULT 0 CHECK (sort_order >= 0),
   question_count int NOT NULL DEFAULT 0 CHECK (question_count >= 0),
   tags           jsonb NOT NULL DEFAULT '[]'::jsonb,

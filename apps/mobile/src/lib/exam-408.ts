@@ -98,6 +98,14 @@ export interface Exam408PointDetail {
     key: string;
     title: string;
     summary: string;
+    /**
+     * 知识点正文段落（v1.54.0）。旧数据可能整列缺省或为空数组，前端一律用
+     * `exam408BodyParagraphs()` 归一化后再判空渲染。
+     *
+     * 注意与 `Exam408Question.body`（单道题的题干 markdown 原文，string）区分：
+     * 这里是段落数组，一个元素对应界面上的一段。
+     */
+    body?: string[];
     questionCount: number;
     tags: string[];
     subject: { key: string; title: string };

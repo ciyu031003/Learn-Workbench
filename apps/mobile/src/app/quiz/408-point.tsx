@@ -12,6 +12,7 @@ import { PressableScale } from "@/components/pressable-scale";
 import { Exam408QuestionCard } from "@/components/exam-408-question-card";
 import { ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { getExam408Point, type Exam408PointDetail } from "@/lib/exam-408";
+import { exam408BodyParagraphs } from "@/lib/exam-408-view";
 import { takeNavPendingParams } from "@/lib/nav-pending";
 import { recordCrumb } from "@/lib/crash-capture";
 import { useScreenEntrance } from "@/lib/use-screen-entrance";
@@ -36,6 +37,14 @@ function PointContent({ pointKey }: { pointKey: string }) {
   const [detail, setDetail] = useState<Exam408PointDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  /**
+   * 知识点正文（v1.54.0）。旧接口无此列 → 空数组 → 整个区块不渲染，
+   * 保持 1.53.x 的老页面形态。hook 必须在下面的提前 return 之前。
+   */
+  const bodyParagraphs = useMemo(
+    () => exam408BodyParagraphs(detail?.point.body),
+    [detail],
+  );
   /**
    * 本实例已解析的知识点 key（ref 而非 state：进 load 依赖会改变 useFocusEffect
    * 回调身份，聚焦态下身份变化会立即重跑回调 → 每次聚焦多发一次请求）。
@@ -163,6 +172,25 @@ function PointContent({ pointKey }: { pointKey: string }) {
           </View>
         </Animated.View>
 
+        {bodyParagraphs.length > 0 ? (
+          <Animated.View entering={entrance(1)} style={styles.bodyCard}>
+            <View style={styles.bodyHead}>
+              <ThemedIcon name="document-text-outline" size={17} color={colors.primary} />
+              <Text style={styles.bodyTitle}>知识点正文</Text>
+            </View>
+            <View style={styles.bodyList}>
+              {bodyParagraphs.map((paragraph, index) => (
+                <Text
+                  key={`body-${index}`}
+                  style={paragraph.heading ? styles.bodyParagraphHeading : styles.bodyParagraph}
+                >
+                  {paragraph.text}
+                </Text>
+              ))}
+            </View>
+          </Animated.View>
+        ) : null}
+
         <View style={styles.sectionHead}>
           <Text style={styles.sectionTitle}>关联真题</Text>
           <PressableScale haptic onPress={() => router.back()} style={styles.backButton}>
@@ -173,7 +201,7 @@ function PointContent({ pointKey }: { pointKey: string }) {
 
         <View style={styles.questionList}>
           {detail.questions.map((question) => (
-            <Animated.View key={question.key} entering={entrance(1)}>
+            <Animated.View key={question.key} entering={entrance(2)}>
               <Exam408QuestionCard question={question} />
             </Animated.View>
           ))}
@@ -263,6 +291,21 @@ const makeStyles = (colors: ThemeColors) =>
     tagWrap: { flex: 1, flexDirection: "row", flexWrap: "wrap", gap: 6 },
     tag: { borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 5, backgroundColor: colors.surfaceMuted },
     tagText: { ...typography.micro, color: colors.textSecondary },
+    bodyCard: {
+      borderRadius: radius.xl,
+      padding: spacing.lg,
+      gap: spacing.md,
+      backgroundColor: colors.surface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    bodyHead: { flexDirection: "row", alignItems: "center", gap: 6 },
+    bodyTitle: { ...typography.headline, color: colors.text },
+    // 段间距 12（规范 10-12）：长正文靠间距分段，不用分隔线，避免视觉噪音
+    bodyList: { gap: spacing.md },
+    bodyParagraph: { ...typography.body, color: colors.textSecondary },
+    // 以【】开头的段落是正文里的小标题，加粗 + 主文本色，压过正文一档
+    bodyParagraphHeading: { ...typography.body, fontWeight: "700", color: colors.text },
     sectionHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     sectionTitle: { ...typography.title2, color: colors.text },
     backButton: { flexDirection: "row", alignItems: "center", gap: 4, padding: 6 },

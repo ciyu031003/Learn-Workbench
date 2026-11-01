@@ -106,6 +106,8 @@ export interface Exam408PointDetail {
     key: string;
     title: string;
     summary: string;
+    /** 迁移 084：知识点正文段落（旧数据可能是 [] 或缺省，渲染前按空数组兜底） */
+    body: string[];
     questionCount: number;
     tags: string[];
     subject: { key: string; title: string };
@@ -285,6 +287,7 @@ export async function getExam408Point(
     key: string;
     title: string;
     summary: string;
+    body: unknown;
     question_count: number;
     tags: unknown;
     subject_key: string;
@@ -297,6 +300,7 @@ export async function getExam408Point(
        p.key,
        p.title,
        p.summary,
+       p.body,
        p.question_count,
        p.tags,
        s.key AS subject_key,
@@ -327,6 +331,7 @@ export async function getExam408Point(
       key: pointRow.key,
       title: pointRow.title,
       summary: pointRow.summary,
+      body: stringArray(pointRow.body),
       questionCount: Number(pointRow.question_count),
       tags: stringArray(pointRow.tags),
       subject: { key: pointRow.subject_key, title: pointRow.subject_title },

@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { ExamQuestionCard } from "@/components/exam/exam-question-card";
 import { getExam408Point } from "@/lib/exam-408";
-import { ArrowLeft, BookOpen, Layers3 } from "lucide-react";
+import { ArrowLeft, BookOpen, Layers3, ScrollText } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +63,31 @@ export default async function Exam408PointPage({
           </div>
         </CardContent>
       </Card>
+
+      {detail.point.body.length > 0 ? (
+        <Card>
+          <CardContent className="flex flex-col gap-3 p-5 sm:p-6">
+            <h2 className="flex items-center gap-2 text-lg font-semibold">
+              <ScrollText className="size-4 text-primary" />
+              知识点正文
+            </h2>
+            <div className="flex flex-col gap-2.5">
+              {detail.point.body.map((paragraph, index) => (
+                <p
+                  key={index}
+                  className={
+                    paragraph.startsWith("【")
+                      ? "text-sm font-medium leading-7 text-foreground/90"
+                      : "text-sm leading-7 text-foreground/90"
+                  }
+                >
+                  {paragraph}
+                </p>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
