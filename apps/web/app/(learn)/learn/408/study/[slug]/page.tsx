@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { InlineRichText, MarkdownArticle } from "@/components/exam/markdown-article";
 import { StudyToc, StudyTocMobile } from "@/components/exam/study-toc";
 import { buildKnowledgeMapPresentation, getExam408KnowledgeMap, isKnowledgeMapBlock } from "@/lib/exam-408-map";
+import { exam408PointHref } from "@/lib/exam-408-point-key";
 import { decodeStudySlug, getExam408StudyTopic, studyTopicHref } from "@/lib/exam-408-study";
 import { ArrowLeft, ChevronLeft, ChevronRight, Clock, ExternalLink, Layers3, ScrollText } from "lucide-react";
 
@@ -114,7 +115,7 @@ export default async function Exam408StudyArticlePage({
               ) : null}
               {topic.knowledgePointKey ? (
                 <Link
-                  href={"/learn/408/points/" + topic.knowledgePointKey}
+                  href={exam408PointHref(topic.knowledgePointKey)}
                   className="inline-flex w-fit items-center gap-1 text-xs font-medium text-primary hover:underline xl:hidden"
                 >
                   对应知识点与真题 <ChevronRight className="size-3.5" />
@@ -198,7 +199,7 @@ export default async function Exam408StudyArticlePage({
                 </dl>
                 {topic.knowledgePointKey ? (
                   <Link
-                    href={"/learn/408/points/" + topic.knowledgePointKey}
+                    href={exam408PointHref(topic.knowledgePointKey)}
                     className="inline-flex w-fit items-center gap-1 text-xs font-medium text-primary hover:underline"
                   >
                     对应知识点与真题 <ChevronRight className="size-3.5" />

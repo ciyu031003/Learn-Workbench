@@ -63,7 +63,8 @@ describe("getExam408Overview", () => {
       questionCount: 20,
     });
     expect(overview.subjects[0]?.chapters[0]?.points[0]).toEqual({
-      key: "beokayy-408/ds-01-01",
+      // P7：对外展示前缀是 yuanabd-408，库内主键仍是 beokayy-408
+      key: "yuanabd-408/ds-01-01",
       title: "顺序表",
       pointNumber: 1,
       questionCount: 8,
@@ -164,7 +165,7 @@ describe("getExam408Point", () => {
       "【定位】顺序表用连续存储单元依次存放元素。",
       "【地址公式】LOC(ai) = LOC(a1) + (i - 1) × L。",
     ]);
-    expect(detail?.questions[0]?.knowledgePoints).toEqual([{ key: "beokayy-408/ds-01-01", title: "顺序表" }]);
+    expect(detail?.questions[0]?.knowledgePoints).toEqual([{ key: "yuanabd-408/ds-01-01", title: "顺序表" }]);
   });
 
   it("旧数据缺少 body 列或 body 不是数组时返回空数组", async () => {

@@ -1,4 +1,6 @@
 import { pgPool } from "@/lib/db";
+
+import { externalizePointKey, internalizePointKey } from "./exam-408-point-key";
 import type { Exam408Question } from "@/lib/exam-408";
 import {
   normalizeAnswerSteps,
@@ -239,15 +241,41 @@ async function readQuestions(pointKey: string): Promise<Exam408Question[]> {
 }
 
 export async function getExam408Topic(key: string): Promise<Exam408Topic | null> {
-  const point = await readPoint(key);
+  // 入参兼容两种前缀：库里主键始终是 beokayy-408/*
+  const pointKey = internalizePointKey(key);
+  const point = await readPoint(pointKey);
   if (!point) return null;
   const [articles, cards, demos, questions] = await Promise.all([
-    readArticles(key),
-    readCards(key),
-    readDemos(key),
-    readQuestions(key),
+    readArticles(pointKey),
+    readCards(pointKey),
+    readDemos(pointKey),
+    readQuestions(pointKey),
   ]);
-  return { point, articles, cards, demos, questions };
+  // 返回给前端/App 的 point 类 key 统一换成展示前缀（旧前缀也能被 internalize 回来）
+  return {
+    point: { ...point, key: externalizePointKey(point.key) },
+    articles: articles.map((article) => ({
+      ...article,
+      knowledgePointKey: article.knowledgePointKey
+        ? externalizePointKey(article.knowledgePointKey)
+        : null,
+    })),
+    cards: cards.map((card) => ({
+      ...card,
+      knowledgePointKey: card.knowledgePointKey ? externalizePointKey(card.knowledgePointKey) : null,
+    })),
+    demos: demos.map((demo) => ({
+      ...demo,
+      knowledgePointKey: demo.knowledgePointKey ? externalizePointKey(demo.knowledgePointKey) : null,
+    })),
+    questions: questions.map((question) => ({
+      ...question,
+      knowledgePoints: question.knowledgePoints.map((link) => ({
+        ...link,
+        key: externalizePointKey(link.key),
+      })),
+    })),
+  };
 }
 
 export function mapCard(row: Exam408TopicCardRow): Exam408CardContent {

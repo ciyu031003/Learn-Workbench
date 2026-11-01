@@ -53,6 +53,11 @@ export interface Exam408StudyDetail {
   article: Exam408StudyArticle;
   prev: Exam408StudyLink | null;
   next: Exam408StudyLink | null;
+  /**
+   * 服务端 blocks（?format=svg 模式）：带 segments（行内公式段）与 math.svg。
+   * 旧接口/离线时为空数组，阅读页回退到本地 parseStudyMarkdown(contentMd)。
+   */
+  blocks: StudyBlock[];
 }
 
 export interface Exam408StudyChapter {
@@ -77,21 +82,39 @@ export type StudyInline =
   | { type: "code"; value: string }
   | { type: "math"; value: string };
 
+/**
+ * 服务端预渲染的公式段（v1.55 / P7）。
+ *
+ * App 端没有数学字体，接口带 ?format=svg 时会把一段文本按 $...$ 切成 text/math 段，
+ * math 段里是服务端 TeX→SVG 的结果（可能为 null，渲染方回退等宽 LaTeX）。
+ */
+export type StudyTextSegment = { type: "text"; text: string };
+export type StudyMathSegment = { type: "math"; tex: string; svg: string | null };
+export type StudySegment = StudyTextSegment | StudyMathSegment;
+
 export interface StudyListItem {
   inlines: StudyInline[];
   /** 缩进层级（0 = 顶层，1 = 二级，最多 2） */
   depth: number;
+  /** 服务端切好的 text/math 段（有值时优先于 inlines 渲染） */
+  segments?: StudySegment[];
 }
 
 export type StudyBlock =
   | { type: "heading"; level: number; text: string; id: string }
-  | { type: "paragraph"; inlines: StudyInline[] }
+  | { type: "paragraph"; inlines: StudyInline[]; segments?: StudySegment[] }
   | { type: "list"; ordered: boolean; items: StudyListItem[] }
-  | { type: "table"; header: StudyInline[][]; rows: StudyInline[][][] }
+  | {
+      type: "table";
+      header: StudyInline[][];
+      rows: StudyInline[][][];
+      headerSegments?: StudySegment[][];
+      rowSegments?: StudySegment[][][];
+    }
   | { type: "code"; lang: string; code: string }
-  | { type: "quote"; lines: StudyInline[][] }
+  | { type: "quote"; lines: StudyInline[][]; lineSegments?: StudySegment[][] }
   | { type: "image"; src: string; alt: string }
-  | { type: "math"; tex: string }
+  | { type: "math"; tex: string; svg?: string | null }
   | { type: "embed"; src: string; title: string }
   | { type: "divider" };
 
@@ -487,6 +510,144 @@ export function normalizeStudyList(payload: unknown, subjectKey: string): Exam40
 }
 
 /** 详情归一化：article 是必填，prev/next 缺省为 null */
+/** 行内段归一化：只认 text/math 两种，丢弃空段；svg 非字符串时置 null */
+export function normalizeStudySegments(value: unknown): StudySegment[] {
+  if (!Array.isArray(value)) return [];
+  const segments: StudySegment[] = [];
+  for (const item of value) {
+    const record = asRecord(item);
+    const type = asString(record.type);
+    if (type === "text") {
+      const text = asString(record.text);
+      if (text) segments.push({ type: "text", text });
+      continue;
+    }
+    if (type === "math") {
+      const tex = asString(record.tex);
+      if (!tex) continue;
+      const svg = typeof record.svg === "string" && record.svg.includes("<svg") ? record.svg : null;
+      segments.push({ type: "math", tex, svg });
+    }
+  }
+  return segments;
+}
+
+/** 接口 blocks → App 结构块（服务端已切好 quotes/list/table 的 segments） */
+export function normalizeApiStudyBlocks(value: unknown): StudyBlock[] {
+  if (!Array.isArray(value)) return [];
+  const blocks: StudyBlock[] = [];
+  for (const item of value) {
+    const record = asRecord(item);
+    const type = asString(record.type);
+    if (type === "heading") {
+      const text = asString(record.text).trim();
+      if (!text) continue;
+      const level = Math.min(6, Math.max(1, Math.round(asNumber(record.level, 2))));
+      blocks.push({ type: "heading", level, text, id: asString(record.id) || "api-h-" + blocks.length });
+      continue;
+    }
+    if (type === "paragraph") {
+      const lines = Array.isArray(record.lines) ? record.lines.filter((line): line is string => typeof line === "string") : [];
+      const text = lines.join(" ").trim();
+      const segments = normalizeStudySegments(record.segments);
+      if (!text && segments.length === 0) continue;
+      blocks.push({ type: "paragraph", inlines: parseStudyInline(text), ...(segments.length > 0 ? { segments } : {}) });
+      continue;
+    }
+    if (type === "list") {
+      const items = Array.isArray(record.items) ? record.items : [];
+      const mapped: StudyListItem[] = [];
+      for (const rawItem of items) {
+        const itemRecord = asRecord(rawItem);
+        const text = asString(itemRecord.text).trim();
+        const segments = normalizeStudySegments(itemRecord.segments);
+        if (!text && segments.length === 0) continue;
+        mapped.push({
+          inlines: parseStudyInline(text),
+          depth: Math.min(2, Math.max(0, Math.round(asNumber(itemRecord.depth, 0)))),
+          ...(segments.length > 0 ? { segments } : {}),
+        });
+      }
+      if (mapped.length > 0) blocks.push({ type: "list", ordered: Boolean(record.ordered), items: mapped });
+      continue;
+    }
+    if (type === "table") {
+      const header = Array.isArray(record.header) ? record.header.map((cell) => asString(cell)) : [];
+      const rows = Array.isArray(record.rows)
+        ? record.rows.map((row) => (Array.isArray(row) ? row.map((cell) => asString(cell)) : []))
+        : [];
+      if (header.length === 0 && rows.length === 0) continue;
+      const headerSegments = Array.isArray(record.headerSegments)
+        ? record.headerSegments.map((cell) => normalizeStudySegments(cell))
+        : undefined;
+      const rowSegments = Array.isArray(record.rowSegments)
+        ? record.rowSegments.map((row) => (Array.isArray(row) ? row.map((cell) => normalizeStudySegments(cell)) : []))
+        : undefined;
+      blocks.push({
+        type: "table",
+        header: header.map((cell) => parseStudyInline(cell)),
+        rows: rows.map((row) => row.map((cell) => parseStudyInline(cell))),
+        ...(headerSegments ? { headerSegments } : {}),
+        ...(rowSegments ? { rowSegments } : {}),
+      });
+      continue;
+    }
+    if (type === "quote") {
+      const lines = Array.isArray(record.lines) ? record.lines.filter((line): line is string => typeof line === "string") : [];
+      const lineSegments = Array.isArray(record.segments) && record.segments.length > 0 ? [normalizeStudySegments(record.segments)] : undefined;
+      if (lines.length === 0 && !lineSegments) continue;
+      blocks.push({ type: "quote", lines: lines.map((line) => parseStudyInline(line)), ...(lineSegments ? { lineSegments } : {}) });
+      continue;
+    }
+    if (type === "code") {
+      blocks.push({ type: "code", lang: asString(record.lang), code: asString(record.code) });
+      continue;
+    }
+    if (type === "image") {
+      const src = asString(record.src);
+      if (src) blocks.push({ type: "image", src, alt: asString(record.alt) });
+      continue;
+    }
+    if (type === "math") {
+      const tex = asString(record.tex);
+      if (!tex) continue;
+      const svg = typeof record.svg === "string" && record.svg.includes("<svg") ? record.svg : null;
+      blocks.push({ type: "math", tex, ...(svg ? { svg } : {}) });
+      continue;
+    }
+    if (type === "iframe") {
+      const src = asString(record.src);
+      if (src) blocks.push({ type: "embed", src, title: asString(record.title) });
+      continue;
+    }
+    if (type === "divider") {
+      blocks.push({ type: "divider" });
+    }
+  }
+  return blocks;
+}
+
+/**
+ * 渲染用的文本分块：RN 的 Text 不能包 SvgXml，所以带行内公式的段落必须拆成
+ * flexWrap 的行内块；按 ~14 个字符切块给折行留出机会（中文在块间断行）。
+ */
+export function chunkInlineText(text: string, size = 14): string[] {
+  const source = String(text ?? "");
+  if (!source) return [];
+  const limit = Math.max(1, Math.floor(size));
+  const chunks: string[] = [];
+  let current = "";
+  for (const char of source) {
+    current += char;
+    if (current.length >= limit) {
+      chunks.push(current);
+      current = "";
+    }
+  }
+  if (current) chunks.push(current);
+  return chunks;
+}
+
 export function normalizeStudyDetail(payload: unknown): Exam408StudyDetail {
   const record = asRecord(payload);
   const articleRaw = asRecord(record.article ?? record.topic ?? record);
@@ -503,7 +664,7 @@ export function normalizeStudyDetail(payload: unknown): Exam408StudyDetail {
     if (!slug) return null;
     return { slug, title: asString(item.title, "未命名主题"), chapter: asString(item.chapter) || undefined };
   };
-  return { article, prev: toLink(record.prev), next: toLink(record.next) };
+  return { article, prev: toLink(record.prev), next: toLink(record.next), blocks: normalizeApiStudyBlocks(record.blocks) };
 }
 
 /** 重要度转中文标签（迁移 085：must/common/rare/none） */
@@ -551,7 +712,10 @@ export async function getExam408StudyCatalog(subjectKey: string): Promise<Exam40
 
 /** 单篇正文与前后导航 */
 export async function getExam408StudyArticle(slug: string): Promise<Exam408StudyDetail> {
-  const payload = await requestJson("/api/exam/408/study?slug=" + encodeURIComponent(slug));
+  // format=svg：服务端把公式渲染成 SVG、并把行内 $...$ 切成 segments（App 直接按段渲染）
+  const payload = await requestJson(
+    "/api/exam/408/study?slug=" + encodeURIComponent(slug) + "&format=svg",
+  );
   return normalizeStudyDetail(payload);
 }
 

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { DemoPlayer } from "@/components/exam/demo-player";
 import { exam408DemoSubjectLabel, getExam408Demo } from "@/lib/exam-408-demos";
+import { exam408PointHref } from "@/lib/exam-408-point-key";
 
 export const dynamic = "force-dynamic";
 
@@ -64,7 +65,7 @@ export default async function Exam408VizDemoPage({
             </Link>
             {demo.knowledgePointKey ? (
               <Link
-                href={`/learn/408/points/${demo.knowledgePointKey.split("/").map((part) => encodeURIComponent(part)).join("/")}`}
+                href={exam408PointHref(demo.knowledgePointKey)}
                 className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
               >
                 <BookOpen className="size-3.5" /> 关联知识点

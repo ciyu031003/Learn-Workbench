@@ -1,4 +1,5 @@
 import { getApiUrl } from "@/config";
+import { externalizePointKey, internalizePointKey, isExam408PointKey } from "@/lib/exam-408-point-key";
 import type { Exam408Question } from "@/lib/exam-408";
 import type { Exam408DemoSummary } from "@/lib/exam-408-demos";
 import {
@@ -217,16 +218,17 @@ export function normalizeExam408Topic(value: unknown): Exam408Topic | null {
   return { point, articles, cards, demos, questions };
 }
 
-const KEY_PREFIX = "beokayy-408/";
-
 /** 知识点聚合：404 / 非 2xx / 结构不可识别都抛 Error，由知识点页静默降级（入口区块不渲染） */
 export async function getExam408Topic(key: string): Promise<Exam408Topic> {
   const trimmed = key.trim();
-  if (!trimmed.startsWith(KEY_PREFIX)) {
+  // P7：入参两种前缀都接受，请求 API 时统一 internalize 回库内主键
+  if (!isExam408PointKey(trimmed)) {
     throw new Error("key 必须是 408 知识点 key");
   }
   const url =
-    getApiUrl().replace(/\/+$/, "") + "/api/exam/408/topic?key=" + encodeURIComponent(trimmed);
+    getApiUrl().replace(/\/+$/, "") +
+    "/api/exam/408/topic?key=" +
+    encodeURIComponent(internalizePointKey(trimmed));
   let response: Response;
   try {
     response = await fetch(url);
@@ -251,5 +253,21 @@ export async function getExam408Topic(key: string): Promise<Exam408Topic> {
   }
   const topic = normalizeExam408Topic(payload);
   if (!topic) throw new Error("知识点聚合数据不可用");
-  return topic;
+  // 返回给页面展示的 point 类 key 统一用 yuanabd-408 前缀
+  return {
+    ...topic,
+    point: { ...topic.point, key: externalizePointKey(topic.point.key) },
+    cards: topic.cards.map((card) => ({
+      ...card,
+      knowledgePointKey: card.knowledgePointKey
+        ? externalizePointKey(card.knowledgePointKey)
+        : null,
+    })),
+    demos: topic.demos.map((demo) => ({
+      ...demo,
+      knowledgePointKey: demo.knowledgePointKey
+        ? externalizePointKey(demo.knowledgePointKey)
+        : null,
+    })),
+  };
 }

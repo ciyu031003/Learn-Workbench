@@ -201,7 +201,8 @@ describe("buildExam408SearchResult", () => {
     expect(result.groups.map((group) => group.kind)).toEqual([...EXAM_408_SEARCH_KINDS]);
     expect(result.groups[0]?.hits[0]).toMatchObject({
       key: "beokayy-408/os-02-04",
-      href: "/learn/408/points/beokayy-408/os-02-04",
+      // 结果 key 仍是库内主键，href 用对外展示前缀
+      href: "/learn/408/points/yuanabd-408/os-02-04",
       meta: "操作系统 · 进程管理",
     });
     expect(result.groups[1]?.hits[0]?.href).toBe(

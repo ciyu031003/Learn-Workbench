@@ -13,6 +13,7 @@ import {
   getExam408StudySubject,
   getExam408StudyTopic,
 } from "@/lib/exam-408-study";
+import type { StudyBlock } from "@/lib/exam-408-study";
 import { GET } from "./route";
 
 const overviewMock = vi.mocked(getExam408StudyOverview);
@@ -111,6 +112,66 @@ describe("GET /api/exam/408/study", () => {
     expect(payload.topic.sourceUrl).toContain("cs408.cloud");
     expect(payload.toc).toEqual([{ id: "h-sec-0", text: "存储结构", level: 2 }]);
     expect(payload.next.slug).toBe("next");
+  });
+
+  it("?format=svg 给 blocks 追加公式 SVG 与行内 segments（默认格式不受影响）", async () => {
+    const blocks: StudyBlock[] = [
+      { type: "paragraph", lines: ["复杂度 $O(n^2)$ 的结论"] },
+      { type: "math", tex: "T(n) = 2T(n/2) + n" },
+    ];
+    topicMock.mockResolvedValueOnce({
+      source,
+      subject: { key: "data-structure", title: "数据结构", shortName: "DS" },
+      topic: { ...topic, contentMd: "## 存储结构", tags: [], sourceUrl: null },
+      blocks,
+      toc: [],
+      excerpt: "",
+      prev: null,
+      next: null,
+    });
+    const response = await GET(
+      new NextRequest("http://localhost/api/exam/408/study?slug=data_structure-intro-basic&format=svg"),
+    );
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    const paragraph = payload.blocks[0];
+    expect(paragraph.segments.map((segment: { type: string }) => segment.type)).toEqual(["text", "math", "text"]);
+    expect(paragraph.segments[1].svg).toContain("<svg");
+    expect(payload.blocks[1].svg).toContain("<svg");
+    expect(payload.blocks[1].tex).toBe("T(n) = 2T(n/2) + n");
+  });
+
+  it("不带 ?format=svg 时响应体不含 segments/svg（Web KaTeX 路径不变）", async () => {
+    topicMock.mockResolvedValueOnce({
+      source,
+      subject: { key: "data-structure", title: "数据结构", shortName: "DS" },
+      topic: { ...topic, contentMd: "## 存储结构", tags: [], sourceUrl: null },
+      blocks: [{ type: "math", tex: "a^2" }] satisfies StudyBlock[],
+      toc: [],
+      excerpt: "",
+      prev: null,
+      next: null,
+    });
+    const response = await GET(new NextRequest("http://localhost/api/exam/408/study?slug=data_structure-intro-basic"));
+    const payload = await response.json();
+    expect(payload.blocks[0]).toEqual({ type: "math", tex: "a^2" });
+    expect(payload.blocks[0].svg).toBeUndefined();
+  });
+
+  it("?math=svg 与 ?format=svg 等价", async () => {
+    topicMock.mockResolvedValueOnce({
+      source,
+      subject: { key: "data-structure", title: "数据结构", shortName: "DS" },
+      topic: { ...topic, contentMd: "", tags: [], sourceUrl: null },
+      blocks: [{ type: "paragraph", lines: ["$x$"] }] satisfies StudyBlock[],
+      toc: [],
+      excerpt: "",
+      prev: null,
+      next: null,
+    });
+    const response = await GET(new NextRequest("http://localhost/api/exam/408/study?slug=x&math=svg"));
+    const payload = await response.json();
+    expect(payload.blocks[0].segments[0].svg).toContain("<svg");
   });
 
   it("subject 与 slug 同时给出返回 400", async () => {

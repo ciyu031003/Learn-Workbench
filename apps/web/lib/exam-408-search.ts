@@ -1,5 +1,7 @@
 import { pgPool } from "@/lib/db";
 
+import { exam408PointHref } from "./exam-408-point-key";
+
 /**
  * 408 专区全局搜索（P5）：知识点 / 精读文章 / 速记卡 / 真题 四类内容统一检索。
  *
@@ -249,7 +251,7 @@ export function buildExam408SearchResult(
     key: row.key,
     title: row.title,
     snippet: buildSearchSnippet(row.summary ?? "", normalized),
-    href: "/learn/408/points/" + row.key,
+    href: exam408PointHref(row.key),
     meta: metaJoin([searchSubjectTitle(row.subject_key), row.chapter_title]),
   }));
   const studyHits: Exam408SearchHit[] = (rows.studies ?? []).map((row) => ({

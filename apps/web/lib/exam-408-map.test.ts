@@ -75,7 +75,7 @@ describe("enrichMapNodes", () => {
     expect(nodes[0]).toMatchObject({ studySlug: "data-structure-graph-defs", target: "study" });
     expect(nodes[0]?.href).toBe("/learn/408/study/data-structure-graph-defs");
     expect(nodes[1]).toMatchObject({ studySlug: "data-structure-graph-op", target: "study" });
-    expect(nodes[2]?.href).toBe("/learn/408/points/" + encodeURIComponent("beokayy-408/ds-05-01"));
+    expect(nodes[2]?.href).toBe("/learn/408/points/" + encodeURIComponent("yuanabd-408/ds-05-01"));
     expect(nodes[2]?.target).toBe("point");
   });
 

@@ -1,6 +1,8 @@
 import { pgPool } from "@/lib/db";
 import { studyImportanceMeta, type StudyImportance } from "@/lib/exam-408-study";
 
+import { externalizePointKey } from "./exam-408-point-key";
+
 /**
  * 408 章节知识图谱（迁移 088）—— cs408 精读里原本的 iframe 交互图谱，改成本地数据 + 原生 SVG 自绘。
  *
@@ -169,7 +171,7 @@ export function enrichMapNodes(rawNodes: unknown, studySlugByKey: StudySlugResol
           target === "study" && studySlug
             ? "/learn/408/study/" + encodeURIComponent(studySlug)
             : target === "point" && pointKey
-              ? "/learn/408/points/" + encodeURIComponent(pointKey)
+              ? "/learn/408/points/" + encodeURIComponent(externalizePointKey(pointKey))
               : null,
         target,
         counts: { cards: toCount(counts.cards), demos: toCount(counts.demos), questions: toCount(counts.questions) },

@@ -12,6 +12,8 @@
  *   clamp*      —— 缩放/平移边界（配合 PanResponder，避免把图画拖出视口）
  */
 
+import { externalizePointKey } from "@/lib/exam-408-point-key";
+
 export interface Exam408MapNodeCounts {
   cards: number;
   demos: number;
@@ -204,10 +206,11 @@ export function knowledgeMapNodeRoute(node: Exam408KnowledgeMapNode): MapNodeRou
   }
   const pointKey = (node.pointKey ?? "").trim();
   if (pointKey) {
+    const externalKey = externalizePointKey(pointKey);
     return {
       channel: "quiz-408-point",
-      path: "/quiz/408-point?key=" + encodeURIComponent(pointKey),
-      params: { key: pointKey },
+      path: "/quiz/408-point?key=" + encodeURIComponent(externalKey),
+      params: { key: externalKey },
     };
   }
   return null;

@@ -114,7 +114,10 @@ export default function Exam408StudyReadScreen() {
   );
 
   const blocks = useMemo(() => {
-    const parsed = parseStudyMarkdown(detail?.article.contentMd ?? "");
+    // 优先用服务端 blocks（?format=svg：带 segments 与 math.svg 的公式排版）；
+    // 旧接口/离线时回退到本地 Markdown 解析（公式退化为等宽 LaTeX）。
+    const serverBlocks = detail?.blocks ?? [];
+    const parsed = serverBlocks.length > 0 ? serverBlocks : parseStudyMarkdown(detail?.article.contentMd ?? "");
     // cs408 每篇正文的第一个一级标题就是文章标题，而 hero 已经渲染过；重复渲染会显得啰嗦
     const first = parsed[0];
     const title = (detail?.article.title ?? "").trim();

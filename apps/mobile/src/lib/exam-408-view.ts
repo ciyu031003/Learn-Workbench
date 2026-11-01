@@ -1,3 +1,4 @@
+import { externalizePointKey } from "@/lib/exam-408-point-key";
 import type {
   Exam408ChapterSummary,
   Exam408Overview,
@@ -30,7 +31,8 @@ const INTERNAL_TAGS = new Set(["408", "四〇八档案室"]);
 export function exam408PointHref(key: string): string {
   const trimmed = key.trim();
   if (!trimmed) return "/quiz/408-point";
-  return `/quiz/408-point?key=${encodeURIComponent(trimmed)}`;
+  // P7：App 内跳转统一用展示前缀 yuanabd-408（知识点页收到后再 internalize 回库内主键）
+  return `/quiz/408-point?key=${encodeURIComponent(externalizePointKey(trimmed))}`;
 }
 
 /** 知识点正文的一段：heading 为 true 时按「小标题感」加粗渲染（段落以【开头）。 */

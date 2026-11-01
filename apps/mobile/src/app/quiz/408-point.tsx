@@ -12,6 +12,7 @@ import { PressableScale } from "@/components/pressable-scale";
 import { Exam408QuestionCard } from "@/components/exam-408-question-card";
 import { ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { getExam408Point, type Exam408PointDetail } from "@/lib/exam-408";
+import { internalizePointKey } from "@/lib/exam-408-point-key";
 import {
   exam408TopicCounts,
   getExam408Topic,
@@ -67,7 +68,8 @@ function PointContent({ pointKey }: { pointKey: string }) {
     // （nav-pending），这里优先消费它；ref 里是本实例上次实际加载的 key；
     // params 只作深链/状态恢复的兜底。
     const pendingKey = takeNavPendingParams("quiz-408-point")?.key ?? "";
-    const key = pendingKey || activeKeyRef.current || pointKey;
+    // P7：路由参数 / 场外通道可能携带展示前缀 yuanabd-408，请求 API 前 internalize 回库内主键
+    const key = internalizePointKey(pendingKey || activeKeyRef.current || pointKey);
     // v1.53.1 诊断：真机上该修复未生效（14:44 后点击知识点零请求），面包屑留证
     recordCrumb("408-point-load", {
       pending: pendingKey,

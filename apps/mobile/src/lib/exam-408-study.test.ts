@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   buildStudyToc,
+  chunkInlineText,
+  normalizeApiStudyBlocks,
+  normalizeStudySegments,
   exam408StudyImportanceLabel,
   exam408StudySubjectTitle,
   normalizeStudyDetail,
@@ -237,5 +240,106 @@ describe("接口归一化", () => {
     expect(detail.article.sourceUrl).toBeNull();
     expect(detail.prev).toBeNull();
     expect(detail.next).toBeNull();
+  });
+});
+
+describe("服务端公式段（P7 / format=svg）", () => {
+  it("normalizeStudySegments 只保留 text/math，svg 非法时置 null", () => {
+    const segments = normalizeStudySegments([
+      { type: "text", text: "复杂度 " },
+      { type: "math", tex: "O(n^2)", svg: '<svg viewBox="0 0 1 1"></svg>' },
+      { type: "math", tex: "O(1)", svg: "not-a-svg" },
+      { type: "math", tex: "" },
+      { type: "strong", value: "x" },
+      { type: "text", text: "" },
+    ]);
+    expect(segments).toEqual([
+      { type: "text", text: "复杂度 " },
+      { type: "math", tex: "O(n^2)", svg: '<svg viewBox="0 0 1 1"></svg>' },
+      { type: "math", tex: "O(1)", svg: null },
+    ]);
+    expect(normalizeStudySegments(null)).toEqual([]);
+    expect(normalizeStudySegments("x")).toEqual([]);
+  });
+
+  it("normalizeApiStudyBlocks 把服务端 blocks 转成 App 结构块", () => {
+    const blocks = normalizeApiStudyBlocks([
+      { type: "heading", id: "h-1", level: 2, text: "一、复杂度" },
+      {
+        type: "paragraph",
+        lines: ["已知 $O(n)$ 与 $O(1)$"],
+        segments: [
+          { type: "text", text: "已知 " },
+          { type: "math", tex: "O(n)", svg: '<svg viewBox="0 0 10 10"></svg>' },
+          { type: "text", text: " 与 " },
+          { type: "math", tex: "O(1)", svg: null },
+        ],
+      },
+      { type: "math", tex: "T(n)=2T(n/2)+n", svg: '<svg viewBox="0 0 20 20"></svg>' },
+      { type: "list", ordered: true, items: [{ text: "均摊 $O(1)$", depth: 1, segments: [{ type: "math", tex: "O(1)", svg: null }] }] },
+      {
+        type: "table",
+        header: ["结构", "复杂度"],
+        rows: [["顺序表", "$O(1)$"]],
+        headerSegments: [[{ type: "text", text: "结构" }], [{ type: "text", text: "复杂度" }]],
+        rowSegments: [[[{ type: "text", text: "顺序表" }], [{ type: "math", tex: "O(1)", svg: null }]]],
+      },
+      { type: "quote", lines: ["最坏 $O(n^2)$"], segments: [{ type: "math", tex: "O(n^2)", svg: null }] },
+      { type: "code", lang: "c", code: "int x;" },
+      { type: "image", src: "/content-images/cs408/a.svg", alt: "图" },
+      { type: "iframe", src: "/interactive/knowledge-map.html?x=1", title: "图谱" },
+      { type: "divider" },
+      { type: "unknown-type" },
+    ]);
+
+    expect(blocks[0]).toMatchObject({ type: "heading", level: 2, text: "一、复杂度", id: "h-1" });
+    expect(blocks[1]).toMatchObject({ type: "paragraph" });
+    if (blocks[1].type === "paragraph") {
+      expect(blocks[1].segments).toHaveLength(4);
+      expect(blocks[1].segments?.[1]).toMatchObject({ type: "math", tex: "O(n)" });
+      expect(blocks[1].inlines.some((inline) => inline.type === "math")).toBe(true);
+    }
+    expect(blocks[2]).toMatchObject({ type: "math", tex: "T(n)=2T(n/2)+n" });
+    if (blocks[2].type === "math") expect(blocks[2].svg).toContain("<svg");
+    expect(blocks[3]).toMatchObject({ type: "list", ordered: true });
+    if (blocks[3].type === "list") {
+      expect(blocks[3].items[0].depth).toBe(1);
+      expect(blocks[3].items[0].segments).toHaveLength(1);
+    }
+    expect(blocks[4]).toMatchObject({ type: "table" });
+    if (blocks[4].type === "table") {
+      expect(blocks[4].headerSegments?.[1]).toEqual([{ type: "text", text: "复杂度" }]);
+      expect(blocks[4].rowSegments?.[0]?.[1]).toEqual([{ type: "math", tex: "O(1)", svg: null }]);
+    }
+    expect(blocks[5]).toMatchObject({ type: "quote" });
+    if (blocks[5].type === "quote") {
+      expect(blocks[5].lineSegments?.[0]).toHaveLength(1);
+    }
+    expect(blocks[6]).toMatchObject({ type: "code", lang: "c" });
+    expect(blocks[7]).toMatchObject({ type: "image" });
+    expect(blocks[8]).toMatchObject({ type: "embed", title: "图谱" });
+    expect(blocks[9]).toMatchObject({ type: "divider" });
+    expect(blocks).toHaveLength(10);
+    expect(normalizeApiStudyBlocks(undefined)).toEqual([]);
+  });
+
+  it("chunkInlineText 给折行留机会，空串返回空数组", () => {
+    expect(chunkInlineText("一二三四五六七八九十", 4)).toEqual(["一二三四", "五六七八", "九十"]);
+    expect(chunkInlineText("abc", 10)).toEqual(["abc"]);
+    expect(chunkInlineText("")).toEqual([]);
+  });
+
+  it("normalizeStudyDetail 携带服务端 blocks（缺省为空数组）", () => {
+    const detail = normalizeStudyDetail({
+      topic: { key: "k", title: "T", slug: "s", contentMd: "# 标题" },
+      blocks: [{ type: "math", tex: "x^2", svg: '<svg viewBox="0 0 1 1"></svg>' }],
+      prev: null,
+      next: null,
+    });
+    expect(detail.article.contentMd).toBe("# 标题");
+    expect(detail.blocks).toHaveLength(1);
+    expect(detail.blocks[0]).toMatchObject({ type: "math", tex: "x^2" });
+    const noBlocks = normalizeStudyDetail({ article: { key: "k", title: "T", slug: "s" } });
+    expect(noBlocks.blocks).toEqual([]);
   });
 });

@@ -95,7 +95,7 @@ describe("exam 408 mobile view model", () => {
 describe("exam408PointHref（知识点跳转 href；params 冻结的真修复在 exam-408-pending）", () => {
   it("含斜杠的 key 必须整体编码成一个查询值（%2F），不能被当路径切分", () => {
     expect(exam408PointHref("beokayy-408/ds-01-01")).toBe(
-      "/quiz/408-point?key=beokayy-408%2Fds-01-01",
+      "/quiz/408-point?key=yuanabd-408%2Fds-01-01",
     );
   });
 
@@ -108,7 +108,7 @@ describe("exam408PointHref（知识点跳转 href；params 冻结的真修复在
 
   it("首尾空白会被 trim；空 key 退化为裸路由", () => {
     expect(exam408PointHref("  beokayy-408/ds-02-01  ")).toBe(
-      "/quiz/408-point?key=beokayy-408%2Fds-02-01",
+      "/quiz/408-point?key=yuanabd-408%2Fds-02-01",
     );
     expect(exam408PointHref("   ")).toBe("/quiz/408-point");
   });

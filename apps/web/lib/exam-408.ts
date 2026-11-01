@@ -1,5 +1,7 @@
 import { pgPool } from "@/lib/db";
 
+import { externalizePointKey } from "./exam-408-point-key";
+
 export interface Exam408Source {
   key: string;
   name: string;
@@ -169,7 +171,7 @@ export async function getExam408Overview(): Promise<Exam408Overview> {
   const pointsByChapter = new Map<string, Exam408PointSummary[]>();
   for (const row of pointRows.rows) {
     const point: Exam408PointSummary = {
-      key: row.key,
+      key: externalizePointKey(row.key),
       title: row.title,
       pointNumber: Number(row.point_number),
       questionCount: Number(row.question_count),
@@ -328,7 +330,7 @@ export async function getExam408Point(
   return {
     source,
     point: {
-      key: pointRow.key,
+      key: externalizePointKey(pointRow.key),
       title: pointRow.title,
       summary: pointRow.summary,
       body: stringArray(pointRow.body),
@@ -449,7 +451,10 @@ function mapQuestion(row: QuestionRow): Exam408Question {
     answerImageRefs: stringArray(row.answer_image_refs),
     videoUrl: row.video_url,
     tags: stringArray(row.tags),
-    knowledgePoints: knowledgePointArray(row.knowledge_points),
+    knowledgePoints: knowledgePointArray(row.knowledge_points).map((link) => ({
+      ...link,
+      key: externalizePointKey(link.key),
+    })),
   };
 }
 

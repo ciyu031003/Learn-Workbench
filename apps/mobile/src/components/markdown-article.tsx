@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Linking, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { Image } from "expo-image";
 import { SvgXml } from "react-native-svg";
@@ -7,10 +7,12 @@ import { KnowledgeMap } from "@/components/knowledge-map";
 import { ThemedIcon } from "@/components/themed-icon";
 import type { Exam408KnowledgeMap } from "@/lib/exam-408-map";
 import {
+  chunkInlineText,
   resolveStudyAssetUrl,
   studyImageKind,
   type StudyBlock,
   type StudyInline,
+  type StudySegment,
 } from "@/lib/exam-408-study";
 import { useTheme } from "@/theme";
 import { radius, spacing, typography, type ThemeColors } from "@/theme/tokens";
@@ -87,14 +89,22 @@ export function MarkdownArticle({
             );
           }
           case "paragraph":
-            return <InlineText key={key} tokens={block.inlines} style={styles.paragraph} />;
+            return block.segments && block.segments.length > 0 ? (
+              <SegmentRow key={key} segments={block.segments} style={styles.paragraph} />
+            ) : (
+              <InlineText key={key} tokens={block.inlines} style={styles.paragraph} />
+            );
           case "list":
             return (
               <View key={key} style={styles.list}>
                 {block.items.map((item, itemIndex) => (
                   <View key={key + "-" + itemIndex} style={[styles.listItem, { marginLeft: item.depth * spacing.lg }]}>
                     <Text style={styles.bullet}>{block.ordered ? itemIndex + 1 + "." : "•"}</Text>
-                    <InlineText tokens={item.inlines} style={styles.listText} />
+                    {item.segments && item.segments.length > 0 ? (
+                      <SegmentRow segments={item.segments} style={styles.listText} />
+                    ) : (
+                      <InlineText tokens={item.inlines} style={styles.listText} />
+                    )}
                   </View>
                 ))}
               </View>
@@ -102,9 +112,14 @@ export function MarkdownArticle({
           case "quote":
             return (
               <View key={key} style={styles.quote}>
-                {block.lines.map((line, lineIndex) => (
-                  <InlineText key={key + "-" + lineIndex} tokens={line} style={styles.quoteText} />
-                ))}
+                {block.lines.map((line, lineIndex) => {
+                  const segments = block.lineSegments?.[lineIndex];
+                  return segments && segments.length > 0 ? (
+                    <SegmentRow key={key + "-" + lineIndex} segments={segments} style={styles.quoteText} />
+                  ) : (
+                    <InlineText key={key + "-" + lineIndex} tokens={line} style={styles.quoteText} />
+                  );
+                })}
               </View>
             );
           case "table":
@@ -124,11 +139,22 @@ export function MarkdownArticle({
               </View>
             );
           case "math":
-            // App 端暂不做 KaTeX 排版（1.57 再上 SVG 方案）：等宽展示 LaTeX 原文 + 横向滚动 + 复制。
+            // v1.55 / P7：接口带 ?format=svg 时服务端已把公式渲染成自包含 SVG，直接画出来；
+            // 旧接口/渲染失败时回退到等宽 LaTeX（可复制到外部工具查看）。
+            if (block.svg) {
+              return (
+                <View key={key} style={styles.mathSvgBlock}>
+                  <MathSvg svg={block.svg} display />
+                  <View style={styles.mathSvgFoot}>
+                    <CopyButton value={block.tex} label="复制 LaTeX" />
+                  </View>
+                </View>
+              );
+            }
             return (
               <View key={key} style={styles.mathBlock}>
                 <View style={styles.blockHead}>
-                  <Text style={styles.mathLabel}>LaTeX 公式 · App 暂未排版</Text>
+                  <Text style={styles.mathLabel}>LaTeX 公式 · 服务端未渲染</Text>
                   <CopyButton value={block.tex} label="复制公式" />
                 </View>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.codeScroll}>
@@ -136,7 +162,7 @@ export function MarkdownArticle({
                     {block.tex}
                   </Text>
                 </ScrollView>
-                <Text style={styles.mathHint}>可复制到支持 LaTeX 的工具查看；1.57 计划改为内嵌 SVG 公式。</Text>
+                <Text style={styles.mathHint}>可复制到支持 LaTeX 的工具查看。</Text>
               </View>
             );
           case "image":
@@ -163,6 +189,92 @@ export function MarkdownArticle({
             return null;
         }
       })}
+    </View>
+  );
+}
+
+/** 从 SVG 根节点读 viewBox（1 单位 = 1/1000 em），解析失败给兜底尺寸 */
+function readMathViewBox(svg: string): { width: number; height: number } {
+  const match = /viewBox="\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)/i.exec(String(svg ?? ""));
+  const width = Number(match?.[1] ?? 0);
+  const height = Number(match?.[2] ?? 0);
+  return width > 0 && height > 0 ? { width, height } : { width: 1000, height: 500 };
+}
+
+/**
+ * 服务端 TeX→SVG 的公式（P7）。尺寸换算：MathJax viewBox 的单位是 1/1000 em，
+ * 所以 px = 单位/1000 × 字号；行内公式再限高（避免分式把行高撑开），显示公式限宽于窗口。
+ * 颜色统一用主题正文色（MathJax 输出里是 currentColor，RN 不认，必须替换成实色）。
+ */
+function MathSvg({ svg, display }: { svg: string; display?: boolean }): React.JSX.Element {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { width: windowWidth } = useWindowDimensions();
+  const box = useMemo(() => readMathViewBox(svg), [svg]);
+  const xml = useMemo(
+    () => svg.replace(/currentColor/g, colors.text).replace(/\sdata-[a-z-]+="[^"]*"/g, ""),
+    [svg, colors.text],
+  );
+  const fontSize = display ? 17 : 15;
+  let renderWidth = (box.width / 1000) * fontSize;
+  let renderHeight = (box.height / 1000) * fontSize;
+  const heightCap = fontSize * 1.8;
+  if (renderHeight > heightCap) {
+    const factor = heightCap / renderHeight;
+    renderWidth *= factor;
+    renderHeight *= factor;
+  }
+  const widthCap = Math.max(180, windowWidth - spacing.lg * 4 - spacing.md * 4);
+  if (renderWidth > widthCap) {
+    const factor = widthCap / renderWidth;
+    renderWidth *= factor;
+    renderHeight *= factor;
+  }
+  return (
+    <View style={display ? styles.mathSvgDisplay : styles.mathSvgInline}>
+      <SvgXml xml={xml} width={renderWidth} height={renderHeight} />
+    </View>
+  );
+}
+
+/**
+ * 带行内公式的段落：RN 的 Text 里不能嵌 SvgXml，所以拆成 flexWrap 的行内块
+ * （文本按 ~14 字切块给折行留机会；公式渲染成小 SVG，失败回退等宽 LaTeX）。
+ */
+function SegmentRow({ segments, style }: { segments: StudySegment[]; style: object }): React.JSX.Element {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const parts = useMemo(() => {
+    const items: (
+      | { kind: "text"; key: string; text: string }
+      | { kind: "math"; key: string; tex: string; svg: string | null }
+    )[] = [];
+    segments.forEach((segment, index) => {
+      if (segment.type === "math") {
+        items.push({ kind: "math", key: "m-" + index, tex: segment.tex, svg: segment.svg });
+        return;
+      }
+      chunkInlineText(segment.text).forEach((text, chunkIndex) => {
+        items.push({ kind: "text", key: "t-" + index + "-" + chunkIndex, text });
+      });
+    });
+    return items;
+  }, [segments]);
+  return (
+    <View style={styles.segmentRow}>
+      {parts.map((part) =>
+        part.kind === "text" ? (
+          <Text key={part.key} style={style} selectable>
+            {part.text}
+          </Text>
+        ) : part.svg ? (
+          <MathSvg key={part.key} svg={part.svg} />
+        ) : (
+          <Text key={part.key} style={styles.inlineMath}>
+            {part.tex}
+          </Text>
+        ),
+      )}
     </View>
   );
 }
@@ -211,7 +323,11 @@ function TableView({ block }: { block: Extract<StudyBlock, { type: "table" }> })
         <View style={[styles.tableRow, styles.tableHeaderRow]}>
           {Array.from({ length: columnCount }).map((_, column) => (
             <View key={"h-" + column} style={[styles.tableCell, { minWidth: 96 }]}>
-              <InlineText tokens={block.header[column] ?? []} style={styles.tableHeaderText} />
+              {block.headerSegments?.[column] && block.headerSegments[column].length > 0 ? (
+                <SegmentRow segments={block.headerSegments[column]} style={styles.tableHeaderText} />
+              ) : (
+                <InlineText tokens={block.header[column] ?? []} style={styles.tableHeaderText} />
+              )}
             </View>
           ))}
         </View>
@@ -219,7 +335,11 @@ function TableView({ block }: { block: Extract<StudyBlock, { type: "table" }> })
           <View key={"r-" + rowIndex} style={styles.tableRow}>
             {Array.from({ length: columnCount }).map((_, column) => (
               <View key={"c-" + rowIndex + "-" + column} style={[styles.tableCell, { minWidth: 96 }]}>
-                <InlineText tokens={row[column] ?? []} style={styles.tableCellText} />
+                {block.rowSegments?.[rowIndex]?.[column] && block.rowSegments[rowIndex][column].length > 0 ? (
+                  <SegmentRow segments={block.rowSegments[rowIndex][column]} style={styles.tableCellText} />
+                ) : (
+                  <InlineText tokens={row[column] ?? []} style={styles.tableCellText} />
+                )}
               </View>
             ))}
           </View>
@@ -422,6 +542,18 @@ const makeStyles = (colors: ThemeColors) =>
       backgroundColor: colors.surfaceMuted,
     },
     inlineMath: { fontFamily: MONO, fontSize: 14, color: colors.primary },
+    segmentRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center" },
+    mathSvgInline: { marginHorizontal: 1 },
+    mathSvgDisplay: { alignItems: "center", paddingVertical: spacing.xs },
+    mathSvgBlock: {
+      backgroundColor: colors.primarySoft,
+      borderRadius: radius.md,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.md,
+      alignItems: "center",
+      gap: spacing.xs,
+    },
+    mathSvgFoot: { flexDirection: "row", justifyContent: "flex-end", alignSelf: "stretch" },
     h1: { ...typography.title1, color: colors.text, marginTop: spacing.lg },
     h2: { ...typography.title2, color: colors.text, marginTop: spacing.lg },
     h3: { ...typography.headline, color: colors.text, marginTop: spacing.md },

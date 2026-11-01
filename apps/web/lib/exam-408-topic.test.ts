@@ -95,7 +95,7 @@ describe("getExam408Topic", () => {
     const topic = await getExam408Topic("beokayy-408/os-02-04");
 
     expect(topic?.point).toMatchObject({
-      key: "beokayy-408/os-02-04",
+      key: "yuanabd-408/os-02-04",
       title: "死锁",
       questionCount: 13,
       subject: { key: "beokayy-408/operating-system", title: "操作系统" },
@@ -107,7 +107,7 @@ describe("getExam408Topic", () => {
     expect(topic?.articles[0]).toMatchObject({
       slug: "死锁",
       title: "死锁",
-      knowledgePointKey: "beokayy-408/os-02-04",
+      knowledgePointKey: "yuanabd-408/os-02-04",
       importance: "must",
       importanceLabel: "重点必读",
       // 精读按「2.5 字符 ≈ 1 汉字」折算：900 字符 → 约 1 分钟
@@ -124,14 +124,14 @@ describe("getExam408Topic", () => {
       mnemonic: null,
       star: true,
       demoKey: "demo-deadlock",
-      knowledgePointKey: "beokayy-408/os-02-04",
+      knowledgePointKey: "yuanabd-408/os-02-04",
     });
 
     expect(topic?.demos[0]).toMatchObject({
       key: "demo-deadlock",
       frameCount: 6,
       stepsCount: 4,
-      knowledgePointKey: "beokayy-408/os-02-04",
+      knowledgePointKey: "yuanabd-408/os-02-04",
     });
 
     expect(topic?.questions[0]).toMatchObject({

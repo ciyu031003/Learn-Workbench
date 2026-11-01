@@ -5,7 +5,9 @@ const isProd = process.env.NODE_ENV === "production";
 /** 全站安全响应头（P0）：CSP / 点击劫持 / MIME 嗅探 / HSTS（仅生产） */
 const SECURITY_HEADERS = [
   { key: "X-Content-Type-Options", value: "nosniff" },
-  { key: "X-Frame-Options", value: "DENY" },
+  // SAMEORIGIN：408 精读需要同源内嵌交互演示（/content-interactive/*.html）；
+  // 仍禁止第三方站点嵌套本站页面（点击劫持防护不降级）。
+  { key: "X-Frame-Options", value: "SAMEORIGIN" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
   // connect-src 保留 http/https：设置页允许用户自定义后端地址（真机联调/自建服务）
@@ -18,7 +20,8 @@ const SECURITY_HEADERS = [
       "img-src 'self' data: blob:",
       "font-src 'self' data:",
       "connect-src 'self' http: https:",
-      "frame-ancestors 'none'",
+      // 同源 iframe 需要（408 交互演示本地镜像）；跨域嵌套仍被拒绝
+      "frame-ancestors 'self'",
       "base-uri 'self'",
       "form-action 'self'",
     ].join("; "),

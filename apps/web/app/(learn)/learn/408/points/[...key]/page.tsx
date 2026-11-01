@@ -14,6 +14,7 @@ import {
   type PointDemoCard,
 } from "@/components/exam/point-resources";
 import { getExam408Point } from "@/lib/exam-408";
+import { internalizePointKey, isExam408PointKey } from "@/lib/exam-408-point-key";
 import { getExam408Demo, type Exam408DemoSummary } from "@/lib/exam-408-demos";
 import { getExam408StudyTopic } from "@/lib/exam-408-study";
 import { getExam408Topic } from "@/lib/exam-408-topic";
@@ -46,7 +47,10 @@ export default async function Exam408PointPage({
   params: Promise<{ key: string[] }>;
 }) {
   const { key } = await params;
-  const pointKey = key.join("/");
+  const rawKey = key.join("/");
+  // P7：页面 URL 用 yuanabd-408/*，旧链接（beokayy-408/*）继续 200；查库前统一 internalize
+  const pointKey = internalizePointKey(rawKey);
+  if (!isExam408PointKey(rawKey)) notFound();
   const [detail, topic] = await Promise.all([
     getExam408Point(pointKey),
     getExam408Topic(pointKey).catch(() => null),
@@ -154,7 +158,9 @@ export default async function Exam408PointPage({
       <PointStudySection items={articleCards} />
       <PointDemosSection items={demoCards} />
       <PointCardsSection cards={cards} />
-      <PointQuestionsSection questions={questions} />
+      {/* 懒加载接口 /api/exam/408/point-questions 仍以库内主键校验，这里显式传 internal key；
+          展示层链接已由各组件统一走 yuanabd-408 前缀（P7） */}
+      <PointQuestionsSection questions={questions} pointKey={pointKey} />
 
       <Card>
         <CardContent className="flex flex-col gap-2 p-4 text-xs text-muted-foreground">

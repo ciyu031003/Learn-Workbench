@@ -1,4 +1,5 @@
 import { getApiUrl } from "@/config";
+import { internalizePointKey } from "@/lib/exam-408-point-key";
 
 export interface Exam408Source {
   key: string;
@@ -123,7 +124,10 @@ export async function getExam408Paper(year: number): Promise<Exam408Paper> {
 }
 
 export async function getExam408Point(key: string): Promise<Exam408PointDetail> {
-  return request<Exam408PointDetail>(`/api/exam/408/point?key=${encodeURIComponent(key)}`);
+  // P7：App 收到的 key 可能是 yuanabd-408 展示前缀；请求 API 前 internalize 回库内主键
+  return request<Exam408PointDetail>(
+    `/api/exam/408/point?key=${encodeURIComponent(internalizePointKey(key))}`,
+  );
 }
 
 export function cleanExamStem(stem: string): string {

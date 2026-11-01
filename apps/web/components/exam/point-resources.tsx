@@ -14,10 +14,10 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { ExamQuestionCard } from "@/components/exam/exam-question-card";
 import type { Exam408Question } from "@/lib/exam-408";
 import type { Exam408CardContent } from "@/lib/exam-408-cards";
 import type { Exam408DemoSummary } from "@/lib/exam-408-demos";
+import { PointQuestionYear } from "@/components/exam/point-question-year";
 import {
   studyImportanceMeta,
   studyTopicHref,
@@ -345,15 +345,45 @@ export function groupPointQuestionsByYear(questions: Exam408Question[]): PointQu
     }));
 }
 
-export function PointQuestionsSection({ questions }: { questions: Exam408Question[] }) {
+/**
+ * 从题目的知识点关联里推断当前页的知识点 key（同页题目都挂了本点，取出现次数最多者）。
+ * 用于把 key 传给按年懒加载的客户端组件；页面本身不必改签名。
+ */
+export function inferPointKeyFromQuestions(questions: Exam408Question[]): string {
+  const counts = new Map<string, number>();
+  for (const question of questions) {
+    for (const point of question.knowledgePoints ?? []) {
+      if (!point?.key) continue;
+      counts.set(point.key, (counts.get(point.key) ?? 0) + 1);
+    }
+  }
+  return [...counts.entries()].sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))[0]?.[0] ?? "";
+}
+
+/**
+ * 关联真题（P7：按年懒加载）。
+ *
+ * 服务端只输出年份折叠头（年份 / 题数 / 分值），题干与解析在用户展开某一年时
+ * 由 <PointQuestionYear> 请求 /api/exam/408/point-questions 后再渲染，
+ * 避免一个知识点 29 道题的题干/选项/答案把首屏 HTML 撑到几百 KB。
+ */
+export function PointQuestionsSection({
+  questions,
+  pointKey,
+}: {
+  questions: Exam408Question[];
+  /** 可选：页面显式传入的知识点 key；缺省从题目关联推断，再缺省由客户端从 pathname 兜底 */
+  pointKey?: string;
+}) {
   const groups = groupPointQuestionsByYear(questions);
+  const resolvedPointKey = pointKey || inferPointKeyFromQuestions(questions);
   return (
     <SectionShell
       id="point-questions"
       icon={<ListChecks className="size-4" />}
       title="关联真题"
       meta={questions.length + " 题"}
-      hint={groups.length > 1 ? "按年份折叠 · 展开后看题干与解析" : "点开看题干与解析"}
+      hint={groups.length > 1 ? "按年份折叠 · 展开后加载题干与解析" : "展开后加载题干与解析"}
     >
       {questions.length === 0 ? (
         <Card>
@@ -361,30 +391,14 @@ export function PointQuestionsSection({ questions }: { questions: Exam408Questio
         </Card>
       ) : (
         <div className="flex flex-col gap-3">
-          {groups.map((group, groupIndex) => (
-            <details
+          {groups.map((group) => (
+            <PointQuestionYear
               key={group.year || "unknown"}
-              className="group rounded-xl border border-border bg-surface/70"
-              open={groupIndex === 0 && groups.length === 1}
-            >
-              <summary className="flex cursor-pointer list-none flex-wrap items-center gap-2 px-4 py-3 [&::-webkit-details-marker]:hidden">
-                <span className="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <ListChecks className="size-4" />
-                </span>
-                <span className="text-sm font-semibold">{group.year > 0 ? group.year + " 年" : "未标注年份"}</span>
-                <Badge variant="muted">{group.questions.length} 题</Badge>
-                <Badge variant="muted">{group.totalPoints} 分</Badge>
-                <span className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground">
-                  展开
-                  <ChevronDown className="size-4 transition-transform group-open:rotate-180" />
-                </span>
-              </summary>
-              <div className="flex flex-col gap-4 border-t border-border p-4">
-                {group.questions.map((question) => (
-                  <ExamQuestionCard key={question.key} question={question} />
-                ))}
-              </div>
-            </details>
+              year={group.year}
+              count={group.questions.length}
+              totalPoints={group.totalPoints}
+              pointKey={resolvedPointKey || undefined}
+            />
           ))}
         </div>
       )}
