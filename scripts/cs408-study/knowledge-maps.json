@@ -1,0 +1,1359 @@
+{
+ "source": "cs408.cloud",
+ "capturedAt": "2026-11-01T10:59:45.029Z",
+ "maps": [
+  {
+   "key": "data-structure:绪论",
+   "topicSlug": "data_structure-绪论-knowledge-map",
+   "topicKey": "57dbe6c6-9ed1-4472-bb68-1be868074f7d",
+   "subjectKey": "data-structure",
+   "chapter": "绪论",
+   "nodes": [
+    {
+     "slug": "data-structure-intro-extension",
+     "title": "必看 · 绪论补充考点",
+     "type": "ext",
+     "desc": "正文之外的补充细节，建议与正文一起过一遍。",
+     "order": 0
+    },
+    {
+     "slug": "data-structure-basic-ds",
+     "title": "数据结构基本概念",
+     "type": "core",
+     "desc": "",
+     "order": 1
+    },
+    {
+     "slug": "data-structure-basic-algorithm",
+     "title": "算法基本概念",
+     "type": "core",
+     "desc": "",
+     "order": 2
+    },
+    {
+     "slug": "data-structure-basic-alg-design",
+     "title": "算法设计题解题框架",
+     "type": "core",
+     "desc": "",
+     "order": 3
+    }
+   ],
+   "links": [],
+   "sourceUrl": "https://cs408.cloud/study?subject=data_structure&topic=data_structure-%E7%BB%AA%E8%AE%BA-knowledge-map"
+  },
+  {
+   "key": "data-structure:线性表",
+   "topicSlug": "data_structure-线性表-knowledge-map",
+   "topicKey": "6276b6c9-0ef3-47d3-8c1b-35f1b3dff28a",
+   "subjectKey": "data-structure",
+   "chapter": "线性表",
+   "nodes": [
+    {
+     "slug": "data-structure-double-linked",
+     "title": "双链表",
+     "type": "core",
+     "desc": "",
+     "order": 0
+    },
+    {
+     "slug": "data-structure-linearlist-def",
+     "title": "定义和基本操作",
+     "type": "core",
+     "desc": "",
+     "order": 1
+    },
+    {
+     "slug": "data-structure-circular-linked",
+     "title": "循环链表",
+     "type": "core",
+     "desc": "",
+     "order": 2
+    },
+    {
+     "slug": "data-structure-linearlist-extension",
+     "title": "必看 · 线性表补充考点",
+     "type": "ext",
+     "desc": "正文之外的补充细节，建议与正文一起过一遍。",
+     "order": 3
+    },
+    {
+     "slug": "data-structure-linearlist-linked",
+     "title": "链式表示",
+     "type": "core",
+     "desc": "",
+     "order": 4
+    },
+    {
+     "slug": "data-structure-static-linked",
+     "title": "静态链表",
+     "type": "core",
+     "desc": "",
+     "order": 5
+    },
+    {
+     "slug": "data-structure-linearlist-sequential",
+     "title": "顺序表示",
+     "type": "core",
+     "desc": "",
+     "order": 6
+    }
+   ],
+   "links": [],
+   "sourceUrl": "https://cs408.cloud/study?subject=data_structure&topic=data_structure-%E7%BA%BF%E6%80%A7%E8%A1%A8-knowledge-map"
+  },
+  {
+   "key": "data-structure:线性数据结构",
+   "topicSlug": "data_structure-线性数据结构-knowledge-map",
+   "topicKey": "7c6153e8-295c-468e-8dd6-8614d1d6ee88",
+   "subjectKey": "data-structure",
+   "chapter": "线性数据结构",
+   "nodes": [
+    {
+     "slug": "data-structure-deque",
+     "title": "双端队列",
+     "type": "core",
+     "desc": "",
+     "order": 0
+    },
+    {
+     "slug": "data-structure-stack-queue-extension",
+     "title": "必看 · 栈队列补充考点",
+     "type": "ext",
+     "desc": "正文之外的补充细节，建议与正文一起过一遍。",
+     "order": 1
+    },
+    {
+     "slug": "data-structure-array-matrix",
+     "title": "数组和特殊矩阵",
+     "type": "core",
+     "desc": "",
+     "order": 2
+    },
+    {
+     "slug": "data-structure-array-stack",
+     "title": "栈",
+     "type": "core",
+     "desc": "",
+     "order": 3
+    },
+    {
+     "slug": "data-structure-array-application",
+     "title": "栈和队列的应用",
+     "type": "core",
+     "desc": "",
+     "order": 4
+    },
+    {
+     "slug": "data-structure-linked-queue",
+     "title": "链式队列",
+     "type": "core",
+     "desc": "",
+     "order": 5
+    },
+    {
+     "slug": "data-structure-array-queue",
+     "title": "队列",
+     "type": "core",
+     "desc": "",
+     "order": 6
+    }
+   ],
+   "links": [],
+   "sourceUrl": "https://cs408.cloud/study?subject=data_structure&topic=data_structure-%E7%BA%BF%E6%80%A7%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84-knowledge-map"
+  },
+  {
+   "key": "data-structure:字符串",
+   "topicSlug": "data_structure-字符串-knowledge-map",
+   "topicKey": "5bf01b5e-1a8c-48f0-9290-7c504e76c324",
+   "subjectKey": "data-structure",
+   "chapter": "字符串",
+   "nodes": [
+    {
+     "slug": "data-structure-strings-def",
+     "title": "定义和实现",
+     "type": "core",
+     "desc": "",
+     "order": 0
+    },
+    {
+     "slug": "data-structure-string-extension",
+     "title": "必看 · 串补充考点",
+     "type": "ext",
+     "desc": "正文之外的补充细节，建议与正文一起过一遍。",
+     "order": 1
+    },
+    {
+     "slug": "data-structure-strings-match",
+     "title": "模式匹配",
+     "type": "core",
+     "desc": "",
+     "order": 2
+    }
+   ],
+   "links": [],
+   "sourceUrl": "https://cs408.cloud/study?subject=data_structure&topic=data_structure-%E5%AD%97%E7%AC%A6%E4%B8%B2-knowledge-map"
+  },
+  {
+   "key": "data-structure:树与二叉树",
+   "topicSlug": "data_structure-树与二叉树-knowledge-map",
+   "topicKey": "edd31a03-4529-403c-bc5a-a2893541ef06",
+   "subjectKey": "data-structure",
+   "chapter": "树与二叉树",
+   "nodes": [
+    {
+     "slug": "data-structure-tree-btree",
+     "title": "二叉树",
+     "type": "core",
+     "desc": "",
+     "order": 0
+    },
+    {
+     "slug": "data-structure-tree-extension",
+     "title": "必看 · 树补充考点",
+     "type": "ext",
+     "desc": "正文之外的补充细节，建议与正文一起过一遍。",
+     "order": 1
+    },
+    {
+     "slug": "data-structure-tree-tree",
+     "title": "树",
+     "type": "core",
+     "desc": "",
+     "order": 2
+    },
+    {
+     "slug": "data-structure-tree-forest-conversion",
+     "title": "树、森林与二叉树的转换",
+     "type": "core",
+     "desc": "",
+     "order": 3
+    },
+    {
+     "slug": "data-structure-tree-storage",
+     "title": "树的存储结构",
+     "type": "core",
+     "desc": "",
+     "order": 4
+    },
+    {
+     "slug": "data-structure-tree-app",
+     "title": "树的应用",
+     "type": "core",
+     "desc": "",
+     "order": 5
+    },
+    {
+     "slug": "data-structure-threaded-binary-tree",
+     "title": "线索二叉树",
+     "type": "core",
+     "desc": "",
+     "order": 6
+    }
+   ],
+   "links": [],
+   "sourceUrl": "https://cs408.cloud/study?subject=data_structure&topic=data_structure-%E6%A0%91%E4%B8%8E%E4%BA%8C%E5%8F%89%E6%A0%91-knowledge-map"
+  },
+  {
+   "key": "data-structure:图",
+   "topicSlug": "data_structure-图-knowledge-map",
+   "topicKey": "09ab952d-8d2a-4cd1-8cb8-9486cc7ae579",
+   "subjectKey": "data-structure",
+   "chapter": "图",
+   "nodes": [
+    {
+     "slug": "data-structure-critical-path",
+     "title": "关键路径（AOE 网）",
+     "type": "core",
+     "desc": "",
+     "order": 0
+    },
+    {
+     "slug": "data-structure-graph-defs",
+     "title": "定义",
+     "type": "core",
+     "desc": "",
+     "order": 1
+    },
+    {
+     "slug": "data-structure-graph-extension",
+     "title": "必看 · 图补充考点",
+     "type": "ext",
+     "desc": "正文之外的补充细节，建议与正文一起过一遍。",
+     "order": 2
+    },
+    {
+     "slug": "data-structure-graph-operation",
+     "title": "算法和应用",
+     "type": "core",
+     "desc": "",
+     "order": 3
+    }
+   ],
+   "links": [],
+   "sourceUrl": "https://cs408.cloud/study?subject=data_structure&topic=data_structure-%E5%9B%BE-knowledge-map"
+  },
+  {
+   "key": "data-structure:查找",
+   "topicSlug": "data_structure-查找-knowledge-map",
+   "topicKey": "29a6f736-570b-4a95-89cf-a0a0f14004b5",
+   "subjectKey": "data-structure",
+   "chapter": "查找",
+   "nodes": [
+    {
+     "slug": "data-structure-btree-index",
+     "title": "B 树与 B+ 树",
+     "type": "core",
+     "desc": "",
+     "order": 0
+    },
+    {
+     "slug": "data-structure-block-search",
+     "title": "分块查找",
+     "type": "core",
+     "desc": "",
+     "order": 1
+    },
+    {
+     "slug": "data-structure-avl-tree",
+     "title": "平衡二叉树（AVL 树）",
+     "type": "core",
+     "desc": "",
+     "order": 2
+    },
+    {
+     "slug": "data-structure-search-extension",
+     "title": "必看 · 查找补充考点",
+     "type": "ext",
+     "desc": "正文之外的补充细节，建议与正文一起过一遍。",
+     "order": 3
+    },
+    {
+     "slug": "data-structure-search-hash",
+     "title": "散列表查找",
+     "type": "core",
+     "desc": "",
+     "order": 4
+    },
+    {
+     "slug": "data-structure-search-array",
+     "title": "数组查找",
+     "type": "core",
+     "desc": "",
+     "order": 5
+    },
+    {
+     "slug": "data-structure-search-tree",
+     "title": "树形查找",
+     "type": "core",
+     "desc": "",
+     "order": 6
+    },
+    {
+     "slug": "data-structure-red-black-tree",
+     "title": "红黑树",
+     "type": "core",
+     "desc": "",
+     "order": 7
+    }
+   ],
+   "links": [],
+   "sourceUrl": "https://cs408.cloud/study?subject=data_structure&topic=data_structure-%E6%9F%A5%E6%89%BE-knowledge-map"
+  },
+  {
+   "key": "data-structure:排序",
+   "topicSlug": "data_structure-排序-knowledge-map",
+   "topicKey": "ce116100-7f41-4470-85b6-45ec00bb647a",
+   "subjectKey": "data-structure",
+   "chapter": "排序",
+   "nodes": [
+    {
+     "slug": "data-structure-sort-internal",
+     "title": "内部排序",
+     "type": "core",
+     "desc": "",
+     "order": 0
+    },
+    {
+     "slug": "data-structure-sort-external",
+     "title": "外部排序",
+     "type": "core",
+     "desc": "",
+     "order": 1
+    },
+    {
+     "slug": "data-structure-sort-extension",
+     "title": "必看 · 排序补充考点",
+     "type": "ext",
+     "desc": "正文之外的补充细节，建议与正文一起过一遍。",
+     "order": 2
+    }
+   ],
+   "links": [],
+   "sourceUrl": "https://cs408.cloud/study?subject=data_structure&topic=data_structure-%E6%8E%92%E5%BA%8F-knowledge-map"
+  },
+  {
+   "key": "computer-organization:概述",
+   "topicSlug": "computer_organization-概述-knowledge-map",
+   "topicKey": "a47a0597-6c40-4ad2-ab06-c46b2fe33354",
+   "subjectKey": "computer-organization",
+   "chapter": "概述",
+   "nodes": [
+    {
+     "slug": "computer-organization-overview-extension",
+     "title": "必看 · 概述补充考点",
+     "type": "ext",
+     "desc": "正文之外的补充细节，建议与正文一起过一遍。",
+     "order": 0
+    },
+    {
+     "slug": "computer-organization-overview-performance",
+     "title": "计算机性能指标",
+     "type": "core",
+     "desc": "",
+     "order": 1
+    },
+    {
+     "slug": "computer-organization-overview-structure",
+     "title": "计算机系统层次结构",
+     "type": "core",
+     "desc": "",
+     "order": 2
+    }
+   ],
+   "links": [],
+   "sourceUrl": "https://cs408.cloud/study?subject=computer_organization&topic=computer_organization-%E6%A6%82%E8%BF%B0-knowledge-map"
+  },
+  {
+   "key": "computer-organization:数据表示和计算",
+   "topicSlug": "computer_organization-数据表示和计算-knowledge-map",
+   "topicKey": "a824b28c-890e-4dec-a3cb-8d3235e70d59",
+   "subjectKey": "computer-organization",
+   "chapter": "数据表示和计算",
+   "nodes": [
+    {
+     "slug": "computer-organization-crc",
+     "title": "CRC 循环冗余校验",
+     "type": "core",
+     "desc": "",
+     "order": 0
+    },
+    {
+     "slug": "computer-organization-parity-hamming",
+     "title": "奇偶校验码与海明码",
+     "type": "core",
+     "desc": "",
+     "order": 1
+    },
+    {
+     "slug": "computer-organization-fixed-mul-div",
+     "title": "定点数的乘除运算",
+     "type": "core",
+     "desc": "",
+     "order": 2
+    },
+    {
+     "slug": "computer-organization-data-rep-extension",
+     "title": "必看 · 数据表示补充考点",
+     "type": "ext",
+     "desc": "正文之外的补充细节，建议与正文一起过一遍。",
+     "order": 3
+    },
+    {
+     "slug": "computer-organization-representation-integer",
+     "title": "整数的表示",
+     "type": "core",
+     "desc": "",
+     "order": 4
+    },
+    {
+     "slug": "computer-organization-float-arithmetic",
+     "title": "浮点数的加减运算",
+     "type": "core",
+     "desc": "",
+     "order": 5
+    },
+    {
+     "slug": "computer-organization-representation-floats",
+     "title": "浮点数表示",
+     "type": "core",
+     "desc": "",
+     "order": 6
+    },
+    {
+     "slug": "computer-organization-representation-conversion",
+     "title": "类型转换",
+     "type": "core",
+     "desc": "",
+     "order": 7
+    },
+    {
+     "slug": "computer-organization-representation-circuit",
+     "title": "运算电路",
+     "type": "core",
+     "desc": "",
+     "order": 8
+    }
+   ],
+   "links": [],
+   "sourceUrl": "https://cs408.cloud/study?subject=computer_organization&topic=computer_organization-%E6%95%B0%E6%8D%AE%E8%A1%A8%E7%A4%BA%E5%92%8C%E8%AE%A1%E7%AE%97-knowledge-map"
+  },
+  {
+   "key": "computer-organization:存储系统",
+   "topicSlug": "computer_organization-存储系统-knowledge-map",
+   "topicKey": "a1def8cb-29fe-4ef9-aac2-7f6fdaf7f2ff",
+   "subjectKey": "computer-organization",
+   "chapter": "存储系统",
+   "nodes": [
+    {
+     "slug": "computer-organization-storage-cache",
+     "title": "Cache",
+     "type": "core",
+     "desc": "",
+     "order": 0
+    },
+    {
+     "slug": "computer-organization-memory-expansion",
+     "title": "主存储器的组织与扩展",
+     "type": "core",
+     "desc": "",
+     "order": 1
+    },
+    {
+     "slug": "computer-organization-storage-storage",
+     "title": "外存",
+     "type": "core",
+     "desc": "",
+     "order": 2
+    },
+    {
+     "slug": "computer-organization-storage-memory",
+     "title": "多模块存储器",
+     "type": "core",
+     "desc": "",
+     "order": 3
+    },
+    {
+     "slug": "computer-organization-storage-defs",
+     "title": "存储系统",
+     "type": "core",
+     "desc": "",
+     "order": 4
+    },
+    {
+     "slug": "computer-organization-storage-extension",
+     "title": "必看 · 存储系统补充考点",
+     "type": "ext",
+     "desc": "正文之外的补充细节，建议与正文一起过一遍。",
+     "order": 5
+    },
+    {
+     "slug": "computer-organization-storage-virtual",
+     "title": "虚拟存储器",
+     "type": "core",
+     "desc": "",
+     "order": 6
+    }
+   ],
+   "links": [],
+   "sourceUrl": "https://cs408.cloud/study?subject=computer_organization&topic=computer_organization-%E5%AD%98%E5%82%A8%E7%B3%BB%E7%BB%9F-knowledge-map"
+  },
+  {
+   "key": "computer-organization:指令系统",
+   "topicSlug": "computer_organization-指令系统-knowledge-map",
+   "topicKey": "873e0241-815a-4637-a1b0-267da267df71",
+   "subjectKey": "computer-organization",
+   "chapter": "指令系统",
+   "nodes": [
+    {
+     "slug": "computer-organization-instruction-extension",
+     "title": "必看 · 指令系统补充考点",
+     "type": "ext",
+     "desc": "正文之外的补充细节，建议与正文一起过一遍。",
+     "order": 0
+    },
+    {
+     "slug": "computer-organization-instruction-instruction-ops",
+     "title": "指令操作码",
+     "type": "core",
+     "desc": "",
+     "order": 1
+    },
+    {
+     "slug": "computer-organization-instruction-concepts",
+     "title": "指令集种类",
+     "type": "core",
+     "desc": "",
+     "order": 2
+    },
+    {
+     "slug": "computer-organization-instruction-alignment",
+     "title": "数据对齐方式",
+     "type": "core",
+     "desc": "",
+     "order": 3
+    },
+    {
+     "slug": "computer-organization-instruction-format",
+     "title": "格式和寻址方式",
+     "type": "core",
+     "desc": "",
+     "order": 4
+    },
+    {
+     "slug": "computer-organization-instruction-high-low-language",
+     "title": "高级语言和机器码",
+     "type": "core",
+     "desc": "",
+     "order": 5
+    }
+   ],
+   "links": [],
+   "sourceUrl": "https://cs408.cloud/study?subject=computer_organization&topic=computer_organization-%E6%8C%87%E4%BB%A4%E7%B3%BB%E7%BB%9F-knowledge-map"
+  },
+  {
+   "key": "computer-organization:中央处理器",
+   "topicSlug": "computer_organization-中央处理器-knowledge-map",
+   "topicKey": "44840ae8-ce42-40ed-a9a0-7170e8a234aa",
+   "subjectKey": "computer-organization",
+   "chapter": "中央处理器",
+   "nodes": [
+    {
+     "slug": "computer-organization-cpu-structure",
+     "title": "功能和结构",
+     "type": "core",
+     "desc": "",
+     "order": 0
+    },
+    {
+     "slug": "computer-organization-cpu-multicore",
+     "title": "多处理机",
+     "type": "core",
+     "desc": "",
+     "order": 1
+    },
+    {
+     "slug": "computer-organization-cpu-interrupt",
+     "title": "异常与中断",
+     "type": "core",
+     "desc": "",
+     "order": 2
+    },
+    {
+     "slug": "computer-organization-microprogram",
+     "title": "微程序控制器",
+     "type": "core",
+     "desc": "",
+     "order": 3
+    },
+    {
+     "slug": "computer-organization-cpu-extension",
+     "title": "必看 · CPU 补充考点",
+     "type": "ext",
+     "desc": "正文之外的补充细节，建议与正文一起过一遍。",
+     "order": 4
+    },
+    {
+     "slug": "computer-organization-cpu-pipeline",
+     "title": "指令流水线",
+     "type": "core",
+     "desc": "",
+     "order": 5
+    },
+    {
+     "slug": "computer-organization-cpu-controller",
+     "title": "控制器",
+     "type": "core",
+     "desc": "",
+     "order": 6
+    },
+    {
+     "slug": "computer-organization-superscalar-multicore",
+     "title": "超标量与多核处理器",
+     "type": "core",
+     "desc": "",
+     "order": 7
+    }
+   ],
+   "links": [],
+   "sourceUrl": "https://cs408.cloud/study?subject=computer_organization&topic=computer_organization-%E4%B8%AD%E5%A4%AE%E5%A4%84%E7%90%86%E5%99%A8-knowledge-map"
+  },
+  {
+   "key": "computer-organization:总线和输入输出系统",
+   "topicSlug": "computer_organization-总线和输入输出系统-knowledge-map",
+   "topicKey": "dca9c86b-74a3-4e83-bf85-9db78a5eceb4",
+   "subjectKey": "computer-organization",
+   "chapter": "总线和输入输出系统",
+   "nodes": [
+    {
+     "slug": "computer-organization-bus-io",
+     "title": "I/O 系统",
+     "type": "core",
+     "desc": "",
+     "order": 0
+    },
+    {
+     "slug": "computer-organization-bus-bus",
+     "title": "总线",
+     "type": "core",
+     "desc": "",
+     "order": 1
+    },
+    {
+     "slug": "computer-organization-bus-arbitration",
+     "title": "总线仲裁与总线带宽",
+     "type": "core",
+     "desc": "",
+     "order": 2
+    },
+    {
+     "slug": "computer-organization-io-extension",
+     "title": "必看 · I/O 系统补充考点",
+     "type": "ext",
+     "desc": "正文之外的补充细节，建议与正文一起过一遍。",
+     "order": 3
+    },
+    {
+     "slug": "computer-organization-bus-extension",
+     "title": "必看 · 总线补充考点",
+     "type": "ext",
+     "desc": "正文之外的补充细节，建议与正文一起过一遍。",
+     "order": 4
+    }
+   ],
+   "links": [],
+   "sourceUrl": "https://cs408.cloud/study?subject=computer_organization&topic=computer_organization-%E6%80%BB%E7%BA%BF%E5%92%8C%E8%BE%93%E5%85%A5%E8%BE%93%E5%87%BA%E7%B3%BB%E7%BB%9F-knowledge-map"
+  },
+  {
+   "key": "operating-system:计算机系统概述",
+   "topicSlug": "operating_system-计算机系统概述-knowledge-map",
+   "topicKey": "3b70a955-9072-4881-a781-db9ff6762701",
+   "subjectKey": "operating-system",
+   "chapter": "计算机系统概述",
+   "nodes": [
+    {
+     "slug": "operating-system-overview-extension",
+     "title": "必看 · OS 概述补充考点",
+     "type": "ext",
+     "desc": "正文之外的补充细节，建议与正文一起过一遍。",
+     "order": 0
+    },
+    {
+     "slug": "operating-system-concepts-concept",
+     "title": "操作系统概念",
+     "type": "core",
+     "desc": "",
+     "order": 1
+    },
+    {
+     "slug": "operating-system-concepts-structure",
+     "title": "操作系统结构",
+     "type": "core",
+     "desc": "",
+     "order": 2
+    },
+    {
+     "slug": "operating-system-concepts-environment",
+     "title": "程序运行环境",
+     "type": "core",
+     "desc": "",
+     "order": 3
+    }
+   ],
+   "links": [],
+   "sourceUrl": "https://cs408.cloud/study?subject=operating_system&topic=operating_system-%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%B3%BB%E7%BB%9F%E6%A6%82%E8%BF%B0-knowledge-map"
+  },
+  {
+   "key": "operating-system:进程管理",
+   "topicSlug": "operating_system-进程管理-knowledge-map",
+   "topicKey": "4a496360-4bf9-48e3-87dd-53d47a30dd19",
+   "subjectKey": "operating-system",
+   "chapter": "进程管理",
+   "nodes": [
+    {
+     "slug": "operating-system-process-sync",
+     "title": "同步和互斥",
+     "type": "core",
+     "desc": "",
+     "order": 0
+    },
+    {
+     "slug": "operating-system-process-scheduling",
+     "title": "处理机调度",
+     "type": "core",
+     "desc": "",
+     "order": 1
+    },
+    {
+     "slug": "operating-system-process-extension",
+     "title": "必看 · 进程管理补充考点",
+     "type": "ext",
+     "desc": "正文之外的补充细节，建议与正文一起过一遍。",
+     "order": 2
+    },
+    {
+     "slug": "operating-system-process-deadlock",
+     "title": "死锁",
+     "type": "core",
+     "desc": "",
+     "order": 3
+    },
+    {
+     "slug": "operating-system-monitor",
+     "title": "管程（Monitor）",
+     "type": "core",
+     "desc": "",
+     "order": 4
+    },
+    {
+     "slug": "operating-system-process-problem",
+     "title": "经典同步问题",
+     "type": "core",
+     "desc": "",
+     "order": 5
+    },
+    {
+     "slug": "operating-system-process-process-thread",
+     "title": "进程和线程",
+     "type": "core",
+     "desc": "",
+     "order": 6
+    },
+    {
+     "slug": "operating-system-process-control",
+     "title": "进程控制与 PCB",
+     "type": "core",
+     "desc": "",
+     "order": 7
+    },
+    {
+     "slug": "operating-system-ipc",
+     "title": "进程通信（IPC）",
+     "type": "core",
+     "desc": "",
+     "order": 8
+    }
+   ],
+   "links": [],
+   "sourceUrl": "https://cs408.cloud/study?subject=operating_system&topic=operating_system-%E8%BF%9B%E7%A8%8B%E7%AE%A1%E7%90%86-knowledge-map"
+  },
+  {
+   "key": "operating-system:内存管理",
+   "topicSlug": "operating_system-内存管理-knowledge-map",
+   "topicKey": "a7fe16c1-8966-42fa-ba31-8ed075cc0a5b",
+   "subjectKey": "operating-system",
+   "chapter": "内存管理",
+   "nodes": [
+    {
+     "slug": "operating-system-memory-concepts",
+     "title": "内存管理概念",
+     "type": "core",
+     "desc": "",
+     "order": 0
+    },
+    {
+     "slug": "operating-system-working-set-thrashing",
+     "title": "工作集与抖动",
+     "type": "core",
+     "desc": "",
+     "order": 1
+    },
+    {
+     "slug": "operating-system-memory-extension",
+     "title": "必看 · 内存管理补充考点",
+     "type": "ext",
+     "desc": "正文之外的补充细节，建议与正文一起过一遍。",
+     "order": 2
+    },
+    {
+     "slug": "operating-system-segmentation",
+     "title": "段式与段页式存储管理",
+     "type": "core",
+     "desc": "",
+     "order": 3
+    },
+    {
+     "slug": "operating-system-memory-management",
+     "title": "虚拟内存管理",
+     "type": "core",
+     "desc": "",
+     "order": 4
+    },
+    {
+     "slug": "operating-system-memory-allocation",
+     "title": "连续内存分配与动态分区算法",
+     "type": "core",
+     "desc": "",
+     "order": 5
+    }
+   ],
+   "links": [],
+   "sourceUrl": "https://cs408.cloud/study?subject=operating_system&topic=operating_system-%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86-knowledge-map"
+  },
+  {
+   "key": "operating-system:文件管理",
+   "topicSlug": "operating_system-文件管理-knowledge-map",
+   "topicKey": "9d43a65d-b079-470b-9b62-b3731b8932e3",
+   "subjectKey": "operating-system",
+   "chapter": "文件管理",
+   "nodes": [
+    {
+     "slug": "operating-system-file-extension",
+     "title": "必看 · 文件管理补充考点",
+     "type": "ext",
+     "desc": "正文之外的补充细节，建议与正文一起过一遍。",
+     "order": 0
+    },
+    {
+     "slug": "operating-system-files-file",
+     "title": "文件",
+     "type": "core",
+     "desc": "",
+     "order": 1
+    },
+    {
+     "slug": "operating-system-file-sharing-protection",
+     "title": "文件共享与文件保护",
+     "type": "core",
+     "desc": "",
+     "order": 2
+    },
+    {
+     "slug": "operating-system-file-physical-structure",
+     "title": "文件的物理结构",
+     "type": "core",
+     "desc": "",
+     "order": 3
+    },
+    {
+     "slug": "operating-system-files-file-system",
+     "title": "文件系统",
+     "type": "core",
+     "desc": "",
+     "order": 4
+    },
+    {
+     "slug": "operating-system-files-dir",
+     "title": "目录",
+     "type": "core",
+     "desc": "",
+     "order": 5
+    },
+    {
+     "slug": "operating-system-disk-space-management",
+     "title": "磁盘空间管理",
+     "type": "core",
+     "desc": "",
+     "order": 6
+    }
+   ],
+   "links": [],
+   "sourceUrl": "https://cs408.cloud/study?subject=operating_system&topic=operating_system-%E6%96%87%E4%BB%B6%E7%AE%A1%E7%90%86-knowledge-map"
+  },
+  {
+   "key": "operating-system:I/O 管理",
+   "topicSlug": "operating_system-I-O-管理-knowledge-map",
+   "topicKey": "66384514-1981-4383-bf86-149c2ed4f8ff",
+   "subjectKey": "operating-system",
+   "chapter": "I/O 管理",
+   "nodes": [
+    {
+     "slug": "operating-system-io-device-devices",
+     "title": "I/O 设备",
+     "type": "core",
+     "desc": "",
+     "order": 0
+    },
+    {
+     "slug": "operating-system-spooling",
+     "title": "SPOOLing 技术",
+     "type": "core",
+     "desc": "",
+     "order": 1
+    },
+    {
+     "slug": "operating-system-io-extension",
+     "title": "必看 · I/O 管理补充考点",
+     "type": "ext",
+     "desc": "正文之外的补充细节，建议与正文一起过一遍。",
+     "order": 2
+    },
+    {
+     "slug": "operating-system-io-device-disks",
+     "title": "磁盘",
+     "type": "core",
+     "desc": "",
+     "order": 3
+    },
+    {
+     "slug": "operating-system-buffering",
+     "title": "缓冲技术",
+     "type": "core",
+     "desc": "",
+     "order": 4
+    },
+    {
+     "slug": "operating-system-io-device-management",
+     "title": "设备管理",
+     "type": "core",
+     "desc": "",
+     "order": 5
+    }
+   ],
+   "links": [],
+   "sourceUrl": "https://cs408.cloud/study?subject=operating_system&topic=operating_system-I-O-%E7%AE%A1%E7%90%86-knowledge-map"
+  },
+  {
+   "key": "computer-network:计算机网络体系结构",
+   "topicSlug": "computer_network-计算机网络体系结构-knowledge-map",
+   "topicKey": "8673cdbf-2c7e-4cc8-859f-3359c297e419",
+   "subjectKey": "computer-network",
+   "chapter": "计算机网络体系结构",
+   "nodes": [
+    {
+     "slug": "computer-network-overall-iso",
+     "title": "分层结构",
+     "type": "core",
+     "desc": "",
+     "order": 0
+    },
+    {
+     "slug": "computer-network-overall-protocol",
+     "title": "各层协议总结",
+     "type": "core",
+     "desc": "",
+     "order": 1
+    },
+    {
+     "slug": "computer-network-architecture-extension",
+     "title": "必看 · 体系结构补充考点",
+     "type": "ext",
+     "desc": "正文之外的补充细节，建议与正文一起过一遍。",
+     "order": 2
+    },
+    {
+     "slug": "computer-network-overall-dev",
+     "title": "网络设备总结",
+     "type": "core",
+     "desc": "",
+     "order": 3
+    }
+   ],
+   "links": [],
+   "sourceUrl": "https://cs408.cloud/study?subject=computer_network&topic=computer_network-%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C%E4%BD%93%E7%B3%BB%E7%BB%93%E6%9E%84-knowledge-map"
+  },
+  {
+   "key": "computer-network:物理层",
+   "topicSlug": "computer_network-物理层-knowledge-map",
+   "topicKey": "c9126afd-4022-4227-a5b8-3dd6eb2f6868",
+   "subjectKey": "computer-network",
+   "chapter": "物理层",
+   "nodes": [
+    {
+     "slug": "computer-network-physical-switching",
+     "title": "交换方式",
+     "type": "core",
+     "desc": "",
+     "order": 0
+    },
+    {
+     "slug": "computer-network-physical-extension",
+     "title": "必看 · 物理层补充考点",
+     "type": "ext",
+     "desc": "正文之外的补充细节，建议与正文一起过一遍。",
+     "order": 1
+    },
+    {
+     "slug": "computer-network-physical-dev",
+     "title": "物理层设备",
+     "type": "core",
+     "desc": "",
+     "order": 2
+    },
+    {
+     "slug": "computer-network-physical-encoding",
+     "title": "编码和调制",
+     "type": "core",
+     "desc": "",
+     "order": 3
+    },
+    {
+     "slug": "computer-network-physical-concept",
+     "title": "通信概念",
+     "type": "core",
+     "desc": "",
+     "order": 4
+    }
+   ],
+   "links": [],
+   "sourceUrl": "https://cs408.cloud/study?subject=computer_network&topic=computer_network-%E7%89%A9%E7%90%86%E5%B1%82-knowledge-map"
+  },
+  {
+   "key": "computer-network:数据链路层",
+   "topicSlug": "computer_network-数据链路层-knowledge-map",
+   "topicKey": "b53f18eb-3fa7-4d48-ad8b-93302d1be4a9",
+   "subjectKey": "computer-network",
+   "chapter": "数据链路层",
+   "nodes": [
+    {
+     "slug": "computer-network-aloha",
+     "title": "ALOHA 协议",
+     "type": "core",
+     "desc": "",
+     "order": 0
+    },
+    {
+     "slug": "computer-network-ppp",
+     "title": "PPP 协议",
+     "type": "core",
+     "desc": "",
+     "order": 1
+    },
+    {
+     "slug": "computer-network-vlan",
+     "title": "VLAN（虚拟局域网）",
+     "type": "core",
+     "desc": "",
+     "order": 2
+    },
+    {
+     "slug": "computer-network-datalink-mac",
+     "title": "介质访问控制",
+     "type": "core",
+     "desc": "",
+     "order": 3
+    },
+    {
+     "slug": "computer-network-channel-utilization",
+     "title": "信道利用率计算",
+     "type": "core",
+     "desc": "",
+     "order": 4
+    },
+    {
+     "slug": "computer-network-datalink-lan",
+     "title": "局域网和广域网",
+     "type": "core",
+     "desc": "",
+     "order": 5
+    },
+    {
+     "slug": "computer-network-datalink-error",
+     "title": "差错控制",
+     "type": "core",
+     "desc": "",
+     "order": 6
+    },
+    {
+     "slug": "computer-network-datalink-extension",
+     "title": "必看 · 数据链路层补充考点",
+     "type": "ext",
+     "desc": "正文之外的补充细节，建议与正文一起过一遍。",
+     "order": 7
+    },
+    {
+     "slug": "computer-network-datalink-dev",
+     "title": "数据链路层设备",
+     "type": "core",
+     "desc": "",
+     "order": 8
+    },
+    {
+     "slug": "computer-network-datalink-flow-control",
+     "title": "流量控制",
+     "type": "core",
+     "desc": "",
+     "order": 9
+    },
+    {
+     "slug": "computer-network-datalink-framing",
+     "title": "组帧",
+     "type": "core",
+     "desc": "",
+     "order": 10
+    }
+   ],
+   "links": [],
+   "sourceUrl": "https://cs408.cloud/study?subject=computer_network&topic=computer_network-%E6%95%B0%E6%8D%AE%E9%93%BE%E8%B7%AF%E5%B1%82-knowledge-map"
+  },
+  {
+   "key": "computer-network:网络层",
+   "topicSlug": "computer_network-网络层-knowledge-map",
+   "topicKey": "94658b13-5604-4713-9aba-d96104439569",
+   "subjectKey": "computer-network",
+   "chapter": "网络层",
+   "nodes": [
+    {
+     "slug": "computer-network-network-arp",
+     "title": "ARP",
+     "type": "core",
+     "desc": "",
+     "order": 0
+    },
+    {
+     "slug": "computer-network-network-dhcp",
+     "title": "DHCP",
+     "type": "core",
+     "desc": "",
+     "order": 1
+    },
+    {
+     "slug": "computer-network-network-icmp",
+     "title": "ICMP",
+     "type": "core",
+     "desc": "",
+     "order": 2
+    },
+    {
+     "slug": "computer-network-network-ip",
+     "title": "IP",
+     "type": "core",
+     "desc": "",
+     "order": 3
+    },
+    {
+     "slug": "computer-network-ipv6",
+     "title": "IPv6 基本概念",
+     "type": "core",
+     "desc": "",
+     "order": 4
+    },
+    {
+     "slug": "computer-network-ip-fragmentation",
+     "title": "IP 数据报分片计算",
+     "type": "core",
+     "desc": "",
+     "order": 5
+    },
+    {
+     "slug": "computer-network-nat",
+     "title": "NAT 地址转换",
+     "type": "core",
+     "desc": "",
+     "order": 6
+    },
+    {
+     "slug": "computer-network-network-sdn",
+     "title": "SDN",
+     "type": "core",
+     "desc": "",
+     "order": 7
+    },
+    {
+     "slug": "computer-network-network-extension",
+     "title": "必看 · 网络层补充考点",
+     "type": "ext",
+     "desc": "正文之外的补充细节，建议与正文一起过一遍。",
+     "order": 8
+    },
+    {
+     "slug": "computer-network-network-dev",
+     "title": "网络层设备",
+     "type": "core",
+     "desc": "",
+     "order": 9
+    },
+    {
+     "slug": "computer-network-network-route",
+     "title": "路由算法",
+     "type": "core",
+     "desc": "",
+     "order": 10
+    }
+   ],
+   "links": [],
+   "sourceUrl": "https://cs408.cloud/study?subject=computer_network&topic=computer_network-%E7%BD%91%E7%BB%9C%E5%B1%82-knowledge-map"
+  },
+  {
+   "key": "computer-network:传输层",
+   "topicSlug": "computer_network-传输层-knowledge-map",
+   "topicKey": "5632b194-2175-4fcc-9a21-ac0842be8243",
+   "subjectKey": "computer-network",
+   "chapter": "传输层",
+   "nodes": [
+    {
+     "slug": "computer-network-transport-tcp",
+     "title": "TCP",
+     "type": "core",
+     "desc": "",
+     "order": 0
+    },
+    {
+     "slug": "computer-network-transport-udp",
+     "title": "UDP",
+     "type": "core",
+     "desc": "",
+     "order": 1
+    },
+    {
+     "slug": "computer-network-transport-extension",
+     "title": "必看 · 传输层补充考点",
+     "type": "ext",
+     "desc": "正文之外的补充细节，建议与正文一起过一遍。",
+     "order": 2
+    }
+   ],
+   "links": [],
+   "sourceUrl": "https://cs408.cloud/study?subject=computer_network&topic=computer_network-%E4%BC%A0%E8%BE%93%E5%B1%82-knowledge-map"
+  },
+  {
+   "key": "computer-network:应用层",
+   "topicSlug": "computer_network-应用层-knowledge-map",
+   "topicKey": "9e161803-421c-47be-8bff-2a4e7c45dd75",
+   "subjectKey": "computer-network",
+   "chapter": "应用层",
+   "nodes": [
+    {
+     "slug": "computer-network-application-dns",
+     "title": "DNS",
+     "type": "core",
+     "desc": "",
+     "order": 0
+    },
+    {
+     "slug": "computer-network-application-ftp",
+     "title": "FTP",
+     "type": "core",
+     "desc": "",
+     "order": 1
+    },
+    {
+     "slug": "computer-network-https",
+     "title": "HTTPS 与 TLS/SSL",
+     "type": "core",
+     "desc": "",
+     "order": 2
+    },
+    {
+     "slug": "computer-network-application-www",
+     "title": "万维网",
+     "type": "core",
+     "desc": "",
+     "order": 3
+    },
+    {
+     "slug": "computer-network-application-extension",
+     "title": "必看 · 应用层补充考点",
+     "type": "ext",
+     "desc": "正文之外的补充细节，建议与正文一起过一遍。",
+     "order": 4
+    },
+    {
+     "slug": "computer-network-application-mail",
+     "title": "电子邮件",
+     "type": "core",
+     "desc": "",
+     "order": 5
+    },
+    {
+     "slug": "computer-network-application-model",
+     "title": "网络应用模型",
+     "type": "core",
+     "desc": "",
+     "order": 6
+    }
+   ],
+   "links": [],
+   "sourceUrl": "https://cs408.cloud/study?subject=computer_network&topic=computer_network-%E5%BA%94%E7%94%A8%E5%B1%82-knowledge-map"
+  }
+ ]
+}
