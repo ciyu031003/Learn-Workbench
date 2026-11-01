@@ -85,7 +85,20 @@ function resolvePnpmCli() {
     path.join(ROOT, "node_modules", "pnpm", "bin", "pnpm.cjs"),
   ];
   for (const c of candidates) {
-    if (c && existsSync(c)) return c;
+    if (!c || !existsSync(c)) continue;
+    // 候选必须真的能被 node 当模块跑起来（2026-11-01 CI 注解取证：PNPM_HOME 的无扩展名
+    // 入口 node 直接跑是模块加载报错，stderr 只剩堆栈）。跑一次 --version 自检，
+    // 不合格的候选跳过，最终回落 __PATH__（PATH 上的 pnpm 带可执行位 + shebang，直接执行）。
+    try {
+      const version = execFileSync(
+        process.execPath,
+        [c, "--version"],
+        { encoding: "utf8", timeout: 15000, stdio: ["ignore", "pipe", "ignore"] },
+      ).trim();
+      if (/^\d+\.\d+\.\d+/.test(version)) return c;
+    } catch {
+      // 该候选不可用：尝试下一个
+    }
   }
   return "__PATH__"; // 兜底：PATH 解析（Linux/CI 可用；Windows 无 .cmd 后缀时由调用方 catch）
 }

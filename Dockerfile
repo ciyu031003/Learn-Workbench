@@ -41,8 +41,13 @@ FROM node:24-slim AS runtime
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1
 # python3：Bing 壁纸爬虫 + 招花招聘爬虫依赖；postgresql-client：爬虫经 psql 写库；curl：排障
-# 国内镜像：apt 源替换为腾讯云镜像（加速 + 避免 deb.debian.org 卡顿），npm/pnpm 已用 npmmirror
-RUN sed -i 's|deb.debian.org|mirrors.cloud.tencent.com|g' /etc/apt/sources.list.d/debian.sources 2>/dev/null || true \
+# apt 镜像源：默认腾讯云（国内加速 + 避免 deb.debian.org 卡顿，服务器部署用默认值）；
+# 境外 CI（GitHub runner 访问腾讯镜像 apt 仓库 exit 100，2026-11-01 注解取证）经
+# compose 传 APT_MIRROR=deb.debian.org 走官方源。npm/pnpm 已按 NPM_REGISTRY 单独控制。
+ARG APT_MIRROR=mirrors.cloud.tencent.com
+RUN if [ "$APT_MIRROR" != "deb.debian.org" ]; then \
+      sed -i "s|deb.debian.org|$APT_MIRROR|g" /etc/apt/sources.list.d/debian.sources 2>/dev/null || true; \
+    fi \
     && apt-get update \
     && apt-get install -y --no-install-recommends python3 postgresql-client curl ca-certificates chromium fonts-noto-cjk \
     && rm -rf /var/lib/apt/lists/*

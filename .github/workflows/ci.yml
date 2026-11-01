@@ -123,6 +123,8 @@ jobs:
       # compose 全栈：web 监听宿主机 3001
       PG_PASSWORD: ci-pg-pass
       NPM_REGISTRY: https://registry.npmjs.org
+      # GitHub runner（境外）访问腾讯 apt 镜像 exit 100：CI 走官方 Debian 源（2026-11-01）
+      APT_MIRROR: deb.debian.org
       E2E_BASE_URL: http://localhost:3001
       E2E_USERNAME: admin
       E2E_PASSWORD: ${{ secrets.E2E_PASSWORD || 'ci-e2e-password' }}

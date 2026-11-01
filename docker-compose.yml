@@ -53,6 +53,9 @@ services:
       dockerfile: Dockerfile
       args:
         NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmmirror.com}
+        # 境外 CI 的 GitHub runner 访问腾讯 apt 镜像会 exit 100（2026-11-01 注解取证）：
+        # CI 传官方源；国内部署保持默认腾讯源不动
+        APT_MIRROR: ${APT_MIRROR:-mirrors.cloud.tencent.com}
     restart: unless-stopped
     depends_on:
       db:
