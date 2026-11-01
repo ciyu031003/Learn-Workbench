@@ -39,6 +39,7 @@
   "apps/mobile/src/components/kcal-badge.tsx": 3,
   "apps/mobile/src/components/live-log-sheet.tsx": 3,
   "apps/mobile/src/components/macro-mini-rings.tsx": 1,
+  "apps/mobile/src/components/markdown-article.tsx": 4,
   "apps/mobile/src/components/month-calendar.tsx": 3,
   "apps/mobile/src/components/portion-slider.tsx": 1,
   "apps/mobile/src/components/press-button.tsx": 1,

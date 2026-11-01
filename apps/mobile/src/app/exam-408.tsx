@@ -33,6 +33,7 @@ import {
   exam408PointHref,
   resolveExam408Subject,
 } from "@/lib/exam-408-view";
+import { EXAM_408_STUDY_SUBJECTS } from "@/lib/exam-408-study";
 import { setNavPendingParams } from "@/lib/nav-pending";
 import { useScreenEntrance } from "@/lib/use-screen-entrance";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
@@ -491,6 +492,8 @@ function PracticeTab({
         />
       </View>
 
+      <DrillEntry />
+
       <View style={styles.sectionHead}>
         <View style={styles.sectionHeadBody}>
           <Text style={styles.sectionTitle}>按章节刷真题</Text>
@@ -592,6 +595,7 @@ function SubjectBrowser({
       />
       <SubjectSummary subject={activeSubject} mode={mode} />
       <GradLessonEntry subject={activeSubject} />
+      <StudyReadingEntry subject={activeSubject} />
       {activeSubject.chapters.length > 0 ? (
         <View style={styles.chapterList}>
           {activeSubject.chapters.map((chapter) => {
@@ -776,6 +780,80 @@ function GradLessonEntry({ subject }: { subject: Exam408SubjectSummary }) {
         <Text style={styles.lessonEntryTitle}>{subject.title} · 讲义阅读</Text>
         <Text style={styles.lessonEntryMeta} numberOfLines={1}>
           {gradStage.topics.length} 章正文讲解 · 概念 / 机制 / 易错点
+        </Text>
+      </View>
+      <ThemedIcon name="chevron-forward" size={18} color={colors.textFaint} />
+    </PressableScale>
+  );
+}
+
+/**
+ * 「知识精读」入口（v1.55）：cs408.cloud 的 181 篇精读正文（已授权镜像），
+ * 与「讲义阅读」并列 —— 讲义是站点聚合的章级讲解，精读是 cs408 的原文长读版，
+ * 两者互补。这里只做入口：点进去先选科目章节，再一屏一节地读（exam-408-study）。
+ */
+function StudyReadingEntry({ subject }: { subject: Exam408SubjectSummary }) {
+  const { colors, dark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
+  const tone = subjectTone(subject, dark);
+  const bare = subject.key.trim().split("/").pop() ?? "";
+  const studySubject = EXAM_408_STUDY_SUBJECTS.find((item) => item.key === bare);
+  if (!studySubject) return null;
+
+  const openStudy = () => {
+    setNavPendingParams("exam-408-study", {});
+    router.push(("/exam-408-study?subject=" + encodeURIComponent(studySubject.key)) as never);
+  };
+
+  return (
+    <PressableScale
+      haptic
+      scaleTo={0.985}
+      onPress={openStudy}
+      style={[styles.lessonEntry, { borderColor: colors.primary + "35" }]}
+      accessibilityRole="button"
+      accessibilityLabel={"阅读 " + subject.title + " 精读原文"}
+    >
+      <View style={[styles.lessonEntryIcon, { backgroundColor: colors.primarySoft }]}>
+        <ThemedIcon name="library-outline" size={20} color={tone.color} />
+      </View>
+      <View style={styles.lessonEntryBody}>
+        <Text style={styles.lessonEntryTitle}>{subject.title} · 知识精读</Text>
+        <Text style={styles.lessonEntryMeta} numberOfLines={1}>
+          cs408 原文长读 · 章节目录 / 一屏一节 / 支持插图
+        </Text>
+      </View>
+      <ThemedIcon name="chevron-forward" size={18} color={colors.textFaint} />
+    </PressableScale>
+  );
+}
+
+/**
+ * 「408 刷卡」入口（v1.55）：到期队列 + 点击/横滑翻卡 + 忘记/模糊/掌握三档自评。
+ *
+ * 与 Web 端共用同一套 /api/exam/408/cards 与 FSRS 状态（需要登录）；队列拉取、
+ * 离线缓存与今日统计都放在刷卡页（exam-408-drill）内部，hub 这里只做入口，
+ * 不在首屏多发一次需要登录的请求。
+ */
+function DrillEntry() {
+  const { colors, dark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
+  return (
+    <PressableScale
+      haptic
+      scaleTo={0.985}
+      onPress={() => router.push("/exam-408-drill" as never)}
+      style={[styles.lessonEntry, { borderColor: colors.accent + "35" }]}
+      accessibilityRole="button"
+      accessibilityLabel="打开 408 刷卡背诵"
+    >
+      <View style={[styles.lessonEntryIcon, { backgroundColor: colors.accentSoft }]}>
+        <ThemedIcon name="layers-outline" size={20} color={colors.accentStrong} />
+      </View>
+      <View style={styles.lessonEntryBody}>
+        <Text style={styles.lessonEntryTitle}>408 刷卡背诵</Text>
+        <Text style={styles.lessonEntryMeta} numberOfLines={1}>
+          到期队列 · 点击翻卡 · 忘记 / 模糊 / 掌握三档自评
         </Text>
       </View>
       <ThemedIcon name="chevron-forward" size={18} color={colors.textFaint} />

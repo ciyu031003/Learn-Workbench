@@ -14,11 +14,14 @@ import { RichText } from "@/components/rich-text";
 export function ExamQuestionCard({
   question,
   footer,
+  defaultRevealed = false,
 }: {
   question: Exam408Question;
   footer?: ReactNode;
+  /** 解析默认折叠（速览/复习默认）；考试模式下交卷后才需要默认展开时传 true。 */
+  defaultRevealed?: boolean;
 }) {
-  const [revealed, setRevealed] = useState(false);
+  const [revealed, setRevealed] = useState(defaultRevealed);
   const correct = new Set(
     (question.answerLetter ?? "")
       .split("")
@@ -86,7 +89,7 @@ export function ExamQuestionCard({
         ) : null}
 
         {revealed ? (
-          <div className="rounded-lg border border-success/25 bg-success/5 px-3 py-3 text-sm">
+          <div id={`answer-${question.key}`} className="rounded-lg border border-success/25 bg-success/5 px-3 py-3 text-sm">
             <p className="font-medium text-success-strong">
               参考答案：{question.answerLetter ?? question.answerText}
             </p>
@@ -133,11 +136,13 @@ export function ExamQuestionCard({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <button
             type="button"
+            aria-expanded={revealed}
+            aria-controls={`answer-${question.key}`}
             onClick={() => setRevealed((value) => !value)}
             className="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/15"
           >
             {revealed ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
-            {revealed ? "收起答案" : "显示答案"}
+            {revealed ? "收起答案解析" : "展开答案解析"}
           </button>
           {footer}
         </div>

@@ -34,6 +34,12 @@ const EXPECTED_ROUTES = [
   "/diagnostics",
   "/domain-manager",
   "/exam-408",
+  "/exam-408-study",
+  "/exam-408-study-read",
+  // v1.55：408 逐帧演示目录 / 播放器（task-14）
+  "/exam-408-viz",
+  "/exam-408-viz-player",
+  "/exam-408-drill",
   "/habits",
   "/interview",
   "/jobs",

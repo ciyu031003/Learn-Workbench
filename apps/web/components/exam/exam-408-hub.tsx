@@ -11,6 +11,7 @@ import {
   BookOpen,
   CalendarDays,
   ChevronRight,
+  Clapperboard,
   FileText,
   Layers3,
   MonitorCheck,
@@ -65,6 +66,62 @@ export function Exam408Hub({ overview }: { overview: Exam408Overview }) {
           </dl>
         </CardContent>
       </Card>
+
+      <Link
+        href="/learn/408/study"
+        className="group flex flex-col gap-3 rounded-xl border border-primary/25 bg-primary/[0.06] p-4 transition-colors hover:border-primary/40 hover:bg-primary/10 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <span className="flex items-start gap-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/12 text-primary">
+            <BookOpen className="size-5" />
+          </span>
+          <span className="min-w-0">
+            <span className="flex flex-wrap items-center gap-1.5">
+              <span className="text-sm font-semibold">知识精读</span>
+              <Badge variant="muted">cs408 精读 · 教材式正文</Badge>
+            </span>
+            <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+              按科目与章节读教材式正文：公式、插图、章节目录与上一节／下一节，读完再回来刷该知识点真题。
+            </span>
+          </span>
+        </span>
+        <span className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary">
+          进入精读 <ChevronRight className="size-3.5" />
+        </span>
+      </Link>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Link
+          href="/learn/408/viz"
+          className="group flex items-start gap-3 rounded-xl border border-border/60 bg-card/70 p-4 transition-colors hover:border-primary/40 hover:bg-primary/[0.04]"
+        >
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-accent/12 text-accent-foreground">
+            <Clapperboard className="size-5" />
+          </span>
+          <span className="min-w-0">
+            <span className="text-sm font-semibold">交互演示</span>
+            <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+              排序 / 树 / 图 / 调度 / 置换等 98 个演示，单步、拖动、倍速，配逐步讲解。
+            </span>
+          </span>
+          <ChevronRight className="ml-auto size-4 shrink-0 text-muted-foreground" />
+        </Link>
+        <Link
+          href="/learn/408/drill"
+          className="group flex items-start gap-3 rounded-xl border border-border/60 bg-card/70 p-4 transition-colors hover:border-primary/40 hover:bg-primary/[0.04]"
+        >
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/12 text-primary">
+            <Layers3 className="size-4" />
+          </span>
+          <span className="min-w-0">
+            <span className="text-sm font-semibold">刷卡背诵</span>
+            <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+              529 张速记卡：到期队列 + 三档自评 + 易错本，FSRS 安排复习。
+            </span>
+          </span>
+          <ChevronRight className="ml-auto size-4 shrink-0 text-muted-foreground" />
+        </Link>
+      </div>
 
       <div className="grid grid-cols-2 gap-2 rounded-xl border border-border/60 bg-muted/30 p-1.5 sm:max-w-md">
         <TabButton active={tab === "knowledge"} onClick={() => setTab("knowledge")} icon={<BookOpen className="size-4" />}>

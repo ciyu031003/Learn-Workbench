@@ -1,0 +1,6831 @@
+{
+ "source": "408card-top",
+ "baseUrl": "https://408card.top/",
+ "capturedAt": "2026-11-01T10:25:49.878Z",
+ "frameRoot": "apps/web/public/content-demos",
+ "framePathPrefix": "content-demos",
+ "chrome": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+ "minSteps": 3,
+ "maxFrameBytes": 81920,
+ "stats": {
+  "demos": 98,
+  "frames": 1304,
+  "bytes": 12706878,
+  "resumeSkipped": 0,
+  "framesOverTarget": 0,
+  "largestFrame": {
+   "bytes": 15286,
+   "frame": "protocol-stack/7.webp"
+  },
+  "bySubject": {
+   "ds": {
+    "demos": 33,
+    "frames": 659,
+    "bytes": 6324762
+   },
+   "os": {
+    "demos": 26,
+    "frames": 311,
+    "bytes": 2963960
+   },
+   "cn": {
+    "demos": 19,
+    "frames": 167,
+    "bytes": 1832234
+   },
+   "co": {
+    "demos": 20,
+    "frames": 167,
+    "bytes": 1585922
+   }
+  },
+  "failures": 0
+ },
+ "catalog": [
+  {
+   "key": "408card/sort-bubble",
+   "sourceId": "sort-bubble",
+   "sourceUrl": "https://408card.top/#/vizp/sort-bubble?sub=ds",
+   "id": "sort-bubble",
+   "code": "ds",
+   "subjectKey": "beokayy-408/data-structure",
+   "title": "冒泡排序",
+   "description": "相邻比较交换，逐步冒泡",
+   "sortOrder": 1,
+   "frameCount": 106,
+   "frameBytes": 951022,
+   "steps": [
+    {
+     "explain": "冒泡排序：相邻比较，大的往后冒。固定数据见下。",
+     "frame": "content-demos/sort-bubble/1.webp"
+    },
+    {
+     "explain": "第 1 趟：比较 a[0]=5 与 a[1]=2",
+     "frame": "content-demos/sort-bubble/2.webp"
+    },
+    {
+     "explain": "交换，较大值后移",
+     "frame": "content-demos/sort-bubble/3.webp"
+    },
+    {
+     "explain": "第 1 趟：比较 a[1]=5 与 a[2]=9",
+     "frame": "content-demos/sort-bubble/4.webp"
+    },
+    {
+     "explain": "第 1 趟：比较 a[2]=9 与 a[3]=1",
+     "frame": "content-demos/sort-bubble/5.webp"
+    },
+    {
+     "explain": "交换，较大值后移",
+     "frame": "content-demos/sort-bubble/6.webp"
+    },
+    {
+     "explain": "第 1 趟：比较 a[3]=9 与 a[4]=7",
+     "frame": "content-demos/sort-bubble/7.webp"
+    },
+    {
+     "explain": "交换，较大值后移",
+     "frame": "content-demos/sort-bubble/8.webp"
+    },
+    {
+     "explain": "第 1 趟：比较 a[4]=9 与 a[5]=4",
+     "frame": "content-demos/sort-bubble/9.webp"
+    },
+    {
+     "explain": "交换，较大值后移",
+     "frame": "content-demos/sort-bubble/10.webp"
+    },
+    {
+     "explain": "第 1 趟：比较 a[5]=9 与 a[6]=8",
+     "frame": "content-demos/sort-bubble/11.webp"
+    },
+    {
+     "explain": "交换，较大值后移",
+     "frame": "content-demos/sort-bubble/12.webp"
+    },
+    {
+     "explain": "第 1 趟：比较 a[6]=9 与 a[7]=3",
+     "frame": "content-demos/sort-bubble/13.webp"
+    },
+    {
+     "explain": "交换，较大值后移",
+     "frame": "content-demos/sort-bubble/14.webp"
+    },
+    {
+     "explain": "第 1 趟：比较 a[7]=9 与 a[8]=6",
+     "frame": "content-demos/sort-bubble/15.webp"
+    },
+    {
+     "explain": "交换，较大值后移",
+     "frame": "content-demos/sort-bubble/16.webp"
+    },
+    {
+     "explain": "第 1 趟：比较 a[8]=9 与 a[9]=10",
+     "frame": "content-demos/sort-bubble/17.webp"
+    },
+    {
+     "explain": "第 1 趟：比较 a[9]=10 与 a[10]=0",
+     "frame": "content-demos/sort-bubble/18.webp"
+    },
+    {
+     "explain": "交换，较大值后移",
+     "frame": "content-demos/sort-bubble/19.webp"
+    },
+    {
+     "explain": "第 1 趟：比较 a[10]=10 与 a[11]=11",
+     "frame": "content-demos/sort-bubble/20.webp"
+    },
+    {
+     "explain": "第 1 趟结束，末尾已就位",
+     "frame": "content-demos/sort-bubble/21.webp"
+    },
+    {
+     "explain": "第 2 趟：比较 a[0]=2 与 a[1]=5",
+     "frame": "content-demos/sort-bubble/22.webp"
+    },
+    {
+     "explain": "第 2 趟：比较 a[1]=5 与 a[2]=1",
+     "frame": "content-demos/sort-bubble/23.webp"
+    },
+    {
+     "explain": "交换，较大值后移",
+     "frame": "content-demos/sort-bubble/24.webp"
+    },
+    {
+     "explain": "第 2 趟：比较 a[2]=5 与 a[3]=7",
+     "frame": "content-demos/sort-bubble/25.webp"
+    },
+    {
+     "explain": "第 2 趟：比较 a[3]=7 与 a[4]=4",
+     "frame": "content-demos/sort-bubble/26.webp"
+    },
+    {
+     "explain": "交换，较大值后移",
+     "frame": "content-demos/sort-bubble/27.webp"
+    },
+    {
+     "explain": "第 2 趟：比较 a[4]=7 与 a[5]=8",
+     "frame": "content-demos/sort-bubble/28.webp"
+    },
+    {
+     "explain": "第 2 趟：比较 a[5]=8 与 a[6]=3",
+     "frame": "content-demos/sort-bubble/29.webp"
+    },
+    {
+     "explain": "交换，较大值后移",
+     "frame": "content-demos/sort-bubble/30.webp"
+    },
+    {
+     "explain": "第 2 趟：比较 a[6]=8 与 a[7]=6",
+     "frame": "content-demos/sort-bubble/31.webp"
+    },
+    {
+     "explain": "交换，较大值后移",
+     "frame": "content-demos/sort-bubble/32.webp"
+    },
+    {
+     "explain": "第 2 趟：比较 a[7]=8 与 a[8]=9",
+     "frame": "content-demos/sort-bubble/33.webp"
+    },
+    {
+     "explain": "第 2 趟：比较 a[8]=9 与 a[9]=0",
+     "frame": "content-demos/sort-bubble/34.webp"
+    },
+    {
+     "explain": "交换，较大值后移",
+     "frame": "content-demos/sort-bubble/35.webp"
+    },
+    {
+     "explain": "第 2 趟：比较 a[9]=9 与 a[10]=10",
+     "frame": "content-demos/sort-bubble/36.webp"
+    },
+    {
+     "explain": "第 2 趟结束，末尾已就位",
+     "frame": "content-demos/sort-bubble/37.webp"
+    },
+    {
+     "explain": "第 3 趟：比较 a[0]=2 与 a[1]=1",
+     "frame": "content-demos/sort-bubble/38.webp"
+    },
+    {
+     "explain": "交换，较大值后移",
+     "frame": "content-demos/sort-bubble/39.webp"
+    },
+    {
+     "explain": "第 3 趟：比较 a[1]=2 与 a[2]=5",
+     "frame": "content-demos/sort-bubble/40.webp"
+    },
+    {
+     "explain": "第 3 趟：比较 a[2]=5 与 a[3]=4",
+     "frame": "content-demos/sort-bubble/41.webp"
+    },
+    {
+     "explain": "交换，较大值后移",
+     "frame": "content-demos/sort-bubble/42.webp"
+    },
+    {
+     "explain": "第 3 趟：比较 a[3]=5 与 a[4]=7",
+     "frame": "content-demos/sort-bubble/43.webp"
+    },
+    {
+     "explain": "第 3 趟：比较 a[4]=7 与 a[5]=3",
+     "frame": "content-demos/sort-bubble/44.webp"
+    },
+    {
+     "explain": "交换，较大值后移",
+     "frame": "content-demos/sort-bubble/45.webp"
+    },
+    {
+     "explain": "第 3 趟：比较 a[5]=7 与 a[6]=6",
+     "frame": "content-demos/sort-bubble/46.webp"
+    },
+    {
+     "explain": "交换，较大值后移",
+     "frame": "content-demos/sort-bubble/47.webp"
+    },
+    {
+     "explain": "第 3 趟：比较 a[6]=7 与 a[7]=8",
+     "frame": "content-demos/sort-bubble/48.webp"
+    },
+    {
+     "explain": "第 3 趟：比较 a[7]=8 与 a[8]=0",
+     "frame": "content-demos/sort-bubble/49.webp"
+    },
+    {
+     "explain": "交换，较大值后移",
+     "frame": "content-demos/sort-bubble/50.webp"
+    },
+    {
+     "explain": "第 3 趟：比较 a[8]=8 与 a[9]=9",
+     "frame": "content-demos/sort-bubble/51.webp"
+    },
+    {
+     "explain": "第 3 趟结束，末尾已就位",
+     "frame": "content-demos/sort-bubble/52.webp"
+    },
+    {
+     "explain": "第 4 趟：比较 a[0]=1 与 a[1]=2",
+     "frame": "content-demos/sort-bubble/53.webp"
+    },
+    {
+     "explain": "第 4 趟：比较 a[1]=2 与 a[2]=4",
+     "frame": "content-demos/sort-bubble/54.webp"
+    },
+    {
+     "explain": "第 4 趟：比较 a[2]=4 与 a[3]=5",
+     "frame": "content-demos/sort-bubble/55.webp"
+    },
+    {
+     "explain": "第 4 趟：比较 a[3]=5 与 a[4]=3",
+     "frame": "content-demos/sort-bubble/56.webp"
+    },
+    {
+     "explain": "交换，较大值后移",
+     "frame": "content-demos/sort-bubble/57.webp"
+    },
+    {
+     "explain": "第 4 趟：比较 a[4]=5 与 a[5]=6",
+     "frame": "content-demos/sort-bubble/58.webp"
+    },
+    {
+     "explain": "第 4 趟：比较 a[5]=6 与 a[6]=7",
+     "frame": "content-demos/sort-bubble/59.webp"
+    },
+    {
+     "explain": "第 4 趟：比较 a[6]=7 与 a[7]=0",
+     "frame": "content-demos/sort-bubble/60.webp"
+    },
+    {
+     "explain": "交换，较大值后移",
+     "frame": "content-demos/sort-bubble/61.webp"
+    },
+    {
+     "explain": "第 4 趟：比较 a[7]=7 与 a[8]=8",
+     "frame": "content-demos/sort-bubble/62.webp"
+    },
+    {
+     "explain": "第 4 趟结束，末尾已就位",
+     "frame": "content-demos/sort-bubble/63.webp"
+    },
+    {
+     "explain": "第 5 趟：比较 a[0]=1 与 a[1]=2",
+     "frame": "content-demos/sort-bubble/64.webp"
+    },
+    {
+     "explain": "第 5 趟：比较 a[1]=2 与 a[2]=4",
+     "frame": "content-demos/sort-bubble/65.webp"
+    },
+    {
+     "explain": "第 5 趟：比较 a[2]=4 与 a[3]=3",
+     "frame": "content-demos/sort-bubble/66.webp"
+    },
+    {
+     "explain": "交换，较大值后移",
+     "frame": "content-demos/sort-bubble/67.webp"
+    },
+    {
+     "explain": "第 5 趟：比较 a[3]=4 与 a[4]=5",
+     "frame": "content-demos/sort-bubble/68.webp"
+    },
+    {
+     "explain": "第 5 趟：比较 a[4]=5 与 a[5]=6",
+     "frame": "content-demos/sort-bubble/69.webp"
+    },
+    {
+     "explain": "第 5 趟：比较 a[5]=6 与 a[6]=0",
+     "frame": "content-demos/sort-bubble/70.webp"
+    },
+    {
+     "explain": "交换，较大值后移",
+     "frame": "content-demos/sort-bubble/71.webp"
+    },
+    {
+     "explain": "第 5 趟：比较 a[6]=6 与 a[7]=7",
+     "frame": "content-demos/sort-bubble/72.webp"
+    },
+    {
+     "explain": "第 5 趟结束，末尾已就位",
+     "frame": "content-demos/sort-bubble/73.webp"
+    },
+    {
+     "explain": "第 6 趟：比较 a[0]=1 与 a[1]=2",
+     "frame": "content-demos/sort-bubble/74.webp"
+    },
+    {
+     "explain": "第 6 趟：比较 a[1]=2 与 a[2]=3",
+     "frame": "content-demos/sort-bubble/75.webp"
+    },
+    {
+     "explain": "第 6 趟：比较 a[2]=3 与 a[3]=4",
+     "frame": "content-demos/sort-bubble/76.webp"
+    },
+    {
+     "explain": "第 6 趟：比较 a[3]=4 与 a[4]=5",
+     "frame": "content-demos/sort-bubble/77.webp"
+    },
+    {
+     "explain": "第 6 趟：比较 a[4]=5 与 a[5]=0",
+     "frame": "content-demos/sort-bubble/78.webp"
+    },
+    {
+     "explain": "交换，较大值后移",
+     "frame": "content-demos/sort-bubble/79.webp"
+    },
+    {
+     "explain": "第 6 趟：比较 a[5]=5 与 a[6]=6",
+     "frame": "content-demos/sort-bubble/80.webp"
+    },
+    {
+     "explain": "第 6 趟结束，末尾已就位",
+     "frame": "content-demos/sort-bubble/81.webp"
+    },
+    {
+     "explain": "第 7 趟：比较 a[0]=1 与 a[1]=2",
+     "frame": "content-demos/sort-bubble/82.webp"
+    },
+    {
+     "explain": "第 7 趟：比较 a[1]=2 与 a[2]=3",
+     "frame": "content-demos/sort-bubble/83.webp"
+    },
+    {
+     "explain": "第 7 趟：比较 a[2]=3 与 a[3]=4",
+     "frame": "content-demos/sort-bubble/84.webp"
+    },
+    {
+     "explain": "第 7 趟：比较 a[3]=4 与 a[4]=0",
+     "frame": "content-demos/sort-bubble/85.webp"
+    },
+    {
+     "explain": "交换，较大值后移",
+     "frame": "content-demos/sort-bubble/86.webp"
+    },
+    {
+     "explain": "第 7 趟：比较 a[4]=4 与 a[5]=5",
+     "frame": "content-demos/sort-bubble/87.webp"
+    },
+    {
+     "explain": "第 7 趟结束，末尾已就位",
+     "frame": "content-demos/sort-bubble/88.webp"
+    },
+    {
+     "explain": "第 8 趟：比较 a[0]=1 与 a[1]=2",
+     "frame": "content-demos/sort-bubble/89.webp"
+    },
+    {
+     "explain": "第 8 趟：比较 a[1]=2 与 a[2]=3",
+     "frame": "content-demos/sort-bubble/90.webp"
+    },
+    {
+     "explain": "第 8 趟：比较 a[2]=3 与 a[3]=0",
+     "frame": "content-demos/sort-bubble/91.webp"
+    },
+    {
+     "explain": "交换，较大值后移",
+     "frame": "content-demos/sort-bubble/92.webp"
+    },
+    {
+     "explain": "第 8 趟：比较 a[3]=3 与 a[4]=4",
+     "frame": "content-demos/sort-bubble/93.webp"
+    },
+    {
+     "explain": "第 8 趟结束，末尾已就位",
+     "frame": "content-demos/sort-bubble/94.webp"
+    },
+    {
+     "explain": "第 9 趟：比较 a[0]=1 与 a[1]=2",
+     "frame": "content-demos/sort-bubble/95.webp"
+    },
+    {
+     "explain": "第 9 趟：比较 a[1]=2 与 a[2]=0",
+     "frame": "content-demos/sort-bubble/96.webp"
+    },
+    {
+     "explain": "交换，较大值后移",
+     "frame": "content-demos/sort-bubble/97.webp"
+    },
+    {
+     "explain": "第 9 趟：比较 a[2]=2 与 a[3]=3",
+     "frame": "content-demos/sort-bubble/98.webp"
+    },
+    {
+     "explain": "第 9 趟结束，末尾已就位",
+     "frame": "content-demos/sort-bubble/99.webp"
+    },
+    {
+     "explain": "第 10 趟：比较 a[0]=1 与 a[1]=0",
+     "frame": "content-demos/sort-bubble/100.webp"
+    },
+    {
+     "explain": "交换，较大值后移",
+     "frame": "content-demos/sort-bubble/101.webp"
+    },
+    {
+     "explain": "第 10 趟：比较 a[1]=1 与 a[2]=2",
+     "frame": "content-demos/sort-bubble/102.webp"
+    },
+    {
+     "explain": "第 10 趟结束，末尾已就位",
+     "frame": "content-demos/sort-bubble/103.webp"
+    },
+    {
+     "explain": "第 11 趟：比较 a[0]=0 与 a[1]=1",
+     "frame": "content-demos/sort-bubble/104.webp"
+    },
+    {
+     "explain": "第 11 趟结束，末尾已就位（本趟无交换，可提前结束）",
+     "frame": "content-demos/sort-bubble/105.webp"
+    },
+    {
+     "explain": "排序完成。冒泡平均/最坏 O(n²)，最好 O(n)，稳定。",
+     "frame": "content-demos/sort-bubble/106.webp"
+    }
+   ],
+   "fingerprint": "bdbc75392d21dfc73e055b570f5526a7f8c27a0445926ec8c23ca96db20fd3cd"
+  },
+  {
+   "key": "408card/sort-select",
+   "sourceId": "sort-select",
+   "sourceUrl": "https://408card.top/#/vizp/sort-select?sub=ds",
+   "id": "sort-select",
+   "code": "ds",
+   "subjectKey": "beokayy-408/data-structure",
+   "title": "简单选择排序",
+   "description": "每趟选最小放到前面",
+   "sortOrder": 2,
+   "frameCount": 79,
+   "frameBytes": 723024,
+   "steps": [
+    {
+     "explain": "简单选择：每趟选最小放到前面。",
+     "frame": "content-demos/sort-select/1.webp"
+    },
+    {
+     "explain": "第 1 趟：当前最小 a[1]=2，扫描到 a[1]=2",
+     "frame": "content-demos/sort-select/2.webp"
+    },
+    {
+     "explain": "第 1 趟：当前最小 a[1]=2，扫描到 a[2]=9",
+     "frame": "content-demos/sort-select/3.webp"
+    },
+    {
+     "explain": "第 1 趟：当前最小 a[3]=1，扫描到 a[3]=1",
+     "frame": "content-demos/sort-select/4.webp"
+    },
+    {
+     "explain": "第 1 趟：当前最小 a[3]=1，扫描到 a[4]=7",
+     "frame": "content-demos/sort-select/5.webp"
+    },
+    {
+     "explain": "第 1 趟：当前最小 a[3]=1，扫描到 a[5]=4",
+     "frame": "content-demos/sort-select/6.webp"
+    },
+    {
+     "explain": "第 1 趟：当前最小 a[3]=1，扫描到 a[6]=8",
+     "frame": "content-demos/sort-select/7.webp"
+    },
+    {
+     "explain": "第 1 趟：当前最小 a[3]=1，扫描到 a[7]=3",
+     "frame": "content-demos/sort-select/8.webp"
+    },
+    {
+     "explain": "第 1 趟：当前最小 a[3]=1，扫描到 a[8]=6",
+     "frame": "content-demos/sort-select/9.webp"
+    },
+    {
+     "explain": "第 1 趟：当前最小 a[3]=1，扫描到 a[9]=10",
+     "frame": "content-demos/sort-select/10.webp"
+    },
+    {
+     "explain": "第 1 趟：当前最小 a[10]=0，扫描到 a[10]=0",
+     "frame": "content-demos/sort-select/11.webp"
+    },
+    {
+     "explain": "第 1 趟：当前最小 a[10]=0，扫描到 a[11]=11",
+     "frame": "content-demos/sort-select/12.webp"
+    },
+    {
+     "explain": "把最小值放到位置 0",
+     "frame": "content-demos/sort-select/13.webp"
+    },
+    {
+     "explain": "第 2 趟：当前最小 a[1]=2，扫描到 a[2]=9",
+     "frame": "content-demos/sort-select/14.webp"
+    },
+    {
+     "explain": "第 2 趟：当前最小 a[3]=1，扫描到 a[3]=1",
+     "frame": "content-demos/sort-select/15.webp"
+    },
+    {
+     "explain": "第 2 趟：当前最小 a[3]=1，扫描到 a[4]=7",
+     "frame": "content-demos/sort-select/16.webp"
+    },
+    {
+     "explain": "第 2 趟：当前最小 a[3]=1，扫描到 a[5]=4",
+     "frame": "content-demos/sort-select/17.webp"
+    },
+    {
+     "explain": "第 2 趟：当前最小 a[3]=1，扫描到 a[6]=8",
+     "frame": "content-demos/sort-select/18.webp"
+    },
+    {
+     "explain": "第 2 趟：当前最小 a[3]=1，扫描到 a[7]=3",
+     "frame": "content-demos/sort-select/19.webp"
+    },
+    {
+     "explain": "第 2 趟：当前最小 a[3]=1，扫描到 a[8]=6",
+     "frame": "content-demos/sort-select/20.webp"
+    },
+    {
+     "explain": "第 2 趟：当前最小 a[3]=1，扫描到 a[9]=10",
+     "frame": "content-demos/sort-select/21.webp"
+    },
+    {
+     "explain": "第 2 趟：当前最小 a[3]=1，扫描到 a[10]=5",
+     "frame": "content-demos/sort-select/22.webp"
+    },
+    {
+     "explain": "第 2 趟：当前最小 a[3]=1，扫描到 a[11]=11",
+     "frame": "content-demos/sort-select/23.webp"
+    },
+    {
+     "explain": "把最小值放到位置 1",
+     "frame": "content-demos/sort-select/24.webp"
+    },
+    {
+     "explain": "第 3 趟：当前最小 a[3]=2，扫描到 a[3]=2",
+     "frame": "content-demos/sort-select/25.webp"
+    },
+    {
+     "explain": "第 3 趟：当前最小 a[3]=2，扫描到 a[4]=7",
+     "frame": "content-demos/sort-select/26.webp"
+    },
+    {
+     "explain": "第 3 趟：当前最小 a[3]=2，扫描到 a[5]=4",
+     "frame": "content-demos/sort-select/27.webp"
+    },
+    {
+     "explain": "第 3 趟：当前最小 a[3]=2，扫描到 a[6]=8",
+     "frame": "content-demos/sort-select/28.webp"
+    },
+    {
+     "explain": "第 3 趟：当前最小 a[3]=2，扫描到 a[7]=3",
+     "frame": "content-demos/sort-select/29.webp"
+    },
+    {
+     "explain": "第 3 趟：当前最小 a[3]=2，扫描到 a[8]=6",
+     "frame": "content-demos/sort-select/30.webp"
+    },
+    {
+     "explain": "第 3 趟：当前最小 a[3]=2，扫描到 a[9]=10",
+     "frame": "content-demos/sort-select/31.webp"
+    },
+    {
+     "explain": "第 3 趟：当前最小 a[3]=2，扫描到 a[10]=5",
+     "frame": "content-demos/sort-select/32.webp"
+    },
+    {
+     "explain": "第 3 趟：当前最小 a[3]=2，扫描到 a[11]=11",
+     "frame": "content-demos/sort-select/33.webp"
+    },
+    {
+     "explain": "把最小值放到位置 2",
+     "frame": "content-demos/sort-select/34.webp"
+    },
+    {
+     "explain": "第 4 趟：当前最小 a[4]=7，扫描到 a[4]=7",
+     "frame": "content-demos/sort-select/35.webp"
+    },
+    {
+     "explain": "第 4 趟：当前最小 a[5]=4，扫描到 a[5]=4",
+     "frame": "content-demos/sort-select/36.webp"
+    },
+    {
+     "explain": "第 4 趟：当前最小 a[5]=4，扫描到 a[6]=8",
+     "frame": "content-demos/sort-select/37.webp"
+    },
+    {
+     "explain": "第 4 趟：当前最小 a[7]=3，扫描到 a[7]=3",
+     "frame": "content-demos/sort-select/38.webp"
+    },
+    {
+     "explain": "第 4 趟：当前最小 a[7]=3，扫描到 a[8]=6",
+     "frame": "content-demos/sort-select/39.webp"
+    },
+    {
+     "explain": "第 4 趟：当前最小 a[7]=3，扫描到 a[9]=10",
+     "frame": "content-demos/sort-select/40.webp"
+    },
+    {
+     "explain": "第 4 趟：当前最小 a[7]=3，扫描到 a[10]=5",
+     "frame": "content-demos/sort-select/41.webp"
+    },
+    {
+     "explain": "第 4 趟：当前最小 a[7]=3，扫描到 a[11]=11",
+     "frame": "content-demos/sort-select/42.webp"
+    },
+    {
+     "explain": "把最小值放到位置 3",
+     "frame": "content-demos/sort-select/43.webp"
+    },
+    {
+     "explain": "第 5 趟：当前最小 a[5]=4，扫描到 a[5]=4",
+     "frame": "content-demos/sort-select/44.webp"
+    },
+    {
+     "explain": "第 5 趟：当前最小 a[5]=4，扫描到 a[6]=8",
+     "frame": "content-demos/sort-select/45.webp"
+    },
+    {
+     "explain": "第 5 趟：当前最小 a[5]=4，扫描到 a[7]=9",
+     "frame": "content-demos/sort-select/46.webp"
+    },
+    {
+     "explain": "第 5 趟：当前最小 a[5]=4，扫描到 a[8]=6",
+     "frame": "content-demos/sort-select/47.webp"
+    },
+    {
+     "explain": "第 5 趟：当前最小 a[5]=4，扫描到 a[9]=10",
+     "frame": "content-demos/sort-select/48.webp"
+    },
+    {
+     "explain": "第 5 趟：当前最小 a[5]=4，扫描到 a[10]=5",
+     "frame": "content-demos/sort-select/49.webp"
+    },
+    {
+     "explain": "第 5 趟：当前最小 a[5]=4，扫描到 a[11]=11",
+     "frame": "content-demos/sort-select/50.webp"
+    },
+    {
+     "explain": "把最小值放到位置 4",
+     "frame": "content-demos/sort-select/51.webp"
+    },
+    {
+     "explain": "第 6 趟：当前最小 a[5]=7，扫描到 a[6]=8",
+     "frame": "content-demos/sort-select/52.webp"
+    },
+    {
+     "explain": "第 6 趟：当前最小 a[5]=7，扫描到 a[7]=9",
+     "frame": "content-demos/sort-select/53.webp"
+    },
+    {
+     "explain": "第 6 趟：当前最小 a[8]=6，扫描到 a[8]=6",
+     "frame": "content-demos/sort-select/54.webp"
+    },
+    {
+     "explain": "第 6 趟：当前最小 a[8]=6，扫描到 a[9]=10",
+     "frame": "content-demos/sort-select/55.webp"
+    },
+    {
+     "explain": "第 6 趟：当前最小 a[10]=5，扫描到 a[10]=5",
+     "frame": "content-demos/sort-select/56.webp"
+    },
+    {
+     "explain": "第 6 趟：当前最小 a[10]=5，扫描到 a[11]=11",
+     "frame": "content-demos/sort-select/57.webp"
+    },
+    {
+     "explain": "把最小值放到位置 5",
+     "frame": "content-demos/sort-select/58.webp"
+    },
+    {
+     "explain": "第 7 趟：当前最小 a[6]=8，扫描到 a[7]=9",
+     "frame": "content-demos/sort-select/59.webp"
+    },
+    {
+     "explain": "第 7 趟：当前最小 a[8]=6，扫描到 a[8]=6",
+     "frame": "content-demos/sort-select/60.webp"
+    },
+    {
+     "explain": "第 7 趟：当前最小 a[8]=6，扫描到 a[9]=10",
+     "frame": "content-demos/sort-select/61.webp"
+    },
+    {
+     "explain": "第 7 趟：当前最小 a[8]=6，扫描到 a[10]=7",
+     "frame": "content-demos/sort-select/62.webp"
+    },
+    {
+     "explain": "第 7 趟：当前最小 a[8]=6，扫描到 a[11]=11",
+     "frame": "content-demos/sort-select/63.webp"
+    },
+    {
+     "explain": "把最小值放到位置 6",
+     "frame": "content-demos/sort-select/64.webp"
+    },
+    {
+     "explain": "第 8 趟：当前最小 a[8]=8，扫描到 a[8]=8",
+     "frame": "content-demos/sort-select/65.webp"
+    },
+    {
+     "explain": "第 8 趟：当前最小 a[8]=8，扫描到 a[9]=10",
+     "frame": "content-demos/sort-select/66.webp"
+    },
+    {
+     "explain": "第 8 趟：当前最小 a[10]=7，扫描到 a[10]=7",
+     "frame": "content-demos/sort-select/67.webp"
+    },
+    {
+     "explain": "第 8 趟：当前最小 a[10]=7，扫描到 a[11]=11",
+     "frame": "content-demos/sort-select/68.webp"
+    },
+    {
+     "explain": "把最小值放到位置 7",
+     "frame": "content-demos/sort-select/69.webp"
+    },
+    {
+     "explain": "第 9 趟：当前最小 a[8]=8，扫描到 a[9]=10",
+     "frame": "content-demos/sort-select/70.webp"
+    },
+    {
+     "explain": "第 9 趟：当前最小 a[8]=8，扫描到 a[10]=9",
+     "frame": "content-demos/sort-select/71.webp"
+    },
+    {
+     "explain": "第 9 趟：当前最小 a[8]=8，扫描到 a[11]=11",
+     "frame": "content-demos/sort-select/72.webp"
+    },
+    {
+     "explain": "把最小值放到位置 8",
+     "frame": "content-demos/sort-select/73.webp"
+    },
+    {
+     "explain": "第 10 趟：当前最小 a[10]=9，扫描到 a[10]=9",
+     "frame": "content-demos/sort-select/74.webp"
+    },
+    {
+     "explain": "第 10 趟：当前最小 a[10]=9，扫描到 a[11]=11",
+     "frame": "content-demos/sort-select/75.webp"
+    },
+    {
+     "explain": "把最小值放到位置 9",
+     "frame": "content-demos/sort-select/76.webp"
+    },
+    {
+     "explain": "第 11 趟：当前最小 a[10]=10，扫描到 a[11]=11",
+     "frame": "content-demos/sort-select/77.webp"
+    },
+    {
+     "explain": "把最小值放到位置 10",
+     "frame": "content-demos/sort-select/78.webp"
+    },
+    {
+     "explain": "完成。选择排序 O(n²)，不稳定（交换可能跨距离）。",
+     "frame": "content-demos/sort-select/79.webp"
+    }
+   ],
+   "fingerprint": "0cb7ad1c23bcf336ab8b06fb9c59bc8e6fb21650f58ad4b48fcd333e295cf286"
+  },
+  {
+   "key": "408card/sort-insert",
+   "sourceId": "sort-insert",
+   "sourceUrl": "https://408card.top/#/vizp/sort-insert?sub=ds",
+   "id": "sort-insert",
+   "code": "ds",
+   "subjectKey": "beokayy-408/data-structure",
+   "title": "直接插入排序",
+   "description": "把当前元素插到有序区",
+   "sortOrder": 3,
+   "frameCount": 51,
+   "frameBytes": 460644,
+   "steps": [
+    {
+     "explain": "直接插入：把当前元素插到前面已有序区。",
+     "frame": "content-demos/sort-insert/1.webp"
+    },
+    {
+     "explain": "取出 key=a[1]=2，向前找插入位置",
+     "frame": "content-demos/sort-insert/2.webp"
+    },
+    {
+     "explain": "a[0] 后移，腾位置",
+     "frame": "content-demos/sort-insert/3.webp"
+    },
+    {
+     "explain": "插入 key=2 到位置 0",
+     "frame": "content-demos/sort-insert/4.webp"
+    },
+    {
+     "explain": "取出 key=a[2]=9，向前找插入位置",
+     "frame": "content-demos/sort-insert/5.webp"
+    },
+    {
+     "explain": "插入 key=9 到位置 2",
+     "frame": "content-demos/sort-insert/6.webp"
+    },
+    {
+     "explain": "取出 key=a[3]=1，向前找插入位置",
+     "frame": "content-demos/sort-insert/7.webp"
+    },
+    {
+     "explain": "a[2] 后移，腾位置",
+     "frame": "content-demos/sort-insert/8.webp"
+    },
+    {
+     "explain": "a[1] 后移，腾位置",
+     "frame": "content-demos/sort-insert/9.webp"
+    },
+    {
+     "explain": "a[0] 后移，腾位置",
+     "frame": "content-demos/sort-insert/10.webp"
+    },
+    {
+     "explain": "插入 key=1 到位置 0",
+     "frame": "content-demos/sort-insert/11.webp"
+    },
+    {
+     "explain": "取出 key=a[4]=7，向前找插入位置",
+     "frame": "content-demos/sort-insert/12.webp"
+    },
+    {
+     "explain": "a[3] 后移，腾位置",
+     "frame": "content-demos/sort-insert/13.webp"
+    },
+    {
+     "explain": "插入 key=7 到位置 3",
+     "frame": "content-demos/sort-insert/14.webp"
+    },
+    {
+     "explain": "取出 key=a[5]=4，向前找插入位置",
+     "frame": "content-demos/sort-insert/15.webp"
+    },
+    {
+     "explain": "a[4] 后移，腾位置",
+     "frame": "content-demos/sort-insert/16.webp"
+    },
+    {
+     "explain": "a[3] 后移，腾位置",
+     "frame": "content-demos/sort-insert/17.webp"
+    },
+    {
+     "explain": "a[2] 后移，腾位置",
+     "frame": "content-demos/sort-insert/18.webp"
+    },
+    {
+     "explain": "插入 key=4 到位置 2",
+     "frame": "content-demos/sort-insert/19.webp"
+    },
+    {
+     "explain": "取出 key=a[6]=8，向前找插入位置",
+     "frame": "content-demos/sort-insert/20.webp"
+    },
+    {
+     "explain": "a[5] 后移，腾位置",
+     "frame": "content-demos/sort-insert/21.webp"
+    },
+    {
+     "explain": "插入 key=8 到位置 5",
+     "frame": "content-demos/sort-insert/22.webp"
+    },
+    {
+     "explain": "取出 key=a[7]=3，向前找插入位置",
+     "frame": "content-demos/sort-insert/23.webp"
+    },
+    {
+     "explain": "a[6] 后移，腾位置",
+     "frame": "content-demos/sort-insert/24.webp"
+    },
+    {
+     "explain": "a[5] 后移，腾位置",
+     "frame": "content-demos/sort-insert/25.webp"
+    },
+    {
+     "explain": "a[4] 后移，腾位置",
+     "frame": "content-demos/sort-insert/26.webp"
+    },
+    {
+     "explain": "a[3] 后移，腾位置",
+     "frame": "content-demos/sort-insert/27.webp"
+    },
+    {
+     "explain": "a[2] 后移，腾位置",
+     "frame": "content-demos/sort-insert/28.webp"
+    },
+    {
+     "explain": "插入 key=3 到位置 2",
+     "frame": "content-demos/sort-insert/29.webp"
+    },
+    {
+     "explain": "取出 key=a[8]=6，向前找插入位置",
+     "frame": "content-demos/sort-insert/30.webp"
+    },
+    {
+     "explain": "a[7] 后移，腾位置",
+     "frame": "content-demos/sort-insert/31.webp"
+    },
+    {
+     "explain": "a[6] 后移，腾位置",
+     "frame": "content-demos/sort-insert/32.webp"
+    },
+    {
+     "explain": "a[5] 后移，腾位置",
+     "frame": "content-demos/sort-insert/33.webp"
+    },
+    {
+     "explain": "插入 key=6 到位置 5",
+     "frame": "content-demos/sort-insert/34.webp"
+    },
+    {
+     "explain": "取出 key=a[9]=10，向前找插入位置",
+     "frame": "content-demos/sort-insert/35.webp"
+    },
+    {
+     "explain": "插入 key=10 到位置 9",
+     "frame": "content-demos/sort-insert/36.webp"
+    },
+    {
+     "explain": "取出 key=a[10]=0，向前找插入位置",
+     "frame": "content-demos/sort-insert/37.webp"
+    },
+    {
+     "explain": "a[9] 后移，腾位置",
+     "frame": "content-demos/sort-insert/38.webp"
+    },
+    {
+     "explain": "a[8] 后移，腾位置",
+     "frame": "content-demos/sort-insert/39.webp"
+    },
+    {
+     "explain": "a[7] 后移，腾位置",
+     "frame": "content-demos/sort-insert/40.webp"
+    },
+    {
+     "explain": "a[6] 后移，腾位置",
+     "frame": "content-demos/sort-insert/41.webp"
+    },
+    {
+     "explain": "a[5] 后移，腾位置",
+     "frame": "content-demos/sort-insert/42.webp"
+    },
+    {
+     "explain": "a[4] 后移，腾位置",
+     "frame": "content-demos/sort-insert/43.webp"
+    },
+    {
+     "explain": "a[3] 后移，腾位置",
+     "frame": "content-demos/sort-insert/44.webp"
+    },
+    {
+     "explain": "a[2] 后移，腾位置",
+     "frame": "content-demos/sort-insert/45.webp"
+    },
+    {
+     "explain": "a[1] 后移，腾位置",
+     "frame": "content-demos/sort-insert/46.webp"
+    },
+    {
+     "explain": "a[0] 后移，腾位置",
+     "frame": "content-demos/sort-insert/47.webp"
+    },
+    {
+     "explain": "插入 key=0 到位置 0",
+     "frame": "content-demos/sort-insert/48.webp"
+    },
+    {
+     "explain": "取出 key=a[11]=11，向前找插入位置",
+     "frame": "content-demos/sort-insert/49.webp"
+    },
+    {
+     "explain": "插入 key=11 到位置 11",
+     "frame": "content-demos/sort-insert/50.webp"
+    },
+    {
+     "explain": "完成。插入平均 O(n²)，最好 O(n)（已有序），稳定。",
+     "frame": "content-demos/sort-insert/51.webp"
+    }
+   ],
+   "fingerprint": "c3a7b9ecd652b165c2ddd87d809dd9ae0652743e2071e0e64a769022d764969d"
+  },
+  {
+   "key": "408card/sort-quick",
+   "sourceId": "sort-quick",
+   "sourceUrl": "https://408card.top/#/vizp/sort-quick?sub=ds",
+   "id": "sort-quick",
+   "code": "ds",
+   "subjectKey": "beokayy-408/data-structure",
+   "title": "快速排序",
+   "description": "选枢轴 partition，递归左右",
+   "sortOrder": 4,
+   "frameCount": 59,
+   "frameBytes": 528810,
+   "steps": [
+    {
+     "explain": "快速排序：选枢轴，左边都小、右边都大，递归。",
+     "frame": "content-demos/sort-quick/1.webp"
+    },
+    {
+     "explain": "处理区间 [0,11]，枢轴 a[11]=11",
+     "frame": "content-demos/sort-quick/2.webp"
+    },
+    {
+     "explain": "扫描 a[0]，i 指向 1",
+     "frame": "content-demos/sort-quick/3.webp"
+    },
+    {
+     "explain": "扫描 a[1]，i 指向 2",
+     "frame": "content-demos/sort-quick/4.webp"
+    },
+    {
+     "explain": "扫描 a[2]，i 指向 3",
+     "frame": "content-demos/sort-quick/5.webp"
+    },
+    {
+     "explain": "扫描 a[3]，i 指向 4",
+     "frame": "content-demos/sort-quick/6.webp"
+    },
+    {
+     "explain": "扫描 a[4]，i 指向 5",
+     "frame": "content-demos/sort-quick/7.webp"
+    },
+    {
+     "explain": "扫描 a[5]，i 指向 6",
+     "frame": "content-demos/sort-quick/8.webp"
+    },
+    {
+     "explain": "扫描 a[6]，i 指向 7",
+     "frame": "content-demos/sort-quick/9.webp"
+    },
+    {
+     "explain": "扫描 a[7]，i 指向 8",
+     "frame": "content-demos/sort-quick/10.webp"
+    },
+    {
+     "explain": "扫描 a[8]，i 指向 9",
+     "frame": "content-demos/sort-quick/11.webp"
+    },
+    {
+     "explain": "扫描 a[9]，i 指向 10",
+     "frame": "content-demos/sort-quick/12.webp"
+    },
+    {
+     "explain": "扫描 a[10]，i 指向 11",
+     "frame": "content-demos/sort-quick/13.webp"
+    },
+    {
+     "explain": "枢轴 11 就位到 11",
+     "frame": "content-demos/sort-quick/14.webp"
+    },
+    {
+     "explain": "处理区间 [0,10]，枢轴 a[10]=0",
+     "frame": "content-demos/sort-quick/15.webp"
+    },
+    {
+     "explain": "扫描 a[0]，i 指向 0",
+     "frame": "content-demos/sort-quick/16.webp"
+    },
+    {
+     "explain": "扫描 a[1]，i 指向 0",
+     "frame": "content-demos/sort-quick/17.webp"
+    },
+    {
+     "explain": "扫描 a[2]，i 指向 0",
+     "frame": "content-demos/sort-quick/18.webp"
+    },
+    {
+     "explain": "扫描 a[3]，i 指向 0",
+     "frame": "content-demos/sort-quick/19.webp"
+    },
+    {
+     "explain": "扫描 a[4]，i 指向 0",
+     "frame": "content-demos/sort-quick/20.webp"
+    },
+    {
+     "explain": "扫描 a[5]，i 指向 0",
+     "frame": "content-demos/sort-quick/21.webp"
+    },
+    {
+     "explain": "扫描 a[6]，i 指向 0",
+     "frame": "content-demos/sort-quick/22.webp"
+    },
+    {
+     "explain": "扫描 a[7]，i 指向 0",
+     "frame": "content-demos/sort-quick/23.webp"
+    },
+    {
+     "explain": "扫描 a[8]，i 指向 0",
+     "frame": "content-demos/sort-quick/24.webp"
+    },
+    {
+     "explain": "扫描 a[9]，i 指向 0",
+     "frame": "content-demos/sort-quick/25.webp"
+    },
+    {
+     "explain": "枢轴 0 就位到 0",
+     "frame": "content-demos/sort-quick/26.webp"
+    },
+    {
+     "explain": "处理区间 [1,10]，枢轴 a[10]=5",
+     "frame": "content-demos/sort-quick/27.webp"
+    },
+    {
+     "explain": "扫描 a[1]，i 指向 2",
+     "frame": "content-demos/sort-quick/28.webp"
+    },
+    {
+     "explain": "扫描 a[2]，i 指向 2",
+     "frame": "content-demos/sort-quick/29.webp"
+    },
+    {
+     "explain": "扫描 a[3]，i 指向 3",
+     "frame": "content-demos/sort-quick/30.webp"
+    },
+    {
+     "explain": "扫描 a[4]，i 指向 3",
+     "frame": "content-demos/sort-quick/31.webp"
+    },
+    {
+     "explain": "扫描 a[5]，i 指向 4",
+     "frame": "content-demos/sort-quick/32.webp"
+    },
+    {
+     "explain": "扫描 a[6]，i 指向 4",
+     "frame": "content-demos/sort-quick/33.webp"
+    },
+    {
+     "explain": "扫描 a[7]，i 指向 5",
+     "frame": "content-demos/sort-quick/34.webp"
+    },
+    {
+     "explain": "扫描 a[8]，i 指向 5",
+     "frame": "content-demos/sort-quick/35.webp"
+    },
+    {
+     "explain": "扫描 a[9]，i 指向 5",
+     "frame": "content-demos/sort-quick/36.webp"
+    },
+    {
+     "explain": "枢轴 5 就位到 5",
+     "frame": "content-demos/sort-quick/37.webp"
+    },
+    {
+     "explain": "处理区间 [6,10]，枢轴 a[10]=9",
+     "frame": "content-demos/sort-quick/38.webp"
+    },
+    {
+     "explain": "扫描 a[6]，i 指向 7",
+     "frame": "content-demos/sort-quick/39.webp"
+    },
+    {
+     "explain": "扫描 a[7]，i 指向 8",
+     "frame": "content-demos/sort-quick/40.webp"
+    },
+    {
+     "explain": "扫描 a[8]，i 指向 9",
+     "frame": "content-demos/sort-quick/41.webp"
+    },
+    {
+     "explain": "扫描 a[9]，i 指向 9",
+     "frame": "content-demos/sort-quick/42.webp"
+    },
+    {
+     "explain": "枢轴 9 就位到 9",
+     "frame": "content-demos/sort-quick/43.webp"
+    },
+    {
+     "explain": "处理区间 [6,8]，枢轴 a[8]=6",
+     "frame": "content-demos/sort-quick/44.webp"
+    },
+    {
+     "explain": "扫描 a[6]，i 指向 6",
+     "frame": "content-demos/sort-quick/45.webp"
+    },
+    {
+     "explain": "扫描 a[7]，i 指向 6",
+     "frame": "content-demos/sort-quick/46.webp"
+    },
+    {
+     "explain": "枢轴 6 就位到 6",
+     "frame": "content-demos/sort-quick/47.webp"
+    },
+    {
+     "explain": "处理区间 [7,8]，枢轴 a[8]=8",
+     "frame": "content-demos/sort-quick/48.webp"
+    },
+    {
+     "explain": "扫描 a[7]，i 指向 8",
+     "frame": "content-demos/sort-quick/49.webp"
+    },
+    {
+     "explain": "枢轴 8 就位到 8",
+     "frame": "content-demos/sort-quick/50.webp"
+    },
+    {
+     "explain": "处理区间 [1,4]，枢轴 a[4]=3",
+     "frame": "content-demos/sort-quick/51.webp"
+    },
+    {
+     "explain": "扫描 a[1]，i 指向 2",
+     "frame": "content-demos/sort-quick/52.webp"
+    },
+    {
+     "explain": "扫描 a[2]，i 指向 3",
+     "frame": "content-demos/sort-quick/53.webp"
+    },
+    {
+     "explain": "扫描 a[3]，i 指向 3",
+     "frame": "content-demos/sort-quick/54.webp"
+    },
+    {
+     "explain": "枢轴 3 就位到 3",
+     "frame": "content-demos/sort-quick/55.webp"
+    },
+    {
+     "explain": "处理区间 [1,2]，枢轴 a[2]=1",
+     "frame": "content-demos/sort-quick/56.webp"
+    },
+    {
+     "explain": "扫描 a[1]，i 指向 1",
+     "frame": "content-demos/sort-quick/57.webp"
+    },
+    {
+     "explain": "枢轴 1 就位到 1",
+     "frame": "content-demos/sort-quick/58.webp"
+    },
+    {
+     "explain": "完成。快排平均 O(n log n)，最坏 O(n²)，不稳定。",
+     "frame": "content-demos/sort-quick/59.webp"
+    }
+   ],
+   "fingerprint": "026b10d8a7fb4fb3c7798021da136ace3adefe1f69b341ecbf4b405f1b699d3f"
+  },
+  {
+   "key": "408card/sort-merge",
+   "sourceId": "sort-merge",
+   "sourceUrl": "https://408card.top/#/vizp/sort-merge?sub=ds",
+   "id": "sort-merge",
+   "code": "ds",
+   "subjectKey": "beokayy-408/data-structure",
+   "title": "归并排序",
+   "description": "两两归并，稳定 O(n log n)",
+   "sortOrder": 5,
+   "frameCount": 24,
+   "frameBytes": 217254,
+   "steps": [
+    {
+     "explain": "归并排序：两两归并，稳定 O(n log n)。",
+     "frame": "content-demos/sort-merge/1.webp"
+    },
+    {
+     "explain": "归并 [0,0] 与 [1,1]",
+     "frame": "content-demos/sort-merge/2.webp"
+    },
+    {
+     "explain": "区间 [0,1] 已有序：2, 5",
+     "frame": "content-demos/sort-merge/3.webp"
+    },
+    {
+     "explain": "归并 [0,1] 与 [2,2]",
+     "frame": "content-demos/sort-merge/4.webp"
+    },
+    {
+     "explain": "区间 [0,2] 已有序：2, 5, 9",
+     "frame": "content-demos/sort-merge/5.webp"
+    },
+    {
+     "explain": "归并 [3,3] 与 [4,4]",
+     "frame": "content-demos/sort-merge/6.webp"
+    },
+    {
+     "explain": "区间 [3,4] 已有序：1, 7",
+     "frame": "content-demos/sort-merge/7.webp"
+    },
+    {
+     "explain": "归并 [3,4] 与 [5,5]",
+     "frame": "content-demos/sort-merge/8.webp"
+    },
+    {
+     "explain": "区间 [3,5] 已有序：1, 4, 7",
+     "frame": "content-demos/sort-merge/9.webp"
+    },
+    {
+     "explain": "归并 [0,2] 与 [3,5]",
+     "frame": "content-demos/sort-merge/10.webp"
+    },
+    {
+     "explain": "区间 [0,5] 已有序：1, 2, 4, 5, 7, 9",
+     "frame": "content-demos/sort-merge/11.webp"
+    },
+    {
+     "explain": "归并 [6,6] 与 [7,7]",
+     "frame": "content-demos/sort-merge/12.webp"
+    },
+    {
+     "explain": "区间 [6,7] 已有序：3, 8",
+     "frame": "content-demos/sort-merge/13.webp"
+    },
+    {
+     "explain": "归并 [6,7] 与 [8,8]",
+     "frame": "content-demos/sort-merge/14.webp"
+    },
+    {
+     "explain": "区间 [6,8] 已有序：3, 6, 8",
+     "frame": "content-demos/sort-merge/15.webp"
+    },
+    {
+     "explain": "归并 [9,9] 与 [10,10]",
+     "frame": "content-demos/sort-merge/16.webp"
+    },
+    {
+     "explain": "区间 [9,10] 已有序：0, 10",
+     "frame": "content-demos/sort-merge/17.webp"
+    },
+    {
+     "explain": "归并 [9,10] 与 [11,11]",
+     "frame": "content-demos/sort-merge/18.webp"
+    },
+    {
+     "explain": "区间 [9,11] 已有序：0, 10, 11",
+     "frame": "content-demos/sort-merge/19.webp"
+    },
+    {
+     "explain": "归并 [6,8] 与 [9,11]",
+     "frame": "content-demos/sort-merge/20.webp"
+    },
+    {
+     "explain": "区间 [6,11] 已有序：0, 3, 6, 8, 10, 11",
+     "frame": "content-demos/sort-merge/21.webp"
+    },
+    {
+     "explain": "归并 [0,5] 与 [6,11]",
+     "frame": "content-demos/sort-merge/22.webp"
+    },
+    {
+     "explain": "区间 [0,11] 已有序：0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11",
+     "frame": "content-demos/sort-merge/23.webp"
+    },
+    {
+     "explain": "完成。归并稳定，空间 O(n)。",
+     "frame": "content-demos/sort-merge/24.webp"
+    }
+   ],
+   "fingerprint": "beac3cb77317fdd59fa0d57f7900000edf09952c13f5465a0cb55b7be476640f"
+  },
+  {
+   "key": "408card/sort-heap",
+   "sourceId": "sort-heap",
+   "sourceUrl": "https://408card.top/#/vizp/sort-heap?sub=ds",
+   "id": "sort-heap",
+   "code": "ds",
+   "subjectKey": "beokayy-408/data-structure",
+   "title": "堆排序（大顶堆）",
+   "description": "树形展示建堆与取堆顶",
+   "sortOrder": 6,
+   "frameCount": 46,
+   "frameBytes": 609522,
+   "steps": [
+    {
+     "explain": "大顶堆：先从最后一个非叶结点「大的在上」建堆，再反复把堆顶换到末尾。",
+     "frame": "content-demos/sort-heap/1.webp"
+    },
+    {
+     "explain": "建堆调整：比较后把更大/更小的 4 与 11 交换",
+     "frame": "content-demos/sort-heap/2.webp"
+    },
+    {
+     "explain": "从下标 5 向下调整，逐步建成大顶堆",
+     "frame": "content-demos/sort-heap/3.webp"
+    },
+    {
+     "explain": "建堆调整：比较后把更大/更小的 7 与 10 交换",
+     "frame": "content-demos/sort-heap/4.webp"
+    },
+    {
+     "explain": "从下标 4 向下调整，逐步建成大顶堆",
+     "frame": "content-demos/sort-heap/5.webp"
+    },
+    {
+     "explain": "建堆调整：比较后把更大/更小的 1 与 6 交换",
+     "frame": "content-demos/sort-heap/6.webp"
+    },
+    {
+     "explain": "从下标 3 向下调整，逐步建成大顶堆",
+     "frame": "content-demos/sort-heap/7.webp"
+    },
+    {
+     "explain": "建堆调整：比较后把更大/更小的 9 与 11 交换",
+     "frame": "content-demos/sort-heap/8.webp"
+    },
+    {
+     "explain": "从下标 2 向下调整，逐步建成大顶堆",
+     "frame": "content-demos/sort-heap/9.webp"
+    },
+    {
+     "explain": "建堆调整：比较后把更大/更小的 2 与 10 交换",
+     "frame": "content-demos/sort-heap/10.webp"
+    },
+    {
+     "explain": "建堆调整：比较后把更大/更小的 2 与 7 交换",
+     "frame": "content-demos/sort-heap/11.webp"
+    },
+    {
+     "explain": "从下标 1 向下调整，逐步建成大顶堆",
+     "frame": "content-demos/sort-heap/12.webp"
+    },
+    {
+     "explain": "建堆调整：比较后把更大/更小的 5 与 11 交换",
+     "frame": "content-demos/sort-heap/13.webp"
+    },
+    {
+     "explain": "建堆调整：比较后把更大/更小的 5 与 9 交换",
+     "frame": "content-demos/sort-heap/14.webp"
+    },
+    {
+     "explain": "从下标 0 向下调整，逐步建成大顶堆",
+     "frame": "content-demos/sort-heap/15.webp"
+    },
+    {
+     "explain": "大顶堆建成：堆顶（根）就是最大值",
+     "frame": "content-demos/sort-heap/16.webp"
+    },
+    {
+     "explain": "堆顶与末尾交换：11 就位到位置 11，剩余 11 个重新堆化",
+     "frame": "content-demos/sort-heap/17.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 4 与 10 交换",
+     "frame": "content-demos/sort-heap/18.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 4 与 7 交换",
+     "frame": "content-demos/sort-heap/19.webp"
+    },
+    {
+     "explain": "堆顶与末尾交换：10 就位到位置 10，剩余 10 个重新堆化",
+     "frame": "content-demos/sort-heap/20.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 0 与 9 交换",
+     "frame": "content-demos/sort-heap/21.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 0 与 8 交换",
+     "frame": "content-demos/sort-heap/22.webp"
+    },
+    {
+     "explain": "堆顶与末尾交换：9 就位到位置 9，剩余 9 个重新堆化",
+     "frame": "content-demos/sort-heap/23.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 2 与 8 交换",
+     "frame": "content-demos/sort-heap/24.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 2 与 5 交换",
+     "frame": "content-demos/sort-heap/25.webp"
+    },
+    {
+     "explain": "堆顶与末尾交换：8 就位到位置 8，剩余 8 个重新堆化",
+     "frame": "content-demos/sort-heap/26.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 1 与 7 交换",
+     "frame": "content-demos/sort-heap/27.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 1 与 6 交换",
+     "frame": "content-demos/sort-heap/28.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 1 与 3 交换",
+     "frame": "content-demos/sort-heap/29.webp"
+    },
+    {
+     "explain": "堆顶与末尾交换：7 就位到位置 7，剩余 7 个重新堆化",
+     "frame": "content-demos/sort-heap/30.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 1 与 6 交换",
+     "frame": "content-demos/sort-heap/31.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 1 与 4 交换",
+     "frame": "content-demos/sort-heap/32.webp"
+    },
+    {
+     "explain": "堆顶与末尾交换：6 就位到位置 6，剩余 6 个重新堆化",
+     "frame": "content-demos/sort-heap/33.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 0 与 5 交换",
+     "frame": "content-demos/sort-heap/34.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 0 与 2 交换",
+     "frame": "content-demos/sort-heap/35.webp"
+    },
+    {
+     "explain": "堆顶与末尾交换：5 就位到位置 5，剩余 5 个重新堆化",
+     "frame": "content-demos/sort-heap/36.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 0 与 4 交换",
+     "frame": "content-demos/sort-heap/37.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 0 与 3 交换",
+     "frame": "content-demos/sort-heap/38.webp"
+    },
+    {
+     "explain": "堆顶与末尾交换：4 就位到位置 4，剩余 4 个重新堆化",
+     "frame": "content-demos/sort-heap/39.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 1 与 3 交换",
+     "frame": "content-demos/sort-heap/40.webp"
+    },
+    {
+     "explain": "堆顶与末尾交换：3 就位到位置 3，剩余 3 个重新堆化",
+     "frame": "content-demos/sort-heap/41.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 0 与 2 交换",
+     "frame": "content-demos/sort-heap/42.webp"
+    },
+    {
+     "explain": "堆顶与末尾交换：2 就位到位置 2，剩余 2 个重新堆化",
+     "frame": "content-demos/sort-heap/43.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 0 与 1 交换",
+     "frame": "content-demos/sort-heap/44.webp"
+    },
+    {
+     "explain": "堆顶与末尾交换：1 就位到位置 1，剩余 1 个重新堆化",
+     "frame": "content-demos/sort-heap/45.webp"
+    },
+    {
+     "explain": "完成。堆排序无论大顶小顶堆，时间均 O(n log n)，**不稳定**，空间 O(1)；建堆 O(n)。",
+     "frame": "content-demos/sort-heap/46.webp"
+    }
+   ],
+   "fingerprint": "ab44baf9bdfa9ede635c28ac53f289e810915b06c228232f17c217f459e3998c"
+  },
+  {
+   "key": "408card/heap-min",
+   "sourceId": "heap-min",
+   "sourceUrl": "https://408card.top/#/vizp/heap-min?sub=ds",
+   "id": "heap-min",
+   "code": "ds",
+   "subjectKey": "beokayy-408/data-structure",
+   "title": "小顶堆",
+   "description": "小根堆建堆与调整过程",
+   "sortOrder": 7,
+   "frameCount": 44,
+   "frameBytes": 572102,
+   "steps": [
+    {
+     "explain": "小顶堆：先从最后一个非叶结点「小的在上」建堆，再反复把堆顶换到末尾。",
+     "frame": "content-demos/heap-min/1.webp"
+    },
+    {
+     "explain": "从下标 5 向下调整，逐步建成小顶堆",
+     "frame": "content-demos/heap-min/2.webp"
+    },
+    {
+     "explain": "建堆调整：比较后把更大/更小的 7 与 0 交换",
+     "frame": "content-demos/heap-min/3.webp"
+    },
+    {
+     "explain": "从下标 4 向下调整，逐步建成小顶堆",
+     "frame": "content-demos/heap-min/4.webp"
+    },
+    {
+     "explain": "从下标 3 向下调整，逐步建成小顶堆",
+     "frame": "content-demos/heap-min/5.webp"
+    },
+    {
+     "explain": "建堆调整：比较后把更大/更小的 9 与 4 交换",
+     "frame": "content-demos/heap-min/6.webp"
+    },
+    {
+     "explain": "从下标 2 向下调整，逐步建成小顶堆",
+     "frame": "content-demos/heap-min/7.webp"
+    },
+    {
+     "explain": "建堆调整：比较后把更大/更小的 2 与 0 交换",
+     "frame": "content-demos/heap-min/8.webp"
+    },
+    {
+     "explain": "从下标 1 向下调整，逐步建成小顶堆",
+     "frame": "content-demos/heap-min/9.webp"
+    },
+    {
+     "explain": "建堆调整：比较后把更大/更小的 5 与 0 交换",
+     "frame": "content-demos/heap-min/10.webp"
+    },
+    {
+     "explain": "建堆调整：比较后把更大/更小的 5 与 1 交换",
+     "frame": "content-demos/heap-min/11.webp"
+    },
+    {
+     "explain": "建堆调整：比较后把更大/更小的 5 与 3 交换",
+     "frame": "content-demos/heap-min/12.webp"
+    },
+    {
+     "explain": "从下标 0 向下调整，逐步建成小顶堆",
+     "frame": "content-demos/heap-min/13.webp"
+    },
+    {
+     "explain": "小顶堆建成：堆顶（根）就是最小值",
+     "frame": "content-demos/heap-min/14.webp"
+    },
+    {
+     "explain": "堆顶与末尾交换：0 就位到位置 11，剩余 11 个重新堆化",
+     "frame": "content-demos/heap-min/15.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 11 与 1 交换",
+     "frame": "content-demos/heap-min/16.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 11 与 2 交换",
+     "frame": "content-demos/heap-min/17.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 11 与 7 交换",
+     "frame": "content-demos/heap-min/18.webp"
+    },
+    {
+     "explain": "堆顶与末尾交换：1 就位到位置 10，剩余 10 个重新堆化",
+     "frame": "content-demos/heap-min/19.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 11 与 2 交换",
+     "frame": "content-demos/heap-min/20.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 11 与 3 交换",
+     "frame": "content-demos/heap-min/21.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 11 与 5 交换",
+     "frame": "content-demos/heap-min/22.webp"
+    },
+    {
+     "explain": "堆顶与末尾交换：2 就位到位置 9，剩余 9 个重新堆化",
+     "frame": "content-demos/heap-min/23.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 10 与 3 交换",
+     "frame": "content-demos/heap-min/24.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 10 与 5 交换",
+     "frame": "content-demos/heap-min/25.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 10 与 6 交换",
+     "frame": "content-demos/heap-min/26.webp"
+    },
+    {
+     "explain": "堆顶与末尾交换：3 就位到位置 8，剩余 8 个重新堆化",
+     "frame": "content-demos/heap-min/27.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 10 与 4 交换",
+     "frame": "content-demos/heap-min/28.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 10 与 8 交换",
+     "frame": "content-demos/heap-min/29.webp"
+    },
+    {
+     "explain": "堆顶与末尾交换：4 就位到位置 7，剩余 7 个重新堆化",
+     "frame": "content-demos/heap-min/30.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 11 与 5 交换",
+     "frame": "content-demos/heap-min/31.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 11 与 6 交换",
+     "frame": "content-demos/heap-min/32.webp"
+    },
+    {
+     "explain": "堆顶与末尾交换：5 就位到位置 6，剩余 6 个重新堆化",
+     "frame": "content-demos/heap-min/33.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 10 与 6 交换",
+     "frame": "content-demos/heap-min/34.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 10 与 7 交换",
+     "frame": "content-demos/heap-min/35.webp"
+    },
+    {
+     "explain": "堆顶与末尾交换：6 就位到位置 5，剩余 5 个重新堆化",
+     "frame": "content-demos/heap-min/36.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 9 与 7 交换",
+     "frame": "content-demos/heap-min/37.webp"
+    },
+    {
+     "explain": "堆顶与末尾交换：7 就位到位置 4，剩余 4 个重新堆化",
+     "frame": "content-demos/heap-min/38.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 10 与 8 交换",
+     "frame": "content-demos/heap-min/39.webp"
+    },
+    {
+     "explain": "堆顶与末尾交换：8 就位到位置 3，剩余 3 个重新堆化",
+     "frame": "content-demos/heap-min/40.webp"
+    },
+    {
+     "explain": "重新堆化：比较后把更大/更小的 11 与 9 交换",
+     "frame": "content-demos/heap-min/41.webp"
+    },
+    {
+     "explain": "堆顶与末尾交换：9 就位到位置 2，剩余 2 个重新堆化",
+     "frame": "content-demos/heap-min/42.webp"
+    },
+    {
+     "explain": "堆顶与末尾交换：10 就位到位置 1，剩余 1 个重新堆化",
+     "frame": "content-demos/heap-min/43.webp"
+    },
+    {
+     "explain": "完成。堆排序无论大顶小顶堆，时间均 O(n log n)，**不稳定**，空间 O(1)；建堆 O(n)。",
+     "frame": "content-demos/heap-min/44.webp"
+    }
+   ],
+   "fingerprint": "d8a7b84ae44a5fc3748c84baff1656257e9a24265c58dc1ee9f59f792cf443ee"
+  },
+  {
+   "key": "408card/btree-trav",
+   "sourceId": "btree-trav",
+   "sourceUrl": "https://408card.top/#/vizp/btree-trav?sub=ds",
+   "id": "btree-trav",
+   "code": "ds",
+   "subjectKey": "beokayy-408/data-structure",
+   "title": "二叉树遍历",
+   "description": "先序/中序/后序/层序 四种遍历动画",
+   "sortOrder": 8,
+   "frameCount": 12,
+   "frameBytes": 99144,
+   "steps": [
+    {
+     "explain": "中序（左→根→右）。示例树 A(B(D,E(H)), C(F,G(I,J)))。口诀：左子树走完才访问根；BST 中序即有序序列。",
+     "frame": "content-demos/btree-trav/1.webp"
+    },
+    {
+     "explain": "访问 D 序列：D",
+     "frame": "content-demos/btree-trav/2.webp"
+    },
+    {
+     "explain": "访问 B 序列：D → B",
+     "frame": "content-demos/btree-trav/3.webp"
+    },
+    {
+     "explain": "访问 H 序列：D → B → H",
+     "frame": "content-demos/btree-trav/4.webp"
+    },
+    {
+     "explain": "访问 E 序列：D → B → H → E",
+     "frame": "content-demos/btree-trav/5.webp"
+    },
+    {
+     "explain": "访问 A 序列：D → B → H → E → A",
+     "frame": "content-demos/btree-trav/6.webp"
+    },
+    {
+     "explain": "访问 F 序列：D → B → H → E → A → F",
+     "frame": "content-demos/btree-trav/7.webp"
+    },
+    {
+     "explain": "访问 C 序列：D → B → H → E → A → F → C",
+     "frame": "content-demos/btree-trav/8.webp"
+    },
+    {
+     "explain": "访问 I 序列：D → B → H → E → A → F → C → I",
+     "frame": "content-demos/btree-trav/9.webp"
+    },
+    {
+     "explain": "访问 G 序列：D → B → H → E → A → F → C → I → G",
+     "frame": "content-demos/btree-trav/10.webp"
+    },
+    {
+     "explain": "访问 J 序列：D → B → H → E → A → F → C → I → G → J",
+     "frame": "content-demos/btree-trav/11.webp"
+    },
+    {
+     "explain": "中序（左→根→右）结果：D → B → H → E → A → F → C → I → G → J 四种遍历空间均 O(n)，时间均 O(n)。",
+     "frame": "content-demos/btree-trav/12.webp"
+    }
+   ],
+   "fingerprint": "74909f55a7226458282ec0bec58a7814c7b4019561c99419898f60a97847c097"
+  },
+  {
+   "key": "408card/avl",
+   "sourceId": "avl",
+   "sourceUrl": "https://408card.top/#/vizp/avl?sub=ds",
+   "id": "avl",
+   "code": "ds",
+   "subjectKey": "beokayy-408/data-structure",
+   "title": "AVL 旋转",
+   "description": "插入 + LL/RR/LR/RL 四种旋转逐步演示",
+   "sortOrder": 9,
+   "frameCount": 7,
+   "frameBytes": 66552,
+   "steps": [
+    {
+     "explain": "插入 30：新建结点 30",
+     "frame": "content-demos/avl/1.webp"
+    },
+    {
+     "explain": "插入 20：20 < 30，走左子树 → 新建结点 20 → 回溯到 30，平衡因子=1",
+     "frame": "content-demos/avl/2.webp"
+    },
+    {
+     "explain": "插入 10：10 < 30，走左子树 → 10 < 20，走左子树 → 新建结点 10 → 回溯到 20，平衡因子=1 → 回溯到 30，平衡因子=2 → LL 型：对 30 右旋",
+     "frame": "content-demos/avl/3.webp"
+    },
+    {
+     "explain": "插入 25：25 > 20，走右子树 → 25 < 30，走左子树 → 新建结点 25 → 回溯到 30，平衡因子=1 → 回溯到 20，平衡因子=-1",
+     "frame": "content-demos/avl/4.webp"
+    },
+    {
+     "explain": "插入 28：28 > 20，走右子树 → 28 25，走右子树 → 新建结点 28 → 回溯到 25，平衡因子=-1 → 回溯到 30，平衡因子=2 → LR 型：先对 25 左旋，再对 30 右旋 → 回溯到 20，平衡因子=-1",
+     "frame": "content-demos/avl/5.webp"
+    },
+    {
+     "explain": "插入 40：40 > 20，走右子树 → 40 > 28，走右子树 → 40 > 30，走右子树 → 新建结点 40 → 回溯到 30，平衡因子=-1 → 回溯到 28，平衡因子=-1 → 回溯到 20，平衡因子=-2 → RR 型：对 20 左旋",
+     "frame": "content-demos/avl/6.webp"
+    },
+    {
+     "explain": "完成。AVL 是平衡二叉排序树，任一结点 |平衡因子|≤1；插入最多两次旋转即可恢复平衡，查找/插入/删除均 O(log n)。",
+     "frame": "content-demos/avl/7.webp"
+    }
+   ],
+   "fingerprint": "3e231e07b8fb19c8c4635a80ea46bf0cec44e6562036a45570f7db9f5352a05f"
+  },
+  {
+   "key": "408card/stack-seq",
+   "sourceId": "stack-seq",
+   "sourceUrl": "https://408card.top/#/vizp/stack-seq?sub=ds",
+   "id": "stack-seq",
+   "code": "ds",
+   "subjectKey": "beokayy-408/data-structure",
+   "title": "栈的出栈序列",
+   "description": "输入序列，模拟判定出栈序列是否合法",
+   "sortOrder": 10,
+   "frameCount": 12,
+   "frameBytes": 124160,
+   "steps": [
+    {
+     "explain": "入栈 1 2 3 4 5，判定出栈 3 2 1 5 4 是否可能。",
+     "frame": "content-demos/stack-seq/1.webp"
+    },
+    {
+     "explain": "栈顶不匹配，把 1 压入栈",
+     "frame": "content-demos/stack-seq/2.webp"
+    },
+    {
+     "explain": "栈顶不匹配，把 2 压入栈",
+     "frame": "content-demos/stack-seq/3.webp"
+    },
+    {
+     "explain": "栈顶不匹配，把 3 压入栈",
+     "frame": "content-demos/stack-seq/4.webp"
+    },
+    {
+     "explain": "栈顶 3 正是目标 3，弹出",
+     "frame": "content-demos/stack-seq/5.webp"
+    },
+    {
+     "explain": "栈顶 2 正是目标 2，弹出",
+     "frame": "content-demos/stack-seq/6.webp"
+    },
+    {
+     "explain": "栈顶 1 正是目标 1，弹出",
+     "frame": "content-demos/stack-seq/7.webp"
+    },
+    {
+     "explain": "栈顶不匹配，把 4 压入栈",
+     "frame": "content-demos/stack-seq/8.webp"
+    },
+    {
+     "explain": "栈顶不匹配，把 5 压入栈",
+     "frame": "content-demos/stack-seq/9.webp"
+    },
+    {
+     "explain": "栈顶 5 正是目标 5，弹出",
+     "frame": "content-demos/stack-seq/10.webp"
+    },
+    {
+     "explain": "栈顶 4 正是目标 4，弹出",
+     "frame": "content-demos/stack-seq/11.webp"
+    },
+    {
+     "explain": "全部目标弹出完毕 → 合法",
+     "frame": "content-demos/stack-seq/12.webp"
+    }
+   ],
+   "fingerprint": "04b7a995c58c041a50217139e66fb75da2e72d94c5b3ebcb571511073327b74d"
+  },
+  {
+   "key": "408card/seq-vs-link",
+   "sourceId": "seq-vs-link",
+   "sourceUrl": "https://408card.top/#/vizp/seq-vs-link?sub=ds",
+   "id": "seq-vs-link",
+   "code": "ds",
+   "subjectKey": "beokayy-408/data-structure",
+   "title": "顺序表 vs 链表",
+   "description": "同一个插入/删除，两种结构并排对比",
+   "sortOrder": 11,
+   "frameCount": 8,
+   "frameBytes": 97232,
+   "steps": [
+    {
+     "explain": "初始：顺序表与链表内容相同 [10, 20, 30, 40, 50]。目标：在位置 2 插入 99。",
+     "frame": "content-demos/seq-vs-link/1.webp"
+    },
+    {
+     "explain": "顺序表：把 a[4]=50 后移到 a[5]（从后往前搬），已移动 1 次",
+     "frame": "content-demos/seq-vs-link/2.webp"
+    },
+    {
+     "explain": "顺序表：把 a[3]=40 后移到 a[4]（从后往前搬），已移动 2 次",
+     "frame": "content-demos/seq-vs-link/3.webp"
+    },
+    {
+     "explain": "顺序表：把 a[2]=30 后移到 a[3]（从后往前搬），已移动 3 次",
+     "frame": "content-demos/seq-vs-link/4.webp"
+    },
+    {
+     "explain": "顺序表：把 99 写入位置 2。共移动 3 次，时间 O(n)。",
+     "frame": "content-demos/seq-vs-link/5.webp"
+    },
+    {
+     "explain": "链表：先从头走到第 2 个结点的前驱（定位本身 O(n)），再改指针。",
+     "frame": "content-demos/seq-vs-link/6.webp"
+    },
+    {
+     "explain": "链表：新结点 next 指向原第 2 个，前驱 next 指向新结点。只改 2 个指针，插入本身 O(1)。",
+     "frame": "content-demos/seq-vs-link/7.webp"
+    },
+    {
+     "explain": "结论：顺序表靠搬元素保持连续，随机存取 O(1)、插入删除 O(n)；链表靠改指针，定位后插入删除 O(1)，但只能顺序访问。",
+     "frame": "content-demos/seq-vs-link/8.webp"
+    }
+   ],
+   "fingerprint": "03d523c24805923bf0b2bc787781eaf5b8b0c026faf0aaefcbf3e9b80655b2e2"
+  },
+  {
+   "key": "408card/hash-asl",
+   "sourceId": "hash-asl",
+   "sourceUrl": "https://408card.top/#/vizp/hash-asl?sub=ds",
+   "id": "hash-asl",
+   "code": "ds",
+   "subjectKey": "beokayy-408/data-structure",
+   "title": "散列表与 ASL",
+   "description": "线性探测/拉链法逐步插入，实时算平均查找长度",
+   "sortOrder": 12,
+   "frameCount": 14,
+   "frameBytes": 190018,
+   "steps": [
+    {
+     "explain": "线性探测：H(key)=key mod 13，冲突则顺表址 +1（到末尾绕回）。表长 m=13。",
+     "frame": "content-demos/hash-asl/1.webp"
+    },
+    {
+     "explain": "插入 19：散列地址 H=6，查找长度 1 当前 ASL≈1.00",
+     "frame": "content-demos/hash-asl/2.webp"
+    },
+    {
+     "explain": "插入 14：散列地址 H=1，查找长度 1 当前 ASL≈1.00",
+     "frame": "content-demos/hash-asl/3.webp"
+    },
+    {
+     "explain": "插入 23：散列地址 H=10，查找长度 1 当前 ASL≈1.00",
+     "frame": "content-demos/hash-asl/4.webp"
+    },
+    {
+     "explain": "插入 1：散列地址 H=1，冲突顺探到位置 2，查找长度 2 当前 ASL≈1.25",
+     "frame": "content-demos/hash-asl/5.webp"
+    },
+    {
+     "explain": "插入 68：散列地址 H=3，查找长度 1 当前 ASL≈1.20",
+     "frame": "content-demos/hash-asl/6.webp"
+    },
+    {
+     "explain": "插入 20：散列地址 H=7，查找长度 1 当前 ASL≈1.17",
+     "frame": "content-demos/hash-asl/7.webp"
+    },
+    {
+     "explain": "插入 84：散列地址 H=6，冲突顺探到位置 8，查找长度 3 当前 ASL≈1.43",
+     "frame": "content-demos/hash-asl/8.webp"
+    },
+    {
+     "explain": "插入 27：散列地址 H=1，冲突顺探到位置 4，查找长度 4 当前 ASL≈1.75",
+     "frame": "content-demos/hash-asl/9.webp"
+    },
+    {
+     "explain": "插入 55：散列地址 H=3，冲突顺探到位置 5，查找长度 3 当前 ASL≈1.89",
+     "frame": "content-demos/hash-asl/10.webp"
+    },
+    {
+     "explain": "插入 11：散列地址 H=11，查找长度 1 当前 ASL≈1.80",
+     "frame": "content-demos/hash-asl/11.webp"
+    },
+    {
+     "explain": "插入 10：散列地址 H=10，冲突顺探到位置 12，查找长度 3 当前 ASL≈1.91",
+     "frame": "content-demos/hash-asl/12.webp"
+    },
+    {
+     "explain": "插入 79：散列地址 H=1，冲突顺探到位置 9，查找长度 9 当前 ASL≈2.50",
+     "frame": "content-demos/hash-asl/13.webp"
+    },
+    {
+     "explain": "结束：成功查找 ASL = (Σ各关键字查找长度)/n = 2.500。易错：ASL 含第一次比较；线性探测易产生「堆积（堆积）」。",
+     "frame": "content-demos/hash-asl/14.webp"
+    }
+   ],
+   "fingerprint": "06a77c514a4e2d32c71485f9ec6399c091cc9d4332de15a55b567b2c9bfee86c"
+  },
+  {
+   "key": "408card/critical-path",
+   "sourceId": "critical-path",
+   "sourceUrl": "https://408card.top/#/vizp/critical-path?sub=ds",
+   "id": "critical-path",
+   "code": "ds",
+   "subjectKey": "beokayy-408/data-structure",
+   "title": "关键路径",
+   "description": "AOE 网求 ve/vl/e/l，逐步推导关键路径",
+   "sortOrder": 13,
+   "frameCount": 13,
+   "frameBytes": 194456,
+   "steps": [
+    {
+     "explain": "AOE 网：顶点=事件，有向弧=活动（权=工期）。依次求 ve（事件最早发生）、vl（事件最迟发生）、活动 e/l；e==l 的活动是关键活动。",
+     "frame": "content-demos/critical-path/1.webp"
+    },
+    {
+     "explain": "事件最早 ve（按拓扑序从源点向后推，取 max）：v1=0 v2=3 v3=2 v4=6 v5=8 v6=9",
+     "frame": "content-demos/critical-path/2.webp"
+    },
+    {
+     "explain": "事件最迟 vl（按逆拓扑从汇点向前推，取 min，汇点 vl=ve）：v1=0 v2=4 v3=2 v4=6 v5=8 v6=9",
+     "frame": "content-demos/critical-path/3.webp"
+    },
+    {
+     "explain": "活动 v1→v2（权 3）：e=0，l=1，l-e=1 非关键，有时差",
+     "frame": "content-demos/critical-path/4.webp"
+    },
+    {
+     "explain": "活动 v1→v3（权 2）：e=0，l=0，l-e=0 关键活动（e=l）",
+     "frame": "content-demos/critical-path/5.webp"
+    },
+    {
+     "explain": "活动 v2→v4（权 2）：e=3，l=4，l-e=1 非关键，有时差",
+     "frame": "content-demos/critical-path/6.webp"
+    },
+    {
+     "explain": "活动 v2→v5（权 3）：e=3，l=5，l-e=2 非关键，有时差",
+     "frame": "content-demos/critical-path/7.webp"
+    },
+    {
+     "explain": "活动 v3→v4（权 4）：e=2，l=2，l-e=0 关键活动（e=l）",
+     "frame": "content-demos/critical-path/8.webp"
+    },
+    {
+     "explain": "活动 v3→v6（权 3）：e=2，l=6，l-e=4 非关键，有时差",
+     "frame": "content-demos/critical-path/9.webp"
+    },
+    {
+     "explain": "活动 v4→v5（权 2）：e=6，l=6，l-e=0 关键活动（e=l）",
+     "frame": "content-demos/critical-path/10.webp"
+    },
+    {
+     "explain": "活动 v4→v6（权 1）：e=6，l=8，l-e=2 非关键，有时差",
+     "frame": "content-demos/critical-path/11.webp"
+    },
+    {
+     "explain": "活动 v5→v6（权 1）：e=8，l=8，l-e=0 关键活动（e=l）",
+     "frame": "content-demos/critical-path/12.webp"
+    },
+    {
+     "explain": "关键路径：v1→v3 → v3→v4 → v4→v5 → v5→v6 工程最短工期 = 9。注意：关键路径可能不唯一；缩短不在所有关键路径上的活动不能缩短总工期。",
+     "frame": "content-demos/critical-path/13.webp"
+    }
+   ],
+   "fingerprint": "9f769483f54dcd2916595a3e276f0cc4974ff746463519047fdc20b3cfe1044f"
+  },
+  {
+   "key": "408card/graph-trav",
+   "sourceId": "graph-trav",
+   "sourceUrl": "https://408card.top/#/vizp/graph-trav?sub=ds",
+   "id": "graph-trav",
+   "code": "ds",
+   "subjectKey": "beokayy-408/data-structure",
+   "title": "图的遍历与最短路",
+   "description": "BFS/DFS/Dijkstra 逐步演示",
+   "sortOrder": 14,
+   "frameCount": 8,
+   "frameBytes": 67624,
+   "steps": [
+    {
+     "explain": "BFS 广度优先：用队列，先被发现的先扩展，一层一层向外（层次遍历）。源点 A 先入队。",
+     "frame": "content-demos/graph-trav/1.webp"
+    },
+    {
+     "explain": "出队访问 A，把未访问邻居入队：B C",
+     "frame": "content-demos/graph-trav/2.webp"
+    },
+    {
+     "explain": "出队访问 B，把未访问邻居入队：D",
+     "frame": "content-demos/graph-trav/3.webp"
+    },
+    {
+     "explain": "出队访问 C，把未访问邻居入队：E",
+     "frame": "content-demos/graph-trav/4.webp"
+    },
+    {
+     "explain": "出队访问 D，把未访问邻居入队：F",
+     "frame": "content-demos/graph-trav/5.webp"
+    },
+    {
+     "explain": "出队访问 E，把未访问邻居入队：无",
+     "frame": "content-demos/graph-trav/6.webp"
+    },
+    {
+     "explain": "出队访问 F，把未访问邻居入队：无",
+     "frame": "content-demos/graph-trav/7.webp"
+    },
+    {
+     "explain": "BFS 序列：A → B → C → D → E → F 对无权图，BFS 首次访问的层数即最短路径长度。",
+     "frame": "content-demos/graph-trav/8.webp"
+    }
+   ],
+   "fingerprint": "ff367318b421eef4a9ac27c6cb3f82b346852ddb96b5ec24fc58b55bbb4c2653"
+  },
+  {
+   "key": "408card/dijkstra",
+   "sourceId": "dijkstra",
+   "sourceUrl": "https://408card.top/#/vizp/dijkstra?sub=ds",
+   "id": "dijkstra",
+   "code": "ds",
+   "subjectKey": "beokayy-408/data-structure",
+   "title": "Dijkstra 单源最短路径",
+   "description": "选最小未访问+松弛邻边，逐步求源点到各点最短距离",
+   "sortOrder": 15,
+   "frameCount": 13,
+   "frameBytes": 131876,
+   "steps": [
+    {
+     "explain": "Dijkstra 从源点 A 出发：每次选未访问中 dist 最小的结点，确定其最短路径，然后松弛它的邻边。不能有负权边。",
+     "frame": "content-demos/dijkstra/1.webp"
+    },
+    {
+     "explain": "第 1 轮：选未访问中 dist 最小的 A（dist=0），标记已确定最短路径。",
+     "frame": "content-demos/dijkstra/2.webp"
+    },
+    {
+     "explain": "松弛边 A—B（权 6）：B 的 dist 从 0 更新为 6，前驱设为 A。",
+     "frame": "content-demos/dijkstra/3.webp"
+    },
+    {
+     "explain": "松弛边 A—C（权 1）：C 的 dist 从 0 更新为 1，前驱设为 A。",
+     "frame": "content-demos/dijkstra/4.webp"
+    },
+    {
+     "explain": "松弛边 A—D（权 5）：D 的 dist 从 0 更新为 5，前驱设为 A。",
+     "frame": "content-demos/dijkstra/5.webp"
+    },
+    {
+     "explain": "第 2 轮：选未访问中 dist 最小的 C（dist=1），标记已确定最短路径。",
+     "frame": "content-demos/dijkstra/6.webp"
+    },
+    {
+     "explain": "松弛边 C—E（权 6）：E 的 dist 从 1 更新为 7，前驱设为 C。",
+     "frame": "content-demos/dijkstra/7.webp"
+    },
+    {
+     "explain": "松弛边 C—F（权 4）：F 的 dist 从 1 更新为 5，前驱设为 C。",
+     "frame": "content-demos/dijkstra/8.webp"
+    },
+    {
+     "explain": "第 3 轮：选未访问中 dist 最小的 D（dist=5），标记已确定最短路径。",
+     "frame": "content-demos/dijkstra/9.webp"
+    },
+    {
+     "explain": "第 4 轮：选未访问中 dist 最小的 F（dist=5），标记已确定最短路径。",
+     "frame": "content-demos/dijkstra/10.webp"
+    },
+    {
+     "explain": "第 5 轮：选未访问中 dist 最小的 B（dist=6），标记已确定最短路径。",
+     "frame": "content-demos/dijkstra/11.webp"
+    },
+    {
+     "explain": "第 6 轮：选未访问中 dist 最小的 E（dist=7），标记已确定最短路径。",
+     "frame": "content-demos/dijkstra/12.webp"
+    },
+    {
+     "explain": "Dijkstra 完成。各结点最短距离：A→A: 0 A→B: 6 A→C: 1 A→D: 5 A→C→E: 7 A→C→F: 5",
+     "frame": "content-demos/dijkstra/13.webp"
+    }
+   ],
+   "fingerprint": "912e4fd16d410040f228d9cdb46c5d024f235f790ef265fa216790dd3c99c64d"
+  },
+  {
+   "key": "408card/huffman",
+   "sourceId": "huffman",
+   "sourceUrl": "https://408card.top/#/vizp/huffman?sub=ds",
+   "id": "huffman",
+   "code": "ds",
+   "subjectKey": "beokayy-408/data-structure",
+   "title": "哈夫曼编码",
+   "description": "构建哈夫曼树并生成前缀编码",
+   "sortOrder": 16,
+   "frameCount": 7,
+   "frameBytes": 57574,
+   "steps": [
+    {
+     "explain": "哈夫曼树：每次取权值最小的两棵合并，新结点权=两子权之和；左分支标 0、右分支标 1 即前缀码。初始：A=5 B=9 C=12 D=13 E=16 F=45",
+     "frame": "content-demos/huffman/1.webp"
+    },
+    {
+     "explain": "第 1 次合并：A:5 + B:9 → 新结点权 14",
+     "frame": "content-demos/huffman/2.webp"
+    },
+    {
+     "explain": "第 2 次合并：C:12 + D:13 → 新结点权 25",
+     "frame": "content-demos/huffman/3.webp"
+    },
+    {
+     "explain": "第 3 次合并：(14) + E:16 → 新结点权 30",
+     "frame": "content-demos/huffman/4.webp"
+    },
+    {
+     "explain": "第 4 次合并：(25) + (30) → 新结点权 55",
+     "frame": "content-demos/huffman/5.webp"
+    },
+    {
+     "explain": "第 5 次合并：F:45 + (55) → 新结点权 100",
+     "frame": "content-demos/huffman/6.webp"
+    },
+    {
+     "explain": "哈夫曼编码：F=0 C=100 D=101 A=1100 B=1101 E=111 带权路径长度 WPL = 224（=所有叶结点权×路径长之和）。",
+     "frame": "content-demos/huffman/7.webp"
+    }
+   ],
+   "fingerprint": "3d492f6f1aa5025fc84252c4df690519287be3d92eb7edb8fba1149f2ce7c86f"
+  },
+  {
+   "key": "408card/kmp",
+   "sourceId": "kmp",
+   "sourceUrl": "https://408card.top/#/vizp/kmp?sub=ds",
+   "id": "kmp",
+   "code": "ds",
+   "subjectKey": "beokayy-408/data-structure",
+   "title": "KMP 的 next 数组",
+   "description": "模式匹配过程与 next 求法",
+   "sortOrder": 17,
+   "frameCount": 18,
+   "frameBytes": 192890,
+   "steps": [
+    {
+     "explain": "主串 T=ababaabaabcacbab 模式 P=abaabcac KMP：失配时主串 i 不回退，模式 j 按 next 滑动。",
+     "frame": "content-demos/kmp/1.webp"
+    },
+    {
+     "explain": "匹配 T[0]=a == P[0]=a，i++, j++ → i=1, j=1",
+     "frame": "content-demos/kmp/2.webp"
+    },
+    {
+     "explain": "匹配 T[1]=b == P[1]=b，i++, j++ → i=2, j=2",
+     "frame": "content-demos/kmp/3.webp"
+    },
+    {
+     "explain": "匹配 T[2]=a == P[2]=a，i++, j++ → i=3, j=3",
+     "frame": "content-demos/kmp/4.webp"
+    },
+    {
+     "explain": "失配 T[3]=b ≠ P[3]=a j: 3 → next[3]=1（i 不动）",
+     "frame": "content-demos/kmp/5.webp"
+    },
+    {
+     "explain": "匹配 T[3]=b == P[1]=b，i++, j++ → i=4, j=2",
+     "frame": "content-demos/kmp/6.webp"
+    },
+    {
+     "explain": "匹配 T[4]=a == P[2]=a，i++, j++ → i=5, j=3",
+     "frame": "content-demos/kmp/7.webp"
+    },
+    {
+     "explain": "匹配 T[5]=a == P[3]=a，i++, j++ → i=6, j=4",
+     "frame": "content-demos/kmp/8.webp"
+    },
+    {
+     "explain": "匹配 T[6]=b == P[4]=b，i++, j++ → i=7, j=5",
+     "frame": "content-demos/kmp/9.webp"
+    },
+    {
+     "explain": "失配 T[7]=a ≠ P[5]=c j: 5 → next[5]=2（i 不动）",
+     "frame": "content-demos/kmp/10.webp"
+    },
+    {
+     "explain": "匹配 T[7]=a == P[2]=a，i++, j++ → i=8, j=3",
+     "frame": "content-demos/kmp/11.webp"
+    },
+    {
+     "explain": "匹配 T[8]=a == P[3]=a，i++, j++ → i=9, j=4",
+     "frame": "content-demos/kmp/12.webp"
+    },
+    {
+     "explain": "匹配 T[9]=b == P[4]=b，i++, j++ → i=10, j=5",
+     "frame": "content-demos/kmp/13.webp"
+    },
+    {
+     "explain": "匹配 T[10]=c == P[5]=c，i++, j++ → i=11, j=6",
+     "frame": "content-demos/kmp/14.webp"
+    },
+    {
+     "explain": "匹配 T[11]=a == P[6]=a，i++, j++ → i=12, j=7",
+     "frame": "content-demos/kmp/15.webp"
+    },
+    {
+     "explain": "匹配 T[12]=c == P[7]=c，i++, j++ → i=13, j=8",
+     "frame": "content-demos/kmp/16.webp"
+    },
+    {
+     "explain": "匹配成功，出现在主串下标 5（从 1 计为第 6 个）",
+     "frame": "content-demos/kmp/17.webp"
+    },
+    {
+     "explain": "next 数组：next[0]=-1 next[1]=0 next[2]=0 next[3]=1 next[4]=1 next[5]=2 next[6]=0 next[7]=1 KMP 时间 O(n+m)，主串不回溯。",
+     "frame": "content-demos/kmp/18.webp"
+    }
+   ],
+   "fingerprint": "3316c3f15dceb3f58f49d5b6d05b7a955342cea69ab8694ab9fab55aad6d1a23"
+  },
+  {
+   "key": "408card/binsearch",
+   "sourceId": "binsearch",
+   "sourceUrl": "https://408card.top/#/vizp/binsearch?sub=ds",
+   "id": "binsearch",
+   "code": "ds",
+   "subjectKey": "beokayy-408/data-structure",
+   "title": "折半查找判定树",
+   "description": "有序表二分查找逐步比较",
+   "sortOrder": 18,
+   "frameCount": 3,
+   "frameBytes": 29170,
+   "steps": [
+    {
+     "explain": "有序表：[2, 5, 8, 12, 16, 23, 38, 45, 67, 78, 91] 查找 23。mid = ⌊(low+high)/2⌋",
+     "frame": "content-demos/binsearch/1.webp"
+    },
+    {
+     "explain": "比较 a[5]=23 == 23 → 查找成功，比较次数 1",
+     "frame": "content-demos/binsearch/2.webp"
+    },
+    {
+     "explain": "折半查找判定树：每次中点即根，左右半递归为左右子树。平均/最坏 O(log n)，前提是有序顺序表；ASL ≈ (判定树各结点层数和)/n。",
+     "frame": "content-demos/binsearch/3.webp"
+    }
+   ],
+   "fingerprint": "7b5d8c4395c89a0624d25e2966a86cdf5b48a93ead3ee550c1a6617f841ed41d"
+  },
+  {
+   "key": "408card/union-find",
+   "sourceId": "union-find",
+   "sourceUrl": "https://408card.top/#/vizp/union-find?sub=ds",
+   "id": "union-find",
+   "code": "ds",
+   "subjectKey": "beokayy-408/data-structure",
+   "title": "并查集",
+   "description": "Find + Union + 路径压缩",
+   "sortOrder": 19,
+   "frameCount": 9,
+   "frameBytes": 43734,
+   "steps": [
+    {
+     "explain": "并查集：Find 找根，Union 合并；按秩合并 + 路径压缩后，每次操作近似 O(α(n))≈常数。",
+     "frame": "content-demos/union-find/1.webp"
+    },
+    {
+     "explain": "合并：1 挂到根 0，rank[0] 变为 1",
+     "frame": "content-demos/union-find/2.webp"
+    },
+    {
+     "explain": "合并：3 挂到根 2，rank[2] 变为 1",
+     "frame": "content-demos/union-find/3.webp"
+    },
+    {
+     "explain": "合并：2 挂到根 0，rank[0] 变为 2",
+     "frame": "content-demos/union-find/4.webp"
+    },
+    {
+     "explain": "合并：5 挂到根 4，rank[4] 变为 1",
+     "frame": "content-demos/union-find/5.webp"
+    },
+    {
+     "explain": "合并：7 挂到根 6，rank[6] 变为 1",
+     "frame": "content-demos/union-find/6.webp"
+    },
+    {
+     "explain": "合并：6 挂到根 4，rank[4] 变为 2",
+     "frame": "content-demos/union-find/7.webp"
+    },
+    {
+     "explain": "Find(1)：parent=0，沿链找根并路径压缩Find(3)：parent=2，沿链找根并路径压缩Find(2)：parent=0，沿链找根并路径压缩1、3 已在同一集合，跳过（不成环）",
+     "frame": "content-demos/union-find/8.webp"
+    },
+    {
+     "explain": "最终：共 2 个连通分量，根为 0, 4。常用于 Kruskal 判环、判断连通分量、等价类。",
+     "frame": "content-demos/union-find/9.webp"
+    }
+   ],
+   "fingerprint": "e3cd9729dfac0bfa022f34a3ac5f5cb262f1ef5dda5e50d27dd7aaf32d3b3e06"
+  },
+  {
+   "key": "408card/topo",
+   "sourceId": "topo",
+   "sourceUrl": "https://408card.top/#/vizp/topo?sub=ds",
+   "id": "topo",
+   "code": "ds",
+   "subjectKey": "beokayy-408/data-structure",
+   "title": "拓扑排序",
+   "description": "入度为 0 逐步输出，判 AOV 是否有环",
+   "sortOrder": 20,
+   "frameCount": 16,
+   "frameBytes": 143680,
+   "steps": [
+    {
+     "explain": "拓扑排序（AOV 网）：不断选入度为 0 的顶点输出，并删掉它的出边。若最终输出顶点数 < n，则图中有环。",
+     "frame": "content-demos/topo/1.webp"
+    },
+    {
+     "explain": "初始入度为 0 的点：C1（若无则有环，无法拓扑）",
+     "frame": "content-demos/topo/2.webp"
+    },
+    {
+     "explain": "输出 C1，删除它的所有出边",
+     "frame": "content-demos/topo/3.webp"
+    },
+    {
+     "explain": "C2 入度减为 0，入队",
+     "frame": "content-demos/topo/4.webp"
+    },
+    {
+     "explain": "C3 入度减为 0，入队",
+     "frame": "content-demos/topo/5.webp"
+    },
+    {
+     "explain": "输出 C2，删除它的所有出边",
+     "frame": "content-demos/topo/6.webp"
+    },
+    {
+     "explain": "C4 入度减为 1（尚未为 0）",
+     "frame": "content-demos/topo/7.webp"
+    },
+    {
+     "explain": "输出 C3，删除它的所有出边",
+     "frame": "content-demos/topo/8.webp"
+    },
+    {
+     "explain": "C4 入度减为 0，入队",
+     "frame": "content-demos/topo/9.webp"
+    },
+    {
+     "explain": "C5 入度减为 1（尚未为 0）",
+     "frame": "content-demos/topo/10.webp"
+    },
+    {
+     "explain": "输出 C4，删除它的所有出边",
+     "frame": "content-demos/topo/11.webp"
+    },
+    {
+     "explain": "C5 入度减为 0，入队",
+     "frame": "content-demos/topo/12.webp"
+    },
+    {
+     "explain": "输出 C5，删除它的所有出边",
+     "frame": "content-demos/topo/13.webp"
+    },
+    {
+     "explain": "C6 入度减为 0，入队",
+     "frame": "content-demos/topo/14.webp"
+    },
+    {
+     "explain": "输出 C6，删除它的所有出边",
+     "frame": "content-demos/topo/15.webp"
+    },
+    {
+     "explain": "拓扑序列：C1 → C2 → C3 → C4 → C5 → C6 输出了全部 6 个点 → 该 AOV 网无环。时间 O(n+e)。",
+     "frame": "content-demos/topo/16.webp"
+    }
+   ],
+   "fingerprint": "f08ee94d4d596ef4cb48b4bd798c5849505c90fe5b301eec507c9ed69a6c3a88"
+  },
+  {
+   "key": "408card/mst-prim",
+   "sourceId": "mst-prim",
+   "sourceUrl": "https://408card.top/#/vizp/mst-prim?sub=ds",
+   "id": "mst-prim",
+   "code": "ds",
+   "subjectKey": "beokayy-408/data-structure",
+   "title": "Prim 最小生成树",
+   "description": "每次选连接树内外的最小边",
+   "sortOrder": 21,
+   "frameCount": 8,
+   "frameBytes": 67690,
+   "steps": [
+    {
+     "explain": "Prim 从一个顶点（A）出发：每次选「一端在树内、一端在树外」的权最小的边，把外部顶点拉进来。",
+     "frame": "content-demos/mst-prim/1.webp"
+    },
+    {
+     "explain": "加入 A（起点）",
+     "frame": "content-demos/mst-prim/2.webp"
+    },
+    {
+     "explain": "加入 C：选边 A—C（权 1）",
+     "frame": "content-demos/mst-prim/3.webp"
+    },
+    {
+     "explain": "加入 F：选边 C—F（权 4）",
+     "frame": "content-demos/mst-prim/4.webp"
+    },
+    {
+     "explain": "加入 D：选边 F—D（权 2）",
+     "frame": "content-demos/mst-prim/5.webp"
+    },
+    {
+     "explain": "加入 B：选边 C—B（权 5）",
+     "frame": "content-demos/mst-prim/6.webp"
+    },
+    {
+     "explain": "加入 E：选边 B—E（权 3）",
+     "frame": "content-demos/mst-prim/7.webp"
+    },
+    {
+     "explain": "Prim 完成，MST 权值和 = 15 O(n²)，不依赖边数，适合稠密图。",
+     "frame": "content-demos/mst-prim/8.webp"
+    }
+   ],
+   "fingerprint": "46fc1a681144ff65622168ec847af235f8b2caf914478b77967acf4924321601"
+  },
+  {
+   "key": "408card/mst-kruskal",
+   "sourceId": "mst-kruskal",
+   "sourceUrl": "https://408card.top/#/vizp/mst-kruskal?sub=ds",
+   "id": "mst-kruskal",
+   "code": "ds",
+   "subjectKey": "beokayy-408/data-structure",
+   "title": "Kruskal 最小生成树",
+   "description": "边排序 + 并查集判环",
+   "sortOrder": 22,
+   "frameCount": 8,
+   "frameBytes": 74038,
+   "steps": [
+    {
+     "explain": "Kruskal 把所有边按权排序，从小到大试选；若加入不成环（并查集判）就收下，凑够 n-1 条边为止。",
+     "frame": "content-demos/mst-kruskal/1.webp"
+    },
+    {
+     "explain": "选中边 A—C（权 1），当前 MST 边数 1/5",
+     "frame": "content-demos/mst-kruskal/2.webp"
+    },
+    {
+     "explain": "选中边 D—F（权 2），当前 MST 边数 2/5",
+     "frame": "content-demos/mst-kruskal/3.webp"
+    },
+    {
+     "explain": "选中边 B—E（权 3），当前 MST 边数 3/5",
+     "frame": "content-demos/mst-kruskal/4.webp"
+    },
+    {
+     "explain": "选中边 C—F（权 4），当前 MST 边数 4/5",
+     "frame": "content-demos/mst-kruskal/5.webp"
+    },
+    {
+     "explain": "边 A—D（权 5）两端已连通，加入会成环，跳过",
+     "frame": "content-demos/mst-kruskal/6.webp"
+    },
+    {
+     "explain": "选中边 B—C（权 5），当前 MST 边数 5/5",
+     "frame": "content-demos/mst-kruskal/7.webp"
+    },
+    {
+     "explain": "Kruskal 完成，MST 权值和 = 15 O(e log e)，适合稀疏图；同一图 MST 权值和唯一。",
+     "frame": "content-demos/mst-kruskal/8.webp"
+    }
+   ],
+   "fingerprint": "c5586b5bd5480b0af976d9a09adc703e18a94a29bca37a5e89dbd798b40bf3e9"
+  },
+  {
+   "key": "408card/bst-insert",
+   "sourceId": "bst-insert",
+   "sourceUrl": "https://408card.top/#/vizp/bst-insert?sub=ds",
+   "id": "bst-insert",
+   "code": "ds",
+   "subjectKey": "beokayy-408/data-structure",
+   "title": "BST 二叉排序树插入",
+   "description": "按查找失败位置挂新结点，保持左小右大",
+   "sortOrder": 23,
+   "frameCount": 11,
+   "frameBytes": 77782,
+   "steps": [
+    {
+     "explain": "二叉排序树（BST）：左子树所有关键字 < 根 < 右子树所有关键字。依次插入 45, 24, 66, 12, 37, 55, 88, 8, 20。",
+     "frame": "content-demos/bst-insert/1.webp"
+    },
+    {
+     "explain": "空树，45 作为根。",
+     "frame": "content-demos/bst-insert/2.webp"
+    },
+    {
+     "explain": "插入 24：沿 45 比较，比父小走左、比父大走右，作为叶子挂在父 45 的左侧。",
+     "frame": "content-demos/bst-insert/3.webp"
+    },
+    {
+     "explain": "插入 66：沿 45 比较，比父小走左、比父大走右，作为叶子挂在父 45 的右侧。",
+     "frame": "content-demos/bst-insert/4.webp"
+    },
+    {
+     "explain": "插入 12：沿 45 → 24 比较，比父小走左、比父大走右，作为叶子挂在父 24 的左侧。",
+     "frame": "content-demos/bst-insert/5.webp"
+    },
+    {
+     "explain": "插入 37：沿 45 → 24 比较，比父小走左、比父大走右，作为叶子挂在父 24 的右侧。",
+     "frame": "content-demos/bst-insert/6.webp"
+    },
+    {
+     "explain": "插入 55：沿 45 → 66 比较，比父小走左、比父大走右，作为叶子挂在父 66 的左侧。",
+     "frame": "content-demos/bst-insert/7.webp"
+    },
+    {
+     "explain": "插入 88：沿 45 → 66 比较，比父小走左、比父大走右，作为叶子挂在父 66 的右侧。",
+     "frame": "content-demos/bst-insert/8.webp"
+    },
+    {
+     "explain": "插入 8：沿 45 → 24 → 12 比较，比父小走左、比父大走右，作为叶子挂在父 12 的左侧。",
+     "frame": "content-demos/bst-insert/9.webp"
+    },
+    {
+     "explain": "插入 20：沿 45 → 24 → 12 比较，比父小走左、比父大走右，作为叶子挂在父 12 的右侧。",
+     "frame": "content-demos/bst-insert/10.webp"
+    },
+    {
+     "explain": "插入完成。BST 的中序遍历就是有序序列；查找长度等于结点层次。",
+     "frame": "content-demos/bst-insert/11.webp"
+    }
+   ],
+   "fingerprint": "397ab110f1ae3fc993fbb4f5636aaa6bcaa7ee1d459bf5a50080f2569a6fbab0"
+  },
+  {
+   "key": "408card/bst-delete",
+   "sourceId": "bst-delete",
+   "sourceUrl": "https://408card.top/#/vizp/bst-delete?sub=ds",
+   "id": "bst-delete",
+   "code": "ds",
+   "subjectKey": "beokayy-408/data-structure",
+   "title": "BST 二叉排序树删除",
+   "description": "叶子/单支/双支三种情况，中序后继顶替",
+   "sortOrder": 24,
+   "frameCount": 3,
+   "frameBytes": 18894,
+   "steps": [
+    {
+     "explain": "删除结点 24。BST 删除三种情况：①叶子；②只有一个孩子；③两个孩子（用中序后继顶替）。",
+     "frame": "content-demos/bst-delete/1.webp"
+    },
+    {
+     "explain": "删除过程：24 < 45，去左子树 → 24 有两个孩子（情况③）：用中序后继（右子树最小）37 顶替，再到右子树删 37 → 删除叶子 37（情况①：左右都空，直接删）。",
+     "frame": "content-demos/bst-delete/2.webp"
+    },
+    {
+     "explain": "删除后仍满足 BST 性质。情况③也可用「中序前驱（左子树最大）」顶替，结果都正确但树形不同。",
+     "frame": "content-demos/bst-delete/3.webp"
+    }
+   ],
+   "fingerprint": "ecab9793ccb3b12d80ed53ecfa1e7bd9136cf78e5f1c4befcce8d63a218f27eb"
+  },
+  {
+   "key": "408card/bst-search",
+   "sourceId": "bst-search",
+   "sourceUrl": "https://408card.top/#/vizp/bst-search?sub=ds",
+   "id": "bst-search",
+   "code": "ds",
+   "subjectKey": "beokayy-408/data-structure",
+   "title": "BST 二叉排序树查找",
+   "description": "沿根向下比较，平均 O(log n) 最坏 O(n)",
+   "sortOrder": 25,
+   "frameCount": 5,
+   "frameBytes": 32896,
+   "steps": [
+    {
+     "explain": "在已建好的 BST 上查找 37：从根起，小走左、大走右。",
+     "frame": "content-demos/bst-search/1.webp"
+    },
+    {
+     "explain": "45 > 37，走左子树",
+     "frame": "content-demos/bst-search/2.webp"
+    },
+    {
+     "explain": "24 < 37，走右子树",
+     "frame": "content-demos/bst-search/3.webp"
+    },
+    {
+     "explain": "比较 37 == 目标 37 → 查找成功，共比较 3 次。",
+     "frame": "content-demos/bst-search/4.webp"
+    },
+    {
+     "explain": "BST 查找成功长度=结点层次；失败走到根到空链。等概率平均 ASL≈O(log n)。",
+     "frame": "content-demos/bst-search/5.webp"
+    }
+   ],
+   "fingerprint": "ae35ce0422ee4f80dbc5d1b2b75cf5619d97eaca540a648d17dfc1f6ed3fb11a"
+  },
+  {
+   "key": "408card/btree-insert",
+   "sourceId": "btree-insert",
+   "sourceUrl": "https://408card.top/#/vizp/btree-insert?sub=ds",
+   "id": "btree-insert",
+   "code": "ds",
+   "subjectKey": "beokayy-408/data-structure",
+   "title": "B 树插入与分裂",
+   "description": "4 阶 B 树插入到叶，满 4 个中间关键字上移分裂",
+   "sortOrder": 26,
+   "frameCount": 12,
+   "frameBytes": 84584,
+   "steps": [
+    {
+     "explain": "4 阶 B 树：除根外结点关键字数 [1, 3]（即 1~3 个），子树数=关键字数+1。插入顺序：30, 50, 10, 40, 20, 60, 70, 25, 80, 5。",
+     "frame": "content-demos/btree-insert/1.webp"
+    },
+    {
+     "explain": "插入 30：30 成为根",
+     "frame": "content-demos/btree-insert/2.webp"
+    },
+    {
+     "explain": "插入 50：把 50 放入叶子结点 → [30,50]",
+     "frame": "content-demos/btree-insert/3.webp"
+    },
+    {
+     "explain": "插入 10：把 10 放入叶子结点 → [10,30,50]",
+     "frame": "content-demos/btree-insert/4.webp"
+    },
+    {
+     "explain": "插入 40：把 40 放入叶子结点 → [10,30,40,50] → 结点装了 4 个关键字（上界 3），取中间 30 上升，左右分裂 → 根也分裂，30 成为新根，树高 +1",
+     "frame": "content-demos/btree-insert/5.webp"
+    },
+    {
+     "explain": "插入 20：把 20 放入叶子结点 → [10,20]",
+     "frame": "content-demos/btree-insert/6.webp"
+    },
+    {
+     "explain": "插入 60：把 60 放入叶子结点 → [40,50,60]",
+     "frame": "content-demos/btree-insert/7.webp"
+    },
+    {
+     "explain": "插入 70：把 70 放入叶子结点 → [40,50,60,70] → 结点装了 4 个关键字（上界 3），取中间 50 上升，左右分裂 → 上升 50 到父结点 → [30,50]",
+     "frame": "content-demos/btree-insert/8.webp"
+    },
+    {
+     "explain": "插入 25：把 25 放入叶子结点 → [10,20,25]",
+     "frame": "content-demos/btree-insert/9.webp"
+    },
+    {
+     "explain": "插入 80：把 80 放入叶子结点 → [60,70,80]",
+     "frame": "content-demos/btree-insert/10.webp"
+    },
+    {
+     "explain": "插入 5：把 5 放入叶子结点 → [5,10,20,25] → 结点装了 4 个关键字（上界 3），取中间 10 上升，左右分裂 → 上升 10 到父结点 → [30,10,50]",
+     "frame": "content-demos/btree-insert/11.webp"
+    },
+    {
+     "explain": "完成。插入最坏使树高 +1；查找/插入时间 O(log m n)。分裂发生在结点达到 4 个关键字时；删除才涉及合并/借关键字。",
+     "frame": "content-demos/btree-insert/12.webp"
+    }
+   ],
+   "fingerprint": "f911bd676626aba3e4deab018f3b9b2150b5e4b24f06f849b4eeb3c0528d843e"
+  },
+  {
+   "key": "408card/infix-postfix",
+   "sourceId": "infix-postfix",
+   "sourceUrl": "https://408card.top/#/vizp/infix-postfix?sub=ds",
+   "id": "infix-postfix",
+   "code": "ds",
+   "subjectKey": "beokayy-408/data-structure",
+   "title": "中缀转后缀表达式",
+   "description": "栈模拟运算符优先级与括号，输出后缀式",
+   "sortOrder": 27,
+   "frameCount": 13,
+   "frameBytes": 84422,
+   "steps": [
+    {
+     "explain": "中缀表达式：3 * ( 4 + 2 ) - 8 / 2。栈用于暂存运算符；操作数直接输出。左结合：栈顶优先级 ≥ 当前就弹出。",
+     "frame": "content-demos/infix-postfix/1.webp"
+    },
+    {
+     "explain": "操作数 3 直接送到后缀输出",
+     "frame": "content-demos/infix-postfix/2.webp"
+    },
+    {
+     "explain": "运算符 *：先弹出栈顶优先级 ≥ * 的运算符，再把 * 入栈",
+     "frame": "content-demos/infix-postfix/3.webp"
+    },
+    {
+     "explain": "左括号 ( 入栈",
+     "frame": "content-demos/infix-postfix/4.webp"
+    },
+    {
+     "explain": "操作数 4 直接送到后缀输出",
+     "frame": "content-demos/infix-postfix/5.webp"
+    },
+    {
+     "explain": "运算符 +：先弹出栈顶优先级 ≥ + 的运算符，再把 + 入栈",
+     "frame": "content-demos/infix-postfix/6.webp"
+    },
+    {
+     "explain": "操作数 2 直接送到后缀输出",
+     "frame": "content-demos/infix-postfix/7.webp"
+    },
+    {
+     "explain": "右括号 )：弹出到 ( 为止，弹出的运算符进后缀",
+     "frame": "content-demos/infix-postfix/8.webp"
+    },
+    {
+     "explain": "运算符 -：先弹出栈顶优先级 ≥ - 的运算符，再把 - 入栈",
+     "frame": "content-demos/infix-postfix/9.webp"
+    },
+    {
+     "explain": "操作数 8 直接送到后缀输出",
+     "frame": "content-demos/infix-postfix/10.webp"
+    },
+    {
+     "explain": "运算符 /：先弹出栈顶优先级 ≥ / 的运算符，再把 / 入栈",
+     "frame": "content-demos/infix-postfix/11.webp"
+    },
+    {
+     "explain": "操作数 2 直接送到后缀输出",
+     "frame": "content-demos/infix-postfix/12.webp"
+    },
+    {
+     "explain": "栈清空，全部弹出。后缀表达式（逆波兰）：3 4 2 + * 8 2 / - 求值时再用一个数栈从左到右扫即可。",
+     "frame": "content-demos/infix-postfix/13.webp"
+    }
+   ],
+   "fingerprint": "5ee0ea9ae0871eafdf94975c0c05b2a6271fdbaa6f49a965fb2edba3a25481f7"
+  },
+  {
+   "key": "408card/expr-eval",
+   "sourceId": "expr-eval",
+   "sourceUrl": "https://408card.top/#/vizp/expr-eval?sub=ds",
+   "id": "expr-eval",
+   "code": "ds",
+   "subjectKey": "beokayy-408/data-structure",
+   "title": "后缀表达式求值",
+   "description": "遇数入栈、遇运算符弹两数计算",
+   "sortOrder": 28,
+   "frameCount": 11,
+   "frameBytes": 55792,
+   "steps": [
+    {
+     "explain": "后缀表达式（逆波兰）：3 4 2 + * 8 2 / -。从左到右扫描：数入栈，运算符取栈顶两个数计算，结果入栈。",
+     "frame": "content-demos/expr-eval/1.webp"
+    },
+    {
+     "explain": "数 3 入栈",
+     "frame": "content-demos/expr-eval/2.webp"
+    },
+    {
+     "explain": "数 4 入栈",
+     "frame": "content-demos/expr-eval/3.webp"
+    },
+    {
+     "explain": "数 2 入栈",
+     "frame": "content-demos/expr-eval/4.webp"
+    },
+    {
+     "explain": "遇运算符 +：弹出 4、2，算 4 + 2 = 6 入栈",
+     "frame": "content-demos/expr-eval/5.webp"
+    },
+    {
+     "explain": "遇运算符 *：弹出 3、6，算 3 * 6 = 18 入栈",
+     "frame": "content-demos/expr-eval/6.webp"
+    },
+    {
+     "explain": "数 8 入栈",
+     "frame": "content-demos/expr-eval/7.webp"
+    },
+    {
+     "explain": "数 2 入栈",
+     "frame": "content-demos/expr-eval/8.webp"
+    },
+    {
+     "explain": "遇运算符 /：弹出 8、2，算 8 / 2 = 4 入栈",
+     "frame": "content-demos/expr-eval/9.webp"
+    },
+    {
+     "explain": "遇运算符 -：弹出 18、4，算 18 - 4 = 14 入栈",
+     "frame": "content-demos/expr-eval/10.webp"
+    },
+    {
+     "explain": "扫描结束，栈中只剩一个数 = 14，即表达式的值。整个求值 O(n)。",
+     "frame": "content-demos/expr-eval/11.webp"
+    }
+   ],
+   "fingerprint": "6d40d172de1269ddc71a0ff9c4cfa067bdc386225e6d6f384463659361b7c4cb"
+  },
+  {
+   "key": "408card/circ-queue",
+   "sourceId": "circ-queue",
+   "sourceUrl": "https://408card.top/#/vizp/circ-queue?sub=ds",
+   "id": "circ-queue",
+   "code": "ds",
+   "subjectKey": "beokayy-408/data-structure",
+   "title": "循环队列",
+   "description": "少用一单元法判空判满，front/rear 模 M 移动",
+   "sortOrder": 29,
+   "frameCount": 14,
+   "frameBytes": 96824,
+   "steps": [
+    {
+     "explain": "循环队列：数组长度 5，约定「少用一个单元」区分队空/队满。front 指向队头，rear 指向队尾的下一个空位。",
+     "frame": "content-demos/circ-queue/1.webp"
+    },
+    {
+     "explain": "入队 A：放入 rear 位置，rear=(rear+1)%5 → 1",
+     "frame": "content-demos/circ-queue/2.webp"
+    },
+    {
+     "explain": "入队 B：放入 rear 位置，rear=(rear+1)%5 → 2",
+     "frame": "content-demos/circ-queue/3.webp"
+    },
+    {
+     "explain": "入队 C：放入 rear 位置，rear=(rear+1)%5 → 3",
+     "frame": "content-demos/circ-queue/4.webp"
+    },
+    {
+     "explain": "当前长度 = (rear-front+M)%M = 3",
+     "frame": "content-demos/circ-queue/5.webp"
+    },
+    {
+     "explain": "出队 A：取 front 位置，front=(front+1)%5 → 1",
+     "frame": "content-demos/circ-queue/6.webp"
+    },
+    {
+     "explain": "入队 D：放入 rear 位置，rear=(rear+1)%5 → 4",
+     "frame": "content-demos/circ-queue/7.webp"
+    },
+    {
+     "explain": "入队 E：放入 rear 位置，rear=(rear+1)%5 → 0",
+     "frame": "content-demos/circ-queue/8.webp"
+    },
+    {
+     "explain": "队列接近满：长度 = 4，数组还剩 1 个位置（含那个保留单元）",
+     "frame": "content-demos/circ-queue/9.webp"
+    },
+    {
+     "explain": "入队 F：(rear+1)%M==front，队满，不能入队",
+     "frame": "content-demos/circ-queue/10.webp"
+    },
+    {
+     "explain": "出队 B：取 front 位置，front=(front+1)%5 → 2",
+     "frame": "content-demos/circ-queue/11.webp"
+    },
+    {
+     "explain": "出队 C：取 front 位置，front=(front+1)%5 → 3",
+     "frame": "content-demos/circ-queue/12.webp"
+    },
+    {
+     "explain": "入队 G：放入 rear 位置，rear=(rear+1)%5 → 1",
+     "frame": "content-demos/circ-queue/13.webp"
+    },
+    {
+     "explain": "完成。队空判定 front==rear；队满判定 (rear+1)%M==front；元素个数 (rear-front+M)%M。也可用 size 变量直接计数，避免少用一个单元。",
+     "frame": "content-demos/circ-queue/14.webp"
+    }
+   ],
+   "fingerprint": "feaecd2a2be2f7bbe337204b9ed2aaf9d960338d0985584354488c38113e2ec3"
+  },
+  {
+   "key": "408card/floyd",
+   "sourceId": "floyd",
+   "sourceUrl": "https://408card.top/#/vizp/floyd?sub=ds",
+   "id": "floyd",
+   "code": "ds",
+   "subjectKey": "beokayy-408/data-structure",
+   "title": "Floyd 各对最短路径",
+   "description": "邻接矩阵逐轮以 k 为中转松弛更新",
+   "sortOrder": 30,
+   "frameCount": 8,
+   "frameBytes": 80612,
+   "steps": [
+    {
+     "explain": "Floyd：允许经过顶点 0..k 作为中间点。递推式 D[i][j] = min(D[i][j], D[i][k]+D[k][j])。初始 D 即邻接矩阵（0 表示无直接边）。",
+     "frame": "content-demos/floyd/1.webp"
+    },
+    {
+     "explain": "第 1 轮：以 A 为中间点。经 A 更短的：B→B=12，B→D=11，C→C=2，D→B=11，D→D=10",
+     "frame": "content-demos/floyd/2.webp"
+    },
+    {
+     "explain": "第 2 轮：以 B 为中间点。经 B 更短的：A→A=12，A→E=9，E→A=9，E→E=6",
+     "frame": "content-demos/floyd/3.webp"
+    },
+    {
+     "explain": "第 3 轮：以 C 为中间点。经 C 更短的：A→A=2，A→E=7，A→F=5，B→B=10，B→D=10，B→F=9，D→B=10，D→E=11，E→A=7，E→D=11，F→A=5，F→B=9，F→F=8",
+     "frame": "content-demos/floyd/4.webp"
+    },
+    {
+     "explain": "第 4 轮：以 D 为中间点。经 D 更短的：F→F=4",
+     "frame": "content-demos/floyd/5.webp"
+    },
+    {
+     "explain": "第 5 轮：以 E 为中间点。经 E 更短的：B→B=6",
+     "frame": "content-demos/floyd/6.webp"
+    },
+    {
+     "explain": "第 6 轮：以 F 为中间点。经 F 更短的：D→D=4，D→E=8，E→D=8",
+     "frame": "content-demos/floyd/7.webp"
+    },
+    {
+     "explain": "最终：D 矩阵即任意两点间最短路径长度。O(n³)，允许负权（不能有负回路）；与起点无关。",
+     "frame": "content-demos/floyd/8.webp"
+    }
+   ],
+   "fingerprint": "6b892aa526435752d861c24e87163801c25a47cfd6142be53abc0ee8de631e8e"
+  },
+  {
+   "key": "408card/graph-store",
+   "sourceId": "graph-store",
+   "sourceUrl": "https://408card.top/#/vizp/graph-store?sub=ds",
+   "id": "graph-store",
+   "code": "ds",
+   "subjectKey": "beokayy-408/data-structure",
+   "title": "图的存储结构",
+   "description": "邻接矩阵 vs 邻接表并排对比",
+   "sortOrder": 31,
+   "frameCount": 4,
+   "frameBytes": 43960,
+   "steps": [
+    {
+     "explain": "同一个有向图（顶点 A,B,C,D,E，7 条边）。下面对比两种最基本的存储方式：邻接矩阵 与 邻接表。",
+     "frame": "content-demos/graph-store/1.webp"
+    },
+    {
+     "explain": "邻接矩阵：M[i][j] 存边 i→j 的权（无邻边记 0/∞）。找 i 的出边要扫一整行 O(n)；判 i→j 是否存在 O(1)。空间恒 O(n²)，适合稠密图。",
+     "frame": "content-demos/graph-store/2.webp"
+    },
+    {
+     "explain": "邻接表：为每个顶点建一条边链表，只挂实际存在的出边。找 i 的出边直接遍历它的边表 O(degree)；判 i→j 存在需沿链找 O(degree)。空间 O(n+e)，适合稀疏图。",
+     "frame": "content-demos/graph-store/3.webp"
+    },
+    {
+     "explain": "对比结论：无向图邻接矩阵对称、邻接表每条边存两份；有向图邻接表只存出边，若要找入边需「逆邻接表」。矩阵法随机定位快但浪费空间；表法省空间但不支持随机访问。",
+     "frame": "content-demos/graph-store/4.webp"
+    }
+   ],
+   "fingerprint": "0d5b36b0698686da67c8468b175987481f5d2682bc6bd1543b69ee3b709ac017"
+  },
+  {
+   "key": "408card/thread-bst",
+   "sourceId": "thread-bst",
+   "sourceUrl": "https://408card.top/#/vizp/thread-bst?sub=ds",
+   "id": "thread-bst",
+   "code": "ds",
+   "subjectKey": "beokayy-408/data-structure",
+   "title": "中序线索二叉树",
+   "description": "空链域存前驱后继，ltag/rtag 虚线表示",
+   "sortOrder": 32,
+   "frameCount": 3,
+   "frameBytes": 39932,
+   "steps": [
+    {
+     "explain": "中序线索化前的二叉树（先画普通孩子指针）。为省空间，把空的 lchild/rchild 利用起来：ltag=1 时 l 指向中序前驱，rtag=1 时 r 指向中序后继。",
+     "frame": "content-demos/thread-bst/1.webp"
+    },
+    {
+     "explain": "中序序列：A → B → C → D → E → F → G。按此序列把每个空指针改成线索：A 的右线索→B，C 的右线索→D，F 的右线索→G，E 的左线索→D 等。",
+     "frame": "content-demos/thread-bst/2.webp"
+    },
+    {
+     "explain": "线索化完成。实线=孩子指针(tag=0)，虚线=线索(tag=1)。有了中序线索，不用栈即可顺后继遍历、找前驱；通常再加一个头结点，其 ltag=0 指向根、rtag=0 指向自身并形成双向链。",
+     "frame": "content-demos/thread-bst/3.webp"
+    }
+   ],
+   "fingerprint": "306907059138121ad079bc29fdc5e85797c3d145ab126463fe436223c67f79cc"
+  },
+  {
+   "key": "408card/recur-stack",
+   "sourceId": "recur-stack",
+   "sourceUrl": "https://408card.top/#/vizp/recur-stack?sub=ds",
+   "id": "recur-stack",
+   "code": "ds",
+   "subjectKey": "beokayy-408/data-structure",
+   "title": "递归转栈模拟",
+   "description": "阶乘调用栈帧压入与回归过程",
+   "sortOrder": 33,
+   "frameCount": 10,
+   "frameBytes": 66848,
+   "steps": [
+    {
+     "explain": "递归 int fact(n)：n≤1 返回 1；否则返回 n * fact(n-1)。调用 fact(4)。每次调用都在系统栈上压一个栈帧，等子调用返回后再计算。",
+     "frame": "content-demos/recur-stack/1.webp"
+    },
+    {
+     "explain": "调用 fact(4)：算出 n-1 前先挂起，压入栈帧 fact(4)，去调 fact(3)",
+     "frame": "content-demos/recur-stack/2.webp"
+    },
+    {
+     "explain": "调用 fact(3)：算出 n-1 前先挂起，压入栈帧 fact(3)，去调 fact(2)",
+     "frame": "content-demos/recur-stack/3.webp"
+    },
+    {
+     "explain": "调用 fact(2)：算出 n-1 前先挂起，压入栈帧 fact(2)，去调 fact(1)",
+     "frame": "content-demos/recur-stack/4.webp"
+    },
+    {
+     "explain": "fact(1)：触底，直接返回 1（基准情形）",
+     "frame": "content-demos/recur-stack/5.webp"
+    },
+    {
+     "explain": "fact(1) 触底返回 1，弹栈",
+     "frame": "content-demos/recur-stack/6.webp"
+    },
+    {
+     "explain": "fact(1)=1 已返回，算出 fact(2) = 2 × 1 = 2",
+     "frame": "content-demos/recur-stack/7.webp"
+    },
+    {
+     "explain": "fact(2)=2 已返回，算出 fact(3) = 3 × 2 = 6",
+     "frame": "content-demos/recur-stack/8.webp"
+    },
+    {
+     "explain": "fact(3)=6 已返回，算出 fact(4) = 4 × 6 = 24",
+     "frame": "content-demos/recur-stack/9.webp"
+    },
+    {
+     "explain": "完成：fact(4) = 24。递归的本质是系统自动管理的调用栈；栈深=递归深度，fact 为 O(n)。手写「递归转栈」就是自己压帧、存中间状态。",
+     "frame": "content-demos/recur-stack/10.webp"
+    }
+   ],
+   "fingerprint": "7b5167421cc98cdb01e2525c960c3e5edfbf1a08f66aea94e1e352cc80ceb2f8"
+  },
+  {
+   "key": "408card/page-fifo",
+   "sourceId": "page-fifo",
+   "sourceUrl": "https://408card.top/#/vizp/page-fifo?sub=os",
+   "id": "page-fifo",
+   "code": "os",
+   "subjectKey": "beokayy-408/operating-system",
+   "title": "页面置换 FIFO",
+   "description": "先进先出置换，统计缺页",
+   "sortOrder": 1,
+   "frameCount": 15,
+   "frameBytes": 151098,
+   "steps": [
+    {
+     "explain": "FIFO 页面置换 引用串：7 · 0 · 1 · 2 · 0 · 3 · 0 · 4 · 2 · 3 · 0 · 3 · 2 内存帧数 3",
+     "frame": "content-demos/page-fifo/1.webp"
+    },
+    {
+     "explain": "t=0 访问页 7 → 缺页（帧未满），装入空闲帧 0",
+     "frame": "content-demos/page-fifo/2.webp"
+    },
+    {
+     "explain": "t=1 访问页 0 → 缺页（帧未满），装入空闲帧 1",
+     "frame": "content-demos/page-fifo/3.webp"
+    },
+    {
+     "explain": "t=2 访问页 1 → 缺页（帧未满），装入空闲帧 2",
+     "frame": "content-demos/page-fifo/4.webp"
+    },
+    {
+     "explain": "t=3 访问页 2 → 缺页，淘汰帧 0 中 7，装入 2",
+     "frame": "content-demos/page-fifo/5.webp"
+    },
+    {
+     "explain": "t=4 访问页 0 → 命中帧 1 累计缺页 4",
+     "frame": "content-demos/page-fifo/6.webp"
+    },
+    {
+     "explain": "t=5 访问页 3 → 缺页，淘汰帧 1 中 0，装入 3",
+     "frame": "content-demos/page-fifo/7.webp"
+    },
+    {
+     "explain": "t=6 访问页 0 → 缺页，淘汰帧 2 中 1，装入 0",
+     "frame": "content-demos/page-fifo/8.webp"
+    },
+    {
+     "explain": "t=7 访问页 4 → 缺页，淘汰帧 0 中 2，装入 4",
+     "frame": "content-demos/page-fifo/9.webp"
+    },
+    {
+     "explain": "t=8 访问页 2 → 缺页，淘汰帧 1 中 3，装入 2",
+     "frame": "content-demos/page-fifo/10.webp"
+    },
+    {
+     "explain": "t=9 访问页 3 → 缺页，淘汰帧 2 中 0，装入 3",
+     "frame": "content-demos/page-fifo/11.webp"
+    },
+    {
+     "explain": "t=10 访问页 0 → 缺页，淘汰帧 0 中 4，装入 0",
+     "frame": "content-demos/page-fifo/12.webp"
+    },
+    {
+     "explain": "t=11 访问页 3 → 命中帧 2 累计缺页 10",
+     "frame": "content-demos/page-fifo/13.webp"
+    },
+    {
+     "explain": "t=12 访问页 2 → 命中帧 1 累计缺页 10",
+     "frame": "content-demos/page-fifo/14.webp"
+    },
+    {
+     "explain": "结束：缺页 10 / 13，缺页率 76.9%。FIFO 可能出现 Belady 异常（帧数增多缺页反而增多），是唯一会的经典算法。",
+     "frame": "content-demos/page-fifo/15.webp"
+    }
+   ],
+   "fingerprint": "158e5fd61dba4917f9bff006726cc9b66797c25d40e8fce0307de5d5513d4037"
+  },
+  {
+   "key": "408card/page-lru",
+   "sourceId": "page-lru",
+   "sourceUrl": "https://408card.top/#/vizp/page-lru?sub=os",
+   "id": "page-lru",
+   "code": "os",
+   "subjectKey": "beokayy-408/operating-system",
+   "title": "页面置换 LRU",
+   "description": "最近最久未使用置换",
+   "sortOrder": 2,
+   "frameCount": 15,
+   "frameBytes": 150946,
+   "steps": [
+    {
+     "explain": "LRU 页面置换 引用串：7 · 0 · 1 · 2 · 0 · 3 · 0 · 4 · 2 · 3 · 0 · 3 · 2 内存帧数 3",
+     "frame": "content-demos/page-lru/1.webp"
+    },
+    {
+     "explain": "t=0 访问页 7 → 缺页（帧未满），装入空闲帧 0",
+     "frame": "content-demos/page-lru/2.webp"
+    },
+    {
+     "explain": "t=1 访问页 0 → 缺页（帧未满），装入空闲帧 1",
+     "frame": "content-demos/page-lru/3.webp"
+    },
+    {
+     "explain": "t=2 访问页 1 → 缺页（帧未满），装入空闲帧 2",
+     "frame": "content-demos/page-lru/4.webp"
+    },
+    {
+     "explain": "t=3 访问页 2 → 缺页，淘汰帧 0 中 7，装入 2",
+     "frame": "content-demos/page-lru/5.webp"
+    },
+    {
+     "explain": "t=4 访问页 0 → 命中帧 1 累计缺页 4",
+     "frame": "content-demos/page-lru/6.webp"
+    },
+    {
+     "explain": "t=5 访问页 3 → 缺页，淘汰帧 2 中 1，装入 3",
+     "frame": "content-demos/page-lru/7.webp"
+    },
+    {
+     "explain": "t=6 访问页 0 → 命中帧 1 累计缺页 5",
+     "frame": "content-demos/page-lru/8.webp"
+    },
+    {
+     "explain": "t=7 访问页 4 → 缺页，淘汰帧 0 中 2，装入 4",
+     "frame": "content-demos/page-lru/9.webp"
+    },
+    {
+     "explain": "t=8 访问页 2 → 缺页，淘汰帧 2 中 3，装入 2",
+     "frame": "content-demos/page-lru/10.webp"
+    },
+    {
+     "explain": "t=9 访问页 3 → 缺页，淘汰帧 1 中 0，装入 3",
+     "frame": "content-demos/page-lru/11.webp"
+    },
+    {
+     "explain": "t=10 访问页 0 → 缺页，淘汰帧 0 中 4，装入 0",
+     "frame": "content-demos/page-lru/12.webp"
+    },
+    {
+     "explain": "t=11 访问页 3 → 命中帧 1 累计缺页 9",
+     "frame": "content-demos/page-lru/13.webp"
+    },
+    {
+     "explain": "t=12 访问页 2 → 命中帧 2 累计缺页 9",
+     "frame": "content-demos/page-lru/14.webp"
+    },
+    {
+     "explain": "结束：缺页 9 / 13，缺页率 69.2%。LRU 淘汰最近最久未用，性能接近 OPT，实现需计数器/栈，开销大。",
+     "frame": "content-demos/page-lru/15.webp"
+    }
+   ],
+   "fingerprint": "c8b31443918ac2525947b299b2ef2569081f0d92f17365cf0f20a52ce8b09bf0"
+  },
+  {
+   "key": "408card/page-opt",
+   "sourceId": "page-opt",
+   "sourceUrl": "https://408card.top/#/vizp/page-opt?sub=os",
+   "id": "page-opt",
+   "code": "os",
+   "subjectKey": "beokayy-408/operating-system",
+   "title": "页面置换 OPT",
+   "description": "未来最久不用，理论最优",
+   "sortOrder": 3,
+   "frameCount": 15,
+   "frameBytes": 150884,
+   "steps": [
+    {
+     "explain": "OPT 页面置换 引用串：7 · 0 · 1 · 2 · 0 · 3 · 0 · 4 · 2 · 3 · 0 · 3 · 2 内存帧数 3",
+     "frame": "content-demos/page-opt/1.webp"
+    },
+    {
+     "explain": "t=0 访问页 7 → 缺页（帧未满），装入空闲帧 0",
+     "frame": "content-demos/page-opt/2.webp"
+    },
+    {
+     "explain": "t=1 访问页 0 → 缺页（帧未满），装入空闲帧 1",
+     "frame": "content-demos/page-opt/3.webp"
+    },
+    {
+     "explain": "t=2 访问页 1 → 缺页（帧未满），装入空闲帧 2",
+     "frame": "content-demos/page-opt/4.webp"
+    },
+    {
+     "explain": "t=3 访问页 2 → 缺页，淘汰帧 0 中 7，装入 2",
+     "frame": "content-demos/page-opt/5.webp"
+    },
+    {
+     "explain": "t=4 访问页 0 → 命中帧 1 累计缺页 4",
+     "frame": "content-demos/page-opt/6.webp"
+    },
+    {
+     "explain": "t=5 访问页 3 → 缺页，淘汰帧 2 中 1，装入 3",
+     "frame": "content-demos/page-opt/7.webp"
+    },
+    {
+     "explain": "t=6 访问页 0 → 命中帧 1 累计缺页 5",
+     "frame": "content-demos/page-opt/8.webp"
+    },
+    {
+     "explain": "t=7 访问页 4 → 缺页，淘汰帧 1 中 0，装入 4",
+     "frame": "content-demos/page-opt/9.webp"
+    },
+    {
+     "explain": "t=8 访问页 2 → 命中帧 0 累计缺页 6",
+     "frame": "content-demos/page-opt/10.webp"
+    },
+    {
+     "explain": "t=9 访问页 3 → 命中帧 2 累计缺页 6",
+     "frame": "content-demos/page-opt/11.webp"
+    },
+    {
+     "explain": "t=10 访问页 0 → 缺页，淘汰帧 1 中 4，装入 0",
+     "frame": "content-demos/page-opt/12.webp"
+    },
+    {
+     "explain": "t=11 访问页 3 → 命中帧 2 累计缺页 7",
+     "frame": "content-demos/page-opt/13.webp"
+    },
+    {
+     "explain": "t=12 访问页 2 → 命中帧 0 累计缺页 7",
+     "frame": "content-demos/page-opt/14.webp"
+    },
+    {
+     "explain": "结束：缺页 7 / 13，缺页率 53.8%。OPT 理论最优但需预知引用串，无法实现，只作衡量基准。",
+     "frame": "content-demos/page-opt/15.webp"
+    }
+   ],
+   "fingerprint": "0edf0f11956060344242ec51c177067d98389b1dda46fb42ffeeb5ad6a75a134"
+  },
+  {
+   "key": "408card/page-clock",
+   "sourceId": "page-clock",
+   "sourceUrl": "https://408card.top/#/vizp/page-clock?sub=os",
+   "id": "page-clock",
+   "code": "os",
+   "subjectKey": "beokayy-408/operating-system",
+   "title": "页面置换 Clock",
+   "description": "二次机会算法",
+   "sortOrder": 4,
+   "frameCount": 15,
+   "frameBytes": 152870,
+   "steps": [
+    {
+     "explain": "Clock 页面置换 引用串：7 · 0 · 1 · 2 · 0 · 3 · 0 · 4 · 2 · 3 · 0 · 3 · 2 内存帧数 3",
+     "frame": "content-demos/page-clock/1.webp"
+    },
+    {
+     "explain": "t=0 访问页 7 → 缺页（帧未满），装入空闲帧 0",
+     "frame": "content-demos/page-clock/2.webp"
+    },
+    {
+     "explain": "t=1 访问页 0 → 缺页（帧未满），装入空闲帧 1",
+     "frame": "content-demos/page-clock/3.webp"
+    },
+    {
+     "explain": "t=2 访问页 1 → 缺页（帧未满），装入空闲帧 2",
+     "frame": "content-demos/page-clock/4.webp"
+    },
+    {
+     "explain": "t=3 访问页 2 → 缺页，淘汰帧 0 中 7，装入 2",
+     "frame": "content-demos/page-clock/5.webp"
+    },
+    {
+     "explain": "t=4 访问页 0 → 命中帧 1 累计缺页 4",
+     "frame": "content-demos/page-clock/6.webp"
+    },
+    {
+     "explain": "t=5 访问页 3 → 缺页，淘汰帧 2 中 1，装入 3",
+     "frame": "content-demos/page-clock/7.webp"
+    },
+    {
+     "explain": "t=6 访问页 0 → 命中帧 1 累计缺页 5",
+     "frame": "content-demos/page-clock/8.webp"
+    },
+    {
+     "explain": "t=7 访问页 4 → 缺页，淘汰帧 0 中 2，装入 4",
+     "frame": "content-demos/page-clock/9.webp"
+    },
+    {
+     "explain": "t=8 访问页 2 → 缺页，淘汰帧 1 中 0，装入 2",
+     "frame": "content-demos/page-clock/10.webp"
+    },
+    {
+     "explain": "t=9 访问页 3 → 命中帧 2 累计缺页 7",
+     "frame": "content-demos/page-clock/11.webp"
+    },
+    {
+     "explain": "t=10 访问页 0 → 缺页，淘汰帧 2 中 3，装入 0",
+     "frame": "content-demos/page-clock/12.webp"
+    },
+    {
+     "explain": "t=11 访问页 3 → 缺页，淘汰帧 0 中 4，装入 3",
+     "frame": "content-demos/page-clock/13.webp"
+    },
+    {
+     "explain": "t=12 访问页 2 → 命中帧 1 累计缺页 9",
+     "frame": "content-demos/page-clock/14.webp"
+    },
+    {
+     "explain": "结束：缺页 9 / 13，缺页率 69.2%。Clock 用访问位近似 LRU：访问位为 1 置 0 给二次机会，为 0 才淘汰。",
+     "frame": "content-demos/page-clock/15.webp"
+    }
+   ],
+   "fingerprint": "2eb3a67384a0af2a56ccf838d7dfbf2a82818699bd76b26638210b802661c371"
+  },
+  {
+   "key": "408card/cpu-fcfs",
+   "sourceId": "cpu-fcfs",
+   "sourceUrl": "https://408card.top/#/vizp/cpu-fcfs?sub=os",
+   "id": "cpu-fcfs",
+   "code": "os",
+   "subjectKey": "beokayy-408/operating-system",
+   "title": "调度 FCFS",
+   "description": "先来先服务甘特图",
+   "sortOrder": 5,
+   "frameCount": 18,
+   "frameBytes": 196650,
+   "steps": [
+    {
+     "explain": "FCFS 先来先服务：按到达顺序上 CPU，对短作业不利。 进程：P1(到达0,服务7) P2(到达2,服务4) P3(到达4,服务1) P4(到达5,服务4)",
+     "frame": "content-demos/cpu-fcfs/1.webp"
+    },
+    {
+     "explain": "FCFS t=0 → 运行 P1",
+     "frame": "content-demos/cpu-fcfs/2.webp"
+    },
+    {
+     "explain": "FCFS t=1 → 运行 P1",
+     "frame": "content-demos/cpu-fcfs/3.webp"
+    },
+    {
+     "explain": "FCFS t=2 → 运行 P1",
+     "frame": "content-demos/cpu-fcfs/4.webp"
+    },
+    {
+     "explain": "FCFS t=3 → 运行 P1",
+     "frame": "content-demos/cpu-fcfs/5.webp"
+    },
+    {
+     "explain": "FCFS t=4 → 运行 P1",
+     "frame": "content-demos/cpu-fcfs/6.webp"
+    },
+    {
+     "explain": "FCFS t=5 → 运行 P1",
+     "frame": "content-demos/cpu-fcfs/7.webp"
+    },
+    {
+     "explain": "FCFS t=6 → 运行 P1",
+     "frame": "content-demos/cpu-fcfs/8.webp"
+    },
+    {
+     "explain": "FCFS t=7 → 运行 P2",
+     "frame": "content-demos/cpu-fcfs/9.webp"
+    },
+    {
+     "explain": "FCFS t=8 → 运行 P2",
+     "frame": "content-demos/cpu-fcfs/10.webp"
+    },
+    {
+     "explain": "FCFS t=9 → 运行 P2",
+     "frame": "content-demos/cpu-fcfs/11.webp"
+    },
+    {
+     "explain": "FCFS t=10 → 运行 P2",
+     "frame": "content-demos/cpu-fcfs/12.webp"
+    },
+    {
+     "explain": "FCFS t=11 → 运行 P3",
+     "frame": "content-demos/cpu-fcfs/13.webp"
+    },
+    {
+     "explain": "FCFS t=12 → 运行 P4",
+     "frame": "content-demos/cpu-fcfs/14.webp"
+    },
+    {
+     "explain": "FCFS t=13 → 运行 P4",
+     "frame": "content-demos/cpu-fcfs/15.webp"
+    },
+    {
+     "explain": "FCFS t=14 → 运行 P4",
+     "frame": "content-demos/cpu-fcfs/16.webp"
+    },
+    {
+     "explain": "FCFS t=15 → 运行 P4",
+     "frame": "content-demos/cpu-fcfs/17.webp"
+    },
+    {
+     "explain": "FCFS 结束：平均等待 4.75，平均周转 8.75 各进程完成时间 P1:7 P2:11 P3:12 P4:16",
+     "frame": "content-demos/cpu-fcfs/18.webp"
+    }
+   ],
+   "fingerprint": "ae1125eb95044c3a8e94a0ba74299a7d9f79445e5bd44ef8a6245c92b7c41a78"
+  },
+  {
+   "key": "408card/cpu-sjf",
+   "sourceId": "cpu-sjf",
+   "sourceUrl": "https://408card.top/#/vizp/cpu-sjf?sub=os",
+   "id": "cpu-sjf",
+   "code": "os",
+   "subjectKey": "beokayy-408/operating-system",
+   "title": "调度 SJF",
+   "description": "短作业优先（非抢占）",
+   "sortOrder": 6,
+   "frameCount": 18,
+   "frameBytes": 196502,
+   "steps": [
+    {
+     "explain": "SJF 非抢占最短作业优先：选预计运行时间最短的就绪进程。 进程：P1(到达0,服务7) P2(到达2,服务4) P3(到达4,服务1) P4(到达5,服务4)",
+     "frame": "content-demos/cpu-sjf/1.webp"
+    },
+    {
+     "explain": "SJF t=0 → 运行 P1",
+     "frame": "content-demos/cpu-sjf/2.webp"
+    },
+    {
+     "explain": "SJF t=1 → 运行 P1",
+     "frame": "content-demos/cpu-sjf/3.webp"
+    },
+    {
+     "explain": "SJF t=2 → 运行 P2",
+     "frame": "content-demos/cpu-sjf/4.webp"
+    },
+    {
+     "explain": "SJF t=3 → 运行 P2",
+     "frame": "content-demos/cpu-sjf/5.webp"
+    },
+    {
+     "explain": "SJF t=4 → 运行 P3",
+     "frame": "content-demos/cpu-sjf/6.webp"
+    },
+    {
+     "explain": "SJF t=5 → 运行 P2",
+     "frame": "content-demos/cpu-sjf/7.webp"
+    },
+    {
+     "explain": "SJF t=6 → 运行 P2",
+     "frame": "content-demos/cpu-sjf/8.webp"
+    },
+    {
+     "explain": "SJF t=7 → 运行 P4",
+     "frame": "content-demos/cpu-sjf/9.webp"
+    },
+    {
+     "explain": "SJF t=8 → 运行 P4",
+     "frame": "content-demos/cpu-sjf/10.webp"
+    },
+    {
+     "explain": "SJF t=9 → 运行 P4",
+     "frame": "content-demos/cpu-sjf/11.webp"
+    },
+    {
+     "explain": "SJF t=10 → 运行 P4",
+     "frame": "content-demos/cpu-sjf/12.webp"
+    },
+    {
+     "explain": "SJF t=11 → 运行 P1",
+     "frame": "content-demos/cpu-sjf/13.webp"
+    },
+    {
+     "explain": "SJF t=12 → 运行 P1",
+     "frame": "content-demos/cpu-sjf/14.webp"
+    },
+    {
+     "explain": "SJF t=13 → 运行 P1",
+     "frame": "content-demos/cpu-sjf/15.webp"
+    },
+    {
+     "explain": "SJF t=14 → 运行 P1",
+     "frame": "content-demos/cpu-sjf/16.webp"
+    },
+    {
+     "explain": "SJF t=15 → 运行 P1",
+     "frame": "content-demos/cpu-sjf/17.webp"
+    },
+    {
+     "explain": "SJF 结束：平均等待 3.00，平均周转 7.00 各进程完成时间 P1:16 P2:7 P3:5 P4:11",
+     "frame": "content-demos/cpu-sjf/18.webp"
+    }
+   ],
+   "fingerprint": "371216278fca48c58d36f8a70dd1d066e5680f7b38e4a668bdedb773400e2a50"
+  },
+  {
+   "key": "408card/cpu-rr",
+   "sourceId": "cpu-rr",
+   "sourceUrl": "https://408card.top/#/vizp/cpu-rr?sub=os",
+   "id": "cpu-rr",
+   "code": "os",
+   "subjectKey": "beokayy-408/operating-system",
+   "title": "调度时间片轮转",
+   "description": "RR 抢占轮转",
+   "sortOrder": 7,
+   "frameCount": 18,
+   "frameBytes": 199366,
+   "steps": [
+    {
+     "explain": "RR 时间片轮转：就绪队列 FIFO，时间片用完放回队尾。 进程：P1(到达0,服务7) P2(到达2,服务4) P3(到达4,服务1) P4(到达5,服务4)",
+     "frame": "content-demos/cpu-rr/1.webp"
+    },
+    {
+     "explain": "RR t=0 → 运行 P1",
+     "frame": "content-demos/cpu-rr/2.webp"
+    },
+    {
+     "explain": "RR t=1 → 运行 P1",
+     "frame": "content-demos/cpu-rr/3.webp"
+    },
+    {
+     "explain": "RR t=2 → 运行 P2",
+     "frame": "content-demos/cpu-rr/4.webp"
+    },
+    {
+     "explain": "RR t=3 → 运行 P2",
+     "frame": "content-demos/cpu-rr/5.webp"
+    },
+    {
+     "explain": "RR t=4 → 运行 P1",
+     "frame": "content-demos/cpu-rr/6.webp"
+    },
+    {
+     "explain": "RR t=5 → 运行 P1",
+     "frame": "content-demos/cpu-rr/7.webp"
+    },
+    {
+     "explain": "RR t=6 → 运行 P3",
+     "frame": "content-demos/cpu-rr/8.webp"
+    },
+    {
+     "explain": "RR t=7 → 运行 P2",
+     "frame": "content-demos/cpu-rr/9.webp"
+    },
+    {
+     "explain": "RR t=8 → 运行 P2",
+     "frame": "content-demos/cpu-rr/10.webp"
+    },
+    {
+     "explain": "RR t=9 → 运行 P4",
+     "frame": "content-demos/cpu-rr/11.webp"
+    },
+    {
+     "explain": "RR t=10 → 运行 P4",
+     "frame": "content-demos/cpu-rr/12.webp"
+    },
+    {
+     "explain": "RR t=11 → 运行 P1",
+     "frame": "content-demos/cpu-rr/13.webp"
+    },
+    {
+     "explain": "RR t=12 → 运行 P1",
+     "frame": "content-demos/cpu-rr/14.webp"
+    },
+    {
+     "explain": "RR t=13 → 运行 P4",
+     "frame": "content-demos/cpu-rr/15.webp"
+    },
+    {
+     "explain": "RR t=14 → 运行 P4",
+     "frame": "content-demos/cpu-rr/16.webp"
+    },
+    {
+     "explain": "RR t=15 → 运行 P1",
+     "frame": "content-demos/cpu-rr/17.webp"
+    },
+    {
+     "explain": "RR 结束：平均等待 5.00，平均周转 9.00 各进程完成时间 P1:16 P2:9 P3:7 P4:15",
+     "frame": "content-demos/cpu-rr/18.webp"
+    }
+   ],
+   "fingerprint": "a2c5fd5fa301b2355cd932ecb9974e51e47def0c6495e12578a7a334e514ab60"
+  },
+  {
+   "key": "408card/cpu-prio",
+   "sourceId": "cpu-prio",
+   "sourceUrl": "https://408card.top/#/vizp/cpu-prio?sub=os",
+   "id": "cpu-prio",
+   "code": "os",
+   "subjectKey": "beokayy-408/operating-system",
+   "title": "调度优先级",
+   "description": "非抢占优先级",
+   "sortOrder": 8,
+   "frameCount": 18,
+   "frameBytes": 200388,
+   "steps": [
+    {
+     "explain": "PRIO 非抢占优先级：选优先级最高（数字最小）的就绪进程。 进程：P1(到达0,服务7,优先3) P2(到达2,服务4,优先1) P3(到达4,服务1,优先4) P4(到达5,服务4,优先2)",
+     "frame": "content-demos/cpu-prio/1.webp"
+    },
+    {
+     "explain": "PRIO t=0 → 运行 P1",
+     "frame": "content-demos/cpu-prio/2.webp"
+    },
+    {
+     "explain": "PRIO t=1 → 运行 P1",
+     "frame": "content-demos/cpu-prio/3.webp"
+    },
+    {
+     "explain": "PRIO t=2 → 运行 P2",
+     "frame": "content-demos/cpu-prio/4.webp"
+    },
+    {
+     "explain": "PRIO t=3 → 运行 P2",
+     "frame": "content-demos/cpu-prio/5.webp"
+    },
+    {
+     "explain": "PRIO t=4 → 运行 P2",
+     "frame": "content-demos/cpu-prio/6.webp"
+    },
+    {
+     "explain": "PRIO t=5 → 运行 P2",
+     "frame": "content-demos/cpu-prio/7.webp"
+    },
+    {
+     "explain": "PRIO t=6 → 运行 P4",
+     "frame": "content-demos/cpu-prio/8.webp"
+    },
+    {
+     "explain": "PRIO t=7 → 运行 P4",
+     "frame": "content-demos/cpu-prio/9.webp"
+    },
+    {
+     "explain": "PRIO t=8 → 运行 P4",
+     "frame": "content-demos/cpu-prio/10.webp"
+    },
+    {
+     "explain": "PRIO t=9 → 运行 P4",
+     "frame": "content-demos/cpu-prio/11.webp"
+    },
+    {
+     "explain": "PRIO t=10 → 运行 P1",
+     "frame": "content-demos/cpu-prio/12.webp"
+    },
+    {
+     "explain": "PRIO t=11 → 运行 P1",
+     "frame": "content-demos/cpu-prio/13.webp"
+    },
+    {
+     "explain": "PRIO t=12 → 运行 P1",
+     "frame": "content-demos/cpu-prio/14.webp"
+    },
+    {
+     "explain": "PRIO t=13 → 运行 P1",
+     "frame": "content-demos/cpu-prio/15.webp"
+    },
+    {
+     "explain": "PRIO t=14 → 运行 P1",
+     "frame": "content-demos/cpu-prio/16.webp"
+    },
+    {
+     "explain": "PRIO t=15 → 运行 P3",
+     "frame": "content-demos/cpu-prio/17.webp"
+    },
+    {
+     "explain": "PRIO 结束：平均等待 5.00，平均周转 9.00 各进程完成时间 P1:15 P2:6 P3:16 P4:10",
+     "frame": "content-demos/cpu-prio/18.webp"
+    }
+   ],
+   "fingerprint": "8cd9bc6a5fa9cb965ada4fd9078ba5b6678d247b57eb044ed7302c525a0f5ce1"
+  },
+  {
+   "key": "408card/banker",
+   "sourceId": "banker",
+   "sourceUrl": "https://408card.top/#/vizp/banker?sub=os",
+   "id": "banker",
+   "code": "os",
+   "subjectKey": "beokayy-408/operating-system",
+   "title": "银行家算法",
+   "description": "安全性检查逐步演示",
+   "sortOrder": 9,
+   "frameCount": 14,
+   "frameBytes": 201248,
+   "steps": [
+    {
+     "explain": "银行家算法：Available=3 3 2 Need=Max−Allocation。逐步找 Need≤Work 且 Finish=false 的进程。",
+     "frame": "content-demos/banker/1.webp"
+    },
+    {
+     "explain": "检查 P0：Need=7 4 3 ≤ Work=3 3 2？ 否，跳过",
+     "frame": "content-demos/banker/2.webp"
+    },
+    {
+     "explain": "检查 P1：Need=1 2 2 ≤ Work=3 3 2？ 是，可分配",
+     "frame": "content-demos/banker/3.webp"
+    },
+    {
+     "explain": "P1 运行完毕，回收其 Allocation，Work → 5 3 2 安全序列：P1",
+     "frame": "content-demos/banker/4.webp"
+    },
+    {
+     "explain": "检查 P2：Need=6 0 0 ≤ Work=5 3 2？ 否，跳过",
+     "frame": "content-demos/banker/5.webp"
+    },
+    {
+     "explain": "检查 P3：Need=0 1 1 ≤ Work=5 3 2？ 是，可分配",
+     "frame": "content-demos/banker/6.webp"
+    },
+    {
+     "explain": "P3 运行完毕，回收其 Allocation，Work → 7 4 3 安全序列：P1 → P3",
+     "frame": "content-demos/banker/7.webp"
+    },
+    {
+     "explain": "检查 P4：Need=4 3 1 ≤ Work=7 4 3？ 是，可分配",
+     "frame": "content-demos/banker/8.webp"
+    },
+    {
+     "explain": "P4 运行完毕，回收其 Allocation，Work → 7 4 5 安全序列：P1 → P3 → P4",
+     "frame": "content-demos/banker/9.webp"
+    },
+    {
+     "explain": "检查 P0：Need=7 4 3 ≤ Work=7 4 5？ 是，可分配",
+     "frame": "content-demos/banker/10.webp"
+    },
+    {
+     "explain": "P0 运行完毕，回收其 Allocation，Work → 7 5 5 安全序列：P1 → P3 → P4 → P0",
+     "frame": "content-demos/banker/11.webp"
+    },
+    {
+     "explain": "检查 P2：Need=6 0 0 ≤ Work=7 5 5？ 是，可分配",
+     "frame": "content-demos/banker/12.webp"
+    },
+    {
+     "explain": "P2 运行完毕，回收其 Allocation，Work → 10 5 7 安全序列：P1 → P3 → P4 → P0 → P2",
+     "frame": "content-demos/banker/13.webp"
+    },
+    {
+     "explain": "安全状态，安全序列：P1 → P3 → P4 → P0 → P2 可放心分配。",
+     "frame": "content-demos/banker/14.webp"
+    }
+   ],
+   "fingerprint": "438ec8986fd0a0cff37006fa63ede77368fc1e2f3af16cd1467ed3bc088e92e6"
+  },
+  {
+   "key": "408card/pv",
+   "sourceId": "pv",
+   "sourceUrl": "https://408card.top/#/vizp/pv?sub=os",
+   "id": "pv",
+   "code": "os",
+   "subjectKey": "beokayy-408/operating-system",
+   "title": "生产者-消费者 PV",
+   "description": "信号量与 P/V 操作逐条执行",
+   "sortOrder": 10,
+   "frameCount": 16,
+   "frameBytes": 175148,
+   "steps": [
+    {
+     "explain": "缓冲池容量 n=3。信号量：mutex=1（互斥）、empty=3（空位）、full=0（产品数）。",
+     "frame": "content-demos/pv/1.webp"
+    },
+    {
+     "explain": "生产者准备生产产品 A…",
+     "frame": "content-demos/pv/2.webp"
+    },
+    {
+     "explain": "生产者 P(empty)：申请一个空位（同步信号量）",
+     "frame": "content-demos/pv/3.webp"
+    },
+    {
+     "explain": "生产者 P(mutex)：进入临界区。顺序：先同步后互斥",
+     "frame": "content-demos/pv/4.webp"
+    },
+    {
+     "explain": "生产者放入 A，缓冲池：[A]",
+     "frame": "content-demos/pv/5.webp"
+    },
+    {
+     "explain": "生产者 V(mutex)：离开临界区",
+     "frame": "content-demos/pv/6.webp"
+    },
+    {
+     "explain": "生产者 V(full)：产品数 +1",
+     "frame": "content-demos/pv/7.webp"
+    },
+    {
+     "explain": "消费者准备取产品…",
+     "frame": "content-demos/pv/8.webp"
+    },
+    {
+     "explain": "消费者 P(full)：申请一个产品",
+     "frame": "content-demos/pv/9.webp"
+    },
+    {
+     "explain": "消费者 P(mutex)：进入临界区",
+     "frame": "content-demos/pv/10.webp"
+    },
+    {
+     "explain": "消费者取走 A，缓冲池：[]",
+     "frame": "content-demos/pv/11.webp"
+    },
+    {
+     "explain": "消费者 V(mutex)：离开临界区",
+     "frame": "content-demos/pv/12.webp"
+    },
+    {
+     "explain": "消费者 V(empty)：空位 +1",
+     "frame": "content-demos/pv/13.webp"
+    },
+    {
+     "explain": "生产者放入 B，缓冲池：[B]",
+     "frame": "content-demos/pv/14.webp"
+    },
+    {
+     "explain": "生产者放入 C，缓冲池：[B,C]",
+     "frame": "content-demos/pv/15.webp"
+    },
+    {
+     "explain": "关键结论：① P(empty)/P(full) 与 P(mutex) 顺序不能颠倒（先同步后互斥，否则可能死锁）② mutex 只包住临界区。",
+     "frame": "content-demos/pv/16.webp"
+    }
+   ],
+   "fingerprint": "3a45c48552448cbfb4cd097b9779defd04369a6eebcdd38e6baed4b7e79f52fb"
+  },
+  {
+   "key": "408card/seg-page",
+   "sourceId": "seg-page",
+   "sourceUrl": "https://408card.top/#/vizp/seg-page?sub=os",
+   "id": "seg-page",
+   "code": "os",
+   "subjectKey": "beokayy-408/operating-system",
+   "title": "段页式地址变换",
+   "description": "逻辑地址 → 物理地址逐步拆解",
+   "sortOrder": 11,
+   "frameCount": 5,
+   "frameBytes": 56486,
+   "steps": [
+    {
+     "explain": "段页式：逻辑地址 = (段号 S, 页号 P, 页内偏移 W)。输入：S=0, P=1, W=100",
+     "frame": "content-demos/seg-page/1.webp"
+    },
+    {
+     "explain": "① 查段表第 0 项：段长=8192，页表始址=PT0",
+     "frame": "content-demos/seg-page/2.webp"
+    },
+    {
+     "explain": "② 用页表始址 PT0 查页表第 1 项 → 页框号=8",
+     "frame": "content-demos/seg-page/3.webp"
+    },
+    {
+     "explain": "③ 物理地址 = 页框号×页大小 + 偏移 = 8×4096 + 100 = 32868",
+     "frame": "content-demos/seg-page/4.webp"
+    },
+    {
+     "explain": "完成：段页式先段后页，需两次查表（可用 TLB 加速为一次）。",
+     "frame": "content-demos/seg-page/5.webp"
+    }
+   ],
+   "fingerprint": "a7ef04c1cd5bc77f6944064e37d71ebaef1263de37c6c155b184fdf7958d302d"
+  },
+  {
+   "key": "408card/disk-fcfs",
+   "sourceId": "disk-fcfs",
+   "sourceUrl": "https://408card.top/#/vizp/disk-fcfs?sub=os",
+   "id": "disk-fcfs",
+   "code": "os",
+   "subjectKey": "beokayy-408/operating-system",
+   "title": "磁盘 FCFS",
+   "description": "按请求到达顺序寻道",
+   "sortOrder": 12,
+   "frameCount": 11,
+   "frameBytes": 92944,
+   "steps": [
+    {
+     "explain": "FCFS 先来先服务：按请求先后服务，公平但寻道长。 磁头从 53 出发，请求：98 183 37 122 14 124 65 67",
+     "frame": "content-demos/disk-fcfs/1.webp"
+    },
+    {
+     "explain": "FCFS：磁头移动到 53（起点）",
+     "frame": "content-demos/disk-fcfs/2.webp"
+    },
+    {
+     "explain": "FCFS：磁头移动到 98（本趟寻道 45）",
+     "frame": "content-demos/disk-fcfs/3.webp"
+    },
+    {
+     "explain": "FCFS：磁头移动到 183（本趟寻道 85）",
+     "frame": "content-demos/disk-fcfs/4.webp"
+    },
+    {
+     "explain": "FCFS：磁头移动到 37（本趟寻道 146）",
+     "frame": "content-demos/disk-fcfs/5.webp"
+    },
+    {
+     "explain": "FCFS：磁头移动到 122（本趟寻道 85）",
+     "frame": "content-demos/disk-fcfs/6.webp"
+    },
+    {
+     "explain": "FCFS：磁头移动到 14（本趟寻道 108）",
+     "frame": "content-demos/disk-fcfs/7.webp"
+    },
+    {
+     "explain": "FCFS：磁头移动到 124（本趟寻道 110）",
+     "frame": "content-demos/disk-fcfs/8.webp"
+    },
+    {
+     "explain": "FCFS：磁头移动到 65（本趟寻道 59）",
+     "frame": "content-demos/disk-fcfs/9.webp"
+    },
+    {
+     "explain": "FCFS：磁头移动到 67（本趟寻道 2）",
+     "frame": "content-demos/disk-fcfs/10.webp"
+    },
+    {
+     "explain": "FCFS 完成：总寻道距离 640 磁道。FCFS 公平但无优化，寻道总距离最长。",
+     "frame": "content-demos/disk-fcfs/11.webp"
+    }
+   ],
+   "fingerprint": "95cc3b94589d96e6da8c098b9b4c75a19420e335fed1b7ab83d7cbe1e36d4269"
+  },
+  {
+   "key": "408card/disk-sstf",
+   "sourceId": "disk-sstf",
+   "sourceUrl": "https://408card.top/#/vizp/disk-sstf?sub=os",
+   "id": "disk-sstf",
+   "code": "os",
+   "subjectKey": "beokayy-408/operating-system",
+   "title": "磁盘 SSTF",
+   "description": "最短寻道时间优先",
+   "sortOrder": 13,
+   "frameCount": 11,
+   "frameBytes": 93290,
+   "steps": [
+    {
+     "explain": "SSTF 最短寻道时间优先：每次选离磁头最近的请求。 磁头从 53 出发，请求：98 183 37 122 14 124 65 67",
+     "frame": "content-demos/disk-sstf/1.webp"
+    },
+    {
+     "explain": "SSTF：磁头移动到 53（起点）",
+     "frame": "content-demos/disk-sstf/2.webp"
+    },
+    {
+     "explain": "SSTF：磁头移动到 65（本趟寻道 12）",
+     "frame": "content-demos/disk-sstf/3.webp"
+    },
+    {
+     "explain": "SSTF：磁头移动到 67（本趟寻道 2）",
+     "frame": "content-demos/disk-sstf/4.webp"
+    },
+    {
+     "explain": "SSTF：磁头移动到 37（本趟寻道 30）",
+     "frame": "content-demos/disk-sstf/5.webp"
+    },
+    {
+     "explain": "SSTF：磁头移动到 14（本趟寻道 23）",
+     "frame": "content-demos/disk-sstf/6.webp"
+    },
+    {
+     "explain": "SSTF：磁头移动到 98（本趟寻道 84）",
+     "frame": "content-demos/disk-sstf/7.webp"
+    },
+    {
+     "explain": "SSTF：磁头移动到 122（本趟寻道 24）",
+     "frame": "content-demos/disk-sstf/8.webp"
+    },
+    {
+     "explain": "SSTF：磁头移动到 124（本趟寻道 2）",
+     "frame": "content-demos/disk-sstf/9.webp"
+    },
+    {
+     "explain": "SSTF：磁头移动到 183（本趟寻道 59）",
+     "frame": "content-demos/disk-sstf/10.webp"
+    },
+    {
+     "explain": "SSTF 完成：总寻道距离 236 磁道。SSTF 寻道短，但远处请求可能饥饿。",
+     "frame": "content-demos/disk-sstf/11.webp"
+    }
+   ],
+   "fingerprint": "16ad3da68ae1f560b62df6d7b706ff1ec5049b56fad5a328359d00755958a3fb"
+  },
+  {
+   "key": "408card/disk-scan",
+   "sourceId": "disk-scan",
+   "sourceUrl": "https://408card.top/#/vizp/disk-scan?sub=os",
+   "id": "disk-scan",
+   "code": "os",
+   "subjectKey": "beokayy-408/operating-system",
+   "title": "磁盘 SCAN",
+   "description": "电梯算法，到端折返",
+   "sortOrder": 14,
+   "frameCount": 12,
+   "frameBytes": 103518,
+   "steps": [
+    {
+     "explain": "SCAN 电梯算法：一个方向扫到底再折返。 磁头从 53 出发，请求：98 183 37 122 14 124 65 67",
+     "frame": "content-demos/disk-scan/1.webp"
+    },
+    {
+     "explain": "SCAN：磁头移动到 53（起点）",
+     "frame": "content-demos/disk-scan/2.webp"
+    },
+    {
+     "explain": "SCAN：磁头移动到 65（本趟寻道 12）",
+     "frame": "content-demos/disk-scan/3.webp"
+    },
+    {
+     "explain": "SCAN：磁头移动到 67（本趟寻道 2）",
+     "frame": "content-demos/disk-scan/4.webp"
+    },
+    {
+     "explain": "SCAN：磁头移动到 98（本趟寻道 31）",
+     "frame": "content-demos/disk-scan/5.webp"
+    },
+    {
+     "explain": "SCAN：磁头移动到 122（本趟寻道 24）",
+     "frame": "content-demos/disk-scan/6.webp"
+    },
+    {
+     "explain": "SCAN：磁头移动到 124（本趟寻道 2）",
+     "frame": "content-demos/disk-scan/7.webp"
+    },
+    {
+     "explain": "SCAN：磁头移动到 183（本趟寻道 59）",
+     "frame": "content-demos/disk-scan/8.webp"
+    },
+    {
+     "explain": "SCAN：磁头移动到 200（本趟寻道 17）",
+     "frame": "content-demos/disk-scan/9.webp"
+    },
+    {
+     "explain": "SCAN：磁头移动到 37（本趟寻道 163）",
+     "frame": "content-demos/disk-scan/10.webp"
+    },
+    {
+     "explain": "SCAN：磁头移动到 14（本趟寻道 23）",
+     "frame": "content-demos/disk-scan/11.webp"
+    },
+    {
+     "explain": "SCAN 完成：总寻道距离 333 磁道。SCAN 到端折返，避免两端饥饿。",
+     "frame": "content-demos/disk-scan/12.webp"
+    }
+   ],
+   "fingerprint": "ec009acd8be7d312c7e56272a9b0066a63d844d5d4e9502cee47ba4c68da96d3"
+  },
+  {
+   "key": "408card/disk-cscan",
+   "sourceId": "disk-cscan",
+   "sourceUrl": "https://408card.top/#/vizp/disk-cscan?sub=os",
+   "id": "disk-cscan",
+   "code": "os",
+   "subjectKey": "beokayy-408/operating-system",
+   "title": "磁盘 C-SCAN",
+   "description": "单向扫描，快速回起点",
+   "sortOrder": 15,
+   "frameCount": 13,
+   "frameBytes": 114670,
+   "steps": [
+    {
+     "explain": "C-SCAN 循环扫描：单向服务，到端后快速回到起点再同向。 磁头从 53 出发，请求：98 183 37 122 14 124 65 67",
+     "frame": "content-demos/disk-cscan/1.webp"
+    },
+    {
+     "explain": "C-SCAN：磁头移动到 53（起点）",
+     "frame": "content-demos/disk-cscan/2.webp"
+    },
+    {
+     "explain": "C-SCAN：磁头移动到 65（本趟寻道 12）",
+     "frame": "content-demos/disk-cscan/3.webp"
+    },
+    {
+     "explain": "C-SCAN：磁头移动到 67（本趟寻道 2）",
+     "frame": "content-demos/disk-cscan/4.webp"
+    },
+    {
+     "explain": "C-SCAN：磁头移动到 98（本趟寻道 31）",
+     "frame": "content-demos/disk-cscan/5.webp"
+    },
+    {
+     "explain": "C-SCAN：磁头移动到 122（本趟寻道 24）",
+     "frame": "content-demos/disk-cscan/6.webp"
+    },
+    {
+     "explain": "C-SCAN：磁头移动到 124（本趟寻道 2）",
+     "frame": "content-demos/disk-cscan/7.webp"
+    },
+    {
+     "explain": "C-SCAN：磁头移动到 183（本趟寻道 59）",
+     "frame": "content-demos/disk-cscan/8.webp"
+    },
+    {
+     "explain": "C-SCAN：磁头移动到 200（本趟寻道 17）",
+     "frame": "content-demos/disk-cscan/9.webp"
+    },
+    {
+     "explain": "C-SCAN：磁头移动到 0（本趟寻道 200）",
+     "frame": "content-demos/disk-cscan/10.webp"
+    },
+    {
+     "explain": "C-SCAN：磁头移动到 14（本趟寻道 14）",
+     "frame": "content-demos/disk-cscan/11.webp"
+    },
+    {
+     "explain": "C-SCAN：磁头移动到 37（本趟寻道 23）",
+     "frame": "content-demos/disk-cscan/12.webp"
+    },
+    {
+     "explain": "C-SCAN 完成：总寻道距离 384 磁道。C-SCAN 仅单向服务，各请求等待更均匀。",
+     "frame": "content-demos/disk-cscan/13.webp"
+    }
+   ],
+   "fingerprint": "c809d2131e75df90a6227a9266a8f3b4eb4fd16555d118d170cb28c9efce7103"
+  },
+  {
+   "key": "408card/vmem",
+   "sourceId": "vmem",
+   "sourceUrl": "https://408card.top/#/vizp/vmem?sub=os",
+   "id": "vmem",
+   "code": "os",
+   "subjectKey": "beokayy-408/operating-system",
+   "title": "虚拟地址 → 物理地址",
+   "description": "TLB / 页表 / 缺页 逐步演示",
+   "sortOrder": 16,
+   "frameCount": 7,
+   "frameBytes": 80170,
+   "steps": [
+    {
+     "explain": "请求分页：CPU 给出逻辑地址 (页号, 偏移)，先查 TLB，再查页表，可能缺页。",
+     "frame": "content-demos/vmem/1.webp"
+    },
+    {
+     "explain": "逻辑地址拆分：页大小 4KB → 偏移 12 位；页号 0x12，偏移 0x34",
+     "frame": "content-demos/vmem/2.webp"
+    },
+    {
+     "explain": "① 查 TLB（快表）：有无页号 0x12？",
+     "frame": "content-demos/vmem/3.webp"
+    },
+    {
+     "explain": "TLB 命中，直接得到页框 0x2a，无需再访内存页表",
+     "frame": "content-demos/vmem/4.webp"
+    },
+    {
+     "explain": "③ 物理地址 = 页框 × 页大小 + 偏移 = 0x2a × 4096 + 0x34",
+     "frame": "content-demos/vmem/5.webp"
+    },
+    {
+     "explain": "得到物理地址 0x2a034，访存完成。有效访问时间与 TLB 命中率强相关。",
+     "frame": "content-demos/vmem/6.webp"
+    },
+    {
+     "explain": "若页表有效位为 0 → 缺页中断：OS 从外存调页，可能置换，再重执行指令。",
+     "frame": "content-demos/vmem/7.webp"
+    }
+   ],
+   "fingerprint": "5f359b1d717f81107ebbcca66bae1d27f72af1e6f17a27784248705731eb731f"
+  },
+  {
+   "key": "408card/proc-state",
+   "sourceId": "proc-state",
+   "sourceUrl": "https://408card.top/#/vizp/proc-state?sub=os",
+   "id": "proc-state",
+   "code": "os",
+   "subjectKey": "beokayy-408/operating-system",
+   "title": "进程状态转换",
+   "description": "就绪/运行/阻塞 三态转换图",
+   "sortOrder": 17,
+   "frameCount": 7,
+   "frameBytes": 51022,
+   "steps": [
+    {
+     "explain": "进程三态：就绪、运行、阻塞。就绪→运行靠调度，运行→阻塞因等待事件。",
+     "frame": "content-demos/proc-state/1.webp"
+    },
+    {
+     "explain": "转换：就绪 → 运行（进程调度 / 分派）：被选中，获得 CPU",
+     "frame": "content-demos/proc-state/2.webp"
+    },
+    {
+     "explain": "转换：运行 → 就绪（时间片用完 / 被抢占）：回到就绪队列，等待下次调度",
+     "frame": "content-demos/proc-state/3.webp"
+    },
+    {
+     "explain": "转换：运行 → 阻塞（等待 I/O 或资源）：主动阻塞，让出 CPU",
+     "frame": "content-demos/proc-state/4.webp"
+    },
+    {
+     "explain": "转换：阻塞 → 就绪（I/O 完成 / 资源就绪）：唤醒后进入就绪，不能直接上 CPU",
+     "frame": "content-demos/proc-state/5.webp"
+    },
+    {
+     "explain": "转换：运行 → 终止（执行结束 / 异常退出）：回收资源，撤销 PCB",
+     "frame": "content-demos/proc-state/6.webp"
+    },
+    {
+     "explain": "易错点：阻塞不能直接到运行；就绪不能直接到阻塞（缺的是 CPU 不是事件）。",
+     "frame": "content-demos/proc-state/7.webp"
+    }
+   ],
+   "fingerprint": "c30cb60b476ccf9d45f102674a4e444eaeeb94af37a1f9364bb829f776a492d6"
+  },
+  {
+   "key": "408card/deadlock",
+   "sourceId": "deadlock",
+   "sourceUrl": "https://408card.top/#/vizp/deadlock?sub=os",
+   "id": "deadlock",
+   "code": "os",
+   "subjectKey": "beokayy-408/operating-system",
+   "title": "死锁与资源分配图",
+   "description": "环形成死锁的过程与预防",
+   "sortOrder": 18,
+   "frameCount": 6,
+   "frameBytes": 45180,
+   "steps": [
+    {
+     "explain": "死锁四个必要条件：互斥、不剥夺、请求并保持、循环等待。资源分配图有环且每类资源仅 1 实例则死锁。",
+     "frame": "content-demos/deadlock/1.webp"
+    },
+    {
+     "explain": "① P1 申请并获得 R1 的一个实例（分配边 R1→P1）",
+     "frame": "content-demos/deadlock/2.webp"
+    },
+    {
+     "explain": "② P2 申请并获得 R2 的一个实例（分配边 R2→P2）",
+     "frame": "content-demos/deadlock/3.webp"
+    },
+    {
+     "explain": "③ P1 再请求 R2（请求边 P1→R2）→ R2 已分配完，P1 阻塞",
+     "frame": "content-demos/deadlock/4.webp"
+    },
+    {
+     "explain": "④ P2 再请求 R1 → 形成 环：P1→R2→P2→R1→P1，互相等待",
+     "frame": "content-demos/deadlock/5.webp"
+    },
+    {
+     "explain": "破坏任一条件即可预防：如资源有序分配（破循环等待）、可剥夺、或一次性分配（破请求并保持）。",
+     "frame": "content-demos/deadlock/6.webp"
+    }
+   ],
+   "fingerprint": "044e99f88102c8896afcaa878f975b34185bd67fa3152f4bb222fc22996ebb2f"
+  },
+  {
+   "key": "408card/mem-alloc",
+   "sourceId": "mem-alloc",
+   "sourceUrl": "https://408card.top/#/vizp/mem-alloc?sub=os",
+   "id": "mem-alloc",
+   "code": "os",
+   "subjectKey": "beokayy-408/operating-system",
+   "title": "动态分区分配",
+   "description": "首次/最佳/最坏/邻近适应 四种策略",
+   "sortOrder": 19,
+   "frameCount": 20,
+   "frameBytes": 125078,
+   "steps": [
+    {
+     "explain": "首次适应：地址递增，找第一个够大的空闲块（综合最好）",
+     "frame": "content-demos/mem-alloc/1.webp"
+    },
+    {
+     "explain": "申请 12 → 分配在地址 0，块名 J1",
+     "frame": "content-demos/mem-alloc/2.webp"
+    },
+    {
+     "explain": "申请 8 → 分配在地址 12，块名 J2",
+     "frame": "content-demos/mem-alloc/3.webp"
+    },
+    {
+     "explain": "申请 25 → 分配在地址 50，块名 J3",
+     "frame": "content-demos/mem-alloc/4.webp"
+    },
+    {
+     "explain": "首次适应 完成：剩余空闲块 [30,45) [75,80) [90,100)",
+     "frame": "content-demos/mem-alloc/5.webp"
+    },
+    {
+     "explain": "最佳适应：找够大里最小的，易留下小碎片",
+     "frame": "content-demos/mem-alloc/6.webp"
+    },
+    {
+     "explain": "申请 12 → 分配在地址 30，块名 J1",
+     "frame": "content-demos/mem-alloc/7.webp"
+    },
+    {
+     "explain": "申请 8 → 分配在地址 90，块名 J2",
+     "frame": "content-demos/mem-alloc/8.webp"
+    },
+    {
+     "explain": "申请 25 → 分配在地址 50，块名 J3",
+     "frame": "content-demos/mem-alloc/9.webp"
+    },
+    {
+     "explain": "最佳适应 完成：剩余空闲块 [0,20) [42,45) [75,80) [98,100)",
+     "frame": "content-demos/mem-alloc/10.webp"
+    },
+    {
+     "explain": "最坏适应：找最大的空闲块，不易留小碎片",
+     "frame": "content-demos/mem-alloc/11.webp"
+    },
+    {
+     "explain": "申请 12 → 分配在地址 50，块名 J1",
+     "frame": "content-demos/mem-alloc/12.webp"
+    },
+    {
+     "explain": "申请 8 → 分配在地址 0，块名 J2",
+     "frame": "content-demos/mem-alloc/13.webp"
+    },
+    {
+     "explain": "申请 25：找不到足够空闲块，分配失败",
+     "frame": "content-demos/mem-alloc/14.webp"
+    },
+    {
+     "explain": "最坏适应 完成：剩余空闲块 [8,20) [30,45) [62,80) [90,100)",
+     "frame": "content-demos/mem-alloc/15.webp"
+    },
+    {
+     "explain": "邻近适应：从上次结束位置开始找，开销小",
+     "frame": "content-demos/mem-alloc/16.webp"
+    },
+    {
+     "explain": "申请 12 → 分配在地址 0，块名 J1",
+     "frame": "content-demos/mem-alloc/17.webp"
+    },
+    {
+     "explain": "申请 8 → 分配在地址 12，块名 J2",
+     "frame": "content-demos/mem-alloc/18.webp"
+    },
+    {
+     "explain": "申请 25 → 分配在地址 50，块名 J3",
+     "frame": "content-demos/mem-alloc/19.webp"
+    },
+    {
+     "explain": "邻近适应 完成：剩余空闲块 [30,45) [75,80) [90,100)",
+     "frame": "content-demos/mem-alloc/20.webp"
+    }
+   ],
+   "fingerprint": "4c3d421d2b6ae2afa50944e8ad7b7d434da28cd55f91221d12a7a9eda2e1fcfb"
+  },
+  {
+   "key": "408card/readers-writers",
+   "sourceId": "readers-writers",
+   "sourceUrl": "https://408card.top/#/vizp/readers-writers?sub=os",
+   "id": "readers-writers",
+   "code": "os",
+   "subjectKey": "beokayy-408/operating-system",
+   "title": "读者-写者问题",
+   "description": "读者优先信号量：多读共享、写者独占，演示 rw/mutex/count 变化与写者饥饿",
+   "sortOrder": 20,
+   "frameCount": 19,
+   "frameBytes": 168220,
+   "steps": [
+    {
+     "explain": "读者优先解法：信号量 rw=1（读写互斥）、mutex=1（保护 count）、count=0（在读读者数）。多个读者可同时读。",
+     "frame": "content-demos/readers-writers/1.webp"
+    },
+    {
+     "explain": "读者 R1 到达。第一个读者要先 P(rw)，挡住写者。",
+     "frame": "content-demos/readers-writers/2.webp"
+    },
+    {
+     "explain": "R1：P(mutex)，count=0→1。因为 count==1，需 P(rw)。",
+     "frame": "content-demos/readers-writers/3.webp"
+    },
+    {
+     "explain": "R1：P(rw) → rw=0（读者占用资源，写者被挡）。V(mutex) 后开始读。",
+     "frame": "content-demos/readers-writers/4.webp"
+    },
+    {
+     "explain": "R1 正在读。此时 rw=0，但读者间不互斥。",
+     "frame": "content-demos/readers-writers/5.webp"
+    },
+    {
+     "explain": "读者 R2 到达。它只需 P(mutex) 改 count，不必再 P(rw)。",
+     "frame": "content-demos/readers-writers/6.webp"
+    },
+    {
+     "explain": "R2：P(mutex)，count=1→2。count≠1，不再 P(rw)，直接读。",
+     "frame": "content-demos/readers-writers/7.webp"
+    },
+    {
+     "explain": "R1、R2 同时在读（读者共享）。rw 仍为 0。",
+     "frame": "content-demos/readers-writers/8.webp"
+    },
+    {
+     "explain": "写者 W1 到达，想写必须 P(rw)。",
+     "frame": "content-demos/readers-writers/9.webp"
+    },
+    {
+     "explain": "W1：P(rw) → 但 rw=0≤0，W1 阻塞排队（读者优先，写者饥饿风险）。",
+     "frame": "content-demos/readers-writers/10.webp"
+    },
+    {
+     "explain": "R1 读完，执行退出区。",
+     "frame": "content-demos/readers-writers/11.webp"
+    },
+    {
+     "explain": "R1：P(mutex)，count=2→1。count≠0，不 V(rw)（还有读者在读）。",
+     "frame": "content-demos/readers-writers/12.webp"
+    },
+    {
+     "explain": "R1 退出，R2 继续读。",
+     "frame": "content-demos/readers-writers/13.webp"
+    },
+    {
+     "explain": "R2 读完，它是最后一个读者。",
+     "frame": "content-demos/readers-writers/14.webp"
+    },
+    {
+     "explain": "R2：P(mutex)，count=1→0。因为 count==0，需 V(rw) 放行写者。",
+     "frame": "content-demos/readers-writers/15.webp"
+    },
+    {
+     "explain": "最后读者 V(rw) → rw=1，唤醒排队的 W1。",
+     "frame": "content-demos/readers-writers/16.webp"
+    },
+    {
+     "explain": "W1：P(rw) 成功 → rw=0，开始独占写。",
+     "frame": "content-demos/readers-writers/17.webp"
+    },
+    {
+     "explain": "W1 写完 V(rw) → rw=1。",
+     "frame": "content-demos/readers-writers/18.webp"
+    },
+    {
+     "explain": "结论：读者优先——读者可共享读，写者必须独占；但持续有读者时写者可能饥饿。写者优先需增设 信号量（如 wmutex 限制新读者）。对 count 的访问必须用 mutex 保护。",
+     "frame": "content-demos/readers-writers/19.webp"
+    }
+   ],
+   "fingerprint": "0ed4aaf1389843418902cf114df21bf10a55cf5d7aff94c1764b2d0a4d55096e"
+  },
+  {
+   "key": "408card/dining-phil",
+   "sourceId": "dining-phil",
+   "sourceUrl": "https://408card.top/#/vizp/dining-phil?sub=os",
+   "id": "dining-phil",
+   "code": "os",
+   "subjectKey": "beokayy-408/operating-system",
+   "title": "哲学家进餐",
+   "description": "朴素死锁、限制人数、奇偶优先三策略对比，理解如何破坏循环等待",
+   "sortOrder": 21,
+   "frameCount": 9,
+   "frameBytes": 70420,
+   "steps": [
+    {
+     "explain": "策略一：朴素解法——5 位哲学家围坐，每人先拿左筷再拿右筷。初始都在思考。",
+     "frame": "content-demos/dining-phil/1.webp"
+    },
+    {
+     "explain": "大家同时行动，各自先拿起左筷：F0..F4 全部被占。",
+     "frame": "content-demos/dining-phil/2.webp"
+    },
+    {
+     "explain": "每人再想拿右筷，但右筷都被邻居占着 → 全部阻塞，形成循环等待：P0→F1→P1→…→P4→F0→P0，死锁。",
+     "frame": "content-demos/dining-phil/3.webp"
+    },
+    {
+     "explain": "策略二：限制人数——加信号量 room=4，最多 4 人同时取筷。P4 被挡在门外。",
+     "frame": "content-demos/dining-phil/4.webp"
+    },
+    {
+     "explain": "P0..P3 各自拿起左筷，P4 在门外等待。此时 F4 仍空闲。",
+     "frame": "content-demos/dining-phil/5.webp"
+    },
+    {
+     "explain": "P3 的右筷 F4 空闲 → P3 两根筷齐，开始进餐，打破循环等待。吃完放筷后别人依次推进，不死锁。",
+     "frame": "content-demos/dining-phil/6.webp"
+    },
+    {
+     "explain": "策略三：奇数先左、偶数先右——破坏\"全同向取筷\"。P0(偶) 先拿右筷 F1，P1(奇) 先拿左筷 F1，二者争抢同一筷。",
+     "frame": "content-demos/dining-phil/7.webp"
+    },
+    {
+     "explain": "假设 P1 抢到 F1，P0 退而拿不到 F0。P1 右筷 F2 虽被 P2 拿，但 P2(偶) 先拿的是右筷 F3… 因取筷方向不一致，无法形成完整环，P1 凑齐 F1+F2 可进餐。",
+     "frame": "content-demos/dining-phil/8.webp"
+    },
+    {
+     "explain": "结论：三种可行解法本质都是破坏\"循环等待\"：①限制同时人数 ②资源有序/奇偶取筷 ③一次申请两筷。",
+     "frame": "content-demos/dining-phil/9.webp"
+    }
+   ],
+   "fingerprint": "08694626c3414eb49ff62c8ef1de1f17a57f601f239ef94d90d81dd1ed3137cf"
+  },
+  {
+   "key": "408card/file-alloc",
+   "sourceId": "file-alloc",
+   "sourceUrl": "https://408card.top/#/vizp/file-alloc?sub=os",
+   "id": "file-alloc",
+   "code": "os",
+   "subjectKey": "beokayy-408/operating-system",
+   "title": "文件物理分配",
+   "description": "连续 / FAT 链接 / i-node 索引三种磁盘布局与随机访问对比",
+   "sortOrder": 22,
+   "frameCount": 8,
+   "frameBytes": 59486,
+   "steps": [
+    {
+     "explain": "一个文件占 5 个磁盘块，磁盘共 12 块。三种物理分配方式对比：连续、链接(FAT)、索引(i-node)。",
+     "frame": "content-demos/file-alloc/1.webp"
+    },
+    {
+     "explain": "① 连续分配：文件占用相邻的块。FCB 只需记起始块号 + 长度。",
+     "frame": "content-demos/file-alloc/2.webp"
+    },
+    {
+     "explain": "顺序读快、可随机访问；但会产生外部碎片，文件难增长（需找够大的连续空闲区）。",
+     "frame": "content-demos/file-alloc/3.webp"
+    },
+    {
+     "explain": "② 链接分配（隐式/FAT）：块可不连续，每块带\"下一块\"指针，串成链表。FCB 记起始块。",
+     "frame": "content-demos/file-alloc/4.webp"
+    },
+    {
+     "explain": "FAT 把指针集中存于文件分配表：FAT[2]=5 → FAT[5]=0 → FAT[0]=9 → FAT[9]=3 → FAT[3]=EOF。无外部碎片，但只能顺序访问，随机访问慢。",
+     "frame": "content-demos/file-alloc/5.webp"
+    },
+    {
+     "explain": "③ 索引分配（i-node）：每个文件有索引块，里面直接存所有数据块指针，FCB(i-node) 记索引块地址。",
+     "frame": "content-demos/file-alloc/6.webp"
+    },
+    {
+     "explain": "索引块直接指向 5 个数据块 → 支持高效随机访问；大文件需多级索引（UNIX 混合索引：直接/一级间接/二级/三级）。",
+     "frame": "content-demos/file-alloc/7.webp"
+    },
+    {
+     "explain": "总结：连续=快但有碎片；链接=省空间但顺序访问；索引=随机访问且灵活，是现代文件系统主流。",
+     "frame": "content-demos/file-alloc/8.webp"
+    }
+   ],
+   "fingerprint": "cc346413ce53d18494f0af4f81352f3538b0671812b7e3095bfa6548abd72b0a"
+  },
+  {
+   "key": "408card/double-buffer",
+   "sourceId": "double-buffer",
+   "sourceUrl": "https://408card.top/#/vizp/double-buffer?sub=os",
+   "id": "double-buffer",
+   "code": "os",
+   "subjectKey": "beokayy-408/operating-system",
+   "title": "单缓冲 vs 双缓冲",
+   "description": "时间轴对比 I/O 与 CPU 并行重叠，吞吐提升",
+   "sortOrder": 23,
+   "frameCount": 4,
+   "frameBytes": 27028,
+   "steps": [
+    {
+     "explain": "缓冲技术：缓和 CPU 与 I/O 速度不匹配。设 外设传送一块 T=6，缓冲→用户并计算 C=4。看处理两块数据谁快。",
+     "frame": "content-demos/double-buffer/1.webp"
+    },
+    {
+     "explain": "① 单缓冲：只有一个缓冲块。外设填缓冲 与 CPU 处理必须串行——CPU 没处理完，外设不能填同一块。",
+     "frame": "content-demos/double-buffer/2.webp"
+    },
+    {
+     "explain": "② 双缓冲：两个缓冲交替。外设填 buf1 的同时，CPU 正在处理 buf0，传送与计算并行重叠。",
+     "frame": "content-demos/double-buffer/3.webp"
+    },
+    {
+     "explain": "结论：单缓冲一块时间 ≈ max(T,C)+M；双缓冲使 I/O 与 CPU 并行，每块平均时间 ≈ max(T, C)，吞吐更高。缓冲越多，越接近流水线。",
+     "frame": "content-demos/double-buffer/4.webp"
+    }
+   ],
+   "fingerprint": "4e1879d156e4791b4627b0d1b1210a70105f2d5013deda0cdcfefcc7a3cebe1a"
+  },
+  {
+   "key": "408card/dir-tree",
+   "sourceId": "dir-tree",
+   "sourceUrl": "https://408card.top/#/vizp/dir-tree?sub=os",
+   "id": "dir-tree",
+   "code": "os",
+   "subjectKey": "beokayy-408/operating-system",
+   "title": "树形目录与路径",
+   "description": "绝对/相对路径解析，演示 cwd、.、.. 的逐级查找",
+   "sortOrder": 24,
+   "frameCount": 5,
+   "frameBytes": 35276,
+   "steps": [
+    {
+     "explain": "树形目录：根 / 下有 home、bin。当前工作目录(cwd) = /home/user（绿框）。",
+     "frame": "content-demos/dir-tree/1.webp"
+    },
+    {
+     "explain": "解析绝对路径 /home/user/pics/a.jpg：从根开始，逐段向下。",
+     "frame": "content-demos/dir-tree/2.webp"
+    },
+    {
+     "explain": "解析相对路径 pics/a.jpg：从 cwd /home/user 出发，无需从根走。",
+     "frame": "content-demos/dir-tree/3.webp"
+    },
+    {
+     "explain": "解析 ../bin/ls：.. 表示回到上一级 /home，再进 bin，找到 ls。",
+     "frame": "content-demos/dir-tree/4.webp"
+    },
+    {
+     "explain": "结论：绝对路径以 / 开头从根查；相对路径从 cwd 查。. 当前目录、.. 父目录。打开文件时按路径逐层查目录项。",
+     "frame": "content-demos/dir-tree/5.webp"
+    }
+   ],
+   "fingerprint": "f2f779f0bad5da5b0a9684904fb0a5770a9ecbd1f2b3bf827eec799440492a6c"
+  },
+  {
+   "key": "408card/spooling",
+   "sourceId": "spooling",
+   "sourceUrl": "https://408card.top/#/vizp/spooling?sub=os",
+   "id": "spooling",
+   "code": "os",
+   "subjectKey": "beokayy-408/operating-system",
+   "title": "SPOOLing 假脱机",
+   "description": "输出井排队 + 守护进程，把独占打印机虚拟成共享设备",
+   "sortOrder": 25,
+   "frameCount": 6,
+   "frameBytes": 35388,
+   "steps": [
+    {
+     "explain": "SPOOLing 假脱机：在磁盘上开辟输入井/输出井，用守护进程模拟脱机 I/O。以打印机为例，把独占设备改造成共享虚拟设备。",
+     "frame": "content-demos/spooling/1.webp"
+    },
+    {
+     "explain": "用户进程 P1 要打印。它不直接抢打印机，而是把打印任务写入磁盘输出井排队，立即返回继续工作。",
+     "frame": "content-demos/spooling/2.webp"
+    },
+    {
+     "explain": "用户进程 P2 也要打印，同样写入输出井。两个用户都\"感觉\"自己独占了打印机，互不阻塞。",
+     "frame": "content-demos/spooling/3.webp"
+    },
+    {
+     "explain": "守护进程（输出进程）依次从输出井取任务，真正送到物理打印机。先取 P1。",
+     "frame": "content-demos/spooling/4.webp"
+    },
+    {
+     "explain": "P1 打印完成，守护进程再取 P2 送打印机。物理打印机任一时刻只服务一个任务，但用户侧是并发的。",
+     "frame": "content-demos/spooling/5.webp"
+    },
+    {
+     "explain": "结论：SPOOLing 以磁盘为缓冲，把独占设备虚拟成多台逻辑设备，提高设备利用率与并发性。输入井对应输入方向（如读卡）。",
+     "frame": "content-demos/spooling/6.webp"
+    }
+   ],
+   "fingerprint": "4287a57b6676c661a953a7d6ce872a7a887312f5b25cf8e62fd6645ef32bb29a"
+  },
+  {
+   "key": "408card/io-control",
+   "sourceId": "io-control",
+   "sourceUrl": "https://408card.top/#/vizp/io-control?sub=os",
+   "id": "io-control",
+   "code": "os",
+   "subjectKey": "beokayy-408/operating-system",
+   "title": "I/O 控制方式",
+   "description": "程序直接 / 中断 / DMA / 通道，CPU 介入度递减对比",
+   "sortOrder": 26,
+   "frameCount": 6,
+   "frameBytes": 30684,
+   "steps": [
+    {
+     "explain": "I/O 控制方式的演进：CPU 介入越来越少，并行度越来越高。看传输一批数据时 CPU 在干什么。",
+     "frame": "content-demos/io-control/1.webp"
+    },
+    {
+     "explain": "① 程序直接控制（忙等/轮询）：CPU 启动设备后，原地不断读状态字忙等，整个传输期间 CPU 被占用，效率最低。",
+     "frame": "content-demos/io-control/2.webp"
+    },
+    {
+     "explain": "② 中断驱动：CPU 启动设备后转去做别的事；设备每完成一个字节发一次中断。以 4 字节为例要 4 次中断，字节级仍频繁打断 CPU。",
+     "frame": "content-demos/io-control/3.webp"
+    },
+    {
+     "explain": "③ DMA：DMA 控制器接管总线，以块为单位直接在内存与设备间传输；整块传完才发一次中断。CPU 只在开头发命令、结尾处理中断。",
+     "frame": "content-demos/io-control/4.webp"
+    },
+    {
+     "explain": "④ 通道：通道是专用处理机，能执行通道程序，一次独立传输一组（多块）数据，完成后才中断。CPU 介入最少，并行度最高。",
+     "frame": "content-demos/io-control/5.webp"
+    },
+    {
+     "explain": "总结：CPU 介入程度：程序直接 > 中断驱动 > DMA > 通道。DMA 以块为单位、仅首尾中断；通道以一组块为单位、自带程序。",
+     "frame": "content-demos/io-control/6.webp"
+    }
+   ],
+   "fingerprint": "dbc6d6d13db36bc04e3552ecb3ed17b939d2b48f13cefbf3901bd98ddc971344"
+  },
+  {
+   "key": "408card/tcp-handshake",
+   "sourceId": "tcp-handshake",
+   "sourceUrl": "https://408card.top/#/vizp/tcp-handshake?sub=cn",
+   "id": "tcp-handshake",
+   "code": "cn",
+   "subjectKey": "beokayy-408/computer-network",
+   "title": "TCP 三次握手",
+   "description": "SYN → SYN+ACK → ACK 状态机逐步演示",
+   "sortOrder": 1,
+   "frameCount": 5,
+   "frameBytes": 47678,
+   "steps": [
+    {
+     "explain": "TCP 三次握手：双方各自确认「自己能发、对方能收」。",
+     "frame": "content-demos/tcp-handshake/1.webp"
+    },
+    {
+     "explain": "① 客户端 → 服务器：SYN=1, seq=x 客户端进入 SYN-SENT",
+     "frame": "content-demos/tcp-handshake/2.webp"
+    },
+    {
+     "explain": "② 服务器 → 客户端：SYN=1, ACK=1, seq=y, ack=x+1 服务器进入 SYN-RCVD",
+     "frame": "content-demos/tcp-handshake/3.webp"
+    },
+    {
+     "explain": "③ 客户端 → 服务器：ACK=1, seq=x+1, ack=y+1 双方进入 ESTABLISHED",
+     "frame": "content-demos/tcp-handshake/4.webp"
+    },
+    {
+     "explain": "为什么要三次？两次无法防止「已失效的旧 SYN」让服务器误开连接、白白浪费资源。",
+     "frame": "content-demos/tcp-handshake/5.webp"
+    }
+   ],
+   "fingerprint": "fac503b09652d02622a75a3e6755a5e759805ad2e04e361b6282ebca69f05be8"
+  },
+  {
+   "key": "408card/tcp-wave",
+   "sourceId": "tcp-wave",
+   "sourceUrl": "https://408card.top/#/vizp/tcp-wave?sub=cn",
+   "id": "tcp-wave",
+   "code": "cn",
+   "subjectKey": "beokayy-408/computer-network",
+   "title": "TCP 四次挥手",
+   "description": "FIN/ACK 半关闭与 TIME-WAIT 逐步演示",
+   "sortOrder": 2,
+   "frameCount": 6,
+   "frameBytes": 57896,
+   "steps": [
+    {
+     "explain": "TCP 四次挥手：半关闭 —— 一方发完后仍可接收。",
+     "frame": "content-demos/tcp-wave/1.webp"
+    },
+    {
+     "explain": "① 客户端 → 服务器：FIN=1, seq=u 客户端 FIN-WAIT-1（我不发了）",
+     "frame": "content-demos/tcp-wave/2.webp"
+    },
+    {
+     "explain": "② 服务器 → 客户端：ACK=1, seq=v, ack=u+1 服务器 CLOSE-WAIT，客户端 FIN-WAIT-2",
+     "frame": "content-demos/tcp-wave/3.webp"
+    },
+    {
+     "explain": "③ 服务器把剩余数据发完后 → 客户端：FIN=1, ACK=1, seq=w 服务器 LAST-ACK",
+     "frame": "content-demos/tcp-wave/4.webp"
+    },
+    {
+     "explain": "④ 客户端 → 服务器：ACK=1, seq=u+1, ack=w+1 客户端进 TIME-WAIT（等 2MSL）",
+     "frame": "content-demos/tcp-wave/5.webp"
+    },
+    {
+     "explain": "TIME-WAIT 两个原因：① 确保最后的 ACK 能到达 ② 让本连接残余报文消散，不影响新连接。",
+     "frame": "content-demos/tcp-wave/6.webp"
+    }
+   ],
+   "fingerprint": "a8b6e7386551ee1766788bda46a2489c47835de3d799c16d6a3b3fd6c758c309"
+  },
+  {
+   "key": "408card/encap",
+   "sourceId": "encap",
+   "sourceUrl": "https://408card.top/#/vizp/encap?sub=cn",
+   "id": "encap",
+   "code": "cn",
+   "subjectKey": "beokayy-408/computer-network",
+   "title": "协议封装 / 解封装",
+   "description": "自顶向下层层加头，自底向上拆头",
+   "sortOrder": 3,
+   "frameCount": 13,
+   "frameBytes": 178556,
+   "steps": [
+    {
+     "explain": "发送方自顶向下封装：每层在上层数据前加本层首部。",
+     "frame": "content-demos/encap/1.webp"
+    },
+    {
+     "explain": "进入 应用层：加上「HTTP 首部」→ 成为 报文",
+     "frame": "content-demos/encap/2.webp"
+    },
+    {
+     "explain": "进入 传输层：加上「源端口+目的端口+序号」→ 成为 TCP 段",
+     "frame": "content-demos/encap/3.webp"
+    },
+    {
+     "explain": "进入 网络层：加上「源IP+目的IP+TTL」→ 成为 IP 数据报",
+     "frame": "content-demos/encap/4.webp"
+    },
+    {
+     "explain": "进入 数据链路层：加上「MAC+FCS」→ 成为 以太网帧",
+     "frame": "content-demos/encap/5.webp"
+    },
+    {
+     "explain": "进入 物理层：加上「0101…」→ 成为 比特流",
+     "frame": "content-demos/encap/6.webp"
+    },
+    {
+     "explain": "经物理介质传到对端，开始自底向上解封装。",
+     "frame": "content-demos/encap/7.webp"
+    },
+    {
+     "explain": "在 物理层 剥掉本层首部，向上交付",
+     "frame": "content-demos/encap/8.webp"
+    },
+    {
+     "explain": "在 数据链路层 剥掉本层首部，向上交付",
+     "frame": "content-demos/encap/9.webp"
+    },
+    {
+     "explain": "在 网络层 剥掉本层首部，向上交付",
+     "frame": "content-demos/encap/10.webp"
+    },
+    {
+     "explain": "在 传输层 剥掉本层首部，向上交付",
+     "frame": "content-demos/encap/11.webp"
+    },
+    {
+     "explain": "在 应用层 剥掉本层首部，向上交付",
+     "frame": "content-demos/encap/12.webp"
+    },
+    {
+     "explain": "总结：封装加头、解封装拆头；对等层逻辑上直接通信，实际逐层传递。",
+     "frame": "content-demos/encap/13.webp"
+    }
+   ],
+   "fingerprint": "b64100176b68bfbea8ac6907fd39d9261e02ccdbb10b7481cedf84166dc48548"
+  },
+  {
+   "key": "408card/protocol-stack",
+   "sourceId": "protocol-stack",
+   "sourceUrl": "https://408card.top/#/vizp/protocol-stack?sub=cn",
+   "id": "protocol-stack",
+   "code": "cn",
+   "subjectKey": "beokayy-408/computer-network",
+   "title": "协议栈与端口号全景",
+   "description": "所有层协议+端口号总表 + HTTP请求完整封装实例",
+   "sortOrder": 4,
+   "frameCount": 9,
+   "frameBytes": 93152,
+   "steps": [
+    {
+     "explain": "打开浏览器，访问 https://408card.top/index.html。下面逐层展示数据如何封装、每层加了什么头、端口号是多少。",
+     "frame": "content-demos/protocol-stack/1.webp"
+    },
+    {
+     "explain": "先看整张协议地图：从应用到物理，每层有哪些协议、用什么端口。记住高频端口。",
+     "frame": "content-demos/protocol-stack/2.webp"
+    },
+    {
+     "explain": "应用层：应用数据（明文HTTP经TLS加密）。当前数据单位叫 HTTPS（HTTP over TLS）。",
+     "frame": "content-demos/protocol-stack/3.webp"
+    },
+    {
+     "explain": "传输层：源端口=50000(随机) 目的端口=443 序号=1000 ACK=2000。当前数据单位叫 TCP 段。",
+     "frame": "content-demos/protocol-stack/4.webp"
+    },
+    {
+     "explain": "网络层：源IP=192.168.1.100 目的IP=160.202.47.53 协议=6(TCP) TTL=64。当前数据单位叫 IP 数据报。",
+     "frame": "content-demos/protocol-stack/5.webp"
+    },
+    {
+     "explain": "链路层：源MAC=AA:BB:CC:DD:EE:01 目的MAC=网关MAC 类型=0x0800(IP) FCS=校验。当前数据单位叫 以太网帧。",
+     "frame": "content-demos/protocol-stack/6.webp"
+    },
+    {
+     "explain": "物理层：电压信号在网线/光纤上传输。当前数据单位叫 比特流。",
+     "frame": "content-demos/protocol-stack/7.webp"
+    },
+    {
+     "explain": "到达对端服务器，开始自底向上解封装：每层剥掉本层首部。",
+     "frame": "content-demos/protocol-stack/8.webp"
+    },
+    {
+     "explain": "总结： • 端口号定位应用进程（IP定位主机，端口定位进程） • TCP/UDP靠端口复用多个应用 • 封装=加头，解封装=拆头 • 对等层逻辑通信，实际逐层传递",
+     "frame": "content-demos/protocol-stack/9.webp"
+    }
+   ],
+   "fingerprint": "4824ac59ea00656c116fa09f96321b2376a1ae2c0b8840b0d732b83933053576"
+  },
+  {
+   "key": "408card/subnet",
+   "sourceId": "subnet",
+   "sourceUrl": "https://408card.top/#/vizp/subnet?sub=cn",
+   "id": "subnet",
+   "code": "cn",
+   "subjectKey": "beokayy-408/computer-network",
+   "title": "子网划分计算器",
+   "description": "输入 IP/CIDR，输出网络地址、广播、可用主机",
+   "sortOrder": 5,
+   "frameCount": 6,
+   "frameBytes": 85302,
+   "steps": [
+    {
+     "explain": "输入 IP 192.168.10.0/26。子网掩码前 26 位为 1，其余为 0。",
+     "frame": "content-demos/subnet/1.webp"
+    },
+    {
+     "explain": "① 写成二进制：IP = 11000000 10101000 00001010 00000000",
+     "frame": "content-demos/subnet/2.webp"
+    },
+    {
+     "explain": "② 掩码 = 11111111 11111111 11111111 11000000（前 26 位为 1）",
+     "frame": "content-demos/subnet/3.webp"
+    },
+    {
+     "explain": "③ 网络地址 = IP AND 掩码 = 192.168.10.0",
+     "frame": "content-demos/subnet/4.webp"
+    },
+    {
+     "explain": "④ 广播地址 = 主机位全 1 = 192.168.10.63",
+     "frame": "content-demos/subnet/5.webp"
+    },
+    {
+     "explain": "⑤ 可用主机：192.168.10.1 ~ 192.168.10.62，共 62 台 易错：网络地址与广播地址不能配给主机。",
+     "frame": "content-demos/subnet/6.webp"
+    }
+   ],
+   "fingerprint": "40bb22cc6bebed0c610905b71049c673329c0613eaf4f4f4168b65c14a23f035"
+  },
+  {
+   "key": "408card/csma",
+   "sourceId": "csma",
+   "sourceUrl": "https://408card.top/#/vizp/csma?sub=cn",
+   "id": "csma",
+   "code": "cn",
+   "subjectKey": "beokayy-408/computer-network",
+   "title": "CSMA/CD 争用期",
+   "description": "碰撞检测与截断二进制指数退避",
+   "sortOrder": 6,
+   "frameCount": 8,
+   "frameBytes": 76396,
+   "steps": [
+    {
+     "explain": "CSMA/CD：先听后发，边发边听。检测到碰撞立即停发，并按截断二进制指数退避。",
+     "frame": "content-demos/csma/1.webp"
+    },
+    {
+     "explain": "① 站 A 监听信道：空闲，立即开始发送帧。",
+     "frame": "content-demos/csma/2.webp"
+    },
+    {
+     "explain": "② 信号还没传到 B。站 B 也听到「空闲」，也开始发送。",
+     "frame": "content-demos/csma/3.webp"
+    },
+    {
+     "explain": "③ 站 B 开始发送。两路信号在电缆中间相遇 → 碰撞。",
+     "frame": "content-demos/csma/4.webp"
+    },
+    {
+     "explain": "④ 双方边发边听，检测到电压异常，立即停发，并发出 32 bit 干扰信号（Jam） 强化碰撞。",
+     "frame": "content-demos/csma/5.webp"
+    },
+    {
+     "explain": "⑤ 截断二进制指数退避：第 1 次碰撞，k=1，从 {0,1} 随机取 r，等待 r×51.2μs。",
+     "frame": "content-demos/csma/6.webp"
+    },
+    {
+     "explain": "⑥ 退避结束，重新监听。若再次碰撞，k 加倍（k=min(碰撞次数,10)）；碰撞 16 次则丢弃并报告上层。",
+     "frame": "content-demos/csma/7.webp"
+    },
+    {
+     "explain": "结论：争用期 = 2τ（往返传播时延）；最小帧长 = 2τ × 数据率，保证发完前能检测到碰撞（10M 以太网 64 字节）。",
+     "frame": "content-demos/csma/8.webp"
+    }
+   ],
+   "fingerprint": "08f42b3a20330e08c467e86af2076c5fa847ccda05f1e803c46f51689f2311dd"
+  },
+  {
+   "key": "408card/nat",
+   "sourceId": "nat",
+   "sourceUrl": "https://408card.top/#/vizp/nat?sub=cn",
+   "id": "nat",
+   "code": "cn",
+   "subjectKey": "beokayy-408/computer-network",
+   "title": "NAT 地址转换表",
+   "description": "出站入站端口映射逐步建立",
+   "sortOrder": 7,
+   "frameCount": 9,
+   "frameBytes": 132374,
+   "steps": [
+    {
+     "explain": "NAPT：多个私网 IP 共享一个公网 IP，靠端口号区分会话。内网主动发起连接时建立映射。",
+     "frame": "content-demos/nat/1.webp"
+    },
+    {
+     "explain": "内网 192.168.1.10:3000 要访问 8.8.8.8:443（HTTPS）",
+     "frame": "content-demos/nat/2.webp"
+    },
+    {
+     "explain": "路由器分配公网端口 50000，改写源地址为 203.0.113.5:50000，写入转换表并发出",
+     "frame": "content-demos/nat/3.webp"
+    },
+    {
+     "explain": "内网 192.168.1.11:3001 要访问 8.8.8.8:443（HTTPS）",
+     "frame": "content-demos/nat/4.webp"
+    },
+    {
+     "explain": "路由器分配公网端口 50001，改写源地址为 203.0.113.5:50001，写入转换表并发出",
+     "frame": "content-demos/nat/5.webp"
+    },
+    {
+     "explain": "内网 192.168.1.10:3002 要访问 1.1.1.1:53（DNS）",
+     "frame": "content-demos/nat/6.webp"
+    },
+    {
+     "explain": "路由器分配公网端口 50002，改写源地址为 203.0.113.5:50002，写入转换表并发出",
+     "frame": "content-demos/nat/7.webp"
+    },
+    {
+     "explain": "回程：外网回包目的为 203.0.113.5:50000，查表改写为 192.168.1.10:3000 再交付内网。",
+     "frame": "content-demos/nat/8.webp"
+    },
+    {
+     "explain": "结论：NAT 破坏端到端原则；外网不能主动访问内网（除非端口映射 / 打洞）。NAPT 用「IP+端口」四元组区分会话。",
+     "frame": "content-demos/nat/9.webp"
+    }
+   ],
+   "fingerprint": "d969a41b01ebf1c2aaab25881de692c972bb37d8769b7c2d77d2f8580a97ceef"
+  },
+  {
+   "key": "408card/osi-ping",
+   "sourceId": "osi-ping",
+   "sourceUrl": "https://408card.top/#/vizp/osi-ping?sub=cn",
+   "id": "osi-ping",
+   "code": "cn",
+   "subjectKey": "beokayy-408/computer-network",
+   "title": "Ping 走了哪些层",
+   "description": "从应用到物理的完整路径",
+   "sortOrder": 8,
+   "frameCount": 12,
+   "frameBytes": 134268,
+   "steps": [
+    {
+     "explain": "Ping 使用 ICMP Echo Request/Reply，不经过 TCP/UDP。",
+     "frame": "content-demos/osi-ping/1.webp"
+    },
+    {
+     "explain": "出站 1：应用层构造 ICMP Echo Request",
+     "frame": "content-demos/osi-ping/2.webp"
+    },
+    {
+     "explain": "出站 2：传输层：Ping 不用 TCP/UDP，ICMP 直接交给 IP",
+     "frame": "content-demos/osi-ping/3.webp"
+    },
+    {
+     "explain": "出站 3：网络层：加 IP 首部（源/目的 IP），查路由，ARP 解析下一跳 MAC",
+     "frame": "content-demos/osi-ping/4.webp"
+    },
+    {
+     "explain": "出站 4：数据链路层：加以太网帧头帧尾，FCS 校验",
+     "frame": "content-demos/osi-ping/5.webp"
+    },
+    {
+     "explain": "出站 5：物理层：比特流出网卡",
+     "frame": "content-demos/osi-ping/6.webp"
+    },
+    {
+     "explain": "比特在介质中传播，到达对端。",
+     "frame": "content-demos/osi-ping/7.webp"
+    },
+    {
+     "explain": "入站 1：物理层接收比特",
+     "frame": "content-demos/osi-ping/8.webp"
+    },
+    {
+     "explain": "入站 2：链路层校验 FCS，剥帧头",
+     "frame": "content-demos/osi-ping/9.webp"
+    },
+    {
+     "explain": "入站 3：网络层：目的 IP 是自己，协议字段=1(ICMP)，交付 ICMP",
+     "frame": "content-demos/osi-ping/10.webp"
+    },
+    {
+     "explain": "入站 4：应用层生成 Echo Reply，原路封装返回",
+     "frame": "content-demos/osi-ping/11.webp"
+    },
+    {
+     "explain": "源主机收到 Reply，计算 RTT。Traceroute 则递增 TTL，让路径路由器回「超时」ICMP，画出路径。",
+     "frame": "content-demos/osi-ping/12.webp"
+    }
+   ],
+   "fingerprint": "c037ddbd507c19da864f0846c638919cf7c5762f615610d10482b0088708e911"
+  },
+  {
+   "key": "408card/arp",
+   "sourceId": "arp",
+   "sourceUrl": "https://408card.top/#/vizp/arp?sub=cn",
+   "id": "arp",
+   "code": "cn",
+   "subjectKey": "beokayy-408/computer-network",
+   "title": "ARP 解析过程",
+   "description": "IP → MAC 广播与应答逐步演示",
+   "sortOrder": 9,
+   "frameCount": 7,
+   "frameBytes": 55868,
+   "steps": [
+    {
+     "explain": "主机 A 要访问 192.168.1.20，但只知道 IP，不知道 MAC。先查 ARP 缓存。",
+     "frame": "content-demos/arp/1.webp"
+    },
+    {
+     "explain": "① 查 ARP 缓存：没有 192.168.1.20 → 需要广播解析",
+     "frame": "content-demos/arp/2.webp"
+    },
+    {
+     "explain": "② 发送 ARP 请求（广播）：目的 MAC = FF:FF:FF:FF:FF:FF，询问「谁是 192.168.1.20？」",
+     "frame": "content-demos/arp/3.webp"
+    },
+    {
+     "explain": "③ 同网段所有主机都收到；只有 IP 匹配的主机（B）处理该请求",
+     "frame": "content-demos/arp/4.webp"
+    },
+    {
+     "explain": "④ 主机 B 回 ARP 应答（单播）：192.168.1.20 的 MAC = AA:BB:CC:DD:EE:20",
+     "frame": "content-demos/arp/5.webp"
+    },
+    {
+     "explain": "⑤ A 写入 ARP 缓存，之后发帧可直接用该 MAC",
+     "frame": "content-demos/arp/6.webp"
+    },
+    {
+     "explain": "结论：跨网段时 ARP 解析的是网关的 MAC，不是目标主机 MAC。ARP 缓存有时效，过期重解析。",
+     "frame": "content-demos/arp/7.webp"
+    }
+   ],
+   "fingerprint": "88eff7b5d83fb3587786f2ab1c8b1b8b08af8d668f9117587369016b8296bea8"
+  },
+  {
+   "key": "408card/sliding-win",
+   "sourceId": "sliding-win",
+   "sourceUrl": "https://408card.top/#/vizp/sliding-win?sub=cn",
+   "id": "sliding-win",
+   "code": "cn",
+   "subjectKey": "beokayy-408/computer-network",
+   "title": "滑动窗口与快重传",
+   "description": "窗口滑动 + 3 个冗余 ACK 触发快重传",
+   "sortOrder": 10,
+   "frameCount": 7,
+   "frameBytes": 51988,
+   "steps": [
+    {
+     "explain": "TCP 滑动窗口：已发送未确认的字节 ≤ min(rwnd, cwnd)。累积确认。",
+     "frame": "content-demos/sliding-win/1.webp"
+    },
+    {
+     "explain": "① 连续发送 0,1,2,3（窗口内 4 个）",
+     "frame": "content-demos/sliding-win/2.webp"
+    },
+    {
+     "explain": "② 收到 ACK=1，表示期望下次收到 1；帧 0 已确认，窗口右移",
+     "frame": "content-demos/sliding-win/3.webp"
+    },
+    {
+     "explain": "③ 帧 2 丢失，但 3、4、5 到达接收端 → 接收端回 3 个冗余 ACK（都指向 2）",
+     "frame": "content-demos/sliding-win/4.webp"
+    },
+    {
+     "explain": "④ 发送方收到 3 个冗余 ACK → 快重传帧 2，不必等超时",
+     "frame": "content-demos/sliding-win/5.webp"
+    },
+    {
+     "explain": "⑤ 重传成功，累计确认 ACK=6，窗口滑到 6，可继续发 6、7",
+     "frame": "content-demos/sliding-win/6.webp"
+    },
+    {
+     "explain": "结论：流量控制是接收窗口 rwnd；拥塞控制是 cwnd；发送窗口 = min(rwnd, cwnd)。收到 3 个冗余 ACK 立即快重传。",
+     "frame": "content-demos/sliding-win/7.webp"
+    }
+   ],
+   "fingerprint": "9b4a397f9b13800b8c39e071978c93195290cb269794824db72b47166d199a52"
+  },
+  {
+   "key": "408card/congestion",
+   "sourceId": "congestion",
+   "sourceUrl": "https://408card.top/#/vizp/congestion?sub=cn",
+   "id": "congestion",
+   "code": "cn",
+   "subjectKey": "beokayy-408/computer-network",
+   "title": "拥塞控制",
+   "description": "慢开始 / 拥塞避免 / 快恢复 曲线",
+   "sortOrder": 11,
+   "frameCount": 24,
+   "frameBytes": 198808,
+   "steps": [
+    {
+     "explain": "拥塞窗口 cwnd 从 1 开始，阈值 ssthresh=16。慢开始：每个 RTT 翻倍。",
+     "frame": "content-demos/congestion/1.webp"
+    },
+    {
+     "explain": "慢开始：cwnd → 2",
+     "frame": "content-demos/congestion/2.webp"
+    },
+    {
+     "explain": "慢开始：cwnd → 4",
+     "frame": "content-demos/congestion/3.webp"
+    },
+    {
+     "explain": "慢开始：cwnd → 8",
+     "frame": "content-demos/congestion/4.webp"
+    },
+    {
+     "explain": "慢开始：cwnd → 16",
+     "frame": "content-demos/congestion/5.webp"
+    },
+    {
+     "explain": "cwnd 达到 ssthresh=16，转入拥塞避免：每个 RTT +1",
+     "frame": "content-demos/congestion/6.webp"
+    },
+    {
+     "explain": "拥塞避免：cwnd → 17",
+     "frame": "content-demos/congestion/7.webp"
+    },
+    {
+     "explain": "拥塞避免：cwnd → 18",
+     "frame": "content-demos/congestion/8.webp"
+    },
+    {
+     "explain": "拥塞避免：cwnd → 19",
+     "frame": "content-demos/congestion/9.webp"
+    },
+    {
+     "explain": "拥塞避免：cwnd → 20",
+     "frame": "content-demos/congestion/10.webp"
+    },
+    {
+     "explain": "拥塞避免：cwnd → 21",
+     "frame": "content-demos/congestion/11.webp"
+    },
+    {
+     "explain": "超时！ssthresh=10，cwnd=1，重新慢开始",
+     "frame": "content-demos/congestion/12.webp"
+    },
+    {
+     "explain": "慢开始：cwnd → 2",
+     "frame": "content-demos/congestion/13.webp"
+    },
+    {
+     "explain": "慢开始：cwnd → 4",
+     "frame": "content-demos/congestion/14.webp"
+    },
+    {
+     "explain": "慢开始：cwnd → 8",
+     "frame": "content-demos/congestion/15.webp"
+    },
+    {
+     "explain": "慢开始：cwnd → 10",
+     "frame": "content-demos/congestion/16.webp"
+    },
+    {
+     "explain": "拥塞避免：cwnd → 11",
+     "frame": "content-demos/congestion/17.webp"
+    },
+    {
+     "explain": "拥塞避免：cwnd → 12",
+     "frame": "content-demos/congestion/18.webp"
+    },
+    {
+     "explain": "拥塞避免：cwnd → 13",
+     "frame": "content-demos/congestion/19.webp"
+    },
+    {
+     "explain": "3 个冗余 ACK → 快重传；ssthresh=6，cwnd=6，进入快恢复（不回到 1）",
+     "frame": "content-demos/congestion/20.webp"
+    },
+    {
+     "explain": "快恢复：cwnd → 7",
+     "frame": "content-demos/congestion/21.webp"
+    },
+    {
+     "explain": "快恢复：cwnd → 8",
+     "frame": "content-demos/congestion/22.webp"
+    },
+    {
+     "explain": "快恢复：cwnd → 9",
+     "frame": "content-demos/congestion/23.webp"
+    },
+    {
+     "explain": "结论：超时 → 回到 cwnd=1；冗余 ACK → 回到 ssthresh。后者惩罚更轻，为快恢复。",
+     "frame": "content-demos/congestion/24.webp"
+    }
+   ],
+   "fingerprint": "f7a757b215ba45cef77091ac959dce599e8d7259f70272dda86f2f2932fd6fa0"
+  },
+  {
+   "key": "408card/crc",
+   "sourceId": "crc",
+   "sourceUrl": "https://408card.top/#/vizp/crc?sub=cn",
+   "id": "crc",
+   "code": "cn",
+   "subjectKey": "beokayy-408/computer-network",
+   "title": "CRC 循环冗余校验",
+   "description": "模二除法逐位求 FCS：发送补 0、余数作校验，接收端整除判错",
+   "sortOrder": 12,
+   "frameCount": 9,
+   "frameBytes": 87192,
+   "steps": [
+    {
+     "explain": "数据 M = 1010001101，生成多项式 G = 110101（最高次 r = 5）。",
+     "frame": "content-demos/crc/1.webp"
+    },
+    {
+     "explain": "第 1 步：寄存器第 1 位为 1，对齐 G 做模二减法（即 XOR）",
+     "frame": "content-demos/crc/2.webp"
+    },
+    {
+     "explain": "第 2 步：寄存器第 2 位为 1，对齐 G 做模二减法（即 XOR）",
+     "frame": "content-demos/crc/3.webp"
+    },
+    {
+     "explain": "第 3 步：寄存器第 4 位为 1，对齐 G 做模二减法（即 XOR）",
+     "frame": "content-demos/crc/4.webp"
+    },
+    {
+     "explain": "第 4 步：寄存器第 6 位为 1，对齐 G 做模二减法（即 XOR）",
+     "frame": "content-demos/crc/5.webp"
+    },
+    {
+     "explain": "第 5 步：寄存器第 8 位为 1，对齐 G 做模二减法（即 XOR）",
+     "frame": "content-demos/crc/6.webp"
+    },
+    {
+     "explain": "第 6 步：寄存器第 9 位为 1，对齐 G 做模二减法（即 XOR）",
+     "frame": "content-demos/crc/7.webp"
+    },
+    {
+     "explain": "除尽后最后 r=5 位即余数（FCS）= 01110。真正发送的帧 = M + FCS = 101000110101110",
+     "frame": "content-demos/crc/8.webp"
+    },
+    {
+     "explain": "接收端用同一 G 去除收到的帧 101000110101110。余数 = 00000，全 0 → 判定无错，收下。 模二加减都是异或，不借位。",
+     "frame": "content-demos/crc/9.webp"
+    }
+   ],
+   "fingerprint": "57943fb3cb1e402de53e3a15edea546ff29d0fb13533b18981b235465de4ee54"
+  },
+  {
+   "key": "408card/stop-wait",
+   "sourceId": "stop-wait",
+   "sourceUrl": "https://408card.top/#/vizp/stop-wait?sub=cn",
+   "id": "stop-wait",
+   "code": "cn",
+   "subjectKey": "beokayy-408/computer-network",
+   "title": "停等协议与超时重传",
+   "description": "发一帧等一确认，序号 0/1 交替，超时重传并接收端去重",
+   "sortOrder": 13,
+   "frameCount": 9,
+   "frameBytes": 93332,
+   "steps": [
+    {
+     "explain": "停等协议：发送方发一帧后停住等确认；收到 ACK 才发下一帧。帧序号 0/1 交替。",
+     "frame": "content-demos/stop-wait/1.webp"
+    },
+    {
+     "explain": "① 发送方发 帧 0（seq=0），启动超时计时器，进入「等待 ACK0」。",
+     "frame": "content-demos/stop-wait/2.webp"
+    },
+    {
+     "explain": "② 接收方收到帧 0，上交，回 ACK0（ack=0）。",
+     "frame": "content-demos/stop-wait/3.webp"
+    },
+    {
+     "explain": "③ ACK0 丢失（或时延过大），发送方一直没等到。",
+     "frame": "content-demos/stop-wait/4.webp"
+    },
+    {
+     "explain": "④ 超时重传：计时器到，重发帧 0（重复）。",
+     "frame": "content-demos/stop-wait/5.webp"
+    },
+    {
+     "explain": "⑤ 接收方又收到一个帧 0——但已收过，丢弃重复帧，再回 ACK0。",
+     "frame": "content-demos/stop-wait/6.webp"
+    },
+    {
+     "explain": "⑥ 发送方终于收到 ACK0，计时器清掉，可发下一帧。",
+     "frame": "content-demos/stop-wait/7.webp"
+    },
+    {
+     "explain": "⑦ 发送 帧 1（seq=1），再等 ACK1。",
+     "frame": "content-demos/stop-wait/8.webp"
+    },
+    {
+     "explain": "⑧ 收到 ACK1，循环结束。结论：停等靠「序号交替 + 超时重传 + 接收端去重」实现可靠传输；信道利用率低（W=1）。",
+     "frame": "content-demos/stop-wait/9.webp"
+    }
+   ],
+   "fingerprint": "7d3d0f4051a05ef5428eabd3c38ede9662e9c6dd896fe758a220d8b3ce1887ac"
+  },
+  {
+   "key": "408card/switch-learn",
+   "sourceId": "switch-learn",
+   "sourceUrl": "https://408card.top/#/vizp/switch-learn?sub=cn",
+   "id": "switch-learn",
+   "code": "cn",
+   "subjectKey": "beokayy-408/computer-network",
+   "title": "交换机自学习与转发",
+   "description": "按源 MAC 记端口建表；目的已知单播、未知或广播泛洪",
+   "sortOrder": 14,
+   "frameCount": 8,
+   "frameBytes": 111488,
+   "steps": [
+    {
+     "explain": "交换机有 4 个端口，连接 A/B/C/D。初始转发表为空。自学习：每收到一帧，记下「源 MAC → 入端口」。",
+     "frame": "content-demos/switch-learn/1.webp"
+    },
+    {
+     "explain": "① A 发给 B：源 A 学到 → 端口 1；目的 B。B 不在表中 → 泛洪（除入端口 1）",
+     "frame": "content-demos/switch-learn/2.webp"
+    },
+    {
+     "explain": "② B 发给 A：源 B 学到 → 端口 2；目的 A。表中 A→端口1 → 单播到端口1（过滤）",
+     "frame": "content-demos/switch-learn/3.webp"
+    },
+    {
+     "explain": "③ C 发给 D：源 C 学到 → 端口 3；目的 D。D 不在表中 → 泛洪（除入端口 3）",
+     "frame": "content-demos/switch-learn/4.webp"
+    },
+    {
+     "explain": "④ D 发给 C：源 D 学到 → 端口 4；目的 C。表中 C→端口3 → 单播到端口3",
+     "frame": "content-demos/switch-learn/5.webp"
+    },
+    {
+     "explain": "⑤ A 发给 C（A 已在表）：源 A 学到 → 端口 1；目的 C。表中 C→端口3 → 单播",
+     "frame": "content-demos/switch-learn/6.webp"
+    },
+    {
+     "explain": "⑥ A 发广播帧：源 A 学到 → 端口 1；目的 广播。广播地址 → 泛洪到所有其它端口",
+     "frame": "content-demos/switch-learn/7.webp"
+    },
+    {
+     "explain": "结论：自学习让转发表随帧建立；目的已知→单播过滤，未知/广播→泛洪。交换机隔离冲突域，但不隔离广播域（除非 VLAN）。",
+     "frame": "content-demos/switch-learn/8.webp"
+    }
+   ],
+   "fingerprint": "7814a25beca297331f52bf8ead5f9be0bcb280357232c0ef04f10bcab5055ed5"
+  },
+  {
+   "key": "408card/longest-prefix",
+   "sourceId": "longest-prefix",
+   "sourceUrl": "https://408card.top/#/vizp/longest-prefix?sub=cn",
+   "id": "longest-prefix",
+   "code": "cn",
+   "subjectKey": "beokayy-408/computer-network",
+   "title": "路由表最长前缀匹配",
+   "description": "多条候选前缀逐位比对，按实际匹配位数选最长者转发",
+   "sortOrder": 15,
+   "frameCount": 6,
+   "frameBytes": 76006,
+   "steps": [
+    {
+     "explain": "路由器收到目的 IP = 192.168.16.4 的分组，查路由表。最长前缀匹配：在所有能匹配的表项中，选前缀最长的下一跳。",
+     "frame": "content-demos/longest-prefix/1.webp"
+    },
+    {
+     "explain": "候选 1：192.168.16.0/26 → 匹配了 26 位前缀（完全命中 ✓）",
+     "frame": "content-demos/longest-prefix/2.webp"
+    },
+    {
+     "explain": "候选 2：192.168.16.0/24 → 匹配了 24 位前缀（完全命中 ✓）",
+     "frame": "content-demos/longest-prefix/3.webp"
+    },
+    {
+     "explain": "候选 3：192.168.0.0/16 → 匹配了 16 位前缀（完全命中 ✓）",
+     "frame": "content-demos/longest-prefix/4.webp"
+    },
+    {
+     "explain": "候选 4：0.0.0.0/0 → 匹配了 0 位前缀（完全命中 ✓）",
+     "frame": "content-demos/longest-prefix/5.webp"
+    },
+    {
+     "explain": "结论：192.168.16.0/26 匹配前缀最长（26 位），选中下一跳 R1 (接口0)。默认路由 0.0.0.0/0 只在没有任何更具体匹配时兜底。",
+     "frame": "content-demos/longest-prefix/6.webp"
+    }
+   ],
+   "fingerprint": "5950c27ebe1198c5cdf5d4b99d92dcf0c7ea208777be5154747a5daa32044535"
+  },
+  {
+   "key": "408card/dhcp",
+   "sourceId": "dhcp",
+   "sourceUrl": "https://408card.top/#/vizp/dhcp?sub=cn",
+   "id": "dhcp",
+   "code": "cn",
+   "subjectKey": "beokayy-408/computer-network",
+   "title": "DHCP 四步自动分配",
+   "description": "Discover→Offer→Request→ACK，广播为主，自动获取 IP/掩码/网关/DNS",
+   "sortOrder": 16,
+   "frameCount": 6,
+   "frameBytes": 67072,
+   "steps": [
+    {
+     "explain": "客户端刚上线，没有 IP 地址。DHCP 自动分配：① Discover ② Offer ③ Request ④ ACK（DORA）。基于 UDP。",
+     "frame": "content-demos/dhcp/1.webp"
+    },
+    {
+     "explain": "① 客户端广播 DHCP Discover：源 0.0.0.0:68，目的 255.255.255.255:67（全网广播，找 DHCP 服务器）。",
+     "frame": "content-demos/dhcp/2.webp"
+    },
+    {
+     "explain": "② DHCP 服务器广播 DHCP Offer：提供 IP 192.168.1.100、掩码、网关、DNS，及租约。",
+     "frame": "content-demos/dhcp/3.webp"
+    },
+    {
+     "explain": "③ 客户端广播 DHCP Request：正式请求使用 192.168.1.100（广播可让其它 DHCP 服务器知道已被选用）。",
+     "frame": "content-demos/dhcp/4.webp"
+    },
+    {
+     "explain": "④ 选定的服务器回 DHCP ACK，正式确认分配，带上租约期。",
+     "frame": "content-demos/dhcp/5.webp"
+    },
+    {
+     "explain": "结论：客户端把 192.168.1.100 配到网卡，可上网。租约到期需续期（重新 Request）。易错：Discover/Request 用广播，因为客户端初始不知道服务器地址、且 IP 尚未配置。",
+     "frame": "content-demos/dhcp/6.webp"
+    }
+   ],
+   "fingerprint": "aedffef6eea0b5a69f5d75922abac911692b7ea943ccbb97c9b44813b7d07225"
+  },
+  {
+   "key": "408card/dns",
+   "sourceId": "dns",
+   "sourceUrl": "https://408card.top/#/vizp/dns?sub=cn",
+   "id": "dns",
+   "code": "cn",
+   "subjectKey": "beokayy-408/computer-network",
+   "title": "DNS 递归与迭代查询",
+   "description": "主机到本地 DNS 递归，本地 DNS 到根/顶级/权威逐级迭代对比",
+   "sortOrder": 17,
+   "frameCount": 7,
+   "frameBytes": 104260,
+   "steps": [
+    {
+     "explain": "把域名 www.example.com 解析成 IP。两种方式：递归查询与迭代查询。主机→本地DNS 通常是递归；本地DNS→其它服务器通常是迭代。",
+     "frame": "content-demos/dns/1.webp"
+    },
+    {
+     "explain": "递归查询（左）：主机只发一次请求给本地域名服务器，要求「直接给我最终答案」。",
+     "frame": "content-demos/dns/2.webp"
+    },
+    {
+     "explain": "本地DNS 自己去迭代查询：先问根域名服务器「www.example.com 在哪？」",
+     "frame": "content-demos/dns/3.webp"
+    },
+    {
+     "explain": "根不知道答案，但告诉本地DNS：「去问 .com 顶级域名服务器」。",
+     "frame": "content-demos/dns/4.webp"
+    },
+    {
+     "explain": "本地DNS 问顶级服务器，它回答：「去问 example.com 权威服务器」。",
+     "frame": "content-demos/dns/5.webp"
+    },
+    {
+     "explain": "本地DNS 问权威服务器，拿到最终 IP。递归链到此完成。",
+     "frame": "content-demos/dns/6.webp"
+    },
+    {
+     "explain": "本地DNS 把最终 IP一次性返回给主机，并缓存。结论：递归「只问一次，等到底」；迭代「每次指下一站」。",
+     "frame": "content-demos/dns/7.webp"
+    }
+   ],
+   "fingerprint": "65e390e87c1fb0fc44e6595522859d9221f08e6b679571db1f9a7086f9ea9b37"
+  },
+  {
+   "key": "408card/tcp-ack",
+   "sourceId": "tcp-ack",
+   "sourceUrl": "https://408card.top/#/vizp/tcp-ack?sub=cn",
+   "id": "tcp-ack",
+   "code": "cn",
+   "subjectKey": "beokayy-408/computer-network",
+   "title": "TCP 累计确认与超时重传",
+   "description": "ACK 号=期望收到的下一字节，一个确认累积多字节，RTO 超时重传",
+   "sortOrder": 18,
+   "frameCount": 9,
+   "frameBytes": 91662,
+   "steps": [
+    {
+     "explain": "TCP 按字节编号。累计确认：ACK=n 表示 n 之前的字节都收到了，我下次期望收 n。未确认字节要靠 RTO 计时器兜底重传。",
+     "frame": "content-demos/tcp-ack/1.webp"
+    },
+    {
+     "explain": "① 发送方发 seg[0]（seq=0，长度 1000），启动 RTO 计时器。",
+     "frame": "content-demos/tcp-ack/2.webp"
+    },
+    {
+     "explain": "② 继续发 seg[1000]（seq=1000）。",
+     "frame": "content-demos/tcp-ack/3.webp"
+    },
+    {
+     "explain": "③ 发 seg[2000]，但它在网络中丢失，接收方收不到。",
+     "frame": "content-demos/tcp-ack/4.webp"
+    },
+    {
+     "explain": "④ 接收方收到 seg[0]，回 ACK=1000（确认 0~999，期望 1000）。",
+     "frame": "content-demos/tcp-ack/5.webp"
+    },
+    {
+     "explain": "⑤ 接收方收到 seg[1000]，回 ACK=2000（确认到 1999）。虽然 seg[2000] 还没来，累计确认照样推进。",
+     "frame": "content-demos/tcp-ack/6.webp"
+    },
+    {
+     "explain": "⑥ 发送方一直在等 ACK=3000。RTO 计时器快到 0 了还没来 → 该重传了。",
+     "frame": "content-demos/tcp-ack/7.webp"
+    },
+    {
+     "explain": "⑦ RTO 超时：发送方重传 seg[2000]。",
+     "frame": "content-demos/tcp-ack/8.webp"
+    },
+    {
+     "explain": "⑧ 接收方收到 seg[2000]，回 ACK=3000。结论：累计确认一次确认多字节；超时未收到对应 ACK 就重传该字节段。RTO 基于 RTT 估计。",
+     "frame": "content-demos/tcp-ack/9.webp"
+    }
+   ],
+   "fingerprint": "d2c2df834bf3d0e2ba0ff50ff8e3dfecfec1392091e1f885bcd52237addb7963"
+  },
+  {
+   "key": "408card/csma-ca",
+   "sourceId": "csma-ca",
+   "sourceUrl": "https://408card.top/#/vizp/csma-ca?sub=cn",
+   "id": "csma-ca",
+   "code": "cn",
+   "subjectKey": "beokayy-408/computer-network",
+   "title": "CSMA/CA 无线避让",
+   "description": "监听→DIFS→随机退避→发数据→SIFS→ACK，SIFS 短于 DIFS 优先",
+   "sortOrder": 19,
+   "frameCount": 7,
+   "frameBytes": 88936,
+   "steps": [
+    {
+     "explain": "CSMA/CA（无线）：先听后发 + 主动避让。无线难以边发边听（隐藏站），所以靠 ACK 确认 + 退避来减少碰撞（不是检测）。",
+     "frame": "content-demos/csma-ca/1.webp"
+    },
+    {
+     "explain": "① 站要发数据，先监听信道：此时忙——其它站正在发送，只能等待。",
+     "frame": "content-demos/csma-ca/2.webp"
+    },
+    {
+     "explain": "② 信道变空闲后，先等 DIFS（分布式帧间间隔，较长）。优先级低的数据/普通帧用它。",
+     "frame": "content-demos/csma-ca/3.webp"
+    },
+    {
+     "explain": "③ DIFS 结束后，从 {0..2^k-1} 随机取退避计数并倒计时：信道空闲才减 1，一旦忙就冻结，空闲再继续。",
+     "frame": "content-demos/csma-ca/4.webp"
+    },
+    {
+     "explain": "④ 退避计数减到 0，立即发送数据帧。",
+     "frame": "content-demos/csma-ca/5.webp"
+    },
+    {
+     "explain": "⑤ 接收方收到后，只等很短的 SIFS（短帧间间隔）就回 ACK —— SIFS 最短，抢在其它站前面确认。",
+     "frame": "content-demos/csma-ca/6.webp"
+    },
+    {
+     "explain": "⑥ 发送方收到 ACK，认为这次发送成功。若没收到 ACK，再退避重传。结论：SIFS < DIFS；RTS/CTS 握手机制用于缓解隐藏站问题。",
+     "frame": "content-demos/csma-ca/7.webp"
+    }
+   ],
+   "fingerprint": "a7519119c4882bdd3f4772a5b8df981e2af8018dea25635f0e8042cd761e7af5"
+  },
+  {
+   "key": "408card/ieee754",
+   "sourceId": "ieee754",
+   "sourceUrl": "https://408card.top/#/vizp/ieee754?sub=co",
+   "id": "ieee754",
+   "code": "co",
+   "subjectKey": "beokayy-408/computer-organization",
+   "title": "IEEE 754 拆位器",
+   "description": "输入小数实时拆符号/阶码/尾数",
+   "sortOrder": 1,
+   "frameCount": 5,
+   "frameBytes": 71608,
+   "steps": [
+    {
+     "explain": "输入 x = -0.75 （单精度 32 位：1 符号 + 8 阶码 + 23 尾数，偏置 127）",
+     "frame": "content-demos/ieee754/1.webp"
+    },
+    {
+     "explain": "① 符号位 S = 1（负），0 正 1 负",
+     "frame": "content-demos/ieee754/2.webp"
+    },
+    {
+     "explain": "② 阶码字段 E = 01111110 = 126 真阶 e = E − 127 = -1",
+     "frame": "content-demos/ieee754/3.webp"
+    },
+    {
+     "explain": "③ 尾数字段 M = 隐含 1 + 1000 0000 0000 0000 0000 000 有效数字写成 1.M",
+     "frame": "content-demos/ieee754/4.webp"
+    },
+    {
+     "explain": "④ 反推：(-1)^S × 1.M × 2^e = -0.75 类型：规格化 十六进制 0xBF400000。 易错：真阶要减偏置；阶码全 0 为非规格化（无隐含 1、指数取 1−bias）；尾数只存小数部分。",
+     "frame": "content-demos/ieee754/5.webp"
+    }
+   ],
+   "fingerprint": "852ff6d616b914d9b85b354626ae153f932301b1e6e25f26c48a38b80887c45f"
+  },
+  {
+   "key": "408card/pipeline",
+   "sourceId": "pipeline",
+   "sourceUrl": "https://408card.top/#/vizp/pipeline?sub=co",
+   "id": "pipeline",
+   "code": "co",
+   "subjectKey": "beokayy-408/computer-organization",
+   "title": "流水线时空图",
+   "description": "五级流水 + 数据冒险",
+   "sortOrder": 2,
+   "frameCount": 12,
+   "frameBytes": 145404,
+   "steps": [
+    {
+     "explain": "五级流水：IF 取指 → ID 译码/取数 → EX 执行 → MEM 访存 → WB 写回。当前模式：有转发（旁路）",
+     "frame": "content-demos/pipeline/1.webp"
+    },
+    {
+     "explain": "周期 1：ADD R1,R2,R3 @ IF；SUB R4,R1,R5 气泡；AND R6,R1,R7 气泡；OR R8,R9,R10 气泡 第一条指令取指",
+     "frame": "content-demos/pipeline/2.webp"
+    },
+    {
+     "explain": "周期 2：ADD R1,R2,R3 @ ID；SUB R4,R1,R5 气泡；AND R6,R1,R7 气泡；OR R8,R9,R10 气泡",
+     "frame": "content-demos/pipeline/3.webp"
+    },
+    {
+     "explain": "周期 3：ADD R1,R2,R3 @ EX；SUB R4,R1,R5 @ IF；AND R6,R1,R7 气泡；OR R8,R9,R10 气泡",
+     "frame": "content-demos/pipeline/4.webp"
+    },
+    {
+     "explain": "周期 4：ADD R1,R2,R3 @ MEM；SUB R4,R1,R5 @ ID；AND R6,R1,R7 气泡；OR R8,R9,R10 气泡",
+     "frame": "content-demos/pipeline/5.webp"
+    },
+    {
+     "explain": "周期 5：ADD R1,R2,R3 @ WB；SUB R4,R1,R5 @ EX；AND R6,R1,R7 @ IF；OR R8,R9,R10 气泡",
+     "frame": "content-demos/pipeline/6.webp"
+    },
+    {
+     "explain": "周期 6：SUB R4,R1,R5 @ MEM；AND R6,R1,R7 @ ID；OR R8,R9,R10 @ IF",
+     "frame": "content-demos/pipeline/7.webp"
+    },
+    {
+     "explain": "周期 7：SUB R4,R1,R5 @ WB；AND R6,R1,R7 @ EX；OR R8,R9,R10 @ ID",
+     "frame": "content-demos/pipeline/8.webp"
+    },
+    {
+     "explain": "周期 8：AND R6,R1,R7 @ MEM；OR R8,R9,R10 @ EX",
+     "frame": "content-demos/pipeline/9.webp"
+    },
+    {
+     "explain": "周期 9：AND R6,R1,R7 @ WB；OR R8,R9,R10 @ MEM",
+     "frame": "content-demos/pipeline/10.webp"
+    },
+    {
+     "explain": "周期 10：OR R8,R9,R10 @ WB",
+     "frame": "content-demos/pipeline/11.webp"
+    },
+    {
+     "explain": "完成：4 条指令用了 10 拍；理想装满 8 拍。加速比 ≈ 2.00。转发（旁路）可消除大部分 RAW 数据冒险气泡，但 load-use 仍可能留 1 拍气泡。",
+     "frame": "content-demos/pipeline/12.webp"
+    }
+   ],
+   "fingerprint": "9b1071925c78cbecf4c4dc3175a90e3c6e6a7fa745b0ea89de38788117cd0ece"
+  },
+  {
+   "key": "408card/cache-map",
+   "sourceId": "cache-map",
+   "sourceUrl": "https://408card.top/#/vizp/cache-map?sub=co",
+   "id": "cache-map",
+   "code": "co",
+   "subjectKey": "beokayy-408/computer-organization",
+   "title": "Cache 映射与地址拆分",
+   "description": "直接/全相联/组相联 地址分段",
+   "sortOrder": 3,
+   "frameCount": 4,
+   "frameBytes": 37666,
+   "steps": [
+    {
+     "explain": "Cache 映射与地址拆分：地址共 32 位，按「高位标记、中间索引、低位块内」切分。",
+     "frame": "content-demos/cache-map/1.webp"
+    },
+    {
+     "explain": "直接映射：地址 = 标记 Tag 17 位 + 行号 Index 9 位 + 块内 Offset 6 位。主存第 B 块只能放到 Cache 第 B mod C 行。",
+     "frame": "content-demos/cache-map/2.webp"
+    },
+    {
+     "explain": "访问流程：① 用 Index/Set 定位行或组 ② 并行比较 Tag ③ 相等则命中，用 Offset 取字 ④ 不等则缺失，调块并按替换算法写回。",
+     "frame": "content-demos/cache-map/3.webp"
+    },
+    {
+     "explain": "例题拆位：地址 32 位，Cache 数据区 32KB、块大小 64B、直接映射 → 行数 = 32KB / 64B = 512 = 2⁹，故 Offset=6、Index=9、Tag=32−9−6=17。",
+     "frame": "content-demos/cache-map/4.webp"
+    }
+   ],
+   "fingerprint": "1a96219aaa8445facfaa03c48c8df21c7291a9cabc80124fe6e44975412a3047"
+  },
+  {
+   "key": "408card/cache-lru",
+   "sourceId": "cache-lru",
+   "sourceUrl": "https://408card.top/#/vizp/cache-lru?sub=co",
+   "id": "cache-lru",
+   "code": "co",
+   "subjectKey": "beokayy-408/computer-organization",
+   "title": "Cache 替换 LRU",
+   "description": "最近最久未使用块替换",
+   "sortOrder": 4,
+   "frameCount": 14,
+   "frameBytes": 68612,
+   "steps": [
+    {
+     "explain": "[LRU] 引用串：1 → 2 → 3 → 4 → 1 → 2 → 5 → 1 → 2 → 3 → 4 → 5，分配帧数 3。统计缺页率。",
+     "frame": "content-demos/cache-lru/1.webp"
+    },
+    {
+     "explain": "[LRU] 访问 1 → 缺失，淘汰最久未用，装入帧 0",
+     "frame": "content-demos/cache-lru/2.webp"
+    },
+    {
+     "explain": "[LRU] 访问 2 → 缺失，淘汰最久未用，装入帧 1",
+     "frame": "content-demos/cache-lru/3.webp"
+    },
+    {
+     "explain": "[LRU] 访问 3 → 缺失，淘汰最久未用，装入帧 2",
+     "frame": "content-demos/cache-lru/4.webp"
+    },
+    {
+     "explain": "[LRU] 访问 4 → 缺失，淘汰最久未用，装入帧 0",
+     "frame": "content-demos/cache-lru/5.webp"
+    },
+    {
+     "explain": "[LRU] 访问 1 → 缺失，淘汰最久未用，装入帧 1",
+     "frame": "content-demos/cache-lru/6.webp"
+    },
+    {
+     "explain": "[LRU] 访问 2 → 缺失，淘汰最久未用，装入帧 2",
+     "frame": "content-demos/cache-lru/7.webp"
+    },
+    {
+     "explain": "[LRU] 访问 5 → 缺失，淘汰最久未用，装入帧 0",
+     "frame": "content-demos/cache-lru/8.webp"
+    },
+    {
+     "explain": "[LRU] 访问 1 → 命中，更新最近使用时间",
+     "frame": "content-demos/cache-lru/9.webp"
+    },
+    {
+     "explain": "[LRU] 访问 2 → 命中，更新最近使用时间",
+     "frame": "content-demos/cache-lru/10.webp"
+    },
+    {
+     "explain": "[LRU] 访问 3 → 缺失，淘汰最久未用，装入帧 0",
+     "frame": "content-demos/cache-lru/11.webp"
+    },
+    {
+     "explain": "[LRU] 访问 4 → 缺失，淘汰最久未用，装入帧 1",
+     "frame": "content-demos/cache-lru/12.webp"
+    },
+    {
+     "explain": "[LRU] 访问 5 → 缺失，淘汰最久未用，装入帧 2",
+     "frame": "content-demos/cache-lru/13.webp"
+    },
+    {
+     "explain": "结束：缺页 10/12（缺失率 83.3%），命中 2 次。LRU 用「最久未用」、FIFO 用「最早进入」、Random 随机。易错：Belady 异常只发生在 FIFO，LRU 不发生。",
+     "frame": "content-demos/cache-lru/14.webp"
+    }
+   ],
+   "fingerprint": "6c527895e5f1edda151ff8953315380fac5407822ed75305b41da7600ddedfc3"
+  },
+  {
+   "key": "408card/cache-fifo",
+   "sourceId": "cache-fifo",
+   "sourceUrl": "https://408card.top/#/vizp/cache-fifo?sub=co",
+   "id": "cache-fifo",
+   "code": "co",
+   "subjectKey": "beokayy-408/computer-organization",
+   "title": "Cache 替换 FIFO",
+   "description": "先进先出块替换",
+   "sortOrder": 5,
+   "frameCount": 14,
+   "frameBytes": 68566,
+   "steps": [
+    {
+     "explain": "[FIFO] 引用串：1 → 2 → 3 → 4 → 1 → 2 → 5 → 1 → 2 → 3 → 4 → 5，分配帧数 3。统计缺页率。",
+     "frame": "content-demos/cache-fifo/1.webp"
+    },
+    {
+     "explain": "[FIFO] 访问 1 → 缺失，淘汰最早进入，装入帧 0",
+     "frame": "content-demos/cache-fifo/2.webp"
+    },
+    {
+     "explain": "[FIFO] 访问 2 → 缺失，淘汰最早进入，装入帧 1",
+     "frame": "content-demos/cache-fifo/3.webp"
+    },
+    {
+     "explain": "[FIFO] 访问 3 → 缺失，淘汰最早进入，装入帧 2",
+     "frame": "content-demos/cache-fifo/4.webp"
+    },
+    {
+     "explain": "[FIFO] 访问 4 → 缺失，淘汰最早进入，装入帧 0",
+     "frame": "content-demos/cache-fifo/5.webp"
+    },
+    {
+     "explain": "[FIFO] 访问 1 → 缺失，淘汰最早进入，装入帧 1",
+     "frame": "content-demos/cache-fifo/6.webp"
+    },
+    {
+     "explain": "[FIFO] 访问 2 → 缺失，淘汰最早进入，装入帧 2",
+     "frame": "content-demos/cache-fifo/7.webp"
+    },
+    {
+     "explain": "[FIFO] 访问 5 → 缺失，淘汰最早进入，装入帧 0",
+     "frame": "content-demos/cache-fifo/8.webp"
+    },
+    {
+     "explain": "[FIFO] 访问 1 → 命中，更新最近使用时间",
+     "frame": "content-demos/cache-fifo/9.webp"
+    },
+    {
+     "explain": "[FIFO] 访问 2 → 命中，更新最近使用时间",
+     "frame": "content-demos/cache-fifo/10.webp"
+    },
+    {
+     "explain": "[FIFO] 访问 3 → 缺失，淘汰最早进入，装入帧 1",
+     "frame": "content-demos/cache-fifo/11.webp"
+    },
+    {
+     "explain": "[FIFO] 访问 4 → 缺失，淘汰最早进入，装入帧 2",
+     "frame": "content-demos/cache-fifo/12.webp"
+    },
+    {
+     "explain": "[FIFO] 访问 5 → 命中，更新最近使用时间",
+     "frame": "content-demos/cache-fifo/13.webp"
+    },
+    {
+     "explain": "结束：缺页 9/12（缺失率 75.0%），命中 3 次。LRU 用「最久未用」、FIFO 用「最早进入」、Random 随机。易错：Belady 异常只发生在 FIFO，LRU 不发生。",
+     "frame": "content-demos/cache-fifo/14.webp"
+    }
+   ],
+   "fingerprint": "d4541b19cd0082e9b896ff6c082703023717a2b6a546176294686a7468459ecc"
+  },
+  {
+   "key": "408card/cache-write",
+   "sourceId": "cache-write",
+   "sourceUrl": "https://408card.top/#/vizp/cache-write?sub=co",
+   "id": "cache-write",
+   "code": "co",
+   "subjectKey": "beokayy-408/computer-organization",
+   "title": "Cache 写策略",
+   "description": "写直达 / 写回 逐步对比",
+   "sortOrder": 6,
+   "frameCount": 7,
+   "frameBytes": 42670,
+   "steps": [
+    {
+     "explain": "Cache 写策略决定「写命中 / 写缺失」时数据如何落到主存。核心区别在主存何时更新、是否需要脏位。",
+     "frame": "content-demos/cache-write/1.webp"
+    },
+    {
+     "explain": "① 写直达 Write-through：写 Cache 的同时立刻写主存",
+     "frame": "content-demos/cache-write/2.webp"
+    },
+    {
+     "explain": "② 写直达：主存始终最新，实现简单；缺点是每次写都访存，总线带宽占用大",
+     "frame": "content-demos/cache-write/3.webp"
+    },
+    {
+     "explain": "③ 写回 Write-back：只写 Cache，并把该块标记为脏位，暂不写主存",
+     "frame": "content-demos/cache-write/4.webp"
+    },
+    {
+     "explain": "④ 写回：后续写都只改 Cache，带宽占用小；主存此时是过期的",
+     "frame": "content-demos/cache-write/5.webp"
+    },
+    {
+     "explain": "⑤ 脏块被替换时，才把它写回主存，二者再次一致",
+     "frame": "content-demos/cache-write/6.webp"
+    },
+    {
+     "explain": "完成对比：写直达——主存总最新、带宽大、无需脏位；写回——带宽小、需脏位、可能多次写只回一次主存。408 常考两者带宽与实现复杂度。",
+     "frame": "content-demos/cache-write/7.webp"
+    }
+   ],
+   "fingerprint": "161f31919cc8d8abbf8e7f2a59479a0def662216920bddd3f8d6da7d23a11cbb"
+  },
+  {
+   "key": "408card/instr-cycle",
+   "sourceId": "instr-cycle",
+   "sourceUrl": "https://408card.top/#/vizp/instr-cycle?sub=co",
+   "id": "instr-cycle",
+   "code": "co",
+   "subjectKey": "beokayy-408/computer-organization",
+   "title": "指令周期与数据通路",
+   "description": "取指/间址/执行/中断微操作",
+   "sortOrder": 7,
+   "frameCount": 24,
+   "frameBytes": 311482,
+   "steps": [
+    {
+     "explain": "指令周期 = 取指 + 间址(可选) + 执行 + 中断(可选)。单总线同一时刻只能传一组数据，故常设 Y、Z 暂存器。",
+     "frame": "content-demos/instr-cycle/1.webp"
+    },
+    {
+     "explain": "进入 取指周期",
+     "frame": "content-demos/instr-cycle/2.webp"
+    },
+    {
+     "explain": "取指周期：PC → MAR",
+     "frame": "content-demos/instr-cycle/3.webp"
+    },
+    {
+     "explain": "取指周期：1 → R（读命令）",
+     "frame": "content-demos/instr-cycle/4.webp"
+    },
+    {
+     "explain": "取指周期：M(MAR) → MDR",
+     "frame": "content-demos/instr-cycle/5.webp"
+    },
+    {
+     "explain": "取指周期：(PC) + 1 → PC",
+     "frame": "content-demos/instr-cycle/6.webp"
+    },
+    {
+     "explain": "取指周期：MDR → IR（操作码 → CU）",
+     "frame": "content-demos/instr-cycle/7.webp"
+    },
+    {
+     "explain": "进入 间址周期",
+     "frame": "content-demos/instr-cycle/8.webp"
+    },
+    {
+     "explain": "间址周期：Ad(IR) → MAR",
+     "frame": "content-demos/instr-cycle/9.webp"
+    },
+    {
+     "explain": "间址周期：1 → R",
+     "frame": "content-demos/instr-cycle/10.webp"
+    },
+    {
+     "explain": "间址周期：M(MAR) → MDR",
+     "frame": "content-demos/instr-cycle/11.webp"
+    },
+    {
+     "explain": "间址周期：MDR → Ad(IR)",
+     "frame": "content-demos/instr-cycle/12.webp"
+    },
+    {
+     "explain": "进入 执行周期",
+     "frame": "content-demos/instr-cycle/13.webp"
+    },
+    {
+     "explain": "执行周期：Ad(IR) → MAR",
+     "frame": "content-demos/instr-cycle/14.webp"
+    },
+    {
+     "explain": "执行周期：1 → R",
+     "frame": "content-demos/instr-cycle/15.webp"
+    },
+    {
+     "explain": "执行周期：M(MAR) → MDR",
+     "frame": "content-demos/instr-cycle/16.webp"
+    },
+    {
+     "explain": "执行周期：(ACC) + (MDR) → ACC（加法例）",
+     "frame": "content-demos/instr-cycle/17.webp"
+    },
+    {
+     "explain": "进入 中断周期",
+     "frame": "content-demos/instr-cycle/18.webp"
+    },
+    {
+     "explain": "中断周期：0 → EINT（关中断）",
+     "frame": "content-demos/instr-cycle/19.webp"
+    },
+    {
+     "explain": "中断周期：(SP) − 1 → SP，SP → MAR",
+     "frame": "content-demos/instr-cycle/20.webp"
+    },
+    {
+     "explain": "中断周期：1 → W",
+     "frame": "content-demos/instr-cycle/21.webp"
+    },
+    {
+     "explain": "中断周期：PC → MDR，M(MAR) ← MDR（存断点）",
+     "frame": "content-demos/instr-cycle/22.webp"
+    },
+    {
+     "explain": "中断周期：向量地址 → PC",
+     "frame": "content-demos/instr-cycle/23.webp"
+    },
+    {
+     "explain": "为什么单总线要 Y/Z？两个操作数不能同时送上总线 → 先送一个进 Y，再送另一个与 Y 运算，结果暂存 Z。完成。",
+     "frame": "content-demos/instr-cycle/24.webp"
+    }
+   ],
+   "fingerprint": "b8a28d3470204b817517f97d5d27fd37ece7c58966e98d923f18a6063b006b06"
+  },
+  {
+   "key": "408card/instr-format",
+   "sourceId": "instr-format",
+   "sourceUrl": "https://408card.top/#/vizp/instr-format?sub=co",
+   "id": "instr-format",
+   "code": "co",
+   "subjectKey": "beokayy-408/computer-organization",
+   "title": "指令格式与寻址",
+   "description": "扩展操作码 + 8 种寻址方式",
+   "sortOrder": 8,
+   "frameCount": 3,
+   "frameBytes": 39714,
+   "steps": [
+    {
+     "explain": "直接寻址：有效地址 EA = A 访存次数：1。下图展示从指令到操作数的寻址路径。",
+     "frame": "content-demos/instr-format/1.webp"
+    },
+    {
+     "explain": "说明：地址码即有效地址，访存 1 次。扩展操作码：短操作码留给常用指令，长操作码占用地址码高位，实现不定长编码。",
+     "frame": "content-demos/instr-format/2.webp"
+    },
+    {
+     "explain": "对比记忆：立即/寄存器不访存；间接寻址访存 2 次；其余通常访存 1 次。访存越少速度越快。",
+     "frame": "content-demos/instr-format/3.webp"
+    }
+   ],
+   "fingerprint": "59c0af79786266881318125470083de9d0db6f9390a18f912b72355db7c754de"
+  },
+  {
+   "key": "408card/binary-code",
+   "sourceId": "binary-code",
+   "sourceUrl": "https://408card.top/#/vizp/binary-code?sub=co",
+   "id": "binary-code",
+   "code": "co",
+   "subjectKey": "beokayy-408/computer-organization",
+   "title": "原码/反码/补码/移码",
+   "description": "四种机器数对照",
+   "sortOrder": 9,
+   "frameCount": 6,
+   "frameBytes": 81672,
+   "steps": [
+    {
+     "explain": "真值 x = -5，机器字长 8 位。最高位是符号位：0 正 1 负。",
+     "frame": "content-demos/binary-code/1.webp"
+    },
+    {
+     "explain": "原码：符号位 + 数值绝对值 → 10000101。0 有 +0/−0 两种表示。",
+     "frame": "content-demos/binary-code/2.webp"
+    },
+    {
+     "explain": "反码：符号位不变，数值位按位取反 → 11111010。",
+     "frame": "content-demos/binary-code/3.webp"
+    },
+    {
+     "explain": "补码：反码 + 1 → 11111011。0 的补码唯一（全 0），范围 −2^(n−1) ~ 2^(n−1)−1 不对称。",
+     "frame": "content-demos/binary-code/4.webp"
+    },
+    {
+     "explain": "移码：真值 + 偏置 2^(w−1) = 128 → 01111011。大小比较与真值一致，常用于浮点阶码。",
+     "frame": "content-demos/binary-code/5.webp"
+    },
+    {
+     "explain": "完成。易错：补码 −2^(n−1) 没有对应正数；补码加减时符号位参与运算，溢出需另判（见溢出演示）；移码与补码仅符号位相反。",
+     "frame": "content-demos/binary-code/6.webp"
+    }
+   ],
+   "fingerprint": "ff6dde84820e5dfb8e44f1b4859af310a63f53917758b6cdb7258db773db50dd"
+  },
+  {
+   "key": "408card/overflow",
+   "sourceId": "overflow",
+   "sourceUrl": "https://408card.top/#/vizp/overflow?sub=co",
+   "id": "overflow",
+   "code": "co",
+   "subjectKey": "beokayy-408/computer-organization",
+   "title": "补码加减与溢出判断",
+   "description": "竖式演算 + 进位异或",
+   "sortOrder": 10,
+   "frameCount": 10,
+   "frameBytes": 147838,
+   "steps": [
+    {
+     "explain": "加法：100 + 50，补码运算，字长 8 位。被加数 A=01100100，B=00110010。从最低位逐位相加。",
+     "frame": "content-demos/overflow/1.webp"
+    },
+    {
+     "explain": "第 8 位（从低到高）：0 + 0 + 进位 0 = 0 → 和位 0，进位 0",
+     "frame": "content-demos/overflow/2.webp"
+    },
+    {
+     "explain": "第 7 位（从低到高）：0 + 1 + 进位 0 = 1 → 和位 1，进位 0",
+     "frame": "content-demos/overflow/3.webp"
+    },
+    {
+     "explain": "第 6 位（从低到高）：1 + 0 + 进位 0 = 1 → 和位 1，进位 0",
+     "frame": "content-demos/overflow/4.webp"
+    },
+    {
+     "explain": "第 5 位（从低到高）：0 + 0 + 进位 0 = 0 → 和位 0，进位 0",
+     "frame": "content-demos/overflow/5.webp"
+    },
+    {
+     "explain": "第 4 位（从低到高）：0 + 1 + 进位 0 = 1 → 和位 1，进位 0",
+     "frame": "content-demos/overflow/6.webp"
+    },
+    {
+     "explain": "第 3 位（从低到高）：1 + 1 + 进位 0 = 2 → 和位 0，进位 1",
+     "frame": "content-demos/overflow/7.webp"
+    },
+    {
+     "explain": "第 2 位（从低到高）：1 + 0 + 进位 1 = 2 → 和位 0，进位 1",
+     "frame": "content-demos/overflow/8.webp"
+    },
+    {
+     "explain": "第 1 位（从低到高）：0 + 0 + 进位 1 = 1 → 和位 1，进位 0",
+     "frame": "content-demos/overflow/9.webp"
+    },
+    {
+     "explain": "结果补码 10010110 = 真值 -106 溢出！符号位进位入 Cin=1 ≠ 进位出 Cout=0",
+     "frame": "content-demos/overflow/10.webp"
+    }
+   ],
+   "fingerprint": "aa89096644f3e300bb61301a72b9a42262264257edddf9e0e71cdfedaf475490"
+  },
+  {
+   "key": "408card/hamming",
+   "sourceId": "hamming",
+   "sourceUrl": "https://408card.top/#/vizp/hamming?sub=co",
+   "id": "hamming",
+   "code": "co",
+   "subjectKey": "beokayy-408/computer-organization",
+   "title": "海明码编码与纠错",
+   "description": "校验位推导 + 出错定位",
+   "sortOrder": 11,
+   "frameCount": 6,
+   "frameBytes": 45642,
+   "steps": [
+    {
+     "explain": "数据 1011（n=4 位）。求校验位位数 r：2^r ≥ n+r+1 → r=3，总长 7。校验位 P 占 1,2,4,8…（2 的幂）位置。",
+     "frame": "content-demos/hamming/1.webp"
+    },
+    {
+     "explain": "数据位填入非 2 的幂位置：位 3 ← 1，位 5 ← 0，位 6 ← 1，位 7 ← 1",
+     "frame": "content-demos/hamming/2.webp"
+    },
+    {
+     "explain": "校验位 P1（覆盖位置 1、3、5、7）：对这些位做偶校验异或 = 0",
+     "frame": "content-demos/hamming/3.webp"
+    },
+    {
+     "explain": "校验位 P2（覆盖位置 2、3、6、7）：对这些位做偶校验异或 = 1",
+     "frame": "content-demos/hamming/4.webp"
+    },
+    {
+     "explain": "校验位 P4（覆盖位置 4、5、6、7）：对这些位做偶校验异或 = 0",
+     "frame": "content-demos/hamming/5.webp"
+    },
+    {
+     "explain": "海明码：0110011。接收端对各校验组异或得 S（指误字），S≠0 时其数值正好指出出错位编号，可纠 1 位错。",
+     "frame": "content-demos/hamming/6.webp"
+    }
+   ],
+   "fingerprint": "072d9662ef1d36eb19d6c500726c03b95c3957ee8a6bd65625f663256f76c23b"
+  },
+  {
+   "key": "408card/interrupt",
+   "sourceId": "interrupt",
+   "sourceUrl": "https://408card.top/#/vizp/interrupt?sub=co",
+   "id": "interrupt",
+   "code": "co",
+   "subjectKey": "beokayy-408/computer-organization",
+   "title": "中断响应过程",
+   "description": "关中断 → 查向量 → 保存现场 → ISR",
+   "sortOrder": 12,
+   "frameCount": 7,
+   "frameBytes": 67324,
+   "steps": [
+    {
+     "explain": "中断：CPU 在一条指令结束后暂停当前程序，转去执行中断服务程序，结束后返回原断点继续。",
+     "frame": "content-demos/interrupt/1.webp"
+    },
+    {
+     "explain": "① 关中断（进入不可再中断状态），硬件保存断点（PC、PSW）——即中断隐指令。",
+     "frame": "content-demos/interrupt/2.webp"
+    },
+    {
+     "explain": "② 识别中断源，查中断向量表，得到中断服务程序入口地址。",
+     "frame": "content-demos/interrupt/3.webp"
+    },
+    {
+     "explain": "③ 保存现场：通用寄存器、程序状态字等压栈（可由软件完成）。",
+     "frame": "content-demos/interrupt/4.webp"
+    },
+    {
+     "explain": "④ 执行中断服务程序，处理该设备的具体事务。",
+     "frame": "content-demos/interrupt/5.webp"
+    },
+    {
+     "explain": "⑤ 恢复现场、开中断、中断返回，回到断点继续执行用户程序。",
+     "frame": "content-demos/interrupt/6.webp"
+    },
+    {
+     "explain": "完成。易错：中断隐指令由硬件完成（关中断、存断点、定入口）；保存现场/恢复现场可由软件完成。不可屏蔽中断 NMI 不被关中断屏蔽。",
+     "frame": "content-demos/interrupt/7.webp"
+    }
+   ],
+   "fingerprint": "aeb97b749c44e7878a1c3a0e6a669478dd3bbe99e8fdbd2d7f89af005912176a"
+  },
+  {
+   "key": "408card/dma",
+   "sourceId": "dma",
+   "sourceUrl": "https://408card.top/#/vizp/dma?sub=co",
+   "id": "dma",
+   "code": "co",
+   "subjectKey": "beokayy-408/computer-organization",
+   "title": "I/O 方式对比",
+   "description": "程序查询 / 中断 / DMA",
+   "sortOrder": 13,
+   "frameCount": 8,
+   "frameBytes": 60672,
+   "steps": [
+    {
+     "explain": "I/O 控制方式演进：程序查询 → 程序中断 → DMA。趋势是 CPU 干预越来越少、与设备并行度越来越高。",
+     "frame": "content-demos/dma/1.webp"
+    },
+    {
+     "explain": "① 程序查询：CPU 反复读取状态寄存器，设备未就绪就忙等，利用率极低。",
+     "frame": "content-demos/dma/2.webp"
+    },
+    {
+     "explain": "② 程序查询：数据就绪后仍由 CPU 逐字搬运，期间什么别的都干不了。",
+     "frame": "content-demos/dma/3.webp"
+    },
+    {
+     "explain": "③ 程序中断：CPU 启动设备后继续做自己的事；设备完成后发中断通知 CPU。",
+     "frame": "content-demos/dma/4.webp"
+    },
+    {
+     "explain": "④ 中断方式：每次传输仍要 CPU 介入并逐字/逐块服务，适合低速设备。",
+     "frame": "content-demos/dma/5.webp"
+    },
+    {
+     "explain": "⑤ DMA：DMA 控制器接管总线，成块直接在主存与设备间传输。",
+     "frame": "content-demos/dma/6.webp"
+    },
+    {
+     "explain": "⑥ DMA 传输期间 CPU 可继续执行其他程序（周期挪用/总线分时）；仅在整块开始与结束时中断 CPU 一次。",
+     "frame": "content-demos/dma/7.webp"
+    },
+    {
+     "explain": "完成对比：查询 = CPU 全程忙等；中断 = 每次传输都打扰 CPU；DMA = 整块传输、CPU 几乎不介入。速度与并行度：查询 < 中断 < DMA < 通道。",
+     "frame": "content-demos/dma/8.webp"
+    }
+   ],
+   "fingerprint": "464cc14484a19b391eec7f0796545bff854be10232b6b28ddce2aaa722bbbd83"
+  },
+  {
+   "key": "408card/booth",
+   "sourceId": "booth",
+   "sourceUrl": "https://408card.top/#/vizp/booth?sub=co",
+   "id": "booth",
+   "code": "co",
+   "subjectKey": "beokayy-408/computer-organization",
+   "title": "Booth 补码一位乘",
+   "description": "部分积双符号位、附加位判 01加x/10减x，逐拍算术右移",
+   "sortOrder": 14,
+   "frameCount": 10,
+   "frameBytes": 90974,
+   "steps": [
+    {
+     "explain": "Booth 补码一位乘：x = -3，y = 5，真值积应为 -15。部分积 A 用双符号位（6 位），乘数 Q=0101，附加位 Q′=0。",
+     "frame": "content-demos/booth/1.webp"
+    },
+    {
+     "explain": "第 1 步：看 (Q′, Q0) = (0, 1) = 01 01 → A += [−x]补",
+     "frame": "content-demos/booth/2.webp"
+    },
+    {
+     "explain": "对 A.Q 做算术右移 1 位（最高符号位不变）：A=000001，Q=1010，Q′=1。",
+     "frame": "content-demos/booth/3.webp"
+    },
+    {
+     "explain": "第 2 步：看 (Q′, Q0) = (0, 1) = 01 01 → A += [−x]补",
+     "frame": "content-demos/booth/4.webp"
+    },
+    {
+     "explain": "对 A.Q 做算术右移 1 位（最高符号位不变）：A=000001，Q=1010，Q′=1。",
+     "frame": "content-demos/booth/5.webp"
+    },
+    {
+     "explain": "第 3 步：看 (Q′, Q0) = (0, 1) = 01 01 → A += [−x]补",
+     "frame": "content-demos/booth/6.webp"
+    },
+    {
+     "explain": "对 A.Q 做算术右移 1 位（最高符号位不变）：A=000001，Q=1010，Q′=1。",
+     "frame": "content-demos/booth/7.webp"
+    },
+    {
+     "explain": "第 4 步：看 (Q′, Q0) = (0, 1) = 01 01 → A += [−x]补",
+     "frame": "content-demos/booth/8.webp"
+    },
+    {
+     "explain": "对 A.Q 做算术右移 1 位（最高符号位不变）：A=000001，Q=1010，Q′=1。",
+     "frame": "content-demos/booth/9.webp"
+    },
+    {
+     "explain": "结束：高位部分积 A = 000000（有符号），低位 Q = 0101。乘积 = A×2^4 + Q = 5，与真值 -15 一致。易错：看 (Q′,Q0) 是附加位在前；右移是算术右移补符号位。",
+     "frame": "content-demos/booth/10.webp"
+    }
+   ],
+   "fingerprint": "d115017b71b261536d832a95746e245a2f72d76e639655327c5737b43d5e2422"
+  },
+  {
+   "key": "408card/div-restore",
+   "sourceId": "div-restore",
+   "sourceUrl": "https://408card.top/#/vizp/div-restore?sub=co",
+   "id": "div-restore",
+   "code": "co",
+   "subjectKey": "beokayy-408/computer-organization",
+   "title": "原码一位除(加减交替)",
+   "description": "余数双符号位左移试商，正减负加、上商看余数符号",
+   "sortOrder": 15,
+   "frameCount": 10,
+   "frameBytes": 67128,
+   "steps": [
+    {
+     "explain": "加减交替法（原码除）：被除数 |x| = 11（1011），除数 |y| = 3（0011）。余数 R 用双符号位，初值 0；商 Q 放被除数。符号由两数符号异或另定。",
+     "frame": "content-demos/div-restore/1.webp"
+    },
+    {
+     "explain": "第 1 轮：(R,Q) 联合左移 1 位，R=000001，Q=0110（最低位待上商）。",
+     "frame": "content-demos/div-restore/2.webp"
+    },
+    {
+     "explain": "现 R 为负：正 → 减除数 |y|。运算后 R=111110，于是上商 0。",
+     "frame": "content-demos/div-restore/3.webp"
+    },
+    {
+     "explain": "第 2 轮：(R,Q) 联合左移 1 位，R=111100，Q=1100（最低位待上商）。",
+     "frame": "content-demos/div-restore/4.webp"
+    },
+    {
+     "explain": "现 R 为负：负 → 加除数 |y|。运算后 R=111111，于是上商 0。",
+     "frame": "content-demos/div-restore/5.webp"
+    },
+    {
+     "explain": "第 3 轮：(R,Q) 联合左移 1 位，R=111111，Q=1000（最低位待上商）。",
+     "frame": "content-demos/div-restore/6.webp"
+    },
+    {
+     "explain": "现 R 为正：负 → 加除数 |y|。运算后 R=000010，于是上商 1。",
+     "frame": "content-demos/div-restore/7.webp"
+    },
+    {
+     "explain": "第 4 轮：(R,Q) 联合左移 1 位，R=000101，Q=0010（最低位待上商）。",
+     "frame": "content-demos/div-restore/8.webp"
+    },
+    {
+     "explain": "现 R 为正：正 → 减除数 |y|。运算后 R=000010，于是上商 1。",
+     "frame": "content-demos/div-restore/9.webp"
+    },
+    {
+     "explain": "完成：商 Q = 0011 = 3，余数 R = 000010 = 2（余数非负，无需恢复）。易错：加减交替法无需每次恢复，靠“正减负加”；恢复余数法则负了要加回再左移。",
+     "frame": "content-demos/div-restore/10.webp"
+    }
+   ],
+   "fingerprint": "4283827f094b5e7f5383d09580d6bbdc7c8458c6ee795af5a9be894dc74669bf"
+  },
+  {
+   "key": "408card/float-add",
+   "sourceId": "float-add",
+   "sourceUrl": "https://408card.top/#/vizp/float-add?sub=co",
+   "id": "float-add",
+   "code": "co",
+   "subjectKey": "beokayy-408/computer-organization",
+   "title": "浮点数加减运算",
+   "description": "对阶→尾数求和→规格化→舍入→判溢出 五步完整演示",
+   "sortOrder": 16,
+   "frameCount": 6,
+   "frameBytes": 52902,
+   "steps": [
+    {
+     "explain": "浮点加法分五步：对阶 → 尾数求和 → 规格化 → 舍入 → 判溢出。本例 x=0.1100×2^1（=1.5），y=0.1000×2^3（=4.0），期望和 5.5。",
+     "frame": "content-demos/float-add/1.webp"
+    },
+    {
+     "explain": "① 对阶：阶码小的向大的看齐。x 的阶（1）< y 的阶（3），差 2，把 x 的尾数算术右移 2 位，阶升到 3。注意小阶右移会丢低位精度。",
+     "frame": "content-demos/float-add/2.webp"
+    },
+    {
+     "explain": "② 尾数求和：阶已相同，定点相加 0.0011 + 0.1000 = 0.1011（末尾补 0 对齐）。",
+     "frame": "content-demos/float-add/3.webp"
+    },
+    {
+     "explain": "③ 规格化：原码规格化要求尾数最高数值位为 1。结果 0.1011 已是规格化形式，无需左规/右规。",
+     "frame": "content-demos/float-add/4.webp"
+    },
+    {
+     "explain": "④ 舍入：对阶右移时无被舍弃的有效 1，求和也未产生额外进位位，无需舍入（0 舍 1 入/截断均可）。",
+     "frame": "content-demos/float-add/5.webp"
+    },
+    {
+     "explain": "⑤ 判溢出：结果阶码 = 3，在阶码可表示范围内，无溢出。最终结果 = 0.1011 × 2³ = 5.5。",
+     "frame": "content-demos/float-add/6.webp"
+    }
+   ],
+   "fingerprint": "01b834bf652fcca306e81301b6794219552d2554a8807278c452ffe29ccedc37"
+  },
+  {
+   "key": "408card/int-mask",
+   "sourceId": "int-mask",
+   "sourceUrl": "https://408card.top/#/vizp/int-mask?sub=co",
+   "id": "int-mask",
+   "code": "co",
+   "subjectKey": "beokayy-408/computer-organization",
+   "title": "中断屏蔽字改优先级",
+   "description": "屏蔽字矩阵如何把硬件响应次序由 1>2>3>4 反转",
+   "sortOrder": 17,
+   "frameCount": 4,
+   "frameBytes": 59718,
+   "steps": [
+    {
+     "explain": "4 个中断源，硬件判优优先级 1# > 2# > 3# > 4#。若同时到达，硬件按 1#→2#→3#→4# 响应。中断屏蔽字可在服务程序中改写，从而改变真实嵌套次序。",
+     "frame": "content-demos/int-mask/1.webp"
+    },
+    {
+     "explain": "屏蔽字矩阵：对角线恒为 1（服务自己时屏蔽同级）。若按“高优先级屏蔽低优先级”设字——行 i 屏蔽列 ≤ 自己——实际次序与硬件一致：1#>2#>3#>4#。",
+     "frame": "content-demos/int-mask/2.webp"
+    },
+    {
+     "explain": "改写屏蔽字：让 4# 服务时屏蔽所有，1# 服务时只屏蔽自己——则 4# 能打断 1#，实际次序反转为 4# > 3# > 2# > 1#。",
+     "frame": "content-demos/int-mask/3.webp"
+    },
+    {
+     "explain": "完成：同时请求下，按改写后次序先响应 4#。可见硬件优先级是判优的基础，屏蔽字才决定最终能否嵌套打断。易错：1 表示屏蔽（不可打断），0 表示开放（可打断）。",
+     "frame": "content-demos/int-mask/4.webp"
+    }
+   ],
+   "fingerprint": "7188c8d22d3271638a31027c23700491637e4e78577247b1c75d5965bed25e8d"
+  },
+  {
+   "key": "408card/bus-arb",
+   "sourceId": "bus-arb",
+   "sourceUrl": "https://408card.top/#/vizp/bus-arb?sub=co",
+   "id": "bus-arb",
+   "code": "co",
+   "subjectKey": "beokayy-408/computer-organization",
+   "title": "总线仲裁三方式",
+   "description": "链式查询/计数器定时/独立请求 的线数与速度对比",
+   "sortOrder": 18,
+   "frameCount": 5,
+   "frameBytes": 43302,
+   "steps": [
+    {
+     "explain": "多个主设备同时请求总线时，由总线仲裁器决定谁获得总线使用权。集中式仲裁有三种典型方式，线数、速度、优先级灵活性各有取舍。",
+     "frame": "content-demos/bus-arb/1.webp"
+    },
+    {
+     "explain": "① 链式查询（菊花链）：总线同意 BG 信号像接力一样从最近设备依次向后传。先收到 BG 的设备获得总线，离仲裁器越近优先级越高。线最少（BS、BR、BG 三根），但一个设备故障断链后后面设备再也得不到总线。",
+     "frame": "content-demos/bus-arb/2.webp"
+    },
+    {
+     "explain": "② 计数器定时查询：仲裁器内计数器持续计数，把计数值发到各设备；设备若发现编号与自己相同就获得总线并停住计数。计数从 0 开始则低地址优先，从终止点开始可轮换，优先级可灵活设定，需多根设备地址线。",
+     "frame": "content-demos/bus-arb/3.webp"
+    },
+    {
+     "explain": "③ 独立请求：每个设备有一对独立的总线请求 BR 和总线同意 BG 线，仲裁器内部用判优逻辑同时看所有请求。响应最快、优先级可由编程改变，但控制线数量最多（2n+ 根）。",
+     "frame": "content-demos/bus-arb/4.webp"
+    },
+    {
+     "explain": "对比结论：线数——链式最少、计数居中、独立最多；速度——链式最慢（串行传）、独立最快（并行判优）；优先级灵活性——独立最强、计数可设、链式固定看距离。",
+     "frame": "content-demos/bus-arb/5.webp"
+    }
+   ],
+   "fingerprint": "80c89d5aa6795f869544ba843b6c9d7446073ec39d9bbe58849204c7a47805d9"
+  },
+  {
+   "key": "408card/logic-gate",
+   "sourceId": "logic-gate",
+   "sourceUrl": "https://408card.top/#/vizp/logic-gate?sub=co",
+   "id": "logic-gate",
+   "code": "co",
+   "subjectKey": "beokayy-408/computer-organization",
+   "title": "基本逻辑门与真值表",
+   "description": "与/或/非/与非/或非/异或 门电路与全真值表",
+   "sortOrder": 19,
+   "frameCount": 7,
+   "frameBytes": 53020,
+   "steps": [
+    {
+     "explain": "基本逻辑门是数字电路的积木。这里以两输入 A、B 的 4 种组合（00/01/10/11）为真值表，逐个门演示输出 F。",
+     "frame": "content-demos/logic-gate/1.webp"
+    },
+    {
+     "explain": "与门 AND F = A · B：全 1 出 1，有 0 出 0。",
+     "frame": "content-demos/logic-gate/2.webp"
+    },
+    {
+     "explain": "或门 OR F = A + B：有 1 出 1，全 0 出 0。",
+     "frame": "content-demos/logic-gate/3.webp"
+    },
+    {
+     "explain": "与非门 NAND F = ¬(A · B)：与门取反。",
+     "frame": "content-demos/logic-gate/4.webp"
+    },
+    {
+     "explain": "或非门 NOR F = ¬(A + B)：或门取反。",
+     "frame": "content-demos/logic-gate/5.webp"
+    },
+    {
+     "explain": "异或门 XOR F = A ⊕ B：不同为 1，相同为 0。",
+     "frame": "content-demos/logic-gate/6.webp"
+    },
+    {
+     "explain": "完成。记忆：与门“全 1 才 1”、或门“有 1 就 1”、异或“相异为 1”；与非/或非就是与/或再取反。异或常用作比较、奇偶校验。",
+     "frame": "content-demos/logic-gate/7.webp"
+    }
+   ],
+   "fingerprint": "f68256b4be57b3948857964da0c03281c762d9bb10a591505476b134d7953787"
+  },
+  {
+   "key": "408card/am-at",
+   "sourceId": "am-at",
+   "sourceUrl": "https://408card.top/#/vizp/am-at?sub=co",
+   "id": "am-at",
+   "code": "co",
+   "subjectKey": "beokayy-408/computer-organization",
+   "title": "Cache 平均访问时间",
+   "description": "AMAT=tc+(1-h)·tm，命中率 0.9/0.99/0.999 三柱对比",
+   "sortOrder": 20,
+   "frameCount": 5,
+   "frameBytes": 30008,
+   "steps": [
+    {
+     "explain": "平均访问时间 AMAT：先查 Cache 命中用 t_c，缺失则再访主存。串联公式 t = t_c + (1 − h)·t_m。取 t_c = 1 ns，t_m = 100 ns。",
+     "frame": "content-demos/am-at/1.webp"
+    },
+    {
+     "explain": "命中率 90%（h=0.9，缺失率 10.0%）：t = 1 + 0.09999999999999998×100 = 11.00 ns。",
+     "frame": "content-demos/am-at/2.webp"
+    },
+    {
+     "explain": "命中率 99%（h=0.99，缺失率 1.0%）：t = 1 + 0.010000000000000009×100 = 2.00 ns。",
+     "frame": "content-demos/am-at/3.webp"
+    },
+    {
+     "explain": "命中率 99.9%（h=0.999，缺失率 0.1%）：t = 1 + 0.0010000000000000009×100 = 1.10 ns。",
+     "frame": "content-demos/am-at/4.webp"
+    },
+    {
+     "explain": "结论：命中率从 90%→99%→99.9%，AMAT 从约 11.0ns 降到接近 1ns。缺失代价（t_m−t_c）才是瓶颈，命中率每多一个 9，平均时间大幅逼近 t_c。易错：看清题目用串联公式 t_c+(1−h)t_m 还是加权公式 h·t_c+(1−h)·t_m。",
+     "frame": "content-demos/am-at/5.webp"
+    }
+   ],
+   "fingerprint": "04a0ea6afebead797dc77dc122e27803a3f53671149cfec178d37cbb0269395c"
+  }
+ ],
+ "failures": []
+}

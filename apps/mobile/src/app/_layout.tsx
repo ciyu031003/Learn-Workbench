@@ -288,6 +288,13 @@ function ThemedShell({ tier }: { tier: DeviceTier }) {
         <Stack.Screen name="quiz/review" />
         <Stack.Screen name="quiz/session" options={{ animation: "fade_from_bottom" }} />
         <Stack.Screen name="exam-408" />
+        {/* v1.55：408 精读（cs408 镜像）—— 目录 + 一屏一节阅读页 */}
+        <Stack.Screen name="exam-408-study" />
+        <Stack.Screen name="exam-408-study-read" />
+        {/* v1.55：408 演示（408card 98 个逐帧镜像）与刷卡背诵 */}
+        <Stack.Screen name="exam-408-viz" />
+        <Stack.Screen name="exam-408-viz-player" />
+        <Stack.Screen name="exam-408-drill" />
         <Stack.Screen name="roadmap" />
         <Stack.Screen name="tasks" />
         <Stack.Screen name="logs" />
