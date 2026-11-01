@@ -39,7 +39,9 @@ import {
   readReleaseNotesFile,
   serializeOtaManifest,
   sha256OfFile,
+  signOtaManifest,
   validateOtaManifest,
+  verifyOtaManifestSignature,
 } from "./lib/ota-manifest.mjs";
 import { decodeQrPng, renderQrPng } from "./lib/qr-png.mjs";
 
@@ -227,14 +229,41 @@ const autoNotes = version ? path.join(localDir, `release-notes-v${version}.txt`)
 const notesFile = args.notes ? path.resolve(String(args.notes)) : autoNotes && existsSync(autoNotes) ? autoNotes : null;
 const releaseNotes = notesFile ? await readReleaseNotesFile(notesFile) : [];
 if (!notesFile) warn("未提供 --notes，也没有找到 .local/release-notes-v<版本>.txt：本次升级说明为空");
-const manifest = buildOtaManifest({
+let manifest = buildOtaManifest({
   versionName: version,
   versionCode: code,
   sizeBytes: apkStat.size,
   sha256: apkSha,
   releaseNotes,
 });
-const manifestProblems = validateOtaManifest(manifest, { apkSizeBytes: apkStat.size, apkSha256: apkSha });
+// S6-7：客户端对清单验签 fail-closed（无 signature 直接拒绝提示更新）。
+// 签名私钥解析顺序：env OTA_SIGNING_KEY_PEM > OTA_SIGNING_KEY_PATH > 发布机默认 .local/ota-signing-key.pem。
+// 拿不到私钥时 fail-closed 阻断发布（发出未签名清单 = 所有已安装用户收不到更新，v1.49 之前踩过）。
+const signingKeyPem =
+  (process.env.OTA_SIGNING_KEY_PEM && process.env.OTA_SIGNING_KEY_PEM.includes("BEGIN")
+    ? process.env.OTA_SIGNING_KEY_PEM
+    : undefined) ??
+  (process.env.OTA_SIGNING_KEY_PATH
+    ? await import("node:fs/promises").then((m) => m.readFile(process.env.OTA_SIGNING_KEY_PATH, "utf8"))
+    : undefined) ??
+  (existsSync(path.join(localDir, "ota-signing-key.pem"))
+    ? await import("node:fs/promises").then((m) => m.readFile(path.join(localDir, "ota-signing-key.pem"), "utf8"))
+    : undefined);
+if (!signingKeyPem) {
+  fail(
+    "缺少 OTA 签名私钥：设置 OTA_SIGNING_KEY_PEM / OTA_SIGNING_KEY_PATH，或把 PKCS#8 PEM 放到 .local/ota-signing-key.pem。" +
+      "未签名清单会被客户端拒绝（fail-closed），不允许发布。"
+  );
+}
+manifest = signOtaManifest(manifest, signingKeyPem);
+log("OTA 清单已用内置公钥对应的私钥签名 ✔");
+const manifestProblems = validateOtaManifest(manifest, {
+  apkSizeBytes: apkStat.size,
+  apkSha256: apkSha,
+  requireSignature: true,
+  // 与 apps/mobile/src/lib/ota-public-key.ts 的内置公钥一致性自检（错私钥当场拦下）
+  publicKeyBase64Url: "0l-hdEqgHGotMZNGY5XRc7ZAJmiQEgLn3yri90ROmm0",
+});
 if (manifestProblems.length) {
   if (args["check-only"]) {
     for (const p of manifestProblems) warn("清单自检：" + p);
