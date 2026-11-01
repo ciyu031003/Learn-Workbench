@@ -35,6 +35,7 @@ import type { Phase } from "@learn-workbench/shared/schemas";
 import { formatDuration, pct } from "@learn-workbench/shared/dates";
 import { mainPhases } from "@learn-workbench/content/roadmap";
 import { getLearningTrackNow, useLearningTracks } from "@/lib/content-store";
+import { setNavPendingParams } from "@/lib/nav-pending";
 import { computeFocusStats } from "@/lib/focus-stats";
 import { radius, shadows, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
@@ -738,12 +739,17 @@ export default function LearnScreen() {
                 style={styles.readingRow}
                 accessibilityRole="button"
                 accessibilityLabel={`继续学习 ${resume.topicKey}`}
-                onPress={() =>
-                  // 字符串 href（防同名路由 params 冻结）
+                onPress={() => {
+                  // 字符串 href（防同名路由 params 冻结）；目标参数同时登记入场外通道（v1.51）
+                  setNavPendingParams("quiz-read", {
+                    track: resume.trackSlug,
+                    stage: resume.stageKey,
+                    topic: resume.topicKey,
+                  });
                   router.push(
                     `/quiz/read?track=${encodeURIComponent(resume.trackSlug)}&stage=${encodeURIComponent(resume.stageKey)}&topic=${encodeURIComponent(resume.topicKey)}` as never,
-                  )
-                }
+                  );
+                }}
               >
                 <View style={styles.readingIcon}>
                   <ThemedIcon name="book-outline" size={18} color={colors.primary} />
@@ -766,12 +772,17 @@ export default function LearnScreen() {
                 style={styles.readingRow}
                 accessibilityRole="button"
                 accessibilityLabel={`收藏 ${item.title}`}
-                onPress={() =>
-                  // 字符串 href（防同名路由 params 冻结）
+                onPress={() => {
+                  // 字符串 href（防同名路由 params 冻结）；目标参数同时登记入场外通道（v1.51）
+                  setNavPendingParams("quiz-read", {
+                    track: item.trackSlug,
+                    stage: item.stageKey,
+                    topic: item.topicKey,
+                  });
                   router.push(
                     `/quiz/read?track=${encodeURIComponent(item.trackSlug)}&stage=${encodeURIComponent(item.stageKey)}&topic=${encodeURIComponent(item.topicKey)}` as never,
-                  )
-                }
+                  );
+                }}
               >
                 <View style={styles.readingIcon}>
                   <ThemedIcon name="star" size={18} color={colors.warning} />

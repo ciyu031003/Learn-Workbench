@@ -14,6 +14,7 @@ import { SportTrendCard } from "@/components/sport-trend-card";
 import { ThemedIcon } from "@/components/themed-icon";
 import { TrainingLoadCard } from "@/components/training-load-card";
 import { addDays, localKey } from "@/lib/focus-series";
+import { setNavPendingParams } from "@/lib/nav-pending";
 import { loggedDaysInMonth } from "@/lib/nutrition-stats";
 import { todayAndYesterday } from "@/lib/nutrition-views";
 import { buildSportTrend, formatSportDuration } from "@/lib/sport-trend";
@@ -220,7 +221,13 @@ export default function TrendsScreen() {
                 onViewChange={setMonthView}
                 // 字符串 href（v2.1 评审修复）：对象形式 push 在同名路由复用实例时参数会被
                 // 冻结（与 408 专区 bug 同根因，见 quiz/chapter.tsx 的防冻注释）
-                onSelect={(key) => router.push(`/nutrition?date=${key}` as never)}
+                onSelect={(key) => {
+                  // 字符串 href（v2.1 评审修复）：对象形式 push 在同名路由复用实例时参数会被
+                  // 冻结（与 408 专区 bug 同根因，见 quiz/chapter.tsx 的防冻注释）
+                  // v1.51：follow-effect 对「params 本身冻结」无效，目标参数改登记场外通道
+                  setNavPendingParams("nutrition", { date: key });
+                  router.push(`/nutrition?date=${key}` as never);
+                }}
                 onClose={() => {
                   /* 趋势页不关闭面板：选中日期后直接跳到饮食页 */
                 }}

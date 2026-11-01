@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import Animated from "react-native-reanimated";
 import * as Clipboard from "expo-clipboard";
 import { QUALITY_LEVEL_LABEL, isReviewed, knowledgePointKeyOf, qualityOfTopic } from "@learn-workbench/content/learning";
 import type { LearningStage, LearningTopic, LearningTrack } from "@learn-workbench/content/types";
 import { RichText } from "@/components/rich-text";
 import { useLearningTrack } from "@/lib/content-store";
+import { setNavPendingParams, takeNavPendingParams } from "@/lib/nav-pending";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
 import { AlgorithmAnimation } from "@/components/algorithm-animation";
@@ -38,20 +39,31 @@ export default function KnowledgeReaderScreen() {
     topic?: string;
     returnTo?: string;
   }>();
-  const track = useLearningTrack(params.track);
+  // v1.51 防参数冻结：同名路由重复 push/replace 时实例 params 冻结在首次值（见 lib/nav-pending.ts）。
+  // 跳转方（chapter/session/learn 与本页目录切节）写入场外通道，这里每次聚焦优先消费；
+  // params 只作深链兜底。目录里换节还伴随 replace，覆盖 state 会同步刷新内容。
+  const [override, setOverride] = useState<Record<string, string> | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      const pending = takeNavPendingParams("quiz-read");
+      if (pending) setOverride(pending);
+    }, [])
+  );
+  const effective = override ?? params;
+  const track = useLearningTrack(effective.track);
   const { colors } = useTheme();
 
   if (!track) {
     return <MissingChapter colors={colors} />;
   }
 
-  const stageIndex = track.stages.findIndex((item) => item.key === params.stage);
+  const stageIndex = track.stages.findIndex((item) => item.key === effective.stage);
   const resolvedStageIndex = stageIndex >= 0 ? stageIndex : 0;
   const stage = track.stages[resolvedStageIndex];
   if (!stage || stage.topics.length === 0) {
     return <MissingChapter colors={colors} />;
   }
-  const topicIndex = stage.topics.findIndex((topic) => topic.key === params.topic);
+  const topicIndex = stage.topics.findIndex((topic) => topic.key === effective.topic);
 
   return (
     <KnowledgeReader
@@ -59,7 +71,7 @@ export default function KnowledgeReaderScreen() {
       stage={stage}
       stageIndex={resolvedStageIndex}
       topicIndex={topicIndex >= 0 ? topicIndex : 0}
-      returnTo={params.returnTo?.startsWith("/") ? params.returnTo : undefined}
+      returnTo={effective.returnTo?.startsWith("/") ? effective.returnTo : undefined}
     />
   );
 }
@@ -186,17 +198,33 @@ function KnowledgeReader({
 
   const openTopic = (stageKey: string, topicKey: string) => {
     setOutlineOpen(false);
-    // 字符串 href（防同名路由 params 冻结：目录里换节时 replace 也要带上全新参数）
+    // 字符串 href（防同名路由 params 冻结：目录里换节时 replace 也要带上全新参数）；
+    // 目标参数同时登记入场外通道（v1.51，replace 的新实例/复用实例都能拿到）
     const query = [
       `track=${encodeURIComponent(track.slug)}`,
       `stage=${encodeURIComponent(stageKey)}`,
       `topic=${encodeURIComponent(topicKey)}`,
     ];
-    if (returnTo) query.push(`returnTo=${encodeURIComponent(returnTo)}`);
+    const pending: Record<string, string> = {
+      track: track.slug,
+      stage: stageKey,
+      topic: topicKey,
+    };
+    if (returnTo) {
+      query.push(`returnTo=${encodeURIComponent(returnTo)}`);
+      pending.returnTo = returnTo;
+    }
+    setNavPendingParams("quiz-read", pending);
     router.replace(`/quiz/read?${query.join("&")}` as never);
   };
 
   const startTopicPractice = (topicKey: string) => {
+    setNavPendingParams("quiz-session", {
+      track: track.slug,
+      stage: stage.key,
+      topic: topicKey,
+      mode: "stage",
+    });
     router.push(
       `/quiz/session?track=${encodeURIComponent(track.slug)}&stage=${encodeURIComponent(stage.key)}&topic=${encodeURIComponent(topicKey)}&mode=stage` as never,
     );

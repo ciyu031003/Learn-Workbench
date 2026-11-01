@@ -6,6 +6,7 @@ import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
 import { ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { getExam408Paper, type Exam408Paper } from "@/lib/exam-408";
+import { setNavPendingParams } from "@/lib/nav-pending";
 import { useScreenEntrance } from "@/lib/use-screen-entrance";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
@@ -72,11 +73,16 @@ function PaperContent({ year }: { year: number }) {
 
   const choiceCount = paper.questions.filter((item) => item.type === "choice").length;
   const comprehensiveCount = paper.questions.length - choiceCount;
-  // 字符串 href（防同名路由 params 冻结：start 是动态值）
-  const start = (number?: number) =>
+  // 字符串 href（防同名路由 params 冻结：start 是动态值）；目标参数同时登记入场外通道（v1.51）
+  const start = (number?: number) => {
+    setNavPendingParams(
+      "quiz-paper-session",
+      number ? { year: String(year), start: String(number) } : { year: String(year) },
+    );
     router.push(
       `/quiz/paper-session?year=${year}${number ? `&start=${number}` : ""}` as never,
     );
+  };
 
   return (
     <View style={styles.root}>

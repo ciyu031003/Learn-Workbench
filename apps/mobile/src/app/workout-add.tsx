@@ -11,7 +11,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Card } from "@/components/card";
 import { EmptyState } from "@/components/empty-state";
@@ -42,6 +42,7 @@ import {
   toPayloadItems,
   type DraftItem,
 } from "@/lib/workout-draft";
+import { takeNavPendingParams } from "@/lib/nav-pending";
 
 /**
  * 记录训练（全屏路由，v1.47）。
@@ -67,13 +68,25 @@ export default function WorkoutAddScreen() {
   const insets = useSafeAreaInsets();
   const token = useAppStore((s) => s.token);
   const params = useLocalSearchParams<{ id?: string }>();
+  // v1.51 防参数冻结：/workout-add 是静态路由 + ?id= 动态参数，同名路由复用实例时
+  // params 冻结在首次值 → 会编辑到上一次的记录（数据事故级）。跳转方（/workout 的
+  // 新建/编辑）push 前把 id（新建为空登记）写入场外通道（lib/nav-pending.ts），
+  // 这里每次聚焦优先消费；params 只作深链兜底。
+  const [override, setOverride] = useState<Record<string, string> | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      const pending = takeNavPendingParams("workout-add");
+      if (pending) setOverride(pending);
+    }, [])
+  );
+  const effective = override ?? params;
 
   /** 路由参数只认正整数 id；非法/缺省都按「新建」处理，避免把用户卡在错误页 */
   const editingId = useMemo(() => {
-    const raw = Array.isArray(params.id) ? params.id[0] : params.id;
+    const raw = Array.isArray(effective.id) ? effective.id[0] : effective.id;
     const n = Number(raw);
     return Number.isInteger(n) && n > 0 ? n : null;
-  }, [params.id]);
+  }, [effective.id]);
   const isEdit = editingId !== null;
 
   /** 页面可能跨零点停留：只在挂载时取一次「今天」，日期 chip 的语义由用户点击时决定 */
@@ -159,6 +172,23 @@ export default function WorkoutAddScreen() {
     const t = setTimeout(() => void loadExisting(), 0);
     return () => clearTimeout(t);
   }, [editingId, loadExisting]);
+
+  /**
+   * v1.51 防冻结配套：同一实例被复用打开另一个目标（编辑↔编辑、编辑→新建）时，
+   * 上一份草稿必须清掉——换 id 的回填由上面的 loadExisting 覆盖，这里兜住
+   * 「编辑→新建」（editingId 变 null，loadExisting 不会跑）与换 id 的空窗期。
+   */
+  const prevTargetRef = useRef<number | null>(editingId);
+  useEffect(() => {
+    if (prevTargetRef.current === editingId) return;
+    prevTargetRef.current = editingId;
+    setName("训练");
+    setDate(today);
+    setItems([newDraftItem()]);
+    setDurationMin("");
+    setNote("");
+    setLoadError(null);
+  }, [editingId, today]);
 
   /* ---------- 动作选择 ---------- */
 

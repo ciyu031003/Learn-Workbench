@@ -5,6 +5,7 @@ import Animated from "react-native-reanimated";
 import { isLearnable, knowledgePointKeyOf, qualityOfTopic } from "@learn-workbench/content/learning";
 import type { LearningStage, LearningTrack } from "@learn-workbench/content/types";
 import { useLearningTrack } from "@/lib/content-store";
+import { setNavPendingParams, takeNavPendingParams } from "@/lib/nav-pending";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
 import { ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
@@ -20,10 +21,20 @@ export default function QuizChapterScreen() {
     stage?: string;
     returnTo?: string;
   }>();
-  const track = useLearningTrack(params.track);
-  const stage = track?.stages.find((item) => item.key === params.stage);
+  // v1.51 防参数冻结：同名路由重复 push 时实例 params 冻结在首次值（见 lib/nav-pending.ts）。
+  // 跳转方（quiz/[slug]）push 前已登记本次参数，这里每次聚焦优先消费；params 只作深链兜底。
+  const [override, setOverride] = useState<Record<string, string> | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      const pending = takeNavPendingParams("quiz-chapter");
+      if (pending) setOverride(pending);
+    }, [])
+  );
+  const effective = override ?? params;
+  const track = useLearningTrack(effective.track);
+  const stage = track?.stages.find((item) => item.key === effective.stage);
   if (!track || !stage) return <MissingChapter />;
-  const returnTo = params.returnTo?.startsWith("/") ? params.returnTo : undefined;
+  const returnTo = effective.returnTo?.startsWith("/") ? effective.returnTo : undefined;
   return <ChapterContent track={track} stage={stage} returnTo={returnTo} />;
 }
 
@@ -65,7 +76,12 @@ function ChapterContent({
   );
 
   const startPractice = () => {
-    // 字符串 href（防同名路由 params 冻结）
+    // 字符串 href（防同名路由 params 冻结）；目标参数同时登记入场外通道（v1.51）
+    setNavPendingParams("quiz-session", {
+      track: track.slug,
+      stage: stage.key,
+      mode: "stage",
+    });
     router.push(
       `/quiz/session?track=${encodeURIComponent(track.slug)}&stage=${encodeURIComponent(stage.key)}&mode=stage` as never,
     );
@@ -132,13 +148,22 @@ function ChapterContent({
                 haptic
                 scaleTo={0.985}
                 onPress={() => {
-                  // 字符串 href（防同名路由 params 冻结）
+                  // 字符串 href（防同名路由 params 冻结）；目标参数同时登记入场外通道（v1.51）
                   const query = [
                     `track=${encodeURIComponent(track.slug)}`,
                     `stage=${encodeURIComponent(stage.key)}`,
                     `topic=${encodeURIComponent(topic.key)}`,
                   ];
-                  if (returnTo) query.push(`returnTo=${encodeURIComponent(returnTo)}`);
+                  const pending: Record<string, string> = {
+                    track: track.slug,
+                    stage: stage.key,
+                    topic: topic.key,
+                  };
+                  if (returnTo) {
+                    query.push(`returnTo=${encodeURIComponent(returnTo)}`);
+                    pending.returnTo = returnTo;
+                  }
+                  setNavPendingParams("quiz-read", pending);
                   router.push(`/quiz/read?${query.join("&")}` as never);
                 }}
                 style={styles.topicCard}

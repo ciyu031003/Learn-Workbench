@@ -9,6 +9,7 @@ import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } fr
 import { Card } from "@/components/card";
 import { PressableScale } from "@/components/pressable-scale";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
+import { setNavPendingParams } from "@/lib/nav-pending";
 import { useTheme } from "@/theme";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
 import { useFocusRefresh } from "@/lib/use-focus-refresh";
@@ -96,13 +97,17 @@ export default function WorkoutScreen() {
 
   /* ---------- 入口 ---------- */
 
-  /** 新建：全屏路由，表单在 /workout-add 里（不再开 BottomSheet） */
+  /** 新建：全屏路由，表单在 /workout-add 里（不再开 BottomSheet）。
+   * 空登记清掉可能残留的旧 pending——复用实例上 params 冻结会把「新建」当「编辑上次那条」 */
   const openCreate = () => {
+    setNavPendingParams("workout-add", {});
     router.push("/workout-add" as never);
   };
 
-  /** 编辑：带 id 进同一个全屏页，由它拉取明细回填（字符串 href 防同名路由参数冻结，v2.1 评审） */
+  /** 编辑：带 id 进同一个全屏页，由它拉取明细回填（字符串 href 防同名路由参数冻结，v2.1 评审；
+   * v1.51 起目标 id 同时登记场外通道，防复用实例编辑到错误记录） */
   const openEdit = (w: Workout) => {
+    setNavPendingParams("workout-add", { id: String(w.id) });
     router.push(`/workout-add?id=${String(w.id)}` as never);
   };
 

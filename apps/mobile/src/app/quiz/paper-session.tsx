@@ -20,6 +20,7 @@ import {
   type Exam408Paper,
   type Exam408Question,
 } from "@/lib/exam-408";
+import { takeNavPendingParams } from "@/lib/nav-pending";
 import { useScreenEntrance } from "@/lib/use-screen-entrance";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
@@ -29,11 +30,21 @@ type ResultKind = "correct" | "wrong" | "reviewed";
 
 export default function Exam408PaperSessionScreen() {
   const params = useLocalSearchParams<{ year?: string; start?: string }>();
-  const year = Number(params.year);
+  // v1.51 防参数冻结：同名路由重复 push 时实例 params 冻结在首次值（见 lib/nav-pending.ts）。
+  // 跳转方（quiz/paper/[year]）push 前已登记本次参数，这里每次聚焦优先消费；params 只作深链兜底。
+  const [override, setOverride] = useState<Record<string, string> | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      const pending = takeNavPendingParams("quiz-paper-session");
+      if (pending) setOverride(pending);
+    }, [])
+  );
+  const effective = override ?? params;
+  const year = Number(effective.year);
   if (!Number.isInteger(year) || year < 2000 || year > 2100) {
     return <SessionMissing />;
   }
-  return <PaperSession year={year} start={Number(params.start) || 1} />;
+  return <PaperSession year={year} start={Number(effective.start) || 1} />;
 }
 
 function PaperSession({ year, start }: { year: number; start: number }) {

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { LearningQuestion, LearningTrack } from "@learn-workbench/content/types";
 import { useLearningTrack } from "@/lib/content-store";
+import { setNavPendingParams, takeNavPendingParams } from "@/lib/nav-pending";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
 import { haptics } from "@/lib/haptics";
@@ -40,16 +41,28 @@ export default function QuizSessionScreen() {
     mode?: string;
     seed?: string;
   }>();
-  const track = useLearningTrack(params.track);
+  // v1.51 防参数冻结：同名路由重复 push/replace 时实例 params 冻结在首次值（见 lib/nav-pending.ts）。
+  // 跳转方（exam-408/chapter/read/review/[slug] 与本页 restart）已登记本次参数，
+  // 这里每次聚焦优先消费；params 只作深链兜底。override 变化会经 props 传入
+  // SessionContent → loadSession 依赖变化 → 重新取题。
+  const [override, setOverride] = useState<Record<string, string> | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      const pending = takeNavPendingParams("quiz-session");
+      if (pending) setOverride(pending);
+    }, [])
+  );
+  const effective = override ?? params;
+  const track = useLearningTrack(effective.track);
   const { colors } = useTheme();
   if (!track) return <SessionMissing colors={colors} />;
   return (
     <SessionContent
       track={track}
-      stageKey={params.stage}
-      topicKey={params.topic}
-      mode={(params.mode as SessionMode | undefined) ?? "daily"}
-      seed={params.seed ?? ""}
+      stageKey={effective.stage}
+      topicKey={effective.topic}
+      mode={(effective.mode as SessionMode | undefined) ?? "daily"}
+      seed={effective.seed ?? ""}
     />
   );
 }
@@ -196,10 +209,23 @@ function SessionContent({
   };
 
   const restart = () => {
-    // 字符串 href（防同名路由 params 冻结）：seed 每次换新 → 换一组题
+    // 字符串 href（防同名路由 params 冻结）：seed 每次换新 → 换一组题；
+    // 目标参数同时登记入场外通道（v1.51）
     const query = [`track=${encodeURIComponent(track.slug)}`, `mode=${encodeURIComponent(mode)}`, `seed=${Date.now()}`];
-    if (stageKey) query.push(`stage=${encodeURIComponent(stageKey)}`);
-    if (topicKey) query.push(`topic=${encodeURIComponent(topicKey)}`);
+    const pending: Record<string, string> = {
+      track: track.slug,
+      mode,
+      seed: String(Date.now()),
+    };
+    if (stageKey) {
+      query.push(`stage=${encodeURIComponent(stageKey)}`);
+      pending.stage = stageKey;
+    }
+    if (topicKey) {
+      query.push(`topic=${encodeURIComponent(topicKey)}`);
+      pending.topic = topicKey;
+    }
+    setNavPendingParams("quiz-session", pending);
     router.replace(`/quiz/session?${query.join("&")}` as never);
   };
 
@@ -216,7 +242,15 @@ function SessionContent({
         return;
       }
       const query = [`track=${encodeURIComponent(track.slug)}`, `stage=${encodeURIComponent(knowledgeStageKey)}`];
-      if (topicKey) query.push(`topic=${encodeURIComponent(topicKey)}`);
+      const pending: Record<string, string> = {
+        track: track.slug,
+        stage: knowledgeStageKey,
+      };
+      if (topicKey) {
+        query.push(`topic=${encodeURIComponent(topicKey)}`);
+        pending.topic = topicKey;
+      }
+      setNavPendingParams("quiz-read", pending);
       router.push(`/quiz/read?${query.join("&")}` as never);
     };
     return (

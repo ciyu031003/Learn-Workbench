@@ -3,6 +3,7 @@ import { RefreshControl, StyleSheet, Text, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import Animated from "react-native-reanimated";
 import { getLearningTrackNow, useLearningTrack, useLearningTracks } from "@/lib/content-store";
+import { setNavPendingParams } from "@/lib/nav-pending";
 import type { LearningReviewCard, LearningReviewResponse, LearningWeakTopic } from "@learn-workbench/shared/schemas";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
@@ -95,10 +96,18 @@ export default function QuizReviewScreen() {
   const localQueues = useMemo(() => groupByTrack(localWrong, attempts), [localWrong, attempts]);
 
   const startReview = (trackSlug: string, mode: "due" | "wrong") => {
+    // 目标参数登记入场外通道（v1.51 防同名路由 params 冻结，见 lib/nav-pending.ts）
+    setNavPendingParams("quiz-session", { track: trackSlug, mode });
     router.push(`/quiz/session?track=${encodeURIComponent(trackSlug)}&mode=${mode}` as never);
   };
 
   const startWeakTopic = (topic: LearningWeakTopic) => {
+    setNavPendingParams("quiz-session", {
+      track: topic.trackSlug,
+      mode: "due",
+      stage: topic.stageKey,
+      topic: topic.topicKey,
+    });
     router.push(
       `/quiz/session?track=${encodeURIComponent(topic.trackSlug)}&mode=due&stage=${encodeURIComponent(topic.stageKey)}&topic=${encodeURIComponent(topic.topicKey)}` as never,
     );

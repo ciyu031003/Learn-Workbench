@@ -6,6 +6,7 @@ import { QUALITY_LEVEL_LABEL, isLearnable, isReviewed, qualityOfTopic } from "@l
 import type { KnowledgeQuality } from "@learn-workbench/content/learning";
 import type { LearningStage, LearningTopic, LearningTrack } from "@learn-workbench/content/types";
 import { useLearningTrack } from "@/lib/content-store";
+import { setNavPendingParams } from "@/lib/nav-pending";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
 import { AlgorithmAnimation } from "@/components/algorithm-animation";
@@ -72,14 +73,24 @@ function TrackContent({ track }: { track: LearningTrack }) {
     mode: "daily" | "stage" | "wrong" = "daily",
     topicKey?: string
   ) => {
-    // 字符串 href（防同名路由 params 冻结：stage/topic 是动态值，对象形式重复 push 会拿到首次值）
+    // 字符串 href（防同名路由 params 冻结：stage/topic 是动态值，对象形式重复 push 会拿到首次值）；
+    // 目标参数同时登记入场外通道（v1.51，见 lib/nav-pending.ts）
     const query = [`track=${encodeURIComponent(track.slug)}`, `mode=${encodeURIComponent(mode)}`];
-    if (stageKey) query.push(`stage=${encodeURIComponent(stageKey)}`);
-    if (topicKey) query.push(`topic=${encodeURIComponent(topicKey)}`);
+    const pending: Record<string, string> = { track: track.slug, mode };
+    if (stageKey) {
+      query.push(`stage=${encodeURIComponent(stageKey)}`);
+      pending.stage = stageKey;
+    }
+    if (topicKey) {
+      query.push(`topic=${encodeURIComponent(topicKey)}`);
+      pending.topic = topicKey;
+    }
+    setNavPendingParams("quiz-session", pending);
     router.push(`/quiz/session?${query.join("&")}` as never);
   };
 
   const startKnowledge = (stageKey: string) => {
+    setNavPendingParams("quiz-chapter", { track: track.slug, stage: stageKey });
     router.push(
       `/quiz/chapter?track=${encodeURIComponent(track.slug)}&stage=${encodeURIComponent(stageKey)}` as never,
     );
