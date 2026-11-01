@@ -185,6 +185,44 @@ export async function verifyApk(
   }
 }
 
+/**
+ * 把系统 DownloadManager 下载好的 APK 搬到 cache 里的 updates/ 目标路径。
+ *
+ * 为什么必须搬：DownloadManager 落在 app-specific 外部目录（files/Download/updates/），
+ * 而校验（verifyApk 的大小 + sha256）与安装（installApk 的 content:// 授权）都基于
+ * expo-file-system 的 cacheDirectory；统一到 cache 后既能复用既有链路，也能在取消/忽略时
+ * 一键删除，不把 60MB 残包留在外部目录里。
+ *
+ * 兼容：个别 ROM 的 DownloadManager 返回 content:// 地址，expo 的 copyAsync 可能不支持；
+ * 这种情况退回直接使用原地址（仍是 app 私有目录，安装器能读），不阻断升级。
+ */
+export async function importDownloadedApk(localUri: string, destination: string): Promise<string> {
+  await ensureUpdateDir();
+  await removeApk(destination);
+  try {
+    await LegacyFileSystem.copyAsync({ from: localUri, to: destination });
+    const info = await LegacyFileSystem.getInfoAsync(destination);
+    if (!info.exists) throw new Error("安装包复制失败，请重新下载");
+    return destination;
+  } catch (error) {
+    if (localUri.startsWith("file://")) {
+      // 复制失败但原文件可读：直接用外部目录的包走校验与安装
+      return localUri;
+    }
+    throw error instanceof Error ? error : new Error("安装包复制失败，请重新下载");
+  }
+}
+
+/** 删除 DownloadManager 留在外部目录的原文件（复制成功后调用；失败不影响升级） */
+export async function removeDownloadedSource(localUri: string | null): Promise<void> {
+  if (!localUri || !localUri.startsWith("file://")) return;
+  try {
+    await LegacyFileSystem.deleteAsync(localUri, { idempotent: true });
+  } catch {
+    // 外部目录的残包会在下次"忽略此版本/取消下载"或应用卸载时清理
+  }
+}
+
 /** 调起系统安装器（同签名覆盖安装，数据与登录态保留） */
 export async function installApk(uri: string): Promise<void> {
   const contentUri = await LegacyFileSystem.getContentUriAsync(uri);

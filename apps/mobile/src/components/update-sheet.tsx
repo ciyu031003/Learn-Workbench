@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { Linking, StyleSheet, Text, View } from "react-native";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { Button } from "@/components/button";
@@ -29,6 +29,7 @@ export function UpdateSheet() {
   const progress = useUpdateStore((s) => s.progress);
   const error = useUpdateStore((s) => s.error);
   const notice = useUpdateStore((s) => s.notice);
+  const background = useUpdateStore((s) => s.background);
   const dismiss = useUpdateStore((s) => s.dismiss);
   const start = useUpdateStore((s) => s.start);
   const pause = useUpdateStore((s) => s.pause);
@@ -38,9 +39,21 @@ export function UpdateSheet() {
   const ignore = useUpdateStore((s) => s.ignore);
   const retry = useUpdateStore((s) => s.retry);
 
+  // App 启动认领：Android 后台下载的会话存在系统里（App 被杀也不中断），
+  // 进程一起来就查一次系统任务，把"还在跑/已下完"的会话接回 store。
+  // 放 effect 里而不是模块顶层：模块顶层会在测试/SSR 里也执行一遍副作用。
+  useEffect(() => {
+    void useUpdateStore.getState().adoptPendingBackgroundDownload();
+  }, []);
+
   if (!target) return null;
 
   const busy = phase === "downloading" || phase === "verifying" || phase === "installing";
+  /** 系统 DownloadManager 会话：通知栏有进度，按钮语义换成「取消/重试」 */
+  const backgroundBusy = background && phase === "downloading";
+  // 后台下载时关掉弹层不会中断下载（任务在系统里跑），所以允许收起；
+  // 前台下载（iOS / 无原生模块）仍保持"下载中不可关"。
+  const closable = backgroundBusy || !busy;
   const percent = Math.round((progress.ratio || 0) * 100);
   const totalText = formatBytes(target.sizeBytes ?? progress.totalBytes);
 
@@ -51,7 +64,7 @@ export function UpdateSheet() {
   return (
     <BottomSheet
       visible={visible}
-      onClose={busy ? () => {} : dismiss}
+      onClose={closable ? dismiss : () => {}}
       title={"发现新版本 v" + target.versionName}
       height="74%"
     >
@@ -91,6 +104,12 @@ export function UpdateSheet() {
           </View>
         ) : null}
 
+        {background && (phase === "downloading" || phase === "verifying") ? (
+          <Text style={styles.backgroundHint}>
+            后台下载中 · 可在通知栏查看进度，熄屏不中断；完成后会自动打开安装器
+          </Text>
+        ) : null}
+
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {notice ? <Text style={styles.notice}>{notice}</Text> : null}
 
@@ -112,10 +131,19 @@ export function UpdateSheet() {
           ) : null}
 
           {phase === "downloading" ? (
-            <>
-              <Button label="暂停" icon="pause-outline" variant="secondary" onPress={() => void pause()} />
-              <Button label="取消下载" variant="ghost" onPress={() => void cancel()} />
-            </>
+            background ? (
+              <>
+                {/* DownloadManager 不支持暂停：改为「收起弹层继续等」+「取消」 */}
+                <Button label="后台下载中…" icon="cloud-download-outline" loading disabled />
+                <Button label="收起（继续后台下载）" variant="secondary" onPress={dismiss} />
+                <Button label="取消下载" variant="ghost" onPress={() => void cancel()} />
+              </>
+            ) : (
+              <>
+                <Button label="暂停" icon="pause-outline" variant="secondary" onPress={() => void pause()} />
+                <Button label="取消下载" variant="ghost" onPress={() => void cancel()} />
+              </>
+            )
           ) : null}
 
           {phase === "paused" ? (
@@ -138,7 +166,9 @@ export function UpdateSheet() {
         </View>
 
         <Text style={styles.tip}>
-          覆盖安装不会清除数据，登录状态会自动保留；安装包已内置校验（大小 + sha256）。
+          {background
+            ? "下载由系统下载管理器执行：熄屏、切后台、划掉最近任务都不会中断；App 重启后会自动认领未完成的下载。"
+            : "覆盖安装不会清除数据，登录状态会自动保留；安装包已内置校验（大小 + sha256）。"}
         </Text>
       </View>
     </BottomSheet>
@@ -161,6 +191,7 @@ const makeStyles = (colors: ThemeColors) =>
     },
     progressText: { fontSize: 12, fontWeight: "700", color: colors.text },
     error: { fontSize: 12, lineHeight: 19, color: colors.danger },
+    backgroundHint: { fontSize: 12, lineHeight: 19, color: colors.primary },
     notice: { fontSize: 12, lineHeight: 19, color: colors.textMuted },
     actions: { gap: 8, marginTop: 4 },
     tip: { fontSize: 11, lineHeight: 17, color: colors.textMuted },
