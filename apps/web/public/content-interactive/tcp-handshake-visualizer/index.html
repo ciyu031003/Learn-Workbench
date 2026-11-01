@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TCP 三次握手与四次挥手可视化</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f8fafc; color: #1e293b; padding: 16px; }
+  .wrap { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+  .head { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; }
+  .head h1 { font-size: 16px; font-weight: 600; }
+  .head .info { font-size: 12px; opacity: .92; text-align: right; }
+  .controls { padding: 8px 16px; display: flex; flex-wrap: wrap; gap: 7px 10px; align-items: center; border-bottom: 1px solid #eef2f7; }
+  .controls label { font-size: 12px; color: #64748b; }
+  select { padding: 4px 7px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; outline: none; font-size: 12px; color: #334155; max-width: 260px; }
+  button { padding: 5px 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; font-size: 12px; transition: all .15s; }
+  .btn-primary { background: #6366f1; color: #fff; } .btn-primary:hover { background: #4f46e5; }
+  .btn-ghost { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; } .btn-ghost:hover { background: #e2e8f0; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .speed-group { display: flex; gap: 4px; } .speed-group button { padding: 4px 9px; } .speed-group .active { background: #6366f1; color: #fff; }
+  .sep { width: 1px; height: 18px; background: #e2e8f0; }
+  .stats { padding: 7px 16px; display: flex; gap: 14px; font-size: 12px; color: #64748b; border-bottom: 1px solid #eef2f7; flex-wrap: wrap; }
+  .stats b { color: #1e293b; font-variant-numeric: tabular-nums; }
+  .note { padding: 7px 16px; font-size: 12px; line-height: 1.6; color: #3730a3; background: #eef2ff; border-bottom: 1px solid #e0e7ff; min-height: 34px; }
+  .note.warn { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+  .note.ok { background: #ecfdf5; color: #047857; border-color: #d1fae5; }
+  .stage { padding: 8px 16px 2px; position: relative; }
+  .nodes { position: relative; height: 40px; }
+  .node { position: absolute; top: 0; transform: translateX(-50%); min-width: 128px; text-align: center; border: 1px solid #e2e8f0; border-radius: 10px; padding: 3px 8px 4px; background: #fcfdff; }
+  .node .nm { font-size: 12px; font-weight: 600; color: #334155; display: block; }
+  .node .st { font-size: 10.5px; font-weight: 600; color: #6366f1; font-family: ui-monospace, Consolas, monospace; }
+  .node.changed { animation: stflash 900ms ease-out; }
+  @keyframes stflash { 0% { background: #e0e7ff; box-shadow: 0 0 0 2px #6366f1; } 100% { background: #fcfdff; } }
+  .tl { position: relative; margin-top: 2px; }
+  .lifeline { position: absolute; top: 0; bottom: 0; width: 2px; background: #e2e8f0; }
+  .tl svg { position: absolute; left: 0; top: 0; pointer-events: none; }
+  .axis { position: absolute; left: 0; top: 0; font-size: 10px; color: #cbd5e1; }
+  .legend { padding: 5px 16px 8px; display: flex; gap: 14px; font-size: 11px; color: #64748b; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 12px; height: 3px; border-radius: 2px; margin-right: 4px; vertical-align: 3px; }
+  .desc { padding: 9px 16px 13px; border-top: 1px solid #eef2f7; font-size: 12px; color: #475569; line-height: 1.75; }
+  .desc b { color: #334155; }
+  .tl text { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>🤝 TCP 三次握手与四次挥手可视化</h1>
+    <span class="info" id="scenName"></span>
+  </div>
+
+  <div class="controls">
+    <label>场景</label>
+    <select id="scenSel">
+      <option value="normal">正常流程（三次握手 + 四次挥手）</option>
+      <option value="ackLost">第三次握手丢失（服务器超时重传）</option>
+      <option value="srvClose">服务器主动关闭（TIME_WAIT 在服务器侧）</option>
+      <option value="simul">同时打开 + 同时关闭</option>
+      <option value="rst">连接被拒绝（RST 复位）</option>
+    </select>
+    <span class="sep"></span>
+    <div class="speed-group">
+      <button data-speed="900" class="btn-ghost">慢</button>
+      <button data-speed="450" class="btn-ghost active">中</button>
+      <button data-speed="120" class="btn-ghost">快</button>
+    </div>
+    <button class="btn-primary" id="btnPlay">▶ 播放</button>
+    <button class="btn-ghost" id="btnStep">单步</button>
+    <button class="btn-ghost" id="btnReset">↺ 重置</button>
+  </div>
+
+  <div class="stats">
+    <span>报文段 <b id="statSeg">0</b></span>
+    <span>状态迁移 <b id="statTrans">0</b></span>
+    <span>重传 <b id="statRe">0</b></span>
+    <span>阶段 <b id="statPhase">未开始</b></span>
+    <span>进度 <b id="statProg">0/0</b></span>
+  </div>
+
+  <div class="note" id="note">点击「单步」逐段演示，或按「播放」自动演示。向下为时间流逝方向。</div>
+
+  <div class="stage">
+    <div class="nodes" id="nodes">
+      <div class="node" id="nodeC" style="left:120px"><span class="nm">客户端 Client</span><span class="st" id="stC">CLOSED</span></div>
+      <div class="node" id="nodeS" style="left:740px"><span class="nm">服务器 Server</span><span class="st" id="stS">CLOSED</span></div>
+    </div>
+    <div class="tl" id="tl">
+      <div class="lifeline" id="llC"></div>
+      <div class="lifeline" id="llS"></div>
+      <svg id="ov"></svg>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><i style="background:#6366f1"></i>SYN 请求连接</span>
+    <span><i style="background:#8b5cf6"></i>SYN+ACK 同意连接</span>
+    <span><i style="background:#10b981"></i>ACK 确认</span>
+    <span><i style="background:#f59e0b"></i>FIN 释放连接</span>
+    <span><i style="background:#64748b"></i>PSH 数据</span>
+    <span><i style="background:#ef4444"></i>RST / 丢失</span>
+  </div>
+
+  <div class="desc" id="desc"></div>
+</div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const ROWH = 30;   // 每个报文段占一行（向下即时间流逝）
+const COLOR = { SYN: "#6366f1", SYNACK: "#8b5cf6", ACK: "#10b981", FIN: "#f59e0b", DATA: "#64748b", RST: "#ef4444" };
+
+/* ---------------- 场景数据 ----------------
+   step: { from:'C'|'S', kind:'msg'|'wait', color, label, note, cState, sState, lost, retrans, phase }
+------------------------------------------------- */
+
+const X = 1000, Y = 5000;           // 双方初始序号 ISN（与下面标签一致）
+void X; void Y;
+
+const SCEN = {
+  normal: {
+    name: "正常流程：三次握手 + 四次挥手（客户端主动关闭）",
+    st: { c: "CLOSED", s: "LISTEN" },
+    steps: [
+      { from: "C", kind: "msg", color: COLOR.SYN, label: "SYN  seq=1000", cState: "SYN_SENT", phase: "三次握手",
+        note: "<b>第 1 次握手：</b>客户端发送 <b>SYN=1, seq=x=1000</b>，进入 <b>SYN_SENT</b>；服务器处于 LISTEN（监听）状态。SYN 报文不能携带数据，但要消耗 1 个序号。" },
+      { from: "S", kind: "msg", color: COLOR.SYNACK, label: "SYN, ACK  seq=5000  ack=1001", sState: "SYN_RCVD", phase: "三次握手",
+        note: "<b>第 2 次握手：</b>服务器同意连接，发送 <b>SYN=1, ACK=1, seq=y=5000, ack=x+1=1001</b>，进入 <b>SYN_RCVD</b>。ack=1001 表示「我已经收到你的 SYN，期待下一个字节是 1001」。" },
+      { from: "C", kind: "msg", color: COLOR.ACK, label: "ACK  seq=1001  ack=5001", cState: "ESTABLISHED", sState: "ESTABLISHED", phase: "三次握手",
+        note: "<b>第 3 次握手：</b>客户端发送 <b>ACK=1, seq=x+1=1001, ack=y+1=5001</b>，双方进入 <b>ESTABLISHED</b>（连接已建立）。三次握手的本质是：双方都确认了「自己的发送能力和对方的接收能力」都正常。" },
+      { from: "C", kind: "msg", color: COLOR.DATA, label: "PSH, ACK  seq=1001  ack=5001  len=1000", phase: "数据传输",
+        note: "<b>数据传输：</b>客户端发送 1000 字节数据（PSH 提示接收方尽快交付应用层），序号从 1001 开始、消耗 1000 个序号，下一个待发序号为 2001。" },
+      { from: "S", kind: "msg", color: COLOR.ACK, label: "ACK  seq=5001  ack=2001", phase: "数据传输",
+        note: "<b>确认数据：</b>服务器用累计确认 ack=2001，表示「2001 之前的所有字节都收到了」，并可以顺便搭载自己要发送的数据（捎带确认）。" },
+      { from: "C", kind: "msg", color: COLOR.FIN, label: "FIN, ACK  seq=2001  ack=5001", cState: "FIN_WAIT_1", phase: "四次挥手",
+        note: "<b>第 1 次挥手：</b>客户端数据发完了，发送 <b>FIN=1, seq=u=2001</b>，进入 <b>FIN_WAIT_1</b>。FIN 也消耗 1 个序号。此时客户端不再发数据，但仍可接收数据（半关闭）。" },
+      { from: "S", kind: "msg", color: COLOR.ACK, label: "ACK  seq=5001  ack=2002", cState: "FIN_WAIT_2", sState: "CLOSE_WAIT", phase: "四次挥手",
+        note: "<b>第 2 次挥手：</b>服务器回 <b>ACK, ack=u+1=2002</b>，自己进入 <b>CLOSE_WAIT</b>，客户端进入 <b>FIN_WAIT_2</b>。注意：服务器可能还有数据要发，所以不马上回 FIN —— 这就是「半关闭」状态。" },
+      { from: "S", kind: "msg", color: COLOR.FIN, label: "FIN, ACK  seq=5001  ack=2002", sState: "LAST_ACK", phase: "四次挥手",
+        note: "<b>第 3 次挥手：</b>服务器数据也发完了，发送 <b>FIN=1, seq=v=5001</b>，进入 <b>LAST_ACK</b>，等待客户端的最后确认。" },
+      { from: "C", kind: "msg", color: COLOR.ACK, label: "ACK  seq=2002  ack=5002", cState: "TIME_WAIT", sState: "CLOSED", phase: "四次挥手",
+        note: "<b>第 4 次挥手：</b>客户端回 <b>ACK, ack=v+1=5002</b>，服务器收到后进入 <b>CLOSED</b>；客户端进入 <b>TIME_WAIT</b>，还要等 2MSL 才真正关闭。" },
+      { who: "C", kind: "wait", label: "等待 2MSL（约 60 秒）", cState: "CLOSED", phase: "连接关闭",
+        note: "<b>为什么必须有 TIME_WAIT（2MSL）：</b>①保证最后一个 ACK 能到达服务器——若该 ACK 丢失，服务器会超时重传 FIN，处于 TIME_WAIT 的客户端还能再回一次 ACK；否则服务器会一直卡在 LAST_ACK 无法关闭。②让本次连接的所有旧报文在网络中「自然消亡」（MSL 是报文最大生存时间），避免它们被误认为同一端口的新连接的数据。主动关闭方要等待 2MSL。" }
+    ]
+  },
+
+  ackLost: {
+    name: "异常：第三次握手（ACK）丢失，服务器超时重传 SYN+ACK",
+    st: { c: "CLOSED", s: "LISTEN" },
+    steps: [
+      { from: "C", kind: "msg", color: COLOR.SYN, label: "SYN  seq=1000", cState: "SYN_SENT", phase: "三次握手",
+        note: "<b>第 1 次握手：</b>客户端发送 SYN=1, seq=1000，进入 SYN_SENT。" },
+      { from: "S", kind: "msg", color: COLOR.SYNACK, label: "SYN, ACK  seq=5000  ack=1001", sState: "SYN_RCVD", phase: "三次握手",
+        note: "<b>第 2 次握手：</b>服务器回 SYN+ACK，进入 SYN_RCVD，并启动<b>重传定时器</b>等待客户端的确认。" },
+      { from: "C", kind: "msg", color: COLOR.ACK, label: "ACK  seq=1001  ack=5001", cState: "ESTABLISHED", lost: true, phase: "三次握手",
+        note: "<b>第 3 次握手丢失（✗）：</b>客户端发出 ACK 后<b>自己就认为连接已建立</b>（进入 ESTABLISHED），但这个 ACK 在网络中丢失了；服务器仍在 SYN_RCVD 干等。" },
+      { who: "S", kind: "wait", label: "超时重传定时器到期", phase: "三次握手",
+        note: "<b>服务器超时：</b>SYN_RCVD 状态下长时间收不到确认，服务器的重传定时器到期，于是<b>重传 SYN+ACK</b>（Linux 默认重传 5 次、间隔约 1s/2s/4s/8s/16s，共约 31 秒，仍未收到则放弃并释放连接）。" },
+      { from: "S", kind: "msg", color: COLOR.SYNACK, label: "SYN, ACK  seq=5000  ack=1001（重传）", retrans: true, phase: "三次握手",
+        note: "<b>重传 SYN+ACK：</b>服务器把第 2 次握手重来一遍。若客户端此前已发送数据，服务器在 SYN_RCVD 状态收到不合法报文会回 <b>RST</b>，连接可能被重置——所以第三次握手丢失会导致连接建立被明显延迟。" },
+      { from: "C", kind: "msg", color: COLOR.ACK, label: "ACK  seq=1001  ack=5001", sState: "ESTABLISHED", phase: "三次握手",
+        note: "<b>连接最终建立：</b>客户端已处于 ESTABLISHED，收到重复的 SYN+ACK 时仍会回送 ACK（不会报错），服务器收到后进入 ESTABLISHED，连接建立成功。" }
+    ]
+  },
+
+  srvClose: {
+    name: "异常：服务器主动关闭（TIME_WAIT 出现在服务器侧）",
+    st: { c: "CLOSED", s: "LISTEN" },
+    steps: [
+      { from: "C", kind: "msg", color: COLOR.SYN, label: "SYN  seq=1000", cState: "SYN_SENT", phase: "三次握手",
+        note: "<b>第 1 次握手：</b>客户端发送 SYN=1, seq=1000。" },
+      { from: "S", kind: "msg", color: COLOR.SYNACK, label: "SYN, ACK  seq=5000  ack=1001", sState: "SYN_RCVD", phase: "三次握手",
+        note: "<b>第 2 次握手：</b>服务器回 SYN+ACK。" },
+      { from: "C", kind: "msg", color: COLOR.ACK, label: "ACK  seq=1001  ack=5001", cState: "ESTABLISHED", sState: "ESTABLISHED", phase: "三次握手",
+        note: "<b>第 3 次握手：</b>双方进入 ESTABLISHED，连接建立。" },
+      { from: "S", kind: "msg", color: COLOR.FIN, label: "FIN, ACK  seq=5001  ack=2001", sState: "FIN_WAIT_1", phase: "四次挥手",
+        note: "<b>第 1 次挥手（服务器主动）：</b>服务器数据发完，发送 FIN, seq=v=5001，进入 <b>FIN_WAIT_1</b>。谁先发 FIN，谁就是主动关闭方。" },
+      { from: "C", kind: "msg", color: COLOR.ACK, label: "ACK  seq=2001  ack=5002", cState: "CLOSE_WAIT", sState: "FIN_WAIT_2", phase: "四次挥手",
+        note: "<b>第 2 次挥手：</b>客户端回 ACK，进入 <b>CLOSE_WAIT</b>（被动关闭方收到 FIN 后的状态，要等应用程序调用 close）；服务器进入 <b>FIN_WAIT_2</b>。" },
+      { from: "C", kind: "msg", color: COLOR.FIN, label: "FIN, ACK  seq=2001  ack=5002", cState: "LAST_ACK", phase: "四次挥手",
+        note: "<b>第 3 次挥手：</b>客户端应用也关闭了，发送 FIN，进入 <b>LAST_ACK</b>。" },
+      { from: "S", kind: "msg", color: COLOR.ACK, label: "ACK  seq=5002  ack=2002", sState: "TIME_WAIT", cState: "CLOSED", phase: "四次挥手",
+        note: "<b>第 4 次挥手：</b>服务器回最后一个 ACK，自己进入 <b>TIME_WAIT</b>，客户端进入 CLOSED。可以看到：<b>TIME_WAIT 总是出现在主动关闭方</b>。" },
+      { who: "S", kind: "wait", label: "服务器等待 2MSL 后进入 CLOSED", sState: "CLOSED", phase: "连接关闭",
+        note: "<b>2MSL 结束后：</b>服务器正式关闭连接。若服务器是 HTTP 服务端并主动关闭大量连接，会积累大量 TIME_WAIT（可用 SO_REUSEADDR / tcp_tw_reuse 缓解，但不要盲目调小 2MSL）。" }
+    ]
+  },
+
+  simul: {
+    name: "异常：同时打开（双方都发 SYN）与同时关闭（双方都发 FIN）",
+    st: { c: "CLOSED", s: "CLOSED" },
+    steps: [
+      { from: "C", kind: "msg", color: COLOR.SYN, label: "SYN  seq=1000", cState: "SYN_SENT", phase: "同时打开",
+        note: "<b>同时打开 · 第 1 步：</b>双方几乎同时发起连接（例如两端同时向对方端口发起 connect），客户端先发出 SYN，进入 SYN_SENT。" },
+      { from: "S", kind: "msg", color: COLOR.SYN, label: "SYN  seq=5000", sState: "SYN_SENT", cState: "SYN_RCVD", phase: "同时打开",
+        note: "<b>同时打开 · 第 2 步：</b>服务器也发出 SYN（它自己也在 SYN_SENT）。客户端收到对方的 SYN 后进入 <b>SYN_RCVD</b>。" },
+      { from: "C", kind: "msg", color: COLOR.SYNACK, label: "SYN, ACK  seq=1000  ack=5001", sState: "SYN_RCVD", phase: "同时打开",
+        note: "<b>同时打开 · 第 3 步：</b>客户端把「自己的 SYN」和「对对方 SYN 的确认 ACK」合并成一个 <b>SYN+ACK</b> 发出；服务器收到后也进入 SYN_RCVD。" },
+      { from: "S", kind: "msg", color: COLOR.SYNACK, label: "SYN, ACK  seq=5000  ack=1001", cState: "ESTABLISHED", sState: "ESTABLISHED", phase: "同时打开",
+        note: "<b>同时打开 · 第 4 步：</b>服务器同样回 SYN+ACK，双方收到后都进入 <b>ESTABLISHED</b>。结论：同时打开需要 <b>4 个</b>报文段，但状态机仍能正确收敛，不需要额外的特殊处理。" },
+      { from: "C", kind: "msg", color: COLOR.FIN, label: "FIN, ACK  seq=2001  ack=5001", cState: "FIN_WAIT_1", phase: "同时关闭",
+        note: "<b>同时关闭 · 第 1 步：</b>双方应用几乎同时关闭，都发出 FIN，都进入 <b>FIN_WAIT_1</b>。" },
+      { from: "S", kind: "msg", color: COLOR.FIN, label: "FIN, ACK  seq=5001  ack=2001", sState: "FIN_WAIT_1", cState: "CLOSING", phase: "同时关闭",
+        note: "<b>同时关闭 · 第 2 步：</b>客户端收到对方的 FIN（其中并未确认自己的 FIN）后进入 <b>CLOSING</b>（关闭中）；服务器同样状态。" },
+      { from: "C", kind: "msg", color: COLOR.ACK, label: "ACK  seq=2002  ack=5002", sState: "CLOSING", phase: "同时关闭",
+        note: "<b>同时关闭 · 第 3 步：</b>客户端对服务器的 FIN 做确认，服务器进入 <b>CLOSING</b>。" },
+      { from: "S", kind: "msg", color: COLOR.ACK, label: "ACK  seq=5002  ack=2002", cState: "TIME_WAIT", sState: "TIME_WAIT", phase: "同时关闭",
+        note: "<b>同时关闭 · 第 4 步：</b>服务器也确认客户端的 FIN，双方都进入 <b>TIME_WAIT</b>——同时关闭时双方都要等 2MSL。" },
+      { who: "C", kind: "wait", label: "双方各等 2MSL 后进入 CLOSED", cState: "CLOSED", sState: "CLOSED", phase: "连接关闭",
+        note: "<b>2MSL 结束：</b>两个方向上的 TIME_WAIT 都超时后连接彻底关闭。整个过程同样是 4 个报文段，与正常的四次挥手相比只是多了一个 CLOSING 状态。" }
+    ]
+  },
+
+  rst: {
+    name: "异常：连接被拒绝（服务器回 RST 复位）",
+    st: { c: "CLOSED", s: "CLOSED" },
+    steps: [
+      { from: "C", kind: "msg", color: COLOR.SYN, label: "SYN  seq=1000", cState: "SYN_SENT", phase: "连接建立失败",
+        note: "<b>客户端发起连接：</b>向服务器某个端口发送 SYN，进入 SYN_SENT。" },
+      { from: "S", kind: "msg", color: COLOR.RST, label: "RST, ACK  seq=0  ack=1001", sState: "CLOSED", phase: "连接建立失败",
+        note: "<b>服务器拒绝：</b>该端口没有进程监听（或服务器已崩溃、防火墙拒绝），内核直接回 <b>RST=1</b> 复位报文，而不是 SYN+ACK。" },
+      { who: "C", kind: "wait", label: "客户端直接回到 CLOSED", cState: "CLOSED", phase: "连接建立失败",
+        note: "<b>结果：</b>客户端收到 RST 后立即回到 CLOSED，connect() 返回错误（Connection refused）。RST 还用于：向已关闭的连接发数据、异常中止连接等场景——收到 RST 说明连接已被强制复位，不经过四次挥手。" }
+    ]
+  }
+};
+
+/* ---------------- 运行状态 ---------------- */
+
+const R = { key: "normal", idx: 0, speed: 450, running: false, timer: null, newRow: -1 };
+
+function scen() { return SCEN[R.key]; }
+function total() { return scen().steps.length; }
+
+function stopTimer() { if (R.timer) { clearTimeout(R.timer); R.timer = null; } }
+function pause() { stopTimer(); R.running = false; $("btnPlay").textContent = "▶ 播放"; }
+
+/* ---------------- 状态回放 ---------------- */
+
+function statesAt(n) {
+  const sc = scen();
+  let c = sc.st.c, s = sc.st.s;
+  for (let i = 0; i < n && i < sc.steps.length; i++) {
+    const st = sc.steps[i];
+    if (st.cState) c = st.cState;
+    if (st.sState) s = st.sState;
+  }
+  return { c: c, s: s };
+}
+
+function prevStates(n) { return statesAt(Math.max(0, n - 1)); }
+
+/* ---------------- 渲染 ---------------- */
+
+function render() {
+  const sc = scen(), tl = $("tl"), w = tl.clientWidth || 700;
+  const xC = Math.max(80, Math.round(w * 0.16));
+  const xS = Math.min(w - 80, Math.round(w * 0.84));
+  $("llC").style.left = xC + "px";
+  $("llS").style.left = xS + "px";
+  $("nodeC").style.left = xC + "px";
+  $("nodeS").style.left = xS + "px";
+
+  const st = statesAt(R.idx), stPrev = prevStates(R.idx);
+  $("stC").textContent = st.c;
+  $("stS").textContent = st.s;
+  $("nodeC").className = "node" + (st.c !== stPrev.c ? " changed" : "");
+  $("nodeS").className = "node" + (st.s !== stPrev.s ? " changed" : "");
+
+  const shown = Math.max(R.idx, 1);
+  tl.style.height = (shown * ROWH) + "px";
+  const H = shown * ROWH;
+  let g = "";
+  // 时间轴指示
+  g += '<text x="4" y="' + (H - 2) + '" font-size="10" fill="#cbd5e1">时间 ↓</text>';
+
+  for (let i = 0; i < R.idx; i++) {
+    const sp = sc.steps[i], y0 = i * ROWH;
+    const isNew = (i === R.newRow);
+    const cls = isNew ? ' class="new"' : "";
+    g += "<g" + cls + ">";
+    g += '<text x="' + (xC - 46) + '" y="' + (y0 + 19) + '" font-size="10" fill="#cbd5e1">' + (i + 1) + "</text>";
+    if (sp.kind === "wait") {
+      const x = sp.who === "C" ? xC : xS;
+      g += '<line x1="' + x + '" y1="' + (y0 + 3) + '" x2="' + x + '" y2="' + (y0 + ROWH - 3) + '" stroke="' + COLOR.FIN + '" stroke-width="2" stroke-dasharray="3 3" />';
+      g += '<text x="' + (x + 8) + '" y="' + (y0 + 19) + '" font-size="11" fill="' + COLOR.FIN + '">⏱ ' + sp.label + "</text>";
+    } else {
+      const from = sp.from === "C" ? xC : xS, to = sp.from === "C" ? xS : xC;
+      const y1 = y0 + 7, y2 = y0 + ROWH - 8;
+      const col = sp.color;
+      if (sp.lost) {
+        const x2 = from + (to - from) * 0.66, y2b = y1 + (y2 - y1) * 0.66;
+        g += '<line x1="' + from + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2b + '" stroke="' + col + '" stroke-width="1.8" stroke-dasharray="5 4" opacity="0.85" />';
+        g += '<text x="' + (x2 + 4) + '" y="' + (y2b + 4) + '" font-size="12" font-weight="700" fill="#ef4444">✗ 丢失</text>';
+      } else {
+        g += '<line x1="' + from + '" y1="' + y1 + '" x2="' + to + '" y2="' + y2 + '" stroke="' + col + '" stroke-width="1.8" marker-end="url(#ah' + markerId(col) + ')" />';
+      }
+      const midX = (from + to) / 2, lab = sp.label + (sp.retrans ? "  ⟳重传" : "");
+      const tw = lab.length * 6.4 + 10;
+      g += '<rect x="' + (midX - tw / 2) + '" y="' + (y0 + 1) + '" width="' + tw + '" height="15" rx="4" fill="#ffffff" opacity="0.92" />';
+      g += '<text x="' + midX + '" y="' + (y0 + 12) + '" font-size="11" font-weight="600" text-anchor="middle" fill="' + col + '">' + lab + "</text>";
+    }
+    g += "</g>";
+  }
+  if (R.idx === 0) g += '<text x="' + (w / 2 - 90) + '" y="20" font-size="11" fill="#94a3b8">点击「单步」或「播放」开始演示 →</text>';
+
+  const defs = '<defs>' + Object.keys(COLOR).map((k) =>
+    '<marker id="ah' + markerId(COLOR[k]) + '" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">' +
+    '<path d="M 0 0 L 10 5 L 0 10 z" fill="' + COLOR[k] + '"/></marker>').join("") + "</defs>";
+  $("ov").setAttribute("width", w);
+  $("ov").setAttribute("height", H);
+  $("ov").setAttribute("viewBox", "0 0 " + w + " " + H);
+  $("ov").innerHTML = defs + g;
+
+  // 统计
+  const up = sc.steps.slice(0, R.idx);
+  let trans = 0, pc = sc.st.c, ps = sc.st.s;
+  up.forEach((sp) => { if (sp.cState && sp.cState !== pc) { trans++; pc = sp.cState; } if (sp.sState && sp.sState !== ps) { trans++; ps = sp.sState; } });
+  $("statSeg").textContent = up.filter((s) => s.kind === "msg").length;
+  $("statTrans").textContent = trans;
+  $("statRe").textContent = up.filter((s) => s.retrans).length;
+  const phase = R.idx === 0 ? "未开始" : (R.idx >= total() ? "演示结束" : sc.steps[R.idx - 1].phase);
+  $("statPhase").textContent = phase;
+  $("statProg").textContent = R.idx + "/" + total();
+  $("scenName").textContent = sc.name;
+
+  if (R.idx > 0) {
+    const last = sc.steps[R.idx - 1];
+    setNote("<b>第 " + R.idx + " 步 —— " + (last.kind === "wait" ? "等待/超时：" + last.label : last.label) + "</b><br>" + last.note,
+      last.lost ? "warn" : (R.idx === total() ? "ok" : ""));
+  }
+}
+
+function markerId(col) { return col.replace("#", ""); }
+
+function setNote(html, cls) {
+  const el = $("note");
+  el.className = "note" + (cls ? " " + cls : "");
+  el.innerHTML = "<b>当前步骤：</b>" + html;
+}
+
+function updateDesc() {
+  $("desc").innerHTML = "<b>为什么握手要三次？</b>两次不够：只发 SYN 和 SYN+ACK，服务器无法确认「客户端收到了自己的 SYN+ACK」，也无法确认客户端的接收能力；而且旧的、延迟的 SYN 可能让服务器建立无效连接。四次多余：第 2 次握手的 SYN+ACK 已经把「确认对方 SYN」和「自己请求连接」合并成一个报文，所以三次刚好。<br>" +
+    "<b>为什么挥手要四次？</b>TCP 是全双工的，每个方向要单独关闭。收到对方的 FIN 只说明「对方没有数据要发了」，自己可能还有数据要发，所以只能先回 ACK（进入 CLOSE_WAIT）而不能立即回 FIN —— 这就是<b>半关闭</b>；等自己的数据发完再发 FIN，因此 ACK 与 FIN 不能合并，需要四次。<br>" +
+    "<b>为什么 TIME_WAIT 要等 2MSL？</b>①可靠地终止连接：若最后的 ACK 丢失，对方会重传 FIN，处于 TIME_WAIT 的一方可以重发 ACK；②让旧连接的残余报文在网络中消亡，防止被新连接（相同四元组）误收。2MSL 即「一个来回」的最长时间。";
+}
+
+/* ---------------- 步进 ---------------- */
+
+function step() {
+  if (R.idx >= total()) return false;
+  R.newRow = R.idx;
+  R.idx++;
+  render();
+  if (R.idx >= total()) {
+    pause();
+    $("statPhase").textContent = "演示结束";
+    return false;
+  }
+  return true;
+}
+
+function tick() {
+  if (!R.running) return;
+  if (!step()) { pause(); return; }
+  R.timer = setTimeout(tick, R.speed);
+}
+
+/* ---------------- 事件 ---------------- */
+
+$("scenSel").onchange = () => { R.key = $("scenSel").value; reset(); };
+$("btnPlay").onclick = () => {
+  if (R.running) { pause(); return; }
+  if (R.idx >= total()) reset();
+  R.running = true; $("btnPlay").textContent = "⏸ 暂停"; tick();
+};
+$("btnStep").onclick = () => { pause(); if (R.idx >= total()) return; step(); };
+$("btnReset").onclick = () => reset();
+document.querySelectorAll(".speed-group button").forEach((b) => {
+  b.onclick = () => {
+    document.querySelectorAll(".speed-group button").forEach((x) => x.classList.remove("active"));
+    b.classList.add("active"); R.speed = +b.dataset.speed;
+  };
+});
+
+function reset() {
+  pause(); R.idx = 0; R.newRow = -1;
+  $("note").className = "note";
+  $("note").innerHTML = "点击「单步」逐段演示，或按「播放」自动演示。向下为时间流逝方向。";
+  render();
+}
+
+let rzTimer = null;
+window.addEventListener("resize", () => {
+  if (rzTimer) clearTimeout(rzTimer);
+  rzTimer = setTimeout(() => { rzTimer = null; render(); }, 120);
+});
+
+updateDesc();
+reset();
+</script>
+</body>
+</html>

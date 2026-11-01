@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>二叉树遍历与中序线索化</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f8fafc; color: #1e293b; padding: 16px; margin: 0; }
+  .wrap { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+  .head { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; }
+  .head h1 { font-size: 16px; font-weight: 600; }
+  .head .info { font-size: 12px; opacity: .9; }
+  .controls { padding: 9px 16px; display: flex; flex-wrap: wrap; gap: 7px; align-items: center; border-bottom: 1px solid #eef2f7; }
+  .controls label { font-size: 12px; color: #64748b; }
+  select, input[type=number] { padding: 5px 8px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; outline: none; font-size: 12px; font-family: inherit; }
+  input[type=number] { width: 62px; }
+  button { padding: 5px 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all .15s; font-size: 12.5px; font-family: inherit; }
+  .btn-primary { background: #6366f1; color: #fff; }
+  .btn-primary:hover { background: #4f46e5; }
+  .btn-insert { background: #10b981; color: #fff; }
+  .btn-insert:hover { background: #059669; }
+  .btn-del { background: #ef4444; color: #fff; }
+  .btn-del:hover { background: #dc2626; }
+  .btn-ghost { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+  .btn-ghost:hover { background: #e2e8f0; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .speed-group { display: flex; gap: 4px; }
+  .speed-group button { padding: 4px 10px; font-size: 12px; }
+  .speed-group .active { background: #6366f1; color: #fff; }
+  .stats { padding: 7px 16px; display: flex; gap: 16px; font-size: 12px; color: #64748b; border-bottom: 1px solid #eef2f7; flex-wrap: wrap; }
+  .stats b { color: #1e293b; font-variant-numeric: tabular-nums; }
+  .msg { padding: 7px 16px; font-size: 12px; color: #475569; border-bottom: 1px solid #eef2f7; min-height: 32px; line-height: 1.5; }
+  .msg .idx { color: #6366f1; font-weight: 600; }
+  .msg.bad { color: #dc2626; background: #fef2f2; }
+  .stage { padding: 6px 16px 0; display: flex; gap: 12px; height: 292px; }
+  .treebox { flex: 1; min-width: 0; }
+  .treebox svg { width: 100%; height: 100%; display: block; }
+  .side { width: 198px; flex: none; border-left: 1px solid #eef2f7; padding-left: 10px; display: flex; flex-direction: column; overflow: hidden; }
+  .sideTitle { font-size: 11px; color: #64748b; margin: 4px 0 3px; font-weight: 600; }
+  .sideTitle span { font-weight: 400; color: #94a3b8; }
+  .seq { flex: 1; overflow-y: auto; font-size: 12px; line-height: 1.75; }
+  .chip { display: inline-block; min-width: 22px; text-align: center; padding: 1px 6px; margin: 0 3px 3px 0; border-radius: 6px; background: #f1f5f9; border: 1px solid #e2e8f0; font-variant-numeric: tabular-nums; }
+  .chip.new { background: #d1fae5; border-color: #6ee7b7; color: #047857; font-weight: 700; }
+  .struct { height: 118px; overflow-y: auto; font-size: 12px; }
+  .frameBox { display: block; padding: 1px 8px; margin-bottom: 2px; border-radius: 6px; background: #eef2ff; border: 1px solid #c7d2fe; color: #3730a3; width: 84px; font-variant-numeric: tabular-nums; }
+  .frameBox.top { background: #fef3c7; border-color: #fcd34d; color: #b45309; font-weight: 700; }
+  .qbox { display: block; padding: 1px 8px; margin-bottom: 2px; border-radius: 6px; background: #ecfdf5; border: 1px solid #a7f3d0; color: #047857; width: 84px; font-variant-numeric: tabular-nums; }
+  .qbox.top { background: #d1fae5; border-color: #34d399; font-weight: 700; }
+  .empty { color: #94a3b8; font-size: 12px; }
+  .legend { padding: 4px 16px 8px; display: flex; gap: 14px; font-size: 11px; color: #64748b; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
+  .desc { padding: 9px 16px 14px; border-top: 1px solid #eef2f7; font-size: 12px; color: #475569; line-height: 1.7; }
+  .desc b { color: #334155; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>🌳 二叉树遍历与中序线索化</h1>
+    <span class="info" id="headInfo">前序 / 中序 / 后序 / 层序 · 线索二叉树</span>
+  </div>
+
+  <div class="controls">
+    <label>树</label>
+    <select id="treeSelect">
+      <option value="t1">教材例树（7 结点）</option>
+      <option value="t2">完全二叉树（8 结点）</option>
+      <option value="t3">二叉搜索树（9 结点）</option>
+      <option value="t4">单支树（4 结点）</option>
+    </select>
+    <label>模式</label>
+    <select id="modeSelect">
+      <option value="trav">四种遍历演示</option>
+      <option value="thread">中序线索化 + 找后继</option>
+    </select>
+    <select id="orderSelect">
+      <option value="pre">前序遍历</option>
+      <option value="in">中序遍历</option>
+      <option value="post">后序遍历</option>
+      <option value="level">层序遍历</option>
+    </select>
+    <label>值</label>
+    <input type="number" id="valInput" value="5" min="0" max="999">
+    <button class="btn-insert" id="btnInsert">＋ 插入</button>
+    <button class="btn-del" id="btnDelete">－ 删除</button>
+    <button class="btn-ghost" id="btnRandom">🎲 随机 BST</button>
+    <div class="speed-group">
+      <button data-speed="600" id="spSlow" class="btn-ghost">慢</button>
+      <button data-speed="200" id="spMid" class="btn-ghost active">中</button>
+      <button data-speed="40" id="spFast" class="btn-ghost">快</button>
+    </div>
+    <button class="btn-primary" id="btnPlay">▶ 播放</button>
+    <button class="btn-ghost" id="btnStep">单步</button>
+    <button class="btn-ghost" id="btnReset">↺ 重置</button>
+  </div>
+
+  <div class="stats">
+    <span>结点数 <b id="statN">0</b></span>
+    <span>当前方式 <b id="statMode">前序遍历</b></span>
+    <span>已访问 <b id="statVisited">0</b></span>
+    <span>当前结点 <b id="statCur">—</b></span>
+    <span>栈/队列深度 <b id="statDepth">0</b></span>
+    <span>树高 <b id="statHeight">0</b></span>
+  </div>
+
+  <div class="msg" id="msg">就绪</div>
+
+  <div class="stage">
+    <div class="treebox"><svg id="svg" viewBox="0 0 500 280" preserveAspectRatio="xMidYMid meet"></svg></div>
+    <div class="side">
+      <div class="sideTitle">遍历序列 <span id="seqCount">0</span></div>
+      <div class="seq" id="seq"></div>
+      <div class="sideTitle" id="structTitle">递归调用栈 <span>（栈顶在上）</span></div>
+      <div class="struct" id="struct"></div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><i style="background:#94a3b8"></i>未访问</span>
+    <span><i style="background:#f59e0b"></i>当前结点 / 正在处理</span>
+    <span><i style="background:#10b981"></i>已访问（已进序列）</span>
+    <span><i style="background:#6366f1"></i>在调用栈中（祖先路径）</span>
+    <span><i style="background:#8b5cf6"></i>线索（虚线箭头，前驱/后继）</span>
+  </div>
+
+  <div class="desc">
+    <b>三种深度优先遍历的区别只在"什么时候访问根"：</b>前序 根→左→右（进入结点就先访问）；中序 左→根→右（左子树回来才访问根，BST 中序必为递增序列）；后序 左→右→根（左右都处理完才访问根，可用于求树高、释放结点）。三者路径相同，只是访问时机不同，递归栈深度都等于树高。<br>
+    <b>层序为什么用队列：</b>要按"一层接一层"访问，必须先来先服务 —— 出队一个结点就访问它，同时把它的左右孩子依次入队，于是同层结点总排在下一层之前，队列天然保证了层次顺序。<br>
+    <b>线索化的意义：</b>n 个结点的二叉链表有 n+1 个空指针。利用这些空指针，把"无左孩子"的结点的左指针指向<b>中序前驱</b>、把"无右孩子"的结点的右指针指向<b>中序后继</b>，再加 ltag/rtag 标志区分"指针"还是"线索"，就得到线索二叉树。这样<b>不用栈、不用递归</b>就能沿线索完成中序遍历，找前驱/后继都是 O(1)（有孩子时需走到子树最左下/最右下的结点）；代价是插入删除时要维护线索。
+  </div>
+</div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+/* ===== PURE-CORE-START ===== */
+let UID = 1;
+function mkNode(v) { return { id: UID++, v: v, left: null, right: null, ltag: 0, rtag: 0 }; }
+
+/* 按层序数组建树（null 表示空位） */
+function buildFromArray(arr) {
+  if (!arr || !arr.length || arr[0] === null || arr[0] === undefined) return null;
+  const nodes = arr.map((v) => (v === null || v === undefined ? null : mkNode(v)));
+  for (let i = 0; i < nodes.length; i++) {
+    if (!nodes[i]) continue;
+    const l = 2 * i + 1, r = 2 * i + 2;
+    if (l < nodes.length) nodes[i].left = nodes[l] || null;
+    if (r < nodes.length) nodes[i].right = nodes[r] || null;
+  }
+  return nodes[0];
+}
+
+/* 按嵌套描述建树 {v, l, r} */
+function buildFromSpec(spec) {
+  if (!spec) return null;
+  const n = mkNode(spec.v);
+  n.left = buildFromSpec(spec.l || null);
+  n.right = buildFromSpec(spec.r || null);
+  return n;
+}
+
+function treeSize(root) { return root ? 1 + treeSize(root.left) + treeSize(root.right) : 0; }
+function treeHeight(root) { return root ? 1 + Math.max(treeHeight(root.left), treeHeight(root.right)) : 0; }
+
+function bstInsert(root, v) {
+  if (!root) return { root: mkNode(v), ok: true };
+  let cur = root, guard = 0;
+  while (guard++ < 10000) {
+    if (v === cur.v) return { root: root, ok: false, dup: true };
+    if (v < cur.v) { if (!cur.left) { cur.left = mkNode(v); return { root: root, ok: true }; } cur = cur.left; }
+    else { if (!cur.right) { cur.right = mkNode(v); return { root: root, ok: true }; } cur = cur.right; }
+  }
+  return { root: root, ok: false };
+}
+
+function bstDelete(root, v) {
+  if (!root) return { root: null, ok: false };
+  let parent = null, cur = root;
+  while (cur && cur.v !== v) { parent = cur; cur = v < cur.v ? cur.left : cur.right; }
+  if (!cur) return { root: root, ok: false };
+  const replace = (node) => {
+    if (parent === null) root = node;
+    else if (parent.left === cur) parent.left = node;
+    else parent.right = node;
+  };
+  if (!cur.left && !cur.right) replace(null);
+  else if (!cur.left) replace(cur.right);
+  else if (!cur.right) replace(cur.left);
+  else {
+    // 用右子树最小结点替代
+    let pp = cur, s = cur.right;
+    while (s.left) { pp = s; s = s.left; }
+    cur.v = s.v;
+    if (pp.left === s) pp.left = s.right; else pp.right = s.right;
+  }
+  return { root: root, ok: true, removed: v };
+}
+
+/* 四种遍历 -> 逐帧步骤 */
+function traversalSteps(root, type) {
+  const steps = [];
+  const seq = [], stack = [], queue = [];
+  const snap = (o) => {
+    steps.push(Object.assign({
+      seq: seq.map((n) => n.id), stack: stack.map((n) => n.id), queue: queue.map((n) => n.id), cur: null
+    }, o));
+  };
+  if (!root) {
+    snap({ type: "empty", msg: "当前树为空，无法遍历。请先插入结点或切换到预置树。" });
+    return { steps: steps, seq: [] };
+  }
+  const nm = (n) => (n ? n.v : "空");
+
+  if (type === "level") {
+    queue.push(root);
+    snap({ type: "enqueue", cur: root.id, msg: "层序遍历用队列：先把根结点 " + root.v + " 入队。" });
+    while (queue.length) {
+      const n = queue.shift();
+      snap({ type: "dequeue", cur: n.id, msg: "队头结点 " + n.v + " 出队，准备访问它。" });
+      seq.push(n);
+      const kids = [];
+      if (n.left) kids.push(n.left);
+      if (n.right) kids.push(n.right);
+      snap({ type: "visit", cur: n.id, msg: "访问 " + n.v + "，加入遍历序列" + (kids.length ? "；接着把它的孩子按 左→右 依次入队。" : "；它是叶子，没有孩子需要入队。") });
+      for (let i = 0; i < kids.length; i++) {
+        queue.push(kids[i]);
+        snap({ type: "enqueue", cur: kids[i].id, msg: "结点 " + kids[i].v + " 入队（队尾）。" });
+      }
+    }
+    snap({ type: "done", msg: "队列已空 —— 层序遍历结束，共访问 " + seq.length + " 个结点。" });
+    return { steps: steps, seq: seq.map((n) => n.id) };
+  }
+
+  const order = type;
+  function* walk(n) {
+    if (!n) return;
+    stack.push(n);
+    snap({ type: "enter", cur: n.id, msg: "进入结点 " + n.v + "：把它的调用帧压入栈顶（递归向下）。" });
+    if (order === "pre") {
+      seq.push(n);
+      snap({ type: "visit", cur: n.id, msg: "【前序】一进入就访问根 " + n.v + "，加入遍历序列；然后递归左子树。" });
+    }
+    if (n.left) yield* walk(n.left);
+    else snap({ type: "note", cur: n.id, msg: n.v + " 的左孩子为空 —— 递归到达边界，立即返回。" });
+    if (order === "in") {
+      seq.push(n);
+      snap({ type: "visit", cur: n.id, msg: "【中序】左子树处理完了，回到根 " + n.v + " 访问它；然后递归右子树。" });
+    }
+    if (n.right) yield* walk(n.right);
+    else snap({ type: "note", cur: n.id, msg: n.v + " 的右孩子为空 —— 递归到达边界，立即返回。" });
+    if (order === "post") {
+      seq.push(n);
+      snap({ type: "visit", cur: n.id, msg: "【后序】左右子树都处理完了，最后访问根 " + n.v + "。" });
+    }
+    stack.pop();
+    snap({ type: "exit", cur: stack.length ? stack[stack.length - 1].id : null, msg: n.v + " 的子树处理完毕，弹出栈顶调用帧" + (stack.length ? "，回到父结点 " + stack[stack.length - 1].v + "。" : "，递归结束。") });
+  }
+  const it = walk(root);
+  let r = it.next(), guard = 0;
+  while (!r.done && guard++ < 20000) r = it.next();
+  snap({ type: "done", msg: "遍历结束，序列共 " + seq.length + " 个结点，调用栈已清空。" });
+  return { steps: steps, seq: seq.map((n) => n.id) };
+}
+
+/* 中序线索化：前驱/后继 + 逐帧步骤 */
+function threadInfo(root) {
+  const inorder = [];
+  (function w(n) { if (!n) return; w(n.left); inorder.push(n); w(n.right); })(root);
+  const info = new Map();
+  inorder.forEach((n, i) => info.set(n.id, { pred: i > 0 ? inorder[i - 1] : null, succ: i < inorder.length - 1 ? inorder[i + 1] : null }));
+  return { inorder: inorder, info: info };
+}
+
+function threadingSteps(root) {
+  const steps = [];
+  const ti = threadInfo(root);
+  const inorder = ti.inorder, info = ti.info;
+  const threads = [];
+  const snap = (o) => {
+    steps.push(Object.assign({ inorder: inorder.map((n) => n.id), threads: threads.map((t) => ({ from: t.from, to: t.to, side: t.side })), cur: null }, o));
+  };
+  if (!root) {
+    snap({ type: "empty", msg: "当前树为空，无法线索化。请先插入结点或切换到预置树。" });
+    return { steps: steps, inorder: [] };
+  }
+  snap({ type: "threadInit", msg: "线索化前先做一次中序遍历，得到 " + inorder.map((n) => n.v).join(" ") + "；相邻两结点互为前驱/后继。n 个结点的二叉链表有 n+1 个空指针，正好用来存线索。" });
+  for (let i = 0; i < inorder.length; i++) {
+    const n = inorder[i], inf = info.get(n.id);
+    const added = [], hi = [];
+    if (!n.left && inf.pred) { n.ltag = 1; threads.push({ from: n.id, to: inf.pred.id, side: "L" }); added.push("左指针空闲 → 改为左线索，指向中序前驱 " + inf.pred.v); hi.push(inf.pred.id); }
+    if (!n.right && inf.succ) { n.rtag = 1; threads.push({ from: n.id, to: inf.succ.id, side: "R" }); added.push("右指针空闲 → 改为右线索，指向中序后继 " + inf.succ.v); hi.push(inf.succ.id); }
+    snap({
+      type: "thread", cur: n.id, hi: hi,
+      msg: "结点 " + n.v + "：" + (added.length ? added.join("；") + "。" : "左右孩子都不空，指针无需改动（ltag=rtag=0）。")
+    });
+  }
+  snap({ type: "threadDone", msg: "线索化完成：紫色虚线即线索。" });
+  let cur = inorder[0];
+  snap({ type: "follow", cur: cur.id, msg: "现在不用栈、不用递归，从最左下的结点 " + cur.v + " 开始，沿线索做中序遍历。" });
+  let guard = 0;
+  while (info.get(cur.id).succ && guard++ < 5000) {
+    const s = info.get(cur.id).succ;
+    const hi = [];
+    let rule;
+    if (cur.right) {
+      let p = cur.right;
+      while (p) { hi.push(p.id); if (!p.left) break; p = p.left; }
+      rule = cur.v + " 有右孩子 → rtag=0，后继 = 右子树中最左下的结点 " + s.v + "（沿左孩子一路走到底）。";
+    } else {
+      rule = cur.v + " 无右孩子 → rtag=1，右指针就是线索，一步直接得到中序后继 " + s.v + "。";
+    }
+    snap({ type: "follow", cur: s.id, hi: hi, msg: rule });
+    cur = s;
+  }
+  snap({ type: "done", cur: cur.id, msg: "走到中序最后一个结点 " + cur.v + "，它的右线索为空，遍历结束。整趟中序遍历没有使用递归栈。" });
+  return { steps: steps, inorder: inorder.map((n) => n.id) };
+}
+/* ===== PURE-CORE-END ===== */
+
+/* ---------- 树布局（中序 x 序位） ---------- */
+const HGAP = 56, VGAP = 62, NR = 17;
+let LAY = new Map(), LAY_INFO = { minX: 0, maxX: 100, maxY: 0 };
+
+function layoutTree(root) {
+  LAY = new Map();
+  if (!root) { LAY_INFO = { minX: 0, maxX: 100, maxY: 0 }; return; }
+  let i = 0;
+  (function walk(n, d) {
+    if (!n) return;
+    walk(n.left, d + 1);
+    const x = i++ * HGAP;
+    LAY.set(n.id, { x: x, y: d * VGAP });
+    walk(n.right, d + 1);
+  })(root, 0);
+  let minX = Infinity, maxX = -Infinity, maxY = 0;
+  LAY.forEach((p) => {
+    if (p.x - NR < minX) minX = p.x - NR;
+    if (p.x + NR > maxX) maxX = p.x + NR;
+    if (p.y + NR > maxY) maxY = p.y + NR;
+  });
+  if (!isFinite(minX)) { minX = 0; maxX = 100; }
+  LAY_INFO = { minX: minX, maxX: maxX, maxY: maxY };
+}
+
+function indexTree(root) {
+  const m = new Map();
+  (function w(n) { if (!n) return; m.set(n.id, n); w(n.left); w(n.right); })(root);
+  return m;
+}
+
+/* ---------- 渲染 ---------- */
+function renderFrame() {
+  const fr = STEPS[IDX];
+  if (!fr) return;
+  const isThread = MODE === "thread";
+  const visited = new Set(fr.seq || []);
+  const inStack = new Set(fr.stack || []);
+  const hi = new Set(fr.hi || []);
+  const curId = fr.cur;
+
+  const padX = 20, padTop = 24, padBottom = isThread ? 60 : 22;
+  const W = Math.max(160, LAY_INFO.maxX - LAY_INFO.minX + padX * 2);
+  const H = Math.max(120, LAY_INFO.maxY + padTop + padBottom);
+  const ox = (W - (LAY_INFO.maxX - LAY_INFO.minX)) / 2 - LAY_INFO.minX, oy = padTop;
+  const X = (x) => x + ox, Y = (y) => y + oy;
+
+  let s = '<defs><marker id="arw" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#8b5cf6"/></marker></defs>';
+  if (!ROOT) {
+    s += '<text x="' + (W / 2) + '" y="' + (H / 2) + '" font-size="14" text-anchor="middle" fill="#94a3b8">（空树：请插入结点或选择一棵预置树）</text>';
+  }
+
+  // 边
+  if (ROOT) {
+    (function walk(n) {
+      if (!n) return;
+      const p = LAY.get(n.id);
+      if (n.left) {
+        const c = LAY.get(n.left.id);
+        s += '<line x1="' + X(p.x) + '" y1="' + Y(p.y) + '" x2="' + X(c.x) + '" y2="' + Y(c.y) + '" stroke="#cbd5e1" stroke-width="2"/>';
+        walk(n.left);
+      }
+      if (n.right) {
+        const c = LAY.get(n.right.id);
+        s += '<line x1="' + X(p.x) + '" y1="' + Y(p.y) + '" x2="' + X(c.x) + '" y2="' + Y(c.y) + '" stroke="#cbd5e1" stroke-width="2"/>';
+        walk(n.right);
+      }
+    })(ROOT);
+  }
+
+  // 线索（虚线箭头）：画在结点之下，绕到下方
+  if (isThread) {
+    const list = fr.threads || [];
+    for (let i = 0; i < list.length; i++) {
+      const t = list[i];
+      const a = LAY.get(t.from), b = LAY.get(t.to);
+      if (!a || !b) continue;
+      const dip = Math.max(a.y, b.y) + 34;
+      const path = "M" + X(a.x) + " " + Y(a.y) + " Q" + X((a.x + b.x) / 2) + " " + Y(dip) + " " + X(b.x) + " " + Y(b.y);
+      const live = (fr.cur === t.from || fr.cur === t.to);
+      s += '<path d="' + path + '" fill="none" stroke="#8b5cf6" stroke-width="' + (live ? 2.2 : 1.2) + '" stroke-dasharray="5 4" opacity="' + (live ? 1 : 0.4) + '" marker-end="url(#arw)"/>';
+    }
+  }
+
+  // 结点
+  NMAP.forEach((n) => {
+    const p = LAY.get(n.id);
+    if (!p) return;
+    let fill = "#ffffff", stroke = "#94a3b8", color = "#475569";
+    if (isThread) { fill = "#faf5ff"; stroke = "#c4b5fd"; color = "#6d28d9"; }
+    if (inStack.has(n.id) && !isThread) { fill = "#eef2ff"; stroke = "#6366f1"; color = "#4338ca"; }
+    if (visited.has(n.id)) { fill = "#d1fae5"; stroke = "#10b981"; color = "#047857"; }
+    if (hi.has(n.id)) { fill = "#ede9fe"; stroke = "#8b5cf6"; color = "#6d28d9"; }
+    if (curId === n.id) { fill = "#f59e0b"; stroke = "#d97706"; color = "#ffffff"; }
+    s += '<circle cx="' + X(p.x) + '" cy="' + Y(p.y) + '" r="' + NR + '" fill="' + fill + '" stroke="' + stroke + '" stroke-width="2.5"/>';
+    s += '<text x="' + X(p.x) + '" y="' + (Y(p.y) + 4.5) + '" font-size="13" font-weight="700" text-anchor="middle" fill="' + color + '">' + n.v + "</text>";
+  });
+
+  $("svg").setAttribute("viewBox", "0 0 " + W.toFixed(1) + " " + H.toFixed(1));
+  $("svg").innerHTML = s;
+
+  // 序列
+  const seqIds = fr.seq || [];
+  let seqHtml = "";
+  for (let i = 0; i < seqIds.length; i++) {
+    const n = NMAP.get(seqIds[i]);
+    const isNew = i === seqIds.length - 1 && (fr.type === "visit");
+    seqHtml += '<span class="chip' + (isNew ? " new" : "") + '">' + (n ? n.v : "?") + "</span>";
+  }
+  $("seq").innerHTML = seqHtml || '<span class="empty">（尚未访问任何结点）</span>';
+  $("seqCount").textContent = seqIds.length + " / " + N_NODES;
+
+  // 栈 / 队列 / 中序序列
+  const useQueue = (MODE === "trav" && ORDER === "level");
+  if (MODE === "thread") {
+    $("structTitle").innerHTML = '中序序列 <span>（前驱/后继由此确定）</span>';
+    const inIds = fr.inorder || [];
+    let h = "";
+    for (let i = 0; i < inIds.length; i++) {
+      const n = NMAP.get(inIds[i]);
+      const cls = (fr.cur === inIds[i]) ? " new" : "";
+      h += '<span class="chip' + cls + '">' + (n ? n.v : "?") + "</span>";
+    }
+    $("struct").innerHTML = h || '<span class="empty">（空）</span>';
+  } else {
+    $("structTitle").innerHTML = useQueue ? '队列（队头在上） <span>FIFO</span>' : '递归调用栈 <span>（栈顶在上）</span>';
+    const items = useQueue ? (fr.queue || []) : (fr.stack || []);
+    let stHtml = "";
+    for (let i = items.length - 1; i >= 0; i--) {
+      const n = NMAP.get(items[i]);
+      const isTop = useQueue ? (i === 0) : (i === items.length - 1);
+      stHtml += '<span class="' + (useQueue ? "qbox" : "frameBox") + (isTop ? " top" : "") + '">' + (n ? n.v : "?") + (isTop ? (useQueue ? " ←队头" : " ←栈顶") : "") + "</span>";
+    }
+    $("struct").innerHTML = stHtml || '<span class="empty">（空）</span>';
+  }
+
+  // 统计
+  $("statMode").textContent = MODE === "thread" ? "中序线索化" : ORDER_NAME[ORDER];
+  $("statVisited").textContent = seqIds.length;
+  $("statCur").textContent = curId !== null && curId !== undefined && NMAP.has(curId) ? NMAP.get(curId).v : "—";
+  $("statDepth").textContent = useQueue ? (fr.queue || []).length : (fr.stack || []).length;
+  $("statN").textContent = N_NODES;
+  $("statHeight").textContent = TREE_HEIGHT;
+
+  const msgEl = $("msg");
+  msgEl.className = "msg";
+  msgEl.innerHTML = '<span class="idx">第 ' + (IDX + 1) + "/" + STEPS.length + ' 步</span> · ' + esc(fr.msg);
+
+  $("btnPlay").textContent = playing ? "⏸ 暂停" : "▶ 播放";
+  const atEnd = IDX >= STEPS.length - 1;
+  $("btnStep").disabled = atEnd;
+  $("btnPlay").disabled = atEnd && !playing;
+}
+
+/* ---------- 状态 ---------- */
+const PRESETS = {
+  t1: { name: "教材例树", spec: { v: 1, l: { v: 2, l: { v: 4, r: { v: 7 } }, r: { v: 5 } }, r: { v: 3, l: { v: 6 } } } },
+  t2: { name: "完全二叉树", arr: [1, 2, 3, 4, 5, 6, 7, 8] },
+  t3: { name: "二叉搜索树", arr: [8, 3, 10, 1, 6, null, 14, null, null, 4, 7, null, null, 13] },
+  t4: { name: "单支树", spec: { v: 1, l: { v: 2, l: { v: 3, l: { v: 4 } } } } }
+};
+const ORDER_NAME = { pre: "前序遍历", in: "中序遍历", post: "后序遍历", level: "层序遍历" };
+
+let ROOT = null, NMAP = new Map(), STEPS = [], IDX = 0, playing = false, timer = null, speed = 200;
+let MODE = "trav", ORDER = "pre", N_NODES = 0, TREE_HEIGHT = 0;
+
+function rebuildSteps() {
+  NMAP = indexTree(ROOT);
+  N_NODES = treeSize(ROOT);
+  TREE_HEIGHT = treeHeight(ROOT);
+  layoutTree(ROOT);
+  const r = MODE === "thread" ? threadingSteps(ROOT) : traversalSteps(ROOT, ORDER);
+  STEPS = r.steps;
+  IDX = 0;
+  stopPlay();
+  renderFrame();
+  $("headInfo").textContent = N_NODES + " 个结点 · 树高 " + TREE_HEIGHT + " · " + (MODE === "thread" ? "线索二叉树" : ORDER_NAME[ORDER]);
+}
+
+function loadPreset(key) {
+  UID = 1;
+  const p = PRESETS[key] || PRESETS.t1;
+  ROOT = p.arr ? buildFromArray(p.arr) : buildFromSpec(p.spec);
+  MODE = $("modeSelect").value || "trav";
+  ORDER = $("orderSelect").value || "pre";
+  rebuildSteps();
+  $("orderSelect").disabled = MODE === "thread";
+}
+
+function msgBad(t) {
+  const el = $("msg");
+  el.className = "msg bad";
+  el.textContent = "⚠ " + t;
+}
+
+function stopPlay() { playing = false; if (timer) { clearTimeout(timer); timer = null; } }
+
+function stepForward() {
+  if (IDX < STEPS.length - 1) { IDX++; renderFrame(); return true; }
+  return false;
+}
+function tick() {
+  if (!playing) return;
+  if (!stepForward()) { stopPlay(); renderFrame(); return; }
+  timer = setTimeout(tick, speed);
+}
+
+/* ---------- 事件 ---------- */
+$("treeSelect").onchange = () => loadPreset($("treeSelect").value);
+$("modeSelect").onchange = () => { MODE = $("modeSelect").value || "trav"; $("orderSelect").disabled = MODE === "thread"; rebuildSteps(); };
+$("orderSelect").onchange = () => { ORDER = $("orderSelect").value || "pre"; rebuildSteps(); };
+$("btnInsert").onclick = () => {
+  const v = parseInt($("valInput").value, 10);
+  if (!(v >= 0 && v <= 999)) { msgBad("请输入 0~999 的整数"); return; }
+  const r = bstInsert(ROOT, v);
+  if (!r.ok) { msgBad("值 " + v + " 已经存在，二叉搜索树中不允许重复关键字"); return; }
+  ROOT = r.root;
+  rebuildSteps();
+  $("msg").innerHTML = '<span class="idx">插入</span> · 从根开始比较，' + v + " 比当前结点小就往左、大就往右，挂到第一个空指针上（新结点一定是叶子）。";
+};
+$("btnDelete").onclick = () => {
+  const v = parseInt($("valInput").value, 10);
+  if (!(v >= 0 && v <= 999)) { msgBad("请输入 0~999 的整数"); return; }
+  if (!ROOT) { msgBad("当前树为空，没有可删除的结点"); return; }
+  const r = bstDelete(ROOT, v);
+  if (!r.ok) { msgBad("树中没有值为 " + v + " 的结点"); return; }
+  ROOT = r.root;
+  rebuildSteps();
+  $("msg").innerHTML = '<span class="idx">删除</span> · 已删除 ' + v + "（若有两个孩子，则用其右子树中最小的结点替代，再删掉那个最小结点）。";
+};
+$("btnRandom").onclick = () => {
+  UID = 1;
+  ROOT = null;
+  const used = {};
+  const cnt = 6 + Math.floor(Math.random() * 4);
+  let guard = 0;
+  while (Object.keys(used).length < cnt && guard++ < 200) {
+    const v = 1 + Math.floor(Math.random() * 60);
+    if (used[v]) continue;
+    used[v] = 1;
+    ROOT = bstInsert(ROOT, v).root;
+  }
+  MODE = $("modeSelect").value || "trav"; ORDER = $("orderSelect").value || "pre";
+  rebuildSteps();
+};
+$("btnPlay").onclick = () => {
+  if (playing) { stopPlay(); renderFrame(); return; }
+  if (IDX >= STEPS.length - 1) { IDX = 0; renderFrame(); }
+  playing = true;
+  renderFrame();
+  timer = setTimeout(tick, speed);
+};
+$("btnStep").onclick = () => { stopPlay(); stepForward(); renderFrame(); };
+$("btnReset").onclick = () => { stopPlay(); if (STEPS.length) { IDX = 0; renderFrame(); } };
+document.querySelectorAll(".speed-group button").forEach((b) => {
+  b.onclick = () => {
+    document.querySelectorAll(".speed-group button").forEach((x) => x.classList.remove("active"));
+    b.classList.add("active");
+    speed = +b.dataset.speed;
+  };
+});
+document.addEventListener("keydown", (e) => {
+  const t = e.target && e.target.tagName;
+  if (t === "INPUT" || t === "SELECT" || t === "TEXTAREA") return;
+  if (e.key === "ArrowRight") { stopPlay(); stepForward(); renderFrame(); }
+  if (e.key === " ") { e.preventDefault(); $("btnPlay").onclick(); }
+});
+
+loadPreset("t1");
+</script>
+</body>
+</html>

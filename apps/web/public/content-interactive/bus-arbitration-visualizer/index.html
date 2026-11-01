@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>总线仲裁：链式查询 / 计数器定时查询 / 独立请求</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f8fafc; color: #1e293b; padding: 16px; }
+  .wrap { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+  .head { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; }
+  .head h1 { font-size: 16px; font-weight: 600; }
+  .head .info { font-size: 12px; opacity: .92; font-family: Consolas, Monaco, monospace; }
+  .controls { padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-bottom: 1px solid #eef2f7; }
+  .controls label { font-size: 12px; color: #64748b; }
+  select, button { font-size: 13px; font-family: inherit; }
+  select { padding: 4px 7px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; outline: none; }
+  select:focus { border-color: #6366f1; background: #fff; }
+  select:disabled { opacity: .45; }
+  button { padding: 6px 13px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all .15s; }
+  .btn-primary { background: #6366f1; color: #fff; }
+  .btn-primary:hover { background: #4f46e5; }
+  .btn-ghost { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+  .btn-ghost:hover { background: #e2e8f0; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .presets { display: flex; gap: 5px; flex-wrap: wrap; }
+  .presets button { padding: 4px 9px; font-size: 12px; }
+  .devs { display: flex; gap: 9px; flex-wrap: wrap; }
+  .devs label { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #475569;
+                background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 3px 8px; cursor: pointer; }
+  .devs input { accent-color: #6366f1; }
+  .stats { padding: 7px 16px; display: flex; gap: 16px; font-size: 12px; color: #64748b; border-bottom: 1px solid #eef2f7; flex-wrap: wrap; align-items: center; }
+  .stats b { color: #1e293b; font-variant-numeric: tabular-nums; }
+  .speed-group { display: flex; gap: 4px; }
+  .speed-group button { padding: 4px 10px; font-size: 12px; }
+  .speed-group .active { background: #6366f1; color: #fff; }
+  .msg { margin: 0 16px 8px; padding: 7px 11px; border-radius: 8px; font-size: 12px; background: #fef3c7; color: #92400e; border: 1px solid #fde68a; display: none; }
+  .msg.warn { display: block; }
+  .stage { padding: 10px 16px 6px; }
+  .grid { display: flex; gap: 14px; }
+  .left { flex: 1 1 58%; min-width: 0; }
+  .right { flex: 1 1 42%; min-width: 0; }
+  .panel-t { font-size: 11px; color: #94a3b8; margin-bottom: 5px; letter-spacing: .5px; display: flex; justify-content: space-between; }
+  .panel-t .hint { color: #cbd5e1; letter-spacing: 0; }
+  svg#bs { width: 100%; height: auto; display: block; }
+  polyline.sig { fill: none; stroke: #e2e8f0; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
+  polyline.sig.on { animation: dashmove .85s linear infinite; }
+  @keyframes dashmove { to { stroke-dashoffset: -24; } }
+  .dev .box { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 1.5; }
+  .dev .nm { fill: #334155; }
+  .dev .rl { fill: #94a3b8; }
+  .dev .st { fill: #94a3b8; }
+  .dev.req .box { fill: #fffbeb; stroke: #f59e0b; stroke-width: 2.3; }
+  .dev.req .st { fill: #b45309; }
+  .dev.query .box { fill: #f5f3ff; stroke: #8b5cf6; stroke-width: 2.3; }
+  .dev.query .st { fill: #6d28d9; }
+  .dev.grant .box { fill: #ecfdf5; stroke: #10b981; stroke-width: 2.6; }
+  .dev.grant .st { fill: #047857; }
+  .dev.fault .box { fill: #fef2f2; stroke: #ef4444; stroke-width: 2.3; }
+  .dev.fault .st { fill: #b91c1c; }
+  .dev.block .box { fill: #f8fafc; stroke: #94a3b8; stroke-width: 2; stroke-dasharray: 6 4; }
+  .dev.block .st { fill: #94a3b8; }
+  .dev.skip .box { fill: #fff; stroke: #e2e8f0; }
+  .ctl .box { fill: #eef2ff; stroke: #6366f1; stroke-width: 2; }
+  .oplist { border: 1px solid #eef2f7; border-radius: 10px; max-height: 246px; overflow-y: auto; font-size: 11px; }
+  .oplist .op { padding: 3px 8px; border-bottom: 1px solid #f5f7fa; display: flex; gap: 7px; color: #475569; line-height: 1.5; }
+  .oplist .op .no { color: #94a3b8; flex: 0 0 16px; font-family: Consolas, Monaco, monospace; }
+  .oplist .op .ph { flex: 0 0 42px; color: #6366f1; }
+  .oplist .op.act { background: #eef2ff; box-shadow: inset 2px 0 0 #6366f1; color: #1e293b; font-weight: 700; }
+  .oplist .op.done { opacity: .5; }
+  .cm { border: 1px solid #eef2f7; border-radius: 10px; padding: 6px 9px; font-size: 11px; line-height: 1.7; color: #475569; }
+  .cm b { color: #4f46e5; }
+  .note { margin: 0 16px 8px; padding: 9px 12px; border-radius: 10px; background: #eef2ff; border: 1px solid #e0e7ff;
+          font-size: 12px; color: #3730a3; line-height: 1.8; }
+  .note.plain { background: #f8fafc; border-color: #e2e8f0; color: #64748b; }
+  .note.bad { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
+  .note .nt { font-weight: 700; }
+  .note .nw { color: #4338ca; }
+  .note code { font-family: Consolas, Monaco, monospace; background: #fff; border: 1px solid #e0e7ff; padding: 0 3px; border-radius: 3px; }
+  .legend { padding: 4px 16px 8px; display: flex; gap: 12px; font-size: 11px; color: #64748b; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; margin-right: 4px; vertical-align: 3px; }
+  .legend i.b { width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; }
+  .tblwrap { margin-top: 10px; border: 1px solid #eef2f7; border-radius: 10px; overflow-x: auto; }
+  table.cmp { width: 100%; border-collapse: collapse; font-size: 11px; }
+  table.cmp th { background: #f8fafc; color: #64748b; font-weight: 600; padding: 5px 7px; border-bottom: 1px solid #e2e8f0; text-align: left; white-space: nowrap; }
+  table.cmp td { padding: 5px 7px; border-bottom: 1px solid #f5f7fa; color: #475569; line-height: 1.6; vertical-align: top; }
+  table.cmp tr.on td { background: #eef2ff; color: #1e293b; font-weight: 600; }
+  table.cmp td.way { font-weight: 600; color: #4338ca; white-space: nowrap; }
+  .desc { padding: 10px 16px 14px; border-top: 1px solid #eef2f7; font-size: 12px; color: #475569; line-height: 1.75; }
+  .desc h4 { font-size: 12px; color: #4f46e5; margin: 8px 0 3px; }
+  .desc b { color: #334155; }
+  .desc code { font-family: Consolas, Monaco, monospace; background: #f1f5f9; padding: 0 3px; border-radius: 3px; color: #4338ca; }
+  .prog { height: 4px; background: #eef2f7; border-radius: 2px; overflow: hidden; margin-top: 6px; }
+  .prog i { display: block; height: 100%; width: 0; background: #6366f1; transition: width .15s; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>🚦 总线仲裁：谁能用总线</h1>
+    <span class="info" id="cfgInfo">集中式仲裁 · 链式查询</span>
+  </div>
+
+  <div class="controls">
+    <label>仲裁方式</label>
+    <select id="method">
+      <option value="chain" selected>链式查询（菊花链）</option>
+      <option value="counter">计数器定时查询（轮询）</option>
+      <option value="indep">独立请求</option>
+    </select>
+    <span class="devs">
+      <label><input type="checkbox" id="r0" checked>设备1 CPU</label>
+      <label><input type="checkbox" id="r1" checked>设备2 DMA</label>
+      <label><input type="checkbox" id="r2" checked>设备3 网卡</label>
+    </span>
+    <label>故障</label>
+    <select id="fault">
+      <option value="-1" selected>无故障</option>
+      <option value="0">设备1 故障</option>
+      <option value="1">设备2 故障</option>
+      <option value="2">设备3 故障</option>
+    </select>
+    <label>计数器初值</label>
+    <select id="start">
+      <option value="0" selected>设备1</option>
+      <option value="1">设备2</option>
+      <option value="2">设备3</option>
+    </select>
+    <div class="speed-group">
+      <button data-speed="1500" class="btn-ghost sp">慢</button>
+      <button data-speed="850" class="btn-ghost sp active">中</button>
+      <button data-speed="350" class="btn-ghost sp">快</button>
+    </div>
+    <button class="btn-primary" id="btnPlay">▶ 播放</button>
+    <button class="btn-ghost" id="btnStep">单步</button>
+    <button class="btn-ghost" id="btnPrev">上一步</button>
+    <button class="btn-ghost" id="btnReset">↺ 重置</button>
+  </div>
+
+  <div class="controls" style="border-bottom:1px solid #eef2f7;padding-top:0">
+    <label>场景</label>
+    <div class="presets">
+      <button class="btn-ghost" data-scene="all">三设备同时请求</button>
+      <button class="btn-ghost" data-scene="far">只有最远的设备3请求</button>
+      <button class="btn-ghost" data-scene="f1">设备1故障 + 设备2/3请求</button>
+      <button class="btn-ghost" data-scene="f2">设备2故障 + 设备3请求</button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <span>仲裁方式 <b id="stMethod">链式查询</b></span>
+    <span>参与请求 <b id="stReq">—</b></span>
+    <span>获得总线 <b id="stGrant">—</b></span>
+    <span>仲裁所需时间 <b id="stTime">—</b></span>
+    <span>当前阶段 <b id="stPhase">未开始</b></span>
+    <span>进度 <b id="stProg">0 / 0</b></span>
+  </div>
+
+  <div class="msg" id="msg"></div>
+
+  <div class="stage">
+    <div class="panel-t"><span>总线与主设备连接图（点亮 = 本步有效的信号线，虚线流动 = 信号传播）</span><span class="hint" id="dgHint">—</span></div>
+    <svg id="bs" viewBox="0 0 780 322" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="总线仲裁连接图"></svg>
+    <div class="prog"><i id="progBar"></i></div>
+    <div class="grid" style="margin-top:9px">
+      <div class="left">
+        <div class="panel-t"><span>仲裁过程</span><span class="hint">逐拍演示</span></div>
+        <div class="oplist" id="oplist"></div>
+      </div>
+      <div class="right">
+        <div class="panel-t"><span>本方式所需信号线</span><span class="hint">设备数 n = 3</span></div>
+        <div class="cm" id="cm"></div>
+      </div>
+    </div>
+
+    <div class="tblwrap">
+      <table class="cmp" id="cmpTable">
+        <thead>
+          <tr><th>仲裁方式</th><th>优先级是否固定</th><th>对故障的敏感性</th><th>需要的信号线数</th><th>扩展性</th><th>速度</th></tr>
+        </thead>
+        <tbody>
+          <tr data-way="chain">
+            <td class="way">链式查询<br>（菊花链）</td>
+            <td><b>固定</b>，由设备离仲裁器的<b>物理位置</b>决定：越近优先级越高，无法用软件改变</td>
+            <td><b>很敏感</b>：链上任一设备或连线断路，BG 就传不下去，其后的所有设备<b>永远得不到授权（饿死）</b></td>
+            <td><b>3 根</b>（BR、BG、BS），与设备数无关 —— 最省线</td>
+            <td>较好：新设备直接串入链尾即可，但只能排在<b>优先级最低</b>的位置</td>
+            <td>慢：BG 要逐级传递，设备越多越慢</td>
+          </tr>
+          <tr data-way="counter">
+            <td class="way">计数器定时查询<br>（轮询）</td>
+            <td><b>可编程</b>：初值固定 → 编号小的优先；初值接着上次服务过的设备 → 各设备<b>均等</b>使用</td>
+            <td><b>较不敏感</b>：查询线各自独立接入，故障设备只是不作答，会被<b>跳过</b>，不影响其它设备</td>
+            <td><b>约 ⌈log₂n⌉ + 2 根</b> = 2 + 2 = 4 根（⌈log₂3⌉=2 根设备地址线 + BR + BS）</td>
+            <td>一般：设备数增加要多加地址线，且最长查询时间变长</td>
+            <td>中：逐次查询，最坏要查 n 次</td>
+          </tr>
+          <tr data-way="indep">
+            <td class="way">独立请求</td>
+            <td><b>可编程、最灵活</b>：由优先级编码器决定，可随时改优先级</td>
+            <td><b>不敏感</b>：某设备的 BR_i / BG_i 故障只影响它自己，其它设备照常仲裁</td>
+            <td><b>2n 根</b> = 6 根（每设备 1 根请求线 + 1 根授权线），另需 BS —— 最费线</td>
+            <td>差：设备数增加连线急剧增多，控制器端口压力大</td>
+            <td><b>最快</b>：编码器一拍判定，与设备数基本无关</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><i style="background:#f59e0b"></i>BR 总线请求线</span>
+    <span><i style="background:#6366f1"></i>BG 总线授权线</span>
+    <span><i style="background:#10b981"></i>BS 总线忙</span>
+    <span><i style="background:#f59e0b"></i>设备地址线（计数器查询）</span>
+    <span><i class="b" style="background:#fffbeb;border:1px solid #f59e0b"></i>正在请求</span>
+    <span><i class="b" style="background:#f5f3ff;border:1px solid #8b5cf6"></i>被查询中</span>
+    <span><i class="b" style="background:#ecfdf5;border:1px solid #10b981"></i>获得总线</span>
+    <span><i class="b" style="background:#fef2f2;border:1px solid #ef4444"></i>故障</span>
+    <span><i class="b" style="background:#f8fafc;border:1px dashed #94a3b8"></i>被阻塞</span>
+  </div>
+
+  <div class="note plain" id="note">点击「▶ 播放」或「单步」开始。三个主设备共用一条总线，同一时刻只允许一个设备使用；当多个设备同时请求时，由仲裁器按所选方式决定把使用权授予谁。</div>
+
+  <div class="desc">
+    <h4>集中式仲裁与分布式仲裁的区别</h4>
+    <b>集中式仲裁</b>：整个系统设<b>一个</b>中央仲裁器（总线控制器），所有主设备的请求都送到它那里，由它统一裁决并发回授权信号。优点是仲裁逻辑集中、容易实现统一策略；缺点是仲裁器成了<b>单点</b>——它坏了整个总线就用不了，且设备越多、仲裁器端口和连线压力越大。上一张图里的三种方式（链式查询、计数器定时查询、独立请求）都属于集中式，它们的差别只在于“<b>请求/授权信号怎么传</b>”和“<b>优先级怎么定</b>”：<br>
+    · <b>链式查询</b>：只用一个 BR 和一个 BG，BG 像接力棒一样逐级下传，<b>先拿到 BG 的设备先得</b>。谁离仲裁器近谁优先，优先级被物理位置焊死；链上任一处断了，后面的设备全部饿死。<br>
+    · <b>计数器定时查询</b>：仲裁器用自己的计数器产生“设备号”，通过一组<b>设备地址线</b>逐个询问，被问到的设备若需要总线就回送 BS 忙信号。初值可编程，于是优先级可以固定（从 0 开始）也可以轮转（从上次的下一个开始），各设备机会均等；可靠性也比链式好。<br>
+    · <b>独立请求</b>：每个设备各有一根<b>自己的</b> BR_i 和 BG_i，仲裁器用<b>优先级编码器</b>一拍判定最高优先级的请求者并直接授权，速度最快，但连线数为 2n，最费线。<br><br>
+    <b>分布式仲裁</b>：不设中央仲裁器，每个主设备都配有自己的仲裁器和<b>仲裁号</b>，需要总线时把自己的仲裁号送上公共的<b>仲裁线</b>并行比较，<b>仲裁号大（优先级高）者获胜</b>并获得总线使用权；传输结束后撤销仲裁号，于是下一次其他设备有机会胜出（<b>仲裁号轮转</b>保证公平）。优点是没有单点故障、可扩展性好、仲裁速度快（并行比较）；缺点是每个设备都要有仲裁逻辑，硬件成本高，仲裁线数随仲裁号位数增加。典型应用：<b>PCI 总线</b>的分布式仲裁、<b>CAN 总线</b>的位仲裁、VME 总线。<br><br>
+    实际系统常采用<b>多级（混合）仲裁</b>：先由集中仲裁器在若干“总线主设备组”之间分配，组内再用分布式仲裁细分，兼顾速度与可扩展性。
+    <h4>为什么链式查询“离得近就优先”？</h4>
+    BG 是一条串行通路：仲裁器只把 BG 发给<b>第一个</b>设备。如果这个设备正在请求总线，它就把 BG <b>截住</b>不再往下传（BG_out 无效），于是它获得总线；只有它不请求时，BG 才继续传给下一个设备。所以“距离”直接决定了优先级顺序。这也是链式查询的优点——<b>线数最少、结构最简单</b>；代价是优先级固定，而且故障敏感。
+    <h4>三种方式的故障表现（本演示可直接验证）</h4>
+    ① <b>链式查询</b>：把故障设成“设备2 故障”，即使设备3 在请求也拿不到总线——BG 在设备2 处断了。<br>
+    ② <b>计数器查询</b>：同样是设备2 故障，仲裁器问到时它只是“不作答”，计数器加 1 继续问设备3，设备3 <b>照样能拿到总线</b>；代价是多花一个查询周期。<br>
+    ③ <b>独立请求</b>：设备2 故障只影响它自己的 BR₂/BG₂，设备1 与设备3 的请求与授权完全不受影响。
+    <h4>考点与易错点</h4>
+    ① 链式查询是“<b>离仲裁器近的优先</b>”，不是“编号大的优先”，也不要与分布式仲裁“仲裁号大者胜”混为一谈；② 计数器查询的优先级<b>可编程</b>，这是它相对链式最主要的好处；③ 独立请求<b>速度最快、线数最多</b>（2n 根），链式<b>线数最少</b>（3 根，与设备数无关）；④ 三种方式都属于<b>集中式</b>仲裁；⑤ 仲裁所需时间是“示意值”：链式随设备位置线性增长，计数器随查询次数增长，独立请求基本固定为 2 个总线时钟周期。
+  </div>
+</div>
+
+<script>
+"use strict";
+var $ = function (id) { return document.getElementById(id); };
+var NS = "http://www.w3.org/2000/svg";
+
+/* ================= 器件几何 ================= */
+var DEVS = [
+  { x: 230, name: "设备 1", role: "CPU（主设备）" },
+  { x: 410, name: "设备 2", role: "DMA 控制器" },
+  { x: 590, name: "设备 3", role: "网卡" }
+];
+var DW = 150, DY = 30, DH = 70;
+var BR_MAIN = [[[10, 200], [10, 8], [665, 8], [665, 30]], [[305, 8], [305, 30]], [[485, 8], [485, 30]]];
+var BS_MAIN = [[[110, 270], [110, 300], [695, 300], [695, 100]], [[335, 300], [335, 100]], [[515, 300], [515, 100]]];
+
+var SIG = {
+  chain: {
+    br:  { c: "#f59e0b", pts: BR_MAIN },
+    bg0: { c: "#6366f1", pts: [[[50, 150], [50, 65], [230, 65]]] },
+    bg1: { c: "#8b5cf6", pts: [[[380, 65], [410, 65]]] },
+    bg2: { c: "#0ea5e9", pts: [[[560, 65], [590, 65]]] },
+    bs:  { c: "#10b981", pts: BS_MAIN }
+  },
+  counter: {
+    br:   { c: "#f59e0b", pts: BR_MAIN },
+    adr:  { c: "#f59e0b", pts: [[[170, 240], [720, 240]]] },
+    adr1: { c: "#f59e0b", pts: [[[360, 240], [360, 100]]] },
+    adr2: { c: "#f59e0b", pts: [[[540, 240], [540, 100]]] },
+    adr3: { c: "#f59e0b", pts: [[[720, 240], [720, 100]]] },
+    bs:   { c: "#10b981", pts: BS_MAIN }
+  },
+  indep: {
+    br1: { c: "#f59e0b", pts: [[[170, 210], [275, 210], [275, 100]]] },
+    br2: { c: "#8b5cf6", pts: [[[170, 232], [455, 232], [455, 100]]] },
+    br3: { c: "#0ea5e9", pts: [[[170, 254], [635, 254], [635, 100]]] },
+    bg1: { c: "#f59e0b", pts: [[[40, 150], [40, 18], [270, 18], [270, 30]]] },
+    bg2: { c: "#8b5cf6", pts: [[[85, 150], [85, 10], [450, 10], [450, 30]]] },
+    bg3: { c: "#0ea5e9", pts: [[[130, 150], [130, 2], [630, 2], [630, 30]]] },
+    bs:  { c: "#10b981", pts: BS_MAIN }
+  }
+};
+var LABELS = {
+  chain: [
+    { t: "BR", x: 672, y: 12, c: "#f59e0b" },
+    { t: "BG", x: 200, y: 58, c: "#6366f1", a: "middle" },
+    { t: "BG", x: 395, y: 58, c: "#8b5cf6", a: "middle" },
+    { t: "BG", x: 575, y: 58, c: "#0ea5e9", a: "middle" },
+    { t: "BS", x: 700, y: 296, c: "#10b981" }
+  ],
+  counter: [
+    { t: "BR", x: 672, y: 12, c: "#f59e0b" },
+    { t: "BS", x: 700, y: 296, c: "#10b981" },
+    { t: "设备地址线", x: 400, y: 234, c: "#f59e0b", a: "middle" }
+  ],
+  indep: [
+    { t: "BR1", x: 176, y: 206, c: "#f59e0b" },
+    { t: "BR2", x: 176, y: 228, c: "#8b5cf6" },
+    { t: "BR3", x: 176, y: 250, c: "#0ea5e9" },
+    { t: "BG1", x: 44, y: 122, c: "#f59e0b" },
+    { t: "BG2", x: 89, y: 122, c: "#8b5cf6" },
+    { t: "BG3", x: 134, y: 122, c: "#0ea5e9" },
+    { t: "BS", x: 700, y: 296, c: "#10b981" }
+  ]
+};
+var METHOD_NAME = { chain: "链式查询", counter: "计数器定时查询", indep: "独立请求" };
+var DEV_SUB = {
+  idle: "空闲（未请求总线）", req: "正在请求总线", query: "被查询中…", grant: "获得总线使用权",
+  fault: "故障：BG 无法通过", block: "被前面的故障阻塞（饿死）", skip: "未请求，继续下传"
+};
+var LINE_INFO = {
+  chain: "BR 总线请求线 ×1 + BG 总线授权线 ×1 + BS 总线忙 ×1 = <b>3 根</b>（与设备数无关，最省线）",
+  counter: "BR ×1 + BS ×1 + 设备地址线 ⌈log₂3⌉ = 2 根 → 共 <b>4 根</b>（设备增加要加宽地址线）",
+  indep: "每设备 1 根请求线 + 1 根授权线 = 2n = <b>6 根</b>，另加 BS → 共 <b>7 根</b>（最费线）"
+};
+
+/* ================= 状态 ================= */
+var cfg = { method: "chain", req: [true, true, true], fault: -1, start: 0 };
+var steps = [], cur = 0, playing = false, timer = null, speed = 850;
+var refs = { lines: {}, colors: {}, dev: [], devSub: [] };
+
+function svgEl(tag, attrs, text) {
+  var e = document.createElementNS(NS, tag);
+  if (attrs) { for (var k in attrs) { e.setAttribute(k, attrs[k]); } }
+  if (text !== undefined) { e.textContent = text; }
+  return e;
+}
+function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]); }); }
+
+/* ================= 画图 ================= */
+function buildDiagram() {
+  var svg = $("bs");
+  svg.innerHTML = "";
+  refs.lines = {}; refs.colors = {}; refs.dev = []; refs.devSub = [];
+
+  var gSig = svgEl("g", null); svg.appendChild(gSig);
+  var set = SIG[cfg.method];
+  Object.keys(set).forEach(function (key) {
+    refs.lines[key] = []; refs.colors[key] = set[key].c;
+    set[key].pts.forEach(function (pts) {
+      var el = svgEl("polyline", { points: pts.map(function (p) { return p.join(","); }).join(" "), "class": "sig" });
+      gSig.appendChild(el);
+      refs.lines[key].push(el);
+    });
+  });
+  LABELS[cfg.method].forEach(function (L) {
+    gSig.appendChild(svgEl("text", { x: L.x, y: L.y, "text-anchor": L.a || "start", "font-size": 10, fill: L.c }, L.t));
+  });
+  refs.adrLabel = svgEl("text", { x: 200, y: 234, "font-size": 10.5, fill: "#b45309", opacity: 0 }, "");
+  gSig.appendChild(refs.adrLabel);
+
+  var gDev = svgEl("g", null); svg.appendChild(gDev);
+  DEVS.forEach(function (d, i) {
+    var g = svgEl("g", { "class": "dev" });
+    g.appendChild(svgEl("rect", { x: d.x, y: DY, width: DW, height: DH, rx: 10, "class": "box" }));
+    g.appendChild(svgEl("text", { x: d.x + DW / 2, y: DY + 29, "text-anchor": "middle", "font-size": 13, "font-weight": 700, "class": "nm" }, d.name));
+    g.appendChild(svgEl("text", { x: d.x + DW / 2, y: DY + 45, "text-anchor": "middle", "font-size": 10, "class": "rl" }, d.role));
+    var sub = svgEl("text", { x: d.x + DW / 2, y: DY + 61, "text-anchor": "middle", "font-size": 10.5, "class": "st" }, DEV_SUB.idle);
+    g.appendChild(sub);
+    gDev.appendChild(g);
+    refs.dev.push(g); refs.devSub.push(sub);
+  });
+
+  var gc = svgEl("g", { "class": "ctl" });
+  gc.appendChild(svgEl("rect", { x: 20, y: 150, width: 150, height: 120, rx: 10, "class": "box" }));
+  gc.appendChild(svgEl("text", { x: 95, y: 198, "text-anchor": "middle", "font-size": 13, "font-weight": 700, fill: "#3730a3" }, "总线控制器"));
+  gc.appendChild(svgEl("text", { x: 95, y: 215, "text-anchor": "middle", "font-size": 10, fill: "#818cf8" }, "中央仲裁器"));
+  refs.ctlSub = svgEl("text", { x: 95, y: 240, "text-anchor": "middle", "font-size": 10.5, fill: "#4f46e5" }, "空闲");
+  gc.appendChild(refs.ctlSub);
+  gDev.appendChild(gc);
+
+  $("dgHint").textContent = METHOD_NAME[cfg.method] + "：设备数 n = 3";
+}
+function deactivate() {
+  Object.keys(refs.lines).forEach(function (k) {
+    refs.lines[k].forEach(function (el) {
+      el.style.stroke = ""; el.style.strokeWidth = ""; el.style.strokeDasharray = "";
+      el.classList.remove("on");
+    });
+  });
+}
+function activate(key) {
+  if (!refs.lines[key]) return;
+  refs.lines[key].forEach(function (el) {
+    el.style.stroke = refs.colors[key];
+    el.style.strokeWidth = "2.8";
+    el.style.strokeDasharray = "7 5";
+    el.classList.add("on");
+  });
+}
+
+/* ================= 步骤生成 ================= */
+function reqList() {
+  var out = [];
+  for (var i = 0; i < 3; i++) { if (cfg.req[i]) out.push(i); }
+  return out;
+}
+function names(list) { return list.map(function (i) { return "设备" + (i + 1); }).join("、"); }
+
+function idleStep() {
+  return {
+    ph: "空闲", dev: ["idle", "idle", "idle"], lines: [], ctl: "无请求",
+    t: "没有任何设备请求总线",
+    grant: null, time: null,
+    note: "BR（总线请求）线保持无效，仲裁器不发 BG，总线空闲。任何主设备都可以在下一个时钟周期发起请求。"
+  };
+}
+function chainSteps() {
+  var S = [], req = cfg.req, fault = cfg.fault, rq = reqList();
+  var st = ["idle", "idle", "idle"];
+  if (!rq.length) { S.push(idleStep()); return S; }
+  rq.forEach(function (i) { st[i] = "req"; });
+  S.push({
+    ph: "请求", dev: st.slice(), lines: ["br"], ctl: "BR 有效",
+    t: names(rq) + " 同时通过公共的 BR 线发出总线请求",
+    grant: null, time: null,
+    note: "所有主设备<b>共用一条</b> BR 请求线（任何设备请求都会把它拉为有效），仲裁器只知道“有人要用总线”，并不知道是谁——这正是链式查询必须靠 BG 逐级传递来找人的原因。"
+  });
+  S.push({
+    ph: "传递", dev: st.slice(), lines: ["br", "bg0"], ctl: "发出 BG",
+    t: "仲裁器发出 BG 授权信号，从离它最近的设备 1 开始逐级传递",
+    grant: null, time: null,
+    note: "链式查询只有一根 BG，BG 从设备 1 的 BG_in 进入；一个设备若不需要总线，就把 BG 从它的 BG_out 透传给下一个设备。因此“离仲裁器越近 → 优先级越高”。"
+  });
+  for (var i = 0; i < 3; i++) {
+    var act = ["br"], k;
+    for (k = 0; k <= i; k++) { act.push("bg" + k); }
+    if (fault === i) {
+      var d1 = st.slice(); d1[i] = "fault";
+      S.push({
+        ph: "故障", dev: d1, lines: act, ctl: "BG 被截断",
+        t: "BG 传到设备 " + (i + 1) + "：它发生故障，BG 无法继续向下传递",
+        grant: null, time: null, fail: true,
+        note: "设备 " + (i + 1) + " 内部的 BG 通路断了（器件损坏或连线断开），BG 到了这里就再也传不出去。"
+      });
+      var d2 = d1.slice();
+      for (k = i + 1; k < 3; k++) { d2[k] = "block"; }
+      S.push({
+        ph: "阻塞", dev: d2, lines: act, ctl: "后续设备得不到授权",
+        t: "设备 " + (i + 2) + " 及其后的所有设备<b>永远得不到总线</b>（饿死）",
+        grant: null, time: null, fail: true,
+        note: "这是链式查询最致命的缺点：<b>一处故障导致整条链失效</b>。此时即使设备 3 一直在请求，仲裁器也永远收不到它的服务——因为 BG 根本传不过去。对比一下：把仲裁方式换成“计数器定时查询”，同样的故障下设备 3 仍能被服务。"
+      });
+      return S;
+    }
+    if (st[i] === "req") {
+      var dg = st.slice(); dg[i] = "grant";
+      S.push({
+        ph: "授权", dev: dg, lines: act, ctl: "BG 停在设备 " + (i + 1),
+        t: "设备 " + (i + 1) + " 正在请求 → 它<b>截住 BG</b>、不再向下传递，获得总线使用权",
+        grant: i, time: i + 2,
+        note: "设备 " + (i + 1) + " 把 BG_in 收到后不再输出 BG_out，后面的设备因此收不到 BG（被“挡住”）。由于它离仲裁器只有 " + (i + 1) + " 级，BG 传递了 " + (i + 1) + " 次，加上仲裁器发出 BG 的 1 个周期，共用约 " + (i + 2) + " 个总线时钟周期。"
+      });
+      S.push({
+        ph: "占用", dev: dg.slice(), lines: act.concat(["bs"]), ctl: "设备 " + (i + 1) + " 占用总线",
+        t: "设备 " + (i + 1) + " 置 BS（总线忙）有效，开始传输数据",
+        grant: i, time: i + 2,
+        note: "BS 被置为有效后，其他设备（包括尚未被 BG 问到的设备）都知道总线正被占用；此时它们即使请求也只能等待。"
+      });
+      S.push({
+        ph: "释放", dev: ["idle", "idle", "idle"], lines: [], ctl: "总线空闲",
+        t: "传输结束，撤销 BR、BG、BS，释放总线",
+        grant: null, time: i + 2,
+        note: "释放后若有新请求，BG <b>仍然从设备 1 开始</b>传递 → 链式查询的优先级是<b>固定</b>的：设备 1 永远优先。这正是需要“公平”时它的短板。"
+      });
+      return S;
+    } else {
+      var dp = st.slice(); dp[i] = "skip";
+      S.push({
+        ph: "传递", dev: dp, lines: act, ctl: "BG 继续下传",
+        t: "BG 传到设备 " + (i + 1) + "：它没有请求 → BG 透传给下一个设备",
+        grant: null, time: null,
+        note: "设备 " + (i + 1) + " 只是一个“接力”环节：BG_in 有效但它不使用，于是把 BG_out 置为有效，让后面的设备有机会拿到总线。"
+      });
+      st = dp;
+    }
+  }
+  S.push({
+    ph: "失败", dev: st.slice(), lines: ["br"], ctl: "无人获得授权", t: "BG 传到链尾，本次仲裁失败",
+    grant: null, time: null, fail: true,
+    note: "没有设备接受 BG，本次仲裁没有结果。"
+  });
+  return S;
+}
+function counterSteps() {
+  var S = [], req = cfg.req, fault = cfg.fault, rq = reqList(), start = cfg.start;
+  var st = ["idle", "idle", "idle"], q, idx;
+  if (!rq.length) { S.push(idleStep()); return S; }
+  rq.forEach(function (i) { st[i] = "req"; });
+  S.push({
+    ph: "请求", dev: st.slice(), lines: ["br"], ctl: "BR 有效",
+    t: names(rq) + " 同时通过公共的 BR 线发出总线请求",
+    grant: null, time: null,
+    note: "计数器定时查询同样只共用一条 BR，但它不靠逐级传递找人，而是由仲裁器<b>主动按设备号逐个询问</b>。"
+  });
+  for (q = 0; q < 3; q++) {
+    idx = (start + q) % 3;
+    var act = ["br", "adr", "adr" + (idx + 1)];
+    var dst = st.slice();
+    if (fault === idx) {
+      dst[idx] = "fault";
+      S.push({
+        ph: "查询", dev: dst, lines: act, ctl: "计数器 = 设备 " + (idx + 1), adr: idx + 1,
+        t: "计数器指向设备 " + (idx + 1) + "，但它<b>故障、不作回应</b>",
+        grant: null, time: null,
+        note: "设备 " + (idx + 1) + " 收到查询却无法回送 BS 忙信号。仲裁器把它当作“不需要总线”，计数器继续加 1 —— <b>故障只被跳过，不会阻塞后面的设备</b>，这就是计数器定时查询可靠性优于链式查询的根本原因。"
+      });
+      st = dst;
+      continue;
+    }
+    if (st[idx] === "req") {
+      dst[idx] = "grant";
+      S.push({
+        ph: "授权", dev: dst, lines: act.concat(["bs"]), ctl: "设备 " + (idx + 1) + " 回应 BS", adr: idx + 1,
+        t: "被查询到的设备 " + (idx + 1) + " 需要总线 → 回送 BS 忙信号，仲裁器<b>停止计数</b>并把总线授权给它",
+        grant: idx, time: q + 1,
+        note: "仲裁器先置计数器初值（本例为设备 " + (start + 1) + "），每查询一次计数加 1；被查到的设备若需要总线就使 BS 有效，仲裁器据此停止查询。计数器初值<b>由程序设定</b>：固定从 0 开始 → 编号小的设备优先（<b>优先级固定</b>）；从上次服务过的设备下一个开始 → 各设备获得<b>均等</b>的使用权。<br>本次共查询了 " + (q + 1) + " 次，因此约需 " + (q + 1) + " 个总线时钟周期（比链式查询更容易随设备数变长）。"
+      });
+      S.push({
+        ph: "占用", dev: dst.slice(), lines: act.concat(["bs"]), ctl: "设备 " + (idx + 1) + " 占用总线", adr: idx + 1,
+        t: "设备 " + (idx + 1) + " 获得总线，开始传输数据（BS 保持有效）",
+        grant: idx, time: q + 1,
+        note: "传输期间 BS 一直有效，仲裁器不再发起新的查询。"
+      });
+      S.push({
+        ph: "释放", dev: ["idle", "idle", "idle"], lines: [], ctl: "总线空闲",
+        t: "传输结束，释放总线；计数器可从本次设备的下一个继续",
+        grant: null, time: q + 1,
+        note: "若把计数器初值设为“上次服务设备的下一个”，下一次仲裁就会从设备 " + ((idx + 1) % 3 + 1) + " 开始查询，各设备机会均等；若初值固定，则始终是编号小的设备优先。优先级的这种<b>可编程性</b>是计数器查询相对链式查询最重要的优点。"
+      });
+      return S;
+    } else {
+      dst[idx] = "skip";
+      S.push({
+        ph: "查询", dev: dst, lines: act, ctl: "计数器 = 设备 " + (idx + 1), adr: idx + 1,
+        t: "仲裁器查询设备 " + (idx + 1) + "：它没有请求（无 BS 回应）→ 计数器加 1，继续查下一个",
+        grant: null, time: null,
+        note: "查询一次要占用一个总线时钟周期。设备编号越小越先被查到，所以初值固定时“编号小者优先”。"
+      });
+      st = dst;
+    }
+  }
+  S.push({
+    ph: "失败", dev: st.slice(), lines: ["br"], ctl: "无人获得授权",
+    t: "计数器轮询一周，没有任何设备回应 → 本次仲裁失败",
+    grant: null, time: 3, fail: true,
+    note: "三个设备都被问过一遍（其中请求者可能恰好故障），没人回送 BS，总线仍然空闲。"
+  });
+  return S;
+}
+function indepSteps() {
+  var S = [], req = cfg.req, fault = cfg.fault, rq = reqList();
+  var st = ["idle", "idle", "idle"];
+  if (!rq.length) { S.push(idleStep()); return S; }
+  rq.forEach(function (i) { st[i] = "req"; });
+  var brLines = rq.map(function (i) { return "br" + (i + 1); });
+  S.push({
+    ph: "请求", dev: st.slice(), lines: brLines, ctl: "收到多路 BR",
+    t: names(rq) + " 各自通过<b>独立的</b> BR 线发出请求",
+    grant: null, time: null,
+    note: "每个设备都有自己的一根 BR_i，仲裁器能<b>同时看到</b>是谁在请求，不必像链式那样逐级去找人。这是独立请求“快”的根本原因。"
+  });
+  S.push({
+    ph: "比较", dev: st.slice(), lines: brLines, ctl: "优先级编码器判定中",
+    t: "中央仲裁器的优先级编码器一拍同时比较所有请求线",
+    grant: null, time: null,
+    note: "优先级编码器把所有请求线当作一个多位数输入，直接给出最高优先级请求者的编号（本演示设<b>编号小者优先级高</b>，优先级也可由程序改写）。整个判定只需要 1 个总线时钟周期，与设备数基本无关。"
+  });
+  var cand = rq.filter(function (i) { return i !== fault; });
+  if (fault >= 0 && req[fault]) {
+    var df = st.slice(); df[fault] = "fault";
+    S.push({
+      ph: "故障", dev: df, lines: ["br" + (fault + 1)], ctl: "跳过故障设备",
+      t: "设备 " + (fault + 1) + " 故障：它的 BR/BG 线失效，仲裁器直接跳过它",
+      grant: null, time: null, fail: true,
+      note: "独立请求中每台设备的请求线与授权线都是<b>各自独立</b>的，所以某个设备故障只会影响它自己：其它设备的请求、授权、以及仲裁器的比较逻辑都不受影响。"
+    });
+    st = df;
+  }
+  if (!cand.length) {
+    S.push({
+      ph: "失败", dev: st.slice(), lines: [], ctl: "无人可获得授权",
+      t: "所有提出请求的设备都处于故障状态 → 本次仲裁失败",
+      grant: null, time: null, fail: true,
+      note: "只有“请求者全军覆没”时独立请求才会失败，这比链式查询（一个故障就全线失效）健壮得多。"
+    });
+    return S;
+  }
+  var win = Math.min.apply(null, cand);
+  var dg = st.slice(); dg[win] = "grant";
+  S.push({
+    ph: "授权", dev: dg, lines: ["bg" + (win + 1), "bs"], ctl: "编码器判定设备 " + (win + 1) + " 优先",
+    t: "仲裁器只向设备 " + (win + 1) + " 发出 BG 授权，其它设备的 BG 保持无效",
+    grant: win, time: 2,
+    note: "授权由仲裁器<b>直接送到</b>获胜设备，不需要逐级传递、也不需要轮询，因此仲裁时间固定约 2 个总线时钟周期（1 拍比较 + 1 拍发出授权），是所有集中式方式中<b>最快</b>的。代价是连线最多：n 个设备需要 2n 根请求/授权线。"
+  });
+  S.push({
+    ph: "占用", dev: dg.slice(), lines: ["bg" + (win + 1), "bs"], ctl: "设备 " + (win + 1) + " 占用总线",
+    t: "设备 " + (win + 1) + " 获得总线，置 BS 忙信号并开始传输",
+    grant: win, time: 2,
+    note: "未获授权的设备继续等待，可以保持请求，等待下一次仲裁。"
+  });
+  S.push({
+    ph: "释放", dev: ["idle", "idle", "idle"], lines: [], ctl: "总线空闲",
+    t: "传输结束，撤销请求与授权，释放总线",
+    grant: null, time: 2,
+    note: "下一次仲裁重新比较所有请求线；由于优先级由编码器（可由程序改写）决定，可以随时调整优先级策略，灵活度最高。"
+  });
+  return S;
+}
+function buildSteps() {
+  if (cfg.method === "chain") steps = chainSteps();
+  else if (cfg.method === "counter") steps = counterSteps();
+  else steps = indepSteps();
+}
+
+/* ================= 渲染 ================= */
+function resultOf(list) {
+  for (var i = list.length - 1; i >= 0; i--) { if (list[i].grant !== null && list[i].grant !== undefined) return list[i]; }
+  return null;
+}
+function renderOpList() {
+  var html = "";
+  steps.forEach(function (s, i) {
+    var cls = "op";
+    if (i === cur - 1) cls += " act"; else if (i < cur - 1) cls += " done";
+    html += '<div class="' + cls + '"><span class="no">' + (i + 1) + '</span><span class="ph">' + esc(s.ph) + "</span><span>" + s.t.replace(/<\/?b>/g, "") + "</span></div>";
+  });
+  $("oplist").innerHTML = html;
+  var act = $("oplist").querySelector(".op.act");
+  if (act && act.scrollIntoView) { act.scrollIntoView({ block: "nearest" }); }
+}
+function render() {
+  var total = steps.length;
+  var s = (cur > 0) ? steps[cur - 1] : null;
+  var shown = (cur > 0) ? steps.slice(0, cur) : [];
+  var res = resultOf(shown);
+
+  $("stMethod").textContent = METHOD_NAME[cfg.method];
+  $("stReq").textContent = reqList().length ? names(reqList()) : "无请求";
+  $("stGrant").textContent = res ? ("设备 " + (res.grant + 1)) : (cur > 0 ? "尚未授权" : "—");
+  $("stTime").textContent = res ? ("约 " + res.time + " 个总线时钟周期") : "—";
+  $("stPhase").textContent = s ? s.ph : "未开始";
+  $("stProg").textContent = cur + " / " + total;
+  $("progBar").style.width = (cur / Math.max(1, total) * 100) + "%";
+
+  deactivate();
+  ["idle", "idle", "idle"].forEach(function (v, i) {
+    refs.dev[i].setAttribute("class", "dev");
+    refs.devSub[i].textContent = DEV_SUB.idle;
+  });
+  if (s) {
+    s.dev.forEach(function (v, i) {
+      refs.dev[i].setAttribute("class", "dev " + v);
+      refs.devSub[i].textContent = DEV_SUB[v] || "";
+    });
+    (s.lines || []).forEach(activate);
+    refs.ctlSub.textContent = s.ctl;
+  } else {
+    refs.ctlSub.textContent = "空闲";
+  }
+  if (s && s.adr) { refs.adrLabel.textContent = "设备地址 = " + s.adr; refs.adrLabel.setAttribute("opacity", 1); }
+  else { refs.adrLabel.setAttribute("opacity", 0); }
+
+  // 对比表高亮
+  Array.prototype.forEach.call($("cmpTable").querySelectorAll("tbody tr"), function (tr) {
+    tr.className = (tr.getAttribute("data-way") === cfg.method) ? "on" : "";
+  });
+
+  // 信号线面板
+  var cm = LINE_INFO[cfg.method] + "<br>";
+  if (cfg.method === "chain") {
+    cm += "BG 逐级传递：设备 " + (res ? (res.grant + 1) : "—") + " 之前的设备依次透传，优先级由<b>位置</b>决定。";
+  } else if (cfg.method === "counter") {
+    cm += "本次计数器初值 = 设备 " + (cfg.start + 1) + "，查询次数 = " + (res ? res.time : "—") + " 次（每次查询占 1 个总线时钟周期）。";
+  } else {
+    cm += "优先级编码器一拍并行判定，仲裁时间与设备数<b>无关</b>；某设备故障只影响它自己的 BR/BG 线。";
+  }
+  $("cm").innerHTML = cm;
+
+  renderOpList();
+
+  // 说明
+  var el = $("note");
+  if (!s) {
+    el.className = "note plain";
+    el.innerHTML = "准备开始：<b>" + METHOD_NAME[cfg.method] + "</b>，参与请求：" + (reqList().length ? names(reqList()) : "无") +
+      (cfg.fault >= 0 ? "，故障设备：设备 " + (cfg.fault + 1) : "，无故障") +
+      "。共 " + total + " 个步骤，点击「▶ 播放」或「单步」逐拍观察仲裁过程。";
+    return;
+  }
+  el.className = s.fail ? "note bad" : "note";
+  el.innerHTML = '<span class="nt">第 ' + cur + " 步 · " + esc(s.ph) + "</span><br><b>做什么：</b>" + s.t + "<br><b>为什么：</b>" + s.note;
+}
+
+/* ================= 控制 ================= */
+function stopTimer() { if (timer) { clearTimeout(timer); timer = null; } }
+function pause() { playing = false; stopTimer(); $("btnPlay").textContent = "▶ 播放"; }
+function play() {
+  if (playing) { pause(); return; }
+  if (cur >= steps.length) cur = 0;
+  playing = true;
+  $("btnPlay").textContent = "⏸ 暂停";
+  timer = setTimeout(tick, speed);
+}
+function tick() {
+  if (!playing) return;
+  if (cur >= steps.length) { pause(); return; }
+  cur++;
+  render();
+  if (cur >= steps.length) { pause(); return; }
+  timer = setTimeout(tick, speed);
+}
+function rebuild() {
+  pause();
+  cfg.method = $("method").value;
+  cfg.req = [$("r0").checked, $("r1").checked, $("r2").checked];
+  cfg.fault = +$("fault").value;
+  cfg.start = +$("start").value;
+  $("start").disabled = (cfg.method !== "counter");
+  buildSteps();
+  buildDiagram();
+  cur = 0;
+  render();
+  $("cfgInfo").textContent = "集中式仲裁 · " + METHOD_NAME[cfg.method] + "　|　设备数 3　|　" +
+    (cfg.method === "counter" ? ("计数器初值 = 设备" + (cfg.start + 1)) : (cfg.method === "chain" ? "优先级由位置决定" : "优先级由编码器决定"));
+  var warn = "";
+  if (!cfg.req[0] && !cfg.req[1] && !cfg.req[2]) warn = "⚠️ 当前没有任何设备请求总线，仲裁器不会产生授权，演示的是“总线空闲”的情形。";
+  else if (cfg.method === "chain" && cfg.fault >= 0) {
+    var rq = reqList(), behind = rq.filter(function (i) { return i > cfg.fault; });
+    if (behind.length) warn = "⚠️ 链式查询 + 设备" + (cfg.fault + 1) + " 故障：设备 " + behind.map(function (i) { return i + 1; }).join("、") + " 在故障设备之后，即使请求也拿不到总线（BG 传不过去）。";
+  } else if (cfg.method === "counter" && cfg.fault >= 0) warn = "ℹ️ 计数器查询中设备 " + (cfg.fault + 1) + " 故障只表现为“不作答”，仲裁器会跳过它继续查询下一个设备。";
+  else if (cfg.method === "indep" && cfg.fault >= 0) warn = "ℹ️ 独立请求中设备 " + (cfg.fault + 1) + " 故障只影响它自己的 BR/BG 线，其它设备仲裁不受影响。";
+  $("msg").innerHTML = warn;
+  $("msg").className = warn ? "msg warn" : "msg";
+}
+function applyScene(kind) {
+  if (kind === "all") { $("r0").checked = $("r1").checked = $("r2").checked = true; $("fault").value = "-1"; }
+  else if (kind === "far") { $("r0").checked = false; $("r1").checked = false; $("r2").checked = true; $("fault").value = "-1"; }
+  else if (kind === "f1") { $("r0").checked = false; $("r1").checked = true; $("r2").checked = true; $("fault").value = "0"; }
+  else if (kind === "f2") { $("r0").checked = false; $("r1").checked = false; $("r2").checked = true; $("fault").value = "1"; }
+  rebuild();
+}
+
+$("method").onchange = rebuild;
+["r0", "r1", "r2", "fault", "start"].forEach(function (id) { $(id).onchange = rebuild; });
+document.querySelectorAll(".presets button").forEach(function (b) {
+  b.onclick = function () { applyScene(b.dataset.scene); };
+});
+$("btnPlay").onclick = play;
+$("btnStep").onclick = function () { pause(); if (cur < steps.length) { cur++; render(); } };
+$("btnPrev").onclick = function () { pause(); if (cur > 0) { cur--; render(); } };
+$("btnReset").onclick = function () { pause(); cur = 0; render(); };
+document.querySelectorAll(".sp").forEach(function (b) {
+  b.onclick = function () {
+    document.querySelectorAll(".sp").forEach(function (x) { x.classList.remove("active"); });
+    b.classList.add("active");
+    speed = +b.dataset.speed;
+    if (playing) { stopTimer(); timer = setTimeout(tick, speed); }
+  };
+});
+document.addEventListener("keydown", function (e) {
+  if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT") return;
+  if (e.key === "ArrowRight") { pause(); if (cur < steps.length) { cur++; render(); } }
+  if (e.key === "ArrowLeft") { pause(); if (cur > 0) { cur--; render(); } }
+  if (e.key === " ") { e.preventDefault(); play(); }
+});
+
+/* init */
+rebuild();
+</script>
+</body>
+</html>

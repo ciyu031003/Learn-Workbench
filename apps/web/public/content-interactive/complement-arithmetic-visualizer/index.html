@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>补码加减运算与溢出判断</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f8fafc; color: #1e293b; padding: 16px; }
+  .wrap { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+  .head { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; }
+  .head h1 { font-size: 16px; font-weight: 600; }
+  .head .info { font-size: 12px; opacity: .92; }
+  .controls { padding: 8px 16px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-bottom: 1px solid #eef2f7; }
+  .controls label { font-size: 12px; color: #64748b; }
+  .plabel { font-size: 12px; color: #64748b; }
+  .spacer { flex: 1; }
+  select, input[type=text] { font-size: 13px; padding: 4px 8px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; outline: none; color: #1e293b; }
+  input[type=text] { width: 76px; font-family: ui-monospace, Consolas, monospace; }
+  select:focus, input[type=text]:focus { border-color: #6366f1; }
+  button { font-size: 13px; padding: 5px 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all .15s; }
+  .btn-primary { background: #6366f1; color: #fff; }
+  .btn-primary:hover { background: #4f46e5; }
+  .btn-ghost { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+  .btn-ghost:hover { background: #e2e8f0; }
+  .presets { display: flex; gap: 5px; flex-wrap: wrap; }
+  .presets button { font-size: 11.5px; padding: 3px 8px; }
+  .speed-group { display: flex; gap: 4px; }
+  .speed-group button { padding: 4px 10px; font-size: 12px; }
+  .speed-group .active { background: #6366f1; color: #fff; border-color: #6366f1; }
+  .stats { padding: 7px 16px; display: flex; gap: 16px; font-size: 12px; color: #64748b; border-bottom: 1px solid #eef2f7; flex-wrap: wrap; }
+  .stats b { color: #1e293b; font-variant-numeric: tabular-nums; }
+  .stage { padding: 10px 14px 6px; }
+  .sect { margin-bottom: 8px; }
+  .stitle { font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 5px; }
+  .stitle span { font-weight: 400; color: #94a3b8; }
+  .convcols { display: flex; gap: 10px; }
+  .convcol { flex: 1; min-width: 0; }
+  .crow { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; height: 22px; }
+  .crow .lbl { width: 80px; flex: 0 0 80px; font-size: 11px; color: #64748b; text-align: right; }
+  .crow.pending .lbl { color: #cbd5e1; }
+  .bits { display: flex; gap: 2px; }
+  .bit { display: inline-flex; align-items: center; justify-content: center; height: 20px; border-radius: 4px; background: #f1f5f9; color: #334155; font-size: 12px; font-family: ui-monospace, Consolas, monospace; font-weight: 600; }
+  .bit.one { background: #e0e7ff; color: #3730a3; }
+  .bit.sign { background: #ede9fe; color: #6d28d9; }
+  .bit.flip { background: #fef3c7; color: #b45309; }
+  .bit.dim { opacity: .22; }
+  .na { font-size: 11px; color: #ef4444; }
+  .addrow { display: flex; gap: 2px; align-items: flex-start; overflow-x: auto; padding-bottom: 2px; }
+  .alabels { display: flex; flex-direction: column; gap: 2px; flex: 0 0 auto; margin-right: 4px; }
+  .alabel { font-size: 10.5px; color: #64748b; text-align: right; }
+  .acols { display: flex; gap: 2px; }
+  .acol { display: flex; flex-direction: column; gap: 2px; align-items: center; padding: 1px; border-radius: 6px; }
+  .acol.cur { background: #eef2ff; box-shadow: 0 0 0 1.5px #6366f1 inset; }
+  .ahead { font-size: 9px; color: #94a3b8; }
+  .acell { display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 12px; font-family: ui-monospace, Consolas, monospace; background: #f8fafc; color: #475569; }
+  .acell.hi { background: #e0e7ff; color: #3730a3; font-weight: 700; }
+  .acell.carry { background: #f5f3ff; color: #7c3aed; font-weight: 700; }
+  .acell.sum { background: #ecfdf5; color: #047857; font-weight: 700; }
+  .acell.dim { color: #cbd5e1; background: #fbfcfe; font-weight: 400; }
+  .asep { background: #cbd5e1; border-radius: 2px; }
+  .flags { display: flex; gap: 8px; }
+  .fcard { flex: 1; border: 1px solid #e2e8f0; border-radius: 8px; padding: 5px 8px; text-align: center; background: #f8fafc; }
+  .fname { font-size: 11px; color: #64748b; }
+  .fval { font-size: 17px; font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums; }
+  .fdesc { font-size: 10px; color: #94a3b8; font-family: ui-monospace, Consolas, monospace; }
+  .fcard.hot { border-color: #ef4444; background: #fef2f2; }
+  .dbl { font-size: 11.5px; color: #475569; margin-top: 5px; line-height: 1.6; }
+  code { font-family: ui-monospace, Consolas, monospace; background: #f1f5f9; padding: 1px 4px; border-radius: 4px; color: #334155; letter-spacing: .5px; }
+  .err { font-size: 12px; color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 10px 12px; line-height: 1.7; }
+  .note { margin: 0 14px 6px; padding: 6px 10px; border-left: 3px solid #6366f1; background: #f8fafc; border-radius: 0 8px 8px 0; font-size: 12px; color: #334155; line-height: 1.6; min-height: 32px; }
+  .legend { padding: 2px 14px 8px; display: flex; gap: 14px; font-size: 11px; color: #64748b; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+  .desc { padding: 8px 16px 14px; border-top: 1px solid #eef2f7; font-size: 11.5px; color: #475569; line-height: 1.65; }
+  .desc b { color: #334155; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>🧮 补码加减运算与溢出判断</h1>
+    <span class="info" id="headInfo">8 位 · 补码加法</span>
+  </div>
+
+  <div class="controls">
+    <label>位宽</label>
+    <select id="bitsSel">
+      <option value="4">4 位</option>
+      <option value="8" selected>8 位</option>
+      <option value="16">16 位</option>
+    </select>
+    <label>运算</label>
+    <select id="opSel">
+      <option value="add">A + B</option>
+      <option value="sub">A − B</option>
+    </select>
+    <label>A</label><input type="text" id="aIn" value="127">
+    <label>B</label><input type="text" id="bIn" value="1">
+    <button class="btn-ghost" id="btnApply">应用</button>
+    <button class="btn-ghost" id="btnRand">🎲 随机</button>
+  </div>
+
+  <div class="controls">
+    <span class="plabel">例题</span>
+    <span class="presets" id="presets"></span>
+    <span class="spacer"></span>
+    <div class="speed-group">
+      <button class="btn-ghost" data-speed="900">慢</button>
+      <button class="btn-ghost active" data-speed="450">中</button>
+      <button class="btn-ghost" data-speed="120">快</button>
+    </div>
+    <button class="btn-primary" id="btnPlay">▶ 播放</button>
+    <button class="btn-ghost" id="btnStep">单步</button>
+    <button class="btn-ghost" id="btnReset">↺ 重置</button>
+  </div>
+
+  <div class="stats">
+    <span>步骤 <b id="statStep">1 / 1</b></span>
+    <span>当前 <b id="statTag">—</b></span>
+    <span>A、B 真值运算结果 <b id="statReal">—</b></span>
+    <span>结论 <b id="statConc">—</b></span>
+  </div>
+
+  <div class="stage">
+    <div class="sect">
+      <div class="stitle">① 原码 → 反码 → 补码 <span>（琥珀色位＝相比上一行发生变化的位）</span></div>
+      <div class="convcols" id="convBody"></div>
+      <div id="negBBody"></div>
+    </div>
+    <div class="sect">
+      <div class="stitle">② 补码竖式加法 <span>（自最低位向最高位逐位进行；C 为进位）</span></div>
+      <div class="addrow" id="addBody"></div>
+    </div>
+    <div class="sect">
+      <div class="stitle">③ 标志位与溢出判断</div>
+      <div class="flags" id="flagBody"></div>
+      <div id="extraBody"></div>
+    </div>
+  </div>
+
+  <div class="note" id="note"></div>
+
+  <div class="legend">
+    <span><i style="background:#ede9fe"></i>符号位（最高位）</span>
+    <span><i style="background:#e0e7ff"></i>数值位 / 当前处理的位</span>
+    <span><i style="background:#fef3c7"></i>取反或进位改变的位</span>
+    <span><i style="background:#f5f3ff"></i>进位 C</span>
+    <span><i style="background:#ecfdf5"></i>本位和 S</span>
+    <span><i style="background:#fef2f2;border:1px solid #ef4444"></i>溢出的标志位</span>
+  </div>
+
+  <div class="desc" id="desc"></div>
+</div>
+
+<script>
+"use strict";
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* ---------------- 数制工具 ---------------- */
+
+  // 转成 n 位二进制位数组（MSB 在前）
+  function toBits(v, n) {
+    var M = Math.pow(2, n);
+    var u = ((v % M) + M) % M;
+    var out = [];
+    for (var i = n - 1; i >= 0; i--) out.push(Math.floor(u / Math.pow(2, i)) % 2);
+    return out;
+  }
+  function bitsVal(bits, signed) {
+    var n = bits.length, u = 0;
+    for (var i = 0; i < n; i++) if (bits[i]) u += Math.pow(2, n - 1 - i);
+    if (signed && bits[0] === 1) u -= Math.pow(2, n);
+    return u;
+  }
+  // 原码（符号-绝对值），|v| 放不下 n-1 位时返回 null
+  function origBits(v, n) {
+    var mag = Math.abs(v);
+    if (mag >= Math.pow(2, n - 1)) return null;
+    var b = toBits(mag, n);
+    b[0] = v < 0 ? 1 : 0;
+    return b;
+  }
+  function invBits(v, n) {
+    var o = origBits(v, n);
+    if (!o) return null;
+    if (v >= 0) return o.slice();
+    var r = o.slice();
+    for (var i = 1; i < n; i++) r[i] = r[i] ^ 1;
+    return r;
+  }
+  // 等长（MSB 在前）按位相加，cin 为最低位进位；carries[i] 为进入第 i 位（自低位数）的进位
+  function addBits(a, b, cin) {
+    var len = a.length, out = new Array(len), carries = new Array(len + 1);
+    carries[0] = cin;
+    for (var i = 0; i < len; i++) {
+      var idx = len - 1 - i;
+      var t = a[idx] + b[idx] + carries[i];
+      out[idx] = t % 2;
+      carries[i + 1] = t >= 2 ? 1 : 0;
+    }
+    return { bits: out, carries: carries };
+  }
+  function grp(bits) { return bits.join("").replace(/(.{4})(?=.)/g, "$1 "); }
+
+  /* ---------------- 输入解析 ---------------- */
+
+  function parseInput(raw, n) {
+    var M = Math.pow(2, n), SMAX = M / 2 - 1, SMIN = -M / 2;
+    var s = String(raw).trim();
+    if (s === "") return { ok: false, msg: "不能为空" };
+    var hx = /^([+-]?)0[xX]([0-9a-fA-F]+)$/.exec(s);
+    if (hx) {
+      var v = parseInt(hx[2], 16);
+      if (hx[1] === "-") v = -v;
+      if (v > SMAX) {
+        if (v >= M) return { ok: false, msg: "十六进制 " + raw + " 超出 " + n + " 位能表示的位模式范围（最大 0x" + (M - 1).toString(16).toUpperCase() + "）" };
+        v = v - M;   // 最高位为 1，按位模式解释成负数
+      }
+      if (v < SMIN) return { ok: false, msg: "超出 " + n + " 位补码范围 " + SMIN + " ~ " + SMAX };
+      return { ok: true, v: v };
+    }
+    if (!/^[+-]?\d+$/.test(s)) return { ok: false, msg: "无法识别的整数「" + raw + "」，请输入十进制整数或 0x 开头的十六进制" };
+    var d = parseInt(s, 10);
+    if (d < SMIN || d > SMAX) return { ok: false, msg: "超出 " + n + " 位补码可表示范围 " + SMIN + " ~ " + SMAX };
+    return { ok: true, v: d };
+  }
+
+  /* ---------------- 构建演示步骤 ---------------- */
+
+  var PRESETS = [
+    { label: "127 + 1", n: 8, op: "add", a: "127", b: "1" },
+    { label: "−128 − 1", n: 8, op: "sub", a: "-128", b: "1" },
+    { label: "0x7F + 0x01", n: 8, op: "add", a: "0x7F", b: "0x01" },
+    { label: "50 − 100", n: 8, op: "sub", a: "50", b: "100" },
+    { label: "7 + 1（4 位）", n: 4, op: "add", a: "7", b: "1" },
+    { label: "−8 − 1（4 位）", n: 4, op: "sub", a: "-8", b: "1" }
+  ];
+
+  var state = { meta: null, steps: [], idx: 0, err: null };
+
+  function build() {
+    var n = parseInt($("bitsSel").value, 10);
+    var op = $("opSel").value;
+    var M = Math.pow(2, n), SMAX = M / 2 - 1, SMIN = -M / 2;
+    var ra = parseInput($("aIn").value, n), rb = parseInput($("bIn").value, n);
+    if (!ra.ok) return { err: "A：" + ra.msg };
+    if (!rb.ok) return { err: "B：" + rb.msg };
+    var A = ra.v, B = rb.v, isSub = op === "sub";
+
+    var xBits = toBits(A, n);                       // 被加数
+    var bBits = toBits(B, n);                       // B 的补码
+    var yBits = isSub ? bBits.map(function (b) { return b ^ 1; }) : bBits.slice();  // 加数：减法时取反
+    var cin0 = isSub ? 1 : 0;                       // 减法："取反加 1" 的 +1 变成最低位进位输入
+    var add = addBits(xBits, yBits, cin0);
+    var resBits = add.bits, carries = add.carries;
+    var C_out = carries[n], Cnm1 = carries[n - 1];
+
+    var ZF = resBits.every(function (b) { return b === 0; }) ? 1 : 0;
+    var SF = resBits[0];
+    var CF = isSub ? (C_out ^ 1) : C_out;           // 减法时 C_out 取反 = 借位标志
+    var OF = Cnm1 ^ C_out;
+
+    var A2 = toBits(A, n + 1);
+    var B2 = isSub ? toBits(-B, n + 1) : toBits(B, n + 1);
+    var S2 = addBits(A2, B2, 0).bits;
+    var ds = S2[0] * 2 + S2[1];
+
+    var meta = {
+      n: n, op: op, A: A, B: B, M: M, SMAX: SMAX, SMIN: SMIN, isSub: isSub,
+      xBits: xBits, yBits: yBits, resBits: resBits, carries: carries,
+      C_out: C_out, Cnm1: Cnm1, ZF: ZF, SF: SF, CF: CF, OF: OF,
+      resU: bitsVal(resBits, false), resS: bitsVal(resBits, true),
+      aOrig: origBits(A, n), aInv: invBits(A, n), aComp: toBits(A, n),
+      bOrig: origBits(B, n), bInv: invBits(B, n), bComp: toBits(B, n),
+      negB: isSub ? toBits(-B, n) : null,
+      A2: A2, B2: B2, S2: S2, ds: ds,
+      real: isSub ? A - B : A + B,
+      inRange: (isSub ? A - B : A + B) >= SMIN && (isSub ? A - B : A + B) <= SMAX
+    };
+
+    /* ---- 步骤 ---- */
+    var steps = [];
+    var view = { aOrig: false, aInv: false, aComp: false, bOrig: false, bInv: false, bComp: false,
+                 negB: false, cols: 0, cur: -1, flags: false, dbl: false };
+    function push(tag, note, patch) {
+      if (patch) for (var k in patch) view[k] = patch[k];
+      steps.push({ tag: tag, note: note, view: JSON.parse(JSON.stringify(view)) });
+    }
+
+    var opTag = isSub ? "A − B" : "A + B";
+    push("输入解析",
+      "位宽 <b>" + n + "</b> 位，补码可表示范围 <b>" + SMIN + " ~ " + SMAX + "</b>；运算 <b>" + opTag +
+      "</b>，A = <b>" + A + "</b>，B = <b>" + B + "</b>。计算机中整数一律以补码存放，先把两个十进制数写成 " + n + " 位二进制。");
+
+    push("A 原码",
+      "A = " + A + " 的<b>原码</b>：符号位取 " + (A < 0 ? "1（负）" : "0（正）") + "，数值部分取 |A| = " + Math.abs(A) +
+      " 的 " + (n - 1) + " 位二进制。" +
+      (meta.aOrig ? (A < 0 ? " 原码的 0 有两种形式（+0 / −0），表示范围比补码少一个负数。" : " 正数的原码符号位为 0。")
+                  : " ⚠️ A = " + A + " 是 " + n + " 位补码能表示的<b>最小负数</b>，|A| = " + (-A) + " 超出 " + (n - 1) +
+                    " 位数值部分，因此<b>没有原码（也没有反码）表示</b>——这正是补码比原码多表示一个负数的原因，它只有补码形式。"),
+      { aOrig: true });
+
+    push("A 反码",
+      A < 0 ? "A 为负数：<b>反码 = 原码除符号位外逐位取反</b>（琥珀色位是刚被取反的位）。"
+            : "A 为非负数：<b>正数的反码与原码相同</b>，各位不用取反。",
+      { aInv: true });
+
+    push("A 补码",
+      A < 0 ? "A 为负数：<b>补码 = 反码 + 1</b>（末位加 1，琥珀色位是被进位改变的位）。也可以直接算 2^" + n + " + A = " + M + " + (" + A + ") = " + (M + A) + "。"
+            : "A 为非负数：<b>正数的补码 = 原码 = 反码</b>，各位不变。补码 0 只有一种形式。",
+      { aComp: true });
+
+    push("B 原码", "同理处理 B = " + B + "：" + (B < 0 ? "符号位 1，数值部分取 |B| = " + (-B) + "。" : "符号位 0，数值部分取 " + B + "。"),
+      { bOrig: true });
+    push("B 反码", B < 0 ? "B 为负数：除符号位外逐位取反。" : "B 为非负数：反码与原码相同。", { bInv: true });
+    push("B 补码", B < 0 ? "B 为负数：反码末位加 1 得到补码。" : "B 为非负数：补码与原码相同。", { bComp: true });
+
+    if (isSub) {
+      push("[−B]补",
+        "减法统一成加法：<b>A − B = A + [−B]补</b>。求 [−B]补 的方法是<b>把 [B]补 连同符号位一起逐位取反，再在末位加 1</b>，即「求补」。得到的位模式 <code>" +
+        grp(meta.negB) + "</code> 就是 −B 的补码。注意硬件上是把 [B]补 各位取反后作为加数，并让最低位的进位输入 C₀ = 1 来完成「加 1」。",
+        { negB: true });
+    }
+
+    for (var i = 0; i < n; i++) {
+      var idx = n - 1 - i;
+      var xb = xBits[idx], yb = yBits[idx], cin = carries[i];
+      var t = xb + yb + cin, s = resBits[idx], cout = carries[i + 1];
+      var extra = (i === 0 && isSub) ? "（最低位的进位输入固定为 1，这就是「取反加 1」里的那个 +1）" : "";
+      push("第 " + i + " 位竖式",
+        "第 <b>" + i + "</b> 位（自低位起第 " + (i + 1) + " 位，权重 2^" + i + "）：被加数 " + xb + " ＋ 加数 " + yb +
+        " ＋ 进位输入 " + cin + " = " + t + " → 本位和 <b>S" + i + " = " + s + "</b>，向高位的进位 <b>C" + (i + 1) + " = " + cout + "</b>。" +
+        (cin === 1 && i > 0 ? " 进位的 1 继续参与下一位运算。" : "") + extra + (i === n - 1 ? " 这一位是符号位，它的进位输出就是 C_out。" : ""),
+        { cols: i + 1, cur: i });
+    }
+
+    push("标志位",
+      "各位加完。被加数与加数（减法时为 [B]补 取反后的加数）相加得到 " + n + " 位结果 <code>" + grp(resBits) + "</code>，" +
+      "最高位向外的进位 <b>C_out = " + C_out + "</b>，进入最高位的进位 <b>C<sub>n−1</sub> = " + Cnm1 + "</b>。" +
+      "标志位：ZF = " + ZF + "（结果全 0 时为 1），SF = " + SF + "（取结果最高位），" +
+      (isSub ? "CF = ¬C_out = " + CF + "（减法时 C_out 取反表示借位），" : "CF = C_out = " + CF + "（无符号进位），") +
+      "OF = C<sub>n−1</sub> ⊕ C_out = " + Cnm1 + " ⊕ " + C_out + " = <b>" + OF + "</b>。",
+      { cur: -1, cols: n, flags: true });
+
+    var dsName = ds === 1 ? "正溢出（上溢）" : ds === 2 ? "负溢出（下溢）" : "无溢出";
+    push("双符号位验证",
+      "<b>双符号位法（变形补码）</b>：每个操作数用 " + (n + 1) + " 位表示，即最高位再复制一个符号位，运算后看结果最高两位：" +
+      "「00」或「11」＝无溢出，「01」＝正溢出，「10」＝负溢出。本式中 A = <code>" + grp(A2) + "</code>，" +
+      (isSub ? "−B" : "B") + " = <code>" + grp(B2) + "</code>，和 = <code>" + grp(S2) + "</code>，符号位为 <b>" +
+      S2[0] + S2[1] + "</b> → <b>" + dsName + "</b>，与 OF = " + OF + " 的结论" + ((ds !== 0) === (OF === 1) ? "<b>一致</b> ✓" : "不一致，请检查输入") + "。",
+      { dbl: true });
+
+    var realVal = meta.real;
+    push("结论",
+      "真值 " + A + (isSub ? " − " : " + ") + (B < 0 ? "(" + B + ")" : B) + " = <b>" + realVal + "</b>，它" +
+      (meta.inRange ? "在" : "<b>不在</b>") + n + " 位补码范围 " + SMIN + " ~ " + SMAX + " 内。" +
+      (meta.inRange
+        ? "因此有符号运算结果正确（OF = 0）；机器给出 <code>" + grp(resBits) + "</code> = " + meta.resS + "，与真值相等。"
+        : "因此发生了<b>有符号溢出</b>（OF = 1），机器结果只是真值对 2^" + n + " 取模后的位模式 <code>" + grp(resBits) +
+          "</code>，按补码读作 " + meta.resS + "，与真值不同。无符号解释为 " + meta.resU + "，" +
+          (isSub ? (CF ? "且减法的借位标志 CF = 1（无符号不够减）。" : "减法的借位标志 CF = 0。")
+                 : (CF ? "且无符号加法产生了进位 CF = 1。" : "且无符号加法没有产生进位 CF = 0。"))),
+      { dbl: true });
+
+    return { meta: meta, steps: steps };
+  }
+
+  /* ---------------- 渲染 ---------------- */
+
+  function bitWidthFor(n) { return n === 16 ? 18 : (n === 4 ? 25 : 23); }
+
+  function bitsHtml(bits, opt) {
+    if (!bits) return '<span class="na">无法用 ' + opt.n + ' 位原码/反码表示</span>';
+    var w = bitWidthFor(opt.n);
+    return '<div class="bits">' + bits.map(function (b, i) {
+      var cls = "bit";
+      if (i === 0) cls += " sign";
+      if (b === 1) cls += " one";
+      if (opt.prev && opt.prev[i] !== b) cls += " flip";
+      if (!opt.visible) cls += " dim";
+      return '<span class="' + cls + '" style="width:' + w + 'px">' + b + "</span>";
+    }).join("") + "</div>";
+  }
+
+  function crow(label, bits, opt) {
+    return '<div class="crow' + (opt.visible ? "" : " pending") + '"><span class="lbl">' + label + "</span>" +
+           bitsHtml(bits, opt) + "</div>";
+  }
+
+  function convHtml(m, v) {
+    var n = m.n;
+    function col(prefix, orig, inv, comp, vo, vi, vc) {
+      return '<div class="convcol">' +
+        crow(prefix + " 原码", orig, { n: n, visible: vo }) +
+        crow(prefix + " 反码", inv, { n: n, visible: vi, prev: orig }) +
+        crow(prefix + " 补码", comp, { n: n, visible: vc, prev: inv }) +
+        "</div>";
+    }
+    return col("A", m.aOrig, m.aInv, m.aComp, v.aOrig, v.aInv, v.aComp) +
+           col("B", m.bOrig, m.bInv, m.bComp, v.bOrig, v.bInv, v.bComp);
+  }
+
+  function addHtml(m, v) {
+    var n = m.n, isSub = m.isSub;
+    var cells = "", heads = "";
+    for (var i = n - 1; i >= 0; i--) {
+      var done = i < v.cols;
+      var idx = n - 1 - i;
+      var x = m.xBits[idx], y = m.yBits[idx], cin = m.carries[i], s = m.resBits[idx], cout = m.carries[i + 1];
+      function cell(val, cls, on) {
+        return '<div class="acell ' + cls + (on ? " hi" : " dim") + '" style="width:' + (n === 16 ? 24 : 30) + 'px;height:19px">' +
+               (on ? val : "·") + "</div>";
+      }
+      cells += '<div class="acol' + (v.cur === i ? " cur" : "") + '">' +
+        '<div class="ahead">' + i + "</div>" +
+        cell(cout, "carry", done) +
+        cell(x, "", done) +
+        cell(y, "", done) +
+        cell(cin, "carry", done) +
+        '<div class="asep" style="height:2px;width:100%"></div>' +
+        cell(s, "sum", done) +
+        "</div>";
+      heads += '<div class="ahead" style="width:' + (n === 16 ? 26 : 32) + 'px">' + "</div>";
+    }
+    function lab(txt) { return '<div class="alabel" style="height:19px;line-height:19px">' + txt + "</div>"; }
+    return '<div class="alabels">' +
+        '<div class="ahead" style="height:13px">位号</div>' +
+        lab("进位输出 C<sub>i+1</sub>") +
+        lab("被加数 A") +
+        lab(isSub ? "加数 B̅（B 取反）" : "加数 B") +
+        lab("进位输入 C<sub>i</sub>") +
+        '<div class="asep" style="height:2px"></div>' +
+        lab("本位和 S") +
+      "</div><div class='acols'>" + cells + "</div>";
+  }
+
+  function flagHtml(m, v) {
+    var on = v.flags;
+    function card(name, val, desc, color, hot) {
+      return '<div class="fcard' + (hot ? " hot" : "") + '"><div class="fname">' + name + '</div><div class="fval" style="color:' +
+        (on ? color : "#cbd5e1") + '">' + (on ? val : "?") + '</div><div class="fdesc">' + desc + "</div></div>";
+    }
+    return card("ZF 零标志", m.ZF, "结果全 0 则 1", "#10b981", false) +
+           card("SF 符号标志", m.SF, "= 结果最高位", "#6366f1", false) +
+           card("CF 进位/借位", m.CF, m.isSub ? "= ¬C_out" : "= C_out", "#f59e0b", false) +
+           card("OF 溢出标志", m.OF, "= C<sub>n−1</sub> ⊕ C_out", "#ef4444", on && m.OF === 1);
+  }
+
+  function render() {
+    if (state.err || !state.meta) {
+      $("headInfo").textContent = "输入有误";
+      $("convBody").innerHTML = '<div class="err">⚠️ ' + (state.err || "请检查输入") +
+        "<br>支持十进制整数（如 127、−5）或 0x 十六进制位模式（如 0xFF，最高位为 1 时按负数解释）；数值须落在当前位宽的补码范围内。</div>";
+      $("negBBody").innerHTML = ""; $("addBody").innerHTML = ""; $("flagBody").innerHTML = ""; $("extraBody").innerHTML = "";
+      $("note").textContent = "修正输入后点击「应用」或按回车重新生成演示。";
+      $("statStep").textContent = "0 / 0"; $("statTag").textContent = "—";
+      $("statReal").textContent = "—"; $("statConc").textContent = "—";
+      return;
+    }
+    var m = state.meta, st = state.steps[state.idx], v = st.view, n = m.n;
+
+    $("headInfo").textContent = n + " 位 · " + (m.isSub ? "补码减法 A − B" : "补码加法 A + B");
+    $("statStep").textContent = (state.idx + 1) + " / " + state.steps.length;
+    $("statTag").textContent = st.tag;
+    $("statReal").textContent = m.A + (m.isSub ? " − " : " + ") + (m.B < 0 ? "(" + m.B + ")" : m.B) + " = " + m.real +
+      (m.inRange ? "（范围内）" : "（超出范围 → 溢出）");
+    if (v.flags) {
+      $("statConc").textContent = "无符号：" + (m.CF ? (m.isSub ? "不够减（CF=1）" : "有进位（CF=1）") : (m.isSub ? "够减（CF=0）" : "无进位（CF=0）")) +
+        " ｜ 有符号：" + (m.OF ? "溢出（OF=1）" : "不溢出（OF=0）");
+    } else {
+      $("statConc").textContent = "待计算";
+    }
+
+    $("convBody").innerHTML = convHtml(m, v);
+    $("negBBody").innerHTML = m.isSub
+      ? '<div style="margin-top:2px">' + crow("[−B]补", m.negB, { n: n, visible: v.negB, prev: m.bComp }) + "</div>" : "";
+    $("addBody").innerHTML = addHtml(m, v);
+    $("flagBody").innerHTML = flagHtml(m, v);
+
+    var extra = "";
+    if (v.flags) {
+      extra += '<div class="dbl">结果位模式 <code>' + grp(m.resBits) + '</code> → 按<b>无符号</b>读 = <b>' + m.resU +
+               "</b>；按<b>有符号补码</b>读 = <b>" + m.resS + "</b>。" +
+               (m.OF ? "有符号溢出，此结果按补码解释与真值 " + m.real + " 不符。" : "有符号运算结果正确。") + "</div>";
+    }
+    if (v.dbl) {
+      var dsName = m.ds === 1 ? "正溢出（上溢）" : m.ds === 2 ? "负溢出（下溢）" : "无溢出";
+      extra += '<div class="dbl">双符号位法：A = <code>' + grp(m.A2) + "</code>，" + (m.isSub ? "−B" : "B") + " = <code>" + grp(m.B2) +
+               "</code>，和 = <code>" + grp(m.S2) + "</code>；两位符号位 <b>" + m.S2[0] + m.S2[1] + "</b> ⇒ <b>" + dsName +
+               "</b>（01 正溢 / 10 负溢 / 00、11 不溢），与 OF = " + m.OF + " 结论一致。</div>";
+    }
+    $("extraBody").innerHTML = extra;
+
+    $("note").innerHTML = st.note;
+
+    $("desc").innerHTML =
+      "<b>减法变加法：</b>A − B = A + [−B]补，[−B]补 = [B]补 逐位取反、末位加 1（硬件上就是「各位取反，最低位进位输入置 1」）。<br>" +
+      "<b>CF 与 OF 相互独立：</b>CF = C_out（减法时取反，表示借位），只看<b>无符号</b>数是否越界；OF = C<sub>n−1</sub> ⊕ C_out，" +
+      "只看<b>有符号</b>数是否越界（等价于双符号位法：符号位 01 正溢、10 负溢）。同一个运算可以 CF=1 而 OF=0（如 50 − 100，无符号不够减但有符号结果合法），" +
+      "也可以 CF=0 而 OF=1（如 7 + 1，无符号没进位但有符号越界）。所以「溢出」要说明是<b>无符号溢出</b>还是<b>有符号溢出</b>。<br>" +
+      "<b>结果怎么读：</b>同一串 " + (m ? n : 8) + " 位结果，无符号看全体位，有符号把最高位当符号位（补码），溢出时机器结果只是真值对 2^" + (m ? n : 8) + " 取模后的位模式。";
+  }
+
+  /* ---------------- 播放控制 ---------------- */
+
+  var timer = null, speed = 450, playing = false;
+
+  function stopTimer() { if (timer) { clearTimeout(timer); timer = null; } playing = false; $("btnPlay").textContent = "▶ 播放"; }
+
+  function setSpeed(s) {
+    speed = s;
+    var btns = document.querySelectorAll(".speed-group button");
+    for (var i = 0; i < btns.length; i++) btns[i].classList.toggle("active", parseInt(btns[i].dataset.speed, 10) === s);
+  }
+
+  function advance() {
+    if (state.idx < state.steps.length - 1) { state.idx++; render(); return true; }
+    return false;
+  }
+
+  function tick() {
+    stopTimer();
+    playing = true;
+    $("btnPlay").textContent = "⏸ 暂停";
+    timer = setInterval(function () {
+      if (!advance()) {
+        stopTimer();
+        $("note").innerHTML = "✅ 演示完成，共 " + state.steps.length + " 步。" +
+          (state.meta && state.meta.OF ? "<b>本例发生有符号溢出</b>，机器结果与真值不符。" : "本例有符号运算结果正确。");
+      }
+    }, speed);
+  }
+
+  function rebuild(keepIdx) {
+    stopTimer();
+    var r = build();
+    if (r.err) { state.err = r.err; state.meta = null; state.steps = []; state.idx = 0; }
+    else { state.err = null; state.meta = r.meta; state.steps = r.steps; state.idx = keepIdx ? Math.min(state.idx, r.steps.length - 1) : 0; }
+    render();
+  }
+
+  /* ---------------- 事件绑定 ---------------- */
+
+  var pw = $("presets");
+  PRESETS.forEach(function (p, i) {
+    var b = document.createElement("button");
+    b.className = "btn-ghost";
+    b.textContent = p.label;
+    b.onclick = function () {
+      $("bitsSel").value = String(p.n);
+      $("opSel").value = p.op;
+      $("aIn").value = p.a;
+      $("bIn").value = p.b;
+      rebuild(false);
+    };
+    pw.appendChild(b);
+  });
+
+  $("btnApply").onclick = function () { rebuild(false); };
+  $("bitsSel").onchange = function () { rebuild(false); };
+  $("opSel").onchange = function () { rebuild(false); };
+  $("aIn").onkeydown = function (e) { if (e.key === "Enter") rebuild(false); };
+  $("bIn").onkeydown = function (e) { if (e.key === "Enter") rebuild(false); };
+  $("btnRand").onclick = function () {
+    var n = parseInt($("bitsSel").value, 10);
+    var lo = -Math.pow(2, n - 1), hi = Math.pow(2, n - 1) - 1;
+    function rnd() { return Math.floor(Math.random() * (hi - lo + 1)) + lo; }
+    $("aIn").value = String(rnd());
+    $("bIn").value = String(rnd());
+    rebuild(false);
+  };
+  $("btnPlay").onclick = function () {
+    if (playing) { stopTimer(); return; }
+    if (state.err) return;
+    if (state.idx >= state.steps.length - 1) { state.idx = 0; render(); }
+    tick();
+  };
+  $("btnStep").onclick = function () {
+    stopTimer();
+    if (state.err) return;
+    if (!advance()) $("note").innerHTML = "✅ 已是最后一步；点击「↺ 重置」或修改输入可重新演示。";
+  };
+  $("btnReset").onclick = function () { rebuild(false); };
+  var sbs = document.querySelectorAll(".speed-group button");
+  for (var si = 0; si < sbs.length; si++) {
+    sbs[si].onclick = function () {
+      setSpeed(parseInt(this.dataset.speed, 10));
+      if (playing) { stopTimer(); tick(); }
+    };
+  }
+
+  setSpeed(450);
+  rebuild(false);
+})();
+</script>
+</body>
+</html>

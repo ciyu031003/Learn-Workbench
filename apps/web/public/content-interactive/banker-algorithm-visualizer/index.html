@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>银行家算法与安全性检查</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f8fafc; color: #1e293b; padding: 16px; }
+  .wrap { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+  .head { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; }
+  .head h1 { font-size: 15px; font-weight: 600; }
+  .head .info { font-size: 12px; opacity: .92; }
+  .controls { padding: 9px 16px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-bottom: 1px solid #eef2f7; }
+  .controls.sub { padding-top: 0; border-bottom: 1px solid #eef2f7; }
+  .controls label { font-size: 12px; color: #64748b; }
+  select, input { font-size: 12px; font-family: inherit; }
+  select { padding: 4px 6px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; outline: none; }
+  button { padding: 5px 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all .15s; font-size: 12px; }
+  .btn-primary { background: #6366f1; color: #fff; }
+  .btn-primary:hover { background: #4f46e5; }
+  .btn-ghost { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+  .btn-ghost:hover { background: #e2e8f0; }
+  .btn-ghost.sm { padding: 3px 9px; font-size: 11.5px; }
+  .btn-go { background: #10b981; color: #fff; }
+  .btn-go:hover { background: #059669; }
+  .speed-group { display: flex; gap: 4px; }
+  .speed-group button { padding: 4px 9px; font-size: 11.5px; }
+  .speed-group .active { background: #6366f1; color: #fff; border-color: #6366f1; }
+  .stats { padding: 7px 16px; display: flex; gap: 16px; font-size: 11.5px; color: #64748b; border-bottom: 1px solid #eef2f7; flex-wrap: wrap; }
+  .stats b { color: #1e293b; font-variant-numeric: tabular-nums; }
+  .stage { padding: 10px 16px 8px; }
+  .availrow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12px; color: #475569; margin-bottom: 6px; }
+  .availrow b { color: #334155; }
+  .worktag { margin-left: auto; background: #eef2ff; border: 1px solid #c7d2fe; color: #4338ca; border-radius: 8px; padding: 3px 10px; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .matrow { display: flex; gap: 10px; align-items: flex-start; }
+  .matbox { flex: 1; min-width: 0; }
+  .mlbl { font-size: 11px; color: #64748b; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  table.mx { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+  table.mx th { background: #f8fafc; color: #64748b; font-weight: 600; padding: 2px 3px; border-bottom: 1px solid #e2e8f0; font-size: 10.5px; }
+  table.mx td { padding: 1px 3px; text-align: center; border-bottom: 1px solid #f1f5f9; font-variant-numeric: tabular-nums; }
+  table.mx tr.hl td { background: #fffbeb; }
+  table.mx tr.running td { background: #ecfdf5; }
+  table.mx tr.done td { color: #059669; }
+  .ci { width: 100%; max-width: 46px; border: 1px solid transparent; background: transparent; text-align: center; border-radius: 5px; padding: 1px 1px; font-variant-numeric: tabular-nums; font-size: 11.5px; }
+  .ci:hover { border-color: #e2e8f0; background: #fff; }
+  .ci:focus { border-color: #6366f1; background: #fff; outline: none; }
+  td.ok { background: #d1fae5 !important; color: #065f46; font-weight: 600; }
+  td.bad { background: #fee2e2 !important; color: #991b1b; font-weight: 600; }
+  td.fin { color: #94a3b8; }
+  .chips { display: flex; gap: 4px; flex-wrap: wrap; }
+  .chip { padding: 1px 7px; border-radius: 7px; background: #f8fafc; border: 1.5px solid #cbd5e1; font-size: 11px; font-weight: 600; color: #64748b; white-space: nowrap; }
+  .chip.yes { background: #d1fae5; border-color: #10b981; color: #065f46; }
+  .chip.no { background: #fff; border-color: #cbd5e1; color: #94a3b8; }
+  .chip.cur { background: #fef3c7; border-color: #f59e0b; color: #92400e; }
+  .seqbox { display: flex; gap: 4px; flex-wrap: wrap; min-height: 20px; }
+  .seqbox .arrow { color: #94a3b8; font-size: 11px; }
+  .rowboxes { display: flex; gap: 14px; margin-top: 7px; flex-wrap: wrap; }
+  .box { flex: 1; min-width: 200px; }
+  .note { font-size: 12px; color: #334155; background: #f8fafc; border-left: 3px solid #6366f1; border-radius: 0 8px 8px 0; padding: 6px 10px; margin-top: 7px; min-height: 40px; line-height: 1.55; }
+  .note.warn { border-left-color: #ef4444; background: #fef2f2; }
+  .note.ok { border-left-color: #10b981; background: #f0fdf9; }
+  .trace { font-size: 11.5px; color: #4338ca; background: #eef2ff; border-radius: 8px; padding: 3px 8px; font-variant-numeric: tabular-nums; max-height: 34px; overflow-y: auto; line-height: 1.5; }
+  .desc { padding: 9px 16px 14px; border-top: 1px solid #eef2f7; font-size: 12px; color: #475569; line-height: 1.7; }
+  .desc b { color: #334155; }
+  .lbl2 { font-size: 11px; color: #64748b; margin: 4px 0 3px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>🏦 银行家算法与安全性检查</h1>
+    <span class="info" id="algoInfo">安全性检查 · 逐步找安全序列</span>
+  </div>
+
+  <div class="controls">
+    <label>预置</label>
+    <button class="btn-ghost sm" data-preset="0">经典安全状态</button>
+    <button class="btn-ghost sm" data-preset="1">不安全状态</button>
+    <button class="btn-ghost sm" data-preset="2">多安全序列</button>
+    <label>扫描顺序</label>
+    <select id="orderSel"><option value="fwd">P0→Pn 顺序</option><option value="rev">Pn→P0 逆序</option></select>
+    <div class="speed-group">
+      <button data-speed="700" class="btn-ghost">慢</button>
+      <button data-speed="260" class="btn-ghost active">中</button>
+      <button data-speed="40" class="btn-ghost">快</button>
+    </div>
+    <button class="btn-primary" id="btnPlay">▶ 播放</button>
+    <button class="btn-ghost" id="btnStep">单步</button>
+    <button class="btn-ghost" id="btnReset">↺ 重置</button>
+  </div>
+
+  <div class="controls sub">
+    <label>请求资源检查</label>
+    <select id="reqPid"></select>
+    <span style="font-size:12px;color:#475569">Request = (</span>
+    <span id="reqInputs" style="display:flex;gap:4px"></span>
+    <span style="font-size:12px;color:#475569">)</span>
+    <button class="btn-go sm" id="btnReq">🔍 检查请求</button>
+    <button class="btn-ghost sm" id="btnAdd">＋进程</button>
+    <button class="btn-ghost sm" id="btnDel">－进程</button>
+    <span style="font-size:12px;color:#64748b">资源种类</span>
+    <select id="resSel"><option>2</option><option selected>3</option><option>4</option></select>
+  </div>
+
+  <div class="stats">
+    <span>资源总量 Available+ΣAllocation <b id="stTotal">-</b></span>
+    <span>Work 向量 <b id="stWork">-</b></span>
+    <span>已入安全序列 <b id="stCnt">0</b>/<b id="stN">5</b></span>
+    <span>状态 <b id="stState">就绪</b></span>
+  </div>
+
+  <div class="stage">
+    <div class="availrow">
+      <b>Available 可用资源 =</b>
+      <span id="availInputs" style="display:flex;gap:4px"></span>
+      <span class="worktag" id="workTag">Work = (0,0,0)</span>
+    </div>
+
+    <div class="matrow">
+      <div class="matbox">
+        <div class="mlbl">Max 最大需求（可编辑）</div>
+        <table class="mx" id="maxT"></table>
+      </div>
+      <div class="matbox">
+        <div class="mlbl">Allocation 已分配（可编辑）</div>
+        <table class="mx" id="allocT"></table>
+      </div>
+      <div class="matbox">
+        <div class="mlbl">Need = Max − Allocation（自动计算）</div>
+        <table class="mx" id="needT"></table>
+      </div>
+      <div class="matbox">
+        <div class="mlbl">Finish（是否已完成假定回收）</div>
+        <div class="chips" id="finbox"></div>
+        <div class="lbl2">已加入安全序列</div>
+        <div class="seqbox" id="seqbox"><span class="chip no">（空）</span></div>
+      </div>
+    </div>
+
+    <div class="rowboxes">
+      <div class="box">
+        <div class="lbl2">Work 向量变化轨迹（Work 初始 = Available）</div>
+        <div class="trace" id="trace">—</div>
+      </div>
+    </div>
+
+    <div class="note" id="note"></div>
+  </div>
+
+  <div class="desc" id="desc"></div>
+</div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const RES = ["A", "B", "C", "D"];
+const vec = (a) => "(" + a.join(",") + ")";
+const pn = (i) => "P" + i;
+
+const PRESETS = [
+  { name: "经典安全状态（5 进程 3 资源）", avail: [3, 3, 2],
+    max: [[7, 5, 3], [3, 2, 2], [9, 0, 2], [2, 2, 2], [4, 3, 3]],
+    alloc: [[0, 1, 0], [2, 0, 0], [3, 0, 2], [2, 1, 1], [0, 0, 2]] },
+  { name: "不安全状态（3 进程 2 资源）", avail: [1, 1],
+    max: [[4, 0], [0, 3], [2, 0]],
+    alloc: [[2, 0], [0, 1], [1, 0]] },
+  { name: "多安全序列（4 进程 3 资源）", avail: [1, 1, 1],
+    max: [[2, 0, 1], [1, 2, 0], [2, 1, 0], [0, 1, 1]],
+    alloc: [[1, 0, 1], [0, 1, 0], [1, 0, 0], [0, 0, 1]] },
+];
+
+let base = { avail: [], max: [], alloc: [] };
+let steps = [], cur = 0, playing = false, timer = null, speed = 260;
+let pendingReq = null;
+let availIns = [], allocIns = [], needCells = [], mxRows = [];
+
+function clone(s) { return { avail: s.avail.slice(), max: s.max.map((r) => r.slice()), alloc: s.alloc.map((r) => r.slice()) }; }
+function needOf(s) { return s.alloc.map((r, i) => r.map((v, k) => s.max[i][k] - v)); }
+
+function loadPreset(k) {
+  const p = PRESETS[k];
+  base = clone(p);
+  $("resSel").value = String(base.avail.length);
+  pendingReq = null;
+}
+
+/* ================= 步骤生成 ================= */
+function buildSafety(s, order, trial) {
+  const out = [];
+  const n = s.alloc.length;
+  const need = needOf(s);
+  const tag = trial ? "（试分配后的状态）" : "";
+  let work = s.avail.slice();
+  const finish = new Array(n).fill(false);
+  const seq = [];
+  const S = (o) => out.push(Object.assign({
+    state: s, need: need, work: work.slice(), finish: finish.slice(), seq: seq.slice(),
+    hl: -1, cands: [], kind: "info", trial: !!trial, note: "",
+  }, o));
+
+  S({ kind: "init", note: "开始安全性检查" + tag + "：令 Work = Available = " + vec(work) + "，Finish 全部为 false。接着逐轮扫描找 Need ≤ Work 的进程。" });
+
+  let cnt = 0, round = 0, guard = 0;
+  while (cnt < n && guard++ < 200) {
+    round++;
+    const roundSteps = [];
+    const cands = [];
+    let picked = -1;
+    for (const i of order) {
+      if (finish[i]) continue;
+      const ok = need[i].every((v, k) => v <= work[k]);
+      if (ok) cands.push(i);
+      const lack = need[i].map((v, k) => (v > work[k] ? RES[k] + " 需 " + v + " 但只有 " + work[k] : null)).filter(Boolean).join("、");
+      roundSteps.push({
+        hl: i, cands: cands.slice(), kind: ok ? "cand" : "no",
+        note: "第 " + round + " 轮 · 检查 " + pn(i) + "：Need" + vec(need[i]) + (ok ? " ≤ " : " ≰ ") + "Work" + vec(work) +
+          " → " + (ok ? "✅ 可以满足，列为候选进程" : "❌ 不能满足（缺口：" + lack + "）"),
+      });
+      if (ok && picked === -1) picked = i;
+    }
+    for (const rs of roundSteps) S(rs);
+
+    if (picked === -1) {
+      const left = [];
+      for (let i = 0; i < n; i++) if (!finish[i]) left.push(pn(i));
+      S({
+        kind: "unsafe",
+        note: "第 " + round + " 轮扫描完毕：找不到任何满足 Need[i] ≤ Work 的进程 → 【不存在安全序列】，系统处于不安全状态" + tag +
+          "。尚未完成的进程：" + left.join("、") + "，而 Work 只有 " + vec(work) + "，满足不了其中任何一个的最大剩余需求，它们会互相等待 → 可能死锁。",
+      });
+      return out;
+    }
+
+    const before = work.slice();
+    work = work.map((v, k) => v + s.alloc[picked][k]);
+    finish[picked] = true;
+    seq.push(picked);
+    cnt++;
+    S({
+      hl: picked, kind: "run", cands: cands.slice(),
+      note: "选定 " + pn(picked) + "（Need" + vec(need[picked]) + " ≤ Work）：假定它拿到资源、运行结束并归还全部资源，" +
+        "Work = Work + Allocation[" + picked + "] = " + vec(before) + " + " + vec(s.alloc[picked]) + " = " + vec(work) +
+        "，Finish[" + picked + "] = true，" + pn(picked) + " 加入安全序列。",
+    });
+  }
+  S({
+    kind: "safe",
+    note: "全部 " + n + " 个进程都进入了安全序列 → 系统处于【安全状态】" + tag + "，找到的安全序列为：" + seq.map(pn).join(" → ") +
+      "。安全状态下系统一定不会发生死锁。",
+  });
+  return out;
+}
+
+function buildRequest(pid, req, order) {
+  const out = [];
+  const s0 = clone(base);
+  const need0 = needOf(s0);
+  const n = s0.alloc.length;
+  const S = (o) => out.push(Object.assign({
+    state: s0, need: need0, work: s0.avail.slice(), finish: new Array(n).fill(false), seq: [],
+    hl: pid, cands: [], kind: "req", note: "",
+  }, o));
+
+  S({ note: "收到请求：Request(" + pn(pid) + ") = " + vec(req) + "。第 1 步 —— 检查 Request ≤ Need[" + pid + "]（不能超过进程自己宣布的最大需求）：" +
+    vec(req) + (req.every((v, k) => v <= need0[pid][k]) ? " ≤ " : " ≰ ") + vec(need0[pid]) + "。" });
+
+  if (!req.every((v, k) => v <= need0[pid][k])) {
+    S({ kind: "deny", note: "Request 超过了 Need[" + pid + "] → 这是【非法请求】（进程要的资源比它声明的最大需求还多），直接拒绝，不修改任何数据结构。" });
+    return out;
+  }
+  S({ note: "Request ≤ Need[" + pid + "] ✅ 通过。第 2 步 —— 检查 Request ≤ Available（系统是否真的还有这么多空闲资源）：" +
+    vec(req) + (req.every((v, k) => v <= s0.avail[k]) ? " ≤ " : " ≰ ") + vec(s0.avail) + "。" });
+
+  if (!req.every((v, k) => v <= s0.avail[k])) {
+    S({ kind: "wait", note: "Request 超过了当前 Available → 系统暂时没有足够的空闲资源，进程【必须等待】（这只是推迟分配，不是死锁，也不是错误），本次不做任何修改。" });
+    return out;
+  }
+
+  const avail2 = s0.avail.map((v, k) => v - req[k]);
+  const alloc2 = s0.alloc.map((r, i) => (i === pid ? r.map((v, k) => v + req[k]) : r.slice()));
+  const s1 = { avail: avail2, max: s0.max, alloc: alloc2 };
+  const need2 = needOf(s1);
+  S({
+    kind: "trial", state: s1, need: need2, work: avail2.slice(),
+    note: "两项检查都通过。第 3 步 —— 试分配（试探性修改）：Available = " + vec(s0.avail) + " − " + vec(req) + " = " + vec(avail2) +
+      "；Allocation[" + pid + "] = " + vec(s0.alloc[pid]) + " + " + vec(req) + " = " + vec(alloc2[pid]) +
+      "；Need[" + pid + "] = " + vec(need2[pid]) + "。然后对新状态做安全性检查。",
+  });
+
+  const safeSteps = buildSafety(s1, order, true);
+  for (const st of safeSteps) out.push(st);
+  const last = safeSteps[safeSteps.length - 1];
+  if (last.kind === "safe") {
+    out.push({
+      state: s1, need: need2, work: avail2.slice(), finish: last.finish.slice(), seq: last.seq.slice(),
+      hl: pid, cands: [], kind: "grant", trial: true,
+      note: "试分配后系统仍能找到安全序列：" + last.seq.map(pn).join(" → ") + " → 结论：【可以分配】。于是把试探性修改保留下来（Available、Allocation、Need 按上面的结果正式生效）。",
+    });
+  } else {
+    out.push({
+      state: s0, need: need0, work: s0.avail.slice(), finish: new Array(n).fill(false), seq: [],
+      hl: pid, cands: [], kind: "rollback",
+      note: "试分配后系统进入不安全状态 → 结论：【不能分配】。撤销试探性修改，恢复 Available = " + vec(s0.avail) +
+        "、Allocation[" + pid + "] = " + vec(s0.alloc[pid]) + "、Need[" + pid + "] = " + vec(need0[pid]) + "，让该进程等待（推迟到以后资源足够时再分配）。",
+    });
+  }
+  return out;
+}
+
+function buildAll() {
+  const order = [];
+  const n = base.alloc.length;
+  if ($("orderSel").value === "rev") for (let i = n - 1; i >= 0; i--) order.push(i);
+  else for (let i = 0; i < n; i++) order.push(i);
+  steps = pendingReq ? buildRequest(pendingReq.pid, pendingReq.req, order) : buildSafety(clone(base), order, false);
+  cur = 0;
+}
+
+/* ================= 渲染 ================= */
+function buildMatrices() {
+  const n = base.alloc.length, m = base.avail.length;
+  // Available
+  const ai = $("availInputs");
+  ai.innerHTML = "";
+  availIns = [];
+  for (let k = 0; k < m; k++) {
+    const inp = document.createElement("input");
+    inp.className = "ci";
+    inp.type = "number";
+    inp.min = "0"; inp.max = "99";
+    inp.style.width = "38px";
+    inp.dataset.k = k;
+    inp.value = base.avail[k];
+    inp.addEventListener("input", onAvailEdit);
+    ai.appendChild(inp);
+    availIns.push(inp);
+  }
+  // Max / Allocation / Need
+  const head = "<tr><th>进程</th>" + RES.slice(0, m).map((r) => "<th>" + r + "</th>").join("") + "</tr>";
+  let mx = head, al = head, nd = head;
+  for (let i = 0; i < n; i++) {
+    mx += "<tr><td style='color:#64748b'>" + pn(i) + "</td>" + RES.slice(0, m).map((r, k) =>
+      "<td><input class='ci' type='number' min='0' max='99' data-t='max' data-i='" + i + "' data-k='" + k + "' value='" + base.max[i][k] + "'></td>").join("") + "</tr>";
+    al += "<tr><td style='color:#64748b'>" + pn(i) + "</td>" + RES.slice(0, m).map((r, k) =>
+      "<td><input class='ci' type='number' min='0' max='99' data-t='alloc' data-i='" + i + "' data-k='" + k + "' value='" + base.alloc[i][k] + "'></td>").join("") + "</tr>";
+    nd += "<tr><td style='color:#64748b'>" + pn(i) + "</td>" + RES.slice(0, m).map((r, k) =>
+      "<td id='nd-" + i + "-" + k + "'>-</td>").join("") + "</tr>";
+  }
+  $("maxT").innerHTML = mx;
+  $("allocT").innerHTML = al;
+  $("needT").innerHTML = nd;
+
+  needCells = []; mxRows = [];
+  for (let i = 0; i < n; i++) {
+    const nr = [];
+    for (let k = 0; k < m; k++) nr.push(document.getElementById("nd-" + i + "-" + k));
+    needCells.push(nr);
+  }
+  const maxRows = Array.prototype.slice.call($("maxT").querySelectorAll("tr"));
+  const allocRows = Array.prototype.slice.call($("allocT").querySelectorAll("tr"));
+  const needRows = Array.prototype.slice.call($("needT").querySelectorAll("tr"));
+  for (let i = 0; i < n; i++) mxRows.push([maxRows[i], allocRows[i], needRows[i]]);
+
+  $("allocT").querySelectorAll("input").forEach((inp) => inp.addEventListener("input", onMatEdit));
+  $("maxT").querySelectorAll("input").forEach((inp) => inp.addEventListener("input", onMatEdit));
+
+  // 请求向量输入框 & 进程下拉
+  const sel = $("reqPid");
+  sel.innerHTML = "";
+  for (let i = 0; i < n; i++) {
+    const o = document.createElement("option");
+    o.value = String(i); o.textContent = pn(i);
+    sel.appendChild(o);
+  }
+  const ri = $("reqInputs");
+  ri.innerHTML = "";
+  for (let k = 0; k < m; k++) {
+    const inp = document.createElement("input");
+    inp.className = "ci";
+    inp.type = "number";
+    inp.min = "0"; inp.max = "99";
+    inp.style.width = "34px";
+    inp.value = "0";
+    inp.dataset.rk = k;
+    ri.appendChild(inp);
+  }
+  $("stN").textContent = n;
+}
+
+function readInputs() {
+  base.avail = availIns.map((inp) => Math.max(0, parseInt(inp.value, 10) || 0));
+  $("maxT").querySelectorAll("input").forEach((inp) => {
+    const i = +inp.dataset.i, k = +inp.dataset.k;
+    base.max[i][k] = Math.max(0, parseInt(inp.value, 10) || 0);
+  });
+  $("allocT").querySelectorAll("input").forEach((inp) => {
+    const i = +inp.dataset.i, k = +inp.dataset.k;
+    base.alloc[i][k] = Math.max(0, parseInt(inp.value, 10) || 0);
+  });
+}
+function onAvailEdit() { readInputs(); pendingReq = null; rebuild(true); }
+function onMatEdit() { readInputs(); pendingReq = null; rebuild(true); }
+
+function rebuild(keepFocus) {
+  stopTimer();
+  playing = false;
+  $("btnPlay").textContent = "▶ 播放";
+  buildAll();
+  render();
+}
+
+function render() {
+  const st = steps[cur];
+  if (!st) return;
+  // 把当前步骤的矩阵状态写回输入框（程序赋值不会触发 input 事件）
+  st.state.avail.forEach((v, k) => { if (availIns[k]) availIns[k].value = v; });
+  st.state.alloc.forEach((r, i) => r.forEach((v, k) => {
+    const inp = $("allocT").querySelector("input[data-i='" + i + "'][data-k='" + k + "']");
+    if (inp) inp.value = v;
+  }));
+
+  const m = st.state.avail.length, n = st.state.alloc.length;
+  st.need.forEach((r, i) => r.forEach((v, k) => {
+    const c = needCells[i] && needCells[i][k];
+    if (!c) return;
+    c.textContent = v;
+    let cls = "";
+    if (st.hl === i && (st.kind === "cand" || st.kind === "no")) cls = (v <= st.work[k]) ? "ok" : "bad";
+    else if (st.finish[i]) cls = "fin";
+    c.className = cls;
+  }));
+  mxRows.forEach((trs, i) => {
+    trs.forEach((tr) => {
+      if (!tr) return;
+      tr.classList.toggle("hl", st.hl === i && st.kind !== "run" && st.kind !== "grant");
+      tr.classList.toggle("running", st.hl === i && (st.kind === "run" || st.kind === "grant"));
+      tr.classList.toggle("done", st.finish[i]);
+    });
+  });
+
+  // Finish / 安全序列
+  const fb = $("finbox");
+  fb.innerHTML = "";
+  st.finish.forEach((f, i) => {
+    const d = document.createElement("span");
+    d.className = "chip " + (f ? "yes" : "no");
+    d.textContent = pn(i) + (f ? " ✓" : " ✗");
+    fb.appendChild(d);
+  });
+  const sb = $("seqbox");
+  sb.innerHTML = "";
+  if (!st.seq.length) sb.innerHTML = '<span class="chip no">（空）</span>';
+  else st.seq.forEach((i, k) => {
+    if (k) {
+      const a = document.createElement("span");
+      a.className = "arrow"; a.textContent = "→";
+      sb.appendChild(a);
+    }
+    const d = document.createElement("span");
+    d.className = "chip yes";
+    d.textContent = pn(i);
+    sb.appendChild(d);
+  });
+
+  // Work
+  $("workTag").textContent = "Work = " + vec(st.work);
+  const hist = steps.slice(0, cur + 1).filter((x) => x.kind === "init" || x.kind === "run" || x.kind === "trial");
+  $("trace").textContent = hist.length
+    ? hist.map((x) => vec(x.work) + (x.kind === "run" ? "（+" + pn(x.hl) + " 归还 " + vec(x.state.alloc[x.hl]) + "）" : x.kind === "trial" ? "（试分配）" : "（初始）")).join("  →  ")
+    : "—";
+
+  // 统计
+  let totalTxt = "(" + RES.slice(0, m).map((r, k) => {
+    let s = st.state.avail[k];
+    for (let i = 0; i < n; i++) s += st.state.alloc[i][k];
+    return s;
+  }).join(",") + ")";
+  $("stTotal").textContent = totalTxt;
+  $("stWork").textContent = vec(st.work);
+  $("stCnt").textContent = st.seq.length;
+  $("stN").textContent = n;
+
+  // 说明区
+  const noteEl = $("note");
+  noteEl.textContent = st.note;
+  noteEl.className = "note" + (st.kind === "unsafe" || st.kind === "deny" ? " warn" : (st.kind === "safe" || st.kind === "grant" ? " ok" : ""));
+
+  const atEnd = cur === steps.length - 1 && steps.length > 1;
+  let state = "";
+  if (atEnd) {
+    const k = steps[steps.length - 1].kind;
+    state = k === "safe" ? "✅ 安全状态" : k === "unsafe" ? "⛔ 不安全状态" : k === "grant" ? "✅ 可以分配" : k === "rollback" ? "⛔ 不能分配" : k === "deny" ? "⛔ 非法请求" : k === "wait" ? "⏸ 必须等待" : "✅ 检查完成";
+  } else state = playing ? "检查中…" : (cur === 0 ? "就绪" : "⏸ 已暂停");
+  $("stState").textContent = state;
+}
+
+/* ================= 控制 ================= */
+function stopTimer() { if (timer) { clearTimeout(timer); timer = null; } }
+function tick() {
+  if (!playing) return;
+  if (cur >= steps.length - 1) {
+    playing = false;
+    $("btnPlay").textContent = "▶ 播放";
+    render();
+    return;
+  }
+  cur++;
+  render();
+  timer = setTimeout(tick, speed);
+}
+
+/* ================= 事件 ================= */
+$("orderSel").onchange = () => { pendingReq = null; rebuild(); };
+$("resSel").onchange = () => {
+  const m = +$("resSel").value;
+  const n = base.alloc.length;
+  const resize = (a, fill) => { const r = a.slice(0, m); while (r.length < m) r.push(fill); return r; };
+  base.avail = resize(base.avail, 1);
+  base.max = base.max.map((r) => resize(r, 1));
+  base.alloc = base.alloc.map((r) => resize(r, 0));
+  pendingReq = null;
+  buildMatrices();
+  rebuild();
+};
+$("btnAdd").onclick = () => {
+  if (base.alloc.length >= 6) { $("note").textContent = "最多演示 6 个进程。"; return; }
+  const m = base.avail.length;
+  base.max.push(new Array(m).fill(1));
+  base.alloc.push(new Array(m).fill(0));
+  pendingReq = null;
+  buildMatrices(); rebuild();
+};
+$("btnDel").onclick = () => {
+  if (base.alloc.length <= 1) { $("note").textContent = "至少保留 1 个进程。"; return; }
+  base.max.pop(); base.alloc.pop();
+  pendingReq = null;
+  buildMatrices(); rebuild();
+};
+document.querySelectorAll("[data-preset]").forEach((b) => {
+  b.onclick = () => { loadPreset(+b.dataset.preset); buildMatrices(); rebuild(); };
+});
+document.querySelectorAll(".speed-group button").forEach((b) => {
+  b.onclick = () => {
+    document.querySelectorAll(".speed-group button").forEach((x) => x.classList.remove("active"));
+    b.classList.add("active");
+    speed = +b.dataset.speed;
+  };
+});
+$("btnPlay").onclick = () => {
+  if (playing) {
+    playing = false; stopTimer();
+    $("btnPlay").textContent = "▶ 播放";
+    render();
+    return;
+  }
+  if (cur >= steps.length - 1) { cur = 0; render(); }
+  playing = true;
+  $("btnPlay").textContent = "⏸ 暂停";
+  render();
+  timer = setTimeout(tick, speed);
+};
+$("btnStep").onclick = () => {
+  if (playing) { playing = false; stopTimer(); $("btnPlay").textContent = "▶ 播放"; }
+  if (cur < steps.length - 1) { cur++; render(); }
+};
+$("btnReset").onclick = () => {
+  cur = 0; playing = false; stopTimer();
+  $("btnPlay").textContent = "▶ 播放";
+  pendingReq = null;
+  buildAll();
+  render();
+};
+$("btnReq").onclick = () => {
+  const pid = +$("reqPid").value || 0;
+  const req = Array.prototype.slice.call($("reqInputs").querySelectorAll("input"))
+    .map((inp) => Math.max(0, parseInt(inp.value, 10) || 0));
+  if (!req.some((v) => v > 0)) { $("note").textContent = "请先填写一个非零的请求向量（例如 A=1, B=0, C=2），再点击「检查请求」。"; return; }
+  pendingReq = { pid: pid, req: req };
+  rebuild();
+};
+
+$("desc").innerHTML =
+  "<b>安全状态与死锁的关系：</b>所谓安全状态，是指系统能按某种顺序为每个进程分配其所需的全部资源，直到所有进程都能顺利完成（这个顺序就是<b>安全序列</b>）。" +
+  "<b>安全状态一定不会发生死锁；不安全状态只是“可能”发生死锁，未必已经死锁</b>——因为进程可能在实际运行中提前释放资源、或不再一次性申请最大需求。安全状态是不安全状态的充分条件，不是必要条件。" +
+  "<br><b>Need = Max − Allocation</b>：Need 是进程还可能再申请的最大资源量，安全性检查用它来预判“这次能满足它然后顺利跑完吗”。" +
+  "<br><b>为什么选择顺序不同会得到不同的安全序列：</b>每一轮只要满足 Need ≤ Work 的进程都可以被选中；先选哪一个不影响“是否存在安全序列”的结论，但会得到不同的安全序列。" +
+  "可以把上面的「扫描顺序」切换成逆序试一试，同一个数据会给出另一条安全序列。" +
+  "<br><b>请求资源的三步判断：</b>① Request ≤ Need（否则是非法请求）→ ② Request ≤ Available（否则必须等待）→ ③ 试分配后做安全性检查（不安全就撤销分配、让进程等待）。";
+
+/* ================= 初始化 ================= */
+loadPreset(0);
+buildMatrices();
+rebuild();
+</script>
+</body>
+</html>

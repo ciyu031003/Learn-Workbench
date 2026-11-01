@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>散列表可视化：冲突处理与平均查找长度</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f8fafc; color: #1e293b; padding: 16px; }
+  .wrap { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+  .head { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; }
+  .head h1 { font-size: 16px; font-weight: 600; }
+  .head .info { font-size: 12px; opacity: .9; }
+  .controls { padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; border-bottom: 1px solid #eef2f7; }
+  .controls label { font-size: 12px; color: #64748b; }
+  select, input[type=text], button { font-size: 13px; }
+  select, input[type=text] { padding: 5px 8px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; outline: none; }
+  input[type=text] { width: 200px; font-family: ui-monospace, Menlo, monospace; }
+  button { padding: 6px 14px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all .15s; }
+  .btn-primary { background: #6366f1; color: #fff; }
+  .btn-primary:hover { background: #4f46e5; }
+  .btn-ghost { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+  .btn-ghost:hover { background: #e2e8f0; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .speed-group { display: flex; gap: 4px; }
+  .speed-group button { padding: 4px 10px; font-size: 12px; }
+  .speed-group .active { background: #6366f1; color: #fff; border-color: #6366f1; }
+  .stats { padding: 8px 16px; display: flex; gap: 18px; font-size: 12px; color: #64748b; border-bottom: 1px solid #eef2f7; flex-wrap: wrap; }
+  .stats b { color: #1e293b; font-variant-numeric: tabular-nums; }
+  .main { display: flex; gap: 14px; padding: 14px 16px 6px; }
+  .table-box { flex: 1; min-width: 0; max-height: 320px; overflow-y: auto; }
+  table.ht { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.ht th { font-size: 11px; color: #94a3b8; font-weight: 600; text-align: left; padding: 4px 8px; border-bottom: 1px solid #eef2f7; }
+  table.ht td { padding: 4px 8px; border-bottom: 1px solid #f4f6fa; font-family: ui-monospace, Menlo, monospace; }
+  .slot { display: inline-flex; align-items: center; justify-content: center; min-width: 42px; height: 26px; border-radius: 7px; padding: 0 8px; background: #f1f5f9; color: #94a3b8; font-size: 12.5px; transition: all .15s; }
+  .slot.filled { background: #e0e7ff; color: #3730a3; font-weight: 700; }
+  .slot.probe { background: #fef3c7; color: #92400e; font-weight: 700; box-shadow: 0 0 0 2px #fbbf24 inset; }
+  .slot.hit { background: #d1fae5; color: #065f46; font-weight: 700; }
+  .slot.fail { background: #fee2e2; color: #991b1b; font-weight: 700; }
+  .chain { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+  .chain .arrow { color: #cbd5e1; font-size: 11px; }
+  .side { width: 250px; flex-shrink: 0; }
+  .side h4 { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+  .probe-box { border: 1px solid #eef2f7; border-radius: 8px; padding: 8px; font-size: 12px; line-height: 1.9; min-height: 90px; }
+  .probe-box .step { font-family: ui-monospace, Menlo, monospace; color: #475569; }
+  .probe-box .bad { color: #dc2626; font-weight: 600; }
+  .probe-box .good { color: #059669; font-weight: 600; }
+  .legend { padding: 4px 16px 10px; display: flex; gap: 14px; font-size: 11px; color: #64748b; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 4px; margin-right: 5px; vertical-align: -2px; }
+  .desc { padding: 10px 16px 16px; border-top: 1px solid #eef2f7; font-size: 12px; color: #475569; line-height: 1.75; min-height: 68px; }
+  .desc b { color: #334155; }
+  .desc .k { color: #6366f1; font-weight: 600; }
+  .asl { margin-top: 6px; padding: 6px 8px; background: #f8fafc; border-radius: 8px; border: 1px dashed #e2e8f0; font-size: 11.5px; color: #475569; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>#️⃣ 散列表：冲突处理与 ASL</h1>
+    <span class="info" id="modeInfo">线性探测法 · H(k) = k mod 13</span>
+  </div>
+
+  <div class="controls">
+    <label>表长 m</label>
+    <select id="mSel">
+      <option value="11">11</option>
+      <option value="13" selected>13</option>
+      <option value="17">17</option>
+    </select>
+    <label>冲突处理</label>
+    <select id="modeSel">
+      <option value="linear">线性探测法</option>
+      <option value="quad">二次探测法</option>
+      <option value="chain">链地址法（拉链）</option>
+    </select>
+    <label>关键字</label>
+    <input type="text" id="keysInput" value="19,14,23,1,68,20,84,27,55,11,10,79">
+    <button class="btn-ghost" id="btnApply">应用</button>
+  </div>
+
+  <div class="controls" style="border-top:none;padding-top:0">
+    <label>查找</label>
+    <input type="text" id="searchInput" placeholder="输入要查找的关键字" style="width:130px">
+    <button class="btn-ghost" id="btnSearch">🔍 查找</button>
+    <div class="speed-group">
+      <button class="btn-ghost" data-speed="800">慢</button>
+      <button class="btn-ghost active" data-speed="350">中</button>
+      <button class="btn-ghost" data-speed="100">快</button>
+    </div>
+    <button class="btn-primary" id="btnPlay">▶ 播放</button>
+    <button class="btn-ghost" id="btnStep">单步</button>
+    <button class="btn-ghost" id="btnReset">↺ 重置</button>
+  </div>
+
+  <div class="stats">
+    <span>已插入 <b id="stN">0</b> 个</span>
+    <span>装填因子 α = n/m = <b id="stAlpha">0.00</b></span>
+    <span>比较次数 <b id="stCmp">0</b></span>
+    <span>ASL<sub>成功</sub> <b id="stAslS">-</b></span>
+    <span>ASL<sub>失败</sub> <b id="stAslF">-</b></span>
+  </div>
+
+  <div class="main">
+    <div class="table-box">
+      <table class="ht">
+        <thead><tr><th style="width:52px">下标</th><th style="width:76px">散列地址</th><th>内容</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="side">
+      <h4>当前步骤</h4>
+      <div class="probe-box" id="probeBox">点击「▶ 播放」或「单步」开始。</div>
+      <div class="asl" id="aslBox"></div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><i style="background:#e0e7ff"></i>已存放元素</span>
+    <span><i style="background:#fef3c7"></i>正在探测</span>
+    <span><i style="background:#d1fae5"></i>查找命中</span>
+    <span><i style="background:#fee2e2"></i>查找失败 / 冲突</span>
+  </div>
+
+  <div class="desc" id="desc">散列函数 <b>H(k) = k mod m</b>。点击「▶ 播放」逐个插入关键字，观察冲突与探测过程。</div>
+</div>
+
+<script>
+/* ───────── 状态 ───────── */
+let m = 13, mode = 'linear', keys = [], steps = [], cur = 0, timer = null, speed = 350;
+let slots = [];          // 开放地址法：slots[i] = 元素值 或 null
+let chains = [];         // 链地址法：chains[i] = [值,...]
+let totalCmp = 0;
+
+const $ = id => document.getElementById(id);
+
+/* ───────── 构建插入步骤 ───────── */
+function buildSteps(){
+  const s = [];
+  s.push({ type:'init', desc:'准备向长度为 <b>' + m + '</b> 的散列表中依次插入：<span class="k">' + keys.join(', ') + '</span>。' +
+      (mode === 'chain' ? '链地址法：同义词挂在同一个地址的链表上，<b>不发生"探测"</b>。' : '开放地址法：冲突时按探测序列寻找下一个空位。') });
+  const state = () => ({ slots: JSON.parse(JSON.stringify(slots)), chains: JSON.parse(JSON.stringify(chains)) });
+  let n = 0, sumProbe = 0;
+  for (const k of keys) {
+    const h = ((k % m) + m) % m;
+    if (mode === 'chain') {
+      const probes = (chains[h] || []).length + 1;
+      s.push({ type:'probe', ...state(), probe: [h], desc:'插入 <span class="k">' + k + '</span>：H(' + k + ') = ' + k + ' mod ' + m + ' = <b>' + h + '</b>。' +
+          (probes > 1 ? '该地址已有 ' + (probes - 1) + ' 个同义词，挂到链表后面（链地址法无需探测）。' : '该地址为空，直接挂入。'), cmp: totalCmp + probes, n });
+      if (!chains[h]) chains[h] = [];
+      chains[h].push(k);
+      totalCmp += probes; n++; sumProbe += probes;
+      s.push({ type:'insert', ...state(), hit: [h], desc:'插入完成：下标 <b>' + h + '</b> 的链表为 [' + chains[h].join(' → ') + ']。本次比较 ' + probes + ' 次。', cmp: totalCmp, n });
+    } else {
+      const probed = [];
+      let placed = -1;
+      const seen = new Set();
+      for (let i = 0; i < m; i++) {
+        let idx;
+        if (mode === 'linear') idx = (h + i) % m;
+        else idx = (h + (i % 2 === 0 ? (i/2)*(i/2) : -((i+1)/2)*((i+1)/2)) % m + m) % m;   // 二次探测 ±1²,±2²,…
+        if (seen.has(idx)) continue;
+        seen.add(idx);
+        probed.push(idx);
+        totalCmp++;
+        if (slots[idx] === null || slots[idx] === undefined) {
+          s.push({ type:'probe', ...state(), probe: probed.slice(), desc:'插入 <span class="k">' + k + '</span>：H(' + k + ') = ' + k + ' mod ' + m + ' = <b>' + h + '</b>。' +
+              '探测过程：' + probed.map((p,i2)=> '第' + (i2+1) + '次探测下标 ' + p + (i2 < probed.length-1 ? '（占用，冲突）' : '（空位，可放入）')).join('，') + '。', cmp: totalCmp, n });
+          placed = idx;
+          break;
+        } else {
+          s.push({ type:'probe', ...state(), probe: probed.slice(), desc:'插入 <span class="k">' + k + '</span>：H(' + k + ') = <b>' + h + '</b>，但下标 ' + idx + ' 已被 <b>' + slots[idx] + '</b> 占用 → <span class="bad">冲突</span>，继续探测下一个位置。', cmp: totalCmp, n });
+        }
+      }
+      if (placed === -1) {
+        s.push({ type:'fail', ...state(), desc:'<span class="bad">散列表已满（或探测序列走遍全表仍未找到空位），无法插入 ' + k + '。</span>', cmp: totalCmp, n });
+        continue;
+      }
+      slots[placed] = k;
+      const probes = probed.length;
+      n++; sumProbe += probes;
+      s.push({ type:'insert', ...state(), hit: [placed], desc:'插入完成：<span class="k">' + k + '</span> 放在下标 <b>' + placed + '</b>，本次比较（探测）<b>' + probes + '</b> 次。', cmp: totalCmp, n });
+    }
+  }
+  s.push({ type:'done', ...state(), desc:'全部插入完成：共 <b>' + n + '</b> 个元素，装填因子 α = ' + (n/m).toFixed(2) + '。' +
+      (mode === 'chain'
+        ? '链地址法的 ASL<sub>成功</sub> = 各链表长度之和 / n，ASL<sub>失败</sub> = 空链与各链长度对应的比较次数之和 / m。'
+        : '开放地址法的探测次数可用「比较次数之和 ÷ 元素个数」估算 ASL<sub>成功</sub>。'), cmp: totalCmp, n,
+      aslS: (sumProbe / (n || 1)), aslF: null });
+  return s;
+}
+
+/* ───────── 渲染 ───────── */
+function render(){
+  const st = steps[cur] || steps[0];
+  slots = st.slots ? JSON.parse(JSON.stringify(st.slots)) : slots;
+  chains = st.chains ? JSON.parse(JSON.stringify(st.chains)) : chains;
+
+  const tbody = $('tbody');
+  tbody.innerHTML = '';
+  const probeSet = new Set(st.probe || []);
+  const hitSet = new Set(st.hit || []);
+  for (let i = 0; i < m; i++) {
+    const tr = document.createElement('tr');
+    const td0 = document.createElement('td');
+    td0.innerHTML = '<span style="color:#94a3b8">' + i + '</span>';
+    const td1 = document.createElement('td');
+    const hval = st.searchKey !== undefined ? ((st.searchKey % m) + m) % m : null;
+    td1.innerHTML = hval === i ? '<b style="color:#6366f1">' + i + '</b>' : '<span style="color:#cbd5e1">—</span>';
+    const td2 = document.createElement('td');
+    if (mode === 'chain') {
+      const list = (st.chains && st.chains[i]) || [];
+      if (!list.length) td2.innerHTML = '<span class="slot">空</span>';
+      else {
+        td2.innerHTML = '<div class="chain">' + list.map((v, j) =>
+          '<span class="slot ' + (hitSet.has(i) && j === list.length-1 && st.type==='found' ? 'hit' : (probeSet.has(i) ? 'probe' : 'filled')) + '">' + v + '</span>'
+        ).join('<span class="arrow">→</span>') + '</div>';
+      }
+    } else {
+      const v = (st.slots && st.slots[i] !== null && st.slots[i] !== undefined) ? st.slots[i] : null;
+      let cls = 'slot';
+      if (hitSet.has(i)) cls += ' hit';
+      else if (probeSet.has(i)) cls += ' probe';
+      else if (v !== null) cls += ' filled';
+      td2.innerHTML = '<span class="' + cls + '">' + (v === null ? '空' : v) + '</span>';
+    }
+    tr.appendChild(td0); tr.appendChild(td1); tr.appendChild(td2);
+    tbody.appendChild(tr);
+  }
+
+  // 统计
+  const n = st.n !== undefined ? st.n : 0;
+  $('stN').textContent = n;
+  $('stAlpha').textContent = (n / m).toFixed(2);
+  $('stCmp').textContent = st.cmp !== undefined ? st.cmp : 0;
+  const aslS = computeASLSuccess();
+  $('stAslS').textContent = aslS === null ? '-' : aslS.toFixed(2);
+  const aslF = computeASLFail();
+  $('stAslF').textContent = aslF === null ? '-' : aslF.toFixed(2);
+
+  $('probeBox').innerHTML = st.desc || '';
+  const doneCount = Object.keys(st.slots || {}).filter(k => st.slots[k] !== null && st.slots[k] !== undefined).length;
+  $('desc').innerHTML = '<b>提示：</b>' + (mode === 'linear'
+      ? '线性探测法遇到冲突后依次探测 H+1、H+2…，容易产生<b>聚集（堆积）</b>现象：连续被占用的区域越长，后续冲突越多。'
+      : mode === 'quad'
+      ? '二次探测法按 ±1²、±2²、±3²… 跳跃探测，能减轻聚集，但<b>不一定能探测到表中所有位置</b>（表长取 4k+3 的素数时才能覆盖全表）。'
+      : '链地址法把同义词组织成链表，<b>不产生聚集</b>，装填因子可以大于 1；查找失败时只需走到链尾。')
+      + '<div class="asl">ASL<sub>成功</sub> = 每个元素的比较次数之和 ÷ n；ASL<sub>失败</sub> = 表中每个位置查找失败所需比较次数之和 ÷ m。</div>';
+
+  $('aslBox').innerHTML = 'ASL<sub>成功</sub> = <b>' + (aslS === null ? '-' : aslS.toFixed(2)) + '</b> ／ ASL<sub>失败</sub> = <b>' + (aslF === null ? '-' : aslF.toFixed(2)) + '</b>';
+
+  $('stStep') && ($('stStep').textContent = '');
+}
+
+/* ASL 成功：按当前表内容重新计算（每个已存元素查找所需比较次数） */
+function computeASLSuccess(){
+  let sum = 0, cnt = 0;
+  if (mode === 'chain') {
+    chains.forEach(list => { if (list) list.forEach((v, i) => { sum += i + 1; cnt++; }); });
+  } else {
+    slots.forEach((v, idx) => {
+      if (v === null || v === undefined) return;
+      const h = ((v % m) + m) % m;
+      let i = 0, seen = new Set();
+      while (i < m) {
+        let j = mode === 'linear' ? (h + i) % m
+              : (h + (i % 2 === 0 ? (i/2)*(i/2) : -((i+1)/2)*((i+1)/2)) % m + m) % m;
+        if (seen.has(j)) break;
+        seen.add(j);
+        sum++;
+        if (slots[j] === v) { cnt++; break; }
+        i++;
+      }
+    });
+  }
+  return cnt ? sum / cnt : null;
+}
+
+/* ASL 失败：从每个地址出发查找一个不存在的元素所需比较次数 */
+function computeASLFail(){
+  if (mode === 'chain') {
+    let sum = 0;
+    for (let i = 0; i < m; i++) {
+      const list = chains[i] || [];
+      sum += list.length;      // 走到链尾才判定失败（教材常按"空指针比较"计为链长）
+    }
+    return sum / m;
+  }
+  let sum = 0;
+  for (let h = 0; h < m; h++) {
+    let i = 0, seen = new Set(), c = 0;
+    while (i < m) {
+      let j = mode === 'linear' ? (h + i) % m
+            : (h + (i % 2 === 0 ? (i/2)*(i/2) : -((i+1)/2)*((i+1)/2)) % m + m) % m;
+      if (seen.has(j)) break;
+      seen.add(j);
+      c++;
+      if (slots[j] === null || slots[j] === undefined) break;   // 遇到空位即失败
+      i++;
+    }
+    sum += c;
+  }
+  return sum / m;
+}
+
+/* ───────── 查找步骤 ───────── */
+function doSearch(key){
+  const s = [];
+  const h = ((key % m) + m) % m;
+  if (mode === 'chain') {
+    s.push({ type:'probe', slots: JSON.parse(JSON.stringify(slots)), chains: JSON.parse(JSON.stringify(chains)), probe:[h], searchKey:key, n: countStored(),
+      desc:'查找 <span class="k">' + key + '</span>：H(' + key + ') = <b>' + h + '</b>，沿下标 ' + h + ' 的链表逐个比较。' });
+    const list = chains[h] || [];
+    for (let i = 0; i < list.length; i++) {
+      s.push({ type:'probe', slots: JSON.parse(JSON.stringify(slots)), chains: JSON.parse(JSON.stringify(chains)), probe:[h], searchKey:key, n: countStored(),
+        desc:'比较第 ' + (i+1) + ' 个结点：' + list[i] + (list[i] === key ? ' —— <span class="good">命中！</span>' : ' ≠ ' + key + '，继续沿链查找。') });
+      if (list[i] === key) { s.push({ type:'found', slots: JSON.parse(JSON.stringify(slots)), chains: JSON.parse(JSON.stringify(chains)), hit:[h], searchKey:key, n: countStored(), desc:'<span class="good">查找成功！</span>共比较 <b>' + (i+1) + '</b> 次。' }); return s; }
+    }
+    s.push({ type:'fail', slots: JSON.parse(JSON.stringify(slots)), chains: JSON.parse(JSON.stringify(chains)), searchKey:key, n: countStored(), desc:'<span class="bad">查找失败</span>：链表已走到末尾仍未找到。' });
+    return s;
+  }
+  const probed = []; let seen = new Set();
+  for (let i = 0; i < m; i++) {
+    let j = mode === 'linear' ? (h + i) % m
+          : (h + (i % 2 === 0 ? (i/2)*(i/2) : -((i+1)/2)*((i+1)/2)) % m + m) % m;
+    if (seen.has(j)) break;
+    seen.add(j); probed.push(j);
+    const v = slots[j];
+    if (v === null || v === undefined) {
+      s.push({ type:'fail', slots: JSON.parse(JSON.stringify(slots)), chains: JSON.parse(JSON.stringify(chains)), probe: probed.slice(), searchKey:key, n: countStored(),
+        desc:'探测下标 <b>' + j + '</b> 为空 → <span class="bad">查找失败</span>（说明该元素不存在）。共比较 <b>' + probed.length + '</b> 次。' });
+      return s;
+    }
+    if (v === key) {
+      s.push({ type:'found', slots: JSON.parse(JSON.stringify(slots)), chains: JSON.parse(JSON.stringify(chains)), probe: probed.slice(), hit:[j], searchKey:key, n: countStored(),
+        desc:'探测下标 <b>' + j + '</b> 得到 <b>' + v + '</b> —— <span class="good">查找成功！</span>共比较 <b>' + probed.length + '</b> 次。' });
+      return s;
+    }
+    s.push({ type:'probe', slots: JSON.parse(JSON.stringify(slots)), chains: JSON.parse(JSON.stringify(chains)), probe: probed.slice(), searchKey:key, n: countStored(),
+      desc:'探测下标 <b>' + j + '</b>：' + v + ' ≠ ' + key + ' → 继续探测。' });
+  }
+  s.push({ type:'fail', slots: JSON.parse(JSON.stringify(slots)), chains: JSON.parse(JSON.stringify(chains)), searchKey:key, n: countStored(), desc:'<span class="bad">查找失败</span>：探测序列已走遍。' });
+  return s;
+}
+
+function countStored(){
+  if (mode === 'chain') return chains.reduce((a, l) => a + (l ? l.length : 0), 0);
+  return slots.filter(v => v !== null && v !== undefined).length;
+}
+
+/* ───────── 控制 ───────── */
+function reset(){
+  pause();
+  slots = new Array(m).fill(null);
+  chains = Array.from({ length: m }, () => []);
+  keys = $('keysInput').value.split(/[,，\s]+/).map(x => parseInt(x, 10)).filter(x => !isNaN(x));
+  totalCmp = 0;
+  steps = buildSteps();
+  cur = 0;
+  render();
+  $('btnPlay').textContent = '▶ 播放';
+}
+
+function pause(){ clearInterval(timer); timer = null; $('btnPlay').textContent = '▶ 播放'; }
+function play(){
+  if (timer) { pause(); return; }
+  $('btnPlay').textContent = '⏸ 暂停';
+  timer = setInterval(() => { if (cur >= steps.length - 1) { pause(); return; } cur++; render(); }, speed);
+}
+
+$('mSel').onchange = e => { m = +e.target.value; $('modeInfo').textContent = (mode==='linear'?'线性探测法':mode==='quad'?'二次探测法':'链地址法') + ' · H(k) = k mod ' + m; reset(); };
+$('modeSel').onchange = e => { mode = e.target.value; $('modeInfo').textContent = (mode==='linear'?'线性探测法':mode==='quad'?'二次探测法':'链地址法') + ' · H(k) = k mod ' + m; reset(); };
+$('btnApply').onclick = reset;
+$('btnReset').onclick = reset;
+$('btnPlay').onclick = play;
+$('btnStep').onclick = () => { pause(); if (cur < steps.length - 1) { cur++; render(); } };
+$('btnSearch').onclick = () => {
+  pause();
+  const k = parseInt($('searchInput').value, 10);
+  if (isNaN(k)) { $('probeBox').innerHTML = '<span class="bad">请输入一个整数关键字。</span>'; return; }
+  // 用当前已渲染的表状态做查找演示
+  const st = steps[cur];
+  slots = st.slots ? JSON.parse(JSON.stringify(st.slots)) : slots;
+  chains = st.chains ? JSON.parse(JSON.stringify(st.chains)) : chains;
+  steps = steps.slice(0, cur + 1).concat(doSearch(k));
+  cur = cur + 1;
+  render();
+};
+document.querySelectorAll('.speed-group button').forEach(b => {
+  b.onclick = () => {
+    document.querySelectorAll('.speed-group button').forEach(x => x.classList.remove('active'));
+    b.classList.add('active'); speed = +b.dataset.speed;
+    if (timer) { pause(); play(); }
+  };
+});
+
+reset();
+</script>
+</body>
+</html>

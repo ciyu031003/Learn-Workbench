@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AVL 树可视化</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f8fafc; color: #1e293b; padding: 16px; }
+  .wrap { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+  .head { background: linear-gradient(135deg, #0ea5e9, #6366f1); color: #fff; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; }
+  .head h1 { font-size: 16px; font-weight: 600; }
+  .head .info { font-size: 12px; opacity: .9; }
+  .controls { padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; border-bottom: 1px solid #eef2f7; }
+  .controls label { font-size: 12px; color: #64748b; }
+  input[type=number] { width: 90px; padding: 5px 8px; border-radius: 8px; border: 1px solid #e2e8f0; outline: none; font-size: 13px; }
+  button { padding: 6px 14px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all .15s; font-size: 13px; }
+  .btn-insert { background: #0ea5e9; color: #fff; }
+  .btn-insert:hover { background: #0284c7; }
+  .btn-ghost { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+  .btn-ghost:hover { background: #e2e8f0; }
+  .btn-primary { background: #0ea5e9; color: #fff; }
+  .btn-primary:hover { background: #0284c7; }
+  .speed-group { display: flex; gap: 4px; }
+  .speed-group button { padding: 4px 10px; font-size: 12px; }
+  .speed-group .active { background: #0ea5e9; color: #fff; border-color: #0ea5e9; }
+  .msg { padding: 8px 16px; font-size: 12px; color: #475569; border-bottom: 1px solid #eef2f7; min-height: 28px; }
+  .msg b { color: #334155; }
+  .msg .rot { color: #ea580c; font-weight: 700; }
+  .stage { padding: 20px 16px; overflow-x: auto; min-height: 320px; display: flex; justify-content: center; align-items: flex-start; }
+  .tree { display: flex; justify-content: center; }
+  .node { position: relative; display: flex; flex-direction: column; align-items: center; margin: 0 3px; }
+  .node .circle { width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; background: #0ea5e9; color: #fff; border: 3px solid #0ea5e9; transition: all .25s; position: relative; z-index: 2; }
+  .node .bf { position: absolute; top: -14px; right: -14px; width: 20px; height: 20px; border-radius: 50%; background: #f1f5f9; border: 1.5px solid #cbd5e1; color: #334155; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; z-index: 3; }
+  .node .circle.empty { background: #fff; border: 3px dashed #cbd5e1; color: #cbd5e1; }
+  .node .children { display: flex; justify-content: center; }
+  .node .branch { display: flex; flex-direction: column; align-items: center; position: relative; padding-top: 18px; }
+  .node .branch::before { content: ""; position: absolute; top: 0; left: 50%; width: 2px; height: 18px; background: #cbd5e1; }
+  .node .child { position: relative; }
+  .node .child::before { content: ""; position: absolute; top: 0; width: 50%; height: 2px; background: #cbd5e1; }
+  .node .child.left::before { left: 50%; }
+  .node .child.right::before { right: 50%; }
+  .node.imbalanced .circle { background: #ef4444; border-color: #ef4444; transform: scale(1.15); box-shadow: 0 0 12px rgba(239,68,68,.5); }
+  .node.highlight .circle { background: #f59e0b; border-color: #f59e0b; }
+  .node.rotated .circle { background: #10b981; border-color: #10b981; }
+  .legend { padding: 6px 16px 12px; display: flex; gap: 14px; font-size: 11px; color: #64748b; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
+  .legend .bf-i { display: inline-block; width: 16px; height: 16px; border-radius: 50%; background: #f1f5f9; border: 1px solid #cbd5e1; text-align: center; line-height: 14px; margin-right: 4px; vertical-align: -2px; font-size: 9px; }
+  .desc { padding: 10px 16px 16px; border-top: 1px solid #eef2f7; font-size: 12px; color: #475569; line-height: 1.7; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>⚖️ AVL 树可视化</h1>
+    <span class="info">平衡因子 ∈ {-1,0,1} · 四种旋转调整</span>
+  </div>
+  <div class="controls">
+    <label>插入值</label>
+    <input type="number" id="valInput" value="15" min="-999" max="999">
+    <button class="btn-insert" id="btnInsert">＋ 插入</button>
+    <button class="btn-ghost" id="btnRandom">🎲 随机插入</button>
+    <button class="btn-ghost" id="btnClear">清空</button>
+    <div class="speed-group">
+      <button class="btn-ghost" data-speed="900">慢</button>
+      <button class="btn-ghost active" data-speed="500">中</button>
+      <button class="btn-ghost" data-speed="220">快</button>
+    </div>
+    <button class="btn-primary" id="btnPlay">▶ 播放</button>
+    <button class="btn-ghost" id="btnStep">单步</button>
+    <button class="btn-ghost" id="btnReset">↺ 重置</button>
+  </div>
+  <div class="msg" id="msg">插入结点，观察自动平衡旋转（右上角小圆点为平衡因子）</div>
+  <div class="stage" id="stage"></div>
+  <div class="legend">
+    <span><i style="background:#0ea5e9"></i>结点（右上角=平衡因子）</span>
+    <span><i style="background:#f59e0b"></i>插入路径</span>
+    <span><i style="background:#ef4444"></i>失衡结点</span>
+    <span><i style="background:#10b981"></i>旋转后</span>
+  </div>
+  <div class="desc">
+    <b>四种旋转（口诀：LL右旋、RR左旋、LR左右旋、RL右左旋）：</b><br>
+    <b>LL</b>：A 的左孩子的左子树插入 → 对 A <b>右单旋转</b><br>
+    <b>RR</b>：A 的右孩子的右子树插入 → 对 A <b>左单旋转</b><br>
+    <b>LR</b>：A 的左孩子的右子树插入 → 先对左孩子<b>左旋</b>，再对 A <b>右旋</b><br>
+    <b>RL</b>：A 的右孩子的左子树插入 → 先对右孩子<b>右旋</b>，再对 A <b>左旋</b>
+  </div>
+</div>
+
+<script>
+"use strict";
+let root = null;
+
+const $ = (id) => document.getElementById(id);
+const stage = $("stage");
+
+/* ── 动画调度器（可暂停 / 可单步 / 可变速 / 可重置）──────────────
+   此前动画时长写死在 setTimeout(…, 300) / (…, 900) 里：点一下就只能看它自己演完，
+   既不能停、不能一步步看、也不能调速。现在把"每一步"做成入队的函数，
+   由播放/单步/重置统一驱动。 */
+let steps = [], cursor = 0, playing = false, animTimer = null, speed = 500;
+
+function updatePlayBtn() { const b = $("btnPlay"); if (b) b.textContent = playing ? "⏸ 暂停" : "▶ 播放"; }
+function stopTimer() { if (animTimer) { clearTimeout(animTimer); animTimer = null; } }
+function loadSteps(list) { stopTimer(); playing = false; steps = list || []; cursor = 0; updatePlayBtn(); }
+function runOne() { if (cursor >= steps.length) return false; steps[cursor++](); return true; }
+function tick() {
+  animTimer = null;
+  if (!playing) return;
+  if (!runOne() || cursor >= steps.length) { playing = false; updatePlayBtn(); return; }
+  animTimer = setTimeout(tick, speed);
+}
+function play() {
+  if (playing) { playing = false; stopTimer(); updatePlayBtn(); return; }
+  if (cursor >= steps.length) return;   // 已演完就不再重播（重播会重复插入）
+  playing = true; updatePlayBtn(); tick();
+}
+function stepOnce() {
+  stopTimer(); playing = false; updatePlayBtn();
+  runOne();
+}
+
+/* 进度提示：写进 #msg。此前漏了定义，脚本最后一行调用 msg() 会抛 "msg is not a function" */
+function msg(t) { const el = $("msg"); if (el) el.innerHTML = t; }
+
+function Node(val) {
+  this.val = val;
+  this.left = null;
+  this.right = null;
+}
+
+function height(n) { return n ? 1 + Math.max(height(n.left), height(n.right)) : 0; }
+function bf(n) { return n ? height(n.left) - height(n.right) : 0; }
+
+// ---- 旋转操作 ----
+function rotateRight(A) {
+  const B = A.left;
+  A.left = B.right;
+  B.right = A;
+  return B;
+}
+function rotateLeft(A) {
+  const B = A.right;
+  A.right = B.left;
+  B.left = A;
+  return B;
+}
+
+// ---- 插入 + 平衡（返回 {root, rotation, imbalanced}）----
+function insert(root, val) {
+  if (!root) return { root: new Node(val), rotation: null, imbalanced: null };
+  if (val < root.val) root.left = insert(root.left, val).root;
+  else if (val > root.val) root.right = insert(root.right, val).root;
+  else return { root, rotation: "重复", imbalanced: null };
+
+  const b = bf(root);
+  let rotation = null, imbalanced = null;
+  if (b > 1) {
+    imbalanced = root;
+    if (val < root.left.val) { root = rotateRight(root); rotation = "LL 右旋"; }
+    else { root.left = rotateLeft(root.left); root = rotateRight(root); rotation = "LR 先左后右"; }
+  } else if (b < -1) {
+    imbalanced = root;
+    if (val > root.right.val) { root = rotateLeft(root); rotation = "RR 左旋"; }
+    else { root.right = rotateRight(root.right); root = rotateLeft(root); rotation = "RL 先右后左"; }
+  }
+  return { root, rotation, imbalanced };
+}
+
+// ---- 渲染 ----
+function renderNode(node, hlSet, imbSet, rotSet) {
+  if (!node) {
+    const d = document.createElement("div");
+    d.className = "node";
+    d.innerHTML = '<div class="circle empty">·</div>';
+    return d;
+  }
+  const d = document.createElement("div");
+  d.className = "node";
+  if (hlSet && hlSet.has(node)) d.classList.add("highlight");
+  if (imbSet && imbSet.has(node)) d.classList.add("imbalanced");
+  if (rotSet && rotSet.has(node)) d.classList.add("rotated");
+
+  const circle = document.createElement("div");
+  circle.className = "circle";
+  circle.textContent = node.val;
+  const b = bf(node);
+  const bfEl = document.createElement("div");
+  bfEl.className = "bf";
+  bfEl.textContent = b;
+  bfEl.style.background = Math.abs(b) >= 2 ? "#fee2e2" : "#f1f5f9";
+  bfEl.style.borderColor = Math.abs(b) >= 2 ? "#ef4444" : "#cbd5e1";
+  circle.appendChild(bfEl);
+  d.appendChild(circle);
+
+  if (node.left || node.right) {
+    const children = document.createElement("div");
+    children.className = "children";
+    const bl = document.createElement("div");
+    bl.className = "branch"; bl.style.marginRight = "5px";
+    const lc = document.createElement("div");
+    lc.className = "child left";
+    lc.appendChild(renderNode(node.left, hlSet, imbSet, rotSet));
+    bl.appendChild(lc);
+    const br = document.createElement("div");
+    br.className = "branch"; br.style.marginLeft = "5px";
+    const rc = document.createElement("div");
+    rc.className = "child right";
+    rc.appendChild(renderNode(node.right, hlSet, imbSet, rotSet));
+    br.appendChild(rc);
+    children.appendChild(bl);
+    children.appendChild(br);
+    d.appendChild(children);
+  }
+  return d;
+}
+
+function render(hlSet, imbSet, rotSet) {
+  stage.innerHTML = "";
+  if (!root) {
+    stage.innerHTML = '<div style="color:#94a3b8;font-size:13px;padding-top:80px">树为空</div>';
+    return;
+  }
+  stage.appendChild(renderNode(root, hlSet, imbSet, rotSet));
+}
+
+// ---- 插入流程（可暂停 / 可单步演示）----
+function insertVal(val) {
+  // 先检查是否存在
+  let exists = false, cur = root;
+  while (cur) {
+    if (val === cur.val) { exists = true; break; }
+    cur = val < cur.val ? cur.left : cur.right;
+  }
+  if (exists) { loadSteps([]); msg(`⚠️ ${val} 已存在`); render(); return; }
+
+  // 收集插入路径（插入前）
+  const path = [];
+  cur = root;
+  while (cur) { path.push(cur); cur = val < cur.val ? cur.left : cur.right; }
+
+  let rot = null;
+  const list = [];
+  // 阶段1：逐结点高亮查找路径
+  path.forEach((node, k) => {
+    list.push(() => {
+      render(new Set(path.slice(0, k + 1)));
+      msg(`🔍 沿路径查找插入位置：${node.val}（${val < node.val ? "左" : "右"}）`);
+    });
+  });
+  // 阶段2：插入 + 平衡，并把失衡结点标红
+  list.push(() => {
+    const r = insert(root, val);
+    root = r.root;
+    if (r.rotation === "重复") { rot = null; msg(`⚠️ ${val} 已存在`); render(); return; }
+    rot = r.rotation;
+    if (rot) {
+      msg(`⚡ 失衡！执行 <span class="rot">${rot}</span> 旋转调整`);
+      render(null, new Set([r.imbalanced]), null);
+    } else {
+      render();
+      msg(`✅ 插入 ${val} 完成（无失衡，AVL 性质保持）`);
+    }
+  });
+  // 阶段3：旋转完成后的收尾（无旋转时本步不做任何事）
+  list.push(() => {
+    if (!rot) return;
+    render();
+    msg(`✅ 插入 ${val} 完成（${rot}）`);
+  });
+
+  loadSteps(list);
+  play();   // 保留"点一下就开演"的手感，但随时可暂停 / 单步 / 调速
+}
+
+// ---- 重置：回到初始示例树 ----
+function resetDemo() {
+  loadSteps([]);
+  root = null;
+  [10, 20, 30, 40, 50, 25].forEach((v) => { const r = insert(root, v); root = r.root; });
+  render();
+  msg("示例树已就绪（已触发 RR/LR 旋转）。试试插入 5 → LL 旋转、插入 35 → RL 旋转");
+}
+
+// ---- 事件 ----
+$("btnInsert").onclick = () => {
+  const v = parseInt($("valInput").value);
+  if (!isNaN(v)) insertVal(v);
+};
+$("btnRandom").onclick = () => {
+  const v = Math.floor(Math.random() * 200) - 50;
+  $("valInput").value = v;
+  insertVal(v);
+};
+$("btnClear").onclick = () => {
+  loadSteps([]);
+  root = null;
+  render();
+  msg("已清空（点「↺ 重置」可回到初始示例树）");
+};
+$("btnPlay").onclick = play;
+$("btnStep").onclick = stepOnce;
+$("btnReset").onclick = resetDemo;
+document.querySelectorAll(".speed-group button").forEach((b) => {
+  b.onclick = () => {
+    document.querySelectorAll(".speed-group button").forEach((x) => x.classList.remove("active"));
+    b.classList.add("active");
+    speed = +b.dataset.speed;
+  };
+});
+$("valInput").addEventListener("keydown", (e) => { if (e.key === "Enter") $("btnInsert").onclick(); });
+
+// init：装载初始示例树（与「↺ 重置」完全一致）
+resetDemo();
+updatePlayBtn();
+</script>
+</body>
+</html>

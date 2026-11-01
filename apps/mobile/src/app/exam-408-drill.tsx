@@ -7,7 +7,7 @@ import {
   View,
   type DimensionValue,
 } from "react-native";
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   interpolate,
@@ -20,6 +20,7 @@ import { EmptyState } from "@/components/empty-state";
 import { PressableScale } from "@/components/pressable-scale";
 import { ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { ThemedIcon } from "@/components/themed-icon";
+import { getApiUrl } from "@/config";
 import { haptics } from "@/lib/haptics";
 import { useScreenEntrance } from "@/lib/use-screen-entrance";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
@@ -43,6 +44,7 @@ import {
   loadRatingOutbox,
   makeClientId,
   makeRatingOp,
+  normalizeCardQueue,
   mergeCardStatsWithPending,
   mergeRatingResultStats,
   nextCardIndex,
@@ -59,6 +61,7 @@ import {
   type Exam408CardStatsBoard,
   type Exam408CardQueue,
   type Exam408FetchFailure,
+  type Exam408QueueFetch,
 } from "@/lib/exam-408-cards";
 
 /**
@@ -88,8 +91,13 @@ export default function Exam408DrillScreen() {
   const bottomSpace = useTabBarSpace();
   const entrance = useScreenEntrance();
   const token = useAppStore((s) => s.token);
+  /** 从知识点页「速记卡」入口带 subject 进来：只接受四个合法科目，其余按「全部」 */
+  const params = useLocalSearchParams<{ subject?: string }>();
 
-  const [subjectKey, setSubjectKey] = useState<string>("");
+  const [subjectKey, setSubjectKey] = useState<string>(() => {
+    const incoming = (params.subject ?? "").trim();
+    return EXAM_408_CARD_SUBJECTS.some((subject) => subject.key === incoming) ? incoming : "";
+  });
   const [queue, setQueue] = useState<Exam408CardQueue | null>(null);
   const [board, setBoard] = useState<Exam408CardStatsBoard>(EMPTY_CARD_STATS_BOARD);
   const [stats, setStats] = useState<Exam408CardStats>(EMPTY_CARD_STATS);
@@ -101,6 +109,11 @@ export default function Exam408DrillScreen() {
   const [offline, setOffline] = useState(false);
   const [pending, setPending] = useState(0);
   const [notice, setNotice] = useState("");
+  /** v1.55 易错本：scope=mistake 的独立队列（只读不写缓存，避免覆盖今日队列缓存） */
+  const [scope, setScope] = useState<"queue" | "mistake">("queue");
+  const [mistakeQueue, setMistakeQueue] = useState<Exam408CardQueue | null>(null);
+  const [mistakeLoading, setMistakeLoading] = useState(false);
+  const [mistakeFailure, setMistakeFailure] = useState<Exam408FetchFailure | null>(null);
 
   /* ---------------- 手势（worklet 只碰共享值 + runOnJS） ---------------- */
   const flip = useSharedValue(0);
@@ -214,6 +227,42 @@ export default function Exam408DrillScreen() {
     [token, flip],
   );
 
+  /** 易错本队列：评过错的卡（lapses>0 或上次评级 again），不受 due 限制，可立即重刷。 */
+  const loadMistakes = useCallback(
+    async (targetSubject: string) => {
+      if (!token) return;
+      // 先补发离线评级（首个 await 放在 setState 之前：本函数由 effect 触发，
+      // 同步 setState 会被 react-hooks/set-state-in-effect 判错 —— 与 reload 同一写法）
+      const flushed = await flushRatingOutbox();
+      setPending(flushed.remaining);
+      setMistakeLoading(true);
+      setMistakeFailure(null);
+      const result = await fetchMistakeQueue(targetSubject, 20);
+      if (result.queue) {
+        setMistakeQueue(result.queue);
+        setMistakeFailure(null);
+      } else {
+        setMistakeQueue(null);
+        setMistakeFailure(result.failure);
+      }
+      setIndex(0);
+      // eslint-disable-next-line react-hooks/immutability -- SharedValue 的 JS 侧复位（同 reload）
+      flip.value = 0;
+      setFlipped(false);
+      setMistakeLoading(false);
+    },
+    [token, flip],
+  );
+
+  // 首次进入/切回易错本、切换科目/范围时拉一次（用 useFocusEffect：与页面现有加载写法一致，
+  // 且能顺带处理“切走再回来”的刷新；普通 useEffect 里直接调异步加载会被 set-state-in-effect 拦）
+  useFocusEffect(
+    useCallback(() => {
+      if (scope !== "mistake" || !token) return;
+      void loadMistakes(subjectKey);
+    }, [scope, subjectKey, token, loadMistakes]),
+  );
+
   /**
    * 进页/换科目/登录态变化才全量拉队列；单纯"切走再回来"只补发离线评级 + 刷新科目统计，
    * 否则每次聚焦都会把游标重置回第 1 张（刷到一半去查个资料就丢进度）。
@@ -241,7 +290,11 @@ export default function Exam408DrillScreen() {
     }, [reload, subjectKey, token]),
   );
 
-  const cards = queue?.cards ?? [];
+  // 当前渲染的队列范围：今日队列（到期+新卡）或易错本（错题重刷）
+  const activeQueue = scope === "mistake" ? mistakeQueue : queue;
+  const activeFailure = scope === "mistake" ? mistakeFailure : failure;
+  const activeLoading = scope === "mistake" ? mistakeLoading : loading;
+  const cards = activeQueue?.cards ?? [];
   const card = index < cards.length ? cards[index] : null;
   const progress = cardProgress(index, cards.length);
   const finished = cards.length > 0 && index >= cards.length;
@@ -287,11 +340,18 @@ export default function Exam408DrillScreen() {
       );
     }
 
-    // 无论成功与否都从离线缓存里摘掉这张卡：断网重启后不该再看到刚评过的卡
-    // （服务端是权威，联网加载时会用新队列覆盖缓存）
-    const cachedQueue = await loadCachedQueue(subjectKey);
-    if (cachedQueue) {
-      await saveCachedQueue(subjectKey, removeCardFromQueue(cachedQueue, ratedCard.key));
+    if (scope === "mistake") {
+      // 易错本不写本机缓存：只在本次会话里摘掉刚评过的卡，服务端仍是权威
+      setMistakeQueue((previous) =>
+        previous ? removeCardFromQueue(previous, ratedCard.key) : previous,
+      );
+    } else {
+      // 无论成功与否都从离线缓存里摘掉这张卡：断网重启后不该再看到刚评过的卡
+      // （服务端是权威，联网加载时会用新队列覆盖缓存）
+      const cachedQueue = await loadCachedQueue(subjectKey);
+      if (cachedQueue) {
+        await saveCachedQueue(subjectKey, removeCardFromQueue(cachedQueue, ratedCard.key));
+      }
     }
 
     advance();
@@ -308,7 +368,7 @@ export default function Exam408DrillScreen() {
   const dueNow = stats.dueCount;
 
   // 未登录优先判：登录态变化时不需要先闪一帧 loading 再跳到登录引导
-  if (!token || failure === "unauthorized") {
+  if (!token || activeFailure === "unauthorized") {
     return (
       <View style={styles.root}>
         <ScreenHeaderStickyBar title="408 刷卡" scrollY={header.scrollY} backTo="/exam-408" />
@@ -326,7 +386,7 @@ export default function Exam408DrillScreen() {
     );
   }
 
-  if (loading) {
+  if (activeLoading) {
     return (
       <View style={styles.root}>
         <ScreenHeaderStickyBar title="408 刷卡" scrollY={header.scrollY} backTo="/exam-408" />
@@ -363,6 +423,41 @@ export default function Exam408DrillScreen() {
                 ? "当前科目：" + subjectTitle + " · 与 Web 端同一套记忆状态"
                 : "全部科目 · 与 Web 端同一套记忆状态"}
           </Text>
+        </Animated.View>
+
+        {/* 队列范围（v1.55）：今日队列 / 易错本 */}
+        <Animated.View entering={entrance(1)} style={styles.scopeRow}>
+          <ScopeTab
+            styles={styles}
+            colors={colors}
+            label="今日队列"
+            meta={queue ? queue.cards.length + " 张 · 到期优先" : "到期优先"}
+            active={scope === "queue"}
+            onPress={() => {
+              haptics.light();
+              setScope("queue");
+              setIndex(0);
+              setFlipped(false);
+            }}
+          />
+          <ScopeTab
+            styles={styles}
+            colors={colors}
+            label="易错本"
+            meta={
+              scope === "mistake" && mistakeQueue
+                ? mistakeQueue.cards.length + " 张 · 错题重刷"
+                : "错题重刷"
+            }
+            active={scope === "mistake"}
+            onPress={() => {
+              haptics.light();
+              setScope("mistake");
+              setMistakeLoading(true);
+              setIndex(0);
+              setFlipped(false);
+            }}
+          />
         </Animated.View>
 
         {/* 科目选择（带各科待刷数，来自 mode=stats 的四行统计） */}
@@ -415,17 +510,30 @@ export default function Exam408DrillScreen() {
         {cards.length === 0 ? (
           <View style={styles.centerBox}>
             <EmptyState
-              icon={failure ? "cloud-offline-outline" : "checkmark-done"}
-              title={failure ? "暂时拿不到队列" : "今天没有待刷的卡"}
-              hint={
-                failure === "offline"
-                  ? "网络不可用，且本机还没有这个科目的缓存队列。"
-                  : subjectTitle
-                    ? subjectTitle + " 的到期卡已清空，换一科或稍后再来。"
-                    : "全部科目的到期卡都清空了。"
+              icon={activeFailure ? "cloud-offline-outline" : "checkmark-done"}
+              title={
+                activeFailure
+                  ? "暂时拿不到队列"
+                  : scope === "mistake"
+                    ? "易错本还是空的"
+                    : "今天没有待刷的卡"
               }
-              actionLabel={failure ? "重试" : "刷新"}
-              onAction={retry}
+              hint={
+                activeFailure === "offline"
+                  ? "网络不可用，且本机还没有这个科目的缓存队列。"
+                  : scope === "mistake"
+                    ? subjectTitle
+                      ? subjectTitle + " 还没有评过错的卡；刷题时选「不会/模糊」后会进入易错本。"
+                      : "还没有评过错的卡；刷题时选「不会/模糊」后会进入易错本。"
+                    : subjectTitle
+                      ? subjectTitle + " 的到期卡已清空，换一科或稍后再来。"
+                      : "全部科目的到期卡都清空了。"
+              }
+              actionLabel={activeFailure ? "重试" : "刷新"}
+              onAction={() => {
+                if (scope === "mistake") void loadMistakes(subjectKey);
+                else retry();
+              }}
               pattern="none"
             />
           </View>
@@ -450,8 +558,17 @@ export default function Exam408DrillScreen() {
                 </View>
               ))}
             </View>
-            <PressableScale haptic onPress={retry} style={styles.primaryButton}>
-              <Text style={styles.primaryButtonText}>再刷一轮</Text>
+            <PressableScale
+              haptic
+              onPress={() => {
+                if (scope === "mistake") void loadMistakes(subjectKey);
+                else retry();
+              }}
+              style={styles.primaryButton}
+            >
+              <Text style={styles.primaryButtonText}>
+                {scope === "mistake" ? "重刷易错本" : "再刷一轮"}
+              </Text>
             </PressableScale>
           </ScrollView>
         ) : card ? (
@@ -597,6 +714,61 @@ export default function Exam408DrillScreen() {
   );
 }
 
+/** v1.55 易错本入口标签（与科目 chip 同风格，但强调范围切换） */
+function ScopeTab({
+  styles,
+  colors,
+  label,
+  meta,
+  active,
+  onPress,
+}: {
+  styles: ReturnType<typeof makeStyles>;
+  colors: ThemeColors;
+  label: string;
+  meta: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <PressableScale
+      haptic
+      onPress={onPress}
+      style={[styles.scopeTab, active && styles.scopeTabActive]}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+    >
+      <Text style={[styles.scopeTabText, active && { color: colors.primary }]}>{label}</Text>
+      <Text style={[styles.scopeTabMeta, active && { color: colors.primary }]}>{meta}</Text>
+    </PressableScale>
+  );
+}
+
+/**
+ * 易错本队列（scope=mistake）：服务端只返回“评过错”的卡（lapses>0 或上次评级 again），
+ * 不按 due 过滤、卡片状态可能含 scheduled（评过但未到期，只在易错本里出现）。
+ * 不走 lib 的 fetchCardQueue 是因为 App 侧该函数暂未接 scope；这里只复用其归一化与鉴权口径。
+ */
+async function fetchMistakeQueue(subjectKey: string, limit = 20): Promise<Exam408QueueFetch> {
+  const token = useAppStore.getState().token;
+  if (!token) return { queue: null, failure: "unauthorized" };
+  const query = ["mode=queue", "scope=mistake"];
+  if (subjectKey.trim()) query.push("subject=" + encodeURIComponent(subjectKey.trim()));
+  if (limit > 0) query.push("limit=" + Math.min(50, Math.floor(limit)));
+  try {
+    const response = await fetch(
+      getApiUrl().replace(/\/+$/, "") + "/api/exam/408/cards?" + query.join("&"),
+      { headers: { Authorization: "Bearer " + token } },
+    );
+    if (response.status === 401) return { queue: null, failure: "unauthorized" };
+    if (!response.ok) return { queue: null, failure: "server" };
+    const queue = normalizeCardQueue(await response.json());
+    return queue ? { queue, failure: null } : { queue: null, failure: "server" };
+  } catch {
+    return { queue: null, failure: "offline" };
+  }
+}
+
 function subjectLabel(subjectKey: string): string {
   return (
     EXAM_408_CARD_SUBJECTS.find((item) => item.key === subjectKey)?.title ?? subjectKey
@@ -687,6 +859,23 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
     statLabel: { ...typography.micro, color: colors.textMuted },
     statsHint: { ...typography.micro, color: colors.textFaint },
     subjectRow: { gap: spacing.sm, paddingRight: spacing.lg },
+    scopeRow: {
+      flexDirection: "row",
+      gap: 4,
+      borderRadius: radius.lg,
+      backgroundColor: colors.surfaceMuted,
+      padding: 4,
+    },
+    scopeTab: {
+      flex: 1,
+      alignItems: "center",
+      gap: 1,
+      borderRadius: radius.md,
+      paddingVertical: spacing.sm,
+    },
+    scopeTabActive: { backgroundColor: colors.surfaceStrong, ...shadows.card },
+    scopeTabText: { ...typography.callout, fontWeight: "700", color: colors.textMuted },
+    scopeTabMeta: { ...typography.micro, color: colors.textFaint },
     subjectChip: {
       minWidth: 96,
       gap: 2,

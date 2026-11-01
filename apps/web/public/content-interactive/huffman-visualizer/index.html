@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>哈夫曼树与哈夫曼编码</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f8fafc; color: #1e293b; padding: 16px; margin: 0; }
+  .wrap { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+  .head { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; }
+  .head h1 { font-size: 16px; font-weight: 600; }
+  .head .info { font-size: 12px; opacity: .9; }
+  .controls { padding: 9px 16px; display: flex; flex-wrap: wrap; gap: 7px; align-items: center; border-bottom: 1px solid #eef2f7; }
+  .controls label { font-size: 12px; color: #64748b; }
+  select, input[type=text] { padding: 5px 8px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; outline: none; font-size: 12px; font-family: inherit; }
+  select { max-width: 250px; }
+  input[type=text] { width: 190px; }
+  button { padding: 5px 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all .15s; font-size: 12.5px; font-family: inherit; }
+  .btn-primary { background: #6366f1; color: #fff; }
+  .btn-primary:hover { background: #4f46e5; }
+  .btn-ghost { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+  .btn-ghost:hover { background: #e2e8f0; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .speed-group { display: flex; gap: 4px; }
+  .speed-group button { padding: 4px 10px; font-size: 12px; }
+  .speed-group .active { background: #6366f1; color: #fff; }
+  .stats { padding: 7px 16px; display: flex; gap: 16px; font-size: 12px; color: #64748b; border-bottom: 1px solid #eef2f7; flex-wrap: wrap; }
+  .stats b { color: #1e293b; font-variant-numeric: tabular-nums; }
+  .msg { padding: 7px 16px; font-size: 12px; color: #475569; border-bottom: 1px solid #eef2f7; min-height: 30px; line-height: 1.5; }
+  .msg .idx { color: #6366f1; font-weight: 600; }
+  .msg.bad { color: #dc2626; background: #fef2f2; }
+  .stage { padding: 4px 12px 0; }
+  .stage svg { width: 100%; height: 236px; display: block; }
+  .panel { padding: 4px 16px 6px; font-size: 12px; color: #475569; min-height: 48px; max-height: 86px; overflow-y: auto; line-height: 1.85; }
+  .chip { display: inline-block; padding: 1px 8px; margin: 0 5px 4px 0; border-radius: 999px; background: #f1f5f9; border: 1px solid #e2e8f0; font-variant-numeric: tabular-nums; }
+  .chip.code { background: #eef2ff; border-color: #c7d2fe; color: #3730a3; }
+  .chip.code b { color: #4338ca; letter-spacing: 1px; }
+  .panel .wpl { color: #334155; }
+  .panel .wpl b { color: #059669; }
+  .legend { padding: 2px 16px 8px; display: flex; gap: 14px; font-size: 11px; color: #64748b; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+  .desc { padding: 9px 16px 14px; border-top: 1px solid #eef2f7; font-size: 12px; color: #475569; line-height: 1.7; }
+  .desc b { color: #334155; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>🌲 哈夫曼树与哈夫曼编码</h1>
+    <span class="info" id="headInfo">贪心合并 · WPL 最小 · 前缀码</span>
+  </div>
+
+  <div class="controls">
+    <label>预置数据</label>
+    <select id="presetSelect">
+      <option value="a:5,b:9,c:12,d:13,e:16,f:45">a:5 b:9 c:12 d:13 e:16 f:45（经典）</option>
+      <option value="A:1,B:2,C:3,D:4,E:5">A:1 B:2 C:3 D:4 E:5（连续小权值）</option>
+      <option value="w:1,x:2,y:4,z:8,v:16">w:1 x:2 y:4 z:8 v:16（2 的幂）</option>
+      <option value="甲:7,乙:5,丙:2,丁:4,戊:9">甲:7 乙:5 丙:2 丁:4 戊:9</option>
+      <option value="p:45,q:13,r:12,s:16,t:9,u:5">p:45 q:13 r:12 s:16 t:9 u:5（频度无序）</option>
+    </select>
+    <input type="text" id="dataInput" placeholder="自定义：a:5,b:9,c:12" value="a:5,b:9,c:12,d:13,e:16,f:45">
+    <button class="btn-ghost" id="btnApply">应用</button>
+    <button class="btn-ghost" id="btnRandom">🎲 随机</button>
+    <div class="speed-group">
+      <button data-speed="600" id="spSlow" class="btn-ghost">慢</button>
+      <button data-speed="200" id="spMid" class="btn-ghost active">中</button>
+      <button data-speed="40" id="spFast" class="btn-ghost">快</button>
+    </div>
+    <button class="btn-primary" id="btnPlay">▶ 播放</button>
+    <button class="btn-ghost" id="btnStep">单步</button>
+    <button class="btn-ghost" id="btnReset">↺ 重置</button>
+  </div>
+
+  <div class="stats">
+    <span>字符数 <b id="statN">0</b></span>
+    <span>森林中树数 <b id="statTrees">0</b></span>
+    <span>合并次数 <b id="statMerge">0</b></span>
+    <span>WPL <b id="statWpl">—</b></span>
+    <span>平均码长 <b id="statAvg">—</b></span>
+    <span>等长编码 <b id="statEq">—</b></span>
+  </div>
+
+  <div class="msg" id="msg">就绪</div>
+
+  <div class="stage"><svg id="svg" viewBox="0 0 600 240" preserveAspectRatio="xMidYMid meet"></svg></div>
+
+  <div class="panel" id="panel"></div>
+
+  <div class="legend">
+    <span><i style="background:#6366f1"></i>内部结点（权值）</span>
+    <span><i style="background:#fff;border:1px solid #94a3b8"></i>叶结点（字符:频度）</span>
+    <span><i style="background:#f59e0b"></i>本步选出的最小两棵树</span>
+    <span><i style="background:#10b981"></i>新合并出的结点</span>
+    <span><i style="background:#8b5cf6"></i>当前字符的编码路径</span>
+  </div>
+
+  <div class="desc">
+    <b>构造规则：</b>每个字符是一棵只有根的树，权值为其频度；反复<b>取森林中权值最小的两棵树合并</b>（新根权值 = 两子树根权值之和），直到森林只剩一棵树。n 个叶子的哈夫曼树共 <b>2n−1</b> 个结点，<b>没有度为 1 的结点</b>。<br>
+    <b>为什么 WPL 最小：</b>WPL = Σwᵢlᵢ。贪心每次把最小的两个权值放到最深的位置，等价于让<b>频度大的字符离根更近</b>；由交换论证可知任何最优树都含"最小两权值互为兄弟且最深"的结构，所以每步贪心都不会错过最优解（典型贪心算法）。<br>
+    <b>前缀码：</b>任一编码都不是另一编码的前缀。哈夫曼树的字符只出现在<b>叶子</b>上，从根读一位走一步，落到叶子即确定一个字符，译码无歧义。<b>平均码长 = WPL / Σwᵢ</b>；等长编码需 ⌈log₂n⌉ 位，频度分布越不均，哈夫曼编码优势越大。
+  </div>
+</div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+/* ===== PURE-CORE-START ===== */
+const MAX_CHARS = 12;
+
+/* 解析 "a:5,b:9" 形式的输入 */
+function parseInput(text) {
+  const raw = String(text == null ? "" : text).trim();
+  if (!raw) return { leaves: [], error: "请输入数据，例如 a:5,b:9,c:12" };
+  const tokens = raw.split(/[,，;；\s]+/).filter(Boolean);
+  const map = new Map();
+  let merged = 0;
+  for (let i = 0; i < tokens.length; i++) {
+    const tk = tokens[i];
+    const m = tk.match(/^(.+?)\s*[:：=]\s*(-?\d+)$/);
+    if (!m) return { leaves: [], error: "无法识别「" + tk + "」，请使用 字符:频度 的格式（如 a:5）" };
+    const ch = m[1].trim();
+    const w = parseInt(m[2], 10);
+    if (!ch) return { leaves: [], error: "「" + tk + "」缺少字符" };
+    if (ch.length > 2) return { leaves: [], error: "字符「" + ch + "」过长，请使用 1~2 个字符" };
+    if (!(w >= 1)) return { leaves: [], error: "字符「" + ch + "」的频度必须是 ≥1 的整数" };
+    if (w > 9999) return { leaves: [], error: "频度最大支持 9999" };
+    if (map.has(ch)) { map.set(ch, map.get(ch) + w); merged++; }
+    else {
+      if (map.size >= MAX_CHARS) return { leaves: [], error: "最多支持 " + MAX_CHARS + " 个不同字符" };
+      map.set(ch, w);
+    }
+  }
+  if (map.size < 2) return { leaves: [], error: "至少需要 2 个不同字符" };
+  const leaves = [];
+  map.forEach((w, ch) => leaves.push({ ch: ch, w: w }));
+  return { leaves: leaves, error: null, merged: merged };
+}
+
+/* 构造哈夫曼树 + 逐帧步骤（纯函数，不接触 DOM） */
+function buildHuffman(leaves) {
+  let uid = 0;
+  const nodes = [];
+  const roots = [];
+  for (let i = 0; i < leaves.length; i++) {
+    const n = { id: uid++, w: leaves[i].w, ch: leaves[i].ch, left: null, right: null, depth: 0, code: null };
+    nodes.push(n);
+    roots.push(n);
+  }
+  const sortRoots = () => roots.sort((a, b) => (a.w - b.w) || (a.id - b.id));
+  sortRoots();
+  const snap = () => roots.map((r) => r.id);
+  const forestW = () => roots.reduce((s, r) => s + r.w, 0);
+  const steps = [];
+  steps.push({
+    kind: "init", roots: snap(), sel: [], merged: null, labels: false,
+    msg: "初始森林：" + roots.length + " 棵单结点树（每个字符一棵），按权值从小到大排列。总权值 " + forestW() + "。"
+  });
+  let merges = 0;
+  while (roots.length > 1) {
+    const a = roots[0], b = roots[1];
+    steps.push({
+      kind: "select", roots: snap(), sel: [a.id, b.id], merged: null, labels: false,
+      msg: "选出森林中权值最小的两棵树：" + a.w + (a.ch ? "(" + a.ch + ")" : "") + " 和 " + b.w + (b.ch ? "(" + b.ch + ")" : "") + "。"
+    });
+    const nn = { id: uid++, w: a.w + b.w, ch: null, left: a, right: b, depth: 0, code: null };
+    nodes.push(nn);
+    roots.splice(0, 2);
+    roots.push(nn);
+    sortRoots();
+    merges++;
+    steps.push({
+      kind: "merge", roots: snap(), sel: [], merged: nn.id, labels: false,
+      msg: "合并成一棵新树：新根权值 = " + a.w + " + " + b.w + " = " + nn.w + "，把新树放回森林重新排序。森林中现有 " + roots.length + " 棵树。"
+    });
+  }
+  const root = roots[0];
+  (function setDepth(n, d) { if (!n) return; n.depth = d; setDepth(n.left, d + 1); setDepth(n.right, d + 1); })(root, 0);
+
+  steps.push({
+    kind: "label", roots: [root.id], sel: [], merged: null, labels: true,
+    msg: "森林中只剩一棵树 —— 哈夫曼树构造完成。约定：每个内部结点的左分支标 0，右分支标 1。"
+  });
+
+  const codes = [];
+  (function walk(n, code, path) {
+    if (!n) return;
+    if (!n.left && !n.right) { n.code = code || "0"; codes.push({ ch: n.ch, w: n.w, code: n.code, len: n.depth, path: path.slice() }); return; }
+    if (n.left) walk(n.left, code + "0", path.concat([n.id, n.left.id]));
+    if (n.right) walk(n.right, code + "1", path.concat([n.id, n.right.id]));
+  })(root, "", []);
+
+  const order = new Map();
+  leaves.forEach((l, i) => order.set(l.ch, i));
+  codes.sort((x, y) => order.get(x.ch) - order.get(y.ch));
+
+  const table = [];
+  for (let i = 0; i < codes.length; i++) {
+    const c = codes[i];
+    table.push({ ch: c.ch, w: c.w, code: c.code, len: c.len });
+    steps.push({
+      kind: "code", roots: [root.id], sel: [], merged: null, labels: true, path: c.path,
+      table: table.map((t) => ({ ch: t.ch, w: t.w, code: t.code, len: t.len })),
+      msg: "字符 " + c.ch + "（频度 " + c.w + "）：从根出发，沿紫色路径读边上的标号 → 编码 " + c.code + "，码长 " + c.len + " 位（= 该叶结点深度 " + c.len + "）。"
+    });
+  }
+
+  const totalW = codes.reduce((s, c) => s + c.w, 0);
+  const wpl = codes.reduce((s, c) => s + c.w * c.len, 0);
+  const avg = totalW ? wpl / totalW : 0;
+  const eqLen = Math.max(1, Math.ceil(Math.log(codes.length) / Math.LN2));
+  const eqBits = eqLen * totalW;
+  const allTable = table.map((t) => ({ ch: t.ch, w: t.w, code: t.code, len: t.len }));
+  steps.push({
+    kind: "done", roots: [root.id], sel: [], merged: null, labels: true, table: allTable,
+    wpl: wpl, avg: avg, eqLen: eqLen, totalW: totalW, eqBits: eqBits,
+    msg: "全部编码完成：WPL = " + wpl + "，平均码长 = " + wpl + " / " + totalW + " = " + avg.toFixed(3) +
+         " 位；等长编码需 " + eqLen + " 位，共 " + eqBits + " 位，哈夫曼编码共 " + wpl + " 位，节省 " +
+         (eqBits ? ((1 - wpl / eqBits) * 100).toFixed(1) : "0") + "%。"
+  });
+
+  return { nodes: nodes, root: root, codes: codes, steps: steps, wpl: wpl, avg: avg, eqLen: eqLen, totalW: totalW, eqBits: eqBits, merges: merges };
+}
+/* ===== PURE-CORE-END ===== */
+
+/* ---------- 布局 ---------- */
+const SLOT = 52, PAD_X = 16, PAD_Y = 22, NODE_R = 15, LEAF_H = 25;
+let LEVEL = 56, VIEW_W = 600, VIEW_H = 240;
+
+function leafLabel(n) { return n.ch + ":" + n.w; }
+function leafW(n) { return Math.max(44, 16 + leafLabel(n).length * 9); }
+
+/* 返回 {pos, minX, maxX, maxY}：各棵树的根都在 y=0，叶子按槽位横向排开 */
+function layoutForest(roots) {
+  let slot = 0;
+  const pos = new Map();
+  function place(n, depth) {
+    if (!n.left && !n.right) {
+      n._x = slot * SLOT; n._y = depth * LEVEL; slot += 1;
+    } else {
+      if (n.left) place(n.left, depth + 1);
+      if (n.right) place(n.right, depth + 1);
+      const lx = n.left ? n.left._x : 0, rx = n.right ? n.right._x : 0;
+      n._x = (lx + rx) / 2; n._y = depth * LEVEL;
+    }
+    pos.set(n.id, { x: n._x, y: n._y });
+  }
+  for (let i = 0; i < roots.length; i++) { place(roots[i], 0); if (i < roots.length - 1) slot += 0.7; }
+
+  let minX = Infinity, maxX = -Infinity, maxY = 0;
+  for (let i = 0; i < roots.length; i++) {
+    (function walk(n) {
+      const p = pos.get(n.id);
+      const half = (!n.left && !n.right) ? leafW(n) / 2 : NODE_R + 3;
+      if (p.x - half < minX) minX = p.x - half;
+      if (p.x + half > maxX) maxX = p.x + half;
+      if (p.y + LEAF_H / 2 > maxY) maxY = p.y + LEAF_H / 2;
+      if (n.left) walk(n.left);
+      if (n.right) walk(n.right);
+    })(roots[i]);
+  }
+  if (!isFinite(minX)) { minX = 0; maxX = 100; }
+  return { pos: pos, minX: minX, maxX: maxX, maxY: maxY };
+}
+
+/* 固定 viewBox：所有帧共用同一比例，避免播放时结点忽大忽小 */
+function computeView() {
+  let md = 0;
+  NODE_MAP.forEach(function (n) { if (!n.left && !n.right && n.depth > md) md = n.depth; });
+  LEVEL = md <= 4 ? 56 : Math.max(28, Math.floor(176 / md));
+  let w = 220, h = 130;
+  for (let i = 0; i < STEPS.length; i++) {
+    const roots = STEPS[i].roots.map((id) => NODE_MAP.get(id)).filter(Boolean);
+    const b = layoutForest(roots);
+    if (b.maxX - b.minX + PAD_X * 2 > w) w = b.maxX - b.minX + PAD_X * 2;
+    if (b.maxY + PAD_Y * 2 > h) h = b.maxY + PAD_Y * 2;
+  }
+  VIEW_W = w; VIEW_H = h;
+}
+
+function collectEdges(root, out) {
+  if (!root) return;
+  if (root.left) { out.push({ p: root, c: root.left, label: "0" }); collectEdges(root.left, out); }
+  if (root.right) { out.push({ p: root, c: root.right, label: "1" }); collectEdges(root.right, out); }
+}
+
+function renderFrame() {
+  const fr = STEPS[IDX];
+  if (!fr) return;
+  const roots = fr.roots.map((id) => NODE_MAP.get(id)).filter(Boolean);
+  const lay = layoutForest(roots);
+  const pos = lay.pos;
+  const edges = [];
+  roots.forEach((r) => collectEdges(r, edges));
+
+  const ox = (VIEW_W - (lay.maxX - lay.minX)) / 2 - lay.minX, oy = PAD_Y;
+  const X = (x) => x + ox, Y = (y) => y + oy;
+
+  const selSet = new Set(fr.sel || []);
+  const pathSet = new Set(fr.path || []);
+  const isPathEdge = (e) => pathSet.has(e.p.id) && pathSet.has(e.c.id);
+
+  let s = "";
+  // 先画边
+  for (let i = 0; i < edges.length; i++) {
+    const e = edges[i];
+    const p1 = pos.get(e.p.id), p2 = pos.get(e.c.id);
+    const onPath = isPathEdge(e);
+    const stroke = onPath ? "#8b5cf6" : (e.p.id === fr.merged || e.c.id === fr.merged ? "#10b981" : "#cbd5e1");
+    const width = onPath ? 3 : 2;
+    s += '<line x1="' + X(p1.x) + '" y1="' + Y(p1.y) + '" x2="' + X(p2.x) + '" y2="' + Y(p2.y) +
+         '" stroke="' + stroke + '" stroke-width="' + width + '" stroke-linecap="round"/>';
+    if (fr.labels) {
+      const mx = (p1.x + p2.x) / 2, my = (p1.y + p2.y) / 2;
+      s += '<text x="' + X(mx) + '" y="' + (Y(my) + 4) + '" font-size="12" font-weight="700" text-anchor="middle" ' +
+           'fill="' + (onPath ? "#7c3aed" : "#475569") + '" stroke="#fff" stroke-width="3" paint-order="stroke">' + e.label + "</text>";
+    }
+  }
+  // 再画结点
+  for (let i = 0; i < roots.length; i++) {
+    (function walkNode(n) {
+      const p = pos.get(n.id);
+      const isLeaf = !n.left && !n.right;
+      const onPath = pathSet.has(n.id);
+      const isSel = selSet.has(n.id);
+      let fill = isLeaf ? "#ffffff" : "#eef2ff";
+      let stroke = isLeaf ? "#94a3b8" : "#6366f1";
+      let color = isLeaf ? "#334155" : "#4338ca";
+      if (isSel) { fill = "#fef3c7"; stroke = "#f59e0b"; color = "#b45309"; }
+      else if (onPath) { fill = "#ede9fe"; stroke = "#8b5cf6"; color = "#6d28d9"; }
+      else if (n.id === fr.merged) { fill = "#d1fae5"; stroke = "#10b981"; color = "#047857"; }
+      if (isLeaf) {
+        const w = leafW(n);
+        s += '<rect x="' + (X(p.x) - w / 2) + '" y="' + (Y(p.y) - LEAF_H / 2) + '" width="' + w + '" height="' + LEAF_H +
+             '" rx="7" fill="' + fill + '" stroke="' + stroke + '" stroke-width="2"/>';
+        s += '<text x="' + X(p.x) + '" y="' + (Y(p.y) + 4) + '" font-size="12" font-weight="600" text-anchor="middle" fill="' + color + '">' + esc(leafLabel(n)) + "</text>";
+      } else {
+        s += '<circle cx="' + X(p.x) + '" cy="' + Y(p.y) + '" r="' + NODE_R + '" fill="' + fill + '" stroke="' + stroke + '" stroke-width="2"/>';
+        s += '<text x="' + X(p.x) + '" y="' + (Y(p.y) + 4) + '" font-size="12" font-weight="700" text-anchor="middle" fill="' + color + '">' + n.w + "</text>";
+      }
+      if (n.left) walkNode(n.left);
+      if (n.right) walkNode(n.right);
+    })(roots[i]);
+  }
+  $("svg").innerHTML = s;
+
+  // 统计
+  $("statN").textContent = CHAR_N;
+  $("statTrees").textContent = fr.roots.length;
+  let mergesDone = 0;
+  for (let i = 0; i <= IDX; i++) if (STEPS[i].kind === "merge") mergesDone++;
+  $("statMerge").textContent = mergesDone;
+  if (fr.kind === "done") {
+    $("statWpl").textContent = fr.wpl;
+    $("statAvg").textContent = fr.avg.toFixed(3) + " 位";
+    $("statEq").textContent = fr.eqLen + " 位";
+  } else {
+    $("statWpl").textContent = "—";
+    $("statAvg").textContent = "—";
+    $("statEq").textContent = "—";
+  }
+
+  // 说明
+  const msgEl = $("msg");
+  msgEl.className = "msg";
+  msgEl.innerHTML = '<span class="idx">第 ' + (IDX + 1) + "/" + STEPS.length + ' 步</span> · ' + esc(fr.msg);
+
+  // 面板
+  const panel = $("panel");
+  if (fr.table && fr.table.length) {
+    let h = "";
+    for (let i = 0; i < fr.table.length; i++) {
+      const t = fr.table[i];
+      h += '<span class="chip code">' + esc(t.ch) + ": <b>" + esc(t.code) + "</b> · " + t.w + "×" + t.len + "=" + (t.w * t.len) + "</span>";
+    }
+    panel.innerHTML = h + '<div class="wpl" id="wplLine"></div>';
+    if (fr.kind === "done") {
+      const parts = fr.table.map((t) => t.w + "×" + t.len).join(" + ");
+      $("wplLine").innerHTML = "<b>WPL</b> = " + parts + " = <b>" + fr.wpl + "</b>，" +
+        "平均码长 = " + fr.wpl + "/" + fr.totalW + " = <b>" + fr.avg.toFixed(3) + "</b> 位 ；" +
+        "等长编码 " + fr.eqLen + " 位 × " + fr.totalW + " = " + fr.eqBits + " 位，" +
+        "哈夫曼编码 " + fr.wpl + " 位，<b>节省 " + ((1 - fr.wpl / fr.eqBits) * 100).toFixed(1) + "%</b>";
+    } else {
+      $("wplLine").innerHTML = "已生成 " + fr.table.length + "/" + CHAR_N + " 个字符的编码…";
+    }
+  } else {
+    let h = '<span style="color:#64748b">当前森林：</span>';
+    for (let i = 0; i < fr.roots.length; i++) {
+      const n = NODE_MAP.get(fr.roots[i]);
+      h += '<span class="chip">' + esc(n.ch ? n.ch + ":" + n.w : String(n.w)) + "</span>";
+    }
+    panel.innerHTML = h;
+  }
+
+  $("btnPlay").textContent = playing ? "⏸ 暂停" : "▶ 播放";
+  $("btnStep").disabled = IDX >= STEPS.length - 1;
+  $("btnPlay").disabled = IDX >= STEPS.length - 1;
+}
+
+/* ---------- 状态 ---------- */
+let STEPS = [], NODE_MAP = new Map(), IDX = 0, CHAR_N = 0;
+let playing = false, timer = null, speed = 200;
+
+function loadData(text, fromPreset) {
+  const r = parseInput(text);
+  const msgEl = $("msg");
+  if (r.error) {
+    STEPS = []; NODE_MAP = new Map(); IDX = 0;
+    $("svg").innerHTML = "";
+    $("panel").innerHTML = "";
+    $("statN").textContent = "0"; $("statTrees").textContent = "0"; $("statMerge").textContent = "0";
+    $("statWpl").textContent = "—"; $("statAvg").textContent = "—"; $("statEq").textContent = "—";
+    msgEl.className = "msg bad";
+    msgEl.textContent = "⚠ " + r.error;
+    $("btnPlay").disabled = true; $("btnStep").disabled = true;
+    return false;
+  }
+  const built = buildHuffman(r.leaves);
+  STEPS = built.steps;
+  NODE_MAP = new Map(built.nodes.map((n) => [n.id, n]));
+  CHAR_N = r.leaves.length;
+  IDX = 0;
+  computeView();
+  $("svg").setAttribute("viewBox", "0 0 " + VIEW_W.toFixed(1) + " " + VIEW_H.toFixed(1));
+  $("btnPlay").disabled = false; $("btnStep").disabled = false;
+  stopPlay();
+  renderFrame();
+  if (r.merged > 0) {
+    $("msg").innerHTML = '<span class="idx">提示</span> · 有 ' + r.merged + " 个字符重复出现，已把它们的频度相加合并。";
+  }
+  $("headInfo").textContent = r.leaves.length + " 个字符 · 总权值 " + built.totalW + " · WPL 最小 · 前缀码";
+  if (fromPreset) $("dataInput").value = text;
+  return true;
+}
+
+function stopPlay() { playing = false; if (timer) { clearTimeout(timer); timer = null; } }
+
+function stepForward() {
+  if (IDX < STEPS.length - 1) { IDX++; renderFrame(); return true; }
+  return false;
+}
+
+function tick() {
+  if (!playing) return;
+  if (!stepForward()) { stopPlay(); renderFrame(); return; }
+  timer = setTimeout(tick, speed);
+}
+
+/* ---------- 事件 ---------- */
+$("presetSelect").onchange = () => {
+  $("dataInput").value = $("presetSelect").value;
+  loadData($("presetSelect").value, false);
+};
+$("btnApply").onclick = () => {
+  const ok = loadData($("dataInput").value, false);
+  if (ok) $("presetSelect").selectedIndex = -1;
+};
+$("dataInput").onkeydown = (e) => { if (e.key === "Enter") $("btnApply").onclick(); };
+$("btnRandom").onclick = () => {
+  const pool = "abcdefghijklmnopqrstuvwxyz".split("");
+  const n = 4 + Math.floor(Math.random() * 5);
+  const picked = [];
+  while (picked.length < n) {
+    const c = pool[Math.floor(Math.random() * pool.length)];
+    if (picked.indexOf(c) < 0) picked.push(c);
+  }
+  picked.sort();
+  const text = picked.map((c) => c + ":" + (1 + Math.floor(Math.random() * 40))).join(",");
+  loadData(text, false);
+  $("dataInput").value = text;
+  $("presetSelect").selectedIndex = -1;
+};
+$("btnPlay").onclick = () => {
+  if (playing) { stopPlay(); renderFrame(); return; }
+  if (IDX >= STEPS.length - 1) { IDX = 0; renderFrame(); }
+  playing = true;
+  renderFrame();
+  timer = setTimeout(tick, speed);
+};
+$("btnStep").onclick = () => { stopPlay(); stepForward(); renderFrame(); };
+$("btnReset").onclick = () => { stopPlay(); if (STEPS.length) { IDX = 0; renderFrame(); } };
+document.querySelectorAll(".speed-group button").forEach((b) => {
+  b.onclick = () => {
+    document.querySelectorAll(".speed-group button").forEach((x) => x.classList.remove("active"));
+    b.classList.add("active");
+    speed = +b.dataset.speed;
+  };
+});
+document.addEventListener("keydown", (e) => {
+  const t = e.target && e.target.tagName;
+  if (t === "INPUT" || t === "SELECT" || t === "TEXTAREA") return;
+  if (e.key === "ArrowRight") { stopPlay(); stepForward(); renderFrame(); }
+  if (e.key === " ") { e.preventDefault(); $("btnPlay").onclick(); }
+});
+
+/* init */
+loadData($("dataInput").value, false);
+</script>
+</body>
+</html>

@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>分块查找（索引顺序查找）可视化</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f8fafc; color: #1e293b; padding: 16px; }
+  .wrap { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+  .head { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; }
+  .head h1 { font-size: 16px; font-weight: 600; }
+  .head .info { font-size: 12px; opacity: .92; }
+  .controls { padding: 8px 16px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-bottom: 1px solid #eef2f7; }
+  .controls label { font-size: 12px; color: #64748b; }
+  select, input[type=number] { font-size: 13px; padding: 4px 8px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; outline: none; color: #1e293b; }
+  input[type=number] { width: 72px; }
+  select:focus, input:focus { border-color: #6366f1; }
+  button { font-size: 13px; padding: 5px 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all .15s; }
+  .btn-primary { background: #6366f1; color: #fff; }
+  .btn-primary:hover { background: #4f46e5; }
+  .btn-ghost { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+  .btn-ghost:hover { background: #e2e8f0; }
+  .presets { display: flex; gap: 5px; flex-wrap: wrap; }
+  .presets button { font-size: 11.5px; padding: 3px 8px; }
+  .spacer { flex: 1; }
+  .speed-group { display: flex; gap: 4px; }
+  .speed-group button { padding: 4px 10px; font-size: 12px; }
+  .speed-group .active { background: #6366f1; color: #fff; border-color: #6366f1; }
+  .stats { padding: 7px 16px; display: flex; gap: 16px; font-size: 12px; color: #64748b; border-bottom: 1px solid #eef2f7; flex-wrap: wrap; }
+  .stats b { color: #1e293b; font-variant-numeric: tabular-nums; }
+  .stats .asl b { color: #4f46e5; }
+  .stage { padding: 8px 14px 4px; }
+  svg { display: block; width: 100%; }
+  .keybar { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; font-size: 11px; color: #64748b; padding: 3px 0 6px; min-height: 26px; }
+  .chip { display: inline-block; padding: 1px 6px; border-radius: 6px; background: #f1f5f9; color: #64748b; font-family: ui-monospace, Consolas, monospace; font-size: 11px; }
+  .chip.key { background: #e0e7ff; color: #3730a3; font-weight: 700; }
+  .chip.ok { background: #ecfdf5; color: #065f46; font-weight: 600; }
+  .chip.bad { background: #fef2f2; color: #b91c1c; font-weight: 600; }
+  .arrow { color: #cbd5e1; }
+  .err { font-size: 12px; color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 10px 12px; line-height: 1.7; }
+  .note { margin: 0 14px 6px; padding: 6px 10px; border-left: 3px solid #6366f1; background: #f8fafc; border-radius: 0 8px 8px 0; font-size: 12px; color: #334155; line-height: 1.6; min-height: 32px; }
+  .legend { padding: 2px 14px 6px; display: flex; gap: 14px; font-size: 11px; color: #64748b; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+  .desc { padding: 8px 16px 14px; border-top: 1px solid #eef2f7; font-size: 11.5px; color: #475569; line-height: 1.7; }
+  .desc b { color: #334155; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>🔍 分块查找（索引顺序查找）可视化</h1>
+    <span class="info" id="headInfo">—</span>
+  </div>
+
+  <div class="controls">
+    <label>块大小 s</label><input type="number" id="sIn" value="4" min="1" max="12">
+    <label>待查关键字 k</label><input type="number" id="keyIn" value="55">
+    <label>索引表查找</label>
+    <select id="modeSel">
+      <option value="seq">顺序查找</option>
+      <option value="bin">折半查找</option>
+    </select>
+    <button class="btn-ghost" id="btnApply">✓ 重新查找</button>
+    <span style="font-size:11px;color:#94a3b8">（数据表按 s 自动重新分块，始终保证块间有序、块内乱序）</span>
+  </div>
+
+  <div class="controls">
+    <span class="presets" id="presets"></span>
+  </div>
+
+  <div class="controls">
+    <span style="font-size:11.5px;color:#94a3b8">改 s / k 后点「重新查找」</span>
+    <span class="spacer"></span>
+    <div class="speed-group">
+      <button class="btn-ghost" data-speed="900">慢</button>
+      <button class="btn-ghost active" data-speed="450">中</button>
+      <button class="btn-ghost" data-speed="120">快</button>
+    </div>
+    <button class="btn-primary" id="btnPlay">▶ 播放</button>
+    <button class="btn-ghost" id="btnStep">单步</button>
+    <button class="btn-ghost" id="btnReset">↺ 重置</button>
+  </div>
+
+  <div class="stats">
+    <span>表规模 <b id="statSize">—</b></span>
+    <span>索引表 <b id="statMode">—</b></span>
+    <span>本次比较次数 <b id="statCmp">0</b></span>
+    <span>当前阶段 <b id="statPhase">就绪</b></span>
+  </div>
+  <div class="stats">
+    <span class="asl">ASL<sub>成功</sub> <b id="statSucc">—</b></span>
+    <span class="asl">ASL<sub>失败</sub> <b id="statFail">—</b></span>
+    <span>ASL<sub>本表精确</sub> <b id="statExact">—</b></span>
+  </div>
+
+  <div class="stage">
+    <div class="keybar" id="keybar"></div>
+    <div id="chart"></div>
+  </div>
+
+  <div class="note" id="note"></div>
+
+  <div class="legend">
+    <span><i style="background:#fde68a;border:1px solid #f59e0b"></i>当前比较的元素</span>
+    <span><i style="background:#fef3c7;border:1px solid #fcd34d"></i>已比较 · 被排除</span>
+    <span><i style="background:#ede9fe;border:1px solid #8b5cf6"></i>确定的目标块 / 索引项</span>
+    <span><i style="background:#d1fae5;border:1px solid #10b981"></i>查找成功（命中）</span>
+    <span><i style="background:#fee2e2;border:1px solid #fca5a5"></i>查找失败（整块已比完）</span>
+    <span><i style="background:#fff;border:1px solid #e2e8f0"></i>未参与比较</span>
+    <span>索引项：上 = 该块最大关键字，下 = 该块起始下标</span>
+  </div>
+
+  <div class="desc">
+    <b>基本思想：</b>分块查找（又称索引顺序查找）是顺序查找与折半查找的折中。把长度为 n 的查找表分成 b 块、每块 s 个元素（n = b·s），要求<b>块间有序、块内无序</b>——后一块中的所有元素都大于前一块中的最大元素，但每块内部可以是乱的。为每块建立一个<b>索引项</b>（该块的最大关键字 + 该块的起始下标），所有索引项按最大关键字递增排列，构成<b>索引表</b>（索引顺序表）。<br>
+    <b>查找分两步：</b>① <b>确定所在块</b>：在索引表中找到第一个「最大关键字 ≥ k」的索引项，因为块间有序，这一步一旦命中就能断定 k 属于哪一块（索引表本身有序，所以既可以顺序查找，也可以折半查找）；② <b>块内查找</b>：在该块内用<b>顺序查找</b>，逐个比较。两次查找的级别不同：索引表可以折半，块内只能顺序——<b>块内无序，即使遇到的元素已经比 k 大也不能停</b>，必须比完整块才能判定"该块中没有 k"。<br>
+    <b>ASL 推导（索引表顺序查找）：</b>设等概率假设（每个元素被查概率 1/n，每个索引项被选中概率 1/b）。<br>
+    · 索引表部分：比较第 1、2、…、b 项的次数分别是 1、2、…、b，成功时的平均比较次数 = (1+2+…+b)/b = <b>(b+1)/2</b>；<br>
+    · 块内部分：块内顺序查找命中第 1、2、…、s 个元素的次数分别是 1、2、…、s，平均 = (1+2+…+s)/s = <b>(s+1)/2</b>；<br>
+    · 相加得 <b>ASL<sub>成功</sub> = (b+1)/2 + (s+1)/2 = (b+s)/2 + 1</b>（因为 n = b·s，也可写成 ½(n/s + s) + 1）。<br>
+    <b>最优分块：</b>把 b = n/s 代入，ASL = (n/s + s)/2 + 1。由均值不等式 n/s + s ≥ 2√(n/s·s) = 2√n，当且仅当 <b>s = b = √n</b> 时取等号，此时 <b>ASL<sub>min</sub> = √n + 1</b>。例：n = 10000、s = b = 100 时 ASL = 101，而顺序查找要 (10000+1)/2 ≈ 5000 次。<br>
+    <b>ASL 失败（近似）：</b>失败时索引表仍要比较到"第一个最大关键字 ≥ k"的索引项（顺序查找平均 (b+1)/2 次），进入该块后又必须把整块比完 s 次才能断定不存在，故 <b>ASL<sub>失败</sub> ≈ (b+1)/2 + s</b>。特例：当 k 比所有块的最大关键字都大时，索引表比完 b 次即可判定失败，<b>连块都不进入</b>（演示里选"查找失败示例"或把 k 调大即可看到这两种失败）。<br>
+    <b>索引表改用折半查找：</b>索引部分由 (b+1)/2 降到 ⌈log₂(b+1)⌉ 量级（教材也写作平均约 log₂(b+1) − 1 的近似形式，以上界写法为准），于是 ASL<sub>成功</sub> = ⌈log₂(b+1)⌉ + (s+1)/2，ASL<sub>失败</sub> ≈ ⌈log₂(b+1)⌉ + s。注意折半<b>只能优化"确定块"这一步</b>，块内那 (s+1)/2 次一分也省不掉——所以分块查找的优化重点是"让 b 和 s 尽量接近 √n"。<br>
+    <b>适用条件：</b>① 表必须<b>分块有序</b>（块间有序），块内可以无序；② 通常要求顺序存储（便于按下标定位到块首）；③ 特别适合"既要查得快、又要能动态插删"的场景：插入时只需把元素放进合适的块、必要时重建索引，不必像折半查找那样移动大量元素。<br>
+    <b>与其它查找方法的对比：</b>顺序查找 ASL = (n+1)/2，不要求有序、链表也能用，但慢；折半查找 ASL ≈ log₂(n+1) − 1，最快，但要求整表有序 + 顺序存储，插删代价大；分块查找 ASL 介于两者之间（最优 √n + 1），插删较方便；二叉排序树平衡时 ≈ log₂n；散列表理想情况 ≈ 1。典型考法：n = 400、每块 10 个元素（b = 40），用顺序查找确定块，则 ASL<sub>成功</sub> = (40+10)/2 + 1 = <b>26</b>；换成折半查找确定块则为 ⌈log₂41⌉ + (10+1)/2 = 6 + 5.5 = 11.5。<br>
+    <b>演示说明：</b>前三个预设（n = 12 / n = 15）刻意采用正文例题那张表（块内顺序也一样），可以逐格对照正文；其余预设里每块内部元素的排列由固定种子的伪随机打乱（体现「块内无序」，每次打开页面都一样），但每块的元素集合与最大关键字不变。<b>查某个具体关键字比较几次，取决于它在块内的位置</b>；而 <b>ASL<sub>本表精确</sub></b> 是把当前表里每个元素的比较次数（索引次数 + 块内位置）以及每种失败情形逐一带入统计出的平均值：索引表顺序查找时它与教材公式完全相等（可以拿来验算公式），索引表折半查找时它会略小于 ⌈log₂(b+1)⌉ 上界公式——因为折半的真实平均比较次数约在 log₂(b+1) − 1 与 ⌈log₂(b+1)⌉ 之间，考试按所用教材的写法作答即可（正文例题采用的是 ⌈log₂(b+1)⌉ 形式）。
+  </div>
+</div>
+
+<script>
+"use strict";
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+
+  var SEED = 20240501;
+
+  /* ---------------- 小工具 ---------------- */
+
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      var t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  function shuffle(arr, rnd) {
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(rnd() * (i + 1));
+      var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+  function nat(n) { var a = [], i; for (i = 1; i <= n; i++) a.push(i); return a; }
+  function ceilLog2(x) { var k = 0, p = 1; while (p < x) { p *= 2; k++; } return k; }
+  function fmt(x) {
+    var r = Math.round(x * 100) / 100;
+    return String(r);
+  }
+  function has(arr, v) { return arr.indexOf(v) >= 0; }
+
+  /* ---------------- 数据表 / 分块 ---------------- */
+
+  // sorted 升序主表 → 按块大小 s 切块（每块最大值 = 该块最后一个元素）
+  function makeBlocks(sorted, s) {
+    var blocks = [], n = sorted.length;
+    for (var i = 0; i < n; i += s) {
+      var vals = sorted.slice(i, Math.min(i + s, n));
+      blocks.push({
+        start: i,
+        values: vals,
+        len: vals.length,
+        max: vals[vals.length - 1]
+      });
+    }
+    return blocks;
+  }
+
+  // 块内顺序打乱（体现「块内无序」）：种子固定 ⇒ 每次打开页面看到的表一样。
+  // order 为预设自带的块内排列（与正文例题一致），仅当块大小吻合且元素集合一致时才采用。
+  function displayBlocks(sorted, s, seed, order) {
+    var blocks = makeBlocks(sorted, s), i, j;
+    var useOrder = !!(order && order.s === s && order.blocks && order.blocks.length === blocks.length);
+    if (useOrder) {
+      for (i = 0; i < blocks.length; i++) {
+        var a = order.blocks[i].slice().sort(function (x, y) { return x - y; });
+        var c = blocks[i].values.slice().sort(function (x, y) { return x - y; });
+        if (a.length !== c.length) { useOrder = false; break; }
+        for (j = 0; j < a.length; j++) { if (a[j] !== c[j]) { useOrder = false; break; } }
+        if (!useOrder) break;
+      }
+    }
+    for (i = 0; i < blocks.length; i++) {
+      if (useOrder) {
+        blocks[i].values = order.blocks[i].slice();
+      } else {
+        var rnd = mulberry32(seed + i * 7919 + s * 131);
+        blocks[i].values = shuffle(blocks[i].values.slice(), rnd);
+      }
+      blocks[i].max = Math.max.apply(null, blocks[i].values);
+    }
+    return blocks;
+  }
+
+  /* ---------------- 索引表定位代价（用于 ASL 精确统计） ---------------- */
+
+  // 返回：确定第 i 块所需"索引表比较次数"（k 落在第 i 块内部的典型情形）
+  function idxCosts(cfg) {
+    var maxes = [], i;
+    for (i = 0; i < cfg.b; i++) maxes.push(cfg.blocks[i].max);
+    var out = [];
+    if (cfg.mode === "seq") {
+      for (i = 0; i < cfg.b; i++) out.push(i + 1);
+      return out;
+    }
+    for (i = 0; i < cfg.b; i++) {
+      var probe = maxes[i] - 0.5;           // 落在第 i 块范围内的典型关键字
+      var lo = 0, hi = cfg.b - 1, c = 0;
+      while (lo <= hi) {
+        var mid = (lo + hi) >> 1;
+        c++;
+        if (probe <= maxes[mid]) hi = mid - 1; else lo = mid + 1;
+      }
+      out.push(c);
+    }
+    return out;
+  }
+
+  function aslInfo(cfg) {
+    var b = cfg.b, s = cfg.s, n = cfg.n, i, p;
+    var costs = idxCosts(cfg);
+    var succSum = 0, failSum = 0;
+    for (i = 0; i < b; i++) {
+      for (p = 0; p < cfg.blocks[i].len; p++) succSum += costs[i] + (p + 1);
+      failSum += costs[i] + cfg.blocks[i].len;
+    }
+    var succF, failF, succStr, failStr;
+    if (cfg.mode === "seq") {
+      succF = (b + s) / 2 + 1;
+      succStr = "(b+s)/2+1 = (" + b + "+" + s + ")/2+1";
+      failF = (b + 1) / 2 + s;
+      failStr = "(b+1)/2+s = (" + b + "+1)/2+" + s;
+    } else {
+      var k = ceilLog2(b + 1);
+      succF = k + (s + 1) / 2;
+      succStr = "⌈log₂(b+1)⌉+(s+1)/2 = " + k + "+" + fmt((s + 1) / 2);
+      failF = k + s;
+      failStr = "⌈log₂(b+1)⌉+s = " + k + "+" + s;
+    }
+    return {
+      succF: succF, failF: failF, succStr: succStr, failStr: failStr,
+      succExact: succSum / n, failExact: failSum / b,
+      uneven: (n % s) !== 0
+    };
+  }
+
+  /* ---------------- 生成查找步骤 ---------------- */
+
+  function plan(cfg) {
+    var steps = [], blocks = cfg.blocks, b = cfg.b, key = cfg.key, i, j;
+    var idxCmp = [], cellCmp = [], cmpIdx = 0, cmpBlk = 0, target = -1, cand = -1;
+
+    function snap(o) {
+      steps.push({
+        kind: o.kind,
+        status: o.status || "searching",
+        idxCmp: idxCmp.slice(),
+        curIdx: o.curIdx === undefined ? -1 : o.curIdx,
+        target: target,
+        cellCmp: cellCmp.slice(),
+        curCell: o.curCell === undefined ? -1 : o.curCell,
+        foundCell: o.foundCell === undefined ? -1 : o.foundCell,
+        cmpIdx: cmpIdx, cmpBlk: cmpBlk, cmp: cmpIdx + cmpBlk,
+        note: o.note
+      });
+    }
+
+    snap({
+      kind: "init",
+      note: "<b>准备：</b>数据表共 n = " + cfg.n + " 个元素，按块大小 s = " + cfg.s + " 分成 b = " +
+        b + " 块。<b>块内无序、块间有序</b>——后一块的所有元素都大于前一块的最大元素（这样才能用索引定位）。" +
+        "<b>索引表</b>有 " + b + " 项，第 i 项记录「第 i 块的最大关键字 + 起始下标」。待查关键字 k = " + key +
+        "。分块查找分两步：<b>①在索引表中确定 k 所在的块 → ②在该块内顺序查找</b>。点击「播放」或「单步」开始，下面每条说明都对应一次比较。"
+    });
+
+    if (cfg.mode === "seq") {
+      for (i = 0; i < b; i++) {
+        cmpIdx++;
+        idxCmp.push(i);
+        var maxv = blocks[i].max;
+        if (key <= maxv) {
+          target = i;
+          snap({
+            kind: "index", curIdx: i,
+            note: "<b>索引表 · 顺序查找（第 " + cmpIdx + " 次比较）：</b>比较索引项 " + (i + 1) + "「最大关键字 " + maxv +
+              "」与 k = " + key + " → k " + (key === maxv ? "=" : "≤") + " " + maxv +
+              (i === 0 ? "，第 1 块就是候选" : "，而前 " + i + " 块的最大关键字都比 k 小") +
+              "，所以 k 若存在就必在第 " + (i + 1) + " 块（起始下标 " + blocks[i].start + "）。<b>索引表查找结束，共比较 " +
+              cmpIdx + " 次。</b>"
+          });
+          break;
+        }
+        snap({
+          kind: "index", curIdx: i,
+          note: "<b>索引表 · 顺序查找（第 " + cmpIdx + " 次比较）：</b>比较索引项 " + (i + 1) + "「最大关键字 " + maxv +
+            "」与 k = " + key + " → k &gt; " + maxv + "。因为第 " + (i + 1) + " 块的<b>所有</b>元素都 ≤ " + maxv +
+            "，k 不可能落在这一块，直接排除第 " + (i + 1) + " 块，继续比较下一个索引项。"
+        });
+      }
+      if (target < 0) {
+        snap({
+          kind: "result", status: "fail", curIdx: b - 1,
+          note: "<b>查找失败：</b>索引表 " + b + " 项全部比较完，k = " + key + " 比所有块的最大关键字都大（最大的是第 " + b +
+            " 块的 " + blocks[b - 1].max + "），说明 k 在整个数据表的最大元素之后，<b>连块都不需要进入</b>。本次只比较了索引表 " +
+            cmpIdx + " 次。"
+        });
+        return steps;
+      }
+      snap({
+        kind: "indexEnd",
+        note: "<b>确定目标块：</b>索引表比较 " + cmpIdx + " 次后锁定<b>第 " + (target + 1) + " 块</b>（起始下标 " +
+          blocks[target].start + "，共 " + blocks[target].len + " 个元素，最大关键字 " + blocks[target].max +
+          "）。接下来进入该块用<b>顺序查找</b>逐个比较——块内无序，不能折半，也不能因为「元素比 k 大」就停下来。"
+      });
+    } else {
+      var lo = 0, hi = b - 1, endedByEqual = false;
+      while (lo <= hi) {
+        var mid = (lo + hi) >> 1;
+        var lo0 = lo, hi0 = hi, mm = blocks[mid].max;
+        cmpIdx++;
+        idxCmp.push(mid);
+        if (key <= mm) {
+          cand = mid;
+          if (key === mm) {
+            target = mid;
+            endedByEqual = true;
+            snap({
+              kind: "index", curIdx: mid,
+              note: "<b>索引表 · 折半查找（第 " + cmpIdx + " 次比较）：</b>当前区间 [" + lo0 + ", " + hi0 + "]，取 mid = ⌊(lo+hi)/2⌋ = " +
+                mid + "（第 " + (mid + 1) + " 块），比较 k = " + key + " 与最大关键字 " + mm + " → k = " + mm +
+                "，<b>恰好等于</b>该索引项的最大关键字；又因为索引表按最大关键字递增，前面各项都更小，所以第 " + (mid + 1) +
+                " 块就是目标块，折半查找提前结束。"
+            });
+            break;
+          }
+          hi = mid - 1;
+          snap({
+            kind: "index", curIdx: mid,
+            note: "<b>索引表 · 折半查找（第 " + cmpIdx + " 次比较）：</b>当前区间 [" + lo0 + ", " + hi0 + "]，取 mid = ⌊(lo+hi)/2⌋ = " +
+              mid + "（第 " + (mid + 1) + " 块），比较 k = " + key + " 与最大关键字 " + mm + " → k ≤ " + mm +
+              "，第 " + (mid + 1) + " 块是一个<b>候选块</b>（先记下）；但左边可能还有更靠前的块也满足「最大关键字 ≥ k」，" +
+              "而目标块必须是<b>最靠前</b>的那一块，所以还要在左半区继续折半：hi = " + (mid - 1) + "，新区间 [" + lo + ", " + (mid - 1) + "]。"
+          });
+        } else {
+          lo = mid + 1;
+          snap({
+            kind: "index", curIdx: mid,
+            note: "<b>索引表 · 折半查找（第 " + cmpIdx + " 次比较）：</b>当前区间 [" + lo0 + ", " + hi0 + "]，取 mid = ⌊(lo+hi)/2⌋ = " +
+              mid + "（第 " + (mid + 1) + " 块），比较 k = " + key + " 与最大关键字 " + mm + " → k &gt; " + mm +
+              "，第 " + (mid + 1) + " 块整块都 ≤ " + mm + "，k 不可能在其中；索引表有序，左边更小，所以目标块只能在 mid 右边：lo = " +
+              (mid + 1) + "，新区间 [" + (mid + 1) + ", " + hi0 + "]。"
+          });
+        }
+      }
+      if (cand < 0) {
+        snap({
+          kind: "result", status: "fail", curIdx: b - 1,
+          note: "<b>查找失败：</b>折半查找的区间收缩为空（lo &gt; hi）且越过了最后一个索引项，说明 k = " + key +
+            " 比所有块的最大关键字都大，k 位于整个数据表的最大元素之后，<b>不需要进入任何块</b>。索引表共比较 " + cmpIdx + " 次。"
+        });
+        return steps;
+      }
+      target = cand;
+      snap({
+        kind: "indexEnd",
+        note: "<b>确定目标块：</b>折半查找比较 " + cmpIdx + " 次后" +
+          (endedByEqual ? "直接命中索引项" : "区间收缩为空（lo &gt; hi），此时 lo 指向的就是「第一个最大关键字 ≥ k」的索引项") +
+          "，锁定<b>第 " + (target + 1) + " 块</b>（起始下标 " + blocks[target].start + "，共 " + blocks[target].len +
+          " 个元素，最大关键字 " + blocks[target].max + "）。块内仍然只能用<b>顺序查找</b>。"
+      });
+    }
+
+    /* ② 块内顺序查找 */
+    var blk = blocks[target];
+    for (j = 0; j < blk.len; j++) {
+      cmpBlk++;
+      cellCmp.push(j);
+      var v = blk.values[j], gidx = blk.start + j;
+      if (v === key) {
+        snap({
+          kind: "block", curCell: j, foundCell: j, status: "ok",
+          note: "<b>块内 · 顺序查找（第 " + (cmpIdx + cmpBlk) + " 次比较 = 索引 " + cmpIdx + " + 块内 " + cmpBlk +
+            "）：</b>比较第 " + (target + 1) + " 块第 " + (j + 1) + " 个元素（数据表下标 " + gidx + "）= " + v +
+            " 与 k = " + key + " → 相等，<b>查找成功！</b>该元素位于数据表下标 " + gidx + "。本次共比较 <b>" +
+            (cmpIdx + cmpBlk) + "</b> 次。"
+        });
+        return steps;
+      }
+      snap({
+        kind: "block", curCell: j,
+        note: "<b>块内 · 顺序查找（第 " + (cmpIdx + cmpBlk) + " 次比较 = 索引 " + cmpIdx + " + 块内 " + cmpBlk +
+          "）：</b>比较第 " + (target + 1) + " 块第 " + (j + 1) + " 个元素（数据表下标 " + gidx + "）= " + v +
+          " 与 k = " + key + " → 不相等（" + (key < v ? "k 更小" : "k 更大") +
+          "）。块内无序 ⇒ 无法像折半那样排除后面一半，只能继续比较该块的下一个元素。"
+      });
+    }
+    snap({
+      kind: "result", status: "fail", curCell: blk.len - 1,
+      note: "<b>查找失败：</b>第 " + (target + 1) + " 块的 " + blk.len + " 个元素全部比较完（块内 " + cmpBlk +
+        " 次），都没有出现 k = " + key + "。因为<b>块内无序</b>，必须把整块比完才能断言「该块中没有 k」（索引表只负责缩小范围，不保证 k 一定在块内）。本次共比较 <b>" +
+        (cmpIdx + cmpBlk) + "</b> 次 = 索引表 " + cmpIdx + " 次 + 块内 " + cmpBlk + " 次。"
+    });
+    return steps;
+  }
+
+  /* ---------------- 画图 ---------------- */
+
+  var C = {
+    idle: "#ffffff", idleStroke: "#e2e8f0",
+    cur: "#fde68a", curStroke: "#f59e0b",
+    past: "#fef3c7", pastStroke: "#fcd34d",
+    tgt: "#ede9fe", tgtStroke: "#8b5cf6",
+    ok: "#d1fae5", okStroke: "#10b981",
+    bad: "#fee2e2", badStroke: "#fca5a5",
+    colBg: "#fbfcfe", colBgTgt: "#eef2ff"
+  };
+
+  function svgHtml(cfg, st) {
+    var W = 880, left = 46, right = 8;
+    var usable = W - left - right;
+    var b = cfg.b, s = cfg.s;
+    var gap = b > 24 ? 2 : 6;
+    var colW = (usable - (b - 1) * gap) / b;
+    if (colW > 74) colW = 74;
+    var total = b * colW + (b - 1) * gap;
+    var x0 = left + (usable - total) / 2;
+    var idxTop = 18, idxH = 34;
+    var cellH = s <= 6 ? 30 : (s <= 8 ? 26 : (s <= 10 ? 21 : 17));
+    var dataTop = idxTop + idxH + 16;
+    var maxLen = 1, q;
+    for (q = 0; q < b; q++) if (cfg.blocks[q].len > maxLen) maxLen = cfg.blocks[q].len;
+    var H = dataTop + maxLen * cellH + 10;
+    var idxFont = colW >= 46 ? 11 : (colW >= 30 ? 9.5 : 7.5);
+    var cellFont = colW >= 46 ? 13 : (colW >= 30 ? 11 : 8.5);
+    var showNo = colW >= 40;
+    var arrowOK = colW >= 24;
+    var p = [];
+
+    p.push('<svg viewBox="0 0 ' + W + " " + H + '" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,PingFang SC,Microsoft YaHei,sans-serif">');
+
+    // 左侧行标签
+    p.push('<text x="' + (left - 8) + '" y="' + (idxTop + 21) + '" font-size="10" fill="#94a3b8" text-anchor="end">索引表</text>');
+    p.push('<text x="' + (left - 8) + '" y="' + (dataTop + 16) + '" font-size="10" fill="#94a3b8" text-anchor="end">数据表</text>');
+
+    for (var i = 0; i < b; i++) {
+      var blk = cfg.blocks[i];
+      var x = x0 + i * (colW + gap);
+      var isTgt = (st.target === i);
+      var isCurIdx = (st.curIdx === i);
+      var wasIdx = has(st.idxCmp, i);
+      var failed = (st.status === "fail");
+
+      // 目标块的列底色
+      if (isTgt) {
+        p.push('<rect x="' + (x - 3) + '" y="' + (dataTop - 5) + '" width="' + (colW + 6) + '" height="' +
+          (blk.len * cellH + 9) + '" rx="7" fill="' + C.colBgTgt + '"/>');
+      }
+
+      // 索引项方框
+      var f = C.idle, sc = C.idleStroke, sw = 1, tcol = "#3730a3";
+      if (failed && wasIdx) { f = C.bad; sc = C.badStroke; tcol = "#b91c1c"; }
+      else if (isCurIdx) { f = C.cur; sc = C.curStroke; sw = 2; tcol = "#92400e"; }
+      else if (isTgt && st.kind !== "index" && st.kind !== "init") { f = C.tgt; sc = C.tgtStroke; sw = 2; }
+      else if (wasIdx) { f = C.past; sc = C.pastStroke; }
+      p.push('<g><title>索引项 ' + (i + 1) + '：最大关键字 ' + blk.max + '，起始下标 ' + blk.start + '</title>');
+      p.push('<rect x="' + x + '" y="' + idxTop + '" width="' + colW + '" height="' + idxH + '" rx="7" fill="' + f +
+        '" stroke="' + sc + '" stroke-width="' + sw + '"/>');
+      p.push('<text x="' + (x + colW / 2) + '" y="' + (idxTop + 14) + '" font-size="' + idxFont + '" font-weight="700" fill="' +
+        tcol + '" text-anchor="middle">' + blk.max + "</text>");
+      p.push('<text x="' + (x + colW / 2) + '" y="' + (idxTop + 27) + '" font-size="' + fmt(idxFont - 1.5) + '" fill="#94a3b8" text-anchor="middle">' +
+        (arrowOK ? "↓" : "") + blk.start + "</text>");
+      p.push("</g>");
+
+      // 目标块指示箭头
+      if (isTgt) {
+        var cx = x + colW / 2, ay = idxTop + idxH + 1;
+        p.push('<polygon points="' + cx + "," + (ay + 10) + " " + (cx - 4.5) + "," + ay + " " + (cx + 4.5) + "," + ay + '" fill="' + C.tgtStroke + '"/>');
+      }
+
+      // 块内元素
+      for (var r = 0; r < blk.len; r++) {
+        var y = dataTop + r * cellH;
+        var v = blk.values[r];
+        var isCurCell = (st.curCell === r && isTgt && st.kind === "block");
+        var isHit = (st.foundCell === r && isTgt && st.status === "ok");
+        var wasCmp = (isTgt && has(st.cellCmp, r));
+        var cf = C.idle, cs = C.idleStroke, cw = 1, ct = "#1e293b";
+        if (isHit) { cf = C.ok; cs = C.okStroke; cw = 2; ct = "#065f46"; }
+        else if (failed && wasCmp) { cf = C.bad; cs = C.badStroke; ct = "#b91c1c"; }
+        else if (isCurCell) { cf = C.cur; cs = C.curStroke; cw = 2; ct = "#92400e"; }
+        else if (wasCmp) { cf = C.past; cs = C.pastStroke; }
+        p.push('<g><title>数据表下标 ' + (blk.start + r) + '：' + v + '（第 ' + (i + 1) + ' 块内第 ' + (r + 1) + ' 个）</title>');
+        p.push('<rect x="' + x + '" y="' + y + '" width="' + colW + '" height="' + (cellH - 3) + '" rx="6" fill="' + cf +
+          '" stroke="' + cs + '" stroke-width="' + cw + '"/>');
+        if (showNo) {
+          p.push('<text x="' + (x + 5) + '" y="' + (y + 10) + '" font-size="7.5" fill="#94a3b8">' + (blk.start + r) + "</text>");
+        }
+        p.push('<text x="' + (x + colW / 2) + '" y="' + (y + (cellH - 3) / 2 + cellFont * 0.36) + '" font-size="' + cellFont +
+          '" font-weight="' + (isHit || isCurCell ? "700" : "500") + '" fill="' + ct + '" text-anchor="middle">' + v + "</text>");
+        p.push("</g>");
+      }
+    }
+    p.push("</svg>");
+    return p.join("");
+  }
+
+  /* ---------------- 文案 ---------------- */
+
+  function phaseName(st) {
+    if (st.kind === "init") return "就绪（未开始）";
+    if (st.status === "ok") return "✅ 查找成功";
+    if (st.status === "fail") return "❌ 查找失败";
+    if (st.kind === "index") return "① 索引表中查找，确定所在块";
+    if (st.kind === "indexEnd") return "② 已确定目标块，准备块内查找";
+    return "③ 块内顺序查找";
+  }
+
+  function keybarHtml(cfg, st) {
+    var h = '<span class="chip key">待查 k = ' + cfg.key + "</span>";
+    h += '<span class="arrow">·</span><span class="chip">索引表：' + (cfg.mode === "bin" ? "折半查找" : "顺序查找") + "</span>";
+    h += '<span class="arrow">·</span><span class="chip' + (st.status === "ok" ? " ok" : (st.status === "fail" ? " bad" : "")) + '">' +
+      phaseName(st) + "</span>";
+    if (st.kind !== "init") {
+      h += '<span class="arrow">·</span><span class="chip">索引表比较 ' + st.cmpIdx + " 次</span>";
+      if (st.cmpBlk > 0) h += '<span class="arrow">·</span><span class="chip">块内比较 ' + st.cmpBlk + " 次</span>";
+      if (st.cmp > 0) h += '<span class="arrow">·</span><span class="chip">合计 ' + st.cmp + " 次</span>";
+    }
+    h += '<span class="arrow">·</span><span class="chip">进度 ' + (state.idx) + " / " + (state.steps.length - 1) + "</span>";
+    return h;
+  }
+
+  /* ---------------- 构建 ---------------- */
+
+  var state = { err: null, cfg: null, steps: [], idx: 0, sorted: null, presetOrder: null, fitted: false };
+
+  function build() {
+    var s = parseInt($("sIn").value, 10);
+    var key = parseInt($("keyIn").value, 10);
+    var mode = $("modeSel").value === "bin" ? "bin" : "seq";
+    if (!(s >= 1) || s > 12) return { err: "块大小 s 需要是 1 ~ 12 之间的整数（块再大就看不到逐元素比较了）。" };
+    if (isNaN(key)) return { err: "请输入要查找的整数关键字 k。" };
+    var sorted = state.sorted || [];
+    if (!sorted.length) return { err: "数据表为空，请先选一组预设数据。" };
+    if (sorted.length > 400) return { err: "数据表最多 400 个元素（当前 " + sorted.length + " 个）。" };
+    var bl = makeBlocks(sorted, s);
+    var b = bl.length;
+    var gap = b > 24 ? 2 : 6;
+    var usable = 880 - 46 - 8;
+    var colW = (usable - (b - 1) * gap) / b;
+    if (colW > 74) colW = 74;
+    if (colW < 13) {
+      return { err: "n = " + sorted.length + " 个元素分成 " + b + " 块后，每列只有 " + fmt(colW) +
+        "px，画布放不下。请把块大小 s 调到 " + Math.ceil(sorted.length / 56) + " 以上（块数 b ≤ 56）。" };
+    }
+    var cfg = { n: sorted.length, s: s, b: b, blocks: displayBlocks(sorted, s, SEED, state.presetOrder), key: key, mode: mode };
+    return { cfg: cfg };
+  }
+
+  // 表格很宽（块数多）时字号可能撑破格子：渲染后统一收缩字号直到不溢出
+  function fitSvgText() {
+    var svg = $("chart").querySelector("svg");
+    if (!svg || !svg.querySelectorAll) return;
+    var texts = svg.querySelectorAll("text");
+    for (var i = 0; i < texts.length; i++) {
+      var t = texts[i], g = t.parentNode;
+      var rect = g && g.querySelector ? g.querySelector("rect") : null;
+      if (!rect || !t.getBBox) continue;
+      var rb = rect.getBBox(), tb = t.getBBox();
+      var fs = parseFloat(t.getAttribute("font-size")) || 10, guard = 0;
+      while ((tb.x + tb.width) > (rb.x + rb.width - 1.5) && fs > 6 && guard++ < 14) {
+        fs -= 0.5;
+        t.setAttribute("font-size", fs);
+        tb = t.getBBox();
+      }
+    }
+  }
+
+  function render() {
+    if (state.err) {
+      $("headInfo").textContent = "输入有误";
+      $("chart").innerHTML = '<div class="err">⚠️ ' + state.err + "</div>";
+      $("keybar").innerHTML = "";
+      $("note").textContent = "修正参数后点击「✓ 重新查找」。";
+      $("statSize").textContent = "—"; $("statMode").textContent = "—";
+      $("statCmp").textContent = "0"; $("statPhase").textContent = "输入有误";
+      $("statSucc").textContent = "—"; $("statFail").textContent = "—"; $("statExact").textContent = "—";
+      return;
+    }
+    var cfg = state.cfg, steps = state.steps;
+    if (!cfg || !steps.length) return;
+    if (state.idx < 0) state.idx = 0;
+    if (state.idx > steps.length - 1) state.idx = steps.length - 1;
+    var st = steps[state.idx];
+    var asl = aslInfo(cfg);
+
+    $("headInfo").textContent = "n = " + cfg.n + " · b = " + cfg.b + " 块 · s = " + cfg.s + " · 索引表" +
+      (cfg.mode === "bin" ? "折半查找" : "顺序查找");
+    $("statSize").textContent = "n = " + cfg.n + "，b = " + cfg.b + " 块，s = " + cfg.s;
+    $("statMode").textContent = (cfg.mode === "bin" ? "折半查找" : "顺序查找") + "（b = " + cfg.b + " 项）";
+    $("statCmp").textContent = st.cmp + "（索引 " + st.cmpIdx + " + 块内 " + st.cmpBlk + "）";
+    $("statPhase").textContent = phaseName(st);
+    $("statSucc").textContent = "ASL = " + asl.succStr + " = " + fmt(asl.succF);
+    $("statFail").textContent = "ASL = " + asl.failStr + " = " + fmt(asl.failF);
+    var sameAsF = Math.abs(asl.succExact - asl.succF) < 0.005 && Math.abs(asl.failExact - asl.failF) < 0.005;
+    $("statExact").textContent = "成功 " + fmt(asl.succExact) + " / 失败 " + fmt(asl.failExact) +
+      (asl.uneven ? "（末块不满 s，公式为近似值）"
+        : (sameAsF ? "（与公式完全相等）" : "（折半查找的实际平均比较次数略小于 ⌈log₂(b+1)⌉ 上界公式）"));
+
+    $("chart").innerHTML = svgHtml(cfg, st);
+    if (!state.fitted) { fitSvgText(); state.fitted = true; }
+    $("keybar").innerHTML = keybarHtml(cfg, st);
+    $("note").innerHTML = st.note;
+  }
+
+  /* ---------------- 播放控制 ---------------- */
+
+  var timer = null, speed = 450, playing = false;
+
+  function stopTimer() {
+    if (timer) { clearInterval(timer); timer = null; }
+    playing = false;
+    $("btnPlay").textContent = "▶ 播放";
+  }
+  function maxIdx() { return state.steps.length - 1; }
+
+  function tick() {
+    stopTimer();
+    if (state.err || !state.steps.length) return;
+    if (state.idx >= maxIdx()) { state.idx = 0; render(); }
+    playing = true;
+    $("btnPlay").textContent = "⏸ 暂停";
+    timer = setInterval(function () {
+      if (state.idx >= maxIdx()) {
+        stopTimer();
+        var last = state.steps[maxIdx()];
+        $("statPhase").textContent = phaseName(last);
+        return;
+      }
+      state.idx++;
+      render();
+    }, speed);
+  }
+
+  function rebuild() {
+    stopTimer();
+    state.fitted = false;
+    var r = build();
+    if (r.err) { state.err = r.err; state.cfg = null; state.steps = []; state.idx = 0; }
+    else { state.err = null; state.cfg = r.cfg; state.steps = plan(r.cfg); state.idx = 0; }
+    render();
+  }
+
+  /* ---------------- 预设 ---------------- */
+
+  var VALS15 = [6, 8, 9, 10, 14, 18, 22, 24, 25, 30, 40, 55, 60, 68, 72];
+  var VALS12 = [6, 8, 9, 14, 18, 22, 24, 30, 40, 55, 60, 68];
+  var ORDER15 = [[8, 14, 6, 9, 10], [22, 24, 18, 30, 25], [55, 40, 68, 60, 72]];
+  var ORDER12 = [[8, 14, 6, 9], [22, 24, 18, 30], [55, 40, 68, 60]];
+  var PRESETS = [
+    { label: "n=12 入门（3块×4）", vals: VALS12, s: 4, key: 55, mode: "seq", order: ORDER12 },
+    { label: "n=15 教材例题", vals: VALS15, s: 5, key: 55, mode: "seq", order: ORDER15 },
+    { label: "例题 · 索引折半", vals: VALS15, s: 5, key: 55, mode: "bin", order: ORDER15 },
+    { label: "n=64 最优（8×8）", vals: nat(64), s: 8, key: 53, mode: "seq" },
+    { label: "n=400 真题（40块×10）", vals: nat(400), s: 10, key: 355, mode: "seq" },
+    { label: "n=400 · 索引折半", vals: nat(400), s: 10, key: 355, mode: "bin" },
+    { label: "失败示例 n=15 查 35", vals: VALS15, s: 5, key: 35, mode: "seq", order: ORDER15 }
+  ];
+
+  /* ---------------- 事件 ---------------- */
+
+  var pw = $("presets");
+  PRESETS.forEach(function (pr) {
+    var bt = document.createElement("button");
+    bt.className = "btn-ghost";
+    bt.textContent = pr.label;
+    bt.onclick = function () {
+      stopTimer();
+      state.sorted = pr.vals.slice();
+      state.presetOrder = pr.order ? { s: pr.s, blocks: pr.order } : null;
+      $("sIn").value = pr.s;
+      $("keyIn").value = pr.key;
+      $("modeSel").value = pr.mode;
+      rebuild();
+    };
+    pw.appendChild(bt);
+  });
+
+  $("btnApply").onclick = rebuild;
+  $("sIn").onchange = rebuild;
+  $("keyIn").onchange = rebuild;
+  $("modeSel").onchange = rebuild;
+  $("keyIn").onkeydown = function (e) { if (e.key === "Enter") rebuild(); };
+  $("btnPlay").onclick = function () { if (playing) stopTimer(); else tick(); };
+  $("btnStep").onclick = function () {
+    stopTimer();
+    if (state.err || !state.steps.length) return;
+    if (state.idx < maxIdx()) { state.idx++; render(); }
+    else $("note").innerHTML = "✅ 已经是最后一步；点「↺ 重置」回到初始状态，或换一组数据/关键字重新演示。";
+  };
+  $("btnReset").onclick = function () { stopTimer(); state.idx = 0; render(); };
+
+  var sbs = document.querySelectorAll(".speed-group button");
+  for (var si = 0; si < sbs.length; si++) {
+    sbs[si].onclick = (function (btn) {
+      return function () {
+        speed = parseInt(btn.dataset.speed, 10);
+        var all = document.querySelectorAll(".speed-group button");
+        for (var k = 0; k < all.length; k++) all[k].classList.toggle("active", all[k] === btn);
+        if (playing) tick();
+      };
+    })(sbs[si]);
+  }
+
+  // 首屏：入门小表
+  state.sorted = PRESETS[0].vals.slice();
+  rebuild();
+})();
+</script>
+</body>
+</html>

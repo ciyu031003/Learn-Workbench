@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>页面置换算法模拟</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f8fafc; color: #1e293b; padding: 16px; }
+  .wrap { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+  .head { background: linear-gradient(135deg, #10b981, #14b8a6); color: #fff; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; }
+  .head h1 { font-size: 16px; font-weight: 600; }
+  .head .info { font-size: 12px; opacity: .9; }
+  .controls { padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; border-bottom: 1px solid #eef2f7; }
+  .controls label { font-size: 12px; color: #64748b; }
+  select, input[type=text], button { font-size: 13px; }
+  select { padding: 5px 8px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; outline: none; }
+  input[type=text] { padding: 5px 8px; border-radius: 8px; border: 1px solid #e2e8f0; outline: none; width: 220px; }
+  button { padding: 6px 14px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all .15s; }
+  .btn-primary { background: #10b981; color: #fff; }
+  .btn-primary:hover { background: #0d9f6e; }
+  .btn-ghost { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+  .btn-ghost:hover { background: #e2e8f0; }
+  .speed-group { display: flex; gap: 4px; }
+  .speed-group button { padding: 4px 10px; font-size: 12px; }
+  .speed-group .active { background: #10b981; color: #fff; border-color: #10b981; }
+  .stats { padding: 8px 16px; display: flex; gap: 18px; font-size: 12px; color: #64748b; border-bottom: 1px solid #eef2f7; flex-wrap: wrap; }
+  .stats b { color: #1e293b; font-variant-numeric: tabular-nums; }
+  .stage { padding: 16px; overflow-x: auto; }
+  .seq-label { font-size: 12px; color: #64748b; margin-bottom: 8px; }
+  .seq { display: flex; gap: 4px; margin-bottom: 14px; }
+  .seq .ref { width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: #eef2f7; font-size: 13px; font-weight: 600; color: #334155; flex-shrink: 0; }
+  .seq .ref.hit { background: #d1fae5; color: #065f46; }
+  .seq .ref.fault { background: #fee2e2; color: #991b1b; }
+  .seq .ref.cur { outline: 2px solid #10b981; }
+  .frames { display: flex; gap: 6px; align-items: flex-end; }
+  .frame-col { display: flex; flex-direction: column; gap: 4px; }
+  .frame { width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: #fff; border: 1.5px solid #cbd5e1; font-size: 13px; font-weight: 600; color: #334155; }
+  .frame.in { background: #ecfdf5; border-color: #10b981; }
+  .frame.evict { background: #fef3c7; border-color: #f59e0b; }
+  .frame.empty { border-style: dashed; color: #94a3b8; }
+  .legend { padding: 6px 16px 12px; display: flex; gap: 14px; font-size: 11px; color: #64748b; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .desc { padding: 10px 16px 16px; border-top: 1px solid #eef2f7; font-size: 12px; color: #475569; line-height: 1.7; }
+  .desc b { color: #334155; }
+  .presets { display: flex; gap: 6px; flex-wrap: wrap; }
+  .presets button { font-size: 12px; padding: 3px 10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>🔄 页面置换算法模拟</h1>
+    <span class="info" id="algoInfo">FIFO · 先进先出</span>
+  </div>
+  <div class="controls">
+    <label>算法</label>
+    <select id="algoSelect">
+      <option value="fifo">FIFO 先进先出</option>
+      <option value="lru">LRU 最近最久未用</option>
+      <option value="opt">OPT 最佳置换</option>
+      <option value="clock">Clock 时钟算法</option>
+    </select>
+    <label>页框数</label>
+    <select id="frameSelect">
+      <option value="3">3</option>
+      <option value="4" selected>4</option>
+      <option value="5">5</option>
+      <option value="6">6</option>
+    </select>
+    <label>访问序列</label>
+    <input type="text" id="seqInput" value="7,0,1,2,0,3,0,4,2,3,0,3,2,1,2,0,1,7,0,1" placeholder="如: 7,0,1,2,0,3,0,4">
+    <div class="presets">
+      <button class="btn-ghost" data-seq="7,0,1,2,0,3,0,4,2,3,0,3,2,1,2,0,1,7,0,1">经典序列</button>
+      <button class="btn-ghost" data-seq="1,2,3,4,1,2,5,1,2,3,4,5">Belady 异常</button>
+      <button class="btn-ghost" data-seq="3,2,1,0,3,2,4,3,2,1,0,4">循环访问</button>
+    </div>
+    <button class="btn-primary" id="btnRun">▶ 播放</button>
+    <button class="btn-ghost" id="btnStep">单步</button>
+    <div class="speed-group">
+      <button class="btn-ghost" data-speed="900">慢</button>
+      <button class="btn-ghost active" data-speed="400">中</button>
+      <button class="btn-ghost" data-speed="160">快</button>
+    </div>
+    <button class="btn-ghost" id="btnReset">↺ 重置</button>
+  </div>
+  <div class="stats">
+    <span>缺页 <b id="statFault">0</b> 次</span>
+    <span>命中 <b id="statHit">0</b> 次</span>
+    <span>缺页率 <b id="statRate">0%</b></span>
+    <span>状态 <b id="statState">就绪</b></span>
+  </div>
+  <div class="stage">
+    <div class="seq-label">访问序列（绿=命中，红=缺页）</div>
+    <div class="seq" id="seqBar"></div>
+    <div class="seq-label">页框状态</div>
+    <div class="frames" id="frames"></div>
+  </div>
+  <div class="legend">
+    <span><i style="background:#d1fae5"></i>命中</span>
+    <span><i style="background:#fee2e2"></i>缺页</span>
+    <span><i style="background:#fef3c7"></i>被置换</span>
+    <span><i style="background:#ecfdf5"></i>新装入</span>
+  </div>
+  <div class="desc" id="desc"></div>
+</div>
+
+<script>
+"use strict";
+const ALGO_INFO = {
+  fifo:  ["FIFO 先进先出", "淘汰最先进入的页，实现简单；可能发生 Belady 异常"],
+  lru:   ["LRU 最近最久未用", "淘汰最久未访问的页，性能好；硬件开销大（需要访问时间记录）"],
+  opt:   ["OPT 最佳置换", "淘汰未来最久不用的页，缺页率最低；但未来不可知，仅作理论下界"],
+  clock: ["Clock 时钟算法", "循环扫描，访问位=0 才淘汰；第一轮把访问位清 0，近似 LRU"],
+};
+
+let seq = [];
+let frames = [];
+let curStep = 0;
+let faultCount = 0, hitCount = 0;
+let clockPointer = 0;
+let running = false, timer = null, speed = 400;
+let history = []; // 每步记录 {ref, hit, frames: [...], evicted, pointer}
+
+const $ = (id) => document.getElementById(id);
+
+function parseSeq() {
+  seq = $("seqInput").value.split(/[,，\s]+/).map(s => s.trim()).filter(s => s !== "").map(Number);
+  if (seq.length === 0) seq = [7,0,1,2,0,3,0,4];
+}
+
+function resetAll() {
+  stopTimer(); running = false;
+  curStep = 0; faultCount = 0; hitCount = 0; clockPointer = 0;
+  parseSeq();
+  frames = new Array(+$("frameSelect").value).fill(null);
+  history = [];
+  renderSeq();
+  renderFrames();
+  $("statFault").textContent = "0";
+  $("statHit").textContent = "0";
+  $("statRate").textContent = "0%";
+  $("statState").textContent = "就绪";
+  $("btnRun").textContent = "▶ 播放";
+}
+
+function compute() {
+  // 预计算全部步骤
+  parseSeq();
+  const nFrames = +$("frameSelect").value;
+  const algo = $("algoSelect").value;
+  const fr = new Array(nFrames).fill(null);
+  const useBits = new Array(nFrames).fill(0); // clock
+  const lastUse = new Array(nFrames).fill(-1); // lru
+  let ptr = 0;
+  history = [];
+  faultCount = 0; hitCount = 0;
+
+  seq.forEach((ref, idx) => {
+    const pos = fr.indexOf(ref);
+    let evicted = null;
+    let hit = pos !== -1;
+    if (hit) {
+      if (algo === "lru") lastUse[pos] = idx;
+      if (algo === "clock") useBits[pos] = 1;
+    } else {
+      faultCount++;
+      // 找空位
+      let empty = fr.indexOf(null);
+      if (empty !== -1) {
+        fr[empty] = ref;
+        if (algo === "lru") lastUse[empty] = idx;
+        if (algo === "clock") useBits[empty] = 1;
+      } else {
+        // 需要置换
+        if (algo === "fifo") {
+          // FIFO：模拟队列——用指针循环（fr 顺序即进入顺序，淘汰 ptr 位置）
+          evicted = fr[ptr];
+          fr[ptr] = ref;
+          ptr = (ptr + 1) % nFrames;
+        } else if (algo === "lru") {
+          let minIdx = 0;
+          for (let i = 1; i < nFrames; i++) if (lastUse[i] < lastUse[minIdx]) minIdx = i;
+          evicted = fr[minIdx];
+          fr[minIdx] = ref;
+          lastUse[minIdx] = idx;
+        } else if (algo === "opt") {
+          let best = 0, bestDist = -1;
+          for (let i = 0; i < nFrames; i++) {
+            let dist = Infinity;
+            for (let j = idx + 1; j < seq.length; j++) {
+              if (seq[j] === fr[i]) { dist = j; break; }
+            }
+            if (dist > bestDist) { bestDist = dist; best = i; }
+          }
+          evicted = fr[best];
+          fr[best] = ref;
+        } else if (algo === "clock") {
+          while (true) {
+            if (useBits[ptr] === 0) {
+              evicted = fr[ptr];
+              fr[ptr] = ref;
+              useBits[ptr] = 1;
+              ptr = (ptr + 1) % nFrames;
+              break;
+            } else {
+              useBits[ptr] = 0;
+              ptr = (ptr + 1) % nFrames;
+            }
+          }
+        }
+      }
+    }
+    if (hit) hitCount++;
+    history.push({ ref, hit, frames: [...fr], evicted, pointer: algo === "clock" ? ptr : null });
+  });
+}
+
+function renderSeq() {
+  const bar = $("seqBar");
+  bar.innerHTML = "";
+  seq.forEach((v, i) => {
+    const d = document.createElement("div");
+    d.className = "ref" + (i < curStep ? (history[i]?.hit ? " hit" : " fault") : "") + (i === curStep && running ? " cur" : "");
+    d.textContent = v;
+    d.id = "ref-" + i;
+    bar.appendChild(d);
+  });
+}
+
+function renderFrames(stepIdx) {
+  const box = $("frames");
+  box.innerHTML = "";
+  const n = +$("frameSelect").value;
+  const st = history[stepIdx];
+  for (let i = 0; i < n; i++) {
+    const col = document.createElement("div");
+    col.className = "frame-col";
+    const f = document.createElement("div");
+    const val = st ? st.frames[i] : null;
+    f.className = "frame";
+    if (val === null) f.classList.add("empty");
+    else {
+      f.classList.add("in");
+      if (st.evicted !== null && st.frames.indexOf(st.evicted) === -1 && val === st.evicted) {
+        // 被置换出去的页已不在
+      }
+    }
+    f.textContent = val === null ? "·" : val;
+    col.appendChild(f);
+    // 标识刚被置换的页（上一帧有、本帧无）
+    box.appendChild(col);
+  }
+  // 标识被置换的页
+  if (st && st.evicted !== null) {
+    const prev = history[stepIdx - 1];
+    if (prev) {
+      const evictIdx = prev.frames.indexOf(st.evicted);
+      if (evictIdx !== -1) {
+        const cells = box.children[evictIdx].children;
+        cells[0].classList.add("evict");
+        cells[0].textContent = st.evicted;
+      }
+    }
+  }
+}
+
+function stepTo(idx) {
+  curStep = idx;
+  const st = history[idx];
+  renderSeq();
+  renderFrames(idx);
+  $("statFault").textContent = history.slice(0, idx + 1).filter(h => !h.hit).length;
+  $("statHit").textContent = history.slice(0, idx + 1).filter(h => h.hit).length;
+  const total = idx + 1;
+  $("statRate").textContent = (history.slice(0, idx + 1).filter(h => !h.hit).length / total * 100).toFixed(1) + "%";
+  if (idx === history.length - 1) {
+    running = false;
+    $("statState").textContent = "✅ 模拟完成";
+    $("btnRun").textContent = "▶ 播放";
+  }
+}
+
+function stopTimer() { if (timer) { clearTimeout(timer); timer = null; } }
+
+function run() {
+  if (running) { stopTimer(); running = false; $("btnRun").textContent = "▶ 播放"; return; }
+  compute();
+  if (history.length === 0) return;
+  running = true;
+  $("btnRun").textContent = "⏸ 暂停";
+  let i = 0;
+  stepTo(0);
+  function tick() {
+    if (!running) return;
+    i++;
+    if (i >= history.length) { stepTo(history.length - 1); running = false; $("btnRun").textContent = "▶ 播放"; return; }
+    stepTo(i);
+    timer = setTimeout(tick, speed);
+  }
+  timer = setTimeout(tick, speed);
+}
+
+// 事件
+$("algoSelect").onchange = () => {
+  const key = $("algoSelect").value;
+  const [name, desc] = ALGO_INFO[key];
+  $("algoInfo").textContent = name;
+  $("desc").innerHTML = `<b>${name}：</b>${desc}`;
+  resetAll();
+};
+$("frameSelect").onchange = resetAll;
+$("seqInput").onchange = resetAll;
+document.querySelectorAll(".presets button").forEach((b) => {
+  b.onclick = () => { $("seqInput").value = b.dataset.seq; resetAll(); };
+});
+$("btnRun").onclick = run;
+$("btnStep").onclick = () => {
+  if (history.length === 0) { compute(); }
+  if (curStep < history.length - 1) {
+    running = false; stopTimer();
+    $("btnRun").textContent = "▶ 播放";
+    stepTo(curStep + 1);
+  }
+};
+$("btnReset").onclick = resetAll;
+document.querySelectorAll(".speed-group button").forEach((b) => {
+  b.onclick = () => {
+    document.querySelectorAll(".speed-group button").forEach((x) => x.classList.remove("active"));
+    b.classList.add("active");
+    speed = +b.dataset.speed;
+  };
+});
+
+// init
+const key = $("algoSelect").value;
+const [name, desc] = ALGO_INFO[key];
+$("algoInfo").textContent = name;
+$("desc").innerHTML = `<b>${name}：</b>${desc}`;
+resetAll();
+</script>
+</body>
+</html>

@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>指令流水线时空图与冒险可视化</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f8fafc; color: #1e293b; padding: 16px; }
+  .wrap { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+  .head { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; }
+  .head h1 { font-size: 16px; font-weight: 600; }
+  .head .info { font-size: 12px; opacity: .92; }
+  .controls { padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-bottom: 1px solid #eef2f7; }
+  .controls label { font-size: 12px; color: #64748b; }
+  select, input[type=text], textarea, button { font-size: 13px; font-family: inherit; }
+  select { padding: 4px 7px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; outline: none; }
+  input[type=text] { padding: 5px 9px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; outline: none; font-family: Consolas, Monaco, monospace; }
+  input[type=text]:focus { border-color: #6366f1; background: #fff; }
+  button { padding: 6px 13px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all .15s; }
+  .btn-primary { background: #6366f1; color: #fff; }
+  .btn-primary:hover { background: #4f46e5; }
+  .btn-ghost { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+  .btn-ghost:hover { background: #e2e8f0; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .stats { padding: 7px 16px; display: flex; gap: 16px; font-size: 12px; color: #64748b; border-bottom: 1px solid #eef2f7; flex-wrap: wrap; align-items: center; }
+  .stats b { color: #1e293b; font-variant-numeric: tabular-nums; }
+  .speed-group { display: flex; gap: 4px; }
+  .speed-group button { padding: 4px 10px; font-size: 12px; }
+  .speed-group .active { background: #6366f1; color: #fff; }
+  .msg { margin: 0 16px 8px; padding: 7px 11px; border-radius: 8px; font-size: 12px; background: #fef3c7; color: #92400e; border: 1px solid #fde68a; display: none; }
+  .msg.warn { display: block; }
+  .stage { padding: 10px 16px 6px; }
+  .seqrow { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+  .seqrow .lbl { font-size: 12px; color: #64748b; white-space: nowrap; }
+  #insBox { flex: 1 1 320px; padding: 5px 9px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc;
+            outline: none; font-family: Consolas, Monaco, monospace; font-size: 12px; }
+  .grid { display: flex; gap: 14px; }
+  .left { flex: 1 1 62%; min-width: 0; }
+  .right { flex: 1 1 38%; min-width: 0; }
+  .panel-t { font-size: 11px; color: #94a3b8; margin-bottom: 5px; letter-spacing: .5px; display: flex; justify-content: space-between; }
+  .panel-t .hint { color: #cbd5e1; letter-spacing: 0; }
+  .ddwrap { border: 1px solid #eef2f7; border-radius: 10px; overflow: auto; max-height: 236px; }
+  table.dd { border-collapse: collapse; font-size: 10px; }
+  table.dd th { background: #f8fafc; color: #94a3b8; font-weight: 500; font-size: 9px; padding: 2px 0; border: 1px solid #f1f5f9; position: sticky; top: 0; z-index: 2; }
+  table.dd td.cy { background: #f8fafc; color: #64748b; font-size: 10px; text-align: center; padding: 0 3px; border: 1px solid #f1f5f9; white-space: nowrap; position: sticky; left: 0; z-index: 1; }
+  table.dd td.cell { width: 17px; height: 19px; border: 1px solid #f1f5f9; text-align: center;
+                     font-family: Consolas, Monaco, monospace; font-size: 10px; font-weight: 700; color: #fff; }
+  table.dd td.cell.emp { background: #fff; }
+  table.dd td.cell.IF { background: #6366f1; }
+  table.dd td.cell.ID { background: #8b5cf6; }
+  table.dd td.cell.EX { background: #f59e0b; }
+  table.dd td.cell.MEM { background: #10b981; }
+  table.dd td.cell.WB { background: #0ea5e9; }
+  table.dd td.cell.bub { background: #cbd5e1; }
+  table.dd td.cell.stl { background: #ef4444; }
+  table.dd td.cell.hz { outline: 2px solid #ef4444; outline-offset: -2px; }
+  table.dd td.cell.err { background: #ef4444; }
+  table.dd td.cell.fwd { box-shadow: inset 0 0 0 2px #8b5cf6; }
+  table.dd tr.dimrow td { opacity: .35; }
+  table.dd td.cell.cur { box-shadow: inset 0 0 0 2px #1e293b; }
+  .explain { font-size: 12px; line-height: 1.7; color: #475569; }
+  .explain b { color: #1e293b; }
+  .calc { font-family: Consolas, Monaco, monospace; font-size: 12px; background: #f8fafc; border: 1px solid #e2e8f0;
+          border-radius: 8px; padding: 6px 9px; line-height: 1.75; color: #334155; margin-bottom: 6px; word-break: break-word; }
+  .calc .gr { color: #10b981; font-weight: 700; }
+  .calc .rd { color: #ef4444; font-weight: 700; }
+  .calc .pu { color: #8b5cf6; font-weight: 700; }
+  .calc .am { color: #b45309; font-weight: 700; }
+  .ilist { border: 1px solid #eef2f7; border-radius: 10px; max-height: 150px; overflow-y: auto; font-size: 11px; }
+  .ilist div { padding: 2px 6px; border-bottom: 1px solid #f5f7fa; display: flex; justify-content: space-between; gap: 6px; }
+  .ilist div span.i { color: #94a3b8; font-family: Consolas, monospace; }
+  .ilist div span.c { font-family: Consolas, Monaco, monospace; color: #334155; }
+  .ilist div.act { background: #eef2ff; outline: 1px solid #6366f1; }
+  .legend { padding: 4px 16px 8px; display: flex; gap: 12px; font-size: 11px; color: #64748b; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .desc { padding: 10px 16px 14px; border-top: 1px solid #eef2f7; font-size: 12px; color: #475569; line-height: 1.75; }
+  .desc h4 { font-size: 12px; color: #4f46e5; margin: 7px 0 3px; }
+  .desc b { color: #334155; }
+  .desc code { font-family: Consolas, Monaco, monospace; background: #f1f5f9; padding: 0 3px; border-radius: 3px; color: #4338ca; }
+  .prog { height: 4px; background: #eef2f7; border-radius: 2px; overflow: hidden; margin-top: 6px; }
+  .prog i { display: block; height: 100%; width: 0; background: #6366f1; transition: width .15s; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>🧩 指令流水线时空图与冒险</h1>
+    <span class="info" id="cfgInfo">IF → ID → EX → MEM → WB</span>
+  </div>
+
+  <div class="controls">
+    <label>典型序列</label>
+    <select id="preset">
+      <option value="ideal">理想流水（无冒险）</option>
+      <option value="raw">数据冒险 RAW（ALU）</option>
+      <option value="loaduse">数据冒险 load-use</option>
+      <option value="branch">控制冒险（分支）</option>
+      <option value="structural">结构冒险（取指争用）</option>
+      <option value="mix">综合序列</option>
+    </select>
+    <label>数据冒险</label>
+    <select id="fwdSel">
+      <option value="1" selected>数据旁路/转发</option>
+      <option value="0">不转发（纯停顿）</option>
+    </select>
+    <label>控制冒险</label>
+    <select id="ctrlSel">
+      <option value="stall" selected>停顿（等分支结果）</option>
+      <option value="pnt">预测不跳转</option>
+      <option value="pt">预测跳转</option>
+      <option value="delay">延迟槽</option>
+    </select>
+    <div class="speed-group">
+      <button data-speed="600" class="btn-ghost sp">慢</button>
+      <button data-speed="200" class="btn-ghost sp active">中</button>
+      <button data-speed="40" class="btn-ghost sp">快</button>
+    </div>
+    <button class="btn-primary" id="btnPlay">▶ 播放</button>
+    <button class="btn-ghost" id="btnStep">单步</button>
+    <button class="btn-ghost" id="btnPrev">上一步</button>
+    <button class="btn-ghost" id="btnReset">↺ 重置</button>
+  </div>
+
+  <div class="stats">
+    <span>时钟周期 T <b id="stT">0</b></span>
+    <span>指令数 n <b id="stN">0</b></span>
+    <span>吞吐率 TP <b id="stTP">—</b></span>
+    <span>加速比 S <b id="stS">—</b></span>
+    <span>效率 E <b id="stE">—</b></span>
+    <span>停顿 <b id="stStall">0</b> 周期</span>
+    <span>进度 <b id="stProg">0 / 0</b></span>
+  </div>
+
+  <div class="msg" id="msg"></div>
+
+  <div class="stage">
+    <div class="seqrow">
+      <span class="lbl">指令序列</span>
+      <input type="text" id="insBox" spellcheck="false">
+      <button class="btn-ghost" id="btnApply" style="padding:4px 10px">载入</button>
+      <button class="btn-ghost" id="btnRand" style="padding:4px 10px">🎲 随机</button>
+    </div>
+    <div class="grid">
+      <div class="left">
+        <div class="panel-t"><span>时空图（横轴 = 时钟周期，纵轴 = 指令）</span><span class="hint">红框 = 本周期发生冒险</span></div>
+        <div class="ddwrap" id="ddwrap"><table class="dd" id="dd"></table></div>
+        <div class="prog"><i id="progBar"></i></div>
+      </div>
+      <div class="right">
+        <div class="panel-t"><span>指令表</span><span class="hint" id="insHint"></span></div>
+        <div class="ilist" id="ilist"></div>
+        <div class="panel-t" style="margin-top:8px"><span>本周期说明</span><span class="hint" id="cycHint">—</span></div>
+        <div class="calc" id="calc" style="margin-bottom:0;max-height:96px;overflow-y:auto"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><i style="background:#6366f1"></i>IF 取指</span>
+    <span><i style="background:#8b5cf6"></i>ID 译码/取数</span>
+    <span><i style="background:#f59e0b"></i>EX 执行</span>
+    <span><i style="background:#10b981"></i>MEM 访存</span>
+    <span><i style="background:#0ea5e9"></i>WB 写回</span>
+    <span><i style="background:#cbd5e1"></i>气泡（停顿）</span>
+    <span><i style="background:#ef4444"></i>冒险 / 被清除</span>
+  </div>
+
+  <div class="desc">
+    <h4>流水线为什么能提速？</h4>
+    把一条指令的执行切成 5 段，段间用寄存器隔离，让<b>不同指令的不同阶段同时工作</b>。理想情况下每个时钟周期都有一条指令完成，于是 n 条指令只需 <b>T = n + k − 1 = n + 4</b> 个周期（k 为段数），而串行执行需要 <b>n × k</b> 个周期。<br>
+    由此得到三个 408 常考指标：<b>吞吐率 TP = n / T</b>（条/周期）；<b>加速比 S = 串行时间 / 流水线时间 = nk / T</b>；<b>效率 E = 时空图有效面积 / 总面积 = nk / (k·T) = n / T = S / k</b>。当 n → ∞ 时 T ≈ n，于是 TP → 1（每周期一条），<b>S → k = 5，E → 1</b>——这就是流水线的理论极限：加速比不超过段数。
+    <h4>冒险为什么会降低效率？</h4>
+    理想公式 T = n + 4 的前提是"每个周期每段都有活干"。一旦出现冒险，某些段就必须<b>空转（插入气泡/停顿）</b>，占用时钟周期却不完成有效工作：T 变大 → TP、S、E 全部下降。冒险分三类：
+    <br>① <b>结构冒险（资源冲突）</b>：硬件部件不够用。本演示只设<b>一个存储器</b>，而"IF 取指令"和"MEM 取数据"都要访问它，若同一周期两者相撞（如 load 的 MEM 与下一条指令的 IF 重合）就必须让其中一方等待。解决办法：<b>指令存储器与数据存储器分开（哈佛结构 / 分离 Cache）</b>，或让部件全流水化。切换上面的序列即可看到红色冲突框。
+    <br>② <b>数据冒险（RAW）</b>：后一条指令要用前一条<b>还没写回</b>的结果。例如 <code>add r1,r2,r3</code> 紧跟 <code>sub r4,r1,r5</code>，r1 要到第 5 周期的 WB 才写回，而 sub 在第 3 周期 EX 就要读 r1。若什么都不做，只能让 sub 一直等到 add 写回，插入 3 个气泡；<b>数据旁路/转发</b>则把 EX/MEM、MEM/WB 流水寄存器的结果直接送进 ALU 输入端，使 sub 只需等 <b>1</b> 个周期（ALU 结果在 EX 末尾就可用）。<b>load-use 是特例</b>：load 的数据要到 MEM 段结束才有，转发也救不了，必须硬停 <b>1</b> 个周期（本演示会把这条关键路径标紫）；若把 load 与其使用者拉开一条无关指令的距离（指令调度），这 1 个周期也能省掉。
+    <br>③ <b>控制冒险</b>：分支指令要等到 EX（甚至 MEM）才知道跳不跳，而 IF 早就按顺序取来了后面几条指令。若分支真的跳转，这些指令就是错的，必须<b>清除（flush）</b>并重新从目标地址取指——演示中把它们标红并加 2 个气泡。解决办法：<b>分支预测</b>（预测不跳转则顺序取指，猜对 0 代价、猜错照样清除；预测跳转则相反，适用于循环回边）、<b>延迟槽</b>（在分支后固定插一条无论跳不跳都要执行的指令，把它排到延迟槽里就完全消除了气泡）、以及提前在 ID 段完成分支判断并计算目标地址。
+    <h4>旁路为什么能减少停顿？</h4>
+    停顿的本质是"<b>结果还没算出来，但使用者已经要读了</b>"。不转发时，结果只能沿 WB 写回寄存器堆后才被读到，等待时间长；转发则<b>抄近路</b>，把 ALU 输出（EX/MEM 寄存器）或内存读出数据（MEM/WB 寄存器）直接从内部总线送到需要它的 ALU 输入，<b>绕开了"必须等写回"这条长路径</b>，把等待从 3 个周期压到 0~1 个周期。代价是要增加旁路通路和比较电路（判断源寄存器号是否匹配），但远比多停几个周期划算——所以现代处理器普遍采用转发 + 少量必要停顿。
+    <h4>其他说明</h4>
+    本演示假设：每段恰好 1 个周期、允许同一周期写后读、采用"取指与访存共用存储器"的结构；指令集简化为 <code>add/sub/and/or/lw/sw/beq/bne/j</code>，寄存器名 <code>r0~r7</code>。切换"数据冒险/控制冒险"下拉框可在同一序列上对比不同解决策略的周期数、吞吐率与加速比，这正是 408 大题里常考的比较点。
+  </div>
+</div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const STAGES = ["IF", "ID", "EX", "MEM", "WB"];
+
+/* ---------------- 预置序列 ---------------- */
+const PRESETS = {
+  ideal: "add r1, r2, r3\nsub r4, r5, r6\nand r7, r1, r2\nor r3, r4, r5\nadd r6, r7, r1",
+  raw:   "add r1, r2, r3\nsub r4, r1, r5\nand r6, r1, r4\nor r7, r6, r1",
+  loaduse: "lw r1, 0(r2)\nadd r3, r1, r4\nsub r5, r1, r6\nlw r7, 4(r2)\nand r1, r7, r3",
+  branch: "add r1, r2, r3\nbeq r1, r0, L1\nsub r4, r5, r6\nand r7, r1, r2\nL1: or r3, r4, r5\nadd r6, r3, r7",
+  structural: "lw r1, 0(r2)\nlw r3, 4(r2)\nlw r5, 8(r2)\nlw r7, 12(r2)",
+  mix: "lw r1, 0(r2)\nadd r3, r1, r4\nsw r3, 0(r5)\nbeq r3, r0, L2\nsub r6, r7, r1\nL2: and r2, r3, r6\nadd r4, r2, r1"
+};
+const PRESET_DESC = {
+  ideal: ["理想流水", "指令间无依赖，每周期都有一条指令完成，T = n + 4，效率最高。"],
+  raw: ["数据冒险 RAW", "后一条指令直接使用前一条 ALU 结果：不转发需停 3 周期，转发后只需 0 个气泡。"],
+  loaduse: ["load-use 数据冒险", "load 的数据要到 MEM 段结束才有，即使有转发也必须停 1 个周期。"],
+  branch: ["控制冒险", "beq 要到 EX 段才知道是否跳转，之前取的指令可能作废，产生清除与气泡。"],
+  structural: ["结构冒险", "连续 lw：MEM 段与后续指令的 IF 段争用同一个存储器，出现红色冲突框。"],
+  mix: ["综合序列", "同时包含 load-use、store、分支，最能体现各种冒险的叠加效果。"]
+};
+
+/* ---------------- 解析 ---------------- */
+function parseProgram(text) {
+  const lines = String(text).split(/\r?\n/);
+  const labels = {};
+  const raw = [];
+  let pc = 0;
+  lines.forEach(line0 => {
+    let line = line0.replace(/[;,#].*$/, "").trim();
+    if (!line) return;
+    const m = line.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.*)$/);
+    if (m) { labels[m[1].toUpperCase()] = pc; line = m[2].trim(); if (!line) return; }
+    const parts = line.split(/\s+/);
+    const op = parts[0].toLowerCase();
+    const ops = (parts[1] || "").split(",").map(x => x.trim().replace(/[()]/g, "")).filter(x => x !== "");
+    raw.push({ op: op, ops: ops, line: line0.trim(), pc: pc });
+    pc++;
+  });
+  const maxPc = pc;
+  const prog = raw.map((ins, i) => {
+    const op = ins.op, o = ins.ops;
+    const reg = (x) => {
+      const m = /^r(\d+)$/i.exec(String(x || ""));
+      return m ? +m[1] : -1;
+    };
+    const obj = { idx: i, asm: ins.line, op: op, rd: -1, rs: [], rt: -1, imm: 0, mem: false, branch: false, jump: false, npc: i + 1, tpc: -1 };
+    if (op === "add" || op === "sub" || op === "and" || op === "or" || op === "xor" || op === "slt" || op === "sll" || op === "mul") {
+      obj.rd = reg(o[0]); obj.rs = [reg(o[1]), reg(o[2])].filter(v => v >= 0);
+    } else if (op === "addi" || op === "andi" || op === "ori") {
+      obj.rd = reg(o[0]); obj.rs = [reg(o[1])].filter(v => v >= 0);
+      obj.imm = parseInt(o[2] || "0", 10) || 0;
+    } else if (op === "lw" || op === "lh" || op === "lb") {
+      obj.rd = reg(o[0]); obj.rs = [reg(o[1])].filter(v => v >= 0); obj.mem = true;
+      obj.imm = parseInt(o[2] || "0", 10) || 0;
+    } else if (op === "sw" || op === "sh" || op === "sb") {
+      obj.rs = [reg(o[0]), reg(o[1])].filter(v => v >= 0); obj.mem = true;
+      obj.imm = parseInt(o[2] || "0", 10) || 0;
+    } else if (op === "beq" || op === "bne" || op === "blt" || op === "bge") {
+      obj.rs = [reg(o[0]), reg(o[1])].filter(v => v >= 0);
+      obj.branch = true;
+      const t = String(o[2] || "").toUpperCase().replace(/^L/, "L");
+      obj.tpc = (labels[t] !== undefined) ? labels[t] : NaN;
+      obj.imm = parseInt(o[2] || "0", 10);
+    } else if (op === "j" || op === "jal") {
+      obj.jump = true; obj.branch = true;
+      const t = String(o[0] || "").toUpperCase();
+      obj.tpc = (labels[t] !== undefined) ? labels[t] : NaN;
+    } else if (op === "nop") {
+      /* 空操作 */
+    } else {
+      obj.unknown = op;
+    }
+    obj.nd = (op === "beq" || op === "bne" || op === "blt" || op === "bge" || op === "j" || op === "jal")
+             ? (op === "beq" || op === "bne" || op === "blt" || op === "bge" ? 1 : 0) : 0;  // 1=实际跳转
+    return obj;
+  });
+  // 计算下一条 PC：按"实际执行是否正确"决定（用于时空图的正确性）
+  prog.forEach((p, i) => {
+    if (p.branch || p.jump) {
+      p.npc = isFinite(p.tpc) ? p.tpc : i + 1;
+      p.taken = true;
+    } else {
+      p.npc = i + 1;
+      p.taken = false;
+    }
+  });
+  // 对条件分支：按"是否真的跳转"来决定取指流（教学上默认真跳转）
+  const order = [];
+  let seen = 0, guard = 0;
+  let visited = {};
+  while (seen < prog.length && guard++ < 200) {
+    if (visited[seen]) break;
+    visited[seen] = true;
+    order.push(seen);
+    const p = prog[seen];
+    let next = p.npc;
+    if (p.branch && !p.jump) { p.taken = true; next = isFinite(p.tpc) ? p.tpc : seen + 1; }
+    if (next === seen) break;
+    seen = next;
+  }
+  return { prog: prog, order: order, labels: labels, count: prog.length };
+}
+
+/* ---------------- 调度 ---------------- */
+function buildSchedule(prog, order, opts) {
+  const n = order.length;
+  const fwd = opts.fwd, ctrl = opts.ctrl;
+
+  function run(stall, penalty) {
+    const IF = [], ID = [], EX = [], MEM = [], WB = [];
+    let freeIF = 1, freeID = 1, freeEX = 1, freeMEM = 1, freeWB = 1;
+    let okIF = 1, okID = 1, okEX = 1, okMEM = 1, okWB = 1;
+    for (let i = 0; i < n; i++) {
+      const s_ = stall[i] || 0;
+      let memo = okMEM;
+      if (freeEX > memo) memo = freeEX;
+      while (memo <= okMEM) memo++;                       // MEM 不能与前一条的 MEM 同周期
+      EX[i] = Math.max(freeEX, okEX);
+      MEM[i] = Math.max(EX[i] + 1, memo);
+      WB[i] = Math.max(MEM[i] + 1, freeWB, okWB);
+      okWB = WB[i] + 1;
+
+      const dur = STAGES.length - 1;
+      let ift = Math.max(okIF, freeWB - dur - 2);
+      let ok1 = okIF, ok2 = okIF;
+      while (ift <= okMEM || ift + 1 <= okID) { ift++; ok2++; }
+      IF[i] = ift;
+      ID[i] = ok2 + 1;
+      okIF = ok2 + 1;
+      okID = ID[i] + 1;
+      okEX = EX[i] + 1;
+      okMEM = MEM[i] + 1;
+      freeIF = Math.max(freeIF, IF[i] + 1);
+      freeID = Math.max(freeID, ID[i] + 1);
+      freeEX = Math.max(freeEX, EX[i] + 1);
+      freeMEM = Math.max(freeMEM, MEM[i] + 1);
+      freeWB = Math.max(freeWB, WB[i] + 1);
+    }
+    // 结构冒险修复：IF 与任何 MEM 同周期 → 把 IF 推后
+    for (let iter = 0; iter < 60; iter++) {
+      let fixed = false;
+      for (let i = 0; i < n && !fixed; i++) {
+        for (let j = 0; j < n; j++) {
+          if (j === i) continue;
+          if (IF[i] === MEM[j]) {
+            const d = 1;
+            IF[i] += d; ID[i] += d;
+            if (ID[i] === okID) okID++;
+            fixed = true;
+            break;
+          }
+        }
+      }
+      if (!fixed) break;
+    }
+    return { IF: IF, ID: ID, EX: EX, MEM: MEM, WB: WB };
+  }
+
+  /* 迭代：先按当前停顿数排，再检测数据冒险，修正停顿数，直到稳定 */
+  let stall = new Array(n).fill(0);
+  let penalty = new Array(n).fill(0);
+  // 控制冒险代价（按策略）
+  const orderSet = {};
+  order.forEach((oi, pos) => orderSet[oi] = pos);
+  order.forEach((oi, pos) => {
+    const p = prog[oi];
+    if (p.branch || p.jump) {
+      if (ctrl === "stall") penalty[pos] = p.jump ? 1 : 2;
+      else if (ctrl === "pnt") penalty[pos] = 2;      // 预测不跳转，实际跳转 → 取错，2 周期
+      else if (ctrl === "pt") penalty[pos] = 0;       // 预测跳转且实际跳转 → 正确
+      else penalty[pos] = 0;                          // 延迟槽：无气泡
+    }
+  });
+
+  let sch = null, dataHaz = [], rounds = 0;
+  while (rounds++ < 4) {
+    sch = run(stall, penalty);
+    dataHaz = [];
+    const newStall = new Array(n).fill(0);
+    for (let pos = 0; pos < n; pos++) {
+      const cons = prog[order[pos]];
+      let worst = 0, worstProd = -1, worstType = "";
+      if (cons.rs.length === 0) continue;
+      for (let k = pos - 1; k >= 0; k--) {
+        const prod = prog[order[k]];
+        if (prod.rd < 0) continue;
+        if (cons.rs.indexOf(prod.rd) < 0) continue;
+        const useT = sch.EX[pos];
+        const availT = prod.mem ? sch.MEM[k] + 2 : sch.EX[k] + 1;   // 转发可用周期
+        const need = availT - useT;
+        dataHaz.push({ prod: k, cons: pos, reg: prod.rd, fwdable: !prod.mem, useT: useT, availT: availT, need: need });
+        if (need > worst) { worst = need; worstProd = k; worstType = prod.mem ? "load-use" : "ALU"; }
+        break;      // 只看最近的一次写入
+      }
+      if (worst > 0) {
+        const add = fwd ? worst : (() => {
+          const prod = prog[order[worstProd]];
+          const wbT = sch.WB[worstProd];
+          return Math.max(0, wbT + 1 - sch.EX[pos]);
+        })();
+        newStall[pos] = Math.max(0, add);
+      }
+    }
+    const changed = newStall.some((v, i) => v !== stall[i]);
+    const maxSt = Math.max.apply(null, newStall.concat([0]));
+    stall = newStall.map((v, i) => Math.max(v, (penalty[i] || 0)));
+    if (!changed || maxSt === 0) break;
+  }
+  return { sch: sch, stall: stall, penalty: penalty, dataHaz: dataHaz, n: n };
+}
+
+/* ---------------- 构建演示数据 ---------------- */
+let model = null, cur = 0, playing = false, timer = null, speed = 200;
+const stageCells = {};   // instrRow -> {cycle: {stage, cls, note}}
+
+function buildAll() {
+  const parsed = parseProgram($("insBox").value);
+  const prog = parsed.prog, order = parsed.order;
+  $("msg").className = "msg";
+  if (!prog.length) {
+    model = null;
+    $("msg").textContent = "⚠️ 指令序列为空，请输入至少一条指令（如 add r1, r2, r3，每行一条）。";
+    $("msg").className = "msg warn";
+    return;
+  }
+  if (order.length < prog.length) {
+    $("msg").innerHTML = "ℹ️ 检测到循环/回边：演示只展开前 " + order.length + " 条动态指令（避免无限循环）。";
+    $("msg").className = "msg warn";
+  }
+  const unknown = prog.filter(p => p.unknown);
+  if (unknown.length) {
+    $("msg").innerHTML = "⚠️ 不支持的操作码：" + unknown.map(p => p.unknown).join("、") + "（已忽略其寄存器依赖）。支持 add/sub/and/or/lw/sw/beq/bne/j/nop。";
+    $("msg").className = "msg warn";
+  }
+  const opts = { fwd: $("fwdSel").value === "1", ctrl: $("ctrlSel").value };
+  const r = buildSchedule(prog, order, opts);
+  const n = r.n, sch = r.sch;
+
+  /* 组装行：指令 + 气泡（由停顿生成） */
+  const rows = [];
+  for (let pos = 0; pos < n; pos++) {
+    const oi = order[pos];
+    rows.push({ kind: "ins", pos: pos, ins: prog[oi], IF: sch.IF[pos], ID: sch.ID[pos], EX: sch.EX[pos], MEM: sch.MEM[pos], WB: sch.WB[pos] });
+    const st = r.stall[pos] || 0;
+    for (let b = 0; b < st; b++) rows.push({ kind: "bubble", pos: pos, ins: null, after: pos });
+  }
+  // 计算总周期数
+  let T = 0;
+  rows.forEach(rw => { if (rw.kind === "ins") T = Math.max(T, rw.WB, rw.IF, rw.ID, rw.EX, rw.MEM); });
+  // 气泡 = 停顿周期：占用"该指令 IF 之前"的周期，与该指令的停顿数严格对应
+  let bubbleCounters = {};
+  rows.forEach(rw => {
+    if (rw.kind !== "bubble") return;
+    const c = rw.pos;
+    const st = r.stall[c] || 0;
+    const start = (sch.IF[c] || 1) - st;
+    const idx = (bubbleCounters[c] = (bubbleCounters[c] || 0) + 1) - 1;
+    rw.bubbleCycle = start + idx;
+  });
+
+  model = {
+    prog: prog, order: order, rows: rows, T: T, n: n, stall: r.stall, penalty: r.penalty,
+    haz: r.dataHaz, opts: opts, parsed: parsed
+  };
+  cur = 0;
+  $("stN").textContent = n;
+  updateStats();
+  render();
+}
+function updateStats() {
+  if (!model) { $("stT").textContent = "0"; $("stTP").textContent = "—"; $("stS").textContent = "—"; $("stE").textContent = "—"; return; }
+  const T = model.T, n = model.n, k = STAGES.length;
+  const serial = n * k;
+  $("stT").textContent = T;
+  $("stTP").textContent = (n / T).toFixed(3) + " 条/周期";
+  $("stS").textContent = (serial / T).toFixed(2) + " 倍";
+  $("stE").textContent = (serial / (k * T) * 100).toFixed(1) + "%";
+  const st = model.stall.reduce((a, b) => a + b, 0);
+  $("stStall").textContent = st;
+  $("stProg").textContent = cur + " / " + T;
+  $("progBar").style.width = (cur / Math.max(1, T) * 100) + "%";
+}
+
+/* ---------------- 渲染 ---------------- */
+function render() {
+  if (!model) { $("dd").innerHTML = ""; $("ilist").innerHTML = ""; $("calc").innerHTML = ""; return; }
+  const rows = model.rows, T = model.T, k = STAGES.length;
+  const maxCyc = T;
+  const tbl = $("dd");
+  let html = "<thead><tr><td class='cy' style='background:#fff;border:none'></td>";
+  for (let c = 1; c <= maxCyc; c++) {
+    html += "<th style='" + (c === cur ? "background:#6366f1;color:#fff" : "") + "'>" + c + "</th>";
+  }
+  html += "</tr></thead><tbody>";
+  rows.forEach((rw, ri) => {
+    const isBub = rw.kind === "bubble";
+    html += "<tr" + (isBub ? " class='dimrow'" : "") + ">";
+    if (isBub) {
+      html += "<td class='cy' title='气泡（停顿）'>" + "·".repeat(1) + " 气泡</td>";
+    } else {
+      html += "<td class='cy' title='" + escapeHtml(rw.ins.asm) + "'>I" + (rw.pos + 1) + " " + escapeHtml(trunc(rw.ins.asm, 14)) + "</td>";
+    }
+    for (let c = 1; c <= maxCyc; c++) {
+      let cls = "emp", txt = "";
+      if (isBub) {
+        if (rw.bubbleCycle === c) { cls = "bub"; txt = "停"; }
+      } else {
+        for (let s = 0; s < k; s++) {
+          const sg = STAGES[s];
+          if (rw[sg] === c) { cls = sg; txt = sg; break; }
+        }
+      }
+      let extra = "";
+      if (c === cur) extra += " cur";
+      if (!isBub && c === cur && isHazardCycle(ri, c)) extra += " hz";
+      html += "<td class='cell " + cls + extra + "'>" + txt + "</td>";
+    }
+    html += "</tr>";
+  });
+  html += "</tbody>";
+  tbl.innerHTML = html;
+  // 滚动到当前周期
+  const wrap = $("ddwrap");
+  const target = Math.max(0, (cur - 6) * 18);
+  wrap.scrollLeft = Math.min(target, Math.max(0, tbl.scrollWidth - wrap.clientWidth));
+
+  // 指令表
+  const il = $("ilist");
+  let ih = "";
+  model.order.forEach((oi, pos) => {
+    const p = model.prog[oi];
+    const active = currentActiveRows().indexOf(pos) >= 0;
+    ih += "<div class='" + (active ? "act" : "") + "'><span class='i'>I" + (pos + 1) + "</span><span class='c'>" + escapeHtml(trunc(p.asm, 26)) + "</span></div>";
+  });
+  il.innerHTML = ih;
+
+  // 本周期说明
+  $("cycHint").textContent = "周期 " + cur + (cur === 0 ? "（未开始）" : "");
+  $("calc").innerHTML = describeCycle();
+  updateStats();
+}
+function currentActiveRows() {
+  const act = [];
+  if (!model || cur < 1) return act;
+  model.rows.forEach((rw, ri) => {
+    if (rw.kind !== "ins") return;
+    for (const sg of STAGES) if (rw[sg] === cur) { act.push(rw.pos); break; }
+  });
+  return act;
+}
+function isHazardCycle(ri, c) {
+  if (!model || !model.hzSet) return false;
+  return !!model.hzSet[ri + "|" + c];
+}
+function describeCycle() {
+  if (cur === 0) return "点击「▶ 播放」或「单步」开始逐周期演示。横轴每个数字是一个时钟周期，格子里的字母表示该指令在该周期处于哪一段。";
+  const parts = [];
+  model.rows.forEach((rw, ri) => {
+    if (rw.kind === "bubble") { if (rw.bubbleCycle === cur) parts.push("<span class='rd'>气泡</span>：流水线空转，等待解决冒险（不完成任何指令）"); return; }
+    const sg = STAGES.find(s => rw[s] === cur);
+    if (sg) parts.push("<b>I" + (rw.pos + 1) + "</b> " + trunc(rw.ins.asm, 16) + " → <span class='pu'>" + sg + "</span>");
+  });
+  let extra = "";
+  // 数据冒险（本周期相关）
+  const related = (model.haz || []).filter(h => {
+    const consRow = model.rows.findIndex(r => r.kind === "ins" && r.pos === h.cons);
+    const prodRow = model.rows.findIndex(r => r.kind === "ins" && r.pos === h.prod);
+    if (consRow < 0 || prodRow < 0) return false;
+    const consEX = model.rows[consRow].EX, prodT = h.fwdable ? model.rows[prodRow].EX : model.rows[prodRow].MEM;
+    return cur === consEX || cur === prodT;
+  });
+  related.forEach(h => {
+    const prodRow = model.rows.find(r => r.kind === "ins" && r.pos === h.prod);
+    const consRow = model.rows.find(r => r.kind === "ins" && r.pos === h.cons);
+    if (model.opts.fwd) {
+      if (h.fwdable) extra += "<br><span class='pu'>数据冒险（RAW）已由转发解决</span>：I" + (h.prod + 1) + " 的 r" + h.reg + " 在 EX 末尾产生，" + (cur === consRow.EX ? "本周期直接经旁路送进 I" + (h.cons + 1) + " 的 ALU 输入端，无需停顿。" : "即将旁路给 I" + (h.cons + 1) + "。");
+      else extra += "<br><span class='rd'>load-use 冒险</span>：I" + (h.prod + 1) + " 是 lw，数据到 MEM 段结束才有，转发也来不及，" + (cur === consRow.EX ? "因此插入了停顿气泡。" : "需要插入 1 个气泡。");
+    } else if (cur === prodRow.WB) {
+      extra += "<br><span class='rd'>未启用转发</span>：I" + (h.cons + 1) + " 必须一直等到 I" + (h.prod + 1) + " 在本周期 WB 写回 r" + h.reg + " 之后才能读，因此中间插入了多个气泡。";
+    }
+  });
+  // 分支
+  model.order.forEach((oi, pos) => {
+    const p = model.prog[oi];
+    if (!p.branch) return;
+    const row = model.rows.find(r => r.kind === "ins" && r.pos === pos);
+    if (!row) return;
+    if (row.EX === cur && !p.jump) {
+      const how = model.opts.ctrl;
+      extra += "<br><span class='am'>控制冒险</span>：分支 I" + (pos + 1) + " 在 EX 段才判定" + (p.taken ? "（跳转成立）" : "（不跳转）") + "，而 IF 早就按顺序取了后面的指令。";
+      if (how === "stall") extra += "策略「停顿」：IF 在分支译码后即暂停，直到 EX 判定完成 → 插入 2 个气泡。";
+      else if (how === "pnt") extra += "策略「预测不跳转」：预测失败（实际跳转），必须清除已取入的错误指令并重新取指 → 2 个气泡。";
+      else if (how === "pt") extra += "策略「预测跳转」：预测成功，取指方向正确 → 无需气泡（代价是需要目标地址缓冲 BTB）。";
+      else extra += "策略「延迟槽」：分支后固定安排 1 条无论跳不跳都执行的指令，把有用的指令排进延迟槽 → 无气泡。";
+    }
+  });
+  // 结构冒险
+  if (model.structConflicts && model.structConflicts["@" + cur]) {
+    extra += "<br><span class='rd'>结构冒险</span>：本周期既有指令处于 MEM（访问数据存储器），又有指令处于 IF（取指令，也要访问存储器），两者争用同一个存储器 → 编译器/硬件必须让其中一个等待（解决办法：指令与数据存储器分开，即哈佛结构或分离 I-Cache/D-Cache）。";
+  }
+  return parts.join("　|　") + extra;
+}
+function sgIndex(s) { return STAGES.indexOf(s); }
+function trunc(s, n) { s = String(s); return s.length > n ? s.slice(0, n - 1) + "…" : s; }
+function escapeHtml(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+/* 计算冒险标记集合与结构冲突集合 */
+function computeMarks() {
+  if (!model) return;
+  model.hzSet = {};
+  model.structConflicts = {};
+  model.rows.forEach((rw, ri) => {
+    if (rw.kind !== "ins") return;
+    // 结构冒险：IF / MEM 与其它指令的 MEM 同周期（本演示只有一个存储器）
+    const others = model.rows.filter((x, xi) => xi !== ri && x.kind === "ins");
+    [["IF", 0], ["MEM", 1]].forEach(pair => {
+      const sg = pair[0];
+      others.forEach(o => {
+        if (o.MEM === rw[sg] && o.MEM > 0) {
+          model.hzSet[ri + "|" + rw[sg]] = "hz";
+          model.structConflicts["@" + rw[sg]] = true;
+        }
+      });
+    });
+    // 数据冒险：生产者的 EX/MEM 与消费者的 EX
+    (model.haz || []).forEach(h => {
+      if (h.cons !== rw.pos) return;
+      const prodRow = model.rows.find(x => x.kind === "ins" && x.pos === h.prod);
+      if (!prodRow) return;
+      const at = h.fwdable ? prodRow.EX : prodRow.MEM;
+      model.hzSet[ri + "|" + at] = "fwd";
+    });
+  });
+}
+
+/* ---------------- 控制 ---------------- */
+function stopTimer() { if (timer) { clearTimeout(timer); timer = null; } }
+function pause() { playing = false; stopTimer(); $("btnPlay").textContent = "▶ 播放"; }
+function play() {
+  if (!model) return;
+  if (playing) { pause(); return; }
+  if (cur >= model.T) cur = 0;
+  playing = true;
+  $("btnPlay").textContent = "⏸ 暂停";
+  timer = setTimeout(tick, speed);
+}
+function tick() {
+  if (!playing || !model) return;
+  if (cur >= model.T) { pause(); return; }
+  cur++;
+  render();
+  if (cur >= model.T) { pause(); return; }
+  timer = setTimeout(tick, speed);
+}
+
+/* ---------------- 事件 ---------------- */
+function loadPreset(keepCycle) {
+  pause();
+  const key = $("preset").value;
+  if (PRESETS[key]) $("insBox").value = PRESETS[key];
+  buildAll();
+  computeMarks();
+  cur = 0;
+  render();
+  const d = PRESET_DESC[key];
+  if (d && !$("msg").textContent) { /* 说明已在下方 */ }
+}
+$("preset").onchange = () => loadPreset();
+$("fwdSel").onchange = () => { buildAll(); computeMarks(); render(); };
+$("ctrlSel").onchange = () => { buildAll(); computeMarks(); render(); };
+$("btnApply").onclick = () => { buildAll(); computeMarks(); render(); };
+$("insBox").addEventListener("keydown", e => { if (e.key === "Enter") { buildAll(); computeMarks(); render(); } });
+$("btnRand").onclick = () => {
+  const ops = ["add", "sub", "and", "or"];
+  const loads = ["lw", "sw"];
+  const nIns = 5 + Math.floor(Math.random() * 3);
+  const lines = [];
+  const usesLabel = Math.random() < 0.4;
+  for (let i = 0; i < nIns; i++) {
+    const t = Math.random();
+    if (t < 0.5) {
+      const d = 1 + Math.floor(Math.random() * 5), s = 1 + Math.floor(Math.random() * 5), u = 1 + Math.floor(Math.random() * 5);
+      lines.push(ops[Math.floor(Math.random() * ops.length)] + " r" + d + ", r" + s + ", r" + u);
+    } else if (t < 0.75) {
+      const d = 1 + Math.floor(Math.random() * 5), b = 1 + Math.floor(Math.random() * 5);
+      lines.push(loads[Math.floor(Math.random() * loads.length)] + " r" + d + ", " + (Math.floor(Math.random() * 4) * 4) + "(r" + b + ")");
+    } else if (t < 0.85 && usesLabel && i < nIns - 2) {
+      const a = 1 + Math.floor(Math.random() * 5), b = 1 + Math.floor(Math.random() * 5);
+      lines.push("beq r" + a + ", r" + b + ", L1");
+    } else {
+      const d = 1 + Math.floor(Math.random() * 5), s = 1 + Math.floor(Math.random() * 5), u = 1 + Math.floor(Math.random() * 5);
+      lines.push(ops[Math.floor(Math.random() * ops.length)] + " r" + d + ", r" + s + ", r" + u);
+    }
+  }
+  if (usesLabel) lines.push("L1: add r2, r3, r4");
+  $("insBox").value = lines.join("\n");
+  buildAll(); computeMarks(); render();
+};
+$("btnPlay").onclick = play;
+$("btnStep").onclick = () => { pause(); if (model && cur < model.T) { cur++; render(); } };
+$("btnPrev").onclick = () => { pause(); if (cur > 0) { cur--; render(); } };
+$("btnReset").onclick = () => { pause(); cur = 0; render(); };
+document.querySelectorAll(".sp").forEach(b => {
+  b.onclick = () => {
+    document.querySelectorAll(".sp").forEach(x => x.classList.remove("active"));
+    b.classList.add("active");
+    speed = +b.dataset.speed;
+    if (playing) { stopTimer(); timer = setTimeout(tick, speed); }
+  };
+});
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT") return;
+  if (e.key === "ArrowRight") { pause(); if (model && cur < model.T) { cur++; render(); } }
+  if (e.key === "ArrowLeft") { pause(); if (cur > 0) { cur--; render(); } }
+  if (e.key === " ") { e.preventDefault(); play(); }
+});
+
+/* init */
+loadPreset();
+</script>
+</body>
+</html>

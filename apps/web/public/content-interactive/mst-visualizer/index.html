@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>最小生成树可视化：Prim 与 Kruskal</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f8fafc; color: #1e293b; padding: 16px; }
+  .wrap { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+  .head { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; }
+  .head h1 { font-size: 16px; font-weight: 600; }
+  .head .info { font-size: 12px; opacity: .9; }
+  .controls { padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; border-bottom: 1px solid #eef2f7; }
+  .controls label { font-size: 12px; color: #64748b; }
+  select, button { font-size: 13px; }
+  select { padding: 5px 8px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; outline: none; }
+  button { padding: 6px 14px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all .15s; }
+  .btn-primary { background: #6366f1; color: #fff; }
+  .btn-primary:hover { background: #4f46e5; }
+  .btn-ghost { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+  .btn-ghost:hover { background: #e2e8f0; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .speed-group { display: flex; gap: 4px; }
+  .speed-group button { padding: 4px 10px; font-size: 12px; }
+  .speed-group .active { background: #6366f1; color: #fff; border-color: #6366f1; }
+  .stats { padding: 8px 16px; display: flex; gap: 18px; font-size: 12px; color: #64748b; border-bottom: 1px solid #eef2f7; flex-wrap: wrap; }
+  .stats b { color: #1e293b; font-variant-numeric: tabular-nums; }
+  .stage { display: flex; gap: 12px; padding: 14px 16px 6px; }
+  .canvas-box { flex: 1; min-width: 0; }
+  svg { width: 100%; height: 300px; display: block; }
+  .side { width: 190px; flex-shrink: 0; font-size: 12px; }
+  .side h4 { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+  .elist { max-height: 268px; overflow-y: auto; border: 1px solid #eef2f7; border-radius: 8px; padding: 6px; }
+  .eitem { padding: 4px 6px; border-radius: 6px; font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; display: flex; justify-content: space-between; margin-bottom: 2px; }
+  .eitem.used { background: #d1fae5; color: #065f46; font-weight: 600; }
+  .eitem.skip { background: #fee2e2; color: #991b1b; text-decoration: line-through; }
+  .eitem.cur { background: #fef3c7; color: #92400e; font-weight: 600; }
+  .legend { padding: 4px 16px 10px; display: flex; gap: 14px; font-size: 11px; color: #64748b; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 12px; height: 3px; border-radius: 2px; margin-right: 5px; vertical-align: 3px; }
+  .desc { padding: 10px 16px 16px; border-top: 1px solid #eef2f7; font-size: 12px; color: #475569; line-height: 1.75; min-height: 62px; }
+  .desc b { color: #334155; }
+  .desc .k { color: #6366f1; font-weight: 600; }
+  .badge { display: inline-block; padding: 1px 7px; border-radius: 999px; background: #eef2ff; color: #4f46e5; font-size: 11px; margin-right: 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>🌐 最小生成树：Prim 与 Kruskal</h1>
+    <span class="info" id="algoInfo">Prim 算法 · 加点法</span>
+  </div>
+
+  <div class="controls">
+    <label>算法</label>
+    <select id="algoSel">
+      <option value="prim">Prim（加点）</option>
+      <option value="kruskal">Kruskal（加边）</option>
+    </select>
+    <label>图</label>
+    <select id="graphSel">
+      <option value="0">示例图 1（6 顶点）</option>
+      <option value="1">示例图 2（7 顶点）</option>
+      <option value="2">示例图 3（5 顶点）</option>
+    </select>
+    <button class="btn-ghost" id="btnShuffle">🎲 换权值</button>
+    <div class="speed-group">
+      <button class="btn-ghost" data-speed="800">慢</button>
+      <button class="btn-ghost active" data-speed="350">中</button>
+      <button class="btn-ghost" data-speed="100">快</button>
+    </div>
+    <button class="btn-primary" id="btnPlay">▶ 播放</button>
+    <button class="btn-ghost" id="btnStep">单步</button>
+    <button class="btn-ghost" id="btnReset">↺ 重置</button>
+  </div>
+
+  <div class="stats">
+    <span>已选边 <b id="stEdges">0</b> / <b id="stNeed">5</b></span>
+    <span>当前权值和 <b id="stW">0</b></span>
+    <span>已连通顶点 <b id="stV">1</b> / <b id="stTotal">6</b></span>
+    <span>步数 <b id="stStep">0</b>/<b id="stSteps">0</b></span>
+  </div>
+
+  <div class="stage">
+    <div class="canvas-box">
+      <svg id="canvas" viewBox="0 0 660 300"></svg>
+    </div>
+    <div class="side" id="side">
+      <h4 id="sideTitle">候选边</h4>
+      <div class="elist" id="elist"></div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><i style="background:#6366f1"></i>已在生成树中</span>
+    <span><i style="background:#f59e0b"></i>当前考察</span>
+    <span><i style="background:#ef4444"></i>被舍弃（成环）</span>
+    <span><i style="background:#cbd5e1"></i>未处理</span>
+    <span>● 已加入顶点集合</span>
+  </div>
+
+  <div class="desc" id="desc">点击「播放」或「单步」开始演示。</div>
+</div>
+
+<script>
+/* ───────── 图数据 ───────── */
+const GRAPHS = [
+  { n: ['A','B','C','D','E','F'],
+    pos: [[70,60],[250,40],[430,60],[70,230],[250,255],[430,230]],
+    edges: [[0,1,6],[0,3,1],[1,2,5],[1,3,5],[1,4,3],[2,4,6],[2,5,4],[3,4,6],[4,5,2]] },
+  { n: ['A','B','C','D','E','F','G'],
+    pos: [[60,70],[190,40],[330,50],[470,80],[130,200],[290,230],[470,200]],
+    edges: [[0,1,2],[0,4,4],[1,2,3],[1,4,5],[1,5,6],[2,3,4],[2,5,2],[3,6,7],[4,5,3],[5,6,5]] },
+  { n: ['A','B','C','D','E'],
+    pos: [[90,80],[330,50],[560,90],[220,230],[430,235]],
+    edges: [[0,1,4],[0,3,3],[1,2,6],[1,3,5],[1,4,2],[2,4,4],[3,4,7]] }
+];
+
+const COL = { idle:'#cbd5e1', tree:'#6366f1', cur:'#f59e0b', skip:'#ef4444', node:'#94a3b8', inTree:'#6366f1' };
+
+let gIdx = 0, algo = 'prim', G = null, steps = [], cur = 0, timer = null, speed = 350;
+
+/* ───────── 工具 ───────── */
+function clone(o){ return JSON.parse(JSON.stringify(o)); }
+
+/* 并查集（Kruskal 用） */
+function makeDSU(n){ const p=[...Array(n).keys()]; const find=x=>p[x]===x?x:(p[x]=find(p[x])); return { find, union:(a,b)=>{ p[find(a)]=find(b); } }; }
+
+/* ───────── 生成步骤 ───────── */
+function buildSteps(){
+  const s = [];
+  const label = (i,j) => G.n[i] + '–' + G.n[j];
+  if (algo === 'prim') {
+    const inTree = new Array(G.n.length).fill(false);
+    inTree[0] = true;
+    s.push({ type:'init', inTree:clone(inTree), chosen:[], cur:null, skipped:[],
+      desc:'<b>Prim 算法（加点法）</b>：从顶点 <span class="k">' + G.n[0] + '</span> 出发，已加入集合 U = {' + G.n[0] + '}。每轮从「一端在 U、另一端不在 U」的<b>横切边</b>中选权值最小的一条，把新顶点并入 U。' });
+    while (s[s.length-1].chosen.length < G.n.length - 1) {
+      let best = null;
+      for (const [u,v,w] of G.edges) {
+        const a = inTree[u], b = inTree[v];
+        if (a !== b) {                       // 恰好一个在树中
+          if (!best || w < best.w) best = { u, v, w, from: a ? u : v, to: a ? v : u };
+        }
+      }
+      if (!best) { s.push({ type:'end', inTree:clone(inTree), chosen:s[s.length-1].chosen, cur:null, skipped:[], desc:'图不连通，无法生成最小生成树。' }); return s; }
+      const cands = G.edges.filter(([u,v]) => inTree[u] !== inTree[v]).map(([u,v,w])=>({u,v,w}));
+      s.push({ type:'pick', inTree:clone(inTree), chosen:clone(s[s.length-1].chosen), cur:best, cands, skipped:clone(s[s.length-1].skipped),
+        desc:'候选横切边共 <b>' + cands.length + '</b> 条：' + cands.map(c=>label(c.u,c.v)+'('+c.w+')').join('、') +
+             '。其中权值最小的是 <span class="k">' + label(best.u,best.v) + '（' + best.w + '）</span>。' });
+      inTree[best.to] = true;
+      const chosen = clone(s[s.length-1].chosen); chosen.push({ u:best.u, v:best.v, w:best.w });
+      s.push({ type:'add', inTree:clone(inTree), chosen, cur:best, skipped:clone(s[s.length-1].skipped),
+        desc:'选中 <span class="k">' + label(best.u,best.v) + '</span>，权值 ' + best.w + ' 累加，顶点 <span class="k">' + G.n[best.to] + '</span> 加入 U。当前生成树权值和 = <b>' +
+              chosen.reduce((a,c)=>a+c.w,0) + '</b>。' });
+    }
+  } else {
+    const sorted = G.edges.map((e,i)=>({ u:e[0], v:e[1], w:e[2], idx:i })).sort((a,b)=>a.w-b.w);
+    s.push({ type:'init', inTree:new Array(G.n.length).fill(false), chosen:[], cur:null, skipped:[], sorted, sortStage:true,
+      desc:'<b>Kruskal 算法（加边法）</b>：先把所有边<b>按权值从小到大排序</b>，然后依次考察每条边——若它的两个端点<b>尚未连通</b>（不构成回路）就保留，否则舍弃。' });
+    const dsu = makeDSU(G.n.length);
+    const chosen = [], skipped = [];
+    for (const e of sorted) {
+      const connected = dsu.find(e.u) === dsu.find(e.v);
+      s.push({ type:'examine', inTree:new Array(G.n.length).fill(false), chosen:clone(chosen), cur:e, skipped:clone(skipped), sorted, examIdx:e.idx,
+        desc:'考察边 <span class="k">' + label(e.u,e.v) + '（' + e.w + '）</span>：' +
+             (connected ? '<b style="color:#ef4444">两端已连通，加入会形成回路 → 舍弃</b>' : '两端分属不同连通分量 → <b style="color:#10b981">可以加入</b>') });
+      if (connected) { skipped.push({u:e.u,v:e.v,w:e.w}); }
+      else {
+        dsu.union(e.u, e.v);
+        chosen.push({ u:e.u, v:e.v, w:e.w });
+        s.push({ type:'add', inTree:new Array(G.n.length).fill(false), chosen:clone(chosen), cur:e, skipped:clone(skipped), sorted,
+          desc:'边 <span class="k">' + label(e.u,e.v) + '</span> 加入生成树（合并两个连通分量）。已选 ' + chosen.length + ' 条边，权值和 = <b>' + chosen.reduce((a,c)=>a+c.w,0) + '</b>。' });
+      }
+      if (chosen.length === G.n.length - 1) break;
+    }
+    s.push({ type:'end', inTree:new Array(G.n.length).fill(false), chosen:clone(chosen), cur:null, skipped:clone(skipped), sorted,
+      desc:'所有顶点已连通，算法结束。最小生成树共 <b>' + chosen.length + '</b> 条边，总权值 = <b>' + chosen.reduce((a,c)=>a+c.w,0) + '</b>。' });
+  }
+  return s;
+}
+
+/* ───────── 渲染 ───────── */
+const svg = document.getElementById('canvas');
+
+function edgeEl(u, v, w, color, width, dash){
+  const [x1,y1] = G.pos[u], [x2,y2] = G.pos[v];
+  const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+  const l = document.createElementNS('http://www.w3.org/2000/svg','line');
+  l.setAttribute('x1',x1); l.setAttribute('y1',y1); l.setAttribute('x2',x2); l.setAttribute('y2',y2);
+  l.setAttribute('stroke',color); l.setAttribute('stroke-width',width);
+  if (dash) l.setAttribute('stroke-dasharray','5 4');
+  g.appendChild(l);
+  const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+  t.setAttribute('x',(x1+x2)/2); t.setAttribute('y',(y1+y2)/2 - 5);
+  t.setAttribute('font-size','12'); t.setAttribute('text-anchor','middle');
+  t.setAttribute('fill', color === COL.idle ? '#94a3b8' : color);
+  t.setAttribute('font-weight', color === COL.idle ? '400' : '700');
+  t.setAttribute('paint-order','stroke'); t.setAttribute('stroke','#fff'); t.setAttribute('stroke-width','3');
+  t.textContent = w;
+  g.appendChild(t);
+  return g;
+}
+
+function render(){
+  const st = steps[cur] || steps[0];
+  svg.innerHTML = '';
+  const chosenSet = new Set((st.chosen||[]).map(e=>Math.min(e.u,e.v)+'-'+Math.max(e.u,e.v)));
+  const curSet = st.cur ? new Set([Math.min(st.cur.u,st.cur.v)+'-'+Math.max(st.cur.u,st.cur.v)]) : new Set();
+  const skipSet = new Set((st.skipped||[]).map(e=>Math.min(e.u,e.v)+'-'+Math.max(e.u,e.v)));
+
+  // 先画未选中的边
+  for (const [u,v,w] of G.edges) {
+    const k = Math.min(u,v)+'-'+Math.max(u,v);
+    if (chosenSet.has(k) || curSet.has(k) || skipSet.has(k)) continue;
+    svg.appendChild(edgeEl(u,v,w,COL.idle,2,false));
+  }
+  // 舍弃的边
+  for (const e of (st.skipped||[])) svg.appendChild(edgeEl(e.u,e.v,e.w,COL.skip,2,true));
+  // 生成树中的边
+  for (const e of (st.chosen||[])) svg.appendChild(edgeEl(e.u,e.v,e.w,COL.tree,4,false));
+  // 当前考察的边
+  if (st.cur) svg.appendChild(edgeEl(st.cur.u,st.cur.v,st.cur.w,COL.cur,4.5,false));
+
+  // 顶点
+  const inTree = st.inTree || new Array(G.n.length).fill(false);
+  const curV = st.cur ? [st.cur.u, st.cur.v] : [];
+  G.pos.forEach(([x,y], i) => {
+    const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    const active = inTree[i] || (algo==='kruskal' && chosenSet.size>0);
+    c.setAttribute('cx',x); c.setAttribute('cy',y); c.setAttribute('r',16);
+    c.setAttribute('fill', active ? COL.inTree : '#fff');
+    c.setAttribute('stroke', curV.includes(i) ? COL.cur : (active ? COL.inTree : COL.node));
+    c.setAttribute('stroke-width', curV.includes(i) ? 3.5 : 2.5);
+    svg.appendChild(c);
+    const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',x); t.setAttribute('y',y+5); t.setAttribute('text-anchor','middle');
+    t.setAttribute('font-size','13'); t.setAttribute('font-weight','600');
+    t.setAttribute('fill', active ? '#fff' : '#475569');
+    t.textContent = G.n[i];
+    svg.appendChild(t);
+  });
+
+  // 统计
+  const wsum = (st.chosen||[]).reduce((a,c)=>a+c.w,0);
+  document.getElementById('stEdges').textContent = (st.chosen||[]).length;
+  document.getElementById('stW').textContent = wsum;
+  if (algo==='prim') {
+    document.getElementById('stV').textContent = inTree.filter(Boolean).length;
+  } else {
+    // Kruskal：统计已连通顶点数（由已选边推导）
+    const dsu = makeDSU(G.n.length);
+    (st.chosen||[]).forEach(e=>dsu.union(e.u,e.v));
+    const roots = new Set(G.n.map((_,i)=>dsu.find(i)));
+    const connected = G.n.length - roots.size + 1;
+    document.getElementById('stV').textContent = Math.min(connected, G.n.length);
+  }
+  document.getElementById('stStep').textContent = cur + 1;
+  document.getElementById('stSteps').textContent = steps.length;
+  document.getElementById('stNeed').textContent = G.n.length - 1;
+  document.getElementById('stTotal').textContent = G.n.length;
+  document.getElementById('desc').innerHTML = st.desc || '';
+
+  // 侧栏
+  if (algo === 'kruskal') {
+    document.getElementById('sideTitle').textContent = '边列表（按权值升序）';
+    const used = new Set((st.chosen||[]).map(e=>e.u+'-'+e.v+'-'+e.w));
+    const skipped = new Set((st.skipped||[]).map(e=>e.u+'-'+e.v+'-'+e.w));
+    const curKey = st.cur ? st.cur.u+'-'+st.cur.v+'-'+st.cur.w : null;
+    document.getElementById('elist').innerHTML = (st.sorted || []).map(e => {
+      const k = e.u+'-'+e.v+'-'+e.w;
+      let cls = 'eitem';
+      if (used.has(k)) cls += ' used'; else if (skipped.has(k)) cls += ' skip'; else if (k === curKey) cls += ' cur';
+      return '<div class="' + cls + '"><span>' + G.n[e.u] + '–' + G.n[e.v] + '</span><span>' + e.w + '</span></div>';
+    }).join('');
+  } else {
+    document.getElementById('sideTitle').textContent = '横切边（候选）';
+    const cands = st.cands || [];
+    document.getElementById('elist').innerHTML = cands.length
+      ? cands.map(c => '<div class="eitem' + (st.cur && Math.min(c.u,c.v)===Math.min(st.cur.u,st.cur.v) && Math.max(c.u,c.v)===Math.max(st.cur.u,st.cur.v) ? ' cur' : '') + '"><span>' + G.n[c.u] + '–' + G.n[c.v] + '</span><span>' + c.w + '</span></div>').join('')
+      : '<div style="color:#94a3b8;padding:6px">（本轮已无候选边）</div>';
+  }
+}
+
+/* ───────── 控制 ───────── */
+function reset(){
+  clearInterval(timer); timer = null;
+  document.getElementById('btnPlay').textContent = '▶ 播放';
+  G = clone(GRAPHS[gIdx]);
+  steps = buildSteps();
+  cur = 0;
+  render();
+}
+
+function stepForward(){
+  if (cur < steps.length - 1) { cur++; render(); }
+  else { pause(); }
+}
+
+function play(){
+  if (timer) { pause(); return; }
+  document.getElementById('btnPlay').textContent = '⏸ 暂停';
+  timer = setInterval(() => {
+    if (cur >= steps.length - 1) { pause(); return; }
+    stepForward();
+  }, speed);
+}
+
+function pause(){
+  clearInterval(timer); timer = null;
+  document.getElementById('btnPlay').textContent = '▶ 播放';
+}
+
+document.getElementById('algoSel').onchange = e => { algo = e.target.value; document.getElementById('algoInfo').textContent = algo === 'prim' ? 'Prim 算法 · 加点法' : 'Kruskal 算法 · 加边法'; reset(); };
+document.getElementById('graphSel').onchange = e => { gIdx = +e.target.value; reset(); };
+document.getElementById('btnShuffle').onclick = () => {
+  GRAPHS[gIdx].edges = GRAPHS[gIdx].edges.map(([u,v]) => [u,v, 1 + Math.floor(Math.random()*9)]);
+  reset();
+};
+document.getElementById('btnPlay').onclick = play;
+document.getElementById('btnStep').onclick = () => { pause(); stepForward(); };
+document.getElementById('btnReset').onclick = reset;
+document.querySelectorAll('.speed-group button').forEach(b => {
+  b.onclick = () => {
+    document.querySelectorAll('.speed-group button').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    speed = +b.dataset.speed;
+    if (timer) { pause(); play(); }
+  };
+});
+
+reset();
+</script>
+</body>
+</html>

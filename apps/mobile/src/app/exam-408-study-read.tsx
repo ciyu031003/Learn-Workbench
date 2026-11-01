@@ -313,7 +313,8 @@ const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     root: { flex: 1 },
     scroll: { flex: 1 },
-    content: { paddingHorizontal: spacing.lg, gap: spacing.lg },
+    // v1.55 排版微调：给正文一个最大阅读宽度（平板/横屏不拉满），行高与段距已在正文渲染器里加档
+    content: { width: "100%", maxWidth: 780, alignSelf: "center", paddingHorizontal: spacing.lg, gap: spacing.lg },
     tocButton: {
       width: 40,
       height: 40,

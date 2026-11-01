@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IEEE 754 浮点数表示可视化</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f8fafc; color: #1e293b; padding: 16px; }
+  .wrap { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+  .head { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; }
+  .head h1 { font-size: 16px; font-weight: 600; }
+  .head .info { font-size: 12px; opacity: .9; }
+  .controls { padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-bottom: 1px solid #eef2f7; }
+  .controls label { font-size: 12px; color: #64748b; }
+  select, input[type=text], button { font-size: 13px; font-family: inherit; }
+  select { padding: 5px 8px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; outline: none; }
+  input[type=text] { width: 132px; padding: 5px 9px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; outline: none; font-family: Consolas, Monaco, monospace; }
+  input[type=text]:focus { border-color: #6366f1; background: #fff; }
+  button { padding: 6px 14px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all .15s; }
+  .btn-primary { background: #6366f1; color: #fff; }
+  .btn-primary:hover { background: #4f46e5; }
+  .btn-ghost { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+  .btn-ghost:hover { background: #e2e8f0; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .stats { padding: 7px 16px; display: flex; gap: 18px; font-size: 12px; color: #64748b; border-bottom: 1px solid #eef2f7; flex-wrap: wrap; align-items: center; }
+  .stats b { color: #1e293b; font-variant-numeric: tabular-nums; }
+  .speed-group { display: flex; gap: 4px; }
+  .speed-group button { padding: 4px 10px; font-size: 12px; }
+  .speed-group .active { background: #6366f1; color: #fff; }
+  .stage { padding: 12px 16px 6px; }
+  .msg { margin: 0 16px 8px; padding: 7px 11px; border-radius: 8px; font-size: 12px; background: #fef3c7; color: #92400e; border: 1px solid #fde68a; display: none; }
+  .msg.warn { display: block; }
+  .grid { display: flex; gap: 14px; }
+  .left { flex: 1 1 58%; min-width: 0; }
+  .right { flex: 1 1 42%; min-width: 0; }
+  .panel-t { font-size: 11px; color: #94a3b8; margin-bottom: 5px; letter-spacing: .5px; }
+  /* 位数格子 */
+  .bits { display: flex; flex-wrap: wrap; gap: 2px; margin-bottom: 8px; }
+  .bit { width: 17px; height: 24px; border-radius: 4px; display: flex; align-items: center; justify-content: center;
+         font-family: Consolas, Monaco, monospace; font-size: 12px; font-weight: 700; color: #fff; transition: all .15s; }
+  .bit.empty { background: #e2e8f0; color: #cbd5e1; font-weight: 400; }
+  .bit.s { background: #ef4444; }
+  .bit.e { background: #6366f1; }
+  .bit.m { background: #10b981; }
+  .bit.dim { opacity: .28; }
+  .bit.hot { outline: 2px solid #f59e0b; outline-offset: 1px; transform: translateY(-2px); }
+  .seg { display: flex; gap: 3px; margin-bottom: 4px; font-size: 10px; color: #64748b; text-align: center; }
+  .seg div { height: 15px; line-height: 15px; border-radius: 3px; color: #fff; white-space: nowrap; overflow: hidden; }
+  .hexrow { font-family: Consolas, Monaco, monospace; font-size: 12px; color: #334155; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 9px; margin-bottom: 6px; line-height: 1.6; }
+  .hexrow b { color: #6366f1; }
+  .steps { height: 196px; overflow-y: auto; border: 1px solid #eef2f7; border-radius: 10px; background: #fcfdff; padding: 6px; }
+  .step { padding: 6px 8px; border-radius: 7px; font-size: 12px; line-height: 1.55; margin-bottom: 4px; border-left: 3px solid transparent; color: #64748b; }
+  .step .t { font-weight: 600; color: #475569; }
+  .step.done { color: #64748b; }
+  .step.done .t { color: #475569; }
+  .step.cur { background: #eef2ff; border-left-color: #6366f1; color: #1e293b; }
+  .step.cur .t { color: #4f46e5; }
+  .step.future { opacity: .45; }
+  .mono { font-family: Consolas, Monaco, monospace; }
+  .kv { font-size: 12px; line-height: 1.8; color: #475569; }
+  .kv b { color: #1e293b; }
+  .calc { font-family: Consolas, Monaco, monospace; font-size: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 9px; margin: 5px 0; line-height: 1.7; color: #334155; word-break: break-all; }
+  .calc .hl { color: #ef4444; font-weight: 700; }
+  .calc .gr { color: #10b981; font-weight: 700; }
+  .legend { padding: 4px 16px 8px; display: flex; gap: 14px; font-size: 11px; color: #64748b; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .desc { padding: 10px 16px 14px; border-top: 1px solid #eef2f7; font-size: 12px; color: #475569; line-height: 1.75; }
+  .desc b { color: #334155; }
+  .desc h4 { font-size: 12px; color: #4f46e5; margin: 8px 0 3px; }
+  table.sv { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 4px; }
+  table.sv th, table.sv td { border: 1px solid #e2e8f0; padding: 3px 6px; text-align: left; }
+  table.sv th { background: #f8fafc; color: #475569; font-weight: 600; }
+  table.sv td.m { font-family: Consolas, Monaco, monospace; }
+  .exp { font-size: 11px; color: #64748b; margin-top: 3px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>🔢 IEEE 754 单精度浮点数表示</h1>
+    <span class="info" id="modeInfo">十进制 → 32 位</span>
+  </div>
+
+  <div class="controls">
+    <label>方向</label>
+    <select id="dirSel">
+      <option value="enc">十进制 → 32 位（编码）</option>
+      <option value="dec">32 位 → 十进制（解码）</option>
+    </select>
+    <label id="inLbl">输入</label>
+    <input type="text" id="inp" value="-12.5" spellcheck="false">
+    <button class="btn-ghost" id="btnApply">载入</button>
+    <button class="btn-ghost" id="btnDemo">🎲 示例</button>
+    <div class="speed-group">
+      <button data-speed="600" class="btn-ghost sp">慢</button>
+      <button data-speed="200" class="btn-ghost sp active">中</button>
+      <button data-speed="40" class="btn-ghost sp">快</button>
+    </div>
+    <button class="btn-primary" id="btnPlay">▶ 播放</button>
+    <button class="btn-ghost" id="btnStep">单步</button>
+    <button class="btn-ghost" id="btnPrev">上一步</button>
+    <button class="btn-ghost" id="btnReset">↺ 重置</button>
+  </div>
+
+  <div class="stats">
+    <span>步骤 <b id="stIdx">0 / 0</b></span>
+    <span>当前 <b id="stState">就绪</b></span>
+    <span>阶段 <b id="stPhase">—</b></span>
+  </div>
+
+  <div class="msg" id="msg"></div>
+
+  <div class="stage">
+    <div class="grid">
+      <div class="left">
+        <div class="panel-t">32 位编码（S=符号 / E=阶码 / M=尾数）</div>
+        <div class="bits" id="bits"></div>
+        <div class="seg" id="segs"></div>
+        <div class="exp" id="segLbl">位段划分随步骤实时高亮</div>
+        <div class="hexrow" id="hexrow" style="margin-top:6px"></div>
+        <div class="calc" id="calc"></div>
+      </div>
+      <div class="right">
+        <div class="panel-t">转换步骤（当前步骤高亮，可滚动）</div>
+        <div class="steps" id="steps"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><i style="background:#ef4444"></i>符号位 S（1 位）</span>
+    <span><i style="background:#6366f1"></i>阶码 E（8 位，移码/偏置码）</span>
+    <span><i style="background:#10b981"></i>尾数 M（23 位，隐含最高位 1）</span>
+    <span><i style="background:#e2e8f0"></i>尚未确定</span>
+    <span><i style="background:#f59e0b"></i>当前处理位</span>
+  </div>
+
+  <div class="desc">
+    <h4>为什么阶码用「偏置码 / 移码」而不是补码？</h4>
+    阶码真值范围是 −126 ~ +127（含正负）。若用补码，负阶码的最高位是 1，看起来数值反而"更大"，无法直接用无符号整数比较大小。采用 <b>E = e + 127</b> 后，阶码字段在 0~255 上<b>单调递增</b>，于是可以把整个 32 位当作无符号数/字典序直接比较（符号位另处理），硬件比较、排序、浮点比较器因此非常简单。同时 0（阶码全 0）和 255（阶码全 1）被留作特殊值编码。
+    <h4>隐含位 1 的含义</h4>
+    规格化后尾数必然是 <b>1.xxxx×2<sup>e</sup></b>，小数点前那一位恒为 1，属于"已知信息"，不必存储——省下 1 位精度。所以尾数实际有效精度是 <b>24 位</b>（1 位隐含 + 23 位显式），对应十进制约 7 位有效数字（2<sup>24</sup> ≈ 1.68×10<sup>7</sup>）。计算真值时要把它加回来：<b>M<sub>实</sub> = 1.M</b>。反过来说，阶码全 0 时隐含位变成 0，那就是非规格化数。
+    <h4>为什么 0.1 无法精确表示？</h4>
+    因为二进制小数只能精确表示 <b>分母为 2 的幂</b> 的分数。0.1 = 1/10，分母含因子 5，二进制展开是 <b>0.0001100110011…（0011 无限循环）</b>。尾数只有 23 位，必须在某处截断，于是产生舍入误差。这也解释了经典的 <span class="mono">0.1 + 0.2 !== 0.3</span>：三者都只是近似值。同理，10 进制能精确表示的 0.5、0.25、0.125 在二进制里同样精确（本演示可以直接对比）。<b>结论：浮点数比较不要用 ==，要判断误差是否小于 EPS；涉及金额应使用定点数或整数（以分为单位）。</b>
+    <h4>特殊值编码规则（阶码是关键开关）</h4>
+    <table class="sv">
+      <tr><th>类型</th><th>阶码 E</th><th>尾数 M</th><th>32 位示例</th><th>真值</th></tr>
+      <tr><td>+0</td><td class="m">0000 0000</td><td class="m">全 0</td><td class="m">0000 0000H</td><td>+0</td></tr>
+      <tr><td>−0</td><td class="m">0000 0000</td><td class="m">全 0</td><td class="m">8000 0000H</td><td>−0（与 +0 相等，但符号位不同）</td></tr>
+      <tr><td>非规格化数</td><td class="m">0000 0000</td><td class="m">非 0</td><td class="m">0.001×2<sup>−126</sup></td><td>(−1)<sup>S</sup>×0.M×2<sup>−126</sup>（隐含位为 0）</td></tr>
+      <tr><td>+∞</td><td class="m">1111 1111</td><td class="m">全 0</td><td class="m">7F80 0000H</td><td>+∞（溢出、正数除以 0）</td></tr>
+      <tr><td>−∞</td><td class="m">1111 1111</td><td class="m">全 0</td><td class="m">FF80 0000H</td><td>−∞</td></tr>
+      <tr><td>NaN</td><td class="m">1111 1111</td><td class="m">非 0</td><td class="m">7FC0 0000H</td><td>非数（0/0、∞−∞、√负数）</td></tr>
+    </table>
+    <div style="margin-top:4px">记忆口诀：<b>阶码全 0 管"零与极小"，阶码全 1 管"无穷与非数"</b>；两种情况都要把隐含位 1 拿掉。</div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const SIGN_BITS = 1, EXP_BITS = 8, FRAC_BITS = 23, BIAS = 127;
+
+/* ---------------- 状态 ---------------- */
+let speed = 200, timer = null, playing = false;
+let dir = "enc";
+let steps = [];        // [{title, text, phase, render()}]
+let cur = -1;
+
+/* ---------------- 工具 ---------------- */
+function pow2(n) { return "1" + "0".repeat(n); }          // 2^n 的二进制串（n>=0）
+function binToDecBig(bin) {                               // 二进制串 → 十进制字符串
+  let d = "0";
+  for (const c of bin) {
+    d = decAdd(decMul(d, "2"), c === "1" ? "1" : "0");
+  }
+  return d;
+}
+function decMul(a, b) { // 大数乘（十进制字符串），b 为小整数
+  let carry = 0, out = "";
+  for (let i = a.length - 1; i >= 0; i--) {
+    const v = (+a[i]) * b + carry;
+    out = (v % 10) + out; carry = Math.floor(v / 10);
+  }
+  while (carry > 0) { out = (carry % 10) + out; carry = Math.floor(carry / 10); }
+  return out.replace(/^0+(?=\d)/, "") || "0";
+}
+function decAdd(a, b) {
+  let i = a.length - 1, j = b.length - 1, carry = 0, out = "";
+  while (i >= 0 || j >= 0 || carry) {
+    const s = (i >= 0 ? +a[i--] : 0) + (j >= 0 ? +b[j--] : 0) + carry;
+    out = (s % 10) + out; carry = s >= 10 ? 1 : 0;
+  }
+  return out.replace(/^0+(?=\d)/, "") || "0";
+}
+function decCompare(a, b) { // a>b:1 a<b:-1
+  a = a.replace(/^0+/, "") || "0"; b = b.replace(/^0+/, "") || "0";
+  if (a.length !== b.length) return a.length > b.length ? 1 : -1;
+  return a === b ? 0 : (a > b ? 1 : -1);
+}
+function decSub(a, b) {   // 大数减法（保证 a >= b）
+  a = a.replace(/^0+/, "") || "0"; b = b.replace(/^0+/, "") || "0";
+  const A = a.split("").reverse(), B = b.split("").reverse();
+  let borrow = 0, out = "";
+  for (let i = 0; i < A.length; i++) {
+    let v = (+A[i]) - borrow - (i < B.length ? +B[i] : 0);
+    if (v < 0) { v += 10; borrow = 1; } else borrow = 0;
+    out = v + out;
+  }
+  return out.replace(/^0+(?=\d)/, "") || "0";
+}
+function incStr(s) { return decAdd(s, "1"); }
+function fmtBinGroup(s, g = 4) { return s.replace(new RegExp("(.{" + g + "})", "g"), "$1 ").trim(); }
+
+/* 十进制小数 → 32 位编码（大数乘法精确取整） */
+function encodeDecimal(numStr) {
+  const res = { ok: false, reason: "", sign: 0, intBin: "", fracBin: "", fracLoop: false,
+                steps: [], bits: null, E: 0, e: 0, mFull: "", roundUp: false,
+                exponentField: 0, special: null, subnormal: false, overflow: false };
+  let s = String(numStr).trim();
+  if (s === "" ) { res.reason = "输入为空"; return res; }
+
+  let neg = false;
+  if (s[0] === "+" || s[0] === "-") { neg = s[0] === "-"; s = s.slice(1); }
+  s = s.replace(/\s+/g, "");
+  if (!/^(\d+(\.\d*)?|\.\d+)$/.test(s)) { res.reason = "只支持形如 -12.5 / 0.1 / 3.14159 的十进制实数（不支持科学计数法或非法字符）"; return res; }
+  if (s.length > 60) { res.reason = "数字过长（超过 60 个字符），请输入较短的十进制数"; return res; }
+
+  const dot = s.indexOf(".");
+  let intPart = dot < 0 ? s : s.slice(0, dot);
+  let fracPart = dot < 0 ? "" : s.slice(dot + 1);
+  intPart = intPart.replace(/^0+(?=\d)/, "") || "0";
+  res.sign = neg ? 1 : 0;      // 注意：-0 的符号位是 1（IEEE 754 有 ±0）
+
+  /* --- 1) 整数部分：除 2 取余，自下而上 --- */
+  const divSteps = [];
+  let q = intPart, intBits = "";
+  let guard = 0;
+  while (decCompare(q, "0") > 0 && guard++ < 400) {
+    const lastDigit = +q[q.length - 1];
+    const bit = lastDigit % 2;
+    const nq = decDiv2(q);
+    divSteps.push({ q: q, bit: bit, nq: nq });
+    intBits = bit + intBits;
+    q = nq;
+  }
+  res.intBin = intBits || "0";
+  res.intDivSteps = divSteps;
+
+  /* --- 2) 小数部分：乘 2 取整，自上而下 --- */
+  const mulSteps = [];
+  let fr = fracPart.replace(/0+$/, "");
+  const W = Math.max(fr.length, 1);          // 定点宽度：把 0.xxx 看成整数 xxx / 10^W
+  const LIMIT = Math.pow(10, W);
+  let fBits = "", loop = false;
+  guard = 0;
+  while (fr !== "" && decCompare(fr, "0") > 0 && guard++ < 60) {
+    const doubled = decMul(fr, 2);                       // 2 × 小数部分（同样是"去掉 0."的整数记法）
+    const bit = decCompare(doubled, String(LIMIT)) >= 0 ? 1 : 0;
+    const newFrac = bit ? decSub(doubled, String(LIMIT)) : doubled;
+    const shown = "0." + fr.padStart(W, "0");
+    mulSteps.push({ f: shown, d: "0." + doubled.padStart(W, "0"), bit: bit, nf: newFrac === "0" ? "0" : newFrac.padStart(W, "0") });
+    fBits += String(bit);
+    fr = newFrac === "0" ? "" : newFrac;
+  }
+  res.fracBin = fBits;
+  res.fracMulSteps = mulSteps;
+  res.fracLoop = loop || (fr !== "" && fr !== "0");
+
+  const allZero = /^0*$/.test(res.intBin) && /^0*$/.test(res.fracBin);
+  res.special = allZero ? (res.sign ? "-0" : "+0") : null;
+  if (allZero) { res.ok = true; res.bits = (res.sign ? "1" : "0") + "0".repeat(31); res.exponentField = 0; return res; }
+
+  /* --- 3) 规格化：定位最高位 1 --- */
+  const intLen = res.intBin.replace(/^0+(?=\d)/, "").length;
+  let msbPos = -1, head = "";
+  if (res.intBin !== "0") {
+    msbPos = res.intBin.length - 1 - res.intBin.indexOf("1");  // 2^msbPos 位
+    head = res.intBin.slice(res.intBin.indexOf("1")) + res.fracBin; // 从最高位起的有效位串
+  } else {
+    const k = res.fracBin.indexOf("1");
+    msbPos = -(k + 1);
+    head = res.fracBin.slice(k);
+  }
+  res.E = msbPos;                    // 指数真值 e
+  const significand = "1" + head.slice(1);  // 1.xxxx 的完整位串（含隐含 1）
+
+  /* --- 4) 截取 23 位 + 舍入（round-half-up，用余数判断） --- */
+  let frac23 = significand.slice(1, 1 + FRAC_BITS);
+  while (frac23.length < FRAC_BITS) frac23 += "0";
+  const rest = significand.slice(1 + FRAC_BITS);
+  let roundUp = false;
+  if (rest.length > 0) {
+    // 截断后剩余位的首位为 1 → 已达到或超过半个 ulp，进位（教学用简化舍入）
+    roundUp = rest[0] === "1";
+  }
+  res.mFull = significand;
+  res.frac23 = frac23;
+  res.rest = rest;
+  res.roundUp = roundUp;
+  res.overflow = (res.E > 127);
+  if (res.E < -126) { res.subnormal = true; }
+
+  // 舍入后可能进位
+  let m = frac23;
+  if (roundUp) {
+    let arr = m.split(""), i = arr.length - 1;
+    while (i >= 0) { if (arr[i] === "0") { arr[i] = "1"; break; } arr[i] = "0"; i--; }
+    m = arr.join("");
+    if (i < 0) { res.roundCarryAll = true; res.E += 1; res.overflow = res.E > 127; }
+  }
+  res.frac23r = m;
+
+  if (res.overflow) {
+    res.ok = true; res.special = "overflow";
+    res.expBin = "11111111";
+    res.mant = "0".repeat(FRAC_BITS);
+    res.bits = (res.sign ? "1" : "0") + "11111111" + "0".repeat(23);
+    res.exponentField = 255;
+    return res;
+  }
+
+  /* --- 5) 拼装 --- */
+  let expField, exponentTrue;
+  if (!res.subnormal) {
+    exponentTrue = res.E;
+    expField = res.E + BIAS;
+  } else {
+    exponentTrue = -126;
+    expField = 0;
+  }
+  res.exponentField = expField;
+  let expBin = expField.toString(2).padStart(EXP_BITS, "0");
+  let mant = res.subnormal ? subnormalMantissa(res) : res.frac23r;
+  res.expBin = expBin; res.mant = mant;
+  res.bits = (res.sign ? "1" : "0") + expBin + mant;
+  res.ok = true;
+  return res;
+}
+function decDiv2(a) {
+  let carry = 0, out = "";
+  for (const ch of a) {
+    const v = carry * 10 + (+ch);
+    out += Math.floor(v / 2);
+    carry = v % 2;
+  }
+  return out.replace(/^0+(?=\d)/, "") || "0";
+}
+function subnormalMantissa(res) {
+  // 非规格化：真值 = 0.M × 2^-126，即 M = (有效数) × 2^(E+126)，用大数精确进位
+  const shift = 126 + res.E;            // 可能为负（极小值）
+  const sig = res.mFull.slice(0, 64);   // 只取前 64 位有效位，足够决定 23 位尾数
+  let num = binToDecBig(sig);
+  if (shift >= 0) {
+    for (let k = 0; k < shift && k < 90; k++) num = decMul(num, 2);
+  } else {
+    for (let k = 0; k < -shift && k < 200; k++) num = decDiv2(num);
+  }
+  if (decCompare(num, "0") === 0) return "0".repeat(FRAC_BITS);   // 下溢为 0
+  let m = Number(num);
+  if (!isFinite(m)) m = 0;
+  const r = Math.round(m);
+  if (r >= Math.pow(2, FRAC_BITS)) return "1".repeat(FRAC_BITS);  // 进位到最小规格化数
+  return r.toString(2).padStart(FRAC_BITS, "0");
+}
+
+/* 32 位 → 真值 */
+function decodeBits(bits) {
+  const S = bits[0] === "1" ? 1 : 0;
+  const eBin = bits.slice(1, 9);
+  const mBin = bits.slice(9, 32);
+  const eField = parseInt(eBin, 2);
+  const mVal = parseInt(mBin, 2);
+  const out = { S, eBin, mBin, eField, mVal, type: "", value: 0, mantissa: 1 };
+  if (eField === 0) {
+    out.type = mVal === 0 ? (S ? "-0" : "+0") : "subnormal";
+    out.mantissa = mVal / Math.pow(2, 23);
+    out.e = -126;
+    out.value = (S ? -1 : 1) * out.mantissa * Math.pow(2, -126);
+  } else if (eField === 255) {
+    out.type = mVal === 0 ? (S ? "-Inf" : "+Inf") : "NaN";
+    out.e = NaN;
+  } else {
+    out.type = "normal";
+    out.e = eField - BIAS;
+    out.mantissa = 1 + mVal / Math.pow(2, 23);
+    out.value = (S ? -1 : 1) * out.mantissa * Math.pow(2, out.e);
+  }
+  return out;
+}
+function bitsToHex(bits) {
+  let h = "";
+  for (let i = 0; i < 32; i += 4) h += parseInt(bits.slice(i, i + 4), 2).toString(16).toUpperCase();
+  return h;
+}
+function mantissaDecimalExpr(mBin) {  // 尾数的十进制值（1.M 的形式）
+  let s = 0, parts = [];
+  for (let i = 0; i < mBin.length; i++) if (mBin[i] === "1") { const p = Math.pow(2, -(i + 1)); s += p; parts.push("2^-" + (i + 1)); }
+  return { v: s, parts: parts };
+}
+function fmtNum(x, digits = 12) {
+  if (!isFinite(x)) return x > 0 ? "+∞" : "-∞";
+  if (x === 0) return (1 / x === -Infinity ? "-0" : "0");
+  const a = Math.abs(x);
+  if (a >= 1e-5 && a < 1e16) return String(parseFloat(x.toFixed(digits)));
+  return x.toExponential(8).replace(/e([+-])(\d)$/, "e$10$2");
+}
+
+/* ---------------- 渲染 ---------------- */
+function renderBits(state) {
+  // state: {bits, hotRanges:[[a,b]], showSeg}
+  const bitsEl = $("bits"), segEl = $("segs");
+  const bits = state.bits;
+  bitsEl.innerHTML = ""; segEl.innerHTML = "";
+  // hot / dim 既可以写[[a,b],...]区间，也可以写单个下标（如 hot:[0]），统一成区间再判断
+  const asRanges = (v) => (Array.isArray(v) ? v : [v]).map((x) => (Array.isArray(x) ? x : [x, x]));
+  const hot = asRanges(state.hot || []);
+  const inHot = (i) => hot.some(([a, b]) => i >= a && i <= b);
+  const dim = asRanges(state.dim || []);
+  const inDim = (i) => dim.some(([a, b]) => i >= a && i <= b);
+  // 分组显示：符号位 8 位阶码 + 23 位尾数，尾数按 4 位一组用间隙分隔
+  for (let i = 0; i < 32; i++) {
+    const d = document.createElement("div");
+    d.className = "bit";
+    const c = bits ? bits[i] : null;
+    if (c === null || c === undefined || c === "?") { d.classList.add("empty"); d.textContent = "·"; }
+    else {
+      d.textContent = c;
+      if (i === 0) d.classList.add("s");
+      else if (i < 9) d.classList.add("e");
+      else d.classList.add("m");
+    }
+    if (inHot(i)) d.classList.add("hot");
+    if (inDim(i)) d.classList.add("dim");
+    if (i === 1 || i === 9 || (i > 9 && (i - 9) % 4 === 0)) d.style.marginLeft = "5px";
+    d.dataset.i = i;
+    bitsEl.appendChild(d);
+  }
+  const segDefs = [["S 1 位", 1, "#ef4444", 1], ["阶码 E 8 位（移码）", 8, "#6366f1", 8], ["尾数 M 23 位（隐含 1 位）", 23, "#10b981", 23]];
+  const flexes = [1, 8, 23];
+  segDefs.forEach((sd, k) => {
+    const d = document.createElement("div");
+    d.style.flex = String(flexes[k]);
+    d.style.background = sd[2];
+    d.style.opacity = (state.segHot === undefined || state.segHot.includes(k)) ? "1" : ".3";
+    d.textContent = (state.segNums && state.segNums[k]) ? state.segNums[k] : sd[0];
+    d.title = sd[0];
+    segEl.appendChild(d);
+  });
+  $("segLbl").innerHTML = state.segLbl || "";
+}
+function renderSteps() {
+  const box = $("steps");
+  box.innerHTML = "";
+  steps.forEach((s, i) => {
+    const d = document.createElement("div");
+    d.className = "step " + (i < cur ? "done" : i === cur ? "cur" : "future");
+    d.innerHTML = '<div class="t">' + (i + 1) + ". " + s.title + "</div><div>" + s.text + "</div>";
+    box.appendChild(d);
+  });
+  if (cur >= 0 && box.children[cur]) {
+    const el = box.children[cur];
+    const top = el.offsetTop - box.clientHeight / 2 + el.clientHeight / 2;
+    box.scrollTop = Math.max(0, top);
+  }
+  if (cur < 0) box.scrollTop = 0;
+}
+function showStep(i) {
+  if (!steps.length) return;
+  cur = Math.max(0, Math.min(steps.length - 1, i));
+  const s = steps[cur];
+  $("stIdx").textContent = (cur + 1) + " / " + steps.length;
+  $("stPhase").textContent = s.phase || "—";
+  $("stState").textContent = s.title;
+  s.render();
+  renderSteps();
+}
+
+/* ---------------- 编码方向：构造步骤 ---------------- */
+function buildEncodeSteps(res, inputStr) {
+  const S = [];
+  const blank = { bits: null, hot: [], segNums: ["S 1 位", "阶码 8 位", "尾数 23 位"] };
+  let bits = null, hot = [], calc = "", msg = "";
+
+  S.push({
+    phase: "① 分析与预处理", title: "确定符号位 S",
+    text: "数值 " + inputStr + (res.sign ? " 为负数，符号位 <b>S = 1</b>；" : " 为非负数，符号位 <b>S = 0</b>；") + "正整数部分与小数部分将分别转换。",
+    render() {
+      renderBits({ bits: null, hot: [0], segNums: ["S = " + res.sign, "?", "?"], segLbl: "先定符号位" });
+      $("hexrow").innerHTML = "S = <b>" + res.sign + "</b>";
+      $("calc").innerHTML = (res.sign ? "负号 → S = 1（IEEE 754 用<b>符号-数值</b>表示，不是补码，所以有 ±0）" : "正号 → S = 0");
+    }
+  });
+
+  // 整数部分
+  if (res.intDivSteps && res.intDivSteps.length) {
+    res.intDivSteps.forEach((st, k) => {
+      S.push({
+        phase: "② 整数部分转二进制", title: "整数部分：除 2 取余（第 " + (k + 1) + " 次）",
+        text: "被除数 " + st.q + " ÷ 2，商 " + st.nq + "，<b>余数 " + st.bit + "</b>。余数从下往上读即为整数部分的二进制。",
+        render() {
+          renderBits({ bits: null, hot: [], segNums: ["S = " + res.sign, "?", "?"], segLbl: "整数部分转换中" });
+          let rows = res.intDivSteps.slice(0, k + 1).map(x => x.q + " ÷ 2 = " + x.nq + " 余 <b>" + x.bit + "</b>").join("<br>");
+          const soFar = res.intDivSteps.slice(0, k + 1).map(x => x.bit).reverse().join("");
+          $("hexrow").innerHTML = "整数部分 = (" + (res.intBin || "0") + ")<sub>2</sub>";
+          $("calc").innerHTML = rows + "<br><br>目前自下而上收集到的位：<span class='gr'>" + (soFar || "—") + "</span>";
+        }
+      });
+    });
+    S.push({
+      phase: "② 整数部分转二进制", title: "整数部分结果",
+      text: "整数部分的二进制为 <b>(" + res.intBin + ")<sub>2</sub></b>" + (res.intBin === "0" ? "（整数部分为 0）" : "") + "，即十进制 " + binToDecBig(res.intBin) + "。",
+      render() {
+        renderBits({ bits: null, hot: [], segNums: ["S = " + res.sign, "?", "?"], segLbl: "整数部分已完成" });
+        $("hexrow").innerHTML = "整数部分 = (" + res.intBin + ")<sub>2</sub> = " + binToDecBig(res.intBin);
+        $("calc").innerHTML = "由下往上读余数得到：<span class='gr'>" + res.intBin + "</span>";
+      }
+    });
+  } else {
+    S.push({ phase: "② 整数部分转二进制", title: "整数部分为 0", text: "整数部分为 0，二进制记作 0。", render() { renderBits({ bits: null, hot: [], segNums: ["S = " + res.sign, "?", "?"], segLbl: "整数部分为 0" }); $("hexrow").innerHTML = "整数部分 = (0)<sub>2</sub>"; $("calc").innerHTML = "—"; } });
+  }
+
+  // 小数部分
+  if (res.fracMulSteps && res.fracMulSteps.length) {
+    res.fracMulSteps.forEach((st, k) => {
+      S.push({
+        phase: "③ 小数部分转二进制", title: "小数部分：乘 2 取整（第 " + (k + 1) + " 次）",
+        text: st.f + " × 2 = " + st.d + "，取<b>整数位 " + st.bit + "</b>，剩下小数 " + (st.nf || "0") + "。整数位自上而下依次写出。",
+        render() {
+          renderBits({ bits: null, hot: [], segNums: ["S = " + res.sign, "?", "?"], segLbl: "小数部分转换中" });
+          const rows = res.fracMulSteps.slice(0, k + 1).map(x => x.f + " × 2 = " + x.d + " → 取 <b>" + x.bit + "</b>").join("<br>");
+          const soFar = res.fracMulSteps.slice(0, k + 1).map(x => x.bit).join("");
+          $("hexrow").innerHTML = "小数部分已得：0." + soFar + (res.fracLoop ? " …（循环）" : "");
+          $("calc").innerHTML = rows + "<br><br>目前自上而下收集到的位：<span class='gr'>0." + soFar + "</span>";
+        }
+      });
+    });
+    S.push({
+      phase: "③ 小数部分转二进制", title: "小数部分结果" + (res.fracLoop ? "（无限循环，已截断）" : "（有限，精确表示）"),
+      text: "小数部分二进制为 <b>0." + trunc(res.fracBin, 24) + (res.fracBin.length > 24 ? "…（共计算 " + res.fracBin.length + " 位，仍未结束，说明是<b>无限循环小数</b>，无法用有限二进制精确表示）" : "") + "</b>。",
+      render() {
+        renderBits({ bits: null, hot: [], segNums: ["S = " + res.sign, "?", "?"], segLbl: "小数部分已完成" });
+        $("hexrow").innerHTML = "整数 + 小数 = (" + res.intBin + "." + trunc(res.fracBin, 20) + "…)<sub>2</sub>";
+        $("calc").innerHTML = res.fracLoop
+          ? "⚠️ 该小数在二进制下<b>无限循环</b>，尾数只有 23 位，必然发生舍入 → 这就是<b>精度损失</b>的来源。"
+          : "✅ 该小数是 2 的负幂之和，可以<b>精确</b>表示，没有精度损失。";
+      }
+    });
+  } else {
+    S.push({ phase: "③ 小数部分转二进制", title: "没有小数部分", text: "该数没有小数部分，二进制小数位为空。", render() { renderBits({ bits: null, hot: [], segNums: ["S = " + res.sign, "?", "?"], segLbl: "无小数部分" }); $("hexrow").innerHTML = "整数部分 = (" + res.intBin + ")<sub>2</sub>"; $("calc").innerHTML = "—"; } });
+  }
+
+  if (res.special) {
+    S.push({
+      phase: "④ 特殊值判定", title: "真值为零 → 阶码与尾数全 0",
+      text: "所有有效位都是 0，属于特殊值 <b>" + (res.sign ? "−0" : "+0") + "</b>：IEEE 754 规定阶码和尾数全 0 表示零（符号位单独区分 ±0）。",
+      render() {
+        renderBits({ bits: res.bits, hot: [], segNums: ["S = " + res.sign, "E = 00000000", "M = 全 0"], segLbl: "零的特殊编码" });
+        $("hexrow").innerHTML = "32 位 = " + fmtBinGroup(res.bits) + "<br>十六进制 = <b>0x" + bitsToHex(res.bits) + "</b>";
+        $("calc").innerHTML = "阶码全 0 且尾数全 0 → 零";
+        renderAll(res.bits, [], ["S = " + res.sign, "E = 0", "M = 全 0"], "零：阶码与尾数均为 0");
+      }
+    });
+    return S;
+  }
+
+  S.push({
+    phase: "④ 规格化", title: "规格化为 1.xxx × 2^E 的形式",
+    text: "把二进制数写成 <b>1.xxxx × 2<sup>E</sup></b>：小数点移动 " + Math.abs(res.E) + " 位，" + (res.E >= 0 ? "左移" : "右移") + "，得到指数真值 <b>E = " + res.E + "</b>。",
+    render() {
+      renderBits({ bits: null, hot: [], segNums: ["S = " + res.sign, "E = " + res.E, "M = ?"], segLbl: "规格化：得到指数真值" });
+      $("hexrow").innerHTML = "原数二进制 = " + res.intBin + "." + (res.fracBin || "0") + "…";
+      $("calc").innerHTML = "规格化后：<span class='gr'>1." + res.mFull.slice(1, 12) + "… × 2<sup>" + res.E + "</sup></span>";
+    }
+  });
+
+  S.push({
+    phase: "⑤ 计算阶码字段", title: "阶码 = 真值 + 偏置 127",
+    text: "移码（偏置码）公式 <b>E<sub>字段</sub> = e + 127 = " + res.E + " + 127 = " + res.exponentField + "</b>，转为 8 位二进制 <b>" + (res.expBin || "") + "</b>。用它作阶码可以让 8 位无符号数的<em>大小顺序</em>与浮点数大小顺序一致。",
+    render() {
+      renderBits({ bits: null, hot: [1, 8], segNums: ["S = " + res.sign, "E = " + (res.expBin || ""), "M = ?"], segLbl: "阶码字段 = 真值 + 127" });
+      $("hexrow").innerHTML = "阶码真值 e = <b>" + res.E + "</b>　→　阶码字段 = " + res.exponentField + " = (" + (res.expBin || "") + ")<sub>2</sub>";
+      $("calc").innerHTML = res.E + " + 127 = " + res.exponentField + " = (" + (res.expBin || "") + ")<sub>2</sub><br>（偏置码把 −126~+127 映射到 1~254，0 与 255 留给特殊值）";
+    }
+  });
+
+  S.push({
+    phase: "⑥ 计算尾数字段", title: "去掉隐含位小数点前的 1，右补 0 到 23 位",
+    text: "规格化后尾数必定是 <b>1." + (res.mFull || "").slice(1, 10) + "…</b>，小数点前的 1 是已知的、<b>不存储</b>（隐含位）；把小数点后的位截取 23 位，不够则右侧补 0。",
+    render() {
+      renderBits({ bits: null, hot: [9, 31], segNums: ["S = " + res.sign, "E = " + (res.expBin || ""), "M = " + (res.mant || "")], segLbl: "尾数字段 = 隐含位之后取 23 位" });
+      $("hexrow").innerHTML = "1." + (res.mFull || "").slice(1, 11) + "… 去掉隐含位 1 → " + (res.mFull || "").slice(1, 11) + "…";
+      $("calc").innerHTML = "截取/右补 0 后 23 位：<span class='gr'>" + group23(res.mant || "") + "</span>" + (res.roundUp ? "<br>⚠️ 第 24 位为 1，发生了<b>舍入进位</b>" : "");
+    }
+  });
+
+  S.push({
+    phase: "⑦ 拼装 32 位", title: "拼出 32 位并给出十六进制",
+    text: "按 <b>S(1) | E(8) | M(23)</b> 拼接：<span class='mono'>" + res.sign + " " + (res.expBin || "") + " " + group23(res.mant || "") + "</span>，十六进制为 <b>0x" + bitsToHex(res.bits) + "</b>。",
+    render() {
+      renderBits({ bits: res.bits, hot: [], segNums: ["S = " + res.sign, "E = " + (res.expBin || ""), "M = " + (res.mant || "")], segLbl: "完整编码：S(1) | 阶码(8) | 尾数(23)" });
+      $("hexrow").innerHTML = fmtBinGroup(res.bits) + "<br>= <b>0x" + bitsToHex(res.bits) + "</b>";
+      $("calc").innerHTML = "真值 = (−1)<sup>" + res.sign + "</sup> × 1." + (res.mFull || "").slice(1, 11) + "… × 2<sup>" + res.E + "</sup> ≈ " + fmtNum(decodeBits(res.bits).value) + (res.roundUp || res.fracLoop ? "<br><span style='color:#ef4444'>由于舍入/截断，还原值与原始输入存在微小误差</span>" : "<br><span style='color:#10b981'>可精确还原</span>");
+    }
+  });
+
+  if (res.subnormal) {
+    S.push({
+      phase: "⑦ 拼装 32 位", title: "注意：这是非规格化数（阶码全 0）",
+      text: "该数太小，规格化会下溢，因此采用<b>非规格化表示</b>：阶码字段全 0，隐含位变为 0，真值 = (−1)<sup>S</sup> × 0.M × 2<sup>−126</sup>，用于表示比最小规格化数还小的数并实现逐步下溢。",
+      render() {
+        renderBits({ bits: res.bits, hot: [], segNums: ["S = " + res.sign, "E = 00000000", "M = " + (res.mant || "")], segLbl: "非规格化数：阶码全 0，隐含位为 0" });
+        $("hexrow").innerHTML = fmtBinGroup(res.bits) + "<br>= <b>0x" + bitsToHex(res.bits) + "</b>";
+        $("calc").innerHTML = "真值 = (−1)<sup>" + res.sign + "</sup> × 0." + (res.mant || "") + " × 2<sup>−126</sup>";
+      }
+    });
+  }
+  if (res.special === "overflow") {
+    S.push({
+      phase: "⑦ 拼装 32 位", title: "溢出 → 编码为无穷大",
+      text: "阶码真值超过 127，超出单精度可表示范围，硬件将结果置为 <b>±∞</b>：阶码全 1、尾数全 0。",
+      render() {
+        renderBits({ bits: res.bits, hot: [], segNums: ["S = " + res.sign, "E = 11111111", "M = 全 0"], segLbl: "上溢：阶码全 1 尾数全 0 = ∞" });
+        $("hexrow").innerHTML = fmtBinGroup(res.bits) + "<br>= <b>0x" + bitsToHex(res.bits) + "</b>";
+        $("calc").innerHTML = "阶码 255（全 1）+ 尾数 0 → " + (res.sign ? "−∞" : "+∞");
+      }
+    });
+  }
+  return S;
+}
+function trunc(s, n) { return s.length > n ? s.slice(0, n) : s; }
+function group23(m) { return m.replace(/(.{4})/g, "$1 ").trim(); }
+function renderAll(bits, hot, segNums, segLbl) { renderBits({ bits: bits, hot: hot, segNums: segNums, segLbl: segLbl }); }
+
+/* ---------------- 解码方向：构造步骤 ---------------- */
+function buildDecodeSteps(bits, inputStr) {
+  const S = [];
+  const d = decodeBits(bits);
+  const hex = bitsToHex(bits);
+  const md = mantissaDecimalExpr(d.mBin);
+
+  S.push({
+    phase: "① 识别字段", title: "按 S(1) | E(8) | M(23) 切分",
+    text: "输入 <b>0x" + hex + "</b> 展开为 32 位后切分：符号位 <b>S = " + d.S + "</b>，阶码字段 <b>E = " + d.eBin + " = " + d.eField + "</b>，尾数字段 <b>M = " + group23(d.mBin) + "</b>。",
+    render() {
+      renderBits({ bits: bits, hot: [0, 31], segNums: ["S = " + d.S, "E = " + d.eBin, "M = " + group23(d.mBin)], segLbl: "先按位段切分三种字段" });
+      $("hexrow").innerHTML = fmtBinGroup(bits) + "<br>= <b>0x" + hex + "</b>";
+      $("calc").innerHTML = "S = " + d.S + "（" + (d.S ? "负" : "正") + "）<br>阶码字段 = (" + d.eBin + ")<sub>2</sub> = " + d.eField + "<br>尾数字段 = (" + d.mBin + ")<sub>2</sub> = " + d.mVal;
+    }
+  });
+
+  if (d.type === "normal") {
+    S.push({
+      phase: "② 判断类型", title: "阶码既非全 0 也非全 1 → 规格化数",
+      text: "阶码字段 " + d.eField + " 在 1~254 之间，属于<b>规格化数</b>：隐含位为 1，真值公式 <b>(−1)<sup>S</sup> × 1.M × 2<sup>E−127</sup></b>。",
+      render() {
+        renderBits({ bits: bits, hot: [1, 8], segNums: ["S = " + d.S, "E = " + d.eBin + " = " + d.eField, "M = " + group23(d.mBin)], segLbl: "规格化数：隐含位 = 1" });
+        $("hexrow").innerHTML = "阶码字段 = " + d.eField + " → 类型：规格化数";
+        $("calc").innerHTML = d.eField + " ∈ [1, 254] → 规格化数（隐含位 1）";
+      }
+    });
+    S.push({
+      phase: "③ 求真值指数", title: "指数真值 = 阶码字段 − 偏置 127",
+      text: "<b>e = " + d.eField + " − 127 = " + d.e + "</b>。所以数量级是 2<sup>" + d.e + "</sup>" + "（" + fmtNum(Math.pow(2, d.e)) + "），这说明该数的整数部分有 " + (d.e + 1) + " 位左右。",
+      render() {
+        renderBits({ bits: bits, hot: [1, 8], segNums: ["S = " + d.S, "e = " + d.eField + " − 127 = " + d.e, "M = " + group23(d.mBin)], segLbl: "减去偏置得到指数真值" });
+        $("hexrow").innerHTML = "e = " + d.eField + " − 127 = <b>" + d.e + "</b>";
+        $("calc").innerHTML = d.eField + " − 127 = " + d.e + "　⇒ 2<sup>" + d.e + "</sup> = " + fmtNum(Math.pow(2, d.e));
+      }
+    });
+  } else if (d.type === "subnormal") {
+    S.push({
+      phase: "② 判断类型", title: "阶码全 0 且尾数非 0 → 非规格化数",
+      text: "阶码字段为 0，属于<b>非规格化数</b>：隐含位是 <b>0</b> 而非 1，指数固定取 −126，真值 = <b>(−1)<sup>S</sup> × 0.M × 2<sup>−126</sup></b>。",
+      render() {
+        renderBits({ bits: bits, hot: [1, 8], segNums: ["S = " + d.S, "E = 全 0", "M = " + group23(d.mBin)], segLbl: "非规格化数：隐含位 = 0，指数固定 −126" });
+        $("hexrow").innerHTML = "阶码全 0、尾数非 0 → 非规格化数";
+        $("calc").innerHTML = "真值 = (−1)<sup>" + d.S + "</sup> × 0." + d.mBin + " × 2<sup>−126</sup> ≈ " + fmtNum(d.value);
+      }
+    });
+  } else if (d.type === "NaN") {
+    S.push({
+      phase: "② 判断类型", title: "阶码全 1 且尾数非 0 → NaN（非数）",
+      text: "阶码字段全 1 且尾数不为 0，表示 <b>NaN</b>：由 0/0、∞−∞、√负数等非法运算产生，任何与 NaN 的比较都不相等（NaN ≠ NaN）。",
+      render() {
+        renderBits({ bits: bits, hot: [1, 8], segNums: ["S = " + d.S, "E = 全 1", "M = 非 0"], segLbl: "NaN：阶码全 1 + 尾数非 0" });
+        $("hexrow").innerHTML = fmtBinGroup(bits) + " → <b>NaN</b>";
+        $("calc").innerHTML = "阶码 = 255（全 1）且尾数 ≠ 0 ⇒ NaN（没有对应的十进制真值）";
+      }
+    });
+    return S;
+  } else {
+    const inf = d.type === "+Inf" ? "+∞" : "−∞";
+    S.push({
+      phase: "② 判断类型", title: "阶码全 1 且尾数全 0 → " + (d.S ? "−∞" : "+∞"),
+      text: "阶码字段全 1 且尾数为 0，表示 <b>" + inf + "</b>：由正数除以 0、上溢等产生。无穷可以继续参与运算（如 ∞+1=∞），但不能与 NaN 比较。",
+      render() {
+        renderBits({ bits: bits, hot: [1, 8], segNums: ["S = " + d.S, "E = 全 1", "M = 全 0"], segLbl: "无穷：阶码全 1 + 尾数全 0" });
+        $("hexrow").innerHTML = fmtBinGroup(bits) + " → <b>" + inf + "</b>";
+        $("calc").innerHTML = "阶码 = 255 且尾数 = 0 ⇒ " + inf;
+      }
+    });
+    return S;
+  }
+
+  S.push({
+    phase: "④ 还原尾数", title: "把隐含位加回来：1.M",
+    text: "尾数字段对应小数 0." + d.mBin.slice(0, 12) + "…，其十进制值为 <b>" + fmtNum(d.mantissa) + "</b>；再加上隐含的整数 1，有效数 = <b>1." + d.mBin.slice(0, 12) + "… ≈ " + fmtNum(d.mantissa) + "</b>。",
+    render() {
+      renderBits({ bits: bits, hot: [9, 31], segNums: ["S = " + d.S, "E = " + d.eBin, "1.M = 1 + 0." + trunc(d.mBin, 8) + "…"], segLbl: "尾数：隐含位 1 + 23 位小数" });
+      $("hexrow").innerHTML = "尾数小数部分 = 1×2<sup>−1</sup> + … ";
+      $("calc").innerHTML = md.parts.length
+        ? "0.M = " + md.parts.slice(0, 8).join(" + ") + (md.parts.length > 8 ? " + …（共 " + md.parts.length + " 个 1）" : "") + "<br>= " + fmtNum(md.v, 15) + "<br><span class='gr'>1.M = " + fmtNum(d.mantissa, 15) + "</span>"
+        : "M 全 0 → 1.M = 1.0";
+    }
+  });
+
+  S.push({
+    phase: "⑤ 合成真值", title: "代入公式 (−1)^S × 1.M × 2^(E−127)",
+    text: "真值 = (−1)<sup>" + d.S + "</sup> × " + fmtNum(d.mantissa, 10) + " × 2<sup>" + d.e + "</sup> = <b>" + fmtNum(d.value) + "</b>。这就是该 32 位编码对应的十进制实数。",
+    render() {
+      renderBits({ bits: bits, hot: [], segNums: ["S = " + d.S, "E = " + d.eBin + " → e = " + d.e, "M = " + group23(d.mBin)], segLbl: "已还原为十进制真值" });
+      $("hexrow").innerHTML = "0x" + hex + " → <b>" + fmtNum(d.value) + "</b>";
+      $("calc").innerHTML = "(−1)<sup>" + d.S + "</sup> × " + fmtNum(d.mantissa, 12) + " × 2<sup>" + d.e + "</sup><br>= <span class='gr'>" + fmtNum(d.value) + "</span>" + (d.S ? "<br>符号位为 1，结果为负" : "");
+    }
+  });
+  return S;
+}
+
+/* ---------------- 载入 / 控制 ---------------- */
+function parseBitsInput(str, mode) {
+  let s = String(str).trim().replace(/\s+/g, "");
+  if (mode === "hex" || /^0x/i.test(s)) {
+    s = s.replace(/^0x/i, "");
+    if (!/^[0-9a-fA-F]{1,8}$/.test(s)) return { ok: false, reason: "十六进制格式应为 1~8 位十六进制数，例如 0xC1480000" };
+    if (s.length < 8) s = s.padStart(8, "0");
+    let bits = "";
+    for (const c of s) bits += parseInt(c, 16).toString(2).padStart(4, "0");
+    return { ok: true, bits: bits };
+  }
+  if (!/^[01]{1,32}$/.test(s)) return { ok: false, reason: "二进制格式应为 1~32 位 0/1 串（不足 32 位左侧补 0），例如 11000001010010000000000000000000" };
+  s = s.padStart(32, "0");
+  return { ok: true, bits: s };
+}
+
+function load() {
+  stopTimer(); playing = false; $("btnPlay").textContent = "▶ 播放";
+  const raw = $("inp").value;
+  $("msg").className = "msg";
+  if (dir === "enc") {
+    const res = encodeDecimal(raw);
+    if (!res.ok) {
+      $("msg").textContent = "⚠️ " + res.reason;
+      $("msg").className = "msg warn";
+      steps = []; cur = -1;
+      renderBits({ bits: null, hot: [], segNums: ["S", "E", "M"], segLbl: "等待合法输入" });
+      $("hexrow").innerHTML = "—"; $("calc").innerHTML = "请修正输入后点击「载入」。";
+      $("steps").innerHTML = ""; $("stIdx").textContent = "0 / 0"; $("stState").textContent = "输入错误"; $("stPhase").textContent = "—";
+      return;
+    }
+    if (res.fracLoop) {
+      $("msg").innerHTML = "ℹ️ 小数部分为<b>无限循环二进制</b>，已按 23 位尾数舍入，末尾会有微小误差。";
+      $("msg").className = "msg warn";
+    }
+    steps = buildEncodeSteps(res, raw.trim());
+  } else {
+    const p = parseBitsInput(raw);
+    if (!p.ok) {
+      $("msg").textContent = "⚠️ " + p.reason;
+      $("msg").className = "msg warn";
+      steps = []; cur = -1;
+      renderBits({ bits: null, hot: [], segNums: ["S", "E", "M"], segLbl: "等待合法输入" });
+      $("hexrow").innerHTML = "—"; $("calc").innerHTML = "请输入 32 位二进制或 8 位十六进制（如 0xC1480000）。";
+      $("steps").innerHTML = ""; $("stIdx").textContent = "0 / 0"; $("stState").textContent = "输入错误"; $("stPhase").textContent = "—";
+      return;
+    }
+    if (!/^0x/i.test(raw.trim()) && !/^[01]+$/.test(raw.trim().replace(/\s+/g, ""))) {
+      $("msg").innerHTML = "ℹ️ 已按十六进制解析。";
+      $("msg").className = "msg warn";
+    }
+    steps = buildDecodeSteps(p.bits, raw.trim());
+  }
+  cur = -1;
+  showStep(0);
+  $("stState").textContent = "就绪";
+}
+function step(delta) {
+  if (!steps.length) return;
+  if (cur + delta < 0) { showStep(0); return; }
+  if (cur + delta >= steps.length) { pause(); $("stState").textContent = "✅ 演示完成"; return; }
+  showStep(cur + delta);
+  if (cur + delta === steps.length - 1) { pause(); }
+}
+function play() {
+  if (!steps.length) return;
+  if (playing) { pause(); return; }
+  if (cur >= steps.length - 1) showStep(0);
+  playing = true;
+  $("btnPlay").textContent = "⏸ 暂停";
+  timer = setTimeout(tick, speed);
+}
+function tick() {
+  if (!playing) return;
+  if (cur >= steps.length - 1) { pause(); $("stState").textContent = "✅ 演示完成"; return; }
+  showStep(cur + 1);
+  timer = setTimeout(tick, speed);
+}
+function pause() { playing = false; stopTimer(); $("btnPlay").textContent = "▶ 播放"; }
+function stopTimer() { if (timer) { clearTimeout(timer); timer = null; } }
+
+/* ---------------- 事件 ---------------- */
+$("dirSel").onchange = () => {
+  dir = $("dirSel").value;
+  if (dir === "enc") { $("modeInfo").textContent = "十进制 → 32 位"; $("inp").value = "-12.5"; $("inLbl").textContent = "十进制数"; }
+  else { $("modeInfo").textContent = "32 位 → 十进制"; $("inp").value = "0xC1480000"; $("inLbl").textContent = "十六进制/二进制"; }
+  load();
+};
+$("btnApply").onclick = load;
+$("inp").addEventListener("keydown", (e) => { if (e.key === "Enter") load(); });
+const DEC_DEMOS = ["-12.5", "0.1", "3.14159", "0.5", "1", "100.25", "-0.0625", "0.000000000000000000000000000000000000000000001"];
+const HEX_DEMOS = ["0xC1480000", "0x3F800000", "0x00000000", "0x80000000", "0x7F800000", "0xFF800000", "0x7FC00000", "0x00000001", "0x42F6E979"];
+$("btnDemo").onclick = () => {
+  const pool = dir === "enc" ? DEC_DEMOS : HEX_DEMOS;
+  let v = pool[Math.floor(Math.random() * pool.length)];
+  if (dir === "enc") { v = pool[(Math.floor(Math.random() * pool.length)) % 6]; }
+  $("inp").value = v;
+  load();
+};
+$("btnPlay").onclick = play;
+$("btnStep").onclick = () => { pause(); step(1); };
+$("btnPrev").onclick = () => { pause(); step(-1); };
+$("btnReset").onclick = () => { pause(); if (steps.length) { showStep(0); $("stState").textContent = "就绪"; } };
+document.querySelectorAll(".sp").forEach((b) => {
+  b.onclick = () => {
+    document.querySelectorAll(".sp").forEach((x) => x.classList.remove("active"));
+    b.classList.add("active");
+    speed = +b.dataset.speed;
+    if (playing) { stopTimer(); timer = setTimeout(tick, speed); }
+  };
+});
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") { pause(); step(1); }
+  if (e.key === "ArrowLeft") { pause(); step(-1); }
+  if (e.key === " ") { e.preventDefault(); play(); }
+});
+
+/* init */
+load();
+</script>
+</body>
+</html>

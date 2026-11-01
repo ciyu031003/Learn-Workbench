@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>图的遍历可视化 · DFS / BFS</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f8fafc; color: #1e293b; padding: 16px; margin: 0; }
+  .wrap { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+  .head { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; }
+  .head h1 { font-size: 16px; font-weight: 600; }
+  .head .info { font-size: 12px; opacity: .92; }
+  .controls { padding: 10px 14px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-bottom: 1px solid #eef2f7; }
+  select, button, input[type=range] { font-size: 12px; font-family: inherit; }
+  select { padding: 5px 8px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; color: #334155; outline: none; }
+  button { padding: 5px 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all .15s; }
+  .btn-primary { background: #6366f1; color: #fff; }
+  .btn-primary:hover { background: #4f46e5; }
+  .btn-ghost { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+  .btn-ghost:hover { background: #e2e8f0; }
+  .speed-group { display: flex; gap: 4px; }
+  .speed-group button { padding: 4px 9px; font-size: 12px; }
+  .speed-group .active { background: #6366f1; color: #fff; border-color: #6366f1; }
+  .range-wrap { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #64748b; }
+  input[type=range] { width: 62px; accent-color: #6366f1; }
+  .stats { padding: 7px 14px; display: flex; gap: 16px; font-size: 12px; color: #64748b; border-bottom: 1px solid #eef2f7; flex-wrap: wrap; }
+  .stats b { color: #1e293b; font-variant-numeric: tabular-nums; }
+  .stage { padding: 8px 14px 8px; }
+  .gbox { position: relative; width: 100%; padding-top: 27.8%; }
+  .gbox svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .gbox svg text { font-family: inherit; }
+  .node circle { fill: #94a3b8; stroke: #fff; stroke-width: 2.5; transition: fill .15s; }
+  .node.cur circle { fill: #6366f1; stroke: #c7d2fe; stroke-width: 4; }
+  .node.pend circle { fill: #f59e0b; }
+  .node.done circle { fill: #10b981; }
+  .node text { fill: #fff; font-size: 13px; font-weight: 600; text-anchor: middle; dominant-baseline: central; }
+  .edge { fill: none; stroke: #cbd5e1; stroke-width: 2; transition: stroke .15s; }
+  .edge.seen { stroke: #94a3b8; }
+  .edge.exam { stroke: #f59e0b; stroke-width: 3.5; }
+  .edge.tree { stroke: #8b5cf6; stroke-width: 3.5; }
+  .wt { fill: #475569; font-size: 11px; text-anchor: middle; dominant-baseline: central; paint-order: stroke; stroke: #fff; stroke-width: 3px; }
+  .dsrow { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #e2e8f0; }
+  .dsgroup { display: flex; align-items: center; gap: 6px; }
+  .dslabel { font-size: 11px; color: #64748b; white-space: nowrap; }
+  .chips { display: flex; gap: 4px; min-height: 24px; align-items: center; }
+  .chip { width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: #fff; background: #94a3b8; }
+  .chip.pend { background: #f59e0b; }
+  .chip.done { background: #10b981; }
+  .chip.cur { background: #6366f1; }
+  .empty { font-size: 11px; color: #94a3b8; }
+  .legend { padding: 4px 14px 8px; display: flex; gap: 12px; font-size: 11px; color: #64748b; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .desc { padding: 8px 14px 12px; border-top: 1px solid #eef2f7; font-size: 12px; color: #475569; line-height: 1.7; }
+  .desc b { color: #334155; }
+  .desc .step { min-height: 40px; }
+  .desc .step b { color: #6366f1; }
+  .desc .note { color: #64748b; }
+  .warn { color: #ef4444; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>🕸️ 图的遍历可视化 · DFS / BFS</h1>
+    <span class="info" id="algoInfo">深度优先搜索 · 栈</span>
+  </div>
+
+  <div class="controls">
+    <select id="graphSel" title="选择示例图">
+      <option value="0">无向图 G1（6 顶点）</option>
+      <option value="1">有向图 G2（6 顶点）</option>
+      <option value="2">带权无向图 G3</option>
+      <option value="rnd">🎲 随机图（同类型）</option>
+    </select>
+    <select id="startSel" title="选择起始顶点"></select>
+    <select id="algoSel" title="选择遍历算法">
+      <option value="dfs">DFS 深度优先</option>
+      <option value="bfs">BFS 广度优先</option>
+    </select>
+    <button class="btn-ghost" id="btnRandom">🎲 随机</button>
+    <div class="range-wrap" title="随机图顶点数"><span>n</span><input type="range" id="nRange" min="5" max="8" value="6"><b id="nVal">6</b></div>
+    <div class="speed-group">
+      <button data-speed="600" id="spSlow" class="btn-ghost">慢</button>
+      <button data-speed="200" id="spMid" class="btn-ghost active">中</button>
+      <button data-speed="40" id="spFast" class="btn-ghost">快</button>
+    </div>
+    <button class="btn-primary" id="btnPlay">▶ 播放</button>
+    <button class="btn-ghost" id="btnStep">单步</button>
+    <button class="btn-ghost" id="btnReset">↺ 重置</button>
+  </div>
+
+  <div class="stats">
+    <span>访问序列 <b id="stSeq">—</b></span>
+    <span>步数 <b id="stSteps">0 / 0</b></span>
+    <span>已访问 <b id="stVisited">0 / 6</b></span>
+    <span>树边 <b id="stTree">0</b></span>
+    <span>状态 <b id="stState">就绪</b></span>
+  </div>
+
+  <div class="stage">
+    <div class="gbox" id="canvas"></div>
+    <div class="dsrow">
+      <div class="dsgroup"><span class="dslabel" id="dsLabel">栈 S（右端为栈顶）</span><div class="chips" id="dsChips"></div></div>
+      <div class="dsgroup"><span class="dslabel" id="visLabel">已访问集合 V</span><div class="chips" id="visChips"></div></div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><i style="background:#94a3b8"></i>未访问</span>
+    <span><i style="background:#10b981"></i>已访问</span>
+    <span><i style="background:#f59e0b"></i>在栈/队列中待处理</span>
+    <span><i style="background:#6366f1"></i>当前顶点</span>
+    <span><i style="background:#f59e0b;height:3px;border-radius:2px"></i>正在考察的边</span>
+    <span><i style="background:#8b5cf6;height:3px;border-radius:2px"></i>树边（遍历路径）</span>
+  </div>
+
+  <div class="desc">
+    <div class="step" id="stepText">选择示例图与起始顶点，点击「▶ 播放」或「单步」，观察栈（DFS）/ 队列（BFS）与已访问集合的变化。</div>
+    <div class="note" id="noteText"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ================= 工具 ================= */
+var $ = function (id) { return document.getElementById(id); };
+var R = 20, VBW = 900, VBH = 250;
+
+function rndInt(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
+function shuffle(a) { for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+
+/* ================= 图数据 ================= */
+var PRESETS = [
+  {
+    name: "无向图 G1", kind: "undirected", directed: false, weighted: false,
+    nodes: [{ id: 0, label: "A", x: 110, y: 68 }, { id: 1, label: "B", x: 400, y: 50 }, { id: 2, label: "C", x: 720, y: 64 },
+            { id: 3, label: "D", x: 110, y: 200 }, { id: 4, label: "E", x: 400, y: 185 }, { id: 5, label: "F", x: 700, y: 205 }],
+    edges: [[0, 1, 0], [1, 2, 0], [0, 3, 0], [1, 4, 0], [2, 5, 0], [3, 4, 0], [4, 5, 0], [0, 4, 0]]
+  },
+  {
+    name: "有向图 G2", kind: "directed", directed: true, weighted: false,
+    nodes: [{ id: 0, label: "A", x: 110, y: 125 }, { id: 1, label: "B", x: 400, y: 55 }, { id: 2, label: "C", x: 400, y: 195 },
+            { id: 3, label: "D", x: 690, y: 55 }, { id: 4, label: "E", x: 690, y: 195 }, { id: 5, label: "F", x: 855, y: 125 }],
+    edges: [[0, 1, 0], [0, 2, 0], [1, 2, 0], [1, 3, 0], [2, 4, 0], [3, 4, 0], [3, 5, 0], [4, 5, 0]]
+  },
+  {
+    name: "带权无向图 G3（遍历时权值不影响顺序）", kind: "weighted", directed: false, weighted: true,
+    nodes: [{ id: 0, label: "A", x: 110, y: 68 }, { id: 1, label: "B", x: 400, y: 55 }, { id: 2, label: "C", x: 110, y: 200 },
+            { id: 3, label: "D", x: 400, y: 190 }, { id: 4, label: "E", x: 700, y: 58 }, { id: 5, label: "F", x: 720, y: 208 }],
+    edges: [[0, 1, 4], [0, 2, 3], [1, 2, 6], [1, 3, 2], [2, 3, 5], [3, 4, 7], [3, 5, 4], [4, 5, 3]]
+  }
+];
+
+function cloneGraph(g) {
+  return {
+    name: g.name, kind: g.kind, directed: g.directed, weighted: g.weighted,
+    nodes: g.nodes.map(function (n) { return { id: n.id, label: n.label, x: n.x, y: n.y }; }),
+    edges: g.edges.map(function (e) { return [e[0], e[1], e[2]]; })
+  };
+}
+
+/* 随机图：先造一棵生成树保证连通，再加若干条边 */
+function randomGraph(kind, n) {
+  n = Math.max(5, Math.min(8, parseInt(n, 10) || 6));
+  var nodes = [], i;
+  for (i = 0; i < n; i++) {
+    var ang = -Math.PI / 2 + i * 2 * Math.PI / n;
+    nodes.push({
+      id: i, label: String.fromCharCode(65 + i),
+      x: Math.round(450 + 370 * Math.cos(ang)),
+      y: Math.round(125 + 88 * Math.sin(ang))
+    });
+  }
+  var edges = [], seen = {};
+  var key = function (a, b) { return a + "x" + b; };
+  var connected = [0], rest = [];
+  for (i = 1; i < n; i++) rest.push(i);
+  shuffle(rest);
+  for (i = 0; i < rest.length; i++) {
+    var v = rest[i], u = connected[rndInt(0, connected.length - 1)];
+    edges.push([u, v, kind === "weighted" ? rndInt(1, 9) : 0]);
+    seen[key(u, v)] = 1; seen[key(v, u)] = 1;
+    connected.push(v);
+  }
+  var extra = rndInt(1, 3), guard = 0;
+  while (extra > 0 && guard++ < 300) {
+    var a = rndInt(0, n - 1), b = rndInt(0, n - 1);
+    if (a === b || seen[key(a, b)]) continue;
+    seen[key(a, b)] = 1; seen[key(b, a)] = 1;
+    edges.push([a, b, kind === "weighted" ? rndInt(1, 9) : 0]);
+    extra--;
+  }
+  if (kind === "directed") {
+    /* 生成树边按 BFS 方向定向，保证从顶点 A 出发可达全部顶点；其余边随机定向 */
+    edges = edges.map(function (e, idx) {
+      if (idx < n - 1) return [e[0], e[1], e[2]];
+      return Math.random() < 0.5 ? [e[0], e[1], e[2]] : [e[1], e[0], e[2]];
+    });
+  }
+  return {
+    name: "随机图（" + Math.max(nodes.length, 0) + " 顶点 " + edges.length + " 边）",
+    kind: kind, directed: kind === "directed", weighted: kind === "weighted",
+    nodes: nodes, edges: edges
+  };
+}
+
+function buildAdj(g) {
+  var adj = g.nodes.map(function () { return []; });
+  g.edges.forEach(function (e, i) {
+    adj[e[0]].push({ v: e[1], i: i, w: e[2] });
+    if (!g.directed) adj[e[1]].push({ v: e[0], i: i, w: e[2] });
+  });
+  return adj;
+}
+
+/* ================= 几何 ================= */
+var MARKER_COLORS = { base: "#cbd5e1", seen: "#94a3b8", exam: "#f59e0b", tree: "#8b5cf6" };
+
+function edgeGeom(g, e, i) {
+  var A = g.nodes[e[0]], B = g.nodes[e[1]];
+  var dx = B.x - A.x, dy = B.y - A.y;
+  var len = Math.sqrt(dx * dx + dy * dy) || 1;
+  var ux = dx / len, uy = dy / len;
+  var reverse = false;
+  for (var j = 0; j < g.edges.length; j++) {
+    if (j !== i && g.edges[j][0] === e[1] && g.edges[j][1] === e[0]) { reverse = true; break; }
+  }
+  var endPad = g.directed ? R + 4 : R + 2;
+  var sx = A.x + ux * (R + 2), sy = A.y + uy * (R + 2);
+  if (!reverse) {
+    var ex = B.x - ux * endPad, ey = B.y - uy * endPad;
+    return { d: "M" + sx + "," + sy + " L" + ex + "," + ey, lx: (A.x + B.x) / 2, ly: (A.y + B.y) / 2 };
+  }
+  var mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2, off = 24;
+  var cx = mx + uy * off, cy = my - ux * off;
+  var tdx = B.x - cx, tdy = B.y - cy, tl = Math.sqrt(tdx * tdx + tdy * tdy) || 1;
+  var ex2 = B.x - tdx / tl * endPad, ey2 = B.y - tdy / tl * endPad;
+  var cx2 = cx + (ex2 - B.x), cy2 = cy + (ey2 - B.y);
+  var qx = 0.25 * sx + 0.5 * cx2 + 0.25 * ex2, qy = 0.25 * sy + 0.5 * cy2 + 0.25 * ey2;
+  return { d: "M" + sx + "," + sy + " Q" + cx2 + "," + cy2 + " " + ex2 + "," + ey2, lx: qx + uy * 9, ly: qy - ux * 9 };
+}
+
+/* ================= 绘制 ================= */
+function buildSVG() {
+  var g = graph, out = [];
+  out.push('<svg viewBox="0 0 ' + VBW + ' ' + VBH + '" preserveAspectRatio="xMidYMid meet">');
+  out.push('<defs>');
+  ["base", "seen", "exam", "tree"].forEach(function (k) {
+    out.push('<marker id="arw-' + k + '" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" refX="12" refY="6" orient="auto" viewBox="0 0 12 12">' +
+             '<path d="M0,0 L12,6 L0,12 z" fill="' + MARKER_COLORS[k] + '"/></marker>');
+  });
+  out.push('</defs>');
+  g.edges.forEach(function (e, i) {
+    var geo = edgeGeom(g, e, i);
+    var mk = g.directed ? ' marker-end="url(#arw-base)"' : '';
+    out.push('<path id="e' + i + '" class="edge" d="' + geo.d + '"' + mk + '/>');
+    if (g.weighted) out.push('<text class="wt" id="wl' + i + '" x="' + geo.lx + '" y="' + geo.ly + '">' + e[2] + '</text>');
+  });
+  g.nodes.forEach(function (n) {
+    out.push('<g id="n' + n.id + '" class="node"><circle cx="' + n.x + '" cy="' + n.y + '" r="' + R + '"/>' +
+             '<text x="' + n.x + '" y="' + n.y + '">' + n.label + '</text></g>');
+  });
+  out.push('</svg>');
+  $("canvas").innerHTML = out.join("");
+}
+
+function chipHTML(list, cls, cur) {
+  if (!list.length) return '<span class="empty">（空）</span>';
+  return list.map(function (v) {
+    var c = (v === cur ? "cur" : cls);
+    return '<span class="chip ' + c + '">' + graph.nodes[v].label + '</span>';
+  }).join("");
+}
+
+function paint() {
+  var st = steps[idx];
+  if (!st) return;
+  graph.nodes.forEach(function (n) {
+    var el = $("n" + n.id);
+    if (!el) return;
+    var cls = "node";
+    if (st.cur === n.id) cls += " cur";
+    else if (st.pendSet.indexOf(n.id) >= 0) cls += " pend";
+    else if (st.visitedSet.indexOf(n.id) >= 0) cls += " done";
+    el.setAttribute("class", cls);
+  });
+  graph.edges.forEach(function (e, i) {
+    var el = $("e" + i);
+    if (!el) return;
+    var suf = "base";
+    if (st.treeSet.indexOf(i) >= 0) suf = "tree";
+    else if (st.examining === i) suf = "exam";
+    else if (st.examinedSet.indexOf(i) >= 0) suf = "seen";
+    el.setAttribute("class", suf === "base" ? "edge" : "edge " + suf);
+    if (graph.directed) el.setAttribute("marker-end", "url(#arw-" + suf + ")");
+  });
+  if (algo === "dfs") {
+    $("dsLabel").textContent = "栈 S（右端为栈顶）";
+    $("dsChips").innerHTML = chipHTML(st.stack, "pend", st.cur);
+  } else {
+    $("dsLabel").textContent = "队列 Q（左端为队头）";
+    $("dsChips").innerHTML = chipHTML(st.queue, "pend", st.cur);
+  }
+  $("visLabel").textContent = "已访问集合 V（" + st.visitedSet.length + "）";
+  $("visChips").innerHTML = chipHTML(st.visitedSet, "done", st.cur);
+  $("stepText").innerHTML = st.desc;
+  $("stSeq").textContent = st.order.length ? st.order.map(function (v) { return graph.nodes[v].label; }).join("→") : "—";
+  $("stSteps").textContent = idx + " / " + (steps.length - 1);
+  $("stVisited").textContent = st.visitedSet.length + " / " + graph.nodes.length;
+  $("stTree").textContent = st.treeSet.length;
+}
+
+/* ================= 遍历算法（生成逐步快照） ================= */
+function buildSteps(g, start, algo) {
+  var adj = buildAdj(g);
+  var lab = function (i) { return g.nodes[i].label; };
+  var visited = [], stack = [], queue = [], order = [], treeSet = [], examinedSet = [], out = [], cur = null;
+
+  function snap(examining, desc) {
+    out.push({
+      cur: cur, examining: examining, desc: desc,
+      stack: stack.slice(), queue: queue.slice(),
+      visitedSet: visited.slice(), pendSet: (algo === "dfs" ? stack : queue).slice(),
+      treeSet: treeSet.slice(), examinedSet: examinedSet.slice(), order: order.slice()
+    });
+  }
+  function markExamined(i) { if (examinedSet.indexOf(i) < 0) examinedSet.push(i); }
+
+  if (algo === "dfs") {
+    visited.push(start); stack.push(start); order.push(start); cur = start;
+    snap(null, "<b>初始化：</b>从顶点 " + lab(start) + " 出发 —— 访问 " + lab(start) + "，标记为「已访问」，并把 " + lab(start) + " <b>入栈</b>。栈 = [" + stack.map(lab).join(", ") + "]。");
+    while (stack.length) {
+      var u = stack[stack.length - 1], next = -1, nextEdge = -1, k;
+      cur = u;
+      for (k = 0; k < adj[u].length; k++) {
+        var e = adj[u][k], v = e.v;
+        markExamined(e.i);
+        if (visited.indexOf(v) < 0) {
+          snap(e.i, "<b>找下一个顶点：</b>栈顶是 " + lab(u) + "（保持不出栈），沿它的邻接点找第一个未访问的 —— 边 " + lab(u) + "—" + lab(v) + " 上的 " + lab(v) + " <b>尚未访问</b>，选它。");
+          next = v; nextEdge = e.i; break;
+        }
+        snap(e.i, "<b>检查邻接点：</b>栈顶 " + lab(u) + " 的邻接点 " + lab(v) + " <b>已被访问</b>，跳过这条边，看下一个邻接点。");
+      }
+      if (next === -1) {
+        stack.pop();
+        cur = stack.length ? stack[stack.length - 1] : null;
+        snap(null, "<b>回溯：</b>" + lab(u) + " 的所有邻接点都访问过了，" + lab(u) + " <b>出栈</b>" +
+          (stack.length ? "，退回上一层 " + lab(stack[stack.length - 1]) + "。栈 = [" + stack.map(lab).join(", ") + "]" : "，此时栈已空，遍历结束。"));
+      } else {
+        visited.push(next); stack.push(next); order.push(next); treeSet.push(nextEdge); cur = next;
+        snap(nextEdge, "<b>深入一层：</b>访问 " + lab(next) + "，标记已访问并<b>入栈</b>；树边 " + lab(u) + "→" + lab(next) + " 加入遍历路径。栈 = [" + stack.map(lab).join(", ") + "]。");
+      }
+    }
+  } else {
+    visited.push(start); queue.push(start); order.push(start); cur = start;
+    snap(null, "<b>初始化：</b>从顶点 " + lab(start) + " 出发 —— 访问 " + lab(start) + "，标记为「已访问」，并把 " + lab(start) + " <b>入队</b>。队列 = [" + queue.map(lab).join(", ") + "]。");
+    while (queue.length) {
+      var uu = queue.shift();
+      cur = uu;
+      snap(null, "<b>出队：</b>队头 " + lab(uu) + " 出队，开始依次考察它的所有邻接点（一层一层向外扩展）。");
+      for (var q = 0; q < adj[uu].length; q++) {
+        var ee = adj[uu][q], vv = ee.v;
+        markExamined(ee.i);
+        if (visited.indexOf(vv) < 0) {
+          visited.push(vv); queue.push(vv); order.push(vv); treeSet.push(ee.i);
+          snap(ee.i, "<b>发现新顶点：</b>边 " + lab(uu) + "—" + lab(vv) + " 上的 " + lab(vv) + " 未访问 → 访问它、标记已访问、<b>入队</b>，树边 " + lab(uu) + "→" + lab(vv) + " 记录到遍历路径。队列 = [" + queue.map(lab).join(", ") + "]。");
+        } else {
+          snap(ee.i, "<b>重复顶点：</b>边 " + lab(uu) + "—" + lab(vv) + " 上的 " + lab(vv) + " 早就被访问（可能已出队）了，不重复入队。");
+        }
+      }
+    }
+  }
+  var un = g.nodes.filter(function (n) { return visited.indexOf(n.id) < 0; });
+  cur = null;
+  var tail = "<b>遍历结束 ✅</b>访问序列：" + order.map(lab).join(" → ") + "；共访问 " + order.length + " 个顶点、得到 " + treeSet.length + " 条树边。";
+  if (un.length) {
+    tail += ' <span class="warn">⚠ 从 ' + lab(start) + " 出发无法到达：" + un.map(function (n) { return n.label; }).join("、") +
+      (g.directed ? "（有向图中这些顶点对该起点不可达）" : "（该图不连通）") + "，若要遍历全图需从它们再次发起遍历。</span>";
+  }
+  snap(null, tail);
+  out[out.length - 1].finished = true;
+  return out;
+}
+
+/* ================= 说明文字 ================= */
+var NOTES = {
+  dfs: "<b>DFS（深度优先搜索）</b>：借<b>栈</b>保存「待回溯」的顶点 —— 沿一条路一直往深处走，回不去了再退回上一个分叉点。本质是树的先根遍历的推广（递归写法就是系统栈）。时间 O(n+e)（邻接表）/ O(n²)（邻接矩阵），空间 O(n)。",
+  bfs: "<b>BFS（广度优先搜索）</b>：借<b>队列</b>保证「先被发现的顶点先被考察」，一圈一圈向外扩展，得到按到起点边数（层数）递增的顺序。无权图中 BFS 的树边恰好构成从起点到各顶点的最短路径。时间 O(n+e)，空间 O(n)。"
+};
+var TITLES = { dfs: "深度优先搜索 · 用栈", bfs: "广度优先搜索 · 用队列" };
+
+function updateNote() {
+  $("noteText").innerHTML = NOTES[algo] + "<br><b>两者对比：</b>访问顺序只差在「用栈还是用队列」：栈让搜索往深处钻（DFS），队列让它往宽处铺（BFS）；两者复杂度相同，都需要 visited 数组防止重复访问。";
+  $("algoInfo").textContent = TITLES[algo] + " · " + graph.name;
+}
+
+/* ================= 引擎 ================= */
+var graph = cloneGraph(PRESETS[0]);
+var algo = "dfs", start = 0, steps = [], idx = 0, speed = 200, timer = null, playing = false;
+
+function rebuild(keepStart) {
+  pause(true);
+  if (!keepStart || start >= graph.nodes.length) start = 0;
+  buildSVG();
+  var opts = graph.nodes.map(function (n) { return '<option value="' + n.id + '">起始顶点 ' + n.label + "</option>"; }).join("");
+  $("startSel").innerHTML = opts;
+  $("startSel").value = String(start);
+  steps = buildSteps(graph, start, algo);
+  idx = 0;
+  paint();
+  $("stState").textContent = "就绪";
+  updateNote();
+}
+
+function finish() {
+  pause(true);
+  $("stState").textContent = "✅ 遍历结束";
+}
+
+function stepForward() {
+  if (idx >= steps.length - 1) { finish(); return; }
+  idx++;
+  paint();
+  if (idx >= steps.length - 1) finish();
+}
+
+function tick() {
+  if (!playing) return;
+  stepForward();
+  if (!playing) return;
+  timer = setTimeout(tick, speed);
+}
+
+function play() {
+  if (playing) return;
+  if (idx >= steps.length - 1) { idx = 0; paint(); }
+  playing = true;
+  $("btnPlay").textContent = "⏸ 暂停";
+  $("stState").textContent = algo === "dfs" ? "DFS 遍历中…" : "BFS 遍历中…";
+  tick();
+}
+
+function pause(silent) {
+  playing = false;
+  if (timer) { clearTimeout(timer); timer = null; }
+  if (!silent) $("btnPlay").textContent = "▶ 播放";
+  else $("btnPlay").textContent = "▶ 播放";
+}
+
+function currentKind() { return graph.kind; }
+function selectGraphOption(val) { $("graphSel").value = val; }
+
+/* ================= 事件 ================= */
+$("graphSel").onchange = function () {
+  var v = this.value;
+  if (v === "rnd") graph = randomGraph(currentKind(), +$("nRange").value);
+  else graph = cloneGraph(PRESETS[+v]);
+  rebuild(false);
+  selectGraphOption(v);
+};
+$("startSel").onchange = function () { start = +this.value; rebuild(true); };
+$("algoSel").onchange = function () { algo = this.value; rebuild(true); };
+$("btnRandom").onclick = function () { graph = randomGraph(currentKind(), +$("nRange").value); rebuild(false); selectGraphOption("rnd"); };
+$("nRange").oninput = function () { $("nVal").textContent = this.value; };
+$("btnPlay").onclick = function () { if (playing) pause(false); else play(); };
+$("btnStep").onclick = function () {
+  pause(true);
+  if (idx >= steps.length - 1) { rebuild(true); return; }
+  stepForward();
+  if (idx < steps.length - 1) $("stState").textContent = "单步执行中";
+};
+$("btnReset").onclick = function () { rebuild(true); };
+$("spSlow").onclick = function () { setSpeed(600, this); };
+$("spMid").onclick = function () { setSpeed(200, this); };
+$("spFast").onclick = function () { setSpeed(40, this); };
+function setSpeed(v, btn) {
+  speed = v;
+  ["spSlow", "spMid", "spFast"].forEach(function (id) { $(id).classList.remove("active"); });
+  btn.classList.add("active");
+}
+
+/* ================= 初始化 ================= */
+rebuild(false);
+</script>
+</body>
+</html>

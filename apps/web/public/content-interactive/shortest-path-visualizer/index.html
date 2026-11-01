@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>最短路径可视化 · Dijkstra / Floyd</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f8fafc; color: #1e293b; padding: 16px; margin: 0; }
+  .wrap { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+  .head { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; }
+  .head h1 { font-size: 16px; font-weight: 600; }
+  .head .info { font-size: 12px; opacity: .92; }
+  .controls { padding: 10px 14px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-bottom: 1px solid #eef2f7; }
+  select, button, input[type=range] { font-size: 12px; font-family: inherit; }
+  select { padding: 5px 8px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; color: #334155; outline: none; }
+  button { padding: 5px 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all .15s; }
+  .btn-primary { background: #6366f1; color: #fff; }
+  .btn-primary:hover { background: #4f46e5; }
+  .btn-ghost { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+  .btn-ghost:hover { background: #e2e8f0; }
+  .speed-group { display: flex; gap: 4px; }
+  .speed-group button { padding: 4px 9px; font-size: 12px; }
+  .speed-group .active { background: #6366f1; color: #fff; border-color: #6366f1; }
+  .range-wrap { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #64748b; }
+  input[type=range] { width: 56px; accent-color: #6366f1; }
+  .chk { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #64748b; white-space: nowrap; }
+  .chk input { accent-color: #ef4444; }
+  .stats { padding: 7px 14px; display: flex; gap: 14px; font-size: 12px; color: #64748b; border-bottom: 1px solid #eef2f7; flex-wrap: wrap; }
+  .stats b { color: #1e293b; font-variant-numeric: tabular-nums; }
+  .stage { padding: 8px 14px; display: flex; gap: 12px; align-items: flex-start; }
+  .gwrap { flex: 1 1 54%; min-width: 0; }
+  .gbox { position: relative; width: 100%; padding-top: 48.1%; }
+  .gbox svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .gbox svg text { font-family: inherit; }
+  .pw { flex: 1 1 46%; min-width: 0; }
+  .ptitle { font-size: 11px; color: #64748b; margin-bottom: 4px; }
+  .ptitle b { color: #6366f1; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .tbl th { font-size: 11px; color: #94a3b8; font-weight: 500; padding: 3px 4px; text-align: center; border-bottom: 1px solid #eef2f7; }
+  .tbl td { font-size: 12px; padding: 3px 4px; text-align: center; color: #334155; border-bottom: 1px solid #f6f8fb; }
+  .tbl tr.sel td { background: #eef2ff; color: #4338ca; font-weight: 600; }
+  .tbl tr.upd td { background: #fef3c7; }
+  .tbl td.inf { color: #cbd5e1; }
+  .mx { table-layout: fixed; }
+  .mx td, .mx th { font-size: 11px; text-align: center; padding: 3px 1px; border: 1px solid #eef2f7; color: #334155; font-variant-numeric: tabular-nums; }
+  .mx th { color: #94a3b8; font-weight: 500; background: #f8fafc; }
+  .mx td.diag { color: #cbd5e1; background: #fafbfd; }
+  .mx td.inf { color: #cbd5e1; }
+  .mx td.krc { background: #eef2ff; }
+  .mx td.upd { background: #f59e0b; color: #fff; font-weight: 700; }
+  .mx td.path { color: #7c3aed; font-weight: 700; }
+  .node circle { fill: #94a3b8; stroke: #fff; stroke-width: 2.5; transition: fill .15s; }
+  .node.cur circle { fill: #6366f1; stroke: #c7d2fe; stroke-width: 4; }
+  .node.done circle { fill: #10b981; }
+  .node.path circle { fill: #8b5cf6; }
+  .node text { fill: #fff; font-size: 12px; font-weight: 600; text-anchor: middle; dominant-baseline: central; }
+  .node .tag { font-size: 10px; font-weight: 500; }
+  .tag-src { fill: #6366f1; }
+  .tag-dst { fill: #ef4444; }
+  .edge { fill: none; stroke: #cbd5e1; stroke-width: 2; transition: stroke .15s; }
+  .edge.tree { stroke: #10b981; stroke-width: 2.5; }
+  .edge.relax { stroke: #f59e0b; stroke-width: 3.5; }
+  .edge.path { stroke: #8b5cf6; stroke-width: 4; }
+  .wt { fill: #475569; font-size: 11px; text-anchor: middle; dominant-baseline: central; paint-order: stroke; stroke: #fff; stroke-width: 3px; }
+  .wt.neg { fill: #ef4444; font-weight: 700; }
+  .legend { padding: 2px 14px 8px; display: flex; gap: 12px; font-size: 11px; color: #64748b; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .desc { padding: 8px 14px 12px; border-top: 1px solid #eef2f7; font-size: 12px; color: #475569; line-height: 1.7; }
+  .desc b { color: #334155; }
+  .desc .step { min-height: 38px; }
+  .desc .step b { color: #6366f1; }
+  .desc .note { color: #64748b; }
+  .warn { color: #ef4444; font-weight: 600; }
+  .ok { color: #10b981; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>🛣️ 最短路径可视化 · Dijkstra / Floyd</h1>
+    <span class="info" id="algoInfo">Dijkstra · O(n²)</span>
+  </div>
+
+  <div class="controls">
+    <select id="graphSel" title="选择示例图">
+      <option value="0">有向带权图 G1（5 顶点）</option>
+      <option value="1">无向带权图 G2（6 顶点）</option>
+      <option value="rnd">🎲 随机图（同类型）</option>
+    </select>
+    <select id="algoSel" title="选择算法">
+      <option value="dij">Dijkstra 单源</option>
+      <option value="floyd">Floyd 全源</option>
+    </select>
+    <select id="startSel" title="起点"></select>
+    <select id="endSel" title="终点"></select>
+    <button class="btn-ghost" id="btnRandom">🎲 随机</button>
+    <div class="range-wrap" title="随机图顶点数"><span>n</span><input type="range" id="nRange" min="5" max="6" value="5"><b id="nVal">5</b></div>
+    <label class="chk" title="随机生成有向图并加入一条负权边（不会造成负权回路），用于演示 Dijkstra 的失效"><input type="checkbox" id="negChk">含负权边</label>
+    <div class="speed-group">
+      <button data-speed="600" id="spSlow" class="btn-ghost">慢</button>
+      <button data-speed="200" id="spMid" class="btn-ghost active">中</button>
+      <button data-speed="40" id="spFast" class="btn-ghost">快</button>
+    </div>
+    <button class="btn-primary" id="btnPlay">▶ 播放</button>
+    <button class="btn-ghost" id="btnStep">单步</button>
+    <button class="btn-ghost" id="btnReset">↺ 重置</button>
+  </div>
+
+  <div class="stats">
+    <span>步数 <b id="stSteps">0 / 0</b></span>
+    <span>轮次 <b id="stRound">0</b></span>
+    <span>松弛比较 <b id="stRelax">0</b></span>
+    <span>更新成功 <b id="stUpd">0</b></span>
+    <span>起点→终点 <b id="stPath">—</b></span>
+    <span>状态 <b id="stState">就绪</b></span>
+  </div>
+
+  <div class="stage">
+    <div class="gwrap"><div class="gbox" id="canvas"></div></div>
+    <div class="pw" id="panel"></div>
+  </div>
+
+  <div class="legend">
+    <span><i style="background:#94a3b8"></i>未处理</span>
+    <span><i style="background:#10b981"></i>已确定 / 最短路树边</span>
+    <span><i style="background:#f59e0b"></i>正在松弛的边</span>
+    <span><i style="background:#6366f1"></i>当前选中顶点（Floyd 的中转点 k）</span>
+    <span><i style="background:#8b5cf6"></i>最终最短路径</span>
+  </div>
+
+  <div class="desc">
+    <div class="step" id="stepText">选择示例图、起点与终点，点击「▶ 播放」或「单步」，观察 dist 数组（Dijkstra）或矩阵 A(k)（Floyd）的更新过程。</div>
+    <div class="note" id="noteText"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+var $ = function (id) { return document.getElementById(id); };
+var R = 20, VBW = 520, VBH = 250, INF = Infinity;
+
+function rndInt(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
+function shuffle(a) { for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+function fmt(v) { return v === INF ? "∞" : String(v); }
+function lab(i) { return i < 0 ? "—" : graph.nodes[i].label; }
+
+/* ================= 图数据 ================= */
+var PRESETS = [
+  {
+    name: "有向带权图 G1", kind: "directed", directed: true,
+    nodes: [{ id: 0, label: "A", x: 65, y: 120 }, { id: 1, label: "B", x: 235, y: 50 }, { id: 2, label: "C", x: 245, y: 190 },
+            { id: 3, label: "D", x: 420, y: 110 }, { id: 4, label: "E", x: 470, y: 190 }],
+    edges: [[0, 1, 10], [0, 2, 5], [1, 3, 3], [2, 3, 9], [2, 4, 2], [3, 4, 4]]
+  },
+  {
+    name: "无向带权图 G2", kind: "undirected", directed: false,
+    nodes: [{ id: 0, label: "A", x: 65, y: 70 }, { id: 1, label: "B", x: 230, y: 48 }, { id: 2, label: "C", x: 65, y: 190 },
+            { id: 3, label: "D", x: 250, y: 180 }, { id: 4, label: "E", x: 410, y: 55 }, { id: 5, label: "F", x: 430, y: 195 }],
+    edges: [[0, 1, 6], [0, 2, 1], [1, 2, 5], [1, 3, 3], [2, 3, 4], [3, 4, 2], [3, 5, 7], [4, 5, 3]]
+  }
+];
+
+function cloneGraph(g) {
+  return {
+    name: g.name, kind: g.kind, directed: !!g.directed,
+    nodes: g.nodes.map(function (n) { return { id: n.id, label: n.label, x: n.x, y: n.y }; }),
+    edges: g.edges.map(function (e) { return [e[0], e[1], e[2]]; })
+  };
+}
+
+function randomGraph(kind, n, allowNeg) {
+  n = Math.max(5, Math.min(6, parseInt(n, 10) || 5));
+  if (allowNeg) kind = "directed";   /* 无向图里一条负权边等价于负权回路，最短路径无定义，因此负权演示只在有向图上做 */
+  var nodes = [], i;
+  for (i = 0; i < n; i++) {
+    var ang = -Math.PI / 2 + i * 2 * Math.PI / n;
+    nodes.push({
+      id: i, label: String.fromCharCode(65 + i),
+      x: Math.round(255 + 205 * Math.cos(ang)),
+      y: Math.round(118 + 68 * Math.sin(ang))
+    });
+  }
+  var edges = [], seen = {}, key = function (a, b) { return a + "x" + b; };
+  var connected = [0], rest = [];
+  for (i = 1; i < n; i++) rest.push(i);
+  shuffle(rest);
+  for (i = 0; i < rest.length; i++) {
+    var v = rest[i], u = connected[rndInt(0, connected.length - 1)];
+    edges.push([u, v, rndInt(1, 9)]);
+    seen[key(u, v)] = 1; seen[key(v, u)] = 1;
+    connected.push(v);
+  }
+  var extra = rndInt(1, 2), guard = 0;
+  while (extra > 0 && guard++ < 300) {
+    var a = rndInt(0, n - 1), b = rndInt(0, n - 1);
+    if (a === b || seen[key(a, b)]) continue;
+    seen[key(a, b)] = 1; seen[key(b, a)] = 1;
+    edges.push([a, b, rndInt(1, 9)]);
+    extra--;
+  }
+  if (kind === "directed") {
+    edges = edges.map(function (e, idx) { return idx < n - 1 ? [e[0], e[1], e[2]] : (Math.random() < 0.5 ? [e[0], e[1], e[2]] : [e[1], e[0], e[2]]); });
+  }
+  if (allowNeg && edges.length) {
+    /* 随机挑一条边改成负权，若造成负权回路则换一条（Floyd 要求无负权回路） */
+    var trial = 0, placed = false;
+    while (trial++ < 60 && !placed) {
+      var ei = rndInt(0, edges.length - 1), old = edges[ei][2];
+      edges[ei][2] = -rndInt(1, 4);
+      if (!negCycle(nodes, edges)) placed = true;
+      else edges[ei][2] = old;
+    }
+  }
+  return {
+    name: "随机" + (kind === "directed" ? "有向" : "无向") + "带权图（" + n + " 顶点 " + edges.length + " 边" + (allowNeg ? "，含负权边" : "") + "）",
+    kind: kind, directed: kind === "directed", nodes: nodes, edges: edges
+  };
+}
+
+/* Floyd 判断负权回路：A[i][i] < 0 即存在负权回路 */
+function negCycle(nodes, edges) {
+  var n = nodes.length, i, j, k, A = [];
+  for (i = 0; i < n; i++) { A.push([]); for (j = 0; j < n; j++) A[i].push(i === j ? 0 : INF); }
+  edges.forEach(function (e) { if (e[2] < A[e[0]][e[1]]) A[e[0]][e[1]] = e[2]; });
+  for (k = 0; k < n; k++) for (i = 0; i < n; i++) for (j = 0; j < n; j++) {
+    if (A[i][k] < INF && A[k][j] < INF && A[i][k] + A[k][j] < A[i][j]) A[i][j] = A[i][k] + A[k][j];
+  }
+  for (i = 0; i < n; i++) if (A[i][i] < 0) return true;
+  return false;
+}
+
+/* 邻接：返回 {v, w, i} 列表 */
+function adjOf(g) {
+  var adj = g.nodes.map(function () { return []; });
+  g.edges.forEach(function (e, i) {
+    adj[e[0]].push({ v: e[1], w: e[2], i: i });
+    if (!g.directed) adj[e[1]].push({ v: e[0], w: e[2], i: i });
+  });
+  return adj;
+}
+function edgeIndex(g, u, v) {
+  for (var i = 0; i < g.edges.length; i++) {
+    var e = g.edges[i];
+    if (e[0] === u && e[1] === v) return i;
+    if (!g.directed && e[0] === v && e[1] === u) return i;
+  }
+  return -1;
+}
+function hasNeg(g) { return g.edges.some(function (e) { return e[2] < 0; }); }
+
+/* ================= 几何 & 绘制 ================= */
+var MARKER_COLORS = { base: "#cbd5e1", tree: "#10b981", relax: "#f59e0b", path: "#8b5cf6" };
+
+function edgeGeom(g, e, i) {
+  var A = g.nodes[e[0]], B = g.nodes[e[1]];
+  var dx = B.x - A.x, dy = B.y - A.y;
+  var len = Math.sqrt(dx * dx + dy * dy) || 1;
+  var ux = dx / len, uy = dy / len;
+  var reverse = false;
+  for (var j = 0; j < g.edges.length; j++) {
+    if (j !== i && g.edges[j][0] === e[1] && g.edges[j][1] === e[0]) { reverse = true; break; }
+  }
+  var endPad = g.directed ? R + 4 : R + 2;
+  var sx = A.x + ux * (R + 2), sy = A.y + uy * (R + 2);
+  if (!reverse) {
+    var ex = B.x - ux * endPad, ey = B.y - uy * endPad;
+    return { d: "M" + sx + "," + sy + " L" + ex + "," + ey, lx: (A.x + B.x) / 2, ly: (A.y + B.y) / 2 };
+  }
+  var mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2, off = 20;
+  var cx = mx + uy * off, cy = my - ux * off;
+  var tdx = B.x - cx, tdy = B.y - cy, tl = Math.sqrt(tdx * tdx + tdy * tdy) || 1;
+  var ex2 = B.x - tdx / tl * endPad, ey2 = B.y - tdy / tl * endPad;
+  var cx2 = cx + (ex2 - B.x), cy2 = cy + (ey2 - B.y);
+  var qx = 0.25 * sx + 0.5 * cx2 + 0.25 * ex2, qy = 0.25 * sy + 0.5 * cy2 + 0.25 * ey2;
+  return { d: "M" + sx + "," + sy + " Q" + cx2 + "," + cy2 + " " + ex2 + "," + ey2, lx: qx + uy * 9, ly: qy - ux * 9 };
+}
+
+function buildSVG() {
+  var g = graph, out = [];
+  out.push('<svg viewBox="0 0 ' + VBW + ' ' + VBH + '" preserveAspectRatio="xMidYMid meet">');
+  out.push('<defs>');
+  ["base", "tree", "relax", "path"].forEach(function (k) {
+    out.push('<marker id="arw-' + k + '" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" refX="11" refY="5.5" orient="auto" viewBox="0 0 11 11">' +
+             '<path d="M0,0 L11,5.5 L0,11 z" fill="' + MARKER_COLORS[k] + '"/></marker>');
+  });
+  out.push('</defs>');
+  g.edges.forEach(function (e, i) {
+    var geo = edgeGeom(g, e, i);
+    var mk = g.directed ? ' marker-end="url(#arw-base)"' : '';
+    out.push('<path id="e' + i + '" class="edge" d="' + geo.d + '"' + mk + '/>');
+    out.push('<text class="wt' + (e[2] < 0 ? " neg" : "") + '" id="wl' + i + '" x="' + geo.lx + '" y="' + geo.ly + '">' + e[2] + '</text>');
+  });
+  g.nodes.forEach(function (n) {
+    out.push('<g id="n' + n.id + '" class="node"><circle cx="' + n.x + '" cy="' + n.y + '" r="' + R + '"/>' +
+             '<text x="' + n.x + '" y="' + n.y + '">' + n.label + '</text>' +
+             '<text class="tag tag-src" id="tg' + n.id + '" x="' + n.x + '" y="' + (n.y + R + 12) + '"></text></g>');
+  });
+  out.push('</svg>');
+  $("canvas").innerHTML = out.join("");
+}
+
+/* ================= 算法：生成逐步快照 ================= */
+function dijSteps(g, s, t) {
+  var n = g.nodes.length, adj = adjOf(g), out = [];
+  var lab = function (i) { return i < 0 ? "—" : g.nodes[i].label; };
+  var dist = [], prev = [], prevEdge = [], inS = [];
+  for (var i = 0; i < n; i++) { dist.push(INF); prev.push(-1); prevEdge.push(-1); inS.push(false); }
+  dist[s] = 0;
+  var round = 0, relaxCnt = 0, updCnt = 0, pathEdges = [];
+
+  function snap(o) {
+    out.push({
+      kind: o.kind, desc: o.desc, cur: o.cur === undefined ? null : o.cur,
+      dist: dist.slice(), prev: prev.slice(), inS: inS.slice(),
+      relaxEdge: o.relaxEdge === undefined ? null : o.relaxEdge,
+      updRows: o.updRows || [], treeEdges: prevEdge.filter(function (x) { return x >= 0; }),
+      pathEdges: o.pathEdges || [], round: round, relaxCnt: relaxCnt, updCnt: updCnt,
+      distT: dist[t], path: o.path || null, finished: !!o.finished
+    });
+  }
+  snap({ kind: "init", desc: "<b>初始化：</b>dist[" + lab(s) + "] = 0（起点到自己），其余顶点 dist = ∞；已确定集合 S = {}，prev 全部为空。" });
+  for (round = 1; round <= n; round++) {
+    var u = -1, best = INF;
+    for (var v = 0; v < n; v++) if (!inS[v] && dist[v] < best) { best = dist[v]; u = v; }
+    if (u === -1) {
+      snap({ kind: "done", cur: null, desc: "<b>结束：</b>剩余顶点的 dist 全为 ∞，说明从 " + lab(s) + " 出发无法到达它们。" });
+      break;
+    }
+    inS[u] = true;
+    snap({ kind: "select", cur: u, desc: "<b>第 " + round + " 轮 · 选点：</b>在未确定的顶点中挑 dist 最小的 —— dist[" + lab(u) + "] = " + fmt(dist[u]) + " 最小，把它加入已确定集合 S（贪心：dist[" + lab(u) + "] 以后不会再变小了）。S = {" + g.nodes.filter(function (x) { return inS[x.id]; }).map(function (x) { return x.label; }).join(", ") + "}。" });
+    var list = adj[u], updRows = [];
+    if (!list.length) {
+      snap({ kind: "relax", cur: u, desc: "<b>松弛：</b>" + lab(u) + " 没有出边，本轮没有可松弛的边。" });
+    }
+    for (var k = 0; k < list.length; k++) {
+      var e = list[k], w = e.w, nd = dist[u] + w;
+      relaxCnt++;
+      if (nd < dist[e.v]) {
+        dist[e.v] = nd; prev[e.v] = u; prevEdge[e.v] = e.i; updCnt++;
+        updRows.push(e.v);
+        snap({ kind: "relax", cur: u, relaxEdge: e.i, updRows: updRows.slice(),
+          desc: "<b>松弛成功：</b>边 " + lab(u) + "→" + lab(e.v) + "（权 " + w + "）：dist[" + lab(u) + "] + w = " + fmt(dist[u]) + " + " + w + " = " + nd + " < 原来的 dist[" + lab(e.v) + "]，于是更新 dist[" + lab(e.v) + "] = " + nd + "，prev[" + lab(e.v) + "] = " + lab(u) + "。这条边成为最短路树的一条边。" });
+      } else {
+        snap({ kind: "relax", cur: u, relaxEdge: e.i, updRows: updRows.slice(),
+          desc: "<b>松弛失败：</b>边 " + lab(u) + "→" + lab(e.v) + "（权 " + w + "）：dist[" + lab(u) + "] + w = " + fmt(dist[u]) + " + " + w + " = " + nd + " ≥ dist[" + lab(e.v) + "] = " + fmt(dist[e.v]) + "，绕这条边不会更短，dist 保持不变。" });
+      }
+    }
+  }
+  /* 回溯最短路径 */
+  var path = null, tail;
+  if (dist[t] === INF) {
+    tail = '<span class="warn">⚠ 从 ' + lab(s) + " 到 " + lab(t) + " 不可达（dist[" + lab(t) + "] = ∞）。</span>";
+  } else {
+    path = [t];
+    var c = t, guard = 0, seenP = {}, okPath = true;
+    while (c !== s) {
+      var pn = prev[c];
+      if (pn < 0 || seenP[pn] || guard++ > n) { okPath = false; break; }
+      seenP[pn] = 1; path.unshift(pn); c = pn;
+    }
+    if (!okPath) {
+      path = null;
+      tail = '<span class="warn">⚠ dist[' + lab(t) + "] = " + dist[t] + "，但 prev 链出现了环 —— 这正是负权边破坏 Dijkstra 贪心前提的表现，结果不可信，请切到 Floyd 看正确结果。</span>";
+    } else {
+      for (var z = 0; z + 1 < path.length; z++) { var ei = edgeIndex(g, path[z], path[z + 1]); if (ei >= 0) pathEdges.push(ei); }
+      tail = '<span class="ok">✅ 结束：</span>' + lab(s) + " → " + lab(t) + " 的最短路径为 " + path.map(lab).join(" → ") + "，长度 = <b>" + dist[t] + "</b>（紫色边）。共做 " + relaxCnt + " 次松弛比较、" + updCnt + " 次成功更新。" + (hasNeg(g) ? ' <span class="warn">（含负权边，此结果不可靠）</span>' : "");
+    }
+  }
+  snap({ kind: "done", cur: null, path: path, pathEdges: pathEdges, desc: tail, finished: true });
+  return out;
+}
+
+function floydSteps(g, s, t) {
+  var n = g.nodes.length, out = [], A = [], NX = [], i, j, k;
+  var lab = function (v) { return v < 0 ? "—" : g.nodes[v].label; };
+  for (i = 0; i < n; i++) {
+    A.push([]); NX.push([]);
+    for (j = 0; j < n; j++) { A[i].push(i === j ? 0 : INF); NX[i].push(-1); }
+  }
+  g.edges.forEach(function (e) {
+    if (e[2] < A[e[0]][e[1]]) { A[e[0]][e[1]] = e[2]; NX[e[0]][e[1]] = e[1]; }
+    if (!g.directed && e[2] < A[e[1]][e[0]]) { A[e[1]][e[0]] = e[2]; NX[e[1]][e[0]] = e[0]; }
+  });
+  var cmp = 0, upd = 0, pathEdges = [], curK = -1;
+  function cp(m) { return m.map(function (r) { return r.slice(); }); }
+  function snap(o) {
+    out.push({
+      kind: o.kind, desc: o.desc, A: cp(A), k: curK, updCell: o.updCell || null,
+      cmpCnt: cmp, updCnt: upd, round: curK + 1,
+      pathEdges: o.pathEdges || [], path: o.path || null,
+      distT: A[s] === undefined ? INF : A[s][t], finished: !!o.finished
+    });
+  }
+  snap({ kind: "init", desc: '<b>初始化：</b>A(-1) 就是邻接矩阵的带权版本 —— 有边取权值、自身取 0、无边取 ∞。此时 A[i][j] 表示「只允许直接相连，不经过任何中转点」的距离。' });
+  for (k = 0; k < n; k++) {
+    curK = k;
+    snap({ kind: "k", desc: "<b>第 " + (k + 1) + " 轮 · 中转点 k = " + lab(k) + "：</b>本轮允许路径经过 " + lab(k) + " 中转，检查所有 A[i][j] 能否用 A[i][" + lab(k) + "] + A[" + lab(k) + "][j] 变得更小。" });
+    for (i = 0; i < n; i++) {
+      if (i === k) continue;
+      var changed = 0;
+      for (j = 0; j < n; j++) {
+        if (j === k || i === j) continue;
+        cmp++;
+        if (A[i][k] === INF || A[k][j] === INF) continue;
+        var via = A[i][k] + A[k][j];
+        if (via < A[i][j]) {
+          var old = A[i][j];
+          A[i][j] = via; NX[i][j] = NX[i][k]; upd++; changed++;
+          snap({ kind: "update", updCell: [i, j], k: k,
+            desc: "<b>更新矩阵元素：</b>A[" + lab(i) + "][" + lab(j) + "] 由 " + fmt(old) + " 变为 <b>" + via + "</b>，因为经过 " + lab(k) + " 中转：A[" + lab(i) + "][" + lab(k) + "] + A[" + lab(k) + "][" + lab(j) + "] = " + A[i][k] + " + " + A[k][j] + " = " + via + " 更短（图中琥珀色标出了 i→k、k→j 这两段）。" });
+        }
+      }
+      if (!changed) {
+        snap({ kind: "row", k: k, desc: "<b>第 " + lab(i) + " 行：</b>以 " + lab(k) + " 为中转，A[" + lab(i) + "][*] 没有任何元素能被改小，本行保持不变。" });
+      }
+    }
+  }
+  var path = null, tail;
+  if (A[s][t] === INF) {
+    tail = '<span class="warn">⚠ ' + lab(s) + " 到 " + lab(t) + " 不可达（A[" + lab(s) + "][" + lab(t) + "] = ∞）。</span>";
+  } else {
+    path = [s];
+    var c = s, guard = 0;
+    while (c !== t && guard++ < n + 1) { var nx = NX[c][t]; if (nx < 0) { path = null; break; } path.push(nx); c = nx; }
+    if (path) {
+      for (var z = 0; z + 1 < path.length; z++) { var ei = edgeIndex(g, path[z], path[z + 1]); if (ei >= 0) pathEdges.push(ei); }
+      tail = '<span class="ok">✅ 结束：</span>矩阵收敛，A[' + lab(s) + "][" + lab(t) + "] = <b>" + A[s][t] + "</b>，最短路径为 " + path.map(lab).join(" → ") + "（紫色边）。共做 " + cmp + " 次比较、" + upd + " 次更新；此时 A[i][j] 已经是任意两点间的最短距离。" + (hasNeg(g) ? " 注意：Floyd 允许负权边，只要没有负权回路。" : "");
+    } else {
+      tail = "<b>结束：</b>A[" + lab(s) + "][" + lab(t) + "] = " + A[s][t] + "，但路径回溯异常。";
+    }
+  }
+  snap({ kind: "done", cur: null, path: path, pathEdges: pathEdges, desc: tail, finished: true });
+  return out;
+}
+
+/* ================= 面板 ================= */
+function panelDij(st) {
+  var h = ['<div class="ptitle">距离表 dist[]（含 prev，∞ 表示暂不可达）</div>',
+    '<table class="tbl"><thead><tr><th>顶点</th><th>dist</th><th>prev</th><th>∈S</th></tr></thead><tbody>'];
+  graph.nodes.forEach(function (n) {
+    var cls = "";
+    if (st.cur === n.id) cls += " sel";
+    if (st.updRows.indexOf(n.id) >= 0) cls += " upd";
+    h.push('<tr class="' + cls + '"><td>' + n.label + '</td><td class="' + (st.dist[n.id] === INF ? "inf" : "") + '">' + fmt(st.dist[n.id]) +
+      '</td><td>' + (st.prev[n.id] < 0 ? "—" : graph.nodes[st.prev[n.id]].label) + '</td><td>' + (st.inS[n.id] ? "✓" : "") + "</td></tr>");
+  });
+  h.push("</tbody></table>");
+  h.push('<div class="ptitle" style="margin-top:4px">S = {' + graph.nodes.filter(function (n) { return st.inS[n.id]; }).map(function (n) { return n.label; }).join(", ") + "}</div>");
+  $("panel").innerHTML = h.join("");
+}
+
+function panelFloyd(st) {
+  var n = graph.nodes.length, h = [];
+  h.push('<div class="ptitle">邻接矩阵 A(k)　当前中转点 k = <b>' + (st.k < 0 ? "—" : graph.nodes[st.k].label) + "</b>（行/列已淡蓝标出）</div>");
+  h.push('<table class="mx"><thead><tr><th></th>');
+  for (var j = 0; j < n; j++) h.push("<th>" + graph.nodes[j].label + "</th>");
+  h.push("</tr></thead><tbody>");
+  for (var i = 0; i < n; i++) {
+    h.push("<tr><th>" + graph.nodes[i].label + "</th>");
+    for (var j2 = 0; j2 < n; j2++) {
+      var cls = [];
+      if (i === j2) cls.push("diag");
+      if (st.A[i][j2] === INF) cls.push("inf");
+      if (st.k >= 0 && (i === st.k || j2 === st.k)) cls.push("krc");
+      if (st.updCell && st.updCell[0] === i && st.updCell[1] === j2) cls.push("upd");
+      h.push('<td class="' + cls.join(" ") + '">' + fmt(st.A[i][j2]) + "</td>");
+    }
+    h.push("</tr>");
+  }
+  h.push("</tbody></table>");
+  $("panel").innerHTML = h.join("");
+}
+
+function paint() {
+  var st = steps[idx];
+  if (!st) return;
+  var inPath = {};
+  if (st.path) st.path.forEach(function (v) { inPath[v] = 1; });
+  graph.nodes.forEach(function (n) {
+    var el = $("n" + n.id);
+    if (el) {
+      var cls = "node";
+      if (inPath[n.id]) cls += " path";
+      else if (st.cur === n.id) cls += " cur";
+      else if (st.inS && st.inS[n.id]) cls += " done";
+      el.setAttribute("class", cls);
+    }
+    var tg = $("tg" + n.id);
+    if (tg) tg.textContent = n.id === start ? "起点" : (n.id === end ? "终点" : "");
+  });
+  graph.edges.forEach(function (e, i) {
+    var el = $("e" + i);
+    if (!el) return;
+    var suf = "base";
+    if (st.pathEdges.indexOf(i) >= 0) suf = "path";
+    else if (st.relaxEdge === i) suf = "relax";
+    else if (st.treeEdges && st.treeEdges.indexOf(i) >= 0) suf = "tree";
+    else if (st.kind === "update" && st.updCell) {
+      if (edgeIndex(graph, st.updCell[0], st.k) === i || edgeIndex(graph, st.k, st.updCell[1]) === i) suf = "relax";
+    }
+    el.setAttribute("class", suf === "base" ? "edge" : "edge " + suf);
+    if (graph.directed) el.setAttribute("marker-end", "url(#arw-" + suf + ")");
+  });
+  if (algo === "dij") panelDij(st); else panelFloyd(st);
+  $("stepText").innerHTML = st.desc;
+  $("stSteps").textContent = idx + " / " + (steps.length - 1);
+  $("stRound").textContent = algo === "dij" ? ("第 " + st.round + " 轮") : ("k = " + (st.k < 0 ? "—" : graph.nodes[st.k].label));
+  $("stRelax").textContent = st.relaxCnt !== undefined ? st.relaxCnt : st.cmpCnt;
+  $("stUpd").textContent = st.updCnt;
+  $("stPath").textContent = st.distT === INF ? "∞" : String(st.distT);
+}
+
+/* ================= 说明 ================= */
+var NOTES = {
+  dij: "<b>Dijkstra 每轮三步：</b>① 在未确定的顶点里挑 dist 最小的 u，加入集合 S（贪心：此后不会有更短的路径了）；② 用 u 的每条出边松弛 dist[v] = min(dist[v], dist[u]+w)，同时记 prev[v] = u；③ 重复 n 轮。用邻接矩阵时选最小值要扫一遍，总时间 O(n²)。" +
+       "<br><b>为什么不能有负权边：</b>它默认「先被确定的最小 dist 不会再变小」。若有负权边 w(u,v) &lt; 0，绕到 S 之外的顶点再回到 u 可能得到更小的 dist[u]，但 u 已确定不再更新，贪心前提被破坏、结果可能错误 —— 这时应改用 Floyd 或 Bellman-Ford。",
+  floyd: "<b>Floyd 三重循环：</b>最外层 k 是「允许使用的中转点」编号，A(k)[i][j] 表示「只允许经过编号 ≤ k 的顶点中转时，i 到 j 的最短距离」。内两层 (i, j) 判断 A[i][k] + A[k][j] &lt; A[i][j]，即「绕道 k 会不会更短」，是就更新（顺带记 next/path 矩阵）。k 从 0 扫到 n-1 后所有顶点都允许中转，矩阵收敛为任意两点间的最短距离，时间 O(n³)。" +
+       "<br><b>允许负权：</b>它每轮都在做全局的松弛比较，不依赖贪心确定顺序，所以负权边也能处理，只要图中没有负权回路（有负权回路时最短路径无意义）。"
+};
+var TITLES = { dij: "Dijkstra 单源最短路径 · O(n²)", floyd: "Floyd 全源最短路径 · O(n³)" };
+
+function updateNote() {
+  var n = NOTES[algo];
+  if (algo === "dij" && hasNeg(graph)) {
+    n += '<br><span class="warn">⚠ 当前图中存在负权边，Dijkstra 的结果不可靠：切到 Floyd 看看正确结果。</span>';
+  }
+  $("noteText").innerHTML = n;
+  $("algoInfo").textContent = TITLES[algo] + " · " + graph.name;
+}
+
+/* ================= 引擎 ================= */
+var graph = cloneGraph(PRESETS[0]);
+var algo = "dij", start = 0, end = 4, steps = [], idx = 0, speed = 200, timer = null, playing = false;
+
+function fillSelects() {
+  var opts = graph.nodes.map(function (n) { return '<option value="' + n.id + '">' + n.label + "</option>"; }).join("");
+  $("startSel").innerHTML = opts;
+  $("endSel").innerHTML = opts;
+  if (start >= graph.nodes.length) start = 0;
+  if (end >= graph.nodes.length) end = graph.nodes.length - 1;
+  $("startSel").value = String(start);
+  $("endSel").value = String(end);
+}
+
+function rebuild(keepSel) {
+  pause();
+  fillSelects();
+  buildSVG();
+  steps = algo === "dij" ? dijSteps(graph, start, end) : floydSteps(graph, start, end);
+  idx = 0;
+  paint();
+  $("stState").textContent = "就绪";
+  updateNote();
+}
+
+function finish() { pause(); $("stState").textContent = "✅ 结束"; }
+
+function stepForward() {
+  if (idx >= steps.length - 1) { finish(); return; }
+  idx++; paint();
+  if (idx >= steps.length - 1) finish();
+}
+function tick() {
+  if (!playing) return;
+  stepForward();
+  if (!playing) return;
+  timer = setTimeout(tick, speed);
+}
+function play() {
+  if (playing) return;
+  if (idx >= steps.length - 1) { idx = 0; paint(); }
+  playing = true;
+  $("btnPlay").textContent = "⏸ 暂停";
+  $("stState").textContent = algo === "dij" ? "Dijkstra 执行中…" : "Floyd 执行中…";
+  tick();
+}
+function pause() {
+  playing = false;
+  if (timer) { clearTimeout(timer); timer = null; }
+  $("btnPlay").textContent = "▶ 播放";
+}
+function setSpeed(v, btn) {
+  speed = v;
+  ["spSlow", "spMid", "spFast"].forEach(function (id) { $(id).classList.remove("active"); });
+  btn.classList.add("active");
+}
+
+/* ================= 事件 ================= */
+$("graphSel").onchange = function () {
+  var v = this.value;
+  graph = v === "rnd" ? randomGraph(graph.kind, +$("nRange").value, $("negChk").checked) : cloneGraph(PRESETS[+v]);
+  start = 0; end = graph.nodes.length - 1;
+  rebuild();
+};
+$("algoSel").onchange = function () { algo = this.value; rebuild(); };
+$("startSel").onchange = function () { start = +this.value; rebuild(); };
+$("endSel").onchange = function () { end = +this.value; rebuild(); };
+$("btnRandom").onclick = function () {
+  graph = randomGraph(graph.kind, +$("nRange").value, $("negChk").checked);
+  start = 0; end = graph.nodes.length - 1;
+  rebuild();
+};
+$("nRange").oninput = function () { $("nVal").textContent = this.value; };
+$("negChk").onchange = function () {
+  graph = randomGraph(graph.kind, +$("nRange").value, this.checked);
+  start = 0; end = graph.nodes.length - 1;
+  rebuild();
+};
+$("btnPlay").onclick = function () { if (playing) pause(); else play(); };
+$("btnStep").onclick = function () {
+  pause();
+  if (idx >= steps.length - 1) { rebuild(); return; }
+  stepForward();
+  if (idx < steps.length - 1) $("stState").textContent = "单步执行中";
+};
+$("btnReset").onclick = function () { rebuild(); };
+$("spSlow").onclick = function () { setSpeed(600, this); };
+$("spMid").onclick = function () { setSpeed(200, this); };
+$("spFast").onclick = function () { setSpeed(40, this); };
+
+/* ================= 初始化 ================= */
+rebuild();
+</script>
+</body>
+</html>

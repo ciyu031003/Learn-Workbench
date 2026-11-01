@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NAT / NAPT 地址转换可视化</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f8fafc; color: #1e293b; padding: 16px; }
+  .wrap { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+  .head { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; }
+  .head h1 { font-size: 16px; font-weight: 600; }
+  .head .info { font-size: 12px; opacity: .92; }
+  .controls { padding: 8px 16px; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; border-bottom: 1px solid #eef2f7; }
+  .controls label { font-size: 12px; color: #64748b; }
+  select { padding: 4px 8px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; outline: none; font-size: 12px; color: #1e293b; max-width: 320px; }
+  select:focus { border-color: #6366f1; }
+  button { font-size: 12px; padding: 5px 11px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all .15s; }
+  .btn-primary { background: #6366f1; color: #fff; }
+  .btn-primary:hover { background: #4f46e5; }
+  .btn-ghost { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+  .btn-ghost:hover { background: #e2e8f0; }
+  .btn-warn { background: #fff7ed; color: #b45309; border: 1px solid #fed7aa; }
+  .btn-warn:hover { background: #ffedd5; }
+  button:disabled { opacity: .42; cursor: not-allowed; }
+  .presets { display: flex; gap: 5px; flex-wrap: wrap; }
+  .presets button { font-size: 11.5px; padding: 3px 8px; }
+  .spacer { flex: 1; }
+  .speed-group { display: flex; gap: 4px; }
+  .speed-group button { padding: 4px 10px; }
+  .speed-group .active { background: #6366f1; color: #fff; border-color: #6366f1; }
+  .stats { padding: 7px 16px; display: flex; gap: 15px; font-size: 12px; color: #64748b; border-bottom: 1px solid #eef2f7; flex-wrap: wrap; }
+  .stats b { color: #1e293b; font-variant-numeric: tabular-nums; }
+  .stage { padding: 9px 16px 4px; }
+  .sechead { font-size: 11px; color: #64748b; margin: 2px 0 4px; }
+  .sechead b { color: #334155; }
+  .sechead .hint { color: #94a3b8; }
+  .topo-wrap { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-start; }
+  .topo { flex: 1 1 440px; min-width: 300px; }
+  .topo svg { display: block; width: 100%; }
+  #pktMark { transition: transform .32s cubic-bezier(.4, 0, .2, 1); }
+  .natbox { flex: 0 1 330px; min-width: 272px; }
+  .ntwrap { border: 1px solid #eef2f7; border-radius: 8px; overflow: auto; max-height: 168px; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th, td { padding: 3px 5px; text-align: center; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
+  th { background: #f8fafc; color: #64748b; font-weight: 500; position: sticky; top: 0; }
+  .mono { font-family: ui-monospace, Menlo, Consolas, monospace; }
+  #natBody tr.sel td { background: #eef2ff; color: #3730a3; font-weight: 600; }
+  #natBody tr.flash td { animation: fl 1.1s ease-out; }
+  @keyframes fl { 0% { background: #fde68a; } 100% { background: #fff; } }
+  td.empty { color: #94a3b8; padding: 12px 8px; white-space: normal; line-height: 1.6; }
+  .xdel { color: #cbd5e1; cursor: pointer; font-weight: 700; padding: 0 3px; }
+  .xdel:hover { color: #ef4444; }
+  .hint { font-size: 10px; color: #94a3b8; line-height: 1.6; margin-top: 4px; }
+  .pkt { margin-top: 8px; padding: 6px 10px; border: 1px solid #e0e7ff; background: #f5f7ff; border-radius: 9px;
+         display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; min-height: 34px; }
+  .pkt .plab { font-size: 10.5px; color: #94a3b8; }
+  .ep { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; padding: 1px 6px; border-radius: 6px; background: #e0e7ff; color: #3730a3; }
+  .ep.dst { background: #ede9fe; color: #5b21b6; }
+  .ep.changed { background: #fde68a; color: #92400e; box-shadow: 0 0 0 1px #f59e0b inset; }
+  .arw { color: #94a3b8; }
+  .chg { font-size: 10.5px; color: #b45309; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 6px; padding: 1px 6px; }
+  .chg.drop { color: #b91c1c; background: #fef2f2; border-color: #fecaca; }
+  .sel{  }
+  .hopsbox { margin-top: 7px; border: 1px solid #eef2f7; border-radius: 8px; overflow: auto; max-height: 168px; }
+  tr.cur td { background: #eef2ff; color: #3730a3; }
+  .note { margin: 0 16px 6px; padding: 7px 10px; border-left: 3px solid #6366f1; background: #f8fafc;
+          border-radius: 0 8px 8px 0; font-size: 12px; color: #334155; line-height: 1.7; min-height: 36px; }
+  .note b { color: #4338ca; }
+  .note code { background: #f1f5f9; border-radius: 4px; padding: 0 4px; font-family: ui-monospace, Consolas, monospace; font-size: 11px; }
+  .legend { padding: 2px 16px 6px; display: flex; gap: 14px; font-size: 11px; color: #64748b; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+  .desc { padding: 9px 16px 14px; border-top: 1px solid #eef2f7; font-size: 11.5px; color: #475569; line-height: 1.75; }
+  .desc b { color: #334155; }
+  .desc code { background: #f1f5f9; border-radius: 4px; padding: 0 4px; font-family: ui-monospace, Consolas, monospace; font-size: 11px; }
+  .desc .ex { display: block; margin: 4px 0 2px; padding: 6px 9px; background: #f8fafc; border: 1px solid #eef2f7; border-radius: 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>🔀 NAT / NAPT 地址转换可视化</h1>
+    <span class="info" id="headInfo">公网 IP 202.1.1.1 · 出方向改源地址，入方向改目的地址</span>
+  </div>
+
+  <div class="controls">
+    <label>场景</label>
+    <select id="scenSel">
+      <option value="multi">多台主机共用一个公网 IP（NAPT 端口复用）</option>
+      <option value="single">一台主机多个连接（同源端口访问两台服务器）</option>
+      <option value="external">外网主机主动访问内网（被 NAT 丢弃）</option>
+    </select>
+    <button class="btn-primary" id="btnConn">➕ 发起连接</button>
+    <button class="btn-ghost" id="btnResp">📨 发送响应</button>
+    <button class="btn-warn" id="btnDel">🗑 删除会话</button>
+  </div>
+
+  <div class="controls">
+    <span class="presets" id="presets"></span>
+  </div>
+
+  <div class="controls">
+    <span class="spacer"></span>
+    <div class="speed-group">
+      <button class="btn-ghost" data-speed="900">慢</button>
+      <button class="btn-ghost active" data-speed="460">中</button>
+      <button class="btn-ghost" data-speed="140">快</button>
+    </div>
+    <button class="btn-primary" id="btnPlay">▶ 播放</button>
+    <button class="btn-ghost" id="btnStep">单步</button>
+    <button class="btn-ghost" id="btnReset">↺ 重置</button>
+  </div>
+
+  <div class="stats">
+    <span>场景 <b id="statScen">多主机共享公网 IP</b></span>
+    <span>公网地址 <b id="statPub">202.1.1.1</b></span>
+    <span>已建立会话 <b id="statSess">0</b></span>
+    <span>已分配公网端口 <b id="statPorts">—</b></span>
+    <span>当前跳 <b id="statHop">0 / 0</b></span>
+    <span>状态 <b id="statState">就绪</b></span>
+  </div>
+
+  <div class="stage">
+    <div class="topo-wrap">
+      <div class="topo" id="topo"></div>
+      <div class="natbox">
+        <div class="sechead"><b>NAT / NAPT 转换表</b> <span class="hint">实时更新</span></div>
+        <div class="ntwrap">
+          <table>
+            <thead><tr><th>内网 IP:端口</th><th>公网 IP:端口</th><th>目的服务器</th><th>协议</th><th>生存时间</th><th></th></tr></thead>
+            <tbody id="natBody"></tbody>
+          </table>
+        </div>
+        <div class="hint" id="natHint"></div>
+      </div>
+    </div>
+
+    <div class="pkt" id="pktLine"><span class="plab">当前报文</span><span class="hint">尚未开始 —— 点「▶ 播放」或「单步」逐跳查看源/目的地址的变化</span></div>
+
+    <div class="sechead" style="margin-top:8px"><b>每一跳的源 IP:端口 → 目的 IP:端口</b></div>
+    <div class="hopsbox">
+      <table>
+        <thead><tr><th>跳</th><th>位置</th><th>源 IP:端口</th><th>目的 IP:端口</th><th>本跳动作</th></tr></thead>
+        <tbody id="hopsBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="note" id="note"></div>
+
+  <div class="legend">
+    <span><i style="background:#6366f1"></i>内网发出的请求报文</span>
+    <span><i style="background:#10b981"></i>外网返回的响应报文</span>
+    <span><i style="background:#ef4444"></i>被丢弃的报文</span>
+    <span><i style="background:#e0e7ff;border:1px solid #c7d2fe"></i>私有地址（不可在互联网路由）</span>
+    <span><i style="background:#fde68a;border:1px solid #f59e0b"></i>本跳被改写的地址字段</span>
+  </div>
+
+  <div class="desc" id="desc"></div>
+</div>
+
+<script>
+"use strict";
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+
+  var PUB_IP = "202.1.1.1";      // NAT 路由器的公网口地址（整个内网只有这一个公网 IP）
+  var GW_IN = "192.168.1.1";     // NAT 路由器的内网口地址
+  var PORT_BASE = 6000;          // 公网端口从 6000 开始分配
+
+  var SCEN = {
+    multi: {
+      short: "多主机共享公网 IP",
+      name: "多台主机共用一个公网 IP（NAPT 端口复用）",
+      hosts: [{ name: "主机 A", ip: "192.168.1.2", y: 54 }, { name: "主机 B", ip: "192.168.1.3", y: 128 }],
+      servers: [{ name: "外网服务器", ip: "202.1.1.2", port: 80, y: 74 }],
+      conns: [
+        { inIp: "192.168.1.2", inPort: 5000, dstIp: "202.1.1.2", dstPort: 80, h: 0, s: 0 },
+        { inIp: "192.168.1.3", inPort: 5000, dstIp: "202.1.1.2", dstPort: 80, h: 1, s: 0 }
+      ],
+      tip: "两台内网主机恰好都用了源端口 5000，NAT 给它们分配<b>不同的公网端口 6000 / 6001</b>，因此不会冲突——端口号正是多路复用的关键。"
+    },
+    single: {
+      short: "一台主机多连接",
+      name: "一台主机多个连接（同一个源端口访问两台服务器）",
+      hosts: [{ name: "主机 A", ip: "192.168.1.2", y: 94 }],
+      servers: [{ name: "服务器 1", ip: "202.1.1.2", port: 80, y: 40 }, { name: "服务器 2", ip: "203.2.2.2", port: 80, y: 140 }],
+      conns: [
+        { inIp: "192.168.1.2", inPort: 5000, dstIp: "202.1.1.2", dstPort: 80, h: 0, s: 0 },
+        { inIp: "192.168.1.2", inPort: 5000, dstIp: "203.2.2.2", dstPort: 80, h: 0, s: 1 }
+      ],
+      tip: "同一台主机对两台服务器使用了同一个源端口 5000：靠<b>目的地址</b>区分连接，两条会话被映射到<b>不同的公网端口</b>。"
+    },
+    external: {
+      short: "外部主动访问被丢弃",
+      name: "外网主机主动访问内网主机（NAT 表无表项 → 丢弃）",
+      hosts: [{ name: "内网主机", ip: "192.168.1.2", y: 94 }],
+      servers: [{ name: "外网主机（主动发起）", ip: "8.8.8.8", port: 80, y: 94 }],
+      conns: [],
+      tip: "外网主机只知道内网主机对外用过的公网地址 202.1.1.1:6000，但 NAT 表里已经没有这条表项了 → 目的地址无法反向映射 → <b>报文被直接丢弃</b>。"
+    }
+  };
+
+  var S = { scen: "multi", sessions: [], sid: 0, sel: null, mode: "full",
+            trace: [], idx: 0, applied: {}, playing: false, flash: null };
+
+  /* ---------------- 小工具 ---------------- */
+
+  function keyOf(c) { return c.inIp + ":" + c.inPort + ">" + c.dstIp + ":" + c.dstPort; }
+  function sameKey(a, b) { return a && b && keyOf(a) === keyOf(b); }
+  function findSession(c) {
+    for (var i = 0; i < S.sessions.length; i++) if (sameKey(S.sessions[i], c)) return S.sessions[i];
+    return null;
+  }
+  function allocPort() {
+    var p = PORT_BASE, used = {};
+    for (var i = 0; i < S.sessions.length; i++) used[S.sessions[i].pubPort] = 1;
+    while (used[p]) p++;
+    return p;
+  }
+  function createSession(c, port) {
+    if (findSession(c)) return null;
+    var s = { id: ++S.sid, inIp: c.inIp, inPort: c.inPort, pubIp: PUB_IP, pubPort: port,
+              dstIp: c.dstIp, dstPort: c.dstPort, h: c.h, s: c.s };
+    S.sessions.push(s);
+    S.flash = s.id;
+    return s;
+  }
+  function currentConn() {
+    if (S.sel) return S.sel;
+    if (S.sessions.length) return S.sessions[S.sessions.length - 1];
+    var c = SCEN[S.scen].conns;
+    return c.length ? c[0] : null;
+  }
+  function sc() { return SCEN[S.scen]; }
+
+  /* ---------------- 拓扑坐标 ---------------- */
+
+  function hostY(hi) { var h = sc().hosts[hi]; return (h ? h.y : 94) + 23; }
+  function srvY(si) { var s = sc().servers[si]; return (s ? s.y : 94) + 23; }
+  function posHost(hi) { return { x: 164, y: hostY(hi) }; }
+  function posNatIn(hi) { return { x: 197, y: hostY(hi) }; }
+  function posCore() { return { x: 268, y: 115 }; }
+  function posNatOut(si) { return { x: 339, y: srvY(si) }; }
+  function posSrv(si) { return { x: 374, y: srvY(si) }; }
+
+  function box(x, y, w, hh, name, ip, color) {
+    return '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + hh + '" rx="10" fill="#fff" stroke="#e2e8f0"/>' +
+      '<text x="' + (x + w / 2) + '" y="' + (y + 20) + '" font-size="10.5" font-weight="600" fill="#334155" text-anchor="middle">' + name + "</text>" +
+      '<text x="' + (x + w / 2) + '" y="' + (y + 36) + '" font-size="10" fill="' + color + '" text-anchor="middle" ' +
+      'font-family="ui-monospace,Menlo,Consolas,monospace">' + ip + "</text>";
+  }
+
+  function buildTopo() {
+    var c = sc(), p = [];
+    p.push('<svg id="topoSvg" viewBox="0 0 520 224" xmlns="http://www.w3.org/2000/svg" ' +
+      'font-family="-apple-system,PingFang SC,Microsoft YaHei,sans-serif">');
+    p.push('<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">' +
+      '<path d="M0,0 L10,5 L0,10 z" fill="#cbd5e1"/></marker></defs>');
+    /* 内网 */
+    p.push('<rect x="4" y="10" width="178" height="204" rx="12" fill="#f8fafc" stroke="#e2e8f0" stroke-dasharray="4 3"/>');
+    p.push('<text x="13" y="26" font-size="9.5" fill="#94a3b8">内网 192.168.1.0/24（私有地址）</text>');
+    for (var i = 0; i < c.hosts.length; i++) p.push(box(16, c.hosts[i].y, 150, 46, c.hosts[i].name, c.hosts[i].ip, "#6366f1"));
+    p.push('<line x1="180" y1="112" x2="200" y2="112" stroke="#cbd5e1" stroke-width="1.5" marker-end="url(#arr)"/>');
+    /* NAT 路由器 */
+    p.push('<rect x="202" y="26" width="132" height="172" rx="14" fill="#fff" stroke="#c7d2fe" stroke-width="1.6"/>');
+    p.push('<text x="268" y="45" font-size="11.5" font-weight="600" fill="#4338ca" text-anchor="middle">NAT 路由器</text>');
+    p.push('<text x="268" y="61" font-size="9.5" fill="#64748b" text-anchor="middle">内网口 ' + GW_IN + "</text>");
+    p.push('<text x="268" y="74" font-size="9.5" fill="#64748b" text-anchor="middle">公网口 ' + PUB_IP + "</text>");
+    p.push('<rect id="coreRect" x="210" y="96" width="116" height="40" rx="9" fill="#eef2ff" stroke="#c7d2fe"/>');
+    p.push('<text id="coreText" x="268" y="112" font-size="10" fill="#4338ca" text-anchor="middle">转换 / NAT 表</text>');
+    p.push('<text id="coreSub" x="268" y="126" font-size="8.5" fill="#818cf8" text-anchor="middle">出改源 · 入改目的</text>');
+    p.push('<line x1="336" y1="112" x2="354" y2="112" stroke="#cbd5e1" stroke-width="1.5" marker-end="url(#arr)"/>');
+    /* 外网 */
+    p.push('<rect x="356" y="10" width="160" height="204" rx="12" fill="#f8fafc" stroke="#e2e8f0" stroke-dasharray="4 3"/>');
+    p.push('<text x="365" y="26" font-size="9.5" fill="#94a3b8">互联网（公有地址）</text>');
+    for (var j = 0; j < c.servers.length; j++) {
+      var sv = c.servers[j];
+      p.push(box(368, sv.y, 140, 46, sv.name, sv.ip + ":" + sv.port, "#7c3aed"));
+    }
+    /* 报文标记（最后画，保证在最上层） */
+    p.push('<g id="pktMark" opacity="0"><rect id="pktRect" x="-30" y="-11" width="60" height="22" rx="6" fill="#6366f1"/>' +
+      '<text id="pktText" x="0" y="4" font-size="10" fill="#fff" text-anchor="middle">请求</text></g>');
+    p.push("</svg>");
+    $("topo").innerHTML = p.join("");
+  }
+
+  /* ---------------- 轨迹（报文每一跳） ---------------- */
+
+  function buildTrace() {
+    var c = sc(), T = [];
+    if (S.scen === "external") {
+      var sv = c.servers[0], tp = PORT_BASE;
+      T.push({ pos: posSrv(0), color: "#ef4444", tag: "外网发起", loc: "外网主机 " + sv.ip,
+        srcIp: sv.ip, srcPort: sv.port, dstIp: PUB_IP, dstPort: tp, changed: "",
+        label: "外网主机发出报文",
+        note: "外网主机 " + sv.ip + ":" + sv.port + " 想主动访问内网主机，它发出一条报文：<br>" +
+          "<b>源 " + sv.ip + ":" + sv.port + " → 目的 " + PUB_IP + ":" + tp + "</b>。" +
+          "它只知道内网主机对外用过的公网地址 " + PUB_IP + ":" + tp + "（内网地址 192.168.1.2 在互联网上根本不存在，也路由不到）。" });
+      T.push({ pos: posNatOut(0), color: "#ef4444", tag: "外网发起", loc: "NAT 路由器公网口",
+        srcIp: sv.ip, srcPort: sv.port, dstIp: PUB_IP, dstPort: tp, changed: "",
+        label: "到达 NAT 路由器的公网口",
+        note: "报文到达 NAT 路由器的公网口。<b>源 " + sv.ip + ":" + sv.port + " → 目的 " + PUB_IP + ":" + tp +
+          "</b>（尚未改变）。公网地址 " + PUB_IP + " 是 NAT 路由器的地址，所以由它来接收。" });
+      T.push({ pos: posCore(), color: "#f59e0b", tag: "查表", loc: "NAT 转换",
+        srcIp: sv.ip, srcPort: sv.port, dstIp: PUB_IP, dstPort: tp, changed: "", noMark: false,
+        label: "查 NAT 表：未命中",
+        note: "NAT 路由器查转换表：<b>没有任何表项的公网端口是 " + tp + "</b>。" +
+          "NAT 表项只在<b>内网主机主动发出报文</b>时建立，并且带<b>生存时间</b>，超时后自动删除（本演示用「🗑 删除会话」模拟）。" });
+      T.push({ pos: posCore(), color: "#ef4444", tag: "丢弃", loc: "NAT 转换", drop: true,
+        srcIp: sv.ip, srcPort: sv.port, dstIp: PUB_IP, dstPort: tp, changed: "",
+        label: "丢弃报文",
+        note: "查不到映射 → 无法把目的地址改写成某台内网主机的地址 → <b>报文被直接丢弃</b>，内网主机收不到任何东西。" +
+          "这就是「<b>NAT 之后外网无法主动访问内网主机</b>」的根本原因。" +
+          "若确实要让内网的服务器对外提供服务，必须在 NAT 上配置<b>静态端口映射（端口转发）</b>，或使用反向代理——" +
+          "即手工写入一条固定的 <code>公网IP:端口 ↔ 内网IP:端口</code> 表项。" });
+      return T;
+    }
+
+    var conn = currentConn();
+    if (!conn) return T;
+    var sess = findSession(conn);
+    var pubPort = sess ? sess.pubPort : allocPort();
+    var hi = conn.h !== undefined ? conn.h : 0;
+    var si = conn.s !== undefined ? conn.s : 0;
+    var inStr = conn.inIp + ":" + conn.inPort;
+    var outStr = PUB_IP + ":" + pubPort;
+    var dstStr = conn.dstIp + ":" + conn.dstPort;
+    var hn = c.hosts[hi] ? c.hosts[hi].name : "内网主机";
+
+    T.push({ pos: posHost(hi), color: "#6366f1", tag: "请求", loc: hn + " " + conn.inIp,
+      srcIp: conn.inIp, srcPort: conn.inPort, dstIp: conn.dstIp, dstPort: conn.dstPort, changed: "",
+      label: "① 内网主机发出请求",
+      note: hn + "（" + conn.inIp + "）用本地端口 <b>" + conn.inPort + "</b> 访问 " + dstStr + "，发出一条 TCP 报文：<br>" +
+        "<b>源 " + inStr + " → 目的 " + dstStr + "</b>。源地址是<b>私有地址</b>（10/8、172.16/12、192.168/16），" +
+        "私有地址在互联网上不可路由，所以必须先经 NAT 路由器转换。" });
+    T.push({ pos: posNatIn(hi), color: "#6366f1", tag: "请求", loc: "NAT 内网口 " + GW_IN,
+      srcIp: conn.inIp, srcPort: conn.inPort, dstIp: conn.dstIp, dstPort: conn.dstPort, changed: "",
+      label: "② 报文到达 NAT 内网口",
+      note: "报文到达 NAT 路由器的内网接口 " + GW_IN + "：<b>源 " + inStr + " → 目的 " + dstStr + "</b>（尚未改变）。" +
+        "路由器准备查 NAT 表，决定要不要改写地址。" });
+    T.push({ pos: posCore(), color: "#f59e0b", tag: "转换", loc: "NAT 转换",
+      srcIp: PUB_IP, srcPort: pubPort, dstIp: conn.dstIp, dstPort: conn.dstPort, changed: "src",
+      changeText: "改源地址 " + inStr + " → " + outStr,
+      label: sess ? "③ 查表命中 → 改写源地址（复用表项）" : "③ 查表未命中 → 建立表项并改写源地址",
+      effect: sess ? null : function () { createSession(conn, pubPort); },
+      note: (sess
+        ? "查 NAT 表：已有表项 <code>" + inStr + " ↔ " + outStr + "</code>（同一主机、同一源端口、访问同一台服务器的后续报文会<b>复用</b>这条映射）"
+        : "查 NAT 表：<b>没有</b>对应表项 → 分配一个新的公网端口 <b>" + pubPort + "</b>，写入表项 <code>" + inStr + " ↔ " + outStr + "</code>") +
+        "，然后把报文改写为：<br><b>源 " + outStr + " → 目的 " + dstStr + "</b>。" +
+        "注意：<b>出方向改的是源地址</b>（NAPT 下连源端口一起改），目的地址不变。" +
+        "地址/端口变了以后，<b>IP 首部校验和与 TCP 校验和都必须重新计算</b>——这也是 NAT 增加处理开销的原因之一。" });
+    T.push({ pos: posNatOut(si), color: "#6366f1", tag: "请求", loc: "公网链路",
+      srcIp: PUB_IP, srcPort: pubPort, dstIp: conn.dstIp, dstPort: conn.dstPort, changed: "",
+      label: "④ 从公网口发往互联网",
+      note: "报文从公网口发出：<b>源 " + outStr + " → 目的 " + dstStr + "</b>，进入互联网。" +
+        "此后在互联网上看到的源地址就是这个公网地址。" });
+    T.push({ pos: posSrv(si), color: "#6366f1", tag: "请求", loc: "外网服务器 " + conn.dstIp,
+      srcIp: PUB_IP, srcPort: pubPort, dstIp: conn.dstIp, dstPort: conn.dstPort, changed: "",
+      label: "⑤ 服务器收到请求",
+      note: "服务器 " + dstStr + " 收到请求：它看到的源是 <b>" + outStr + "</b>——服务器<b>完全看不到</b>内网地址 " +
+        conn.inIp + "，也不知道这个公网地址背后有多少台主机。它照常回送响应即可。" });
+    T.push({ pos: posSrv(si), color: "#10b981", tag: "响应", loc: "外网服务器 " + conn.dstIp,
+      srcIp: conn.dstIp, srcPort: conn.dstPort, dstIp: PUB_IP, dstPort: pubPort, changed: "",
+      label: "⑥ 服务器回送响应",
+      note: "服务器把响应的源/目的地址<b>对调</b>：<br><b>源 " + dstStr + " → 目的 " + outStr + "</b>。" +
+        "它只管把响应发回 " + outStr + "，至于这个地址背后是哪台主机，由 NAT 路由器负责找回。" });
+    T.push({ pos: posNatOut(si), color: "#10b981", tag: "响应", loc: "NAT 公网口 " + PUB_IP,
+      srcIp: conn.dstIp, srcPort: conn.dstPort, dstIp: PUB_IP, dstPort: pubPort, changed: "",
+      label: "⑦ 响应到达 NAT 公网口",
+      note: "响应到达 NAT 路由器的公网口：<b>源 " + dstStr + " → 目的 " + outStr + "</b>（尚未改变）。" +
+        "目的地址 " + PUB_IP + " 是路由器的地址，只有它认领这条报文。" });
+    T.push({ pos: posCore(), color: "#f59e0b", tag: "转换", loc: "NAT 转换",
+      srcIp: conn.dstIp, srcPort: conn.dstPort, dstIp: conn.inIp, dstPort: conn.inPort, changed: "dst",
+      changeText: "改目的地址 " + outStr + " → " + inStr,
+      label: "⑧ 查表命中 → 改写目的地址",
+      note: "查 NAT 表：目的端口 <b>" + pubPort + "</b> 命中表项 <code>" + inStr + " ↔ " + outStr + "</code> → " +
+        "把报文改写为：<br><b>源 " + dstStr + " → 目的 " + inStr + "</b>。" +
+        "注意：<b>入方向改的是目的地址</b>（响应回到 NAPT 时还要改目的端口），源地址不变，校验和同样要重算。" });
+    T.push({ pos: posNatIn(hi), color: "#10b981", tag: "响应", loc: "内网链路",
+      srcIp: conn.dstIp, srcPort: conn.dstPort, dstIp: conn.inIp, dstPort: conn.inPort, changed: "",
+      label: "⑨ 从内网口转发给主机",
+      note: "报文从内网口转发：<b>源 " + dstStr + " → 目的 " + inStr + "</b>，交给内网主机。" });
+    T.push({ pos: posHost(hi), color: "#10b981", tag: "响应", loc: hn + " " + conn.inIp,
+      srcIp: conn.dstIp, srcPort: conn.dstPort, dstIp: conn.inIp, dstPort: conn.inPort, changed: "",
+      label: "⑩ 主机收到响应",
+      note: hn + " 的 " + conn.inPort + " 号端口收到响应 ✅ 一次完整的往返结束。" +
+        "整个过程中主机和服务器都以为自己在与「对端地址」直接通信——这正是 NAT 对应用层透明的一面；" +
+        "但代价是主机和服务器都不知道中间发生了地址转换（即<b>端到端透明性被破坏</b>）。" });
+    T.push({ pos: null, color: "#6366f1", tag: "", loc: "—",
+      srcIp: conn.inIp, srcPort: conn.inPort, dstIp: conn.dstIp, dstPort: conn.dstPort, changed: "",
+      label: "⑪ 小结",
+      note: "规律：<b>出方向改源地址，入方向改目的地址</b>；NAT 表记录 <code>(内网IP, 内网端口) ↔ (公网IP, 公网端口)</code>，" +
+        "NAPT 中还要记住对端（目的）地址与端口，才能区分同一主机到不同服务器、或不同主机的多条会话。" +
+        "表项带生存时间，超时自动删除；" + sc().tip });
+    return T;
+  }
+
+  function buildRespTrace() {
+    var conn = currentConn();
+    if (!conn) return [];
+    var sess = findSession(conn);
+    var pubPort = sess ? sess.pubPort : PORT_BASE;
+    var hi = conn.h === undefined ? 0 : conn.h, si = conn.s === undefined ? 0 : conn.s;
+    var inStr = conn.inIp + ":" + conn.inPort;
+    var outStr = PUB_IP + ":" + pubPort;
+    var dstStr = conn.dstIp + ":" + conn.dstPort;
+    var T = [];
+    T.push({ pos: posSrv(si), color: "#10b981", tag: "响应", loc: "外网服务器 " + conn.dstIp,
+      srcIp: conn.dstIp, srcPort: conn.dstPort, dstIp: PUB_IP, dstPort: pubPort, changed: "",
+      label: "① 服务器发出响应",
+      note: "服务器把响应发回之前那个公网地址：<br><b>源 " + dstStr + " → 目的 " + outStr + "</b>。" +
+        (sess ? "" : "注意：此时 NAT 表里<b>已经没有</b>这条映射了（被删除或超时），继续往下看会发生什么。") });
+    T.push({ pos: posNatOut(si), color: "#10b981", tag: "响应", loc: "NAT 公网口 " + PUB_IP,
+      srcIp: conn.dstIp, srcPort: conn.dstPort, dstIp: PUB_IP, dstPort: pubPort, changed: "",
+      label: "② 响应到达 NAT 公网口",
+      note: "响应到达 NAT 路由器的公网口：<b>源 " + dstStr + " → 目的 " + outStr + "</b>（尚未改变）。" });
+    if (sess) {
+      T.push({ pos: posCore(), color: "#f59e0b", tag: "转换", loc: "NAT 转换",
+        srcIp: conn.dstIp, srcPort: conn.dstPort, dstIp: conn.inIp, dstPort: conn.inPort, changed: "dst",
+        changeText: "改目的地址 " + outStr + " → " + inStr,
+        label: "③ 查表命中 → 改写目的地址",
+        note: "查 NAT 表：命中 <code>" + inStr + " ↔ " + outStr + "</code> → 把目的地址改成内网地址：<br>" +
+          "<b>源 " + dstStr + " → 目的 " + inStr + "</b>（入方向改目的地址，并重算校验和）。" });
+      T.push({ pos: posNatIn(hi), color: "#10b981", tag: "响应", loc: "内网链路",
+        srcIp: conn.dstIp, srcPort: conn.dstPort, dstIp: conn.inIp, dstPort: conn.inPort, changed: "",
+        label: "④ 转发进内网",
+        note: "从内网口转发：<b>源 " + dstStr + " → 目的 " + inStr + "</b>。" });
+      T.push({ pos: posHost(hi), color: "#10b981", tag: "响应", loc: "内网主机 " + conn.inIp,
+        srcIp: conn.dstIp, srcPort: conn.dstPort, dstIp: conn.inIp, dstPort: conn.inPort, changed: "",
+        label: "⑤ 内网主机收到响应",
+        note: "内网主机 " + conn.inPort + " 号端口收到响应 ✅ 会话正常闭合。只要表项还在（生存时间内），反向报文就能正确映射回来。" });
+    } else {
+      T.push({ pos: posCore(), color: "#f59e0b", tag: "查表", loc: "NAT 转换",
+        srcIp: conn.dstIp, srcPort: conn.dstPort, dstIp: PUB_IP, dstPort: pubPort, changed: "",
+        label: "③ 查表未命中",
+        note: "查 NAT 表：<b>没有任何表项的公网端口是 " + pubPort + "</b>。" +
+          "表项被删除（或超时）之后，NAT 路由器<b>无法知道</b>这个公网端口原来对应哪台内网主机的哪个端口，" +
+          "也就无法把目的地址改回内网地址。" });
+      T.push({ pos: posCore(), color: "#ef4444", tag: "丢弃", loc: "NAT 转换", drop: true,
+        srcIp: conn.dstIp, srcPort: conn.dstPort, dstIp: PUB_IP, dstPort: pubPort, changed: "",
+        label: "④ 丢弃报文",
+        note: "<b>报文被丢弃</b>，内网主机永远收不到这个响应（服务器会因收不到 ACK 而超时重传，重传仍然被丢弃）。" +
+          "这说明：<b>NAT 把「能否被外部访问」决定权交给了 NAT 表</b>——表项在，就能回；表项没了，外部就再也进不来。" +
+          "这也解释了为什么家庭宽带里的主机不能直接做服务器，必须做端口映射。" });
+    }
+    return T;
+  }
+
+  function regen(msg) {
+    stopTimer();
+    S.trace = S.mode === "resp" ? buildRespTrace() : buildTrace();
+    S.idx = 0;
+    S.applied = {};
+    render();
+    if (msg) $("note").innerHTML = msg;
+  }
+
+  /* ---------------- 渲染 ---------------- */
+
+  function renderTopo() {
+    var st = S.idx > 0 ? S.trace[S.idx - 1] : null;
+    var g = $("pktMark");
+    if (!g) return;
+    if (!st || !st.pos) { g.setAttribute("opacity", "0"); }
+    else {
+      g.setAttribute("opacity", "1");
+      g.setAttribute("transform", "translate(" + st.pos.x + "," + st.pos.y + ")");
+      var r = $("pktRect"); if (r) r.setAttribute("fill", st.color || "#6366f1");
+      var t = $("pktText"); if (t) t.textContent = st.tag || "报文";
+    }
+    var cr = $("coreRect"), ct = $("coreText");
+    if (cr && ct) {
+      if (st && st.changed) {
+        cr.setAttribute("stroke", "#f59e0b"); cr.setAttribute("stroke-width", "2");
+        cr.setAttribute("fill", "#fef3c7");
+        ct.setAttribute("fill", "#92400e");
+        ct.textContent = st.changed === "src" ? "改写源地址中…" : "改写目的地址中…";
+      } else {
+        cr.setAttribute("stroke", "#c7d2fe"); cr.setAttribute("stroke-width", "1");
+        cr.setAttribute("fill", "#eef2ff");
+        ct.setAttribute("fill", "#4338ca");
+        ct.textContent = "转换 / NAT 表";
+      }
+    }
+  }
+
+  function renderNat() {
+    var tb = $("natBody"), h = "";
+    if (!S.sessions.length) {
+      h = '<tr><td colspan="6" class="empty">NAT 表为空：内网主机还没有发出任何报文。<br>表项只在报文经过 NAT 路由器时建立。</td></tr>';
+    } else {
+      for (var i = 0; i < S.sessions.length; i++) {
+        var s = S.sessions[i];
+        var cls = [];
+        if (S.sel && sameKey(s, S.sel)) cls.push("sel");
+        if (S.flash === s.id) cls.push("flash");
+        h += "<tr" + (cls.length ? ' class="' + cls.join(" ") + '"' : "") + ' data-id="' + s.id + '">' +
+          '<td class="mono">' + s.inIp + ":" + s.inPort + "</td>" +
+          '<td class="mono"><b>' + s.pubIp + ":" + s.pubPort + "</b></td>" +
+          '<td class="mono">' + s.dstIp + ":" + s.dstPort + "</td>" +
+          '<td class="mono">TCP</td><td class="mono">120 s</td>' +
+          '<td><span class="xdel" title="删除该会话（模拟表项超时删除）">✕</span></td></tr>';
+      }
+      S.flash = null;
+    }
+    tb.innerHTML = h;
+    $("natHint").innerHTML = "表项 = (内网 IP:端口) ↔ (公网 IP:端口)，NAPT 还要记住对端地址/端口；" +
+      "生存时间到就自动删除。点表格里的行可切换当前演示的连接，点 ✕ 可删除该会话。";
+  }
+
+  function renderPkt() {
+    var st = S.idx > 0 ? S.trace[S.idx - 1] : null;
+    if (!st) {
+      $("pktLine").innerHTML = '<span class="plab">当前报文</span><span class="hint">尚未开始 —— 点「▶ 播放」或「单步」逐跳查看源/目的地址的变化</span>';
+      return;
+    }
+    var sc1 = st.changed === "src" ? " changed" : "";
+    var sc2 = st.changed === "dst" ? " changed" : "";
+    var tag = st.changed === "src" ? '<span class="chg">✏️ 本跳改写<b>源地址</b>（出方向）</span>'
+      : (st.changed === "dst" ? '<span class="chg">✏️ 本跳改写<b>目的地址</b>（入方向）</span>' : "");
+    if (st.drop) tag = '<span class="chg drop">⛔ 报文被丢弃</span>';
+    $("pktLine").innerHTML = '<span class="plab">当前报文</span>' +
+      '<span class="ep src' + sc1 + '">源 ' + st.srcIp + ":" + st.srcPort + "</span>" +
+      '<span class="arw">→</span>' +
+      '<span class="ep dst' + sc2 + '">目的 ' + st.dstIp + ":" + st.dstPort + "</span>" + tag;
+  }
+
+  function renderHops() {
+    var tb = $("hopsBody"), h = "";
+    if (!S.trace.length) {
+      h = '<tr><td colspan="5" class="empty">请先点「➕ 发起连接」选择一条要演示的连接（当前场景没有可发起的连接）。</td></tr>';
+    } else {
+      for (var i = 0; i < S.idx; i++) {
+        var st = S.trace[i];
+        h += '<tr' + (i === S.idx - 1 ? ' class="cur"' : "") + ">" +
+          "<td>" + (i + 1) + "</td>" +
+          "<td>" + st.loc + "</td>" +
+          '<td class="mono">' + st.srcIp + ":" + st.srcPort + "</td>" +
+          '<td class="mono">' + st.dstIp + ":" + st.dstPort + "</td>" +
+          '<td style="color:' + (st.changed ? "#b45309" : "#64748b") + '">' +
+          (st.drop ? "<b style='color:#b91c1c'>丢弃</b>" : (st.changeText || "—")) + "</td></tr>";
+      }
+      if (!S.idx) h = '<tr><td colspan="5" class="empty">点「▶ 播放」或「单步」，这里会逐跳记录源 IP:端口 → 目的 IP:端口 的变化。</td></tr>';
+    }
+    tb.innerHTML = h;
+    var box = tb.parentNode && tb.parentNode.parentNode;
+    if (box && typeof box.scrollHeight === "number") box.scrollTop = box.scrollHeight;
+  }
+
+  function renderStats() {
+    var ports = [];
+    for (var i = 0; i < S.sessions.length; i++) ports.push(S.sessions[i].pubPort);
+    $("statScen").textContent = sc().short;
+    $("statPub").textContent = PUB_IP;
+    $("statSess").textContent = S.sessions.length;
+    $("statPorts").textContent = ports.length ? ports.join(", ") : "—";
+    $("statHop").textContent = S.idx + " / " + S.trace.length;
+    $("statState").textContent = S.idx === 0 ? (S.mode === "resp" ? "待发送响应" : "就绪")
+      : (S.idx >= S.trace.length ? "✅ 演示完毕" : "演示中…");
+    $("headInfo").textContent = sc().name + " · 公网口 " + PUB_IP;
+  }
+
+  function render() {
+    renderTopo();
+    renderNat();
+    renderPkt();
+    renderHops();
+    renderStats();
+    if (S.idx > 0) $("note").innerHTML = "<b>第 " + S.idx + " 跳：" + S.trace[S.idx - 1].label + "</b>——" + S.trace[S.idx - 1].note;
+    else if (!S.trace.length && S.scen !== "external") {
+      $("note").innerHTML = "点「➕ 发起连接」选择要演示的连接，然后按「单步」看报文在每一跳的源/目的地址变化。";
+    }
+  }
+
+  /* ---------------- 播放控制 ---------------- */
+
+  var timer = null, speed = 460, playing = false;
+  function stopTimer() {
+    if (timer) { clearInterval(timer); timer = null; }
+    playing = false;
+    $("btnPlay").textContent = "▶ 播放";
+  }
+  function advance() {
+    if (S.idx >= S.trace.length) return false;
+    var st = S.trace[S.idx];
+    S.idx++;
+    if (st.effect && !S.applied[S.idx]) { S.applied[S.idx] = true; st.effect(); }
+    render();
+    return true;
+  }
+  function tick() {
+    stopTimer();
+    if (!S.trace.length) { render(); return; }
+    if (S.idx >= S.trace.length) { S.trace = S.mode === "resp" ? buildRespTrace() : buildTrace(); S.applied = {}; S.idx = 0; }
+    playing = true;
+    $("btnPlay").textContent = "⏸ 暂停";
+    timer = setInterval(function () {
+      if (!advance()) { stopTimer(); renderStats(); }
+    }, speed);
+  }
+
+  /* ---------------- 动作 ---------------- */
+
+  function nextConn() {
+    var conns = sc().conns, i;
+    for (i = 0; i < conns.length; i++) if (!findSession(conns[i])) return conns[i];
+    var cur = S.sel ? keyOf(S.sel) : null, at = 0;
+    for (i = 0; i < conns.length; i++) if (keyOf(conns[i]) === cur) at = i;
+    return conns[(at + 1) % conns.length];
+  }
+
+  function doConn() {
+    if (S.scen === "external") {
+      $("note").innerHTML = "当前场景是「外网主机主动访问内网」，没有内网主机要发起连接——直接按「单步」看这条报文如何被丢弃。" +
+        "想看 NAT 建立映射的过程，请切换到前两个场景。";
+      return;
+    }
+    var c = nextConn();
+    if (!c) return;
+    S.sel = c;
+    S.mode = "full";
+    S.trace = buildTrace();
+    S.idx = 0; S.applied = {};
+    render();
+    $("note").innerHTML = "✅ 已让 " + c.inIp + ":" + c.inPort + " 发起一条到 " + c.dstIp + ":" + c.dstPort +
+      " 的连接。<b>注意 NAT 表此刻还是空的</b>——表项要等报文经过 NAT 路由器时才会建立。" +
+      "点「单步」或「播放」逐跳查看源/目的地址的变化。";
+  }
+
+  function doResp() {
+    var c = currentConn();
+    if (!c) { $("note").innerHTML = "还没有任何连接：请先点「➕ 发起连接」。"; return; }
+    S.sel = c;
+    S.mode = "resp";
+    S.trace = buildRespTrace();
+    S.idx = 0; S.applied = {};
+    render();
+    var sess = findSession(c);
+    $("note").innerHTML = "📨 已让服务器 " + c.dstIp + ":" + c.dstPort + " 回送响应（" +
+      (sess ? "NAT 表里<b>有</b>对应表项，看它如何改目的地址" : "NAT 表里<b>没有</b>对应表项了，看报文会怎样") +
+      "）。点「单步」逐跳查看。";
+  }
+
+  function delSession(s, why) {
+    if (!s) return false;
+    for (var i = 0; i < S.sessions.length; i++) if (S.sessions[i].id === s.id) { S.sessions.splice(i, 1); break; }
+    S.flash = null;
+    return true;
+  }
+
+  function doDel() {
+    var c = currentConn();
+    var s = c ? findSession(c) : null;
+    if (!s && S.sessions.length) s = S.sessions[S.sessions.length - 1];
+    if (!s) { $("note").innerHTML = "NAT 表里没有会话可删除（表项只在报文经过 NAT 路由器时才建立）。"; return; }
+    delSession(s);
+    regen("🗑 已删除会话 <code>" + s.inIp + ":" + s.inPort + " ↔ " + s.pubIp + ":" + s.pubPort + "</code>（模拟表项超时删除）。" +
+      "现在再点「📨 发送响应」试试：服务器发来的响应因为查不到表项，会被 NAT 路由器<b>直接丢弃</b>——" +
+      "这正是「外部无法主动访问内网主机」的原因。");
+  }
+
+  /* ---------------- 事件 ---------------- */
+
+  $("scenSel").onchange = function () {
+    S.scen = this.value;
+    S.sessions = []; S.sid = 0; S.flash = null;
+    S.sel = sc().conns.length ? sc().conns[0] : null;
+    S.mode = "full";
+    buildTopo();
+    regen("已切换到场景：<b>" + sc().name + "</b>。NAT 表已重置。" + sc().tip +
+      (S.scen === "external" ? "" : "点「➕ 发起连接」再开始演示。"));
+  };
+
+  var PRESETS = [
+    { label: "教材例：192.168.1.2:5000 ↔ 202.1.1.1:6000", scen: "multi", conn: 0 },
+    { label: "两台主机同源端口 5000 → 6000 / 6001", scen: "multi", conn: 1 },
+    { label: "一台主机访问两台服务器", scen: "single", conn: 0 },
+    { label: "同一主机另一条连接 → 复用另一端口", scen: "single", conn: 1 },
+    { label: "外部主动访问 → 被丢弃", scen: "external", conn: 0 }
+  ];
+  var pw = $("presets");
+  PRESETS.forEach(function (p) {
+    var b = document.createElement("button");
+    b.className = "btn-ghost";
+    b.textContent = p.label;
+    b.onclick = function () {
+      S.scen = p.scen;
+      $("scenSel").value = p.scen;
+      S.sessions = []; S.sid = 0; S.flash = null;
+      S.sel = sc().conns.length ? sc().conns[Math.min(p.conn, sc().conns.length - 1)] : null;
+      S.mode = "full";
+      buildTopo();
+      regen("场景：<b>" + sc().name + "</b>。" + sc().tip);
+    };
+    pw.appendChild(b);
+  });
+
+  $("btnConn").onclick = doConn;
+  $("btnResp").onclick = doResp;
+  $("btnDel").onclick = doDel;
+  $("btnPlay").onclick = function () { if (playing) stopTimer(); else tick(); };
+  $("btnStep").onclick = function () {
+    stopTimer();
+    if (!S.trace.length) { $("note").innerHTML = "请先点「➕ 发起连接」选择一条要演示的连接。"; return; }
+    if (!advance()) {
+      var last = S.trace[S.trace.length - 1];
+      $("note").innerHTML = "<b>第 " + S.trace.length + " 跳（最后一跳）：" + last.label + "</b>——" + last.note +
+        '<br><span style="color:#94a3b8">（已经是最后一跳了：点「↺ 重置」重新播放，或用「📨 发送响应」「🗑 删除会话」换个角度观察。）</span>';
+    }
+  };
+  $("btnReset").onclick = function () {
+    // 彻底重置：不只是回到第 0 跳，NAT 表也要清空（原来的实现会保留表项，
+    // 于是引导语里承诺的"重置"和实际效果不符——用户点完发现会话还在）。
+    S.sessions = []; S.sid = 0; S.flash = null;
+    S.sel = sc().conns.length ? sc().conns[0] : null;
+    S.mode = "full";
+    regen("↺ 已彻底重置：<b>第 0 跳</b>、<b>NAT 表已清空</b>（表项全部删除）、演示模式回到「内网主机主动访问」、" +
+      "并选中本场景的第一条连接。点「➕ 发起连接」或「▶ 播放」重新开始。");
+  };
+  var sbs = document.querySelectorAll(".speed-group button");
+  for (var si = 0; si < sbs.length; si++) {
+    sbs[si].onclick = (function (btn) {
+      return function () {
+        speed = parseInt(btn.dataset.speed, 10);
+        var all = document.querySelectorAll(".speed-group button");
+        for (var k = 0; k < all.length; k++) all[k].classList.toggle("active", all[k] === btn);
+        if (playing) tick();
+      };
+    })(sbs[si]);
+  }
+
+  $("natBody").onclick = function (e) {
+    var el = e.target, tr = null;
+    while (el && el !== this) { if (el.tagName === "TR") { tr = el; break; } el = el.parentNode; }
+    if (!tr) return;
+    var id = parseInt(tr.getAttribute("data-id"), 10);
+    if (!id) return;
+    var s = null;
+    for (var i = 0; i < S.sessions.length; i++) if (S.sessions[i].id === id) s = S.sessions[i];
+    if (!s) return;
+    if (e.target.className === "xdel") {
+      delSession(s);
+      regen("🗑 已删除会话 <code>" + s.inIp + ":" + s.inPort + " ↔ " + s.pubIp + ":" + s.pubPort + "</code>。");
+      return;
+    }
+    S.sel = s;
+    if (S.mode === "resp") S.mode = "full";
+    regen("已选中会话 <code>" + s.inIp + ":" + s.inPort + " ↔ " + s.pubIp + ":" + s.pubPort + " → " + s.dstIp + ":" + s.dstPort +
+      "</code>：点「单步」查看它的报文在每一跳的源/目的地址。");
+  };
+
+  /* ---------------- 知识点说明 ---------------- */
+
+  function updateDesc() {
+    $("desc").innerHTML =
+      "<b>NAT 解决什么问题：</b>IPv4 地址只有 32 位（约 43 亿个），早已分配殆尽。<b>NAT</b>（Network Address Translation，网络地址转换）" +
+      "允许一个机构内部大量主机使用<b>私有地址</b>，对外只申请少量公网地址，从而缓解地址短缺、减小互联网路由表规模、并隐藏内网结构（一定程度的单向安全）。" +
+      "三段私有地址必须记牢：<code>10.0.0.0/8</code>、<code>172.16.0.0/12</code>（172.16 ~ 172.31）、<code>192.168.0.0/16</code>；" +
+      "这些地址不能出现在互联网上，路由器收到目的地址为私有地址的数据报会直接丢弃。本演示中整个内网只有 <b>202.1.1.1</b> 一个公网地址。" +
+      "<br><b>NAT 路由器做什么（出改源、入改目的）：</b>它连接内网与互联网，一侧是内网接口（192.168.1.1）、另一侧是公网接口（202.1.1.1）。" +
+      "内网主机发出的报文经过它时，把<b>源地址</b>换成公网地址（NAPT 下连<b>源端口</b>一起换），并发往互联网；" +
+      "外网回来的响应目的地址是公网地址，它查表后把<b>目的地址</b>改回内网地址再转发进去。" +
+      "改完地址后 <b>IP 首部校验和与 TCP/UDP 校验和都必须重新计算</b>（TCP/UDP 校验和覆盖的伪首部里含 IP 地址），这是 NAT 增加处理开销的原因之一。" +
+      "<span class='ex'><b>本演示的算例（与正文一致）</b>：内网主机 <code>192.168.1.2:5000</code> 访问 <code>202.1.1.2:80</code>，" +
+      "NAT 表新增表项 <code>192.168.1.2:5000 ↔ 202.1.1.1:6000</code>，服务器看到的源是 <b>202.1.1.1:6000</b>；" +
+      "另一台主机 <code>192.168.1.3:5000</code> 也访问 202.1.1.2:80，则映射为 <code>192.168.1.3:5000 ↔ 202.1.1.1:6001</code>。" +
+      "两台主机恰好用了<b>同一个源端口 5000</b>，却被映射到<b>不同的公网端口</b>，因此不会冲突。</span>" +
+      "<b>NAPT 如何用端口区分会话：</b>纯 NAT（静态/动态）只改 IP 地址，一对一，要求公网地址数 ≥ 内网主机数；" +
+      "<b>NAPT</b>（Network Address Port Translation，也叫 PAT、端口多路复用）同时改 IP <b>和端口</b>，是<b>多对一</b>映射——" +
+      "一个公网 IP 靠不同的公网端口号同时承载成百上千条会话，这就是家庭宽带「一个公网 IP 带一屋子设备上网」的原理。" +
+      "区分一条连接靠传输层<b>五元组</b>（协议、源 IP、源端口、目的 IP、目的端口）：" +
+      "①不同内网主机用相同源端口 → 分配不同公网端口区分（如 6000 / 6001）；" +
+      "②同一台主机用相同源端口访问不同服务器 → 目的地址/端口不同，同样映射到不同公网端口；" +
+      "③同一主机到同一服务器的后续报文则<b>复用</b>同一条表项。" +
+      "<br><b>NAT 带来的问题：</b>① <b>外部无法主动访问内网主机</b>——NAT 表里没有对应表项，入方向报文查不到映射就被丢弃" +
+      "（这也是表项带<b>生存时间</b>、超时自动删除的直接后果）；要让内网服务器对外提供服务，必须配置<b>静态端口映射（端口转发）</b>或反向代理；" +
+      "② <b>破坏端到端透明性</b>——某些协议把 IP 地址/端口写在应用层数据里（FTP 主动模式、SIP、H.323 等），" +
+      "NAT 只改了 IP 首部，应用层数据与首部不一致，需要 <b>ALG（应用层网关）</b>专门修正；" +
+      "③ <b>NAT 穿越问题</b>——P2P 应用需要用「打洞」（借助第三方服务器交换双方公网端口）才能互连；" +
+      "④ 逐包修改首部带来额外时延，并且可能影响分片（分片报文只有第一片带端口信息，NAPT 处理更麻烦）；" +
+      "⑤ 地址转换还使端到端的追踪、审计与计费变得困难。" +
+      "<br><b>三类 NAT 对比：</b>静态 NAT（仅 IP，一对一、手工配置、永久有效，用于发布内网服务器）；" +
+      "动态 NAT（仅 IP，从公网地址池临时分配、用完回收，适合内网主机数 ≤ 公网地址数）；" +
+      "<b>NAPT</b>（IP + 端口，多对一，用端口区分主机，现在普遍使用）。" +
+      "<br><b>易错点：</b>出方向改<b>源</b>地址（NAPT 还有源端口），入方向改<b>目的</b>地址，不要写反；" +
+      "NAPT 用端口号区分多台主机，纯 NAT 是一对一，二者不可混答；改了 IP 就必然要改校验和；" +
+      "私有地址段要背准（172 段是 16~31）；NAT 是三层的地址转换，与工作在应用层的<b>代理服务器</b>（应用主动把请求发给代理）、" +
+      "以及侧重按规则<b>过滤</b>报文的<b>防火墙</b>不是一回事。";
+  }
+
+  /* ---------------- 启动 ---------------- */
+
+  buildTopo();
+  S.sel = sc().conns.length ? sc().conns[0] : null;
+  S.trace = buildTrace();
+  updateDesc();
+  render();
+  $("note").innerHTML = "当前场景：<b>" + sc().name + "</b>。" + sc().tip +
+    " 点「➕ 发起连接」选择要演示的连接，再点「单步」或「播放」，逐跳观察<b>源 IP:端口 → 目的 IP:端口</b> 的变化；" +
+    "右侧 NAT 转换表会随报文经过路由器实时更新。";
+})();
+</script>
+</body>
+</html>

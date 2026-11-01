@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TCP 滑动窗口与流量控制可视化</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f8fafc; color: #1e293b; padding: 16px; }
+  .wrap { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+  .head { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; }
+  .head h1 { font-size: 16px; font-weight: 600; }
+  .head .info { font-size: 12px; opacity: .92; }
+  .controls { padding: 8px 16px; display: flex; flex-wrap: wrap; gap: 7px 10px; align-items: center; border-bottom: 1px solid #eef2f7; }
+  .controls label { font-size: 12px; color: #64748b; }
+  select { padding: 4px 7px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; outline: none; font-size: 12px; color: #334155; }
+  button { padding: 5px 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; font-size: 12px; transition: all .15s; }
+  .btn-primary { background: #6366f1; color: #fff; } .btn-primary:hover { background: #4f46e5; }
+  .btn-ghost { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; } .btn-ghost:hover { background: #e2e8f0; }
+  .btn-ghost.on { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .speed-group { display: flex; gap: 4px; } .speed-group button { padding: 4px 9px; } .speed-group .active { background: #6366f1; color: #fff; }
+  .sep { width: 1px; height: 18px; background: #e2e8f0; }
+  .stats { padding: 7px 16px; display: flex; gap: 13px; font-size: 12px; color: #64748b; border-bottom: 1px solid #eef2f7; flex-wrap: wrap; }
+  .stats b { color: #1e293b; font-variant-numeric: tabular-nums; }
+  .note { padding: 7px 16px; font-size: 12px; line-height: 1.6; color: #3730a3; background: #eef2ff; border-bottom: 1px solid #e0e7ff; min-height: 40px; }
+  .note.warn { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+  .note.ok { background: #ecfdf5; color: #047857; border-color: #d1fae5; }
+  .stage { padding: 8px 16px 4px; }
+  .sec-title { font-size: 11px; color: #94a3b8; margin: 0 0 4px; display: flex; justify-content: space-between; align-items: baseline; }
+  .sec-title b { color: #475569; }
+  .sec-title .rt { color: #6366f1; font-weight: 600; font-size: 11px; }
+  .stripwrap { position: relative; padding-top: 13px; margin-bottom: 8px; }
+  .brk { position: absolute; top: 0; height: 9px; border: 2px solid #6366f1; border-bottom: none; border-radius: 6px 6px 0 0; transition: left .28s ease, width .28s ease; box-sizing: border-box; }
+  .strip { display: flex; gap: 3px; }
+  .cell { flex: 1 1 0; min-width: 0; height: 36px; border-radius: 6px; border: 1px solid #e2e8f0; background: #f8fafc; color: #cbd5e1; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; transition: background .2s, border-color .2s, color .2s; cursor: default; }
+  .cell .g { font-size: 9px; line-height: 1; opacity: .8; }
+  .cell .s { font-weight: 600; line-height: 1.15; }
+  .cell.acked { background: #ecfdf5; border-color: #10b981; color: #047857; }
+  .cell.inflight { background: #fffbeb; border-color: #f59e0b; color: #b45309; }
+  .cell.lost { background: #fef2f2; border-color: #ef4444; color: #b91c1c; }
+  .cell.sendable { background: #eef2ff; border-color: #a5b4fc; color: #4f46e5; }
+  .cell.rcvbuf { border-color: #8b5cf6; box-shadow: inset 0 0 0 2px #ddd6fe; }
+  .cell.clickable { cursor: pointer; }
+  .cell.clickable:hover { background: #fde68a; border-color: #ef4444; }
+  .cell.enter { animation: slidein .45s ease-out; }
+  @keyframes slidein { 0% { transform: translateX(-8px) scale(.9); box-shadow: 0 0 0 3px rgba(99,102,241,.45); } 100% { transform: none; } }
+  .rowline { display: flex; gap: 10px; margin-bottom: 6px; align-items: center; font-size: 11px; color: #64748b; flex-wrap: wrap; }
+  .pill { border-radius: 999px; padding: 1px 8px; font-size: 10.5px; font-weight: 600; background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+  .pill.zero { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+  .pill.ok { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+  .pill.buf { background: #f5f3ff; color: #6d28d9; border-color: #ddd6fe; }
+  .link { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; min-height: 22px; font-size: 10.5px; }
+  .pkt { background: #fffbeb; border: 1px solid #fcd34d; color: #b45309; border-radius: 6px; padding: 1px 6px; }
+  .pkt.back { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
+  .log { font-size: 11px; color: #475569; line-height: 1.55; }
+  .log div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .legend { padding: 4px 16px 8px; display: flex; gap: 13px; font-size: 11px; color: #64748b; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .desc { padding: 9px 16px 13px; border-top: 1px solid #eef2f7; font-size: 12px; color: #475569; line-height: 1.75; }
+  .desc b { color: #334155; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>🪟 TCP 滑动窗口与流量控制可视化</h1>
+    <span class="info" id="modeInfo">流量控制</span>
+  </div>
+
+  <div class="controls">
+    <label>模式</label>
+    <select id="modeSel">
+      <option value="flow">流量控制（rwnd 动态变化）</option>
+      <option value="gbn">连续 ARQ · GBN（后退 N 帧）</option>
+      <option value="sr">连续 ARQ · SR（选择重传）</option>
+    </select>
+    <span class="sep"></span>
+    <span id="params"></span>
+    <span class="sep"></span>
+    <div class="speed-group">
+      <button data-speed="650" class="btn-ghost">慢</button>
+      <button data-speed="300" class="btn-ghost active">中</button>
+      <button data-speed="80" class="btn-ghost">快</button>
+    </div>
+    <button class="btn-primary" id="btnPlay">▶ 播放</button>
+    <button class="btn-ghost" id="btnStep">单步</button>
+    <button class="btn-ghost" id="btnReset">↺ 重置</button>
+  </div>
+
+  <div class="stats">
+    <span>已发送 <b id="stSent">0</b> 段</span>
+    <span>已确认 <b id="stAcked">0</b> 段</span>
+    <span>重传 <b id="stRe">0</b> 次</span>
+    <span>窗口利用率 <b id="stUtil">0%</b></span>
+    <span>时间 t=<b id="stTime">0</b></span>
+    <span id="stExtraWrap">零窗口 <b id="stZero">0</b> 次 / 探测 <b id="stProbe">0</b> 次</span>
+  </div>
+
+  <div class="note" id="note">按「播放」或「单步」开始。发送窗口左沿 = sendBase，窗口内可发送的段会一次性连续发出（突发）；点击<b>琥珀色</b>格子可人为丢包。</div>
+
+  <div class="stage">
+    <div class="sec-title"><b>发送方：序号空间（16 个序号，模 16 循环）</b><span class="rt" id="winTxt"></span></div>
+    <div class="stripwrap">
+      <div class="brk" id="brk1"></div>
+      <div class="brk" id="brk2" style="display:none"></div>
+      <div class="strip" id="sStrip"></div>
+    </div>
+    <div class="rowline">
+      <span class="pill" id="pillBase">sendBase = 1</span>
+      <span class="pill" id="pillNext">nextSeq = 1</span>
+      <span class="pill" id="pillWin">发送窗口 = 5</span>
+      <span class="pill" id="pillRwnd">rwnd = 6</span>
+      <span id="pillNote" style="font-size:10.5px;color:#94a3b8"></span>
+    </div>
+
+    <div class="sec-title"><b>接收方缓冲区</b><span class="rt" id="rcvTxt"></span></div>
+    <div class="strip" id="rStrip"></div>
+    <div class="rowline">
+      <span class="pill" id="pillRcv">期望序号 = 1</span>
+      <span id="rcvNote" style="font-size:10.5px;color:#94a3b8"></span>
+    </div>
+
+    <div class="sec-title"><b>链路中的报文</b><span class="rt">往返时间 RTT = 4 个时间单位</span></div>
+    <div class="link" id="linkRow"></div>
+    <div class="sec-title" style="margin-top:5px"><b>最近事件</b></div>
+    <div class="log" id="logRow"></div>
+  </div>
+
+  <div class="legend">
+    <span><i style="background:#10b981"></i>已发送已确认</span>
+    <span><i style="background:#f59e0b"></i>已发送未确认</span>
+    <span><i style="background:#6366f1"></i>窗口内可发送</span>
+    <span><i style="background:#e2e8f0;border:1px solid #cbd5e1"></i>窗口外不可发送</span>
+    <span><i style="background:#ef4444"></i>丢包 / 重传</span>
+    <span><i style="background:#8b5cf6"></i>接收方已缓存（乱序）</span>
+  </div>
+
+  <div class="desc" id="desc"></div>
+</div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const SPACE = 16, MSS = 100, RTT_D = 2, RTO = 8, GAP = 3;
+
+const W = { mode: "flow", winMax: 5, recvBuf: 6, total: 12, speed: 300, running: false, timer: null };
+let T = null, sCells = [], rCells = [], ackLoseNext = false;
+
+/* ---------------- 初始化 ---------------- */
+
+function resetSim() {
+  stopTimer(); W.running = false; $("btnPlay").textContent = "▶ 播放";
+  // 「下一次 ACK 丢失」按钮只在 GBN/SR 模式下才有，flow 模式里取不到，必须判空
+  ackLoseNext = false; const ackBtn = $("btnAck"); if (ackBtn) ackBtn.className = "btn-ghost";
+  T = {
+    time: 0, sendBase: 1, nextSeq: 1, rwnd: W.recvBuf, cwnd: W.winMax,
+    segs: {}, disp: {}, rcvDisp: {}, inflight: [], acks: [], rcvExpect: 1, rcvOcc: 0,
+    rcvBase: 1, rcvBuf: {}, persistAt: 0, probing: false, lastRead: 0, enter: {},
+    log: [], event: "",
+    st: { sent: 0, acked: 0, retrans: 0, zero: 0, probe: 0, discard: 0, dup: 0, winUpdate: 0, utilSum: 0, utilN: 0 }
+  };
+  buildStrips();
+  setNote("按「播放」或「单步」开始。发送窗口左沿 = sendBase，窗口内可发送的段会一次性连续发出；点击<b>琥珀色</b>格子可人为丢包。", "");
+  render();
+}
+
+function buildStrips() {
+  const ss = $("sStrip"), rs = $("rStrip");
+  ss.innerHTML = ""; rs.innerHTML = ""; sCells = []; rCells = [];
+  for (let i = 0; i < SPACE; i++) {
+    const a = document.createElement("div"); a.className = "cell"; a.dataset.seq = i;
+    a.innerHTML = '<span class="g"></span><span class="s">' + i + "</span>";
+    ss.appendChild(a); sCells.push(a);
+    const b = document.createElement("div"); b.className = "cell";
+    b.innerHTML = '<span class="g"></span><span class="s">' + i + "</span>";
+    rs.appendChild(b); rCells.push(b);
+  }
+}
+
+/* ---------------- 窗口计算 ---------------- */
+
+function winEff() {
+  if (W.mode === "flow") return Math.min(W.winMax, T.rwnd);
+  return W.winMax;
+}
+const seqOf = (g) => ((g - 1) % SPACE + SPACE) % SPACE;
+const inWin = (g) => g >= T.sendBase && g < T.sendBase + winEff();
+
+/* ---------------- 收发处理 ---------------- */
+
+function sendSeg(g, isRetrans, ev) {
+  T.segs[g] = { g: g, state: "inflight", sentAt: T.time, lost: false };
+  T.disp[seqOf(g)] = { g: g, state: "inflight" };
+  T.inflight = T.inflight.filter((x) => x.g !== g);
+  T.inflight.push({ g: g, seq: seqOf(g), arriveAt: T.time + RTT_D, lost: false, probe: false });
+  T.enter[seqOf(g)] = T.time;
+  if (isRetrans) T.st.retrans++; else T.st.sent++;
+  ev.push((isRetrans ? "⟳ 重传" : "→ 发送") + "第 " + g + " 段（seq=" + seqOf(g) + "）");
+}
+
+function sendAck(no, ev, tag) {
+  const lost = ackLoseNext;
+  if (lost) { ackLoseNext = false; const ab = $("btnAck"); if (ab) ab.className = "btn-ghost"; }
+  T.acks.push({ no: no, rwnd: T.rwnd, arriveAt: T.time + RTT_D, lost: lost, tag: tag || "" });
+  if (!lost) ev.push("← 接收方回 ACK（ack=" + no + ", rwnd=" + T.rwnd + "）" + (tag ? "（" + tag + "）" : ""));
+  else ev.push("← 接收方回 ACK（ack=" + no + "）✗ 该 ACK 在链路中丢失");
+}
+
+function onDataArrive(p, ev) {
+  if (p.probe) {
+    ev.push("🔍 窗口探测报文到达接收方 → 回送当前 rwnd=" + T.rwnd);
+    sendAck(T.rcvExpect, ev, "窗口探测响应");
+    return;
+  }
+  const g = p.g;
+  if (p.lost || (T.segs[g] && T.segs[g].lost)) {
+    T.disp[seqOf(g)] = { g: g, state: "lost" };
+    if (T.segs[g]) T.segs[g].state = "lost";
+    T.st.discard++;
+    ev.push("✗ 第 " + g + " 段（seq=" + seqOf(g) + "）在链路中丢失，接收方收不到它");
+    return;
+  }
+  if (W.mode === "flow") {
+    if (g === T.rcvExpect && T.rcvOcc < W.recvBuf) {
+      T.rcvExpect++; T.rcvOcc++;
+      T.rcvDisp[seqOf(g)] = { g: g, state: "delivered" };
+      T.rwnd = Math.max(0, W.recvBuf - T.rcvOcc);
+      ev.push("接收方按序收到第 " + g + " 段，接收缓冲区占用 " + T.rcvOcc + "/" + W.recvBuf + "，rwnd = " + T.rwnd);
+    } else {
+      T.st.discard++;
+      T.rcvDisp[seqOf(g)] = { g: g, state: "discarded" };
+      ev.push("第 " + g + " 段到达但接收缓冲区已满（rwnd=0），只能丢弃 → 这正说明发送方必须严格遵守 rwnd 限制");
+      T.rwnd = Math.max(0, W.recvBuf - T.rcvOcc);
+    }
+    sendAck(T.rcvExpect, ev);
+  } else if (W.mode === "gbn") {
+    if (g === T.rcvExpect) {
+      T.rcvExpect++;
+      T.rcvDisp[seqOf(g)] = { g: g, state: "delivered" };
+      ev.push("接收方按序收到第 " + g + " 段，累计确认号推进到 " + T.rcvExpect);
+    } else {
+      T.st.discard++;
+      T.rcvDisp[seqOf(g)] = { g: g, state: "discarded" };
+      ev.push("第 " + g + " 段乱序到达，<b>GBN 接收方窗口为 1，一律丢弃</b>，并重复确认 " + T.rcvExpect);
+    }
+    sendAck(T.rcvExpect, ev);
+  } else {
+    if (g >= T.rcvBase && g < T.rcvBase + W.winMax) {
+      if (g === T.rcvBase) {
+        T.rcvBase++; T.rcvDisp[seqOf(g)] = { g: g, state: "delivered" };
+        while (T.rcvBuf[T.rcvBase]) { delete T.rcvBuf[T.rcvBase]; T.rcvDisp[seqOf(T.rcvBase)] = { g: T.rcvBase, state: "delivered" }; T.rcvBase++; }
+        ev.push("接收方收到第 " + g + " 段，可交付的连续数据前移到 " + T.rcvBase);
+      } else {
+        T.rcvBuf[g] = true; T.rcvDisp[seqOf(g)] = { g: g, state: "buffered" };
+        ev.push("第 " + g + " 段乱序到达，<b>SR 接收方先缓存起来</b>（等前面缺的段补上再一起交付）");
+      }
+      sendAck(g + 1, ev, "选择确认");
+    } else {
+      T.st.discard++;
+      T.rcvDisp[seqOf(g)] = { g: g, state: "discarded" };
+      ev.push("第 " + g + " 段落在接收窗口之外，被丢弃，并重复确认 " + T.rcvBase);
+      sendAck(T.rcvBase, ev, "重复确认");
+    }
+  }
+}
+
+function onAckArrive(a, ev) {
+  if (a.lost) { ev.push("✗ ACK(ack=" + a.no + ") 在返回途中丢失，发送方不知道它已被确认"); return; }
+  if (W.mode === "flow" && typeof a.rwnd === "number" && a.rwnd !== T.rwnd) {
+    ev.push("ACK 通告接收窗口 rwnd 由 " + T.rwnd + " 变为 " + a.rwnd + " → 发送窗口随之变化");
+    T.rwnd = a.rwnd;
+  }
+  if (W.mode === "sr") {
+    const g = a.no - 1;
+    if (T.segs[g] && T.segs[g].state === "inflight") {
+      T.segs[g].state = "acked"; T.st.acked++;
+      T.disp[seqOf(g)] = { g: g, state: "acked" };
+      ev.push("收到第 " + g + " 段的选择确认（ack=" + a.no + "），只确认这一段");
+    }
+    let moved = 0;
+    while (T.segs[T.sendBase] && T.segs[T.sendBase].state === "acked") { T.sendBase++; moved++; }
+    if (moved) ev.push("发送窗口左沿前移到 sendBase=" + T.sendBase + "（窗口向前滑动 " + moved + " 格）");
+  } else {
+    const nb = Math.min(a.no, T.nextSeq);
+    if (nb > T.sendBase) {
+      let n = 0;
+      for (let g = T.sendBase; g < nb; g++) {
+        if (T.segs[g] && T.segs[g].state !== "acked") { T.segs[g].state = "acked"; T.st.acked++; T.disp[seqOf(g)] = { g: g, state: "acked" }; n++; }
+      }
+      ev.push("累计确认 ack=" + a.no + "：第 " + T.sendBase + "~" + (nb - 1) + " 段全部被确认（" + n + " 段）");
+      T.sendBase = nb;
+      ev.push("发送窗口向前滑动 → sendBase=" + T.sendBase);
+    } else {
+      T.st.dup++; ev.push("收到重复 ACK（ack=" + a.no + "）：接收方还在等第 " + a.no + " 段");
+    }
+  }
+}
+
+function timeouts(ev) {
+  if (W.mode === "flow") {
+    const old = T.segs[T.sendBase];
+    if (old && old.state === "inflight" && T.time - old.sentAt >= RTO) {
+      old.sentAt = T.time;
+      T.inflight = T.inflight.filter((x) => x.g !== old.g);
+      T.inflight.push({ g: old.g, seq: seqOf(old.g), arriveAt: T.time + RTT_D, lost: false });
+      T.disp[seqOf(old.g)] = { g: old.g, state: "inflight" };
+      T.enter[seqOf(old.g)] = T.time; T.st.retrans++;
+      ev.push("⏰ 超时（RTO=" + RTO + "）：重传最老的未确认段（第 " + old.g + " 段），因为它的 ACK 迟迟没回来");
+    }
+  } else if (W.mode === "gbn") {
+    const old = T.segs[T.sendBase];
+    if (old && old.state === "inflight" && T.time - old.sentAt >= RTO) {
+      let n = 0;
+      for (let g = T.sendBase; g < T.sendBase + winEff() && (W.mode !== "gbn" || g <= W.total); g++) {
+        const s = T.segs[g];
+        if (s && s.state === "inflight") { s.sentAt = T.time; T.inflight = T.inflight.filter((x) => x.g !== g); T.inflight.push({ g: g, seq: seqOf(g), arriveAt: T.time + RTT_D, lost: false }); T.disp[seqOf(g)] = { g: g, state: "inflight" }; T.enter[seqOf(g)] = T.time; T.st.retrans++; n++; }
+      }
+      if (n) ev.push("⏰ 超时重传（RTO=" + RTO + "）：<b>GBN 从 sendBase=" + T.sendBase + " 开始重传全部 " + n + " 个未确认帧</b>，哪怕其中有些已经正确到达");
+    }
+  } else if (W.mode === "sr") {
+    let n = 0;
+    for (const g in T.segs) {
+      const s = T.segs[g];
+      if (s.state === "inflight" && T.time - s.sentAt >= RTO) {
+        s.sentAt = T.time;
+        T.inflight = T.inflight.filter((x) => x.g !== s.g);
+        T.inflight.push({ g: s.g, seq: seqOf(s.g), arriveAt: T.time + RTT_D, lost: false });
+        T.disp[seqOf(s.g)] = { g: s.g, state: "inflight" };
+        T.enter[seqOf(s.g)] = T.time; T.st.retrans++; n++;
+      }
+    }
+    if (n) ev.push("⏰ 超时重传（RTO=" + RTO + "）：<b>SR 只重传超时的 " + n + " 个帧</b>，已确认的帧不受影响");
+  }
+}
+
+function senderPump(ev) {
+  if (W.mode === "flow") {
+    if (T.rwnd === 0) {
+      if (!T.persistAt) { T.persistAt = T.time + 6; T.st.zero++; ev.push("🛑 接收方通告 <b>rwnd = 0（零窗口）</b>：发送方停止发送，启动<b>坚持定时器</b>"); }
+      else if (T.time >= T.persistAt) { T.st.probe++; T.persistAt = T.time + 6; T.inflight.push({ g: -1, probe: true, arriveAt: T.time + RTT_D, lost: false }); ev.push("🔍 坚持定时器到期：发送 <b>1 字节窗口探测报文</b>，逼接收方通报最新窗口（防止窗口重新打开的通知丢失后双方死等）"); }
+      return;
+    }
+    if (T.persistAt) { T.persistAt = 0; ev.push("✅ 接收窗口重新打开（rwnd=" + T.rwnd + "），发送方恢复发送"); }
+    let n = 0;
+    while (T.nextSeq < T.sendBase + Math.min(W.winMax, T.rwnd)) { sendSeg(T.nextSeq, false, []); T.nextSeq++; n++; }
+    if (n) ev.push("窗口内有空间 → <b>连续发出 " + n + " 个新报文段</b>（第 " + (T.nextSeq - n) + "~" + (T.nextSeq - 1) + " 段），都在窗口内");
+    return;
+  }
+  let n = 0;
+  while (T.nextSeq <= W.total && T.nextSeq < T.sendBase + W.winMax) { sendSeg(T.nextSeq, false, []); T.nextSeq++; n++; }
+  if (n) ev.push("发送窗口内有空间 → 连续发出 " + n + " 个新报文段（第 " + (T.nextSeq - n) + "~" + (T.nextSeq - 1) + " 段）");
+}
+
+function appRead(ev) {
+  if (W.mode !== "flow") return;
+  if (T.time - T.lastRead < 3) return;
+  T.lastRead = T.time;
+  if (T.rcvOcc > 0) {
+    T.rcvOcc--;
+    const before = T.rwnd; T.rwnd = W.recvBuf - T.rcvOcc;
+    ev.push("应用层读走 1 段数据，接收缓冲区腾出空间：rwnd " + before + " → " + T.rwnd);
+    if (before === 0 && T.rwnd > 0) { T.st.winUpdate++; sendAck(T.rcvExpect, ev, "窗口更新通知"); }
+  }
+}
+
+/* ---------------- 单步 ---------------- */
+
+function stepSim() {
+  const ev = [];
+  T.time++;
+  for (let i = T.inflight.length - 1; i >= 0; i--) if (T.inflight[i].arriveAt <= T.time) { const p = T.inflight.splice(i, 1)[0]; onDataArrive(p, ev); }
+  for (let i = T.acks.length - 1; i >= 0; i--) if (T.acks[i].arriveAt <= T.time) { const a = T.acks.splice(i, 1)[0]; onAckArrive(a, ev); }
+  appRead(ev);
+  timeouts(ev);
+  senderPump(ev);
+
+  const unacked = Math.max(0, T.nextSeq - T.sendBase);
+  const cap = Math.max(1, winEff());
+  T.st.utilSum += Math.min(unacked, cap) / cap; T.st.utilN++;
+
+  let done = false;
+  if (W.mode !== "flow" && T.sendBase > W.total) {
+    done = true;
+    ev.push("🎉 全部 " + W.total + " 段都已确认，传输完成：重传 " + T.st.retrans + " 次，窗口利用率 " + utilPct() + "%");
+  }
+  T.event = ev.join("；");
+  T.log = ev.concat(T.log).slice(0, 3);
+  if (!ev.length) T.event = "这一拍没有报文收发，等待 ACK 返回（往返时间 RTT = " + (RTT_D * 2) + " 个时间单位）";
+  render();
+  setNote("<b>t = " + T.time + "：</b>" + T.event, done ? "ok" : (T.event.indexOf("✗") >= 0 || T.event.indexOf("⏰") >= 0 ? "warn" : ""));
+  return !done;
+}
+
+const utilPct = () => T.st.utilN ? Math.round(T.st.utilSum / T.st.utilN * 100) : 0;
+
+function tick() {
+  if (!W.running) return;
+  if (!stepSim()) { pause(); return; }
+  W.timer = setTimeout(tick, W.speed);
+}
+function stopTimer() { if (W.timer) { clearTimeout(W.timer); W.timer = null; } }
+function pause() { stopTimer(); W.running = false; $("btnPlay").textContent = "▶ 播放"; }
+
+/* ---------------- 渲染 ---------------- */
+
+function cellGeom(el) {
+  const total = el.clientWidth || 700;
+  const cw = (total - (SPACE - 1) * GAP) / SPACE;
+  return { cw: cw, left: (i) => i * (cw + GAP), width: (n) => n * cw + (n - 1) * GAP };
+}
+
+function setBrk(el, geo, start, len) {
+  if (len <= 0) { el.style.display = "none"; return; }
+  el.style.display = "block";
+  el.style.left = geo.left(start) + "px";
+  el.style.width = Math.max(6, geo.width(len)) + "px";
+}
+
+function render() {
+  const geo = cellGeom($("sStrip"));
+  const win = winEff();
+  const keepFrom = T.sendBase - Math.max(0, SPACE - Math.min(win, SPACE));  // 太老的条目光标已绕回过，作废
+  const rKeep = W.mode === "flow" ? T.rcvExpect - SPACE : -1e9;
+
+  // --- 发送方格子 ---
+  for (let i = 0; i < SPACE; i++) {
+    const c = sCells[i];
+    let d = T.disp[i];
+    if (d && d.g < keepFrom) { delete T.disp[i]; d = undefined; }
+    let cls = "cell";
+    const gAbs = d ? d.g : -1;
+    const inWindow = d ? (d.g >= T.sendBase && d.g < T.sendBase + win) : (((i - seqOf(T.sendBase) + SPACE) % SPACE) < win);
+    if (d && d.state === "acked") cls += " acked";
+    else if (d && d.state === "lost") cls += " lost clickable";
+    else if (d && d.state === "inflight") cls += " inflight clickable";
+    else if (inWindow) cls += " sendable";
+    if (T.enter[i] === T.time) cls += " enter";
+    if (W.mode === "sr" && T.rcvBuf[gAbs >= 0 ? gAbs : -99]) cls += " rcvbuf";
+    c.className = cls;
+    const lbl = d ? "第" + d.g + "段" : "";
+    c.children[0].textContent = lbl;
+    c.title = d ? ("第 " + d.g + " 段" + (d.state === "acked" ? "（已确认）" : d.state === "lost" ? "（丢失，点击可重传标记）" : "（在途，点击可丢包）")) : "";
+  }
+
+  // --- 窗口括号（可能跨越序号空间末尾，拆成两段）---
+  const baseIdx = seqOf(T.sendBase), len = Math.min(win, SPACE);
+  if (len <= 0) { setBrk($("brk1"), geo, 0, 0); setBrk($("brk2"), geo, 0, 0); }
+  else if (baseIdx + len <= SPACE) { setBrk($("brk1"), geo, baseIdx, len); setBrk($("brk2"), geo, 0, 0); }
+  else { setBrk($("brk1"), geo, baseIdx, SPACE - baseIdx); setBrk($("brk2"), geo, 0, len - (SPACE - baseIdx)); }
+
+  // --- 接收方格子 ---
+  for (let i = 0; i < SPACE; i++) {
+    const c = rCells[i];
+    let d = T.rcvDisp[i];
+    if (d && d.g < rKeep) { delete T.rcvDisp[i]; d = undefined; }
+    let cls = "cell";
+    if (d && d.state === "delivered") cls += " acked";
+    else if (d && d.state === "buffered") cls += " rcvbuf inflight";
+    else if (d && d.state === "discarded") cls += " lost";
+    c.className = cls;
+    c.children[0].textContent = d ? "第" + d.g + "段" : "";
+    c.title = d ? (d.state === "delivered" ? "已按序交付" : d.state === "buffered" ? "乱序到达，暂存在接收缓冲区" : "被丢弃") : "";
+  }
+
+  // --- 文字信息 ---
+  $("pillBase").textContent = "sendBase = " + T.sendBase;
+  $("pillNext").textContent = "nextSeq = " + T.nextSeq;
+  $("pillWin").textContent = "发送窗口 = " + win + (W.mode === "flow" ? "（= min(cwnd " + W.winMax + ", rwnd " + T.rwnd + ")）" : "");
+  const pr = $("pillRwnd");
+  pr.textContent = W.mode === "flow" ? "rwnd = " + T.rwnd : "接收方窗口 = " + (W.mode === "sr" ? W.winMax : 1);
+  pr.className = "pill" + (W.mode === "flow" && T.rwnd === 0 ? " zero" : "");
+  $("pillNote").innerHTML = T.rwnd === 0 && W.mode === "flow"
+    ? "零窗口！坚持定时器 " + (T.persistAt ? "还剩 " + Math.max(0, T.persistAt - T.time) + " 拍" : "已停止")
+    : "窗口内已发送未确认 " + Math.max(0, T.nextSeq - T.sendBase) + " 段";
+  $("winTxt").textContent = W.mode === "flow" ? "紫色内框 = 接收方已缓存（乱序）" : "";
+
+  const rn = $("rcvNote");
+  if (W.mode === "flow") {
+    $("pillRcv").textContent = "期望序号 = " + T.rcvExpect;
+    $("pillRcv").className = "pill" + (T.rwnd === 0 ? " zero" : " ok");
+    rn.innerHTML = "接收缓冲区占用 " + T.rcvOcc + "/" + W.recvBuf + "（彩色格 = 已收到并交付；应用层每 3 拍读走 1 段）";
+    $("rcvTxt").textContent = "rwnd = 缓冲区容量 " + W.recvBuf + " − 占用 " + T.rcvOcc + " = " + T.rwnd;
+  } else {
+    $("pillRcv").textContent = "期望序号 = " + T.rcvExpect;
+    $("pillRcv").className = "pill ok";
+    rn.innerHTML = W.mode === "gbn"
+      ? "GBN：接收窗口 = 1，只按序接收，乱序帧一律丢弃（已丢弃 " + T.st.discard + " 个）"
+      : "SR：接收窗口 = " + W.winMax + "，乱序帧先缓存（当前缓存 " + Object.keys(T.rcvBuf).length + " 个）";
+    $("rcvTxt").textContent = "";
+  }
+
+  // --- 链路 ---
+  let lk = "";
+  T.inflight.forEach((p) => { lk += p.probe ? '<span class="pkt">🔍 窗口探测 → 到达 t=' + p.arriveAt + "</span>" : '<span class="pkt">→ 第 ' + p.g + " 段（seq=" + p.seq + "）到达 t=" + p.arriveAt + "</span>"; });
+  T.acks.forEach((a) => { lk += '<span class="pkt back">← ACK ack=' + a.no + (a.rwnd !== undefined ? " rwnd=" + a.rwnd : "") + " 到达 t=" + a.arriveAt + "</span>"; });
+  $("linkRow").innerHTML = lk || '<span style="color:#cbd5e1">（链路上没有未确认的报文）</span>';
+
+  // --- 事件日志 ---
+  let lg = "";
+  T.log.forEach((e, i) => { lg += "<div style=\"opacity:" + (1 - i * 0.28) + '">' + (i === 0 ? "▸ " : "· ") + e.replace(/<b>|<\/b>/g, "") + "</div>"; });
+  $("logRow").innerHTML = lg || '<div style="color:#cbd5e1">（暂无事件）</div>';
+
+  // --- 统计 ---
+  $("stSent").textContent = T.st.sent;
+  $("stAcked").textContent = T.st.acked;
+  $("stRe").textContent = T.st.retrans;
+  $("stUtil").textContent = utilPct() + "%";
+  $("stTime").textContent = T.time;
+  if (W.mode === "flow") $("stExtraWrap").innerHTML = "零窗口 <b>" + T.st.zero + "</b> 次 / 探测 <b>" + T.st.probe + "</b> 次 / 窗口更新 <b>" + T.st.winUpdate + "</b> 次";
+  else $("stExtraWrap").innerHTML = "丢弃帧 <b>" + T.st.discard + "</b> / 重复 ACK <b>" + T.st.dup + "</b>";
+
+  $("modeInfo").textContent = W.mode === "flow" ? "流量控制（发送窗口 = min(cwnd, rwnd)）"
+    : W.mode === "gbn" ? "连续 ARQ · GBN：累计确认 + 超时重传全部未确认帧" : "连续 ARQ · SR：选择确认 + 只重传丢失帧";
+}
+
+function setNote(html, cls) {
+  const el = $("note");
+  el.className = "note" + (cls ? " " + cls : "");
+  el.innerHTML = "<b>当前步骤：</b>" + html;
+}
+
+function updateDesc() {
+  $("desc").innerHTML = "<b>滑动窗口怎么实现流量控制：</b>接收方在每次 ACK 里通告自己的接收窗口 rwnd（= 接收缓冲区剩余空间）。发送方把「已发送未确认 + 可发送」的总量限制在 min(cwnd, rwnd) 之内，rwnd 变小时窗口自动收缩，rwnd = 0 时停止发送并启动坚持定时器周期性探测，避免接收方缓冲区溢出。<br>" +
+    "<b>滑动窗口怎么实现可靠传输：</b>窗口内已发送的段都保留副本，收到确认后窗口左沿（sendBase）前移、副本才能丢弃；超时未确认就重传，因此不需要给每个段都单独等确认，可以连续发送（流水线），大幅提高吞吐率。<br>" +
+    "<b>GBN 与 SR 的差异：</b>GBN 用<b>累计确认</b>，接收窗口为 1，只按序接收，一旦第 N 帧丢失，其后到达的帧全部被丢弃并重复确认，超时后<b>从 N 开始重传所有未确认帧</b>（实现简单、浪费带宽）。SR 用<b>选择确认</b>，接收方缓存乱序帧，<b>只重传真正丢失的帧</b>（效率高，但需要缓存和逐帧定时器）。<br>" +
+    "<b>序号空间与窗口大小的关系：</b>序号用 n 位表示（本例 16 个序号）时，GBN 的发送窗口必须 ≤ 2ⁿ−1，SR 的窗口必须 ≤ 2ⁿ⁻¹，否则新旧报文无法区分，接收方会把重传的旧帧误当成新帧。";
+}
+
+/* ---------------- 控件 ---------------- */
+
+function buildParams() {
+  const p = $("params");
+  if (W.mode === "flow") {
+    p.innerHTML = '<label>缓冲区容量</label><select id="pBuf"></select><label>发送窗口上限 cwnd</label><select id="pWin"></select>';
+    fill($("pBuf"), 2, 10, W.recvBuf);
+    fill($("pWin"), 2, 7, W.winMax);
+    $("pBuf").onchange = () => { W.recvBuf = +$("pBuf").value; resetSim(); };
+    $("pWin").onchange = () => { W.winMax = +$("pWin").value; resetSim(); };
+  } else {
+    p.innerHTML = '<label>发送窗口</label><select id="pWin"></select><label>数据总量</label><select id="pTot"></select>' +
+      '<button class="btn-ghost" id="btnAck">下一次 ACK 丢失</button>';
+    fill($("pWin"), 2, 7, W.winMax);
+    fill($("pTot"), 6, 16, W.total);
+    $("pWin").onchange = () => { W.winMax = +$("pWin").value; resetSim(); };
+    $("pTot").onchange = () => { W.total = +$("pTot").value; resetSim(); };
+    $("btnAck").onclick = () => { ackLoseNext = !ackLoseNext; $("btnAck").className = ackLoseNext ? "btn-ghost on" : "btn-ghost"; };
+  }
+}
+function fill(el, a, b, v) {
+  el.innerHTML = "";
+  for (let i = a; i <= b; i++) { const o = document.createElement("option"); o.value = i; o.textContent = i; el.appendChild(o); }
+  el.value = v;
+}
+
+$("modeSel").onchange = () => { W.mode = $("modeSel").value; buildParams(); resetSim(); };
+$("btnPlay").onclick = () => {
+  if (W.running) { pause(); return; }
+  W.running = true; $("btnPlay").textContent = "⏸ 暂停"; tick();
+};
+$("btnStep").onclick = () => { pause(); stepSim(); };
+$("btnReset").onclick = () => resetSim();
+document.querySelectorAll(".speed-group button").forEach((b) => {
+  b.onclick = () => {
+    document.querySelectorAll(".speed-group button").forEach((x) => x.classList.remove("active"));
+    b.classList.add("active"); W.speed = +b.dataset.speed;
+  };
+});
+
+$("sStrip").onclick = (e) => {
+  const c = e.target.closest ? e.target.closest(".cell") : null;
+  if (!c) return;
+  const i = +c.dataset.seq, d = T.disp[i];
+  if (!d || (d.state !== "inflight" && d.state !== "lost")) { setNote("只能点击<b>琥珀色（已发送未确认）</b>的格子来人为制造丢包；绿色表示已被确认，蓝色表示还没发送。", "warn"); return; }
+  const s = T.segs[d.g];
+  if (!s) return;
+  s.lost = true; d.state = "lost";
+  T.inflight.forEach((x) => { if (x.g === d.g) x.lost = true; });
+  setNote("已人为设置<b>丢包</b>：第 " + d.g + " 段（seq=" + i + "）将在到达接收方时被丢弃，观察发送方如何重传（GBN 会连带重传后面所有未确认帧，SR 只重传它自己）。", "warn");
+  render();
+};
+
+let rzTimer = null;
+window.addEventListener("resize", () => {
+  if (rzTimer) clearTimeout(rzTimer);
+  rzTimer = setTimeout(() => { rzTimer = null; render(); }, 120);
+});
+
+buildParams();
+updateDesc();
+resetSim();
+</script>
+</body>
+</html>

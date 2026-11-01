@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>连续内存分配算法可视化</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f8fafc; color: #1e293b; padding: 16px; }
+  .wrap { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+  .head { background: linear-gradient(135deg, #0ea5e9, #14b8a6); color: #fff; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; }
+  .head h1 { font-size: 16px; font-weight: 600; }
+  .head .info { font-size: 12px; opacity: .92; }
+  .controls { padding: 8px 16px; display: flex; flex-wrap: wrap; gap: 7px; align-items: center; border-bottom: 1px solid #eef2f7; }
+  .controls label { font-size: 12px; color: #64748b; }
+  select, input[type=text], input[type=number] { font-size: 13px; padding: 4px 8px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; outline: none; color: #1e293b; }
+  input[type=number] { width: 68px; }
+  input[type=text] { width: 48px; text-align: center; }
+  select:focus, input:focus { border-color: #6366f1; }
+  button { font-size: 13px; padding: 5px 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all .15s; }
+  .btn-primary { background: #6366f1; color: #fff; }
+  .btn-primary:hover { background: #4f46e5; }
+  .btn-ghost { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+  .btn-ghost:hover { background: #e2e8f0; }
+  .btn-sm { padding: 4px 10px; font-size: 12px; }
+  .presets { display: flex; gap: 5px; flex-wrap: wrap; }
+  .presets button { font-size: 11.5px; padding: 3px 8px; }
+  .spacer { flex: 1; }
+  .speed-group { display: flex; gap: 4px; }
+  .speed-group button { padding: 4px 10px; font-size: 12px; }
+  .speed-group .active { background: #6366f1; color: #fff; border-color: #6366f1; }
+  .stats { padding: 7px 16px; display: flex; gap: 14px; font-size: 12px; color: #64748b; border-bottom: 1px solid #eef2f7; flex-wrap: wrap; }
+  .stats b { color: #1e293b; font-variant-numeric: tabular-nums; }
+  .stage { padding: 8px 14px 4px; }
+  .stitle { font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 5px; }
+  .stitle span { font-weight: 400; color: #94a3b8; }
+  .bar { display: flex; height: 58px; border-radius: 9px; overflow: hidden; border: 1px solid #e2e8f0; background: #fff; }
+  .blk { display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; white-space: nowrap; font-size: 10.5px; line-height: 1.25; transition: width .25s ease; border-right: 1px solid rgba(255,255,255,.6); }
+  .blk:last-child { border-right: none; }
+  .blk.alloc { color: #fff; font-weight: 600; }
+  .blk.free { background: repeating-linear-gradient(45deg, #f1f5f9, #f1f5f9 5px, #e2e8f0 5px, #e2e8f0 10px); color: #475569; }
+  .blk.hl { box-shadow: inset 0 0 0 3px #f59e0b; }
+  .blk.hl-merge { box-shadow: inset 0 0 0 3px #8b5cf6; }
+  .blk.fail { box-shadow: inset 0 0 0 3px #ef4444; }
+  .blk .nm { font-size: 11px; }
+  .blk .sz { font-size: 9.5px; opacity: .92; }
+  .blk .ad { font-size: 9px; opacity: .75; }
+  .axis { display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8; padding: 3px 2px 6px; }
+  .ops { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; font-size: 11px; color: #64748b; min-height: 24px; padding-bottom: 4px; }
+  .opchip { display: inline-block; padding: 1px 6px; border-radius: 6px; background: #f8fafc; color: #94a3b8; font-family: ui-monospace, Consolas, monospace; font-size: 11px; border: 1px solid #eef2f7; }
+  .opchip.done { background: #f1f5f9; color: #64748b; }
+  .opchip.free { background: #fef3c7; color: #b45309; border-color: #fde68a; }
+  .opchip.cur { outline: 2px solid #6366f1; background: #e0e7ff; color: #3730a3; font-weight: 700; border-color: #c7d2fe; }
+  table.cmp { width: 100%; border-collapse: collapse; font-size: 11px; }
+  table.cmp th, table.cmp td { border: 1px solid #eef2f7; padding: 3px 5px; text-align: center; font-variant-numeric: tabular-nums; }
+  table.cmp th { background: #f8fafc; color: #64748b; font-weight: 500; }
+  table.cmp td.name { text-align: left; color: #475569; white-space: nowrap; }
+  table.cmp tr.cur td { background: #eef2ff; color: #3730a3; font-weight: 700; }
+  table.cmp td.best { color: #059669; font-weight: 700; }
+  table.cmp td.warn { color: #dc2626; font-weight: 700; }
+  .hint { font-size: 11.5px; color: #94a3b8; padding: 4px 0 8px; }
+  .note { margin: 0 14px 6px; padding: 6px 10px; border-left: 3px solid #6366f1; background: #f8fafc; border-radius: 0 8px 8px 0; font-size: 12px; color: #334155; line-height: 1.6; min-height: 32px; }
+  .note.warn { border-left-color: #ef4444; background: #fef2f2; color: #b91c1c; }
+  .legend { padding: 2px 14px 6px; display: flex; gap: 14px; font-size: 11px; color: #64748b; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+  .desc { padding: 8px 16px 14px; border-top: 1px solid #eef2f7; font-size: 11.5px; color: #475569; line-height: 1.65; }
+  .desc b { color: #334155; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>🧱 连续内存分配算法可视化</h1>
+    <span class="info" id="headInfo">首次适应 · 640 KB</span>
+  </div>
+
+  <div class="controls">
+    <label>算法</label>
+    <select id="algoSel">
+      <option value="first">首次适应 First Fit</option>
+      <option value="best">最佳适应 Best Fit</option>
+      <option value="worst">最坏适应 Worst Fit</option>
+      <option value="next">邻近适应 Next Fit</option>
+    </select>
+    <label>内存总大小</label><input type="number" id="totalIn" value="640" min="8" max="65536"><span style="font-size:12px;color:#64748b">KB</span>
+    <label>作业</label>
+    <input type="text" id="jobName" value="A">
+    <input type="number" id="jobSize" value="130" min="1">
+    <button class="btn-ghost btn-sm" id="btnAlloc">＋ 分配</button>
+    <label>回收</label>
+    <select id="freeSel" style="min-width:64px"></select>
+    <button class="btn-ghost btn-sm" id="btnFree">－ 回收</button>
+  </div>
+
+  <div class="controls">
+    <span class="presets" id="presets"></span>
+    <label>碎片阈值</label><input type="number" id="fragTh" value="64" min="1"><span style="font-size:12px;color:#64748b">KB</span>
+    <span class="spacer"></span>
+    <div class="speed-group">
+      <button class="btn-ghost" data-speed="900">慢</button>
+      <button class="btn-ghost active" data-speed="450">中</button>
+      <button class="btn-ghost" data-speed="130">快</button>
+    </div>
+    <button class="btn-primary" id="btnPlay">▶ 播放</button>
+    <button class="btn-ghost" id="btnStep">单步</button>
+    <button class="btn-ghost" id="btnReset">↺ 重置</button>
+  </div>
+
+  <div class="stats">
+    <span>空闲分区数 <b id="statFreeN">1</b></span>
+    <span>空闲总量 <b id="statFreeTot">640</b> KB</span>
+    <span>外部碎片 <b id="statFrag">0</b> KB</span>
+    <span>内存利用率 <b id="statUtil">0%</b></span>
+    <span>状态 <b id="statState">就绪</b></span>
+  </div>
+
+  <div class="stage">
+    <div class="stitle">内存分区图 <span>（按地址从左到右；斜纹＝空闲区）</span></div>
+    <div class="bar" id="bar"></div>
+    <div class="axis" id="axis"></div>
+    <div class="ops" id="opsRow"></div>
+    <div id="cmpBox"></div>
+  </div>
+
+  <div class="note" id="note"></div>
+
+  <div class="legend">
+    <span><i style="background:#6366f1"></i>已分配作业</span>
+    <span><i style="background:#e2e8f0"></i>空闲区（斜纹）</span>
+    <span><i style="background:#f59e0b"></i>本步选中的空闲区</span>
+    <span><i style="background:#8b5cf6"></i>合并后的空闲区</span>
+    <span><i style="background:#ef4444"></i>分配失败</span>
+  </div>
+
+  <div class="desc" id="desc"></div>
+</div>
+
+<script>
+"use strict";
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+
+  var PALETTE = ["#6366f1", "#0ea5e9", "#10b981", "#f59e0b", "#ec4899", "#8b5cf6", "#14b8a6", "#f43f5e", "#84cc16", "#0284c7"];
+  var ALGO_NAME = { first: "首次适应", best: "最佳适应", worst: "最坏适应", next: "邻近适应" };
+  var ALGO_KEYS = ["first", "best", "worst", "next"];
+  var ALGO_DESC = {
+    first: "首次适应：从低地址开始顺序查找，<b>找到第一个装得下的空闲区就用</b>，不再比较后面是否有更合适的。实现最简单、开销小，通常性能接近最佳适应；缺点是低地址会不断被切碎，留下越来越多小碎片。",
+    best: "最佳适应：在所有装得下的空闲区中选<b>最小</b>的那块。看似最省空间，实际最容易留下极小的、谁都装不下的碎片（外部碎片最多），而且每次都要遍历全部空闲区，开销最大。",
+    worst: "最坏适应：在所有装得下的空闲区中选<b>最大</b>的那块，切走所需部分后剩下的余量还比较大、还能继续用。缺点是会迅速把大空闲区切碎，等到来了大作业反而没有连续空间可用。",
+    next: "邻近适应（循环首次适应）：不是每次都从低地址开始，而是<b>从上次分配结束的位置</b>继续向后查找，找到末尾就回到开头（循环）。它让空闲区分布更均匀、查找开销小，但会破坏低地址的大空闲区，整体效果常常比首次适应还差。"
+  };
+
+  var PRESETS = [
+    { label: "序列一 · 交替分配回收", total: 640,
+      ops: [["A", 130], ["B", 60], ["C", 100], ["D", 50], ["-", "B"], ["E", 90], ["-", "C"], ["F", 120]] },
+    { label: "序列二 · 小内存造碎片", total: 256,
+      ops: [["A", 40], ["B", 80], ["C", 30], ["-", "B"], ["D", 60], ["E", 45]] },
+    { label: "序列三 · 大作业挤压", total: 512,
+      ops: [["A", 200], ["B", 100], ["C", 150], ["-", "A"], ["D", 120], ["E", 180]] }
+  ];
+
+  var state = { algo: "first", total: 640, fragTh: 64, ops: [], frames: [], idx: 0, uiErr: "" };
+
+  /* ---------------- 模拟核心 ---------------- */
+
+  function simulate(algo, ops, total, fragTh) {
+    var blocks = [{ id: 0, start: 0, size: total, type: "free", name: null, color: null }];
+    var bid = 1, colorN = 0, colorMap = {};
+    var frames = [], ptr = 0;
+
+    function colorOf(n) { if (!colorMap[n]) { colorMap[n] = PALETTE[colorN % PALETTE.length]; colorN++; } return colorMap[n]; }
+    function snap() {
+      return blocks.map(function (b) { return { id: b.id, start: b.start, size: b.size, type: b.type, name: b.name, color: b.color }; });
+    }
+    function stat() {
+      var fc = 0, ft = 0, frag = 0, maxFree = 0;
+      for (var i = 0; i < blocks.length; i++) {
+        var b = blocks[i];
+        if (b.type === "free") { fc++; ft += b.size; if (b.size < fragTh) frag += b.size; if (b.size > maxFree) maxFree = b.size; }
+      }
+      return { freeCount: fc, freeTotal: ft, frag: frag, maxFree: maxFree,
+               used: total - ft, util: total > 0 ? (total - ft) / total * 100 : 0 };
+    }
+    function push(tag, note, hl, oi, fail) {
+      frames.push({ tag: tag, note: note, hl: hl || [], opIndex: oi, fail: !!fail, blocks: snap(), stat: stat() });
+    }
+    function freeListStr() {
+      var s = [];
+      for (var i = 0; i < blocks.length; i++) if (blocks[i].type === "free") s.push(blocks[i].size + "KB@" + blocks[i].start);
+      return s.length ? s.join("、") : "（无空闲区）";
+    }
+
+    ops.forEach(function (op, oi) {
+      if (op.type === "alloc") {
+        var name = op.name, need = op.size, i;
+        var dup = false;
+        for (i = 0; i < blocks.length; i++) if (blocks[i].type === "alloc" && blocks[i].name === name) dup = true;
+        if (dup) { push("跳过", "作业 " + name + " 已经在内存中，本次分配被忽略。", [], oi); return; }
+        if (need > total) {
+          push("分配失败", "❌ 作业 " + name + " 需要 " + need + "KB，<b>超过内存总大小 " + total + "KB</b>，无论用什么算法都不可能装入。", [], oi, true);
+          return;
+        }
+
+        var cands = [];
+        for (i = 0; i < blocks.length; i++) if (blocks[i].type === "free" && blocks[i].size >= need) cands.push(i);
+        if (cands.length === 0) {
+          push("分配失败",
+            "❌ <b>分配失败</b>：当前没有任何一个空闲区能装下 " + need + "KB（最大空闲区只有 " + stat().maxFree +
+            "KB）。此时内存空闲总量为 " + stat().freeTotal + "KB，够用却被割裂成 " + stat().freeCount +
+            " 块 —— 这就是<b>外部碎片</b>：空闲总量足够，但没有一块<b>连续</b>的空闲区够大。可先回收作业、做紧凑（拼接），或换一种分配算法。",
+            [], oi, true);
+          return;
+        }
+
+        var chosen = null, why = "";
+        var candStr = cands.map(function (k) { return blocks[k].size + "KB@" + blocks[k].start; }).join("、");
+        if (algo === "first") {
+          chosen = blocks[cands[0]];
+          why = "<b>首次适应</b>：从低地址开始顺序查找空闲区，当前空闲区依次为 " + freeListStr() +
+                "；<b>第一个装得下 " + need + "KB 的是 " + chosen.size + "KB@" + chosen.start + "</b>，立即选用它，不再比较后面是否有更合适的。";
+        } else if (algo === "best") {
+          var bi = cands[0];
+          for (i = 1; i < cands.length; i++) {
+            if (blocks[cands[i]].size < blocks[bi].size ||
+               (blocks[cands[i]].size === blocks[bi].size && blocks[cands[i]].start < blocks[bi].start)) bi = cands[i];
+          }
+          chosen = blocks[bi];
+          why = "<b>最佳适应</b>：能装下 " + need + "KB 的空闲区有 " + candStr + "，其中<b>最小的是 " + chosen.size + "KB@" + chosen.start +
+                "</b>，选它 → 切走后剩余最少，看似最省，但留下的余量也最小、最容易变成装不下任何作业的碎片。";
+        } else if (algo === "worst") {
+          var wi = cands[0];
+          for (i = 1; i < cands.length; i++) {
+            if (blocks[cands[i]].size > blocks[wi].size ||
+               (blocks[cands[i]].size === blocks[wi].size && blocks[cands[i]].start < blocks[wi].start)) wi = cands[i];
+          }
+          chosen = blocks[wi];
+          why = "<b>最坏适应</b>：能装下 " + need + "KB 的空闲区有 " + candStr + "，其中<b>最大的是 " + chosen.size + "KB@" + chosen.start +
+                "</b>，选它 → 切走后还能留下较大的空闲区继续使用，但大空闲区会被很快切碎。";
+        } else {
+          var startIdx = -1;
+          for (i = 0; i < blocks.length; i++) { if (blocks[i].start >= ptr) { startIdx = i; break; } }
+          var seq = startIdx >= 0 ? blocks.slice(startIdx).concat(blocks.slice(0, startIdx)) : blocks.slice();
+          for (i = 0; i < seq.length; i++) { if (seq[i].type === "free" && seq[i].size >= need) { chosen = seq[i]; break; } }
+          if (!chosen) {
+            for (i = 0; i < blocks.length; i++) { if (blocks[i].type === "free" && blocks[i].size >= need) { chosen = blocks[i]; break; } }
+          }
+          why = "<b>邻近适应（循环首次适应）</b>：不是每次从低地址开始，而是从<b>上次分配结束的位置（地址 " + ptr +
+                "）</b>向后查找，找到的第一个装得下 " + need + "KB 的空闲区是 <b>" + chosen.size + "KB@" + chosen.start +
+                "</b>，选它；如果一直找到内存末尾都没有合适的，就回到内存开头继续找（循环）。";
+        }
+
+        push("查找", why, [chosen.id], oi);
+        var rest = chosen.size - need;
+        var pos = blocks.indexOf(chosen);
+        var allocBlock = { id: bid++, start: chosen.start, size: need, type: "alloc", name: name, color: colorOf(name) };
+        var splitNote;
+        if (rest === 0) {
+          blocks.splice(pos, 1, allocBlock);
+          splitNote = "该空闲区大小恰好等于需求，<b>整块分配</b>给作业 " + name + "（地址 " + allocBlock.start + " ~ " + (allocBlock.start + need - 1) + "），没有产生剩余空闲区。";
+        } else {
+          var rem = { id: bid++, start: chosen.start + need, size: rest, type: "free", name: null, color: null };
+          blocks.splice(pos, 1, allocBlock, rem);
+          splitNote = "<b>从空闲区 " + chosen.size + "KB@" + chosen.start + " 的头部切走 " + need + "KB</b> 给作业 " + name +
+                      "（占用地址 " + allocBlock.start + " ~ " + (allocBlock.start + need - 1) + "），<b>剩余 " + rest +
+                      "KB 仍在地址 " + rem.start + " 处空闲</b>。";
+        }
+        ptr = allocBlock.start + allocBlock.size;
+        push(rest === 0 ? "整块分配" : "切割分配", splitNote + " 分配后：空闲分区 " + stat().freeCount + " 个、空闲总量 " +
+          stat().freeTotal + "KB、外部碎片 " + stat().frag + "KB（<" + fragTh + "KB 的小空闲区之和）、利用率 " +
+          stat().util.toFixed(1) + "%。", [allocBlock.id], oi);
+      } else {
+        /* 回收 */
+        var nm = op.name, target = null;
+        for (var k = 0; k < blocks.length; k++) if (blocks[k].type === "alloc" && blocks[k].name === nm) { target = blocks[k]; break; }
+        if (!target) { push("跳过", "作业 " + nm + " 当前不在内存中（可能之前的分配失败了，或已被回收），本次回收被忽略。", [], oi); return; }
+        var tStart = target.start, tSize = target.size;
+        target.type = "free"; target.name = null; target.color = null;
+        push("回收", "回收作业 " + nm + "：地址 " + tStart + " ~ " + (tStart + tSize - 1) + " 的 " + tSize +
+          "KB 分区变为空闲区。<b>接下来要检查它能否与前后相邻的空闲区合并</b>——合并能减少空闲区数量、扩大连续空间，是减少外部碎片的关键。", [target.id], oi);
+        var merged = false;
+        var p1 = blocks.indexOf(target);
+        if (p1 > 0 && blocks[p1 - 1].type === "free") {
+          var lb = blocks[p1 - 1], lbSize = lb.size, lbStart = lb.start;
+          lb.size += target.size;
+          blocks.splice(p1, 1);
+          push("与前方合并", "回收区的<b>前邻</b>也是空闲区 → <b>立即合并</b>：" + lbSize + "KB@" + lbStart + " + " + tSize + "KB@" + tStart +
+            " = <b>" + lb.size + "KB@" + lb.start + "</b>。空闲分区数减少 1。", [lb.id], oi);
+          target = lb; merged = true;
+        }
+        var p2 = blocks.indexOf(target);
+        if (p2 >= 0 && p2 + 1 < blocks.length && blocks[p2 + 1].type === "free") {
+          var rb = blocks[p2 + 1], rbSize = rb.size, rbStart = rb.start;
+          target.size += rb.size;
+          blocks.splice(p2 + 1, 1);
+          push("与后方合并", "合并后的空闲区<b>后邻</b>仍是空闲区 → 继续合并：" + (target.size - rbSize) + "KB@" + target.start + " + " +
+            rbSize + "KB@" + rbStart + " = <b>" + target.size + "KB@" + target.start + "</b>。空闲分区数再减少 1。", [target.id], oi);
+          merged = true;
+        }
+        if (!merged) {
+          push("无法合并", "这个空闲区的<b>前邻和后邻都在使用中（都是已分配作业）</b>，没有可以合并的对象，它只能作为一个独立的 " +
+            tSize + "KB 空闲区存在。当它小于常见的作业需求时，就成了谁也用不上的<b>外部碎片</b>——反复分配、回收正是碎片累积的原因。",
+            [target.id], oi);
+        }
+      }
+    });
+
+    return frames;
+  }
+
+  /* ---------------- 重新布局 ---------------- */
+
+  function relayout(gotoOpIndex) {
+    var total = state.total, fragTh = state.fragTh;
+    state.frames = simulate(state.algo, state.ops, total, fragTh);
+    if (state.frames.length === 0) { state.idx = 0; }
+    else if (gotoOpIndex === undefined || gotoOpIndex === null) { state.idx = state.frames.length - 1; }
+    else {
+      var k = 0;
+      for (var i = 0; i < state.frames.length; i++) { if (state.frames[i].opIndex === gotoOpIndex) { k = i; break; } }
+      state.idx = k;
+    }
+    refreshFreeSel();
+    render();
+  }
+
+  function refreshFreeSel() {
+    var sel = $("freeSel");
+    var names = [];
+    if (state.frames.length) {
+      var last = state.frames[state.frames.length - 1];
+      for (var i = 0; i < last.blocks.length; i++) if (last.blocks[i].type === "alloc") names.push(last.blocks[i].name);
+    }
+    sel.innerHTML = names.length ? names.map(function (n) { return "<option>" + n + "</option>"; }).join("")
+                                 : '<option value="">—</option>';
+    sel.disabled = names.length === 0;
+  }
+
+  function nextName() {
+    var used = {};
+    for (var i = 0; i < state.ops.length; i++) if (state.ops[i].type === "alloc") used[state.ops[i].name] = true;
+    for (var c = 0; c < 26; c++) { var n = String.fromCharCode(65 + c); if (!used[n]) return n; }
+    return "J" + (state.ops.length + 1);
+  }
+
+  /* ---------------- 渲染 ---------------- */
+
+  function blocksOf() {
+    if (state.frames.length === 0) return [{ id: 0, start: 0, size: state.total, type: "free", name: null, color: null }];
+    return state.frames[state.idx].blocks;
+  }
+  function statOf() {
+    var blocks = blocksOf(), fc = 0, ft = 0, frag = 0;
+    for (var i = 0; i < blocks.length; i++) {
+      var b = blocks[i];
+      if (b.type === "free") { fc++; ft += b.size; if (b.size < state.fragTh) frag += b.size; }
+    }
+    return { freeCount: fc, freeTotal: ft, frag: frag, used: state.total - ft,
+             util: state.total > 0 ? (state.total - ft) / state.total * 100 : 0 };
+  }
+
+  function barHtml() {
+    var blocks = blocksOf(), hl = state.frames.length ? state.frames[state.idx].hl : [];
+    var frame = state.frames.length ? state.frames[state.idx] : null;
+    var h = "";
+    for (var i = 0; i < blocks.length; i++) {
+      var b = blocks[i];
+      var pct = state.total > 0 ? b.size / state.total * 100 : 0;
+      var cls = "blk " + (b.type === "alloc" ? "alloc" : "free");
+      if (hl.indexOf(b.id) >= 0) cls += frame && frame.fail ? " fail" : (b.type === "free" && frame && (frame.tag.indexOf("合并") >= 0) ? " hl-merge" : " hl");
+      var inner = "";
+      if (b.type === "alloc") {
+        if (pct >= 4) inner += '<span class="nm">' + b.name + "</span>";
+        if (pct >= 7.5) inner += '<span class="sz">' + b.size + "KB</span>";
+        if (pct >= 17) inner += '<span class="ad">@' + b.start + "</span>";
+      } else {
+        if (pct >= 4) inner += '<span class="nm">空闲</span>';
+        if (pct >= 7.5) inner += '<span class="sz">' + b.size + "KB</span>";
+        if (pct >= 17) inner += '<span class="ad">@' + b.start + "</span>";
+      }
+      h += '<div class="' + cls + '" style="width:' + pct.toFixed(3) + '%;background:' +
+           (b.type === "alloc" ? b.color : "transparent") + '" title="' +
+           (b.type === "alloc" ? "作业 " + b.name : "空闲区") + "：地址 " + b.start + " ~ " + (b.start + b.size - 1) +
+           "，大小 " + b.size + 'KB">' + inner + "</div>";
+    }
+    return h;
+  }
+
+  function axisHtml() {
+    var t = state.total, parts = [];
+    for (var i = 0; i <= 4; i++) {
+      var v = Math.round(t * i / 4);
+      parts.push("<span>" + v + (i === 4 ? " KB" : "") + "</span>");
+    }
+    return parts.join("");
+  }
+
+  function opsHtml() {
+    if (state.ops.length === 0) return '<span style="color:#94a3b8">操作序列为空：请在上方输入作业名与大小后点「＋ 分配」，或点一个预置序列。</span>';
+    var curOp = state.frames.length ? state.frames[state.idx].opIndex : -1;
+    var h = "<span>操作序列：</span>";
+    for (var i = 0; i < state.ops.length; i++) {
+      var o = state.ops[i];
+      var cls = "opchip" + (i < curOp ? " done" : "") + (i === curOp ? " cur" : "") + (o.type === "free" ? " free" : "");
+      h += '<span class="' + cls + '">' + (o.type === "alloc" ? o.name + " +" + o.size : "回收 " + o.name) + "</span>";
+    }
+    return h;
+  }
+
+  function cmpHtml() {
+    if (state.ops.length === 0) return '<div class="hint">载入或构造一组操作后，这里会用<b>同一组作业</b>跑完四种算法并对比最终结果。</div>';
+    var rows = ALGO_KEYS.map(function (k) {
+      var fs = simulate(k, state.ops, state.total, state.fragTh);
+      var last = fs.length ? fs[fs.length - 1].stat : { freeCount: 1, frag: 0, util: 0 };
+      var ok = 0, fail = 0;
+      for (var i = 0; i < fs.length; i++) if (fs[i].fail) fail++;
+      for (var j = 0; j < state.ops.length; j++) if (state.ops[j].type === "alloc") ok++;
+      return { k: k, frames: fs, last: last, ok: ok - fail, fail: fail };
+    });
+    var minFrag = Math.min.apply(null, rows.map(function (r) { return r.last.frag; }));
+    var maxUtil = Math.max.apply(null, rows.map(function (r) { return r.last.util; }));
+    var h = '<table class="cmp"><tr><th style="text-align:left;padding-left:6px">同一组作业 · 四种算法最终结果对比</th>' +
+            "<th>成功分配</th><th>失败</th><th>空闲分区数</th><th>外部碎片(&lt;" + state.fragTh + "KB)</th><th>内存利用率</th></tr>";
+    rows.forEach(function (r) {
+      var cls = r.k === state.algo ? ' class="cur"' : "";
+      h += "<tr" + cls + "><td class='name'>" + ALGO_NAME[r.k] + "</td><td>" + r.ok + "</td><td" +
+        (r.fail > 0 ? ' class="warn"' : "") + ">" + r.fail + "</td><td>" + r.last.freeCount + "</td><td" +
+        (r.last.frag === minFrag && rows.length > 1 && minFrag > 0 ? ' class="best"' : "") + ">" + r.last.frag + "</td><td" +
+        (Math.abs(r.last.util - maxUtil) < 1e-9 ? ' class="best"' : "") + ">" + r.last.util.toFixed(1) + "%</td></tr>";
+    });
+    h += "</table>";
+    return h;
+  }
+
+  function render() {
+    var st = statOf();
+    $("headInfo").textContent = ALGO_NAME[state.algo] + " · " + state.total + " KB";
+    $("statFreeN").textContent = st.freeCount;
+    $("statFreeTot").textContent = st.freeTotal;
+    $("statFrag").textContent = st.frag;
+    $("statUtil").textContent = st.util.toFixed(1) + "%";
+    var frame = state.frames.length ? state.frames[state.idx] : null;
+    $("statState").textContent = state.uiErr ? "输入有误" :
+      (state.ops.length === 0 ? "就绪（无作业）" : (state.idx >= state.frames.length - 1 ? "✅ 序列执行完毕" : "演示中… " + (state.idx + 1) + "/" + state.frames.length));
+
+    $("bar").innerHTML = barHtml();
+    $("axis").innerHTML = axisHtml();
+    $("opsRow").innerHTML = opsHtml();
+    $("cmpBox").innerHTML = cmpHtml();
+
+    var noteEl = $("note");
+    if (state.uiErr) { noteEl.className = "note warn"; noteEl.innerHTML = "⚠️ " + state.uiErr; }
+    else {
+      noteEl.className = "note";
+      noteEl.innerHTML = frame
+        ? "<b>[" + frame.tag + "]</b> " + frame.note
+        : "内存初始为一块 <b>" + state.total + "KB</b> 的连续空闲区（地址 0 ~ " + (state.total - 1) +
+          "）。点击「＋ 分配」加入作业，或载入预置序列后点「▶ 播放」逐步观看分配与回收合并的过程。";
+    }
+
+    $("desc").innerHTML =
+      "<b>当前算法：</b>" + ALGO_DESC[state.algo] + "<br>" +
+      "<b>四种算法怎么选：</b>首次适应最简单、开销小，性能通常与最佳适应相当，实际系统（如早期的可变分区分配）常用；最佳适应每次要遍历所有空闲区，且最容易留下大量小碎片；" +
+      "最坏适应试图保留大空闲区，但它会很快把大块切碎；邻近适应查找开销小、空闲区分布均匀，却会破坏低地址的大空闲区，实测往往不如首次适应。<br>" +
+      "<b>为什么「最佳适应」反而可能产生最多碎片：</b>它每次都挑「刚好够用」的空闲区，切走之后剩下的余量最小 —— 这些零碎余量往往谁都装不下，于是变成再也无法利用的外部碎片。" +
+      "「最省空间」的直接代价就是碎片最多，这也是它名字里的反讽。<br>" +
+      "<b>内部碎片 vs 外部碎片：</b>外部碎片是分区之间那些<b>太小而无法利用</b>的空闲区（本演示按「小于阈值 " + state.fragTh +
+      "KB 的空闲区之和」来度量，可自行调整阈值），总量可能够但都不连续；内部碎片是<b>已经分配给作业的分区内部</b>用不到的那部分，只在固定分区、分页等「按固定单位分配」的方案中才会出现。" +
+      "本演示按需切分，不会产生内部碎片，所以解决之道是回收时合并、必要时做<b>紧凑（拼接）</b>。";
+  }
+
+  /* ---------------- 播放控制 ---------------- */
+
+  var timer = null, speed = 450, playing = false;
+
+  function stopTimer() {
+    if (timer) { clearInterval(timer); timer = null; }
+    playing = false;
+    $("btnPlay").textContent = "▶ 播放";
+  }
+  function tick() {
+    stopTimer();
+    if (state.frames.length === 0) { state.uiErr = "操作序列为空，请先分配作业或载入预置序列。"; render(); return; }
+    if (state.idx >= state.frames.length - 1) state.idx = 0;
+    playing = true;
+    $("btnPlay").textContent = "⏸ 暂停";
+    render();
+    timer = setInterval(function () {
+      if (state.idx >= state.frames.length - 1) { stopTimer(); render(); return; }
+      state.idx++; render();
+    }, speed);
+  }
+
+  /* ---------------- 事件 ---------------- */
+
+  var pw = $("presets");
+  PRESETS.forEach(function (p) {
+    var b = document.createElement("button");
+    b.className = "btn-ghost";
+    b.textContent = p.label;
+    b.onclick = function () {
+      stopTimer(); state.uiErr = "";
+      state.total = p.total;
+      $("totalIn").value = p.total;
+      state.ops = p.ops.map(function (o) {
+        return o[0] === "-" ? { type: "free", name: o[1] } : { type: "alloc", name: o[0], size: o[1] };
+      });
+      $("jobName").value = nextName();
+      relayout(null);
+      state.idx = 0;
+      refreshFreeSel();
+      render();
+    };
+    pw.appendChild(b);
+  });
+
+  $("algoSel").onchange = function () {
+    stopTimer(); state.uiErr = "";
+    if (ALGO_NAME[$("algoSel").value]) state.algo = $("algoSel").value;
+    relayout(null);
+  };
+  $("totalIn").onchange = function () {
+    var v = parseInt($("totalIn").value, 10);
+    if (!(v > 0) || v > 65536) { state.uiErr = "内存总大小需要是不大于 65536 的正整数（KB）。"; render(); return; }
+    state.uiErr = ""; state.total = v; relayout(null);
+  };
+  $("fragTh").onchange = function () {
+    var v = parseInt($("fragTh").value, 10);
+    if (!(v > 0)) { state.uiErr = "碎片阈值需要是正整数（KB）。"; render(); return; }
+    state.uiErr = ""; state.fragTh = v;
+    if (state.ops.length) relayout(null); else render();
+  };
+  $("btnAlloc").onclick = function () {
+    stopTimer(); state.uiErr = "";
+    var name = String($("jobName").value || "").trim();
+    if (!name) name = nextName();
+    if (!/^[A-Za-z0-9\u4e00-\u9fa5]{1,6}$/.test(name)) { state.uiErr = "作业名请用 1~6 个字符（字母 / 数字 / 汉字），以便在内存条带图中显示。"; render(); return; }
+    var size = parseInt($("jobSize").value, 10);
+    if (!(size > 0)) { state.uiErr = "作业大小需要是正整数（KB）。"; render(); return; }
+    if (size > state.total) { state.uiErr = "作业大小 " + size + "KB 超过内存总大小 " + state.total + "KB，请修改后再分配。"; render(); return; }
+    var last = state.frames.length ? state.frames[state.frames.length - 1] : null;
+    if (last) {
+      for (var i = 0; i < last.blocks.length; i++) {
+        if (last.blocks[i].type === "alloc" && last.blocks[i].name === name) {
+          state.uiErr = "作业 " + name + " 已经在内存中，请换一个作业名或先回收它。"; render(); return;
+        }
+      }
+    }
+    state.ops.push({ type: "alloc", name: name, size: size });
+    $("jobName").value = nextName();
+    relayout(state.ops.length - 1);
+  };
+  $("btnFree").onclick = function () {
+    stopTimer(); state.uiErr = "";
+    var nm = $("freeSel").value;
+    if (!nm) { state.uiErr = "当前内存中没有可回收的作业。"; render(); return; }
+    state.ops.push({ type: "free", name: nm });
+    relayout(state.ops.length - 1);
+  };
+  $("btnPlay").onclick = function () { if (playing) { stopTimer(); render(); } else tick(); };
+  $("btnStep").onclick = function () {
+    stopTimer(); state.uiErr = "";
+    if (state.frames.length === 0) { state.uiErr = "操作序列为空，请先分配作业或载入一个预置序列。"; render(); return; }
+    if (state.idx < state.frames.length - 1) { state.idx++; render(); }
+    else { render(); $("note").innerHTML = "<b>[已完成]</b> 序列已经执行完毕（共 " + state.frames.length + " 个演示步骤）。可切换算法对比，或点「↺ 重置」清空后重新构造序列。"; }
+  };
+  $("btnReset").onclick = function () {
+    stopTimer(); state.uiErr = "";
+    state.ops = []; state.idx = 0;
+    $("jobName").value = nextName();
+    relayout(null);
+    $("note").innerHTML = "<b>[重置]</b> 已清空全部作业，内存恢复为一块 " + state.total + "KB 的连续空闲区。可点预置序列或自己添加作业。";
+  };
+  var sbs = document.querySelectorAll(".speed-group button");
+  for (var si = 0; si < sbs.length; si++) {
+    sbs[si].onclick = (function (btn) {
+      return function () {
+        speed = parseInt(btn.dataset.speed, 10);
+        var all = document.querySelectorAll(".speed-group button");
+        for (var k = 0; k < all.length; k++) all[k].classList.toggle("active", all[k] === btn);
+        if (playing) tick();
+      };
+    })(sbs[si]);
+  }
+
+  state.total = 640;
+  relayout(null);
+})();
+</script>
+</body>
+</html>

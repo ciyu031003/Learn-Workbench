@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>指令周期与数据通路可视化</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f8fafc; color: #1e293b; padding: 16px; }
+  .wrap { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+  .head { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; }
+  .head h1 { font-size: 16px; font-weight: 600; }
+  .head .info { font-size: 12px; opacity: .92; font-family: Consolas, Monaco, monospace; }
+  .controls { padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-bottom: 1px solid #eef2f7; }
+  .controls label { font-size: 12px; color: #64748b; }
+  select, button { font-size: 13px; font-family: inherit; }
+  select { padding: 4px 7px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; outline: none; }
+  select:focus { border-color: #6366f1; background: #fff; }
+  button { padding: 6px 13px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all .15s; }
+  .btn-primary { background: #6366f1; color: #fff; }
+  .btn-primary:hover { background: #4f46e5; }
+  .btn-ghost { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+  .btn-ghost:hover { background: #e2e8f0; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .stats { padding: 7px 16px; display: flex; gap: 16px; font-size: 12px; color: #64748b; border-bottom: 1px solid #eef2f7; flex-wrap: wrap; align-items: center; }
+  .stats b { color: #1e293b; font-variant-numeric: tabular-nums; }
+  .speed-group { display: flex; gap: 4px; }
+  .speed-group button { padding: 4px 10px; font-size: 12px; }
+  .speed-group .active { background: #6366f1; color: #fff; }
+  .presets { display: flex; gap: 5px; flex-wrap: wrap; }
+  .presets button { padding: 4px 9px; font-size: 12px; }
+  .msg { margin: 0 16px 8px; padding: 7px 11px; border-radius: 8px; font-size: 12px; background: #fef3c7; color: #92400e; border: 1px solid #fde68a; display: none; }
+  .msg.warn { display: block; }
+  .stage { padding: 10px 16px 6px; }
+  .grid { display: flex; gap: 14px; }
+  .left { flex: 1 1 56%; min-width: 0; }
+  .right { flex: 1 1 44%; min-width: 0; }
+  .panel-t { font-size: 11px; color: #94a3b8; margin-bottom: 5px; letter-spacing: .5px; display: flex; justify-content: space-between; }
+  .panel-t .hint { color: #cbd5e1; letter-spacing: 0; }
+  svg#dp { width: 100%; height: auto; display: block; }
+  .comp .box { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 1.5; }
+  .comp .lb { fill: #334155; }
+  .comp .sb { fill: #94a3b8; }
+  .comp.src .box { fill: #e0e7ff; stroke: #4f46e5; stroke-width: 2.2; }
+  .comp.src .lb { fill: #3730a3; }
+  .comp.dst .box { fill: #dcfce7; stroke: #10b981; stroke-width: 2.2; }
+  .comp.dst .lb { fill: #047857; }
+  .comp.act .box { fill: #fef3c7; stroke: #f59e0b; stroke-width: 2.4; }
+  .comp.act .lb { fill: #b45309; }
+  .oplist { border: 1px solid #eef2f7; border-radius: 10px; max-height: 232px; overflow-y: auto; font-size: 11px; }
+  .oplist .stg { padding: 3px 8px; background: #f8fafc; color: #64748b; font-weight: 600; border-bottom: 1px solid #f1f5f9;
+                 display: flex; justify-content: space-between; position: sticky; top: 0; z-index: 1; }
+  .oplist .op { padding: 3px 8px; border-bottom: 1px solid #f5f7fa; display: flex; gap: 7px;
+                font-family: Consolas, Monaco, monospace; color: #475569; }
+  .oplist .op .ma { color: #94a3b8; flex: 0 0 30px; }
+  .oplist .op.act { background: #eef2ff; box-shadow: inset 2px 0 0 #6366f1; color: #1e293b; font-weight: 700; }
+  .oplist .op.done { opacity: .5; }
+  .oplist .op.idle { color: #cbd5e1; font-style: italic; }
+  .cm { border: 1px solid #eef2f7; border-radius: 10px; padding: 6px 9px; font-size: 11px; line-height: 1.7;
+        color: #475569; font-family: Consolas, Monaco, monospace; min-height: 74px; }
+  .cm b { color: #4f46e5; }
+  .note { margin: 0 16px 8px; padding: 9px 12px; border-radius: 10px; background: #eef2ff; border: 1px solid #e0e7ff;
+          font-size: 12px; color: #3730a3; line-height: 1.8; }
+  .note.plain { background: #f8fafc; border-color: #e2e8f0; color: #64748b; }
+  .note .nt { font-weight: 700; }
+  .note .nw { color: #4338ca; }
+  .note code { font-family: Consolas, Monaco, monospace; background: #fff; border: 1px solid #e0e7ff; padding: 0 3px; border-radius: 3px; }
+  .legend { padding: 4px 16px 8px; display: flex; gap: 12px; font-size: 11px; color: #64748b; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .desc { padding: 10px 16px 14px; border-top: 1px solid #eef2f7; font-size: 12px; color: #475569; line-height: 1.75; }
+  .desc h4 { font-size: 12px; color: #4f46e5; margin: 8px 0 3px; }
+  .desc b { color: #334155; }
+  .desc code { font-family: Consolas, Monaco, monospace; background: #f1f5f9; padding: 0 3px; border-radius: 3px; color: #4338ca; }
+  .prog { height: 4px; background: #eef2f7; border-radius: 2px; overflow: hidden; margin-top: 6px; }
+  .prog i { display: block; height: 100%; width: 0; background: #6366f1; transition: width .15s; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>🔁 指令周期与数据通路</h1>
+    <span class="info" id="cfgInfo">取指 → 间址 → 执行 → 中断</span>
+  </div>
+
+  <div class="controls">
+    <label>指令</label>
+    <select id="preset">
+      <option value="add_imm">ADD #imm 立即寻址</option>
+      <option value="add_dir">ADD X 直接寻址</option>
+      <option value="add_ind" selected>ADD @X 间接寻址</option>
+      <option value="add_int">ADD @X ＋中断（完整指令周期）</option>
+    </select>
+    <label>指令周期</label>
+    <select id="lenMode">
+      <option value="var" selected>不定长（按需取拍）</option>
+      <option value="fixed">定长（各阶段等长）</option>
+    </select>
+    <label>控制器视角</label>
+    <select id="ctrlView">
+      <option value="hard" selected>硬布线（组合逻辑）</option>
+      <option value="micro">微程序（控制存储器 CM）</option>
+    </select>
+    <div class="speed-group">
+      <button data-speed="1500" class="btn-ghost sp">慢</button>
+      <button data-speed="800" class="btn-ghost sp active">中</button>
+      <button data-speed="320" class="btn-ghost sp">快</button>
+    </div>
+    <button class="btn-primary" id="btnPlay">▶ 播放</button>
+    <button class="btn-ghost" id="btnStep">单步</button>
+    <button class="btn-ghost" id="btnPrev">上一步</button>
+    <button class="btn-ghost" id="btnReset">↺ 重置</button>
+  </div>
+
+  <div class="controls" style="padding-top:0">
+    <label>快速切换</label>
+    <div class="presets">
+      <button class="btn-ghost" data-preset="add_imm">立即寻址（节拍最少）</button>
+      <button class="btn-ghost" data-preset="add_dir">直接寻址</button>
+      <button class="btn-ghost" data-preset="add_ind">间接寻址（含间址周期）</button>
+      <button class="btn-ghost" data-preset="add_int">完整指令周期（含中断）</button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <span>当前阶段 <b id="stStage">未开始</b></span>
+    <span>阶段内节拍 <b id="stBeat">—</b></span>
+    <span>微地址 CMAR <b id="stMA">—</b></span>
+    <span>阶段数 <b id="stStages">0</b></span>
+    <span>总节拍 <b id="stTotal">0</b></span>
+    <span>进度 <b id="stProg">0 / 0</b></span>
+  </div>
+
+  <div class="msg" id="msg"></div>
+
+  <div class="stage">
+    <div class="panel-t"><span>单总线结构 CPU 数据通路（高亮 = 本步参与的部件，移动光点 = 数据流向）</span><span class="hint" id="dpHint">—</span></div>
+    <svg id="dp" viewBox="0 0 780 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="CPU 数据通路框图"></svg>
+    <div class="prog"><i id="progBar"></i></div>
+    <div class="grid" style="margin-top:9px">
+      <div class="left">
+        <div class="panel-t"><span>微操作序列（每行 = 一个节拍）</span><span class="hint" id="opHint">—</span></div>
+        <div class="oplist" id="oplist"></div>
+      </div>
+      <div class="right">
+        <div class="panel-t"><span id="cmTitle">控制器</span><span class="hint">CMAR / CMDR</span></div>
+        <div class="cm" id="cm"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><i style="background:#6366f1"></i>取指周期 FE</span>
+    <span><i style="background:#f59e0b"></i>间址周期 IND</span>
+    <span><i style="background:#10b981"></i>执行周期 EX</span>
+    <span><i style="background:#ef4444"></i>中断周期 INT</span>
+    <span><i style="background:#e0e7ff;border:1px solid #4f46e5"></i>数据来源（寄存器/主存输出）</span>
+    <span><i style="background:#dcfce7;border:1px solid #10b981"></i>数据去向（接收端）</span>
+    <span><i style="background:#fef3c7;border:1px solid #f59e0b"></i>既是源又是目的（如 ALU、PC）</span>
+  </div>
+
+  <div class="note plain" id="note">点击「▶ 播放」或「单步」开始逐拍演示。每一步都会高亮参与部件、画出数据在内部总线上的流动方向，并说明这一步做什么、为什么必须这么做。</div>
+
+  <div class="desc">
+    <h4>指令周期为什么要分成若干阶段？</h4>
+    CPU 执行一条指令，要依次完成“取指令 → 分析指令 → 取操作数 → 运算 → 送结果 → （必要时）保存断点”这些事。为了便于控制，教材按<b>是否访问主存、访问几次</b>把整个过程划分成若干个<b>机器周期（CPU 周期）</b>，再把每个机器周期内的动作分解为<b>微操作</b>——微操作是不可再分的最小动作，由控制器发出的<b>微命令</b>驱动数据通路完成。四个阶段各自的目的是：
+    <br>① <b>取指周期（FE）</b>：任何指令都有的<b>公共阶段</b>。完成 <code>(PC)→MAR</code>、<code>M(MAR)→MDR</code>、<code>(MDR)→IR</code>、<code>(PC)+1→PC</code>，目的是把一条指令取进 IR，并让 PC 指向下一条指令。
+    <br>② <b>间址周期（IND）</b>：只有<b>间接寻址</b>指令才有。完成 <code>Ad(IR)→MAR</code>、<code>M(MAR)→MDR</code>、<code>(MDR)→Ad(IR)</code>，目的是把形式地址换成<b>有效地址</b>。
+    <br>③ <b>执行周期（EX）</b>：按指令功能完成运算或传送。以 ADD 为例：<code>Ad(IR)→MAR</code>、<code>M(MAR)→MDR</code>、<code>(MDR)+(ACC)→ACC</code>。
+    <br>④ <b>中断周期（INT）</b>：仅在响应中断时出现，执行的是硬件自动产生的<b>中断隐指令</b>——保存断点、把中断服务程序入口送入 PC。
+    <br>所以 <b>指令周期 = 取指周期 + [间址周期] + 执行周期 + [中断周期]</b>，其中间址与中断是<b>可选</b>的，这正是“指令周期长短不一”的根本原因。
+    <h4>微命令、微操作、微指令、微程序是什么关系？</h4>
+    <b>微命令</b>是控制器向执行部件发出的最基本控制信号（如“打开 PC 输出门”“MAR 打入”）；<b>微操作</b>是在微命令控制下执行部件完成的一个动作，两者一 一对应（<code>(PC)→MAR</code> 就是一个微操作）。同一节拍内可以同时发出多个<b>相容</b>的微命令（互斥的微命令不能同拍发出，例如不能让两个寄存器同时向总线输出），这些相容微命令的集合构成一条<b>微指令</b>——也就是控制存储器 CM 中的一个字；完成一条机器指令所需的全部微指令构成一个<b>微程序</b>。
+    <br>由此得到两种控制器实现：
+    <br>· <b>硬布线控制器</b>：不用 CM，直接由组合逻辑门电路按节拍电位（T1、T2…）和节拍脉冲产生控制信号。速度快，但逻辑一经设计就难以修改，适合指令少而规整的 <b>RISC</b>。
+    <br>· <b>微程序控制器</b>：控制信号存放在 CM 中，逐条取出微指令（CMDR）再译码，按 CMAR 给出的微地址取下一条。速度较慢（每条微指令都要访问一次 CM），但规整、易设计、易修改，适合指令复杂多样的 <b>CISC</b>。
+    <br>切换到上面的“微程序”视角，可以看到每个节拍被当作一条微指令，并给出<b>微地址（CMAR）</b>、<b>微指令内容（CMDR = 操作控制字段 + 下址字段）</b>以及<b>下址的形成方式</b>：顺序 +1、下址字段直接给出、由机器指令操作码经微地址形成部件产生入口地址、以及由条件测试产生分支。
+    <h4>定长指令周期与不定长指令周期</h4>
+    <b>定长（同步控制）</b>：所有机器周期占用相同的节拍数（本演示取各阶段所需的最多节拍数），时序规整、控制简单，但微操作少的阶段只能空转。例如立即寻址 ADD 的执行周期只需要 1 个微操作，定长模式下仍要占满 4 个节拍，总节拍数明显变多。<br>
+    <b>不定长（异步控制）</b>：每个机器周期按实际需要执行，做完即结束（靠“回答”信号确认），效率高、总节拍数少，但控制复杂、时序不规整。
+    <br>把上面的开关在两种模式间切换，观察总节拍数的变化，就能直观理解这一考点。
+    <h4>为什么 (MDR)+(ACC)→ACC 要“分时”进行？</h4>
+    本演示采用<b>单总线（内部总线）结构</b>：所有寄存器都挂在同一条内部总线上，同一时刻只允许<b>一个</b>部件向总线发送数据。因此 ALU 的两个操作数不能同时上总线，必须先经暂存器 T 暂存第一个操作数，再读第二个操作数，最后 ALU 一起运算并把结果经总线送回 ACC——这就是为什么“加数在 MDR、被加数在 ACC”，却仍要分成几个节拍完成的原因。
+    <h4>需要注意的细节</h4>
+    ① PC 与 MAR 都只有“地址”这一种含义，但 PC 是<b>程序员可见</b>的，MAR、MDR、IR 都是<b>不可见</b>的；② 取指周期的微程序是<b>所有指令共用</b>的公共微程序，在 CM 中只存一份，算 CM 容量时不要重复计算；③ 中断隐指令由<b>硬件自动</b>完成，不由程序指令给出，其功能是保存断点、寻找中断服务程序入口（并可能关中断）；④ 本例中的“＋1”表示加上一条指令的长度，定长指令字时每加一次即指向下一条指令。
+  </div>
+</div>
+
+<script>
+"use strict";
+var $ = function (id) { return document.getElementById(id); };
+var NS = "http://www.w3.org/2000/svg";
+
+/* ================= 数据通路几何定义 ================= */
+var BUS_Y = 190, BUS_X0 = 30, BUS_X1 = 600;
+var COMPS = [
+  { id: "PC",  x: 30,  y: 90,  w: 100, h: 48, side: "top", label: "PC",        sub: "程序计数器" },
+  { id: "MAR", x: 160, y: 90,  w: 100, h: 48, side: "top", label: "MAR",       sub: "地址寄存器" },
+  { id: "MDR", x: 300, y: 90,  w: 100, h: 48, side: "top", label: "MDR",       sub: "数据寄存器" },
+  { id: "IR",  x: 430, y: 90,  w: 100, h: 48, side: "top", label: "IR",        sub: "指令寄存器" },
+  { id: "ACC", x: 30,  y: 250, w: 100, h: 48, side: "bot", label: "ACC",       sub: "累加器" },
+  { id: "GPR", x: 160, y: 250, w: 100, h: 48, side: "bot", label: "通用寄存器", sub: "R0~R3 / SP" },
+  { id: "ALU", x: 300, y: 246, w: 100, h: 56, side: "bot", label: "ALU",       sub: "算术逻辑单元" },
+  { id: "MEM", x: 630, y: 90,  w: 130, h: 250, side: "mem", label: "主存 M",   sub: "按 MAR 地址读写" },
+  { id: "INT", x: 460, y: 280, w: 130, h: 48, side: "bot", label: "中断系统",  sub: "给出向量地址" }
+];
+var compById = {};
+COMPS.forEach(function (c) { compById[c.id] = c; });
+
+/* 主存与 MAR / MDR 之间的专用连线（不走内部总线） */
+var DIRECT = {
+  "MAR|MEM": [[210, 114], [210, 30], [724, 30], [724, 90]],
+  "MEM|MAR": [[724, 90], [724, 30], [210, 30], [210, 114]],
+  "MDR|MEM": [[350, 114], [350, 58], [662, 58], [662, 90]],
+  "MEM|MDR": [[662, 90], [662, 58], [350, 58], [350, 114]]
+};
+
+function centerOf(c) { return { x: c.x + c.w / 2, y: c.y + c.h / 2 }; }
+function attach(c) {
+  if (c.side === "mem") return [[c.x, 215], [600, 215], [600, BUS_Y]];
+  var cx = c.x + c.w / 2;
+  return c.side === "top" ? [[cx, c.y + c.h], [cx, BUS_Y]] : [[cx, c.y], [cx, BUS_Y]];
+}
+function route(a, b) {
+  if (DIRECT[a + "|" + b]) return DIRECT[a + "|" + b];
+  var A = compById[a], B = compById[b];
+  var ca = centerOf(A), cb = centerOf(B);
+  var pts = [[ca.x, ca.y]];
+  pts = pts.concat(attach(A));
+  pts = pts.concat(attach(B).slice().reverse());
+  pts.push([cb.x, cb.y]);
+  return pts;
+}
+function toPath(pts) {
+  return "M" + pts.map(function (p) { return p[0] + "," + p[1]; }).join(" L ");
+}
+
+/* ================= 微操作定义 ================= */
+var OPS = {
+  FE: [
+    { t: "(PC) → MAR", f: [["PC", "MAR"]],
+      why: "取指令的第一步是把“当前要执行的指令地址”送进地址寄存器。PC 中保存的正是这条指令的地址，而只有 MAR 的输出才能驱动主存的地址线，所以必须先经内部总线把 PC 的内容打入 MAR。" },
+    { t: "M(MAR) → MDR（读命令）", f: [["MAR", "MEM"], ["MEM", "MDR"]],
+      why: "控制器发出“读”控制信号，MAR 先通过地址线把地址送给主存，主存按地址读出内容后经数据线送入数据寄存器 MDR 缓冲。符号 M 表示主存，M(MAR) 表示“主存中 MAR 所指的那个单元”。" },
+    { t: "(MDR) → IR", f: [["MDR", "IR"]],
+      why: "读出的指令经内部总线送入指令寄存器 IR 暂存，供控制器译码并产生后续的控制信号。IR 属于程序员不可见的寄存器，指令会一直保留在这里直到本条指令执行完毕。" },
+    { t: "(PC) + 1 → PC", f: [["PC", "PC"]], badge: "＋1",
+      why: "取出指令后必须让 PC 指向下一条指令，这样才能在下一次取指时取到后面的指令。“＋1”表示加上一条指令的长度（定长指令字时指令长度固定）。PC 自带自增电路，这一步在 PC 内部完成，不占用内部总线。" }
+  ],
+  IND: [
+    { t: "Ad(IR) → MAR", f: [["IR", "MAR"]],
+      why: "间接寻址时，IR 中地址码字段的内容 Ad(IR) 并不是操作数的真实地址，而是“操作数地址的地址”。所以先把它送 MAR，去做第一次访存。" },
+    { t: "M(MAR) → MDR（读命令）", f: [["MAR", "MEM"], ["MEM", "MDR"]],
+      why: "按形式地址访存，从主存读出的是操作数的<b>有效地址</b>，先暂存在 MDR 中。间址周期要做几次访存，取决于间接寻址的级数（本例为一级间址）。" },
+    { t: "(MDR) → Ad(IR)", f: [["MDR", "IR"]],
+      why: "把刚取到的有效地址送回 IR 的地址码字段（有的教材写作 (MDR)→IR）。这样进入执行周期时 IR 中已经是真正的操作数地址，一个间址周期只负责“把形式地址换成有效地址”这一件事。" }
+  ],
+  EX_MEM: [
+    { t: "Ad(IR) → MAR", f: [["IR", "MAR"]],
+      why: "执行周期的第一步与取指类似：把 IR 中已经确定的操作数地址送入 MAR，准备访问操作数。注意这一步同样要占用一次内部总线。" },
+    { t: "M(MAR) → MDR（读命令）", f: [["MAR", "MEM"], ["MEM", "MDR"]],
+      why: "按操作数地址访存，把加数读入 MDR。执行周期访存的次数由寻址方式决定：直接/间接寻址要读一次，立即寻址不需要访存，寄存器寻址也不需要。" },
+    { t: "(MDR) + (ACC) → ACC", f: [["MDR", "ALU"], ["ACC", "ALU"], ["ALU", "ACC"]], badge: "＋",
+      why: "ALU 完成加法：两个操作数必须<b>分时</b>经内部总线送到 ALU 的两个输入端（单总线结构同一时刻只允许一个数据占用总线，所以第一个操作数要先存进暂存器 T），运算结果再经总线送回累加器 ACC，同时由标志逻辑按结果设置 OF、CF、SF、ZF 等标志位。" }
+  ],
+  EX_IMM: [
+    { t: "(IR) + (ACC) → ACC", f: [["IR", "ALU"], ["ACC", "ALU"], ["ALU", "ACC"]], badge: "＋",
+      why: "立即寻址时操作数就在指令的地址码字段里，不需要访存。把 IR 中的立即数与 ACC 分时送上内部总线，由 ALU 完成加法，结果送回 ACC。因为少了两次访存，这个执行周期只需要 1 个节拍，定长与不定长的差别在这里体现得最明显。" }
+  ],
+  INT: [
+    { t: "(SP) − 1 → SP，(SP) → MAR", f: [["GPR", "MAR"]], badge: "SP−1",
+      why: "CPU 响应中断后由硬件自动执行<b>中断隐指令</b>。这里用栈保存断点：先把栈指针 SP 减 1，指向新的栈顶（栈向低地址方向增长），再把栈顶地址送入 MAR，作为写主存的地址。SP 属于指针寄存器，本例并入通用寄存器组。" },
+    { t: "(PC) → MDR", f: [["PC", "MDR"]],
+      why: "把当前 PC 的值（被打断的下一条指令地址，即“断点”）送 MDR 暂存，准备写入主存。只有保存了断点，中断返回时才能从原处继续执行。" },
+    { t: "(MDR) → M(MAR)（写命令）", f: [["MDR", "MEM"]],
+      why: "控制器发出“写”控制信号，把断点写入栈顶单元。注意数据流向与读操作相反：M(MAR) 表示被写入的那个主存单元。" },
+    { t: "向量地址 → PC", f: [["INT", "PC"]], badge: "向量",
+      why: "最后由中断系统给出<b>中断向量地址</b>（也可由向量地址去主存的中断向量表取出入口地址），送入 PC，CPU 便转去执行中断服务程序，中断周期结束。中断周期只有在响应中断时才存在，因此不是每条指令都有的阶段。" }
+  ]
+};
+var STAGE_META = {
+  FE:     { name: "取指周期", short: "FE",  color: "#6366f1" },
+  IND:    { name: "间址周期", short: "IND", color: "#f59e0b" },
+  EX_MEM: { name: "执行周期", short: "EX",  color: "#10b981" },
+  EX_IMM: { name: "执行周期", short: "EX",  color: "#10b981" },
+  INT:    { name: "中断周期", short: "INT", color: "#ef4444" }
+};
+var PRESETS = {
+  add_imm: { name: "ADD #imm（立即寻址）", stages: ["FE", "EX_IMM"], desc: "操作数在指令中，执行周期只需 1 个微操作" },
+  add_dir: { name: "ADD X（直接寻址）",    stages: ["FE", "EX_MEM"], desc: "无间址周期，执行周期访存一次" },
+  add_ind: { name: "ADD @X（间接寻址）",   stages: ["FE", "IND", "EX_MEM"], desc: "多一个间址周期用于取有效地址" },
+  add_int: { name: "ADD @X ＋中断（完整指令周期）", stages: ["FE", "IND", "EX_MEM", "INT"], desc: "四个阶段齐全，含中断隐指令" }
+};
+
+/* ================= 状态 ================= */
+var cfg = { preset: "add_ind", lenMode: "var", view: "hard" };
+var beats = [], cur = 0, playing = false, timer = null, speed = 800;
+var refs = {};
+
+function maHex(i) { return ("0" + i.toString(16).toUpperCase()).slice(-2) + "H"; }
+function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]); }); }
+
+function buildBeats() {
+  var p = PRESETS[cfg.preset];
+  var maxLen = 0;
+  p.stages.forEach(function (st) { maxLen = Math.max(maxLen, OPS[st].length); });
+  beats = [];
+  p.stages.forEach(function (st) {
+    var ops = OPS[st];
+    var total = (cfg.lenMode === "fixed") ? maxLen : ops.length;
+    for (var i = 0; i < total; i++) {
+      beats.push({
+        stage: st, stageName: STAGE_META[st].name, color: STAGE_META[st].color,
+        op: ops[i] || null, idle: !ops[i], beat: i + 1, total: total, ma: beats.length
+      });
+    }
+  });
+}
+
+/* ================= 画图 ================= */
+function svgEl(tag, attrs, text) {
+  var e = document.createElementNS(NS, tag);
+  if (attrs) { for (var k in attrs) { e.setAttribute(k, attrs[k]); } }
+  if (text !== undefined) { e.textContent = text; }
+  return e;
+}
+function buildDiagram() {
+  var svg = $("dp");
+  svg.innerHTML = "";
+  var gLink = svgEl("g", null); svg.appendChild(gLink);
+
+  gLink.appendChild(svgEl("line", { x1: BUS_X0, y1: BUS_Y, x2: BUS_X1, y2: BUS_Y, stroke: "#6366f1", "stroke-width": 6, "stroke-linecap": "round", opacity: ".85" }));
+  gLink.appendChild(svgEl("text", { x: BUS_X0, y: BUS_Y - 9, "font-size": 10.5, fill: "#6366f1" }, "内部总线（同一时刻只允许一个部件向总线发送数据）"));
+
+  ["MAR|MEM", "MDR|MEM"].forEach(function (k) {
+    gLink.appendChild(svgEl("polyline", { points: DIRECT[k].map(function (p) { return p.join(","); }).join(" "), fill: "none", stroke: "#cbd5e1", "stroke-width": 1.5, "stroke-dasharray": "4 3" }));
+  });
+  gLink.appendChild(svgEl("text", { x: 258, y: 24, "font-size": 10, fill: "#94a3b8" }, "地址（MAR → 主存）"));
+  gLink.appendChild(svgEl("text", { x: 398, y: 52, "font-size": 10, fill: "#94a3b8" }, "数据（MDR ↔ 主存）"));
+
+  var gComp = svgEl("g", null); svg.appendChild(gComp);
+  COMPS.forEach(function (c) {
+    var g = svgEl("g", { "class": "comp" });
+    var ap = attach(c);
+    var line = [[c.x + c.w / 2, c.y + c.h / 2]].concat(ap);
+    g.appendChild(svgEl("polyline", { points: line.map(function (p) { return p.join(","); }).join(" "), fill: "none", stroke: "#e2e8f0", "stroke-width": 1.6 }));
+    g.appendChild(svgEl("rect", { x: c.x, y: c.y, width: c.w, height: c.h, rx: 9, "class": "box" }));
+    var cy = c.y + c.h / 2;
+    g.appendChild(svgEl("text", { x: c.x + c.w / 2, y: cy - 1, "text-anchor": "middle", "font-size": 13, "font-weight": 700, "class": "lb" }, c.label));
+    g.appendChild(svgEl("text", { x: c.x + c.w / 2, y: cy + 15, "text-anchor": "middle", "font-size": 10, "class": "sb" }, c.sub));
+    gComp.appendChild(g);
+    refs[c.id] = g;
+  });
+
+  var gFlow = svgEl("g", null);
+  gFlow.setAttribute("id", "flowLayer");
+  svg.appendChild(gFlow);
+  refs.flow = gFlow;
+}
+function setCompClass(id, cls) { if (refs[id]) refs[id].setAttribute("class", cls); }
+
+function selfLoopPath(cx, cy) {
+  var r = 26;
+  return "M" + (cx - r) + "," + cy + " A" + r + "," + r + " 0 1 1 " + (cx + r) + "," + cy + " A" + r + "," + r + " 0 1 1 " + (cx - r) + "," + cy;
+}
+function drawFlow(op) {
+  var layer = refs.flow;
+  layer.innerHTML = "";
+  COMPS.forEach(function (c) { setCompClass(c.id, "comp"); });
+  if (!op) return;
+  var srcs = {}, dsts = {};
+  op.f.forEach(function (p) { srcs[p[0]] = 1; dsts[p[1]] = 1; });
+  COMPS.forEach(function (c) {
+    var cls = "comp";
+    if (srcs[c.id] && dsts[c.id]) cls = "comp act";
+    else if (dsts[c.id]) cls = "comp dst";
+    else if (srcs[c.id]) cls = "comp src";
+    setCompClass(c.id, cls);
+  });
+  var dur = (speed > 1000 ? 950 : (speed > 500 ? 720 : 520));
+  op.f.forEach(function (p, i) {
+    var A = compById[p[0]], B = compById[p[1]];
+    var d;
+    if (p[0] === p[1]) {
+      var cc = centerOf(A);
+      d = selfLoopPath(cc.x, cc.y);
+    } else {
+      d = toPath(route(p[0], p[1]));
+    }
+    layer.appendChild(svgEl("path", { d: d, fill: "none", stroke: "#6366f1", "stroke-width": 2, "stroke-dasharray": "5 4", opacity: ".45", "stroke-linecap": "round" }));
+    var dot = svgEl("circle", { r: 5, fill: "#6366f1", opacity: 0 });
+    dot.appendChild(svgEl("animateMotion", { dur: dur + "ms", begin: (i * 170) + "ms", fill: "freeze", path: d }));
+    dot.appendChild(svgEl("animate", { attributeName: "opacity", values: "0;1;1;0", keyTimes: "0;0.05;0.9;1", dur: dur + "ms", begin: (i * 170) + "ms", fill: "freeze" }));
+    layer.appendChild(dot);
+  });
+  if (op.badge) {
+    var B2 = compById[op.f[op.f.length - 1][1]];
+    var t = svgEl("text", {
+      x: B2.x + B2.w / 2, y: B2.y - 6, "text-anchor": "middle", "font-size": 12, "font-weight": 700, fill: "#ef4444"
+    }, op.badge);
+    t.appendChild(svgEl("animate", { attributeName: "opacity", values: "0;1;1;1", dur: "300ms", fill: "freeze" }));
+    layer.appendChild(t);
+  }
+}
+
+/* ================= 渲染 ================= */
+function renderOpList() {
+  var p = PRESETS[cfg.preset];
+  var html = "";
+  var idx = 0;
+  p.stages.forEach(function (st) {
+    var meta = STAGE_META[st];
+    var rows = beats.filter(function (b) { return b.stage === st; });
+    html += '<div class="stg"><span style="color:' + meta.color + '">' + meta.name + '（' + meta.short + '）</span><span>' + rows.length + ' 拍</span></div>';
+    rows.forEach(function (b) {
+      var cls = "op";
+      if (b.idle) cls += " idle";
+      if (idx === cur - 1) cls += " act"; else if (idx < cur - 1) cls += " done";
+      html += '<div class="' + cls + '"><span class="ma">' + (cfg.view === "micro" ? maHex(b.ma) : ("T" + b.beat)) + '</span><span>' + (b.op ? esc(b.op.t) : "空拍（不发微命令）") + '</span></div>';
+      idx++;
+    });
+  });
+  $("oplist").innerHTML = html;
+  var act = $("oplist").querySelector(".op.act");
+  if (act && act.scrollIntoView) { act.scrollIntoView({ block: "nearest" }); }
+  $("opHint").textContent = cfg.view === "micro" ? "左列 = 微地址 CMAR" : "左列 = 节拍电位";
+}
+function renderCM(op) {
+  if (cfg.view === "hard") {
+    $("cmTitle").textContent = "硬布线控制器（组合逻辑）";
+    var txt = '<b>控制信号</b>由组合逻辑门电路按节拍直接产生，没有控制存储器。';
+    if (op) {
+      txt += '<br>当前节拍电位：<b>T' + op.beat + '</b>（本阶段第 ' + op.beat + ' / ' + op.total + ' 拍）';
+      txt += '<br>发出的微命令：' + (op.op ? "<b>" + esc(op.op.t) + "</b>" : "空操作（本拍不发出任何微命令）");
+      txt += '<br>被使能的部件：' + (op.op ? op.op.f.map(function (p) { return esc(p[0]); }).join("、") + " → " + op.op.f.map(function (p) { return esc(p[1]); }).join("、") : "—");
+    } else { txt += '<br>等待开始……'; }
+    $("cm").innerHTML = txt;
+    return;
+  }
+  $("cmTitle").textContent = "控制存储器 CM（微程序）";
+  var txt = "CM 中微指令条数：<b>" + beats.length + "</b>（一条微指令 = 一个节拍）";
+  if (op) {
+    txt += "<br>CMAR（微地址寄存器）= <b>" + maHex(op.ma) + "</b>";
+    txt += "<br>CMDR（微指令寄存器）= 操作控制字段「<b>" + (op.op ? esc(op.op.t) : "空操作") + "</b>」 | 下址字段「" + cmNext(op) + "」";
+    if (op.op) {
+      txt += "<br>本条微指令发出的微命令：<b>" + op.op.f.map(function (p) { return esc(p[0]) + "→" + esc(p[1]); }).join("、") + "</b>（相容，可同拍执行）";
+    }
+  } else {
+    txt += "<br>CMAR = —　CMDR = —<br>微地址入口由机器指令操作码经微地址形成部件产生。";
+  }
+  $("cm").innerHTML = txt;
+}
+function cmNext(op) {
+  var sameStage = beats.filter(function (b) { return b.stage === op.stage; });
+  var isLastOfStage = (sameStage[sameStage.length - 1].ma === op.ma);
+  if (op.ma === 0) return "由操作码形成入口（公共取指微程序固定入口）";
+  if (!isLastOfStage) return "+1（顺序执行）";
+  if (op.ma === beats.length - 1) return "结束，返回下一条机器指令的取指入口";
+  return "下址字段 → " + beats[op.ma + 1].stageName + "入口";
+}
+function renderNote(op) {
+  var el = $("note");
+  if (!op) {
+    el.className = "note plain";
+    var p = PRESETS[cfg.preset];
+    el.innerHTML = "准备开始：<b>" + p.name + "</b> 共 " + p.stages.length + " 个阶段、<b>" + beats.length + " 个节拍</b>（" + (cfg.lenMode === "fixed" ? "定长" : "不定长") + "）。点击「▶ 播放」或「单步」后，每拍会高亮参与部件、画出数据流向，并说明这一步做什么、为什么。";
+    return;
+  }
+  el.className = "note";
+  var head = '<span class="nt" style="color:' + op.color + '">' + op.stageName + '</span> · 第 ' + op.beat + " / " + op.total + " 拍" +
+             (cfg.view === "micro" ? ' · 微地址 <code>' + maHex(op.ma) + "</code>" : ' · 节拍电位 <code>T' + op.beat + "</code>");
+  if (op.idle) {
+    el.innerHTML = head + "<br><b>做什么：</b>本拍<b>没有微操作</b>——定长指令周期要求每个阶段占用相同的节拍数，而本阶段的微操作已经做完，剩下的节拍只能空转（相当于执行一条空操作微指令）。" +
+      "<br><b>为什么：</b>定长（同步控制）的优点是时序规整、控制器设计简单，代价就是微操作少的阶段浪费时间。把上面的“指令周期”切到<b>不定长</b>，这些空拍就会消失，总节拍数减少。";
+    return;
+  }
+  el.innerHTML = head + "<br><b>做什么：</b><code>" + esc(op.op.t) + "</code>" +
+    "<br><b>为什么：</b>" + op.op.why;
+}
+function render() {
+  var total = beats.length;
+  var op = (cur > 0) ? beats[cur - 1] : null;
+  $("stStage").textContent = op ? op.stageName : "未开始";
+  $("stBeat").textContent = op ? (op.beat + " / " + op.total) : "—";
+  $("stMA").textContent = op ? maHex(op.ma) : "—";
+  $("stStages").textContent = PRESETS[cfg.preset].stages.length;
+  $("stTotal").textContent = total;
+  $("stProg").textContent = cur + " / " + total;
+  $("progBar").style.width = (cur / Math.max(1, total) * 100) + "%";
+  drawFlow(op ? op.op : null);
+  renderOpList();
+  renderCM(op);
+  renderNote(op);
+  $("dpHint").textContent = op ? ("本步：" + (op.op ? op.op.t : "空拍（无微操作）")) : ("共 " + beats.length + " 个节拍");
+}
+
+/* ================= 控制 ================= */
+function stopTimer() { if (timer) { clearTimeout(timer); timer = null; } }
+function pause() { playing = false; stopTimer(); $("btnPlay").textContent = "▶ 播放"; }
+function play() {
+  if (playing) { pause(); return; }
+  if (cur >= beats.length) cur = 0;
+  playing = true;
+  $("btnPlay").textContent = "⏸ 暂停";
+  timer = setTimeout(tick, speed);
+}
+function tick() {
+  if (!playing) return;
+  if (cur >= beats.length) { pause(); return; }
+  cur++;
+  render();
+  if (cur >= beats.length) { pause(); return; }
+  timer = setTimeout(tick, speed);
+}
+function rebuild() {
+  pause();
+  buildBeats();
+  cur = 0;
+  render();
+  $("cfgInfo").textContent = PRESETS[cfg.preset].stages.map(function (s) { return STAGE_META[s].short; }).join(" → ") +
+    "　|　" + (cfg.lenMode === "fixed" ? "定长" : "不定长") + "　|　" + (cfg.view === "micro" ? "微程序" : "硬布线");
+}
+
+$("preset").onchange = function () { cfg.preset = $("preset").value; rebuild(); };
+document.querySelectorAll(".presets button").forEach(function (b) {
+  b.onclick = function () { $("preset").value = b.dataset.preset; cfg.preset = b.dataset.preset; rebuild(); };
+});
+$("lenMode").onchange = function () { cfg.lenMode = $("lenMode").value; rebuild(); };
+$("ctrlView").onchange = function () { cfg.view = $("ctrlView").value; rebuild(); };
+$("btnPlay").onclick = play;
+$("btnStep").onclick = function () { pause(); if (cur < beats.length) { cur++; render(); } };
+$("btnPrev").onclick = function () { pause(); if (cur > 0) { cur--; render(); } };
+$("btnReset").onclick = function () { pause(); cur = 0; render(); };
+document.querySelectorAll(".sp").forEach(function (b) {
+  b.onclick = function () {
+    document.querySelectorAll(".sp").forEach(function (x) { x.classList.remove("active"); });
+    b.classList.add("active");
+    speed = +b.dataset.speed;
+    if (playing) { stopTimer(); timer = setTimeout(tick, speed); }
+  };
+});
+document.addEventListener("keydown", function (e) {
+  if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT") return;
+  if (e.key === "ArrowRight") { pause(); if (cur < beats.length) { cur++; render(); } }
+  if (e.key === "ArrowLeft") { pause(); if (cur > 0) { cur--; render(); } }
+  if (e.key === " ") { e.preventDefault(); play(); }
+});
+
+/* init */
+buildDiagram();
+rebuild();
+</script>
+</body>
+</html>

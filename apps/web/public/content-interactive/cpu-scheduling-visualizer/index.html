@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>进程调度算法与甘特图</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f8fafc; color: #1e293b; padding: 16px; }
+  .wrap { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+  .head { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; }
+  .head h1 { font-size: 15px; font-weight: 600; }
+  .head .info { font-size: 12px; opacity: .92; }
+  .controls { padding: 9px 16px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-bottom: 1px solid #eef2f7; }
+  .controls.sub { padding-top: 0; border-bottom: 1px solid #eef2f7; }
+  .controls label { font-size: 12px; color: #64748b; }
+  select, input { font-size: 12px; font-family: inherit; }
+  select { padding: 4px 6px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; outline: none; }
+  button { padding: 5px 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all .15s; font-size: 12px; }
+  .btn-primary { background: #6366f1; color: #fff; }
+  .btn-primary:hover { background: #4f46e5; }
+  .btn-ghost { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+  .btn-ghost:hover { background: #e2e8f0; }
+  .btn-ghost.sm { padding: 3px 9px; font-size: 11.5px; }
+  .speed-group { display: flex; gap: 4px; }
+  .speed-group button { padding: 4px 9px; font-size: 11.5px; }
+  .speed-group .active { background: #6366f1; color: #fff; border-color: #6366f1; }
+  .hidden { display: none; }
+  .stats { padding: 7px 16px; display: flex; gap: 16px; font-size: 11.5px; color: #64748b; border-bottom: 1px solid #eef2f7; flex-wrap: wrap; }
+  .stats b { color: #1e293b; font-variant-numeric: tabular-nums; }
+  .stage { padding: 10px 16px 8px; }
+  .lbl { font-size: 11px; color: #64748b; margin: 4px 0 4px; }
+  .gantt-wrap { overflow-x: auto; overflow-y: hidden; padding-bottom: 2px; }
+  .gantt { position: relative; display: flex; height: 30px; border-radius: 6px; background: #f1f5f9; min-width: 100%; }
+  .gantt .seg { height: 30px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #fff; font-weight: 600; border-right: 1px solid rgba(255,255,255,.65); transition: width .12s; }
+  .gantt .seg.idle { background: #cbd5e1; color: #64748b; }
+  .gantt .cursor { position: absolute; top: -3px; bottom: -3px; width: 2px; background: #ef4444; box-shadow: 0 0 0 2px rgba(239,68,68,.15); }
+  .axis-wrap { overflow-x: hidden; }
+  .axis { position: relative; height: 15px; }
+  .axis .tick { position: absolute; top: 0; font-size: 10px; color: #94a3b8; font-variant-numeric: tabular-nums; border-left: 1px solid #e2e8f0; padding-left: 2px; }
+  .qrow { display: flex; align-items: center; gap: 10px; }
+  .chips { display: flex; gap: 5px; flex-wrap: wrap; flex: 1; min-height: 24px; align-items: center; }
+  .chip { padding: 2px 8px; border-radius: 7px; background: #f8fafc; border: 1.5px solid #cbd5e1; font-size: 11.5px; font-weight: 600; color: #334155; white-space: nowrap; }
+  .chip.head-chip { box-shadow: 0 0 0 2px #fde68a; }
+  .chip.new { background: #ecfdf5; border-color: #10b981; color: #065f46; }
+  .chip .rm { font-weight: 500; color: #64748b; font-size: 10.5px; }
+  .empty { font-size: 11.5px; color: #94a3b8; }
+  .runbox { padding: 3px 12px; border-radius: 7px; background: #6366f1; color: #fff; font-size: 12px; font-weight: 600; min-width: 100px; text-align: center; white-space: nowrap; }
+  .runbox.idle { background: #94a3b8; }
+  table.pt { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+  table.pt th { background: #f8fafc; color: #64748b; font-weight: 600; padding: 3px 4px; border-bottom: 1px solid #e2e8f0; font-size: 11px; }
+  table.pt td { padding: 2px 4px; text-align: center; border-bottom: 1px solid #f1f5f9; font-variant-numeric: tabular-nums; }
+  table.pt tr.run td { background: #eef2ff; }
+  table.pt tr.done td { color: #059669; }
+  table.pt tr.done td input { color: #059669; }
+  .ci { width: 100%; border: 1px solid transparent; background: transparent; text-align: center; border-radius: 5px; padding: 1px 2px; font-variant-numeric: tabular-nums; }
+  .ci:hover { border-color: #e2e8f0; background: #fff; }
+  .ci:focus { border-color: #6366f1; background: #fff; outline: none; }
+  .ci[type=number] { -moz-appearance: textfield; }
+  .sumline { font-size: 11.5px; color: #475569; margin: 5px 0 4px; }
+  .sumline b { color: #6366f1; }
+  .note { font-size: 12px; color: #334155; background: #f8fafc; border-left: 3px solid #6366f1; border-radius: 0 8px 8px 0; padding: 6px 10px; min-height: 34px; line-height: 1.55; }
+  .legend { padding: 2px 16px 10px; display: flex; gap: 14px; font-size: 11px; color: #64748b; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .desc { padding: 9px 16px 14px; border-top: 1px solid #eef2f7; font-size: 12px; color: #475569; line-height: 1.7; }
+  .desc b { color: #334155; }
+  .cmp { font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 5px 9px; margin-bottom: 6px; color: #334155; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>🖥️ 进程调度算法与甘特图</h1>
+    <span class="info" id="algoInfo">FCFS 先来先服务</span>
+  </div>
+
+  <div class="controls">
+    <label>算法</label>
+    <select id="algoSel">
+      <option value="fcfs">FCFS 先来先服务</option>
+      <option value="sjf">SJF 短作业优先（非抢占）</option>
+      <option value="srtn">SRTN 最短剩余时间（抢占）</option>
+      <option value="hrrn">HRRN 高响应比优先</option>
+      <option value="rr">RR 时间片轮转</option>
+      <option value="prio">优先级调度</option>
+    </select>
+    <span id="qWrap" class="hidden"><label>时间片 q=</label>
+      <select id="quantumSel"><option>1</option><option selected>2</option><option>3</option><option>4</option></select>
+    </span>
+    <span id="pWrap" class="hidden"><label>方式</label>
+      <select id="prioMode"><option value="nonpre">非抢占式</option><option value="pre">抢占式</option></select>
+    </span>
+    <div class="speed-group">
+      <button data-speed="600" class="btn-ghost">慢</button>
+      <button data-speed="200" class="btn-ghost active">中</button>
+      <button data-speed="40" class="btn-ghost">快</button>
+    </div>
+    <button class="btn-primary" id="btnPlay">▶ 播放</button>
+    <button class="btn-ghost" id="btnStep">单步</button>
+    <button class="btn-ghost" id="btnReset">↺ 重置</button>
+  </div>
+
+  <div class="controls sub">
+    <label>预置</label>
+    <button class="btn-ghost sm" data-preset="0">经典 5 进程</button>
+    <button class="btn-ghost sm" data-preset="1">同时到达</button>
+    <button class="btn-ghost sm" data-preset="2">长短作业混合</button>
+    <button class="btn-ghost sm" data-preset="3">优先级对比</button>
+    <button class="btn-ghost sm" id="btnRandom">🎲 随机</button>
+    <button class="btn-ghost sm" id="btnAdd">＋进程</button>
+    <button class="btn-ghost sm" id="btnDel">－进程</button>
+    <button class="btn-ghost sm" id="btnCmp">📊 对比各算法</button>
+  </div>
+
+  <div class="stats">
+    <span>当前时刻 <b id="stTime">0</b></span>
+    <span>就绪队列 <b id="stReady">0</b> 个</span>
+    <span>已完成 <b id="stDone">0</b>/<b id="stTotal">5</b></span>
+    <span>平均周转 <b id="stAvg">-</b></span>
+    <span>状态 <b id="stState">就绪</b></span>
+  </div>
+
+  <div class="stage">
+    <div class="lbl">甘特图（横轴为时间，红线为当前时刻）</div>
+    <div class="gantt-wrap" id="ganttWrap"><div class="gantt" id="gantt"></div></div>
+    <div class="axis-wrap"><div class="axis" id="axis"></div></div>
+
+    <div class="lbl">就绪队列（队首 → 队尾，括号内为剩余服务时间）｜正在运行</div>
+    <div class="qrow">
+      <div class="chips" id="readyQueue"></div>
+      <div class="runbox idle" id="runningBox">CPU 空闲</div>
+    </div>
+
+    <div class="lbl">进程表（可直接修改：进程名 / 到达时间 / 服务时间 / 优先级）</div>
+    <table class="pt">
+      <thead><tr>
+        <th>进程</th><th>到达</th><th>服务</th><th>优先级</th>
+        <th>剩余</th><th>完成时间</th><th>周转时间</th><th>带权周转</th>
+      </tr></thead>
+      <tbody id="ptbody"></tbody>
+    </table>
+    <div class="sumline" id="sumLine"></div>
+    <div class="note" id="note"></div>
+  </div>
+
+  <div class="legend" id="legend"></div>
+  <div class="desc" id="desc"></div>
+</div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const PALETTE = ["#6366f1", "#10b981", "#f59e0b", "#8b5cf6", "#0ea5e9", "#ec4899"];
+
+const ALGO_INFO = {
+  fcfs: ["FCFS 先来先服务", "非抢占。按到达先后顺序运行，实现最简单。缺点：长作业在前时，后面短作业要等很久，带权周转时间可能极大（护航效应）。"],
+  sjf:  ["SJF 短作业优先（非抢占）", "每次从就绪队列中挑服务时间最短的进程运行。对一组确定的作业，SJF 的平均周转时间/平均带权周转时间最短（相邻交换法可证）。缺点：需预知运行时间，长作业可能饥饿。"],
+  srtn: ["SRTN 最短剩余时间优先（抢占）", "抢占式 SJF：新进程到达时，若其剩余时间比当前运行进程更短，立即抢占 CPU。它是 SJF 的抢占版，平均周转时间更短，但切换频繁、开销更大。"],
+  hrrn: ["HRRN 高响应比优先", "非抢占。每次选择响应比 R =（等待时间 + 服务时间）/ 服务时间 = 1 + 等待时间/服务时间 最大的进程。等待越久 R 越大，兼顾长短作业，不会饥饿。"],
+  rr:   ["RR 时间片轮转", "抢占式（按时间片）。就绪队列按 FIFO 排队，每个进程最多运行一个时间片 q；时间片用完就排到队尾。q 太大退化成 FCFS，q 太小则上下文切换开销剧增，通常 q 略大于一次交互所需时间。"],
+  prio: ["优先级调度", "按优先级数（数值越小优先级越高）选进程。抢占式：新到达的高优先级进程立即剥夺 CPU；非抢占式：等当前进程运行结束再选。缺点：低优先级进程可能饥饿（可用老化解决）。"],
+};
+
+const PRESETS = [
+  { name: "经典 5 进程", p: [["P1", 0, 4, 3], ["P2", 1, 3, 1], ["P3", 2, 5, 4], ["P4", 3, 2, 2], ["P5", 4, 4, 5]] },
+  { name: "同时到达", p: [["P1", 0, 6, 2], ["P2", 0, 3, 1], ["P3", 0, 8, 3], ["P4", 0, 2, 4]] },
+  { name: "长短作业混合", p: [["P1", 0, 9, 1], ["P2", 1, 1, 2], ["P3", 2, 1, 3], ["P4", 3, 1, 4], ["P5", 4, 1, 5]] },
+  { name: "优先级对比", p: [["P1", 0, 5, 3], ["P2", 0, 4, 1], ["P3", 0, 2, 4], ["P4", 0, 3, 2]] },
+];
+
+let procs = [];
+let steps = [];
+let cur = 0;
+let totalTime = 1;
+let playing = false, timer = null, speed = 200;
+let rowEls = [];
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function loadPreset(k) {
+  procs = PRESETS[k].p.map((a) => ({ name: a[0], arrival: a[1], burst: a[2], prio: a[3] }));
+}
+function loadRandom() {
+  const n = 4 + Math.floor(Math.random() * 3); // 4~6
+  const list = [];
+  for (let i = 0; i < n; i++) {
+    list.push({
+      name: "P" + (i + 1),
+      arrival: i === 0 ? 0 : Math.floor(Math.random() * 8),
+      burst: 1 + Math.floor(Math.random() * 7),
+      prio: 1 + Math.floor(Math.random() * 5),
+    });
+  }
+  list[0].arrival = 0;
+  procs = list;
+}
+
+/* ---------------- 调度模拟：每个时间单位产生一步 ---------------- */
+function buildSteps() {
+  const algo = $("algoSel").value;
+  const quantum = +$("quantumSel").value || 2;
+  const prioMode = $("prioMode").value;
+  const n = procs.length;
+  const rem = procs.map((p) => p.burst);
+  const arrived = new Array(n).fill(false);
+  const fin = new Array(n).fill(null);
+  const readySeen = new Array(n).fill(false);
+  let ready = [];
+  let running = -1, quantumLeft = 0, pending = -1, doneCnt = 0, time = 0;
+  const segs = [];
+  const out = [];
+
+  function pick(list) {
+    if (!list.length) return -1;
+    if (algo === "fcfs" || algo === "rr") return list[0];
+    if (algo === "sjf") {
+      let b = list[0];
+      for (const i of list) if (procs[i].burst < procs[b].burst || (procs[i].burst === procs[b].burst && procs[i].arrival < procs[b].arrival)) b = i;
+      return b;
+    }
+    if (algo === "srtn") {
+      let b = list[0];
+      for (const i of list) if (rem[i] < rem[b] || (rem[i] === rem[b] && procs[i].arrival < procs[b].arrival)) b = i;
+      return b;
+    }
+    if (algo === "hrrn") {
+      let b = list[0], br = -1;
+      for (const i of list) {
+        const r = ratio(i);
+        if (r > br) { br = r; b = i; }
+      }
+      return b;
+    }
+    if (algo === "prio") {
+      let b = list[0];
+      for (const i of list) if (procs[i].prio < procs[b].prio) b = i;
+      return b;
+    }
+    return list[0];
+  }
+  function ratio(i) { return (time - procs[i].arrival + procs[i].burst) / procs[i].burst; }
+  function beats(a, b) {
+    if (algo === "srtn") return rem[a] < rem[b];
+    if (algo === "prio") return procs[a].prio < procs[b].prio;
+    return false;
+  }
+  function why(b, list) {
+    const names = list.map((i) => procs[i].name);
+    if (algo === "fcfs") return "就绪队列队首（先来先服务）";
+    if (algo === "rr") return "就绪队列队首，分配一个时间片 q=" + quantum;
+    if (algo === "sjf") return "服务时间最短：" + list.map((i) => procs[i].name + "=" + procs[i].burst).join("，");
+    if (algo === "srtn") return "剩余时间最短：" + list.map((i) => procs[i].name + "=" + rem[i]).join("，");
+    if (algo === "hrrn") return "响应比最大：" + list.map((i) => procs[i].name + "=" + ratio(i).toFixed(2)).join("，") + "（R=1+等待/服务）";
+    if (algo === "prio") return "优先级最高（数值小者优先）：" + list.map((i) => procs[i].name + "=" + procs[i].prio).join("，");
+    return names.join("，");
+  }
+  function addSeg(p, t) {
+    const last = segs[segs.length - 1];
+    if (last && last.p === p && last.b === t) last.b = t + 1;
+    else segs.push({ p: p, a: t, b: t + 1 });
+  }
+  function snap(note) {
+    out.push({
+      time: time, running: running, ready: ready.slice(), rem: rem.slice(),
+      fin: fin.slice(), segs: segs.map((s) => ({ p: s.p, a: s.a, b: s.b })), note: note,
+    });
+  }
+
+  snap("准备就绪：点击「▶ 播放」或「单步」开始调度。下一步会把 t=0 时刻到达的进程放入就绪队列。");
+
+  let guard = 0;
+  while (doneCnt < n && guard++ < 5000) {
+    const notes = [];
+    // ① 新进程到达
+    const news = [];
+    for (let i = 0; i < n; i++) if (!arrived[i] && procs[i].arrival <= time) { arrived[i] = true; news.push(i); }
+    news.sort((a, b) => procs[a].arrival - procs[b].arrival || a - b);
+    for (const i of news) ready.push(i);
+    if (news.length) notes.push("t=" + time + "：" + news.map((i) => procs[i].name).join("、") + " 到达，插入就绪队列队尾");
+
+    // ② 时间片用完的进程重新排队
+    if (pending >= 0) {
+      ready.push(pending);
+      notes.push(procs[pending].name + " 重新排到就绪队列队尾");
+      pending = -1;
+    }
+
+    // ③ 抢占判断
+    if (running >= 0 && (algo === "srtn" || (algo === "prio" && prioMode === "pre"))) {
+      const b = pick(ready);
+      if (b >= 0 && beats(b, running)) {
+        notes.push(procs[b].name + "（" + (algo === "srtn" ? "剩余 " + rem[b] : "优先级 " + procs[b].prio) + "）优于正在运行的 " +
+          procs[running].name + "（" + (algo === "srtn" ? "剩余 " + rem[running] : "优先级 " + procs[running].prio) + "）→ 抢占 CPU，" +
+          procs[running].name + " 回到就绪队列队首");
+        ready.unshift(running);
+        running = -1;
+      }
+    }
+
+    // ④ 调度
+    if (running < 0) {
+      if (ready.length === 0) {
+        notes.push("t=" + time + "：就绪队列为空，CPU 空闲，等待进程到达");
+        addSeg(-1, time);
+        time++;
+        snap(notes.join("；"));
+        continue;
+      }
+      const list = ready.slice();
+      const b = pick(list);
+      ready.splice(ready.indexOf(b), 1);
+      running = b;
+      notes.push("t=" + time + " 调度：从就绪队列选择 " + procs[b].name + " 运行（" + why(b, list) + "）");
+      if (algo === "rr") quantumLeft = quantum;
+    }
+
+    // ⑤ 运行 1 个时间单位
+    rem[running]--;
+    if (algo === "rr") quantumLeft--;
+    addSeg(running, time);
+    time++;
+
+    // ⑥ 进程结束 / 时间片耗尽
+    if (rem[running] === 0) {
+      fin[running] = time;
+      doneCnt++;
+      notes.push(procs[running].name + " 运行结束：完成时间 = " + time + "，周转时间 = " + (time - procs[running].arrival));
+      running = -1;
+    } else if (algo === "rr" && quantumLeft === 0) {
+      pending = running;
+      notes.push(procs[running].name + " 时间片用尽（还剩 " + rem[running] + "），让出 CPU 重新排队");
+      running = -1;
+    }
+    snap(notes.join("；"));
+  }
+
+  // 结束汇总
+  let sT = 0, sW = 0, c = 0;
+  fin.forEach((f, i) => {
+    if (f !== null) { c++; sT += f - procs[i].arrival; sW += (f - procs[i].arrival) / procs[i].burst; }
+  });
+  out.push({
+    time: time, running: -1, ready: [], rem: rem.slice(), fin: fin.slice(),
+    segs: segs.map((s) => ({ p: s.p, a: s.a, b: s.b })),
+    note: "调度完成：所有进程已结束。平均周转时间 = " + (c ? (sT / c).toFixed(2) : "-") +
+      "，平均带权周转时间 = " + (c ? (sW / c).toFixed(2) : "-") + "。",
+  });
+  return out;
+}
+
+/* ---------------- 渲染 ---------------- */
+function renderGantt(st) {
+  const wrapW = $("ganttWrap").clientWidth || 860;
+  let unit = Math.floor((wrapW - 4) / Math.max(1, totalTime));
+  unit = Math.max(14, Math.min(60, unit));
+  const g = $("gantt");
+  g.style.width = (totalTime * unit) + "px";
+  g.innerHTML = "";
+  st.segs.forEach((s) => {
+    const d = document.createElement("div");
+    d.className = "seg" + (s.p === -1 ? " idle" : "");
+    d.style.width = ((s.b - s.a) * unit) + "px";
+    if (s.p >= 0) d.style.background = PALETTE[s.p % PALETTE.length];
+    d.textContent = ((s.b - s.a) * unit >= 22) ? (s.p === -1 ? "空闲" : procs[s.p].name) : "";
+    d.title = (s.p === -1 ? "空闲" : procs[s.p].name) + "：" + s.a + " ~ " + s.b;
+    g.appendChild(d);
+  });
+  const c = document.createElement("div");
+  c.className = "cursor";
+  c.style.left = (st.time * unit) + "px";
+  g.appendChild(c);
+
+  const ax = $("axis");
+  ax.style.width = (totalTime * unit) + "px";
+  ax.innerHTML = "";
+  const stepL = Math.max(1, Math.ceil(totalTime / 26));
+  for (let t = 0; t <= totalTime; t += stepL) {
+    const d = document.createElement("div");
+    d.className = "tick";
+    d.style.left = (t * unit) + "px";
+    d.textContent = t;
+    ax.appendChild(d);
+  }
+}
+
+function renderQueue(st) {
+  const box = $("readyQueue");
+  box.innerHTML = "";
+  if (!st.ready.length) {
+    box.innerHTML = '<span class="empty">（空 —— 没有等待运行的进程）</span>';
+  } else {
+    st.ready.forEach((i, k) => {
+      const d = document.createElement("div");
+      d.className = "chip" + (k === 0 ? " head-chip" : "");
+      d.style.borderColor = PALETTE[i % PALETTE.length];
+      d.style.color = PALETTE[i % PALETTE.length];
+      d.innerHTML = esc(procs[i].name) + ' <span class="rm">剩' + st.rem[i] + "</span>";
+      box.appendChild(d);
+    });
+  }
+  const rb = $("runningBox");
+  if (st.running >= 0) {
+    rb.className = "runbox";
+    rb.style.background = PALETTE[st.running % PALETTE.length];
+    rb.textContent = procs[st.running].name + " 运行中 · 剩 " + st.rem[st.running];
+  } else {
+    rb.className = "runbox idle";
+    rb.style.background = "";
+    rb.textContent = "CPU 空闲";
+  }
+}
+
+function updateTable(st) {
+  procs.forEach((p, i) => {
+    const r = rowEls[i];
+    if (!r) return;
+    r.classList.toggle("run", st.running === i);
+    r.classList.toggle("done", st.fin[i] !== null);
+    r.cells[4].textContent = st.fin[i] !== null ? "0" : st.rem[i];
+    if (st.fin[i] !== null) {
+      const tat = st.fin[i] - p.arrival;
+      r.cells[5].textContent = st.fin[i];
+      r.cells[6].textContent = tat;
+      r.cells[7].textContent = (tat / p.burst).toFixed(2);
+    } else {
+      r.cells[5].textContent = "-";
+      r.cells[6].textContent = "-";
+      r.cells[7].textContent = "-";
+    }
+  });
+}
+
+function render() {
+  const st = steps[cur];
+  if (!st) return;
+  renderGantt(st);
+  renderQueue(st);
+  updateTable(st);
+  $("stTime").textContent = st.time;
+  $("stReady").textContent = st.ready.length;
+  $("stTotal").textContent = procs.length;
+  let cnt = 0, sT = 0, sW = 0;
+  st.fin.forEach((f, i) => {
+    if (f !== null) { cnt++; sT += f - procs[i].arrival; sW += (f - procs[i].arrival) / procs[i].burst; }
+  });
+  $("stDone").textContent = cnt;
+  $("stAvg").textContent = cnt ? (sT / cnt).toFixed(2) : "-";
+  $("sumLine").innerHTML = cnt === 0
+    ? "尚无进程完成，周转时间 = 完成时间 − 到达时间，带权周转时间 = 周转时间 ÷ 服务时间。"
+    : "已统计 " + cnt + " 个进程：<b>平均周转时间 = " + (sT / cnt).toFixed(2) +
+      "</b>，<b>平均带权周转时间 = " + (sW / cnt).toFixed(2) + "</b>" +
+      (cnt === procs.length ? "（全部完成 ✅）" : "（进行中，仅统计已完成进程）");
+  $("note").textContent = st.note;
+  const atEnd = cur === steps.length - 1 && steps.length > 1;
+  $("stState").textContent = atEnd ? "✅ 调度完成" : (playing ? "调度中…" : (cur === 0 ? "就绪" : "⏸ 已暂停"));
+}
+
+function renderLegend() {
+  const L = $("legend");
+  L.innerHTML = "";
+  procs.forEach((p, i) => {
+    const s = document.createElement("span");
+    s.innerHTML = '<i style="background:' + PALETTE[i % PALETTE.length] + '"></i>' + esc(p.name);
+    L.appendChild(s);
+  });
+  const idle = document.createElement("span");
+  idle.innerHTML = '<i style="background:#cbd5e1"></i>CPU 空闲';
+  const cur2 = document.createElement("span");
+  cur2.innerHTML = '<i style="background:#ef4444"></i>当前时刻';
+  const head = document.createElement("span");
+  head.innerHTML = '<i style="background:#fde68a"></i>队列队首（下一个被调度）';
+  L.appendChild(idle); L.appendChild(cur2); L.appendChild(head);
+}
+
+function buildTable() {
+  const tb = $("ptbody");
+  tb.innerHTML = "";
+  rowEls = [];
+  procs.forEach((p, i) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML =
+      '<td><input class="ci" data-i="' + i + '" data-f="name" value="' + esc(p.name) + '"></td>' +
+      '<td><input class="ci" type="number" min="0" max="99" data-i="' + i + '" data-f="arrival" value="' + p.arrival + '"></td>' +
+      '<td><input class="ci" type="number" min="1" max="20" data-i="' + i + '" data-f="burst" value="' + p.burst + '"></td>' +
+      '<td><input class="ci" type="number" min="1" max="9" data-i="' + i + '" data-f="prio" value="' + p.prio + '"></td>' +
+      '<td>-</td><td>-</td><td>-</td><td>-</td>';
+    tb.appendChild(tr);
+    rowEls.push(tr);
+  });
+  tb.querySelectorAll("input.ci").forEach((inp) => {
+    inp.addEventListener("input", onCellEdit);
+    inp.addEventListener("change", onCellEdit);
+  });
+}
+
+function onCellEdit(e) {
+  const i = +e.target.dataset.i, f = e.target.dataset.f;
+  if (!procs[i]) return;
+  if (f === "name") {
+    procs[i].name = e.target.value.trim() || ("P" + (i + 1));
+  } else {
+    let v = parseInt(e.target.value, 10);
+    if (!isFinite(v)) return;
+    if (f === "arrival") v = Math.max(0, Math.min(99, v));
+    if (f === "burst") v = Math.max(1, Math.min(20, v));
+    if (f === "prio") v = Math.max(1, Math.min(9, v));
+    procs[i][f] = v;
+    if (document.activeElement !== e.target && +e.target.value !== v) e.target.value = v;
+  }
+  renderLegend();
+  rebuild();
+}
+
+/* ---------------- 控制 ---------------- */
+function stopTimer() { if (timer) { clearTimeout(timer); timer = null; } }
+
+function rebuild() {
+  stopTimer();
+  playing = false;
+  $("btnPlay").textContent = "▶ 播放";
+  steps = buildSteps();
+  totalTime = steps[steps.length - 1].time || 1;
+  cur = 0;
+  render();
+}
+
+function resetAll() { rebuild(); }
+
+function tick() {
+  if (!playing) return;
+  if (cur >= steps.length - 1) {
+    playing = false;
+    $("btnPlay").textContent = "▶ 播放";
+    render();
+    return;
+  }
+  cur++;
+  render();
+  timer = setTimeout(tick, speed);
+}
+
+function updateAlgoUI() {
+  const a = $("algoSel").value;
+  $("qWrap").classList.toggle("hidden", a !== "rr");
+  $("pWrap").classList.toggle("hidden", a !== "prio");
+  $("algoInfo").textContent = ALGO_INFO[a][0];
+  $("desc").innerHTML = "<b>" + ALGO_INFO[a][0] + "：</b>" + ALGO_INFO[a][1] +
+    "<br><b>对比要点：</b>SJF/SRTN 让短作业先跑，可证明其<b>平均周转时间最短</b>（长作业让路，减少后续所有作业的等待）；" +
+    "RR 的时间片 q 决定响应性与切换开销的平衡；" +
+    "抢占式（SRTN / 抢占式优先级 / RR）可在进程运行中剥夺 CPU，非抢占式（FCFS / SJF / HRRN / 非抢占优先级）必须等进程结束或主动放弃 CPU。" +
+    "<br><b>公式：</b>周转时间 = 完成时间 − 到达时间；带权周转时间 = 周转时间 ÷ 服务时间（≥1，越接近 1 越好）。";
+}
+
+function compareAll() {
+  const savedAlgo = $("algoSel").value, savedQ = $("quantumSel").value;
+  const list = [];
+  const trials = [["fcfs", 2], ["sjf", 2], ["srtn", 2], ["hrrn", 2], ["rr", +$("quantumSel").value], ["prio", 2]];
+  trials.forEach((t) => {
+    $("algoSel").value = t[0];
+    $("quantumSel").value = t[1];
+    const st = buildSteps();
+    const last = st[st.length - 1];
+    let c = 0, sT = 0, sW = 0;
+    last.fin.forEach((f, i) => {
+      if (f !== null) { c++; sT += f - procs[i].arrival; sW += (f - procs[i].arrival) / procs[i].burst; }
+    });
+    const label = { fcfs: "FCFS", sjf: "SJF", srtn: "SRTN", hrrn: "HRRN", rr: "RR(q=" + t[1] + ")", prio: "优先级" }[t[0]];
+    list.push(label + " 平均周转 " + (c ? (sT / c).toFixed(2) : "-") + " / 带权 " + (c ? (sW / c).toFixed(2) : "-"));
+  });
+  $("algoSel").value = savedAlgo;
+  $("quantumSel").value = savedQ;
+  let box = $("cmpBox");
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "cmpBox";
+    box.className = "cmp";
+    $("desc").insertBefore(box, $("desc").firstChild);
+  }
+  box.innerHTML = "同一组进程、不同算法的性能对比：<br>" + list.join("　｜　") +
+    "<br>可以看到 SJF/SRTN 的平均周转时间通常最短，RR 的性能受时间片 q 影响明显。";
+  rebuild();
+}
+
+/* ---------------- 事件绑定 ---------------- */
+$("algoSel").onchange = () => { updateAlgoUI(); rebuild(); };
+$("quantumSel").onchange = rebuild;
+$("prioMode").onchange = rebuild;
+$("btnPlay").onclick = () => {
+  if (playing) {
+    playing = false; stopTimer();
+    $("btnPlay").textContent = "▶ 播放";
+    render();
+    return;
+  }
+  if (cur >= steps.length - 1) { cur = 0; render(); }
+  playing = true;
+  $("btnPlay").textContent = "⏸ 暂停";
+  render();
+  timer = setTimeout(tick, speed);
+};
+$("btnStep").onclick = () => {
+  if (playing) { playing = false; stopTimer(); $("btnPlay").textContent = "▶ 播放"; }
+  if (cur < steps.length - 1) { cur++; render(); }
+};
+$("btnReset").onclick = () => { cur = 0; playing = false; stopTimer(); $("btnPlay").textContent = "▶ 播放"; render(); };
+document.querySelectorAll(".speed-group button").forEach((b) => {
+  b.onclick = () => {
+    document.querySelectorAll(".speed-group button").forEach((x) => x.classList.remove("active"));
+    b.classList.add("active");
+    speed = +b.dataset.speed;
+  };
+});
+document.querySelectorAll("[data-preset]").forEach((b) => {
+  b.onclick = () => { loadPreset(+b.dataset.preset); buildTable(); renderLegend(); rebuild(); };
+});
+$("btnRandom").onclick = () => { loadRandom(); buildTable(); renderLegend(); rebuild(); };
+$("btnAdd").onclick = () => {
+  if (procs.length >= 6) { $("note").textContent = "最多演示 6 个进程（再多甘特图会太挤），请先删除一个。"; return; }
+  const idx = procs.length;
+  procs.push({ name: "P" + (idx + 1), arrival: 0, burst: 3, prio: 1 + (idx % 5) });
+  buildTable(); renderLegend(); rebuild();
+};
+$("btnDel").onclick = () => {
+  if (procs.length <= 1) { $("note").textContent = "至少保留 1 个进程。"; return; }
+  procs.pop();
+  buildTable(); renderLegend(); rebuild();
+};
+$("btnCmp").onclick = compareAll;
+
+/* ---------------- 初始化 ---------------- */
+loadPreset(0);
+buildTable();
+renderLegend();
+updateAlgoUI();
+rebuild();
+</script>
+</body>
+</html>

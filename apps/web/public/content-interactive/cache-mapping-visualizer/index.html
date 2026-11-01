@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cache 映射方式与地址划分可视化</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f8fafc; color: #1e293b; padding: 16px; }
+  .wrap { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+  .head { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; }
+  .head h1 { font-size: 16px; font-weight: 600; }
+  .head .info { font-size: 12px; opacity: .92; font-family: Consolas, Monaco, monospace; }
+  .controls { padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-bottom: 1px solid #eef2f7; }
+  .controls label { font-size: 12px; color: #64748b; }
+  select, input[type=text], button, textarea { font-size: 13px; font-family: inherit; }
+  select { padding: 4px 7px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; outline: none; }
+  input[type=text], textarea { padding: 5px 9px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; outline: none;
+                               font-family: Consolas, Monaco, monospace; }
+  input[type=text]:focus, textarea:focus { border-color: #6366f1; background: #fff; }
+  textarea { width: 100%; height: 42px; resize: none; line-height: 1.5; }
+  button { padding: 6px 13px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all .15s; }
+  .btn-primary { background: #6366f1; color: #fff; }
+  .btn-primary:hover { background: #4f46e5; }
+  .btn-ghost { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+  .btn-ghost:hover { background: #e2e8f0; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .stats { padding: 7px 16px; display: flex; gap: 16px; font-size: 12px; color: #64748b; border-bottom: 1px solid #eef2f7; flex-wrap: wrap; align-items: center; }
+  .stats b { color: #1e293b; font-variant-numeric: tabular-nums; }
+  .speed-group { display: flex; gap: 4px; }
+  .speed-group button { padding: 4px 10px; font-size: 12px; }
+  .speed-group .active { background: #6366f1; color: #fff; }
+  .msg { margin: 0 16px 8px; padding: 7px 11px; border-radius: 8px; font-size: 12px; background: #fef3c7; color: #92400e; border: 1px solid #fde68a; display: none; }
+  .msg.warn { display: block; }
+  .stage { padding: 10px 16px 6px; }
+  .seqrow { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .seqrow .lbl { font-size: 12px; color: #64748b; white-space: nowrap; }
+  .grid { display: flex; gap: 14px; }
+  .left { flex: 1 1 56%; min-width: 0; }
+  .right { flex: 1 1 44%; min-width: 0; }
+  .panel-t { font-size: 11px; color: #94a3b8; margin-bottom: 5px; letter-spacing: .5px; display: flex; justify-content: space-between; }
+  .panel-t span.hint { color: #cbd5e1; letter-spacing: 0; }
+  /* 地址分段条 */
+  .addrbar { display: flex; height: 26px; border-radius: 7px; overflow: hidden; margin-bottom: 3px; }
+  .addrbar div { display: flex; align-items: center; justify-content: center; color: #fff; font-size: 11px; font-weight: 600; white-space: nowrap; transition: all .15s; }
+  .addrbar .f-tag { background: #8b5cf6; }
+  .addrbar .f-set { background: #6366f1; }
+  .addrbar .f-off { background: #f59e0b; }
+  .addrbar .f-zero { background: #e2e8f0; color: #94a3b8; }
+  .addrbit { display: flex; gap: 1px; margin-bottom: 4px; }
+  .addrbit b { font-family: Consolas, Monaco, monospace; font-size: 11px; font-weight: 500; text-align: center; overflow: hidden;
+               border-radius: 3px; padding: 1px 0; background: #f8fafc; color: #94a3b8; }
+  .addrbit b.t { background: #ede9fe; color: #6d28d9; }
+  .addrbit b.s { background: #e0e7ff; color: #4338ca; }
+  .addrbit b.o { background: #fef3c7; color: #b45309; }
+  .addrbit b.on { outline: 1px solid #1e293b; }
+  .calc { font-family: Consolas, Monaco, monospace; font-size: 12px; background: #f8fafc; border: 1px solid #e2e8f0;
+          border-radius: 8px; padding: 6px 9px; line-height: 1.75; color: #334155; margin-bottom: 6px; word-break: break-all; }
+  .calc b { color: #6366f1; }
+  .calc .gr { color: #10b981; font-weight: 700; }
+  .calc .rd { color: #ef4444; font-weight: 700; }
+  .calc .pu { color: #8b5cf6; font-weight: 700; }
+  .tblwrap { max-height: 176px; overflow-y: auto; border: 1px solid #eef2f7; border-radius: 10px; }
+  table.ct { width: 100%; border-collapse: collapse; font-size: 11px; }
+  table.ct th { position: sticky; top: 0; background: #f8fafc; color: #64748b; font-weight: 600; padding: 3px 5px; border-bottom: 1px solid #e2e8f0; text-align: left; z-index: 1; }
+  table.ct td { padding: 2px 5px; border-bottom: 1px solid #f5f7fa; font-family: Consolas, Monaco, monospace; color: #475569; }
+  table.ct tr.hit td { background: #ecfdf5; color: #047857; }
+  table.ct tr.miss td { background: #fef2f2; color: #b91c1c; }
+  table.ct tr.victim td { background: #fff1f2; color: #be123c; font-weight: 700; }
+  table.ct tr.empty td { color: #cbd5e1; }
+  table.ct tr.flash td { animation: fl .45s ease; }
+  @keyframes fl { from { background: #fde68a; } }
+  .tagpill { display: inline-block; padding: 0 4px; border-radius: 4px; background: #ede9fe; color: #6d28d9; }
+  .legend { padding: 4px 16px 8px; display: flex; gap: 14px; font-size: 11px; color: #64748b; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .desc { padding: 10px 16px 14px; border-top: 1px solid #eef2f7; font-size: 12px; color: #475569; line-height: 1.75; }
+  .desc h4 { font-size: 12px; color: #4f46e5; margin: 7px 0 3px; }
+  .desc b { color: #334155; }
+  .desc code { font-family: Consolas, Monaco, monospace; background: #f1f5f9; padding: 0 3px; border-radius: 3px; color: #4338ca; }
+  .prog { height: 4px; background: #eef2f7; border-radius: 2px; overflow: hidden; margin-top: 6px; }
+  .prog i { display: block; height: 100%; width: 0; background: #6366f1; transition: width .15s; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>🗂️ Cache 映射方式与地址划分</h1>
+    <span class="info" id="cfgInfo">—</span>
+  </div>
+
+  <div class="controls">
+    <label>地址位</label>
+    <select id="addrBits"><option>24</option><option selected>32</option><option>20</option><option>16</option></select>
+    <label>Cache 行数</label>
+    <select id="lines"><option>4</option><option>8</option><option selected>16</option><option>32</option></select>
+    <label>块大小</label>
+    <select id="blk"><option>1</option><option>2</option><option selected>4</option><option>8</option><option>16</option></select>
+    <label>相联度</label>
+    <select id="assoc">
+      <option value="1">直接映射（1 路）</option>
+      <option value="2">2 路组相联</option>
+      <option value="4" selected>4 路组相联</option>
+      <option value="8">8 路组相联</option>
+      <option value="0">全相联</option>
+    </select>
+    <label>替换</label>
+    <select id="policy"><option value="LRU">LRU（最近最少使用）</option><option value="FIFO">FIFO（先进先出）</option></select>
+    <div class="speed-group">
+      <button data-speed="600" class="btn-ghost sp">慢</button>
+      <button data-speed="200" class="btn-ghost sp active">中</button>
+      <button data-speed="40" class="btn-ghost sp">快</button>
+    </div>
+    <button class="btn-primary" id="btnPlay">▶ 播放</button>
+    <button class="btn-ghost" id="btnStep">单步</button>
+    <button class="btn-ghost" id="btnPrev">上一步</button>
+    <button class="btn-ghost" id="btnReset">↺ 重置</button>
+  </div>
+
+  <div class="stats">
+    <span>访问 <b id="stN">0</b> 次</span>
+    <span>命中 <b id="stHit">0</b></span>
+    <span>缺失 <b id="stMiss">0</b></span>
+    <span>命中率 <b id="stRate">—</b></span>
+    <span>强制/冲突/容量 <b id="stType">0 / 0 / 0</b></span>
+    <span>进度 <b id="stProg">0 / 0</b></span>
+  </div>
+
+  <div class="msg" id="msg"></div>
+
+  <div class="stage">
+    <div class="seqrow">
+      <span class="lbl">访存地址序列（十六进制，空格/逗号分隔）</span>
+      <button class="btn-ghost" id="btnApply" style="padding:4px 10px">载入序列</button>
+      <button class="btn-ghost" id="btnRand" style="padding:4px 10px">🎲 随机</button>
+      <button class="btn-ghost" id="btnSeq" style="padding:4px 10px">➡ 顺序（体现空间局部性）</button>
+      <button class="btn-ghost" id="btnConflict" style="padding:4px 10px">⚡ 冲突演示</button>
+    </div>
+    <textarea id="seqBox" spellcheck="false">0x0000 0x0004 0x0010 0x0004 0x0100 0x0000 0x0104 0x0010 0x0200 0x0004 0x0300 0x0010</textarea>
+
+    <div class="grid">
+      <div class="left">
+        <div class="panel-t"><span>地址划分（当前第 <b id="curIdx">—</b> 次访问）</span><span class="hint">每格 = 1 位，颜色区分字段</span></div>
+        <div class="addrbit" id="addrBitsView"></div>
+        <div class="addrbar" id="addrBar"></div>
+        <div class="calc" id="calc"></div>
+        <div class="panel-t"><span>Cache 内容表</span><span class="hint" id="tblHint"></span></div>
+        <div class="tblwrap"><table class="ct" id="ct"><thead id="ctHead"></thead><tbody id="ctBody"></tbody></table></div>
+      </div>
+      <div class="right">
+        <div class="panel-t"><span>访问序列与命中情况</span><span class="hint" id="seqHint">点击单步逐条演示</span></div>
+        <div class="tblwrap" style="max-height:228px"><table class="ct" id="seqTbl"><thead></thead><tbody></tbody></table></div>
+        <div class="prog"><i id="progBar"></i></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><i style="background:#8b5cf6"></i>标记 tag</span>
+    <span><i style="background:#6366f1"></i>组号 / 行号（索引）</span>
+    <span><i style="background:#f59e0b"></i>块内偏移</span>
+    <span><i style="background:#10b981"></i>命中</span>
+    <span><i style="background:#ef4444"></i>缺失</span>
+    <span><i style="background:#be123c"></i>被替换的牺牲行</span>
+    <span><i style="background:#e2e8f0"></i>有效位为 0（空行）</span>
+  </div>
+
+  <div class="desc">
+    <h4>地址三段划分：这是 408 必考的计算</h4>
+    <code>主存地址 = 标记 tag | 组号/行号 (索引) | 块内偏移</code>　计算顺序是<b>从右往左</b>：<br>
+    ① <b>块内偏移位数 = log₂(块大小)</b>（决定块内第几个字/字节）；<br>
+    ② <b>索引位数 = log₂(Cache 的行数 / 每组行数) = log₂(组数)</b>（决定落到哪一组）；<br>
+    ③ <b>标记位数 = 地址总位数 − 索引位数 − 偏移位数</b>（剩下的高位才是 tag，用来判断"是不是我要的那一块"）。<br>
+    例：32 位地址、16 行、4 字/块、4 路组相联 → 组数 = 16/4 = 4 → 索引 2 位；块大小 4 字 = 2² 字 → 偏移 2 位；tag = 32−2−2 = <b>28 位</b>。
+    <h4>三种映射方式对比</h4>
+    <b>直接映射</b>：组数 = 行数，每个主存块只能放到<b>唯一</b>一行（行号 = 块号 mod 行数）。硬件最简单、比较器只需 1 个、命中时间最短；但两个块号之差恰为行数整数倍时会反复互相替换 → <b>冲突缺失严重</b>，命中率最低。<br>
+    <b>全相联</b>：只有一个组（索引 0 位），任何块可放入任意行。命中率最高、冲突缺失为 0；但需要与<b>所有行</b>的 tag 并行比较（行数越多比较器越贵越慢），替换算法也最复杂，只适合小容量 Cache（如 TLB、一级指令 Cache 的小配置）。<br>
+    <b>组相联（n 路）</b>：折中方案。块先按<b>索引</b>定到唯一的一组，组内可选任意一行 → 组内冲突被消除，同时比较器只需 n 个。2 路/4 路组相联的命中率已经非常接近全相联，而硬件代价远低于全相联，所以现代 CPU 的 L1/L2/L3 几乎都用组相联（常见 8 路、16 路）。
+    <h4>三种缺失（3C）的区别</h4>
+    <b>强制缺失（冷启动缺失）</b>：该块<b>第一次</b>被访问，Cache 里必然没有，任何映射方式都无法避免，只与程序的首次访问有关。<br>
+    <b>冲突缺失</b>：块其实在 Cache 里"放开"放得下，但被映射方式限制住了——直接映射时多个块竞争同一行，或组相联时竞争同一组。本演示切换"相联度"即可看到：<b>相联度越高，冲突缺失越少</b>（用同一个序列切换 1 路 / 2 路 / 4 路 / 全相联对比命中率）。<br>
+    <b>容量缺失</b>：Cache 确实太小，某个块被换出后又被访问，此时即使换成全相联也一定会缺失。判断方法：<b>本演示中若某次缺失在全相联下同样会发生，那就是容量缺失</b>；若只有低相联度才发生，那就是冲突缺失。
+    <h4>为什么组相联是折中方案？</h4>
+    命中时间由"索引定位 + tag 比较"决定：直接映射比较 1 个 tag 最快，全相联要比较全部行最慢；组相联只在组内并比较少数几个 tag。<b>2 路组相联就能消除绝大部分直接映射的颠簸（thrashing），代价只增加一个比较器</b>；再往上加路的收益递减，却使比较器和替换逻辑变复杂。加上 LRU/FIFO 等替换算法能在组内选择牺牲行，组相联在"成本、速度、命中率"三者间取得了最好的平衡。
+    <h4>其他要点</h4>
+    ① <b>块大小</b>也在折中：块越大越能利用<b>空间局部性</b>（减少强制缺失），但块数变少、冲突加剧，且每次缺失要搬运更多数据、增加缺失代价。<br>
+    ② <b>替换算法</b>：LRU 效果好但需要记录使用顺序（本表"最近使用"列即 LRU 计数），全相联下实现代价高；FIFO 简单但可能出现 Belady 异常（增加行数反而命中率下降）；直接映射无需替换算法（牺牲行唯一）。<br>
+    ③ <b>写策略</b>：写直达 + 写不分配，或写回 + 写分配（配合"脏位"）。本演示只关心读访问的映射与替换。
+  </div>
+</div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+
+/* ---------------- 配置 ---------------- */
+const cfg = { addrBits: 32, lines: 16, blkWords: 4, assoc: 4, policy: "LRU" };
+let geo = null;              // {idxBits, offBits, tagBits, sets, ways, blockBytes}
+let trace = [];              // 地址数组
+let steps = [];              // 每步状态快照
+let cur = -1, playing = false, timer = null, speed = 200;
+
+function clampAssoc() {
+  let a = cfg.assoc === 0 ? cfg.lines : cfg.assoc;   // 0 表示全相联
+  while (a > cfg.lines) a = a >> 1;
+  return Math.max(1, a);
+}
+function computeGeo() {
+  const offBits = Math.log2(cfg.blkWords);
+  const ways = clampAssoc();
+  const sets = Math.max(1, Math.floor(cfg.lines / ways));
+  const idxBits = Math.round(Math.log2(sets));
+  const tagBits = cfg.addrBits - idxBits - offBits;
+  geo = { offBits: offBits, idxBits: idxBits, tagBits: tagBits, sets: sets, ways: ways };
+  return geo;
+}
+function numHex(v, digits) { return v.toString(16).toUpperCase().padStart(digits, "0"); }
+
+/* ---------------- 模拟 ---------------- */
+function buildSteps() {
+  computeGeo();
+  steps = [];
+  const ways = geo.ways, sets = geo.sets;
+  // perSet[set][way] = {valid, tag, block, last, loaded, dirty}
+  const perSet = [];
+  for (let s = 0; s < sets; s++) {
+    const arr = [];
+    for (let w = 0; w < ways; w++) arr.push({ valid: 0, tag: -1, block: -1, last: 0, loaded: 0 });
+    perSet.push(arr);
+  }
+  const tick = { v: 0 };
+  const blockSeen = new Map();      // blockNo -> 访问次序（判断强制缺失）
+  const stats = { n: 0, hit: 0, miss: 0, compulsory: 0, conflict: 0, capacity: 0 };
+
+  function snapshot(extra) {
+    return {
+      perSet: perSet.map(a => a.map(x => ({ valid: x.valid, tag: x.tag, block: x.block, last: x.last, loaded: x.loaded }))),
+      stats: Object.assign({}, stats), tick: tick.v, extra: extra
+    };
+  }
+  steps.push(snapshot({ addr: null, note: "初始状态：Cache 全空（所有行有效位为 0）" }));
+  $("stN").textContent = "0";
+
+  trace.forEach((addr, i) => {
+    const block = Math.floor(addr / cfg.blkWords);
+    const off = addr % cfg.blkWords;
+    const setNo = block % sets;
+    const tag = Math.floor(block / sets);
+    const offWord = off;
+    const run = blockSeen.get(block);
+    const firstTime = (run === undefined);
+    if (firstTime) blockSeen.set(block, i);
+    tick.v++;
+    const t = tick.v;
+
+    const setArr = perSet[setNo];
+    let hitWay = -1;
+    for (let w = 0; w < ways; w++) if (setArr[w].valid && setArr[w].tag === tag) { hitWay = w; break; }
+
+    // 用于判定的"全相联对照"：整个 Cache 中是否存在同 tag 且不同 set 的块（即被映射限制逼出去的）
+    let sameTagElsewhere = false;
+    for (let s = 0; s < sets; s++) {
+      if (s === setNo) continue;
+      for (let w = 0; w < ways; w++) if (perSet[s][w].valid && perSet[s][w].tag === tag) sameTagElsewhere = true;
+    }
+
+    let missType = "", victimWay = -1, victimSnap = null;
+    if (hitWay >= 0) {
+      stats.hit++;
+      setArr[hitWay].last = t;
+    } else {
+      stats.miss++;
+      if (firstTime) { missType = "compulsory"; stats.compulsory++; }
+      else if (sameTagElsewhere) { missType = "conflict"; stats.conflict++; }
+      else { missType = "capacity"; stats.capacity++; }
+      // 找空行
+      let freeWay = -1;
+      for (let w = 0; w < ways; w++) if (!setArr[w].valid) { freeWay = w; break; }
+      if (freeWay >= 0) victimWay = freeWay;
+      else {
+        // 替换：LRU 取 last 最小；FIFO 取 loaded 最小
+        let best = 0;
+        for (let w = 1; w < ways; w++) {
+          const a = setArr[w], b = setArr[best];
+          if (cfg.policy === "LRU") { if (a.last < b.last) best = w; }
+          else { if (a.loaded < b.loaded) best = w; }
+        }
+        victimWay = best;
+        victimSnap = { tag: setArr[best].tag, block: setArr[best].block };
+      }
+      setArr[victimWay].valid = 1;
+      setArr[victimWay].tag = tag;
+      setArr[victimWay].block = block;
+      setArr[victimWay].last = t;
+      setArr[victimWay].loaded = t;
+    }
+    stats.n = i + 1;
+
+    const info = {
+      addr: addr, i: i, block: block, off: offWord, setNo: setNo, tag: tag,
+      hit: hitWay >= 0, hitWay: hitWay, way: hitWay >= 0 ? hitWay : victimWay,
+      missType: missType, victimWay: victimWay, victimSnap: victimSnap, firstTime: firstTime,
+      addrBin: addr.toString(2).padStart(cfg.addrBits, "0")
+    };
+    steps.push(snapshot(info));
+  });
+  return steps.length;
+}
+
+/* ---------------- 渲染 ---------------- */
+function fieldSplit(i) {  // 返回 [tagBits, idxBits, offBits] 在二进制串中的位置边界
+  const { tagBits, idxBits, offBits } = geo;
+  return { a: 0, b: tagBits, c: tagBits + idxBits, d: tagBits + idxBits + offBits };
+}
+function renderAddr(bin) {
+  const bitsEl = $("addrBitsView"), barEl = $("addrBar");
+  bitsEl.innerHTML = ""; barEl.innerHTML = "";
+  const { tagBits, idxBits, offBits } = geo;
+  const total = cfg.addrBits;
+  const binStr = bin || "".padEnd(total, "0");
+  const f = fieldSplit();
+  const startBit = total - 1;
+  for (let i = 0; i < total; i++) {
+    const b = document.createElement("b");
+    const val = bin ? binStr[i] : "·";
+    b.textContent = val;
+    const p = startBit - i;             // 该位对应的权（2^p）
+    let cls = "";
+    if (p >= f.c && p < f.d) cls = "o";
+    else if (p >= f.b && p < f.c) cls = "s";
+    else if (p >= f.a && p < f.b) cls = "t";
+    else cls = "";
+    if (bin && val === "1") { b.className = cls + " on"; } else { b.className = cls; }
+    b.style.flex = "1 1 0";
+    bitsEl.appendChild(b);
+  }
+  const segs = [
+    { n: f.b - f.a, cls: "f-tag", label: "tag " + tagBits + " 位" },
+    { n: f.c - f.b, cls: "f-set", label: (idxBits > 0 ? "组号 " + idxBits + " 位" : "索引 0 位") },
+    { n: f.d - f.c, cls: "f-off", label: "偏移 " + offBits + " 位" }
+  ];
+  segs.forEach(s => {
+    const d = document.createElement("div");
+    d.className = s.cls;
+    d.style.flex = String(Math.max(s.n, 0.0001));
+    d.textContent = s.n > 0 ? s.label : "";
+    d.title = s.label;
+    if (s.n === 0) d.style.display = "none";
+    barEl.appendChild(d);
+  });
+}
+function renderCacheTable(state) {
+  const head = $("ctHead"), body = $("ctBody");
+  const { idxBits, offBits, tagBits, sets, ways } = geo;
+  const info = state.extra;
+  head.innerHTML = "<tr><th style='width:34px'>" + (sets === 1 ? "行" : "组") + "</th>" +
+                   "<th style='width:30px'>路</th><th style='width:32px'>V</th><th>tag</th><th>数据块（" + cfg.blkWords + " 字）</th><th style='width:52px'>" +
+                   (cfg.policy === "LRU" ? "最近使用" : "载入时刻") + "</th></tr>";
+  body.innerHTML = "";
+  for (let s = 0; s < sets; s++) {
+    for (let w = 0; w < ways; w++) {
+      const line = state.perSet[s][w];
+      const tr = document.createElement("tr");
+      const isHit = info && info.addr !== null && info.hit && info.setNo === s && info.hitWay === w;
+      const isFill = info && info.addr !== null && !info.hit && info.setNo === s && info.victimWay === w;
+      const isVictim = info && info.addr !== null && !info.hit && info.victimSnap && info.setNo === s && info.victimWay === w;
+      if (!line.valid) tr.className = "empty";
+      else if (isHit) tr.className = "hit";
+      else if (isFill) tr.className = "miss flash";
+      const td0 = document.createElement("td"); td0.textContent = s;
+      const td1 = document.createElement("td"); td1.textContent = "W" + w;
+      const td2 = document.createElement("td"); td2.textContent = line.valid ? "1" : "0";
+      const td3 = document.createElement("td");
+      td3.innerHTML = line.valid
+        ? '<span class="tagpill">' + numHex(line.tag, Math.max(1, Math.ceil(tagBits / 4))) + "</span>"
+        : "—";
+      const td4 = document.createElement("td");
+      td4.textContent = line.valid ? ("块 #" + line.block + "  [字 " + (line.block * cfg.blkWords) + " ~ " + (line.block * cfg.blkWords + cfg.blkWords - 1) + "]") : "—";
+      const td5 = document.createElement("td");
+      td5.textContent = line.valid ? String(cfg.policy === "LRU" ? line.last : line.loaded) : "—";
+      if (isFill && isVictim) {
+        td4.innerHTML = td4.textContent + "  <span style='color:#be123c'>← 替换掉 tag=" + numHex(info.victimSnap.tag, Math.max(1, Math.ceil(tagBits / 4))) + "</span>";
+      }
+      [td0, td1, td2, td3, td4, td5].forEach(x => tr.appendChild(x));
+      body.appendChild(tr);
+    }
+  }
+  $("tblHint").textContent = sets + " 组 × " + ways + " 路 = " + cfg.lines + " 行";
+  // 高亮当前行
+  if (info && info.addr !== null) {
+    const rowIdx = info.setNo * ways + info.way;
+    const rows = body.children;
+    for (let k = 0; k < rows.length; k++) {
+      if (k === rowIdx) rows[k].style.outline = "1.5px solid #6366f1";
+      else rows[k].style.outline = "none";
+    }
+    if (rows[rowIdx] && rows[rowIdx].scrollIntoView) {
+      const wrap = body.closest(".tblwrap");
+      const top = rows[rowIdx].offsetTop - wrap.clientHeight / 2 + rows[rowIdx].clientHeight / 2;
+      wrap.scrollTop = Math.max(0, top);
+    }
+  }
+}
+function renderSeqTable() {
+  const tb = $("seqTbl");
+  const thead = tb.querySelector("thead"), tbody = tb.querySelector("tbody");
+  thead.innerHTML = "<tr><th style='width:26px'>#</th><th style='width:66px'>地址</th><th style='width:30px'>块</th><th style='width:28px'>组</th><th style='width:52px'>tag</th><th>结果</th></tr>";
+  tbody.innerHTML = "";
+  for (let i = 0; i < steps.length - 1; i++) {
+    const inf = steps[i + 1].extra;
+    const tr = document.createElement("tr");
+    const res = inf.hit ? "命中 W" + inf.hitWay : "缺失(" + ({ compulsory: "强制", conflict: "冲突", capacity: "容量" }[inf.missType] || "?") + ")";
+    tr.innerHTML = "<td>" + (i + 1) + "</td><td>0x" + numHex(inf.addr, Math.ceil(cfg.addrBits / 4)) + "</td><td>" + inf.block +
+                   "</td><td>" + inf.setNo + "</td><td>" + numHex(inf.tag, Math.max(1, Math.ceil(geo.tagBits / 4))) + "</td><td>" + res + "</td>";
+    if (i === cur - 1) tr.className = "flash";
+    else if (i < cur - 1) tr.className = inf.hit ? "hit" : "miss";
+    tbody.appendChild(tr);
+  }
+  const active = tbody.children[cur - 1];
+  if (active) {
+    active.style.outline = "1.5px solid #6366f1";
+    const wrap = tbody.closest(".tblwrap");
+    const top = active.offsetTop - wrap.clientHeight / 2 + active.clientHeight / 2;
+    wrap.scrollTop = Math.max(0, top);
+  }
+}
+function renderStep() {
+  if (!steps.length) return;
+  const state = steps[Math.max(0, cur)];
+  const info = state.extra;
+  const st = state.stats;
+  $("stN").textContent = st.n;
+  $("stHit").textContent = st.hit;
+  $("stMiss").textContent = st.miss;
+  $("stRate").textContent = st.n ? ((st.hit / st.n * 100).toFixed(1) + "%") : "—";
+  $("stType").textContent = st.compulsory + " / " + st.conflict + " / " + st.capacity;
+  $("stProg").textContent = Math.max(0, cur) + " / " + (steps.length - 1);
+  $("progBar").style.width = ((Math.max(0, cur)) / Math.max(1, steps.length - 1) * 100) + "%";
+  $("curIdx").textContent = info && info.addr !== null ? String(cur) : "—";
+  computeGeo();
+  renderAddr(info && info.addr !== null ? info.addrBin : null);
+  renderCacheTable(state);
+  renderSeqTable();
+
+  const bin = info && info.addr !== null ? info.addrBin : "";
+  const f = fieldSplit();
+  const tagBin = bin.slice(f.a, f.b), idxBin = bin.slice(f.b, f.c), offBin = bin.slice(f.c, f.d);
+  if (!info || info.addr === null) {
+    $("calc").innerHTML = "等待开始：点击「▶ 播放」或「单步」逐条访问。<br>地址将被切分为 <span class='pu'>tag " + geo.tagBits +
+      " 位</span> | <span style='color:#4338ca'>索引 " + geo.idxBits + " 位</span> | <span style='color:#b45309'>偏移 " + geo.offBits + " 位</span>。";
+    return;
+  }
+  const victimTxt = (info.victimWay >= 0 && !info.hit && info.victimSnap)
+      ? "<br>替换策略 " + cfg.policy + "：组 " + info.setNo + " 已满 → 牺牲 <span class='rd'>W" + info.victimWay + "（原 tag=" +
+        numHex(info.victimSnap.tag, Math.max(1, Math.ceil(geo.tagBits / 4))) + "，块 #" + info.victimSnap.block + "）</span>"
+      : (info.victimWay >= 0 && !info.hit ? "<br>组 " + info.setNo + " 中 <b>W" + info.victimWay + "</b> 为空行（有效位 0）→ 直接装入，无需替换" : "");
+  const hitTxt = info.hit
+    ? "<span class='gr'>✔ 命中</span>：组 " + info.setNo + " 的 <b>W" + info.hitWay + "</b> 有效且 tag 相同，直接把该块的数据取出（不访问主存）。"
+    : "<span class='rd'>✘ 缺失（" + ({ compulsory: "强制", conflict: "冲突", capacity: "容量" }[info.missType] || "") + "）</span>：组 " + info.setNo +
+      " 内没有 tag = " + numHex(info.tag, Math.max(1, Math.ceil(geo.tagBits / 4))) + " 的有效行，需从主存把块 #" + info.block + " 整块搬入 <b>W" + info.victimWay + "</b>。";
+
+  $("calc").innerHTML =
+    "地址 0x" + numHex(info.addr, Math.ceil(cfg.addrBits / 4)) + " = (" + bin + ")<sub>2</sub><br>" +
+    "拆分：<span class='pu'>tag(" + geo.tagBits + ") = " + (tagBin || "—") + "</span> = " + tagBin.length + "位值 " + numHex(info.tag, 1) +
+    "　|　<span style='color:#4338ca'>索引(" + geo.idxBits + ") = " + (idxBin || "—") + "</span> = 组 " + info.setNo +
+    "　|　<span style='color:#b45309'>偏移(" + geo.offBits + ") = " + (offBin || "—") + "</span> = 块内第 " + info.off + " 个字<br>" +
+    "地址 ÷ 块大小(" + cfg.blkWords + ") = 块号 <b>" + info.block + "</b>；块号 mod 组数(" + geo.sets + ") = 组号 <b>" + info.setNo + "</b>；块号 ÷ 组数 = tag <b>" + info.tag + "</b><br>" +
+    hitTxt + victimTxt;
+}
+function stopTimer() { if (timer) { clearTimeout(timer); timer = null; } }
+function pause() { playing = false; stopTimer(); $("btnPlay").textContent = "▶ 播放"; }
+function showStep(i) {
+  cur = Math.max(0, Math.min(steps.length - 1, i));
+  renderStep();
+}
+function play() {
+  if (playing) { pause(); return; }
+  if (cur >= steps.length - 1) showStep(0);
+  playing = true;
+  $("btnPlay").textContent = "⏸ 暂停";
+  timer = setTimeout(tick, speed);
+}
+function tick() {
+  if (!playing) return;
+  if (cur >= steps.length - 1) { pause(); return; }
+  showStep(cur + 1);
+  timer = setTimeout(tick, speed);
+}
+
+/* ---------------- 数据生成 ---------------- */
+function parseSeq(str) {
+  const out = [], bad = [];
+  String(str).split(/[\s,;、\n\r\t]+/).forEach(tok => {
+    if (!tok) return;
+    let v;
+    if (/^0x[0-9a-f]+$/i.test(tok)) v = parseInt(tok.slice(2), 16);
+    else if (/^[0-9a-f]+$/i.test(tok)) v = parseInt(tok, 16);
+    else if (/^\d+$/.test(tok)) v = parseInt(tok, 10);
+    else { bad.push(tok); return; }
+    if (!isFinite(v) || v < 0) { bad.push(tok); return; }
+    if (v >= Math.pow(2, cfg.addrBits)) { bad.push(tok + "(超出" + cfg.addrBits + "位地址范围)"); return; }
+    out.push(v);
+  });
+  return { list: out, bad: bad };
+}
+function randomSeq(words) {
+  const maxWord = Math.pow(2, Math.min(cfg.addrBits, 12));
+  const pool = [];
+  const nBlocks = Math.max(2, Math.floor(maxWord / cfg.blkWords));
+  const workingBlocks = [2, 4, 8][Math.floor(Math.random() * 3)];
+  for (let i = 0; i < words; i++) {
+    let blk;
+    if (Math.random() < 0.72) blk = Math.floor(Math.random() * Math.min(workingBlocks, nBlocks));  // 集中在工作集
+    else blk = Math.floor(Math.random() * nBlocks);
+    pool.push(blk * cfg.blkWords + Math.floor(Math.random() * cfg.blkWords));
+  }
+  return pool;
+}
+function sequentialSeq(words) {
+  const out = [];
+  let base = Math.floor(Math.random() * 8) * cfg.blkWords;
+  const cap = Math.pow(2, Math.min(cfg.addrBits, 14));
+  for (let i = 0; i < words; i++) { out.push(base % cap); base++; }
+  return out;
+}
+function fmtSeq(arr) {
+  const d = Math.ceil(cfg.addrBits / 4);
+  return arr.map(v => "0x" + numHex(v, d)).join(" ");
+}
+
+/* ---------------- 载入 ---------------- */
+function load(keepSeq) {
+  pause();
+  cfg.addrBits = +$("addrBits").value;
+  cfg.lines = +$("lines").value;
+  cfg.blkWords = +$("blk").value;
+  cfg.assoc = +$("assoc").value;
+  cfg.policy = $("policy").value;
+  computeGeo();
+  $("msg").className = "msg";
+  const p = parseSeq($("seqBox").value);
+  if (p.bad.length) {
+    $("msg").innerHTML = "⚠️ 以下地址无法识别或越界，已忽略：" + p.bad.slice(0, 6).join("、") + (p.bad.length > 6 ? " …" : "");
+    $("msg").className = "msg warn";
+  }
+  if (!p.list.length) {
+    trace = [];
+    steps = [];
+    cur = -1;
+    renderAddr(null);
+    $("ctBody").innerHTML = ""; $("ctHead").innerHTML = ""; $("seqTbl").querySelector("tbody").innerHTML = "";
+    $("calc").innerHTML = "<span class='rd'>没有有效地址</span>：请输入如 0x0004 0x0010 的十六进制地址，或用「🎲 随机」生成。";
+    updateCfgInfo();
+    return;
+  }
+  trace = p.list.slice(0, 200);
+  if (p.list.length > 200) {
+    $("msg").innerHTML = "ℹ️ 序列过长，仅演示前 200 次访问。";
+    $("msg").className = "msg warn";
+  }
+  buildSteps();
+  cur = -1;
+  showStep(0);
+  updateCfgInfo();
+}
+function updateCfgInfo() {
+  const { tagBits, idxBits, offBits, sets, ways } = geo;
+  $("cfgInfo").textContent = "tag " + tagBits + " | 索引 " + idxBits + " | 偏移 " + offBits +
+    "　(" + sets + " 组 × " + ways + " 路)";
+}
+
+/* ---------------- 事件 ---------------- */
+["addrBits", "lines", "blk", "assoc", "policy"].forEach(id => {
+  $(id).onchange = () => load();
+});
+$("btnApply").onclick = () => load();
+$("btnRand").onclick = () => { $("seqBox").value = fmtSeq(randomSeq(14)); load(); };
+$("btnSeq").onclick = () => { $("seqBox").value = fmtSeq(sequentialSeq(12)); load(); };
+$("btnConflict").onclick = () => {
+  const L = cfg.lines, B = cfg.blkWords, sets = Math.max(1, Math.floor(cfg.lines / clampAssoc()));
+  const arr = [];
+  for (let k = 0; k < 4; k++) { arr.push(k * L * B); arr.push(0); }
+  arr.push(Math.min(1, B - 1)); arr.push(sets * B); arr.push(0);
+  $("seqBox").value = fmtSeq(arr);
+  load();
+};
+$("btnPlay").onclick = play;
+$("btnStep").onclick = () => { pause(); if (cur < steps.length - 1) showStep(cur + 1); };
+$("btnPrev").onclick = () => { pause(); showStep(cur - 1); };
+$("btnReset").onclick = () => { pause(); showStep(0); };
+document.querySelectorAll(".sp").forEach(b => {
+  b.onclick = () => {
+    document.querySelectorAll(".sp").forEach(x => x.classList.remove("active"));
+    b.classList.add("active");
+    speed = +b.dataset.speed;
+    if (playing) { stopTimer(); timer = setTimeout(tick, speed); }
+  };
+});
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+  if (e.key === "ArrowRight") { pause(); if (cur < steps.length - 1) showStep(cur + 1); }
+  if (e.key === "ArrowLeft") { pause(); showStep(cur - 1); }
+  if (e.key === " ") { e.preventDefault(); play(); }
+});
+
+/* init */
+load();
+</script>
+</body>
+</html>

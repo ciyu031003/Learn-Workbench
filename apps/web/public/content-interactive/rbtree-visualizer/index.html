@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>红黑树可视化</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f8fafc; color: #1e293b; padding: 16px; }
+  .wrap { max-width: 940px; margin: 0 auto; background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+  .head { background: linear-gradient(135deg, #dc2626, #7c3aed); color: #fff; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; }
+  .head h1 { font-size: 16px; font-weight: 600; }
+  .head .info { font-size: 12px; opacity: .9; }
+  .controls { padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; border-bottom: 1px solid #eef2f7; }
+  .controls label { font-size: 12px; color: #64748b; }
+  input[type=number] { width: 90px; padding: 5px 8px; border-radius: 8px; border: 1px solid #e2e8f0; outline: none; font-size: 13px; }
+  button { padding: 6px 14px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all .15s; font-size: 13px; }
+  .btn-insert { background: #dc2626; color: #fff; }
+  .btn-insert:hover { background: #b91c1c; }
+  .btn-ghost { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+  .btn-ghost:hover { background: #e2e8f0; }
+  .btn-primary { background: #dc2626; color: #fff; }
+  .btn-primary:hover { background: #b91c1c; }
+  .speed-group { display: flex; gap: 4px; }
+  .speed-group button { padding: 4px 10px; font-size: 12px; }
+  .speed-group .active { background: #dc2626; color: #fff; border-color: #dc2626; }
+  .msg { padding: 8px 16px; font-size: 12px; color: #475569; border-bottom: 1px solid #eef2f7; min-height: 28px; }
+  .msg b { color: #334155; }
+  .msg .fix { color: #7c3aed; font-weight: 700; }
+  .stage { padding: 20px 16px; overflow-x: auto; min-height: 320px; display: flex; justify-content: center; align-items: flex-start; }
+  .tree { display: flex; justify-content: center; }
+  .node { position: relative; display: flex; flex-direction: column; align-items: center; margin: 0 3px; }
+  .node .circle { width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; transition: all .3s; position: relative; z-index: 2; border: 3px solid #1e293b; }
+  .node.red .circle { background: #ef4444; border-color: #b91c1c; color: #fff; }
+  .node.black .circle { background: #1e293b; border-color: #0f172a; color: #fff; }
+  .node .dot { position: absolute; bottom: -7px; left: 50%; transform: translateX(-50%); width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff; z-index: 3; box-shadow: 0 0 3px rgba(0,0,0,.3); }
+  .node.red .dot { background: #ef4444; }
+  .node.black .dot { background: #1e293b; }
+  .node.hl { box-shadow: 0 0 0 3px #f59e0b; border-radius: 50%; }
+  .node .circle.empty { background: #fff; border: 3px dashed #cbd5e1; color: #cbd5e1; }
+  .node .children { display: flex; justify-content: center; }
+  .node .branch { display: flex; flex-direction: column; align-items: center; position: relative; padding-top: 18px; }
+  .node .branch::before { content: ""; position: absolute; top: 0; left: 50%; width: 2px; height: 18px; background: #cbd5e1; }
+  .node .child { position: relative; }
+  .node .child::before { content: ""; position: absolute; top: 0; width: 50%; height: 2px; background: #cbd5e1; }
+  .node .child.left::before { left: 50%; }
+  .node .child.right::before { right: 50%; }
+  .props { padding: 8px 16px 12px; display: flex; flex-wrap: wrap; gap: 8px; font-size: 11px; }
+  .props .p { padding: 3px 10px; border-radius: 999px; background: #f1f5f9; color: #64748b; }
+  .props .p.ok { background: #d1fae5; color: #065f46; }
+  .props .p.bad { background: #fee2e2; color: #991b1b; }
+  .legend { padding: 6px 16px 12px; display: flex; gap: 14px; font-size: 11px; color: #64748b; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
+  .desc { padding: 10px 16px 16px; border-top: 1px solid #eef2f7; font-size: 12px; color: #475569; line-height: 1.7; }
+  .desc code { background: #f1f5f9; padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>🔴⚫ 红黑树可视化</h1>
+    <span class="info">五条性质 · 插入修复（变色 + 旋转）</span>
+  </div>
+  <div class="controls">
+    <label>插入值</label>
+    <input type="number" id="valInput" value="25" min="-999" max="999">
+    <button class="btn-insert" id="btnInsert">＋ 插入</button>
+    <button class="btn-ghost" id="btnRandom">🎲 连续插入</button>
+    <button class="btn-ghost" id="btnClear">清空</button>
+    <div class="speed-group">
+      <button class="btn-ghost" data-speed="1200">慢</button>
+      <button class="btn-ghost active" data-speed="700">中</button>
+      <button class="btn-ghost" data-speed="300">快</button>
+    </div>
+    <button class="btn-primary" id="btnPlay">▶ 播放</button>
+    <button class="btn-ghost" id="btnStep">单步</button>
+    <button class="btn-ghost" id="btnReset">↺ 重置</button>
+  </div>
+  <div class="msg" id="msg">插入结点，观察红黑树的修复过程（结点下方小圆点 = 实际颜色）</div>
+  <div class="stage" id="stage"></div>
+  <div class="props" id="props"></div>
+  <div class="legend">
+    <span><i style="background:#ef4444"></i>红结点</span>
+    <span><i style="background:#1e293b"></i>黑结点</span>
+    <span><i style="background:#f59e0b"></i>当前关注</span>
+  </div>
+  <div class="desc">
+    <b>红黑树五条性质：</b>① 根黑 ② 叶（NULL）黑 ③ <b>红不连红</b> ④ 每条路径黑高相同 ⑤ 非红即黑。<br>
+    <b>插入修复（新结点为红色）：</b>父为黑 → 直接完成；父为红 → 看<b>叔结点</b>：
+    叔红 → <b>变色</b>（父、叔变黑，祖父变红，继续向上检查）；叔黑 → <b>旋转</b>（LL/RR/LR/RL，配合变色）。<br>
+    <b>黑高平衡：</b>最长路径 ≤ 2 × 最短路径，树高 O(logn)，查找/插入/删除均 O(logn)。
+  </div>
+</div>
+
+<script>
+"use strict";
+let root = null;
+
+const $ = (id) => document.getElementById(id);
+const stage = $("stage");
+
+/* ── 动画调度器（可暂停 / 可单步 / 可变速 / 可重置）──────────────
+   此前动画时长写死在 setTimeout(…, 450/700) 里：点一下就只能看它自己演完，
+   既不能停、不能一步步看、也不能调速。现在把"每一步"做成入队的函数，
+   每一步都会走完整的 render()（含五条性质面板重算），所以单步时性质检查也是同步更新的。 */
+let steps = [], cursor = 0, playing = false, animTimer = null, speed = 700;
+
+function updatePlayBtn() { const b = $("btnPlay"); if (b) b.textContent = playing ? "⏸ 暂停" : "▶ 播放"; }
+function stopTimer() { if (animTimer) { clearTimeout(animTimer); animTimer = null; } }
+function loadSteps(list) { stopTimer(); playing = false; steps = list || []; cursor = 0; updatePlayBtn(); }
+function runOne() { if (cursor >= steps.length) return false; steps[cursor++](); return true; }
+function tick() {
+  animTimer = null;
+  if (!playing) return;
+  if (!runOne() || cursor >= steps.length) { playing = false; updatePlayBtn(); return; }
+  animTimer = setTimeout(tick, speed);
+}
+function play() {
+  if (playing) { playing = false; stopTimer(); updatePlayBtn(); return; }
+  if (cursor >= steps.length) return;   // 已演完就不再重播（重播会重复插入）
+  playing = true; updatePlayBtn(); tick();
+}
+function stepOnce() {
+  stopTimer(); playing = false; updatePlayBtn();
+  runOne();
+}
+
+/* 进度提示：写进 #msg。此前漏了定义，脚本最后一行调用 msg() 会抛 "msg is not a function" */
+function msg(t) { const el = $("msg"); if (el) el.innerHTML = t; }
+
+function Node(val) {
+  this.val = val;
+  this.color = "red";
+  this.left = null;
+  this.right = null;
+  this.parent = null;
+}
+
+// ---- 旋转 ----
+function rotateLeft(x) {
+  const y = x.right;
+  x.right = y.left;
+  if (y.left) y.left.parent = x;
+  y.parent = x.parent;
+  if (!x.parent) root = y;
+  else if (x === x.parent.left) x.parent.left = y;
+  else x.parent.right = y;
+  y.left = x;
+  x.parent = y;
+  return y;
+}
+function rotateRight(x) {
+  const y = x.left;
+  x.left = y.right;
+  if (y.right) y.right.parent = x;
+  y.parent = x.parent;
+  if (!x.parent) root = y;
+  else if (x === x.parent.left) x.parent.left = y;
+  else x.parent.right = y;
+  y.right = x;
+  x.parent = y;
+  return y;
+}
+
+// ---- 插入（收集修复事件）----
+function insertValCollect(val) {
+  const events = [];
+  // BST 插入
+  const z = new Node(val);
+  if (!root) {
+    root = z;
+    events.push({ t: "root", node: z });
+    return events;
+  }
+  let y = null, x = root;
+  while (x) {
+    y = x;
+    if (val < x.val) x = x.left;
+    else if (val > x.val) x = x.right;
+    else return [{ t: "dup", val }];
+  }
+  z.parent = y;
+  if (val < y.val) y.left = z; else y.right = z;
+  events.push({ t: "insert", node: z, parent: y });
+
+  // 修复
+  let cur = z;
+  let guard = 0;
+  while (cur.parent && cur.parent.color === "red" && guard++ < 50) {
+    const g = cur.parent.parent;
+    if (!g) break;
+    if (cur.parent === g.left) {
+      const u = g.right;
+      if (u && u.color === "red") {
+        events.push({ t: "recolor", nodes: [cur.parent, u, g], desc: "叔结点为红 → 父、叔变黑，祖父变红（继续向上检查）" });
+        cur.parent.color = "black";
+        u.color = "black";
+        g.color = "red";
+        cur = g;
+      } else {
+        if (cur === cur.parent.right) {
+          events.push({ t: "rotate", dir: "left", node: cur.parent, desc: "LR 情况：对父结点左旋" });
+          cur = cur.parent;
+          rotateLeft(cur);
+        }
+        events.push({ t: "recolor", nodes: [cur.parent, g], desc: "叔为黑 → 父变黑、祖父变红，然后旋转" });
+        cur.parent.color = "black";
+        g.color = "red";
+        events.push({ t: "rotate", dir: "right", node: g, desc: "对祖父右旋（LL 修复）" });
+        rotateRight(g);
+      }
+    } else {
+      const u = g.left;
+      if (u && u.color === "red") {
+        events.push({ t: "recolor", nodes: [cur.parent, u, g], desc: "叔结点为红 → 父、叔变黑，祖父变红（继续向上检查）" });
+        cur.parent.color = "black";
+        u.color = "black";
+        g.color = "red";
+        cur = g;
+      } else {
+        if (cur === cur.parent.left) {
+          events.push({ t: "rotate", dir: "right", node: cur.parent, desc: "RL 情况：对父结点右旋" });
+          cur = cur.parent;
+          rotateRight(cur);
+        }
+        events.push({ t: "recolor", nodes: [cur.parent, g], desc: "叔为黑 → 父变黑、祖父变红，然后旋转" });
+        cur.parent.color = "black";
+        g.color = "red";
+        events.push({ t: "rotate", dir: "left", node: g, desc: "对祖父左旋（RR 修复）" });
+        rotateLeft(g);
+      }
+    }
+  }
+  if (root.color === "red") {
+    events.push({ t: "recolor", nodes: [root], desc: "根变黑（性质①）" });
+    root.color = "black";
+  }
+  events.push({ t: "done" });
+  return events;
+}
+
+// ---- 渲染 ----
+function renderNode(node, hlSet) {
+  if (!node) {
+    const d = document.createElement("div");
+    d.className = "node";
+    d.innerHTML = '<div class="circle empty">·</div>';
+    return d;
+  }
+  const d = document.createElement("div");
+  d.className = "node " + node.color;
+  if (hlSet && hlSet.has(node)) d.classList.add("hl");
+
+  const circle = document.createElement("div");
+  circle.className = "circle";
+  circle.textContent = node.val;
+  const dot = document.createElement("div");
+  dot.className = "dot";
+  circle.appendChild(dot);
+  d.appendChild(circle);
+
+  if (node.left || node.right) {
+    const children = document.createElement("div");
+    children.className = "children";
+    const bl = document.createElement("div");
+    bl.className = "branch"; bl.style.marginRight = "5px";
+    const lc = document.createElement("div");
+    lc.className = "child left";
+    lc.appendChild(renderNode(node.left, hlSet));
+    bl.appendChild(lc);
+    const br = document.createElement("div");
+    br.className = "branch"; br.style.marginLeft = "5px";
+    const rc = document.createElement("div");
+    rc.className = "child right";
+    rc.appendChild(renderNode(node.right, hlSet));
+    br.appendChild(rc);
+    children.appendChild(bl);
+    children.appendChild(br);
+    d.appendChild(children);
+  }
+  return d;
+}
+
+function render(hlSet) {
+  stage.innerHTML = "";
+  if (!root) {
+    stage.innerHTML = '<div style="color:#94a3b8;font-size:13px;padding-top:60px">红黑树为空</div>';
+    return;
+  }
+  stage.appendChild(renderNode(root, hlSet));
+  renderProps();
+}
+
+// 五条性质检查
+function renderProps() {
+  const box = $("props");
+  const items = [];
+  // ① 根黑
+  items.push({ name: "① 根为黑", ok: !root || root.color === "black" });
+  // ③ 红不连红
+  let redRed = false;
+  (function check(n) {
+    if (!n) return;
+    if (n.color === "red" && n.left && n.left.color === "red") redRed = true;
+    if (n.color === "red" && n.right && n.right.color === "red") redRed = true;
+    check(n.left); check(n.right);
+  })(root);
+  items.push({ name: "③ 红不连红", ok: !redRed });
+  // ④ 黑高相同
+  let bhOk = true, bhVal = -1;
+  (function bh(n, cnt) {
+    if (!n) {
+      if (bhVal === -1) bhVal = cnt;
+      else if (bhVal !== cnt) bhOk = false;
+      return;
+    }
+    bh(n.left, cnt + (n.color === "black" ? 1 : 0));
+    bh(n.right, cnt + (n.color === "black" ? 1 : 0));
+  })(root, 0);
+  items.push({ name: "④ 黑高相同", ok: bhOk });
+  box.innerHTML = "";
+  items.forEach((p) => {
+    const d = document.createElement("span");
+    d.className = "p " + (p.ok ? "ok" : "bad");
+    d.textContent = p.name + (p.ok ? " ✓" : " ✗");
+    box.appendChild(d);
+  });
+}
+
+// ---- 插入流程（可暂停 / 可单步演示）----
+function insertVal(val) {
+  const events = insertValCollect(val);
+  const list = [];
+  events.forEach((ev) => {
+    if (ev.t === "dup") {
+      list.push(() => { msg(`⚠️ ${val} 已存在`); render(); });
+    } else if (ev.t === "root") {
+      list.push(() => { root.color = "black"; render(new Set([root])); msg("🌱 根结点（红色→自动变黑）"); });
+    } else if (ev.t === "insert") {
+      list.push(() => {
+        render(new Set([ev.node, ev.parent]));
+        msg(`📥 插入 ${val}（红色）到 ${ev.parent ? ev.parent.val : "根"} 的${val < ev.parent.val ? "左" : "右"}孩子`);
+      });
+    } else if (ev.t === "recolor") {
+      list.push(() => { render(new Set(ev.nodes)); msg(`🎨 <span class="fix">变色</span>：${ev.desc}`); });
+    } else if (ev.t === "rotate") {
+      list.push(() => { render(new Set([ev.node])); msg(`🔄 <span class="fix">旋转</span>：${ev.desc}`); });
+    } else if (ev.t === "done") {
+      list.push(() => { render(); msg(`✅ 插入 ${val} 完成`); });
+    }
+  });
+  loadSteps(list);
+  play();   // 保留"点一下就开演"的手感，但随时可暂停 / 单步 / 调速
+}
+
+// ---- 重置：回到初始示例树 ----
+function resetDemo() {
+  loadSteps([]);
+  root = null;
+  [10, 20, 30, 40, 50].forEach((v) => insertValCollect(v));
+  render();
+  msg("示例红黑树就绪（已触发变色/旋转）。试试插入 25、35、5 观察不同修复场景");
+}
+
+// ---- 事件 ----
+$("btnInsert").onclick = () => {
+  const v = parseInt($("valInput").value);
+  if (!isNaN(v)) insertVal(v);
+};
+$("btnRandom").onclick = () => {
+  // 经典序列：触发各种修复场景——同样交给调度器，可暂停 / 单步 / 调速
+  const seq = [10, 20, 30, 40, 50, 60, 70, 80, 90, 25, 35, 45, 55, 65, 15, 5];
+  const list = seq.map((v, i) => () => {
+    insertValCollect(v);
+    render();
+    msg(`📥 插入 ${v}（${i + 1}/${seq.length}）`);
+  });
+  list.push(() => { render(); msg("🎲 连续插入完成，观察性质检查"); });
+  loadSteps(list);
+  play();
+};
+$("btnClear").onclick = () => {
+  loadSteps([]);
+  root = null;
+  render();
+  msg("已清空（点「↺ 重置」可回到初始示例树）");
+};
+$("btnPlay").onclick = play;
+$("btnStep").onclick = stepOnce;
+$("btnReset").onclick = resetDemo;
+document.querySelectorAll(".speed-group button").forEach((b) => {
+  b.onclick = () => {
+    document.querySelectorAll(".speed-group button").forEach((x) => x.classList.remove("active"));
+    b.classList.add("active");
+    speed = +b.dataset.speed;
+  };
+});
+$("valInput").addEventListener("keydown", (e) => { if (e.key === "Enter") $("btnInsert").onclick(); });
+
+// init：与「↺ 重置」完全一致
+resetDemo();
+updatePlayBtn();
+</script>
+</body>
+</html>

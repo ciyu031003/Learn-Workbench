@@ -12,6 +12,11 @@ import { PressableScale } from "@/components/pressable-scale";
 import { Exam408QuestionCard } from "@/components/exam-408-question-card";
 import { ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { getExam408Point, type Exam408PointDetail } from "@/lib/exam-408";
+import {
+  exam408TopicCounts,
+  getExam408Topic,
+  type Exam408Topic,
+} from "@/lib/exam-408-topic";
 import { exam408BodyParagraphs } from "@/lib/exam-408-view";
 import { takeNavPendingParams } from "@/lib/nav-pending";
 import { recordCrumb } from "@/lib/crash-capture";
@@ -35,6 +40,8 @@ function PointContent({ pointKey }: { pointKey: string }) {
   const entrance = useScreenEntrance();
   const navigation = useNavigation();
   const [detail, setDetail] = useState<Exam408PointDetail | null>(null);
+  /** 知识点聚合（v1.55）：精读文章 / 演示 / 速记卡入口；失败时静默降级，不影响正文与真题 */
+  const [topic, setTopic] = useState<Exam408Topic | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   /**
@@ -45,6 +52,7 @@ function PointContent({ pointKey }: { pointKey: string }) {
     () => exam408BodyParagraphs(detail?.point.body),
     [detail],
   );
+  const topicCounts = useMemo(() => exam408TopicCounts(topic), [topic]);
   /**
    * 本实例已解析的知识点 key（ref 而非 state：进 load 依赖会改变 useFocusEffect
    * 回调身份，聚焦态下身份变化会立即重跑回调 → 每次聚焦多发一次请求）。
@@ -76,9 +84,22 @@ function PointContent({ pointKey }: { pointKey: string }) {
     setLoading(true);
     setError("");
     try {
-      setDetail(await getExam408Point(key));
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "知识点加载失败");
+      // 两个请求并行：主体（知识点 + 真题）失败才报错；聚合失败只让入口区块消失
+      const [pointResult, topicResult] = await Promise.allSettled([
+        getExam408Point(key),
+        getExam408Topic(key),
+      ]);
+      if (pointResult.status === "fulfilled") {
+        setDetail(pointResult.value);
+      } else {
+        setDetail(null);
+        setError(
+          pointResult.reason instanceof Error
+            ? pointResult.reason.message
+            : "知识点加载失败",
+        );
+      }
+      setTopic(topicResult.status === "fulfilled" ? topicResult.value : null);
     } finally {
       setLoading(false);
     }
@@ -188,6 +209,108 @@ function PointContent({ pointKey }: { pointKey: string }) {
                 </Text>
               ))}
             </View>
+          </Animated.View>
+        ) : null}
+
+        {topicCounts.articles + topicCounts.cards + topicCounts.demos > 0 ? (
+          <Animated.View entering={entrance(2)} style={styles.extensionCard}>
+            <View style={styles.bodyHead}>
+              <ThemedIcon name="sparkles-outline" size={17} color={colors.primary} />
+              <Text style={styles.bodyTitle}>延伸内容</Text>
+              <Text style={styles.extensionHint}>按知识点聚合</Text>
+            </View>
+
+            {topicCounts.articles > 0 && topic ? (
+              <View style={styles.extensionGroup}>
+                <View style={styles.extensionHead}>
+                  <ThemedIcon ios="book" name="reader-outline" size={14} color={colors.primary} />
+                  <Text style={styles.extensionTitle}>精读文章</Text>
+                  <Text style={styles.extensionCount}>{topicCounts.articles} 篇</Text>
+                </View>
+                {topic.articles.slice(0, 3).map((article) => (
+                  <PressableScale
+                    key={article.slug}
+                    haptic
+                    onPress={() =>
+                      router.push(`/exam-408-study-read?slug=${encodeURIComponent(article.slug)}` as never)
+                    }
+                    style={styles.extensionRow}
+                    accessibilityRole="button"
+                    accessibilityLabel={"阅读精读：" + article.title}
+                  >
+                    <Text style={styles.extensionRowText} numberOfLines={1}>
+                      {article.title}
+                    </Text>
+                    <ThemedIcon name="chevron-forward" size={14} color={colors.textFaint} />
+                  </PressableScale>
+                ))}
+                {topicCounts.articles > 3 ? (
+                  <Text style={styles.extensionMore}>还有 {topicCounts.articles - 3} 篇，去精读目录查看</Text>
+                ) : null}
+              </View>
+            ) : null}
+
+            {topicCounts.demos > 0 && topic ? (
+              <View style={styles.extensionGroup}>
+                <View style={styles.extensionHead}>
+                  <ThemedIcon ios="play.rectangle" name="play-circle-outline" size={14} color={colors.primary} />
+                  <Text style={styles.extensionTitle}>交互动图</Text>
+                  <Text style={styles.extensionCount}>{topicCounts.demos} 个</Text>
+                </View>
+                {topic.demos.slice(0, 3).map((demo) => (
+                  <PressableScale
+                    key={demo.key}
+                    haptic
+                    onPress={() =>
+                      router.push(`/exam-408-viz-player?key=${encodeURIComponent(demo.key)}` as never)
+                    }
+                    style={styles.extensionRow}
+                    accessibilityRole="button"
+                    accessibilityLabel={"播放演示：" + demo.title}
+                  >
+                    <Text style={styles.extensionRowText} numberOfLines={1}>
+                      {demo.title}
+                    </Text>
+                    <ThemedIcon name="chevron-forward" size={14} color={colors.textFaint} />
+                  </PressableScale>
+                ))}
+                {topicCounts.demos > 3 ? (
+                  <Text style={styles.extensionMore}>还有 {topicCounts.demos - 3} 个，去演示目录查看</Text>
+                ) : null}
+              </View>
+            ) : null}
+
+            {topicCounts.cards > 0 && topic ? (
+              <View style={styles.extensionGroup}>
+                <View style={styles.extensionHead}>
+                  <ThemedIcon ios="rectangle.stack" name="albums-outline" size={14} color={colors.primary} />
+                  <Text style={styles.extensionTitle}>速记卡</Text>
+                  <Text style={styles.extensionCount}>{topicCounts.cards} 张</Text>
+                </View>
+                {topic.cards.slice(0, 3).map((card) => (
+                  <PressableScale
+                    key={card.key}
+                    haptic
+                    onPress={() =>
+                      router.push(
+                        (card.subjectKey
+                          ? `/exam-408-drill?subject=${encodeURIComponent(card.subjectKey)}`
+                          : "/exam-408-drill") as never,
+                      )
+                    }
+                    style={styles.extensionRow}
+                    accessibilityRole="button"
+                    accessibilityLabel={"去刷卡：" + card.question}
+                  >
+                    <Text style={styles.extensionRowText} numberOfLines={1}>
+                      {card.question || "速记卡"}
+                    </Text>
+                    <ThemedIcon name="chevron-forward" size={14} color={colors.textFaint} />
+                  </PressableScale>
+                ))}
+                <Text style={styles.extensionMore}>评过错的卡会进入「易错本」，可立即重刷</Text>
+              </View>
+            ) : null}
           </Animated.View>
         ) : null}
 
@@ -311,6 +434,29 @@ const makeStyles = (colors: ThemeColors) =>
     backButton: { flexDirection: "row", alignItems: "center", gap: 4, padding: 6 },
     backText: { ...typography.caption, color: colors.textMuted },
     questionList: { gap: spacing.md },
+    extensionCard: {
+      borderRadius: radius.xl,
+      padding: spacing.lg,
+      gap: spacing.md,
+      backgroundColor: colors.surface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    extensionHint: { ...typography.caption, color: colors.textFaint, marginLeft: "auto" },
+    extensionGroup: { gap: 2 },
+    extensionHead: { flexDirection: "row", alignItems: "center", gap: 6, paddingBottom: 2 },
+    extensionTitle: { ...typography.callout, fontWeight: "700", color: colors.text },
+    extensionCount: { ...typography.micro, color: colors.textMuted, marginLeft: "auto" },
+    extensionRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm,
+      paddingVertical: spacing.sm,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+    },
+    extensionRowText: { ...typography.callout, color: colors.textSecondary, flex: 1 },
+    extensionMore: { ...typography.micro, color: colors.textFaint, paddingTop: 4 },
     sourceBox: { borderRadius: radius.lg, padding: spacing.lg, backgroundColor: colors.surfaceStrong, gap: 4 },
     sourceTitle: { ...typography.callout, fontWeight: "800", color: colors.text },
     sourceText: { ...typography.caption, color: colors.textMuted, lineHeight: 19 },

@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>信号量 PV 操作可视化</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f8fafc; color: #1e293b; padding: 16px; }
+  .wrap { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+  .head { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; }
+  .head h1 { font-size: 16px; font-weight: 600; }
+  .head .info { font-size: 12px; opacity: .92; }
+  .controls { padding: 8px 16px; display: flex; flex-wrap: wrap; gap: 7px 10px; align-items: center; border-bottom: 1px solid #eef2f7; }
+  .controls label { font-size: 12px; color: #64748b; }
+  select { padding: 4px 7px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; outline: none; font-size: 12px; color: #334155; }
+  button { padding: 5px 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; font-size: 12px; transition: all .15s; }
+  .btn-primary { background: #6366f1; color: #fff; } .btn-primary:hover { background: #4f46e5; }
+  .btn-ghost { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; } .btn-ghost:hover { background: #e2e8f0; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .speed-group { display: flex; gap: 4px; } .speed-group button { padding: 4px 9px; } .speed-group .active { background: #6366f1; color: #fff; }
+  .sep { width: 1px; height: 18px; background: #e2e8f0; }
+  .chk { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #64748b; cursor: pointer; }
+  .chk input { accent-color: #6366f1; }
+  .stats { padding: 7px 16px; display: flex; gap: 14px; font-size: 12px; color: #64748b; border-bottom: 1px solid #eef2f7; flex-wrap: wrap; }
+  .stats b { color: #1e293b; font-variant-numeric: tabular-nums; }
+  .note { padding: 7px 16px; font-size: 12px; line-height: 1.6; color: #3730a3; background: #eef2ff; border-bottom: 1px solid #e0e7ff; min-height: 34px; }
+  .note.warn { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+  .note.ok { background: #ecfdf5; color: #047857; border-color: #d1fae5; }
+  .stage { padding: 9px 16px 4px; }
+  .sec-title { font-size: 11px; color: #94a3b8; margin: 0 0 5px; }
+  .sec-title b { color: #475569; }
+  .sem-row { display: flex; gap: 9px; flex-wrap: wrap; margin-bottom: 8px; }
+  .sem { flex: 1 1 200px; border: 1px solid #e2e8f0; border-radius: 10px; padding: 5px 9px 6px; background: #fcfdff; }
+  .sem .top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .sem .nm { font-size: 12px; font-weight: 600; color: #334155; font-family: ui-monospace, Consolas, monospace; }
+  .sem .val { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; color: #6366f1; }
+  .sem .init { font-size: 10px; color: #94a3b8; margin-top: 1px; }
+  .sem .q { margin-top: 3px; font-size: 10.5px; color: #64748b; display: flex; gap: 4px; align-items: center; flex-wrap: wrap; min-height: 17px; }
+  .sem.zero .val, .sem.neg .val { color: #ef4444; }
+  .sem.mark { animation: flash 620ms ease-out; }
+  @keyframes flash { 0% { background: #e0e7ff; box-shadow: 0 0 0 2px #6366f1 inset; } 100% { background: #fcfdff; } }
+  .blk { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; border-radius: 6px; padding: 0 5px; font-size: 10.5px; animation: pop 500ms ease-out; }
+  @keyframes pop { 0% { transform: scale(1.35); background: #ef4444; color: #fff; } 100% { transform: scale(1); } }
+  .buf { display: flex; gap: 6px; margin-bottom: 8px; }
+  .cell { flex: 1; height: 42px; border-radius: 8px; border: 1px dashed #cbd5e1; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; color: #cbd5e1; background: #f8fafc; }
+  .cell .ix { font-size: 9px; color: #cbd5e1; }
+  .cell.filled { border-style: solid; border-color: #10b981; background: #ecfdf5; color: #047857; font-weight: 600; }
+  .cell.filled .ix { color: #6ee7b7; }
+  .cell.mark { animation: cellpop 620ms ease-out; }
+  @keyframes cellpop { 0% { transform: scale(1.12); box-shadow: 0 0 0 2px #10b981; } 100% { transform: scale(1); } }
+  .rw-row { display: flex; gap: 9px; margin-bottom: 8px; align-items: stretch; }
+  .cs { flex: 1; border: 1px solid #e2e8f0; border-radius: 10px; padding: 5px 9px; background: #fcfdff; min-height: 62px; }
+  .cs .lbl { font-size: 10.5px; color: #94a3b8; margin-bottom: 3px; }
+  .cs .body { font-size: 12px; color: #cbd5e1; min-height: 20px; display: flex; gap: 4px; flex-wrap: wrap; }
+  .tag { border-radius: 6px; padding: 1px 6px; font-size: 11px; font-weight: 600; }
+  .tag.read { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+  .tag.write { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+  .procs { display: flex; gap: 8px; flex-wrap: wrap; }
+  .proc { flex: 1 1 250px; border: 1px solid #e2e8f0; border-radius: 10px; padding: 5px 8px 6px; background: #fcfdff; }
+  .proc.blocked { border-color: #fecaca; background: #fffafa; }
+  .proc .ph { display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 600; color: #334155; }
+  .proc .st { font-size: 10px; font-weight: 500; padding: 1px 6px; border-radius: 999px; background: #ecfdf5; color: #047857; }
+  .proc.blocked .st { background: #fef2f2; color: #b91c1c; }
+  .proc .ops { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
+  .chip { font-size: 10px; padding: 1px 6px; border-radius: 6px; background: #f1f5f9; color: #94a3b8; border: 1px solid #e2e8f0; font-family: ui-monospace, Consolas, monospace; white-space: nowrap; }
+  .chip.done { text-decoration: line-through; opacity: .5; }
+  .chip.next { background: #6366f1; color: #fff; border-color: #6366f1; cursor: pointer; box-shadow: 0 0 0 2px rgba(99,102,241,.18); animation: pulse 1.4s infinite; }
+  .chip.next:hover { background: #4f46e5; }
+  .chip.block { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+  .chip.free { cursor: pointer; }
+  .chip.free:hover { background: #c7d2fe; color: #312e81; }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 2px rgba(99,102,241,.18); } 50% { box-shadow: 0 0 0 4px rgba(99,102,241,.30); } }
+  .legend { padding: 4px 16px 8px; display: flex; gap: 14px; font-size: 11px; color: #64748b; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .desc { padding: 9px 16px 13px; border-top: 1px solid #eef2f7; font-size: 12px; color: #475569; line-height: 1.75; }
+  .desc b { color: #334155; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>🔒 信号量 PV 操作可视化</h1>
+    <span class="info" id="scenarioInfo">生产者-消费者</span>
+  </div>
+
+  <div class="controls">
+    <label>场景</label>
+    <select id="scenSel">
+      <option value="pc">生产者-消费者</option>
+      <option value="rw">读者-写者</option>
+    </select>
+    <span class="sep"></span>
+    <span id="pcParams" style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">
+      <label>缓冲区</label><select id="bufSel"></select>
+      <label>生产者</label><select id="nProdSel"></select>
+      <label>消费者</label><select id="nConsSel"></select>
+    </span>
+    <span id="rwParams" style="display:none;gap:7px;align-items:center;flex-wrap:wrap">
+      <label>读者</label><select id="nReadSel"></select>
+      <label>写者</label><select id="nWriteSel"></select>
+      <label>策略</label>
+      <select id="prefSel">
+        <option value="reader">读者优先</option>
+        <option value="writer">写者优先</option>
+      </select>
+    </span>
+    <span class="sep"></span>
+    <label class="chk" id="swapWrap"><input type="checkbox" id="swapChk">生产者 P 顺序颠倒</label>
+    <label class="chk"><input type="checkbox" id="freeChk">自由顺序</label>
+    <span class="sep"></span>
+    <div class="speed-group">
+      <button data-speed="600" class="btn-ghost">慢</button>
+      <button data-speed="200" class="btn-ghost active">中</button>
+      <button data-speed="40" class="btn-ghost">快</button>
+    </div>
+    <button class="btn-primary" id="btnPlay">▶ 播放</button>
+    <button class="btn-ghost" id="btnStep">单步</button>
+    <button class="btn-ghost" id="btnReset">↺ 重置</button>
+  </div>
+
+  <div class="stats">
+    <span>P 操作 <b id="statP">0</b></span>
+    <span>V 操作 <b id="statV">0</b></span>
+    <span>阻塞 <b id="statBlock">0</b></span>
+    <span>唤醒 <b id="statWake">0</b></span>
+    <span id="statExtraWrap">缓冲区 <b id="statExtra">0/4</b></span>
+    <span>状态 <b id="statState">就绪</b></span>
+  </div>
+
+  <div class="note" id="note">点击任意进程卡片上高亮的蓝色操作（如 P1 的 <b>P(empty)</b>）即可手动单步执行；也可以按「播放」让系统自动调度。</div>
+
+  <div class="stage">
+    <div class="sec-title"><b>信号量</b>（值为正 = 剩余可用资源数；值为负 = 正在等待该资源的进程数）</div>
+    <div class="sem-row" id="semRow"></div>
+
+    <div id="pcArea">
+      <div class="sec-title"><b>缓冲区</b>（容量 <span id="bufCapTxt">4</span>，绿色格子 = 已放入产品）</div>
+      <div class="buf" id="bufRow"></div>
+    </div>
+
+    <div id="rwArea" style="display:none">
+      <div class="sec-title"><b>读者计数 count</b> = <span id="rwCount">0</span>；临界资源同一时刻只能被一个写者独占，但可被多个读者共享</div>
+      <div class="rw-row">
+        <div class="cs"><div class="lbl">正在读（可多个读者同时进行）</div><div class="body" id="csRead">（无）</div></div>
+        <div class="cs"><div class="lbl">正在写（最多 1 个）</div><div class="body" id="csWrite">（无）</div></div>
+      </div>
+    </div>
+
+    <div class="sec-title"><b>进程</b>（程序按固定顺序执行，蓝色 = 下一步可执行的操作）</div>
+    <div class="procs" id="procRow"></div>
+  </div>
+
+  <div class="legend">
+    <span><i style="background:#6366f1"></i>下一步可执行操作</span>
+    <span><i style="background:#10b981"></i>放有产品的缓冲区</span>
+    <span><i style="background:#ef4444"></i>阻塞队列 / 死锁</span>
+    <span><i style="background:#94a3b8"></i>尚未执行 / 不可执行</span>
+    <span><i style="background:#8b5cf6"></i>临界区操作</span>
+  </div>
+
+  <div class="desc" id="desc"></div>
+</div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+
+const ROW = { scenario: "pc", bufSize: 4, nProd: 2, nCons: 2, nRead: 2, nWrite: 1, pref: "reader",
+  swapped: false, freeMode: false, speed: 200, running: false, timer: null, lastKind: null };
+
+let S = null;   // 运行时状态
+
+function makeSem(name, init, desc) { return { name: name, val: init, init: init, desc: desc, blocked: [] }; }
+
+/* ---------------- 建模 ---------------- */
+
+function producerOps(swapped) {
+  const ops = [
+    { kind: "act", label: "produce()",
+      run: (p) => { const it = ++S.itemNo; p.item = it; S.produced++; return "生产出产品 I" + it + "（不在临界区，可与其他进程并发）"; },
+      note: "生产数据，不需要互斥" },
+    { kind: "P", sem: "empty", note: "申请一个空闲缓冲区" },
+    { kind: "P", sem: "mutex", note: "申请缓冲区互斥锁" },
+    { kind: "act", label: "put(I)", cs: true,
+      run: (p) => { const i = S.buf.indexOf(null); if (i < 0) return "缓冲区已满，无处可放（不应发生）";
+        S.buf[i] = p.item; S.touchedCell = i; const t = "产品 I" + p.item + " 放入第 " + (i + 1) + " 个格子"; p.item = null; return t; },
+      note: "把产品放入缓冲区（临界区）" },
+    { kind: "V", sem: "mutex", note: "退出临界区，释放互斥锁" },
+    { kind: "V", sem: "full", note: "通知消费者：产品数 +1" }
+  ];
+  if (swapped) {
+    ops[1] = { kind: "P", sem: "mutex", note: "先申请互斥锁（顺序颠倒，错误写法）" };
+    ops[2] = { kind: "P", sem: "empty", note: "再申请空闲缓冲区（位置错误：若缓冲区已满，就会抱着 mutex 阻塞）" };
+  }
+  return ops;
+}
+
+function consumerOps() {
+  return [
+    { kind: "P", sem: "full", note: "申请一个已存放的产品" },
+    { kind: "P", sem: "mutex", note: "申请缓冲区互斥锁" },
+    { kind: "act", label: "get()", cs: true,
+      run: (p) => { const i = S.buf.findIndex((x) => x !== null); if (i < 0) return "缓冲区已空，无产品可取（不应发生）";
+        const it = S.buf[i]; S.buf[i] = null; p.item = it; S.touchedCell = i; S.consumed++;
+        return "从第 " + (i + 1) + " 个格子取出产品 I" + it; },
+      note: "从缓冲区取走产品（临界区）" },
+    { kind: "V", sem: "mutex", note: "释放互斥锁" },
+    { kind: "V", sem: "empty", note: "通知生产者：多了一个空闲缓冲区" },
+    { kind: "act", label: "consume()", run: () => "消费数据（不在临界区，可并行）", note: "处理数据，不需要互斥" }
+  ];
+}
+
+function readerOps(pref) {
+  const ops = [];
+  if (pref === "writer") ops.push({ kind: "P", sem: "w_wait", note: "写者优先：读者也要先在 w_wait 排队，把机会让给已在等待的写者" });
+  ops.push({ kind: "P", sem: "rc_mutex", note: "count 是共享变量，必须互斥访问" });
+  ops.push({ kind: "cP", sem: "w_mutex", enterCS: true, label: "count++; if(count==1) P(w_mutex)",
+    run: () => { S.rwCount++; return "count = " + S.rwCount; },
+    cond: () => S.rwCount === 1,
+    doNote: "count 由 0 变 1，我是第一个读者 → 需要 P(w_mutex) 挡住写者",
+    skipNote: "count > 1，已有读者在读 → 不必再申请写锁，直接进入",
+    note: "第一个读者负责锁住写者，其他读者可直接进入" });
+  ops.push({ kind: "V", sem: "rc_mutex", note: "count 用完立刻释放" });
+  if (pref === "writer") ops.push({ kind: "V", sem: "w_wait", note: "写者优先：马上释放 w_wait，让排队的写者进来" });
+  ops.push({ kind: "act", label: "read()", run: () => "读数据（多个读者可同时读）", note: "读临界区，允许多个读者共享" });
+  ops.push({ kind: "P", sem: "rc_mutex", note: "退出前再次保护 count" });
+  ops.push({ kind: "cV", sem: "w_mutex", leaveCS: true, label: "count--; if(count==0) V(w_mutex)",
+    run: () => { S.rwCount = Math.max(0, S.rwCount - 1); return "count = " + S.rwCount; },
+    cond: () => S.rwCount === 0,
+    doNote: "count 变 0，我是最后一个读者 → V(w_mutex) 唤醒写者",
+    skipNote: "还有读者在读（count > 0），写锁不能释放",
+    note: "最后一个读者负责释放写锁" });
+  ops.push({ kind: "V", sem: "rc_mutex", note: "释放 count 保护锁" });
+  return ops;
+}
+
+function writerOps(pref) {
+  const ops = [];
+  if (pref === "writer") ops.push({ kind: "P", sem: "w_wait", note: "写者优先：先抢 w_wait，阻止后来的读者插队" });
+  ops.push({ kind: "P", sem: "w_mutex", enterCS: true, note: "申请写锁，独占临界资源" });
+  ops.push({ kind: "act", label: "write()", run: () => "写数据（独占，读者与写者都不能同时进入）", note: "写临界区，必须独占" });
+  ops.push({ kind: "V", sem: "w_mutex", leaveCS: true, note: "写完，释放写锁" });
+  if (pref === "writer") ops.push({ kind: "V", sem: "w_wait", note: "释放 w_wait，允许后续读者/写者竞争" });
+  return ops;
+}
+
+/* ---------------- 初始化 ---------------- */
+
+function resetSim() {
+  stopTimer(); ROW.running = false; ROW.lastKind = null;
+  $("btnPlay").textContent = "▶ 播放";
+  S = { procs: [], sems: {}, buf: [], rwCount: 0, itemNo: 0, produced: 0, consumed: 0,
+        pOps: 0, vOps: 0, blocks: 0, wakes: 0, touchedCell: null, mark: {} };
+  if (ROW.scenario === "pc") {
+    S.buf = new Array(ROW.bufSize).fill(null);
+    S.sems.empty = makeSem("empty", ROW.bufSize, "空闲缓冲区数量（初值 = 缓冲区容量）");
+    S.sems.full = makeSem("full", 0, "已存放的产品数量（初值 = 0）");
+    S.sems.mutex = makeSem("mutex", 1, "缓冲区互斥访问（初值 = 1，表示可用）");
+    const ops = producerOps(ROW.swapped);
+    for (let i = 0; i < ROW.nProd; i++) S.procs.push({ id: 0, name: "P" + (i + 1), title: "生产者 P" + (i + 1), kind: "P", ops: ops, pc: 0, state: "ready", inCS: false, item: null });
+    const cops = consumerOps();
+    for (let i = 0; i < ROW.nCons; i++) S.procs.push({ id: 0, name: "C" + (i + 1), title: "消费者 C" + (i + 1), kind: "C", ops: cops, pc: 0, state: "ready", inCS: false, item: null });
+  } else {
+    S.sems.w_mutex = makeSem("w_mutex", 1, "写锁 / 共享临界资源");
+    S.sems.rc_mutex = makeSem("rc_mutex", 1, "保护读者计数 count");
+    if (ROW.pref === "writer") S.sems.w_wait = makeSem("w_wait", 1, "写者优先附加信号量");
+    const rops = readerOps(ROW.pref), wops = writerOps(ROW.pref);
+    for (let i = 0; i < ROW.nRead; i++) S.procs.push({ id: 0, name: "R" + (i + 1), title: "读者 R" + (i + 1), kind: "R", ops: rops, pc: 0, state: "ready", inCS: false, item: null });
+    for (let i = 0; i < ROW.nWrite; i++) S.procs.push({ id: 0, name: "W" + (i + 1), title: "写者 W" + (i + 1), kind: "W", ops: wops, pc: 0, state: "ready", inCS: false, item: null });
+  }
+  S.procs.forEach((p, i) => { p.id = i; });
+  setNote("点击任意进程卡片上高亮的蓝色操作（如 P1 的 <b>P(empty)</b>）即可手动单步执行；也可以按「播放」让系统自动调度。", "");
+  updateInfo(); render(); updateStats(); updateAlert(); updateDesc();
+}
+
+const getProc = (id) => S.procs[id];
+
+function opLabel(op) {
+  if (!op) return "";
+  if (op.label) return op.label;
+  if (op.kind === "P" || op.kind === "cP") return "P(" + op.sem + ")";
+  if (op.kind === "V" || op.kind === "cV") return "V(" + op.sem + ")";
+  return "op";
+}
+
+/* ---------------- 执行一步 ---------------- */
+
+function runStep(proc, idx, free) {
+  const op = proc.ops[idx];
+  if (!op) return;
+  S.touchedCell = null;
+  const msgs = [];
+  const opName = opLabel(op);
+
+  if (op.enterCS) proc.inCS = true;
+  if (op.leaveCS) proc.inCS = false;
+  if (op.run) { const r = op.run(proc); if (r) msgs.push(r); }
+
+  let kind = op.kind;
+  if (kind === "cP" || kind === "cV") {
+    if (op.cond && op.cond()) { if (op.doNote) msgs.push(op.doNote); kind = (kind === "cP") ? "P" : "V"; }
+    else { if (op.skipNote) msgs.push(op.skipNote); kind = "skip"; }
+  }
+
+  let blocked = false;
+  let wakeName = "";
+  if (kind === "P" || kind === "V") {
+    const s = S.sems[op.sem];
+    const before = s.val;
+    S.mark.sem = op.sem;
+    if (kind === "P") {
+      s.val--; S.pOps++;
+      if (s.val < 0) {
+        s.blocked.push({ pid: proc.id, resume: idx + 1 });
+        proc.state = "blocked"; proc.blockSem = op.sem; proc.blockAt = idx;
+        S.blocks++; blocked = true;
+        msgs.push("P(" + op.sem + ")：" + op.sem + " 由 " + before + " 减为 " + s.val + "（< 0）→ 资源不足，" + proc.name +
+          " 被插入 " + op.sem + " 的阻塞队列，状态变为「阻塞」，该进程被阻塞、暂不参与调度");
+      } else {
+        msgs.push("P(" + op.sem + ")：" + op.sem + " 由 " + before + " 减为 " + s.val + "（≥ 0）→ 资源到手，" + proc.name + " 继续往下执行");
+      }
+    } else {
+      s.val++; S.vOps++;
+      if (s.val <= 0) {
+        const w = s.blocked.shift();
+        if (w) {
+          const wp = getProc(w.pid);
+          wp.state = "ready"; wp.pc = (w.resume >= wp.ops.length) ? 0 : w.resume; wp.blockSem = null;
+          S.wakes++; wakeName = wp.name;
+          msgs.push("V(" + op.sem + ")：" + op.sem + " 由 " + before + " 加为 " + s.val + "（≤ 0）→ 说明队列里有人在等，<b>唤醒 " + wp.name +
+            "</b>，它从阻塞队列回到就绪队列，继续执行 P 之后的操作");
+        }
+      } else {
+        msgs.push("V(" + op.sem + ")：" + op.sem + " 由 " + before + " 加为 " + s.val + "（> 0）→ 阻塞队列为空，无需唤醒");
+      }
+    }
+  } else if (kind === "skip") {
+    S.mark.sem = null;
+  }
+
+  if (!blocked) {
+    proc.pc = idx + 1;
+    if (proc.pc >= proc.ops.length) { proc.pc = 0; msgs.push(proc.name + " 执行完一轮，回到循环开头 while(1)"); }
+  }
+
+  const head = "【" + proc.title + "】执行 " + opName + (free ? "（自由顺序）" : "");
+  const tail = op.note ? op.note : "";
+  setNote("<b>" + head + "</b> — " + (tail ? tail + "；" : "") + msgs.filter(Boolean).join("；"),
+    blocked ? "warn" : (kind === "P" || kind === "V" || kind === "skip" ? "" : ""));
+  return { blocked: blocked, wakeName: wakeName };
+}
+
+/* ---------------- 调度 ---------------- */
+
+function pickProc(ready) {
+  if (ready.length === 1) return ready[0];
+  const others = ready.filter((p) => p.kind !== ROW.lastKind);
+  if (others.length && Math.random() < 0.72) return others[Math.floor(Math.random() * others.length)];
+  return ready[Math.floor(Math.random() * ready.length)];
+}
+
+function autoStep() {
+  const ready = S.procs.filter((p) => p.state === "ready");
+  if (!ready.length) { stopTimer(); ROW.running = false; $("btnPlay").textContent = "▶ 播放"; updateAlert(); $("statState").textContent = "💥 死锁"; return false; }
+  const p = pickProc(ready);
+  ROW.lastKind = p.kind;
+  runStep(p, p.pc, false);
+  S.mark = S.mark || {};
+  render(); updateStats(); updateAlert();
+  return true;
+}
+
+function tick() {
+  if (!ROW.running) return;
+  if (!autoStep()) return;
+  ROW.timer = setTimeout(tick, ROW.speed);
+}
+function stopTimer() { if (ROW.timer) { clearTimeout(ROW.timer); ROW.timer = null; } }
+function pausePlay() { stopTimer(); ROW.running = false; $("btnPlay").textContent = "▶ 播放"; }
+
+/* ---------------- 渲染 ---------------- */
+
+const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+function render() {
+  const semOrder = ROW.scenario === "pc" ? ["empty", "full", "mutex"]
+    : (ROW.pref === "writer" ? ["w_wait", "w_mutex", "rc_mutex"] : ["w_mutex", "rc_mutex"]);
+  let h = "";
+  semOrder.forEach((nm) => {
+    const s = S.sems[nm]; if (!s) return;
+    const cls = "sem" + (s.val < 0 ? " neg" : s.val === 0 ? " zero" : "") + (S.mark.sem === nm ? " mark" : "");
+    const q = s.blocked.length ? s.blocked.map((b) => '<span class="blk">' + esc(getProc(b.pid).name) + "</span>").join("") : '<span style="color:#cbd5e1">（空）</span>';
+    h += '<div class="' + cls + '"><div class="top"><span class="nm">' + nm + '</span><span class="val">' + s.val + "</span></div>" +
+      '<div class="init">初值 ' + s.init + " · " + esc(s.desc) + "</div>" +
+      '<div class="q">阻塞队列：' + q + "</div></div>";
+  });
+  $("semRow").innerHTML = h;
+
+  if (ROW.scenario === "pc") {
+    let bh = "";
+    S.buf.forEach((v, i) => {
+      bh += '<div class="cell' + (v !== null ? " filled" : "") + (S.touchedCell === i ? " mark" : "") +
+        '"><span class="ix">' + (i + 1) + "</span>" + (v !== null ? "I" + v : "") + "</div>";
+    });
+    $("bufRow").innerHTML = bh;
+    $("bufCapTxt").textContent = S.buf.length;
+  } else {
+    const reading = S.procs.filter((p) => p.kind === "R" && p.inCS && p.state !== "blocked");
+    const writing = S.procs.filter((p) => p.kind === "W" && p.inCS && p.state !== "blocked");
+    $("rwCount").textContent = S.rwCount;
+    $("csRead").innerHTML = reading.length ? reading.map((p) => '<span class="tag read">' + p.name + " 读</span>").join("") : "（无）";
+    $("csWrite").innerHTML = writing.length ? writing.map((p) => '<span class="tag write">' + p.name + " 写</span>").join("") : "（无）";
+  }
+
+  let ph = "";
+  S.procs.forEach((p, pi) => {
+    const isReady = p.state === "ready";
+    let chips = "";
+    p.ops.forEach((op, oi) => {
+      const lbl = opLabel(op);
+      let cls = "chip";
+      if (!isReady && oi === p.pc) cls += " block";
+      else if (oi < p.pc) cls += " done";
+      else if (oi === p.pc && isReady) cls += " next";
+      else if (ROW.freeMode) cls += " free";
+      chips += '<span class="' + cls + '" data-pid="' + pi + '" data-op="' + oi + '">' + esc(lbl) + "</span>";
+    });
+    const st = p.state === "ready" ? "就绪" : ("阻塞于 " + p.blockSem);
+    ph += '<div class="proc' + (isReady ? "" : " blocked") + '"><div class="ph"><span>' + esc(p.title) + (p.item !== null && p.item !== undefined ? ' <span style="font-weight:400;color:#94a3b8;font-size:10px">持有 I' + p.item + "</span>" : "") +
+      '</span><span class="st">' + esc(st) + "</span></div><div class=\"ops\">" + chips + "</div></div>";
+  });
+  $("procRow").innerHTML = ph;
+}
+
+function updateStats() {
+  $("statP").textContent = S.pOps;
+  $("statV").textContent = S.vOps;
+  $("statBlock").textContent = S.blocks;
+  $("statWake").textContent = S.wakes;
+  if (ROW.scenario === "pc") {
+    const used = S.buf.filter((x) => x !== null).length;
+    $("statExtraWrap").innerHTML = "缓冲区 <b>" + used + "/" + S.buf.length + "</b>";
+  } else {
+    $("statExtraWrap").innerHTML = "count <b>" + S.rwCount + "</b> · 已生产 <b>" + S.produced + "</b>";
+  }
+}
+
+function updateInfo() {
+  $("scenarioInfo").textContent = ROW.scenario === "pc"
+    ? "生产者-消费者 · 缓冲区 " + ROW.bufSize + " · " + ROW.nProd + " 生产者 / " + ROW.nCons + " 消费者" + (ROW.swapped ? " · ⚠ 顺序颠倒" : "")
+    : "读者-写者 · " + ROW.nRead + " 读者 / " + ROW.nWrite + " 写者 · " + (ROW.pref === "reader" ? "读者优先" : "写者优先");
+}
+
+function updateAlert() {
+  const blocked = S.procs.filter((p) => p.state === "blocked");
+  const ready = S.procs.filter((p) => p.state === "ready");
+  if (blocked.length && !ready.length) {
+    const detail = blocked.map((p) => p.name + " 阻塞于 " + p.blockSem).join("、");
+    let hint = "";
+    if (ROW.scenario === "pc" && ROW.swapped) hint = "这就是「先 P(mutex) 再 P(empty)」的经典死锁：生产者抱着 mutex 睡在 empty 上，消费者拿不到 mutex，也就无法取产品去执行 V(empty)，双方循环等待。";
+    else if (ROW.scenario === "rw") hint = "读者-写者模型中若 count 与信号量的位置写错（例如先 V 后 P、或漏掉 rc_mutex），也会出现这种互相等待。";
+    $("statState").textContent = "💥 死锁";
+    setNote("<b>💥 死锁：所有进程都在阻塞队列中</b>（" + esc(detail) + "）。" + hint, "warn");
+  } else {
+    $("statState").textContent = ready.length ? "运行中" : "就绪";
+  }
+}
+
+function setNote(html, cls) {
+  const el = $("note");
+  el.className = "note" + (cls ? " " + cls : "");
+  el.innerHTML = "<b>当前步骤：</b>" + html;
+}
+
+function updateDesc() {
+  const d = $("desc");
+  if (ROW.scenario === "pc") {
+    d.innerHTML = "<b>empty / full 的初值含义：</b>empty = 缓冲区容量（初始全部空闲）、full = 0（初始没有产品）；两者之和恒等于缓冲区容量，即「空闲格数 + 已用格数 = 总格数」。<br>" +
+      "<b>为什么必须有 mutex：</b>empty / full 只保证「数量」正确，保证不了「同一格缓冲区不被同时读写」。put / get 操作本身不是原子的，必须用 mutex 把临界区包起来互斥执行。<br>" +
+      "<b>P / V 必须成对：</b>每执行一次 P(empty) 就要有消费者执行 V(empty) 归还，P(mutex) 与 V(mutex) 也必须配对；P 与 V 的数量不等会让资源凭空消失或凭空出现。<br>" +
+      "<b>顺序不能颠倒：</b>生产者必须「先 P(empty) 再 P(mutex)」。若颠倒（勾选上方选项即可复现），缓冲区满时生产者会抱着 mutex 阻塞在 empty 上，消费者进不了临界区、无法取走产品并 V(empty)，双方永久等待 → 死锁。";
+  } else {
+    d.innerHTML = "<b>读者-写者规则：</b>写者独占临界资源，读者只读不写，允许多个读者同时读，但不允许任何写者与读者/写者同时访问。<br>" +
+      "<b>count 与 rc_mutex：</b>count 记录当前读者数，是共享变量，必须用 rc_mutex 保护；第一个进入的读者 P(w_mutex) 锁住写者，最后一个离开的读者 V(w_mutex) 放行写者。<br>" +
+      "<b>读者优先：</b>只要还有读者在读，后面来的读者可以直接进入，写者只能一直等 → 写者可能饥饿（可以调大读者数量观察）。<br>" +
+      "<b>写者优先：</b>增加信号量 w_wait，读者进入前也要先在 w_wait 上排队，使已在等待的写者优先获得资源；代价是读者延迟变大。";
+  }
+}
+
+/* ---------------- 事件 ---------------- */
+
+$("scenSel").onchange = () => {
+  ROW.scenario = $("scenSel").value;
+  const pc = ROW.scenario === "pc";
+  $("pcParams").style.display = pc ? "flex" : "none";
+  $("rwParams").style.display = pc ? "none" : "flex";
+  $("pcArea").style.display = pc ? "block" : "none";
+  $("rwArea").style.display = pc ? "none" : "block";
+  $("swapWrap").style.display = pc ? "flex" : "none";
+  resetSim();
+};
+
+function fillSel(el, from, to, val) {
+  el.innerHTML = "";
+  for (let i = from; i <= to; i++) { const o = document.createElement("option"); o.value = i; o.textContent = i; el.appendChild(o); }
+  el.value = val;
+}
+fillSel($("bufSel"), 2, 6, 4); fillSel($("nProdSel"), 1, 3, 2); fillSel($("nConsSel"), 1, 3, 2);
+fillSel($("nReadSel"), 1, 3, 2); fillSel($("nWriteSel"), 1, 2, 1);
+
+$("bufSel").onchange = () => { ROW.bufSize = +$("bufSel").value; resetSim(); };
+$("nProdSel").onchange = () => { ROW.nProd = +$("nProdSel").value; resetSim(); };
+$("nConsSel").onchange = () => { ROW.nCons = +$("nConsSel").value; resetSim(); };
+$("nReadSel").onchange = () => { ROW.nRead = +$("nReadSel").value; resetSim(); };
+$("nWriteSel").onchange = () => { ROW.nWrite = +$("nWriteSel").value; resetSim(); };
+$("prefSel").onchange = () => { ROW.pref = $("prefSel").value; resetSim(); };
+$("swapChk").onchange = () => { ROW.swapped = $("swapChk").checked; resetSim(); };
+$("freeChk").onchange = () => { ROW.freeMode = $("freeChk").checked; render(); };
+
+$("btnPlay").onclick = () => {
+  if (ROW.running) { pausePlay(); return; }
+  const ready = S.procs.filter((p) => p.state === "ready");
+  if (!ready.length) { updateAlert(); return; }
+  ROW.running = true; $("btnPlay").textContent = "⏸ 暂停"; tick();
+};
+$("btnStep").onclick = () => { pausePlay(); if (!autoStep()) updateAlert(); };
+$("btnReset").onclick = () => resetSim();
+
+document.querySelectorAll(".speed-group button").forEach((b) => {
+  b.onclick = () => {
+    document.querySelectorAll(".speed-group button").forEach((x) => x.classList.remove("active"));
+    b.classList.add("active"); ROW.speed = +b.dataset.speed;
+  };
+});
+
+$("procRow").onclick = (e) => {
+  const chip = e.target.closest ? e.target.closest(".chip") : null;
+  if (!chip) return;
+  const pid = +chip.dataset.pid, idx = +chip.dataset.op;
+  const p = getProc(pid); if (!p || !p.ops[idx]) return;
+  const isNext = p.state === "ready" && p.pc === idx;
+  if (!isNext && !ROW.freeMode) {
+    if (p.state !== "ready") setNote("⚠️ " + p.title + " 正在 " + p.blockSem + " 的阻塞队列中等待，不能被调度执行，只有被 V 操作唤醒后才能继续。", "warn");
+    else setNote("⚠️ " + p.title + " 当前必须执行第 " + (p.pc + 1) + " 步「" + esc(opLabel(p.ops[p.pc])) + "」。程序里的 P/V 有固定位置，不能跳过；想乱序试验请勾选「自由顺序」。", "warn");
+    return;
+  }
+  pausePlay();
+  S.mark = { sem: null };
+  runStep(p, idx, !isNext);
+  render(); updateStats(); updateAlert();
+};
+
+resetSim();
+</script>
+</body>
+</html>

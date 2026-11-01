@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>B 树可视化</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f8fafc; color: #1e293b; padding: 16px; }
+  .wrap { max-width: 940px; margin: 0 auto; background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+  .head { background: linear-gradient(135deg, #0d9488, #059669); color: #fff; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; }
+  .head h1 { font-size: 16px; font-weight: 600; }
+  .head .info { font-size: 12px; opacity: .9; }
+  .controls { padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; border-bottom: 1px solid #eef2f7; }
+  .controls label { font-size: 12px; color: #64748b; }
+  input[type=number] { width: 80px; padding: 5px 8px; border-radius: 8px; border: 1px solid #e2e8f0; outline: none; font-size: 13px; }
+  select { padding: 5px 8px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; outline: none; font-size: 13px; }
+  button { padding: 6px 14px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all .15s; font-size: 13px; }
+  .btn-insert { background: #0d9488; color: #fff; }
+  .btn-insert:hover { background: #0f766e; }
+  .btn-ghost { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+  .btn-ghost:hover { background: #e2e8f0; }
+  .btn-primary { background: #0d9488; color: #fff; }
+  .btn-primary:hover { background: #0f766e; }
+  .speed-group { display: flex; gap: 4px; }
+  .speed-group button { padding: 4px 10px; font-size: 12px; }
+  .speed-group .active { background: #0d9488; color: #fff; border-color: #0d9488; }
+  .msg { padding: 8px 16px; font-size: 12px; color: #475569; border-bottom: 1px solid #eef2f7; min-height: 28px; }
+  .msg b { color: #334155; }
+  .msg .split { color: #ea580c; font-weight: 700; }
+  .stage { padding: 24px 16px; overflow-x: auto; min-height: 300px; display: flex; justify-content: center; align-items: flex-start; }
+  .btree { display: flex; flex-direction: column; align-items: center; }
+  .bnode { display: flex; border: 2px solid #0d9488; border-radius: 8px; background: #f0fdfa; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+  .bnode .key { width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: #0f766e; border-right: 1.5px solid #99f6e4; }
+  .bnode .key:last-child { border-right: none; }
+  .bnode .key.split-key { background: #fde68a; color: #92400e; }
+  .bnode.full { border-color: #ef4444; box-shadow: 0 0 10px rgba(239,68,68,.25); }
+  .bnode.empty { border-style: dashed; border-color: #cbd5e1; background: #f8fafc; }
+  .bnode.empty .key { color: #cbd5e1; border-color: #e2e8f0; }
+  .blevel { display: flex; gap: 30px; justify-content: center; margin-bottom: 26px; position: relative; }
+  .bchild { display: flex; flex-direction: column; align-items: center; position: relative; }
+  .bchild::before { content: ""; position: absolute; top: -26px; width: 2px; height: 26px; background: #cbd5e1; }
+  .bchild .conn { position: absolute; top: -26px; left: 50%; width: 2px; height: 26px; background: #cbd5e1; }
+  .legend { padding: 6px 16px 12px; display: flex; gap: 14px; font-size: 11px; color: #64748b; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .desc { padding: 10px 16px 16px; border-top: 1px solid #eef2f7; font-size: 12px; color: #475569; line-height: 1.7; }
+  .desc code { background: #f1f5f9; padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>🌲 B 树可视化（m 阶）</h1>
+    <span class="info" id="algoInfo">5 阶 B 树 · 每结点最多 4 个关键字</span>
+  </div>
+  <div class="controls">
+    <label>阶数 m</label>
+    <select id="orderSelect">
+      <option value="3">3 阶</option>
+      <option value="4">4 阶</option>
+      <option value="5" selected>5 阶</option>
+    </select>
+    <label>插入关键字</label>
+    <input type="number" id="valInput" value="20" min="1" max="999">
+    <button class="btn-insert" id="btnInsert">＋ 插入</button>
+    <button class="btn-ghost" id="btnRandom">🎲 连续插入</button>
+    <button class="btn-ghost" id="btnClear">清空</button>
+    <div class="speed-group">
+      <button class="btn-ghost" data-speed="1100">慢</button>
+      <button class="btn-ghost active" data-speed="600">中</button>
+      <button class="btn-ghost" data-speed="260">快</button>
+    </div>
+    <button class="btn-primary" id="btnPlay">▶ 播放</button>
+    <button class="btn-ghost" id="btnStep">单步</button>
+    <button class="btn-ghost" id="btnReset">↺ 重置</button>
+  </div>
+  <div class="msg" id="msg">插入关键字，观察结点分裂过程（黄色=上移的中间关键字）</div>
+  <div class="stage" id="stage"></div>
+  <div class="legend">
+    <span><i style="background:#0d9488;border-radius:3px"></i>关键字</span>
+    <span><i style="background:#fde68a;border-radius:3px"></i>上移关键字（分裂）</span>
+    <span><i style="background:#fecaca;border-radius:3px"></i>满结点</span>
+  </div>
+  <div class="desc">
+    <b>m 阶 B 树规则：</b>每个结点最多 <code>m</code> 棵子树（<code>m-1</code> 个关键字）；
+    除根外非叶结点至少 <code>⌈m/2⌉</code> 棵子树；所有叶结点在同一层（绝对平衡）。<br>
+    <b>插入分裂：</b>结点满（m-1 个关键字）时插入 → 取中间位置 <code>⌈m/2⌉</code> 的关键字
+    <b>上移到父结点</b>，左右分裂为两个结点；若父也满则继续向上分裂，根分裂则树高 +1。
+  </div>
+</div>
+
+<script>
+"use strict";
+let order = 5;
+let root = null;
+
+const $ = (id) => document.getElementById(id);
+const stage = $("stage");
+
+/* ── 动画调度器（可暂停 / 可单步 / 可变速 / 可重置）──────────────
+   此前动画时长写死在 setTimeout(…, 500/600/1100) 里：点一下就只能看它自己演完，
+   既不能停、不能一步步看、也不能调速。现在把"每一步"做成入队的函数，
+   由播放/单步/重置统一驱动。 */
+let steps = [], cursor = 0, playing = false, animTimer = null, speed = 600;
+
+function updatePlayBtn() { const b = $("btnPlay"); if (b) b.textContent = playing ? "⏸ 暂停" : "▶ 播放"; }
+function stopTimer() { if (animTimer) { clearTimeout(animTimer); animTimer = null; } }
+function loadSteps(list) { stopTimer(); playing = false; steps = list || []; cursor = 0; updatePlayBtn(); }
+function runOne() { if (cursor >= steps.length) return false; steps[cursor++](); return true; }
+function tick() {
+  animTimer = null;
+  if (!playing) return;
+  if (!runOne() || cursor >= steps.length) { playing = false; updatePlayBtn(); return; }
+  animTimer = setTimeout(tick, speed);
+}
+function play() {
+  if (playing) { playing = false; stopTimer(); updatePlayBtn(); return; }
+  if (cursor >= steps.length) return;   // 已演完就不再重播（重播会重复插入）
+  playing = true; updatePlayBtn(); tick();
+}
+function stepOnce() {
+  stopTimer(); playing = false; updatePlayBtn();
+  runOne();
+}
+
+/* 进度提示：写进 #msg。此前漏了定义，脚本最后一行调用 msg() 会抛 "msg is not a function" */
+function msg(t) { const el = $("msg"); if (el) el.innerHTML = t; }
+
+function Node() {
+  this.keys = [];      // 关键字（升序）
+  this.children = [];  // 子树（长度 = keys.length + 1）
+  this.isLeaf = true;
+}
+
+// 最大关键字数
+const maxKeys = () => order - 1;
+// 分裂的中间位置（0-based）：m=5 → idx 2（第3个）；m=4 → idx 1（第2个）
+const midIdx = () => Math.floor((order + 1) / 2) - 1;
+
+// ---- 插入（返回 {root, splits: 分裂提示序列}）----
+function insertKey(val) {
+  const events = [];  // 动画事件
+  function splitChild(parent, idx) {
+    const child = parent.children[idx];
+    const mid = midIdx();
+    const upKey = child.keys[mid];
+    // 记录分裂事件
+    events.push({ type: "split", node: child, upKey, parent: parent === root && root.keys.length === 0 ? null : parent });
+
+    // 新右结点
+    const right = new Node();
+    right.isLeaf = child.isLeaf;
+    right.keys = child.keys.slice(mid + 1);
+    if (!child.isLeaf) right.children = child.children.slice(mid + 1);
+
+    // 左结点保留前半
+    child.keys = child.keys.slice(0, mid);
+    if (!child.isLeaf) child.children = child.children.slice(0, mid + 1);
+
+    // 上移关键字到父
+    parent.keys.splice(idx, 0, upKey);
+    parent.children.splice(idx + 1, 0, right);
+  }
+
+  function insertRec(node) {
+    if (node.isLeaf) {
+      // 找到插入位置
+      let pos = 0;
+      while (pos < node.keys.length && node.keys[pos] < val) pos++;
+      if (node.keys[pos] === val) { events.push({ type: "dup", val }); return; }
+      node.keys.splice(pos, 0, val);
+      events.push({ type: "insert", node, val, pos });
+      return;
+    }
+    let i = 0;
+    while (i < node.keys.length && node.keys[i] < val) i++;
+    if (i < node.keys.length && node.keys[i] === val) { events.push({ type: "dup", val }); return; }
+    insertRec(node.children[i]);
+  }
+
+  // 根处理
+  if (!root) {
+    root = new Node();
+    root.keys.push(val);
+    events.push({ type: "insert", node: root, val, pos: 0 });
+    return events;
+  }
+
+  insertRec(root);
+
+  // 自底向上分裂：从叶到根检查每个结点是否满（简单方式：递归后再检查）
+  function fix(node) {
+    if (node.isLeaf) {
+      if (node.keys.length > maxKeys()) return true; // 需要分裂
+      return false;
+    }
+    // 递归分裂孩子
+    for (let i = 0; i < node.children.length; i++) {
+      if (fix(node.children[i])) {
+        splitChild(node, i);
+        // 分裂后父可能满，返回 true 让上层处理
+      }
+    }
+    return node.keys.length > maxKeys();
+  }
+
+  // 若根满了（叶子插入后），分裂根
+  if (root.isLeaf && root.keys.length > maxKeys()) {
+    const oldRoot = root;
+    root = new Node();
+    root.isLeaf = false;
+    root.children.push(oldRoot);
+    splitChild(root, 0);
+  } else if (!root.isLeaf) {
+    // 自底向上：检查整棵树
+    // 简化：逐层修复——从最深层开始。这里采用"插入路径自底向上检查"：
+    // 直接对整棵树做一次后序检查
+    function postFix(node, depth) {
+      if (!node.isLeaf) {
+        for (let i = 0; i < node.children.length; i++) {
+          postFix(node.children[i], depth + 1);
+        }
+      }
+      // 该结点满了 → 需要父分裂；但根由调用方处理
+      if (node.keys.length > maxKeys() && node !== root) {
+        // 标记：由父处理。这里简化：直接在此分裂（node 的父未知）
+        // 用另一种方式：在 postFix 里从父分裂
+      }
+    }
+    // 简单可靠做法：从根开始逐层处理（B 树插入的递归分裂）
+    function fixTree(node, isRoot) {
+      if (!node.isLeaf) {
+        for (let i = 0; i < node.children.length; i++) {
+          const child = node.children[i];
+          fixTree(child, false);
+          if (child.keys.length > maxKeys()) {
+            splitChild(node, i);
+          }
+        }
+        // 根满 → 长高
+        if (isRoot && node.keys.length > maxKeys()) {
+          const newRoot = new Node();
+          newRoot.isLeaf = false;
+          newRoot.children.push(node);
+          splitChild(newRoot, 0);
+          root = newRoot;
+        }
+      }
+    }
+    fixTree(root, true);
+  }
+
+  return events;
+}
+
+// ---- 渲染 ----
+function renderNode(node) {
+  const wrap = document.createElement("div");
+  wrap.className = "bnode";
+  if (node.keys.length === 0) wrap.classList.add("empty");
+  if (node.keys.length > maxKeys()) wrap.classList.add("full");
+  node.keys.forEach((k) => {
+    const d = document.createElement("div");
+    d.className = "key";
+    d.textContent = k;
+    wrap.appendChild(d);
+  });
+  return wrap;
+}
+
+function render(hlNode, hlKey) {
+  stage.innerHTML = "";
+  if (!root) {
+    stage.innerHTML = '<div style="color:#94a3b8;font-size:13px;padding-top:60px">B 树为空</div>';
+    return;
+  }
+  function build(node) {
+    const box = document.createElement("div");
+    box.className = "bchild";
+    const nEl = renderNode(node);
+    if (node === hlNode) {
+      nEl.querySelectorAll(".key").forEach((k) => {
+        if (hlKey === undefined || k.textContent == hlKey) k.classList.add("split-key");
+      });
+    }
+    box.appendChild(nEl);
+    if (!node.isLeaf) {
+      const row = document.createElement("div");
+      row.className = "blevel";
+      node.children.forEach((c) => row.appendChild(build(c)));
+      box.appendChild(row);
+    }
+    return box;
+  }
+  const tree = document.createElement("div");
+  tree.className = "btree";
+  tree.appendChild(build(root));
+  stage.appendChild(tree);
+}
+
+// ---- 插入流程（可暂停 / 可单步演示）----
+function insertVal(val) {
+  const events = insertKey(val);
+  const hasDup = events.some((e) => e.type === "dup");
+  const list = [];
+  events.forEach((ev) => {
+    if (ev.type === "dup") {
+      list.push(() => { msg(`⚠️ ${val} 已存在`); render(); });
+    } else if (ev.type === "insert") {
+      list.push(() => { render(); msg(`📥 插入 ${val} 到结点 [${ev.node.keys.join(", ")}]`); });
+    } else if (ev.type === "split") {
+      // 分裂分两拍：先高亮中间关键字，再显示分裂结果
+      list.push(() => {
+        render(ev.node, ev.upKey);
+        msg(`⚡ <span class="split">结点已满（${order - 1} 个关键字）</span>：关键字 ${ev.upKey} 上移，结点分裂`);
+      });
+      list.push(() => { render(); msg(`🔀 分裂完成：${ev.upKey} 已上移，左右两个新结点`); });
+    }
+  });
+  if (!hasDup) list.push(() => { render(); msg(`✅ 插入 ${val} 完成`); });
+  loadSteps(list);
+  play();   // 保留"点一下就开演"的手感，但随时可暂停 / 单步 / 调速
+}
+
+// ---- 重置：回到初始态（5 阶、空树）----
+function resetDemo() {
+  loadSteps([]);
+  root = null;
+  order = 5;
+  $("orderSelect").value = "5";
+  $("algoInfo").textContent = "5 阶 B 树 · 每结点最多 4 个关键字";
+  render();
+  msg("5 阶 B 树就绪：试试连续插入 1~30，观察结点分裂和树高增长");
+}
+
+// ---- 事件 ----
+$("btnInsert").onclick = () => {
+  const v = parseInt($("valInput").value);
+  if (!isNaN(v)) insertVal(v);
+};
+$("btnRandom").onclick = () => {
+  // 依次插入一串数字（会触发多次分裂）——同样交给调度器，可暂停 / 单步 / 调速
+  const seq = [10, 20, 30, 40, 50, 60, 70, 80, 90, 25, 35, 45, 55, 65, 75, 15, 5, 85];
+  const list = seq.map((v, i) => () => {
+    insertKey(v);
+    render();
+    msg(`📥 插入 ${v}（${i + 1}/${seq.length}）`);
+  });
+  list.push(() => { render(); msg("🎲 连续插入完成（观察树高变化）"); });
+  loadSteps(list);
+  play();
+};
+$("btnClear").onclick = () => {
+  loadSteps([]);
+  root = null;
+  render();
+  msg("已清空（点「↺ 重置」可回到初始态）");
+};
+$("btnPlay").onclick = play;
+$("btnStep").onclick = stepOnce;
+$("btnReset").onclick = resetDemo;
+document.querySelectorAll(".speed-group button").forEach((b) => {
+  b.onclick = () => {
+    document.querySelectorAll(".speed-group button").forEach((x) => x.classList.remove("active"));
+    b.classList.add("active");
+    speed = +b.dataset.speed;
+  };
+});
+$("orderSelect").onchange = () => {
+  loadSteps([]);
+  order = parseInt($("orderSelect").value);
+  $("algoInfo").textContent = `${order} 阶 B 树 · 每结点最多 ${order - 1} 个关键字`;
+  root = null;
+  render();
+  msg(`已切换为 ${order} 阶（每结点最多 ${order - 1} 个关键字，分裂位置第 ${midIdx() + 1} 个）`);
+};
+$("valInput").addEventListener("keydown", (e) => { if (e.key === "Enter") $("btnInsert").onclick(); });
+
+// init：与「↺ 重置」完全一致
+resetDemo();
+updatePlayBtn();
+</script>
+</body>
+</html>

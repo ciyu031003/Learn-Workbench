@@ -2266,7 +2266,7 @@ ON CONFLICT (key) DO UPDATE SET
 
 CREATE TABLE IF NOT EXISTS exam_408_study_topics (
   key                 text PRIMARY KEY,
-  source_key          text NOT NULL REFERENCES exam_408_source_snapshots(key) ON DELETE RESTRICT,
+  source_key          text NOT NULL, -- 软关联来源快照（089 解除外键）
   subject_key         text NOT NULL,
   chapter             text NOT NULL,
   chapter_order       int NOT NULL DEFAULT 0,
@@ -2279,7 +2279,7 @@ CREATE TABLE IF NOT EXISTS exam_408_study_topics (
   exam_frequency      int NOT NULL DEFAULT 0 CHECK (exam_frequency >= 0),
   tags                jsonb NOT NULL DEFAULT '[]'::jsonb,
   related_topic_ids   jsonb NOT NULL DEFAULT '[]'::jsonb,
-  knowledge_point_key text REFERENCES exam_408_knowledge_points(key) ON DELETE SET NULL,
+  knowledge_point_key text, -- 软关联 exam_408_knowledge_points(key)，映射由 map-points.mjs 维护（089 解除外键）
   source_url          text,
   sort_order          int NOT NULL DEFAULT 0,
   fingerprint         text NOT NULL DEFAULT '',
@@ -2305,10 +2305,10 @@ CREATE TRIGGER trg_exam_408_study_topics_updated
 -- （question_key = exam_408_cards.key，track_slug = 'ex-408-cards'，stage_key = 科目 key）。
 CREATE TABLE IF NOT EXISTS exam_408_cards (
   key                 text PRIMARY KEY,
-  source_key          text NOT NULL REFERENCES exam_408_source_snapshots(key) ON DELETE RESTRICT,
+  source_key          text NOT NULL, -- 软关联来源快照（089 解除外键）
   subject_key         text NOT NULL,
   chapter             int NOT NULL CHECK (chapter > 0),
-  knowledge_point_key text REFERENCES exam_408_knowledge_points(key) ON DELETE SET NULL,
+  knowledge_point_key text, -- 软关联（089 解除外键）
   question            text NOT NULL,
   answer_steps        jsonb NOT NULL DEFAULT '[]'::jsonb,
   pitfall             text,
@@ -2340,11 +2340,11 @@ CREATE TRIGGER trg_exam_408_cards_updated
 -- steps: [{ explain: string, frame: string|null }]；frame 为 public/content-demos/<demo>/<n>.webp 的相对路径。
 CREATE TABLE IF NOT EXISTS exam_408_demos (
   key                 text PRIMARY KEY,
-  source_key          text NOT NULL REFERENCES exam_408_source_snapshots(key) ON DELETE RESTRICT,
+  source_key          text NOT NULL, -- 软关联来源快照（089 解除外键）
   subject_key         text NOT NULL,
   title               text NOT NULL,
   description         text NOT NULL DEFAULT '',
-  knowledge_point_key text REFERENCES exam_408_knowledge_points(key) ON DELETE SET NULL,
+  knowledge_point_key text, -- 软关联（089 解除外键）
   steps               jsonb NOT NULL DEFAULT '[]'::jsonb,
   frame_count         int NOT NULL DEFAULT 0 CHECK (frame_count >= 0),
   sort_order          int NOT NULL DEFAULT 0,
@@ -2369,8 +2369,8 @@ CREATE TRIGGER trg_exam_408_demos_updated
 -- ---------- 408 章节知识图谱（迁移 088：iframedata 原生入库，双端自绘） ----------
 CREATE TABLE IF NOT EXISTS exam_408_knowledge_maps (
   key         text PRIMARY KEY,              -- '<subject_key>:<章节名>'
-  topic_key   text REFERENCES exam_408_study_topics(key) ON DELETE SET NULL,
-  source_key  text NOT NULL REFERENCES exam_408_source_snapshots(key) ON DELETE RESTRICT,
+  topic_key   text, -- 软关联精读文章（089 解除外键）
+  source_key  text NOT NULL, -- 软关联来源快照（089 解除外键）
   subject_key text NOT NULL,
   chapter     text NOT NULL,
   map         jsonb NOT NULL DEFAULT '{"nodes":[]}'::jsonb,

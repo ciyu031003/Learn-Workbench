@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import * as Clipboard from "expo-clipboard";
 import { Image } from "expo-image";
 import { SvgXml } from "react-native-svg";
 import { KnowledgeMap } from "@/components/knowledge-map";
@@ -110,20 +111,33 @@ export function MarkdownArticle({
             return <TableView key={key} block={block} />;
           case "code":
             return (
-              <ScrollView key={key} horizontal showsHorizontalScrollIndicator={false} style={styles.codeScroll}>
-                <View style={styles.codeBox}>
-                  {block.lang ? <Text style={styles.codeLang}>{block.lang}</Text> : null}
-                  <Text style={styles.codeText}>{block.code}</Text>
+              <View key={key} style={styles.codeBlock}>
+                <View style={styles.blockHead}>
+                  <Text style={styles.codeLang}>{block.lang ? block.lang.toUpperCase() : "CODE"}</Text>
+                  <CopyButton value={block.code} label="复制代码" />
                 </View>
-              </ScrollView>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.codeScroll}>
+                  <Text style={styles.codeText} selectable>
+                    {block.code}
+                  </Text>
+                </ScrollView>
+              </View>
             );
           case "math":
+            // App 端暂不做 KaTeX 排版（1.57 再上 SVG 方案）：等宽展示 LaTeX 原文 + 横向滚动 + 复制。
             return (
-              <ScrollView key={key} horizontal showsHorizontalScrollIndicator={false} style={styles.codeScroll}>
-                <View style={styles.mathBox}>
-                  <Text style={styles.mathText}>{block.tex}</Text>
+              <View key={key} style={styles.mathBlock}>
+                <View style={styles.blockHead}>
+                  <Text style={styles.mathLabel}>LaTeX 公式 · App 暂未排版</Text>
+                  <CopyButton value={block.tex} label="复制公式" />
                 </View>
-              </ScrollView>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.codeScroll}>
+                  <Text style={styles.mathText} selectable>
+                    {block.tex}
+                  </Text>
+                </ScrollView>
+                <Text style={styles.mathHint}>可复制到支持 LaTeX 的工具查看；1.57 计划改为内嵌 SVG 公式。</Text>
+              </View>
             );
           case "image":
             // key 带 src：换文章/换图时组件重挂载，加载态与宽高比自然重置（避免在 effect 里同步 setState）
@@ -351,11 +365,55 @@ function EmbedNotice({
   );
 }
 
+/** 代码 / 公式块的复制按钮：expo-clipboard 是既有依赖，不新增包，也不引 WebView。 */
+function CopyButton({ value, label }: { value: string; label: string }): React.JSX.Element {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const [copied, setCopied] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
+  const copy = () => {
+    void Clipboard.setStringAsync(value)
+      .then(() => {
+        setCopied(true);
+        if (timer.current) clearTimeout(timer.current);
+        timer.current = setTimeout(() => setCopied(false), 1500);
+      })
+      .catch(() => {
+        // 剪贴板不可用：文本本身可长按选择，不影响阅读
+      });
+  };
+  return (
+    <Pressable
+      onPress={copy}
+      style={styles.copyButton}
+      accessibilityRole="button"
+      accessibilityLabel={copied ? "已复制" : label}
+    >
+      <ThemedIcon
+        ios={copied ? "checkmark" : "doc.on.doc"}
+        name={copied ? "checkmark" : "copy-outline"}
+        size={12}
+        color={copied ? colors.success : colors.textMuted}
+      />
+      <Text style={[styles.copyText, copied ? { color: colors.success } : null]}>
+        {copied ? "已复制" : label}
+      </Text>
+    </Pressable>
+  );
+}
+
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
-    article: { gap: spacing.md },
+    // v1.55 排版微调：正文列最大宽度 720（平板/横屏不再拉成一行 100+ 字），块间距加一档
+    article: { width: "100%", maxWidth: 720, alignSelf: "center", gap: spacing.lg },
     firstBlock: { marginTop: 0 },
-    paragraph: { ...typography.body, color: colors.textSecondary, lineHeight: 27 },
+    paragraph: { ...typography.body, color: colors.textSecondary, lineHeight: 28 },
     strong: { fontWeight: "700", color: colors.text },
     inlineCode: {
       fontFamily: MONO,
@@ -371,7 +429,7 @@ const makeStyles = (colors: ThemeColors) =>
     list: { gap: spacing.sm },
     listItem: { flexDirection: "row", gap: spacing.sm, alignItems: "flex-start" },
     bullet: { ...typography.body, color: colors.primary, minWidth: 16 },
-    listText: { ...typography.body, color: colors.textSecondary, flex: 1, lineHeight: 26 },
+    listText: { ...typography.body, color: colors.textSecondary, flex: 1, lineHeight: 27 },
     quote: {
       borderLeftWidth: 3,
       borderLeftColor: colors.accent,
@@ -381,7 +439,7 @@ const makeStyles = (colors: ThemeColors) =>
       paddingHorizontal: spacing.md,
       gap: spacing.xs,
     },
-    quoteText: { ...typography.callout, color: colors.textSecondary, lineHeight: 23 },
+    quoteText: { ...typography.callout, color: colors.textSecondary, lineHeight: 24 },
     codeScroll: { flexGrow: 0 },
     codeBox: {
       backgroundColor: colors.surfaceMuted,
@@ -389,8 +447,35 @@ const makeStyles = (colors: ThemeColors) =>
       padding: spacing.md,
       gap: spacing.xs,
     },
+    codeBlock: {
+      backgroundColor: colors.surfaceMuted,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      gap: spacing.xs,
+    },
+    blockHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
     codeLang: { ...typography.micro, color: colors.textFaint, textTransform: "uppercase" },
     codeText: { fontFamily: MONO, fontSize: 13, lineHeight: 20, color: colors.text },
+    copyButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 3,
+      borderRadius: radius.sm,
+      backgroundColor: colors.surface,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 3,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    copyText: { ...typography.micro, color: colors.textMuted },
+    mathBlock: {
+      backgroundColor: colors.primarySoft,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      gap: spacing.xs,
+    },
+    mathLabel: { ...typography.micro, color: colors.primaryStrong },
+    mathHint: { ...typography.micro, color: colors.textMuted },
     mathBox: {
       backgroundColor: colors.primarySoft,
       borderRadius: radius.md,

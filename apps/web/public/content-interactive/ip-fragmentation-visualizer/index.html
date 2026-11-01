@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IP 数据报分片与重组可视化</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f8fafc; color: #1e293b; padding: 16px; }
+  .wrap { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+  .head { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; }
+  .head h1 { font-size: 16px; font-weight: 600; }
+  .head .info { font-size: 12px; opacity: .92; }
+  .controls { padding: 8px 16px; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; border-bottom: 1px solid #eef2f7; }
+  .controls label { font-size: 12px; color: #64748b; }
+  select, input[type=range], input[type=number], button { font-size: 13px; }
+  select, input[type=number] { padding: 4px 6px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; outline: none; }
+  input[type=number] { width: 74px; }
+  input[type=range] { width: 108px; accent-color: #6366f1; vertical-align: middle; }
+  button { padding: 5px 11px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all .15s; }
+  .btn-primary { background: #6366f1; color: #fff; }
+  .btn-primary:hover { background: #4f46e5; }
+  .btn-ghost { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+  .btn-ghost:hover { background: #e2e8f0; }
+  .btn-danger { background: #ef4444; color: #fff; }
+  .chk { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #64748b; }
+  .stats { padding: 6px 16px; display: flex; gap: 15px; font-size: 12px; color: #64748b; border-bottom: 1px solid #eef2f7; flex-wrap: wrap; }
+  .stats b { color: #1e293b; font-variant-numeric: tabular-nums; }
+  .stage { padding: 10px 16px 4px; }
+  .sechead { font-size: 11px; color: #64748b; margin: 2px 0 3px; }
+  .sechead b { color: #334155; }
+  .origwrap { position: relative; height: 34px; }
+  .origbar { display: flex; height: 26px; border-radius: 6px; overflow: hidden; border: 1px solid #e2e8f0; background: #f8fafc; }
+  .orighdr { background: #eef2ff; color: #4338ca; font-size: 10px; display: flex; align-items: center; justify-content: center; border-right: 2px solid #c7d2fe; flex: none; }
+  .origdata { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #475569; }
+  .tick { position: absolute; top: 26px; width: 1px; height: 6px; background: #cbd5e1; }
+  .fragbox { margin-top: 8px; max-height: 150px; overflow-y: auto; padding-right: 2px; }
+  .fragrow { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+  .fraglab { width: 42px; flex: none; font-size: 10px; color: #64748b; text-align: right; }
+  .track { position: relative; flex: 1; height: 22px; background: #f8fafc; border: 1px dashed #e2e8f0; border-radius: 5px; }
+  .blk { position: absolute; top: 2px; bottom: 2px; border-radius: 4px; font-size: 10px; display: flex; align-items: center; justify-content: center; overflow: hidden; white-space: nowrap; box-sizing: border-box; border: 1px solid #818cf8; background: #e0e7ff; color: #3730a3; transition: background .2s, border-color .2s, opacity .2s; }
+  .blk.hdr { background: #6366f1; border-color: #6366f1; color: #fff; }
+  .blk.cursor { box-shadow: 0 0 0 2px #f59e0b88; }
+  .blk.lost { background: #fee2e2; border-color: #fca5a5; color: #b91c1c; }
+  .blk.done { background: #ecfdf5; border-color: #6ee7b7; color: #047857; }
+  .blk.clickable { cursor: pointer; }
+  .tablebox { margin-top: 8px; max-height: 118px; overflow-y: auto; border: 1px solid #eef2f7; border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th, td { padding: 3px 6px; text-align: center; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
+  th { background: #f8fafc; color: #64748b; font-weight: 500; position: sticky; top: 0; }
+  td.mono { font-family: ui-monospace, Menlo, Consolas, monospace; }
+  tr.cur td { background: #fffbeb; }
+  tr.lostrow td { background: #fef2f2; color: #b91c1c; }
+  .ok { color: #047857; font-weight: 600; }
+  .bad { color: #dc2626; font-weight: 600; }
+  .resultline { margin-top: 7px; font-size: 12px; color: #334155; line-height: 1.6; min-height: 32px; padding: 5px 9px; background: #f8fafc; border: 1px solid #eef2f7; border-radius: 8px; }
+  .resultline b { color: #4338ca; }
+  .mono { font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .legend { padding: 4px 16px 2px; display: flex; gap: 13px; font-size: 11px; color: #64748b; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .desc { padding: 8px 16px 13px; border-top: 1px solid #eef2f7; margin-top: 5px; font-size: 12px; color: #475569; line-height: 1.7; }
+  .desc b { color: #334155; }
+  .desc code { background: #f1f5f9; border-radius: 4px; padding: 0 4px; font-family: ui-monospace, Consolas, monospace; font-size: 11px; }
+  .speed-group { display: flex; gap: 4px; }
+  .speed-group button { padding: 4px 9px; font-size: 12px; }
+  .speed-group .active { background: #6366f1; color: #fff; }
+  .hint { font-size: 10px; color: #94a3b8; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>✂️ IP 数据报分片与重组</h1>
+    <span class="info" id="headInfo">MTU · 片偏移以 8 字节为单位 · MF/DF</span>
+  </div>
+
+  <div class="controls">
+    <label>原始总长度</label>
+    <input type="range" id="rngTotal" min="60" max="4000" step="4" value="3000">
+    <span class="hint" id="totalVal">3000 B</span>
+    <label>MTU</label>
+    <input type="range" id="rngMtu" min="68" max="1500" step="4" value="620">
+    <span class="hint" id="mtuVal">620 B</span>
+    <label>标识 ID</label>
+    <input type="number" id="inIdent" min="0" max="65535" value="1234">
+    <label>初始片偏移</label>
+    <input type="number" id="inOff" min="0" max="8191" value="0">
+    <span class="hint" id="offVal">= 0 B</span>
+    <label class="chk"><input type="checkbox" id="chkDf"> DF=1（不分片）</label>
+    <div class="speed-group">
+      <button data-speed="700" class="btn-ghost">慢</button>
+      <button data-speed="260" class="btn-ghost active">中</button>
+      <button data-speed="60" class="btn-ghost">快</button>
+    </div>
+    <button class="btn-primary" id="btnPlay">▶ 播放</button>
+    <button class="btn-ghost" id="btnStep">单步</button>
+    <button class="btn-ghost" id="btnReset">↺ 重置</button>
+  </div>
+
+  <div class="stats">
+    <span>数据部分 <b id="statData">0 B</b></span>
+    <span>每片最大数据 <b id="statMax">0 B</b></span>
+    <span>分片数 <b id="statCnt">0</b></span>
+    <span>分片额外开销 <b id="statOv">0 B</b></span>
+    <span>重组 <b id="statRe">—</b></span>
+  </div>
+
+  <div class="stage">
+    <div class="sechead"><b>原始数据报</b>（总长度 = 20 B 首部 + 数据部分）</div>
+    <div class="origwrap">
+      <div class="origbar" id="origBar">
+        <div class="orighdr" id="origHdr">首部 20 B</div>
+        <div class="origdata" id="origData">数据</div>
+      </div>
+      <div id="ticks"></div>
+    </div>
+    <div class="sechead" style="margin-top:6px"><b>分片区块图</b>（每个色块是某一片携带的数据在原数据报中的位置）<span class="hint" id="fragHint"></span></div>
+    <div class="fragbox" id="fragBox"></div>
+    <div class="sechead" style="margin-top:6px"><b>分片首部字段取值</b></div>
+    <div class="tablebox">
+      <table>
+        <thead><tr><th>片</th><th>数据字节范围</th><th>数据长度</th><th>总长度</th><th>标识</th><th>MF</th><th>DF</th><th>片偏移(字段值)</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="resultline" id="resultLine">点击 <b>播放</b> 或 <b>单步</b>：先算出一片最多能携带多少数据（向下取整到 8 的倍数），再逐片生成。</div>
+  </div>
+
+  <div class="legend">
+    <span><i style="background:#6366f1"></i>IP 首部 20 B（每片都要重新封装）</span>
+    <span><i style="background:#e0e7ff;border:1px solid #818cf8"></i>该片携带的数据</span>
+    <span><i style="background:#ecfdf5;border:1px solid #6ee7b7"></i>重组成功</span>
+    <span><i style="background:#fee2e2;border:1px solid #fca5a5"></i>丢失的分片（无法重组）</span>
+    <span><i style="background:#f59e0b"></i>当前正在生成</span>
+  </div>
+
+  <div class="desc" id="desc"></div>
+</div>
+
+<script>
+"use strict";
+var $ = function (id) { return document.getElementById(id); };
+
+var IP = {
+  total: 3000,
+  mtu: 620,
+  ident: 1234,
+  df: false,
+  initOff: 0,        // 初始片偏移字段值（单位 8 字节）
+  headerLen: 20,
+  dataLen: 0,
+  maxData: 0,
+  frags: [],
+  needFrag: false,
+  error: "",
+  cursor: -1,        // -1 未开始，0 = 已算长度，1..k = 已生成 k 片，k+1 = 汇总
+  lost: {},
+  playing: false
+};
+var speed = 260;
+var timer = null;
+
+/* ---------------- 计算 ---------------- */
+function compute() {
+  IP.error = "";
+  IP.headerLen = 20;
+  IP.lost = {};
+  IP.total = +$("rngTotal").value;
+  IP.mtu = +$("rngMtu").value;
+  IP.ident = Math.max(0, Math.min(65535, parseInt($("inIdent").value, 10) || 0));
+  IP.df = $("chkDf").checked;
+  IP.initOff = Math.max(0, Math.min(8191, parseInt($("inOff").value, 10) || 0));
+  $("offVal").textContent = "= " + (IP.initOff * 8) + " B";
+  IP.dataLen = IP.total - IP.headerLen;
+  IP.frags = [];
+  IP.maxData = 0;
+  IP.needFrag = false;
+
+  if (IP.dataLen <= 0) {
+    IP.error = "总长度必须大于首部长度 20 B（当前没有数据部分，无需分片）。";
+    return;
+  }
+  var limit = 65535 - IP.initOff * 8;
+  if (IP.dataLen > limit) {
+    IP.error = "片偏移字段只有 13 位，最多表示到第 " + (IP.initOff * 8 + limit) + " 字节；请在 " +
+      limit + " B 以内，或减小初始片偏移。";
+    return;
+  }
+  if (IP.mtu < IP.headerLen + 8) {
+    IP.error = "MTU = " + IP.mtu + " B 太小：减去 20 B 首部后不足 8 B（无法凑够片偏移所要求的 8 字节单位），实际网络要求 MTU ≥ 68 B。";
+    return;
+  }
+  IP.maxData = Math.floor((IP.mtu - IP.headerLen) / 8) * 8;   // 关键：向下取整到 8 的倍数
+  if (IP.total <= IP.mtu) {
+    IP.needFrag = false;
+    return;
+  }
+  IP.needFrag = true;
+  if (IP.df) {
+    IP.error = "DF = 1（不允许分片），但数据报长度 " + IP.total + " B > MTU " + IP.mtu +
+      " B → <b>丢弃该数据报</b>，并向源主机发送 ICMP 差错报文（类型 3 代码 4：需要分片但设置了 DF）。";
+    return;
+  }
+  var off = 0, idx = 1;
+  while (off < IP.dataLen) {
+    var len = Math.min(IP.maxData, IP.dataLen - off);
+    var last = (off + len >= IP.dataLen);
+    IP.frags.push({
+      idx: idx,
+      start: off,
+      end: off + len - 1,
+      len: len,
+      total: IP.headerLen + len,
+      mf: last ? 0 : 1,
+      df: 0,
+      offField: IP.initOff + off / 8
+    });
+    off += len;
+    idx++;
+  }
+}
+
+/* ---------------- 渲染 ---------------- */
+function renderOriginal() {
+  var hdrPct = Math.max(3, IP.headerLen / IP.total * 100);
+  $("origHdr").style.width = hdrPct + "%";
+  $("origHdr").style.flex = "none";
+  $("origHdr").textContent = "首部 20 B";
+  $("origData").textContent = "数据部分 " + IP.dataLen + " B";
+  var t = $("ticks");
+  t.innerHTML = "";
+  for (var i = 0; i < IP.frags.length; i++) {
+    var f = IP.frags[i];
+    var d = document.createElement("div");
+    d.className = "tick";
+    d.style.left = (hdrPct + (f.start / IP.dataLen) * (100 - hdrPct)) + "%";
+    t.appendChild(d);
+  }
+}
+
+function renderFrags() {
+  var box = $("fragBox");
+  box.innerHTML = "";
+  var shown = Math.max(0, Math.min(IP.frags.length, IP.cursor));
+  for (var i = 0; i < shown; i++) {
+    var f = IP.frags[i];
+    var row = document.createElement("div");
+    row.className = "fragrow";
+    var lab = document.createElement("div");
+    lab.className = "fraglab";
+    lab.textContent = "片 " + f.idx + (f.idx === shown ? " ▶" : "");
+    var track = document.createElement("div");
+    track.className = "track";
+    // 首部块（宽度按"该片总长度"占整条数据报的比例折算）
+    var scale = 100 / IP.total;
+    var hb = document.createElement("div");
+    hb.className = "blk hdr";
+    hb.style.left = "0%";
+    hb.style.width = Math.max(1.2, IP.headerLen * scale) + "%";
+    hb.title = "IP 首部 20 B";
+    var db = document.createElement("div");
+    db.className = "blk" + (IP.lost[f.idx] ? " lost" : (isReassembled() ? " done" : "")) +
+                   (IP.cursor === f.idx ? " cursor" : "");
+    var left = (IP.headerLen + f.start) * scale;
+    var w = Math.max(1.5, f.len * scale);
+    db.style.left = left + "%";
+    db.style.width = w + "%";
+    db.textContent = w > 3 ? (f.start + "–" + f.end) : "";
+    db.title = "片 " + f.idx + "：数据 " + f.start + "–" + f.end + "（" + f.len + " B），片偏移字段 = " + f.offField;
+    if (IP.cursor > IP.frags.length) {
+      db.className += " clickable";
+      (function (idx) {
+        db.onclick = function () { toggleLost(idx); };
+      })(f.idx);
+    }
+    track.appendChild(hb);
+    track.appendChild(db);
+    row.appendChild(lab);
+    row.appendChild(track);
+    box.appendChild(row);
+  }
+  if (typeof box.scrollHeight === "number") box.scrollTop = box.scrollHeight;
+  $("fragHint").textContent = IP.cursor > IP.frags.length
+    ? "（点击任意色块可模拟「丢失该片」，观察重组结果）" : "";
+}
+
+function renderTable() {
+  var tb = $("tbody");
+  tb.innerHTML = "";
+  var shown = Math.max(0, Math.min(IP.frags.length, IP.cursor));
+  for (var i = 0; i < shown; i++) {
+    var f = IP.frags[i];
+    var tr = document.createElement("tr");
+    if (IP.cursor === f.idx) tr.className = "cur";
+    if (IP.lost[f.idx]) tr.className = "lostrow";
+    tr.innerHTML = "<td>片 " + f.idx + (IP.lost[f.idx] ? " ✗" : "") + "</td>" +
+      '<td class="mono">' + f.start + "–" + f.end + "</td>" +
+      '<td class="mono">' + f.len + " B</td>" +
+      '<td class="mono">' + f.total + " B</td>" +
+      '<td class="mono">' + IP.ident + "</td>" +
+      '<td class="mono" style="color:' + (f.mf ? "#f59e0b" : "#10b981") + '">' + f.mf + "</td>" +
+      '<td class="mono">' + f.df + "</td>" +
+      '<td class="mono"><b>' + f.offField + "</b>（= " + (f.offField * 8) + " B）</td>";
+    tb.appendChild(tr);
+  }
+  var box = tb.parentNode && tb.parentNode.parentNode;
+  if (box && typeof box.scrollHeight === "number") box.scrollTop = box.scrollHeight;
+}
+
+function isReassembled() { return IP.cursor > IP.frags.length && lostCount() === 0; }
+function lostCount() {
+  var c = 0;
+  for (var k in IP.lost) if (IP.lost[k]) c++;
+  return c;
+}
+
+function updateStats() {
+  $("statData").textContent = IP.dataLen + " B";
+  $("statMax").textContent = IP.maxData + " B";
+  $("statCnt").textContent = IP.frags.length;
+  $("statOv").textContent = (IP.frags.length > 1 ? (IP.frags.length - 1) * IP.headerLen : 0) + " B";
+  $("statRe").textContent = IP.frags.length === 0 ? "—"
+    : (IP.cursor > IP.frags.length ? (lostCount() === 0 ? "✅ 可重组" : "❌ 缺 " + lostCount() + " 片") : "待重组");
+  $("headInfo").textContent = "MTU = " + IP.mtu + " B · 首部 20 B · 片偏移单位 8 B";
+}
+
+function setResult(html) { $("resultLine").innerHTML = html; }
+
+function render() {
+  renderOriginal();
+  renderFrags();
+  renderTable();
+  updateStats();
+}
+
+/* ---------------- 步进 ---------------- */
+function advance() {
+  var maxCursor = IP.frags.length + 1;
+  if (IP.cursor >= maxCursor) return false;
+  IP.cursor++;
+  if (IP.cursor === 0) {
+    if (IP.error) { setResult("<span class='bad'>✗ " + IP.error + "</span>"); return false; }
+    if (!IP.needFrag) {
+      setResult("总长度 " + IP.total + " B ≤ MTU " + IP.mtu + " B，<b>不需要分片</b>，直接作为一个完整数据报发送" +
+        "（DF 标志为 " + (IP.df ? 1 : 0) + "，MF = 0，片偏移 = " + IP.initOff + "）。可把总长度调大或把 MTU 调小再试。");
+      return false;
+    }
+    setResult("① 计算每片能携带的最大数据长度：<b>MTU − 20 = " + (IP.mtu - IP.headerLen) + " B</b>，" +
+      "再<b>向下取整到 8 的倍数</b> → <b>" + IP.maxData + " B</b>。" +
+      "因为片偏移字段只有 13 位、以 8 字节为单位（8 × 8191 = 65528，刚好覆盖 65535 的最大长度），" +
+      "所以除最后一片外每片数据长度都必须是 8 的倍数。");
+    render();
+    return true;
+  }
+  if (IP.cursor <= IP.frags.length) {
+    var f = IP.frags[IP.cursor - 1];
+    render();
+    setResult("② 生成<b>片 " + f.idx + "</b>：携带原数据报第 <b>" + f.start + "–" + f.end + "</b> 字节（" + f.len +
+      " B）→ 总长度 = 20 + " + f.len + " = <b>" + f.total + " B</b>（≤ MTU " + IP.mtu + "），标识 = " + IP.ident +
+      "（原样复制），<b>MF = " + f.mf + "</b>（" + (f.mf ? "后面还有分片" : "这是最后一片") + "），DF = 0，" +
+      "<b>片偏移 = " + f.start + " ÷ 8 = " + f.offField + "</b>" + (IP.initOff ? "（含初始偏移 " + IP.initOff + "）" : "") + "。");
+    return true;
+  }
+  // 汇总
+  var okLast = IP.frags[IP.frags.length - 1].mf === 0;
+  var okOthers = true, okOff = true;
+  for (var i = 0; i < IP.frags.length; i++) {
+    if (i < IP.frags.length - 1 && IP.frags[i].mf !== 1) okOthers = false;
+    if (IP.frags[i].offField * 8 - IP.initOff * 8 !== IP.frags[i].start) okOff = false;
+  }
+  render();
+  setResult("③ 校验：最后一片 MF = 0 " + (okLast ? "<span class='ok'>✓</span>" : "<span class='bad'>✗</span>") +
+    "；前面各片 MF = 1 " + (okOthers ? "<span class='ok'>✓</span>" : "<span class='bad'>✗</span>") +
+    "；片偏移 × 8 = 该片数据在原数据报中的起始字节 " + (okOff ? "<span class='ok'>✓</span>" : "<span class='bad'>✗</span>") +
+    "。重组由<b>目的主机</b>完成：按片偏移排序、MF=0 标志结束，全部到齐后拼成原始数据报。" +
+    "现在可以点击任意分片色块把它设为「丢失」，观察会发生什么。");
+  return true;
+}
+
+function toggleLost(idx) {
+  IP.lost[idx] = !IP.lost[idx];
+  render();
+  var lc = lostCount();
+  if (lc === 0) {
+    setResult("所有 " + IP.frags.length + " 片都到齐 → <span class='ok'>重组成功</span>，拼回的正是原始数据报（数据 " +
+      IP.dataLen + " B）。目的主机正是靠<b>片偏移</b>排序、靠 <b>MF = 0</b> 判断最后一片。");
+  } else {
+    var names = [], missing = [];
+    for (var k in IP.lost) if (IP.lost[k]) {
+      names.push("片 " + k);
+      for (var i = 0; i < IP.frags.length; i++) if (String(IP.frags[i].idx) === String(k)) missing.push(IP.frags[i].start + "–" + IP.frags[i].end + " B");
+    }
+    setResult("<span class='bad'>无法重组</span>：丢失了 " + names.join("、") + "（数据 " + missing.join("、") +
+      "）。缺任何一片都无法拼出完整数据报，目的主机只能等重组超时后<b>丢弃全部已到的分片</b>，并回送 ICMP 超时差错报文；" +
+      "上层只能重传整个数据报——这正是分片最怕丢包的原因。");
+  }
+  updateStats();
+}
+
+/* ---------------- 播放控制 ---------------- */
+function stopTimer() { if (timer) { clearTimeout(timer); timer = null; } }
+function loop() {
+  stopTimer();
+  if (!IP.playing) return;
+  if (!advance()) { IP.playing = false; $("btnPlay").textContent = "▶ 播放"; return; }
+  timer = setTimeout(loop, speed);
+}
+$("btnPlay").onclick = function () {
+  if (IP.playing) { IP.playing = false; stopTimer(); this.textContent = "▶ 播放"; return; }
+  if (IP.cursor >= IP.frags.length + 1) reset();
+  IP.playing = true; this.textContent = "⏸ 暂停"; loop();
+};
+$("btnStep").onclick = function () {
+  IP.playing = false; stopTimer(); $("btnPlay").textContent = "▶ 播放";
+  advance();
+};
+$("btnReset").onclick = function () { reset(); };
+["rngTotal", "rngMtu", "inIdent", "inOff", "chkDf"].forEach(function (id) {
+  var el = $(id);
+  el.oninput = function () { reset(); };
+  el.onchange = function () { reset(); };
+});
+var spBtns = document.querySelectorAll(".speed-group button");
+for (var si = 0; si < spBtns.length; si++) {
+  spBtns[si].onclick = function () {
+    for (var k = 0; k < spBtns.length; k++) spBtns[k].classList.remove("active");
+    this.classList.add("active");
+    speed = +this.dataset.speed;
+    if (IP.playing) loop();
+  };
+}
+
+function reset() {
+  stopTimer();
+  IP.playing = false;
+  $("btnPlay").textContent = "▶ 播放";
+  IP.cursor = -1;
+  compute();
+  $("totalVal").textContent = IP.total + " B";
+  $("mtuVal").textContent = IP.mtu + " B";
+  render();
+  if (IP.error) {
+    setResult("<span class='bad'>✗ " + IP.error + "</span>");
+  } else if (!IP.needFrag) {
+    setResult("当前：总长度 " + IP.total + " B ≤ MTU " + IP.mtu + " B，<b>不需要分片</b>。" +
+      "把总长度调大（或把 MTU 调小到 620 / 800 等）就能看到分片过程。");
+  } else {
+    setResult("将分成 <b>" + IP.frags.length + "</b> 片，每片最多携带 " + IP.maxData + " B 数据。" +
+      "点击 <b>播放</b> 或 <b>单步</b> 逐片生成并查看首部字段。");
+  }
+  updateDesc();
+}
+
+/* ---------------- 说明区 ---------------- */
+function updateDesc() {
+  $("desc").innerHTML =
+    '<b>为什么要分片：</b>IP 数据报要经过不同的物理网络，每种网络的 MTU（最大传送单元）不同。' +
+    '当数据报长度 > 下一跳链路的 MTU 时，路由器必须把它切成若干片，每片都<b>重新加上 20 B 的 IP 首部</b>独立转发，' +
+    '到达目的主机后再重组（IPv4 允许中间路由器分片，重组只在目的主机做）。<br>' +
+    '<b>为什么片偏移以 8 字节为单位：</b>片偏移字段只有 <b>13 位</b>（最大 8191）。如果直接以字节为单位，' +
+    '最多只能表示第 8191 字节，而 IP 数据报最大可达 65535 字节，远远不够；改成以 8 字节为单位后，' +
+    '8191 × 8 = 65528，配合总长度字段就能覆盖整个 65535 字节的范围。代价是<b>除最后一片外，每片的数据长度必须是 8 的倍数</b>，' +
+    '所以每片可携带的数据要按 <code>⌊(MTU − 20) / 8⌋ × 8</code> 向下取整，例如 MTU = 800 时是 ⌊780/8⌋×8 = <b>776 B</b> 而不是 780 B。' +
+    '<b>注意：</b>分片长度必须是 8 的倍数（最后一片除外），但 MTU 本身不必是 8 的倍数。<br>' +
+    '<b>分片后首部字段怎么变：</b>① <b>原样复制</b>：标识（Identification，同一个数据报的所有分片标识相同，重组时靠它+源/目的 IP 区分）、' +
+    '源 IP、目的 IP、协议、版本；② <b>必须修改</b>：总长度（= 20 + 本片数据长度，各片不同）、' +
+    'MF（More Fragment，除最后一片外都为 1，最后一片为 0）、片偏移（= 本片数据在原数据报中的起始字节 ÷ 8）、' +
+    '首部校验和（内容变了要重新计算）；③ <b>DF 清零</b>（既然已经分片，就必须允许后续网络再分片）。<br>' +
+    '<b>分片的开销：</b>k 片就多出 (k−1) × 20 B 的首部开销（本例 k 片共多花 ' +
+    ((IP.frags.length > 1 ? IP.frags.length - 1 : 0) * 20) + ' B），信道利用率下降；路由器要额外做切分和转发；' +
+    '而且<b>只要丢了一片，整个数据报都无法重组</b>，只能靠超时重传全部数据。所以现代网络尽量避免分片（如 IPv6 干脆取消路由器分片，' +
+    '改用路径 MTU 发现，用 DF=1 探测链路能承载的最大长度）。<br>' +
+    '<b>重组规则：</b>目的主机用（源 IP，目的 IP，标识，协议）四元组把分片归到同一个数据报，按<b>片偏移</b>排序，' +
+    '用 <b>MF = 0</b> 判断最后一片，全部到齐（且各片数据长度衔接无空洞）后按偏移拼接；' +
+    '若某片丢失，等重组定时器超时后丢弃所有已到分片，并向源主机发送 ICMP 超时差错报文。';
+}
+
+/* ---------------- 启动 ---------------- */
+reset();
+</script>
+</body>
+</html>

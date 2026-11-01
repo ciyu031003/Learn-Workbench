@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { GlassModal } from "@/components/ui/modal";
+import { Exam408SearchDialog } from "@/components/exam/search-dialog";
 import type { Exam408ChapterSummary, Exam408Overview, Exam408SubjectSummary } from "@/lib/exam-408";
 import {
   ArrowLeft,
@@ -56,6 +57,13 @@ export function Exam408Hub({ overview }: { overview: Exam408Overview }) {
             <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
               四门科目按章节组织 99 个知识点，保留 2009–2026 年原卷题号、题型、分值、配图与参考答案。先读章节，再按年份整套刷。
             </p>
+
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <Exam408SearchDialog />
+              <span className="text-xs text-muted-foreground">
+                搜知识点、精读标题、速记卡与真题题干（⌘K / Ctrl+K）
+              </span>
+            </div>
           </div>
           <dl className="grid grid-cols-2 gap-2 text-center sm:grid-cols-5 lg:min-w-[440px]">
             <Stat label="科目" value={overview.stats.subjects} />

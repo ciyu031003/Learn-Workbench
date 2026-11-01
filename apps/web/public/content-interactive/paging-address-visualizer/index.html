@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>分页存储管理：逻辑地址到物理地址的转换</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f8fafc; color: #1e293b; padding: 16px; }
+  .wrap { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+  .head { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; }
+  .head h1 { font-size: 15px; font-weight: 600; }
+  .head .info { font-size: 12px; opacity: .92; }
+  .controls { padding: 9px 16px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-bottom: 1px solid #eef2f7; }
+  .controls.sub { padding-top: 0; border-bottom: 1px solid #eef2f7; }
+  .controls label { font-size: 12px; color: #64748b; }
+  select, input { font-size: 12px; font-family: inherit; }
+  select { padding: 4px 6px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; outline: none; }
+  input[type=text] { padding: 4px 8px; border-radius: 8px; border: 1px solid #e2e8f0; outline: none; width: 120px; font-family: ui-monospace, Consolas, monospace; }
+  input[type=text]:focus { border-color: #6366f1; }
+  button { padding: 5px 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all .15s; font-size: 12px; }
+  .btn-primary { background: #6366f1; color: #fff; }
+  .btn-primary:hover { background: #4f46e5; }
+  .btn-ghost { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+  .btn-ghost:hover { background: #e2e8f0; }
+  .btn-ghost.sm { padding: 3px 9px; font-size: 11.5px; }
+  .speed-group { display: flex; gap: 4px; }
+  .speed-group button { padding: 4px 9px; font-size: 11.5px; }
+  .speed-group .active { background: #6366f1; color: #fff; border-color: #6366f1; }
+  .stats { padding: 7px 16px; display: flex; gap: 14px; font-size: 11.5px; color: #64748b; border-bottom: 1px solid #eef2f7; flex-wrap: wrap; }
+  .stats b { color: #1e293b; font-variant-numeric: tabular-nums; }
+  .stage { padding: 10px 16px 8px; }
+  .lbl { font-size: 11px; color: #64748b; margin: 2px 0 4px; }
+  .bitline { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; }
+  .fblock { border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 3px 6px 4px; background: #fbfdff; }
+  .fblock.hl { box-shadow: 0 0 0 3px #fde68a; }
+  .flbl { font-size: 10.5px; font-weight: 600; white-space: nowrap; }
+  .fbits { display: flex; gap: 1px; margin: 2px 0; }
+  .bit { font-family: ui-monospace, Consolas, monospace; font-size: 11px; width: 13px; text-align: center; border-radius: 2px; background: #f1f5f9; color: #475569; }
+  .bit.one { background: #e0e7ff; color: #3730a3; font-weight: 700; }
+  .fval { font-size: 11px; color: #334155; font-variant-numeric: tabular-nums; font-family: ui-monospace, Consolas, monospace; }
+  .path { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; margin: 7px 0 5px; }
+  .pstep { font-size: 11px; padding: 2px 8px; border-radius: 7px; background: #f1f5f9; color: #94a3b8; border: 1px solid #e2e8f0; white-space: nowrap; }
+  .pstep.done { background: #ecfdf5; color: #059669; border-color: #a7f3d0; }
+  .pstep.cur { background: #6366f1; color: #fff; border-color: #6366f1; font-weight: 600; }
+  .psep { color: #cbd5e1; font-size: 11px; }
+  .panels { display: flex; gap: 10px; align-items: flex-start; }
+  .panel { flex: 1; min-width: 0; }
+  .plbl { font-size: 11px; color: #64748b; margin-bottom: 3px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  table.t { width: 100%; border-collapse: collapse; font-size: 11px; font-family: ui-monospace, Consolas, monospace; }
+  table.t th { background: #f8fafc; color: #64748b; font-weight: 600; padding: 2px 3px; border-bottom: 1px solid #e2e8f0; font-size: 10px; }
+  table.t td { padding: 2px 4px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
+  table.t tr.hl td { background: #fef3c7; font-weight: 700; }
+  table.t tr.hit td { background: #d1fae5; font-weight: 700; }
+  table.t tr.invalid td { color: #ef4444; }
+  .chips { display: flex; gap: 4px; flex-wrap: wrap; max-height: 96px; overflow-y: auto; }
+  .chip { padding: 1px 6px; border-radius: 6px; background: #eef2ff; border: 1px solid #c7d2fe; color: #4338ca; font-size: 10.5px; font-family: ui-monospace, Consolas, monospace; white-space: nowrap; }
+  .chip.empty { background: #f8fafc; border-color: #e2e8f0; color: #94a3b8; }
+  .note { font-size: 12px; color: #334155; background: #f8fafc; border-left: 3px solid #6366f1; border-radius: 0 8px 8px 0; padding: 6px 10px; margin-top: 7px; min-height: 40px; line-height: 1.55; }
+  .note.warn { border-left-color: #ef4444; background: #fef2f2; }
+  .note.ok { border-left-color: #10b981; background: #f0fdf9; }
+  .result { margin-top: 6px; font-size: 12px; color: #334155; font-variant-numeric: tabular-nums; font-family: ui-monospace, Consolas, monospace; background: #eef2ff; border-radius: 8px; padding: 4px 9px; min-height: 24px; }
+  .result b { color: #4338ca; }
+  .desc { padding: 9px 16px 14px; border-top: 1px solid #eef2f7; font-size: 12px; color: #475569; line-height: 1.7; }
+  .desc b { color: #334155; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>🧩 分页存储管理：地址转换</h1>
+    <span class="info" id="cfgInfo">16 位逻辑地址 · 4KB 页 · 一级页表</span>
+  </div>
+
+  <div class="controls">
+    <label>逻辑地址位数</label>
+    <select id="bitsSel"><option>16</option><option>24</option><option>32</option></select>
+    <label>页大小</label>
+    <select id="pageSel"><option value="1024">1KB</option><option value="2048">2KB</option><option value="4096" selected>4KB</option></select>
+    <label>页表级数</label>
+    <select id="lvlSel"><option value="1" selected>一级</option><option value="2">两级</option><option value="3">三级</option></select>
+    <label>TLB</label>
+    <select id="tlbSel"><option value="1" selected>使用 TLB</option><option value="0">不使用 TLB</option></select>
+    <label>物理内存</label>
+    <select id="memSel"><option value="64">64KB</option><option value="256" selected>256KB</option><option value="1024">1MB</option></select>
+  </div>
+
+  <div class="controls sub">
+    <label>逻辑地址</label>
+    <input type="text" id="addrInput" value="0x1234" spellcheck="false">
+    <button class="btn-ghost sm" id="btnGo">转换</button>
+    <button class="btn-ghost sm" id="btnRand">🎲 随机</button>
+    <button class="btn-ghost sm" id="btnNextPage">下一页</button>
+    <button class="btn-ghost sm" id="btnSamePage">同页不同偏移</button>
+    <div class="speed-group">
+      <button data-speed="700" class="btn-ghost">慢</button>
+      <button data-speed="240" class="btn-ghost active">中</button>
+      <button data-speed="40" class="btn-ghost">快</button>
+    </div>
+    <button class="btn-primary" id="btnPlay">▶ 播放</button>
+    <button class="btn-ghost" id="btnStep">单步</button>
+    <button class="btn-ghost" id="btnReset">↺ 重置</button>
+  </div>
+
+  <div class="stats">
+    <span>本次访存 <b id="stAcc">0</b> 次</span>
+    <span>累计访存 <b id="stAccAll">0</b> 次</span>
+    <span>缺页 <b id="stFault">0</b> 次</span>
+    <span>TLB 命中率 <b id="stHit">-</b></span>
+    <span>EAT <b id="stEat">-</b></span>
+    <span>状态 <b id="stState">就绪</b></span>
+  </div>
+
+  <div class="stage">
+    <div class="lbl">① 逻辑地址拆分成「各级页号 | 页内偏移」（黄框为当前正在使用的字段）</div>
+    <div class="bitline" id="bitline"></div>
+
+    <div class="path" id="path"></div>
+
+    <div class="panels">
+      <div class="panel" style="flex:.85">
+        <div class="plbl" id="tlbTitle">TLB 快表（4 项 · LRU）</div>
+        <table class="t"><thead><tr><th>项</th><th>有效</th><th>页号</th><th>物理块号</th></tr></thead><tbody id="tlbBody"></tbody></table>
+      </div>
+      <div class="panel" style="flex:1.25">
+        <div class="plbl" id="ptTitle">页表</div>
+        <table class="t"><thead><tr><th>索引</th><th>表项内容</th><th>说明</th></tr></thead><tbody id="ptBody"></tbody></table>
+      </div>
+      <div class="panel" style="flex:1">
+        <div class="plbl" id="frameTitle">物理内存页框占用情况</div>
+        <div class="chips" id="frameChips"></div>
+      </div>
+    </div>
+
+    <div class="note" id="note"></div>
+    <div class="result" id="result">—</div>
+  </div>
+
+  <div class="desc" id="desc"></div>
+</div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const LEVEL_COLORS = ["#6366f1", "#8b5cf6", "#0ea5e9"];
+const OFF_COLOR = "#10b981";
+const T_TLB = 10, T_MEM = 100; // ns
+
+const S = {
+  addrBits: 16, pageSize: 4096, levels: 1, tlbOn: true, memKB: 256, addr: 0x1234,
+  tlb: [], frameOwner: new Map(), pageFrame: new Map(),
+  statAcc: 0, statFault: 0, hits: 0, misses: 0,
+};
+
+let steps = [], cur = 0, playing = false, timer = null, speed = 240;
+let lastWin = null;
+
+const hexs = (n, w) => "0x" + n.toString(16).toUpperCase().padStart(w, "0");
+const log2i = (n) => Math.round(Math.log(n) / Math.log(2));
+
+function cfg() {
+  const offBits = log2i(S.pageSize);
+  const pageBits = S.addrBits - offBits;
+  const split = [];
+  if (S.levels === 1) split.push(pageBits);
+  else {
+    const base = Math.floor(pageBits / S.levels), rem = pageBits % S.levels;
+    for (let i = 0; i < S.levels; i++) split.push(base + (i < rem ? 1 : 0));
+  }
+  const frameCount = Math.floor((S.memKB * 1024) / S.pageSize);
+  return { offBits: offBits, pageBits: pageBits, split: split, frameCount: frameCount, levelNames: levelNames(S.levels) };
+}
+function levelNames(n) {
+  if (n === 1) return ["页号"];
+  if (n === 2) return ["页目录号", "页表索引"];
+  return ["页目录号", "页中间目录号", "页表索引"];
+}
+function pageNoFromIdxs(idxs, split) {
+  let v = 0;
+  for (let i = 0; i < idxs.length; i++) v = v * Math.pow(2, split[i]) + idxs[i];
+  return v;
+}
+function splitPageNo(page, split) {
+  const idxs = [];
+  for (let i = split.length - 1; i >= 0; i--) {
+    idxs.unshift(page % Math.pow(2, split[i]));
+    page = Math.floor(page / Math.pow(2, split[i]));
+  }
+  return idxs;
+}
+
+/* ---------- 页表 / 页框 模拟 ---------- */
+function peekEntry(page) {
+  if (S.pageFrame.has(page)) return { frame: S.pageFrame.get(page), valid: true };
+  const valid = (page % 8 !== 3) && (page % 8 !== 6);
+  if (!valid) return { frame: null, valid: false };
+  return { frame: (page * 13 + 5) % cfg().frameCount, valid: true };
+}
+function allocFrame() {
+  let f = 0;
+  while (S.frameOwner.has(f)) f++;
+  return f;
+}
+function commitPage(page) {
+  const e = peekEntry(page);
+  if (!e.valid) return e;
+  if (!S.pageFrame.has(page)) {
+    let f = e.frame;
+    if (S.frameOwner.has(f)) f = allocFrame();
+    S.frameOwner.set(f, page);
+    S.pageFrame.set(f === e.frame ? page : page, f);
+    S.pageFrame.set(page, f);
+  }
+  return { frame: S.pageFrame.get(page), valid: true };
+}
+function loadPage(page) {
+  const f = allocFrame();
+  S.frameOwner.set(f, page);
+  S.pageFrame.set(page, f);
+  return f;
+}
+function tlbTouch(page) {
+  const i = S.tlb.findIndex((e) => e.page === page);
+  if (i >= 0) { S.tlb[i].use = ++S.tlbClock; }
+  return i;
+}
+let tlbClockGuard = 0;
+Object.defineProperty(S, "tlbClock", { get() { return tlbClockGuard; }, set(v) { tlbClockGuard = v; } });
+function tlbInsert(page, frame) {
+  const i = S.tlb.findIndex((e) => e.page === page);
+  if (i >= 0) { S.tlb[i].frame = frame; S.tlb[i].use = ++S.tlbClock; return; }
+  S.tlb.push({ page: page, frame: frame, use: ++S.tlbClock });
+  while (S.tlb.length > 4) {
+    let mi = 0;
+    for (let k = 1; k < S.tlb.length; k++) if (S.tlb[k].use < S.tlb[mi].use) mi = k;
+    S.tlb.splice(mi, 1);
+  }
+}
+function tableBase(level, idxs) {
+  if (level === 0) return 0x1000;
+  let base = 0x1000;
+  for (let i = 0; i < level; i++) base = 0x2000 + idxs[i] * 0x100 + i * 0x1000;
+  return base;
+}
+function nextBase(level, idx) { return 0x2000 + idx * 0x100 + level * 0x1000; }
+
+/* ---------- 生成转换步骤 ---------- */
+function buildSteps() {
+  const c = cfg();
+  const n = c.split.length;
+  const A = S.addr;
+  const bin = A.toString(2).padStart(S.addrBits, "0");
+  const fields = [];
+  let pos = 0;
+  for (let L = 0; L < n; L++) {
+    const b = c.split[L];
+    const seg = bin.substr(pos, b);
+    fields.push({ name: c.levelNames[L], bits: b, bin: seg, val: parseInt(seg, 2) || 0, lvl: L, off: false });
+    pos += b;
+  }
+  const offSeg = bin.substr(pos);
+  fields.push({ name: "页内偏移", bits: c.offBits, bin: offSeg, val: parseInt(offSeg, 2) || 0, lvl: -1, off: true });
+  const idxs = fields.slice(0, n).map((f) => f.val);
+  const pageNo = pageNoFromIdxs(idxs, c.split);
+  const off = fields[n].val;
+
+  const out = [];
+  let acc = 0, faulted = false, frame = null, win = null;
+  const tlbSnap = () => S.tlb.map((e) => ({ page: e.page, frame: e.frame, use: e.use }));
+  const push = (o) => out.push(Object.assign({
+    fields: fields, tlb: tlbSnap(), win: win, hl: -1, hlPage: -1, accesses: acc,
+    kind: "info", frame: frame, final: null, note: "",
+  }, o));
+
+  // 路径
+  const path = ["① 拆分逻辑地址"];
+  if (S.tlbOn) path.push("② 查 TLB");
+  for (let L = 0; L < n; L++) path.push("查第" + (L + 1) + "级页表");
+  path.push("检查有效位");
+  path.push("拼出物理地址");
+  const iP = { tlb: S.tlbOn ? 1 : -1, walk: S.tlbOn ? 2 : 1, valid: (S.tlbOn ? 2 : 1) + n, asm: (S.tlbOn ? 2 : 1) + n + 1 };
+
+  push({
+    kind: "split", phase: 0,
+    note: "逻辑地址 " + hexs(A, Math.ceil(S.addrBits / 4)) + " 转成 " + S.addrBits + " 位二进制 " + bin +
+      "，按「各级页号 | 页内偏移」从高位到低位切成 " + fields.length + " 段：" +
+      fields.map((f) => f.name + "=" + f.val).join("，") + "。页内偏移占 " + c.offBits + " 位（页大小 " + fmtKB(S.pageSize) + " = 2^" + c.offBits + "），所以页号共 " + c.pageBits + " 位。",
+  });
+
+  // ② TLB
+  let hit = false;
+  if (S.tlbOn) {
+    const i = tlbTouch(pageNo);
+    if (i >= 0) {
+      hit = true;
+      frame = S.tlb[i].frame;
+      push({
+        kind: "tlb-hit", phase: iP.tlb, hlPage: pageNo, frame: frame,
+        note: "查 TLB（快表）：页号 " + pageNo + " 在快表中【命中 ✅】→ 直接得到物理块号 " + frame +
+          "，完全不用访问内存中的页表，省掉了 " + c.levels + " 次查表访存。",
+      });
+    } else {
+      push({
+        kind: "tlb-miss", phase: iP.tlb, hlPage: pageNo,
+        note: "查 TLB（快表）：页号 " + pageNo + " 不在快表中【未命中 ❌】→ 只能到内存里一级一级地查页表，需要 " + c.levels + " 次访存。",
+      });
+    }
+  }
+
+  // ③ 多级查表
+  if (!hit) {
+    for (let L = 0; L < n; L++) {
+      const isLast = L === n - 1;
+      const base = tableBase(L, idxs);
+      const rows = [];
+      const lim = Math.pow(2, c.split[L]) - 1;
+      for (let d = -1; d <= 1; d++) {
+        const idx = idxs[L] + d;
+        if (idx < 0 || idx > lim) continue;
+        if (isLast) {
+          const p = pageNoFromIdxs(idxs.slice(0, L).concat([idx]), c.split);
+          const e = peekEntry(p);
+          rows.push({ key: idx, val: e.valid ? ("物理块号 = " + e.frame) : "有效位 = 0", note: e.valid ? ("页 " + p + " 在内存") : ("页 " + p + " 不在内存"), invalid: !e.valid, hl: idx === idxs[L] });
+        } else {
+          rows.push({ key: idx, val: hexs(nextBase(L, idx), 4), note: "指向第 " + (L + 2) + " 级页表", invalid: false, hl: idx === idxs[L] });
+        }
+      }
+      acc++;
+      const e = peekEntry(pageNo);
+      win = {
+        title: "第 " + (L + 1) + " 级页表（" + (isLast ? "最终页表" : c.levelNames[L] + "表") + " · 基址 " + hexs(base, 4) + "）",
+        rows: rows,
+      };
+      push({
+        kind: "walk", phase: iP.walk + L, hl: L, win: win,
+        note: "第 " + (L + 1) + " 次访存：用第 " + (L + 1) + " 级页号 " + idxs[L] + " 查" + (isLast ? "最后一级页表" : "第 " + (L + 1) + " 级页表") +
+          "（基址 " + hexs(base, 4) + "）的第 " + idxs[L] + " 项 → " +
+          (isLast ? (e.valid ? "得到物理块号 " + e.frame + "、有效位 = 1" : "表项有效位 = 0（该页不在内存）") : "得到下一级页表基址 " + hexs(nextBase(L, idxs[L]), 4)) +
+          "。累计访存 " + acc + " 次。",
+      });
+    }
+  }
+
+  // ④ 有效位 / 缺页
+  const ent = peekEntry(pageNo);
+  if (!ent.valid) {
+    faulted = true;
+    win = { title: "第 " + n + " 级页表（页号 " + pageNo + " 的表项）", rows: [{ key: idxs[n - 1], val: "有效位 = 0", note: "该页不在内存", invalid: true, hl: true }] };
+    push({
+      kind: "fault", phase: iP.valid, win: win, frame: null,
+      note: "检查有效位（存在位）：页号 " + pageNo + " 的表项有效位 = 0 → 该页【不在内存】中，产生【缺页中断】（缺页异常），" +
+        "此时表项里的物理块号是无效的，不能用来拼物理地址。",
+    });
+    const f = loadPage(pageNo);
+    frame = f;
+    const tlbBefore = tlbSnap();
+    if (S.tlbOn) tlbInsert(pageNo, f);
+    win = { title: "第 " + n + " 级页表（缺页处理后的表项）", rows: [{ key: idxs[n - 1], val: "物理块号 = " + f, note: "有效位 = 1，已调入内存", invalid: false, hl: true }] };
+    push({
+      kind: "load", phase: iP.valid, win: win, frame: f, tlb: tlbSnap(),
+      note: "缺页中断处理：操作系统在外存（磁盘）中找到第 " + pageNo + " 页 → 分配一个空闲物理块 " + f + " → 把页面调入该块 → 修改页表项（物理块号 = " + f + "、有效位置 1）" +
+        (S.tlbOn ? " → 同时把「页号 " + pageNo + " → 块 " + f + "」写入 TLB。" : "。TLB 未启用，不更新快表。") + " 这是一次磁盘 I/O，很慢（毫秒级），远比一次访存（纳秒级）昂贵。",
+    });
+    if (S.tlbOn) {
+      acc += 1;
+      push({
+        kind: "retry", phase: iP.valid, frame: f, accesses: acc,
+        note: "缺页处理完成，重新执行刚才那条指令：这次查 TLB【命中】→ 直接得到物理块号 " + f + "（访存 +1，累计 " + acc + " 次，含前面那次失败的查表）。",
+      });
+    } else {
+      acc += c.levels;
+      push({
+        kind: "retry", phase: iP.valid, frame: f, accesses: acc,
+        note: "TLB 未启用，重新执行指令时必须重新逐级查 " + c.levels + " 级页表（访存 +" + c.levels + "，累计 " + acc + " 次），这次表项有效，得到物理块号 " + f + "。",
+      });
+    }
+  } else {
+    frame = commitPage(pageNo).frame;
+    win = { title: "第 " + n + " 级页表（页号 " + pageNo + " 的表项）", rows: [{ key: idxs[n - 1], val: "物理块号 = " + frame, note: "有效位 = 1，在内存", invalid: false, hl: true }] };
+    push({
+      kind: "valid", phase: iP.valid, win: win, frame: frame,
+      note: "检查有效位（存在位）：页号 " + pageNo + " 的表项有效位 = 1 → 该页已经在内存中，物理块号 = " + frame + "。",
+    });
+    if (!hit && S.tlbOn) {
+      win = { title: "第 " + n + " 级页表（同前）", rows: win.rows };
+      tlbInsert(pageNo, frame);
+      push({
+        kind: "tlbfill", phase: iP.valid, win: win, frame: frame, tlb: tlbSnap(),
+        note: "把这次查到的映射「页号 " + pageNo + " → 物理块号 " + frame + "」写入 TLB（若 4 项已满，按 LRU 淘汰最久未使用的一项），下次访问同一页就能直接命中。",
+      });
+    }
+  }
+
+  acc++;
+  const phys = frame * c.pageSize + off;
+  const pw = Math.ceil(log2i(S.memKB * 1024) / 4);
+  push({
+    kind: "assemble", phase: iP.asm, frame: frame, final: phys, accesses: acc,
+    note: "拼出物理地址：物理地址 = 物理块号 × 页大小 + 页内偏移 = " + frame + " × " + S.pageSize + " + " + off + " = " + phys +
+      " = " + hexs(phys, pw) + "。页内偏移在转换前后保持不变（这是分页的重要特点）。本次转换共访存 " + acc + " 次。",
+  });
+
+  // 提交统计
+  S.statAcc += acc;
+  if (faulted) S.statFault += 1;
+  if (S.tlbOn) { if (hit) S.hits++; else S.misses++; }
+  S.result = { acc: acc, faulted: faulted, hit: hit, pageNo: pageNo, frame: frame, phys: phys, off: off };
+  steps = out;
+  cur = 0;
+}
+function fmtKB(b) { return b >= 1024 ? (b / 1024) + "KB" : b + "B"; }
+
+/* ---------- 渲染 ---------- */
+function renderBits(st) {
+  const box = $("bitline");
+  box.innerHTML = "";
+  st.fields.forEach((f, i) => {
+    const color = f.off ? OFF_COLOR : LEVEL_COLORS[i % LEVEL_COLORS.length];
+    const d = document.createElement("div");
+    d.className = "fblock" + (st.hl === i ? " hl" : "");
+    d.style.borderColor = color;
+    const lbl = document.createElement("div");
+    lbl.className = "flbl";
+    lbl.style.color = color;
+    lbl.textContent = f.name + "（" + f.bits + " 位）";
+    const bits = document.createElement("div");
+    bits.className = "fbits";
+    for (const ch of f.bin) {
+      const s = document.createElement("span");
+      s.className = "bit" + (ch === "1" ? " one" : "");
+      s.textContent = ch;
+      bits.appendChild(s);
+    }
+    const val = document.createElement("div");
+    val.className = "fval";
+    val.textContent = "= " + f.val + (f.off ? "（偏移）" : "（第" + (i + 1) + "级）");
+    d.appendChild(lbl); d.appendChild(bits); d.appendChild(val);
+    box.appendChild(d);
+  });
+}
+function renderPath(st, pathArr) {
+  const box = $("path");
+  box.innerHTML = "";
+  pathArr.forEach((p, i) => {
+    if (i) {
+      const s = document.createElement("span");
+      s.className = "psep"; s.textContent = "›";
+      box.appendChild(s);
+    }
+    const d = document.createElement("span");
+    d.className = "pstep" + (i === st.phase ? " cur" : (i < st.phase ? " done" : ""));
+    d.textContent = p;
+    box.appendChild(d);
+  });
+}
+function renderTlb(st) {
+  const tb = $("tlbBody");
+  tb.innerHTML = "";
+  $("tlbTitle").textContent = S.tlbOn ? "TLB 快表（4 项 · LRU 替换）" : "TLB 快表（已关闭，每次都要访存查页表）";
+  const list = st.tlb;
+  if (!S.tlbOn) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = "<td colspan='4' style='color:#94a3b8'>未使用 TLB</td>";
+    tb.appendChild(tr);
+    return;
+  }
+  for (let i = 0; i < 4; i++) {
+    const e = list[i];
+    const tr = document.createElement("tr");
+    if (e && e.page === st.hlPage) tr.className = "hl";
+    tr.innerHTML = "<td>" + (i + 1) + "</td>" +
+      (e ? "<td style='color:#10b981'>1</td><td>" + e.page + "</td><td>" + e.frame + "</td>"
+         : "<td style='color:#94a3b8'>0</td><td style='color:#94a3b8'>—</td><td style='color:#94a3b8'>—</td>");
+    tb.appendChild(tr);
+  }
+}
+function renderPt(st) {
+  const tb = $("ptBody");
+  tb.innerHTML = "";
+  const w = st.win;
+  $("ptTitle").textContent = w ? w.title : (S.levels === 1 ? "页表" : "页表（逐级查找）");
+  if (!w) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = "<td colspan='3' style='color:#94a3b8'>尚未查表</td>";
+    tb.appendChild(tr);
+    return;
+  }
+  w.rows.forEach((r) => {
+    const tr = document.createElement("tr");
+    if (r.hl) tr.className = r.invalid ? "invalid" : "hl";
+    tr.innerHTML = "<td>" + r.key + "</td><td>" + r.val + "</td><td style='color:#64748b'>" + r.note + "</td>";
+    tb.appendChild(tr);
+  });
+}
+function renderFrames(st) {
+  const c = cfg();
+  const box = $("frameChips");
+  box.innerHTML = "";
+  $("frameTitle").textContent = "物理内存页框（共 " + c.frameCount + " 块 · " + fmtKB(S.memKB * 1024) + " ÷ " + fmtKB(S.pageSize) + "）";
+  const keys = Array.prototype.slice.call(S.frameOwner.keys()).sort((a, b) => a - b);
+  if (!keys.length) {
+    box.innerHTML = '<span class="chip empty">尚未占用任何页框</span>';
+    return;
+  }
+  keys.slice(0, 24).forEach((f) => {
+    const d = document.createElement("span");
+    d.className = "chip";
+    if (st.frame === f) d.style.background = "#fef3c7", d.style.borderColor = "#f59e0b";
+    d.textContent = "块 " + f + " ← 页 " + S.frameOwner.get(f);
+    box.appendChild(d);
+  });
+  if (keys.length > 24) {
+    const d = document.createElement("span");
+    d.className = "chip empty";
+    d.textContent = "… 还有 " + (keys.length - 24) + " 块";
+    box.appendChild(d);
+  }
+}
+function render() {
+  const st = steps[cur];
+  if (!st) return;
+  const c = cfg();
+  renderBits(st);
+  const pathArr = ["① 拆分逻辑地址"];
+  if (S.tlbOn) pathArr.push("② 查 TLB");
+  for (let L = 0; L < c.levels; L++) pathArr.push("查第" + (L + 1) + "级页表");
+  pathArr.push("检查有效位");
+  pathArr.push("拼出物理地址");
+  renderPath(st, pathArr);
+  renderTlb(st);
+  renderPt(st);
+  renderFrames(st);
+
+  const noteEl = $("note");
+  noteEl.textContent = st.note;
+  noteEl.className = "note" + (st.kind === "fault" ? " warn" : (st.kind === "tlb-hit" || st.kind === "assemble" ? " ok" : ""));
+
+  const res = S.result;
+  $("result").innerHTML = st.final !== null && st.final !== undefined
+    ? "物理地址 = 块号 <b>" + st.frame + "</b> × 页大小 <b>" + S.pageSize + "</b> + 偏移 <b>" + res.off + "</b> = <b>" + st.final + "</b> = " + hexs(st.final, Math.ceil(log2i(S.memKB * 1024) / 4))
+    : (res ? "页号 " + res.pageNo + " ｜ 页内偏移 " + res.off + " ｜ 尚未拼出物理地址" : "—");
+
+  $("stAcc").textContent = st.accesses;
+  $("stAccAll").textContent = S.statAcc;
+  $("stFault").textContent = S.statFault;
+  const tot = S.hits + S.misses;
+  $("stHit").textContent = S.tlbOn && tot ? (S.hits / tot * 100).toFixed(1) + "%（" + S.hits + "/" + tot + "）" : (S.tlbOn ? "-" : "未启用");
+  $("stEat").textContent = eatText();
+  const atEnd = cur === steps.length - 1 && steps.length > 1;
+  $("stState").textContent = atEnd ? (res && res.faulted ? "✅ 完成（发生缺页）" : "✅ 转换完成") : (playing ? "转换中…" : (cur === 0 ? "就绪" : "⏸ 已暂停"));
+}
+function eatText() {
+  const c = cfg();
+  if (!S.tlbOn) return (c.levels + 1) * T_MEM + " ns";
+  const tot = S.hits + S.misses;
+  const p = tot ? S.hits / tot : 0;
+  return (p * T_TLB + p * T_MEM + (1 - p) * (T_TLB + c.levels * T_MEM + T_MEM)).toFixed(0) + " ns（p=" + (p * 100).toFixed(0) + "%）";
+}
+
+/* ---------- 控制 ---------- */
+function stopTimer() { if (timer) { clearTimeout(timer); timer = null; } }
+function tick() {
+  if (!playing) return;
+  if (cur >= steps.length - 1) {
+    playing = false;
+    $("btnPlay").textContent = "▶ 播放";
+    render();
+    return;
+  }
+  cur++;
+  render();
+  timer = setTimeout(tick, speed);
+}
+function updateCfgInfo() {
+  const c = cfg();
+  $("cfgInfo").textContent = S.addrBits + " 位逻辑地址 · " + fmtKB(S.pageSize) + " 页 · " +
+    (S.levels === 1 ? "一级页表" : S.levels === 2 ? "两级页表" : "三级页表") + (S.tlbOn ? " · 有 TLB" : " · 无 TLB") +
+    " · 页号 " + c.pageBits + " 位 = " + c.split.join("+") + "，偏移 " + c.offBits + " 位";
+  $("desc").innerHTML =
+    "<b>为什么要多级页表：</b>页表本身也要占内存。若 " + S.addrBits + " 位逻辑地址、页大小 " + fmtKB(S.pageSize) + "，则页号有 " + c.pageBits +
+    " 位，一级页表需要 2^" + c.pageBits + " 个表项；每个进程一张，连续存放太大。改成 " + S.levels + " 级页表后，只需保留用到的那些页表，" +
+    "各级页表可以不连续存放，<b>节省了页表本身占用的内存空间</b>；代价是地址转换时要多访存几次（每级一次）。" +
+    "<br><b>TLB（快表）的作用：</b>TLB 是存放在高速缓存中的页表项副本，按内容（页号）并行查找。命中时直接得到物理块号，" +
+    "把 " + (c.levels + 1) + " 次访存减少为 1 次，大大加快地址转换；未命中才去内存查页表，并把结果回填 TLB。" +
+    "<br><b>有效访问时间 EAT：</b>EAT = 命中率 p ×（查 TLB 时间 + 一次访存）+（1 − p）×（查 TLB 时间 + " + c.levels + " 次查页表访存 + 一次访存）。" +
+    "本题取 t_TLB = " + T_TLB + " ns、一次访存 = " + T_MEM + " ns，当前 p 下的 EAT 见上方统计区。" +
+    "<br><b>缺页中断：</b>页表项有效位 = 0 表示该页不在内存，此时产生缺页中断，由操作系统从外存调入页面并更新页表（和 TLB），然后重新执行被中断的指令。" +
+    "页内偏移在整个转换过程中不变。";
+}
+function resetSim(keepAddr) {
+  S.tlb = []; S.frameOwner = new Map(); S.pageFrame = new Map();
+  S.statAcc = 0; S.statFault = 0; S.hits = 0; S.misses = 0; tlbClockGuard = 0;
+  if (S.tlbOn) {
+    const c = cfg();
+    for (const p of [0, 1, 2]) {
+      const e = commitPage(p);
+      S.tlb.push({ page: p, frame: e.frame, use: ++tlbClockGuard });
+    }
+    if (c.frameCount < 3) S.tlb = S.tlb.slice(0, Math.max(1, c.frameCount));
+  }
+  buildSteps();
+  render();
+}
+function applyAddr() {
+  const c = cfg();
+  const raw = $("addrInput").value.trim();
+  let v = NaN;
+  if (/^0x[0-9a-f]+$/i.test(raw)) v = parseInt(raw.slice(2), 16);
+  else if (/^[0-9]+$/.test(raw)) v = parseInt(raw, 10);
+  if (!isFinite(v)) { $("note").textContent = "地址格式无法识别：请输入十进制（如 4660）或十六进制（如 0x1234）。"; $("note").className = "note warn"; return; }
+  const max = Math.pow(2, S.addrBits) - 1;
+  if (v < 0 || v > max) {
+    $("note").textContent = "地址 " + v + " 越界：逻辑地址空间只有 2^" + S.addrBits + " = " + (max + 1) + " 字节（0 ~ " + hexs(max, Math.ceil(S.addrBits / 4)) + "），访问该地址会触发地址越界异常。";
+    $("note").className = "note warn";
+    return;
+  }
+  $("addrInput").value = hexs(v, Math.ceil(S.addrBits / 4));
+  S.addr = v;
+  buildSteps();
+  cur = 0;
+  playing = false; stopTimer();
+  $("btnPlay").textContent = "▶ 播放";
+  render();
+}
+
+/* ---------- 事件 ---------- */
+$("bitsSel").onchange = () => { S.addrBits = +$("bitsSel").value; S.addr = Math.min(S.addr, Math.pow(2, S.addrBits) - 1); updateCfgInfo(); resetSim(); };
+$("pageSel").onchange = () => { S.pageSize = +$("pageSel").value; updateCfgInfo(); resetSim(); };
+$("lvlSel").onchange = () => { S.levels = +$("lvlSel").value; updateCfgInfo(); resetSim(); };
+$("tlbSel").onchange = () => { S.tlbOn = $("tlbSel").value === "1"; updateCfgInfo(); resetSim(); };
+$("memSel").onchange = () => { S.memKB = +$("memSel").value; updateCfgInfo(); resetSim(); };
+$("addrInput").onchange = applyAddr;
+$("addrInput").onkeydown = (e) => { if (e.key === "Enter") applyAddr(); };
+$("btnGo").onclick = applyAddr;
+$("btnRand").onclick = () => { $("addrInput").value = hexs(Math.floor(Math.random() * Math.pow(2, S.addrBits)), Math.ceil(S.addrBits / 4)); applyAddr(); };
+$("btnNextPage").onclick = () => {
+  const c = cfg();
+  const page = Math.floor(S.addr / S.pageSize);
+  const np = Math.min(page + 1, Math.pow(2, c.pageBits) - 1);
+  $("addrInput").value = hexs(np * S.pageSize + (S.addr % S.pageSize), Math.ceil(S.addrBits / 4));
+  applyAddr();
+};
+$("btnSamePage").onclick = () => {
+  const page = Math.floor(S.addr / S.pageSize);
+  const off = Math.floor(Math.random() * S.pageSize);
+  $("addrInput").value = hexs(page * S.pageSize + off, Math.ceil(S.addrBits / 4));
+  applyAddr();
+};
+document.querySelectorAll(".speed-group button").forEach((b) => {
+  b.onclick = () => {
+    document.querySelectorAll(".speed-group button").forEach((x) => x.classList.remove("active"));
+    b.classList.add("active");
+    speed = +b.dataset.speed;
+  };
+});
+$("btnPlay").onclick = () => {
+  if (playing) {
+    playing = false; stopTimer();
+    $("btnPlay").textContent = "▶ 播放";
+    render();
+    return;
+  }
+  if (cur >= steps.length - 1) { cur = 0; render(); }
+  playing = true;
+  $("btnPlay").textContent = "⏸ 暂停";
+  render();
+  timer = setTimeout(tick, speed);
+};
+$("btnStep").onclick = () => {
+  if (playing) { playing = false; stopTimer(); $("btnPlay").textContent = "▶ 播放"; }
+  if (cur < steps.length - 1) { cur++; render(); }
+};
+$("btnReset").onclick = () => {
+  playing = false; stopTimer();
+  $("btnPlay").textContent = "▶ 播放";
+  resetSim();
+};
+
+/* ---------- 初始化 ---------- */
+updateCfgInfo();
+resetSim();
+</script>
+</body>
+</html>

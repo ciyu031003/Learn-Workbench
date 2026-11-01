@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>排序算法可视化</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f8fafc; color: #1e293b; padding: 16px; }
+  .wrap { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+  .head { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; }
+  .head h1 { font-size: 16px; font-weight: 600; }
+  .head .info { font-size: 12px; opacity: .9; }
+  .controls { padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; border-bottom: 1px solid #eef2f7; }
+  .controls label { font-size: 12px; color: #64748b; }
+  select, input[type=range], button { font-size: 13px; }
+  select { padding: 5px 8px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; outline: none; }
+  button { padding: 6px 14px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all .15s; }
+  .btn-primary { background: #6366f1; color: #fff; }
+  .btn-primary:hover { background: #4f46e5; }
+  .btn-ghost { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+  .btn-ghost:hover { background: #e2e8f0; }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+  .stats { padding: 8px 16px; display: flex; gap: 18px; font-size: 12px; color: #64748b; border-bottom: 1px solid #eef2f7; flex-wrap: wrap; }
+  .stats b { color: #1e293b; font-variant-numeric: tabular-nums; }
+  .stage { padding: 18px 16px 10px; }
+  .bars { display: flex; align-items: flex-end; gap: 2px; height: 240px; }
+  .bar { flex: 1; border-radius: 2px 2px 0 0; background: #94a3b8; transition: height .08s, background .12s; min-width: 2px; }
+  .bar.compare { background: #f59e0b; }
+  .bar.swap { background: #ef4444; }
+  .bar.sorted { background: #10b981; }
+  .bar.pivot { background: #6366f1; }
+  .legend { padding: 6px 16px 12px; display: flex; gap: 14px; font-size: 11px; color: #64748b; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .desc { padding: 10px 16px 16px; border-top: 1px solid #eef2f7; font-size: 12px; color: #475569; line-height: 1.7; }
+  .desc b { color: #334155; }
+  .speed-group { display: flex; gap: 4px; }
+  .speed-group button { padding: 4px 10px; font-size: 12px; }
+  .speed-group .active { background: #6366f1; color: #fff; }
+  .bar-label { font-size: 10px; color: #94a3b8; text-align: center; margin-top: 2px; display: none; }
+  input[type=range] { width: 110px; accent-color: #6366f1; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>🎯 排序算法可视化</h1>
+    <span class="info" id="algoInfo">冒泡排序 · O(n²)</span>
+  </div>
+  <div class="controls">
+    <label>算法</label>
+    <select id="algoSelect">
+      <option value="bubble">冒泡排序</option>
+      <option value="selection">选择排序</option>
+      <option value="insertion">插入排序</option>
+      <option value="shell">希尔排序</option>
+      <option value="quick">快速排序</option>
+      <option value="merge">归并排序</option>
+      <option value="heap">堆排序</option>
+    </select>
+    <label>规模</label>
+    <input type="range" id="sizeRange" min="8" max="80" value="30">
+    <span id="sizeVal" style="font-size:12px;color:#64748b">30</span>
+    <button class="btn-ghost" id="btnRandom">🎲 随机</button>
+    <div class="speed-group">
+      <button data-speed="600" id="spSlow" class="btn-ghost">慢</button>
+      <button data-speed="200" id="spMid" class="btn-ghost active">中</button>
+      <button data-speed="40" id="spFast" class="btn-ghost">快</button>
+    </div>
+    <button class="btn-primary" id="btnPlay">▶ 播放</button>
+    <button class="btn-ghost" id="btnStep">单步</button>
+    <button class="btn-ghost" id="btnReset">↺ 重置</button>
+  </div>
+  <div class="stats">
+    <span>比较 <b id="statCmp">0</b> 次</span>
+    <span>交换/移动 <b id="statSwap">0</b> 次</span>
+    <span>状态 <b id="statState">就绪</b></span>
+  </div>
+  <div class="stage"><div class="bars" id="bars"></div></div>
+  <div class="legend">
+    <span><i style="background:#94a3b8"></i>未排序</span>
+    <span><i style="background:#f59e0b"></i>正在比较</span>
+    <span><i style="background:#ef4444"></i>正在交换</span>
+    <span><i style="background:#6366f1"></i>基准/关键元素</span>
+    <span><i style="background:#10b981"></i>已就位</span>
+  </div>
+  <div class="desc" id="desc"></div>
+</div>
+
+<script>
+"use strict";
+const ALGO_INFO = {
+  bubble:   ["冒泡排序", "O(n²)", "稳定", "相邻元素两两比较，大元素逐渐'冒'到末尾", "每趟确定一个最大元素到末尾"],
+  selection:["选择排序", "O(n²)", "不稳定", "每趟从未排序区选出最小值放到已排序区末尾", "每趟确定一个最小元素到开头"],
+  insertion:["插入排序", "O(n²)", "稳定", "将元素逐个插入到前面已排序序列的正确位置", "整体有序逐步扩大"],
+  shell:   ["希尔排序", "O(n^1.3~2)", "不稳定", "按增量分组插入排序，增量逐渐缩小至 1", "分组插入，跳跃移动"],
+  quick:   ["快速排序", "平均 O(nlogn)", "不稳定", "选基准，划分左右，递归排序", "每趟确定基准的最终位置"],
+  merge:   ["归并排序", "O(nlogn)", "稳定", "分治：递归拆分后两两有序合并", "小规模区间逐步合并"],
+  heap:    ["堆排序", "O(nlogn)", "不稳定", "建大顶堆，堆顶与末尾交换，调整堆", "每趟确定堆顶最大元素到末尾"],
+};
+
+let arr = [];
+let barsEl = document.getElementById("bars");
+let running = false;
+let paused = true;
+let gen = null;          // 当前生成器
+let speed = 200;
+let cmpCount = 0, swapCount = 0;
+let timer = null;
+
+const $ = (id) => document.getElementById(id);
+
+function randArr(n) {
+  const a = [];
+  for (let i = 0; i < n; i++) a.push(Math.floor(Math.random() * 90) + 10);
+  return a;
+}
+
+function render(marks = {}, sortedUntil = -1) {
+  const max = Math.max(...arr, 1);
+  barsEl.innerHTML = "";
+  arr.forEach((v, i) => {
+    const div = document.createElement("div");
+    div.className = "bar";
+    if (marks.compare && marks.compare.includes(i)) div.classList.add("compare");
+    if (marks.swap && marks.swap.includes(i)) div.classList.add("swap");
+    if (marks.pivot && marks.pivot.includes(i)) div.classList.add("pivot");
+    if (i > sortedUntil || (marks.sorted && marks.sorted.includes(i))) div.classList.add("sorted");
+    div.style.height = (v / max * 100) + "%";
+    barsEl.appendChild(div);
+  });
+}
+
+// ---- 排序生成器：yield {type:'cmp'|'swap'|'set'|'mark', indices, sorted, note} ----
+function* bubbleSort() {
+  const n = arr.length;
+  for (let i = 0; i < n - 1; i++) {
+    for (let j = 0; j < n - 1 - i; j++) {
+      yield { type: "cmp", indices: [j, j + 1] };
+      if (arr[j] > arr[j + 1]) {
+        yield { type: "swap", indices: [j, j + 1] };
+        [arr[j], arr[j + 1]] = [arr[j + 1], arr[j]];
+      }
+    }
+    yield { type: "sorted", indices: [n - 1 - i] };
+  }
+  yield { type: "sorted", indices: [0] };
+}
+function* selectionSort() {
+  const n = arr.length;
+  for (let i = 0; i < n - 1; i++) {
+    let min = i;
+    for (let j = i + 1; j < n; j++) {
+      yield { type: "cmp", indices: [min, j] };
+      if (arr[j] < arr[min]) min = j;
+    }
+    if (min !== i) {
+      yield { type: "swap", indices: [i, min] };
+      [arr[i], arr[min]] = [arr[min], arr[i]];
+    }
+    yield { type: "sorted", indices: [i] };
+  }
+  yield { type: "sorted", indices: [n - 1] };
+}
+function* insertionSort() {
+  const n = arr.length;
+  for (let i = 1; i < n; i++) {
+    let key = arr[i], j = i - 1;
+    while (j >= 0) {
+      yield { type: "cmp", indices: [j, i] };
+      if (arr[j] > key) {
+        yield { type: "swap", indices: [j, j + 1] };
+        arr[j + 1] = arr[j];
+        j--;
+      } else break;
+    }
+    arr[j + 1] = key;
+  }
+  for (let k = 0; k < n; k++) yield { type: "sorted", indices: [k] };
+}
+function* shellSort() {
+  const n = arr.length;
+  for (let gap = Math.floor(n / 2); gap > 0; gap = Math.floor(gap / 2)) {
+    for (let i = gap; i < n; i++) {
+      let key = arr[i], j = i;
+      while (j >= gap) {
+        yield { type: "cmp", indices: [j - gap, j] };
+        if (arr[j - gap] > key) {
+          yield { type: "swap", indices: [j - gap, j] };
+          arr[j] = arr[j - gap];
+          j -= gap;
+        } else break;
+      }
+      arr[j] = key;
+    }
+  }
+  for (let k = 0; k < n; k++) yield { type: "sorted", indices: [k] };
+}
+function* quickSort() {
+  function* qs(lo, hi) {
+    if (lo >= hi) { if (lo >= 0 && lo < arr.length) yield { type: "sorted", indices: [lo] }; return; }
+    const pivot = arr[hi];
+    let i = lo;
+    yield { type: "pivot", indices: [hi] };
+    for (let j = lo; j < hi; j++) {
+      yield { type: "cmp", indices: [j, hi] };
+      if (arr[j] < pivot) {
+        if (i !== j) { yield { type: "swap", indices: [i, j] }; [arr[i], arr[j]] = [arr[j], arr[i]]; }
+        i++;
+      }
+    }
+    if (i !== hi) { yield { type: "swap", indices: [i, hi] }; [arr[i], arr[hi]] = [arr[hi], arr[i]]; }
+    yield { type: "sorted", indices: [i] };
+    yield* qs(lo, i - 1);
+    yield* qs(i + 1, hi);
+  }
+  yield* qs(0, arr.length - 1);
+}
+function* mergeSort() {
+  const n = arr.length;
+  const tmp = new Array(n);
+  function* ms(lo, hi) {
+    if (lo >= hi) return;
+    const mid = (lo + hi) >> 1;
+    yield* ms(lo, mid);
+    yield* ms(mid + 1, hi);
+    let i = lo, j = mid + 1, k = lo;
+    while (i <= mid && j <= hi) {
+      yield { type: "cmp", indices: [i, j] };
+      tmp[k++] = arr[i] <= arr[j] ? arr[i++] : arr[j++];
+    }
+    while (i <= mid) tmp[k++] = arr[i++];
+    while (j <= hi) tmp[k++] = arr[j++];
+    for (let p = lo; p <= hi; p++) {
+      arr[p] = tmp[p];
+      yield { type: "swap", indices: [p], note: "归并写入" };
+    }
+    for (let p = lo; p <= hi; p++) yield { type: "sorted", indices: [p] };
+  }
+  yield* ms(0, n - 1);
+}
+function* heapSort() {
+  const n = arr.length;
+  function* sift(i, size) {
+    while (true) {
+      let l = 2 * i + 1, r = 2 * i + 2, big = i;
+      if (l < size) { yield { type: "cmp", indices: [big, l] }; if (arr[l] > arr[big]) big = l; }
+      if (r < size) { yield { type: "cmp", indices: [big, r] }; if (arr[r] > arr[big]) big = r; }
+      if (big === i) break;
+      yield { type: "swap", indices: [i, big] };
+      [arr[i], arr[big]] = [arr[big], arr[i]];
+      i = big;
+    }
+  }
+  for (let i = (n >> 1) - 1; i >= 0; i--) yield* sift(i, n);
+  for (let end = n - 1; end > 0; end--) {
+    yield { type: "swap", indices: [0, end] };
+    [arr[0], arr[end]] = [arr[end], arr[0]];
+    yield { type: "sorted", indices: [end] };
+    yield* sift(0, end);
+  }
+  yield { type: "sorted", indices: [0] };
+}
+
+const GENERATORS = {
+  bubble: bubbleSort, selection: selectionSort, insertion: insertionSort,
+  shell: shellSort, quick: quickSort, merge: mergeSort, heap: heapSort,
+};
+
+function updateAlgoInfo() {
+  const key = $("algoSelect").value;
+  const [name, comp, stable, idea, feat] = ALGO_INFO[key];
+  $("algoInfo").textContent = `${name} · ${comp} · ${stable}`;
+  $("desc").innerHTML = `<b>核心思想：</b>${idea}<br><b>过程特征：</b>${feat}｜<b>空间：</b>${key === "merge" ? "O(n)" : key === "quick" ? "O(logn)" : "O(1)"}｜<b>稳定性：</b>${stable}`;
+}
+
+function reset() {
+  stopTimer();
+  running = false; paused = true;
+  cmpCount = 0; swapCount = 0;
+  $("statCmp").textContent = "0"; $("statSwap").textContent = "0";
+  $("statState").textContent = "就绪";
+  $("btnPlay").textContent = "▶ 播放";
+  render();
+}
+
+function startSort() {
+  if (running) return;
+  const key = $("algoSelect").value;
+  cmpCount = 0; swapCount = 0;
+  $("statCmp").textContent = "0"; $("statSwap").textContent = "0";
+  gen = GENERATORS[key](arr);
+  running = true;
+  paused = false;
+  $("btnPlay").textContent = "⏸ 暂停";
+  $("statState").textContent = "排序中…";
+  tick();
+}
+
+function tick() {
+  if (!running || paused) return;
+  const MAX_STEPS = 50000;
+  let steps = 0;
+  while (steps++ < MAX_STEPS) {
+    const r = gen.next();
+    if (r.done) {
+      running = false;
+      $("btnPlay").textContent = "▶ 播放";
+      $("statState").textContent = "✅ 排序完成";
+      render({}, arr.length - 1);
+      return;
+    }
+    const s = r.value;
+    const marks = {};
+    if (s.type === "cmp") { cmpCount++; marks.compare = s.indices; }
+    if (s.type === "swap") { swapCount++; marks.swap = s.indices; }
+    if (s.type === "pivot") { marks.pivot = s.indices; }
+    if (s.type === "sorted") { marks.sorted = s.indices; }
+    render(marks);
+    $("statCmp").textContent = cmpCount;
+    $("statSwap").textContent = swapCount;
+    // 遇到需要停顿的步骤（比较/交换），退出循环等 timer
+    if (s.type !== "sorted") break;
+  }
+  timer = setTimeout(tick, speed);
+}
+function stopTimer() { if (timer) { clearTimeout(timer); timer = null; } }
+
+// ---- 事件 ----
+$("algoSelect").onchange = () => { updateAlgoInfo(); reset(); };
+$("sizeRange").oninput = (e) => { $("sizeVal").textContent = e.target.value; reset(); arr = randArr(+e.target.value); render(); };
+$("btnRandom").onclick = () => { reset(); arr = randArr(+$("sizeRange").value); render(); };
+$("btnPlay").onclick = () => {
+  if (!running) { startSort(); return; }
+  paused = !paused;
+  $("btnPlay").textContent = paused ? "▶ 播放" : "⏸ 暂停";
+  if (!paused) tick();
+};
+$("btnStep").onclick = () => {
+  if (!running) startSort();
+  paused = true;
+  $("btnPlay").textContent = "▶ 播放";
+  const r = gen.next();
+  if (r.done) {
+    running = false;
+    $("statState").textContent = "✅ 排序完成";
+    render({}, arr.length - 1);
+    return;
+  }
+  const s = r.value;
+  const marks = {};
+  if (s.type === "cmp") { cmpCount++; marks.compare = s.indices; }
+  if (s.type === "swap") { swapCount++; marks.swap = s.indices; }
+  if (s.type === "pivot") { marks.pivot = s.indices; }
+  if (s.type === "sorted") { marks.sorted = s.indices; }
+  render(marks);
+  $("statCmp").textContent = cmpCount;
+  $("statSwap").textContent = swapCount;
+};
+$("btnReset").onclick = () => { reset(); arr = randArr(+$("sizeRange").value); render(); };
+document.querySelectorAll(".speed-group button").forEach((b) => {
+  b.onclick = () => {
+    document.querySelectorAll(".speed-group button").forEach((x) => x.classList.remove("active"));
+    b.classList.add("active");
+    speed = +b.dataset.speed;
+  };
+});
+
+// init
+updateAlgoInfo();
+arr = randArr(30);
+render();
+</script>
+</body>
+</html>

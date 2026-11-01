@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>单周期数据通路：一条指令怎么走完（MIPS）</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f8fafc; color: #1e293b; padding: 14px; }
+  .wrap { max-width: 1180px; margin: 0 auto; background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+  .head { background: linear-gradient(135deg, #0ea5e9, #6366f1); color: #fff; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .head h1 { font-size: 15.5px; font-weight: 600; }
+  .head .info { font-size: 12px; opacity: .95; background: rgba(255,255,255,.18); padding: 3px 10px; border-radius: 20px; font-family: Consolas, monospace; }
+  .controls { padding: 9px 14px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-bottom: 1px solid #eef2f7; }
+  button { font-size: 13px; font-family: inherit; padding: 6px 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all .15s; }
+  .btn-primary { background: #0ea5e9; color: #fff; }
+  .btn-primary:hover { background: #0284c7; }
+  .btn-ghost { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+  .btn-ghost:hover { background: #e2e8f0; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .seg { display: inline-flex; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 9px; padding: 2px; gap: 2px; flex-wrap: wrap; }
+  .seg button { padding: 5px 11px; font-size: 12.5px; background: transparent; color: #475569; font-family: Consolas, monospace; }
+  .seg button.active { background: #0ea5e9; color: #fff; }
+  .speed-group { display: flex; gap: 4px; }
+  .speed-group button { padding: 4px 9px; font-size: 12px; }
+  .speed-group .active { background: #0ea5e9; color: #fff; border-color: #0ea5e9; }
+  .stats { padding: 6px 14px; display: flex; gap: 14px; font-size: 12px; color: #64748b; border-bottom: 1px solid #eef2f7; flex-wrap: wrap; align-items: center; }
+  .stats b { color: #0f172a; font-family: Consolas, monospace; }
+  .stats .pill { background: #e0f2fe; color: #075985; border-radius: 20px; padding: 2px 9px; font-size: 11.5px; }
+  .stats .bits { font-family: Consolas, monospace; color: #475569; letter-spacing: .5px; font-size: 11.5px; }
+  .stage { padding: 6px 10px 0; overflow: auto; background: #fff; }
+  svg#dp { display: block; width: 100%; height: auto; }
+  .stage.zoomed svg#dp { width: 1400px; }
+  .stage.zoomed { cursor: grab; }
+  .stage.zoomed.dragging { cursor: grabbing; }
+  .bottom { display: flex; gap: 12px; padding: 8px 14px 12px; border-top: 1px solid #eef2f7; flex-wrap: wrap; }
+  .left-panel { flex: 1 1 52%; min-width: 260px; }
+  .right-panel { flex: 1 1 44%; min-width: 250px; }
+  .panel-t { font-size: 11px; color: #94a3b8; margin-bottom: 5px; letter-spacing: .5px; }
+  ol#steps { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+  ol#steps li { font-size: 12px; color: #475569; background: #f8fafc; border: 1px solid #eef2f7; border-radius: 7px; padding: 5px 9px; display: flex; gap: 7px; }
+  ol#steps li .n { color: #94a3b8; font-family: Consolas, monospace; }
+  ol#steps li.cur { background: #e0f2fe; border-color: #bae6fd; color: #075985; font-weight: 600; }
+  ol#steps li.done { color: #94a3b8; }
+  #desc { font-size: 12.5px; color: #475569; line-height: 1.7; background: #f8fafc; border: 1px solid #eef2f7; border-radius: 8px; padding: 8px 11px; min-height: 96px; }
+  #desc b { color: #0369a1; }
+  .ctrlgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(94px, 1fr)); gap: 4px; margin-top: 6px; }
+  .ctl { font-size: 10.5px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 3px 5px; color: #64748b; display: flex; justify-content: space-between; gap: 4px; min-width: 0; background: #fff; }
+  .ctl b { font-family: Consolas, monospace; color: #334155; }
+  .ctl.on { background: #e0f2fe; border-color: #7dd3fc; color: #075985; }
+  .ctl.on b { color: #075985; }
+  .hint { font-size: 11px; color: #94a3b8; padding: 0 14px 10px; }
+  .lbl { font: 600 19px "Microsoft YaHei", system-ui, sans-serif; fill: #1e293b; }
+  .pin { font: 500 15px "Microsoft YaHei", system-ui, sans-serif; fill: #64748b; }
+  .sig { font: 500 14px Consolas, monospace; fill: #64748b; }
+  .box { fill: #fff; stroke: #475569; stroke-width: 2; }
+  .box2 { fill: #f8fafc; stroke: #475569; stroke-width: 2; }
+  .wire { fill: none; stroke: #94a3b8; stroke-width: 2.4; stroke-linejoin: round; stroke-linecap: round; }
+  .wire.on { stroke: #0ea5e9; stroke-width: 3.6; stroke-dasharray: 13 8; animation: flow .8s linear infinite; }
+  @keyframes flow { to { stroke-dashoffset: -42; } }
+  .blk.on .box, .blk.on .box2, .blk.on polygon, .blk.on ellipse { fill: #e0f2fe; stroke: #0284c7; }
+  .blk.on .lbl { fill: #075985; }
+  .val { font: 600 15px Consolas, monospace; fill: #0f172a; }
+  .val.s { font-size: 13px; }
+  .val.hot { fill: #0369a1; }
+  .badge { font: 600 12px Consolas, monospace; fill: #94a3b8; }
+  .badge.on { fill: #0284c7; }
+  .mux0 { font: 600 14px Consolas, monospace; fill: #64748b; }
+  .dot { fill: #94a3b8; }
+  @media (max-width: 560px) {
+    body { padding: 8px; }
+    .head h1 { font-size: 13.5px; }
+    .stage { padding: 4px; }
+    svg#dp { width: 100%; min-width: 760px; }
+    .ctrlgrid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>🛠️ 单周期数据通路：一条指令怎么走完</h1>
+    <span class="info" id="instrInfo">add $t0, $t1, $t2</span>
+  </div>
+
+  <div class="controls">
+    <div class="seg" id="instrSeg">
+      <button data-i="add" class="active">add</button>
+      <button data-i="sub">sub</button>
+      <button data-i="lw">lw</button>
+      <button data-i="sw">sw</button>
+      <button data-i="beq">beq</button>
+    </div>
+    <button class="btn-primary" id="btnPlay">▶ 播放</button>
+    <button class="btn-ghost" id="btnStep">单步</button>
+    <button class="btn-ghost" id="btnReset">↺ 重置</button>
+    <div class="speed-group" id="speedGroup">
+      <button class="btn-ghost" data-speed="1600">慢</button>
+      <button class="btn-ghost active" data-speed="1000">中</button>
+      <button class="btn-ghost" data-speed="600">快</button>
+    </div>
+    <button class="btn-ghost" id="btnZoom">🔍 放大查看</button>
+  </div>
+
+  <div class="stats">
+    <span class="pill" id="phasePill">第 0 / 5 步</span>
+    <span>PC <b id="statPc">0x00400000</b></span>
+    <span>写回 <b id="statWb">—</b></span>
+    <span>零标志 <b id="statZero">—</b></span>
+    <span class="bits" id="statBits"></span>
+  </div>
+
+  <div class="stage" id="stage">
+    <svg id="dp" viewBox="0 0 1400 880" role="img" aria-label="单周期 MIPS 数据通路：PC、指令存储器、控制器、寄存器堆、ALU、数据存储器与多级多路选择器">
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+        </marker>
+      </defs>
+
+      <!-- 连线 -->
+      <path class="wire" id="w-pc-imem" d="M210 525 H250" marker-end="url(#ar)"/>
+      <path class="wire" id="w-pc-add4" d="M160 470 V125 H210" marker-end="url(#ar)"/>
+      <path class="wire" id="w-add4-out" d="M300 125 H1240 V88 H1250" marker-end="url(#ar)"/>
+      <path class="wire" id="w-imem-instr" d="M420 540 H480" marker-end="url(#ar)"/>
+      <path class="wire" id="w-trunk" d="M480 250 V700"/>
+      <path class="wire" id="w-instr-op" d="M480 540 V250 H610" marker-end="url(#ar)"/>
+      <path class="wire" id="w-instr-rs" d="M480 505 H610" marker-end="url(#ar)"/>
+      <path class="wire" id="w-instr-rt" d="M480 545 H610" marker-end="url(#ar)"/>
+      <path class="wire" id="w-instr-rd" d="M480 590 H545" marker-end="url(#ar)"/>
+      <path class="wire" id="w-instr-rt2" d="M480 545 V615 H545" marker-end="url(#ar)"/>
+      <path class="wire" id="w-instr-imm" d="M480 700 H640" marker-end="url(#ar)"/>
+      <path class="wire" id="w-rs-out" d="M810 505 H980" marker-end="url(#ar)"/>
+      <path class="wire" id="w-rt-out" d="M810 545 H870 V610 H900" marker-end="url(#ar)"/>
+      <path class="wire" id="w-rt-dmem" d="M870 545 V700 H1150" marker-end="url(#ar)"/>
+      <path class="wire" id="w-se-out" d="M760 700 H880 V650 H900" marker-end="url(#ar)"/>
+      <path class="wire" id="w-shift-in" d="M850 700 V190 H875" marker-end="url(#ar)"/>
+      <path class="wire" id="w-shift-out" d="M985 190 H1010 V185 H1040" marker-end="url(#ar)"/>
+      <path class="wire" id="w-branch-pc4" d="M1090 125 V150" marker-end="url(#ar)"/>
+      <path class="wire" id="w-branch-out" d="M1115 185 H1230 V145 H1250" marker-end="url(#ar)"/>
+      <path class="wire" id="w-pcmux-out" d="M1276 115 H1340 V40 H100 V525 H110" marker-end="url(#ar)"/>
+      <path class="wire" id="w-writereg" d="M573 595 H610" marker-end="url(#ar)"/>
+      <path class="wire" id="w-alusrc" d="M926 625 H980 V575" marker-end="url(#ar)"/>
+      <path class="wire" id="w-alu-result" d="M1065 535 H1110"/>
+      <path class="wire" id="w-alu-dmem" d="M1110 535 V600 H1150" marker-end="url(#ar)"/>
+      <path class="wire" id="w-alu-wb" d="M1110 535 H1340 V640" marker-end="url(#ar)"/>
+      <path class="wire" id="w-zero" d="M1040 600 V630 H1120 V270 H1150" marker-end="url(#ar)"/>
+      <path class="wire" id="w-branch-sig" d="M700 360 V420 H1175 V300" marker-end="url(#ar)"/>
+      <path class="wire" id="w-and-out" d="M1205 270 H1250 V160" marker-end="url(#ar)"/>
+      <path class="wire" id="w-aluctl-out" d="M890 740 V676 H1030 V600" marker-end="url(#ar)"/>
+      <path class="wire" id="w-dmem-read" d="M1320 650 H1332 V690 H1340" marker-end="url(#ar)"/>
+      <path class="wire" id="w-wb-out" d="M1366 665 H1390 V820 H600 V620 H610" marker-end="url(#ar)"/>
+      <text class="sig" x="1180" y="116">PC+4</text>
+      <circle class="dot" cx="1090" cy="125" r="4"/>
+      <circle class="dot" cx="870" cy="545" r="4"/>
+      <circle class="dot" cx="1110" cy="535" r="4"/>
+      <circle class="dot" cx="850" cy="700" r="4"/>
+
+      <!-- 部件 -->
+      <g class="blk" id="b-pc">
+        <rect class="box" x="110" y="470" width="100" height="110" rx="6"/>
+        <text class="lbl" x="160" y="512" text-anchor="middle">PC</text>
+        <text class="val s" x="160" y="545" text-anchor="middle" id="v-pc">0x00400000</text>
+      </g>
+      <g class="blk" id="b-add4">
+        <polygon class="box2" points="200,90 300,90 275,160 225,160"/>
+        <text class="lbl" x="250" y="130" text-anchor="middle">Add</text>
+        <text class="sig" x="222" y="155" text-anchor="end">4</text>
+      </g>
+      <g class="blk" id="b-imem">
+        <rect class="box" x="250" y="470" width="170" height="140"/>
+        <text class="lbl" x="335" y="515" text-anchor="middle">指令</text>
+        <text class="lbl" x="335" y="540" text-anchor="middle">存储器</text>
+        <text class="pin" x="335" y="455" text-anchor="middle">读地址</text>
+        <text class="sig" x="335" y="560" text-anchor="middle">opcode</text>
+        <text class="val s" x="335" y="582" text-anchor="middle" id="v-instr">000000</text>
+      </g>
+      <g class="blk" id="b-ctl">
+        <rect class="box2" x="610" y="230" width="150" height="130" rx="10"/>
+        <text class="lbl" x="685" y="272" text-anchor="middle">控制</text>
+        <text class="pin" x="685" y="300" text-anchor="middle">指令[31-26]</text>
+        <text class="val s" x="685" y="334" text-anchor="middle" id="v-ctl">000000</text>
+      </g>
+      <g class="blk" id="b-regs">
+        <rect class="box" x="610" y="460" width="200" height="180"/>
+        <text class="lbl" x="710" y="495" text-anchor="middle">寄存器堆</text>
+        <text class="pin" x="620" y="525">读寄存器1</text>
+        <text class="pin" x="620" y="565">读寄存器2</text>
+        <text class="pin" x="620" y="605">写寄存器</text>
+        <text class="pin" x="620" y="635">写数据</text>
+        <text class="val" x="795" y="525" text-anchor="end" id="v-rd1">—</text>
+        <text class="val" x="795" y="565" text-anchor="end" id="v-rd2">—</text>
+        <text class="val" x="795" y="605" text-anchor="end" id="v-wreg">—</text>
+        <text class="val" x="795" y="635" text-anchor="end" id="v-wdata">—</text>
+        <text class="badge" x="800" y="475" text-anchor="end" id="g-regwrite">RegWrite</text>
+      </g>
+      <g class="blk" id="b-rdmux">
+        <rect class="box2" x="545" y="555" width="28" height="80" rx="4"/>
+        <text class="mux0" x="559" y="580" text-anchor="middle">0</text>
+        <text class="mux0" x="559" y="622" text-anchor="middle">1</text>
+        <text class="badge" x="559" y="650" text-anchor="middle" id="g-regdst">RegDst</text>
+      </g>
+      <g class="blk" id="b-alumux">
+        <rect class="box2" x="900" y="580" width="26" height="90" rx="4"/>
+        <text class="mux0" x="913" y="610" text-anchor="middle">0</text>
+        <text class="mux0" x="913" y="655" text-anchor="middle">1</text>
+        <text class="badge" x="913" y="692" text-anchor="middle" id="g-alusrc">ALUSrc</text>
+      </g>
+      <g class="blk" id="b-alu">
+        <polygon class="box2" points="980,470 1080,470 1050,600 1010,600"/>
+        <text class="lbl" x="1030" y="540" text-anchor="middle">ALU</text>
+        <text class="pin" x="972" y="508" text-anchor="end">A</text>
+        <text class="pin" x="972" y="578" text-anchor="end">B</text>
+        <text class="val" x="1090" y="510" id="v-alu">—</text>
+        <text class="pin" x="1090" y="556">ALU结果</text>
+        <text class="badge" x="1040" y="626" text-anchor="middle" id="g-zero">零标志</text>
+      </g>
+      <g class="blk" id="b-dmem">
+        <rect class="box" x="1150" y="550" width="170" height="170"/>
+        <text class="lbl" x="1235" y="610" text-anchor="middle">数据</text>
+        <text class="lbl" x="1235" y="635" text-anchor="middle">存储器</text>
+        <text class="pin" x="1162" y="596">地址</text>
+        <text class="pin" x="1162" y="682">写数据</text>
+        <text class="pin" x="1308" y="640" text-anchor="end">读数据</text>
+        <text class="val" x="1245" y="700" text-anchor="middle" id="v-mem">—</text>
+        <text class="badge" x="1235" y="565" text-anchor="middle" id="g-memread">MemRead</text>
+        <text class="badge" x="1235" y="712" text-anchor="middle" id="g-memwrite">MemWrite</text>
+      </g>
+      <g class="blk" id="b-wbmux">
+        <rect class="box2" x="1340" y="620" width="26" height="90" rx="4"/>
+        <text class="mux0" x="1353" y="650" text-anchor="middle">0</text>
+        <text class="mux0" x="1353" y="695" text-anchor="middle">1</text>
+        <text class="badge" x="1353" y="732" text-anchor="middle" id="g-memtoreg">MemtoReg</text>
+      </g>
+      <g class="blk" id="b-ext">
+        <ellipse class="box2" cx="700" cy="700" rx="60" ry="30"/>
+        <text class="lbl" x="700" y="707" text-anchor="middle">符号扩展</text>
+        <text class="pin" x="652" y="676" text-anchor="end">16</text>
+        <text class="pin" x="742" y="676">32</text>
+      </g>
+      <g class="blk" id="b-aluctl">
+        <ellipse class="box2" cx="890" cy="770" rx="62" ry="30"/>
+        <text class="lbl" x="890" y="777" text-anchor="middle">ALU 控制</text>
+        <text class="pin" x="846" y="748" text-anchor="end">ALUOp</text>
+        <text class="pin" x="934" y="748">funct</text>
+      </g>
+      <g class="blk" id="b-shift">
+        <ellipse class="box2" cx="930" cy="190" rx="55" ry="27"/>
+        <text class="lbl" x="930" y="197" text-anchor="middle">左移 2 位</text>
+      </g>
+      <g class="blk" id="b-addbr">
+        <polygon class="box2" points="1040,150 1140,150 1115,220 1065,220"/>
+        <text class="lbl" x="1090" y="190" text-anchor="middle">Add</text>
+      </g>
+      <g class="blk" id="b-pcmux">
+        <rect class="box2" x="1250" y="70" width="26" height="90" rx="4"/>
+        <text class="mux0" x="1263" y="100" text-anchor="middle">0</text>
+        <text class="mux0" x="1263" y="145" text-anchor="middle">1</text>
+      </g>
+      <g class="blk" id="b-and">
+        <path class="box2" d="M1150 240 h25 a30 30 0 0 1 0 60 h-25 z"/>
+        <text class="lbl" x="1163" y="278" text-anchor="middle">&amp;</text>
+        <text class="badge" x="1175" y="320" text-anchor="middle" id="g-branch">Branch</text>
+      </g>
+
+      <text class="sig" x="470" y="240" text-anchor="end">指令[31-26]</text>
+      <text class="sig" x="470" y="497" text-anchor="end">[25-21]</text>
+      <text class="sig" x="470" y="537" text-anchor="end">[20-16]</text>
+      <text class="sig" x="470" y="582" text-anchor="end">[15-11]</text>
+      <text class="sig" x="470" y="692" text-anchor="end">[15-0]</text>
+    </svg>
+  </div>
+
+  <div class="bottom">
+    <div class="left-panel">
+      <div class="panel-t">执行步骤（单周期里都在一个时钟内完成，这里拆开看）</div>
+      <ol id="steps"></ol>
+    </div>
+    <div class="right-panel">
+      <div class="panel-t">这一阶段在做什么</div>
+      <div id="desc"></div>
+      <div class="ctrlgrid" id="ctlGrid"></div>
+    </div>
+  </div>
+  <div class="hint">快捷键：空格 播放/暂停 · → 单步 · R 重置　|　「放大查看」可 1:1 查看细节</div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var INSTRS = {
+    add: {
+      asm: "add $t0, $t1, $t2",
+      bits: "000000 01001 01010 01000 00000 100000",
+      opcode: "000000",
+      ctrl: { RegDst: "1", ALUSrc: "0", MemtoReg: "0", RegWrite: "1", MemRead: "0", MemWrite: "0", Branch: "0", ALUOp: "10" },
+      wreg: "$t0", aluA: 100, aluB: 7, result: 107, zero: 0,
+      nextPc: "0x00400004", writeBack: "107 → $t0",
+      desc: {
+        1: "取指：PC=0x00400000 送到指令存储器的读地址，取出 <b>add $t0,$t1,$t2</b>（opcode=000000）；同时 PC+4 相加器算出 0x00400004。",
+        2: "译码：指令[31-26] 进控制单元，发出 <b>RegWrite=1、RegDst=1、ALUSrc=0、ALUOp=10</b>；[25-21]、[20-16] 选中 $t1=100、$t2=7 读出；[15-11] 经 RegDst MUX 选中目的寄存器 $t0。",
+        3: "执行：读数据2 走 ALU 源 MUX 的 0 端，ALU 按 funct=100000 做加法：100 + 7 = <b>107</b>；零标志 = 0。",
+        4: "访存：add 不访存，MemRead 与 MemWrite 都是 0，数据存储器这一步不动。",
+        5: "写回：MemtoReg=0 → 写回 MUX 选 ALU 的 107，写进 $t0；PC ← 0x00400004。"
+      }
+    },
+    sub: {
+      asm: "sub $t0, $t1, $t2",
+      bits: "000000 01001 01010 01000 00000 100010",
+      opcode: "000000",
+      ctrl: { RegDst: "1", ALUSrc: "0", MemtoReg: "0", RegWrite: "1", MemRead: "0", MemWrite: "0", Branch: "0", ALUOp: "10" },
+      wreg: "$t0", aluA: 100, aluB: 7, result: 93, zero: 0,
+      nextPc: "0x00400004", writeBack: "93 → $t0",
+      desc: {
+        1: "取指：PC → 指令存储器，取出 <b>sub $t0,$t1,$t2</b>；PC+4 = 0x00400004。",
+        2: "译码：控制单元按 opcode=000000 发 R 型信号（RegWrite=1、RegDst=1、ALUSrc=0、ALUOp=10）；读出 $t1=100、$t2=7。",
+        3: "执行：ALU 控制按 funct=100010 选减法：100 − 7 = <b>93</b>；零标志 = 0。",
+        4: "访存：sub 不访存，MemRead 与 MemWrite 都为 0，数据存储器这一步空转。",
+        5: "写回：写回 MUX 选 ALU 结果 93 写进 $t0；PC ← 0x00400004。"
+      }
+    },
+    lw: {
+      asm: "lw $t0, 4($t1)",
+      bits: "100011 01001 01000 0000 0000 0000 0000 0100",
+      opcode: "100011",
+      ctrl: { RegDst: "0", ALUSrc: "1", MemtoReg: "1", RegWrite: "1", MemRead: "1", MemWrite: "0", Branch: "0", ALUOp: "00" },
+      wreg: "$t0", aluA: 100, aluB: 4, result: 104, zero: 0,
+      nextPc: "0x00400004", writeBack: "42 → $t0",
+      desc: {
+        1: "取指：PC → 指令存储器，取出 <b>lw $t0,4($t1)</b>（opcode=100011）。",
+        2: "译码：读出 $t1=100（基址）、$t0（目的）；控制发 <b>ALUSrc=1、MemRead=1、MemtoReg=1、RegDst=0</b>。",
+        3: "执行：imm=4 经符号扩展成 32 位，走 ALU 源 MUX 的 1 端；100 + 4 = <b>104</b>，作为访存地址。",
+        4: "访存：MemRead=1，用地址 104 读数据存储器，读到 <b>42</b>。",
+        5: "写回：MemtoReg=1 → 写回 MUX 选存储器读出的 42 写进 $t0；PC ← 0x00400004。"
+      }
+    },
+    sw: {
+      asm: "sw $t0, 8($t1)",
+      bits: "101011 01001 01000 0000 0000 0000 0000 1000",
+      opcode: "101011",
+      ctrl: { RegDst: "×", ALUSrc: "1", MemtoReg: "×", RegWrite: "0", MemRead: "0", MemWrite: "1", Branch: "0", ALUOp: "00" },
+      wreg: "×", aluA: 100, aluB: 8, result: 108, zero: 0,
+      nextPc: "0x00400004", writeBack: "—（不写回）",
+      desc: {
+        1: "取指：PC → 指令存储器，取出 <b>sw $t0,8($t1)</b>（opcode=101011）。",
+        2: "译码：读出 $t1=100（基址）、$t0=5（要存的数据）；控制发 <b>ALUSrc=1、MemWrite=1、RegWrite=0</b>。",
+        3: "执行：imm=8 符号扩展后走 MUX 的 1 端，100 + 8 = <b>108</b>，算出存储地址。",
+        4: "访存：MemWrite=1，把读数据2（$t0=5）写到地址 108；本指令不读存储器。",
+        5: "写回：RegWrite=0，寄存器堆不写；PC ← 0x00400004。"
+      }
+    },
+    beq: {
+      asm: "beq $t0, $t1, 1",
+      bits: "000100 01000 01001 0000 0000 0000 0000 0001",
+      opcode: "000100",
+      ctrl: { RegDst: "×", ALUSrc: "0", MemtoReg: "×", RegWrite: "0", MemRead: "0", MemWrite: "0", Branch: "1", ALUOp: "01" },
+      wreg: "×", aluA: 5, aluB: 100, result: -95, zero: 0,
+      nextPc: "0x00400004", writeBack: "—（不写回）",
+      desc: {
+        1: "取指：PC → 指令存储器，取出 <b>beq $t0,$t1,1</b>；PC+4 = 0x00400004。",
+        2: "译码：读出 $t0=5、$t1=100；控制发 <b>Branch=1、ALUOp=01、RegWrite=0</b>，ALU 将做比较用的减法。",
+        3: "执行：ALU 做 5 − 100 = <b>−95</b>，结果不为 0，<b>零标志 = 0</b>。",
+        4: "分支判定：Branch=1 与零标志 0 送进 AND 门，输出 0；同时偏移左移 2 位再与 PC+4 相加，得到备选地址 0x00400008。",
+        5: "更新 PC：AND 输出 0 → PC 选择器仍选 0 端（PC+4=0x00400004），<b>本分支不跳转</b>；寄存器堆不写。"
+      }
+    }
+  };
+
+  var PHASE_NAMES = ["取指", "译码 / 读寄存器", "执行（ALU）", "访存 / 分支", "写回 / 更新 PC"];
+
+  var W = {
+    add: {
+      1: ["w-pc-imem", "w-pc-add4", "w-add4-out", "w-imem-instr"],
+      2: ["w-instr-op", "w-instr-rs", "w-instr-rt", "w-instr-rd", "w-instr-rt2", "w-rs-out", "w-rt-out", "w-writereg"],
+      3: ["w-rt-out", "w-alusrc", "w-alu-result", "w-aluctl-out"],
+      4: [],
+      5: ["w-alu-wb", "w-wb-out", "w-pcmux-out", "w-add4-out"]
+    },
+    sub: {
+      1: ["w-pc-imem", "w-pc-add4", "w-add4-out", "w-imem-instr"],
+      2: ["w-instr-op", "w-instr-rs", "w-instr-rt", "w-instr-rd", "w-instr-rt2", "w-rs-out", "w-rt-out", "w-writereg"],
+      3: ["w-rt-out", "w-alusrc", "w-alu-result", "w-aluctl-out"],
+      4: [],
+      5: ["w-alu-wb", "w-wb-out", "w-pcmux-out", "w-add4-out"]
+    },
+    lw: {
+      1: ["w-pc-imem", "w-pc-add4", "w-add4-out", "w-imem-instr"],
+      2: ["w-instr-op", "w-instr-rs", "w-instr-rt", "w-instr-rt2", "w-rs-out", "w-rt-out", "w-writereg"],
+      3: ["w-instr-imm", "w-se-out", "w-alusrc", "w-alu-result", "w-aluctl-out"],
+      4: ["w-alu-dmem", "w-dmem-read"],
+      5: ["w-dmem-read", "w-wb-out", "w-pcmux-out", "w-add4-out"]
+    },
+    sw: {
+      1: ["w-pc-imem", "w-pc-add4", "w-add4-out", "w-imem-instr"],
+      2: ["w-instr-op", "w-instr-rs", "w-instr-rt", "w-rs-out", "w-rt-out"],
+      3: ["w-instr-imm", "w-se-out", "w-alusrc", "w-alu-result", "w-aluctl-out"],
+      4: ["w-rt-dmem", "w-alu-dmem"],
+      5: ["w-pcmux-out", "w-add4-out"]
+    },
+    beq: {
+      1: ["w-pc-imem", "w-pc-add4", "w-add4-out", "w-imem-instr"],
+      2: ["w-instr-op", "w-instr-rs", "w-instr-rt", "w-rs-out", "w-rt-out"],
+      3: ["w-rt-out", "w-alusrc", "w-alu-result", "w-aluctl-out"],
+      4: ["w-instr-imm", "w-se-out", "w-zero", "w-branch-sig", "w-and-out", "w-shift-in", "w-shift-out", "w-branch-pc4", "w-branch-out"],
+      5: ["w-pcmux-out", "w-add4-out"]
+    }
+  };
+
+  var B = {
+    add: { 1: ["b-pc", "b-imem", "b-add4"], 2: ["b-ctl", "b-regs", "b-rdmux"], 3: ["b-alu", "b-alumux", "b-aluctl"], 4: [], 5: ["b-wbmux", "b-pcmux", "b-pc", "b-regs"] },
+    sub: { 1: ["b-pc", "b-imem", "b-add4"], 2: ["b-ctl", "b-regs", "b-rdmux"], 3: ["b-alu", "b-alumux", "b-aluctl"], 4: [], 5: ["b-wbmux", "b-pcmux", "b-pc", "b-regs"] },
+    lw: { 1: ["b-pc", "b-imem", "b-add4"], 2: ["b-ctl", "b-regs", "b-rdmux"], 3: ["b-ext", "b-alu", "b-alumux", "b-aluctl"], 4: ["b-dmem"], 5: ["b-dmem", "b-wbmux", "b-pcmux", "b-pc", "b-regs"] },
+    sw: { 1: ["b-pc", "b-imem", "b-add4"], 2: ["b-ctl", "b-regs"], 3: ["b-ext", "b-alu", "b-alumux", "b-aluctl"], 4: ["b-dmem"], 5: ["b-pcmux", "b-pc"] },
+    beq: { 1: ["b-pc", "b-imem", "b-add4"], 2: ["b-ctl", "b-regs"], 3: ["b-alu", "b-alumux", "b-aluctl"], 4: ["b-ext", "b-and", "b-shift", "b-addbr"], 5: ["b-pcmux", "b-pc"] }
+  };
+
+  var SIG = {
+    1: [],
+    2: ["RegDst", "RegWrite"],
+    3: ["ALUSrc", "ALUOp"],
+    4: [],
+    5: []
+  };
+
+  var state = { instr: "add", step: 0, playing: false, speed: 1000, timer: null };
+  var $ = function (id) { return document.getElementById(id); };
+
+  function sigTargets(phase) {
+    var out = (SIG[phase] || []).slice();
+    var c = INSTRS[state.instr].ctrl;
+    if (phase === 2) {
+      if (c.RegDst === "×") out = out.filter(function (x) { return x !== "RegDst"; });
+      if (c.RegWrite === "0") out = out.filter(function (x) { return x !== "RegWrite"; });
+    }
+    if (phase === 4) {
+      if (state.instr === "lw") out.push("MemRead");
+      if (state.instr === "sw") out.push("MemWrite");
+      if (state.instr === "beq") out.push("Branch");
+    }
+    if (phase === 5 && c.RegWrite === "1") out.push("RegWrite", "MemtoReg");
+    return out;
+  }
+
+  function clearHL() {
+    var i, els;
+    els = document.querySelectorAll(".wire.on");
+    for (i = 0; i < els.length; i++) els[i].classList.remove("on");
+    els = document.querySelectorAll(".blk.on");
+    for (i = 0; i < els.length; i++) els[i].classList.remove("on");
+    els = document.querySelectorAll(".ctl.on");
+    for (i = 0; i < els.length; i++) els[i].classList.remove("on");
+    els = document.querySelectorAll(".badge.on");
+    for (i = 0; i < els.length; i++) els[i].classList.remove("on");
+    els = document.querySelectorAll(".val.hot");
+    for (i = 0; i < els.length; i++) els[i].classList.remove("hot");
+  }
+
+  function setValues(phase) {
+    var I = INSTRS[state.instr];
+    $("v-pc").textContent = "0x00400000";
+    $("v-instr").textContent = I.opcode;
+    $("v-ctl").textContent = I.opcode;
+    $("v-rd1").textContent = phase >= 2 ? String(I.aluA) : "—";
+    $("v-rd2").textContent = phase >= 2 ? String(I.aluB) : "—";
+    $("v-wreg").textContent = phase >= 2 && I.wreg !== "×" ? I.wreg : "—";
+    $("v-wdata").textContent = phase >= 5 && I.writeBack.indexOf("—") !== 0 ? I.writeBack.split(" ")[0] : "—";
+    $("v-alu").textContent = phase >= 3 ? String(I.result) : "—";
+    $("v-mem").textContent = phase >= 4 && state.instr === "lw" ? "42" : (phase >= 4 && state.instr === "sw" ? "108 ← 5" : "—");
+    $("statPc").textContent = "0x00400000";
+    $("statZero").textContent = phase >= 3 ? String(I.zero) : "—";
+    $("statWb").textContent = phase >= 5 ? I.writeBack : "—";
+    $("statBits").textContent = I.bits;
+    if (phase >= 3) $("v-alu").classList.add("hot");
+    if (phase >= 5 && I.writeBack.indexOf("—") !== 0) $("v-wdata").classList.add("hot");
+  }
+
+  function renderCtrl(phase) {
+    var I = INSTRS[state.instr];
+    var active = sigTargets(phase);
+    var order = ["RegDst", "ALUSrc", "MemtoReg", "RegWrite", "MemRead", "MemWrite", "Branch", "ALUOp"];
+    var html = "";
+    order.forEach(function (k) {
+      var on = active.indexOf(k) >= 0;
+      html += '<div class="ctl' + (on ? " on" : "") + '"><span>' + k + '</span><b>' + I.ctrl[k] + "</b></div>";
+    });
+    $("ctlGrid").innerHTML = html;
+  }
+
+  function renderSteps() {
+    var html = "";
+    for (var p = 1; p <= 5; p++) {
+      var cls = state.step > p ? "done" : (state.step === p ? "cur" : "");
+      html += '<li class="' + cls + '"><span class="n">' + p + "</span><span>" + PHASE_NAMES[p - 1] + "</span></li>";
+    }
+    $("steps").innerHTML = html;
+  }
+
+  function apply(phase) {
+    clearHL();
+    setValues(phase);
+    renderCtrl(phase);
+    if (phase <= 0) {
+      $("desc").innerHTML = "选一条指令，点「单步」或「播放」，看数据在单周期数据通路里怎么走。控制信号会在右下角逐个点亮。";
+      $("phasePill").textContent = "第 0 / 5 步";
+      return;
+    }
+    var I = INSTRS[state.instr];
+    W[state.instr][phase].forEach(function (id) { var e = $(id); if (e) e.classList.add("on"); });
+    B[state.instr][phase].forEach(function (id) { var e = $(id); if (e) e.classList.add("on"); });
+    var map = { RegWrite: "g-regwrite", RegDst: "g-regdst", ALUSrc: "g-alusrc", MemRead: "g-memread", MemWrite: "g-memwrite", Branch: "g-branch", MemtoReg: "g-memtoreg" };
+    sigTargets(phase).forEach(function (k) { var el = map[k] ? $(map[k]) : null; if (el) el.classList.add("on"); });
+    if (phase >= 3) { var z = $("g-zero"); if (z) z.classList.add("on"); }
+    $("desc").innerHTML = I.desc[phase];
+    $("phasePill").textContent = "第 " + phase + " / 5 步： " + PHASE_NAMES[phase - 1];
+  }
+
+  function render() {
+    var I = INSTRS[state.instr];
+    $("instrInfo").textContent = I.asm;
+    var btns = document.querySelectorAll("#instrSeg button");
+    for (var i = 0; i < btns.length; i++) btns[i].classList.toggle("active", btns[i].getAttribute("data-i") === state.instr);
+    renderSteps();
+    apply(state.step);
+    $("btnStep").disabled = state.step >= 5;
+  }
+
+  function stop() {
+    state.playing = false;
+    if (state.timer) { clearInterval(state.timer); state.timer = null; }
+    $("btnPlay").textContent = "▶ 播放";
+  }
+
+  function step() {
+    if (state.step >= 5) { stop(); return; }
+    state.step += 1;
+    render();
+    if (state.step >= 5) stop();
+  }
+
+  function play() {
+    if (state.step >= 5) state.step = 0;
+    state.playing = true;
+    $("btnPlay").textContent = "⏸ 暂停";
+    if (state.timer) clearInterval(state.timer);
+    state.timer = setInterval(function () {
+      if (state.step >= 5) { stop(); return; }
+      step();
+    }, state.speed);
+  }
+
+  function reset() {
+    stop();
+    state.step = 0;
+    render();
+  }
+
+  $("instrSeg").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-i]");
+    if (!b) return;
+    state.instr = b.getAttribute("data-i");
+    reset();
+  });
+  $("btnPlay").addEventListener("click", function () { if (state.playing) stop(); else play(); });
+  $("btnStep").addEventListener("click", function () { stop(); step(); });
+  $("btnReset").addEventListener("click", function () { reset(); });
+  $("speedGroup").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-speed]");
+    if (!b) return;
+    state.speed = Number(b.getAttribute("data-speed"));
+    var xs = document.querySelectorAll("#speedGroup button");
+    for (var i = 0; i < xs.length; i++) xs[i].classList.toggle("active", xs[i] === b);
+    if (state.playing) play();
+  });
+  (function () {
+    var stage = $("stage"), dragging = false, sx = 0, sy = 0, sl = 0, st = 0;
+    stage.addEventListener("pointerdown", function (e) {
+      if (!stage.classList.contains("zoomed")) return;
+      dragging = true; sx = e.clientX; sy = e.clientY; sl = stage.scrollLeft; st = stage.scrollTop;
+      stage.classList.add("dragging");
+      try { stage.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+    stage.addEventListener("pointermove", function (e) {
+      if (!dragging) return;
+      stage.scrollLeft = sl - (e.clientX - sx);
+      stage.scrollTop = st - (e.clientY - sy);
+    });
+    stage.addEventListener("pointerup", function () { dragging = false; stage.classList.remove("dragging"); });
+    stage.addEventListener("pointercancel", function () { dragging = false; stage.classList.remove("dragging"); });
+  })();
+
+  $("btnZoom").addEventListener("click", function () {
+    var s = $("stage");
+    s.classList.toggle("zoomed");
+    this.textContent = s.classList.contains("zoomed") ? "🔍 适应宽度" : "🔍 放大查看";
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.code === "Space") { e.preventDefault(); if (state.playing) stop(); else play(); }
+    else if (e.code === "ArrowRight") { e.preventDefault(); stop(); step(); }
+    else if (e.key === "r" || e.key === "R") { e.preventDefault(); reset(); }
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

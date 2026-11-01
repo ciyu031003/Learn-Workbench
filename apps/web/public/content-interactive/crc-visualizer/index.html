@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRC 循环冗余校验可视化</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f8fafc; color: #1e293b; padding: 16px; }
+  .wrap { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+  .head { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; }
+  .head h1 { font-size: 16px; font-weight: 600; }
+  .head .info { font-size: 12px; opacity: .92; }
+  .controls { padding: 8px 16px; display: flex; flex-wrap: wrap; gap: 6px 9px; align-items: center; border-bottom: 1px solid #eef2f7; }
+  .controls label { font-size: 12px; color: #64748b; }
+  select, input[type=text], input[type=number], button { font-size: 13px; }
+  select, input[type=text], input[type=number] { padding: 4px 6px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; outline: none; }
+  input[type=text] { width: 132px; font-family: ui-monospace, Menlo, Consolas, monospace; letter-spacing: .5px; }
+  input[type=number] { width: 62px; }
+  button { padding: 5px 11px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all .15s; }
+  .btn-primary { background: #6366f1; color: #fff; }
+  .btn-primary:hover { background: #4f46e5; }
+  .btn-ghost { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+  .btn-ghost:hover { background: #e2e8f0; }
+  .btn-danger { background: #ef4444; color: #fff; }
+  .stats { padding: 6px 16px; display: flex; gap: 15px; font-size: 12px; color: #64748b; border-bottom: 1px solid #eef2f7; flex-wrap: wrap; }
+  .stats b { color: #1e293b; font-variant-numeric: tabular-nums; }
+  .mono { font-family: ui-monospace, Menlo, Consolas, monospace; letter-spacing: .5px; }
+  .tabs { display: flex; gap: 6px; padding: 8px 16px 0; }
+  .tab { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; font-size: 12px; }
+  .tab.active { background: #6366f1; border-color: #6366f1; color: #fff; }
+  .stage { padding: 6px 16px 4px; }
+  .linerow { display: flex; align-items: center; gap: 8px; margin-top: 5px; }
+  .ltag { font-size: 11px; color: #64748b; width: 84px; flex: none; text-align: right; }
+  .bits { display: flex; gap: 2px; }
+  .b { display: flex; align-items: center; justify-content: center; height: 19px; border-radius: 3px; background: #f1f5f9; color: #94a3b8; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; border: 1px solid #e2e8f0; flex: none; }
+  .b.one { background: #eef2ff; color: #4338ca; border-color: #c7d2fe; font-weight: 600; }
+  .b.pad { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+  .b.pivot { background: #f59e0b; color: #fff; border-color: #f59e0b; box-shadow: 0 0 0 2px #f59e0b33; }
+  .b.gen { background: #6366f1; color: #fff; border-color: #6366f1; font-weight: 600; }
+  .b.res { background: #ecfdf5; color: #047857; border-color: #a7f3d0; font-weight: 600; }
+  .b.res0 { background: #f8fafc; color: #cbd5e1; border-color: #eef2f7; }
+  .b.dim { opacity: .32; }
+  .b.flip { background: #fef2f2; color: #dc2626; border-color: #fecaca; font-weight: 700; }
+  .b.clickable { cursor: pointer; }
+  .b.clickable:hover { outline: 2px solid #8b5cf6; }
+  .wsbox { margin-top: 8px; height: 176px; overflow-y: auto; overflow-x: auto; border: 1px solid #eef2f7; border-radius: 10px; background: #fcfdff; padding: 6px 8px; }
+  .wsstep { padding: 3px 0 5px; border-bottom: 1px dashed #e2e8f0; }
+  .wsstep:last-child { border-bottom: none; }
+  .wsstep.active { background: #f8faff; border-radius: 8px; padding-left: 4px; }
+  .wshd { font-size: 11px; color: #64748b; margin-bottom: 2px; }
+  .wshd b { color: #4338ca; }
+  .wshd .q { color: #10b981; font-weight: 600; }
+  .wshd .q0 { color: #94a3b8; font-weight: 600; }
+  .wsrow { display: flex; gap: 2px; margin-top: 1px; }
+  .wsrow .empty { flex: none; }
+  .resultline { margin-top: 7px; font-size: 12px; color: #334155; line-height: 1.6; min-height: 34px; padding: 5px 9px; background: #f8fafc; border: 1px solid #eef2f7; border-radius: 8px; }
+  .resultline b { color: #4338ca; }
+  .resultline .ok { color: #047857; }
+  .resultline .bad { color: #dc2626; font-weight: 600; }
+  .err { color: #dc2626; }
+  .legend { padding: 4px 16px 2px; display: flex; gap: 13px; font-size: 11px; color: #64748b; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .desc { padding: 8px 16px 13px; border-top: 1px solid #eef2f7; margin-top: 5px; font-size: 12px; color: #475569; line-height: 1.7; }
+  .desc b { color: #334155; }
+  .desc code { background: #f1f5f9; border-radius: 4px; padding: 0 4px; font-family: ui-monospace, Consolas, monospace; font-size: 11px; letter-spacing: .5px; }
+  .speed-group { display: flex; gap: 4px; }
+  .speed-group button { padding: 4px 9px; font-size: 12px; }
+  .speed-group .active { background: #6366f1; color: #fff; }
+  .hint { font-size: 10px; color: #94a3b8; }
+  .tip { font-size: 11px; color: #8b5cf6; margin-top: 3px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>🔐 CRC 循环冗余校验</h1>
+    <span class="info" id="headInfo">模 2 除法 · 生成多项式 · FCS</span>
+  </div>
+
+  <div class="controls">
+    <label>数据比特串</label>
+    <input type="text" id="inData" value="1101011011" maxlength="40" spellcheck="false">
+    <button class="btn-ghost" id="btnRand">🎲 随机</button>
+    <label>生成多项式</label>
+    <select id="selGen">
+      <option value="10011">CRC-4  x⁴+x+1（10011）</option>
+      <option value="100000111">CRC-8  x⁸+x²+x+1（100000111）</option>
+      <option value="11000000000000101">CRC-16  x¹⁶+x¹⁵+x²+1（11000000000000101）</option>
+      <option value="10001000000100001">CRC-16-CCITT  x¹⁶+x¹²+x⁵+1（10001000000100001）</option>
+      <option value="custom">自定义…</option>
+    </select>
+    <input type="text" id="inGen" value="10011" maxlength="40" spellcheck="false" style="display:none">
+    <div class="speed-group">
+      <button data-speed="700" class="btn-ghost">慢</button>
+      <button data-speed="260" class="btn-ghost active">中</button>
+      <button data-speed="60" class="btn-ghost">快</button>
+    </div>
+    <button class="btn-primary" id="btnPlay">▶ 播放</button>
+    <button class="btn-ghost" id="btnStep">单步</button>
+    <button class="btn-ghost" id="btnReset">↺ 重置</button>
+  </div>
+
+  <div class="stats">
+    <span>步骤 <b id="statStep">0 / 0</b></span>
+    <span>生成式次数 r <b id="statR">4</b></span>
+    <span>当前余数 <b id="statRem" class="mono">—</b></span>
+    <span>发送帧 <b id="statFrame" class="mono">—</b></span>
+    <span>校验 <b id="statCheck">—</b></span>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-mode="send">① 发送方：生成 FCS</button>
+    <button class="tab" data-mode="recv">② 接收方：校验收到的帧</button>
+    <span class="hint" id="tabHint" style="align-self:center"></span>
+  </div>
+
+  <div class="stage" id="stage">
+    <div id="panelSend">
+      <div class="linerow"><span class="ltag">原始数据 M</span><div class="bits" id="rowData"></div></div>
+      <div class="linerow"><span class="ltag">补 r 个 0</span><div class="bits" id="rowPadded"></div></div>
+      <div class="linerow"><span class="ltag">生成式 G(x)</span><div class="bits" id="rowGen"></div></div>
+    </div>
+    <div id="panelRecv" style="display:none">
+      <div class="linerow"><span class="ltag">收到的帧</span><div class="bits" id="rowRecv"></div></div>
+      <div class="linerow"><span class="ltag">生成式 G(x)</span><div class="bits" id="rowGen2"></div></div>
+      <div class="tip" id="recvTip">👆 点击任意一位即可翻转它（模拟传输差错），余数会立刻变为非 0。</div>
+    </div>
+    <div class="wsbox" id="wsbox"><div class="ws" id="ws"></div></div>
+    <div class="resultline" id="resultLine">点击 <b>播放</b> 或 <b>单步</b>：先把数据后面补 r 个 0，再逐位做模 2 除法（异或）。</div>
+  </div>
+
+  <div class="legend">
+    <span><i style="background:#eef2ff;border:1px solid #c7d2fe"></i>比特 1</span>
+    <span><i style="background:#f1f5f9;border:1px solid #e2e8f0"></i>比特 0</span>
+    <span><i style="background:#fffbeb;border:1px solid #fde68a"></i>补的 r 个 0</span>
+    <span><i style="background:#f59e0b"></i>当前对齐的最高位（决定商位）</span>
+    <span><i style="background:#6366f1"></i>异或的生成式</span>
+    <span><i style="background:#ecfdf5;border:1px solid #a7f3d0"></i>异或结果 / 余数</span>
+    <span><i style="background:#fef2f2;border:1px solid #fecaca"></i>被翻转的出错位</span>
+  </div>
+
+  <div class="desc" id="desc"></div>
+</div>
+
+<script>
+"use strict";
+var $ = function (id) { return document.getElementById(id); };
+
+var ST = {
+  mode: "send",
+  data: "1101011011",
+  gen: "10011",
+  N: 0,
+  r: 4,
+  steps: [],
+  rem: [],
+  cursor: -1,       // -1 未开始，0 = 已补零，k = 已完成 k 步
+  recvBits: [],
+  recvSteps: [],
+  recvRem: [],
+  flips: [],        // 被翻转的位置下标
+  playing: false
+};
+var speed = 260;
+var timer = null;
+var CW = 18;
+
+/* ---------- 工具 ---------- */
+function isBits(s) { return /^[01]+$/.test(s); }
+function toArr(s) { var a = [], i; for (i = 0; i < s.length; i++) a.push(s.charCodeAt(i) === 49 ? 1 : 0); return a; }
+function toStr(a) { return a.join(""); }
+function pad(arr, n) { var a = arr.slice(); while (a.length < n) a.push(0); return a; }
+function randBits(n) {
+  var s = "1", i;
+  for (i = 1; i < n; i++) s += (Math.random() < 0.5 ? "0" : "1");
+  return s;
+}
+
+// 模 2 除法：reg 为被除数（已补零），g 为生成多项式（g[0] === 1）
+function divide(reg, g) {
+  var r = g.length - 1;
+  var n = reg.length - r;          // 商（= 原始数据位数）
+  var cur = reg.slice();
+  var steps = [];
+  for (var i = 0; i < n; i++) {
+    var q = cur[i];
+    var before = cur.slice();
+    var after = cur.slice();
+    if (q === 1) {
+      for (var j = 0; j < g.length; j++) after[i + j] = cur[i + j] ^ g[j];
+    }
+    steps.push({ i: i, q: q, before: before, after: after });
+    cur = after;
+  }
+  return { steps: steps, remainder: cur.slice(n), final: cur };
+}
+
+/* ---------- 构建单元格 ---------- */
+function mkCell(v, cls, w) {
+  var c = document.createElement("span");
+  c.className = "b" + (v === 1 ? " one" : "") + (cls ? " " + cls : "");
+  c.textContent = v === 0 || v === 1 ? String(v) : "";
+  c.style.width = w + "px";
+  return c;
+}
+function fillRow(box, bits, opts) {
+  opts = opts || {};
+  box.innerHTML = "";
+  var w = opts.w || CW;
+  for (var i = 0; i < bits.length; i++) {
+    var cls = "";
+    var v = bits[i];
+    if (opts.empty && (i < opts.empty[0] || i > opts.empty[1])) { cls += " dim"; }
+    if (opts.only && (i < opts.only[0] || i > opts.only[1])) { cls += " dim"; }
+    if (opts.padFrom !== undefined && i >= opts.padFrom) cls += " pad";
+    if (opts.pivot === i) cls += " pivot";
+    if (opts.guide && (i < opts.guide)) cls += " dim";
+    var c = mkCell(v, cls, w);
+    if (opts.click) c.className += " clickable";
+    box.appendChild(c);
+  }
+}
+function fillBlankRow(box, n, from, len, g, w) {
+  box.innerHTML = "";
+  for (var i = 0; i < n; i++) {
+    if (i >= from && i < from + len) {
+      var c = mkCell(g[i - from], "gen", w);
+      box.appendChild(c);
+    } else {
+      var e = document.createElement("span");
+      e.className = "wsrow-empty";
+      e.style.width = w + "px";
+      e.style.flex = "none";
+      e.style.display = "inline-block";
+      box.appendChild(e);
+    }
+  }
+}
+
+/* ---------- 渲染固定行 ---------- */
+function renderTop() {
+  var g = toArr(ST.gen);
+  var n = ST.data.length;
+  var N = n + ST.r;
+  CW = Math.max(9, Math.min(20, Math.floor(840 / Math.max(1, N))));
+  $("statR").textContent = ST.r;
+  $("headInfo").textContent = "模 2 除法 · r = " + ST.r + " · 被除数 " + N + " 位";
+
+  if (ST.mode === "send") {
+    $("panelSend").style.display = "";
+    $("panelRecv").style.display = "none";
+    var padArr = pad(toArr(ST.data), N);
+    var cur = ST.cursor;
+    // 原始数据行
+    fillRow($("rowData"), padArr, { w: CW, only: [0, n - 1] });
+    // 补零后的被除数：高亮 r 个 0；若正在做除法，高亮当前对齐位
+    var pv = (cur >= 1 && cur <= ST.steps.length) ? ST.steps[cur - 1].i : -1;
+    fillRow($("rowPadded"), padArr, { w: CW, padFrom: n, pivot: pv, only: [0, N - 1] });
+    fillRow($("rowGen"), pad(g, N), { w: CW, only: [0, g.length - 1] });
+  } else {
+    $("panelSend").style.display = "none";
+    $("panelRecv").style.display = "";
+    var recv = ST.recvBits;
+    var box = $("rowRecv");
+    fillRow(box, pad(recv, Math.max(N, recv.length)), { w: CW, only: [0, recv.length - 1] });
+    // 绑定点击翻转
+    var kids = box.children || [];
+    for (var k = 0; k < recv.length && k < kids.length; k++) {
+      (function (idx) {
+        kids[idx].className += " clickable";
+        if (ST.flips.indexOf(idx) >= 0) kids[idx].className += " flip";
+        kids[idx].onclick = function () { flipBit(idx); };
+      })(k);
+    }
+    fillRow($("rowGen2"), pad(g, Math.max(N, recv.length)), { w: CW, only: [0, g.length - 1] });
+  }
+}
+
+/* ---------- 工作表 ---------- */
+function clearWs() { $("ws").innerHTML = ""; }
+function markActive(block) {
+  var olds = $("ws").children || [];
+  for (var i = 0; i < olds.length; i++) if (olds[i].className) olds[i].className = olds[i].className.replace(" active", "");
+  if (block) block.className += " active";
+}
+
+function addPadBlock() {
+  var n = ST.data.length;
+  var block = document.createElement("div");
+  block.className = "wsstep";
+  var hd = document.createElement("div");
+  hd.className = "wshd";
+  hd.innerHTML = "① 补零：被除数 = 数据 + r 个 0（r = G(x) 位数 − 1 = " + ST.r + "）";
+  block.appendChild(hd);
+  var row = document.createElement("div");
+  row.className = "wsrow";
+  var bits = pad(toArr(ST.data), ST.N);
+  for (var i = 0; i < ST.N; i++) row.appendChild(mkCell(bits[i], i >= n ? " pad" : "", CW));
+  block.appendChild(row);
+  $("ws").appendChild(block);
+  markActive(block);
+}
+
+function addStepBlock(st) {
+  var block = document.createElement("div");
+  block.className = "wsstep";
+  var hd = document.createElement("div");
+  hd.className = "wshd";
+  hd.innerHTML = "第 " + (st.i + 1) + " 步 · 对齐位（第 " + (st.i + 1) + " 位）= <b>" + st.before[st.i] +
+    "</b> → 商位 <span class=\"" + (st.q === 1 ? "q" : "q0") + "\">" + st.q + "</span>" +
+    (st.q === 1 ? "，与生成式异或" : "，不做异或（余数直接下移）");
+  block.appendChild(hd);
+
+  var r1 = document.createElement("div"); r1.className = "wsrow";
+  for (var i = 0; i < ST.N; i++) {
+    var c = mkCell(st.before[i], (i < st.i ? " dim" : "") + (i === st.i ? " pivot" : ""), CW);
+    r1.appendChild(c);
+  }
+  block.appendChild(r1);
+
+  var r2 = document.createElement("div"); r2.className = "wsrow";
+  fillBlankRow(r2, ST.N, st.i, ST.gen.length, toArr(ST.gen), CW);
+  if (st.q === 0) r2.style.opacity = "0.25";
+  block.appendChild(r2);
+
+  var r3 = document.createElement("div"); r3.className = "wsrow";
+  for (i = 0; i < ST.N; i++) {
+    var cls = st.after[i] === 1 ? " res" : " res0";
+    if (i < st.i + 1) cls += " dim";
+    r3.appendChild(mkCell(st.after[i], cls, CW));
+  }
+  block.appendChild(r3);
+
+  $("ws").appendChild(block);
+  markActive(block);
+  var box = $("wsbox");
+  if (typeof box.scrollHeight === "number") box.scrollTop = box.scrollHeight;
+}
+
+/* ---------- 步进 ---------- */
+function totalSteps() { return 1 + ST.steps.length + 1; }   // 补零 + 各步 + 收尾
+function curSteps() { return ST.mode === "recv" ? ST.recvSteps : ST.steps; }
+
+function advance() {
+  var steps = curSteps();
+  if (ST.cursor >= steps.length + 1) { return false; }   // 已到最后
+  ST.cursor++;
+  if (ST.cursor === 0) {
+    clearWs();
+    addPadBlock();
+    setResult("① 在数据后补 <b>" + ST.r + "</b> 个 0 得到被除数：<span class='mono'>" +
+      toStr(pad(toArr(ST.data), ST.N)) + "</span>（这样算出的余数正好占 r 位，可以直接拼在数据后面）");
+  } else if (ST.cursor <= steps.length) {
+    addStepBlock(steps[ST.cursor - 1]);
+    var s = steps[ST.cursor - 1];
+    setResult("第 " + ST.cursor + " 步：看当前对齐的最高位 = <b>" + s.before[s.i] + "</b>，" +
+      (s.q === 1 ? "商位记 <b>1</b>，把生成式对齐到这一位做<b>模 2 减法（异或）</b>；最高位异或后一定变成 0，所以下一步只需看下一位。"
+                 : "商位记 <b>0</b>，不需要异或，直接看下一位。"));
+  } else {
+    var rem = ST.mode === "send" ? ST.rem : ST.recvRem;
+    showFinal();
+  }
+  renderTop();
+  updateStats();
+  return true;
+}
+
+function showFinal() {
+  if (ST.mode === "send") {
+    var frame = ST.data + toStr(ST.rem);
+    var block = document.createElement("div");
+    block.className = "wsstep";
+    var hd = document.createElement("div");
+    hd.className = "wshd";
+    hd.innerHTML = "② 除法结束：余数就是 <b>CRC 校验码 FCS</b>（r = " + ST.r + " 位），拼在数据后面一起发送";
+    block.appendChild(hd);
+    $("ws").appendChild(block);
+    markActive(block);
+    setResult("余数 = <b class='mono'>" + toStr(ST.rem) + "</b>，把它附加到数据后面 → <b>发送帧 = 数据 + FCS</b> = " +
+      "<span class='mono'>" + frame + "</span>（前 " + ST.data.length + " 位是数据，后 " + ST.r + " 位是校验码）。" +
+      "接收方用同一个 G(x) 去除整个帧，若余数为 0 就认为传输无误。");
+    $("statFrame").textContent = frame;
+  } else {
+    var ok = ST.recvRem.every(function (x) { return x === 0; });
+    setResult(ok
+      ? "接收端用同一个 G(x) 除收到的帧 → 余数 = <b class='mono'>" + toStr(ST.recvRem) +
+        "</b>，<span class='ok'>余数为 0 ⇒ 判定无差错</span>。"
+      : "接收端用同一个 G(x) 除收到的帧 → 余数 = <b class='mono'>" + toStr(ST.recvRem) +
+        "</b>，<span class='bad'>余数 ≠ 0 ⇒ 检测到差错，丢弃该帧</span>。错误比特的位置是第 " +
+        ST.flips.map(function (x) { return x + 1; }).join("、") + " 位。");
+  }
+}
+function setResult(html) { $("resultLine").innerHTML = html; }
+
+/* ---------- 统计 ---------- */
+function updateStats() {
+  var steps = curSteps();
+  $("statStep").textContent = Math.max(0, ST.cursor) + " / " + (steps.length + 1);
+  var reg = ST.finalNow();
+  var remNow = reg.length >= ST.r ? toStr(reg.slice(reg.length - ST.r)) : "—";
+  if (ST.mode === "send") {
+    $("statRem").textContent = ST.cursor === -1 ? "—" : remNow;
+    $("statCheck").textContent = ST.cursor > steps.length ? "FCS 已生成" : (ST.cursor === -1 ? "—" : "生成中…");
+    $("statFrame").textContent = ST.cursor > steps.length ? (ST.data + toStr(ST.rem)) : "—";
+  } else {
+    var ok = ST.recvRem.length > 0 && ST.recvRem.every(function (x) { return x === 0; });
+    $("statRem").textContent = ST.cursor === -1 ? "—" : remNow;
+    $("statCheck").textContent = ST.cursor > steps.length
+      ? (ok ? "✅ 无差错" : "❌ 检测到差错")
+      : (ST.cursor === -1 ? "待校验" : "校验中…");
+    $("statFrame").textContent = ST.data + (ST.rem.length ? toStr(ST.rem) : "");
+  }
+}
+ST.finalNow = function () {
+  if (ST.cursor <= 0) return ST.cursor === -1 ? [] : pad(toArr(ST.data), ST.N);
+  var steps = curSteps();
+  if (!steps.length) return [];
+  return steps[Math.min(ST.cursor, steps.length) - 1].after;
+};
+
+/* ---------- 组装 ---------- */
+function validate(showMsg) {
+  var d = $("inData").value.replace(/\s/g, "");
+  if (!isBits(d)) {
+    if (showMsg) setResult("<span class='err'>数据只能是 0/1 组成的比特串，请重新输入。</span>");
+    return false;
+  }
+  if (d.length > 36) { d = d.slice(0, 36); $("inData").value = d; }
+  var g = $("inGen").value.replace(/\s/g, "");
+  if (!isBits(g) || g.length < 2) {
+    if (showMsg) setResult("<span class='err'>生成多项式必须是至少 2 位的 0/1 串，且以 1 开头（例如 10011）。</span>");
+    return false;
+  }
+  var stripped = g.replace(/^0+/, "");
+  if (stripped.length < 2) {
+    if (showMsg) setResult("<span class='err'>生成多项式不能全为 0：它必须至少 2 位并以 1 开头（例如 10011）。</span>");
+    return false;
+  }
+  if (stripped !== g) {
+    g = stripped;
+    $("inGen").value = g;
+    if (showMsg) setResult("生成多项式最高位必须是 1（否则应先去前导 0），已自动改为 <b class='mono'>" + g + "</b>。");
+  }
+  if (g.length - 1 > 32) { setResult("<span class='err'>生成多项式长度请控制在 33 位以内。</span>"); return false; }
+  ST.data = d;
+  ST.gen = g;
+  ST.r = g.length - 1;
+  ST.N = d.length + ST.r;
+  return true;
+}
+
+function rebuild(keepCursor) {
+  var div = divide(pad(toArr(ST.data), ST.data.length + ST.r), toArr(ST.gen));
+  ST.steps = div.steps;
+  ST.rem = div.remainder;
+  ST.N = ST.data.length + ST.r;
+  if (ST.mode === "recv") {
+    if (ST.recvBits.length !== ST.data.length + ST.r) ST.recvBits = toArr(ST.data + toStr(ST.rem));
+    var d2 = divide(ST.recvBits.slice(), toArr(ST.gen));
+    ST.recvSteps = d2.steps;
+    ST.recvRem = d2.remainder;
+  } else {
+    ST.recvBits = toArr(ST.data + toStr(ST.rem));
+    ST.recvSteps = [];
+    ST.recvRem = [];
+  }
+  if (!keepCursor) ST.cursor = -1;
+  renderTop();
+  updateStats();
+}
+
+function reset() {
+  stopTimer();
+  ST.playing = false;
+  $("btnPlay").textContent = "▶ 播放";
+  if (!validate(true)) return;
+  ST.flips = [];
+  if (ST.mode === "recv") ST.recvBits = [];
+  rebuild(false);
+  clearWs();
+  $("statRem").textContent = "—";
+  $("statFrame").textContent = "—";
+  $("statCheck").textContent = "—";
+  if (ST.mode === "send") {
+    setResult("点击 <b>播放</b> 或 <b>单步</b>：① 数据后补 r 个 0 → ② 逐位模 2 除法（异或）→ ③ 余数就是 FCS。");
+  } else {
+    setResult("这是发送方算出的帧（数据 + FCS），共 " + ST.recvBits.length + " 位。" +
+      "点击 <b>播放/单步</b> 逐步做除法：余数为 0 表示无差错；也可以直接点<b>上方任意一位</b>翻转它，模拟传输出错。");
+  }
+  renderTop();
+  updateStats();
+  updateDesc();
+}
+
+/* ---------- 翻转比特 ---------- */
+function flipBit(idx) {
+  if (ST.mode !== "recv") return;
+  ST.recvBits[idx] = ST.recvBits[idx] === 1 ? 0 : 1;
+  var p = ST.flips.indexOf(idx);
+  if (p >= 0) ST.flips.splice(p, 1); else ST.flips.push(idx);
+  var d2 = divide(ST.recvBits.slice(), toArr(ST.gen));
+  // 注意：收到的帧是完整帧，商有 (帧长 - r) 位，余数取最后 r 位
+  ST.recvSteps = d2.steps;
+  ST.recvRem = d2.remainder;
+  ST.cursor = ST.recvSteps.length + 1;   // 直接跳到结果
+  clearWs();
+  addPadBlock();
+  for (var i = 0; i < ST.recvSteps.length; i++) addStepBlock(ST.recvSteps[i]);
+  showFinal();
+  renderTop();
+  updateStats();
+  $("statRem").textContent = toStr(ST.recvRem);
+  $("statCheck").textContent = ST.recvRem.every(function (x) { return x === 0; }) ? "✅ 无差错" : "❌ 检测到差错";
+}
+
+/* ---------- 播放控制 ---------- */
+function stopTimer() { if (timer) { clearTimeout(timer); timer = null; } }
+function loop() {
+  stopTimer();
+  if (!ST.playing) return;
+  var more = advance();
+  if (!more) {
+    ST.playing = false;
+    $("btnPlay").textContent = "▶ 播放";
+    return;
+  }
+  timer = setTimeout(loop, speed);
+}
+$("btnPlay").onclick = function () {
+  if (ST.playing) {
+    ST.playing = false; stopTimer(); this.textContent = "▶ 播放";
+  } else {
+    if (ST.cursor >= curSteps().length + 1) reset();
+    ST.playing = true; this.textContent = "⏸ 暂停"; loop();
+  }
+};
+$("btnStep").onclick = function () {
+  ST.playing = false; stopTimer(); $("btnPlay").textContent = "▶ 播放";
+  advance();
+};
+$("btnReset").onclick = function () { reset(); };
+$("btnRand").onclick = function () {
+  $("inData").value = randBits(6 + Math.floor(Math.random() * 6));
+  reset();
+};
+$("inData").oninput = function () { reset(); };
+$("selGen").onchange = function () {
+  if (this.value === "custom") {
+    $("inGen").style.display = "";
+    $("inGen").focus();
+  } else {
+    $("inGen").style.display = "none";
+    $("inGen").value = this.value;
+  }
+  reset();
+};
+$("inGen").oninput = function () { reset(); };
+
+var tabBtns = document.querySelectorAll(".tab");
+for (var ti = 0; ti < tabBtns.length; ti++) {
+  tabBtns[ti].onclick = function () {
+    for (var k = 0; k < tabBtns.length; k++) tabBtns[k].classList.remove("active");
+    this.classList.add("active");
+    ST.mode = this.dataset.mode;
+    ST.cursor = -1;
+    ST.playing = false; stopTimer(); $("btnPlay").textContent = "▶ 播放";
+    $("tabHint").textContent = ST.mode === "recv"
+      ? "帧 = 数据 + FCS；余数为 0 说明没有检测到差错"
+      : "";
+    reset();
+  };
+}
+var spBtns = document.querySelectorAll(".speed-group button");
+for (var si = 0; si < spBtns.length; si++) {
+  spBtns[si].onclick = function () {
+    for (var k = 0; k < spBtns.length; k++) spBtns[k].classList.remove("active");
+    this.classList.add("active");
+    speed = +this.dataset.speed;
+    if (ST.playing) loop();
+  };
+}
+
+/* ---------- 说明区 ---------- */
+function updateDesc() {
+  $("desc").innerHTML =
+    '<b>CRC 在干什么：</b>把数据比特串看作一个多项式 M(x) 的系数，生成多项式 G(x) 的位数是 r+1（最高次为 r）。' +
+    '发送方把 M(x) 左移 r 位（即数据后补 r 个 0）后<b>模 2 除以</b> G(x)，得到的 r 位余数就是 <b>FCS/CRC 校验码</b>，' +
+    '拼在数据后面一起发送。模 2 运算里加减法都是<b>异或</b>（不进位、不借位），所以每一步"上商"只看当前对齐的最高位是不是 1。<br>' +
+    '<b>为什么能检错：</b>设接收方收到 T\'(x) = T(x) + E(x)，其中 E(x) 是差错多项式（哪几位错了哪几位为 1）。' +
+    '因为发送的 T(x) 一定能被 G(x) 整除，所以 T\'(x) 除以 G(x) 的余数就是 <b>E(x) 除以 G(x) 的余数</b>：' +
+    '余数为 0 ⇔ E(x) 恰好是 G(x) 的倍数。所以只要 G(x) 选得好，绝大部分差错都会让余数非 0 而被检出' +
+    '（能被检出的是"错误图样恰好整除 G(x)"这一小部分）。注意：CRC 只能<b>检错</b>，不能定位也无法纠错，发现差错只能丢弃重传。<br>' +
+    '<b>生成多项式怎么选：</b>① 最高次和常数项必须为 1（r 次多项式共 r+1 位）；② 含因子 (x+1) 就能检出所有<b>奇数个</b>比特错；' +
+    '③ 若 G(x) 不含 x 的因子（常数项为 1），可检出所有<b>单个</b>比特错；④ 次数越高检错能力越强。' +
+    '故国际标准直接规定了几种生成多项式：CRC-4（本演示默认 <code>10011</code>）、CRC-8 <code>100000111</code>、' +
+    'CRC-16 <code>11000000000000101</code>、CRC-16-CCITT <code>10001000000100001</code>、CRC-32（以太网 FCS 用它，能检出所有 ≤ 32 位的突发错误）。<br>' +
+    '<b>与奇偶校验、海明码的区别：</b>奇偶校验只加 1 位，只能发现<b>奇数个</b>比特错，且检错能力弱；' +
+    '海明码属于<b>纠错码</b>，通过多位冗余校验位定位并纠正 1 位错（SEC-DED 可检 2 位错）；' +
+    'CRC 属于<b>检错码</b>，用 r 位余数获得极强的检错能力（能检出所有单比特、双比特错和大部分突发错），但<b>不纠错</b>——' +
+    '数据链路层发现 CRC 差错后直接丢弃该帧，靠上层重传解决。' +
+    '<br><b>边界提示：</b>若数据全为 0，则余数也是全 0，此时无法区分"正常帧"与"没有收到帧"；' +
+    '若两个不同的差错图样 E(x) 恰好相差 G(x) 的整数倍，CRC 也会漏检（概率随 r 增大而急剧减小）。';
+}
+
+/* ---------- 启动 ---------- */
+$("inGen").value = $("selGen").value;
+reset();
+</script>
+</body>
+</html>

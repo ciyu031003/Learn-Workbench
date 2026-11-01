@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KMP 算法可视化</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f8fafc; color: #1e293b; padding: 16px; }
+  .wrap { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+  .head { background: linear-gradient(135deg, #f43f5e, #f97316); color: #fff; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; }
+  .head h1 { font-size: 16px; font-weight: 600; }
+  .head .info { font-size: 12px; opacity: .9; }
+  .controls { padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; border-bottom: 1px solid #eef2f7; }
+  .controls label { font-size: 12px; color: #64748b; }
+  input[type=text] { padding: 5px 8px; border-radius: 8px; border: 1px solid #e2e8f0; outline: none; font-size: 13px; font-family: Consolas, monospace; }
+  #textInput { width: 220px; }
+  #patInput { width: 140px; }
+  button { padding: 6px 14px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all .15s; font-size: 13px; }
+  .btn-primary { background: #f43f5e; color: #fff; }
+  .btn-primary:hover { background: #e11d48; }
+  .btn-ghost { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+  .btn-ghost:hover { background: #e2e8f0; }
+  .speed-group { display: flex; gap: 4px; }
+  .speed-group button { padding: 4px 10px; font-size: 12px; }
+  .speed-group .active { background: #f43f5e; color: #fff; border-color: #f43f5e; }
+  .msg { padding: 8px 16px; font-size: 12px; color: #475569; border-bottom: 1px solid #eef2f7; min-height: 28px; }
+  .msg b { color: #334155; }
+  .section { padding: 12px 16px; border-bottom: 1px solid #eef2f7; }
+  .section h3 { font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 8px; }
+  .str-row { display: flex; align-items: center; margin-bottom: 6px; }
+  .str-row .label { width: 48px; font-size: 11px; color: #64748b; flex-shrink: 0; }
+  .chars { display: flex; position: relative; }
+  .ch { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border: 1px solid #e2e8f0; background: #f8fafc; font-size: 14px; font-weight: 600; color: #334155; font-family: Consolas, monospace; margin-right: 2px; border-radius: 4px; position: relative; }
+  .ch.hit { background: #d1fae5; border-color: #10b981; color: #065f46; }
+  .ch.miss { background: #fee2e2; border-color: #ef4444; color: #991b1b; }
+  .ch.cur-i { box-shadow: 0 0 0 2px #f43f5e; }
+  .ch.cur-j { box-shadow: 0 0 0 2px #0ea5e9; }
+  .ch .idx { position: absolute; top: -16px; font-size: 9px; color: #94a3b8; font-weight: 400; }
+  .ptr-row { display: flex; align-items: center; margin-top: 4px; }
+  .ptr { font-size: 11px; color: #64748b; width: 48px; flex-shrink: 0; }
+  .ptr span { font-weight: 700; }
+  .ptr .i { color: #f43f5e; }
+  .ptr .j { color: #0ea5e9; }
+  .ptr-line { height: 16px; position: relative; }
+  .next-table { border-collapse: collapse; font-size: 12px; margin-top: 6px; }
+  .next-table th, .next-table td { border: 1px solid #e2e8f0; padding: 3px 10px; text-align: center; font-family: Consolas, monospace; }
+  .next-table th { background: #f1f5f9; color: #475569; font-weight: 600; }
+  .next-table td.hl { background: #fef3c7; }
+  .stats { padding: 8px 16px; display: flex; gap: 18px; font-size: 12px; color: #64748b; border-bottom: 1px solid #eef2f7; flex-wrap: wrap; }
+  .stats b { color: #1e293b; font-variant-numeric: tabular-nums; }
+  .legend { padding: 6px 16px 12px; display: flex; gap: 14px; font-size: 11px; color: #64748b; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .desc { padding: 10px 16px 16px; border-top: 1px solid #eef2f7; font-size: 12px; color: #475569; line-height: 1.7; }
+  .desc code { background: #f1f5f9; padding: 1px 5px; border-radius: 4px; font-size: 11px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>🔍 KMP 字符串匹配可视化</h1>
+    <span class="info">主串指针不回溯 · 失配时模式串跳转</span>
+  </div>
+  <div class="controls">
+    <label>主串</label>
+    <input type="text" id="textInput" value="ababcabcacbab">
+    <label>模式串</label>
+    <input type="text" id="patInput" value="abcac">
+    <button class="btn-primary" id="btnRun">▶ 播放</button>
+    <button class="btn-ghost" id="btnStep">单步</button>
+    <div class="speed-group">
+      <button class="btn-ghost" data-speed="900">慢</button>
+      <button class="btn-ghost active" data-speed="600">中</button>
+      <button class="btn-ghost" data-speed="260">快</button>
+    </div>
+    <button class="btn-ghost" id="btnReset">↺ 重置</button>
+  </div>
+  <div class="msg" id="msg">点击「▶ 播放」，观察 KMP 的跳转过程</div>
+  <div class="stats">
+    <span>比较次数 <b id="statCmp">0</b></span>
+    <span>当前状态 <b id="statState">就绪</b></span>
+    <span>匹配结果 <b id="statResult">-</b></span>
+  </div>
+
+  <div class="section">
+    <h3>匹配过程（i 为主串指针，j 为模式串指针）</h3>
+    <div class="str-row">
+      <div class="label">主串</div>
+      <div class="chars" id="textChars"></div>
+    </div>
+    <div class="str-row">
+      <div class="label">模式串</div>
+      <div class="chars" id="patChars"></div>
+    </div>
+    <div class="ptr-row" id="ptrRow"></div>
+  </div>
+
+  <div class="section">
+    <h3>next 数组（next[1]=0，失配时 j 跳转到 next[j]）</h3>
+    <table class="next-table" id="nextTable"></table>
+  </div>
+
+  <div class="legend">
+    <span><i style="background:#d1fae5;border:1px solid #10b981"></i>匹配成功</span>
+    <span><i style="background:#fee2e2;border:1px solid #ef4444"></i>失配</span>
+    <span><i style="background:#f43f5e;display:inline-block;width:10px;height:2px;border-radius:0"></i>i 指针</span>
+    <span><i style="background:#0ea5e9;display:inline-block;width:10px;height:2px;border-radius:0"></i>j 指针</span>
+  </div>
+  <div class="desc">
+    <b>KMP 核心思想：</b>主串指针 i <b>永不回溯</b>；失配时模式串指针 j 跳转到 <code>next[j]</code>，
+    利用已匹配部分的前后缀信息跳过无效比较。<br>
+    <b>next 数组含义：</b>next[j] = 模式串前 j-1 个字符中<b>最长相等前后缀长度 + 1</b>（1-based），
+    即失配后模式串应继续比较的位置。<br>
+    <b>时间复杂度：</b>O(n+m)（n 主串长，m 模式串长），相比朴素算法 O(n·m)。
+  </div>
+</div>
+
+<script>
+"use strict";
+let text = "", pat = "";
+let next = [];
+let i = 0, j = 0, cmpCount = 0;
+let running = false, timer = null, speed = 600;
+let done = false;
+
+const $ = (id) => document.getElementById(id);
+
+/* 进度提示：写进 #msg。此前漏了定义，脚本里的 msg() 调用会抛 "msg is not a function" */
+function msg(t) { const el = $("msg"); if (el) el.innerHTML = t; }
+
+function computeNext(p) {
+  // 1-based next 数组（next[0] 不用，next[1]=0）
+  const m = p.length;
+  const nxt = new Array(m + 1).fill(0);
+  if (m >= 1) nxt[1] = 0;
+  let k = 0;
+  for (let q = 2; q <= m; q++) {
+    while (k > 0 && p[k] !== p[q - 1]) k = nxt[k];
+    if (p[k] === p[q - 1]) k++;
+    nxt[q] = k;
+  }
+  return nxt;
+}
+
+function renderStrings() {
+  const tc = $("textChars"), pc = $("patChars");
+  tc.innerHTML = ""; pc.innerHTML = "";
+  [...text].forEach((c, idx) => {
+    const d = document.createElement("div");
+    d.className = "ch";
+    d.textContent = c;
+    const idxEl = document.createElement("div");
+    idxEl.className = "idx";
+    idxEl.textContent = idx + 1;
+    d.appendChild(idxEl);
+    d.id = "t-" + idx;
+    tc.appendChild(d);
+  });
+  [...pat].forEach((c, idx) => {
+    const d = document.createElement("div");
+    d.className = "ch";
+    d.textContent = c;
+    const idxEl = document.createElement("div");
+    idxEl.className = "idx";
+    idxEl.textContent = idx + 1;
+    d.appendChild(idxEl);
+    d.id = "p-" + idx;
+    pc.appendChild(d);
+  });
+  renderPtrs();
+}
+
+function renderPtrs() {
+  const row = $("ptrRow");
+  row.innerHTML = "";
+  const d = document.createElement("div");
+  d.className = "ptr";
+  // i、j 都是 1 起始的下标，直接显示（此前显示 i+1 / j+1 与高亮格子对不上）
+  d.innerHTML = `i=<span class="i">${i}</span> &nbsp; j=<span class="j">${j}</span>`;
+  row.appendChild(d);
+  // 清除指针样式
+  document.querySelectorAll(".ch").forEach((c) => c.classList.remove("cur-i", "cur-j"));
+  const ti = document.getElementById("t-" + (i - 1));
+  const pj = document.getElementById("p-" + (j - 1));
+  if (ti) ti.classList.add("cur-i");
+  if (pj && j >= 1) pj.classList.add("cur-j");
+}
+
+function renderNext() {
+  const tb = $("nextTable");
+  let html = "<tr><th>j</th>";
+  for (let q = 0; q <= pat.length; q++) html += `<td>${q}</td>`;
+  html += "</tr><tr><th>模式串</th><td>-</td>";
+  for (let q = 1; q <= pat.length; q++) html += `<td>${pat[q - 1]}</td>`;
+  html += "</tr><tr><th>next[j]</th><td>-</td>";
+  for (let q = 1; q <= pat.length; q++) html += `<td>${next[q]}</td>`;
+  html += "</tr>";
+  tb.innerHTML = html;
+}
+
+function markHit(fromI, fromJ, count) {
+  for (let k = 0; k < count; k++) {
+    const t = document.getElementById("t-" + (fromI + k));
+    const p = document.getElementById("p-" + (fromJ - 1 + k));
+    if (t) t.classList.add("hit");
+    if (p) p.classList.add("hit");
+  }
+}
+
+function reset() {
+  stopTimer();
+  text = $("textInput").value.trim();
+  pat = $("patInput").value.trim();
+  if (!text || !pat) { msg("请输入主串和模式串"); return; }
+  next = computeNext(pat);
+  // i、j 均为 1 起始下标：i 指向主串当前比较位置，j 指向模式串当前比较位置
+  i = 1; j = 1; cmpCount = 0; done = false;
+  running = false;
+  $("btnRun").textContent = "▶ 播放";
+  renderStrings();
+  renderNext();
+  $("statCmp").textContent = "0";
+  $("statState").textContent = "就绪";
+  $("statResult").textContent = "-";
+  msg("就绪：点击「▶ 播放」或「单步」观察过程");
+}
+
+function stopTimer() { if (timer) { clearTimeout(timer); timer = null; } }
+
+function step() {
+  if (done) return;
+  $("statState").textContent = "匹配中…";
+
+  // 清理高亮（保留指针）
+  document.querySelectorAll(".ch.hit, .ch.miss").forEach((c) => c.classList.remove("hit", "miss"));
+
+  // j=0 表示模式串已整体右移，i 前进，j 回到 1
+  if (j === 0) {
+    i++;
+    j = 1;
+    if (i > text.length) {
+      done = true;
+      $("statState").textContent = "✅ 匹配结束";
+      $("statResult").textContent = "未找到";
+      msg("❌ 主串遍历完毕，未找到匹配");
+      return;
+    }
+    renderPtrs();
+    msg(`↪️ 模式串整体右移：i=${i + 1}, j 回到 1`);
+    return;
+  }
+
+  if (i > text.length) {
+    done = true;
+    $("statState").textContent = "✅ 匹配结束";
+    $("statResult").textContent = "未找到";
+    msg("❌ 主串遍历完毕，未找到匹配");
+    return;
+  }
+
+  const si = text[i - 1], pj = pat[j - 1];
+  cmpCount++;
+  $("statCmp").textContent = cmpCount;
+
+  if (si === pj) {
+    const t = document.getElementById("t-" + (i - 1));
+    const p = document.getElementById("p-" + (j - 1));
+    if (t) t.classList.add("hit");
+    if (p) p.classList.add("hit");
+    msg(`✅ 第 ${cmpCount} 次比较：主串[${i}]="${si}" = 模式串[${j}]="${pj}" 匹配`);
+    i++; j++;
+    if (j > pat.length) {
+      done = true;
+      // i 是 1 起始下标，匹配结束时 i 已自增过一次，故匹配起点 = i - pat.length
+      const start = i - pat.length;
+      $("statState").textContent = "🎉 匹配成功";
+      $("statResult").textContent = `位置 ${start}`;
+      // 高亮整个匹配段（单元格 id 是 0 起始，起点要再减 1）
+      for (let k = 0; k < pat.length; k++) {
+        const t = document.getElementById("t-" + (start - 1 + k));
+        if (t) t.classList.add("hit");
+      }
+      msg(`🎉 匹配成功！位置 ${start}，共比较 ${cmpCount} 次`);
+      return;
+    }
+  } else {
+    const t = document.getElementById("t-" + (i - 1));
+    const p = document.getElementById("p-" + (j - 1));
+    if (t) t.classList.add("miss");
+    if (p) p.classList.add("miss");
+    const nxt = next[j];
+    msg(`❌ 第 ${cmpCount} 次比较：主串[${i}]="${si}" ≠ 模式串[${j}]="${pj}" → j 跳转到 next[${j}]=${nxt}`);
+    j = nxt;
+  }
+  renderPtrs();
+}
+
+function run() {
+  if (running) { stopTimer(); running = false; $("btnRun").textContent = "▶ 播放"; return; }
+  reset();
+  running = true;
+  $("btnRun").textContent = "⏸ 暂停";
+  const tick = () => {
+    if (!running) return;
+    step();
+    if (!done) timer = setTimeout(tick, speed);
+    else { running = false; $("btnRun").textContent = "▶ 播放"; }
+  };
+  timer = setTimeout(tick, speed);
+}
+
+$("btnRun").onclick = run;
+$("btnStep").onclick = () => {
+  if (!text) reset();
+  stopTimer(); running = false; $("btnRun").textContent = "▶ 播放";
+  step();
+};
+$("btnReset").onclick = reset;
+document.querySelectorAll(".speed-group button").forEach((b) => {
+  b.onclick = () => {
+    document.querySelectorAll(".speed-group button").forEach((x) => x.classList.remove("active"));
+    b.classList.add("active");
+    speed = +b.dataset.speed;
+  };
+});
+
+// init
+reset();
+</script>
+</body>
+</html>

@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>子网划分与子网掩码计算可视化</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f8fafc; color: #1e293b; padding: 16px; }
+  .wrap { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+  .head { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; }
+  .head h1 { font-size: 16px; font-weight: 600; }
+  .head .info { font-size: 12px; opacity: .92; font-variant-numeric: tabular-nums; }
+  .controls { padding: 8px 16px; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; border-bottom: 1px solid #eef2f7; }
+  .controls label { font-size: 12px; color: #64748b; }
+  select, input[type=text], input[type=number] { font-size: 13px; padding: 4px 8px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; outline: none; color: #1e293b; }
+  input[type=text] { width: 150px; }
+  input[type=number] { width: 76px; }
+  select:focus, input:focus { border-color: #6366f1; }
+  button { font-size: 12px; padding: 5px 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all .15s; }
+  .btn-primary { background: #6366f1; color: #fff; }
+  .btn-primary:hover { background: #4f46e5; }
+  .btn-ghost { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+  .btn-ghost:hover { background: #e2e8f0; }
+  .presets { display: flex; gap: 5px; flex-wrap: wrap; }
+  .presets button { font-size: 11.5px; padding: 3px 8px; }
+  .spacer { flex: 1; }
+  .speed-group { display: flex; gap: 4px; }
+  .speed-group button { padding: 4px 10px; }
+  .speed-group .active { background: #6366f1; color: #fff; border-color: #6366f1; }
+  .stats { padding: 7px 16px; display: flex; gap: 16px; font-size: 12px; color: #64748b; border-bottom: 1px solid #eef2f7; flex-wrap: wrap; }
+  .stats b { color: #1e293b; font-variant-numeric: tabular-nums; }
+  .stage { padding: 8px 16px 4px; }
+  .sechead { font-size: 11px; color: #64748b; margin: 4px 0 4px; }
+  .sechead b { color: #334155; }
+  .sechead .hint { color: #94a3b8; }
+  /* ---- 32 位二进制对照视图 ---- */
+  .bitrow { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 3px; }
+  .rlab { width: 30px; flex: none; font-size: 10.5px; color: #94a3b8; padding-top: 5px; }
+  .octs { flex: 1; display: flex; min-width: 0; }
+  .oct { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .octbits { display: flex; }
+  .bit { flex: 1; min-width: 0; height: 22px; line-height: 22px; text-align: center; font-size: 10.5px;
+         font-family: ui-monospace, Menlo, Consolas, monospace; overflow: hidden;
+         border-right: 1px solid #fff; box-sizing: border-box; }
+  .bit:first-child { border-radius: 4px 0 0 4px; }
+  .bit:last-child { border-radius: 0 4px 4px 0; border-right: none; }
+  .octbits .bit:nth-child(7) { border-right: 4px solid #fff; }
+  .bit.net { background: #e0e7ff; color: #3730a3; }
+  .bit.sub { background: #fde68a; color: #92400e; font-weight: 700; }
+  .bit.host { background: #f1f5f9; color: #334155; }
+  .bit.z { opacity: .5; }
+  .bit.m1 { background: #c7d2fe; color: #312e81; }
+  .bit.m0 { background: #f8fafc; color: #cbd5e1; }
+  .bit.fresh { box-shadow: inset 0 0 0 2px #f59e0b; animation: pop .65s ease-out; }
+  @keyframes pop { 0% { transform: translateY(-5px); background: #fbbf24; } 100% { transform: translateY(0); } }
+  .octval { text-align: center; font-size: 10px; color: #475569; margin-top: 2px;
+            font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .segrow { display: flex; gap: 6px; align-items: center; margin: 4px 0 2px; }
+  .segs { flex: 1; display: flex; height: 17px; border-radius: 5px; overflow: hidden; min-width: 0; }
+  .seg { flex: 0 0 auto; box-sizing: border-box; font-size: 10px; line-height: 17px; text-align: center;
+         overflow: hidden; white-space: nowrap; }
+  .seg.s-net { background: #e0e7ff; color: #3730a3; }
+  .seg.s-sub { background: #fde68a; color: #92400e; font-weight: 600; }
+  .seg.s-host { background: #f1f5f9; color: #64748b; }
+  /* ---- 参数卡 ---- */
+  .params { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pcard { flex: 1 1 132px; min-width: 118px; border: 1px solid #eef2f7; background: #fcfdff; border-radius: 9px; padding: 5px 9px 6px; }
+  .pcard.wide { flex: 1 1 100%; }
+  .pcard .k { font-size: 10.5px; color: #94a3b8; }
+  .pcard .v { font-size: 13.5px; font-weight: 600; color: #3730a3; font-variant-numeric: tabular-nums;
+              font-family: ui-monospace, Menlo, Consolas, monospace; word-break: break-all; }
+  .pcard.wide .v { font-size: 11.5px; }
+  .pcard .s { font-size: 10px; color: #94a3b8; }
+  /* ---- 子网列表 ---- */
+  .tablebox { margin-top: 2px; max-height: 176px; overflow: auto; border: 1px solid #eef2f7; border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th, td { padding: 3px 6px; text-align: center; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
+  th { background: #f8fafc; color: #64748b; font-weight: 500; position: sticky; top: 0; }
+  td.mono, .mono { font-family: ui-monospace, Menlo, Consolas, monospace; }
+  tr.cur td { background: #eef2ff; color: #3730a3; font-weight: 600; }
+  .err { font-size: 12px; color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 10px 12px; line-height: 1.7; }
+  .note { margin: 0 16px 6px; padding: 7px 10px; border-left: 3px solid #6366f1; background: #f8fafc;
+          border-radius: 0 8px 8px 0; font-size: 12px; color: #334155; line-height: 1.65; min-height: 34px; }
+  .note b { color: #4338ca; }
+  .legend { padding: 2px 16px 6px; display: flex; gap: 14px; font-size: 11px; color: #64748b; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+  .desc { padding: 9px 16px 14px; border-top: 1px solid #eef2f7; font-size: 11.5px; color: #475569; line-height: 1.75; }
+  .desc b { color: #334155; }
+  .desc code { background: #f1f5f9; border-radius: 4px; padding: 0 4px; font-family: ui-monospace, Consolas, monospace; font-size: 11px; }
+  .desc .ex { display: block; margin: 4px 0 2px; padding: 6px 9px; background: #f8fafc; border: 1px solid #eef2f7; border-radius: 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>🧩 子网划分与子网掩码计算</h1>
+    <span class="info" id="headInfo">/24 → 借 0 位 → 1 个网络</span>
+  </div>
+
+  <div class="controls">
+    <label>IP 地址</label>
+    <input type="text" id="ipIn" value="192.168.1.0">
+    <label>前缀长度</label>
+    <input type="number" id="pfxIn" value="24" min="1" max="30">
+    <label>要划分的子网数</label>
+    <input type="number" id="cntIn" value="4" min="1" max="256">
+    <button class="btn-ghost" id="btnApply">✓ 应用</button>
+  </div>
+
+  <div class="controls">
+    <span class="presets" id="presets"></span>
+  </div>
+
+  <div class="controls">
+    <span class="spacer"></span>
+    <div class="speed-group">
+      <button class="btn-ghost" data-speed="900">慢</button>
+      <button class="btn-ghost active" data-speed="460">中</button>
+      <button class="btn-ghost" data-speed="140">快</button>
+    </div>
+    <button class="btn-primary" id="btnPlay">▶ 播放</button>
+    <button class="btn-ghost" id="btnStep">单步</button>
+    <button class="btn-ghost" id="btnReset">↺ 重置</button>
+  </div>
+
+  <div class="stats">
+    <span>前缀长度 <b id="statPfx">/24</b></span>
+    <span>已借位数 <b id="statBorrow">0</b></span>
+    <span>子网数 <b id="statCnt">1</b></span>
+    <span>每子网可用主机 <b id="statHost">254</b></span>
+    <span>已列出子网 <b id="statList">0 / 4</b></span>
+    <span>状态 <b id="statState">就绪</b></span>
+  </div>
+
+  <div class="stage">
+    <div class="sechead"><b>① 32 位二进制位对照视图</b>　<span class="hint">网络位 / 子网位 / 主机位分色显示，借位时高亮刚借走的那一位</span></div>
+    <div id="bits"></div>
+
+    <div class="sechead" style="margin-top:8px"><b>② 子网掩码与地址参数</b></div>
+    <div class="params" id="params"></div>
+
+    <div class="sechead" style="margin-top:8px"><b>③ 各子网的地址分配</b>　<span class="hint">每行 = 一个子网的网络地址 / 广播地址 / 可用主机范围</span></div>
+    <div class="tablebox">
+      <table>
+        <thead><tr><th>#</th><th>子网位</th><th>子网地址</th><th>网络地址</th><th>广播地址</th><th>第一个可用</th><th>最后一个可用</th><th>可用主机数</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="note" id="note"></div>
+
+  <div class="legend">
+    <span><i style="background:#e0e7ff;border:1px solid #c7d2fe"></i>网络位（掩码为 1，来自原前缀）</span>
+    <span><i style="background:#fde68a;border:1px solid #f59e0b"></i>子网位（从主机位借来的位）</span>
+    <span><i style="background:#f1f5f9;border:1px solid #e2e8f0"></i>主机位（掩码为 0）</span>
+    <span><i style="background:#c7d2fe"></i>掩码行：该位为 1</span>
+    <span><i style="background:#f8fafc;border:1px solid #e2e8f0"></i>掩码行：该位为 0</span>
+  </div>
+
+  <div class="desc" id="desc"></div>
+</div>
+
+<script>
+"use strict";
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+
+  var PRESETS = [
+    { label: "192.168.1.0/24 → 4 个子网", ip: "192.168.1.0", pfx: 24, cnt: 4 },
+    { label: "192.168.1.0/24 → 6 个子网（借 3 位得 8 个）", ip: "192.168.1.0", pfx: 24, cnt: 6 },
+    { label: "10.0.0.0/8 → 16 个子网", ip: "10.0.0.0", pfx: 8, cnt: 16 },
+    { label: "172.16.0.0/16 → 8 个子网", ip: "172.16.0.0", pfx: 16, cnt: 8 },
+    { label: "192.168.10.0/25 → 2 个子网", ip: "192.168.10.0", pfx: 25, cnt: 2 }
+  ];
+
+  var state = { err: null, cfg: null, idx: 0 };
+
+  /* ---------------- 地址运算 ---------------- */
+
+  function ip2int(s) {
+    var p = String(s).trim().split(".");
+    if (p.length !== 4) return null;
+    var v = 0;
+    for (var i = 0; i < 4; i++) {
+      if (!/^\d{1,3}$/.test(p[i])) return null;
+      var o = parseInt(p[i], 10);
+      if (o > 255) return null;
+      v = v * 256 + o;
+    }
+    return v;
+  }
+  function int2ip(n) {
+    n = Math.floor(n);
+    return [Math.floor(n / 16777216) % 256, Math.floor(n / 65536) % 256,
+            Math.floor(n / 256) % 256, n % 256].join(".");
+  }
+  function maskInt(p) {
+    if (p >= 32) return 4294967295;
+    if (p <= 0) return 0;
+    return 4294967296 - Math.pow(2, 32 - p);
+  }
+  function bitsOf(n) {
+    var s = "";
+    for (var i = 31; i >= 0; i--) s += (Math.floor(n / Math.pow(2, i)) % 2);
+    return s;
+  }
+  function dotBits(bits) {
+    return bits.slice(0, 8) + "." + bits.slice(8, 16) + "." + bits.slice(16, 24) + "." + bits.slice(24, 32);
+  }
+  function binPad(v, n) {
+    if (n <= 0) return "";
+    var s = "";
+    for (var k = n - 1; k >= 0; k--) s += (Math.floor(v / Math.pow(2, k)) % 2);
+    return s;
+  }
+
+  /* ---------------- 计算模型 ---------------- */
+
+  function build() {
+    var ipTxt = $("ipIn").value;
+    var ip = ip2int(ipTxt);
+    if (ip === null) return { err: "IP 地址格式不对：请填点分十进制 IPv4 地址，例如 192.168.1.0（4 段，每段 0~255）。" };
+    var pfx = parseInt($("pfxIn").value, 10);
+    if (!(pfx >= 1 && pfx <= 30)) return { err: "前缀长度请在 1 ~ 30 之间。要划出子网至少得保留 2 位主机位（/30），否则每个子网连一台主机都放不下。" };
+    var want = parseInt($("cntIn").value, 10);
+    if (!(want >= 1 && want <= 256)) return { err: "要划分的子网数请在 1 ~ 256 之间（2 的幂次会刚好划满，其它值按「至少满足」向上取位）。" };
+
+    var n = 0;
+    while (Math.pow(2, n) < want) n++;
+    if (pfx + n > 30) {
+      return { err: "要划出 " + want + " 个子网至少需要借 " + n + " 位，新前缀会变成 /" + (pfx + n) +
+        "，主机位只剩 " + (32 - pfx - n) + " 位（不足 2 位，没有任何可用主机地址）。请减小子网数，或换一个地址空间更大的网络（例如用 /24 或 /16 来划）。" };
+    }
+
+    var baseSize = Math.pow(2, 32 - pfx);
+    var baseNet = Math.floor(ip / baseSize) * baseSize;
+    var newPfx = pfx + n;
+    var cnt = Math.pow(2, n);
+    var size = Math.pow(2, 32 - newPfx);
+    var h = 32 - newPfx;
+    var usable = size - 2;
+    var subs = [];
+    for (var i = 0; i < cnt; i++) {
+      var net = baseNet + i * size;
+      subs.push({ i: i, bin: binPad(i, n), net: net, bc: net + size - 1,
+                  first: net + 1, last: net + size - 2, usable: usable });
+    }
+
+    var steps = [{ kind: "base" }];
+    for (var b = 1; b <= n; b++) steps.push({ kind: "borrow", b: b });
+    for (var s = 0; s < cnt; s++) steps.push({ kind: "subnet", s: s });
+    steps.push({ kind: "done" });
+
+    return { cfg: { ipTxt: ipTxt, ip: ip, pfx: pfx, want: want, n: n, cnt: cnt, newPfx: newPfx,
+                    size: size, h: h, usable: usable, baseSize: baseSize, baseNet: baseNet,
+                    subs: subs, steps: steps } };
+  }
+
+  /* ---------------- 渲染：二进制位视图 ---------------- */
+
+  function segHtml(cls, n, txt) {
+    if (n <= 0) return "";
+    return '<div class="seg ' + cls + '" style="width:' + (n / 32 * 100).toFixed(4) + '%">' + txt + "</div>";
+  }
+
+  function rowHtml(lab, bits, netLen, newPfx, kind, fresh, val) {
+    var h = ['<div class="bitrow"><span class="rlab">' + lab + '</span><div class="octs">'];
+    for (var o = 0; o < 4; o++) {
+      h.push('<div class="oct"><div class="octbits">');
+      for (var k = 0; k < 8; k++) {
+        var pos = o * 8 + k;
+        var cls;
+        if (kind === "m") {
+          cls = "bit " + (pos < newPfx ? "m1" : "m0");
+        } else {
+          cls = "bit " + (pos < netLen ? "net" : (pos < newPfx ? "sub" : "host")) + (bits.charAt(pos) === "0" ? " z" : "");
+          if (fresh && pos === newPfx - 1) cls += " fresh";
+        }
+        h.push('<span class="' + cls + '" title="第 ' + (pos + 1) + ' 位">' + bits.charAt(pos) + "</span>");
+      }
+      h.push('</div><div class="octval">' + (Math.floor(val / Math.pow(2, 24 - o * 8)) % 256) + "</div></div>");
+    }
+    h.push("</div></div>");
+    return h.join("");
+  }
+
+  function renderBits(cfg, b, curSub, fresh) {
+    var newPfx = cfg.pfx + b;
+    var addr = curSub >= 0 ? cfg.subs[curSub].net : cfg.baseNet;
+    var hostLen = 32 - newPfx;
+    var h = [];
+    h.push(rowHtml("地址", bitsOf(addr), cfg.pfx, newPfx, "a", fresh, addr));
+    h.push(rowHtml("掩码", bitsOf(maskInt(newPfx)), cfg.pfx, newPfx, "m", false, maskInt(newPfx)));
+    h.push('<div class="segrow"><span class="rlab">位段</span><div class="segs">' +
+      segHtml("s-net", cfg.pfx, "网络位 " + cfg.pfx + " 位") +
+      segHtml("s-sub", b, "子网位 " + b + " 位") +
+      segHtml("s-host", hostLen, "主机位 " + hostLen + " 位") + "</div></div>");
+    return h.join("");
+  }
+
+  /* ---------------- 渲染：参数卡 ---------------- */
+
+  function card(k, v, s, wide) {
+    return '<div class="pcard' + (wide ? " wide" : "") + '"><div class="k">' + k + '</div><div class="v">' + v +
+      "</div>" + (s ? '<div class="s">' + s + "</div>" : "") + "</div>";
+  }
+
+  function renderParams(cfg, b) {
+    var pfx = cfg.pfx + b;
+    var h = 32 - pfx;
+    var size = Math.pow(2, h);
+    var usable = h >= 2 ? size - 2 : 0;
+    var m = maskInt(pfx);
+    var htm = card("子网掩码（点分十进制）", int2ip(m), "前缀 /" + pfx + " 对应的掩码");
+    htm += card("网络位 / 主机位", pfx + " 位 / " + h + " 位", "网络位 = 掩码中 1 的个数");
+    htm += card("子网数", Math.pow(2, b) + (b ? " = 2^" + b : ""), b ? "借了 " + b + " 位主机位" : "尚未借位");
+    htm += card("每个子网地址数", size + " = 2^" + h, "含网络地址与广播地址");
+    htm += card("每子网可用主机数", usable + " = 2^" + h + " − 2", "去掉网络地址和广播地址");
+    htm += card("子网掩码（二进制）", dotBits(bitsOf(m)), "前 " + pfx + " 位为 1，后 " + h + " 位为 0", true);
+    return htm;
+  }
+
+  /* ---------------- 渲染：子网表 ---------------- */
+
+  function renderTable(cfg, revealed) {
+    var h = "";
+    if (revealed === 0) {
+      h = '<tr><td colspan="8" style="color:#94a3b8;padding:10px">' +
+        (cfg.n === 0
+          ? "子网数为 1，不需要借位：本网络本身就是一个子网，直接看下一个子网即可。"
+          : "先完成上面的「借位」步骤（借够位数后，这里会逐行列出每个子网）") + "</td></tr>";
+    } else {
+      for (var i = 0; i < revealed; i++) {
+        var s = cfg.subs[i];
+        h += '<tr' + (i === revealed - 1 ? ' class="cur"' : "") + ">" +
+          "<td>" + (i + 1) + "</td>" +
+          '<td class="mono">' + (cfg.n ? s.bin : "—") + "</td>" +
+          '<td class="mono">' + int2ip(s.net) + "/" + cfg.newPfx + "</td>" +
+          '<td class="mono">' + int2ip(s.net) + "</td>" +
+          '<td class="mono">' + int2ip(s.bc) + "</td>" +
+          '<td class="mono">' + int2ip(s.first) + "</td>" +
+          '<td class="mono">' + int2ip(s.last) + "</td>" +
+          '<td class="mono"><b>' + s.usable + "</b></td></tr>";
+      }
+    }
+    $("tbody").innerHTML = h;
+    var box = $("tbody").parentNode && $("tbody").parentNode.parentNode;
+    if (box && typeof box.scrollHeight === "number") box.scrollTop = box.scrollHeight;
+  }
+
+  /* ---------------- 步骤解说 ---------------- */
+
+  function noteHtml(cfg, idx) {
+    if (idx === 0) {
+      return "<b>第 0 步（就绪）：</b>起点是 <b>" + int2ip(cfg.baseNet) + "/" + cfg.pfx + "</b>，掩码 " +
+        int2ip(maskInt(cfg.pfx)) + "，共 " + cfg.baseSize + " 个地址（可用主机 " + (cfg.baseSize - 2) + " 台）。" +
+        "现在要划出 " + cfg.want + " 个子网 → 至少借 n = ⌈log₂" + cfg.want + "⌉ = <b>" + cfg.n + "</b> 位主机位" +
+        (cfg.n ? "，得到 2^" + cfg.n + " = <b>" + cfg.cnt + "</b> 个子网（实际子网数一定是 2 的幂）。" : "（子网数为 1，无需借位）。") +
+        "整个演示共 " + cfg.steps.length + " 步，点「播放」或「单步」开始。";
+    }
+    var st = cfg.steps[idx - 1];
+    if (st.kind === "base") {
+      var pre = "";
+      if (cfg.ip !== cfg.baseNet) {
+        pre = "输入的 " + cfg.ipTxt + " 落在网络 " + int2ip(cfg.baseNet) + "/" + cfg.pfx +
+          " 内（IP 与掩码相与 = 网络地址），本演示把该<b>网络地址</b> " + int2ip(cfg.baseNet) + " 作为划分起点。<br>";
+      }
+      return "<b>第 1 步 · 认识起点：</b>" + pre +
+        "把 " + int2ip(cfg.baseNet) + " 写成 32 位二进制（见上方蓝色格子）：前 <b>" + cfg.pfx +
+        " 位是网络号</b>，后 <b>" + (32 - cfg.pfx) + " 位是主机号</b>。子网掩码 " + int2ip(maskInt(cfg.pfx)) +
+        "（/" + cfg.pfx + "）的作用就是分开这两部分：掩码为 1 的位对应<b>网络号</b>，为 0 的位对应<b>主机号</b>。" +
+        "该网络包含 2^" + (32 - cfg.pfx) + " = <b>" + cfg.baseSize + "</b> 个地址，可用主机地址 " +
+        cfg.baseSize + " − 2 = <b>" + (cfg.baseSize - 2) + "</b> 台（首地址是网络地址、末地址是广播地址，都不能分配给主机）。";
+    }
+    if (st.kind === "borrow") {
+      var prevPfx = cfg.pfx + st.b - 1, nowPfx = cfg.pfx + st.b;
+      var hb = 32 - nowPfx, szb = Math.pow(2, hb);
+      return "<b>第 " + (st.b + 1) + " 步 · 第 " + st.b + " 次借位：</b>把主机部分的最高位「借」给网络部分当作<b>子网位</b>。" +
+        "掩码从 " + int2ip(maskInt(prevPfx)) + "（/" + prevPfx + "）变成 <b>" + int2ip(maskInt(nowPfx)) + "（/" + nowPfx +
+        "）</b>——第 " + nowPfx + " 位由 0 变 1（上方橙色格子）。" +
+        "子网号有 " + st.b + " 位 → 每位可取 0 或 1，共 2^" + st.b + " = <b>" + Math.pow(2, st.b) + "</b> 个子网；" +
+        "主机位只剩 h = 32 − " + nowPfx + " = <b>" + hb + "</b> 位 → 每个子网 2^" + hb + " = " + szb +
+        " 个地址，可用主机 2^" + hb + " − 2 = <b>" + (szb - 2) + "</b> 台。" +
+        "注意每借 1 位，原来的一个地址块就<b>一分为二</b>：" + (szb * 2) + " → " + szb + "。";
+    }
+    if (st.kind === "subnet") {
+      var s = cfg.subs[st.s];
+      var nextBin = st.s + 1 < cfg.cnt ? binPad(st.s + 1, cfg.n) : "—";
+      return "<b>第 " + (cfg.n + 2 + st.s) + " 步 · 第 " + (st.s + 1) + " 个子网：</b>子网号（" + cfg.n + " 位二进制）= <b>" +
+        (cfg.n ? s.bin : "无") + "</b>。" +
+        "网络地址 = 原网络号（前 " + cfg.pfx + " 位）+ 子网号（" + cfg.n + " 位）+ 主机位全 0 = <b>" + int2ip(s.net) + "/" + cfg.newPfx +
+        "</b>；广播地址 = 主机位全 1 = <b>" + int2ip(s.bc) + "</b>；可用主机地址 <b>" + int2ip(s.first) + " ~ " + int2ip(s.last) +
+        "</b>，共 <b>" + s.usable + "</b> 台。下一个子网只要把子网号 +1（" + (cfg.n ? s.bin : "—") + " → " + nextBin +
+        "），网络地址就 +" + cfg.size + " = " + (st.s + 1 < cfg.cnt ? int2ip(s.net + cfg.size) : "（已是最后一个）") + "。";
+    }
+    /* done */
+    var total = cfg.cnt * cfg.usable;
+    return "<b>最后一步 · 汇总校验：</b>共划出 2^" + cfg.n + " = <b>" + cfg.cnt + "</b> 个子网，每个子网 2^" + cfg.h +
+      " = <b>" + cfg.size + "</b> 个地址、可用主机 <b>" + cfg.usable + "</b> 台。" +
+      "可用主机总数 = " + cfg.cnt + " × " + cfg.usable + " = <b>" + total + "</b>；" +
+      "每个子网被占用的 2 个地址（网络地址 + 广播地址）共 " + cfg.cnt + " × 2 = <b>" + (cfg.cnt * 2) + "</b> 个，" +
+      total + " + " + (cfg.cnt * 2) + " = " + (total + cfg.cnt * 2) + " = 原网络地址总数 " + cfg.baseSize + " ✓ 地址全部对上。" +
+      "记住推导：<b>借 n 位主机位 → 2^n 个子网，每子网 2^h − 2 台主机（h = 32 − 原前缀 − n）</b>。";
+  }
+
+  /* ---------------- 主渲染 ---------------- */
+
+  function render() {
+    if (state.err) {
+      $("headInfo").textContent = "输入有误";
+      $("bits").innerHTML = '<div class="err">⚠️ ' + state.err + "</div>";
+      $("params").innerHTML = ""; $("tbody").innerHTML = "";
+      $("note").innerHTML = "修正上面的参数后点击「✓ 应用」重新生成演示。";
+      $("statPfx").textContent = "—"; $("statBorrow").textContent = "—"; $("statCnt").textContent = "—";
+      $("statHost").textContent = "—"; $("statList").textContent = "—"; $("statState").textContent = "就绪";
+      return;
+    }
+    var cfg = state.cfg;
+    if (state.idx > cfg.steps.length) state.idx = cfg.steps.length;
+    if (state.idx < 0) state.idx = 0;
+    var idx = state.idx;
+    var b = Math.min(idx, cfg.n);
+    var revealed = Math.max(0, Math.min(cfg.cnt, idx - cfg.n - 1));
+    var curSub = revealed > 0 ? revealed - 1 : -1;
+    var pfx = cfg.pfx + b;
+    var h = 32 - pfx;
+    var size = Math.pow(2, h);
+    var usable = h >= 2 ? size - 2 : 0;
+    var fresh = idx >= 1 && idx <= cfg.n;
+
+    $("headInfo").textContent = "/" + cfg.pfx + " → 借 " + b + " 位 → /" + pfx + " · " + Math.pow(2, b) + " 个子网";
+    $("statPfx").textContent = "/" + pfx;
+    $("statBorrow").textContent = b;
+    $("statCnt").textContent = Math.pow(2, b);
+    $("statHost").textContent = usable;
+    $("statList").textContent = revealed + " / " + cfg.cnt;
+    $("statState").textContent = idx === 0 ? "就绪"
+      : (idx >= cfg.steps.length ? "✅ 已划完 " + cfg.cnt + " 个子网"
+        : (b < cfg.n ? "借位中…" : "列举子网中…"));
+
+    $("bits").innerHTML = renderBits(cfg, b, curSub, fresh);
+    $("params").innerHTML = renderParams(cfg, b);
+    renderTable(cfg, revealed);
+    $("note").innerHTML = noteHtml(cfg, idx);
+    updateDesc(cfg);
+  }
+
+  /* ---------------- 知识点说明 ---------------- */
+
+  function updateDesc(cfg) {
+    var s = "";
+    if (cfg) {
+      s = "<b>当前参数：</b>起点 <code>" + int2ip(cfg.baseNet) + "/" + cfg.pfx + "</code>（输入 " + cfg.ipTxt +
+        "），要划出 <b>" + cfg.want + "</b> 个子网 → 至少借 <b>n = ⌈log₂" + cfg.want + "⌉ = " + cfg.n + "</b> 位 → 新前缀 <code>/" +
+        cfg.newPfx + "</code>，掩码 " + int2ip(maskInt(cfg.newPfx)) + "，实际得到 <b>" + cfg.cnt + "</b> 个子网，每个子网 " +
+        cfg.size + " 个地址、可用主机 <b>" + cfg.usable + "</b> 台。<br>";
+    }
+    $("desc").innerHTML = s +
+      "<b>核心推导（借 n 位主机位）：</b>子网划分就是从主机部分「借」若干位加入网络部分。设借走 n 位，" +
+      "则 ① <b>子网数 = 2^n</b>——这 n 位子网号每位可取 0/1，共 2^n 种组合，每种组合对应一个子网（所以子网数一定是 2 的幂；" +
+      "若要「至少 k 个子网」，取 n = ⌈log₂k⌉，实际得到 2^n ≥ k 个，例如要 6 个必须借 3 位得 8 个）；" +
+      "② <b>主机位 h = 32 − 原前缀长度 − n</b>，每个子网有 2^h 个地址；" +
+      "③ <b>每子网可用主机数 = 2^h − 2</b>——主机位全 0 的那个地址是<b>网络地址</b>（代表本子网）、主机位全 1 的那个是<b>广播地址</b>（发给本子网所有主机），" +
+      "二者都不能分配给主机。换个角度：新掩码 = 原掩码长度 + n，每个 1 都对应一位网络号，网络号越长、每个子网越小、子网数越多。<br>" +
+      "<span class='ex'><b>手算校验 · 192.168.1.0/26</b>（掩码二进制 11111111.11111111.11111111.<b>11000000</b> → 255.255.255.192）：" +
+      "h = 32 − 26 = 6 → 每个子网 2⁶ = <b>64</b> 个地址，可用主机 2⁶ − 2 = <b>62</b> 台；" +
+      "子网 1（子网位 00）：网络地址 = <b>192.168.1.0</b>（主机位全 0），广播地址 = <b>192.168.1.63</b>（主机位全 1），可用主机 <b>192.168.1.1 ~ 192.168.1.62</b>；" +
+      "子网 2（子网位 01）：网络地址 = 192.168.1.64，广播地址 = 192.168.1.127，可用主机 192.168.1.65 ~ 192.168.1.126，同样 62 台。" +
+      "验证：把上面的「前缀长度」填 24、「要划分的子网数」填 4（借 2 位 → /26），页面第 1 个子网显示的正是 192.168.1.0 / 192.168.1.63 / 192.168.1.1 ~ 192.168.1.62 / 62 台。</span>" +
+      "<b>反向需求怎么算：</b>如果题目给的是「每个子网至少 m 台主机」，则要求 2^h − 2 ≥ m，即 h ≥ ⌈log₂(m + 2)⌉，新前缀 ≤ 32 − h。" +
+      "例如每子网至少 50 台 → 2^h ≥ 52 → h = 6 → 新前缀 ≤ /26，最多 2^(26−24) = 4 个子网。若题目同时要求子网数与主机数，必须两边都满足，取更严格的那个。" +
+      "<br><b>子网掩码要点：</b>标准子网掩码是「前缀 n 个 1 + 后面 32 − n 个 0」，1 必须<b>连续</b>——像 255.255.0.255 这种 1 不连续的掩码是非法的。" +
+      "IP 与掩码逐位相与（AND）就得到<b>网络地址</b>；把主机位全部置 1 得到<b>广播地址</b>。判断两台主机是否在同一子网：分别与掩码相与，结果相同即同子网。" +
+      "<br><b>FLSM 与 VLSM（对应正文）：</b>本演示是 <b>FLSM</b>（固定长度子网划分，Fixed Length Subnet Masking）——所有子网掩码相同、子网大小相等，简单但浪费；" +
+      "<b>VLSM</b>（变长子网划分）允许按需分配不同长度的掩码，例如把 192.168.1.0/24 分成 /25（给要 100 个地址的部门）、/26（50 个）、/27（25 个），利用率更高。" +
+      "用二叉树理解：每向下一层就是前缀 +1、地址空间减半，FLSM 要求所有子网落在同一层，VLSM 可以落在不同层（且各子网前缀互不包含）。" +
+      "<br><b>特例与易错点：</b>① /30 每个子网只有 2 个可用地址，适合路由器互联；② /31（点对点链路）与 /32（主机路由）是特例，" +
+      "按 RFC 3021 可不保留网络地址与广播地址，所以本演示要求新前缀 ≤ /30 才能保证「−2」成立；③ 划分子网是「前缀变长、一个块拆成多块」，" +
+      "子网聚合（路由汇总）正好相反——「前缀变短、多个相邻块合并成一个」，如 192.168.0.0/24 与 192.168.1.0/24 可聚合成 192.168.0.0/23。";
+  }
+
+  /* ---------------- 播放控制 ---------------- */
+
+  var timer = null, speed = 460, playing = false;
+  function maxIdx() { return state.err ? 0 : state.cfg.steps.length; }
+  function stopTimer() {
+    if (timer) { clearInterval(timer); timer = null; }
+    playing = false;
+    $("btnPlay").textContent = "▶ 播放";
+  }
+  function tick() {
+    stopTimer();
+    if (state.err) return;
+    if (state.idx >= maxIdx()) { state.idx = 0; render(); }
+    playing = true;
+    $("btnPlay").textContent = "⏸ 暂停";
+    timer = setInterval(function () {
+      if (state.idx >= maxIdx()) {
+        stopTimer();
+        $("statState").textContent = "✅ 已划完 " + state.cfg.cnt + " 个子网";
+        return;
+      }
+      state.idx++;
+      render();
+    }, speed);
+  }
+  function rebuild() {
+    stopTimer();
+    var r = build();
+    if (r.err) { state.err = r.err; state.cfg = null; state.idx = 0; }
+    else { state.err = null; state.cfg = r.cfg; state.idx = 0; }
+    render();
+  }
+
+  /* ---------------- 事件 ---------------- */
+
+  var pw = $("presets");
+  PRESETS.forEach(function (p) {
+    var btn = document.createElement("button");
+    btn.className = "btn-ghost";
+    btn.textContent = p.label;
+    btn.onclick = function () {
+      $("ipIn").value = p.ip; $("pfxIn").value = p.pfx; $("cntIn").value = p.cnt;
+      rebuild();
+    };
+    pw.appendChild(btn);
+  });
+  $("btnApply").onclick = rebuild;
+  $("ipIn").onkeydown = function (e) { if (e.key === "Enter") rebuild(); };
+  $("ipIn").onchange = rebuild;
+  $("pfxIn").onchange = rebuild;
+  $("cntIn").onchange = rebuild;
+  $("btnPlay").onclick = function () { if (playing) stopTimer(); else tick(); };
+  $("btnStep").onclick = function () {
+    stopTimer();
+    if (state.err) return;
+    if (state.idx < maxIdx()) { state.idx++; render(); }
+    else $("note").innerHTML = noteHtml(state.cfg, maxIdx()) +
+      '<br><span style="color:#94a3b8">（已经是最后一步了：点「↺ 重置」重新演示，或修改参数看别的划分方案。）</span>';
+  };
+  $("btnReset").onclick = function () { stopTimer(); state.idx = 0; render(); };
+  var sbs = document.querySelectorAll(".speed-group button");
+  for (var si = 0; si < sbs.length; si++) {
+    sbs[si].onclick = (function (btn) {
+      return function () {
+        speed = parseInt(btn.dataset.speed, 10);
+        var all = document.querySelectorAll(".speed-group button");
+        for (var k = 0; k < all.length; k++) all[k].classList.toggle("active", all[k] === btn);
+        if (playing) tick();
+      };
+    })(sbs[si]);
+  }
+
+  rebuild();
+})();
+</script>
+</body>
+</html>

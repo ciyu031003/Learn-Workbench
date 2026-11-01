@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>磁盘调度算法可视化</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f8fafc; color: #1e293b; padding: 16px; }
+  .wrap { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+  .head { background: linear-gradient(135deg, #0ea5e9, #6366f1); color: #fff; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; }
+  .head h1 { font-size: 16px; font-weight: 600; }
+  .head .info { font-size: 12px; opacity: .92; }
+  .controls { padding: 8px 16px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-bottom: 1px solid #eef2f7; }
+  .controls label { font-size: 12px; color: #64748b; }
+  select, input[type=text], input[type=number] { font-size: 13px; padding: 4px 8px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; outline: none; color: #1e293b; }
+  input[type=text] { width: 240px; }
+  input[type=number] { width: 64px; }
+  select:focus, input:focus { border-color: #6366f1; }
+  button { font-size: 13px; padding: 5px 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all .15s; }
+  .btn-primary { background: #6366f1; color: #fff; }
+  .btn-primary:hover { background: #4f46e5; }
+  .btn-ghost { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+  .btn-ghost:hover { background: #e2e8f0; }
+  .presets { display: flex; gap: 5px; flex-wrap: wrap; }
+  .presets button { font-size: 11.5px; padding: 3px 8px; }
+  .spacer { flex: 1; }
+  .speed-group { display: flex; gap: 4px; }
+  .speed-group button { padding: 4px 10px; font-size: 12px; }
+  .speed-group .active { background: #6366f1; color: #fff; border-color: #6366f1; }
+  .stats { padding: 7px 16px; display: flex; gap: 16px; font-size: 12px; color: #64748b; border-bottom: 1px solid #eef2f7; flex-wrap: wrap; }
+  .stats b { color: #1e293b; font-variant-numeric: tabular-nums; }
+  .stage { padding: 8px 14px 4px; }
+  svg { display: block; width: 100%; }
+  .queue { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; font-size: 11px; color: #64748b; padding: 3px 0 6px; min-height: 26px; }
+  .chip { display: inline-block; padding: 1px 6px; border-radius: 6px; background: #f1f5f9; color: #64748b; font-family: ui-monospace, Consolas, monospace; font-size: 11px; }
+  .chip.served { background: #ecfdf5; color: #065f46; }
+  .chip.start { background: #ede9fe; color: #6d28d9; font-weight: 600; }
+  .chip.cur { outline: 2px solid #6366f1; background: #e0e7ff; color: #3730a3; font-weight: 700; }
+  .arrow { color: #cbd5e1; }
+  .cmp { width: 100%; border-collapse: collapse; font-size: 11.5px; margin-top: 2px; }
+  .cmp th, .cmp td { border: 1px solid #eef2f7; padding: 3px 4px; text-align: center; font-variant-numeric: tabular-nums; }
+  .cmp th { background: #f8fafc; color: #64748b; font-weight: 500; }
+  .cmp td.metric { color: #64748b; background: #fcfdfe; text-align: left; padding-left: 8px; white-space: nowrap; }
+  .cmp td.hl { background: #eef2ff; color: #3730a3; font-weight: 700; }
+  .cmp td.best { color: #059669; font-weight: 700; }
+  .err { font-size: 12px; color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 10px 12px; line-height: 1.7; }
+  .note { margin: 0 14px 6px; padding: 6px 10px; border-left: 3px solid #6366f1; background: #f8fafc; border-radius: 0 8px 8px 0; font-size: 12px; color: #334155; line-height: 1.6; min-height: 32px; }
+  .legend { padding: 2px 14px 6px; display: flex; gap: 14px; font-size: 11px; color: #64748b; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+  .desc { padding: 8px 16px 14px; border-top: 1px solid #eef2f7; font-size: 11.5px; color: #475569; line-height: 1.65; }
+  .desc b { color: #334155; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>💽 磁盘调度算法可视化</h1>
+    <span class="info" id="headInfo">FCFS · 先来先服务</span>
+  </div>
+
+  <div class="controls">
+    <label>算法</label>
+    <select id="algoSel">
+      <option value="fcfs">FCFS 先来先服务</option>
+      <option value="sstf">SSTF 最短寻道时间优先</option>
+      <option value="scan">SCAN 扫描（电梯）</option>
+      <option value="cscan">C-SCAN 循环扫描</option>
+      <option value="look">LOOK</option>
+      <option value="clook">C-LOOK</option>
+    </select>
+    <label>磁头初始位置</label><input type="number" id="headIn" value="53" min="0">
+    <label>磁道数</label><input type="number" id="tracksIn" value="200" min="2">
+    <label>方向</label>
+    <select id="dirSel">
+      <option value="1">向内（磁道号增大）</option>
+      <option value="-1">向外（磁道号减小）</option>
+    </select>
+    <label>请求序列</label>
+    <input type="text" id="seqIn" value="98,183,37,122,14,124,65,67">
+  </div>
+
+  <div class="controls">
+    <span class="presets" id="presets"></span>
+    <button class="btn-ghost" id="btnApply">✓ 应用</button>
+    <span class="spacer"></span>
+    <div class="speed-group">
+      <button class="btn-ghost" data-speed="900">慢</button>
+      <button class="btn-ghost active" data-speed="450">中</button>
+      <button class="btn-ghost" data-speed="130">快</button>
+    </div>
+    <button class="btn-primary" id="btnPlay">▶ 播放</button>
+    <button class="btn-ghost" id="btnStep">单步</button>
+    <button class="btn-ghost" id="btnReset">↺ 重置</button>
+  </div>
+
+  <div class="stats">
+    <span>已服务 <b id="statServed">0 / 0</b></span>
+    <span>磁头当前位置 <b id="statPos">—</b></span>
+    <span>累计移动磁道数 <b id="statSeek">0</b></span>
+    <span>状态 <b id="statState">就绪</b></span>
+  </div>
+
+  <div class="stage">
+    <div id="chart"></div>
+    <div class="queue" id="queue"></div>
+    <div id="cmpBox"></div>
+  </div>
+
+  <div class="note" id="note"></div>
+
+  <div class="legend">
+    <span><i style="background:#6366f1"></i>服务请求的移动</span>
+    <span><i style="background:#f59e0b"></i>空走（到磁道端点）</span>
+    <span><i style="background:#8b5cf6"></i>归位（途中不服务）</span>
+    <span><i style="background:#94a3b8"></i>未服务的请求</span>
+    <span><i style="background:#10b981"></i>已服务的请求</span>
+    <span><i style="background:#ede9fe"></i>磁头初始位置</span>
+  </div>
+
+  <div class="desc" id="desc"></div>
+</div>
+
+<script>
+"use strict";
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+
+  var ALGO_INFO = {
+    fcfs:  ["FCFS 先来先服务", "按请求到达的先后顺序逐个服务，最公平、绝不会饥饿；缺点是磁头来回大幅摆动，平均寻道时间最长。"],
+    sstf:  ["SSTF 最短寻道时间优先", "每次挑选离当前磁头最近的请求，属于贪心策略，平均寻道时间最短；缺点是远端请求可能长期得不到服务（饥饿）。"],
+    scan:  ["SCAN 扫描（电梯算法）", "沿当前方向一路服务到磁盘端点，再调转方向。磁头像电梯一样只上下一次，不会饥饿；但到端点那一段是空走，且刚经过才到达的请求要等一整趟。"],
+    cscan: ["C-SCAN 循环扫描", "只在一个方向上服务请求，到达端点后直接快速归位到另一端（归位途中不服务），因此各磁道的等待时间更均匀；代价是归位那一段额外的寻道长度。"],
+    look:  ["LOOK", "与 SCAN 同方向扫描，但到达该方向最后一个请求就回头，不必走到磁盘端点，因此寻道长度通常比 SCAN 短，也不会饥饿。"],
+    clook: ["C-LOOK", "C-SCAN 去掉端点：只走到该方向最后一个请求，然后直接跳到另一端最远的请求，归位途中不服务，寻道长度通常比 C-SCAN 短。"]
+  };
+
+  var PRESETS = [
+    { label: "经典序列（磁头 53，向内）", head: 53, tracks: 200, dir: 1, seq: "98,183,37,122,14,124,65,67" },
+    { label: "教材例题（磁头 100）", head: 100, tracks: 200, dir: 1, seq: "55,58,39,18,90,160,150,38,184" },
+    { label: "一侧密集（磁头 150）", head: 150, tracks: 200, dir: 1, seq: "10,20,30,40,50,60,70,80,90" },
+    { label: "两端分散（磁头 100）", head: 100, tracks: 200, dir: -1, seq: "5,190,15,180,25,170,35,160" }
+  ];
+
+  var state = { err: null, cfg: null, sched: null, all: null, idx: 0 };
+
+  /* ---------------- 调度算法 ---------------- */
+
+  function mk(from, to, kind, reason) {
+    return { from: from, to: to, kind: kind, dist: Math.abs(to - from), reason: reason };
+  }
+  function dirName(d) { return d > 0 ? "磁道号增大方向（向内）" : "磁道号减小方向（向外）"; }
+
+  // reqs: 数组（可重复）；返回步骤数组
+  function schedule(algo, reqs, start, dir, maxT) {
+    var steps = [], items = reqs.map(function (t) { return { t: t, done: false }; });
+    var cur = start, i, j;
+
+    if (algo === "fcfs") {
+      for (i = 0; i < items.length; i++) {
+        var r = items[i].t;
+        steps.push(mk(cur, r, "serve",
+          "FCFS 严格按请求到达的先后顺序服务：队列是 " + reqs.join(" → ") + "，当前应服务第 " + (i + 1) +
+          " 个请求 " + r + "。磁头从 " + cur + " 移动到 " + r + "，本次寻道 " + Math.abs(r - cur) + " 个磁道。"));
+        cur = r;
+      }
+      return steps;
+    }
+
+    if (algo === "sstf") {
+      for (var k = 0; k < items.length; k++) {
+        var best = -1, cand = [];
+        for (i = 0; i < items.length; i++) {
+          if (items[i].done) continue;
+          cand.push({ t: items[i].t, d: Math.abs(items[i].t - cur) });
+          if (best < 0) { best = i; continue; }
+          var d = Math.abs(items[i].t - cur), db = Math.abs(items[best].t - cur);
+          if (d < db || (d === db && items[i].t < items[best].t)) best = i;
+        }
+        cand.sort(function (a, b) { return a.d - b.d || a.t - b.t; });
+        var t = items[best].t;
+        var shown = cand.slice(0, 4).map(function (c) { return c.t + "（距离 " + c.d + "）"; }).join("、");
+        steps.push(mk(cur, t, "serve",
+          "SSTF 每次选<b>距离当前磁头最近</b>的未服务请求。磁头在 " + cur + " 时各候选：" + shown +
+          (cand.length > 4 ? " 等" : "") + " → 最近的是 <b>" + t + "</b>（距离 " + Math.abs(t - cur) + "）" +
+          (cand.length > 1 && cand[0].d === cand[1].d ? "，距离相同时取磁道号较小者" : "") + "，因此先服务它。"));
+        cur = t; items[best].done = true;
+      }
+      return steps;
+    }
+
+    /* SCAN / C-SCAN / LOOK / C-LOOK */
+    var dirn = dir, guard = 0;
+    function pending() {
+      var p = [];
+      for (var q = 0; q < items.length; q++) if (!items[q].done) p.push(items[q]);
+      return p;
+    }
+    while (pending().length > 0 && guard++ < 500) {
+      var side = pending().filter(function (it) { return (it.t - cur) * dirn >= 0; });
+      side.sort(function (a, b) { return dirn > 0 ? a.t - b.t : b.t - a.t; });
+      for (j = 0; j < side.length; j++) {
+        var it = side[j];
+        var why;
+        if (j === 0) {
+          why = (algo === "scan" || algo === "cscan" ? "SCAN 类算法优先考虑磁头当前的移动方向：" : "LOOK 类算法同样沿当前移动方向扫描：") +
+                "磁头正沿 " + dirName(dirn) + " 移动，该方向上最近的未服务请求是 <b>" + it.t + "</b>，先服务它。";
+        } else {
+          why = "继续沿 " + dirName(dirn) + " 移动，途经的请求 <b>" + it.t + "</b> 顺路服务（不需要改变方向）。";
+        }
+        steps.push(mk(cur, it.t, "serve", why));
+        cur = it.t; it.done = true;
+      }
+      if (pending().length === 0) break;
+
+      if (algo === "look") {
+        dirn = -dirn;
+        steps.push(mk(cur, cur, "wrap",
+          "LOOK：该方向上已经没有请求了，磁头在 " + cur + " 处<b>立即调转方向</b>（改为" + dirName(dirn) +
+          "），不必走到磁盘端点，继续服务剩下的请求。"));
+        continue;
+      }
+      if (algo === "clook") {
+        var rest = pending().map(function (x) { return x.t; });
+        var target = dirn > 0 ? Math.min.apply(null, rest) : Math.max.apply(null, rest);
+        steps.push(mk(cur, target, "wrap",
+          "C-LOOK：该方向请求已全部服务，磁头从 " + cur + " <b>直接跳到另一端最远的请求 " + target +
+          "</b>（归位途中不服务任何请求），然后仍按 " + dirName(dirn) + " 继续服务。本次空移 " + Math.abs(target - cur) + " 个磁道。"));
+        cur = target;
+        continue;
+      }
+      if (algo === "cscan") {
+        var endT = dirn > 0 ? maxT : 0;
+        if (cur !== endT) {
+          steps.push(mk(cur, endT, "deadhead",
+            "C-SCAN：沿 " + dirName(dirn) + " 已无请求，但 C-SCAN 仍要移动到磁盘端点 " + endT +
+            "（这一段是空走，不服务请求），再从另一端重新开始扫描。"));
+          cur = endT;
+        }
+        var other = dirn > 0 ? 0 : maxT;
+        steps.push(mk(cur, other, "wrap",
+          "C-SCAN 到达端点 " + cur + " 后<b>直接归位到另一端 " + other + "</b>。归位途中即使经过请求也不服务——" +
+          "这正是 C-SCAN 与 SCAN 的关键区别：它只在一个方向上服务，让各磁道的等待时间更均匀，代价是归位这段额外寻道。"));
+        cur = other;
+        continue;
+      }
+      /* scan */
+      var endS = dirn > 0 ? maxT : 0;
+      if (cur !== endS) {
+        steps.push(mk(cur, endS, "deadhead",
+          "SCAN：沿 " + dirName(dirn) + " 的请求已全部服务，磁头继续移动到磁盘端点 " + endS +
+          "（这一段是空走，不服务请求），然后调转方向。LOOK 算法则会在这里直接回头，省下这段空走。"));
+        cur = endS;
+      }
+      dirn = -dirn;
+      steps.push(mk(cur, cur, "wrap", "SCAN 已到端点 " + cur + "，磁头调转方向，改为" + dirName(dirn) + "继续服务。"));
+    }
+    // 去掉没有实际移动的"转向"占位步骤
+    return steps.filter(function (s) { return s.dist > 0 || s.kind === "serve"; });
+  }
+
+  function totalSeek(steps) { var s = 0; for (var i = 0; i < steps.length; i++) s += steps[i].dist; return s; }
+  function servedCount(steps) { var c = 0; for (var i = 0; i < steps.length; i++) if (steps[i].kind === "serve") c++; return c; }
+
+  /* ---------------- 输入解析 ---------------- */
+
+  function build() {
+    var tracks = parseInt($("tracksIn").value, 10);
+    var head = parseInt($("headIn").value, 10);
+    var dir = parseInt($("dirSel").value, 10);
+    var algo = $("algoSel").value;
+    if (!ALGO_INFO[algo]) algo = "fcfs";
+    if (!(tracks >= 2) || tracks > 100000) return { err: "磁道数需要是不小于 2 的整数（例如 200）。" };
+    if (!(head >= 0) || head > tracks - 1) return { err: "磁头初始位置必须在 0 ~ " + (tracks - 1) + " 之间。" };
+    var raw = $("seqIn").value.split(/[,，\s]+/).filter(function (s) { return s !== ""; });
+    if (raw.length === 0) return { err: "请输入至少一个磁道请求，例如 98,183,37,122,14,124,65,67。" };
+    if (raw.length > 14) return { err: "请求个数最多 14 个，以便在轨迹图中看清每一步（当前 " + raw.length + " 个）。" };
+    var reqs = [], bad = [];
+    for (var i = 0; i < raw.length; i++) {
+      if (!/^-?\d+$/.test(raw[i])) { bad.push(raw[i]); continue; }
+      var v = parseInt(raw[i], 10);
+      if (v < 0 || v > tracks - 1) { bad.push(raw[i]); continue; }
+      reqs.push(v);
+    }
+    if (bad.length) return { err: "以下请求不是 0 ~ " + (tracks - 1) + " 之间的合法磁道号：" + bad.join("、") };
+    var cfg = { algo: algo, reqs: reqs, start: head, dir: dir, tracks: tracks, maxT: tracks - 1 };
+    var all = {};
+    ["fcfs", "sstf", "scan", "cscan", "look", "clook"].forEach(function (a) {
+      var st = schedule(a, reqs, head, dir, tracks - 1);
+      all[a] = { steps: st, total: totalSeek(st), serves: servedCount(st) };
+    });
+    return { cfg: cfg, all: all };
+  }
+
+  /* ---------------- 轨迹图 ---------------- */
+
+  var PAL = { serve: "#6366f1", deadhead: "#f59e0b", wrap: "#8b5cf6" };
+
+  function svgHtml(cfg, sched, idx) {
+    var W = 860, H = 200, x0 = 48, x1 = 826;
+    var axisY = 32, topY = 52, botY = H - 14;
+    var maxT = cfg.maxT;
+    function X(t) { return x0 + (t / maxT) * (x1 - x0); }
+    var n = sched.steps.length;
+    var rowH = (botY - topY) / Math.max(1, n);
+    var p = [];
+
+    p.push('<svg viewBox="0 0 ' + W + " " + H + '" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,PingFang SC,Microsoft YaHei,sans-serif">');
+
+    // 磁道轴
+    p.push('<line x1="' + x0 + '" y1="' + axisY + '" x2="' + x1 + '" y2="' + axisY + '" stroke="#cbd5e1" stroke-width="1.5"/>');
+    var ticks = [0, 0.25, 0.5, 0.75, 1];
+    for (var i = 0; i < ticks.length; i++) {
+      var tv = Math.round(ticks[i] * maxT);
+      var tx = X(tv);
+      p.push('<line x1="' + tx + '" y1="' + (axisY - 4) + '" x2="' + tx + '" y2="' + (axisY + 4) + '" stroke="#cbd5e1" stroke-width="1"/>');
+      p.push('<text x="' + tx + '" y="' + (axisY - 9) + '" font-size="10" fill="#94a3b8" text-anchor="middle">' + tv + "</text>");
+    }
+    p.push('<text x="' + (x0 - 8) + '" y="' + (axisY + 4) + '" font-size="10" fill="#94a3b8" text-anchor="end">磁道</text>');
+
+    // 初始磁头
+    var hs = X(cfg.start);
+    p.push('<line x1="' + hs + '" y1="' + axisY + '" x2="' + hs + '" y2="' + botY + '" stroke="#ddd6fe" stroke-width="1" stroke-dasharray="3 3"/>');
+    p.push('<polygon points="' + (hs - 5) + "," + (axisY - 20) + " " + (hs + 5) + "," + (axisY - 20) + " " + hs + "," + (axisY - 22 + 12) + '" fill="#8b5cf6"/>');
+    p.push('<text x="' + hs + '" y="' + (axisY - 23) + '" font-size="9" fill="#7c3aed" text-anchor="middle">初始 ' + cfg.start + "</text>");
+
+    // 已服务/未服务请求点
+    var servedSet = {};
+    for (var k = 0; k < idx; k++) if (sched.steps[k].kind === "serve") servedSet[sched.steps[k].to] = true;
+    for (var q = 0; q < cfg.reqs.length; q++) {
+      var rx = X(cfg.reqs[q]);
+      var ok = !!servedSet[cfg.reqs[q]];
+      p.push('<circle cx="' + rx + '" cy="' + axisY + '" r="3.5" fill="' + (ok ? "#10b981" : "#94a3b8") + '" stroke="#fff" stroke-width="1"/>');
+    }
+
+    // 每一步的移动线段
+    for (var s2 = 0; s2 < idx; s2++) {
+      var st = sched.steps[s2];
+      var y = topY + (s2 + 0.5) * rowH;
+      var xa = X(st.from), xb = X(st.to);
+      var col = PAL[st.kind] || "#6366f1";
+      var w = (s2 === idx - 1) ? 2.6 : 1.6;
+      if (s2 > 0) {
+        var yPrev = topY + (s2 - 1 + 0.5) * rowH;
+        p.push('<line x1="' + xa + '" y1="' + yPrev + '" x2="' + xa + '" y2="' + y + '" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2 2"/>');
+      }
+      p.push('<text x="' + (x0 - 34) + '" y="' + (y + 3) + '" font-size="9" fill="#94a3b8" text-anchor="start">' + (s2 + 1) + "</text>");
+      if (Math.abs(xb - xa) < 2.5) {
+        p.push('<circle cx="' + xb + '" cy="' + y + '" r="3.2" fill="#fff" stroke="' + col + '" stroke-width="' + w + '"/>');
+      } else {
+        var sgn = xb > xa ? 1 : -1;
+        p.push('<line x1="' + xa + '" y1="' + y + '" x2="' + (xb - sgn * 5) + '" y2="' + y + '" stroke="' + col + '" stroke-width="' + w + '" stroke-linecap="round"/>');
+        p.push('<polygon points="' + xb + "," + y + " " + (xb - sgn * 7) + "," + (y - 3.4) + " " + (xb - sgn * 7) + "," + (y + 3.4) + '" fill="' + col + '"/>');
+        p.push('<circle cx="' + xb + '" cy="' + y + '" r="3" fill="#fff" stroke="' + col + '" stroke-width="1.4"/>');
+      }
+      if (rowH > 13 || s2 === idx - 1) {
+        var lx = xb + (xb > (x0 + x1) / 2 ? -11 : 11);
+        p.push('<text x="' + lx + '" y="' + (y + 3.5) + '" font-size="9.5" fill="' + col + '" text-anchor="' + (xb > (x0 + x1) / 2 ? "end" : "start") + '">' + st.to + "</text>");
+      }
+      if (Math.abs(xb - xa) > 46 && rowH > 13) {
+        p.push('<text x="' + ((xa + xb) / 2) + '" y="' + (y - 2.5) + '" font-size="8.5" fill="#94a3b8" text-anchor="middle">' + st.dist + "</text>");
+      }
+    }
+    p.push("</svg>");
+    return p.join("");
+  }
+
+  /* ---------------- 渲染 ---------------- */
+
+  function queueHtml(cfg, sched, idx) {
+    var cur = idx === 0 ? cfg.start : sched.steps[idx - 1].to;
+    var h = '<span>已服务队列：</span><span class="chip start">' + cfg.start + "</span>";
+    var served = 0;
+    for (var i = 0; i < idx; i++) {
+      var st = sched.steps[i];
+      if (st.kind !== "serve") {
+        h += '<span class="arrow">⇢</span><span class="chip">(' + (st.kind === "wrap" ? "归位" : "空走") + " " + st.from + "→" + st.to + ")</span>";
+      } else {
+        served++;
+        h += '<span class="arrow">→</span><span class="chip served">' + st.to + "</span>";
+      }
+    }
+    h += '<span class="arrow">→</span><span class="chip cur">磁头 ' + cur + "</span>";
+    var pend = [];
+    for (var k = 0; k < cfg.reqs.length; k++) if (!servedSetHas(sched, idx, cfg.reqs[k])) pend.push(cfg.reqs[k]);
+    if (pend.length) h += '<span style="margin-left:4px">待服务：</span>' + pend.map(function (t) { return '<span class="chip">' + t + "</span>"; }).join("");
+    return h;
+  }
+  function servedSetHas(sched, idx, t) {
+    for (var i = 0; i < idx; i++) if (sched.steps[i].kind === "serve" && sched.steps[i].to === t) return true;
+    return false;
+  }
+
+  function cmpHtml(all, algo) {
+    var keys = ["fcfs", "sstf", "scan", "cscan", "look", "clook"];
+    var minT = Infinity;
+    keys.forEach(function (k) { if (all[k].total < minT) minT = all[k].total; });
+    var h = '<table class="cmp"><tr><th style="text-align:left;padding-left:8px">同一组请求 · 算法对比</th>';
+    keys.forEach(function (k) { h += "<th" + (k === algo ? ' style="background:#e0e7ff;color:#3730a3"' : "") + ">" + ALGO_INFO[k][0].split(" ")[0] + "</th>"; });
+    h += "</tr><tr><td class='metric'>总寻道长度（磁道数）</td>";
+    keys.forEach(function (k) {
+      var cls = (k === algo ? "hl" : "") + (all[k].total === minT ? " best" : "");
+      h += '<td class="' + cls.trim() + '">' + all[k].total + (all[k].total === minT ? " ⭐" : "") + "</td>";
+    });
+    h += "</tr><tr><td class='metric'>移动次数（含空走/归位）</td>";
+    keys.forEach(function (k) { h += '<td class="' + (k === algo ? "hl" : "") + '">' + all[k].steps.length + "</td>"; });
+    h += "</tr></table>";
+    return h;
+  }
+
+  function render() {
+    if (state.err) {
+      $("headInfo").textContent = "输入有误";
+      $("chart").innerHTML = '<div class="err">⚠️ ' + state.err + "</div>";
+      $("queue").innerHTML = ""; $("cmpBox").innerHTML = "";
+      $("note").textContent = "修正输入后点击「应用」重新生成演示。";
+      $("statServed").textContent = "0 / 0"; $("statPos").textContent = "—";
+      $("statSeek").textContent = "0"; $("statState").textContent = "就绪";
+      return;
+    }
+    var cfg = state.cfg, all = state.all, algo = cfg.algo;
+    if (!all[algo]) algo = "fcfs";
+    var sched = all[algo];
+    if (state.idx > sched.steps.length) state.idx = sched.steps.length;
+    if (state.idx < 0) state.idx = 0;
+    var idx = state.idx;
+    var cur = idx === 0 ? cfg.start : sched.steps[idx - 1].to;
+    var seek = 0;
+    for (var i = 0; i < idx; i++) seek += sched.steps[i].dist;
+    var served = 0;
+    for (var j = 0; j < idx; j++) if (sched.steps[j].kind === "serve") served++;
+
+    $("headInfo").textContent = ALGO_INFO[algo][0] + " · " + (cfg.dir > 0 ? "向内" : "向外") + " · 磁头 " + cfg.start;
+    $("statServed").textContent = served + " / " + cfg.reqs.length;
+    $("statPos").textContent = cur;
+    $("statSeek").textContent = seek + (idx === sched.steps.length ? "（最终）" : "");
+    $("statState").textContent = idx === 0 ? "就绪" : (idx >= sched.steps.length ? "✅ 全部服务完毕" : "演示中…");
+
+    $("chart").innerHTML = svgHtml(cfg, sched, idx);
+    $("queue").innerHTML = queueHtml(cfg, sched, idx);
+    $("cmpBox").innerHTML = cmpHtml(all, algo);
+    $("note").innerHTML = idx === 0
+      ? "<b>第 0 步：</b>磁头初始在磁道 <b>" + cfg.start + "</b>，请求序列 " + cfg.reqs.join("、") +
+        "，移动方向为" + dirName(cfg.dir) + "。点击「播放」或「单步」开始，共 " + sched.steps.length + " 次移动。"
+      : "<b>第 " + idx + " 步：" + (sched.steps[idx - 1].reason) + "</b>";
+
+    $("desc").innerHTML =
+      "<b>当前算法：</b>" + ALGO_INFO[algo][1] + "<br>" +
+      "<b>为什么会有「饥饿」：</b>SSTF 只看距离远近，如果远端请求等待期间不断有新到的近距离请求，它就会被无限推迟——这就是饥饿；FCFS、SCAN、C-SCAN、LOOK、C-LOOK 都按方向或顺序扫描，不会饥饿。<br>" +
+      "<b>SCAN 与 LOOK 的区别：</b>SCAN 即使当前方向已经没有任何请求，也要一直走到磁盘端点再回头，这段是纯粹的空走；LOOK 到该方向最后一个请求就立即回头，因此 LOOK 的总寻道长度总是 ≤ SCAN。<br>" +
+      "<b>C-SCAN 为什么回头时不服务：</b>C-SCAN 只在一个方向上服务请求，走到端点后必须快速归位到另一端，如果归位途中也服务，就又变成了双向扫描，各磁道的等待时间会很不均匀；不服务才能保证「每个磁道等待时间上界一致」。C-LOOK 是它的变体：不走到端点，直接跳到另一端最远的请求。";
+  }
+
+  /* ---------------- 播放控制 ---------------- */
+
+  var timer = null, speed = 450, playing = false, playTimer = null;
+
+  function stopTimer() {
+    if (timer) { clearInterval(timer); timer = null; }
+    playing = false;
+    $("btnPlay").textContent = "▶ 播放";
+  }
+  function maxIdx() { return state.err ? 0 : state.all[state.cfg.algo].steps.length; }
+
+  function tick() {
+    stopTimer();
+    if (state.err) return;
+    if (state.idx >= maxIdx()) { state.idx = 0; render(); }
+    playing = true;
+    $("btnPlay").textContent = "⏸ 暂停";
+    timer = setInterval(function () {
+      if (state.idx >= maxIdx()) {
+        stopTimer();
+        $("statState").textContent = "✅ 全部服务完毕";
+        $("note").innerHTML = "✅ 演示完成：" + ALGO_INFO[state.cfg.algo][0] + " 共移动 " +
+          totalSeek(state.all[state.cfg.algo].steps) + " 个磁道（可在下方对比表中与其它算法比较）。";
+        return;
+      }
+      state.idx++;
+      render();
+    }, speed);
+  }
+
+  function rebuild() {
+    stopTimer();
+    var r = build();
+    if (r.err) { state.err = r.err; state.cfg = null; state.all = null; state.idx = 0; }
+    else { state.err = null; state.cfg = r.cfg; state.all = r.all; state.idx = 0; }
+    render();
+  }
+
+  /* ---------------- 事件 ---------------- */
+
+  var pw = $("presets");
+  PRESETS.forEach(function (p) {
+    var b = document.createElement("button");
+    b.className = "btn-ghost";
+    b.textContent = p.label;
+    b.onclick = function () {
+      $("headIn").value = p.head; $("tracksIn").value = p.tracks;
+      $("dirSel").value = String(p.dir); $("seqIn").value = p.seq;
+      rebuild();
+    };
+    pw.appendChild(b);
+  });
+
+  $("algoSel").onchange = function () { stopTimer(); state.idx = 0; render(); };
+  $("btnApply").onclick = rebuild;
+  $("headIn").onchange = rebuild;
+  $("tracksIn").onchange = rebuild;
+  $("dirSel").onchange = rebuild;
+  $("seqIn").onkeydown = function (e) { if (e.key === "Enter") rebuild(); };
+  $("btnPlay").onclick = function () { if (playing) stopTimer(); else tick(); };
+  $("btnStep").onclick = function () {
+    stopTimer();
+    if (state.err) return;
+    if (state.idx < maxIdx()) { state.idx++; render(); }
+    else $("note").innerHTML = "✅ 已经到最后一步；点击「↺ 重置」重新演示，或切换算法对比。";
+  };
+  $("btnReset").onclick = function () { stopTimer(); state.idx = 0; render(); };
+  var sbs = document.querySelectorAll(".speed-group button");
+  for (var si = 0; si < sbs.length; si++) {
+    sbs[si].onclick = (function (btn) {
+      return function () {
+        speed = parseInt(btn.dataset.speed, 10);
+        var all = document.querySelectorAll(".speed-group button");
+        for (var k = 0; k < all.length; k++) all[k].classList.toggle("active", all[k] === btn);
+        if (playing) tick();
+      };
+    })(sbs[si]);
+  }
+
+  rebuild();
+})();
+</script>
+</body>
+</html>
