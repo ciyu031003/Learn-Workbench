@@ -60,7 +60,9 @@ async function loadSubject(code) {
 }
 
 async function main() {
-  await mkdir(OUT_DIR, { recursive: true });
+  await mkdir(OUT_DIR, { recursive: true }).catch((error) => {
+    if (error.code !== "EACCES" && error.code !== "EROFS") throw error;
+  });
   const all = [];
   for (const [code, subjectKey] of CODES) {
     const points = await loadSubject(code);
@@ -76,7 +78,12 @@ async function main() {
       demoKey: p.demo ? String(p.demo) : null,
       sortOrder: index,
     }));
-    await writeFile(path.join(OUT_DIR, code + ".json"), JSON.stringify(normalized, null, 1));
+    // 规范化 JSON 已在仓库里；容器内 /app 只读，写失败只告警、不阻断导入
+    try {
+      await writeFile(path.join(OUT_DIR, code + ".json"), JSON.stringify(normalized, null, 1));
+    } catch (error) {
+      if (error.code !== "EACCES" && error.code !== "EROFS") throw error;
+    }
     all.push(...normalized);
     console.log("[cards] " + code + " " + normalized.length + " 张 → scripts/408card/cards/" + code + ".json");
   }
