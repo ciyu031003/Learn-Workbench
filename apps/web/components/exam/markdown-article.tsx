@@ -1,6 +1,9 @@
 import { Fragment } from "react";
 import { Info, MonitorPlay, Sigma } from "lucide-react";
 
+import { KnowledgeMap } from "@/components/exam/knowledge-map";
+import { isKnowledgeMapBlock, type Exam408MapPresentation } from "@/lib/exam-408-map";
+
 import { RichText } from "@/components/rich-text";
 import { cn } from "@/lib/utils";
 import type { StudyBlock } from "@/lib/exam-408-study";
@@ -20,23 +23,34 @@ import type { StudyBlock } from "@/lib/exam-408-study";
 export function MarkdownArticle({
   blocks,
   sourceUrl,
+  knowledgeMap,
   className,
 }: {
   blocks: StudyBlock[];
   /** 原文链接：交互图谱 / 外链图片的出入口 */
   sourceUrl?: string | null;
+  /** 章节知识图谱（服务端预计算的展示数据）：命中 knowledge-map iframe 时渲染原生 SVG，不再给外链 */
+  knowledgeMap?: Exam408MapPresentation | null;
   className?: string;
 }) {
   return (
     <article className={cn("flex flex-col gap-4 text-[0.9375rem] leading-[1.9] text-foreground/90", className)}>
       {blocks.map((block, index) => (
-        <BlockView key={index} block={block} sourceUrl={sourceUrl} />
+        <BlockView key={index} block={block} sourceUrl={sourceUrl} knowledgeMap={knowledgeMap} />
       ))}
     </article>
   );
 }
 
-function BlockView({ block, sourceUrl }: { block: StudyBlock; sourceUrl?: string | null }) {
+function BlockView({
+  block,
+  sourceUrl,
+  knowledgeMap,
+}: {
+  block: StudyBlock;
+  sourceUrl?: string | null;
+  knowledgeMap?: Exam408MapPresentation | null;
+}) {
   switch (block.type) {
     case "heading": {
       // 一级标题就是文章标题（页面头部已经渲染），正文里跳过避免重复
@@ -142,6 +156,11 @@ function BlockView({ block, sourceUrl }: { block: StudyBlock; sourceUrl?: string
         </div>
       );
     case "iframe":
+      // 章节知识图谱：渲染原生 SVG（数据来自迁移 088），彻底去掉 iframe 与外链
+      if (knowledgeMap && isKnowledgeMapBlock(block)) {
+        // key 保证换章节时重置缩放/平移状态（组件内部不再用 effect 重置）
+        return <KnowledgeMap key={knowledgeMap.key} data={knowledgeMap} />;
+      }
       return (
         <div className="flex flex-col gap-2 rounded-xl border border-dashed border-border bg-muted/20 px-4 py-4 text-sm text-muted-foreground">
           <span className="inline-flex items-center gap-2 font-medium text-foreground">

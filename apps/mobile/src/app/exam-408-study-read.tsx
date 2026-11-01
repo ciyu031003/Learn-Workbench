@@ -16,6 +16,7 @@ import { PressableScale } from "@/components/pressable-scale";
 import { ThemedIcon } from "@/components/themed-icon";
 import { ScreenHeaderStickyBar } from "@/components/screen-header";
 import { getApiUrl } from "@/config";
+import { getExam408KnowledgeMap, type Exam408KnowledgeMap } from "@/lib/exam-408-map";
 import {
   buildStudyToc,
   exam408StudyImportanceLabel,
@@ -51,6 +52,10 @@ export default function Exam408StudyReadScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [tocOpen, setTocOpen] = useState(false);
+  /** 📊 章节知识图谱文章的原生图谱数据（非图谱文章为 null） */
+  const [knowledgeMap, setKnowledgeMap] = useState<Exam408KnowledgeMap | null>(null);
+  const [mapLoading, setMapLoading] = useState(false);
+  const [mapError, setMapError] = useState("");
   const headingY = useRef<Record<string, number>>({});
   /** 正文根节点在滚动内容里的偏移：标题 y 是相对正文的，跳转要加上它 */
   const articleY = useRef(0);
@@ -70,12 +75,28 @@ export default function Exam408StudyReadScreen() {
     setLoading(true);
     setError("");
     headingY.current = {};
+    setKnowledgeMap(null);
+    setMapError("");
+    setMapLoading(false);
     try {
       const next = await getExam408StudyArticle(target);
       setDetail(next);
       setSlug(target);
       if (!options?.keepScroll) {
         scrollRef.current?.scrollTo({ y: 0, animated: false });
+      }
+      // 「📊 章节知识图谱」文章：正文里是 knowledge-map iframe，这里取原生图谱数据交给渲染器
+      if (/knowledge-map/i.test(next.article.slug)) {
+        setMapLoading(true);
+        try {
+          const map = await getExam408KnowledgeMap(next.article.slug);
+          setKnowledgeMap(map);
+          setMapError(map ? "" : "本章知识图谱暂未同步");
+        } catch (mapReason) {
+          setMapError(mapReason instanceof Error ? mapReason.message : "知识图谱加载失败");
+        } finally {
+          setMapLoading(false);
+        }
       }
     } catch (reason) {
       setDetail(null);
@@ -208,6 +229,10 @@ export default function Exam408StudyReadScreen() {
           onArticleLayout={(y) => {
             articleY.current = y;
           }}
+          knowledgeMap={knowledgeMap}
+          knowledgeMapLoading={mapLoading}
+          knowledgeMapError={mapError}
+          onKnowledgeMapRetry={() => void load(slug, { keepScroll: true })}
         />
 
         <View style={styles.pager}>

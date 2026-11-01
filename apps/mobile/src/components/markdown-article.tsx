@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { SvgXml } from "react-native-svg";
+import { KnowledgeMap } from "@/components/knowledge-map";
 import { ThemedIcon } from "@/components/themed-icon";
+import type { Exam408KnowledgeMap } from "@/lib/exam-408-map";
 import {
   resolveStudyAssetUrl,
   studyImageKind,
@@ -33,9 +35,26 @@ export interface MarkdownArticleProps {
   onHeadingLayout?: (id: string, y: number) => void;
   /** 正文根节点在滚动容器里的 y（目录跳转要把它加到标题偏移上） */
   onArticleLayout?: (y: number) => void;
+  /**
+   * 章节知识图谱（v1.55）：cs408 正文里的 knowledge-map iframe 不再显示占位/外链，
+   * 由阅读页按文章 slug 取数后传进来，这里负责渲染原生 SVG。
+   */
+  knowledgeMap?: Exam408KnowledgeMap | null;
+  knowledgeMapLoading?: boolean;
+  knowledgeMapError?: string;
+  onKnowledgeMapRetry?: () => void;
 }
 
-export function MarkdownArticle({ blocks, assetBaseUrl, onHeadingLayout, onArticleLayout }: MarkdownArticleProps): React.JSX.Element {
+export function MarkdownArticle({
+  blocks,
+  assetBaseUrl,
+  onHeadingLayout,
+  onArticleLayout,
+  knowledgeMap,
+  knowledgeMapLoading,
+  knowledgeMapError,
+  onKnowledgeMapRetry,
+}: MarkdownArticleProps): React.JSX.Element {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
@@ -109,8 +128,21 @@ export function MarkdownArticle({ blocks, assetBaseUrl, onHeadingLayout, onArtic
           case "image":
             // key 带 src：换文章/换图时组件重挂载，加载态与宽高比自然重置（避免在 effect 里同步 setState）
             return <StudyImage key={key + "-" + block.src} src={block.src} alt={block.alt} assetBaseUrl={assetBaseUrl} />;
-          case "embed":
+          case "embed": {
+            // 「📊 章节知识图谱」：原生自绘，不再出现「去原文查看」外链
+            if (/knowledge-map/i.test(block.src)) {
+              return (
+                <KnowledgeMap
+                  key={key}
+                  map={knowledgeMap ?? null}
+                  loading={knowledgeMapLoading}
+                  error={knowledgeMapError}
+                  onRetry={onKnowledgeMapRetry}
+                />
+              );
+            }
             return <EmbedNotice key={key} src={block.src} title={block.title} assetBaseUrl={assetBaseUrl} />;
+          }
           case "divider":
             return <View key={key} style={styles.divider} />;
           default:

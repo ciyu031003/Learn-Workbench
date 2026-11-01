@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { MarkdownArticle } from "@/components/exam/markdown-article";
+import { buildKnowledgeMapPresentation, getExam408KnowledgeMap, isKnowledgeMapBlock } from "@/lib/exam-408-map";
 import { decodeStudySlug, getExam408StudyTopic, studyTopicHref } from "@/lib/exam-408-study";
 import { ArrowLeft, ChevronLeft, ChevronRight, Clock, ExternalLink, Layers3, ListTree } from "lucide-react";
 
@@ -27,11 +28,17 @@ export default async function Exam408StudyArticlePage({
 }) {
   const { slug } = await params;
   // cs408 的 slug 含中文（如 data_structure-绪论-knowledge-map），App Router 传入的可能是百分号编码
-  const detail = await getExam408StudyTopic(decodeStudySlug(slug));
+  const decodedSlug = decodeStudySlug(slug);
+  const detail = await getExam408StudyTopic(decodedSlug);
   if (!detail) notFound();
 
   const topic = detail.topic;
   const toc = detail.toc;
+  // 「章节知识图谱」文章：取迁移 088 的图谱数据，在服务端预计算布局/折行/统计后交给正文渲染器自绘
+  const mapRecord = detail.blocks.some((block) => isKnowledgeMapBlock(block))
+    ? await getExam408KnowledgeMap({ topicSlug: decodedSlug })
+    : null;
+  const knowledgeMap = mapRecord ? buildKnowledgeMapPresentation(mapRecord) : null;
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-4 sm:p-7">
@@ -121,7 +128,7 @@ export default async function Exam408StudyArticlePage({
         <div className="min-w-0">
           <Card hover={false} rail="study">
             <CardContent className="p-5 sm:p-8">
-              <MarkdownArticle blocks={detail.blocks} sourceUrl={topic.sourceUrl} />
+              <MarkdownArticle blocks={detail.blocks} sourceUrl={topic.sourceUrl} knowledgeMap={knowledgeMap} />
             </CardContent>
           </Card>
         </div>
