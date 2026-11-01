@@ -31,6 +31,7 @@ import {
   exam408PointHref,
   resolveExam408Subject,
 } from "@/lib/exam-408-view";
+import { setNavPendingParams } from "@/lib/nav-pending";
 import { useScreenEntrance } from "@/lib/use-screen-entrance";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
@@ -157,14 +158,27 @@ function Exam408Content({ track }: { track: LearningTrack }) {
     if (!pointKey) return;
     // 字符串 href（而非 {pathname, params} 对象形式）：对象形式在 native-stack 重复
     // 推入同名路由时 params 会冻结在首次值 → 点开任何章节都显示第一次的知识点（v1.50 修复）
+    // v1.51 勘误：两种 href 经 resolveHref 归一后是同一个 URL，params 冻结依旧
+    // （真机取证 2026-11-01）。真正的修复是场外通道：push 前把 key 写入
+    // nav-pending，知识点页聚焦时优先消费它（见 quiz/408-point.tsx）。
+    setNavPendingParams("quiz-408-point", { key: pointKey });
     router.push(exam408PointHref(pointKey) as never);
   }, [pendingPointKey]);
 
   const startTrackPractice = (stageKey?: string, topicKey?: string) => {
-    // 同上：字符串 href 防同名路由 params 冻结（stage/topic 是动态值）
+    // 同上：字符串 href 防同名路由 params 冻结（stage/topic 是动态值）；
+    // 目标参数同时登记入场外通道（v1.51，见 lib/nav-pending.ts）
     const query = [`track=${encodeURIComponent(track.slug)}`, "mode=stage", `returnTo=${encodeURIComponent("/exam-408")}`];
-    if (stageKey) query.push(`stage=${encodeURIComponent(stageKey)}`);
-    if (topicKey) query.push(`topic=${encodeURIComponent(topicKey)}`);
+    const pending: Record<string, string> = { track: track.slug, mode: "stage" };
+    if (stageKey) {
+      query.push(`stage=${encodeURIComponent(stageKey)}`);
+      pending.stage = stageKey;
+    }
+    if (topicKey) {
+      query.push(`topic=${encodeURIComponent(topicKey)}`);
+      pending.topic = topicKey;
+    }
+    setNavPendingParams("quiz-session", pending);
     router.push(`/quiz/session?${query.join("&")}` as never);
   };
 

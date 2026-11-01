@@ -90,14 +90,14 @@ describe("exam 408 mobile view model", () => {
   });
 });
 
-describe("exam408PointHref（v1.50：知识点跳转 href）", () => {
+describe("exam408PointHref（知识点跳转 href；params 冻结的真修复在 exam-408-pending）", () => {
   it("含斜杠的 key 必须整体编码成一个查询值（%2F），不能被当路径切分", () => {
     expect(exam408PointHref("beokayy-408/ds-01-01")).toBe(
       "/quiz/408-point?key=beokayy-408%2Fds-01-01",
     );
   });
 
-  it("不同知识点生成不同 href —— 重复推入同名路由时每次的 URL 都不同（防 params 冻结回归）", () => {
+  it("不同知识点生成不同 href（URL 仍是导航载体，深链可用）", () => {
     const first = exam408PointHref("beokayy-408/ds-01-01");
     const second = exam408PointHref("beokayy-408/os-03-02");
     expect(first).not.toBe(second);

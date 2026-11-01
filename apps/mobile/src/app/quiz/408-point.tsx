@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import Animated from "react-native-reanimated";
@@ -7,6 +7,7 @@ import { PressableScale } from "@/components/pressable-scale";
 import { Exam408QuestionCard } from "@/components/exam-408-question-card";
 import { ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { getExam408Point, type Exam408PointDetail } from "@/lib/exam-408";
+import { takeNavPendingParams } from "@/lib/nav-pending";
 import { useScreenEntrance } from "@/lib/use-screen-entrance";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
@@ -28,12 +29,28 @@ function PointContent({ pointKey }: { pointKey: string }) {
   const [detail, setDetail] = useState<Exam408PointDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  /**
+   * 本实例已解析的知识点 key（ref 而非 state：进 load 依赖会改变 useFocusEffect
+   * 回调身份，聚焦态下身份变化会立即重跑回调 → 每次聚焦多发一次请求）。
+   */
+  const activeKeyRef = useRef("");
 
   const load = useCallback(async () => {
+    // v1.51 修复「点开所有知识点都是同一套题」：expo-router 在 native 上重复推入
+    // 同名路由时实例 params 冻结在首次值（真机取证 2026-11-01：连续打开 4 个
+    // 不同科目的知识点，5 次请求的 key 全部是第一次的 ds-03-02）。跳转方把目标
+    // key 写入场外通道（nav-pending），这里每次聚焦优先消费它；
+    // ref 里是本实例上次实际加载的 key（失败重试不再回落到冻结 params）；
+    // params 只作深链/状态恢复的兜底。
+    const key =
+      takeNavPendingParams("quiz-408-point")?.key ||
+      activeKeyRef.current ||
+      pointKey;
+    activeKeyRef.current = key;
     setLoading(true);
     setError("");
     try {
-      setDetail(await getExam408Point(pointKey));
+      setDetail(await getExam408Point(key));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "知识点加载失败");
     } finally {
