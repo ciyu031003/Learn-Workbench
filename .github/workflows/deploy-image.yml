@@ -55,6 +55,9 @@ jobs:
           push: true
           build-args: |
             APP_VERSION=${{ steps.version.outputs.tag }}
+            # GitHub runner（境外）访问腾讯 apt 镜像会 exit 100：镜像构建走官方源
+            # （与 ci.yml E2E 同因，2026-11-01）
+            APT_MIRROR=deb.debian.org
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: |

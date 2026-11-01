@@ -106,7 +106,18 @@ jobs:
         run: node scripts/check-deps-audit.mjs
 
       - name: Coverage gate (ratchet thresholds)
-        run: pnpm test:coverage
+        # 失败时把关键输出写成 GitHub annotation（免 admin 日志权限即可经 API 排查，
+        # 与审计/E2E 步同款做法，2026-11-01）
+        run: |
+          set -o pipefail
+          if pnpm test:coverage 2>&1 | tee /tmp/coverage.log; then
+            echo "coverage ok"
+          else
+            code=$?
+            echo "::error::[coverage] pnpm test:coverage 退出码 $code，关键输出："
+            grep -E "ERROR:|FAIL |AssertionError|does not meet" /tmp/coverage.log | head -20 | while IFS= read -r line; do echo "::error::$line"; done
+            exit "$code"
+          fi
 
       - name: Build (web)
         run: pnpm --filter web build
