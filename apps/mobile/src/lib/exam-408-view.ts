@@ -67,3 +67,21 @@ export function exam408DisplayTags(tags: string[], limit = 3): string[] {
     .filter((tag) => !INTERNAL_TAGS.has(tag.trim()))
     .slice(0, Math.max(0, limit));
 }
+
+/**
+ * 408 专区的真题索引科目（beokayy-408/<key>）→ ex-408-grad 讲义轨道的阶段 key。
+ * 专区的知识点本身没有正文（只有标题/标签 + 关联真题），带正文的讲义在
+ * ex-408-grad 轨道里（25 章级知识点，内容来自"计算机考研杂货铺"），按科目对应。
+ * key 兼容带前缀与不带前缀两种形态；无对应阶段返回 null（调用方隐藏入口）。
+ */
+const GRAD_STAGE_BY_SUBJECT: Record<string, string> = {
+  "data-structure": "ex408g-ds-stage",
+  "computer-organization": "ex408g-co-stage",
+  "operating-system": "ex408g-os-stage",
+  "computer-network": "ex408g-net-stage",
+};
+
+export function exam408GradStageForSubject(subjectKey: string): string | null {
+  const bare = subjectKey.trim().split("/").pop() ?? "";
+  return GRAD_STAGE_BY_SUBJECT[bare] ?? null;
+}

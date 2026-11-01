@@ -21,13 +21,12 @@ type LevelFilter = "全部" | "入门" | "进阶" | "综合";
 const LEVEL_OPTIONS: LevelFilter[] = ["全部", "入门", "进阶", "综合"];
 
 export default function QuizLibraryScreen() {
-  /** 课程来自数据库（content-store） */
+  /** 课程来自数据库（content-store）。
+   * v1.52：408 课程（ex-408-grad，带正文讲义）放回课程库 —— 此前为给 408 专区让位
+   * 而整体排除，导致 App 内没有讲义阅读入口（web 端 /learn/ex-408-grad 一直可见）。 */
   const learningTracks = useLearningTracks();
   const learningCategories = useLearningCategories();
-  const LIBRARY_TRACKS = useMemo(
-    () => learningTracks.filter((track) => track.category !== "408" && track.slug !== "ex-408-grad"),
-    [learningTracks]
-  );
+  const LIBRARY_TRACKS = useMemo(() => learningTracks, [learningTracks]);
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const header = useLargeTitleHeader();

@@ -27,6 +27,7 @@ import {
 import {
   exam408ChapterPreview,
   exam408DisplayTags,
+  exam408GradStageForSubject,
   exam408OverviewStats,
   exam408PointHref,
   resolveExam408Subject,
@@ -587,6 +588,7 @@ function SubjectBrowser({
         onSubjectChange={onSubjectChange}
       />
       <SubjectSummary subject={activeSubject} mode={mode} />
+      <GradLessonEntry subject={activeSubject} />
       {activeSubject.chapters.length > 0 ? (
         <View style={styles.chapterList}>
           {activeSubject.chapters.map((chapter) => {
@@ -716,6 +718,55 @@ function SubjectRail({
         );
       })}
     </Animated.ScrollView>
+  );
+}
+
+/**
+ * 「讲义阅读」入口（v1.52）：专区里的知识点是真题索引（无正文），带正文的讲义在
+ * ex-408-grad 轨道（25 章级知识点，来自"计算机考研杂货铺"）。按当前科目跳到该科
+ * 讲义的章节清单（quiz/chapter → quiz/read）。参数走 nav-pending（同名路由防冻结，
+ * 见 lib/nav-pending.ts）；无对应阶段（未知科目/内容未加载）时隐藏。
+ */
+function GradLessonEntry({ subject }: { subject: Exam408SubjectSummary }) {
+  const { colors, dark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
+  const gradTrack = useLearningTrack("ex-408-grad");
+  const gradStageKey = exam408GradStageForSubject(subject.key);
+  const gradStage = gradTrack?.stages.find((stage) => stage.key === gradStageKey);
+  if (!gradStage || gradStage.topics.length === 0) return null;
+  const tone = subjectTone(subject, dark);
+
+  const openLesson = () => {
+    if (!gradTrack) return;
+    setNavPendingParams("quiz-chapter", {
+      track: gradTrack.slug,
+      stage: gradStage.key,
+    });
+    router.push(
+      `/quiz/chapter?track=${encodeURIComponent(gradTrack.slug)}&stage=${encodeURIComponent(gradStage.key)}` as never,
+    );
+  };
+
+  return (
+    <PressableScale
+      haptic
+      scaleTo={0.985}
+      onPress={openLesson}
+      style={[styles.lessonEntry, { borderColor: `${tone.color}35` }]}
+      accessibilityRole="button"
+      accessibilityLabel={`阅读${subject.title}讲义，共 ${gradStage.topics.length} 章正文`}
+    >
+      <View style={[styles.lessonEntryIcon, { backgroundColor: tone.soft }]}>
+        <ThemedIcon name="book-outline" size={20} color={tone.color} />
+      </View>
+      <View style={styles.lessonEntryBody}>
+        <Text style={styles.lessonEntryTitle}>{subject.title} · 讲义阅读</Text>
+        <Text style={styles.lessonEntryMeta} numberOfLines={1}>
+          {gradStage.topics.length} 章正文讲解 · 概念 / 机制 / 易错点
+        </Text>
+      </View>
+      <ThemedIcon name="chevron-forward" size={18} color={colors.textFaint} />
+    </PressableScale>
   );
 }
 
@@ -1174,6 +1225,25 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       color: colors.textSecondary,
     },
     subjectSummaryMuted: { ...typography.micro, color: colors.textFaint },
+    lessonEntry: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.md,
+      borderRadius: radius.lg,
+      padding: spacing.md,
+      backgroundColor: colors.surfaceStrong,
+      borderWidth: StyleSheet.hairlineWidth,
+    },
+    lessonEntryIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: 15,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    lessonEntryBody: { flex: 1, gap: 2 },
+    lessonEntryTitle: { ...typography.headline, color: colors.text },
+    lessonEntryMeta: { ...typography.caption, color: colors.textMuted },
     chapterList: { gap: spacing.md },
     chapterCard: {
       minHeight: 112,

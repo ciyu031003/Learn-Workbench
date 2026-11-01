@@ -4,6 +4,7 @@ import {
   EXAM_408_EMPTY_STATS,
   exam408ChapterPreview,
   exam408DisplayTags,
+  exam408GradStageForSubject,
   exam408OverviewStats,
   exam408PointHref,
   resolveExam408Subject,
@@ -109,5 +110,21 @@ describe("exam408PointHref（知识点跳转 href；params 冻结的真修复在
       "/quiz/408-point?key=beokayy-408%2Fds-02-01",
     );
     expect(exam408PointHref("   ")).toBe("/quiz/408-point");
+  });
+});
+
+describe("exam408GradStageForSubject（真题索引科目 → ex-408-grad 讲义阶段）", () => {
+  it("四科 key（带 beokayy-408/ 前缀与裸 key）都映射到对应讲义阶段", () => {
+    expect(exam408GradStageForSubject("beokayy-408/data-structure")).toBe("ex408g-ds-stage");
+    expect(exam408GradStageForSubject("beokayy-408/computer-organization")).toBe("ex408g-co-stage");
+    expect(exam408GradStageForSubject("beokayy-408/operating-system")).toBe("ex408g-os-stage");
+    expect(exam408GradStageForSubject("beokayy-408/computer-network")).toBe("ex408g-net-stage");
+    expect(exam408GradStageForSubject("data-structure")).toBe("ex408g-ds-stage");
+  });
+
+  it("未知科目返回 null（调用方隐藏讲义入口）", () => {
+    expect(exam408GradStageForSubject("beokayy-408/unknown-subject")).toBeNull();
+    expect(exam408GradStageForSubject("")).toBeNull();
+    expect(exam408GradStageForSubject("   ")).toBeNull();
   });
 });
