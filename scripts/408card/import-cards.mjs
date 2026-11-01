@@ -35,12 +35,28 @@ const fingerprint = (obj) => createHash("sha256").update(JSON.stringify(obj)).di
 
 async function loadSubject(code) {
   const file = path.join(RAW, "data-" + code + ".js");
-  const text = await readFile(file, "utf8");
-  const js = text.replace(/export const points\s*=\s*/, "module.exports = ");
-  const tmp = path.join(RAW, "data-" + code + ".cjs");
-  await writeFile(tmp, js);
-  delete require.cache[tmp];
-  return require(tmp);
+  try {
+    const text = await readFile(file, "utf8");
+    const js = text.replace(/export const points\s*=\s*/, "module.exports = ");
+    const tmp = path.join(RAW, "data-" + code + ".cjs");
+    await writeFile(tmp, js);
+    delete require.cache[tmp];
+    return require(tmp);
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+    // 服务器/CI 没有 .local 原始文件：回退到已提交的规范化 JSON（scripts/408card/cards/*.json）
+    const normalized = JSON.parse(await readFile(path.join(OUT_DIR, code + ".json"), "utf8"));
+    return normalized.map((card) => ({
+      id: card.key.replace(/^408card\//, ""),
+      ch: card.chapter,
+      q: card.question,
+      a: card.answerSteps,
+      pit: card.pitfall ?? undefined,
+      mn: card.mnemonic ?? undefined,
+      star: card.star,
+      demo: card.demoKey ?? undefined,
+    }));
+  }
 }
 
 async function main() {

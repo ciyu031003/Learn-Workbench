@@ -74,3 +74,6 @@ scripts/.audit_cookie.txt
 
 # Visual Studio ±¾µØÄ¿Â¼£¨IDE »º´æ£¬²»Ìá½»£©
 .vs/
+
+# 408 æ¼”ç¤ºé€å¸§æŠ“å–äº§ç‰©ï¼ˆcapture-demos.mjs ç”Ÿæˆï¼›éƒ¨ç½²èµ°èµ„äº§åŒ…ï¼Œä¸è¿› Gitï¼‰
+apps/web/public/content-demos/
