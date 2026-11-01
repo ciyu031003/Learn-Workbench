@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="400" viewBox="0 0 760 400" role="img" aria-label="四种 I/O 方式的 CPU 参与度时间轴：程序查询全程忙等、中断每字节一次、DMA 每块一次、通道每组数据一次">
+  <style>
+    .t{font:600 15px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .s{font:600 12px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .n{font:400 11.5px "Microsoft YaHei",system-ui,sans-serif;fill:#3f3f3f}
+    .c{font:600 10.5px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .cpu{fill:#fde3c8;stroke:#b06a00;stroke-width:1.2}
+    .dev{fill:#cfe3f7;stroke:#2563eb;stroke-width:1.1}
+    .idle{fill:#fff;stroke:#94a3b8;stroke-width:1;stroke-dasharray:4 3}
+    .axis{stroke:#475569;stroke-width:1.2;fill:none}
+  </style>
+
+  <text class="t" x="18" y="26">四种 I/O 方式：CPU 到底被占用多久</text>
+  <text class="n" x="18" y="46">橙色 = CPU 忙，蓝色 = 设备在传数据，虚线白 = CPU 空闲可做别的事；同一段时间轴，看橙色的长短与疏密</text>
+
+  <!-- 图例 -->
+  <rect class="cpu" x="470" y="4" width="24" height="12" rx="2"/><text class="n" x="500" y="15">CPU 忙</text>
+  <rect class="dev" x="560" y="4" width="24" height="12" rx="2"/><text class="n" x="590" y="15">设备传输</text>
+  <rect class="idle" x="660" y="4" width="24" height="12" rx="2"/><text class="n" x="690" y="15">CPU 空闲</text>
+
+  <!-- 程序查询 -->
+  <text class="s" x="18" y="86">程序查询（轮询）</text>
+  <rect class="cpu" x="140" y="68" width="520" height="30" rx="4"/>
+  <text class="c" x="400" y="87" text-anchor="middle">CPU 全程循环读状态寄存器（忙等）</text>
+  <text class="n" x="140" y="114">CPU 几乎 100% 被占用，吞吐最低</text>
+
+  <!-- 中断 -->
+  <text class="s" x="18" y="152">中断方式</text>
+  <rect class="dev" x="140" y="134" width="520" height="30" rx="4"/>
+  <g>
+    <rect class="cpu" x="150" y="134" width="14" height="30"/>
+    <rect class="cpu" x="200" y="134" width="14" height="30"/>
+    <rect class="cpu" x="250" y="134" width="14" height="30"/>
+    <rect class="cpu" x="300" y="134" width="14" height="30"/>
+    <rect class="cpu" x="350" y="134" width="14" height="30"/>
+    <rect class="cpu" x="400" y="134" width="14" height="30"/>
+    <rect class="cpu" x="450" y="134" width="14" height="30"/>
+    <rect class="cpu" x="500" y="134" width="14" height="30"/>
+    <rect class="cpu" x="550" y="134" width="14" height="30"/>
+    <rect class="cpu" x="600" y="134" width="14" height="30"/>
+  </g>
+  <text class="n" x="140" y="180">每传一个字节中断一次：CPU 在两次中断之间空闲，但被频繁打断 → 中断次数 = 字节数</text>
+
+  <!-- DMA -->
+  <text class="s" x="18" y="218">DMA 方式</text>
+  <rect class="dev" x="140" y="200" width="520" height="30" rx="4"/>
+  <text class="c" x="400" y="219" text-anchor="middle">整块数据在设备与内存间直接传送（CPU 空闲）</text>
+  <rect class="cpu" x="140" y="200" width="34" height="30"/>
+  <rect class="cpu" x="626" y="200" width="34" height="30"/>
+  <text class="n" x="140" y="246">只在"预处理 + 后处理"各一次中断 → 中断次数 = 块数</text>
+
+  <!-- 通道 -->
+  <text class="s" x="18" y="284">通道方式</text>
+  <rect class="dev" x="140" y="266" width="520" height="30" rx="4"/>
+  <text class="c" x="400" y="285" text-anchor="middle">通道执行通道程序，成组传送（CPU 空闲）</text>
+  <rect class="cpu" x="140" y="266" width="22" height="30"/>
+  <rect class="cpu" x="638" y="266" width="22" height="30"/>
+  <text class="n" x="140" y="312">一组数据块只需一次中断 → 中断次数最少</text>
+
+  <!-- 说明 -->
+  <text class="n" x="18" y="344">CPU 干预程度：程序查询 &gt; 中断 &gt; DMA &gt; 通道；"每传一个单位要打断 CPU 几次"是判断方式的关键。</text>
+  <text class="n" x="18" y="366">DMA 以"块"为单位、数据不经过 CPU 寄存器；通道以"一组块"为单位、能执行通道程序并同时控制多台设备。</text>
+  <text class="n" x="18" y="388">时间轴只是示意：真实比例里程序查询的橙条应几乎盖满整条，通道的橙条只是两头的小尖。</text>
+</svg>

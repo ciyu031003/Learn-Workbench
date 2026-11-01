@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="330" viewBox="0 0 760 330" role="img" aria-label="分页、分段、段页式三种地址结构与碎片、可见性对照">
+  <style>
+    .t{font:700 14px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .c{font:600 13px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .n{font:400 12px "Microsoft YaHei",system-ui,sans-serif;fill:#474747}
+    .p{fill:#eef4fb;stroke:#4a76a8;stroke-width:1.4}
+    .s{fill:#eef7ee;stroke:#4a8a4a;stroke-width:1.4}
+    .g{fill:#faf7f0;stroke:#8a8578;stroke-width:1.3}
+    .l{stroke:#2b2b2b;stroke-width:1.3;fill:none}
+  </style>
+
+  <text class="t" x="16" y="22">三种管理的地址结构一眼分清</text>
+
+  <!-- 分页 -->
+  <text class="c" x="16" y="52">分页：一维</text>
+  <rect class="p" x="140" y="36" width="220" height="26"/>
+  <rect class="p" x="360" y="36" width="280" height="26"/>
+  <text class="n" x="228" y="54">页号 P</text>
+  <text class="n" x="470" y="54">页内偏移 d</text>
+  <text class="n" x="16" y="80">页等长（2^k），用户看不到分页；只有内部碎片（最后一页没填满）</text>
+
+  <!-- 分段 -->
+  <text class="c" x="16" y="118">分段：二维</text>
+  <rect class="s" x="140" y="102" width="180" height="26"/>
+  <rect class="s" x="320" y="102" width="320" height="26"/>
+  <text class="n" x="212" y="120">段号 S</text>
+  <text class="n" x="452" y="120">段内偏移 W</text>
+  <text class="n" x="16" y="146">段不等长，按逻辑模块划分（代码/数据/栈），用户可见；只有外部碎片</text>
+
+  <!-- 段页式 -->
+  <text class="c" x="16" y="184">段页式：二维 + 页内</text>
+  <rect class="g" x="140" y="168" width="130" height="26"/>
+  <rect class="p" x="270" y="168" width="180" height="26"/>
+  <rect class="p" x="450" y="168" width="190" height="26"/>
+  <text class="n" x="186" y="186">段号 S</text>
+  <text class="n" x="330" y="186">页号 P</text>
+  <text class="n" x="512" y="186">页内偏移 d</text>
+  <text class="n" x="16" y="212">先分段再分页：段内部分页，页长固定 ⇒ 没有外部碎片，只有少量内部碎片</text>
+
+  <line x1="16" y1="232" x2="744" y2="232" stroke="#d8d2c4" stroke-width="1.3" stroke-dasharray="6 6"/>
+
+  <text class="c" x="16" y="258">判据速记</text>
+  <text class="n" x="16" y="280">· 地址是「页号+偏移」→ 分页；「段号+偏移」→ 分段；「段号+页号+偏移」→ 段页式</text>
+  <text class="n" x="16" y="300">· 访存次数：分页/分段各 2 次（查页表/段表 + 取数），段页式 3 次（查段表→查页表→取数）</text>
+  <text class="n" x="16" y="320">· 碎片：分页 = 内部碎片；分段 = 外部碎片；段页式 = 只余内部碎片（每条记录的末页）</text>
+</svg>

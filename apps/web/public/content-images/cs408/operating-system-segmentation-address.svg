@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="420" viewBox="0 0 760 420" role="img" aria-label="段页式地址变换：逻辑地址按段号查段表得到页表始址，再按页号查页表得到物理块号，加上页内偏移得到物理地址">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2b2b2b"/>
+    </marker>
+  </defs>
+  <style>
+    .t{font:600 15px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .s{font:600 12.5px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .n{font:400 11.5px "Microsoft YaHei",system-ui,sans-serif;fill:#3f3f3f}
+    .y{font:600 11.5px "Microsoft YaHei",system-ui,sans-serif;fill:#b06a00}
+    .w{font:600 12px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .l{stroke:#2b2b2b;stroke-width:1.7;fill:none}
+    .box{fill:#fff;stroke:#2b2b2b;stroke-width:1.5}
+    .tb{fill:#eef4fb;stroke:#2b2b2b;stroke-width:1.5}
+    .ad{fill:#eef4fb;stroke:#2b2b2b;stroke-width:1.5}
+  </style>
+
+  <text class="t" x="18" y="26">段页式地址变换：一次访存要查两张表</text>
+  <text class="n" x="18" y="46">逻辑地址 = 段号 + 页号 + 页内偏移；段表找到"该段的页表在哪"，页表找到"页在哪个物理块"</text>
+
+  <!-- 逻辑地址条 -->
+  <rect class="ad" x="40" y="64" width="680" height="40" rx="6"/>
+  <path class="l" d="M200 64 V104 M480 64 V104"/>
+  <text class="w" x="120" y="89" text-anchor="middle">段号 S</text>
+  <text class="w" x="340" y="89" text-anchor="middle">页号 P</text>
+  <text class="w" x="600" y="89" text-anchor="middle">页内偏移 W</text>
+
+  <!-- 段表寄存器 -->
+  <rect class="box" x="40" y="150" width="160" height="56" rx="7"/>
+  <text class="s" x="52" y="172">段表寄存器</text>
+  <text class="n" x="52" y="190">段表始址 + 段表长度 TL</text>
+  <path class="l" d="M120 104 V150" marker-end="url(#ar)"/>
+
+  <!-- 段表 -->
+  <rect class="tb" x="40" y="244" width="160" height="82" rx="7"/>
+  <text class="s" x="52" y="266">段表（每进程一张）</text>
+  <text class="n" x="52" y="285">段表项：</text>
+  <text class="n" x="52" y="302">页表始址 + 页表长度</text>
+  <path class="l" d="M120 206 V244" marker-end="url(#ar)"/>
+  <text class="y" x="128" y="228">按 S 索引</text>
+
+  <!-- 页表 -->
+  <rect class="tb" x="280" y="244" width="180" height="82" rx="7"/>
+  <text class="s" x="292" y="266">页表（每段一张）</text>
+  <text class="n" x="292" y="285">页表项：</text>
+  <text class="n" x="292" y="302">物理块号 + 有效位</text>
+  <path class="l" d="M200 285 H280" marker-end="url(#ar)"/>
+  <text class="y" x="236" y="277">页表始址</text>
+  <path class="l" d="M340 104 V244" marker-end="url(#ar)"/>
+  <text class="y" x="348" y="180">按 P 索引</text>
+
+  <!-- 物理地址 -->
+  <rect class="tb" x="540" y="244" width="180" height="82" rx="7"/>
+  <text class="s" x="552" y="266">物理地址</text>
+  <text class="n" x="552" y="285">物理块号 × 页大小</text>
+  <text class="n" x="552" y="302">+ 页内偏移 W</text>
+  <path class="l" d="M460 285 H540" marker-end="url(#ar)"/>
+  <text class="y" x="496" y="277">块号</text>
+  <path class="l" d="M600 104 V244" marker-end="url(#ar)"/>
+
+  <!-- 越界与访存次数 -->
+  <text class="n" x="18" y="360">两处越界检查：段号 S ≥ 段表长度 TL → 越界中断；页号 P ≥ 该段页表长度 → 越界中断。</text>
+  <text class="n" x="18" y="382">访存次数：① 查段表（1 次）→ ② 查页表（1 次）→ ③ 取数据（1 次），共 3 次；有快表（TLB）命中可减少。</text>
+  <text class="n" x="18" y="404">段页式 = 先按逻辑分段、段内再分页：段长可变所以无外碎片，页定长所以只有段内最后一页的内碎片。</text>
+</svg>

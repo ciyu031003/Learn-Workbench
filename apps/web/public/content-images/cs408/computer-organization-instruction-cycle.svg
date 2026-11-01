@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="470" viewBox="0 0 760 470" role="img" aria-label="指令周期的流程：取指周期之后判断是否有间址，再进入执行周期，最后判断是否有中断，然后回到取下一条指令">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2b2b2b"/>
+    </marker>
+  </defs>
+  <style>
+    .t{font:600 15px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .s{font:600 12px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .n{font:400 11px "Microsoft YaHei",system-ui,sans-serif;fill:#3f3f3f}
+    .q{font:600 11.5px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .box{fill:#eef4fb;stroke:#2b2b2b;stroke-width:1.5}
+    .ind{fill:#fdf3e6;stroke:#b06a00;stroke-width:1.5}
+    .int{fill:#f3f7f1;stroke:#3f7a34;stroke-width:1.5}
+    .dm{fill:#fff;stroke:#2b2b2b;stroke-width:1.4}
+    .a{stroke:#2b2b2b;stroke-width:1.6;fill:none}
+    .yn{font:600 10.5px "Microsoft YaHei",system-ui,sans-serif;fill:#b06a00}
+  </style>
+
+  <text class="t" x="18" y="26">一条指令的完整周期：取指 → 间址? → 执行 → 中断?</text>
+  <text class="n" x="18" y="46">实线是必经路径，"是"分支才是可选的——取指每条指令都有，间址只在间接寻址时出现，中断只在有请求时出现</text>
+
+  <!-- 取指 -->
+  <rect class="box" x="120" y="60" width="200" height="60" rx="8"/>
+  <text class="s" x="220" y="84" text-anchor="middle">取指周期 FE</text>
+  <text class="n" x="220" y="104" text-anchor="middle">PC→MAR，M→MDR→IR，PC+1</text>
+
+  <!-- 间址判断 -->
+  <polygon class="dm" points="220,120 280,150 220,180 160,150"/>
+  <text class="q" x="220" y="154" text-anchor="middle">有间址？</text>
+
+  <!-- 间址周期 -->
+  <rect class="ind" x="420" y="122" width="200" height="56" rx="8"/>
+  <text class="s" x="520" y="145" text-anchor="middle">间址周期 IND</text>
+  <text class="n" x="520" y="164" text-anchor="middle">按形式地址取有效地址 EA</text>
+
+  <!-- 执行 -->
+  <rect class="box" x="120" y="230" width="200" height="60" rx="8"/>
+  <text class="s" x="220" y="254" text-anchor="middle">执行周期 EX</text>
+  <text class="n" x="220" y="274" text-anchor="middle">按操作码完成运算 / 访存</text>
+
+  <!-- 中断判断 -->
+  <polygon class="dm" points="220,290 280,320 220,350 160,320"/>
+  <text class="q" x="220" y="324" text-anchor="middle">有中断？</text>
+
+  <!-- 中断周期 -->
+  <rect class="int" x="420" y="292" width="200" height="56" rx="8"/>
+  <text class="s" x="520" y="315" text-anchor="middle">中断周期 INT</text>
+  <text class="n" x="520" y="334" text-anchor="middle">保存断点、形成中断入口</text>
+
+  <!-- 连线 -->
+  <path class="a" d="M220 180 V230" marker-end="url(#ar)"/>
+  <text class="yn" x="228" y="210">否</text>
+
+  <path class="a" d="M280 150 H420" marker-end="url(#ar)"/>
+  <text class="yn" x="340" y="143">是</text>
+
+  <path class="a" d="M520 178 V260 H320" marker-end="url(#ar)"/>
+
+  <path class="a" d="M220 350 V380 H40 V90 H120" marker-end="url(#ar)"/>
+  <text class="yn" x="228" y="372">否</text>
+
+  <path class="a" d="M280 320 H420" marker-end="url(#ar)"/>
+  <text class="yn" x="340" y="313">是</text>
+
+  <path class="a" d="M520 348 V380 H220"/>
+  <text class="n" x="470" y="402">中断服务完再回到取指，取下一条指令</text>
+
+  <!-- 说明 -->
+  <text class="n" x="18" y="430">每个周期都由若干个机器周期（节拍）组成；机器周期长度可以定长也可以不定长（见 §四）。</text>
+  <text class="n" x="18" y="452">取指周期的微操作序列是固定的（与操作码无关），执行周期的微操作由操作码决定——这是"微操作序列"题的两种问法。</text>
+</svg>

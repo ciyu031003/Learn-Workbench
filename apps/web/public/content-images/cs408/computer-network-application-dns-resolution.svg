@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="428" viewBox="0 0 760 428" role="img" aria-label="DNS 一次完整解析：主机到本地域名服务器是递归，本地域名服务器到根、顶级、权限服务器是迭代">
+  <style>
+    .b{fill:#fff;stroke:#2b2b2b;stroke-width:1.3}
+    .y{fill:#eef4fb;stroke:#2b2b2b;stroke-width:1.4}
+    .g{fill:#f3f7f1;stroke:#2b2b2b;stroke-width:1.3}
+    .t{font:600 13.5px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .s{font:600 12.5px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .n{font:400 11.5px "Microsoft YaHei",system-ui,sans-serif;fill:#3f3f3f}
+    .l{stroke:#2b2b2b;stroke-width:1.3;fill:none}
+    .o{stroke:#b06a00;stroke-width:1.5;fill:none}
+    .d{stroke:#9a9a9a;stroke-width:1;stroke-dasharray:5 5;fill:none}
+  </style>
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#2b2b2b"/></marker>
+    <marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b06a00"/></marker>
+  </defs>
+
+  <text class="t" x="18" y="26">DNS 一次完整解析：主机 → 本地域名服务器 是「递归」，本地域名服务器 → 根/顶级/权限 是「迭代」</text>
+
+  <!-- 五条生命线 -->
+  <rect class="b" x="20" y="48" width="86" height="38" rx="3"/>
+  <text class="n" x="34" y="72">主机</text>
+  <rect class="y" x="188" y="48" width="128" height="38" rx="3"/>
+  <text class="n" x="200" y="72">本地域名服务器</text>
+  <rect class="b" x="352" y="48" width="80" height="38" rx="3"/>
+  <text class="n" x="366" y="72">根服务器</text>
+  <rect class="b" x="470" y="48" width="94" height="38" rx="3"/>
+  <text class="n" x="482" y="72">.com 顶级</text>
+  <rect class="b" x="588" y="48" width="152" height="38" rx="3"/>
+  <text class="n" x="598" y="72">example.com 权限</text>
+
+  <path class="d" d="M63 86 L63 380"/>
+  <path class="d" d="M252 86 L252 380"/>
+  <path class="d" d="M392 86 L392 380"/>
+  <path class="d" d="M517 86 L517 380"/>
+  <path class="d" d="M653 86 L653 380"/>
+
+  <!-- 递归查询 -->
+  <path class="o" d="M70 116 L244 116" marker-end="url(#ao)"/>
+  <text class="n" x="78" y="110">① 递归：www.example.com 的 IP 是多少？</text>
+
+  <!-- 迭代 1 -->
+  <path class="l" d="M256 152 L388 152" marker-end="url(#ar)"/>
+  <text class="n" x="262" y="146">② 迭代查询</text>
+  <path class="l" d="M388 186 L256 186" marker-end="url(#ar)"/>
+  <text class="n" x="262" y="180">← 去问 .com 的服务器</text>
+
+  <!-- 迭代 2 -->
+  <path class="l" d="M256 222 L513 222" marker-end="url(#ar)"/>
+  <text class="n" x="262" y="216">③ 迭代查询</text>
+  <path class="l" d="M513 256 L256 256" marker-end="url(#ar)"/>
+  <text class="n" x="262" y="250">← 去问 example.com 的权限服务器</text>
+
+  <!-- 迭代 3 -->
+  <path class="l" d="M256 292 L649 292" marker-end="url(#ar)"/>
+  <text class="n" x="262" y="286">④ 迭代查询</text>
+  <path class="l" d="M649 326 L256 326" marker-end="url(#ar)"/>
+  <text class="n" x="300" y="320">← 权威答案：IP = 93.184.216.34</text>
+
+  <!-- 回给主机 -->
+  <path class="o" d="M248 360 L70 360" marker-end="url(#ao)"/>
+  <text class="n" x="86" y="354">⑤ 把答案交回主机（主机并不知道中间问了几个服务器）</text>
+
+  <!-- 结论 -->
+  <text class="n" x="18" y="392">一次完整解析 = 主机与 LDNS 之间的 1 个来回 + LDNS 与根 / 顶级 / 权限之间的 3 个来回 ≈ 4 个往返、8 个 DNS 报文</text>
+  <text class="n" x="18" y="414">记忆：递归＝由「服务器」替你把全程跑完（主机只等结果）；迭代＝服务器只告诉你「下一个问谁」，由「你自己」接着问</text>
+</svg>

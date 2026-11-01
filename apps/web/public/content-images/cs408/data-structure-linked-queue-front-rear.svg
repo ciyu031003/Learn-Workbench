@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="422" viewBox="0 0 760 422" role="img" aria-label="链式队列的两种形态：带头结点与不带头结点，front 与 rear 指针的位置以及出队到空时的变化">
+  <style>
+    .b{fill:#fff;stroke:#2b2b2b;stroke-width:1.4}
+    .n0{fill:#efefef;stroke:#2b2b2b;stroke-width:1.4}
+    .t{font:600 13.5px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .s{font:600 12.5px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .n{font:400 11.5px "Microsoft YaHei",system-ui,sans-serif;fill:#3f3f3f}
+    .v{font:600 14px "Consolas","Microsoft YaHei",monospace;fill:#1d1d1d}
+    .l{stroke:#2b2b2b;stroke-width:1.4;fill:none}
+    .o{stroke:#b06a00;stroke-width:1.5;fill:none}
+  </style>
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#2b2b2b"/></marker>
+    <marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b06a00"/></marker>
+  </defs>
+
+  <text class="t" x="18" y="26">链式队列的两种形态：front / rear 各自指向哪里</text>
+
+  <!-- 带头结点 -->
+  <text class="n" x="128" y="58">front</text>
+  <text class="n" x="522" y="58">rear</text>
+  <path class="o" d="M168 62 L168 74" marker-end="url(#ao)"/>
+  <path class="o" d="M529 62 L529 74" marker-end="url(#ao)"/>
+
+  <text class="s" x="18" y="100">带头结点</text>
+  <rect class="n0" x="120" y="76" width="96" height="42" rx="3"/>
+  <text class="n" x="132" y="102">头结点</text>
+  <rect class="b" x="252" y="76" width="82" height="42" rx="3"/>
+  <text class="v" x="286" y="103">A</text>
+  <rect class="b" x="370" y="76" width="82" height="42" rx="3"/>
+  <text class="v" x="404" y="103">B</text>
+  <rect class="b" x="488" y="76" width="82" height="42" rx="3"/>
+  <text class="v" x="522" y="103">C</text>
+  <path class="l" d="M216 97 L248 97" marker-end="url(#ar)"/>
+  <path class="l" d="M334 97 L366 97" marker-end="url(#ar)"/>
+  <path class="l" d="M452 97 L484 97" marker-end="url(#ar)"/>
+  <path class="l" d="M570 97 L604 97 L604 118" marker-end="url(#ar)"/>
+  <text class="n" x="596" y="134">NULL</text>
+
+  <!-- 不带头结点 -->
+  <text class="n" x="256" y="158">front</text>
+  <text class="n" x="522" y="158">rear</text>
+  <path class="o" d="M293 162 L293 174" marker-end="url(#ao)"/>
+  <path class="o" d="M529 162 L529 174" marker-end="url(#ao)"/>
+
+  <text class="s" x="18" y="200">不带头结点</text>
+  <rect class="b" x="252" y="176" width="82" height="42" rx="3"/>
+  <text class="v" x="286" y="203">A</text>
+  <rect class="b" x="370" y="176" width="82" height="42" rx="3"/>
+  <text class="v" x="404" y="203">B</text>
+  <rect class="b" x="488" y="176" width="82" height="42" rx="3"/>
+  <text class="v" x="522" y="203">C</text>
+  <path class="l" d="M334 197 L366 197" marker-end="url(#ar)"/>
+  <path class="l" d="M452 197 L484 197" marker-end="url(#ar)"/>
+  <path class="l" d="M570 197 L604 197 L604 218" marker-end="url(#ar)"/>
+  <text class="n" x="596" y="234">NULL</text>
+
+  <!-- 结论 -->
+  <text class="n" x="18" y="266">带头结点版：front 永远指向头结点（不动的哨兵），只有 rear 随入队变化 —— 所以入队、出队都不用特判「队空」</text>
+  <text class="n" x="18" y="288">唯一要特判的是「删掉的是最后一个元素」：此时 p == rear，必须把 rear 改回 front，否则 rear 悬空</text>
+  <text class="n" x="18" y="310">不带头结点版：队空时 front = rear = NULL；第一个元素入队要同时改 front 和 rear；出队到空也要同时置 NULL</text>
+  <text class="n" x="18" y="332">入队：rear->next = s; rear = s;（新结点先把自己的 next 置空）</text>
+  <text class="n" x="18" y="354">出队：p = front->next; front->next = p->next; 若 p == rear 则 rear = front</text>
+  <text class="n" x="18" y="376">两种都是「尾进头出」；链队列不会假溢出、长度没有上限（除非内存耗尽），这是它相对循环队列的主要优势</text>
+  <text class="n" x="18" y="398">易错：空队判据在带头结点版是 front == rear（不是 front->next == NULL），与循环队列的判空判满完全不同</text>
+</svg>

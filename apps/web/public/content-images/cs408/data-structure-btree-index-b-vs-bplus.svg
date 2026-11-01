@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="430" viewBox="0 0 900 430" role="img" aria-label="B 树与 B+ 树结构对照图">
+  <style>
+    .box{fill:#ffffff;stroke:#2b2b2b;stroke-width:1.6}
+    .key{font:600 17px "Times New Roman",Georgia,serif;fill:#1d1d1d}
+    .lab{font:600 13px "Microsoft YaHei",system-ui,sans-serif;fill:#2f2f2f}
+    .ttl{font:700 15px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .note{font:400 12.5px "Microsoft YaHei",system-ui,sans-serif;fill:#4a4a4a}
+    .edge{stroke:#2b2b2b;stroke-width:1.5;fill:none}
+    .rec{fill:#2b2b2b}
+    .chain{stroke:#b06a00;stroke-width:1.8;fill:none}
+  </style>
+
+  <!-- 左：B 树 -->
+  <text class="ttl" x="24" y="26">B 树（3 阶）：每个结点都存「关键字 + 记录指针」</text>
+
+  <g>
+    <rect class="box" x="150" y="52" width="86" height="42" rx="3"/>
+    <text class="key" x="176" y="80">10</text>
+    <circle class="rec" cx="206" cy="73" r="3.4"/>
+  </g>
+  <g>
+    <rect class="box" x="58" y="176" width="120" height="42" rx="3"/>
+    <text class="key" x="78" y="204">4</text>
+    <circle class="rec" cx="96" cy="197" r="3.4"/>
+    <text class="key" x="116" y="204">7</text>
+    <circle class="rec" cx="134" cy="197" r="3.4"/>
+  </g>
+  <g>
+    <rect class="box" x="238" y="176" width="120" height="42" rx="3"/>
+    <text class="key" x="256" y="204">13</text>
+    <circle class="rec" cx="276" cy="197" r="3.4"/>
+    <text class="key" x="296" y="204">16</text>
+    <circle class="rec" cx="316" cy="197" r="3.4"/>
+  </g>
+  <path class="edge" d="M178 94 L118 176"/>
+  <path class="edge" d="M208 94 L298 176"/>
+  <g>
+    <path class="edge" d="M118 218 L118 262" stroke-dasharray="4 4"/>
+    <path class="edge" d="M298 218 L298 262" stroke-dasharray="4 4"/>
+    <rect x="96" y="262" width="44" height="24" fill="#fff" stroke="#999"/>
+    <rect x="276" y="262" width="44" height="24" fill="#fff" stroke="#999"/>
+    <text class="note" x="101" y="279">失败</text>
+    <text class="note" x="281" y="279">失败</text>
+  </g>
+  <text class="note" x="24" y="316">● 小圆点 = 记录指针：B 树每个关键字都挂着一条</text>
+  <text class="note" x="24" y="338">中序序列 4,7,10,13,16 的每个数都带着真实数据</text>
+  <text class="note" x="24" y="360">叶结点之间没有链表：范围查询要反复回上层做中序遍历</text>
+
+  <line x1="444" y1="46" x2="444" y2="372" stroke="#d8d2c4" stroke-width="1.4" stroke-dasharray="6 6"/>
+
+  <!-- 右：B+ 树 -->
+  <text class="ttl" x="466" y="26">B+ 树：非叶只做索引，关键字在叶层重复出现</text>
+
+  <g>
+    <rect class="box" x="588" y="52" width="86" height="42" rx="3"/>
+    <text class="key" x="612" y="80">10</text>
+  </g>
+  <g>
+    <rect class="box" x="500" y="176" width="80" height="42" rx="3"/>
+    <path class="edge" d="M610 94 L540 176"/>
+    <text class="key" x="520" y="204">4</text>
+    <text class="key" x="550" y="204">7</text>
+  </g>
+  <g>
+    <rect class="box" x="620" y="176" width="80" height="42" rx="3"/>
+    <path class="edge" d="M632 94 L660 176"/>
+    <text class="key" x="636" y="204">10</text>
+    <text class="key" x="666" y="204">13</text>
+  </g>
+  <g>
+    <rect class="box" x="740" y="176" width="80" height="42" rx="3"/>
+    <path class="edge" d="M654 94 L780 176"/>
+    <text class="key" x="756" y="204">16</text>
+    <text class="key" x="786" y="204">20</text>
+  </g>
+
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#b06a00"/>
+    </marker>
+  </defs>
+
+  <g>
+    <rect class="box" x="470" y="262" width="150" height="40" rx="3"/>
+    <text class="key" x="486" y="288">4</text><circle class="rec" cx="504" cy="282" r="3.4"/>
+    <text class="key" x="524" y="288">7</text><circle class="rec" cx="542" cy="282" r="3.4"/>
+    <text class="key" x="562" y="288">10</text><circle class="rec" cx="580" cy="282" r="3.4"/>
+  </g>
+  <g>
+    <rect class="box" x="646" y="262" width="150" height="40" rx="3"/>
+    <text class="key" x="662" y="288">13</text><circle class="rec" cx="680" cy="282" r="3.4"/>
+    <text class="key" x="700" y="288">16</text><circle class="rec" cx="718" cy="282" r="3.4"/>
+    <text class="key" x="738" y="288">20</text><circle class="rec" cx="756" cy="282" r="3.4"/>
+  </g>
+  <path class="edge" d="M540 218 L540 262"/>
+  <path class="edge" d="M660 218 L660 262"/>
+  <path class="edge" d="M780 218 L760 262"/>
+  <path class="chain" d="M620 282 L646 282" marker-end="url(#arr)"/>
+
+  <text class="note" x="466" y="330">● 记录指针只在叶层；非叶的关键字只是「路标」</text>
+  <text class="note" x="466" y="350">橙色箭头 = 叶链：顺序扫一遍就拿到全部有序记录</text>
+  <text class="note" x="466" y="370">非叶结点更「瘦」⇒ 一块放更多路标 ⇒ 树更矮</text>
+
+  <text class="lab" x="24" y="410">一句话记：B 树数据分散在各层，B+ 树数据全在叶层、非叶只当索引且叶链相连。</text>
+</svg>

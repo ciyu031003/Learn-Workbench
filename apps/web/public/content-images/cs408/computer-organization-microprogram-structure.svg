@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="456" viewBox="0 0 760 456" role="img" aria-label="微程序控制器的组成：控制存储器、微地址寄存器、微指令寄存器、微地址形成部件与顺序逻辑">
+  <style>
+    .b{fill:#fff;stroke:#2b2b2b;stroke-width:1.4}
+    .y{fill:#eef4fb;stroke:#2b2b2b;stroke-width:1.6}
+    .g{fill:#f3f7f1;stroke:#2b2b2b;stroke-width:1.3}
+    .t{font:600 13.5px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .s{font:600 12.5px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .n{font:400 11.5px "Microsoft YaHei",system-ui,sans-serif;fill:#3f3f3f}
+    .l{stroke:#2b2b2b;stroke-width:1.4;fill:none}
+    .o{stroke:#b06a00;stroke-width:1.6;fill:none}
+  </style>
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#2b2b2b"/></marker>
+    <marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b06a00"/></marker>
+  </defs>
+
+  <text class="t" x="18" y="26">微程序控制器：一条机器指令 = 一个微程序 = 若干条微指令 = 若干组微命令</text>
+
+  <!-- 操作码 -->
+  <rect class="b" x="18" y="62" width="112" height="48" rx="3"/>
+  <text class="s" x="30" y="84">指令操作码</text>
+  <text class="n" x="30" y="102">（在 IR 中）</text>
+
+  <!-- 微地址形成部件 -->
+  <rect class="y" x="170" y="56" width="164" height="60" rx="3"/>
+  <text class="s" x="182" y="78">微地址形成部件</text>
+  <text class="n" x="182" y="98">操作码 → 微程序首地址</text>
+
+  <!-- μAR -->
+  <rect class="b" x="374" y="56" width="150" height="60" rx="3"/>
+  <text class="s" x="386" y="78">μAR</text>
+  <text class="n" x="386" y="98">微地址寄存器</text>
+
+  <!-- CM -->
+  <rect class="g" x="560" y="46" width="182" height="80" rx="3"/>
+  <text class="s" x="572" y="70">CM 控制存储器</text>
+  <text class="n" x="572" y="90">存放全部微程序</text>
+  <text class="n" x="572" y="108">（只读、按微地址取微指令）</text>
+
+  <!-- μIR -->
+  <rect class="b" x="560" y="160" width="182" height="86" rx="3"/>
+  <text class="s" x="572" y="184">μIR 微指令寄存器</text>
+  <text class="n" x="572" y="206">操作控制字段 + 顺序控制字段</text>
+  <text class="n" x="572" y="228">（顺序控制字段里放下地址）</text>
+
+  <!-- 微命令输出 -->
+  <rect class="b" x="560" y="296" width="182" height="54" rx="3"/>
+  <text class="s" x="572" y="318">微命令（控制信号）</text>
+  <text class="n" x="572" y="338">送往 ALU、寄存器、主存…</text>
+
+  <!-- 顺序逻辑 -->
+  <rect class="b" x="170" y="160" width="164" height="76" rx="3"/>
+  <text class="s" x="182" y="184">顺序逻辑</text>
+  <text class="n" x="182" y="204">决定下一条微指令地址</text>
+  <text class="n" x="182" y="224">（顺序 / 转移 / 分支）</text>
+
+  <!-- 标志与外部条件 -->
+  <rect class="b" x="18" y="168" width="112" height="60" rx="3"/>
+  <text class="n" x="30" y="192">标志位</text>
+  <text class="n" x="30" y="214">外部条件</text>
+
+  <!-- 连线 -->
+  <path class="l" d="M130 86 L166 86" marker-end="url(#ar)"/>
+  <path class="l" d="M334 86 L370 86" marker-end="url(#ar)"/>
+  <path class="l" d="M524 86 L556 86" marker-end="url(#ar)"/>
+  <path class="l" d="M651 126 L651 156" marker-end="url(#ar)"/>
+  <path class="l" d="M651 246 L651 292" marker-end="url(#ar)"/>
+  <path class="o" d="M556 203 L340 198" marker-end="url(#ao)"/>
+  <path class="l" d="M252 156 L252 122" marker-end="url(#ar)"/>
+  <path class="l" d="M130 198 L166 198" marker-end="url(#ar)"/>
+
+  <text class="n" x="352" y="192">下地址字段回送</text>
+
+  <!-- 四条结论 -->
+  <text class="n" x="18" y="372">微指令编码：直接编码（n 个微命令占 n 位，最快、字最长）→ 字段直接编码（互斥的放同一字段）→ 字段间接编码</text>
+  <text class="n" x="18" y="394">字段直接编码里，n 个互斥微命令要 log₂(n+1) 向上取整那么多位 —— 那个 +1 是留给“本字段不操作”这个编码的</text>
+  <text class="n" x="18" y="416">下地址字段位数 = log₂K 向上取整，K 是 CM 中微指令的总条数（公共取指微程序也要算进去）</text>
+  <text class="n" x="18" y="438">水平型：并行性高、字长长、微程序短、速度快；垂直型相反。RISC 多用硬布线，CISC 多用微程序</text>
+</svg>

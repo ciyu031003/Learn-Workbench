@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="404" viewBox="0 0 820 404" role="img" aria-label="IEEE 754 单精度与双精度位段划分、偏移量，以及 0.5 的编码示例">
+  <style>
+    .f{stroke:#2b2b2b;stroke-width:1.6}
+    .s{fill:#fdece7}
+    .e{fill:#eaf2fb}
+    .m{fill:#eef7ee}
+    .k{font:700 15px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .b{font:600 14px "Times New Roman",Georgia,serif;fill:#1d1d1d}
+    .n{font:400 12.5px "Microsoft YaHei",system-ui,sans-serif;fill:#4a4a4a}
+    .w{font:600 13px "Microsoft YaHei",system-ui,sans-serif;fill:#2f2f2f}
+  </style>
+
+  <text class="k" x="40" y="24">单精度 float（32 位）</text>
+  <rect class="f s" x="40"  y="36" width="23"  height="42"/>
+  <rect class="f e" x="63"  y="36" width="185" height="42"/>
+  <rect class="f m" x="248" y="36" width="532" height="42"/>
+  <text class="b" x="47"  y="63">S</text>
+  <text class="b" x="132" y="63">exp（8 位）</text>
+  <text class="b" x="470" y="63">frac（23 位）</text>
+  <text class="n" x="40" y="98">S：1 位符号，占用最高位，0 为正、1 为负</text>
+  <text class="n" x="40" y="116">exp：8 位阶码（移码），全 0 / 全 1 留作特殊值，正常范围 1~254；真值 E = exp − 127</text>
+  <text class="n" x="40" y="134">frac：23 位尾数，最高位 1 是隐含的，实际有效数字 = 1.frac</text>
+
+  <text class="k" x="40" y="172">双精度 double（64 位）</text>
+  <rect class="f s" x="40"  y="184" width="14"  height="42"/>
+  <rect class="f e" x="54"  y="184" width="127" height="42"/>
+  <rect class="f m" x="181" y="184" width="601" height="42"/>
+  <text class="b" x="46"  y="211">S</text>
+  <text class="b" x="94"  y="211">exp（11 位）</text>
+  <text class="b" x="440" y="211">frac（52 位）</text>
+  <text class="n" x="40" y="246">Bias = 2¹¹⁻¹ − 1 = 1023，真值 E = exp − 1023；其余规则与单精度相同</text>
+
+  <line x1="40" y1="266" x2="782" y2="266" stroke="#d8d2c4" stroke-width="1.3" stroke-dasharray="6 6"/>
+
+  <text class="k" x="40" y="292">例：把 0.5 编成单精度</text>
+  <rect class="f s" x="250" y="276" width="23"  height="24"/>
+  <rect class="f e" x="273" y="276" width="185" height="24"/>
+  <rect class="f m" x="458" y="276" width="322" height="24"/>
+  <text class="b" x="255" y="293">0</text>
+  <text class="b" x="290" y="293">0 1 1 1 1 1 1 0</text>
+  <text class="b" x="470" y="293">0 0 0 ⋯ 0（23 个 0）</text>
+
+  <text class="n" x="40" y="322">0.5 = 1.0 × 2⁻¹ ⇒ 尾数全 0（隐含那个 1 不写）、阶码 exp = −1 + 127 = 126 = 01111110B</text>
+  <text class="n" x="40" y="342">反过来读：exp = 01111110 ⇒ E = 126 − 127 = −1，V = (−1)⁰ × 1.0 × 2⁻¹ = 0.5</text>
+  <text class="w" x="40" y="372">记：先定 Bias，再「移码 = 真值 + Bias」，最后别忘了尾数那一位隐含的 1。</text>
+</svg>

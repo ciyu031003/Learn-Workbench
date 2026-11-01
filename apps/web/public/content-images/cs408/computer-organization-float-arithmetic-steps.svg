@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="780" height="300" viewBox="0 0 780 300" role="img" aria-label="浮点数加减运算五步流程：对阶、尾数加减、规格化、舍入、溢出判断">
+  <style>
+    .t{font:700 14px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .c{font:600 12.5px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .n{font:400 11.5px "Microsoft YaHei",system-ui,sans-serif;fill:#474747}
+    .bx{fill:#f6f4ee;stroke:#8a8578;stroke-width:1.5}
+    .b2{fill:#eef4fb;stroke:#4a76a8;stroke-width:1.5}
+    .ar{stroke:#555;stroke-width:1.6;fill:none}
+  </style>
+  <defs>
+    <marker id="fa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#555"/></marker>
+  </defs>
+
+  <text class="t" x="16" y="24">浮点数加减：五步，顺序不能换</text>
+
+  <rect class="bx" x="16"  y="44" width="140" height="52" rx="4"/>
+  <text class="c" x="52" y="66">① 对阶</text>
+  <text class="n" x="28" y="86">小阶向右对齐大阶</text>
+
+  <rect class="bx" x="176" y="44" width="140" height="52" rx="4"/>
+  <text class="c" x="206" y="66">② 尾数加减</text>
+  <text class="n" x="188" y="86">同号加、异号减</text>
+
+  <rect class="b2" x="336" y="44" width="150" height="52" rx="4"/>
+  <text class="c" x="372" y="66">③ 规格化</text>
+  <text class="n" x="346" y="86">左规或右规一次</text>
+
+  <rect class="bx" x="506" y="44" width="120" height="52" rx="4"/>
+  <text class="c" x="546" y="66">④ 舍入</text>
+  <text class="n" x="518" y="86">0 舍 1 入等</text>
+
+  <rect class="bx" x="646" y="44" width="118" height="52" rx="4"/>
+  <text class="c" x="676" y="66">⑤ 判溢出</text>
+  <text class="n" x="656" y="86">只看阶码</text>
+
+  <path class="ar" d="M156 70 L172 70" marker-end="url(#fa)"/>
+  <path class="ar" d="M316 70 L332 70" marker-end="url(#fa)"/>
+  <path class="ar" d="M486 70 L502 70" marker-end="url(#fa)"/>
+  <path class="ar" d="M626 70 L642 70" marker-end="url(#fa)"/>
+
+  <text class="n" x="16" y="128">① 对阶：阶码不同不能直接加；小阶向大阶看齐（尾数右移、阶码 +1），移出的位不能直接丢，要参与后面的舍入。</text>
+  <text class="n" x="16" y="150">③ 规格化：结果尾数最高位不是 1 → 左规（尾数左移、阶码减）；尾数加出两位进位 → 右规（右移 1 位、阶码加 1）。</text>
+  <text class="n" x="16" y="172">⑤ 判溢出：只看阶码。阶码超出上限 = 上溢（真溢出，按机器规定处理）；低于下限 = 下溢（当 0 处理）。</text>
+
+  <text class="n" x="16" y="208">三个最容易错的地方：</text>
+  <text class="n" x="16" y="230">· 对阶方向搞反（大阶向小阶对，尾数左移会丢高位）；</text>
+  <text class="n" x="16" y="250">· 左右规搞反（尾数变小才左规、变大才右规）；</text>
+  <text class="n" x="16" y="270">· 以为「尾数溢出」就是溢出 —— 尾数溢出靠右规就能救回来，真正的溢出只由阶码决定。</text>
+</svg>

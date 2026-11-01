@@ -1,0 +1,1584 @@
+[
+ {
+  "key": "408card/cn-01-001",
+  "subjectKey": "computer-network",
+  "chapter": 1,
+  "question": "计算机网络的概念、组成与功能？",
+  "answerSteps": [
+   "互联的自治计算机集合；组成：硬件、软件、协议。",
+   "功能：数据通信、资源共享、分布式处理、负载均衡、提高可靠性。"
+  ],
+  "pitfall": "协议是网络的核心；三要素：语法、语义、同步（时序）。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 0
+ },
+ {
+  "key": "408card/cn-01-002",
+  "subjectKey": "computer-network",
+  "chapter": 1,
+  "question": "OSI 七层与 TCP/IP 四层模型？",
+  "answerSteps": [
+   "OSI：物-数-网-传-会-表-应；TCP/IP：网络接口-网际-传输-应用。",
+   "TCP/IP 是事实标准；OSI 是理论模型。"
+  ],
+  "pitfall": null,
+  "mnemonic": "物数网传会表应",
+  "star": true,
+  "demoKey": "tcp-hs",
+  "sortOrder": 1
+ },
+ {
+  "key": "408card/cn-01-003",
+  "subjectKey": "computer-network",
+  "chapter": 1,
+  "question": "各层 PDU 与典型协议？",
+  "answerSteps": [
+   "物理层比特；数据链路层帧；网络层分组/数据报；传输层报文段；应用层报文。",
+   "IEEE802.3/Ethernet、IP/ICMP/ARP、TCP/UDP、HTTP/DNS。"
+  ],
+  "pitfall": "交换机在数据链路层；路由器在网络层。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 2
+ },
+ {
+  "key": "408card/cn-01-004",
+  "subjectKey": "computer-network",
+  "chapter": 1,
+  "question": "协议三要素？",
+  "answerSteps": [
+   "**语法**（格式）、**语义**（含义）、**同步/时序**（执行顺序与速度匹配）。"
+  ],
+  "pitfall": "同步不是同时，是时序关系。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 3
+ },
+ {
+  "key": "408card/cn-01-005",
+  "subjectKey": "computer-network",
+  "chapter": 1,
+  "question": "面向连接与无连接服务？",
+  "answerSteps": [
+   "面向连接：建立连接→传输→释放（TCP）；无连接：直接发（UDP、IP）。"
+  ],
+  "pitfall": "IP 是无连接、不可靠；TCP 面向连接可靠。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 4
+ },
+ {
+  "key": "408card/cn-01-006",
+  "subjectKey": "computer-network",
+  "chapter": 1,
+  "question": "时延的组成与公式？",
+  "answerSteps": [
+   "总时延 = **发送时延**（数据长度/带宽）+ **传播时延**（距离/电磁波速率）+ 处理时延 + 排队时延。",
+   "高速链路提高的是发送时延（带宽），不是传播时延。"
+  ],
+  "pitfall": "带宽高≠传播快；光纤传播仍受光速限制。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 5
+ },
+ {
+  "key": "408card/cn-01-007",
+  "subjectKey": "computer-network",
+  "chapter": 1,
+  "question": "往返时延 RTT、时延带宽积、吞吐量？",
+  "answerSteps": [
+   "RTT：往返时间；**时延带宽积** = 传播时延 × 带宽（管道中的比特数）。",
+   "吞吐量：单位时间通过的数据量。"
+  ],
+  "pitfall": "发送第一个 bit 到收到确认约一个 RTT。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 6
+ },
+ {
+  "key": "408card/cn-01-008",
+  "subjectKey": "computer-network",
+  "chapter": 1,
+  "question": "分层的优点？",
+  "answerSteps": [
+   "各层独立、灵活性好、结构上可分割、易于实现维护、促进标准化。"
+  ],
+  "pitfall": "缺点：效率可能降低、开销。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 7
+ },
+ {
+  "key": "408card/cn-01-009",
+  "subjectKey": "computer-network",
+  "chapter": 1,
+  "question": "实体、协议、服务、接口？",
+  "answerSteps": [
+   "实体：任何可发送接收信息的硬件/软件；协议：控制对等实体通信的规则；服务：下层为上层提供的功能；接口（SAP）：相邻层交换信息。"
+  ],
+  "pitfall": "服务是垂直的，协议是水平的。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 8
+ },
+ {
+  "key": "408card/cn-01-010",
+  "subjectKey": "computer-network",
+  "chapter": 1,
+  "question": "网络分类？",
+  "answerSteps": [
+   "按范围：PAN、LAN、MAN、WAN；按拓扑：总线、星、环、网状；按使用者：公用、专用。"
+  ],
+  "pitfall": "LAN 用广播，WAN 用点对点。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 9
+ },
+ {
+  "key": "408card/cn-01-011",
+  "subjectKey": "computer-network",
+  "chapter": 1,
+  "question": "Internet 组成？边缘与核心？",
+  "answerSteps": [
+   "边缘：主机（客户/服务器）；核心：路由器与链路；接入网：DSL、以太网、WiFi。"
+  ],
+  "pitfall": "分组交换：存储转发。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 10
+ },
+ {
+  "key": "408card/cn-01-012",
+  "subjectKey": "computer-network",
+  "chapter": 1,
+  "question": "电路交换、报文交换、分组交换比较？",
+  "answerSteps": [
+   "电路：独占资源，时延小建立慢；报文：整报文存储转发；分组：切分小包，流水线，灵活高效。",
+   "分组交换有分组首部开销、可能乱序。"
+  ],
+  "pitfall": "互联网是分组交换。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 11
+ },
+ {
+  "key": "408card/cn-02-001",
+  "subjectKey": "computer-network",
+  "chapter": 2,
+  "question": "物理层的任务与接口特性？",
+  "answerSteps": [
+   "在物理媒体上传输比特；机械、电气、功能、过程（规程）特性。"
+  ],
+  "pitfall": "物理层不是指传输介质本身。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 12
+ },
+ {
+  "key": "408card/cn-02-002",
+  "subjectKey": "computer-network",
+  "chapter": 2,
+  "question": "奈奎斯特准则与香农公式？",
+  "answerSteps": [
+   "**奈氏**：无噪声信道最大码元速率 = 2W（Baud），W 带宽 Hz；极限数据率 = 2W log₂V。",
+   "**香农**：有噪声信道容量 C = W log₂(1+S/N)，S/N 为信噪比（功率比）。"
+  ],
+  "pitfall": "信噪比常给 dB：SNR(dB)=10lg(S/N)。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 13
+ },
+ {
+  "key": "408card/cn-02-003",
+  "subjectKey": "computer-network",
+  "chapter": 2,
+  "question": "调制与编码？",
+  "answerSteps": [
+   "调制：基带→频带（调幅、调频、调相）；编码：数字数据→数字信号（归零、曼彻斯特、差分曼彻斯特、4B/5B）。"
+  ],
+  "pitfall": "曼彻斯特：每位中间有跳变，自同步，常用于以太网。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 14
+ },
+ {
+  "key": "408card/cn-02-004",
+  "subjectKey": "computer-network",
+  "chapter": 2,
+  "question": "传输介质？",
+  "answerSteps": [
+   "双绞线（UTP/STP）、同轴电缆、光纤（多模/单模）、无线（微波、红外、卫星）。"
+  ],
+  "pitfall": "光纤带宽大、抗干扰、贵；单模远距离。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 15
+ },
+ {
+  "key": "408card/cn-02-005",
+  "subjectKey": "computer-network",
+  "chapter": 2,
+  "question": "信道复用技术？",
+  "answerSteps": [
+   "**频分** FDM、**时分** TDM（统计时分 STDM）、**波分** WDM（光纤）、**码分** CDM（CDMA 正交码）。"
+  ],
+  "pitfall": "CDMA 各站码片正交，内积为 0。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 16
+ },
+ {
+  "key": "408card/cn-02-006",
+  "subjectKey": "computer-network",
+  "chapter": 2,
+  "question": "基带传输与宽带传输？",
+  "answerSteps": [
+   "基带：数字信号直接传，LAN；宽带：模拟调制传，广域/有线电视。"
+  ],
+  "pitfall": "光纤也可传数字。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 17
+ },
+ {
+  "key": "408card/cn-02-007",
+  "subjectKey": "computer-network",
+  "chapter": 2,
+  "question": "异步传输与同步传输？",
+  "answerSteps": [
+   "异步：按字符，起始停止位；同步：按帧，时钟同步。"
+  ],
+  "pitfall": "异步指字符间异步，字符内仍同步。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 18
+ },
+ {
+  "key": "408card/cn-02-008",
+  "subjectKey": "computer-network",
+  "chapter": 2,
+  "question": "数据率、码元率、比特率关系？",
+  "answerSteps": [
+   "比特率 = 码元率 × log₂V（V 码元状态数）；1 Baud = 1 码元/秒。"
+  ],
+  "pitfall": "四相调制 V=4，每码元 2 bit。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 19
+ },
+ {
+  "key": "408card/cn-02-009",
+  "subjectKey": "computer-network",
+  "chapter": 2,
+  "question": "导向与非导向传输媒体？",
+  "answerSteps": [
+   "导向：双绞线、同轴、光纤；非导向：无线电、微波、红外。"
+  ],
+  "pitfall": "无线频段分配、ISM 频段。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 20
+ },
+ {
+  "key": "408card/cn-02-010",
+  "subjectKey": "computer-network",
+  "chapter": 2,
+  "question": "为什么以太网用曼彻斯特编码？",
+  "answerSteps": [
+   "自同步、无直流分量、便于检测碰撞（电压异常）；代价是带宽利用率 50%。"
+  ],
+  "pitfall": "100BASE-TX 用 4B/5B + MLT-3 提高效率。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "csma",
+  "sortOrder": 21
+ },
+ {
+  "key": "408card/cn-03-001",
+  "subjectKey": "computer-network",
+  "chapter": 3,
+  "question": "数据链路层的功能？",
+  "answerSteps": [
+   "成帧、差错控制、流量控制、访问（接入）控制 MAC。"
+  ],
+  "pitfall": "链路 vs 数据链路：链路是物理通道，数据链路=链路+通信协议。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 22
+ },
+ {
+  "key": "408card/cn-03-002",
+  "subjectKey": "computer-network",
+  "chapter": 3,
+  "question": "成帧方法？",
+  "answerSteps": [
+   "字节计数法、字节填充（Flag+转义）、比特填充（01111110+插 0）、物理编码违例法。"
+  ],
+  "pitfall": "HDLC/PPP 用比特填充。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 23
+ },
+ {
+  "key": "408card/cn-03-003",
+  "subjectKey": "computer-network",
+  "chapter": 3,
+  "question": "差错控制：检错与纠错？",
+  "answerSteps": [
+   "奇偶校验、CRC 检错；海明码纠错（可纠 1 比特）。",
+   "突发差错与随机差错。"
+  ],
+  "pitfall": "CRC 只检错不纠错（通常）。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 24
+ },
+ {
+  "key": "408card/cn-03-004",
+  "subjectKey": "computer-network",
+  "chapter": 3,
+  "question": "CRC 计算方法？",
+  "answerSteps": [
+   "数据后补 r 个 0（r=生成多项式最高次）；模 2 除；余数作为 FCS；接收端整除余 0 则无错。",
+   "模 2 运算：加减都是异或。"
+  ],
+  "pitfall": "发送时补 0，余数 r 位；接收时不用补 0。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "crc",
+  "sortOrder": 25
+ },
+ {
+  "key": "408card/cn-03-005",
+  "subjectKey": "computer-network",
+  "chapter": 3,
+  "question": "海明码纠错原理？",
+  "answerSteps": [
+   "校验位放在 2 的幂次位；监督关系定位出错位；可纠 1 检 2。"
+  ],
+  "pitfall": "与计组海明码同一数学。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 26
+ },
+ {
+  "key": "408card/cn-03-006",
+  "subjectKey": "computer-network",
+  "chapter": 3,
+  "question": "停止-等待协议？",
+  "answerSteps": [
+   "每发一帧等 ACK；超时重传；序号 0/1 交替；信道利用率低。"
+  ],
+  "pitfall": "需超时计时器与帧编号。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "stop-wait",
+  "sortOrder": 27
+ },
+ {
+  "key": "408card/cn-03-007",
+  "subjectKey": "computer-network",
+  "chapter": 3,
+  "question": "GBN（回退 N 帧）与 SR（选择重传）？",
+  "answerSteps": [
+   "GBN：接收端只按序收，出错重传后续全部；发送窗口 >1，接收窗口=1。",
+   "SR：接收端可缓存乱序帧；发送接收窗口都 >1；只重传出错帧。"
+  ],
+  "pitfall": "GBN 接收窗口=1；SR 接收窗口通常与发送相等，≤ 序号空间一半。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 28
+ },
+ {
+  "key": "408card/cn-03-008",
+  "subjectKey": "computer-network",
+  "chapter": 3,
+  "question": "滑动窗口与信道利用率？",
+  "answerSteps": [
+   "利用率 ≈ W/((1+2a))，a=RTT/发送时延；窗口大提高利用率。"
+  ],
+  "pitfall": "停等 W=1。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "sliding-win",
+  "sortOrder": 29
+ },
+ {
+  "key": "408card/cn-03-009",
+  "subjectKey": "computer-network",
+  "chapter": 3,
+  "question": "流量控制与可靠传输的关系？",
+  "answerSteps": [
+   "流量控制限制发送方速率；可靠传输保证不丢不重不乱序；二者常结合在 ARQ 中。"
+  ],
+  "pitfall": "流量控制是接收端能力；拥塞控制是网络能力。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "tcp-hs",
+  "sortOrder": 30
+ },
+ {
+  "key": "408card/cn-03-010",
+  "subjectKey": "computer-network",
+  "chapter": 3,
+  "question": "ALOHA、CSMA、CSMA/CD？",
+  "answerSteps": [
+   "ALOHA 想发就发；**CSMA** 先听后发（1-坚持、非坚持、p-坚持）；**CSMA/CD** 边听边发，检测到碰撞立即停。",
+   "最小帧长 = 2×传播时延×数据率（保证能检测到碰撞）。"
+  ],
+  "pitfall": "CSMA/CD 用于半双工以太网；全双工不用。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "csma",
+  "sortOrder": 31
+ },
+ {
+  "key": "408card/cn-03-011",
+  "subjectKey": "computer-network",
+  "chapter": 3,
+  "question": "截断二进制指数退避算法？",
+  "answerSteps": [
+   "碰撞后从 [0,1,…,2^k-1] 随机选 r，退避 r×争用期；k=min(碰撞次数,10)；碰撞 16 次丢弃。"
+  ],
+  "pitfall": "争用期 51.2μs（10M 以太网）。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "csma",
+  "sortOrder": 32
+ },
+ {
+  "key": "408card/cn-03-012",
+  "subjectKey": "computer-network",
+  "chapter": 3,
+  "question": "以太网帧结构？",
+  "answerSteps": [
+   "目的 MAC 6 + 源 MAC 6 + 类型 2 + 数据 46~1500 + FCS 4；前导码不算帧内。",
+   "最小帧 64 字节（含首部 FCS）。"
+  ],
+  "pitfall": "数据不足 46 字节要填充。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "csma",
+  "sortOrder": 33
+ },
+ {
+  "key": "408card/cn-03-013",
+  "subjectKey": "computer-network",
+  "chapter": 3,
+  "question": "MAC 地址与 IP 地址？",
+  "answerSteps": [
+   "MAC 48 位硬件地址，帧转发用；IP 逻辑地址，分组转发用。",
+   "ARP：IP→MAC；RARP 反向。"
+  ],
+  "pitfall": "MAC 平面结构随网卡；IP 层次结构。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 34
+ },
+ {
+  "key": "408card/cn-03-014",
+  "subjectKey": "computer-network",
+  "chapter": 3,
+  "question": "网桥与交换机？",
+  "answerSteps": [
+   "网桥：基于 MAC 转发、隔离冲突域；交换机：多端口网桥，微分段。",
+   "自学习：记录源 MAC 与端口。"
+  ],
+  "pitfall": "交换机不能隔离广播域（除非 VLAN）。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "switch-learn",
+  "sortOrder": 35
+ },
+ {
+  "key": "408card/cn-03-015",
+  "subjectKey": "computer-network",
+  "chapter": 3,
+  "question": "VLAN 是什么？",
+  "answerSteps": [
+   "虚拟局域网，按逻辑划分广播域；帧加 VLAN 标签（802.1Q）。",
+   "同一 VLAN 可跨交换机。"
+  ],
+  "pitfall": "VLAN 隔离广播域；需三层交换/路由跨 VLAN。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 36
+ },
+ {
+  "key": "408card/cn-03-016",
+  "subjectKey": "computer-network",
+  "chapter": 3,
+  "question": "生成树协议 STP？",
+  "answerSteps": [
+   "防止交换环路导致广播风暴；选根桥、根端口、指定端口，阻塞冗余端口。"
+  ],
+  "pitfall": "无环树状转发。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 37
+ },
+ {
+  "key": "408card/cn-03-017",
+  "subjectKey": "computer-network",
+  "chapter": 3,
+  "question": "以太网的发展：10BASE-T、快速以太网、千兆？",
+  "answerSteps": [
+   "10M 半双工 CSMA/CD；快速 100M；吉比特可全双工不用 CD。",
+   "曼彻斯特→4B/5B→8B/10B。"
+  ],
+  "pitfall": "全双工点对点无碰撞检测。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "csma",
+  "sortOrder": 38
+ },
+ {
+  "key": "408card/cn-03-018",
+  "subjectKey": "computer-network",
+  "chapter": 3,
+  "question": "PPP 协议？",
+  "answerSteps": [
+   "点对点，面向字节；LCP 建立配置，NCP 配网络层；可认证；CRC 检错。",
+   "用于拨号、PPPoE。"
+  ],
+  "pitfall": "PPP 不使用 CSMA/CD（点对点）。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 39
+ },
+ {
+  "key": "408card/cn-03-019",
+  "subjectKey": "computer-network",
+  "chapter": 3,
+  "question": "HDLC 协议？",
+  "answerSteps": [
+   "面向比特；标志 01111110；I/S/U 帧；滑动窗口可靠传输。"
+  ],
+  "pitfall": "与 PPP 对比：PPP 面向字节、不可靠？PPP 可选。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 40
+ },
+ {
+  "key": "408card/cn-03-020",
+  "subjectKey": "computer-network",
+  "chapter": 3,
+  "question": "冲突域与广播域？",
+  "answerSteps": [
+   "冲突域：CSMA/CD 碰撞范围；广播域：广播帧到达范围。",
+   "集线器扩大冲突域；交换机隔离冲突域；路由器隔离广播域。"
+  ],
+  "pitfall": "经典辨析题。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 41
+ },
+ {
+  "key": "408card/cn-03-021",
+  "subjectKey": "computer-network",
+  "chapter": 3,
+  "question": "最短帧长如何推导？",
+  "answerSteps": [
+   "争用期内信号能往返一次：帧长/数据率 ≥ 2τ ⇒ L_min = 2τ × C。"
+  ],
+  "pitfall": "10M 以太网 L_min=64B，τ=25.6μs。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 42
+ },
+ {
+  "key": "408card/cn-03-022",
+  "subjectKey": "computer-network",
+  "chapter": 3,
+  "question": "无线局域网 CSMA/CA？",
+  "answerSteps": [
+   "无线不能很好检测碰撞 → 用 CA：ACK、RTS/CTS、IFS 优先级。"
+  ],
+  "pitfall": "隐藏站问题用 RTS/CTS 缓解。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": "csma-ca",
+  "sortOrder": 43
+ },
+ {
+  "key": "408card/cn-03-023",
+  "subjectKey": "computer-network",
+  "chapter": 3,
+  "question": "透明网桥自学习过程？",
+  "answerSteps": [
+   "收到帧：记「源 MAC→端口」；查目的 MAC：有则转发/过滤，无则泛洪。"
+  ],
+  "pitfall": "未知单播要泛洪。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "switch-learn",
+  "sortOrder": 44
+ },
+ {
+  "key": "408card/cn-03-024",
+  "subjectKey": "computer-network",
+  "chapter": 3,
+  "question": "数据链路层可靠传输是否一定需要？",
+  "answerSteps": [
+   "有线误码率低，以太网不保证可靠；无线链路可增加链路层重传。"
+  ],
+  "pitfall": "端到端可靠靠 TCP；链路可靠是逐跳。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "tcp-hs",
+  "sortOrder": 45
+ },
+ {
+  "key": "408card/cn-04-001",
+  "subjectKey": "computer-network",
+  "chapter": 4,
+  "question": "网络层的功能？",
+  "answerSteps": [
+   "转发与路由选择；拥塞控制；连接服务；异构网络互联。"
+  ],
+  "pitfall": "核心：分组转发 + 路由选择。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 46
+ },
+ {
+  "key": "408card/cn-04-002",
+  "subjectKey": "computer-network",
+  "chapter": 4,
+  "question": "虚电路与数据报？",
+  "answerSteps": [
+   "虚电路：建立连接、同路径、可靠；数据报：无连接、可乱序、每个分组独立路由。"
+  ],
+  "pitfall": "互联网是数据报网络。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 47
+ },
+ {
+  "key": "408card/cn-04-003",
+  "subjectKey": "computer-network",
+  "chapter": 4,
+  "question": "IP 数据报格式？",
+  "answerSteps": [
+   "首部：版本、首部长度、总长、标识、标志、片偏移、TTL、协议、首部检验和、源目的 IP；数据。",
+   "首部固定 20 字节。"
+  ],
+  "pitfall": "总长 16 位，最大 65535；首部长度 4 位×4 字节。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 48
+ },
+ {
+  "key": "408card/cn-04-004",
+  "subjectKey": "computer-network",
+  "chapter": 4,
+  "question": "IP 分片与重组？",
+  "answerSteps": [
+   "MTU 限制帧长；标识相同、片偏移 8 字节为单位；MF=1 还有后续；DF=1 禁止分片。",
+   "重组在目的主机。"
+  ],
+  "pitfall": "片偏移单位是 8 字节。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 49
+ },
+ {
+  "key": "408card/cn-04-005",
+  "subjectKey": "computer-network",
+  "chapter": 4,
+  "question": "IP 地址分类（A/B/C）？",
+  "answerSteps": [
+   "A：0 + 7 位网络 + 24 主机，1.0.0.0~126；B：10 + 14 网 + 16 主机，128~191；C：110 + 21 网 + 8 主机，192~223。",
+   "D 多播，E 保留。"
+  ],
+  "pitfall": "127 本地环回；主机号全 0 网络地址，全 1 广播。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "subnet",
+  "sortOrder": 50
+ },
+ {
+  "key": "408card/cn-04-006",
+  "subjectKey": "computer-network",
+  "chapter": 4,
+  "question": "子网划分与子网掩码？",
+  "answerSteps": [
+   "掩码网络位全 1；IP AND 掩码 = 网络地址；可变长子网。"
+  ],
+  "pitfall": "网络地址与广播地址不能配主机。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "subnet",
+  "sortOrder": 51
+ },
+ {
+  "key": "408card/cn-04-007",
+  "subjectKey": "computer-network",
+  "chapter": 4,
+  "question": "CIDR 与超网？",
+  "answerSteps": [
+   "无类域间路由，/n 记法；路由聚合减少表项。",
+   "最长前缀匹配选路由。"
+  ],
+  "pitfall": "与传统分类地址相对。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "subnet",
+  "sortOrder": 52
+ },
+ {
+  "key": "408card/cn-04-008",
+  "subjectKey": "computer-network",
+  "chapter": 4,
+  "question": "ARP 协议过程？",
+  "answerSteps": [
+   "已知目标 IP，广播 ARP 请求；目标单播 ARP 响应；缓存 ARP 表。",
+   "同一网络内；跨网由网关 MAC 响应。"
+  ],
+  "pitfall": "ARP 是网络层协议（有的教材链路层/介于之间）。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "arp",
+  "sortOrder": 53
+ },
+ {
+  "key": "408card/cn-04-009",
+  "subjectKey": "computer-network",
+  "chapter": 4,
+  "question": "ICMP 协议？",
+  "answerSteps": [
+   "差错报告（超时、目的不可达、参数问题）与询问（ping 用回声）。",
+   "IP 层之上，封装在 IP 数据报。"
+  ],
+  "pitfall": "traceroute 用 TTL 超时。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "osi-ping",
+  "sortOrder": 54
+ },
+ {
+  "key": "408card/cn-04-010",
+  "subjectKey": "computer-network",
+  "chapter": 4,
+  "question": "IPv6 与 IPv4 的主要区别？",
+  "answerSteps": [
+   "地址 128 位；首部固定 40 字节、更简洁；取消分片（源端）、校验和；扩展首部；任播地址。"
+  ],
+  "pitfall": "IPv6 路由器不分片。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 55
+ },
+ {
+  "key": "408card/cn-04-011",
+  "subjectKey": "computer-network",
+  "chapter": 4,
+  "question": "NAT 网络地址转换？",
+  "answerSteps": [
+   "私有 IP 转全球 IP；NAPT 多对一用端口号区分。",
+   "解决 IPv4 短缺；破坏端到端。"
+  ],
+  "pitfall": "NAT 表项：内网 IP:端口 ↔ 外网 IP:端口。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "nat",
+  "sortOrder": 56
+ },
+ {
+  "key": "408card/cn-04-012",
+  "subjectKey": "computer-network",
+  "chapter": 4,
+  "question": "路由算法：距离向量与链路状态？",
+  "answerSteps": [
+   "**DV**（RIP）：邻居交换完整表，收敛慢，可能计数到无穷；**LS**（OSPF）：洪泛链路状态，全网拓扑，Dijkstra。",
+   "OSPF 区域划分、收敛快、无环。"
+  ],
+  "pitfall": "RIP 最大跳数 15；OSPF 直接跑在 IP 上。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 57
+ },
+ {
+  "key": "408card/cn-04-013",
+  "subjectKey": "computer-network",
+  "chapter": 4,
+  "question": "RIP 协议特点？",
+  "answerSteps": [
+   "基于 UDP 520；距离向量；每 30s 广播；跳数限制 15；简单、收敛慢。"
+  ],
+  "pitfall": "RIP 是应用层还是网络层有教材争议，常作网络层。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 58
+ },
+ {
+  "key": "408card/cn-04-014",
+  "subjectKey": "computer-network",
+  "chapter": 4,
+  "question": "BGP 协议？",
+  "answerSteps": [
+   "自治系统间路由；路径向量；基于 TCP 179；eBGP/iBGP；策略路由。"
+  ],
+  "pitfall": "BGP 选路径，不单纯最短。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 59
+ },
+ {
+  "key": "408card/cn-04-015",
+  "subjectKey": "computer-network",
+  "chapter": 4,
+  "question": "路由器转发过程？",
+  "answerSteps": [
+   "收到分组：查转发表（最长前缀）；TTL-1；重新计算首部校验和；转发；可能分片。"
+  ],
+  "pitfall": "三层交换机：一次路由多次交换。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "longest-prefix",
+  "sortOrder": 60
+ },
+ {
+  "key": "408card/cn-04-016",
+  "subjectKey": "computer-network",
+  "chapter": 4,
+  "question": "IP 多播？",
+  "answerSteps": [
+   "D 类地址；IGMP 管理组成员；PIM 等路由协议。"
+  ],
+  "pitfall": "多播减少冗余流量。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 61
+ },
+ {
+  "key": "408card/cn-04-017",
+  "subjectKey": "computer-network",
+  "chapter": 4,
+  "question": "移动 IP？",
+  "answerSteps": [
+   "家乡代理、外地代理；转交地址；三角路由问题。"
+  ],
+  "pitfall": "主机移动后 IP 不变。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 62
+ },
+ {
+  "key": "408card/cn-04-018",
+  "subjectKey": "computer-network",
+  "chapter": 4,
+  "question": "默认路由与特定主机路由？",
+  "answerSteps": [
+   "默认 0.0.0.0/0 出口；特定主机 /32。"
+  ],
+  "pitfall": "最长前缀匹配：/24 优于 /16 优于默认。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "longest-prefix",
+  "sortOrder": 63
+ },
+ {
+  "key": "408card/cn-04-019",
+  "subjectKey": "computer-network",
+  "chapter": 4,
+  "question": "DHCP 动态主机配置？",
+  "answerSteps": [
+   "客户广播 Discover，服务器 Offer，客户 Request，服务器 ACK；租约。",
+   "基于 UDP，应用层协议。"
+  ],
+  "pitfall": "分配 IP、掩码、网关、DNS。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "dhcp",
+  "sortOrder": 64
+ },
+ {
+  "key": "408card/cn-04-020",
+  "subjectKey": "computer-network",
+  "chapter": 4,
+  "question": "IP 地址与硬件地址区别？为什么要两种？",
+  "answerSteps": [
+   "IP 用于跨网络寻址、路由；MAC 用于本网络内帧交付；路由器改 MAC 不改 IP（NAT 例外）。"
+  ],
+  "pitfall": "MAC 不随路径变（每跳变）；IP 端到端不变。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 65
+ },
+ {
+  "key": "408card/cn-04-021",
+  "subjectKey": "computer-network",
+  "chapter": 4,
+  "question": "划分子网后广播地址怎么求？",
+  "answerSteps": [
+   "主机位全 1；网络地址主机位全 0。"
+  ],
+  "pitfall": "定向广播 = 网络地址主机位全 1。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "subnet",
+  "sortOrder": 66
+ },
+ {
+  "key": "408card/cn-04-022",
+  "subjectKey": "computer-network",
+  "chapter": 4,
+  "question": "路由器能否隔离广播？",
+  "answerSteps": [
+   "能；路由器默认不转发广播。广播域被路由器端口隔开。"
+  ],
+  "pitfall": "交换机不能隔广播。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 67
+ },
+ {
+  "key": "408card/cn-04-023",
+  "subjectKey": "computer-network",
+  "chapter": 4,
+  "question": "IP 首部校验和只校验首部？",
+  "answerSteps": [
+   "是；每跳都要重算（TTL 变）；数据校验靠上层。"
+  ],
+  "pitfall": "IPv6 取消首部校验和。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 68
+ },
+ {
+  "key": "408card/cn-04-024",
+  "subjectKey": "computer-network",
+  "chapter": 4,
+  "question": "路由表通常有哪些项？",
+  "answerSteps": [
+   "目的网络、子网掩码、下一跳、接口、度量。"
+  ],
+  "pitfall": "主机路由掩码 255.255.255.255。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 69
+ },
+ {
+  "key": "408card/cn-04-025",
+  "subjectKey": "computer-network",
+  "chapter": 4,
+  "question": "OSPF 的五种分组？",
+  "answerSteps": [
+   "Hello、数据库描述 DBD、链路状态请求 LSR、链路状态更新 LSU、链路状态确认 LSAck。"
+  ],
+  "pitfall": "LSA 是链路状态通告，不是分组名混淆。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 70
+ },
+ {
+  "key": "408card/cn-04-026",
+  "subjectKey": "computer-network",
+  "chapter": 4,
+  "question": "如何计算子网可分配主机数？",
+  "answerSteps": [
+   "2^(主机位)-2（减网络与广播）；/31 点对点可用 2 个；/32 特定主机。"
+  ],
+  "pitfall": "写清是否减 2。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "subnet",
+  "sortOrder": 71
+ },
+ {
+  "key": "408card/cn-04-027",
+  "subjectKey": "computer-network",
+  "chapter": 4,
+  "question": "第三层交换与路由区别？",
+  "answerSteps": [
+   "三层交换：硬件转发，同一设备高吞吐；功能上等价路由 + 交换。"
+  ],
+  "pitfall": "仍隔离广播域。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 72
+ },
+ {
+  "key": "408card/cn-04-028",
+  "subjectKey": "computer-network",
+  "chapter": 4,
+  "question": "Ping 与 Traceroute 原理？",
+  "answerSteps": [
+   "Ping：ICMP 回声请求/应答，测连通与 RTT。Traceroute：递增 TTL，收集超时 ICMP 报文，得路径。"
+  ],
+  "pitfall": "Traceroute 可能因 ICMP 过滤显示 * 。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "osi-ping",
+  "sortOrder": 73
+ },
+ {
+  "key": "408card/cn-05-001",
+  "subjectKey": "computer-network",
+  "chapter": 5,
+  "question": "传输层的功能？与网络层关系？",
+  "answerSteps": [
+   "提供端到端（进程到进程）通信；复用/分用；可靠传输、流量控制、拥塞控制。",
+   "网络层是主机到主机。"
+  ],
+  "pitfall": "端口号标识进程；IP 标识主机。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 74
+ },
+ {
+  "key": "408card/cn-05-002",
+  "subjectKey": "computer-network",
+  "chapter": 5,
+  "question": "端口号？熟知端口？",
+  "answerSteps": [
+   "0~1023 熟知（HTTP 80、FTP 20/21、DNS 53、SSH 22）；1024~49151 登记；客户端短暂端口。",
+   "套接字 = IP:端口。"
+  ],
+  "pitfall": "TCP 与 UDP 端口独立。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 75
+ },
+ {
+  "key": "408card/cn-05-003",
+  "subjectKey": "computer-network",
+  "chapter": 5,
+  "question": "UDP 特点与首部？",
+  "answerSteps": [
+   "无连接、不可靠、面向报文、无拥塞控制；首部 8 字节：源端口、目的端口、长度、校验和。",
+   "支持一对多、多对多。"
+  ],
+  "pitfall": "校验和可选，伪首部含 IP 信息。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 76
+ },
+ {
+  "key": "408card/cn-05-004",
+  "subjectKey": "computer-network",
+  "chapter": 5,
+  "question": "TCP 的主要特点？",
+  "answerSteps": [
+   "面向连接、可靠、面向字节流、点对点、全双工；滑动窗口、累积确认。"
+  ],
+  "pitfall": "TCP 不提供广播多播。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "tcp-hs",
+  "sortOrder": 77
+ },
+ {
+  "key": "408card/cn-05-005",
+  "subjectKey": "computer-network",
+  "chapter": 5,
+  "question": "TCP 报文段首部重要字段？",
+  "answerSteps": [
+   "源目的端口、序号、确认号、数据偏移、标志位（SYN/ACK/FIN/RST/PSH/URG）、窗口、校验和、紧急指针。",
+   "序号按字节计。"
+  ],
+  "pitfall": "确认号 = 期望收到的下一个字节序号。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "tcp-hs",
+  "sortOrder": 78
+ },
+ {
+  "key": "408card/cn-05-006",
+  "subjectKey": "computer-network",
+  "chapter": 5,
+  "question": "TCP 三次握手？为什么三次？",
+  "answerSteps": [
+   "①客户端 SYN，seq=x；②服务器 SYN+ACK，seq=y,ack=x+1；③客户端 ACK,seq=x+1,ack=y+1。",
+   "两次不行：防止旧连接请求使服务器错误建立连接浪费资源。"
+  ],
+  "pitfall": "双方都要确认自己的发送与对方接收能力。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "tcp-handshake",
+  "sortOrder": 79
+ },
+ {
+  "key": "408card/cn-05-007",
+  "subjectKey": "computer-network",
+  "chapter": 5,
+  "question": "TCP 四次挥手？TIME-WAIT？",
+  "answerSteps": [
+   "①FIN ②ACK ③（服务器可能继续发）FIN ④ACK，客户端 TIME-WAIT 等 2MSL。",
+   "原因：保证最后 ACK 到达；让本连接残余报文消散。"
+  ],
+  "pitfall": "半关闭：一方关发送仍可收。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "tcp-wave",
+  "sortOrder": 80
+ },
+ {
+  "key": "408card/cn-05-008",
+  "subjectKey": "computer-network",
+  "chapter": 5,
+  "question": "TCP 可靠传输实现？",
+  "answerSteps": [
+   "序号、确认、超时重传；ARQ；冗余 ACK 快重传；校验和。"
+  ],
+  "pitfall": "以字节为单位编号。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "tcp-ack",
+  "sortOrder": 81
+ },
+ {
+  "key": "408card/cn-05-009",
+  "subjectKey": "computer-network",
+  "chapter": 5,
+  "question": "TCP 超时重传时间 RTO？",
+  "answerSteps": [
+   "RTO 基于 RTT 估计加抖动；Karn 算法不把重传样本用于 RTT。"
+  ],
+  "pitfall": "重传超时后仍要调整 ssthresh。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "tcp-ack",
+  "sortOrder": 82
+ },
+ {
+  "key": "408card/cn-05-010",
+  "subjectKey": "computer-network",
+  "chapter": 5,
+  "question": "TCP 流量控制？滑动窗口？",
+  "answerSteps": [
+   "接收窗口 rwnd 通告；发送未确认数据 ≤ rwnd；窗口为 0 时发探测。",
+   "与拥塞窗口 cwnd 取小。"
+  ],
+  "pitfall": "流量控制端到端；拥塞控制全局。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "sliding-win",
+  "sortOrder": 83
+ },
+ {
+  "key": "408card/cn-05-011",
+  "subjectKey": "computer-network",
+  "chapter": 5,
+  "question": "TCP 拥塞控制：慢开始、拥塞避免？",
+  "answerSteps": [
+   "**慢开始**：cwnd 从 1 起指数增，到 ssthresh 转**拥塞避免** +1 线性。",
+   "超时：ssthresh=cwnd/2，cwnd=1 重新慢开始。"
+  ],
+  "pitfall": "慢开始不是慢，是起点小。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "congestion",
+  "sortOrder": 84
+ },
+ {
+  "key": "408card/cn-05-012",
+  "subjectKey": "computer-network",
+  "chapter": 5,
+  "question": "快重传与快恢复？",
+  "answerSteps": [
+   "收到 3 个冗余 ACK 立即重传；ssthresh=cwnd/2，cwnd=ssthresh（或*2 视教材）进入拥塞避免——**快恢复**。",
+   "不回到 1，比重传超时轻。"
+  ],
+  "pitfall": "快重传+快恢复常一起考。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "sliding-win",
+  "sortOrder": 85
+ },
+ {
+  "key": "408card/cn-05-013",
+  "subjectKey": "computer-network",
+  "chapter": 5,
+  "question": "发送窗口 = min(rwnd, cwnd)？",
+  "answerSteps": [
+   "是；受接收能力与网络能力共同限制。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 86
+ },
+ {
+  "key": "408card/cn-05-014",
+  "subjectKey": "computer-network",
+  "chapter": 5,
+  "question": "TCP 连接管理状态？",
+  "answerSteps": [
+   "LISTEN、SYN-SENT、SYN-RCVD、ESTABLISHED、FIN-WAIT-1/2、CLOSE-WAIT、LAST-ACK、TIME-WAIT、CLOSED。"
+  ],
+  "pitfall": "三次握手四次挥手状态图常考。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "tcp-handshake",
+  "sortOrder": 87
+ },
+ {
+  "key": "408card/cn-05-015",
+  "subjectKey": "computer-network",
+  "chapter": 5,
+  "question": "TCP 为什么不是两次握手？",
+  "answerSteps": [
+   "若旧 SYN 重传迟到，两次握手会让服务器一直占用资源；三次可让客户端不理会迟到确认。"
+  ],
+  "pitfall": "经典简答题。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "tcp-hs",
+  "sortOrder": 88
+ },
+ {
+  "key": "408card/cn-05-016",
+  "subjectKey": "computer-network",
+  "chapter": 5,
+  "question": "UDP 校验和计算？",
+  "answerSteps": [
+   "伪首部+UDP 首部+数据，二进制反码求和；可选但通常要。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 89
+ },
+ {
+  "key": "408card/cn-05-017",
+  "subjectKey": "computer-network",
+  "chapter": 5,
+  "question": "TCP 字节流与 UDP 报文区别？",
+  "answerSteps": [
+   "TCP 无记录边界，应用要自己划分；UDP 一发一收对应一条报文。"
+  ],
+  "pitfall": "TCP 拆分/合并由 TCP 完成。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "tcp-hs",
+  "sortOrder": 90
+ },
+ {
+  "key": "408card/cn-05-018",
+  "subjectKey": "computer-network",
+  "chapter": 5,
+  "question": "粘包问题？",
+  "answerSteps": [
+   "TCP 字节流中多条应用消息粘在一起；解决：固定长度、特殊分隔符、长度前缀。"
+  ],
+  "pitfall": "UDP 无粘包。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 91
+ },
+ {
+  "key": "408card/cn-05-019",
+  "subjectKey": "computer-network",
+  "chapter": 5,
+  "question": "SYN 洪泛攻击？",
+  "answerSteps": [
+   "大量伪造 SYN 填半连接队列；防御：SYN Cookie、增大队列。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "tcp-handshake",
+  "sortOrder": 92
+ },
+ {
+  "key": "408card/cn-05-020",
+  "subjectKey": "computer-network",
+  "chapter": 5,
+  "question": "TCP 保活与 RST？",
+  "answerSteps": [
+   "保活探测死连接；RST 强制复位连接。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": false,
+  "demoKey": "tcp-hs",
+  "sortOrder": 93
+ },
+ {
+  "key": "408card/cn-05-021",
+  "subjectKey": "computer-network",
+  "chapter": 5,
+  "question": "拥塞控制四种算法总结？",
+  "answerSteps": [
+   "慢开始、拥塞避免、快重传、快恢复；核心变量 cwnd、ssthresh。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "congestion",
+  "sortOrder": 94
+ },
+ {
+  "key": "408card/cn-05-022",
+  "subjectKey": "computer-network",
+  "chapter": 5,
+  "question": "TCP 与 UDP 如何选择？",
+  "answerSteps": [
+   "要可靠/面向连接用 TCP（HTTP、FTP）；要低延迟/可容忍丢包/广播用 UDP（DNS、视频、游戏）。"
+  ],
+  "pitfall": "DNS 默认 UDP，区域传送用 TCP。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "tcp-hs",
+  "sortOrder": 95
+ },
+ {
+  "key": "408card/cn-06-001",
+  "subjectKey": "computer-network",
+  "chapter": 6,
+  "question": "DNS 系统与解析过程？",
+  "answerSteps": [
+   "域名→IP；层次：根、顶级、权威、本地。",
+   "递归查询与迭代查询；缓存；A/AAAA/CNAME/MX 记录。"
+  ],
+  "pitfall": "主机向本地 DNS 常是递归；本地向其他常是迭代。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "dns",
+  "sortOrder": 96
+ },
+ {
+  "key": "408card/cn-06-002",
+  "subjectKey": "computer-network",
+  "chapter": 6,
+  "question": "HTTP 协议特点？",
+  "answerSteps": [
+   "无状态、基于 TCP 80（HTTPS 443）、请求响应报文。",
+   "HTTP/1.1 持久连接；HTTP/2 多路复用；HTTP/3 基于 QUIC。"
+  ],
+  "pitfall": "无状态靠 Cookie/Session 维持会话。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 97
+ },
+ {
+  "key": "408card/cn-06-003",
+  "subjectKey": "computer-network",
+  "chapter": 6,
+  "question": "HTTP 报文结构？方法？",
+  "answerSteps": [
+   "请求：方法 GET/POST/PUT/DELETE、URL、版本、首部、体。",
+   "响应：状态码 2xx 成功、3xx 重定向、4xx 客户端错、5xx 服务器错。"
+  ],
+  "pitfall": "GET 幂等，POST 不幂等。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 98
+ },
+ {
+  "key": "408card/cn-06-004",
+  "subjectKey": "computer-network",
+  "chapter": 6,
+  "question": "Cookie 与 Session？",
+  "answerSteps": [
+   "Cookie 存在客户端，随请求发送；Session 存在服务器，用 Session ID 关联。"
+  ],
+  "pitfall": "HTTP 本身无状态。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 99
+ },
+ {
+  "key": "408card/cn-06-005",
+  "subjectKey": "computer-network",
+  "chapter": 6,
+  "question": "HTTPS？",
+  "answerSteps": [
+   "HTTP + TLS/SSL；加密、身份认证、完整性；端口 443。",
+   "对称加密传数据，非对称交换密钥，证书验证身份。"
+  ],
+  "pitfall": "HTTPS 仍基于 TCP。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 100
+ },
+ {
+  "key": "408card/cn-06-006",
+  "subjectKey": "computer-network",
+  "chapter": 6,
+  "question": "FTP 协议？",
+  "answerSteps": [
+   "控制连接 21 端口常开；数据连接 20（主动）/客户端端口（被动）；带外控制。"
+  ],
+  "pitfall": "控制与数据分开是特色。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 101
+ },
+ {
+  "key": "408card/cn-06-007",
+  "subjectKey": "computer-network",
+  "chapter": 6,
+  "question": "电子邮件系统组成？SMTP、POP3、IMAP？",
+  "answerSteps": [
+   "用户代理、邮件服务器、SMTP 发、POP3/IMAP 收。",
+   "SMTP 推，POP3 拉，IMAP 可在服务器管理。"
+  ],
+  "pitfall": "MIME 扩展多媒体。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 102
+ },
+ {
+  "key": "408card/cn-06-008",
+  "subjectKey": "computer-network",
+  "chapter": 6,
+  "question": "万维网与 URL？",
+  "answerSteps": [
+   "URL：协议://主机:端口/路径；HTML、HTTP、浏览器。"
+  ],
+  "pitfall": "URL 不是协议。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 103
+ },
+ {
+  "key": "408card/cn-06-009",
+  "subjectKey": "computer-network",
+  "chapter": 6,
+  "question": "DHCP 过程？",
+  "answerSteps": [
+   "Discover 广播 → Offer → Request → ACK；租约续期。"
+  ],
+  "pitfall": "基于 UDP 67/68。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "dhcp",
+  "sortOrder": 104
+ },
+ {
+  "key": "408card/cn-06-010",
+  "subjectKey": "computer-network",
+  "chapter": 6,
+  "question": "P2P 应用？",
+  "answerSteps": [
+   "对等方直接交换；无中心服务器；迅雷、BitTorrent。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 105
+ },
+ {
+  "key": "408card/cn-06-011",
+  "subjectKey": "computer-network",
+  "chapter": 6,
+  "question": "DNS 使用 TCP 还是 UDP？",
+  "answerSteps": [
+   "默认 UDP 53，区域传送/大响应用 TCP。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "tcp-hs",
+  "sortOrder": 106
+ },
+ {
+  "key": "408card/cn-06-012",
+  "subjectKey": "computer-network",
+  "chapter": 6,
+  "question": "从浏览器输入 URL 到页面显示发生了什么？",
+  "answerSteps": [
+   "DNS 解析 → TCP 三次握手 → 发 HTTP 请求 → 服务器响应 → 浏览器解析渲染 → （HTTPS 先 TLS 握手）。",
+   "可扩展讲缓存、CDN、四次挥手。"
+  ],
+  "pitfall": "经典综合题，注意层次。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 107
+ },
+ {
+  "key": "408card/cn-06-013",
+  "subjectKey": "computer-network",
+  "chapter": 6,
+  "question": "SNMP、TELNET、SSH？",
+  "answerSteps": [
+   "SNMP 网管；TELNET 远程登录明文；SSH 加密远程。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 108
+ },
+ {
+  "key": "408card/cn-06-014",
+  "subjectKey": "computer-network",
+  "chapter": 6,
+  "question": "应用进程如何通过套接字通信？",
+  "answerSteps": [
+   "创建 socket、绑定端口、listen/accept 或 connect、send/recv、close。"
+  ],
+  "pitfall": "socket 是应用层与传输层接口。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 109
+ }
+]

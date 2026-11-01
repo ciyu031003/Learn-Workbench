@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="466" viewBox="0 0 760 466" role="img" aria-label="四种组帧方法：字符计数法、字符填充法、零比特填充法、违规编码法">
+  <style>
+    .b{fill:#fff;stroke:#2b2b2b;stroke-width:1.3}
+    .y{fill:#eef4fb;stroke:#2b2b2b;stroke-width:1.4}
+    .g{fill:#f3f7f1;stroke:#2b2b2b;stroke-width:1.3}
+    .r{fill:#fbeceb;stroke:#b06a00;stroke-width:1.6}
+    .t{font:600 13.5px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .s{font:600 12.5px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .n{font:400 11.5px "Microsoft YaHei",system-ui,sans-serif;fill:#3f3f3f}
+    .v{font:600 12.5px "Consolas","Microsoft YaHei",monospace;fill:#1d1d1d}
+  </style>
+
+  <text class="t" x="18" y="26">四种组帧方法：怎么让接收方在比特流里认出「一帧」的边界</text>
+
+  <!-- 1 字符计数法 -->
+  <text class="s" x="18" y="66">字符计数法</text>
+  <rect class="y" x="150" y="48" width="46" height="30"/>
+  <text class="v" x="164" y="68">5</text>
+  <rect class="b" x="196" y="48" width="46" height="30"/>
+  <rect class="b" x="242" y="48" width="46" height="30"/>
+  <rect class="b" x="288" y="48" width="46" height="30"/>
+  <rect class="b" x="334" y="48" width="46" height="30"/>
+  <text class="n" x="206" y="68">A</text>
+  <text class="n" x="252" y="68">B</text>
+  <text class="n" x="298" y="68">C</text>
+  <text class="n" x="344" y="68">D</text>
+  <rect class="y" x="400" y="48" width="46" height="30"/>
+  <text class="v" x="414" y="68">4</text>
+  <rect class="b" x="446" y="48" width="46" height="30"/>
+  <rect class="b" x="492" y="48" width="46" height="30"/>
+  <rect class="b" x="538" y="48" width="46" height="30"/>
+  <text class="n" x="456" y="68">E</text>
+  <text class="n" x="502" y="68">F</text>
+  <text class="n" x="548" y="68">G</text>
+  <text class="n" x="150" y="98">每个帧的第一个字节就是「本帧的字节数」；缺点是它一错，后面所有帧全部错位（所以实际很少单用）</text>
+
+  <!-- 2 字符填充法 -->
+  <text class="s" x="18" y="146">字符填充法</text>
+  <rect class="r" x="150" y="128" width="46" height="30"/>
+  <text class="v" x="158" y="148">SOH</text>
+  <rect class="b" x="196" y="128" width="46" height="30"/>
+  <text class="n" x="210" y="148">A</text>
+  <rect class="b" x="242" y="128" width="46" height="30"/>
+  <text class="n" x="256" y="148">B</text>
+  <rect class="g" x="288" y="128" width="46" height="30"/>
+  <text class="v" x="294" y="148">ESC</text>
+  <rect class="b" x="334" y="128" width="46" height="30"/>
+  <text class="v" x="344" y="148">SOH</text>
+  <rect class="b" x="380" y="128" width="46" height="30"/>
+  <text class="n" x="394" y="148">C</text>
+  <rect class="r" x="426" y="128" width="46" height="30"/>
+  <text class="v" x="434" y="148">EOT</text>
+  <text class="n" x="490" y="140">数据里出现 SOH / EOT / ESC 时</text>
+  <text class="n" x="490" y="158">前面插一个 ESC 转义</text>
+
+  <!-- 3 零比特填充 -->
+  <text class="s" x="18" y="226">零比特填充</text>
+  <text class="n" x="150" y="210">原数据</text>
+  <text class="v" x="150" y="232">011111 10</text>
+  <text class="n" x="270" y="210">发送时</text>
+  <text class="v" x="270" y="232">011111 0 10</text>
+  <text class="n" x="410" y="210">连续 5 个 1 后面自动插一个 0</text>
+  <text class="n" x="410" y="232">接收端见到 5 个 1 后的 0 就删掉</text>
+  <text class="n" x="150" y="252">优点：数据可以任意比特串，不需要关心内容；PPP 同步线路与 HDLC 都用它</text>
+
+  <!-- 4 违规编码法 -->
+  <text class="s" x="18" y="306">违规编码法</text>
+  <rect class="b" x="150" y="288" width="46" height="30"/>
+  <text class="n" x="162" y="308">数据</text>
+  <rect class="r" x="196" y="288" width="46" height="30"/>
+  <text class="n" x="204" y="308">高-高</text>
+  <rect class="b" x="242" y="288" width="46" height="30"/>
+  <text class="n" x="254" y="308">数据</text>
+  <rect class="r" x="288" y="288" width="46" height="30"/>
+  <text class="n" x="296" y="308">低-低</text>
+  <text class="n" x="350" y="300">用编码里「不会出现」的电平组合做定界</text>
+  <text class="n" x="350" y="318">例如曼彻斯特编码中「高高」「低低」本来不用</text>
+  <text class="n" x="18" y="356">字符计数法最简单也最脆弱：首字节错了，后面所有帧一起错位，所以实际很少单独使用</text>
+  <text class="n" x="18" y="378">字符填充与零比特填充都要「看数据内容」——接收端必须逐个字节 / 比特检查，才知道 ESC 或 0 是填充还是数据</text>
+  <text class="n" x="18" y="400">违规编码法不破坏数据、也不用填充，但要求物理层编码里本来就有空闲码（曼彻斯特、4B/5B 有，NRZ 没有）</text>
+  <text class="n" x="18" y="422">考点：问「数据里出现特定比特模式时也要做处理」→ 零比特填充；问「PPP 用哪种」→ 同步零比特、异步字节填充</text>
+  <text class="n" x="18" y="444">易错：字符填充在字节层面（面向字符 / 异步线路），零比特填充在比特层面（面向比特 / 同步线路），两者别混</text>
+</svg>

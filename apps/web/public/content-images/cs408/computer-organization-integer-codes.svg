@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="420" viewBox="0 0 760 420" role="img" aria-label="8 位原码、反码、补码、移码对照：+5 与 -5 的编码、四种编码之间的转换关系与特殊值">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b06a00"/>
+    </marker>
+  </defs>
+  <style>
+    .t{font:600 15px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .s{font:600 12px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .n{font:400 11.5px "Microsoft YaHei",system-ui,sans-serif;fill:#3f3f3f}
+    .h{font:600 12px "Microsoft YaHei",system-ui,sans-serif;fill:#fff}
+    .c{font:600 12px "Consolas",monospace;fill:#1d1d1d}
+    .th{fill:#475569}
+    .cell{fill:#fff;stroke:#94a3b8;stroke-width:1}
+    .hi{fill:#fdf3e6;stroke:#b06a00;stroke-width:1.4}
+    .pill{fill:#eef4fb;stroke:#2563eb;stroke-width:1.4}
+    .ar{stroke:#b06a00;stroke-width:1.5;fill:none}
+    .lbl{font:600 10.5px "Microsoft YaHei",system-ui,sans-serif;fill:#7a4a00}
+  </style>
+
+  <text class="t" x="18" y="26">8 位机器数：原码 / 反码 / 补码 / 移码 对照</text>
+  <text class="n" x="18" y="46">最高位是符号位（0 正 1 负）；只有补码和移码的 0 唯一，只有补码能表示 −128</text>
+
+  <!-- 表头 -->
+  <rect class="th" x="30" y="62" width="90" height="30"/>
+  <text class="h" x="75" y="82" text-anchor="middle">真值</text>
+  <rect class="th" x="120" y="62" width="155" height="30"/>
+  <text class="h" x="197" y="82" text-anchor="middle">原码</text>
+  <rect class="th" x="275" y="62" width="155" height="30"/>
+  <text class="h" x="352" y="82" text-anchor="middle">反码</text>
+  <rect class="th" x="430" y="62" width="155" height="30"/>
+  <text class="h" x="507" y="82" text-anchor="middle">补码</text>
+  <rect class="th" x="585" y="62" width="155" height="30"/>
+  <text class="h" x="662" y="82" text-anchor="middle">移码</text>
+
+  <!-- +5 -->
+  <rect class="cell" x="30" y="92" width="90" height="30"/>
+  <text class="c" x="75" y="112" text-anchor="middle">+5</text>
+  <rect class="cell" x="120" y="92" width="155" height="30"/><text class="c" x="197" y="112" text-anchor="middle">0000 0101</text>
+  <rect class="cell" x="275" y="92" width="155" height="30"/><text class="c" x="352" y="112" text-anchor="middle">0000 0101</text>
+  <rect class="hi" x="430" y="92" width="155" height="30"/><text class="c" x="507" y="112" text-anchor="middle">0000 0101</text>
+  <rect class="cell" x="585" y="92" width="155" height="30"/><text class="c" x="662" y="112" text-anchor="middle">1000 0101</text>
+
+  <!-- -5 -->
+  <rect class="cell" x="30" y="122" width="90" height="30"/>
+  <text class="c" x="75" y="142" text-anchor="middle">−5</text>
+  <rect class="cell" x="120" y="122" width="155" height="30"/><text class="c" x="197" y="142" text-anchor="middle">1000 0101</text>
+  <rect class="cell" x="275" y="122" width="155" height="30"/><text class="c" x="352" y="142" text-anchor="middle">1111 1010</text>
+  <rect class="hi" x="430" y="122" width="155" height="30"/><text class="c" x="507" y="142" text-anchor="middle">1111 1011</text>
+  <rect class="cell" x="585" y="122" width="155" height="30"/><text class="c" x="662" y="142" text-anchor="middle">0111 1011</text>
+
+  <!-- 0 -->
+  <rect class="cell" x="30" y="152" width="90" height="30"/>
+  <text class="c" x="75" y="172" text-anchor="middle">0</text>
+  <rect class="cell" x="120" y="152" width="155" height="30"/><text class="c" x="197" y="172" text-anchor="middle">±0（两种）</text>
+  <rect class="cell" x="275" y="152" width="155" height="30"/><text class="c" x="352" y="172" text-anchor="middle">±0（两种）</text>
+  <rect class="hi" x="430" y="152" width="155" height="30"/><text class="c" x="507" y="172" text-anchor="middle">0000 0000</text>
+  <rect class="cell" x="585" y="152" width="155" height="30"/><text class="c" x="662" y="172" text-anchor="middle">1000 0000</text>
+
+  <!-- -128 -->
+  <rect class="cell" x="30" y="182" width="90" height="30"/>
+  <text class="c" x="75" y="202" text-anchor="middle">−128</text>
+  <rect class="cell" x="120" y="182" width="155" height="30"/><text class="c" x="197" y="202" text-anchor="middle">不存在</text>
+  <rect class="cell" x="275" y="182" width="155" height="30"/><text class="c" x="352" y="202" text-anchor="middle">不存在</text>
+  <rect class="hi" x="430" y="182" width="155" height="30"/><text class="c" x="507" y="202" text-anchor="middle">1000 0000</text>
+  <rect class="cell" x="585" y="182" width="155" height="30"/><text class="c" x="662" y="202" text-anchor="middle">0000 0000</text>
+
+  <!-- 转换链 -->
+  <text class="s" x="18" y="244">转换链（以 −5 为例）</text>
+  <rect class="pill" x="40" y="258" width="110" height="34" rx="6"/>
+  <text class="n" x="95" y="280" text-anchor="middle">真值 −5</text>
+  <rect class="pill" x="200" y="258" width="110" height="34" rx="6"/>
+  <text class="n" x="255" y="280" text-anchor="middle">原码</text>
+  <rect class="pill" x="360" y="258" width="110" height="34" rx="6"/>
+  <text class="n" x="415" y="280" text-anchor="middle">反码</text>
+  <rect class="pill" x="520" y="258" width="110" height="34" rx="6"/>
+  <text class="n" x="575" y="280" text-anchor="middle">补码</text>
+  <rect class="pill" x="655" y="258" width="90" height="34" rx="6"/>
+  <text class="n" x="700" y="280" text-anchor="middle">移码</text>
+
+  <path class="ar" d="M150 275 H200" marker-end="url(#a)"/>
+  <text class="lbl" x="175" y="248" text-anchor="middle">取绝对值</text>
+  <path class="ar" d="M310 275 H360" marker-end="url(#a)"/>
+  <text class="lbl" x="335" y="250" text-anchor="middle">符号位不变，其余取反</text>
+  <path class="ar" d="M470 275 H520" marker-end="url(#a)"/>
+  <text class="lbl" x="495" y="248" text-anchor="middle">+1</text>
+  <path class="ar" d="M630 275 H655" marker-end="url(#a)"/>
+  <text class="lbl" x="700" y="310" text-anchor="middle">移码 = 补码符号位取反</text>
+
+  <!-- 结论 -->
+  <text class="n" x="18" y="326">范围（8 位）：原码/反码 −127~+127；补码/移码 <tspan font-weight="600">−128~+127</tspan>（补码负数多一个，因为 1000 0000 表示 −128）。</text>
+  <text class="n" x="18" y="348">移码 = 补码符号位取反，所以它把 0 放在中间、保持真值大小顺序，浮点数的阶码用它就是为了方便比较大小。</text>
+  <text class="n" x="18" y="370">最易错：把补码的 −128 写成"溢出"（不是）；把移码的 0 写成 0000 0000（应为 1000 0000）；把反码的 −5 写成 1111 1011（那是补码）。</text>
+</svg>

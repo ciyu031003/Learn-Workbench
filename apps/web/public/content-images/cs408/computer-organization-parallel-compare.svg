@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="440" viewBox="0 0 760 440" role="img" aria-label="超标量、超线程 SMT 与多核的对比：超标量是一个核每周期发射多条指令，SMT 是一个核里两条指令流共享执行部件，多核是多个物理核各自执行">
+  <defs>
+    <marker id="dn" viewBox="0 0 10 10" refX="5" refY="9" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,0 L5,10 z" fill="#b06a00"/>
+    </marker>
+  </defs>
+  <style>
+    .t{font:600 15px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .h{font:600 12.5px "Microsoft YaHei",system-ui,sans-serif;fill:#b06a00}
+    .s{font:600 12px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .n{font:400 11px "Microsoft YaHei",system-ui,sans-serif;fill:#3f3f3f}
+    .c{font:600 10.5px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .box{fill:#fff;stroke:#2b2b2b;stroke-width:1.4}
+    .core{fill:#fbfbfb;stroke:#2b2b2b;stroke-width:1.6;stroke-dasharray:6 4}
+    .u{fill:#eef4fb;stroke:#2b2b2b;stroke-width:1.2}
+    .st{fill:#fdf3e6;stroke:#b06a00;stroke-width:1.2}
+    .ar{stroke:#b06a00;stroke-width:1.6;fill:none}
+  </style>
+
+  <text class="t" x="18" y="26">超标量 / 超线程（SMT）/ 多核：并行到底发生在哪一层</text>
+  <text class="n" x="18" y="46">看三件事：有几个物理核、有几条指令流、执行部件是共享还是独占</text>
+
+  <!-- ① 超标量 -->
+  <text class="h" x="20" y="76">① 超标量（指令级并行 ILP）</text>
+  <rect class="core" x="20" y="86" width="220" height="212" rx="10"/>
+  <text class="n" x="30" y="104">1 个物理核</text>
+  <rect class="st" x="34" y="112" width="192" height="30" rx="6"/>
+  <text class="c" x="130" y="132" text-anchor="middle">指令流：1 条程序的连续指令</text>
+  <path class="ar" d="M130 142 V154" marker-end="url(#dn)"/>
+  <rect class="u" x="34" y="156" width="192" height="30" rx="6"/>
+  <text class="c" x="130" y="176" text-anchor="middle">发射宽度 = 4（每周期发 4 条）</text>
+  <rect class="u" x="34" y="196" width="43" height="34" rx="4"/>
+  <text class="c" x="55" y="217" text-anchor="middle">ALU</text>
+  <rect class="u" x="83" y="196" width="43" height="34" rx="4"/>
+  <text class="c" x="104" y="217" text-anchor="middle">ALU</text>
+  <rect class="u" x="132" y="196" width="43" height="34" rx="4"/>
+  <text class="c" x="153" y="217" text-anchor="middle">FPU</text>
+  <rect class="u" x="181" y="196" width="43" height="34" rx="4"/>
+  <text class="c" x="202" y="217" text-anchor="middle">LSU</text>
+  <text class="n" x="34" y="252">4 条互不相关的指令同一周期出发</text>
+  <text class="n" x="34" y="270">依赖硬件动态调度（乱序执行）</text>
+  <text class="n" x="34" y="288">仍是"一条指令流"，靠挖掘 ILP</text>
+
+  <!-- ② SMT -->
+  <text class="h" x="270" y="76">② 超线程 SMT（线程级并行，逻辑）</text>
+  <rect class="core" x="270" y="86" width="220" height="212" rx="10"/>
+  <text class="n" x="280" y="104">1 个物理核</text>
+  <rect class="st" x="284" y="112" width="192" height="28" rx="6"/>
+  <text class="c" x="380" y="131" text-anchor="middle">线程 0：独立 PC + 寄存器组</text>
+  <rect class="st" x="284" y="146" width="192" height="28" rx="6"/>
+  <text class="c" x="380" y="165" text-anchor="middle">线程 1：独立 PC + 寄存器组</text>
+  <path class="ar" d="M380 174 V186" marker-end="url(#dn)"/>
+  <rect class="u" x="284" y="188" width="192" height="52" rx="6"/>
+  <text class="c" x="380" y="208" text-anchor="middle">共享：发射逻辑 + ALU/FPU/LSU</text>
+  <text class="n" x="380" y="226" text-anchor="middle">用另一线程填满停顿空隙</text>
+  <text class="n" x="284" y="252">执行部件数量不变，只是更少空闲</text>
+  <text class="n" x="284" y="270">OS 看到 2 个"逻辑处理器"</text>
+  <text class="n" x="284" y="288">加速有限（常 15%~30%）</text>
+
+  <!-- ③ 多核 -->
+  <text class="h" x="520" y="76">③ 多核（线程级并行，物理）</text>
+  <rect class="core" x="520" y="86" width="220" height="212" rx="10"/>
+  <rect class="u" x="532" y="112" width="96" height="92" rx="6"/>
+  <text class="c" x="580" y="132" text-anchor="middle">核 0</text>
+  <text class="n" x="580" y="152" text-anchor="middle">独立 ALU</text>
+  <text class="n" x="580" y="170" text-anchor="middle">独立 L1/L2</text>
+  <text class="n" x="580" y="188" text-anchor="middle">独立 PC</text>
+  <rect class="u" x="632" y="112" width="96" height="92" rx="6"/>
+  <text class="c" x="680" y="132" text-anchor="middle">核 1</text>
+  <text class="n" x="680" y="152" text-anchor="middle">独立 ALU</text>
+  <text class="n" x="680" y="170" text-anchor="middle">独立 L1/L2</text>
+  <text class="n" x="680" y="188" text-anchor="middle">独立 PC</text>
+  <rect class="u" x="532" y="216" width="196" height="34" rx="6"/>
+  <text class="c" x="630" y="238" text-anchor="middle">共享 L3 / 缓存一致性</text>
+  <text class="n" x="532" y="270">每个核都能独立执行一段指令流</text>
+  <text class="n" x="532" y="288">理想加速接近核数（受 Amdahl 限制）</text>
+
+  <!-- 结论 -->
+  <text class="n" x="18" y="330">一句话：<tspan font-weight="600">超标量</tspan>加的是"每周期几条指令"（ILP）；<tspan font-weight="600">SMT</tspan>加的是"同一核里几条指令流"（逻辑并行，部件共享）；</text>
+  <text class="n" x="18" y="350"><tspan font-weight="600">多核</tspan>加的是"几个核"（物理并行，部件独占）。后者才真正能同时执行两段代码。</text>
+  <text class="n" x="18" y="376">选择题常设的错：① "超线程增加了执行部件"（错，部件没增加）；② "多核是逻辑处理器"（错，多核是物理的）；</text>
+  <text class="n" x="18" y="396">③ "超标量靠编译器打包"（那是 VLIW）；④ "超流水线提高了并行度"（错，它只缩短周期、每周期仍发 1 条）。</text>
+  <text class="n" x="18" y="422">三种技术都不改变"程序里有多少可并行指令"这一事实，只影响能不能把已有的并行挖出来（受 Amdahl 定律约束）。</text>
+</svg>

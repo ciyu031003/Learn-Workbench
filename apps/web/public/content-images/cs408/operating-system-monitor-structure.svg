@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="452" viewBox="0 0 760 452" role="img" aria-label="管程的结构：外部进程经入口队列进入，内部含共享数据、一组过程、初始化代码与条件变量">
+  <style>
+    .b{fill:#fff;stroke:#2b2b2b;stroke-width:1.4}
+    .y{fill:#eef4fb;stroke:#2b2b2b;stroke-width:1.6}
+    .g{fill:#f3f7f1;stroke:#2b2b2b;stroke-width:1.3}
+    .t{font:600 13.5px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .s{font:600 12px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .n{font:400 11.5px "Microsoft YaHei",system-ui,sans-serif;fill:#3f3f3f}
+    .l{stroke:#2b2b2b;stroke-width:1.3;fill:none}
+    .o{stroke:#b06a00;stroke-width:1.5;fill:none}
+  </style>
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#2b2b2b"/></marker>
+    <marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b06a00"/></marker>
+  </defs>
+
+  <text class="t" x="18" y="26">管程 = 共享数据 + 一组过程 + 初始化代码 + 条件变量（互斥由编译器保证）</text>
+
+  <!-- 外部进程 -->
+  <rect class="b" x="16" y="60"  width="92" height="38" rx="3"/>
+  <rect class="b" x="16" y="120" width="92" height="38" rx="3"/>
+  <rect class="b" x="16" y="180" width="92" height="38" rx="3"/>
+  <text class="n" x="34" y="84">进程 P1</text>
+  <text class="n" x="34" y="144">进程 P2</text>
+  <text class="n" x="34" y="204">进程 P3</text>
+
+  <!-- 入口队列 -->
+  <rect class="g" x="140" y="104" width="84" height="70" rx="3"/>
+  <text class="s" x="152" y="130">入口队列</text>
+  <text class="n" x="152" y="152">一次只</text>
+  <text class="n" x="152" y="168">进一个</text>
+  <path class="l" d="M108 79 L184 102" marker-end="url(#ar)"/>
+  <path class="l" d="M108 139 L136 139" marker-end="url(#ar)"/>
+  <path class="l" d="M108 199 L180 176" marker-end="url(#ar)"/>
+  <path class="l" d="M224 139 L246 139" marker-end="url(#ar)"/>
+
+  <!-- 管程本体 -->
+  <rect class="y" x="248" y="52" width="496" height="248" rx="6"/>
+  <text class="t" x="264" y="78">管程（Monitor）</text>
+
+  <rect class="b" x="264" y="90" width="212" height="52" rx="3"/>
+  <text class="s" x="276" y="112">共享数据</text>
+  <text class="n" x="276" y="132">buffer[N]、count、in、out</text>
+
+  <rect class="b" x="492" y="90" width="236" height="52" rx="3"/>
+  <text class="s" x="504" y="112">一组过程（唯一的访问入口）</text>
+  <text class="n" x="504" y="132">put(x) / get()</text>
+
+  <rect class="b" x="264" y="152" width="212" height="34" rx="3"/>
+  <text class="n" x="276" y="174">初始化代码：in = out = count = 0</text>
+
+  <!-- 条件变量 -->
+  <rect class="b" x="264" y="196" width="212" height="84" rx="3"/>
+  <text class="s" x="276" y="218">条件变量 notFull</text>
+  <text class="n" x="276" y="240">等待队列：○ ○ ○ …</text>
+  <text class="n" x="276" y="264">（无值、不计数、不能赋初值）</text>
+
+  <rect class="b" x="492" y="196" width="236" height="84" rx="3"/>
+  <text class="s" x="504" y="218">条件变量 notEmpty</text>
+  <text class="n" x="504" y="240">等待队列：○ ○ ○ …</text>
+  <text class="n" x="504" y="264">每个条件变量各有独立队列</text>
+
+  <!-- 条件变量是两个互相独立的等待队列，之间没有箭头（画箭头会被误读成有依赖） -->
+
+  <!-- 底部要点 -->
+  <text class="n" x="16" y="326">wait(c)：调用者阻塞，同时释放管程，进入条件变量 c 的等待队列 —— 不释放管程的话别人进不来，条件永远等不到</text>
+  <text class="n" x="16" y="352">signal(c)：唤醒一个等待者；没有等待者时什么也不做（信号丢失）。这正是它和 V 操作的区别，V 一定会把值加 1</text>
+  <text class="n" x="16" y="378">分工：互斥靠管程自动加锁（进入即锁、退出即解锁），同步靠条件变量的 wait / signal，过程里不写 P/V</text>
+  <text class="n" x="16" y="404">判断类选择题的四个高频错项：条件变量能赋初值、条件变量会计数、管程可由多个进程同时进入、互斥靠程序员写 P/V</text>
+  <text class="n" x="16" y="430">被唤醒后要用 while 重新检查条件（Mesa 语义下被唤醒时条件可能又变得不成立），写 if 是典型错误</text>
+</svg>

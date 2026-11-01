@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="430" viewBox="0 0 760 430" role="img" aria-label="同一真值在八位原码、反码、补码、移码下的编码对照，以及移码等于补码符号位取反">
+  <style>
+    .b{fill:#fff;stroke:#2b2b2b;stroke-width:1.3}
+    .h{fill:#eef4fb;stroke:#2b2b2b;stroke-width:1.3}
+    .g{fill:#f3f7f1;stroke:#2b2b2b;stroke-width:1.3}
+    .t{font:600 13.5px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .s{font:600 12.5px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .n{font:400 11.5px "Microsoft YaHei",system-ui,sans-serif;fill:#3f3f3f}
+    .v{font:600 12.5px "Consolas","Microsoft YaHei",monospace;fill:#1d1d1d}
+    .o{stroke:#b06a00;stroke-width:1.5;fill:none}
+  </style>
+  <defs>
+    <marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b06a00"/></marker>
+  </defs>
+
+  <text class="t" x="18" y="26">同一个真值，四种机器数的 8 位编码（原码 / 反码 / 补码 / 移码）</text>
+
+  <!-- 表头 -->
+  <rect class="h" x="16" y="48" width="104" height="34"/>
+  <rect class="h" x="120" y="48" width="148" height="34"/>
+  <rect class="h" x="268" y="48" width="148" height="34"/>
+  <rect class="h" x="416" y="48" width="148" height="34"/>
+  <rect class="h" x="564" y="48" width="148" height="34"/>
+  <text class="s" x="44" y="70">真值</text>
+  <text class="s" x="176" y="70">原码</text>
+  <text class="s" x="324" y="70">反码</text>
+  <text class="s" x="472" y="70">补码</text>
+  <text class="s" x="620" y="70">移码</text>
+
+  <!-- +5 -->
+  <rect class="b" x="16" y="82" width="104" height="40"/>
+  <rect class="b" x="120" y="82" width="148" height="40"/>
+  <rect class="b" x="268" y="82" width="148" height="40"/>
+  <rect class="b" x="416" y="82" width="148" height="40"/>
+  <rect class="g" x="564" y="82" width="148" height="40"/>
+  <text class="v" x="54" y="107">＋5</text>
+  <text class="v" x="150" y="107">0000 0101</text>
+  <text class="v" x="298" y="107">0000 0101</text>
+  <text class="v" x="446" y="107">0000 0101</text>
+  <text class="v" x="594" y="107">1000 0101</text>
+
+  <!-- -5 -->
+  <rect class="b" x="16" y="122" width="104" height="40"/>
+  <rect class="b" x="120" y="122" width="148" height="40"/>
+  <rect class="b" x="268" y="122" width="148" height="40"/>
+  <rect class="b" x="416" y="122" width="148" height="40"/>
+  <rect class="g" x="564" y="122" width="148" height="40"/>
+  <text class="v" x="54" y="147">－5</text>
+  <text class="v" x="150" y="147">1000 0101</text>
+  <text class="v" x="298" y="147">1111 1010</text>
+  <text class="v" x="446" y="147">1111 1011</text>
+  <text class="v" x="594" y="147">0111 1011</text>
+
+  <!-- +0 -->
+  <rect class="b" x="16" y="162" width="104" height="40"/>
+  <rect class="b" x="120" y="162" width="148" height="40"/>
+  <rect class="b" x="268" y="162" width="148" height="40"/>
+  <rect class="b" x="416" y="162" width="148" height="40"/>
+  <rect class="g" x="564" y="162" width="148" height="40"/>
+  <text class="v" x="54" y="187">＋0</text>
+  <text class="v" x="150" y="187">0000 0000</text>
+  <text class="v" x="298" y="187">0000 0000</text>
+  <text class="v" x="446" y="187">0000 0000</text>
+  <text class="v" x="594" y="187">1000 0000</text>
+
+  <!-- -0 -->
+  <rect class="b" x="16" y="202" width="104" height="40"/>
+  <rect class="b" x="120" y="202" width="148" height="40"/>
+  <rect class="b" x="268" y="202" width="148" height="40"/>
+  <rect class="b" x="416" y="202" width="148" height="40"/>
+  <rect class="g" x="564" y="202" width="148" height="40"/>
+  <text class="v" x="54" y="227">－0</text>
+  <text class="v" x="150" y="227">1000 0000</text>
+  <text class="v" x="298" y="227">1111 1111</text>
+  <text class="v" x="446" y="227">0000 0000</text>
+  <text class="v" x="594" y="227">1000 0000</text>
+
+  <!-- 移码 = 补码符号位取反 -->
+  <text class="n" x="446" y="278">移码 = 补码符号位取反（正数最高位是 1）</text>
+
+  <!-- 结论 -->
+  <text class="n" x="18" y="300">原码和反码都有「负零」，补码和移码没有 —— 补码里 1000 0000 表示 −128，不是 −0</text>
+  <text class="n" x="18" y="322">所以 8 位补码范围是 −128 ~ ＋127，比原码/反码（−127 ~ ＋127）多出一个负数</text>
+  <text class="n" x="18" y="344">转换：反码 = 原码除符号位外按位取反；补码 = 反码末位加 1</text>
+  <text class="n" x="18" y="366">补码快捷法：从右往左找到第一个 1，它和它右边都不变，左边（除符号位）全部取反</text>
+  <text class="n" x="18" y="388">移码只给浮点数的阶码用：最高位对正数是 1、对负数是 0，可以当无符号数直接比大小</text>
+  <text class="n" x="18" y="410">陷阱：同一个 1000 0000，在原码里是 −0、在补码里是 −128 —— 位模式相同，含义随编码而变</text>
+</svg>

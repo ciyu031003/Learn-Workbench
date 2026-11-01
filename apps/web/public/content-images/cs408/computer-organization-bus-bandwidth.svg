@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="400" viewBox="0 0 760 400" role="img" aria-label="总线事务的时间轴：非突发每两拍传一个数据，突发传送只给一次地址、之后连续传数据，地址开销被摊薄后有效带宽提高">
+  <style>
+    .t{font:600 15px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .s{font:600 12.5px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .n{font:400 11.5px "Microsoft YaHei",system-ui,sans-serif;fill:#3f3f3f}
+    .c{font:600 11.5px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .y{font:600 11.5px "Microsoft YaHei",system-ui,sans-serif;fill:#7a4a00}
+    .box{fill:#fff;stroke:#2b2b2b;stroke-width:1.5}
+    .ad{fill:#fdf3e6;stroke:#b06a00;stroke-width:1.4}
+    .da{fill:#eef4fb;stroke:#2b2b2b;stroke-width:1.4}
+  </style>
+
+  <text class="t" x="18" y="26">一次总线事务的时间轴：地址周期 + 数据周期，决定"有效带宽"</text>
+  <text class="n" x="18" y="46">同样传 4 个字：非突发要 8 拍，突发只要 5 拍——地址开销被摊薄，有效带宽就上去了</text>
+
+  <!-- 非突发 -->
+  <text class="s" x="18" y="82">非突发：每传一个字都要重新给地址</text>
+  <rect class="ad" x="40" y="92" width="60" height="38" rx="4"/>
+  <text class="c" x="70" y="116" text-anchor="middle">地址</text>
+  <rect class="da" x="100" y="92" width="60" height="38" rx="4"/>
+  <text class="c" x="130" y="116" text-anchor="middle">数据</text>
+  <rect class="ad" x="160" y="92" width="60" height="38" rx="4"/>
+  <text class="c" x="190" y="116" text-anchor="middle">地址</text>
+  <rect class="da" x="220" y="92" width="60" height="38" rx="4"/>
+  <text class="c" x="250" y="116" text-anchor="middle">数据</text>
+  <rect class="ad" x="280" y="92" width="60" height="38" rx="4"/>
+  <text class="c" x="310" y="116" text-anchor="middle">地址</text>
+  <rect class="da" x="340" y="92" width="60" height="38" rx="4"/>
+  <text class="c" x="370" y="116" text-anchor="middle">数据</text>
+  <text class="n" x="40" y="150">8 个时钟周期传 4 个字（16 B），地址占了 4 拍</text>
+  <text class="y" x="40" y="170">每个字平均 2 拍 → 有效带宽 = 4 B ÷ 2 × f</text>
+
+  <!-- 突发 -->
+  <text class="s" x="18" y="206">突发传送：只给一次首地址，后续地址由从设备自动递增</text>
+  <rect class="ad" x="40" y="216" width="60" height="38" rx="4"/>
+  <text class="c" x="70" y="240" text-anchor="middle">地址</text>
+  <rect class="da" x="100" y="216" width="60" height="38" rx="4"/>
+  <text class="c" x="130" y="240" text-anchor="middle">数据</text>
+  <rect class="da" x="160" y="216" width="60" height="38" rx="4"/>
+  <text class="c" x="190" y="240" text-anchor="middle">数据</text>
+  <rect class="da" x="220" y="216" width="60" height="38" rx="4"/>
+  <text class="c" x="250" y="240" text-anchor="middle">数据</text>
+  <rect class="da" x="280" y="216" width="60" height="38" rx="4"/>
+  <text class="c" x="310" y="240" text-anchor="middle">数据</text>
+  <text class="n" x="40" y="274">5 个时钟周期传 4 个字（16 B），地址只占 1 拍</text>
+  <text class="y" x="40" y="294">每个字平均 1.25 拍 → 有效带宽 = 16 B ÷ 5 × f</text>
+
+  <!-- 公式与数值 -->
+  <rect class="box" x="430" y="82" width="300" height="76" rx="8"/>
+  <text class="s" x="444" y="104">通用公式</text>
+  <text class="n" x="444" y="124">有效带宽 = 一次事务传送的字节数</text>
+  <text class="n" x="444" y="142">÷ 一次事务占用的时钟周期数 × f</text>
+
+  <rect class="box" x="430" y="170" width="300" height="120" rx="8"/>
+  <text class="s" x="444" y="192">代入：32 位（4 B）、66 MHz</text>
+  <text class="n" x="444" y="214">非突发：4 B ÷ 2 拍 × 66 M = 132 MB/s</text>
+  <text class="n" x="444" y="236">突发 4 字：16 B ÷ 5 拍 × 66 M = 211.2 MB/s</text>
+  <text class="n" x="444" y="258">理想（每拍都传）：4 B × 66 M = 264 MB/s</text>
+  <text class="y" x="444" y="278">突发把带宽从 132 提到 211.2，正好 +60%</text>
+
+  <text class="n" x="18" y="330">结论：带宽 = 宽度 × 频率 只是"理想值"；实际题目给了地址周期、突发长度，就要用「字节数 ÷ 周期数 × f」算「有效」带宽。</text>
+  <text class="n" x="18" y="352">地址周期占比越小（数据块越长），有效带宽越接近理想值——极限就是"地址周期为 0"。</text>
+  <text class="n" x="18" y="374">换算提醒：宽度 × 频率 先得 b/s，要 B/s 再除以 8；32 位 × 66 MHz = 2112 Mb/s = 264 MB/s。</text>
+</svg>

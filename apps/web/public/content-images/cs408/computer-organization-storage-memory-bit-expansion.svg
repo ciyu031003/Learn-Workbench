@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="740" height="330" viewBox="0 0 740 330" role="img" aria-label="位扩展：多片同规格芯片共用地址线，数据线拼接加宽字长">
+  <style>
+    .b{fill:#fff;stroke:#2b2b2b;stroke-width:1.5}
+    .b2{fill:#eef7ee;stroke:#2b2b2b;stroke-width:1.5}
+    .t{font:600 13.5px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .n{font:400 12px "Microsoft YaHei",system-ui,sans-serif;fill:#4a4a4a}
+    .l{stroke:#2b2b2b;stroke-width:1.3;fill:none}
+    .d{stroke:#2b6cb0;stroke-width:1.6;fill:none}
+    .a{fill:#2b2b2b}
+  </style>
+  <defs>
+    <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#2b2b2b"/></marker>
+    <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#2b6cb0"/></marker>
+  </defs>
+
+  <text class="t" x="20" y="24">位扩展：4 片 8 位芯片 → 字长 32 位（地址线全部共用，片选一起给）</text>
+
+  <!-- 4 片 -->
+  <g>
+    <rect class="b" x="196" y="46"  width="240" height="44" rx="3"/>
+    <rect class="b" x="196" y="112" width="240" height="44" rx="3"/>
+    <rect class="b" x="196" y="178" width="240" height="44" rx="3"/>
+    <rect class="b" x="196" y="244" width="240" height="44" rx="3"/>
+    <text class="n" x="214" y="72">芯片 0　8 位 × 2ⁿ</text>
+    <text class="n" x="214" y="138">芯片 1　8 位 × 2ⁿ</text>
+    <text class="n" x="214" y="204">芯片 2　8 位 × 2ⁿ</text>
+    <text class="n" x="214" y="270">芯片 3　8 位 × 2ⁿ</text>
+  </g>
+
+  <!-- 左侧公共地址总线 -->
+  <path class="l" d="M60 68 L192 68" marker-end="url(#a1)"/>
+  <path class="l" d="M60 134 L192 134" marker-end="url(#a1)"/>
+  <path class="l" d="M60 200 L192 200" marker-end="url(#a1)"/>
+  <path class="l" d="M60 266 L192 266" marker-end="url(#a1)"/>
+  <path class="l" d="M60 68 L60 266"/>
+  <text class="n" x="18" y="62">A₀~A(n−1)</text>
+  <text class="n" x="18" y="292">共用一套地址</text>
+
+  <!-- 右侧数据线拼接 -->
+  <path class="d" d="M436 68 L660 68" marker-end="url(#a2)"/>
+  <path class="d" d="M436 134 L660 134" marker-end="url(#a2)"/>
+  <path class="d" d="M436 200 L660 200" marker-end="url(#a2)"/>
+  <path class="d" d="M436 266 L660 266" marker-end="url(#a2)"/>
+  <text class="n" x="470" y="60">D₀~D₇</text>
+  <text class="n" x="470" y="126">D₈~D₁₅</text>
+  <text class="n" x="470" y="192">D₁₆~D₂₃</text>
+  <text class="n" x="470" y="258">D₂₄~D₃₁</text>
+
+  <text class="n" x="196" y="310">一次性选中：4 片的 CS 连在一起（同读同写），所以总字数不变、字长 ×4</text>
+  <text class="n" x="196" y="326">判别口诀：地址线共用、数据线分家 ⇒ 位扩展（长个子不长数量）</text>
+</svg>

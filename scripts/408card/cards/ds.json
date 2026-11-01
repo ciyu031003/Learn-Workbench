@@ -1,0 +1,2838 @@
+[
+ {
+  "key": "408card/ds-01-001",
+  "subjectKey": "data-structure",
+  "chapter": 1,
+  "question": "什么是数据结构？逻辑结构、存储结构、数据运算三者关系？",
+  "answerSteps": [
+   "数据结构是相互之间存在一种或多种特定关系的数据元素的集合。",
+   "三要素：**逻辑结构**（集合/线性/树/图）、**存储结构**（顺序/链式/索引/散列）、**数据运算**。",
+   "逻辑结构独立于计算机；存储结构是逻辑结构在内存中的映像。"
+  ],
+  "pitfall": "同一逻辑结构可用不同存储结构实现；运算定义属于逻辑结构，运算实现依赖存储结构。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 0
+ },
+ {
+  "key": "408card/ds-01-002",
+  "subjectKey": "data-structure",
+  "chapter": 1,
+  "question": "算法的五大特性是什么？",
+  "answerSteps": [
+   "①**有穷性**：有限步骤、有限时间内结束；②**确定性**：无二义；③**可行性**：基本运算可执行；④**输入**；⑤**输出**。",
+   "好算法标准：正确性、可读性、健壮性、高效率与低存储。"
+  ],
+  "pitfall": null,
+  "mnemonic": "有确可入出",
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 1
+ },
+ {
+  "key": "408card/ds-01-003",
+  "subjectKey": "data-structure",
+  "chapter": 1,
+  "question": "时间复杂度如何计算？常见阶的比较？",
+  "answerSteps": [
+   "渐进时间复杂度取**最深层循环**基本操作的执行次数，忽略常数与低阶。",
+   "常见：O(1)<O(log n)<O(n)<O(n log n)<O(n²)<O(2ⁿ)<O(n!)。",
+   "嵌套循环乘积；顺序循环取最大；递归用递推式或主定理。"
+  ],
+  "pitfall": "不是数循环次数精确值，而是数量级；递归如二分 O(log n)，归并 O(n log n)。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 2
+ },
+ {
+  "key": "408card/ds-01-004",
+  "subjectKey": "data-structure",
+  "chapter": 1,
+  "question": "空间复杂度如何计算？",
+  "answerSteps": [
+   "算法执行过程中临时占用的**辅助空间**相对问题规模 n 的量级。",
+   "原地算法 S(n)=O(1)；递归深度决定递归空间，如快排平均 O(log n)、最坏 O(n)。"
+  ],
+  "pitfall": "一般不含输入数据本身占用；递归栈要算进空间。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 3
+ },
+ {
+  "key": "408card/ds-01-005",
+  "subjectKey": "data-structure",
+  "chapter": 1,
+  "question": "抽象数据类型 ADT 是什么？",
+  "answerSteps": [
+   "ADT = 数据对象 + 数据关系 + 基本操作，与实现无关的**数学模型**。",
+   "例如栈的 ADT 只定义 Init/Push/Pop/GetTop 等操作语义。"
+  ],
+  "pitfall": "ADT 是逻辑层概念，不规定顺序栈还是链栈。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 4
+ },
+ {
+  "key": "408card/ds-01-006",
+  "subjectKey": "data-structure",
+  "chapter": 1,
+  "question": "顺序存储与链式存储的特点对比？",
+  "answerSteps": [
+   "**顺序**：逻辑相邻物理相邻，随机存取 O(1)，插入删除平均移动 n/2，存储密度高。",
+   "**链式**：靠指针链接，只能顺序存取，插入删除改指针 O(1)（已知位置），额外指针开销。"
+  ],
+  "pitfall": "链表插入删除本身 O(1)，但**找到位置**可能 O(n)。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 5
+ },
+ {
+  "key": "408card/ds-01-007",
+  "subjectKey": "data-structure",
+  "chapter": 1,
+  "question": "什么是算法的稳定性？举例说明。",
+  "answerSteps": [
+   "若两个关键字相同的元素，排序后**相对次序不变**，则算法稳定。",
+   "稳定：冒泡、插入、归并、基数；不稳定：选择、希尔、快排、堆排。"
+  ],
+  "pitfall": "稳定性是算法性质，不是某一趟结果。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 6
+ },
+ {
+  "key": "408card/ds-01-008",
+  "subjectKey": "data-structure",
+  "chapter": 1,
+  "question": "渐进符号 O、Ω、Θ 的含义？",
+  "answerSteps": [
+   "O(f(n))：上界，存在正常数 c,n₀ 使 g(n)≤c·f(n)。",
+   "Ω(f(n))：下界；Θ(f(n))：紧确界，既是 O 又是 Ω。"
+  ],
+  "pitfall": "O 是「不超过」量级，不是精确相等。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 7
+ },
+ {
+  "key": "408card/ds-02-001",
+  "subjectKey": "data-structure",
+  "chapter": 2,
+  "question": "线性表的定义与九种基本操作？",
+  "answerSteps": [
+   "线性表是 n（n≥0）个**数据元素**的有限序列，元素之间是一对一的线性关系：除第一个元素外每个有且仅有一个直接前驱，除最后一个外有且仅有一个直接后继。",
+   "基本操作（按「创销增删查」记）：`InitList(&L)` 初始化；`DestroyList(&L)` 销毁；`ListInsert(&L,i,e)` 在第 i 个位置插入；`ListDelete(&L,i,&e)` 删除第 i 个并用 e 返回；`LocateElem(L,e)` 按值查找返回位序；`GetElem(L,i)` 按位查找；`Length(L)` 求表长；`Empty(L)` 判空；`PrintList(L)` 输出。"
+  ],
+  "pitfall": "位序 i 是「第几个」，从 1 开始；数组下标从 0 开始，两者差 1。表长为 0 时插入只能插在 i=1 处。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 8
+ },
+ {
+  "key": "408card/ds-02-002",
+  "subjectKey": "data-structure",
+  "chapter": 2,
+  "question": "顺序表（顺序存储）的插入、删除时间复杂度？",
+  "answerSteps": [
+   "顺序表：用一段连续存储单元依次存放元素。",
+   "插入第 i 个：需将 i 及之后元素**后移**，平均移动 n/2 个，**O(n)**。",
+   "删除第 i 个：将 i+1 及之后**前移**，平均移动 (n-1)/2 个，**O(n)**。",
+   "按位查找 `GetElem`：`L.data[i-1]`，**O(1)** 随机存取。"
+  ],
+  "pitfall": "插入可插位置有 n+1 个（1~n+1）；空表也能插入。平均移动次数要会算。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "seq-vs-link",
+  "sortOrder": 9
+ },
+ {
+  "key": "408card/ds-02-003",
+  "subjectKey": "data-structure",
+  "chapter": 2,
+  "question": "单链表的头插法、尾插法建表特点？",
+  "answerSteps": [
+   "**头插法**：新结点插在头结点之后，读入顺序与表中**逆序**；O(n)。",
+   "**尾插法**：借助尾指针插在末尾，顺序**一致**；O(n)。",
+   "带头结点：空表时 `head->next==NULL`，插入删除统一，不用判头指针空。"
+  ],
+  "pitfall": "头插法生成逆序是常考点；写代码勿丢 `next` 赋值顺序导致断链。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 10
+ },
+ {
+  "key": "408card/ds-02-004",
+  "subjectKey": "data-structure",
+  "chapter": 2,
+  "question": "单链表按值查找、插入、删除的时间复杂度？",
+  "answerSteps": [
+   "按值/按位查找：从头遍历，平均 **O(n)**。",
+   "已知结点指针 p，在 p 后插入：`s->next=p->next; p->next=s`，**O(1)**。",
+   "删除 p 的后继：改指针 O(1)；**删除 p 本身**：需找前驱 O(n)，或用「后继值覆盖 p 再删后继」O(1)（但 p 不能是最后一个）。"
+  ],
+  "pitfall": "没有前驱指针时，删除给定结点本身最坏 O(n)；考试爱考这个细节。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 11
+ },
+ {
+  "key": "408card/ds-02-005",
+  "subjectKey": "data-structure",
+  "chapter": 2,
+  "question": "双向链表的插入删除操作？",
+  "answerSteps": [
+   "结点含 `prior` 与 `next`。",
+   "在 p 后插入 s：`s->next=p->next; p->next->prior=s; s->prior=p; p->next=s`（注意顺序，防断链）。",
+   "删除 p：`p->prior->next=p->next; p->next->prior=p->prior`。"
+  ],
+  "pitfall": "插入时若 p 是最后一个，p->next 为空，需特殊处理；改 4 个指针的顺序是笔误高发点。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 12
+ },
+ {
+  "key": "408card/ds-02-006",
+  "subjectKey": "data-structure",
+  "chapter": 2,
+  "question": "循环链表、静态链表是什么？",
+  "answerSteps": [
+   "**循环单链表**：尾 next 指向头；判空 `head->next==head`；从任一结点可遍历全表。",
+   "**循环双链表**：头 prior 指尾，尾 next 指头。",
+   "**静态链表**：用数组模拟，元素含 data 与 next（下标），next=-1 表示结束。"
+  ],
+  "pitfall": "循环链表通常仍带头结点；静态链表 next 存的是数组下标不是地址。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 13
+ },
+ {
+  "key": "408card/ds-02-007",
+  "subjectKey": "data-structure",
+  "chapter": 2,
+  "question": "顺序表与链表如何选择？",
+  "answerSteps": [
+   "**选顺序表**：频繁按位查找、很少插入删除、线性表长度变化不大。",
+   "**选链表**：频繁插入删除、长度变化大、无法预估规模。",
+   "二者都是线性结构，逻辑关系相同。"
+  ],
+  "pitfall": "不要答成「顺序表一定快」；要按操作频率分析。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "seq-vs-link",
+  "sortOrder": 14
+ },
+ {
+  "key": "408card/ds-02-008",
+  "subjectKey": "data-structure",
+  "chapter": 2,
+  "question": "合并两个有序链表（递增）的算法思想与复杂度？",
+  "answerSteps": [
+   "双指针 i、j 分别指向两表头，比较后小者尾插到结果表，O(m+n)。",
+   "尾插法保持有序；结束后把剩余段整体接上。"
+  ],
+  "pitfall": "别用头插（会逆序）；注意空表边界。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 15
+ },
+ {
+  "key": "408card/ds-02-009",
+  "subjectKey": "data-structure",
+  "chapter": 2,
+  "question": "删除单链表中值为 x 的所有结点？",
+  "answerSteps": [
+   "遍历，p 指当前、pre 指前驱；`if(p->data==x){pre->next=p->next; free(p); p=pre->next;} else {pre=p; p=p->next;}`",
+   "时间 O(n)，空间 O(1)。"
+  ],
+  "pitfall": "删除后 p 要用 pre->next 更新，不能 p=p->next 先走再删。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 16
+ },
+ {
+  "key": "408card/ds-02-010",
+  "subjectKey": "data-structure",
+  "chapter": 2,
+  "question": "如何找单链表中间结点？",
+  "answerSteps": [
+   "**快慢指针**：slow 走 1，fast 走 2；fast 到末尾时 slow 在中间（偶数个时为第 n/2 个或下中位）。",
+   "O(n) 时间 O(1) 空间。"
+  ],
+  "pitfall": "循环条件 `fast && fast->next`；偶数长度中间是第 n/2 还是 n/2+1 要看题目。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 17
+ },
+ {
+  "key": "408card/ds-02-011",
+  "subjectKey": "data-structure",
+  "chapter": 2,
+  "question": "如何判断单链表是否有环？并找环入口。",
+  "answerSteps": [
+   "**快慢指针**判环：slow=1 步，fast=2 步，若相遇则有环。",
+   "找入口：相遇后，另设 p 从头、q 从相遇点，每次都走 1 步，再次相遇即**入口**。",
+   "证明：设头到入口 a，入口到相遇 b，环长 c；可得 a = c-b + k*c。"
+  ],
+  "pitfall": "快慢指针走 2 和 1；找入口时两指针都走 1，不是快指针。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 18
+ },
+ {
+  "key": "408card/ds-02-012",
+  "subjectKey": "data-structure",
+  "chapter": 2,
+  "question": "如何找两链表的第一个公共结点？",
+  "answerSteps": [
+   "先求两表长，长表先走 |m-n| 步，再同步走，第一个相同指针即公共结点。",
+   "或：p 走完 A 接 B，q 走完 B 接 A，同步走会在公共点相遇。"
+  ],
+  "pitfall": "公共结点是**地址相同**，不是值相同；Y 型相交。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 19
+ },
+ {
+  "key": "408card/ds-02-013",
+  "subjectKey": "data-structure",
+  "chapter": 2,
+  "question": "顺序表的就地逆置算法？",
+  "answerSteps": [
+   "双指针 i=0、j=n-1，交换 `L.data[i]` 与 `L.data[j]`，i++ j--，直到 i≥j。",
+   "O(n) 时间 O(1) 空间。"
+  ],
+  "pitfall": "链表逆置要改指针方向，通常头插或三指针。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 20
+ },
+ {
+  "key": "408card/ds-02-014",
+  "subjectKey": "data-structure",
+  "chapter": 2,
+  "question": "单链表就地逆置（头插法逆置）？",
+  "answerSteps": [
+   "`p=head->next; head->next=NULL;` 循环：`q=p->next; p->next=head->next; head->next=p; p=q;`",
+   "O(n) O(1)。"
+  ],
+  "pitfall": "必须先断开再头插，否则丢后半表。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 21
+ },
+ {
+  "key": "408card/ds-02-015",
+  "subjectKey": "data-structure",
+  "chapter": 2,
+  "question": "顺序表结构体定义与初始化？",
+  "answerSteps": [
+   "C：`#define MaxSize 50 typedef struct { ElemType data[MaxSize]; int length; } SqList;",
+   "或动态分配：`ElemType *data; int MaxSize, length;`",
+   "Init：length=0。"
+  ],
+  "pitfall": "length 是**当前元素个数**，不是数组大小；下标 0..length-1。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 22
+ },
+ {
+  "key": "408card/ds-02-016",
+  "subjectKey": "data-structure",
+  "chapter": 2,
+  "question": "单链表结点定义？",
+  "answerSteps": [
+   "`typedef struct LNode { ElemType data; struct LNode *next; } LNode, *LinkList;",
+   "LinkList 是头指针类型；带头结点时第一个数据结点是 `L->next`。"
+  ],
+  "pitfall": "typedef 里 struct 名与 typedef 名区别；考试写代码可用简写。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 23
+ },
+ {
+  "key": "408card/ds-02-017",
+  "subjectKey": "data-structure",
+  "chapter": 2,
+  "question": "顺序表插入操作完整过程？",
+  "answerSteps": [
+   "①判插入位 i 是否合法（1≤i≤length+1）②判表是否已满③从后往前将第 length..i 个元素后移一位④放入 e⑤length++",
+   "平均移动次数 = n/2。"
+  ],
+  "pitfall": "合法插入位置是 1 到 length+1；满表时不能插。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 24
+ },
+ {
+  "key": "408card/ds-02-018",
+  "subjectKey": "data-structure",
+  "chapter": 2,
+  "question": "单链表插入操作完整过程（后插）？",
+  "answerSteps": [
+   "在结点 p 后插入 s：`s->next=p->next; p->next=s;`",
+   "若在 p **前**插入且无前驱：可后插 s 再交换 p 与 s 的 data（经典 trick）。"
+  ],
+  "pitfall": "前插无 prior 时用交换 data 的方法，O(1)。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 25
+ },
+ {
+  "key": "408card/ds-02-019",
+  "subjectKey": "data-structure",
+  "chapter": 2,
+  "question": "静态链表如何实现插入删除？",
+  "answerSteps": [
+   "数组分量含 data、next（下标）；插入时从「备用链表」（游标存于 0 号）取空闲分量。",
+   "删除时把分量回收到备用链表。"
+  ],
+  "pitfall": "0 号单元通常存备用链表头，最后一个数据 next=-1。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 26
+ },
+ {
+  "key": "408card/ds-02-020",
+  "subjectKey": "data-structure",
+  "chapter": 2,
+  "question": "带头结点与不带头结点单链表的区别？",
+  "answerSteps": [
+   "带头：L 永不为空，空表 L->next=NULL；插入删除第一结点与其它结点统一。",
+   "不带头：空表 L=NULL；头插/删头要改头指针。"
+  ],
+  "pitfall": "题目若说「带头结点」，操作前不必判 L==NULL。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 27
+ },
+ {
+  "key": "408card/ds-02-021",
+  "subjectKey": "data-structure",
+  "chapter": 2,
+  "question": "如何在 O(1) 时间求顺序表中位数（第 ⌈n/2⌉ 小）？",
+  "answerSteps": [
+   "若只是顺序表按位存取，直接 `L.data[(n+1)/2 - 1]`，O(1)。",
+   "若要求「无序数组的中位数」则用快选（partition）O(n)，那是算法题不是线性表基本操作。"
+  ],
+  "pitfall": "分清「顺序表第 i 个元素」和「无序序列第 i 小」。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 28
+ },
+ {
+  "key": "408card/ds-02-022",
+  "subjectKey": "data-structure",
+  "chapter": 2,
+  "question": "线性表的两种实现（顺序/链式）在考研中常怎么考？",
+  "answerSteps": [
+   "①时间复杂度分析 ②写插入/删除/查找/逆置/合并代码 ③算法设计题（找中间、判环、公共结点）",
+   "代码题要写清边界与带头结点假设。"
+  ],
+  "pitfall": "算法题通常 OJ 式：参数、返回值、异常处理要完整。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 29
+ },
+ {
+  "key": "408card/ds-02-023",
+  "subjectKey": "data-structure",
+  "chapter": 2,
+  "question": "循环双链表判空？",
+  "answerSteps": [
+   "空：`L->next==L && L->prior==L`（头结点自指）。"
+  ],
+  "pitfall": "循环单链表空是 `L->next==L`。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 30
+ },
+ {
+  "key": "408card/ds-02-024",
+  "subjectKey": "data-structure",
+  "chapter": 2,
+  "question": "删除顺序表中所有值为 x 的元素（高效写法）？",
+  "answerSteps": [
+   "**双指针压缩**：k=0；遍历 i，若 `L.data[i]!=x` 则 `L.data[k++]=L.data[i]`；最后 length=k。",
+   "O(n) 时间 O(1) 空间，比逐个删更优。"
+  ],
+  "pitfall": "逐个删每次 O(n)，总体 O(n²)，考点常要求 O(n) 压缩写法。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 31
+ },
+ {
+  "key": "408card/ds-02-025",
+  "subjectKey": "data-structure",
+  "chapter": 2,
+  "question": "顺序表取元素 GetElem 与按值 Locate 的复杂度？",
+  "answerSteps": [
+   "按位 GetElem：O(1)",
+   "按值 Locate：顺序比较 O(n)"
+  ],
+  "pitfall": "顺序表随机存取是指**按位**O(1)，不是按值。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 32
+ },
+ {
+  "key": "408card/ds-02-026",
+  "subjectKey": "data-structure",
+  "chapter": 2,
+  "question": "单链表能否随机存取？为什么？",
+  "answerSteps": [
+   "不能。逻辑相邻物理不一定相邻，必须从头沿 next 走到目标，O(n)。",
+   "顺序表逻辑相邻物理相邻，可用地址公式 O(1)。"
+  ],
+  "pitfall": "这是顺序表 vs 链表最核心差别之一。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 33
+ },
+ {
+  "key": "408card/ds-02-027",
+  "subjectKey": "data-structure",
+  "chapter": 2,
+  "question": "用头插法把顺序表逆置输出到新链表？",
+  "answerSteps": [
+   "遍历顺序表，对每个元素做头插建链表，得到逆序。",
+   "若直接头插建表，结果顺序与输入相反。"
+  ],
+  "pitfall": "头插=逆序，尾插=同序，务必记住。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "seq-vs-link",
+  "sortOrder": 34
+ },
+ {
+  "key": "408card/ds-02-028",
+  "subjectKey": "data-structure",
+  "chapter": 2,
+  "question": "线性表插入删除中「移动元素」与「改指针」的本质？",
+  "answerSteps": [
+   "顺序表：保持物理连续 ⇒ 移动元素，O(n)",
+   "链表：物理不连续 ⇒ 改指针，定位后 O(1)"
+  ],
+  "pitfall": "链表总时间若含查找则是 O(n)。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 35
+ },
+ {
+  "key": "408card/ds-03-001",
+  "subjectKey": "data-structure",
+  "chapter": 3,
+  "question": "栈的定义与特点？",
+  "answerSteps": [
+   "栈是**仅在表尾（栈顶）插入删除**的线性表，后进先出 **LIFO**。",
+   "操作：InitStack、Push、Pop、GetTop、StackEmpty。",
+   "n 个不同元素进栈，出栈序列个数 = 卡特兰数 `C(2n,n)/(n+1)`。"
+  ],
+  "pitfall": "栈是操作受限的线性表，逻辑结构仍是线性。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "stack-seq",
+  "sortOrder": 36
+ },
+ {
+  "key": "408card/ds-03-002",
+  "subjectKey": "data-structure",
+  "chapter": 3,
+  "question": "顺序栈与链栈的特点？",
+  "answerSteps": [
+   "**顺序栈**：数组 + top；进栈 `S.data[++top]=x`；出栈 `x=S.data[top--]`；栈满 top==MaxSize-1。",
+   "**链栈**：通常不带头结点，头插进栈，栈顶即链头；不存在栈满（除非内存耗尽）。"
+  ],
+  "pitfall": "顺序栈 top 初值 -1 还是 0 取决于约定，看题目/教材定义。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 37
+ },
+ {
+  "key": "408card/ds-03-003",
+  "subjectKey": "data-structure",
+  "chapter": 3,
+  "question": "队列的定义与特点？",
+  "answerSteps": [
+   "只允许一端插入（队尾 rear）、另一端删除（队头 front）的线性表，**FIFO**。",
+   "操作：EnQueue、DeQueue、GetHead。"
+  ],
+  "pitfall": "队列两端都操作，栈只在一端。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 38
+ },
+ {
+  "key": "408card/ds-03-004",
+  "subjectKey": "data-structure",
+  "chapter": 3,
+  "question": "循环队列如何判空、判满？",
+  "answerSteps": [
+   "顺序队列假溢出 ⇒ 循环队列，下标模 MaxSize。",
+   "牺牲一个单元：**队空** `front==rear`；**队满** `(rear+1)%M==front`；队长 `(rear-front+M)%M`。",
+   "或用 size 变量、tag 变量区分。"
+  ],
+  "pitfall": "最常考牺牲空间法；出队 `x=Q.data[front]; front=(front+1)%M`。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "circ-queue",
+  "sortOrder": 39
+ },
+ {
+  "key": "408card/ds-03-005",
+  "subjectKey": "data-structure",
+  "chapter": 3,
+  "question": "链式队列判空？",
+  "answerSteps": [
+   "带头结点：`front==rear`（都指向头结点）或 `front->next==NULL`。",
+   "不带头：`front==NULL`。"
+  ],
+  "pitfall": "链队列一般无队满问题。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 40
+ },
+ {
+  "key": "408card/ds-03-006",
+  "subjectKey": "data-structure",
+  "chapter": 3,
+  "question": "栈在括号匹配中的应用？",
+  "answerSteps": [
+   "遇左括号进栈；遇右括号：栈空则失败，栈顶是对应左括号则出栈，否则失败。",
+   "结束时栈空才是合法匹配。O(n)。"
+  ],
+  "pitfall": "类型必须配对，不能只数个数。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 41
+ },
+ {
+  "key": "408card/ds-03-007",
+  "subjectKey": "data-structure",
+  "chapter": 3,
+  "question": "栈在表达式求值中的应用？中缀转后缀？",
+  "answerSteps": [
+   "**后缀（逆波兰）**：运算符在后，无需括号；用栈：遇数进栈，遇运算符弹两个运算。",
+   "**中缀转后缀**：操作数直接输出；运算符比较优先级，高于栈顶则进栈，否则弹出直到低于，再进栈；括号特殊处理。",
+   "前缀（波兰式）从右向左扫描。"
+  ],
+  "pitfall": "转换算法与求值算法方向不同；乘除高于加减，左结合。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "infix-postfix",
+  "sortOrder": 42
+ },
+ {
+  "key": "408card/ds-03-008",
+  "subjectKey": "data-structure",
+  "chapter": 3,
+  "question": "栈在递归中的作用？",
+  "answerSteps": [
+   "递归调用用栈保存：返回地址、实参、局部变量。",
+   "递归改非递归通常手工模拟栈。"
+  ],
+  "pitfall": "深度过大栈溢出；尾递归可优化。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "recur-stack",
+  "sortOrder": 43
+ },
+ {
+  "key": "408card/ds-03-009",
+  "subjectKey": "data-structure",
+  "chapter": 3,
+  "question": "双端队列（deque）是什么？受限的有哪些？",
+  "answerSteps": [
+   "两端都可插入删除。",
+   "**输入受限**：一端只能入；**输出受限**：一端只能出。",
+   "经典：判断出队序列合法性。"
+  ],
+  "pitfall": "受限双端队列的输出序列个数问题比栈更复杂。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 44
+ },
+ {
+  "key": "408card/ds-03-010",
+  "subjectKey": "data-structure",
+  "chapter": 3,
+  "question": "如何用两个栈实现队列？",
+  "answerSteps": [
+   "入队压入 stack1；出队若 stack2 空则把 stack1 全部倒入 stack2，再弹 stack2 顶。",
+   "均摊 O(1)。"
+  ],
+  "pitfall": "只有 stack2 空时才倒入，保证顺序。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 45
+ },
+ {
+  "key": "408card/ds-03-011",
+  "subjectKey": "data-structure",
+  "chapter": 3,
+  "question": "如何用两个队列实现栈？",
+  "answerSteps": [
+   "入栈：进非空队列（都空进 q1）；出栈：把非空队列中前 n-1 个搬到另一队列，剩下一个出队即栈顶。",
+   "O(n) 出栈。"
+  ],
+  "pitfall": "实现栈必须让最新入的先出，所以每次出栈要搬家。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 46
+ },
+ {
+  "key": "408card/ds-03-012",
+  "subjectKey": "data-structure",
+  "chapter": 3,
+  "question": "数组行优先、列优先地址计算？",
+  "answerSteps": [
+   "行优先（C/C++）：`LOC(a[i][j]) = LOC(a[0][0]) + (i*n + j)*sizeof(Elem)`，n 为列数。",
+   "列优先（Fortran）：`LOC = LOC0 + (j*m + i)*size`，m 为行数。"
+  ],
+  "pitfall": "下标从 0 还是 1？按题目；多维可继续展开。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 47
+ },
+ {
+  "key": "408card/ds-03-013",
+  "subjectKey": "data-structure",
+  "chapter": 3,
+  "question": "对称矩阵如何压缩存储？",
+  "answerSteps": [
+   "只存下三角（或上三角）：一维数组长度 n(n+1)/2。",
+   "下三角 `a[i][j] (i≥j)` 映射到 `k=i(i-1)/2+j-1`（下标从 1）或 `k=i(i+1)/2+j`（从 0）。"
+  ],
+  "pitfall": "对称是 a[i][j]=a[j][i]，只存一半即可还原。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 48
+ },
+ {
+  "key": "408card/ds-03-014",
+  "subjectKey": "data-structure",
+  "chapter": 3,
+  "question": "三角矩阵压缩？",
+  "answerSteps": [
+   "上三角矩阵：存上三角 + 常数 c；下三角类似。",
+   "元素个数 n(n+1)/2 + 1（多存一个 c）。"
+  ],
+  "pitfall": "别漏掉常数 c 那一格。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 49
+ },
+ {
+  "key": "408card/ds-03-015",
+  "subjectKey": "data-structure",
+  "chapter": 3,
+  "question": "稀疏矩阵三元组表是什么？",
+  "answerSteps": [
+   "存 (行, 列, 值) 三元组 + 总行数列数非零元个数。",
+   "转置：按原列序找，或快速转置（count 每列非零元个数 + cpot 起始位置）。"
+  ],
+  "pitfall": "三元组只能顺序存取；快速转置是 O(n+t)。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 50
+ },
+ {
+  "key": "408card/ds-03-016",
+  "subjectKey": "data-structure",
+  "chapter": 3,
+  "question": "十字链表（正交表）？",
+  "answerSteps": [
+   "稀疏矩阵链式存储，行指针数组与列指针数组，非零元结点同时挂行列。",
+   "适合频繁改非零元。"
+  ],
+  "pitfall": "知道是稀疏矩阵链式结构即可。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 51
+ },
+ {
+  "key": "408card/ds-03-017",
+  "subjectKey": "data-structure",
+  "chapter": 3,
+  "question": "卡特兰数在出栈序列中的应用？",
+  "answerSteps": [
+   "n 个元素不同且依次进栈，可能的出栈序列数 = `C(2n,n)/(n+1)`。",
+   "如 n=3 时有 5 种。"
+  ],
+  "pitfall": "前提是「全部进栈后任意出」或「边进边出」且元素互异，进出栈方式合法。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "stack-seq",
+  "sortOrder": 52
+ },
+ {
+  "key": "408card/ds-03-018",
+  "subjectKey": "data-structure",
+  "chapter": 3,
+  "question": "如何判定出栈序列是否合法？",
+  "answerSteps": [
+   "模拟：用栈，按入栈顺序 1..n，需要出栈时若栈顶相等则弹，否则继续入；最后栈空则合法。",
+   "O(n)。"
+  ],
+  "pitfall": "是模拟不是只看逆序对。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": "stack-seq",
+  "sortOrder": 53
+ },
+ {
+  "key": "408card/ds-03-019",
+  "subjectKey": "data-structure",
+  "chapter": 3,
+  "question": "共享栈（两端进栈）如何判满？",
+  "answerSteps": [
+   "两栈底在数组两端，栈顶向中间生长；`top0==-1` 空0，`top1==M` 空1；`top0+1==top1` 为满。"
+  ],
+  "pitfall": "共享栈提高空间利用率，常见于两栈此消彼长。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 54
+ },
+ {
+  "key": "408card/ds-03-020",
+  "subjectKey": "data-structure",
+  "chapter": 3,
+  "question": "队列的应用场景？",
+  "answerSteps": [
+   "层次遍历、打印缓冲、消息队列、广度优先搜索、主机与外设速度匹配。"
+  ],
+  "pitfall": "BFS 用队列，DFS 用栈/递归，常考对应关系。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 55
+ },
+ {
+  "key": "408card/ds-03-021",
+  "subjectKey": "data-structure",
+  "chapter": 3,
+  "question": "循环队列元素个数公式？",
+  "answerSteps": [
+   "`(Q.rear - Q.front + MaxSize) % MaxSize`"
+  ],
+  "pitfall": "加 MaxSize 再模，防负数。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 56
+ },
+ {
+  "key": "408card/ds-03-022",
+  "subjectKey": "data-structure",
+  "chapter": 3,
+  "question": "中缀表达式 a+b*(c-d)-e/f 的后缀形式？",
+  "answerSteps": [
+   "过程关注优先级与括号：`abcd-*+ef/-`",
+   "先算 c-d，再 *b，再 +a，再 e/f，最后减。"
+  ],
+  "pitfall": "加减同级左结合；乘除先于加减。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "expr-eval",
+  "sortOrder": 57
+ },
+ {
+  "key": "408card/ds-03-023",
+  "subjectKey": "data-structure",
+  "chapter": 3,
+  "question": "迷宫求解用什么结构？",
+  "answerSteps": [
+   "栈（深度优先一条路走到黑，碰壁回溯）或队列（广度优先最短路）。"
+  ],
+  "pitfall": "求最短路径用队列 BFS；任一解可用栈 DFS。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 58
+ },
+ {
+  "key": "408card/ds-03-024",
+  "subjectKey": "data-structure",
+  "chapter": 3,
+  "question": "进制转换（十进制转 r 进制）用什么？",
+  "answerSteps": [
+   "短除法余数依次为低位到高位，用**栈**逆序输出。"
+  ],
+  "pitfall": "余数进栈，出栈顺序即从高到低。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 59
+ },
+ {
+  "key": "408card/ds-03-025",
+  "subjectKey": "data-structure",
+  "chapter": 3,
+  "question": "顺序栈进栈出栈的可能序列？",
+  "answerSteps": [
+   "与出栈序列合法性同一问题；注意连续出栈时栈内必须已有所需元素。"
+  ],
+  "pitfall": null,
+  "mnemonic": "进栈出栈合法序列数卡特兰",
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 60
+ },
+ {
+  "key": "408card/ds-03-026",
+  "subjectKey": "data-structure",
+  "chapter": 3,
+  "question": "广义表与线性表的区别？",
+  "answerSteps": [
+   "线性表元素限于数据元素；广义表元素可以是**子表**，有深度、长度。",
+   "表头 head 为第一个元素（可能是子表），表尾 tail 为去掉第一个元素后的子表。"
+  ],
+  "pitfall": "tail 永远是表（子表），head 可以是原子或子表；空表无表头表尾。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 61
+ },
+ {
+  "key": "408card/ds-03-027",
+  "subjectKey": "data-structure",
+  "chapter": 3,
+  "question": "多维数组按行优先一维映射通式？",
+  "answerSteps": [
+   "对 n 维，可逐维展开；考试常见二维、三维。"
+  ],
+  "pitfall": "三维 a[i][j][k] 行优先：`((i*b2+j)*b3+k)*size + base`（b2、b3 为后两维大小）。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 62
+ },
+ {
+  "key": "408card/ds-03-028",
+  "subjectKey": "data-structure",
+  "chapter": 3,
+  "question": "栈与队列的相同与不同？",
+  "answerSteps": [
+   "同：都是操作受限线性表，可用顺序或链式实现。",
+   "异：栈 LIFO 一端进出；队列 FIFO 两端。"
+  ],
+  "pitfall": "逻辑结构都是线性。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 63
+ },
+ {
+  "key": "408card/ds-04-001",
+  "subjectKey": "data-structure",
+  "chapter": 4,
+  "question": "串的定义？空串与空格串？",
+  "answerSteps": [
+   "串是零个或多个字符组成的有限序列；长度为 0 叫**空串**（≠空格串）。",
+   "子串：串中任意连续字符组成的序列；主串中位置从 1 开始计。"
+  ],
+  "pitfall": "空串是任何串的子串；空格串 length>0。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 64
+ },
+ {
+  "key": "408card/ds-04-002",
+  "subjectKey": "data-structure",
+  "chapter": 4,
+  "question": "朴素模式匹配（BF）算法思想与复杂度？",
+  "answerSteps": [
+   "主串 i、模式 j 从头比；失配时 i 回退到本趟起点+1，j 回到 1。",
+   "最坏 O(nm)，平均略好。"
+  ],
+  "pitfall": "BF 的 i 会回退，这是与 KMP 的本质区别。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 65
+ },
+ {
+  "key": "408card/ds-04-003",
+  "subjectKey": "data-structure",
+  "chapter": 4,
+  "question": "KMP 算法核心思想？",
+  "answerSteps": [
+   "利用模式串自身前后缀信息，失配时主串指针 i **不回退**，只把模式右滑。",
+   "右滑位数由 next[j] 决定。"
+  ],
+  "pitfall": "KMP 省的是主串回溯，不是不用比较。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "kmp",
+  "sortOrder": 66
+ },
+ {
+  "key": "408card/ds-04-004",
+  "subjectKey": "data-structure",
+  "chapter": 4,
+  "question": "next 数组（部分匹配值）如何求？",
+  "answerSteps": [
+   "`next[1]=0`（教材 1-based）或 `next[0]=-1`（0-based）。",
+   "next[j] = 模式串前 j-1 个字符中最长相等前后缀长度 + 1（1-based 定义）。",
+   "手算：对每个前缀求「前后缀交集长度」。"
+  ],
+  "pitfall": "408 王道定义：next[j] 表示失配时模式应滑到哪一位比较；注意 0/1 下标习惯。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "kmp",
+  "sortOrder": 67
+ },
+ {
+  "key": "408card/ds-04-005",
+  "subjectKey": "data-structure",
+  "chapter": 4,
+  "question": "nextval 相比 next 的优化？",
+  "answerSteps": [
+   "若 `p[next[j]]==p[j]`，失配滑过去仍会失败，直接 `nextval[j]=nextval[next[j]]`。",
+   "减少无意义比较。"
+  ],
+  "pitfall": "求 nextval 要先求 next 再改进。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "kmp",
+  "sortOrder": 68
+ },
+ {
+  "key": "408card/ds-04-006",
+  "subjectKey": "data-structure",
+  "chapter": 4,
+  "question": "KMP 时间复杂度？",
+  "answerSteps": [
+   "O(n+m)，主串每个字符至多比 m 次但整体线性。"
+  ],
+  "pitfall": "比 BF 最坏优，但常数可能更大。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "kmp",
+  "sortOrder": 69
+ },
+ {
+  "key": "408card/ds-04-007",
+  "subjectKey": "data-structure",
+  "chapter": 4,
+  "question": "串的顺序存储与链式存储？",
+  "answerSteps": [
+   "顺序：字符数组，可另存 length；密度高。",
+   "链式：每个结点存多个字符提高密度。"
+  ],
+  "pitfall": "串适合顺序存储。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 70
+ },
+ {
+  "key": "408card/ds-04-008",
+  "subjectKey": "data-structure",
+  "chapter": 4,
+  "question": "模式匹配中「部分匹配值」是什么？",
+  "answerSteps": [
+   "前缀与后缀相等的最大长度；用于算 next。",
+   "如 \"abab\" 前缀集 {a,ab,aba} 后缀集 {b,ab,bab}，最大公共 \"ab\" 长 2。"
+  ],
+  "pitfall": "前缀不能取整个串；后缀也不能取整个串。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 71
+ },
+ {
+  "key": "408card/ds-04-009",
+  "subjectKey": "data-structure",
+  "chapter": 4,
+  "question": "KMP 中 i 不回退的含义与证明思路？",
+  "answerSteps": [
+   "失配时主串已匹配前缀的「后缀」= 模式的「前缀」，可直接对齐，不必从 i 的下一位置重来。"
+  ],
+  "pitfall": "仍是 O(n+m) 的比较次数。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": "kmp",
+  "sortOrder": 72
+ },
+ {
+  "key": "408card/ds-04-010",
+  "subjectKey": "data-structure",
+  "chapter": 4,
+  "question": "简单字符串操作：StrAssign、StrLength、Concat、SubString、Index？",
+  "answerSteps": [
+   "赋值、求长、连接、求子串、定位（模式匹配）。"
+  ],
+  "pitfall": "求子串位置与求子串本身别搞混。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 73
+ },
+ {
+  "key": "408card/ds-04-011",
+  "subjectKey": "data-structure",
+  "chapter": 4,
+  "question": "BF 最好最坏情况？",
+  "answerSteps": [
+   "最好 O(n+m) 附近（很快匹配/失配）；最坏每趟比较 m 次共 n-m+1 趟，O(nm)。"
+  ],
+  "pitfall": "最坏如 S=aaaaaaab, P=aaab。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 74
+ },
+ {
+  "key": "408card/ds-04-012",
+  "subjectKey": "data-structure",
+  "chapter": 4,
+  "question": "手算 next：模式 \"abaabcac\"？",
+  "answerSteps": [
+   "按王道 1-based：next = [0,1,1,1,2,2,3,1]（常见答案，注意教材版本差异）。",
+   "步骤：逐位找最长相等前后缀。"
+  ],
+  "pitfall": "不同教材 next 首元 0 或 1；答题时写清定义。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "kmp",
+  "sortOrder": 75
+ },
+ {
+  "key": "408card/ds-05-001",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "树的基本概念与性质？",
+  "answerSteps": [
+   "n 个结点的树有 **n-1** 条边；树中结点数 = 所有结点度数之和 + 1。",
+   "度为 m 的树第 i 层至多 m^(i-1) 个结点；高度为 h 的 m 叉树至多 (m^h-1)/(m-1)。",
+   "n 个结点的 m 叉树最小高度 = ⌈log_m(n(m-1)+1)⌉。"
+  ],
+  "pitfall": "「度为 m 的树」至少有一个结点度为 m；「m 叉树」每个结点最多 m 个孩子，可以都小于 m。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 76
+ },
+ {
+  "key": "408card/ds-05-002",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "二叉树的定义与五种基本形态？",
+  "answerSteps": [
+   "每个结点至多两棵有序子树（左、右不能颠倒）。",
+   "形态：空、只有根、只有左、只有右、左右都有。"
+  ],
+  "pitfall": "二叉树不是度为 2 的树的特例那么简单——左右有序。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 77
+ },
+ {
+  "key": "408card/ds-05-003",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "二叉树的重要性质？",
+  "answerSteps": [
+   "①第 i 层至多 2^(i-1)；②深度 k 至多 2^k-1（满二叉树）；③n0 = n2 + 1（叶子数 = 双分支+1）",
+   "④完全二叉树 n 个结点深度 = ⌊log₂n⌋+1；⑤编号 i 的双亲 ⌊i/2⌋，左孩子 2i，右 2i+1（从 1 编）。"
+  ],
+  "pitfall": "n0=n2+1 最爱考；完全二叉树编号从 1 起对应数组下标可 0 基。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 78
+ },
+ {
+  "key": "408card/ds-05-004",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "满二叉树与完全二叉树？",
+  "answerSteps": [
+   "**满**：每层都满，k 层共 2^k-1。",
+   "**完全**：编号与满二叉树 1..n 一一对应，只能缺右下连续结点。",
+   "完全二叉树有度为 1 的结点至多 1 个。"
+  ],
+  "pitfall": "满一定是完全；完全不一定是满。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 79
+ },
+ {
+  "key": "408card/ds-05-005",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "二叉树先序、中序、后序遍历？",
+  "answerSteps": [
+   "**先序**：根→左→右；**中序**：左→根→右；**后序**：左→右→根。",
+   "递归定义，非递归用栈。",
+   "时间复杂度 O(n)，空间最坏 O(n)（单支树）。"
+  ],
+  "pitfall": "三种都是深度优先；层序用队列。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "btree-trav",
+  "sortOrder": 80
+ },
+ {
+  "key": "408card/ds-05-006",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "层序遍历算法？",
+  "answerSteps": [
+   "根入队；队非空时出队访问，若有左右孩子则依次入队。"
+  ],
+  "pitfall": "必须用队列；先左后右。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "btree-trav",
+  "sortOrder": 81
+ },
+ {
+  "key": "408card/ds-05-007",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "由先序+中序还原二叉树？",
+  "answerSteps": [
+   "先序第一个是根；在中序中定位根，左边左子树、右边右子树；递归。",
+   "先序+中序 或 后序+中序 可唯一确定；先序+后序不能（单支时模糊）。"
+  ],
+  "pitfall": "先序+后序不能唯一确定二叉树（除非都是单支或空树）。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 82
+ },
+ {
+  "key": "408card/ds-05-008",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "由后序+中序还原二叉树？",
+  "answerSteps": [
+   "后序最后是根；中序分左右；递归。"
+  ],
+  "pitfall": "后序根在最后，先序根在最前。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 83
+ },
+ {
+  "key": "408card/ds-05-009",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "线索二叉树是什么？",
+  "answerSteps": [
+   "利用叶结点空链域存**前驱/后继**，加快遍历。",
+   "ltag=0 表示 lchild 指孩子，=1 指前驱；rtag 类似。",
+   "中序线索化后，找中序后继 O(1) 最坏 O(1)~O(h)。"
+  ],
+  "pitfall": "线索是遍历序的前驱后继，不是树的孩子兄弟；先序/中序/后序都可线索。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "thread-bst",
+  "sortOrder": 84
+ },
+ {
+  "key": "408card/ds-05-010",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "中序线索二叉树找后继？",
+  "answerSteps": [
+   "若 rtag=1 则 right 即后继；否则后继 = 右子树最左下结点。"
+  ],
+  "pitfall": "最左下不是最右下。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "thread-bst",
+  "sortOrder": 85
+ },
+ {
+  "key": "408card/ds-05-011",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "二叉排序树 BST 的定义与查找？",
+  "answerSteps": [
+   "左子树所有关键字 < 根 < 右子树所有关键字（递归成立）。",
+   "查找沿根向下，平均 O(log n)，最坏单支 O(n)。"
+  ],
+  "pitfall": "中序遍历 BST 得递增有序序列。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "bst-search",
+  "sortOrder": 86
+ },
+ {
+  "key": "408card/ds-05-012",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "BST 插入与删除？",
+  "answerSteps": [
+   "插入：查找失败处挂新结点。",
+   "删除叶子直接删；单支让子树顶替；双支用**中序前驱（左子树最右）或中序后继（右子树最左）**替换再删该结点。"
+  ],
+  "pitfall": "双支删除后仍须保持 BST 性质；教材常考用前驱。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "bst-insert",
+  "sortOrder": 87
+ },
+ {
+  "key": "408card/ds-05-013",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "平衡二叉树 AVL 定义？平衡因子？",
+  "answerSteps": [
+   "任意结点左右子树高度差的绝对值 ≤ 1，且左右都是 AVL。",
+   "平衡因子 BF = 左子树高 - 右子树高 ∈ {-1,0,1}。"
+  ],
+  "pitfall": "插入删除可能破坏平衡，需旋转调整。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "avl",
+  "sortOrder": 88
+ },
+ {
+  "key": "408card/ds-05-014",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "AVL 四种旋转：LL、RR、LR、RL？",
+  "answerSteps": [
+   "**LL**（右单旋）：在左孩子的左子树插入 → 对失衡结点**右旋**。",
+   "**RR**（左单旋）：右孩子的右子树 → **左旋**。",
+   "**LR**：左孩子的右子树 → 先左旋再右旋。",
+   "**RL**：右孩子的左子树 → 先右旋再左旋。"
+  ],
+  "pitfall": "看插入后「最小失衡子树」的形态；LR/RL 是双旋。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "avl",
+  "sortOrder": 89
+ },
+ {
+  "key": "408card/ds-05-015",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "AVL 旋转后如何改平衡因子？",
+  "answerSteps": [
+   "单旋/双旋后局部子树高度恢复；需更新旋转涉及结点的 height/BF。",
+   "手算题建议画图，算高度再写 BF。"
+  ],
+  "pitfall": "只调整最小失衡子树，上层沿路径上溯。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "avl",
+  "sortOrder": 90
+ },
+ {
+  "key": "408card/ds-05-016",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "哈夫曼树（最优树）定义与构造？",
+  "answerSteps": [
+   "带权路径长度 **WPL = Σ wᵢ·lᵢ** 最小的二叉树。",
+   "构造：每次选权值最小的两棵树合并，新根权为两权之和，直到只剩一棵。",
+   "哈夫曼树没有度为 1 的结点。"
+  ],
+  "pitfall": "构造不唯一；权值大的叶子深度小。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "huffman",
+  "sortOrder": 91
+ },
+ {
+  "key": "408card/ds-05-017",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "哈夫曼编码为什么是前缀码？",
+  "answerSteps": [
+   "字符全在叶子上，任一编码都不是另一编码前缀 ⇒ 无歧义。",
+   "频率高的短码，降低平均码长。"
+  ],
+  "pitfall": "左右分支可约定 0/1，编码不唯一但都是前缀码。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "huffman",
+  "sortOrder": 92
+ },
+ {
+  "key": "408card/ds-05-018",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "树、森林与二叉树的转换？",
+  "answerSteps": [
+   "**树→二叉树**：长子-兄弟表示（左孩子右兄弟）；**森林→二叉树**：每棵树转后，根用右指针串。",
+   "树的先根遍历 = 对应二叉树先序；后根 = 二叉树中序；森林先序/中序同理。"
+  ],
+  "pitfall": "树没有「中根」；森林的后根遍历不常用。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 93
+ },
+ {
+  "key": "408card/ds-05-019",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "并查集（双亲表示法）？",
+  "answerSteps": [
+   "用数组存双亲下标；Find 路径压缩；Union 按秩合并。",
+   "用于连通分量、最小生成树 Kruskal。"
+  ],
+  "pitfall": "双亲表示法找孩子要遍历；适合找双亲。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "union-find",
+  "sortOrder": 94
+ },
+ {
+  "key": "408card/ds-05-020",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "二叉树遍历非递归（中序）？",
+  "answerSteps": [
+   "栈；沿左走压栈；弹出访问；转右子树。"
+  ],
+  "pitfall": "先序非递归类似，访问时机在压栈时；后序非递归较复杂。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "btree-trav",
+  "sortOrder": 95
+ },
+ {
+  "key": "408card/ds-05-021",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "求二叉树高度？",
+  "answerSteps": [
+   "递归：`max(H(left),H(right))+1`；空树高 0。",
+   "或层序遍历计数。"
+  ],
+  "pitfall": "空树高度 0 还是 -1 看题目约定。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 96
+ },
+ {
+  "key": "408card/ds-05-022",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "求二叉树结点总数？叶子结点数？度为 1 的结点数？",
+  "answerSteps": [
+   "递归：n = n(left)+n(right)+1；叶子：左右皆空。",
+   "或用 n0=n2+1 与完全二叉树性质。"
+  ],
+  "pitfall": "完全二叉树度为 1 的结点个数是 0 或 1。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 97
+ },
+ {
+  "key": "408card/ds-05-023",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "二叉树顺序存储适合什么树？",
+  "answerSteps": [
+   "**完全二叉树**：按层序编号放数组，无空洞。",
+   "一般二叉树顺序存储会大量空位，浪费。"
+  ],
+  "pitfall": "一般二叉树用链式（二叉链表）。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 98
+ },
+ {
+  "key": "408card/ds-05-024",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "二叉链表、三叉链表？",
+  "answerSteps": [
+   "二叉链表：lchild, data, rchild。",
+   "三叉链表加 parent，便于找双亲。"
+  ],
+  "pitfall": "n 个结点的二叉链表有 n+1 个空链域（线索树利用它们）。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 99
+ },
+ {
+  "key": "408card/ds-05-025",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "如何判断两棵二叉树相似？",
+  "answerSteps": [
+   "结构相似：递归 `both empty || (both nonempty && similar(L) && similar(R))`，不看值。",
+   "相等还要值相同。"
+  ],
+  "pitfall": "相似只看结构。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 100
+ },
+ {
+  "key": "408card/ds-05-026",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "树的存储：双亲表示法、孩子表示法、孩子兄弟表示法？",
+  "answerSteps": [
+   "双亲：找双亲 O(1) 孩子难；孩子：找孩子易；**孩子兄弟（二叉树表示）**统一二叉树算法。"
+  ],
+  "pitfall": "孩子兄弟表示法即长子-兄弟法。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 101
+ },
+ {
+  "key": "408card/ds-05-027",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "完全二叉树按层编号，编号 i 结点的双亲、孩子、左右兄弟？",
+  "answerSteps": [
+   "从 1 起：双亲 ⌊i/2⌋；左孩子 2i；右 2i+1；左兄弟 i-1（i 偶）；右兄弟 i+1（i 奇且 ≤n）。"
+  ],
+  "pitfall": "0 起编号时公式变为 (i-1)/2, 2i+1, 2i+2。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 102
+ },
+ {
+  "key": "408card/ds-05-028",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "哈夫曼树 WPL 如何计算？",
+  "answerSteps": [
+   "①按定义：每个叶子权×深度求和；②构造过程中每次合并的权值之和累加。",
+   "两种算法结果相同。"
+  ],
+  "pitfall": "深度从 0 还是 1 起要统一；通常根深度 0 或 1 按教材。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "huffman",
+  "sortOrder": 103
+ },
+ {
+  "key": "408card/ds-05-029",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "先序遍历序列 + 层序遍历能否唯一确定二叉树？",
+  "answerSteps": [
+   "可以。先序定根，层序帮助划分左右相对位置（较难手算，但可唯一）。"
+  ],
+  "pitfall": "先序+中序最常见；后序+中序也常考。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 104
+ },
+ {
+  "key": "408card/ds-05-030",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "中序遍历 BST 得到什么序列？",
+  "answerSteps": [
+   "递增有序（关键字互异时严格递增）。"
+  ],
+  "pitfall": "反过来：有序序列可构造 BST，但形态不唯一；平衡时用中点做根。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 105
+ },
+ {
+  "key": "408card/ds-05-031",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "二叉树中序遍历的非递归为何用栈？",
+  "answerSteps": [
+   "要先深入最左，再回溯访问根，再进入右——后进先出符合回溯。"
+  ],
+  "pitfall": "层序用队列，DFS 用栈。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": "btree-trav",
+  "sortOrder": 106
+ },
+ {
+  "key": "408card/ds-05-032",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "给定关键字序列建 BST，等概率查找成功 ASL？",
+  "answerSteps": [
+   "ASL = (1/n)Σ 每个结点比较次数（深度，根为 1）。",
+   "画出 BST，把每个结点的层数加起来除 n。"
+  ],
+  "pitfall": "查找失败 ASL 另算（空子树）。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "hash-asl",
+  "sortOrder": 107
+ },
+ {
+  "key": "408card/ds-05-033",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "AVL 与 BST 查找复杂度？",
+  "answerSteps": [
+   "BST 平均 O(log n) 最坏 O(n)；AVL 严格平衡 O(log n)。"
+  ],
+  "pitfall": "红黑树也是近似平衡 O(log n)。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "avl",
+  "sortOrder": 108
+ },
+ {
+  "key": "408card/ds-05-034",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "如何由中序+层序建树？",
+  "answerSteps": [
+   "层序第一个为根；在中序分左右；递归处理左子序列右子序列（过滤层序中属于左右的结点）。"
+  ],
+  "pitfall": "实现时注意过滤层序序列。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 109
+ },
+ {
+  "key": "408card/ds-05-035",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "树的先根遍历、后根遍历对应二叉树什么遍历？",
+  "answerSteps": [
+   "树先根 = 二叉树先序；树后根 = 二叉树中序。"
+  ],
+  "pitfall": "森林先序：各树先序拼接；森林中序：各树中序拼接。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "btree-trav",
+  "sortOrder": 110
+ },
+ {
+  "key": "408card/ds-05-036",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "表达式树？",
+  "answerSteps": [
+   "运算符为内部结点，操作数为叶子；中序遍历加括号得中缀；后序得后缀。",
+   "先序得前缀。"
+  ],
+  "pitfall": "与栈求值结合考。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 111
+ },
+ {
+  "key": "408card/ds-05-037",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "判断完全二叉树？",
+  "answerSteps": [
+   "层序遍历，遇到第一个缺失孩子后，后面结点都不能有孩子。"
+  ],
+  "pitfall": "或用编号：n 个结点层序编号 1..n 连续无空洞。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 112
+ },
+ {
+  "key": "408card/ds-05-038",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "哈夫曼树为什么没有度为 1 的结点？",
+  "answerSteps": [
+   "每次合并两个最小权，新结点必有两个孩子；叶子全是原始权。"
+  ],
+  "pitfall": "结点总数 = 2n0 - 1 = 2n - 1（n 个叶子）。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": "huffman",
+  "sortOrder": 113
+ },
+ {
+  "key": "408card/ds-05-039",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "二叉树中序遍历序列已知，结合先序求后序？",
+  "answerSteps": [
+   "先用先序+中序建树，再后序输出；考试可直接递归推。"
+  ],
+  "pitfall": "建树是根本方法。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "btree-trav",
+  "sortOrder": 114
+ },
+ {
+  "key": "408card/ds-05-040",
+  "subjectKey": "data-structure",
+  "chapter": 5,
+  "question": "平衡因子调整的手算技巧？",
+  "answerSteps": [
+   "①插入 ②从插入点向上找 BF 变为 ±2 的结点 ③判断 LL/RR/LR/RL ④旋转并更新 BF。",
+   "只影响最小失衡子树内部。"
+  ],
+  "pitfall": "LR：插入在左孩子的右子树；RL 相反。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 115
+ },
+ {
+  "key": "408card/ds-06-001",
+  "subjectKey": "data-structure",
+  "chapter": 6,
+  "question": "图的基本概念：有向、无向、完全图、连通、强连通？",
+  "answerSteps": [
+   "无向完全图边数 n(n-1)/2；有向完全图弧数 n(n-1)。",
+   "无向图任意两点可达 = 连通；有向图互相可达 = 强连通。",
+   "连通分量、强连通分量是极大连通子图。"
+  ],
+  "pitfall": "有向图「弱连通」是基图连通。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 116
+ },
+ {
+  "key": "408card/ds-06-002",
+  "subjectKey": "data-structure",
+  "chapter": 6,
+  "question": "顶点的度、入度、出度？边与度的关系？",
+  "answerSteps": [
+   "无向图：边数 e = (Σ度)/2。",
+   "有向图：Σ入度 = Σ出度 = 弧数 e。"
+  ],
+  "pitfall": "无向图每条边贡献 2 度；有向出度入度分开计。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 117
+ },
+ {
+  "key": "408card/ds-06-003",
+  "subjectKey": "data-structure",
+  "chapter": 6,
+  "question": "邻接矩阵存储？空间复杂度？",
+  "answerSteps": [
+   "n×n 矩阵；无向对称，有向不对称；带权存权值，无边 ∞ 或 0。",
+   "空间 O(n²)，适合稠密图。"
+  ],
+  "pitfall": "求顶点度 O(n)；判边是否存在 O(1)。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "graph-store",
+  "sortOrder": 118
+ },
+ {
+  "key": "408card/ds-06-004",
+  "subjectKey": "data-structure",
+  "chapter": 6,
+  "question": "邻接表存储？",
+  "answerSteps": [
+   "顶点表 + 边表；无向图边结点 2e 个；有向图 e 个。",
+   "空间 O(n+e)，适合稀疏图。",
+   "有向图求出度遍历出边表；入度要遍历全表或逆邻接表。"
+  ],
+  "pitfall": "无向图总边结点数是 2e 不是 e。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "graph-store",
+  "sortOrder": 119
+ },
+ {
+  "key": "408card/ds-06-005",
+  "subjectKey": "data-structure",
+  "chapter": 6,
+  "question": "十字链表、邻接多重表？",
+  "answerSteps": [
+   "有向图十字链表（弧结点有 tailvex、headvex 等）；无向图邻接多重表（边结点只一个）。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 120
+ },
+ {
+  "key": "408card/ds-06-006",
+  "subjectKey": "data-structure",
+  "chapter": 6,
+  "question": "图的广度优先遍历 BFS？",
+  "answerSteps": [
+   "队列；访问起点后入队，出队后将未访问邻接点入队。",
+   "O(n+e)；可求无权图单源最短路径。"
+  ],
+  "pitfall": "BFS 用队列；树是特殊图，层序即 BFS。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "graph-trav",
+  "sortOrder": 121
+ },
+ {
+  "key": "408card/ds-06-007",
+  "subjectKey": "data-structure",
+  "chapter": 6,
+  "question": "图的深度优先遍历 DFS？",
+  "answerSteps": [
+   "递归或栈；沿一条路尽量深，回溯。",
+   "O(n+e)"
+  ],
+  "pitfall": "非连通图要对每个连通分量调用。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "graph-trav",
+  "sortOrder": 122
+ },
+ {
+  "key": "408card/ds-06-008",
+  "subjectKey": "data-structure",
+  "chapter": 6,
+  "question": "BFS/DFS 遍历如何判断连通性？",
+  "answerSteps": [
+   "从任一点 BFS/DFS，若访问顶点数 < n 则非连通。",
+   "统计遍历次数 = 连通分量个数（无向）。"
+  ],
+  "pitfall": "有向图连通性要用强连通分量算法。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "graph-trav",
+  "sortOrder": 123
+ },
+ {
+  "key": "408card/ds-06-009",
+  "subjectKey": "data-structure",
+  "chapter": 6,
+  "question": "最小生成树定义与性质？",
+  "answerSteps": [
+   "连通网中权和最小的生成树。",
+   "性质：n 个顶点 n-1 条边；唯一性：权值全不同时唯一。"
+  ],
+  "pitfall": "非连通图没有生成树。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "mst-prim",
+  "sortOrder": 124
+ },
+ {
+  "key": "408card/ds-06-010",
+  "subjectKey": "data-structure",
+  "chapter": 6,
+  "question": "Prim 算法？",
+  "answerSteps": [
+   "从一点开始，每次选连接「已在树中」与「不在树中」的**最小权边**，加一个顶点。",
+   "O(n²)，适合稠密图。"
+  ],
+  "pitfall": "与点有关，加 n-1 条边加 n-1 个点。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "mst-prim",
+  "sortOrder": 125
+ },
+ {
+  "key": "408card/ds-06-011",
+  "subjectKey": "data-structure",
+  "chapter": 6,
+  "question": "Kruskal 算法？",
+  "answerSteps": [
+   "边按权排序，从小到大选，不成环则加入（并查集判环）。",
+   "O(e log e)，适合稀疏图。"
+  ],
+  "pitfall": "与边有关；并查集是标配。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "mst-kruskal",
+  "sortOrder": 126
+ },
+ {
+  "key": "408card/ds-06-012",
+  "subjectKey": "data-structure",
+  "chapter": 6,
+  "question": "Dijkstra 单源最短路径？",
+  "answerSteps": [
+   "维护 dist[]；每次选未确定的最小 dist 标记，松弛其邻边。",
+   "O(n²) 或堆优化 O((n+e)log n)；**不能处理负权**。"
+  ],
+  "pitfall": "负权用 Bellman-Ford 或 SPFA；Dijkstra 类似 Prim 但维护的是距离。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "graph-trav",
+  "sortOrder": 127
+ },
+ {
+  "key": "408card/ds-06-013",
+  "subjectKey": "data-structure",
+  "chapter": 6,
+  "question": "Floyd 求各顶点间最短路径？",
+  "answerSteps": [
+   "动态规划：`A[i][j]=min(A[i][j], A[i][k]+A[k][j])`，k 为中转。",
+   "O(n³)，可处理负权（无负环）。"
+  ],
+  "pitfall": "三层循环 k 在最外层。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "graph-trav",
+  "sortOrder": 128
+ },
+ {
+  "key": "408card/ds-06-014",
+  "subjectKey": "data-structure",
+  "chapter": 6,
+  "question": "拓扑排序？",
+  "answerSteps": [
+   "不断输出入度为 0 的顶点，并删去其出边。",
+   "AOV 网中若全部输出则无环，否则有环。"
+  ],
+  "pitfall": "拓扑序列可能不唯一；判环也可用 DFS 染色。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "topo",
+  "sortOrder": 129
+ },
+ {
+  "key": "408card/ds-06-015",
+  "subjectKey": "data-structure",
+  "chapter": 6,
+  "question": "AOE 网、关键路径、关键活动？",
+  "answerSteps": [
+   "AOE：顶点=事件，弧=活动权=时间。",
+   "事件最早发生 ve、最迟 vl；活动最早开始 e=ve(弧尾)，最迟 l=vl(弧头)-权。",
+   "**关键活动 e==l**；关键路径是关键活动构成的路径，长度 = 工程最短完成时间。"
+  ],
+  "pitfall": "关键路径可能不唯一；缩短关键活动才能缩短工期。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "critical-path",
+  "sortOrder": 130
+ },
+ {
+  "key": "408card/ds-06-016",
+  "subjectKey": "data-structure",
+  "chapter": 6,
+  "question": "ve、vl 如何递推？",
+  "answerSteps": [
+   "ve(j)=max{ve(i)+w(i,j)} 正拓扑序",
+   "vl(i)=min{vl(j)-w(i,j)} 逆拓扑序"
+  ],
+  "pitfall": "ve 取 max，vl 取 min。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 131
+ },
+ {
+  "key": "408card/ds-06-017",
+  "subjectKey": "data-structure",
+  "chapter": 6,
+  "question": "如何判断图中是否有环？",
+  "answerSteps": [
+   "有向：拓扑排序未输出完、或 DFS 发现回边。",
+   "无向：DFS 时遇到已访问且非父节点；或并查集加边时两端已连通。"
+  ],
+  "pitfall": "无向图 DFS 判环要排除父节点。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 132
+ },
+ {
+  "key": "408card/ds-06-018",
+  "subjectKey": "data-structure",
+  "chapter": 6,
+  "question": "AOV 网与 AOE 网区别？",
+  "answerSteps": [
+   "AOV：顶点活动，边表示优先关系，用拓扑排序。",
+   "AOE：顶点事件，边活动有权，用关键路径。"
+  ],
+  "pitfall": "两者都是有向无环。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": "critical-path",
+  "sortOrder": 133
+ },
+ {
+  "key": "408card/ds-06-019",
+  "subjectKey": "data-structure",
+  "chapter": 6,
+  "question": "最短路径与最小生成树区别？",
+  "answerSteps": [
+   "最短路径：两点间路径权和最小（不一定 n-1 边）。",
+   "MST：连通所有点，总边权最小，n-1 边。"
+  ],
+  "pitfall": "MST 不能用 Dijkstra 求。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "mst-prim",
+  "sortOrder": 134
+ },
+ {
+  "key": "408card/ds-06-020",
+  "subjectKey": "data-structure",
+  "chapter": 6,
+  "question": "图的邻接矩阵中 A^n 的含义？",
+  "answerSteps": [
+   "A^n[i][j] 表示从 i 到 j 长度为 n 的路径数目（无权图）。"
+  ],
+  "pitfall": "可用来数路径，考试偶有出现。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "floyd",
+  "sortOrder": 135
+ },
+ {
+  "key": "408card/ds-06-021",
+  "subjectKey": "data-structure",
+  "chapter": 6,
+  "question": "Dijkstra 与 Prim 的对比？",
+  "answerSteps": [
+   "都贪心；Dijkstra 维护 dist（起点距离），Prim 维护 lowcost（到树的距离）。",
+   "代码很像，含义不同。"
+  ],
+  "pitfall": "常考辨析。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "mst-prim",
+  "sortOrder": 136
+ },
+ {
+  "key": "408card/ds-06-022",
+  "subjectKey": "data-structure",
+  "chapter": 6,
+  "question": "拓扑排序唯一吗？",
+  "answerSteps": [
+   "不一定；每次可能有多个入度 0 点可选。"
+  ],
+  "pitfall": "有环时无法完成拓扑排序。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": "topo",
+  "sortOrder": 137
+ },
+ {
+  "key": "408card/ds-06-023",
+  "subjectKey": "data-structure",
+  "chapter": 6,
+  "question": "关键路径长度与工期关系？",
+  "answerSteps": [
+   "关键路径长度 = 完成工程最短时间；缩短非关键活动不一定缩短工期。"
+  ],
+  "pitfall": "可能有多条关键路径。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "critical-path",
+  "sortOrder": 138
+ },
+ {
+  "key": "408card/ds-06-024",
+  "subjectKey": "data-structure",
+  "chapter": 6,
+  "question": "稀疏图、稠密图如何选存储？",
+  "answerSteps": [
+   "e 远小于 n² 用邻接表；接近完全图用邻接矩阵。"
+  ],
+  "pitfall": "一般 e = O(n) 算稀疏。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 139
+ },
+ {
+  "key": "408card/ds-06-025",
+  "subjectKey": "data-structure",
+  "chapter": 6,
+  "question": "BFS 生成树与 DFS 生成树？",
+  "answerSteps": [
+   "BFS 生成树高度最小；DFS 生成树可能很深。"
+  ],
+  "pitfall": "非连通图得到生成森林。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": "graph-trav",
+  "sortOrder": 140
+ },
+ {
+  "key": "408card/ds-06-026",
+  "subjectKey": "data-structure",
+  "chapter": 6,
+  "question": "带权图最短路径中「松弛」是什么？",
+  "answerSteps": [
+   "若 dist[u]+w(u,v) < dist[v]，则更新 dist[v]=dist[u]+w(u,v) 并记前驱。"
+  ],
+  "pitfall": "Dijkstra、Bellman-Ford 核心都是松弛。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "graph-trav",
+  "sortOrder": 141
+ },
+ {
+  "key": "408card/ds-06-027",
+  "subjectKey": "data-structure",
+  "chapter": 6,
+  "question": "图的遍历空间复杂度？",
+  "answerSteps": [
+   "邻接矩阵 O(n²) 主要在存储；遍历额外空间：BFS 队列 O(n)，DFS 栈 O(n)。"
+  ],
+  "pitfall": "总复杂度常写 O(n+e) 指时间。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 142
+ },
+ {
+  "key": "408card/ds-06-028",
+  "subjectKey": "data-structure",
+  "chapter": 6,
+  "question": "如何用拓扑排序判断是否为 AOV 合法序列？",
+  "answerSteps": [
+   "按序列依次「删掉」点，看是否每一步该点入度都为 0。"
+  ],
+  "pitfall": "合法 AOV 序列可能多个。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "topo",
+  "sortOrder": 143
+ },
+ {
+  "key": "408card/ds-07-001",
+  "subjectKey": "data-structure",
+  "chapter": 7,
+  "question": "顺序查找与折半查找？",
+  "answerSteps": [
+   "顺序：O(n)。",
+   "折半：**有序顺序表**，`while(low<=high)`，ASL 成功约 log₂(n+1)-1，O(log n)。",
+   "不能用于链表。"
+  ],
+  "pitfall": "折半前提：有序 + 顺序存储（随机访问）。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "binsearch",
+  "sortOrder": 144
+ },
+ {
+  "key": "408card/ds-07-002",
+  "subjectKey": "data-structure",
+  "chapter": 7,
+  "question": "折半查找判定树？ASL 计算？",
+  "answerSteps": [
+   "判定树是平衡树；成功 ASL = Σ(层数)/n；失败 ASL = Σ(外部结点层数-1)/外部结点数或按教材。",
+   "每个元素比较次数 = 在判定树中的层数。"
+  ],
+  "pitfall": "失败结点数 n+1。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "hash-asl",
+  "sortOrder": 145
+ },
+ {
+  "key": "408card/ds-07-003",
+  "subjectKey": "data-structure",
+  "chapter": 7,
+  "question": "分块查找（索引顺序查找）？",
+  "answerSteps": [
+   "块间有序、块内无序；先在索引表定块（顺序或折半），再块内顺序查。",
+   "ASL 介于顺序与折半之间。"
+  ],
+  "pitfall": "块间关键字有序，块内不必有序。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 146
+ },
+ {
+  "key": "408card/ds-07-004",
+  "subjectKey": "data-structure",
+  "chapter": 7,
+  "question": "B 树定义与性质（m 阶）？",
+  "answerSteps": [
+   "每个结点至多 m 棵子树；非根非叶至少 ⌈m/2⌉ 棵子树；根至少 2 棵（除非根即叶）。",
+   "所有叶结点同层；关键字有序。",
+   "结点含 ⌈m/2⌉-1 ~ m-1 个关键字。"
+  ],
+  "pitfall": "B 树是多路平衡查找树，数据可在内部结点。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "hash-asl",
+  "sortOrder": 147
+ },
+ {
+  "key": "408card/ds-07-005",
+  "subjectKey": "data-structure",
+  "chapter": 7,
+  "question": "B+ 树与 B 树区别？",
+  "answerSteps": [
+   "B+ 树非叶结点只做索引，不存数据；叶结点链成有序链表，便于范围查询。",
+   "n 棵子树有 n 个关键字（B 树 n-1）。",
+   "所有数据在叶层，查找成功都走到叶。"
+  ],
+  "pitfall": "B+ 树更适合磁盘数据库索引。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 148
+ },
+ {
+  "key": "408card/ds-07-006",
+  "subjectKey": "data-structure",
+  "chapter": 7,
+  "question": "B 树插入与结点分裂？",
+  "answerSteps": [
+   "插入到叶；满则中间关键字上移，结点分裂；可能导致根分裂、树增高。",
+   "插入后调整到满足性质。"
+  ],
+  "pitfall": "分裂是「中间上移，左右分开」。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "btree-insert",
+  "sortOrder": 149
+ },
+ {
+  "key": "408card/ds-07-007",
+  "subjectKey": "data-structure",
+  "chapter": 7,
+  "question": "B 树删除与借位、合并？",
+  "answerSteps": [
+   "删叶关键字；不足下限则：向兄弟借一个（父下来、兄上去）或与兄弟合并（父下来）。",
+   "可能影响到根，树变矮。"
+  ],
+  "pitfall": "删除比插入复杂，手算要画图。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 150
+ },
+ {
+  "key": "408card/ds-07-008",
+  "subjectKey": "data-structure",
+  "chapter": 7,
+  "question": "散列表、散列函数、冲突、同义词？",
+  "answerSteps": [
+   "通过关键字直接算出地址；不同关键字映射到同一地址 = **冲突**；这些关键字为同义词。",
+   "装填因子 α = n/m，越大冲突越多。"
+  ],
+  "pitfall": "冲突不可避免，只能减少与处理。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "hash-asl",
+  "sortOrder": 151
+ },
+ {
+  "key": "408card/ds-07-009",
+  "subjectKey": "data-structure",
+  "chapter": 7,
+  "question": "常见的散列函数？",
+  "answerSteps": [
+   "除留余数法 `H(k)=k mod p`（p 取不大于表长的素数）；直接定址；数字分析；平方取中；折叠法。"
+  ],
+  "pitfall": "除留余数法 p 选素数减少冲突。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "hash-asl",
+  "sortOrder": 152
+ },
+ {
+  "key": "408card/ds-07-010",
+  "subjectKey": "data-structure",
+  "chapter": 7,
+  "question": "线性探测法？",
+  "answerSteps": [
+   "冲突后依次试 H+1, H+2...（循环）；产生**堆积（一次聚集）**。",
+   "删除需**逻辑删除**标记。"
+  ],
+  "pitfall": "开放定址法的一种；不能物理删除。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "hash-asl",
+  "sortOrder": 153
+ },
+ {
+  "key": "408card/ds-07-011",
+  "subjectKey": "data-structure",
+  "chapter": 7,
+  "question": "平方探测（二次探测）？",
+  "answerSteps": [
+   "H+1², H-1², H+2², H-2²...；减少堆积，可能找不到空位（即使有）。"
+  ],
+  "pitfall": "表长常取 4k+3 的素数。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 154
+ },
+ {
+  "key": "408card/ds-07-012",
+  "subjectKey": "data-structure",
+  "chapter": 7,
+  "question": "链地址法（拉链法）？",
+  "answerSteps": [
+   "同义词挂同一链表；删除可物理删；无堆积。",
+   "装填因子可 >1。"
+  ],
+  "pitfall": "与开放定址并列的两大类。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 155
+ },
+ {
+  "key": "408card/ds-07-013",
+  "subjectKey": "data-structure",
+  "chapter": 7,
+  "question": "散列表查找 ASL 如何计算？",
+  "answerSteps": [
+   "成功：每关键字查找时的比较次数之和 / n。",
+   "比较次数含最后一次命中比较；线性探测中空位也算失败终点。"
+  ],
+  "pitfall": "要按构造过程逐步算，不能套公式。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "hash-asl",
+  "sortOrder": 156
+ },
+ {
+  "key": "408card/ds-07-014",
+  "subjectKey": "data-structure",
+  "chapter": 7,
+  "question": "散列表平均查找长度与 α 的关系？",
+  "answerSteps": [
+   "线性探测成功约 ½(1+1/(1-α))；链地址约 1+α/2；α 越大越差。"
+  ],
+  "pitfall": "保持 α 在 0.5~0.85 之间较宜。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "hash-asl",
+  "sortOrder": 157
+ },
+ {
+  "key": "408card/ds-07-015",
+  "subjectKey": "data-structure",
+  "chapter": 7,
+  "question": "二叉排序树查找、插入、删除？",
+  "answerSteps": [
+   "见树章节；中序有序；平均 log n 最坏 n。"
+  ],
+  "pitfall": "折半查找是静态有序表；BST 是动态。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "bst-delete",
+  "sortOrder": 158
+ },
+ {
+  "key": "408card/ds-07-016",
+  "subjectKey": "data-structure",
+  "chapter": 7,
+  "question": "平衡二叉树插入后的调整？",
+  "answerSteps": [
+   "LL 右旋、RR 左旋、LR 先左后右、RL 先右后左。"
+  ],
+  "pitfall": "调整的是最小失衡子树。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "avl",
+  "sortOrder": 159
+ },
+ {
+  "key": "408card/ds-07-017",
+  "subjectKey": "data-structure",
+  "chapter": 7,
+  "question": "折半查找与二叉排序树查找比较？",
+  "answerSteps": [
+   "折半：静态有序顺序表，判定树形态由 n 决定。",
+   "BST：动态，形态由插入序决定。"
+  ],
+  "pitfall": "不要混为一谈。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "binsearch",
+  "sortOrder": 160
+ },
+ {
+  "key": "408card/ds-07-018",
+  "subjectKey": "data-structure",
+  "chapter": 7,
+  "question": "斐波那契查找？",
+  "answerSteps": [
+   "利用斐波那契数分割，平均性能略优于折半；适合顺序表。"
+  ],
+  "pitfall": "了解即可。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 161
+ },
+ {
+  "key": "408card/ds-07-019",
+  "subjectKey": "data-structure",
+  "chapter": 7,
+  "question": "B 树高度（磁盘 IO 次数）与结点数关系？",
+  "answerSteps": [
+   "高度大约 log_{⌈m/2⌉}(N)；结点大小适合磁盘页。",
+   "查找 IO 次数 = 高度。"
+  ],
+  "pitfall": "B 树降低树高以减少 IO。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 162
+ },
+ {
+  "key": "408card/ds-07-020",
+  "subjectKey": "data-structure",
+  "chapter": 7,
+  "question": "m 阶 B 树根结点最少关键字数？",
+  "answerSteps": [
+   "根：至少 1 个关键字（2 棵子树）；非根非叶：至少 ⌈m/2⌉-1 个。"
+  ],
+  "pitfall": "根的下限特殊。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 163
+ },
+ {
+  "key": "408card/ds-07-021",
+  "subjectKey": "data-structure",
+  "chapter": 7,
+  "question": "散列表装填因子定义？",
+  "answerSteps": [
+   "α = 表中记录数 n / 表长 m。"
+  ],
+  "pitfall": "开放定址法一般 α≤1；链地址可 >1。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "hash-asl",
+  "sortOrder": 164
+ },
+ {
+  "key": "408card/ds-07-022",
+  "subjectKey": "data-structure",
+  "chapter": 7,
+  "question": "顺序查找的「哨兵」？",
+  "answerSteps": [
+   "把待查关键字放数组下标 0，从后往前找，免每步判 i≥1。"
+  ],
+  "pitfall": "时间复杂度仍 O(n)，常数略优。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 165
+ },
+ {
+  "key": "408card/ds-07-023",
+  "subjectKey": "data-structure",
+  "chapter": 7,
+  "question": "静态查找与动态查找？",
+  "answerSteps": [
+   "静态：只查不改（顺序、折半、分块）；动态：有插入删除（BST、AVL、B树、散列）。"
+  ],
+  "pitfall": "散列表也算动态。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 166
+ },
+ {
+  "key": "408card/ds-07-024",
+  "subjectKey": "data-structure",
+  "chapter": 7,
+  "question": "折半查找成功最坏比较次数？",
+  "answerSteps": [
+   "约 ⌊log₂n⌋+1，等于判定树高度。"
+  ],
+  "pitfall": "n=1 时比 1 次。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "binsearch",
+  "sortOrder": 167
+ },
+ {
+  "key": "408card/ds-08-001",
+  "subjectKey": "data-structure",
+  "chapter": 8,
+  "question": "插入排序思想与复杂度？",
+  "answerSteps": [
+   "将第 i 个插入到前面有序区正确位置。",
+   "最好 O(n)（已有序），平均最坏 O(n²)，**稳定**。"
+  ],
+  "pitfall": "直接插入、折半插入都是稳定 O(n²)。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "sort-insert",
+  "sortOrder": 168
+ },
+ {
+  "key": "408card/ds-08-002",
+  "subjectKey": "data-structure",
+  "chapter": 8,
+  "question": "冒泡排序？",
+  "answerSteps": [
+   "相邻比较交换，每趟「冒」出一个最值到一端。",
+   "最好 O(n)（设 flag 提前停），平均最坏 O(n²)，**稳定**。"
+  ],
+  "pitfall": "一趟无交换可结束。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "sort-bubble",
+  "sortOrder": 169
+ },
+ {
+  "key": "408card/ds-08-003",
+  "subjectKey": "data-structure",
+  "chapter": 8,
+  "question": "简单选择排序？",
+  "answerSteps": [
+   "每趟选最小放有序区开头。",
+   "O(n²) 最好最坏都是，**不稳定**（交换跨距离）。"
+  ],
+  "pitfall": "与冒泡对比：选择每趟至多交换 1 次。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "sort-select",
+  "sortOrder": 170
+ },
+ {
+  "key": "408card/ds-08-004",
+  "subjectKey": "data-structure",
+  "chapter": 8,
+  "question": "希尔排序？",
+  "answerSteps": [
+   "分组插入（增量 d 递减，最后 1）。",
+   "平均优于 O(n²)，**不稳定**，空间 O(1)。"
+  ],
+  "pitfall": "不稳定；增量序列影响性能。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "sort-quick",
+  "sortOrder": 171
+ },
+ {
+  "key": "408card/ds-08-005",
+  "subjectKey": "data-structure",
+  "chapter": 8,
+  "question": "快速排序思想？",
+  "answerSteps": [
+   "选枢轴，一趟 partition 使左小右大，递归子表。",
+   "平均 O(n log n)，最坏 O(n²)（已有序），**不稳定**，空间平均 O(log n)。"
+  ],
+  "pitfall": "最坏可优化：随机枢轴/三数取中。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "sort-quick",
+  "sortOrder": 172
+ },
+ {
+  "key": "408card/ds-08-006",
+  "subjectKey": "data-structure",
+  "chapter": 8,
+  "question": "快速排序 partition 过程？",
+  "answerSteps": [
+   "常用双指针：枢轴先存，i、j 交替扫描填坑。",
+   "一趟后枢轴就位。"
+  ],
+  "pitfall": "手算要会一趟结果。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "sort-quick",
+  "sortOrder": 173
+ },
+ {
+  "key": "408card/ds-08-007",
+  "subjectKey": "data-structure",
+  "chapter": 8,
+  "question": "归并排序？",
+  "answerSteps": [
+   "两两归并有序表；二路归并 O(n log n)，**稳定**，空间 O(n)。",
+   "适合链表（可 O(1) 额外？仍需或递归栈）。"
+  ],
+  "pitfall": "稳定且最坏也是 n log n。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "sort-merge",
+  "sortOrder": 174
+ },
+ {
+  "key": "408card/ds-08-008",
+  "subjectKey": "data-structure",
+  "chapter": 8,
+  "question": "堆排序？",
+  "answerSteps": [
+   "建大顶堆，反复取堆顶与末尾交换并调整。",
+   "O(n log n)，**不稳定**，空间 O(1)。"
+  ],
+  "pitfall": "建堆 O(n)；升序用大顶堆。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "sort-heap",
+  "sortOrder": 175
+ },
+ {
+  "key": "408card/ds-08-009",
+  "subjectKey": "data-structure",
+  "chapter": 8,
+  "question": "大顶堆、小顶堆定义？",
+  "answerSteps": [
+   "大顶堆：任一结点 ≥ 左右孩子；小顶堆反之。",
+   "完全二叉树顺序存储。"
+  ],
+  "pitfall": "堆是完全二叉树 + 序关系。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "heap-min",
+  "sortOrder": 176
+ },
+ {
+  "key": "408card/ds-08-010",
+  "subjectKey": "data-structure",
+  "chapter": 8,
+  "question": "如何建堆？",
+  "answerSteps": [
+   "从 ⌊n/2⌋-1（最后一个非叶）向前 siftDown。",
+   "O(n) 时间。"
+  ],
+  "pitfall": "不是 O(n log n)。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 177
+ },
+ {
+  "key": "408card/ds-08-011",
+  "subjectKey": "data-structure",
+  "chapter": 8,
+  "question": "基数排序？",
+  "answerSteps": [
+   "按位从低到高分配收集；O(d(n+r))，**稳定**。",
+   "适合多关键字整数/字符串。"
+  ],
+  "pitfall": "不是比较排序，可突破 O(n log n)。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 178
+ },
+ {
+  "key": "408card/ds-08-012",
+  "subjectKey": "data-structure",
+  "chapter": 8,
+  "question": "哪些排序是稳定的？",
+  "answerSteps": [
+   "**稳定**：冒泡、插入、归并、基数；**不稳定**：选择、希尔、快排、堆排。"
+  ],
+  "pitfall": null,
+  "mnemonic": "冒插归基稳，选希快堆不稳",
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 179
+ },
+ {
+  "key": "408card/ds-08-013",
+  "subjectKey": "data-structure",
+  "chapter": 8,
+  "question": "哪些排序最好最坏都是 O(n log n)？",
+  "answerSteps": [
+   "归并、堆排；快排最坏 O(n²)。"
+  ],
+  "pitfall": "归并空间 O(n)，堆排 O(1)。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 180
+ },
+ {
+  "key": "408card/ds-08-014",
+  "subjectKey": "data-structure",
+  "chapter": 8,
+  "question": "内部排序与外部排序？",
+  "answerSteps": [
+   "内部：数据全在内存；外部：数据在外存，归并为主（多路归并、败者树）。"
+  ],
+  "pitfall": "408 外部排序考归并趟数。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 181
+ },
+ {
+  "key": "408card/ds-08-015",
+  "subjectKey": "data-structure",
+  "chapter": 8,
+  "question": "外部排序归并趟数？",
+  "answerSteps": [
+   "初始归并段 r 个，k 路归并，趟数 = ⌈log_k r⌉。",
+   "败者树优化内部比较；置换-选择生成更长初始段减少 r。"
+  ],
+  "pitfall": "k 路归并要能一次从 k 个选最小。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "sort-quick",
+  "sortOrder": 182
+ },
+ {
+  "key": "408card/ds-08-016",
+  "subjectKey": "data-structure",
+  "chapter": 8,
+  "question": "快排为何平均快？",
+  "answerSteps": [
+   "每次划分接近对半，深度 log n，每层约 n 比较。"
+  ],
+  "pitfall": "实际常数小，是内部排序平均最快之一。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "sort-quick",
+  "sortOrder": 183
+ },
+ {
+  "key": "408card/ds-08-017",
+  "subjectKey": "data-structure",
+  "chapter": 8,
+  "question": "堆排序建堆后如何排序？",
+  "answerSteps": [
+   "堆顶与当前末尾交换，堆长度-1，对堆顶 siftDown，重复。"
+  ],
+  "pitfall": "升序用大顶堆，降序用小顶堆。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "sort-heap",
+  "sortOrder": 184
+ },
+ {
+  "key": "408card/ds-08-018",
+  "subjectKey": "data-structure",
+  "chapter": 8,
+  "question": "一趟排序后能确定最终位置的是？",
+  "answerSteps": [
+   "冒泡（一趟一个最值到端）、简单选择、快排（枢轴就位）；插入**不一定**。"
+  ],
+  "pitfall": "经典选择题。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 185
+ },
+ {
+  "key": "408card/ds-08-019",
+  "subjectKey": "data-structure",
+  "chapter": 8,
+  "question": "排序算法空间复杂度汇总？",
+  "answerSteps": [
+   "O(1)：冒泡、选择、插入、希尔、堆排；O(log n)：快排栈；O(n)：归并；O(n+r)：基数。"
+  ],
+  "pitfall": "原地排序：空间 O(1)。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 186
+ },
+ {
+  "key": "408card/ds-08-020",
+  "subjectKey": "data-structure",
+  "chapter": 8,
+  "question": "折半插入排序？",
+  "answerSteps": [
+   "用折半找插入位置，减少比较次数，移动仍 O(n)，稳定。"
+  ],
+  "pitfall": "比较次数减少，移动不变。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": "sort-insert",
+  "sortOrder": 187
+ },
+ {
+  "key": "408card/ds-08-021",
+  "subjectKey": "data-structure",
+  "chapter": 8,
+  "question": "如何根据序列判断排序算法？",
+  "answerSteps": [
+   "看每趟特征：冒泡相邻换、选择选最值、快排枢轴就位、一趟后有序段。"
+  ],
+  "pitfall": "题干常给「一趟排序后」序列。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 188
+ },
+ {
+  "key": "408card/ds-08-022",
+  "subjectKey": "data-structure",
+  "chapter": 8,
+  "question": "败者树作用？",
+  "answerSteps": [
+   "k 路归并中 O(log k) 找最小，减少每趟比较次数。"
+  ],
+  "pitfall": "完全二叉树，胜者上升，败者记在结点。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 189
+ },
+ {
+  "key": "408card/ds-08-023",
+  "subjectKey": "data-structure",
+  "chapter": 8,
+  "question": "比较排序的下界？",
+  "answerSteps": [
+   "基于比较的排序最坏至少 O(n log n)（决策树高度）。"
+  ],
+  "pitfall": "基数、计数不基于比较，可 O(n)。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 190
+ }
+]

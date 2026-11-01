@@ -1,0 +1,2114 @@
+[
+ {
+  "key": "408card/co-01-001",
+  "subjectKey": "computer-organization",
+  "chapter": 1,
+  "question": "冯·诺依曼计算机的基本思想与五大部件是什么？",
+  "answerSteps": [
+   "核心思想：**存储程序**——指令与数据以同等地位存放在存储器中，可按地址寻访；程序计数器 **PC** 决定执行顺序。",
+   "五大部件：**运算器、控制器、存储器、输入设备、输出设备**。",
+   "指令和数据均用**二进制**表示；指令由**操作码**和**地址码**组成。",
+   "机器以**运算器**为中心（现代以**存储器/总线**为中心）。"
+  ],
+  "pitfall": "注意：冯·诺依曼机以运算器为中心，而现代计算机多以存储器为中心，不要混淆。",
+  "mnemonic": "冯诺依曼：存程序、二进制、五部件；运控存入出",
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 0
+ },
+ {
+  "key": "408card/co-01-002",
+  "subjectKey": "computer-organization",
+  "chapter": 1,
+  "question": "计算机系统的层次结构如何划分？各层之间有何关系？",
+  "answerSteps": [
+   "从高到低：**应用软件 → 高级语言 → 汇编语言 → 操作系统 → 指令集体系结构(ISA) → 微体系结构 → 硬件**。",
+   "**ISA**（虚拟机）是软件与硬件的**分界面**，向上提供编程模型，向下约束硬件实现。",
+   "高级语言经**编译/解释**；汇编语言经**汇编**；均最终变成机器指令。",
+   "操作系统对硬件进行第一次抽象（资源管理），语言处理程序是第二次抽象。"
+  ],
+  "pitfall": "ISA 属于硬件/软件交界，不是某一层硬件实现；微程序机器是硬件层内部的实现方式。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 1
+ },
+ {
+  "key": "408card/co-01-003",
+  "subjectKey": "computer-organization",
+  "chapter": 1,
+  "question": "计算机的主要性能指标有哪些？如何计算？",
+  "answerSteps": [
+   "**吞吐量**：单位时间处理请求的数量；**响应时间**：从提交到完成的时间。",
+   "时钟周期 `T = 1/f`，f 为主频；**CPI** = 执行指令所需时钟周期数。",
+   "程序执行时间 `t = IC × CPI × T = (IC × CPI) / f`，IC 为指令条数。",
+   "**MIPS** = `f / (CPI × 10^6)`；**MFLOPS** 以浮点运算次数衡量。",
+   "基准测试：**SPEC** 系列、Amdahl 定律加速比 `S = 1 / ((1-Fe) + Fe/Se)`。"
+  ],
+  "pitfall": "主频高≠性能一定高；CPI、IC 都会变。Amdahl 中 Fe 是可改进部分比例。",
+  "mnemonic": "时间=条数×CPI×周期；加速比分母剩不可改",
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 2
+ },
+ {
+  "key": "408card/co-01-004",
+  "subjectKey": "computer-organization",
+  "chapter": 1,
+  "question": "什么是 CISC 和 RISC？各自特点？",
+  "answerSteps": [
+   "**CISC**（复杂指令集）：指令数目多、长度可变、寻址方式多、大多指令访存、控制器多为**微程序**实现。",
+   "**RISC**（精简指令集）：指令少且定长、寻址方式少、只有 **Load/Store** 访存、**流水线**友好、控制器多为**硬布线**。",
+   "RISC 采用**大量通用寄存器**，硬布线控制为主；CISC 依赖微码。",
+   "典型：x86 偏 CISC；ARM、MIPS、RISC-V 偏 RISC。"
+  ],
+  "pitfall": "RISC 不是简单删减指令，而是 ISA 设计哲学：简化硬件、靠编译优化与流水线提升性能。",
+  "mnemonic": "CISC 微程序多寻址；RISC 定长 LoadStore 硬布线",
+  "star": false,
+  "demoKey": "instr-format",
+  "sortOrder": 3
+ },
+ {
+  "key": "408card/co-01-005",
+  "subjectKey": "computer-organization",
+  "chapter": 1,
+  "question": "什么是翻译程序？编译与解释的区别？",
+  "answerSteps": [
+   "把高级语言变成机器可执行程序的系统程序：**编译程序**、**解释程序**、汇编程序。",
+   "**编译**：先整体翻译成目标程序，之后运行时不再需要源程序，可重复执行目标代码。",
+   "**解释**：逐句边翻译边执行，不产生独立目标程序，每次运行都要源程序。",
+   "汇编程序把汇编语言翻译成机器语言。"
+  ],
+  "pitfall": "编译产物是可重定位目标文件/可执行文件；解释器不生成可独立运行的目标代码。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 4
+ },
+ {
+  "key": "408card/co-01-006",
+  "subjectKey": "computer-organization",
+  "chapter": 1,
+  "question": "计算机硬件系统由哪几部分组成？各部分功能？",
+  "answerSteps": [
+   "硬件五大件：**运算器、控制器、存储器、输入设备、输出设备**。",
+   "**运算器**：算术/逻辑运算，核心是 **ALU**，含 ACC、MQ、X 等寄存器。",
+   "**控制器**：取指令、分析、执行控制，含 **PC、IR、CU**。",
+   "**存储器**：存放指令与数据，分主存（内存）与辅存（外存）。",
+   "I/O 设备：信息输入输出的媒介。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 5
+ },
+ {
+  "key": "408card/co-01-007",
+  "subjectKey": "computer-organization",
+  "chapter": 1,
+  "question": "Amdahl 定律的内容与加速比公式？",
+  "answerSteps": [
+   "系统加速比依赖于**可改进比例 Fe** 与**可改进部件加速比 Se**。",
+   "公式：`S = 1 / ((1 - Fe) + Fe / Se)`。",
+   "若只改进部分部件，当 `Se → ∞` 时，最大加速比 `S_max = 1 / (1 - Fe)`。",
+   "含义：不可改进部分最终限制整体加速上限，需关注**瓶颈部件**。"
+  ],
+  "pitfall": "Fe 是原系统中可改进部分占总时间的比例，不是代码行数比例。",
+  "mnemonic": "分母=不可改 + 可改/加速",
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 6
+ },
+ {
+  "key": "408card/co-01-008",
+  "subjectKey": "computer-organization",
+  "chapter": 1,
+  "question": "什么是基准测试程序？常用基准有哪些？",
+  "answerSteps": [
+   "用于评测计算机性能的**标准程序**，避免主观指标偏差。",
+   "经典：**SPEC**（整型/浮点）、**TPC**（事务处理）、**LINPACK**（浮点峰值）。",
+   "整型用 SPECint，浮点用 SPECfp；报告时常报 SPECrate 与 SPECspeed。",
+   "注意基准可能被优化（benchmark gaming），需看真实负载。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 7
+ },
+ {
+  "key": "408card/co-01-009",
+  "subjectKey": "computer-organization",
+  "chapter": 1,
+  "question": "计算机软件与硬件在功能上的等价性与界面（接口）是什么？",
+  "answerSteps": [
+   "软件与硬件在逻辑功能上**等价**：同一功能既可用硬件实现，也可用软件实现。",
+   "二者之间的界面是 **ISA（指令集体系结构）**：规定指令格式、寄存器、寻址、中断等。",
+   "硬件实现速度快、成本高；软件实现灵活、速度慢。",
+   "设计权衡：功能固化到硬件还是留给软件，取决于性能与成本。"
+  ],
+  "pitfall": "“界面”是 ISA，不是操作系统；OS 是 ISA 之上的软件资源管理。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 8
+ },
+ {
+  "key": "408card/co-01-010",
+  "subjectKey": "computer-organization",
+  "chapter": 1,
+  "question": "什么是固件？它处于什么层次？",
+  "answerSteps": [
+   "**固件**（Firmware）：具有软件功能又固定在硬件中的程序，常存于 **ROM/Flash**。",
+   "典型：BIOS/UEFI、微程序、设备固件。",
+   "位置：介于**硬件与软件之间**，比硬件更灵活、比软件更接近硬件。",
+   "微程序控制中，微程序就是一种固件。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 9
+ },
+ {
+  "key": "408card/co-02-001",
+  "subjectKey": "computer-organization",
+  "chapter": 2,
+  "question": "定点数的原码、反码、补码、移码如何定义？0 的表示？",
+  "answerSteps": [
+   "**原码**：最高位符号位（0 正 1 负），数值部分为真值绝对值。0 有 `+0` 与 `-0` 两种。",
+   "**反码**：正数同原码；负数符号位不变，数值位按位取反。0 也有两种。",
+   "**补码**：正数同原码；负数 = 反码 + 1（或模运算）。0 **唯一**，`00…0`。",
+   "**移码**：真值加上偏置常数（常用 `2^{n-1}`），浮点阶码常用。0 唯一。",
+   "n 位字长：原/反可表示范围 `-(2^{n-1}-1) ~ 2^{n-1}-1`；补码 ` -2^{n-1} ~ 2^{n-1}-1`。"
+  ],
+  "pitfall": "补码比原码多表示一个负数 -2^{n-1}；原码/反码的 0 有两个编码，补码/移码 0 唯一。",
+  "mnemonic": "原反双零，补移单零；负数补码=反码+1",
+  "star": true,
+  "demoKey": "binary-code",
+  "sortOrder": 10
+ },
+ {
+  "key": "408card/co-02-002",
+  "subjectKey": "computer-organization",
+  "chapter": 2,
+  "question": "补码加减运算规则是什么？如何判断溢出？",
+  "answerSteps": [
+   "补码运算：`[A+B]补 = [A]补 + [B]补`，`[A-B]补 = [A]补 + [-B]补`（减变加）。",
+   "符号位参与运算，结果的符号由运算自然产生。",
+   "**溢出**：当运算结果超出 n 位补码表示范围。",
+   "判断方法1：**一位符号位进位与最高数值位进位异或**，`Cs ⊕ C1 = 1` 则溢出。",
+   "判断方法2：**双符号位**，`00` 正、`11` 负、`01` 正溢、`10` 负溢。"
+  ],
+  "pitfall": "无符号数溢出看最高位进位 Cy；有符号补码溢出看 Cs⊕C1，二者不同。",
+  "mnemonic": "双符号：同号相加若变号则溢出；Cs异C1=1溢出",
+  "star": true,
+  "demoKey": "overflow",
+  "sortOrder": 11
+ },
+ {
+  "key": "408card/co-02-003",
+  "subjectKey": "computer-organization",
+  "chapter": 2,
+  "question": "为什么补码范围不对称？-2^{n-1} 如何表示？",
+  "answerSteps": [
+   "n 位补码共 `2^n` 个编码，0 只占一个，故负数比正数多一个。",
+   "范围：`[-2^{n-1}, 2^{n-1}-1]`，**最大正数与最小负数绝对值不等**。",
+   "最小负数 `-2^{n-1}` 的编码为 `1` 后面 n-1 个 0（如 8 位：`10000000`）。",
+   "该编码没有对应的正数，因为 `+2^{n-1}` 超出 n 位。"
+  ],
+  "pitfall": "不要写成 ±(2^{n-1}-1)。求补码范围时，正数最大 2^{n-1}-1，负数最小 -2^{n-1}。",
+  "mnemonic": "负多一个，1后全0就是最小负",
+  "star": true,
+  "demoKey": "binary-code",
+  "sortOrder": 12
+ },
+ {
+  "key": "408card/co-02-004",
+  "subjectKey": "computer-organization",
+  "chapter": 2,
+  "question": "已知 x 的补码，如何求 -x 的补码？",
+  "answerSteps": [
+   "方法：**连同符号位一起按位取反，末位加 1**。",
+   "或：从右向左找到第一个 1，该 1 右边（含该 1）不变，左边全部取反。",
+   "等价于求模减：`[-x]补 = 2^n - [x]补`（模 2^n）。",
+   "例：`[x]补=0101`，则 `[-x]补=1011`。"
+  ],
+  "pitfall": "求负时符号位也要参与取反，不是只反转数值位。",
+  "mnemonic": "求负：整体取反加1；或遇1左全反",
+  "star": true,
+  "demoKey": "binary-code",
+  "sortOrder": 13
+ },
+ {
+  "key": "408card/co-02-005",
+  "subjectKey": "computer-organization",
+  "chapter": 2,
+  "question": "定点数的移位运算有哪些？算术移位与逻辑移位区别？",
+  "answerSteps": [
+   "**逻辑移位**：左移右移都补 0，用于无符号数/地址。",
+   "**算术右移**：高位补**符号位**；算术左移低位补 0，可能发生溢出。",
+   "原码算术移位：符号位不变，数值位移；补码算术右移补符号，左移补 0。",
+   "循环移位：移出位回到另一端，用于位串处理/乘除辅助。"
+  ],
+  "pitfall": "补码算术右移补符号位，左移补 0；不要和逻辑移位混用。",
+  "mnemonic": "算右补符，左补0；逻辑两边都补0",
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 14
+ },
+ {
+  "key": "408card/co-02-006",
+  "subjectKey": "computer-organization",
+  "chapter": 2,
+  "question": "原码一位乘法的运算步骤？",
+  "answerSteps": [
+   "使用双符号位或单符号位，部分积初值 0，乘数放辅助寄存器。",
+   "每步看乘数最低位：若为 1 则 `部分积 += |x|`（绝对值加法）。",
+   "部分积与乘数一起**逻辑右移** 1 位，乘数低位移出。",
+   "重复 n 次（n 为数值位数），符号位由两数符号**异或**得到。",
+   "共需 n 次加法、n 次移位。"
+  ],
+  "pitfall": "原码乘用数值绝对值相加，最后单独确定符号；不要在乘过程中带符号位。",
+  "mnemonic": "原码乘：看位加绝对值，然后右移；符号异或",
+  "star": true,
+  "demoKey": "binary-code",
+  "sortOrder": 15
+ },
+ {
+  "key": "408card/co-02-007",
+  "subjectKey": "computer-organization",
+  "chapter": 2,
+  "question": "补码一位乘法（Booth 算法）步骤？",
+  "answerSteps": [
+   "设乘数 y 为补码，附加位 `y_{n+1}=0`，部分积用双符号位。",
+   "比较 `y_i y_{i+1}`：`00` 或 `11` 时部分积不变只右移。",
+   "`01`：`部分积 += [x]补`；`10`：`部分积 += [-x]补`。",
+   "每次算术右移 1 位（连同符号），共 n+1 步判断。",
+   "最后一步后不再移位（或按教材最后一步只加不移）。"
+  ],
+  "pitfall": "Booth 用补码加，末位附 0；部分积右移是算术右移补符号。",
+  "mnemonic": "Booth：01加x，10加负x，00/11只移",
+  "star": true,
+  "demoKey": "booth",
+  "sortOrder": 16
+ },
+ {
+  "key": "408card/co-02-008",
+  "subjectKey": "computer-organization",
+  "chapter": 2,
+  "question": "原码恢复余数除法的步骤？",
+  "answerSteps": [
+   "被除数与余数用双符号位，除数取绝对值。",
+   "上商：先假定商 1，`余数 -= |除数|`；若结果为负则商改 0，并**加回**除数（恢复）。",
+   "然后余数与商一起**左移** 1 位。",
+   "重复直到商够位；符号由两数符号异或。"
+  ],
+  "pitfall": "恢复余数法“减后若负则加回”；不恢复余数（加减交替）无恢复步。",
+  "mnemonic": "试减负则加回，再左移",
+  "star": true,
+  "demoKey": "div-restore",
+  "sortOrder": 17
+ },
+ {
+  "key": "408card/co-02-009",
+  "subjectKey": "computer-organization",
+  "chapter": 2,
+  "question": "不恢复余数（加减交替）除法如何运算？",
+  "answerSteps": [
+   "与恢复余数类似，但余数为负时不恢复，下一步改为**加除数**。",
+   "规则：上一步余数为正 → 下一步减除数；上一步为负 → 下一步加除数。",
+   "商位：上一步余数为正则商 1，为负则商 0。",
+   "比恢复余数少一次恢复加法，速度更快。"
+  ],
+  "pitfall": "第一次仍按减法试商；之后根据余数符号决定加或减。",
+  "mnemonic": "正减负加，商看余数符号",
+  "star": true,
+  "demoKey": "div-restore",
+  "sortOrder": 18
+ },
+ {
+  "key": "408card/co-02-010",
+  "subjectKey": "computer-organization",
+  "chapter": 2,
+  "question": "IEEE 754 单精度（32 位）浮点数格式？",
+  "answerSteps": [
+   "布局：`1 符号 | 8 阶码 | 23 尾数`。",
+   "阶码用**移码**，偏置值为 **127**（真阶码 = 阶码字段 − 127）。",
+   "尾数隐含前导 1（规格化），真值 `(-1)^S × 1.M × 2^{E-127}`。",
+   "特殊：阶码全 0 + 尾数 0 = ±0；阶码全 1 + 尾数 0 = ±∞；阶码全 1 + 尾数≠0 = NaN。",
+   "阶码全 0 为非规格化数，无隐藏 1。"
+  ],
+  "pitfall": "阶码偏置 127，不是 128；尾数有隐藏位 1，存储 23 位实际 24 位精度。",
+  "mnemonic": "单精度：1-8-23，偏置127，隐藏1",
+  "star": true,
+  "demoKey": "ieee754",
+  "sortOrder": 19
+ },
+ {
+  "key": "408card/co-02-011",
+  "subjectKey": "computer-organization",
+  "chapter": 2,
+  "question": "IEEE 754 双精度（64 位）浮点数格式？",
+  "answerSteps": [
+   "布局：`1 符号 | 11 阶码 | 52 尾数`。",
+   "阶码偏置值为 **1023**。",
+   "真值：`(-1)^S × 1.M × 2^{E-1023}`。",
+   "特殊值规则与单精度类似，只是位宽不同。"
+  ],
+  "pitfall": "单精度偏置 127、双精度 1023，考试常互换考查。",
+  "mnemonic": "双精度：1-11-52，偏置1023",
+  "star": true,
+  "demoKey": "ieee754",
+  "sortOrder": 20
+ },
+ {
+  "key": "408card/co-02-012",
+  "subjectKey": "computer-organization",
+  "chapter": 2,
+  "question": "如何将十进制小数转换为 IEEE 754 单精度机器数？",
+  "answerSteps": [
+   "先定符号位 S（负数 S=1）。",
+   "将 |x| 转为二进制并**规格化**为 `1.xxxx × 2^e` 形式。",
+   "阶码字段 = `e + 127`，写成 8 位二进制。",
+   "尾数字段取小数点后 23 位（去掉隐藏的 1）。",
+   "拼接 S + 阶码 + 尾数，写出 32 位十六进制。"
+  ],
+  "pitfall": "转换中途用小数乘 2 取整；规格化后指数 e 可正可负，加偏置时要小心。",
+  "mnemonic": "定符→转二进制→规格化→加127→填尾数",
+  "star": true,
+  "demoKey": "ieee754",
+  "sortOrder": 21
+ },
+ {
+  "key": "408card/co-02-013",
+  "subjectKey": "computer-organization",
+  "chapter": 2,
+  "question": "浮点数的表示范围与什么有关？何为上溢/下溢？",
+  "answerSteps": [
+   "范围主要由**阶码**位数决定，精度由**尾数**位数决定。",
+   "阶码 n 位（移码）可表示约 `2^{-126} ~ 2^{127}`（单精度，考虑非规格化更小）。",
+   "**上溢**：绝对值超过最大可表示数 → 置溢出标志或 ∞。",
+   "**下溢**：绝对值小于最小正数，可**逐渐下溢**为非规格化数，最终到 0。"
+  ],
+  "pitfall": "补码定点是“要么对要么错”的溢出；浮点可渐变下溢。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": "ieee754",
+  "sortOrder": 22
+ },
+ {
+  "key": "408card/co-02-014",
+  "subjectKey": "computer-organization",
+  "chapter": 2,
+  "question": "浮点数加减运算的对阶、规格化步骤？",
+  "answerSteps": [
+   "1) **对阶**：小阶向大阶看齐，小阶的尾数**算术右移**（可能丢失低位精度）。",
+   "2) **尾数加减**：对阶后尾数按定点补码加减。",
+   "3) **规格化**：若结果不是 `1.xxxx` 形式则左规或右规；右规丢低位可能舍入。",
+   "4) **舍入**：0 舍 1 入、截断、恒置 1 等。",
+   "5) 判断**溢出**（阶码超范围）。"
+  ],
+  "pitfall": "对阶是小对大、尾数右移；不要大对小左移（会溢出）。",
+  "mnemonic": "浮点加减：对阶→尾数加→规格化→舍入→判溢",
+  "star": true,
+  "demoKey": "float-add",
+  "sortOrder": 23
+ },
+ {
+  "key": "408card/co-02-015",
+  "subjectKey": "computer-organization",
+  "chapter": 2,
+  "question": "什么是规格化？左规与右规？",
+  "answerSteps": [
+   "规格化目的是**提高尾数精度**，使最高有效位为有效数字。",
+   "原码规格化：尾数绝对值在 `[1/2, 1)`，即数值第一位为 1。",
+   "补码规格化：正数 `00.1xxx`，负数 `11.0xxx`（符号位与最高数值位相反）。",
+   "**左规**：尾数左移、阶码减 1，直到规格化；**右规**：尾数右移、阶码加 1。"
+  ],
+  "pitfall": "补码负数规格化看 `11.0...`，不是看最高数值位为 1。双符号位便于判断。",
+  "mnemonic": "补码：正00.1，负11.0；左规阶减，右规阶加",
+  "star": true,
+  "demoKey": "float-add",
+  "sortOrder": 24
+ },
+ {
+  "key": "408card/co-02-016",
+  "subjectKey": "computer-organization",
+  "chapter": 2,
+  "question": "浮点数的舍入方法有哪些？",
+  "answerSteps": [
+   "**就近舍入（0 舍 1 入）**：最常见，可能向偶数舍入避免统计偏差。",
+   "**朝零截断**：简单，误差偏向 0。",
+   "**朝 +∞ / 朝 -∞**：有向误差，区间分析用。",
+   "IEEE 754 默认 round-to-nearest-even。"
+  ],
+  "pitfall": "浮点加减对阶和右规都可能需要舍入。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": "ieee754",
+  "sortOrder": 25
+ },
+ {
+  "key": "408card/co-02-017",
+  "subjectKey": "computer-organization",
+  "chapter": 2,
+  "question": "定点与浮点表示的本质区别？",
+  "answerSteps": [
+   "**定点**：小数点位置固定（纯小数或纯整数），范围小、硬件简单。",
+   "**浮点**：小数点位置随阶码浮动，`N = M × r^E`，范围大、精度相对可控。",
+   "同样位数：浮点范围远大于定点，但运算更复杂、速度更慢。",
+   "IEEE 754 是浮点表示的工业标准。"
+  ],
+  "pitfall": "浮点数精度不是无限的；二进制不能精确表示某些十进制小数（如 0.1）。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": "ieee754",
+  "sortOrder": 26
+ },
+ {
+  "key": "408card/co-02-018",
+  "subjectKey": "computer-organization",
+  "chapter": 2,
+  "question": "海明码（汉明码）的编码原理与校验位个数？",
+  "answerSteps": [
+   "设数据 n 位、校验 r 位，需满足 `2^r ≥ n + r + 1`。",
+   "校验位放在编号为 2 的幂次位置（1,2,4,8,…）。",
+   "每位数据位被若干校验组覆盖；校验位使各组**偶校验**（或奇校验）为约定值。",
+   "可检 **1 位错并纠 1 位**；加全校验位可纠 1 检 2。"
+  ],
+  "pitfall": "位置从 1 开始编号；r 个校验位可表示 2^r 种状态，全 0 表示无错。",
+  "mnemonic": "2^r≥n+r+1；校验位放1,2,4,8",
+  "star": true,
+  "demoKey": "hamming",
+  "sortOrder": 27
+ },
+ {
+  "key": "408card/co-02-019",
+  "subjectKey": "computer-organization",
+  "chapter": 2,
+  "question": "海明码如何纠错？出错位置如何确定？",
+  "answerSteps": [
+   "接收端重算各校验组的校验和，得到**指误字**（syndrome）。",
+   "若指误字为全 0：无错（在能检范围内）。",
+   "若指误字非 0：其二进制值即**出错位号**。",
+   "对该位取反即完成纠正。"
+  ],
+  "pitfall": "海明码默认纠 1 位错；两位错时可能误纠（需扩展全校验）。",
+  "mnemonic": "指误字的值=出错位号",
+  "star": true,
+  "demoKey": "hamming",
+  "sortOrder": 28
+ },
+ {
+  "key": "408card/co-02-020",
+  "subjectKey": "computer-organization",
+  "chapter": 2,
+  "question": "什么是 CRC 循环冗余码？如何计算？",
+  "answerSteps": [
+   "在 k 位信息码后拼 r 位校验码，使整个码字能被**生成多项式 G(x)** 整除。",
+   "计算：信息码后补 r 个 0，模 2 除以 G(x)，余数即 **CRC 校验码**。",
+   "r = G 的最高次幂。接收：整个码字除 G，余 0 则认为无错。",
+   "常用：CRC-CCITT、CRC-32。"
+  ],
+  "pitfall": "CRC 的除法是**模 2 除**（异或），不是普通二进制减。",
+  "mnemonic": "补r个0，模2除，余数即校验",
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 29
+ },
+ {
+  "key": "408card/co-02-021",
+  "subjectKey": "computer-organization",
+  "chapter": 2,
+  "question": "奇偶校验码的原理与局限？",
+  "answerSteps": [
+   "增加 1 位校验位，使 1 的个数为奇数（奇校验）或偶数（偶校验）。",
+   "可检出**奇数个**位出错，不能定位错误，也不能检出偶数个错。",
+   "实现简单、成本低，常用于内存条、总线传输。",
+   "与海明码相比：不能纠错。"
+  ],
+  "pitfall": "奇偶校验不能纠错；两位同时出错无法检测。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 30
+ },
+ {
+  "key": "408card/co-02-022",
+  "subjectKey": "computer-organization",
+  "chapter": 2,
+  "question": "算术逻辑单元 ALU 的基本功能与结构？",
+  "answerSteps": [
+   "ALU 能完成**算术运算**（加减乘除）与**逻辑运算**（与或非异或）。",
+   "核心部件：带先行进位的加法器 + 逻辑运算电路 + 多路选择器。",
+   "输入：操作数 A、B，操作码；输出：结果 F 与状态标志（ZF、SF、OF、CF）。",
+   "74181 是经典的 4 位 ALU 芯片，可级联。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": false,
+  "demoKey": "logic-gate",
+  "sortOrder": 31
+ },
+ {
+  "key": "408card/co-02-023",
+  "subjectKey": "computer-organization",
+  "chapter": 2,
+  "question": "串行进位加法器与并行（先行）进位加法器区别？",
+  "answerSteps": [
+   "**串行（行波）进位**：低位进位逐级传向高位，延迟与位数成正比，慢。",
+   "**并行（先行/超前进位）**：同时生成各位进位 `Ci+1 = Gi + Pi·Ci`，速度快。",
+   "Gi 为进位生成，Pi 为进位传播。",
+   "大规模加法器常分组：组内先行、组间可再先行。"
+  ],
+  "pitfall": "先行进位不等于完全没有串行，大规模时仍是分层先行。",
+  "mnemonic": "Gi=生成，Pi=传播，Ci+1=Gi+PiCi",
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 32
+ },
+ {
+  "key": "408card/co-02-024",
+  "subjectKey": "computer-organization",
+  "chapter": 2,
+  "question": "什么是标志寄存器？常用标志位含义？",
+  "answerSteps": [
+   "**ZF**（零标志）：结果为 0 时置 1。",
+   "**SF**（符号标志）：有符号结果为负时置 1（等于最高位）。",
+   "**OF**（溢出标志）：有符号补码溢出时置 1。",
+   "**CF**（进位/借位标志）：无符号运算产生进位/借位时置 1。"
+  ],
+  "pitfall": "OF 管有符号，CF 管无符号；判断溢出不要只看 CF。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 33
+ },
+ {
+  "key": "408card/co-02-025",
+  "subjectKey": "computer-organization",
+  "chapter": 2,
+  "question": "无符号数与有符号数的比较（补码）在运算中有何差异？",
+  "answerSteps": [
+   "同一二进制序列，可解释为无符号或补码有符号。",
+   "加法电路完全相同；**溢出解释不同**：无符号看 CF，有符号看 OF。",
+   "比较大小：无符号用无符号比较；有符号用有符号比较（看 SF、OF）。",
+   "编程语言中 signed/unsigned 影响比较与除法语义。"
+  ],
+  "pitfall": "硬件加法器不区分 signed/unsigned，区分在标志与软件解释。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": "binary-code",
+  "sortOrder": 34
+ },
+ {
+  "key": "408card/co-02-026",
+  "subjectKey": "computer-organization",
+  "chapter": 2,
+  "question": "BCD 码是什么？8421 码运算后如何修正？",
+  "answerSteps": [
+   "BCD：用 4 位二进制表示 1 位十进制，常用 **8421 码**。",
+   "加法后若结果 > 9 或产生半进位，需**加 6（0110）** 修正。",
+   "减法有时需减 6 修正。",
+   "目的是让二进制加法结果符合十进制进位。"
+  ],
+  "pitfall": "8421 码不是普通的二进制数；0000~1001 有效，1010~1111 为非法码。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 35
+ },
+ {
+  "key": "408card/co-02-027",
+  "subjectKey": "computer-organization",
+  "chapter": 2,
+  "question": "机器数与真值的关系？字长、基数对表示的影响？",
+  "answerSteps": [
+   "**真值**：带正负号的数值本身；**机器数**：符号数字化后的二进制编码。",
+   "字长 n 决定可表示精度与范围。",
+   "基数 r 影响浮点范围：`N = M × r^E`，r 越大 E 的表示范围效果越强。",
+   "补码运算中符号位可参与运算，简化硬件。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 36
+ },
+ {
+  "key": "408card/co-02-028",
+  "subjectKey": "computer-organization",
+  "chapter": 2,
+  "question": "浮点数比较大小时应注意什么？",
+  "answerSteps": [
+   "不能简单比较尾数或阶码，需按**符号 → 阶码 → 尾数**顺序综合比较。",
+   "注意 ±0、±∞、NaN：NaN 与任何数比较都不相等。",
+   "有符号比较时先看符号位，负数更小。",
+   "近似相等时要考虑舍入误差（epsilon）。"
+  ],
+  "pitfall": "两个很接近的浮点数直接用 == 可能失败。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": "ieee754",
+  "sortOrder": 37
+ },
+ {
+  "key": "408card/co-03-001",
+  "subjectKey": "computer-organization",
+  "chapter": 3,
+  "question": "存储器层次结构是什么？为什么要分层？",
+  "answerSteps": [
+   "层次：**寄存器 → Cache → 主存 → 辅存（磁盘/SSD）**，速度递减、容量递增、价格递减。",
+   "依据**局部性原理**：时间局部性与空间局部性。",
+   "目标：在合理成本下逼近**最快存储器的速度**与**最大存储器的容量**。",
+   "对程序员透明：Cache 与虚拟存储由硬件/OS 管理。"
+  ],
+  "pitfall": "辅存属于虚拟存储层次，对系统程序员部分可见；Cache 对应用程序完全透明。",
+  "mnemonic": "小快贵在上，大慢廉在下；靠局部性",
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 38
+ },
+ {
+  "key": "408card/co-03-002",
+  "subjectKey": "computer-organization",
+  "chapter": 3,
+  "question": "SRAM 与 DRAM 的区别？",
+  "answerSteps": [
+   "**SRAM**：触发器存储，**不需刷新**，速度快，集成度低、成本高，用作 **Cache**。",
+   "**DRAM**：电容存储，**需要定期刷新**（典型 2ms/64ms），速度较慢，成本低，用作**主存**。",
+   "DRAM 刷新方式：集中刷新、分散刷新、异步刷新。",
+   "刷新按**行**进行，与 CPU 读写可冲突（死时间）。"
+  ],
+  "pitfall": "DRAM 用电容存电荷，读是破坏性读出，读后需写回（再生）。",
+  "mnemonic": "SRAM不刷快而贵做Cache；DRAM要刷便宜做主存",
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 39
+ },
+ {
+  "key": "408card/co-03-003",
+  "subjectKey": "computer-organization",
+  "chapter": 3,
+  "question": "存储器的主要性能指标与容量计算？",
+  "answerSteps": [
+   "指标：**容量、速度（存取时间、存储周期、带宽）、价格、可靠性**。",
+   "容量 = 存储单元数 × 每单元位数，如 `4K × 8 位`。",
+   "**存取时间**：启动到完成一次读/写的时间；**存储周期** = 存取时间 + 恢复时间。",
+   "带宽 = 每秒传送的数据量，单位 B/s。",
+   "总容量常按 `2^n` 个单元计算地址线根数：`n = log2(单元数)`。"
+  ],
+  "pitfall": "字节编址时地址单元是字；位扩展/字扩展影响芯片数与地址线。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 40
+ },
+ {
+  "key": "408card/co-03-004",
+  "subjectKey": "computer-organization",
+  "chapter": 3,
+  "question": "主存容量扩展：位扩展与字扩展怎么做？",
+  "answerSteps": [
+   "**位扩展**：增加字长，各芯片地址线、片选并联，**数据线分别接不同位**。",
+   "**字扩展**：增加字数，数据线并联，用**高位地址译码产生片选**。",
+   "字位同时扩展：先组内位扩，再字扩。",
+   "所需芯片数 = `总容量 / 单片容量`。"
+  ],
+  "pitfall": "位扩数据线分接、字扩高位地址选片，不要接反。",
+  "mnemonic": "位扩：地址并、数据分；字扩：数据并、高位选片",
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 41
+ },
+ {
+  "key": "408card/co-03-005",
+  "subjectKey": "computer-organization",
+  "chapter": 3,
+  "question": "什么是双端口存储器和多模块存储器？",
+  "answerSteps": [
+   "**双端口 RAM**：两套独立地址/数据/控制，可并行访问不同单元；同址冲突需等待。",
+   "**多模块交叉编址（低位交叉）**：地址低 m 位选模块，各模块轮流启动，提高带宽。",
+   "**多模块顺序编址（高位交叉）**：高位地址选模块，连续地址落在同一模块。",
+   "交叉存储适合流水式连续访问，可提高有效带宽。"
+  ],
+  "pitfall": "低位交叉连续地址分散到各模块；高位交叉连续地址在同一模块。",
+  "mnemonic": "低位交叉流水取，高位交叉整块一块",
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 42
+ },
+ {
+  "key": "408card/co-03-006",
+  "subjectKey": "computer-organization",
+  "chapter": 3,
+  "question": "Cache 的基本工作原理与命中率？",
+  "answerSteps": [
+   "Cache 是 CPU 与主存之间的高速小容量缓冲。",
+   "访问时先查 Cache，**命中**则直接读写；**未命中**则从主存调入块。",
+   "命中率 `h = 命中次数 / 总访问次数`；缺失率 `m = 1 - h`。",
+   "平均访问时间：`t = h·tc + (1-h)·tm`（不考虑重叠）；更常用 `t = tc + (1-h)·tm`（串联）。",
+   "Cache 与主存以**块（行）** 为单位交换。"
+  ],
+  "pitfall": "公式写哪种取决于题意（是否重叠、是否先访问 Cache）。",
+  "mnemonic": "先查Cache，命中则返回，未命中调块",
+  "star": true,
+  "demoKey": "cache-map",
+  "sortOrder": 43
+ },
+ {
+  "key": "408card/co-03-007",
+  "subjectKey": "computer-organization",
+  "chapter": 3,
+  "question": "Cache 的三种映射方式？地址如何拆分？",
+  "answerSteps": [
+   "**直接映射**：块只能放固定位置。地址 = `标记 Tag | 行号 | 块内地址`。",
+   "**全相联**：可放任意行。地址 = `标记 Tag | 块内地址`。",
+   "**组相联**：先组内任意。地址 = `标记 Tag | 组号 | 块内地址`。",
+   "组相联是直接与全相联的折中，常用 2/4/8 路。",
+   "行数、组数、块大小关系：`组数 = Cache行数 / 路数`。"
+  ],
+  "pitfall": "拆地址顺序是「高位标记、中间索引、低位块内」；组相联先按组号索引再比标记。",
+  "mnemonic": "直接=标记+行号+块内；全相联=标记+块内；组相联=标记+组号+块内",
+  "star": true,
+  "demoKey": "cache-map",
+  "sortOrder": 44
+ },
+ {
+  "key": "408card/co-03-008",
+  "subjectKey": "computer-organization",
+  "chapter": 3,
+  "question": "Cache 地址拆分的经典计算（例）？",
+  "answerSteps": [
+   "例：主存 4GB、Cache 16KB、块大小 64B、直接映射。",
+   "块内地址位数 = `log2(64) = 6`；Cache 行数 = `16KB/64B = 256`，行号 8 位。",
+   "标记位数 = `32 - 8 - 6 = 18` 位。",
+   "若为 8 路组相联：组数 = 256/8 = 32，组号 5 位，标记 = 32-5-6 = 21 位。"
+  ],
+  "pitfall": "主存地址位数按主存容量算，不是 Cache 容量；别忘记单位统一成 2 的幂。",
+  "mnemonic": "先算块内，再算组/行，剩下是标记",
+  "star": true,
+  "demoKey": "cache-map",
+  "sortOrder": 45
+ },
+ {
+  "key": "408card/co-03-009",
+  "subjectKey": "computer-organization",
+  "chapter": 3,
+  "question": "Cache 替换算法有哪些？",
+  "answerSteps": [
+   "全相联与组相联才需要替换策略；**直接映射**位置唯一、无需替换。",
+   "**RAND** 随机：简单但不利用局部性；**LFU** 最不经常使用。",
+   "**FIFO** 先进先出：实现简单，可能抖动。",
+   "**LRU** 最近最少使用：近似局部性最优，最常用；硬件可用计数器/栈实现。",
+   "考试常考：直接映射无替换；组相联默认按 LRU。"
+  ],
+  "pitfall": "直接映射没有替换算法；LRU 在某些访问序列下不如 FIFO。",
+  "mnemonic": "全组相联才替换：RAND/FIFO/LRU",
+  "star": true,
+  "demoKey": "cache-lru",
+  "sortOrder": 46
+ },
+ {
+  "key": "408card/co-03-010",
+  "subjectKey": "computer-organization",
+  "chapter": 3,
+  "question": "Cache 的写策略有哪些？",
+  "answerSteps": [
+   "写命中时有两种：**全写法（write-through）** 同时写 Cache 与主存，一致但总线繁忙，常加写缓冲。",
+   "**写回法（write-back）**：只写 Cache，块被替换且**脏位=1** 时写回主存，省带宽。",
+   "写不命中时：**写分配（write-allocate）** 先调块到 Cache 再写，常配写回。",
+   "**非写分配（no-write-allocate）**：直接写主存，常配全写。",
+   "记忆配对：全写+非写分配；写回+写分配。"
+  ],
+  "pitfall": "全写通常配非写分配；写回通常配写分配。脏位只在写回法有意义。",
+  "mnemonic": "全写要写缓冲；写回看脏位；写分配先调块",
+  "star": true,
+  "demoKey": "cache-map",
+  "sortOrder": 47
+ },
+ {
+  "key": "408card/co-03-011",
+  "subjectKey": "computer-organization",
+  "chapter": 3,
+  "question": "什么是多级 Cache 与分离 Cache？",
+  "answerSteps": [
+   "多级：L1（最快最小）、L2、L3，逐级更大更慢；平均延迟下降。",
+   "**分离 Cache**：指令 Cache（I-Cache）与数据 Cache（D-Cache）分开，减少结构冲突。",
+   "统一 Cache 结构简单但取指与取数可能冲突。",
+   "现代 CPU 普遍 L1 分离、L2/L3 统一。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": false,
+  "demoKey": "cache-map",
+  "sortOrder": 48
+ },
+ {
+  "key": "408card/co-03-012",
+  "subjectKey": "computer-organization",
+  "chapter": 3,
+  "question": "什么是虚拟存储器？基本思想？",
+  "answerSteps": [
+   "把主存与辅存统一成一个逻辑上的**大容量虚拟地址空间**。",
+   "程序用**虚地址**，由硬件（MMU）+ OS 映射到物理地址。",
+   "以**页（页式）/段（段式）/段页式**为单位交换。",
+   "未命中（缺页）时由 OS 从磁盘调入，未命中对程序员透明。",
+   "目标：更大空间 + 内存保护 + 多道程序。"
+  ],
+  "pitfall": "虚拟存储对应用程序员透明，对系统程序员部分可见；Cache 对所有程序员透明。",
+  "mnemonic": "虚存：虚地址→页表→物理地址；缺页调盘",
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 49
+ },
+ {
+  "key": "408card/co-03-013",
+  "subjectKey": "computer-organization",
+  "chapter": 3,
+  "question": "页式虚拟存储如何进行地址变换？",
+  "answerSteps": [
+   "虚地址分为 **虚页号 VPN | 页内偏移**。",
+   "用 VPN 查**页表**得到物理页帧号 PFN，拼上偏移得物理地址。",
+   "页表项含：帧号、有效位、修改位、访问位、保护位等。",
+   "为加速，用 **TLB（快表）** 缓存页表项；TLB 在 CPU 内，速度接近寄存器。",
+   "两级查找：先 TLB，未命中再查页表（可能在主存）。"
+  ],
+  "pitfall": "页式没有外部碎片、有内部碎片；地址变换时偏移位数不变。",
+  "mnemonic": "TLB→页表→主存；页号查表帧号拼偏移",
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 50
+ },
+ {
+  "key": "408card/co-03-014",
+  "subjectKey": "computer-organization",
+  "chapter": 3,
+  "question": "段式与段页式虚拟存储的特点？",
+  "answerSteps": [
+   "**段式**：按逻辑模块分段，段长可变；共享与保护方便；有**外部碎片**。",
+   "**页式**：固定大小页，无外部碎片，有内部碎片。",
+   "**段页式**：先分段再分页，兼有二者优点；地址 = `段号 | 段内页号 | 页内偏移`。",
+   "查表：段表 → 页表 → 物理地址，多一次访存（可加速）。"
+  ],
+  "pitfall": "段页式地址是三部分；段式有外碎片，页式只有内碎片。",
+  "mnemonic": "段有外碎保护好，页无外碎有内碎，段页先段后页",
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 51
+ },
+ {
+  "key": "408card/co-03-015",
+  "subjectKey": "computer-organization",
+  "chapter": 3,
+  "question": "TLB 的作用与命中率对性能的影响？",
+  "answerSteps": [
+   "**TLB** 缓存最近使用的页表项，避免每次访存都查页表。",
+   "有效访问时间示意：`EAT ≈ h_tlb(t_tlb+t_mem) + (1-h_tlb)(t_tlb + t_page + t_mem)`。",
+   "TLB 容量小，靠局部性；多级页表时未命中代价更高。",
+   "TLB 与 Cache 可以是 VIPT/PIPT 等不同组织方式。"
+  ],
+  "pitfall": "计算 EAT 时必须明确页表级数与是否考虑主存访问次数。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "am-at",
+  "sortOrder": 52
+ },
+ {
+  "key": "408card/co-03-016",
+  "subjectKey": "computer-organization",
+  "chapter": 3,
+  "question": "页缺失（缺页）处理流程？",
+  "answerSteps": [
+   "CPU 访问虚地址，TLB/页表未命中且有效位为 0 → 产生**缺页异常**。",
+   "OS 保存现场，查外存位置，选一页换出（若需）。",
+   "从磁盘调入所需页，更新页表，恢复现场。",
+   "若被换出页被修改过，需写回磁盘。"
+  ],
+  "pitfall": "缺页是中断/异常，需 OS 介入；与 Cache 缺失不同（Cache 缺失硬件处理）。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 53
+ },
+ {
+  "key": "408card/co-03-017",
+  "subjectKey": "computer-organization",
+  "chapter": 3,
+  "question": "相联存储器（按内容寻址）是什么？",
+  "answerSteps": [
+   "按**内容**（关键字）检索，而不是按地址检索。",
+   "并行比较所有项，返回匹配地址或数据。",
+   "TLB、Cache 标签比较、路由表常用。",
+   "速度快但电路复杂、容量有限。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": false,
+  "demoKey": "instr-format",
+  "sortOrder": 54
+ },
+ {
+  "key": "408card/co-03-018",
+  "subjectKey": "computer-organization",
+  "chapter": 3,
+  "question": "影响 Cache 命中率的因素？",
+  "answerSteps": [
+   "Cache **容量**越大，命中率通常越高（收益递减）。",
+   "**块大小**：适当增大有利空间局部性，过大则污染且调入慢。",
+   "**映射方式**：全相联命中率最高，直接映射最低，组相联折中。",
+   "**替换算法**：LRU 优于 FIFO/RAND。",
+   "程序行为（局部性强弱）是根本因素。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "cache-map",
+  "sortOrder": 55
+ },
+ {
+  "key": "408card/co-03-019",
+  "subjectKey": "computer-organization",
+  "chapter": 3,
+  "question": "什么是存储器带宽？如何提高？",
+  "answerSteps": [
+   "单位时间内存储器能传输的数据量。",
+   "提高手段：多模块交叉、加宽数据总线、突发传输、提高主频。",
+   "低位交叉流水可让各模块重叠工作。",
+   "带宽与存取周期、总线宽度密切相关。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 56
+ },
+ {
+  "key": "408card/co-03-020",
+  "subjectKey": "computer-organization",
+  "chapter": 3,
+  "question": "Cache 与主存、辅存的对比（在层次中的角色）？",
+  "answerSteps": [
+   "Cache-主存：解决 CPU 与主存速度差，硬件管理，透明。",
+   "主存-辅存：解决容量不足，OS+硬件管理，构成虚拟存储。",
+   "Cache 行通常几十字节；虚存页通常 4KB。",
+   "二者都基于局部性，但实现者与单位不同。"
+  ],
+  "pitfall": "不要把“Cache 未命中”与“缺页”混为一谈。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "cache-map",
+  "sortOrder": 57
+ },
+ {
+  "key": "408card/co-03-021",
+  "subjectKey": "computer-organization",
+  "chapter": 3,
+  "question": "什么是写缓冲与合并写？",
+  "answerSteps": [
+   "**写缓冲**：全写法中 CPU 先写入缓冲，由缓冲写主存，减少 CPU 等待。",
+   "**合并写（write combining）**：合并对同一块的多次写，减少总线事务。",
+   "缓冲满时 CPU 仍需等待。",
+   "顺序程序写局部性好时效果显著。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 58
+ },
+ {
+  "key": "408card/co-03-022",
+  "subjectKey": "computer-organization",
+  "chapter": 3,
+  "question": "为什么说 Cache 对系统程序员和应用程序员都是透明的？",
+  "answerSteps": [
+   "程序员无需显式管理 Cache 调入调出。",
+   "指令集不提供“读 Cache 内容”的通用指令（调试接口除外）。",
+   "程序正确性不依赖 Cache 是否命中。",
+   "但程序员可通过优化局部性**间接影响**性能。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": false,
+  "demoKey": "cache-map",
+  "sortOrder": 59
+ },
+ {
+  "key": "408card/co-03-023",
+  "subjectKey": "computer-organization",
+  "chapter": 3,
+  "question": "固态存储 SSD 相对机械盘在存储层次中的位置？",
+  "answerSteps": [
+   "SSD 仍属**辅存/外部存储**层次，接口类似块设备。",
+   "速度远快于 HDD，但仍有毫秒级/微秒级延迟，容量大、价格低于主存。",
+   "可作为虚拟存储的后端，或分级存储中的中间层。",
+   "无机械寻道，随机读性能好。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 60
+ },
+ {
+  "key": "408card/co-03-024",
+  "subjectKey": "computer-organization",
+  "chapter": 3,
+  "question": "什么是伪相联 Cache 与路预测？（进阶）",
+  "answerSteps": [
+   "在直接映射基础上，允许块先放“首选行”，冲突时检查“次选行”。",
+   "命中首选行按直接映射速度；查次选稍慢，但命中率接近组相联。",
+   "路预测：预测会命中哪一路，减小并行比较功耗。",
+   "目的是在速度与命中率间折中。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": false,
+  "demoKey": "cache-map",
+  "sortOrder": 61
+ },
+ {
+  "key": "408card/co-04-001",
+  "subjectKey": "computer-organization",
+  "chapter": 4,
+  "question": "一条指令由哪几部分组成？",
+  "answerSteps": [
+   "**操作码字段**：指出指令完成什么操作（加、访存、转移等）。",
+   "**地址码字段**：指出操作数地址或结果地址。",
+   "按地址个数分：三地址、二地址、一地址、零地址指令。",
+   "定长指令：操作码固定；变长：操作码可扩展。"
+  ],
+  "pitfall": "零地址指令不是没有操作，而是隐含操作数（如栈运算、停机）。",
+  "mnemonic": "操作码干什么，地址码对谁干",
+  "star": true,
+  "demoKey": "instr-format",
+  "sortOrder": 62
+ },
+ {
+  "key": "408card/co-04-002",
+  "subjectKey": "computer-organization",
+  "chapter": 4,
+  "question": "零地址、一地址、二地址、三地址指令的例子？",
+  "answerSteps": [
+   "三地址：`ADD R1, R2, R3` — R1 ← R2+R3。",
+   "二地址：`ADD R1, R2` — R1 ← R1+R2（目的兼源）。",
+   "一地址：`INC R1` 或单目运算；双操作数时另一操作数在 **ACC**。",
+   "零地址：`NOP`、`HLT`、栈机 `ADD`（弹出两操作数压回结果）。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 63
+ },
+ {
+  "key": "408card/co-04-003",
+  "subjectKey": "computer-organization",
+  "chapter": 4,
+  "question": "操作码扩展技术是什么？为何使用？",
+  "answerSteps": [
+   "在定长指令字中，使操作码位数**可变**：短操作码留长码空间。",
+   "原则：使用频度高的指令用**短操作码**，低频用长码。",
+   "如：4 位操作码可扩成 15 条三地址 + 1 条前缀，再扩成二地址等。",
+   "目标：在有限指令字长内容纳更多指令种类。"
+  ],
+  "pitfall": "扩展时必须保证短码不与长码前缀冲突；通常用全 1 作扩展标志。",
+  "mnemonic": "常用短、罕用长；留全1做扩展",
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 64
+ },
+ {
+  "key": "408card/co-04-004",
+  "subjectKey": "computer-organization",
+  "chapter": 4,
+  "question": "8 种常见寻址方式及有效地址 EA 的计算？",
+  "answerSteps": [
+   "**立即寻址**：操作数在指令中（无 EA）；**直接寻址**：`EA = A`；**间接寻址**：`EA = (A)`。",
+   "**寄存器寻址**：操作数在 `Ri` 中；**寄存器间接**：`EA = (Ri)`。",
+   "**基址寻址**：`EA = (BR) + A`；**变址寻址**：`EA = (IX) + A`。",
+   "**相对寻址**：`EA = (PC) + A`；**堆栈寻址**：隐含栈顶，如 PUSH/POP。",
+   "常考记忆：直 A、间 (A)、基 BR+A、变 IX+A、相 PC+A。"
+  ],
+  "pitfall": "基址与变址硬件角色不同：基址 BR 内容通常不变、程序浮动；变址 IX 随循环变、常用于数组。",
+  "mnemonic": "直A、间(A)、基BR+A、变IX+A、相PC+A",
+  "star": true,
+  "demoKey": "instr-format",
+  "sortOrder": 65
+ },
+ {
+  "key": "408card/co-04-005",
+  "subjectKey": "computer-organization",
+  "chapter": 4,
+  "question": "基址寻址与变址寻址的区别与应用场景？",
+  "answerSteps": [
+   "**基址**：基址寄存器内容由系统设定，偏移量在指令中；用于**程序重定位/浮动**。",
+   "**变址**：变址寄存器内容由用户设定并可自增；用于**数组/循环**访问。",
+   "基址：`EA = BR + A`，A 是段内偏移。",
+   "变址：`EA = IX + A`，A 常是数组首址。",
+   "可组合成基址+变址：`EA = BR + IX + A`。"
+  ],
+  "pitfall": "考试常考“谁的内容用户可改”：变址可改，基址一般由 OS 写。",
+  "mnemonic": "基址管程序跑哪，变址管数组取第几",
+  "star": true,
+  "demoKey": "instr-format",
+  "sortOrder": 66
+ },
+ {
+  "key": "408card/co-04-006",
+  "subjectKey": "computer-organization",
+  "chapter": 4,
+  "question": "相对寻址如何计算？有何用途？",
+  "answerSteps": [
+   "`EA = (PC) + A`，A 为相对位移量（常为补码，可正可负）。",
+   "PC 取的是**下一条**指令地址（取指后已自增）。",
+   "用途：**转移指令**目标随程序装入位置浮动仍正确，便于位置无关代码。",
+   "位移量 n 位时范围约 `-2^{n-1} ~ 2^{n-1}-1`。"
+  ],
+  "pitfall": "位移量相对的是“当前指令的下一条”地址，不是本条指令地址。",
+  "mnemonic": "EA=PC+A，A是带符号位移",
+  "star": true,
+  "demoKey": "instr-format",
+  "sortOrder": 67
+ },
+ {
+  "key": "408card/co-04-007",
+  "subjectKey": "computer-organization",
+  "chapter": 4,
+  "question": "RISC 与 CISC 在指令系统上的主要差异？",
+  "answerSteps": [
+   "指令数目：RISC 少，CISC 多。",
+   "指令长度：RISC 定长，CISC 变长。",
+   "寻址方式：RISC 少，CISC 多。",
+   "访存：RISC 仅 Load/Store；CISC 多数指令可访存。",
+   "实现：RISC 硬布线+流水线；CISC 微程序为主。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 68
+ },
+ {
+  "key": "408card/co-04-008",
+  "subjectKey": "computer-organization",
+  "chapter": 4,
+  "question": "什么是数据对齐？不对齐有何影响？",
+  "answerSteps": [
+   "**对齐**：n 字节数据的地址是 n 的倍数（如 4 字节地址 ≡0 mod 4）。",
+   "对齐访问通常可在**一个总线周期**完成，速度快。",
+   "不对齐可能拆成两次访问，或硬件需移位拼接，性能差甚至异常。",
+   "编译器常插入填充（padding）保证对齐。"
+  ],
+  "pitfall": "结构体对齐规则会影响 sizeof；网络字节序与对齐是不同问题。",
+  "mnemonic": "4字节地址末两位为0",
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 69
+ },
+ {
+  "key": "408card/co-04-009",
+  "subjectKey": "computer-organization",
+  "chapter": 4,
+  "question": "指令的顺序执行与控制流类指令有哪些？",
+  "answerSteps": [
+   "默认 PC 自动增量实现顺序执行。",
+   "**转移**：无条件 JMP；条件 JC/JZ 等，改变 PC。",
+   "**调用/返回**：CALL 保存返回地址，RET 恢复。",
+   "**陷阱/中断**：异常进入系统处理。",
+   "循环用条件转移+计数寄存器实现。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 70
+ },
+ {
+  "key": "408card/co-04-010",
+  "subjectKey": "computer-organization",
+  "chapter": 4,
+  "question": "什么是堆栈型指令与堆栈机器？",
+  "answerSteps": [
+   "操作数隐含在栈顶，指令无地址码或短地址码。",
+   "如 `PUSH A`、`POP A`、`ADD`（弹出两数相加压回）。",
+   "优点：代码密度高；缺点：对寄存器/编译器优化不友好。",
+   "JVM 字节码是典型堆栈机指令集。"
+  ],
+  "pitfall": "注意栈生长方向（x86 向低地址）对 POP/PUSH 顺序的影响。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 71
+ },
+ {
+  "key": "408card/co-04-011",
+  "subjectKey": "computer-organization",
+  "chapter": 4,
+  "question": "指令字长、机器字长、存储字长的关系？",
+  "answerSteps": [
+   "**机器字长**：CPU 一次能处理的二进制位数（ALU 位数）。",
+   "**存储字长**：存储单元的位数（主存一个单元）。",
+   "**指令字长**：一条指令的二进制位数。",
+   "指令字长通常是存储字长的整数倍；指令可多周期取指。"
+  ],
+  "pitfall": "指令字长可与机器字长不同；现代 CISC 指令变长，RISC 常等于机器字长。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 72
+ },
+ {
+  "key": "408card/co-04-012",
+  "subjectKey": "computer-organization",
+  "chapter": 4,
+  "question": "什么是 ISA？它规定了哪些内容？",
+  "answerSteps": [
+   "**指令集体系结构**是软硬件交界面。",
+   "规定：指令集、数据类型、寄存器组织、寻址方式、中断异常模型、存储一致性等。",
+   "相同 ISA 可有不同微结构实现（如不同代 x86）。",
+   "二进制兼容即 ISA 兼容。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 73
+ },
+ {
+  "key": "408card/co-04-013",
+  "subjectKey": "computer-organization",
+  "chapter": 4,
+  "question": "复杂指令集的问题为何催生 RISC？",
+  "answerSteps": [
+   "CISC 指令使用频度极不均匀，复杂指令微码慢。",
+   "变长指令难以流水线化。",
+   "硬布线技术进步使精简指令更可行。",
+   "RISC 用简单指令+优化编译+流水线获得更高性能。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 74
+ },
+ {
+  "key": "408card/co-04-014",
+  "subjectKey": "computer-organization",
+  "chapter": 4,
+  "question": "条件码/标志位与条件转移指令的关系？",
+  "answerSteps": [
+   "算术逻辑指令执行后更新 ZF、SF、OF、CF 等。",
+   "条件转移指令测试标志决定是否修改 PC。",
+   "如 `JZ`：ZF=1 时跳转；`JL`（有符号小于）通常 SF≠OF。",
+   "标志也可由比较指令（CMP=减法不写回）设置。"
+  ],
+  "pitfall": "CMP 是做减法但不保存结果，只影响标志。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 75
+ },
+ {
+  "key": "408card/co-04-015",
+  "subjectKey": "computer-organization",
+  "chapter": 4,
+  "question": "什么是特权指令与用户态/内核态？",
+  "answerSteps": [
+   "某些指令（改页表、关中断、I/O）仅 OS 可执行，为**特权指令**。",
+   "CPU 有**用户态/目态**与**内核态/管态**。",
+   "用户态执行特权指令会**陷入异常**。",
+   "通过系统调用/陷入指令自愿进入内核态。"
+  ],
+  "pitfall": "陷入指令本身用户可用；真正的特权指令用户态不可用。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 76
+ },
+ {
+  "key": "408card/co-04-016",
+  "subjectKey": "computer-organization",
+  "chapter": 4,
+  "question": "定长指令与变长指令的优缺点？",
+  "answerSteps": [
+   "定长：译码简单、流水线友好、取指对齐；代码密度可能较低。",
+   "变长：代码密度高、操作码可扩展；译码复杂、取指可能跨边界。",
+   "RISC 多定长，CISC 多变长。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 77
+ },
+ {
+  "key": "408card/co-05-001",
+  "subjectKey": "computer-organization",
+  "chapter": 5,
+  "question": "CPU 的基本功能与基本组成？",
+  "answerSteps": [
+   "功能：**指令控制、操作控制、时间控制、数据加工、中断处理**。",
+   "组成：**运算器（ALU、寄存器组、暂存器）、控制器（CU、PC、IR、时序）、总线接口**。",
+   "主要寄存器：PC、IR、MAR、MDR、ACC、PSW、通用寄存器堆。",
+   "CPU 通过总线与主存和 I/O 交换信息。"
+  ],
+  "pitfall": null,
+  "mnemonic": "取指分析执行，数据加工+中断",
+  "star": true,
+  "demoKey": "instr-cycle",
+  "sortOrder": 78
+ },
+ {
+  "key": "408card/co-05-002",
+  "subjectKey": "computer-organization",
+  "chapter": 5,
+  "question": "指令周期包含哪些阶段？",
+  "answerSteps": [
+   "一条指令从取到执行完的时间为**指令周期**。",
+   "通常包含：**取指周期 → 间址周期（若有）→ 执行周期 → 中断周期（若有）**。",
+   "取指：PC→MAR→读主存→MDR→IR，PC+1。",
+   "执行：按操作码取操作数并运算，结果写回。"
+  ],
+  "pitfall": "间址周期和中断周期不是每条指令都有；指令周期 ≥ 机器周期数 × 各段时间。",
+  "mnemonic": "取指-间址-执行-中断",
+  "star": true,
+  "demoKey": "instr-cycle",
+  "sortOrder": 79
+ },
+ {
+  "key": "408card/co-05-003",
+  "subjectKey": "computer-organization",
+  "chapter": 5,
+  "question": "取指周期的数据通路与微操作序列？",
+  "answerSteps": [
+   "`PC → MAR`（现行指令地址送存储器地址寄存器）。",
+   "`1 → R`（发读命令）。",
+   "`M(MAR) → MDR`（指令取到数据寄存器）。",
+   "`MDR → IR`（指令送指令寄存器）。",
+   "`PC + 1 → PC`（形成下条指令地址）。"
+  ],
+  "pitfall": "注意 PC 自增发生在取指阶段；微程序中对应取指微指令序列。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "instr-cycle",
+  "sortOrder": 80
+ },
+ {
+  "key": "408card/co-05-004",
+  "subjectKey": "computer-organization",
+  "chapter": 5,
+  "question": "间址周期的微操作？",
+  "answerSteps": [
+   "当指令为间接寻址时，需先取出有效地址。",
+   "`Ad(IR) → MAR`（地址码送 MAR）。",
+   "`1 → R` 读主存。",
+   "`M(MAR) → MDR`，有效地址再送 MAR 或相应寄存器。",
+   "一次间址取一次；多重间址重复。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "instr-cycle",
+  "sortOrder": 81
+ },
+ {
+  "key": "408card/co-05-005",
+  "subjectKey": "computer-organization",
+  "chapter": 5,
+  "question": "执行周期：以加法指令为例的微操作？",
+  "answerSteps": [
+   "假设 `ADD (Ad), R0` 或寄存器-存储器型。",
+   "常见序列：`Ad(IR) → MAR`；`1 → R`；`M(MAR) → MDR`；`(MDR) + (R0) → R0`。",
+   "若为寄存器型：`(R1) + (R2) → R3`，不访存。",
+   "写回与更新 PSW。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": false,
+  "demoKey": "instr-cycle",
+  "sortOrder": 82
+ },
+ {
+  "key": "408card/co-05-006",
+  "subjectKey": "computer-organization",
+  "chapter": 5,
+  "question": "机器周期、时钟周期与指令周期的关系？",
+  "answerSteps": [
+   "**时钟周期**（节拍）：最基本时间单位，CPU 主频倒数。",
+   "**机器周期**：完成一个基本操作（如取指访存）所需时间，常以访存周期为基准。",
+   "**指令周期**：一条指令全过程，由若干机器周期组成。",
+   "同步控制：各指令机器周期数可不同（定长/不定长机器周期）。"
+  ],
+  "pitfall": "一个机器周期可含多个时钟周期；一条指令可跨多个机器周期。",
+  "mnemonic": "时钟 < 机器周期 < 指令周期",
+  "star": true,
+  "demoKey": "instr-cycle",
+  "sortOrder": 83
+ },
+ {
+  "key": "408card/co-05-007",
+  "subjectKey": "computer-organization",
+  "chapter": 5,
+  "question": "控制器的功能与实现方式？",
+  "answerSteps": [
+   "功能：取指、译码、产生**微命令序列**（控制信号），定时。",
+   "**硬布线**：组合+时序逻辑直接产生控制信号，快，适合 RISC。",
+   "**微程序**：控制信号序列存在控制存储器，灵活，适合 CISC。",
+   "输入：指令操作码、时序、PSW、外来信号；输出：微命令。"
+  ],
+  "pitfall": null,
+  "mnemonic": "硬布线快而定，微程序慢而活",
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 84
+ },
+ {
+  "key": "408card/co-05-008",
+  "subjectKey": "computer-organization",
+  "chapter": 5,
+  "question": "微程序控制器的基本原理？",
+  "answerSteps": [
+   "把一条机器指令对应的微操作序列编成**微程序**，存入 **控存 CM**。",
+   "**微指令**发出一组微命令（控制字段）+ 下址字段。",
+   "取指微程序入口由操作码经微地址形成部件得到。",
+   "动态微程序设计可更换控存。"
+  ],
+  "pitfall": "微程序对最终用户透明；微指令不同于机器指令。",
+  "mnemonic": "一指令→微程序→多条微指令→微命令",
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 85
+ },
+ {
+  "key": "408card/co-05-009",
+  "subjectKey": "computer-organization",
+  "chapter": 5,
+  "question": "微指令的编码方式（水平/垂直）？",
+  "answerSteps": [
+   "**水平型**：直接控制，一位一命令，并行性高，字长很长。",
+   "**垂直型**：类似机器码，一次只能少数操作，字长短，并行性差。",
+   "**字段直接编码**：字段内互斥，字段间可并行，折中常用。",
+   "还有直接编码与字段间接编码。"
+  ],
+  "pitfall": "字段直接编码要求字段内命令互斥；字段间可同时有效。",
+  "mnemonic": "水平并行长；垂直像指令；字段直接最常用",
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 86
+ },
+ {
+  "key": "408card/co-05-010",
+  "subjectKey": "computer-organization",
+  "chapter": 5,
+  "question": "微地址形成方式有哪些？",
+  "answerSteps": [
+   "下址字段直接给出下条微指令地址（增量方式常见）。",
+   "操作码映射形成微程序入口地址。",
+   "条件转移：根据 PSW/标志选择下址。",
+   "取指微指令后由操作码散转。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 87
+ },
+ {
+  "key": "408card/co-05-011",
+  "subjectKey": "computer-organization",
+  "chapter": 5,
+  "question": "什么是流水线？流水线的表示与性能指标？",
+  "answerSteps": [
+   "把指令过程分成若干**段**，各段重叠执行，提高吞吐率。",
+   "表示：**时空图**（时间-部件二维）。",
+   "**吞吐率 TP** = 指令数 / 时间；**加速比 S** = 非流水时间 / 流水时间。",
+   "**效率** = 时空图有效面积 / 总面积。",
+   "理想 k 段流水：`TP_max = 1/Δt`，`S_max = k`（指令数→∞）。"
+  ],
+  "pitfall": "加速比上限是段数 k；实际因装满排空与冒险小于 k。",
+  "mnemonic": "吞吐看单位时间条数，加速比=串行/流水",
+  "star": true,
+  "demoKey": "pipeline",
+  "sortOrder": 88
+ },
+ {
+  "key": "408card/co-05-012",
+  "subjectKey": "computer-organization",
+  "chapter": 5,
+  "question": "五级流水线是哪五级？",
+  "answerSteps": [
+   "**IF** 取指 → **ID** 译码/读寄存器 → **EX** 执行 → **MEM** 访存 → **WB** 写回。",
+   "RISC 经典五级；每级一个时钟周期。",
+   "Load 指令 MEM 级访存；算术指令 MEM 可能为空。",
+   "分支在 ID/EX 判定，影响控制冒险。"
+  ],
+  "pitfall": null,
+  "mnemonic": "IF-ID-EX-MEM-WB",
+  "star": true,
+  "demoKey": "pipeline",
+  "sortOrder": 89
+ },
+ {
+  "key": "408card/co-05-013",
+  "subjectKey": "computer-organization",
+  "chapter": 5,
+  "question": "流水线的三种冒险（冲突）是什么？",
+  "answerSteps": [
+   "**结构冒险**：同一周期争用同一硬件（如单端口存储器）。",
+   "**数据冒险**：后条指令需要前条尚未写回的结果（RAW）。",
+   "**控制冒险**：转移指令改变 PC，后续取指可能错误。"
+  ],
+  "pitfall": "WAR、WAW 在简单 5 级顺序流水中少见；乱序流水才突出。",
+  "mnemonic": "结构争资源、数据等结果、控制跳转坑",
+  "star": true,
+  "demoKey": "pipeline",
+  "sortOrder": 90
+ },
+ {
+  "key": "408card/co-05-014",
+  "subjectKey": "computer-organization",
+  "chapter": 5,
+  "question": "数据冒险如何解决？",
+  "answerSteps": [
+   "**数据旁路/转发（forwarding）**：把 EX/MEM、MEM/WB 结果直接送到需要的输入端。",
+   "**暂停（stall/气泡）**：无法转发时插入气泡等待，如 Load-Use 冒险至少停 1 拍。",
+   "**编译器调度**：重排指令避开依赖。",
+   "Load 后紧跟使用：即便转发也可能需停顿。"
+  ],
+  "pitfall": "Load-Use 是经典必停例子；转发不能绕过“数据还没从存储器读出”。",
+  "mnemonic": "能转发就转发，Load后紧跟用要气泡",
+  "star": true,
+  "demoKey": "pipeline",
+  "sortOrder": 91
+ },
+ {
+  "key": "408card/co-05-015",
+  "subjectKey": "computer-organization",
+  "chapter": 5,
+  "question": "控制冒险的处理策略？",
+  "answerSteps": [
+   "**暂停**：等转移条件算出再取指，简单但慢。",
+   "**预测**：静态预测（总不跳/总跳）或动态预测（2 位饱和计数器等）。",
+   "**延迟槽（delay slot）**：转移后一条指令总是执行（编译器填有用指令）。",
+   "**提前判断**：把比较/转移条件计算前移。"
+  ],
+  "pitfall": "预测错误需冲刷错误路径指令，有代价。",
+  "mnemonic": "停、预、延、早判",
+  "star": true,
+  "demoKey": "pipeline",
+  "sortOrder": 92
+ },
+ {
+  "key": "408card/co-05-016",
+  "subjectKey": "computer-organization",
+  "chapter": 5,
+  "question": "流水线加速比与效率的计算例？",
+  "answerSteps": [
+   "例：k=5，每级 1ns，执行 n 条指令。",
+   "非流水：`5n ns`；流水：`(4+n) ns`（装满 4 拍 + 每条 1 拍）。",
+   "加速比 `S = 5n/(n+4)`，n→∞ 时 S→5。",
+   "效率：忙时钟数 / (k×总时钟数)。"
+  ],
+  "pitfall": "不要忘了装满与排空的 (k-1) 拍开销。",
+  "mnemonic": "时间=(k-1+n)Δt，S=kn/(k-1+n)",
+  "star": true,
+  "demoKey": "pipeline",
+  "sortOrder": 93
+ },
+ {
+  "key": "408card/co-05-017",
+  "subjectKey": "computer-organization",
+  "chapter": 5,
+  "question": "什么是超标量、超流水、超长指令字？",
+  "answerSteps": [
+   "**超标量**：每周期发射多条指令到多条流水线，靠硬件并行。",
+   "**超流水**：把段再细分，一周期多个阶段推进，提高主频级并行。",
+   "**VLIW**：编译器把多个操作打包成一条长指令，硬件简单。",
+   "可组合使用。"
+  ],
+  "pitfall": "超标量靠硬件调度；VLIW 靠编译器调度。",
+  "mnemonic": "超标量多发射；超流水细阶段；VLIW编译打包",
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 94
+ },
+ {
+  "key": "408card/co-05-018",
+  "subjectKey": "computer-organization",
+  "chapter": 5,
+  "question": "流水线的多发技术与乱序执行？",
+  "answerSteps": [
+   "顺序多发：按序发射按序完成。",
+   "乱序：指令可越过停顿的指令执行（需保留站/重排序缓冲）。",
+   "需精确异常：用 ROB 保证按序提交。",
+   "记分牌与 Tomasulo 是经典算法。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": false,
+  "demoKey": "pipeline",
+  "sortOrder": 95
+ },
+ {
+  "key": "408card/co-05-019",
+  "subjectKey": "computer-organization",
+  "chapter": 5,
+  "question": "中断的基本概念与分类？",
+  "answerSteps": [
+   "CPU 暂停当前程序，转去处理紧急事件，再返回，称为**中断**。",
+   "分类：**外中断（中断）** 来自外部设备；**内中断（异常/例外）** 来自指令内部（故障、陷入、终止）。",
+   "可屏蔽中断与不可屏蔽中断 NMI。",
+   "向量中断：用中断向量号索引入口地址。"
+  ],
+  "pitfall": "术语上“中断”常指外中断，“异常”指内中断；广义都算中断。",
+  "mnemonic": "外中断请求，内中断异常",
+  "star": true,
+  "demoKey": "interrupt",
+  "sortOrder": 96
+ },
+ {
+  "key": "408card/co-05-020",
+  "subjectKey": "computer-organization",
+  "chapter": 5,
+  "question": "中断响应过程与中断隐指令？",
+  "answerSteps": [
+   "当允许中断且有请求，CPU 在指令结束后响应。",
+   "**中断隐指令**：硬件自动完成，非指令集中的显式指令。",
+   "隐操作通常：**关中断 → 保存断点（PC、PSW）→ 形成中断服务程序入口**。",
+   "随后执行中断服务程序：保护现场、处理、恢复现场、开中断、返回。"
+  ],
+  "pitfall": "中断隐指令不是真正的指令，是硬件动作序列；保存断点是硬件，保护现场是软件。",
+  "mnemonic": "隐指令：关中断、存断点、定入口",
+  "star": true,
+  "demoKey": "interrupt",
+  "sortOrder": 97
+ },
+ {
+  "key": "408card/co-05-021",
+  "subjectKey": "computer-organization",
+  "chapter": 5,
+  "question": "中断向量与向量地址如何形成？",
+  "answerSteps": [
+   "每个中断源有**中断类型号 n**。",
+   "**向量地址** = 中断向量表基址 + n × 表项大小。",
+   "表中存放中断服务程序入口地址。",
+   "CPU 用向量地址取入口，转去执行。"
+  ],
+  "pitfall": "向量地址指向的是入口地址的存放位置，不是入口本身（间接）。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": "interrupt",
+  "sortOrder": 98
+ },
+ {
+  "key": "408card/co-05-022",
+  "subjectKey": "computer-organization",
+  "chapter": 5,
+  "question": "单级中断与多级中断（中断嵌套）？",
+  "answerSteps": [
+   "**单级**：处理中断时关中断，不响应新中断。",
+   "**多级**：允许更高优先级中断打断当前中断服务（嵌套）。",
+   "需保存更多现场，优先级由硬件判优。",
+   "中断屏蔽字可动态改变优先级。"
+  ],
+  "pitfall": "多级中断时低优先级不能打断高优先级。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "int-mask",
+  "sortOrder": 99
+ },
+ {
+  "key": "408card/co-05-023",
+  "subjectKey": "computer-organization",
+  "chapter": 5,
+  "question": "程序中断方式的完整流程（与程序查询对比）？",
+  "answerSteps": [
+   "启动 I/O 后 CPU 继续执行主程序，**不忙等**。",
+   "设备完成 → 发中断请求 → CPU 响应 → 中断服务读写数据。",
+   "优点：CPU 与外设并行，效率高。",
+   "程序查询：CPU 轮询状态位，简单但浪费 CPU。"
+  ],
+  "pitfall": "中断适合低速设备；高速大批量用 DMA。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "interrupt",
+  "sortOrder": 100
+ },
+ {
+  "key": "408card/co-05-024",
+  "subjectKey": "computer-organization",
+  "chapter": 5,
+  "question": "微程序与硬布线的对比？",
+  "answerSteps": [
+   "速度：硬布线更快；灵活性：微程序更易修改扩展。",
+   "RISC 多硬布线；CISC 多微程序。",
+   "微程序控存速度是关键；硬布线设计复杂度随指令增加激增。",
+   "两者都可实现相同 ISA。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 101
+ },
+ {
+  "key": "408card/co-05-025",
+  "subjectKey": "computer-organization",
+  "chapter": 5,
+  "question": "数据通路的基本组成与信息流动？",
+  "answerSteps": [
+   "部件：ALU、寄存器堆、PC、IR、MAR/MDR、立即数扩展、多路选择器、总线。",
+   "操作分为 **寄存器传送、ALU 运算、访存、PC 更新**。",
+   "控制信号决定 MUX 选择、ALU 功能、读写使能。",
+   "单总线/多总线数据通路：多总线可并行传送更多操作数。"
+  ],
+  "pitfall": "单总线数据通路同一时刻只能一个部件驱动总线，需分拍。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": "instr-cycle",
+  "sortOrder": 102
+ },
+ {
+  "key": "408card/co-05-026",
+  "subjectKey": "computer-organization",
+  "chapter": 5,
+  "question": "异常的分类：故障、陷入、终止？",
+  "answerSteps": [
+   "**故障（Fault）**：可修复异常，返回后重试（如缺页、除零可配置）。",
+   "**陷入（Trap）**：有意的，返回下一条（如系统调用、断点）。",
+   "**终止（Abort）**：不可恢复，终止进程（如硬件严重错误）。",
+   "响应点与返回地址策略不同。"
+  ],
+  "pitfall": "缺页是故障，返回后重新执行该指令；系统调用是陷入，返回下一条。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 103
+ },
+ {
+  "key": "408card/co-06-001",
+  "subjectKey": "computer-organization",
+  "chapter": 6,
+  "question": "什么是总线？总线的分类？",
+  "answerSteps": [
+   "**总线**是部件间共享的**传输通道**（地址、数据、控制）。",
+   "按数据传送方式：**并行总线、串行总线**。",
+   "按时序：**同步总线、异步总线**。",
+   "按层次：**片内总线、系统总线（CPU-主存-I/O桥）、I/O总线（PCIe等）、通信总线**。",
+   "系统总线又分**数据、地址、控制**三类。"
+  ],
+  "pitfall": "地址总线单向（CPU 出），数据总线双向，控制总线部分双向。",
+  "mnemonic": "片内→系统→IO→通信；数地控",
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 104
+ },
+ {
+  "key": "408card/co-06-002",
+  "subjectKey": "computer-organization",
+  "chapter": 6,
+  "question": "总线仲裁的目的是什么？集中式仲裁方式？",
+  "answerSteps": [
+   "目的：多个主设备竞争总线时决定使用权归属。",
+   "**链式查询（菊花链）**：BG 信号沿链传递，近者优先；线少但对故障敏感。",
+   "**计数器定时查询**：计数器选中设备号，灵活、线多一些。",
+   "**独立请求**：每个设备一对请求/响应线，优先级由判优器定，速度最快、线最多。"
+  ],
+  "pitfall": "链式查询需 BS（忙）线，故障断链后后续设备无法请求。",
+  "mnemonic": "链式少线、计数中、独立快线多",
+  "star": true,
+  "demoKey": "bus-arb",
+  "sortOrder": 105
+ },
+ {
+  "key": "408card/co-06-003",
+  "subjectKey": "computer-organization",
+  "chapter": 6,
+  "question": "同步总线与异步总线的特点？",
+  "answerSteps": [
+   "**同步**：统一时钟，时序固定、设计简单、速度受限于最慢设备。",
+   "**异步**：握手信号（请求/应答），适应不同速度，不互锁/半互锁/全互锁。",
+   "全互锁：主等从应答，从确认主收到后再撤销，可靠。",
+   "实际系统常混合。"
+  ],
+  "pitfall": "同步不是一定快；异步靠应答消除时钟频率限制。",
+  "mnemonic": "同步看时钟，异步看握手",
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 106
+ },
+ {
+  "key": "408card/co-06-004",
+  "subjectKey": "computer-organization",
+  "chapter": 6,
+  "question": "总线带宽如何计算？",
+  "answerSteps": [
+   "`总线带宽 = 数据线宽度/8 × 总线时钟频率 × 每周期传送次数`（B/s）。",
+   "若一个时钟传一次、数据 32 位、频率 33MHz：带宽 ≈ 4×33 = 132MB/s。",
+   "突发传输可在一个地址后连续传多个数据，提高有效带宽。",
+   "注意与存储器带宽匹配，否则成瓶颈。"
+  ],
+  "pitfall": "单位换算：位→字节除以 8；MHz×宽度/8。",
+  "mnemonic": "带宽=字宽/8×频率×每拍次数",
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 107
+ },
+ {
+  "key": "408card/co-06-005",
+  "subjectKey": "computer-organization",
+  "chapter": 6,
+  "question": "总线的性能指标有哪些？",
+  "answerSteps": [
+   "总线宽度、总线时钟频率、带宽、负载能力（可挂设备数）。",
+   "猝发（突发）传输能力、是否支持复用（地址/数据线分时复用）。",
+   "同步/异步方式、仲裁方式。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 108
+ },
+ {
+  "key": "408card/co-06-006",
+  "subjectKey": "computer-organization",
+  "chapter": 6,
+  "question": "总线复用是什么？有何优缺点？",
+  "answerSteps": [
+   "同一组物理线在不同时间传不同类型信息（如地址与数据复用）。",
+   "优点：减少引脚/线数，降低成本。",
+   "缺点：需分时控制，可能增加周期数，时序复杂。",
+   "典型：ISA、某些嵌入式总线地址/数据复用。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 109
+ },
+ {
+  "key": "408card/co-06-007",
+  "subjectKey": "computer-organization",
+  "chapter": 6,
+  "question": "系统总线、I/O 总线与局部总线的关系？",
+  "answerSteps": [
+   "CPU 通过**前端/内存总线**连主存与桥。",
+   "桥连接 **I/O 总线**（如 PCI、PCIe）挂设备。",
+   "局部总线可指 CPU 直连的高速通道。",
+   "现代多用点对点高速串行（PCIe）取代共享并行总线。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 110
+ },
+ {
+  "key": "408card/co-06-008",
+  "subjectKey": "computer-organization",
+  "chapter": 6,
+  "question": "什么是总线事务与总线周期？",
+  "answerSteps": [
+   "**总线事务**：一次完整传输，含请求、寻址、数据、应答。",
+   "**总线周期**：完成一次总线操作的时间，通常多个时钟。",
+   "读事务与写事务；可有猝发多个数据相位。",
+   "主从设备角色在事务中明确。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 111
+ },
+ {
+  "key": "408card/co-07-001",
+  "subjectKey": "computer-organization",
+  "chapter": 7,
+  "question": "I/O 系统的基本功能与 I/O 接口的作用？",
+  "answerSteps": [
+   "功能：数据缓冲、设备选址、信号转换、传送控制、检错。",
+   "**I/O 接口**：连接主机与外设，含数据/状态/控制寄存器、地址译码。",
+   "接口完成电平、时序、格式转换，对主机提供统一视图。",
+   "接口内可有数据缓冲寄存器 DBR。"
+  ],
+  "pitfall": "接口≠设备本身；接口是设备与主机之间的适配逻辑。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 112
+ },
+ {
+  "key": "408card/co-07-002",
+  "subjectKey": "computer-organization",
+  "chapter": 7,
+  "question": "I/O 接口中的端口与编址方式？",
+  "answerSteps": [
+   "接口内可寻址寄存器称为**端口**：数据口、状态口、控制口。",
+   "**统一编址（存储器映射）**：与主存地址空间统一，用访存指令访问。",
+   "**独立编址（I/O 映射）**：单独地址空间，用专用 I/O 指令（如 in/out）。",
+   "统一编址灵活但占内存空间；独立编址需专用指令。"
+  ],
+  "pitfall": "独立编址时普通 LOAD/STORE 不能访问 I/O 端口。",
+  "mnemonic": "统一用访存指令；独立用in/out",
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 113
+ },
+ {
+  "key": "408card/co-07-003",
+  "subjectKey": "computer-organization",
+  "chapter": 7,
+  "question": "程序查询方式的特点？",
+  "answerSteps": [
+   "CPU 主动循环查询接口状态寄存器“就绪”位。",
+   "就绪则交换数据，否则继续查询。",
+   "优点：软硬件简单；缺点：**CPU 长期忙等**，利用率低。",
+   "适合低速、简单系统。"
+  ],
+  "pitfall": "查询期间 CPU 不能做其他有用工作（除非软件多任务轮询设计）。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "dma",
+  "sortOrder": 114
+ },
+ {
+  "key": "408card/co-07-004",
+  "subjectKey": "computer-organization",
+  "chapter": 7,
+  "question": "程序中断方式的特点与适用场景？",
+  "answerSteps": [
+   "CPU 启动设备后继续执行程序；完成时设备发中断。",
+   "CPU 响应后进入中断服务程序传送数据（常一个字）。",
+   "CPU 与外设可并行，适合**中低速**设备。",
+   "每次中断有现场保护开销，高速块传输仍不够。"
+  ],
+  "pitfall": "中断方式数据传送常由 CPU 执行指令完成，不是设备直接写内存。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": "interrupt",
+  "sortOrder": 115
+ },
+ {
+  "key": "408card/co-07-005",
+  "subjectKey": "computer-organization",
+  "chapter": 7,
+  "question": "DMA 方式的基本思想与过程？",
+  "answerSteps": [
+   "**DMA**：外设与主存**直接**交换数据，不经过 CPU，以**块**为单位。",
+   "过程：CPU 初始化 DMA（地址、字数、方向）→ 设备与主存传输 → 结束中断通知 CPU。",
+   "CPU 与 DMA 争用主存总线：**周期挪用/周期窃取**、停止 CPU 访存、交替访问。",
+   "适合高速设备如磁盘。"
+  ],
+  "pitfall": "DMA 期间 CPU 可以继续运算（只要不访存），不是完全停止 CPU。",
+  "mnemonic": "DMA：初始化→成块直传→结束中断",
+  "star": true,
+  "demoKey": "dma",
+  "sortOrder": 116
+ },
+ {
+  "key": "408card/co-07-006",
+  "subjectKey": "computer-organization",
+  "chapter": 7,
+  "question": "DMA 的三种传送方式（与 CPU 争用主存）？",
+  "answerSteps": [
+   "**停止 CPU 访存**：DMA 期间 CPU 停止访存，简单但 CPU 空闲。",
+   "**周期挪用**：DMA 需要时“偷”一个存取周期，灵活常用。",
+   "**DMA 与 CPU 交替访存**：分时，适合 CPU 工作周期远长于存取周期的情况。"
+  ],
+  "pitfall": "周期挪用可能延长 CPU 指令执行时间。",
+  "mnemonic": "停、偷（挪用）、交替",
+  "star": true,
+  "demoKey": "dma",
+  "sortOrder": 117
+ },
+ {
+  "key": "408card/co-07-007",
+  "subjectKey": "computer-organization",
+  "chapter": 7,
+  "question": "DMA 与中断方式的主要区别？",
+  "answerSteps": [
+   "中断以**字/字节**为单位，DMA 以**块**为单位。",
+   "中断每次需 CPU 执行服务程序；DMA 硬件直接传，结束才中断。",
+   "DMA 适合高速大批量；中断适合低速随机。",
+   "DMA 与 CPU 争用主存；中断主要占用 CPU 时间。"
+  ],
+  "pitfall": "DMA 结束仍需中断通知 CPU，但数据传送过程无 CPU 参与。",
+  "mnemonic": "中断走CPU，DMA走内存；中断字、DMA块",
+  "star": true,
+  "demoKey": "interrupt",
+  "sortOrder": 118
+ },
+ {
+  "key": "408card/co-07-008",
+  "subjectKey": "computer-organization",
+  "chapter": 7,
+  "question": "通道方式是什么？与 DMA 有何不同？",
+  "answerSteps": [
+   "**通道**是专用 I/O 处理器，执行**通道程序**管理 I/O。",
+   "通道可连接多台设备，独立于 CPU 管理传输。",
+   "比 DMA 更“智能”：CPU 只发通道命令，通道自主完成一批传输与设备选择。",
+   "DMA 通常一条设备一个控制器，通道可复用。"
+  ],
+  "pitfall": "通道指令不是 CPU 指令集的一部分。",
+  "mnemonic": "通道是小CPU管IO，DMA是硬件直传",
+  "star": true,
+  "demoKey": "dma",
+  "sortOrder": 119
+ },
+ {
+  "key": "408card/co-07-009",
+  "subjectKey": "computer-organization",
+  "chapter": 7,
+  "question": "I/O 接口的统一编址与独立编址在指令上的区别？",
+  "answerSteps": [
+   "统一：用 `MOV/LD/ST` 等访存指令访问端口地址。",
+   "独立：用 `IN/OUT` 等专用 I/O 指令，地址空间独立。",
+   "统一编程简单；独立便于保护与区分。",
+   "x86 两者都支持（memory-mapped 与 port I/O）。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 120
+ },
+ {
+  "key": "408card/co-07-010",
+  "subjectKey": "computer-organization",
+  "chapter": 7,
+  "question": "中断接口中“中断允许触发器”“中断请求触发器”的作用？",
+  "answerSteps": [
+   "**中断请求触发器 INTR**：锁存设备请求，未响应前保持。",
+   "**中断允许触发器 INTE**：设备级开中断，关则屏蔽该设备。",
+   "CPU 内还有全局中断允许 IF。",
+   "多设备时经中断控制器判优（如 8259/PIC）。"
+  ],
+  "pitfall": "设备级 INTE 与 CPU 级 IF 是两级开关，都要开才响应。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "interrupt",
+  "sortOrder": 121
+ },
+ {
+  "key": "408card/co-07-011",
+  "subjectKey": "computer-organization",
+  "chapter": 7,
+  "question": "I/O 系统的性能指标与可靠性？",
+  "answerSteps": [
+   "指标：I/O 带宽、响应时间、设备利用率、CPU 占用率。",
+   "可靠性：MTBF、可用性 `MTBF/(MTBF+MTTR)`。",
+   "设计权衡：CPU 干预次数越少越好（DMA/通道优于查询）。",
+   "高速设备避免程序查询。"
+  ],
+  "pitfall": null,
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 122
+ }
+]

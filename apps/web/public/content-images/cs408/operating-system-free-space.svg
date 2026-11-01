@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="420" viewBox="0 0 760 420" role="img" aria-label="空闲空间管理：位图用一位表示一个盘块，成组链接用组块存放多个空闲块号并链到下一组">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b06a00"/>
+    </marker>
+  </defs>
+  <style>
+    .t{font:600 15px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .s{font:600 12.5px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .n{font:400 11.5px "Microsoft YaHei",system-ui,sans-serif;fill:#3f3f3f}
+    .c{font:600 11px "Consolas","Microsoft YaHei",monospace;fill:#1d1d1d}
+    .bit{fill:#fff;stroke:#94a3b8;stroke-width:1.1}
+    .one{fill:#cfe3f7;stroke:#2563eb;stroke-width:1.2}
+    .zero{fill:#fff;stroke:#94a3b8;stroke-width:1.1}
+    .grp{fill:#fdf3e6;stroke:#b06a00;stroke-width:1.5}
+    .slot{fill:#fff;stroke:#b06a00;stroke-width:1.1}
+    .a{stroke:#b06a00;stroke-width:1.6;fill:none}
+  </style>
+
+  <text class="t" x="18" y="26">空闲空间管理：位图 vs 成组链接</text>
+  <text class="n" x="18" y="46">位图按"位"记录每个盘块；成组链接按"组"把空闲块号成批存起来——两者都要会算、会读</text>
+
+  <!-- 位图 -->
+  <text class="s" x="18" y="78">① 位图：一位对应一个盘块（0 空闲、1 占用）</text>
+  <rect class="one" x="60" y="92" width="60" height="38"/>
+  <text class="c" x="90" y="116" text-anchor="middle">1</text>
+  <rect class="zero" x="120" y="92" width="60" height="38"/>
+  <text class="c" x="150" y="116" text-anchor="middle">0</text>
+  <rect class="one" x="180" y="92" width="60" height="38"/>
+  <text class="c" x="210" y="116" text-anchor="middle">1</text>
+  <rect class="zero" x="240" y="92" width="60" height="38"/>
+  <text class="c" x="270" y="116" text-anchor="middle">0</text>
+  <rect class="one" x="300" y="92" width="60" height="38"/>
+  <text class="c" x="330" y="116" text-anchor="middle">1</text>
+  <rect class="zero" x="360" y="92" width="60" height="38"/>
+  <text class="c" x="390" y="116" text-anchor="middle">0</text>
+  <rect class="one" x="420" y="92" width="60" height="38"/>
+  <text class="c" x="450" y="116" text-anchor="middle">1</text>
+  <rect class="zero" x="480" y="92" width="60" height="38"/>
+  <text class="c" x="510" y="116" text-anchor="middle">0</text>
+  <text class="n" x="90" y="146" text-anchor="middle">24</text>
+  <text class="n" x="150" y="146" text-anchor="middle">25</text>
+  <text class="n" x="210" y="146" text-anchor="middle">26</text>
+  <text class="n" x="270" y="146" text-anchor="middle">27</text>
+  <text class="n" x="330" y="146" text-anchor="middle">28</text>
+  <text class="n" x="390" y="146" text-anchor="middle">29</text>
+  <text class="n" x="450" y="146" text-anchor="middle">30</text>
+  <text class="n" x="510" y="146" text-anchor="middle">31</text>
+  <text class="n" x="60" y="170">这 8 位 = 位图的第 3 个字节（值 10101010）；1 表示占用、0 表示空闲 → 空闲块是 25、27、29、31</text>
+  <text class="n" x="60" y="190">位图大小 = 盘块数 ÷ 8（字节）。1 GB 磁盘、4 KB 块 → 262144 块 → 位图 32 KB</text>
+
+  <!-- 成组链接 -->
+  <text class="s" x="18" y="224">② 成组链接：每个组块存 99 个空闲块号 + 1 个"下一组"指针</text>
+  <rect class="grp" x="60" y="238" width="520" height="76" rx="8"/>
+  <rect class="slot" x="74" y="252" width="86" height="30" rx="4"/>
+  <text class="c" x="117" y="272" text-anchor="middle">块号 a</text>
+  <rect class="slot" x="168" y="252" width="86" height="30" rx="4"/>
+  <text class="c" x="211" y="272" text-anchor="middle">块号 b</text>
+  <rect class="slot" x="262" y="252" width="86" height="30" rx="4"/>
+  <text class="c" x="305" y="272" text-anchor="middle">块号 c</text>
+  <text class="n" x="366" y="272">…（99 个）…</text>
+  <rect class="slot" x="484" y="252" width="84" height="30" rx="4"/>
+  <text class="c" x="526" y="272" text-anchor="middle">下一组</text>
+  <text class="n" x="74" y="300">一个组块读完，就拿到最多 99 个可分配的空闲块号，不用一块一块读盘</text>
+
+  <rect class="grp" x="620" y="252" width="110" height="62" rx="8"/>
+  <text class="c" x="675" y="278" text-anchor="middle">下一组组块</text>
+  <text class="n" x="675" y="298" text-anchor="middle">同样 99 个块号</text>
+  <path class="a" d="M566 268 H620" marker-end="url(#ar)"/>
+
+  <text class="n" x="18" y="344">分配：从当前组取一个块号 → 取到空组就按指针读下一组；回收：把块号放回组里，组满则新开一组。</text>
+  <text class="n" x="18" y="366">对比：位图查空闲快但占空间（1 块 1 位）；成组链接省空间、一次读盘拿一批块号；空闲链表每分配一块都要读一次盘。</text>
+  <text class="n" x="18" y="388">大题常给"每组 100 个槽位、其中 1 个存下一组指针"——注意可用块号只有 <tspan font-weight="600">99</tspan> 个；要 N 块就往上取整除 99。</text>
+</svg>

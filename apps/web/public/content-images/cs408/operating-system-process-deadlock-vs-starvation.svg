@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="312" viewBox="0 0 760 312" role="img" aria-label="死锁、饥饿、活锁三者的表现与成因对照">
+  <style>
+    .t{font:700 14px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .c{font:600 13px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .n{font:400 12px "Microsoft YaHei",system-ui,sans-serif;fill:#474747}
+    .a{fill:#fdeeea;stroke:#c05a3a;stroke-width:1.4}
+    .b{fill:#fdf7e6;stroke:#b08a20;stroke-width:1.4}
+    .d{fill:#eef7ee;stroke:#4a8a4a;stroke-width:1.4}
+  </style>
+
+  <text class="t" x="16" y="24">死锁 / 饥饿 / 活锁：都是「等不到」，但原因和出路完全不同</text>
+
+  <rect class="a" x="16" y="40" width="236" height="196" rx="5"/>
+  <text class="c" x="30" y="64">死锁 deadlock</text>
+  <text class="n" x="30" y="90">一组进程互相等待对方占有的资源</text>
+  <text class="n" x="30" y="110">形成循环等待，谁也无法推进</text>
+  <text class="n" x="30" y="130">系统完全停摆（这几个进程永远不动）</text>
+  <text class="n" x="30" y="156">要害：四个必要条件同时成立</text>
+  <text class="n" x="30" y="176">互斥 / 占有并等待 / 不可剥夺</text>
+  <text class="n" x="30" y="194">/ 循环等待</text>
+  <text class="n" x="30" y="220">解法：预防、避免（银行家）、检测解除</text>
+
+  <rect class="b" x="262" y="40" width="236" height="196" rx="5"/>
+  <text class="c" x="276" y="64">饥饿 starvation</text>
+  <text class="n" x="276" y="90">某个进程长期拿不到 CPU 或资源</text>
+  <text class="n" x="276" y="110">（总是被更高优先级抢走）</text>
+  <text class="n" x="276" y="130">系统仍在推进，只是它一直轮不上</text>
+  <text class="n" x="276" y="156">要害：调度策略不公平（优先级、短作业优先）</text>
+  <text class="n" x="276" y="176">没有循环等待，也不需要四个条件</text>
+  <text class="n" x="276" y="220">解法：老化 aging（提高等待越久者的优先级）</text>
+
+  <rect class="d" x="508" y="40" width="236" height="196" rx="5"/>
+  <text class="c" x="522" y="64">活锁 livelock</text>
+  <text class="n" x="522" y="90">没被阻塞，但一直在「让步」</text>
+  <text class="n" x="522" y="110">状态不停变化却始终做不成事</text>
+  <text class="n" x="522" y="130">（两人在走廊互相让路，谁也过不去）</text>
+  <text class="n" x="522" y="156">要害：重试策略太「礼貌」</text>
+  <text class="n" x="522" y="176">CPU 空转，但没有进程被真正卡死</text>
+  <text class="n" x="522" y="220">解法：引入随机退避 / 固定优先级</text>
+
+  <text class="n" x="16" y="264">判别三步：① 有没有「循环等待」→ 有就是死锁；② 系统还在不在推进 → 在推进但某个进程长期不动 = 饥饿；</text>
+  <text class="n" x="16" y="284">③ 进程一直没阻塞、只是在反复让 → 活锁。</text>
+  <text class="n" x="16" y="306">最爱考的混淆：死锁的进程不是「轮不上」而是「互相卡住」；饥饿不一定有环，也不一定永久。</text>
+</svg>

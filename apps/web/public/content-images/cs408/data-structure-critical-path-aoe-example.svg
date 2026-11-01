@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="780" height="368" viewBox="0 0 780 368" role="img" aria-label="AOE 网示例：顶点是事件、弧是活动，标出 ve/vl 与关键路径">
+  <style>
+    .t{font:700 14px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .c{font:600 13px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .n{font:400 12px "Microsoft YaHei",system-ui,sans-serif;fill:#474747}
+    .v{fill:#fff;stroke:#2b2b2b;stroke-width:1.6}
+    .vc{fill:#fdece7;stroke:#c05a3a;stroke-width:2}
+    .e{stroke:#555;stroke-width:1.5;fill:none}
+    .ec{stroke:#c05a3a;stroke-width:2.6;fill:none}
+    .w{font:600 12px "Times New Roman",Georgia,serif;fill:#1d1d1d}
+    .wl{font:600 12px "Times New Roman",Georgia,serif;fill:#c05a3a}
+  </style>
+  <defs>
+    <marker id="g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#555"/></marker>
+    <marker id="r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#c05a3a"/></marker>
+  </defs>
+
+  <text class="t" x="16" y="22">AOE 网：顶点 = 事件，弧 = 活动（弧上数字是持续时间）</text>
+  <text class="n" x="16" y="46">ve（最早）：正着推，取各入边「ve(起点) + 时长」的 max</text>
+  <text class="n" x="16" y="64">vl（最迟）：倒着推，取各出边「vl(终点) − 时长」的 min</text>
+
+  <circle class="v"  cx="70"  cy="190" r="24"/><text class="c" x="63" y="195">v₁</text>
+  <circle class="v"  cx="250" cy="110" r="24"/><text class="c" x="243" y="115">v₂</text>
+  <circle class="v"  cx="250" cy="270" r="24"/><text class="c" x="243" y="275">v₃</text>
+  <circle class="vc" cx="440" cy="190" r="24"/><text class="c" x="433" y="195">v₄</text>
+  <circle class="vc" cx="620" cy="110" r="24"/><text class="c" x="613" y="115">v₅</text>
+  <circle class="v"  cx="620" cy="270" r="24"/><text class="c" x="613" y="275">v₆</text>
+  <circle class="vc" cx="720" cy="190" r="24"/><text class="c" x="713" y="195">v₇</text>
+
+  <path class="e"  d="M92 178 L226 122" marker-end="url(#g)"/><text class="w" x="148" y="138">a₁=6</text>
+  <path class="ec" d="M94 202 L226 258" marker-end="url(#r)"/><text class="wl" x="148" y="248">a₂=4</text>
+  <path class="e"  d="M272 120 L416 178" marker-end="url(#g)"/><text class="w" x="318" y="134">a₃=5</text>
+  <path class="ec" d="M274 260 L416 202" marker-end="url(#r)"/><text class="wl" x="318" y="248">a₄=8</text>
+  <path class="ec" d="M462 178 L598 122" marker-end="url(#r)"/><text class="wl" x="514" y="138">a₅=7</text>
+  <path class="e"  d="M464 202 L598 258" marker-end="url(#g)"/><text class="w" x="514" y="248">a₆=3</text>
+  <path class="ec" d="M642 122 L700 168" marker-end="url(#r)"/><text class="wl" x="658" y="142">a₇=4</text>
+  <path class="e"  d="M642 258 L700 212" marker-end="url(#g)"/><text class="w" x="656" y="248">a₈=2</text>
+
+  <text class="n" x="16" y="322">ve：v₁=0, v₂=6, v₃=4, v₄=12, v₅=19, v₆=15, v₇=23（工期 23）</text>
+  <text class="n" x="16" y="342">vl：v₁=0, v₂=7, v₃=4, v₄=12, v₅=19, v₆=21, v₇=23</text>
+  <text class="n" x="16" y="362">关键活动 = e(i)=l(i)：红色 a₂(4)、a₄(8)、a₅(7)、a₇(4)，关键路径 v₁→v₃→v₄→v₅→v₇，总长 23</text>
+</svg>

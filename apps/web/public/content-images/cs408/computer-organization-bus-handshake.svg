@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="400" viewBox="0 0 760 400" role="img" aria-label="异步定时全互锁握手波形：主设备发请求、从设备应答、主设备撤请求、从设备撤应答">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b06a00"/>
+    </marker>
+  </defs>
+  <style>
+    .t{font:600 15px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .s{font:600 12px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .n{font:400 11.5px "Microsoft YaHei",system-ui,sans-serif;fill:#3f3f3f}
+    .w{stroke:#2563eb;stroke-width:2.6;fill:none}
+    .w2{stroke:#3f7a34;stroke-width:2.6;fill:none}
+    .g{stroke:#cbd5e1;stroke-width:1;stroke-dasharray:5 4}
+    .ar{stroke:#b06a00;stroke-width:1.5;fill:none}
+    .lbl{font:600 10.5px "Microsoft YaHei",system-ui,sans-serif;fill:#7a4a00}
+  </style>
+
+  <text class="t" x="18" y="26">总线定时：异步全互锁握手（最慢但最可靠）</text>
+  <text class="n" x="18" y="46">没有统一时钟，靠一对"请求 / 应答"信号相互等待——双方都确认对方"收到了"才走下一步</text>
+
+  <!-- 时间网格 -->
+  <path class="g" d="M180 70 V250 M280 70 V250 M420 70 V250 M520 70 V250"/>
+
+  <!-- REQ -->
+  <text class="s" x="108" y="106" text-anchor="end">主设备请求 REQ</text>
+  <path class="w" d="M120 120 H180 V88 H420 V120 H700"/>
+  <text class="n" x="132" y="112">低</text>
+  <text class="n" x="430" y="84">高</text>
+
+  <!-- ACK -->
+  <text class="s" x="108" y="196" text-anchor="end">从设备应答 ACK</text>
+  <path class="w2" d="M120 210 H280 V178 H520 V210 H700"/>
+  <text class="n" x="250" y="202">低</text>
+  <text class="n" x="530" y="174">高</text>
+
+  <!-- 标注 -->
+  <path class="ar" d="M180 256 V240" marker-end="url(#a)"/>
+  <text class="lbl" x="180" y="274" text-anchor="middle">① 主设备发请求</text>
+
+  <path class="ar" d="M280 256 V230" marker-end="url(#a)"/>
+  <text class="lbl" x="280" y="292" text-anchor="middle">② 从设备准备好，回应答</text>
+
+  <path class="ar" d="M420 256 V240" marker-end="url(#a)"/>
+  <text class="lbl" x="430" y="274" text-anchor="middle">③ 主设备收到应答，撤请求</text>
+
+  <path class="ar" d="M520 256 V230" marker-end="url(#a)"/>
+  <text class="lbl" x="540" y="292" text-anchor="middle">④ 从设备看到请求撤销，撤应答</text>
+
+  <!-- 说明 -->
+  <text class="n" x="18" y="326">全互锁 = 四步都互相等；半互锁 = 只要求一方等待；不互锁 = 发完请求不等应答（最快但可能丢数据）。</text>
+  <text class="n" x="18" y="348">同步定时靠统一时钟，速度快但要求所有设备满足"最慢设备"的时限；异步定时靠握手，速度取决于设备但可靠、便于接不同速度的设备。</text>
+  <text class="n" x="18" y="370">半同步定时折中：平时按同步时钟传，慢设备来不及就用 WAIT 信号让主设备多等几个周期。</text>
+</svg>

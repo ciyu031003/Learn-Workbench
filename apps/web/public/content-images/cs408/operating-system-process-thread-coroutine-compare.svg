@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="340" viewBox="0 0 760 340" role="img" aria-label="进程、线程、协程在资源、地址空间、调度者、切换开销上的逐项对照">
+  <style>
+    .t{font:700 14px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .c{font:600 13px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .n{font:400 12px "Microsoft YaHei",system-ui,sans-serif;fill:#474747}
+    .hd{fill:#f4f1e9;stroke:#8a8578;stroke-width:1.4}
+    .cell{fill:#fff;stroke:#d8d2c4;stroke-width:1.1}
+    .k{fill:#faf7f0;stroke:#d8d2c4;stroke-width:1.1}
+  </style>
+
+  <text class="t" x="16" y="24">进程 / 线程 / 协程：谁分配资源、谁被调度、切换多贵</text>
+
+  <!-- 表头 -->
+  <rect class="hd" x="16"  y="40" width="140" height="34"/>
+  <rect class="hd" x="156" y="40" width="196" height="34"/>
+  <rect class="hd" x="352" y="40" width="196" height="34"/>
+  <rect class="hd" x="548" y="40" width="196" height="34"/>
+  <text class="c" x="26"  y="62">对比项</text>
+  <text class="c" x="166" y="62">进程 process</text>
+  <text class="c" x="362" y="62">线程 thread</text>
+  <text class="c" x="558" y="62">协程 coroutine</text>
+
+  <!-- 行 -->
+  <g>
+    <rect class="k" x="16"  y="74"  width="140" height="38"/><rect class="cell" x="156" y="74"  width="196" height="38"/><rect class="cell" x="352" y="74"  width="196" height="38"/><rect class="cell" x="548" y="74"  width="196" height="38"/>
+    <text class="n" x="26"  y="97">资源分配单位</text>
+    <text class="n" x="166" y="97">是（内存、文件、设备）</text>
+    <text class="n" x="362" y="97">否，共享所属进程的</text>
+    <text class="n" x="558" y="97">否，共享所属线程的</text>
+
+    <rect class="k" x="16"  y="112" width="140" height="38"/><rect class="cell" x="156" y="112" width="196" height="38"/><rect class="cell" x="352" y="112" width="196" height="38"/><rect class="cell" x="548" y="112" width="196" height="38"/>
+    <text class="n" x="26"  y="135">地址空间</text>
+    <text class="n" x="166" y="135">独立一套（页表各自）</text>
+    <text class="n" x="362" y="135">同进程内共享</text>
+    <text class="n" x="558" y="135">同线程内共享</text>
+
+    <rect class="k" x="16"  y="150" width="140" height="38"/><rect class="cell" x="156" y="150" width="196" height="38"/><rect class="cell" x="352" y="150" width="196" height="38"/><rect class="cell" x="548" y="150" width="196" height="38"/>
+    <text class="n" x="26"  y="173">CPU 调度单位</text>
+    <text class="n" x="166" y="173">传统上是，现多为线程</text>
+    <text class="n" x="362" y="173">是（内核看得见）</text>
+    <text class="n" x="558" y="173">是（用户态自己切）</text>
+
+    <rect class="k" x="16"  y="188" width="140" height="38"/><rect class="cell" x="156" y="188" width="196" height="38"/><rect class="cell" x="352" y="188" width="196" height="38"/><rect class="cell" x="548" y="188" width="196" height="38"/>
+    <text class="n" x="26"  y="211">切换开销</text>
+    <text class="n" x="166" y="211">最大：页表、TLB、Cache</text>
+    <text class="n" x="362" y="211">小：寄存器 + 栈</text>
+    <text class="n" x="558" y="211">最小：一次跳转 + 上下文</text>
+
+    <rect class="k" x="16"  y="226" width="140" height="38"/><rect class="cell" x="156" y="226" width="196" height="38"/><rect class="cell" x="352" y="226" width="196" height="38"/><rect class="cell" x="548" y="226" width="196" height="38"/>
+    <text class="n" x="26"  y="249">出事影响</text>
+    <text class="n" x="166" y="249">互不影响</text>
+    <text class="n" x="362" y="249">一个线程崩掉，整进程崩</text>
+    <text class="n" x="558" y="249">同线程（更轻）</text>
+
+    <rect class="k" x="16"  y="264" width="140" height="38"/><rect class="cell" x="156" y="264" width="196" height="38"/><rect class="cell" x="352" y="264" width="196" height="38"/><rect class="cell" x="548" y="264" width="196" height="38"/>
+    <text class="n" x="26"  y="287">同步方式</text>
+    <text class="n" x="166" y="287">进程间通信（管道/消息）</text>
+    <text class="n" x="362" y="287">共享变量 + 互斥锁</text>
+    <text class="n" x="558" y="287">同线程，通常无需锁</text>
+  </g>
+
+  <text class="n" x="16" y="322">口诀：进程是「资源的家」，线程是「调度的腿」，协程是「用户态自己排的队」；越往下越轻、越共享、越要自己小心。</text>
+</svg>

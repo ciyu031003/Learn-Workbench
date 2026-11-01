@@ -1,0 +1,328 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="808"
+   height="280"
+   viewBox="0 0 808 280"
+   version="1.1"
+   id="svg34"
+   sodipodi:docname="Schema DMA.svg"
+   inkscape:version="1.4.2 (ebf0e94, 2025-05-08)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview34"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     showguides="true"
+     inkscape:zoom="1.5419829"
+     inkscape:cx="372.89649"
+     inkscape:cy="121.59668"
+     inkscape:window-width="2400"
+     inkscape:window-height="1261"
+     inkscape:window-x="-9"
+     inkscape:window-y="-9"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg34" />
+  <defs
+     id="defs1">
+    <marker
+       style="overflow:visible"
+       id="Triangle"
+       refX="0"
+       refY="0"
+       orient="auto-start-reverse"
+       inkscape:stockid="Triangle arrow"
+       markerWidth="1"
+       markerHeight="1"
+       viewBox="0 0 1 1"
+       inkscape:isstock="true"
+       inkscape:collect="always"
+       preserveAspectRatio="xMidYMid">
+      <path
+         transform="scale(0.5)"
+         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:1pt"
+         d="M 5.77,0 -2.88,5 V -5 Z"
+         id="path135" />
+    </marker>
+    <style
+       id="style1">
+      .bus, .wire { stroke:#000; stroke-width:2; fill:none; }
+      .box { stroke:#000; stroke-width:2.5; fill:#fff; }
+      .label { font-family: &quot;DejaVu Sans&quot;, &quot;DejaVu Sans Condensed&quot;, sans-serif; font-size: 16px; font-weight: bold; fill:#000; }
+      .small { font-family: &quot;DejaVu Sans&quot;, &quot;DejaVu Sans Condensed&quot;, sans-serif; font-size: 14px; fill:#000; }
+      .tiny  { font-family: &quot;DejaVu Sans&quot;, &quot;DejaVu Sans Condensed&quot;, sans-serif; font-size: 12px; fill:#000; }
+    </style>
+  </defs>
+  <path
+     class="bus"
+     d="M30 25 H780"
+     id="path2" />
+  <path
+     class="bus"
+     d="M30 45 H780"
+     id="path3" />
+  <path
+     class="bus"
+     d="M30 65 H780"
+     id="path4" />
+  <text
+     class="label"
+     x="173.42546"
+     y="21.801758"
+     text-anchor="middle"
+     id="text4"
+     style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12px;font-family:'DejaVu Sans', 'DejaVu Sans Condensed', sans-serif;-inkscape-font-specification:'DejaVu Sans, DejaVu Sans Condensed, sans-serif';text-align:start;text-anchor:start">ADDRESS BUS</text>
+  <text
+     class="label"
+     x="173.42546"
+     y="41.801758"
+     text-anchor="middle"
+     id="text5"
+     style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12px;font-family:'DejaVu Sans', 'DejaVu Sans Condensed', sans-serif;-inkscape-font-specification:'DejaVu Sans, DejaVu Sans Condensed, sans-serif';text-align:start;text-anchor:start">DATA BUS</text>
+  <text
+     class="label"
+     x="173.42546"
+     y="61.801758"
+     text-anchor="middle"
+     id="text6"
+     style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12px;font-family:'DejaVu Sans', 'DejaVu Sans Condensed', sans-serif;-inkscape-font-specification:'DejaVu Sans, DejaVu Sans Condensed, sans-serif';text-align:start;text-anchor:start">CONTROL</text>
+  <g
+     id="g1"
+     transform="translate(0,8)">
+    <rect
+       class="box"
+       x="60"
+       y="95"
+       width="90"
+       height="150"
+       id="rect6" />
+    <text
+       class="label"
+       x="104.99609"
+       y="226"
+       text-anchor="middle"
+       id="text7">MEM</text>
+    <text
+       class="tiny"
+       x="-101.86377"
+       y="78.195946"
+       id="text11"
+       style="text-align:end;text-anchor:end"
+       transform="rotate(-90)">A0-A15</text>
+    <text
+       class="tiny"
+       x="-101.88916"
+       y="98.195946"
+       id="text12"
+       style="text-align:end;text-anchor:end"
+       transform="rotate(-90)">D0-D7</text>
+    <text
+       class="tiny"
+       x="-102.57471"
+       y="132.19594"
+       id="text13"
+       style="text-align:end;text-anchor:end"
+       transform="rotate(-90)">R-W</text>
+  </g>
+  <g
+     id="g2"
+     transform="translate(0,8)">
+    <rect
+       class="box"
+       x="270"
+       y="95"
+       width="90"
+       height="150"
+       id="rect7" />
+    <text
+       class="label"
+       x="315.24609"
+       y="226"
+       text-anchor="middle"
+       id="text8">CPU</text>
+    <text
+       class="tiny"
+       x="-148.86816"
+       y="291.81592"
+       id="text14"
+       transform="rotate(-90)">A0-A15</text>
+    <text
+       class="tiny"
+       x="-143.14258"
+       y="310"
+       id="text15"
+       transform="rotate(-90)">D0-D7</text>
+  </g>
+  <!-- DMAC pins -->
+  <g
+     id="g3"
+     transform="translate(0,8)">
+    <rect
+       class="box"
+       x="490"
+       y="95"
+       width="95"
+       height="150"
+       id="rect8" />
+    <text
+       class="label"
+       x="537.14844"
+       y="226"
+       text-anchor="middle"
+       id="text9">DMAC</text>
+    <text
+       class="tiny"
+       x="-149.3501"
+       y="514"
+       id="text16"
+       transform="rotate(-90)">A0-A15</text>
+    <text
+       class="tiny"
+       x="-151.54004"
+       y="538.82861"
+       id="text17"
+       transform="rotate(-90)">MR-MW</text>
+    <text
+       class="tiny"
+       x="-166"
+       y="564"
+       id="text18"
+       transform="rotate(-90)">I/OR-I/OW</text>
+  </g>
+  <!-- PERIF pins -->
+  <g
+     id="g4"
+     transform="translate(0,8)">
+    <rect
+       class="box"
+       x="690"
+       y="95"
+       width="90"
+       height="150"
+       id="rect9" />
+    <text
+       class="label"
+       x="735.07812"
+       y="226"
+       text-anchor="middle"
+       id="text10">PERIF.</text>
+    <text
+       class="tiny"
+       x="-143.14258"
+       y="713.3515"
+       id="text19"
+       transform="rotate(-90)">D0-D7</text>
+    <text
+       class="tiny"
+       x="-128.09863"
+       y="755.3515"
+       id="text20"
+       transform="rotate(-90)">R-W</text>
+  </g>
+  <path
+     class="wire"
+     d="M 490,140 H 368.25426"
+     marker-end="url(#Triangle)"
+     id="path31"
+     sodipodi:nodetypes="cc" />
+  <text
+     class="small"
+     x="425"
+     y="130"
+     text-anchor="middle"
+     id="text31">BUSREQ</text>
+  <!-- BUSACK: CPU -> DMAC -->
+  <path
+     class="wire"
+     d="M 360,180 H 481.81249"
+     marker-end="url(#Triangle)"
+     id="path32"
+     sodipodi:nodetypes="cc" />
+  <text
+     class="small"
+     x="425"
+     y="172"
+     text-anchor="middle"
+     id="text32">BUSACK</text>
+  <path
+     class="wire"
+     d="M 690,140 H 593.26857"
+     marker-end="url(#Triangle)"
+     id="path33"
+     sodipodi:nodetypes="cc" />
+  <text
+     class="small"
+     x="637.5"
+     y="124"
+     text-anchor="middle"
+     id="text33">DMREQ</text>
+  <path
+     class="wire"
+     d="m 585,180 h 96.81249"
+     marker-end="url(#Triangle)"
+     id="path34"
+     sodipodi:nodetypes="cc" />
+  <text
+     class="small"
+     x="637.5"
+     y="172"
+     text-anchor="middle"
+     id="text34">DMACK</text>
+  <path
+     style="fill:none;stroke:#000000;stroke-width:2;stroke-linejoin:bevel;stroke-miterlimit:2;stroke-dasharray:none;stroke-dashoffset:24.4717;stroke-opacity:1;marker-start:url(#Triangle)"
+     d="m 749.79473,94.44354 0,-29.44354"
+     id="path38"
+     sodipodi:nodetypes="cc" />
+  <path
+     style="fill:none;stroke:#000000;stroke-width:2;stroke-linejoin:bevel;stroke-miterlimit:2;stroke-dasharray:none;stroke-dashoffset:24.4717;stroke-opacity:1;marker-start:url(#Triangle)"
+     d="m 128.32111,94.44354 0,-29.399549"
+     id="path38-23"
+     sodipodi:nodetypes="cc" />
+  <path
+     style="fill:none;stroke:#000000;stroke-width:2;stroke-linejoin:bevel;stroke-miterlimit:2;stroke-dasharray:none;stroke-dashoffset:24.4717;stroke-opacity:1;marker-start:url(#Triangle);marker-end:url(#Triangle)"
+     d="m 305.04566,94.44354 0,-41.291717"
+     id="path38-1-1"
+     sodipodi:nodetypes="cc" />
+  <path
+     style="fill:none;stroke:#000000;stroke-width:2;stroke-linejoin:bevel;stroke-miterlimit:2;stroke-dasharray:none;stroke-dashoffset:24.4717;stroke-opacity:1;marker-start:url(#Triangle)"
+     d="m 559.61455,73.10215 0,29.89785"
+     id="path38-2"
+     sodipodi:nodetypes="cc" />
+  <path
+     style="fill:none;stroke:#000000;stroke-width:2;stroke-linejoin:bevel;stroke-miterlimit:2;stroke-dasharray:none;stroke-dashoffset:24.4717;stroke-opacity:1;marker-start:url(#Triangle)"
+     d="m 509.76038,32.748007 0,70.251993"
+     id="path38-2-89"
+     sodipodi:nodetypes="cc" />
+  <path
+     style="fill:none;stroke:#000000;stroke-width:2;stroke-linejoin:bevel;stroke-miterlimit:2;stroke-dasharray:none;stroke-dashoffset:24.4717;stroke-opacity:1;marker-start:url(#Triangle)"
+     d="m 534.15662,73.10215 0,29.89785"
+     id="path38-2-8"
+     sodipodi:nodetypes="cc" />
+  <path
+     style="fill:none;stroke:#000000;stroke-width:2;stroke-linejoin:bevel;stroke-miterlimit:2;stroke-dasharray:none;stroke-dashoffset:24.4717;stroke-opacity:1;marker-start:url(#Triangle)"
+     d="m 287.48683,33.10386 0,69.89614"
+     id="path38-2-89-8"
+     sodipodi:nodetypes="cc" />
+  <path
+     style="fill:none;stroke:#000000;stroke-width:2;stroke-linejoin:bevel;stroke-miterlimit:2;stroke-dasharray:none;stroke-dashoffset:24.4717;stroke-opacity:1;marker-start:url(#Triangle)"
+     d="M 73.856865,94.44354 V 26"
+     id="path38-2-89-8-7"
+     sodipodi:nodetypes="cc" />
+  <path
+     style="fill:none;stroke:#000000;stroke-width:2;stroke-linejoin:bevel;stroke-miterlimit:2;stroke-dasharray:none;stroke-dashoffset:24.4717;stroke-opacity:1;marker-start:url(#Triangle);marker-end:url(#Triangle)"
+     d="m 707.91281,94.44354 0,-41.34139"
+     id="path38-1-1-2"
+     sodipodi:nodetypes="cc" />
+  <path
+     style="fill:none;stroke:#000000;stroke-width:2;stroke-linejoin:bevel;stroke-miterlimit:2;stroke-dasharray:none;stroke-dashoffset:24.4717;stroke-opacity:1;marker-start:url(#Triangle);marker-end:url(#Triangle-5-68)"
+     d="m 93.355393,94.443537 0,-41.291717"
+     id="path38-1-1-6"
+     sodipodi:nodetypes="cc" />
+</svg>

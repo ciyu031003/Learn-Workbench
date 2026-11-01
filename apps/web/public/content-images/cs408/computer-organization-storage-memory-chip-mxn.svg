@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="270" viewBox="0 0 720 270" role="img" aria-label="M×N 位存储芯片的地址线、数据线与片选">
+  <style>
+    .b{fill:#fff;stroke:#2b2b2b;stroke-width:1.6}
+    .t{font:600 14px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .n{font:400 12.5px "Microsoft YaHei",system-ui,sans-serif;fill:#4a4a4a}
+    .m{font:600 13px "Times New Roman",Georgia,serif;fill:#1d1d1d}
+    .l{stroke:#2b2b2b;stroke-width:1.4;fill:none}
+    .a{fill:#2b2b2b}
+  </style>
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#2b2b2b"/></marker>
+  </defs>
+
+  <!-- 芯片框 -->
+  <rect class="b" x="210" y="52" width="300" height="150" rx="4"/>
+  <text class="t" x="252" y="86">存储矩阵</text>
+  <text class="m" x="262" y="112">2ⁿ 个字 × M 位</text>
+  <text class="n" x="252" y="140">共 2ⁿ × M 个存储位</text>
+  <text class="n" x="252" y="164">每个单元一个地址</text>
+
+  <!-- 地址线（左） -->
+  <path class="l" d="M60 96 L206 96" marker-end="url(#ar)"/>
+  <path class="l" d="M60 126 L206 126" marker-end="url(#ar)"/>
+  <text class="m" x="66" y="88">A₀</text>
+  <text class="m" x="66" y="118">⋮</text>
+  <text class="m" x="66" y="150">A(n−1)</text>
+  <text class="n" x="26" y="182">n 根地址线</text>
+  <text class="n" x="26" y="200">⇒ 2ⁿ 个单元</text>
+
+  <!-- 数据线（右） -->
+  <path class="l" d="M514 96 L660 96" marker-end="url(#ar)"/>
+  <path class="l" d="M514 126 L660 126" marker-end="url(#ar)"/>
+  <text class="m" x="620" y="88">D₀</text>
+  <text class="m" x="628" y="118">⋮</text>
+  <text class="m" x="600" y="150">D(M−1)</text>
+  <text class="n" x="536" y="182">M 根数据线</text>
+  <text class="n" x="536" y="200">⇒ 字长 M 位</text>
+
+  <!-- 控制线（下） -->
+  <path class="l" d="M300 202 L300 232" marker-end="url(#ar)"/>
+  <path class="l" d="M420 202 L420 232" marker-end="url(#ar)"/>
+  <text class="n" x="252" y="252">片选 CS</text>
+  <text class="n" x="392" y="252">读写 WE</text>
+
+  <text class="n" x="210" y="36">芯片规格写成「M × N」时：M 是字长（数据线根数），N 是单元数（地址线决定）</text>
+</svg>

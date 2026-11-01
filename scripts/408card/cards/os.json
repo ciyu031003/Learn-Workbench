@@ -1,0 +1,1517 @@
+[
+ {
+  "key": "408card/os-01-001",
+  "subjectKey": "operating-system",
+  "chapter": 1,
+  "question": "操作系统是什么？有哪些目标？",
+  "answerSteps": [
+   "OS 是系统软件，管理硬件与软件资源，为用户和程序提供接口与服务。",
+   "目标：方便性、有效性、可扩充性、开放性；作用：资源管理者、用户与硬件的接口、机器的扩充。"
+  ],
+  "pitfall": "OS 不是应用软件；裸机上第一层软件是 OS。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 0
+ },
+ {
+  "key": "408card/os-01-002",
+  "subjectKey": "operating-system",
+  "chapter": 1,
+  "question": "操作系统的基本特征？",
+  "answerSteps": [
+   "①**并发**（宏观同时、微观交替）②**共享**（同时访问/互斥访问）③**虚拟**（时分复用、空分复用）④**异步**。",
+   "并发与共享是最基本特征，互为存在条件。"
+  ],
+  "pitfall": "并发≠并行；并行是真正同时（多核）。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 1
+ },
+ {
+  "key": "408card/os-01-003",
+  "subjectKey": "operating-system",
+  "chapter": 1,
+  "question": "并发与并行的区别？",
+  "answerSteps": [
+   "**并发**：同一时间段内多个程序都在推进（单核交替）。",
+   "**并行**：同一时刻多个程序真正同时执行（多核/多 CPU）。"
+  ],
+  "pitfall": "单核只有并发；多核可并行。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 2
+ },
+ {
+  "key": "408card/os-01-004",
+  "subjectKey": "operating-system",
+  "chapter": 1,
+  "question": "OS 的主要功能？",
+  "answerSteps": [
+   "**处理机管理**（进程调度）、**存储器管理**、**设备管理**、**文件管理**；以及用户接口。",
+   "处理机管理核心：进程/线程的创建、同步、通信、调度、死锁。"
+  ],
+  "pitfall": null,
+  "mnemonic": "处存设文",
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 3
+ },
+ {
+  "key": "408card/os-01-005",
+  "subjectKey": "operating-system",
+  "chapter": 1,
+  "question": "中断与异常？",
+  "answerSteps": [
+   "**中断**（外中断）：来自 CPU 外部，I/O 完成、时钟；可屏蔽/不可屏蔽。",
+   "异常**（内中断/例外）：来自 CPU 内部，除零、缺页、陷入指令（系统调用）。",
+   "二者都是内中断的广义说法时，考试常称「中断向量」统一处理。"
+  ],
+  "pitfall": "系统调用通过陷入（trap）进入内核，属于异常。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 4
+ },
+ {
+  "key": "408card/os-01-006",
+  "subjectKey": "operating-system",
+  "chapter": 1,
+  "question": "什么是系统调用？过程？",
+  "answerSteps": [
+   "用户程序请求 OS 服务的接口；执行陷入指令（trap/int）进入内核态。",
+   "流程：用户态 → 陷入 → 查系统调用号 → 执行内核程序 → 返回用户态。"
+  ],
+  "pitfall": "库函数是用户态；系统调用是内核态；printf 内部会 write 系统调用。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 5
+ },
+ {
+  "key": "408card/os-01-007",
+  "subjectKey": "operating-system",
+  "chapter": 1,
+  "question": "用户态与内核态？",
+  "answerSteps": [
+   "**用户态**：只能执行非特权指令；**内核态**：可执行特权指令（关中断、置 PSW 等）。",
+   "切换原因：系统调用、中断、异常。"
+  ],
+  "pitfall": "OS 代码运行在内核态。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 6
+ },
+ {
+  "key": "408card/os-01-008",
+  "subjectKey": "operating-system",
+  "chapter": 1,
+  "question": "批处理、分时、实时 OS 特点？",
+  "answerSteps": [
+   "**批处理**：脱机、成批，吞吐量大，无交互；多道程序设计提高 CPU 利用率。",
+   "**分时**：多路性、独立性、交互性、及时性（时间片）。",
+   "**实时**：硬实时/软实时，截止时间，可靠性高。"
+  ],
+  "pitfall": "分时强调交互；实时强调及时可靠。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 7
+ },
+ {
+  "key": "408card/os-01-009",
+  "subjectKey": "operating-system",
+  "chapter": 1,
+  "question": "多道程序设计技术？",
+  "answerSteps": [
+   "内存中同时存放多道程序，宏观并行、微观串行，提高 CPU 与设备利用率。",
+   "是批处理的基础；实现需要中断、通道等。"
+  ],
+  "pitfall": "多道 ≠ 同时执行完毕；是交替推进。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 8
+ },
+ {
+  "key": "408card/os-01-010",
+  "subjectKey": "operating-system",
+  "chapter": 1,
+  "question": "操作系统的结构：整体式、分层式、微内核、外核？",
+  "answerSteps": [
+   "整体：模块多、效率高；分层：单向依赖易维护；微内核：只留最基本服务，其余用户态服务器；外核：直接给应用分配硬件。"
+  ],
+  "pitfall": "微内核消息传递开销大但可靠。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 9
+ },
+ {
+  "key": "408card/os-01-011",
+  "subjectKey": "operating-system",
+  "chapter": 1,
+  "question": "CPU 执行指令时如何区分用户态/内核态？",
+  "answerSteps": [
+   "CPU 中有状态字（PSW）的模式位；特权指令只能在内核态执行。",
+   "I/O 指令、内存保护指令等是特权指令。"
+  ],
+  "pitfall": "访管指令/陷入指令在用户态执行，但引起态切换。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 10
+ },
+ {
+  "key": "408card/os-01-012",
+  "subjectKey": "operating-system",
+  "chapter": 1,
+  "question": "脱机 I/O 与联机 I/O？",
+  "answerSteps": [
+   "联机：CPU 直接控制 I/O；脱机：外围机把数据提前从低速设备输入到磁带，CPU 再处理，提高效率。"
+  ],
+  "pitfall": "脱机是为了缓和 CPU 与 I/O 速度矛盾。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 11
+ },
+ {
+  "key": "408card/os-02-001",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "进程的定义与特征？",
+  "answerSteps": [
+   "进程是程序在某个数据集合上的一次运行，是资源分配与调度的独立单位。",
+   "特征：动态、并发、独立、异步、结构（PCB）。"
+  ],
+  "pitfall": "程序是静态的；进程是动态的。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 12
+ },
+ {
+  "key": "408card/os-02-002",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "PCB 包含哪些信息？",
+  "answerSteps": [
+   "进程标识、处理机状态、进程调度信息、进程控制信息；是进程存在的唯一标志。"
+  ],
+  "pitfall": "创建进程即创建 PCB；撤销即回收 PCB。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 13
+ },
+ {
+  "key": "408card/os-02-003",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "进程的三种基本状态及转换？",
+  "answerSteps": [
+   "**就绪**（万事俱备只缺 CPU）→ 进程调度 → **运行**；运行 → 时间片完/更高优先级 → 就绪；运行 → 等待 I/O → **阻塞**；阻塞 → I/O 完成 → 就绪。"
+  ],
+  "pitfall": "阻塞不能直接到运行；就绪不能直接到阻塞（缺的是资源不是 CPU）。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 14
+ },
+ {
+  "key": "408card/os-02-004",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "进程与程序的区别？",
+  "answerSteps": [
+   "程序是指令集合，静态；进程是执行过程，动态；一个程序可对应多个进程；进程有生命周期。"
+  ],
+  "pitfall": "PCB、程序段、数据段构成进程实体。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 15
+ },
+ {
+  "key": "408card/os-02-005",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "进程控制原语？",
+  "answerSteps": [
+   "创建、撤销、阻塞、唤醒；由 OS 内核中的原语实现（原子操作）。"
+  ],
+  "pitfall": "阻塞与唤醒必须成对。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 16
+ },
+ {
+  "key": "408card/os-02-006",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "进程通信方式？",
+  "answerSteps": [
+   "①共享存储 ②**消息传递**（直接/间接信箱）③**管道通信**（pipe，缓冲文件）④客户机-服务器。"
+  ],
+  "pitfall": "低级通信是 P/V；高级通信才是这四种。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 17
+ },
+ {
+  "key": "408card/os-02-007",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "什么是线程？与进程比较？",
+  "answerSteps": [
+   "线程是 CPU 调度的基本单位；进程是资源分配的基本单位。",
+   "同进程线程共享地址空间，切换开销小；线程也有 TCB。"
+  ],
+  "pitfall": "引入线程后，「调度的基本单位」变线程，「拥有资源」仍是进程。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 18
+ },
+ {
+  "key": "408card/os-02-008",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "处理机调度层次？",
+  "answerSteps": [
+   "**高级（作业）调度**：外存→内存选作业；**中级调度**：内存↔外存（挂起）；**低级（进程）调度**：选就绪进程上 CPU。"
+  ],
+  "pitfall": "频率：低级最高；高级最低。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "cpu-fcfs",
+  "sortOrder": 19
+ },
+ {
+  "key": "408card/os-02-009",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "FCFS、SJF、SRTF、HRRN 调度算法？",
+  "answerSteps": [
+   "**FCFS**：先来先服务，对短作业不利，无饥饿。",
+   "**SJF**：平均等待最短，可能长作业饥饿；**SRTF** 抢占式最短剩余时间优先。",
+   "**HRRN**：响应比=(等待+服务)/服务，折衷，无饥饿。"
+  ],
+  "pitfall": "SJF 平均等待时间最短（证明题）。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "cpu-fcfs",
+  "sortOrder": 20
+ },
+ {
+  "key": "408card/os-02-010",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "时间片轮转（RR）？",
+  "answerSteps": [
+   "就绪队列 FIFO，运行一个时间片未完成则放回队尾；时间片太大退化 FCFS，太小切换开销大。"
+  ],
+  "pitfall": "时间片通常略大于一次典型交互时间。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "cpu-rr",
+  "sortOrder": 21
+ },
+ {
+  "key": "408card/os-02-011",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "优先级调度？如何防止饥饿？",
+  "answerSteps": [
+   "静态/动态优先级；抢占/非抢占。",
+   "防饥饿：**老化**（随等待时间提高优先级）。"
+  ],
+  "pitfall": "优先数小的优先级高还是低，看题目约定。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "cpu-prio",
+  "sortOrder": 22
+ },
+ {
+  "key": "408card/os-02-012",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "多级反馈队列调度？",
+  "answerSteps": [
+   "多个优先级不同的就绪队列，时间片越往下越大；新进程进第一队列；时间片用完降级；低级队列可被抢占；长期等待可升。"
+  ],
+  "pitfall": null,
+  "mnemonic": "多队列、时间片递增、可降可升、兼顾短交互与长批处理",
+  "star": true,
+  "demoKey": "cpu-prio",
+  "sortOrder": 23
+ },
+ {
+  "key": "408card/os-02-013",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "周转时间、带权周转时间？",
+  "answerSteps": [
+   "周转 = 完成 - 到达；带权周转 = 周转 / 服务时间；平均带权周转反映调度效果。"
+  ],
+  "pitfall": "带权 ≥1。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "cpu-fcfs",
+  "sortOrder": 24
+ },
+ {
+  "key": "408card/os-02-014",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "进程同步与互斥？",
+  "answerSteps": [
+   "**同步**：合作进程按序推进（直接制约）；**互斥**：临界资源一次只允许一个进程进入临界区（间接制约）。"
+  ],
+  "pitfall": "互斥是特殊的同步。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 25
+ },
+ {
+  "key": "408card/os-02-015",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "临界区与临界资源？",
+  "answerSteps": [
+   "临界资源：一次只允许一个进程使用；临界区：访问临界资源的那段代码。"
+  ],
+  "pitfall": "进入区、临界区、退出区、剩余区。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 26
+ },
+ {
+  "key": "408card/os-02-016",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "同步机制应遵循的原则？",
+  "answerSteps": [
+   "空闲让进、忙则等待、有限等待、让权等待（不能进临界区时放弃 CPU）。"
+  ],
+  "pitfall": "Peterson 算法满足前三条，不满足让权等待。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 27
+ },
+ {
+  "key": "408card/os-02-017",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "信号量机制？整型信号量与记录型？",
+  "answerSteps": [
+   "**整型**：`wait(S)/S--` 忙等；**记录型**：`S.value` + 等待队列，value≤0 时阻塞自己，不忙等。",
+   "资源信号量初值=资源数；互斥信号量初值=1。"
+  ],
+  "pitfall": "P/V 必须在同一个进程成对出现；整形信号量不满足让权等待。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "pv",
+  "sortOrder": 28
+ },
+ {
+  "key": "408card/os-02-018",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "生产者-消费者问题信号量设置？",
+  "answerSteps": [
+   "`mutex=1` 互斥缓冲池；`empty=n` 空缓冲；`full=0` 产品数。",
+   "生产者：P(empty), P(mutex), 放入, V(mutex), V(full)；消费者相反。",
+   "P 操作顺序：先同步后互斥，否则可能死锁。"
+  ],
+  "pitfall": "两个 P 不能颠倒！互斥在后。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "pv",
+  "sortOrder": 29
+ },
+ {
+  "key": "408card/os-02-019",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "读者-写者问题？",
+  "answerSteps": [
+   "`rw=1` 读写互斥；`count` 计数；第一个读者 P(rw)，最后一个 V(rw)。",
+   "写者互斥读者；读者可共享。",
+   "变形：写者优先等。"
+  ],
+  "pitfall": "对 count 的访问要互斥（mutex）。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "readers-writers",
+  "sortOrder": 30
+ },
+ {
+  "key": "408card/os-02-020",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "哲学家进餐问题？",
+  "answerSteps": [
+   "五人五筷；每人需左右两筷。",
+   "解法：限制同时进餐人数为 4；奇数先拿左偶数先拿右；一次申请两支。"
+  ],
+  "pitfall": "本质是避免循环等待，破坏死锁条件。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "dining-phil",
+  "sortOrder": 31
+ },
+ {
+  "key": "408card/os-02-021",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "管程是什么？",
+  "answerSteps": [
+   "把共享数据与操作封装，同一时刻只有一个进程在管程内执行。",
+   "条件变量 wait/sleep、signal/wakeup；比信号量更易正确。"
+  ],
+  "pitfall": "管程由编程语言支持，不是硬件。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 32
+ },
+ {
+  "key": "408card/os-02-022",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "死锁的定义与四个必要条件？",
+  "answerSteps": [
+   "各进程互相等待对方持有的资源，都阻塞无法推进。",
+   "①**互斥** ②**不剥夺** ③**请求并保持** ④**循环等待**。"
+  ],
+  "pitfall": null,
+  "mnemonic": "互不请循",
+  "star": true,
+  "demoKey": "deadlock",
+  "sortOrder": 33
+ },
+ {
+  "key": "408card/os-02-023",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "处理死锁的方法？",
+  "answerSteps": [
+   "①预防（破坏四条件之一）②避免（银行家）③检测+解除 ④鸵鸟（忽略）。"
+  ],
+  "pitfall": "破坏互斥往往不现实；一次性分配破坏请求并保持；资源有序分配破坏循环等待。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "deadlock",
+  "sortOrder": 34
+ },
+ {
+  "key": "408card/os-02-024",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "银行家算法？安全状态？",
+  "answerSteps": [
+   "数据结构：Available、Max、Allocation、Need=Max-Allocation。",
+   "安全性检查：找 Need≤Work 且 Finish=false 的进程，假分配回收，看能否全完成。",
+   "能找完安全序列则是安全状态，可分配请求。"
+  ],
+  "pitfall": "安全一定无死锁；不安全不一定已死锁。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "banker",
+  "sortOrder": 35
+ },
+ {
+  "key": "408card/os-02-025",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "死锁检测与解除？",
+  "answerSteps": [
+   "资源分配图可完全简化则无死锁；有环且每类资源只有一个则有死锁。",
+   "解除：剥夺资源、撤销进程、回滚。"
+  ],
+  "pitfall": "单环不一定是死锁（多资源时）。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "deadlock",
+  "sortOrder": 36
+ },
+ {
+  "key": "408card/os-02-026",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "进程上下文切换过程？",
+  "answerSteps": [
+   "保存当前 CPU 环境到 PCB；恢复另一进程 PCB；更新页表等。",
+   "切换开销：保存恢复、缓存失效。"
+  ],
+  "pitfall": "切换在内核态完成。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 37
+ },
+ {
+  "key": "408card/os-02-027",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "什么是进程调度的时机？",
+  "answerSteps": [
+   "运行→就绪（时间片完、高优先级抢占）；运行→阻塞（主动等待）；运行结束；中断后就绪队列变化。"
+  ],
+  "pitfall": "进程从阻塞到就绪不直接上 CPU，要等调度。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "cpu-fcfs",
+  "sortOrder": 38
+ },
+ {
+  "key": "408card/os-02-028",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "为什么引入线程后切换开销变小？",
+  "answerSteps": [
+   "同进程线程共享地址空间，切换不必换页表；只需保存少量寄存器。"
+  ],
+  "pitfall": "内核级线程切换仍要用户态/内核态。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 39
+ },
+ {
+  "key": "408card/os-02-029",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "用户级线程与内核级线程？",
+  "answerSteps": [
+   "用户级：OS 感知不到，一个线程阻塞整个进程阻塞；内核级：OS 调度，可多核并行。"
+  ],
+  "pitfall": "组合模型：多对多、一对一。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 40
+ },
+ {
+  "key": "408card/os-02-030",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "临界区实现：Peterson 算法？",
+  "answerSteps": [
+   "turn 表示谦让；flag[i]=true 表示想进；`while(flag[j] && turn==j)`。"
+  ],
+  "pitfall": "软件方法，满足让权等待吗？不满足，忙等。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 41
+ },
+ {
+  "key": "408card/os-02-031",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "进程状态：创建与终止？",
+  "answerSteps": [
+   "创建态：分配 PCB、资源，进入就绪；终止态：归还资源，回收 PCB。"
+  ],
+  "pitfall": "有的教材还有挂起态（就绪挂起/阻塞挂起）。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "proc-state",
+  "sortOrder": 42
+ },
+ {
+  "key": "408card/os-02-032",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "什么是抢占式与非抢占式？",
+  "answerSteps": [
+   "非抢占：运行直到结束或阻塞；抢占：时间片/更高优先级可剥夺。"
+  ],
+  "pitfall": "现代 OS 一般抢占式。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 43
+ },
+ {
+  "key": "408card/os-02-033",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "处理机利用率与调度关系？",
+  "answerSteps": [
+   "好的调度提高 CPU 利用率、吞吐量，降低响应时间、周转时间；指标常矛盾。"
+  ],
+  "pitfall": "吞吐量 vs 响应时间 trade-off。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": "cpu-fcfs",
+  "sortOrder": 44
+ },
+ {
+  "key": "408card/os-02-034",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "AND 型信号量与信号量集？",
+  "answerSteps": [
+   "AND：一次分配所有需要的资源；集：一次申请多种多个，可下限测试（S-t≥d）。"
+  ],
+  "pitfall": "SWait 可解决「一次申请多资源」。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "pv",
+  "sortOrder": 45
+ },
+ {
+  "key": "408card/os-02-035",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "进程同步中「忙等」的缺点？",
+  "answerSteps": [
+   "浪费 CPU；不满足让权等待。整型信号量、Peterson 都忙等。"
+  ],
+  "pitfall": "记录型信号量不忙等。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 46
+ },
+ {
+  "key": "408card/os-02-036",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "进程间如何通过共享存储通信？",
+  "answerSteps": [
+   "基于共享数据结构；或基于共享存储区（高级，OS 提供）。"
+  ],
+  "pitfall": "生产者消费者缓冲池是共享存储的典型。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 47
+ },
+ {
+  "key": "408card/os-02-037",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "管道通信的特点？",
+  "answerSteps": [
+   "共享文件（管道文件）；互斥、同步；半双工；先进先出字节流。"
+  ],
+  "pitfall": "一个管道可理解为循环缓冲区。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 48
+ },
+ {
+  "key": "408card/os-02-038",
+  "subjectKey": "operating-system",
+  "chapter": 2,
+  "question": "银行家算法中请求量大于 Need 或 Available 怎么办？",
+  "answerSteps": [
+   "请求 > Need 出错（超出声明）；请求 > Available 等待。"
+  ],
+  "pitfall": "试探分配后必须做安全性检查，不安全则回滚。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "banker",
+  "sortOrder": 49
+ },
+ {
+  "key": "408card/os-03-001",
+  "subjectKey": "operating-system",
+  "chapter": 3,
+  "question": "内存管理的功能？",
+  "answerSteps": [
+   "内存空间分配与回收、地址映射、内存保护、内存扩充（虚拟）。"
+  ],
+  "pitfall": "地址映射：逻辑地址→物理地址。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 50
+ },
+ {
+  "key": "408card/os-03-002",
+  "subjectKey": "operating-system",
+  "chapter": 3,
+  "question": "逻辑地址与物理地址？地址重定位？",
+  "answerSteps": [
+   "逻辑地址（相对/虚拟）是程序中的；物理地址是内存中的。",
+   "**静态重定位**：装入时一次转换，装入后不能移动；**动态重定位**：执行时经重定位寄存器，可移动可共享。"
+  ],
+  "pitfall": "现代 OS 用动态重定位。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 51
+ },
+ {
+  "key": "408card/os-03-003",
+  "subjectKey": "operating-system",
+  "chapter": 3,
+  "question": "内存保护方法？",
+  "answerSteps": [
+   "①重定位寄存器+限长寄存器（界地址）②存储保护键。",
+   "检查：物理地址是否在 [基址, 基址+限长)。"
+  ],
+  "pitfall": "界地址可防越界，不能防错类型访问。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 52
+ },
+ {
+  "key": "408card/os-03-004",
+  "subjectKey": "operating-system",
+  "chapter": 3,
+  "question": "连续分配：单一连续分配、固定分区、动态分区？",
+  "answerSteps": [
+   "单一：一道程序；固定分区：分区表，有内碎片。",
+   "动态分区：按需分配，有外碎片；放置策略：首次适应、最佳、最坏、邻近适应。"
+  ],
+  "pitfall": "固定分区只有内碎片；动态分区只有外碎片。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "mem-alloc",
+  "sortOrder": 53
+ },
+ {
+  "key": "408card/os-03-005",
+  "subjectKey": "operating-system",
+  "chapter": 3,
+  "question": "动态分区分配算法？",
+  "answerSteps": [
+   "**首次适应**：地址递增空闲链，综合最好；**最佳适应**：递增，小碎片多；**最坏适应**：递减；**邻近适应**：从上次结束找，开销小。"
+  ],
+  "pitfall": "首次适应常被认为最好。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "mem-alloc",
+  "sortOrder": 54
+ },
+ {
+  "key": "408card/os-03-006",
+  "subjectKey": "operating-system",
+  "chapter": 3,
+  "question": "对换（交换）技术？",
+  "answerSteps": [
+   "把阻塞进程换出到外存，腾出内存；中级调度实现。"
+  ],
+  "pitfall": "换出的进程在就绪/阻塞挂起态。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 55
+ },
+ {
+  "key": "408card/os-03-007",
+  "subjectKey": "operating-system",
+  "chapter": 3,
+  "question": "基本分页存储管理？",
+  "answerSteps": [
+   "内存分**页框**，程序分**页**，页长=块长；逻辑地址=页号+页内偏移；页表：页号→块号。",
+   "地址变换：查页表得块号，物理地址=块号×块长+偏移。"
+  ],
+  "pitfall": "无外部碎片，有内部碎片（最后一页）。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "seg-page",
+  "sortOrder": 56
+ },
+ {
+  "key": "408card/os-03-008",
+  "subjectKey": "operating-system",
+  "chapter": 3,
+  "question": "页表项包括什么？",
+  "answerSteps": [
+   "页框号、有效位（中断位）、访问字段、修改位、保护位、外存地址。"
+  ],
+  "pitfall": "页表基址寄存器指向当前进程页表。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 57
+ },
+ {
+  "key": "408card/os-03-009",
+  "subjectKey": "operating-system",
+  "chapter": 3,
+  "question": "快表（TLB）是什么？",
+  "answerSteps": [
+   "相联存储器，存最近页表项；先查 TLB，命中则不访页表。",
+   "有效访问时间计算要考虑命中率。"
+  ],
+  "pitfall": "TLB 未命中仍要访内存页表；有二级页表则多访。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "vmem",
+  "sortOrder": 58
+ },
+ {
+  "key": "408card/os-03-010",
+  "subjectKey": "operating-system",
+  "chapter": 3,
+  "question": "基本分段存储管理？",
+  "answerSteps": [
+   "按逻辑模块分段，段长不定；段表：段号→段基址+段限长。",
+   "逻辑地址=段号+段内偏移；偏移>限长则越界。"
+  ],
+  "pitfall": "段是信息的逻辑单位；页是物理单位。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "seg-page",
+  "sortOrder": 59
+ },
+ {
+  "key": "408card/os-03-011",
+  "subjectKey": "operating-system",
+  "chapter": 3,
+  "question": "分页与分段比较？",
+  "answerSteps": [
+   "目的：页为提高内存利用率，段为满足用户；大小：页固定，段不固定；地址：页二维不需程序员知，段二维需段名；碎片：页内碎片，段外碎片；共享保护：段更易。"
+  ],
+  "pitfall": "页对用户透明；段用户可见。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "seg-page",
+  "sortOrder": 60
+ },
+ {
+  "key": "408card/os-03-012",
+  "subjectKey": "operating-system",
+  "chapter": 3,
+  "question": "段页式管理？",
+  "answerSteps": [
+   "先分段再分页；地址=段号+页号+页内偏移；查段表得页表始址，再查页表得块号。",
+   "需两次查表（可加 TLB）。"
+  ],
+  "pitfall": "段页式地址是三维的。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "seg-page",
+  "sortOrder": 61
+ },
+ {
+  "key": "408card/os-03-013",
+  "subjectKey": "operating-system",
+  "chapter": 3,
+  "question": "什么是虚拟存储器？",
+  "answerSteps": [
+   "具有请求调入和置换功能，逻辑容量大于物理内存的存储器。",
+   "基于局部性原理；实容量=外存+内存，虚容量由地址位数决定。"
+  ],
+  "pitfall": "虚拟容量取决于地址结构，不是外存大小。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "vmem",
+  "sortOrder": 62
+ },
+ {
+  "key": "408card/os-03-014",
+  "subjectKey": "operating-system",
+  "chapter": 3,
+  "question": "虚拟存储器的特征？",
+  "answerSteps": [
+   "多次性、对换性、虚拟性；需硬件（请求分页）与 OS 支持。"
+  ],
+  "pitfall": "不是所有程序都能装入；必须离散分配。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "vmem",
+  "sortOrder": 63
+ },
+ {
+  "key": "408card/os-03-015",
+  "subjectKey": "operating-system",
+  "chapter": 3,
+  "question": "请求分页硬件支持？",
+  "answerSteps": [
+   "页表含状态位、外存地址；缺页中断；地址变换机构。",
+   "流程：查页表 → 在？访问：缺页中断 → 调页 → 修改页表。"
+  ],
+  "pitfall": "缺页中断在指令执行期间发生，属于内中断。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "page-fifo",
+  "sortOrder": 64
+ },
+ {
+  "key": "408card/os-03-016",
+  "subjectKey": "operating-system",
+  "chapter": 3,
+  "question": "页面置换算法 FIFO？Belady 异常？",
+  "answerSteps": [
+   "FIFO：淘汰最早进入的页；**Belady**：物理块增多缺页反而增多，FIFO 有此现象。",
+   "OPT、LRU 无 Belady，是栈式算法。"
+  ],
+  "pitfall": "FIFO 不是好算法但常考。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "page-fifo",
+  "sortOrder": 65
+ },
+ {
+  "key": "408card/os-03-017",
+  "subjectKey": "operating-system",
+  "chapter": 3,
+  "question": "LRU 与 OPT？",
+  "answerSteps": [
+   "**OPT**：淘汰未来最久不用的，理论最优，无法实现。",
+   "**LRU**：淘汰最近最久未访问的；实现：栈、计数器；开销大。"
+  ],
+  "pitfall": "LRU 局部性好时接近 OPT。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "page-lru",
+  "sortOrder": 66
+ },
+ {
+  "key": "408card/os-03-018",
+  "subjectKey": "operating-system",
+  "chapter": 3,
+  "question": "Clock 算法（二次机会）？",
+  "answerSteps": [
+   "循环队列，访问位置访问位=1；置换时：位 1 改 0 给二次机会，位 0 淘汰。",
+   "改进型考虑修改位，优先换 (0,0)。"
+  ],
+  "pitfall": "是 LRU 的近似。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "page-clock",
+  "sortOrder": 67
+ },
+ {
+  "key": "408card/os-03-019",
+  "subjectKey": "operating-system",
+  "chapter": 3,
+  "question": "抖动（颠簸）与工作集？",
+  "answerSteps": [
+   "频繁缺页使 CPU 利用率下降叫**抖动**；原因是进程分配页框不足。",
+   "**工作集**：某时间窗口内访问的页集合；分配 ≥ 工作集可避免抖动。"
+  ],
+  "pitfall": "工作集模型用于预防抖动。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 68
+ },
+ {
+  "key": "408card/os-03-020",
+  "subjectKey": "operating-system",
+  "chapter": 3,
+  "question": "驻留集与分配策略？",
+  "answerSteps": [
+   "固定分配局部置换、可变分配全局/局部；全局更灵活但可能抖动。"
+  ],
+  "pitfall": "常考分类。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 69
+ },
+ {
+  "key": "408card/os-03-021",
+  "subjectKey": "operating-system",
+  "chapter": 3,
+  "question": "有效访问时间 EAT？",
+  "answerSteps": [
+   "例：访存 t，缺页率 f，缺页处理 S，则 EAT≈(1-f)×t + f×S（还需加 TLB）。"
+  ],
+  "pitfall": "手算题注意 TLB 命中率。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 70
+ },
+ {
+  "key": "408card/os-03-022",
+  "subjectKey": "operating-system",
+  "chapter": 3,
+  "question": "写时复制与共享页？",
+  "answerSteps": [
+   "fork 后子进程共享父进程页，标记只读；写时复制新页。",
+   "共享代码页可共享。"
+  ],
+  "pitfall": "共享只能共享可重入代码或只读。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 71
+ },
+ {
+  "key": "408card/os-03-023",
+  "subjectKey": "operating-system",
+  "chapter": 3,
+  "question": "覆盖与交换？",
+  "answerSteps": [
+   "覆盖：用户自己控制，把不会同时用的模块共用内存；交换：OS 把整个进程换出。"
+  ],
+  "pitfall": "覆盖是早期技术。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 72
+ },
+ {
+  "key": "408card/os-03-024",
+  "subjectKey": "operating-system",
+  "chapter": 3,
+  "question": "内存映射文件？",
+  "answerSteps": [
+   "把文件映射到进程地址空间，读写内存即读写文件，用缺页调入。"
+  ],
+  "pitfall": "方便共享与大文件。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 73
+ },
+ {
+  "key": "408card/os-03-025",
+  "subjectKey": "operating-system",
+  "chapter": 3,
+  "question": "多级页表为何需要？",
+  "answerSteps": [
+   "页表过大，再分页；外层页表 + 内层；减少内存占用（只调需要的）。"
+  ],
+  "pitfall": "页表项数 = 2^(逻辑位数-页内偏移)。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 74
+ },
+ {
+  "key": "408card/os-03-026",
+  "subjectKey": "operating-system",
+  "chapter": 3,
+  "question": "反置页表？",
+  "answerSteps": [
+   "按物理块建表，一项一块；表长=物理块数，节省空间；需查内容。"
+  ],
+  "pitfall": "IBM PowerPC 等使用。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 75
+ },
+ {
+  "key": "408card/os-03-027",
+  "subjectKey": "operating-system",
+  "chapter": 3,
+  "question": "地址变换中越界检查在哪？",
+  "answerSteps": [
+   "分页：页号是否超出页表长度；分段：段内偏移是否 > 段长。"
+  ],
+  "pitfall": "分页页内偏移不可能越界（由地址结构保证）。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "vmem",
+  "sortOrder": 76
+ },
+ {
+  "key": "408card/os-03-028",
+  "subjectKey": "operating-system",
+  "chapter": 3,
+  "question": "缺页中断处理过程？",
+  "answerSteps": [
+   "①保护现场 ②查外存块 ③若内存满按置换算法换出 ④调入 ⑤改页表 ⑥恢复现场继续执行。"
+  ],
+  "pitfall": "一条指令可能缺页多次（间接寻址）。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 77
+ },
+ {
+  "key": "408card/os-04-001",
+  "subjectKey": "operating-system",
+  "chapter": 4,
+  "question": "什么是文件？文件系统？",
+  "answerSteps": [
+   "文件是具有符号名的相关信息的集合；文件系统是 OS 中管理文件的软件与数据结构。"
+  ],
+  "pitfall": "文件是信息的逻辑单位。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 78
+ },
+ {
+  "key": "408card/os-04-002",
+  "subjectKey": "operating-system",
+  "chapter": 4,
+  "question": "文件的逻辑结构？",
+  "answerSteps": [
+   "无结构（流式）与有结构（记录式）；顺序文件、索引文件、索引顺序文件、散列文件。"
+  ],
+  "pitfall": "逻辑结构面向用户。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 79
+ },
+ {
+  "key": "408card/os-04-003",
+  "subjectKey": "operating-system",
+  "chapter": 4,
+  "question": "文件的物理结构（磁盘分配）？",
+  "answerSteps": [
+   "**连续分配**：简单但有外碎片、难扩展；**链接**：隐式/显示；**索引**：索引块；**索引+链接（大文件）**；UNIX 混合索引。"
+  ],
+  "pitfall": "连续适合定长、少扩展；索引支持随机访问。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "disk-sstf",
+  "sortOrder": 80
+ },
+ {
+  "key": "408card/os-04-004",
+  "subjectKey": "operating-system",
+  "chapter": 4,
+  "question": "FCB（文件控制块）包含什么？",
+  "answerSteps": [
+   "基本信息、地址信息、访问控制、使用信息；是文件存在的标志。",
+   "文件目录 = FCB 的有序集合。"
+  ],
+  "pitfall": "打开文件是把 FCB 调入内存打开文件表。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 81
+ },
+ {
+  "key": "408card/os-04-005",
+  "subjectKey": "operating-system",
+  "chapter": 4,
+  "question": "目录结构：单级、两级、树形、无环图？",
+  "answerSteps": [
+   "单级：重名问题；两级：用户目录；树形：路径名、当前目录；无环图：共享（链接计数）。"
+  ],
+  "pitfall": "树形目录需要「当前目录/相对路径」提高效率。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "dir-tree",
+  "sortOrder": 82
+ },
+ {
+  "key": "408card/os-04-006",
+  "subjectKey": "operating-system",
+  "chapter": 4,
+  "question": "文件共享方式？",
+  "answerSteps": [
+   "基于索引结点（硬链接）；基于符号链接（软链接，类似快捷方式）。"
+  ],
+  "pitfall": "硬链接删原文件仍可访问；软链接原文件删则断。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 83
+ },
+ {
+  "key": "408card/os-04-007",
+  "subjectKey": "operating-system",
+  "chapter": 4,
+  "question": "文件保护：访问控制矩阵/表？",
+  "answerSteps": [
+   "矩阵太大可压缩为访问控制表（每文件）或权限表（每用户）。"
+  ],
+  "pitfall": "UNIX 用 9 位 rwx。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 84
+ },
+ {
+  "key": "408card/os-04-008",
+  "subjectKey": "operating-system",
+  "chapter": 4,
+  "question": "文件系统的层次结构？",
+  "answerSteps": [
+   "用户 I/O → 文件系统接口 → 存取控制 → 逻辑文件系统 → 文件组织模块 → 基本文件系统 → I/O 控制。"
+  ],
+  "pitfall": "考试可能考层次名称。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 85
+ },
+ {
+  "key": "408card/os-04-009",
+  "subjectKey": "operating-system",
+  "chapter": 4,
+  "question": "磁盘结构：磁道、扇区、柱面？",
+  "answerSteps": [
+   "磁头数、柱面数、扇区数决定容量；寻道时间（磁头定位）+旋转延迟+传输时间。"
+  ],
+  "pitfall": "寻道时间通常最长。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "disk-fcfs",
+  "sortOrder": 86
+ },
+ {
+  "key": "408card/os-04-010",
+  "subjectKey": "operating-system",
+  "chapter": 4,
+  "question": "磁盘调度算法 FCFS、SSTF、SCAN、C-SCAN？",
+  "answerSteps": [
+   "FCFS 公平；SSTF 最短寻道，可能饥饿；**SCAN 电梯**，到端折返；**C-SCAN** 单向，到端快速回起点。"
+  ],
+  "pitfall": "N-STEP-SCAN、FSCAN 防止磁头黏住。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "cpu-fcfs",
+  "sortOrder": 87
+ },
+ {
+  "key": "408card/os-04-011",
+  "subjectKey": "operating-system",
+  "chapter": 4,
+  "question": "文件系统打开/关闭做什么？",
+  "answerSteps": [
+   "open：查目录、FCB 入打开表，返回 fd；close：从打开表删，必要时写回。"
+  ],
+  "pitfall": "打开后按 fd 访问，不必每次查目录。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 88
+ },
+ {
+  "key": "408card/os-04-012",
+  "subjectKey": "operating-system",
+  "chapter": 4,
+  "question": "空闲空间管理：位图、空闲链表、成组链接？",
+  "answerSteps": [
+   "位图：每位一块；空闲链表：链接空闲块；UNIX 成组链接：空闲块号栈。"
+  ],
+  "pitfall": "分配回收要维护这些结构。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 89
+ },
+ {
+  "key": "408card/os-04-013",
+  "subjectKey": "operating-system",
+  "chapter": 4,
+  "question": "文件系统的可靠性：备份、日志、一致性检查？",
+  "answerSteps": [
+   "全量/增量备份；日志文件系统；fsck 检查目录与位图一致性。"
+  ],
+  "pitfall": "日志可保证 crash consistency。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 90
+ },
+ {
+  "key": "408card/os-04-014",
+  "subjectKey": "operating-system",
+  "chapter": 4,
+  "question": "顺序文件、索引文件检索？",
+  "answerSteps": [
+   "顺序：可折半（定长有序）；索引：关键字索引表。"
+  ],
+  "pitfall": "磁带只能顺序存取。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 91
+ },
+ {
+  "key": "408card/os-04-015",
+  "subjectKey": "operating-system",
+  "chapter": 4,
+  "question": "UNIX 的 inode？",
+  "answerSteps": [
+   "索引结点含文件元数据与地址（直接、一级间接、二级…）；目录项只有文件名+inode 号。"
+  ],
+  "pitfall": "小文件用直接指针；大文件用间接。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "file-alloc",
+  "sortOrder": 92
+ },
+ {
+  "key": "408card/os-04-016",
+  "subjectKey": "operating-system",
+  "chapter": 4,
+  "question": "FAT 文件系统？",
+  "answerSteps": [
+   "文件分配表，链接分配的显示形式；表项存下一块号；目录项含起始簇。"
+  ],
+  "pitfall": "FAT12/16/32 指表项位数。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "file-alloc",
+  "sortOrder": 93
+ },
+ {
+  "key": "408card/os-05-001",
+  "subjectKey": "operating-system",
+  "chapter": 5,
+  "question": "I/O 设备分类？",
+  "answerSteps": [
+   "按特性：块设备、字符设备；按共享：独占、共享、虚拟；按传输速率：低中高。"
+  ],
+  "pitfall": "块设备可寻址；字符不可寻址。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 94
+ },
+ {
+  "key": "408card/os-05-002",
+  "subjectKey": "operating-system",
+  "chapter": 5,
+  "question": "I/O 控制方式？",
+  "answerSteps": [
+   "①程序直接（忙等）②中断驱动 ③DMA（以块为单位，CPU 只在开始结束干预）④通道（通道程序，成批）。"
+  ],
+  "pitfall": "DMA 与中断区别：DMA 以块、仅首尾中断；通道更独立。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "io-control",
+  "sortOrder": 95
+ },
+ {
+  "key": "408card/os-05-003",
+  "subjectKey": "operating-system",
+  "chapter": 5,
+  "question": "DMA 工作过程？",
+  "answerSteps": [
+   "CPU 向 DMA 发命令 → DMA 请求总线 → 成块传输 → 结束中断 CPU。"
+  ],
+  "pitfall": "DMA 周期挪用/共享内存。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "io-control",
+  "sortOrder": 96
+ },
+ {
+  "key": "408card/os-05-004",
+  "subjectKey": "operating-system",
+  "chapter": 5,
+  "question": "缓冲技术的作用？",
+  "answerSteps": [
+   "缓和 CPU 与 I/O 速度不匹配；减少中断次数；提高并行性。",
+   "单缓冲、双缓冲、循环缓冲、缓冲池。"
+  ],
+  "pitfall": "双缓冲可进一步并行。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "double-buffer",
+  "sortOrder": 97
+ },
+ {
+  "key": "408card/os-05-005",
+  "subjectKey": "operating-system",
+  "chapter": 5,
+  "question": "SPOOLING 技术？",
+  "answerSteps": [
+   "假脱机：用磁盘作缓冲，把独占设备改造成共享设备；如打印机守护进程。"
+  ],
+  "pitfall": "本质是缓和设备独占性，虚拟设备。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": "spooling",
+  "sortOrder": 98
+ },
+ {
+  "key": "408card/os-05-006",
+  "subjectKey": "operating-system",
+  "chapter": 5,
+  "question": "设备分配的数据结构？",
+  "answerSteps": [
+   "设备控制表 DCT、控制器控制表 COCT、通道控制表 CHCT、系统设备表 SDT。"
+  ],
+  "pitfall": "分配顺序：设备→控制器→通道。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 99
+ },
+ {
+  "key": "408card/os-05-007",
+  "subjectKey": "operating-system",
+  "chapter": 5,
+  "question": "设备独立性？",
+  "answerSteps": [
+   "程序用逻辑设备名，OS 实现逻辑到物理的映射；方便重定向与共享。"
+  ],
+  "pitfall": "逻辑设备表 LUT。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 100
+ },
+ {
+  "key": "408card/os-05-008",
+  "subjectKey": "operating-system",
+  "chapter": 5,
+  "question": "I/O 软件层次？",
+  "answerSteps": [
+   "用户层 I/O → 设备独立软件 → 设备驱动 → 中断处理 → 硬件。"
+  ],
+  "pitfall": "驱动与中断在内核态。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 101
+ },
+ {
+  "key": "408card/os-05-009",
+  "subjectKey": "operating-system",
+  "chapter": 5,
+  "question": "设备驱动程序作用？",
+  "answerSteps": [
+   "接收抽象请求，转为具体命令；控制设备；上半部/下半部处理中断。"
+  ],
+  "pitfall": "驱动是 OS 与硬件的接口。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 102
+ },
+ {
+  "key": "408card/os-05-010",
+  "subjectKey": "operating-system",
+  "chapter": 5,
+  "question": "假脱机打印机如何实现共享？",
+  "answerSteps": [
+   "用户进程输出到输出井，由守护进程依次送打印机；用户感觉独占。"
+  ],
+  "pitfall": "典型 SPOOLING 应用。",
+  "mnemonic": null,
+  "star": false,
+  "demoKey": null,
+  "sortOrder": 103
+ },
+ {
+  "key": "408card/os-05-011",
+  "subjectKey": "operating-system",
+  "chapter": 5,
+  "question": "中断处理程序一般过程？",
+  "answerSteps": [
+   "①保护现场 ②分析中断 ③执行处理 ④恢复现场 ⑤返回。"
+  ],
+  "pitfall": "中断嵌套、屏蔽。",
+  "mnemonic": null,
+  "star": true,
+  "demoKey": null,
+  "sortOrder": 104
+ }
+]

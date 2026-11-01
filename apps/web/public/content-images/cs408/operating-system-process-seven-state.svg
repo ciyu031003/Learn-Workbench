@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="392" viewBox="0 0 760 392" role="img" aria-label="进程七状态模型：创建、活动就绪、运行、活动阻塞、终止，加上挂起后的静止就绪与静止阻塞">
+  <style>
+    .b{fill:#fff;stroke:#2b2b2b;stroke-width:1.4}
+    .y{fill:#eef4fb;stroke:#2b2b2b;stroke-width:1.5}
+    .g{fill:#f3f7f1;stroke:#2b2b2b;stroke-width:1.4}
+    .t{font:600 13.5px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .s{font:600 12.5px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .n{font:400 11.5px "Microsoft YaHei",system-ui,sans-serif;fill:#3f3f3f}
+    .l{stroke:#2b2b2b;stroke-width:1.4;fill:none}
+    .o{stroke:#b06a00;stroke-width:1.6;fill:none}
+  </style>
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#2b2b2b"/></marker>
+    <marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b06a00"/></marker>
+  </defs>
+
+  <text class="t" x="18" y="26">进程七状态模型：五状态 + 「挂起（换出到辅存）」这一维</text>
+
+  <!-- 上排 -->
+  <rect class="b" x="20" y="46" width="84" height="42" rx="3"/>
+  <text class="s" x="42" y="72">创建</text>
+
+  <rect class="b" x="132" y="46" width="104" height="42" rx="3"/>
+  <text class="s" x="146" y="72">活动就绪</text>
+
+  <rect class="y" x="268" y="46" width="88" height="42" rx="3"/>
+  <text class="s" x="288" y="72">运行</text>
+
+  <rect class="b" x="400" y="46" width="88" height="42" rx="3"/>
+  <text class="s" x="420" y="72">终止</text>
+
+  <!-- 下排 -->
+  <rect class="g" x="132" y="150" width="104" height="42" rx="3"/>
+  <text class="s" x="146" y="176">静止就绪</text>
+
+  <rect class="b" x="268" y="150" width="88" height="42" rx="3"/>
+  <text class="s" x="278" y="176">活动阻塞</text>
+
+  <rect class="g" x="400" y="150" width="104" height="42" rx="3"/>
+  <text class="s" x="412" y="176">静止阻塞</text>
+
+  <!-- 连线：上排 -->
+  <path class="l" d="M104 67 L128 67" marker-end="url(#ar)"/>
+  <path class="l" d="M236 60 L264 60" marker-end="url(#ar)"/>
+  <path class="l" d="M264 78 L240 78" marker-end="url(#ar)"/>
+  <path class="l" d="M356 67 L396 67" marker-end="url(#ar)"/>
+  <path class="l" d="M312 88 L312 146" marker-end="url(#ar)"/>
+
+  <!-- 活动阻塞 -> 活动就绪（斜线，走两个框之间的空隙，别穿过静止就绪） -->
+  <path class="l" d="M270 148 L228 98" marker-end="url(#ar)"/>
+
+  <!-- 活动就绪 <-> 静止就绪（挂起 / 激活） -->
+  <path class="o" d="M166 88 L166 146" marker-end="url(#ao)"/>
+  <path class="o" d="M202 146 L202 92" marker-end="url(#ao)"/>
+
+  <!-- 活动阻塞 <-> 静止阻塞（挂起 / 激活） -->
+  <path class="o" d="M356 164 L396 164" marker-end="url(#ao)"/>
+  <path class="o" d="M396 182 L356 182" marker-end="url(#ao)"/>
+
+  <!-- 静止阻塞 -> 静止就绪（事件出现，仍在辅存） -->
+  <path class="l" d="M452 192 L452 236 L184 236 L184 196" marker-end="url(#ar)"/>
+
+  <!-- 箭头上的小字 -->
+  <text class="n" x="238" y="54">调度</text>
+  <text class="n" x="214" y="96">时间片到</text>
+  <text class="n" x="320" y="120">等待事件</text>
+  <text class="n" x="172" y="120">挂起</text>
+  <text class="n" x="208" y="120">激活</text>
+  <text class="n" x="360" y="142">挂起 / 激活</text>
+  <text class="n" x="330" y="232">事件出现（进程还在辅存）</text>
+
+  <!-- 结论 -->
+  <text class="n" x="18" y="266">活动就绪、活动阻塞在内存里；静止就绪、静止阻塞在辅存里；运行态一定在内存里 —— 「活动 / 静止」说的就是这件事</text>
+  <text class="n" x="18" y="288">挂起的作用：内存紧张时把进程换出到辅存腾空间；被挂起的进程不会参与调度（静止就绪不算就绪队列）</text>
+  <text class="n" x="18" y="310">最容易错的一条：静止阻塞 --事件出现--> 静止就绪（不是直接回活动就绪），因为进程还在辅存，得再等一次激活/调入</text>
+  <text class="n" x="18" y="332">与五状态的关系：七状态 = 五状态 + 一对挂起态；考题常问「挂起后还能不能被调度」「事件发生后变成哪个状态」</text>
+  <text class="n" x="18" y="354">还有一层：阻塞是「等 I/O 或事件」，挂起是「被换出内存」，两者互不替代 —— 一个进程可以同时「阻塞」且「被挂起」</text>
+</svg>

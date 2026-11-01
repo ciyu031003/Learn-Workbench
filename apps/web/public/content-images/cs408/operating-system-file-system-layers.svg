@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="480" viewBox="0 0 760 480" role="img" aria-label="文件系统的七层结构：从系统调用、目录查找、权限检查、逻辑块号、物理块号到磁盘扇区">
+  <defs>
+    <marker id="dn" viewBox="0 0 10 10" refX="5" refY="9" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,0 L5,10 z" fill="#b06a00"/>
+    </marker>
+    <marker id="rt" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b06a00"/>
+    </marker>
+  </defs>
+  <style>
+    .t{font:600 15px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .s{font:600 13px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .n{font:400 11.5px "Microsoft YaHei",system-ui,sans-serif;fill:#3f3f3f}
+    .r{font:500 12.5px "Microsoft YaHei",system-ui,sans-serif;fill:#7a4a00}
+    .box{fill:#fff;stroke:#2b2b2b;stroke-width:1.4}
+    .hi{fill:#fdf3e6;stroke:#b06a00;stroke-width:1.5}
+    .ar{stroke:#b06a00;stroke-width:2;fill:none}
+  </style>
+
+  <text class="t" x="18" y="28">文件系统的层次：从系统调用到磁盘扇区</text>
+  <text class="n" x="18" y="50">左边 7 层各管一段；右边是同一条请求逐层被"翻译"成什么</text>
+
+  <!-- 下行箭头 -->
+  <path class="ar" d="M336 72 V424" marker-end="url(#dn)"/>
+  <text class="r" x="352" y="250" text-anchor="middle" transform="rotate(-90 352 250)">一次读文件的请求逐层向下</text>
+
+  <!-- 第 1 层 -->
+  <rect class="hi" x="20" y="70" width="300" height="46" rx="8"/>
+  <text class="s" x="34" y="90">① 用户接口</text>
+  <text class="n" x="34" y="107">open / read / write / close 等系统调用</text>
+  <text class="r" x="376" y="98">用户：read(fd, buf, n)</text>
+
+  <!-- 第 2 层 -->
+  <rect class="box" x="20" y="122" width="300" height="46" rx="8"/>
+  <text class="s" x="34" y="142">② 文件目录系统</text>
+  <text class="n" x="34" y="159">路径名 → FCB / inode；管理目录与打开文件表</text>
+  <text class="r" x="376" y="150">"/a/b.txt" → inode 号 → 权限信息</text>
+
+  <!-- 第 3 层 -->
+  <rect class="box" x="20" y="174" width="300" height="46" rx="8"/>
+  <text class="s" x="34" y="194">③ 存取控制验证</text>
+  <text class="n" x="34" y="211">检查用户对该文件的读 / 写 / 执行权限</text>
+  <text class="r" x="376" y="202">rwx 是否允许本次操作</text>
+
+  <!-- 第 4 层 -->
+  <rect class="box" x="20" y="226" width="300" height="46" rx="8"/>
+  <text class="s" x="34" y="246">④ 逻辑文件系统 + 信息缓冲区</text>
+  <text class="n" x="34" y="263">逻辑记录号 → 逻辑块号；维护缓冲区</text>
+  <text class="r" x="376" y="254">第 3 条记录 → 逻辑块 12</text>
+
+  <!-- 第 5 层 -->
+  <rect class="hi" x="20" y="278" width="300" height="46" rx="8"/>
+  <text class="s" x="34" y="298">⑤ 物理文件系统</text>
+  <text class="n" x="34" y="315">逻辑块号 → 物理块号（索引 / 链接 / 连续）</text>
+  <text class="r" x="376" y="306">逻辑块 12 → 物理块 87</text>
+
+  <!-- 第 6 层 -->
+  <rect class="box" x="20" y="330" width="300" height="46" rx="8"/>
+  <text class="s" x="34" y="350">⑥ 辅助分配模块</text>
+  <text class="n" x="34" y="367">空闲块的分配与回收（位示图 / 成组链接）</text>
+  <text class="r" x="376" y="358">要新块时，从空闲管理里取一块</text>
+
+  <!-- 第 7 层 -->
+  <rect class="box" x="20" y="382" width="300" height="46" rx="8"/>
+  <text class="s" x="34" y="402">⑦ 设备管理模块</text>
+  <text class="n" x="34" y="419">物理块号 → 柱面 / 磁头 / 扇区，交给驱动</text>
+  <text class="r" x="376" y="410">物理块 87 → 柱面 3、磁头 5、扇区 12</text>
+
+  <text class="n" x="18" y="454">考点：「谁把逻辑块号翻成物理块号」→ 物理文件系统；文件系统本身存放在外存、属于操作系统（软件），磁盘是硬件。</text>
+  <text class="n" x="18" y="472">同一份请求自顶向下逐层"翻译"，每层只做一件事——这就是分层的意义，也是"某功能属于哪一层"选择题的依据。</text>
+</svg>

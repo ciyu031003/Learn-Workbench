@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="444" viewBox="0 0 760 444" role="img" aria-label="动态分区分配：同一组空闲分区下，首次适应、最佳适应、最坏适应、邻近适应对 212K 请求分别选中不同的洞">
+  <style>
+    .t{font:600 15px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .s{font:600 12.5px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .n{font:400 11.5px "Microsoft YaHei",system-ui,sans-serif;fill:#3f3f3f}
+    .c{font:600 11px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .hole{fill:#eef4fb;stroke:#2b2b2b;stroke-width:1.3}
+    .tag{stroke-width:1.3}
+    .ff{fill:#fde3c8;stroke:#b06a00}
+    .bf{fill:#d8ecd0;stroke:#3f7a34}
+    .wf{fill:#e6dcf5;stroke:#6b3fa0}
+    .nf{fill:#fff;stroke:#94a3b8;stroke-dasharray:5 4}
+    .ln{stroke:#94a3b8;stroke-width:1;fill:none}
+  </style>
+
+  <text class="t" x="18" y="26">动态分区分配：同一组空闲区，四种算法各挑哪个洞？</text>
+  <text class="n" x="18" y="46">设空闲分区（按地址递增）：100K@0、500K@100、200K@600、300K@800、600K@1100；现在来一个 212K 的请求</text>
+
+  <!-- 内存条 -->
+  <rect class="hole" x="120" y="76" width="35" height="46"/>
+  <text class="c" x="137" y="96" text-anchor="middle">100K</text>
+  <text class="n" x="137" y="112" text-anchor="middle">@0</text>
+
+  <rect class="hole" x="155" y="76" width="175" height="46"/>
+  <text class="c" x="242" y="96" text-anchor="middle">500K</text>
+  <text class="n" x="242" y="112" text-anchor="middle">@100</text>
+
+  <rect class="hole" x="330" y="76" width="70" height="46"/>
+  <text class="c" x="365" y="96" text-anchor="middle">200K</text>
+  <text class="n" x="365" y="112" text-anchor="middle">@600</text>
+
+  <rect class="hole" x="400" y="76" width="105" height="46"/>
+  <text class="c" x="452" y="96" text-anchor="middle">300K</text>
+  <text class="n" x="452" y="112" text-anchor="middle">@800</text>
+
+  <rect class="hole" x="505" y="76" width="210" height="46"/>
+  <text class="c" x="610" y="96" text-anchor="middle">600K</text>
+  <text class="n" x="610" y="112" text-anchor="middle">@1100</text>
+
+  <!-- 选中标记 -->
+  <path class="ln" d="M242 122 V140"/>
+  <rect class="tag ff" x="196" y="140" width="92" height="24" rx="6"/>
+  <text class="c" x="242" y="156" text-anchor="middle">FF 首次适应</text>
+
+  <path class="ln" d="M365 122 V166"/>
+  <rect class="tag nf" x="319" y="166" width="92" height="24" rx="6"/>
+  <text class="c" x="365" y="182" text-anchor="middle">NF 邻近适应</text>
+
+  <path class="ln" d="M452 122 V140"/>
+  <rect class="tag bf" x="406" y="140" width="92" height="24" rx="6"/>
+  <text class="c" x="452" y="156" text-anchor="middle">BF 最佳适应</text>
+
+  <path class="ln" d="M610 122 V140"/>
+  <rect class="tag wf" x="564" y="140" width="92" height="24" rx="6"/>
+  <text class="c" x="610" y="156" text-anchor="middle">WF 最坏适应</text>
+
+  <text class="n" x="120" y="70">空闲区（按地址递增）</text>
+  <text class="n" x="120" y="202">100K 的洞谁都放不下 212K；NF 从"上次分配结束处"往后找，若上次在 @600 附近就会落到 200K 这个洞</text>
+
+  <!-- 规则 -->
+  <text class="s" x="18" y="224">四种算法只差"从空闲区里挑哪一个"</text>
+  <text class="n" x="18" y="248">FF：从低地址开始，找「第一个」够大的洞（本例 500K）——最简单，通常性能最好，但低地址会被切得很碎。</text>
+  <text class="n" x="18" y="270">BF：选「够用且最小」的洞（300K）——剩的碎片最小，但会留下大量"小到没人要"的碎片。</text>
+  <text class="n" x="18" y="292">WF：选「最大」的洞（600K）——切完剩余仍较大、能继续用，但大洞很快被用光，大请求可能反而没地方。</text>
+  <text class="n" x="18" y="314">NF：从「上次分配结束处」往后循环找——让低地址碎片被均匀使用，但高地址的大洞会更快被耗尽。</text>
+
+  <!-- 结论 -->
+  <text class="s" x="18" y="348">两个必须写进大题的细节</text>
+  <text class="n" x="18" y="370">① 分配 = 从洞里切一块：剩下部分若小于阈值就整块给出，否则变成一个空闲区；</text>
+  <text class="n" x="18" y="392">② 回收 = 与「前后相邻」的空闲区合并，否则外部碎片越积越多。</text>
+  <text class="n" x="18" y="418">外部碎片（空闲总量够、但不连续）用「紧凑 compaction」解决：移动已分配区、合并空闲区，代价是需要重定位支持且开销大。</text>
+</svg>

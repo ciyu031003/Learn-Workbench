@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="484" viewBox="0 0 760 484" role="img" aria-label="同一个有向图的三种存储结构：邻接矩阵、邻接表、逆邻接表">
+  <style>
+    .b{fill:#fff;stroke:#2b2b2b;stroke-width:1.3}
+    .y{fill:#eef4fb;stroke:#2b2b2b;stroke-width:1.4}
+    .g{fill:#f3f7f1;stroke:#2b2b2b;stroke-width:1.3}
+    .t{font:600 13.5px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .s{font:600 12.5px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .n{font:400 11.5px "Microsoft YaHei",system-ui,sans-serif;fill:#3f3f3f}
+    .v{font:600 12.5px "Consolas","Microsoft YaHei",monospace;fill:#1d1d1d}
+    .c{fill:#fff;stroke:#2b2b2b;stroke-width:1.5}
+    .l{stroke:#2b2b2b;stroke-width:1.4;fill:none}
+    .o{stroke:#b06a00;stroke-width:1.5;fill:none}
+  </style>
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#2b2b2b"/></marker>
+    <marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b06a00"/></marker>
+  </defs>
+
+  <text class="t" x="18" y="26">同一个有向图的三种存法：邻接矩阵（稠密）／邻接表（稀疏）／逆邻接表（求入度）</text>
+
+  <!-- 图 -->
+  <text class="s" x="20" y="58">图 G（4 顶点、5 条弧）</text>
+  <path class="l" d="M78 90 L152 90" marker-end="url(#ar)"/>
+  <path class="l" d="M62 108 L62 166" marker-end="url(#ar)"/>
+  <path class="l" d="M168 108 L168 166" marker-end="url(#ar)"/>
+  <path class="l" d="M94 188 L138 188" marker-end="url(#ar)"/>
+  <path class="o" d="M184 196 L186 110 L90 106" marker-end="url(#ao)"/>
+  <circle class="c" cx="60" cy="90" r="18"/>
+  <circle class="c" cx="170" cy="90" r="18"/>
+  <circle class="c" cx="60" cy="188" r="18"/>
+  <circle class="c" cx="170" cy="188" r="18"/>
+  <text class="v" x="54" y="95">0</text>
+  <text class="v" x="164" y="95">1</text>
+  <text class="v" x="54" y="193">2</text>
+  <text class="v" x="164" y="193">3</text>
+  <text class="n" x="20" y="236">橙色那条是 3 → 0（本题唯一的回边）</text>
+
+  <!-- 邻接矩阵 -->
+  <text class="s" x="248" y="58">邻接矩阵（n×n）</text>
+  <rect class="y" x="268" y="72" width="168" height="132"/>
+  <text class="v" x="284" y="94">0 1 2 3</text>
+  <text class="v" x="284" y="116">0 1 1 0</text>
+  <text class="v" x="284" y="138">0 0 0 1</text>
+  <text class="v" x="284" y="160">0 0 0 1</text>
+  <text class="v" x="284" y="182">1 0 0 0</text>
+  <text class="n" x="268" y="226">行 = 起点，列 = 终点</text>
+  <text class="n" x="268" y="246">查边 O(1)，空间 O(n²)</text>
+
+  <!-- 邻接表 -->
+  <text class="s" x="466" y="58">邻接表（出边）</text>
+  <text class="v" x="466" y="86">0 → [1] → [2]</text>
+  <text class="v" x="466" y="110">1 → [3]</text>
+  <text class="v" x="466" y="134">2 → [3]</text>
+  <text class="v" x="466" y="158">3 → [0]</text>
+  <text class="n" x="466" y="182">空间 O(n+e)；一个顶点的出边很好找</text>
+
+  <!-- 逆邻接表 -->
+  <text class="s" x="466" y="216">逆邻接表（入边）</text>
+  <text class="v" x="466" y="244">0 ← [3]</text>
+  <text class="v" x="466" y="268">1 ← [0]</text>
+  <text class="v" x="466" y="292">2 ← [0]</text>
+  <text class="v" x="466" y="316">3 ← [1] ← [2]</text>
+  <text class="n" x="466" y="340">链长就是入度，求入度 O(出度) 之外都不用遍历全图</text>
+
+  <!-- 结论 -->
+  <text class="n" x="18" y="372">选谁：稠密图（e 接近 n²）用邻接矩阵，省指针、查边快；稀疏图用邻接表，省空间、遍历边快</text>
+  <text class="n" x="18" y="394">求度数的坑：无向图的邻接表里「顶点 i 的度」不等于它那条链表的长度 —— 因为每条边会在 i 和 j 两处各存一次</text>
+  <text class="n" x="18" y="416">有向图才可以用邻接表直接求「出度」、用逆邻接表直接求「入度」；两者都要就用「十字链表」</text>
+  <text class="n" x="18" y="438">无向图还有「邻接多重表」：一条边只存一个结点，删边时不用两头找</text>
+  <text class="n" x="18" y="460">易混：邻接矩阵第 i 行之和 = 顶点 i 的出度、第 i 列之和 = 入度；无向图矩阵对称、行和即「度」</text>
+  <text class="n" x="18" y="482">对照上图：矩阵第 0 行是 0 1 1 0，正好对应邻接表的「0 → 1、2」—— 两种存法信息完全等价</text>
+</svg>

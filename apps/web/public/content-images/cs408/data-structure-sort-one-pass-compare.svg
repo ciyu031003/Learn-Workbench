@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="418" viewBox="0 0 760 418" role="img" aria-label="同一组数据经过一趟不同排序后的状态：插入、冒泡、选择、快速、归并">
+  <style>
+    .b{fill:#fff;stroke:#2b2b2b;stroke-width:1.3}
+    .y{fill:#eef4fb;stroke:#2b2b2b;stroke-width:1.3}
+    .g{fill:#f3f7f1;stroke:#2b2b2b;stroke-width:1.3}
+    .t{font:600 13.5px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .s{font:600 12.5px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .n{font:400 11.5px "Microsoft YaHei",system-ui,sans-serif;fill:#3f3f3f}
+    .v{font:600 13px "Consolas","Microsoft YaHei",monospace;fill:#1d1d1d}
+  </style>
+
+  <text class="t" x="18" y="26">同一组数据「做完一趟」之后长什么样：看出是哪一种排序的最快办法</text>
+  <text class="n" x="18" y="48">初始序列：49　38　65　97　76　13　27（下面每一行都只做了第 1 趟）</text>
+
+  <!-- 表头 -->
+  <rect class="y" x="16" y="62" width="150" height="34"/>
+  <rect class="y" x="166" y="62" width="330" height="34"/>
+  <rect class="y" x="496" y="62" width="248" height="34"/>
+  <text class="s" x="42" y="84">排序方法</text>
+  <text class="s" x="182" y="84">第 1 趟之后</text>
+  <text class="s" x="512" y="84">这一趟到底做了什么</text>
+
+  <!-- 直接插入 -->
+  <rect class="b" x="16" y="96" width="150" height="44"/>
+  <rect class="b" x="166" y="96" width="330" height="44"/>
+  <rect class="b" x="496" y="96" width="248" height="44"/>
+  <text class="s" x="38" y="124">直接插入</text>
+  <text class="v" x="182" y="124">38 49 65 97 76 13 27</text>
+  <text class="n" x="512" y="124">只把前 2 个元素排好序</text>
+
+  <!-- 冒泡 -->
+  <rect class="b" x="16" y="140" width="150" height="44"/>
+  <rect class="b" x="166" y="140" width="330" height="44"/>
+  <rect class="b" x="496" y="140" width="248" height="44"/>
+  <text class="s" x="38" y="168">冒泡排序</text>
+  <text class="v" x="182" y="168">38 49 65 76 13 27 97</text>
+  <text class="n" x="512" y="168">最大值 97 已沉到末尾</text>
+
+  <!-- 简单选择 -->
+  <rect class="b" x="16" y="184" width="150" height="44"/>
+  <rect class="b" x="166" y="184" width="330" height="44"/>
+  <rect class="b" x="496" y="184" width="248" height="44"/>
+  <text class="s" x="38" y="212">简单选择</text>
+  <text class="v" x="182" y="212">13 38 65 97 76 49 27</text>
+  <text class="n" x="512" y="212">最小值 13 与首位交换</text>
+
+  <!-- 快速排序 -->
+  <rect class="g" x="16" y="228" width="150" height="44"/>
+  <rect class="g" x="166" y="228" width="330" height="44"/>
+  <rect class="g" x="496" y="228" width="248" height="44"/>
+  <text class="s" x="38" y="256">快速排序</text>
+  <text class="v" x="182" y="256">27 38 13 49 76 97 65</text>
+  <text class="n" x="512" y="256">枢轴 49 归位，左边全小、右边全大</text>
+
+  <!-- 二路归并 -->
+  <rect class="b" x="16" y="272" width="150" height="44"/>
+  <rect class="b" x="166" y="272" width="330" height="44"/>
+  <rect class="b" x="496" y="272" width="248" height="44"/>
+  <text class="s" x="38" y="300">二路归并</text>
+  <text class="v" x="182" y="300">38 49 65 97 13 76 27</text>
+  <text class="n" x="512" y="300">相邻两两归并成有序段</text>
+
+  <!-- 结论 -->
+  <text class="n" x="18" y="338">判据：末尾出现最大值 → 冒泡；首位出现最小值且后面顺序没变 → 简单选择；某个数左右两侧「左全小、右全大」→ 快速</text>
+  <text class="n" x="18" y="360">前 k 个元素已局部有序、其余保持原样 → 直接插入；出现若干长度翻倍的连续有序段 → 归并</text>
+  <text class="n" x="18" y="382">希尔排序依赖增量序列，题目一定会给增量（如 d=3），否则不必按「趟」判断</text>
+  <text class="n" x="18" y="404">堆排序要先建初始堆（建堆不计入趟数），第 1 趟是「堆顶与末尾交换 + 重新调整」，末位也是最大值但中间状态与冒泡不同</text>
+</svg>

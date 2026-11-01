@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 560" role="img" aria-labelledby="figTitle figDesc">
+<title id="figTitle">三对角矩阵的压缩存储</title>
+<desc id="figDesc">左侧是一个 5 阶三对角矩阵，只有主对角线、上对角线、下对角线上的元素可能非零；右侧是 diag、upper、lower 三个一维数组，分别保存这三条对角线上的元素。</desc>
+<rect x="0" y="0" width="760" height="560" fill="#ffffff"/>
+<text x="380" y="30" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="18" font-weight="bold" fill="#1976d2">三对角矩阵的压缩存储</text>
+<text x="380" y="56" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="12.5" fill="#757575">只有主对角线、上对角线、下对角线上的元素可能非零 —— 三条对角线分别存进三个一维数组（图中 n = 5）</text>
+<path d="M48 110 H36 V376 H48" fill="none" stroke="#263238" stroke-width="2.4" stroke-linecap="square"/>
+<path d="M294 110 H306 V376 H294" fill="none" stroke="#263238" stroke-width="2.4" stroke-linecap="square"/>
+<rect x="46" y="118" width="50" height="50" fill="#bbdefb" stroke="#1976d2" stroke-width="1.4"/>
+<text x="71" y="147" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="15" fill="#0d47a1">a<tspan font-size="11" dy="4">1,1</tspan></text>
+<rect x="96" y="118" width="50" height="50" fill="#fff59d" stroke="#f9a825" stroke-width="1.4"/>
+<text x="121" y="147" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="15" fill="#8d6e00">a<tspan font-size="11" dy="4">1,2</tspan></text>
+<rect x="146" y="118" width="50" height="50" fill="#fafafa" stroke="#e0e0e0" stroke-width="1"/>
+<text x="171" y="148" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="15" fill="#bdbdbd">0</text>
+<rect x="196" y="118" width="50" height="50" fill="#fafafa" stroke="#e0e0e0" stroke-width="1"/>
+<text x="221" y="148" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="15" fill="#bdbdbd">0</text>
+<rect x="246" y="118" width="50" height="50" fill="#fafafa" stroke="#e0e0e0" stroke-width="1"/>
+<text x="271" y="148" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="15" fill="#bdbdbd">0</text>
+<rect x="46" y="168" width="50" height="50" fill="#c8e6c9" stroke="#388e3c" stroke-width="1.4"/>
+<text x="71" y="197" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="15" fill="#1b5e20">a<tspan font-size="11" dy="4">2,1</tspan></text>
+<rect x="96" y="168" width="50" height="50" fill="#bbdefb" stroke="#1976d2" stroke-width="1.4"/>
+<text x="121" y="197" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="15" fill="#0d47a1">a<tspan font-size="11" dy="4">2,2</tspan></text>
+<rect x="146" y="168" width="50" height="50" fill="#fff59d" stroke="#f9a825" stroke-width="1.4"/>
+<text x="171" y="197" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="15" fill="#8d6e00">a<tspan font-size="11" dy="4">2,3</tspan></text>
+<rect x="196" y="168" width="50" height="50" fill="#fafafa" stroke="#e0e0e0" stroke-width="1"/>
+<text x="221" y="198" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="15" fill="#bdbdbd">0</text>
+<rect x="246" y="168" width="50" height="50" fill="#fafafa" stroke="#e0e0e0" stroke-width="1"/>
+<text x="271" y="198" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="15" fill="#bdbdbd">0</text>
+<rect x="46" y="218" width="50" height="50" fill="#fafafa" stroke="#e0e0e0" stroke-width="1"/>
+<text x="71" y="248" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="15" fill="#bdbdbd">0</text>
+<rect x="96" y="218" width="50" height="50" fill="#c8e6c9" stroke="#388e3c" stroke-width="1.4"/>
+<text x="121" y="247" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="15" fill="#1b5e20">a<tspan font-size="11" dy="4">3,2</tspan></text>
+<rect x="146" y="218" width="50" height="50" fill="#bbdefb" stroke="#1976d2" stroke-width="1.4"/>
+<text x="171" y="247" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="15" fill="#0d47a1">a<tspan font-size="11" dy="4">3,3</tspan></text>
+<rect x="196" y="218" width="50" height="50" fill="#fff59d" stroke="#f9a825" stroke-width="1.4"/>
+<text x="221" y="247" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="15" fill="#8d6e00">a<tspan font-size="11" dy="4">3,4</tspan></text>
+<rect x="246" y="218" width="50" height="50" fill="#fafafa" stroke="#e0e0e0" stroke-width="1"/>
+<text x="271" y="248" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="15" fill="#bdbdbd">0</text>
+<rect x="46" y="268" width="50" height="50" fill="#fafafa" stroke="#e0e0e0" stroke-width="1"/>
+<text x="71" y="298" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="15" fill="#bdbdbd">0</text>
+<rect x="96" y="268" width="50" height="50" fill="#fafafa" stroke="#e0e0e0" stroke-width="1"/>
+<text x="121" y="298" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="15" fill="#bdbdbd">0</text>
+<rect x="146" y="268" width="50" height="50" fill="#c8e6c9" stroke="#388e3c" stroke-width="1.4"/>
+<text x="171" y="297" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="15" fill="#1b5e20">a<tspan font-size="11" dy="4">4,3</tspan></text>
+<rect x="196" y="268" width="50" height="50" fill="#bbdefb" stroke="#1976d2" stroke-width="1.4"/>
+<text x="221" y="297" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="15" fill="#0d47a1">a<tspan font-size="11" dy="4">4,4</tspan></text>
+<rect x="246" y="268" width="50" height="50" fill="#fff59d" stroke="#f9a825" stroke-width="1.4"/>
+<text x="271" y="297" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="15" fill="#8d6e00">a<tspan font-size="11" dy="4">4,5</tspan></text>
+<rect x="46" y="318" width="50" height="50" fill="#fafafa" stroke="#e0e0e0" stroke-width="1"/>
+<text x="71" y="348" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="15" fill="#bdbdbd">0</text>
+<rect x="96" y="318" width="50" height="50" fill="#fafafa" stroke="#e0e0e0" stroke-width="1"/>
+<text x="121" y="348" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="15" fill="#bdbdbd">0</text>
+<rect x="146" y="318" width="50" height="50" fill="#fafafa" stroke="#e0e0e0" stroke-width="1"/>
+<text x="171" y="348" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="15" fill="#bdbdbd">0</text>
+<rect x="196" y="318" width="50" height="50" fill="#c8e6c9" stroke="#388e3c" stroke-width="1.4"/>
+<text x="221" y="347" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="15" fill="#1b5e20">a<tspan font-size="11" dy="4">5,4</tspan></text>
+<rect x="246" y="318" width="50" height="50" fill="#bbdefb" stroke="#1976d2" stroke-width="1.4"/>
+<text x="271" y="347" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="15" fill="#0d47a1">a<tspan font-size="11" dy="4">5,5</tspan></text>
+<line x1="312" y1="159" x2="410" y2="159" stroke="#f9a825" stroke-width="2"/>
+<polygon points="410,159 399,154 399,164" fill="#f9a825"/>
+<text x="420" y="132" font-family="Consolas, 'Courier New', monospace" font-size="13" fill="#8d6e00">upper[1...n-1]<tspan font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="12" fill="#757575">　上对角线（n−1 个）</tspan></text>
+<rect x="420" y="140" width="46" height="38" fill="#fff59d" stroke="#f9a825" stroke-width="1.2"/>
+<text x="443" y="163" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="14" fill="#8d6e00">a<tspan font-size="10" dy="3">1,2</tspan></text>
+<text x="443" y="193" text-anchor="middle" font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#757575">1</text>
+<rect x="466" y="140" width="46" height="38" fill="#fff59d" stroke="#f9a825" stroke-width="1.2"/>
+<text x="489" y="163" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="14" fill="#8d6e00">a<tspan font-size="10" dy="3">2,3</tspan></text>
+<text x="489" y="193" text-anchor="middle" font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#757575">2</text>
+<rect x="512" y="140" width="46" height="38" fill="#fff59d" stroke="#f9a825" stroke-width="1.2"/>
+<text x="535" y="163" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="14" fill="#8d6e00">a<tspan font-size="10" dy="3">3,4</tspan></text>
+<text x="535" y="193" text-anchor="middle" font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#757575">3</text>
+<rect x="558" y="140" width="46" height="38" fill="#fff59d" stroke="#f9a825" stroke-width="1.2"/>
+<text x="581" y="163" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="14" fill="#8d6e00">a<tspan font-size="10" dy="3">4,5</tspan></text>
+<text x="581" y="193" text-anchor="middle" font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#757575">4</text>
+<line x1="312" y1="262" x2="410" y2="262" stroke="#1976d2" stroke-width="2"/>
+<polygon points="410,262 399,257 399,267" fill="#1976d2"/>
+<text x="420" y="235" font-family="Consolas, 'Courier New', monospace" font-size="13" fill="#0d47a1">diag[1...n]<tspan font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="12" fill="#757575">　主对角线（n 个）</tspan></text>
+<rect x="420" y="243" width="46" height="38" fill="#bbdefb" stroke="#1976d2" stroke-width="1.2"/>
+<text x="443" y="266" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="14" fill="#0d47a1">a<tspan font-size="10" dy="3">1,1</tspan></text>
+<text x="443" y="296" text-anchor="middle" font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#757575">1</text>
+<rect x="466" y="243" width="46" height="38" fill="#bbdefb" stroke="#1976d2" stroke-width="1.2"/>
+<text x="489" y="266" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="14" fill="#0d47a1">a<tspan font-size="10" dy="3">2,2</tspan></text>
+<text x="489" y="296" text-anchor="middle" font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#757575">2</text>
+<rect x="512" y="243" width="46" height="38" fill="#bbdefb" stroke="#1976d2" stroke-width="1.2"/>
+<text x="535" y="266" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="14" fill="#0d47a1">a<tspan font-size="10" dy="3">3,3</tspan></text>
+<text x="535" y="296" text-anchor="middle" font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#757575">3</text>
+<rect x="558" y="243" width="46" height="38" fill="#bbdefb" stroke="#1976d2" stroke-width="1.2"/>
+<text x="581" y="266" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="14" fill="#0d47a1">a<tspan font-size="10" dy="3">4,4</tspan></text>
+<text x="581" y="296" text-anchor="middle" font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#757575">4</text>
+<rect x="604" y="243" width="46" height="38" fill="#bbdefb" stroke="#1976d2" stroke-width="1.2"/>
+<text x="627" y="266" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="14" fill="#0d47a1">a<tspan font-size="10" dy="3">5,5</tspan></text>
+<text x="627" y="296" text-anchor="middle" font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#757575">5</text>
+<line x1="312" y1="365" x2="410" y2="365" stroke="#388e3c" stroke-width="2"/>
+<polygon points="410,365 399,360 399,370" fill="#388e3c"/>
+<text x="420" y="338" font-family="Consolas, 'Courier New', monospace" font-size="13" fill="#1b5e20">lower[2...n]<tspan font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="12" fill="#757575">　下对角线（n−1 个）</tspan></text>
+<rect x="420" y="346" width="46" height="38" fill="#c8e6c9" stroke="#388e3c" stroke-width="1.2"/>
+<text x="443" y="369" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="14" fill="#1b5e20">a<tspan font-size="10" dy="3">2,1</tspan></text>
+<text x="443" y="399" text-anchor="middle" font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#757575">2</text>
+<rect x="466" y="346" width="46" height="38" fill="#c8e6c9" stroke="#388e3c" stroke-width="1.2"/>
+<text x="489" y="369" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="14" fill="#1b5e20">a<tspan font-size="10" dy="3">3,2</tspan></text>
+<text x="489" y="399" text-anchor="middle" font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#757575">3</text>
+<rect x="512" y="346" width="46" height="38" fill="#c8e6c9" stroke="#388e3c" stroke-width="1.2"/>
+<text x="535" y="369" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="14" fill="#1b5e20">a<tspan font-size="10" dy="3">4,3</tspan></text>
+<text x="535" y="399" text-anchor="middle" font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#757575">4</text>
+<rect x="558" y="346" width="46" height="38" fill="#c8e6c9" stroke="#388e3c" stroke-width="1.2"/>
+<text x="581" y="369" text-anchor="middle" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="14" fill="#1b5e20">a<tspan font-size="10" dy="3">5,4</tspan></text>
+<text x="581" y="399" text-anchor="middle" font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#757575">5</text>
+<rect x="46" y="432" width="668" height="84" rx="10" fill="#f8f9fa" stroke="#e0e0e0"/>
+<text x="66" y="462" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="13.5" fill="#263238">压缩后只需保存三条对角线：主对角线 n 个 + 上对角线 n−1 个 + 下对角线 n−1 个</text>
+<text x="66" y="494" font-family="Arial, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif" font-size="14" font-weight="bold" fill="#1976d2">n + (n − 1) + (n − 1) = 3n − 2<tspan font-weight="normal" font-size="13" fill="#263238">　个存储单元（普通二维数组要 n<tspan font-size="10" dy="-5">2</tspan><tspan dy="5"> 个）</tspan></tspan></text>
+</svg>

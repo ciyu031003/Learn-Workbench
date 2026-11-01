@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg version="1.1" width="495" height="114" viewBox="0 0 495 114"
+	xmlns="http://www.w3.org/2000/svg"
+	xmlns:xlink="http://www.w3.org/1999/xlink"
+	xml:space="preserve"
+><defs>
+	<style type="text/css">
+		text{
+			font-size: 13px;
+			font-family: Helvetica, Arial, sans-serif;
+			text-anchor: middle;
+		}
+		line{
+			fill: none;
+			stroke: #000;
+			stroke-width: 1.5;
+		}
+		.arrow{
+			marker-end: url(#arrowhead);
+		}
+		#boxes{
+			fill: #fff;
+			stroke: #000;
+			stroke-width: 1.5;
+		}
+	</style>
+	<marker id="arrowhead"
+		viewBox="0 0 10 10"
+		markerWidth="7"
+		markerHeight="7"
+		orient="auto"
+		refX="5"
+		refY="5">
+		<polygon points="0 0 2 5 0 10 10 5 0 0"/>
+	</marker>
+	<g id="boxes">
+		<rect width="84" height="33"/>
+		<line x1="28.5" x2="28.5" y2="33"/>
+		<line x1="56"   x2="56"   y2="33"/>
+	</g>
+</defs>
+
+<g id="left-nodes">
+	<use xlink:href="#boxes" x="75" y="15"/>
+	<text x="119.5" y="12">newNode</text>
+	<text x="117" y="36.5">B</text>
+
+	<use xlink:href="#boxes" x="20" y="65"/>
+	<text x="62.5" y="111">node</text>
+	<text x="61.72" y="86.5">A</text>
+
+	<use xlink:href="#boxes" x="132" y="65"/>
+	<text x="174.5" y="111">node.next</text>
+	<text x="174.72" y="86.5">C</text>
+</g>
+
+<g id="right-nodes">
+	<use xlink:href="#boxes" x="335" y="14"/>
+	<text x="378.5" y="11">newNode</text>
+	<text x="377" y="35.5">B</text>
+
+	<use xlink:href="#boxes" x="279" y="65"/>
+	<text x="321.5" y="110">node</text>
+	<text x="320.72" y="86.5">A</text>
+
+	<use xlink:href="#boxes" x="392" y="65"/>
+	<text x="433.72" y="86.5">C</text>
+</g>
+
+<g id="arrows">
+	<line class="arrow" x1="0"     y1="76.6" x2="13.5"  y2="76.6"/>
+	<line class="arrow" x1="30.5"  y1="88.6" x2="7.165" y2="88.6"/>
+	<line class="arrow" x1="93"    y1="76.6" x2="125.5" y2="76.6"/>
+	<line class="arrow" x1="143"   y1="88.6" x2="110.6" y2="88.6"/>
+	<line class="arrow" x1="205"   y1="76.6" x2="229.5" y2="76.6"/>
+	<line class="arrow" x1="235"   y1="87.6" x2="222.6" y2="87.6"/>
+	<line class="arrow" x1="260"   y1="75.6" x2="272.5" y2="75.6"/>
+	<line class="arrow" x1="291"   y1="87.6" x2="266.6" y2="87.6"/>
+	<line class="arrow" x1="343.5" y1="79"   x2="343.5" y2="53.7"/>
+	<line class="arrow" x1="354"   y1="36"   x2="354"   y2="57"/>
+	<line class="arrow" x1="400.5" y1="36"   x2="400.5" y2="58"/>
+	<line class="arrow" x1="411"   y1="80"   x2="411"   y2="53.7"/>
+	<line class="arrow" x1="464"   y1="75.6" x2="488"   y2="75.6"/>
+	<line class="arrow" x1="495"   y1="87.6" x2="482.5" y2="87.6"/>
+</g>
+</svg>

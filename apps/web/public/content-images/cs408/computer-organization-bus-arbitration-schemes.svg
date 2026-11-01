@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="600" viewBox="0 0 720 600" role="img" aria-label="三种集中式总线仲裁的连线对比：链式查询、计数器定时查询、独立请求">
+  <defs>
+    <marker id="ob" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b06a00"/>
+    </marker>
+    <marker id="bb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2b6cb0"/>
+    </marker>
+  </defs>
+  <style>
+    .b{fill:#fff;stroke:#2b2b2b;stroke-width:1.4}
+    .y{fill:#eef4fb;stroke:#2b2b2b;stroke-width:1.4}
+    .t{font:600 15px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .s{font:600 13.5px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .n{font:400 12px "Microsoft YaHei",system-ui,sans-serif;fill:#3f3f3f}
+    .og{font:600 12.5px "Microsoft YaHei",system-ui,sans-serif;fill:#b06a00}
+    .bl{font:600 12.5px "Microsoft YaHei",system-ui,sans-serif;fill:#2b6cb0}
+    .bg{stroke:#b06a00;stroke-width:2;fill:none}
+    .br{stroke:#2b6cb0;stroke-width:1.8;fill:none}
+    .ad{stroke:#8a8a8a;stroke-width:1.4;fill:none;stroke-dasharray:5 4}
+  </style>
+
+  <text class="t" x="18" y="28">三种集中式总线仲裁：线怎么连，优先级就怎么定</text>
+  <text class="n" x="18" y="50">橙 = 授权线 BG　蓝 = 请求线 BR　灰虚线 = 计数器查询的地址线</text>
+
+  <!-- ① 链式查询 -->
+  <text class="s" x="18" y="92">① 链式查询（菊花链）</text>
+  <text class="n" x="18" y="114">3 根线：BR、BG、BS</text>
+  <text class="n" x="18" y="134">BG 逐级传递，位置定优先级</text>
+  <text class="n" x="18" y="154">一处断路，后面全失联</text>
+  <rect class="y" x="260" y="76" width="120" height="44"/>
+  <text class="s" x="320" y="103" text-anchor="middle">仲裁器</text>
+  <rect class="b" x="260" y="134" width="120" height="32"/>
+  <text class="n" x="320" y="155" text-anchor="middle">设备 1</text>
+  <rect class="b" x="260" y="178" width="120" height="32"/>
+  <text class="n" x="320" y="199" text-anchor="middle">设备 2</text>
+  <path class="bg" marker-end="url(#ob)" d="M290 120 V134"/>
+  <path class="bg" marker-end="url(#ob)" d="M290 166 V178"/>
+  <path class="bg" marker-end="url(#ob)" d="M290 210 V220"/>
+  <path class="br" marker-end="url(#bb)" d="M380 98 H430 V194 H380"/>
+  <path class="br" marker-end="url(#bb)" d="M430 150 H380"/>
+  <text class="og" x="300" y="131">BG</text>
+  <text class="bl" x="436" y="124">BR</text>
+
+  <!-- ② 计数器定时查询 -->
+  <text class="s" x="18" y="252">② 计数器定时查询</text>
+  <text class="n" x="18" y="274">计数器经地址线逐个点名</text>
+  <text class="n" x="18" y="294">初值可编程：固定 0 或接着上次</text>
+  <text class="n" x="18" y="314">线数约 ⌈log₂n⌉+2</text>
+  <rect class="y" x="260" y="242" width="120" height="50"/>
+  <text class="s" x="320" y="264" text-anchor="middle">仲裁器</text>
+  <text class="n" x="320" y="283" text-anchor="middle">计数器</text>
+  <rect class="b" x="260" y="308" width="120" height="32"/>
+  <text class="n" x="320" y="329" text-anchor="middle">设备 1</text>
+  <rect class="b" x="260" y="354" width="120" height="32"/>
+  <text class="n" x="320" y="375" text-anchor="middle">设备 2</text>
+  <path class="ad" d="M240 292 V380"/>
+  <path class="ad" d="M240 324 H260"/>
+  <path class="ad" d="M240 370 H260"/>
+  <path class="br" marker-end="url(#bb)" d="M380 324 H426 V246 H380"/>
+  <path class="br" marker-end="url(#bb)" d="M380 370 H446 V256 H380"/>
+  <text class="bl" x="430" y="252">BR₁</text>
+  <text class="bl" x="452" y="286">BR₂</text>
+  <text class="n" x="240" y="400" text-anchor="middle">地址线（共用）</text>
+
+  <!-- ③ 独立请求 -->
+  <text class="s" x="18" y="436">③ 独立请求</text>
+  <text class="n" x="18" y="458">每个设备一对 BRᵢ / BGᵢ</text>
+  <text class="n" x="18" y="478">共 2n 根线，一步判定</text>
+  <text class="n" x="18" y="498">最快，但线最多</text>
+  <rect class="y" x="260" y="426" width="160" height="50"/>
+  <text class="s" x="340" y="448" text-anchor="middle">仲裁器</text>
+  <text class="n" x="340" y="467" text-anchor="middle">优先级编码器</text>
+  <rect class="b" x="190" y="496" width="130" height="32"/>
+  <text class="n" x="255" y="517" text-anchor="middle">设备 1</text>
+  <rect class="b" x="390" y="496" width="130" height="32"/>
+  <text class="n" x="455" y="517" text-anchor="middle">设备 2</text>
+  <path class="bg" marker-end="url(#ob)" d="M270 476 V496"/>
+  <path class="br" marker-end="url(#bb)" d="M310 476 V496"/>
+  <path class="br" marker-end="url(#bb)" d="M400 476 V496"/>
+  <path class="bg" marker-end="url(#ob)" d="M420 476 V482 H490 V496"/>
+  <text class="og" x="266" y="492" text-anchor="end">BG₁</text>
+  <text class="bl" x="316" y="492">BR₁</text>
+  <text class="bl" x="406" y="492">BR₂</text>
+  <text class="og" x="496" y="492">BG₂</text>
+
+  <text class="n" x="18" y="550">线数：3 ／ ⌈log₂n⌉+2 ／ 2n</text>
+  <text class="n" x="18" y="570">速度：最慢 ／ 中等 ／ 最快</text>
+  <text class="n" x="18" y="590">优先级：位置固定 ／ 可编程 ／ 可编程</text>
+</svg>

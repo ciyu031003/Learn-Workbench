@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="440" viewBox="0 0 760 440" role="img" aria-label="四种 I/O 控制方式的对比：程序查询、程序中断、DMA、通道，看 CPU 被占用了多少">
+  <style>
+    .b{fill:#fff;stroke:#2b2b2b;stroke-width:1.3}
+    .y{fill:#eef4fb;stroke:#2b2b2b;stroke-width:1.3}
+    .k{fill:#2b2b2b;stroke:#2b2b2b;stroke-width:1}
+    .m{fill:#8eacc8;stroke:#2b2b2b;stroke-width:1}
+    .t{font:600 13.5px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .s{font:600 12.5px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .n{font:400 11.5px "Microsoft YaHei",system-ui,sans-serif;fill:#3f3f3f}
+    .w{font:400 11.5px "Microsoft YaHei",system-ui,sans-serif;fill:#ffffff}
+    .l{stroke:#2b2b2b;stroke-width:1.2;fill:none}
+  </style>
+
+  <text class="t" x="18" y="26">四种 I/O 控制方式：CPU 被占用了多少，是它们最本质的区别</text>
+  <text class="n" x="18" y="48">深色 = CPU 在忙碌；浅色 = CPU 可以去干别的（设备自己在传数据）</text>
+
+  <!-- 程序查询 -->
+  <text class="s" x="18" y="88">程序查询</text>
+  <rect class="y" x="150" y="66" width="540" height="34"/>
+  <rect class="k" x="150" y="66" width="540" height="34"/>
+  <text class="w" x="172" y="89">CPU 反复查设备状态、自己搬数据 —— 全程被占住，一步也走不开</text>
+
+  <!-- 程序中断 -->
+  <text class="s" x="18" y="168">程序中断</text>
+  <rect class="y" x="150" y="146" width="540" height="34"/>
+  <rect class="k" x="150" y="146" width="16" height="34"/>
+  <rect class="k" x="196" y="146" width="16" height="34"/>
+  <rect class="k" x="242" y="146" width="16" height="34"/>
+  <rect class="k" x="288" y="146" width="16" height="34"/>
+  <rect class="k" x="334" y="146" width="16" height="34"/>
+  <rect class="k" x="380" y="146" width="16" height="34"/>
+  <rect class="k" x="426" y="146" width="16" height="34"/>
+  <rect class="k" x="472" y="146" width="16" height="34"/>
+  <rect class="k" x="518" y="146" width="16" height="34"/>
+  <rect class="k" x="564" y="146" width="16" height="34"/>
+  <text class="n" x="600" y="168">每字节一次中断</text>
+
+  <!-- DMA -->
+  <text class="s" x="18" y="248">DMA</text>
+  <rect class="y" x="150" y="226" width="540" height="34"/>
+  <rect class="k" x="150" y="226" width="26" height="34"/>
+  <rect class="m" x="176" y="226" width="488" height="34"/>
+  <rect class="k" x="664" y="226" width="26" height="34"/>
+  <text class="w" x="230" y="248">DMAC 直接在主存与外设之间搬（CPU 让出总线，不参与搬运）</text>
+  <text class="n" x="150" y="276">↑初始化（CPU 干活）</text>
+  <text class="n" x="620" y="276">↑结束后中断一次</text>
+
+  <!-- 通道 -->
+  <text class="s" x="18" y="328">通道</text>
+  <rect class="y" x="150" y="306" width="540" height="34"/>
+  <rect class="k" x="150" y="306" width="26" height="34"/>
+  <rect class="m" x="176" y="306" width="514" height="34"/>
+  <text class="w" x="230" y="328">通道自己执行通道程序，成组地控制多台设备（CPU 只发一条启动指令）</text>
+
+  <!-- 结论 -->
+  <text class="n" x="18" y="368">传送单位：程序查询与中断是「一个字节」一次；DMA 是「一个数据块」；通道是「一组数据块」（一条通道程序可管多台设备）</text>
+  <text class="n" x="18" y="390">区别的关键：DMA 只是硬件（没有指令系统，不能执行程序）；通道是「专门的 I/O 处理机」，能执行通道程序，所以更能解放 CPU</text>
+  <text class="n" x="18" y="412">顺序：程序查询 → 程序中断 → DMA → 通道，CPU 的介入越来越少、并行度越来越高，硬件也越来越贵</text>
+  <text class="n" x="18" y="434">易混：中断方式是「设备主动通知 CPU」，DMA 是「设备直接与主存换数据」，两者都需要中断来做收尾</text>
+</svg>

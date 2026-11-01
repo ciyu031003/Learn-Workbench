@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="420" viewBox="0 0 760 420" role="img" aria-label="进程通信的三种主要方式：共享存储、消息传递、管道，以及数据流经哪里">
+  <style>
+    .b{fill:#fff;stroke:#2b2b2b;stroke-width:1.4}
+    .y{fill:#eef4fb;stroke:#2b2b2b;stroke-width:1.5}
+    .g{fill:#f3f7f1;stroke:#2b2b2b;stroke-width:1.3}
+    .t{font:600 13.5px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .s{font:600 12.5px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .n{font:400 11.5px "Microsoft YaHei",system-ui,sans-serif;fill:#3f3f3f}
+    .l{stroke:#2b2b2b;stroke-width:1.4;fill:none}
+    .o{stroke:#b06a00;stroke-width:1.6;fill:none}
+    .d{stroke:#9a9a9a;stroke-width:1;stroke-dasharray:5 4;fill:none}
+  </style>
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#2b2b2b"/></marker>
+    <marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b06a00"/></marker>
+  </defs>
+
+  <text class="t" x="18" y="26">三种进程通信方式：数据到底经过哪里 —— 这是区分它们的关键</text>
+
+  <!-- 共享存储 -->
+  <text class="s" x="18" y="60">共享存储</text>
+  <rect class="b" x="120" y="44" width="96" height="40" rx="3"/>
+  <text class="n" x="150" y="69">进程 A</text>
+  <rect class="y" x="290" y="40" width="180" height="48" rx="3"/>
+  <text class="s" x="308" y="62">共享内存区</text>
+  <text class="n" x="308" y="80">一块物理内存，两进程共享</text>
+  <rect class="b" x="544" y="44" width="96" height="40" rx="3"/>
+  <text class="n" x="574" y="69">进程 B</text>
+  <path class="o" d="M220 60 L286 60" marker-end="url(#ao)"/>
+  <path class="o" d="M470 76 L544 76" marker-end="url(#ao)"/>
+  <text class="n" x="654" y="56">最快（不需要</text>
+  <text class="n" x="654" y="72">内核搬数据）</text>
+
+  <!-- 消息传递 -->
+  <text class="s" x="18" y="150">消息传递</text>
+  <rect class="b" x="120" y="134" width="96" height="40" rx="3"/>
+  <text class="n" x="150" y="159">进程 A</text>
+  <rect class="g" x="290" y="130" width="180" height="48" rx="3"/>
+  <text class="s" x="308" y="152">内核消息队列</text>
+  <text class="n" x="308" y="170">send / receive，可跨主机</text>
+  <rect class="b" x="544" y="134" width="96" height="40" rx="3"/>
+  <text class="n" x="574" y="159">进程 B</text>
+  <path class="o" d="M220 150 L286 150" marker-end="url(#ao)"/>
+  <path class="o" d="M470 166 L544 166" marker-end="url(#ao)"/>
+  <text class="n" x="654" y="146">数据要经过</text>
+  <text class="n" x="654" y="162">内核复制</text>
+
+  <!-- 管道 -->
+  <text class="s" x="18" y="240">管道</text>
+  <rect class="b" x="120" y="224" width="96" height="40" rx="3"/>
+  <text class="n" x="150" y="249">进程 A</text>
+  <rect class="g" x="290" y="220" width="180" height="48" rx="3"/>
+  <text class="s" x="308" y="242">内核管道缓冲区</text>
+  <text class="n" x="308" y="260">先进先出的字节流</text>
+  <rect class="b" x="544" y="224" width="96" height="40" rx="3"/>
+  <text class="n" x="574" y="249">进程 B</text>
+  <path class="o" d="M220 240 L286 240" marker-end="url(#ao)"/>
+  <path class="o" d="M470 254 L544 254" marker-end="url(#ao)"/>
+  <text class="n" x="654" y="236">单向、半双工</text>
+  <text class="n" x="654" y="252">需读端写端配对</text>
+
+  <path class="d" d="M270 92 L270 132"/>
+  <path class="d" d="M270 182 L270 218"/>
+  <text class="n" x="274" y="116">三种都是「显式」通信</text>
+
+  <!-- 结论 -->
+  <text class="n" x="18" y="300">共享存储最快：进程直接用 load/store 读写，一次通信不需要内核参与（但读写本身要自己做同步，否则会读到半成品）</text>
+  <text class="n" x="18" y="322">消息传递最通用：数据要经过内核复制（所以比共享存储慢），好处是天然支持「不同机器上的进程」、也天然解决同步</text>
+  <text class="n" x="18" y="344">管道是消息传递的特例：内核里一段先进先出的缓冲区、只能单向；普通管道限于有亲缘关系的进程，命名管道才能跨无关进程</text>
+  <text class="n" x="18" y="366">信号不是「传数据」而是「通知发生了某件事」（不带数据体，只带信号编号），所以别把它当通信通道用</text>
+  <text class="n" x="18" y="388">socket 是唯一能跨主机的：它把「消息传递」延伸到网络上，本地也能用（回环地址）</text>
+  <text class="n" x="18" y="410">一句话记取舍：要快 → 共享存储；要通用 / 跨机器 → 消息传递；要简单的单向数据流 → 管道</text>
+</svg>

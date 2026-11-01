@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="420" viewBox="0 0 760 420" role="img" aria-label="虚拟内存的地址转换与缺页处理流程：逻辑地址先查 TLB，未命中查页表，页不在内存则缺页中断调页，最后形成物理地址">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2b2b2b"/>
+    </marker>
+  </defs>
+  <style>
+    .t{font:600 15px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .s{font:600 12px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .n{font:400 11.5px "Microsoft YaHei",system-ui,sans-serif;fill:#3f3f3f}
+    .q{font:600 11.5px "Microsoft YaHei",system-ui,sans-serif;fill:#1d1d1d}
+    .box{fill:#eef4fb;stroke:#2b2b2b;stroke-width:1.4}
+    .pg{fill:#fde3c8;stroke:#b06a00;stroke-width:1.4}
+    .pf{fill:#fbe0e0;stroke:#b23a3a;stroke-width:1.4}
+    .dm{fill:#fff;stroke:#2b2b2b;stroke-width:1.3}
+    .ar{stroke:#2b2b2b;stroke-width:1.5;fill:none}
+    .yn{font:600 10.5px "Microsoft YaHei",system-ui,sans-serif;fill:#b06a00}
+  </style>
+
+  <text class="t" x="18" y="26">虚拟内存的地址转换：TLB → 页表 → 缺页处理</text>
+  <text class="n" x="18" y="46">逻辑地址 = 页号 + 页内偏移；页号查 TLB/页表换成帧号，偏移不变，拼成物理地址</text>
+
+  <!-- 逻辑地址 -->
+  <rect class="box" x="60" y="70" width="220" height="44" rx="7"/>
+  <text class="s" x="170" y="97" text-anchor="middle">逻辑地址：页号 P + 页内偏移 W</text>
+
+  <!-- TLB -->
+  <polygon class="dm" points="170,114 240,140 170,166 100,140"/>
+  <text class="q" x="170" y="144" text-anchor="middle">TLB 命中？</text>
+
+  <!-- 页表 -->
+  <rect class="pg" x="60" y="210" width="220" height="44" rx="7"/>
+  <text class="s" x="170" y="230" text-anchor="middle">查页表</text>
+  <text class="n" x="170" y="247" text-anchor="middle">页表项 = 帧号 + 有效位</text>
+
+  <!-- 在内存 -->
+  <polygon class="dm" points="170,254 240,280 170,306 100,280"/>
+  <text class="q" x="170" y="284" text-anchor="middle">页在内存？</text>
+
+  <!-- 缺页处理 -->
+  <rect class="pf" x="60" y="332" width="220" height="44" rx="7"/>
+  <text class="s" x="170" y="352" text-anchor="middle">缺页中断</text>
+  <text class="n" x="170" y="369" text-anchor="middle">调页（内存满则置换）→ 更新页表</text>
+
+  <!-- 物理地址 / 更新 TLB -->
+  <rect class="box" x="400" y="188" width="300" height="44" rx="7"/>
+  <text class="s" x="550" y="215" text-anchor="middle">物理地址 = 帧号 + 页内偏移 W</text>
+  <rect class="box" x="400" y="266" width="300" height="44" rx="7"/>
+  <text class="s" x="550" y="293" text-anchor="middle">更新 TLB（快表）</text>
+
+  <!-- 连线 -->
+  <path class="ar" d="M170 166 V210" marker-end="url(#a)"/>
+  <text class="yn" x="178" y="194">否</text>
+
+  <path class="ar" d="M240 140 H360 V210 H400" marker-end="url(#a)"/>
+  <text class="yn" x="292" y="133">是（1 次访存）</text>
+
+  <path class="ar" d="M170 306 V332" marker-end="url(#a)"/>
+  <text class="yn" x="178" y="324">否（缺页）</text>
+
+  <path class="ar" d="M240 280 H360 V288 H400" marker-end="url(#a)"/>
+  <text class="yn" x="292" y="273">是</text>
+
+  <path class="ar" d="M550 266 V232" marker-end="url(#a)"/>
+
+  <path class="ar" d="M60 354 H30 V92 H60" marker-end="url(#a)"/>
+  <text class="n" x="24" y="230" transform="rotate(-90 24 230)">处理完重新执行该指令</text>
+
+  <!-- 说明 -->
+  <text class="n" x="18" y="400">TLB 命中只需 1 次访存；TLB 缺失要再查页表（多 1 次访存）；缺页则要读磁盘、可能还要置换，代价高几个数量级。</text>
+  <text class="n" x="18" y="418">地址转换只换"页号→帧号"，页内偏移 W 一个字节都不变——这是 EAT 与地址计算题的共同前提。</text>
+</svg>
