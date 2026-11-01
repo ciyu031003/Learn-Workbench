@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   StyleSheet,
@@ -9,6 +9,7 @@ import { router, useFocusEffect } from "expo-router";
 import Animated from "react-native-reanimated";
 import type { LearningTrack } from "@learn-workbench/content/types";
 import { useLearningTrack } from "@/lib/content-store";
+import { recordCrumb } from "@/lib/crash-capture";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
@@ -148,6 +149,7 @@ function Exam408Content({ track }: { track: LearningTrack }) {
   };
 
   const openPoint = (key: string) => {
+    recordCrumb("408-point-tap", { key });
     setPendingPointKey(key);
     setChapterSheetOpen(false);
   };
@@ -157,6 +159,7 @@ function Exam408Content({ track }: { track: LearningTrack }) {
     setChapterSheetSnapshot(null);
     setPendingPointKey("");
     if (!pointKey) return;
+    recordCrumb("408-point-close", { key: pointKey });
     // 字符串 href（而非 {pathname, params} 对象形式）：对象形式在 native-stack 重复
     // 推入同名路由时 params 会冻结在首次值 → 点开任何章节都显示第一次的知识点（v1.50 修复）
     // v1.51 勘误：两种 href 经 resolveHref 归一后是同一个 URL，params 冻结依旧
@@ -733,6 +736,16 @@ function GradLessonEntry({ subject }: { subject: Exam408SubjectSummary }) {
   const gradTrack = useLearningTrack("ex-408-grad");
   const gradStageKey = exam408GradStageForSubject(subject.key);
   const gradStage = gradTrack?.stages.find((stage) => stage.key === gradStageKey);
+  // v1.53.1 诊断：入口卡渲染条件与真机可见性存疑（用户反馈未看到），面包屑留证
+  useEffect(() => {
+    recordCrumb("408-lesson-entry", {
+      subject: subject.key,
+      gradStageKey: gradStageKey ?? "(null)",
+      gradStageFound: Boolean(gradStage),
+      topics: gradStage?.topics.length ?? 0,
+      rendered: Boolean(gradStage && gradStage.topics.length > 0),
+    });
+  }, [subject.key, gradStageKey, gradStage?.topics.length, gradStage]);
   if (!gradStage || gradStage.topics.length === 0) return null;
   const tone = subjectTone(subject, dark);
 

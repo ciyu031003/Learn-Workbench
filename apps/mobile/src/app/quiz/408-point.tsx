@@ -1,6 +1,11 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
-import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import {
+  router,
+  useFocusEffect,
+  useLocalSearchParams,
+  useNavigation,
+} from "expo-router";
 import Animated from "react-native-reanimated";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
@@ -8,6 +13,7 @@ import { Exam408QuestionCard } from "@/components/exam-408-question-card";
 import { ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { getExam408Point, type Exam408PointDetail } from "@/lib/exam-408";
 import { takeNavPendingParams } from "@/lib/nav-pending";
+import { recordCrumb } from "@/lib/crash-capture";
 import { useScreenEntrance } from "@/lib/use-screen-entrance";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
@@ -26,6 +32,7 @@ function PointContent({ pointKey }: { pointKey: string }) {
   const header = useLargeTitleHeader();
   const tabBarSpace = useTabBarSpace();
   const entrance = useScreenEntrance();
+  const navigation = useNavigation();
   const [detail, setDetail] = useState<Exam408PointDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -34,18 +41,28 @@ function PointContent({ pointKey }: { pointKey: string }) {
    * 回调身份，聚焦态下身份变化会立即重跑回调 → 每次聚焦多发一次请求）。
    */
   const activeKeyRef = useRef("");
+  /** 双通道去抖：同一 key 的两次紧邻触发（focus + params effect）只发一次请求 */
+  const lastLoadRef = useRef({ key: "", at: 0 });
 
   const load = useCallback(async () => {
     // v1.51 修复「点开所有知识点都是同一套题」：expo-router 在 native 上重复推入
-    // 同名路由时实例 params 冻结在首次值（真机取证 2026-11-01：连续打开 4 个
-    // 不同科目的知识点，5 次请求的 key 全部是第一次的 ds-03-02）。跳转方把目标
-    // key 写入场外通道（nav-pending），这里每次聚焦优先消费它；
-    // ref 里是本实例上次实际加载的 key（失败重试不再回落到冻结 params）；
+    // 同名路由时实例 params 冻结在首次值。跳转方把目标 key 写入场外通道
+    // （nav-pending），这里优先消费它；ref 里是本实例上次实际加载的 key；
     // params 只作深链/状态恢复的兜底。
-    const key =
-      takeNavPendingParams("quiz-408-point")?.key ||
-      activeKeyRef.current ||
-      pointKey;
+    const pendingKey = takeNavPendingParams("quiz-408-point")?.key ?? "";
+    const key = pendingKey || activeKeyRef.current || pointKey;
+    // v1.53.1 诊断：真机上该修复未生效（14:44 后点击知识点零请求），面包屑留证
+    recordCrumb("408-point-load", {
+      pending: pendingKey,
+      active: activeKeyRef.current,
+      param: pointKey,
+      resolved: key,
+    });
+    const now = Date.now();
+    if (key === lastLoadRef.current.key && now - lastLoadRef.current.at < 500) {
+      return;
+    }
+    lastLoadRef.current = { key, at: now };
     activeKeyRef.current = key;
     setLoading(true);
     setError("");
@@ -63,6 +80,27 @@ function PointContent({ pointKey }: { pointKey: string }) {
       void load();
     }, [load])
   );
+
+  // v1.53.1 双通道消费：params 若被路由器更新（非冻结路径），pointKey 变化时
+  // useFocusEffect 的 load 身份变化会自动重跑；这里显式兜一层 params effect。
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pointKey]);
+
+  // v1.53.1 诊断：focus/blur 事件是否在真机上正常投递（「后续点击零请求」的头号嫌疑）
+  useEffect(() => {
+    const offFocus = navigation.addListener("focus", () => {
+      recordCrumb("408-point-focus", {});
+    });
+    const offBlur = navigation.addListener("blur", () => {
+      recordCrumb("408-point-blur", {});
+    });
+    return () => {
+      offFocus();
+      offBlur();
+    };
+  }, [navigation]);
 
   if (loading) {
     return (
