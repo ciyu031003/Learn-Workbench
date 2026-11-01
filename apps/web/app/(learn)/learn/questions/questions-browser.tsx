@@ -20,7 +20,7 @@ import { useWindowedList } from "@/lib/use-windowed-list";
 import { windowLabel } from "@/lib/windowed-list";
 
 const LEVEL_LABEL: Record<string, string> = { 入门: "入门级", 进阶: "进阶级", 综合: "综合级" };
-import { ArrowLeft, CheckCircle2, Eye, EyeOff, ListChecks, Search } from "lucide-react";
+import { CheckCircle2, Eye, EyeOff, Home, ListChecks, Search } from "lucide-react";
 
 const ALL = "__all__";
 
@@ -113,11 +113,31 @@ export default function QuestionsBrowser({ items }: { items: LearningQuestionIte
     : null;
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-5 sm:p-7">
+    <div className="mx-auto flex w-full max-w-[1700px] flex-col gap-5 p-5 sm:p-7 2xl:max-w-[1800px]">
+      {/* P9 版心：任务给 1700；1920 视口再放宽到 1800（左右各 60px，与全站 P9 口径一致） */}
       <header className="flex flex-col gap-3">
-        <Link href="/learn" className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline">
-          <ArrowLeft className="size-4" /> 返回技术课程
-        </Link>
+        {/* P9：题库页的返回入口统一成一条导航，工作台是登录后的首页，做成主色描边按钮更显眼 */}
+        <nav aria-label="题库导航" className="flex flex-wrap items-center gap-2 text-sm">
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-primary/45 bg-primary/5 px-3 py-1.5 font-semibold text-primary shadow-sm transition-colors hover:border-primary/70 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+          >
+            <Home className="size-4" /> 返回工作台
+          </Link>
+          <span className="text-muted-foreground/60">/</span>
+          <Link href="/learn" className="font-medium text-muted-foreground transition-colors hover:text-foreground hover:underline">
+            技术课程
+          </Link>
+          <span className="text-muted-foreground/60">/</span>
+          <Link
+            href="/learn/408/study"
+            className="font-medium text-muted-foreground transition-colors hover:text-foreground hover:underline"
+          >
+            知识精读
+          </Link>
+          <span className="text-muted-foreground/60">/</span>
+          <span className="font-medium text-foreground">题库总览</span>
+        </nav>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
@@ -140,7 +160,22 @@ export default function QuestionsBrowser({ items }: { items: LearningQuestionIte
         </div>
       </header>
 
-      <section className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card/40 p-4">
+      <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
+      <aside className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card/40 p-4 lg:sticky lg:top-4 lg:col-start-2 lg:row-start-1">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold">筛选</h2>
+          {(filters.track || filters.topic || filters.tag || filters.source || filters.type || filters.difficulty) ? (
+            <button
+              type="button"
+              className="text-xs font-medium text-primary hover:underline"
+              onClick={() =>
+                set({ track: null, stage: null, topic: null, type: null, difficulty: null, level: null, tag: null, source: null })
+              }
+            >
+              清除筛选
+            </button>
+          ) : null}
+        </div>
         <FilterRow
           label="课程"
           options={facets.tracks.map((facet) => ({ key: facet.key, label: facet.label, count: facet.count }))}
@@ -199,30 +234,20 @@ export default function QuestionsBrowser({ items }: { items: LearningQuestionIte
           value={filters.tag ?? ALL}
           onChange={(value) => set({ tag: value === ALL ? null : value })}
         />
-      </section>
+      </aside>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
-        <span>
-          命中 <span className="font-semibold text-foreground">{statusVisible.length}</span> 道
-          {activeTopicTitle ? ` · 知识点「${activeTopicTitle}」` : ""}
-        </span>
-        {(filters.track || filters.topic || filters.tag || filters.source || filters.type || filters.difficulty) ? (
-          <button
-            type="button"
-            className="text-xs font-medium text-primary hover:underline"
-            onClick={() =>
-              set({ track: null, stage: null, topic: null, type: null, difficulty: null, level: null, tag: null, source: null })
-            }
-          >
-            清除筛选
-          </button>
-        ) : null}
-      </div>
+      <div className="flex min-w-0 flex-col gap-4 lg:col-start-1 lg:row-start-1">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
+          <span>
+            命中 <span className="font-semibold text-foreground">{statusVisible.length}</span> 道
+            {activeTopicTitle ? ` · 知识点「${activeTopicTitle}」` : ""}
+          </span>
+        </div>
 
       {windowTotal === 0 ? (
         <EmptyState icon={Search} title="没有匹配的题目" hint="换个关键词，或清除筛选条件再试。" />
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="grid gap-3 2xl:grid-cols-2">
           {pageItems.map((item) => (
             <div
               key={item.key}
@@ -232,7 +257,7 @@ export default function QuestionsBrowser({ items }: { items: LearningQuestionIte
               <QuestionCard item={item} status={statusOf(item.key)} />
             </div>
           ))}
-          <div className="flex flex-col items-center gap-2 py-2">
+          <div className="col-span-full flex flex-col items-center gap-2 py-2">
             <p className="text-center text-xs text-muted-foreground">{windowLabel(shown, windowTotal, "道")}</p>
             {hasMore ? (
               <button
@@ -246,6 +271,8 @@ export default function QuestionsBrowser({ items }: { items: LearningQuestionIte
           </div>
         </div>
       )}
+      </div>
+      </div>
     </div>
   );
 }

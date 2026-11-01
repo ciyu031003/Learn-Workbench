@@ -32,7 +32,7 @@ export default async function Exam408StudyPage({
   const readingHours = Math.max(1, Math.round(readingMinutes / 60));
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-4 sm:p-7">
+    <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-5 p-4 sm:p-7 2xl:max-w-[1800px]">
       <nav className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
         <Link href="/learn" className="inline-flex items-center gap-1 hover:text-foreground">
           <ArrowLeft className="size-3.5" /> 技术课程
@@ -120,7 +120,7 @@ export default async function Exam408StudyPage({
                       </h3>
                       <span className="text-[11px] text-muted-foreground">{chapter.topics.length} 篇</span>
                     </div>
-                    <div className="mt-3 grid gap-2 md:grid-cols-2">
+                    <div className="mt-3 grid gap-2 md:grid-cols-2 2xl:grid-cols-3">
                       {chapter.topics.map((topic) => (
                         <Link
                           key={topic.slug}

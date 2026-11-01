@@ -40,7 +40,7 @@ export function Exam408Hub({ overview }: { overview: Exam408Overview }) {
   const papers = useMemo(() => [...overview.papers].sort((a, b) => b.year - a.year), [overview.papers]);
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 p-4 sm:p-7">
+    <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-5 p-4 sm:p-7 2xl:max-w-[1800px]">
       <nav className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <Link href="/learn" className="inline-flex items-center gap-1 hover:text-foreground">
           <ArrowLeft className="size-3.5" /> 技术课程
@@ -174,7 +174,7 @@ export function Exam408Hub({ overview }: { overview: Exam408Overview }) {
             </div>
             <Badge variant="muted">{papers.length} 套</Badge>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
             {papers.map((paper) => (
               <Link
                 key={paper.year}
@@ -283,7 +283,7 @@ function SubjectChapters({
         <span className="text-xs text-muted-foreground">点击章节查看知识点清单</span>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
         {subject.chapters.map((chapter) => {
           const preview = chapter.points.slice(0, 4).map((point) => point.title);
           return (

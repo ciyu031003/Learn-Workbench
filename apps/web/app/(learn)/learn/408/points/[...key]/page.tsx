@@ -89,7 +89,7 @@ export default async function Exam408PointPage({
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-4 sm:p-7">
+    <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-5 p-4 sm:p-7 2xl:max-w-[1800px]">
       <nav className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
         <Link href="/learn" className="hover:text-foreground">技术课程</Link>
         <span>/</span>
@@ -130,7 +130,7 @@ export default async function Exam408PointPage({
               <ScrollText className="size-4 text-primary" />
               知识点正文
             </h2>
-            <div className="flex flex-col gap-2.5">
+            <div className="mx-auto flex w-full max-w-[820px] flex-col gap-2.5">
               {detail.point.body.map((paragraph, index) => (
                 <p
                   key={index}

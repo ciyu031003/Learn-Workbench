@@ -78,7 +78,7 @@ export default function LearnLibrary({ tracks }: { tracks: LearningTrack[] }) {
   }, [query, tracks]);
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-5 sm:p-7">
+    <div className="mx-auto flex w-full max-w-[1700px] flex-col gap-6 p-5 sm:p-7 2xl:max-w-[1800px]">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
@@ -207,7 +207,7 @@ export default function LearnLibrary({ tracks }: { tracks: LearningTrack[] }) {
           hint="试试 Python、Java、JavaScript、Linux 或 AI 工程。"
         />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {visible.map((track) => {
             const stats = trackStats(track);
             const isExam408 = track.slug === "ex-408-grad";

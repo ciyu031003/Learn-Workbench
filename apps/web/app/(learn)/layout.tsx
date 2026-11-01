@@ -23,7 +23,7 @@ export default function LearnGroupLayout({ children }: { children: React.ReactNo
           </Link>
         </nav>
       </header>
-      <main className="mx-auto max-w-5xl px-4 pb-16">{children}</main>
+      <main className="mx-auto w-full max-w-[1880px] px-3 pb-16 sm:px-5 2xl:px-2">{children}</main>
     </div>
   );
 }

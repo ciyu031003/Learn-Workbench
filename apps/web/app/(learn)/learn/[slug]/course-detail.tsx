@@ -129,7 +129,7 @@ export default function CourseDetail({ track }: { track: LearningTrack }) {
   const stats = trackStats(track);
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-5 sm:p-7">
+    <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-5 p-5 sm:p-7">
       <nav className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <Link href="/learn" className="hover:text-foreground">技术课程</Link>
         <span>/</span>
@@ -448,7 +448,7 @@ function TopicCard({
         <ReadBadge progress={library.read.get(pointKey)} />
         <Badge variant="muted" className="shrink-0">{questions.length} 题</Badge>
       </summary>
-      <div className="flex flex-col gap-3 border-t border-border/50 p-3">
+      <div className="flex flex-col gap-3 border-t border-border/50 p-3 2xl:max-w-[900px]">
         <div className="flex flex-wrap gap-1.5">
           {topic.concepts.map((concept) => (
             <Badge key={concept} variant="outline">{concept}</Badge>

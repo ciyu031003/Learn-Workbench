@@ -54,7 +54,7 @@ export function AppShell({ children, shellData }: { children: React.ReactNode; s
       <MobileTopBar date={date} downloadUrl={shellData.downloadUrl} />
 
       <main className="app-main relative z-0 min-h-screen">
-        <div className="mx-auto max-w-[1440px] px-4 py-6 lg:px-8 lg:py-10">{children}</div>
+        <div className="mx-auto max-w-[1760px] px-4 py-6 lg:px-8 lg:py-10">{children}</div>
       </main>
 
       {/* 移动端底部导航（毛玻璃，5 入口） */}

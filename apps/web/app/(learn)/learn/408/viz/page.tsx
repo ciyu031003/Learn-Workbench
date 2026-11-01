@@ -18,7 +18,7 @@ export default async function Exam408VizPage() {
   const totalSteps = demos.reduce((sum, demo) => sum + demo.stepsCount, 0);
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 p-4 sm:p-7">
+    <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-5 p-4 sm:p-7 2xl:max-w-[1800px]">
       <nav className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
         <Link href="/learn" className="hover:text-foreground">技术课程</Link>
         <span>/</span>
@@ -62,7 +62,7 @@ export default async function Exam408VizPage() {
               <h2 className="text-lg font-semibold">{group.label}</h2>
               <span className="text-xs text-muted-foreground">{group.demos.length} 个演示</span>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
               {group.demos.map((demo) => (
                 <Link
                   key={demo.key}
