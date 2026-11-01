@@ -358,6 +358,11 @@ CREATE TABLE background_images (
   width      int,
   height     int,
   md5_hash   text,
+  -- 090：Bing 图片直接入库（P10 Node 爬虫重做；路由优先读库，不再依赖文件系统）
+  copyright   text,
+  image_data  bytea,
+  mime        text NOT NULL DEFAULT 'image/jpeg',
+  updated_at  timestamptz NOT NULL DEFAULT now(),
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (source, image_date)
 );
@@ -394,6 +399,7 @@ CREATE INDEX idx_certs_user        ON certificates(user_id);
 CREATE INDEX idx_resume_user       ON resume_assets(user_id);
 CREATE INDEX idx_questions_module  ON interview_questions(module);
 CREATE INDEX idx_bg_date           ON background_images(image_date);
+CREATE INDEX idx_bg_source_date_desc ON background_images(source, image_date DESC);
 
 
 -- 匿名模式唯一索引（本地无登录模式）

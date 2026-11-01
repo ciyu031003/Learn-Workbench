@@ -13,5 +13,7 @@
 40 5 * * * flock -n /tmp/lwb-cron-agg.lock curl -fsS -m 300 -X POST -H 'x-cron-secret: <REDACTED> 'http://127.0.0.1:3001/api/internal/cron?job=aggregate' >> /home/ubuntu/learn-workbench/cron-jobs.log 2>&1 || true
 50 12 * * * flock -n /tmp/lwb-cron-backfill.lock curl -fsS -m 300 -X POST -H 'x-cron-secret: <REDACTED> 'http://127.0.0.1:3001/api/internal/cron?job=backfill' >> /home/ubuntu/learn-workbench/cron-jobs.log 2>&1 || true
 10 6 * * * flock -n /tmp/lwb-cron-maint.lock curl -fsS -m 120 -X POST -H 'x-cron-secret: <REDACTED> 'http://127.0.0.1:3001/api/internal/cron?job=maintenance' >> /home/ubuntu/learn-workbench/cron-jobs.log 2>&1 || true
+# P10：Bing 每日壁纸抓取入库（Node 版，图片写 background_images；每日 05:10，flock 防重叠）
+10 5 * * * flock -n /tmp/lwb-cron-wallpaper.lock curl -fsS -m 300 -X POST -H 'x-cron-secret: <REDACTED>' 'http://127.0.0.1:3001/api/internal/cron?job=wallpaper' >> /home/ubuntu/learn-workbench/cron-jobs.log 2>&1 || true
 # 修盒子后台：数据库 + 内容仓库备份 → /data(cosfs)，保留 30 天
 37 3 * * * /usr/local/bin/backup-yuanabd-pc-fixboxs.sh >> /data/backups/yuanabd-pc-fixboxs/backup.log 2>&1

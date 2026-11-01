@@ -46,6 +46,9 @@ vi.mock("@/lib/content/learning-content-sync", () => ({
     archived: { tracks: 0, topics: 0, questions: 0 },
   })),
 }));
+vi.mock("@/lib/background/bing", () => ({
+  fetchBingWallpapers: vi.fn(async () => ({ saved: 7, updated: 0, dates: [], failed: [] })),
+}));
 vi.mock("@/lib/logger", () => ({ logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 
 import { analyzeMarket } from "@/lib/domains/market/analysis";
@@ -57,7 +60,8 @@ import { crawlerRanSuccessfullyToday, triggerCrawlerJobs } from "@/lib/tasks/cra
 import { triggerFoodImport } from "@/lib/tasks/food";
 import { triggerContentImport } from "@/lib/tasks/content-import";
 import { buildContentSyncPlan, readContentPackageVersion, syncKnowledgeModel } from "@/lib/content/knowledge-model";
-import { POST } from "./route";
+import { fetchBingWallpapers } from "@/lib/background/bing";
+import { GET, POST } from "./route";
 
 const analyzeMock = vi.mocked(analyzeMarket);
 const refreshStatsMock = vi.mocked(refreshPublicStats);
@@ -226,5 +230,31 @@ describe("POST /api/internal/cron", () => {
       limit: undefined,
       ref: undefined,
     });
+  });
+});
+
+
+const wallpaperMock = vi.mocked(fetchBingWallpapers);
+const getReq = (job: string) =>
+  new Request("http://localhost/api/internal/cron?job=" + encodeURIComponent(job), {
+    method: "GET",
+    headers: { "x-cron-secret": "s3cret" },
+  });
+
+describe("POST /api/internal/cron?job=wallpaper（P10 Bing 壁纸）", () => {
+  it("调用 fetchBingWallpapers 默认 7 天", async () => {
+    const res = await post("wallpaper", "s3cret");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.wallpaper).toMatchObject({ saved: 7 });
+    expect(wallpaperMock).toHaveBeenCalledWith({ days: 7 });
+    expect(triggerMock).not.toHaveBeenCalled();
+  });
+
+  it("GET 允许 wallpaper（便于人工回填），其他 job 405", async () => {
+    const ok = await GET(getReq("wallpaper"));
+    expect(ok.status).toBe(200);
+    const blocked = await GET(getReq("crawl"));
+    expect(blocked.status).toBe(405);
   });
 });

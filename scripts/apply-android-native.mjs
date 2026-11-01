@@ -24,12 +24,19 @@ const FILES = [
   // v1.32.0：崩溃取证（Android 11+ ApplicationExitInfo 取 native 崩溃栈 + logcat 兜底）
   "app/src/main/java/com/yuanabd/learnworkbench/CrashLogModule.kt",
   "app/src/main/java/com/yuanabd/learnworkbench/CrashLogPackage.kt",
+  // v1.58.0 P10：OTA 后台下载（系统 DownloadManager，熄屏不断、通知栏进度、重启认领）
+  "app/src/main/java/com/yuanabd/learnworkbench/BackgroundDownloadModule.kt",
+  "app/src/main/java/com/yuanabd/learnworkbench/BackgroundDownloadPackage.kt",
 ];
 
 /** 需要注册到 MainApplication 的手写 ReactPackage（幂等：已存在就跳过） */
 const REACT_PACKAGES = [
   { call: "FocusTimerPackage()", comment: "// 手写原生模块（不走 prebuild）：专注计时前台服务" },
   { call: "CrashLogPackage()", comment: "// 手写原生模块（不走 prebuild）：崩溃取证（ApplicationExitInfo + logcat）" },
+  {
+    call: "BackgroundDownloadPackage()",
+    comment: "// 手写原生模块（不走 prebuild）：OTA 后台下载（系统 DownloadManager，熄屏不断）",
+  },
 ];
 
 /** Manifest：权限 + service 声明（按内容判断，重复执行不会插两遍） */

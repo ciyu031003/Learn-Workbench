@@ -1,1 +1,4 @@
-30 7 * * * root cd /home/ubuntu/learn-workbench && /usr/bin/python3 scripts/fetch_bing_wallpaper.py --out /var/lib/docker/volumes/learn-workbench_bing/_data >> /home/ubuntu/bing.log 2>&1
+# P10（2026-11）：Bing 每日壁纸改由 Node 抓取并入库（background_images.image_data），
+# 不再需要 python/psql/文件系统。cron.d 仅供旧主机参考；推荐统一写进 /etc/crontab（见 ops/crontab.txt）。
+# 每天 05:10 抓最近 7 天（幂等：saved 只统计新增，重复跑为 0）；本次上线先手动 POST 一次回填。
+10 5 * * * root flock -n /tmp/lwb-cron-wallpaper.lock curl -fsS -m 300 -X POST -H "x-cron-secret: ${CRON_SECRET}" "http://127.0.0.1:3001/api/internal/cron?job=wallpaper" >> /home/ubuntu/learn-workbench/cron-jobs.log 2>&1 || true

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { fetchBingWallpapers } from "@/lib/background/bing";
 import { analyzeMarket } from "@/lib/domains/market/analysis";
 import { refreshPublicStats } from "@/lib/domains/market/public-stats";
 import { backfillMarketJobAttributes } from "@/lib/domains/market/enrich";
@@ -30,6 +31,8 @@ import { logger } from "@/lib/logger";
  *   ?job=interview    面试题库抓取（v1.26；同款锁 + 幂等守卫，参数 ?limit=N&dry=1）
  *   ?job=content      内容包 → 统一内容模型同步（组二 · 阶段 7；幂等，参数 ?dry=1 只预览差异）
  *   ?job=content-import  外部来源导入（组二 · 阶段 10；参数 ?source=<key> 必填、?mode=apply 才物化、?limit=N）
+ *   ?job=wallpaper    Bing 每日壁纸抓取入库（P10；抓最近 7 天，图片二进制写 background_images，
+ *                     幂等；GET/POST 均可，仅供 crontab 调用。?days=N 可改为 1-8）
  *   ?job=all          依次执行 crawl/aggregate/maintenance（**不含 food 与 interview**，
  *                     content / content-import 同理不并入 all：排障时希望"内容"和"抓取"互不影响）
  *
@@ -40,6 +43,7 @@ import { logger } from "@/lib/logger";
  *   40 5 * * *  … ?job=aggregate
  *   10 6 * * *  … ?job=maintenance
  *   20 6 * * *  flock -n /tmp/lwb-cron-interview.lock curl -fsS -X POST -H "x-cron-secret: …" "http://127.0.0.1:3001/api/internal/cron?job=interview"
+ *   10 5 * * *  flock -n /tmp/lwb-cron-wallpaper.lock curl -fsS -X POST -H "x-cron-secret: …" "http://127.0.0.1:3001/api/internal/cron?job=wallpaper"
  */
 
 const VALID_JOBS = [
@@ -51,10 +55,11 @@ const VALID_JOBS = [
   "interview",
   "content",
   "content-import",
+  "wallpaper",
   "all",
 ] as const;
 
-export async function POST(req: Request) {
+async function runCron(req: Request) {
   // H2：内部接口统一前门（先限流再验密钥）。cron 由 crontab flock 调度，
   // 宽松限流（120/分钟）只为拦住"误配代理把内部接口暴露到公网后的暴力探测"。
   const guard = await guardInternalRequest(req, "cron", { limit: 120 });
@@ -63,7 +68,7 @@ export async function POST(req: Request) {
   const job = new URL(req.url).searchParams.get("job") || "all";
   if (!(VALID_JOBS as readonly string[]).includes(job)) {
     return NextResponse.json(
-      { error: "job 无效，应为 crawl/aggregate/backfill/maintenance/food/interview/content/content-import/all" },
+      { error: "job 无效，应为 crawl/aggregate/backfill/maintenance/food/interview/content/content-import/wallpaper/all" },
       { status: 400 }
     );
   }
@@ -145,6 +150,16 @@ export async function POST(req: Request) {
     });
   }
 
+  if (job === "wallpaper") {
+    // P10：Bing 每日壁纸（Node 版，图片直接入库）。cron 每天 05:10 调一次；
+    // 本次上线后手动 POST 一次即可回填最近 7 天；重复跑幂等（saved=0、updated=N）。
+    const params = new URL(req.url).searchParams;
+    const daysRaw = Number(params.get("days"));
+    result.wallpaper = await fetchBingWallpapers({
+      days: Number.isFinite(daysRaw) && daysRaw > 0 ? Math.min(8, Math.round(daysRaw)) : 7,
+    });
+  }
+
   if (job === "maintenance" || job === "all") {
     result.maintenance = await cleanupExpiredData();
     // 登录异常量监控（24h 失败量超阈值 → logger.warn 告警，配合日志采集通知）
@@ -153,4 +168,21 @@ export async function POST(req: Request) {
 
   logger.info("[internal/cron] job done:", job);
   return NextResponse.json(result);
+}
+
+/** POST：全部 job（crontab 默认用法）。 */
+export async function POST(req: Request) {
+  return runCron(req);
+}
+
+/**
+ * GET：只放行 wallpaper（采集类 job 用 GET 方便人工 curl 验证/回填），
+ * 其他 job 仍必须 POST，避免被浏览器预取或误点触发重活。
+ */
+export async function GET(req: Request) {
+  const job = new URL(req.url).searchParams.get("job") || "";
+  if (job !== "wallpaper") {
+    return NextResponse.json({ error: "GET 仅支持 job=wallpaper，其余 job 请用 POST" }, { status: 405 });
+  }
+  return runCron(req);
 }
