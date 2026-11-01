@@ -9,6 +9,7 @@ import { dataAnalysisTrack } from "./data-analysis";
 import { databaseTrack } from "./database";
 import { exam408Track } from "./exam-408";
 import { exam408GradTrack } from "./exam-408-grad";
+import { applyExam408DeepLessons } from "./exam-408-grad-deep";
 import { javaTrack } from "./java";
 import { javascriptTrack } from "./javascript";
 import { linuxTrack } from "./linux";
@@ -22,6 +23,9 @@ import { runoobLangTrack } from "./runoob-lang";
 import { expandLearningTrack } from "./question-expansions";
 import { applyContentOverrides } from "./overrides";
 import type { LearningQuestion, LearningTrack } from "./types";
+
+/** ex-408-grad 在生成骨架之上叠加「加深层」正文（见 exam-408-grad-deep/）。 */
+const exam408GradTrackWithDeep: LearningTrack = applyExam408DeepLessons(exam408GradTrack);
 
 const baseLearningTracks: LearningTrack[] = [
   algorithmsTrack,
@@ -41,7 +45,7 @@ const baseLearningTracks: LearningTrack[] = [
   operatingSystemsTrack,
   computerOrganizationTrack,
   exam408Track,
-  exam408GradTrack,
+  exam408GradTrackWithDeep,
   runoobFrontendTrack,
   runoobLangTrack,
   runoobCsToolsTrack,
