@@ -38,6 +38,18 @@ const UPDATE = process.argv.includes("--update");
 const auditJsonArg = process.argv.find((a) => a.startsWith("--audit-json="));
 const auditJsonIdx = process.argv.indexOf("--audit-json");
 const AUDIT_JSON_FILE = auditJsonArg ? auditJsonArg.slice("--audit-json=".length) : auditJsonIdx >= 0 ? process.argv[auditJsonIdx + 1] : null;
+
+/**
+ * 把失败原因同时写成 GitHub annotation（::error:: 行）。
+ * 背景（2026-11-01）：作业日志下载需要 admin 权限，红灯时排查者若拿不到日志，
+ * 注解在公开仓库无需登录即可经 checks API 读到——失败原因必须"带出"日志文件。
+ */
+function emitFailureAnnotation(message) {
+  const lines = String(message).split("\n").filter((line) => line.trim()).slice(0, 8);
+  for (const line of lines) {
+    console.log(`::error::[deps-audit] ${line}`);
+  }
+}
 if (auditJsonIdx >= 0 && !process.argv[auditJsonIdx + 1]) {
   console.error("[deps-audit] --audit-json 需要一个文件路径参数");
   process.exit(1);
@@ -206,8 +218,11 @@ let report;
 try {
   report = runAuditJson();
 } catch (error) {
-  console.error("[deps-audit] 无法获得审计结果（依赖门禁无法判定，按失败处理）：");
-  console.error("  " + (error instanceof Error ? error.message : String(error)).split("\n").join("\n  "));
+  const detail =
+    "[deps-audit] 无法获得审计结果（依赖门禁无法判定，按失败处理）：\n  " +
+    (error instanceof Error ? error.message : String(error)).split("\n").join("\n  ");
+  console.error(detail);
+  emitFailureAnnotation(detail);
   process.exit(1);
 }
 const counts = countsOf(report);
@@ -249,10 +264,14 @@ const baseSet = new Set(baseline.advisories ?? []);
 const added = fps.filter((f) => !baseSet.has(f));
 
 if (regressions.length || added.length) {
-  console.error("[deps-audit] 依赖漏洞相对基线变多了：");
-  for (const r of regressions) console.error(`  - ${r}`);
-  for (const a of added) console.error(`  - 新增：${a}`);
-  console.error("  处理：升级/替换依赖，或在 PR 里说明后跑 --update 收紧基线。");
+  const detail =
+    "[deps-audit] 依赖漏洞相对基线变多了：\n" +
+    regressions.map((r) => `  - ${r}`).join("\n") +
+    "\n" +
+    added.map((a) => `  - 新增：${a}`).join("\n") +
+    "\n  处理：升级/替换依赖，或在 PR 里说明后跑 --update 收紧基线。";
+  console.error(detail);
+  emitFailureAnnotation(detail);
   process.exitCode = 1;
 } else {
   console.log(`[deps-audit] 未超过基线 ✔（${JSON.stringify(counts)}）`);

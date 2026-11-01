@@ -146,7 +146,18 @@ jobs:
         run: pnpm --filter @learn-workbench/e2e exec playwright install --with-deps chromium
 
       - name: Build & start stack (db + init + web)
-        run: docker compose up -d --build
+        # 失败时把构建输出尾部写成 GitHub annotation —— 作业日志需 admin 权限，
+        # 注解在公开仓库可经 checks API 免登录读取（2026-11-01，审计步同款做法）
+        run: |
+          set -o pipefail
+          if docker compose up -d --build 2>&1 | tee /tmp/stack-build.log; then
+            echo "stack up"
+          else
+            code=$?
+            echo "::error::[e2e] docker compose up -d --build 失败（exit $code），最后 40 行："
+            tail -40 /tmp/stack-build.log | while IFS= read -r line; do echo "::error::$line"; done
+            exit "$code"
+          fi
 
       - name: Wait for web ready
         run: |
