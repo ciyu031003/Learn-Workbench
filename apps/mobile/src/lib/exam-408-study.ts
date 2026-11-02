@@ -478,17 +478,72 @@ export function normalizeStudySummary(raw: unknown, fallbackSubject = ""): Exam4
   };
 }
 
-/** 列表接口可能返回数组、articles、items、topics 或 data.articles，统一归一化并按章分组 */
-export function normalizeStudyList(payload: unknown, subjectKey: string): Exam408StudyCatalog {
+/**
+ * 408 hub 章节弹层的残留防御（P13，纯函数便于单测）。
+ * 闪退/转场中断可能留下 visible=true 但内容快照已清空的弹层（整屏 Modal 挡住触摸，
+ * 表现为「知识体系里点章节无反应」）——这种状态必须自动收敛回关闭。
+ */
+export function chapterSheetVisibleWithoutSnapshot(
+  visible: boolean,
+  hasSnapshot: boolean,
+): boolean {
+  return visible && !hasSnapshot;
+}
+
+/**
+ * P13：从各种列表响应里收集「文章摘要」候选。
+ *
+ * 线上真实形状（2026-11-02 线上接口核对）：
+ *   { mode:"subject", source, subject: { key,title,..., chapters:[{ chapter, chapterOrder,
+ *     topics:[{ slug,title,chapter,chapterOrder,importance,examFrequency,... }] }] } }
+ * 旧版/总览形状则是顶层 articles / items / topics、data.articles，或 subjects[].chapters[].topics。
+ * 之前只认顶层数组 → App 知识精读一直空白（catalog.total=0）。
+ */
+function collectStudyArticleCandidates(payload: unknown): unknown[] {
   const record = asRecord(payload);
   const dataRecord = asRecord(record.data);
-  const candidate: unknown[] =
-    (Array.isArray(payload) && payload) ||
-    (Array.isArray(record.articles) && record.articles) ||
-    (Array.isArray(record.items) && record.items) ||
-    (Array.isArray(record.topics) && record.topics) ||
-    (Array.isArray(dataRecord.articles) && dataRecord.articles) ||
-    [];
+  const direct: unknown[] = [
+    ...(Array.isArray(payload) ? payload : []),
+    ...(Array.isArray(record.articles) ? record.articles : []),
+    ...(Array.isArray(record.items) ? record.items : []),
+    ...(Array.isArray(record.topics) ? record.topics : []),
+    ...(Array.isArray(dataRecord.articles) ? dataRecord.articles : []),
+  ];
+  if (direct.length > 0) return direct;
+
+  const trees: unknown[] = [];
+  if (record.subject && typeof record.subject === "object") trees.push(record.subject);
+  if (Array.isArray(record.subjects)) trees.push(...record.subjects);
+  if (trees.length === 0) trees.push(record);
+
+  const candidates: unknown[] = [];
+  for (const tree of trees) {
+    const treeRecord = asRecord(tree);
+    if (Array.isArray(treeRecord.articles)) candidates.push(...treeRecord.articles);
+    const chapters = Array.isArray(treeRecord.chapters) ? treeRecord.chapters : [];
+    for (const chapter of chapters) {
+      const chapterRecord = asRecord(chapter);
+      const chapterName = asString(chapterRecord.chapter);
+      const chapterOrder = asNumber(chapterRecord.chapterOrder, 0);
+      // topic 自身没带 chapter 时用父级章节补齐，保证「按章分组」永远有归处
+      const pushTopic = (topic: unknown) => {
+        const topicRecord = asRecord(topic);
+        candidates.push({
+          ...topicRecord,
+          chapter: asString(topicRecord.chapter) || chapterName,
+          chapterOrder: asNumber(topicRecord.chapterOrder, chapterOrder),
+        });
+      };
+      if (Array.isArray(chapterRecord.topics)) chapterRecord.topics.forEach(pushTopic);
+      if (Array.isArray(chapterRecord.articles)) chapterRecord.articles.forEach(pushTopic);
+    }
+  }
+  return candidates;
+}
+
+/** 列表接口可能返回数组、articles、items、topics、data.articles 或 subject/subjects 树，统一归一化并按章分组 */
+export function normalizeStudyList(payload: unknown, subjectKey: string): Exam408StudyCatalog {
+  const candidate = collectStudyArticleCandidates(payload);
   const articles = candidate
     .map((item) => normalizeStudySummary(item, subjectKey))
     .filter((item) => item.slug);

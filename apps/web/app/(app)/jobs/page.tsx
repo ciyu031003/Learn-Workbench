@@ -1,9 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { JobCrawlerConfig, JobPosting, JobPostingListItem, JobSource, JobStats } from "@learn-workbench/shared/schemas";
-import { experimentalJobSources, SUPPORTED_CITIES } from "@learn-workbench/shared/labels";
+import {
+  HOT_CITIES,
+  SUPPORTED_CITIES,
+  cityProvinceLabel,
+  experimentalJobSources,
+  getCitiesOfProvince,
+  groupCitiesByProvince,
+} from "@learn-workbench/shared/labels";
 import { formatDateCN, formatRelativeTime, todayISO } from "@learn-workbench/shared/dates";
 import { jobSourceLabel } from "@learn-workbench/shared/pure";
 import { Badge } from "@/components/ui/badge";
@@ -160,6 +167,9 @@ function JobSkeleton() {
     </div>
   );
 }
+/** P13：一级「热门」虚拟分组 key（省名里不会出现，避免与真实省份冲突） */
+const HOT_PROVINCE_KEY = "__hot__";
+
 export default function JobsPage() {
   const pushToast = useToastStore((s) => s.push);
   const [stats, setStats] = useState<JobStats | null>(null);
@@ -169,6 +179,8 @@ export default function JobsPage() {
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [city, setCity] = useState("");
+  // P13：城市筛选改「省份 → 城市」二级（省份只是一级分组，真正发给 API 的仍是 city）
+  const [province, setProvince] = useState("");
   const [platforms, setPlatforms] = useState<JobSource[]>([]);
   const [group, setGroup] = useState<GroupId>("all");
   const [sub, setSub] = useState<"all" | "gongkao" | "gongbian">("all");
@@ -193,6 +205,22 @@ export default function JobsPage() {
   const [clustering, setClustering] = useState(false);
 
   const platformsKey = platforms.join(",");
+  const provinceGroups = useMemo(() => groupCitiesByProvince(cities), [cities]);
+  const activeProvinceCities = useMemo(() => {
+    if (province === HOT_PROVINCE_KEY) return [...HOT_CITIES];
+    return provinceGroups.find((group) => group.province === province)?.cities ?? [];
+  }, [province, provinceGroups]);
+
+  /** 切换一级省份：新省份不含当前城市时连带清空城市条件，避免「省/市」错配 */
+  const changeProvince = (next: string) => {
+    setProvince(next);
+    setCity((prev) => {
+      if (!prev) return "";
+      const group = next === HOT_PROVINCE_KEY ? HOT_CITIES : next ? getCitiesOfProvince(next) : [];
+      return group.includes(prev) ? prev : "";
+    });
+    setPage(1);
+  };
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const effectiveCategories = (() => {
@@ -630,12 +658,53 @@ export default function JobsPage() {
                   <RefreshCw className="size-3" /> 多平台职位已自动合并去重
                 </span>
               </div>
+              {/* P13：一级省份（全部 / 热门 / 各省）；选中后才出现二级城市，不再一屏铺所有城市 */}
               <div className="flex gap-2 overflow-x-auto pb-1">
-                <FilterChip active={!city} onClick={() => setCity("")}>全部城市</FilterChip>
-                {cities.map((c) => (
-                  <FilterChip key={c} active={city === c} onClick={() => { setCity(c); setPage(1); }}>{c}</FilterChip>
+                <FilterChip
+                  active={province === "" && !city}
+                  onClick={() => { setCity(""); setProvince(""); setPage(1); }}
+                >
+                  全部城市
+                </FilterChip>
+                <FilterChip active={province === HOT_PROVINCE_KEY} onClick={() => changeProvince(HOT_PROVINCE_KEY)}>
+                  热门
+                </FilterChip>
+                {provinceGroups.map((group) => (
+                  <FilterChip
+                    key={group.province}
+                    active={province === group.province}
+                    onClick={() => changeProvince(group.province)}
+                  >
+                    {group.province}
+                  </FilterChip>
                 ))}
               </div>
+
+              {province !== "" ? (
+                <>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                      {province === HOT_PROVINCE_KEY ? "热门城市" : province}
+                    </span>
+                    {city ? (
+                      <span className="rounded-full border border-emerald-400/25 bg-emerald-400/12 px-2 py-0.5 text-[11px] font-semibold text-emerald-300">
+                        {cityProvinceLabel(city)}
+                      </span>
+                    ) : null}
+                    {city ? null : (
+                      <span className="text-[11px] text-muted-foreground">选城市后按城市筛职位</span>
+                    )}
+                  </div>
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    <FilterChip active={!city} onClick={() => { setCity(""); setPage(1); }}>不限城市</FilterChip>
+                    {activeProvinceCities.map((c) => (
+                      <FilterChip key={c} active={city === c} onClick={() => { setCity(c); setPage(1); }}>
+                        {c}
+                      </FilterChip>
+                    ))}
+                  </div>
+                </>
+              ) : null}
 
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">来源</span>

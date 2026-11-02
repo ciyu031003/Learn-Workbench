@@ -1,36 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("node:child_process", () => ({ execFile: vi.fn() }));
 vi.mock("@/lib/session", () => ({ currentUserId: vi.fn() }));
+vi.mock("@/lib/rate-limit", () => ({ rateLimit: vi.fn(async () => ({ ok: true })) }));
+vi.mock("@/lib/background/bing", () => ({ fetchBingWallpapers: vi.fn() }));
 
-import { execFile } from "node:child_process";
 import { currentUserId } from "@/lib/session";
+import { fetchBingWallpapers } from "@/lib/background/bing";
 import { POST } from "./route";
 
-const execFileMock = vi.mocked(execFile);
 const currentUserIdMock = vi.mocked(currentUserId);
+const fetchMock = vi.mocked(fetchBingWallpapers);
 
 beforeEach(() => {
   vi.clearAllMocks();
   currentUserIdMock.mockResolvedValue("u-1");
 });
-
-function runCrawler(success: boolean) {
-  (
-    execFileMock as unknown as {
-      mockImplementation: (fn: (...args: unknown[]) => unknown) => void;
-    }
-  ).mockImplementation((...args: unknown[]) => {
-    const cb = args[args.length - 1] as (
-      err: Error | null,
-      stdout?: string,
-      stderr?: string
-    ) => void;
-    if (success) cb(null, "[ok] 已保存 2026-08-14.jpg\n[done] 完成：2026-08-14", "");
-    else cb(new Error("boom"), "", "error");
-    return undefined;
-  });
-}
 
 describe("POST /api/background/refresh", () => {
   it("returns 401 when not logged in", async () => {
@@ -39,19 +23,33 @@ describe("POST /api/background/refresh", () => {
     expect(res.status).toBe(401);
   });
 
-  it("returns ok=true when the crawler succeeds", async () => {
-    runCrawler(true);
+  it("returns ok=true and sync stats when the crawler succeeds", async () => {
+    fetchMock.mockResolvedValue({ saved: 1, updated: 1, dates: ["2026-10-31", "2026-11-01"], failed: [] });
     const res = await POST();
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.ok).toBe(true);
-    expect(String(json.output)).toContain("完成");
+    expect(json.saved).toBe(1);
+    expect(json.updated).toBe(1);
+    expect(json.dates).toEqual(["2026-10-31", "2026-11-01"]);
+    expect(fetchMock).toHaveBeenCalledWith({ days: 2 });
   });
 
-  it("returns ok=false when the crawler fails", async () => {
-    runCrawler(false);
+  it("returns ok=false when some dates failed", async () => {
+    fetchMock.mockResolvedValue({ saved: 1, updated: 0, dates: ["2026-11-01"], failed: [{ date: "2026-10-31", reason: "download failed" }] });
     const res = await POST();
+    const json = await res.json();
     expect(res.status).toBe(200);
-    expect((await res.json()).ok).toBe(false);
+    expect(json.ok).toBe(false);
+    expect(json.failed).toHaveLength(1);
+  });
+
+  it("returns 500 with a message when the crawler throws", async () => {
+    fetchMock.mockRejectedValue(new Error("bing 不可用"));
+    const res = await POST();
+    expect(res.status).toBe(500);
+    const json = await res.json();
+    expect(json.ok).toBe(false);
+    expect(String(json.error)).toContain("bing");
   });
 });

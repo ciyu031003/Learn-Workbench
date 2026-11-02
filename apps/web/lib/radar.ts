@@ -14,6 +14,8 @@ export interface RadarJob {
   company: string;
   city: string;
   education: string;
+  /** 经验要求原文（如「3-5年」「不限」）；接口无数据时为空串 */
+  experience: string;
   salaryText: string;
   salaryBand: string;
   url: string;
@@ -76,6 +78,7 @@ interface ScoredRow {
   company: string;
   city: string;
   education: string;
+  experience: string | null;
   salary_text: string;
   salary_band: string;
   url: string;
@@ -174,7 +177,7 @@ export async function computeRadar(
                array_agg(name ORDER BY weight DESC) FILTER (WHERE hit > 0) AS matched
           FROM job_skills GROUP BY job_id
      )
-     SELECT j.id, j.title, j.company, j.city, j.education, j.salary_text, j.salary_band,
+     SELECT j.id, j.title, j.company, j.city, j.education, j.experience, j.salary_text, j.salary_band,
             j.url, j.source, j.published_at, j.function_key, j.industry_sector,
             COALESCE(a.total_weight, 0) AS total_weight,
             COALESCE(a.hit_weight, 0) AS hit_weight,
@@ -251,6 +254,7 @@ export async function computeRadar(
       company: r.company,
       city: r.city,
       education: r.education,
+      experience: r.experience ?? "",
       salaryText: r.salary_text,
       salaryBand: r.salary_band,
       url: r.url,
@@ -312,12 +316,12 @@ export async function radarFallback(
   try {
     const { rows } = await pgPool.query<ScoredRow>(
       opts.city
-        ? `SELECT id, title, company, city, education, salary_text, salary_band, url, source, published_at,
+        ? `SELECT id, title, company, city, education, experience, salary_text, salary_band, url, source, published_at,
                   function_key, industry_sector,
                   NULL AS total_weight, NULL AS hit_weight, '{}'::text[] AS missing
              FROM job_postings WHERE is_active = true AND city = $1
             ORDER BY published_at DESC NULLS LAST, fetched_at DESC LIMIT $2`
-        : `SELECT id, title, company, city, education, salary_text, salary_band, url, source, published_at,
+        : `SELECT id, title, company, city, education, experience, salary_text, salary_band, url, source, published_at,
                   function_key, industry_sector,
                   NULL AS total_weight, NULL AS hit_weight, '{}'::text[] AS missing
              FROM job_postings WHERE is_active = true
@@ -330,6 +334,7 @@ export async function radarFallback(
       company: r.company,
       city: r.city,
       education: r.education,
+      experience: r.experience ?? "",
       salaryText: r.salary_text,
       salaryBand: r.salary_band,
       url: r.url,

@@ -522,6 +522,83 @@ export function progressLabel(index: number, total: number, finished: boolean): 
 }
 
 /* ------------------------------------------------------------------ */
+/* 纯函数：刷卡页布局（P13）                                             */
+/* ------------------------------------------------------------------ */
+
+export interface Exam408DrillLayout {
+  /** 小屏/紧凑档（隐藏统计小字、收紧间距与按钮高度） */
+  compact: boolean;
+  /** 卡片最小高度（flex:1 的地板）：保证中间卡片占主体，又不至于把底部按钮挤出屏幕 */
+  cardMinHeight: number;
+  /** 评级按钮最小高度（≥44pt 无障碍可点） */
+  ratingMinHeight: number;
+  /** 纵向间距 */
+  gap: number;
+  /** 是否显示「待复习 · 正确率 · 连续」统计小字（紧凑档省略，把高度让给卡片） */
+  showStatsLine: boolean;
+}
+
+/** 顶部/底部固定 chrome 的保守预留（返回栏 44 + 进度 40 + 范围 30 + chip 34 + 间距 + 评级按钮） */
+const DRILL_CHROME_RESERVE = 300;
+/** 尺寸异常时的兜底可用高（iPhone 13 档），保证纯函数永远返回可用的正数 */
+const DRILL_FALLBACK_USABLE = 700;
+
+/**
+ * 刷卡页布局档位（P13 布局优化）。
+ *
+ * 反馈是「显示答案后卡片太小、答案被遮挡」——根因是顶部状态区（大统计卡 + 范围 tab +
+ * 科目 chip）吃掉了近一半高度，卡片只剩几十到一百多 pt。这里把档位收成纯函数：
+ * 压缩顶部后卡片 flex:1 自然拿到大部分高度，minHeight 只是小屏的地板。
+ *
+ * @param usableScreen 可用屏幕高（屏幕高 − 状态栏 − 底部安全区）
+ */
+export function resolveDrillLayout(usableScreen: number): Exam408DrillLayout {
+  const raw = typeof usableScreen === "number" && Number.isFinite(usableScreen) ? usableScreen : 0;
+  const usable = raw >= 400 ? raw : DRILL_FALLBACK_USABLE;
+  // 647（iPhone SE）与 544（320×568 Android）都应走紧凑档；763/926 走常规档
+  const compact = usable < 700;
+  /**
+   * 卡片地板 = 目标占比（常规 58% / 紧凑 52% 的可用高）× 可用高，
+   * 再被「可用高 − 固定 chrome 预留」收住：小屏上宁可卡片矮一点，也不能把评级按钮挤出屏幕。
+   * 卡片本身是 flex:1，实际高度=剩余全部高度（常规机约 60%–68% 屏高）。
+   */
+  const target = usable * (compact ? 0.52 : 0.58);
+  const cap = Math.max(0, usable - DRILL_CHROME_RESERVE);
+  return {
+    compact,
+    cardMinHeight: Math.round(Math.max(0, Math.min(target, cap))),
+    ratingMinHeight: compact ? 64 : 76,
+    gap: compact ? 6 : 8,
+    showStatsLine: !compact,
+  };
+}
+
+export interface Exam408SubjectChipDisplay {
+  /** chip 主文案（科目名） */
+  label: string;
+  /** 右侧待复习数；0 时不显示 */
+  dueText: string;
+  /** 是否有待复习数（决定是否渲染右侧小字） */
+  hasDue: boolean;
+}
+
+/**
+ * 科目 chip 文案（P13：chip 缩到文字宽度）。
+ *
+ * 旧版 chip 等分/撑满且带第二行「N 待复习」，一行 5 个 chip 横向滚得又长又高；
+ * 现在单行「科目名 + 数字」，宽度由内容决定（paddingHorizontal 左右各 12），选中态靠底色+描边。
+ */
+export function subjectChipDisplay(title: string, due: number): Exam408SubjectChipDisplay {
+  const label = typeof title === "string" ? title.trim() : "";
+  const safeDue = typeof due === "number" && Number.isFinite(due) && due > 0 ? Math.floor(due) : 0;
+  return {
+    label,
+    dueText: safeDue > 0 ? String(safeDue) : "",
+    hasDue: safeDue > 0,
+  };
+}
+
+/* ------------------------------------------------------------------ */
 /* 纯函数：离线发件箱                                                    */
 /* ------------------------------------------------------------------ */
 

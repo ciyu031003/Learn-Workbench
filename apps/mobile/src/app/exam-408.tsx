@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   StyleSheet,
@@ -33,6 +33,7 @@ import {
   exam408PointHref,
   resolveExam408Subject,
 } from "@/lib/exam-408-view";
+import { chapterSheetVisibleWithoutSnapshot } from "@/lib/exam-408-study";
 import { setNavPendingParams } from "@/lib/nav-pending";
 import { useScreenEntrance } from "@/lib/use-screen-entrance";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
@@ -101,7 +102,14 @@ function Exam408Content({ track }: { track: LearningTrack }) {
   const [chapterSheetOpen, setChapterSheetOpen] = useState(false);
   const [chapterSheetSnapshot, setChapterSheetSnapshot] =
     useState<ChapterSheetSnapshot | null>(null);
-  const [pendingPointKey, setPendingPointKey] = useState("");
+  /**
+   * P13：章节 → 知识点导航的「待跳转 key」。
+   * 用 ref 而非 state 是为了让 onClosed 回调与超时兜底共享同一个已消费标记：
+   * 崩溃/转场中断时 BottomSheet 的 onClosed 可能永远不触发，导致再点章节无反应。
+   */
+  const pendingPointRef = useRef("");
+  const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [navNotice, setNavNotice] = useState("");
 
   const loadOverview = useCallback(async () => {
     setLoadingOverview(true);
@@ -123,6 +131,30 @@ function Exam408Content({ track }: { track: LearningTrack }) {
     }, [loadOverview]),
   );
 
+  // P13：闪退/热更新恢复后，BottomSheet 可能残留 visible=true 但内容已空 → 整屏被 Modal 挡住，
+  // 表现为「知识体系里点章节无反应」。回到 hub 时统一收敛弹层状态与待跳转 key。
+  useFocusEffect(
+    useCallback(() => {
+      pendingPointRef.current = "";
+      setChapterSheetOpen(false);
+      setChapterSheetSnapshot(null);
+      setNavNotice("");
+    }, []),
+  );
+
+  useEffect(() => {
+    if (!chapterSheetVisibleWithoutSnapshot(chapterSheetOpen, Boolean(chapterSheetSnapshot))) return;
+    // 异步收敛：直接同步 setState 会被 react-hooks/set-state-in-effect 判错
+    const timer = setTimeout(() => setChapterSheetOpen(false), 0);
+    return () => clearTimeout(timer);
+  }, [chapterSheetOpen, chapterSheetSnapshot]);
+
+  useEffect(() => {
+    if (!navNotice) return;
+    const timer = setTimeout(() => setNavNotice(""), 4000);
+    return () => clearTimeout(timer);
+  }, [navNotice]);
+
   const stats = exam408OverviewStats(overview);
   const activeSubject = resolveExam408Subject(overview, subjectKey);
   const papers = useMemo(
@@ -137,7 +169,13 @@ function Exam408Content({ track }: { track: LearningTrack }) {
     subject: Exam408SubjectSummary,
     chapter: Exam408ChapterSummary,
   ) => {
-    setPendingPointKey("");
+    if (!subject || !chapter || !Array.isArray(chapter.points)) {
+      setNavNotice("章节数据异常，请重新加载后再试");
+      return;
+    }
+    recordCrumb("408-chapter-open", { subject: subject.key, chapter: chapter.key });
+    pendingPointRef.current = "";
+    setNavNotice("");
     setChapterSheetSnapshot({ subject, chapter });
     setChapterSheetOpen(true);
   };
@@ -145,19 +183,30 @@ function Exam408Content({ track }: { track: LearningTrack }) {
   const changeSubject = (key: string) => {
     setSubjectKey(key);
     setChapterSheetOpen(false);
-    setPendingPointKey("");
+    pendingPointRef.current = "";
   };
 
   const openPoint = (key: string) => {
     recordCrumb("408-point-tap", { key });
-    setPendingPointKey(key);
+    pendingPointRef.current = key;
     setChapterSheetOpen(false);
+    // 兜底：BottomSheet 的 onClosed 依赖退场动画；若异常路径没回调，1.2s 后强制消费一次
+    if (settleTimerRef.current) clearTimeout(settleTimerRef.current);
+    settleTimerRef.current = setTimeout(() => {
+      handleSheetClosedRef.current?.();
+    }, 1200);
   };
 
+  /** handleSheetClosed 的 ref 版本（openPoint 的超时兜底要在定义前引用它） */
+  const handleSheetClosedRef = useRef<() => void>(() => {});
   const handleSheetClosed = useCallback(() => {
-    const pointKey = pendingPointKey;
+    const pointKey = pendingPointRef.current;
+    pendingPointRef.current = "";
+    if (settleTimerRef.current) {
+      clearTimeout(settleTimerRef.current);
+      settleTimerRef.current = null;
+    }
     setChapterSheetSnapshot(null);
-    setPendingPointKey("");
     if (!pointKey) return;
     recordCrumb("408-point-close", { key: pointKey });
     // 字符串 href（而非 {pathname, params} 对象形式）：对象形式在 native-stack 重复
@@ -165,9 +214,27 @@ function Exam408Content({ track }: { track: LearningTrack }) {
     // v1.51 勘误：两种 href 经 resolveHref 归一后是同一个 URL，params 冻结依旧
     // （真机取证 2026-11-01）。真正的修复是场外通道：push 前把 key 写入
     // nav-pending，知识点页聚焦时优先消费它（见 quiz/408-point.tsx）。
-    setNavPendingParams("quiz-408-point", { key: pointKey });
-    router.push(exam408PointHref(pointKey) as never);
-  }, [pendingPointKey]);
+    try {
+      setNavPendingParams("quiz-408-point", { key: pointKey });
+      router.push(exam408PointHref(pointKey) as never);
+    } catch (error) {
+      recordCrumb("408-point-push-fail", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+      setNavNotice("打开知识点失败，请再点一次");
+    }
+  }, []);
+
+  // onClosed 与兜底超时共享同一个实现；组件卸载时清掉未触发的定时器
+  useEffect(() => {
+    handleSheetClosedRef.current = handleSheetClosed;
+    return () => {
+      if (settleTimerRef.current) {
+        clearTimeout(settleTimerRef.current);
+        settleTimerRef.current = null;
+      }
+    };
+  }, [handleSheetClosed]);
 
   const startTrackPractice = (stageKey?: string, topicKey?: string) => {
     // 同上：字符串 href 防同名路由 params 冻结（stage/topic 是动态值）；
@@ -238,6 +305,13 @@ function Exam408Content({ track }: { track: LearningTrack }) {
         <Animated.View entering={entrance(1)}>
           <LearningModes styles={styles} colors={colors} />
         </Animated.View>
+
+        {navNotice ? (
+          <View style={styles.navNotice}>
+            <ThemedIcon name="alert-circle-outline" size={16} color={colors.danger} />
+            <Text style={styles.navNoticeText}>{navNotice}</Text>
+          </View>
+        ) : null}
 
         <Animated.View entering={entrance(1)} style={styles.tabs}>
           <TabButton
@@ -1327,6 +1401,16 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       color: colors.textSecondary,
     },
     subjectSummaryMuted: { ...typography.micro, color: colors.textFaint },
+    navNotice: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm,
+      borderRadius: radius.md,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      backgroundColor: colors.dangerSoft,
+    },
+    navNoticeText: { ...typography.caption, color: colors.danger, flex: 1, lineHeight: 18 },
     learningModes: { gap: spacing.sm },
     learningModesHead: {
       flexDirection: "row",
@@ -1574,16 +1658,8 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.border,
     },
-    sourceTitle: {
-      ...typography.callout,
-      fontWeight: "800",
-      color: colors.text,
-    },
-    sourceText: {
-      ...typography.caption,
-      color: colors.textMuted,
-      lineHeight: 19,
-    },
+    sourceTitle: { ...typography.callout, fontWeight: "800", color: colors.text },
+    sourceText: { ...typography.caption, color: colors.textMuted, lineHeight: 19 },
     sheetContent: { gap: spacing.md },
     sheetLead: {
       flexDirection: "row",
@@ -1602,58 +1678,44 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
     },
     sheetLeadBody: { flex: 1, gap: 2 },
     sheetLeadTitle: { ...typography.callout, fontWeight: "800", color: colors.text },
-    sheetLeadText: {
-      ...typography.caption,
-      color: colors.textMuted,
-      lineHeight: 18,
-    },
+    sheetLeadText: { ...typography.caption, color: colors.textMuted, lineHeight: 18 },
     pointList: { gap: spacing.sm },
     pointRow: {
-      minHeight: 72,
+      minHeight: 56,
       flexDirection: "row",
       alignItems: "center",
       gap: spacing.md,
-      borderRadius: radius.md,
+      borderRadius: radius.lg,
       padding: spacing.md,
       backgroundColor: colors.surfaceStrong,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.border,
     },
     pointNumber: {
-      width: 34,
-      height: 34,
-      borderRadius: 12,
+      width: 30,
+      height: 30,
+      borderRadius: 10,
       alignItems: "center",
       justifyContent: "center",
     },
-    pointNumberText: {
-      ...typography.caption,
-      fontWeight: "900",
-      fontVariant: ["tabular-nums"],
-    },
-    pointBody: { flex: 1, gap: 5 },
-    pointTitle: { ...typography.callout, fontWeight: "800", color: colors.text },
-    pointMetaRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      flexWrap: "wrap",
-      gap: 6,
-    },
+    pointNumberText: { ...typography.caption, fontWeight: "900" },
+    pointBody: { flex: 1, gap: 3 },
+    pointTitle: { ...typography.callout, fontWeight: "700", color: colors.text },
+    pointMetaRow: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
     pointMeta: { ...typography.micro, color: colors.textMuted },
     pointTag: {
-      borderRadius: radius.pill,
-      paddingHorizontal: 7,
-      paddingVertical: 3,
+      borderRadius: radius.sm,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
       backgroundColor: colors.surfaceMuted,
     },
-    pointTagText: { ...typography.micro, color: colors.textSecondary },
+    pointTagText: { ...typography.micro, color: colors.textFaint },
     missing: {
       flex: 1,
       alignItems: "center",
       justifyContent: "center",
       gap: spacing.sm,
       padding: spacing.xl,
-      backgroundColor: colors.canvas,
     },
     missingTitle: { ...typography.title2, color: colors.text },
   });

@@ -1,17 +1,29 @@
 import { makeUploadPart } from "@/lib/upload-part";
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import * as WebBrowser from "expo-web-browser";
 import { ThemedIcon } from "@/components/themed-icon";
 import { Card } from "@/components/card";
+import { BottomSheet } from "@/components/bottom-sheet";
+import { Button } from "@/components/button";
+import { PressableScale } from "@/components/pressable-scale";
 import { SkeletonList } from "@/components/skeleton";
 import { UploadCard, uploadAcceptHint } from "@/components/upload-card";
 import { useTheme } from "@/theme";
 import type { ThemeColors } from "@/theme/tokens";
-import { radius } from "@/theme/tokens";
+import { radius, typography } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
+import {
+  RESUME_FILE_NAME_MAX,
+  isWordResume,
+  normalizeResumeFileName,
+  resumeExtOfName,
+  resumeFileMetaText,
+  resumeRenameDraft,
+  resumeRenameMaxLength,
+} from "@/lib/resume-files";
 
 /** 简历文件（v12 P2-2）：PDF / Word ≤5MB，文件本体在 COS 桶（resume/ 私有目录） */
 interface ResumeFileRow {
@@ -24,13 +36,13 @@ interface ResumeFileRow {
 
 const MAX_BYTES = 5 * 1024 * 1024;
 
-function sizeText(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes <= 0) return "—";
-  if (bytes < 1024) return bytes + " B";
-  if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + " KB";
-  return (bytes / 1024 / 1024).toFixed(1) + " MB";
-}
-
+/**
+ * 简历文件卡（P13）：
+ *  - 点行 / 点文件名 → 预览（ticket + sig，5 分钟一次性票据；老实现把 30 天 token 放 URL 已下线）；
+ *  - 点右侧 ⋯ 或长按 → 操作弹层（预览 / 重命名 / 删除）；
+ *  - 重命名：BottomSheet 输入（预填当前主干 + 固定扩展名后缀），乐观改列表、失败回滚并提示；
+ *  - 列表第二行给「类型 · 大小 · 上传日期」，文件名可读（服务端只改显示名，不动存储对象键）。
+ */
 export function ResumeFilesCard() {
   const { colors } = useTheme();
   const styles = useMemo2(colors);
@@ -38,6 +50,13 @@ export function ResumeFilesCard() {
   const [files, setFiles] = useState<ResumeFileRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
+  /** 操作弹层当前针对的文件 */
+  const [menuRow, setMenuRow] = useState<ResumeFileRow | null>(null);
+  /** 重命名弹层当前针对的文件 */
+  const [renameRow, setRenameRow] = useState<ResumeFileRow | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
+  const [renameError, setRenameError] = useState("");
+  const [renameBusy, setRenameBusy] = useState(false);
 
   const headers = useCallback(
     (): Record<string, string> => (token ? { Authorization: "Bearer " + token } : {}),
@@ -123,21 +142,94 @@ export function ResumeFilesCard() {
    * 旧实现把 30 天会话 token 放在 ?token= 里，会被 nginx access log / 浏览器历史 /
    * Referer 带走；票据只对这一份文件有效且很快过期，泄漏面小得多。
    */
-  const open = async (row: ResumeFileRow) => {
+  const openWithTicket = useCallback(
+    async (row: ResumeFileRow) => {
+      try {
+        const r = await fetch(getApiUrl() + "/api/resume-files/" + row.id + "/ticket", {
+          method: "POST",
+          headers: headers(),
+        });
+        const d = await r.json().catch(() => null);
+        const sig = typeof d?.sig === "string" ? d.sig : "";
+        if (!r.ok || !sig) {
+          throw new Error(typeof d?.error === "string" ? d.error : "预览票据获取失败（HTTP " + r.status + "）");
+        }
+        const url = getApiUrl() + "/api/resume-files/" + row.id + "?sig=" + encodeURIComponent(sig);
+        await WebBrowser.openBrowserAsync(url);
+      } catch (e) {
+        Alert.alert("打不开", e instanceof Error ? e.message : "请稍后重试");
+      }
+    },
+    [headers]
+  );
+
+  /** Word 不能像 PDF 那样被系统浏览器内联渲染：先说明，再走系统浏览器/在线预览兜底 */
+  const open = (row: ResumeFileRow) => {
+    if (isWordResume(row.fileName)) {
+      Alert.alert(
+        "Word 文件预览",
+        "系统浏览器通常不能直接渲染 Word。会用浏览器打开原始文件，多数机型会转给在线预览或让你下载后用 Word 打开。",
+        [
+          { text: "取消", style: "cancel" },
+          { text: "用浏览器打开", onPress: () => void openWithTicket(row) },
+        ]
+      );
+      return;
+    }
+    void openWithTicket(row);
+  };
+
+  const startRename = (row: ResumeFileRow) => {
+    setMenuRow(null);
+    setRenameRow(row);
+    setRenameDraft(resumeRenameDraft(row.fileName));
+    setRenameError("");
+  };
+
+  const closeRename = () => {
+    if (renameBusy) return;
+    setRenameRow(null);
+    setRenameError("");
+  };
+
+  /**
+   * 保存重命名：先乐观改列表并关弹层（手感），失败再回滚 + 提示。
+   * 服务端只改显示名 file_name，存储对象键与预览链接都不变；扩展名以原文件为准。
+   */
+  const submitRename = async () => {
+    const row = renameRow;
+    if (!row || renameBusy) return;
+    const normalized = normalizeResumeFileName(renameDraft, row.fileName);
+    if (!normalized.ok) {
+      setRenameError(normalized.error);
+      return;
+    }
+    if (normalized.fileName === row.fileName) {
+      setRenameRow(null);
+      return;
+    }
+    const previous = files;
+    setRenameError("");
+    setRenameBusy(true);
+    setFiles((list) => list.map((item) => (item.id === row.id ? { ...item, fileName: normalized.fileName } : item)));
+    setRenameRow(null);
     try {
-      const r = await fetch(getApiUrl() + "/api/resume-files/" + row.id + "/ticket", {
-        method: "POST",
-        headers: headers(),
+      const r = await fetch(getApiUrl() + "/api/resume-files/" + row.id, {
+        method: "PATCH",
+        headers: { ...headers(), "Content-Type": "application/json" },
+        body: JSON.stringify({ fileName: normalized.fileName }),
       });
       const d = await r.json().catch(() => null);
-      const sig = typeof d?.sig === "string" ? d.sig : "";
-      if (!r.ok || !sig) {
-        throw new Error(typeof d?.error === "string" ? d.error : "预览票据获取失败（HTTP " + r.status + "）");
+      if (!r.ok) {
+        throw new Error(typeof d?.error === "string" ? d.error : "重命名失败（HTTP " + r.status + "）");
       }
-      const url = getApiUrl() + "/api/resume-files/" + row.id + "?sig=" + encodeURIComponent(sig);
-      await WebBrowser.openBrowserAsync(url);
+      const confirmed = typeof d?.fileName === "string" && d.fileName ? d.fileName : normalized.fileName;
+      setFiles((list) => list.map((item) => (item.id === row.id ? { ...item, fileName: confirmed } : item)));
     } catch (e) {
-      Alert.alert("打不开", e instanceof Error ? e.message : "请稍后重试");
+      setFiles(previous);
+      Alert.alert("重命名失败", e instanceof Error ? e.message : "请稍后重试");
+    } finally {
+      setRenameBusy(false);
     }
   };
 
@@ -162,6 +254,9 @@ export function ResumeFilesCard() {
     ]);
   };
 
+  const renameExt = renameRow ? resumeExtOfName(renameRow.fileName) : null;
+  const renameMax = renameRow ? resumeRenameMaxLength(renameRow.fileName) : undefined;
+
   return (
     <Card style={styles.card}>
       <View style={styles.head}>
@@ -179,23 +274,37 @@ export function ResumeFilesCard() {
       ) : (
         <View style={styles.list}>
           {files.map((row) => (
-            <Pressable
-              key={row.id}
-              onPress={() => void open(row)}
-              onLongPress={() => remove(row)}
-              delayLongPress={320}
-              style={styles.row}
-              accessibilityLabel={"预览 " + row.fileName + "，长按删除"}
-            >
-              <ThemedIcon name="document-attach-outline" size={16} color={colors.textMuted} />
-              <View style={styles.rowBody}>
-                <Text style={styles.rowName} numberOfLines={1}>{row.fileName}</Text>
-                <Text style={styles.rowMeta}>
-                  {sizeText(row.bytes)} · {String(row.createdAt).slice(0, 10)}
-                </Text>
-              </View>
-              <ThemedIcon name="open-outline" size={16} color={colors.textFaint} />
-            </Pressable>
+            <View key={row.id} style={styles.rowWrap}>
+              <Pressable
+                onPress={() => open(row)}
+                onLongPress={() => setMenuRow(row)}
+                delayLongPress={320}
+                style={styles.row}
+                accessibilityRole="button"
+                accessibilityLabel={"预览 " + row.fileName + "，长按更多操作"}
+              >
+                <ThemedIcon name="document-attach-outline" size={16} color={colors.textMuted} />
+                <View style={styles.rowBody}>
+                  <Text style={styles.rowName} numberOfLines={1}>
+                    {row.fileName}
+                  </Text>
+                  <Text style={styles.rowMeta} numberOfLines={1}>
+                    {resumeFileMetaText({ fileName: row.fileName, bytes: row.bytes, createdAt: row.createdAt })}
+                  </Text>
+                </View>
+                <ThemedIcon name="open-outline" size={16} color={colors.textFaint} />
+              </Pressable>
+              <PressableScale
+                haptic
+                onPress={() => setMenuRow(row)}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={"更多操作 " + row.fileName}
+                style={styles.moreButton}
+              >
+                <ThemedIcon name="ellipsis-horizontal" size={18} color={colors.textMuted} />
+              </PressableScale>
+            </View>
           ))}
         </View>
       )}
@@ -210,7 +319,95 @@ export function ResumeFilesCard() {
         onPick={() => void upload()}
         pickLabel={busy ? "上传中…" : "选择文件"}
       />
-      <Text style={styles.tip}>点文件预览、长按删除；文件存在你的专属目录，别人拿不到直链。</Text>
+      <Text style={styles.tip}>点文件预览、点右侧 ⋯（或长按）重命名 / 删除；文件存在你的专属目录，别人拿不到直链。</Text>
+
+      {/* 操作弹层：预览 / 重命名 / 删除（比长按直接删除安全，也给重命名留入口） */}
+      <BottomSheet
+        visible={menuRow !== null}
+        onClose={() => setMenuRow(null)}
+        title={menuRow?.fileName ?? "文件操作"}
+        subtitle="选择要执行的操作"
+        icon="document-text-outline"
+      >
+        <View style={styles.menu}>
+          <Button
+            label="预览"
+            icon="eye-outline"
+            variant="secondary"
+            onPress={() => {
+              const row = menuRow;
+              setMenuRow(null);
+              if (row) open(row);
+            }}
+          />
+          <Button
+            label="重命名"
+            icon="create-outline"
+            variant="secondary"
+            onPress={() => {
+              if (menuRow) startRename(menuRow);
+            }}
+          />
+          <Button
+            label="删除"
+            icon="trash-outline"
+            variant="danger"
+            onPress={() => {
+              const row = menuRow;
+              setMenuRow(null);
+              if (row) remove(row);
+            }}
+          />
+          <Button label="取消" icon="close" variant="ghost" onPress={() => setMenuRow(null)} />
+        </View>
+      </BottomSheet>
+
+      {/* 重命名弹层：自适应高度（BottomSheet P12 autoHeight），扩展名固定为后缀不可编辑 */}
+      <BottomSheet
+        visible={renameRow !== null}
+        onClose={closeRename}
+        title="重命名简历"
+        subtitle="只改显示名，文件内容与预览链接都不变"
+        icon="create-outline"
+      >
+        <View style={styles.renameBody}>
+          <Text style={styles.renameLabel}>文件名</Text>
+          <View style={styles.renameInputRow}>
+            <TextInput
+              style={styles.renameInput}
+              value={renameDraft}
+              onChangeText={(text) => {
+                setRenameDraft(text);
+                if (renameError) setRenameError("");
+              }}
+              placeholder="例如：后端-社招-简历"
+              placeholderTextColor={colors.textFaint}
+              maxLength={renameMax}
+              autoFocus
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="done"
+              onSubmitEditing={() => void submitRename()}
+              accessibilityLabel="新的文件名"
+            />
+            {renameExt ? <Text style={styles.renameExt}>.{renameExt}</Text> : null}
+          </View>
+          <Text style={styles.renameHint}>
+            最多 {RESUME_FILE_NAME_MAX} 字符（含扩展名），不能包含 / 或 \；扩展名跟着原文件走
+          </Text>
+          {renameError ? <Text style={styles.renameError}>{renameError}</Text> : null}
+          <View style={styles.renameActions}>
+            <Button label="取消" variant="ghost" onPress={closeRename} />
+            <Button
+              label="保存"
+              icon="checkmark"
+              loading={renameBusy}
+              disabled={!renameDraft.trim()}
+              onPress={() => void submitRename()}
+            />
+          </View>
+        </View>
+      </BottomSheet>
     </Card>
   );
 }
@@ -224,7 +421,9 @@ function useMemo2(colors: ThemeColors) {
     hint: { fontSize: 11, color: colors.textMuted },
     empty: { fontSize: 12, lineHeight: 18, color: colors.textMuted },
     list: { gap: 8 },
+    rowWrap: { flexDirection: "row", alignItems: "center", gap: 8 },
     row: {
+      flex: 1,
       flexDirection: "row",
       alignItems: "center",
       gap: 10,
@@ -235,9 +434,36 @@ function useMemo2(colors: ThemeColors) {
       paddingHorizontal: 12,
       paddingVertical: 10,
     },
+    moreButton: {
+      width: 36,
+      height: 36,
+      borderRadius: radius.md,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surfaceMuted,
+    },
     rowBody: { flex: 1, gap: 2 },
     rowName: { fontSize: 13, fontWeight: "700", color: colors.text },
     rowMeta: { fontSize: 11, color: colors.textMuted },
     tip: { fontSize: 11, color: colors.textMuted },
+    menu: { gap: 8 },
+    renameBody: { gap: 8 },
+    renameLabel: { ...typography.caption, color: colors.textMuted },
+    renameInputRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceStrong,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+    },
+    renameInput: { ...typography.body, flex: 1, color: colors.text, padding: 0 },
+    renameExt: { ...typography.body, color: colors.textMuted },
+    renameHint: { ...typography.caption, color: colors.textMuted, lineHeight: 18 },
+    renameError: { ...typography.caption, color: colors.danger, lineHeight: 18 },
+    renameActions: { flexDirection: "row", gap: 8, marginTop: 4 },
   });
 }

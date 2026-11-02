@@ -6,7 +6,8 @@ vi.mock("@/lib/file-ticket", () => ({ verifyFileTicket: vi.fn() }));
 vi.mock("node:fs/promises", () => ({ readFile: vi.fn(async () => Buffer.from("PDFDATA")) }));
 vi.mock("@/lib/resume-files", () => ({
   contentTypeFor: () => "application/pdf",
-  resumeExtOf: () => "pdf",
+  // 按存储路径推扩展名：docx 用例要能拿到 "docx"（与 lib/resume-files.ts 的 resumeExtOf 同义）
+  resumeExtOf: (p: string) => (String(p).toLowerCase().endsWith(".docx") ? "docx" : String(p).toLowerCase().endsWith(".doc") ? "doc" : "pdf"),
   isSafeResumePath: (p: string) => p.startsWith("2f1b1f2e-"),
   resumeAbsPath: (p: string) => "/tmp/" + p,
   removeResumeFile: vi.fn(async () => undefined),
@@ -166,12 +167,76 @@ describe("PATCH /api/resume-files/[id]（重命名）", () => {
     expect(res.headers.get("Cache-Control")).toBe("private, no-store");
   });
 
-  it("自己带了扩展名 → 不重复追加", async () => {
+  it("自己带了扩展名（大小写与原扩展一致）→ 不重复追加，保留用户写法", async () => {
     userMock.mockResolvedValue("u-1");
     queryMock.mockResolvedValue({
       rows: [{ path: "2f1b1f2e-0000-4000-8000-000000000000/abc.pdf" }, { fileName: "x.pdf" }],
     } as never);
     const res = await patch("社招-V2.PDF");
     expect((await res.json()).fileName).toBe("社招-V2.PDF");
+  });
+
+  it("带点但不是扩展名的名字（简历 v2.0）→ 仍补上原扩展（回归：旧实现会误判 .0 为扩展名）", async () => {
+    userMock.mockResolvedValue("u-1");
+    queryMock.mockResolvedValue({
+      rows: [{ path: "2f1b1f2e-0000-4000-8000-000000000000/abc.pdf" }, { fileName: "x.pdf" }],
+    } as never);
+    const res = await patch("后端-简历 v2.0");
+    expect(res.status).toBe(200);
+    expect((await res.json()).fileName).toBe("后端-简历 v2.0.pdf");
+  });
+
+  it("写了别的合法扩展名（pdf 文件写成 .docx）→ 以原扩展为准", async () => {
+    userMock.mockResolvedValue("u-1");
+    queryMock.mockResolvedValue({
+      rows: [{ path: "2f1b1f2e-0000-4000-8000-000000000000/abc.pdf" }, { fileName: "x.pdf" }],
+    } as never);
+    const res = await patch("秋招-后端.docx");
+    expect(res.status).toBe(200);
+    expect((await res.json()).fileName).toBe("秋招-后端.pdf");
+  });
+
+  it("禁止路径分隔符（/ 与 \\）→ 400，且不写库", async () => {
+    userMock.mockResolvedValue("u-1");
+    const slash = await patch("秋招/后端.pdf");
+    expect(slash.status).toBe(400);
+    expect((await slash.json()).error).toContain("不能包含");
+    const backslash = await patch("秋招\\后端.pdf");
+    expect(backslash.status).toBe(400);
+    // 只有两次 SELECT（每次请求 1 次）之前就返回了，UPDATE 不应发生
+    expect(queryMock.mock.calls.some(([sql]) => String(sql).includes("UPDATE resume_files SET file_name"))).toBe(false);
+  });
+
+  it("超过 80 字符（含扩展名）→ 400；刚好 80 字符 → 200", async () => {
+    userMock.mockResolvedValue("u-1");
+    queryMock.mockResolvedValue({
+      rows: [{ path: "2f1b1f2e-0000-4000-8000-000000000000/abc.pdf" }, { fileName: "x.pdf" }],
+    } as never);
+    const tooLong = await patch("a".repeat(77) + ".pdf"); // 81 字符
+    expect(tooLong.status).toBe(400);
+    expect((await tooLong.json()).error).toContain("80");
+    const exact = await patch("a".repeat(76) + ".pdf"); // 80 字符
+    expect(exact.status).toBe(200);
+    expect((await exact.json()).fileName).toBe("a".repeat(76) + ".pdf");
+  });
+
+  it("空白折叠 + 去首尾点：'  .秋招   后端.  ' → '秋招 后端.pdf'", async () => {
+    userMock.mockResolvedValue("u-1");
+    queryMock.mockResolvedValue({
+      rows: [{ path: "2f1b1f2e-0000-4000-8000-000000000000/abc.pdf" }, { fileName: "x.pdf" }],
+    } as never);
+    const res = await patch("  .秋招   后端.  ");
+    expect(res.status).toBe(200);
+    expect((await res.json()).fileName).toBe("秋招 后端.pdf");
+  });
+
+  it("存储路径是 docx 时，补的是 .docx 而不是 .pdf", async () => {
+    userMock.mockResolvedValue("u-1");
+    queryMock.mockResolvedValue({
+      rows: [{ path: "2f1b1f2e-0000-4000-8000-000000000000/abc.docx" }, { fileName: "x.docx" }],
+    } as never);
+    const res = await patch("社招-后端");
+    expect(res.status).toBe(200);
+    expect((await res.json()).fileName).toBe("社招-后端.docx");
   });
 });

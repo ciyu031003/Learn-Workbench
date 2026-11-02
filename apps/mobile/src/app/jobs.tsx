@@ -4,6 +4,7 @@ import {
   Alert,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -44,11 +45,22 @@ import {
 } from "@/lib/jobs";
 import { useAppStore } from "@/store/app-store";
 import type { JobPostingListItem, JobSource, JobStats } from "@learn-workbench/shared/schemas";
-import { SUPPORTED_CITIES, jobSourceLabels } from "@learn-workbench/shared/labels";
+import {
+  HOT_CITIES,
+  PROVINCE_CITIES,
+  cityProvinceLabel,
+  getCitiesOfProvince,
+  jobSourceLabels,
+} from "@learn-workbench/shared/labels";
 import { formatRelativeTime } from "@learn-workbench/shared/dates";
 
 const PAGE_SIZE = 12;
-const CITY_OPTIONS = ["全部", ...SUPPORTED_CITIES];
+/**
+ * P13（2026-11）：城市筛选改「省份 → 城市」二级。
+ * 一级 chip 用 shared 的 PROVINCE_CITIES（含直辖市「北京市」），二级 chip 只显示选中省的城市；
+ * 「热门」是一级里的虚拟分组，内容来自 shared 的 HOT_CITIES —— 不再有「更多城市」把 40 个城市一锅端。
+ */
+const HOT_PROVINCE_KEY = "__hot__";
 const CATEGORY_OPTIONS = [
   { id: "", label: "全部" },
   { id: "internet", label: "互联网" },
@@ -222,14 +234,14 @@ function JobsListHeader({
   stats,
   category,
   city,
-  cityExpand,
+  province,
   sort,
   filterChips,
   hasActiveFilter,
   filterRefreshing,
   onCategory,
   onCity,
-  onCityExpand,
+  onProvince,
   onSort,
   onRemoveFilter,
   onClearFilters,
@@ -239,14 +251,15 @@ function JobsListHeader({
   stats: JobStats | null;
   category: string;
   city: string;
-  cityExpand: boolean;
+  /** 一级筛选："" = 全部、HOT_PROVINCE_KEY = 热门、其余为省名（直辖市带「市」） */
+  province: string;
   sort: "new" | "salary";
   filterChips: JobFilterChipVM[];
   hasActiveFilter: boolean;
   filterRefreshing: boolean;
   onCategory: (id: string) => void;
   onCity: (city: string) => void;
-  onCityExpand: () => void;
+  onProvince: (province: string) => void;
   onSort: (s: "new" | "salary") => void;
   onRemoveFilter: (key: string) => void;
   onClearFilters: () => void;
@@ -323,28 +336,121 @@ function JobsListHeader({
         })}
       </View>
 
-      <View style={styles.chipsRow}>
-        {(cityExpand ? CITY_OPTIONS : CITY_OPTIONS.slice(0, 5)).map((c) => {
-          const active = city === c || (c === "全部" && city === "");
+      {/* P13：一级 = 省份（横向滚动，「全部」清空、「热门」是快捷组），二级 = 该省城市 */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.provinceRow}
+        accessibilityLabel="按省份筛选城市"
+      >
+        <PressableScale
+          scaleTo={0.94}
+          style={[styles.chip, province === "" ? styles.chipActive : styles.chipIdle]}
+          onPress={() => {
+            haptics.soft();
+            onProvince("");
+          }}
+          accessibilityLabel="城市不限"
+        >
+          <Text style={province === "" ? styles.chipTextActive : styles.chipTextIdle}>全部</Text>
+        </PressableScale>
+        <PressableScale
+          scaleTo={0.94}
+          style={[styles.chip, province === HOT_PROVINCE_KEY ? styles.chipActive : styles.chipIdle]}
+          onPress={() => {
+            haptics.soft();
+            onProvince(HOT_PROVINCE_KEY);
+          }}
+          accessibilityLabel="热门城市"
+        >
+          <Text style={province === HOT_PROVINCE_KEY ? styles.chipTextActive : styles.chipTextIdle}>热门</Text>
+        </PressableScale>
+        {PROVINCE_CITIES.map((group) => {
+          const active = province === group.province;
           return (
             <PressableScale
-              key={c}
+              key={group.province}
               scaleTo={0.94}
               style={[styles.chip, active ? styles.chipActive : styles.chipIdle]}
               onPress={() => {
                 haptics.soft();
-                onCity(c === "全部" ? "" : c);
+                onProvince(group.province);
               }}
             >
-              <Text style={active ? styles.chipTextActive : styles.chipTextIdle}>{c}</Text>
+              <Text style={active ? styles.chipTextActive : styles.chipTextIdle}>{group.province}</Text>
             </PressableScale>
           );
         })}
-        <PressableScale scaleTo={0.94} style={[styles.chip, styles.chipMore]} onPress={onCityExpand}>
-          <ThemedIcon name={cityExpand ? "chevron-up" : "chevron-down"} size={14} color={colors.accentStrong} />
-          <Text style={styles.chipMoreText}>{cityExpand ? "收起城市" : "更多城市"}</Text>
-        </PressableScale>
+      </ScrollView>
+
+      <View style={styles.cityRowHead}>
+        <Text style={styles.cityRowTitle}>
+          {province === "" || province === HOT_PROVINCE_KEY ? "热门城市" : province}
+        </Text>
+        {city ? (
+          <Text style={styles.cityRowSelected} numberOfLines={1}>
+            {cityProvinceLabel(city)}
+          </Text>
+        ) : (
+          <Text style={styles.cityRowHint}>
+            {province === "" ? "点上方省份切换城市分组" : "选城市后按城市筛职位"}
+          </Text>
+        )}
       </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.cityRow}
+        accessibilityLabel="按城市筛选"
+      >
+        {province === "" || province === HOT_PROVINCE_KEY
+          ? HOT_CITIES.map((hot) => {
+              const active = city === hot;
+              return (
+                <PressableScale
+                  key={hot}
+                  scaleTo={0.94}
+                  style={[styles.chip, active ? styles.chipActive : styles.chipIdle]}
+                  onPress={() => {
+                    haptics.soft();
+                    onCity(active ? "" : hot);
+                  }}
+                >
+                  <Text style={active ? styles.chipTextActive : styles.chipTextIdle}>{hot}</Text>
+                </PressableScale>
+              );
+            })
+          : [
+              <PressableScale
+                key="__all_cities"
+                scaleTo={0.94}
+                style={[styles.chip, city === "" ? styles.chipActive : styles.chipIdle]}
+                onPress={() => {
+                  haptics.soft();
+                  onCity("");
+                }}
+                accessibilityLabel="不限城市"
+              >
+                <Text style={city === "" ? styles.chipTextActive : styles.chipTextIdle}>不限城市</Text>
+              </PressableScale>,
+              ...getCitiesOfProvince(province).map((item) => {
+                const active = city === item;
+                return (
+                  <PressableScale
+                    key={item}
+                    scaleTo={0.94}
+                    style={[styles.chip, active ? styles.chipActive : styles.chipIdle]}
+                    onPress={() => {
+                      haptics.soft();
+                      onCity(active ? "" : item);
+                    }}
+                  >
+                    <Text style={active ? styles.chipTextActive : styles.chipTextIdle}>{item}</Text>
+                  </PressableScale>
+                );
+              }),
+            ]}
+      </ScrollView>
 
       <View style={styles.sortRow}>
         <Text style={styles.sortLabel}>排序</Text>
@@ -382,6 +488,7 @@ const PUBLISHED_OPTIONS = [
 function FilterBottomSheet({
   visible,
   city,
+  province,
   salaryMin,
   salaryMax,
   education,
@@ -390,6 +497,7 @@ function FilterBottomSheet({
   skills,
   onSalary,
   onCity,
+  onProvince,
   onToggleEdu,
   onToggleExp,
   onPublished,
@@ -401,6 +509,8 @@ function FilterBottomSheet({
 }: {
   visible: boolean;
   city: string;
+  /** 一级筛选选中值："" = 不限、HOT_PROVINCE_KEY = 热门、其余为省名 */
+  province: string;
   salaryMin: number | null;
   salaryMax: number | null;
   education: string[];
@@ -409,6 +519,7 @@ function FilterBottomSheet({
   skills: string[];
   onSalary: (min: number | null, max: number | null) => void;
   onCity: (v: string) => void;
+  onProvince: (v: string) => void;
   onToggleEdu: (v: string) => void;
   onToggleExp: (v: string) => void;
   onPublished: (v: "" | "today" | "3d" | "7d") => void;
@@ -459,13 +570,31 @@ function FilterBottomSheet({
               />
             </SheetSection>
 
-            <SheetSection title="城市">
+            <SheetSection
+              title="城市"
+              hint={city ? "已选：" + cityProvinceLabel(city) : "先选省份，再选城市"}
+            >
+              <ChipGroup
+                multiple={false}
+                options={[
+                  { key: "", label: "不限" },
+                  { key: HOT_PROVINCE_KEY, label: "热门" },
+                  ...PROVINCE_CITIES.map((group) => ({ key: group.province, label: group.province })),
+                ]}
+                selected={[province]}
+                onToggle={(k) => onProvince(province === k ? "" : k)}
+              />
               <ChipGroup
                 multiple={false}
                 wrap
-                options={CITY_OPTIONS.map((c) => ({ key: c === "全部" ? "" : c, label: c }))}
+                options={[
+                  { key: "", label: "不限城市" },
+                  ...(province === "" || province === HOT_PROVINCE_KEY ? HOT_CITIES : getCitiesOfProvince(province)).map(
+                    (c) => ({ key: c, label: c })
+                  ),
+                ]}
                 selected={[city]}
-                onToggle={(k) => onCity(k)}
+                onToggle={(k) => onCity(city === k ? "" : k)}
               />
             </SheetSection>
 
@@ -548,7 +677,8 @@ export default function JobsScreen() {
 
   const [query, setQuery] = useState("");
   const [city, setCity] = useState("");
-  const [cityExpand, setCityExpand] = useState(false);
+  // P13：一级筛选（省/直辖市/热门），二级才是城市；城市仍然是发给 API 的筛选值
+  const [province, setProvince] = useState("");
   const [category, setCategory] = useState("");
   const [sort, setSort] = useState<"new" | "salary">("new");
   // S5-4：id 契约统一 string（与 API 响应一致，避免 bigint 精度丢失）
@@ -576,6 +706,7 @@ export default function JobsScreen() {
     recordCrumb("scroll", { first: Math.min(...idx), last: Math.max(...idx), visible: idx.length });
   }, []);
   const hasActiveFilter =
+    Boolean(city) ||
     salaryMin != null || salaryMax != null || education.length > 0 || experience.length > 0 || publishedWithin !== "" || skillsFilter.length > 0;
 
   const loadJobs = useCallback(
@@ -639,6 +770,17 @@ export default function JobsScreen() {
   /** v20-A1：当前筛选条件的回显 chips（单项移除即触发 effect 自动重查） */
   const filterChips = useMemo<JobFilterChipVM[]>(() => {
     const chips: JobFilterChipVM[] = [];
+    // P13：已选城市回显为「省 · 市」，移除后连一级省份一起复位
+    if (city) {
+      chips.push({
+        key: "city",
+        label: "城市 " + cityProvinceLabel(city),
+        onRemove: () => {
+          setCity("");
+          setProvince("");
+        },
+      });
+    }
     if (salaryMin != null || salaryMax != null) {
       const preset = SALARY_PRESETS.find((p) => p.min === salaryMin && p.max === salaryMax);
       const label =
@@ -668,7 +810,7 @@ export default function JobsScreen() {
       chips.push({ key: `skill-${s}`, label: s, onRemove: () => setSkillsFilter((p) => p.filter((x) => x !== s)) });
     }
     return chips;
-  }, [salaryMin, salaryMax, education, experience, publishedWithin, skillsFilter]);
+  }, [city, salaryMin, salaryMax, education, experience, publishedWithin, skillsFilter]);
 
   const removeFilterChip = useCallback((key: string) => {
     const chip = filterChips.find((c) => c.key === key);
@@ -676,6 +818,8 @@ export default function JobsScreen() {
   }, [filterChips]);
 
   const clearFilterChips = useCallback(() => {
+    setCity("");
+    setProvince("");
     setSalaryMin(null);
     setSalaryMax(null);
     setEducation([]);
@@ -789,20 +933,33 @@ export default function JobsScreen() {
     );
   };
 
+  /**
+   * P13：切换一级省份。若当前已选城市不属于新省份分组，则连带清空城市条件，
+   * 避免出现「一级显示广东、二级还留着杭州」的错配。
+   */
+  const changeProvince = useCallback((next: string) => {
+    setProvince(next);
+    setCity((prev) => {
+      if (!prev) return "";
+      const group = next === HOT_PROVINCE_KEY ? HOT_CITIES : next ? getCitiesOfProvince(next) : [];
+      return group.includes(prev) ? prev : "";
+    });
+  }, []);
+
   // v20-A5：列表头收进 JobsListHeader 组件（搜索态内聚 + 传组件类型，输入不再整头重渲染）
   const header = (
     <JobsListHeader
       stats={stats}
       category={category}
       city={city}
-      cityExpand={cityExpand}
+      province={province}
       sort={sort}
       filterChips={filterChips}
       hasActiveFilter={hasActiveFilter}
       filterRefreshing={filterRefreshing}
       onCategory={setCategory}
       onCity={setCity}
-      onCityExpand={() => setCityExpand((v) => !v)}
+      onProvince={changeProvince}
       onSort={setSort}
       onRemoveFilter={removeFilterChip}
       onClearFilters={clearFilterChips}
@@ -874,6 +1031,7 @@ export default function JobsScreen() {
       <FilterBottomSheet
         visible={filterVisible}
         city={city}
+        province={province}
         salaryMin={salaryMin}
         salaryMax={salaryMax}
         education={education}
@@ -881,6 +1039,7 @@ export default function JobsScreen() {
         publishedWithin={publishedWithin}
         skills={skillsFilter}
         onCity={setCity}
+        onProvince={changeProvince}
         onSalary={(min, max) => { setSalaryMin(min); setSalaryMax(max); }}
         onToggleEdu={(v) => setEducation((prev) => (prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]))}
         onToggleExp={(v) => setExperience((prev) => (prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]))}
@@ -888,6 +1047,7 @@ export default function JobsScreen() {
         onAddSkill={(v) => setSkillsFilter((prev) => (prev.includes(v) ? prev : [...prev, v]))}
         onRemoveSkill={(v) => setSkillsFilter((prev) => prev.filter((x) => x !== v))}
         onReset={() => {
+          setCity(""); setProvince("");
           setSalaryMin(null); setSalaryMax(null);
           setEducation([]); setExperience([]);
           setPublishedWithin(""); setSkillsFilter([]);
@@ -946,22 +1106,16 @@ const makeStyles = (colors: ThemeColors) =>
   // v20-A6：三档 chip 字号收敛到 caption
   catChipTextActive: { color: "#ffffff", ...typography.caption, fontWeight: "800" },
   catChipTextIdle: { color: colors.textSecondary, ...typography.caption, fontWeight: "600" },
-  chipsRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingVertical: 2 },
+  // P13：一级省份行 / 二级城市行（都是横向滚动，不再换行铺满一屏）
+  provinceRow: { flexDirection: "row", gap: 8, paddingVertical: 4 },
+  cityRowHead: { flexDirection: "row", alignItems: "center", gap: 8 },
+  cityRowTitle: { ...typography.caption, fontWeight: "800", color: colors.text },
+  cityRowHint: { ...typography.micro, color: colors.textMuted },
+  cityRowSelected: { ...typography.micro, fontWeight: "800", color: colors.primary, flexShrink: 1 },
+  cityRow: { flexDirection: "row", gap: 8, paddingTop: 4, paddingBottom: 2 },
   chip: { borderRadius: 999, paddingHorizontal: 13, paddingVertical: 7 },
   chipActive: { backgroundColor: colors.primary },
   chipIdle: { backgroundColor: colors.surfaceStrong, borderWidth: 1, borderColor: colors.border },
-  chipMore: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    backgroundColor: colors.accentSoft,
-    borderWidth: 1,
-    borderColor: colors.accent,
-    borderRadius: 999,
-    paddingHorizontal: 13,
-    paddingVertical: 7,
-  },
-  chipMoreText: { color: colors.accentStrong, ...typography.caption, fontWeight: "800" },
   chipTextActive: { color: "#ffffff", ...typography.caption, fontWeight: "700" },
   chipTextIdle: { color: colors.textSecondary, ...typography.caption, fontWeight: "600" },
   sortRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },

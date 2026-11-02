@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildStudyToc,
+  chapterSheetVisibleWithoutSnapshot,
   chunkInlineText,
   normalizeApiStudyBlocks,
   normalizeStudySegments,
@@ -341,5 +342,117 @@ describe("服务端公式段（P7 / format=svg）", () => {
     expect(detail.blocks[0]).toMatchObject({ type: "math", tex: "x^2" });
     const noBlocks = normalizeStudyDetail({ article: { key: "k", title: "T", slug: "s" } });
     expect(noBlocks.blocks).toEqual([]);
+  });
+});
+
+describe("normalizeStudyList（P13：真实 API 形状 subject.chapters[].topics）", () => {
+  it("从单科树响应里 flatten 出文章，保留章节与章节序", () => {
+    // 取自线上 /api/exam/408/study?subject=data-structure 的真实形状（截取两章三篇）
+    const payload = {
+      mode: "subject",
+      source: { key: "cs408-cloud", name: "cs408", baseUrl: "https://cs408.cloud" },
+      subject: {
+        key: "data-structure",
+        title: "数据结构",
+        shortName: "DS",
+        chapterCount: 2,
+        topicCount: 3,
+        readingMinutes: 24,
+        chapters: [
+          {
+            chapter: "绪论",
+            chapterOrder: 10010,
+            topics: [
+              {
+                slug: "data-structure-intro-basic",
+                title: "数据结构基本概念",
+                chapter: "绪论",
+                chapterOrder: 10010,
+                importance: "must",
+                examFrequency: 2,
+                readingMinutes: 8,
+              },
+            ],
+          },
+          {
+            chapter: "线性表",
+            chapterOrder: 10020,
+            topics: [
+              {
+                slug: "data-structure-linear-list",
+                title: "线性表的定义",
+                chapter: "线性表",
+                chapterOrder: 10020,
+                importance: "common",
+                examFrequency: 0,
+              },
+              {
+                slug: "data-structure-linear-storage",
+                title: "线性表的存储结构",
+                chapter: "线性表",
+                chapterOrder: 10021,
+                importance: "must",
+                examFrequency: 5,
+              },
+            ],
+          },
+        ],
+      },
+    };
+
+    const catalog = normalizeStudyList(payload, "data-structure");
+
+    expect(catalog.total).toBe(3);
+    expect(catalog.chapters.map((group) => group.chapter)).toEqual(["绪论", "线性表"]);
+    expect(catalog.chapters[1]?.chapterOrder).toBe(10020);
+    expect(catalog.chapters[1]?.articles.map((article) => article.slug)).toEqual([
+      "data-structure-linear-list",
+      "data-structure-linear-storage",
+    ]);
+    expect(catalog.chapters[0]?.articles[0]).toMatchObject({
+      slug: "data-structure-intro-basic",
+      subjectKey: "data-structure",
+      chapter: "绪论",
+      importance: "must",
+      examFrequency: 2,
+    });
+  });
+
+  it("总览形状 subjects[].chapters[].topics 也能归一化", () => {
+    const catalog = normalizeStudyList(
+      {
+        mode: "overview",
+        subjects: [
+          {
+            key: "operating-system",
+            chapters: [
+              {
+                chapter: "进程管理",
+                chapterOrder: 20020,
+                topics: [{ slug: "os-process", title: "进程" }],
+              },
+            ],
+          },
+        ],
+      },
+      "operating-system",
+    );
+    expect(catalog.total).toBe(1);
+    expect(catalog.chapters[0]?.chapter).toBe("进程管理");
+  });
+
+  it("空响应/无文章时 total=0（页面据此显示明确空态）", () => {
+    expect(normalizeStudyList({ mode: "subject", subject: { chapters: [] } }, "data-structure").total).toBe(0);
+    expect(normalizeStudyList(null, "data-structure").total).toBe(0);
+  });
+});
+
+describe("chapterSheetVisibleWithoutSnapshot（P13：崩溃后章节弹层残留防御）", () => {
+  it("可见但无快照 → 自动收敛关闭", () => {
+    expect(chapterSheetVisibleWithoutSnapshot(true, false)).toBe(true);
+  });
+  it("正常可见/已关闭都不触发", () => {
+    expect(chapterSheetVisibleWithoutSnapshot(true, true)).toBe(false);
+    expect(chapterSheetVisibleWithoutSnapshot(false, false)).toBe(false);
   });
 });

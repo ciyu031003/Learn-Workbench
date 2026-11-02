@@ -5,6 +5,7 @@ import * as Device from "expo-device";
 import * as ScreenOrientation from "expo-screen-orientation";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { DailyBackground } from "@/components/daily-background";
 import { ThemeProvider } from "@/theme";
 import { useTheme } from "@/theme";
@@ -229,7 +230,9 @@ export default function RootLayout() {
           供 BottomSheet 的键盘高度动画与 KeyboardAwareScrollView 使用 */}
       <KeyboardProvider>
         <ThemeProvider>
-          <ThemedShell tier={DEVICE_TIER} />
+          <ErrorBoundary>
+            <ThemedShell tier={DEVICE_TIER} />
+          </ErrorBoundary>
         </ThemeProvider>
       </KeyboardProvider>
     </GestureHandlerRootView>

@@ -129,11 +129,24 @@ export default function Exam408StudyScreen() {
               <Text style={styles.retryText}>重试</Text>
             </PressableScale>
           </View>
-        ) : total === 0 ? (
+        ) : !catalog || total === 0 || chapterCount === 0 ? (
           <View style={styles.centerState}>
-            <ThemedIcon name="file-tray-outline" size={26} color={colors.textMuted} />
-            <Text style={styles.centerTitle}>这一科还没有精读正文</Text>
-            <Text style={styles.centerText}>换个科目看看，或稍后再来。</Text>
+            <ThemedIcon
+              name={catalog ? "file-tray-outline" : "alert-circle-outline"}
+              size={26}
+              color={colors.textMuted}
+            />
+            <Text style={styles.centerTitle}>
+              {catalog ? "这一科还没有精读正文" : "精读目录数据异常"}
+            </Text>
+            <Text style={styles.centerText}>
+              {catalog
+                ? "换个科目看看，或点下方重新加载；确认线上有正文时请反馈给我们。"
+                : "接口返回里没有识别到章节/文章结构，请重新加载后再试。"}
+            </Text>
+            <PressableScale haptic onPress={() => void load(subjectRef.current)} style={styles.retry}>
+              <Text style={styles.retryText}>重新加载</Text>
+            </PressableScale>
           </View>
         ) : (
           <>

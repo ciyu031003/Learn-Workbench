@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SvgXml } from "react-native-svg";
+import { sanitizeSvgForNative } from "@/lib/svg-sanitize";
 import { algorithmAnimations } from "@learn-workbench/content/learning";
 import { useAnimationFrames } from "@/lib/content-store";
 import { radius, spacing, typography, type ThemeColors } from "@/theme/tokens";
@@ -71,7 +72,11 @@ export function AlgorithmAnimation({ keys }: { keys: string[] }): React.JSX.Elem
 
       <View style={styles.canvas} onLayout={(event) => setBoxWidth(event.nativeEvent.layout.width)}>
         {boxWidth > 0 ? (
-          <SvgXml xml={current.svg} width={boxWidth} height={Math.round(boxWidth * ratio)} />
+          <SvgXml
+            xml={sanitizeSvgForNative(current.svg)}
+            width={boxWidth}
+            height={Math.round(boxWidth * ratio)}
+          />
         ) : null}
       </View>
 

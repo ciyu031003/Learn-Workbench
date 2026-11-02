@@ -28,6 +28,8 @@ import {
   queueCacheKey,
   progressLabel,
   ratingDirectionOf,
+  resolveDrillLayout,
+  subjectChipDisplay,
   ratingHint,
   ratingLabel,
   ratingVisual,
@@ -547,4 +549,75 @@ describe("进度文案", () => {
     expect(progressLabel(Number.NaN, 5, false)).toBe("第 1 / 5 张");
   });
 });
+
+describe("resolveDrillLayout（P13 刷卡布局档位）", () => {
+  it("常规大屏（iPhone 13 可用高 763）：非紧凑、卡片地板约占可用高 58%", () => {
+    const layout = resolveDrillLayout(763);
+    expect(layout.compact).toBe(false);
+    expect(layout.cardMinHeight).toBe(443); // round(763 × 0.58)
+    expect(layout.cardMinHeight / 763).toBeGreaterThan(0.55);
+    expect(layout.ratingMinHeight).toBe(76);
+    expect(layout.showStatsLine).toBe(true);
+    expect(layout.gap).toBe(8);
+  });
+
+  it("小屏（iPhone SE 647）走紧凑档：藏统计小字、按钮 64、卡片约 52%", () => {
+    const layout = resolveDrillLayout(647);
+    expect(layout.compact).toBe(true);
+    expect(layout.cardMinHeight).toBe(336); // round(647 × 0.52)
+    expect(layout.ratingMinHeight).toBe(64);
+    expect(layout.showStatsLine).toBe(false);
+    expect(layout.gap).toBe(6);
+  });
+
+  it("极小屏（320×568 的可用高 544）：地板被「可用高 − chrome 预留」收住（244=544−300）", () => {
+    const layout = resolveDrillLayout(544);
+    expect(layout.cardMinHeight).toBe(244);
+    expect(layout.cardMinHeight / 544).toBeGreaterThan(0.4);
+  });
+
+  it("档位切换边界：699 紧凑 / 700 常规", () => {
+    expect(resolveDrillLayout(699).compact).toBe(true);
+    expect(resolveDrillLayout(700).compact).toBe(false);
+  });
+
+  it("任何屏高下「卡片地板 + 固定 chrome(300)」都不超过可用高（评级按钮不会被挤出屏幕）", () => {
+    for (const usable of [400, 480, 544, 647, 699, 700, 763, 926]) {
+      const layout = resolveDrillLayout(usable);
+      expect(layout.cardMinHeight + 300).toBeLessThanOrEqual(usable);
+      expect(layout.cardMinHeight).toBeGreaterThan(0);
+    }
+  });
+
+  it("脏值/0 兜底：按 700 档计算，不抛错也不返回 0 高", () => {
+    for (const usable of [0, Number.NaN, Number.NEGATIVE_INFINITY, 10]) {
+      const layout = resolveDrillLayout(usable);
+      expect(layout.compact).toBe(false);
+      expect(layout.cardMinHeight).toBe(400); // round(min(700×0.58, 700−300))
+      expect(layout.ratingMinHeight).toBeGreaterThanOrEqual(44);
+    }
+  });
+});
+
+describe("subjectChipDisplay（P13 科目 chip 缩到文字宽度）", () => {
+  it("有待复习数：主文案 + 数字", () => {
+    expect(subjectChipDisplay("数据结构", 3)).toEqual({ label: "数据结构", dueText: "3", hasDue: true });
+  });
+
+  it("无待复习数：不渲染右侧数字", () => {
+    expect(subjectChipDisplay("计算机网络", 0)).toEqual({ label: "计算机网络", dueText: "", hasDue: false });
+  });
+
+  it("脏值兜底：负数/NaN/小数都不显示或取整", () => {
+    expect(subjectChipDisplay("操作系统", -2).hasDue).toBe(false);
+    expect(subjectChipDisplay("操作系统", Number.NaN).hasDue).toBe(false);
+    expect(subjectChipDisplay("操作系统", 2.7).dueText).toBe("2");
+  });
+
+  it("标题首尾空白被裁掉（避免 chip 宽度虚高）", () => {
+    expect(subjectChipDisplay("  数据结构  ", 1).label).toBe("数据结构");
+    expect(subjectChipDisplay("", 1).label).toBe("");
+  });
+});
+
 

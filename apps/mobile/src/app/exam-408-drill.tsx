@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Dimensions,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,6 +10,7 @@ import {
   View,
   type DimensionValue,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -57,9 +59,11 @@ import {
   ratingDirectionOf,
   ratingVisual,
   removeCardFromQueue,
+  resolveDrillLayout,
   saveCachedQueue,
   saveCachedStatsBoard,
   saveRatingOutbox,
+  subjectChipDisplay,
   submitCardRating,
   type Exam408CardRating,
   type Exam408CardStats,
@@ -105,6 +109,16 @@ export default function Exam408DrillScreen() {
   const token = useAppStore((s) => s.token);
   /** 从知识点页「速记卡」入口带 subject 进来：只接受四个合法科目，其余按「全部」 */
   const params = useLocalSearchParams<{ subject?: string }>();
+  /**
+   * P13 布局：卡片要占屏幕主体，所以先用纯函数定档位（紧凑/常规）。
+   * 用 screen 高度而不是 window：键盘弹起时 window 会变矮，档位不该跟着抖（与 BottomSheet 同口径）。
+   */
+  const insets = useSafeAreaInsets();
+  const usableScreen = Math.max(
+    240,
+    Dimensions.get("screen").height - insets.top - insets.bottom,
+  );
+  const layout = useMemo(() => resolveDrillLayout(usableScreen), [usableScreen]);
 
   const [subjectKey, setSubjectKey] = useState<string>(() => {
     const incoming = (params.subject ?? "").trim();
@@ -426,24 +440,34 @@ export default function Exam408DrillScreen() {
     <View style={styles.root}>
       <ScreenHeaderStickyBar title="408 刷卡" scrollY={header.scrollY} backTo="/exam-408" />
 
-      <View style={[styles.content, { paddingBottom: Math.max(12, bottomSpace) + spacing.md }]}>
-        {/* 顶部：进度条 + 第 x / N 张 + 今日已刷 */}
+      <View
+        style={[
+          styles.content,
+          { paddingBottom: Math.max(12, bottomSpace) + spacing.md, gap: layout.gap },
+        ]}
+      >
+        {/* 顶部（P13 压缩）：一行进度文案 + 4pt 进度条；紧凑档不再显示统计小字 */}
         {cards.length > 0 ? (
           <Animated.View entering={entrance(0)} style={styles.progressBlock}>
             <View style={styles.progressHead}>
-              <Text style={styles.progressText}>{progressLabel(index, cards.length, finished)}</Text>
-              <Text style={styles.progressMeta}>今日已刷 {stats.doneToday} 张</Text>
+              <Text style={styles.progressText} numberOfLines={1}>
+                {progressLabel(index, cards.length, finished)}
+              </Text>
+              <Text style={styles.progressMeta} numberOfLines={1}>
+                今日已刷 {stats.doneToday} 张{offline ? " · 离线" : ""}
+              </Text>
             </View>
             <View style={styles.progressTrack}>
               <View
                 style={[styles.progressFill, { width: (progress.percent + "%") as DimensionValue }]}
               />
             </View>
-            <Text style={styles.statsLine}>
-              待复习 {dueNow} 张 · 今日正确率{" "}
-              {board.today.done > 0 ? formatAccuracy(board.today.accuracy) : "—"} · 连续 {stats.streak} 天
-              {offline ? " · 离线缓存中" : ""}
-            </Text>
+            {layout.showStatsLine ? (
+              <Text style={styles.statsLine} numberOfLines={1}>
+                待复习 {dueNow} 张 · 今日正确率{" "}
+                {board.today.done > 0 ? formatAccuracy(board.today.accuracy) : "—"} · 连续 {stats.streak} 天
+              </Text>
+            ) : null}
           </Animated.View>
         ) : null}
 
@@ -453,7 +477,7 @@ export default function Exam408DrillScreen() {
             styles={styles}
             colors={colors}
             label="今日队列"
-            meta={queue ? queue.cards.length + " 张 · 到期优先" : "到期优先"}
+            meta={queue ? queue.cards.length + " 张" : "到期优先"}
             active={scope === "queue"}
             onPress={() => {
               haptics.light();
@@ -466,11 +490,7 @@ export default function Exam408DrillScreen() {
             styles={styles}
             colors={colors}
             label="易错本"
-            meta={
-              scope === "mistake" && mistakeQueue
-                ? mistakeQueue.cards.length + " 张 · 错题重刷"
-                : "错题重刷"
-            }
+            meta={scope === "mistake" && mistakeQueue ? mistakeQueue.cards.length + " 张" : "错题重刷"}
             active={scope === "mistake"}
             onPress={() => {
               haptics.light();
@@ -582,7 +602,7 @@ export default function Exam408DrillScreen() {
             ) : null}
           </ScrollView>
         ) : card ? (
-          <View style={styles.cardSlot}>
+          <View style={[styles.cardSlot, { minHeight: layout.cardMinHeight }]}>
             <GestureDetector gesture={panGesture}>
               <Animated.View style={[styles.card, cardSlideStyle]}>
                 {/* 正面：题干（整面可点 → 显示答案） */}
@@ -693,19 +713,22 @@ export default function Exam408DrillScreen() {
                       {card.demoKey ? (
                         <Text style={styles.demoHint}>关联演示：{card.demoKey}</Text>
                       ) : null}
-                      <Text style={styles.faceHint}>轻点卡片任意处隐藏答案</Text>
-                      <PressableScale
-                        haptic
-                        onPress={toggleFlip}
-                        style={styles.hideButton}
-                        accessibilityRole="button"
-                        accessibilityLabel="隐藏答案"
-                      >
-                        <ThemedIcon name="eye-off-outline" size={16} color={colors.primary} />
-                        <Text style={styles.hideButtonText}>隐藏答案</Text>
-                      </PressableScale>
+                      <Text style={styles.faceHint}>轻点卡片任意处也能收起答案</Text>
                     </ScrollView>
                   </Pressable>
+
+                  {/* P13：收起按钮固定悬浮在答案面右上角（不在滚动内容里，长答案滚到哪都点得到） */}
+                  <PressableScale
+                    haptic
+                    onPress={toggleFlip}
+                    style={styles.collapseChip}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel="收起答案，回到题干"
+                  >
+                    <ThemedIcon name="eye-off-outline" size={15} color={colors.primary} />
+                    <Text style={styles.collapseChipText}>收起</Text>
+                  </PressableScale>
                 </Animated.View>
               </Animated.View>
             </GestureDetector>
@@ -741,7 +764,7 @@ export default function Exam408DrillScreen() {
                       onPress={() => void rate(rating)}
                       style={[
                         styles.ratingButton,
-                        { backgroundColor: soft, borderColor: accent },
+                        { backgroundColor: soft, borderColor: accent, minHeight: layout.ratingMinHeight },
                         busy && styles.ratingButtonBusy,
                       ]}
                       accessibilityRole="button"
@@ -754,16 +777,6 @@ export default function Exam408DrillScreen() {
                   );
                 })}
               </View>
-              <PressableScale
-                haptic
-                onPress={toggleFlip}
-                style={styles.hideLink}
-                accessibilityRole="button"
-                accessibilityLabel="隐藏答案，回到题干"
-              >
-                <ThemedIcon name="eye-off-outline" size={14} color={colors.textMuted} />
-                <Text style={styles.hideLinkText}>隐藏答案，回到题干</Text>
-              </PressableScale>
             </View>
           ) : (
             <PressableScale
@@ -885,6 +898,8 @@ function SubjectChip({
   active: boolean;
   onPress: () => void;
 }) {
+  // P13：chip 缩到「文字宽度 + 内边距」，单行显示；有待复习数时右侧跟一个数字
+  const display = subjectChipDisplay(label, due);
   return (
     <PressableScale
       haptic
@@ -892,12 +907,14 @@ function SubjectChip({
       style={[styles.subjectChip, active && styles.subjectChipActive]}
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
-      accessibilityLabel={label + (due > 0 ? "，待复习 " + due + " 张" : "，无到期")}
+      accessibilityLabel={display.label + (display.hasDue ? "，待复习 " + display.dueText + " 张" : "，无到期")}
     >
-      <Text style={[styles.subjectChipText, active && { color: colors.primary }]}>{label}</Text>
-      <Text style={[styles.subjectChipDue, active && { color: colors.primary }]}>
-        {due > 0 ? due + " 待复习" : "无到期"}
+      <Text style={[styles.subjectChipText, active && { color: colors.primary }]} numberOfLines={1}>
+        {display.label}
       </Text>
+      {display.hasDue ? (
+        <Text style={[styles.subjectChipDue, active && { color: colors.primary }]}>{display.dueText}</Text>
+      ) : null}
     </PressableScale>
   );
 }
@@ -935,39 +952,54 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
     statsLine: { ...typography.micro, color: colors.textFaint },
 
     /* 范围 + 科目 */
+    // P13：范围切换压成单行（label + 数量），高度约 30pt
     scopeRow: {
       flexDirection: "row",
-      gap: 4,
-      borderRadius: radius.lg,
+      gap: 3,
+      borderRadius: radius.md,
       backgroundColor: colors.surfaceMuted,
-      padding: 4,
+      padding: 3,
     },
     scopeTab: {
       flex: 1,
+      flexDirection: "row",
       alignItems: "center",
-      gap: 1,
-      borderRadius: radius.md,
-      paddingVertical: 7,
+      justifyContent: "center",
+      gap: 5,
+      borderRadius: radius.sm,
+      paddingVertical: 5,
     },
     scopeTabActive: { backgroundColor: colors.surfaceStrong, ...shadows.card },
-    scopeTabText: { ...typography.callout, fontWeight: "700", color: colors.textMuted },
-    scopeTabMeta: { ...typography.micro, color: colors.textFaint },
-    subjectRow: { gap: spacing.sm, paddingRight: spacing.lg },
+    scopeTabText: { ...typography.caption, fontWeight: "800", color: colors.textMuted },
+    scopeTabMeta: { ...typography.micro, color: colors.textFaint, flexShrink: 1 },
+    subjectRow: { gap: 6, paddingRight: spacing.lg, paddingVertical: 1 },
+    // P13：chip 只占「文字 + 内边距」的宽度（不再 minWidth/等分），单行胶囊
     subjectChip: {
-      gap: 1,
-      borderRadius: radius.md,
-      paddingVertical: 7,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      alignSelf: "flex-start",
+      borderRadius: radius.pill,
       paddingHorizontal: spacing.md,
+      paddingVertical: 6,
       backgroundColor: colors.surfaceMuted,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: "transparent",
     },
-    subjectChipActive: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
+    subjectChipActive: {
+      backgroundColor: colors.primarySoft,
+      borderColor: colors.primary,
+    },
     subjectChipText: { ...typography.caption, fontWeight: "800", color: colors.textSecondary },
-    subjectChipDue: { ...typography.micro, color: colors.textMuted },
+    subjectChipDue: {
+      ...typography.micro,
+      fontWeight: "800",
+      color: colors.textMuted,
+      fontVariant: ["tabular-nums"],
+    },
 
-    /* 卡片 */
-    cardSlot: { flex: 1, minHeight: 220 },
+    /* 卡片：flex:1 吃掉顶部腾出的全部高度，minHeight 由 resolveDrillLayout 按屏高给 */
+    cardSlot: { flex: 1 },
     card: {
       flex: 1,
       borderRadius: radius.xl,
@@ -1020,6 +1052,8 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       alignItems: "baseline",
       justifyContent: "space-between",
       gap: spacing.sm,
+      // 给右上角固定的「收起」胶囊留位置，避免标题/步数被压到按钮下面
+      paddingRight: 64,
     },
     faceTitle: { ...typography.headline, color: colors.text },
     answerCount: { ...typography.micro, color: colors.textMuted },
@@ -1057,19 +1091,22 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
     mnemonicTitle: { ...typography.caption, fontWeight: "800", color: colors.accentStrong },
     mnemonicText: { ...typography.callout, color: colors.text },
     demoHint: { ...typography.micro, color: colors.textFaint },
-    hideButton: {
+    /* P13：收起答案固定在答案面右上角（不随长答案滚走） */
+    collapseChip: {
+      position: "absolute",
+      top: 10,
+      right: 10,
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "center",
-      gap: 6,
-      minHeight: 48,
-      marginTop: 4,
-      borderRadius: radius.md,
+      gap: 4,
+      minHeight: 32,
+      paddingHorizontal: 10,
+      borderRadius: radius.pill,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.primary,
       backgroundColor: colors.surfaceStrong,
     },
-    hideButtonText: { ...typography.callout, fontWeight: "800", color: colors.primary },
+    collapseChipText: { ...typography.micro, fontWeight: "800", color: colors.primary },
 
     /* 操作区 */
     notice: { ...typography.micro, color: colors.warning },
@@ -1088,7 +1125,8 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
     ratingRow: { flexDirection: "row", gap: spacing.sm },
     ratingButton: {
       flex: 1,
-      minHeight: 76,
+      // 高度由 resolveDrillLayout 按屏高给（紧凑 64 / 常规 76），这里只兜底
+      minHeight: 64,
       alignItems: "center",
       justifyContent: "center",
       gap: 2,
@@ -1098,14 +1136,6 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
     ratingButtonBusy: { opacity: 0.6 },
     ratingLabel: { ...typography.headline, fontWeight: "800" },
     ratingHint: { ...typography.micro, color: colors.textMuted },
-    hideLink: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 5,
-      minHeight: 44,
-    },
-    hideLinkText: { ...typography.caption, color: colors.textMuted },
 
     pendingBar: {
       flexDirection: "row",

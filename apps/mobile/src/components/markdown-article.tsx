@@ -3,6 +3,7 @@ import { Linking, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, 
 import * as Clipboard from "expo-clipboard";
 import { Image } from "expo-image";
 import { SvgXml } from "react-native-svg";
+import { sanitizeSvgForNative } from "@/lib/svg-sanitize";
 import { KnowledgeMap } from "@/components/knowledge-map";
 import { ThemedIcon } from "@/components/themed-icon";
 import type { Exam408KnowledgeMap } from "@/lib/exam-408-map";
@@ -211,8 +212,9 @@ function MathSvg({ svg, display }: { svg: string; display?: boolean }): React.JS
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { width: windowWidth } = useWindowDimensions();
   const box = useMemo(() => readMathViewBox(svg), [svg]);
+  // P13：服务端 TeX→SVG 与 cs408 插图 SVG 都必须清洗后再交给 SvgXml（pointer-events=all 会原生 FATAL）
   const xml = useMemo(
-    () => svg.replace(/currentColor/g, colors.text).replace(/\sdata-[a-z-]+="[^"]*"/g, ""),
+    () => sanitizeSvgForNative(svg.replace(/currentColor/g, colors.text).replace(/\sdata-[a-z-]+="[^"]*"/g, "")),
     [svg, colors.text],
   );
   const fontSize = display ? 17 : 15;
@@ -407,7 +409,7 @@ function StudyImage({ src, alt, assetBaseUrl }: { src: string; alt: string; asse
     <View style={styles.imageWrap}>
       <View style={[styles.imageFrame, { aspectRatio: 1 / ratio }]}>
         {kind === "svg" ? (
-          <SvgXml xml={xml} width="100%" height="100%" />
+          <SvgXml xml={sanitizeSvgForNative(xml)} width="100%" height="100%" />
         ) : (
           <Image
             source={{ uri }}

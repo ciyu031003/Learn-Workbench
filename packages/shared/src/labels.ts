@@ -322,6 +322,130 @@ export const SUPPORTED_CITIES = [
   "伊犁", "喀什", "阿克苏", "和田",
 ];
 
+/**
+ * 招花城市筛选 · 「省份 → 城市」二级分组（P13，2026-11）。
+ *
+ * 规则：
+ * - 覆盖 {@link SUPPORTED_CITIES} 的全部城市，且每个城市只出现一次（labels.test.ts 有覆盖断言）；
+ * - 直辖市单独成组并用带「市」的完整名（「北京市」），与省级行政区区分开；
+ * - 省/自治区用简称（「广东」「新疆」），保持一级 chip 不发散。
+ *
+ * 前端消费方（mobile / web 招花筛选）只读这份分组，不得再各自维护城市清单。
+ */
+export interface ProvinceCityGroup {
+  province: string;
+  cities: readonly string[];
+}
+
+export const PROVINCE_CITIES: readonly ProvinceCityGroup[] = [
+  { province: "北京市", cities: ["北京"] },
+  { province: "上海市", cities: ["上海"] },
+  { province: "天津市", cities: ["天津"] },
+  { province: "重庆市", cities: ["重庆"] },
+  { province: "广东", cities: ["广州", "深圳"] },
+  { province: "江苏", cities: ["南京", "苏州"] },
+  { province: "浙江", cities: ["杭州", "宁波"] },
+  { province: "山东", cities: ["济南", "青岛"] },
+  { province: "安徽", cities: ["合肥"] },
+  { province: "福建", cities: ["福州", "厦门"] },
+  { province: "河南", cities: ["郑州"] },
+  { province: "湖北", cities: ["武汉"] },
+  { province: "湖南", cities: ["长沙"] },
+  { province: "江西", cities: ["南昌"] },
+  { province: "河北", cities: ["石家庄"] },
+  { province: "山西", cities: ["太原"] },
+  { province: "陕西", cities: ["西安"] },
+  { province: "四川", cities: ["成都"] },
+  { province: "云南", cities: ["昆明"] },
+  { province: "贵州", cities: ["贵阳"] },
+  { province: "广西", cities: ["南宁"] },
+  { province: "海南", cities: ["海口"] },
+  { province: "辽宁", cities: ["沈阳", "大连"] },
+  { province: "吉林", cities: ["长春"] },
+  { province: "黑龙江", cities: ["哈尔滨"] },
+  {
+    // 新疆这批是招聘源按「地区/自治州」粒度给的城市名，与 SUPPORTED_CITIES 保持一致，不改成地级市
+    province: "新疆",
+    cities: ["乌鲁木齐", "克拉玛依", "吐鲁番", "哈密", "昌吉", "伊犁", "喀什", "阿克苏", "和田"],
+  },
+];
+
+/** 未知城市的兜底分组名（省份清单里没有的城市统一落这里） */
+export const OTHER_PROVINCE = "其他";
+
+/** 热门城市快捷组：一级 chip 里「热门」虚拟分组的内容 */
+export const HOT_CITIES: readonly string[] = ["北京", "上海", "广州", "深圳", "杭州", "成都"];
+
+/** 城市 → 省份（由 {@link PROVINCE_CITIES} 派生，未知城市查不到） */
+export const CITY_PROVINCE: Readonly<Record<string, string>> = Object.freeze(
+  PROVINCE_CITIES.reduce<Record<string, string>>((acc, group) => {
+    for (const city of group.cities) acc[city] = group.province;
+    return acc;
+  }, {}),
+);
+
+/** 城市所属省份；未知城市返回 null，由调用方决定兜底文案。 */
+export function getProvinceOfCity(city: string): string | null {
+  const key = city?.trim();
+  if (!key) return null;
+  return CITY_PROVINCE[key] ?? null;
+}
+
+/** 该省份下的城市（返回副本，未知省份返回空数组） */
+export function getCitiesOfProvince(province: string): string[] {
+  const key = province?.trim();
+  if (!key) return [];
+  const group = PROVINCE_CITIES.find((item) => item.province === key);
+  return group ? [...group.cities] : [];
+}
+
+/**
+ * 把任意城市列表按省份分组，用于「结果里动态长出来的城市」也要能归组的场景：
+ * - 已知城市按 {@link PROVINCE_CITIES} 的省份顺序与省内顺序归组（与入参顺序无关），空组不返回；
+ * - 未知城市收进末尾的 {@link OTHER_PROVINCE} 组（保持入参顺序、去重）。
+ */
+export function groupCitiesByProvince(cities: readonly string[] = SUPPORTED_CITIES): ProvinceCityGroup[] {
+  const known = new Set<string>();
+  const others: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of cities) {
+    const city = raw?.trim();
+    if (!city || seen.has(city)) continue;
+    seen.add(city);
+    if (CITY_PROVINCE[city]) known.add(city);
+    else others.push(city);
+  }
+  const groups: ProvinceCityGroup[] = [];
+  for (const group of PROVINCE_CITIES) {
+    const matched = group.cities.filter((city) => known.has(city));
+    if (matched.length > 0) groups.push({ province: group.province, cities: matched });
+  }
+  if (others.length > 0) groups.push({ province: OTHER_PROVINCE, cities: others });
+  return groups;
+}
+
+/** 「省份 · 城市」回显文案；未知城市原样返回城市名。 */
+export function cityProvinceLabel(city: string): string {
+  const key = city?.trim();
+  if (!key) return "";
+  const province = CITY_PROVINCE[key];
+  return province ? `${province} · ${key}` : key;
+}
+
+/**
+ * 城市搜索（标题/搜索框用）：按城市名或所属省份名做子串匹配，空查询返回全部；
+ * 结果保持入参顺序，未知城市也能按城市名命中。
+ */
+export function searchCities(query: string, cities: readonly string[] = SUPPORTED_CITIES): string[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [...cities];
+  return cities.filter((city) => {
+    if (city.toLowerCase().includes(q)) return true;
+    const province = CITY_PROVINCE[city];
+    return province ? province.toLowerCase().includes(q) : false;
+  });
+}
+
 export const jobCategoryLabels: Record<JobCategory, string> = {
   internet: "互联网",
   gongkao: "考公",
