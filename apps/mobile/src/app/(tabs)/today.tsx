@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import { useHeaderTopInset } from "@/components/screen-header";
 import {
   Pressable,
@@ -7,7 +7,6 @@ import {
   StyleSheet,
   Text,
   View,
-  type DimensionValue,
 } from "react-native";
 import { SportThemedIcon, ThemedIcon } from "@/components/themed-icon";
 import { AnimatedCheckMark } from "@/components/check-mark";
@@ -18,12 +17,8 @@ import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useScrollToTopHandler } from "@/lib/scroll-to-top";
 import Animated, {
   FadeInDown,
-  FadeOut,
-  LinearTransition,
   useAnimatedStyle,
   useSharedValue,
-  useAnimatedScrollHandler,
-  interpolate,
   cancelAnimation,
   withRepeat,
   withSequence,
@@ -34,7 +29,7 @@ import { useAppStore } from "@/store/app-store";
 import type { ExerciseType, Habit, HabitLog } from "@learn-workbench/shared/schemas";
 import type { SportItem } from "@learn-workbench/shared/types";
 import { SPORT_CATALOG, exerciseTypeOptions, taskTypeLabels } from "@learn-workbench/shared/labels";
-import { isScheduled, formatDuration } from "@learn-workbench/shared/dates";
+import { isScheduled } from "@learn-workbench/shared/dates";
 import { computeStreak, todayISOInZone } from "@learn-workbench/shared/domains";
 import { isHabitDone } from "@learn-workbench/shared/pure";
 import { sportIconOf, sportColorsOf, sportAnimOf, sportSfOf } from "@/lib/sport-view";
@@ -55,17 +50,60 @@ import { CelebrationModal } from "@/components/celebration-modal";
 import { EnergyBar } from "@/components/energy-bar";
 import { fetchLatestEnergy, logEnergy } from "@/lib/energy";
 import { PressableScale } from "@/components/pressable-scale";
+import { StatStrip } from "@/components/stat-strip";
 import { haptics } from "@/lib/haptics";
-import { AnimatedNumber } from "@/components/animated-number";
 import { radius, shadows, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { computeFocusStats } from "@/lib/focus-stats";
 import { getDailyQuote } from "@/lib/quotes";
 import { fetchAiTip } from "@/lib/ai-tip";
+import { buildSportTrend } from "@/lib/sport-trend";
+import { localKey } from "@/lib/focus-series";
+import { loadLearningAttempts } from "@/lib/learning-progress";
+import { readCachedRoadmap } from "@/lib/roadmap";
+import { summarizeLearningAttempts as summarizeLearningEvidence } from "@learn-workbench/shared/learning";
+
+/**
+ * 每日目标（v1.62 P0-2）：题库 20 题与学习页 DAILY_QUESTION_GOAL 同值（learn.tsx 内部常量，
+ * 这里只做展示，不改口径）；运动 30 分钟是今日焦点 chip 的参考线，同样只用于展示进度。
+ */
+const DAILY_QUESTION_GOAL = 20;
+const DAILY_SPORT_GOAL_MINUTES = 30;
+const WEEKDAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"] as const;
 
 function useDailyQuote() {
   return useMemo(() => getDailyQuote(), []);
+}
+
+/** 今日焦点卡里的快捷 chip（刷题 / 阅读 / 运动）：纯展示 + 点击，动效只用按压缩放 */
+function FocusChip({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: ComponentProps<typeof ThemedIcon>["name"];
+  label: string;
+  onPress: () => void;
+}) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  return (
+    <PressableScale
+      haptic
+      scaleTo={0.97}
+      onPress={onPress}
+      hitSlop={8}
+      style={styles.chip}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
+      <ThemedIcon name={icon} size={15} color={colors.textMuted} />
+      <Text style={styles.chipText} numberOfLines={1}>
+        {label}
+      </Text>
+    </PressableScale>
+  );
 }
 
 function SportIcon({
@@ -311,14 +349,6 @@ function SportSheet({
   );
 }
 
-function formatSport(minutes: number) {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  if (h && m) return `${h} 小时 ${m} 分`;
-  if (h) return `${h} 小时`;
-  return `${m} 分钟`;
-}
-
 export default function TodayScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -333,19 +363,18 @@ export default function TodayScreen() {
   const tasks = useAppStore((s) => s.tasks);
   const checkins = useAppStore((s) => s.checkins);
   const sessions = useAppStore((s) => s.sessions);
+  const topicProgress = useAppStore((s) => s.progress);
   const checkinToday = useAppStore((s) => s.checkinToday);
   const toggleTaskDone = useAppStore((s) => s.toggleTaskDone);
   const addSession = useAppStore((s) => s.addSession);
   const sports = useAppStore((s) => s.sports);
   const addSportSeconds = useAppStore((s) => s.addSportSeconds);
-  const removeSport = useAppStore((s) => s.removeSport);
   const aiTip = useAppStore((s) => s.aiTip);
   const setAiTip = useAppStore((s) => s.setAiTip);
   const token = useAppStore((s) => s.token);
 
   const [focusOpen, setFocusOpen] = useState(false);
   const [sportSheetOpen, setSportSheetOpen] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
   /** 完成任务的庆祝弹窗（null = 关闭） */
   const [celebrateInfo, setCelebrateInfo] = useState<{ title: string; subtitle?: string } | null>(null);
   /** 今日精力状态（1-5，来自 /api/wellbeing/energy） */
@@ -358,9 +387,14 @@ export default function TodayScreen() {
   const [timerSession, setTimerSession] = useState(0);
   /**
    * v12 P1-2：今天的习惯排期也进「今日任务」列表（新建习惯时还会自动建一条
-   * `[习惯] 名称` 的真任务，这里按标题去重，避免出现两条）。
+   * 「[习惯] 名称」的真任务，这里按标题去重，避免出现两条）。
    */
   const [habitRows, setHabitRows] = useState<{ id: number; name: string; icon: string | null; color: string; done: boolean }[]>([]);
+  /**
+   * 学习进度三格（v1.62 P0-2）：题库今日答题数 / 阶段主题完成度 / 今日专注分钟。
+   * 数据源全部沿用既有本地数据（learning-attempts + roadmap 缓存 + sessions），不新增接口。
+   */
+  const [learningSnapshot, setLearningSnapshot] = useState({ questionsToday: 0, stageDone: 0, stageTotal: 0 });
 
   const quote = useDailyQuote();
   /** S5-1：业务日期统一东八区（shared/domains），不再用设备本地/UTC 拼日期 */
@@ -369,6 +403,11 @@ export default function TodayScreen() {
   const todayDate = useMemo(() => new Date(), []);
   const h = new Date().getHours();
   const greet = h < 6 ? "夜深了" : h < 11 ? "早上好" : h < 14 ? "中午好" : h < 18 ? "下午好" : "晚上好";
+  /** 紧凑 header 的一行日期（v1.62 P0-2：不再用两行大问候标题） */
+  const dateLabel = useMemo(
+    () => (todayDate.getMonth() + 1) + " 月 " + todayDate.getDate() + " 日 · 周" + WEEKDAY_LABELS[todayDate.getDay()],
+    [todayDate]
+  );
 
   const todayTasks = tasks.filter((t) => t.taskDate === today);
   const todayDone = todayTasks.filter((t) => t.done).length;
@@ -388,19 +427,19 @@ export default function TodayScreen() {
 
   const loadHabits = useCallback(async () => {
     try {
-      const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+      const headers: Record<string, string> = token ? { Authorization: "Bearer " + token } : {};
       const r = await fetch(getApiUrl() + "/api/habits", { headers });
       if (!r.ok) return;
       const d = await r.json();
       const list: Habit[] = Array.isArray(d.habits) ? d.habits : [];
       const logs: HabitLog[] = Array.isArray(d.logs) ? d.logs : [];
       const map = new Map<string, number>();
-      for (const l of logs) map.set(`${l.habitId}|${String(l.logDate).slice(0, 10)}`, Number(l.value));
+      for (const l of logs) map.set(l.habitId + "|" + String(l.logDate).slice(0, 10), Number(l.value));
       setHabitRows(
         list
           .filter((h) => isScheduled(h.schedule, todayDate))
           .map((h) => {
-            const v = map.get(`${h.id}|${today}`);
+            const v = map.get(h.id + "|" + today);
             return { id: h.id, name: h.name, icon: h.icon ?? null, color: h.color, done: v !== undefined && isHabitDone(h, v) };
           })
       );
@@ -427,13 +466,40 @@ export default function TodayScreen() {
   useFocusRefresh(loadEnergy);
 
   /**
-   * v17/v18 收尾：下拉刷新 = 重跑本页两个网络数据源（习惯/打卡与精力）。
+   * 学习进度三格（v1.62 P0-2）：全部读既有本地数据 —
+   * 题库今日 = 本地作答记录里今天的条数（与学习页同一口径：shared/learning）；
+   * 阶段 = roadmap 缓存里 track=main 的主题 done/total（与学习页 routeSummary 同源）；
+   * 专注分钟 = store.sessions 经 computeFocusStats。
+   */
+  const loadLearning = useCallback(async () => {
+    try {
+      const [attempts, phases] = await Promise.all([loadLearningAttempts(), readCachedRoadmap()]);
+      const todayKey = localKey(new Date());
+      const summary = summarizeLearningEvidence(attempts, {
+        todayKey,
+        dayKey: (iso: string) => localKey(new Date(iso)),
+      });
+      const topics = phases.filter((p) => p.track === "main").flatMap((p) => p.topics ?? []);
+      const done = topics.filter((t) => topicProgress[t.id]?.done).length;
+      setLearningSnapshot({ questionsToday: summary.today, stageDone: done, stageTotal: topics.length });
+    } catch {
+      // 离线：保留上次
+    }
+  }, [topicProgress]);
+  useEffect(() => {
+    const t = setTimeout(() => void loadLearning(), 0);
+    return () => clearTimeout(t);
+  }, [loadLearning]);
+  useFocusRefresh(loadLearning);
+
+  /**
+   * v17/v18 收尾：下拉刷新 = 重跑本页网络数据源（习惯/打卡、精力）与本地学习进度。
    * 任务、日志与专注会话来自本地 store + 同步引擎，本页不重复拉取，口径未改。
-   * 今日是自绘 hero 的 hub 页、没有吸顶紧凑栏 → stickyHeader: false。
+   * 今日是自绘紧凑 header 的 hub 页、没有吸顶紧凑栏 → stickyHeader: false。
    */
   const refreshToday = useCallback(
-    () => Promise.all([loadHabits(), loadEnergy()]).then(() => undefined),
-    [loadHabits, loadEnergy]
+    () => Promise.all([loadHabits(), loadEnergy(), loadLearning()]).then(() => undefined),
+    [loadHabits, loadEnergy, loadLearning]
   );
   const { control: todayRefresh } = usePullRefresh(refreshToday, { stickyHeader: false });
 
@@ -453,12 +519,12 @@ export default function TodayScreen() {
   const toggleHabit = async (id: number, done: boolean) => {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(token ? { Authorization: "Bearer " + token } : {}),
     };
     setHabitRows((rows) => rows.map((r) => (r.id === id ? { ...r, done: !done } : r)));
     try {
       const r = done
-        ? await fetch(`${getApiUrl()}/api/habits/logs?habitId=${id}&date=${today}`, { method: "DELETE", headers })
+        ? await fetch(getApiUrl() + "/api/habits/logs?habitId=" + id + "&date=" + today, { method: "DELETE", headers })
         : await fetch(getApiUrl() + "/api/habits/logs", {
             method: "POST",
             headers,
@@ -471,13 +537,19 @@ export default function TodayScreen() {
     }
   };
   const focusStats = computeFocusStats(sessions);
-  const sportsTotalMinutes = sports.reduce((sum, r) => sum + r.minutes, 0);
+
+  /**
+   * 健康快照（v1.62 P0-2）：只用今日页既有的运动数据源（store.sports 经 sport-trend 汇总），
+   * 今日页没有「摄入 / 饮水」数据源，按任务要求不编造，三格改为今日训练 / 本周训练 / 今日记录。
+   */
+  const sportTrend = useMemo(() => buildSportTrend(sports, today, 7), [sports, today]);
+  const todaySport = sportTrend.points[sportTrend.points.length - 1] ?? { minutes: 0, sessions: 0 };
 
   /**
    * S5-1：连续打卡天数走 shared/domains（东八区口径，与 Web /api/dashboard 的 streak 同源）。
-   * 旧实现用 `toISOString().slice(0,10)` 逐日回退 —— 东八区 00:00–08:00 会按 UTC 日期算错。
+   * 旧实现用 toISOString().slice(0,10) 逐日回退 —— 东八区 00:00–08:00 会按 UTC 日期算错。
    */
-  const streak = useMemo(() => computeStreak(checkins, { now: new Date() }), [checkins, today]);
+  const streak = useMemo(() => computeStreak(checkins, { now: new Date() }), [checkins]);
 
   const focusTask = todayTasks.find((t) => !t.done);
   const checkedInToday = checkins.includes(today);
@@ -485,38 +557,6 @@ export default function TodayScreen() {
   const fireCelebrate = (title: string, subtitle?: string) => {
     setCelebrateInfo({ title, subtitle });
   };
-
-  // iOS 大标题联动：滚动时 Hero 轻微上浮、缩小、淡出
-  const heroProgress = useSharedValue(0);
-  const heroScroll = useAnimatedScrollHandler({
-    onScroll: (e) => {
-      heroProgress.value = e.contentOffset.y;
-    },
-  });
-  const heroAnim = useAnimatedStyle(() => {
-    const p = heroProgress.value;
-    return {
-      transform: [
-        { translateY: interpolate(p, [0, 120], [0, -10], { extrapolateRight: "clamp" }) },
-        { scale: interpolate(p, [0, 120], [1, 0.94], { extrapolateRight: "clamp" }) },
-      ],
-      opacity: interpolate(p, [0, 140], [1, 0.55], { extrapolateRight: "clamp" }),
-    };
-  });
-
-  const sunPulse = useSharedValue(0);
-  useEffect(() => {
-    if (!motionActive) {
-      cancelAnimation(sunPulse);
-      sunPulse.value = 0;
-      return;
-    }
-    sunPulse.value = withRepeat(withTiming(1, { duration: 4400 }), -1, true);
-  }, [sunPulse, motionActive]);
-  const sunAnim = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 + 0.08 * sunPulse.value }],
-    opacity: 0.28 + 0.14 * sunPulse.value,
-  }));
 
   // 今日建议（规则版）：根据任务/打卡状态给一句可执行的小建议
   const todayTip = useMemo(() => {
@@ -529,81 +569,99 @@ export default function TodayScreen() {
 
   // AI 每日建议：当日缓存一次；未配置/失败静默回落规则版 todayTip
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (aiTip && aiTip.date === today) return;
     void fetchAiTip().then((text) => {
       if (text) setAiTip(text);
     });
   }, [aiTip, today, setAiTip]);
   const heroTip = aiTip && aiTip.date === today && aiTip.text ? aiTip.text : todayTip;
+
   return (
     <View style={styles.root}>
       <Animated.ScrollView
         ref={todayScrollRef}
-        onScroll={heroScroll}
-        scrollEventThrottle={16}
         refreshControl={<RefreshControl {...todayRefresh} />}
         style={styles.scroll}
-        scrollEnabled
         contentContainerStyle={[styles.content, { paddingTop: headerTop, paddingBottom: tabBarSpace }]}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View style={[styles.hero, heroAnim]}>
-          <Animated.View style={[styles.sunGlow, sunAnim]} />
-          {/* v12 P1-3：加一行「日期 + 打卡状态」小标，和健康/饮食页一样有信息层级 */}
-          <View style={styles.heroEyebrowRow}>
-            <Text style={styles.heroEyebrow}>{today}</Text>
-            <View style={[styles.heroPill, checkedInToday && styles.heroPillDone]}>
-              <Text style={[styles.heroPillText, checkedInToday && styles.heroPillTextDone]}>
-                {checkedInToday ? "今日已打卡" : "今天还没打卡"}
+        {/* ① 紧凑 header（v1.62 P0-2）：一行日期 + 打卡 pill，一行 tip（不再用两行大问候标题） */}
+        <View style={styles.compactHeader}>
+          <View style={styles.compactHeaderRow}>
+            <Text style={styles.compactDate} numberOfLines={1}>
+              {dateLabel}
+            </Text>
+            <Pressable
+              onPress={() => {
+                if (!checkedInToday) haptics.success();
+                checkinToday();
+              }}
+              hitSlop={10}
+              style={[styles.checkinPill, checkedInToday && styles.checkinPillDone]}
+              accessibilityRole="button"
+              accessibilityLabel={checkedInToday ? "今日已打卡，连续 " + streak + " 天" : "点此打卡"}
+            >
+              <ThemedIcon name={checkedInToday ? "checkmark-circle" : "flame"} size={13} color={checkedInToday ? colors.primary : colors.accent} />
+              <Text style={[styles.checkinPillText, checkedInToday && styles.checkinPillTextDone]} numberOfLines={1}>
+                {checkedInToday ? "已打卡 · " + streak + " 天" : "点此打卡"}
               </Text>
-            </View>
+            </Pressable>
           </View>
-          <Text style={styles.heroTitle}>
-            {greet}，{"\n"}继续今天的 ICT 学习规划
-          </Text>
-          <Text style={styles.heroSub}>{heroTip}</Text>
-        </Animated.View>
-
-        {/* 精力状态快捷选取（参考用户给的 reaction-bar） */}
-        <EnergyBar value={energyLevel} onSelect={(l) => void pickEnergy(l)} busy={energyBusy} />
-
-        {/* v4 P2 一键开始：首页唯一的大动作按钮（实色强调色，不用玻璃——首屏已有两个 hero，避免互相抢戏） */}
-        <PressableScale
-          haptic
-          scaleTo={0.97}
-          onPress={() => {
-            // 打开时清掉上一轮遗留的待启动选择：保证"弹层里没点开始计时 → 一定不会启动"的不变量
-            setPendingChoice(null);
-            setQuickOpen(true);
-          }}
-        >
-          <View style={styles.quickStart}>
-            {/*
-             * v1.44.2：图标美化 —— 半透明外环 + 纯白实心圆心 + 主色播放三角。
-             * 旧版是"半透明圆底 + 白色三角"，在实色主色按钮上对比弱、看着发糊；
-             * 白底主色三角既跳得出来，又和下面的圆角几何一致。
-             */}
-            <View style={styles.quickStartIcon}>
-              <View style={styles.quickStartIconCore}>
-                <ThemedIcon name="play" size={19} color={colors.primary} />
-              </View>
-            </View>
-            <View style={styles.quickStartBody}>
-              <Text style={styles.quickStartTitle}>一键开始</Text>
-              <Text style={styles.quickStartSub}>倒计时 / 正向计时 · 学习或运动</Text>
-            </View>
-            <ThemedIcon name="chevron-forward" size={20} color="rgba(255,255,255,0.9)" />
-          </View>
-        </PressableScale>
-
-        <View style={styles.sectionTitleRow}>
-          <Text style={styles.sectionTitle}>今日任务</Text>
-          <Text style={styles.sectionMore}>
-            {todayDone} / {todayTasks.length} 已完成
-            {habitRows.length > 0 ? ` · 习惯 ${habitDone}/${habitRows.length}` : ""}
+          <Text style={styles.compactTip} numberOfLines={2}>
+            {greet}，{heroTip}
           </Text>
         </View>
+
+        {/* ② 今日焦点：上半精力（点击即记），下半主按钮「开始专注」+ 三个快捷 chip */}
+        <EnergyBar value={energyLevel} onSelect={(l) => void pickEnergy(l)} busy={energyBusy} />
+
+        <Card style={styles.focusCard} variant="hero">
+          <PressableScale
+            haptic
+            scaleTo={0.98}
+            onPress={() => {
+              // 打开时清掉上一轮遗留的待启动选择：保证「弹层里没点开始计时 → 一定不会启动」的不变量
+              setPendingChoice(null);
+              setQuickOpen(true);
+            }}
+            style={styles.startButton}
+            hitSlop={4}
+            accessibilityRole="button"
+            accessibilityLabel="开始专注"
+          >
+            <View style={styles.startIcon}>
+              <ThemedIcon name="play" size={18} color={colors.primary} />
+            </View>
+            <Text style={styles.startTitle} numberOfLines={1}>
+              开始专注
+            </Text>
+            <ThemedIcon name="chevron-forward" size={18} color="rgba(255,255,255,0.9)" />
+          </PressableScale>
+
+          <View style={styles.chipRow}>
+            <FocusChip
+              icon="layers-outline"
+              label={"刷题 " + learningSnapshot.questionsToday + "/" + DAILY_QUESTION_GOAL}
+              onPress={() => router.push("/quiz" as never)}
+            />
+            <FocusChip icon="book-outline" label="阅读" onPress={() => router.push("/learn" as never)} />
+            <FocusChip
+              icon="barbell-outline"
+              label={"运动 " + todaySport.minutes + "/" + DAILY_SPORT_GOAL_MINUTES}
+              onPress={() => setSportSheetOpen(true)}
+            />
+          </View>
+        </Card>
+
+        {/* ③ 今日任务：前 3 条任务 + 2 条习惯 + 查看全部（勾选/庆祝逻辑保持原样） */}
+        <SectionHeader
+          title="今日任务"
+          subtitle={
+            todayDone + "/" + todayTasks.length + " 已完成" + (habitRows.length > 0 ? " · 习惯 " + habitDone + "/" + habitRows.length : "")
+          }
+          actionLabel="查看全部"
+          onAction={() => router.push("/tasks" as never)}
+        />
 
         {todayTasks.length === 0 && habitOnlyRows.length === 0 ? (
           <Card style={styles.taskEmptyCard}>
@@ -620,6 +678,7 @@ export default function TodayScreen() {
             >
               <Pressable
                 style={styles.taskRow}
+                hitSlop={4}
                 onPress={() => {
                   const willDone = !t.done;
                   haptics.light();
@@ -627,190 +686,86 @@ export default function TodayScreen() {
                   if (willDone) fireCelebrate(t.title, "今日任务 · 已完成");
                 }}
               >
-              <View style={[styles.taskBox, t.done && styles.taskBoxDone]}>
-                {/* v13 U8：勾选时用 strokeDashoffset 画对勾（组件常驻，靠 checked 驱动，才有"画"的过程） */}
-                <AnimatedCheckMark checked={t.done} size={16} color="#ffffff" />
-              </View>
-              <View style={styles.taskBody}>
-                <Text style={[styles.taskTitle, t.done && styles.taskDone]} numberOfLines={1}>
-                  {t.title}
-                </Text>
-                <Text style={styles.taskMeta}>{taskTypeLabels[t.taskType] ?? t.taskType}</Text>
-              </View>
+                <View style={[styles.taskBox, t.done && styles.taskBoxDone]}>
+                  {/* v13 U8：勾选时用 strokeDashoffset 画对勾（组件常驻，靠 checked 驱动，才有「画」的过程） */}
+                  <AnimatedCheckMark checked={t.done} size={16} color="#ffffff" />
+                </View>
+                <View style={styles.taskBody}>
+                  <Text style={[styles.taskTitle, t.done && styles.taskDone]} numberOfLines={1}>
+                    {t.title}
+                  </Text>
+                  <Text style={styles.taskMeta}>{taskTypeLabels[t.taskType] ?? t.taskType}</Text>
+                </View>
               </Pressable>
             </Animated.View>
           ))
         )}
         {/* 习惯排期（v12 P1-2）：与任务同列显示，点一下就地打卡 */}
-        {habitOnlyRows.slice(0, 2).map((h, i) => (
+        {habitOnlyRows.slice(0, 2).map((row, i) => (
           <Animated.View
-            key={"habit-" + h.id}
+            key={"habit-" + row.id}
             style={styles.task}
             entering={reduced ? undefined : FadeInDown.duration(DURATION.base).delay(staggerDelay(i + 3))}
           >
             <Pressable
               style={styles.taskRow}
+              hitSlop={4}
               onPress={() => {
                 haptics.light();
-                if (!h.done) fireCelebrate(h.name, "习惯打卡完成");
-                void toggleHabit(h.id, h.done);
+                if (!row.done) fireCelebrate(row.name, "习惯打卡完成");
+                void toggleHabit(row.id, row.done);
               }}
             >
-            <View style={[styles.taskBox, h.done && { backgroundColor: h.color, borderColor: h.color }]}>
-              <AnimatedCheckMark checked={h.done} size={16} color="#ffffff" />
-            </View>
-            <View style={styles.taskBody}>
-            <View style={styles.taskTitleRow}>
-              {/*
-               * v1.44.2：不再渲染 emoji（原先直接拼 h.icon + " "，没有时用 🔁 兜底）。
-               * h.icon 存的是 emoji，经 habitIconName 映射成开源图标；
-               * 未登记的自定义值回落到默认图标，不会出现空白。
-               */}
-              <ThemedIcon name={habitIconName(h.icon)} size={14} color={colors.textMuted} />
-              <Text style={[styles.taskTitle, h.done && styles.taskDone]} numberOfLines={1}>
-                {h.name}
-              </Text>
-            </View>
-            <Text style={styles.taskMeta}>习惯</Text>
-            </View>
+              <View style={[styles.taskBox, row.done && { backgroundColor: row.color, borderColor: row.color }]}>
+                <AnimatedCheckMark checked={row.done} size={16} color="#ffffff" />
+              </View>
+              <View style={styles.taskBody}>
+                <View style={styles.taskTitleRow}>
+                  <ThemedIcon name={habitIconName(row.icon)} size={14} color={colors.textMuted} />
+                  <Text style={[styles.taskTitle, row.done && styles.taskDone]} numberOfLines={1}>
+                    {row.name}
+                  </Text>
+                </View>
+                <Text style={styles.taskMeta}>习惯</Text>
+              </View>
             </Pressable>
           </Animated.View>
         ))}
 
-        {todayTasks.length > 3 || habitOnlyRows.length > 2 ? (
-          <Pressable onPress={() => router.push("/tasks" as never)} hitSlop={6} style={styles.inlineMore}>
-            <Text style={styles.inlineMoreText}>
-              还有 {Math.max(0, todayTasks.length - 3) + Math.max(0, habitOnlyRows.length - 2)} 条 · 查看全部
-            </Text>
-            <ThemedIcon name="chevron-forward" size={14} color={colors.textFaint} />
-          </Pressable>
-        ) : null}
+        {/* ④ 学习进度（StatStrip 3 格，点击去学习页）：题库今日 / 阶段主题 / 今日专注 */}
+        <SectionHeader title="学习进度" />
+        <StatStrip
+          items={[
+            { label: "题库今日", value: learningSnapshot.questionsToday, unit: "/" + DAILY_QUESTION_GOAL, tone: "primary" },
+            {
+              label: "阶段主题",
+              value: learningSnapshot.stageDone,
+              unit: "/" + learningSnapshot.stageTotal,
+              tone: "teal",
+            },
+            { label: "今日专注", value: focusStats.todayMinutes, unit: "分", tone: "accent" },
+          ]}
+          onPress={() => router.push("/learn" as never)}
+          accessibilityLabel="打开学习页查看学习进度"
+        />
 
-        {/*
-         * 今日概览（v1.44.2 真机反馈）：「打卡、今日专注」提到首屏做成等宽两格。
-         * S5-1：「本周进度」其实是**课程完成度**（主题 done/total），与「今日」无关，
-         * 已移到学习页（见 learn.tsx 的「课程完成度」），今日页不再重复展示。
-         * 原来的「健康」大组件（DailyOsSummary）也从今日页撤掉 —— 健康页已有整块。
-         */}
-        <View style={styles.overviewGrid}>
-          {/* 打卡：未打卡时这一格本身就是可点的入口，不再需要单独一行 */}
-          <Pressable
-            style={styles.overviewTile}
-            hitSlop={6}
-            accessibilityLabel={checkedInToday ? "今日已打卡" : "点此打卡"}
-            onPress={() => {
-              if (!checkedInToday) haptics.success();
-              checkinToday();
-            }}
-          >
-            <View style={[styles.overviewIcon, { backgroundColor: colors.accentSoft }]}>
-              <ThemedIcon
-                name={checkedInToday ? "checkmark-circle" : "flame"}
-                size={16}
-                color={colors.accent}
-              />
-            </View>
-            <View style={styles.overviewValueRow}>
-              <AnimatedNumber value={streak} style={styles.overviewValue} />
-              <Text style={styles.overviewUnit}> 天</Text>
-            </View>
-            <Text style={styles.overviewLabel}>{checkedInToday ? "连续打卡" : "点此打卡"}</Text>
-          </Pressable>
+        {/* ⑤ 健康快照（StatStrip 3 格）+「记录运动」入口；数据源 = 今日页既有运动记录，不编造摄入/饮水 */}
+        <SectionHeader title="健康快照" actionLabel="记录运动" onAction={() => setSportSheetOpen(true)} />
+        <StatStrip
+          items={[
+            { label: "今日训练", value: todaySport.minutes, unit: "分", tone: "accent" },
+            { label: "本周训练", value: sportTrend.totalMinutes, unit: "分", tone: "success" },
+            { label: "今日记录", value: todaySport.sessions, unit: "条", tone: "teal" },
+          ]}
+          onPress={() => router.push("/wellness" as never)}
+          accessibilityLabel="查看健康页"
+        />
 
-          <View style={styles.overviewTile}>
-            <View style={[styles.overviewIcon, { backgroundColor: colors.primarySoft }]}>
-              <ThemedIcon name="timer" size={16} color={colors.primary} />
-            </View>
-            <View style={styles.overviewValueRow}>
-              <AnimatedNumber value={focusStats.todayMinutes} style={styles.overviewValue} />
-              <Text style={styles.overviewUnit}> 分</Text>
-            </View>
-            <Text style={styles.overviewLabel}>今日专注</Text>
-          </View>
-
-        </View>
-
-        <View style={styles.sectionTitleRow}>
-          <Text style={styles.sectionTitle}>运动 · 健康</Text>
-          <Pressable onPress={() => setSportSheetOpen(true)} hitSlop={8} style={styles.addSportBtn}>
-            <ThemedIcon name="add" size={16} color={colors.accentStrong} />
-            <Text style={styles.addSportText}>添加记录</Text>
-          </Pressable>
-        </View>
-
-        {/* 首屏只留汇总；逐条明细收进「更多」（v2 §3） */}
-        <Card style={styles.sportCard}>
-          <View style={styles.sportTotal}>
-            <Text style={styles.sportTotalNum}>{(sportsTotalMinutes / 60).toFixed(1)}</Text>
-            <Text style={styles.sportTotalUnit}>小时</Text>
-            <Text style={styles.sportTotalNote}>今日能量 · 阳光满分</Text>
-          </View>
-          <Pressable onPress={() => setMoreOpen(true)} hitSlop={6} style={styles.inlineMore}>
-            <Text style={styles.inlineMoreText}>
-              {sports.length === 0 ? "今天还没有运动记录，去阳光下动一动吧" : `${sports.length} 条记录 · 查看明细`}
-            </Text>
-            <ThemedIcon name="chevron-forward" size={14} color={colors.textFaint} />
-          </Pressable>
-        </Card>
-
-        {/* 更多：运动明细 / AI 建议（打卡、专注已在首屏；课程完成度在学习页） */}
-        <SectionHeader title="更多" subtitle="运动明细 · 今日建议" actionLabel="展开" onAction={() => setMoreOpen(true)} />
+        {/* 每日语录：原「更多」抽屉里的装饰内容，保留为页尾一行（不占入口） */}
+        <Text style={styles.quoteFoot} numberOfLines={2}>
+          {quote}
+        </Text>
       </Animated.ScrollView>
-
-      <BottomSheet visible={moreOpen} onClose={() => setMoreOpen(false)} title="更多" height="82%">
-        {/*
-         * 「本周节奏」三卡与「今日打卡」行已在 v1.44.2 提到首屏（上方 overviewGrid），
-         * 这里不再重复；抽屉只保留仍需展开看的明细与建议。
-         */}
-        <SectionHeader title="运动明细" actionLabel="添加" onAction={() => { setMoreOpen(false); setSportSheetOpen(true); }} />
-        {sports.length === 0 ? (
-          <Text style={styles.sportEmpty}>今天还没有运动记录，去阳光下动一动吧</Text>
-        ) : (
-          sports.map((r, i) => {
-            const { c1 } = sportColorsOf(r.type);
-            return (
-              <Animated.View
-                key={r.id}
-                style={styles.sportItem}
-                entering={reduced ? undefined : FadeInDown.duration(DURATION.base).delay(staggerDelay(i))}
-                layout={reduced ? undefined : LinearTransition}
-                exiting={reduced ? undefined : FadeOut.duration(150)}
-              >
-                <View style={[styles.sportIco, { backgroundColor: `${c1}1f` }]}>
-                  <SportIcon
-                    sportKey={r.sportKey}
-                    name={r.name}
-                    type={r.type}
-                    color={c1}
-                    active={false}
-                    motionActive={motionActive}
-                  />
-                </View>
-                <View style={styles.sportItemInfo}>
-                  <Text style={styles.sportItemName}>{r.name}</Text>
-                  <Text style={styles.sportItemTime}>{formatSport(r.minutes)} · 已完成</Text>
-                </View>
-                <Pressable accessibilityLabel="关闭"
-                  onPress={() => {
-                    // v19-M5：破坏性动作给 warning 触觉（配合删除确认的既有链路）
-                    haptics.warning();
-                    removeSport(r.clientId);
-                  }}
-                  hitSlop={8}
-                >
-                  <ThemedIcon name="close" size={18} color={colors.textMuted} />
-                </Pressable>
-              </Animated.View>
-            );
-          })
-        )}
-
-        <SectionHeader title="今日建议" />
-        <Card>
-          <Text style={styles.quoteText}>{quote}</Text>
-          <Text style={styles.heroSub}>{heroTip}</Text>
-        </Card>
-      </BottomSheet>
 
       <SportSheet visible={sportSheetOpen} onClose={() => setSportSheetOpen(false)} motionActive={motionActive} />
       <QuickStartSheet
@@ -819,10 +774,10 @@ export default function TodayScreen() {
         onPick={(choice) => {
           /**
            * ⚠️ 两条不变量（v1.4.2）：
-           * 1) `onPick` **只由弹层底部的「开始计时」按钮触发** —— 弹层内的点选只改选择态，
-           *    所以"侧滑返回 / 点空白 / 返回键"都只会走 `onClose`，绝不会开始计时（真机反馈）。
-           * 2) 不能在这里直接 `setFocusOpen(true)`：QuickStartSheet 是 Modal，退场还要 180ms 才卸载，
-           *    同帧再 present 全屏 Modal 会出现两个 Modal 叠加（iOS 上表现为"点了没反应"）；
+           * 1) onPick **只由弹层底部的「开始计时」按钮触发** —— 弹层内的点选只改选择态，
+           *    所以「侧滑返回 / 点空白 / 返回键」都只会走 onClose，绝不会开始计时（真机反馈）。
+           * 2) 不能在这里直接 setFocusOpen(true)：QuickStartSheet 是 Modal，退场还要 180ms 才卸载，
+           *    同帧再 present 全屏 Modal 会出现两个 Modal 叠加（iOS 上表现为「点了没反应」）；
            *    所以先存起来，等它真正关闭（onClosed）后再开。
            */
           setPendingChoice(choice);
@@ -840,9 +795,8 @@ export default function TodayScreen() {
         open={focusOpen}
         task={
           /**
-           * v5 P2-1：一键开始路径**不再隐式绑定"今天第一个未完成任务"**
-           * （用户不可控，专注会被算到无关任务上）；改为用"这次学什么"作为标题。
-           * 「今日轮播卡 → 开始专注」这条既有路径（timerAuto 为空）仍然绑定 focusTask。
+           * v5 P2-1：一键开始路径**不再隐式绑定「今天第一个未完成任务」**
+           * （用户不可控，专注会被算到无关任务上）；改为用「这次学什么」作为标题。
            */
           timerAuto
             ? {
@@ -863,13 +817,12 @@ export default function TodayScreen() {
         exerciseLabel={timerAuto?.sportName ?? null}
         contentLabel={timerAuto?.kind === "focus" ? timerAuto.contentLabel ?? null : null}
         onClose={() => {
-          // 关闭时清空一键开始的配置：否则之后从轮播卡「开始专注」进入计时器时，
+          // 关闭时清空一键开始的配置：否则之后从焦点卡「开始专注」进入计时器时，
           // 会继承上一次的运动类型/时长并再次自动开始（写错数据 + 跳过准备页）。
           setFocusOpen(false);
           setTimerAuto(null);
         }}
         onRecorded={(taskId, seconds, label) =>
-          // 轮播卡绑定今日任务时用任务标题兜底（一键开始路径 label 由用户选择决定）
           addSession(taskId, seconds, label ?? (taskId ? (focusTask?.title ?? null) : null))
         }
         onExerciseRecorded={(seconds) => {
@@ -889,6 +842,64 @@ export default function TodayScreen() {
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
   root: { flex: 1 },
+  /* ===== v1.62 P0-2 今日页重构新增（字号全走 typography token，不写裸 fontSize） ===== */
+  compactHeader: { gap: 6 },
+  compactHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  compactDate: { ...typography.callout, fontWeight: "800", color: colors.text },
+  checkinPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceMuted,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  checkinPillDone: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
+  checkinPillText: { ...typography.micro, fontWeight: "700", color: colors.textMuted },
+  checkinPillTextDone: { color: colors.primaryStrong },
+  compactTip: { ...typography.caption, lineHeight: 18, color: colors.textSecondary },
+  focusCard: { gap: 12 },
+  startButton: {
+    height: 58,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 16,
+    borderRadius: radius.lg,
+    backgroundColor: colors.primary,
+    ...shadows.floating,
+  },
+  startIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+  },
+  startTitle: { flex: 1, ...typography.headline, fontWeight: "800", color: "#FFFFFF" },
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chip: {
+    flexGrow: 1,
+    flexBasis: "30%",
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  chipText: { ...typography.caption, fontWeight: "700", color: colors.textSecondary, flexShrink: 1 },
+  quoteFoot: { ...typography.caption, lineHeight: 18, color: colors.textMuted, textAlign: "center", paddingHorizontal: 8 },
+  /* ===== 新增结束 ===== */
   scroll: { flex: 1 },
   // v4 P2 一键开始：实色大按钮（不占 hero 名额，高度控制在 92 以内）
   quickStart: {

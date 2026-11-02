@@ -8,11 +8,13 @@ import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useScreenEntrance } from "@/lib/use-screen-entrance";
 import { useScrollToTopHandler } from "@/lib/scroll-to-top";
 import { Card } from "@/components/card";
+import { EntryCard } from "@/components/entry-card";
 import { GroupLabel } from "@/components/group-label";
+import { RingProgress } from "@/components/ring-progress";
 import { ListGroup, ListRow } from "@/components/list-row";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
-import { LearningEntryCards, LearningShelfHeader } from "@/components/learning-entry-cards";
+import { LearningShelfHeader } from "@/components/learning-entry-cards";
 
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -34,7 +36,7 @@ import { router, useFocusEffect } from "expo-router";
 import type { Phase } from "@learn-workbench/shared/schemas";
 import { formatDuration, pct } from "@learn-workbench/shared/dates";
 import { mainPhases } from "@learn-workbench/content/roadmap";
-import { getLearningTrackNow, useLearningTracks } from "@/lib/content-store";
+import { getLearningTrackNow, useLearningTrack, useLearningTracks } from "@/lib/content-store";
 import { setNavPendingParams } from "@/lib/nav-pending";
 import { computeFocusStats } from "@/lib/focus-stats";
 import { radius, shadows, typography } from "@/theme/tokens";
@@ -54,7 +56,13 @@ import { SheetSection, SheetStickyCta } from "@/components/sheet";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
 import { useReducedMotion } from "@/lib/motion";
 import { isMotionActive } from "@/theme/motion";
-import { loadLearningAttempts, summarizeLearningAttempts, type LearningAttempt } from "@/lib/learning-progress";
+import {
+  loadLearningAttempts,
+  summarizeLearningAttempts,
+  wrongQuestionKeys,
+  type LearningAttempt,
+} from "@/lib/learning-progress";
+import { fetchLearningReview } from "@/lib/learning-review";
 import {
   continueReading,
   loadReadingStore,
@@ -74,7 +82,7 @@ const STAGE_GRADS: [string, string][] = [
 ];
 /** 阶段卡之间的间距，必须与 `styles.content` 的 gap 一致（实时让位的位移量按"实测高度 + 这个值"算） */
 const STAGE_CARD_GAP = 12;
-const DAILY_QUESTION_GOAL = 12;
+const DAILY_QUESTION_GOAL = 20;
 
 /** 阅读卡片用的标题查表（找不到就退回 key，界面不会出现空白行） */
 function readingTitle(trackSlug: string, stageKey: string, topicKey: string): string {
@@ -351,8 +359,6 @@ export default function LearnScreen() {
   const addCustomTopic = useAppStore((s) => s.addCustomTopic);
   const removeCustomTopic = useAppStore((s) => s.removeCustomTopic);
   const [, setStageSheet] = useState(false);
-  /** v1.26：右上角 ☰ 的快捷入口弹层 */
-  const [quickOpen, setQuickOpen] = useState(false);
   const [shelfOpen, setShelfOpen] = useState(false);
   const [learningAttempts, setLearningAttempts] = useState<LearningAttempt[]>([]);
   const [roadmap, setRoadmap] = useState<Phase[]>(mainPhases.filter((p) => p.track === "main"));
@@ -514,6 +520,27 @@ export default function LearnScreen() {
       };
     }, [])
   );
+  const [reviewStats, setReviewStats] = useState<{ due: number; wrong: number } | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      void (async () => {
+        const [remote, attempts] = await Promise.all([
+          fetchLearningReview("all"),
+          loadLearningAttempts(),
+        ]);
+        if (!alive) return;
+        setReviewStats({
+          due: remote?.dueCount ?? 0,
+          wrong: wrongQuestionKeys(attempts).length,
+        });
+      })();
+      return () => {
+        alive = false;
+      };
+    }, [])
+  );
+
   const resume = readingStore ? continueReading(readingStore) : null;
   const readingCards = useMemo(() => {
     if (!readingStore) return [] as { key: string; label: string; title: string; trackSlug: string; stageKey: string; topicKey: string; favorite: boolean }[];
@@ -540,6 +567,20 @@ export default function LearnScreen() {
   const learningSummary = useMemo(
     () => summarizeLearningAttempts(learningAttempts, allLearningQuestions),
     [learningAttempts, allLearningQuestions]
+  );
+  const exam408 = useLearningTrack("ex-408-grad");
+  const exam408ChapterCount = useMemo(
+    () => exam408?.stages.reduce((total, stage) => total + stage.topics.length, 0) ?? 0,
+    [exam408]
+  );
+  const exam408PointCount = useMemo(
+    () =>
+      exam408?.stages.reduce(
+        (total, stage) =>
+          total + stage.topics.reduce((topicTotal, topic) => topicTotal + topic.concepts.length, 0),
+        0
+      ) ?? 0,
+    [exam408]
   );
   const routeSummary = useMemo(() => {
     const topics = roadmap.flatMap((phase) => phase.topics);
@@ -683,6 +724,14 @@ export default function LearnScreen() {
     }
   };
 
+  /** 继续阅读/收藏：字符串 href 防同名路由 params 冻结 + 场外通道（v1.51） */
+  const openReading = (trackSlug: string, stageKey: string, topicKey: string) => {
+    setNavPendingParams("quiz-read", { track: trackSlug, stage: stageKey, topic: topicKey });
+    router.push(
+      `/quiz/read?track=${encodeURIComponent(trackSlug)}&stage=${encodeURIComponent(stageKey)}&topic=${encodeURIComponent(topicKey)}` as never
+    );
+  };
+
   return (
     <ScrollView
       ref={learnScrollRef}
@@ -692,111 +741,131 @@ export default function LearnScreen() {
       showsVerticalScrollIndicator={false}
       scrollEnabled={!stageDragging}
     >
-      <Animated.View style={styles.hero} entering={entrance(0)}>
-        <Text style={styles.heroTitle}>学习</Text>
-        <Text style={styles.heroSub}>技术题库 · 阶段路线 · 统计 · 日志</Text>
-        {/*
-         * S5-1：原「今日页 · 本周进度」实为**课程完成度**（已完成主题 / 全部主题），
-         * 与「今天」无关，移到学习页展示（口径仍由 store.progress 派生，双端同一数据源）。
-         */}
-        <View style={styles.courseStat}>
-          <Text style={styles.courseStatLabel}>课程完成度</Text>
-          <Text style={styles.courseStatValue}>{routeSummary.percent}%</Text>
-          <Text style={styles.courseStatMeta}>
-            {routeSummary.done}/{routeSummary.total} 主题
+      <Animated.View style={styles.header} entering={entrance(0)}>
+        <View style={styles.headerBody}>
+          <Text style={styles.headerTitle}>学习</Text>
+          <Text style={styles.headerMeta}>
+            {routeSummary.done}/{routeSummary.total} 主题 · 今日 {learningSummary.today} 题
           </Text>
         </View>
-        {/* v1.26：快捷入口收进右上角三条横线 */}
-        <Pressable
-          hitSlop={10}
-          style={styles.heroMenuBtn}
-          onPress={() => setQuickOpen(true)}
-          accessibilityLabel="快捷入口"
-          accessibilityRole="button"
-        >
-          <ThemedIcon name="menu" size={22} color={colors.text} />
-        </Pressable>
+        <View style={styles.headerRing}>
+          <RingProgress size={46} strokeWidth={5} progress={routeSummary.percent / 100} />
+          <View pointerEvents="none" style={styles.headerRingLabel}>
+            <Text style={styles.headerRingText}>{routeSummary.percent}%</Text>
+          </View>
+        </View>
       </Animated.View>
 
       <Animated.View entering={entrance(1)}>
-        <LearningEntryCards
-          todayQuestions={learningSummary.today}
-          todayGoal={DAILY_QUESTION_GOAL}
-          routePercent={routeSummary.percent}
-          routeDone={routeSummary.done}
-          routeTotal={routeSummary.total}
-        />
+        {resume ? (
+          <EntryCard
+            size="hero"
+            icon="book-outline"
+            tone="primary"
+            title={readingTitle(resume.trackSlug, resume.stageKey, resume.topicKey)}
+            meta={`读到 ${resume.progress}% · 继续上次的章节`}
+            progress={Math.max(0, Math.min(1, resume.progress / 100))}
+            cta="继续学习"
+            onPress={() => openReading(resume.trackSlug, resume.stageKey, resume.topicKey)}
+            accessibilityLabel="继续学习上次读到的章节"
+          />
+        ) : readingCards[0] ? (
+          <EntryCard
+            size="hero"
+            icon="star"
+            tone="warning"
+            title={readingCards[0].title}
+            meta="收藏的章节 · 随时接着读"
+            cta="继续阅读"
+            onPress={() =>
+              openReading(readingCards[0].trackSlug, readingCards[0].stageKey, readingCards[0].topicKey)
+            }
+            accessibilityLabel="继续阅读收藏的章节"
+          />
+        ) : (
+          <EntryCard
+            size="hero"
+            icon="git-branch-outline"
+            tone="accent"
+            title="从阶段路线开始"
+            meta={`已完成 ${routeSummary.done}/${routeSummary.total} 个主题`}
+            progress={routeSummary.percent / 100}
+            cta="查看路线"
+            onPress={() => router.push("/roadmap" as never)}
+            accessibilityLabel="从阶段路线开始学习"
+          />
+        )}
       </Animated.View>
 
-      {resume || readingCards.length > 0 ? (
-        <Animated.View entering={entrance(2)} style={styles.readingWrap}>
-          <GroupLabel>阅读</GroupLabel>
-          <Card style={styles.readingCard}>
-            {resume ? (
-              <PressableScale
-                haptic
-                scaleTo={0.98}
-                style={styles.readingRow}
-                accessibilityRole="button"
-                accessibilityLabel={`继续学习 ${resume.topicKey}`}
-                onPress={() => {
-                  // 字符串 href（防同名路由 params 冻结）；目标参数同时登记入场外通道（v1.51）
-                  setNavPendingParams("quiz-read", {
-                    track: resume.trackSlug,
-                    stage: resume.stageKey,
-                    topic: resume.topicKey,
-                  });
-                  router.push(
-                    `/quiz/read?track=${encodeURIComponent(resume.trackSlug)}&stage=${encodeURIComponent(resume.stageKey)}&topic=${encodeURIComponent(resume.topicKey)}` as never,
-                  );
-                }}
-              >
-                <View style={styles.readingIcon}>
-                  <ThemedIcon name="book-outline" size={18} color={colors.primary} />
-                </View>
-                <View style={styles.readingBody}>
-                  <Text style={styles.readingLabel}>继续学习</Text>
-                  <Text style={styles.readingTitle} numberOfLines={1}>
-                    {readingTitle(resume.trackSlug, resume.stageKey, resume.topicKey)}
-                  </Text>
-                  <Text style={styles.readingMeta}>读到 {resume.progress}%</Text>
-                </View>
-                <ThemedIcon name="chevron-forward" size={16} color={colors.textMuted} />
-              </PressableScale>
-            ) : null}
-            {readingCards.map((item) => (
-              <PressableScale
-                key={item.key}
-                haptic
-                scaleTo={0.98}
-                style={styles.readingRow}
-                accessibilityRole="button"
-                accessibilityLabel={`收藏 ${item.title}`}
-                onPress={() => {
-                  // 字符串 href（防同名路由 params 冻结）；目标参数同时登记入场外通道（v1.51）
-                  setNavPendingParams("quiz-read", {
-                    track: item.trackSlug,
-                    stage: item.stageKey,
-                    topic: item.topicKey,
-                  });
-                  router.push(
-                    `/quiz/read?track=${encodeURIComponent(item.trackSlug)}&stage=${encodeURIComponent(item.stageKey)}&topic=${encodeURIComponent(item.topicKey)}` as never,
-                  );
-                }}
-              >
-                <View style={styles.readingIcon}>
-                  <ThemedIcon name="star" size={18} color={colors.warning} />
-                </View>
-                <View style={styles.readingBody}>
-                  <Text style={styles.readingLabel}>收藏</Text>
-                  <Text style={styles.readingTitle} numberOfLines={1}>{item.title}</Text>
-                </View>
-                <ThemedIcon name="chevron-forward" size={16} color={colors.textMuted} />
-              </PressableScale>
-            ))}
-          </Card>
-        </Animated.View>
-      ) : null}
+      {/* 四大入口 2×2：408 专区 / 技术题库 / 阶段路线 / 复习 */}
+      <Animated.View entering={entrance(2)} style={styles.entrySection}>
+        <View style={styles.entryGrid}>
+          <View style={styles.entryCell}>
+            <EntryCard
+              size="mid"
+              icon="school-outline"
+              tone="teal"
+              title="408 专区"
+              meta={`${exam408PointCount} 知识点 · ${exam408ChapterCount} 章`}
+              onPress={() => router.push("/exam-408" as never)}
+              accessibilityLabel="进入 408 考研专区"
+            />
+          </View>
+          <View style={styles.entryCell}>
+            <EntryCard
+              size="mid"
+              icon="search"
+              tone="primary"
+              title="技术题库"
+              meta={`今日 ${learningSummary.today}/${DAILY_QUESTION_GOAL} 题`}
+              progress={learningSummary.today / DAILY_QUESTION_GOAL}
+              onPress={() => router.push("/quiz" as never)}
+              accessibilityLabel="进入技术题库"
+            />
+          </View>
+        </View>
+        <View style={styles.entryGrid}>
+          <View style={styles.entryCell}>
+            <EntryCard
+              size="mid"
+              icon="git-branch-outline"
+              tone="accent"
+              title="阶段路线"
+              meta={`${routeSummary.done}/${routeSummary.total} 主题`}
+              progress={routeSummary.percent / 100}
+              onPress={() => router.push("/roadmap" as never)}
+              accessibilityLabel="进入阶段路线"
+            />
+          </View>
+          <View style={styles.entryCell}>
+            <EntryCard
+              size="mid"
+              icon="repeat-outline"
+              tone="warning"
+              title="复习"
+              meta={
+                reviewStats
+                  ? `到期 ${reviewStats.due} · 错题 ${reviewStats.wrong}`
+                  : "到期复习 · 错题回顾"
+              }
+              onPress={() => router.push("/quiz/review" as never)}
+              accessibilityLabel="进入复习"
+            />
+          </View>
+        </View>
+
+        {/* 408 专区主卡：数据取内容库现有统计，不写死篇数/卡片数 */}
+        <EntryCard
+          size="hero"
+          icon="school-outline"
+          tone="teal"
+          title="408 考研专区"
+          meta={`${exam408ChapterCount} 章 · ${exam408PointCount} 知识点 · 精读 / 演示 / 刷卡三入口`}
+          cta="进入专区"
+          onPress={() => router.push("/exam-408" as never)}
+          accessibilityLabel="进入 408 考研专区"
+        />
+      </Animated.View>
 
       <Animated.View entering={entrance(2)} style={styles.shelfWrap}>
         <LearningShelfHeader
@@ -812,26 +881,6 @@ export default function LearnScreen() {
             layout={motionActive ? LinearTransition.duration(180) : undefined}
             style={styles.shelfContent}
           >
-            <View style={styles.shelfActions}>
-              <Pressable
-                hitSlop={8}
-                style={styles.addBtn}
-                onPress={() => {
-                  setEditingPhase(null);
-                  setCustomPhaseTitle("");
-                  setCustomPhaseSummary("");
-                  setCustomPhaseSheet(true);
-                }}
-              >
-                <ThemedIcon name="add" size={16} color={colors.primary} />
-                <Text style={styles.addBtnText}>添加阶段</Text>
-              </Pressable>
-              <Pressable hitSlop={8} style={styles.shelfLink} onPress={() => router.push("/roadmap" as never)}>
-                <Text style={styles.shelfLinkText}>完整路线</Text>
-                <ThemedIcon name="chevron-forward" size={14} color={colors.primary} />
-              </Pressable>
-            </View>
-
             {!roadmapLoading && roadmap.length === 0 ? (
               <Card style={styles.emptyCard}>
                 <Text style={styles.emptyTitle}>还没有学习阶段</Text>
@@ -903,6 +952,81 @@ export default function LearnScreen() {
                 />
               );
             })}
+
+            <GroupLabel>管理</GroupLabel>
+            <ListGroup>
+              <ListRow
+                icon="create-outline"
+                title="学习日志"
+                subtitle="记录今天学了什么"
+                showChevron
+                onPress={() => router.push("/logs" as never)}
+              />
+              <ListRow
+                icon="stats-chart-outline"
+                title="学习统计 · 分享闪光卡"
+                subtitle="热力图 · 内容维度 · 生成分享卡"
+                showChevron
+                onPress={() => router.push("/study-stats" as never)}
+              />
+              <ListRow
+                icon="add-circle-outline"
+                title="新建阶段"
+                subtitle="给路线图加一个阶段"
+                showChevron
+                onPress={() => {
+                  setEditingPhase(null);
+                  setCustomPhaseTitle("");
+                  setCustomPhaseSummary("");
+                  setCustomPhaseSheet(true);
+                }}
+              />
+              <ListRow
+                icon="document-text-outline"
+                title="导入 Markdown"
+                subtitle="一级阶段 / 二级主题 / 三级内容"
+                showChevron
+                onPress={() => {
+                  setMdText("");
+                  setMdPreview(null);
+                  setMdMsg(null);
+                  setMdSheet(true);
+                }}
+              />
+              <ListRow
+                icon="bookmark-outline"
+                title="添加学习内容"
+                subtitle={selectedPhase ? `加到「${selectedPhase.title}」` : "先建一个阶段"}
+                showChevron
+                disabled={!selectedPhase}
+                onPress={() => setCustomTopicSheet(true)}
+              />
+              <ListRow
+                icon="trash-outline"
+                title="删除阶段"
+                subtitle={selectedPhase ? `当前：${selectedPhase.title}` : "暂无可删除阶段"}
+                showChevron
+                disabled={!selectedPhase}
+                onPress={() => {
+                  if (selectedPhase) removePhase(selectedPhase);
+                }}
+              />
+              <ListRow
+                icon="checkbox-outline"
+                title="今日任务"
+                subtitle="勾选今天要完成的事"
+                showChevron
+                onPress={() => router.push("/tasks" as never)}
+              />
+              <ListRow
+                icon="pulse-outline"
+                title="领域记录"
+                subtitle="通用计量与按日打卡"
+                showChevron
+                last
+                onPress={() => router.push("/trackers" as never)}
+              />
+            </ListGroup>
           </Animated.View>
         ) : null}
       </Animated.View>
@@ -912,7 +1036,7 @@ export default function LearnScreen() {
       </Animated.View>
       {/* v1.33.0：统计明细从弹层升级为**独立全屏页** /study-stats（push 进栈、原生转场、左滑返回）；首屏只留一行摘要 */}
       <Animated.View entering={entrance(4)}>
-      <PressableScale haptic scaleTo={0.98} onPress={() => router.push("/study-stats" as never)}>
+      <PressableScale haptic hitSlop={8} scaleTo={0.98} onPress={() => router.push("/study-stats" as never)}>
         <Card style={styles.statsEntry}>
           <View style={styles.statsEntryBody}>
             <Text style={styles.statsEntryTitle}>今日已专注 {formatDuration(todayMinutes)}</Text>
@@ -924,42 +1048,6 @@ export default function LearnScreen() {
         </Card>
       </PressableScale>
       </Animated.View>
-
-      {/* v1.26：快捷入口改为右上角 ☰ 弹出 */}
-      <BottomSheet
-        visible={quickOpen}
-        onClose={() => setQuickOpen(false)}
-        title="快捷入口"
-        subtitle="常用页面一步直达"
-        icon="menu-outline"
-        height="56%"
-      >
-        <SheetSection title="学习" last>
-          <ListGroup>
-            {(
-              [
-                { key: "tasks", label: "今日任务", desc: "勾选今天要完成的事", icon: "list-outline", href: "/tasks" },
-                { key: "logs", label: "学习日志", desc: "记录今天学了什么", icon: "create-outline", href: "/logs" },
-                { key: "trackers", label: "领域记录", desc: "通用计量与按日打卡", icon: "stats-chart-outline", href: "/trackers" },
-                { key: "stats", label: "学习统计", desc: "热力图 · 内容维度 · 分享闪光卡", icon: "stats-chart-outline", href: "" },
-              ] as const
-            ).map((q, i, list) => (
-              <ListRow
-                key={q.key}
-                icon={q.icon}
-                title={q.label}
-                subtitle={q.desc}
-                showChevron
-                last={i === list.length - 1}
-                onPress={() => {
-                  setQuickOpen(false);
-                  router.push((q.key === "stats" ? "/study-stats" : q.href) as never);
-                }}
-              />
-            ))}
-          </ListGroup>
-        </SheetSection>
-      </BottomSheet>
 
       <BottomSheet
         visible={customTopicSheet}
@@ -1107,6 +1195,15 @@ export default function LearnScreen() {
                 <View style={styles.modalHead}>
                   <View style={[styles.modalDot, { backgroundColor: colors.accent }]} />
                   <Text style={styles.modalTitle}>{activeTopic.title}</Text>
+                  <Pressable
+                    hitSlop={10}
+                    style={styles.modalClose}
+                    onPress={() => setContentTopic(null)}
+                    accessibilityRole="button"
+                    accessibilityLabel="关闭知识点详情"
+                  >
+                    <ThemedIcon name="close" size={18} color={colors.textMuted} />
+                  </Pressable>
                 </View>
                 <Text style={styles.modalSub}>{activeTopic.summary || "这个阶段的学习内容会在这里展开。"}</Text>
                 {(activeTopic.practices?.length ?? 0) > 0 ? (
@@ -1129,6 +1226,7 @@ export default function LearnScreen() {
                 ))}
                 {"isCustomSubject" in activeTopic ? (
                   <Pressable
+                    hitSlop={8}
                     style={styles.deleteTopicBtn}
                     onPress={() => {
                       removeCustomTopic(contentTopic?.topicId ?? 0);
@@ -1150,85 +1248,33 @@ export default function LearnScreen() {
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
+    header: { flexDirection: "row", alignItems: "center", gap: 12 },
+    headerBody: { flex: 1, gap: 2 },
+    headerTitle: { ...typography.title1, color: colors.text },
+    headerMeta: { ...typography.caption, color: colors.textMuted },
+    headerRing: { width: 46, height: 46, alignItems: "center", justifyContent: "center" },
+    headerRingLabel: {
+      position: "absolute",
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    headerRingText: { ...typography.micro, fontWeight: "800", color: colors.text },
+    entrySection: { gap: 12 },
+    entryGrid: { flexDirection: "row", gap: 12 },
+    entryCell: { flex: 1, minWidth: 0 },
   scroll: { flex: 1, backgroundColor: colors.canvas },
-  content: { paddingHorizontal: 16, gap: 12 },
-  hero: { marginBottom: 8, paddingRight: 46 },
-  heroMenuBtn: {
-    position: "absolute",
-    right: 0,
-    top: 4,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.surfaceMuted,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  heroTitle: {
-    ...typography.display,
-    color: colors.text,
-  },
-  heroSub: {
-    ...typography.callout,
-    // v18 对比度：callout(15pt) 属正文字号，textMuted 对白底仅约 3.0，低于 WCAG AA 4.5
-    color: colors.textSecondary,
-    marginTop: 4,
-  },
-  courseStat: { flexDirection: "row", alignItems: "baseline", gap: 8, marginTop: 10 },
-  courseStatLabel: { ...typography.caption, color: colors.textMuted, fontWeight: "700" },
-  courseStatValue: { ...typography.title2, color: colors.accentStrong },
-  courseStatMeta: { ...typography.caption, color: colors.textMuted },
-  /* v9：今日专注 hero */
+  content: { paddingHorizontal: 16, gap: 12 },  /* v9：今日专注 hero */
   focusHero: { padding: 16 },
   sectionTitle: {
     ...typography.title2,
     color: colors.text,
     marginTop: 8,
   },
-  sectionHeadRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 },
-  addBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: colors.accentSoft,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(242,140,40,0.25)",
-  },
-  addBtnText: { color: colors.accentStrong, ...typography.caption, fontWeight: "800" },
-  shelfWrap: { gap: 10 },
-  readingWrap: { gap: 10 },
-  readingCard: { padding: 0, overflow: "hidden" },
-  readingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 14,
-    minHeight: 60,
-    paddingVertical: 10,
-  },
-  readingIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.surfaceMuted,
-  },
-  readingBody: { flex: 1, minWidth: 0 },
-  readingLabel: { ...typography.micro, color: colors.textMuted, fontWeight: "700" },
-  readingTitle: { ...typography.body, color: colors.text, fontWeight: "700" },
-  readingMeta: { ...typography.micro, color: colors.textSecondary },
-  shelfContent: { gap: 12, paddingTop: 2 },
-  shelfActions: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  shelfLink: { flexDirection: "row", alignItems: "center", gap: 2, paddingVertical: 6, paddingHorizontal: 4 },
-  shelfLinkText: { ...typography.caption, color: colors.primary, fontWeight: "700" },
-
-  stageCard: {
+  sectionHeadRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 },  shelfWrap: { gap: 10 },  shelfContent: { gap: 12, paddingTop: 2 },  stageCard: {
     borderRadius: radius.xl,
     padding: 16,
     overflow: "hidden",
@@ -1345,6 +1391,7 @@ const makeStyles = (colors: ThemeColors) =>
     color: colors.text,
     flex: 1,
   },
+  modalClose: { marginLeft: "auto", padding: 4 },
   deleteTopicBtn: {
     flexDirection: "row",
     alignItems: "center",

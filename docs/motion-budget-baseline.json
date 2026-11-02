@@ -1,6 +1,6 @@
 {
   "totals": {
-    "animationSites": 256,
+    "animationSites": 254,
     "animatedStyleFiles": 32,
     "repeatFiles": 9,
     "filesWithAnimations": 36
@@ -8,7 +8,7 @@
   "sites": {
     "apps/mobile/src/app/(tabs)/_layout.tsx": 7,
     "apps/mobile/src/app/(tabs)/learn.tsx": 7,
-    "apps/mobile/src/app/(tabs)/today.tsx": 94,
+    "apps/mobile/src/app/(tabs)/today.tsx": 92,
     "apps/mobile/src/app/exam-408-drill.tsx": 4,
     "apps/mobile/src/app/jobs.tsx": 2,
     "apps/mobile/src/app/sports-card.tsx": 3,
