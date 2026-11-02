@@ -390,7 +390,13 @@ const makeStyles = (colors: ThemeColors) =>
     drawerCount: { ...typography.caption, color: colors.textFaint, flex: 1 },
     drawerEmpty: { ...typography.caption, color: colors.textMuted },
     drawerList: { flex: 1 },
-    drawerItem: { paddingVertical: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+    drawerItem: {
+      minHeight: 44,
+      justifyContent: "center",
+      paddingVertical: spacing.sm,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+    },
     drawerItemText: { ...typography.callout, color: colors.text },
     drawerItemTextSub: { ...typography.caption, color: colors.textSecondary, paddingLeft: spacing.md },
   });

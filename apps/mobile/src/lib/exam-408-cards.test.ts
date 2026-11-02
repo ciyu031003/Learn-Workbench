@@ -3,6 +3,7 @@ import {
   EMPTY_CARD_STATS,
   EMPTY_RATING_OUTBOX,
   applyLocalRatingStats,
+  canSubmitRating,
   cardProgress,
   clampCardIndex,
   classifyRatingFailure,
@@ -10,6 +11,8 @@ import {
   enqueueRating,
   fetchCardQueue,
   fetchCardStatsBoard,
+  flipActionLabel,
+  flipPhaseOf,
   flushRatingOutbox,
   formatAccuracy,
   makeRatingOp,
@@ -23,8 +26,11 @@ import {
   normalizeRatingResult,
   pendingRatingCount,
   queueCacheKey,
+  progressLabel,
+  ratingDirectionOf,
   ratingHint,
   ratingLabel,
+  ratingVisual,
   removeCardFromQueue,
   saveCachedQueue,
   loadCachedQueue,
@@ -32,6 +38,7 @@ import {
   loadRatingOutbox,
   subjectStatToCardStats,
   submitCardRating,
+  toggleFlipPhase,
 } from "./exam-408-cards";
 
 /**
@@ -319,7 +326,7 @@ describe("统计合并", () => {
     expect(ratingLabel("again")).toBe("忘记");
     expect(ratingLabel("hard")).toBe("模糊");
     expect(ratingLabel("good")).toBe("掌握");
-    expect(ratingHint("again")).toContain("再来");
+    expect(ratingHint("again")).toBe("很快再见");
   });
 });
 
@@ -465,3 +472,79 @@ describe("网络出口", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+describe("翻面状态机（P11 修复：双向可切换）", () => {
+  it("flipPhaseOf 把 flipped 映射成题干/答案", () => {
+    expect(flipPhaseOf(false)).toBe("question");
+    expect(flipPhaseOf(true)).toBe("answer");
+  });
+
+  it("toggleFlipPhase 可反复来回：题干→答案→题干→答案", () => {
+    let phase = flipPhaseOf(false);
+    phase = toggleFlipPhase(phase);
+    expect(phase).toBe("answer");
+    phase = toggleFlipPhase(phase);
+    expect(phase).toBe("question");
+    phase = toggleFlipPhase(phase);
+    expect(phase).toBe("answer");
+  });
+
+  it("动作文案跟着面走：题干「显示答案」/答案「隐藏答案」", () => {
+    expect(flipActionLabel(false)).toBe("显示答案");
+    expect(flipActionLabel(true)).toBe("隐藏答案");
+    // 文案与状态机保持一致（避免出现「点背面还提示显示答案」的旧 bug 文案）
+    expect(flipActionLabel(flipPhaseOf(true) === "answer")).toBe("隐藏答案");
+  });
+
+  it("只有答案面允许评级", () => {
+    expect(canSubmitRating(false)).toBe(false);
+    expect(canSubmitRating(true)).toBe(true);
+  });
+});
+
+describe("评级视觉映射", () => {
+  it("三档各自有文案/提示/图标/色档/滑出方向", () => {
+    expect(ratingVisual("again")).toEqual({
+      label: "忘记",
+      hint: "很快再见",
+      icon: "refresh",
+      tone: "danger",
+      direction: -1,
+    });
+    expect(ratingVisual("hard")).toMatchObject({ label: "模糊", tone: "warning", direction: 0 });
+    expect(ratingVisual("good")).toMatchObject({ label: "掌握", tone: "success", direction: 1 });
+  });
+
+  it("ratingLabel / ratingHint 与 ratingVisual 同源（不再各写一套）", () => {
+    for (const rating of ["again", "hard", "good"] as const) {
+      expect(ratingLabel(rating)).toBe(ratingVisual(rating).label);
+      expect(ratingHint(rating)).toBe(ratingVisual(rating).hint);
+      expect(ratingDirectionOf(rating)).toBe(ratingVisual(rating).direction);
+    }
+  });
+
+  it("未知评级按「掌握」兜底（服务端加了新档也不会白屏）", () => {
+    expect(ratingVisual("unknown" as never).label).toBe("掌握");
+    expect(ratingDirectionOf("unknown" as never)).toBe(1);
+  });
+});
+
+describe("进度文案", () => {
+  it("进行中显示「第 x / N 张」", () => {
+    expect(progressLabel(0, 20, false)).toBe("第 1 / 20 张");
+    expect(progressLabel(7, 20, false)).toBe("第 8 / 20 张");
+    expect(progressLabel(19, 20, false)).toBe("第 20 / 20 张");
+  });
+
+  it("刷完不出现「第 21 / 20 张」", () => {
+    expect(progressLabel(20, 20, true)).toBe("第 20 / 20 张 · 已完成");
+    expect(progressLabel(20, 20, false)).toBe("第 20 / 20 张");
+  });
+
+  it("空队列与脏输入", () => {
+    expect(progressLabel(0, 0, false)).toBe("暂无卡片");
+    expect(progressLabel(-3, 5, false)).toBe("第 1 / 5 张");
+    expect(progressLabel(Number.NaN, 5, false)).toBe("第 1 / 5 张");
+  });
+});
+

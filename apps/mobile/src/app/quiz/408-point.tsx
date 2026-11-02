@@ -450,6 +450,7 @@ const makeStyles = (colors: ThemeColors) =>
     extensionTitle: { ...typography.callout, fontWeight: "700", color: colors.text },
     extensionCount: { ...typography.micro, color: colors.textMuted, marginLeft: "auto" },
     extensionRow: {
+      minHeight: 44,
       flexDirection: "row",
       alignItems: "center",
       gap: spacing.sm,

@@ -1,6 +1,8 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+/* eslint-disable react-hooks/immutability -- Reanimated SharedValue 的 JS 侧复位/驱动（同 components/pressable-scale.tsx） */
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -33,10 +35,12 @@ import {
   EXAM_408_CARD_RATINGS,
   EXAM_408_CARD_SUBJECTS,
   applyLocalRatingStats,
+  canSubmitRating,
   cardProgress,
   enqueueRating,
   fetchCardQueue,
   fetchCardStatsBoard,
+  flipActionLabel,
   flushRatingOutbox,
   formatAccuracy,
   loadCachedQueue,
@@ -44,13 +48,14 @@ import {
   loadRatingOutbox,
   makeClientId,
   makeRatingOp,
-  normalizeCardQueue,
   mergeCardStatsWithPending,
   mergeRatingResultStats,
   nextCardIndex,
+  normalizeCardQueue,
   pendingRatingCount,
-  ratingHint,
-  ratingLabel,
+  progressLabel,
+  ratingDirectionOf,
+  ratingVisual,
   removeCardFromQueue,
   saveCachedQueue,
   saveCachedStatsBoard,
@@ -65,24 +70,31 @@ import {
 } from "@/lib/exam-408-cards";
 
 /**
- * 408 刷卡页（v1.55）：题库/科目选择 → 点击翻卡 → 三档评级 → 今日统计。
+ * 408 刷卡页（v1.55 / P11 重做）。
  *
- * 与 Web 共用同一套 /api/exam/408/cards 与 FSRS 状态，所以：
- * - 需要登录（未登录 401 → 引导去「我的」登录）；
- * - 评级先本地推进 UI，服务端确认后用它返回的 doneToday/remainingDue 校正统计；
- * - 网络失败时把评级写进离线发件箱（clientId 幂等），顶部显示「N 条待同步」，
- *   回前台/下次进页先补发，再拉队列。
+ * 与 Web 共用同一套 /api/exam/408/cards 与 FSRS 状态：
+ * - 需要登录（401 → 引导去「我的」登录）；
+ * - 评级先本地推进 UI，服务端确认后用返回的 doneToday/remainingDue 校正统计；
+ * - 断网时评级进离线发件箱（clientId 幂等），顶部显示「N 条待同步」，回前台先补发再拉队列。
  *
- * 布局是**定高**的：页面不自带纵向滚动（卡片内部各自滚动），这样手势翻卡不会和
- * 页面滚动抢手势；worklet 纪律见 apps/mobile/CLAUDE.md「手势与 worklet」。
+ * P11 翻面修复（用户反馈「显示答案后再点收不起来」）：
+ * 1) 旧实现把点击交给外层 Gesture.Tap，而背面 ScrollView 把触摸吃掉，Tap 收不到 →
+ *    改成**每个面都用 Pressable 包住 ScrollView**：卷动仍归 ScrollView，静止点击归 Pressable，
+ *    正/背面都挂同一个 toggle，所以「点正面→背面→点背面→正面→再点」可无限来回；
+ * 2) 旧的 flip 共享值与 flipped state 双源会不同步 → 现在 flipped 是唯一事实源，
+ *    共享值只由 useEffect 跟随（单向数据流），手势/按钮都只改 state。
+ *
+ * worklet 纪律见 apps/mobile/CLAUDE.md：手势回调只碰共享值 + runOnJS；共享值声明在其之前。
  */
 
 const FLIP_DURATION = 220;
-/** 横向滑动翻卡的阈值（与 question-swipe 同口径：距离 + 速度双判） */
+/** 横向滑动翻面的阈值（距离 + 速度双判，与 question-swipe 同口径） */
 const SWIPE_DISTANCE = 56;
 const SWIPE_VELOCITY = 420;
 const ACTIVATE_X = 18;
 const FAIL_Y = 14;
+/** 评级后卡片滑出的横向距离 */
+const SLIDE_OUT = 460;
 
 export default function Exam408DrillScreen() {
   const { colors, dark } = useTheme();
@@ -102,6 +114,7 @@ export default function Exam408DrillScreen() {
   const [board, setBoard] = useState<Exam408CardStatsBoard>(EMPTY_CARD_STATS_BOARD);
   const [stats, setStats] = useState<Exam408CardStats>(EMPTY_CARD_STATS);
   const [index, setIndex] = useState(0);
+  /** 唯一事实源：是否展开答案（动画共享值只跟随它，见下方 useEffect） */
   const [flipped, setFlipped] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -115,23 +128,25 @@ export default function Exam408DrillScreen() {
   const [mistakeLoading, setMistakeLoading] = useState(false);
   const [mistakeFailure, setMistakeFailure] = useState<Exam408FetchFailure | null>(null);
 
-  /* ---------------- 手势（worklet 只碰共享值 + runOnJS） ---------------- */
+  /* ---------------- 动画共享值（必须声明在 worklet 之前） ---------------- */
   const flip = useSharedValue(0);
   const panX = useSharedValue(0);
+  /** 滑出进度：1=在屏内，0=完全滑出（位移与透明度都由它插值，省一个动画点） */
+  const cardSlide = useSharedValue(1);
+  /** 滑出方向（-1 左 / 0 原位 / 1 右），直接写值不产生动画点 */
+  const cardDir = useSharedValue(1);
+
+  // 单向数据流：state → 动画值。任何翻面入口都只改 state，避免双源不同步（P11 根因之一）
+  useEffect(() => {
+    flip.value = withTiming(flipped ? 1 : 0, { duration: FLIP_DURATION });
+  }, [flipped, flip]);
 
   const toggleFlip = useCallback(() => {
     haptics.soft();
     setFlipped((prev) => !prev);
   }, []);
 
-  const tapGesture = Gesture.Tap()
-    .maxDuration(260)
-    .onEnd(() => {
-      // worklet：只写共享值 + 转发 JS 回调
-      flip.value = withTiming(flip.value > 0.5 ? 0 : 1, { duration: FLIP_DURATION });
-      runOnJS(toggleFlip)();
-    });
-
+  /* ---------------- 手势：横向滑动翻面（点击交给各面的 Pressable） ---------------- */
   const panGesture = Gesture.Pan()
     .activeOffsetX([-ACTIVATE_X, ACTIVATE_X])
     .failOffsetY([-FAIL_Y, FAIL_Y])
@@ -139,16 +154,11 @@ export default function Exam408DrillScreen() {
       panX.value = event.translationX * 0.35;
     })
     .onEnd((event) => {
-      const horizontal = event.translationX;
+      const far = Math.abs(event.translationX) > SWIPE_DISTANCE;
       const fast = Math.abs(event.velocityX) > SWIPE_VELOCITY;
-      if (Math.abs(horizontal) > SWIPE_DISTANCE || fast) {
-        flip.value = withTiming(flip.value > 0.5 ? 0 : 1, { duration: FLIP_DURATION });
-        runOnJS(toggleFlip)();
-      }
+      if (far || fast) runOnJS(toggleFlip)();
       panX.value = withTiming(0, { duration: 180 });
     });
-
-  const cardGesture = Gesture.Simultaneous(tapGesture, panGesture);
 
   const frontStyle = useAnimatedStyle(() => ({
     opacity: flip.value < 0.5 ? 1 : 0,
@@ -166,6 +176,13 @@ export default function Exam408DrillScreen() {
       { rotateY: interpolate(flip.value, [0, 1], [180, 360]) + "deg" },
     ],
   }));
+  /** 评级后整张卡滑出（左滑/淡出/右滑），动画结束再切下一张 */
+  const cardSlideStyle = useAnimatedStyle(() => ({
+    opacity: cardSlide.value,
+    transform: [
+      { translateX: interpolate(cardSlide.value, [0, 1], [cardDir.value * SLIDE_OUT, 0]) },
+    ],
+  }));
 
   /* ---------------- 数据加载 ---------------- */
   /** 已全量加载过的「登录态|科目」签名；重复聚焦时不再重置游标 */
@@ -173,10 +190,10 @@ export default function Exam408DrillScreen() {
   const reload = useCallback(
     async (targetSubject: string) => {
       // 未登录由渲染层直接拦（见下方 !token 分支），这里不 setState：
-      // 该函数由 useEffect 触发，同步 setState 会被 react-hooks/set-state-in-effect 判错
+      // 该函数由 focus 回调触发，同步 setState 会被 react-hooks/set-state-in-effect 判错
       if (!token) return;
       // 先补发上一轮离线评级：拿到权威计数后再拉队列，避免「今日 done」来回跳。
-      // 这行 await 同时保证 loading 态在首次 await 之后才翻转（不在 effect 里同步改状态）。
+      // 这行 await 同时保证 loading 态在首次 await 之后才翻转。
       const flushed = await flushRatingOutbox();
       setPending(flushed.remaining);
       setLoading(true);
@@ -204,8 +221,7 @@ export default function Exam408DrillScreen() {
         } else {
           setQueue(null);
           setStats(mergeCardStatsWithPending(EMPTY_CARD_STATS, flushed.remaining));
-          // 清掉"已加载"标记：下次回到本页（或点了重试）再全量拉一次，
-          // 否则一次开机离线就会被判成"已加载过"，只能靠手动切换科目才重试
+          // 清掉"已加载"标记：下次回到本页（或点了重试）再全量拉一次
           loadedSignature.current = "";
         }
       }
@@ -219,20 +235,19 @@ export default function Exam408DrillScreen() {
       }
 
       setIndex(0);
-      // eslint-disable-next-line react-hooks/immutability -- SharedValue 的 JS 侧复位（同 pressable-scale）
       flip.value = 0;
+      cardSlide.value = 1;
+      cardDir.value = 1;
       setFlipped(false);
       setLoading(false);
     },
-    [token, flip],
+    [token, flip, cardSlide, cardDir],
   );
 
   /** 易错本队列：评过错的卡（lapses>0 或上次评级 again），不受 due 限制，可立即重刷。 */
   const loadMistakes = useCallback(
     async (targetSubject: string) => {
       if (!token) return;
-      // 先补发离线评级（首个 await 放在 setState 之前：本函数由 effect 触发，
-      // 同步 setState 会被 react-hooks/set-state-in-effect 判错 —— 与 reload 同一写法）
       const flushed = await flushRatingOutbox();
       setPending(flushed.remaining);
       setMistakeLoading(true);
@@ -246,16 +261,16 @@ export default function Exam408DrillScreen() {
         setMistakeFailure(result.failure);
       }
       setIndex(0);
-      // eslint-disable-next-line react-hooks/immutability -- SharedValue 的 JS 侧复位（同 reload）
       flip.value = 0;
+      cardSlide.value = 1;
+      cardDir.value = 1;
       setFlipped(false);
       setMistakeLoading(false);
     },
-    [token, flip],
+    [token, flip, cardSlide, cardDir],
   );
 
-  // 首次进入/切回易错本、切换科目/范围时拉一次（用 useFocusEffect：与页面现有加载写法一致，
-  // 且能顺带处理“切走再回来”的刷新；普通 useEffect 里直接调异步加载会被 set-state-in-effect 拦）
+  // 首次进入/切回易错本、切换科目/范围时拉一次
   useFocusEffect(
     useCallback(() => {
       if (scope !== "mistake" || !token) return;
@@ -306,19 +321,31 @@ export default function Exam408DrillScreen() {
   };
 
   /* ---------------- 评级 ---------------- */
-  const advance = () => {
-    const next = nextCardIndex(index, cards.length);
-    setIndex(next);
-    // eslint-disable-next-line react-hooks/immutability -- SharedValue 的 JS 侧复位（同 pressable-scale）
-    flip.value = 0;
+  /** 动画结束后切下一张；同时复位动画值（新卡从正面、屏幕内开始） */
+  const finishCard = useCallback(() => {
+    setIndex(nextCardIndex(index, cards.length));
     setFlipped(false);
-  };
+    flip.value = 0;
+    cardSlide.value = 1;
+    cardDir.value = 1;
+    setBusy(false);
+  }, [index, cards.length, flip, cardSlide, cardDir]);
 
   const rate = async (rating: Exam408CardRating) => {
-    if (!card || busy) return;
-    haptics.light();
+    if (!card || busy || !canSubmitRating(flipped)) return;
     setBusy(true);
     setNotice("");
+    haptics.light();
+    // 先收起答案，再滑出：新卡一定从题干面开始
+    setFlipped(false);
+    const direction = ratingDirectionOf(rating);
+    cardDir.value = direction;
+    cardSlide.value = withTiming(0, { duration: 220 }, (done) => {
+      // 动画回调在 UI 线程：不复位共享值（否则旧卡会闪现一帧），只转发切卡；
+      // 复位由 finishCard 在 JS 侧与新卡状态同一 tick 完成。
+      if (done) runOnJS(finishCard)();
+    });
+
     const clientId = makeClientId();
     const ratedCard = card;
     const outcome = await submitCardRating({ cardKey: ratedCard.key, rating, clientId });
@@ -347,19 +374,16 @@ export default function Exam408DrillScreen() {
       );
     } else {
       // 无论成功与否都从离线缓存里摘掉这张卡：断网重启后不该再看到刚评过的卡
-      // （服务端是权威，联网加载时会用新队列覆盖缓存）
       const cachedQueue = await loadCachedQueue(subjectKey);
       if (cachedQueue) {
         await saveCachedQueue(subjectKey, removeCardFromQueue(cachedQueue, ratedCard.key));
       }
     }
-
-    advance();
-    setBusy(false);
   };
 
   const retry = () => {
-    void reload(subjectKey);
+    if (scope === "mistake") void loadMistakes(subjectKey);
+    else void reload(subjectKey);
   };
 
   /* ---------------- 渲染 ---------------- */
@@ -403,29 +427,27 @@ export default function Exam408DrillScreen() {
       <ScreenHeaderStickyBar title="408 刷卡" scrollY={header.scrollY} backTo="/exam-408" />
 
       <View style={[styles.content, { paddingBottom: Math.max(12, bottomSpace) + spacing.md }]}>
-        {/* 今日统计 */}
-        <Animated.View entering={entrance(0)} style={styles.statsCard}>
-          <View style={styles.statsRow}>
-            <StatCell styles={styles} value={String(stats.doneToday)} label="今日已刷" accent={colors.primary} />
-            <StatCell styles={styles} value={String(dueNow)} label="待复习" accent={dueNow > 0 ? colors.warning : colors.success} />
-            <StatCell
-              styles={styles}
-              value={board.today.done > 0 ? formatAccuracy(board.today.accuracy) : "—"}
-              label="今日正确率"
-              accent={colors.text}
-            />
-            <StatCell styles={styles} value={String(stats.streak)} label="连续天数" accent={colors.accent} />
-          </View>
-          <Text style={styles.statsHint}>
-            {offline
-              ? "当前离线：使用本机缓存队列，评级会在联网后补发。"
-              : subjectTitle
-                ? "当前科目：" + subjectTitle + " · 与 Web 端同一套记忆状态"
-                : "全部科目 · 与 Web 端同一套记忆状态"}
-          </Text>
-        </Animated.View>
+        {/* 顶部：进度条 + 第 x / N 张 + 今日已刷 */}
+        {cards.length > 0 ? (
+          <Animated.View entering={entrance(0)} style={styles.progressBlock}>
+            <View style={styles.progressHead}>
+              <Text style={styles.progressText}>{progressLabel(index, cards.length, finished)}</Text>
+              <Text style={styles.progressMeta}>今日已刷 {stats.doneToday} 张</Text>
+            </View>
+            <View style={styles.progressTrack}>
+              <View
+                style={[styles.progressFill, { width: (progress.percent + "%") as DimensionValue }]}
+              />
+            </View>
+            <Text style={styles.statsLine}>
+              待复习 {dueNow} 张 · 今日正确率{" "}
+              {board.today.done > 0 ? formatAccuracy(board.today.accuracy) : "—"} · 连续 {stats.streak} 天
+              {offline ? " · 离线缓存中" : ""}
+            </Text>
+          </Animated.View>
+        ) : null}
 
-        {/* 队列范围（v1.55）：今日队列 / 易错本 */}
+        {/* 队列范围：今日队列 / 易错本 */}
         <Animated.View entering={entrance(1)} style={styles.scopeRow}>
           <ScopeTab
             styles={styles}
@@ -461,50 +483,31 @@ export default function Exam408DrillScreen() {
         </Animated.View>
 
         {/* 科目选择（带各科待刷数，来自 mode=stats 的四行统计） */}
-        <Animated.View entering={entrance(1)}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.subjectRow}
-          >
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.subjectRow}
+        >
+          <SubjectChip
+            styles={styles}
+            colors={colors}
+            label="全部"
+            due={board.subjects.reduce((sum, item) => sum + item.dueCount, 0)}
+            active={subjectKey === ""}
+            onPress={() => changeSubject("")}
+          />
+          {EXAM_408_CARD_SUBJECTS.map((subject) => (
             <SubjectChip
+              key={subject.key}
               styles={styles}
               colors={colors}
-              label="全部"
-              due={board.subjects.reduce((sum, item) => sum + item.dueCount, 0)}
-              active={subjectKey === ""}
-              onPress={() => changeSubject("")}
+              label={subject.title}
+              due={board.subjects.find((item) => item.subjectKey === subject.key)?.dueCount ?? 0}
+              active={subjectKey === subject.key}
+              onPress={() => changeSubject(subject.key)}
             />
-            {EXAM_408_CARD_SUBJECTS.map((subject) => (
-              <SubjectChip
-                key={subject.key}
-                styles={styles}
-                colors={colors}
-                label={subject.title}
-                due={board.subjects.find((item) => item.subjectKey === subject.key)?.dueCount ?? 0}
-                active={subjectKey === subject.key}
-                onPress={() => changeSubject(subject.key)}
-              />
-            ))}
-          </ScrollView>
-        </Animated.View>
-
-        {/* 进度 */}
-        {cards.length > 0 ? (
-          <View style={styles.progressBlock}>
-            <View style={styles.progressHead}>
-              <Text style={styles.progressText}>
-                {finished ? "本轮已完成" : "第 " + Math.min(index + 1, cards.length) + " / " + cards.length + " 张"}
-              </Text>
-              <Text style={styles.progressPercent}>{progress.percent}%</Text>
-            </View>
-            <View style={styles.progressTrack}>
-              <View
-                style={[styles.progressFill, { width: (progress.percent + "%") as DimensionValue }]}
-              />
-            </View>
-          </View>
-        ) : null}
+          ))}
+        </ScrollView>
 
         {/* 主体：卡片 / 空态 / 完成态 */}
         {cards.length === 0 ? (
@@ -523,24 +526,23 @@ export default function Exam408DrillScreen() {
                   ? "网络不可用，且本机还没有这个科目的缓存队列。"
                   : scope === "mistake"
                     ? subjectTitle
-                      ? subjectTitle + " 还没有评过错的卡；刷题时选「不会/模糊」后会进入易错本。"
-                      : "还没有评过错的卡；刷题时选「不会/模糊」后会进入易错本。"
+                      ? subjectTitle + " 还没有评过错的卡；刷题时选「忘记/模糊」后会进入易错本。"
+                      : "还没有评过错的卡；刷题时选「忘记/模糊」后会进入易错本。"
                     : subjectTitle
                       ? subjectTitle + " 的到期卡已清空，换一科或稍后再来。"
-                      : "全部科目的到期卡都清空了。"
+                      : "全部科目的到期卡都清空了，明天再来。"
               }
               actionLabel={activeFailure ? "重试" : "刷新"}
-              onAction={() => {
-                if (scope === "mistake") void loadMistakes(subjectKey);
-                else retry();
-              }}
+              onAction={retry}
               pattern="none"
             />
           </View>
         ) : finished ? (
           <ScrollView style={styles.finishedScroll} contentContainerStyle={styles.finishedBox}>
             <ThemedIcon name="checkmark-done" size={34} color={colors.success} />
-            <Text style={styles.finishedTitle}>这一轮刷完了</Text>
+            <Text style={styles.finishedTitle}>
+              {scope === "mistake" ? "这一轮错题刷完了" : "这一轮刷完了"}
+            </Text>
             <Text style={styles.finishedText}>
               今日已刷 {stats.doneToday} 张 · 待复习 {stats.dueCount} 张 · 连续 {stats.streak} 天
             </Text>
@@ -558,147 +560,222 @@ export default function Exam408DrillScreen() {
                 </View>
               ))}
             </View>
-            <PressableScale
-              haptic
-              onPress={() => {
-                if (scope === "mistake") void loadMistakes(subjectKey);
-                else retry();
-              }}
-              style={styles.primaryButton}
-            >
+            <PressableScale haptic onPress={retry} style={styles.primaryButton}>
               <Text style={styles.primaryButtonText}>
                 {scope === "mistake" ? "重刷易错本" : "再刷一轮"}
               </Text>
             </PressableScale>
+            {scope === "queue" ? (
+              <PressableScale
+                haptic
+                onPress={() => {
+                  haptics.light();
+                  setScope("mistake");
+                  setMistakeLoading(true);
+                  setIndex(0);
+                  setFlipped(false);
+                }}
+                style={styles.secondaryButton}
+              >
+                <Text style={styles.secondaryButtonText}>去易错本重刷错题</Text>
+              </PressableScale>
+            ) : null}
           </ScrollView>
         ) : card ? (
           <View style={styles.cardSlot}>
-            <GestureDetector gesture={cardGesture}>
-              <View style={styles.card}>
-                {/* 正面：题干 */}
-                <Animated.View style={[styles.face, frontStyle]} pointerEvents={flipped ? "none" : "auto"}>
-                  <ScrollView
-                    style={styles.faceScroll}
-                    contentContainerStyle={styles.faceContent}
-                    showsVerticalScrollIndicator={false}
+            <GestureDetector gesture={panGesture}>
+              <Animated.View style={[styles.card, cardSlideStyle]}>
+                {/* 正面：题干（整面可点 → 显示答案） */}
+                <Animated.View
+                  style={[styles.face, frontStyle]}
+                  pointerEvents={flipped ? "none" : "auto"}
+                >
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={"显示答案：" + toPlainText(card.question)}
+                    accessibilityHint="点按任意位置翻到答题要点；左右滑动也可以翻面"
+                    onPress={toggleFlip}
+                    style={styles.facePress}
                   >
-                    <View style={styles.cardMetaRow}>
-                      <View style={styles.chapterBadge}>
-                        <Text style={styles.chapterBadgeText}>
-                          {card.subjectKey ? subjectLabel(card.subjectKey) + " · " : ""}
-                          第 {card.chapter} 章
-                        </Text>
-                      </View>
-                      {card.star ? (
-                        <View style={styles.starBadge}>
-                          <Text style={styles.starBadgeText}>重点</Text>
+                    <ScrollView
+                      style={styles.faceScroll}
+                      contentContainerStyle={styles.faceContent}
+                      showsVerticalScrollIndicator={false}
+                    >
+                      <View style={styles.cardMetaRow}>
+                        <View style={styles.chapterBadge}>
+                          <Text style={styles.chapterBadgeText}>
+                            {card.subjectKey ? subjectLabel(card.subjectKey) + " · " : ""}
+                            第 {card.chapter} 章
+                          </Text>
                         </View>
-                      ) : null}
-                      <View style={styles.stateBadge}>
-                        <Text style={styles.stateBadgeText}>
-                          {card.state === "due"
-                            ? "待复习"
-                            : card.state === "scheduled"
-                              ? "未到期"
-                              : "新卡"}
+                        {card.star ? (
+                          <View style={styles.starBadge}>
+                            <Text style={styles.starBadgeText}>重点</Text>
+                          </View>
+                        ) : null}
+                        <View style={styles.stateBadge}>
+                          <Text style={styles.stateBadgeText}>
+                            {card.state === "due"
+                              ? "待复习"
+                              : card.state === "scheduled"
+                                ? "未到期"
+                                : "新卡"}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={styles.questionText}>{card.question}</Text>
+                      <View style={styles.faceHintRow}>
+                        <ThemedIcon name="eye-outline" size={15} color={colors.primary} />
+                        <Text style={[styles.faceHint, styles.faceHintActive]}>
+                          {flipActionLabel(flipped)}（点卡片或左右滑）
                         </Text>
                       </View>
-                    </View>
-                    <Text style={styles.questionText}>{card.question}</Text>
-                    <View style={styles.faceHintRow}>
-                      <ThemedIcon name="refresh" size={14} color={colors.textFaint} />
-                      <Text style={styles.faceHint}>轻点或左右滑动，翻面看答题要点</Text>
-                    </View>
-                  </ScrollView>
+                    </ScrollView>
+                  </Pressable>
                 </Animated.View>
 
-                {/* 背面：要点 / 易错点 / 口诀 */}
-                <Animated.View style={[styles.face, styles.faceBack, backStyle]} pointerEvents={flipped ? "auto" : "none"}>
-                  <ScrollView
-                    style={styles.faceScroll}
-                    contentContainerStyle={styles.faceContent}
-                    showsVerticalScrollIndicator={false}
+                {/* 背面：答案（整面可点 → 隐藏答案；底部另有显式按钮，长内容可滚） */}
+                <Animated.View
+                  style={[styles.face, styles.faceBack, backStyle]}
+                  pointerEvents={flipped ? "auto" : "none"}
+                >
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="隐藏答案，回到题干"
+                    accessibilityHint="点按任意位置收起答案；上下滚动查看长答案"
+                    onPress={toggleFlip}
+                    style={styles.facePress}
                   >
-                    <Text style={styles.faceTitle}>答题要点</Text>
-                    {card.answerSteps.length === 0 ? (
-                      <Text style={styles.answerStepText}>这张卡没有分步要点，直接凭记忆复述一遍。</Text>
-                    ) : (
-                      card.answerSteps.map((step, stepIndex) => (
-                        <View key={stepIndex} style={styles.answerRow}>
-                          <View style={styles.answerIndex}>
-                            <Text style={styles.answerIndexText}>{stepIndex + 1}</Text>
+                    <ScrollView
+                      style={styles.faceScroll}
+                      contentContainerStyle={styles.faceContent}
+                      showsVerticalScrollIndicator={false}
+                    >
+                      <View style={styles.answerHeadRow}>
+                        <Text style={styles.faceTitle}>答案要点</Text>
+                        <Text style={styles.answerCount}>
+                          {card.answerSteps.length > 0 ? card.answerSteps.length + " 步" : "凭记忆复述"}
+                        </Text>
+                      </View>
+                      {card.answerSteps.length === 0 ? (
+                        <Text style={styles.answerStepText}>
+                          这张卡没有分步要点，直接凭记忆把结论复述一遍，再按三档自评。
+                        </Text>
+                      ) : (
+                        card.answerSteps.map((step, stepIndex) => (
+                          <View key={stepIndex} style={styles.answerRow}>
+                            <View style={styles.answerIndex}>
+                              <Text style={styles.answerIndexText}>{stepIndex + 1}</Text>
+                            </View>
+                            <Text style={styles.answerStepText}>{highlightEmphasis(step)}</Text>
                           </View>
-                          <Text style={styles.answerStepText}>{step}</Text>
+                        ))
+                      )}
+                      {card.pitfall ? (
+                        <View style={styles.pitfallBox}>
+                          <View style={styles.answerSectionTitleRow}>
+                            <ThemedIcon name="alert-circle" size={14} color={colors.danger} />
+                            <Text style={styles.pitfallTitle}>易错点</Text>
+                          </View>
+                          <Text style={styles.pitfallText}>{card.pitfall}</Text>
                         </View>
-                      ))
-                    )}
-                    {card.pitfall ? (
-                      <View style={styles.pitfallBox}>
-                        <Text style={styles.pitfallTitle}>易错点</Text>
-                        <Text style={styles.pitfallText}>{card.pitfall}</Text>
-                      </View>
-                    ) : null}
-                    {card.mnemonic ? (
-                      <View style={styles.mnemonicBox}>
-                        <Text style={styles.mnemonicTitle}>口诀</Text>
-                        <Text style={styles.mnemonicText}>{card.mnemonic}</Text>
-                      </View>
-                    ) : null}
-                    {card.demoKey ? (
-                      <Text style={styles.demoHint}>演示：{card.demoKey}</Text>
-                    ) : null}
-                    <Text style={styles.faceHint}>轻点返回题干</Text>
-                  </ScrollView>
+                      ) : null}
+                      {card.mnemonic ? (
+                        <View style={styles.mnemonicBox}>
+                          <View style={styles.answerSectionTitleRow}>
+                            <ThemedIcon name="sparkles" size={14} color={colors.accentStrong} />
+                            <Text style={styles.mnemonicTitle}>口诀</Text>
+                          </View>
+                          <Text style={styles.mnemonicText}>{card.mnemonic}</Text>
+                        </View>
+                      ) : null}
+                      {card.demoKey ? (
+                        <Text style={styles.demoHint}>关联演示：{card.demoKey}</Text>
+                      ) : null}
+                      <Text style={styles.faceHint}>轻点卡片任意处隐藏答案</Text>
+                      <PressableScale
+                        haptic
+                        onPress={toggleFlip}
+                        style={styles.hideButton}
+                        accessibilityRole="button"
+                        accessibilityLabel="隐藏答案"
+                      >
+                        <ThemedIcon name="eye-off-outline" size={16} color={colors.primary} />
+                        <Text style={styles.hideButtonText}>隐藏答案</Text>
+                      </PressableScale>
+                    </ScrollView>
+                  </Pressable>
                 </Animated.View>
-              </View>
+              </Animated.View>
             </GestureDetector>
           </View>
         ) : null}
 
         {notice ? <Text style={styles.notice}>{notice}</Text> : null}
 
-        {/* 评级按钮：翻面后才出现（避免没看答案就随手打分） */}
+        {/* 操作区：未翻面 → 大按钮显示答案；已翻面 → 三档大评级按钮 + 隐藏答案 */}
         {card && !finished ? (
           flipped ? (
-            <View style={styles.ratingRow}>
-              {EXAM_408_CARD_RATINGS.map((rating) => (
-                <PressableScale
-                  key={rating}
-                  haptic
-                  disabled={busy}
-                  onPress={() => void rate(rating)}
-                  style={[
-                    styles.ratingButton,
-                    rating === "again" && { backgroundColor: colors.dangerSoft, borderColor: colors.danger },
-                    rating === "hard" && { backgroundColor: colors.warningSoft, borderColor: colors.warning },
-                    rating === "good" && { backgroundColor: colors.successSoft, borderColor: colors.success },
-                    busy && styles.ratingButtonBusy,
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityLabel={"评级 " + ratingLabel(rating)}
-                >
-                  <Text
-                    style={[
-                      styles.ratingLabel,
-                      rating === "again" && { color: colors.danger },
-                      rating === "hard" && { color: colors.warning },
-                      rating === "good" && { color: colors.success },
-                    ]}
-                  >
-                    {ratingLabel(rating)}
-                  </Text>
-                  <Text style={styles.ratingHint}>{ratingHint(rating)}</Text>
-                </PressableScale>
-              ))}
+            <View style={styles.ratingBlock}>
+              <View style={styles.ratingRow}>
+                {EXAM_408_CARD_RATINGS.map((rating) => {
+                  const visual = ratingVisual(rating);
+                  const accent =
+                    visual.tone === "danger"
+                      ? colors.danger
+                      : visual.tone === "warning"
+                        ? colors.warning
+                        : colors.success;
+                  const soft =
+                    visual.tone === "danger"
+                      ? colors.dangerSoft
+                      : visual.tone === "warning"
+                        ? colors.warningSoft
+                        : colors.successSoft;
+                  return (
+                    <PressableScale
+                      key={rating}
+                      haptic
+                      disabled={busy}
+                      onPress={() => void rate(rating)}
+                      style={[
+                        styles.ratingButton,
+                        { backgroundColor: soft, borderColor: accent },
+                        busy && styles.ratingButtonBusy,
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityLabel={"评级 " + visual.label + "，" + visual.hint}
+                    >
+                      <ThemedIcon name={visual.icon as never} size={22} color={accent} />
+                      <Text style={[styles.ratingLabel, { color: accent }]}>{visual.label}</Text>
+                      <Text style={styles.ratingHint}>{visual.hint}</Text>
+                    </PressableScale>
+                  );
+                })}
+              </View>
+              <PressableScale
+                haptic
+                onPress={toggleFlip}
+                style={styles.hideLink}
+                accessibilityRole="button"
+                accessibilityLabel="隐藏答案，回到题干"
+              >
+                <ThemedIcon name="eye-off-outline" size={14} color={colors.textMuted} />
+                <Text style={styles.hideLinkText}>隐藏答案，回到题干</Text>
+              </PressableScale>
             </View>
           ) : (
-            <View style={styles.flipRow}>
-              <PressableScale haptic onPress={toggleFlip} style={styles.flipButton}>
-                <ThemedIcon name="refresh" size={17} color={colors.primary} />
-                <Text style={styles.flipButtonText}>翻面看答案</Text>
-              </PressableScale>
-              <Text style={styles.flipHint}>先自己想一遍，再翻面自评</Text>
-            </View>
+            <PressableScale
+              haptic
+              onPress={toggleFlip}
+              style={styles.showButton}
+              accessibilityRole="button"
+              accessibilityLabel="显示答案"
+            >
+              <ThemedIcon name="eye-outline" size={20} color="#FFFFFF" />
+              <Text style={styles.showButtonText}>显示答案</Text>
+            </PressableScale>
           )
         ) : null}
 
@@ -712,6 +789,23 @@ export default function Exam408DrillScreen() {
       </View>
     </View>
   );
+}
+
+/* ------------------------------------------------------------------ */
+/* 小工具                                                              */
+/* ------------------------------------------------------------------ */
+
+/** 无障碍朗读用的纯文本：去掉换行与多余空白，避免 TalkBack 逐行念。 */
+function toPlainText(text: string): string {
+  return text.replace(/\s+/g, " ").trim().slice(0, 120);
+}
+
+/**
+ * 答案里的「重点」强调：把【…】段首标记与 **…** 包裹收成纯文本，
+ * 这里只做去符号（RN Text 里不解析 Markdown），保留原意。
+ */
+function highlightEmphasis(text: string): string {
+  return text.replace(/\*\*/g, "").trim();
 }
 
 /** v1.55 易错本入口标签（与科目 chip 同风格，但强调范围切换） */
@@ -735,17 +829,20 @@ function ScopeTab({
       haptic
       onPress={onPress}
       style={[styles.scopeTab, active && styles.scopeTabActive]}
-      accessibilityRole="button"
+      accessibilityRole="tab"
       accessibilityState={{ selected: active }}
+      accessibilityLabel={label + "，" + meta}
     >
       <Text style={[styles.scopeTabText, active && { color: colors.primary }]}>{label}</Text>
-      <Text style={[styles.scopeTabMeta, active && { color: colors.primary }]}>{meta}</Text>
+      <Text style={[styles.scopeTabMeta, active && { color: colors.primary }]} numberOfLines={1}>
+        {meta}
+      </Text>
     </PressableScale>
   );
 }
 
 /**
- * 易错本队列（scope=mistake）：服务端只返回“评过错”的卡（lapses>0 或上次评级 again），
+ * 易错本队列（scope=mistake）：服务端只返回"评过错"的卡（lapses>0 或上次评级 again），
  * 不按 due 过滤、卡片状态可能含 scheduled（评过但未到期，只在易错本里出现）。
  * 不走 lib 的 fetchCardQueue 是因为 App 侧该函数暂未接 scope；这里只复用其归一化与鉴权口径。
  */
@@ -770,28 +867,7 @@ async function fetchMistakeQueue(subjectKey: string, limit = 20): Promise<Exam40
 }
 
 function subjectLabel(subjectKey: string): string {
-  return (
-    EXAM_408_CARD_SUBJECTS.find((item) => item.key === subjectKey)?.title ?? subjectKey
-  );
-}
-
-function StatCell({
-  styles,
-  value,
-  label,
-  accent,
-}: {
-  styles: ReturnType<typeof makeStyles>;
-  value: string;
-  label: string;
-  accent: string;
-}) {
-  return (
-    <View style={styles.statCell}>
-      <Text style={[styles.statValue, { color: accent }]}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
+  return EXAM_408_CARD_SUBJECTS.find((item) => item.key === subjectKey)?.title ?? subjectKey;
 }
 
 function SubjectChip({
@@ -816,6 +892,7 @@ function SubjectChip({
       style={[styles.subjectChip, active && styles.subjectChipActive]}
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
+      accessibilityLabel={label + (due > 0 ? "，待复习 " + due + " 张" : "，无到期")}
     >
       <Text style={[styles.subjectChipText, active && { color: colors.primary }]}>{label}</Text>
       <Text style={[styles.subjectChipDue, active && { color: colors.primary }]}>
@@ -832,7 +909,7 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       flex: 1,
       paddingHorizontal: spacing.lg,
       paddingTop: spacing.sm,
-      gap: spacing.md,
+      gap: spacing.sm,
     },
     centerBox: {
       flex: 1,
@@ -841,24 +918,23 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       gap: spacing.sm,
     },
     centerText: { ...typography.caption, color: colors.textMuted },
-    statsCard: {
-      borderRadius: radius.lg,
-      padding: spacing.md,
-      gap: spacing.sm,
-      backgroundColor: colors.surfaceStrong,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.border,
-      ...shadows.card,
+
+    /* 顶部进度 */
+    progressBlock: { gap: 4 },
+    progressHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" },
+    // 大字体下两侧文案允许收缩换行：不写死宽度，避免「第 20 / 20 张」被截断
+    progressText: { ...typography.headline, color: colors.text, flexShrink: 1 },
+    progressMeta: { ...typography.caption, color: colors.textMuted, flexShrink: 1, textAlign: "right" },
+    progressTrack: {
+      height: 6,
+      borderRadius: radius.pill,
+      backgroundColor: colors.surfaceMuted,
+      overflow: "hidden",
     },
-    statsRow: { flexDirection: "row", gap: spacing.sm },
-    statCell: { flex: 1, alignItems: "center", gap: 1 },
-    statValue: {
-      ...typography.title2,
-      fontVariant: ["tabular-nums"],
-    },
-    statLabel: { ...typography.micro, color: colors.textMuted },
-    statsHint: { ...typography.micro, color: colors.textFaint },
-    subjectRow: { gap: spacing.sm, paddingRight: spacing.lg },
+    progressFill: { height: "100%", borderRadius: radius.pill, backgroundColor: colors.primary },
+    statsLine: { ...typography.micro, color: colors.textFaint },
+
+    /* 范围 + 科目 */
     scopeRow: {
       flexDirection: "row",
       gap: 4,
@@ -871,47 +947,27 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       alignItems: "center",
       gap: 1,
       borderRadius: radius.md,
-      paddingVertical: spacing.sm,
+      paddingVertical: 7,
     },
     scopeTabActive: { backgroundColor: colors.surfaceStrong, ...shadows.card },
     scopeTabText: { ...typography.callout, fontWeight: "700", color: colors.textMuted },
     scopeTabMeta: { ...typography.micro, color: colors.textFaint },
+    subjectRow: { gap: spacing.sm, paddingRight: spacing.lg },
     subjectChip: {
-      minWidth: 96,
-      gap: 2,
+      gap: 1,
       borderRadius: radius.md,
-      paddingVertical: 8,
+      paddingVertical: 7,
       paddingHorizontal: spacing.md,
       backgroundColor: colors.surfaceMuted,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: "transparent",
     },
-    subjectChipActive: {
-      backgroundColor: colors.primarySoft,
-      borderColor: colors.primary,
-    },
+    subjectChipActive: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
     subjectChipText: { ...typography.caption, fontWeight: "800", color: colors.textSecondary },
     subjectChipDue: { ...typography.micro, color: colors.textMuted },
-    progressBlock: { gap: 5 },
-    progressHead: { flexDirection: "row", justifyContent: "space-between" },
-    progressText: { ...typography.caption, fontWeight: "700", color: colors.textSecondary },
-    progressPercent: {
-      ...typography.caption,
-      color: colors.textMuted,
-      fontVariant: ["tabular-nums"],
-    },
-    progressTrack: {
-      height: 6,
-      borderRadius: radius.pill,
-      backgroundColor: colors.surfaceMuted,
-      overflow: "hidden",
-    },
-    progressFill: {
-      height: "100%",
-      borderRadius: radius.pill,
-      backgroundColor: colors.primary,
-    },
-    cardSlot: { flex: 1, minHeight: 240 },
+
+    /* 卡片 */
+    cardSlot: { flex: 1, minHeight: 220 },
     card: {
       flex: 1,
       borderRadius: radius.xl,
@@ -923,6 +979,7 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
     },
     face: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
     faceBack: { backgroundColor: dark ? "#1F2530" : "#F4F8FF" },
+    facePress: { flex: 1 },
     faceScroll: { flex: 1 },
     faceContent: { padding: spacing.lg, gap: spacing.sm },
     cardMetaRow: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
@@ -953,14 +1010,24 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       lineHeight: 32,
       marginTop: spacing.sm,
     },
-    faceHintRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: "auto" },
+    faceHintRow: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: "auto" },
     faceHint: { ...typography.micro, color: colors.textFaint },
+    faceHintActive: { color: colors.primary, fontWeight: "700" },
+
+    /* 答案面 */
+    answerHeadRow: {
+      flexDirection: "row",
+      alignItems: "baseline",
+      justifyContent: "space-between",
+      gap: spacing.sm,
+    },
     faceTitle: { ...typography.headline, color: colors.text },
+    answerCount: { ...typography.micro, color: colors.textMuted },
     answerRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
     answerIndex: {
-      width: 20,
-      height: 20,
-      borderRadius: 10,
+      width: 22,
+      height: 22,
+      borderRadius: 11,
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: colors.primarySoft,
@@ -971,52 +1038,75 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       color: colors.primary,
       fontVariant: ["tabular-nums"],
     },
-    answerStepText: { ...typography.body, flex: 1, color: colors.textSecondary },
+    answerStepText: { ...typography.body, flex: 1, color: colors.text },
+    answerSectionTitleRow: { flexDirection: "row", alignItems: "center", gap: 5 },
     pitfallBox: {
-      gap: 2,
+      gap: 4,
       borderRadius: radius.md,
       padding: spacing.md,
       backgroundColor: colors.dangerSoft,
     },
     pitfallTitle: { ...typography.caption, fontWeight: "800", color: colors.danger },
-    pitfallText: { ...typography.callout, color: colors.textSecondary },
+    pitfallText: { ...typography.callout, color: colors.text },
     mnemonicBox: {
-      gap: 2,
+      gap: 4,
       borderRadius: radius.md,
       padding: spacing.md,
       backgroundColor: colors.accentSoft,
     },
     mnemonicTitle: { ...typography.caption, fontWeight: "800", color: colors.accentStrong },
-    mnemonicText: { ...typography.callout, color: colors.textSecondary },
+    mnemonicText: { ...typography.callout, color: colors.text },
     demoHint: { ...typography.micro, color: colors.textFaint },
+    hideButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      minHeight: 48,
+      marginTop: 4,
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.primary,
+      backgroundColor: colors.surfaceStrong,
+    },
+    hideButtonText: { ...typography.callout, fontWeight: "800", color: colors.primary },
+
+    /* 操作区 */
     notice: { ...typography.micro, color: colors.warning },
+    showButton: {
+      minHeight: 56,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      borderRadius: radius.lg,
+      backgroundColor: colors.primary,
+      ...shadows.brand,
+    },
+    showButtonText: { ...typography.headline, fontWeight: "800", color: "#FFFFFF" },
+    ratingBlock: { gap: 6 },
     ratingRow: { flexDirection: "row", gap: spacing.sm },
     ratingButton: {
       flex: 1,
-      minHeight: 62,
+      minHeight: 76,
       alignItems: "center",
       justifyContent: "center",
       gap: 2,
       borderRadius: radius.md,
       borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.border,
-      backgroundColor: colors.surfaceStrong,
     },
     ratingButtonBusy: { opacity: 0.6 },
     ratingLabel: { ...typography.headline, fontWeight: "800" },
     ratingHint: { ...typography.micro, color: colors.textMuted },
-    flipRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-    flipButton: {
+    hideLink: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 6,
-      minHeight: 48,
-      borderRadius: radius.md,
-      paddingHorizontal: spacing.lg,
-      backgroundColor: colors.primarySoft,
+      justifyContent: "center",
+      gap: 5,
+      minHeight: 44,
     },
-    flipButtonText: { ...typography.callout, fontWeight: "800", color: colors.primary },
-    flipHint: { ...typography.micro, flex: 1, color: colors.textMuted },
+    hideLinkText: { ...typography.caption, color: colors.textMuted },
+
     pendingBar: {
       flexDirection: "row",
       alignItems: "center",
@@ -1027,6 +1117,8 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       backgroundColor: colors.warningSoft,
     },
     pendingText: { ...typography.micro, flex: 1, color: colors.textSecondary },
+
+    /* 完成态 */
     finishedScroll: { flex: 1 },
     finishedBox: {
       flexGrow: 1,
@@ -1061,4 +1153,13 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       backgroundColor: colors.primary,
     },
     primaryButtonText: { ...typography.callout, fontWeight: "800", color: "#FFFFFF" },
+    secondaryButton: {
+      minHeight: 48,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: radius.md,
+      paddingHorizontal: spacing["2xl"],
+      backgroundColor: colors.primarySoft,
+    },
+    secondaryButtonText: { ...typography.callout, fontWeight: "800", color: colors.primary },
   });

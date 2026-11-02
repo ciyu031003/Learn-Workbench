@@ -440,30 +440,85 @@ export function formatAccuracy(accuracy: number | null): string {
   return Math.round(accuracy * 100) + "%";
 }
 
-export function ratingLabel(rating: Exam408CardRating): string {
+/* ------------------------------------------------------------------ */
+/* 纯函数：刷卡状态机（P11 修复：翻面 / 评级视觉 / 进度文案）              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 翻面状态机。
+ *
+ * P11 历史 bug：动画共享值 flip 与 React state flipped 是**双源**，且背面 ScrollView
+ * 抢走点击 → 「显示答案后再点无法收起」。现在 flipped 是唯一事实源，动画值只跟随；
+ * 正/背面都挂同一个 toggle，所以任意位置都能来回翻。
+ */
+export type Exam408DrillFace = "question" | "answer";
+
+export function flipPhaseOf(flipped: boolean): Exam408DrillFace {
+  return flipped ? "answer" : "question";
+}
+
+export function toggleFlipPhase(face: Exam408DrillFace): Exam408DrillFace {
+  return face === "answer" ? "question" : "answer";
+}
+
+/** 动作文案：题干态「显示答案」，答案态「隐藏答案」。 */
+export function flipActionLabel(flipped: boolean): string {
+  return flipped ? "隐藏答案" : "显示答案";
+}
+
+/** 只有答案面才允许评级（避免没看答案就随手打分）。 */
+export function canSubmitRating(flipped: boolean): boolean {
+  return flipped;
+}
+
+export interface Exam408RatingVisual {
+  label: string;
+  hint: string;
+  /** Ionicons 名（屏幕交给 ThemedIcon） */
+  icon: string;
+  /** 语义色档：屏幕按主题取 colors.danger / warning / success */
+  tone: "danger" | "warning" | "success";
+  /** 卡片滑出方向：-1 左、0 原位淡化、1 右（纯视觉） */
+  direction: -1 | 0 | 1;
+}
+
+/** 三档评级的展示属性（文案/图标/色档/滑出方向）：屏幕不再各自硬编码。 */
+export function ratingVisual(rating: Exam408CardRating): Exam408RatingVisual {
   switch (rating) {
     case "again":
-      return "忘记";
+      return { label: "忘记", hint: "很快再见", icon: "refresh", tone: "danger", direction: -1 };
     case "hard":
-      return "模糊";
+      return { label: "模糊", hint: "缩短间隔", icon: "alert-circle", tone: "warning", direction: 0 };
     case "good":
-      return "掌握";
     default:
-      return "掌握";
+      return { label: "掌握", hint: "拉长间隔", icon: "checkmark-circle", tone: "success", direction: 1 };
   }
 }
 
+export function ratingLabel(rating: Exam408CardRating): string {
+  return ratingVisual(rating).label;
+}
+
 export function ratingHint(rating: Exam408CardRating): string {
-  switch (rating) {
-    case "again":
-      return "很快再来一次";
-    case "hard":
-      return "缩短间隔";
-    case "good":
-      return "拉长间隔";
-    default:
-      return "";
-  }
+  return ratingVisual(rating).hint;
+}
+
+/** 评级按钮驱动的滑出方向（-1 左 / 0 原位淡化 / 1 右）。 */
+export function ratingDirectionOf(rating: Exam408CardRating): -1 | 0 | 1 {
+  return ratingVisual(rating).direction;
+}
+
+/**
+ * 进度文案：「第 x / N 张」，刷完显示「已完成」。
+ * 下标可能等于 total（刷完那一刻），这里夹住，不会出现「第 21 / 20 张」。
+ */
+export function progressLabel(index: number, total: number, finished: boolean): string {
+  const totalSafe = Number.isFinite(total) && total > 0 ? Math.floor(total) : 0;
+  if (totalSafe === 0) return "暂无卡片";
+  if (finished) return "第 " + totalSafe + " / " + totalSafe + " 张 · 已完成";
+  const done = clampCardIndex(index, totalSafe);
+  const current = Math.min(done, totalSafe - 1) + 1;
+  return "第 " + current + " / " + totalSafe + " 张";
 }
 
 /* ------------------------------------------------------------------ */

@@ -96,7 +96,7 @@ function DemoContent({ demoKey }: { demoKey: string }): React.JSX.Element {
       >
         <ScreenHeaderLargeTitle title={demo.title} subtitle={demo.description || "逐帧演示"} />
 
-        <Animated.View entering={entrance(0)}>
+        <Animated.View entering={entrance(0)} style={styles.playerWrap}>
           <DemoPlayer steps={demo.steps} title={demo.title} />
         </Animated.View>
 
@@ -166,6 +166,8 @@ function makeStyles(colors: ThemeColors) {
     root: { flex: 1 },
     scroll: { flex: 1 },
     content: { paddingHorizontal: spacing.lg, gap: spacing.md },
+    // 小屏铺满；平板/横屏限宽 560，配合播放器帧图的 16:10 比例避免高度失控
+    playerWrap: { width: "100%", maxWidth: 560, alignSelf: "center" },
     centerState: { flex: 1, alignItems: "center", justifyContent: "center", gap: spacing.sm, padding: spacing.xl },
     centerText: { ...typography.caption, color: colors.textMuted, textAlign: "center", lineHeight: 18 },
     retryButton: {

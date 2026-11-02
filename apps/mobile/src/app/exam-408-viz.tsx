@@ -58,7 +58,7 @@ export default function Exam408VizScreen(): React.JSX.Element {
 
   return (
     <View style={styles.root}>
-      <ScreenHeaderStickyBar title="408 演示" scrollY={header.scrollY} backTo="/(tabs)/learn" />
+      <ScreenHeaderStickyBar title="408 演示" scrollY={header.scrollY} backTo="/exam-408" />
       <Animated.ScrollView
         onScroll={header.onScroll}
         scrollEventThrottle={16}
@@ -228,6 +228,7 @@ function makeStyles(colors: ThemeColors) {
     sectionTitle: { ...typography.headline, color: colors.text },
     sectionMeta: { ...typography.micro, color: colors.textMuted },
     card: {
+      minHeight: 64,
       flexDirection: "row",
       alignItems: "center",
       gap: spacing.sm,
@@ -238,7 +239,7 @@ function makeStyles(colors: ThemeColors) {
       padding: spacing.md,
     },
     cardBody: { flex: 1, gap: 4 },
-    cardTitle: { ...typography.callout, color: colors.text },
+    cardTitle: { ...typography.callout, color: colors.text, lineHeight: 20 },
     cardText: { ...typography.caption, color: colors.textSecondary, lineHeight: 17 },
     cardMetaRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
     cardMeta: { ...typography.micro, color: colors.textFaint },

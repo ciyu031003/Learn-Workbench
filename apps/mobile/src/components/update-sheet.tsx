@@ -5,7 +5,7 @@ import { Button } from "@/components/button";
 import { ProgressBar } from "@/components/stat";
 import { useUpdateStore } from "@/store/update-store";
 import { APP_VERSION_NAME, DOWNLOAD_PAGE_URL } from "@/lib/ota";
-import type { ThemeColors } from "@/theme/tokens";
+import { typography, type ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 
 /**
@@ -191,7 +191,7 @@ const makeStyles = (colors: ThemeColors) =>
     },
     progressText: { fontSize: 12, fontWeight: "700", color: colors.text },
     error: { fontSize: 12, lineHeight: 19, color: colors.danger },
-    backgroundHint: { fontSize: 12, lineHeight: 19, color: colors.primary },
+    backgroundHint: { ...typography.caption, color: colors.primary },
     notice: { fontSize: 12, lineHeight: 19, color: colors.textMuted },
     actions: { gap: 8, marginTop: 4 },
     tip: { fontSize: 11, lineHeight: 17, color: colors.textMuted },

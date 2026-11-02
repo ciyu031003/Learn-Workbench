@@ -33,7 +33,6 @@ import {
   exam408PointHref,
   resolveExam408Subject,
 } from "@/lib/exam-408-view";
-import { EXAM_408_STUDY_SUBJECTS } from "@/lib/exam-408-study";
 import { setNavPendingParams } from "@/lib/nav-pending";
 import { useScreenEntrance } from "@/lib/use-screen-entrance";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
@@ -232,6 +231,12 @@ function Exam408Content({ track }: { track: LearningTrack }) {
             <HeroStat value={String(stats.points)} label="知识点" styles={styles} />
             <HeroStat value={String(stats.papers)} label="套真题" styles={styles} />
           </View>
+        </Animated.View>
+
+        {/* P11：统一「学习方式」三入口（精读 / 演示 / 刷卡）。放在 Tab 之外，学习与刷题视角都能看到；
+            精读入口不再依赖当前科目——目录页自带科目切换。 */}
+        <Animated.View entering={entrance(1)}>
+          <LearningModes styles={styles} colors={colors} />
         </Animated.View>
 
         <Animated.View entering={entrance(1)} style={styles.tabs}>
@@ -492,7 +497,6 @@ function PracticeTab({
         />
       </View>
 
-      <DrillEntry />
 
       <View style={styles.sectionHead}>
         <View style={styles.sectionHeadBody}>
@@ -595,7 +599,6 @@ function SubjectBrowser({
       />
       <SubjectSummary subject={activeSubject} mode={mode} />
       <GradLessonEntry subject={activeSubject} />
-      <StudyReadingEntry subject={activeSubject} />
       {activeSubject.chapters.length > 0 ? (
         <View style={styles.chapterList}>
           {activeSubject.chapters.map((chapter) => {
@@ -788,76 +791,84 @@ function GradLessonEntry({ subject }: { subject: Exam408SubjectSummary }) {
 }
 
 /**
- * 「知识精读」入口（v1.55）：cs408.cloud 的 181 篇精读正文（已授权镜像），
- * 与「讲义阅读」并列 —— 讲义是站点聚合的章级讲解，精读是 cs408 的原文长读版，
- * 两者互补。这里只做入口：点进去先选科目章节，再一屏一节地读（exam-408-study）。
- */
-function StudyReadingEntry({ subject }: { subject: Exam408SubjectSummary }) {
-  const { colors, dark } = useTheme();
-  const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
-  const tone = subjectTone(subject, dark);
-  const bare = subject.key.trim().split("/").pop() ?? "";
-  const studySubject = EXAM_408_STUDY_SUBJECTS.find((item) => item.key === bare);
-  if (!studySubject) return null;
-
-  const openStudy = () => {
-    setNavPendingParams("exam-408-study", {});
-    router.push(("/exam-408-study?subject=" + encodeURIComponent(studySubject.key)) as never);
-  };
-
-  return (
-    <PressableScale
-      haptic
-      scaleTo={0.985}
-      onPress={openStudy}
-      style={[styles.lessonEntry, { borderColor: colors.primary + "35" }]}
-      accessibilityRole="button"
-      accessibilityLabel={"阅读 " + subject.title + " 精读原文"}
-    >
-      <View style={[styles.lessonEntryIcon, { backgroundColor: colors.primarySoft }]}>
-        <ThemedIcon name="library-outline" size={20} color={tone.color} />
-      </View>
-      <View style={styles.lessonEntryBody}>
-        <Text style={styles.lessonEntryTitle}>{subject.title} · 知识精读</Text>
-        <Text style={styles.lessonEntryMeta} numberOfLines={1}>
-          cs408 原文长读 · 章节目录 / 一屏一节 / 支持插图
-        </Text>
-      </View>
-      <ThemedIcon name="chevron-forward" size={18} color={colors.textFaint} />
-    </PressableScale>
-  );
-}
-
-/**
- * 「408 刷卡」入口（v1.55）：到期队列 + 点击/横滑翻卡 + 忘记/模糊/掌握三档自评。
+ * 「学习方式」三入口（v1.55 / P11）：知识精读 / 交互演示 / 刷卡背诵。
  *
- * 与 Web 端共用同一套 /api/exam/408/cards 与 FSRS 状态（需要登录）；队列拉取、
- * 离线缓存与今日统计都放在刷卡页（exam-408-drill）内部，hub 这里只做入口，
- * 不在首屏多发一次需要登录的请求。
+ * 为什么放在 Tab 之外：这三个能力不是「某一科」或「某一 Tab」的附属——用户可能只想看动图、
+ * 只想背卡，或按科目读长文；入口必须一进专区就能看到，且在学习与刷题视角下都不重复渲染。
+ * 精读入口不带 subject 参数：目录页（exam-408-study）自带科目切换，未选科目也能进。
  */
-function DrillEntry() {
-  const { colors, dark } = useTheme();
-  const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
+function LearningModes({
+  styles,
+  colors,
+}: {
+  styles: ReturnType<typeof makeStyles>;
+  colors: ThemeColors;
+}) {
+  const entries = [
+    {
+      key: "study",
+      icon: "library-outline" as const,
+      ios: "book",
+      title: "知识精读",
+      meta: "原文长读 · 一屏一节",
+      tint: colors.primary,
+      soft: colors.primarySoft,
+      href: "/exam-408-study" as const,
+      accessibilityLabel: "打开知识精读目录",
+    },
+    {
+      key: "viz",
+      icon: "play-circle-outline" as const,
+      ios: "play.rectangle",
+      title: "交互演示",
+      meta: "逐帧动画 · 可单步",
+      tint: colors.accentStrong,
+      soft: colors.accentSoft,
+      href: "/exam-408-viz" as const,
+      accessibilityLabel: "打开 408 交互演示目录",
+    },
+    {
+      key: "drill",
+      icon: "layers-outline" as const,
+      ios: "rectangle.stack",
+      title: "刷卡背诵",
+      meta: "FSRS 记忆 · 三档自评",
+      tint: colors.success,
+      soft: colors.successSoft,
+      href: "/exam-408-drill" as const,
+      accessibilityLabel: "打开 408 刷卡背诵",
+    },
+  ];
   return (
-    <PressableScale
-      haptic
-      scaleTo={0.985}
-      onPress={() => router.push("/exam-408-drill" as never)}
-      style={[styles.lessonEntry, { borderColor: colors.accent + "35" }]}
-      accessibilityRole="button"
-      accessibilityLabel="打开 408 刷卡背诵"
-    >
-      <View style={[styles.lessonEntryIcon, { backgroundColor: colors.accentSoft }]}>
-        <ThemedIcon name="layers-outline" size={20} color={colors.accentStrong} />
+    <View style={styles.learningModes}>
+      <View style={styles.learningModesHead}>
+        <Text style={styles.sectionTitle}>学习方式</Text>
+        <Text style={styles.learningModesHint}>长读 / 看动图 / 刷记忆</Text>
       </View>
-      <View style={styles.lessonEntryBody}>
-        <Text style={styles.lessonEntryTitle}>408 刷卡背诵</Text>
-        <Text style={styles.lessonEntryMeta} numberOfLines={1}>
-          到期队列 · 点击翻卡 · 忘记 / 模糊 / 掌握三档自评
-        </Text>
+      <View style={styles.learningModesRow}>
+        {entries.map((entry) => (
+          <PressableScale
+            key={entry.key}
+            haptic
+            scaleTo={0.97}
+            onPress={() => router.push(entry.href as never)}
+            style={styles.learningModeCard}
+            accessibilityRole="button"
+            accessibilityLabel={entry.accessibilityLabel}
+          >
+            <View style={[styles.learningModeIcon, { backgroundColor: entry.soft }]}>
+              <ThemedIcon ios={entry.ios} name={entry.icon} size={19} color={entry.tint} />
+            </View>
+            <Text style={styles.learningModeTitle} numberOfLines={1}>
+              {entry.title}
+            </Text>
+            <Text style={styles.learningModeMeta} numberOfLines={2}>
+              {entry.meta}
+            </Text>
+          </PressableScale>
+        ))}
       </View>
-      <ThemedIcon name="chevron-forward" size={18} color={colors.textFaint} />
-    </PressableScale>
+    </View>
   );
 }
 
@@ -1316,6 +1327,35 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       color: colors.textSecondary,
     },
     subjectSummaryMuted: { ...typography.micro, color: colors.textFaint },
+    learningModes: { gap: spacing.sm },
+    learningModesHead: {
+      flexDirection: "row",
+      alignItems: "baseline",
+      justifyContent: "space-between",
+      gap: spacing.sm,
+    },
+    learningModesHint: { ...typography.caption, color: colors.textFaint },
+    learningModesRow: { flexDirection: "row", gap: spacing.sm },
+    learningModeCard: {
+      flex: 1,
+      minHeight: 112,
+      gap: 6,
+      borderRadius: radius.lg,
+      padding: spacing.md,
+      backgroundColor: colors.surfaceStrong,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      ...shadows.card,
+    },
+    learningModeIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 12,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    learningModeTitle: { ...typography.callout, fontWeight: "800", color: colors.text },
+    learningModeMeta: { ...typography.micro, color: colors.textMuted, lineHeight: 15 },
     lessonEntry: {
       flexDirection: "row",
       alignItems: "center",
