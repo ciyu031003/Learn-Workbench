@@ -1,9 +1,10 @@
 import { useMemo } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
+import { ListRow } from "@/components/list-row";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
-import { radius, shadows, spacing, tabularNums, typography } from "@/theme/tokens";
+import { radius, shadows, spacing, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 
@@ -78,20 +79,20 @@ export function EntryCard({
 
   const content =
     size === "row" ? (
-      <View style={[styles.rowWrap, style]}>
-        <View style={styles.row}>
-          <View style={[styles.rowIcon, { backgroundColor: soft }]}>
-            <ThemedIcon name={icon} size={18} color={strong} />
-          </View>
-          <View style={styles.rowBody}>
-            <Text style={styles.rowTitle} numberOfLines={1}>{title}</Text>
-            {meta ? <Text style={styles.rowMeta} numberOfLines={1}>{meta}</Text> : null}
-          </View>
-          {value ? <Text style={[styles.rowValue, tabularNums]} numberOfLines={1}>{value}</Text> : null}
-          {onPress ? <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} /> : null}
-        </View>
-        {!last ? <View pointerEvents="none" style={styles.rowDivider} /> : null}
-      </View>
+      <ListRow
+        icon={icon}
+        iconColor={strong}
+        iconBg={soft}
+        title={title}
+        subtitle={meta}
+        value={value}
+        showChevron={Boolean(onPress)}
+        last={last}
+        disabled={disabled}
+        onPress={onPress}
+        style={style}
+        accessibilityLabel={accessibilityLabel}
+      />
     ) : size === "hero" ? (
       <View style={[styles.hero, style]}>
         <View style={styles.heroHead}>
@@ -142,17 +143,18 @@ export function EntryCard({
       </View>
     );
 
-  if (!onPress) return content;
+  // row 尺寸由 ListRow 自己处理按压（与设置页/偏好页的既有行完全同源），不再套一层 PressableScale
+  if (!onPress || size === "row") return content;
 
   return (
     <PressableScale
       haptic
-      scaleTo={size === "row" ? 0.995 : 0.98}
+      scaleTo={0.98}
       disabled={disabled}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? title}
-      style={size === "row" ? undefined : styles.pressWrap}
+      style={styles.pressWrap}
     >
       {content}
     </PressableScale>
@@ -217,33 +219,4 @@ const makeStyles = (colors: ThemeColors) =>
     },
     midTitle: { ...typography.callout, color: colors.text },
     midMeta: { ...typography.caption, color: colors.textMuted },
-    // row
-    rowWrap: { position: "relative" },
-    row: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: spacing.md,
-      minHeight: 56,
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.sm,
-    },
-    rowDivider: {
-      position: "absolute",
-      left: 64,
-      right: 0,
-      bottom: 0,
-      height: StyleSheet.hairlineWidth,
-      backgroundColor: colors.border,
-    },
-    rowIcon: {
-      width: 36,
-      height: 36,
-      borderRadius: radius.sm,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    rowBody: { flex: 1, gap: 1 },
-    rowTitle: { ...typography.callout, color: colors.text },
-    rowMeta: { ...typography.caption, color: colors.textMuted },
-    rowValue: { ...typography.callout, color: colors.textSecondary },
   });

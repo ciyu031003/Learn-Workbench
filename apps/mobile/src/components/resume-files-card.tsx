@@ -17,10 +17,16 @@ import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
 import {
   RESUME_FILE_NAME_MAX,
+  applyResumeDefault,
+  applyResumeLabel,
   isWordResume,
   normalizeResumeFileName,
+  normalizeResumeLabel,
+  resumeDefaultBadge,
   resumeExtOfName,
   resumeFileMetaText,
+  resumeLabelOptions,
+  resumeLabelText,
   resumeRenameDraft,
   resumeRenameMaxLength,
 } from "@/lib/resume-files";
@@ -32,6 +38,10 @@ interface ResumeFileRow {
   mime: string;
   bytes: number;
   createdAt: string;
+  /** 领域标签（后端/前端/数据/算法/通用/其他），null = 未打标 */
+  label?: string | null;
+  /** 是否默认简历（服务端部分唯一索引 uq_resume_files_default 保证唯一） */
+  isDefault?: boolean;
 }
 
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -54,6 +64,9 @@ export function ResumeFilesCard() {
   const [menuRow, setMenuRow] = useState<ResumeFileRow | null>(null);
   /** 重命名弹层当前针对的文件 */
   const [renameRow, setRenameRow] = useState<ResumeFileRow | null>(null);
+  /** 领域标签弹层当前针对的文件 */
+  const [labelRow, setLabelRow] = useState<ResumeFileRow | null>(null);
+  const [labelBusy, setLabelBusy] = useState(false);
   const [renameDraft, setRenameDraft] = useState("");
   const [renameError, setRenameError] = useState("");
   const [renameBusy, setRenameBusy] = useState(false);
@@ -68,7 +81,15 @@ export function ResumeFilesCard() {
       const r = await fetch(getApiUrl() + "/api/resume-files", { headers: headers() });
       if (!r.ok) return;
       const d = await r.json();
-      setFiles(Array.isArray(d.files) ? d.files : []);
+      const list: ResumeFileRow[] = Array.isArray(d.files) ? d.files : [];
+      // P1-5：label 归一（脏值当未打标）+ isDefault 转布尔；老服务端没有这两列时也能安全渲染
+      setFiles(
+        list.map((file) => ({
+          ...file,
+          label: normalizeResumeLabel(file.label),
+          isDefault: Boolean(file.isDefault),
+        }))
+      );
     } catch {
       // 离线：保留上次
     } finally {
@@ -233,6 +254,63 @@ export function ResumeFilesCard() {
     }
   };
 
+  /**
+   * 改领域标签（P1-5）：乐观更新 + 失败回滚。
+   * 服务端只接受白名单（后端/前端/数据/算法/通用/其他）；null 表示清除标签。
+   */
+  const applyLabel = async (row: ResumeFileRow, label: string | null) => {
+    if (labelBusy) return;
+    const normalized = normalizeResumeLabel(label);
+    const previous = files;
+    setLabelBusy(true);
+    setLabelRow(null);
+    setFiles((list) => applyResumeLabel(list, row.id, normalized));
+    try {
+      const r = await fetch(getApiUrl() + "/api/resume-files/" + row.id, {
+        method: "PATCH",
+        headers: { ...headers(), "Content-Type": "application/json" },
+        body: JSON.stringify({ label: normalized }),
+      });
+      const d = await r.json().catch(() => null);
+      if (!r.ok) {
+        throw new Error(typeof d?.error === "string" ? d.error : "标签保存失败（HTTP " + r.status + "）");
+      }
+      // 以服务端回包为准（理论上与本地一致）
+      setFiles((list) => applyResumeLabel(list, row.id, normalizeResumeLabel(d?.label)));
+    } catch (e) {
+      setFiles(previous);
+      Alert.alert("标签保存失败", e instanceof Error ? e.message : "请稍后重试");
+    } finally {
+      setLabelBusy(false);
+    }
+  };
+
+  /**
+   * 设为默认简历（P1-5）：本地先把其它行清掉（互斥），服务端在同一事务里保证最终一致；
+   * 成功后重新拉列表（默认行以外可能还有并发变更），失败回滚并提示。
+   */
+  const setDefault = async (row: ResumeFileRow) => {
+    if (row.isDefault) return;
+    setMenuRow(null);
+    const previous = files;
+    setFiles((list) => applyResumeDefault(list, row.id));
+    try {
+      const r = await fetch(getApiUrl() + "/api/resume-files/" + row.id, {
+        method: "PATCH",
+        headers: { ...headers(), "Content-Type": "application/json" },
+        body: JSON.stringify({ isDefault: true }),
+      });
+      if (!r.ok) {
+        const d = await r.json().catch(() => null);
+        throw new Error(typeof d?.error === "string" ? d.error : "设置默认失败（HTTP " + r.status + "）");
+      }
+      await load();
+    } catch (e) {
+      setFiles(previous);
+      Alert.alert("设置默认失败", e instanceof Error ? e.message : "请稍后重试");
+    }
+  };
+
   const remove = (row: ResumeFileRow) => {
     Alert.alert("删除简历", "确定删除「" + row.fileName + "」吗？", [
       { text: "取消", style: "cancel" },
@@ -281,16 +359,38 @@ export function ResumeFilesCard() {
                 delayLongPress={320}
                 style={styles.row}
                 accessibilityRole="button"
-                accessibilityLabel={"预览 " + row.fileName + "，长按更多操作"}
+                accessibilityLabel={
+                  "预览 " +
+                  row.fileName +
+                  (row.isDefault ? "（默认简历）" : "") +
+                  (row.label ? "，标签 " + row.label : "") +
+                  "，长按更多操作"
+                }
               >
                 <ThemedIcon name="document-attach-outline" size={16} color={colors.textMuted} />
                 <View style={styles.rowBody}>
-                  <Text style={styles.rowName} numberOfLines={1}>
-                    {row.fileName}
-                  </Text>
-                  <Text style={styles.rowMeta} numberOfLines={1}>
-                    {resumeFileMetaText({ fileName: row.fileName, bytes: row.bytes, createdAt: row.createdAt })}
-                  </Text>
+                  <View style={styles.rowNameRow}>
+                    <Text style={styles.rowName} numberOfLines={1}>
+                      {row.fileName}
+                    </Text>
+                    {/* P1-5：默认简历徽标 */}
+                    {resumeDefaultBadge(row.isDefault) ? (
+                      <View style={styles.defaultBadge}>
+                        <Text style={styles.defaultBadgeText}>默认</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <View style={styles.rowMetaRow}>
+                    {/* P1-5：领域标签 chip（未打标不渲染，避免每行多一块灰底） */}
+                    {row.label ? (
+                      <View style={styles.labelChip}>
+                        <Text style={styles.labelChipText}>{resumeLabelText(row.label)}</Text>
+                      </View>
+                    ) : null}
+                    <Text style={styles.rowMeta} numberOfLines={1}>
+                      {resumeFileMetaText({ fileName: row.fileName, bytes: row.bytes, createdAt: row.createdAt })}
+                    </Text>
+                  </View>
                 </View>
                 <ThemedIcon name="open-outline" size={16} color={colors.textFaint} />
               </Pressable>
@@ -319,7 +419,9 @@ export function ResumeFilesCard() {
         onPick={() => void upload()}
         pickLabel={busy ? "上传中…" : "选择文件"}
       />
-      <Text style={styles.tip}>点文件预览、点右侧 ⋯（或长按）重命名 / 删除；文件存在你的专属目录，别人拿不到直链。</Text>
+      <Text style={styles.tip}>
+        点文件预览，点右侧 ⋯（或长按）可重命名 / 打领域标签 / 设为默认 / 删除；文件存在你的专属目录，别人拿不到直链。
+      </Text>
 
       {/* 操作弹层：预览 / 重命名 / 删除（比长按直接删除安全，也给重命名留入口） */}
       <BottomSheet
@@ -346,6 +448,27 @@ export function ResumeFilesCard() {
             variant="secondary"
             onPress={() => {
               if (menuRow) startRename(menuRow);
+            }}
+          />
+          <Button
+            label={"领域标签" + (menuRow?.label ? " · " + menuRow.label : " · 未标注")}
+            icon="pricetag-outline"
+            variant="secondary"
+            onPress={() => {
+              const row = menuRow;
+              setMenuRow(null);
+              // 取列表里的最新行（菜单打开期间列表可能被刷新过），避免用陈旧 label 预选
+              if (row) setLabelRow(files.find((file) => file.id === row.id) ?? row);
+            }}
+          />
+          <Button
+            label={menuRow?.isDefault ? "已是默认简历" : "设为默认简历"}
+            icon="star-outline"
+            variant="secondary"
+            disabled={menuRow?.isDefault}
+            onPress={() => {
+              const row = menuRow;
+              if (row) void setDefault(row);
             }}
           />
           <Button
@@ -408,6 +531,50 @@ export function ResumeFilesCard() {
           </View>
         </View>
       </BottomSheet>
+
+      {/* 领域标签弹层（P1-5）：点一个 chip 立即保存并关闭，底部可清除标签；BottomSheet P12 自适应高度 */}
+      <BottomSheet
+        visible={labelRow !== null}
+        onClose={() => {
+          if (!labelBusy) setLabelRow(null);
+        }}
+        title="领域标签"
+        subtitle="打一个领域标记，列表里一眼分辨投递方向"
+        icon="pricetag-outline"
+      >
+        <View style={styles.labelBody}>
+          <View style={styles.labelGrid}>
+            {resumeLabelOptions(labelRow?.label).map((option) => (
+              <Pressable
+                key={option.label}
+                onPress={() => {
+                  if (labelRow) void applyLabel(labelRow, option.label);
+                }}
+                disabled={labelBusy || labelRow?.label === option.label}
+                hitSlop={6}
+                style={[styles.labelOption, option.active && styles.labelOptionActive]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: option.active }}
+                accessibilityLabel={"标签 " + option.label}
+              >
+                <Text style={[styles.labelOptionText, option.active && styles.labelOptionTextActive]}>
+                  {option.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          <Button
+            label="清除标签"
+            icon="close-circle-outline"
+            variant="ghost"
+            disabled={labelBusy || !labelRow?.label}
+            onPress={() => {
+              if (labelRow) void applyLabel(labelRow, null);
+            }}
+          />
+          <Text style={styles.labelHint}>标签只影响列表展示，不会改文件名与文件内容；标签由服务端白名单校验。</Text>
+        </View>
+      </BottomSheet>
     </Card>
   );
 }
@@ -443,8 +610,28 @@ function useMemo2(colors: ThemeColors) {
       backgroundColor: colors.surfaceMuted,
     },
     rowBody: { flex: 1, gap: 2 },
-    rowName: { fontSize: 13, fontWeight: "700", color: colors.text },
-    rowMeta: { fontSize: 11, color: colors.textMuted },
+    // 文件名占满剩余宽度，默认徽标因此贴在同一行的右侧（行内容右上角）
+    rowNameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+    rowName: { flex: 1, minWidth: 0, fontSize: 13, fontWeight: "700", color: colors.text },
+    rowMetaRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+    rowMeta: { flexShrink: 1, fontSize: 11, color: colors.textMuted },
+    /* P1-5：默认徽标 + 领域标签 chip（token 字号，不新增裸 fontSize） */
+    defaultBadge: {
+      borderRadius: radius.pill,
+      paddingHorizontal: 6,
+      paddingVertical: 1,
+      backgroundColor: colors.primarySoft,
+    },
+    defaultBadgeText: { ...typography.micro, color: colors.primary },
+    labelChip: {
+      borderRadius: radius.pill,
+      paddingHorizontal: 6,
+      paddingVertical: 1,
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    labelChipText: { ...typography.micro, color: colors.textSecondary },
     tip: { fontSize: 11, color: colors.textMuted },
     menu: { gap: 8 },
     renameBody: { gap: 8 },
@@ -465,5 +652,20 @@ function useMemo2(colors: ThemeColors) {
     renameHint: { ...typography.caption, color: colors.textMuted, lineHeight: 18 },
     renameError: { ...typography.caption, color: colors.danger, lineHeight: 18 },
     renameActions: { flexDirection: "row", gap: 8, marginTop: 4 },
+    /* 领域标签弹层 */
+    labelBody: { gap: 8 },
+    labelGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    labelOption: {
+      borderRadius: radius.pill,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceMuted,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+    },
+    labelOptionActive: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
+    labelOptionText: { ...typography.caption, color: colors.text },
+    labelOptionTextActive: { ...typography.caption, fontWeight: "800", color: colors.primary },
+    labelHint: { ...typography.micro, color: colors.textMuted, lineHeight: 16 },
   });
 }

@@ -132,6 +132,74 @@ export function resumeFileMetaText(input: {
   return [resumeKindLabel(input.fileName), size, date].filter((part) => part.length > 0).join(" · ");
 }
 
+/* ------------------------------------------------------------------ */
+/* 领域标签 / 默认简历（P1-5）                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 领域标签白名单。
+ *
+ * 与 Web 端 apps/web/app/api/resume-files/[id]/route.ts 的 RESUME_LABELS **同源**：
+ * 服务端只接受这 6 个值（或 null 清除），客户端不做"自由文本"输入 —— 两边各写一套
+ * 标签会让筛选与展示失控。
+ */
+export const RESUME_LABELS = ["后端", "前端", "数据", "算法", "通用", "其他"] as const;
+export type ResumeLabel = (typeof RESUME_LABELS)[number];
+
+export function isResumeLabel(value: unknown): value is ResumeLabel {
+  return typeof value === "string" && (RESUME_LABELS as readonly string[]).includes(value.trim());
+}
+
+/**
+ * 服务端 label → 展示用标签：
+ * - 接受白名单值（容忍首尾空白）；
+ * - null / 空串 / 白名单外的脏值一律当「未打标」（返回 null），不把脏字符串渲染给用户。
+ */
+export function normalizeResumeLabel(value: unknown): ResumeLabel | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return (RESUME_LABELS as readonly string[]).includes(trimmed) ? (trimmed as ResumeLabel) : null;
+}
+
+/** 标签展示文案（未打标 → 「未标注」） */
+export function resumeLabelText(label: string | null | undefined): string {
+  return normalizeResumeLabel(label) ?? "未标注";
+}
+
+/** 默认简历徽标：只有 isDefault 明确为 true 才显示「默认」 */
+export function resumeDefaultBadge(isDefault: boolean | null | undefined): "默认" | null {
+  return isDefault === true ? "默认" : null;
+}
+
+/**
+ * 本地乐观互斥：把 defaultId 置为默认、其余全部清掉。
+ * 服务端有部分唯一索引 uq_resume_files_default 兜底，这里只是让列表立刻只剩一个「默认」。
+ * 找不到该 id 时返回原数组（避免误清其它行）。
+ */
+export function applyResumeDefault<T extends { id: number; isDefault?: boolean }>(
+  files: readonly T[],
+  defaultId: number
+): T[] {
+  if (!files.some((file) => file.id === defaultId)) return [...files];
+  return files.map((file) => ({ ...file, isDefault: file.id === defaultId }));
+}
+
+/** 本地乐观改标签（savedLabel 由服务端确认后回填；这里只改展示） */
+export function applyResumeLabel<T extends { id: number; label?: string | null }>(
+  files: readonly T[],
+  id: number,
+  label: string | null
+): T[] {
+  const normalized = normalizeResumeLabel(label);
+  return files.map((file) => (file.id === id ? { ...file, label: normalized } : file));
+}
+
+/** 标签编辑弹层里的选项（带选中态；未打标时全部未选中） */
+export function resumeLabelOptions(selected: string | null | undefined): { label: ResumeLabel; active: boolean }[] {
+  const active = normalizeResumeLabel(selected);
+  return RESUME_LABELS.map((label) => ({ label, active: label === active }));
+}
+
 /** 字节 → 可读大小（KB 取整、MB 一位小数） */
 export function formatResumeBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return "—";

@@ -301,12 +301,18 @@ CREATE TABLE IF NOT EXISTS resume_files (
   path       text NOT NULL,
   mime       text NOT NULL,
   bytes      integer NOT NULL,
+  -- 迁移 091：领域标签（白名单在 API 校验）+ 默认简历标记
+  label      text,
+  is_default boolean NOT NULL DEFAULT false,
   deleted_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_resume_files_user
   ON resume_files(user_id) WHERE deleted_at IS NULL;
+-- 迁移 091：每个用户最多一条默认简历（软删不占名额）
+CREATE UNIQUE INDEX IF NOT EXISTS uq_resume_files_default
+  ON resume_files(user_id) WHERE is_default AND deleted_at IS NULL;
 DROP TRIGGER IF EXISTS trg_resume_files_updated ON resume_files;
 CREATE TRIGGER trg_resume_files_updated BEFORE UPDATE ON resume_files
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();

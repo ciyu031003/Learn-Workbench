@@ -16,6 +16,17 @@ import {
   citiesForProvinces,
   clearRadarFilterKey,
   radarFilterChips,
+  radarMatchSummary,
+  radarPresetName,
+  createRadarPreset,
+  addRadarFilterPreset,
+  removeRadarFilterPreset,
+  renameRadarFilterPreset,
+  serializeRadarPresets,
+  deserializeRadarPresets,
+  isSameRadarFilter,
+  serializeRadarReasonExpanded,
+  parseRadarReasonExpanded,
   radarProvinceFacets,
   radarUpdatedLabel,
   removeRadarFilterChip,
@@ -381,5 +392,119 @@ describe("整条筛选流水线（屏幕层组合口径）", () => {
     expect(facets.salaryBands).toEqual([]);
     expect(sortRadar(fallback, "latest").map((j) => j.jobId)).toEqual([1, 2]);
     expect(radarDirectionLabel(fallback[0])).toBe("backend");
+  });
+});
+describe("筛选预设（v1.62 P1-4）", () => {
+  const sample = filter({ provinces: ["广东"], cities: ["深圳"], functions: ["backend"], salaryBands: ["30up"] });
+
+  it("自动命名取前 3 个条件；空筛选叫「全部岗位」", () => {
+    expect(radarPresetName(sample)).toBe("广东·深圳·backend");
+    expect(radarPresetName(filter({ categories: ["internet"], salaryBands: ["20-30"] }))).toBe("互联网·20-30K");
+    expect(radarPresetName(EMPTY_RADAR_FILTER)).toBe("全部岗位");
+  });
+
+  it("超长自动名截断到 24 字符 + …", () => {
+    const name = radarPresetName(filter({ sources: ["一个特别特别长的来源名称用于测试自动命名截断逻辑是否生效"] }));
+    expect(name.endsWith("…")).toBe(true);
+    expect(name.length).toBe(25);
+  });
+
+  it("createRadarPreset 生成稳定 id/时间，可自定义名字", () => {
+    const preset = createRadarPreset(sample, { now: Date.parse("2026-11-02T10:00:00.000Z") });
+    expect(preset.name).toBe("广东·深圳·backend");
+    expect(preset.createdAt).toBe("2026-11-02T10:00:00.000Z");
+    expect(preset.id.startsWith("radar-")).toBe(true);
+    expect(createRadarPreset(sample, { name: " 深后 ", now: 1 }).name).toBe("深后");
+  });
+
+  it("追加预设：最新在前、上限 5 个（超出丢最早）、同 id 覆盖不重复", () => {
+    const make = (index: number) => createRadarPreset(filter({ provinces: ["P" + index] }), { now: index });
+    const list = [make(1), make(2), make(3), make(4), make(5)].reduce<ReturnType<typeof make>[]>(
+      (acc, preset) => addRadarFilterPreset(acc, preset),
+      [],
+    );
+    expect(list.map((p) => p.name)).toEqual(["P5", "P4", "P3", "P2", "P1"]);
+    const overflow = addRadarFilterPreset(list, make(6));
+    expect(overflow).toHaveLength(5);
+    expect(overflow.map((p) => p.name)).toEqual(["P6", "P5", "P4", "P3", "P2"]);
+    const duplicate = addRadarFilterPreset(list, { ...list[2], name: "改名" });
+    expect(duplicate).toHaveLength(5);
+    expect(duplicate[0].name).toBe("改名");
+  });
+
+  it("删除 / 重命名预设", () => {
+    const a = createRadarPreset(filter({ cities: ["深圳"] }), { now: 1, id: "a", name: "深圳" });
+    const b = createRadarPreset(filter({ cities: ["北京"] }), { now: 2, id: "b", name: "北京" });
+    expect(removeRadarFilterPreset([a, b], "a").map((p) => p.id)).toEqual(["b"]);
+    expect(renameRadarFilterPreset([a, b], "b", "  京城  ")[1].name).toBe("京城");
+    expect(renameRadarFilterPreset([a, b], "b", "   ")[1].name).toBe("北京");
+    expect(renameRadarFilterPreset([a, b], "b", "名字很长".repeat(8))[1].name.length).toBe(24);
+  });
+
+  it("序列化 → 反序列化往返一致", () => {
+    const presets = [
+      createRadarPreset(sample, { now: 2, id: "x", name: "深后" }),
+      createRadarPreset(filter({ educations: ["硕士"] }), { now: 1, id: "y", name: "硕士" }),
+    ];
+    const raw = serializeRadarPresets(presets);
+    expect(deserializeRadarPresets(raw)).toEqual(presets);
+    expect(deserializeRadarPresets(serializeRadarPresets([]))).toEqual([]);
+  });
+
+  it("反序列化容错：坏 JSON / 非数组 / 脏条目 / 重复 id / 超上限", () => {
+    expect(deserializeRadarPresets("not json")).toEqual([]);
+    expect(deserializeRadarPresets("")).toEqual([]);
+    expect(deserializeRadarPresets(null)).toEqual([]);
+    expect(deserializeRadarPresets(42)).toEqual([]);
+    const dirty = JSON.stringify([
+      null,
+      "string",
+      { name: "缺少 filter" },
+      { id: "ok", name: "  ", filter: { cities: ["深圳", 42, " 深圳 ", ""], categories: ["internet", "bogus"] } },
+      { id: "ok", name: "重复 id", filter: { cities: ["北京"] } },
+      { id: "third", name: "第三条", filter: "not-object" },
+    ]);
+    const presets = deserializeRadarPresets(dirty);
+    expect(presets).toHaveLength(1);
+    expect(presets[0].id).toBe("ok");
+    // name 为空白 → 回落到自动命名（城市 + 类别）
+    expect(presets[0].name).toBe("深圳·互联网");
+    expect(presets[0].filter.cities).toEqual(["深圳"]);
+    expect(presets[0].filter.categories).toEqual(["internet"]);
+  });
+
+  it("反序列化支持 { presets: [] } 形态并兼容旧数组", () => {
+    const preset = createRadarPreset(filter({ cities: ["深圳"] }), { now: 3, id: "z", name: "深圳" });
+    expect(deserializeRadarPresets({ presets: [preset] })).toHaveLength(1);
+    expect(deserializeRadarPresets([preset])[0].name).toBe("深圳");
+  });
+
+  it("isSameRadarFilter：顺序无关、忽略脏数据", () => {
+    const a = filter({ cities: ["深圳", "广州"], categories: ["internet", "state"] });
+    const b = filter({ cities: ["广州", "深圳"], categories: ["state", "internet"] });
+    expect(isSameRadarFilter(a, b)).toBe(true);
+    expect(isSameRadarFilter(a, filter({ cities: ["深圳"] }))).toBe(false);
+  });
+
+  it("理由折叠状态序列化/解析：脏值一律默认收起", () => {
+    expect(serializeRadarReasonExpanded(true)).toBe("true");
+    expect(parseRadarReasonExpanded("true")).toBe(true);
+    expect(parseRadarReasonExpanded("1")).toBe(true);
+    expect(parseRadarReasonExpanded("false")).toBe(false);
+    expect(parseRadarReasonExpanded("0")).toBe(false);
+    expect(parseRadarReasonExpanded(null)).toBe(false);
+    expect(parseRadarReasonExpanded("weird")).toBe(false);
+  });
+
+  it("匹配理由摘要：默认一行文案 + 计数", () => {
+    const summary = radarMatchSummary({
+      ...job({ functionKey: "backend" }),
+      matchedSkills: [{ skill: "Python" }, { skill: "SQL" }],
+      missingSkills: [{ skill: "K8s" }],
+    });
+    expect(summary).toEqual({ hitCount: 2, missingCount: 1, direction: "backend", label: "命中 2 项技能 · 还缺 1 项 · 方向 backend" });
+    const empty = radarMatchSummary(job({ functionKey: "" }));
+    expect(empty.label).toContain("技能命中待补充");
+    expect(empty.label).toContain("技能已全命中");
   });
 });

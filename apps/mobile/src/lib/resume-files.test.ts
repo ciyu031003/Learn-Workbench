@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
   RESUME_FILE_NAME_MAX,
+  RESUME_LABELS,
+  applyResumeDefault,
+  applyResumeLabel,
   formatResumeBytes,
+  isResumeLabel,
+  normalizeResumeLabel,
+  resumeDefaultBadge,
+  resumeLabelOptions,
+  resumeLabelText,
   isWordResume,
   normalizeResumeFileName,
   resumeExtOfMime,
@@ -126,3 +134,77 @@ describe("列表元信息", () => {
     expect(formatResumeBytes(5 * 1024 * 1024)).toBe("5.0 MB");
   });
 });
+
+describe("领域标签白名单（P1-5）", () => {
+  it("只接受 6 个白名单值（容忍首尾空白）", () => {
+    expect(RESUME_LABELS).toEqual(["后端", "前端", "数据", "算法", "通用", "其他"]);
+    expect(isResumeLabel("后端")).toBe(true);
+    expect(isResumeLabel(" 算法 ")).toBe(true);
+    expect(isResumeLabel("全栈")).toBe(false);
+    expect(isResumeLabel("")).toBe(false);
+    expect(isResumeLabel(null)).toBe(false);
+  });
+
+  it("服务端脏 label → 未打标（不把脏字符串渲染给用户）", () => {
+    expect(normalizeResumeLabel("前端")).toBe("前端");
+    expect(normalizeResumeLabel(" 数据 ")).toBe("数据");
+    expect(normalizeResumeLabel("全栈")).toBeNull();
+    expect(normalizeResumeLabel("")).toBeNull();
+    expect(normalizeResumeLabel(null)).toBeNull();
+    expect(normalizeResumeLabel(42)).toBeNull();
+  });
+
+  it("展示文案：未打标显示「未标注」", () => {
+    expect(resumeLabelText("后端")).toBe("后端");
+    expect(resumeLabelText(null)).toBe("未标注");
+    expect(resumeLabelText("脏标签")).toBe("未标注");
+  });
+
+  it("标签编辑弹层的选中态", () => {
+    const options = resumeLabelOptions("数据");
+    expect(options).toHaveLength(6);
+    expect(options.filter((o) => o.active).map((o) => o.label)).toEqual(["数据"]);
+    expect(resumeLabelOptions(null).every((o) => !o.active)).toBe(true);
+    expect(resumeLabelOptions("全栈").every((o) => !o.active)).toBe(true);
+  });
+
+  it("乐观改标签：只动目标行，并把脏值归一", () => {
+    const files = [
+      { id: 1, label: null as string | null },
+      { id: 2, label: "后端" as string | null },
+    ];
+    expect(applyResumeLabel(files, 1, "算法").map((f) => f.label)).toEqual(["算法", "后端"]);
+    expect(applyResumeLabel(files, 2, "全栈").map((f) => f.label)).toEqual([null, null]);
+    expect(applyResumeLabel(files, 99, "前端")).toEqual(files);
+  });
+});
+
+describe("默认简历（P1-5）", () => {
+  it("默认徽标只在 isDefault===true 时出现", () => {
+    expect(resumeDefaultBadge(true)).toBe("默认");
+    expect(resumeDefaultBadge(false)).toBeNull();
+    expect(resumeDefaultBadge(undefined)).toBeNull();
+  });
+
+  it("乐观设默认：列表里只保留一个默认（互斥）", () => {
+    const files = [
+      { id: 1, isDefault: true },
+      { id: 2, isDefault: false },
+      { id: 3, isDefault: false },
+    ];
+    const next = applyResumeDefault(files, 2);
+    expect(next.map((f) => f.isDefault)).toEqual([false, true, false]);
+  });
+
+  it("设一个已经是默认的行 → 不变；id 不存在 → 原样返回（不误清其它行）", () => {
+    const files = [
+      { id: 1, isDefault: true },
+      { id: 2, isDefault: false },
+    ];
+    expect(applyResumeDefault(files, 1).map((f) => f.isDefault)).toEqual([true, false]);
+    const missing = applyResumeDefault(files, 99);
+    expect(missing.map((f) => f.isDefault)).toEqual([true, false]);
+    expect(applyResumeDefault([], 1)).toEqual([]);
+  });
+});
+

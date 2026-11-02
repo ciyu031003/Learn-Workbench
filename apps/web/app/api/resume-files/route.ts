@@ -11,7 +11,8 @@ import {
   validateResumeFile,
 } from "@/lib/resume-files";
 
-const SELECT_COLS = "id::text AS id, file_name AS \"fileName\", mime, bytes, created_at AS \"createdAt\"";
+const SELECT_COLS =
+  "id::text AS id, file_name AS \"fileName\", mime, bytes, created_at AS \"createdAt\", label, is_default AS \"isDefault\"";
 
 /** GET /api/resume-files —— 我的简历文件列表（不含文件本体） */
 async function getImpl() {
@@ -22,7 +23,13 @@ async function getImpl() {
     [userId]
   );
   return NextResponse.json({
-    files: rows.map((r) => ({ ...r, bytes: Number(r.bytes) })),
+    // 091：label 为 null 表示未打标；isDefault 用布尔（pg 返回 boolean，转义一次防脏驱动）
+    files: rows.map((r) => ({
+      ...r,
+      bytes: Number(r.bytes),
+      label: typeof r.label === "string" && r.label ? r.label : null,
+      isDefault: Boolean(r.isDefault),
+    })),
     maxBytes: RESUME_MAX_BYTES,
   });
 }
@@ -50,11 +57,28 @@ async function postImpl(req: Request) {
     return NextResponse.json({ error: "文件保存失败，请重试" }, { status: 500 });
   }
 
+  /**
+   * 第一个上传的简历自动成为默认（P1-5）：用 NOT EXISTS 子查询在 INSERT 内一次完成，
+   * 避免多一次往返；若并发上传两份，第二条会命中 NOT EXISTS 之外的分支（false），
+   * 不会撞 uq_resume_files_default。
+   */
   const { rows } = await pgPool.query(
-    "INSERT INTO resume_files (user_id, file_name, path, mime, bytes) VALUES ($1,$2,$3,$4,$5) RETURNING " + SELECT_COLS,
+    "INSERT INTO resume_files (user_id, file_name, path, mime, bytes, is_default) " +
+      "VALUES ($1,$2,$3,$4,$5, NOT EXISTS (SELECT 1 FROM resume_files WHERE user_id = $1 AND deleted_at IS NULL)) RETURNING " +
+      SELECT_COLS,
     [userId, String(file.name).slice(0, 200) || "简历", rel, file.type || contentTypeFor(check.ext), file.size]
   );
-  return NextResponse.json({ file: { ...rows[0], bytes: Number(rows[0]?.bytes ?? 0) } }, { status: 201 });
+  return NextResponse.json(
+    {
+      file: {
+        ...rows[0],
+        bytes: Number(rows[0]?.bytes ?? 0),
+        label: typeof rows[0]?.label === "string" && rows[0].label ? rows[0].label : null,
+        isDefault: Boolean(rows[0]?.isDefault),
+      },
+    },
+    { status: 201 }
+  );
 }
 
 /* S5-5：登录态业务接口统一 private, no-store */

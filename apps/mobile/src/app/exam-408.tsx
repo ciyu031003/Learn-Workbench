@@ -31,7 +31,6 @@ import {
   exam408GradStageForSubject,
   exam408OverviewStats,
   exam408PointHref,
-  resolveExam408Subject,
 } from "@/lib/exam-408-view";
 import { chapterSheetVisibleWithoutSnapshot } from "@/lib/exam-408-study";
 import { setNavPendingParams } from "@/lib/nav-pending";
@@ -98,7 +97,14 @@ function Exam408Content({ track }: { track: LearningTrack }) {
   const [overview, setOverview] = useState<Exam408Overview | null>(null);
   const [overviewError, setOverviewError] = useState("");
   const [loadingOverview, setLoadingOverview] = useState(true);
-  const [subjectKey, setSubjectKey] = useState("");
+  /**
+   * 知识体系 / 刷题两个 Tab 各自记住「展开的科目」；默认都收起（只显示科目卡）。
+   * 切 Tab 不重置；从知识点页返回（页面重新 focus）时重置回科目卡视图。
+   */
+  const [expandedSubjects, setExpandedSubjects] = useState<{
+    knowledge: string;
+    practice: string;
+  }>({ knowledge: "", practice: "" });
   const [chapterSheetOpen, setChapterSheetOpen] = useState(false);
   const [chapterSheetSnapshot, setChapterSheetSnapshot] =
     useState<ChapterSheetSnapshot | null>(null);
@@ -127,6 +133,8 @@ function Exam408Content({ track }: { track: LearningTrack }) {
 
   useFocusEffect(
     useCallback(() => {
+      // 从 408 返回再进入：默认回到「四张科目卡」视图（旧行为是直接展开上次科目）
+      setExpandedSubjects({ knowledge: "", practice: "" });
       void loadOverview();
     }, [loadOverview]),
   );
@@ -156,7 +164,6 @@ function Exam408Content({ track }: { track: LearningTrack }) {
   }, [navNotice]);
 
   const stats = exam408OverviewStats(overview);
-  const activeSubject = resolveExam408Subject(overview, subjectKey);
   const papers = useMemo(
     () =>
       [...(overview?.papers ?? [])].sort(
@@ -180,8 +187,11 @@ function Exam408Content({ track }: { track: LearningTrack }) {
     setChapterSheetOpen(true);
   };
 
-  const changeSubject = (key: string) => {
-    setSubjectKey(key);
+  const toggleSubject = (mode: BrowserMode, key: string) => {
+    setExpandedSubjects((prev) => ({
+      ...prev,
+      [mode]: prev[mode] === key ? "" : key,
+    }));
     setChapterSheetOpen(false);
     pendingPointRef.current = "";
   };
@@ -276,29 +286,21 @@ function Exam408Content({ track }: { track: LearningTrack }) {
         />
 
         <Animated.View entering={entrance(0)} style={styles.hero}>
-          <View style={styles.heroTop}>
-            <View style={styles.heroIcon}>
-              <ThemedIcon
-                name="school-outline"
-                size={27}
-                color={colors.primary}
-              />
-            </View>
-            <View style={styles.heroBody}>
-              <Text style={styles.heroEyebrow}>POSTGRADUATE EXAM</Text>
-              <Text style={styles.heroTitle}>计算机学科专业基础</Text>
-              <Text style={styles.heroText}>
-                按科目、章节和知识点逐层进入，直接阅读关联真题或切换历年整卷。
-              </Text>
-            </View>
+        <View style={styles.heroTop}>
+          <View style={styles.heroIcon}>
+            <ThemedIcon name="school-outline" size={27} color={colors.primary} />
           </View>
-          <View style={styles.heroStats}>
-            <HeroStat value={String(stats.subjects)} label="科目" styles={styles} />
-            <HeroStat value={String(stats.chapters)} label="章节" styles={styles} />
-            <HeroStat value={String(stats.points)} label="知识点" styles={styles} />
-            <HeroStat value={String(stats.papers)} label="套真题" styles={styles} />
+          <View style={styles.heroBody}>
+            <Text style={styles.heroTitle}>408 考研专区</Text>
+            <Text style={styles.heroText}>四科知识体系 · 章节真题 · 历年整卷，一处进入。</Text>
           </View>
-        </Animated.View>
+        </View>
+        <View style={styles.heroStats}>
+          <HeroStat value={String(stats.points)} label="知识点" styles={styles} />
+          <HeroStat value={String(stats.chapters)} label="章节" styles={styles} />
+          <HeroStat value={String(stats.papers)} label="套卷" styles={styles} />
+        </View>
+      </Animated.View>
 
         {/* P11：统一「学习方式」三入口（精读 / 演示 / 刷卡）。放在 Tab 之外，学习与刷题视角都能看到；
             精读入口不再依赖当前科目——目录页自带科目切换。 */}
@@ -342,10 +344,9 @@ function Exam408Content({ track }: { track: LearningTrack }) {
             overview={overview}
             loading={loadingOverview}
             error={overviewError}
-            activeSubject={activeSubject}
-            subjectKey={subjectKey}
+            expandedSubjectKey={expandedSubjects.knowledge}
             onRetry={() => void loadOverview()}
-            onSubjectChange={changeSubject}
+            onSubjectToggle={(key) => toggleSubject("knowledge", key)}
             onOpenChapter={openChapter}
           />
         ) : null}
@@ -356,10 +357,9 @@ function Exam408Content({ track }: { track: LearningTrack }) {
             overview={overview}
             loading={loadingOverview}
             error={overviewError}
-            activeSubject={activeSubject}
-            subjectKey={subjectKey}
+            expandedSubjectKey={expandedSubjects.practice}
             onRetry={() => void loadOverview()}
-            onSubjectChange={changeSubject}
+            onSubjectToggle={(key) => toggleSubject("practice", key)}
             onOpenChapter={openChapter}
             onStartTrackPractice={startTrackPractice}
             onOpenPapers={() => setTab("papers")}
@@ -458,19 +458,17 @@ function KnowledgeTab({
   overview,
   loading,
   error,
-  activeSubject,
-  subjectKey,
+  expandedSubjectKey,
   onRetry,
-  onSubjectChange,
+  onSubjectToggle,
   onOpenChapter,
 }: {
   overview: Exam408Overview | null;
   loading: boolean;
   error: string;
-  activeSubject: Exam408SubjectSummary | null;
-  subjectKey: string;
+  expandedSubjectKey: string;
   onRetry: () => void;
-  onSubjectChange: (key: string) => void;
+  onSubjectToggle: (key: string) => void;
   onOpenChapter: (
     subject: Exam408SubjectSummary,
     chapter: Exam408ChapterSummary,
@@ -496,10 +494,9 @@ function KnowledgeTab({
         overview={overview}
         loading={loading}
         error={error}
-        activeSubject={activeSubject}
-        subjectKey={subjectKey}
+        expandedSubjectKey={expandedSubjectKey}
         onRetry={onRetry}
-        onSubjectChange={onSubjectChange}
+        onSubjectToggle={onSubjectToggle}
         onOpenChapter={onOpenChapter}
       />
     </View>
@@ -511,10 +508,9 @@ function PracticeTab({
   overview,
   loading,
   error,
-  activeSubject,
-  subjectKey,
+  expandedSubjectKey,
   onRetry,
-  onSubjectChange,
+  onSubjectToggle,
   onOpenChapter,
   onStartTrackPractice,
   onOpenPapers,
@@ -523,10 +519,9 @@ function PracticeTab({
   overview: Exam408Overview | null;
   loading: boolean;
   error: string;
-  activeSubject: Exam408SubjectSummary | null;
-  subjectKey: string;
+  expandedSubjectKey: string;
   onRetry: () => void;
-  onSubjectChange: (key: string) => void;
+  onSubjectToggle: (key: string) => void;
   onOpenChapter: (
     subject: Exam408SubjectSummary,
     chapter: Exam408ChapterSummary,
@@ -588,10 +583,9 @@ function PracticeTab({
         overview={overview}
         loading={loading}
         error={error}
-        activeSubject={activeSubject}
-        subjectKey={subjectKey}
+        expandedSubjectKey={expandedSubjectKey}
         onRetry={onRetry}
-        onSubjectChange={onSubjectChange}
+        onSubjectToggle={onSubjectToggle}
         onOpenChapter={onOpenChapter}
       />
     </View>
@@ -603,20 +597,18 @@ function SubjectBrowser({
   overview,
   loading,
   error,
-  activeSubject,
-  subjectKey,
+  expandedSubjectKey,
   onRetry,
-  onSubjectChange,
+  onSubjectToggle,
   onOpenChapter,
 }: {
   mode: BrowserMode;
   overview: Exam408Overview | null;
   loading: boolean;
   error: string;
-  activeSubject: Exam408SubjectSummary | null;
-  subjectKey: string;
+  expandedSubjectKey: string;
   onRetry: () => void;
-  onSubjectChange: (key: string) => void;
+  onSubjectToggle: (key: string) => void;
   onOpenChapter: (
     subject: Exam408SubjectSummary,
     chapter: Exam408ChapterSummary,
@@ -651,52 +643,63 @@ function SubjectBrowser({
     );
   }
 
-  if (!activeSubject) {
+  const subjects = overview?.subjects ?? [];
+  const selectedSubject =
+    subjects.find((subject) => subject.key === expandedSubjectKey) ?? null;
+
+  if (subjects.length === 0) {
     return (
       <StateBox
         styles={styles}
         colors={colors}
         icon="file-tray-outline"
-        title="暂无章节数据"
+        title="暂无科目数据"
         text="数据库当前没有可用的 408 科目。"
         onRetry={onRetry}
       />
     );
   }
 
+  // P1-1：默认只显示 4 张科目卡；点某科后才展开该科章节列表（原章节 → 知识点 Sheet 行为不变）
+  if (!selectedSubject) {
+    return <SubjectGrid subjects={subjects} mode={mode} onSelect={onSubjectToggle} />;
+  }
+
   return (
     <>
-      <SubjectRail
-        subjects={overview?.subjects ?? []}
-        subjectKey={activeSubject.key}
-        onSubjectChange={onSubjectChange}
-      />
-      <SubjectSummary subject={activeSubject} mode={mode} />
-      <GradLessonEntry subject={activeSubject} />
-      {activeSubject.chapters.length > 0 ? (
+      <PressableScale
+        haptic
+        scaleTo={0.985}
+        onPress={() => onSubjectToggle(selectedSubject.key)}
+        style={styles.subjectBackRow}
+        accessibilityRole="button"
+        accessibilityLabel="收起章节，返回科目列表"
+      >
+        <ThemedIcon name="chevron-back" size={15} color={colors.textMuted} />
+        <Text style={styles.subjectBackText}>全部科目</Text>
+        <Text style={styles.subjectBackTitle} numberOfLines={1}>
+          {selectedSubject.title}
+        </Text>
+      </PressableScale>
+      <SubjectSummary subject={selectedSubject} mode={mode} />
+      <GradLessonEntry subject={selectedSubject} />
+      {selectedSubject.chapters.length > 0 ? (
         <View style={styles.chapterList}>
-          {activeSubject.chapters.map((chapter) => {
-            const tone = subjectTone(activeSubject, dark);
+          {selectedSubject.chapters.map((chapter) => {
+            const tone = subjectTone(selectedSubject, dark);
             const preview = exam408ChapterPreview(chapter);
             return (
               <PressableScale
                 key={chapter.key}
                 haptic
                 scaleTo={0.985}
-                onPress={() => onOpenChapter(activeSubject, chapter)}
+                onPress={() => onOpenChapter(selectedSubject, chapter)}
                 style={styles.chapterCard}
                 accessibilityRole="button"
                 accessibilityLabel={`打开第 ${chapter.chapterNumber} 章 ${chapter.title}`}
               >
-                <View
-                  style={[
-                    styles.chapterNumber,
-                    { backgroundColor: tone.soft },
-                  ]}
-                >
-                  <Text
-                    style={[styles.chapterNumberText, { color: tone.color }]}
-                  >
+                <View style={[styles.chapterNumber, { backgroundColor: tone.soft }]}>
+                  <Text style={[styles.chapterNumberText, { color: tone.color }]}>
                     {String(chapter.chapterNumber).padStart(2, "0")}
                   </Text>
                 </View>
@@ -706,20 +709,12 @@ function SubjectBrowser({
                     {preview || "打开章节查看知识点"}
                   </Text>
                   <View style={styles.chapterMetaRow}>
-                    <Text style={styles.chapterMeta}>
-                      {chapter.points.length} 个知识点
-                    </Text>
+                    <Text style={styles.chapterMeta}>{chapter.points.length} 个知识点</Text>
                     <View style={styles.metaDot} />
-                    <Text style={styles.chapterMeta}>
-                      {chapter.questionCount} 道关联真题
-                    </Text>
+                    <Text style={styles.chapterMeta}>{chapter.questionCount} 道关联真题</Text>
                   </View>
                 </View>
-                <ThemedIcon
-                  name="chevron-forward"
-                  size={18}
-                  color={colors.textFaint}
-                />
+                <ThemedIcon name="chevron-forward" size={18} color={colors.textFaint} />
               </PressableScale>
             );
           })}
@@ -737,71 +732,54 @@ function SubjectBrowser({
   );
 }
 
-function SubjectRail({
+/**
+ * 408 四科科目卡（P1-1）：默认视图。只展示科目名 / 章节数 / 知识点数，点击展开该科章节，
+ * 不再一进来就铺开全部章节。
+ */
+function SubjectGrid({
   subjects,
-  subjectKey,
-  onSubjectChange,
+  mode,
+  onSelect,
 }: {
   subjects: Exam408SubjectSummary[];
-  subjectKey: string;
-  onSubjectChange: (key: string) => void;
+  mode: BrowserMode;
+  onSelect: (key: string) => void;
 }) {
   const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
   return (
-    <Animated.ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.subjectRail}
-    >
+    <View style={styles.subjectGrid}>
       {subjects.map((subject) => {
-        const active = subject.key === subjectKey;
         const tone = subjectTone(subject, dark);
         return (
           <PressableScale
             key={subject.key}
             haptic
-            scaleTo={0.98}
-            onPress={() => onSubjectChange(subject.key)}
-            style={[
-              styles.subjectChip,
-              active && {
-                backgroundColor: tone.soft,
-                borderColor: tone.color,
-              },
-            ]}
+            scaleTo={0.985}
+            onPress={() => onSelect(subject.key)}
+            style={styles.subjectCard}
             accessibilityRole="button"
-            accessibilityState={{ selected: active }}
+            accessibilityLabel={`${subject.title}，${subject.chapterCount} 章，${subject.pointCount} 个知识点`}
           >
-            <View
-              style={[
-                styles.subjectChipIcon,
-                { backgroundColor: tone.soft },
-              ]}
-            >
-              <ThemedIcon
-                name={tone.icon as never}
-                size={18}
-                color={tone.color}
-              />
+            <View style={styles.subjectCardHead}>
+              <View style={[styles.subjectCardIcon, { backgroundColor: tone.soft }]}>
+                <ThemedIcon name={tone.icon as never} size={18} color={tone.color} />
+              </View>
+              <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
             </View>
-            <View style={styles.subjectChipBody}>
-              <Text
-                style={[
-                  styles.subjectChipTitle,
-                  active && { color: tone.color },
-                ]}
-              >
-                {subject.title}
-              </Text>
-              <Text style={styles.subjectChipMeta}>
-                {subject.chapterCount} 章 · {subject.pointCount} 点
-              </Text>
-            </View>
+            <Text style={styles.subjectCardTitle} numberOfLines={2}>
+              {subject.title}
+            </Text>
+            <Text style={styles.subjectCardMeta} numberOfLines={2}>
+              {subject.chapterCount} 章 · {subject.pointCount} 知识点
+            </Text>
+            <Text style={styles.subjectCardHint} numberOfLines={1}>
+              {mode === "knowledge" ? "查看章节与知识点" : "按章节刷真题"}
+            </Text>
           </PressableScale>
         );
       })}
-    </Animated.ScrollView>
+    </View>
   );
 }
 
@@ -817,7 +795,6 @@ function GradLessonEntry({ subject }: { subject: Exam408SubjectSummary }) {
   const gradTrack = useLearningTrack("ex-408-grad");
   const gradStageKey = exam408GradStageForSubject(subject.key);
   const gradStage = gradTrack?.stages.find((stage) => stage.key === gradStageKey);
-  // v1.53.1 诊断：入口卡渲染条件与真机可见性存疑（用户反馈未看到），面包屑留证
   useEffect(() => {
     recordCrumb("408-lesson-entry", {
       subject: subject.key,
@@ -1294,11 +1271,6 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       backgroundColor: colors.surfaceStrong,
     },
     heroBody: { flex: 1, gap: 3 },
-    heroEyebrow: {
-      ...typography.micro,
-      letterSpacing: 0.8,
-      color: dark ? "#73D4C6" : "#196B63",
-    },
     heroTitle: { ...typography.title2, color: colors.text },
     heroText: { ...typography.caption, color: colors.textSecondary },
     heroStats: { flexDirection: "row", gap: spacing.sm },
@@ -1347,33 +1319,6 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
     sectionTitle: { ...typography.title2, color: colors.text },
     sectionText: { ...typography.caption, color: colors.textMuted },
     sectionCount: { ...typography.caption, color: colors.textMuted },
-    subjectRail: { gap: spacing.sm, paddingRight: spacing.lg },
-    subjectChip: {
-      minWidth: 168,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: spacing.sm,
-      borderRadius: radius.lg,
-      padding: spacing.md,
-      backgroundColor: colors.surfaceStrong,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.border,
-      ...shadows.card,
-    },
-    subjectChipIcon: {
-      width: 38,
-      height: 38,
-      borderRadius: 13,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    subjectChipBody: { flex: 1, gap: 2 },
-    subjectChipTitle: {
-      ...typography.callout,
-      fontWeight: "800",
-      color: colors.text,
-    },
-    subjectChipMeta: { ...typography.micro, color: colors.textMuted },
     subjectSummary: {
       flexDirection: "row",
       alignItems: "center",
@@ -1401,6 +1346,48 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       color: colors.textSecondary,
     },
     subjectSummaryMuted: { ...typography.micro, color: colors.textFaint },
+    subjectGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      justifyContent: "space-between",
+      rowGap: spacing.md,
+    },
+    subjectCard: {
+      width: "48%",
+      minHeight: 132,
+      gap: 4,
+      borderRadius: radius.lg,
+      padding: spacing.md,
+      backgroundColor: colors.surfaceStrong,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      ...shadows.card,
+    },
+    subjectCardHead: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    subjectCardIcon: {
+      width: 34,
+      height: 34,
+      borderRadius: 12,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    subjectCardTitle: { ...typography.callout, fontWeight: "800", color: colors.text, marginTop: 2 },
+    subjectCardMeta: { ...typography.micro, color: colors.textMuted, lineHeight: 16 },
+    subjectCardHint: { ...typography.micro, color: colors.primary, fontWeight: "700", marginTop: "auto" },
+    subjectBackRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      alignSelf: "flex-start",
+      paddingVertical: 6,
+      paddingHorizontal: 4,
+    },
+    subjectBackText: { ...typography.caption, fontWeight: "700", color: colors.primary },
+    subjectBackTitle: { ...typography.caption, color: colors.textMuted, marginLeft: "auto", maxWidth: "70%" },
     navNotice: {
       flexDirection: "row",
       alignItems: "center",

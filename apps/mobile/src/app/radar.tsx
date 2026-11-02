@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Animated, { FadeInDown, LinearTransition } from "react-native-reanimated";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   Alert,
   Linking,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { JobDetailModal, type JobDetailSeed } from "@/components/job-detail-modal";
@@ -37,10 +40,24 @@ import {
   EMPTY_RADAR_FILTER,
   filterRadar,
   radarActiveFilterCount,
-  radarDirectionLabel,
   radarFacets,
   radarFilterChips,
+  radarMatchSummary,
+  radarPresetName,
   RADAR_PAGE_SIZE,
+  RADAR_PRESET_LIMIT,
+  RADAR_PRESET_STORAGE_KEY,
+  RADAR_REASON_STORAGE_KEY,
+  addRadarFilterPreset,
+  createRadarPreset,
+  deserializeRadarPresets,
+  isSameRadarFilter,
+  normalizeRadarFilter,
+  parseRadarReasonExpanded,
+  removeRadarFilterPreset,
+  renameRadarFilterPreset,
+  serializeRadarPresets,
+  serializeRadarReasonExpanded,
   RADAR_SALARY_OPTIONS,
   RADAR_SORT_LABELS,
   RADAR_SORT_ORDER,
@@ -51,6 +68,7 @@ import {
   type RadarFacets,
   type RadarFilter,
   type RadarFilterChip,
+  type RadarFilterPreset,
   type RadarJobLike,
   type RadarOverview,
   type RadarSort,
@@ -113,6 +131,10 @@ export default function RadarScreen() {
   const [detailVisible, setDetailVisible] = useState(false);
   /** 相对时间基准（挂载时取一次，避免每帧 Date.now 触发无谓重渲染） */
   const [now] = useState(() => Date.now());
+  /** v1.62 P1-4：我的筛选预设（AsyncStorage，≤5 个） */
+  const [presets, setPresets] = useState<RadarFilterPreset[]>([]);
+  /** 匹配理由默认折叠状态（全局一个开关，持久化） */
+  const [reasonExpanded, setReasonExpanded] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -181,6 +203,68 @@ export default function RadarScreen() {
     haptics.soft();
     setVisibleSize(slice.nextSize);
   };
+
+  /* ---------------- v1.62 P1-4：筛选预设 & 理由折叠（AsyncStorage） ---------------- */
+
+  /** 启动时读取预设与理由折叠状态；脏数据由纯函数兜底（失败不阻塞页面） */
+  useEffect(() => {
+    let alive = true;
+    // v3 存储接口是 getMany（返回 key → 值对象），替代旧版 multiGet
+    AsyncStorage.getMany([RADAR_PRESET_STORAGE_KEY, RADAR_REASON_STORAGE_KEY])
+      .then((stored) => {
+        if (!alive) return;
+        setPresets(deserializeRadarPresets(stored[RADAR_PRESET_STORAGE_KEY] ?? null));
+        setReasonExpanded(parseRadarReasonExpanded(stored[RADAR_REASON_STORAGE_KEY] ?? null));
+      })
+      .catch(() => {
+        // 存储不可用：保持默认（无预设 / 折叠）
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const persistPresets = (next: RadarFilterPreset[]) => {
+    setPresets(next);
+    void AsyncStorage.setItem(RADAR_PRESET_STORAGE_KEY, serializeRadarPresets(next)).catch(() => {});
+  };
+
+  /** 保存当前已应用的筛选（页面胶囊区） */
+  const savePreset = (source: RadarFilter = filter) => {
+    if (radarActiveFilterCount(source) === 0) return;
+    haptics.success();
+    persistPresets(addRadarFilterPreset(presets, createRadarPreset(source, { now: Date.now() })));
+  };
+
+  /** 应用预设：一次性回填草稿并立即生效（回到第一页） */
+  const applyPreset = (id: string) => {
+    const preset = presets.find((item) => item.id === id);
+    if (!preset) return;
+    haptics.soft();
+    const next = normalizeRadarFilter(preset.filter);
+    setDraft(next);
+    applyFilter(next);
+  };
+
+  const deletePreset = (id: string) => {
+    haptics.soft();
+    persistPresets(removeRadarFilterPreset(presets, id));
+  };
+
+  const renamePreset = (id: string, name: string) => {
+    haptics.soft();
+    persistPresets(renameRadarFilterPreset(presets, id, name));
+  };
+
+  const toggleReasonExpanded = () => {
+    haptics.soft();
+    const next = !reasonExpanded;
+    setReasonExpanded(next);
+    void AsyncStorage.setItem(RADAR_REASON_STORAGE_KEY, serializeRadarReasonExpanded(next)).catch(() => {});
+  };
+
+  const presetMatchesCurrent = presets.some((preset) => isSameRadarFilter(preset.filter, filter));
+  const canSaveCurrentPreset = activeCount > 0 && !presetMatchesCurrent;
 
   const toggleExpanded = (jobId: number) => {
     haptics.soft();
@@ -282,6 +366,40 @@ export default function RadarScreen() {
           <>
             <RadarOverviewCard overview={overview} fallback={data?.mode === "fallback"} colors={colors} styles={styles} />
 
+            {/* 「我的筛选」横向 chip：点应用、点 × 删除（≤5 个，持久化） */}
+            {presets.length > 0 ? (
+              <View style={styles.presetRow}>
+                <Text style={styles.presetLabel}>我的筛选</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.presetChips}
+                  keyboardShouldPersistTaps="handled"
+                >
+                  {presets.map((preset) => (
+                    <View key={preset.id} style={styles.presetChip}>
+                      <PressableScale
+                        style={styles.presetChipBody}
+                        onPress={() => applyPreset(preset.id)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`应用筛选预设 ${preset.name}`}
+                      >
+                        <Text style={styles.presetChipText} numberOfLines={1}>{preset.name}</Text>
+                      </PressableScale>
+                      <Pressable
+                        hitSlop={8}
+                        onPress={() => deletePreset(preset.id)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`删除筛选预设 ${preset.name}`}
+                      >
+                        <ThemedIcon name="close" size={12} color={colors.primary} />
+                      </Pressable>
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+            ) : null}
+
             <View style={styles.controlRow}>
               <View style={styles.sortGroup}>
                 {RADAR_SORT_ORDER.map((key) => (
@@ -340,6 +458,17 @@ export default function RadarScreen() {
                     <ThemedIcon name="close" size={12} color={colors.primary} />
                   </PressableScale>
                 ))}
+                {canSaveCurrentPreset ? (
+                  <PressableScale
+                    style={styles.saveChip}
+                    onPress={() => savePreset(filter)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`保存当前筛选为预设 ${radarPresetName(filter)}`}
+                  >
+                    <ThemedIcon name="bookmark-outline" size={12} color={colors.primary} />
+                    <Text style={styles.saveChipText} numberOfLines={1}>保存筛选</Text>
+                  </PressableScale>
+                ) : null}
               </View>
             ) : null}
 
@@ -367,6 +496,8 @@ export default function RadarScreen() {
                       job={job}
                       expanded={expandedJobs.has(job.jobId)}
                       onToggleExpand={toggleExpanded}
+                      reasonExpanded={reasonExpanded}
+                      onToggleReason={toggleReasonExpanded}
                       onPress={openJob}
                       now={now}
                       colors={colors}
@@ -407,6 +538,11 @@ export default function RadarScreen() {
         draft={draft}
         facets={facets}
         previewCount={previewCount}
+        presets={presets}
+        onApplyPreset={applyPreset}
+        onDeletePreset={deletePreset}
+        onRenamePreset={renamePreset}
+        onSavePreset={(source) => savePreset(source)}
         onToggle={(group, value) => setDraft((current) => toggleRadarFilterValue(current, group, value))}
         onClear={(group) => setDraft((current) => clearRadarFilterKey(current, group))}
         onReset={() => setDraft(EMPTY_RADAR_FILTER)}
@@ -526,6 +662,8 @@ function RadarJobCard({
   job,
   expanded,
   onToggleExpand,
+  reasonExpanded,
+  onToggleReason,
   onPress,
   now,
   colors,
@@ -534,6 +672,9 @@ function RadarJobCard({
   job: RadarJob;
   expanded: boolean;
   onToggleExpand: (jobId: number) => void;
+  /** v1.62 P1-4：匹配理由默认折叠，点开看缺失技能（全局一个开关，持久化） */
+  reasonExpanded: boolean;
+  onToggleReason: () => void;
   onPress: (job: RadarJob) => void;
   now: number;
   colors: ThemeColors;
@@ -541,7 +682,8 @@ function RadarJobCard({
 }) {
   const matched = job.matchedSkills.map((item) => item.skill);
   const missing = job.missingSkills.map((item) => item.skill);
-  const direction = radarDirectionLabel(job);
+  /** v1.62 P1-4：理由摘要收敛到纯函数（文案与计数可单测） */
+  const matchReason = radarMatchSummary(job);
   const tags = [...matched, ...missing];
   const limit = expanded ? CHIP_LIMIT_EXPANDED : CHIP_LIMIT;
   const visibleTags = tags.slice(0, limit);
@@ -592,13 +734,37 @@ function RadarJobCard({
           <Text style={styles.matchBarLabel}>匹配度</Text>
         </View>
 
-        <View style={styles.reasonRow}>
+        {/* 匹配理由：默认一行；点开看缺失技能（状态全局记忆，持久化） */}
+        <Pressable
+          hitSlop={8}
+          onPress={onToggleReason}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: reasonExpanded }}
+          accessibilityLabel={reasonExpanded ? "收起匹配理由" : "展开缺失技能"}
+          style={styles.reasonRow}
+        >
           <ThemedIcon name="sparkles-outline" size={12} color={colors.textMuted} />
-          <Text style={styles.reasonText} numberOfLines={1}>
-            {matched.length > 0 ? `命中 ${matched.length} 项技能` : "技能命中待补充"}
-            {missing.length > 0 ? ` · 还缺 ${missing.length} 项` : ""} · 方向 {direction}
+          <Text style={styles.reasonText} numberOfLines={reasonExpanded ? 2 : 1}>
+            {matchReason.label}
           </Text>
-        </View>
+          <ThemedIcon name={reasonExpanded ? "chevron-up" : "chevron-down"} size={12} color={colors.textMuted} />
+        </Pressable>
+
+        {reasonExpanded ? (
+          missing.length > 0 ? (
+            <View style={styles.missingRow}>
+              <Text style={styles.missingLabel}>还缺</Text>
+              {missing.slice(0, 8).map((skill) => (
+                <View key={`miss:${skill}`} style={[styles.tag, styles.tagGap]}>
+                  <Text style={styles.tagText} numberOfLines={1}>{skill}</Text>
+                </View>
+              ))}
+              {missing.length > 8 ? <Text style={styles.missingMore}>+{missing.length - 8}</Text> : null}
+            </View>
+          ) : (
+            <Text style={styles.missingEmpty}>技能已全部命中，保持复习即可</Text>
+          )
+        ) : null}
 
         <View style={styles.tagRow}>
           {visibleTags.map((tag) => {
@@ -657,6 +823,11 @@ function FilterSheet({
   draft,
   facets,
   previewCount,
+  presets,
+  onApplyPreset,
+  onDeletePreset,
+  onRenamePreset,
+  onSavePreset,
   onToggle,
   onClear,
   onReset,
@@ -669,6 +840,12 @@ function FilterSheet({
   draft: RadarFilter;
   facets: RadarFacets;
   previewCount: number;
+  /** v1.62 P1-4：已保存的筛选预设（展示/应用/重命名/删除） */
+  presets: RadarFilterPreset[];
+  onApplyPreset: (id: string) => void;
+  onDeletePreset: (id: string) => void;
+  onRenamePreset: (id: string, name: string) => void;
+  onSavePreset: (source: RadarFilter) => void;
   onToggle: (group: Parameters<typeof toggleRadarFilterValue>[1], value: string) => void;
   onClear: (group: Parameters<typeof clearRadarFilterKey>[1]) => void;
   onReset: () => void;
@@ -676,6 +853,12 @@ function FilterSheet({
   colors: ThemeColors;
   styles: ReturnType<typeof makeStyles>;
 }) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [nameDraft, setNameDraft] = useState("");
+  const draftActive = radarActiveFilterCount(draft);
+  const draftDuplicate = presets.some((preset) => isSameRadarFilter(preset.filter, draft));
+  const canSaveDraft = draftActive > 0 && !draftDuplicate;
+  const draftName = radarPresetName(draft);
   const provinceOptions = facets.provinces.map((item) => ({
     key: item.province,
     label: item.province,
@@ -720,6 +903,76 @@ function FilterSheet({
       }
       footerHint="关闭不会丢失已选条件；重新打开继续调整"
     >
+      {presets.length > 0 ? (
+        <SheetSection title="我的筛选" hint={`${presets.length}/${RADAR_PRESET_LIMIT} 个 · 点名字即应用`}>
+          {presets.map((preset) =>
+            editingId === preset.id ? (
+              <View key={preset.id} style={styles.presetEditRow}>
+                <TextInput
+                  value={nameDraft}
+                  onChangeText={setNameDraft}
+                  autoFocus
+                  maxLength={24}
+                  placeholder="预设名称"
+                  placeholderTextColor={colors.textFaint}
+                  style={styles.presetInput}
+                  returnKeyType="done"
+                  onSubmitEditing={() => {
+                    onRenamePreset(preset.id, nameDraft);
+                    setEditingId(null);
+                  }}
+                />
+                <Pressable
+                  hitSlop={8}
+                  onPress={() => {
+                    onRenamePreset(preset.id, nameDraft);
+                    setEditingId(null);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="保存预设名称"
+                >
+                  <Text style={styles.presetEditSave}>保存</Text>
+                </Pressable>
+                <Pressable hitSlop={8} onPress={() => setEditingId(null)} accessibilityRole="button" accessibilityLabel="取消重命名">
+                  <Text style={styles.presetEditCancel}>取消</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <View key={preset.id} style={styles.presetManageRow}>
+                <PressableScale
+                  style={styles.presetManageBody}
+                  onPress={() => onApplyPreset(preset.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`应用筛选预设 ${preset.name}`}
+                >
+                  <ThemedIcon name="bookmark-outline" size={13} color={colors.primary} />
+                  <Text style={styles.presetManageName} numberOfLines={1}>{preset.name}</Text>
+                </PressableScale>
+                <Pressable
+                  hitSlop={8}
+                  onPress={() => {
+                    setNameDraft(preset.name);
+                    setEditingId(preset.id);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`重命名筛选预设 ${preset.name}`}
+                >
+                  <ThemedIcon name="create-outline" size={15} color={colors.textMuted} />
+                </Pressable>
+                <Pressable
+                  hitSlop={8}
+                  onPress={() => onDeletePreset(preset.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`删除筛选预设 ${preset.name}`}
+                >
+                  <ThemedIcon name="trash-outline" size={15} color={colors.danger} />
+                </Pressable>
+              </View>
+            ),
+          )}
+        </SheetSection>
+      ) : null}
+
       <SheetSection title="城市" hint="省市二级，可多选">
         <ChipGroup
           multiple
@@ -816,7 +1069,7 @@ function FilterSheet({
         </SheetSection>
       ) : null}
 
-      <SheetSection title="来源" hint="岗位抓取渠道" last>
+      <SheetSection title="来源" hint="岗位抓取渠道">
         {facets.sources.length > 0 ? (
           <ChipGroup
             multiple
@@ -830,6 +1083,27 @@ function FilterSheet({
             当前候选集还没有来源信息
           </Text>
         )}
+      </SheetSection>
+
+      {/* 弹层底部：保存当前筛选（自动命名，可在「我的筛选」里重命名） */}
+      <SheetSection title="保存当前筛选" hint={`最多 ${RADAR_PRESET_LIMIT} 个，超出会替换最早保存的`} last>
+        <PressableScale
+          style={[styles.sheetSave, !canSaveDraft && styles.sheetSaveOff]}
+          disabled={!canSaveDraft}
+          onPress={() => onSavePreset(draft)}
+          accessibilityRole="button"
+          accessibilityLabel={`保存当前筛选为预设 ${draftName}`}
+          accessibilityState={{ disabled: !canSaveDraft }}
+        >
+          <ThemedIcon name="bookmark-outline" size={14} color={canSaveDraft ? colors.primary : colors.textMuted} />
+          <Text style={[styles.sheetSaveText, !canSaveDraft && styles.sheetSaveTextOff]} numberOfLines={1}>
+            {draftActive === 0
+              ? "先选条件再保存"
+              : draftDuplicate
+                ? "当前条件已保存"
+                : `保存为「${draftName}」`}
+          </Text>
+        </PressableScale>
       </SheetSection>
     </BottomSheet>
   );
@@ -921,6 +1195,30 @@ const makeStyles = (colors: ThemeColors) =>
     resultHint: { ...typography.caption, color: colors.textMuted },
     resetText: { ...typography.caption, fontWeight: "800", color: colors.primary },
 
+    /* 我的筛选（预设） */
+    presetRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+    presetLabel: { ...typography.caption, fontWeight: "700", color: colors.textMuted, flexShrink: 0 },
+    presetChips: { flexDirection: "row", alignItems: "center", gap: 6, paddingRight: 4 },
+    presetChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingLeft: 10,
+      paddingRight: 6,
+      paddingVertical: 5,
+      borderRadius: 999,
+      backgroundColor: colors.primarySoft,
+      maxWidth: 200,
+    },
+    presetChipBody: { flexShrink: 1, minWidth: 0 },
+    presetChipText: { ...typography.micro, color: colors.primary },
+
+    /* 匹配理由折叠 */
+    missingRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6 },
+    missingLabel: { ...typography.micro, color: colors.textMuted },
+    missingMore: { ...typography.micro, color: colors.textMuted },
+    missingEmpty: { ...typography.caption, color: colors.textMuted },
+
     chipsWrap: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
     chipActive: {
       flexDirection: "row",
@@ -932,6 +1230,18 @@ const makeStyles = (colors: ThemeColors) =>
       backgroundColor: colors.primarySoft,
     },
     chipActiveText: { ...typography.micro, color: colors.primary, maxWidth: 160 },
+    saveChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: 9,
+      paddingVertical: 4,
+      borderRadius: 999,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.primary,
+      backgroundColor: colors.surface,
+    },
+    saveChipText: { ...typography.micro, color: colors.primary },
 
     /* 岗位卡 */
     jobCard: { gap: 8, padding: 14 },
@@ -1006,4 +1316,42 @@ const makeStyles = (colors: ThemeColors) =>
     /* 弹层 */
     sheetReset: { ...typography.caption, fontWeight: "800", color: colors.primary },
     groupLabel: { ...typography.caption, fontWeight: "700", color: colors.textMuted, marginTop: 4 },
+    presetManageRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      paddingVertical: 8,
+      paddingHorizontal: 10,
+      borderRadius: radius.md,
+      backgroundColor: colors.surfaceMuted,
+    },
+    presetManageBody: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 6 },
+    presetManageName: { ...typography.callout, color: colors.text, flexShrink: 1 },
+    presetEditRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+    presetInput: {
+      flex: 1,
+      minWidth: 0,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      ...typography.callout,
+      color: colors.text,
+    },
+    presetEditSave: { ...typography.caption, fontWeight: "800", color: colors.primary },
+    presetEditCancel: { ...typography.caption, color: colors.textMuted },
+    sheetSave: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      paddingVertical: 11,
+      borderRadius: radius.lg,
+      backgroundColor: colors.primarySoft,
+    },
+    sheetSaveOff: { backgroundColor: colors.surfaceMuted },
+    sheetSaveText: { ...typography.callout, fontWeight: "700", color: colors.primary, flexShrink: 1 },
+    sheetSaveTextOff: { color: colors.textMuted },
   });

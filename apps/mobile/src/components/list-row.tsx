@@ -27,6 +27,7 @@ export function ListRow({
   disabled = false,
   style,
   haptic = true,
+  accessibilityLabel,
 }: {
   /** Ionicons 名（iOS 自动走 SF Symbols） */
   icon?: keyof typeof Ionicons.glyphMap;
@@ -44,6 +45,8 @@ export function ListRow({
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
   haptic?: boolean;
+  /** 读屏文案（默认用 title）；EntryCard row 等组合入口会传入更完整的描述 */
+  accessibilityLabel?: string;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -86,6 +89,7 @@ export function ListRow({
       pressedStyle={styles.rowPressed}
       accessibilityRole="button"
       style={[styles.row, style]}
+      accessibilityLabel={accessibilityLabel ?? title}
     >
       {body}
     </PressableScale>

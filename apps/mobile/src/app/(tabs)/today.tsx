@@ -59,6 +59,8 @@ import { computeFocusStats } from "@/lib/focus-stats";
 import { getDailyQuote } from "@/lib/quotes";
 import { fetchAiTip } from "@/lib/ai-tip";
 import { buildSportTrend } from "@/lib/sport-trend";
+import { fetchHydration, fetchNutritionTarget } from "@/lib/wellbeing-client";
+import { toDaySummaryMap } from "@/lib/nutrition-views";
 import { localKey } from "@/lib/focus-series";
 import { loadLearningAttempts } from "@/lib/learning-progress";
 import { readCachedRoadmap } from "@/lib/roadmap";
@@ -395,6 +397,19 @@ export default function TodayScreen() {
    * 数据源全部沿用既有本地数据（learning-attempts + roadmap 缓存 + sessions），不新增接口。
    */
   const [learningSnapshot, setLearningSnapshot] = useState({ questionsToday: 0, stageDone: 0, stageTotal: 0 });
+  /**
+   * 健康快照真实数据（P1-3 · task-48）：三个数据源并行拉，null = 拿不到（渲染「—」）。
+   * 摄入 = /api/nutrition/summary?days=1 里今天那行的 kcal（没记录≠0，显示「—」）；
+   * 目标 = /api/nutrition/target 的 target.kcal（没设目标就不显示分母）；
+   * 饮水 = /api/wellbeing/hydration 的 totalMl / targetMl；
+   * 训练仍用 store.sports（本地口径，离线也有）。
+   */
+  const [healthSnapshot, setHealthSnapshot] = useState<{
+    intakeKcal: number | null;
+    targetKcal: number | null;
+    waterMl: number | null;
+    waterTargetMl: number | null;
+  }>({ intakeKcal: null, targetKcal: null, waterMl: null, waterTargetMl: null });
 
   const quote = useDailyQuote();
   /** S5-1：业务日期统一东八区（shared/domains），不再用设备本地/UTC 拼日期 */
@@ -493,13 +508,62 @@ export default function TodayScreen() {
   useFocusRefresh(loadLearning);
 
   /**
-   * v17/v18 收尾：下拉刷新 = 重跑本页网络数据源（习惯/打卡、精力）与本地学习进度。
+   * 健康快照三源（P1-3 · task-48）：并行请求，任一失败只影响自己那一格。
+   * 降级策略：未登录 → 全部「—」且不发请求；断网/接口失败 → 保留上次的值（首屏就是「—」）；
+   * 有响应但今天没记录 → 摄入显示「—」（不把"没吃"当 0）。
+   * 不阻塞首屏：这三条请求在 useEffect/focus 里发，页面先按上一轮（或「—」）渲染。
+   */
+  const loadHealth = useCallback(async () => {
+    if (!token) {
+      setHealthSnapshot({ intakeKcal: null, targetKcal: null, waterMl: null, waterTargetMl: null });
+      return;
+    }
+    try {
+      const headers = { Authorization: "Bearer " + token };
+      const [summary, target, hydration] = await Promise.all([
+        fetch(getApiUrl() + "/api/nutrition/summary?days=1", { headers })
+          .then((r) => (r.ok ? (r.json() as Promise<{ summary?: unknown }>) : null))
+          .catch(() => null),
+        fetchNutritionTarget(token).catch(() => null),
+        fetchHydration(token).catch(() => null),
+      ]);
+      const todayRow = summary ? toDaySummaryMap(summary.summary)[today] : undefined;
+      const targetKcal = target?.target?.kcal;
+      setHealthSnapshot((prev) => ({
+        // 摘要请求成功但今天没条目 → null（「—」）；请求失败（null）→ 保留上次
+        intakeKcal: summary ? (todayRow ? todayRow.kcal : null) : prev.intakeKcal,
+        targetKcal:
+          target !== null
+            ? Number.isFinite(Number(targetKcal)) && Number(targetKcal) > 0
+              ? Math.round(Number(targetKcal))
+              : null
+            : prev.targetKcal,
+        waterMl: hydration ? Math.max(0, Math.round(Number(hydration.totalMl) || 0)) : prev.waterMl,
+        waterTargetMl:
+          hydration !== null
+            ? Number(hydration.targetMl) > 0
+              ? Math.round(Number(hydration.targetMl))
+              : null
+            : prev.waterTargetMl,
+      }));
+    } catch {
+      // 断网：保留上次（首屏仍显示「—」，不会变成 0 或报错）
+    }
+  }, [token, today]);
+  useEffect(() => {
+    const t = setTimeout(() => void loadHealth(), 0);
+    return () => clearTimeout(t);
+  }, [loadHealth]);
+  useFocusRefresh(loadHealth);
+
+  /**
+   * v17/v18 收尾：下拉刷新 = 重跑本页网络数据源（习惯/打卡、精力、健康快照）与本地学习进度。
    * 任务、日志与专注会话来自本地 store + 同步引擎，本页不重复拉取，口径未改。
    * 今日是自绘紧凑 header 的 hub 页、没有吸顶紧凑栏 → stickyHeader: false。
    */
   const refreshToday = useCallback(
-    () => Promise.all([loadHabits(), loadEnergy(), loadLearning()]).then(() => undefined),
-    [loadHabits, loadEnergy, loadLearning]
+    () => Promise.all([loadHabits(), loadEnergy(), loadLearning(), loadHealth()]).then(() => undefined),
+    [loadHabits, loadEnergy, loadHealth, loadLearning]
   );
   const { control: todayRefresh } = usePullRefresh(refreshToday, { stickyHeader: false });
 
@@ -738,9 +802,10 @@ export default function TodayScreen() {
           items={[
             { label: "题库今日", value: learningSnapshot.questionsToday, unit: "/" + DAILY_QUESTION_GOAL, tone: "primary" },
             {
+              // 未登录/无 roadmap 缓存时是 0/0，显示「—」而不是假数字（与学习页同口径）
               label: "阶段主题",
-              value: learningSnapshot.stageDone,
-              unit: "/" + learningSnapshot.stageTotal,
+              value: learningSnapshot.stageTotal > 0 ? learningSnapshot.stageDone : "—",
+              unit: learningSnapshot.stageTotal > 0 ? "/" + learningSnapshot.stageTotal : "",
               tone: "teal",
             },
             { label: "今日专注", value: focusStats.todayMinutes, unit: "分", tone: "accent" },
@@ -749,16 +814,35 @@ export default function TodayScreen() {
           accessibilityLabel="打开学习页查看学习进度"
         />
 
-        {/* ⑤ 健康快照（StatStrip 3 格）+「记录运动」入口；数据源 = 今日页既有运动记录，不编造摄入/饮水 */}
+        {/* ⑤ 健康快照（P1-3）：摄入 / 饮水来自接口，训练用本地运动记录；点击整条 → 健康页 */}
         <SectionHeader title="健康快照" actionLabel="记录运动" onAction={() => setSportSheetOpen(true)} />
         <StatStrip
           items={[
+            {
+              label: "今日摄入",
+              value: healthSnapshot.intakeKcal === null ? "—" : healthSnapshot.intakeKcal,
+              // 没设目标就不显示分母（避免 "1200/0"）
+              unit:
+                healthSnapshot.intakeKcal !== null && healthSnapshot.targetKcal !== null
+                  ? "/" + healthSnapshot.targetKcal
+                  : "",
+              tone: "primary",
+            },
+            {
+              label: "今日饮水",
+              value: healthSnapshot.waterMl === null ? "—" : (healthSnapshot.waterMl / 1000).toFixed(1),
+              unit:
+                healthSnapshot.waterMl === null
+                  ? ""
+                  : healthSnapshot.waterTargetMl !== null
+                    ? "/" + (healthSnapshot.waterTargetMl / 1000).toFixed(1) + "L"
+                    : "L",
+              tone: "teal",
+            },
             { label: "今日训练", value: todaySport.minutes, unit: "分", tone: "accent" },
-            { label: "本周训练", value: sportTrend.totalMinutes, unit: "分", tone: "success" },
-            { label: "今日记录", value: todaySport.sessions, unit: "条", tone: "teal" },
           ]}
           onPress={() => router.push("/wellness" as never)}
-          accessibilityLabel="查看健康页"
+          accessibilityLabel="查看健康页：今日摄入、饮水与训练"
         />
 
         {/* 每日语录：原「更多」抽屉里的装饰内容，保留为页尾一行（不占入口） */}
@@ -842,176 +926,8 @@ export default function TodayScreen() {
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
   root: { flex: 1 },
-  /* ===== v1.62 P0-2 今日页重构新增（字号全走 typography token，不写裸 fontSize） ===== */
-  compactHeader: { gap: 6 },
-  compactHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
-  compactDate: { ...typography.callout, fontWeight: "800", color: colors.text },
-  checkinPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceMuted,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  checkinPillDone: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
-  checkinPillText: { ...typography.micro, fontWeight: "700", color: colors.textMuted },
-  checkinPillTextDone: { color: colors.primaryStrong },
-  compactTip: { ...typography.caption, lineHeight: 18, color: colors.textSecondary },
-  focusCard: { gap: 12 },
-  startButton: {
-    height: 58,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingHorizontal: 16,
-    borderRadius: radius.lg,
-    backgroundColor: colors.primary,
-    ...shadows.floating,
-  },
-  startIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#FFFFFF",
-  },
-  startTitle: { flex: 1, ...typography.headline, fontWeight: "800", color: "#FFFFFF" },
-  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: {
-    flexGrow: 1,
-    flexBasis: "30%",
-    minWidth: 0,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 5,
-    paddingVertical: 9,
-    paddingHorizontal: 10,
-    borderRadius: radius.md,
-    backgroundColor: colors.surfaceMuted,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  chipText: { ...typography.caption, fontWeight: "700", color: colors.textSecondary, flexShrink: 1 },
-  quoteFoot: { ...typography.caption, lineHeight: 18, color: colors.textMuted, textAlign: "center", paddingHorizontal: 8 },
-  /* ===== 新增结束 ===== */
   scroll: { flex: 1 },
-  // v4 P2 一键开始：实色大按钮（不占 hero 名额，高度控制在 92 以内）
-  quickStart: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    minHeight: 92,
-    borderRadius: radius.xl,
-    // v19-V2：主色走主题 token（暗色下自动提亮为 #6FA8E0，不再发闷）
-    backgroundColor: colors.primary,
-    ...shadows.floating,
-  },
-  /** 外环：半透明 + 1pt 高光描边，给"按钮"一个可点的轮廓 */
-  quickStartIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.16)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.30)",
-  },
-  /**
-   * 圆心：纯白实心底 + 主色播放三角。
-   * play 三角的视觉重心偏左，paddingLeft 让它在圆里几何居中。
-   */
-  quickStartIconCore: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingLeft: 2,
-    backgroundColor: "#FFFFFF",
-  },
-  quickStartBody: { flex: 1, gap: 3 },
-  quickStartTitle: { fontSize: 20, fontWeight: "800", color: "#ffffff", letterSpacing: 0.2 },
-  quickStartSub: { fontSize: 12.5, color: "rgba(255,255,255,0.88)" },
   content: { padding: 16, gap: 14 },
-  hero: { paddingBottom: 6, position: "relative" },
-  sunGlow: {
-    position: "absolute",
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    top: -60,
-    right: -40,
-    backgroundColor: "rgba(255, 210, 130, 0.35)",
-  },
-  heroEyebrowRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 },
-  heroEyebrow: { ...typography.micro, fontWeight: "700", color: colors.textMuted, letterSpacing: 0.6 },
-  heroPill: {
-    borderRadius: 999,
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceMuted,
-  },
-  heroPillDone: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
-  heroPillText: { fontSize: 10, fontWeight: "700", color: colors.textMuted },
-  heroPillTextDone: { color: colors.primaryStrong },
-  heroTitle: {
-    ...typography.display,
-    color: colors.text,
-  },
-  heroSub: {
-    ...typography.callout,
-    // v18 对比度：callout(15pt) 属正文字号，textMuted(#8E8E93) 对白底仅约 3.0，低于 WCAG AA 4.5
-    color: colors.textSecondary,
-    marginTop: 5,
-  },
-  quote: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 10,
-    padding: 10,
-    paddingRight: 12,
-    borderRadius: radius.md,
-    backgroundColor: colors.surfaceMuted,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  quoteText: { flex: 1, ...typography.caption, lineHeight: 19, color: colors.textMuted },
-
-  sectionTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
-  sectionTitle: {
-    ...typography.title2,
-    color: colors.text,
-  },
-  sectionMore: { ...typography.caption, color: colors.textMuted },
-  inlineMore: { flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start", paddingVertical: 2 },
-  inlineMoreText: { ...typography.caption, fontWeight: "600", color: colors.textMuted },
-  addSportBtn: { flexDirection: "row", alignItems: "center", gap: 3 },
-  addSportText: { ...typography.caption, fontWeight: "700", color: colors.accentStrong },
-
-  sportCard: { gap: 8 },
-  sportTotal: { flexDirection: "row", alignItems: "baseline", gap: 6 },
-  sportTotalNum: { fontSize: 30, fontWeight: "800", color: colors.text },
-  sportTotalUnit: { ...typography.caption, color: colors.textMuted },
-  sportTotalNote: { marginLeft: "auto", ...typography.micro, color: colors.accentStrong },
-  sportEmpty: { ...typography.caption, color: colors.textMuted, paddingVertical: 4 },
-  sportItem: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 4 },
-  sportIco: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  sportItemInfo: { flex: 1 },
-  sportItemName: { ...typography.callout, fontWeight: "700", color: colors.text },
-  sportItemTime: { ...typography.caption, color: colors.textMuted, marginTop: 1 },
-
   task: {
     flexDirection: "row",
     alignItems: "center",
@@ -1033,53 +949,14 @@ const makeStyles = (colors: ThemeColors) =>
     justifyContent: "center",
   },
   taskBoxDone: { backgroundColor: colors.success, borderColor: colors.success },
-  /**
-   * 任务 / 习惯行的可点区域。
-   *
-   * ⚠️ 必须显式写成 row：它是 `styles.task`（row 卡片）的子节点，不声明方向就默认 **column**，
-   * 而里面的标题用了 `flex: 1` —— 在 column 里 flexBasis 作用在**高度**上，
-   * 父级高度又是内容撑开的（没有剩余空间可分配）→ 标题高度被压成 0，整条文字看不见。
-   * 这与 components/press-button.tsx 里记的是同一个 Yoga 陷阱。
-   */
   taskRow: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
-  /** 标题 + 副标题的纵向容器；flex: 1 在这里是横向撑满，安全 */
   taskBody: { flex: 1, minWidth: 0, gap: 1 },
-  // flexShrink 而不是 flex：在 taskBody(column) 里高度仍需自适应，
-  // 在习惯行的 taskTitleRow(row) 里则靠它把过长标题截断而不是撑破
   taskTitle: { ...typography.callout, fontWeight: "600", color: colors.text, flexShrink: 1 },
   taskDone: { textDecorationLine: "line-through", color: colors.textSecondary },
   taskMeta: { ...typography.caption, color: colors.textMuted },
   taskEmpty: { ...typography.caption, color: colors.textMuted, textAlign: "center", paddingVertical: 4 },
-  // v13 U12：底纹绝对定位铺满，卡片要裁切
   taskEmptyCard: { overflow: "hidden" },
-
-  /**
-   * 今日概览三格（v1.44.2）：等宽、居中、比原来抽屉里的大卡片更紧凑。
-   * 目的是在首屏一眼看完"今天打没打卡 / 专注了多久 / 本周走了多少"。
-   * 原来的 statsGrid/statCard/checkinRow 随「本周节奏」一起移到首屏后已无引用，予删。
-   */
-  overviewGrid: { flexDirection: "row", gap: 10 },
-  overviewTile: {
-    flex: 1,
-    gap: 6,
-    paddingVertical: 13,
-    paddingHorizontal: 8,
-    borderRadius: radius.lg,
-    alignItems: "center",
-    backgroundColor: colors.surfaceStrong,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  overviewIcon: { width: 30, height: 30, borderRadius: 11, alignItems: "center", justifyContent: "center" },
-  overviewValueRow: { flexDirection: "row", alignItems: "flex-end" },
-  overviewValue: { fontSize: 19, fontWeight: "800", color: colors.text },
-  overviewUnit: { ...typography.caption, fontWeight: "600", color: colors.textMuted, marginBottom: 2 },
-  overviewLabel: { ...typography.micro, fontWeight: "700", color: colors.textMuted },
-
-  /** 任务 / 习惯行的「图标 + 标题」横排（原来是把 emoji 直接拼进文案） */
-  /** 习惯行的「图标 + 标题」横排（父级是 taskBody 的 column，这里不能再写 flex: 1） */
   taskTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-
   sportTabRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 },
   sportTab: {
     paddingHorizontal: 12,
@@ -1136,12 +1013,60 @@ const makeStyles = (colors: ThemeColors) =>
   quickChipActive: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
   quickChipText: { ...typography.caption, fontWeight: "700", color: colors.text },
   quickChipTextActive: { color: colors.accentStrong },
-  saveSport: {
-    marginTop: 20,
-    backgroundColor: colors.accent,
-    borderRadius: 999,
-    paddingVertical: 13,
+  compactHeader: { gap: 6 },
+  compactHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  compactDate: { ...typography.callout, fontWeight: "800", color: colors.text },
+  checkinPill: {
+    flexDirection: "row",
     alignItems: "center",
+    gap: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceMuted,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
-  saveSportText: { color: "#fff", ...typography.callout, fontWeight: "800" },
-});
+  checkinPillDone: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
+  checkinPillText: { ...typography.micro, fontWeight: "700", color: colors.textMuted },
+  checkinPillTextDone: { color: colors.primaryStrong },
+  compactTip: { ...typography.caption, lineHeight: 18, color: colors.textSecondary },
+  focusCard: { gap: 12 },
+  startButton: {
+    height: 58,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 16,
+    borderRadius: radius.lg,
+    backgroundColor: colors.primary,
+    ...shadows.floating,
+  },
+  startIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+  },
+  startTitle: { flex: 1, ...typography.headline, fontWeight: "800", color: "#FFFFFF" },
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chip: {
+    flexGrow: 1,
+    flexBasis: "30%",
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  chipText: { ...typography.caption, fontWeight: "700", color: colors.textSecondary, flexShrink: 1 },
+  quoteFoot: { ...typography.caption, lineHeight: 18, color: colors.textMuted, textAlign: "center", paddingHorizontal: 8 },
+  });

@@ -631,3 +631,287 @@ export function citiesForProvinces(provinces: readonly string[], all: readonly s
   if (provinces.length === 0) return [...all];
   return all.filter((city) => provinces.includes(provinceOfCity(city)));
 }
+/* ------------------------------------------------------------------ */
+/* 筛选预设（v1.62 P1-4）：本地保存 ≤5 个筛选组合                        */
+/* ------------------------------------------------------------------ */
+
+/** AsyncStorage key：雷达筛选预设（数组 JSON） */
+export const RADAR_PRESET_STORAGE_KEY = "lwb.radar.filters.v1";
+/** 预设上限（超出丢最早保存的一个） */
+export const RADAR_PRESET_LIMIT = 5;
+/** AsyncStorage key：匹配理由折叠的默认状态（"true"/"false"） */
+export const RADAR_REASON_STORAGE_KEY = "lwb.radar.reason.v1";
+
+export interface RadarFilterPreset {
+  id: string;
+  name: string;
+  filter: RadarFilter;
+  /** ISO 时间戳（用于「超出上限丢最早」与展示） */
+  createdAt: string;
+}
+
+const RADAR_FILTER_KEYS: readonly RadarFilterKey[] = [
+  "provinces",
+  "cities",
+  "categories",
+  "functions",
+  "industries",
+  "salaryBands",
+  "educations",
+  "experiences",
+  "sources",
+];
+
+function uniqueStrings(values: readonly unknown[], allowed?: readonly string[]): string[] {
+  const out: string[] = [];
+  for (const value of values) {
+    if (typeof value !== "string") continue;
+    const trimmed = value.trim();
+    if (!trimmed) continue;
+    if (allowed && !allowed.includes(trimmed)) continue;
+    if (!out.includes(trimmed)) out.push(trimmed);
+  }
+  return out;
+}
+
+/**
+ * 把任意来源（AsyncStorage / 旧版本 / 脏数据）的筛选对象归一成 RadarFilter：
+ * 非对象 → 空筛选；数组只留字符串；类别/薪资档位只留合法枚举；其它维度裁到 50 项。
+ */
+export function normalizeRadarFilter(value: unknown): RadarFilter {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    // 注意不能只 spread：EMPTY_RADAR_FILTER 里的数组是共享引用，这里必须给新数组
+    return {
+      provinces: [],
+      cities: [],
+      categories: [],
+      functions: [],
+      industries: [],
+      salaryBands: [],
+      educations: [],
+      experiences: [],
+      sources: [],
+    };
+  }
+  const record = value as Record<string, unknown>;
+  const read = (key: RadarFilterKey): unknown[] =>
+    Array.isArray(record[key]) ? (record[key] as unknown[]).slice(0, 50) : [];
+  const categories = uniqueStrings(
+    read("categories"),
+    RADAR_CATEGORY_ORDER.filter((category) => category !== "all"),
+  ) as RadarCategory[];
+  const salaryBands = uniqueStrings(
+    read("salaryBands"),
+    RADAR_SALARY_OPTIONS.map((option) => option.key),
+  );
+  return {
+    provinces: uniqueStrings(read("provinces")),
+    cities: uniqueStrings(read("cities")),
+    categories,
+    functions: uniqueStrings(read("functions")),
+    industries: uniqueStrings(read("industries")),
+    salaryBands,
+    educations: uniqueStrings(read("educations")),
+    experiences: uniqueStrings(read("experiences")),
+    sources: uniqueStrings(read("sources")),
+  };
+}
+
+function sameStringSet(a: readonly string[], b: readonly string[]): boolean {
+  if (a.length !== b.length) return false;
+  const left = [...a].sort();
+  const right = [...b].sort();
+  return left.every((value, index) => value === right[index]);
+}
+
+/** 两个筛选是否等价（数组顺序无关；用于「当前条件已保存」判定） */
+export function isSameRadarFilter(a: RadarFilter, b: RadarFilter): boolean {
+  const left = normalizeRadarFilter(a);
+  const right = normalizeRadarFilter(b);
+  return RADAR_FILTER_KEYS.every((key) =>
+    key === "categories"
+      ? sameStringSet(left.categories as string[], right.categories as string[])
+      : sameStringSet(left[key], right[key]),
+  );
+}
+
+/**
+ * 自动命名：取最靠前的 3 个已选条件，用「·」连接（如「广东·深圳·后端」「互联网·20-30K」）。
+ * 条件过多时截断到 24 个字符，避免横向 chip 撑爆屏幕。
+ */
+export function radarPresetName(filter: RadarFilter): string {
+  const normalized = normalizeRadarFilter(filter);
+  const parts: string[] = [];
+  const push = (value: string) => {
+    const trimmed = value.trim();
+    if (trimmed && !parts.includes(trimmed) && parts.length < 3) parts.push(trimmed);
+  };
+  for (const province of normalized.provinces) push(province);
+  for (const city of normalized.cities) push(city);
+  for (const category of normalized.categories) push(RADAR_CATEGORY_LABELS[category] ?? category);
+  for (const fn of normalized.functions) push(fn);
+  for (const industry of normalized.industries) push(industry);
+  for (const band of normalized.salaryBands) {
+    push(RADAR_SALARY_OPTIONS.find((option) => option.key === band)?.label ?? band);
+  }
+  for (const education of normalized.educations) push(education);
+  for (const source of normalized.sources) push(source);
+  if (parts.length === 0) return "全部岗位";
+  const name = parts.join("·");
+  return name.length > 24 ? name.slice(0, 24) + "…" : name;
+}
+
+function radarFilterSignature(filter: RadarFilter): string {
+  const normalized = normalizeRadarFilter(filter);
+  return RADAR_FILTER_KEYS.map((key) => {
+    const values = key === "categories" ? (normalized.categories as string[]) : normalized[key];
+    return key + ":" + [...values].sort().join(",");
+  }).join("|");
+}
+
+/** 简易字符串 hash（只用于生成稳定 id，不做安全用途） */
+function shortHash(text: string): string {
+  let hash = 2166136261;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+/** 生成一个预设（id 由 时间 + 筛选签名决定；同名不同条件不会冲突） */
+export function createRadarPreset(
+  filter: RadarFilter,
+  options: { name?: string; now?: number; id?: string } = {},
+): RadarFilterPreset {
+  const normalized = normalizeRadarFilter(filter);
+  const now = Number.isFinite(options.now) ? Number(options.now) : Date.now();
+  const name = String(options.name ?? "").trim() || radarPresetName(normalized);
+  const signature = radarFilterSignature(normalized);
+  return {
+    id: options.id?.trim() || "radar-" + now + "-" + shortHash(signature + "|" + name),
+    name,
+    filter: normalized,
+    createdAt: new Date(now).toISOString(),
+  };
+}
+
+/** 追加预设：同 id 覆盖、最新的排最前、超出上限丢最早的一个（不修改入参） */
+export function addRadarFilterPreset(
+  presets: readonly RadarFilterPreset[],
+  preset: RadarFilterPreset,
+  limit: number = RADAR_PRESET_LIMIT,
+): RadarFilterPreset[] {
+  const safeLimit = Math.max(1, Math.floor(Number(limit) || RADAR_PRESET_LIMIT));
+  const rest = presets.filter((item) => item.id !== preset.id);
+  return [normalizeRadarPreset(preset), ...rest].slice(0, safeLimit);
+}
+
+function normalizeRadarPreset(value: RadarFilterPreset): RadarFilterPreset {
+  const filter = normalizeRadarFilter(value.filter);
+  const name = String(value.name ?? "").trim() || radarPresetName(filter);
+  const createdAt = typeof value.createdAt === "string" && value.createdAt ? value.createdAt : new Date(0).toISOString();
+  return { id: String(value.id ?? "").trim() || "radar-" + createdAt, name, filter, createdAt };
+}
+
+export function removeRadarFilterPreset(
+  presets: readonly RadarFilterPreset[],
+  id: string,
+): RadarFilterPreset[] {
+  return presets.filter((preset) => preset.id !== id);
+}
+
+/** 重命名：名字裁掉首尾空白；空名字保留原名（调用方可用 radarPresetName 兜底） */
+export function renameRadarFilterPreset(
+  presets: readonly RadarFilterPreset[],
+  id: string,
+  name: string,
+): RadarFilterPreset[] {
+  const trimmed = String(name ?? "").trim();
+  if (!trimmed) return [...presets];
+  return presets.map((preset) => (preset.id === id ? { ...preset, name: trimmed.slice(0, 24) } : preset));
+}
+
+export function serializeRadarPresets(presets: readonly RadarFilterPreset[]): string {
+  return JSON.stringify(presets.slice(0, RADAR_PRESET_LIMIT).map(normalizeRadarPreset));
+}
+
+/**
+ * 反序列化：容错 AsyncStorage 里的脏数据
+ * - 支持 "[]"、直接数组、{ presets: [] } 三种形态；
+ * - 非对象条目丢弃；缺少 filter 的条目丢弃；缺 id/name/createdAt 的补齐；
+ * - 去重 id、按上限裁剪、按 createdAt 倒序（最新在前）。
+ */
+export function deserializeRadarPresets(raw: unknown): RadarFilterPreset[] {
+  let parsed: unknown = raw;
+  if (typeof raw === "string") {
+    if (!raw.trim()) return [];
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return [];
+    }
+  }
+  const list = Array.isArray(parsed)
+    ? parsed
+    : parsed && typeof parsed === "object" && Array.isArray((parsed as { presets?: unknown }).presets)
+      ? ((parsed as { presets: unknown[] }).presets)
+      : [];
+  const seen = new Set<string>();
+  const presets: RadarFilterPreset[] = [];
+  for (const item of list) {
+    if (!item || typeof item !== "object") continue;
+    const record = item as Record<string, unknown>;
+    if (!record.filter || typeof record.filter !== "object") continue;
+    const preset = normalizeRadarPreset({
+      id: typeof record.id === "string" ? record.id : "",
+      name: typeof record.name === "string" ? record.name : "",
+      filter: normalizeRadarFilter(record.filter),
+      createdAt: typeof record.createdAt === "string" ? record.createdAt : "",
+    });
+    if (seen.has(preset.id)) continue;
+    seen.add(preset.id);
+    presets.push(preset);
+  }
+  return presets
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+    .slice(0, RADAR_PRESET_LIMIT);
+}
+
+/** 理由折叠默认状态：存 "true"/"false" 字符串（避免 JSON.parse 对旧值的歧义） */
+export function serializeRadarReasonExpanded(expanded: boolean): string {
+  return expanded ? "true" : "false";
+}
+
+/** 解析理由折叠状态：脏数据/旧值（"1"/"0"/json）都能吃，默认收起 */
+export function parseRadarReasonExpanded(raw: unknown): boolean {
+  if (typeof raw === "boolean") return raw;
+  if (typeof raw === "number") return raw !== 0;
+  if (typeof raw === "string") {
+    const value = raw.trim().toLowerCase();
+    if (value === "true" || value === "1") return true;
+    if (value === "false" || value === "0") return false;
+  }
+  return false;
+}
+
+/**
+ * 岗位卡的「匹配理由」摘要（默认一行）：命中技能数 / 缺失技能数 / 方向。
+ * 展开时组件用 missingSkills 渲染具体缺失技能列表。
+ */
+export function radarMatchSummary(job: RadarJobLike & {
+  matchedSkills?: readonly { skill: string }[];
+  missingSkills?: readonly { skill: string }[];
+}): { hitCount: number; missingCount: number; direction: string; label: string } {
+  const hitCount = Array.isArray(job.matchedSkills) ? job.matchedSkills.length : 0;
+  const missingCount = Array.isArray(job.missingSkills) ? job.missingSkills.length : 0;
+  const direction = radarDirectionLabel(job);
+  const hitLabel = hitCount > 0 ? "命中 " + hitCount + " 项技能" : "技能命中待补充";
+  const missingLabel = missingCount > 0 ? "还缺 " + missingCount + " 项" : "技能已全命中";
+  return {
+    hitCount,
+    missingCount,
+    direction,
+    label: hitLabel + " · " + missingLabel + " · 方向 " + direction,
+  };
+}

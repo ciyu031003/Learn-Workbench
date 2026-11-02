@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("@/lib/db", () => ({ pgPool: { query: vi.fn() } }));
+vi.mock("@/lib/db", () => ({ pgPool: { query: vi.fn(), connect: vi.fn() } }));
 vi.mock("@/lib/session", () => ({ currentUserId: vi.fn() }));
 vi.mock("@/lib/file-ticket", () => ({ verifyFileTicket: vi.fn() }));
 vi.mock("node:fs/promises", () => ({ readFile: vi.fn(async () => Buffer.from("PDFDATA")) }));
@@ -19,6 +19,7 @@ import { verifyFileTicket } from "@/lib/file-ticket";
 import { GET, DELETE, PATCH } from "./route";
 
 const queryMock = vi.mocked(pgPool.query);
+const connectMock = vi.mocked(pgPool.connect);
 const userMock = vi.mocked(currentUserId);
 const ticketMock = vi.mocked(verifyFileTicket);
 const ctx = (id: string) => ({ params: Promise.resolve({ id }) });
@@ -26,6 +27,8 @@ const ctx = (id: string) => ({ params: Promise.resolve({ id }) });
 beforeEach(() => {
   vi.resetAllMocks();
   queryMock.mockResolvedValue({ rows: [{ path: "2f1b1f2e-0000-4000-8000-000000000000/abc.pdf", fileName: "简历.pdf", mime: "application/pdf" }] } as never);
+  // 默认给一个「池化客户端」把语句转给 queryMock；默认互斥用例会换成专用 client 以断言 BEGIN/COMMIT
+  connectMock.mockResolvedValue({ query: queryMock, release: vi.fn() } as never);
 });
 
 describe("GET /api/resume-files/[id]", () => {
@@ -240,3 +243,151 @@ describe("PATCH /api/resume-files/[id]（重命名）", () => {
     expect((await res.json()).fileName).toBe("社招-后端.docx");
   });
 });
+
+describe("PATCH /api/resume-files/[id]（领域标签 / 默认简历 · P1-5）", () => {
+  const patchBody = (body: unknown) =>
+    PATCH(
+      new Request("http://localhost", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+      ctx("1")
+    );
+
+  const row = (overrides: Record<string, unknown> = {}) => ({
+    path: "2f1b1f2e-0000-4000-8000-000000000000/abc.pdf",
+    fileName: "简历.pdf",
+    label: null,
+    isDefault: false,
+    ...overrides,
+  });
+
+  it("label 白名单内（含首尾空白）→ 200，返回归一后的标签", async () => {
+    userMock.mockResolvedValue("u-1");
+    queryMock
+      .mockResolvedValueOnce({ rows: [row()] } as never)
+      .mockResolvedValueOnce({ rows: [{ fileName: "简历.pdf", label: "后端", isDefault: false }] } as never);
+    const res = await patchBody({ label: " 后端 " });
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.ok).toBe(true);
+    expect(data.label).toBe("后端");
+    expect(queryMock).toHaveBeenLastCalledWith(
+      expect.stringContaining("label = $3"),
+      [1, "u-1", "后端"]
+    );
+  });
+
+  it("label 不在白名单 → 400，且不写库", async () => {
+    userMock.mockResolvedValue("u-1");
+    const res = await patchBody({ label: "全栈" });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toContain("后端");
+    expect(queryMock).not.toHaveBeenCalled();
+  });
+
+  it("label: null / 空串 → 清除标签（写 NULL）", async () => {
+    userMock.mockResolvedValue("u-1");
+    for (const clear of [null, "", "   "]) {
+      queryMock
+        .mockResolvedValueOnce({ rows: [row({ label: "算法" })] } as never)
+        .mockResolvedValueOnce({ rows: [{ fileName: "简历.pdf", label: null, isDefault: false }] } as never);
+      const res = await patchBody({ label: clear });
+      expect(res.status).toBe(200);
+      expect((await res.json()).label).toBeNull();
+      expect(queryMock).toHaveBeenLastCalledWith(
+        expect.stringContaining("label = $3"),
+        [1, "u-1", null]
+      );
+    }
+  });
+
+  it("空 body / 只有未知字段 → 400（没有可更新字段）", async () => {
+    userMock.mockResolvedValue("u-1");
+    expect((await patchBody({})).status).toBe(400);
+    expect((await patchBody({ foo: 1 })).status).toBe(400);
+    expect(queryMock).not.toHaveBeenCalled();
+  });
+
+  it("isDefault 非布尔 → 400", async () => {
+    userMock.mockResolvedValue("u-1");
+    expect((await patchBody({ isDefault: "yes" })).status).toBe(400);
+    expect(queryMock).not.toHaveBeenCalled();
+  });
+
+  it("isDefault: true → 同事务先清其它默认再置本条（BEGIN → clear → update → COMMIT）", async () => {
+    userMock.mockResolvedValue("u-1");
+    const clientQuery = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [] }) // BEGIN
+      .mockResolvedValueOnce({ rows: [] }) // 清其它默认
+      .mockResolvedValueOnce({ rows: [{ fileName: "简历.pdf", label: null, isDefault: true }] }) // UPDATE
+      .mockResolvedValueOnce({ rows: [] }); // COMMIT
+    const release = vi.fn();
+    connectMock.mockResolvedValue({ query: clientQuery, release } as never);
+    queryMock.mockResolvedValueOnce({ rows: [row()] } as never); // SELECT 前置校验（走池）
+
+    const res = await patchBody({ isDefault: true });
+    expect(res.status).toBe(200);
+    expect((await res.json()).isDefault).toBe(true);
+    expect(clientQuery).toHaveBeenCalledWith("BEGIN");
+    expect(clientQuery).toHaveBeenCalledWith(
+      expect.stringContaining("UPDATE resume_files SET is_default = false"),
+      ["u-1", 1]
+    );
+    expect(clientQuery).toHaveBeenCalledWith(expect.stringContaining("is_default = true"), expect.any(Array));
+    expect(clientQuery).toHaveBeenCalledWith("COMMIT");
+    expect(release).toHaveBeenCalled();
+  });
+
+  it("isDefault: false → 单条 UPDATE 取消默认（不开事务）", async () => {
+    userMock.mockResolvedValue("u-1");
+    queryMock
+      .mockResolvedValueOnce({ rows: [row({ isDefault: true })] } as never)
+      .mockResolvedValueOnce({ rows: [{ fileName: "简历.pdf", label: null, isDefault: false }] } as never);
+    const res = await patchBody({ isDefault: false });
+    expect(res.status).toBe(200);
+    expect((await res.json()).isDefault).toBe(false);
+    expect(connectMock).not.toHaveBeenCalled();
+    expect(queryMock).toHaveBeenLastCalledWith(
+      expect.stringContaining("is_default = false"),
+      [1, "u-1"]
+    );
+  });
+
+  it("fileName + label 组合 → 一条 UPDATE 同时改两列（$3 文件名、$4 标签）", async () => {
+    userMock.mockResolvedValue("u-1");
+    queryMock
+      .mockResolvedValueOnce({ rows: [row()] } as never)
+      .mockResolvedValueOnce({ rows: [{ fileName: "秋招-后端.pdf", label: "后端", isDefault: false }] } as never);
+    const res = await patchBody({ fileName: "秋招-后端", label: "后端" });
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.fileName).toBe("秋招-后端.pdf");
+    expect(data.label).toBe("后端");
+    expect(queryMock).toHaveBeenLastCalledWith(
+      expect.stringMatching(/UPDATE resume_files SET file_name = \$3, label = \$4/),
+      [1, "u-1", "秋招-后端.pdf", "后端"]
+    );
+  });
+
+  it("未登录 → 401；文件不存在 → 404（标签路径同样适用）", async () => {
+    userMock.mockResolvedValue(null);
+    expect((await patchBody({ label: "后端" })).status).toBe(401);
+
+    userMock.mockResolvedValue("u-1");
+    queryMock.mockResolvedValueOnce({ rows: [] } as never);
+    expect((await patchBody({ label: "后端" })).status).toBe(404);
+  });
+
+  it("响应保持 private, no-store", async () => {
+    userMock.mockResolvedValue("u-1");
+    queryMock
+      .mockResolvedValueOnce({ rows: [row()] } as never)
+      .mockResolvedValueOnce({ rows: [{ fileName: "简历.pdf", label: "通用", isDefault: false }] } as never);
+    const res = await patchBody({ label: "通用" });
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+  });
+});
+

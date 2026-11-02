@@ -132,7 +132,37 @@ function normalizeRenameInput(raw: string, storedExt: string | null): { ok: true
   return { ok: true, fileName };
 }
 
-/** PATCH /api/resume-files/[id] —— 重命名自己的简历（只改显示名 file_name，不动存储路径） */
+/** 领域标签白名单（App 端 apps/mobile/src/lib/resume-files.ts 的 RESUME_LABELS 与本表同源） */
+const RESUME_LABELS = ["后端", "前端", "数据", "算法", "通用", "其他"] as const;
+
+/**
+ * 解析 label 入参（P1-5）：
+ * - 不传 → 不修改；
+ * - null / 空串 / 纯空白 → 清除标签（写 NULL）；
+ * - 其余必须是白名单里的值：**不允许自由文本**（否则客户端各写一套标签，筛选与展示都会失控）。
+ */
+function parseLabelInput(value: unknown): { ok: true; label: string | null } | { ok: false; error: string } {
+  if (value === null || value === undefined) return { ok: true, label: null };
+  if (typeof value !== "string") return { ok: false, error: "label 无效" };
+  const trimmed = value.trim();
+  if (!trimmed) return { ok: true, label: null };
+  if (!(RESUME_LABELS as readonly string[]).includes(trimmed)) {
+    return { ok: false, error: "label 必须是：" + RESUME_LABELS.join(" / ") };
+  }
+  return { ok: true, label: trimmed };
+}
+
+/**
+ * PATCH /api/resume-files/[id] —— 重命名 / 打领域标签 / 设默认简历（P1-5 扩展）。
+ *
+ * 入参可组合（至少给一个）：{ fileName?, label?, isDefault? }
+ * - fileName：只改显示名，扩展名以存储路径为准（见 normalizeRenameInput）；
+ * - label：白名单值，null/空串清除；
+ * - isDefault：true 时在同一事务里先把该用户其它行置 false 再置本条 true
+ *   （先清后置 + 部分唯一索引 uq_resume_files_default 双保险，避免唯一冲突）。
+ *
+ * 所有字段都只作用于「本人且未软删」的行；返回更新后的 fileName / label / isDefault。
+ */
 async function patchImpl(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const id = parseId((await ctx.params).id);
   if (!id) return NextResponse.json({ error: "id 无效" }, { status: 400 });
@@ -141,26 +171,108 @@ async function patchImpl(req: Request, ctx: { params: Promise<{ id: string }> })
 
   const body = await parseBody(req);
   if (!body.ok) return NextResponse.json({ error: body.error }, { status: body.status });
-  const raw = (body.data as { fileName?: unknown } | null)?.fileName;
-  if (typeof raw !== "string") return NextResponse.json({ error: "fileName 无效" }, { status: 400 });
+  const data = (body.data ?? null) as Record<string, unknown> | null;
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    return NextResponse.json({ error: "请求体无效" }, { status: 400 });
+  }
 
-  const { rows } = await pgPool.query<{ path: string }>(
-    "SELECT path FROM resume_files WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL",
+  const hasFileName = Object.prototype.hasOwnProperty.call(data, "fileName");
+  const hasLabel = Object.prototype.hasOwnProperty.call(data, "label");
+  const hasDefault = Object.prototype.hasOwnProperty.call(data, "isDefault");
+  if (!hasFileName && !hasLabel && !hasDefault) {
+    return NextResponse.json({ error: "没有可更新的字段（fileName / label / isDefault）" }, { status: 400 });
+  }
+
+  if (hasFileName && typeof data.fileName !== "string") {
+    return NextResponse.json({ error: "fileName 无效" }, { status: 400 });
+  }
+  let nextLabel: string | null = null;
+  if (hasLabel) {
+    const parsed = parseLabelInput(data.label);
+    if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
+    nextLabel = parsed.label;
+  }
+  let nextIsDefault: boolean | null = null;
+  if (hasDefault) {
+    if (typeof data.isDefault !== "boolean") {
+      return NextResponse.json({ error: "isDefault 必须是布尔值" }, { status: 400 });
+    }
+    nextIsDefault = data.isDefault;
+  }
+
+  const { rows } = await pgPool.query<{
+    path: string;
+    fileName: string;
+    label: string | null;
+    isDefault: boolean;
+  }>(
+    'SELECT path, file_name AS "fileName", label, is_default AS "isDefault" FROM resume_files WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL',
     [id, userId]
   );
   const row = rows[0];
   if (!row) return NextResponse.json({ error: "文件不存在" }, { status: 404 });
 
   // 重命名的是显示名不是文件类型：扩展名以存储路径为准（见 normalizeRenameInput）
-  const normalized = normalizeRenameInput(raw, resumeExtOf(row.path));
-  if (!normalized.ok) return NextResponse.json({ error: normalized.error }, { status: 400 });
+  let nextFileName: string | null = null;
+  if (hasFileName) {
+    const normalized = normalizeRenameInput(String(data.fileName), resumeExtOf(row.path));
+    if (!normalized.ok) return NextResponse.json({ error: normalized.error }, { status: 400 });
+    nextFileName = normalized.fileName;
+  }
 
-  const { rows: updated } = await pgPool.query<{ fileName: string }>(
-    `UPDATE resume_files SET file_name = $3 WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL
-     RETURNING file_name AS "fileName"`,
-    [id, userId, normalized.fileName]
-  );
-  return NextResponse.json({ ok: true, fileName: updated[0]?.fileName ?? normalized.fileName });
+  const sets: string[] = [];
+  const params: unknown[] = [id, userId];
+  if (nextFileName !== null) {
+    params.push(nextFileName);
+    sets.push("file_name = $" + params.length);
+  }
+  if (hasLabel) {
+    params.push(nextLabel);
+    sets.push("label = $" + params.length);
+  }
+  if (nextIsDefault === false) sets.push("is_default = false");
+  if (nextIsDefault === true) sets.push("is_default = true");
+
+  const updateSql =
+    "UPDATE resume_files SET " +
+    sets.join(", ") +
+    ' WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL RETURNING file_name AS "fileName", label, is_default AS "isDefault"';
+
+  let updated: { fileName: string; label: string | null; isDefault: boolean } | undefined;
+  if (nextIsDefault === true) {
+    // 默认互斥：先清掉其它默认再置本条，两条语句必须同事务（部分唯一索引兜底）
+    const client = await pgPool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        "UPDATE resume_files SET is_default = false WHERE user_id = $1 AND deleted_at IS NULL AND is_default AND id <> $2",
+        [userId, id]
+      );
+      const result = await client.query<{ fileName: string; label: string | null; isDefault: boolean }>(updateSql, params);
+      await client.query("COMMIT");
+      updated = result.rows[0];
+    } catch (error) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {
+        // 回滚失败不掩盖原始错误
+      }
+      throw error;
+    } finally {
+      client.release();
+    }
+  } else {
+    const result = await pgPool.query<{ fileName: string; label: string | null; isDefault: boolean }>(updateSql, params);
+    updated = result.rows[0];
+  }
+
+  return NextResponse.json({
+    ok: true,
+    fileName: updated?.fileName ?? nextFileName ?? row.fileName,
+    label: hasLabel ? (updated?.label ?? nextLabel) : (row.label ?? null),
+    isDefault:
+      updated?.isDefault !== undefined ? Boolean(updated.isDefault) : (nextIsDefault ?? Boolean(row.isDefault)),
+  });
 }
 
 /* S5-5：私有内容的所有响应（含 401/403/404）一律 private, no-store */

@@ -89,3 +89,48 @@ describe("POST /api/resume-files", () => {
     expect(res.headers.get("Cache-Control")).toBe("private, no-store");
   });
 });
+
+describe("GET /api/resume-files · 标签与默认（P1-5）", () => {
+  it("返回 label 与 isDefault；脏 label 归一成 null、缺省 isDefault 归一成 false", async () => {
+    userMock.mockResolvedValue("u-1");
+    queryMock.mockResolvedValue({
+      rows: [
+        { id: "1", fileName: "后端-社招.pdf", mime: "application/pdf", bytes: "1234", label: "后端", isDefault: true },
+        { id: "2", fileName: "通用.pdf", mime: "application/pdf", bytes: "2048", label: "", isDefault: undefined },
+      ],
+    } as never);
+    const res = await GET();
+    const body = await res.json();
+    expect(body.files[0]).toMatchObject({ label: "后端", isDefault: true });
+    expect(body.files[1].label).toBeNull();
+    expect(body.files[1].isDefault).toBe(false);
+  });
+
+  it("SQL 里带 label / is_default 列（列表契约）", async () => {
+    userMock.mockResolvedValue("u-1");
+    queryMock.mockResolvedValue({ rows: [] } as never);
+    await GET();
+    expect(queryMock.mock.calls[0][0]).toEqual(expect.stringContaining("label"));
+    expect(queryMock.mock.calls[0][0]).toEqual(expect.stringContaining('is_default AS "isDefault"'));
+  });
+});
+
+describe("POST /api/resume-files · 首个上传自动默认（P1-5）", () => {
+  it("INSERT 带 is_default 的 NOT EXISTS 子查询（首份自动成为默认）", async () => {
+    userMock.mockResolvedValue("2f1b1f2e-0000-4000-8000-000000000000");
+    queryMock.mockResolvedValue({
+      rows: [{ id: "9", fileName: "简历.pdf", mime: "application/pdf", bytes: "2048", label: null, isDefault: true }],
+    } as never);
+    const form = new FormData();
+    form.append("file", new File([new Uint8Array(2048)], "简历.pdf", { type: "application/pdf" }));
+    const res = await POST(new Request("http://localhost", { method: "POST", body: form }));
+    expect(res.status).toBe(201);
+    const sql = String(queryMock.mock.calls[0][0]);
+    expect(sql).toContain("is_default");
+    expect(sql).toContain("NOT EXISTS (SELECT 1 FROM resume_files WHERE user_id = $1 AND deleted_at IS NULL)");
+    const body = await res.json();
+    expect(body.file.isDefault).toBe(true);
+    expect(body.file.label).toBeNull();
+  });
+});
+

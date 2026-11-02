@@ -831,7 +831,8 @@ export default function LearnScreen() {
               icon="git-branch-outline"
               tone="accent"
               title="阶段路线"
-              meta={`${routeSummary.done}/${routeSummary.total} 主题`}
+              // 未登录 / 无 roadmap 缓存时是 0/0（不是真实的"0 个主题"）→ 显示「—」，有数据才显示数字
+              meta={routeSummary.total > 0 ? routeSummary.done + "/" + routeSummary.total + " 主题" : "—"}
               progress={routeSummary.percent / 100}
               onPress={() => router.push("/roadmap" as never)}
               accessibilityLabel="进入阶段路线"
@@ -1266,25 +1267,23 @@ const makeStyles = (colors: ThemeColors) =>
     entrySection: { gap: 12 },
     entryGrid: { flexDirection: "row", gap: 12 },
     entryCell: { flex: 1, minWidth: 0 },
-  scroll: { flex: 1, backgroundColor: colors.canvas },
-  content: { paddingHorizontal: 16, gap: 12 },  /* v9：今日专注 hero */
-  focusHero: { padding: 16 },
-  sectionTitle: {
-    ...typography.title2,
-    color: colors.text,
-    marginTop: 8,
-  },
-  sectionHeadRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 },  shelfWrap: { gap: 10 },  shelfContent: { gap: 12, paddingTop: 2 },  stageCard: {
-    borderRadius: radius.xl,
-    padding: 16,
-    overflow: "hidden",
-    minHeight: 104,
-    backgroundColor: colors.primary,
-    borderWidth: 1.5,
-    borderColor: "rgba(255,255,255,0.16)",
-    // v19-V3：品牌藏青影收进 token（原裸写 #14548D）
-    ...shadows.brand,
-  },
+    /* 学习架：标题 + 展开后的阶段列表，间距与 entrySection 一致（12） */
+    shelfWrap: { gap: 12 },
+    shelfContent: { gap: 12 },
+    scroll: { flex: 1, backgroundColor: colors.canvas },
+    content: { paddingHorizontal: 16, gap: 12 },
+    /* v9：今日专注 hero（stageCard：章节卡，保留品牌藏青影） */
+    stageCard: {
+      borderRadius: radius.xl,
+      padding: 16,
+      overflow: "hidden",
+      minHeight: 104,
+      backgroundColor: colors.primary,
+      borderWidth: 1.5,
+      borderColor: "rgba(255,255,255,0.16)",
+      // v19-V3：品牌藏青影收进 token（原裸写 #14548D）
+      ...shadows.brand,
+    },
   /** v1.33.0：选中态不再用刺眼白边抢戏，把"主角感"交给流云光效；阴影略抬 */
   stageCardActive: { borderColor: "rgba(255,255,255,0.62)", shadowOpacity: 0.3 },
   stageCardBody: { flex: 1 },
