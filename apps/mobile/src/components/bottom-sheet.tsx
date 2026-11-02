@@ -1,6 +1,17 @@
 /* eslint-disable react-hooks/immutability, react-hooks/set-state-in-effect */
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Dimensions, Keyboard, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Dimensions,
+  Keyboard,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type LayoutChangeEvent,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import { useReanimatedKeyboardAnimation } from "react-native-keyboard-controller";
@@ -16,6 +27,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { ThemedIcon } from "@/components/themed-icon";
 import { GlassSurface, glassSupported } from "@/components/surface";
+import { resolveSheetHeight } from "@/lib/bottom-sheet-height";
 import { SPRING, useReducedMotion } from "@/lib/motion";
 import { motion, radius, shadows, typography } from "@/theme/tokens";
 import { isMotionActive } from "@/theme/motion";
@@ -47,6 +59,13 @@ const SHEET_CORNER = radius.xl + 4;
  *
  * 材质：iOS 走 `GlassView`（真液态玻璃），其它平台回落 `elevated` 实底；
  * 下滑关闭与「一次只 present 一个 sheet」保持 HIG 行为。
+ *
+ * P12（按内容自适应高度）：
+ * - 默认 autoHeight：先量「手柄+标题+分段 / 内容 contentSize / 吸底 CTA」三块高度，
+ *   交给 resolveSheetHeight() clamp 出最终高度 —— 内容一屏放得下就长到刚好，超长才封顶；
+ * - height 变成**上限**（默认 50%），不再强制 50% 的空白；
+ * - 只在「内容超出上限」时允许内部滚动（scrollEnabled），键盘弹起压矮弹层时例外；
+ * - expandable（要有上拖余量）与 scroll=false（滚动容器在调用方）保持旧的固定高度语义。
  */
 export function BottomSheet({
   visible,
@@ -63,6 +82,7 @@ export function BottomSheet({
   expandable = false,
   height = "50%",
   scroll = true,
+  autoHeight = true,
   onClosed,
 }: {
   visible: boolean;
@@ -83,9 +103,22 @@ export function BottomSheet({
   children?: ReactNode;
   body?: (expanded: boolean) => ReactNode;
   expandable?: boolean;
+  /**
+   * 高度比例。P12 起语义是**上限**：内容能一屏放完时弹层会长到刚好容纳内容，
+   * 只有内容超过这个比例才封顶并在内部滚动（expandable / scroll=false 时仍按旧语义=固定高度）。
+   */
   height?: string;
   /** 是否内置滚动容器（内容自带 ScrollView 时传 false） */
   scroll?: boolean;
+  /**
+   * 是否按内容自适应高度（默认 true）。
+   *
+   * 生效条件：autoHeight && scroll && !expandable ——
+   * - scroll={false}：滚动容器由调用方提供，量不到内容自然高度，保持旧的固定高度；
+   * - expandable：需要固定的 full 高度才有「上拖展开」的可拖余量，保持旧行为。
+   * 传 false 可强制旧行为（固定高度 = height 比例）。
+   */
+  autoHeight?: boolean;
   /**
    * 退场动画结束、Modal 真正卸载后调用。
    * 用途：需要"关掉这个弹层再打开另一个全屏 Modal"时，必须等它卸载完再开，
@@ -121,18 +154,55 @@ export function BottomSheet({
 
   // 收起态 = 停在 collapsed 高度；展开态 = 上移 maxOffset
   const restOffset = expandable ? maxOffset : 0;
+  /** P12：按内容自适应只对「内置滚动 + 非手动展开」生效（原因见 autoHeight 注释） */
+  const effectiveAuto = autoHeight && scroll && !expandable;
   const [mounted, setMounted] = useState(visible);
   /** 根容器实测高度：判断窗口是否已被键盘 resize 吃掉一部分（见 eatenByResize） */
   const [rootH, setRootH] = useState(screenHeight);
   const [expanded, setExpanded] = useState(false);
+  /** 键盘是否可见：自适应模式下键盘会把弹层压矮，此时必须允许内部滚动（见 scrollEnabled） */
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  /**
+   * P12 自适应高度：实测三块几何再交给纯函数 clamp。
+   * - chrome：手柄 + 标题 + 分段槽位（一起包在一个 View 里量）
+   * - content：内部 ScrollView 的 contentSize（已含 contentContainer 的底部安全区留白与 gap）
+   * - footer：吸底 CTA（含它自己的底部安全区）
+   * 三个量都与「弹层当前高度」无关，所以不会形成测量反馈环。
+   */
+  const [metrics, setMetrics] = useState({ chrome: 0, content: 0, footer: 0 });
+  const autoResolved = useMemo(
+    () =>
+      resolveSheetHeight({
+        contentHeight: metrics.chrome + metrics.content + metrics.footer,
+        usableScreen,
+        maxRatio: ratio,
+      }),
+    [metrics.chrome, metrics.content, metrics.footer, ratio, usableScreen],
+  );
+  /** 首帧还没量到 chrome 时先按旧比例渲染（此刻弹层还在屏幕外，用户看不到高度跳变） */
+  const autoMeasured = metrics.chrome > 0;
+  const targetSheetHeight = effectiveAuto
+    ? autoMeasured
+      ? autoResolved.height
+      : collapsed
+    : expandable
+      ? full
+      : collapsed;
+  /** 滑入/滑出起点：自适应模式用可用屏幕高兜底（不管内容量到多高都完全在屏外） */
+  const hiddenOffset = effectiveAuto ? usableScreen : collapsed;
 
   /** 键盘高度（reanimated 共享值；键盘收起时为 0） */
   const keyboardAnim = useReanimatedKeyboardAnimation().height;
-  const translateY = useSharedValue(collapsed);
+  const translateY = useSharedValue(hiddenOffset);
   const dragBase = useSharedValue(restOffset);
   const scrim = useSharedValue(0);
   /** 抽屉内容的自上而下淡入进度（0→1） */
   const reveal = useSharedValue(0);
+  /** 弹层当前高度：自适应模式由实测内容驱动，expandable/legacy 是固定值 */
+  const sheetHeightSV = useSharedValue(targetSheetHeight);
+  /** 滑入/滑出起点（完全挪出屏幕） */
+  const hiddenOffsetSV = useSharedValue(hiddenOffset);
   /** 最新回调放在 ref，避免把它写进 worklet 的依赖里（渲染期不写 ref，走 effect） */
   const onClosedRef = useRef<(() => void) | undefined>(undefined);
   useEffect(() => {
@@ -144,7 +214,6 @@ export function BottomSheet({
   // 因此必须声明在 tapGesture / panGesture / useAnimatedStyle **之前**。
   // 一旦挪到后面，worklet 里拿到的是 undefined（产物把 const 降级成 var，不报 TDZ），
   // 读 .value 会在 UI 线程抛 TypeError → Android 直接闪退。
-  const sheetHeight = expandable ? full : collapsed;
   /** 弹层顶边允许到达的最高位置（减掉状态栏 + 底部安全区） */
   const maxSheetHeight = Math.max(160, usableScreen);
 
@@ -159,7 +228,7 @@ export function BottomSheet({
    *
    * 同时**按键盘高度收缩高度**（而不是恒定高度）：高弹层（82%/92%）若不收缩，
    * 顶边会被变矮的窗口裁掉（标题/搜索框看不见）——这是审查发现的阻断点。
-   *   `height = min(sheetHeight, usableScreen - kb)`：顶边永远 ≥ 安全区；
+   *   `height = min(目标高度, usableScreen - kb)`：顶边永远 ≥ 安全区；
    *   `lift   = max(0, kb - eaten)`：底边永远贴在键盘上沿。
    *
    * `eaten` 用**实测根容器高度**（onLayout）而不是 `useWindowDimensions()`：
@@ -174,16 +243,18 @@ export function BottomSheet({
   });
 
   /**
-   * 把 collapsed / restOffset 放进共享值，供"滑入滑出" effect 读取：
+   * 把「目标高度 / 屏外起点 / 展开位置」放进共享值，供"滑入滑出" effect 与 animatedSheet 读取：
    * 若把它们留在依赖数组里，键盘/窗口尺寸变化会重播滑入动画（弹层会从下方重新弹一次）。
    * 这个同步 effect 必须声明在滑入 effect **之前**（effect 按声明顺序执行）。
+   * P12：targetSheetHeight 在自适应模式下会随实测内容变化（量到内容后跳一次），
+   * 因此这里只改共享值、不动动画，避免每量一次就重播入场。
    */
-  const collapsedSV = useSharedValue(collapsed);
   const restOffsetSV = useSharedValue(restOffset);
   useEffect(() => {
-    collapsedSV.value = collapsed;
+    sheetHeightSV.value = targetSheetHeight;
+    hiddenOffsetSV.value = hiddenOffset;
     restOffsetSV.value = restOffset;
-  }, [collapsed, restOffset, collapsedSV, restOffsetSV]);
+  }, [targetSheetHeight, hiddenOffset, restOffset, sheetHeightSV, hiddenOffsetSV, restOffsetSV]);
 
   // 滑入 / 滑出（Modal 不做动画，全部自己实现）
   // 动效（真机反馈后定稿）：
@@ -195,7 +266,7 @@ export function BottomSheet({
     if (visible) {
       setMounted(true);
       setExpanded(false);
-      translateY.value = collapsedSV.value;
+      translateY.value = hiddenOffsetSV.value;
       dragBase.value = restOffsetSV.value;
       // 真机闪退防护：打开抽屉前先收起键盘。
       // 场景：招花列表的搜索框还聚焦（键盘弹着）→ 点进岗位详情 → 一滑动触发内容区的
@@ -226,13 +297,13 @@ export function BottomSheet({
       if (!motionActive) {
         reveal.value = 0;
         scrim.value = 0;
-        translateY.value = collapsedSV.value;
+        translateY.value = hiddenOffsetSV.value;
         setMounted(false);
         onClosedRef.current?.();
       } else {
         reveal.value = withTiming(0, { duration: 120, easing: Easing.in(Easing.quad) });
         scrim.value = withTiming(0, { duration: SLIDE_OUT, easing: Easing.in(Easing.cubic) });
-        translateY.value = withTiming(collapsedSV.value, { duration: SLIDE_OUT, easing: Easing.in(Easing.cubic) }, (fin) => {
+        translateY.value = withTiming(hiddenOffsetSV.value, { duration: SLIDE_OUT, easing: Easing.in(Easing.cubic) }, (fin) => {
           if (fin) {
             runOnJS(setMounted)(false);
             if (onClosedRef.current) runOnJS(onClosedRef.current)();
@@ -241,7 +312,7 @@ export function BottomSheet({
       }
     }
     // 只在 visible/mounted 变化时播动画（collapsed/restOffset 走上面的共享值同步，不进依赖）
-  }, [visible, mounted, motionActive, scrim, reveal, translateY, dragBase, collapsedSV, restOffsetSV]);
+  }, [visible, mounted, motionActive, scrim, reveal, translateY, dragBase, hiddenOffsetSV, restOffsetSV]);
 
   const close = useCallback(() => {
     setExpanded(false);
@@ -306,7 +377,7 @@ export function BottomSheet({
     const kb = Math.abs(keyboardAnim.value);
     const available = Math.max(160, maxSheetHeight - kb);
     return {
-      height: Math.min(sheetHeight, available),
+      height: Math.min(sheetHeightSV.value, available),
       transform: [{ translateY: translateY.value - lift.value }],
       opacity: 0.6 + scrim.value * 0.4,
     };
@@ -321,6 +392,32 @@ export function BottomSheet({
     opacity: reveal.value,
     transform: [{ translateY: (1 - reveal.value) * 12 }],
   }));
+
+  // 键盘可见时即使内容没超上限也允许滚动：键盘会把自适应弹层压矮（见 animatedSheet），
+  // 否则输入框附近的按钮/选项会被裁掉又滚不动。
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const showSub = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  // 三次测量都做「值没变就不 setState」的短路，避免 onLayout 抖动引起无谓重渲染
+  const handleChromeLayout = useCallback((event: LayoutChangeEvent) => {
+    const height = event.nativeEvent.layout.height;
+    setMetrics((prev) => (Math.abs(prev.chrome - height) < 0.5 ? prev : { ...prev, chrome: height }));
+  }, []);
+  const handleContentSizeChange = useCallback((_width: number, height: number) => {
+    setMetrics((prev) => (Math.abs(prev.content - height) < 0.5 ? prev : { ...prev, content: height }));
+  }, []);
+  const handleFooterLayout = useCallback((event: LayoutChangeEvent) => {
+    const height = event.nativeEvent.layout.height;
+    setMetrics((prev) => (Math.abs(prev.footer - height) < 0.5 ? prev : { ...prev, footer: height }));
+  }, []);
 
   const content = body ? body(expanded) : children;
 
@@ -340,29 +437,32 @@ export function BottomSheet({
         <Animated.View style={[styles.sheetWrap, animatedSheet]}>
           {/* opaque：弹窗必须是实底（玻璃会"看穿"到底部内容） */}
           <GlassSurface corner={SHEET_CORNER} padded={false} opaque style={styles.sheet}>
-            <GestureDetector gesture={handleGesture}>
-              <View style={styles.handleZone} accessibilityRole="adjustable">
-                <View style={styles.grabber} />
-              </View>
-            </GestureDetector>
-
-            <View style={styles.head}>
-              {icon ? (
-                <View style={styles.headIcon}>
-                  <ThemedIcon name={icon} size={16} color={colors.primary} />
+            {/* P12：手柄 + 标题 + 分段包成一块量高度（自适应高度用；不影响布局） */}
+            <View onLayout={effectiveAuto ? handleChromeLayout : undefined}>
+              <GestureDetector gesture={handleGesture}>
+                <View style={styles.handleZone} accessibilityRole="adjustable">
+                  <View style={styles.grabber} />
                 </View>
-              ) : null}
-              <View style={styles.headText}>
-                <Text style={styles.title} numberOfLines={1}>{title}</Text>
-                {subtitle ? <Text style={styles.subtitle} numberOfLines={2}>{subtitle}</Text> : null}
-              </View>
-              {headerAction ? <View style={styles.headAction}>{headerAction}</View> : null}
-              <Pressable onPress={close} hitSlop={10} style={styles.close} accessibilityLabel="关闭">
-                <ThemedIcon name="close" size={16} color={colors.textMuted} />
-              </Pressable>
-            </View>
+              </GestureDetector>
 
-            {segmented ? <View style={styles.segmentedWrap}>{segmented}</View> : null}
+              <View style={styles.head}>
+                {icon ? (
+                  <View style={styles.headIcon}>
+                    <ThemedIcon name={icon} size={16} color={colors.primary} />
+                  </View>
+                ) : null}
+                <View style={styles.headText}>
+                  <Text style={styles.title} numberOfLines={1}>{title}</Text>
+                  {subtitle ? <Text style={styles.subtitle} numberOfLines={2}>{subtitle}</Text> : null}
+                </View>
+                {headerAction ? <View style={styles.headAction}>{headerAction}</View> : null}
+                <Pressable onPress={close} hitSlop={10} style={styles.close} accessibilityLabel="关闭">
+                  <ThemedIcon name="close" size={16} color={colors.textMuted} />
+                </Pressable>
+              </View>
+
+              {segmented ? <View style={styles.segmentedWrap}>{segmented}</View> : null}
+            </View>
 
             <Animated.View style={[styles.flex, animatedReveal]}>
               {scroll ? (
@@ -373,6 +473,10 @@ export function BottomSheet({
                     styles.scrollContent,
                     { paddingBottom: footer ? 16 : insets.bottom + 16 },
                   ]}
+                  // P12：量内容自然高度（contentSize 已含上面 contentContainer 的 padding 与 gap）
+                  onContentSizeChange={effectiveAuto ? handleContentSizeChange : undefined}
+                  // P12：没超上限时内部不滚（"一屏看全"）；键盘压矮时例外，允许滚动
+                  scrollEnabled={!effectiveAuto || autoResolved.scrollable || keyboardVisible}
                   keyboardShouldPersistTaps="handled"
                   keyboardDismissMode="on-drag"
                   nestedScrollEnabled
@@ -387,7 +491,10 @@ export function BottomSheet({
 
             {/* v16 吸底 CTA：不在 ScrollView 内，内容再长按钮也不会被推走 */}
             {footer ? (
-              <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
+              <View
+                onLayout={effectiveAuto ? handleFooterLayout : undefined}
+                style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}
+              >
                 {footer}
                 {footerHint ? <Text style={styles.footerHint}>{footerHint}</Text> : null}
               </View>
