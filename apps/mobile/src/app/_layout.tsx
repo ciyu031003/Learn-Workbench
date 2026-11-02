@@ -22,6 +22,7 @@ import { UpdateSheet } from "@/components/update-sheet";
 import { StudyTimeTracker } from "@/components/study-time-tracker";
 import { secureToken } from "@/lib/secure-token";
 import { useAppStore } from "@/store/app-store";
+import { setMotionUserEnabled } from "@/theme/motion";
 import { migrateLegacySports } from "@/store/sport-legacy";
 import {
   classifyDeviceTier,
@@ -121,6 +122,17 @@ export default function RootLayout() {
   useEffect(() => {
     const raf = requestAnimationFrame(() => setFirstFramePainted(true));
     return () => cancelAnimationFrame(raf);
+  }, []);
+
+  /**
+   * 动效开关（v1.62 P2-2）：把持久化偏好应用到 theme/motion 的运行期 override，
+   * 并订阅 store —— 设置页关掉后立即全 App 生效（含已挂载页面），冷启动恢复上次选择。
+   * 注意只认显式 false（旧版本没有该字段时按「开」处理，不能把老用户误判成关闭）。
+   */
+  useEffect(() => {
+    const apply = (enabled: boolean | undefined) => setMotionUserEnabled(enabled !== false);
+    apply(useAppStore.getState().motionEnabled);
+    return useAppStore.subscribe((state) => apply(state.motionEnabled));
   }, []);
 
   const releaseSplash = useCallback(
@@ -291,6 +303,8 @@ function ThemedShell({ tier }: { tier: DeviceTier }) {
         <Stack.Screen name="quiz/review" />
         <Stack.Screen name="quiz/session" options={{ animation: "fade_from_bottom" }} />
         <Stack.Screen name="exam-408" />
+        {/* P2-3：全局搜索（本地内容库 + 408 搜索），从学习页 / 408 专区 header 进入 */}
+        <Stack.Screen name="search" options={{ animation: "fade_from_bottom" }} />
         {/* v1.55：408 精读（cs408 镜像）—— 目录 + 一屏一节阅读页 */}
         <Stack.Screen name="exam-408-study" />
         <Stack.Screen name="exam-408-study-read" />

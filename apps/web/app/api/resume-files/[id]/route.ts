@@ -6,6 +6,9 @@ import { verifyFileTicket } from "@/lib/file-ticket";
 import { withPrivateNoStore } from "@/lib/api/cache";
 import { parseBody } from "@/lib/http";
 import { contentTypeFor, isSafeResumePath, removeResumeFile, resumeAbsPath, resumeExtOf } from "@/lib/resume-files";
+// P2-1：简历领域标签白名单收进 shared 单一出口（Web 与 App 共用，避免两套常量）
+import { RESUME_LABELS, normalizeResumeLabel } from "@learn-workbench/shared/labels";
+import { logger } from "@/lib/logger";
 
 function parseId(raw: string): number | null {
   const n = Number(raw);
@@ -70,20 +73,59 @@ async function getImpl(req: Request, ctx: { params: Promise<{ id: string }> }) {
   });
 }
 
-/** DELETE /api/resume-files/[id] —— 删除自己的简历（软删 + 清文件） */
+/**
+ * P2-1 · 默认简历回溯：给该用户补一条默认（没有默认时把最近上传的一份设为默认）。
+ *
+ * 与 apps/web/app/api/resume-files/route.ts 的 ensureSingleDefault 同一条 SQL（两处各自持有，
+ * 避免跨 route 文件互相 import）。并发安全：UPDATE 内再判一次 NOT EXISTS，部分唯一索引
+ * uq_resume_files_default 兜底；失败只记日志（下次 GET 会再试，列表不受影响）。
+ */
+async function ensureSingleDefault(userId: string): Promise<string | null> {
+  try {
+    const { rows } = await pgPool.query<{ id: string }>(
+      `UPDATE resume_files SET is_default = true
+        WHERE id = (
+          SELECT id FROM resume_files
+           WHERE user_id = $1 AND deleted_at IS NULL
+           ORDER BY created_at DESC, id DESC
+           LIMIT 1
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM resume_files
+           WHERE user_id = $1 AND deleted_at IS NULL AND is_default
+        )
+       RETURNING id::text AS id`,
+      [userId]
+    );
+    return rows[0]?.id ?? null;
+  } catch (error) {
+    logger.error("resume-files: 默认简历回溯失败", error);
+    return null;
+  }
+}
+
+/**
+ * DELETE /api/resume-files/[id] —— 删除自己的简历（软删 + 清文件）
+ *
+ * P2-1：删掉的若是「默认简历」，自动把剩余最新一份提升为默认（返回 promoted 便于客户端即时更新）；
+ * 提升失败不影响删除结果（下次 GET 列表会自愈）。
+ */
 async function deleteImpl(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const id = parseId((await ctx.params).id);
   if (!id) return NextResponse.json({ error: "id 无效" }, { status: 400 });
   const userId = await currentUserId();
   if (!userId) return NextResponse.json({ error: "请先登录" }, { status: 401 });
 
-  const { rows } = await pgPool.query<{ path: string }>(
-    "UPDATE resume_files SET deleted_at = now() WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL RETURNING path",
+  const { rows } = await pgPool.query<{ path: string; isDefault: boolean }>(
+    'UPDATE resume_files SET deleted_at = now() WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL RETURNING path, is_default AS "isDefault"',
     [id, userId]
   );
   if (!rows[0]) return NextResponse.json({ error: "文件不存在" }, { status: 404 });
   await removeResumeFile(rows[0].path);
-  return NextResponse.json({ ok: true });
+
+  // 删的是默认简历 → 立刻提升剩余最新一份（不是默认的删除不需要动默认标记）
+  const promoted = rows[0].isDefault ? await ensureSingleDefault(userId) : null;
+  return NextResponse.json({ ok: true, promoted });
 }
 
 /** 显示名上限：file_name 会进 Content-Disposition，长度必须可控（App 端同值 80） */
@@ -132,11 +174,8 @@ function normalizeRenameInput(raw: string, storedExt: string | null): { ok: true
   return { ok: true, fileName };
 }
 
-/** 领域标签白名单（App 端 apps/mobile/src/lib/resume-files.ts 的 RESUME_LABELS 与本表同源） */
-const RESUME_LABELS = ["后端", "前端", "数据", "算法", "通用", "其他"] as const;
-
 /**
- * 解析 label 入参（P1-5）：
+ * 解析 label 入参（P1-5，白名单 P2-1 起来自 @learn-workbench/shared/labels）：
  * - 不传 → 不修改；
  * - null / 空串 / 纯空白 → 清除标签（写 NULL）；
  * - 其余必须是白名单里的值：**不允许自由文本**（否则客户端各写一套标签，筛选与展示都会失控）。
@@ -146,10 +185,11 @@ function parseLabelInput(value: unknown): { ok: true; label: string | null } | {
   if (typeof value !== "string") return { ok: false, error: "label 无效" };
   const trimmed = value.trim();
   if (!trimmed) return { ok: true, label: null };
-  if (!(RESUME_LABELS as readonly string[]).includes(trimmed)) {
+  const normalized = normalizeResumeLabel(trimmed);
+  if (!normalized) {
     return { ok: false, error: "label 必须是：" + RESUME_LABELS.join(" / ") };
   }
-  return { ok: true, label: trimmed };
+  return { ok: true, label: normalized };
 }
 
 /**

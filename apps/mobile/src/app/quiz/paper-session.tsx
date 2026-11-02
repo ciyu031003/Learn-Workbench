@@ -1,11 +1,13 @@
 import { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, Linking, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { Image } from "expo-image";
 import Animated from "react-native-reanimated";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
 import { CelebrationModal } from "@/components/celebration-modal";
+import { BottomSheet } from "@/components/bottom-sheet";
 import { QuestionSwipe } from "@/components/question-swipe";
 import { QuestionBlocks } from "@/components/question-blocks";
 import { RichText } from "@/components/rich-text";
@@ -52,6 +54,7 @@ function PaperSession({ year, start }: { year: number; start: number }) {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const header = useLargeTitleHeader();
   const tabBarSpace = useTabBarSpace();
+  const insets = useSafeAreaInsets();
   const entrance = useScreenEntrance();
   const [paper, setPaper] = useState<Exam408Paper | null>(null);
   const [index, setIndex] = useState(0);
@@ -64,6 +67,10 @@ function PaperSession({ year, start }: { year: number; start: number }) {
   const [error, setError] = useState("");
   /** v1.44：做完一套真题后的庆祝弹窗 */
   const [celebrate, setCelebrate] = useState<{ title: string; subtitle: string; badge: string; tone?: CelebrationTone } | null>(null);
+  /** P2-4：答题卡弹层 */
+  const [answerSheetOpen, setAnswerSheetOpen] = useState(false);
+  /** P2-4：整套交卷（交卷后所有题只读，可点答题卡逐题看解析） */
+  const [paperSubmitted, setPaperSubmitted] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -92,14 +99,24 @@ function PaperSession({ year, start }: { year: number; start: number }) {
   // 答案正文（去掉「答案：X」前缀后仍有内容才渲染富文本块）
   const answerBody = question ? cleanAnswerText(question.answerText) : "";
 
+  /** P2-4：整套进度统计（结果只在该题提交时写入，未提交的选项不算已答） */
+  const totalQuestions = paper?.questions.length ?? 0;
+  const answeredCount = Object.keys(results).length;
+  const correctCount = Object.values(results).filter((value) => value === "correct").length;
+  const wrongCount = Object.values(results).filter((value) => value === "wrong").length;
+  const reviewedCount = Object.values(results).filter((value) => value === "reviewed").length;
+  const unansweredCount = Math.max(0, totalQuestions - answeredCount);
+  /** 交卷后（或该题已提交）只读：禁止再改答案 */
+  const readOnly = submitted || paperSubmitted;
+
   const select = (letter: string) => {
-    if (!question || submitted) return;
+    if (!question || readOnly) return;
     setSelected(letter);
     setChosen((current) => ({ ...current, [question.number]: letter }));
   };
 
   const submit = () => {
-    if (!question || submitted) return;
+    if (!question || readOnly) return;
     if (question.type === "choice" && !selected) return;
     const nextResult: ResultKind =
       question.type === "comprehensive"
@@ -111,33 +128,36 @@ function PaperSession({ year, start }: { year: number; start: number }) {
     setSubmitted(true);
   };
 
+  /**
+   * v1.44：做完一整套 408 真题后庆祝（含本次实际作答的正确率）。
+   * 综合题按"已作答"计入总数，但不参与正确率分子 —— 与 FinishSession 的口径一致。
+   */
+  const celebrateIfAny = (sourceResults: Record<number, ResultKind> = results) => {
+    const choiceResults = Object.values(sourceResults);
+    const answered = choiceResults.filter((value) => value === "correct" || value === "wrong").length;
+    const correct = choiceResults.filter((value) => value === "correct").length;
+    if (answered === 0) return;
+    const percent = Math.round((correct / answered) * 100);
+    setCelebrate({
+      title: `${year} 年 408 真题 已完成`,
+      subtitle: celebrationSummary(correct, answered),
+      badge: `${percent}%`,
+      tone: celebrationTone(percent),
+    });
+  };
+
   const next = () => {
     if (!paper) return;
     if (index >= paper.questions.length - 1) {
       setFinished(true);
       haptics.success();
-      /**
-       * v1.44：做完一整套 408 真题后庆祝（含本次实际作答的正确率）。
-       * 综合题按"已作答"计入总数，但不参与正确率分子 —— 与 FinishSession 的口径一致。
-       */
-      const choiceResults = Object.values(results);
-      const answered = choiceResults.filter((value) => value === "correct" || value === "wrong").length;
-      const correct = choiceResults.filter((value) => value === "correct").length;
-      if (answered > 0) {
-        const percent = Math.round((correct / answered) * 100);
-        setCelebrate({
-          title: `${year} 年 408 真题 已完成`,
-          subtitle: celebrationSummary(correct, answered),
-          badge: `${percent}%`,
-          tone: celebrationTone(percent),
-        });
-      }
+      celebrateIfAny();
       return;
     }
     const nextQuestion = paper.questions[index + 1];
     setIndex((value) => value + 1);
     setSelected(nextQuestion ? chosen[nextQuestion.number] ?? "" : "");
-    setSubmitted(nextQuestion ? Boolean(results[nextQuestion.number]) : false);
+    setSubmitted(nextQuestion ? Boolean(results[nextQuestion.number]) || paperSubmitted : paperSubmitted);
   };
 
   const previous = () => {
@@ -145,7 +165,7 @@ function PaperSession({ year, start }: { year: number; start: number }) {
     const previousQuestion = paper.questions[index - 1];
     setIndex((value) => value - 1);
     setSelected(previousQuestion ? chosen[previousQuestion.number] ?? "" : "");
-    setSubmitted(previousQuestion ? Boolean(results[previousQuestion.number]) : false);
+    setSubmitted(previousQuestion ? Boolean(results[previousQuestion.number]) || paperSubmitted : paperSubmitted);
     setFinished(false);
   };
 
@@ -155,8 +175,28 @@ function PaperSession({ year, start }: { year: number; start: number }) {
     if (target < 0) return;
     setIndex(target);
     setSelected(chosen[number] ?? "");
-    setSubmitted(Boolean(results[number]));
+    setSubmitted(Boolean(results[number]) || paperSubmitted);
     setFinished(false);
+  };
+
+  /** P2-4：交卷 —— 未答完先确认；确认后整卷只读并进入总结页 */
+  const submitPaper = () => {
+    if (!paper) return;
+    const finish = () => {
+      haptics.success();
+      setAnswerSheetOpen(false);
+      setPaperSubmitted(true);
+      setFinished(true);
+      celebrateIfAny();
+    };
+    if (unansweredCount > 0) {
+      Alert.alert("确认交卷？", `还有 ${unansweredCount} 题未答，确认交卷？`, [
+        { text: "继续答题", style: "cancel" },
+        { text: "确认交卷", style: "destructive", onPress: finish },
+      ]);
+      return;
+    }
+    finish();
   };
 
   const restart = () => {
@@ -166,6 +206,9 @@ function PaperSession({ year, start }: { year: number; start: number }) {
     setResults({});
     setChosen({});
     setFinished(false);
+    setPaperSubmitted(false);
+    setAnswerSheetOpen(false);
+    setCelebrate(null);
   };
 
   if (loading) {
@@ -196,11 +239,19 @@ function PaperSession({ year, start }: { year: number; start: number }) {
         <FinishSession
           paper={paper}
           results={results}
+          unanswered={unansweredCount}
           onRestart={restart}
+          onReview={() => {
+            // P2-4：优先从第一道错题开始逐题回顾，没有错题就从第 1 题开始
+            const firstWrong = Object.entries(results).find(([, kind]) => kind === "wrong")?.[0];
+            setFinished(false);
+            jump(firstWrong ? Number(firstWrong) : paper.questions[0]?.number ?? 1);
+          }}
           onJump={(number) => {
             setFinished(false);
             jump(number);
           }}
+          onBack408={() => router.replace("/exam-408" as never)}
         />
         {/* v1.44：做完一整套真题的庆祝弹窗（烟花 + 彩带） */}
         <CelebrationModal
@@ -230,7 +281,24 @@ function PaperSession({ year, start }: { year: number; start: number }) {
             <Text style={styles.progressText}>
               第 {question?.number ?? 0} 题 / 共 {paper.questions.length} 题
             </Text>
-            <Text style={styles.progressPercent}>{Math.round(progress)}%</Text>
+            <View style={styles.progressRight}>
+              <Text style={styles.progressPercent}>{Math.round(progress)}%</Text>
+              <PressableScale
+                haptic
+                onPress={() => setAnswerSheetOpen(true)}
+                style={styles.sheetEntry}
+                accessibilityRole="button"
+                accessibilityLabel={`打开答题卡，已答 ${answeredCount} 题，共 ${totalQuestions} 题`}
+              >
+                <ThemedIcon name="grid-outline" size={14} color={colors.primary} />
+                <Text style={styles.sheetEntryText}>答题卡</Text>
+                <View style={styles.sheetEntryBadge}>
+                  <Text style={styles.sheetEntryBadgeText}>
+                    {answeredCount}/{totalQuestions}
+                  </Text>
+                </View>
+              </PressableScale>
+            </View>
           </View>
           <View style={styles.progressTrack}>
             <View style={[styles.progressFill, { width: `${Math.max(2, progress)}%` }]} />
@@ -271,14 +339,14 @@ function PaperSession({ year, start }: { year: number; start: number }) {
               <View style={styles.optionList}>
                 {question.options.map((option) => {
                   const active = selected === option.letter;
-                  const correct = submitted && question.answerLetter === option.letter;
-                  const wrong = submitted && active && question.answerLetter !== option.letter;
+                  const correct = readOnly && question.answerLetter === option.letter;
+                  const wrong = readOnly && active && question.answerLetter !== option.letter;
                   return (
                     <PressableScale
                       key={option.letter}
                       haptic
                       scaleTo={0.99}
-                      disabled={submitted}
+                      disabled={readOnly}
                       onPress={() => select(option.letter)}
                       style={[
                         styles.option,
@@ -306,20 +374,23 @@ function PaperSession({ year, start }: { year: number; start: number }) {
               </View>
             ) : null}
 
-            {submitted ? (
+            {readOnly ? (
               <View
                 style={[
                   styles.answerBox,
                   result === "wrong" && styles.answerBoxWrong,
                   result === "reviewed" && styles.answerBoxReview,
+                  !result && styles.answerBoxSkipped,
                 ]}
               >
                 <Text style={styles.answerTitle}>
                   {question.type === "comprehensive"
                     ? "参考答案"
-                    : result === "correct"
-                      ? "回答正确"
-                      : "回答错误"}
+                    : !result
+                      ? "本题未作答"
+                      : result === "correct"
+                        ? "回答正确"
+                        : "回答错误"}
                 </Text>
                 {question.answerLetter ? (
                   <Text selectable style={styles.answerText}>
@@ -373,7 +444,7 @@ function PaperSession({ year, start }: { year: number; start: number }) {
                 <Text style={styles.secondaryText}>上一题</Text>
               </PressableScale>
               <View style={styles.actionsRight}>
-                {!submitted ? (
+                {!readOnly ? (
                   <PressableScale
                     haptic
                     disabled={question.type === "choice" && !selected}
@@ -401,6 +472,150 @@ function PaperSession({ year, start }: { year: number; start: number }) {
           </QuestionSwipe>
         ) : null}
       </Animated.ScrollView>
+
+      {/* P2-4：固定底部操作条（答题卡 + 交卷），不遮挡内容（与滚动区同为 flex 列） */}
+      <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
+        <PressableScale
+          haptic
+          onPress={() => setAnswerSheetOpen(true)}
+          style={styles.bottomGhost}
+          accessibilityRole="button"
+          accessibilityLabel={`打开答题卡，已答 ${answeredCount} 题，共 ${totalQuestions} 题，未答 ${unansweredCount} 题`}
+        >
+          <ThemedIcon name="grid-outline" size={17} color={colors.primary} />
+          <Text style={styles.bottomGhostText}>答题卡</Text>
+          <Text style={styles.bottomGhostMeta}>
+            {answeredCount}/{totalQuestions}
+          </Text>
+        </PressableScale>
+        <PressableScale
+          haptic
+          onPress={paperSubmitted ? () => setFinished(true) : submitPaper}
+          style={styles.bottomPrimary}
+          accessibilityRole="button"
+          accessibilityLabel={paperSubmitted ? "查看交卷总结" : "交卷"}
+        >
+          <ThemedIcon name={paperSubmitted ? "stats-chart-outline" : "paper-plane-outline"} size={16} color="#FFFFFF" />
+          <Text style={styles.bottomPrimaryText}>{paperSubmitted ? "查看总结" : "交卷"}</Text>
+        </PressableScale>
+      </View>
+
+      {/* P2-4：答题卡（题号网格 5 列 + 状态色 + 统计 + 跳题） */}
+      <BottomSheet
+        visible={answerSheetOpen}
+        onClose={() => setAnswerSheetOpen(false)}
+        title={`${year} 年答题卡`}
+        subtitle={`已答 ${answeredCount}/${totalQuestions} · 正确 ${correctCount} · 错误 ${wrongCount}${reviewedCount > 0 ? ` · 查看 ${reviewedCount}` : ""}`}
+        icon="grid-outline"
+        height="76%"
+      >
+        <View style={styles.sheetStats}>
+          <SheetStat label="已答" value={`${answeredCount}/${totalQuestions}`} styles={styles} />
+          <SheetStat label="正确" value={`${correctCount}`} styles={styles} tone="success" />
+          <SheetStat label="错误" value={`${wrongCount}`} styles={styles} tone="danger" />
+          <SheetStat label="未答" value={`${unansweredCount}`} styles={styles} />
+        </View>
+
+        <View style={styles.sheetGrid}>
+          {paper.questions.map((item) => {
+            const kind = results[item.number];
+            const isCurrent = item.number === question?.number;
+            const cellStyle =
+              kind === "correct"
+                ? styles.cellCorrect
+                : kind === "wrong"
+                  ? styles.cellWrong
+                  : kind === "reviewed"
+                    ? styles.cellReviewed
+                    : styles.cellPending;
+            const textStyle =
+              kind === "correct"
+                ? styles.cellTextCorrect
+                : kind === "wrong"
+                  ? styles.cellTextWrong
+                  : kind === "reviewed"
+                    ? styles.cellTextReviewed
+                    : styles.cellTextPending;
+            const statusLabel =
+              kind === "correct" ? "已答对" : kind === "wrong" ? "已答错" : kind === "reviewed" ? "已查看" : "未作答";
+            return (
+              <PressableScale
+                key={item.number}
+                haptic
+                scaleTo={0.94}
+                onPress={() => {
+                  setAnswerSheetOpen(false);
+                  setFinished(false);
+                  jump(item.number);
+                }}
+                style={[styles.cell, cellStyle, isCurrent && styles.cellCurrent]}
+                accessibilityRole="button"
+                accessibilityLabel={`第 ${item.number} 题，${statusLabel}${isCurrent ? "，当前题" : ""}`}
+              >
+                <Text style={[styles.cellText, textStyle]}>{item.number}</Text>
+              </PressableScale>
+            );
+          })}
+        </View>
+
+        <View style={styles.legend}>
+          <LegendDot styles={styles} label="已答对" tone="success" />
+          <LegendDot styles={styles} label="已答错" tone="danger" />
+          <LegendDot styles={styles} label="已查看" tone="primary" />
+          <LegendDot styles={styles} label="未作答" tone="muted" />
+          <LegendDot styles={styles} label="当前题" tone="current" />
+        </View>
+      </BottomSheet>
+    </View>
+  );
+}
+
+/** 答题卡统计格（已答 / 正确 / 错误 / 未答） */
+function SheetStat({
+  label,
+  value,
+  styles,
+  tone = "muted",
+}: {
+  label: string;
+  value: string;
+  styles: ReturnType<typeof makeStyles>;
+  tone?: "success" | "danger" | "muted";
+}) {
+  const valueStyle =
+    tone === "success" ? styles.sheetStatValueSuccess : tone === "danger" ? styles.sheetStatValueDanger : styles.sheetStatValue;
+  return (
+    <View style={styles.sheetStat}>
+      <Text style={[styles.sheetStatValueBase, valueStyle]}>{value}</Text>
+      <Text style={styles.sheetStatLabel}>{label}</Text>
+    </View>
+  );
+}
+
+/** 答题卡图例点 */
+function LegendDot({
+  label,
+  tone,
+  styles,
+}: {
+  label: string;
+  tone: "success" | "danger" | "primary" | "muted" | "current";
+  styles: ReturnType<typeof makeStyles>;
+}) {
+  const dotStyle =
+    tone === "success"
+      ? styles.legendDotSuccess
+      : tone === "danger"
+        ? styles.legendDotDanger
+        : tone === "primary"
+          ? styles.legendDotPrimary
+          : tone === "current"
+            ? styles.legendDotCurrent
+            : styles.legendDotMuted;
+  return (
+    <View style={styles.legendItem}>
+      <View style={[styles.legendDot, dotStyle]} />
+      <Text style={styles.legendLabel}>{label}</Text>
     </View>
   );
 }
@@ -408,19 +623,28 @@ function PaperSession({ year, start }: { year: number; start: number }) {
 function FinishSession({
   paper,
   results,
+  unanswered,
   onRestart,
+  onReview,
   onJump,
+  onBack408,
 }: {
   paper: Exam408Paper;
   results: Record<number, ResultKind>;
+  /** P2-4：未答题数（交卷时仍未作答的题） */
+  unanswered: number;
   onRestart: () => void;
+  onReview: () => void;
   onJump: (number: number) => void;
+  onBack408: () => void;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const correct = Object.values(results).filter((item) => item === "correct").length;
   const wrong = Object.values(results).filter((item) => item === "wrong").length;
   const reviewed = Object.values(results).filter((item) => item === "reviewed").length;
+  const answered = correct + wrong;
+  const accuracy = answered > 0 ? Math.round((correct / answered) * 100) : 0;
   const score = paper.questions.reduce(
     (total, question) => total + (results[question.number] === "correct" ? question.points : 0),
     0
@@ -435,19 +659,31 @@ function FinishSession({
         <View style={styles.finishIcon}>
           <ThemedIcon name="trophy-outline" size={34} color={colors.primary} />
         </View>
-        <Text style={styles.finishTitle}>{paper.paper.year} 年真题刷题完成</Text>
+        <Text style={styles.finishTitle}>{paper.paper.year} 年真题已完成</Text>
         <Text style={styles.finishText}>
-          选择题答对 {correct} 题、答错 {wrong} 题；综合题已查看参考答案 {reviewed} 题。
+          客观题答对 {correct} 题、答错 {wrong} 题、未答 {unanswered} 题；综合题查看参考答案 {reviewed} 题。
         </Text>
         <View style={styles.finishMetrics}>
           <FinishMetric value={`${score}`} label="客观题得分" styles={styles} />
+          <FinishMetric value={`${accuracy}%`} label="正确率" styles={styles} />
           <FinishMetric value={`${correct}`} label="答对" styles={styles} />
-          <FinishMetric value={`${wrong}`} label="需复盘" styles={styles} />
+          <FinishMetric value={`${wrong}`} label="答错" styles={styles} />
+          <FinishMetric value={`${unanswered}`} label="未答" styles={styles} />
         </View>
-        <PressableScale haptic scaleTo={0.98} onPress={onRestart} style={styles.primaryButton}>
-          <ThemedIcon name="refresh" size={17} color="#FFFFFF" />
-          <Text style={styles.primaryButtonText}>重新刷一遍</Text>
+        <PressableScale haptic scaleTo={0.98} onPress={onReview} style={styles.primaryButton}>
+          <ThemedIcon name="eye-outline" size={17} color="#FFFFFF" />
+          <Text style={styles.primaryButtonText}>查看解析</Text>
         </PressableScale>
+        <View style={styles.finishSecondaryRow}>
+          <PressableScale haptic onPress={onRestart} style={styles.finishSecondary}>
+            <ThemedIcon name="refresh" size={16} color={colors.textSecondary} />
+            <Text style={styles.secondaryText}>再来一遍</Text>
+          </PressableScale>
+          <PressableScale haptic onPress={onBack408} style={styles.finishSecondary}>
+            <ThemedIcon name="arrow-back" size={16} color={colors.textSecondary} />
+            <Text style={styles.secondaryText}>返回 408</Text>
+          </PressableScale>
+        </View>
       </View>
 
       {wrongNumbers.length > 0 ? (
@@ -467,11 +703,6 @@ function FinishSession({
           </View>
         </View>
       ) : null}
-
-      <PressableScale haptic onPress={() => router.replace(`/quiz/paper/${paper.paper.year}` as never)} style={styles.secondaryButton}>
-        <ThemedIcon name="arrow-back" size={17} color={colors.textSecondary} />
-        <Text style={styles.secondaryText}>返回试卷首页</Text>
-      </PressableScale>
     </View>
   );
 }
@@ -550,7 +781,55 @@ const makeStyles = (colors: ThemeColors) =>
     centerTitle: { ...typography.title2, color: colors.text, textAlign: "center" },
     centerText: { ...typography.callout, color: colors.textMuted, textAlign: "center" },
     progressHead: { gap: spacing.sm },
-    progressTextRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    progressTextRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
+    progressRight: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+    sheetEntry: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 999,
+      backgroundColor: colors.primarySoft,
+    },
+    sheetEntryText: { ...typography.caption, fontWeight: "800", color: colors.primary },
+    sheetEntryBadge: { paddingHorizontal: 5, borderRadius: 999, backgroundColor: colors.surface },
+    sheetEntryBadgeText: { ...typography.micro, fontWeight: "800", color: colors.primary },
+
+    /* P2-4 固定底部操作条 */
+    bottomBar: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.sm,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+      backgroundColor: colors.canvas,
+    },
+    bottomGhost: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      minHeight: 46,
+      borderRadius: radius.lg,
+      backgroundColor: colors.primarySoft,
+    },
+    bottomGhostText: { ...typography.callout, fontWeight: "700", color: colors.primary },
+    bottomGhostMeta: { ...typography.caption, fontWeight: "700", color: colors.primary },
+    bottomPrimary: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      minHeight: 46,
+      borderRadius: radius.lg,
+      backgroundColor: colors.primary,
+    },
+    bottomPrimaryText: { ...typography.callout, fontWeight: "800", color: "#FFFFFF" },
     progressText: { ...typography.caption, color: colors.textSecondary },
     progressPercent: { ...typography.caption, fontWeight: "800", color: colors.primary },
     progressTrack: { height: 7, borderRadius: radius.pill, overflow: "hidden", backgroundColor: colors.surfaceMuted },
@@ -629,6 +908,10 @@ const makeStyles = (colors: ThemeColors) =>
     videoText: { ...typography.callout, fontWeight: "700", color: colors.primary },
     swipeHintRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4 },
     swipeHintText: { ...typography.micro, color: colors.textFaint },
+    answerBoxSkipped: {
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceMuted,
+    },
     actions: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
     actionsRight: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
     primaryButton: {
@@ -686,9 +969,22 @@ const makeStyles = (colors: ThemeColors) =>
     },
     finishTitle: { ...typography.title1, color: colors.text, textAlign: "center" },
     finishText: { ...typography.callout, color: colors.textMuted, textAlign: "center" },
-    finishMetrics: { width: "100%", flexDirection: "row", gap: spacing.sm },
+    finishMetrics: { width: "100%", flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+    finishSecondaryRow: { width: "100%", flexDirection: "row", gap: spacing.sm },
+    finishSecondary: {
+      flex: 1,
+      minHeight: 44,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      borderRadius: radius.lg,
+      backgroundColor: colors.surfaceMuted,
+    },
     finishMetric: {
       flex: 1,
+      flexBasis: "29%",
+      minWidth: 88,
       alignItems: "center",
       borderRadius: radius.md,
       padding: spacing.md,
@@ -702,4 +998,50 @@ const makeStyles = (colors: ThemeColors) =>
     wrongWrap: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
     wrongChip: { minHeight: 40, borderRadius: radius.md, paddingHorizontal: spacing.md, justifyContent: "center", backgroundColor: colors.dangerSoft },
     wrongChipText: { ...typography.caption, fontWeight: "800", color: colors.danger },
+
+    /* P2-4 答题卡 */
+    sheetStats: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md },
+    sheetStat: {
+      flex: 1,
+      alignItems: "center",
+      gap: 2,
+      paddingVertical: spacing.sm,
+      borderRadius: radius.md,
+      backgroundColor: colors.surfaceMuted,
+    },
+    sheetStatValueBase: { ...typography.title2, fontVariant: ["tabular-nums"] },
+    sheetStatValue: { color: colors.text },
+    sheetStatValueSuccess: { color: colors.success },
+    sheetStatValueDanger: { color: colors.danger },
+    sheetStatLabel: { ...typography.micro, color: colors.textMuted },
+    sheetGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginBottom: spacing.md },
+    cell: {
+      width: "17.5%",
+      minHeight: 46,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: "transparent",
+      backgroundColor: colors.surfaceMuted,
+    },
+    cellPending: { backgroundColor: colors.surfaceMuted },
+    cellCorrect: { backgroundColor: colors.successSoft, borderColor: colors.success },
+    cellWrong: { backgroundColor: colors.dangerSoft, borderColor: colors.danger },
+    cellReviewed: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
+    cellCurrent: { borderWidth: 2, borderColor: colors.text },
+    cellText: { ...typography.callout, fontWeight: "800", fontVariant: ["tabular-nums"] },
+    cellTextPending: { color: colors.textMuted },
+    cellTextCorrect: { color: colors.success },
+    cellTextWrong: { color: colors.danger },
+    cellTextReviewed: { color: colors.primary },
+    legend: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, paddingTop: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+    legendItem: { flexDirection: "row", alignItems: "center", gap: 4 },
+    legendDot: { width: 10, height: 10, borderRadius: 5, borderWidth: 1, borderColor: "transparent" },
+    legendDotSuccess: { backgroundColor: colors.successSoft, borderColor: colors.success },
+    legendDotDanger: { backgroundColor: colors.dangerSoft, borderColor: colors.danger },
+    legendDotPrimary: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
+    legendDotMuted: { backgroundColor: colors.surfaceMuted },
+    legendDotCurrent: { borderWidth: 2, borderColor: colors.text },
+    legendLabel: { ...typography.micro, color: colors.textMuted },
   });

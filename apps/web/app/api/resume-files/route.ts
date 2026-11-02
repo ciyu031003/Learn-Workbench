@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { pgPool } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
 import { withPrivateNoStore } from "@/lib/api/cache";
+import { logger } from "@/lib/logger";
 import {
   contentTypeFor,
   RESUME_MAX_BYTES,
@@ -14,6 +15,41 @@ import {
 const SELECT_COLS =
   "id::text AS id, file_name AS \"fileName\", mime, bytes, created_at AS \"createdAt\", label, is_default AS \"isDefault\"";
 
+/**
+ * P2-1 · 默认简历回溯（老数据自愈）。
+ *
+ * 091 只加了 is_default 列、没有回溯历史数据，所以升级后老用户的简历可能一份默认都没有。
+ * 这里在列表读取时补一次：**有简历但没有任何默认** → 把最近上传的一份设为默认。
+ * - 并发安全：UPDATE 内部再判一次 NOT EXISTS，另有部分唯一索引 uq_resume_files_default 兜底；
+ * - 失败只记日志、不影响列表返回（下次读取会再试）；
+ * - 返回被提升的 id（string），用于让本次响应与库保持一致。
+ *
+ * 与 apps/web/app/api/resume-files/[id]/route.ts 的 ensureSingleDefault 同一条 SQL。
+ */
+async function ensureSingleDefault(userId: string): Promise<string | null> {
+  try {
+    const { rows } = await pgPool.query<{ id: string }>(
+      `UPDATE resume_files SET is_default = true
+        WHERE id = (
+          SELECT id FROM resume_files
+           WHERE user_id = $1 AND deleted_at IS NULL
+           ORDER BY created_at DESC, id DESC
+           LIMIT 1
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM resume_files
+           WHERE user_id = $1 AND deleted_at IS NULL AND is_default
+        )
+       RETURNING id::text AS id`,
+      [userId]
+    );
+    return rows[0]?.id ?? null;
+  } catch (error) {
+    logger.error("resume-files: 默认简历回溯失败", error);
+    return null;
+  }
+}
+
 /** GET /api/resume-files —— 我的简历文件列表（不含文件本体） */
 async function getImpl() {
   const userId = await currentUserId();
@@ -22,13 +58,16 @@ async function getImpl() {
     "SELECT " + SELECT_COLS + " FROM resume_files WHERE user_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC, id DESC",
     [userId]
   );
+  // 一行默认都没有且有简历 → 自动提升最新一份（返回后本次响应也要标记它）
+  const hasDefault = rows.some((r) => Boolean(r.isDefault));
+  const promotedId = rows.length > 0 && !hasDefault ? await ensureSingleDefault(userId) : null;
   return NextResponse.json({
     // 091：label 为 null 表示未打标；isDefault 用布尔（pg 返回 boolean，转义一次防脏驱动）
     files: rows.map((r) => ({
       ...r,
       bytes: Number(r.bytes),
       label: typeof r.label === "string" && r.label ? r.label : null,
-      isDefault: Boolean(r.isDefault),
+      isDefault: Boolean(r.isDefault) || (promotedId !== null && String(r.id) === promotedId),
     })),
     maxBytes: RESUME_MAX_BYTES,
   });

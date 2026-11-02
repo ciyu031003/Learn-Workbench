@@ -29,6 +29,40 @@ export const resumeSectionKeyLabels: Record<ResumeSectionKey, string> = {
   certificates: "证书",
 };
 
+/* ---------- 简历文件领域标签（P1-5 引入，P2-1 收进 shared 单一出口） ---------- */
+
+/**
+ * 简历「领域标签」白名单（顺序即界面上的 chip 顺序）。
+ *
+ * 使用方：
+ * - Web：apps/web/app/api/resume-files/[id]/route.ts（PATCH 校验 + 错误文案）
+ * - App：apps/mobile/src/lib/resume-files.ts（re-export 给组件/测试）
+ *
+ * 只允许这 6 个值（或 null 清除）：自由文本会让筛选与展示各写一套，不可控。
+ */
+export const RESUME_LABELS = ["后端", "前端", "数据", "算法", "通用", "其他"] as const;
+
+export type ResumeLabel = (typeof RESUME_LABELS)[number];
+
+/** 「其他」标签：白名单里的兜底档，专项筛选时一般排最后 */
+export const RESUME_LABEL_OTHER: ResumeLabel = "其他";
+
+/** 是否是白名单内的领域标签（容忍首尾空白） */
+export function isResumeLabel(value: unknown): value is ResumeLabel {
+  return typeof value === "string" && (RESUME_LABELS as readonly string[]).includes(value.trim());
+}
+
+/**
+ * 归一化领域标签（服务端脏数据 / 客户端入参共用）：
+ * - 白名单值（容忍首尾空白）→ 原值；
+ * - null / 空串 / 白名单外的脏值 / 非字符串 → null（= 未打标）。
+ */
+export function normalizeResumeLabel(value: unknown): ResumeLabel | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return (RESUME_LABELS as readonly string[]).includes(trimmed) ? (trimmed as ResumeLabel) : null;
+}
+
 export const RESUME_TEMPLATES: ResumeTemplate[] = [
   {
     key: "classic",

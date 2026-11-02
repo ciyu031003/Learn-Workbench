@@ -10,6 +10,22 @@
  * 为什么单独成文件：组件里只留 UI 状态，规范化逻辑可单测（非法字符/扩展名保留/超长）。
  */
 
+import {
+  RESUME_LABEL_OTHER,
+  RESUME_LABELS,
+  isResumeLabel,
+  normalizeResumeLabel,
+  type ResumeLabel,
+} from "@learn-workbench/shared/labels";
+
+/**
+ * P2-1：领域标签白名单已收进 `packages/shared/src/labels.ts`（Web 与 App 单一出口）。
+ * 这里 re-export 保持既有调用方（组件 / 测试）的 import 路径不变；
+ * 客户端只从 `@learn-workbench/shared/labels` 子路径导入，不会把 zod 拉进首屏。
+ */
+export { RESUME_LABEL_OTHER, RESUME_LABELS, isResumeLabel, normalizeResumeLabel };
+export type { ResumeLabel };
+
 export const RESUME_FILE_NAME_MAX = 80;
 export const RESUME_EXTENSIONS = ["pdf", "doc", "docx"] as const;
 export type ResumeExt = (typeof RESUME_EXTENSIONS)[number];
@@ -136,30 +152,9 @@ export function resumeFileMetaText(input: {
 /* 领域标签 / 默认简历（P1-5）                                          */
 /* ------------------------------------------------------------------ */
 
-/**
- * 领域标签白名单。
- *
- * 与 Web 端 apps/web/app/api/resume-files/[id]/route.ts 的 RESUME_LABELS **同源**：
- * 服务端只接受这 6 个值（或 null 清除），客户端不做"自由文本"输入 —— 两边各写一套
- * 标签会让筛选与展示失控。
- */
-export const RESUME_LABELS = ["后端", "前端", "数据", "算法", "通用", "其他"] as const;
-export type ResumeLabel = (typeof RESUME_LABELS)[number];
-
-export function isResumeLabel(value: unknown): value is ResumeLabel {
-  return typeof value === "string" && (RESUME_LABELS as readonly string[]).includes(value.trim());
-}
-
-/**
- * 服务端 label → 展示用标签：
- * - 接受白名单值（容忍首尾空白）；
- * - null / 空串 / 白名单外的脏值一律当「未打标」（返回 null），不把脏字符串渲染给用户。
- */
-export function normalizeResumeLabel(value: unknown): ResumeLabel | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return (RESUME_LABELS as readonly string[]).includes(trimmed) ? (trimmed as ResumeLabel) : null;
-}
+/* ------------------------------------------------------------------ */
+/* 领域标签 / 默认简历的展示层纯函数（白名单本身来自 shared/labels）       */
+/* ------------------------------------------------------------------ */
 
 /** 标签展示文案（未打标 → 「未标注」） */
 export function resumeLabelText(label: string | null | undefined): string {

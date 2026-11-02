@@ -4,8 +4,12 @@ import {
   HOT_CITIES,
   OTHER_PROVINCE,
   PROVINCE_CITIES,
+  RESUME_LABEL_OTHER,
+  RESUME_LABELS,
   SUPPORTED_CITIES,
   cityProvinceLabel,
+  isResumeLabel,
+  normalizeResumeLabel,
   getCitiesOfProvince,
   getProvinceOfCity,
   groupCitiesByProvince,
@@ -128,3 +132,33 @@ describe("searchCities（搜索匹配）", () => {
     expect(searchCities("火星", ["深圳", "火星市"])).toEqual(["火星市"]);
   });
 });
+
+describe("RESUME_LABELS（简历领域标签 · P2-1 单一出口）", () => {
+  it("白名单固定 6 档且顺序即界面顺序", () => {
+    expect(RESUME_LABELS).toEqual(["后端", "前端", "数据", "算法", "通用", "其他"]);
+    expect(RESUME_LABEL_OTHER).toBe("其他");
+    expect(RESUME_LABELS).toContain(RESUME_LABEL_OTHER);
+  });
+
+  it("isResumeLabel：只认白名单值（容忍首尾空白）", () => {
+    for (const label of RESUME_LABELS) expect(isResumeLabel(label)).toBe(true);
+    expect(isResumeLabel(" 算法 ")).toBe(true);
+    expect(isResumeLabel("全栈")).toBe(false);
+    expect(isResumeLabel("")).toBe(false);
+    expect(isResumeLabel("   ")).toBe(false);
+    expect(isResumeLabel(null)).toBe(false);
+    expect(isResumeLabel(42)).toBe(false);
+  });
+
+  it("normalizeResumeLabel：白名单值原样返回，其余一律 null（未打标）", () => {
+    expect(normalizeResumeLabel("前端")).toBe("前端");
+    expect(normalizeResumeLabel(" 数据 ")).toBe("数据");
+    expect(normalizeResumeLabel("全栈")).toBeNull();
+    expect(normalizeResumeLabel("")).toBeNull();
+    expect(normalizeResumeLabel("   ")).toBeNull();
+    expect(normalizeResumeLabel(null)).toBeNull();
+    expect(normalizeResumeLabel(undefined)).toBeNull();
+    expect(normalizeResumeLabel({ label: "后端" })).toBeNull();
+  });
+});
+

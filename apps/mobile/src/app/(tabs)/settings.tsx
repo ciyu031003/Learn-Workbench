@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useHeaderTopInset } from "@/components/screen-header";
-import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, PixelRatio, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import Animated from "react-native-reanimated";
 import { computeStreak } from "@learn-workbench/shared/domains";
 import { useAppStore } from "@/store/app-store";
@@ -37,6 +37,7 @@ import { haptics } from "@/lib/haptics";
 import type { ThemeColors, ThemeMode } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { radius, spacing, typography } from "@/theme/tokens";
+import { setMotionUserEnabled } from "@/theme/motion";
 
 /**
  * 「我的」设置页（v1.62 P0-4b 重构）。
@@ -73,6 +74,20 @@ export default function SettingsScreen() {
 
   const backgroundEnabled = useAppStore((s) => s.backgroundEnabled);
   const toggleBackground = useAppStore((s) => s.toggleBackground);
+  // 只认显式 false（老版本持久化里没有该字段 → 默认开，不能显示成关闭）
+  const motionEnabled = useAppStore((s) => s.motionEnabled !== false);
+  const setMotionEnabled = useAppStore((s) => s.setMotionEnabled);
+  /**
+   * 动效开关（真实生效）：写持久化偏好 + 立刻作用到 theme/motion 的运行期 override。
+   * 根布局 _layout 也订阅了 store，双保险（设置页直接调是为了点击即生效、不等下一帧）。
+   */
+  const toggleMotion = (next: boolean) => {
+    haptics.soft();
+    setMotionEnabled(next);
+    setMotionUserEnabled(next);
+  };
+  /** 系统字号倍数（只读展示；改字号走系统设置，见「字体大小」行） */
+  const fontScale = useMemo(() => PixelRatio.getFontScale(), []);
   const resetAll = useAppStore((s) => s.resetAll);
   const resetForLogout = useAppStore((s) => s.resetForLogout);
   const progress = useAppStore((s) => s.progress);
@@ -365,7 +380,44 @@ export default function SettingsScreen() {
           title="每日背景图"
           subtitle="每天自动更换风景壁纸"
           right={<Switch value={backgroundEnabled} onValueChange={toggleBackground} trackColor={{ true: colors.primary }} />}
+        />
+        {/* v1.62 P2-2：动效开关（真实生效，关掉后全 App 装饰动效停止） */}
+        <ListRow
+          icon="sparkles-outline"
+          iconColor={colors.lavender}
+          iconBg={colors.surfaceMuted}
+          title="动效"
+          subtitle={
+            motionEnabled
+              ? "入场、按压与庆祝动画正常播放"
+              : "已关闭 · 所有装饰动效停用（等同系统「减弱动态」）"
+          }
+          right={<Switch value={motionEnabled} onValueChange={toggleMotion} trackColor={{ true: colors.primary }} />}
+          accessibilityLabel={motionEnabled ? "动效已开启，点此关闭" : "动效已关闭，点此开启"}
+        />
+        {/* 字体大小：不做假开关，直接跳系统设置改字号 */}
+        <ListRow
+          icon="options-outline"
+          iconColor={colors.primary}
+          iconBg={colors.primarySoft}
+          title="字体大小"
+          subtitle="在系统设置中调整字号后返回生效"
+          value={"跟随系统 · " + fontScale.toFixed(2) + "×"}
+          showChevron
+          onPress={() => void Linking.openSettings().catch(() => {})}
+          accessibilityLabel={"字体大小跟随系统，当前 " + fontScale.toFixed(2) + " 倍，点此打开系统设置"}
+        />
+        {/* 通知权限：本工程未接 expo-notifications（不新增依赖），只做系统设置入口，不伪造状态开关 */}
+        <ListRow
+          icon="alert-circle"
+          iconColor={colors.accent}
+          iconBg={colors.accentSoft}
+          title="通知权限"
+          subtitle="在系统设置中开启"
+          showChevron
+          onPress={() => void Linking.openSettings().catch(() => {})}
           last={domains.length === 0}
+          accessibilityLabel="通知权限，在系统设置中开启，点此打开系统设置"
         />
         {/* 学习领域（原「学习与数据」组内嵌块）：偏好项，保留全部逻辑 */}
         {domains.length > 0 ? (

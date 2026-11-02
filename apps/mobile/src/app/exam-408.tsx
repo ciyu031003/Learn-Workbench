@@ -294,6 +294,16 @@ function Exam408Content({ track }: { track: LearningTrack }) {
             <Text style={styles.heroTitle}>408 考研专区</Text>
             <Text style={styles.heroText}>四科知识体系 · 章节真题 · 历年整卷，一处进入。</Text>
           </View>
+          <PressableScale
+            hitSlop={8}
+            scaleTo={0.92}
+            style={styles.heroSearch}
+            onPress={() => router.push("/search" as never)}
+            accessibilityRole="button"
+            accessibilityLabel="搜索 408 精读与知识点"
+          >
+            <ThemedIcon name="search" size={18} color={colors.primary} />
+          </PressableScale>
         </View>
         <View style={styles.heroStats}>
           <HeroStat value={String(stats.points)} label="知识点" styles={styles} />
@@ -1271,6 +1281,14 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       backgroundColor: colors.surfaceStrong,
     },
     heroBody: { flex: 1, gap: 3 },
+    heroSearch: {
+      width: 34,
+      height: 34,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: radius.pill,
+      backgroundColor: colors.primarySoft,
+    },
     heroTitle: { ...typography.title2, color: colors.text },
     heroText: { ...typography.caption, color: colors.textSecondary },
     heroStats: { flexDirection: "row", gap: spacing.sm },

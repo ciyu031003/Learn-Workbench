@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/db", () => ({ pgPool: { query: vi.fn() } }));
 vi.mock("@/lib/session", () => ({ currentUserId: vi.fn() }));
+vi.mock("@/lib/logger", () => ({ logger: { error: vi.fn() } }));
 vi.mock("@/lib/resume-files", () => ({
   RESUME_MAX_BYTES: 5 * 1024 * 1024,
   validateResumeFile: vi.fn(() => ({ ok: true, ext: "pdf" })),
@@ -12,12 +13,14 @@ vi.mock("@/lib/resume-files", () => ({
 
 import { pgPool } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
+import { logger } from "@/lib/logger";
 import { validateResumeFile } from "@/lib/resume-files";
 import { GET, POST } from "./route";
 
 const queryMock = vi.mocked(pgPool.query);
 const userMock = vi.mocked(currentUserId);
 const validateMock = vi.mocked(validateResumeFile);
+const logErrorMock = vi.mocked(logger.error);
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -133,4 +136,63 @@ describe("POST /api/resume-files · 首个上传自动默认（P1-5）", () => {
     expect(body.file.label).toBeNull();
   });
 });
+
+describe("GET /api/resume-files · 默认简历回溯（P2-1）", () => {
+  const row = (id: string, isDefault = false) => ({
+    id,
+    fileName: "简历-" + id + ".pdf",
+    mime: "application/pdf",
+    bytes: "1024",
+    label: null,
+    isDefault,
+  });
+
+  it("有简历但没有任何默认 → 自动把最新一份（列表首行）设为默认，本次响应同步标记", async () => {
+    userMock.mockResolvedValue("u-1");
+    queryMock
+      .mockResolvedValueOnce({ rows: [row("9"), row("3")] } as never) // SELECT
+      .mockResolvedValueOnce({ rows: [{ id: "9" }] } as never); // 回溯 UPDATE
+    const res = await GET();
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.files[0].isDefault).toBe(true);
+    expect(body.files[1].isDefault).toBe(false);
+    expect(queryMock).toHaveBeenCalledTimes(2);
+    const [sql, args] = queryMock.mock.calls[1];
+    expect(String(sql)).toContain("UPDATE resume_files SET is_default = true");
+    expect(String(sql)).toContain("NOT EXISTS");
+    expect(String(sql)).toContain("ORDER BY created_at DESC, id DESC");
+    expect(args).toEqual(["u-1"]);
+  });
+
+  it("已有默认 → 不再回溯（只查一次库）", async () => {
+    userMock.mockResolvedValue("u-1");
+    queryMock.mockResolvedValueOnce({ rows: [row("9", true), row("3")] } as never);
+    const body = await (await GET()).json();
+    expect(body.files[0].isDefault).toBe(true);
+    expect(body.files[1].isDefault).toBe(false);
+    expect(queryMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("空列表 → 不执行回溯（无简历可提升）", async () => {
+    userMock.mockResolvedValue("u-1");
+    queryMock.mockResolvedValueOnce({ rows: [] } as never);
+    const body = await (await GET()).json();
+    expect(body.files).toEqual([]);
+    expect(queryMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("回溯失败 → 列表仍 200（catch 记日志，下次读取再试）", async () => {
+    userMock.mockResolvedValue("u-1");
+    queryMock
+      .mockResolvedValueOnce({ rows: [row("9")] } as never)
+      .mockRejectedValueOnce(new Error("db down"));
+    const res = await GET();
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.files[0].isDefault).toBe(false);
+    expect(logErrorMock).toHaveBeenCalled();
+  });
+});
+
 

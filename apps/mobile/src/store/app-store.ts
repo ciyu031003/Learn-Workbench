@@ -127,6 +127,12 @@ interface AppState {
   sessions: LocalSession[];
   checkins: string[];
   backgroundEnabled: boolean;
+  /**
+   * 动效开关（v1.62 P2-2）：false = 全 App 装饰动效停止（与系统「减弱动态」同一条降级路径）。
+   * 持久化在本 store（AsyncStorage 拆分存储里的偏好键）；启动时由 _layout 应用到
+   * theme/motion 的模块级 override，运行期由设置页直接改。
+   */
+  motionEnabled: boolean;
   token: string | null;
   username: string | null;
   /** 当前登录账号的归属标识（取 username；未登录/无法判定为 null）。用于 pendingChanges 打标 + 换账号清空旧发件箱（S1-6） */
@@ -166,6 +172,8 @@ interface AppState {
   addSession: (taskId: number | null, seconds: number, label?: string | null) => void;
   toggleBackground: () => void;
   setEdgeSwipeEnabled: (enabled: boolean) => void;
+  /** 动效开关（真实生效）：写偏好 + 由设置页/根布局同步到 theme/motion 的运行期 override */
+  setMotionEnabled: (enabled: boolean) => void;
   /** 清空本机业务数据（保留登录态与偏好）：设置页「清空本机数据」用 */
   resetAll: () => void;
   /**
@@ -240,6 +248,7 @@ export const useAppStore = create<AppState>()(
       sessions: [],
       checkins: [],
       backgroundEnabled: true,
+      motionEnabled: true,
       themeMode: "system" as ThemeMode,
       token: null,
       username: null,
@@ -423,6 +432,9 @@ export const useAppStore = create<AppState>()(
 
       toggleBackground: () => set((s) => ({ backgroundEnabled: !s.backgroundEnabled })),
       setEdgeSwipeEnabled: (enabled) => set({ edgeSwipeEnabled: enabled }),
+      // 只改偏好；运行期 override 由调用方（设置页开关 / _layout 启动订阅）同步到 theme/motion，
+      // 这样 store 不需要 import 带 reanimated 的模块（node 单测才能继续加载本文件）。
+      setMotionEnabled: (enabled) => set({ motionEnabled: enabled !== false }),
       setThemeMode: (mode) => set({ themeMode: mode }),
       resetAll: () =>
         set({

@@ -62,6 +62,7 @@ const EXPECTED_ROUTES = [
   "/resume",
   "/resume-preview",
   "/roadmap",
+  "/search",
   "/settings",
   "/sports-card",
   "/study-stats",

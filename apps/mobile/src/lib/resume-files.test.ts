@@ -1,4 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import {
+  RESUME_LABELS as SHARED_RESUME_LABELS,
+  normalizeResumeLabel as sharedNormalizeResumeLabel,
+} from "@learn-workbench/shared/labels";
 import {
   RESUME_FILE_NAME_MAX,
   RESUME_LABELS,
@@ -205,6 +211,20 @@ describe("默认简历（P1-5）", () => {
     const missing = applyResumeDefault(files, 99);
     expect(missing.map((f) => f.isDefault)).toEqual([true, false]);
     expect(applyResumeDefault([], 1)).toEqual([]);
+  });
+});
+
+describe("P2-1：白名单来自 shared 单一出口", () => {
+  it("re-export 的是 shared 的同一个引用（不是本地副本）", () => {
+    expect(RESUME_LABELS).toBe(SHARED_RESUME_LABELS);
+    expect(normalizeResumeLabel).toBe(sharedNormalizeResumeLabel);
+  });
+
+  it("客户端只从 labels 子路径导入，不拉 zod 根入口", () => {
+    const source = readFileSync(fileURLToPath(new URL("./resume-files.ts", import.meta.url)), "utf8");
+    expect(source).toContain('from "@learn-workbench/shared/labels"');
+    expect(source).not.toMatch(/from "@learn-workbench\/shared"/);
+    expect(source).not.toContain('"@learn-workbench/shared/schemas"');
   });
 });
 

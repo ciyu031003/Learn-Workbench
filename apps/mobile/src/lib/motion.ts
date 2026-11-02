@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { AccessibilityInfo } from "react-native";
 import { motion as legacyMotion } from "@/theme/tokens";
-import { motion as motionTokens } from "@/theme/motion";
+import { getMotionUserEnabled, motion as motionTokens, subscribeMotionUserEnabled } from "@/theme/motion";
 
 /**
  * 动效词汇表（组件侧入口）
@@ -83,11 +83,28 @@ export const ANIM = {
 } as const;
 
 /**
- * 系统是否开启「减弱动态效果」。
- * 订阅 reduceMotionChanged，系统开关切换后已挂载的组件会立即跟随。
+ * 用户级动效开关（v1.62 P2-2 设置页「动效」）：关掉后返回 true。
+ *
+ * 为什么并进 useReducedMotion 而不是加一个新 hook：
+ * 全 App 的降级判断都统一写成 `reduced ? undefined : FadeInDown...` 或
+ * `isMotionActive(useReducedMotion())`。把用户开关折叠进这个值，
+ * 40+ 个调用点**零改动**即可全量生效（入场动画、按压缩放、庆祝弹层、脉冲）。
+ */
+function useUserMotionDisabled(): boolean {
+  return useSyncExternalStore(
+    subscribeMotionUserEnabled,
+    () => !getMotionUserEnabled(),
+    () => !getMotionUserEnabled()
+  );
+}
+
+/**
+ * 是否应"减弱动态"：系统「减弱动态效果」开启 **或** 用户在设置页关掉了动效。
+ * 订阅 reduceMotionChanged 与用户开关，任一变化后已挂载的组件会立即跟随。
  */
 export function useReducedMotion(): boolean {
   const [reduced, setReduced] = useState(false);
+  const userDisabled = useUserMotionDisabled();
 
   useEffect(() => {
     let alive = true;
@@ -105,10 +122,10 @@ export function useReducedMotion(): boolean {
     };
   }, []);
 
-  return reduced;
+  return reduced || userDisabled;
 }
 
-/** 需要动画时长时的便捷读取：减弱动态效果下返回 0 */
+/** 需要动画时长时的便捷读取：减弱动态效果 / 用户关闭动效时返回 0 */
 export function useMotionDuration(duration: number): number {
   const reduced = useReducedMotion();
   return reduced ? 0 : duration;

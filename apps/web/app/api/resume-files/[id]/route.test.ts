@@ -4,6 +4,7 @@ vi.mock("@/lib/db", () => ({ pgPool: { query: vi.fn(), connect: vi.fn() } }));
 vi.mock("@/lib/session", () => ({ currentUserId: vi.fn() }));
 vi.mock("@/lib/file-ticket", () => ({ verifyFileTicket: vi.fn() }));
 vi.mock("node:fs/promises", () => ({ readFile: vi.fn(async () => Buffer.from("PDFDATA")) }));
+vi.mock("@/lib/logger", () => ({ logger: { error: vi.fn() } }));
 vi.mock("@/lib/resume-files", () => ({
   contentTypeFor: () => "application/pdf",
   // 按存储路径推扩展名：docx 用例要能拿到 "docx"（与 lib/resume-files.ts 的 resumeExtOf 同义）
@@ -15,11 +16,13 @@ vi.mock("@/lib/resume-files", () => ({
 
 import { pgPool } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
+import { logger } from "@/lib/logger";
 import { verifyFileTicket } from "@/lib/file-ticket";
 import { GET, DELETE, PATCH } from "./route";
 
 const queryMock = vi.mocked(pgPool.query);
 const connectMock = vi.mocked(pgPool.connect);
+const logErrorMock = vi.mocked(logger.error);
 const userMock = vi.mocked(currentUserId);
 const ticketMock = vi.mocked(verifyFileTicket);
 const ctx = (id: string) => ({ params: Promise.resolve({ id }) });
@@ -111,6 +114,63 @@ describe("DELETE /api/resume-files/[id]", () => {
     queryMock.mockResolvedValue({ rows: [] } as never);
     const res = await DELETE(new Request("http://localhost", { method: "DELETE" }), ctx("1"));
     expect(res.status).toBe(404);
+  });
+
+  it("删的是默认简历 → 自动提升剩余最新一份为默认（返回 promoted）", async () => {
+    userMock.mockResolvedValue("u-1");
+    queryMock
+      .mockResolvedValueOnce({
+        rows: [{ path: "2f1b1f2e-0000-4000-8000-000000000000/abc.pdf", isDefault: true }],
+      } as never)
+      .mockResolvedValueOnce({ rows: [{ id: "7" }] } as never);
+    const res = await DELETE(new Request("http://localhost", { method: "DELETE" }), ctx("1"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.promoted).toBe("7");
+    expect(queryMock).toHaveBeenCalledTimes(2);
+    const [sql, args] = queryMock.mock.calls[1];
+    expect(String(sql)).toContain("UPDATE resume_files SET is_default = true");
+    expect(String(sql)).toContain("NOT EXISTS");
+    expect(args).toEqual(["u-1"]);
+  });
+
+  it("删的不是默认 → 不触发提升（只有删除那条 UPDATE）", async () => {
+    userMock.mockResolvedValue("u-1");
+    queryMock.mockResolvedValueOnce({
+      rows: [{ path: "2f1b1f2e-0000-4000-8000-000000000000/abc.pdf", isDefault: false }],
+    } as never);
+    const res = await DELETE(new Request("http://localhost", { method: "DELETE" }), ctx("1"));
+    const body = await res.json();
+    expect(body.promoted).toBeNull();
+    expect(queryMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("删完最后一份（是默认但没有剩余）→ promoted 为 null，删除照常成功", async () => {
+    userMock.mockResolvedValue("u-1");
+    queryMock
+      .mockResolvedValueOnce({
+        rows: [{ path: "2f1b1f2e-0000-4000-8000-000000000000/abc.pdf", isDefault: true }],
+      } as never)
+      .mockResolvedValueOnce({ rows: [] } as never);
+    const res = await DELETE(new Request("http://localhost", { method: "DELETE" }), ctx("1"));
+    expect(res.status).toBe(200);
+    expect((await res.json()).promoted).toBeNull();
+  });
+
+  it("提升失败 → 删除仍成功（200 ok / promoted null / 记日志，下次 GET 自愈）", async () => {
+    userMock.mockResolvedValue("u-1");
+    queryMock
+      .mockResolvedValueOnce({
+        rows: [{ path: "2f1b1f2e-0000-4000-8000-000000000000/abc.pdf", isDefault: true }],
+      } as never)
+      .mockRejectedValueOnce(new Error("db down"));
+    const res = await DELETE(new Request("http://localhost", { method: "DELETE" }), ctx("1"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.promoted).toBeNull();
+    expect(logErrorMock).toHaveBeenCalled();
   });
 });
 

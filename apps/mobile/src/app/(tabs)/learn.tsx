@@ -748,6 +748,16 @@ export default function LearnScreen() {
             {routeSummary.done}/{routeSummary.total} 主题 · 今日 {learningSummary.today} 题
           </Text>
         </View>
+        <PressableScale
+          hitSlop={8}
+          scaleTo={0.92}
+          style={styles.headerSearch}
+          onPress={() => router.push("/search" as never)}
+          accessibilityRole="button"
+          accessibilityLabel="全局搜索"
+        >
+          <ThemedIcon name="search" size={18} color={colors.textMuted} />
+        </PressableScale>
         <View style={styles.headerRing}>
           <RingProgress size={46} strokeWidth={5} progress={routeSummary.percent / 100} />
           <View pointerEvents="none" style={styles.headerRingLabel}>
@@ -1253,7 +1263,15 @@ const makeStyles = (colors: ThemeColors) =>
     headerBody: { flex: 1, gap: 2 },
     headerTitle: { ...typography.title1, color: colors.text },
     headerMeta: { ...typography.caption, color: colors.textMuted },
-    headerRing: { width: 46, height: 46, alignItems: "center", justifyContent: "center" },
+    headerSearch: {
+    width: 30,
+    height: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceMuted,
+  },
+  headerRing: { width: 46, height: 46, alignItems: "center", justifyContent: "center" },
     headerRingLabel: {
       position: "absolute",
       top: 0,
