@@ -4,9 +4,14 @@ import { Alert, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { ThemedIcon } from "@/components/themed-icon";
 import { ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
-import { SectionHeader } from "@/components/section-header";
+import { PageHead } from "@/components/v2/page-head";
+import { SectionTitle } from "@/components/v2/section-title";
+import { MetricGrid } from "@/components/v2/metric-grid";
+import { ActionCard } from "@/components/v2/action-card";
+import { BarChart } from "@/components/v2/bar-chart";
+import { Card } from "@/components/card";
+import { EmptyState } from "@/components/empty-state";
 import { EntryCard } from "@/components/entry-card";
-import { StatStrip } from "@/components/stat-strip";
 import { PressableScale } from "@/components/pressable-scale";
 import { SkeletonCard } from "@/components/skeleton";
 import { ListGroup } from "@/components/list-row";
@@ -15,7 +20,7 @@ import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useScrollToTopHandler } from "@/lib/scroll-to-top";
 import { computeReadiness, WEAKEST_LABEL } from "@/lib/readiness";
 import { useTheme } from "@/theme";
-import { spacing, typography } from "@/theme/tokens";
+import { radius, spacing, tabularNums, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { useFocusRefresh } from "@/lib/use-focus-refresh";
@@ -24,6 +29,7 @@ import { addHydration, fetchHydration, fetchWeight, type HydrationToday, type We
 import { toDaySummaryMap, todayAndYesterday } from "@/lib/nutrition-views";
 import { haptics } from "@/lib/haptics";
 import { getApiUrl } from "@/config";
+import { fromDateKey, toDateKey } from "@learn-workbench/shared/dates";
 
 interface DailyOs {
   learning: { tasksTotal: number; tasksDone: number; focusMinutes: number };
@@ -43,16 +49,46 @@ interface DailyOs {
 /** 训练默认目标（分钟）：只用于「训练」卡的 meta 提示，口径与旧版 exerciseTarget 一致 */
 const EXERCISE_TARGET_MIN = 30;
 
+/** 无记录的统一占位（三态里的「无记录」档，与空态文案共用） */
+const NO_RECORD = "—";
+
+/** 周柱图的星期标签：周一 → 周日（与饮食页 WEEK_TILE_LABELS 同序） */
+const WEEKDAY_SHORT = ["日", "一", "二", "三", "四", "五", "六"] as const;
+
 /**
- * 健康 Hub（v1.62 P0-4a 重构）
+ * 以 `todayKey` 为终点的 7 个**本地**日期键（today-6 … today）。
+ * 与 `/api/nutrition/summary?days=7` 的窗口完全一致 —— 后端也是「以今天为终点往前 7 天」，
+ * 所以柱图能逐日对上，不会出现"周一还显示上上周"的错位。
+ */
+function lastSevenKeys(todayKey: string): string[] {
+  const base = fromDateKey(todayKey);
+  const keys: string[] = [];
+  for (let i = 6; i >= 0; i--) {
+    keys.push(toDateKey(new Date(base.getFullYear(), base.getMonth(), base.getDate() - i)));
+  }
+  return keys;
+}
+
+/** 日期键 → 单字星期（柱图 x 轴标签） */
+function weekdayShort(dateKey: string): string {
+  return WEEKDAY_SHORT[fromDateKey(dateKey).getDay()];
+}
+
+/**
+ * 健康 Hub（v2.0 重排 · 原型 V3「页头 → 指标带 → 行动卡 → 周趋势 → 更多」）
  *
- * 结构：紧凑 header（标题 + 今日分/结论）→ 今日状态 StatStrip 三格（摄入 / 训练 / 饮水）
- *      → 今日动作 2×2 mid 入口（饮食剩余额度 / 饮水 +250ml / 训练记录 / 体重趋势）
- *      → 趋势 2 张 hero（运动闪光卡 / 趋势分析）→ 更多 2 行（习惯打卡 / 领域追踪）。
+ * 结构：① PageHead（eyebrow + 标题 + 说明）+ 今日状态行（readiness 分数 / 最短板）
+ *      → ② MetricGrid 三格（饮水 / 训练 / 睡眠，三态：有数据 / 无记录「—」/ 失败保留上次）
+ *      → ③ 2×2 ActionCard（饮食记录 / 饮水 +250ml / 训练记录 / 睡眠）
+ *      → ④ SectionTitle「本周趋势」+ BarChart（7 天，今日高亮；无记录走空态）
+ *      → ⑤ 「更多」入口（习惯打卡 / 领域追踪 / 体重趋势 / 趋势分析 / 运动闪光卡，全部保留）
  *
- * 数据口径与交互完全沿用改造前：/api/daily、/api/wellbeing/hydration、/api/nutrition/summary、
- * /api/workouts、fetchWeight 五路拉取 + useFocusRefresh/下拉刷新 + 饮水乐观增量（先 +250 再写服务端，
- * 失败回滚并提示）。训练记录合并进「训练记录」卡，不再单独占一行；首屏入口 = 4 + 2 + 2 = 8（≤9）。
+ * 数据口径与交互**完全沿用改造前**：/api/daily、/api/wellbeing/hydration、/api/nutrition/summary、
+ * /api/workouts、fetchWeight 五路并行拉取（各自独立降级，互不拖垮）+ useFocusRefresh/下拉刷新
+ * + 饮水乐观增量（先 +250 再写服务端，失败回滚并提示）。聚合接口失败时保留上次数据并给「重试」条。
+ *
+ * 睡眠：当前端内没有睡眠数据源（接口与本地库都没有），按方案「睡眠若无数据用 —」处理：
+ * 指标格恒为「—」，行动卡把用户导向可自定义计量的「领域追踪」，不编造数据。
  * 动效只沿用 PressableScale 按压与既有入场错峰（不新增动效点）。
  */
 export default function WellnessScreen() {
@@ -70,7 +106,8 @@ export default function WellnessScreen() {
   const [loading, setLoading] = useState(true);
   const [weightPoints, setWeightPoints] = useState<WeightPointDto[]>([]);
   const [weekWorkouts, setWeekWorkouts] = useState(0);
-  const [weekRows, setWeekRows] = useState<{ entryCount: number; kcal: number }[]>([]);
+  /** 近 7 天逐日饮食行（带日期，供柱图逐日对上；旧版只留了 entryCount/kcal） */
+  const [weekRows, setWeekRows] = useState<{ date: string; entryCount: number; kcal: number }[]>([]);
   /**
    * 饮水与饮食改为「与饮食页同源」的两路数据：
    * - 饮水直接用 /api/wellbeing/hydration（饮食页也是它）；
@@ -81,6 +118,8 @@ export default function WellnessScreen() {
   const [todayKcal, setTodayKcal] = useState<number | null>(null);
   /** 聚合接口失败时的显式状态（不再静默显示 0） */
   const [dailyFailed, setDailyFailed] = useState(false);
+  /** 饮食趋势接口失败：与「本周没记录」区分开，空态里给重试而不是假空 */
+  const [summaryFailed, setSummaryFailed] = useState(false);
   /** 正在补水的乐观增量（ml） */
   const [waterDelta, setWaterDelta] = useState(0);
 
@@ -110,9 +149,13 @@ export default function WellnessScreen() {
         const d = await summaryRes.json();
         // ⚠️ 后端返回的是**数组**（逐日行），统一用 toDaySummaryMap 解析
         const map = toDaySummaryMap(d.summary);
-        const rows = Object.values(map);
-        setWeekRows(rows.map((r) => ({ entryCount: r.entryCount, kcal: r.kcal })));
+        const rows = Object.values(map).sort((a, b) => (a.date < b.date ? -1 : 1));
+        setWeekRows(rows.map((r) => ({ date: r.date, entryCount: r.entryCount, kcal: r.kcal })));
         setTodayKcal(map[todayKey]?.kcal ?? 0);
+        setSummaryFailed(false);
+      } else {
+        // 单独降级：饮食趋势失败只影响「本周趋势」，别把页头/行动卡一起打挂
+        setSummaryFailed(true);
       }
       if (hydrationRes) {
         setHydration(hydrationRes);
@@ -136,7 +179,7 @@ export default function WellnessScreen() {
   const habitPct =
     data && data.habits.scheduled > 0 ? Math.round((data.habits.done / data.habits.scheduled) * 100) : 0;
 
-  // 今日状态分（readiness）：保留原算法，只用于 header 的分数与一句结论
+  // 今日状态分（readiness）：保留原算法，只用于页头下方的一行状态（分数 + 结论）
   const readiness = useMemo(
     () =>
       computeReadiness({
@@ -156,17 +199,36 @@ export default function WellnessScreen() {
   const dietKcal = todayKcal ?? data?.fitness.nutritionKcal ?? 0;
   const dietTarget = data?.fitness.nutritionTargetKcal ?? 2000;
   const dietRemaining = data?.fitness.nutritionRemainingKcal ?? (data ? dietTarget - dietKcal : 0);
-  const dietPct = dietTarget > 0 ? Math.min(100, Math.round((dietKcal / dietTarget) * 100)) : 0;
 
   const exerciseMinutes = data?.fitness.workoutMinutes ?? 0;
 
   // 饮水以 /api/wellbeing/hydration 为准（与饮食页同一数据源），加上乐观增量
   const waterMl = (hydration?.totalMl ?? data?.hydration?.totalMl ?? 0) + waterDelta;
   const waterTarget = hydration?.targetMl ?? data?.hydration?.targetMl ?? 2000;
-  const waterPct = Math.min(100, Math.round((waterMl / Math.max(1, waterTarget)) * 100));
 
   const recordDays = weekRows.filter((row) => row.entryCount > 0).length;
   const avgKcal = recordDays > 0 ? Math.round(weekRows.reduce((sum, row) => sum + row.kcal, 0) / recordDays) : 0;
+
+  /** 近 7 天的柱图数据：value = 当日热量 / 目标热量（0–1），今天高亮 */
+  const trendKeys = useMemo(() => lastSevenKeys(todayKey), [todayKey]);
+  const trendMap = useMemo(() => {
+    const map: Record<string, { entryCount: number; kcal: number }> = {};
+    for (const row of weekRows) map[row.date] = row;
+    return map;
+  }, [weekRows]);
+  const trendItems = useMemo(
+    () =>
+      trendKeys.map((key) => {
+        const row = trendMap[key];
+        const logged = (row?.entryCount ?? 0) > 0;
+        return {
+          label: weekdayShort(key),
+          value: logged ? Math.min(1, (row?.kcal ?? 0) / Math.max(1, dietTarget)) : 0,
+          highlight: key === todayKey,
+        };
+      }),
+    [trendKeys, trendMap, dietTarget, todayKey]
+  );
 
   const latestWeight = weightPoints.length > 0 ? weightPoints[weightPoints.length - 1].weightKg : null;
   const weightDelta =
@@ -175,7 +237,7 @@ export default function WellnessScreen() {
       : null;
 
   /**
-   * 就地补水：**先乐观更新**（点一下立刻看到数字与进度条变化），
+   * 就地补水：**先乐观更新**（点一下立刻看到数字与柱图/指标变化），
    * 再写服务端；失败则回滚并明确提示（旧版静默 catch，用户看到的就是"点了没反应"）。
    */
   const quickWater = async (ml: number) => {
@@ -210,6 +272,10 @@ export default function WellnessScreen() {
           ? `${latestWeight} kg · 近 30 天持平`
           : `${latestWeight} kg · 近 30 天 ${weightDelta > 0 ? "+" : ""}${weightDelta} kg`;
 
+  /* 三态口径：有记录 → 数值；今天没记录 → 「—」；接口失败 → 保留上一次（不改 state） */
+  const waterRecorded = waterMl > 0;
+  const trainingRecorded = exerciseMinutes > 0;
+
   return (
     <View style={styles.root}>
       <ScreenHeaderStickyBar title="健康" scrollY={headerScroll.scrollY} />
@@ -222,17 +288,26 @@ export default function WellnessScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl {...control} />}
       >
-        {/* ① 紧凑 header：标题 + 今日分（去掉原 LargeTitle 大标题/副标题） */}
-        <View style={styles.pageHead}>
-          <View style={styles.pageHeadText}>
-            <Text style={styles.pageTitle}>健康</Text>
-            <Text style={styles.pageSubtitle} numberOfLines={1}>
+        {/* ① 页头：eyebrow + 27px 标题 + 说明；今日状态（readiness）作为页头右下的一行 */}
+        <View style={styles.headBlock}>
+          <PageHead
+            eyebrow="PERSONAL WORKSPACE"
+            title="健康"
+            subtitle="用轻量记录照顾状态，让学习与职业成长保持可持续。"
+            style={styles.pageHead}
+          />
+          <View style={styles.statusRow}>
+            <Text style={styles.statusHint} numberOfLines={1}>
               {readiness.weakest ? "今天最短板 · " + WEAKEST_LABEL[readiness.weakest] : readiness.verdict}
             </Text>
-          </View>
-          <View style={styles.scoreChip}>
-            <Text style={styles.scoreValue}>{readiness.score}</Text>
-            <Text style={styles.scoreUnit}>分</Text>
+            <View
+              style={styles.scoreChip}
+              accessible
+              accessibilityLabel={`今日状态 ${readiness.score} 分`}
+            >
+              <Text style={styles.scoreValue}>{readiness.score}</Text>
+              <Text style={styles.scoreUnit}>分</Text>
+            </View>
           </View>
         </View>
 
@@ -254,94 +329,126 @@ export default function WellnessScreen() {
           </PressableScale>
         ) : null}
 
-        {/* ② 今日状态：StatStrip 三格（摄入 / 训练 / 饮水，饮水含乐观增量） */}
+        {/* ② 指标带三格：饮水 / 训练 / 睡眠（有数据 → 数值；无记录 → 「—」；失败保留上次） */}
         <Animated.View entering={entrance(0)}>
           {loading && !data ? (
             <SkeletonCard count={1} />
           ) : (
-            <StatStrip
+            <MetricGrid
               items={[
-                { label: "今日摄入", value: dietKcal, unit: "kcal", tone: "accent" },
-                { label: "今日训练", value: exerciseMinutes, unit: "min", tone: "primary" },
-                { label: "今日饮水", value: waterMl, unit: "ml", tone: "teal" },
+                {
+                  icon: "water-outline",
+                  value: waterRecorded ? waterMl : NO_RECORD,
+                  unit: waterRecorded ? "ml" : undefined,
+                  label: "饮水",
+                  tone: "teal",
+                },
+                {
+                  icon: "barbell-outline",
+                  value: trainingRecorded ? exerciseMinutes : NO_RECORD,
+                  unit: trainingRecorded ? "min" : undefined,
+                  label: "训练",
+                  tone: "primary",
+                },
+                {
+                  icon: "moon-outline",
+                  value: NO_RECORD,
+                  label: "睡眠",
+                },
               ]}
             />
           )}
         </Animated.View>
 
-        {/* ③ 今日动作 2×2：饮食剩余 / 饮水 +250 / 训练记录 / 体重趋势 */}
-        <SectionHeader title="今日动作" />
+        {/* ③ 今日动作 2×2：饮食记录 / 饮水 +250ml / 训练记录 / 睡眠 */}
+        <SectionTitle title="今日动作" />
         <Animated.View style={styles.grid} entering={entrance(1)}>
-          <EntryCard
-            size="mid"
-            icon="restaurant-outline"
-            tone="accent"
-            title="饮食"
-            meta={dietMeta}
-            progress={dietPct / 100}
-            style={styles.gridItem}
-            onPress={() => router.push("/nutrition" as never)}
-          />
-          <EntryCard
-            size="mid"
-            icon="water-outline"
-            tone="teal"
-            title="饮水"
-            meta={`${waterMl} / ${waterTarget} ml · 点一下 +250`}
-            progress={waterPct / 100}
-            style={styles.gridItem}
-            accessibilityLabel="记录 250 毫升饮水"
-            onPress={() => void quickWater(250)}
-          />
-          <EntryCard
-            size="mid"
-            icon="barbell-outline"
-            tone="primary"
-            title="训练记录"
-            meta={workoutMeta}
-            style={styles.gridItem}
-            onPress={() => router.push("/workout" as never)}
-          />
-          <EntryCard
-            size="mid"
-            icon="body-outline"
-            tone="success"
-            title="体重趋势"
-            meta={weightMeta}
-            style={styles.gridItem}
-            onPress={() => router.push("/nutrition" as never)}
-          />
+          <View style={styles.gridItem}>
+            <ActionCard
+              icon="restaurant-outline"
+              tone="accent"
+              title="饮食记录"
+              subtitle={dietMeta}
+              actionLabel="记一餐"
+              onAction={() => router.push("/nutrition" as never)}
+            />
+          </View>
+          <View style={styles.gridItem}>
+            <ActionCard
+              icon="water-outline"
+              tone="teal"
+              title="饮水"
+              subtitle={`${waterMl} / ${waterTarget} ml · 点一下 +250`}
+              actionLabel="+250ml"
+              onAction={() => void quickWater(250)}
+            />
+          </View>
+          <View style={styles.gridItem}>
+            <ActionCard
+              icon="barbell-outline"
+              tone="primary"
+              title="训练记录"
+              subtitle={workoutMeta}
+              actionLabel="记训练"
+              onAction={() => router.push("/workout" as never)}
+            />
+          </View>
+          <View style={styles.gridItem}>
+            <ActionCard
+              icon="moon-outline"
+              tone="success"
+              title="睡眠"
+              subtitle="还没有睡眠记录 · 可在「领域追踪」按日记录时长"
+              actionLabel="去记录"
+              onAction={() => router.push("/trackers" as never)}
+            />
+          </View>
         </Animated.View>
 
-        {/* ④ 趋势：2 张 hero 卡 */}
-        <SectionHeader title="趋势" />
-        <Animated.View style={styles.stack} entering={entrance(2)}>
-          <EntryCard
-            size="hero"
-            icon="sparkles-outline"
-            tone="warning"
-            title="运动闪光卡"
-            meta="战绩 · 装备 · 绝技，实时镭射卡面"
-            cta="打开我的卡"
-            onPress={() => router.push("/sports-card" as never)}
-          />
-          <EntryCard
-            size="hero"
-            icon="stats-chart-outline"
-            tone="teal"
-            title="趋势分析"
-            meta={
-              recordDays > 0
-                ? `近 7 天饮食记录 ${recordDays} 天 · 均 ${avgKcal} kcal · 训练负荷一屏看`
-                : "饮食热量 · 运动时长 · 训练负荷，全屏一起看"
-            }
-            cta="看趋势"
-            onPress={() => router.push("/trends" as never)}
-          />
+        {/* ④ 本周趋势：7 天柱图（今日高亮）；没有任何记录时走空态，不画一条全 0 的图 */}
+        <SectionTitle title="本周趋势" />
+        <Animated.View entering={entrance(2)}>
+          {loading && !data ? (
+            <SkeletonCard count={1} />
+          ) : recordDays > 0 ? (
+            <Card style={styles.trendCard}>
+              <View style={styles.trendHead}>
+                <View style={styles.trendHeadText}>
+                  <Text style={styles.trendValue}>{avgKcal}</Text>
+                  <Text style={styles.trendCaption}>近 7 天日均 kcal</Text>
+                </View>
+                <Text style={styles.trendMeta}>{recordDays}/7 天有记录</Text>
+              </View>
+              <BarChart items={trendItems} height={96} />
+              <Text style={styles.trendFoot}>柱高按每日目标 {dietTarget} kcal 计</Text>
+            </Card>
+          ) : summaryFailed ? (
+            <Card style={styles.trendCard}>
+              <EmptyState
+                pattern="none"
+                icon="cloud-offline-outline"
+                title="本周趋势没加载出来"
+                hint="网络似乎不太顺，点一下重试；其他卡片的数据照常显示。"
+                actionLabel="重试"
+                onAction={() => void load()}
+              />
+            </Card>
+          ) : (
+            <Card style={styles.trendCard}>
+              <EmptyState
+                pattern="none"
+                icon="stats-chart-outline"
+                title="本周还没有饮食记录"
+                hint="记一餐之后，这里会按天画出热量柱图，今天会高亮显示。"
+                actionLabel="去记一餐"
+                onAction={() => router.push("/nutrition" as never)}
+              />
+            </Card>
+          )}
         </Animated.View>
 
-        {/* ⑤ 更多：习惯打卡、领域追踪（训练记录已合并进「训练记录」卡） */}
-        <SectionHeader title="更多" />
+        {/* ⑤ 更多：习惯打卡 / 领域追踪 / 体重趋势 / 趋势分析 / 运动闪光卡（既有入口一个都不删） */}
+        <SectionTitle title="更多" />
         <Animated.View entering={entrance(3)}>
           <ListGroup>
             <EntryCard
@@ -363,8 +470,36 @@ export default function WellnessScreen() {
               tone="primary"
               title="领域追踪"
               meta="跑量 · 体重 · 通用计量"
-              last
               onPress={() => router.push("/trackers" as never)}
+            />
+            <EntryCard
+              size="row"
+              icon="body-outline"
+              tone="success"
+              title="体重趋势"
+              meta={weightMeta}
+              onPress={() => router.push("/nutrition" as never)}
+            />
+            <EntryCard
+              size="row"
+              icon="stats-chart-outline"
+              tone="teal"
+              title="趋势分析"
+              meta={
+                recordDays > 0
+                  ? `近 7 天饮食记录 ${recordDays} 天 · 均 ${avgKcal} kcal · 训练负荷一屏看`
+                  : "饮食热量 · 运动时长 · 训练负荷，全屏一起看"
+              }
+              onPress={() => router.push("/trends" as never)}
+            />
+            <EntryCard
+              size="row"
+              icon="sparkles-outline"
+              tone="warning"
+              title="运动闪光卡"
+              meta="战绩 · 装备 · 绝技，实时镭射卡面"
+              last
+              onPress={() => router.push("/sports-card" as never)}
             />
           </ListGroup>
         </Animated.View>
@@ -379,21 +514,21 @@ const makeStyles = (colors: ThemeColors) =>
     scroll: { flex: 1, backgroundColor: "transparent" },
     content: { paddingHorizontal: spacing.lg, gap: spacing.md },
 
-    /* 紧凑 header */
-    pageHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md },
-    pageHeadText: { flex: 1, minWidth: 0, gap: 2 },
-    pageTitle: { ...typography.title2, color: colors.text },
-    pageSubtitle: { ...typography.caption, color: colors.textMuted },
+    /* 页头 + 今日状态行 */
+    headBlock: { gap: 10 },
+    pageHead: { marginBottom: 0 },
+    statusRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
+    statusHint: { flex: 1, minWidth: 0, ...typography.meta, color: colors.textMuted },
     scoreChip: {
       flexDirection: "row",
       alignItems: "baseline",
       gap: 2,
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: 999,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: radius.pill,
       backgroundColor: colors.primarySoft,
     },
-    scoreValue: { ...typography.title2, fontWeight: "800", color: colors.primary },
+    scoreValue: { ...typography.num, color: colors.primary },
     scoreUnit: { ...typography.caption, color: colors.primary },
 
     /* 错误态 */
@@ -401,7 +536,7 @@ const makeStyles = (colors: ThemeColors) =>
       flexDirection: "row",
       alignItems: "center",
       gap: 8,
-      borderRadius: 12,
+      borderRadius: radius.control,
       borderWidth: 1,
       borderColor: colors.danger,
       backgroundColor: colors.dangerSoft,
@@ -410,10 +545,16 @@ const makeStyles = (colors: ThemeColors) =>
     },
     errorText: { flex: 1, ...typography.caption, fontWeight: "600", color: colors.danger },
 
-    /* 今日动作 2×2 */
+    /* 今日动作 2×2（外层定宽，ActionCard 自身 flex:1 只负责填满格子） */
     grid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
-    gridItem: { width: "47.5%", flexGrow: 1 },
+    gridItem: { width: "47.5%" },
 
-    /* 趋势 hero 堆叠 */
-    stack: { gap: spacing.sm },
+    /* 本周趋势 */
+    trendCard: { gap: spacing.md },
+    trendHead: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: spacing.sm },
+    trendHeadText: { flex: 1, minWidth: 0 },
+    trendValue: { ...typography.hero, ...tabularNums, color: colors.text },
+    trendCaption: { ...typography.meta, color: colors.textMuted },
+    trendMeta: { ...typography.meta, color: colors.textFaint },
+    trendFoot: { ...typography.meta, color: colors.textFaint },
   });

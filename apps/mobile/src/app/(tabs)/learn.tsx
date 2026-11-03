@@ -7,14 +7,18 @@ import { ThemedIcon } from "@/components/themed-icon";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useScreenEntrance } from "@/lib/use-screen-entrance";
 import { useScrollToTopHandler } from "@/lib/scroll-to-top";
-import { Card } from "@/components/card";
 import { EntryCard } from "@/components/entry-card";
 import { GroupLabel } from "@/components/group-label";
-import { RingProgress } from "@/components/ring-progress";
 import { ListGroup, ListRow } from "@/components/list-row";
+import { Surface } from "@/components/surface";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { PressableScale } from "@/components/pressable-scale";
 import { LearningShelfHeader } from "@/components/learning-entry-cards";
+import { PageHead } from "@/components/v2/page-head";
+import { SectionTitle } from "@/components/v2/section-title";
+import { ActionCard } from "@/components/v2/action-card";
+import { BarChart } from "@/components/v2/bar-chart";
+import { ProgressBar } from "@/components/v2/progress-bar";
 
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -39,7 +43,7 @@ import { mainPhases } from "@learn-workbench/content/roadmap";
 import { getLearningTrackNow, useLearningTrack, useLearningTracks } from "@/lib/content-store";
 import { setNavPendingParams } from "@/lib/nav-pending";
 import { computeFocusStats } from "@/lib/focus-stats";
-import { radius, shadows, typography } from "@/theme/tokens";
+import { radius, shadows, tabularNums, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import {
@@ -83,6 +87,8 @@ const STAGE_GRADS: [string, string][] = [
 /** 阶段卡之间的间距，必须与 `styles.content` 的 gap 一致（实时让位的位移量按"实测高度 + 这个值"算） */
 const STAGE_CARD_GAP = 12;
 const DAILY_QUESTION_GOAL = 20;
+/** ⑤ 周柱状图列标签（getDay() 下标：0 = 周日），今天单独高亮 */
+const WEEKDAY_LABELS = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
 
 /** 阅读卡片用的标题查表（找不到就退回 key，界面不会出现空白行） */
 function readingTitle(trackSlug: string, stageKey: string, topicKey: string): string {
@@ -562,8 +568,41 @@ export default function LearnScreen() {
     return items;
   }, [readingStore]);
 
+  /** ③ 继续学习卡「还剩 N 节」：当前阶段总节数 − 已读完（progress=100）的节数 */
+  const resumeStage = useMemo(() => {
+    if (!resume) return null;
+    const track = getLearningTrackNow(resume.trackSlug);
+    return track?.stages.find((stage) => stage.key === resume.stageKey) ?? null;
+  }, [resume]);
+  const resumeRemaining = useMemo(() => {
+    if (!resume || !readingStore || !resumeStage) return null;
+    const finished = Object.values(readingStore.read).filter(
+      (item) =>
+        item.trackSlug === resume.trackSlug &&
+        item.stageKey === resume.stageKey &&
+        item.progress >= 100
+    ).length;
+    return Math.max(0, resumeStage.topics.length - finished);
+  }, [resume, readingStore, resumeStage]);
+
   /** 入口卡只用这几个数；统计明细全部搬到 /study-stats 全屏页（v1.33.0） */
   const stats = useMemo(() => computeFocusStats(sessions), [sessions]);
+  /** ⑤ 本周学习时长：last14 的后 7 天（含今天）；柱高按「30 分钟封顶基准」归一，避免 5 分钟就顶满 */
+  const weekChart = useMemo(() => {
+    const days = stats.last14.slice(7);
+    const peak = Math.max(30, ...days.map((day) => day.minutes));
+    return {
+      total: days.reduce((sum, day) => sum + day.minutes, 0),
+      bars: days.map((day) => {
+        const highlight = day.date === stats.date;
+        return {
+          label: highlight ? "今天" : WEEKDAY_LABELS[new Date(`${day.date}T00:00:00`).getDay()],
+          value: day.minutes / peak,
+          highlight,
+        };
+      }),
+    };
+  }, [stats.date, stats.last14]);
   const learningSummary = useMemo(
     () => summarizeLearningAttempts(learningAttempts, allLearningQuestions),
     [learningAttempts, allLearningQuestions]
@@ -732,6 +771,57 @@ export default function LearnScreen() {
     );
   };
 
+  /**
+   * ③ 继续学习卡的三态（沿用既有行为）：读到一半 → 收藏的章节 → 还没开始（去阶段路线）。
+   * 只做数据整形，交互仍是原来的 openReading / 路由跳转。
+   */
+  const continueCard = (() => {
+    if (resume) {
+      return {
+        icon: "book-outline" as const,
+        color: colors.primary,
+        kicker: "继续学习",
+        title: readingTitle(resume.trackSlug, resume.stageKey, resume.topicKey),
+        meta:
+          resumeRemaining !== null && resumeRemaining > 0
+            ? `读到 ${resume.progress}% · 还剩 ${resumeRemaining} 节`
+            : `读到 ${resume.progress}% · 接着上次的位置`,
+        progress: Math.max(0, Math.min(1, resume.progress / 100)) as number | null,
+        cta: "继续学习",
+        a11y: "继续学习上次读到的章节",
+        onPress: () => openReading(resume.trackSlug, resume.stageKey, resume.topicKey),
+      };
+    }
+    const saved = readingCards[0];
+    if (saved) {
+      return {
+        icon: "star" as const,
+        color: colors.warning,
+        kicker: "收藏的章节",
+        title: saved.title,
+        meta: "已收藏 · 随时接着读",
+        progress: null as number | null,
+        cta: "继续阅读",
+        a11y: "继续阅读收藏的章节",
+        onPress: () => openReading(saved.trackSlug, saved.stageKey, saved.topicKey),
+      };
+    }
+    return {
+      icon: "git-branch-outline" as const,
+      color: colors.accent,
+      kicker: "还没开始",
+      title: "从阶段路线开始",
+      meta:
+        routeSummary.total > 0
+          ? `已完成 ${routeSummary.done}/${routeSummary.total} 个主题 · ${routeSummary.percent}%`
+          : "还没有学习阶段，先建一条路线或导入 Markdown",
+      progress: (routeSummary.total > 0 ? routeSummary.percent / 100 : 0) as number | null,
+      cta: "查看路线",
+      a11y: "从阶段路线开始学习",
+      onPress: () => router.push("/roadmap" as never),
+    };
+  })();
+
   return (
     <ScrollView
       ref={learnScrollRef}
@@ -741,128 +831,134 @@ export default function LearnScreen() {
       showsVerticalScrollIndicator={false}
       scrollEnabled={!stageDragging}
     >
-      <Animated.View style={styles.header} entering={entrance(0)}>
-        <View style={styles.headerBody}>
-          <Text style={styles.headerTitle}>学习</Text>
-          <Text style={styles.headerMeta}>
-            {routeSummary.done}/{routeSummary.total} 主题 · 今日 {learningSummary.today} 题
-          </Text>
-        </View>
+      {/* ① 页头：eyebrow + 主标题 + 说明，右上保留全局搜索入口 */}
+      <Animated.View style={styles.headRow} entering={entrance(0)}>
+        <PageHead
+          eyebrow="PERSONAL WORKSPACE"
+          title="学习"
+          subtitle="把知识点、练习与复习串成一条连续的学习路径。"
+          style={styles.headText}
+        />
         <PressableScale
           hitSlop={8}
           scaleTo={0.92}
-          style={styles.headerSearch}
+          style={styles.headSearch}
           onPress={() => router.push("/search" as never)}
           accessibilityRole="button"
           accessibilityLabel="全局搜索"
         >
           <ThemedIcon name="search" size={18} color={colors.textMuted} />
         </PressableScale>
-        <View style={styles.headerRing}>
-          <RingProgress size={46} strokeWidth={5} progress={routeSummary.percent / 100} />
-          <View pointerEvents="none" style={styles.headerRingLabel}>
-            <Text style={styles.headerRingText}>{routeSummary.percent}%</Text>
-          </View>
-        </View>
       </Animated.View>
 
+      {/* ② 复习提醒条：只有真的到期/有错题时出现，无数据整条隐藏 */}
+      {reviewStats && (reviewStats.due > 0 || reviewStats.wrong > 0) ? (
+        <Animated.View entering={entrance(1)}>
+          <PressableScale
+            haptic
+            scaleTo={0.985}
+            style={styles.reminderPress}
+            onPress={() => router.push("/quiz/review" as never)}
+            accessibilityRole="button"
+            accessibilityLabel={`复习到期 ${reviewStats.due} 题，错题 ${reviewStats.wrong} 题，立即复习`}
+          >
+            <View style={styles.reminderBar}>
+              <View style={styles.reminderIcon}>
+                <ThemedIcon name="alarm-outline" size={18} color={colors.danger} />
+              </View>
+              <View style={styles.reminderBody}>
+                <Text style={styles.reminderTitle}>
+                  复习到期 {reviewStats.due} 题 · 错题 {reviewStats.wrong}
+                </Text>
+                <Text style={styles.reminderHint}>按记忆曲线排期，先清到期再回顾错题</Text>
+              </View>
+              <View style={styles.reminderCta}>
+                <Text style={styles.reminderCtaText}>立即复习</Text>
+                <ThemedIcon name="chevron-forward" size={12} color={colors.danger} />
+              </View>
+            </View>
+          </PressableScale>
+        </Animated.View>
+      ) : null}
+
+      {/* ③ 继续学习卡：全屏唯一的 glassStrong 视觉锚点（进行中 / 收藏 / 空态） */}
       <Animated.View entering={entrance(1)}>
-        {resume ? (
-          <EntryCard
-            size="hero"
-            icon="book-outline"
+        <PressableScale
+          haptic
+          scaleTo={0.985}
+          style={styles.continuePress}
+          onPress={continueCard.onPress}
+          accessibilityRole="button"
+          accessibilityLabel={continueCard.a11y}
+        >
+          <Surface tier="glassStrong" corner={radius.panel} style={styles.continueCard}>
+            <View style={styles.continueHead}>
+              <View style={styles.continueIcon}>
+                <ThemedIcon name={continueCard.icon} size={20} color={continueCard.color} />
+              </View>
+              <View style={styles.continueBody}>
+                <Text style={styles.continueKicker}>{continueCard.kicker}</Text>
+                <Text style={styles.continueTitle} numberOfLines={2}>{continueCard.title}</Text>
+              </View>
+            </View>
+            {continueCard.progress !== null ? (
+              <ProgressBar value={continueCard.progress} height={6} />
+            ) : null}
+            <View style={styles.continueFoot}>
+              <Text style={styles.continueMeta} numberOfLines={1}>{continueCard.meta}</Text>
+              <Text style={styles.continueCta}>{continueCard.cta} ›</Text>
+            </View>
+          </Surface>
+        </PressableScale>
+      </Animated.View>
+
+      {/* ④ 学习入口：2×2 功能卡（沿用既有路由与统计文案） */}
+      <Animated.View entering={entrance(2)} style={styles.entrySection}>
+        <SectionTitle title="学习入口" />
+        <View style={styles.entryGrid}>
+          <ActionCard
+            icon="school-outline"
+            tone="teal"
+            title="408 专区"
+            subtitle={`${exam408ChapterCount} 章 · ${exam408PointCount} 知识点`}
+            actionLabel="进入专区"
+            onAction={() => router.push("/exam-408" as never)}
+          />
+          <ActionCard
+            icon="help-circle-outline"
             tone="primary"
-            title={readingTitle(resume.trackSlug, resume.stageKey, resume.topicKey)}
-            meta={`读到 ${resume.progress}% · 继续上次的章节`}
-            progress={Math.max(0, Math.min(1, resume.progress / 100))}
-            cta="继续学习"
-            onPress={() => openReading(resume.trackSlug, resume.stageKey, resume.topicKey)}
-            accessibilityLabel="继续学习上次读到的章节"
+            title="题库练习"
+            subtitle={`今日 ${learningSummary.today}/${DAILY_QUESTION_GOAL} 题 · 继续刷题`}
+            actionLabel="开始练习"
+            onAction={() => router.push("/quiz" as never)}
           />
-        ) : readingCards[0] ? (
-          <EntryCard
-            size="hero"
-            icon="star"
-            tone="warning"
-            title={readingCards[0].title}
-            meta="收藏的章节 · 随时接着读"
-            cta="继续阅读"
-            onPress={() =>
-              openReading(readingCards[0].trackSlug, readingCards[0].stageKey, readingCards[0].topicKey)
-            }
-            accessibilityLabel="继续阅读收藏的章节"
-          />
-        ) : (
-          <EntryCard
-            size="hero"
+        </View>
+        <View style={styles.entryGrid}>
+          <ActionCard
             icon="git-branch-outline"
             tone="accent"
-            title="从阶段路线开始"
-            meta={`已完成 ${routeSummary.done}/${routeSummary.total} 个主题`}
-            progress={routeSummary.percent / 100}
-            cta="查看路线"
-            onPress={() => router.push("/roadmap" as never)}
-            accessibilityLabel="从阶段路线开始学习"
+            title="阶段路线"
+            // 未登录 / 无 roadmap 缓存时是 0/0（不是真实的"0 个主题"）→ 走空态文案，有数据才显示数字
+            subtitle={
+              routeSummary.total > 0
+                ? `已完成 ${routeSummary.done}/${routeSummary.total} 主题 · ${routeSummary.percent}%`
+                : "还没有阶段，先建一条路线"
+            }
+            actionLabel="查看路线"
+            onAction={() => router.push("/roadmap" as never)}
           />
-        )}
-      </Animated.View>
-
-      {/* 四大入口 2×2：408 专区 / 技术题库 / 阶段路线 / 复习 */}
-      <Animated.View entering={entrance(2)} style={styles.entrySection}>
-        <View style={styles.entryGrid}>
-          <View style={styles.entryCell}>
-            <EntryCard
-              size="mid"
-              icon="school-outline"
-              tone="teal"
-              title="408 专区"
-              meta={`${exam408PointCount} 知识点 · ${exam408ChapterCount} 章`}
-              onPress={() => router.push("/exam-408" as never)}
-              accessibilityLabel="进入 408 考研专区"
-            />
-          </View>
-          <View style={styles.entryCell}>
-            <EntryCard
-              size="mid"
-              icon="search"
-              tone="primary"
-              title="技术题库"
-              meta={`今日 ${learningSummary.today}/${DAILY_QUESTION_GOAL} 题`}
-              progress={learningSummary.today / DAILY_QUESTION_GOAL}
-              onPress={() => router.push("/quiz" as never)}
-              accessibilityLabel="进入技术题库"
-            />
-          </View>
-        </View>
-        <View style={styles.entryGrid}>
-          <View style={styles.entryCell}>
-            <EntryCard
-              size="mid"
-              icon="git-branch-outline"
-              tone="accent"
-              title="阶段路线"
-              // 未登录 / 无 roadmap 缓存时是 0/0（不是真实的"0 个主题"）→ 显示「—」，有数据才显示数字
-              meta={routeSummary.total > 0 ? routeSummary.done + "/" + routeSummary.total + " 主题" : "—"}
-              progress={routeSummary.percent / 100}
-              onPress={() => router.push("/roadmap" as never)}
-              accessibilityLabel="进入阶段路线"
-            />
-          </View>
-          <View style={styles.entryCell}>
-            <EntryCard
-              size="mid"
-              icon="repeat-outline"
-              tone="warning"
-              title="复习"
-              meta={
-                reviewStats
-                  ? `到期 ${reviewStats.due} · 错题 ${reviewStats.wrong}`
-                  : "到期复习 · 错题回顾"
-              }
-              onPress={() => router.push("/quiz/review" as never)}
-              accessibilityLabel="进入复习"
-            />
-          </View>
+          <ActionCard
+            icon="repeat-outline"
+            tone="warning"
+            title="复习"
+            subtitle={
+              reviewStats
+                ? `到期 ${reviewStats.due} 题 · 错题 ${reviewStats.wrong} 题`
+                : "到期复习 · 错题回顾"
+            }
+            actionLabel="去复习"
+            onAction={() => router.push("/quiz/review" as never)}
+          />
         </View>
 
         {/* 408 专区主卡：数据取内容库现有统计，不写死篇数/卡片数 */}
@@ -878,7 +974,62 @@ export default function LearnScreen() {
         />
       </Animated.View>
 
-      <Animated.View entering={entrance(2)} style={styles.shelfWrap}>
+      {/* ⑤ 本周学习时长：7 天柱状，今天高亮；没有记录走空态 */}
+      <Animated.View entering={entrance(3)}>
+        <SectionTitle
+          title="本周学习时长"
+          actionLabel="学习统计"
+          onAction={() => router.push("/study-stats" as never)}
+        />
+        <Surface tier="surface" style={styles.weekCard}>
+          {weekChart.total > 0 ? (
+            <>
+              <View style={styles.weekHead}>
+                <Text style={[styles.weekTotal, tabularNums]}>{formatDuration(weekChart.total)}</Text>
+                <Text style={styles.weekMeta} numberOfLines={1}>
+                  近 7 天 · 今日 {formatDuration(todayMinutes)}
+                </Text>
+              </View>
+              <BarChart items={weekChart.bars} height={104} />
+            </>
+          ) : (
+            <View style={styles.weekEmpty}>
+              <View style={styles.weekEmptyIcon}>
+                <ThemedIcon name="bar-chart-outline" size={18} color={colors.textMuted} />
+              </View>
+              <View style={styles.weekEmptyBody}>
+                <Text style={styles.weekEmptyTitle}>本周还没有专注记录</Text>
+                <Text style={styles.weekEmptyHint}>完成一次专注后，这里会按天显示学习时长</Text>
+              </View>
+            </View>
+          )}
+        </Surface>
+      </Animated.View>
+
+      {/* 学习统计卡：明细在 /study-stats 全屏页，首屏只留一行摘要 */}
+      <Animated.View entering={entrance(4)}>
+        <PressableScale
+          haptic
+          hitSlop={8}
+          scaleTo={0.98}
+          onPress={() => router.push("/study-stats" as never)}
+          accessibilityRole="button"
+          accessibilityLabel="打开学习统计"
+        >
+          <Surface tier="surface" style={styles.statsEntry}>
+            <View style={styles.statsEntryBody}>
+              <Text style={styles.statsEntryTitle}>今日已专注 {formatDuration(todayMinutes)}</Text>
+              <Text style={styles.statsEntrySub}>
+                热力图 · 周期柱状 · 近 14 天趋势 · 连续 {stats.streak} 天
+              </Text>
+            </View>
+            <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
+          </Surface>
+        </PressableScale>
+      </Animated.View>
+
+      {/* ⑥ 学习架与管理入口：默认收起为折叠条，展开后保留原列表 */}
+      <Animated.View entering={entrance(5)} style={styles.shelfWrap}>
         <LearningShelfHeader
           open={shelfOpen}
           onToggle={() => setShelfOpen((value) => !value)}
@@ -893,7 +1044,7 @@ export default function LearnScreen() {
             style={styles.shelfContent}
           >
             {!roadmapLoading && roadmap.length === 0 ? (
-              <Card style={styles.emptyCard}>
+              <Surface tier="surface" style={styles.emptyCard}>
                 <Text style={styles.emptyTitle}>还没有学习阶段</Text>
                 <Text style={styles.emptyHint}>
                   这个学习领域下还没有任何阶段。可以自己新建，也可以导入 Markdown：
@@ -935,7 +1086,7 @@ export default function LearnScreen() {
                     <Text style={styles.emptyActionText}>从模板创建</Text>
                   </PressableScale>
                 </View>
-              </Card>
+              </Surface>
             ) : null}
 
             {roadmap.map((phase, i) => {
@@ -1042,23 +1193,6 @@ export default function LearnScreen() {
         ) : null}
       </Animated.View>
 
-      <Animated.View entering={entrance(3)}>
-        <GroupLabel>学习统计</GroupLabel>
-      </Animated.View>
-      {/* v1.33.0：统计明细从弹层升级为**独立全屏页** /study-stats（push 进栈、原生转场、左滑返回）；首屏只留一行摘要 */}
-      <Animated.View entering={entrance(4)}>
-      <PressableScale haptic hitSlop={8} scaleTo={0.98} onPress={() => router.push("/study-stats" as never)}>
-        <Card style={styles.statsEntry}>
-          <View style={styles.statsEntryBody}>
-            <Text style={styles.statsEntryTitle}>今日已专注 {formatDuration(todayMinutes)}</Text>
-            <Text style={styles.statsEntrySub}>
-              热力图 · 周期柱状 · 近 14 天趋势 · 连续 {stats.streak} 天
-            </Text>
-          </View>
-          <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
-        </Card>
-      </PressableScale>
-      </Animated.View>
 
       <BottomSheet
         visible={customTopicSheet}
@@ -1259,32 +1393,91 @@ export default function LearnScreen() {
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
-    header: { flexDirection: "row", alignItems: "center", gap: 12 },
-    headerBody: { flex: 1, gap: 2 },
-    headerTitle: { ...typography.title1, color: colors.text },
-    headerMeta: { ...typography.caption, color: colors.textMuted },
-    headerSearch: {
-    width: 30,
-    height: 30,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radius.pill,
-    backgroundColor: colors.surfaceMuted,
-  },
-  headerRing: { width: 46, height: 46, alignItems: "center", justifyContent: "center" },
-    headerRingLabel: {
-      position: "absolute",
-      top: 0,
-      right: 0,
-      bottom: 0,
-      left: 0,
+    /* ① 页头：PageHead + 右上搜索（44 触控热区） */
+    headRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+    headText: { flex: 1, minWidth: 0 },
+    headSearch: {
+      width: 44,
+      height: 44,
+      marginTop: 19,
       alignItems: "center",
       justifyContent: "center",
+      borderRadius: radius.pill,
+      backgroundColor: colors.surfaceStrong,
+      borderWidth: StyleSheet.hairlineWidth * 2,
+      borderColor: colors.border,
+      ...shadows.card,
     },
-    headerRingText: { ...typography.micro, fontWeight: "800", color: colors.text },
+    /* ② 复习提醒条（dangerSoft 底，无数据时整条不渲染） */
+    reminderPress: { borderRadius: radius.card },
+    reminderBar: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      minHeight: 60,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: radius.card,
+      backgroundColor: colors.dangerSoft,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.danger,
+    },
+    reminderIcon: {
+      width: 32,
+      height: 32,
+      borderRadius: radius.control,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surfaceStrong,
+    },
+    reminderBody: { flex: 1, minWidth: 0, gap: 2 },
+    reminderTitle: { ...typography.callout, fontWeight: "800", color: colors.text },
+    reminderHint: { ...typography.meta, color: colors.textMuted },
+    reminderCta: { flexDirection: "row", alignItems: "center", gap: 2, minHeight: 44 },
+    reminderCtaText: { ...typography.meta, fontWeight: "800", color: colors.danger },
+    /* ③ 继续学习卡（glassStrong 锚点） */
+    continuePress: { borderRadius: radius.panel },
+    continueCard: { gap: 12 },
+    continueHead: { flexDirection: "row", alignItems: "center", gap: 12 },
+    continueIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: radius.control,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.primarySoft,
+    },
+    continueBody: { flex: 1, minWidth: 0, gap: 3 },
+    continueKicker: { ...typography.meta, fontWeight: "700", color: colors.textMuted },
+    continueTitle: { ...typography.hero, color: colors.text },
+    continueFoot: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 12,
+    },
+    continueMeta: { ...typography.meta, color: colors.textMuted, flexShrink: 1 },
+    continueCta: { ...typography.caption, fontWeight: "800", color: colors.primary },
+    /* ④ 学习入口 2×2 */
     entrySection: { gap: 12 },
     entryGrid: { flexDirection: "row", gap: 12 },
-    entryCell: { flex: 1, minWidth: 0 },
+    /* ⑤ 本周学习时长 */
+    weekCard: { gap: 12 },
+    weekHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: 12 },
+    weekTotal: { ...typography.num, color: colors.text },
+    weekMeta: { ...typography.meta, color: colors.textMuted, flexShrink: 1, textAlign: "right" },
+    weekEmpty: { flexDirection: "row", alignItems: "center", gap: 10, minHeight: 60 },
+    weekEmptyIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: radius.control,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surfaceMuted,
+    },
+    weekEmptyBody: { flex: 1, minWidth: 0, gap: 2 },
+    weekEmptyTitle: { ...typography.callout, fontWeight: "700", color: colors.text },
+    weekEmptyHint: { ...typography.meta, color: colors.textMuted },
     /* 学习架：标题 + 展开后的阶段列表，间距与 entrySection 一致（12） */
     shelfWrap: { gap: 12 },
     shelfContent: { gap: 12 },

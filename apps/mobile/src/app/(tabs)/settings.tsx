@@ -1,8 +1,20 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { useHeaderTopInset } from "@/components/screen-header";
-import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 import Animated from "react-native-reanimated";
-import { computeStreak } from "@learn-workbench/shared/domains";
+import { addDaysToDateKey, computeStreak, todayISOInZone } from "@learn-workbench/shared/domains";
 import { useAppStore } from "@/store/app-store";
 import { useUpdateStore } from "@/store/update-store";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
@@ -25,48 +37,150 @@ import {
   readPendingUpdate,
   silentCheckForUpdate,
 } from "@/lib/ota";
-import { Card } from "@/components/card";
-import { Button, ButtonRow } from "@/components/button";
-import { ListGroup, ListRow } from "@/components/list-row";
-import { EntryCard, type EntryTone } from "@/components/entry-card";
-import { SectionHeader } from "@/components/section-header";
-import { BottomSheet } from "@/components/bottom-sheet";
+import { Surface } from "@/components/surface";
+import { PageHead } from "@/components/v2/page-head";
+import { SectionTitle } from "@/components/v2/section-title";
+import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
+import { Button, ButtonRow } from "@/components/button";
+import { BottomSheet } from "@/components/bottom-sheet";
 import { DayNightSwitch } from "@/components/day-night-switch";
 import { router } from "expo-router";
 import { AuthSheet } from "@/components/auth-sheet";
 import { haptics } from "@/lib/haptics";
 import type { ThemeColors, ThemeMode } from "@/theme/tokens";
 import { useTheme } from "@/theme";
-import { radius, spacing, typography } from "@/theme/tokens";
+import { radius, spacing, tabularNums, typography } from "@/theme/tokens";
 import { setMotionUserEnabled } from "@/theme/motion";
 
 /**
- * 「我的」设置页（v1.62 P0-4b 重构）。
+ * 「我的」设置页（v2.0 UI 重构 · 2026-11）。
  *
- * 结构：紧凑 header（不再用 LargeTitle 大标题）→ 身份卡 → 偏好 / 工具 / 账号 三组。
- * 视觉统一走 SectionHeader（分组标题）+ ListGroup/ListRow（带开关/值/危险项的行）
- * 与 EntryCard size="row"（纯跳转入口行）。
+ * 版式：PageHead（eyebrow / 标题 / 说明）→ 身份卡（本屏唯一 glassStrong 视觉锚点）→
+ * 「账户与偏好 / 工具 / 账号」三张分组卡（行高 58、图标芯片 surfaceMuted、右侧值或 chevron）。
  *
- * 纪律：
- * - 只重排分组与视觉，**所有设置项、开关、跳转与处理逻辑保持原样**（登录/退出、
- *   手动同步、主题弹层与日夜开关、每日背景、学习领域切换、检查更新/OTA、诊断、
- *   隐私与备案链接、清空本机数据）；
- * - 不写裸 fontSize（全部走 typography token）；不新增动效点；320pt/130% 不溢出；
- *   无新依赖（只用已就绪的 Card/ListRow/EntryCard/SectionHeader）。
+ * 纪律（v1.62 起沿用，本轮只换版式）：
+ * - 所有设置项、开关、跳转与处理逻辑保持原样（登录/退出、手动同步、主题弹层与日夜开关、
+ *   每日背景、动效、字体大小、通知权限、学习领域切换、检查更新/OTA、诊断、隐私与备案链接、
+ *   同步状态、时钟偏差、清空本机数据），逐项保留；
+ * - 不写裸 fontSize（全部走 typography token）；颜色只取 useTheme().colors；
+ * - 不新增动效调用点：入场沿用 useScreenEntrance，按压沿用 PressableScale / 原生 Switch；
+ * - 命中区 ≥44（行高 58、chip 40 + hitSlop、按钮 48）；320pt / 130% 字号不溢出。
  */
 
-/** 分组标题的语义色（SectionHeader 左侧色条） */
-const SECTION_ACCENT = {
-  preference: "teal",
-  tools: "primary",
-  account: "accent",
-} as const;
+type IconName = ComponentProps<typeof ThemedIcon>["name"];
+
+/** 周一为一周起点：返回 todayKey 所在周的周一日期键（纯日历运算；业务日期口径见 shared/domains） */
+function weekStartKey(todayKey: string): string {
+  const year = Number(todayKey.slice(0, 4));
+  const month = Number(todayKey.slice(5, 7)) - 1;
+  const day = Number(todayKey.slice(8, 10));
+  const weekday = new Date(Date.UTC(year, month, day)).getUTCDay(); // 0 = 周日
+  return addDaysToDateKey(todayKey, -((weekday + 6) % 7));
+}
+
+/**
+ * v2 分组卡：白色实底 + 细描边（层级靠色场与描边，不叠投影），内部分隔线由行自己画。
+ */
+function GroupCard({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
+  return (
+    <Surface tier="surface" corner={radius.card} padded={false} style={style}>
+      {children}
+    </Surface>
+  );
+}
+
+/**
+ * v2 设置行：图标芯片(34, surfaceMuted) + 标题/副标题 + 右侧值或控件 + chevron。
+ * 无 onPress 时退化为纯展示行（开关行、状态行）；有 onPress 时整行可点（按压只换底色，不缩放）。
+ */
+function SettingsRow({
+  icon,
+  iconColor,
+  title,
+  subtitle,
+  value,
+  valueColor,
+  right,
+  onPress,
+  showChevron = false,
+  last = false,
+  disabled = false,
+  accessibilityLabel,
+  style,
+}: {
+  icon?: IconName;
+  iconColor?: string;
+  title: string;
+  subtitle?: string;
+  value?: string;
+  valueColor?: string;
+  right?: ReactNode;
+  onPress?: () => void;
+  showChevron?: boolean;
+  last?: boolean;
+  disabled?: boolean;
+  accessibilityLabel?: string;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
+  const body = (
+    <>
+      {icon ? (
+        <View style={styles.iconChip}>
+          <ThemedIcon name={icon} size={18} color={iconColor ?? colors.primary} />
+        </View>
+      ) : null}
+      <View style={styles.rowText}>
+        <Text style={[styles.rowTitle, disabled && styles.rowTitleOff]} numberOfLines={1}>
+          {title}
+        </Text>
+        {subtitle ? (
+          <Text style={styles.rowSubtitle} numberOfLines={2}>
+            {subtitle}
+          </Text>
+        ) : null}
+      </View>
+      {value ? (
+        <Text style={[styles.rowValue, valueColor ? { color: valueColor } : null]} numberOfLines={1}>
+          {value}
+        </Text>
+      ) : null}
+      {right}
+      {showChevron ? <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} /> : null}
+      {!last ? (
+        <View pointerEvents="none" style={[styles.rowDivider, { left: icon ? 62 : spacing.lg }]} />
+      ) : null}
+    </>
+  );
+
+  if (!onPress) {
+    return <View style={[styles.row, style]}>{body}</View>;
+  }
+
+  return (
+    <PressableScale
+      haptic
+      disabled={disabled}
+      onPress={onPress}
+      /** 列表行用整行底色反馈（与既有 ListRow 一致），不做缩放 */
+      scaleTo={1}
+      pressedStyle={styles.rowPressed}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? title}
+      style={[styles.row, style]}
+    >
+      {body}
+    </PressableScale>
+  );
+}
 
 export default function SettingsScreen() {
   const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const headerTop = useHeaderTopInset("compact");
+  const headerTop = useHeaderTopInset("hero");
   const tabBarSpace = useTabBarSpace();
   /** v19-M1：首屏入场错峰（Tab scene 常驻，只在首次挂载播放） */
   const entrance = useScreenEntrance();
@@ -116,11 +230,23 @@ export default function SettingsScreen() {
   const busy = engine.syncing;
   const [msg, setMsg] = useState<string | null>(null);
   const [updateState, setUpdateState] = useState<"idle" | "checking" | "latest" | "update" | "failed">("idle");
-  // v7 P1：主题改为弹层选择（分组卡片范式里没有折叠卡）
+  // v7 P1：主题改为弹层选择
   const [themeOpen, setThemeOpen] = useState(false);
 
   const [domains, setDomains] = useState<{ career_key: string; name: string; kind?: string; kind_label?: string }[]>([]);
   const [career, setCareer] = useState("ict");
+
+  /**
+   * 身份卡两枚统计（只用本机既有数据，不新增接口）：
+   * - 今日完成：今天到期的任务里已完成条数（与今日页 todayDone 同源）；
+   * - 本周打卡：本周（周一起）checkins 条数（东八区业务日期口径）。
+   */
+  const today = todayISOInZone();
+  const todayDone = useMemo(() => tasks.filter((t) => t.taskDate === today && t.done).length, [tasks, today]);
+  const weekCheckins = useMemo(() => {
+    const start = weekStartKey(today);
+    return checkins.filter((d) => d >= start && d <= today).length;
+  }, [checkins, today]);
 
   useEffect(() => {
     (async () => {
@@ -254,7 +380,7 @@ export default function SettingsScreen() {
     ]);
   };
 
-  /** v7 P1：分组卡片右侧「值」的文案（截图范式：值 + 箭头） */
+  /** 分组卡右侧「值」的文案（值 + 箭头） */
   const themeLabel = themeMode === "light" ? "浅色" : themeMode === "dark" ? "深色" : "跟随系统";
   const updateLabel =
     updateState === "update"
@@ -278,23 +404,9 @@ export default function SettingsScreen() {
               ? `已同步 · ${lastSyncedAt.slice(0, 16).replace("T", " ")}`
               : "本机与云端已同步";
 
-  /** 身份卡的一句话状态：登录态 + 连续打卡天数（今日页同源数据，不编造） */
-  const identityStatus = token
-    ? `连续打卡 ${streak} 天${
-        pendingCount > 0 ? ` · ${pendingCount} 条待同步` : engine.online ? " · 已与云端同步" : " · 离线"
-      }`
-    : `未登录${streak > 0 ? ` · 连续打卡 ${streak} 天` : ""} · 登录后自动同步云端`;
-
-  /** 工具组里的纯跳转入口行（EntryCard row，tone 决定图标底色） */
-  const entryRow = (
-    icon: Parameters<typeof EntryCard>[0]["icon"],
-    title: string,
-    meta: string,
-    tone: EntryTone,
-    onPress: () => void,
-  ) => (
-    <EntryCard size="row" icon={icon} title={title} meta={meta} tone={tone} onPress={onPress} />
-  );
+  /** 身份卡：头像首字母 + 昵称（未登录沿用「学习工作台」文案） */
+  const displayName = token ? username || "学习工作台" : "学习工作台";
+  const avatarInitial = (username ?? "旅").slice(0, 1).toUpperCase();
 
   return (
     <ScrollView
@@ -303,66 +415,74 @@ export default function SettingsScreen() {
       contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
       showsVerticalScrollIndicator={false}
     >
-      {/* ① 紧凑 header：不再用 LargeTitle；版本号收进右侧小字 */}
-      <Animated.View entering={entrance(0)} style={[styles.header, { paddingTop: headerTop }]}>
-        <View style={styles.headerTextWrap}>
-          <Text style={styles.headerTitle}>我的</Text>
-          <Text style={styles.headerSub} numberOfLines={1}>账号 · 学习领域 · 数据同步</Text>
-        </View>
-        <Text style={styles.headerVersion}>v{APP_VERSION_NAME}</Text>
+      {/* ① 页头：eyebrow + 27px 标题 + 一句说明 */}
+      <Animated.View entering={entrance(0)} style={{ paddingTop: headerTop }}>
+        <PageHead
+          eyebrow="PERSONAL WORKSPACE"
+          title="我的"
+          subtitle="管理个人目标、数据偏好与工作台设置。"
+        />
       </Animated.View>
 
-      {/* ② 身份卡：头像首字母 + 昵称/学习工作台 + 一句话状态；登录态才出现同步按钮 */}
+      {/* ② 身份卡（本屏唯一 glassStrong 视觉锚点）：头像 + 昵称 + 今日/本周统计；未登录引导登录 */}
       <Animated.View entering={entrance(1)}>
-        <Card variant="glass" style={styles.profileCard}>
+        <Surface tier="glassStrong" corner={radius.card} style={styles.profile}>
           <View style={styles.profileHead}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{(username ?? "旅").slice(0, 1).toUpperCase()}</Text>
+              <Text style={styles.avatarText}>{avatarInitial}</Text>
             </View>
             <View style={styles.profileBody}>
-              <Text style={styles.profileName} numberOfLines={1}>
-                {token ? username || "学习工作台" : "学习工作台"}
+              <View style={styles.profileTitleRow}>
+                <Text style={styles.profileName} numberOfLines={1}>
+                  {displayName}
+                </Text>
+                {streak > 0 ? (
+                  <View style={styles.streakPill}>
+                    <ThemedIcon name="flame" size={11} color={colors.accent} />
+                    <Text style={styles.streakText} numberOfLines={1}>{`${streak} 天`}</Text>
+                  </View>
+                ) : null}
+              </View>
+              <Text style={[styles.profileStats, tabularNums]} numberOfLines={2}>
+                {`今日完成 ${todayDone} 项 · 本周打卡 ${weekCheckins} 次`}
               </Text>
-              <Text style={styles.profileSub} numberOfLines={2}>{identityStatus}</Text>
+              {token ? null : (
+                <Text style={styles.profileHint} numberOfLines={1}>
+                  登录后自动同步到云端
+                </Text>
+              )}
             </View>
-            {token ? null : (
-              <PressableScale
-                haptic
-                scaleTo={0.96}
-                style={styles.loginBtn}
-                accessibilityRole="button"
-                accessibilityLabel="登录或注册"
-                onPress={() => {
-                  haptics.light();
-                  setAuthOpen(true);
-                }}
-              >
-                <Text style={styles.loginBtnText}>登录 / 注册</Text>
-              </PressableScale>
-            )}
           </View>
           {token ? (
             <ButtonRow>
               <Button label="同步到云端" onPress={doPush} loading={busy} icon="cloud-upload-outline" />
               <Button label="从云端恢复" variant="secondary" onPress={doPull} disabled={busy} />
             </ButtonRow>
-          ) : null}
+          ) : (
+            <Button
+              label="登录 / 注册"
+              icon="log-in-outline"
+              onPress={() => {
+                haptics.light();
+                setAuthOpen(true);
+              }}
+            />
+          )}
           {msg ? <Text style={styles.msg}>{msg}</Text> : null}
-        </Card>
+        </Surface>
       </Animated.View>
 
-      {/* ③ 偏好：主题（日夜开关 + 三档弹层）/ 每日背景 / 学习领域 */}
+      {/* ③ 账户与偏好：主题 / 每日背景 / 动效 / 字体大小 / 通知权限 / 学习领域 */}
       <Animated.View entering={entrance(2)}>
-        <SectionHeader title="偏好" subtitle="外观 · 背景 · 学习领域" accentColor={colors[SECTION_ACCENT.preference]} />
+        <SectionTitle title="账户与偏好" />
       </Animated.View>
-      <ListGroup>
-        <ListRow
+      <GroupCard>
+        <SettingsRow
           icon="color-palette-outline"
           iconColor={colors.primary}
-          iconBg={colors.primarySoft}
           title="主题"
-          subtitle="浅色 / 深色 / 跟随系统"
-          value={themeLabel}
+          /* 值放进副标题：右侧已被日夜开关占位，避免 320pt 下标题区被挤成 4 字宽 */
+          subtitle={`当前：${themeLabel}`}
           /* v13 U9：日夜开关负责"浅 ↔ 深"两态；"跟随系统"仍在三档弹层里（API 不变） */
           right={
             <DayNightSwitch
@@ -376,33 +496,43 @@ export default function SettingsScreen() {
           showChevron
           onPress={() => setThemeOpen(true)}
         />
-        <ListRow
+        <SettingsRow
           icon="image-outline"
           iconColor={colors.teal}
-          iconBg={colors.surfaceMuted}
           title="每日背景图"
           subtitle="每天自动更换风景壁纸"
-          right={<Switch value={backgroundEnabled} onValueChange={toggleBackground} trackColor={{ true: colors.primary }} />}
+          right={
+            <Switch
+              value={backgroundEnabled}
+              onValueChange={toggleBackground}
+              trackColor={{ true: colors.primary }}
+              accessibilityLabel="每日背景图"
+            />
+          }
         />
         {/* v1.62 P2-2：动效开关（真实生效，关掉后全 App 装饰动效停止） */}
-        <ListRow
+        <SettingsRow
           icon="sparkles-outline"
           iconColor={colors.lavender}
-          iconBg={colors.surfaceMuted}
           title="动效"
           subtitle={
             motionEnabled
               ? "入场、按压与庆祝动画正常播放"
               : "已关闭 · 所有装饰动效停用（等同系统「减弱动态」）"
           }
-          right={<Switch value={motionEnabled} onValueChange={toggleMotion} trackColor={{ true: colors.primary }} />}
-          accessibilityLabel={motionEnabled ? "动效已开启，点此关闭" : "动效已关闭，点此开启"}
+          right={
+            <Switch
+              value={motionEnabled}
+              onValueChange={toggleMotion}
+              trackColor={{ true: colors.primary }}
+              accessibilityLabel={motionEnabled ? "动效已开启，点此关闭" : "动效已关闭，点此开启"}
+            />
+          }
         />
         {/* 字体大小：不做假开关，直接跳系统设置改字号 */}
-        <ListRow
+        <SettingsRow
           icon="options-outline"
           iconColor={colors.primary}
-          iconBg={colors.primarySoft}
           title="字体大小"
           subtitle="在系统设置中调整字号后返回生效"
           value={"跟随系统 · " + formatFontScale(fontScale)}
@@ -411,10 +541,9 @@ export default function SettingsScreen() {
           accessibilityLabel={"字体大小跟随系统，当前 " + formatFontScale(fontScale) + "，点此打开系统设置"}
         />
         {/* 通知权限：本工程未接 expo-notifications（不新增依赖），只做系统设置入口，不伪造状态开关 */}
-        <ListRow
+        <SettingsRow
           icon="alert-circle"
           iconColor={colors.accent}
-          iconBg={colors.accentSoft}
           title="通知权限"
           subtitle="在系统设置中开启"
           showChevron
@@ -422,20 +551,22 @@ export default function SettingsScreen() {
           last={domains.length === 0}
           accessibilityLabel="通知权限，在系统设置中开启，点此打开系统设置"
         />
-        {/* 学习领域（原「学习与数据」组内嵌块）：偏好项，保留全部逻辑 */}
+        {/* 学习领域：保留全部切换逻辑（PUT /api/settings/career） */}
         {domains.length > 0 ? (
           <View style={styles.domainBlock}>
-            <Text style={styles.domainLabel}>当前学习领域</Text>
-            <View style={styles.chipWrap}>
+            <Text style={styles.domainLabel}>学习领域</Text>
+            <View style={styles.domainChips}>
               {domains.map((c) => {
                 const active = c.career_key === career;
                 return (
                   <Pressable
                     key={c.career_key}
                     onPress={() => void switchCareer(c.career_key)}
+                    hitSlop={4}
                     style={[styles.chip, active ? styles.chipActive : styles.chipIdle]}
                     accessibilityRole="button"
                     accessibilityState={{ selected: active }}
+                    accessibilityLabel={`学习领域：${c.name}${active ? "，当前" : ""}`}
                   >
                     <Text style={active ? styles.chipTextActive : styles.chipTextIdle}>{c.name}</Text>
                   </Pressable>
@@ -444,35 +575,62 @@ export default function SettingsScreen() {
             </View>
           </View>
         ) : null}
-      </ListGroup>
+      </GroupCard>
 
-      {/* ④ 工具：领域/学习记录/检查更新/诊断/隐私与关于/清空本机数据 */}
+      {/* ④ 工具：领域 / 学习记录 / 诊断 / 更新 / 隐私与关于 / 清空本机数据 */}
       <Animated.View entering={entrance(3)}>
-        <SectionHeader title="工具" subtitle="领域 · 学习记录 · 诊断与关于" accentColor={colors[SECTION_ACCENT.tools]} />
+        <SectionTitle title="工具" />
       </Animated.View>
-      <ListGroup>
-        {token
-          ? entryRow("layers-outline", "领域管理", "新建 / 归档 / 从模板创建", "primary", () => {
+      <GroupCard>
+        {token ? (
+          <SettingsRow
+            icon="layers-outline"
+            iconColor={colors.primary}
+            title="领域管理"
+            subtitle="新建 / 归档 / 从模板创建"
+            showChevron
+            onPress={() => {
               haptics.light();
               router.push("/domain-manager");
-            })
-          : null}
-        {entryRow("stats-chart-outline", "领域记录", "通用计量与按日打卡", "success", () => {
-          haptics.light();
-          router.push("/trackers");
-        })}
-        {entryRow("checkmark-circle", "习惯与打卡", "连续天数 · 13 周热力图", "accent", () => {
-          haptics.light();
-          router.push("/habits");
-        })}
-        {entryRow("pulse-outline", "问题诊断", "点不动 / 白屏时跑一次触摸自检", "primary", () => {
-          haptics.light();
-          router.push("/diagnostics");
-        })}
-        <ListRow
+            }}
+          />
+        ) : null}
+        <SettingsRow
+          icon="stats-chart-outline"
+          iconColor={colors.success}
+          title="领域记录"
+          subtitle="通用计量与按日打卡"
+          showChevron
+          onPress={() => {
+            haptics.light();
+            router.push("/trackers");
+          }}
+        />
+        <SettingsRow
+          icon="checkmark-circle"
+          iconColor={colors.accent}
+          title="习惯与打卡"
+          subtitle="连续天数 · 13 周热力图"
+          showChevron
+          onPress={() => {
+            haptics.light();
+            router.push("/habits");
+          }}
+        />
+        <SettingsRow
+          icon="pulse-outline"
+          iconColor={colors.primary}
+          title="问题诊断"
+          subtitle="点不动 / 白屏时跑一次触摸自检"
+          showChevron
+          onPress={() => {
+            haptics.light();
+            router.push("/diagnostics");
+          }}
+        />
+        <SettingsRow
           icon="refresh"
           iconColor={colors.success}
-          iconBg={colors.successSoft}
           title="检查更新"
           subtitle="支持应用内 OTA 推送"
           value={updateState === "checking" ? undefined : updateLabel}
@@ -482,37 +640,34 @@ export default function SettingsScreen() {
           disabled={updateState === "checking"}
           onPress={() => void checkUpdate()}
         />
-        <ListRow
+        <SettingsRow
           icon="cloud-download-outline"
           iconColor={colors.primary}
-          iconBg={colors.primarySoft}
           title="手动下载最新版"
           subtitle="打不开更新时用这个"
+          showChevron
           onPress={() => void Linking.openURL(DOWNLOAD_PAGE_URL).catch(() => {})}
         />
-        <ListRow
+        <SettingsRow
           icon="lock-closed-outline"
           iconColor={colors.textMuted}
-          iconBg={colors.surfaceMuted}
           title="隐私与数据"
           subtitle="数据只在本机与你的云端账号之间流转"
           showChevron
           onPress={() => void Linking.openURL(PRIVACY_POLICY_URL).catch(() => {})}
         />
-        <ListRow
+        <SettingsRow
           icon="information-circle-outline"
           iconColor={colors.textMuted}
-          iconBg={colors.surfaceMuted}
           title={`苦旅 v${APP_VERSION_NAME}`}
           subtitle={`App 备案：${APP_ICP_NUMBER}`}
           showChevron
           onPress={() => void Linking.openURL(ICP_VERIFY_URL).catch(() => {})}
         />
         {APP_MPS_NUMBER ? (
-          <ListRow
+          <SettingsRow
             icon="shield-checkmark-outline"
             iconColor={colors.textMuted}
-            iconBg={colors.surfaceMuted}
             title="公安联网备案"
             subtitle={APP_MPS_NUMBER}
             showChevron
@@ -521,34 +676,31 @@ export default function SettingsScreen() {
             }
           />
         ) : null}
-        <ListRow
+        <SettingsRow
           icon="document-text-outline"
           iconColor={colors.textMuted}
-          iconBg={colors.surfaceMuted}
           title="隐私政策"
           showChevron
           onPress={() => void Linking.openURL(PRIVACY_POLICY_URL).catch(() => {})}
         />
-        <ListRow
+        <SettingsRow
           icon="trash-outline"
           iconColor={colors.danger}
-          iconBg={colors.dangerSoft}
           title="清空本机数据"
           subtitle={`进度 ${Object.values(progress).filter((x) => x.done).length} · 任务 ${tasks.length} · 日志 ${logs.length}`}
           last
           onPress={confirmReset}
         />
-      </ListGroup>
+      </GroupCard>
 
       {/* ⑤ 账号：账号安全 / 同步状态 / 时钟校准 / 退出登录（未登录时给登录入口） */}
       <Animated.View entering={entrance(4)}>
-        <SectionHeader title="账号" subtitle="安全 · 同步" accentColor={colors[SECTION_ACCENT.account]} />
+        <SectionTitle title="账号" />
       </Animated.View>
-      <ListGroup>
-        <ListRow
+      <GroupCard>
+        <SettingsRow
           icon="shield-checkmark-outline"
           iconColor={colors.primary}
-          iconBg={colors.primarySoft}
           title="账号与安全"
           subtitle="密码 · 微信绑定 · 登录设备"
           value={token ? "已登录" : "未登录"}
@@ -560,10 +712,9 @@ export default function SettingsScreen() {
           }}
         />
         {token ? (
-          <ListRow
+          <SettingsRow
             icon="pulse-outline"
             iconColor={colors.primary}
-            iconBg={colors.primarySoft}
             title="同步状态"
             subtitle={syncHint}
             value={
@@ -579,30 +730,28 @@ export default function SettingsScreen() {
         ) : null}
         {/* S5-3：设备时钟偏移 >5min 时提示校准（游标只认 serverTime，但本地 updatedAt 会受时钟影响） */}
         {token && clock.skewed ? (
-          <ListRow
+          <SettingsRow
             icon="time-outline"
             iconColor={colors.warning}
-            iconBg={colors.warningSoft}
             title="设备时间与服务器不一致"
             subtitle={`${clockSkewHint(clock.offsetMs)}，可能影响同步；请开启系统「自动设置时间」`}
             value="需校准"
+            valueColor={colors.warning}
           />
         ) : null}
         {token ? (
-          <ListRow
+          <SettingsRow
             icon="log-out-outline"
             iconColor={colors.danger}
-            iconBg={colors.dangerSoft}
             title="退出登录"
             subtitle="清除本机数据并回到未登录状态"
             last
             onPress={confirmLogout}
           />
         ) : (
-          <ListRow
+          <SettingsRow
             icon="log-in-outline"
             iconColor={colors.primary}
-            iconBg={colors.primarySoft}
             title="登录 / 注册"
             subtitle="登录后自动同步到云端"
             last
@@ -612,24 +761,26 @@ export default function SettingsScreen() {
             }}
           />
         )}
-      </ListGroup>
+      </GroupCard>
 
-      <Text style={styles.footer}>移动端默认连接生产域名，招聘爬虫配置请在 Web 端完成。</Text>
-      <Text style={styles.footer}>© 苦旅 · 学习工作台 · Expo + React Native</Text>
+      <View style={styles.footerBlock}>
+        <Text style={styles.footer}>移动端默认连接生产域名，招聘爬虫配置请在 Web 端完成。</Text>
+        <Text style={styles.footer}>© 苦旅 · 学习工作台 · Expo + React Native</Text>
+      </View>
 
       <BottomSheet visible={themeOpen} onClose={() => setThemeOpen(false)} title="外观主题" height="48%">
-        <ListGroup>
+        <GroupCard>
           {(["light", "dark", "system"] as ThemeMode[]).map((m, i, list) => {
             const label = m === "light" ? "浅色" : m === "dark" ? "深色" : "跟随系统";
             const active = themeMode === m;
             return (
-              <ListRow
+              <SettingsRow
                 key={m}
                 icon={m === "light" ? "sunny" : m === "dark" ? "moon-outline" : "options-outline"}
                 iconColor={active ? colors.primary : colors.textMuted}
-                iconBg={active ? colors.primarySoft : colors.surfaceMuted}
                 title={label}
                 value={active ? "当前" : undefined}
+                valueColor={active ? colors.primary : undefined}
                 last={i === list.length - 1}
                 onPress={() => {
                   haptics.soft();
@@ -639,7 +790,7 @@ export default function SettingsScreen() {
               />
             );
           })}
-        </ListGroup>
+        </GroupCard>
       </BottomSheet>
 
       <AuthSheet visible={authOpen} onClose={() => setAuthOpen(false)} onAuthed={handleAuthed} />
@@ -650,60 +801,92 @@ export default function SettingsScreen() {
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     scroll: { flex: 1, backgroundColor: "transparent" },
-    content: { padding: spacing.lg, gap: spacing.md },
+    content: { paddingHorizontal: spacing.lg, paddingBottom: spacing.lg },
 
-    /* ① 紧凑 header（PaddingTop 由安全区 + 6 给出） */
-    header: {
-      flexDirection: "row",
-      alignItems: "flex-end",
-      justifyContent: "space-between",
-      gap: spacing.md,
-      paddingBottom: spacing.xs,
-    },
-    headerTextWrap: { flex: 1, minWidth: 0, gap: 2 },
-    headerTitle: { ...typography.title2, color: colors.text },
-    headerSub: { ...typography.caption, color: colors.textSecondary },
-    headerVersion: { ...typography.micro, color: colors.textFaint, flexShrink: 0 },
-
-    /* ② 身份卡 */
-    profileCard: { gap: spacing.md },
+    /* ② 身份卡（glassStrong 容器自带 16 内边距，这里只定内部节奏） */
+    profile: { gap: spacing.md },
     profileHead: { flexDirection: "row", alignItems: "center", gap: spacing.md },
     avatar: {
-      width: 48,
-      height: 48,
-      borderRadius: 16,
+      width: 52,
+      height: 52,
+      borderRadius: radius.pill,
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: colors.primarySoft,
       borderWidth: StyleSheet.hairlineWidth,
-      borderColor: "rgba(47,116,192,0.24)",
+      borderColor: colors.borderStrong,
     },
-    avatarText: { ...typography.headline, fontWeight: "800", color: colors.primary },
+    avatarText: { ...typography.hero, fontWeight: "800", color: colors.primary },
     profileBody: { flex: 1, minWidth: 0, gap: 3 },
-    profileName: { ...typography.headline, fontWeight: "800", color: colors.text },
-    profileSub: { ...typography.caption, color: colors.textSecondary, lineHeight: 17 },
-    loginBtn: {
-      backgroundColor: colors.primary,
-      borderRadius: radius.md,
-      paddingHorizontal: spacing.md + 2,
-      paddingVertical: 9,
+    profileTitleRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+    profileName: { ...typography.hero, color: colors.text, flexShrink: 1 },
+    profileStats: { ...typography.callout, fontWeight: "600", color: colors.textSecondary },
+    profileHint: { ...typography.meta, color: colors.textMuted },
+    streakPill: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 3,
+      borderRadius: radius.pill,
+      backgroundColor: colors.accentSoft,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 3,
+      flexShrink: 0,
     },
-    loginBtnText: { ...typography.caption, fontWeight: "800", color: "#FFFFFF" },
-    msg: { ...typography.caption, color: colors.success, fontWeight: "600" },
+    streakText: { ...typography.micro, color: colors.accentStrong },
+    msg: { ...typography.meta, fontWeight: "600", color: colors.success },
 
-    /* 偏好组里的学习领域内嵌块 */
-    domainBlock: { gap: spacing.sm, paddingHorizontal: spacing.md + 2, paddingVertical: spacing.md },
-    domainLabel: { ...typography.caption, fontWeight: "700", color: colors.textMuted },
-    chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-    chip: { borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 7 },
+    /* ③ 设置行（行高 58；图标芯片 34 surfaceMuted；右侧值 + chevron） */
+    row: {
+      minHeight: 58,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.md,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.sm + 1,
+    },
+    rowPressed: { backgroundColor: colors.surfaceMuted },
+    iconChip: {
+      width: 34,
+      height: 34,
+      borderRadius: radius.control - 2,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surfaceMuted,
+      flexShrink: 0,
+    },
+    rowText: { flex: 1, minWidth: 0, gap: 2 },
+    rowTitle: { ...typography.callout, fontWeight: "600", color: colors.text },
+    rowTitleOff: { color: colors.textFaint },
+    rowSubtitle: { ...typography.meta, color: colors.textMuted },
+    rowValue: { ...typography.meta, fontWeight: "700", color: colors.textMuted, flexShrink: 1, textAlign: "right" },
+    rowDivider: {
+      position: "absolute",
+      bottom: 0,
+      right: 0,
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: colors.border,
+    },
+
+    /* 学习领域内嵌块：chip 命中区 40 + hitSlop 4 = 48 */
+    domainBlock: { gap: spacing.sm + 2, paddingHorizontal: spacing.lg, paddingVertical: spacing.md + 2 },
+    domainLabel: { ...typography.meta, fontWeight: "700", color: colors.textMuted },
+    domainChips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+    chip: {
+      minHeight: 40,
+      borderRadius: radius.pill,
+      paddingHorizontal: spacing.md + 2,
+      paddingVertical: spacing.sm,
+      justifyContent: "center",
+    },
     chipActive: { backgroundColor: colors.primary },
     chipIdle: {
-      backgroundColor: colors.surfaceStrong,
+      backgroundColor: colors.surfaceMuted,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.border,
     },
-    chipTextActive: { ...typography.caption, fontWeight: "600", color: "#FFFFFF" },
+    chipTextActive: { ...typography.caption, fontWeight: "700", color: "#FFFFFF" },
     chipTextIdle: { ...typography.caption, color: colors.text },
 
-    footer: { ...typography.caption, color: colors.textFaint, lineHeight: 18, paddingHorizontal: spacing.xs },
+    footerBlock: { marginTop: spacing.lg, paddingHorizontal: spacing.xs, gap: 2 },
+    footer: { ...typography.meta, color: colors.textFaint, textAlign: "center" },
   });

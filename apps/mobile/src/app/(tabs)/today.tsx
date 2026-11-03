@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
-import { useHeaderTopInset } from "@/components/screen-header";
 import {
   Pressable,
   RefreshControl,
@@ -8,13 +7,8 @@ import {
   Text,
   View,
 } from "react-native";
-import { SportThemedIcon, ThemedIcon } from "@/components/themed-icon";
-import { AnimatedCheckMark } from "@/components/check-mark";
-import { PatternBackdrop } from "@/components/pattern-backdrop";
+import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { router } from "expo-router";
-
-import { useTabBarSpace } from "@/lib/use-tab-bar-space";
-import { useScrollToTopHandler } from "@/lib/scroll-to-top";
 import Animated, {
   FadeInDown,
   useAnimatedStyle,
@@ -25,11 +19,31 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
+import { useHeaderTopInset } from "@/components/screen-header";
+import { SportThemedIcon, ThemedIcon } from "@/components/themed-icon";
+import { AnimatedCheckMark } from "@/components/check-mark";
+import { PatternBackdrop } from "@/components/pattern-backdrop";
+import { FocusTimer } from "@/components/focus-timer";
+import { QuickStartSheet, type QuickStartChoice } from "@/components/quick-start-sheet";
+import { BottomSheet } from "@/components/bottom-sheet";
+import { SheetStickyCta } from "@/components/sheet";
+import { CelebrationModal } from "@/components/celebration-modal";
+import { RingProgress } from "@/components/ring-progress";
+import { PressableScale } from "@/components/pressable-scale";
+import { GlassHighlight, Surface } from "@/components/surface";
+import { PageHead } from "@/components/v2/page-head";
+import { SectionTitle } from "@/components/v2/section-title";
+import { MoodPicker } from "@/components/v2/mood-picker";
+import { HabitRow } from "@/components/v2/habit-row";
+import { ProgressBar } from "@/components/v2/progress-bar";
+
+import { useTabBarSpace } from "@/lib/use-tab-bar-space";
+import { useScrollToTopHandler } from "@/lib/scroll-to-top";
 import { useAppStore } from "@/store/app-store";
 import type { ExerciseType, Habit, HabitLog } from "@learn-workbench/shared/schemas";
 import type { SportItem } from "@learn-workbench/shared/types";
 import { SPORT_CATALOG, exerciseTypeOptions, taskTypeLabels } from "@learn-workbench/shared/labels";
-import { isScheduled } from "@learn-workbench/shared/dates";
+import { isScheduled, pct } from "@learn-workbench/shared/dates";
 import { computeStreak, todayISOInZone } from "@learn-workbench/shared/domains";
 import { isHabitDone } from "@learn-workbench/shared/pure";
 import { sportIconOf, sportColorsOf, sportAnimOf, sportSfOf } from "@/lib/sport-view";
@@ -40,19 +54,9 @@ import { usePullRefresh } from "@/lib/use-pull-refresh";
 import { DURATION, useReducedMotion } from "@/lib/motion";
 import { isMotionActive } from "@/theme/motion";
 import { staggerDelay } from "@/lib/stagger";
-import { FocusTimer } from "@/components/focus-timer";
-import { QuickStartSheet, type QuickStartChoice } from "@/components/quick-start-sheet";
-import { Card } from "@/components/card";
-import { SectionHeader } from "@/components/section-header";
-import { BottomSheet } from "@/components/bottom-sheet";
-import { SheetStickyCta } from "@/components/sheet";
-import { CelebrationModal } from "@/components/celebration-modal";
-import { EnergyBar } from "@/components/energy-bar";
 import { fetchLatestEnergy, logEnergy } from "@/lib/energy";
-import { PressableScale } from "@/components/pressable-scale";
-import { StatStrip } from "@/components/stat-strip";
 import { haptics } from "@/lib/haptics";
-import { radius, shadows, typography } from "@/theme/tokens";
+import { radius, shadows, tabularNums, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { computeFocusStats } from "@/lib/focus-stats";
@@ -68,25 +72,49 @@ import { summarizeLearningAttempts as summarizeLearningEvidence } from "@learn-w
 
 /**
  * 每日目标（v1.62 P0-2）：题库 20 题与学习页 DAILY_QUESTION_GOAL 同值（learn.tsx 内部常量，
- * 这里只做展示，不改口径）；运动 30 分钟是今日焦点 chip 的参考线，同样只用于展示进度。
+ * 这里只做展示，不改口径）；运动 30 分钟是目标条「训练」的参考线，同样只用于展示进度。
  */
 const DAILY_QUESTION_GOAL = 20;
 const DAILY_SPORT_GOAL_MINUTES = 30;
+/** 阅读目标（v2）：今日页没有阅读分钟数据源，目标条按「0/30m」展示，不编造进度 */
+const DAILY_READING_GOAL_MINUTES = 30;
 const WEEKDAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"] as const;
+/** 本周 7 格：周一起（中文习惯），与原型 V3 一致 */
+const WEEK_INITIALS = ["一", "二", "三", "四", "五", "六", "日"] as const;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 function useDailyQuote() {
   return useMemo(() => getDailyQuote(), []);
 }
 
-/** 今日焦点卡里的快捷 chip（刷题 / 阅读 / 运动）：纯展示 + 点击，动效只用按压缩放 */
-function FocusChip({
+/**
+ * 本周 7 格（周一起）的日期键。
+ * 业务日期来自 todayISOInZone()（东八区口径），这里只在**日期字符串**上做算术：
+ * 先归一成 UTC 正午再逐日偏移，避免设备时区 / 夏令时把格子挪错一天。
+ */
+function buildWeekGrid(todayIso: string): { iso: string; label: string }[] {
+  const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(todayIso);
+  const base = parts
+    ? Date.UTC(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]))
+    : Date.now();
+  const monday = base - ((new Date(base).getUTCDay() + 6) % 7) * DAY_MS;
+  return WEEK_INITIALS.map((label, i) => ({
+    iso: new Date(monday + i * DAY_MS).toISOString().slice(0, 10),
+    label,
+  }));
+}
+
+/** 专注模式胶囊（刷题 / 阅读 / 训练）：沿用原焦点卡的三个入口，点击跳到对应页面 */
+function ModePill({
   icon,
   label,
   onPress,
+  accessibilityLabel,
 }: {
   icon: ComponentProps<typeof ThemedIcon>["name"];
   label: string;
   onPress: () => void;
+  accessibilityLabel?: string;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -96,18 +124,72 @@ function FocusChip({
       scaleTo={0.97}
       onPress={onPress}
       hitSlop={8}
-      style={styles.chip}
+      style={styles.pill}
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={accessibilityLabel ?? label}
     >
-      <ThemedIcon name={icon} size={15} color={colors.textMuted} />
-      <Text style={styles.chipText} numberOfLines={1}>
+      <ThemedIcon name={icon} size={14} color={colors.primary} />
+      <Text style={styles.pillText} numberOfLines={1}>
         {label}
       </Text>
     </PressableScale>
   );
 }
 
+/** 双列小卡（今日学习 / 今日饮水）：整张卡可点，环 + 百分比；无数据渲染「—」（沿用 ring-progress） */
+function MiniStatCard({
+  label,
+  percent,
+  hint,
+  tone = "primary",
+  onPress,
+  accessibilityLabel,
+}: {
+  label: string;
+  /** 0–100 的百分比；null = 没有数据（环心显示「—」） */
+  percent: number | null;
+  hint: string;
+  tone?: "primary" | "accent";
+  onPress: () => void;
+  accessibilityLabel: string;
+}) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const ratio = percent === null ? 0 : Math.max(0, Math.min(100, percent)) / 100;
+  return (
+    <Pressable
+      onPress={() => {
+        haptics.light();
+        onPress();
+      }}
+      hitSlop={6}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      style={({ pressed }) => [styles.miniCard, pressed && styles.miniCardPressed]}
+    >
+      <Text style={styles.miniLabel} numberOfLines={1}>
+        {label}
+      </Text>
+      <View style={styles.miniRing}>
+        <RingProgress
+          size={58}
+          strokeWidth={6}
+          progress={ratio}
+          color={tone === "accent" ? colors.accent : undefined}
+          trackColor={colors.surfaceMuted}
+        />
+        <View pointerEvents="none" style={styles.miniRingLabel}>
+          <Text style={[styles.miniRingValue, tabularNums, percent === null && styles.miniRingMuted]}>
+            {percent === null ? "—" : percent + "%"}
+          </Text>
+        </View>
+      </View>
+      <Text style={styles.miniHint} numberOfLines={2}>
+        {hint}
+      </Text>
+    </Pressable>
+  );
+}
 function SportIcon({
   sportKey,
   name,
@@ -217,16 +299,16 @@ function SportIcon({
     transform: [
       { translateX: tx.value },
       { translateY: ty.value },
-      { rotate: `${rotate.value}deg` },
+      { rotate: rotate.value + "deg" },
       { scale: scale.value },
     ],
   }));
 
-    return (
-      <Animated.View style={animatedStyle}>
-        <SportThemedIcon name={icon} sf={sportSfOf(sportKey)} size={22} color={c} />
-      </Animated.View>
-    );
+  return (
+    <Animated.View style={animatedStyle}>
+      <SportThemedIcon name={icon} sf={sportSfOf(sportKey)} size={22} color={c} />
+    </Animated.View>
+  );
 }
 
 function SportSheet({
@@ -279,7 +361,7 @@ function SportSheet({
       expandable
       footer={
         <SheetStickyCta
-          label={`记录 ${current?.name ?? "—"} ${minutes} 分钟`}
+          label={"记录 " + (current?.name ?? "—") + " " + minutes + " 分钟"}
           icon="checkmark"
           onPress={() => {
             if (!current) return;
@@ -314,7 +396,7 @@ function SportSheet({
               }}
               style={[styles.sportType, active && styles.sportTypeActive]}
             >
-              <View style={[styles.sportTypeIcon, { backgroundColor: `${sportColorsOf(t.type).c1}22` }]}>
+              <View style={[styles.sportTypeIcon, { backgroundColor: sportColorsOf(t.type).c1 + "22" }]}>
                 <SportIcon sportKey={t.key} type={t.type} active={active} motionActive={motionActive} />
               </View>
               <Text style={[styles.sportTypeName, active && styles.sportTypeNameActive]} numberOfLines={1}>
@@ -379,7 +461,7 @@ export default function TodayScreen() {
   const [sportSheetOpen, setSportSheetOpen] = useState(false);
   /** 完成任务的庆祝弹窗（null = 关闭） */
   const [celebrateInfo, setCelebrateInfo] = useState<{ title: string; subtitle?: string } | null>(null);
-  /** 今日精力状态（1-5，来自 /api/wellbeing/energy） */
+  /** 今日精力状态（1-5，来自 /api/wellbeing/energy）→ v2 MoodPicker */
   const [energyLevel, setEnergyLevel] = useState<number | null>(null);
   const [energyBusy, setEnergyBusy] = useState(false);
   /** v4 P2：一键开始（弹层选学习/运动/正向计时 → 选完立即进入计时） */
@@ -418,11 +500,14 @@ export default function TodayScreen() {
   const todayDate = useMemo(() => new Date(), []);
   const h = new Date().getHours();
   const greet = h < 6 ? "夜深了" : h < 11 ? "早上好" : h < 14 ? "中午好" : h < 18 ? "下午好" : "晚上好";
-  /** 紧凑 header 的一行日期（v1.62 P0-2：不再用两行大问候标题） */
+  /** Hero 的一行日期（v2：问候 + 日期 + 打卡数 + 本周 7 格） */
   const dateLabel = useMemo(
     () => (todayDate.getMonth() + 1) + " 月 " + todayDate.getDate() + " 日 · 周" + WEEKDAY_LABELS[todayDate.getDay()],
     [todayDate]
   );
+  /** 本周 7 格：周一 → 周日，业务日期（东八区）参与比较 */
+  const week = useMemo(() => buildWeekGrid(today), [today]);
+  const weekChecked = useMemo(() => week.filter((d) => checkins.includes(d.iso)).length, [week, checkins]);
 
   const todayTasks = tasks.filter((t) => t.taskDate === today);
   const todayDone = todayTasks.filter((t) => t.done).length;
@@ -438,7 +523,7 @@ export default function TodayScreen() {
     [todayTasks]
   );
   const habitOnlyRows = habitRows.filter((h) => !linkedHabitNames.has(h.name));
-  const habitDone = habitRows.filter((h) => h.done).length;
+  const habitOnlyDone = habitOnlyRows.filter((h) => h.done).length;
 
   const loadHabits = useCallback(async () => {
     try {
@@ -559,7 +644,7 @@ export default function TodayScreen() {
   /**
    * v17/v18 收尾：下拉刷新 = 重跑本页网络数据源（习惯/打卡、精力、健康快照）与本地学习进度。
    * 任务、日志与专注会话来自本地 store + 同步引擎，本页不重复拉取，口径未改。
-   * 今日是自绘紧凑 header 的 hub 页、没有吸顶紧凑栏 → stickyHeader: false。
+   * 今日是自绘 header 的 hub 页 → stickyHeader: false。
    */
   const refreshToday = useCallback(
     () => Promise.all([loadHabits(), loadEnergy(), loadLearning(), loadHealth()]).then(() => undefined),
@@ -603,8 +688,8 @@ export default function TodayScreen() {
   const focusStats = computeFocusStats(sessions);
 
   /**
-   * 健康快照（v1.62 P0-2）：只用今日页既有的运动数据源（store.sports 经 sport-trend 汇总），
-   * 今日页没有「摄入 / 饮水」数据源，按任务要求不编造，三格改为今日训练 / 本周训练 / 今日记录。
+   * 健康/运动快照（v1.62 P0-2）：只用今日页既有的运动数据源（store.sports 经 sport-trend 汇总）。
+   * v2 双列小卡只看「今日学习 / 今日饮水」；训练进度放在专注卡的目标条里。
    */
   const sportTrend = useMemo(() => buildSportTrend(sports, today, 7), [sports, today]);
   const todaySport = sportTrend.points[sportTrend.points.length - 1] ?? { minutes: 0, sessions: 0 };
@@ -640,6 +725,37 @@ export default function TodayScreen() {
   }, [aiTip, today, setAiTip]);
   const heroTip = aiTip && aiTip.date === today && aiTip.text ? aiTip.text : todayTip;
 
+  /** 今日学习小卡：本地数据全空（未登录 / 新装 / 还没学）时渲染「—」而不是假 0 */
+  const learningEmpty =
+    learningSnapshot.questionsToday === 0 &&
+    learningSnapshot.stageTotal === 0 &&
+    focusStats.todayMinutes === 0;
+  /** 今日学习环 = 阶段主题完成度（与旧「学习进度」百分比同源）；无 roadmap 缓存 → null（「—」） */
+  const learningPercent =
+    learningSnapshot.stageTotal > 0
+      ? pct(learningSnapshot.stageDone, learningSnapshot.stageTotal)
+      : null;
+  const learningHint = learningEmpty
+    ? "今天还没有学习记录"
+    : "专注 " + focusStats.todayMinutes + " 分" +
+      (learningSnapshot.stageTotal > 0
+        ? " · 阶段 " + learningSnapshot.stageDone + "/" + learningSnapshot.stageTotal
+        : "");
+  /** 今日饮水小卡：接口没数据（未登录/断网/没记录）→「—」 */
+  const waterLiters = healthSnapshot.waterMl === null ? null : healthSnapshot.waterMl / 1000;
+  const waterTargetLiters = healthSnapshot.waterTargetMl === null ? null : healthSnapshot.waterTargetMl / 1000;
+  /** 今日饮水环 = totalMl / targetMl；没有目标或没数据 → null（环心「—」） */
+  const waterPercent =
+    healthSnapshot.waterMl !== null && healthSnapshot.waterTargetMl !== null && healthSnapshot.waterTargetMl > 0
+      ? Math.round((healthSnapshot.waterMl / healthSnapshot.waterTargetMl) * 100)
+      : null;
+  const waterHint =
+    waterLiters === null
+      ? "点击去记录饮水"
+      : waterTargetLiters !== null
+        ? waterLiters.toFixed(1) + " L · 目标 " + waterTargetLiters.toFixed(1) + " L"
+        : waterLiters.toFixed(1) + " L · 点击去记录";
+
   return (
     <View style={styles.root}>
       <Animated.ScrollView
@@ -649,12 +765,36 @@ export default function TodayScreen() {
         contentContainerStyle={[styles.content, { paddingTop: headerTop, paddingBottom: tabBarSpace }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* ① 紧凑 header（v1.62 P0-2）：一行日期 + 打卡 pill，一行 tip（不再用两行大问候标题） */}
-        <View style={styles.compactHeader}>
-          <View style={styles.compactHeaderRow}>
-            <Text style={styles.compactDate} numberOfLines={1}>
-              {dateLabel}
-            </Text>
+        {/* ① 页头（原型 V3）：eyebrow + 27/800 主标题 + 一句说明 */}
+        <PageHead
+          eyebrow="PERSONAL WORKSPACE"
+          title="今日"
+          subtitle="先定一件最重要的小事，按节奏完成今天的计划。"
+        />
+
+        {/*
+          ② Hero（浅蓝渐变 + 静态高光 = 本屏视觉锚点之一）：
+          时分问候 + 日期 + 打卡 pill + 连续打卡天数 + 本周 7 格（已打卡填充 / 今天描边）。
+          渐变用 react-native-svg 画（不新增依赖），色值全部取 useTheme().colors。
+        */}
+        <View style={styles.hero}>
+          <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} pointerEvents="none">
+            <Defs>
+              <LinearGradient id="todayHeroGradient" x1="0" y1="0" x2="0.7" y2="1">
+                <Stop offset="0" stopColor={colors.primarySoft} />
+                <Stop offset="0.55" stopColor={colors.primarySoft} stopOpacity={0.55} />
+                <Stop offset="1" stopColor={colors.surfaceStrong} />
+              </LinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width="100%" height="100%" fill="url(#todayHeroGradient)" />
+          </Svg>
+          <GlassHighlight corner={radius.panel} />
+
+          <View style={styles.heroHead}>
+            <View style={styles.heroHeadText}>
+              <Text style={styles.heroGreet}>{greet}</Text>
+              <Text style={styles.heroDate}>{dateLabel}</Text>
+            </View>
             <Pressable
               onPress={() => {
                 if (!checkedInToday) haptics.success();
@@ -665,21 +805,104 @@ export default function TodayScreen() {
               accessibilityRole="button"
               accessibilityLabel={checkedInToday ? "今日已打卡，连续 " + streak + " 天" : "点此打卡"}
             >
-              <ThemedIcon name={checkedInToday ? "checkmark-circle" : "flame"} size={13} color={checkedInToday ? colors.primary : colors.accent} />
-              <Text style={[styles.checkinPillText, checkedInToday && styles.checkinPillTextDone]} numberOfLines={1}>
-                {checkedInToday ? "已打卡 · " + streak + " 天" : "点此打卡"}
+              <ThemedIcon
+                name={checkedInToday ? "checkmark-circle" : "flame"}
+                size={14}
+                color={checkedInToday ? colors.primary : colors.accent}
+              />
+              <Text style={[styles.checkinText, checkedInToday && styles.checkinTextDone]} numberOfLines={1}>
+                {checkedInToday ? "已打卡 · " + streak + " 天" : "打卡"}
               </Text>
             </Pressable>
           </View>
-          <Text style={styles.compactTip} numberOfLines={2}>
-            {greet}，{heroTip}
+
+          {streak > 0 ? (
+            <View style={styles.heroStreakRow}>
+              <Text style={[styles.heroStreakNum, tabularNums]}>{streak}</Text>
+              <Text style={styles.heroStreakUnit}>天连续打卡</Text>
+            </View>
+          ) : (
+            <Text style={styles.heroStreakHint}>0 天 · 完成第一个习惯即可开启</Text>
+          )}
+
+          <View style={styles.heroWeekHead}>
+            <Text style={styles.heroWeekTitle}>本周</Text>
+            <Text style={[styles.heroWeekMeta, tabularNums]}>{weekChecked}/7 天</Text>
+          </View>
+          <View style={styles.heroWeekRow} accessible accessibilityLabel={"本周已打卡 " + weekChecked + " 天"}>
+            {week.map((d) => {
+              const checked = checkins.includes(d.iso);
+              const isToday = d.iso === today;
+              return (
+                <View key={d.iso} style={styles.heroWeekCell}>
+                  <View
+                    style={[
+                      styles.heroWeekDot,
+                      checked && styles.heroWeekDotDone,
+                      isToday && !checked && styles.heroWeekDotToday,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.heroWeekText,
+                        checked && styles.heroWeekTextDone,
+                        isToday && !checked && styles.heroWeekTextToday,
+                      ]}
+                    >
+                      {d.label}
+                    </Text>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+
+          <Text style={styles.heroTip} numberOfLines={2}>
+            {heroTip}
           </Text>
         </View>
 
-        {/* ② 今日焦点：上半精力（点击即记），下半主按钮「开始专注」+ 三个快捷 chip */}
-        <EnergyBar value={energyLevel} onSelect={(l) => void pickEnergy(l)} busy={energyBusy} />
+        {/* ③ 今天的状态（v2 MoodPicker 替换旧 EnergyBar；数据与提交沿用 /api/wellbeing/energy） */}
+        <MoodPicker value={energyLevel} onSelect={(l) => void pickEnergy(l)} busy={energyBusy} />
 
-        <Card style={styles.focusCard} variant="hero">
+        {/*
+          ④ 专注卡（Surface tier=glassStrong，本屏唯一的强玻璃锚点）：
+          eyebrow + 标题 + 专注模式胶囊 + 开始专注 CTA + 三格目标条（刷题 / 阅读 / 训练）。
+          CTA 沿用 focusOpen / FocusTimer / QuickStartSheet 的既有链路，不新增动画调用点。
+        */}
+        <Surface tier="glassStrong" corner={radius.panel} style={styles.focusCard}>
+          <View style={styles.focusHead}>
+            <View style={styles.focusHeadText}>
+              <Text style={styles.eyebrow}>FOCUS SPACE</Text>
+              <Text style={styles.focusTitle}>给重要的事留一段完整时间</Text>
+              <Text style={styles.focusSub}>选一种模式，从 25 分钟开始</Text>
+            </View>
+            <View style={styles.focusModePill}>
+              <Text style={styles.focusModeText}>专注模式</Text>
+            </View>
+          </View>
+
+          <View style={styles.pillRow}>
+            <ModePill
+              icon="layers-outline"
+              label="刷题"
+              accessibilityLabel="刷题，去题库"
+              onPress={() => router.push("/quiz" as never)}
+            />
+            <ModePill
+              icon="book-outline"
+              label="阅读"
+              accessibilityLabel="阅读，去学习页"
+              onPress={() => router.push("/learn" as never)}
+            />
+            <ModePill
+              icon="barbell-outline"
+              label="训练"
+              accessibilityLabel="训练，添加运动记录"
+              onPress={() => setSportSheetOpen(true)}
+            />
+          </View>
+
           <PressableScale
             haptic
             scaleTo={0.98}
@@ -696,154 +919,156 @@ export default function TodayScreen() {
             <View style={styles.startIcon}>
               <ThemedIcon name="play" size={18} color={colors.primary} />
             </View>
-            <Text style={styles.startTitle} numberOfLines={1}>
-              开始专注
-            </Text>
-            <ThemedIcon name="chevron-forward" size={18} color="rgba(255,255,255,0.9)" />
+            <View style={styles.startTextWrap}>
+              <Text style={styles.startTitle} numberOfLines={1}>
+                开始专注
+              </Text>
+              <Text style={styles.startSub} numberOfLines={1}>
+                选内容与时长，立即进入计时
+              </Text>
+            </View>
+            <ThemedIcon name="chevron-forward" size={18} color={colors.canvas} />
           </PressableScale>
 
-          <View style={styles.chipRow}>
-            <FocusChip
-              icon="layers-outline"
-              label={"刷题 " + learningSnapshot.questionsToday + "/" + DAILY_QUESTION_GOAL}
-              onPress={() => router.push("/quiz" as never)}
-            />
-            <FocusChip icon="book-outline" label="阅读" onPress={() => router.push("/learn" as never)} />
-            <FocusChip
-              icon="barbell-outline"
-              label={"运动 " + todaySport.minutes + "/" + DAILY_SPORT_GOAL_MINUTES}
-              onPress={() => setSportSheetOpen(true)}
-            />
+          <View style={styles.goalList}>
+            <View style={styles.goalRow}>
+              <View style={styles.goalHead}>
+                <Text style={styles.goalLabel}>刷题</Text>
+                <Text style={[styles.goalValue, tabularNums]}>
+                  {learningSnapshot.questionsToday}/{DAILY_QUESTION_GOAL}
+                </Text>
+              </View>
+              <ProgressBar value={learningSnapshot.questionsToday / DAILY_QUESTION_GOAL} tone="primary" />
+            </View>
+            <View style={styles.goalRow}>
+              <View style={styles.goalHead}>
+                <Text style={styles.goalLabel}>阅读</Text>
+                {/* 阅读分钟没有本地/接口数据源（不新增接口）→ 按任务书显示 0/30m，不编造进度 */}
+                <Text style={[styles.goalValue, tabularNums]}>
+                  {0}/{DAILY_READING_GOAL_MINUTES}m
+                </Text>
+              </View>
+              <ProgressBar value={0} tone="accent" />
+            </View>
+            <View style={styles.goalRow}>
+              <View style={styles.goalHead}>
+                <Text style={styles.goalLabel}>训练</Text>
+                <Text style={[styles.goalValue, tabularNums]}>
+                  {todaySport.minutes}/{DAILY_SPORT_GOAL_MINUTES}m
+                </Text>
+              </View>
+              <ProgressBar value={todaySport.minutes / DAILY_SPORT_GOAL_MINUTES} tone="success" />
+            </View>
           </View>
-        </Card>
+        </Surface>
 
-        {/* ③ 今日任务：前 3 条任务 + 2 条习惯 + 查看全部（勾选/庆祝逻辑保持原样） */}
-        <SectionHeader
-          title="今日任务"
-          subtitle={
-            todayDone + "/" + todayTasks.length + " 已完成" + (habitRows.length > 0 ? " · 习惯 " + habitDone + "/" + habitRows.length : "")
+        {/* ⑤ 今日习惯（v2 HabitRow）：沿用 habitRows 打卡 + 乐观更新 + linked 过滤 */}
+        <SectionTitle
+          title="今日习惯"
+          right={
+            <Text style={styles.sectionMeta}>
+              已完成 {habitOnlyDone}/{habitOnlyRows.length}
+            </Text>
           }
+        />
+        {habitOnlyRows.length === 0 ? (
+          <Surface tier="surface" style={styles.habitEmpty}>
+            <Text style={styles.habitEmptyText}>
+              {habitRows.length > 0
+                ? "今天排期的习惯都已并入上面的任务，直接勾任务即可"
+                : "今天没有排期的习惯，去健康页添加一个"}
+            </Text>
+          </Surface>
+        ) : (
+          habitOnlyRows.map((row, i) => (
+            <Animated.View
+              key={"habit-" + row.id}
+              entering={reduced ? undefined : FadeInDown.duration(DURATION.base).delay(staggerDelay(i))}
+            >
+              <HabitRow
+                icon={habitIconName(row.icon)}
+                title={row.name}
+                subtitle="习惯"
+                done={row.done}
+                onToggle={() => {
+                  if (!row.done) fireCelebrate(row.name, "习惯打卡完成");
+                  void toggleHabit(row.id, row.done);
+                }}
+              />
+            </Animated.View>
+          ))
+        )}
+
+        {/* ⑥ 今日任务（紧凑行式，放在习惯之后；勾选/庆祝逻辑与 1.66 一致） */}
+        <SectionTitle
+          title="今日任务"
+          right={<Text style={styles.sectionMeta}>{todayDone}/{todayTasks.length} 已完成</Text>}
           actionLabel="查看全部"
           onAction={() => router.push("/tasks" as never)}
         />
 
-        {todayTasks.length === 0 && habitOnlyRows.length === 0 ? (
-          <Card style={styles.taskEmptyCard}>
+        {todayTasks.length === 0 ? (
+          <Surface tier="surface" style={styles.taskEmptyCard}>
             {/* v13 U12：任务页空状态的低透明度几何底纹 */}
             <PatternBackdrop variant="chevron" />
             <Text style={styles.taskEmpty}>今天还没有任务，去学习页添加一个吧</Text>
-          </Card>
+          </Surface>
         ) : (
-          todayTasks.slice(0, 3).map((t, i) => (
-            <Animated.View
-              key={t.id}
-              style={styles.task}
-              entering={reduced ? undefined : FadeInDown.duration(DURATION.base).delay(staggerDelay(i))}
-            >
-              <Pressable
-                style={styles.taskRow}
-                hitSlop={4}
-                onPress={() => {
-                  const willDone = !t.done;
-                  haptics.light();
-                  toggleTaskDone(t.id);
-                  if (willDone) fireCelebrate(t.title, "今日任务 · 已完成");
-                }}
+          <Surface tier="surface" style={styles.listCard}>
+            {todayTasks.slice(0, 3).map((t, i) => (
+              <Animated.View
+                key={t.id}
+                entering={reduced ? undefined : FadeInDown.duration(DURATION.base).delay(staggerDelay(i))}
               >
-                <View style={[styles.taskBox, t.done && styles.taskBoxDone]}>
-                  {/* v13 U8：勾选时用 strokeDashoffset 画对勾（组件常驻，靠 checked 驱动，才有「画」的过程） */}
-                  <AnimatedCheckMark checked={t.done} size={16} color="#ffffff" />
-                </View>
-                <View style={styles.taskBody}>
-                  <Text style={[styles.taskTitle, t.done && styles.taskDone]} numberOfLines={1}>
-                    {t.title}
-                  </Text>
-                  <Text style={styles.taskMeta}>{taskTypeLabels[t.taskType] ?? t.taskType}</Text>
-                </View>
-              </Pressable>
-            </Animated.View>
-          ))
+                <Pressable
+                  style={styles.taskRowCompact}
+                  hitSlop={4}
+                  onPress={() => {
+                    const willDone = !t.done;
+                    haptics.light();
+                    toggleTaskDone(t.id);
+                    if (willDone) fireCelebrate(t.title, "今日任务 · 已完成");
+                  }}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: t.done }}
+                  accessibilityLabel={t.title + (t.done ? "，已完成" : "，未完成")}
+                >
+                  <View style={[styles.taskBox, t.done && styles.taskBoxDone]}>
+                    {/* v13 U8：勾选时用 strokeDashoffset 画对勾（组件常驻，靠 checked 驱动，才有「画」的过程） */}
+                    <AnimatedCheckMark checked={t.done} size={16} color={colors.canvas} />
+                  </View>
+                  <View style={styles.taskBody}>
+                    <Text style={[styles.taskTitle, t.done && styles.taskDone]} numberOfLines={1}>
+                      {t.title}
+                    </Text>
+                    <Text style={styles.taskMeta}>{taskTypeLabels[t.taskType] ?? t.taskType}</Text>
+                  </View>
+                  <ThemedIcon name="chevron-forward" size={14} color={colors.textFaint} />
+                </Pressable>
+                {i < Math.min(todayTasks.length, 3) - 1 ? <View style={styles.rowDivider} /> : null}
+              </Animated.View>
+            ))}
+          </Surface>
         )}
-        {/* 习惯排期（v12 P1-2）：与任务同列显示，点一下就地打卡 */}
-        {habitOnlyRows.slice(0, 2).map((row, i) => (
-          <Animated.View
-            key={"habit-" + row.id}
-            style={styles.task}
-            entering={reduced ? undefined : FadeInDown.duration(DURATION.base).delay(staggerDelay(i + 3))}
-          >
-            <Pressable
-              style={styles.taskRow}
-              hitSlop={4}
-              onPress={() => {
-                haptics.light();
-                if (!row.done) fireCelebrate(row.name, "习惯打卡完成");
-                void toggleHabit(row.id, row.done);
-              }}
-            >
-              <View style={[styles.taskBox, row.done && { backgroundColor: row.color, borderColor: row.color }]}>
-                <AnimatedCheckMark checked={row.done} size={16} color="#ffffff" />
-              </View>
-              <View style={styles.taskBody}>
-                <View style={styles.taskTitleRow}>
-                  <ThemedIcon name={habitIconName(row.icon)} size={14} color={colors.textMuted} />
-                  <Text style={[styles.taskTitle, row.done && styles.taskDone]} numberOfLines={1}>
-                    {row.name}
-                  </Text>
-                </View>
-                <Text style={styles.taskMeta}>习惯</Text>
-              </View>
-            </Pressable>
-          </Animated.View>
-        ))}
 
-        {/* ④ 学习进度（StatStrip 3 格，点击去学习页）：题库今日 / 阶段主题 / 今日专注 */}
-        <SectionHeader title="学习进度" />
-        <StatStrip
-          items={[
-            { label: "题库今日", value: learningSnapshot.questionsToday, unit: "/" + DAILY_QUESTION_GOAL, tone: "primary" },
-            {
-              // 未登录/无 roadmap 缓存时是 0/0，显示「—」而不是假数字（与学习页同口径）
-              label: "阶段主题",
-              value: learningSnapshot.stageTotal > 0 ? learningSnapshot.stageDone : "—",
-              unit: learningSnapshot.stageTotal > 0 ? "/" + learningSnapshot.stageTotal : "",
-              tone: "teal",
-            },
-            { label: "今日专注", value: focusStats.todayMinutes, unit: "分", tone: "accent" },
-          ]}
-          onPress={() => router.push("/learn" as never)}
-          accessibilityLabel="打开学习页查看学习进度"
-        />
-
-        {/* ⑤ 健康快照（P1-3）：摄入 / 饮水来自接口，训练用本地运动记录；点击整条 → 健康页 */}
-        <SectionHeader title="健康快照" actionLabel="记录运动" onAction={() => setSportSheetOpen(true)} />
-        <StatStrip
-          items={[
-            {
-              label: "今日摄入",
-              value: healthSnapshot.intakeKcal === null ? "—" : healthSnapshot.intakeKcal,
-              // 没设目标就不显示分母（避免 "1200/0"）
-              unit:
-                healthSnapshot.intakeKcal !== null && healthSnapshot.targetKcal !== null
-                  ? "/" + healthSnapshot.targetKcal
-                  : "",
-              tone: "primary",
-            },
-            {
-              label: "今日饮水",
-              value: healthSnapshot.waterMl === null ? "—" : (healthSnapshot.waterMl / 1000).toFixed(1),
-              unit:
-                healthSnapshot.waterMl === null
-                  ? ""
-                  : healthSnapshot.waterTargetMl !== null
-                    ? "/" + (healthSnapshot.waterTargetMl / 1000).toFixed(1) + "L"
-                    : "L",
-              tone: "teal",
-            },
-            { label: "今日训练", value: todaySport.minutes, unit: "分", tone: "accent" },
-          ]}
-          onPress={() => router.push("/wellness" as never)}
-          accessibilityLabel="查看健康页：今日摄入、饮水与训练"
-        />
+        {/* ⑦ 双列小卡：今日学习（本地题库/专注） / 今日饮水（接口）；点击沿用原跳转 */}
+        <View style={styles.dualRow}>
+          <MiniStatCard
+            label="今日学习"
+            percent={learningPercent}
+            hint={learningHint}
+            onPress={() => router.push("/learn" as never)}
+            accessibilityLabel="今日学习，打开学习页"
+          />
+          <MiniStatCard
+            label="今日饮水"
+            percent={waterPercent}
+            hint={waterHint}
+            tone="accent"
+            onPress={() => router.push("/wellness" as never)}
+            accessibilityLabel="今日饮水，打开健康页"
+          />
+        </View>
 
         {/* 每日语录：原「更多」抽屉里的装饰内容，保留为页尾一行（不占入口） */}
         <Text style={styles.quoteFoot} numberOfLines={2}>
@@ -925,148 +1150,255 @@ export default function TodayScreen() {
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
-  root: { flex: 1 },
-  scroll: { flex: 1 },
-  content: { padding: 16, gap: 14 },
-  task: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    padding: 14,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    ...shadows.card,
-  },
-  taskBox: {
-    width: 22,
-    height: 22,
-    borderRadius: 7,
-    borderWidth: 2,
-    borderColor: colors.borderStrong,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  taskBoxDone: { backgroundColor: colors.success, borderColor: colors.success },
-  taskRow: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
-  taskBody: { flex: 1, minWidth: 0, gap: 1 },
-  taskTitle: { ...typography.callout, fontWeight: "600", color: colors.text, flexShrink: 1 },
-  taskDone: { textDecorationLine: "line-through", color: colors.textSecondary },
-  taskMeta: { ...typography.caption, color: colors.textMuted },
-  taskEmpty: { ...typography.caption, color: colors.textMuted, textAlign: "center", paddingVertical: 4 },
-  taskEmptyCard: { overflow: "hidden" },
-  taskTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  sportTabRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 },
-  sportTab: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  sportTabActive: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
-  sportTabText: { ...typography.caption, fontWeight: "700", color: colors.textMuted },
-  sportTabTextActive: { color: colors.accentStrong },
-  sportGridScroll: { flex: 1 },
-  sportTypeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, paddingBottom: 6 },
-  sportType: {
-    width: "30%",
-    flexGrow: 1,
-    alignItems: "center",
-    gap: 6,
-    padding: 10,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-  },
-  sportTypeActive: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
-  sportTypeIcon: { width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  sportTypeName: { ...typography.caption, fontWeight: "700", color: colors.text },
-  sportTypeNameActive: { color: colors.accentStrong },
-  stepper: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 16, marginTop: 18 },
-  stepBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  stepBtnText: { fontSize: 24, color: colors.text, lineHeight: 26 },
-  stepperVal: { alignItems: "center", minWidth: 80 },
-  stepperNum: { fontSize: 28, fontWeight: "800", color: colors.text },
-  stepperUnit: { ...typography.caption, color: colors.textMuted },
-  quickRow: { flexDirection: "row", gap: 8, justifyContent: "center", marginTop: 14 },
-  quickChip: {
-    borderRadius: 999,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  quickChipActive: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
-  quickChipText: { ...typography.caption, fontWeight: "700", color: colors.text },
-  quickChipTextActive: { color: colors.accentStrong },
-  compactHeader: { gap: 6 },
-  compactHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
-  compactDate: { ...typography.callout, fontWeight: "800", color: colors.text },
-  checkinPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceMuted,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  checkinPillDone: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
-  checkinPillText: { ...typography.micro, fontWeight: "700", color: colors.textMuted },
-  checkinPillTextDone: { color: colors.primaryStrong },
-  compactTip: { ...typography.caption, lineHeight: 18, color: colors.textSecondary },
-  focusCard: { gap: 12 },
-  startButton: {
-    height: 58,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingHorizontal: 16,
-    borderRadius: radius.lg,
-    backgroundColor: colors.primary,
-    ...shadows.floating,
-  },
-  startIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#FFFFFF",
-  },
-  startTitle: { flex: 1, ...typography.headline, fontWeight: "800", color: "#FFFFFF" },
-  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: {
-    flexGrow: 1,
-    flexBasis: "30%",
-    minWidth: 0,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 5,
-    paddingVertical: 9,
-    paddingHorizontal: 10,
-    borderRadius: radius.md,
-    backgroundColor: colors.surfaceMuted,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  chipText: { ...typography.caption, fontWeight: "700", color: colors.textSecondary, flexShrink: 1 },
-  quoteFoot: { ...typography.caption, lineHeight: 18, color: colors.textMuted, textAlign: "center", paddingHorizontal: 8 },
+    root: { flex: 1 },
+    scroll: { flex: 1 },
+    content: { paddingHorizontal: 17, paddingBottom: 24, gap: 14 },
+
+    // ---- Hero（浅蓝渐变 + 高光）----
+    hero: {
+      gap: 12,
+      padding: 18,
+      borderRadius: radius.panel,
+      overflow: "hidden",
+      backgroundColor: colors.surfaceStrong,
+      borderWidth: StyleSheet.hairlineWidth * 2,
+      borderColor: colors.border,
+      ...shadows.card,
+    },
+    heroHead: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 10 },
+    heroHeadText: { flex: 1, minWidth: 0, gap: 2 },
+    heroGreet: { ...typography.hero, color: colors.text },
+    heroDate: { ...typography.meta, color: colors.textSecondary },
+    checkinPill: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      minHeight: 44,
+      paddingHorizontal: 14,
+      borderRadius: radius.pill,
+      borderWidth: StyleSheet.hairlineWidth * 2,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceStrong,
+    },
+    checkinPillDone: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
+    checkinText: { ...typography.caption, fontWeight: "700", color: colors.textMuted },
+    checkinTextDone: { color: colors.primaryStrong },
+    heroStreakRow: { flexDirection: "row", alignItems: "baseline", gap: 6 },
+    heroStreakNum: { ...typography.pageTitle, color: colors.text },
+    heroStreakUnit: { ...typography.meta, fontWeight: "600", color: colors.textMuted },
+    heroStreakHint: { ...typography.meta, color: colors.textMuted, marginTop: -4 },
+    heroWeekHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    heroWeekTitle: { ...typography.meta, fontWeight: "700", color: colors.textMuted },
+    heroWeekMeta: { ...typography.caption, fontWeight: "700", color: colors.primary },
+    heroWeekRow: { flexDirection: "row", gap: 6 },
+    heroWeekCell: { flex: 1, minWidth: 0 },
+    heroWeekDot: {
+      height: 32,
+      borderRadius: radius.sm,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    heroWeekDotDone: { backgroundColor: colors.primary, borderColor: colors.primary },
+    heroWeekDotToday: { backgroundColor: colors.primarySoft, borderColor: colors.primary, borderWidth: 1.5 },
+    heroWeekText: { ...typography.meta, fontWeight: "700", color: colors.textFaint },
+    heroWeekTextDone: { color: colors.canvas },
+    heroWeekTextToday: { color: colors.primaryStrong },
+    heroTip: { ...typography.meta, color: colors.textSecondary, lineHeight: 17 },
+
+    // ---- 专注卡（glassStrong）----
+    focusCard: { padding: 18, gap: 14 },
+    focusModePill: {
+      minHeight: 28,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: radius.pill,
+      backgroundColor: colors.primarySoft,
+      borderWidth: StyleSheet.hairlineWidth * 2,
+      borderColor: colors.glassBorder,
+      justifyContent: "center",
+    },
+    focusModeText: { ...typography.micro, fontWeight: "700", color: colors.primaryStrong },
+    focusHead: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 10 },
+    focusHeadText: { flex: 1, minWidth: 0, gap: 3 },
+    eyebrow: { ...typography.eyebrow, color: colors.textFaint },
+    focusTitle: { ...typography.section, color: colors.text },
+    focusSub: { ...typography.meta, color: colors.textMuted },
+    focusToday: { alignItems: "flex-end", minWidth: 56 },
+    focusTodayNum: { ...typography.num, color: colors.primary },
+    focusTodayUnit: { ...typography.meta, color: colors.textMuted },
+    pillRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    pill: {
+      flexGrow: 1,
+      flexBasis: "30%",
+      minWidth: 0,
+      minHeight: 40,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      paddingHorizontal: 12,
+      borderRadius: radius.pill,
+      backgroundColor: colors.primarySoft,
+      borderWidth: StyleSheet.hairlineWidth * 2,
+      borderColor: colors.border,
+    },
+    pillText: { ...typography.caption, fontWeight: "700", color: colors.primaryStrong, flexShrink: 1 },
+    startButton: {
+      minHeight: 54,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      paddingHorizontal: 14,
+      borderRadius: radius.card,
+      backgroundColor: colors.primary,
+      ...shadows.brand,
+    },
+    startIcon: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.canvas,
+    },
+    startTextWrap: { flex: 1, minWidth: 0, gap: 1 },
+    startTitle: { ...typography.headline, fontWeight: "800", color: colors.canvas },
+    startSub: { ...typography.meta, color: colors.canvas, opacity: 0.72 },
+    goalList: {
+      gap: 10,
+      paddingTop: 12,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+    },
+    goalRow: { gap: 6 },
+    goalHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    goalLabel: { ...typography.meta, fontWeight: "600", color: colors.textSecondary },
+    goalValue: { ...typography.caption, fontWeight: "700", color: colors.text },
+
+    // ---- 区块右侧计数 ----
+    sectionMeta: { ...typography.meta, fontWeight: "700", color: colors.textMuted, marginLeft: "auto", paddingLeft: 8 },
+
+    // ---- 今日任务（紧凑行式：一张实底卡 + 行分隔线）----
+    listCard: { paddingVertical: 6, paddingHorizontal: 8, gap: 0 },
+    taskRowCompact: { flexDirection: "row", alignItems: "center", gap: 10, minHeight: 52, paddingVertical: 8 },
+    rowDivider: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: colors.border,
+      marginLeft: 32,
+      marginVertical: 2,
+    },
+    taskBox: {
+      width: 22,
+      height: 22,
+      borderRadius: 7,
+      borderWidth: 2,
+      borderColor: colors.borderStrong,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    taskBoxDone: { backgroundColor: colors.success, borderColor: colors.success },
+    taskRow: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
+    taskBody: { flex: 1, minWidth: 0, gap: 1 },
+    taskTitle: { ...typography.callout, fontWeight: "600", color: colors.text, flexShrink: 1 },
+    taskDone: { textDecorationLine: "line-through", color: colors.textSecondary },
+    taskMeta: { ...typography.caption, color: colors.textMuted },
+    taskEmpty: { ...typography.caption, color: colors.textMuted, textAlign: "center", paddingVertical: 4 },
+    taskEmptyCard: { overflow: "hidden", alignItems: "center", paddingVertical: 22 },
+
+    // ---- 今日习惯 ----
+    habitEmpty: { paddingVertical: 16 },
+    habitEmptyText: { ...typography.caption, color: colors.textMuted, textAlign: "center" },
+
+    // ---- 双列小卡 ----
+    dualRow: { flexDirection: "row", gap: 12, alignItems: "stretch" },
+    miniCard: {
+      flex: 1,
+      minWidth: 0,
+      minHeight: 132,
+      gap: 6,
+      padding: 14,
+      borderRadius: radius.card,
+      backgroundColor: colors.surfaceStrong,
+      borderWidth: StyleSheet.hairlineWidth * 2,
+      borderColor: colors.border,
+      ...shadows.card,
+    },
+    miniCardPressed: { opacity: 0.85 },
+    miniLabel: { ...typography.meta, fontWeight: "700", color: colors.textMuted },
+    miniRing: { width: 58, height: 58, alignSelf: "center", alignItems: "center", justifyContent: "center", marginTop: 2 },
+    miniRingLabel: {
+      position: "absolute",
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    miniRingValue: { ...typography.micro, fontWeight: "800", color: colors.text },
+    miniRingMuted: { color: colors.textFaint },
+    miniHint: { ...typography.meta, color: colors.textMuted, lineHeight: 16 },
+
+    quoteFoot: { ...typography.caption, lineHeight: 18, color: colors.textMuted, textAlign: "center", paddingHorizontal: 8 },
+
+    // ---- 运动弹层（沿用 v1 视觉；不动交互）----
+    sportTabRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 },
+    sportTab: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 999,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    sportTabActive: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
+    sportTabText: { ...typography.caption, fontWeight: "700", color: colors.textMuted },
+    sportTabTextActive: { color: colors.accentStrong },
+    sportGridScroll: { flex: 1 },
+    sportTypeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, paddingBottom: 6 },
+    sportType: {
+      width: "30%",
+      flexGrow: 1,
+      alignItems: "center",
+      gap: 6,
+      padding: 10,
+      borderRadius: radius.md,
+      backgroundColor: colors.surface,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+    },
+    sportTypeActive: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
+    sportTypeIcon: { width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+    sportTypeName: { ...typography.caption, fontWeight: "700", color: colors.text },
+    sportTypeNameActive: { color: colors.accentStrong },
+    stepper: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 16, marginTop: 18 },
+    stepBtn: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    stepBtnText: { fontSize: 24, color: colors.text, lineHeight: 26 },
+    stepperVal: { alignItems: "center", minWidth: 80 },
+    stepperNum: { fontSize: 28, fontWeight: "800", color: colors.text },
+    stepperUnit: { ...typography.caption, color: colors.textMuted },
+    quickRow: { flexDirection: "row", gap: 8, justifyContent: "center", marginTop: 14 },
+    quickChip: {
+      borderRadius: 999,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    quickChipActive: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
+    quickChipText: { ...typography.caption, fontWeight: "700", color: colors.text },
+    quickChipTextActive: { color: colors.accentStrong },
   });
