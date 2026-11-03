@@ -1,22 +1,18 @@
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { Tabs, useNavigation } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Platform, StyleSheet, View, type OpaqueColorValue } from "react-native";
+import { StyleSheet, View, type OpaqueColorValue } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
-import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from "expo-glass-effect";
-import { BlurView } from "expo-blur";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ThemedIcon } from "@/components/themed-icon";
-import { useTheme } from "@/theme";
-import { TAB_BAR_HEIGHT } from "@/lib/use-tab-bar-space";
+import { FloatingTabBar } from "@/components/v2/floating-tab-bar";
 import { haptics } from "@/lib/haptics";
 import { SPRING, useReducedMotion } from "@/lib/motion";
 import { isMotionActive } from "@/theme/motion";
 import { scrollToTop } from "@/lib/scroll-to-top";
-import type { ThemeColors } from "@/theme/tokens";
 
 /**
- * 一级 Tab 布局（v17 阶段 B：从根 _layout.tsx 整体搬进来；阶段 C3：底栏材质升级）。
+ * 一级 Tab 布局（v17 阶段 B：从根 _layout.tsx 整体搬进来；阶段 C3：底栏材质升级；
+ * v2.1：底栏改为自定义浮动液态玻璃胶囊 —— 见 components/v2/floating-tab-bar.tsx）。
  *
  * 存在的意义：根布局改为 <Stack> 之后，"一级 Tab" 必须有自己的嵌套布局，
  * 这样 hub → 子页 才是真正的 push（有原生转场 / 侧滑返回 / 预测性返回），
@@ -24,62 +20,15 @@ import type { ThemeColors } from "@/theme/tokens";
  *
  * `(tabs)` 是**括号分组**，不进 URL —— /today、/learn、/career、/wellness、
  * /settings、/、/dashboard 与迁移前完全一致。
+ *
+ * 职责边界（v2.1）：
+ *  - 本文件只负责「哪些 Tab + 图标 + 事件」，几何与材质在 floating-tab-bar.tsx；
+ *  - 触觉（tabPress）与双击回顶（v19-M8）留在 screenListeners —— 自定义底栏
+ *    点击时仍会 emit tabPress，所以这两条交互链路不受影响；
+ *  - TabIcon 的弹簧动效保持原样（动效点数量不变，见 scripts/check-motion-budget.mjs）。
  */
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
-
-/* ------------------------------------------------------------------ *
- * 材质三档（v17 C3，方案 §4.1）
- *  1. iOS 26+        → expo-glass-effect 的 GlassView（真液态玻璃）
- *  2. Android / <26  → 实底 + 高透明降档（无 blur，见下方注释的取舍）
- *  3. 低端机         → 材质不变，仅关掉装饰动效（isMotionActive / MOTION_ENABLED）
- * 决策 D3：**不引入 expo-blur**（原生依赖、不能 OTA，且 ColorOS 上真模糊代价高）。
- * ------------------------------------------------------------------ */
-
-/** iOS 26 且运行时 API 可用时才有真玻璃；非 iOS 或系统不支持返回 false */
-function liquidGlassAvailable(): boolean {
-  try {
-    return Platform.OS === "ios" && isLiquidGlassAvailable() && isGlassEffectAPIAvailable();
-  } catch {
-    // 极老版本 / 能力探测异常：安全回退到实底，绝不因为材质让底栏消失
-    return false;
-  }
-}
-
-/**
- * 底栏材质层。
- *
- * Android 没有系统级 blur，所以"更透"必须与**可读性**折中：
- * 底栏下方是滚动内容，透明度压太低（<80%）会让标签与图标在花背景上糊掉。
- * 因此这里用 85% canvas + 中性 hairline + 更柔的投影来换"轻"，而不是一味加透明度。
- */
-function TabBarMaterial({ dark, styles, glass }: { dark: boolean; styles: Styles; glass: boolean }) {
-  if (glass) {
-    return (
-      <GlassView
-        glassEffectStyle="regular"
-        colorScheme={dark ? "dark" : "light"}
-        style={styles.tabBarGlassIos}
-      >
-        <View style={styles.tabBarHighlight} pointerEvents="none" />
-      </GlassView>
-    );
-  }
-  // Android / iOS<26：v2.0 起用 BlurView 做真实模糊（expo-blur，dimezisBlurView），
-  // 再叠半透明染色 + 顶部高光；低端机由设备档位在 S8 统一降级为空阴影实底。
-  return (
-    <View style={styles.tabBarGlass} pointerEvents="none">
-      <BlurView
-        intensity={30}
-        tint={dark ? "dark" : "light"}
-        experimentalBlurMethod="dimezisBlurView"
-        style={StyleSheet.absoluteFill}
-      />
-      <View style={styles.tabBarTint} pointerEvents="none" />
-      <View style={styles.tabBarHighlight} pointerEvents="none" />
-    </View>
-  );
-}
 
 /**
  * Tab 图标：选中弹跳 + SF Symbols。
@@ -102,15 +51,13 @@ function TabIcon({
   color: string | OpaqueColorValue;
   focused?: boolean;
 }) {
-  const { colors, dark } = useTheme();
-  const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
   const reduceMotion = useReducedMotion();
   const active = isMotionActive(reduceMotion);
   const scale = useSharedValue(1);
   /**
    * v1.44.2 曾按反馈在选中图标外加一圈白色圆环；v1.45 用户给了参考图
-   * （选中态是一块更大的实色圆角块、并无圆环），据此把圆环去掉，
-   * 选中态改由 tabBarItemStyle 的圆角块承担。
+   * （选中态是一块更大的实色圆角块、并无圆环），据此把圆环去掉；
+   * v2.1 起选中态由底栏的蓝色渐变 pill 承担，图标只负责弹簧与反白。
    */
 
   useEffect(() => {
@@ -140,131 +87,32 @@ function TabIcon({
   );
 }
 
-type Styles = ReturnType<typeof makeStyles>;
-
-const makeStyles = (colors: ThemeColors, dark: boolean) =>
-  StyleSheet.create({
-    /**
-     * 图标盒高度参与 TabBar 的几何标定（v1.27 真机反馈"图标与文字偏下"）。
-     *
-     * v17 C3 把标签字号 10 → 11（10pt 在真机上发虚），因此**三处数字一起重算**：
-     *   内容高 = 图标盒 27 + 标签间距 2 + 标签行高 13 = 42
-     *   item 高 = 56 − 2×4(marginVertical) = 48
-     *   可用内高 = 48 − 2×2(paddingVertical) = 44
-     *   余量 2pt 由 justifyContent:center 均分 → 上下各 1pt，**几何居中**。
-     * 三处（本高度 / tabBarLabelStyle 的 lineHeight+marginTop / paddingVertical）互为一体，
-     * 改任一处都要照上式重算，否则又会出现"偏下"。
-     */
-    tabIcon: { width: 40, height: 27, alignItems: "center", justifyContent: "center" },
-    tabBarTint: {
-      position: "absolute",
-      top: 0,
-      right: 0,
-      bottom: 0,
-      left: 0,
-      borderRadius: 20,
-      backgroundColor: colors.glassTint,
-    },
-    tabBarHighlight: {
-      position: "absolute",
-      top: 1,
-      right: 1,
-      bottom: 1,
-      left: 1,
-      borderRadius: 20,
-      borderWidth: StyleSheet.hairlineWidth * 2,
-      borderColor: colors.glassBorder,
-    },
-    /** iOS 26 真玻璃：只给圆角，材质由系统画；高光内描边仍保留以勾勒胶囊轮廓 */
-    tabBarGlassIos: {
-      position: "absolute",
-      top: 0,
-      right: 0,
-      bottom: 0,
-      left: 0,
-      borderRadius: 20,
-      overflow: "hidden",
-    },
-    /**
-     * Android / iOS<26 的实底降档：85% canvas + 中性 hairline + 柔和中性投影。
-     * 阶段 A 已把 border 与阴影中性化；这里同步收紧描边、加大投影半径，让它更像"浮起来的玻璃"。
-     */
-    tabBarGlass: {
-      position: "absolute",
-      top: 0,
-      right: 0,
-      bottom: 0,
-      left: 0,
-      borderRadius: 20,
-      backgroundColor: "transparent",
-      borderWidth: StyleSheet.hairlineWidth * 2,
-      borderColor: colors.glassBorder,
-      shadowColor: "#23304E",
-      shadowOpacity: 0.1,
-      shadowRadius: 26,
-      shadowOffset: { width: 0, height: 12 },
-      // Android elevation 在透明底 + 圆角上会画成不透明矩形（真机白条根因），这里用描边+柔影替代
-      elevation: 0,
-      overflow: "hidden",
-    },
-  });
+/**
+ * 图标盒高度参与底栏的几何标定（v1.27 真机反馈"图标与文字偏下"）。
+ *
+ * v2.1 底栏改为 66pt 胶囊 + 52pt 单格（components/v2/floating-tab-bar.tsx）：
+ *   未选中内容高 = 图标盒 27 + 标签行高 14 = 41 → 单格 52 内上下各余 5.5pt（几何居中）
+ *   选中态只剩图标盒 27，居中于 52 → 图标视觉居中于蓝色 pill
+ * 三处（本高度 / 底栏标签字号与行高 / 单格高度）互为一体，改任一处都要照上式重算。
+ */
+const styles = StyleSheet.create({
+  tabIcon: { width: 40, height: 27, alignItems: "center", justifyContent: "center" },
+});
 
 export default function TabsLayout() {
-  const { colors, dark } = useTheme();
-  const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
-  const insets = useSafeAreaInsets();
   // v19-M8：双击回顶需要经导航状态判断"按压的是否为当前已聚焦 Tab"
   const navigation = useNavigation();
-  // 能力探测只在渲染时做一次；失败安全回退实底
-  const glass = liquidGlassAvailable();
 
   return (
     <Tabs
+      /**
+       * v2.1：接管 tabBar 渲染（渐变 pill + 外发光只能自绘）。
+       * 内联箭头每次渲染都会新建，但组件类型不变，react-navigation 不会重建底栏。
+       */
+      tabBar={(props) => <FloatingTabBar {...props} />}
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.primaryStrong,
-        tabBarInactiveTintColor: colors.textMuted,
-        // v2：选中态 = 浅蓝 pill（原型 V3），不再是实白圆角块
-        /**
-         * 选中项 = 一枚**实色圆角块** + 主色图标/文字（v1.45 按用户给的参考图调整）。
-         * 旧版是 90% 透明度的胶囊（`surface + "E6"`）+ 图标外一圈白色圆环，
-         * 参考图里选中态是一块**更大、更实**的圆角矩形，且没有额外圆环 ——
-         * 所以这里改成不透明 surface，并去掉圆环（见 TabIcon）。
-         */
-        tabBarActiveBackgroundColor: colors.primarySoft,
-        tabBarInactiveBackgroundColor: "transparent",
-        tabBarStyle: {
-          position: "absolute",
-          left: 12,
-          right: 12,
-          bottom: insets.bottom + 8,
-          height: TAB_BAR_HEIGHT,
-          borderRadius: 20,
-          paddingHorizontal: 6,
-          paddingBottom: 0,
-          paddingTop: 0,
-          backgroundColor: "transparent",
-          borderTopWidth: 0,
-          borderWidth: 0,
-          elevation: 0,
-          shadowOpacity: 0,
-        },
-        tabBarBackground: () => <TabBarMaterial dark={dark} styles={styles} glass={glass} />,
-        tabBarShowLabel: true,
-        tabBarLabelPosition: "below-icon",
-        // 字号 10 → 11（真机 10pt 发虚）；行高与 marginTop 参与居中标定，见 tabIcon 注释
-        tabBarLabelStyle: { fontSize: 10, fontWeight: "600", lineHeight: 12, marginTop: 2, marginBottom: 0 },
-        tabBarItemStyle: {
-          // v1.45：参考图里选中块几乎占满底栏高度、四角是大圆角矩形而非胶囊。
-          // marginVertical 4→3 让圆角块更高；上下对称改动，不影响图标的几何居中标定。
-          marginVertical: 4,
-          marginHorizontal: 2,
-          paddingVertical: 3,
-          paddingHorizontal: 0,
-          borderRadius: 14,
-          alignItems: "center",
-          justifyContent: "center",
-        },
+        // 底栏材质 / 圆角 / 悬浮位置全部由 floating-tab-bar.tsx 负责，这里不再写 tabBarStyle。
         sceneStyle: { backgroundColor: "transparent" },
       }}
       screenListeners={{
@@ -282,7 +130,7 @@ export default function TabsLayout() {
           const target = (e as { target?: string }).target;
           const pressed = st?.routes.find((r) => r.key === target);
           if (pressed && st && st.routes[st.index]?.name === pressed.name) {
-            scrollToTop(`/${pressed.name}`);
+            scrollToTop("/" + pressed.name);
           }
         },
       }}
@@ -343,7 +191,7 @@ export default function TabsLayout() {
         name="settings"
         options={{
           title: "我的",
-          // person-circle：圆形轮廓比人形剪影更圆润，与白色圆环的形态也更统一
+          // person-circle：圆形轮廓比人形剪影更圆润，与胶囊的形态也更统一
           tabBarIcon: ({ color, focused }) => (
             <TabIcon
               name="person-circle"

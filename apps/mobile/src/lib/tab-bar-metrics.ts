@@ -1,17 +1,26 @@
 /**
- * 底栏占位几何（悬浮胶囊底栏，见 docs/APP端优化方案-v2-问题修复与UI精修.md Bug 2）
+ * 底栏占位几何（悬浮液态玻璃胶囊底栏，见 docs/APP端优化方案-v2-问题修复与UI精修.md Bug 2）
  *
  * 背景（2026-09-15 真机）：底栏是浮动胶囊，`bottom:16 + height:62` 共占 78pt，
  * 而各屏内容底部留白零散（32/40/48/96/110/118 混用），11 个页面滚到底被压住最后一行。
  * 修法：所有可滚动页统一用 `tabBarSpaceFor()` 作为 `paddingBottom` 下限。
  *
+ * v2.1（参考图 2「白色玻璃浮动胶囊」）：本体 62 → 66、悬浮间距 8 → 10，
+ * 并新增左右留白 / 全圆角两个常量 —— 全部页面经 `tabBarSpaceFor()` 自动跟着变，
+ * 不需要逐屏改数字。**改任一数字都要同步 `tab-bar-metrics.test.ts` 的几何契约**，
+ * 底栏占位只能变大不能变小，否则又会压住内容。
+ *
  * 本文件保持**纯函数**（不 import react-native），便于单测；
  * 需要安全区的组件用 `@/lib/use-tab-bar-space` 的 `useTabBarSpace()`。
  */
-/** 底栏（悬浮胶囊）本体高度，不含安全区 */
-export const TAB_BAR_HEIGHT = 62;
-/** 悬浮胶囊离底部安全区的间距（v12 悬空玻璃底栏） */
-export const TAB_BAR_FLOAT_GAP = 8;
+/** 底栏（悬浮胶囊）本体高度，不含安全区（v2.1：66，参考图 2 的 64–68 区间） */
+export const TAB_BAR_HEIGHT = 66;
+/** 悬浮胶囊离底部安全区的间距（v2.1：10） */
+export const TAB_BAR_FLOAT_GAP = 10;
+/** 胶囊左右留白（v2.1：14，参考图 2 的 12–16 区间） */
+export const TAB_BAR_SIDE_INSET = 14;
+/** 胶囊圆角 = 半径一半 → 两端完全半圆的「全圆角胶囊」 */
+export const TAB_BAR_RADIUS = TAB_BAR_HEIGHT / 2;
 /** 底栏之上的呼吸留白，避免最后一行贴着底栏 */
 export const TAB_BAR_BREATHING = 18;
 
