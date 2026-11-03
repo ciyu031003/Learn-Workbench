@@ -10,7 +10,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { CareerReadiness, DashboardSummary, WellbeingToday } from "@learn-workbench/shared/schemas";
 import { taskTypeLabels } from "@learn-workbench/shared/labels";
-import { formatDuration, formatDateCN, todayISO } from "@learn-workbench/shared/dates";
+import { formatDateCN, todayISO } from "@learn-workbench/shared/dates";
 import { todayISOInZone } from "@learn-workbench/shared/domains";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -23,14 +23,20 @@ import { useDomainStore } from "@/store/domain-store";
 import { useToastStore } from "@/store/toast-store";
 import { ExerciseSheet } from "@/components/sport/exercise-sheet";
 import { Celebration } from "@/components/celebration";
+import { StatCards, type Stat } from "@/components/application/dashboard/stat-cards";
+import { LazyOrdersChartCard, LazyRevenueChartCard } from "@/components/application/dashboard/lazy-chart-cards";
+import { ProgressBar } from "@/components/base/progress/progress";
+import {
+  RiFireLine,
+  RiListCheck2,
+  RiRocketLine,
+  RiTimeLine,
+} from "@remixicon/react";
 import { cn } from "@/lib/utils";
 import {
   Target,
   Activity,
   TrendingUp,
-  Rocket,
-  ListTodo,
-  Clock3,
   CheckCircle2,
   Circle,
   ArrowRight,
@@ -113,26 +119,6 @@ function StatValue({ value, className }: { value: number | string; className?: s
   const animated = useCountUp(Number.isFinite(target) ? target : 0);
   const text = Number.isFinite(target) ? animated + (m?.[2] ?? "") : s;
   return <span className={cn("stat-pop font-bold tabular-nums tracking-tight", className)}>{text}</span>;
-}
-
-/** 连续打卡火焰团：团簇越满代表连续天数越有积累感 */
-function FlameCluster({ streak, className }: { streak: number; className?: string }) {
-  const flameCount = Math.min(6, 1 + Math.floor(Math.max(0, streak) / 2));
-  return (
-    <span className={cn("flex items-end justify-center gap-0.5", className)} aria-label={`连续打卡 ${streak} 天`}>
-      {Array.from({ length: flameCount }, (_, i) => (
-        <Flame
-          key={i}
-          className={cn(
-            "text-accent-strong",
-            i === 0 ? "size-5" : i < 3 ? "size-4" : "size-3.5",
-            i > 0 && "opacity-80"
-          )}
-          strokeWidth={2.2}
-        />
-      ))}
-    </span>
-  );
 }
 
 /**
@@ -298,12 +284,71 @@ export function DashboardView({ initialSummary, initialReadiness, initialWellbei
   const currentTask = undone[0] ?? null;
   const upcoming = undone.slice(1, 5);
 
-  const statCards = [
-    { label: "职业准备度", value: `${readiness?.overall ?? 0}%`, icon: Rocket, accent: "text-accent", href: "/career" },
-    { label: "今日任务", value: `${todayDone}/${todayCount}`, icon: ListTodo, accent: "text-success", href: "/tasks" },
-    { label: "本周专注", value: formatDuration(data?.totalFocusMinutes ?? 0), icon: Clock3, accent: "text-warning", href: "/tasks#focus" },
-    { label: "连续打卡", value: `${data?.streak ?? 0} 天`, icon: Flame, accent: "text-accent-strong", href: "/logs", flame: true },
+  const focusMinutes = data?.totalFocusMinutes ?? 0;
+  const focusValue = focusMinutes >= 60 ? `${(focusMinutes / 60).toFixed(1)} 小时` : `${focusMinutes} 分`;
+  const todayPercent = todayCount > 0 ? Math.round((todayDone / todayCount) * 100) : 0;
+
+  const statCards: Stat[] = [
+    {
+      icon: RiRocketLine,
+      label: "职业准备度",
+      value: `${readiness?.overall ?? 0}%`,
+      delta: `匹配 ${readiness?.matchedJobs ?? 0} 岗`,
+      deltaColor: "neutral",
+      href: "/career",
+    },
+    {
+      icon: RiListCheck2,
+      label: "今日任务",
+      value: `${todayDone}/${todayCount}`,
+      delta: todayCount > 0 ? `完成 ${todayPercent}%` : "待安排",
+      deltaColor: todayCount > 0 && todayDone === todayCount ? "lime" : "neutral",
+      href: "/tasks",
+    },
+    {
+      icon: RiTimeLine,
+      label: "本周专注",
+      value: focusValue,
+      delta: `任务 ${data?.weekTaskDone ?? 0}/${data?.weekTaskCount ?? 0}`,
+      deltaColor: "neutral",
+      href: "/tasks#focus",
+    },
+    {
+      icon: RiFireLine,
+      label: "连续打卡",
+      value: `${data?.streak ?? 0} 天`,
+      delta: data?.streak ? "保持中" : "今日打卡",
+      deltaColor: data?.streak ? "lime" : "neutral",
+      href: "/logs",
+    },
   ];
+
+  const weekPercent =
+    data && data.weekTaskCount > 0 ? Math.round((data.weekTaskDone / data.weekTaskCount) * 100) : 0;
+  const hydrationPercent = wellbeing?.hydration.targetMl
+    ? Math.min(100, Math.round((wellbeing.hydration.totalMl / wellbeing.hydration.targetMl) * 100))
+    : 0;
+  const exercisePercent = wellbeing?.exercise.targetMinutes
+    ? Math.min(100, Math.round((wellbeing.exercise.totalMinutes / wellbeing.exercise.targetMinutes) * 100))
+    : 0;
+
+  const phases = data?.phases ?? [];
+  const phaseDone = phases.reduce((sum, phase) => sum + phase.done, 0);
+  const phaseTotal = phases.reduce((sum, phase) => sum + phase.total, 0);
+  const phaseRate = phaseTotal > 0 ? Math.round((phaseDone / phaseTotal) * 100) : 0;
+  const phasePoints = phases
+    .filter((phase) => phase.total > 0)
+    .slice(0, 8)
+    .map((phase) => ({
+      label: phase.title.length > 8 ? `${phase.title.slice(0, 8)}…` : phase.title,
+      current: phase.done,
+      previous: phase.total,
+    }));
+  const readinessPoints = (readiness?.dimensions ?? []).map((dimension) => ({
+    label: dimension.label,
+    current: dimension.score,
+    previous: 100,
+  }));
 
   const wellbeingChips = [
     { label: "精力", value: wellbeing?.energy ? `${wellbeing.energy.level}/5` : "待记录", icon: Zap, accent: "text-warning" },
@@ -494,24 +539,28 @@ export function DashboardView({ initialSummary, initialReadiness, initialWellbei
             </div>
           }
         />
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {statCards.map((c) => (
-            <Link key={c.label} href={c.href} className="group">
-              <Card className="press-scale">
-                <CardContent className="flex flex-col gap-2 p-4">
-                  {c.flame ? (
-                    <FlameCluster streak={data?.streak ?? 0} />
-                  ) : (
-                    <span className={cn("icon-chip h-9 w-9 shrink-0", c.accent)}>
-                      <c.icon className="size-4.5" />
-                    </span>
-                  )}
-                  <StatValue value={c.value} className="text-xl" />
-                  <span className="text-[11px] text-muted-foreground">{c.label}</span>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+        <StatCards stats={statCards} columns={4} />
+
+        {/* 本周目标：BoardUI ProgressBar（数据全部来自现有 summary / wellbeing） */}
+        <div className="mt-3 grid gap-4 rounded-2xl bg-background-secondary-default p-4 sm:grid-cols-3">
+          <ProgressBar
+            label="本周任务"
+            value={weekPercent}
+            size="sm"
+            description={`${data?.weekTaskDone ?? 0}/${data?.weekTaskCount ?? 0} 项已完成`}
+          />
+          <ProgressBar
+            label="饮水目标"
+            value={hydrationPercent}
+            size="sm"
+            description={`${wellbeing?.hydration.totalMl ?? 0} / ${wellbeing?.hydration.targetMl ?? 0} ml`}
+          />
+          <ProgressBar
+            label="运动目标"
+            value={exercisePercent}
+            size="sm"
+            description={`${wellbeing?.exercise.totalMinutes ?? 0} / ${wellbeing?.exercise.targetMinutes ?? 0} 分`}
+          />
         </div>
 
         {/* 健康快照（跳转 wellbeing） */}
@@ -573,7 +622,40 @@ export function DashboardView({ initialSummary, initialReadiness, initialWellbei
       ) : null}
       </section>
 
-      {/* ③ 接下来 */}
+      {/* ③ 数据概览：BoardUI 图表卡（真实数据映射） */}
+      <section>
+        <SectionTitle icon={TrendingUp} title="数据概览" />
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <LazyOrdersChartCard
+            data={phasePoints}
+            title="路线图阶段"
+            currentLabel="已完成"
+            previousLabel="计划任务"
+            comparisonLabel="计划总数"
+            formatValue={(value) => `${Math.round(value)} 项`}
+            formatAxis={(value) => `${Math.round(value)}`}
+            deltaOverride={{
+              label: `完成率 ${phaseRate}%`,
+              color: phaseRate >= 60 ? "lime" : "neutral",
+            }}
+            emptyText="路线图还没有可统计的阶段任务"
+          />
+          <LazyRevenueChartCard
+            data={readinessPoints}
+            title="准备度四维"
+            currentLabel="当前得分"
+            previousLabel="满分线"
+            comparisonLabel="满分"
+            headlineMode="average"
+            formatValue={(value) => `${Math.round(value)}%`}
+            formatAxis={(value) => `${Math.round(value)}%`}
+            deltaOverride={{ label: `加权 ${readiness?.overall ?? 0}%`, color: "neutral" }}
+            emptyText="还没有职业准备度数据"
+          />
+        </div>
+      </section>
+
+      {/* ④ 接下来 */}
       <section>
         <SectionTitle
           icon={TrendingUp}

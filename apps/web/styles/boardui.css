@@ -1,0 +1,123 @@
+/* ---------------------------------------------------------------------------
+ * BoardUI (React + Tailwind v4) — imported by app/globals.css.
+ *
+ * app/globals.css 仍是本项目的设计系统入口（52KB，油画 tokens / 玻璃层 /
+ * 动效），这里只补充 BoardUI 组件需要的：
+ *   1) 语义色 token + 复合字号（免费组件大量使用 bg-background-* / text-text-*）
+ *   2) dark / rtl / ltr 变体（本项目深色是 html.dark，不是 prefers-color-scheme）
+ *   3) 少量组件 CSS（骨架屏微光、进度条扫光、数字滚动淡入、Recharts 焦点清理）
+ *
+ * 注意：不要整份引入 styles/globals.css —— 它的 body 背景重置会覆盖
+ * app/globals.css 的纸面底色。
+ * ------------------------------------------------------------------------- */
+
+@import "./theme.css";
+@import "./typography.css";
+
+/* 注意：不注册 @custom-variant dark。本项目深色完全由 html.dark 下的 CSS
+ * token 驱动，Tailwind 的 dark: 仍保持系统偏好语义，避免改变既有 44 处
+ * dark: 工具类的行为。BoardUI 组件本身不用 dark:，只读取 .dark 下的 token。 */
+@custom-variant rtl (&:dir(rtl));
+@custom-variant ltr (&:dir(ltr));
+
+/* BoardUI theme 把 shadow-sm/md/lg/xl 调软了（Figma 6%/10%）。本项目已有页面
+ * 在用 Tailwind 默认档位，这里恢复默认值，避免换肤波及旧页面阴影。 */
+@theme {
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+}
+
+/* 数字变化时轻微淡入（图表卡 headline / KPI 数字） */
+@keyframes number-fade {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.animate-number-fade {
+  animation: number-fade 220ms ease-out;
+}
+
+/* Progress 不确定态的扫光带 */
+@keyframes bui-progress-sweep {
+  from {
+    translate: -100% 0;
+  }
+  to {
+    translate: 250% 0;
+  }
+}
+
+/* Skeleton 的分层扫光（前沿亮线 + 光晕 + 宽辉） */
+.bui-skeleton {
+  --bui-skeleton-line: rgb(255 255 255 / 0.9);
+  --bui-skeleton-glow: rgb(255 255 255 / 0.55);
+  --bui-skeleton-bloom: rgb(255 255 255 / 0.35);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.dark .bui-skeleton {
+  --bui-skeleton-line: rgb(255 255 255 / 0.2);
+  --bui-skeleton-glow: rgb(255 255 255 / 0.08);
+  --bui-skeleton-bloom: rgb(255 255 255 / 0.04);
+}
+
+.bui-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, transparent, var(--bui-skeleton-line)) right / 2px 100% no-repeat,
+    linear-gradient(90deg, transparent, var(--bui-skeleton-glow)) right / 72px 100% no-repeat,
+    linear-gradient(90deg, transparent, var(--bui-skeleton-bloom)) right / 240px 100% no-repeat;
+  translate: -100% 0;
+  animation: bui-skeleton-sheen 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.bui-skeleton:dir(rtl)::after {
+  scale: -1 1;
+  animation-direction: reverse;
+}
+
+@keyframes bui-skeleton-sheen {
+  0% {
+    translate: -100% 0;
+  }
+  60%,
+  100% {
+    translate: 100% 0;
+  }
+}
+
+@keyframes bui-skeleton-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bui-skeleton::after {
+    display: none;
+  }
+  .bui-skeleton {
+    animation: bui-skeleton-pulse 2s ease-in-out infinite;
+  }
+}
+
+/* Recharts 的可访问层会把图形画上 UA 焦点框；图表卡本身已有 hover/focus 反馈，
+ * 这里清掉默认描边，并让 SVG 轴保持物理坐标（中文环境同样是 LTR）。 */
+.recharts-wrapper {
+  direction: ltr;
+}
+
+.recharts-wrapper:focus,
+.recharts-wrapper:focus-visible,
+.recharts-wrapper :focus,
+.recharts-wrapper :focus-visible {
+  outline: none;
+}

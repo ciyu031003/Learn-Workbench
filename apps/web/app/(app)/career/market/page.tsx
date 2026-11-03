@@ -6,6 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { StatCards, type Stat } from "@/components/application/dashboard/stat-cards";
+import { LazyOrdersChartCard, LazyRevenueChartCard } from "@/components/application/dashboard/lazy-chart-cards";
+import { Skeleton } from "@/components/base/skeleton/skeleton";
+import {
+  RiBriefcaseLine,
+  RiLineChartLine,
+  RiMapPinLine,
+  RiMoneyCnyCircleLine,
+  RiStackLine,
+  RiTimeLine,
+} from "@remixicon/react";
 import {
   BarChart3,
   BriefcaseBusiness,
@@ -14,7 +25,6 @@ import {
   GitBranch,
   GraduationCap,
   Layers,
-  Loader2,
   MapPin,
   Sparkles,
   TrendingUp,
@@ -27,7 +37,6 @@ import {
   TreemapChart,
 } from "@/components/market/market-charts";
 import { MarketIntelligenceFilterBar } from "@/components/market/intelligence-filter-bar";
-import { MarketTimeSeries } from "@/components/market/market-time-series";
 import { PersonalMarketCard } from "@/components/market/personal-market-card";
 import { MarketViewSwitcher } from "@/components/market/market-view-switcher";
 import { MarketDecisionPanel } from "@/components/market/market-decision-panel";
@@ -103,15 +112,6 @@ function ChartCard({
       </CardHeader>
       <CardContent className="flex flex-col gap-2">{children}</CardContent>
     </Card>
-  );
-}
-
-function StatCell({ value, label }: { value: string; label: string }) {
-  return (
-    <div className="rounded-xl border border-white/10 bg-muted/20 px-3 py-3">
-      <p className="text-2xl font-black tabular-nums tracking-tight text-foreground">{value}</p>
-      <p className="mt-1 text-[11px] text-muted-foreground">{label}</p>
-    </div>
   );
 }
 
@@ -225,6 +225,77 @@ export default function MarketPage() {
   const topFunction = dist.byFunction[0];
   const topSkill = dist.bySkill[0];
 
+  const marketStats: Stat[] = [
+    {
+      icon: RiBriefcaseLine,
+      label: "职位样本",
+      value: (summary?.total ?? 0).toLocaleString("zh-CN"),
+      delta: `近 7 天 +${summary?.last7DaysJobs ?? 0}`,
+      deltaColor: (summary?.last7DaysJobs ?? 0) > 0 ? "lime" : "neutral",
+    },
+    {
+      icon: RiTimeLine,
+      label: "近 7 天新增",
+      value: `${summary?.last7DaysJobs ?? 0}`,
+      delta: summary && summary.total > 0 ? `占 ${Math.round((summary.last7DaysJobs / summary.total) * 100)}%` : "暂无样本",
+      deltaColor: "neutral",
+    },
+    {
+      icon: RiMoneyCnyCircleLine,
+      label: "薪资中位",
+      value: summary?.medianSalary != null ? `${summary.medianSalary}K` : "--",
+      delta: summary?.avgSalary != null ? `平均 ${summary.avgSalary}K` : "未披露",
+      deltaColor: "neutral",
+    },
+    {
+      icon: RiLineChartLine,
+      label: "平均薪资",
+      value: summary?.avgSalary != null ? `${summary.avgSalary}K` : "--",
+      delta: summary?.medianSalary != null ? `中位 ${summary.medianSalary}K` : "未披露",
+      deltaColor: "neutral",
+    },
+    {
+      icon: RiMapPinLine,
+      label: "覆盖城市",
+      value: `${summary?.cityCount ?? 0}`,
+      delta: `${summary?.skillCount ?? 0} 项技能`,
+      deltaColor: "neutral",
+    },
+    {
+      icon: RiStackLine,
+      label: "技能数量",
+      value: `${summary?.skillCount ?? 0}`,
+      delta: `职能 ${dist.byFunction.length} 类`,
+      deltaColor: "neutral",
+    },
+  ];
+
+  // 薪资走势：中位 vs 平均，均来自 /api/market/intelligence 的 timeSeries
+  const salaryPoints = useMemo(
+    () =>
+      (data?.timeSeries ?? [])
+        .filter((point) => point.medianSalary != null && point.avgSalary != null)
+        .map((point) => ({
+          label: point.date.slice(5),
+          current: point.medianSalary ?? 0,
+          previous: point.avgSalary ?? 0,
+        })),
+    [data]
+  );
+  // 新增岗位：每日新增 vs 近 7 日均值（滚动派生，仍是同一组真实行情点）
+  const jobPoints = useMemo(() => {
+    const tail = (data?.timeSeries ?? []).slice(-14);
+    return tail.map((point, index) => {
+      const window = tail.slice(Math.max(0, index - 6), index + 1);
+      const average = window.reduce((sum, item) => sum + item.newJobs, 0) / window.length;
+      return {
+        label: point.date.slice(5),
+        current: point.newJobs,
+        previous: Math.round(average),
+      };
+    });
+  }, [data]);
+
   if (error && !data) {
     return (
       <div className="page-enter">
@@ -266,28 +337,52 @@ export default function MarketPage() {
       ) : null}
 
       {loading ? (
-        <Card>
-          <CardContent className="flex items-center justify-center gap-2 py-20 text-sm text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" />
-            正在聚合市场数据
-          </CardContent>
-        </Card>
+        <div className="flex flex-col gap-4" aria-busy>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
+            {Array.from({ length: 6 }, (_, index) => (
+              <Skeleton key={index} className="h-[132px] w-full rounded-2xl" />
+            ))}
+          </div>
+          <Skeleton className="h-[344px] w-full rounded-2xl" />
+        </div>
       ) : !data || !summary || summary.total === 0 ? (
         <EmptyState icon={TrendingUp} title="暂无市场数据" hint="先抓取职位后，市场情报会自动生成" />
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-            <StatCell value={String(summary.total)} label="职位样本" />
-            <StatCell value={String(summary.last7DaysJobs)} label="近 7 天新增" />
-            <StatCell value={summary.medianSalary != null ? `${summary.medianSalary}K` : "--"} label="薪资中位" />
-            <StatCell value={summary.avgSalary != null ? `${summary.avgSalary}K` : "--"} label="平均薪资" />
-            <StatCell value={String(summary.cityCount)} label="覆盖城市" />
-            <StatCell value={String(summary.skillCount)} label="技能数量" />
-          </div>
+          <StatCards stats={marketStats} columns={4} />
 
-          <ChartCard icon={<TrendingUp className="size-4 text-sky-400" />} title="市场时间趋势" badge={`${filters.range ?? 90} 天`}>
-            <MarketTimeSeries series={data.timeSeries} />
-          </ChartCard>
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <LazyRevenueChartCard
+              data={salaryPoints}
+              title="薪资走势"
+              currentLabel="薪资中位"
+              previousLabel="平均薪资"
+              comparisonLabel="平均"
+              headlineMode="average"
+              formatValue={(value) => `${Math.round(value)}K`}
+              formatAxis={(value) => `${Math.round(value)}K`}
+              deltaOverride={
+                summary.medianSalary != null
+                  ? { label: `中位 ${summary.medianSalary}K`, color: "neutral" }
+                  : undefined
+              }
+              emptyText="所选区间暂无薪资数据"
+            />
+            <LazyOrdersChartCard
+              data={jobPoints}
+              title="每日新增岗位"
+              currentLabel="当日新增"
+              previousLabel="近 7 日均值"
+              comparisonLabel="均值"
+              formatValue={(value) => `${Math.round(value)} 岗`}
+              formatAxis={(value) => `${Math.round(value)}`}
+              deltaOverride={{
+                label: `近 7 天 +${summary.last7DaysJobs}`,
+                color: summary.last7DaysJobs > 0 ? "lime" : "neutral",
+              }}
+              emptyText="所选区间暂无新增岗位"
+            />
+          </div>
 
           <Headline topFunction={topFunction} topCity={topCity} topSkill={topSkill} />
 

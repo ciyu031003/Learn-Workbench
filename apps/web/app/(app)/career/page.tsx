@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { CareerReadiness } from "@learn-workbench/shared/schemas";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { StatCards, type Stat } from "@/components/application/dashboard/stat-cards";
+import { ProgressBar } from "@/components/base/progress/progress";
+import { Skeleton } from "@/components/base/skeleton/skeleton";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
@@ -19,13 +21,12 @@ import {
   Briefcase,
   BarChart3,
 } from "lucide-react";
-
-const DIM_COLORS: Record<string, string> = {
-  skill: "progress-fill",
-  project: "progress-fill-accent",
-  resume: "progress-fill",
-  interview: "progress-fill-accent",
-};
+import {
+  RiArrowUpLine,
+  RiBriefcaseLine,
+  RiRocketLine,
+  RiTrophyLine,
+} from "@remixicon/react";
 
 export default function CareerPage() {
   const [readiness, setReadiness] = useState<CareerReadiness | null>(null);
@@ -46,12 +47,54 @@ export default function CareerPage() {
     };
   }, []);
 
+  const dimensions = readiness?.dimensions ?? [];
+  const strongest = dimensions.length
+    ? dimensions.reduce((best, dimension) => (dimension.score > best.score ? dimension : best))
+    : null;
+  const weakest = dimensions.length
+    ? dimensions.reduce((worst, dimension) => (dimension.score < worst.score ? dimension : worst))
+    : null;
+
+  const careerStats: Stat[] = [
+    {
+      icon: RiRocketLine,
+      label: "职业准备度",
+      value: `${readiness?.overall ?? 0}%`,
+      delta: dimensions.length ? `${dimensions.length} 个维度` : "待评估",
+      deltaColor: "neutral",
+    },
+    {
+      icon: RiBriefcaseLine,
+      label: "匹配职位",
+      value: `${readiness?.matchedJobs ?? 0}`,
+      delta: "在招岗位",
+      deltaColor: readiness && readiness.matchedJobs > 0 ? "lime" : "neutral",
+    },
+    {
+      icon: RiTrophyLine,
+      label: "最强维度",
+      value: strongest ? `${strongest.score}%` : "--",
+      delta: strongest?.label ?? "待评估",
+      deltaColor: "neutral",
+    },
+    {
+      icon: RiArrowUpLine,
+      label: "待补强",
+      value: weakest ? `${weakest.score}%` : "--",
+      delta: weakest?.label ?? "待评估",
+      deltaColor: "rose",
+    },
+  ];
+
   return (
     <div className="page-enter flex flex-col gap-6">
       <div>
         <h1 className="page-title text-2xl font-bold tracking-tight lg:text-3xl">职业画像</h1>
         <p className="page-subtitle mt-1 text-sm">技能 → 项目 → 简历 → 面试，你的长期职业成长档案</p>
       </div>
+
+      {/* 职业指标条（BoardUI stat-cards，数据来自 /api/profile/readiness） */}
+      <StatCards stats={careerStats} columns={4} />
 
       {/* 职业状态卡 */}
       <Card className="relative overflow-hidden">
@@ -66,17 +109,21 @@ export default function CareerPage() {
             <p className="page-subtitle mt-2 text-sm">职业准备度 —— 距离目标岗位还差多少</p>
 
             <div className="mt-5 flex flex-col gap-3">
-              {(readiness?.dimensions ?? []).map((d) => (
-                <div key={d.key} className="max-w-md">
-                  <div className="mb-1 flex items-center justify-between text-xs">
-                    <span className="font-medium">{d.label} <span className="text-muted-foreground">· {d.detail}</span></span>
-                    <span className="tabular-nums text-muted-foreground">{d.score}%</span>
-                  </div>
-                  <Progress value={d.score} indicatorClassName={DIM_COLORS[d.key]} />
+              {dimensions.map((dimension) => (
+                <div key={dimension.key} className="max-w-md">
+                  <ProgressBar
+                    label={`${dimension.label} · ${dimension.detail}`}
+                    value={dimension.score}
+                    size="sm"
+                  />
                 </div>
               ))}
               {!readiness && !error ? (
-                <div className="py-4 text-sm text-muted-foreground">加载中…</div>
+                <div className="flex flex-col gap-3 py-2" aria-busy>
+                  {Array.from({ length: 4 }, (_, index) => (
+                    <Skeleton key={index} className="h-9 w-full max-w-md" />
+                  ))}
+                </div>
               ) : null}
             </div>
           </div>
