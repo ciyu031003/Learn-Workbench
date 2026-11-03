@@ -1,16 +1,15 @@
 {
   "totals": {
-    "animationSites": 254,
-    "animatedStyleFiles": 32,
+    "animationSites": 257,
+    "animatedStyleFiles": 33,
     "repeatFiles": 9,
-    "filesWithAnimations": 36
+    "filesWithAnimations": 37
   },
   "sites": {
     "apps/mobile/src/app/(tabs)/_layout.tsx": 7,
     "apps/mobile/src/app/(tabs)/learn.tsx": 7,
     "apps/mobile/src/app/(tabs)/today.tsx": 92,
     "apps/mobile/src/app/exam-408-drill.tsx": 4,
-    "apps/mobile/src/app/jobs.tsx": 2,
     "apps/mobile/src/app/sports-card.tsx": 3,
     "apps/mobile/src/components/achievement-card.tsx": 4,
     "apps/mobile/src/components/animated-number.tsx": 3,
@@ -37,6 +36,8 @@
     "apps/mobile/src/components/stat.tsx": 2,
     "apps/mobile/src/components/success-burst.tsx": 5,
     "apps/mobile/src/components/toast.tsx": 2,
+    "apps/mobile/src/components/v2/habit-row.tsx": 3,
+    "apps/mobile/src/components/v2/progress-bar.tsx": 2,
     "apps/mobile/src/components/water-card.tsx": 2,
     "apps/mobile/src/components/water-cup.tsx": 5,
     "apps/mobile/src/lib/filter-bar-spec.ts": 1,
