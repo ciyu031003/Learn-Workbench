@@ -315,6 +315,8 @@ function ThemedShell({ tier }: { tier: DeviceTier }) {
         {/* P3-1：408 速记卡详情 / 真题详情（搜索结果与知识点页命中后进入） */}
         <Stack.Screen name="exam-408-card" options={{ title: "速记卡" }} />
         <Stack.Screen name="exam-408-question" options={{ title: "真题详情" }} />
+        {/* P3-2：408 套卷历史成绩（页面由 mobile-paper 提供，这里只统一注册路由） */}
+        <Stack.Screen name="exam-408-paper-history" options={{ title: "历史成绩" }} />
         <Stack.Screen name="roadmap" />
         <Stack.Screen name="tasks" />
         <Stack.Screen name="logs" />
@@ -324,6 +326,9 @@ function ThemedShell({ tier }: { tier: DeviceTier }) {
         <Stack.Screen name="phase/[id]" />
         {/* 职业线 */}
         <Stack.Screen name="jobs" />
+        {/* P3-3A：岗位详情从弹层升级为独立路由；收藏夹独立成页 */}
+        <Stack.Screen name="job-detail" options={{ title: "岗位详情" }} />
+        <Stack.Screen name="jobs-favorites" options={{ title: "我的收藏" }} />
         <Stack.Screen name="market" />
         <Stack.Screen name="radar" />
         <Stack.Screen name="applications" />

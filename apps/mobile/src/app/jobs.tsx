@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { FlashList, type FlashListRef } from "@shopify/flash-list";
+import { router } from "expo-router";
 import { ThemedIcon } from "@/components/themed-icon";
 import { EmptyState } from "@/components/empty-state";
 import {
@@ -26,7 +27,6 @@ import { recordCrumb } from "@/lib/crash-capture";
 import { FilterRefreshBar } from "@/components/filter-refresh-bar";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { ChipGroup, SheetSearchField, SheetSection, SheetStickyCta } from "@/components/sheet";
-import { JobDetailModal } from "@/components/job-detail-modal";
 import { PressableScale } from "@/components/pressable-scale";
 import { PagerBar } from "@/components/pager-bar";
 import { JobNewBadge, JobSourceBadge, avatarColorOf, jobSalaryText } from "@/components/job-bits";
@@ -616,9 +616,6 @@ export default function JobsScreen() {
   const [province, setProvince] = useState("");
   const [category, setCategory] = useState("");
   const [sort, setSort] = useState<"new" | "salary">("new");
-  // S5-4：id 契约统一 string（与 API 响应一致，避免 bigint 精度丢失）
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [detailVisible, setDetailVisible] = useState(false);
   // P1 多条件筛选（Bottom Sheet）
   const [filterVisible, setFilterVisible] = useState(false);
   // P1-2：城市/方向改成独立弹层，主页面只留一行 chips
@@ -630,7 +627,6 @@ export default function JobsScreen() {
   const [experience, setExperience] = useState<string[]>([]);
   const [publishedWithin, setPublishedWithin] = useState<"" | "today" | "3d" | "7d">("");
   const [skillsFilter, setSkillsFilter] = useState<string[]>([]);
-  const selectedJob = useMemo(() => jobs.find((j) => j.id === selectedId) ?? null, [jobs, selectedId]);
   const listRef = useRef<FlashListRef<JobPostingListItem>>(null);
   /**
    * v1.32.0 崩溃取证：记录"崩溃前滚到了第几屏"。
@@ -761,12 +757,15 @@ export default function JobsScreen() {
     }
   };
 
+  /**
+   * P3-3A：详情从弹层改为独立路由 /job-detail?id=
+   * （弹层仍在 radar.tsx 使用，组件本身保留；本页只保留跳转）。
+   */
   const openJob = (job: JobPostingListItem) => {
     // v1.32.0 崩溃取证：真机反馈是"点开岗位详情后滑动列表就闪退"，这一条必须留痕
     recordCrumb("action", { name: "open-job", id: job.id, title: String(job.title ?? "").slice(0, 40) });
     haptics.light();
-    setSelectedId(job.id);
-    setDetailVisible(true);
+    router.push(("/job-detail?id=" + encodeURIComponent(job.id)) as never);
   };
 
   const runNow = async () => {
@@ -872,7 +871,24 @@ export default function JobsScreen() {
     <View style={styles.root}>
       {/* v17-C2b（真吸顶）：紧凑栏必须是滚动容器**之外**的兄弟节点；组件内部已绝对定位在状态栏下方
           一行高度，且 pointerEvents 穿透（空白处手势落到下方列表），不会变成全屏覆盖层。 */}
-      <ScreenHeaderStickyBar title="招花" backTo="/career" scrollY={headerScroll.scrollY} />
+      <ScreenHeaderStickyBar
+        title="招花"
+        backTo="/career"
+        scrollY={headerScroll.scrollY}
+        right={
+          <Pressable
+            hitSlop={8}
+            onPress={() => {
+              haptics.soft();
+              router.push("/jobs-favorites" as never);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="我的收藏"
+          >
+            <ThemedIcon name="heart-outline" size={20} color={colors.textMuted} />
+          </Pressable>
+        }
+      />
       {/* FlashList：职位列表可达数百条，回收式虚拟化（D3）；未提供 estimatedItemSize —— v2 自动测量
           注意：**FlashList v2 不消费 contentContainerStyle**（内部把 items 绝对定位，没有内容容器），
           所以 padding/gap 必须由 item wrapper、separator、header/footer 自己给（见 styles.listSide / CARD_SEP_STYLE）。 */}
@@ -902,12 +918,6 @@ export default function JobsScreen() {
         ListFooterComponent={renderPager}
         refreshControl={<RefreshControl {...pullControl} />}
         showsVerticalScrollIndicator={false}
-      />
-      <JobDetailModal
-        job={selectedJob}
-        visible={detailVisible}
-        onClose={() => setDetailVisible(false)}
-        onToggleFavorite={toggleFavorite}
       />
       <FilterBottomSheet
         visible={filterVisible}

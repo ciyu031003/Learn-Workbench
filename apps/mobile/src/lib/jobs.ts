@@ -1,6 +1,6 @@
 import { getApiUrl } from "@/config";
 import { useAppStore } from "@/store/app-store";
-import type { JobCrawlerConfig, JobLearningPlan, JobPostingListItem, JobRun, JobSource, JobStats, SkillGapItem } from "@learn-workbench/shared/schemas";
+import type { JobApplication, JobCrawlerConfig, JobLearningPlan, JobPostingListItem, JobRun, JobSource, JobStats, SkillGapItem } from "@learn-workbench/shared/schemas";
 
 export type JobDetail = JobPostingListItem & {
   description: string;
@@ -34,10 +34,31 @@ export interface JobListResult {
   pageSize: number;
 }
 
+/** 收藏夹列表参数（GET /api/jobs/favorites）：page 从 1 开始，sort 二选一 */
+export interface FavoriteJobsParams {
+  page?: number;
+  pageSize?: number;
+  sort?: "new" | "salary";
+}
+
 type RequestOptions = {
   method?: "GET" | "POST" | "PUT";
   body?: unknown;
 };
+
+/**
+ * 招花接口错误：带 HTTP 状态码。
+ * 详情页需要把 404（岗位不存在/已下线）与网络失败分成两种空态，
+ * 只靠 message 文案判断太脆，因此把 status 一起带出来。
+ */
+export class JobApiError extends Error {
+  readonly status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "JobApiError";
+    this.status = status;
+  }
+}
 
 async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const headers: Record<string, string> = {};
@@ -60,7 +81,7 @@ async function apiRequest<T>(path: string, options: RequestOptions = {}): Promis
   }
   if (!r.ok) {
     const msg = typeof data.error === "string" ? data.error : "请求失败（" + r.status + "）";
-    throw new Error(msg);
+    throw new JobApiError(msg, r.status);
   }
   return data as T;
 }
@@ -89,9 +110,41 @@ export async function fetchJobs(params: JobListParams = {}): Promise<JobListResu
   return apiRequest<JobListResult>(buildJobListQuery(params));
 }
 
+/** 我的收藏（登录用户）：分页 + 最新/薪资排序 */
+export async function fetchFavoriteJobs(params: FavoriteJobsParams = {}): Promise<JobListResult> {
+  const parts: string[] = [];
+  if (typeof params.page === "number") parts.push("page=" + params.page);
+  if (typeof params.pageSize === "number") parts.push("pageSize=" + params.pageSize);
+  if (params.sort) parts.push("sort=" + params.sort);
+  return apiRequest<JobListResult>("/api/jobs/favorites" + (parts.length > 0 ? "?" + parts.join("&") : ""));
+}
+
 export async function fetchJobDetail(id: number | string): Promise<JobDetail> {
   const data = await apiRequest<{ job: JobDetail }>("/api/jobs/" + id);
   return data.job;
+}
+
+/**
+ * 当前用户对该岗位的求职记录（无记录/未登录返回 null）。
+ * 详情页用它判断「已投递」态，避免重复投递后界面仍显示未投递。
+ */
+export async function fetchApplicationForJob(jobId: number | string): Promise<JobApplication | null> {
+  const data = await apiRequest<{ applications?: JobApplication[] }>("/api/jobs/applications");
+  const target = String(jobId);
+  return (data.applications ?? []).find((application) => String(application.jobId) === target) ?? null;
+}
+
+/**
+ * 投递到我的求职（阶段 = 已投递）。
+ * 服务端 POST /api/jobs/applications 是 upsert：已收藏（阶段=收藏）时会把阶段推进到已投递，
+ * 已在后续阶段时调用方应先提示「已在投递记录」而不是重复投递。
+ */
+export async function applyToJob(jobId: number | string): Promise<JobApplication> {
+  const data = await apiRequest<{ application: JobApplication }>("/api/jobs/applications", {
+    method: "POST",
+    body: { jobId: Number(jobId), stage: "applied" },
+  });
+  return data.application;
 }
 
 export async function toggleJobFavorite(id: number | string): Promise<boolean> {

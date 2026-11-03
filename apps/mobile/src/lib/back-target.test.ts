@@ -20,6 +20,8 @@ describe("resolveBackTarget · 返回上一级", () => {
 
   it("职业域子页回到职业 Hub", () => {
     expect(resolveBackTarget("/jobs")).toBe("/career");
+    expect(hubOf("/job-detail")).toBe("/career");
+    expect(hubOf("/jobs-favorites")).toBe("/career");
     expect(resolveBackTarget("/market")).toBe("/career");
     expect(resolveBackTarget("/radar")).toBe("/career");
     expect(resolveBackTarget("/applications")).toBe("/career");
@@ -32,6 +34,11 @@ describe("resolveBackTarget · 返回上一级", () => {
   it("三级页面回到真正的上一级（不是 Hub）", () => {
     expect(resolveBackTarget("/phase/12")).toBe("/roadmap");
     expect(resolveBackTarget("/resume-preview")).toBe("/resume");
+  });
+
+  it("招花子页回到招花列表（P3-3A：详情/收藏夹不是回职业 Hub）", () => {
+    expect(resolveBackTarget("/job-detail")).toBe("/jobs");
+    expect(resolveBackTarget("/jobs-favorites")).toBe("/jobs");
   });
 
   it("学习域子页回到学习 Hub", () => {
@@ -80,14 +87,19 @@ describe("hubOf", () => {
   });
 });
 
-describe("408 详情页返回 408 专区（P3-1）", () => {
+describe("408 详情页返回 408 专区（P3-1 / P3-2）", () => {
   it("速记卡 / 真题详情都回 408 专区（而不是回今日）", () => {
     expect(resolveBackTarget("/exam-408-card")).toBe("/exam-408");
     expect(resolveBackTarget("/exam-408-question")).toBe("/exam-408");
   });
 
+  it("历史成绩页也回 408 专区", () => {
+    expect(resolveBackTarget("/exam-408-paper-history")).toBe("/exam-408");
+  });
+
   it("所属模块仍是学习域", () => {
     expect(hubOf("/exam-408-card")).toBe("/learn");
     expect(hubOf("/exam-408-question")).toBe("/learn");
+    expect(hubOf("/exam-408-paper-history")).toBe("/learn");
   });
 });

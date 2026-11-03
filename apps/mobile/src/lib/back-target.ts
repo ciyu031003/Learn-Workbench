@@ -10,7 +10,8 @@
  * 2026-09-24 定稿规则（用户要求）：**每个模块的子页返回 → 它的上一级**，
  * 绝不使用 `router.back()`，全部走显式 `router.replace(上一级)`。
  *   - /nutrition、/workout、/habits、/sports-card、/trackers → /wellness
- *   - /jobs、/market、/radar、/applications、/resume、/certificates、/interview → /career
+ *   - /job-detail、/jobs-favorites → /jobs（P3-3A：招花子页回列表）；/jobs、/market、/radar、/applications、/resume、/certificates、/interview → /career
+ *   - /exam-408-card、/exam-408-question、/exam-408-paper-history → /exam-408
  *   - /roadmap、/tasks、/logs → /learn；/phase/[id] → /roadmap（真正上一级）
  *   - /account-security、/domain-manager、/diagnostics → /settings
  *   - 一级 Tab 自身没有上一级 → 今日
@@ -24,6 +25,8 @@ const PARENT_RULES: { prefix: string; parent: string }[] = [
   // P3-1：408 速记卡 / 真题详情页的上一级是 408 专区（搜索、知识点页命中后进入）
   { prefix: "/exam-408-card", parent: "/exam-408" },
   { prefix: "/exam-408-question", parent: "/exam-408" },
+  // P3-2：408 套卷历史成绩页同样回 408 专区
+  { prefix: "/exam-408-paper-history", parent: "/exam-408" },
   { prefix: "/phase", parent: "/roadmap" },
   { prefix: "/quiz/session", parent: "/quiz" },
   { prefix: "/quiz/read", parent: "/quiz" },
@@ -36,6 +39,9 @@ const PARENT_RULES: { prefix: string; parent: string }[] = [
   // 职业
   { prefix: "/resume-preview", parent: "/resume" },
   { prefix: "/resume", parent: "/career" },
+  // P3-3A：岗位详情 / 我的收藏的上一级是招花列表（必须先于 /jobs 匹配）
+  { prefix: "/jobs-favorites", parent: "/jobs" },
+  { prefix: "/job-detail", parent: "/jobs" },
   { prefix: "/jobs", parent: "/career" },
   { prefix: "/market", parent: "/career" },
   { prefix: "/radar", parent: "/career" },
@@ -66,6 +72,8 @@ const HUB_RULES: { prefix: string; hub: string }[] = [
   { prefix: "/sports-card", hub: "/wellness" },
   { prefix: "/trackers", hub: "/wellness" },
   { prefix: "/career", hub: "/career" },
+  { prefix: "/job-detail", hub: "/career" },
+  { prefix: "/jobs-favorites", hub: "/career" },
   { prefix: "/jobs", hub: "/career" },
   { prefix: "/market", hub: "/career" },
   { prefix: "/radar", hub: "/career" },
@@ -76,6 +84,7 @@ const HUB_RULES: { prefix: string; hub: string }[] = [
   { prefix: "/learn", hub: "/learn" },
   { prefix: "/exam-408-card", hub: "/learn" },
   { prefix: "/exam-408-question", hub: "/learn" },
+  { prefix: "/exam-408-paper-history", hub: "/learn" },
   { prefix: "/roadmap", hub: "/learn" },
   { prefix: "/phase", hub: "/learn" },
   { prefix: "/quiz", hub: "/learn" },
