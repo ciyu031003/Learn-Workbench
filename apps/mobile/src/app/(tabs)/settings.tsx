@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useHeaderTopInset } from "@/components/screen-header";
-import { ActivityIndicator, Alert, Linking, PixelRatio, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import Animated from "react-native-reanimated";
 import { computeStreak } from "@learn-workbench/shared/domains";
 import { useAppStore } from "@/store/app-store";
 import { useUpdateStore } from "@/store/update-store";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
+import { useFontScale } from "@/lib/use-font-scale";
+import { formatFontScale } from "@/lib/text-scale";
 import { useScreenEntrance } from "@/lib/use-screen-entrance";
 import { useScrollToTopHandler } from "@/lib/scroll-to-top";
 import { getApiUrl } from "@/config";
@@ -86,8 +88,9 @@ export default function SettingsScreen() {
     setMotionEnabled(next);
     setMotionUserEnabled(next);
   };
-  /** 系统字号倍数（只读展示；改字号走系统设置，见「字体大小」行） */
-  const fontScale = useMemo(() => PixelRatio.getFontScale(), []);
+  /** 系统字号倍数（只读展示；改字号走系统设置，见「字体大小」行）。
+   *  P2 遗留修复：改为订阅 Dimensions/AppState 实时刷新，去系统设置改完返回立即更新。 */
+  const fontScale = useFontScale();
   const resetAll = useAppStore((s) => s.resetAll);
   const resetForLogout = useAppStore((s) => s.resetForLogout);
   const progress = useAppStore((s) => s.progress);
@@ -402,10 +405,10 @@ export default function SettingsScreen() {
           iconBg={colors.primarySoft}
           title="字体大小"
           subtitle="在系统设置中调整字号后返回生效"
-          value={"跟随系统 · " + fontScale.toFixed(2) + "×"}
+          value={"跟随系统 · " + formatFontScale(fontScale)}
           showChevron
           onPress={() => void Linking.openSettings().catch(() => {})}
-          accessibilityLabel={"字体大小跟随系统，当前 " + fontScale.toFixed(2) + " 倍，点此打开系统设置"}
+          accessibilityLabel={"字体大小跟随系统，当前 " + formatFontScale(fontScale) + "，点此打开系统设置"}
         />
         {/* 通知权限：本工程未接 expo-notifications（不新增依赖），只做系统设置入口，不伪造状态开关 */}
         <ListRow

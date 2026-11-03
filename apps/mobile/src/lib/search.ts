@@ -47,6 +47,45 @@ export function buildSnippet(text: string, query: string, radius = SNIPPET_RADIU
   return (start > 0 ? "…" : "") + source.slice(start, end).trim() + (end < source.length ? "…" : "");
 }
 
+/* ------------------------------- 命中词高亮 ------------------------------- */
+
+/** 高亮片段：match=true 的片段由页面用主题主色 + 加粗渲染。 */
+export interface HighlightSegment {
+  text: string;
+  match: boolean;
+}
+
+/** 正则元字符转义：搜索词按字面量匹配，避免用户输入的 `.`、`*` 改变语义。 */
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * 把文本切成「命中 / 未命中」片段，供结果行用嵌套 Text 做高亮（不引第三方富文本库）。
+ *
+ * - 大小写不敏感：正则带 i 标志，片段取自原文，保留用户看到的原始大小写；
+ * - CJK 直接按子串命中；
+ * - 空搜索词返回单段 match=false（调用方不用特判，整段直接渲染）；
+ * - 搜索词按字面量转义并逐段推进 lastIndex，相邻/重叠出现都不会死循环；
+ *   片段按顺序拼起来恒等于原文，渲染不丢字。
+ */
+export function highlightSegments(text: string, query: string): HighlightSegment[] {
+  const source = String(text ?? "");
+  const needle = normalizeSearchQuery(query);
+  if (!needle) return [{ text: source, match: false }];
+  const pattern = new RegExp(escapeRegExp(needle), "gi");
+  const segments: HighlightSegment[] = [];
+  let cursor = 0;
+  for (let found = pattern.exec(source); found; found = pattern.exec(source)) {
+    if (found.index > cursor) segments.push({ text: source.slice(cursor, found.index), match: false });
+    segments.push({ text: found[0], match: true });
+    cursor = found.index + found[0].length;
+  }
+  if (segments.length === 0) return [{ text: source, match: false }];
+  if (cursor < source.length) segments.push({ text: source.slice(cursor), match: false });
+  return segments;
+}
+
 /* ------------------------------- 本地内容库 ------------------------------- */
 
 export type LocalSearchGroupKey = "course" | "topic" | "content";
@@ -276,15 +315,17 @@ export interface Exam408SearchResponse {
 
 export const EXAM408_SEARCH_POINT_PREFIX = "beokayy-408/";
 
-/** App 用得到的两组（速记卡/真题暂无对应页面，丢掉不让用户点进死路）。 */
-export const EXAM408_SEARCH_KINDS: Exam408HitKind[] = ["study", "point"];
+/** App 可打开的命中类型（速记卡/真题分别跳 app/exam-408-card 与 app/exam-408-question）。 */
+export const EXAM408_SEARCH_KINDS: Exam408HitKind[] = ["study", "point", "card", "question"];
 
 export const EXAM408_SEARCH_GROUP_LABELS: Record<string, string> = {
   study: "408 精读",
   point: "408 知识点",
+  card: "408 速记卡",
+  question: "408 真题",
 };
 
-/** 只保留「408 精读 / 408 知识点」两组，去掉空组；响应异常按空处理。 */
+/** 按 EXAM408_SEARCH_KINDS 的四组过滤，去掉空组；响应异常按空处理。 */
 export function pickExam408Groups(result: Exam408SearchResponse | null | undefined): Exam408SearchGroup[] {
   if (!result || !Array.isArray(result.groups)) return [];
   const groups: Exam408SearchGroup[] = [];
@@ -304,18 +345,22 @@ export function pickExam408Groups(result: Exam408SearchResponse | null | undefin
 /**
  * 408 命中 → App 路由：
  * - 精读：/exam-408-study-read?slug=（场外通道 exam-408-study-read，防参数冻结）；
- * - 知识点：/quiz/408-point?key=（App 的知识点详情页；/exam-408 只接 Tab 参数，不认 key）。
+ * - 知识点：/quiz/408-point?key=（App 的知识点详情页；/exam-408 只接 Tab 参数，不认 key）；
+ * - 速记卡：/exam-408-card?key=；真题：/exam-408-question?key=（详情页由 408 详情任务新建）。
  * 接口给的 href 是 Web 路径（/learn/408/...），App 不能直接用。
  */
 export function exam408HitRoute(hit: { kind: Exam408HitKind; key: string }): SearchRoute {
+  const key = encodeURIComponent(hit.key);
   if (hit.kind === "study") {
     return {
-      href: "/exam-408-study-read?slug=" + encodeURIComponent(hit.key),
+      href: "/exam-408-study-read?slug=" + key,
       navChannel: "exam-408-study-read",
       navParams: { slug: hit.key },
     };
   }
-  return { href: "/quiz/408-point?key=" + encodeURIComponent(hit.key) };
+  if (hit.kind === "card") return { href: "/exam-408-card?key=" + key };
+  if (hit.kind === "question") return { href: "/exam-408-question?key=" + key };
+  return { href: "/quiz/408-point?key=" + key };
 }
 
 /* ------------------------------ 最近搜索存储 ------------------------------ */
@@ -352,3 +397,19 @@ export function pushRecentSearch(
   const rest = sanitizeRecentSearches(list, limit).filter((item) => item.toLowerCase() !== value.toLowerCase());
   return sanitizeRecentSearches([value, ...rest], limit);
 }
+
+/** 从最近搜索里移除一个词（大小写不敏感；其余项保持原始顺序与写法，空词不删任何项）。 */
+export function removeRecentSearch(list: readonly string[], keyword: string): string[] {
+  const cleaned = sanitizeRecentSearches(list);
+  const target = normalizeSearchQuery(keyword).toLowerCase();
+  if (!target) return cleaned;
+  return cleaned.filter((item) => item.toLowerCase() !== target);
+}
+
+/* -------------------------------- 热门搜索 -------------------------------- */
+
+/**
+ * 热门搜索常驻词：全部取自本仓真实内容（学习内容 + 408 专区），
+ * 在「未输入」与「无结果」两个空态展示，点击即触发搜索。
+ */
+export const HOT_SEARCHES = ["索引", "死锁", "TCP", "红黑树", "进程", "排序", "银行家算法"] as const;

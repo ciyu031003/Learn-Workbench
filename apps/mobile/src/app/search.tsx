@@ -7,6 +7,8 @@ import {
   Text,
   TextInput,
   View,
+  type StyleProp,
+  type TextStyle,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
@@ -18,13 +20,16 @@ import { getApiUrl } from "@/config";
 import { useLearningTracks } from "@/lib/content-store";
 import { setNavPendingParams } from "@/lib/nav-pending";
 import {
+  HOT_SEARCHES,
   RECENT_SEARCH_KEY,
   buildLearningSearchEntries,
   exam408HitRoute,
+  highlightSegments,
   learningEntryRoute,
   normalizeSearchQuery,
   pickExam408Groups,
   pushRecentSearch,
+  removeRecentSearch,
   sanitizeRecentSearches,
   searchLearning,
   type Exam408SearchGroup,
@@ -43,7 +48,8 @@ import { radius, spacing, typography, type ThemeColors } from "@/theme/tokens";
  * 1) 本地内容库（zustand content-store 的 LearningTrack[]，离线可用）→ 课程 / 主题 / 学习内容；
  * 2) 408 专区接口 GET /api/exam/408/search?q=（精读 + 知识点两组）；失败只降级不阻塞本地结果。
  *
- * 交互：进入自动聚焦 / 250ms 防抖 / 最近搜索（AsyncStorage ≤8，可清空）/ 加载·空·错误态 /
+ * 交互：进入自动聚焦 / 250ms 防抖 / 最近搜索（AsyncStorage ≤8，可单删可清空）/ 加载·空·错误态 /
+ * 热门搜索（未输入与无结果两处引导）/ 命中词高亮（主题主色 + 加粗，嵌套 Text 实现）/
  * 键盘避让（ScrollView automaticallyAdjustKeyboardInsets + 点结果保持键盘不吞点击）。
  * 逻辑全在 lib/search.ts（纯函数、有单测），本文件只管渲染与跳转。
  */
@@ -166,6 +172,16 @@ export default function GlobalSearchScreen() {
     void AsyncStorage.removeItem(RECENT_SEARCH_KEY).catch(() => {});
   }, []);
 
+  /** 单条删除最近搜索：删空时顺手清掉本地 key，避免残留空数组 */
+  const forgetRecent = useCallback((keyword: string) => {
+    setRecent((prev) => {
+      const next = removeRecentSearch(prev, keyword);
+      if (next.length === 0) void AsyncStorage.removeItem(RECENT_SEARCH_KEY).catch(() => {});
+      else void AsyncStorage.setItem(RECENT_SEARCH_KEY, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+  }, []);
+
   /** 命中跳转：需要场外通道的页面（阅读页 / 408 精读）先写 params，再 push */
   const openRoute = useCallback((route: SearchRoute, keyword: string) => {
     if (keyword) rememberSearch(keyword);
@@ -244,19 +260,29 @@ export default function GlobalSearchScreen() {
                 </View>
                 <View style={styles.chipRow}>
                   {recent.map((item) => (
-                    <PressableScale
-                      key={item}
-                      hitSlop={4}
-                      scaleTo={0.96}
-                      style={styles.chip}
-                      onPress={() => commitSearch(item)}
-                      accessibilityRole="button"
-                      accessibilityLabel={"搜索 " + item}
-                    >
-                      <Text style={styles.chipText} numberOfLines={1}>
-                        {item}
-                      </Text>
-                    </PressableScale>
+                    <View key={item} style={styles.recentChip}>
+                      <PressableScale
+                        hitSlop={4}
+                        scaleTo={0.96}
+                        style={styles.chipMain}
+                        onPress={() => commitSearch(item)}
+                        accessibilityRole="button"
+                        accessibilityLabel={"搜索 " + item}
+                      >
+                        <Text style={styles.chipText} numberOfLines={1}>
+                          {item}
+                        </Text>
+                      </PressableScale>
+                      <Pressable
+                        hitSlop={12}
+                        onPress={() => forgetRecent(item)}
+                        accessibilityRole="button"
+                        accessibilityLabel={"删除 最近搜索 " + item}
+                        style={styles.chipRemove}
+                      >
+                        <ThemedIcon name="close" size={14} color={colors.textFaint} />
+                      </Pressable>
+                    </View>
                   ))}
                 </View>
               </View>
@@ -268,6 +294,7 @@ export default function GlobalSearchScreen() {
                 断网时只显示本地结果，不影响阅读与刷题。
               </Text>
             </View>
+            <HotSearches onPress={commitSearch} />
           </>
         ) : (
           <>
@@ -306,11 +333,14 @@ export default function GlobalSearchScreen() {
             ))}
 
             {showEmpty ? (
-              <EmptyState
-                icon="search-outline"
-                title="没有找到相关内容"
-                hint={"换个关键词试试，比如「索引」「死锁」「TCP」。"}
-              />
+              <>
+                <EmptyState
+                  icon="search-outline"
+                  title="没有找到相关内容"
+                  hint="换个关键词试试，或者点下面的热门搜索。"
+                />
+                <HotSearches onPress={commitSearch} />
+              </>
             ) : null}
           </>
         )}
@@ -345,13 +375,21 @@ function LocalGroup({
             accessibilityLabel={group.label + "：" + hit.title}
           >
             <View style={styles.hitBody}>
-              <Text style={styles.hitTitle} numberOfLines={1}>
-                {hit.title}
-              </Text>
+              <HighlightedText
+                text={hit.title}
+                keyword={keyword}
+                style={styles.hitTitle}
+                highlightStyle={styles.hitHighlight}
+                numberOfLines={1}
+              />
               {hit.snippet ? (
-                <Text style={styles.hitSnippet} numberOfLines={2}>
-                  {hit.snippet}
-                </Text>
+                <HighlightedText
+                  text={hit.snippet}
+                  keyword={keyword}
+                  style={styles.hitSnippet}
+                  highlightStyle={styles.hitHighlight}
+                  numberOfLines={2}
+                />
               ) : null}
               <Text style={styles.hitMeta} numberOfLines={1}>
                 {hit.meta}
@@ -391,13 +429,21 @@ function RemoteGroup({
             accessibilityLabel={group.label + "：" + hit.title}
           >
             <View style={styles.hitBody}>
-              <Text style={styles.hitTitle} numberOfLines={1}>
-                {hit.title}
-              </Text>
+              <HighlightedText
+                text={hit.title}
+                keyword={keyword}
+                style={styles.hitTitle}
+                highlightStyle={styles.hitHighlight}
+                numberOfLines={1}
+              />
               {hit.snippet ? (
-                <Text style={styles.hitSnippet} numberOfLines={2}>
-                  {hit.snippet}
-                </Text>
+                <HighlightedText
+                  text={hit.snippet}
+                  keyword={keyword}
+                  style={styles.hitSnippet}
+                  highlightStyle={styles.hitHighlight}
+                  numberOfLines={2}
+                />
               ) : null}
               <Text style={styles.hitMeta} numberOfLines={1}>
                 {hit.meta}
@@ -420,6 +466,66 @@ function BlockHead({ title, count, keyword }: { title: string; count: number; ke
       <Text style={styles.blockCount} numberOfLines={1}>
         {count} 条 · 「{keyword}」
       </Text>
+    </View>
+  );
+}
+
+/**
+ * 命中词高亮：把 highlightSegments 的命中片段渲染成嵌套 Text（主题主色 + 加粗），
+ * 不引第三方富文本库；没有命中时退化为普通 Text，少一层嵌套。
+ */
+function HighlightedText({
+  text,
+  keyword,
+  style,
+  highlightStyle,
+  numberOfLines,
+}: {
+  text: string;
+  keyword: string;
+  style: StyleProp<TextStyle>;
+  highlightStyle: StyleProp<TextStyle>;
+  numberOfLines?: number;
+}) {
+  const segments = useMemo(() => highlightSegments(text, keyword), [text, keyword]);
+  const matched = segments.some((segment) => segment.match);
+  return (
+    <Text style={style} numberOfLines={numberOfLines}>
+      {matched
+        ? segments.map((segment, index) => (
+            <Text key={"hl-" + index} style={segment.match ? highlightStyle : undefined}>
+              {segment.text}
+            </Text>
+          ))
+        : text}
+    </Text>
+  );
+}
+
+/** 热门搜索 chips：未输入与无结果两处共用，点击直接触发搜索。 */
+function HotSearches({ onPress }: { onPress: (word: string) => void }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  return (
+    <View style={styles.block}>
+      <Text style={styles.blockTitle}>热门搜索</Text>
+      <View style={styles.chipRow}>
+        {HOT_SEARCHES.map((word) => (
+          <PressableScale
+            key={word}
+            hitSlop={4}
+            scaleTo={0.96}
+            style={styles.chip}
+            onPress={() => onPress(word)}
+            accessibilityRole="button"
+            accessibilityLabel={"搜索热门词 " + word}
+          >
+            <Text style={styles.chipText} numberOfLines={1}>
+              {word}
+            </Text>
+          </PressableScale>
+        ))}
+      </View>
     </View>
   );
 }
@@ -467,7 +573,27 @@ const makeStyles = (colors: ThemeColors) =>
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.border,
     },
-    chipText: { ...typography.caption, fontWeight: "600", color: colors.textSecondary },
+    chipText: { ...typography.caption, fontWeight: "600", color: colors.textSecondary, flexShrink: 1 },
+    recentChip: {
+      maxWidth: "48%",
+      minHeight: 28,
+      flexDirection: "row",
+      alignItems: "center",
+      borderRadius: radius.pill,
+      backgroundColor: colors.surfaceStrong,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    // 主命中区铺满 chip 左侧（含左内边距），右侧「×」单独一个热区
+    chipMain: { flexShrink: 1, minWidth: 0, alignSelf: "stretch", justifyContent: "center", paddingLeft: spacing.sm + 2 },
+    chipRemove: {
+      minWidth: 20,
+      minHeight: 20,
+      marginLeft: spacing.xs,
+      marginRight: spacing.xs,
+      alignItems: "center",
+      justifyContent: "center",
+    },
     hitList: { gap: spacing.xs },
     hit: {
       flexDirection: "row",
@@ -483,6 +609,7 @@ const makeStyles = (colors: ThemeColors) =>
     hitBody: { flex: 1, minWidth: 0, gap: 2 },
     hitTitle: { ...typography.callout, fontWeight: "700", color: colors.text },
     hitSnippet: { ...typography.caption, fontWeight: "400", color: colors.textSecondary, lineHeight: 18 },
+    hitHighlight: { color: colors.primary, fontWeight: "800" },
     hitMeta: { ...typography.micro, fontWeight: "400", color: colors.textMuted },
     loadingRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.sm },
     loadingText: { ...typography.caption, fontWeight: "400", color: colors.textMuted },

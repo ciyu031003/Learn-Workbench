@@ -312,6 +312,9 @@ function ThemedShell({ tier }: { tier: DeviceTier }) {
         <Stack.Screen name="exam-408-viz" />
         <Stack.Screen name="exam-408-viz-player" />
         <Stack.Screen name="exam-408-drill" />
+        {/* P3-1：408 速记卡详情 / 真题详情（搜索结果与知识点页命中后进入） */}
+        <Stack.Screen name="exam-408-card" options={{ title: "速记卡" }} />
+        <Stack.Screen name="exam-408-question" options={{ title: "真题详情" }} />
         <Stack.Screen name="roadmap" />
         <Stack.Screen name="tasks" />
         <Stack.Screen name="logs" />

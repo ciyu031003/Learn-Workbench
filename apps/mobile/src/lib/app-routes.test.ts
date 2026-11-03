@@ -19,6 +19,7 @@ import path from "node:path";
  *   /quiz/review（本次新增：到期复习 + 错题统一入口）
  *   /trends（v1.45 新增：饮食趋势从底部弹层升级为独立全屏页，含运动 / 训练负荷）
  *   /workout-add（v1.47 新增：记录/编辑训练从抽屉升级为独立全屏页）
+ *   /exam-408-card /exam-408-question（P3-1 新增：408 速记卡 / 真题详情页）
  *
  * 若以后真的要新增/删除页面，改这里即等于显式声明"路由表变了"。
  */
@@ -34,6 +35,9 @@ const EXPECTED_ROUTES = [
   "/diagnostics",
   "/domain-manager",
   "/exam-408",
+  // P3-1：408 速记卡详情 / 真题详情（搜索与知识点页命中后进入）
+  "/exam-408-card",
+  "/exam-408-question",
   "/exam-408-study",
   "/exam-408-study-read",
   // v1.55：408 逐帧演示目录 / 播放器（task-14）

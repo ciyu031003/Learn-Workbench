@@ -9,6 +9,7 @@ import {
   classifyRatingFailure,
   dequeueRating,
   enqueueRating,
+  fetchCardDetail,
   fetchCardQueue,
   fetchCardStatsBoard,
   flipActionLabel,
@@ -19,8 +20,11 @@ import {
   mergeCardStatsWithPending,
   mergeRatingResultStats,
   nextCardIndex,
+  nextFlipState,
   normalizeAnswerSteps,
+  normalizeCardDetail,
   normalizeCardQueue,
+  normalizeCardSchedule,
   normalizeCardStatsBoard,
   normalizeDrillCard,
   normalizeRatingResult,
@@ -621,3 +625,112 @@ describe("subjectChipDisplay（P13 科目 chip 缩到文字宽度）", () => {
 });
 
 
+
+describe("单卡详情（P3-1：GET cards?mode=card&cardKey=）", () => {
+  const detailPayload = {
+    mode: "card",
+    card,
+    schedule: { state: "due", dueAt: "2026-11-03T10:00:00.000Z", lapses: 2 },
+  };
+
+  it("schedule：new/due/scheduled 透传，脏枚举按 new，缺 lapses 归 0", () => {
+    expect(normalizeCardSchedule({ state: "due", dueAt: "2026-11-03T10:00:00.000Z", lapses: "2" })).toEqual({
+      state: "due",
+      dueAt: "2026-11-03T10:00:00.000Z",
+      lapses: 2,
+    });
+    expect(normalizeCardSchedule({ state: "scheduled", due_at: "2026-11-09T10:00:00.000Z" })).toEqual({
+      state: "scheduled",
+      dueAt: "2026-11-09T10:00:00.000Z",
+      lapses: 0,
+    });
+    // 历史口径 learning/review 不是详情契约状态：统一按 new
+    expect(normalizeCardSchedule({ state: "learning" })?.state).toBe("new");
+    expect(normalizeCardSchedule(null)).toBeNull();
+    expect(normalizeCardSchedule("due")).toBeNull();
+  });
+
+  it("完整详情：卡本体复用 normalizeDrillCard，schedule 单独解析", () => {
+    const detail = normalizeCardDetail(detailPayload);
+    expect(detail?.card.key).toBe(card.key);
+    expect(detail?.card.answerSteps).toEqual(card.answerSteps);
+    expect(detail?.schedule).toEqual({
+      state: "due",
+      dueAt: "2026-11-03T10:00:00.000Z",
+      lapses: 2,
+    });
+  });
+
+  it("未登录 schedule=null 仍返回卡片内容；pitfall/mnemonic null 归一成空串", () => {
+    const detail = normalizeCardDetail({
+      mode: "card",
+      card: { ...card, pitfall: null, mnemonic: null, demoKey: null, knowledgePointKey: null },
+      schedule: null,
+    });
+    expect(detail?.schedule).toBeNull();
+    expect(detail?.card.pitfall).toBe("");
+    expect(detail?.card.mnemonic).toBe("");
+    expect(detail?.card.demoKey).toBe("");
+    expect(detail?.card.knowledgePointKey).toBe("");
+  });
+
+  it("mode 不是 card / 缺 card / 卡不完整都判无效", () => {
+    expect(normalizeCardDetail({ ...detailPayload, mode: "queue" })).toBeNull();
+    expect(normalizeCardDetail({ mode: "card", schedule: null })).toBeNull();
+    expect(normalizeCardDetail({ mode: "card", card: { ...card, key: "" } })).toBeNull();
+    expect(normalizeCardDetail(null)).toBeNull();
+  });
+
+  it("未登录不发 Authorization；登录带 Bearer，cardKey 经 encodeURIComponent", async () => {
+    state.token = null;
+    fetchMock.mockResolvedValue(jsonResponse({ mode: "card", card, schedule: null }));
+    const anonymous = await fetchCardDetail("408card/ds-01-001");
+    expect(anonymous.detail?.card.key).toBe(card.key);
+    expect(anonymous.failure).toBeNull();
+    const [anonUrl, anonInit] = fetchMock.mock.calls[0] as [string, unknown];
+    expect(anonUrl).toBe(
+      "https://api.test/api/exam/408/cards?mode=card&cardKey=408card%2Fds-01-001",
+    );
+    expect(anonInit).toBeUndefined();
+
+    state.token = "tok";
+    fetchMock.mockResolvedValueOnce(jsonResponse(detailPayload));
+    const authed = await fetchCardDetail("408card/ds-01-001");
+    expect(authed.detail?.schedule?.state).toBe("due");
+    const [, authedInit] = fetchMock.mock.calls[1] as [string, { headers: Record<string, string> }];
+    expect(authedInit.headers.Authorization).toBe("Bearer tok");
+  });
+
+  it("key 为空或超 120 字符直接判 invalid，不发明请求", async () => {
+    expect(await fetchCardDetail(" ")).toEqual({ detail: null, failure: "invalid" });
+    expect(await fetchCardDetail("k".repeat(121))).toEqual({ detail: null, failure: "invalid" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("400/404/5xx 分别归类，网络异常归 offline", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ error: "cardKey 不合法" }, 400));
+    expect(await fetchCardDetail("k")).toEqual({ detail: null, failure: "invalid" });
+    fetchMock.mockResolvedValueOnce(jsonResponse({ error: "速记卡不存在" }, 404));
+    expect(await fetchCardDetail("k")).toEqual({ detail: null, failure: "not-found" });
+    fetchMock.mockResolvedValueOnce(jsonResponse({ error: "boom" }, 500));
+    expect(await fetchCardDetail("k")).toEqual({ detail: null, failure: "server" });
+    fetchMock.mockRejectedValueOnce(new Error("Network request failed"));
+    expect(await fetchCardDetail("k")).toEqual({ detail: null, failure: "offline" });
+  });
+
+  it("200 但结构不认识按 server（不把队列体当详情）", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(queuePayload));
+    expect(await fetchCardDetail("k")).toEqual({ detail: null, failure: "server" });
+    fetchMock.mockResolvedValueOnce(jsonResponse({ mode: "card", card: null, schedule: null }));
+    expect(await fetchCardDetail("k")).toEqual({ detail: null, failure: "server" });
+  });
+});
+
+describe("nextFlipState（详情页复用刷卡翻面状态机）", () => {
+  it("正反两面可无限来回切换", () => {
+    let flipped = false;
+    expect(nextFlipState(flipped)).toBe(true);
+    flipped = nextFlipState(flipped);
+    expect(nextFlipState(flipped)).toBe(false);
+  });
+});

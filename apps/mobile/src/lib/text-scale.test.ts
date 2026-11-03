@@ -1,6 +1,35 @@
 import { describe, expect, it } from "vitest";
-import { MAX_UI_SCALE, TEXT_SCALE_POLICY, fitsAtMaxScale, minTouchboxHeight, scaledLineHeight } from "./text-scale";
+import {
+  MAX_UI_SCALE,
+  TEXT_SCALE_POLICY,
+  fitsAtMaxScale,
+  formatFontScale,
+  minTouchboxHeight,
+  normalizeFontScale,
+  scaledLineHeight,
+} from "./text-scale";
 import { typography } from "@/theme/tokens";
+
+describe("系统字号倍数展示（设置页实时刷新）", () => {
+  it("normalizeFontScale：非法/0/负数一律按 1，正常值原样返回", () => {
+    expect(normalizeFontScale(1.3)).toBe(1.3);
+    expect(normalizeFontScale(0.85)).toBeCloseTo(0.85);
+    expect(normalizeFontScale(0)).toBe(1);
+    expect(normalizeFontScale(-2)).toBe(1);
+    expect(normalizeFontScale(Number.NaN)).toBe(1);
+    expect(normalizeFontScale(Number.POSITIVE_INFINITY)).toBe(1);
+    expect(normalizeFontScale(null)).toBe(1);
+    expect(normalizeFontScale(undefined)).toBe(1);
+  });
+
+  it("formatFontScale：两位小数 + 乘号，兜底同样按 1.00×", () => {
+    expect(formatFontScale(1.3)).toBe("1.30×");
+    expect(formatFontScale(1)).toBe("1.00×");
+    expect(formatFontScale(0.75)).toBe("0.75×");
+    expect(formatFontScale(0)).toBe("1.00×");
+    expect(formatFontScale(Number.NaN)).toBe("1.00×");
+  });
+});
 
 describe("v17-A text-scale policy", () => {
   it("紧凑 UI 封顶 130%，正文不封顶", () => {

@@ -168,6 +168,33 @@ export interface Exam408BoardFetch {
 }
 
 /* ------------------------------------------------------------------ */
+/* 契约类型：单卡详情（P3-1，与 Web loadCardDetail 输出逐字对齐）            */
+/* ------------------------------------------------------------------ */
+
+/** 服务端调度状态：new=从未评过 / due=已到期 / scheduled=未到期。 */
+export type Exam408CardScheduleState = "new" | "due" | "scheduled";
+
+/** 个人调度状态；未登录时服务端给 null（卡片内容本身仍公开可读）。 */
+export interface Exam408CardSchedule {
+  state: Exam408CardScheduleState;
+  dueAt: string | null;
+  lapses: number;
+}
+
+export interface Exam408CardDetail {
+  card: Exam408DrillCard;
+  schedule: Exam408CardSchedule | null;
+}
+
+/** 详情请求失败分类：invalid=400 语义（key 非法）/ not-found=404 / offline=网络异常 / server=5xx 或结构不认识 */
+export type Exam408CardDetailFailure = "invalid" | "not-found" | "offline" | "server";
+
+export interface Exam408CardDetailFetch {
+  detail: Exam408CardDetail | null;
+  failure: Exam408CardDetailFailure | null;
+}
+
+/* ------------------------------------------------------------------ */
 /* 纯函数：归一化                                                        */
 /* ------------------------------------------------------------------ */
 
@@ -344,6 +371,42 @@ export function normalizeRatingResult(value: unknown): Exam408RatingResult | nul
   };
 }
 
+/**
+ * 单卡详情里的调度状态归一化。
+ *
+ * 服务端 enum 是 new|due|scheduled；脏数据可能出现 learning/review（历史卡片队列口径）。
+ * 这里只把明确的 due / scheduled 透传，其余按 new —— 详情页徽标不会显示未知英文枚举。
+ */
+export function normalizeCardSchedule(value: unknown): Exam408CardSchedule | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const raw = value as Record<string, unknown>;
+  const state: Exam408CardScheduleState =
+    raw.state === "due" || raw.state === "scheduled" ? raw.state : "new";
+  const dueAt = textOrEmpty(raw.dueAt) || textOrEmpty(raw.due_at);
+  return {
+    state,
+    dueAt: dueAt || null,
+    lapses: countNumber(raw.lapses),
+  };
+}
+
+/**
+ * 单卡详情归一化：服务端返回 { mode: "card", card: {...}, schedule }。
+ *
+ * 卡本体直接复用 normalizeDrillCard（与队列同一套脏数据兜底：缺 key/题干视为无效卡）；
+ * mode 存在但不是 "card" 时判无效 —— 防止网关/旧路由把队列体（mode=queue）当 200 返回。
+ * schedule 缺失或为 null（未登录）都归一成 null，渲染层据此显示「登录后可看进度」。
+ */
+export function normalizeCardDetail(value: unknown): Exam408CardDetail | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const raw = value as Record<string, unknown>;
+  if (typeof raw.mode === "string" && raw.mode !== "card") return null;
+  const cardSource = raw.card && typeof raw.card === "object" ? raw.card : null;
+  const card = normalizeDrillCard(cardSource);
+  if (!card) return null;
+  return { card, schedule: normalizeCardSchedule(raw.schedule) };
+}
+
 /* ------------------------------------------------------------------ */
 /* 纯函数：游标 / 进度 / 统计合并                                         */
 /* ------------------------------------------------------------------ */
@@ -459,6 +522,14 @@ export function flipPhaseOf(flipped: boolean): Exam408DrillFace {
 
 export function toggleFlipPhase(face: Exam408DrillFace): Exam408DrillFace {
   return face === "answer" ? "question" : "answer";
+}
+
+/**
+ * 翻面开关的下一状态（detail 页只有一个 boolean state，不能各写一份取反逻辑）。
+ * 走 flipPhaseOf + toggleFlipPhase 的唯一状态机，保证与刷卡页同语义。
+ */
+export function nextFlipState(flipped: boolean): boolean {
+  return toggleFlipPhase(flipPhaseOf(flipped)) === "answer";
 }
 
 /** 动作文案：题干态「显示答案」，答案态「隐藏答案」。 */
@@ -816,6 +887,44 @@ export async function fetchCardStatsBoard(subjectKey = ""): Promise<Exam408Board
   const board = normalizeCardStatsBoard(data);
   if (!board) return { board: null, failure: "server" };
   return { board, failure: null };
+}
+
+/**
+ * 拉单张速记卡详情（P3-1，公开接口）。
+ *
+ * 与队列接口不同：未登录也能读内容（不带 Authorization）；登录时服务端额外返回个人
+ * schedule（新卡/到期/未到期、lapses），所以有 token 就带上 Bearer。
+ * 400（key 缺失/超 120）/ 404（卡不存在或未发布）单独分类，页面据此显示空态而不是"重试"。
+ */
+export async function fetchCardDetail(cardKey: string): Promise<Exam408CardDetailFetch> {
+  const key = cardKey.trim();
+  // 与服务端 MAX_CARD_KEY_LENGTH 对齐：客户端先挡一次，避免无谓请求
+  if (!key || key.length > 120) return { detail: null, failure: "invalid" };
+  const token = useAppStore.getState().token;
+  const url = cardsUrl("mode=card&cardKey=" + encodeURIComponent(key));
+
+  let response: Response;
+  try {
+    // 公开接口：没有 token 时不带 Authorization（带空 Bearer 会被网关判 401）
+    response = await fetch(url, token ? { headers: authHeaders(token) } : undefined);
+  } catch {
+    return { detail: null, failure: "offline" };
+  }
+
+  if (response.status === 400) return { detail: null, failure: "invalid" };
+  if (response.status === 404) return { detail: null, failure: "not-found" };
+  if (!response.ok) return { detail: null, failure: "server" };
+
+  let payload: unknown;
+  try {
+    payload = (await response.json()) as unknown;
+  } catch {
+    // 200 但不是 JSON（网关错误页）：按服务端异常，不冒充离线
+    return { detail: null, failure: "server" };
+  }
+  const detail = normalizeCardDetail(payload);
+  if (!detail) return { detail: null, failure: "server" };
+  return { detail, failure: null };
 }
 
 export interface SubmitRatingOutcome {

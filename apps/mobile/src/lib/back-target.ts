@@ -21,6 +21,9 @@
 /** 子页 → 直接上一级（有序，长前缀在前） */
 const PARENT_RULES: { prefix: string; parent: string }[] = [
   // 学习
+  // P3-1：408 速记卡 / 真题详情页的上一级是 408 专区（搜索、知识点页命中后进入）
+  { prefix: "/exam-408-card", parent: "/exam-408" },
+  { prefix: "/exam-408-question", parent: "/exam-408" },
   { prefix: "/phase", parent: "/roadmap" },
   { prefix: "/quiz/session", parent: "/quiz" },
   { prefix: "/quiz/read", parent: "/quiz" },
@@ -71,6 +74,8 @@ const HUB_RULES: { prefix: string; hub: string }[] = [
   { prefix: "/certificates", hub: "/career" },
   { prefix: "/interview", hub: "/career" },
   { prefix: "/learn", hub: "/learn" },
+  { prefix: "/exam-408-card", hub: "/learn" },
+  { prefix: "/exam-408-question", hub: "/learn" },
   { prefix: "/roadmap", hub: "/learn" },
   { prefix: "/phase", hub: "/learn" },
   { prefix: "/quiz", hub: "/learn" },

@@ -79,3 +79,15 @@ describe("hubOf", () => {
     expect(hubOf("/nutrition")).toBe("/wellness");
   });
 });
+
+describe("408 详情页返回 408 专区（P3-1）", () => {
+  it("速记卡 / 真题详情都回 408 专区（而不是回今日）", () => {
+    expect(resolveBackTarget("/exam-408-card")).toBe("/exam-408");
+    expect(resolveBackTarget("/exam-408-question")).toBe("/exam-408");
+  });
+
+  it("所属模块仍是学习域", () => {
+    expect(hubOf("/exam-408-card")).toBe("/learn");
+    expect(hubOf("/exam-408-question")).toBe("/learn");
+  });
+});

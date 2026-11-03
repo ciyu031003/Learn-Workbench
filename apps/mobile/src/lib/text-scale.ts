@@ -51,6 +51,20 @@ export function fitsAtMaxScale(
   return box >= scaledLineHeight(lineHeight, multiplier) * n;
 }
 
+/**
+ * 系统字号倍数归一（设置页展示用）：非法/0/负数一律按 1 处理，
+ * 避免 `0.00×` 这类明显错误的展示。实时刷新见 lib/use-font-scale.ts。
+ */
+export function normalizeFontScale(value: number | null | undefined): number {
+  const scale = typeof value === "number" ? value : Number.NaN;
+  return Number.isFinite(scale) && scale > 0 ? scale : 1;
+}
+
+/** 字号倍数 → 展示文案（保留两位小数，与设置页历史口径一致） */
+export function formatFontScale(value: number | null | undefined): string {
+  return normalizeFontScale(value).toFixed(2) + "×";
+}
+
 /** 给"内容高度自适应"的容器用：最大字号下建议的最小高度 */
 export function minTouchboxHeight(lineHeight: number, lines = 1, multiplier: number = MAX_UI_SCALE): number {
   const n = Number.isFinite(lines) && lines > 0 ? Math.floor(lines) : 1;
