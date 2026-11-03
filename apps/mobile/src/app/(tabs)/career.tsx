@@ -8,14 +8,13 @@ import { Card } from "@/components/card";
 import { Surface } from "@/components/surface";
 import { EmptyState } from "@/components/empty-state";
 import { PressableScale } from "@/components/pressable-scale";
-import { ProgressArc } from "@/components/progress-arc";
 import { Skeleton } from "@/components/skeleton";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PageHead } from "@/components/v2/page-head";
 import { SectionTitle } from "@/components/v2/section-title";
-import { MetricGrid } from "@/components/v2/metric-grid";
 import { StageTrack } from "@/components/v2/stage-track";
 import { ProgressBar } from "@/components/v2/progress-bar";
+import { BarList, RadarChart, SegmentRing, StatTileRow } from "@/components/v2/charts";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
 import { useScrollToTopHandler } from "@/lib/scroll-to-top";
@@ -28,18 +27,20 @@ import { useTheme } from "@/theme";
 import type { CareerReadiness, ReadinessDimension, UserSkillView } from "@learn-workbench/shared/schemas";
 
 /**
- * 职业 Hub（v2.0 UI 重构）
+ * 职业 Hub（v2.0 UI 重构 · v2.1 P3 面板接入）
  *
  * 结构（原型 V3）：
- *   PageHead → 准备度卡（glassStrong 视觉锚点：96 环 + 目标方向 + 优先补齐胶囊）
- *   → 准备度明细四维 → MetricGrid 三格
+ *   PageHead → 准备度卡（glassStrong 视觉锚点：SegmentRing 四维分段环 + 目标方向 + 优先补齐胶囊）
+ *   → 准备度明细（RadarChart 四维能力 + 逐维分数 / detail）
+ *   → StatTileRow 三格（进行中投递 / 匹配岗位 / 待补技能）+ BarList 待补技能排行
  *   → 职业成长路径三行（岗位雷达 chips / 求职进度 StageTrack / 简历完成度）
  *   → 更多工具（招花 · 我的投递 · 面试 · 证书 · 市场）+ 技能 chips。
  *
  * 数据口径与 v1 完全一致：/api/profile/readiness（四维 + overall + matchedJobs）、
  * /api/profile/skills（技能画像）、/api/jobs?publishedWithin=today（今日新岗位）、
  * /api/jobs/applications（各阶段数量）。后两个失败/未登录时降级为 0 与静态文案，
- * 不新增后端接口、不改数据逻辑；动效只沿用已有的按压反馈与首屏入场错峰。
+ * 不新增后端接口、不改数据逻辑；动效只沿用已有的按压反馈与首屏入场错峰
+ * （v2.1 P3 只做静态面板替换，不新增动效点，新块沿用原有的 entrance 分组）。
  */
 
 /** 「进行中」= 未到终态的投递（offer / hired / closed 之外） */
@@ -66,6 +67,17 @@ const DIMENSION_LABELS: Record<ReadinessDimension["key"], string> = {
   interview: "面试表达",
 };
 const DIMENSION_KEYS: ReadinessDimension["key"][] = ["skill", "project", "resume", "interview"];
+
+/**
+ * 雷达轴名（v2.1 P3）：RadarChart 的轴标在 Svg 画布边缘，4 维时左右两轴只剩约 12pt 余量，
+ * 4 字名称会被画布裁掉；轴名统一用 2 字短名，完整名称 + 分数 + detail 在雷达下方的明细行里。
+ */
+const DIMENSION_AXIS_LABELS: Record<ReadinessDimension["key"], string> = {
+  skill: "基础",
+  project: "项目",
+  resume: "证书",
+  interview: "面试",
+};
 
 /** 更多工具的图标色调：只取主题 token 里的 soft/strong 一对 */
 type ToolTone = "primary" | "teal" | "success" | "accent";
@@ -206,6 +218,28 @@ export default function CareerScreen() {
   /** 待补技能：技能画像中熟练度低于 3 的项（无画像即 0） */
   const gapSkills = skills.filter((skill) => skill.level < SKILL_GAP_LEVEL).length;
 
+  /**
+   * 缺口技能排行（v2.1 P3 · BarList）：与上面的 `gapSkills` 同一批「待补」项，
+   * 条长 = 缺口大小（Lv 越低缺口越大），右侧仍显示真实 Lv，不做任何推断。
+   * 排序用普通字符串比较（Hermes 的 Intl 不保证完整，见 lib/focus-stats.ts 的同款注释）。
+   */
+  const gapSkillItems = useMemo(
+    () =>
+      skills
+        .filter((skill) => skill.level < SKILL_GAP_LEVEL)
+        .slice()
+        .sort((a, b) => (a.level !== b.level ? a.level - b.level : a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+        .slice(0, 6)
+        .map((skill) => ({
+          key: String(skill.id),
+          label: skill.name,
+          value: SKILL_GAP_LEVEL - skill.level,
+          valueLabel: `Lv ${skill.level}`,
+          hint: skill.category,
+        })),
+    [skills]
+  );
+
   const jobsMeta =
     todayNewJobs !== null
       ? `今日新岗位 ${todayNewJobs} 个 · 搜索 / 收藏 / 匹配`
@@ -291,14 +325,21 @@ export default function CareerScreen() {
                 {loading && !readiness ? (
                   <Skeleton variant="card" style={styles.ringSkeleton} />
                 ) : (
-                  <ProgressArc
-                    progress={overall / 100}
-                    size={96}
-                    strokeWidth={9}
-                    value={`${overall}%`}
-                    label="准备度"
-                    beatOnChange
-                  />
+                  <View style={styles.readinessRing}>
+                    <SegmentRing
+                      segments={dimensions.map((dimension) => ({
+                        key: dimension.key,
+                        label: dimension.label,
+                        value: Math.max(0, dimension.score),
+                      }))}
+                      score={`${overall}%`}
+                      scoreLabel="准备度"
+                      legend={false}
+                      size={124}
+                      thickness={12}
+                      gapDeg={10}
+                    />
+                  </View>
                 )}
                 <View style={styles.readinessBody}>
                   <Text style={styles.readinessLabel}>目标方向</Text>
@@ -313,23 +354,34 @@ export default function CareerScreen() {
           )}
         </Animated.View>
 
-        {/* ③ 准备度明细：四维进度条 */}
+        {/* ③ 准备度明细（v2.1 P3）：四维能力雷达 + 逐维明细（分数与 detail 文案全保留） */}
         <SectionTitle title="准备度明细" style={styles.section} />
         <Animated.View entering={entrance(1)}>
           <Card style={styles.dimCard}>
             {readiness && readiness.dimensions.length > 0 ? (
-              dimensions.map((dimension) => (
-                <View key={dimension.key} style={styles.dimRow}>
-                  <View style={styles.dimHead}>
-                    <Text style={styles.dimLabel}>{dimension.label}</Text>
-                    <Text style={[styles.dimScore, tabularNums]}>{dimension.score}%</Text>
-                  </View>
-                  <ProgressBar value={dimension.score / 100} height={6} />
-                  {dimension.detail ? (
-                    <Text style={styles.dimDetail} numberOfLines={1}>{dimension.detail}</Text>
-                  ) : null}
+              <>
+                <RadarChart
+                  title="四维能力"
+                  axes={dimensions.map((dimension) => ({ key: dimension.key, label: DIMENSION_AXIS_LABELS[dimension.key] }))}
+                  values={dimensions.map((dimension) => Math.max(0, dimension.score) / 100)}
+                  score={`${overall}`}
+                  scoreLabel="综合"
+                  size={236}
+                />
+                <View style={styles.dimList}>
+                  {dimensions.map((dimension) => (
+                    <View key={dimension.key} style={styles.dimRow}>
+                      <View style={styles.dimHead}>
+                        <Text style={styles.dimLabel}>{dimension.label}</Text>
+                        <Text style={[styles.dimScore, tabularNums]}>{dimension.score}%</Text>
+                      </View>
+                      {dimension.detail ? (
+                        <Text style={styles.dimDetail} numberOfLines={2}>{dimension.detail}</Text>
+                      ) : null}
+                    </View>
+                  ))}
                 </View>
-              ))
+              </>
             ) : (
               <Text style={styles.dimEmpty}>
                 {loading ? "正在计算准备度…" : "登录并记录技能 / 项目 / 面试日志后，这里会呈现职业画像"}
@@ -340,13 +392,18 @@ export default function CareerScreen() {
 
         {/* ④ 三格指标：进行中投递 / 新匹配岗位 / 待补技能（没有则 0） */}
         <Animated.View entering={entrance(2)}>
-          <MetricGrid
+          <StatTileRow
             items={[
-              { icon: "paper-plane-outline", value: activeApplications ?? 0, unit: "个", label: "进行中投递", tone: "primary" },
-              { icon: "radio-outline", value: readiness?.matchedJobs ?? 0, unit: "个", label: "新匹配岗位", tone: "success" },
-              { icon: "school-outline", value: gapSkills, unit: "项", label: "待补技能", tone: "accent" },
+              { label: "进行中投递", value: activeApplications ?? 0, unit: "个", icon: "paper-plane-outline", tone: "primary" },
+              { label: "匹配岗位", value: readiness?.matchedJobs ?? 0, unit: "个", icon: "radio-outline", tone: "success" },
+              { label: "待补技能", value: gapSkills, unit: "项", icon: "school-outline", tone: "accent" },
             ]}
           />
+          {gapSkillItems.length > 0 ? (
+            <Card style={styles.gapCard}>
+              <BarList title="待补技能排行" showRank items={gapSkillItems} />
+            </Card>
+          ) : null}
         </Animated.View>
 
         {/* ⑤ 职业成长路径：3 行入口 */}
@@ -488,7 +545,9 @@ const makeStyles = (colors: ThemeColors) =>
     /* 准备度卡（glassStrong） */
     readinessCard: { gap: spacing.sm },
     readinessTop: { flexDirection: "row", alignItems: "center", gap: 14 },
-    ringSkeleton: { width: 96, height: 96, borderRadius: 48 },
+    /** SegmentRing 是 width:100% 的自适应组件，放在行内必须给一个定宽容器 */
+    readinessRing: { width: 124 },
+    ringSkeleton: { width: 124, height: 124, borderRadius: 62 },
     readinessBody: { flex: 1, minWidth: 0, gap: 3 },
     readinessLabel: { ...typography.meta, fontWeight: "700", color: colors.textMuted },
     readinessGoal: { ...typography.hero, color: colors.text },
@@ -508,12 +567,16 @@ const makeStyles = (colors: ThemeColors) =>
 
     /* 四维明细 */
     dimCard: { gap: spacing.md },
+    dimList: { gap: spacing.md },
     dimRow: { gap: 4 },
     dimHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: 8 },
     dimLabel: { ...typography.callout, fontWeight: "600", color: colors.text },
     dimScore: { ...typography.caption, fontWeight: "700", color: colors.textMuted },
     dimDetail: { ...typography.meta, color: colors.textMuted },
     dimEmpty: { ...typography.callout, color: colors.textSecondary },
+
+    /* 待补技能排行（BarList 自带卡头，这里只补与指标卡之间的间距） */
+    gapCard: { marginTop: spacing.md },
 
     /* 职业成长路径 */
     pathCard: { padding: 0, gap: 0 },

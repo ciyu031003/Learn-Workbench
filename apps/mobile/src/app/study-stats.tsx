@@ -1,30 +1,26 @@
 import { useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated from "react-native-reanimated";
 import { ThemedIcon } from "@/components/themed-icon";
 import { Card } from "@/components/card";
 import { SectionHeader } from "@/components/section-header";
 import { RingProgress } from "@/components/ring-progress";
-import { BarChart, LineChart } from "@/components/charts";
 import { MonthCalendar } from "@/components/month-calendar";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { StudyShareSheet } from "@/components/study-share-card";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
+import { BarList, HeatmapCalendar, StatTileRow, StepsBar } from "@/components/v2/charts";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useAppStore } from "@/store/app-store";
 import { UNTAGGED_CONTENT, computeFocusStats } from "@/lib/focus-stats";
 import { buildStudyCardModel } from "@/lib/study-card-model";
 import {
-  HEAT_LEGEND,
   addDays,
   buildDailySeries,
   buildDayMinutesMap,
-  buildHeatMonthMarks,
-  buildHeatmap,
   buildPeakPeriod,
   buildPeriodBars,
   buildWeekCompare,
-  heatColor,
   localKey,
   weekdayName,
 } from "@/lib/focus-series";
@@ -40,6 +36,11 @@ import { useTheme } from "@/theme";
  * ① 弹层里再套「选择日期」弹层，层级与手势都别扭；② 图表+热力图内容很长，弹层滚动区太窄。
  * 现在改成真正的路由（`/study-stats`，push 进栈、原生转场、左滑返回），
  * 计算下沉到 `lib/focus-series.ts`（可单测），页面只负责布局与交互。
+ *
+ * v2.1 P3：图表区换成数据面板组件库（`components/v2/charts`）——
+ * 四格指标 → StatTileRow；学习内容 → BarList；12 周热力 → HeatmapCalendar（月历格）；
+ * 时段分布 / 近 7 天 → StepsBar。旧的 BarChart / LineChart / 自绘热力格已删除，
+ * 数据仍全部来自 store 的 sessions 与 lib/focus-series、lib/focus-stats（零新增接口）。
  *
  * ⚠️ 滚动容器是 `Animated.ScrollView` → 用 `headerScroll.onScroll`；
  * 普通 FlatList/FlashList 必须用 `onScrollJS`（踩坑 99，有静态护栏测试守着）。
@@ -58,10 +59,8 @@ export default function StudyStatsScreen() {
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [shareSheet, setShareSheet] = useState(false);
   const [contentTab, setContentTab] = useState<"today" | "week">("today");
-  const [heatWidth, setHeatWidth] = useState(0);
 
   const stats = useMemo(() => computeFocusStats(sessions), [sessions]);
-  const heatmap = useMemo(() => buildHeatmap(sessions), [sessions]);
   const contentRows = contentTab === "today" ? stats.byContent : stats.weekByContent;
   const contentTotalMinutes = contentRows.reduce((sum, row) => sum + row.minutes, 0);
   const maxContentMinutes = contentRows.reduce((m, r) => Math.max(m, r.minutes), 0);
@@ -69,12 +68,19 @@ export default function StudyStatsScreen() {
   const weekCompare = useMemo(() => buildWeekCompare(stats.last14), [stats.last14]);
   /** 黄金时段（全部会话累计分钟最多的时段） */
   const peakPeriod = useMemo(() => buildPeakPeriod(sessions), [sessions]);
-  /** 热力图 12 列的月份标（换月列才有文案） */
-  const heatMonthMarks = useMemo(() => buildHeatMonthMarks(heatmap), [heatmap]);
 
   const selectedKey = localKey(statDate);
   const isStatToday = selectedKey === localKey(new Date());
-  const selectedMinutes = useMemo(() => buildDayMinutesMap(sessions).get(selectedKey) ?? 0, [sessions, selectedKey]);
+  /**
+   * 日期键 → 当天分钟：热力格与「选中日分钟」共用同一份聚合。
+   * HeatmapCalendar 要的是普通对象（Record），Map 在这里一次性展平，避免每帧重建。
+   */
+  const dayMinutes = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const [key, minutes] of buildDayMinutesMap(sessions)) out[key] = minutes;
+    return out;
+  }, [sessions]);
+  const selectedMinutes = dayMinutes[selectedKey] ?? 0;
   const periodBars = useMemo(() => buildPeriodBars(sessions, selectedKey), [sessions, selectedKey]);
   const dailySeries = useMemo(() => buildDailySeries(sessions, statDate), [sessions, statDate]);
 
@@ -83,11 +89,16 @@ export default function StudyStatsScreen() {
   const ringPct = Math.round((todayMinutes / TODAY_TARGET_MIN) * 100);
   const weekMinutes = stats.last14.slice(7).reduce((sum, d) => sum + d.minutes, 0);
   const totalMinutes = sessions.reduce((sum, s) => sum + Math.max(0, Math.round((s.durationSeconds ?? 0) / 60)), 0);
+  const totalHours = Math.round((totalMinutes / 60) * 10) / 10;
+  const weekHours = Math.round((weekMinutes / 60) * 10) / 10;
+  const weekDays = stats.last14.slice(7).filter((day) => day.minutes > 0).length;
 
-  // 热力图几何：12 周 × 7 天，按容器实测宽度算格子（与旧弹层口径一致，只把 4 提成常量）
-  const HEAT_GAP = 4;
-  const heatWeeks = heatmap.length;
-  const heatCell = heatWidth > 0 ? Math.max(8, Math.floor((heatWidth - HEAT_GAP * (heatWeeks - 1)) / heatWeeks)) : 13;
+  /** 时段柱：按当日峰值归一（StepsBar 内部再夹 0..1，脏数据不会画出溢出柱） */
+  const periodPeak = periodBars.reduce((peak, bar) => Math.max(peak, bar.value), 0);
+  /** 近 7 天柱（日期跟随页面选中的 statDate，与原来的「近 14 天」同口径） */
+  const last7 = dailySeries.slice(-7);
+  const last7Peak = last7.reduce((peak, day) => Math.max(peak, day.value), 0);
+  const last7Total = last7.reduce((sum, day) => sum + day.value, 0);
 
   const shareData = useMemo(
     () =>
@@ -103,14 +114,16 @@ export default function StudyStatsScreen() {
     [stats, weekMinutes]
   );
 
-  const onHeatLayout = (e: LayoutChangeEvent) => setHeatWidth(Math.round(e.nativeEvent.layout.width));
-
-  const miniStats = [
-    { k: "累计专注", v: stats.totalFocusDays, unit: " 天" },
-    { k: "累计时长", v: Math.round((totalMinutes / 60) * 10) / 10, unit: " h" },
-    { k: "本周", v: Math.round((weekMinutes / 60) * 10) / 10, unit: " h" },
-    { k: "今日", v: todayMinutes, unit: " 分" },
-  ];
+  /**
+   * 点热力格切日期：与顶部的日期翻页同一处状态（不新增数据加载）。
+   * 未来日期不可选 —— 顶部「后一天」按钮也是到今天就禁用，两处口径保持一致。
+   */
+  const onPickDay = (key: string) => {
+    if (key > localKey(new Date())) return;
+    const [year, month, day] = key.split("-").map(Number);
+    if (!year || !month || !day) return;
+    setStatDate(new Date(year, month - 1, day));
+  };
 
   return (
     <View style={styles.root}>
@@ -125,7 +138,7 @@ export default function StudyStatsScreen() {
       >
         <ScreenHeaderLargeTitle title="学习统计" subtitle="专注分布 · 内容维度 · 时段趋势" />
 
-        {/* 今日与周期：环 + 四格 + 分享入口 */}
+        {/* 今日与周期：环 + 四格指标 + 分享入口 */}
         <Card style={styles.panel}>
           <SectionHeader
             title="今日与周期"
@@ -186,25 +199,29 @@ export default function StudyStatsScreen() {
             </View>
           </View>
 
-          <View style={styles.miniGrid}>
-            {miniStats.map((item) => (
-              <View key={item.k} style={styles.mini}>
-                <Text style={styles.miniKey}>{item.k}</Text>
-                <View style={styles.miniLine}>
-                  <Text style={styles.miniValue}>{item.v}</Text>
-                  <Text style={styles.miniUnit}>{item.unit}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-
           <Pressable style={styles.shareBtn} onPress={() => setShareSheet(true)} accessibilityLabel="分享学习统计">
             <ThemedIcon name="share-social-outline" size={15} color={colors.primary} />
             <Text style={styles.shareBtnText}>分享闪光卡</Text>
           </Pressable>
         </Card>
 
-        {/* 学习内容维度（今日 / 本周） */}
+        {/* v2.1 P3：原四格迷你卡 → 标准指标卡（铺在画布上，避免"卡中卡"；两行两列 130% 不挤） */}
+        <View style={styles.tileGrid}>
+          <StatTileRow
+            items={[
+              { label: "累计专注", value: totalHours, unit: "h", icon: "time-outline", tone: "primary" },
+              { label: "累计天数", value: stats.totalFocusDays, unit: "天", icon: "calendar-outline" },
+            ]}
+          />
+          <StatTileRow
+            items={[
+              { label: "本周时长", value: weekHours, unit: "h", icon: "trending-up-outline", tone: "accent" },
+              { label: "本周天数", value: weekDays, unit: "天", icon: "checkmark-done-outline", tone: "success" },
+            ]}
+          />
+        </View>
+
+        {/* 学习内容维度（今日 / 本周）：排行 + 行内占比条 */}
         <Card style={styles.panel}>
           <SectionHeader
             title="学习内容"
@@ -238,86 +255,38 @@ export default function StudyStatsScreen() {
               {contentTab === "today" ? "今天还没有绑定学习内容的专注" : "本周还没有绑定学习内容的专注"}
             </Text>
           ) : (
-            <View style={styles.contentList}>
-              {contentRows.map((row) => {
-                const share = contentTotalMinutes > 0 ? Math.round((row.minutes / contentTotalMinutes) * 100) : 0;
-                return (
-                  <View key={row.label} style={styles.contentRow}>
-                    <View style={styles.contentTop}>
-                      <Text style={styles.contentLabel} numberOfLines={1}>
-                        {row.label}
-                      </Text>
-                      <Text style={styles.contentMeta}>
-                        {formatDuration(row.minutes)} · {row.sessions} 次{share > 0 ? ` · 占 ${share}%` : ""}
-                      </Text>
-                    </View>
-                  <View style={styles.contentTrack}>
-                    <View
-                      style={[
-                        styles.contentFill,
-                        {
-                          width: `${maxContentMinutes > 0 ? Math.round((row.minutes / maxContentMinutes) * 100) : 0}%`,
-                          backgroundColor: row.label === UNTAGGED_CONTENT ? colors.textFaint : colors.accent,
-                        },
-                      ]}
-                    />
-                  </View>
-                </View>
-                );
-              })}
-            </View>
+            <BarList
+              title={null}
+              max={maxContentMinutes}
+              items={contentRows.map((row) => ({
+                key: row.label,
+                label: row.label,
+                value: row.minutes,
+                valueLabel: formatDuration(row.minutes),
+                hint: `${row.sessions} 次${contentTotalMinutes > 0 ? ` · 占 ${Math.round((row.minutes / contentTotalMinutes) * 100)}%` : ""}`,
+                color: row.label === UNTAGGED_CONTENT ? colors.textFaint : colors.accent,
+              }))}
+            />
           )}
         </Card>
 
-        {/* 可学习时长分布（近 12 周热力图） */}
+        {/* 可学习时长分布（月历热力格）：点格子切日期，与顶部日期翻页同一状态 */}
         <Card style={styles.panel}>
-          <SectionHeader title="可学习时长分布" subtitle="近 12 周 · 颜色越深专注越多" accentColor={colors.accent} />
-          {/* 月份标：文本比格子宽，绝对定位到换月列的起点上（heatWidth 量宽后才能定位） */}
-          {heatWidth > 0 ? (
-            <View style={styles.heatMarks} pointerEvents="none" importantForAccessibility="no-hide-descendants">
-              {heatMonthMarks.map((mark, wi) =>
-                mark ? (
-                  <Text
-                    key={wi}
-                    style={[styles.heatMark, { left: wi * (heatCell + HEAT_GAP) }]}
-                  >
-                    {mark}
-                  </Text>
-                ) : null
-              )}
-            </View>
-          ) : null}
-          <View style={styles.heat} onLayout={onHeatLayout}>
-            {heatmap.map((week, wi) => (
-              <View key={wi} style={[styles.heatWeek, { gap: HEAT_GAP }]}>
-                {week.map((day) => (
-                  <View
-                    key={day.key}
-                    style={[
-                      styles.heatCell,
-                      {
-                        width: heatCell,
-                        height: heatCell,
-                        borderRadius: Math.max(3, heatCell * 0.28),
-                        backgroundColor: heatColor(day.minutes),
-                      },
-                      day.key === selectedKey && styles.heatCellActive,
-                    ]}
-                  />
-                ))}
-              </View>
-            ))}
-          </View>
-          <View style={styles.heatLegend}>
-            <Text style={styles.heatLegendText}>少</Text>
-            {HEAT_LEGEND.map((c) => (
-              <View key={c} style={[styles.heatSwatch, { backgroundColor: c }]} />
-            ))}
-            <Text style={styles.heatLegendText}>多</Text>
-          </View>
+          <SectionHeader
+            title="可学习时长分布"
+            subtitle={`${statDate.getFullYear()} 年 ${statDate.getMonth() + 1} 月 · 颜色越深专注越多`}
+            accentColor={colors.accent}
+          />
+          <HeatmapCalendar
+            year={statDate.getFullYear()}
+            month={statDate.getMonth()}
+            values={dayMinutes}
+            title={null}
+            onPressDay={onPickDay}
+          />
         </Card>
 
-        {/* 时段与趋势 */}
+        {/* 时段与趋势：7 根柱的历史样式，与周柱图同一套面板 */}
         <Card style={styles.panel}>
           <SectionHeader
             title="时段与趋势"
@@ -332,10 +301,26 @@ export default function StudyStatsScreen() {
               </Text>
             </View>
           ) : null}
-          <Text style={styles.chartLabel}>时段分布</Text>
-          <BarChart data={periodBars} height={150} color={colors.primary} colorTo={colors.primarySoft} />
-          <Text style={[styles.chartLabel, styles.chartLabelGap]}>近 14 天学习时长</Text>
-          <LineChart data={dailySeries} height={150} color={colors.accent} average />
+          <StepsBar
+            title="时段分布"
+            rangeLabel={formatDuration(selectedMinutes)}
+            items={periodBars.map((bar) => ({
+              label: bar.label,
+              value: periodPeak > 0 ? bar.value / periodPeak : 0,
+              highlight: peakPeriod?.label === bar.label,
+              valueLabel: peakPeriod?.label === bar.label ? String(bar.value) : undefined,
+            }))}
+          />
+          <StepsBar
+            title="近 7 天学习分钟"
+            rangeLabel={formatDuration(last7Total)}
+            items={last7.map((day, index) => ({
+              label: weekdayName(addDays(statDate, index - (last7.length - 1))).slice(1),
+              value: last7Peak > 0 ? day.value / last7Peak : 0,
+              highlight: index === last7.length - 1,
+              valueLabel: index === last7.length - 1 ? String(day.value) : undefined,
+            }))}
+          />
         </Card>
       </Animated.ScrollView>
 
@@ -362,6 +347,7 @@ const makeStyles = (colors: ThemeColors) =>
     content: { paddingHorizontal: 16, paddingTop: 4, gap: 14 },
 
     panel: { padding: 16, gap: 14 },
+    tileGrid: { gap: 8 },
 
     dateNav: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
     dateArrow: {
@@ -384,7 +370,7 @@ const makeStyles = (colors: ThemeColors) =>
       borderRadius: radius.pill,
       backgroundColor: colors.accentSoft,
     },
-    dateText: { ...typography.caption, fontWeight: "700", color: colors.text },
+    dateText: { ...typography.caption, fontWeight: "700", color: colors.text, flexShrink: 1 },
 
     hero: { flexDirection: "row", alignItems: "center", gap: 18 },
     ringWrap: { width: 108, height: 108, alignItems: "center", justifyContent: "center" },
@@ -408,21 +394,6 @@ const makeStyles = (colors: ThemeColors) =>
     deltaDown: { backgroundColor: colors.dangerSoft },
     deltaText: { ...typography.micro, fontWeight: "800", ...tabularNums },
 
-    miniGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-    mini: {
-      flexBasis: "47%",
-      flexGrow: 1,
-      backgroundColor: colors.surfaceMuted,
-      borderRadius: radius.md,
-      padding: 12,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.border,
-    },
-    miniKey: { ...typography.micro, color: colors.textMuted },
-    miniLine: { flexDirection: "row", alignItems: "flex-end", gap: 2, marginTop: 6 },
-    miniValue: { ...typography.title2, fontWeight: "800", color: colors.text, ...tabularNums },
-    miniUnit: { ...typography.caption, color: colors.textMuted, marginBottom: 3 },
-
     shareBtn: {
       flexDirection: "row",
       alignItems: "center",
@@ -440,34 +411,8 @@ const makeStyles = (colors: ThemeColors) =>
     tabText: { ...typography.caption, fontWeight: "700", color: colors.textMuted },
     tabTextActive: { color: "#fff" },
 
-    contentList: { gap: 10 },
-    contentRow: { gap: 5 },
-    contentTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
-    contentLabel: { flex: 1, ...typography.callout, fontWeight: "700", color: colors.text },
-    contentMeta: { ...typography.caption, color: colors.textMuted, fontWeight: "600" },
-    contentTrack: { height: 6, borderRadius: radius.pill, backgroundColor: colors.surfaceMuted, overflow: "hidden" },
-    contentFill: { height: "100%", borderRadius: radius.pill },
     contentEmpty: { ...typography.caption, color: colors.textMuted },
 
-    heat: { flexDirection: "row", gap: 4, alignItems: "flex-start" },
-    /** 月份标行：标签绝对定位（文本比格子宽，不进格子）；高度按 micro 行高给 */
-    heatMarks: { position: "relative", height: typography.micro.lineHeight, marginLeft: 0 },
-    heatMark: {
-      position: "absolute",
-      top: 0,
-      ...typography.micro,
-      color: colors.textMuted,
-      fontWeight: "700",
-    },
-    heatWeek: { gap: 4 },
-    heatCell: { width: 13, height: 13, borderRadius: 4 },
-    heatCellActive: { borderWidth: 2, borderColor: colors.primary },
-    heatLegend: { flexDirection: "row", alignItems: "center", gap: 5, justifyContent: "flex-end" },
-    heatLegendText: { ...typography.micro, color: colors.textMuted },
-    heatSwatch: { width: 13, height: 13, borderRadius: 4 },
-
-    chartLabel: { ...typography.caption, fontWeight: "700", color: colors.text },
-    chartLabelGap: { marginTop: 6 },
     peakRow: {
       flexDirection: "row",
       alignItems: "center",

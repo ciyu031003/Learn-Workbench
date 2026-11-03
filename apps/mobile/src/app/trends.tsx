@@ -3,27 +3,32 @@ import Animated from "react-native-reanimated";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import type { Workout } from "@learn-workbench/shared/schemas";
-import { CalorieHeatmapCard, CalorieTrendCard } from "@/components/calorie-trend";
+import { fromDateKey, toDateKey } from "@learn-workbench/shared/dates";
+import { exerciseTypeLabels } from "@learn-workbench/shared/labels";
+import { CalorieHeatmapCard } from "@/components/calorie-trend";
+import { Card } from "@/components/card";
 import { FoodCalendar } from "@/components/food-calendar";
 import { GroupLabel } from "@/components/group-label";
 import { PressableScale } from "@/components/pressable-scale";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
+import { ChipGroup } from "@/components/sheet";
 import { Skeleton, SkeletonCard } from "@/components/skeleton";
 import { SportBackfillSheet } from "@/components/sport-backfill-sheet";
-import { SportTrendCard } from "@/components/sport-trend-card";
 import { ThemedIcon } from "@/components/themed-icon";
 import { TrainingLoadCard } from "@/components/training-load-card";
-import { addDays, localKey } from "@/lib/focus-series";
+import { AreaChart, BarList, ChartHeader, SegmentRing, StatTileRow, StepsBar } from "@/components/v2/charts";
+import { addDays, localKey, weekdayName } from "@/lib/focus-series";
+import { formatMonthDayRange } from "@/lib/chart-math";
+import { buildTrendSeries, loggedDaysInMonth } from "@/lib/nutrition-stats";
 import { setNavPendingParams } from "@/lib/nav-pending";
-import { loggedDaysInMonth } from "@/lib/nutrition-stats";
-import { todayAndYesterday } from "@/lib/nutrition-views";
-import { buildSportTrend, formatSportDuration } from "@/lib/sport-trend";
+import { groupThousands, todayAndYesterday } from "@/lib/nutrition-views";
+import { buildSportTrend, formatSportDuration, type SportTrendFilter } from "@/lib/sport-trend";
 import { useDayEntries } from "@/lib/use-day-entries";
 import { useMonthSummaries } from "@/lib/use-month-summaries";
 import { fetchNutritionTarget } from "@/lib/wellbeing-client";
 import { getApiUrl } from "@/config";
 import { useTheme } from "@/theme";
-import { typography, tabularNums, type ThemeColors } from "@/theme/tokens";
+import { typography, type ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 
 /**
@@ -33,11 +38,16 @@ import { useAppStore } from "@/store/app-store";
  * 本页分三段，数据来源互相独立、互不阻塞（任何一段失败都不影响另外两段）：
  *
  *  ① 饮食：`useMonthSummaries`（GET /api/nutrition/summary，按月 7 次并发）→
- *     7/14 天 kcal 曲线 + 26 周点阵热力图 + Food Calendar；点月历某天跳到饮食页对应日期。
- *  ② 运动：本地 store 的 `sports`（计时结束写入 + 本页「补录」写入）→ 7/30 天时长柱状 +
- *     按运动大类分组；零网络请求，离线也能看。
+ *     7/14 天 kcal 面积图 + 26 周点阵热力图 + Food Calendar；点月历某天跳到饮食页对应日期。
+ *  ② 运动：本地 store 的 `sports`（计时结束写入 + 本页「补录」写入）→ 每日柱状 +
+ *     分项排行；零网络请求，离线也能看。
  *  ③ 训练负荷：GET /api/workouts?days=30 → `trainingLoadSeries` 自动选口径
  *     （容量→次数→组数→训练次数）画 30 天柱状，并列出区间合计。
+ *
+ * v2.1 P3：图表区换成数据面板组件库（`components/v2/charts`）——
+ * 顶部三格 → StatTileRow；热量曲线 → AreaChart（7/14 天切换照旧）；
+ * 目标达成 → SegmentRing；运动 → StepsBar（近 7 天）+ BarList（分项排行）。
+ * 数据口径与原实现完全一致：仍是同一批 rows / sports / workouts，零新增接口、零改后端契约。
  *
  * 页面是普通 Stack push（不是 Modal/BottomSheet）：有原生转场与侧滑返回，
  * 内容也能长到超过一屏而不被弹层高度限制。
@@ -77,7 +87,7 @@ export default function TrendsScreen() {
   const monthLogged = monthDays.length;
   const nutritionPending = pending && Object.keys(rows).length === 0;
 
-  /** 热量目标（用于曲线目标虚线与点阵分档）；拿不到就退化为"按区间峰值分档" */
+  /** 热量目标（用于面积图 caption 与达成环）；拿不到就退化为"没有目标"分支 */
   const [targetKcal, setTargetKcal] = useState(0);
   useEffect(() => {
     let cancelled = false;
@@ -87,7 +97,7 @@ export default function TrendsScreen() {
         if (!cancelled) setTargetKcal(Number(d.target?.kcal) || 0);
       })
       .catch(() => {
-        // 离线/未登录：保持 0，卡片自动退化为无目标线
+        // 离线/未登录：保持 0，卡片自动退化为无目标环
       });
     return () => {
       cancelled = true;
@@ -118,18 +128,19 @@ export default function TrendsScreen() {
 
   const [backfillOpen, setBackfillOpen] = useState(false);
 
+  /* ---------- 面板状态（只换聚合窗口，不重新取数） ---------- */
+  const [calorieDays, setCalorieDays] = useState<7 | 14>(7);
+  const [sportDays, setSportDays] = useState<7 | 30>(7);
+  const [sportFilter, setSportFilter] = useState<SportTrendFilter>("ALL");
+
   /**
-   * 顶部总览条（v1.50）：三段数据的「一眼版」，全部复用本页已加载的数据，零新增请求。
-   * 饮食 = 近 7 天有热量记录的天数 + 日均；运动 = 近 7 天本地记录合计；训练 = 近 30 天次数。
+   * 顶部总览（v1.50 → v2.1 StatTileRow）：三段数据的「一眼版」，
+   * 全部复用本页已加载的数据，零新增请求。
    */
-  const overview = useMemo(() => {
+  const dietWeek = useMemo(() => {
+    const todayDate = fromDateKey(todayKey);
     let loggedDays = 0;
     let kcalSum = 0;
-    const todayDate = new Date(
-      Number(todayKey.slice(0, 4)),
-      Number(todayKey.slice(5, 7)) - 1,
-      Number(todayKey.slice(8, 10))
-    );
     for (let i = 0; i < 7; i += 1) {
       const row = rows[localKey(addDays(todayDate, -i))];
       if (row && row.kcal > 0) {
@@ -137,31 +148,118 @@ export default function TrendsScreen() {
         kcalSum += row.kcal;
       }
     }
-    const sport = buildSportTrend(sports, todayKey, 7);
-    return [
-      {
-        key: "diet",
-        icon: "restaurant-outline" as const,
-        label: "近 7 天饮食",
-        value: nutritionPending ? "…" : loggedDays > 0 ? `${loggedDays}/7 天` : "—",
-        sub: loggedDays > 0 ? `日均 ${Math.round(kcalSum / loggedDays)} kcal` : "记一笔就有了",
-      },
-      {
-        key: "sport",
-        icon: "barbell-outline" as const,
-        label: "近 7 天运动",
-        value: sport.totalSessions > 0 ? formatSportDuration(sport.totalMinutes) : "—",
-        sub: `共 ${sport.totalSessions} 次`,
-      },
-      {
-        key: "workout",
-        icon: "fitness-outline" as const,
-        label: "近 30 天训练",
-        value: workouts.length > 0 ? `${workouts.length} 次` : "—",
-        sub: "力量 / 训练记录",
-      },
-    ];
-  }, [rows, sports, workouts, todayKey, nutritionPending]);
+    return { loggedDays, avgKcal: loggedDays > 0 ? Math.round(kcalSum / loggedDays) : 0 };
+  }, [rows, todayKey]);
+
+  /** 近 7 天运动 + 上一个 7 天（只取两个已聚合的区间合计算环比，口径与柱状一致） */
+  const sport7 = useMemo(() => buildSportTrend(sports, todayKey, 7), [sports, todayKey]);
+  const sportPrev7 = useMemo(
+    () => buildSportTrend(sports, toDateKey(addDays(fromDateKey(todayKey), -7)), 7),
+    [sports, todayKey]
+  );
+  const sportDeltaPct =
+    sportPrev7.totalMinutes > 0
+      ? Math.round(((sport7.totalMinutes - sportPrev7.totalMinutes) / sportPrev7.totalMinutes) * 100)
+      : null;
+
+  /** 热量曲线：窗口跟随 7/14 天切换（`buildTrendSeries` 一次给出本期 + 上一周期） */
+  const calorie = useMemo(() => buildTrendSeries(rows, todayKey, calorieDays), [rows, todayKey, calorieDays]);
+  /** 稳定引用：React Compiler 只接受与推断一致的依赖（`calorie.current` 而不是整个 series） */
+  const calorieCurrent = calorie.current;
+  const calorieLabels = useMemo(() => {
+    if (calorieCurrent.length <= 7) return calorieCurrent.map((point) => point.label);
+    // 14 天：横轴只标隔天的 M/D（AreaChart 的轴是等分标签行，标满会挤成一团）
+    return calorieCurrent
+      .filter((_, index) => index % 2 === 0)
+      .map((point) => {
+        const date = fromDateKey(point.key);
+        return `${date.getMonth() + 1}/${date.getDate()}`;
+      });
+  }, [calorieCurrent]);
+
+  /** 运动面板：窗口跟随 7/30 天、筛选跟随 ChipGroup（纯本地聚合） */
+  const sport = useMemo(
+    () => buildSportTrend(sports, todayKey, sportDays, sportFilter),
+    [sports, todayKey, sportDays, sportFilter]
+  );
+  const sportFilterOptions = useMemo(
+    () => sport.byType.map((item) => ({ key: item.type, label: exerciseTypeLabels[item.type], badge: item.sessions })),
+    [sport.byType]
+  );
+  /** 柱图固定看「最近 7 天」（窗口切到 30 天时，柱仍是对最近一周的可读切面） */
+  const sportBars = useMemo(() => {
+    const tail = sport.points.slice(-7);
+    const peak = tail.reduce((max, point) => Math.max(max, point.minutes), 0);
+    return tail.map((point, index) => ({
+      label: weekdayName(fromDateKey(point.key)).slice(1),
+      value: peak > 0 ? point.minutes / peak : 0,
+      highlight: index === tail.length - 1,
+      valueLabel: index === tail.length - 1 ? String(Math.round(point.minutes)) : undefined,
+    }));
+  }, [sport.points]);
+  const sportRangeLabel = useMemo(() => {
+    const tail = sport.points.slice(-7);
+    if (tail.length < 2) return undefined;
+    return formatMonthDayRange(tail[0].key, tail[tail.length - 1].key);
+  }, [sport.points]);
+  const sportTypeItems = useMemo(
+    () =>
+      sport.byType.map((item) => ({
+        key: item.type,
+        label: exerciseTypeLabels[item.type],
+        value: item.minutes,
+        valueLabel: formatSportDuration(item.minutes),
+        hint: `${item.sessions} 次`,
+      })),
+    [sport.byType]
+  );
+
+  /** 热量目标达成：日均 ÷ 目标（目标缺失或没有记录 → 不出这一块，不臆造百分比） */
+  const showGoalRing = targetKcal > 0 && calorie.daysLogged > 0;
+  const goalRatio = showGoalRing ? Math.round((calorie.avgKcal / targetKcal) * 100) : 0;
+  const goalRest = Math.max(0, targetKcal - calorie.avgKcal);
+
+  const rangeToggle = (
+    <View style={styles.rangeToggle}>
+      {([7, 14] as const).map((days) => {
+        const active = calorieDays === days;
+        return (
+          <Pressable
+            key={days}
+            onPress={() => setCalorieDays(days)}
+            hitSlop={7}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active }}
+            accessibilityLabel={`近 ${days} 天`}
+            style={[styles.rangeItem, active && styles.rangeItemActive]}
+          >
+            <Text style={[styles.rangeText, active && styles.rangeTextActive]}>{days} 天</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+
+  const sportToggle = (
+    <View style={styles.rangeToggle}>
+      {([7, 30] as const).map((days) => {
+        const active = sportDays === days;
+        return (
+          <Pressable
+            key={days}
+            onPress={() => setSportDays(days)}
+            hitSlop={7}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active }}
+            accessibilityLabel={`近 ${days} 天运动`}
+            style={[styles.rangeItem, active && styles.rangeItemActive]}
+          >
+            <Text style={[styles.rangeText, active && styles.rangeTextActive]}>{days} 天</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
 
   return (
     <View style={styles.root}>
@@ -175,19 +273,33 @@ export default function TrendsScreen() {
       >
         <ScreenHeaderLargeTitle title="趋势" subtitle="饮食热量 · 运动时长 · 训练负荷" />
 
-        {/* 总览条：三段数据的一眼版（复用本页数据，零新增请求） */}
-        <View style={styles.overviewRow}>
-          {overview.map((item) => (
-            <View key={item.key} style={styles.overviewCard} accessibilityLabel={`${item.label} ${item.value} ${item.sub}`}>
-              <ThemedIcon name={item.icon} size={15} color={colors.accentStrong} />
-              <Text style={styles.overviewLabel}>{item.label}</Text>
-              <Text style={[styles.overviewValue, tabularNums]}>{item.value}</Text>
-              <Text style={styles.overviewSub} numberOfLines={1}>
-                {item.sub}
-              </Text>
-            </View>
-          ))}
-        </View>
+        {/* 总览：三段数据的一眼版（复用本页数据，零新增请求） */}
+        <StatTileRow
+          items={[
+            {
+              label: "近 7 天饮食",
+              value: nutritionPending ? "…" : dietWeek.loggedDays > 0 ? `${dietWeek.loggedDays}/7` : "—",
+              unit: dietWeek.loggedDays > 0 ? "天" : undefined,
+              icon: "restaurant-outline",
+              tone: "accent",
+            },
+            {
+              label: "近 7 天运动",
+              value: sport7.totalMinutes > 0 ? Math.round((sport7.totalMinutes / 60) * 10) / 10 : "—",
+              unit: sport7.totalMinutes > 0 ? "h" : undefined,
+              icon: "barbell-outline",
+              tone: "primary",
+              delta: sportDeltaPct !== null ? { value: sportDeltaPct } : undefined,
+            },
+            {
+              label: "近 30 天训练",
+              value: workouts.length > 0 ? workouts.length : "—",
+              unit: workouts.length > 0 ? "次" : undefined,
+              icon: "fitness-outline",
+              tone: "success",
+            },
+          ]}
+        />
 
         {/* ① 饮食 */}
         <GroupLabel accentColor={colors.accent}>饮食趋势</GroupLabel>
@@ -207,8 +319,68 @@ export default function TrendsScreen() {
           </View>
         ) : (
           <>
-            <CalorieTrendCard map={rows} endKey={todayKey} targetKcal={targetKcal} />
-            <CalorieHeatmapCard map={rows} endKey={todayKey} targetKcal={targetKcal} weeks={26} />
+            <Card style={styles.panel}>
+              {/* 卡头只放短文案：右侧还有 7/14 天切换，130% 字号下长 caption 会被挤断 */}
+              <ChartHeader
+                title={`近 ${calorieDays} 天热量`}
+                caption={`日均 ${groupThousands(calorie.avgKcal)} kcal`}
+                right={rangeToggle}
+              />
+              {calorie.totalKcal > 0 || calorie.priorTotalKcal > 0 ? (
+                <>
+                  <AreaChart
+                    title={null}
+                    height={150}
+                    min={0}
+                    legend
+                    labels={calorieLabels}
+                    series={[
+                      { key: "current", label: "本期", values: calorie.current.map((point) => point.kcal) },
+                      { key: "prior", label: "上一周期", values: calorie.prior, color: colors.textFaint },
+                    ]}
+                  />
+                  <View style={styles.hintRow}>
+                    <Text style={styles.chartHint}>{`${calorie.daysLogged}/${calorieDays} 天有记录`}</Text>
+                    <Text style={styles.chartHint}>
+                      {calorie.deltaPct === null
+                        ? "暂无可对比的上一周期"
+                        : `较上一周期 ${calorie.deltaPct > 0 ? "+" : ""}${calorie.deltaPct}%`}
+                    </Text>
+                  </View>
+                </>
+              ) : (
+                <View style={styles.chartEmpty}>
+                  <ThemedIcon name="pulse-outline" size={22} color={colors.textFaint} />
+                  <Text style={styles.chartEmptyText}>还没有足够的数据画曲线，先记两条饮食吧</Text>
+                </View>
+              )}
+
+              {showGoalRing ? (
+                <SegmentRing
+                  title={`近 ${calorieDays} 天日均 vs 目标`}
+                  segments={[
+                    {
+                      key: "intake",
+                      label: "日均摄入",
+                      value: calorie.avgKcal,
+                      valueLabel: `${groupThousands(calorie.avgKcal)} kcal`,
+                    },
+                    {
+                      key: "rest",
+                      label: "距目标余量",
+                      value: goalRest,
+                      valueLabel: `${groupThousands(goalRest)} kcal`,
+                    },
+                  ]}
+                  score={`${goalRatio}%`}
+                  scoreLabel="目标达成率"
+                  caption={`目标 ${groupThousands(targetKcal)} kcal`}
+                  size={156}
+                />
+              ) : null}
+            </Card>
+
+            <CalorieHeatmapCard map={rows} endKey={todayKey} targetKcal={targetKcal} />
             <View style={styles.calendarCard}>
               <Text style={styles.calendarTitle}>Food Calendar</Text>
               <Text style={styles.calendarSub}>
@@ -222,8 +394,6 @@ export default function TrendsScreen() {
                 // 字符串 href（v2.1 评审修复）：对象形式 push 在同名路由复用实例时参数会被
                 // 冻结（与 408 专区 bug 同根因，见 quiz/chapter.tsx 的防冻注释）
                 onSelect={(key) => {
-                  // 字符串 href（v2.1 评审修复）：对象形式 push 在同名路由复用实例时参数会被
-                  // 冻结（与 408 专区 bug 同根因，见 quiz/chapter.tsx 的防冻注释）
                   // v1.51：follow-effect 对「params 本身冻结」无效，目标参数改登记场外通道
                   setNavPendingParams("nutrition", { date: key });
                   router.push(`/nutrition?date=${key}` as never);
@@ -247,7 +417,36 @@ export default function TrendsScreen() {
           <ThemedIcon name="add" size={17} color={colors.primary} />
           <Text style={styles.addBtnText}>补录运动</Text>
         </PressableScale>
-        <SportTrendCard logs={sports} endKey={todayKey} />
+
+        <Card style={styles.panel}>
+          <ChartHeader
+            title={`运动 · 近 ${sportDays} 天`}
+            caption={
+              sport.totalSessions > 0
+                ? `合计 ${formatSportDuration(sport.totalMinutes)}`
+                : "该区间还没有记录"
+            }
+            right={sportToggle}
+          />
+          {sport.byType.length > 0 ? (
+            <>
+              <Text style={styles.chartHint}>{`${sport.totalSessions} 次 · ${sport.activeDays}/${sportDays} 天有记录`}</Text>
+              <ChipGroup
+                options={sportFilterOptions}
+                selected={[sportFilter]}
+                onToggle={(key) => setSportFilter(key as SportTrendFilter)}
+                multiple={false}
+                wrap
+                allKey="ALL"
+                allLabel="全部"
+              />
+              <StepsBar title="每日时长（近 7 天）" rangeLabel={sportRangeLabel} items={sportBars} />
+              <BarList title="分项排行" items={sportTypeItems} />
+            </>
+          ) : (
+            <Text style={styles.chartEmptyText}>还没有运动记录，用上面的「补录」加一条试试</Text>
+          )}
+        </Card>
 
         {/* ③ 训练负荷 */}
         <GroupLabel accentColor={colors.accent}>训练负荷</GroupLabel>
@@ -279,21 +478,21 @@ const makeStyles = (colors: ThemeColors) =>
     root: { flex: 1, backgroundColor: colors.canvas },
     scroll: { flex: 1 },
     content: { padding: 16, gap: 12, paddingBottom: 40 },
-    overviewRow: { flexDirection: "row", gap: 8 },
-    overviewCard: {
-      flex: 1,
-      minWidth: 0,
-      gap: 3,
-      borderRadius: 20,
-      backgroundColor: colors.surfaceStrong,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.border,
-      paddingHorizontal: 12,
-      paddingVertical: 12,
+    panel: { gap: 12 },
+    rangeToggle: { flexDirection: "row", gap: 6 },
+    rangeItem: {
+      borderRadius: 999,
+      paddingHorizontal: 10,
+      paddingVertical: 7,
+      backgroundColor: colors.surfaceMuted,
     },
-    overviewLabel: { ...typography.micro, color: colors.textMuted },
-    overviewValue: { ...typography.headline, color: colors.text },
-    overviewSub: { ...typography.micro, color: colors.textFaint },
+    rangeItemActive: { backgroundColor: colors.primarySoft },
+    rangeText: { ...typography.micro, fontWeight: "600", color: colors.textMuted },
+    rangeTextActive: { color: colors.primary, fontWeight: "800" },
+    chartHint: { ...typography.meta, color: colors.textMuted },
+    hintRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" },
+    chartEmpty: { alignItems: "center", gap: 6, paddingVertical: 22 },
+    chartEmptyText: { ...typography.caption, color: colors.textMuted, textAlign: "center" },
     failBox: { alignItems: "center", gap: 6, paddingVertical: 40, paddingHorizontal: 16 },
     failTitle: { ...typography.headline, color: colors.text },
     failHint: { ...typography.caption, color: colors.textMuted, textAlign: "center" },
