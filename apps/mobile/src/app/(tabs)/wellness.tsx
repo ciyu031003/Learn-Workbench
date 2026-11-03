@@ -3,7 +3,7 @@ import Animated from "react-native-reanimated";
 import { Alert, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { ThemedIcon } from "@/components/themed-icon";
-import { ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
+import { ScreenHeaderStickyBar, useHeaderTopInset, useLargeTitleHeader } from "@/components/screen-header";
 import { PageHead } from "@/components/v2/page-head";
 import { SectionTitle } from "@/components/v2/section-title";
 import { MetricGrid } from "@/components/v2/metric-grid";
@@ -27,6 +27,8 @@ import { useFocusRefresh } from "@/lib/use-focus-refresh";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
 import { addHydration, fetchHydration, fetchWeight, type HydrationToday, type WeightPointDto } from "@/lib/wellbeing-client";
 import { toDaySummaryMap, todayAndYesterday } from "@/lib/nutrition-views";
+import { formatSleepHours, formatSleepHoursValue, isFreshSleepEntry, loadSleepEntry, type SleepEntry } from "@/lib/sleep";
+import { SleepSheet } from "@/components/sleep-sheet";
 import { haptics } from "@/lib/haptics";
 import { getApiUrl } from "@/config";
 import { fromDateKey, toDateKey } from "@learn-workbench/shared/dates";
@@ -87,8 +89,10 @@ function weekdayShort(dateKey: string): string {
  * /api/workouts、fetchWeight 五路并行拉取（各自独立降级，互不拖垮）+ useFocusRefresh/下拉刷新
  * + 饮水乐观增量（先 +250 再写服务端，失败回滚并提示）。聚合接口失败时保留上次数据并给「重试」条。
  *
- * 睡眠：当前端内没有睡眠数据源（接口与本地库都没有），按方案「睡眠若无数据用 —」处理：
- * 指标格恒为「—」，行动卡把用户导向可自定义计量的「领域追踪」，不编造数据。
+ * 睡眠（v2.0.1 真机反馈修复）：原来睡眠卡把用户丢去「领域追踪」、指标格恒为「—」，体验错误。
+ * 现在睡眠卡打开「睡眠记录」BottomSheet：进入先自动读 Android Health Connect 的昨晚睡眠
+ * （读不到就手动填，任何设备都能记），保存到本机 AsyncStorage（lwb.sleep.v1），
+ * 指标格直接显示本机这一晚的小时数（没有/过期仍为「—」，不编造数据）。
  * 动效只沿用 PressableScale 按压与既有入场错峰（不新增动效点）。
  */
 export default function WellnessScreen() {
@@ -96,6 +100,8 @@ export default function WellnessScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const headerScroll = useLargeTitleHeader();
   const tabBarSpace = useTabBarSpace();
+  /** v2.0.1：Tab 页页头让开状态栏/刘海（与今日/学习/我的同口径） */
+  const headerTop = useHeaderTopInset("hero");
   /** v19-M1：首屏入场错峰（Tab scene 常驻，只在首次挂载播放） */
   const entrance = useScreenEntrance();
   /** v19-M8：TabBar 双击回顶 */
@@ -113,7 +119,7 @@ export default function WellnessScreen() {
    * - 饮水直接用 /api/wellbeing/hydration（饮食页也是它）；
    * - 今日摄入用 /api/nutrition/summary 的当天行兜底。
    */
-  const { today: todayKey } = useMemo(() => todayAndYesterday(), []);
+  const { today: todayKey, yesterday: yesterdayKey } = useMemo(() => todayAndYesterday(), []);
   const [hydration, setHydration] = useState<HydrationToday | null>(null);
   const [todayKcal, setTodayKcal] = useState<number | null>(null);
   /** 聚合接口失败时的显式状态（不再静默显示 0） */
@@ -122,16 +128,21 @@ export default function WellnessScreen() {
   const [summaryFailed, setSummaryFailed] = useState(false);
   /** 正在补水的乐观增量（ml） */
   const [waterDelta, setWaterDelta] = useState(0);
+  /** 本机睡眠存档（v2.0.1）：健康页睡眠格与行动卡都读它 */
+  const [sleepEntry, setSleepEntry] = useState<SleepEntry | null>(null);
+  const [sleepSheetOpen, setSleepSheetOpen] = useState(false);
 
   const load = useCallback(async () => {
     const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     try {
-      const [dailyRes, weightRes, workoutRes, summaryRes, hydrationRes] = await Promise.all([
+      const [dailyRes, weightRes, workoutRes, summaryRes, hydrationRes, sleepLocal] = await Promise.all([
         fetch(`${getApiUrl()}/api/daily?date=${todayKey}`, { headers }),
         fetchWeight(token, 30).catch(() => null),
         fetch(getApiUrl() + "/api/workouts?days=7", { headers }).catch(() => null),
         fetch(getApiUrl() + "/api/nutrition/summary?days=7", { headers }).catch(() => null),
         fetchHydration(token).catch(() => null),
+        // 睡眠是本机存档（lib/sleep.ts）：与五路远端请求并行，单读失败不影响其它数据
+        loadSleepEntry().catch(() => null),
       ]);
       if (dailyRes.ok) {
         setData(await dailyRes.json());
@@ -161,6 +172,7 @@ export default function WellnessScreen() {
         setHydration(hydrationRes);
         setWaterDelta(0); // 拉回来的即真值，清掉乐观增量
       }
+      setSleepEntry(sleepLocal);
     } catch {
       // 离线保留上次数据，但标记失败让页面提示
       setDailyFailed(true);
@@ -275,6 +287,12 @@ export default function WellnessScreen() {
   /* 三态口径：有记录 → 数值；今天没记录 → 「—」；接口失败 → 保留上一次（不改 state） */
   const waterRecorded = waterMl > 0;
   const trainingRecorded = exerciseMinutes > 0;
+  /**
+   * 睡眠只认「昨晚」：起床日记在 date 上（今天或昨天），更早的存档不再显示，
+   * 指标格回到「—」，免得几天后还挂着旧数字。
+   */
+  const sleepHours = isFreshSleepEntry(sleepEntry, todayKey, yesterdayKey) ? (sleepEntry?.hours ?? null) : null;
+  const sleepRecorded = sleepHours !== null;
 
   return (
     <View style={styles.root}>
@@ -284,7 +302,7 @@ export default function WellnessScreen() {
         onScroll={headerScroll.onScroll}
         scrollEventThrottle={16}
         style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
+        contentContainerStyle={[styles.content, { paddingTop: headerTop, paddingBottom: tabBarSpace }]}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl {...control} />}
       >
@@ -352,7 +370,8 @@ export default function WellnessScreen() {
                 },
                 {
                   icon: "moon-outline",
-                  value: NO_RECORD,
+                  value: sleepRecorded ? formatSleepHoursValue(sleepHours) : NO_RECORD,
+                  unit: sleepRecorded ? "h" : undefined,
                   label: "睡眠",
                 },
               ]}
@@ -398,9 +417,13 @@ export default function WellnessScreen() {
               icon="moon-outline"
               tone="success"
               title="睡眠"
-              subtitle="还没有睡眠记录 · 可在「领域追踪」按日记录时长"
-              actionLabel="去记录"
-              onAction={() => router.push("/trackers" as never)}
+              subtitle={
+                sleepRecorded
+                  ? `昨晚 ${formatSleepHours(sleepHours)} · 可修正`
+                  : "读取系统健康数据，或手动记昨晚时长"
+              }
+              actionLabel={sleepRecorded ? "修正" : "记录"}
+              onAction={() => setSleepSheetOpen(true)}
             />
           </View>
         </Animated.View>
@@ -504,6 +527,15 @@ export default function WellnessScreen() {
           </ListGroup>
         </Animated.View>
       </Animated.ScrollView>
+
+      {/* 睡眠记录弹层（v2.0.1）：自动读系统健康数据，失败即降级手动输入 */}
+      <SleepSheet
+        visible={sleepSheetOpen}
+        todayKey={todayKey}
+        entry={sleepEntry}
+        onClose={() => setSleepSheetOpen(false)}
+        onSaved={setSleepEntry}
+      />
     </View>
   );
 }

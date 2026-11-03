@@ -52,7 +52,10 @@ function Fail($m) { Write-Host "[build][FAIL] $m" -ForegroundColor Red; exit 1 }
 
 # ---------- 权限白名单（S1-5） ----------
 # 期望集合 = 对本机现有 release APK 实测 `aapt2 dump badging`（v1.48.0：16 条），
-# 去掉本轮用 tools:node="remove" 移除的 CAMERA 后 = 15 条。
+# 去掉本轮用 tools:node="remove" 移除的 CAMERA 后 = 15 条；
+# v2.0.1 健康页「睡眠记录」新增 Health Connect 读取权限 READ_SLEEP（源清单由
+# scripts/apply-android-native.mjs 补），因此期望 = 16 条。
+# ⚠️ 下一次真机构建必须用 `aapt2 dump badging` 复核这 16 条与实测一致。
 # 任何「多一条 / 少一条」都 FAIL 并打印差异 —— 防止 prebuild 或新依赖静默加权限
 # （2026-10 实测 release APK 仍声明 CAMERA，与 app.json blockedPermissions 和隐私文档矛盾）。
 # 调整期望集合前，必须先对产物跑 `aapt2 dump badging` 取实测清单。
@@ -62,6 +65,9 @@ $ExpectedPermissions = @(
   "android.permission.READ_EXTERNAL_STORAGE",
   "android.permission.READ_MEDIA_IMAGES",
   "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+  # v2.0.1：Health Connect 睡眠读取（health 命名空间权限，由系统「健康数据 / Health Connect」
+  # 授权页授予，不走运行时权限弹窗；源清单见 scripts/apply-android-native.mjs）
+  "android.permission.health.READ_SLEEP",
   "android.permission.VIBRATE",
   "android.permission.FOREGROUND_SERVICE",
   "android.permission.FOREGROUND_SERVICE_SPECIAL_USE",

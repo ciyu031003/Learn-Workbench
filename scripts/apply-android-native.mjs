@@ -5,6 +5,11 @@
  * 因此自写原生代码统一放在 apps/mobile/native/android/**（已入库），由本脚本在构建前落进 android/，
  * 并幂等地补 Manifest 权限/服务声明与 MainApplication 的 ReactPackage 注册。
  *
+ * v2.0.1 起还负责 Health Connect（睡眠读取）的清单接线：权限、<queries> 包名、
+ * MainActivity 的权限说明 intent-filter 与 Android 14+ 的 activity-alias ——
+ * 这些本来由 react-native-health-connect 的 Expo config plugin 在 prebuild 时补，
+ * 而本仓库构建链**不跑 prebuild**（见 scripts/build-android-release.ps1 顶部第 2 条）。
+ *
  * 用法：node scripts/apply-android-native.mjs [--check]   （--check 只校验，不写）
  */
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
@@ -44,7 +49,33 @@ const PERMISSIONS = [
   '<uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>',
   '<uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>',
   '<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>',
+  // v2.0.1 健康页「睡眠记录」：读取 Android Health Connect 的 SleepSessionRecord。
+  // 声明后 APK 会多一条权限 —— scripts/build-android-release.ps1 的权限白名单已同步加它，
+  // 否则构建末端的 aapt2 断言会直接 FAIL。
+  '<uses-permission android:name="android.permission.health.READ_SLEEP"/>',
 ];
+
+/**
+ * Health Connect（v2.0.1）：库 manifest 只声明了 <queries> 包名，权限说明入口必须由宿主补。
+ * 参考 react-native-health-connect 的 app.plugin.js，但改成「字符串幂等补丁」，
+ * 因为它只在 expo prebuild 时执行，而本仓库不做 prebuild。
+ */
+const HC_PACKAGE = "com.google.android.apps.healthdata";
+const HC_RATIONALE_ACTION = "androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE";
+const HC_ALIAS = "ViewPermissionUsageActivity";
+const HC_ALIAS_BLOCK = [
+  '    <!-- Health Connect（Android 14+）：权限说明页入口，系统用 START_VIEW_PERMISSION_USAGE 调起 -->',
+  '    <activity-alias',
+  '      android:name="ViewPermissionUsageActivity"',
+  '      android:exported="true"',
+  '      android:targetActivity=".MainActivity"',
+  '      android:permission="android.permission.START_VIEW_PERMISSION_USAGE">',
+  '      <intent-filter>',
+  '        <action android:name="android.intent.action.VIEW_PERMISSION_USAGE"/>',
+  '        <category android:name="android.intent.category.HEALTH_PERMISSIONS"/>',
+  '      </intent-filter>',
+  '    </activity-alias>',
+].join("\n");
 const SERVICE_BLOCK = [
   '    <!-- 专注计时前台服务：计时期间常驻通知（自定义圆环布局），避免被系统回收 -->',
   '    <service',
@@ -77,6 +108,44 @@ function patchManifest(text) {
   }
   if (!out.includes('android:name=".FocusTimerService"')) {
     out = out.replace("  </application>", SERVICE_BLOCK + "\n  </application>");
+  }
+
+  // Health Connect：Android 13- 的健康数据是独立 App（com.google.android.apps.healthdata），
+  // 不声明 <queries> 在 Android 11+ 的包可见性下会「看不到对方」。库 manifest 也声明了同一条，
+  // 合并期 <queries> 会去重，这里显式补是为了「库换了实现也不掉链子」。
+  if (!out.includes(HC_PACKAGE)) {
+    if (out.includes("<queries>")) {
+      out = out.replace(/([ \t]*)<queries>/, '$1<queries>\n    <package android:name="' + HC_PACKAGE + '" />');
+    } else {
+      out = out.replace(
+        "</manifest>",
+        '  <queries>\n    <package android:name="' + HC_PACKAGE + '" />\n  </queries>\n</manifest>'
+      );
+    }
+  }
+
+  // 权限弹窗里的「隐私政策」链接：Android 13 及以下由 MainActivity 直接处理。
+  if (!out.includes(HC_RATIONALE_ACTION)) {
+    const activityAt = out.indexOf('android:name=".MainActivity"');
+    const activityEnd = activityAt >= 0 ? out.indexOf("</activity>", activityAt) : -1;
+    const lineStart = activityEnd >= 0 ? out.lastIndexOf("\n", activityEnd) + 1 : -1;
+    if (activityEnd >= 0 && lineStart > 0) {
+      // 插在 </activity> 那一行的行首（保留它自己的缩进，否则标签会顶格）
+      const indent = out.slice(lineStart, activityEnd);
+      const block =
+        [
+          indent + "  <!-- Health Connect（Android 13 及以下）：权限弹窗里的「隐私政策」回到本页 -->",
+          indent + "  <intent-filter>",
+          indent + '    <action android:name="' + HC_RATIONALE_ACTION + '"/>',
+          indent + "  </intent-filter>",
+        ].join("\n") + "\n";
+      out = out.slice(0, lineStart) + block + out.slice(lineStart);
+    }
+  }
+
+  // Android 14+ 走 activity-alias（与官方的 ViewPermissionUsageActivity 约定一致）。
+  if (!out.includes(HC_ALIAS)) {
+    out = out.replace("  </application>", HC_ALIAS_BLOCK + "\n  </application>");
   }
   return out;
 }
