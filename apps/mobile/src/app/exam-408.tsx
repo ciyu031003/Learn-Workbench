@@ -1074,6 +1074,25 @@ function PapersTab({
         </View>
       </View>
 
+      {/* P3-2B：历史成绩入口一行（本地 + 服务端） */}
+      <PressableScale
+        haptic
+        scaleTo={0.985}
+        onPress={() => router.push("/exam-408-paper-history" as never)}
+        style={styles.paperHistoryRow}
+        accessibilityRole="button"
+        accessibilityLabel="查看套卷历史成绩"
+      >
+        <View style={styles.paperHistoryIcon}>
+          <ThemedIcon name="time-outline" size={20} color={colors.primary} />
+        </View>
+        <View style={styles.paperHistoryBody}>
+          <Text style={styles.paperHistoryTitle}>历史成绩</Text>
+          <Text style={styles.paperHistoryText}>年份 · 得分 · 正确率 · 用时 · 交卷时间</Text>
+        </View>
+        <ThemedIcon name="chevron-forward" size={18} color={colors.textFaint} />
+      </PressableScale>
+
       <View style={styles.paperGrid}>
         {papers.map((paper, index) => (
           <PressableScale
@@ -1583,6 +1602,27 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
     paperHeroBody: { flex: 1, gap: 2 },
     paperHeroTitle: { ...typography.headline, color: colors.text },
     paperHeroText: { ...typography.caption, color: colors.textSecondary },
+    paperHistoryRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.md,
+      borderRadius: radius.lg,
+      padding: spacing.md,
+      backgroundColor: colors.surfaceStrong,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    paperHistoryIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: 15,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.primarySoft,
+    },
+    paperHistoryBody: { flex: 1, gap: 2 },
+    paperHistoryTitle: { ...typography.headline, color: colors.text },
+    paperHistoryText: { ...typography.caption, color: colors.textMuted },
     paperGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
     paperCard: {
       width: "48%",
