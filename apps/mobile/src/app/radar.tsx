@@ -21,6 +21,7 @@ import { SkeletonBlock, SkeletonCard } from "@/components/skeleton";
 import { Card } from "@/components/card";
 import { ThemedIcon } from "@/components/themed-icon";
 import { BottomSheet } from "@/components/bottom-sheet";
+import { Field } from "@/components/field";
 import { ChipGroup, SheetSection, SheetStickyCta } from "@/components/sheet";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
@@ -101,6 +102,8 @@ const FETCH_LIMIT = 200;
 const CHIP_LIMIT = 4;
 /** 展开后最多展示的技能标签数 */
 const CHIP_LIMIT_EXPANDED = 10;
+/** 目标岗位输入上限：移动端编辑按任务口径 ≤30 字（接口 target 上限 40，留余量） */
+const TARGET_ROLE_MAX_LENGTH = 30;
 
 /**
  * V4 就业雷达（移动端）：概览统计 + 多条件底部弹层 + 三种排序 + 加载更多。
@@ -135,13 +138,24 @@ export default function RadarScreen() {
   const [presets, setPresets] = useState<RadarFilterPreset[]>([]);
   /** 匹配理由默认折叠状态（全局一个开关，持久化） */
   const [reasonExpanded, setReasonExpanded] = useState(false);
+  /** P3-3B：目标岗位编辑弹层（保存后 PUT /api/profile/info 并带 target 重算雷达） */
+  const [targetSheetOpen, setTargetSheetOpen] = useState(false);
+  const [targetDraft, setTargetDraft] = useState("");
+  const [targetSaving, setTargetSaving] = useState(false);
+  const [targetError, setTargetError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  /**
+   * 拉取雷达数据。
+   * targetOverride：显式按目标岗位重算（保存后调用）；不传时由 Web 侧回落 user_settings.target_role。
+   */
+  const load = useCallback(async (targetOverride?: string | null) => {
     setLoading(true);
     setLoadError(false);
     try {
       const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
-      const response = await fetch(`${getApiUrl()}/api/jobs/radar?limit=${FETCH_LIMIT}`, { headers });
+      const target = targetOverride?.trim();
+      const targetQuery = target ? `&target=${encodeURIComponent(target)}` : "";
+      const response = await fetch(`${getApiUrl()}/api/jobs/radar?limit=${FETCH_LIMIT}${targetQuery}`, { headers });
       if (response.ok) setData((await response.json()) as RadarResponse);
       else setLoadError(true);
     } catch {
@@ -306,6 +320,63 @@ export default function RadarScreen() {
     }
   };
 
+  /* ---------------- P3-3B：目标岗位编辑与重算 ---------------- */
+
+  const openTargetSheet = () => {
+    haptics.soft();
+    setTargetDraft(data?.targetRole ?? "");
+    setTargetError(null);
+    setTargetSheetOpen(true);
+  };
+
+  /**
+   * 保存目标岗位：先乐观更新标题与「目标岗位」行，PUT 成功后再带 target 重算雷达；
+   * 未登录先提示登录（本地不保存，避免和云端不一致）；失败回滚旧值并在弹层内提示。
+   */
+  const saveTargetRole = async (nextRole: string) => {
+    if (!token) {
+      setTargetError("请先登录后再保存目标岗位");
+      Alert.alert("请先登录", "目标岗位会保存到云端并用于雷达重算，请先登录。");
+      return;
+    }
+    const trimmed = nextRole.trim().slice(0, TARGET_ROLE_MAX_LENGTH);
+    const previous = data?.targetRole ?? null;
+    // 值没变就只关弹层，不产生无谓请求
+    if (trimmed === (previous ?? "")) {
+      setTargetSheetOpen(false);
+      return;
+    }
+    setTargetSaving(true);
+    setTargetError(null);
+    // 乐观更新：弹层关闭前标题/行先反映新目标岗位
+    setData((current) => (current ? { ...current, targetRole: trimmed || null } : current));
+    try {
+      const response = await fetch(`${getApiUrl()}/api/profile/info`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ targetRole: trimmed }),
+      });
+      if (!response.ok) throw new Error(String(response.status));
+      haptics.success();
+      setTargetSheetOpen(false);
+      // 带 target 重新请求：按新目标岗位重算岗位契合与排序
+      await load(trimmed);
+    } catch {
+      // 失败回滚：没存上就不能继续用新值算分
+      setData((current) => (current ? { ...current, targetRole: previous } : current));
+      haptics.error();
+      setTargetError("保存失败，已恢复原目标岗位，请稍后重试");
+    } finally {
+      setTargetSaving(false);
+    }
+  };
+
+  const clearTargetRole = () => {
+    haptics.soft();
+    setTargetDraft("");
+    void saveTargetRole("");
+  };
+
   const showSkeleton = loading && top.length === 0;
   const showError = !loading && loadError && top.length === 0;
   const showNoProfile = !loading && !loadError && top.length === 0;
@@ -365,6 +436,9 @@ export default function RadarScreen() {
         ) : (
           <>
             <RadarOverviewCard overview={overview} fallback={data?.mode === "fallback"} colors={colors} styles={styles} />
+
+            {/* 目标岗位：展示接口回传的生效值，点行编辑后按新目标岗位重算 */}
+            <TargetRoleRow targetRole={data?.targetRole ?? null} onPress={openTargetSheet} colors={colors} styles={styles} />
 
             {/* 「我的筛选」横向 chip：点应用、点 × 删除（≤5 个，持久化） */}
             {presets.length > 0 ? (
@@ -554,6 +628,18 @@ export default function RadarScreen() {
         colors={colors}
         styles={styles}
       />
+
+      <TargetRoleSheet
+        visible={targetSheetOpen}
+        onClose={() => setTargetSheetOpen(false)}
+        draft={targetDraft}
+        onChangeDraft={setTargetDraft}
+        onSave={() => void saveTargetRole(targetDraft)}
+        onClear={clearTargetRole}
+        saving={targetSaving}
+        error={targetError}
+        colors={colors}
+      />
     </View>
   );
 }
@@ -651,6 +737,100 @@ function Stat({
         {label}
       </Text>
     </View>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* 目标岗位（P3-3B：编辑后按目标岗位重算雷达）                         */
+/* ------------------------------------------------------------------ */
+
+function TargetRoleRow({
+  targetRole,
+  onPress,
+  colors,
+  styles,
+}: {
+  targetRole: string | null;
+  onPress: () => void;
+  colors: ThemeColors;
+  styles: ReturnType<typeof makeStyles>;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={targetRole ? `目标岗位 ${targetRole}，点按编辑` : "设置目标岗位，按岗位重算匹配度"}
+      style={({ pressed }) => [styles.targetRow, pressed && styles.targetRowPressed]}
+    >
+      <View style={styles.targetRowBadge}>
+        <ThemedIcon name="briefcase-outline" size={15} color={colors.primary} />
+      </View>
+      <View style={styles.targetRowInfo}>
+        <Text style={styles.targetRowLabel}>目标岗位</Text>
+        <Text style={[styles.targetRowValue, !targetRole && styles.targetRowValueEmpty]} numberOfLines={1}>
+          {targetRole ?? "未设置 · 点按设置后按岗位重算"}
+        </Text>
+      </View>
+      <ThemedIcon name="create-outline" size={16} color={colors.textMuted} />
+    </Pressable>
+  );
+}
+
+function TargetRoleSheet({
+  visible,
+  onClose,
+  draft,
+  onChangeDraft,
+  onSave,
+  onClear,
+  saving,
+  error,
+  colors,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  draft: string;
+  onChangeDraft: (value: string) => void;
+  onSave: () => void;
+  onClear: () => void;
+  saving: boolean;
+  error: string | null;
+  colors: ThemeColors;
+}) {
+  return (
+    <BottomSheet
+      visible={visible}
+      onClose={onClose}
+      title="目标岗位"
+      subtitle="保存后按目标岗位重算岗位契合与排序"
+      icon="briefcase-outline"
+      height="58%"
+      footer={
+        <SheetStickyCta
+          label="保存并重算"
+          icon="checkmark"
+          loading={saving}
+          onPress={onSave}
+          secondaryLabel="清除目标岗位"
+          onSecondary={onClear}
+        />
+      }
+      footerHint="留空表示未设置；清除后岗位契合按中性分计算"
+    >
+      <SheetSection title="目标岗位" hint={`最多 ${TARGET_ROLE_MAX_LENGTH} 字；与岗位标题 / 职能做包含匹配`} last>
+        <Field
+          label="目标岗位"
+          value={draft}
+          onChangeText={onChangeDraft}
+          placeholder="如：网络安全工程师"
+          maxLength={TARGET_ROLE_MAX_LENGTH}
+          returnKeyType="done"
+          onSubmitEditing={onSave}
+          error={error}
+          hint={`${draft.length}/${TARGET_ROLE_MAX_LENGTH} 字`}
+        />
+      </SheetSection>
+    </BottomSheet>
   );
 }
 
@@ -1154,6 +1334,33 @@ const makeStyles = (colors: ThemeColors) =>
     distChipText: { ...typography.caption, color: colors.primary },
     distEmpty: { ...typography.caption, color: colors.textMuted },
     overviewNote: { ...typography.caption, color: colors.textMuted },
+
+    /* 目标岗位行（命中区 ≥44pt） */
+    targetRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      minHeight: 44,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: radius.lg,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    targetRowPressed: { backgroundColor: colors.surfaceMuted },
+    targetRowBadge: {
+      width: 28,
+      height: 28,
+      borderRadius: 999,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.primarySoft,
+    },
+    targetRowInfo: { flex: 1, minWidth: 0, gap: 1 },
+    targetRowLabel: { ...typography.caption, color: colors.textMuted },
+    targetRowValue: { ...typography.callout, fontWeight: "700", color: colors.text },
+    targetRowValueEmpty: { ...typography.caption, fontWeight: "400", color: colors.textMuted },
 
     /* 排序 + 筛选 */
     controlRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", rowGap: 8 },

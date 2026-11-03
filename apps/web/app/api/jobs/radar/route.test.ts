@@ -67,6 +67,43 @@ describe("GET /api/jobs/radar", () => {
     expect(opts.limit).toBe(200);
   });
 
+  it("passes a trimmed target through to computeRadar and echoes it back", async () => {
+    tokenMock.mockResolvedValue("tok-1");
+    userMock.mockResolvedValue("u-1");
+    radarMock.mockResolvedValue({ ...emptyResult, hasProfile: true, targetRole: "安全工程师" } as never);
+    const res = await GET(new Request("http://localhost/api/jobs/radar?target=" + encodeURIComponent("  安全工程师  ")));
+    const body = await res.json();
+    const opts = radarMock.mock.calls[0][1] as { target?: string | null };
+    expect(opts.target).toBe("安全工程师");
+    expect(body.targetRole).toBe("安全工程师");
+  });
+
+  it("passes the target to the anonymous fallback path", async () => {
+    tokenMock.mockResolvedValue(null);
+    await GET(new Request("http://localhost/api/jobs/radar?target=" + encodeURIComponent("安全工程师")));
+    const opts = fallbackMock.mock.calls[0][0] as { target?: string | null };
+    expect(opts.target).toBe("安全工程师");
+    // 匿名路径仍不进入 currentUserId（踩坑点 34）
+    expect(userMock).not.toHaveBeenCalled();
+  });
+
+  it("treats a blank target as unset", async () => {
+    tokenMock.mockResolvedValue("tok-1");
+    userMock.mockResolvedValue("u-1");
+    await GET(new Request("http://localhost/api/jobs/radar?target=%20%20"));
+    const opts = radarMock.mock.calls[0][1] as { target?: string | null };
+    expect(opts.target).toBeNull();
+  });
+
+  it("rejects a target longer than 40 characters", async () => {
+    tokenMock.mockResolvedValue(null);
+    const long = "岗".repeat(41);
+    const res = await GET(new Request("http://localhost/api/jobs/radar?target=" + encodeURIComponent(long)));
+    expect(res.status).toBe(400);
+    expect(fallbackMock).not.toHaveBeenCalled();
+    expect(radarMock).not.toHaveBeenCalled();
+  });
+
   it("returns 500 on unexpected failure", async () => {
     tokenMock.mockResolvedValue("tok-1");
     userMock.mockResolvedValue("u-1");

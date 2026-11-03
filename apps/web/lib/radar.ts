@@ -1,6 +1,22 @@
 import { pgPool } from "@/lib/db";
 import { logger } from "@/lib/logger";
 
+/**
+ * 就业雷达：用户画像 × 岗位集 的规则版匹配（B 为主，A 兜底）。
+ *
+ * 匹配度 overall（0..100，四舍五入后 clamp），按是否设置了生效目标岗位分两档：
+ * - 有生效目标岗位：技能 0.6 + 岗位契合 0.1 + 学历 0.1 + 经验 0.1 + 城市 0.1
+ * - 无生效目标岗位：沿用原有口径 技能 0.7 + 学历 0.1 + 经验 0.1 + 城市 0.1
+ *   （不把「未设置」按中性分塞进岗位契合，避免存量用户的历史分数与分桶漂移）
+ * - 技能：Σ(命中权重) / Σ(全部权重)，岗位未挂技能链接时记 0；
+ * - 岗位契合：生效目标岗位（opts.target 优先，否则 user_settings.target_role）与岗位「标题 / 职能
+ *   （function_key）」做规范化包含匹配 —— 去空白、转小写、中文按字面子串（不做分词），
+ *   命中记 1、未命中记 0；
+ * - 学历 / 经验：画像与接口暂无可比维度，按满分 1 计（占位权重）；
+ * - 城市：画像城市缺失记 0.5，命中 1，不匹配 0。
+ * 分桶阈值（高匹配 75 / 高价值 55 / 紧急 7 天）与 total / facets / counts 口径不受目标岗位影响。
+ */
+
 export interface RadarMatchedSkill {
   skill: string;
   level: number;
@@ -25,7 +41,7 @@ export interface RadarJob {
   functionKey: string;
   /** 行业（industry_sector） */
   industrySector: string;
-  /** 规则版匹配度 0-100（技能命中 0.7 + 学历 0.1 + 经验 0.1 + 城市 0.1） */
+  /** 规则版匹配度 0-100：有目标岗位时 技能 0.6 + 岗位契合 0.1 + 学历/经验/城市 各 0.1；无目标岗位时沿用 技能 0.7 + 学历/经验/城市 各 0.1 */
   overall: number;
   matchedSkills: RadarMatchedSkill[];
   missingSkills: { skill: string }[];
@@ -40,6 +56,7 @@ export interface RadarJob {
 export interface RadarResult {
   hasProfile: boolean;
   profileCity: string | null;
+  /** 本次打分使用的生效目标岗位（opts.target 优先，空则回落 user_settings.target_role；都为空时为 null） */
   targetRole: string | null;
   buckets: {
     highMatch: RadarJob[];
@@ -72,6 +89,33 @@ function clamp(v: number, min: number, max: number) {
   return Math.min(max, Math.max(min, v));
 }
 
+/** 目标岗位规范化：去首尾空白；空串 / 纯空白视为「未设置」。 */
+function normalizeTargetRole(value: string | null | undefined): string | null {
+  const trimmed = (value ?? "").trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+/** 岗位文本规范化：去掉所有空白并转小写，供包含匹配用（中文按字面子串，不做分词）。 */
+function normalizeRoleText(value: string): string {
+  return value.replace(/\s+/g, "").toLowerCase();
+}
+
+/**
+ * 岗位契合度 0..1（仅在存在生效目标岗位时参与打分）。
+ * 口径：生效目标岗位与「岗位标题 / 岗位职能（function_key）」规范化后互相包含即命中 ——
+ * 已经覆盖「安全工程师」⊂「网络安全工程师」和「前端」⊂「前端开发工程师」两种常见写法；
+ * function_key 的「其他」是未分类占位，不参与匹配，避免被反向包含误判。
+ * 调用方已保证 targetRole 非空；这里仍对规范化后为空的情况兜 0（不命中）。
+ */
+function roleFitScore(targetRole: string, title: string, functionKey: string): number {
+  const target = normalizeRoleText(targetRole);
+  if (!target) return 0;
+  const texts = [normalizeRoleText(title)];
+  const fn = normalizeRoleText(functionKey);
+  if (fn && fn !== "其他") texts.push(fn);
+  return texts.some((text) => text.includes(target) || target.includes(text)) ? 1 : 0;
+}
+
 interface ScoredRow {
   id: string | number;
   title: string;
@@ -96,10 +140,12 @@ interface ScoredRow {
  * 批量岗位匹配（B 为主）：一次查询完成「画像 × 岗位集」的技能命中计算，
  * 避免对每个岗位各调一次 computeJobMatch 造成 N 次往返。
  * 画像缺失（无 skills 与 profile）时由调用方回落逐岗位 A 路径。
+ *
+ * opts.target：按目标岗位重算；空串 / 纯空白视为未传，回落 DB 里的 user_settings.target_role。
  */
 export async function computeRadar(
   userId: string,
-  opts: { city?: string | null; limit?: number } = {}
+  opts: { city?: string | null; limit?: number; target?: string | null } = {}
 ): Promise<RadarResult> {
   const limit = Math.max(1, Math.min(MAX_RESULT_LIMIT, opts.limit ?? TOP_LIMIT));
 
@@ -116,7 +162,9 @@ export async function computeRadar(
     ),
   ]);
   const profileCity = opts.city ?? profileRes.rows[0]?.city ?? null;
-  const targetRole = profileRes.rows[0]?.targetRole ?? null;
+  // 生效目标岗位：显式入参优先（去空白后为空视为未传），否则回落用户设置里的持久化值
+  const targetRole =
+    normalizeTargetRole(opts.target) ?? normalizeTargetRole(profileRes.rows[0]?.targetRole ?? null);
   const hasProfile = skillsRes.rows.length > 0;
 
   // 2) 候选集：收藏 + 投递（显式意图）∪ 画像城市下的活跃岗位（补充）
@@ -233,7 +281,17 @@ export async function computeRadar(
     const hit = Number(r.hit_weight ?? 0);
     const skillScore = total > 0 ? hit / total : 0;
     const cityOk = !profileCity ? 0.5 : r.city === profileCity ? 1 : 0;
-    const overall = Math.round((skillScore * 0.7 + 0.1 + 0.1 + cityOk * 0.1) * 100);
+    // 两档口径（见文件头）：无目标岗位沿用旧权重（存量分数不漂移）；有目标岗位才引入岗位契合项
+    const overall = targetRole
+      ? Math.round(
+          (skillScore * 0.6 +
+            roleFitScore(targetRole, r.title, r.function_key ?? "") * 0.1 +
+            0.1 +
+            0.1 +
+            cityOk * 0.1) *
+            100
+        )
+      : Math.round((skillScore * 0.7 + 0.1 + 0.1 + cityOk * 0.1) * 100);
 
     const missing = (r.missing ?? []).map((skill) => ({ skill }));
     const gapHours = missing.reduce((a, m) => a + (hoursBySkill.get(m.skill) ?? 0), 0);
@@ -310,9 +368,11 @@ export async function computeRadar(
 
 /** 画像缺失时的 A 兜底：仅按活跃岗位 + 城市给出基础列表（无技能匹配分） */
 export async function radarFallback(
-  opts: { city?: string | null; limit?: number } = {}
+  opts: { city?: string | null; limit?: number; target?: string | null } = {}
 ): Promise<RadarResult> {
   const limit = Math.max(1, Math.min(MAX_RESULT_LIMIT, opts.limit ?? TOP_LIMIT));
+  // 兜底路径不参与打分，但要把生效目标岗位原样回传（前端用于「目标岗位」行展示）
+  const targetRole = normalizeTargetRole(opts.target);
   try {
     const { rows } = await pgPool.query<ScoredRow>(
       opts.city
@@ -355,7 +415,7 @@ export async function radarFallback(
     return {
       hasProfile: false,
       profileCity: opts.city ?? null,
-      targetRole: null,
+      targetRole,
       buckets: { highMatch: [], highValue: [], urgent: [] },
       top: jobs,
       total: jobs.length,
@@ -371,7 +431,7 @@ export async function radarFallback(
     return {
       hasProfile: false,
       profileCity: opts.city ?? null,
-      targetRole: null,
+      targetRole,
       buckets: { highMatch: [], highValue: [], urgent: [] },
       top: [],
       total: 0,

@@ -39,6 +39,7 @@ function scoredRow(over: Partial<Record<string, unknown>> = {}) {
     id: 1, title: "网络安全工程师", company: "某国企", city: "乌鲁木齐", education: "本科",
     salary_text: "12-18K", salary_band: "10-20K", url: "https://x", source: "lagou",
     published_at: new Date("2026-09-01T00:00:00Z"),
+    function_key: "", industry_sector: "",
     total_weight: 2, hit_weight: 2, missing: [], matched: ["python", "linux"],
     ...over,
   };
@@ -57,7 +58,8 @@ describe("computeRadar", () => {
     const r = await computeRadar("u-1");
     expect(r.hasProfile).toBe(true);
     expect(r.profileCity).toBe("乌鲁木齐");
-    // 技能 1.0*0.7 + 学历 0.1 + 经验 0.1 + 城市 1*0.1 = 1.0
+    expect(r.targetRole).toBe("安全工程师");
+    // 技能 1.0*0.6 + 岗位契合 1*0.1 + 学历 0.1 + 经验 0.1 + 城市 1*0.1 = 1.0
     expect(r.top[0].overall).toBe(100);
     expect(r.top[0].fromFavorite).toBe(true);
     expect(r.top[0].matchedSkills.map((s) => s.skill)).toEqual(["python", "linux"]);
@@ -68,7 +70,7 @@ describe("computeRadar", () => {
       userSkills: [{ skill_id: 1, level: 1 }],
       profile: [{ city: "北京", targetRole: null }],
       favorites: [{ job_id: "1" }],
-      // 命中一半权重 → 0.5*0.7=0.35 + 0.1 + 0.1 + 0 = 0.55
+      // 无目标岗位走旧口径：技能 0.5*0.7=0.35 + 学历 0.1 + 经验 0.1 + 城市 0 = 0.55
       scored: [scoredRow({ total_weight: 2, hit_weight: 1, matched: ["python"], missing: ["linux"] })],
     });
     const r = await computeRadar("u-1");
@@ -84,7 +86,7 @@ describe("computeRadar", () => {
       scored: [scoredRow({ total_weight: 2, hit_weight: 2 })],
     });
     const r = await computeRadar("u-1");
-    // 1.0*0.7 + 0.1 + 0.1 + 0.5*0.1 = 0.95
+    // 无目标岗位走旧口径：技能 1.0*0.7 + 学历 0.1 + 经验 0.1 + 城市中性 0.5*0.1=0.05 = 0.95
     expect(r.top[0].overall).toBe(95);
     expect(r.profileCity).toBeNull();
   });
@@ -164,6 +166,93 @@ describe("computeRadar", () => {
     const r = await computeRadar("u-1", { limit: 2 });
     expect(r.top).toHaveLength(2);
   });
+
+  it("boosts jobs whose title or function hits the target role", async () => {
+    setup({
+      userSkills: [{ skill_id: 1, level: 3 }],
+      profile: [{ city: "乌鲁木齐", targetRole: null }],
+      favorites: [{ job_id: "1" }],
+      scored: [
+        scoredRow({ id: 1, title: "网络安全工程师", function_key: "安全" }),
+        scoredRow({ id: 2, title: "行政专员", function_key: "其他" }),
+      ],
+    });
+    const r = await computeRadar("u-1", { target: "安全工程师" });
+    expect(r.targetRole).toBe("安全工程师");
+    const hit = r.top.find((j) => j.jobId === 1)!;
+    const miss = r.top.find((j) => j.jobId === 2)!;
+    // 命中标题「网络安全工程师」→ 技能 1.0*0.6 + 岗位 1*0.1 + 学历 0.1 + 经验 0.1 + 城市 1*0.1 = 1.0
+    expect(hit.overall).toBe(100);
+    // 未命中 → 技能 1.0*0.6 + 岗位 0 + 学历 0.1 + 经验 0.1 + 城市 1*0.1 = 0.9
+    expect(miss.overall).toBe(90);
+    expect(hit.overall).toBeGreaterThan(miss.overall);
+  });
+
+  it("matches the target role case-insensitively and ignores blank characters", async () => {
+    setup({
+      userSkills: [{ skill_id: 1, level: 3 }],
+      profile: [{ city: null, targetRole: null }],
+      favorites: [{ job_id: "1" }],
+      scored: [scoredRow({ title: "React 前端工程师", function_key: "" })],
+    });
+    const r = await computeRadar("u-1", { target: "react" });
+    // 技能 1.0*0.6 + 岗位命中 1*0.1 + 学历 0.1 + 经验 0.1 + 城市中性 0.5*0.1 = 0.95
+    expect(r.top[0].overall).toBe(95);
+  });
+
+  it("falls back to the stored target role when opts.target is missing or blank", async () => {
+    setup({
+      userSkills: [{ skill_id: 1, level: 3 }],
+      profile: [{ city: null, targetRole: "安全工程师" }],
+      favorites: [{ job_id: "1" }],
+      scored: [scoredRow({ title: "行政专员", function_key: "其他", total_weight: 2, hit_weight: 2 })],
+    });
+    const fromDb = await computeRadar("u-1");
+    expect(fromDb.targetRole).toBe("安全工程师");
+    // 标题/职能都没命中「安全工程师」→ 岗位项 0：0.6 + 0 + 0.1 + 0.1 + 城市中性 0.05 = 0.85
+    expect(fromDb.top[0].overall).toBe(85);
+    const fromBlank = await computeRadar("u-1", { target: "   " });
+    expect(fromBlank.targetRole).toBe("安全工程师");
+    expect(fromBlank.top[0].overall).toBe(85);
+  });
+
+  it("treats a blank target with no stored role as unset (legacy formula, no hit)", async () => {
+    setup({
+      userSkills: [{ skill_id: 1, level: 3 }],
+      profile: [{ city: null, targetRole: null }],
+      favorites: [{ job_id: "1" }],
+      scored: [scoredRow({ title: "网络安全工程师", total_weight: 2, hit_weight: 2 })],
+    });
+    const r = await computeRadar("u-1", { target: "" });
+    expect(r.targetRole).toBeNull();
+    // 空串不构成目标岗位：走旧口径 技能 1.0*0.7 + 学历 0.1 + 经验 0.1 + 城市中性 0.5*0.1=0.05 = 0.95
+    expect(r.top[0].overall).toBe(95);
+  });
+
+  it("keeps every score within 0..100", async () => {
+    const soon = new Date(Date.now() + 86_400_000);
+    setup({
+      userSkills: [{ skill_id: 1, level: 2 }],
+      profile: [{ city: "北京", targetRole: "安全工程师" }],
+      favorites: [{ job_id: "1" }],
+      applications: [{ job_id: "2" }],
+      fill: [{ id: "3" }],
+      scored: [
+        scoredRow({ id: 1, title: "网络安全工程师", function_key: "安全", city: "北京", total_weight: 3, hit_weight: 3 }),
+        scoredRow({ id: 2, title: "前端工程师", function_key: "前端", city: "上海", total_weight: 3, hit_weight: 0, matched: [], missing: ["react"] }),
+        scoredRow({ id: 3, title: "产品经理", function_key: "其他", city: "", total_weight: 0, hit_weight: 0, matched: [], missing: [] }),
+      ],
+      hours: [{ name: "react", hours: 3 }],
+      events: [{ job_id: 1, event_at: soon }],
+    });
+    const r = await computeRadar("u-1");
+    expect(r.targetRole).toBe("安全工程师");
+    expect(r.top.length).toBe(3);
+    for (const job of r.top) {
+      expect(job.overall).toBeGreaterThanOrEqual(0);
+      expect(job.overall).toBeLessThanOrEqual(100);
+    }
+  });
 });
 
 describe("radarFallback", () => {
@@ -178,10 +267,18 @@ describe("radarFallback", () => {
     expect(r.top[0].title).toBe("网络安全工程师");
   });
 
+  it("echoes the trimmed target role (and never fails because of it)", async () => {
+    queryMock.mockResolvedValue({ rows: [] } as never);
+    const r = await radarFallback({ target: " 安全工程师 " });
+    expect(r.targetRole).toBe("安全工程师");
+    expect(r.top).toEqual([]);
+  });
+
   it("returns empty result when the query fails", async () => {
     queryMock.mockRejectedValue(new Error("db down"));
     vi.spyOn(console, "error").mockImplementation(() => {});
-    const r = await radarFallback({});
+    const r = await radarFallback({ target: "安全工程师" });
+    expect(r.targetRole).toBe("安全工程师");
     expect(r.top).toEqual([]);
     expect(r.counts.candidates).toBe(0);
   });
