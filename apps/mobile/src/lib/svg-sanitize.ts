@@ -12,6 +12,9 @@
  * - 删除 pointer-events / pointerEvents 属性（含无引号值）；
  * - 删除 style="…" 里的 pointer-events 声明（保留其余声明）；
  * - 顺手移除 <script>/<foreignObject>（SvgXml 不支持且属于不可信内容）；
+ * - **marker 的 orient="auto-start-reverse" → "auto"**（v2.0.1 线上闪退：react-native-svg 的
+ *   MarkerView 只认 "auto" 或数字，其它值直接 Double.parseDouble 抛 NumberFormatException，
+ *   而 cs408 插图里的箭头 marker 常用 SVG2 的 auto-start-reverse）；
  * - 其余内容（xlink:href、data-*、渐变、clipPath…）原样保留，正常 SVG 不受影响。
  *
  * 结果按源串缓存，避免同一张图在列表/滚动重渲染时重复做正则替换。
@@ -24,6 +27,8 @@ const POINTER_EVENT_ATTR = /(\s)pointer-events\s*=\s*(?:"[^"]*"|'[^']*'|[^\s/>]+
 const POINTER_EVENT_CAMEL_ATTR = /(\s)pointerEvents\s*=\s*(?:"[^"]*"|'[^']*'|[^\s/>]+)/g;
 const POINTER_EVENT_STYLE = /^\s*pointer-events\s*:/i;
 const SCRIPT = /<script\b[\s\S]*?<\/script\s*>/gi;
+/** SVG2 marker 的 orient 取值；react-native-svg 只支持 "auto" 或数字 */
+const MARKER_ORIENT = /(\s)orient\s*=\s*("|')\s*auto-start-reverse\s*\2/gi;
 const FOREIGN_OBJECT = /<foreignObject\b[\s\S]*?<\/foreignObject\s*>/gi;
 
 function cleanStyle(css: string, quote: '"' | "'", leadingSpace: string): string {
@@ -47,6 +52,7 @@ export function sanitizeSvgForNative(xml: string): string {
   sanitized = sanitized.replace(POINTER_EVENT_CAMEL_ATTR, "");
   sanitized = sanitized.replace(/(\s)style\s*=\s*"([^"]*)"/gi, (_match, space: string, css: string) => cleanStyle(css, '"', space));
   sanitized = sanitized.replace(/(\s)style\s*=\s*'([^']*)'/gi, (_match, space: string, css: string) => cleanStyle(css, "'", space));
+  sanitized = sanitized.replace(MARKER_ORIENT, "$1orient=$2auto$2");
   sanitized = sanitized.replace(SCRIPT, "");
   sanitized = sanitized.replace(FOREIGN_OBJECT, "");
 

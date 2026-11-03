@@ -26,6 +26,18 @@ describe("sanitizeSvgForNative", () => {
     expect(sanitizeSvgForNative("<rect pointer-events=all fill=red />")).toBe("<rect fill=red />");
   });
 
+  it("marker 的 orient=auto-start-reverse 归一为 auto（v2.0.1 闪退根因）", () => {
+    const marker = '<svg><defs><marker id="a" orient="auto-start-reverse" markerWidth="6" markerHeight="6"><path d="M0 0L6 3L0 6z" /></marker></defs><path marker-end="url(#a)" d="M0 0L10 0" /></svg>';
+    const output = sanitizeSvgForNative(marker);
+    expect(output).toContain('orient="auto"');
+    expect(output).not.toContain("auto-start-reverse");
+    // 单引号同样处理
+    expect(sanitizeSvgForNative("<marker orient='auto-start-reverse' />")).toContain("orient='auto'");
+    // 数字与 auto 原样保留
+    expect(sanitizeSvgForNative('<marker orient="auto" />')).toContain('orient="auto"');
+    expect(sanitizeSvgForNative('<marker orient="45" />')).toContain('orient="45"');
+  });
+
   it("删除 camelCase pointerEvents（防御性）", () => {
     expect(sanitizeSvgForNative('<rect pointerEvents="all" fill="red" />')).toBe('<rect fill="red" />');
   });
