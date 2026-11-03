@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { BottomSheet } from "@/components/bottom-sheet";
+import { ThemedIcon } from "@/components/themed-icon";
 import {
   ChipGroup,
   SheetSection,
@@ -17,6 +19,9 @@ import {
 } from "@/components/content-picker";
 import type { SportItem } from "@learn-workbench/shared/types";
 import { SPORT_CATALOG, exerciseTypeOptions } from "@learn-workbench/shared/labels";
+import { getDailyQuote } from "@/lib/quotes";
+import { radius, typography, type ThemeColors } from "@/theme/tokens";
+import { useTheme } from "@/theme";
 
 /** 一键开始的会话类型（由 App 决定，随后直接进入计时） */
 export interface QuickStartChoice {
@@ -47,19 +52,42 @@ const MODE_OPTIONS: readonly SegmentOption<"countdown" | "stopwatch">[] = [
  * 只有底部的吸底 CTA 会真正进入计时；侧滑 / 点空白 / 返回键一律只关闭。
  * 观感升级：分段用滑动胶囊、分组用 SheetSection、时长用 ChipGroup + StepperRow、
  * 启动按钮吸底（内容再长也不会被推走），并把"选择 ≠ 开始"写进副标题与底部提示。
+ *
+ * v2.0.1（真机反馈「专注开始界面要一屏，不要上下滑动」）：
+ * `oneScreen` 模式把弹层改成**近全屏、不滚动**的一屏启动页 ——
+ * 顶部是标题与说明（由 BottomSheet 头部承担），中间是时长档位（25/45/60）+ 自定义步进 +
+ * 计时方式 + 一行内容摘要，底部是今日励志短句（图标 + 纯文字，无 emoji）。
+ * 高度一律用 flex 分配 + useWindowDimensions 判断小屏档位，不用 ScrollView；
+ * 「选内容」是一个**子步骤**（点内容摘要进入、返回即回设置），只有这一步内部可滚（列表型选择器）。
+ * 数据不变：仍然只产出 QuickStartChoice，仍然只有底部 CTA 会真正开始计时。
  */
 export function QuickStartSheet({
   visible,
   onClose,
   onPick,
   onClosed,
+  oneScreen = false,
 }: {
   visible: boolean;
   onClose: () => void;
   onPick: (choice: QuickStartChoice) => void;
   /** 退场动画结束、Modal 卸载后回调（父级用它延后打开全屏计时器） */
   onClosed?: () => void;
+  /**
+   * true = 一屏化启动页（v2.0.1）：近全屏、不滚动、只承载「学习专注」。
+   * false（默认）= 旧的多分组可滚弹层（学习 / 运动），既有调用方不受影响。
+   */
+  oneScreen?: boolean;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { height: winHeight } = useWindowDimensions();
+  /** 小屏档位（320×640 这类）：收紧间距，保证顶部标题到最底部短句都落在一屏内 */
+  const compact = winHeight < 700;
+  /** 一屏化模式的「选内容」子步骤 */
+  const [contentStep, setContentStep] = useState(false);
+  /** 每日一言来自纯函数（按天取）——与 FocusTimer 的「励志短句」同一内容源，此处只读展示 */
+  const dailyQuote = useMemo(() => getDailyQuote(), []);
   const [tab, setTab] = useState<"learning" | "exercise">("learning");
   const [sportType, setSportType] = useState<string>(exerciseTypeOptions[0]?.type ?? "AEROBIC");
   const [sport, setSport] = useState<SportItem | null>(null);
@@ -84,6 +112,7 @@ export function QuickStartSheet({
     setSport(null);
     setSportMinutes(30);
     setTab("learning");
+    setContentStep(false);
   };
 
   const close = () => {
@@ -128,6 +157,130 @@ export function QuickStartSheet({
     });
     close();
   };
+
+  /**
+   * v2.0.1 一屏化启动页：近全屏、不滚动（真机反馈：专注开始界面要一屏展示）。
+   * 只在 oneScreen 时渲染；旧的多分组弹层（学习/运动）原样保留，其它调用方零改动。
+   */
+  if (oneScreen) {
+    const focusStartLabel =
+      learningMode === "stopwatch" ? "开始专注 · 正向计时" : `开始专注 · ${learningMinutes} 分钟`;
+    return (
+      <BottomSheet
+        visible={visible}
+        onClose={close}
+        title="开始专注"
+        subtitle="选好时长，点底部按钮进入全屏专注"
+        icon="play-circle-outline"
+        // 近全屏：94% 可用高度（已扣状态栏与底部安全区），固定高度、不可上拉展开
+        height="94%"
+        expandable={false}
+        // 关键：不内置滚动容器 —— 一屏内的高度全部交给 flex 分配
+        scroll={false}
+        autoHeight={false}
+        onClosed={onClosed}
+        footer={
+          <View style={styles.footerWrap}>
+            <SheetStickyCta label={focusStartLabel} icon="play" onPress={start} />
+            <Text style={styles.footerHint}>返回或下滑只会关闭，不会开始计时</Text>
+            {/* 最下方励志短句：图标 + 纯文字（无 emoji），永远在一屏最底部 */}
+            <View style={styles.quoteWrap}>
+              <ThemedIcon name="sparkles" size={14} color={colors.primary} />
+              <Text style={[styles.quoteText, compact && styles.quoteTextCompact]} numberOfLines={2}>
+                {dailyQuote}
+              </Text>
+            </View>
+          </View>
+        }
+      >
+        <View style={[styles.oneScreen, compact && styles.oneScreenCompact]}>
+          {contentStep ? (
+            <View style={styles.stepWrap}>
+              <View style={styles.stepHead}>
+                <Pressable
+                  onPress={() => setContentStep(false)}
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  accessibilityLabel="返回专注设置"
+                  style={styles.stepBack}
+                >
+                  <ThemedIcon name="chevron-back" size={16} color={colors.text} />
+                  <Text style={styles.stepBackText}>返回</Text>
+                </Pressable>
+                <Text style={styles.stepTitle}>这次学什么</Text>
+              </View>
+              {/* 只有「选内容」这个列表型子步骤内部可滚；启动页本身不滚 */}
+              <ScrollView
+                style={styles.stepScroll}
+                contentContainerStyle={styles.stepScrollContent}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
+                <ContentPicker value={content} onChange={setContent} />
+              </ScrollView>
+            </View>
+          ) : (
+            <View style={[styles.oneMain, compact && styles.oneMainCompact]}>
+              <View style={styles.oneBlock}>
+                <Text style={styles.oneLabel}>专注时长</Text>
+                <View style={styles.chipRow}>
+                  {[25, 45, 60].map((m) => {
+                    const active = learningMode === "countdown" && learningMinutes === m;
+                    return (
+                      <Pressable
+                        key={m}
+                        onPress={() => {
+                          setLearningMode("countdown");
+                          setLearningMinutes(m);
+                        }}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: active }}
+                        accessibilityLabel={`专注 ${m} 分钟`}
+                        style={[styles.chip, active && styles.chipActive]}
+                      >
+                        <Text style={[styles.chipText, active && styles.chipTextActive]}>{m} 分钟</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                <StepperRow
+                  label="自定义时长"
+                  hint="5–180 分钟"
+                  value={learningMinutes}
+                  step={5}
+                  min={5}
+                  max={180}
+                  unit="分钟"
+                  onChange={(v) => {
+                    setLearningMode("countdown");
+                    setLearningMinutes(v);
+                  }}
+                />
+              </View>
+
+              <View style={styles.oneBlock}>
+                <Text style={styles.oneLabel}>计时方式</Text>
+                <SheetSegmented options={MODE_OPTIONS} value={learningMode} onChange={setLearningMode} />
+              </View>
+
+              <Pressable
+                onPress={() => setContentStep(true)}
+                accessibilityRole="button"
+                accessibilityLabel="选择这次学习的内容"
+                style={styles.contentRow}
+              >
+                <ThemedIcon name="bookmark-outline" size={14} color={colors.primary} />
+                <Text style={styles.contentRowText} numberOfLines={1}>
+                  {contentLabelOf(content) ?? "不指定 · 自由专注"}
+                </Text>
+                <ThemedIcon name="chevron-forward" size={14} color={colors.textFaint} />
+              </Pressable>
+            </View>
+          )}
+        </View>
+      </BottomSheet>
+    );
+  }
 
   const learningBody = (
     <>
@@ -272,3 +425,52 @@ export function QuickStartSheet({
     </BottomSheet>
   );
 }
+
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    // 一屏化启动页：内容区撑满，短句用 space-between 钉在底部
+    oneScreen: { flex: 1, justifyContent: "center", gap: 12, minHeight: 0 },
+    footerWrap: { gap: 8 },
+    footerHint: { ...typography.micro, color: colors.textMuted, textAlign: "center" },
+    oneScreenCompact: { gap: 8 },
+    oneMain: { gap: 16, paddingTop: 2 },
+    oneMainCompact: { gap: 10 },
+    oneBlock: { gap: 8 },
+    oneLabel: { ...typography.section, color: colors.textMuted },
+    chipRow: { flexDirection: "row", gap: 8 },
+    chip: {
+      flex: 1,
+      minHeight: 44,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: radius.pill,
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+    chipText: { ...typography.callout, fontWeight: "700", color: colors.textMuted },
+    chipTextActive: { color: colors.canvas },
+    contentRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      minHeight: 44,
+      paddingHorizontal: 12,
+      borderRadius: radius.md,
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    contentRowText: { flex: 1, ...typography.caption, color: colors.text },
+    quoteWrap: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 2, paddingBottom: 2 },
+    quoteText: { flex: 1, ...typography.caption, color: colors.textMuted },
+    quoteTextCompact: { ...typography.meta },
+    stepWrap: { flex: 1, gap: 10, minHeight: 0 },
+    stepHead: { flexDirection: "row", alignItems: "center", gap: 10 },
+    stepBack: { flexDirection: "row", alignItems: "center", gap: 2, minHeight: 44, paddingRight: 6 },
+    stepBackText: { ...typography.caption, fontWeight: "700", color: colors.text },
+    stepTitle: { ...typography.section, color: colors.text },
+    stepScroll: { flex: 1 },
+    stepScrollContent: { paddingBottom: 8 },
+  });

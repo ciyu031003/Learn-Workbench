@@ -1079,6 +1079,12 @@ export default function TodayScreen() {
       <SportSheet visible={sportSheetOpen} onClose={() => setSportSheetOpen(false)} motionActive={motionActive} />
       <QuickStartSheet
         visible={quickOpen}
+        /**
+         * v2.0.1 真机反馈：专注开始界面要一屏展示、不要上下滑动。
+         * oneScreen = 近全屏、不滚动的一屏启动页（时长档位 + 计时方式 + 底部励志短句），
+         * 仍然只产出 QuickStartChoice，onPick / onClosed 的既有链路（先关弹层再开计时器）不变。
+         */
+        oneScreen
         onClose={() => setQuickOpen(false)}
         onPick={(choice) => {
           /**

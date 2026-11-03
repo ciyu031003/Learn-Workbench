@@ -31,9 +31,15 @@ import { startFocusNotification, stopFocusNotification } from "@/lib/focus-notif
 import { RingProgress } from "@/components/ring-progress";
 import { TimerDial } from "@/components/timer-dial";
 import { getDailyQuote } from "@/lib/quotes";
+import { typography } from "@/theme/tokens";
 import type { FocusSession } from "@learn-workbench/shared/schemas";
 
 const PRESETS = [15, 25, 45];
+/**
+ * 准备开始（一屏启动页）的时长档位：v2.0.1 按真机反馈改为 25/45/60。
+ * 计时中的快捷档位（PRESETS）保持原样，避免改变既有行为。
+ */
+const START_PRESETS = [25, 45, 60];
 const GALLERY = [
   { id: "sunset", name: "黄昏暖阳", color: "#7c2d12" },
   { id: "ocean", name: "深海蓝", color: "#0f2027" },
@@ -130,6 +136,8 @@ export function FocusTimer({
   const [quoteInput, setQuoteInput] = useState("");
   const [showBg, setShowBg] = useState(false);
   const [customMin, setCustomMin] = useState("");
+  /** 计时区实测高度（一屏自适应：圆环尺寸随可用高度收缩，不靠滚动） */
+  const [stageH, setStageH] = useState(0);
 
   const startRef = useRef<number | null>(null);
   /** 记录去重：同一帧内连点"记录"/Modal 关闭与按钮并发时，避免写两条 */
@@ -592,6 +600,17 @@ export function FocusTimer({
   const showImage = mode === "upload" && !!url;
   const showBing = mode === "gallery" && galleryId === "bing" && !!bing;
 
+  /**
+   * v2.0.1 一屏化（真机反馈「专注界面不要上下滑动」）：
+   * 小屏档位 + 用实测高度反推圆环尺寸 —— 顶部标题与底部励志短句都固定在一屏内。
+   */
+  const compact = height < 700;
+  const ringSize = Math.round(
+    Math.max(180, Math.min(300, Math.min(width - 96, (stageH > 0 ? stageH : height * 0.42) - 6)))
+  );
+  const clockSize = Math.round(Math.max(40, Math.min(62, ringSize * 0.22)));
+  const ringStroke = ringSize >= 260 ? 14 : 12;
+
   return (
     <Modal visible={open} animationType="fade" presentationStyle="fullScreen" onRequestClose={() => record(elapsed)}>
       {/* v17-C1 审计发现：本页是**暗色沉浸**画面，但状态栏图标色此前继承自 App 主题。
@@ -664,8 +683,9 @@ export function FocusTimer({
           </View>
         ) : null}
 
-        <ScrollView contentContainerStyle={styles.center} showsVerticalScrollIndicator={false}>
-          {done ? (
+        {done ? (
+          /* 完成页是结果页：内容可能较多，保留滚动（不属于「开始 / 计时」的一屏范围） */
+          <ScrollView contentContainerStyle={styles.center} showsVerticalScrollIndicator={false}>
             <View style={styles.doneWrap}>
               <View style={styles.doneTitleRow}>
                 <ThemedIcon name="trophy" size={34} color="#FFB25E" />
@@ -699,8 +719,10 @@ export function FocusTimer({
                 </Pressable>
               </View>
             </View>
-          ) : started ? (
-            isLandscape ? (
+          </ScrollView>
+        ) : started ? (
+          isLandscape ? (
+            <ScrollView contentContainerStyle={styles.center} showsVerticalScrollIndicator={false}>
               <View style={styles.landscapeWrap}>
                 <View style={styles.landscapeTop}>
                   <Text style={styles.taskName} numberOfLines={1}>{task?.title ?? "自由专注"}</Text>
@@ -731,8 +753,10 @@ export function FocusTimer({
                   <Text style={styles.recordBtnText}>结束并记录本次专注</Text>
                 </Pressable>
               </View>
-            ) : (
-            <>
+            </ScrollView>
+          ) : (
+            /* v2.0.1 一屏计时页：flex 分配高度、无 ScrollView */
+            <View style={[styles.runBody, { paddingBottom: insets.bottom + 10 }]}>
               {/* 任务名 + 状态 */}
               <View style={styles.taskWrap}>
                 <Text style={styles.taskName} numberOfLines={1}>{task?.title ?? "自由专注"}</Text>
@@ -741,24 +765,24 @@ export function FocusTimer({
                 </Text>
               </View>
 
-              {/* 圆环 / 表盘（v13 U3）+ 数字时钟 */}
-              <View style={styles.ringWrap}>
+              {/* 圆环 / 表盘（v13 U3）+ 数字时钟：尺寸由实测可用高度决定（一屏不滚动） */}
+              <View style={styles.stage} onLayout={(e) => setStageH(e.nativeEvent.layout.height)}>
                 {timerView === "ring" ? (
                   <>
                     <RingProgress
-                      size={300}
-                      strokeWidth={14}
+                      size={ringSize}
+                      strokeWidth={ringStroke}
                       progress={1 - ratio}
                       trackColor="rgba(255,255,255,0.16)"
                       color="#FFB25E"
                     />
                     <Pressable style={styles.clockWrap} onPress={() => (running ? pause() : resume())}>
-                      <Text style={styles.clock}>{fmt(remainingShown)}</Text>
+                      <Text style={[styles.clock, { fontSize: clockSize }]}>{fmt(remainingShown)}</Text>
                     </Pressable>
                   </>
                 ) : (
                   <TimerDial
-                    size={300}
+                    size={ringSize}
                     progress={1 - ratio}
                     color="#FFB25E"
                     trackColor="rgba(255,255,255,0.16)"
@@ -770,7 +794,7 @@ export function FocusTimer({
               {/* 表盘视图下时钟放到盘下方（指针扫过中心，数字放中间会互相压） */}
               {timerView === "dial" ? (
                 <Pressable style={styles.dialClockWrap} onPress={() => (running ? pause() : resume())}>
-                  <Text style={styles.clock}>{fmt(remainingShown)}</Text>
+                  <Text style={[styles.clock, { fontSize: clockSize }]}>{fmt(remainingShown)}</Text>
                   <Text style={styles.dialClockHint}>点击暂停 / 继续</Text>
                 </Pressable>
               ) : null}
@@ -844,17 +868,9 @@ export function FocusTimer({
                 </View>
               </View>
 
-              {/* 励志短句 */}
-              <View style={styles.quoteCard}>
-                <View style={styles.quoteHeader}>
-                  <View style={styles.quoteLabelRow}>
-                    <ThemedIcon name="sparkles" size={14} color="#FFB25E" />
-                    <Text style={styles.quoteLabel}>励志短句</Text>
-                  </View>
-                  <Pressable onPress={() => { setEditingQuote((v) => !v); setQuoteInput(quote); }} hitSlop={8}>
-                    <Text style={styles.quoteEdit}>{editingQuote ? "取消" : "编辑"}</Text>
-                  </Pressable>
-                </View>
+              {/* 励志短句：一屏的最底部（图标 + 纯文字，无 emoji）；右侧画笔可改 */}
+              <View style={styles.quoteFooter}>
+                <ThemedIcon name="sparkles" size={14} color="#FFB25E" />
                 {editingQuote ? (
                   <View style={styles.quoteEditRow}>
                     <TextInput
@@ -869,52 +885,108 @@ export function FocusTimer({
                     </Pressable>
                   </View>
                 ) : (
-                  <Text style={styles.quoteText}>{quote}</Text>
+                  <Text style={styles.quoteFooterText} numberOfLines={compact ? 1 : 2}>{quote}</Text>
+                )}
+                {editingQuote ? null : (
+                  <Pressable
+                    onPress={() => { setEditingQuote(true); setQuoteInput(quote); }}
+                    hitSlop={10}
+                    accessibilityRole="button"
+                    accessibilityLabel="编辑励志短句"
+                  >
+                    <ThemedIcon name="create-outline" size={14} color="rgba(255,255,255,0.6)" />
+                  </Pressable>
                 )}
               </View>
-            </>
-            )
-          ) : (
-            <View style={styles.readyWrap}>
-              <Text style={styles.taskName} numberOfLines={1}>{task?.title ?? "自由专注"}</Text>
-              <Text style={styles.readyTitle}>{timerMode === "stopwatch" ? "准备开始 正向计时" : `准备开始 ${minutes} 分钟专注`}</Text>
-              {contentLabel?.trim() ? (
+            </View>
+          )
+        ) : (
+          <View style={[styles.readyBody, { paddingBottom: insets.bottom + 14 }]}>
+              {/* 顶部：标题与说明（自适应，永远完整可见） */}
+              <View style={styles.readyHead}>
+                <Text style={styles.readyEyebrow}>FOCUS SESSION</Text>
+                <Text style={styles.readyTask} numberOfLines={1}>{task?.title ?? "自由专注"}</Text>
+                <Text style={styles.readyTitle} numberOfLines={2}>
+                  {timerMode === "stopwatch" ? "准备开始 正向计时" : `准备开始 ${minutes} 分钟专注`}
+                </Text>
+                <Text style={styles.readySub}>开始后全屏沉浸，随时可以暂停</Text>
                 <View style={styles.contentChip}>
-                  <ThemedIcon name="bookmark-outline" size={12} color="rgba(255,255,255,0.92)" />
+                  <ThemedIcon
+                    name={contentLabel?.trim() ? "bookmark-outline" : "leaf-outline"}
+                    size={12}
+                    color="rgba(255,255,255,0.92)"
+                  />
                   <Text style={styles.contentChipText} numberOfLines={1}>
-                    本次学习 · {contentLabel.trim()}
+                    本次学习 · {contentLabel?.trim() ? contentLabel.trim() : "自由专注"}
                   </Text>
                 </View>
-              ) : null}
-
-              {/* V3 计时模式切换 */}
-              <View style={styles.modeToggle}>
-                {(
-                  [
-                    { key: "countdown", label: "倒计时" },
-                    { key: "stopwatch", label: "正向秒表" },
-                  ] as const
-                ).map((o) => (
-                  <Pressable
-                    key={o.key}
-                    onPress={() => setTimerMode(o.key)}
-                    style={[styles.modeChip, timerMode === o.key && styles.modeChipActive]}
-                  >
-                    <Text style={[styles.modeChipText, timerMode === o.key && styles.modeChipTextActive]}>{o.label}</Text>
-                  </Pressable>
-                ))}
               </View>
 
-              <Pressable style={styles.primaryBtn} onPress={begin}>
-                <View style={styles.readyCtaInner}>
-                  <ThemedIcon name="play" size={16} color="#1f1f1f" />
-                  <Text style={styles.primaryBtnText}>{sessionMode === "exercise" ? "开始锻炼" : timerMode === "stopwatch" ? "开始计时" : "开始专注"}</Text>
+              {/* 中部：时长档位 + 计时方式（flex 撑满剩余高度，小屏自动收紧） */}
+              <View style={[styles.readyStage, compact && styles.readyStageCompact]}>
+                <View style={styles.readyBlock}>
+                  <Text style={styles.readyLabel}>专注时长</Text>
+                  <View style={styles.readyChips}>
+                    {START_PRESETS.map((m) => {
+                      const active = timerMode === "countdown" && minutes === m;
+                      return (
+                        <Pressable
+                          key={m}
+                          onPress={() => {
+                            setTimerMode("countdown");
+                            setMin(m);
+                          }}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: active }}
+                          accessibilityLabel={`专注 ${m} 分钟`}
+                          style={[styles.readyChip, active && styles.readyChipActive]}
+                        >
+                          <Text style={[styles.readyChipText, active && styles.readyChipTextActive]}>{m} 分钟</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
                 </View>
-              </Pressable>
-              <Text style={styles.readyHint}>{timerMode === "stopwatch" ? "秒表从 00:00 正向计时 · 结束即记录" : "开始后将全屏沉浸 · 可随时暂停"}</Text>
+
+                <View style={styles.readyBlock}>
+                  <Text style={styles.readyLabel}>计时方式</Text>
+                  <View style={styles.modeToggle}>
+                    {(
+                      [
+                        { key: "countdown", label: "倒计时" },
+                        { key: "stopwatch", label: "正向秒表" },
+                      ] as const
+                    ).map((o) => (
+                      <Pressable
+                        key={o.key}
+                        onPress={() => setTimerMode(o.key)}
+                        style={[styles.modeChip, timerMode === o.key && styles.modeChipActive]}
+                      >
+                        <Text style={[styles.modeChipText, timerMode === o.key && styles.modeChipTextActive]}>{o.label}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+              </View>
+
+              {/* 底部：开始按钮 + 一句说明，再往下是励志短句 */}
+              <View style={styles.readyCtaWrap}>
+                <Pressable style={styles.readyCta} onPress={begin}>
+                  <View style={styles.readyCtaInner}>
+                    <ThemedIcon name="play" size={16} color="#1f1f1f" />
+                    <Text style={styles.primaryBtnText}>{sessionMode === "exercise" ? "开始锻炼" : timerMode === "stopwatch" ? "开始计时" : "开始专注"}</Text>
+                  </View>
+                </Pressable>
+                <Text style={styles.readyHint}>{timerMode === "stopwatch" ? "秒表从 00:00 正向计时 · 结束即记录" : "开始后将全屏沉浸 · 可随时暂停"}</Text>
+              </View>
+
+              {/* 底部励志短句：图标 + 纯文字（无 emoji），完整落在一屏内 */}
+              <View style={styles.quoteFooter}>
+                <ThemedIcon name="sparkles" size={14} color="#FFB25E" />
+                <Text style={styles.quoteFooterText} numberOfLines={2}>{quote}</Text>
+              </View>
             </View>
           )}
-        </ScrollView>
       </View>
     </Modal>
   );
@@ -1032,9 +1104,49 @@ const styles = StyleSheet.create({
   secondaryBtn: { backgroundColor: "rgba(255,255,255,0.14)", borderRadius: 999, paddingHorizontal: 22, paddingVertical: 12, alignItems: "center" },
   secondaryBtnText: { color: "#fff", fontSize: 15, fontWeight: "600" },
   doneBtns: { flexDirection: "row", gap: 12 },
-  readyWrap: { alignItems: "center", gap: 16, paddingVertical: 48 },
+  // ---- v2.0.1 一屏布局（启动页 / 计时页都不滚动）----
+  runBody: { flex: 1, minHeight: 0, paddingHorizontal: 16, gap: 8 },
+  /** 计时圆环的可用舞台：flex 撑满剩余高度，圆环尺寸由实测高度反推 */
+  stage: { flex: 1, minHeight: 0, alignItems: "center", justifyContent: "center" },
+  readyBody: { flex: 1, minHeight: 0, paddingHorizontal: 20, gap: 10, justifyContent: "space-between" },
+  readyHead: { alignItems: "center", gap: 6, paddingTop: 2 },
+  readyEyebrow: { ...typography.eyebrow, color: "rgba(255,255,255,0.55)", letterSpacing: 1.6 },
+  readyTask: { ...typography.caption, color: "rgba(255,255,255,0.72)" },
+  readySub: { ...typography.caption, color: "rgba(255,255,255,0.62)", textAlign: "center" },
+  readyStage: { flex: 1, minHeight: 0, justifyContent: "center", gap: 18 },
+  readyStageCompact: { gap: 10 },
+  readyBlock: { gap: 8 },
+  readyLabel: { ...typography.section, color: "rgba(255,255,255,0.65)", textAlign: "center" },
+  readyChips: { flexDirection: "row", gap: 8 },
+  readyChip: {
+    flex: 1,
+    minHeight: 46,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
+  },
+  readyChipActive: { backgroundColor: "rgba(232,147,12,0.42)", borderColor: "rgba(232,147,12,0.72)" },
+  readyChipText: { ...typography.callout, fontWeight: "700", color: "rgba(255,255,255,0.82)" },
+  readyChipTextActive: { color: "#fff" },
+  readyCtaWrap: { gap: 6, alignItems: "center" },
+  readyCta: {
+    width: "100%",
+    maxWidth: 360,
+    minHeight: 52,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFB25E",
+    borderRadius: 999,
+  },
+  /** 底部励志短句：图标 + 纯文字（无 emoji），永远在一屏的最底部 */
+  quoteFooter: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 2 },
+  quoteFooterText: { flex: 1, ...typography.caption, color: "rgba(255,255,255,0.82)" },
   readyCtaInner: { flexDirection: "row", alignItems: "center", gap: 8 },
-  readyTitle: { color: "#fff", fontSize: 24, fontWeight: "800" },
+  readyTitle: { ...typography.title2, fontWeight: "800", color: "#fff", textAlign: "center" },
   contentChip: {
     flexDirection: "row",
     alignItems: "center",
