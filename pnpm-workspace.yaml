@@ -52,3 +52,17 @@ overrides:
   fast-copy: ^4.1.2
   uuid: ^11.1.1
   "@xmldom/xmldom": ^0.9.12
+  # v2.1 BoardUI 图表卡（recharts）的唯一新依赖族：d3 在 2026-11-03 当天发了一版新补丁，
+  # 命中 pnpm 11 的 minimumReleaseAge(24h) 供应链策略，导致 Docker 的 frozen-lockfile 安装被拒。
+  # 这里把 d3 钉到策略窗口之前的稳定版本（均为 2021-2022 年发布），保证镜像可复现且不放松全局策略。
+  d3-array: 3.2.4
+  d3-color: 3.1.0
+  d3-ease: 3.0.1
+  d3-format: 3.1.2
+  d3-interpolate: 3.0.1
+  d3-path: 3.1.0
+  d3-scale: 4.0.2
+  d3-shape: 3.2.0
+  d3-time: 3.1.0
+  d3-time-format: 4.1.0
+  d3-timer: 3.0.1
