@@ -3,7 +3,7 @@ import Animated from "react-native-reanimated";
 import { RefreshControl, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
+import { ScreenHeaderStickyBar, useHeaderTopInset, useLargeTitleHeader } from "@/components/screen-header";
 import { Card } from "@/components/card";
 import { Surface } from "@/components/surface";
 import { EmptyState } from "@/components/empty-state";
@@ -98,6 +98,8 @@ export default function CareerScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const headerScroll = useLargeTitleHeader();
   const tabBarSpace = useTabBarSpace();
+  /** v2.0.1：Tab 页页头让开状态栏/刘海（与今日/学习/我的同口径） */
+  const headerTop = useHeaderTopInset("hero");
   /** v19-M8：TabBar 双击回顶 */
   const careerScrollRef = useRef<Animated.ScrollView>(null);
   useScrollToTopHandler("/career", careerScrollRef);
@@ -259,7 +261,7 @@ export default function CareerScreen() {
         scrollEventThrottle={16}
         refreshControl={<RefreshControl {...careerRefresh} />}
         style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingBottom: tabBarSpace }]}
+        contentContainerStyle={[styles.content, { paddingTop: headerTop, paddingBottom: tabBarSpace }]}
         showsVerticalScrollIndicator={false}
       >
         {/* ① 页头 */}

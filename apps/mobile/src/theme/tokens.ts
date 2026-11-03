@@ -50,10 +50,12 @@ const lightColors = {
   scrim: "rgba(18,24,38,0.42)",
 
   // 玻璃材质（Android 走 BlurView 叠加层，iOS 走系统 GlassView）
-  glassTint: "rgba(255,255,255,0.62)",
-  glassBorder: "rgba(255,255,255,0.85)",
-  glassHighlight: "rgba(255,255,255,0.9)",
-  glassShade: "rgba(214,229,255,0.35)",
+  // v2.0.1：玻璃不再用纯白叠加（真机上会变成一条白块），改成与画布同色的高不透明度叠加；
+  // 透明度整体提高（更"实"），层级靠描边 + 高光 + 投影，避免"过于透明"。
+  glassTint: "rgba(246,248,252,0.82)",
+  glassBorder: "rgba(255,255,255,0.92)",
+  glassHighlight: "rgba(255,255,255,0.95)",
+  glassShade: "rgba(214,229,255,0.42)",
 
   // 专注沉浸暗色世界（全屏专注，不随主题切换）
   focusCanvas: "#0F2027",
@@ -100,9 +102,9 @@ const darkColors = {
 
   scrim: "rgba(0,0,0,0.55)",
 
-  glassTint: "rgba(22,28,41,0.72)",
-  glassBorder: "rgba(255,255,255,0.14)",
-  glassHighlight: "rgba(255,255,255,0.18)",
+  glassTint: "rgba(18,24,38,0.86)",
+  glassBorder: "rgba(255,255,255,0.18)",
+  glassHighlight: "rgba(255,255,255,0.22)",
   glassShade: "rgba(71,119,232,0.20)",
 
   focusCanvas: "#0F2027",
@@ -162,13 +164,17 @@ export const shadows: Record<"card" | "floating" | "brand" | "glass", ViewStyle>
     shadowOffset: { width: 0, height: 8 },
     elevation: 3,
   },
-  /** 玻璃锚点（专注卡 / 弹层）：更大更柔的蓝色投影 */
+  /**
+   * 玻璃锚点（专注卡 / 弹层）：更大更柔的蓝色投影。
+   * **elevation 必须为 0**：Android 上 elevation 对「半透明/透明底 + 圆角」的 View 会按不透明矩形
+   * 画轮廓，真机表现为卡片底部/四周出现白块（v2.0.1 反馈的"白色矩形"根因之一）。
+   */
   glass: {
     shadowColor: "#4370B8",
     shadowOpacity: 0.12,
     shadowRadius: 34,
     shadowOffset: { width: 0, height: 14 },
-    elevation: 8,
+    elevation: 0,
   },
 };
 

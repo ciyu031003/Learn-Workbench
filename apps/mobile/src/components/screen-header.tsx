@@ -245,7 +245,9 @@ const makeStyles = (colors: ThemeColors) =>
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: colors.canvas + "D9",
+      // v2.0.1：吸顶栏改为"近乎实底"的 canvas（95%）：模糊只做氛围，
+      // 避免滚动时出现一条明显的白色/半透明矩形（真机反馈）。
+      backgroundColor: colors.canvas + "F2",
       borderBottomWidth: StyleSheet.hairlineWidth * 2,
       borderBottomColor: colors.border,
     },

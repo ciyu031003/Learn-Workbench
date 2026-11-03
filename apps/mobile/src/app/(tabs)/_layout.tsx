@@ -203,7 +203,9 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       shadowOpacity: 0.1,
       shadowRadius: 26,
       shadowOffset: { width: 0, height: 12 },
-      elevation: 8,
+      // Android elevation 在透明底 + 圆角上会画成不透明矩形（真机白条根因），这里用描边+柔影替代
+      elevation: 0,
+      overflow: "hidden",
     },
   });
 

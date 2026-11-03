@@ -38,7 +38,9 @@ export function MetricGrid({
           <View key={item.label + index} style={styles.cell}>
             {index > 0 ? <View pointerEvents="none" style={styles.divider} /> : null}
             {item.icon ? (
-              <View style={styles.icon}><ThemedIcon name={item.icon} size={18} color={color} /></View>
+              <View style={[styles.icon, { backgroundColor: color + "14" }]}>
+                <ThemedIcon name={item.icon} size={18} color={color} />
+              </View>
             ) : null}
             <View style={styles.valueRow}>
               <Text style={[styles.value, tabularNums, item.tone ? { color } : null]} numberOfLines={1}>{item.value}</Text>
@@ -67,7 +69,7 @@ const makeStyles = (colors: ThemeColors) =>
     },
     cell: { flex: 1, alignItems: "center", gap: 2, position: "relative", paddingHorizontal: spacing.xs },
     divider: { position: "absolute", left: 0, top: "16%", bottom: "16%", width: StyleSheet.hairlineWidth, backgroundColor: colors.border },
-    icon: { marginBottom: 6, width: 30, height: 30, borderRadius: radius.sm, backgroundColor: colors.surfaceMuted, alignItems: "center", justifyContent: "center" },
+    icon: { marginBottom: 6, width: 30, height: 30, borderRadius: radius.sm, alignItems: "center", justifyContent: "center" },
     valueRow: { flexDirection: "row", alignItems: "baseline", gap: 2 },
     value: { ...typography.num, color: colors.text },
     unit: { ...typography.caption, fontWeight: "400", color: colors.textMuted },

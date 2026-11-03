@@ -114,12 +114,12 @@ export function GlassSurface({
         styles.base,
         { borderRadius: corner, overflow: "hidden" },
         padded && styles.padded,
-        strong ? shadows.glass : shadows.card,
+        strong ? { ...shadows.glass, elevation: 0 } : { ...shadows.card, elevation: 0 },
         style,
       ]}
     >
       <BlurView
-        intensity={strong ? 46 : 26}
+        intensity={strong ? 54 : 36}
         tint={dark ? "dark" : "light"}
         experimentalBlurMethod={BLUR_METHOD}
         style={StyleSheet.absoluteFill}
@@ -172,7 +172,10 @@ const stylesHighlightStatic = {
 const makeStyles = (colors: ThemeColors, dark: boolean) =>
   StyleSheet.create({
     base: {
+      // v2.0.1：玻璃容器不能带不透明白底，否则 Android 的 BlurView 会糊在一层白底上，
+      // 真机表现为"整块白/底部白矩形"。透明底 + 染色叠加层 + 描边才是玻璃。
       overflow: "hidden",
+      backgroundColor: "transparent",
     },
     padded: { padding: 16, gap: 10 },
     surface: {

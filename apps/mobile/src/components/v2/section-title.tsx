@@ -22,6 +22,7 @@ export function SectionTitle({
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={[styles.row, style]}>
+      <View style={styles.accent} />
       <Text style={styles.title} accessibilityRole="header">{title}</Text>
       {right ?? null}
       {onAction ? (
@@ -44,14 +45,17 @@ const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     row: {
       flexDirection: "row",
-      alignItems: "baseline",
+      alignItems: "center",
       justifyContent: "space-between",
       marginTop: 21,
       marginBottom: 11,
       paddingHorizontal: 2,
       minHeight: 24,
+      gap: 8,
     },
-    title: { ...typography.section, color: colors.text },
+    /* v2.0.1 视觉深化：区块标题前加一枚主色竖条，统一节奏、减少"平淡感" */
+    accent: { width: 3, height: 14, borderRadius: 2, backgroundColor: colors.primary },
+    title: { ...typography.section, color: colors.text, flexShrink: 1 },
     action: { flexDirection: "row", alignItems: "center", gap: 2, minHeight: 44, paddingLeft: spacing.sm },
     actionText: { ...typography.meta, fontWeight: "700", color: colors.primary },
   });
