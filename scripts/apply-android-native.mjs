@@ -177,6 +177,31 @@ function patchMainApplication(text) {
   return lines.join("\n");
 }
 
+/**
+ * 根 build.gradle：v2.0.1 起必须把 minSdkVersion 提到 26。
+ * 原因：Health Connect（睡眠读取）依赖 androidx.health.connect:connect-client（清单 minSdk 26），
+ * 本工程默认 24 会在 :app:processReleaseMainManifest 的 manifest merger 阶段直接失败。
+ * android/ 不入 git，prebuild 重建后靠本函数幂等补回。
+ */
+function patchRootBuildGradle(text) {
+  if (/minSdkVersion\s*=?\s*26/.test(text)) return text;
+  const marker = 'apply plugin: "com.facebook.react.rootproject"';
+  if (!text.includes(marker)) return text;
+  const block = [
+    "",
+    "/** v2.0.1：Health Connect 依赖要求 minSdk 26（原 24 会在 manifest merger 失败） */",
+    "ext {",
+    "  minSdkVersion = 26",
+    "}",
+  ].join("\n");
+  return text.replace(marker, marker + "\n" + block);
+}
+
+/** app/build.gradle：把 minSdkVersion 显式钉到 26（rootProject.ext 可能被 expo 插件默认值覆盖） */
+function patchAppBuildGradleMinSdk(text) {
+  return text.replace(/(\n\s*minSdkVersion\s+)(?:rootProject\.ext\.minSdkVersion|\d+)/, "$126");
+}
+
 let changed = 0;
 for (const rel of FILES) {
   const from = path.join(SRC, rel);
@@ -203,6 +228,8 @@ const mainAppPath = path.join(DST, "app/src/main/java/com/yuanabd/learnworkbench
 for (const [file, patch] of [
   [manifestPath, patchManifest],
   [mainAppPath, patchMainApplication],
+  [path.join(DST, "build.gradle"), patchRootBuildGradle],
+  [path.join(DST, "app/build.gradle"), patchAppBuildGradleMinSdk],
 ]) {
   if (!existsSync(file)) {
     console.error("[native] 找不到 " + path.relative(ROOT, file) + "（先跑一次 android 工程生成 / prebuild）");
