@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Platform, StyleSheet, View, type OpaqueColorValue } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from "expo-glass-effect";
+import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ThemedIcon } from "@/components/themed-icon";
 import { useTheme } from "@/theme";
@@ -64,8 +65,16 @@ function TabBarMaterial({ dark, styles, glass }: { dark: boolean; styles: Styles
       </GlassView>
     );
   }
+  // Android / iOS<26：v2.0 起用 BlurView 做真实模糊（expo-blur，dimezisBlurView），
+  // 再叠半透明染色 + 顶部高光；低端机由设备档位在 S8 统一降级为空阴影实底。
   return (
     <View style={styles.tabBarGlass} pointerEvents="none">
+      <BlurView
+        intensity={30}
+        tint={dark ? "dark" : "light"}
+        experimentalBlurMethod="dimezisBlurView"
+        style={StyleSheet.absoluteFill}
+      />
       <View style={styles.tabBarTint} pointerEvents="none" />
       <View style={styles.tabBarHighlight} pointerEvents="none" />
     </View>
@@ -153,8 +162,8 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       right: 0,
       bottom: 0,
       left: 0,
-      borderRadius: TAB_BAR_HEIGHT / 2,
-      backgroundColor: colors.primary + "17",
+      borderRadius: 20,
+      backgroundColor: colors.glassTint,
     },
     tabBarHighlight: {
       position: "absolute",
@@ -162,10 +171,9 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       right: 1,
       bottom: 1,
       left: 1,
-      borderRadius: TAB_BAR_HEIGHT / 2,
+      borderRadius: 20,
       borderWidth: StyleSheet.hairlineWidth * 2,
-      // v19-V2：内高光跟随明暗档（浅色玻璃上要更亮才可见，深色下压暗防刺眼）
-      borderColor: dark ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.5)",
+      borderColor: colors.glassBorder,
     },
     /** iOS 26 真玻璃：只给圆角，材质由系统画；高光内描边仍保留以勾勒胶囊轮廓 */
     tabBarGlassIos: {
@@ -174,7 +182,7 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       right: 0,
       bottom: 0,
       left: 0,
-      borderRadius: TAB_BAR_HEIGHT / 2,
+      borderRadius: 20,
       overflow: "hidden",
     },
     /**
@@ -187,14 +195,14 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       right: 0,
       bottom: 0,
       left: 0,
-      borderRadius: TAB_BAR_HEIGHT / 2,
-      backgroundColor: colors.canvas.length === 7 ? colors.canvas + "D9" : colors.canvas,
+      borderRadius: 20,
+      backgroundColor: "transparent",
       borderWidth: StyleSheet.hairlineWidth * 2,
-      borderColor: colors.border,
-      shadowColor: "#1C2430",
+      borderColor: colors.glassBorder,
+      shadowColor: "#23304E",
       shadowOpacity: 0.1,
-      shadowRadius: 22,
-      shadowOffset: { width: 0, height: 10 },
+      shadowRadius: 26,
+      shadowOffset: { width: 0, height: 12 },
       elevation: 8,
     },
   });
@@ -214,22 +222,23 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: colors.primaryStrong,
         tabBarInactiveTintColor: colors.textMuted,
+        // v2：选中态 = 浅蓝 pill（原型 V3），不再是实白圆角块
         /**
          * 选中项 = 一枚**实色圆角块** + 主色图标/文字（v1.45 按用户给的参考图调整）。
          * 旧版是 90% 透明度的胶囊（`surface + "E6"`）+ 图标外一圈白色圆环，
          * 参考图里选中态是一块**更大、更实**的圆角矩形，且没有额外圆环 ——
          * 所以这里改成不透明 surface，并去掉圆环（见 TabIcon）。
          */
-        tabBarActiveBackgroundColor: colors.surface,
+        tabBarActiveBackgroundColor: colors.primarySoft,
         tabBarInactiveBackgroundColor: "transparent",
         tabBarStyle: {
           position: "absolute",
-          left: 10,
-          right: 10,
-          bottom: insets.bottom + 6,
+          left: 12,
+          right: 12,
+          bottom: insets.bottom + 8,
           height: TAB_BAR_HEIGHT,
-          borderRadius: TAB_BAR_HEIGHT / 2,
-          paddingHorizontal: 8,
+          borderRadius: 20,
+          paddingHorizontal: 6,
           paddingBottom: 0,
           paddingTop: 0,
           backgroundColor: "transparent",
@@ -242,15 +251,15 @@ export default function TabsLayout() {
         tabBarShowLabel: true,
         tabBarLabelPosition: "below-icon",
         // 字号 10 → 11（真机 10pt 发虚）；行高与 marginTop 参与居中标定，见 tabIcon 注释
-        tabBarLabelStyle: { fontSize: 11, fontWeight: "700", lineHeight: 13, marginTop: 2, marginBottom: 0 },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: "600", lineHeight: 12, marginTop: 2, marginBottom: 0 },
         tabBarItemStyle: {
           // v1.45：参考图里选中块几乎占满底栏高度、四角是大圆角矩形而非胶囊。
           // marginVertical 4→3 让圆角块更高；上下对称改动，不影响图标的几何居中标定。
-          marginVertical: 3,
+          marginVertical: 4,
           marginHorizontal: 2,
-          paddingVertical: 2,
+          paddingVertical: 3,
           paddingHorizontal: 0,
-          borderRadius: 18,
+          borderRadius: 14,
           alignItems: "center",
           justifyContent: "center",
         },

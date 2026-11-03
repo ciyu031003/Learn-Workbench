@@ -3,7 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
-import { radius, typography } from "@/theme/tokens";
+import { radius, shadows, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 
@@ -107,11 +107,14 @@ const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     group: {
       backgroundColor: colors.surfaceStrong,
-      borderRadius: radius.lg,
+      borderRadius: radius.card,
+      borderWidth: StyleSheet.hairlineWidth * 2,
+      borderColor: colors.border,
       overflow: "hidden",
+      ...shadows.card,
     },
     row: {
-      minHeight: 56,
+      minHeight: 58,
       flexDirection: "row",
       alignItems: "center",
       gap: 12,
@@ -136,7 +139,7 @@ const makeStyles = (colors: ThemeColors) =>
       justifyContent: "center",
     },
     textWrap: { flex: 1, minWidth: 0, gap: 2 },
-    title: { ...typography.body, fontWeight: "600", color: colors.text },
+    title: { ...typography.callout, fontWeight: "600", color: colors.text },
     subtitle: { ...typography.caption, fontWeight: "400", color: colors.textMuted },
     value: { ...typography.callout, fontWeight: "700", color: colors.text },
     disabledText: { color: colors.textFaint },

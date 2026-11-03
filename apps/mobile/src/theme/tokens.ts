@@ -1,107 +1,116 @@
 import type { ViewStyle } from "react-native";
 
 /**
- * 苦旅移动端视觉 Token（浅色阳光 Sunny Clay · 深色夜航 Night Voyage）
- * 单一事实源：首页/学习/招花/我的统一走这里，专注全屏保留暗色沉浸。
+ * 移动端视觉 Token（v2.0 · 冷调浅工作台 / 深色夜航）
+ * 单一事实源：五个 Tab 与二级页的颜色、圆角、阴影、排版全部从这里取，禁止裸写色值。
  *
- * 暗色说明：组件内请通过 useTheme() 取当前色板；
- * `colors` 常量仅为浅色档快照，供模块级默认值与兼容旧引用，不随主题切换。
+ * v2 设计基线（2026-11）：源自《成长App移动端原型 V3》——
+ * 冷调浅蓝灰画布 + 白卡细描边 + 唯一主色天蓝 + 语义色；层级用色场与细边表达，
+ * 阴影只做辅助。玻璃材质（Liquid Glass）只在「视觉锚点」与导航出现，见 components/surface.tsx。
  */
 const lightColors = {
-  // v17-A（D1 改良版）：转"暖中性"——保留一丝暖意，不再大面积奶油黄
-  canvas: "#F7F5F2",
+  // 画布：冷调浅蓝灰（非纯白），让白卡浮起来
+  canvas: "#F6F8FC",
   surface: "#FFFFFF",
   surfaceStrong: "#FFFFFF",
-  surfaceMuted: "rgba(24,24,27,0.04)",
-  // iOS 灰阶（label / secondaryLabel / tertiaryLabel）
-  text: "#1C1C1E",
-  textMuted: "#8E8E93",
-  /**
-   * v18：次级正文灰（对 #F7F5F2 约 6.9:1、对白底约 7.5:1，满足 WCAG AA 正文 4.5）。
-   * 此前灰阶只有 textMuted（浅色对白底约 3.0）与 text（约 15.6）两档、中间为空，
-   * 导致「次要正文」要么对比度不达标、要么被迫用 text 而丢掉层级。
-   */
-  textSecondary: "#5A5A5F",
-  textFaint: "#AEAEB2",
-  // iOS separator：中性 hairline，替掉原先的棕描边
-  border: "rgba(60,60,67,0.10)",
-  borderStrong: "rgba(60,60,67,0.22)",
+  surfaceMuted: "rgba(31,51,82,0.04)",
+  // 文字四级：ink / 次级正文 / 弱化 / 极弱
+  text: "#1E293B",
+  textMuted: "#66758B",
+  /** 次级正文灰：对白底与画布均满足 WCAG AA 正文 4.5（tokens.test.ts 锁定） */
+  textSecondary: "#55657C",
+  textFaint: "#9AA7B8",
+  border: "#E9EEF5",
+  borderStrong: "#D8E0EC",
 
-  primary: "#2F74C0",
-  primaryStrong: "#255FA8",
-  primarySoft: "#E8F3FD",
+  // 唯一主色：天蓝
+  primary: "#4777E8",
+  primaryStrong: "#315FC8",
+  primarySoft: "#EDF3FF",
 
-  accent: "#F28C28",
-  accentStrong: "#D97411",
-  accentSoft: "#FDECD8",
+  // 语义色（橙=提醒/成就，不再是主色）
+  accent: "#D9942D",
+  accentStrong: "#B87818",
+  accentSoft: "#FFF5E6",
 
-  success: "#3DA35D",
-  successSoft: "#E7F6EC",
-  warning: "#D99000",
-  warningSoft: "#FCF3DF",
-  danger: "#C04545",
-  dangerSoft: "#FBEBEB",
+  success: "#269B72",
+  successSoft: "#E8F6F0",
+  warning: "#D9942D",
+  warningSoft: "#FFF5E6",
+  danger: "#D85B64",
+  dangerSoft: "#FFF0F1",
 
-  sun: "#FFB25E",
-  coral: "#F26B5E",
-  teal: "#2FB3A6",
-  lavender: "#8D7BD8",
-  peach: "#FFB77A",
+  // 领域点缀色（图表/标签）
+  sun: "#F5A94B",
+  coral: "#E8756A",
+  teal: "#2FA79B",
+  lavender: "#7E86E8",
+  peach: "#F2A97E",
 
-  scrim: "rgba(30,24,12,0.36)",
+  scrim: "rgba(18,24,38,0.42)",
 
-  // 专注沉浸暗色世界（不随主题切换）
+  // 玻璃材质（Android 走 BlurView 叠加层，iOS 走系统 GlassView）
+  glassTint: "rgba(255,255,255,0.62)",
+  glassBorder: "rgba(255,255,255,0.85)",
+  glassHighlight: "rgba(255,255,255,0.9)",
+  glassShade: "rgba(214,229,255,0.35)",
+
+  // 专注沉浸暗色世界（全屏专注，不随主题切换）
   focusCanvas: "#0F2027",
-  focusAccent: "#FFB25E",
+  focusAccent: "#FFC46B",
   focusSurface: "rgba(255,255,255,0.12)",
   focusBorder: "rgba(255,255,255,0.22)",
 
-  chart: ["#2F74C0", "#5B93D6", "#8BB7E8", "#F28C28", "#5DAE74"],
+  chart: ["#4777E8", "#7E9CF2", "#B3C6F8", "#D9942D", "#269B72"],
 };
 
-/** 苦旅 · 夜航：暖炭底 + 提亮主色，避免纯黑的生硬 */
+/** 深色档：冷调深蓝黑（不用纯黑），玻璃用深色半透 + 顶部高光 */
 const darkColors = {
-  // v17-A：**不用纯黑 #000**（纯黑会让投影彻底失效、且与 #1C1C1E 卡片对比过强）
-  canvas: "#111113",
-  surface: "#1C1C1E",
-  surfaceStrong: "#2C2C2E",
-  surfaceMuted: "rgba(235,235,245,0.08)",
-  text: "#F2F2F7",
-  textMuted: "#A8A8AD",
-  textSecondary: "#C0C0C6",
-  textFaint: "#7C7C82",
-  border: "rgba(235,235,245,0.14)",
-  borderStrong: "rgba(235,235,245,0.28)",
+  canvas: "#0F1420",
+  surface: "#161C29",
+  surfaceStrong: "#1D2534",
+  surfaceMuted: "rgba(255,255,255,0.06)",
+  text: "#E8EDF5",
+  textMuted: "#8D9AAF",
+  textSecondary: "#C2CBD9",
+  textFaint: "#6B7788",
+  border: "rgba(255,255,255,0.09)",
+  borderStrong: "rgba(255,255,255,0.20)",
 
-  primary: "#6FA8E0",
-  primaryStrong: "#8FC0F0",
-  primarySoft: "rgba(47,116,192,0.24)",
+  primary: "#6E97F5",
+  primaryStrong: "#8FADF8",
+  primarySoft: "rgba(71,119,232,0.22)",
 
-  accent: "#F5A054",
-  accentStrong: "#FFB25E",
-  accentSoft: "rgba(242,140,40,0.20)",
+  accent: "#E5A94F",
+  accentStrong: "#F2BC75",
+  accentSoft: "rgba(217,148,45,0.18)",
 
-  success: "#5BBE7D",
-  successSoft: "rgba(61,163,93,0.22)",
+  success: "#4CC08D",
+  successSoft: "rgba(38,155,114,0.22)",
   warning: "#E8B54A",
-  warningSoft: "rgba(217,144,0,0.22)",
-  danger: "#E06A6A",
-  dangerSoft: "rgba(192,69,69,0.26)",
+  warningSoft: "rgba(217,148,45,0.20)",
+  danger: "#E57F87",
+  dangerSoft: "rgba(216,91,100,0.22)",
 
-  sun: "#FFB25E",
-  coral: "#F26B5E",
-  teal: "#2FB3A6",
-  lavender: "#8D7BD8",
-  peach: "#FFB77A",
+  sun: "#F5A94B",
+  coral: "#E8756A",
+  teal: "#2FA79B",
+  lavender: "#8A92E8",
+  peach: "#F2A97E",
 
   scrim: "rgba(0,0,0,0.55)",
 
+  glassTint: "rgba(22,28,41,0.72)",
+  glassBorder: "rgba(255,255,255,0.14)",
+  glassHighlight: "rgba(255,255,255,0.18)",
+  glassShade: "rgba(71,119,232,0.20)",
+
   focusCanvas: "#0F2027",
-  focusAccent: "#FFB25E",
+  focusAccent: "#FFC46B",
   focusSurface: "rgba(255,255,255,0.12)",
   focusBorder: "rgba(255,255,255,0.22)",
 
-  chart: ["#6FA8E0", "#8BB7E8", "#F5A054", "#5BBE7D", "#B3A3EC"],
+  chart: ["#6E97F5", "#8FADF8", "#E5A94F", "#4CC08D", "#A9AFF0"],
 };
 
 export type ThemeMode = "system" | "light" | "dark";
@@ -121,44 +130,53 @@ export const radius = {
   lg: 20,
   xl: 24,
   pill: 999,
+  /** v2：卡片 / 控件 / 大面板（与原型 V3 对齐） */
+  card: 19,
+  control: 13,
+  panel: 22,
 } as const;
 
 /**
- * v17-A：投影全部中性化（原先 card 用棕橙 #B8823F、floating 用橙 #E1781C —— 这是"土"的三大来源之一）。
- * iOS 的投影是近黑、低透明度、大模糊半径；层级主要靠底色差表达，投影只做辅助。
- * 注意：深色模式下投影几乎不可见，这是 iOS 的正常表现 —— 深色的层级请靠 surface / surfaceStrong 的底色差。
- *
- * v19-V3：新增 `brand` 档 —— 品牌藏青投影（#14548D），供学习域的 hero 卡使用；
- * 中性档表达不了的"品牌深蓝层次"收进 token，禁止再裸写。
+ * 投影：v2 更轻（层级主要靠描边与色场差，投影只做辅助）。
+ * 中性近黑低透明度；深色下投影几乎不可见，属正常表现。
  */
-export const shadows: Record<"card" | "floating" | "brand", ViewStyle> = {
+export const shadows: Record<"card" | "floating" | "brand" | "glass", ViewStyle> = {
   card: {
-    shadowColor: "#1C2430",
-    shadowOpacity: 0.06,
-    shadowRadius: 22,
-    shadowOffset: { width: 0, height: 8 },
+    shadowColor: "#23304E",
+    shadowOpacity: 0.05,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 5 },
     elevation: 2,
   },
   floating: {
-    shadowColor: "#1C2430",
+    shadowColor: "#23304E",
     shadowOpacity: 0.1,
     shadowRadius: 28,
     shadowOffset: { width: 0, height: 12 },
     elevation: 6,
   },
   brand: {
-    shadowColor: "#14548D",
-    shadowOpacity: 0.16,
+    shadowColor: "#315FC8",
+    shadowOpacity: 0.14,
     shadowRadius: 20,
     shadowOffset: { width: 0, height: 8 },
     elevation: 3,
   },
+  /** 玻璃锚点（专注卡 / 弹层）：更大更柔的蓝色投影 */
+  glass: {
+    shadowColor: "#4370B8",
+    shadowOpacity: 0.12,
+    shadowRadius: 34,
+    shadowOffset: { width: 0, height: 14 },
+    elevation: 8,
+  },
 };
 
+/** 旧版时长表（micro/standard/pressScale/stagger）；新代码优先 lib/motion.ts 的 DURATION/SPRING */
 export const motion = {
   micro: { duration: 160 },
   standard: { duration: 260 },
-  pressScale: 0.96,
+  pressScale: 0.97,
   stagger: 40,
 } as const;
 
@@ -174,13 +192,10 @@ export const spacing = {
 
 /**
  * 排版体系（唯一事实源）
- * 背景：此前 25 屏各自硬编码 fontSize/fontWeight，是「观感不一致」的主因。
- * 用法：StyleSheet 内展开 `...typography.body`；数字类文本叠加 `tabularNums`。
- * 说明：不锁死行高以外的布局高度，避免系统字体放大时被截断（配合 allowFontScaling）。
+ * v2 新增：pageTitle / hero / section / meta / eyebrow / num（原型 V3 字阶）。
+ * 既有键保持不变（大量页面在用），增量迁移到新键。
  */
 export const typography = {
-  // v17-A（R7）：对齐 iOS 语义。中文正文 16pt 是可读性拐点；中文标题 600 比 700 秀气。
-  // lineHeight 按 1.19~1.5 取值，并保证在系统字号放大 130% 时单行仍能容纳（见 lib/text-scale.ts）。
   display: { fontSize: 32, lineHeight: 38, fontWeight: "800", letterSpacing: -0.4 },
   title1: { fontSize: 28, lineHeight: 34, fontWeight: "700" },
   title2: { fontSize: 22, lineHeight: 28, fontWeight: "700" },
@@ -189,6 +204,20 @@ export const typography = {
   callout: { fontSize: 15, lineHeight: 21, fontWeight: "500" },
   caption: { fontSize: 12, lineHeight: 16, fontWeight: "500" },
   micro: { fontSize: 12, lineHeight: 16, fontWeight: "600" },
+
+  // ---- v2 新增（原型 V3 字阶）----
+  /** 页面主标题：27/800，负字距 */
+  pageTitle: { fontSize: 27, lineHeight: 33, fontWeight: "800", letterSpacing: -0.6 },
+  /** Hero 标题：21/800 */
+  hero: { fontSize: 21, lineHeight: 27, fontWeight: "800", letterSpacing: -0.4 },
+  /** 区块标题：14/700 */
+  section: { fontSize: 14, lineHeight: 20, fontWeight: "700", letterSpacing: -0.15 },
+  /** 说明/元信息：12/400 */
+  meta: { fontSize: 12, lineHeight: 17, fontWeight: "400" },
+  /** eyebrow：9/800 大写字距（页头上方小标签） */
+  eyebrow: { fontSize: 9, lineHeight: 12, fontWeight: "800", letterSpacing: 1.4 },
+  /** 数字展示：20/800 等宽（配合 tabularNums） */
+  num: { fontSize: 20, lineHeight: 24, fontWeight: "800", letterSpacing: -0.3 },
 } as const;
 
 export type TypographyToken = keyof typeof typography;

@@ -39,10 +39,11 @@ const mobileSource = readFileSync(path.join(REPO, "apps/mobile/src/theme/tokens.
  * 往这里加条目必须有理由（写在该键后面）。
  */
 const MOBILE_INTENTIONAL_DRIFT = new Set([
-  "accent", // 移动端 #F28C28：比 ui 的 #e1781c 更亮，深色底上对比度更好（v1.36 调色）
-  "accentStrong", // #D97411：随 accent 调整
-  "primaryStrong", // #255FA8：移动端按压态更深
-  "canvas", // #F7F5F2：移动端画布比 ui oilPainting.canvas #fdf8ef 更中性
+  "accent", // v2.0：#D9942D（语义橙），比 ui 的 #e1781c 更沉稳，用于提醒/成就
+  "accentStrong", // v2.0：#B87818，随 accent 调整
+  "primary", // v2.0：《成长App原型 V3》冷调天蓝 #4777E8；Web 端暂不换色，P4 跨端对齐时统一
+  "primaryStrong", // v2.0：#315FC8，移动端按压态更深
+  "canvas", // v2.0：#F6F8FC 冷调浅蓝灰画布（原型 V3），Web 仍为暖白
 ]);
 
 describe("三端 tokens 一致性（棘轮）", () => {
@@ -68,7 +69,12 @@ describe("三端 tokens 一致性（棘轮）", () => {
     expect(web.accent).toBe(ui.accent);
   });
 
-  it("mobile 品牌主色与 ui 一致（primary 不分叉）", () => {
+  it("mobile 品牌主色与 ui 一致（primary 不分叉，除非已登记）", () => {
+    if (MOBILE_INTENTIONAL_DRIFT.has("primary")) {
+      // v2.0 起移动端主色按原型 V3 换为天蓝；这里改为"必须在例外清单内"而不是禁止漂移
+      expect(mobile.primary).not.toBe(ui.primary);
+      return;
+    }
     expect(mobile.primary).toBe(ui.primary);
   });
 

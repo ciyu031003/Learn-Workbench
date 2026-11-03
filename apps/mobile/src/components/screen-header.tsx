@@ -11,6 +11,7 @@ import { useAnimatedScrollHandler, useSharedValue, type SharedValue } from "reac
 import { router, usePathname } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
+import { BlurView } from "expo-blur";
 import { ThemedIcon } from "@/components/themed-icon";
 import { useTheme } from "@/theme";
 import { typography, type ThemeColors } from "@/theme/tokens";
@@ -170,7 +171,7 @@ export function ScreenHeaderStickyBar({
   scrollY?: SharedValue<number>;
   right?: React.ReactNode;
 }) {
-  const { colors } = useTheme();
+  const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
   const topInset = resolveTopInset(insets.top);
   const pathname = usePathname();
@@ -180,6 +181,12 @@ export function ScreenHeaderStickyBar({
 
   return (
     <View style={[styles.stickyWrap, { paddingTop: topInset }]}>
+      <BlurView
+        intensity={28}
+        tint={dark ? "dark" : "light"}
+        experimentalBlurMethod="dimezisBlurView"
+        style={StyleSheet.absoluteFill}
+      />
       <View style={styles.stickyBg} pointerEvents="none" />
       <View style={styles.stickyRow}>
         <Pressable
@@ -220,9 +227,9 @@ const makeStyles = (colors: ThemeColors) =>
       borderColor: colors.border,
     },
     text: { flex: 1, minWidth: 0, gap: 2 },
-    title: { ...typography.headline, fontWeight: "700", color: colors.text },
-    largeTitle: { ...typography.display, color: colors.text },
-    subtitle: { ...typography.caption, fontWeight: "400", color: colors.textMuted },
+    title: { ...typography.callout, fontWeight: "700", color: colors.text },
+    largeTitle: { ...typography.pageTitle, color: colors.text },
+    subtitle: { ...typography.meta, color: colors.textMuted },
     right: { flexDirection: "row", alignItems: "center", gap: 8 },
     /** 大标题块（在滚动内容里）——只补顶部让位，左右留白由页面 content 的 padding 提供 */
     largeInFlow: { paddingBottom: 6, gap: 2 },
@@ -238,8 +245,8 @@ const makeStyles = (colors: ThemeColors) =>
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: colors.canvas,
-      borderBottomWidth: StyleSheet.hairlineWidth,
+      backgroundColor: colors.canvas + "D9",
+      borderBottomWidth: StyleSheet.hairlineWidth * 2,
       borderBottomColor: colors.border,
     },
     stickyRow: {

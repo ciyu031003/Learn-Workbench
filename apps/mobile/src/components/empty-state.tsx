@@ -46,7 +46,7 @@ export function EmptyState({
     <View style={[styles.wrap, style]}>
       {pattern !== "none" ? <PatternBackdrop variant={pattern} /> : null}
       <View style={styles.chip}>
-        <ThemedIcon name={icon} size={22} color={colors.primary} />
+        <ThemedIcon name={icon} size={26} color={colors.textFaint} />
       </View>
       <Text style={styles.title} numberOfLines={2}>
         {title}
@@ -57,7 +57,7 @@ export function EmptyState({
         </Text>
       ) : null}
       {actionLabel ? (
-        <PressableScale style={styles.cta} onPress={handlePress}>
+        <PressableScale style={styles.cta} onPress={handlePress} accessibilityRole="button" accessibilityLabel={actionLabel}>
           <Text style={styles.ctaText}>{actionLabel}</Text>
         </PressableScale>
       ) : null}
@@ -70,34 +70,37 @@ const makeStyles = (colors: ThemeColors) =>
     wrap: {
       alignItems: "center",
       justifyContent: "center",
-      paddingVertical: spacing["3xl"],
-      paddingHorizontal: spacing.xl,
+      paddingVertical: 26,
+      paddingHorizontal: spacing.lg,
       gap: spacing.sm,
-      borderRadius: radius.lg,
+      borderRadius: radius.card,
       overflow: "hidden",
     },
     chip: {
-      width: 56,
-      height: 56,
-      borderRadius: radius.lg,
-      backgroundColor: colors.primarySoft,
+      width: 64,
+      height: 64,
+      borderRadius: 20,
+      backgroundColor: colors.surfaceMuted,
       alignItems: "center",
       justifyContent: "center",
       marginBottom: spacing.sm,
     },
-    title: { ...typography.headline, color: colors.text, textAlign: "center" },
+    title: { ...typography.callout, fontWeight: "700", color: colors.text, textAlign: "center" },
     hint: {
-      ...typography.callout,
-      color: colors.textSecondary,
+      ...typography.meta,
+      color: colors.textMuted,
       textAlign: "center",
       maxWidth: 280,
+      lineHeight: 20,
     },
     cta: {
       marginTop: spacing.md,
-      backgroundColor: colors.primary,
+      minHeight: 44,
+      backgroundColor: colors.primarySoft,
       borderRadius: radius.pill,
       paddingHorizontal: spacing.xl,
       paddingVertical: spacing.md,
+      justifyContent: "center",
     },
-    ctaText: { ...typography.body, fontWeight: "800", color: "#FFFFFF" },
+    ctaText: { ...typography.callout, fontWeight: "700", color: colors.primary },
   });

@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
-import { radius, spacing, tabularNums, typography } from "@/theme/tokens";
+import { radius, shadows, spacing, tabularNums, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import type { EntryTone } from "@/components/entry-card";
@@ -95,10 +95,13 @@ const makeStyles = (colors: ThemeColors) =>
     strip: {
       flexDirection: "row",
       alignItems: "center",
-      backgroundColor: colors.surface,
-      borderRadius: radius.lg,
+      backgroundColor: colors.surfaceStrong,
+      borderRadius: radius.card,
+      borderWidth: StyleSheet.hairlineWidth * 2,
+      borderColor: colors.border,
       paddingVertical: spacing.md,
       paddingHorizontal: spacing.sm,
+      ...shadows.card,
     },
     cell: {
       flex: 1,

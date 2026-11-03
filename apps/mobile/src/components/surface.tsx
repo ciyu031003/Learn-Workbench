@@ -1,33 +1,41 @@
 import { useMemo, type ReactNode } from "react";
 import { Platform, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from "expo-glass-effect";
+import { BlurView } from "expo-blur";
 import { radius, shadows } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 
 /**
- * 材质三级（见 docs/APP端优化方案-v2 §8.3①）
+ * 材质分层（v2.0 · 冷调浅工作台 / Liquid Glass）
  *
- * - `surface`  实底 `surfaceStrong` + hairline 边       → 常规信息卡
- * - `elevated` 实底 + `shadows.card` + 稍大圆角         → 需要浮起（列表容器 / 工具条）
- * - `glass`    iOS 26 `GlassView`（真液态玻璃）         → Sheet / Hero / 卡片
- *              非 iOS 或系统不可用时回落 `elevated`
+ * - `surface`     实底白卡 + 细描边                    → 常规信息卡（默认）
+ * - `elevated`    实底 + 轻投影                         → 需要浮起的容器
+ * - `glass`       轻玻璃（导航 / 吸顶栏 / 选中 pill）      → 只做层级，不承载语义
+ * - `glassStrong` 强玻璃（视觉锚点：专注卡 / 弹层）        → 每屏最多 1 个
  *
- * 约束：**玻璃只做层级，不承载语义**；文字对比度按最坏背景（Bing 深色风景）校验，
- * 系统「降低透明度」开启时回落实底。底栏不走玻璃（决策 D10）。
+ * 三档实现：
+ *  1) iOS 26+：`expo-glass-effect` 系统液态玻璃；
+ *  2) Android / iOS<26：`expo-blur` BlurView（Android 用 dimezisBlurView）+ 半透明叠加 + 1px 高光；
+ *  3) `opaque`（弹层底色需不透光）：仍叠 BlurView，但用高不透明度实底压住穿透。
+ *
+ * 约束：玻璃只做层级、不承载语义；文字对比度按最坏背景校验；系统「降低透明度」时回落实底。
  */
-export type SurfaceTier = "surface" | "elevated" | "glass";
+export type SurfaceTier = "surface" | "elevated" | "glass" | "glassStrong";
 
-/** iOS 26 且运行时 API 可用时才有真玻璃（Android/iOS<26 返回 false） */
+/** iOS 26 且运行时 API 可用时才有系统级液态玻璃（Android/iOS<26 返回 false） */
 export function glassSupported(): boolean {
   return Platform.OS === "ios" && isLiquidGlassAvailable() && isGlassEffectAPIAvailable();
 }
+
+/** Android 的 BlurView 需要显式开启实验实现；其它平台不需要 */
+const BLUR_METHOD = Platform.OS === "android" ? "dimezisBlurView" : "none";
 
 export function Surface({
   children,
   style,
   tier = "surface",
-  corner = radius.lg,
+  corner = radius.card,
   padded = true,
 }: {
   children?: ReactNode;
@@ -38,9 +46,9 @@ export function Surface({
 }) {
   const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
-  if (tier === "glass") {
+  if (tier === "glass" || tier === "glassStrong") {
     return (
-      <GlassSurface style={style} corner={corner} padded={padded}>
+      <GlassSurface strong={tier === "glassStrong"} style={style} corner={corner} padded={padded}>
         {children}
       </GlassSurface>
     );
@@ -53,44 +61,36 @@ export function Surface({
 }
 
 /**
- * 软玻璃容器：iOS 走真玻璃，其它平台回落 `elevated`（保证一致观感）。
- * 需要显式给出 `fallbackColor` 之外的内容时，直接传 children。
+ * 玻璃容器：iOS 26 走系统 GlassView；其它平台走 BlurView + 叠加层（无 blur 时退化为半透明实底）。
+ * 需要完全遮住下层内容时传 `opaque`（弹层底部用）。
  */
 export function GlassSurface({
   children,
   style,
-  corner = radius.lg,
+  corner = radius.card,
   padded = true,
   tint,
   interactive = false,
   opaque = false,
+  strong = false,
 }: {
   children?: ReactNode;
   style?: StyleProp<ViewStyle>;
   corner?: number;
   padded?: boolean;
-  /** iOS 玻璃染色；不传则用系统默认 */
+  /** iOS 玻璃染色；不传用系统默认 */
   tint?: string;
   /** 可交互玻璃（iOS 26 按压高亮） */
   interactive?: boolean;
-  /**
-   * 实底模式（v5 P1-2）：弹窗/抽屉必须不透光，否则底下的内容会"看穿"过来。
-   * - iOS：玻璃照旧，但用 `surfaceStrong` 作为 tint 压住透光；
-   * - 其它平台：回落分支直接用 `surfaceStrong` 实底，不再叠半透明覆盖层。
-   * Hero 卡不要传这个（决策 D2：只改弹窗，Hero 保留玻璃观感）。
-   */
+  /** 弹层/抽屉：底色必须不透光 */
   opaque?: boolean;
+  /** 强玻璃（视觉锚点） */
+  strong?: boolean;
 }) {
   const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
   const themeKey = dark ? "dark" : "light";
 
-  /**
-   * `opaque`：弹窗/抽屉要求"完全看不穿"（v1.5 反馈）。
-   * iOS 的 `GlassView` 是系统玻璃材质，`tintColor` 只染色、**不保证不透光** ——
-   * 所以 opaque 时**两个平台都走实底分支**，牺牲玻璃质感换取确定性（只有 sheet 传这个开关，
-   * Hero 卡仍走上面的玻璃分支）。
-   */
   if (glassSupported() && !opaque) {
     return (
       <GlassView
@@ -106,36 +106,68 @@ export function GlassSurface({
     );
   }
 
-  /**
-   * 真机色差修复（v1.31）：不再叠半透明覆盖层。
-   *
-   * 原实现：styles.elevated（不透明 surfaceStrong）之后**再叠**一层 rgba(255,255,255,0.86)
-   * （浅色）/ rgba(20,24,28,0.72)（深色），把整卡变成了"半透明底"。
-   * 后果（Android）：shadows.card 带 elevation: 2，而 **elevation 在非不透明背景上无法生成
-   * 圆角轮廓**，系统改用背景色按**不透明矩形**算 outline —— 卡片周围于是出现一块
-   * "没盖满、四周发灰"的白色矩形，正是用户反馈的「中间白色方框 + 四周灰色色差」。
-   *
-   * 现在：玻璃兜底分支直接用 styles.elevated 的不透明底色（圆角阴影正常，内层同色小块也不再突兀）；
-   * 玻璃的受光观感由顶部 1px 高光 + 柔影承担。仅当调用方显式传 tint（实色）时才覆盖底色。
-   */
+  // ---- BlurView 降档（Android / iOS<26 / opaque 弹层）----
   return (
     <View
       key={themeKey}
       style={[
         styles.base,
-        { borderRadius: corner },
+        { borderRadius: corner, overflow: "hidden" },
         padded && styles.padded,
-        styles.elevated,
-        tint ? { backgroundColor: tint } : null,
+        strong ? shadows.glass : shadows.card,
         style,
       ]}
     >
-      {/* 顶部 1px 高光：模拟软玻璃的受光边（不做模糊，零性能开销） */}
-      <View pointerEvents="none" style={[styles.highlight, { borderTopLeftRadius: corner, borderTopRightRadius: corner }]} />
+      <BlurView
+        intensity={strong ? 46 : 26}
+        tint={dark ? "dark" : "light"}
+        experimentalBlurMethod={BLUR_METHOD}
+        style={StyleSheet.absoluteFill}
+      />
+      {/* 半透明染色层：保证文字对比度，同时给玻璃一点色温 */}
+      <View
+        pointerEvents="none"
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundColor: opaque ? colors.surfaceStrong : colors.glassTint, opacity: opaque ? 0.94 : 1 },
+        ]}
+      />
+      {/* 细边 + 1px 顶部高光：玻璃的"厚度"全靠这两笔 */}
+      <View
+        pointerEvents="none"
+        style={[
+          StyleSheet.absoluteFill,
+          { borderRadius: corner, borderWidth: StyleSheet.hairlineWidth * 2, borderColor: colors.glassBorder },
+        ]}
+      />
+      <View pointerEvents="none" style={styles.highlight} />
       {children}
     </View>
   );
 }
+
+/** Hero / 专注卡用的静态柔光（斜向高光 + 顶部 1px），不做循环动画 */
+export function GlassHighlight({ corner = radius.panel }: { corner?: number }) {
+  const { colors } = useTheme();
+  return (
+    <>
+      <View
+        pointerEvents="none"
+        style={[StyleSheet.absoluteFill, { borderRadius: corner, borderWidth: 1, borderColor: colors.glassHighlight, opacity: 0.7 }]}
+      />
+      <View pointerEvents="none" style={stylesHighlightStatic} />
+    </>
+  );
+}
+
+const stylesHighlightStatic = {
+  position: "absolute" as const,
+  top: 0,
+  left: 0,
+  right: 0,
+  height: StyleSheet.hairlineWidth * 2,
+  backgroundColor: "rgba(255,255,255,0.85)",
+};
 
 const makeStyles = (colors: ThemeColors, dark: boolean) =>
   StyleSheet.create({
@@ -143,17 +175,15 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       overflow: "hidden",
     },
     padded: { padding: 16, gap: 10 },
-    /**
-     * v17 R6：表面层不再用描边界定边界（浅色下靠白底 + 中性柔影分层）。
-     * 深色下投影几乎不可见，改用一圈 hairline 表达层级 —— 这也是 iOS 深色分组列表的做法。
-     */
     surface: {
       backgroundColor: colors.surfaceStrong,
-      ...(dark ? { borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border } : null),
+      borderWidth: StyleSheet.hairlineWidth * 2,
+      borderColor: colors.border,
     },
     elevated: {
       backgroundColor: colors.surfaceStrong,
-      ...(dark ? { borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border } : null),
+      borderWidth: StyleSheet.hairlineWidth * 2,
+      borderColor: colors.border,
       ...shadows.card,
     },
     highlight: {
@@ -161,7 +191,7 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       top: 0,
       left: 0,
       right: 0,
-      height: 1,
-      backgroundColor: "rgba(255,255,255,0.28)",
+      height: StyleSheet.hairlineWidth * 2,
+      backgroundColor: dark ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.85)",
     },
   });

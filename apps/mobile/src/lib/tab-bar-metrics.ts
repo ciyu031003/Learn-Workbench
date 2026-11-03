@@ -9,9 +9,9 @@
  * 需要安全区的组件用 `@/lib/use-tab-bar-space` 的 `useTabBarSpace()`。
  */
 /** 底栏（悬浮胶囊）本体高度，不含安全区 */
-export const TAB_BAR_HEIGHT = 56;
+export const TAB_BAR_HEIGHT = 62;
 /** 悬浮胶囊离底部安全区的间距（v12 悬空玻璃底栏） */
-export const TAB_BAR_FLOAT_GAP = 6;
+export const TAB_BAR_FLOAT_GAP = 8;
 /** 底栏之上的呼吸留白，避免最后一行贴着底栏 */
 export const TAB_BAR_BREATHING = 18;
 
