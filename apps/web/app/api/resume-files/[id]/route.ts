@@ -8,7 +8,7 @@ import { parseBody } from "@/lib/http";
 import { contentTypeFor, isSafeResumePath, removeResumeFile, resumeAbsPath, resumeExtOf } from "@/lib/resume-files";
 // P2-1：简历领域标签白名单收进 shared 单一出口（Web 与 App 共用，避免两套常量）
 import { RESUME_LABELS, normalizeResumeLabel } from "@learn-workbench/shared/labels";
-import { logger } from "@/lib/logger";
+import { ensureSingleDefault } from "@/lib/resume-default";
 
 function parseId(raw: string): number | null {
   const n = Number(raw);
@@ -74,41 +74,10 @@ async function getImpl(req: Request, ctx: { params: Promise<{ id: string }> }) {
 }
 
 /**
- * P2-1 · 默认简历回溯：给该用户补一条默认（没有默认时把最近上传的一份设为默认）。
- *
- * 与 apps/web/app/api/resume-files/route.ts 的 ensureSingleDefault 同一条 SQL（两处各自持有，
- * 避免跨 route 文件互相 import）。并发安全：UPDATE 内再判一次 NOT EXISTS，部分唯一索引
- * uq_resume_files_default 兜底；失败只记日志（下次 GET 会再试，列表不受影响）。
- */
-async function ensureSingleDefault(userId: string): Promise<string | null> {
-  try {
-    const { rows } = await pgPool.query<{ id: string }>(
-      `UPDATE resume_files SET is_default = true
-        WHERE id = (
-          SELECT id FROM resume_files
-           WHERE user_id = $1 AND deleted_at IS NULL
-           ORDER BY created_at DESC, id DESC
-           LIMIT 1
-        )
-        AND NOT EXISTS (
-          SELECT 1 FROM resume_files
-           WHERE user_id = $1 AND deleted_at IS NULL AND is_default
-        )
-       RETURNING id::text AS id`,
-      [userId]
-    );
-    return rows[0]?.id ?? null;
-  } catch (error) {
-    logger.error("resume-files: 默认简历回溯失败", error);
-    return null;
-  }
-}
-
-/**
  * DELETE /api/resume-files/[id] —— 删除自己的简历（软删 + 清文件）
  *
- * P2-1：删掉的若是「默认简历」，自动把剩余最新一份提升为默认（返回 promoted 便于客户端即时更新）；
- * 提升失败不影响删除结果（下次 GET 列表会自愈）。
+ * P2-1：删掉的若是「默认简历」，由 lib/resume-default 的原子提升（含 23505 重试）把剩余最新一份
+ * 设为默认并返回 promoted 便于客户端即时更新；提升失败不影响删除结果（下次 GET 列表会自愈）。
  */
 async function deleteImpl(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const id = parseId((await ctx.params).id);

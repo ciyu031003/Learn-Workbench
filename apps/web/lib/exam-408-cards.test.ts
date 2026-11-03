@@ -18,6 +18,7 @@ import {
   cardQueueStateOf,
   computeCardStreak,
   gradeCard,
+  loadCardDetail,
   loadCardQueue,
   loadCardStats,
   normalizeAnswerSteps,
@@ -368,6 +369,65 @@ describe("SQL 层（mock pgPool）", () => {
     expect(queue.cards[0]).toMatchObject({ key: "408card/ds-01-001", pitfall: null, star: true, state: "new" });
     expect(queue.stats).toEqual({ newCount: 1, dueCount: 0, doneToday: 3, streak: 1 });
     expect(queue.scope).toBe("queue");
+  });
+
+  it("loadCardDetail：按 key 取单卡，登录给调度状态 / 未登录 schedule=null", async () => {
+    queryMock.mockResolvedValueOnce({
+      rows: [
+        {
+          key: "408card/ds-01-001",
+          subject_key: "data-structure",
+          chapter: 1,
+          question: "线性表的基本特征？",
+          answer_steps: ["有限序列"],
+          pitfall: "",
+          mnemonic: null,
+          star: true,
+          demo_key: null,
+          knowledge_point_key: null,
+          status: "review",
+          due_at: "2026-10-30T00:00:00.000Z",
+          lapses: 2,
+          last_result: true,
+        },
+      ],
+    } as never);
+
+    const detail = await loadCardDetail("408card/ds-01-001", "u-1", { now: NOW });
+    expect(String(queryMock.mock.calls[0]?.[0])).toContain("c.key = $4");
+    expect(queryMock.mock.calls[0]?.[1]).toEqual(["u-1", "ex-408-cards", null, "408card/ds-01-001"]);
+    expect(detail?.card).toMatchObject({ key: "408card/ds-01-001", pitfall: null, star: true });
+    expect(detail?.schedule).toEqual({
+      state: "due",
+      dueAt: "2026-10-30T00:00:00.000Z",
+      lapses: 2,
+    });
+
+    queryMock.mockResolvedValueOnce({ rows: [] } as never);
+    expect(await loadCardDetail("408card/missing", "u-1", { now: NOW })).toBeNull();
+
+    queryMock.mockResolvedValueOnce({
+      rows: [
+        {
+          key: "408card/ds-01-001",
+          subject_key: "data-structure",
+          chapter: 1,
+          question: "线性表的基本特征？",
+          answer_steps: ["有限序列"],
+          pitfall: null,
+          mnemonic: null,
+          star: false,
+          demo_key: null,
+          knowledge_point_key: null,
+          status: null,
+          due_at: null,
+          lapses: 0,
+          last_result: null,
+        },
+      ],
+    } as never);
+    const anonymous = await loadCardDetail("408card/ds-01-001", null, { now: NOW });
+    expect(anonymous?.schedule).toBeNull();
   });
 
   it("loadCardStats：四行科目 + 今日/连续天数", async () => {

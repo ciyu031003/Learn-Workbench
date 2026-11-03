@@ -528,7 +528,7 @@ function mapCardRow(row: CardRow): { card: Exam408CardContent; candidate: CardQu
   };
 }
 
-const CARD_SELECT = `
+const CARD_SELECT_COLUMNS = `
   SELECT c.key, c.subject_key, c.chapter, c.question, c.answer_steps, c.pitfall, c.mnemonic,
          c.star, c.demo_key, c.knowledge_point_key,
          r.status, r.due_at, r.lapses, r.last_result
@@ -536,9 +536,9 @@ const CARD_SELECT = `
     LEFT JOIN learning_review_cards r
       ON r.user_id = $1 AND r.track_slug = $2 AND r.question_key = c.key
    WHERE c.status = 'published'
-     AND ($3::text IS NULL OR c.subject_key = $3)
-   ORDER BY c.subject_key, c.chapter, c.sort_order, c.key
-`;
+     AND ($3::text IS NULL OR c.subject_key = $3)`;
+
+const CARD_SELECT = CARD_SELECT_COLUMNS + " ORDER BY c.subject_key, c.chapter, c.sort_order, c.key";
 
 async function loadCardRows(userId: string, subject?: string | null): Promise<CardRow[]> {
   const { rows } = await pgPool.query<CardRow>(CARD_SELECT, [
@@ -547,6 +547,49 @@ async function loadCardRows(userId: string, subject?: string | null): Promise<Ca
     subject && subject.length > 0 ? subject : null,
   ]);
   return rows;
+}
+
+/**
+ * 单张卡详情（P3-1 速记卡详情页，App / Web 只读）。
+ *
+ * 与队列不同：这里不按到期/新卡过滤，任何已发布卡都能按 key 取到（搜索命中后跳详情）。
+ * 未登录时 schedule 为 null（卡片内容本身是公开内容，不要求登录即可阅读）；
+ * 登录时返回个人调度状态，供详情页展示「新卡 / 已到期 / 未到期」。
+ */
+export interface Exam408CardSchedule {
+  state: CardQueueState;
+  dueAt: string | null;
+  lapses: number;
+}
+
+export interface Exam408CardDetail {
+  card: Exam408CardContent;
+  schedule: Exam408CardSchedule | null;
+}
+
+export async function loadCardDetail(
+  cardKey: string,
+  userId: string | null,
+  options: { now?: Date } = {},
+): Promise<Exam408CardDetail | null> {
+  const { rows } = await pgPool.query<CardRow>(
+    CARD_SELECT_COLUMNS + " AND c.key = $4 LIMIT 1",
+    [userId, CARD_TRACK_SLUG, null, cardKey],
+  );
+  const row = rows[0];
+  if (!row) return null;
+  // mapCardRow 自己解释 $1 为 null 的语义：LEFT JOIN 未命中 → status/due_at 为 null
+  const { card, candidate } = mapCardRow(row);
+  return {
+    card,
+    schedule: userId
+      ? {
+          state: cardQueueStateOf(candidate, options.now ?? new Date()),
+          dueAt: candidate.dueAt,
+          lapses: candidate.lapses,
+        }
+      : null,
+  };
 }
 
 interface AttemptAggregateRow {

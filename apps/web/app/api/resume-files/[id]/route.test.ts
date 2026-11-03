@@ -27,6 +27,13 @@ const userMock = vi.mocked(currentUserId);
 const ticketMock = vi.mocked(verifyFileTicket);
 const ctx = (id: string) => ({ params: Promise.resolve({ id }) });
 
+/** 模拟并发写默认撞 uq_resume_files_default（PostgreSQL 23505） */
+function uniqueViolation(): Error {
+  return Object.assign(new Error('duplicate key value violates unique constraint "uq_resume_files_default"'), {
+    code: "23505",
+  });
+}
+
 beforeEach(() => {
   vi.resetAllMocks();
   queryMock.mockResolvedValue({ rows: [{ path: "2f1b1f2e-0000-4000-8000-000000000000/abc.pdf", fileName: "简历.pdf", mime: "application/pdf" }] } as never);
@@ -130,7 +137,9 @@ describe("DELETE /api/resume-files/[id]", () => {
     expect(body.promoted).toBe("7");
     expect(queryMock).toHaveBeenCalledTimes(2);
     const [sql, args] = queryMock.mock.calls[1];
-    expect(String(sql)).toContain("UPDATE resume_files SET is_default = true");
+    // 原子提升：单条带 CTE 的 UPDATE，判定（NOT EXISTS）与写入同语句
+    expect(String(sql)).toContain("WITH candidate AS");
+    expect(String(sql)).toContain("SET is_default = true");
     expect(String(sql)).toContain("NOT EXISTS");
     expect(args).toEqual(["u-1"]);
   });
@@ -171,6 +180,42 @@ describe("DELETE /api/resume-files/[id]", () => {
     expect(body.ok).toBe(true);
     expect(body.promoted).toBeNull();
     expect(logErrorMock).toHaveBeenCalled();
+  });
+
+  it("并发唯一冲突（23505）一次 → 退避重试成功，返回 promoted", async () => {
+    userMock.mockResolvedValue("u-1");
+    queryMock
+      .mockResolvedValueOnce({
+        rows: [{ path: "2f1b1f2e-0000-4000-8000-000000000000/abc.pdf", isDefault: true }],
+      } as never)
+      .mockRejectedValueOnce(uniqueViolation())
+      .mockResolvedValueOnce({ rows: [{ id: "7" }] } as never);
+    const res = await DELETE(new Request("http://localhost", { method: "DELETE" }), ctx("1"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.promoted).toBe("7");
+    expect(queryMock).toHaveBeenCalledTimes(3);
+    expect(logErrorMock).not.toHaveBeenCalled();
+  });
+
+  it("唯一冲突重试耗尽 → 删除仍成功（200 ok / promoted null / 只记日志）", async () => {
+    userMock.mockResolvedValue("u-1");
+    queryMock
+      .mockResolvedValueOnce({
+        rows: [{ path: "2f1b1f2e-0000-4000-8000-000000000000/abc.pdf", isDefault: true }],
+      } as never)
+      .mockRejectedValueOnce(uniqueViolation())
+      .mockRejectedValueOnce(uniqueViolation())
+      .mockRejectedValueOnce(uniqueViolation());
+    const res = await DELETE(new Request("http://localhost", { method: "DELETE" }), ctx("1"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.promoted).toBeNull();
+    // 1 次软删 + 3 次尝试（首次 + 2 次退避重试）
+    expect(queryMock).toHaveBeenCalledTimes(4);
+    expect(logErrorMock).toHaveBeenCalledTimes(1);
   });
 });
 

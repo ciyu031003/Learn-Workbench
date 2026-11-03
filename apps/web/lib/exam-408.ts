@@ -347,6 +347,21 @@ export async function getExam408Point(
   };
 }
 
+/**
+ * 单道真题详情（P3-1 真题详情页 / App 搜索命中跳转）。
+ *
+ * 与 getExam408Point 的区别：按题目主键取，不依赖知识点；题目与知识点关联仍完整返回
+ * （knowledgePoints 的 key 已 externalize，客户端可直接跳知识点页）。未发布返回 null。
+ */
+export async function getExam408Question(key: string): Promise<Exam408Question | null> {
+  const rows = await readQuestions(
+    `WHERE q.key = $1 AND q.status = 'published' LIMIT 1`,
+    [key],
+  );
+  const row = rows[0];
+  return row ? mapQuestion(row) : null;
+}
+
 async function readSource(): Promise<Exam408Source> {
   const { rows } = await pgPool.query<{
     key: string;

@@ -6,6 +6,7 @@ vi.mock("@/lib/exam-408-cards", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/exam-408-cards")>();
   return {
     ...actual,
+    loadCardDetail: vi.fn(),
     loadCardQueue: vi.fn(),
     loadCardStats: vi.fn(),
     gradeCard: vi.fn(),
@@ -16,12 +17,14 @@ import { currentUserId } from "@/lib/session";
 import {
   CardNotFoundError,
   gradeCard,
+  loadCardDetail,
   loadCardQueue,
   loadCardStats,
 } from "@/lib/exam-408-cards";
 import { GET, POST } from "./route";
 
 const userMock = vi.mocked(currentUserId);
+const detailMock = vi.mocked(loadCardDetail);
 const queueMock = vi.mocked(loadCardQueue);
 const statsMock = vi.mocked(loadCardStats);
 const gradeMock = vi.mocked(gradeCard);
@@ -133,6 +136,74 @@ describe("GET /api/exam/408/cards", () => {
     const response = await GET(request("http://localhost/api/exam/408/cards?mode=queue"));
     expect(response.status).toBe(500);
     expect(await response.json()).toMatchObject({ error: "刷卡队列加载失败", code: "internal_error" });
+  });
+});
+
+describe("GET /api/exam/408/cards?mode=card", () => {
+  const cardPayload = {
+    card: {
+      key: "408card/ds-01-001",
+      subjectKey: "data-structure",
+      chapter: 1,
+      question: "线性表的基本特征是什么？",
+      answerSteps: ["有限序列", "逻辑相邻"],
+      pitfall: null,
+      mnemonic: null,
+      star: true,
+      demoKey: null,
+      knowledgePointKey: "beokayy-408/ds-01-01",
+    },
+    schedule: { state: "due" as const, dueAt: "2026-11-01T10:00:00.000Z", lapses: 1 },
+  };
+
+  it("缺 cardKey / 超长返回 400，不查库", async () => {
+    const missing = await GET(request("http://localhost/api/exam/408/cards?mode=card"));
+    expect(missing.status).toBe(400);
+    const tooLong = await GET(
+      request("http://localhost/api/exam/408/cards?mode=card&cardKey=" + "x".repeat(121)),
+    );
+    expect(tooLong.status).toBe(400);
+    expect(detailMock).not.toHaveBeenCalled();
+  });
+
+  it("未登录也能读卡片内容（schedule 为 null）", async () => {
+    userMock.mockResolvedValueOnce(null);
+    detailMock.mockResolvedValueOnce({ ...cardPayload, schedule: null });
+    const response = await GET(
+      request("http://localhost/api/exam/408/cards?mode=card&cardKey=408card%2Fds-01-001"),
+    );
+    expect(response.status).toBe(200);
+    expect(detailMock).toHaveBeenCalledWith("408card/ds-01-001", null);
+    expect(await response.json()).toEqual({ mode: "card", ...cardPayload, schedule: null });
+  });
+
+  it("登录时透传 userId 并返回个人调度状态 + 私有缓存头", async () => {
+    detailMock.mockResolvedValueOnce(cardPayload);
+    const response = await GET(
+      request("http://localhost/api/exam/408/cards?mode=card&cardKey=408card%2Fds-01-001"),
+    );
+    expect(response.status).toBe(200);
+    expect(detailMock).toHaveBeenCalledWith("408card/ds-01-001", "u-1");
+    expect(response.headers.get("cache-control")).toBe("private, max-age=60");
+    expect(await response.json()).toEqual({ mode: "card", ...cardPayload });
+  });
+
+  it("卡不存在返回 404", async () => {
+    detailMock.mockResolvedValueOnce(null);
+    const response = await GET(
+      request("http://localhost/api/exam/408/cards?mode=card&cardKey=408card%2Fmissing"),
+    );
+    expect(response.status).toBe(404);
+    expect(await response.json()).toMatchObject({ error: "速记卡不存在", code: "not_found" });
+  });
+
+  it("查询异常返回 500 结构化错误", async () => {
+    detailMock.mockRejectedValueOnce(new Error("boom"));
+    const response = await GET(
+      request("http://localhost/api/exam/408/cards?mode=card&cardKey=408card%2Fds-01-001"),
+    );
+    expect(response.status).toBe(500);
+    expect(await response.json()).toMatchObject({ error: "速记卡加载失败", code: "internal_error" });
   });
 });
 

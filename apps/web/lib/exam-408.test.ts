@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/db", () => ({ pgPool: { query: vi.fn() } }));
 
 import { pgPool } from "@/lib/db";
-import { getExam408Overview, getExam408Paper, getExam408Point } from "./exam-408";
+import { getExam408Overview, getExam408Paper, getExam408Point, getExam408Question } from "./exam-408";
 
 const queryMock = vi.mocked(pgPool.query);
 
@@ -228,6 +228,34 @@ describe("getExam408Point", () => {
       .mockResolvedValueOnce({ rows: [] } as never);
 
     expect(await getExam408Point("beokayy-408/missing")).toBeNull();
+  });
+});
+
+describe("getExam408Question", () => {
+  it("按题 key 取单题，并 externalize 知识点 key", async () => {
+    queryMock.mockResolvedValueOnce({
+      rows: [
+        questionRow({
+          key: "beokayy-408/2016-01",
+          question_id: "2016-01",
+          question_number: 1,
+          type: "choice",
+          points: 2,
+          knowledge_points: [{ key: "beokayy-408/ds-01-01", title: "顺序表" }],
+        }),
+      ],
+    } as never);
+
+    const question = await getExam408Question("beokayy-408/2016-01");
+    expect(String(queryMock.mock.calls[0]?.[0])).toContain("q.key = $1");
+    expect(queryMock.mock.calls[0]?.[1]).toEqual(["beokayy-408/2016-01"]);
+    expect(question).toMatchObject({ key: "beokayy-408/2016-01", year: 2016, number: 1, points: 2 });
+    expect(question?.knowledgePoints).toEqual([{ key: "yuanabd-408/ds-01-01", title: "顺序表" }]);
+  });
+
+  it("题目不存在返回 null", async () => {
+    queryMock.mockResolvedValueOnce({ rows: [] } as never);
+    expect(await getExam408Question("beokayy-408/missing")).toBeNull();
   });
 });
 

@@ -22,6 +22,13 @@ const userMock = vi.mocked(currentUserId);
 const validateMock = vi.mocked(validateResumeFile);
 const logErrorMock = vi.mocked(logger.error);
 
+/** 模拟并发写默认撞 uq_resume_files_default（PostgreSQL 23505） */
+function uniqueViolation(): Error {
+  return Object.assign(new Error('duplicate key value violates unique constraint "uq_resume_files_default"'), {
+    code: "23505",
+  });
+}
+
 beforeEach(() => {
   vi.resetAllMocks();
   validateMock.mockReturnValue({ ok: true, ext: "pdf" });
@@ -159,7 +166,9 @@ describe("GET /api/resume-files · 默认简历回溯（P2-1）", () => {
     expect(body.files[1].isDefault).toBe(false);
     expect(queryMock).toHaveBeenCalledTimes(2);
     const [sql, args] = queryMock.mock.calls[1];
-    expect(String(sql)).toContain("UPDATE resume_files SET is_default = true");
+    // 原子提升：单条带 CTE 的 UPDATE，判定（NOT EXISTS）与写入同语句
+    expect(String(sql)).toContain("WITH candidate AS");
+    expect(String(sql)).toContain("SET is_default = true");
     expect(String(sql)).toContain("NOT EXISTS");
     expect(String(sql)).toContain("ORDER BY created_at DESC, id DESC");
     expect(args).toEqual(["u-1"]);
@@ -192,6 +201,39 @@ describe("GET /api/resume-files · 默认简历回溯（P2-1）", () => {
     expect(res.status).toBe(200);
     expect(body.files[0].isDefault).toBe(false);
     expect(logErrorMock).toHaveBeenCalled();
+  });
+
+  it("并发唯一冲突（23505）一次 → 退避重试成功，本次响应同步标记", async () => {
+    userMock.mockResolvedValue("u-1");
+    queryMock
+      .mockResolvedValueOnce({ rows: [row("9"), row("3")] } as never) // SELECT
+      .mockRejectedValueOnce(uniqueViolation()) // 并发把默认让给了别人
+      .mockResolvedValueOnce({ rows: [{ id: "9" }] } as never); // 重试成功
+    const res = await GET();
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.files[0].isDefault).toBe(true);
+    expect(body.files[1].isDefault).toBe(false);
+    expect(queryMock).toHaveBeenCalledTimes(3);
+    expect(logErrorMock).not.toHaveBeenCalled();
+  });
+
+  it("唯一冲突重试耗尽 → 只记日志，列表仍 200（本次不标记默认）", async () => {
+    userMock.mockResolvedValue("u-1");
+    queryMock
+      .mockResolvedValueOnce({ rows: [row("9")] } as never) // SELECT
+      .mockRejectedValueOnce(uniqueViolation())
+      .mockRejectedValueOnce(uniqueViolation())
+      .mockRejectedValueOnce(uniqueViolation());
+    const res = await GET();
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.files[0].isDefault).toBe(false);
+    // 1 次 SELECT + 3 次尝试（首次 + 2 次退避重试）
+    expect(queryMock).toHaveBeenCalledTimes(4);
+    expect(logErrorMock).toHaveBeenCalledTimes(1);
+    // 登录态响应头也保持不变
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
   });
 });
 
