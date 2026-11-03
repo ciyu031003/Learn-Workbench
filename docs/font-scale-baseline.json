@@ -1,7 +1,6 @@
 {
   "apps/mobile/src/app/(tabs)/learn.tsx": 1,
   "apps/mobile/src/app/(tabs)/today.tsx": 2,
-  "apps/mobile/src/app/(tabs)/_layout.tsx": 1,
   "apps/mobile/src/app/+not-found.tsx": 3,
   "apps/mobile/src/app/account-security.tsx": 6,
   "apps/mobile/src/app/diagnostics.tsx": 3,

@@ -25,6 +25,7 @@
     "apps/mobile/src/app/study-stats.tsx": 2,
     "apps/mobile/src/app/tasks.tsx": 2,
     "apps/mobile/src/app/trackers.tsx": 3,
+    "apps/mobile/src/app/trends.tsx": 2,
     "apps/mobile/src/app/workout-add.tsx": 4,
     "apps/mobile/src/app/workout.tsx": 3,
     "apps/mobile/src/components/auth-sheet.tsx": 1,
@@ -58,6 +59,7 @@
     "apps/mobile/src/components/study-share-card.tsx": 1,
     "apps/mobile/src/components/toast.tsx": 1,
     "apps/mobile/src/components/upload-card.tsx": 2,
+    "apps/mobile/src/components/v2/charts/steps-bar.tsx": 2,
     "apps/mobile/src/components/v2/section-title.tsx": 1,
     "apps/mobile/src/components/water-card.tsx": 1,
     "apps/mobile/src/components/water-cup.tsx": 1
