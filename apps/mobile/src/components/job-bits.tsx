@@ -88,9 +88,12 @@ export function JobFreshnessBadge({
           : colors.surfaceMuted;
   return (
     <View style={[styles.freshBadge, { backgroundColor: bg }]}>
-      <Text style={[styles.freshText, { color }]}>
-        {f.emoji} {f.label}
-      </Text>
+      {/*
+       * v2.0.1 去 emoji：共享层 `jobFreshness()` 仍返回 emoji（Web 端在用），
+       * 移动端不再把它写上屏——改用一个语义色点表达档位（与来源徽章同一语言）。
+       */}
+      <View style={[styles.freshDot, { backgroundColor: color }]} />
+      <Text style={[styles.freshText, { color }]}>{f.label}</Text>
     </View>
   );
 }
@@ -118,7 +121,15 @@ const makeStyles = (colors: ThemeColors) =>
     },
     sourceDot: { width: 7, height: 7, borderRadius: 4 },
     sourceText: { ...typography.caption, fontWeight: "700", color: colors.textMuted },
-    freshBadge: { borderRadius: 999, paddingHorizontal: 7, paddingVertical: 3 },
+    freshBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      borderRadius: 999,
+      paddingHorizontal: 7,
+      paddingVertical: 3,
+    },
+    freshDot: { width: 5, height: 5, borderRadius: 3 },
     freshText: { ...typography.micro },
     newBadge: {
       borderRadius: 999,

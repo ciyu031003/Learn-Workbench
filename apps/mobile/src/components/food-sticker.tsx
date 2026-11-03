@@ -1,31 +1,30 @@
 import { useMemo } from "react";
 import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { foodIcon } from "@/lib/food-emoji";
+import { ThemedIcon } from "@/components/themed-icon";
+import { foodIcon } from "@/lib/food-icons";
 import { shadows } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 
 /**
- * 食物 emoji 贴纸（v3 M3/M4）
+ * 食物贴纸（v3 M3/M4；v2.0.1 去 emoji 收尾）
  *
- * 借「吃一点」的**贴纸 craft**（白描边 + 轻投影），视觉主体改用开源图标而不是照片
+ * 借「吃一点」的**贴纸 craft**（白描边 + 轻投影），视觉主体用开源图标而不是照片
  * —— 我们不做相机/AI（决策 D5），图标让每条记录都有可识别的视觉锚点。
- * （v1.44.2：原先画 emoji，按用户要求全站换成开源图标组件。）
+ *
+ * 图标来源：`lib/food-icons.ts` 按「食物名 → 分类 → Ionicons」推导；
+ * iOS 由 ThemedIcon 自动换成 SF Symbols。调用方不再传 emoji（那层中间键已删）。
  */
 export function FoodSticker({
   name,
   size = 40,
-  emoji,
   style,
   outlined = false,
   rotate = 0,
 }: {
-  /** 食物名（用于推导 emoji） */
+  /** 食物名（用于推导分类图标） */
   name: string;
   size?: number;
-  /** 直接指定 emoji（如来自常用食物表） */
-  emoji?: string;
   style?: StyleProp<ViewStyle>;
   /**
    * 贴纸质感（v4 P4-b）：更粗的**白描边** + 更明显的投影。
@@ -48,16 +47,8 @@ export function FoodSticker({
       ]}
       accessibilityLabel={name}
     >
-      {/*
-       * v1.44.2 去 emoji：原来这里画的是 emoji 字符，现在换成 MaterialCommunityIcons ——
-       * 它的食物图标族最全（rice / noodles / fruit-grapes / glass-wine…），
-       * 名字在 lib/food-emoji.ts 的 FOOD_ICON_BY_EMOJI 里逐个核对过 glyphMap。
-       */}
-      <MaterialCommunityIcons
-        name={foodIcon(name, emoji) as never}
-        size={Math.round(size * 0.52)}
-        color={colors.text}
-      />
+      {/* v2.0.1：分类图标（Ionicons / iOS SF Symbols），不再有 emoji 字符 */}
+      <ThemedIcon name={foodIcon(name)} size={Math.round(size * 0.52)} color={colors.text} />
     </View>
   );
 }

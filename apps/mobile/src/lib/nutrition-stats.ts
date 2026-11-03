@@ -300,7 +300,7 @@ export function isDateKey(value: unknown): value is string {
 /**
  * 规划"还需要补拉的日期明细"。
  *
- * Food Calendar 的缩略图需要**每天的条目**（食物名 → emoji 贴纸），而后端只支持单日
+ * Food Calendar 的缩略图需要**每天的条目**（食物名 → 贴纸分类图标），而后端只支持单日
  * 查询（`GET /api/nutrition?date=`）→ 只能按天补拉。这里把请求集合收敛为：
  *   ① 只保留合法日期键；
  *   ② 去掉已经拉过的（`cached`）——翻月来回切不会重复打请求；

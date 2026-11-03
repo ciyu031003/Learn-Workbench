@@ -450,13 +450,13 @@ const last7 = useMemo(() => {
 
       <BottomSheet visible={sheetOpen} onClose={closeSheet} title={editingId === null ? "新建习惯" : "编辑习惯"} height="86%">
         <View style={styles.form}>
-          {/* 图标选择器：内置 ~24 个常用图标，点选高亮；也可自定义 emoji */}
+          {/* 图标选择器：内置 ~24 个常用图标，点选高亮（v2.0.1：无障碍文案用 label，不再读 emoji） */}
           <Text style={styles.label}>图标</Text>
           <View style={styles.iconGrid}>
             {HABIT_ICONS.map((ic) => (
               <Pressable
                 key={ic.emoji}
-                accessibilityLabel={ic.emoji}
+                accessibilityLabel={ic.label}
                 onPress={() => setIcon(ic.emoji)}
                 style={[styles.iconCell, icon === ic.emoji && styles.iconCellActive]}
               >

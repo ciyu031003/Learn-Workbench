@@ -164,7 +164,6 @@ const makeStyles = (colors: ThemeColors) =>
       borderWidth: 3,
       borderColor: colors.surface,
     },
-    emoji: { fontSize: 22 },
     labels: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 4 },
     label: { flex: 1, textAlign: "center", ...typography.micro, fontWeight: "600", color: colors.textMuted },
   });

@@ -12,7 +12,7 @@
 
 export interface LiveSticker {
   id: string;
-  /** 食物名（用于推导 emoji 贴纸） */
+  /** 食物名（用于推导贴纸的分类图标，见 lib/food-icons.ts） */
   name: string;
   /** 归一化坐标：0 = 画布左/上边，1 = 右/下边（已按贴纸半径留边） */
   x: number;

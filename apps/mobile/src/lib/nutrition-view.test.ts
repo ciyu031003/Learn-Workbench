@@ -9,7 +9,7 @@ import {
   withinRange,
   MEAL_KCAL_SHARES,
 } from "@learn-workbench/shared";
-import { foodEmoji, FOOD_EMOJI_FALLBACK } from "./food-emoji";
+import { foodIcon, FOOD_CATEGORY_ICONS, FOOD_ICON_FALLBACK } from "./food-icons";
 
 /**
  * v3 饮食模块的纯函数契约（M1 剩余热量 / M3 时间线 / M5 区间目标 / M4 贴纸）。
@@ -99,23 +99,26 @@ describe("MEAL_KCAL_SHARES（M3：餐次目标占比）", () => {
   });
 });
 
-describe("foodEmoji（M4：emoji 贴纸兜底）", () => {
-  it("命中具体关键词", () => {
-    expect(foodEmoji("水煮蛋")).toBe("🥚");
-    expect(foodEmoji("香煎鳕鱼海鲜烩菜")).toBe("🐟");
-    expect(foodEmoji("炸鸡")).toBe("🍗");
+describe("foodIcon（M4：食物贴纸 → 分类图标；v2.0.1 去 emoji）", () => {
+  it("命中具体关键词（分类 → Ionicons）", () => {
+    expect(foodIcon("水煮蛋")).toBe(FOOD_CATEGORY_ICONS.protein);
+    expect(foodIcon("香煎鳕鱼海鲜烩菜")).toBe(FOOD_CATEGORY_ICONS.seafood);
+    expect(foodIcon("炸鸡")).toBe(FOOD_CATEGORY_ICONS.protein);
   });
   it("更长的关键词优先（避免被泛词抢走）", () => {
+    // 牛油果(3) 必须先于 沙拉(2) 命中：水果 vs 蔬菜
+    expect(foodIcon("牛油果沙拉")).toBe(FOOD_CATEGORY_ICONS.fruit);
     // 三文鱼(3) 必须先于 鱼(1) 命中
-    expect(foodEmoji("三文鱼刺身")).toBe("🍣");
+    expect(foodIcon("三文鱼刺身")).toBe(FOOD_CATEGORY_ICONS.seafood);
   });
   it("同长度时按表序（主食/蛋白类在前，故优先于蔬果/乳饮）", () => {
-    expect(foodEmoji("燕麦牛奶")).toBe("🥣");
-    expect(foodEmoji("鸡胸肉沙拉")).toBe("🍗");
+    expect(foodIcon("燕麦牛奶")).toBe(FOOD_CATEGORY_ICONS.staple);
+    expect(foodIcon("鸡胸肉沙拉")).toBe(FOOD_CATEGORY_ICONS.protein);
   });
-  it("未知食物用兜底，不抛错", () => {
-    expect(foodEmoji("某某神秘料理")).toBe(FOOD_EMOJI_FALLBACK);
-    expect(foodEmoji("")).toBe(FOOD_EMOJI_FALLBACK);
-    expect(foodEmoji(null)).toBe(FOOD_EMOJI_FALLBACK);
+  it("未知食物用兜底图标，不抛错、不返回 emoji", () => {
+    expect(foodIcon("某某神秘料理")).toBe(FOOD_ICON_FALLBACK);
+    expect(foodIcon("")).toBe(FOOD_ICON_FALLBACK);
+    expect(foodIcon(null)).toBe(FOOD_ICON_FALLBACK);
+    expect(foodIcon("某某神秘料理")).toMatch(/^[a-z-]+$/);
   });
 });

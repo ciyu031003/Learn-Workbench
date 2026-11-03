@@ -48,7 +48,6 @@ export function AchievementCard({
   date,
   tone = "gold",
   index = 0,
-  emoji,
   icon,
   right,
   children,
@@ -62,9 +61,7 @@ export function AchievementCard({
   tone?: AchievementTone;
   /** 列表位置：用于入场错峰 */
   index?: number;
-  /** @deprecated v1.44.2 去 emoji：改用 `icon`（保留仅为兼容，勿新增调用） */
-  emoji?: string;
-  /** 大图形用的开源图标名（优先级最高） */
+  /** 大图形用的开源图标名（优先级最高；v2.0.1 起旧 `emoji` 入参已删除） */
   icon?: React.ComponentProps<typeof ThemedIcon>["name"];
   right?: React.ReactNode;
   children?: React.ReactNode;
@@ -99,7 +96,7 @@ export function AchievementCard({
   return (
     <Animated.View testID={testID} style={[styles.wrap, enterStyle, style]}>
       <View style={styles.graphic}>
-        {/* v1.44.2：统一渲染开源图标（`icon` 优先；旧 `emoji` 调用一并走 tone 图标，不再画 emoji） */}
+        {/* v2.0.1：只渲染开源图标（`icon` 优先，否则按 tone 取默认图标；组件不再接受 emoji） */}
         <ThemedIcon name={icon ?? TONE_ICON[tone]} size={26} color={palette.strong} />
       </View>
 
@@ -137,7 +134,6 @@ const makeStyles = (colors: ThemeColors, palette: { soft: string; strong: string
       justifyContent: "center",
       backgroundColor: palette.soft,
     },
-    emoji: { fontSize: 26, lineHeight: 32 },
     body: { flex: 1, minWidth: 0, gap: 3 },
     headRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
     title: { flex: 1, minWidth: 0, ...typography.headline, color: colors.text },
