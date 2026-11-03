@@ -217,6 +217,7 @@ export function PointDemosSection({ items }: { items: PointDemoCard[] }) {
                   />
                 ) : (
                   <div className="flex size-full flex-col items-center justify-center gap-1 text-primary/70">
+                    {/* icon-scale-ok: 空态占位装饰图标（28px），非控件图标，不参与 icon-* 令牌 */}
                     <Film className="size-7" />
                     <span className="text-[11px]">首帧待抓取</span>
                   </div>

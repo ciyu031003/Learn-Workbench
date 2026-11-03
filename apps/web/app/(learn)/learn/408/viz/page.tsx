@@ -48,6 +48,7 @@ export default async function Exam408VizPage() {
       {groups.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-2 p-10 text-center">
+            {/* icon-scale-ok: 空态占位装饰图标（32px），非控件图标，不参与 icon-* 令牌 */}
             <Film className="size-8 text-muted-foreground" />
             <p className="text-sm font-medium">演示正在导入</p>
             <p className="text-xs text-muted-foreground">
