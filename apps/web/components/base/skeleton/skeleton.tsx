@@ -6,6 +6,7 @@ import { cx, sortCx } from "@/utils/cx";
 /**
  * Skeleton — placeholders in the shape of the content that is on its way.
  *
+ *   icon-scale-ok: size-10 仅出现在文档示例注释里（BoardUI 原样组件），不是实际渲染类名
  *   <Skeleton shape="circle" className="size-10" />
  *   <SkeletonText lines={3} />
  *   <Skeleton isLoaded={user != null}><Avatar … /></Skeleton>
