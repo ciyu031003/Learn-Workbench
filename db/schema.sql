@@ -2403,6 +2403,35 @@ CREATE TRIGGER trg_exam_408_maps_updated
   BEFORE UPDATE ON exam_408_knowledge_maps
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+-- ---------- 408 套卷历史成绩（迁移 092：App 交卷结果按用户持久化，追加型历史） ----------
+-- 与 exam_408_papers 同口径（2000-2100）但不建外键：用户成绩不随内容表回滚丢失。
+CREATE TABLE IF NOT EXISTS exam_408_paper_attempts (
+  id               bigserial PRIMARY KEY,
+  user_id          uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  paper_year       int NOT NULL
+                   CONSTRAINT ck_exam_408_paper_attempts_year CHECK (paper_year BETWEEN 2000 AND 2100),
+  score            int NOT NULL DEFAULT 0
+                   CONSTRAINT ck_exam_408_paper_attempts_score CHECK (score >= 0),
+  total_score      int NOT NULL DEFAULT 0
+                   CONSTRAINT ck_exam_408_paper_attempts_total_score CHECK (total_score >= 0),
+  correct          int NOT NULL DEFAULT 0
+                   CONSTRAINT ck_exam_408_paper_attempts_correct CHECK (correct >= 0),
+  wrong            int NOT NULL DEFAULT 0
+                   CONSTRAINT ck_exam_408_paper_attempts_wrong CHECK (wrong >= 0),
+  unanswered       int NOT NULL DEFAULT 0
+                   CONSTRAINT ck_exam_408_paper_attempts_unanswered CHECK (unanswered >= 0),
+  duration_seconds int
+                   CONSTRAINT ck_exam_408_paper_attempts_duration CHECK (duration_seconds IS NULL OR duration_seconds >= 0),
+  started_at       timestamptz,
+  submitted_at     timestamptz NOT NULL DEFAULT now(),
+  by_point         jsonb NOT NULL DEFAULT '[]'::jsonb,
+  by_subject       jsonb NOT NULL DEFAULT '[]'::jsonb,
+  created_at       timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_exam_408_paper_attempts_user_submitted
+  ON exam_408_paper_attempts(user_id, submitted_at DESC);
+
 -- ---------- 学习内容全量入库（075：内容包 → 数据库，App 前台只读 + 模板） ----------
 CREATE TABLE IF NOT EXISTS learning_tracks (
   slug            text PRIMARY KEY,
