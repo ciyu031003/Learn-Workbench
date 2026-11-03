@@ -209,9 +209,9 @@ const makeCardStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     card: {
       width: CARD_WIDTH,
-      borderRadius: radius.xl,
+      borderRadius: radius.panel,
       backgroundColor: colors.surfaceStrong,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: StyleSheet.hairlineWidth * 2,
       borderColor: colors.border,
       padding: 18,
       gap: 10,

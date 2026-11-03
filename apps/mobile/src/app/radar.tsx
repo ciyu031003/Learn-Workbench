@@ -19,7 +19,11 @@ import { ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-
 import { EmptyState } from "@/components/empty-state";
 import { SkeletonBlock, SkeletonCard } from "@/components/skeleton";
 import { Card } from "@/components/card";
+import { ListGroup, ListRow } from "@/components/list-row";
+import { Surface } from "@/components/surface";
 import { ThemedIcon } from "@/components/themed-icon";
+import { PageHead } from "@/components/v2/page-head";
+import { ProgressBar } from "@/components/v2/progress-bar";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { Field } from "@/components/field";
 import { ChipGroup, SheetSection, SheetStickyCta } from "@/components/sheet";
@@ -28,7 +32,7 @@ import { useTheme } from "@/theme";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
 import { DURATION, useReducedMotion } from "@/lib/motion";
 import { shouldStagger, staggerDelay } from "@/lib/stagger";
-import { radius, typography } from "@/theme/tokens";
+import { radius, tabularNums, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
@@ -393,17 +397,25 @@ export default function RadarScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl {...pullControl} />}
       >
-        {/* 弱化大标题：一行小标题 + 刷新，把视觉权重让给概览卡 */}
+        {/* v2 页头：eyebrow + pageTitle + 说明，右侧刷新控件；视觉锚点留给下方概览卡 */}
         <View style={styles.pageHead}>
-          <View style={styles.pageHeadText}>
-            <Text style={styles.pageTitle}>就业雷达</Text>
-            <Text style={styles.pageSubtitle} numberOfLines={1}>
-              {data?.targetRole
+          <PageHead
+            style={styles.pageHeadText}
+            eyebrow="JOB RADAR"
+            title="就业雷达"
+            subtitle={
+              data?.targetRole
                 ? `目标 ${data.targetRole}${data.profileCity ? ` · ${data.profileCity}` : ""}`
-                : "按匹配度给今日适合你的岗位排序"}
-            </Text>
-          </View>
-          <Pressable hitSlop={10} onPress={() => void load()} accessibilityRole="button" accessibilityLabel="刷新雷达">
+                : "按匹配度给今日适合你的岗位排序"
+            }
+          />
+          <Pressable
+            hitSlop={10}
+            onPress={() => void load()}
+            style={styles.refreshBtn}
+            accessibilityRole="button"
+            accessibilityLabel="刷新雷达"
+          >
             <ThemedIcon name="refresh" size={18} color={colors.textMuted} />
           </Pressable>
         </View>
@@ -438,7 +450,7 @@ export default function RadarScreen() {
             <RadarOverviewCard overview={overview} fallback={data?.mode === "fallback"} colors={colors} styles={styles} />
 
             {/* 目标岗位：展示接口回传的生效值，点行编辑后按新目标岗位重算 */}
-            <TargetRoleRow targetRole={data?.targetRole ?? null} onPress={openTargetSheet} colors={colors} styles={styles} />
+            <TargetRoleRow targetRole={data?.targetRole ?? null} onPress={openTargetSheet} />
 
             {/* 「我的筛选」横向 chip：点应用、点 × 删除（≤5 个，持久化） */}
             {presets.length > 0 ? (
@@ -479,6 +491,7 @@ export default function RadarScreen() {
                 {RADAR_SORT_ORDER.map((key) => (
                   <PressableScale
                     key={key}
+                    hitSlop={5}
                     style={[styles.sortPill, sort === key && styles.sortPillActive]}
                     onPress={() => changeSort(key)}
                     accessibilityRole="button"
@@ -490,6 +503,7 @@ export default function RadarScreen() {
                 ))}
               </View>
               <PressableScale
+                hitSlop={5}
                 style={styles.filterBtn}
                 onPress={openSheet}
                 accessibilityRole="button"
@@ -523,6 +537,7 @@ export default function RadarScreen() {
                 {chips.map((chip) => (
                   <PressableScale
                     key={chip.group + ":" + chip.value}
+                    hitSlop={8}
                     style={styles.chipActive}
                     onPress={() => removeChip(chip)}
                     accessibilityRole="button"
@@ -534,6 +549,7 @@ export default function RadarScreen() {
                 ))}
                 {canSaveCurrentPreset ? (
                   <PressableScale
+                    hitSlop={8}
                     style={styles.saveChip}
                     onPress={() => savePreset(filter)}
                     accessibilityRole="button"
@@ -660,7 +676,7 @@ function RadarOverviewCard({
   styles: ReturnType<typeof makeStyles>;
 }) {
   return (
-    <Card style={styles.overviewCard}>
+    <Surface tier="glassStrong" corner={radius.panel} style={styles.overviewCard}>
       <View style={styles.overviewHead}>
         <View style={styles.overviewTitleRow}>
           <ThemedIcon name="radio-outline" size={15} color={colors.primary} />
@@ -713,7 +729,7 @@ function RadarOverviewCard({
       {fallback ? (
         <Text style={styles.overviewNote}>当前按城市推荐（未完善画像，匹配度按岗位方向与技能近似估算）</Text>
       ) : null}
-    </Card>
+    </Surface>
   );
 }
 
@@ -730,7 +746,7 @@ function Stat({
 }) {
   return (
     <View style={styles.statItem}>
-      <Text style={[styles.statValue, highlight && styles.statValueHighlight]} numberOfLines={1}>
+      <Text style={[styles.statValue, tabularNums, highlight && styles.statValueHighlight]} numberOfLines={1}>
         {value}
       </Text>
       <Text style={styles.statLabel} numberOfLines={1}>
@@ -747,32 +763,23 @@ function Stat({
 function TargetRoleRow({
   targetRole,
   onPress,
-  colors,
-  styles,
 }: {
   targetRole: string | null;
   onPress: () => void;
-  colors: ThemeColors;
-  styles: ReturnType<typeof makeStyles>;
 }) {
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={targetRole ? `目标岗位 ${targetRole}，点按编辑` : "设置目标岗位，按岗位重算匹配度"}
-      style={({ pressed }) => [styles.targetRow, pressed && styles.targetRowPressed]}
-    >
-      <View style={styles.targetRowBadge}>
-        <ThemedIcon name="briefcase-outline" size={15} color={colors.primary} />
-      </View>
-      <View style={styles.targetRowInfo}>
-        <Text style={styles.targetRowLabel}>目标岗位</Text>
-        <Text style={[styles.targetRowValue, !targetRole && styles.targetRowValueEmpty]} numberOfLines={1}>
-          {targetRole ?? "未设置 · 点按设置后按岗位重算"}
-        </Text>
-      </View>
-      <ThemedIcon name="create-outline" size={16} color={colors.textMuted} />
-    </Pressable>
+    <ListGroup>
+      <ListRow
+        icon="briefcase-outline"
+        title={targetRole ?? "目标岗位"}
+        subtitle={targetRole ? "目标岗位 · 点按修改，保存后按新岗位重算" : "尚未设置 · 点按设置后按岗位重算"}
+        showChevron
+        last
+        haptic={false}
+        onPress={onPress}
+        accessibilityLabel={targetRole ? `目标岗位 ${targetRole}，点按编辑` : "设置目标岗位，按岗位重算匹配度"}
+      />
+    </ListGroup>
   );
 }
 
@@ -870,6 +877,8 @@ function RadarJobCard({
   const hidden = Math.max(0, tags.length - visibleTags.length);
   const tone = job.overall >= 75 ? colors.success : job.overall >= 55 ? colors.primary : colors.warning;
   const soft = job.overall >= 75 ? colors.successSoft : job.overall >= 55 ? colors.primarySoft : colors.warningSoft;
+  /** 匹配条 tone（与上面的 soft/tone 同一档语义） */
+  const barTone: "success" | "primary" | "warning" = job.overall >= 75 ? "success" : job.overall >= 55 ? "primary" : "warning";
   const meta = [job.company, job.city || "城市不限", job.education || "学历不限", job.experience].filter(Boolean).join(" · ");
   const sourceLabel = job.source ? String(job.source) : "";
   const updatedLabel = radarUpdatedLabel(job.publishedAt, now);
@@ -903,13 +912,8 @@ function RadarJobCard({
         </View>
 
         <View style={styles.matchBarRow}>
-          <View style={styles.matchTrack}>
-            <View
-              style={[
-                styles.matchFill,
-                { width: `${Math.max(2, Math.min(100, job.overall))}%`, backgroundColor: tone },
-              ]}
-            />
+          <View style={styles.matchBar}>
+            <ProgressBar value={Math.max(2, Math.min(100, job.overall)) / 100} tone={barTone} height={6} />
           </View>
           <Text style={styles.matchBarLabel}>匹配度</Text>
         </View>
@@ -1295,15 +1299,24 @@ const makeStyles = (colors: ThemeColors) =>
     scroll: { flex: 1, backgroundColor: "transparent" },
     content: { padding: 16, gap: 12 },
 
-    /* 页头（弱化大标题） */
-    pageHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
-    pageHeadText: { flex: 1, minWidth: 0, gap: 2 },
-    pageTitle: { ...typography.title2, color: colors.text },
-    pageSubtitle: { ...typography.caption, color: colors.textMuted },
+    /* 页头（v2 PageHead + 刷新控件） */
+    pageHead: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 },
+    pageHeadText: { flex: 1, minWidth: 0, marginTop: 0, marginBottom: 0 },
+    refreshBtn: {
+      width: 36,
+      height: 36,
+      marginTop: 2,
+      borderRadius: radius.pill,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
 
-    /* 概览卡 */
+    /* 概览卡（本屏唯一 glassStrong 锚点，内边距/间距由 Surface 提供） */
     overviewSkeleton: { height: 168 },
-    overviewCard: { gap: 10, padding: 14 },
+    overviewCard: { gap: 12 },
     overviewHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
     overviewTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
     overviewTitle: { ...typography.callout, fontWeight: "800", color: colors.text },
@@ -1315,60 +1328,35 @@ const makeStyles = (colors: ThemeColors) =>
       minWidth: 72,
       alignItems: "center",
       gap: 2,
-      paddingVertical: 8,
-      borderRadius: radius.md,
+      paddingVertical: 10,
+      borderRadius: radius.control,
       backgroundColor: colors.surfaceMuted,
     },
-    statValue: { ...typography.title2, color: colors.text },
+    statValue: { ...typography.num, color: colors.text },
     statValueHighlight: { color: colors.primary },
-    statLabel: { ...typography.caption, color: colors.textMuted },
+    statLabel: { ...typography.meta, color: colors.textMuted },
     distRow: { flexDirection: "row", alignItems: "center", gap: 8 },
     distLabel: { ...typography.caption, color: colors.textMuted, flexShrink: 0 },
     distChips: { flex: 1, minWidth: 0, flexDirection: "row", flexWrap: "wrap", gap: 6 },
     distChip: {
-      paddingHorizontal: 8,
-      paddingVertical: 3,
-      borderRadius: radius.sm,
+      paddingHorizontal: 9,
+      paddingVertical: 4,
+      borderRadius: radius.pill,
       backgroundColor: colors.primarySoft,
     },
-    distChipText: { ...typography.caption, color: colors.primary },
-    distEmpty: { ...typography.caption, color: colors.textMuted },
-    overviewNote: { ...typography.caption, color: colors.textMuted },
+    distChipText: { ...typography.meta, fontWeight: "600", color: colors.primary },
+    distEmpty: { ...typography.meta, color: colors.textMuted },
+    overviewNote: { ...typography.meta, color: colors.textMuted },
 
-    /* 目标岗位行（命中区 ≥44pt） */
-    targetRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 10,
-      minHeight: 44,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderRadius: radius.lg,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.border,
-      backgroundColor: colors.surface,
-    },
-    targetRowPressed: { backgroundColor: colors.surfaceMuted },
-    targetRowBadge: {
-      width: 28,
-      height: 28,
-      borderRadius: 999,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: colors.primarySoft,
-    },
-    targetRowInfo: { flex: 1, minWidth: 0, gap: 1 },
-    targetRowLabel: { ...typography.caption, color: colors.textMuted },
-    targetRowValue: { ...typography.callout, fontWeight: "700", color: colors.text },
-    targetRowValueEmpty: { ...typography.caption, fontWeight: "400", color: colors.textMuted },
-
-    /* 排序 + 筛选 */
+    /* 排序 + 筛选（v2 胶囊控件，视觉 34 高 + hitSlop 补足 44 热区） */
     controlRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", rowGap: 8 },
     sortGroup: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
     sortPill: {
+      minHeight: 34,
+      justifyContent: "center",
       paddingHorizontal: 12,
       paddingVertical: 6,
-      borderRadius: 999,
+      borderRadius: radius.pill,
       backgroundColor: colors.surfaceMuted,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.border,
@@ -1379,45 +1367,47 @@ const makeStyles = (colors: ThemeColors) =>
     filterBtn: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 4,
-      paddingHorizontal: 12,
-      paddingVertical: 7,
-      borderRadius: 999,
+      gap: 5,
+      minHeight: 34,
+      paddingHorizontal: 13,
+      paddingVertical: 6,
+      borderRadius: radius.pill,
       backgroundColor: colors.primarySoft,
     },
     filterBtnText: { ...typography.caption, fontWeight: "800", color: colors.primary },
     filterBadge: {
-      minWidth: 16,
-      height: 16,
+      minWidth: 17,
+      height: 17,
       paddingHorizontal: 4,
-      borderRadius: 999,
+      borderRadius: radius.pill,
       backgroundColor: colors.primary,
       alignItems: "center",
       justifyContent: "center",
     },
     filterBadgeText: { ...typography.micro, color: colors.canvas },
 
-    resultRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
-    resultText: { ...typography.caption, color: colors.textMuted, flex: 1, minWidth: 0 },
-    resultHint: { ...typography.caption, color: colors.textMuted },
+    resultRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, paddingHorizontal: 2 },
+    resultText: { ...typography.meta, color: colors.textMuted, flex: 1, minWidth: 0 },
+    resultHint: { ...typography.meta, color: colors.textMuted },
     resetText: { ...typography.caption, fontWeight: "800", color: colors.primary },
 
     /* 我的筛选（预设） */
     presetRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-    presetLabel: { ...typography.caption, fontWeight: "700", color: colors.textMuted, flexShrink: 0 },
+    presetLabel: { ...typography.meta, fontWeight: "700", color: colors.textMuted, flexShrink: 0 },
     presetChips: { flexDirection: "row", alignItems: "center", gap: 6, paddingRight: 4 },
     presetChip: {
       flexDirection: "row",
       alignItems: "center",
       gap: 4,
-      paddingLeft: 10,
+      minHeight: 30,
+      paddingLeft: 11,
       paddingRight: 6,
       paddingVertical: 5,
-      borderRadius: 999,
+      borderRadius: radius.pill,
       backgroundColor: colors.primarySoft,
       maxWidth: 200,
     },
-    presetChipBody: { flexShrink: 1, minWidth: 0 },
+    presetChipBody: { flexShrink: 1, minWidth: 0, justifyContent: "center" },
     presetChipText: { ...typography.micro, color: colors.primary },
 
     /* 匹配理由折叠 */
@@ -1431,9 +1421,10 @@ const makeStyles = (colors: ThemeColors) =>
       flexDirection: "row",
       alignItems: "center",
       gap: 4,
-      paddingHorizontal: 9,
+      minHeight: 30,
+      paddingHorizontal: 10,
       paddingVertical: 4,
-      borderRadius: 999,
+      borderRadius: radius.pill,
       backgroundColor: colors.primarySoft,
     },
     chipActiveText: { ...typography.micro, color: colors.primary, maxWidth: 160 },
@@ -1441,12 +1432,13 @@ const makeStyles = (colors: ThemeColors) =>
       flexDirection: "row",
       alignItems: "center",
       gap: 4,
-      paddingHorizontal: 9,
+      minHeight: 30,
+      paddingHorizontal: 10,
       paddingVertical: 4,
-      borderRadius: 999,
+      borderRadius: radius.pill,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.primary,
-      backgroundColor: colors.surface,
+      backgroundColor: colors.surfaceMuted,
     },
     saveChipText: { ...typography.micro, color: colors.primary },
 
@@ -1456,22 +1448,14 @@ const makeStyles = (colors: ThemeColors) =>
     jobHeadInfo: { flex: 1, minWidth: 0, gap: 2 },
     jobTitle: { ...typography.headline, color: colors.text },
     jobMeta: { ...typography.caption, color: colors.textMuted },
-    matchPill: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
+    matchPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill },
     matchPillText: { ...typography.callout, fontWeight: "800" },
     salaryRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
     salaryText: { ...typography.callout, fontWeight: "700", color: colors.text, flex: 1, minWidth: 0 },
     deadlineText: { ...typography.caption, fontWeight: "700", color: colors.accentStrong },
     matchBarRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-    matchTrack: {
-      flex: 1,
-      minWidth: 0,
-      height: 6,
-      borderRadius: 999,
-      backgroundColor: colors.surfaceMuted,
-      overflow: "hidden",
-    },
-    matchFill: { height: "100%", borderRadius: 999 },
-    matchBarLabel: { ...typography.caption, color: colors.textMuted },
+    matchBar: { flex: 1, minWidth: 0 },
+    matchBarLabel: { ...typography.meta, color: colors.textMuted },
     reasonRow: { flexDirection: "row", alignItems: "center", gap: 4 },
     reasonText: { ...typography.caption, color: colors.textMuted, flex: 1, minWidth: 0 },
     tagRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
@@ -1481,7 +1465,7 @@ const makeStyles = (colors: ThemeColors) =>
       gap: 4,
       paddingHorizontal: 8,
       paddingVertical: 3,
-      borderRadius: 999,
+      borderRadius: radius.pill,
       backgroundColor: colors.surfaceMuted,
       maxWidth: 180,
     },
@@ -1513,8 +1497,9 @@ const makeStyles = (colors: ThemeColors) =>
       alignItems: "center",
       justifyContent: "center",
       gap: 6,
+      minHeight: 44,
       paddingVertical: 12,
-      borderRadius: radius.lg,
+      borderRadius: radius.pill,
       backgroundColor: colors.primarySoft,
     },
     loadMoreText: { ...typography.callout, fontWeight: "700", color: colors.primary },
@@ -1527,9 +1512,10 @@ const makeStyles = (colors: ThemeColors) =>
       flexDirection: "row",
       alignItems: "center",
       gap: 10,
+      minHeight: 44,
       paddingVertical: 8,
       paddingHorizontal: 10,
-      borderRadius: radius.md,
+      borderRadius: radius.control,
       backgroundColor: colors.surfaceMuted,
     },
     presetManageBody: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 6 },
@@ -1540,10 +1526,10 @@ const makeStyles = (colors: ThemeColors) =>
       minWidth: 0,
       paddingHorizontal: 10,
       paddingVertical: 8,
-      borderRadius: radius.md,
+      borderRadius: radius.control,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.border,
-      backgroundColor: colors.surface,
+      backgroundColor: colors.surfaceStrong,
       ...typography.callout,
       color: colors.text,
     },
@@ -1554,8 +1540,9 @@ const makeStyles = (colors: ThemeColors) =>
       alignItems: "center",
       justifyContent: "center",
       gap: 6,
+      minHeight: 44,
       paddingVertical: 11,
-      borderRadius: radius.lg,
+      borderRadius: radius.pill,
       backgroundColor: colors.primarySoft,
     },
     sheetSaveOff: { backgroundColor: colors.surfaceMuted },

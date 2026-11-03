@@ -101,8 +101,8 @@ const FAIL_Y = 14;
 const SLIDE_OUT = 460;
 
 export default function Exam408DrillScreen() {
-  const { colors, dark } = useTheme();
-  const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const header = useLargeTitleHeader();
   const bottomSpace = useTabBarSpace();
   const entrance = useScreenEntrance();
@@ -840,6 +840,7 @@ function ScopeTab({
   return (
     <PressableScale
       haptic
+      hitSlop={5}
       onPress={onPress}
       style={[styles.scopeTab, active && styles.scopeTabActive]}
       accessibilityRole="tab"
@@ -903,6 +904,7 @@ function SubjectChip({
   return (
     <PressableScale
       haptic
+      hitSlop={4}
       onPress={onPress}
       style={[styles.subjectChip, active && styles.subjectChipActive]}
       accessibilityRole="button"
@@ -919,7 +921,7 @@ function SubjectChip({
   );
 }
 
-const makeStyles = (colors: ThemeColors, dark: boolean) =>
+const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: colors.canvas },
     content: {
@@ -956,30 +958,32 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
     scopeRow: {
       flexDirection: "row",
       gap: 3,
-      borderRadius: radius.md,
+      borderRadius: radius.panel,
       backgroundColor: colors.surfaceMuted,
       padding: 3,
     },
     scopeTab: {
       flex: 1,
+      minHeight: 34,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
       gap: 5,
-      borderRadius: radius.sm,
-      paddingVertical: 5,
+      borderRadius: radius.control,
+      paddingVertical: 8,
     },
     scopeTabActive: { backgroundColor: colors.surfaceStrong, ...shadows.card },
     scopeTabText: { ...typography.caption, fontWeight: "800", color: colors.textMuted },
     scopeTabMeta: { ...typography.micro, color: colors.textFaint, flexShrink: 1 },
     subjectRow: { gap: 6, paddingRight: spacing.lg, paddingVertical: 1 },
-    // P13：chip 只占「文字 + 内边距」的宽度（不再 minWidth/等分），单行胶囊
+    // P13：chip 只占「文字 + 内边距」的宽度（不再 minWidth/等分）；v2 统一 radius.control
     subjectChip: {
       flexDirection: "row",
       alignItems: "center",
       gap: 5,
       alignSelf: "flex-start",
-      borderRadius: radius.pill,
+      minHeight: 38,
+      borderRadius: radius.control,
       paddingHorizontal: spacing.md,
       paddingVertical: 6,
       backgroundColor: colors.surfaceMuted,
@@ -1002,15 +1006,15 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
     cardSlot: { flex: 1 },
     card: {
       flex: 1,
-      borderRadius: radius.xl,
+      borderRadius: radius.panel,
       backgroundColor: colors.surfaceStrong,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: StyleSheet.hairlineWidth * 2,
       borderColor: colors.border,
       ...shadows.floating,
       overflow: "hidden",
     },
     face: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
-    faceBack: { backgroundColor: dark ? "#1F2530" : "#F4F8FF" },
+    faceBack: { backgroundColor: colors.primarySoft },
     facePress: { flex: 1 },
     faceScroll: { flex: 1 },
     faceContent: { padding: spacing.lg, gap: spacing.sm },
@@ -1076,7 +1080,7 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
     answerSectionTitleRow: { flexDirection: "row", alignItems: "center", gap: 5 },
     pitfallBox: {
       gap: 4,
-      borderRadius: radius.md,
+      borderRadius: radius.control,
       padding: spacing.md,
       backgroundColor: colors.dangerSoft,
     },
@@ -1084,7 +1088,7 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
     pitfallText: { ...typography.callout, color: colors.text },
     mnemonicBox: {
       gap: 4,
-      borderRadius: radius.md,
+      borderRadius: radius.control,
       padding: spacing.md,
       backgroundColor: colors.accentSoft,
     },
@@ -1116,7 +1120,7 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       alignItems: "center",
       justifyContent: "center",
       gap: 8,
-      borderRadius: radius.lg,
+      borderRadius: radius.pill,
       backgroundColor: colors.primary,
       ...shadows.brand,
     },
@@ -1130,8 +1134,8 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       alignItems: "center",
       justifyContent: "center",
       gap: 2,
-      borderRadius: radius.md,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: radius.control,
+      borderWidth: StyleSheet.hairlineWidth * 2,
     },
     ratingButtonBusy: { opacity: 0.6 },
     ratingLabel: { ...typography.headline, fontWeight: "800" },
@@ -1141,7 +1145,7 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       flexDirection: "row",
       alignItems: "center",
       gap: 6,
-      borderRadius: radius.md,
+      borderRadius: radius.control,
       paddingHorizontal: spacing.md,
       paddingVertical: 6,
       backgroundColor: colors.warningSoft,
@@ -1164,11 +1168,12 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       alignSelf: "stretch",
       gap: 6,
       marginTop: spacing.sm,
-      borderRadius: radius.md,
+      borderRadius: radius.card,
       padding: spacing.md,
       backgroundColor: colors.surfaceStrong,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: StyleSheet.hairlineWidth * 2,
       borderColor: colors.border,
+      ...shadows.card,
     },
     subjectStatRow: { flexDirection: "row", justifyContent: "space-between", gap: spacing.sm },
     subjectStatTitle: { ...typography.caption, fontWeight: "700", color: colors.text },
@@ -1178,7 +1183,7 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       marginTop: spacing.sm,
       alignItems: "center",
       justifyContent: "center",
-      borderRadius: radius.md,
+      borderRadius: radius.pill,
       paddingHorizontal: spacing["2xl"],
       backgroundColor: colors.primary,
     },
@@ -1187,7 +1192,7 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       minHeight: 48,
       alignItems: "center",
       justifyContent: "center",
-      borderRadius: radius.md,
+      borderRadius: radius.pill,
       paddingHorizontal: spacing["2xl"],
       backgroundColor: colors.primarySoft,
     },

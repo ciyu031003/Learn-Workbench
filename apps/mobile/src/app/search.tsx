@@ -13,8 +13,10 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { EmptyState } from "@/components/empty-state";
+import { ListGroup } from "@/components/list-row";
 import { PressableScale } from "@/components/pressable-scale";
 import { ThemedIcon } from "@/components/themed-icon";
+import { SectionTitle } from "@/components/v2/section-title";
 import { useHeaderTopInset } from "@/components/screen-header";
 import { getApiUrl } from "@/config";
 import { useLearningTracks } from "@/lib/content-store";
@@ -199,13 +201,14 @@ export default function GlobalSearchScreen() {
     <View style={styles.root}>
       <View style={[styles.header, { paddingTop: headerTop }]}>
         <PressableScale
-          hitSlop={10}
+          hitSlop={12}
           scaleTo={0.9}
           onPress={() => router.back()}
+          style={styles.backBtn}
           accessibilityRole="button"
           accessibilityLabel="返回"
         >
-          <ThemedIcon name="chevron-back" size={22} color={colors.text} />
+          <ThemedIcon name="chevron-back" size={20} color={colors.text} />
         </PressableScale>
         <View style={styles.searchBox}>
           <ThemedIcon name="search" size={16} color={colors.textFaint} />
@@ -225,7 +228,7 @@ export default function GlobalSearchScreen() {
           />
           {input ? (
             <Pressable
-              hitSlop={10}
+              hitSlop={14}
               onPress={() => {
                 setInput("");
                 setQuery("");
@@ -252,17 +255,25 @@ export default function GlobalSearchScreen() {
           <>
             {recent.length > 0 ? (
               <View style={styles.block}>
-                <View style={styles.blockHead}>
-                  <Text style={styles.blockTitle}>最近搜索</Text>
-                  <Pressable hitSlop={10} onPress={clearRecent} accessibilityRole="button" accessibilityLabel="清空最近搜索">
-                    <Text style={styles.blockAction}>清空</Text>
-                  </Pressable>
-                </View>
+                <SectionTitle
+                  title="最近搜索"
+                  style={styles.section}
+                  right={
+                    <Pressable
+                      hitSlop={16}
+                      onPress={clearRecent}
+                      accessibilityRole="button"
+                      accessibilityLabel="清空最近搜索"
+                    >
+                      <Text style={styles.blockAction}>清空</Text>
+                    </Pressable>
+                  }
+                />
                 <View style={styles.chipRow}>
                   {recent.map((item) => (
                     <View key={item} style={styles.recentChip}>
                       <PressableScale
-                        hitSlop={4}
+                        hitSlop={6}
                         scaleTo={0.96}
                         style={styles.chipMain}
                         onPress={() => commitSearch(item)}
@@ -288,7 +299,7 @@ export default function GlobalSearchScreen() {
               </View>
             ) : null}
             <View style={styles.block}>
-              <Text style={styles.blockTitle}>搜点什么</Text>
+              <SectionTitle title="搜点什么" style={styles.section} />
               <Text style={styles.hintText}>
                 课程 / 主题 / 学习内容来自本机内容库，离线也能搜；408 精读与知识点来自专区搜索接口，
                 断网时只显示本地结果，不影响阅读与刷题。
@@ -317,7 +328,7 @@ export default function GlobalSearchScreen() {
             {remoteFailed ? (
               <View style={styles.errorBox}>
                 <Text style={styles.errorText}>408 搜索暂时不可用，已显示本地结果。</Text>
-                <Pressable hitSlop={8} onPress={() => setRetryKey((value) => value + 1)} accessibilityRole="button" accessibilityLabel="重试 408 搜索">
+                <Pressable hitSlop={16} onPress={() => setRetryKey((value) => value + 1)} accessibilityRole="button" accessibilityLabel="重试 408 搜索">
                   <Text style={styles.blockAction}>重试</Text>
                 </Pressable>
               </View>
@@ -362,13 +373,22 @@ function LocalGroup({
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.block}>
-      <BlockHead title={group.label} count={group.total} keyword={keyword} />
-      <View style={styles.hitList}>
-        {group.hits.map((hit) => (
+      <SectionTitle
+        title={group.label}
+        style={styles.section}
+        right={
+          <Text style={styles.blockCount} numberOfLines={1}>
+            {group.total} 条 · 「{keyword}」
+          </Text>
+        }
+      />
+      <ListGroup>
+        {group.hits.map((hit, index) => (
           <PressableScale
             key={hit.key}
             hitSlop={2}
-            scaleTo={0.99}
+            scaleTo={1}
+            pressedStyle={styles.hitPressed}
             style={styles.hit}
             onPress={() => onPress(hit)}
             accessibilityRole="button"
@@ -396,9 +416,12 @@ function LocalGroup({
               </Text>
             </View>
             <ThemedIcon name="chevron-forward" size={15} color={colors.textFaint} />
+            {index < group.hits.length - 1 ? (
+              <View pointerEvents="none" style={styles.hitDivider} />
+            ) : null}
           </PressableScale>
         ))}
-      </View>
+      </ListGroup>
     </View>
   );
 }
@@ -416,13 +439,22 @@ function RemoteGroup({
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.block}>
-      <BlockHead title={group.label} count={group.total} keyword={keyword} />
-      <View style={styles.hitList}>
-        {group.hits.map((hit) => (
+      <SectionTitle
+        title={group.label}
+        style={styles.section}
+        right={
+          <Text style={styles.blockCount} numberOfLines={1}>
+            {group.total} 条 · 「{keyword}」
+          </Text>
+        }
+      />
+      <ListGroup>
+        {group.hits.map((hit, index) => (
           <PressableScale
             key={hit.kind + ":" + hit.key}
             hitSlop={2}
-            scaleTo={0.99}
+            scaleTo={1}
+            pressedStyle={styles.hitPressed}
             style={styles.hit}
             onPress={() => onPress(hit)}
             accessibilityRole="button"
@@ -450,22 +482,12 @@ function RemoteGroup({
               </Text>
             </View>
             <ThemedIcon name="chevron-forward" size={15} color={colors.textFaint} />
+            {index < group.hits.length - 1 ? (
+              <View pointerEvents="none" style={styles.hitDivider} />
+            ) : null}
           </PressableScale>
         ))}
-      </View>
-    </View>
-  );
-}
-
-function BlockHead({ title, count, keyword }: { title: string; count: number; keyword: string }) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
-  return (
-    <View style={styles.blockHead}>
-      <Text style={styles.blockTitle}>{title}</Text>
-      <Text style={styles.blockCount} numberOfLines={1}>
-        {count} 条 · 「{keyword}」
-      </Text>
+      </ListGroup>
     </View>
   );
 }
@@ -508,12 +530,12 @@ function HotSearches({ onPress }: { onPress: (word: string) => void }) {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.block}>
-      <Text style={styles.blockTitle}>热门搜索</Text>
+      <SectionTitle title="热门搜索" style={styles.section} />
       <View style={styles.chipRow}>
         {HOT_SEARCHES.map((word) => (
           <PressableScale
             key={word}
-            hitSlop={4}
+            hitSlop={6}
             scaleTo={0.96}
             style={styles.chip}
             onPress={() => onPress(word)}
@@ -549,79 +571,100 @@ const makeStyles = (colors: ThemeColors) =>
       flexDirection: "row",
       alignItems: "center",
       gap: 6,
-      height: 38,
-      paddingHorizontal: spacing.sm + 2,
+      height: 40,
+      paddingHorizontal: spacing.md,
       borderRadius: radius.pill,
       backgroundColor: colors.surfaceMuted,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    backBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: radius.pill,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
     },
     input: { ...typography.body, flex: 1, minWidth: 0, color: colors.text, padding: 0 },
     scroll: { flex: 1 },
-    content: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.lg },
+    content: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.xs },
     block: { gap: spacing.sm },
-    blockHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: spacing.sm },
-    blockTitle: { ...typography.callout, fontWeight: "800", color: colors.text },
-    blockCount: { ...typography.micro, fontWeight: "400", color: colors.textMuted, flexShrink: 1 },
+    /* 区块标题：沿用 career/settings 的页内节奏（SectionTitle 默认上下留白偏大，这里收紧） */
+    section: { marginTop: spacing.md, marginBottom: 0 },
+    blockCount: { ...typography.meta, color: colors.textMuted, flexShrink: 1 },
     blockAction: { ...typography.caption, fontWeight: "700", color: colors.primary },
-    hintText: { ...typography.caption, fontWeight: "400", color: colors.textSecondary, lineHeight: 20 },
+    hintText: { ...typography.meta, color: colors.textSecondary, lineHeight: 20 },
     chipRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+    /* 热门词 chips：v2 胶囊（surfaceMuted 底 + radius.pill，不描边，跟卡片区分开） */
     chip: {
       maxWidth: "48%",
-      paddingHorizontal: spacing.sm + 2,
-      paddingVertical: 6,
+      minHeight: 36,
+      justifyContent: "center",
+      paddingHorizontal: spacing.md,
+      paddingVertical: 8,
       borderRadius: radius.pill,
-      backgroundColor: colors.surfaceStrong,
+      backgroundColor: colors.surfaceMuted,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.border,
     },
     chipText: { ...typography.caption, fontWeight: "600", color: colors.textSecondary, flexShrink: 1 },
     recentChip: {
       maxWidth: "48%",
-      minHeight: 28,
+      minHeight: 36,
       flexDirection: "row",
       alignItems: "center",
       borderRadius: radius.pill,
-      backgroundColor: colors.surfaceStrong,
+      backgroundColor: colors.surfaceMuted,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.border,
     },
     // 主命中区铺满 chip 左侧（含左内边距），右侧「×」单独一个热区
-    chipMain: { flexShrink: 1, minWidth: 0, alignSelf: "stretch", justifyContent: "center", paddingLeft: spacing.sm + 2 },
+    chipMain: { flexShrink: 1, minWidth: 0, alignSelf: "stretch", justifyContent: "center", paddingLeft: spacing.md },
     chipRemove: {
-      minWidth: 20,
-      minHeight: 20,
+      minWidth: 28,
+      minHeight: 28,
       marginLeft: spacing.xs,
       marginRight: spacing.xs,
       alignItems: "center",
       justifyContent: "center",
     },
-    hitList: { gap: spacing.xs },
+    /* 命中行：统一列表行质感（ListGroup 包卡，行内 58 高 + 发丝分隔线 + 按压整行变色） */
     hit: {
+      minHeight: 58,
       flexDirection: "row",
       alignItems: "center",
       gap: spacing.sm,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm + 2,
-      borderRadius: radius.lg,
-      backgroundColor: colors.surfaceStrong,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.border,
+      paddingHorizontal: 14,
+      paddingVertical: spacing.md,
     },
-    hitBody: { flex: 1, minWidth: 0, gap: 2 },
+    hitPressed: { backgroundColor: colors.surfaceMuted },
+    hitDivider: {
+      position: "absolute",
+      left: 14,
+      right: 0,
+      bottom: 0,
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: colors.border,
+    },
+    hitBody: { flex: 1, minWidth: 0, gap: 3 },
     hitTitle: { ...typography.callout, fontWeight: "700", color: colors.text },
     hitSnippet: { ...typography.caption, fontWeight: "400", color: colors.textSecondary, lineHeight: 18 },
     hitHighlight: { color: colors.primary, fontWeight: "800" },
-    hitMeta: { ...typography.micro, fontWeight: "400", color: colors.textMuted },
-    loadingRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.sm },
-    loadingText: { ...typography.caption, fontWeight: "400", color: colors.textMuted },
+    hitMeta: { ...typography.meta, color: colors.textMuted },
+    loadingRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.md },
+    loadingText: { ...typography.meta, color: colors.textMuted },
     errorBox: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
       gap: spacing.sm,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
-      borderRadius: radius.lg,
+      paddingHorizontal: 14,
+      paddingVertical: spacing.md,
+      borderRadius: radius.control,
       backgroundColor: colors.warningSoft,
     },
-    errorText: { ...typography.caption, fontWeight: "500", color: colors.warning, flex: 1 },
+    errorText: { ...typography.meta, color: colors.warning, flex: 1 },
   });

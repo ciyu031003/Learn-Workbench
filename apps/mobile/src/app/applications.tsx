@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useCallback, useEffect, useState, useMemo } from "react";
 import { Alert, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
-import { typography } from "@/theme/tokens";
+import { radius, spacing, tabularNums, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { ThemedIcon } from "@/components/themed-icon";
@@ -178,10 +178,10 @@ export default function ApplicationsScreen() {
           style={({ pressed }) => [styles.stageRow, pressed && { opacity: 0.7, transform: [{ scale: 0.98 }] }]}
           accessibilityRole="button"
         >
-          <ThemedIcon name="swap-horizontal-outline" size={15} color={colors.textMuted} />
+          <ThemedIcon name="swap-horizontal-outline" size={16} color={colors.textMuted} />
           <Text style={styles.stageRowLabel}>更新阶段</Text>
           <Text style={styles.stageRowValue}>{jobApplicationStageLabels[item.stage]}</Text>
-          <ThemedIcon name="chevron-forward" size={15} color={colors.textFaint} />
+          <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
         </Pressable>
       </Card>
     );
@@ -209,7 +209,7 @@ export default function ApplicationsScreen() {
                   <View key={s.stage} style={styles.stagePill}>
                     <View style={[styles.stageDot, { backgroundColor: stageTint(colors, s.stage) }]} />
                     <Text style={styles.stagePillText}>{jobApplicationStageLabels[s.stage]}</Text>
-                    <Text style={styles.stagePillNum}>{s.n}</Text>
+                    <Text style={[styles.stagePillNum, tabularNums]}>{s.n}</Text>
                   </View>
                 ))}
               </ScrollView>
@@ -297,58 +297,60 @@ export default function ApplicationsScreen() {
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
-    root: { flex: 1 },
-    content: { padding: 16, gap: 10 },
-    header: { marginBottom: 8, gap: 10 },
-    /** 阶段概览条 */
+    root: { flex: 1, backgroundColor: colors.canvas },
+    content: { paddingHorizontal: spacing.lg, paddingTop: spacing.xs, paddingBottom: spacing.md, gap: spacing.md },
+    header: { marginBottom: spacing.xs, gap: spacing.md },
+    /** 阶段概览条：v2 胶囊（信息型，不支持点按） */
     stageStrip: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
     stagePill: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 5,
-      paddingHorizontal: 9,
-      paddingVertical: 4,
-      borderRadius: 999,
+      gap: 6,
+      minHeight: 28,
+      paddingHorizontal: 10,
+      borderRadius: radius.pill,
       backgroundColor: colors.surfaceMuted,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: StyleSheet.hairlineWidth * 2,
       borderColor: colors.border,
     },
     stageDot: { width: 6, height: 6, borderRadius: 3 },
-    stagePillText: { ...typography.micro, fontWeight: "700", color: colors.textMuted },
-    stagePillNum: { ...typography.micro, fontWeight: "800", color: colors.text },
+    stagePillText: { ...typography.caption, fontWeight: "700", color: colors.textMuted },
+    stagePillNum: { ...typography.caption, fontWeight: "800", color: colors.text },
 
-    appCard: { padding: 14, gap: 10 },
-    appTop: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+    /** Card 已带 radius.card + 1px 描边 + 轻投影；这里只调节奏 */
+    appCard: { padding: 16, gap: 12 },
+    appTop: { flexDirection: "row", alignItems: "flex-start", gap: spacing.md },
     appMain: { flex: 1, minWidth: 0, gap: 3 },
-    title: { fontSize: typography.callout.fontSize, fontWeight: "800", color: colors.text },
-    meta: { fontSize: typography.caption.fontSize, color: colors.textMuted },
+    title: { ...typography.callout, fontWeight: "800", color: colors.text },
+    meta: { ...typography.meta, color: colors.textMuted },
     stageBadge: {
-      borderRadius: 999,
-      paddingHorizontal: 9,
+      borderRadius: radius.pill,
+      paddingHorizontal: 10,
       paddingVertical: 4,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: StyleSheet.hairlineWidth * 2,
       backgroundColor: colors.primarySoft,
       borderColor: colors.borderStrong,
     },
-    stageText: { fontSize: 10, fontWeight: "800", color: colors.primary },
+    stageText: { ...typography.caption, fontWeight: "800", color: colors.primary },
 
-    /** 流水线进度条 */
+    /** 流水线进度条：与 v2 ProgressBar 同视觉（6pt、pill、surfaceMuted 轨道） */
     progressTrack: {
-      height: 4,
-      borderRadius: 999,
+      height: 6,
+      borderRadius: 3,
       backgroundColor: colors.surfaceMuted,
       overflow: "hidden",
     },
-    progressFill: { height: 4, borderRadius: 999, backgroundColor: colors.primary },
+    progressFill: { height: 6, borderRadius: 3, backgroundColor: colors.primary },
 
+    /** 更新阶段：v2 控件行（静态 Pressable，列表项子树零 Reanimated） */
     stageRow: {
-      minHeight: 44,
+      minHeight: 48,
       flexDirection: "row",
       alignItems: "center",
-      gap: 8,
+      gap: spacing.sm,
       paddingVertical: 10,
       paddingHorizontal: 12,
-      borderRadius: 12,
+      borderRadius: radius.control,
       backgroundColor: colors.surfaceMuted,
     },
     stageRowLabel: { flex: 1, ...typography.caption, fontWeight: "700", color: colors.textMuted },
@@ -358,8 +360,8 @@ const makeStyles = (colors: ThemeColors) =>
       fontWeight: "800",
       color: colors.primary,
       backgroundColor: colors.primarySoft,
-      borderRadius: 999,
-      paddingHorizontal: 7,
+      borderRadius: radius.pill,
+      paddingHorizontal: 8,
       paddingVertical: 2,
       overflow: "hidden",
     },
@@ -370,6 +372,4 @@ const makeStyles = (colors: ThemeColors) =>
     },
 
     emptyBox: { alignItems: "center", gap: 6, paddingVertical: 44 },
-    emptyText: { fontSize: 14, fontWeight: "800", color: colors.text },
-    emptyHint: { fontSize: typography.caption.fontSize, color: colors.textFaint, textAlign: "center" },
   });

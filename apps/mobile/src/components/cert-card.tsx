@@ -282,9 +282,9 @@ export function CertCard({
 const makeStyles = (colors: ThemeColors, palette: { soft: string; strong: string }) =>
   StyleSheet.create({
     card: {
-      borderRadius: radius.lg,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.borderStrong,
+      borderRadius: radius.card,
+      borderWidth: StyleSheet.hairlineWidth * 2,
+      borderColor: colors.border,
       backgroundColor: colors.surfaceStrong,
       padding: spacing.lg,
       gap: spacing.sm,

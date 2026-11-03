@@ -31,7 +31,7 @@ import { PressableScale } from "@/components/pressable-scale";
 import { PagerBar } from "@/components/pager-bar";
 import { JobNewBadge, JobSourceBadge, avatarColorOf, jobSalaryText } from "@/components/job-bits";
 import { haptics } from "@/lib/haptics";
-import { typography } from "@/theme/tokens";
+import { radius, shadows, spacing, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import {
@@ -137,7 +137,8 @@ function JobCard({
           {formatRelativeTime(job.publishedAt)}
         </Text>
         <Pressable
-          hitSlop={10}
+          /* 触控热区：18pt 图标 + 四边 13 → 44pt */
+          hitSlop={13}
           accessibilityRole="button"
           accessibilityLabel={job.isFav ? "取消收藏" : "收藏该岗位"}
           accessibilityState={{ selected: job.isFav }}
@@ -211,7 +212,7 @@ function FilterBarChip({
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const fg = active ? "#ffffff" : colors.textSecondary;
+  const fg = active ? colors.canvas : colors.textSecondary;
   return (
     <PressableScale
       scaleTo={0.96}
@@ -231,7 +232,7 @@ function FilterBarChip({
           <Text style={styles.filterCountText}>{badge}</Text>
         </View>
       ) : null}
-      {chevron ? <ThemedIcon name="chevron-down" size={12} color={active ? "#ffffff" : colors.textFaint} /> : null}
+      {chevron ? <ThemedIcon name="chevron-down" size={12} color={active ? colors.canvas : colors.textFaint} /> : null}
     </PressableScale>
   );
 }
@@ -505,7 +506,13 @@ function FilterBottomSheet({
       icon="options-outline"
       height="84%"
       headerAction={
-        <Pressable onPress={onReset} hitSlop={8} accessibilityLabel="重置筛选">
+        <Pressable
+          onPress={onReset}
+          hitSlop={4}
+          style={styles.sheetResetHit}
+          accessibilityRole="button"
+          accessibilityLabel="重置筛选"
+        >
           <Text style={styles.sheetReset}>重置</Text>
         </Pressable>
       }
@@ -576,6 +583,8 @@ function FilterBottomSheet({
                 />
                 <Pressable
                   style={styles.skillAddBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="添加技能标签"
                   onPress={() => {
                     const v = draft.trim();
                     if (v) onAddSkill(v);
@@ -962,55 +971,53 @@ export default function JobsScreen() {
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
-  root: { flex: 1 },
+  root: { flex: 1, backgroundColor: colors.canvas },
   /** 列表左右留白：FlashList v2 忽略 contentContainerStyle 的 padding，必须逐处显式给 */
-  listSide: { paddingHorizontal: 16 },
+  listSide: { paddingHorizontal: spacing.lg },
   // P1-2：一行文字统计（替代原 StatRow 三卡）
-  statLine: { ...typography.micro, fontWeight: "400", color: colors.textMuted, paddingTop: 2 },
-  statStrong: { ...typography.micro, fontWeight: "800", color: colors.text },
+  statLine: { ...typography.meta, color: colors.textMuted, paddingTop: 2 },
+  statStrong: { ...typography.meta, fontWeight: "800", color: colors.text },
 
-  searchRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  searchRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   // P1-2：主页面唯一一行筛选 chips（城市 / 方向 / 排序 / 更多筛选），横向滚动
-  filterBarRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingTop: 8, paddingBottom: 2 },
+  filterBarRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingTop: spacing.sm, paddingBottom: 2 },
+  /** v2 筛选胶囊：34pt 视觉高度 + hitSlop 6 → 46pt 触控热区 */
   filterChip: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
+    gap: 6,
+    minHeight: 34,
     maxWidth: 210,
-    borderRadius: 999,
-    paddingHorizontal: 11,
-    paddingVertical: 7,
+    borderRadius: radius.pill,
+    paddingHorizontal: 12,
     backgroundColor: colors.surfaceStrong,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: StyleSheet.hairlineWidth * 2,
     borderColor: colors.border,
   },
   filterChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   filterChipText: { ...typography.caption, fontWeight: "700", color: colors.textSecondary },
-  filterChipTextActive: { ...typography.caption, fontWeight: "800", color: "#ffffff" },
+  filterChipTextActive: { ...typography.caption, fontWeight: "800", color: colors.canvas },
   filterCountBadge: {
-    minWidth: 16,
-    height: 16,
+    minWidth: 17,
+    height: 17,
     paddingHorizontal: 4,
-    borderRadius: 999,
+    borderRadius: radius.pill,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.primarySoft,
   },
-  filterCountBadgeActive: { backgroundColor: "#ffffff" },
+  filterCountBadgeActive: { backgroundColor: colors.canvas },
   filterCountText: { ...typography.micro, color: colors.primary, fontWeight: "800" },
   // P1-2：压缩版岗位卡 —— 上 40pt logo 行 + 下 26pt 徽章/标签行，实测高度约 97pt（目标 ≤132pt）
+  // v2：radius.card(19) + 1px 细描边 + 轻投影（与 components/card.tsx 同一套视觉）
   jobCard: {
     backgroundColor: colors.surfaceStrong,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: StyleSheet.hairlineWidth * 2,
     borderColor: colors.border,
-    borderRadius: 18,
-    paddingHorizontal: 12,
-    paddingVertical: 11,
-    shadowColor: "#1C2430",
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+    borderRadius: radius.card,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    ...shadows.card,
   },
   /**
    * v1.32.0：零 Reanimated 的按压反馈（静态 transform + opacity，不走 worklet/共享值）。
@@ -1022,30 +1029,25 @@ const makeStyles = (colors: ThemeColors) =>
   logo: {
     width: 40,
     height: 40,
-    borderRadius: 13,
+    borderRadius: radius.control,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#1C2430",
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
   },
-  logoText: { ...typography.callout, color: "#ffffff", fontWeight: "800" },
+  logoText: { ...typography.callout, color: colors.canvas, fontWeight: "800" },
   jobMain: { flex: 1, minWidth: 0, gap: 3 },
-  titleRow: { flexDirection: "row", alignItems: "baseline", gap: 8 },
+  titleRow: { flexDirection: "row", alignItems: "baseline", gap: spacing.sm },
   jobTitle: { ...typography.callout, fontWeight: "800", flex: 1, color: colors.text },
   salary: { ...typography.callout, fontWeight: "900", color: colors.accentStrong },
-  jobMeta: { ...typography.micro, fontWeight: "400", color: colors.textSecondary },
-  jobFoot: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 9 },
+  jobMeta: { ...typography.meta, color: colors.textSecondary },
+  jobFoot: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: 10 },
   footTags: { flexDirection: "row", alignItems: "center", gap: 5, flex: 1, minWidth: 0, overflow: "hidden" },
   footFlag: {
     ...typography.micro,
     fontWeight: "800",
     color: colors.primary,
     backgroundColor: colors.primarySoft,
-    borderRadius: 999,
-    paddingHorizontal: 6,
+    borderRadius: radius.pill,
+    paddingHorizontal: 7,
     paddingVertical: 2,
     overflow: "hidden",
     flexShrink: 0,
@@ -1056,25 +1058,34 @@ const makeStyles = (colors: ThemeColors) =>
     backgroundColor: colors.primarySoft,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
-    borderRadius: 8,
-    paddingHorizontal: 6,
+    borderRadius: radius.sm,
+    paddingHorizontal: 7,
     paddingVertical: 2,
   },
   tagText: { ...typography.micro, fontWeight: "700", color: colors.primary },
-  time: { ...typography.micro, fontWeight: "400", color: colors.textFaint, textAlign: "right" },
-  skeletonWrap: { paddingHorizontal: 16, paddingTop: 8 },
+  time: { ...typography.meta, color: colors.textFaint, textAlign: "right" },
+  skeletonWrap: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
   // v20-J2：分页条与旧 sheet 样式已收进 components/pager-bar.tsx 与 sheet/*（v20-J1）；此处仅保留在用的表单件
-  sheetReset: { fontSize: 13, fontWeight: "700", color: colors.primary },
-  skillInputRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 6 },
+  /** 弹层右上「重置」：44pt 热区，字号走 typography.meta */
+  sheetResetHit: { minHeight: 44, paddingHorizontal: 4, justifyContent: "center" },
+  sheetReset: { ...typography.meta, fontWeight: "700", color: colors.primary },
+  skillInputRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.xs },
   skillInput: {
     flex: 1,
-    borderRadius: 12,
+    minHeight: 44,
+    borderRadius: radius.control,
     paddingHorizontal: 12,
     paddingVertical: 10,
     backgroundColor: colors.surfaceMuted,
-    fontSize: 13,
+    ...typography.callout,
     color: colors.text,
   },
-  skillAddBtn: { backgroundColor: colors.primary, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 },
-  skillAddText: { color: "#ffffff", fontSize: 13, fontWeight: "800" },
+  skillAddBtn: {
+    minHeight: 44,
+    justifyContent: "center",
+    backgroundColor: colors.primary,
+    borderRadius: radius.control,
+    paddingHorizontal: 16,
+  },
+  skillAddText: { ...typography.callout, fontWeight: "800", color: colors.canvas },
 });

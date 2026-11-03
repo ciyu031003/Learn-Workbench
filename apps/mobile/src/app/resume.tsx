@@ -12,15 +12,15 @@ import { PressButton } from "@/components/press-button";
 import { ChipGroup } from "@/components/sheet";
 import { SkeletonList } from "@/components/skeleton";
 import { EmptyState } from "@/components/empty-state";
-import { GroupLabel } from "@/components/group-label";
-import { StatRow } from "@/components/stat";
+import { MetricGrid } from "@/components/v2/metric-grid";
+import { SectionTitle } from "@/components/v2/section-title";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
 import { useScreenEntrance } from "@/lib/use-screen-entrance";
 import { haptics } from "@/lib/haptics";
 import { useTheme } from "@/theme";
 import type { ThemeColors } from "@/theme/tokens";
-import { typography } from "@/theme/tokens";
+import { spacing, typography } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
 import type { ResumeAsset, ResumeAssetKind } from "@learn-workbench/shared/schemas";
@@ -147,12 +147,13 @@ export default function ResumeScreen() {
     () => KINDS.map((k) => ({ kind: k, items: records.filter((r) => r.kind === k) })).filter((g) => g.items.length > 0),
     [records]
   );
+  /** 概览四格：交给 v2 MetricGrid 渲染（标签/数值口径不变） */
   const overview = useMemo(
     () => [
-      { key: "project", value: records.filter((r) => r.kind === "project").length, label: "项目" },
-      { key: "skill", value: records.filter((r) => r.kind === "skill").length, label: "技能" },
-      { key: "github", value: records.filter((r) => r.kind === "github").length, label: "GitHub" },
-      { key: "certificate", value: records.filter((r) => r.kind === "certificate").length, label: "证书" },
+      { value: records.filter((r) => r.kind === "project").length, label: "项目" },
+      { value: records.filter((r) => r.kind === "skill").length, label: "技能" },
+      { value: records.filter((r) => r.kind === "github").length, label: "GitHub" },
+      { value: records.filter((r) => r.kind === "certificate").length, label: "证书" },
     ],
     [records]
   );
@@ -182,7 +183,7 @@ export default function ResumeScreen() {
 
       {records.length > 0 ? (
         <Animated.View entering={entrance(1)}>
-          <StatRow items={overview} />
+          <MetricGrid items={overview} />
         </Animated.View>
       ) : null}
 
@@ -204,9 +205,11 @@ export default function ResumeScreen() {
           entranceIndex += 1;
           return (
             <View key={group.kind} style={styles.group}>
-              <GroupLabel>
-                {`${resumeAssetKindLabels[group.kind]} · ${group.items.length}`}
-              </GroupLabel>
+              <SectionTitle
+                title={resumeAssetKindLabels[group.kind]}
+                style={styles.groupTitle}
+                right={<Text style={styles.groupCount}>{group.items.length} 条</Text>}
+              />
               {group.items.map((r, i) => (
                 <Animated.View
                   key={r.id}
@@ -218,10 +221,22 @@ export default function ResumeScreen() {
                     <View style={styles.itemTitleWrap}>
                       <Text style={styles.itemTitle}>{r.title}</Text>
                     </View>
-                    <PressableScale hitSlop={8} scaleTo={0.88} onPress={() => openEdit(r)} accessibilityLabel={`编辑 ${r.title}`}>
+                    <PressableScale
+                      hitSlop={12}
+                      scaleTo={0.88}
+                      onPress={() => openEdit(r)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`编辑 ${r.title}`}
+                    >
                       <ThemedIcon name="create-outline" size={18} color={colors.primary} />
                     </PressableScale>
-                    <PressableScale hitSlop={8} scaleTo={0.88} onPress={() => remove(r)} accessibilityLabel={`删除 ${r.title}`}>
+                    <PressableScale
+                      hitSlop={12}
+                      scaleTo={0.88}
+                      onPress={() => remove(r)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`删除 ${r.title}`}
+                    >
                       <ThemedIcon name="trash-outline" size={18} color={colors.textFaint} />
                     </PressableScale>
                   </View>
@@ -270,7 +285,9 @@ const makeStyles = (colors: ThemeColors) =>
     actions: { flexDirection: "row", gap: 10 },
     actionItem: { flex: 1 },
     group: { gap: 10 },
-    item: { gap: 8 },
+    groupTitle: { marginTop: spacing.md, marginBottom: 0 },
+    groupCount: { ...typography.meta, color: colors.textMuted },
+    item: { gap: 10 },
     itemHead: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
     itemTitleWrap: { flex: 1, minWidth: 0 },
     itemTitle: {
@@ -281,7 +298,7 @@ const makeStyles = (colors: ThemeColors) =>
       ...typography.callout,
       color: colors.textSecondary,
     },
-    itemUrl: { ...typography.caption, color: colors.primary, lineHeight: 18 },
+    itemUrl: { ...typography.meta, color: colors.primary, lineHeight: 18 },
     form: { gap: 12, paddingTop: 6 },
     label: { ...typography.caption, fontWeight: "700", color: colors.textMuted },
   });

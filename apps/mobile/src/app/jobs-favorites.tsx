@@ -341,7 +341,7 @@ function SortChip({
       <ThemedIcon
         name={label === "薪资优先" ? "swap-vertical" : "time-outline"}
         size={14}
-        color={active ? "#FFFFFF" : colors.textSecondary}
+        color={active ? colors.canvas : colors.textSecondary}
       />
       <Text style={active ? styles.sortChipTextActive : styles.sortChipText}>{label}</Text>
     </PressableScale>
@@ -357,19 +357,20 @@ const makeStyles = (colors: ThemeColors) =>
     sortChip: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 5,
+      gap: 6,
       minHeight: 44,
       borderRadius: radius.pill,
-      paddingHorizontal: spacing.md,
+      paddingHorizontal: spacing.lg,
       backgroundColor: colors.surfaceStrong,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: StyleSheet.hairlineWidth * 2,
       borderColor: colors.border,
     },
     sortChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
     sortChipText: { ...typography.caption, fontWeight: "700", color: colors.textSecondary },
-    sortChipTextActive: { ...typography.caption, fontWeight: "800", color: "#FFFFFF" },
+    sortChipTextActive: { ...typography.caption, fontWeight: "800", color: colors.canvas },
 
-    card: { padding: spacing.md, marginBottom: spacing.md },
+    /** Card 已带 radius.card + 1px 描边 + 轻投影；这里只调节奏 */
+    card: { padding: spacing.lg, marginBottom: spacing.md },
     cardRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
     cardMain: { flex: 1, minWidth: 0, gap: spacing.sm },
     /** 列表项子树零 Reanimated：按压反馈用静态缩放/透明度（踩坑 92 同一收口原则） */
@@ -378,26 +379,29 @@ const makeStyles = (colors: ThemeColors) =>
     logo: {
       width: 40,
       height: 40,
-      borderRadius: radius.sm,
+      borderRadius: radius.control,
       alignItems: "center",
       justifyContent: "center",
     },
-    logoText: { ...typography.callout, fontWeight: "800", color: "#FFFFFF" },
+    logoText: { ...typography.callout, fontWeight: "800", color: colors.canvas },
     cardTitleBox: { flex: 1, minWidth: 0, gap: 3 },
     titleRow: { flexDirection: "row", alignItems: "baseline", gap: spacing.sm },
     title: { ...typography.callout, fontWeight: "800", color: colors.text, flex: 1 },
     salary: { ...typography.callout, fontWeight: "900", color: colors.accentStrong },
-    meta: { ...typography.micro, fontWeight: "400", color: colors.textSecondary },
+    meta: { ...typography.meta, color: colors.textSecondary },
     footRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-    time: { ...typography.micro, fontWeight: "400", color: colors.textFaint, flex: 1, textAlign: "right" },
+    time: { ...typography.meta, color: colors.textFaint, flex: 1, textAlign: "right" },
+    /** 行内取消收藏：44pt 热区 + v2 软底控件 */
     removeButton: {
       minHeight: 44,
       minWidth: 44,
       alignItems: "center",
       justifyContent: "center",
       gap: 2,
-      borderRadius: radius.md,
+      borderRadius: radius.control,
       backgroundColor: colors.dangerSoft,
+      borderWidth: StyleSheet.hairlineWidth * 2,
+      borderColor: colors.border,
       paddingHorizontal: spacing.sm,
     },
     removeText: { ...typography.micro, fontWeight: "800", color: colors.danger },

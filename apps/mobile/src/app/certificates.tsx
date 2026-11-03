@@ -12,6 +12,7 @@ import { CertImagePreview } from "@/components/cert-image-preview";
 import { FloatField } from "@/components/float-field";
 import { PressButton } from "@/components/press-button";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
+import { SectionTitle } from "@/components/v2/section-title";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { SheetListRow, SheetSection } from "@/components/sheet";
 import { PressableScale } from "@/components/pressable-scale";
@@ -322,7 +323,7 @@ export default function CertificatesScreen() {
         accessibilityRole="button"
         accessibilityLabel="添加证书"
       >
-        <ThemedIcon name="add" size={17} color={colors.primary} />
+        <ThemedIcon name="add" size={18} color={colors.surface} />
         <Text style={styles.addBtnText}>添加证书</Text>
       </PressableScale>
 
@@ -336,25 +337,32 @@ export default function CertificatesScreen() {
           pattern="bauhaus"
         />
       ) : (
-        records.map((r, index) => {
-          // 本机暂存的图片优先（离线补发期间），其次是服务端 imageUrl（相对路径转绝对）
-          const localUri = localPreview[r.id];
-          const rawImage = localUri ?? r.imageUrl ?? null;
-          const imageUri = rawImage ? (isLocalFileUri(rawImage) ? rawImage : absoluteMediaUrl(rawImage) ?? rawImage) : null;
-          return (
-            <CertCard
-              key={r.id}
-              index={index}
-              record={r}
-              imageUri={imageUri}
-              uploading={uploadingId === r.id}
-              onOpenStatus={() => setStatusSheetFor(r.id)}
-              onUpload={() => void uploadCertificatePhoto(r)}
-              onDelete={() => remove(r)}
-              onPreview={(uri) => setPreview({ uri, title: r.name })}
-            />
-          );
-        })
+        <>
+          <SectionTitle
+            title="证书清单"
+            style={styles.listTitle}
+            right={<Text style={styles.listCount}>{records.length} 张</Text>}
+          />
+          {records.map((r, index) => {
+            // 本机暂存的图片优先（离线补发期间），其次是服务端 imageUrl（相对路径转绝对）
+            const localUri = localPreview[r.id];
+            const rawImage = localUri ?? r.imageUrl ?? null;
+            const imageUri = rawImage ? (isLocalFileUri(rawImage) ? rawImage : absoluteMediaUrl(rawImage) ?? rawImage) : null;
+            return (
+              <CertCard
+                key={r.id}
+                index={index}
+                record={r}
+                imageUri={imageUri}
+                uploading={uploadingId === r.id}
+                onOpenStatus={() => setStatusSheetFor(r.id)}
+                onUpload={() => void uploadCertificatePhoto(r)}
+                onDelete={() => remove(r)}
+                onPreview={(uri) => setPreview({ uri, title: r.name })}
+              />
+            );
+          })}
+        </>
       )}
 
       <BottomSheet visible={sheetOpen} onClose={() => setSheetOpen(false)} title="添加证书" height="66%">
@@ -491,20 +499,33 @@ const makeStyles = (colors: ThemeColors) =>
     root: { flex: 1 },
     scroll: { flex: 1, backgroundColor: "transparent" },
     content: { padding: 16, gap: 12 },
-    addBtn: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.primarySoft, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9 },
-    addBtnText: { color: colors.primary, fontSize: 13, fontWeight: "800" },
+    /* 主 CTA：v2 主色胶囊（高 44，图标/文字走 on-primary 色，深色下仍满足对比度） */
+    addBtn: {
+      alignSelf: "flex-start",
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      minHeight: 44,
+      backgroundColor: colors.primary,
+      borderRadius: radius.pill,
+      paddingHorizontal: 18,
+      paddingVertical: 10,
+    },
+    addBtnText: { ...typography.callout, fontWeight: "800", color: colors.surface },
+    listTitle: { marginTop: 4, marginBottom: 0, paddingHorizontal: 2 },
+    listCount: { ...typography.meta, color: colors.textMuted },
     certPhotoRow: {
       flexDirection: "row",
       alignItems: "center",
       gap: 12,
-      borderRadius: radius.lg,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: radius.control,
+      borderWidth: StyleSheet.hairlineWidth * 2,
       borderColor: colors.border,
-      backgroundColor: colors.surfaceStrong,
+      backgroundColor: colors.surfaceMuted,
       paddingHorizontal: 12,
       paddingVertical: 10,
     },
-    certPhotoThumb: { width: 92, height: 58, borderRadius: radius.md, backgroundColor: colors.canvas },
+    certPhotoThumb: { width: 92, height: 58, borderRadius: radius.sm, backgroundColor: colors.canvas },
     certPhotoEmpty: {
       alignItems: "center",
       justifyContent: "center",
@@ -518,7 +539,7 @@ const makeStyles = (colors: ThemeColors) =>
       flexDirection: "row",
       alignItems: "center",
       gap: 8,
-      borderRadius: radius.lg,
+      borderRadius: radius.control,
       borderWidth: 1,
       borderStyle: "dashed",
       borderColor: colors.border,
@@ -528,14 +549,21 @@ const makeStyles = (colors: ThemeColors) =>
     },
     photoLockedText: { ...typography.caption, color: colors.textMuted, flex: 1 },
     form: { gap: 10, paddingTop: 6 },
-    label: { fontSize: typography.caption.fontSize, fontWeight: "700", color: colors.textMuted },
+    label: { ...typography.section, color: colors.textMuted },
     kindRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-    kindChip: { borderRadius: 999, paddingHorizontal: 13, paddingVertical: 7, backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.border },
+    /* 状态胶囊：v2 胶囊语言（surfaceMuted 底 + radius.pill；选中主色实底配 on-primary 文字） */
+    kindChip: {
+      minHeight: 36,
+      justifyContent: "center",
+      borderRadius: radius.pill,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
     kindChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-    kindChipText: { fontSize: typography.caption.fontSize, fontWeight: "700", color: colors.textMuted },
-    kindChipTextActive: { color: "#ffffff" },
+    kindChipText: { ...typography.caption, fontWeight: "700", color: colors.textMuted },
+    kindChipTextActive: { color: colors.canvas },
     currentTag: { ...typography.micro, fontWeight: "800", color: colors.primary },
-    input: { backgroundColor: colors.surfaceMuted, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: colors.text },
-    primaryBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 12, alignItems: "center", marginTop: 4 },
-    primaryBtnText: { color: "#fff", fontSize: typography.callout.fontSize, fontWeight: "800" },
   });

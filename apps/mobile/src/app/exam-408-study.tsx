@@ -2,8 +2,11 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import Animated from "react-native-reanimated";
+import { EmptyState } from "@/components/empty-state";
+import { ListGroup } from "@/components/list-row";
 import { PressableScale } from "@/components/pressable-scale";
 import { ThemedIcon } from "@/components/themed-icon";
+import { SectionTitle } from "@/components/v2/section-title";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import {
   EXAM_408_STUDY_SUBJECTS,
@@ -17,7 +20,7 @@ import { setNavPendingParams } from "@/lib/nav-pending";
 import { useScreenEntrance } from "@/lib/use-screen-entrance";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
-import { radius, spacing, typography, type ThemeColors } from "@/theme/tokens";
+import { radius, shadows, spacing, tabularNums, typography, type ThemeColors } from "@/theme/tokens";
 
 /**
  * 408 精读·目录（v1.55）。cs408.cloud 的 181 篇正文按「科目 → 章节 → 文章」组织，
@@ -102,6 +105,7 @@ export default function Exam408StudyScreen() {
                 key={item.key}
                 haptic
                 scaleTo={0.97}
+                hitSlop={4}
                 onPress={() => pickSubject(item.key)}
                 style={[styles.subjectChip, active ? styles.subjectChipActive : null]}
                 accessibilityRole="button"
@@ -121,33 +125,27 @@ export default function Exam408StudyScreen() {
             <Text style={styles.centerText}>正在加载精读目录…</Text>
           </View>
         ) : error ? (
-          <View style={styles.centerState}>
-            <ThemedIcon name="alert-circle-outline" size={26} color={colors.danger} />
-            <Text style={styles.centerTitle}>精读目录加载失败</Text>
-            <Text style={styles.centerText}>{error}</Text>
-            <PressableScale haptic onPress={() => void load(subjectRef.current)} style={styles.retry}>
-              <Text style={styles.retryText}>重试</Text>
-            </PressableScale>
-          </View>
+          <EmptyState
+            icon="alert-circle-outline"
+            title="精读目录加载失败"
+            hint={error}
+            actionLabel="重试"
+            onAction={() => void load(subjectRef.current)}
+            pattern="none"
+          />
         ) : !catalog || total === 0 || chapterCount === 0 ? (
-          <View style={styles.centerState}>
-            <ThemedIcon
-              name={catalog ? "file-tray-outline" : "alert-circle-outline"}
-              size={26}
-              color={colors.textMuted}
-            />
-            <Text style={styles.centerTitle}>
-              {catalog ? "这一科还没有精读正文" : "精读目录数据异常"}
-            </Text>
-            <Text style={styles.centerText}>
-              {catalog
+          <EmptyState
+            icon={catalog ? "file-tray-outline" : "alert-circle-outline"}
+            title={catalog ? "这一科还没有精读正文" : "精读目录数据异常"}
+            hint={
+              catalog
                 ? "换个科目看看，或点下方重新加载；确认线上有正文时请反馈给我们。"
-                : "接口返回里没有识别到章节/文章结构，请重新加载后再试。"}
-            </Text>
-            <PressableScale haptic onPress={() => void load(subjectRef.current)} style={styles.retry}>
-              <Text style={styles.retryText}>重新加载</Text>
-            </PressableScale>
-          </View>
+                : "接口返回里没有识别到章节/文章结构，请重新加载后再试。"
+            }
+            actionLabel="重新加载"
+            onAction={() => void load(subjectRef.current)}
+            pattern="none"
+          />
         ) : (
           <>
             <Animated.View entering={entrance(0)} style={styles.summaryCard}>
@@ -162,20 +160,22 @@ export default function Exam408StudyScreen() {
 
             {catalog?.chapters.map((chapter, chapterIndex) => (
               <Animated.View key={chapter.chapter} entering={entrance(Math.min(chapterIndex + 1, 6))} style={styles.chapterBlock}>
-                <View style={styles.chapterHead}>
-                  <Text style={styles.chapterTitle} numberOfLines={1}>
-                    {chapter.chapter}
-                  </Text>
-                  <Text style={styles.chapterCount}>{chapter.articles.length} 篇</Text>
-                </View>
-                <View style={styles.articleList}>
-                  {chapter.articles.map((article) => (
+                <SectionTitle
+                  title={chapter.chapter}
+                  right={<Text style={styles.chapterCount}>{chapter.articles.length} 篇</Text>}
+                  style={styles.chapterSectionTitle}
+                />
+                <ListGroup>
+                  {chapter.articles.map((article, articleIndex) => (
                     <PressableScale
                       key={article.key || article.slug}
                       haptic
                       scaleTo={0.99}
                       onPress={() => openArticle(article)}
-                      style={styles.articleRow}
+                      style={[
+                        styles.articleRow,
+                        articleIndex === chapter.articles.length - 1 && styles.articleRowLast,
+                      ]}
                       accessibilityRole="button"
                       accessibilityLabel={"阅读 " + article.title}
                     >
@@ -199,7 +199,7 @@ export default function Exam408StudyScreen() {
                       <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
                     </PressableScale>
                   ))}
-                </View>
+                </ListGroup>
               </Animated.View>
             ))}
 
@@ -230,14 +230,17 @@ function badgeTextStyle(importance: string, colors: ThemeColors) {
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
-    root: { flex: 1 },
+    root: { flex: 1, backgroundColor: colors.canvas },
     scroll: { flex: 1 },
     content: { paddingHorizontal: spacing.lg, gap: spacing.md },
+    /* 科目筛选：chip 统一 radius.control（v2），热区用 hitSlop 补足 44 */
     subjectRail: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
     subjectChip: {
+      minHeight: 40,
+      justifyContent: "center",
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.sm,
-      borderRadius: radius.pill,
+      borderRadius: radius.control,
       backgroundColor: colors.surfaceMuted,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.border,
@@ -246,42 +249,30 @@ const makeStyles = (colors: ThemeColors) =>
     subjectChipText: { ...typography.caption, fontWeight: "600", color: colors.textMuted },
     subjectChipTextActive: { color: colors.surface },
     centerState: { alignItems: "center", gap: spacing.sm, paddingVertical: spacing["2xl"] },
-    centerTitle: { ...typography.headline, color: colors.text },
-    centerText: { ...typography.caption, color: colors.textMuted, textAlign: "center" },
-    retry: {
-      marginTop: spacing.sm,
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.sm,
-      borderRadius: radius.pill,
-      backgroundColor: colors.primarySoft,
-    },
-    retryText: { ...typography.caption, fontWeight: "700", color: colors.primaryStrong },
+    centerText: { ...typography.meta, color: colors.textMuted, textAlign: "center" },
+    /* 概览条：v2 卡片质感（radius.card + 1px 描边 + 轻投影） */
     summaryCard: {
       flexDirection: "row",
       alignItems: "center",
       gap: spacing.sm,
       padding: spacing.md,
-      borderRadius: radius.lg,
+      borderRadius: radius.card,
       backgroundColor: colors.surfaceStrong,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: StyleSheet.hairlineWidth * 2,
       borderColor: colors.border,
+      ...shadows.card,
     },
-    summaryValue: { ...typography.headline, fontWeight: "800", color: colors.text },
-    summaryLabel: { ...typography.caption, color: colors.textMuted },
+    summaryValue: { ...typography.num, ...tabularNums, color: colors.text },
+    summaryLabel: { ...typography.meta, color: colors.textMuted },
     summaryDivider: { width: StyleSheet.hairlineWidth, height: 18, backgroundColor: colors.borderStrong, marginHorizontal: spacing.xs },
-    summaryHint: { ...typography.caption, color: colors.textFaint, marginLeft: "auto" },
+    summaryHint: { ...typography.meta, color: colors.textFaint, marginLeft: "auto" },
     chapterBlock: { gap: spacing.sm },
-    chapterHead: { flexDirection: "row", alignItems: "baseline", gap: spacing.sm, marginTop: spacing.sm },
-    chapterTitle: { ...typography.headline, fontWeight: "700", color: colors.text, flex: 1 },
-    chapterCount: { ...typography.caption, color: colors.textFaint },
-    articleList: {
-      borderRadius: radius.lg,
-      backgroundColor: colors.surfaceStrong,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.border,
-      overflow: "hidden",
-    },
+    /** SectionTitle 自带 marginTop/marginBottom，这里清零交给 chapterBlock 的 gap */
+    chapterSectionTitle: { marginTop: 0, marginBottom: 0 },
+    chapterCount: { ...typography.meta, color: colors.textFaint },
+    /* 文章列表：ListGroup 提供 radius.card + 1px 描边 + 轻投影 */
     articleRow: {
+      minHeight: 56,
       flexDirection: "row",
       alignItems: "center",
       gap: spacing.sm,
@@ -290,19 +281,20 @@ const makeStyles = (colors: ThemeColors) =>
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: colors.border,
     },
+    articleRowLast: { borderBottomWidth: 0 },
     articleBody: { flex: 1, gap: 6 },
     articleTitle: { ...typography.body, fontWeight: "600", color: colors.text },
     articleMeta: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-    badge: { paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.sm },
+    badge: { paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.pill },
     badgeText: { ...typography.micro, fontWeight: "700" },
-    articleMetaText: { ...typography.caption, color: colors.textFaint },
+    articleMetaText: { ...typography.meta, color: colors.textFaint },
     sourceBox: {
       marginTop: spacing.lg,
       padding: spacing.md,
-      borderRadius: radius.md,
+      borderRadius: radius.control,
       backgroundColor: colors.surfaceMuted,
       gap: 4,
     },
     sourceTitle: { ...typography.caption, fontWeight: "700", color: colors.textSecondary },
-    sourceText: { ...typography.caption, color: colors.textFaint, lineHeight: 18 },
+    sourceText: { ...typography.meta, color: colors.textFaint, lineHeight: 18 },
   });

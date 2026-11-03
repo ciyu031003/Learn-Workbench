@@ -11,8 +11,10 @@ import type { LearningTrack } from "@learn-workbench/content/types";
 import { useLearningTrack } from "@/lib/content-store";
 import { recordCrumb } from "@/lib/crash-capture";
 import { BottomSheet } from "@/components/bottom-sheet";
+import { EmptyState } from "@/components/empty-state";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
+import { SectionTitle } from "@/components/v2/section-title";
 import {
   ScreenHeaderLargeTitle,
   ScreenHeaderStickyBar,
@@ -41,6 +43,7 @@ import {
   radius,
   shadows,
   spacing,
+  tabularNums,
   typography,
   type ThemeColors,
 } from "@/theme/tokens";
@@ -55,30 +58,25 @@ type ChapterSheetSnapshot = {
 
 const TRACK_SLUG = "ex-408-grad";
 
-const SUBJECT_TONES: Record<
-  string,
-  { color: string; soft: string; icon: string }
-> = {
-  数据结构: {
-    color: "#2563EB",
-    soft: "#DBEAFE",
-    icon: "git-network-outline",
-  },
-  计算机组成原理: {
-    color: "#7C3AED",
-    soft: "#EDE9FE",
-    icon: "hardware-chip-outline",
-  },
-  操作系统: {
-    color: "#B45309",
-    soft: "#FEF3C7",
-    icon: "apps-outline",
-  },
-  计算机网络: {
-    color: "#0F766E",
-    soft: "#CCFBF1",
-    icon: "share-social-outline",
-  },
+/**
+ * 四科点缀色（v2）：不再写死十六进制，统一从主题调色板的领域色取。
+ * 软底由同一 token 派生半透明（浅色 18 / 深色 2B），夜间不会出现"浅色档专用的粉彩"。
+ */
+type SubjectToneColor = Extract<
+  keyof ThemeColors,
+  "primary" | "lavender" | "accent" | "teal"
+>;
+
+const SUBJECT_TONES: Record<string, { color: SubjectToneColor; icon: string }> = {
+  数据结构: { color: "primary", icon: "git-network-outline" },
+  计算机组成原理: { color: "lavender", icon: "hardware-chip-outline" },
+  操作系统: { color: "accent", icon: "apps-outline" },
+  计算机网络: { color: "teal", icon: "share-social-outline" },
+};
+
+const DEFAULT_SUBJECT_TONE: { color: SubjectToneColor; icon: string } = {
+  color: "teal",
+  icon: "school-outline",
 };
 
 export default function Exam408Screen() {
@@ -423,6 +421,7 @@ function Exam408Content({ track }: { track: LearningTrack }) {
                   {
                     backgroundColor: subjectTone(
                       chapterSheetSnapshot.subject,
+                      colors,
                       dark,
                     ).soft,
                   },
@@ -430,11 +429,11 @@ function Exam408Content({ track }: { track: LearningTrack }) {
               >
                 <ThemedIcon
                   name={
-                    subjectTone(chapterSheetSnapshot.subject, dark)
+                    subjectTone(chapterSheetSnapshot.subject, colors, dark)
                       .icon as never
                   }
                   size={19}
-                  color={subjectTone(chapterSheetSnapshot.subject, dark).color}
+                  color={subjectTone(chapterSheetSnapshot.subject, colors, dark).color}
                 />
               </View>
               <View style={styles.sheetLeadBody}>
@@ -452,7 +451,7 @@ function Exam408Content({ track }: { track: LearningTrack }) {
                 <PointRow
                   key={point.key}
                   point={point}
-                  accent={subjectTone(chapterSheetSnapshot.subject, dark).color}
+                  accent={subjectTone(chapterSheetSnapshot.subject, colors, dark).color}
                   onPress={() => openPoint(point.key)}
                 />
               ))}
@@ -488,17 +487,11 @@ function KnowledgeTab({
   const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
   return (
     <View style={styles.sectionList}>
-      <View style={styles.sectionHead}>
-        <View style={styles.sectionHeadBody}>
-          <Text style={styles.sectionTitle}>四科知识体系</Text>
-          <Text style={styles.sectionText}>
-            先选科目，再打开章节查看完整知识点清单。
-          </Text>
-        </View>
-        <Text style={styles.sectionCount}>
-          {overview?.subjects.length ?? 0} 科
-        </Text>
-      </View>
+      <SectionHead
+        title="四科知识体系"
+        meta={`${overview?.subjects.length ?? 0} 科`}
+        hint="先选科目，再打开章节查看完整知识点清单。"
+      />
       <SubjectBrowser
         mode="knowledge"
         overview={overview}
@@ -576,18 +569,11 @@ function PracticeTab({
         />
       </View>
 
-
-      <View style={styles.sectionHead}>
-        <View style={styles.sectionHeadBody}>
-          <Text style={styles.sectionTitle}>按章节刷真题</Text>
-          <Text style={styles.sectionText}>
-            打开章节后，可在知识点层级查看关联原题。
-          </Text>
-        </View>
-        <Text style={styles.sectionCount}>
-          {exam408OverviewStats(overview).questions} 题
-        </Text>
-      </View>
+      <SectionHead
+        title="按章节刷真题"
+        meta={`${exam408OverviewStats(overview).questions} 题`}
+        hint="打开章节后，可在知识点层级查看关联原题。"
+      />
       <SubjectBrowser
         mode="practice"
         overview={overview}
@@ -629,26 +615,22 @@ function SubjectBrowser({
 
   if (loading && !overview) {
     return (
-      <StateBox
-        styles={styles}
-        colors={colors}
-        icon="cloud-download-outline"
+      <LoadingBox
         title="正在加载 408 知识体系"
         text="同步科目、章节、知识点和真题索引。"
-        loading
       />
     );
   }
 
   if (error && !overview) {
     return (
-      <StateBox
-        styles={styles}
-        colors={colors}
+      <EmptyState
         icon="alert-circle-outline"
         title="408 内容加载失败"
-        text={error}
-        onRetry={onRetry}
+        hint={error}
+        actionLabel="重试"
+        onAction={onRetry}
+        pattern="none"
       />
     );
   }
@@ -659,13 +641,13 @@ function SubjectBrowser({
 
   if (subjects.length === 0) {
     return (
-      <StateBox
-        styles={styles}
-        colors={colors}
+      <EmptyState
         icon="file-tray-outline"
         title="暂无科目数据"
-        text="数据库当前没有可用的 408 科目。"
-        onRetry={onRetry}
+        hint="数据库当前没有可用的 408 科目。"
+        actionLabel="重试"
+        onAction={onRetry}
+        pattern="none"
       />
     );
   }
@@ -696,7 +678,7 @@ function SubjectBrowser({
       {selectedSubject.chapters.length > 0 ? (
         <View style={styles.chapterList}>
           {selectedSubject.chapters.map((chapter) => {
-            const tone = subjectTone(selectedSubject, dark);
+            const tone = subjectTone(selectedSubject, colors, dark);
             const preview = exam408ChapterPreview(chapter);
             return (
               <PressableScale
@@ -730,12 +712,11 @@ function SubjectBrowser({
           })}
         </View>
       ) : (
-        <StateBox
-          styles={styles}
-          colors={colors}
+        <EmptyState
           icon="file-tray-outline"
           title="本章暂无知识点"
-          text="可以切换到其他章节继续查看。"
+          hint="可以切换到其他章节继续查看。"
+          pattern="none"
         />
       )}
     </>
@@ -760,7 +741,7 @@ function SubjectGrid({
   return (
     <View style={styles.subjectGrid}>
       {subjects.map((subject) => {
-        const tone = subjectTone(subject, dark);
+        const tone = subjectTone(subject, colors, dark);
         return (
           <PressableScale
             key={subject.key}
@@ -815,7 +796,7 @@ function GradLessonEntry({ subject }: { subject: Exam408SubjectSummary }) {
     });
   }, [subject.key, gradStageKey, gradStage?.topics.length, gradStage]);
   if (!gradStage || gradStage.topics.length === 0) return null;
-  const tone = subjectTone(subject, dark);
+  const tone = subjectTone(subject, colors, dark);
 
   const openLesson = () => {
     if (!gradTrack) return;
@@ -902,10 +883,7 @@ function LearningModes({
   ];
   return (
     <View style={styles.learningModes}>
-      <View style={styles.learningModesHead}>
-        <Text style={styles.sectionTitle}>学习方式</Text>
-        <Text style={styles.learningModesHint}>长读 / 看动图 / 刷记忆</Text>
-      </View>
+      <SectionHead title="学习方式" meta="长读 / 看动图 / 刷记忆" />
       <View style={styles.learningModesRow}>
         {entries.map((entry) => (
           <PressableScale
@@ -942,7 +920,7 @@ function SubjectSummary({
 }) {
   const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
-  const tone = subjectTone(subject, dark);
+  const tone = subjectTone(subject, colors, dark);
   return (
     <View style={styles.subjectSummary}>
       <View style={[styles.subjectSummaryIcon, { backgroundColor: tone.soft }]}>
@@ -1032,26 +1010,22 @@ function PapersTab({
 }) {
   if (loading && papers.length === 0) {
     return (
-      <StateBox
-        styles={styles}
-        colors={colors}
-        icon="document-text-outline"
+      <LoadingBox
         title="正在加载历年真题"
         text="按年份整理原卷、题型、题号和分值。"
-        loading
       />
     );
   }
 
   if (error && papers.length === 0) {
     return (
-      <StateBox
-        styles={styles}
-        colors={colors}
+      <EmptyState
         icon="alert-circle-outline"
         title="历年真题加载失败"
-        text={error}
-        onRetry={onRetry}
+        hint={error}
+        actionLabel="重试"
+        onAction={onRetry}
+        pattern="none"
       />
     );
   }
@@ -1127,37 +1101,42 @@ function PapersTab({
   );
 }
 
-function StateBox({
-  styles,
-  colors,
-  icon,
+/**
+ * v2 区块标题：SectionTitle（14/700）+ 右侧计数 + 一行说明。
+ * 替代旧的 sectionHead / BlockTitle 组合，字号与间距全部走 token。
+ */
+function SectionHead({
   title,
-  text,
-  loading = false,
-  onRetry,
+  meta,
+  hint,
 }: {
-  styles: ReturnType<typeof makeStyles>;
-  colors: ThemeColors;
-  icon: string;
   title: string;
-  text: string;
-  loading?: boolean;
-  onRetry?: () => void;
+  meta?: string;
+  hint?: string;
 }) {
+  const { colors, dark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
   return (
-    <View style={styles.stateBox}>
-      {loading ? (
-        <ActivityIndicator color={colors.primary} />
-      ) : (
-        <ThemedIcon name={icon as never} size={25} color={colors.textMuted} />
-      )}
-      <Text style={styles.stateTitle}>{title}</Text>
-      <Text style={styles.stateText}>{text}</Text>
-      {onRetry ? (
-        <PressableScale haptic onPress={onRetry} style={styles.retryButton}>
-          <Text style={styles.retryButtonText}>重试</Text>
-        </PressableScale>
-      ) : null}
+    <View style={styles.sectionHead}>
+      <SectionTitle
+        title={title}
+        right={meta ? <Text style={styles.sectionCount}>{meta}</Text> : undefined}
+        style={styles.sectionTitleRow}
+      />
+      {hint ? <Text style={styles.sectionHint}>{hint}</Text> : null}
+    </View>
+  );
+}
+
+/** 加载占位：只在本页首次拉数据时出现，不抢内容卡片的视觉层级 */
+function LoadingBox({ title, text }: { title: string; text: string }) {
+  const { colors, dark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
+  return (
+    <View style={styles.loadingBox}>
+      <ActivityIndicator color={colors.primary} />
+      <Text style={styles.loadingTitle}>{title}</Text>
+      <Text style={styles.loadingText}>{text}</Text>
     </View>
   );
 }
@@ -1265,14 +1244,15 @@ function MissingExam408() {
   );
 }
 
-function subjectTone(subject: Exam408SubjectSummary, dark: boolean) {
-  const tone = SUBJECT_TONES[subject.shortName] ??
-    SUBJECT_TONES[subject.title] ?? {
-      color: "#0F766E",
-      soft: "#CCFBF1",
-      icon: "school-outline",
-    };
-  return dark ? { ...tone, soft: tone.color + "25" } : tone;
+function subjectTone(
+  subject: Exam408SubjectSummary,
+  colors: ThemeColors,
+  dark: boolean,
+) {
+  const tone =
+    SUBJECT_TONES[subject.shortName] ?? SUBJECT_TONES[subject.title] ?? DEFAULT_SUBJECT_TONE;
+  const color = colors[tone.color];
+  return { color, soft: color + (dark ? "2B" : "18"), icon: tone.icon };
 }
 
 const makeStyles = (colors: ThemeColors, dark: boolean) =>
@@ -1280,21 +1260,22 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
     root: { flex: 1, backgroundColor: colors.canvas },
     scroll: { flex: 1 },
     content: { padding: spacing.lg, gap: spacing.lg },
+    /* 页首 Hero：v2 大面板（radius.panel + 1px 描边 + 轻投影），底色由主题领域色派生 */
     hero: {
       overflow: "hidden",
-      borderRadius: radius.xl,
+      borderRadius: radius.panel,
       padding: spacing.lg,
       gap: spacing.lg,
-      backgroundColor: dark ? "#123A36" : "#E2F3EF",
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: dark ? "#2F7F7450" : "#196B6335",
-      ...shadows.brand,
+      backgroundColor: dark ? colors.teal + "24" : colors.teal + "14",
+      borderWidth: StyleSheet.hairlineWidth * 2,
+      borderColor: dark ? colors.teal + "3D" : colors.teal + "33",
+      ...shadows.card,
     },
     heroTop: { flexDirection: "row", alignItems: "center", gap: spacing.md },
     heroIcon: {
       width: 52,
       height: 52,
-      borderRadius: 18,
+      borderRadius: radius.card,
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: colors.surfaceStrong,
@@ -1308,21 +1289,21 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       borderRadius: radius.pill,
       backgroundColor: colors.primarySoft,
     },
-    heroTitle: { ...typography.title2, color: colors.text },
-    heroText: { ...typography.caption, color: colors.textSecondary },
+    heroTitle: { ...typography.hero, color: colors.text },
+    heroText: { ...typography.meta, color: colors.textSecondary },
     heroStats: { flexDirection: "row", gap: spacing.sm },
     heroStat: { flex: 1, gap: 1 },
     heroStatValue: {
-      ...typography.title2,
+      ...typography.num,
+      ...tabularNums,
       color: colors.text,
-      fontVariant: ["tabular-nums"],
     },
-    heroStatLabel: { ...typography.micro, color: colors.textMuted },
+    heroStatLabel: { ...typography.meta, color: colors.textMuted },
     tabs: {
       flexDirection: "row",
       gap: 4,
       padding: 4,
-      borderRadius: radius.lg,
+      borderRadius: radius.panel,
       backgroundColor: colors.surfaceMuted,
     },
     tabButton: {
@@ -1331,7 +1312,7 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       alignItems: "center",
       justifyContent: "center",
       gap: 3,
-      borderRadius: radius.md,
+      borderRadius: radius.control,
       paddingHorizontal: 4,
     },
     tabButtonActive: {
@@ -1346,25 +1327,21 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
     tabButtonLabelActive: { color: colors.primary },
     tabButtonMeta: { ...typography.micro, color: colors.textFaint },
     sectionList: { gap: spacing.md },
-    sectionHead: {
-      flexDirection: "row",
-      alignItems: "flex-end",
-      justifyContent: "space-between",
-      gap: spacing.md,
-    },
-    sectionHeadBody: { flex: 1, gap: 2 },
-    sectionTitle: { ...typography.title2, color: colors.text },
-    sectionText: { ...typography.caption, color: colors.textMuted },
-    sectionCount: { ...typography.caption, color: colors.textMuted },
+    /** SectionHead：SectionTitle 自带 margin，这里清零交给外层 gap */
+    sectionHead: { gap: 2 },
+    sectionTitleRow: { marginTop: 0, marginBottom: 0 },
+    sectionCount: { ...typography.meta, color: colors.textMuted },
+    sectionHint: { ...typography.meta, color: colors.textMuted },
     subjectSummary: {
       flexDirection: "row",
       alignItems: "center",
       gap: spacing.md,
-      borderRadius: radius.lg,
+      borderRadius: radius.card,
       padding: spacing.md,
       backgroundColor: colors.surfaceStrong,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: StyleSheet.hairlineWidth * 2,
       borderColor: colors.border,
+      ...shadows.card,
     },
     subjectSummaryIcon: {
       width: 44,
@@ -1393,10 +1370,10 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       width: "48%",
       minHeight: 132,
       gap: 4,
-      borderRadius: radius.lg,
+      borderRadius: radius.card,
       padding: spacing.md,
       backgroundColor: colors.surfaceStrong,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: StyleSheet.hairlineWidth * 2,
       borderColor: colors.border,
       ...shadows.card,
     },
@@ -1416,6 +1393,7 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
     subjectCardMeta: { ...typography.micro, color: colors.textMuted, lineHeight: 16 },
     subjectCardHint: { ...typography.micro, color: colors.primary, fontWeight: "700", marginTop: "auto" },
     subjectBackRow: {
+      minHeight: 44,
       flexDirection: "row",
       alignItems: "center",
       gap: 6,
@@ -1429,29 +1407,22 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       flexDirection: "row",
       alignItems: "center",
       gap: spacing.sm,
-      borderRadius: radius.md,
+      borderRadius: radius.control,
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.sm,
       backgroundColor: colors.dangerSoft,
     },
     navNoticeText: { ...typography.caption, color: colors.danger, flex: 1, lineHeight: 18 },
     learningModes: { gap: spacing.sm },
-    learningModesHead: {
-      flexDirection: "row",
-      alignItems: "baseline",
-      justifyContent: "space-between",
-      gap: spacing.sm,
-    },
-    learningModesHint: { ...typography.caption, color: colors.textFaint },
     learningModesRow: { flexDirection: "row", gap: spacing.sm },
     learningModeCard: {
       flex: 1,
       minHeight: 112,
       gap: 6,
-      borderRadius: radius.lg,
+      borderRadius: radius.card,
       padding: spacing.md,
       backgroundColor: colors.surfaceStrong,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: StyleSheet.hairlineWidth * 2,
       borderColor: colors.border,
       ...shadows.card,
     },
@@ -1468,10 +1439,11 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       flexDirection: "row",
       alignItems: "center",
       gap: spacing.md,
-      borderRadius: radius.lg,
+      borderRadius: radius.card,
       padding: spacing.md,
       backgroundColor: colors.surfaceStrong,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: StyleSheet.hairlineWidth * 2,
+      ...shadows.card,
     },
     lessonEntryIcon: {
       width: 44,
@@ -1489,10 +1461,10 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       flexDirection: "row",
       alignItems: "center",
       gap: spacing.md,
-      borderRadius: radius.lg,
+      borderRadius: radius.card,
       padding: spacing.lg,
       backgroundColor: colors.surfaceStrong,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: StyleSheet.hairlineWidth * 2,
       borderColor: colors.border,
       ...shadows.card,
     },
@@ -1533,7 +1505,7 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       flexDirection: "row",
       alignItems: "center",
       gap: spacing.md,
-      borderRadius: radius.lg,
+      borderRadius: radius.card,
       padding: spacing.lg,
       backgroundColor: colors.primary,
       ...shadows.brand,
@@ -1562,10 +1534,10 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       flex: 1,
       minHeight: 116,
       gap: 5,
-      borderRadius: radius.lg,
+      borderRadius: radius.card,
       padding: spacing.lg,
       backgroundColor: colors.surfaceStrong,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: StyleSheet.hairlineWidth * 2,
       borderColor: colors.border,
       ...shadows.card,
     },
@@ -1587,9 +1559,12 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       flexDirection: "row",
       alignItems: "center",
       gap: spacing.md,
-      borderRadius: radius.lg,
+      borderRadius: radius.card,
       padding: spacing.lg,
       backgroundColor: colors.primarySoft,
+      borderWidth: StyleSheet.hairlineWidth * 2,
+      borderColor: colors.border,
+      ...shadows.card,
     },
     paperHeroIcon: {
       width: 48,
@@ -1606,11 +1581,12 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       flexDirection: "row",
       alignItems: "center",
       gap: spacing.md,
-      borderRadius: radius.lg,
+      borderRadius: radius.card,
       padding: spacing.md,
       backgroundColor: colors.surfaceStrong,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: StyleSheet.hairlineWidth * 2,
       borderColor: colors.border,
+      ...shadows.card,
     },
     paperHistoryIcon: {
       width: 44,
@@ -1628,10 +1604,10 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       width: "48%",
       minHeight: 148,
       gap: 4,
-      borderRadius: radius.lg,
+      borderRadius: radius.card,
       padding: spacing.lg,
       backgroundColor: colors.surfaceStrong,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: StyleSheet.hairlineWidth * 2,
       borderColor: colors.border,
       ...shadows.card,
     },
@@ -1664,29 +1640,26 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       fontWeight: "800",
       color: colors.primary,
     },
-    stateBox: {
-      minHeight: 220,
+    loadingBox: {
+      minHeight: 200,
       alignItems: "center",
       justifyContent: "center",
       gap: spacing.sm,
-      borderRadius: radius.lg,
       padding: spacing.xl,
-      backgroundColor: colors.surfaceStrong,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.border,
     },
-    stateTitle: { ...typography.headline, color: colors.text },
-    stateText: {
+    loadingTitle: { ...typography.headline, color: colors.text },
+    loadingText: {
       ...typography.callout,
       color: colors.textMuted,
       textAlign: "center",
     },
+    /* 兜底主 CTA（408 内容不可用）：primary pill */
     retryButton: {
-      minHeight: 44,
+      minHeight: 48,
       marginTop: spacing.sm,
       alignItems: "center",
       justifyContent: "center",
-      borderRadius: radius.md,
+      borderRadius: radius.pill,
       paddingHorizontal: spacing.xl,
       backgroundColor: colors.primary,
     },
@@ -1697,11 +1670,12 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
     },
     sourceBox: {
       gap: 4,
-      borderRadius: radius.lg,
+      borderRadius: radius.card,
       padding: spacing.lg,
       backgroundColor: colors.surfaceStrong,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: StyleSheet.hairlineWidth * 2,
       borderColor: colors.border,
+      ...shadows.card,
     },
     sourceTitle: { ...typography.callout, fontWeight: "800", color: colors.text },
     sourceText: { ...typography.caption, color: colors.textMuted, lineHeight: 19 },
@@ -1710,7 +1684,7 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       flexDirection: "row",
       alignItems: "center",
       gap: spacing.md,
-      borderRadius: radius.lg,
+      borderRadius: radius.control,
       padding: spacing.md,
       backgroundColor: colors.surfaceMuted,
     },
@@ -1730,10 +1704,10 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       flexDirection: "row",
       alignItems: "center",
       gap: spacing.md,
-      borderRadius: radius.lg,
+      borderRadius: radius.control,
       padding: spacing.md,
       backgroundColor: colors.surfaceStrong,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: StyleSheet.hairlineWidth * 2,
       borderColor: colors.border,
     },
     pointNumber: {

@@ -3,8 +3,10 @@ import { Alert, RefreshControl, ScrollView, Share, StyleSheet, Text, View } from
 import * as WebBrowser from "expo-web-browser";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Card } from "@/components/card";
 import { EmptyState } from "@/components/empty-state";
 import { PressableScale } from "@/components/pressable-scale";
+import { SectionTitle } from "@/components/v2/section-title";
 import { ScreenHeaderStickyBar } from "@/components/screen-header";
 import { Skeleton, SkeletonCard } from "@/components/skeleton";
 import { ThemedIcon } from "@/components/themed-icon";
@@ -295,6 +297,9 @@ function JobDetailView({ jobId }: { jobId: string }) {
   }
 
   const tags = detail.tags.slice(0, 6);
+  /** 匹配度条宽度：只做展示，数据仍来自 plan.match（不改动业务口径） */
+  const matchPercent = plan ? Math.max(0, Math.min(100, Math.round(plan.match))) : 0;
+  const matchWidth = `${matchPercent}%` as `${number}%`;
   const subtitleParts = [
     detail.company,
     detail.city || "城市不限",
@@ -312,7 +317,7 @@ function JobDetailView({ jobId }: { jobId: string }) {
         showsVerticalScrollIndicator={false}
       >
         {/* 头部：企业首字 + 标题 + 公司 + 薪资（与列表卡同一套视觉件） */}
-        <View style={styles.heroCard}>
+        <Card variant="hero" style={styles.heroCard}>
           <View style={styles.heroTop}>
             <View style={[styles.logo, { backgroundColor: avatarColorOf(detail.id) }]}>
               <Text style={styles.logoText}>{detail.company.trim().charAt(0).toUpperCase() || "公"}</Text>
@@ -385,26 +390,29 @@ function JobDetailView({ jobId }: { jobId: string }) {
             <Text style={styles.originalText}>查看职位原文</Text>
             <ThemedIcon name="chevron-forward" size={14} color={colors.textFaint} />
           </PressableScale>
-        </View>
+        </Card>
 
         {/* 职位描述：长文默认折叠，避免把匹配分析推到看不见的地方 */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>职位描述</Text>
+        <Card style={styles.sectionCard}>
+          <SectionTitle title="职位描述" style={styles.sectionTitle} />
           <CollapsibleParagraph text={detail.description || "暂无职位描述"} />
-          <Text style={styles.sectionTitle}>任职要求</Text>
+          <SectionTitle title="任职要求" style={styles.sectionTitle} />
           <CollapsibleParagraph text={detail.requirements || "暂无任职要求"} />
-          <Text style={styles.sectionTitle}>公司信息</Text>
+          <SectionTitle title="公司信息" style={styles.sectionTitle} />
           <CollapsibleParagraph text={detail.companyInfo || "暂无公司信息"} />
-        </View>
+        </Card>
 
         {/* 匹配分析：未登录 / 画像缺失 / 接口异常时优雅降级 */}
-        <View style={styles.sectionCard}>
-          <View style={styles.sectionHead}>
-            <Text style={styles.sectionTitleNoGap}>匹配分析</Text>
-            {plan && plan.estimatedWeeks > 0 ? (
-              <Text style={styles.sectionHint}>每周 10h 约 {plan.estimatedWeeks} 周</Text>
-            ) : null}
-          </View>
+        <Card style={styles.sectionCard}>
+          <SectionTitle
+            title="匹配分析"
+            style={styles.sectionTitleNoGap}
+            right={
+              plan && plan.estimatedWeeks > 0 ? (
+                <Text style={styles.sectionHint}>每周 10h 约 {plan.estimatedWeeks} 周</Text>
+              ) : undefined
+            }
+          />
           {plan ? (
             <>
               <View style={styles.matchRow}>
@@ -414,6 +422,10 @@ function JobDetailView({ jobId }: { jobId: string }) {
                 <Text style={styles.planMeta}>
                   共 {plan.gaps.length} 项缺口 · 约 {plan.totalHours} 小时
                 </Text>
+              </View>
+              {/* v2 匹配度条：静态渲染（本页不新增动画调用点），视觉与 ProgressBar 对齐 */}
+              <View style={styles.matchTrack}>
+                <View style={[styles.matchFill, { width: matchWidth }]} />
               </View>
               {plan.gaps.length === 0 ? (
                 <Text style={styles.mutedText}>
@@ -448,7 +460,7 @@ function JobDetailView({ jobId }: { jobId: string }) {
                     accessibilityRole="button"
                     accessibilityLabel="全部缺口加入学习任务"
                   >
-                    <ThemedIcon name="add-circle-outline" size={17} color="#FFFFFF" />
+                    <ThemedIcon name="add-circle-outline" size={17} color={colors.primary} />
                     <Text style={styles.enrollText}>
                       {enrolling ? "加入中…" : token ? "全部缺口加入学习任务" : "登录后加入学习任务"}
                     </Text>
@@ -465,7 +477,7 @@ function JobDetailView({ jobId }: { jobId: string }) {
                   : "登录后可查看匹配度、缺口技能与预计补完周数。"}
               </Text>
               <PressableScale
-                hitSlop={8}
+                hitSlop={4}
                 onPress={() => {
                   if (token) void load();
                   else router.push("/settings" as never);
@@ -478,7 +490,7 @@ function JobDetailView({ jobId }: { jobId: string }) {
               </PressableScale>
             </View>
           )}
-        </View>
+        </Card>
       </ScrollView>
 
       {/* 吸底操作条：收藏（乐观更新）+ 投递（唯一主 CTA） */}
@@ -517,7 +529,7 @@ function JobDetailView({ jobId }: { jobId: string }) {
             <ThemedIcon
               name={applied ? "checkmark-circle-outline" : "paper-plane-outline"}
               size={18}
-              color="#FFFFFF"
+              color={colors.canvas}
             />
             <Text style={styles.applyText}>{applyLabel}</Text>
           </PressableScale>
@@ -561,8 +573,9 @@ function CollapsibleParagraph({ text, lines = 6 }: { text: string; lines?: numbe
       </Text>
       {long ? (
         <PressableScale
-          hitSlop={6}
+          hitSlop={4}
           onPress={() => setExpanded((value) => !value)}
+          style={styles.paraToggleHit}
           accessibilityRole="button"
           accessibilityLabel={expanded ? "收起" : "展开全文"}
         >
@@ -580,15 +593,8 @@ const makeStyles = (colors: ThemeColors) =>
     content: { padding: spacing.lg, gap: spacing.md },
     centerBox: { flex: 1, justifyContent: "center", paddingHorizontal: spacing.lg },
 
-    heroCard: {
-      backgroundColor: colors.surfaceStrong,
-      borderRadius: radius.lg,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.border,
-      padding: spacing.lg,
-      gap: spacing.md,
-      ...shadows.card,
-    },
+    /** 头部是详情页唯一的大卡（Card hero：radius.panel + 1px 描边 + 轻投影） */
+    heroCard: { gap: spacing.md },
     heroTop: { flexDirection: "row", alignItems: "center", gap: spacing.md },
     logo: {
       width: 52,
@@ -597,25 +603,25 @@ const makeStyles = (colors: ThemeColors) =>
       alignItems: "center",
       justifyContent: "center",
     },
-    logoText: { ...typography.title2, color: "#FFFFFF", fontWeight: "800" },
+    logoText: { ...typography.title2, color: colors.canvas, fontWeight: "800" },
     heroMain: { flex: 1, minWidth: 0, gap: 3 },
-    title: { ...typography.title2, color: colors.text },
-    company: { ...typography.caption, color: colors.textSecondary },
+    title: { ...typography.hero, color: colors.text },
+    company: { ...typography.meta, color: colors.textSecondary },
     salaryRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, flexWrap: "wrap" },
-    salary: { ...typography.title2, color: colors.accentStrong, fontWeight: "900" },
+    salary: { ...typography.hero, color: colors.accentStrong },
 
     metaGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
     metaItem: {
       width: "48%",
       flexGrow: 1,
       backgroundColor: colors.surfaceMuted,
-      borderRadius: radius.md,
-      paddingVertical: 9,
-      paddingHorizontal: 10,
+      borderRadius: radius.control,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
       gap: 2,
     },
-    metaLabel: { ...typography.micro, color: colors.textSecondary },
-    metaValue: { ...typography.caption, color: colors.text },
+    metaLabel: { ...typography.meta, fontWeight: "700", color: colors.textMuted },
+    metaValue: { ...typography.caption, fontWeight: "700", color: colors.text },
 
     badgeRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, flexWrap: "wrap" },
     clusterText: {
@@ -630,11 +636,11 @@ const makeStyles = (colors: ThemeColors) =>
     tagRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
     tag: {
       backgroundColor: colors.primarySoft,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: StyleSheet.hairlineWidth * 2,
       borderColor: colors.border,
-      borderRadius: radius.sm,
-      paddingHorizontal: 8,
-      paddingVertical: 3,
+      borderRadius: radius.pill,
+      paddingHorizontal: 9,
+      paddingVertical: 4,
       maxWidth: "100%",
     },
     tagText: { ...typography.micro, fontWeight: "700", color: colors.primary },
@@ -644,8 +650,10 @@ const makeStyles = (colors: ThemeColors) =>
       alignItems: "center",
       gap: spacing.sm,
       paddingHorizontal: spacing.md,
-      borderRadius: radius.md,
+      borderRadius: radius.control,
       backgroundColor: colors.primarySoft,
+      borderWidth: StyleSheet.hairlineWidth * 2,
+      borderColor: colors.border,
     },
     originalText: {
       ...typography.callout,
@@ -654,56 +662,70 @@ const makeStyles = (colors: ThemeColors) =>
       flex: 1,
     },
 
-    sectionCard: {
-      backgroundColor: colors.surfaceStrong,
-      borderRadius: radius.lg,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.border,
-      padding: spacing.lg,
-      gap: spacing.sm,
-    },
-    sectionHead: {
-      flexDirection: "row",
-      alignItems: "baseline",
-      justifyContent: "space-between",
-      gap: spacing.sm,
-    },
-    sectionTitle: { ...typography.headline, color: colors.text, marginTop: spacing.xs },
-    sectionTitleNoGap: { ...typography.headline, color: colors.text },
-    sectionHint: { ...typography.micro, color: colors.textMuted },
+    /** Card 已带 radius.card + 1px 描边 + 轻投影；这里只调节奏 */
+    sectionCard: { gap: spacing.sm },
+    /** SectionTitle 自带 21 上边距，卡片内收到 4（与 Card 的 gap 组成 14 的节奏） */
+    sectionTitle: { marginTop: spacing.xs, marginBottom: 0 },
+    sectionTitleNoGap: { marginTop: 0, marginBottom: 0 },
+    sectionHint: { ...typography.meta, color: colors.textMuted },
 
     paraWrap: { gap: 2 },
     paraText: { ...typography.callout, color: colors.text },
+    paraToggleHit: { minHeight: 44, justifyContent: "center", alignSelf: "flex-start" },
     paraToggle: { ...typography.caption, fontWeight: "700", color: colors.primary },
 
     matchRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, flexWrap: "wrap" },
     matchBadge: {
       backgroundColor: colors.primarySoft,
       borderRadius: radius.pill,
+      borderWidth: StyleSheet.hairlineWidth * 2,
+      borderColor: colors.border,
       paddingHorizontal: 10,
-      paddingVertical: 4,
+      paddingVertical: 5,
     },
     matchText: { ...typography.caption, fontWeight: "800", color: colors.primary },
-    planMeta: { ...typography.micro, color: colors.textMuted },
-    mutedText: { ...typography.caption, color: colors.textMuted },
+    planMeta: { ...typography.meta, color: colors.textMuted },
+    mutedText: { ...typography.meta, color: colors.textMuted },
+    /** 匹配度条：与 v2 ProgressBar 同视觉（6pt、pill、surfaceMuted 轨道） */
+    matchTrack: {
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: colors.surfaceMuted,
+      overflow: "hidden",
+      marginTop: spacing.xs,
+    },
+    matchFill: { height: 6, borderRadius: 3, backgroundColor: colors.primary },
 
-    phaseBox: { backgroundColor: colors.surfaceMuted, borderRadius: radius.md, padding: 10, gap: 3 },
+    phaseBox: { backgroundColor: colors.surfaceMuted, borderRadius: radius.control, padding: 12, gap: 4 },
     phaseHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: spacing.sm },
     phaseTitle: { ...typography.caption, fontWeight: "800", color: colors.text, flex: 1 },
-    phaseHours: { ...typography.micro, fontWeight: "700", color: colors.textMuted },
-    phaseSkill: { ...typography.caption, color: colors.text },
+    /** 阶段学时：v2 软胶囊（与「匹配 %」徽章同语法） */
+    phaseHours: {
+      ...typography.meta,
+      fontWeight: "800",
+      color: colors.primary,
+      backgroundColor: colors.primarySoft,
+      borderRadius: radius.pill,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      overflow: "hidden",
+    },
+    phaseSkill: { ...typography.caption, color: colors.textSecondary, lineHeight: 18 },
 
+    /** 次 CTA：v2 软胶囊（主 CTA 留给吸底「投递」） */
     enrollButton: {
       minHeight: 48,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
       gap: 6,
-      borderRadius: radius.md,
-      backgroundColor: colors.success,
-      paddingHorizontal: spacing.md,
+      borderRadius: radius.pill,
+      backgroundColor: colors.primarySoft,
+      borderWidth: StyleSheet.hairlineWidth * 2,
+      borderColor: colors.border,
+      paddingHorizontal: spacing.lg,
     },
-    enrollText: { ...typography.callout, fontWeight: "800", color: "#FFFFFF" },
+    enrollText: { ...typography.callout, fontWeight: "800", color: colors.primary },
     buttonBusy: { opacity: 0.6 },
 
     degradeBox: {
@@ -711,10 +733,10 @@ const makeStyles = (colors: ThemeColors) =>
       alignItems: "center",
       gap: spacing.sm,
       backgroundColor: colors.surfaceMuted,
-      borderRadius: radius.md,
+      borderRadius: radius.control,
       padding: spacing.md,
     },
-    degradeText: { ...typography.caption, color: colors.textSecondary, flex: 1 },
+    degradeText: { ...typography.meta, color: colors.textSecondary, flex: 1, lineHeight: 18 },
     degradeAction: {
       minHeight: 44,
       justifyContent: "center",
@@ -732,30 +754,32 @@ const makeStyles = (colors: ThemeColors) =>
       paddingTop: spacing.sm,
       paddingHorizontal: spacing.lg,
       backgroundColor: colors.surfaceStrong,
-      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopWidth: StyleSheet.hairlineWidth * 2,
       borderTopColor: colors.border,
       gap: 6,
       ...shadows.floating,
     },
     toast: { marginBottom: 2 },
-    actionHint: { ...typography.micro, color: colors.textMuted, textAlign: "center" },
+    actionHint: { ...typography.meta, color: colors.textMuted, textAlign: "center" },
     actionRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+    /** 收藏：次级胶囊（44+ 热区） */
     favoriteButton: {
       minHeight: 50,
-      minWidth: 92,
+      minWidth: 100,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
       gap: 6,
-      borderRadius: radius.lg,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: radius.pill,
+      borderWidth: StyleSheet.hairlineWidth * 2,
       borderColor: colors.borderStrong,
       backgroundColor: colors.surfaceMuted,
-      paddingHorizontal: spacing.md,
+      paddingHorizontal: spacing.lg,
     },
     favoriteButtonActive: { borderColor: colors.danger, backgroundColor: colors.dangerSoft },
     favoriteText: { ...typography.callout, fontWeight: "700", color: colors.textSecondary },
     favoriteTextActive: { color: colors.danger },
+    /** 主 CTA：primary 胶囊 + 品牌投影 */
     applyButton: {
       flex: 1,
       minHeight: 50,
@@ -763,9 +787,10 @@ const makeStyles = (colors: ThemeColors) =>
       alignItems: "center",
       justifyContent: "center",
       gap: 8,
-      borderRadius: radius.lg,
+      borderRadius: radius.pill,
       backgroundColor: colors.primary,
-      paddingHorizontal: spacing.md,
+      paddingHorizontal: spacing.lg,
+      ...shadows.brand,
     },
-    applyText: { ...typography.body, fontWeight: "800", color: "#FFFFFF" },
+    applyText: { ...typography.callout, fontWeight: "800", color: colors.canvas },
   });
