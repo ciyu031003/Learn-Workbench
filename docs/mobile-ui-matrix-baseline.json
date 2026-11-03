@@ -49,6 +49,7 @@
     "apps/mobile/src/components/nutrition/nutrition-sheets-b.tsx": 2,
     "apps/mobile/src/components/portion-slider.tsx": 2,
     "apps/mobile/src/components/press-button.tsx": 1,
+    "apps/mobile/src/components/quick-start-sheet.tsx": 1,
     "apps/mobile/src/components/resume-files-card.tsx": 2,
     "apps/mobile/src/components/resume-share-card.tsx": 1,
     "apps/mobile/src/components/screen-header.tsx": 2,
