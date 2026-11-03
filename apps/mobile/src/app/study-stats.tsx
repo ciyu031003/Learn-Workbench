@@ -47,6 +47,13 @@ import { useTheme } from "@/theme";
  */
 const TODAY_TARGET_MIN = 150;
 
+/**
+ * 柱顶数值文案：StepsBar 的柱宽约 35~45pt，130% 字号下 4 位数会顶到栏边；
+ * 千分钟以上折成 "1.2k"（只有极高强度的那一天才会触发，3 位数仍显示原值）。
+ */
+const compactMinutes = (minutes: number) =>
+  minutes >= 1000 ? `${(minutes / 1000).toFixed(1)}k` : String(Math.round(minutes));
+
 export default function StudyStatsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -308,7 +315,7 @@ export default function StudyStatsScreen() {
               label: bar.label,
               value: periodPeak > 0 ? bar.value / periodPeak : 0,
               highlight: peakPeriod?.label === bar.label,
-              valueLabel: peakPeriod?.label === bar.label ? String(bar.value) : undefined,
+              valueLabel: peakPeriod?.label === bar.label ? compactMinutes(bar.value) : undefined,
             }))}
           />
           <StepsBar
@@ -318,7 +325,7 @@ export default function StudyStatsScreen() {
               label: weekdayName(addDays(statDate, index - (last7.length - 1))).slice(1),
               value: last7Peak > 0 ? day.value / last7Peak : 0,
               highlight: index === last7.length - 1,
-              valueLabel: index === last7.length - 1 ? String(day.value) : undefined,
+              valueLabel: index === last7.length - 1 ? compactMinutes(day.value) : undefined,
             }))}
           />
         </Card>

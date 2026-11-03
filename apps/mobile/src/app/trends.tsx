@@ -424,7 +424,9 @@ export default function TrendsScreen() {
             caption={
               sport.totalSessions > 0
                 ? `合计 ${formatSportDuration(sport.totalMinutes)}`
-                : "该区间还没有记录"
+                : sportFilter === "ALL"
+                  ? "该区间还没有记录"
+                  : "该类型在本区间没有记录"
             }
             right={sportToggle}
           />

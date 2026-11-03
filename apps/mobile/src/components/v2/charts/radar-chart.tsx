@@ -70,7 +70,8 @@ export function RadarChart({
   const side = Math.max(96, size ?? Math.min(width, 240));
   const cx = side / 2;
   const cy = side / 2;
-  const radius = side / 2 - 26;
+  // 标签画在 radius + 14，水平轴标签从端点向外排；留 26pt 画布内边距，避免被 Svg 裁掉
+  const radius = side / 2 - 40;
   const angles = radarAxisAngles(axesList.length);
   const valuesList = axesList.map((_, index) => values[index] ?? 0);
   const compareList = compareValues ? axesList.map((_, index) => compareValues[index] ?? 0) : null;
