@@ -11,7 +11,7 @@ import dynamic from "next/dynamic";
  * 首载只留占位骨架，图表在客户端空闲时加载。
  */
 function ChartSkeleton() {
-  return <div className="h-[260px] w-full animate-pulse rounded-3xl border border-border-button-default bg-background-secondary-default" aria-hidden />;
+  return <div className="h-[320px] w-full animate-pulse rounded-3xl border border-border-button-default bg-background-secondary-default" aria-hidden />;
 }
 
 export const LazyRevenueChartCard = dynamic(

@@ -93,10 +93,19 @@ export function CapsuleRank({
 }
 
 /** 矩形树图（一个整体中各类别规模）— squarify 面积成正比，胶囊圆角 */
-export function TreemapChart({ items, className }: { items: { label: string; value: number }[]; className?: string }) {
-  const rects = squarify(items, 0, 0, 400, 260);
+export function TreemapChart({
+  items,
+  className,
+  height = 260,
+}: {
+  items: { label: string; value: number }[];
+  className?: string;
+  /** 画布高度；市场页的固定高卡片传 220，默认 260 供其他场景使用。 */
+  height?: number;
+}) {
+  const rects = squarify(items, 0, 0, 400, height);
   return (
-    <div className={cn("relative w-full overflow-hidden rounded-2xl bg-white/6", className)} style={{ height: 260 }}>
+    <div className={cn("relative w-full overflow-hidden rounded-2xl bg-white/6", className)} style={{ height }}>
       <style>{CHART_STYLES}</style>
       {rects.map((r, ri) => {
         const big = r.w > 84 && r.h > 46;
@@ -107,9 +116,9 @@ export function TreemapChart({ items, className }: { items: { label: string; val
             className="mc-pop absolute flex flex-col justify-between overflow-hidden rounded-[8px] p-1.5 transition-transform duration-200 hover:z-10 hover:scale-[1.02]"
             style={{
               left: `${(r.x / 400) * 100}%`,
-              top: `${(r.y / 260) * 100}%`,
+              top: `${(r.y / height) * 100}%`,
               width: `${(r.w / 400) * 100}%`,
-              height: `${(r.h / 260) * 100}%`,
+              height: `${(r.h / height) * 100}%`,
               background: grad(ri, true),
               animationDelay: `${Math.min(ri, 12) * 40}ms`,
             }}

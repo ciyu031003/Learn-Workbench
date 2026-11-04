@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { ScrollFade } from "@/components/ui/scroll-fade";
 import { StatCards, type Stat } from "@/components/application/dashboard/stat-cards";
 import { LazyOrdersChartCard, LazyRevenueChartCard } from "@/components/application/dashboard/lazy-chart-cards";
 import { Skeleton } from "@/components/base/skeleton/skeleton";
@@ -90,6 +92,7 @@ function readInitialFilters(): MarketIntelligenceFilters {
   };
 }
 
+/** 图表卡：桌面固定 340 高（移动端自然高度），头部留在滚动区外，内容区内部滚动并带柔和上缘。 */
 function ChartCard({
   icon,
   title,
@@ -97,21 +100,32 @@ function ChartCard({
   children,
   className,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   title: string;
   badge?: string;
-  children: React.ReactNode;
+  children: ReactNode;
   className?: string;
 }) {
   return (
-    <Card className={cn("overflow-hidden rounded-2xl", className)}>
-      <CardHeader className="flex-row items-center gap-2">
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10">{icon}</span>
-        <CardTitle className="text-sm text-foreground">{title}</CardTitle>
-        {badge ? <Badge variant="muted" className="ml-auto text-[11px]">{badge}</Badge> : null}
-      </CardHeader>
-      <CardContent className="flex flex-col gap-2">{children}</CardContent>
-    </Card>
+    <section
+      className={cn(
+        "flex min-w-0 flex-col overflow-hidden rounded-3xl border border-border-button-default bg-background-secondary-default lg:h-[340px]",
+        className,
+      )}
+    >
+      <div className="flex items-center gap-2.5 px-5 pb-3 pt-5">
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-background-tertiary-default">{icon}</span>
+        <h2 className="min-w-0 truncate text-headline-medium text-text-primary">{title}</h2>
+        {badge ? (
+          <span className="ms-auto shrink-0 rounded-full bg-background-tertiary-default px-2 py-0.5 text-caption-1-medium text-muted-foreground">
+            {badge}
+          </span>
+        ) : null}
+      </div>
+      <div className="px-5 pb-4 lg:min-h-0 lg:flex-1">
+        <ScrollFade className="h-full">{children}</ScrollFade>
+      </div>
+    </section>
   );
 }
 
@@ -131,6 +145,7 @@ function industryItems(items: MarketIndustryItem[]) {
   }));
 }
 
+/** 当前结论：三条结论并排成 3 张信息卡，不再是一条超宽横条。 */
 function Headline({
   topFunction,
   topCity,
@@ -140,27 +155,34 @@ function Headline({
   topCity?: MarketRankItem;
   topSkill?: MarketRankItem;
 }) {
-  const lines = [
-    topFunction ? `需求最高的职能：${topFunction.label}（${topFunction.count} 岗）` : "",
-    topCity ? `机会最多的城市：${topCity.label}（${topCity.count} 岗）` : "",
-    topSkill ? `最高频技能：${topSkill.label}（${topSkill.count} 次）` : "",
-  ].filter(Boolean);
+  const items: { icon: typeof Sparkles; text: string }[] = [];
+  if (topFunction) items.push({ icon: Layers, text: `需求最高的职能：${topFunction.label}（${topFunction.count} 岗）` });
+  if (topCity) items.push({ icon: MapPin, text: `机会最多的城市：${topCity.label}（${topCity.count} 岗）` });
+  if (topSkill) items.push({ icon: Sparkles, text: `最高频技能：${topSkill.label}（${topSkill.count} 次）` });
+  if (!items.length) return null;
 
-  if (!lines.length) return null;
   return (
-    <Card className="rounded-2xl">
-      <CardContent className="flex flex-col gap-2 px-4 py-3">
-        <div className="flex items-center gap-2 text-sm font-bold text-foreground">
-          <Sparkles className="size-4 text-amber-500" />
-          当前结论
-        </div>
-        <div className="flex flex-col gap-1">
-          {lines.map((line) => (
-            <p key={line} className="text-xs text-muted-foreground">{line}</p>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+    <section aria-label="当前结论">
+      <div className="mb-3 flex items-center gap-2.5">
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-xl border border-border-button-default bg-background-secondary-default">
+          <Sparkles className="size-4 text-chart-8" />
+        </span>
+        <h2 className="text-title-3-semibold text-text-primary">当前结论</h2>
+      </div>
+      <div className="grid gap-4 md:grid-cols-3">
+        {items.map((item) => (
+          <div
+            key={item.text}
+            className="flex items-start gap-3 rounded-3xl border border-border-button-default bg-background-secondary-default p-4"
+          >
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-background-tertiary-default">
+              <item.icon className="size-4 text-foreground-icon-secondary" />
+            </span>
+            <p className="min-w-0 text-body-medium text-muted-foreground">{item.text}</p>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -306,24 +328,26 @@ export default function MarketPage() {
 
   return (
     <div className="page-enter flex flex-col gap-5">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-500 text-white shadow-[0_8px_24px_rgba(16,185,129,0.25)]">
-              <BarChart3 className="size-5" />
+      <PageHeader
+        title="招聘市场情报"
+        description="从职位库中持续拆解趋势、职能和技能机会"
+        eyebrow={
+          <>
+            <span className="flex size-10 items-center justify-center rounded-2xl border border-border-button-default bg-background-secondary-default">
+              <BarChart3 className="size-5 text-chart-7" />
             </span>
             <Badge variant="success">市场情报</Badge>
-          </div>
-          <h1 className="page-title mt-3 text-2xl font-bold tracking-tight lg:text-3xl">招聘市场情报</h1>
-          <p className="page-subtitle mt-1 text-sm">从职位库中持续拆解趋势、职能和技能机会</p>
-        </div>
-        <Button asChild variant="ghost" size="sm">
-          <Link href="/jobs">
-            <ChevronLeft className="size-4" />
-            回招花
-          </Link>
-        </Button>
-      </div>
+          </>
+        }
+        actions={
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/jobs">
+              <ChevronLeft className="size-4" />
+              回招花
+            </Link>
+          </Button>
+        }
+      />
 
       <MarketViewSwitcher filters={filters} onApply={setFilters} />
 
@@ -343,7 +367,7 @@ export default function MarketPage() {
               <Skeleton key={index} className="h-[132px] w-full rounded-2xl" />
             ))}
           </div>
-          <Skeleton className="h-[344px] w-full rounded-2xl" />
+          <Skeleton className="h-[320px] w-full rounded-3xl" />
         </div>
       ) : !data || !summary || summary.total === 0 ? (
         <EmptyState icon={TrendingUp} title="暂无市场数据" hint="先抓取职位后，市场情报会自动生成" />
@@ -351,7 +375,7 @@ export default function MarketPage() {
         <>
           <StatCards stats={marketStats} columns={4} />
 
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <LazyRevenueChartCard
               data={salaryPoints}
               title="薪资走势"
@@ -367,6 +391,7 @@ export default function MarketPage() {
                   : undefined
               }
               emptyText="所选区间暂无薪资数据"
+              className="h-[320px]"
             />
             <LazyOrdersChartCard
               data={jobPoints}
@@ -381,43 +406,42 @@ export default function MarketPage() {
                 color: summary.last7DaysJobs > 0 ? "lime" : "neutral",
               }}
               emptyText="所选区间暂无新增岗位"
+              className="h-[320px]"
             />
           </div>
 
           <Headline topFunction={topFunction} topCity={topCity} topSkill={topSkill} />
 
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <ChartCard icon={<Layers className="size-4 text-emerald-400" />} title="职能需求结构" badge="样本占比">
-              <TreemapChart items={toTreemap(functionRows)} />
+          {/* 6 张分布卡：2 列优先，桌面固定 340 高，长列表在卡内滚动 */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <ChartCard icon={<Layers className="size-4 text-chart-7" />} title="职能需求结构" badge="样本占比">
+              <TreemapChart items={toTreemap(functionRows)} height={220} />
             </ChartCard>
-            <ChartCard icon={<MapPin className="size-4 text-sky-400" />} title="城市机会" badge="岗位数">
+            <ChartCard icon={<MapPin className="size-4 text-chart-4" />} title="城市机会" badge="岗位数">
               <CapsuleRank items={(dist.byCity ?? []).map((item) => ({ label: item.label, value: item.count, note: item.medianSalary != null ? `${item.medianSalary}K` : undefined }))} />
             </ChartCard>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-            <ChartCard icon={<BriefcaseBusiness className="size-4 text-indigo-400" />} title="行业机会" badge="岗位数">
+            <ChartCard icon={<BriefcaseBusiness className="size-4 text-chart-9" />} title="行业机会" badge="岗位数">
               <CapsuleRank items={industryRows.map((item) => ({ label: item.label, value: item.value }))} />
             </ChartCard>
-            <ChartCard icon={<GraduationCap className="size-4 text-violet-400" />} title="资历要求" badge="占比">
+            <ChartCard icon={<GraduationCap className="size-4 text-chart-5" />} title="资历要求" badge="占比">
               <DonutChart items={(dist.bySeniority ?? []).map((item) => ({ label: item.label, value: item.count }))} />
             </ChartCard>
-            <ChartCard icon={<CircleDollarSign className="size-4 text-amber-400" />} title="薪资区间" badge="岗位数">
+            <ChartCard icon={<CircleDollarSign className="size-4 text-chart-8" />} title="薪资区间" badge="岗位数">
               <HistogramBars items={(dist.bySalary ?? []).map((item) => ({ label: item.label, value: item.count }))} />
+            </ChartCard>
+            <ChartCard icon={<GitBranch className="size-4 text-chart-1" />} title="高频技能" badge="标签命中">
+              <CapsuleRank items={(dist.bySkill ?? []).map((item) => ({ label: item.key, value: item.count }))} />
             </ChartCard>
           </div>
 
-          <ChartCard icon={<GitBranch className="size-4 text-cyan-400" />} title="高频技能" badge="标签命中">
-            <CapsuleRank items={(dist.bySkill ?? []).map((item) => ({ label: item.key, value: item.count }))} />
-          </ChartCard>
-
-          <PersonalMarketCard />
-
-          <MarketDecisionPanel
-            facets={facets}
-            initialCity={filters.city}
-            initialFunction={filters.functionKey}
-          />
+          <div className="grid gap-4 xl:grid-cols-2 xl:items-start">
+            <PersonalMarketCard />
+            <MarketDecisionPanel
+              facets={facets}
+              initialCity={filters.city}
+              initialFunction={filters.functionKey}
+            />
+          </div>
 
           <Card className="rounded-2xl">
             <CardContent className="flex flex-col gap-1.5 px-5 py-4 text-xs text-muted-foreground">
