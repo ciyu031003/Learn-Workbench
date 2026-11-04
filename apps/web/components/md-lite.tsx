@@ -1,24 +1,18 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { splitInlineCode, parseMarkdownLite, type MdBlock } from "@/lib/md-lite";
+import { parseMarkdownLite, type MdBlock } from "@/lib/md-lite";
+import { RichText } from "@/components/rich-text";
 
+/**
+ * MD 导入的学习内容渲染器（内容主题正文）。
+ *
+ * v2.3：行内不再只切反引号代码，统一走 `RichText`（shared parseInlineRich）——
+ * `**加粗**` / `` `代码` `` / `$公式$` / `\(公式\)` 都按 token 渲染成原生节点，
+ * 标题、列表、引用、段落共用同一条行内路径，正文里不会再露出标记符号。
+ * 结构块仍由 parseMarkdownLite 解析，不注入 HTML。
+ */
 function Inline({ text }: { text: string }) {
-  return (
-    <>
-      {splitInlineCode(text).map((part, index) =>
-        part.code ? (
-          <code
-            key={index}
-            className="rounded bg-muted px-1 py-0.5 font-mono text-[0.85em] text-foreground"
-          >
-            {part.value}
-          </code>
-        ) : (
-          <React.Fragment key={index}>{part.value}</React.Fragment>
-        )
-      )}
-    </>
-  );
+  return <RichText text={text} />;
 }
 
 function Heading({ level, text }: { level: number; text: string }) {

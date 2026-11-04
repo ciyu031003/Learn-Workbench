@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { DomainIcon, DOMAIN_ICONS } from "@/components/domain-icon";
 import { MarkdownLite } from "@/components/md-lite";
+import { RichText } from "@/components/rich-text";
 import { DOMAIN_COLORS, KIND_OPTIONS, type DomainEditForm, type DomainRow, type DomainTemplate, type MdCounts, type MdPhasePreview, type PhaseForm, type Track } from "./roadmap-types";
 
 /** RoadmapView 的 props：由 page 的状态/hooks 与展示层解耦后传入（拆分前都是同一作用域变量） */
@@ -673,7 +674,7 @@ export function RoadmapView(props: RoadmapViewProps) {
 
                             {isDetail ? (
                               <div className="space-y-3 border-t border-border/40 px-3 py-3 text-sm">
-                                {topic.summary ? <p className="text-muted-foreground">{topic.summary}</p> : null}
+                                {topic.summary ? <p className="text-muted-foreground"><RichText text={topic.summary} /></p> : null}
 
                                 {topic.resources.length > 0 ? (
                                   <div>
@@ -836,7 +837,9 @@ export function RoadmapView(props: RoadmapViewProps) {
                           <span className={`flex-1 text-sm font-medium ${topic.done ? "text-muted-foreground line-through" : ""}`}>
                             {topic.title}
                           </span>
-                          <span className="hidden text-xs text-muted-foreground sm:block">{topic.summary}</span>
+                          {topic.summary ? (
+                            <span className="hidden text-xs text-muted-foreground sm:block"><RichText text={topic.summary} /></span>
+                          ) : null}
                         </div>
                       ))}
                     </div>

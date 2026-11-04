@@ -155,9 +155,9 @@ export default function CourseDetail({ track }: { track: LearningTrack }) {
             <LearningMastery trackSlug={track.slug} className="shrink-0" />
           </div>
 
-          <p className="text-sm text-muted-foreground">{track.summary}</p>
+          <p className="text-sm text-muted-foreground"><RichText text={track.summary} /></p>
           <Section title="学完能做什么" icon={<Sparkles className="size-4 text-primary" />}>
-            <p className="text-sm text-muted-foreground">{track.whyLearn}</p>
+            <p className="text-sm text-muted-foreground"><RichText text={track.whyLearn} /></p>
           </Section>
           <div className="grid gap-4 sm:grid-cols-2">
             <Section title="前置知识" icon={<ListChecks className="size-4 text-primary" />}>
@@ -350,7 +350,7 @@ function Labeled({ label, text }: { label: string; text: string }) {
   return (
     <div className="rounded-lg bg-muted/40 p-3">
       <p className="text-xs font-semibold text-muted-foreground">{label}</p>
-      <p className="mt-1 text-sm text-foreground">{text}</p>
+      <p className="mt-1 text-sm text-foreground"><RichText text={text} /></p>
     </div>
   );
 }
@@ -362,7 +362,7 @@ function StageLesson({ track, lesson }: { track: LearningTrack; lesson: NonNulla
       <p className="text-xs font-semibold text-muted-foreground">这一阶段怎么学</p>
       <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
         {lesson.overview.map((item) => (
-          <li key={item}>{item}</li>
+          <li key={item}><RichText text={item} /></li>
         ))}
       </ul>
       <ol className="flex flex-col gap-1.5">
@@ -371,15 +371,15 @@ function StageLesson({ track, lesson }: { track: LearningTrack; lesson: NonNulla
             <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-semibold text-primary">
               {index + 1}
             </span>
-            {item}
+            <RichText text={item} />
           </li>
         ))}
       </ol>
       <div className="grid gap-2 sm:grid-cols-2">
         {lesson.milestones.map((milestone) => (
           <div key={milestone.title} className="rounded-lg border border-border/50 p-2.5">
-            <p className="text-sm font-medium">{milestone.title}</p>
-            <p className="text-xs text-muted-foreground">{milestone.evidence}</p>
+            <p className="text-sm font-medium"><RichText text={milestone.title} /></p>
+            <p className="text-xs text-muted-foreground"><RichText text={milestone.evidence} /></p>
           </div>
         ))}
       </div>
@@ -388,7 +388,7 @@ function StageLesson({ track, lesson }: { track: LearningTrack; lesson: NonNulla
         <ul className="mt-1 space-y-1">
           {lesson.completionCriteria.map((item) => (
             <li key={item} className="flex items-start gap-1.5 text-xs text-muted-foreground">
-              <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-success" /> {item}
+              <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-success" /> <RichText text={item} />
             </li>
           ))}
         </ul>
@@ -439,7 +439,7 @@ function TopicCard({
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-medium">{topic.title}</span>
-          <span className="mt-0.5 block truncate text-xs text-muted-foreground">{topic.summary}</span>
+          <span className="mt-0.5 block truncate text-xs text-muted-foreground"><RichText text={topic.summary} /></span>
         </span>
         {library.favorites.has(pointKey) ? <FavoriteMark /> : null}
         <StateDots state={pointState} />
@@ -471,7 +471,7 @@ function TopicCard({
               <pre className="overflow-x-auto p-3">
                 <code className="font-mono text-xs leading-relaxed">{topic.lesson.example.code}</code>
               </pre>
-              <p className="px-3 pb-3 text-xs text-muted-foreground">{topic.lesson.example.explanation}</p>
+              <p className="px-3 pb-3 text-xs text-muted-foreground"><RichText text={topic.lesson.example.explanation} /></p>
             </div>
             <Block title="练习路径" items={topic.lesson.practiceSteps} />
           </>
@@ -484,22 +484,22 @@ function TopicCard({
         <Block title="常见误区" items={topic.pitfalls} danger />
         <div className="flex flex-col gap-1 rounded-lg bg-primary/5 p-3">
           <p className="text-xs font-semibold text-primary">怎么学</p>
-          <p className="text-sm text-muted-foreground">{topic.method}</p>
+          <p className="text-sm text-muted-foreground"><RichText text={topic.method} /></p>
         </div>
         <div className="flex flex-col gap-1 rounded-lg bg-muted/40 p-3">
           <p className="text-xs font-semibold text-muted-foreground">动手练习</p>
-          <p className="text-sm text-muted-foreground">{topic.exercise}</p>
+          <p className="text-sm text-muted-foreground"><RichText text={topic.exercise} /></p>
           {topic.lesson ? (
             <ul className="mt-1 flex flex-col gap-1">
               {topic.lesson.masteryChecklist.map((item) => (
                 <li key={item} className="flex items-start gap-1.5 text-xs text-muted-foreground">
-                  <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-primary/70" /> {item}
+                  <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-primary/70" /> <RichText text={item} />
                 </li>
               ))}
             </ul>
           ) : null}
           <p className="mt-1 flex items-start gap-1.5 text-xs text-muted-foreground">
-            <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-success" /> 掌握检查：{topic.checkpoint}
+            <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-success" /> 掌握检查：<RichText text={topic.checkpoint} />
           </p>
         </div>
 
@@ -510,7 +510,7 @@ function TopicCard({
               <li key={question.key} className="flex items-start gap-2 rounded-lg border border-border/50 p-2.5">
                 <Badge variant="outline" className="shrink-0">{question.type === "judge" ? "判断" : "单选"}</Badge>
                 <Badge variant="muted" className="shrink-0">{LEARNING_DIFFICULTY_LABEL[question.difficulty] ?? question.difficulty}</Badge>
-                <span className="min-w-0 flex-1 text-sm text-muted-foreground">{question.stem}</span>
+                <span className="min-w-0 flex-1 text-sm text-muted-foreground"><RichText text={question.stem} /></span>
               </li>
             ))}
           </ul>
@@ -610,7 +610,7 @@ function Block({ title, items, danger = false }: { title: string; items: string[
       </p>
       <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
         {items.map((item) => (
-          <li key={item}>{item}</li>
+          <li key={item}><RichText text={item} /></li>
         ))}
       </ul>
     </div>

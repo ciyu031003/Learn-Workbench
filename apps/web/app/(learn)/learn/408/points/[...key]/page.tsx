@@ -13,6 +13,7 @@ import {
   type PointArticleCard,
   type PointDemoCard,
 } from "@/components/exam/point-resources";
+import { RichText } from "@/components/rich-text";
 import { getExam408Point } from "@/lib/exam-408";
 import { internalizePointKey, isExam408PointKey } from "@/lib/exam-408-point-key";
 import { getExam408Demo, type Exam408DemoSummary } from "@/lib/exam-408-demos";
@@ -112,7 +113,9 @@ export default async function Exam408PointPage({
               <BookOpen className="size-6 text-primary" />
               {detail.point.title}
             </h1>
-            <p className="mt-2 text-sm text-muted-foreground">{detail.point.summary}</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              <RichText text={detail.point.summary} />
+            </p>
           </div>
           <PointResourceOverview counts={counts} />
           <div className="flex flex-wrap gap-1.5">
@@ -140,7 +143,7 @@ export default async function Exam408PointPage({
                       : "text-sm leading-7 text-foreground/90"
                   }
                 >
-                  {paragraph}
+                  <RichText text={paragraph} />
                 </p>
               ))}
             </div>

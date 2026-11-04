@@ -1,21 +1,29 @@
-import { parseInlineRich } from "@learn-workbench/shared/md-lite";
+import { parseInlineRich, type InlineToken } from "@learn-workbench/shared/md-lite";
 
 /**
  * 行内富文本渲染（题库 / 知识点正文）。
  *
- * 内容里偶发 Markdown 风格标记（`**加粗**`、`` `代码` ``、`$公式$`），纯文本渲染会把符号原样显示。
+ * 内容里偶发 Markdown 风格标记（`**加粗**`、`` `代码` ``、`$公式$`、`\(公式\)`），纯文本渲染会把符号原样显示。
  * 这里按 token 渲染成原生节点 —— **不用 dangerouslySetInnerHTML**，零 XSS 面。
  * `__name__` 这类 Python dunder 由解析器保证不被误当成强调。
+ *
+ * v2.3：与移动端 rich-text 对齐 —— strong 内部再解析一层（深度上限 2），
+ * 避免「**复杂度 `O(n)` 是常数级**」这类粗体套代码/公式时漏出反引号与 $。
  */
-export function RichText({ text, className }: { text: string; className?: string }) {
-  const tokens = parseInlineRich(text);
-  if (tokens.length === 1 && tokens[0].type === "text") {
-    return <span className={className}>{tokens[0].value}</span>;
-  }
+const MAX_NESTED_DEPTH = 2;
+
+function InlineTokens({ tokens, depth }: { tokens: InlineToken[]; depth: number }) {
   return (
-    <span className={className}>
+    <>
       {tokens.map((token, index) => {
-        if (token.type === "strong") return <strong key={index} className="font-semibold">{token.value}</strong>;
+        if (token.type === "strong") {
+          const nested = depth < MAX_NESTED_DEPTH ? parseInlineRich(token.value) : null;
+          return (
+            <strong key={index} className="font-semibold">
+              {nested ? <InlineTokens tokens={nested} depth={depth + 1} /> : token.value}
+            </strong>
+          );
+        }
         if (token.type === "code" || token.type === "math") {
           return (
             <code
@@ -28,6 +36,18 @@ export function RichText({ text, className }: { text: string; className?: string
         }
         return <span key={index}>{token.value}</span>;
       })}
+    </>
+  );
+}
+
+export function RichText({ text, className }: { text: string; className?: string }) {
+  const tokens = parseInlineRich(text);
+  if (tokens.length === 1 && tokens[0].type === "text") {
+    return <span className={className}>{tokens[0].value}</span>;
+  }
+  return (
+    <span className={className}>
+      <InlineTokens tokens={tokens} depth={0} />
     </span>
   );
 }

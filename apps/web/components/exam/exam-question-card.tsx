@@ -91,7 +91,8 @@ export function ExamQuestionCard({
         {revealed ? (
           <div id={`answer-${question.key}`} className="rounded-lg border border-success/25 bg-success/5 px-3 py-3 text-sm">
             <p className="font-medium text-success-strong">
-              参考答案：{question.answerLetter ?? question.answerText}
+              {/* 选择题只显示字母；非选择题的完整答案（可能含 ** / 反引号）交给下方 QuestionBlocks 富文本 */}
+              参考答案{question.answerLetter ? `：${question.answerLetter}` : ""}
             </p>
             {answerText ? (
               <QuestionBlocks text={answerText} className="text-muted-foreground" />

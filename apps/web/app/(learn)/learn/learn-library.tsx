@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LearningMastery } from "@/components/learning/mastery-badge";
+import { RichText } from "@/components/rich-text";
 import { trackStats } from "@/lib/learning-stats";
 import { BookOpen, ChevronRight, GraduationCap, ListChecks, Search } from "lucide-react";
 
@@ -137,7 +138,7 @@ export default function LearnLibrary({ tracks }: { tracks: LearningTrack[] }) {
             {matchingQuestions.slice(0, 6).map(({ track, question }) => (
               <li key={question.key} className="flex items-start gap-2 text-sm">
                 <Badge variant="outline" className="shrink-0">{track.title}</Badge>
-                <span className="min-w-0 flex-1 text-muted-foreground">{question.stem}</span>
+                <span className="min-w-0 flex-1 text-muted-foreground"><RichText text={question.stem} /></span>
               </li>
             ))}
           </ul>
@@ -237,7 +238,7 @@ export default function LearnLibrary({ tracks }: { tracks: LearningTrack[] }) {
                   <p className="text-sm text-muted-foreground">
                     {isExam408
                       ? "四科知识体系与历年原卷真题：章节知识点、完整题型、原题号、配图与参考答案。"
-                      : track.summary}
+                      : <RichText text={track.summary} />}
                   </p>
 
                   <dl className="grid grid-cols-3 gap-2 rounded-lg bg-muted/40 px-3 py-2 text-center">

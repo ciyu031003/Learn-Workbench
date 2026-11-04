@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Progress } from "@/components/ui/progress";
+import { RichText } from "@/components/rich-text";
 import { cn } from "@/lib/utils";
 import type {
   CardQueueScope,
@@ -323,7 +324,9 @@ export function CardDrill({
                 </span>
               </div>
 
-              <p className="text-lg font-medium leading-8 sm:text-xl">{current.question}</p>
+              <p className="text-lg font-medium leading-8 sm:text-xl">
+                <RichText text={current.question} />
+              </p>
 
               {flipped ? (
                 <div className="flex flex-col gap-3 border-t border-border/60 pt-4">
@@ -332,7 +335,7 @@ export function CardDrill({
                     {current.answerSteps.length > 0 ? (
                       <ol className="flex list-decimal flex-col gap-1.5 pl-5 text-sm leading-7 text-foreground/90">
                         {current.answerSteps.map((step, stepIndex) => (
-                          <li key={stepIndex}>{step}</li>
+                          <li key={stepIndex}><RichText text={step} /></li>
                         ))}
                       </ol>
                     ) : (
@@ -342,13 +345,13 @@ export function CardDrill({
                   {current.pitfall ? (
                     <p className="rounded-lg border border-danger/25 bg-danger/5 px-3 py-2 text-sm leading-6 text-foreground/90">
                       <span className="font-medium text-danger">易错：</span>
-                      {current.pitfall}
+                      <RichText text={current.pitfall} />
                     </p>
                   ) : null}
                   {current.mnemonic ? (
                     <p className="rounded-lg border border-primary/25 bg-primary/5 px-3 py-2 text-sm leading-6 text-foreground/90">
                       <span className="font-medium text-primary">口诀：</span>
-                      {current.mnemonic}
+                      <RichText text={current.mnemonic} />
                     </p>
                   ) : null}
                 </div>

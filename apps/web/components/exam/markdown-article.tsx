@@ -107,8 +107,10 @@ type InlineToken = { type: "text" | "code" | "strong" | "math"; value: string };
  * 为什么不用共享的 parseInlineRich：它把 $...$ 限制在 40 字符以内（避免误伤 $VAR），
  * 但 408 精读里有 445 处行内公式超过 40 字符（最长 168），全被当成文本原样显示；
  * 这里放宽到 240 字符，并保留「纯数字不当公式」的保守口径（避免把金额 $100 渲染成公式）。
+ * 同时补上共享解析器支持的 `\(...\)` LaTeX 行内定界符（真题答案里 150+ 处），
+ * 保证精读正文与题库/知识点正文的行内公式口径一致。
  */
-const INLINE_RE = /(`[^`\n]+`)|(\*\*[^*\n]{1,200}\*\*)|(\$[^$\n]{1,240}\$)/g;
+const INLINE_RE = /(`[^`\n]+`)|(\*\*[^*\n]{1,200}\*\*)|(\\\([^\\\n]{1,160}?\\\))|(\$[^$\n]{1,240}\$)/g;
 
 function lookLikeMath(inner: string): boolean {
   if (!inner) return false;
@@ -129,7 +131,10 @@ export function parseInlineTokens(text: string): InlineToken[] {
     let token: InlineToken | null = null;
     if (raw.startsWith("`")) token = { type: "code", value: raw.slice(1, -1) };
     else if (raw.startsWith("**")) token = { type: "strong", value: raw.slice(2, -2) };
-    else if (raw.startsWith("$")) {
+    else if (raw.startsWith("\\(")) {
+      const inner = raw.slice(2, -2).trim();
+      if (inner) token = { type: "math", value: inner };
+    } else if (raw.startsWith("$")) {
       const inner = raw.slice(1, -1);
       if (lookLikeMath(inner)) token = { type: "math", value: inner };
     }

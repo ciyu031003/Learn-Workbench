@@ -84,6 +84,17 @@ describe("parseInlineRich（题库行内标记）", () => {
       { type: "text", value: String.raw`空 \(\) 对` },
     ]);
   });
+
+  it("边界：纯数字金额、未闭合 $、跨行 ** 都按普通文本保留", () => {
+    // 单个 $（未闭合）不能吞掉后文
+    expect(parseInlineRich("金额 $100 元")).toEqual([{ type: "text", value: "金额 $100 元" }]);
+    // 成对但内部纯数字：当金额而不是公式（沿用 shared 的保守口径）
+    expect(parseInlineRich("$123$")).toEqual([{ type: "text", value: "$123$" }]);
+    // ** 不跨行
+    expect(parseInlineRich("**跨\n行**")).toEqual([{ type: "text", value: "**跨\n行**" }]);
+    // Python dunder 不被误认成强调
+    expect(parseInlineRich("__init__ 与 _x_ 原样")).toEqual([{ type: "text", value: "__init__ 与 _x_ 原样" }]);
+  });
 });
 
 describe("parseQuestionBlocks（题库块级解析）", () => {
@@ -175,5 +186,39 @@ describe("md-lite 微修与性能（评审 2026-10-31 P3）", () => {
     const elapsed = Date.now() - started;
     expect(blocks).toHaveLength(1);
     expect(elapsed).toBeLessThan(3000);
+  });
+});
+/* ---------- v2.3：MarkdownLite 行内富文本（内容主题正文） ---------- */
+
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { MarkdownLite } from "@/components/md-lite";
+
+describe("MarkdownLite 渲染（行内富文本）", () => {
+  it("标题/列表/引用/段落都不再露出 ** 与反引号", () => {
+    const markdown = [
+      "## 复杂度",
+      "最好情况是 **O(n)**，常数项用 `O(1)` 表示，平均 $n/2$。",
+      "- **重点**：`swap` 只交换指针",
+      "> 引用里的 **粗体** 与 `code`",
+    ].join("\n");
+    const html = renderToStaticMarkup(createElement(MarkdownLite, { markdown }));
+    expect(html).toContain("<strong");
+    expect(html).toContain("<code");
+    expect(html).toContain("O(n)");
+    expect(html).not.toContain("**");
+    expect(html).not.toContain("`");
+    expect(html).not.toContain("$");
+  });
+
+  it("strong 内嵌 code / math 递归渲染（与移动端对齐）", () => {
+    const markdown = "**复杂度 `O(n)` 是常数级，平均 $n/2$**";
+    const html = renderToStaticMarkup(createElement(MarkdownLite, { markdown }));
+    expect(html).toContain("<strong");
+    expect(html).toContain("<code");
+    expect(html).toContain("n/2");
+    expect(html).not.toContain("**");
+    expect(html).not.toContain("`");
+    expect(html).not.toContain("$");
   });
 });

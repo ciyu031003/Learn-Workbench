@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { RichText } from "@/components/rich-text";
 import type { Exam408Question } from "@/lib/exam-408";
 import type { Exam408CardContent } from "@/lib/exam-408-cards";
 import type { Exam408DemoSummary } from "@/lib/exam-408-demos";
@@ -169,7 +170,7 @@ export function PointStudySection({ items }: { items: PointArticleCard[] }) {
                 </div>
                 <h3 className="text-[15px] font-semibold leading-snug">{article.title}</h3>
                 {excerpt ? (
-                  <p className="line-clamp-3 text-sm leading-6 text-muted-foreground">{excerpt}</p>
+                  <p className="line-clamp-3 text-sm leading-6 text-muted-foreground"><RichText text={excerpt} /></p>
                 ) : null}
                 <span className="mt-auto inline-flex items-center gap-1 pt-1 text-xs font-medium text-primary">
                   阅读精读 <ArrowRight className="size-3.5" />
@@ -267,7 +268,7 @@ export function PointCardsSection({ cards }: { cards: Exam408CardContent[] }) {
               <span className="min-w-0 flex-1">
                 <span className="flex items-start gap-1.5 text-sm font-medium leading-6 text-foreground">
                   {card.star ? <Star className="mt-1 size-3.5 shrink-0 fill-warning text-warning" /> : null}
-                  <span>{card.question}</span>
+                  <span><RichText text={card.question} /></span>
                 </span>
                 <span className="mt-0.5 block text-[11px] text-muted-foreground">
                   {card.answerSteps.length > 0 ? card.answerSteps.length + " 步答案" : "答案暂缺"}
@@ -285,7 +286,7 @@ export function PointCardsSection({ cards }: { cards: Exam408CardContent[] }) {
                       <span className="mt-0.5 shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
                         {stepIndex + 1}.
                       </span>
-                      <span>{step}</span>
+                      <span><RichText text={step} /></span>
                     </li>
                   ))}
                 </ol>
@@ -297,7 +298,7 @@ export function PointCardsSection({ cards }: { cards: Exam408CardContent[] }) {
                   <AlertTriangle className="mt-1 size-4 shrink-0" />
                   <span>
                     <span className="font-semibold">易错：</span>
-                    {card.pitfall}
+                    <RichText text={card.pitfall} />
                   </span>
                 </div>
               ) : null}
@@ -306,7 +307,7 @@ export function PointCardsSection({ cards }: { cards: Exam408CardContent[] }) {
                   <Sparkles className="mt-1 size-4 shrink-0" />
                   <span>
                     <span className="font-semibold">口诀：</span>
-                    {card.mnemonic}
+                    <RichText text={card.mnemonic} />
                   </span>
                 </div>
               ) : null}
