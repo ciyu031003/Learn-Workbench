@@ -8,6 +8,7 @@ import { FloatingTabBar } from "@/components/v2/floating-tab-bar";
 import { haptics } from "@/lib/haptics";
 import { SPRING, useReducedMotion } from "@/lib/motion";
 import { isMotionActive } from "@/theme/motion";
+import { useTheme } from "@/theme";
 import { scrollToTop } from "@/lib/scroll-to-top";
 
 /**
@@ -101,6 +102,7 @@ const styles = StyleSheet.create({
 
 export default function TabsLayout() {
   const { width } = useWindowDimensions();
+  const { colors } = useTheme();
   const reducedMotion = useReducedMotion();
   const motionActive = isMotionActive(reducedMotion);
   /**
@@ -112,9 +114,11 @@ export default function TabsLayout() {
   const slideInterpolator = useCallback(
     ({ current }: { current: { progress: RNAnimated.Value } }) => ({
       sceneStyle: {
+        // 非激活页面在停靠位置必须完全透明：0.82 会让上一页以半透明"叠加"在当前页下面（真机反馈）
+        backgroundColor: colors.canvas,
         opacity: current.progress.interpolate({
           inputRange: [-1, 0, 1],
-          outputRange: [0.82, 1, 0.82],
+          outputRange: [0, 1, 0],
         }),
         transform: [
           {
@@ -126,7 +130,7 @@ export default function TabsLayout() {
         ],
       },
     }),
-    [tabShift],
+    [tabShift, colors.canvas],
   );
   // v19-M8：双击回顶需要经导航状态判断"按压的是否为当前已聚焦 Tab"
   const navigation = useNavigation();

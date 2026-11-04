@@ -104,7 +104,7 @@ export function MarkdownArticle({
                   <View key={key + "-" + itemIndex} style={[styles.listItem, { marginLeft: item.depth * spacing.lg }]}>
                     <Text style={styles.bullet}>{block.ordered ? itemIndex + 1 + "." : "•"}</Text>
                     {item.segments && item.segments.length > 0 ? (
-                      <SegmentRow segments={item.segments} style={styles.listText} />
+                      <InlineSegments segments={item.segments} style={styles.listText} />
                     ) : (
                       <InlineText tokens={item.inlines} style={styles.listText} />
                     )}
@@ -118,7 +118,7 @@ export function MarkdownArticle({
                 {block.lines.map((line, lineIndex) => {
                   const segments = block.lineSegments?.[lineIndex];
                   return segments && segments.length > 0 ? (
-                    <SegmentRow key={key + "-" + lineIndex} segments={segments} style={styles.quoteText} />
+                    <InlineSegments key={key + "-" + lineIndex} segments={segments} style={styles.quoteText} />
                   ) : (
                     <InlineText key={key + "-" + lineIndex} tokens={line} style={styles.quoteText} />
                   );
@@ -303,6 +303,46 @@ function SegmentRow({ segments, style }: { segments: StudySegment[]; style: obje
   );
 }
 
+/**
+ * 行内段（表格 / 列表 / 引用专用）：所有段塞进同一个 Text，用嵌套 Text 保留行内流式排版。
+ *
+ * 为什么不再用 SegmentRow 的 flexWrap：flex 子项会各自成为独立盒子，在窄表格单元格
+ * 里换行时粗体/正文被拆成左右两列、逐字竖排（v2.2 真机反馈）。这里改为单一 Text +
+ * 嵌套 Text，文字按正常行内流排版；公式段退化为等宽 tex（SVG 不能嵌进 Text）。
+ */
+function InlineSegments({ segments, style }: { segments: StudySegment[]; style: object }): React.JSX.Element {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  return (
+    <Text style={[style]} selectable>
+      {segments.map((segment, index) => {
+        if (segment.type === "math") {
+          return (
+            <Text key={"m-" + index} style={styles.inlineMath}>
+              {segment.tex}
+            </Text>
+          );
+        }
+        if (segment.type === "strong") {
+          return (
+            <Text key={"s-" + index} style={styles.strong}>
+              {segment.value}
+            </Text>
+          );
+        }
+        if (segment.type === "code") {
+          return (
+            <Text key={"c-" + index} style={styles.inlineCode}>
+              {segment.value}
+            </Text>
+          );
+        }
+        return <Text key={"t-" + index}>{segment.text}</Text>;
+      })}
+    </Text>
+  );
+}
+
 /** 行内 token 内容：加粗 / 行内代码 / 公式 / 纯文本，全部走嵌套 Text（不注入 HTML） */
 function InlineTokens({ tokens }: { tokens: StudyInline[] }): React.JSX.Element {
   const { colors } = useTheme();
@@ -357,7 +397,7 @@ function TableView({ block }: { block: Extract<StudyBlock, { type: "table" }> })
           {Array.from({ length: columnCount }).map((_, column) => (
             <View key={"h-" + column} style={[styles.tableCell, { minWidth: 96 }]}>
               {block.headerSegments?.[column] && block.headerSegments[column].length > 0 ? (
-                <SegmentRow segments={block.headerSegments[column]} style={styles.tableHeaderText} />
+                <InlineSegments segments={block.headerSegments[column]} style={styles.tableHeaderText} />
               ) : (
                 <InlineText tokens={block.header[column] ?? []} style={styles.tableHeaderText} />
               )}
@@ -369,7 +409,7 @@ function TableView({ block }: { block: Extract<StudyBlock, { type: "table" }> })
             {Array.from({ length: columnCount }).map((_, column) => (
               <View key={"c-" + rowIndex + "-" + column} style={[styles.tableCell, { minWidth: 96 }]}>
                 {block.rowSegments?.[rowIndex]?.[column] && block.rowSegments[rowIndex][column].length > 0 ? (
-                  <SegmentRow segments={block.rowSegments[rowIndex][column]} style={styles.tableCellText} />
+                  <InlineSegments segments={block.rowSegments[rowIndex][column]} style={styles.tableCellText} />
                 ) : (
                   <InlineText tokens={row[column] ?? []} style={styles.tableCellText} />
                 )}
@@ -657,7 +697,15 @@ const makeStyles = (colors: ThemeColors) =>
     },
     tableRow: { flexDirection: "row", borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
     tableHeaderRow: { backgroundColor: colors.surfaceMuted },
-    tableCell: { paddingVertical: spacing.sm, paddingHorizontal: spacing.sm, justifyContent: "center" },
+    // 单元格宽度给下限/上限：窄屏可横向滚动，长文本在 240 内正常折行（不再逐字竖排）
+    tableCell: {
+      minWidth: 112,
+      maxWidth: 240,
+      flexShrink: 0,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.sm,
+      justifyContent: "center",
+    },
     tableHeaderText: { ...typography.caption, fontWeight: "700", color: colors.text },
     tableCellText: { ...typography.caption, color: colors.textSecondary, lineHeight: 19 },
     imageWrap: { gap: spacing.xs },
