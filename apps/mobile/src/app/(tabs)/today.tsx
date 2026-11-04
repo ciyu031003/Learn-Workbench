@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ComponentProps } from "react";
 import {
   Pressable,
   RefreshControl,
@@ -66,6 +66,8 @@ import { buildSportTrend } from "@/lib/sport-trend";
 import { fetchHydration, fetchNutritionTarget } from "@/lib/wellbeing-client";
 import { toDaySummaryMap } from "@/lib/nutrition-views";
 import { localKey } from "@/lib/focus-series";
+import { withAlpha } from "@/lib/chart-math";
+import { TEXT_SCALE_POLICY } from "@/lib/text-scale";
 import { loadLearningAttempts } from "@/lib/learning-progress";
 import { readCachedRoadmap } from "@/lib/roadmap";
 import { summarizeLearningAttempts as summarizeLearningEvidence } from "@learn-workbench/shared/learning";
@@ -136,11 +138,18 @@ function ModePill({
   );
 }
 
-/** 双列小卡（今日学习 / 今日饮水）：整张卡可点，环 + 百分比；无数据渲染「—」（沿用 ring-progress） */
+/**
+ * 双列小卡（今日学习 / 今日饮水）：整张卡可点。
+ * v2.2：语义色图标芯片 + 顶部轻微渐变 + 同色描边，环加粗（6→10）并放大到 86，
+ * 环心主数值提到 typography.num（20/800）；无数据仍显示「—」，颜色降到 textSecondary 保证可读。
+ * 数值是「环内徽标」性质的紧凑 UI，按 lib/text-scale 的 chrome 策略封顶 1.3 倍，
+ * 保证 130% 系统字号下仍完整落在环心里（不截断）。
+ */
 function MiniStatCard({
   label,
   percent,
   hint,
+  icon,
   tone = "primary",
   onPress,
   accessibilityLabel,
@@ -149,6 +158,7 @@ function MiniStatCard({
   /** 0–100 的百分比；null = 没有数据（环心显示「—」） */
   percent: number | null;
   hint: string;
+  icon: ComponentProps<typeof ThemedIcon>["name"];
   tone?: "primary" | "accent";
   onPress: () => void;
   accessibilityLabel: string;
@@ -156,6 +166,12 @@ function MiniStatCard({
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const ratio = percent === null ? 0 : Math.max(0, Math.min(100, percent)) / 100;
+  const isAccent = tone === "accent";
+  const strong = isAccent ? colors.accent : colors.primary;
+  const soft = isAccent ? colors.accentSoft : colors.primarySoft;
+  /** 每个实例独立 id：SVG 渐变 id 全局可见，固定 id 在多实例复用时会串色 */
+  const rawId = useId();
+  const gradientId = useMemo(() => "miniCard" + rawId.replace(/[^a-zA-Z0-9]/g, ""), [rawId]);
   return (
     <Pressable
       onPress={() => {
@@ -165,26 +181,56 @@ function MiniStatCard({
       hitSlop={6}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      style={({ pressed }) => [styles.miniCard, pressed && styles.miniCardPressed]}
+      style={({ pressed }) => [
+        styles.miniCard,
+        { borderColor: withAlpha(strong, 0.24) },
+        pressed && styles.miniCardPressed,
+      ]}
     >
-      <Text style={styles.miniLabel} numberOfLines={1}>
-        {label}
-      </Text>
+      {/* 轻微渐变：语义 soft 从左上淡出到卡面（只用 token，卡片 overflow:hidden 兜住圆角） */}
+      <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} pointerEvents="none">
+        <Defs>
+          <LinearGradient id={gradientId} x1="0" y1="0" x2="0.7" y2="1">
+            <Stop offset="0" stopColor={soft} stopOpacity={1} />
+            <Stop offset="1" stopColor={soft} stopOpacity={0} />
+          </LinearGradient>
+        </Defs>
+        <Rect x="0" y="0" width="100%" height="100%" fill={"url(#" + gradientId + ")"} />
+      </Svg>
+
+      <View style={styles.miniHead}>
+        <View style={[styles.miniIcon, { backgroundColor: soft, borderColor: withAlpha(strong, 0.22) }]}>
+          <ThemedIcon name={icon} size={14} color={strong} />
+        </View>
+        <Text style={styles.miniLabel} numberOfLines={1}>
+          {label}
+        </Text>
+      </View>
+
       <View style={styles.miniRing}>
         <RingProgress
-          size={58}
-          strokeWidth={6}
+          size={86}
+          strokeWidth={10}
           progress={ratio}
-          color={tone === "accent" ? colors.accent : undefined}
           trackColor={colors.surfaceMuted}
+          from={isAccent ? colors.accent : colors.primary}
+          to={isAccent ? colors.sun : colors.chart[1]}
         />
         <View pointerEvents="none" style={styles.miniRingLabel}>
-          <Text style={[styles.miniRingValue, tabularNums, percent === null && styles.miniRingMuted]}>
+          <Text
+            style={[styles.miniRingValue, tabularNums, percent === null && styles.miniRingMuted]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.7}
+            {...TEXT_SCALE_POLICY.chrome}
+          >
             {percent === null ? "—" : percent + "%"}
           </Text>
         </View>
       </View>
-      <Text style={styles.miniHint} numberOfLines={2}>
+
+      {/* 不设 numberOfLines：130% 系统字号下长 hint 换行而不是被省略号截断 */}
+      <Text style={styles.miniHint}>
         {hint}
       </Text>
     </Pressable>
@@ -816,18 +862,23 @@ export default function TodayScreen() {
             </Pressable>
           </View>
 
+          {/* 连续打卡：数值（32/800）与标签（12/400）拉开三档，标签只做说明不抢视线 */}
           {streak > 0 ? (
             <View style={styles.heroStreakRow}>
               <Text style={[styles.heroStreakNum, tabularNums]}>{streak}</Text>
-              <Text style={styles.heroStreakUnit}>天连续打卡</Text>
+              <Text style={styles.heroStreakUnit}>天</Text>
+              <Text style={styles.heroStreakLabel}>连续打卡</Text>
             </View>
           ) : (
             <Text style={styles.heroStreakHint}>0 天 · 完成第一个习惯即可开启</Text>
           )}
 
           <View style={styles.heroWeekHead}>
-            <Text style={styles.heroWeekTitle}>本周</Text>
-            <Text style={[styles.heroWeekMeta, tabularNums]}>{weekChecked}/7 天</Text>
+            <Text style={styles.heroWeekTitle}>本周打卡</Text>
+            <Text style={[styles.heroWeekMeta, tabularNums]}>
+              <Text style={styles.heroWeekMetaNum}>{weekChecked}</Text>
+              {"/7 天"}
+            </Text>
           </View>
           <View style={styles.heroWeekRow} accessible accessibilityLabel={"本周已打卡 " + weekChecked + " 天"}>
             {week.map((d) => {
@@ -857,9 +908,12 @@ export default function TodayScreen() {
             })}
           </View>
 
-          <Text style={styles.heroTip} numberOfLines={2}>
-            {heroTip}
-          </Text>
+          <View style={styles.heroTipRow}>
+            <View style={styles.heroTipDot} />
+            <Text style={styles.heroTip} numberOfLines={2}>
+              {heroTip}
+            </Text>
+          </View>
         </View>
 
         {/* ③ 今天的状态（v2 MoodPicker 替换旧 EnergyBar；数据与提交沿用 /api/wellbeing/energy） */}
@@ -930,34 +984,44 @@ export default function TodayScreen() {
             <ThemedIcon name="chevron-forward" size={18} color={colors.canvas} />
           </PressableScale>
 
+          {/* 三格目标条：标签（12/600 弱化）与数值（15/800 语义色）拉开权重，条加粗到 8 */}
           <View style={styles.goalList}>
             <View style={styles.goalRow}>
               <View style={styles.goalHead}>
-                <Text style={styles.goalLabel}>刷题</Text>
-                <Text style={[styles.goalValue, tabularNums]}>
+                <View style={styles.goalName}>
+                  <View style={[styles.goalDot, { backgroundColor: colors.primary }]} />
+                  <Text style={styles.goalLabel}>刷题</Text>
+                </View>
+                <Text style={[styles.goalValue, tabularNums, { color: colors.primary }]}>
                   {learningSnapshot.questionsToday}/{DAILY_QUESTION_GOAL}
                 </Text>
               </View>
-              <ProgressBar value={learningSnapshot.questionsToday / DAILY_QUESTION_GOAL} tone="primary" />
+              <ProgressBar value={learningSnapshot.questionsToday / DAILY_QUESTION_GOAL} tone="primary" height={8} />
             </View>
             <View style={styles.goalRow}>
               <View style={styles.goalHead}>
-                <Text style={styles.goalLabel}>阅读</Text>
+                <View style={styles.goalName}>
+                  <View style={[styles.goalDot, { backgroundColor: colors.accent }]} />
+                  <Text style={styles.goalLabel}>阅读</Text>
+                </View>
                 {/* 阅读分钟没有本地/接口数据源（不新增接口）→ 按任务书显示 0/30m，不编造进度 */}
-                <Text style={[styles.goalValue, tabularNums]}>
+                <Text style={[styles.goalValue, tabularNums, { color: colors.accent }]}>
                   {0}/{DAILY_READING_GOAL_MINUTES}m
                 </Text>
               </View>
-              <ProgressBar value={0} tone="accent" />
+              <ProgressBar value={0} tone="accent" height={8} />
             </View>
             <View style={styles.goalRow}>
               <View style={styles.goalHead}>
-                <Text style={styles.goalLabel}>训练</Text>
-                <Text style={[styles.goalValue, tabularNums]}>
+                <View style={styles.goalName}>
+                  <View style={[styles.goalDot, { backgroundColor: colors.success }]} />
+                  <Text style={styles.goalLabel}>训练</Text>
+                </View>
+                <Text style={[styles.goalValue, tabularNums, { color: colors.success }]}>
                   {todaySport.minutes}/{DAILY_SPORT_GOAL_MINUTES}m
                 </Text>
               </View>
-              <ProgressBar value={todaySport.minutes / DAILY_SPORT_GOAL_MINUTES} tone="success" />
+              <ProgressBar value={todaySport.minutes / DAILY_SPORT_GOAL_MINUTES} tone="success" height={8} />
             </View>
           </View>
         </Surface>
@@ -1057,6 +1121,7 @@ export default function TodayScreen() {
             label="今日学习"
             percent={learningPercent}
             hint={learningHint}
+            icon="book-outline"
             onPress={() => router.push("/learn" as never)}
             accessibilityLabel="今日学习，打开学习页"
           />
@@ -1064,6 +1129,7 @@ export default function TodayScreen() {
             label="今日饮水"
             percent={waterPercent}
             hint={waterHint}
+            icon="water-outline"
             tone="accent"
             onPress={() => router.push("/wellness" as never)}
             accessibilityLabel="今日饮水，打开健康页"
@@ -1189,13 +1255,16 @@ const makeStyles = (colors: ThemeColors) =>
     checkinPillDone: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
     checkinText: { ...typography.caption, fontWeight: "700", color: colors.textMuted },
     checkinTextDone: { color: colors.primaryStrong },
-    heroStreakRow: { flexDirection: "row", alignItems: "baseline", gap: 6 },
-    heroStreakNum: { ...typography.pageTitle, color: colors.text },
-    heroStreakUnit: { ...typography.meta, fontWeight: "600", color: colors.textMuted },
+    heroStreakRow: { flexDirection: "row", alignItems: "baseline", gap: 5 },
+    /* 数值 32/800 → 单位 12/700 → 标签 12/400：三级重量差撑开层级 */
+    heroStreakNum: { ...typography.display, color: colors.text },
+    heroStreakUnit: { ...typography.caption, fontWeight: "700", color: colors.textSecondary },
+    heroStreakLabel: { ...typography.meta, color: colors.textMuted, marginLeft: 2 },
     heroStreakHint: { ...typography.meta, color: colors.textMuted, marginTop: -4 },
-    heroWeekHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    heroWeekTitle: { ...typography.meta, fontWeight: "700", color: colors.textMuted },
-    heroWeekMeta: { ...typography.caption, fontWeight: "700", color: colors.primary },
+    heroWeekHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: 8 },
+    heroWeekTitle: { ...typography.meta, fontWeight: "600", color: colors.textMuted },
+    heroWeekMeta: { ...typography.meta, color: colors.textMuted },
+    heroWeekMetaNum: { ...typography.callout, fontWeight: "800", color: colors.primary },
     heroWeekRow: { flexDirection: "row", gap: 6 },
     heroWeekCell: { flex: 1, minWidth: 0 },
     heroWeekDot: {
@@ -1212,7 +1281,9 @@ const makeStyles = (colors: ThemeColors) =>
     heroWeekText: { ...typography.meta, fontWeight: "700", color: colors.textFaint },
     heroWeekTextDone: { color: colors.canvas },
     heroWeekTextToday: { color: colors.primaryStrong },
-    heroTip: { ...typography.meta, color: colors.textSecondary, lineHeight: 17 },
+    heroTipRow: { flexDirection: "row", alignItems: "flex-start", gap: 7 },
+    heroTipDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: colors.primary, marginTop: 6 },
+    heroTip: { ...typography.meta, color: colors.textSecondary, lineHeight: 17, flex: 1, minWidth: 0 },
 
     // ---- 专注卡（glassStrong）----
     focusCard: { padding: 18, gap: 14 },
@@ -1230,7 +1301,7 @@ const makeStyles = (colors: ThemeColors) =>
     focusHead: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 10 },
     focusHeadText: { flex: 1, minWidth: 0, gap: 3 },
     eyebrow: { ...typography.eyebrow, color: colors.textFaint },
-    focusTitle: { ...typography.section, color: colors.text },
+    focusTitle: { ...typography.title2, color: colors.text },
     focusSub: { ...typography.meta, color: colors.textMuted },
     focusToday: { alignItems: "flex-end", minWidth: 56 },
     focusTodayNum: { ...typography.num, color: colors.primary },
@@ -1274,15 +1345,17 @@ const makeStyles = (colors: ThemeColors) =>
     startTitle: { ...typography.headline, fontWeight: "800", color: colors.canvas },
     startSub: { ...typography.meta, color: colors.canvas, opacity: 0.72 },
     goalList: {
-      gap: 10,
-      paddingTop: 12,
+      gap: 12,
+      paddingTop: 14,
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: colors.border,
     },
-    goalRow: { gap: 6 },
-    goalHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    goalLabel: { ...typography.meta, fontWeight: "600", color: colors.textSecondary },
-    goalValue: { ...typography.caption, fontWeight: "700", color: colors.text },
+    goalRow: { gap: 7 },
+    goalHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
+    goalName: { flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 1 },
+    goalDot: { width: 6, height: 6, borderRadius: 3 },
+    goalLabel: { ...typography.caption, fontWeight: "600", color: colors.textMuted },
+    goalValue: { ...typography.callout, fontWeight: "800" },
 
     // ---- 区块右侧计数 ----
     sectionMeta: { ...typography.meta, fontWeight: "700", color: colors.textMuted, marginLeft: "auto", paddingLeft: 8 },
@@ -1323,18 +1396,30 @@ const makeStyles = (colors: ThemeColors) =>
     miniCard: {
       flex: 1,
       minWidth: 0,
-      minHeight: 132,
-      gap: 6,
+      minHeight: 176,
+      gap: 8,
       padding: 14,
       borderRadius: radius.card,
       backgroundColor: colors.surfaceStrong,
       borderWidth: StyleSheet.hairlineWidth * 2,
       borderColor: colors.border,
+      /** 顶部渐变要跟着圆角裁掉，否则四角会露出生硬的方角色块 */
+      overflow: "hidden",
       ...shadows.card,
     },
     miniCardPressed: { opacity: 0.85 },
-    miniLabel: { ...typography.meta, fontWeight: "700", color: colors.textMuted },
-    miniRing: { width: 58, height: 58, alignSelf: "center", alignItems: "center", justifyContent: "center", marginTop: 2 },
+    miniHead: { flexDirection: "row", alignItems: "center", gap: 8 },
+    miniIcon: {
+      width: 28,
+      height: 28,
+      borderRadius: radius.sm,
+      borderWidth: StyleSheet.hairlineWidth * 2,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    /** 标签压在语义 soft 渐变上：用 textSecondary 保证 12pt 小字仍过 WCAG（textMuted 在 soft 底上只有 ~4.2） */
+    miniLabel: { ...typography.caption, fontWeight: "700", color: colors.textSecondary, flexShrink: 1 },
+    miniRing: { width: 86, height: 86, alignSelf: "center", alignItems: "center", justifyContent: "center", marginTop: 2 },
     miniRingLabel: {
       position: "absolute",
       top: 0,
@@ -1344,9 +1429,9 @@ const makeStyles = (colors: ThemeColors) =>
       alignItems: "center",
       justifyContent: "center",
     },
-    miniRingValue: { ...typography.micro, fontWeight: "800", color: colors.text },
-    miniRingMuted: { color: colors.textFaint },
-    miniHint: { ...typography.meta, color: colors.textMuted, lineHeight: 16 },
+    miniRingValue: { ...typography.num, color: colors.text },
+    miniRingMuted: { color: colors.textSecondary },
+    miniHint: { ...typography.meta, color: colors.textMuted, lineHeight: 17 },
 
     quoteFoot: { ...typography.caption, lineHeight: 18, color: colors.textMuted, textAlign: "center", paddingHorizontal: 8 },
 

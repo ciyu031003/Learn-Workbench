@@ -14,7 +14,9 @@ import { PageHead } from "@/components/v2/page-head";
 import { SectionTitle } from "@/components/v2/section-title";
 import { StageTrack } from "@/components/v2/stage-track";
 import { ProgressBar } from "@/components/v2/progress-bar";
-import { BarList, RadarChart, SegmentRing, StatTileRow } from "@/components/v2/charts";
+import { RadarChart, SegmentRing, StatTileRow } from "@/components/v2/charts";
+import { withAlpha } from "@/lib/chart-math";
+import { TEXT_SCALE_POLICY } from "@/lib/text-scale";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
 import { useScrollToTopHandler } from "@/lib/scroll-to-top";
@@ -90,6 +92,15 @@ const TOOL_TONES: Record<ToolTone, { soft: keyof ThemeColors; strong: keyof Them
 
 /** 技能画像里 level 只有 0-5；<3 视为「待补」（无画像时为 0 项） */
 const SKILL_GAP_LEVEL = 3;
+
+/**
+ * 分数 → 语义色（四维明细 / 缺口排行共用）：
+ * ≥80 达标（success）、55–79 进行中（primary）、<55 提示补齐（warning）。
+ * 只返回语义名，具体色值统一从 useTheme().colors 取，避免裸色值。
+ */
+function scoreToneOf(score: number): "success" | "primary" | "warning" {
+  return score >= 80 ? "success" : score >= 55 ? "primary" : "warning";
+}
 
 /**
  * 求职进度当前阶段：按各阶段数量取「最远一步」。
@@ -205,6 +216,9 @@ export default function CareerScreen() {
   /** 最短板 → 「优先补齐」胶囊（四维全满时给正向话术） */
   const weakest = dimensions.reduce((min, item) => (item.score < min.score ? item : min), dimensions[0]);
   const weakestChip = weakest.score >= 100 ? "四维已达标 · 保持节奏" : "优先补齐 · " + weakest.label + " " + weakest.score + "%";
+  /** 「优先补齐」胶囊的语义色：缺口用 warning，四维全满用 success（不再一律主色） */
+  const weakStrong = weakest.score >= 100 ? colors.success : colors.warning;
+  const weakSoft = weakest.score >= 100 ? colors.successSoft : colors.warningSoft;
 
   /** 进行中投递：现有统计派生，未登录/无数据为 null（MetricGrid 显示 0） */
   const activeApplications = useMemo(() => {
@@ -236,6 +250,8 @@ export default function CareerScreen() {
           value: SKILL_GAP_LEVEL - skill.level,
           valueLabel: `Lv ${skill.level}`,
           hint: skill.category,
+          /** Lv 0 完全空白 → danger；Lv 1–2 → warning（越浅缺口越小） */
+          tone: (skill.level <= 0 ? "danger" : "warning") as "danger" | "warning",
         })),
     [skills]
   );
@@ -326,6 +342,7 @@ export default function CareerScreen() {
                   <Skeleton variant="card" style={styles.ringSkeleton} />
                 ) : (
                   <View style={styles.readinessRing}>
+                    {/* 总分：环放大到 132 / 加粗到 14，环心数字随 size 提到 32pt 级；下方标签改为「综合准备度」 */}
                     <SegmentRing
                       segments={dimensions.map((dimension) => ({
                         key: dimension.key,
@@ -333,22 +350,31 @@ export default function CareerScreen() {
                         value: Math.max(0, dimension.score),
                       }))}
                       score={`${overall}%`}
-                      scoreLabel="准备度"
+                      scoreLabel="综合准备度"
                       legend={false}
-                      size={124}
-                      thickness={12}
+                      size={132}
+                      thickness={14}
                       gapDeg={10}
                     />
                   </View>
                 )}
                 <View style={styles.readinessBody}>
                   <Text style={styles.readinessLabel}>目标方向</Text>
-                  <Text style={styles.readinessGoal} numberOfLines={2}>{targetRole}</Text>
-                  <Text style={styles.readinessHint} numberOfLines={3}>{goalVerdict}</Text>
-                  <View style={styles.weakChip}>
-                    <Text style={styles.weakChipText} numberOfLines={1}>{weakestChip}</Text>
-                  </View>
+                  {/* 目标方向是卡内第二主信息：22/700 大字，不设 numberOfLines（130% 字号下换行而不截断） */}
+                  <Text style={styles.readinessGoal}>{targetRole}</Text>
+                  <Text style={styles.readinessHint}>{goalVerdict}</Text>
                 </View>
+              </View>
+              {/* 缺口胶囊独立成行：不再和长目标方向挤在同一列，长文案也能完整显示 */}
+              <View style={[styles.weakChip, { backgroundColor: weakSoft, borderColor: withAlpha(weakStrong, 0.28) }]}>
+                <ThemedIcon
+                  name={weakest.score >= 100 ? "checkmark-circle-outline" : "alert-circle-outline"}
+                  size={13}
+                  color={weakStrong}
+                />
+                <Text style={styles.weakChipText} {...TEXT_SCALE_POLICY.chrome}>
+                  {weakestChip}
+                </Text>
               </View>
             </Surface>
           )}
@@ -369,17 +395,26 @@ export default function CareerScreen() {
                   size={236}
                 />
                 <View style={styles.dimList}>
-                  {dimensions.map((dimension) => (
-                    <View key={dimension.key} style={styles.dimRow}>
-                      <View style={styles.dimHead}>
-                        <Text style={styles.dimLabel}>{dimension.label}</Text>
-                        <Text style={[styles.dimScore, tabularNums]}>{dimension.score}%</Text>
+                  {dimensions.map((dimension) => {
+                    const tone = scoreToneOf(dimension.score);
+                    const toneColor = colors[tone] as string;
+                    return (
+                      <View key={dimension.key} style={styles.dimRow}>
+                        <View style={styles.dimHead}>
+                          <View style={styles.dimNameRow}>
+                            <View style={[styles.dimDot, { backgroundColor: toneColor }]} />
+                            <Text style={styles.dimLabel}>{dimension.label}</Text>
+                          </View>
+                          {/* 分数用 20/800 等宽数字 + 语义色，和标签（15/700 正文色）拉开权重 */}
+                          <Text style={[styles.dimScore, tabularNums, { color: toneColor }]}>{dimension.score}%</Text>
+                        </View>
+                        <ProgressBar value={Math.max(0, dimension.score) / 100} tone={tone} height={8} />
+                        {dimension.detail ? (
+                          <Text style={styles.dimDetail}>{dimension.detail}</Text>
+                        ) : null}
                       </View>
-                      {dimension.detail ? (
-                        <Text style={styles.dimDetail} numberOfLines={2}>{dimension.detail}</Text>
-                      ) : null}
-                    </View>
-                  ))}
+                    );
+                  })}
                 </View>
               </>
             ) : (
@@ -401,7 +436,33 @@ export default function CareerScreen() {
           />
           {gapSkillItems.length > 0 ? (
             <Card style={styles.gapCard}>
-              <BarList title="待补技能排行" showRank items={gapSkillItems} />
+              <View style={styles.gapHead}>
+                <Text style={styles.gapTitle}>待补技能排行</Text>
+                <Text style={[styles.gapCount, tabularNums]}>{gapSkillItems.length} 项 · 低于 Lv {SKILL_GAP_LEVEL}</Text>
+              </View>
+              {/* 排行条加粗到 8 并换成行内进度条（BarList 的背景条只有 40pt 行高、无法更粗）：
+                  排名 / 名称 / Lv 三段对齐，Lv 用 warning（Lv 0 用 danger）语义色 */}
+              <View style={styles.gapList}>
+                {gapSkillItems.map((item, index) => (
+                  <View key={item.key} style={styles.gapRow}>
+                    <View style={styles.gapRowHead}>
+                      <View style={styles.gapRank}>
+                        <Text style={[styles.gapRankText, tabularNums]}>{index + 1}</Text>
+                      </View>
+                      <View style={styles.gapNameWrap}>
+                        <Text style={styles.gapName} numberOfLines={2}>{item.label}</Text>
+                        {item.hint ? (
+                          <Text style={styles.gapHint} numberOfLines={1}>{item.hint}</Text>
+                        ) : null}
+                      </View>
+                      <Text style={[styles.gapLevel, tabularNums, { color: colors[item.tone] as string }]}>
+                        {item.valueLabel}
+                      </Text>
+                    </View>
+                    <ProgressBar value={item.value / SKILL_GAP_LEVEL} tone={item.tone} height={8} />
+                  </View>
+                ))}
+              </View>
             </Card>
           ) : null}
         </Animated.View>
@@ -501,11 +562,20 @@ export default function CareerScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={`${tool.title}，${tool.meta}`}
               >
-                <View style={[styles.toolIcon, { backgroundColor: colors[tone.soft] as string }]}>
-                  <ThemedIcon name={tool.icon} size={18} color={colors[tone.strong] as string} />
+                <View
+                  style={[
+                    styles.toolIcon,
+                    {
+                      backgroundColor: colors[tone.soft] as string,
+                      borderColor: withAlpha(colors[tone.strong] as string, 0.28),
+                    },
+                  ]}
+                >
+                  <ThemedIcon name={tool.icon} size={20} color={colors[tone.strong] as string} />
                 </View>
                 <Text style={styles.toolTitle} numberOfLines={1}>{tool.title}</Text>
-                <Text style={styles.toolMeta} numberOfLines={2}>{tool.meta}</Text>
+                {/* 不设 numberOfLines：窄屏 + 130% 字号下换行，不被省略号截断（卡高随内容增长） */}
+                <Text style={styles.toolMeta}>{tool.meta}</Text>
               </PressableScale>
             );
           })}
@@ -543,40 +613,64 @@ const makeStyles = (colors: ThemeColors) =>
     section: { marginTop: spacing.md, marginBottom: 0 },
 
     /* 准备度卡（glassStrong） */
-    readinessCard: { gap: spacing.sm },
+    readinessCard: { gap: spacing.md },
     readinessTop: { flexDirection: "row", alignItems: "center", gap: 14 },
     /** SegmentRing 是 width:100% 的自适应组件，放在行内必须给一个定宽容器 */
-    readinessRing: { width: 124 },
-    ringSkeleton: { width: 124, height: 124, borderRadius: 62 },
-    readinessBody: { flex: 1, minWidth: 0, gap: 3 },
-    readinessLabel: { ...typography.meta, fontWeight: "700", color: colors.textMuted },
-    readinessGoal: { ...typography.hero, color: colors.text },
-    readinessHint: { ...typography.meta, color: colors.textSecondary },
+    readinessRing: { width: 132 },
+    ringSkeleton: { width: 132, height: 132, borderRadius: 66 },
+    readinessBody: { flex: 1, minWidth: 0, gap: 4 },
+    readinessLabel: { ...typography.caption, fontWeight: "700", color: colors.textMuted, letterSpacing: 0.2 },
+    readinessGoal: { ...typography.title2, color: colors.text },
+    readinessHint: { ...typography.meta, color: colors.textSecondary, lineHeight: 17 },
     weakChip: {
       alignSelf: "flex-start",
-      marginTop: 4,
-      backgroundColor: colors.primarySoft,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      backgroundColor: colors.warningSoft,
       borderWidth: StyleSheet.hairlineWidth * 2,
       borderColor: colors.borderStrong,
       borderRadius: radius.pill,
-      paddingHorizontal: 10,
-      paddingVertical: 4,
+      paddingHorizontal: 11,
+      paddingVertical: 6,
       maxWidth: "100%",
     },
-    weakChipText: { ...typography.meta, fontWeight: "700", color: colors.primary },
+    /** 语义色放在图标/底色/描边上，文字用正文色：warning 橙在 warningSoft 上只有 ~2.4，小字不可读 */
+    weakChipText: { ...typography.caption, fontWeight: "700", color: colors.text, flexShrink: 1 },
 
     /* 四维明细 */
     dimCard: { gap: spacing.md },
-    dimList: { gap: spacing.md },
-    dimRow: { gap: 4 },
+    dimList: { gap: spacing.lg },
+    dimRow: { gap: 6 },
     dimHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: 8 },
-    dimLabel: { ...typography.callout, fontWeight: "600", color: colors.text },
-    dimScore: { ...typography.caption, fontWeight: "700", color: colors.textMuted },
-    dimDetail: { ...typography.meta, color: colors.textMuted },
+    dimNameRow: { flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 1 },
+    dimDot: { width: 6, height: 6, borderRadius: 3 },
+    dimLabel: { ...typography.callout, fontWeight: "700", color: colors.text },
+    dimScore: { ...typography.num },
+    dimDetail: { ...typography.meta, color: colors.textMuted, lineHeight: 17 },
     dimEmpty: { ...typography.callout, color: colors.textSecondary },
 
-    /* 待补技能排行（BarList 自带卡头，这里只补与指标卡之间的间距） */
-    gapCard: { marginTop: spacing.md },
+    /* 待补技能排行（自绘行：粗条 + 排名/名称/Lv 三段对齐） */
+    gapCard: { marginTop: spacing.md, gap: spacing.md },
+    gapHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: 8 },
+    gapTitle: { ...typography.section, color: colors.text },
+    gapCount: { ...typography.caption, fontWeight: "700", color: colors.textMuted },
+    gapList: { gap: spacing.md },
+    gapRow: { gap: 6 },
+    gapRowHead: { flexDirection: "row", alignItems: "center", gap: 8 },
+    gapRank: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surfaceMuted,
+    },
+    gapRankText: { ...typography.caption, fontWeight: "700", color: colors.textMuted },
+    gapNameWrap: { flex: 1, minWidth: 0, gap: 1 },
+    gapName: { ...typography.callout, fontWeight: "600", color: colors.text },
+    gapHint: { ...typography.caption, fontWeight: "400", color: colors.textMuted },
+    gapLevel: { ...typography.callout, fontWeight: "800", minWidth: 40, textAlign: "right" },
 
     /* 职业成长路径 */
     pathCard: { padding: 0, gap: 0 },
@@ -607,23 +701,31 @@ const makeStyles = (colors: ThemeColors) =>
     resumeBar: { marginTop: 2 },
     gapText: { ...typography.meta, color: colors.textMuted },
 
-    /* 更多工具 2 列 */
+    /* 更多工具 2 列：图标芯片放大到 40 + 语义描边，标题提到 headline 档 */
     toolGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
     toolTile: {
       width: "47.5%",
       flexGrow: 1,
-      minHeight: 96,
+      minHeight: 108,
       padding: 14,
-      gap: 6,
+      gap: 7,
       borderRadius: radius.card,
       backgroundColor: colors.surfaceStrong,
       borderWidth: StyleSheet.hairlineWidth * 2,
       borderColor: colors.border,
       ...shadows.card,
     },
-    toolIcon: { width: 34, height: 34, borderRadius: radius.control - 2, alignItems: "center", justifyContent: "center", marginBottom: 2 },
-    toolTitle: { ...typography.callout, fontWeight: "700", color: colors.text },
-    toolMeta: { ...typography.meta, color: colors.textMuted },
+    toolIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: radius.control,
+      borderWidth: StyleSheet.hairlineWidth * 2,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 2,
+    },
+    toolTitle: { ...typography.headline, fontWeight: "700", color: colors.text },
+    toolMeta: { ...typography.meta, color: colors.textMuted, lineHeight: 17 },
 
     /* 技能 */
     skillsCard: { gap: spacing.md },
