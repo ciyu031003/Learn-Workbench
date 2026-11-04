@@ -9,6 +9,7 @@ import { SectionTitle } from "@/components/v2/section-title";
 import { MetricGrid } from "@/components/v2/metric-grid";
 import { ActionCard } from "@/components/v2/action-card";
 import { BarChart } from "@/components/v2/bar-chart";
+import { ActivityRings, StatTileRow, type StatTileProps, type StatTone } from "@/components/v2/charts";
 import { Card } from "@/components/card";
 import { EmptyState } from "@/components/empty-state";
 import { EntryCard } from "@/components/entry-card";
@@ -27,6 +28,7 @@ import { useFocusRefresh } from "@/lib/use-focus-refresh";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
 import { addHydration, fetchHydration, fetchWeight, type HydrationToday, type WeightPointDto } from "@/lib/wellbeing-client";
 import { toDaySummaryMap, todayAndYesterday } from "@/lib/nutrition-views";
+import { buildWeekReport, type WeekTile } from "@/lib/wellness-week";
 import { formatSleepHours, formatSleepHoursValue, isFreshSleepEntry, loadSleepEntry, type SleepEntry } from "@/lib/sleep";
 import { SleepSheet } from "@/components/sleep-sheet";
 import { haptics } from "@/lib/haptics";
@@ -74,6 +76,11 @@ function lastSevenKeys(todayKey: string): string[] {
 /** 日期键 → 单字星期（柱图 x 轴标签） */
 function weekdayShort(dateKey: string): string {
   return WEEKDAY_SHORT[fromDateKey(dateKey).getDay()];
+}
+
+/** lib 只给展示串；图标与语义色调由页面决定 */
+function weekTile(tile: WeekTile, icon: StatTileProps["icon"], tone: StatTone): StatTileProps {
+  return { label: tile.label, value: tile.value, unit: tile.unit, hint: tile.hint, icon, tone };
 }
 
 /**
@@ -131,11 +138,36 @@ export default function WellnessScreen() {
   /** 本机睡眠存档（v2.0.1）：健康页睡眠格与行动卡都读它 */
   const [sleepEntry, setSleepEntry] = useState<SleepEntry | null>(null);
   const [sleepSheetOpen, setSleepSheetOpen] = useState(false);
+  /**
+   * v2.2 周报：近 7 天逐日饮水（最后一项=今天，由主请求的 hydration 填）。
+   * 过去 6 天的记录只受「历史日期 + 登录态」影响，同一天内不会变 —— 用 ref 缓存，
+   * 避免每次聚焦刷新都多打 6 个 GET（仍是同一个 /api/wellbeing/hydration?date=，不新增接口）。
+   */
+  const [waterByDay, setWaterByDay] = useState<(number | null)[]>([]);
+  const [workoutsFailed, setWorkoutsFailed] = useState(false);
+  const weekWaterCache = useRef<{ key: string; days: (number | null)[] } | null>(null);
 
   const load = useCallback(async () => {
     const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     try {
-      const [dailyRes, weightRes, workoutRes, summaryRes, hydrationRes, sleepLocal] = await Promise.all([
+      // 周报的近 6 天饮水：同一日期窗口 + 同一登录态下结果不会变，命中 ref 就不再请求
+      const pastKeys = lastSevenKeys(todayKey).slice(0, 6);
+      const weekCacheKey = (token ? "u:" : "a:") + pastKeys.join(",");
+      const cachedWeek = weekWaterCache.current?.key === weekCacheKey ? weekWaterCache.current.days : null;
+      const weekWaterPromise = (async (): Promise<(number | null)[]> => {
+        if (cachedWeek) return cachedWeek;
+        const days = await Promise.all(
+          pastKeys.map((key) =>
+            fetchHydration(token, key)
+              .then((item) => Math.max(0, Math.round(item.totalMl)))
+              .catch(() => null)
+          )
+        );
+        // 全部拿到才缓存：有失败的日子下次聚焦会重试
+        if (days.every((value) => value !== null)) weekWaterCache.current = { key: weekCacheKey, days };
+        return days;
+      })();
+      const [dailyRes, weightRes, workoutRes, summaryRes, hydrationRes, sleepLocal, weekWater] = await Promise.all([
         fetch(`${getApiUrl()}/api/daily?date=${todayKey}`, { headers }),
         fetchWeight(token, 30).catch(() => null),
         fetch(getApiUrl() + "/api/workouts?days=7", { headers }).catch(() => null),
@@ -143,6 +175,8 @@ export default function WellnessScreen() {
         fetchHydration(token).catch(() => null),
         // 睡眠是本机存档（lib/sleep.ts）：与五路远端请求并行，单读失败不影响其它数据
         loadSleepEntry().catch(() => null),
+        // 周报饮水（过去 6 天）：复用同一个 /api/wellbeing/hydration?date=，失败按 null 参与降级
+        weekWaterPromise,
       ]);
       if (dailyRes.ok) {
         setData(await dailyRes.json());
@@ -155,6 +189,10 @@ export default function WellnessScreen() {
       if (workoutRes && workoutRes.ok) {
         const d = await workoutRes.json();
         setWeekWorkouts(Array.isArray(d.workouts) ? d.workouts.length : 0);
+        setWorkoutsFailed(false);
+      } else {
+        // 训练接口失败：周报显示「—」，不能用假的 0 次冒充
+        setWorkoutsFailed(true);
       }
       if (summaryRes && summaryRes.ok) {
         const d = await summaryRes.json();
@@ -172,6 +210,11 @@ export default function WellnessScreen() {
         setHydration(hydrationRes);
         setWaterDelta(0); // 拉回来的即真值，清掉乐观增量
       }
+      // 周报逐日饮水：过去 6 天 + 今天（今天复用同一次 hydration 请求，不再多打一次）
+      setWaterByDay([
+        ...weekWater,
+        hydrationRes ? Math.max(0, Math.round(hydrationRes.totalMl)) : null,
+      ]);
       setSleepEntry(sleepLocal);
     } catch {
       // 离线保留上次数据，但标记失败让页面提示
@@ -293,6 +336,35 @@ export default function WellnessScreen() {
    */
   const sleepHours = isFreshSleepEntry(sleepEntry, todayKey, yesterdayKey) ? (sleepEntry?.hours ?? null) : null;
   const sleepRecorded = sleepHours !== null;
+
+  /**
+   * v2.2 本周健康周报：把页面已经拉到的四路数据（饮水逐日 / 训练次数 / 本机睡眠 / 饮食逐日）
+   * 折成「三项达成率 + 四格指标」。缺项一律「—」，不新增接口、不编造 0。
+   */
+  const weekReport = useMemo(
+    () =>
+      buildWeekReport({
+        waterByDay,
+        waterTargetMl: waterTarget,
+        workoutCount: workoutsFailed ? null : weekWorkouts,
+        sleepHours,
+        kcalRows: weekRows,
+        kcalTarget: dietTarget,
+        kcalAvailable: !summaryFailed,
+      }),
+    [
+      waterByDay,
+      waterTarget,
+      workoutsFailed,
+      weekWorkouts,
+      sleepHours,
+      weekRows,
+      dietTarget,
+      summaryFailed,
+    ]
+  );
+  /** 活动环配色与四格指标同语义（饮水 teal / 训练 primary / 睡眠 lavender），深色自动跟随 token */
+  const weekRingColors = useMemo(() => [colors.teal, colors.primary, colors.lavender], [colors]);
 
   return (
     <View style={styles.root}>
@@ -470,6 +542,47 @@ export default function WellnessScreen() {
           )}
         </Animated.View>
 
+        {/* ④-2 本周健康周报（v2.2）：三项达成率 + 四格周指标，数据全部来自上面已拉的四路 */}
+        <SectionTitle title="本周健康周报" />
+        <Animated.View entering={entrance(2)} style={styles.weekBlock}>
+          {loading && !data ? (
+            <SkeletonCard count={1} />
+          ) : (
+            <>
+              <Card style={styles.weekCard}>
+                <ActivityRings
+                  title={null}
+                  rings={weekReport.rings.map((ring, index) => ({
+                    ...ring,
+                    color: weekRingColors[index] ?? colors.primary,
+                  }))}
+                  size={128}
+                />
+                <Text style={styles.weekFoot}>{weekReport.caption}</Text>
+              </Card>
+              <View style={styles.tileGrid}>
+                <StatTileRow
+                  items={[
+                    weekTile(weekReport.water, "water-outline", "teal"),
+                    weekTile(weekReport.workout, "barbell-outline", "primary"),
+                  ]}
+                />
+                <StatTileRow
+                  items={[
+                    weekTile(weekReport.sleep, "moon-outline", "success"),
+                    weekTile(weekReport.kcal, "restaurant-outline", "accent"),
+                  ]}
+                />
+              </View>
+              {weekReport.empty ? (
+                <Text style={styles.weekEmpty}>
+                  本周还没有记录——先记一条饮水、训练或睡眠，周报就会亮起来。
+                </Text>
+              ) : null}
+            </>
+          )}
+        </Animated.View>
+
         {/* ⑤ 更多：习惯打卡 / 领域追踪 / 体重趋势 / 趋势分析 / 运动闪光卡（既有入口一个都不删） */}
         <SectionTitle title="更多" />
         <Animated.View entering={entrance(3)}>
@@ -580,6 +693,13 @@ const makeStyles = (colors: ThemeColors) =>
     /* 今日动作 2×2（外层定宽，ActionCard 自身 flex:1 只负责填满格子） */
     grid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
     gridItem: { width: "47.5%" },
+
+    /* 本周健康周报（v2.2）：环卡 + 2×2 指标卡（指标卡铺在画布上，避免卡中卡） */
+    weekBlock: { gap: spacing.md },
+    weekCard: { alignItems: "center", gap: spacing.sm },
+    weekFoot: { ...typography.meta, color: colors.textFaint, textAlign: "center" },
+    weekEmpty: { ...typography.meta, color: colors.textMuted, lineHeight: 19 },
+    tileGrid: { gap: spacing.sm },
 
     /* 本周趋势 */
     trendCard: { gap: spacing.md },

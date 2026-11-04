@@ -11,9 +11,17 @@ import type { LearningTrack } from "@learn-workbench/content/types";
 import { useLearningTrack } from "@/lib/content-store";
 import { recordCrumb } from "@/lib/crash-capture";
 import { BottomSheet } from "@/components/bottom-sheet";
+import { Card } from "@/components/card";
 import { EmptyState } from "@/components/empty-state";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
+import {
+  BarList,
+  StatTileRow,
+  StepsBar,
+  type StatTileProps,
+  type StatTone,
+} from "@/components/v2/charts";
 import { SectionTitle } from "@/components/v2/section-title";
 import {
   ScreenHeaderLargeTitle,
@@ -35,6 +43,25 @@ import {
   exam408PointHref,
 } from "@/lib/exam-408-view";
 import { chapterSheetVisibleWithoutSnapshot } from "@/lib/exam-408-study";
+import {
+  fetchCardStatsBoard,
+  loadCachedStatsBoard,
+  type Exam408CardStatsBoard,
+  type Exam408FetchFailure,
+} from "@/lib/exam-408-cards";
+import {
+  fetchPaperAttempts,
+  loadPaperHistory,
+  type PaperAttemptFailure,
+  type PaperAttemptRecord,
+} from "@/lib/paper-history";
+import {
+  exam408DashStats,
+  paperScoreBars,
+  paperScoreRanking,
+  type Exam408AttemptsSource,
+  type Exam408Stat,
+} from "@/lib/exam-408-dashboard";
 import { setNavPendingParams } from "@/lib/nav-pending";
 import { useScreenEntrance } from "@/lib/use-screen-entrance";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
@@ -96,6 +123,20 @@ function Exam408Content({ track }: { track: LearningTrack }) {
   const [overviewError, setOverviewError] = useState("");
   const [loadingOverview, setLoadingOverview] = useState(true);
   /**
+   * v2.2「我的 408 学习统计」：刷卡 board 与套卷成绩各自独立降级。
+   * - board 服务端失败时回落到上次缓存（离线也能看到刷到哪），绝不用空板覆盖；
+   * - 套卷未登录 / 401 / 离线 / 5xx 一律用本机缓存（lib/paper-history），不新增接口；
+   * - 两者都失败只影响本区块，408 知识体系 / 历年真题照常显示。
+   */
+  const [board, setBoard] = useState<Exam408CardStatsBoard | null>(null);
+  const [boardCached, setBoardCached] = useState(false);
+  const [boardFailure, setBoardFailure] = useState<Exam408FetchFailure | null>(null);
+  const [attempts, setAttempts] = useState<PaperAttemptRecord[]>([]);
+  const [attemptsSource, setAttemptsSource] = useState<Exam408AttemptsSource>("remote");
+  const [attemptsFailure, setAttemptsFailure] = useState<PaperAttemptFailure | null>(null);
+  const [attemptsTotal, setAttemptsTotal] = useState(0);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+  /**
    * 知识体系 / 刷题两个 Tab 各自记住「展开的科目」；默认都收起（只显示科目卡）。
    * 切 Tab 不重置；从知识点页返回（页面重新 focus）时重置回科目卡视图。
    */
@@ -129,12 +170,45 @@ function Exam408Content({ track }: { track: LearningTrack }) {
     }
   }, []);
 
+  const loadDashboard = useCallback(async () => {
+    setDashboardLoading(true);
+    // 三路并行、各自兜底：任何一路失败都不阻塞 408 页其它内容
+    const [boardRes, paperRes, localAttempts] = await Promise.all([
+      fetchCardStatsBoard().catch(() => ({ board: null, failure: "server" as const })),
+      fetchPaperAttempts().catch(() => ({
+        attempts: [] as PaperAttemptRecord[],
+        total: 0,
+        failure: "server" as const,
+      })),
+      loadPaperHistory().catch(() => [] as PaperAttemptRecord[]),
+    ]);
+    if (boardRes.board) {
+      setBoard(boardRes.board);
+      setBoardCached(false);
+    } else {
+      // board 拿不到时回落本机缓存：显示"上次刷到哪"比空白更有用
+      const cached = await loadCachedStatsBoard().catch(() => null);
+      setBoard(cached);
+      setBoardCached(Boolean(cached));
+    }
+    setBoardFailure(boardRes.failure);
+    // 套卷：服务端成功优先，其余情况一律回落本机缓存（同一份记录，口径一致）
+    const remote = paperRes.failure === null;
+    const list = remote ? paperRes.attempts : localAttempts;
+    setAttempts(list);
+    setAttemptsSource(remote ? "remote" : "local");
+    setAttemptsFailure(paperRes.failure);
+    setAttemptsTotal(remote ? Math.max(paperRes.total, list.length) : list.length);
+    setDashboardLoading(false);
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       // 从 408 返回再进入：默认回到「四张科目卡」视图（旧行为是直接展开上次科目）
       setExpandedSubjects({ knowledge: "", practice: "" });
       void loadOverview();
-    }, [loadOverview]),
+      void loadDashboard();
+    }, [loadOverview, loadDashboard]),
   );
 
   // P13：闪退/热更新恢复后，BottomSheet 可能残留 visible=true 但内容已空 → 整屏被 Modal 挡住，
@@ -316,6 +390,21 @@ function Exam408Content({ track }: { track: LearningTrack }) {
           <LearningModes styles={styles} colors={colors} />
         </Animated.View>
 
+        {/* v2.2：我的 408 学习统计（刷卡进度 + 套卷成绩），放在入口之后、Tab 列表之前；
+            任一路接口失败只降级本区块，下面的知识体系 / 题库存取不受影响 */}
+        <Animated.View entering={entrance(1)}>
+          <StudyDashboard
+            board={board}
+            boardCached={boardCached}
+            boardFailure={boardFailure}
+            attempts={attempts}
+            attemptsSource={attemptsSource}
+            attemptsFailure={attemptsFailure}
+            attemptsTotal={attemptsTotal}
+            loading={dashboardLoading}
+          />
+        </Animated.View>
+
         {navNotice ? (
           <View style={styles.navNotice}>
             <ThemedIcon name="alert-circle-outline" size={16} color={colors.danger} />
@@ -459,6 +548,113 @@ function Exam408Content({ track }: { track: LearningTrack }) {
           </View>
         ) : null}
       </BottomSheet>
+    </View>
+  );
+}
+
+/** lib 只给展示串；图标与语义色调由页面决定（避免 lib 依赖 @expo/vector-icons） */
+function dashTile(
+  stat: Exam408Stat,
+  icon: StatTileProps["icon"],
+  tone: StatTone,
+): StatTileProps {
+  return {
+    label: stat.label,
+    value: stat.value,
+    unit: stat.unit,
+    hint: stat.hint,
+    icon,
+    tone,
+  };
+}
+
+/**
+ * v2.2「我的 408 学习统计」：两行指标卡 + 最近套卷得分柱图 + 最佳套卷排行。
+ *
+ * 视图模型全部来自 lib/exam-408-dashboard（纯函数已单测），这里只负责布局与取色：
+ * 指标卡直接铺在画布上（避免卡中卡），两个图表合成一张 Card 共用一条分隔线。
+ * 没有任何交卷记录时走空态，不画一条全 0 的图。
+ */
+function StudyDashboard({
+  board,
+  boardCached,
+  boardFailure,
+  attempts,
+  attemptsSource,
+  attemptsFailure,
+  attemptsTotal,
+  loading,
+}: {
+  board: Exam408CardStatsBoard | null;
+  boardCached: boolean;
+  boardFailure: Exam408FetchFailure | null;
+  attempts: PaperAttemptRecord[];
+  attemptsSource: Exam408AttemptsSource;
+  attemptsFailure: PaperAttemptFailure | null;
+  attemptsTotal: number;
+  loading: boolean;
+}) {
+  const { colors, dark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
+  const stats = exam408DashStats({
+    board,
+    boardCached,
+    boardFailure,
+    attempts,
+    attemptsSource,
+    attemptsFailure,
+    attemptsTotal,
+    pending: loading,
+  });
+  const bars = useMemo(() => paperScoreBars(attempts), [attempts]);
+  const ranking = useMemo(() => paperScoreRanking(attempts), [attempts]);
+
+  return (
+    <View style={styles.sectionList}>
+      <SectionHead
+        title="我的 408 学习统计"
+        meta={board ? `${stats.cards.value} 张卡` : undefined}
+        hint="刷卡进度与最近套卷成绩；未登录时只显示本机记录。"
+      />
+      <View style={styles.tileGrid}>
+        <StatTileRow
+          items={[
+            dashTile(stats.cards, "albums-outline", "primary"),
+            dashTile(stats.reviewed, "checkmark-done-outline", "success"),
+          ]}
+        />
+        <StatTileRow
+          items={[
+            dashTile(stats.papers, "documents-outline", "accent"),
+            dashTile(stats.best, "trophy-outline", "warning"),
+          ]}
+        />
+      </View>
+
+      {stats.notice ? (
+        <View style={styles.dashNotice}>
+          <ThemedIcon name="information-circle-outline" size={15} color={colors.primary} />
+          <Text style={styles.dashNoticeText}>{stats.notice}</Text>
+        </View>
+      ) : null}
+
+      {bars.length > 0 ? (
+        <Card style={styles.dashCard}>
+          <StepsBar
+            title="最近套卷得分"
+            rangeLabel={`近 ${bars.length} 次`}
+            items={bars}
+          />
+          <View style={styles.dashRule} />
+          <BarList title="最佳套卷排行" showRank items={ranking} />
+        </Card>
+      ) : (
+        <Card style={styles.dashCard}>
+          <Text style={styles.dashEmpty}>
+            {loading ? "正在读取套卷成绩…" : (stats.emptyHint ?? "还没有套卷成绩。")}
+          </Text>
+        </Card>
+      )}
     </View>
   );
 }
@@ -1327,6 +1523,31 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
     tabButtonLabelActive: { color: colors.primary },
     tabButtonMeta: { ...typography.micro, color: colors.textFaint },
     sectionList: { gap: spacing.md },
+    /** 指标卡 2×2（两行两列）：130% 字号下四格并排会挤，见 study-stats 同口径 */
+    tileGrid: { gap: spacing.sm },
+    /* v2.2：我的 408 学习统计 */
+    dashCard: { gap: spacing.md },
+    dashRule: {
+      height: StyleSheet.hairlineWidth * 2,
+      borderRadius: 1,
+      backgroundColor: colors.border,
+    },
+    dashEmpty: { ...typography.meta, color: colors.textMuted, lineHeight: 19 },
+    dashNotice: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      borderRadius: radius.control,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      backgroundColor: colors.primarySoft,
+    },
+    dashNoticeText: {
+      ...typography.caption,
+      color: colors.textSecondary,
+      flex: 1,
+      lineHeight: 18,
+    },
     /** SectionHead：SectionTitle 自带 margin，这里清零交给外层 gap */
     sectionHead: { gap: 2 },
     sectionTitleRow: { marginTop: 0, marginBottom: 0 },
