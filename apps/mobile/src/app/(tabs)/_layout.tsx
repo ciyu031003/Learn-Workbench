@@ -1,7 +1,7 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { Tabs, useNavigation } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { StyleSheet, View, type OpaqueColorValue } from "react-native";
+import { Animated as RNAnimated, StyleSheet, useWindowDimensions, View, type OpaqueColorValue } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
 import { ThemedIcon } from "@/components/themed-icon";
 import { FloatingTabBar } from "@/components/v2/floating-tab-bar";
@@ -100,6 +100,34 @@ const styles = StyleSheet.create({
 });
 
 export default function TabsLayout() {
+  const { width } = useWindowDimensions();
+  const reducedMotion = useReducedMotion();
+  const motionActive = isMotionActive(reducedMotion);
+  /**
+   * v2.2：Tab 切换改为「从上一页横向滑过去」（用户反馈：不要瞬间切换）。
+   * react-navigation bottom-tabs 的 current.progress：-1 = 在左侧、0 = 当前、1 = 在右侧。
+   * 这里做方向感知的横向位移 + 轻微淡入；减弱动态/关闭动效时退化为无动画（animation:"none"）。
+   */
+  const tabShift = Math.min(96, Math.round(width * 0.18));
+  const slideInterpolator = useCallback(
+    ({ current }: { current: { progress: RNAnimated.Value } }) => ({
+      sceneStyle: {
+        opacity: current.progress.interpolate({
+          inputRange: [-1, 0, 1],
+          outputRange: [0.82, 1, 0.82],
+        }),
+        transform: [
+          {
+            translateX: current.progress.interpolate({
+              inputRange: [-1, 0, 1],
+              outputRange: [-tabShift, 0, tabShift],
+            }),
+          },
+        ],
+      },
+    }),
+    [tabShift],
+  );
   // v19-M8：双击回顶需要经导航状态判断"按压的是否为当前已聚焦 Tab"
   const navigation = useNavigation();
 
@@ -111,6 +139,10 @@ export default function TabsLayout() {
        */
       tabBar={(props) => <FloatingTabBar {...props} />}
       screenOptions={{
+        // v2.2：页面横向滑动过渡（减弱动态时关闭）
+        animation: motionActive ? "shift" : "none",
+        transitionSpec: { animation: "timing", config: { duration: 240 } },
+        sceneStyleInterpolator: motionActive ? slideInterpolator : undefined,
         headerShown: false,
         // 底栏材质 / 圆角 / 悬浮位置全部由 floating-tab-bar.tsx 负责，这里不再写 tabBarStyle。
         sceneStyle: { backgroundColor: "transparent" },
