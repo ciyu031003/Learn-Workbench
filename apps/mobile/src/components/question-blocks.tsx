@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { StyleSheet, Text, View, type StyleProp, type TextStyle } from "react-native";
+import { ScrollView, StyleSheet, Text, View, type StyleProp, type TextStyle } from "react-native";
 import { parseQuestionBlocks, type QuestionBlock } from "@learn-workbench/shared/md-lite";
 import { RichText } from "@/components/rich-text";
 import { useTheme } from "@/theme";
@@ -50,33 +50,61 @@ function BlockView({
           </Text>
         </View>
       );
-    case "table":
+    case "table": {
+      /**
+       * v2.2：表格按表格渲染（首行表头），不再用「a  |  b  |  c」的管道拼接。
+       * 单元格宽度按列均分并给最小宽度，窄屏走横向滚动；行内标记交给 RichText。
+       */
+      const columnCount = Math.max(...block.rows.map((row) => row.length), 1);
       return (
-        <View
-          style={{
-            borderRadius: radius.md,
-            backgroundColor: colors.surfaceMuted,
-            borderWidth: StyleSheet.hairlineWidth,
-            borderColor: colors.border,
-            paddingHorizontal: 10,
-            paddingVertical: 8,
-            gap: 2,
-          }}
-        >
-          {block.rows.map((row, i) => (
-            <Text
-              key={i}
-              style={[
-                { ...typography.caption, lineHeight: 18, color: colors.textSecondary },
-                i === 0 && { color: colors.text, fontWeight: "800" },
-              ]}
-              selectable
-            >
-              {row.join("  |  ")}
-            </Text>
-          ))}
-        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }}>
+          <View
+            style={{
+              borderRadius: radius.md,
+              backgroundColor: colors.surfaceMuted,
+              borderWidth: StyleSheet.hairlineWidth,
+              borderColor: colors.border,
+              overflow: "hidden",
+            }}
+          >
+            {block.rows.map((row, rowIndex) => (
+              <View
+                key={rowIndex}
+                style={{
+                  flexDirection: "row",
+                  borderTopWidth: rowIndex === 0 ? 0 : StyleSheet.hairlineWidth,
+                  borderTopColor: colors.border,
+                  backgroundColor: rowIndex === 0 ? colors.surface : "transparent",
+                }}
+              >
+                {Array.from({ length: columnCount }).map((_, column) => (
+                  <View
+                    key={column}
+                    style={{
+                      minWidth: 96,
+                      paddingHorizontal: 8,
+                      paddingVertical: 6,
+                      justifyContent: "center",
+                      borderLeftWidth: column === 0 ? 0 : StyleSheet.hairlineWidth,
+                      borderLeftColor: colors.border,
+                    }}
+                  >
+                    <RichText
+                      text={row[column] ?? ""}
+                      style={[
+                        { ...typography.caption, lineHeight: 18, color: colors.textSecondary },
+                        rowIndex === 0 && { color: colors.text, fontWeight: "800" },
+                      ]}
+                      codeStyle={codeStyle}
+                    />
+                  </View>
+                ))}
+              </View>
+            ))}
+          </View>
+        </ScrollView>
       );
+    }
     case "list":
       return (
         <View style={{ gap: 4 }}>

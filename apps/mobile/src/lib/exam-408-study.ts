@@ -87,10 +87,20 @@ export type StudyInline =
  *
  * App 端没有数学字体，接口带 ?format=svg 时会把一段文本按 $...$ 切成 text/math 段，
  * math 段里是服务端 TeX→SVG 的结果（可能为 null，渲染方回退等宽 LaTeX）。
+ *
+ * v2.2：服务端只负责切公式，text 段里仍可能残留 **粗体** / `代码` 标记。
+ * 归一化阶段会把 text 段再按行内标记切一次，因此段类型扩展出 strong/code；
+ * 渲染方（markdown-article 的 SegmentRow）与 InlineText 共用同一套 token 语义。
  */
 export type StudyTextSegment = { type: "text"; text: string };
+export type StudyStrongSegment = { type: "strong"; value: string };
+export type StudyCodeSegment = { type: "code"; value: string };
 export type StudyMathSegment = { type: "math"; tex: string; svg: string | null };
-export type StudySegment = StudyTextSegment | StudyMathSegment;
+export type StudySegment =
+  | StudyTextSegment
+  | StudyStrongSegment
+  | StudyCodeSegment
+  | StudyMathSegment;
 
 export interface StudyListItem {
   inlines: StudyInline[];
@@ -139,8 +149,8 @@ const BLOCK_MATH_ONE_LINE = /^\s*\$\$(.+?)\$\$\s*$/;
 const BLOCK_MATH_OPEN = /^\s*\$\$\s*$/;
 const TABLE_SEPARATOR = /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?\s*$/;
 
-/** 行内标记：代码、加粗、LaTeX 行内定界符、$…$ 公式（放宽到 300 字符，cs408 公式普遍较长）。 */
-const INLINE_RE = /(`[^`\n]+`)|(\*\*[^*\n]+\*\*)|(\\\([^\\\n]{1,300}?\\\))|(\$[^$\n]{1,300}\$)/g;
+/** 行内公式（\\(…\\) / $…$）的最大长度：cs408 公式普遍较长，放宽到 300 字符。 */
+const MAX_INLINE_MATH = 300;
 
 function isTableLine(line: string): boolean {
   const t = line.trim();
@@ -172,32 +182,157 @@ export function sanitizeStudyInlineHtml(text: string): string {
     .trim();
 }
 
+/** 从服务端 math 段队列里取一个 svg：优先 tex 完全相同的，取不到就按顺序兜底。 */
+function takeMathSegment(tex: string, queue: StudyMathSegment[]): StudyMathSegment {
+  const wanted = tex.trim();
+  const exact = queue.findIndex((item) => item.tex.trim() === wanted);
+  if (exact >= 0) return queue.splice(exact, 1)[0];
+  const fallback = queue.shift();
+  return { type: "math", tex, svg: fallback?.svg ?? null };
+}
+
+/** 从 start 开始连续星号的数量（用于容错 Markdown 的 *** / **** 写法）。 */
+function starRunLength(source: string, start: number): number {
+  let end = start;
+  while (source[end] === "*") end += 1;
+  return end - start;
+}
+
+/** 找下一个长度 ≥2 的星号串（加粗闭合标记）；找不到返回 -1。 */
+function findStarRun(source: string, from: number): number {
+  let cursor = from;
+  while (cursor < source.length) {
+    if (source[cursor] === "*") {
+      const run = starRunLength(source, cursor);
+      if (run >= 2) return cursor;
+      cursor += run;
+      continue;
+    }
+    cursor += 1;
+  }
+  return -1;
+}
+
+/**
+ * 行内扫描（v2.2 的核心纯函数）：把一段文本切成 text / strong / code / math 段。
+ *
+ * 为什么以「整段文本」为输入，而不是逐条解析服务端 segments：
+ * cs408 正文里 `**…$O(n)$…**`（粗体跨公式）、`**…`code`…**`（粗体套行内代码）非常常见。
+ * 服务端只按 $…$ 切公式，粗体标记会被切到两个 text 段里；逐段解析必然漏出 `**`。
+ * 这里先在整段文本上配对粗体，再把粗体内部摊平成同级 code/math 段（粗体只包文字），
+ * 因此跨公式、套代码的粗体都能正确成型。mathQueue 提供 svg（匹配不到时 svg=null，回退等宽 LaTeX）。
+ */
+function scanStudySegments(
+  source: string,
+  mathQueue: StudyMathSegment[],
+  bold: boolean,
+): StudySegment[] {
+  const segments: StudySegment[] = [];
+  let buffer = "";
+  const flush = () => {
+    if (!buffer) return;
+    segments.push(bold ? { type: "strong", value: buffer } : { type: "text", text: buffer });
+    buffer = "";
+  };
+  let index = 0;
+  while (index < source.length) {
+    const char = source[index];
+
+    // 行内代码：粗体内部也认（摊平成 code 段，粗体只包住两侧文字）
+    if (char === "`") {
+      const end = source.indexOf("`", index + 1);
+      if (end > index + 1) {
+        const value = source.slice(index + 1, end);
+        if (!value.includes("\n")) {
+          flush();
+          segments.push({ type: "code", value });
+          index = end + 1;
+          continue;
+        }
+      }
+    }
+
+    // 粗体：只在顶层配对；内部允许 $…$ 与反引号（但不支持嵌套粗体）。
+    // 按「星号串」而不是固定 "**" 配对：***粗斜*** / ****粗体**** 这类原文写法
+    // 会把多余的星号留在正文里（实测 cs408 有 `****最小物理单位****`），
+    // 连续 3 个以上且无配对的星号串直接丢弃（代码/math 内部不经过这里，密码掩码不受影响）。
+    if (!bold && char === "*") {
+      const openRun = starRunLength(source, index);
+      if (openRun >= 2) {
+        const close = findStarRun(source, index + openRun);
+        if (close >= index + openRun) {
+          flush();
+          segments.push(...scanStudySegments(source.slice(index + openRun, close), mathQueue, true));
+          index = close + starRunLength(source, close);
+          continue;
+        }
+        if (openRun >= 3) {
+          index += openRun;
+          continue;
+        }
+      }
+    }
+
+    // LaTeX 行内定界符 \\(…\\)
+    if (char === "\\" && source[index + 1] === "(") {
+      const end = source.indexOf("\\)", index + 2);
+      const tex = end > index + 2 ? source.slice(index + 2, end).trim() : "";
+      if (tex && tex.length <= MAX_INLINE_MATH && !tex.includes("\n")) {
+        flush();
+        segments.push(takeMathSegment(tex, mathQueue));
+        index = end + 2;
+        continue;
+      }
+    }
+
+    // $…$：纯金额/纯数字不当公式（如 $5），其余按公式渲染。
+    // 纯数字整段按字面量跳过（而不是只吃掉第一个 $）：否则后面所有 $ 会错位配对，
+    // 数学段会把 ** 标记一起吞掉（实测 `$1,1,0,1$` 触发了整段粗体失效）。
+    if (char === "$") {
+      const end = source.indexOf("$", index + 1);
+      if (end > index + 1) {
+        const inner = source.slice(index + 1, end);
+        if (inner.length <= MAX_INLINE_MATH && !inner.includes("\n")) {
+          if (/^[\d.,]+$/.test(inner)) {
+            // 金额/纯数字：保留内部文本、丢掉 $ 定界符（不会出现字面量 $）
+            buffer += inner;
+            index = end + 1;
+            continue;
+          }
+          flush();
+          segments.push(takeMathSegment(inner.trim(), mathQueue));
+          index = end + 1;
+          continue;
+        }
+      }
+    }
+
+    buffer += char;
+    index += 1;
+  }
+  flush();
+  return segments;
+}
+
+/**
+ * 把一段文本切成渲染段（text / strong / code / math）。纯函数，供归一化与单测直接使用；
+ * math 传入服务端预渲染的公式段时按 tex 挂回 svg。
+ */
+export function parseStudySegments(text: string, math: StudyMathSegment[] = []): StudySegment[] {
+  const source = String(text ?? "");
+  if (!source) return [];
+  return scanStudySegments(source, [...math], false);
+}
+
 /** 把一段文本切成行内 token（代码/加粗/公式/纯文本） */
 export function parseStudyInline(text: string): StudyInline[] {
   const source = sanitizeStudyInlineHtml(String(text ?? ""));
   if (!source) return [];
-  const tokens: StudyInline[] = [];
-  let last = 0;
-  for (const match of source.matchAll(INLINE_RE)) {
-    const index = match.index ?? 0;
-    const tokenText = match[0];
-    let token: StudyInline | null = null;
-    if (tokenText.startsWith("`")) token = { type: "code", value: tokenText.slice(1, -1) };
-    else if (tokenText.startsWith("**")) token = { type: "strong", value: tokenText.slice(2, -2) };
-    else if (tokenText.startsWith("\\(")) {
-      const inner = tokenText.slice(2, -2).trim();
-      if (inner) token = { type: "math", value: inner };
-    } else if (tokenText.startsWith("$")) {
-      const inner = tokenText.slice(1, -1);
-      // 纯金额/纯数字不当公式（如 $5），其余按公式渲染
-      if (inner && !/^[\d.,]+$/.test(inner)) token = { type: "math", value: inner };
-    }
-    if (!token) continue;
-    if (index > last) tokens.push({ type: "text", value: source.slice(last, index) });
-    tokens.push(token);
-    last = index + tokenText.length;
-  }
-  if (last < source.length) tokens.push({ type: "text", value: source.slice(last) });
+  const tokens = scanStudySegments(source, [], false).map((segment): StudyInline => {
+    if (segment.type === "text") return { type: "text", value: segment.text };
+    if (segment.type === "math") return { type: "math", value: segment.tex };
+    return segment;
+  });
   return tokens.length > 0 ? tokens : [{ type: "text", value: source }];
 }
 
@@ -421,12 +556,27 @@ export function parseStudyMarkdown(markdown: string): StudyBlock[] {
   return blocks;
 }
 
+/**
+ * 去掉行内标记的纯文本（目录 / 无障碍朗读用）。
+ * 标题里常见 `$O(n)$`、`\\(O(n)\\)` 与反引号，目录原样显示会是一串符号。
+ */
+export function studyPlainText(text: string): string {
+  return String(text ?? "")
+    .replace(/`([^`\n]*)`/g, "$1")
+    .replace(/\*{3,}/g, "**")
+    .replace(/\*\*([^*\n]+)\*\*/g, "$1")
+    .replace(/\*\*/g, "")
+    .replace(/\\\(([^\\\n]*?)\\\)/g, "$1")
+    .replace(/\$([^$\n]+)\$/g, "$1")
+    .trim();
+}
+
 /** 从结构块里提取目录（2~3 级标题；没有 2~3 级时回落到全部标题） */
 export function buildStudyToc(blocks: StudyBlock[]): StudyTocItem[] {
   const all = blocks.filter((block): block is Extract<StudyBlock, { type: "heading" }> => block.type === "heading");
   const preferred = all.filter((block) => block.level === 2 || block.level === 3);
   const picked = preferred.length > 0 ? preferred : all;
-  return picked.map((block) => ({ id: block.id, level: block.level, text: block.text }));
+  return picked.map((block) => ({ id: block.id, level: block.level, text: studyPlainText(block.text) }));
 }
 
 /** 插图类型：SVG 走 SvgXml，位图走 Image，未知按位图处理 */
@@ -564,27 +714,57 @@ export function normalizeStudyList(payload: unknown, subjectKey: string): Exam40
   return { subjectKey, chapters, total: articles.length };
 }
 
-/** 详情归一化：article 是必填，prev/next 缺省为 null */
-/** 行内段归一化：只认 text/math 两种，丢弃空段；svg 非字符串时置 null */
+/** 从服务端 segments 里收集 math 段（丢弃空 tex；svg 非字符串时置 null）。 */
+function collectStudyMathSegments(value: unknown): StudyMathSegment[] {
+  if (!Array.isArray(value)) return [];
+  const math: StudyMathSegment[] = [];
+  for (const item of value) {
+    const record = asRecord(item);
+    if (asString(record.type) !== "math") continue;
+    const tex = asString(record.tex);
+    if (!tex) continue;
+    const svg = typeof record.svg === "string" && record.svg.includes("<svg") ? record.svg : null;
+    math.push({ type: "math", tex, svg });
+  }
+  return math;
+}
+
+/**
+ * 行内段归一化（v2.2）：
+ *
+ * 服务端 segments 只有 text / math 两种，text 段里仍可能带 **粗体** 与 `代码` 标记
+ * （?format=svg 只切公式）。之前直接把 text 段原样交给 SegmentRow，导致正文出现字面量
+ * `**`、反引号。这里先把 segments 还原成一段完整文本（math 用 \\(tex\\) 表示），
+ * 再走 scanStudySegments 统一切分：粗体跨公式、粗体套代码都能正确成型，
+ * math 段按 tex 匹配挂回服务端 svg（匹配不到 svg=null，渲染方回退等宽 LaTeX）。
+ */
 export function normalizeStudySegments(value: unknown): StudySegment[] {
   if (!Array.isArray(value)) return [];
-  const segments: StudySegment[] = [];
+  let source = "";
   for (const item of value) {
     const record = asRecord(item);
     const type = asString(record.type);
     if (type === "text") {
-      const text = asString(record.text);
-      if (text) segments.push({ type: "text", text });
+      source += asString(record.text);
+      continue;
+    }
+    if (type === "strong") {
+      const strong = asString(record.value ?? record.text);
+      if (strong) source += "**" + strong + "**";
+      continue;
+    }
+    if (type === "code") {
+      const code = asString(record.value ?? record.text);
+      if (code) source += "`" + code + "`";
       continue;
     }
     if (type === "math") {
       const tex = asString(record.tex);
-      if (!tex) continue;
-      const svg = typeof record.svg === "string" && record.svg.includes("<svg") ? record.svg : null;
-      segments.push({ type: "math", tex, svg });
+      if (tex) source += "\\(" + tex + "\\)";
     }
   }
-  return segments;
+  if (!source) return [];
+  return scanStudySegments(source, collectStudyMathSegments(value), false);
 }
 
 /** 接口 blocks → App 结构块（服务端已切好 quotes/list/table 的 segments） */
@@ -649,9 +829,18 @@ export function normalizeApiStudyBlocks(value: unknown): StudyBlock[] {
     }
     if (type === "quote") {
       const lines = Array.isArray(record.lines) ? record.lines.filter((line): line is string => typeof line === "string") : [];
-      const lineSegments = Array.isArray(record.segments) && record.segments.length > 0 ? [normalizeStudySegments(record.segments)] : undefined;
-      if (lines.length === 0 && !lineSegments) continue;
-      blocks.push({ type: "quote", lines: lines.map((line) => parseStudyInline(line)), ...(lineSegments ? { lineSegments } : {}) });
+      if (lines.length === 0) continue;
+      /**
+       * v2.2 修复：服务端 segments 是**整块引用**（lines.join(" ")）的切分结果，
+       * 旧实现把它当成第 1 行的 segments（[normalizeStudySegments(...)]），
+       * 结果第 1 行渲染了整段引用、后续行又各渲染一次（正文重复）。
+       * 这里用同一份 math svg 队列按行切分：每行只拿自己的文字与公式，
+       * 只有出现过公式时才挂 lineSegments（纯文本行继续走 InlineText，排版不变）。
+       */
+      const mathQueue = collectStudyMathSegments(record.segments);
+      const lineSegments = lines.map((line) => scanStudySegments(line, mathQueue, false));
+      const hasMath = lineSegments.some((segments) => segments.some((segment) => segment.type === "math"));
+      blocks.push({ type: "quote", lines: lines.map((line) => parseStudyInline(line)), ...(hasMath ? { lineSegments } : {}) });
       continue;
     }
     if (type === "code") {
@@ -703,6 +892,7 @@ export function chunkInlineText(text: string, size = 14): string[] {
   return chunks;
 }
 
+/** 详情归一化：article 是必填，prev/next 缺省为 null */
 export function normalizeStudyDetail(payload: unknown): Exam408StudyDetail {
   const record = asRecord(payload);
   const articleRaw = asRecord(record.article ?? record.topic ?? record);

@@ -22,6 +22,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { EmptyState } from "@/components/empty-state";
 import { PressableScale } from "@/components/pressable-scale";
+import { RichText } from "@/components/rich-text";
 import { ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { ThemedIcon } from "@/components/themed-icon";
 import { getApiUrl } from "@/config";
@@ -644,7 +645,7 @@ export default function Exam408DrillScreen() {
                           </Text>
                         </View>
                       </View>
-                      <Text style={styles.questionText}>{card.question}</Text>
+                      <RichText text={card.question} style={styles.questionText} />
                       <View style={styles.faceHintRow}>
                         <ThemedIcon name="eye-outline" size={15} color={colors.primary} />
                         <Text style={[styles.faceHint, styles.faceHintActive]}>
@@ -688,7 +689,7 @@ export default function Exam408DrillScreen() {
                             <View style={styles.answerIndex}>
                               <Text style={styles.answerIndexText}>{stepIndex + 1}</Text>
                             </View>
-                            <Text style={styles.answerStepText}>{highlightEmphasis(step)}</Text>
+                            <RichText text={step} style={styles.answerStepText} />
                           </View>
                         ))
                       )}
@@ -698,7 +699,7 @@ export default function Exam408DrillScreen() {
                             <ThemedIcon name="alert-circle" size={14} color={colors.danger} />
                             <Text style={styles.pitfallTitle}>易错点</Text>
                           </View>
-                          <Text style={styles.pitfallText}>{card.pitfall}</Text>
+                          <RichText text={card.pitfall} style={styles.pitfallText} />
                         </View>
                       ) : null}
                       {card.mnemonic ? (
@@ -707,7 +708,7 @@ export default function Exam408DrillScreen() {
                             <ThemedIcon name="sparkles" size={14} color={colors.accentStrong} />
                             <Text style={styles.mnemonicTitle}>口诀</Text>
                           </View>
-                          <Text style={styles.mnemonicText}>{card.mnemonic}</Text>
+                          <RichText text={card.mnemonic} style={styles.mnemonicText} />
                         </View>
                       ) : null}
                       {card.demoKey ? (
@@ -811,14 +812,6 @@ export default function Exam408DrillScreen() {
 /** 无障碍朗读用的纯文本：去掉换行与多余空白，避免 TalkBack 逐行念。 */
 function toPlainText(text: string): string {
   return text.replace(/\s+/g, " ").trim().slice(0, 120);
-}
-
-/**
- * 答案里的「重点」强调：把【…】段首标记与 **…** 包裹收成纯文本，
- * 这里只做去符号（RN Text 里不解析 Markdown），保留原意。
- */
-function highlightEmphasis(text: string): string {
-  return text.replace(/\*\*/g, "").trim();
 }
 
 /** v1.55 易错本入口标签（与科目 chip 同风格，但强调范围切换） */

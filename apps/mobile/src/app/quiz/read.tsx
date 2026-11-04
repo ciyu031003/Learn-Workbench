@@ -314,7 +314,7 @@ function KnowledgeReader({
             <Text style={styles.heroWeeks}>{stage.weeks}</Text>
           </View>
           <Text style={styles.heroTitle}>{topic.title}</Text>
-          <Text style={styles.heroSummary}>{topic.summary}</Text>
+          <RichText text={topic.summary} style={styles.heroSummary} />
           <View style={styles.heroMeta}>
             <View style={styles.heroMetaItem}>
               <ThemedIcon name="book-outline" size={17} color={track.accent} />
@@ -346,9 +346,9 @@ function KnowledgeReader({
         {topicIndex === 0 ? (
           <Animated.View entering={entrance(2)} style={styles.outcome}>
             <Text style={styles.outcomeLabel}>本章目标</Text>
-            <Text style={styles.outcomeText}>{stage.goal}</Text>
+            <RichText text={stage.goal} style={styles.outcomeText} />
             <Text style={[styles.outcomeLabel, styles.outcomeLabelSpaced]}>本章验收</Text>
-            <Text style={styles.outcomeText}>{stage.outcome}</Text>
+            <RichText text={stage.outcome} style={styles.outcomeText} />
           </Animated.View>
         ) : null}
 
@@ -544,7 +544,7 @@ function TopicArticle({
 
       <View style={styles.method}>
         <Text style={styles.methodLabel}>怎么学</Text>
-        <Text style={styles.methodText}>{topic.method}</Text>
+        <RichText text={topic.method} style={styles.methodText} />
       </View>
 
       <PressableScale
@@ -559,20 +559,20 @@ function TopicArticle({
           <ThemedIcon name="create-outline" size={18} color={track.accent} />
           <Text style={styles.practiceTitle}>动手练习</Text>
         </View>
-        <Text style={styles.practiceText}>{topic.exercise}</Text>
+        <RichText text={topic.exercise} style={styles.practiceText} />
         {topic.lesson ? (
           <View style={styles.masteryList}>
             {topic.lesson.masteryChecklist.map((item) => (
               <View key={item} style={styles.masteryRow}>
                 <ThemedIcon name="checkmark-circle-outline" size={15} color={track.accent} />
-                <Text style={styles.masteryText}>{item}</Text>
+                <RichText text={item} style={styles.masteryText} />
               </View>
             ))}
           </View>
         ) : null}
         <View style={styles.checkpoint}>
           <ThemedIcon name="checkmark-circle" size={16} color={colors.success} />
-          <Text style={styles.checkpointText}>掌握检查：{topic.checkpoint}</Text>
+          <RichText text={"掌握检查：" + topic.checkpoint} style={styles.checkpointText} />
         </View>
         <View style={[styles.practiceAction, { backgroundColor: trackTint }]}>
           <Text style={[styles.practiceActionText, { color: track.accent }]}>开始本知识点练习</Text>
@@ -610,7 +610,7 @@ function StageLessonCard({
             <View style={[styles.stageLoopIndex, { backgroundColor: `${track.accent}18` }]}>
               <Text style={[styles.stageLoopIndexText, { color: track.accent }]}>{index + 1}</Text>
             </View>
-            <Text style={styles.stageLoopText}>{item}</Text>
+            <RichText text={item} style={styles.stageLoopText} />
           </View>
         ))}
       </View>
@@ -619,8 +619,8 @@ function StageLessonCard({
           <View key={milestone.title} style={styles.milestoneRow}>
             <ThemedIcon name="flag-outline" size={16} color={track.accent} />
             <View style={styles.milestoneBody}>
-              <Text style={styles.milestoneTitle}>{milestone.title}</Text>
-              <Text style={styles.milestoneEvidence}>{milestone.evidence}</Text>
+              <RichText text={milestone.title} style={styles.milestoneTitle} />
+              <RichText text={milestone.evidence} style={styles.milestoneEvidence} />
             </View>
           </View>
         ))}
@@ -630,7 +630,7 @@ function StageLessonCard({
         {lesson.completionCriteria.map((item) => (
           <View key={item} style={styles.completionRow}>
             <ThemedIcon name="checkmark" size={14} color={colors.success} />
-            <Text style={styles.completionText}>{item}</Text>
+            <RichText text={item} style={styles.completionText} />
           </View>
         ))}
       </View>
@@ -686,7 +686,7 @@ function CodeExample({
       >
         <Text selectable style={styles.codeText}>{example.code}</Text>
       </ScrollView>
-      <Text style={styles.codeExplanation}>{example.explanation}</Text>
+      <RichText text={example.explanation} style={styles.codeExplanation} />
     </View>
   );
 }

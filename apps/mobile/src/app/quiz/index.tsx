@@ -6,6 +6,7 @@ import type { LearningTrack } from "@learn-workbench/content/types";
 import { useLearningCategories, useLearningTracks } from "@/lib/content-store";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
+import { RichText } from "@/components/rich-text";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { SheetListRow } from "@/components/sheet";
@@ -295,9 +296,7 @@ function TrackCard({ track, progress }: { track: LearningTrack; progress: Return
           <Text style={styles.trackLevel}>{track.level}</Text>
         </View>
         <Text style={styles.trackTitle}>{track.title}</Text>
-        <Text style={styles.trackSummary} numberOfLines={2}>
-          {track.summary}
-        </Text>
+        <RichText text={track.summary} style={styles.trackSummary} numberOfLines={2} />
         <View style={styles.trackMeta}>
           <Text style={styles.trackMetaText}>{`${track.stages.length} 章知识点`}</Text>
           <View style={styles.dot} />

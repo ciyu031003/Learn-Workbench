@@ -7,6 +7,7 @@ import { setNavPendingParams } from "@/lib/nav-pending";
 import type { LearningReviewCard, LearningReviewResponse, LearningWeakTopic } from "@learn-workbench/shared/schemas";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
+import { RichText } from "@/components/rich-text";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
@@ -343,9 +344,7 @@ function PlanCard({
     <View style={styles.planCard}>
       <View style={styles.planTop}>
         <View style={styles.planTitleWrap}>
-          <Text style={styles.planTitle} numberOfLines={2}>
-            {question?.stem ?? card.questionKey}
-          </Text>
+          <RichText text={question?.stem ?? card.questionKey} style={styles.planTitle} numberOfLines={2} />
           <Text style={styles.planMeta}>
             {REVIEW_STATUS_LABEL[card.status]} · 下次 {Number.isNaN(due.getTime()) ? "未知" : due.toLocaleDateString()}
           </Text>

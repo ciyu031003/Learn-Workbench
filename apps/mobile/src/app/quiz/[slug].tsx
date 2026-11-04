@@ -5,6 +5,7 @@ import Animated from "react-native-reanimated";
 import { QUALITY_LEVEL_LABEL, isLearnable, isReviewed, qualityOfTopic } from "@learn-workbench/content/learning";
 import type { KnowledgeQuality } from "@learn-workbench/content/learning";
 import type { LearningStage, LearningTopic, LearningTrack } from "@learn-workbench/content/types";
+import { RichText } from "@/components/rich-text";
 import { useLearningTrack } from "@/lib/content-store";
 import { setNavPendingParams } from "@/lib/nav-pending";
 import { ThemedIcon } from "@/components/themed-icon";
@@ -118,7 +119,7 @@ function TrackContent({ track }: { track: LearningTrack }) {
               <Text style={styles.heroMeta}>{track.estimatedHours} 小时 · {track.stages.length} 章 · {track.questions.length} 道题</Text>
             </View>
           </View>
-          <Text style={styles.heroSummary}>{track.summary}</Text>
+          <RichText text={track.summary} style={styles.heroSummary} />
           <View style={styles.heroStats}>
             <HeroStat value={`${progress.mastery}%`} label="掌握度" color={colors.text} />
             <View style={styles.heroDivider} />
@@ -162,7 +163,7 @@ function TrackContent({ track }: { track: LearningTrack }) {
               {track.studyMethod.map((method, index) => (
                 <View key={method} style={styles.guideRow}>
                   <Text style={styles.guideIndex}>{index + 1}</Text>
-                  <Text style={styles.guideText}>{method}</Text>
+                  <RichText text={method} style={styles.guideText} />
                 </View>
               ))}
             </View>
@@ -320,7 +321,7 @@ function KnowledgeChapterCard({
           <Text style={styles.knowledgeMeta}>{stage.weeks} · {stage.topics.length} 个知识点</Text>
         </View>
         <Text style={styles.knowledgeTitle}>{stage.title}</Text>
-        <Text style={styles.knowledgeGoal} numberOfLines={2}>{stage.goal}</Text>
+        <RichText text={stage.goal} style={styles.knowledgeGoal} numberOfLines={2} />
         <Text style={styles.knowledgeTopics} numberOfLines={1}>{topicTitles}</Text>
         <View style={styles.knowledgeCta}>
           <Text style={[styles.knowledgeCtaText, { color: track.accent }]}>进入章节学习</Text>
@@ -383,8 +384,8 @@ function StageSection({
         <View style={styles.stageExpanded}>
           <View style={styles.outcomeBox}>
             <Text style={styles.outcomeLabel}>阶段目标</Text>
-            <Text style={styles.outcomeText}>{stage.goal}</Text>
-            <Text style={styles.outcomeResult}>验收：{stage.outcome}</Text>
+            <RichText text={stage.goal} style={styles.outcomeText} />
+            <RichText text={"验收：" + stage.outcome} style={styles.outcomeResult} />
           </View>
           {learnableTopics.map(({ topic, quality }) => (
             <TopicRow
@@ -438,7 +439,11 @@ function TopicRow({
               </Text>
             </View>
           </View>
-          <Text style={styles.topicSummary} numberOfLines={expanded ? undefined : 2}>{topic.summary}</Text>
+          <RichText
+            text={topic.summary}
+            style={styles.topicSummary}
+            numberOfLines={expanded ? undefined : 2}
+          />
         </View>
         <ThemedIcon name={expanded ? "chevron-up" : "chevron-down"} size={16} color={colors.textFaint} />
       </PressableScale>
@@ -451,12 +456,12 @@ function TopicRow({
           <DetailBlock title="常见误区" items={topic.pitfalls} warning />
           <View style={styles.methodCard}>
             <Text style={styles.methodLabel}>学习方法</Text>
-            <Text style={styles.methodText}>{topic.method}</Text>
+            <RichText text={topic.method} style={styles.methodText} />
           </View>
           <View style={styles.exerciseCard}>
             <Text style={styles.exerciseLabel}>练习任务</Text>
-            <Text style={styles.exerciseText}>{topic.exercise}</Text>
-            <Text style={styles.checkpointText}>掌握标准：{topic.checkpoint}</Text>
+            <RichText text={topic.exercise} style={styles.exerciseText} />
+            <RichText text={"掌握标准：" + topic.checkpoint} style={styles.checkpointText} />
             <PressableScale
               haptic
               scaleTo={0.97}
@@ -484,7 +489,7 @@ function DetailBlock({ title, items, warning = false }: { title: string; items: 
       {items.map((item) => (
         <View key={item} style={styles.detailRow}>
           <View style={[styles.detailDot, warning && { backgroundColor: colors.danger }]} />
-          <Text style={styles.detailText}>{item}</Text>
+          <RichText text={item} style={styles.detailText} />
         </View>
       ))}
     </View>
@@ -553,9 +558,11 @@ function RecentAttempts({ track, attempts }: { track: LearningTrack; attempts: L
       {recent.map((attempt, index) => (
         <View key={`${attempt.questionKey}-${attempt.createdAt}-${index}`} style={styles.recentRow}>
           <View style={[styles.resultDot, { backgroundColor: attempt.isCorrect ? colors.success : colors.danger }]} />
-          <Text style={styles.recentQuestion} numberOfLines={1}>
-            {questionMap.get(attempt.questionKey)?.stem ?? attempt.questionKey}
-          </Text>
+          <RichText
+            text={questionMap.get(attempt.questionKey)?.stem ?? attempt.questionKey}
+            style={styles.recentQuestion}
+            numberOfLines={1}
+          />
           <Text style={[styles.recentResult, { color: attempt.isCorrect ? colors.success : colors.danger }]}>
             {attempt.isCorrect ? "正确" : "需复习"}
           </Text>

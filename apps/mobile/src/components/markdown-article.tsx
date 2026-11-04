@@ -9,6 +9,7 @@ import { ThemedIcon } from "@/components/themed-icon";
 import type { Exam408KnowledgeMap } from "@/lib/exam-408-map";
 import {
   chunkInlineText,
+  parseStudyInline,
   resolveStudyAssetUrl,
   studyImageKind,
   type StudyBlock,
@@ -85,7 +86,8 @@ export function MarkdownArticle({
                 onLayout={(event) => onHeadingLayout?.(block.id, event.nativeEvent.layout.y)}
                 accessibilityRole="header"
               >
-                {block.text}
+                {/* v2.2：标题同样可能带 **粗体**、`代码`、$O(n)$（cs408 有 50 处），统一走行内 token */}
+                <InlineTokens tokens={parseStudyInline(block.text)} />
               </Text>
             );
           }
@@ -242,6 +244,10 @@ function MathSvg({ svg, display }: { svg: string; display?: boolean }): React.JS
 /**
  * 带行内公式的段落：RN 的 Text 里不能嵌 SvgXml，所以拆成 flexWrap 的行内块
  * （文本按 ~14 字切块给折行留机会；公式渲染成小 SVG，失败回退等宽 LaTeX）。
+ *
+ * v2.2：段类型扩展出 strong / code —— 服务端 text 段里的 **粗体** 与 `代码`
+ * 已在 normalizeStudySegments 里切好（粗体跨公式/套代码也能正确成型），
+ * 这里按段渲染真粗体与等宽底色，正文不再出现字面量符号。
  */
 function SegmentRow({ segments, style }: { segments: StudySegment[]; style: object }): React.JSX.Element {
   const { colors } = useTheme();
@@ -249,6 +255,8 @@ function SegmentRow({ segments, style }: { segments: StudySegment[]; style: obje
   const parts = useMemo(() => {
     const items: (
       | { kind: "text"; key: string; text: string }
+      | { kind: "strong"; key: string; text: string }
+      | { kind: "code"; key: string; text: string }
       | { kind: "math"; key: string; tex: string; svg: string | null }
     )[] = [];
     segments.forEach((segment, index) => {
@@ -256,8 +264,13 @@ function SegmentRow({ segments, style }: { segments: StudySegment[]; style: obje
         items.push({ kind: "math", key: "m-" + index, tex: segment.tex, svg: segment.svg });
         return;
       }
-      chunkInlineText(segment.text).forEach((text, chunkIndex) => {
-        items.push({ kind: "text", key: "t-" + index + "-" + chunkIndex, text });
+      const text = segment.type === "text" ? segment.text : segment.value;
+      chunkInlineText(text).forEach((chunk, chunkIndex) => {
+        items.push({
+          kind: segment.type,
+          key: segment.type[0] + "-" + index + "-" + chunkIndex,
+          text: chunk,
+        });
       });
     });
     return items;
@@ -265,15 +278,24 @@ function SegmentRow({ segments, style }: { segments: StudySegment[]; style: obje
   return (
     <View style={styles.segmentRow}>
       {parts.map((part) =>
-        part.kind === "text" ? (
-          <Text key={part.key} style={style} selectable>
-            {part.text}
-          </Text>
-        ) : part.svg ? (
-          <MathSvg key={part.key} svg={part.svg} />
+        part.kind === "math" ? (
+          part.svg ? (
+            <MathSvg key={part.key} svg={part.svg} />
+          ) : (
+            <Text key={part.key} style={styles.inlineMath}>
+              {part.tex}
+            </Text>
+          )
         ) : (
-          <Text key={part.key} style={styles.inlineMath}>
-            {part.tex}
+          <Text
+            key={part.key}
+            style={[
+              style,
+              part.kind === "strong" ? styles.strong : part.kind === "code" ? styles.inlineCode : null,
+            ]}
+            selectable
+          >
+            {part.text}
           </Text>
         ),
       )}
@@ -281,12 +303,12 @@ function SegmentRow({ segments, style }: { segments: StudySegment[]; style: obje
   );
 }
 
-/** 行内 token：加粗 / 行内代码 / 公式 / 纯文本，全部走嵌套 Text（不注入 HTML） */
-function InlineText({ tokens, style }: { tokens: StudyInline[]; style: object }): React.JSX.Element {
+/** 行内 token 内容：加粗 / 行内代码 / 公式 / 纯文本，全部走嵌套 Text（不注入 HTML） */
+function InlineTokens({ tokens }: { tokens: StudyInline[] }): React.JSX.Element {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
-    <Text style={style} selectable>
+    <>
       {tokens.map((token, index) => {
         if (token.type === "strong") {
           return (
@@ -311,6 +333,15 @@ function InlineText({ tokens, style }: { tokens: StudyInline[]; style: object })
         }
         return <Text key={index}>{token.value}</Text>;
       })}
+    </>
+  );
+}
+
+/** 行内 token：加粗 / 行内代码 / 公式 / 纯文本，全部走嵌套 Text（不注入 HTML） */
+function InlineText({ tokens, style }: { tokens: StudyInline[]; style: object }): React.JSX.Element {
+  return (
+    <Text style={style} selectable>
+      <InlineTokens tokens={tokens} />
     </Text>
   );
 }

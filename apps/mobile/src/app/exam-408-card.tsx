@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { EmptyState } from "@/components/empty-state";
 import { PressableScale } from "@/components/pressable-scale";
+import { RichText } from "@/components/rich-text";
 import { ScreenHeaderStickyBar } from "@/components/screen-header";
 import { Skeleton, SkeletonCard } from "@/components/skeleton";
 import { ThemedIcon } from "@/components/themed-icon";
@@ -212,7 +213,7 @@ function CardDetail({ cardKey }: { cardKey: string }) {
 
           {face === "question" ? (
             <>
-              <Text style={styles.questionText}>{card.question}</Text>
+              <RichText text={card.question} style={styles.questionText} />
               <View style={styles.faceHintRow}>
                 <ThemedIcon name="eye-outline" size={15} color={colors.primary} />
                 <Text style={styles.faceHintActive}>{flipActionLabel(flipped)}（点卡片）</Text>
@@ -236,7 +237,7 @@ function CardDetail({ cardKey }: { cardKey: string }) {
                     <View style={styles.answerIndex}>
                       <Text style={styles.answerIndexText}>{stepIndex + 1}</Text>
                     </View>
-                    <Text style={styles.answerStepText}>{step}</Text>
+                    <RichText text={step} style={styles.answerStepText} />
                   </View>
                 ))
               )}
@@ -246,7 +247,7 @@ function CardDetail({ cardKey }: { cardKey: string }) {
                     <ThemedIcon name="alert-circle" size={14} color={colors.danger} />
                     <Text style={styles.pitfallTitle}>易错点</Text>
                   </View>
-                  <Text style={styles.pitfallText}>{card.pitfall}</Text>
+                  <RichText text={card.pitfall} style={styles.pitfallText} />
                 </View>
               ) : null}
               {card.mnemonic ? (
@@ -255,7 +256,7 @@ function CardDetail({ cardKey }: { cardKey: string }) {
                     <ThemedIcon name="sparkles" size={14} color={colors.accentStrong} />
                     <Text style={styles.mnemonicTitle}>口诀</Text>
                   </View>
-                  <Text style={styles.mnemonicText}>{card.mnemonic}</Text>
+                  <RichText text={card.mnemonic} style={styles.mnemonicText} />
                 </View>
               ) : null}
               {card.knowledgePointKey ? (

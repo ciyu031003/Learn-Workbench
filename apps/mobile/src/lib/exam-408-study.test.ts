@@ -11,9 +11,11 @@ import {
   normalizeStudyList,
   parseStudyInline,
   parseStudyMarkdown,
+  parseStudySegments,
   resolveStudyAssetUrl,
   sanitizeStudyInlineHtml,
   studyImageKind,
+  studyPlainText,
 } from "./exam-408-study";
 
 /**
@@ -46,6 +48,61 @@ describe("parseStudyInline", () => {
   it("LaTeX 行内定界符也识别", () => {
     const tokens = parseStudyInline("时间复杂度 \\(O(n)\\) 之后");
     expect(tokens[1]).toEqual({ type: "math", value: "O(n)" });
+  });
+
+  it("粗体里的行内代码/公式摊平成同级段（v2.2）", () => {
+    const tokens = parseStudyInline("**复杂度 `O(n)` 是 $\\Theta(1)$**");
+    expect(tokens.map((token) => token.type)).toEqual(["strong", "code", "strong", "math"]);
+    expect(tokens.map((token) => token.value).join("")).toBe("复杂度 O(n) 是 \\Theta(1)");
+  });
+
+  it("粗体跨两个行内公式也能闭合（cs408 真实写法）", () => {
+    const tokens = parseStudyInline("**别把 $n/2$ 与 $(n-1)/2$ 记混**");
+    expect(tokens.map((token) => token.type)).toEqual(["strong", "math", "strong", "math", "strong"]);
+    expect(tokens[0]).toEqual({ type: "strong", value: "别把 " });
+    expect(tokens[2]).toEqual({ type: "strong", value: " 与 " });
+    expect(tokens[4]).toEqual({ type: "strong", value: " 记混" });
+  });
+
+  it("纯数字 $…$ 当字面量整段跳过，不让后面的 $ 错位吞掉加粗", () => {
+    const tokens = parseStudyInline(
+      "商位 $1,1,0,1$，即 **商 $=0.1101$**；另 **步数固定（$n$ 次移位 + $n+1$ 次加减）**。",
+    );
+    expect(tokens.some((token) => token.type === "strong")).toBe(true);
+    expect(tokens.some((token) => token.type === "math")).toBe(true);
+    const text = tokens
+      .filter((token) => token.type === "text" || token.type === "strong" || token.type === "code")
+      .map((token) => token.value)
+      .join("");
+    expect(text).not.toContain("**");
+    expect(text).not.toContain("$");
+  });
+
+  it("****粗体**** 按星号串配对，不影响后续正常粗体（cs408 真实写法）", () => {
+    const tokens = parseStudyInline("构建 ****最小物理单位****，再构建 **逻辑结构**。");
+    expect(tokens).toEqual([
+      { type: "text", value: "构建 " },
+      { type: "strong", value: "最小物理单位" },
+      { type: "text", value: "，再构建 " },
+      { type: "strong", value: "逻辑结构" },
+      { type: "text", value: "。" },
+    ]);
+  });
+
+  it("无配对的 3+ 星号串被丢弃（畸形加粗不再露出 ****）", () => {
+    const tokens = parseStudyInline("1. **初始化一个 **操作数栈****：");
+    const text = tokens
+      .filter((token) => token.type === "text" || token.type === "strong")
+      .map((token) => token.value)
+      .join("");
+    expect(text).toBe("1. 初始化一个 操作数栈：");
+    expect(text).not.toContain("*");
+  });
+
+  it("未配对的 ** 原样保留为文本，不吞掉后续内容", () => {
+    expect(parseStudyInline("**没有闭合的加粗")).toEqual([{ type: "text", value: "**没有闭合的加粗" }]);
+    expect(parseStudyInline("")).toEqual([]);
+    expect(parseStudyInline("普通文本")).toEqual([{ type: "text", value: "普通文本" }]);
   });
 });
 
@@ -144,6 +201,13 @@ describe("parseStudyMarkdown", () => {
 });
 
 describe("buildStudyToc", () => {
+  it("目录文本剥掉行内标记（标题里的公式与反引号）", () => {
+    const blocks = parseStudyMarkdown("## 5.5 平方根量级：`i * i <= n` 到 $O(\\sqrt n)$");
+    const toc = buildStudyToc(blocks);
+    expect(toc[0]?.text).toBe("5.5 平方根量级：i * i <= n 到 O(\\sqrt n)");
+    expect(studyPlainText("**粗** `码` $O(n)$")).toBe("粗 码 O(n)");
+  });
+
   it("优先取 2~3 级标题，没有时回落到全部标题", () => {
     const withSub = parseStudyMarkdown(["# 总标题", "## 一、概念", "### 1.1 定义", "#### 细节"].join("\n"));
     expect(buildStudyToc(withSub)).toEqual([
@@ -245,13 +309,44 @@ describe("接口归一化", () => {
 });
 
 describe("服务端公式段（P7 / format=svg）", () => {
-  it("normalizeStudySegments 只保留 text/math，svg 非法时置 null", () => {
+  it("text 段会再切一次：**粗体** 跨公式、粗体套代码都不漏符号", () => {
+    const segments = normalizeStudySegments([
+      { type: "text", text: "**别把 " },
+      { type: "math", tex: "n/2", svg: '<svg viewBox="0 0 1 1"></svg>' },
+      { type: "text", text: " 与 " },
+      { type: "math", tex: "(n-1)/2", svg: "not-a-svg" },
+      { type: "text", text: " 记混**，另见 `int a[N]`" },
+    ]);
+    expect(segments.map((segment) => segment.type)).toEqual([
+      "strong",
+      "math",
+      "strong",
+      "math",
+      "strong",
+      "text",
+      "code",
+    ]);
+    expect(segments[0]).toEqual({ type: "strong", value: "别把 " });
+    expect(segments[1]).toEqual({ type: "math", tex: "n/2", svg: '<svg viewBox="0 0 1 1"></svg>' });
+    // 非法 svg → null；tex 仍保留（渲染方回退等宽 LaTeX）
+    expect(segments[3]).toEqual({ type: "math", tex: "(n-1)/2", svg: null });
+    expect(segments[4]).toEqual({ type: "strong", value: " 记混" });
+    expect(segments[6]).toEqual({ type: "code", value: "int a[N]" });
+    // 渲染段里不允许再残留 markdown 字面量
+    const plain = segments
+      .filter((segment): segment is { type: "text"; text: string } => segment.type === "text")
+      .map((segment) => segment.text)
+      .join("");
+    expect(plain).not.toContain("**");
+    expect(plain).not.toContain("`");
+  });
+
+  it("丢弃空段、非法输入与非法 svg 值归 null", () => {
     const segments = normalizeStudySegments([
       { type: "text", text: "复杂度 " },
       { type: "math", tex: "O(n^2)", svg: '<svg viewBox="0 0 1 1"></svg>' },
       { type: "math", tex: "O(1)", svg: "not-a-svg" },
       { type: "math", tex: "" },
-      { type: "strong", value: "x" },
       { type: "text", text: "" },
     ]);
     expect(segments).toEqual([
@@ -261,6 +356,19 @@ describe("服务端公式段（P7 / format=svg）", () => {
     ]);
     expect(normalizeStudySegments(null)).toEqual([]);
     expect(normalizeStudySegments("x")).toEqual([]);
+  });
+
+  it("parseStudySegments 按 tex 把 svg 挂回公式（匹配不到时按顺序兜底）", () => {
+    const svgA = '<svg viewBox="0 0 1 1"></svg>';
+    const svgB = '<svg viewBox="0 0 2 2"></svg>';
+    const segments = parseStudySegments("已知 $O(n)$ 与 $O(1)$，稍后 $O(\\log n)$", [
+      { type: "math", tex: "O(n)", svg: svgA },
+      { type: "math", tex: "O(1)", svg: svgB },
+    ]);
+    expect(segments[1]).toEqual({ type: "math", tex: "O(n)", svg: svgA });
+    expect(segments[3]).toEqual({ type: "math", tex: "O(1)", svg: svgB });
+    // 队列里没有的公式：svg 为 null，但仍是 math 段（不是字面量 $…$）
+    expect(segments[5]).toEqual({ type: "math", tex: "O(\\log n)", svg: null });
   });
 
   it("normalizeApiStudyBlocks 把服务端 blocks 转成 App 结构块", () => {
@@ -314,7 +422,9 @@ describe("服务端公式段（P7 / format=svg）", () => {
     }
     expect(blocks[5]).toMatchObject({ type: "quote" });
     if (blocks[5].type === "quote") {
-      expect(blocks[5].lineSegments?.[0]).toHaveLength(1);
+      // 每行独立切分：第 1 行是「最坏 」+ 公式，而不是整块引用
+      expect(blocks[5].lineSegments?.[0]?.map((segment) => segment.type)).toEqual(["text", "math"]);
+      expect(blocks[5].lineSegments).toHaveLength(1);
     }
     expect(blocks[6]).toMatchObject({ type: "code", lang: "c" });
     expect(blocks[7]).toMatchObject({ type: "image" });
@@ -322,6 +432,54 @@ describe("服务端公式段（P7 / format=svg）", () => {
     expect(blocks[9]).toMatchObject({ type: "divider" });
     expect(blocks).toHaveLength(10);
     expect(normalizeApiStudyBlocks(undefined)).toEqual([]);
+  });
+
+  it("表格表头/单元格里的粗体与公式按段渲染（不再出现 ** 与 $）", () => {
+    const blocks = normalizeApiStudyBlocks([
+      {
+        type: "table",
+        header: ["**结构**", "复杂度"],
+        rows: [["**顺序表**", "$O(1)$"]],
+        headerSegments: [[{ type: "text", text: "**结构**" }], [{ type: "text", text: "复杂度" }]],
+        rowSegments: [[[{ type: "text", text: "**顺序表**" }], [{ type: "math", tex: "O(1)", svg: null }]]],
+      },
+    ]);
+    expect(blocks[0].type).toBe("table");
+    if (blocks[0].type === "table") {
+      expect(blocks[0].headerSegments?.[0]).toEqual([{ type: "strong", value: "结构" }]);
+      expect(blocks[0].rowSegments?.[0]?.[0]).toEqual([{ type: "strong", value: "顺序表" }]);
+      expect(blocks[0].rowSegments?.[0]?.[1]).toEqual([{ type: "math", tex: "O(1)", svg: null }]);
+    }
+  });
+
+  it("引用块按行切 segments：不重复整段文本，行内粗体/公式成型", () => {
+    const blocks = normalizeApiStudyBlocks([
+      {
+        type: "quote",
+        lines: ["最坏 $O(n^2)$", "**最好** $O(n)$"],
+        segments: [
+          { type: "text", text: "最坏 " },
+          { type: "math", tex: "O(n^2)", svg: null },
+          { type: "text", text: " **最好** " },
+          { type: "math", tex: "O(n)", svg: null },
+        ],
+      },
+    ]);
+    expect(blocks[0].type).toBe("quote");
+    if (blocks[0].type === "quote") {
+      expect(blocks[0].lineSegments).toHaveLength(2);
+      const first = blocks[0].lineSegments?.[0] ?? [];
+      expect(first.map((segment) => segment.type)).toEqual(["text", "math"]);
+      // 旧实现把整块引用塞进第 1 行（后续行再各渲染一次 → 正文重复）
+      expect(
+        first
+          .filter((segment): segment is { type: "text"; text: string } => segment.type === "text")
+          .map((segment) => segment.text)
+          .join(""),
+      ).toBe("最坏 ");
+      const second = blocks[0].lineSegments?.[1] ?? [];
+      expect(second.map((segment) => segment.type)).toEqual(["strong", "text", "math"]);
+    }
   });
 
   it("chunkInlineText 给折行留机会，空串返回空数组", () => {

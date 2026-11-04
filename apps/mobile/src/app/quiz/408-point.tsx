@@ -10,6 +10,7 @@ import Animated from "react-native-reanimated";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
 import { Exam408QuestionCard } from "@/components/exam-408-question-card";
+import { RichText } from "@/components/rich-text";
 import { ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { getExam408Point, type Exam408PointDetail } from "@/lib/exam-408";
 import { internalizePointKey } from "@/lib/exam-408-point-key";
@@ -179,7 +180,7 @@ function PointContent({ pointKey }: { pointKey: string }) {
             </View>
           </View>
           <Text style={styles.heroTitle}>{detail.point.title}</Text>
-          <Text style={styles.heroSummary}>{detail.point.summary}</Text>
+          <RichText text={detail.point.summary} style={styles.heroSummary} />
           <View style={styles.heroStats}>
             <View style={styles.countBox}>
               <Text style={styles.countValue}>{detail.point.questionCount}</Text>
@@ -203,12 +204,11 @@ function PointContent({ pointKey }: { pointKey: string }) {
             </View>
             <View style={styles.bodyList}>
               {bodyParagraphs.map((paragraph, index) => (
-                <Text
+                <RichText
                   key={`body-${index}`}
+                  text={paragraph.text}
                   style={paragraph.heading ? styles.bodyParagraphHeading : styles.bodyParagraph}
-                >
-                  {paragraph.text}
-                </Text>
+                />
               ))}
             </View>
           </Animated.View>
