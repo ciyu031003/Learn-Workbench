@@ -1,9 +1,9 @@
 {
   "totals": {
-    "animationSites": 257,
-    "animatedStyleFiles": 33,
+    "animationSites": 253,
+    "animatedStyleFiles": 32,
     "repeatFiles": 9,
-    "filesWithAnimations": 37
+    "filesWithAnimations": 36
   },
   "sites": {
     "apps/mobile/src/app/(tabs)/_layout.tsx": 7,
@@ -20,7 +20,6 @@
     "apps/mobile/src/components/check-mark.tsx": 6,
     "apps/mobile/src/components/daily-background.tsx": 10,
     "apps/mobile/src/components/day-night-switch.tsx": 2,
-    "apps/mobile/src/components/energy-bar.tsx": 4,
     "apps/mobile/src/components/filter-refresh-bar.tsx": 8,
     "apps/mobile/src/components/float-field.tsx": 2,
     "apps/mobile/src/components/portion-slider.tsx": 6,
