@@ -4,13 +4,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Certificate } from "@learn-workbench/shared/schemas";
 import { certificateStatusLabels } from "@learn-workbench/shared/labels";
 import { certificateExpiryInfo } from "@learn-workbench/shared/pure";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, FloatField } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { GlassModal } from "@/components/ui/modal";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { useToastStore } from "@/store/toast-store";
 import { Plus, Pencil, Trash2, Award, CalendarClock, ExternalLink, Trophy } from "lucide-react";
 
@@ -159,19 +159,21 @@ export default function CareerCertificatesPage() {
   }, [records]);
 
   return (
-    <div className="page-enter flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="page-title text-2xl font-bold tracking-tight lg:text-3xl">我的证书</h1>
-          <p className="page-subtitle mt-1 text-sm">证书 / 资格 / 认证 —— 独立领域，简历与职业雷达共用</p>
-        </div>
-        <Button onClick={openCreate} className="gap-2">
-          <Plus className="size-4" /> 添加证书
-        </Button>
-      </div>
+    <div className="page-enter flex flex-col gap-5">
+      <PageHeader
+        title="我的证书"
+        description="证书 / 资格 / 认证 —— 独立领域，简历与职业雷达共用"
+        actions={
+          <Button onClick={openCreate} className="gap-2">
+            <Plus className="size-4" /> 添加证书
+          </Button>
+        }
+      />
 
       {loading ? (
-        <Card><CardContent className="p-6 text-sm text-muted-foreground">加载中…</CardContent></Card>
+        <section className="rounded-3xl border border-border-button-default bg-background-secondary-default p-6 text-body-medium text-muted-foreground">
+          加载中…
+        </section>
       ) : records.length === 0 ? (
         <EmptyState
           icon={Award}
@@ -183,10 +185,10 @@ export default function CareerCertificatesPage() {
         <>
           {expiring.length > 0 ? (
             <section className="flex flex-col gap-3">
-              <h2 className="flex items-center gap-2 text-sm font-semibold">
+              <h2 className="flex items-center gap-2 text-title-3-semibold text-text-primary">
                 <CalendarClock className="size-4 text-warning" /> 需要关注（即将/已过期）
               </h2>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {expiring.map((c) => (
                   <CertCard key={c.id} c={c} onEdit={openEdit} onDelete={remove} />
                 ))}
@@ -195,8 +197,10 @@ export default function CareerCertificatesPage() {
           ) : null}
 
           <section className="flex flex-col gap-3">
-            {expiring.length > 0 ? <h2 className="text-sm font-semibold">全部证书</h2> : null}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {expiring.length > 0 ? (
+              <h2 className="text-title-3-semibold text-text-primary">全部证书</h2>
+            ) : null}
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {valid.map((c) => (
                 <CertCard key={c.id} c={c} onEdit={openEdit} onDelete={remove} />
               ))}
@@ -211,17 +215,17 @@ export default function CareerCertificatesPage() {
           <FloatField label="证书名称 *" value={form.name} onChange={(v) => setForm((s) => ({ ...s, name: v }))} />
           <FloatField label="颁发机构" value={form.issuer} onChange={(v) => setForm((s) => ({ ...s, issuer: v }))} />
           <div>
-            <label className="mb-1 block text-xs font-medium">状态</label>
+            <label className="mb-1 block text-caption-1-medium text-muted-foreground">状态</label>
             <div className="flex gap-2">
               {(["planned", "preparing", "achieved"] as Status[]).map((st) => (
                 <button
                   key={st}
                   type="button"
                   onClick={() => setForm((s) => ({ ...s, status: st }))}
-                  className={`rounded-full px-3.5 py-1.5 text-sm transition-all ${
+                  className={`rounded-full px-3.5 py-1.5 text-body-medium transition-all ${
                     form.status === st
-                      ? "bg-primary/25 text-foreground ring-1 ring-primary/50"
-                      : "bg-muted/60 text-muted-foreground hover:bg-muted"
+                      ? "bg-primary/25 text-text-primary ring-1 ring-primary/50"
+                      : "bg-background-tertiary-default text-muted-foreground hover:bg-background-secondary-hover"
                   }`}
                 >
                   {certificateStatusLabels[st]}
@@ -231,24 +235,24 @@ export default function CareerCertificatesPage() {
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
-              <label className="mb-1 block text-xs font-medium">计划考取</label>
+              <label className="mb-1 block text-caption-1-medium text-muted-foreground">计划考取</label>
               <Input type="date" value={form.targetDate} onChange={(e) => setForm((s) => ({ ...s, targetDate: e.target.value }))} />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium">取得日期</label>
+              <label className="mb-1 block text-caption-1-medium text-muted-foreground">取得日期</label>
               <Input type="date" value={form.earnedDate} onChange={(e) => setForm((s) => ({ ...s, earnedDate: e.target.value }))} />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium">有效期至</label>
+              <label className="mb-1 block text-caption-1-medium text-muted-foreground">有效期至</label>
               <Input type="date" value={form.expiryDate} onChange={(e) => setForm((s) => ({ ...s, expiryDate: e.target.value }))} />
             </div>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium">证书图片链接（可选）</label>
+            <label className="mb-1 block text-caption-1-medium text-muted-foreground">证书图片链接（可选）</label>
             <Input value={form.imageUrl} onChange={(e) => setForm((s) => ({ ...s, imageUrl: e.target.value }))} placeholder="https://…" />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium">备注</label>
+            <label className="mb-1 block text-caption-1-medium text-muted-foreground">备注</label>
             <Textarea rows={2} value={form.note} onChange={(e) => setForm((s) => ({ ...s, note: e.target.value }))} placeholder="证书编号、备考笔记等" />
           </div>
           <div className="flex justify-end gap-2 pt-1">
@@ -274,7 +278,7 @@ function CertCard({
   const info = certificateExpiryInfo(c.expiryDate);
   const achieved = status === "achieved";
   return (
-    <Card className="lift relative overflow-hidden">
+    <section className="lift relative flex min-w-0 flex-col overflow-hidden rounded-3xl border border-border-button-default bg-background-secondary-default">
       {/* v13 U11：已达成证书做“奖杯卡”（技法参考 uiverse.io/sohoning/ugly-horse-87, MIT） */}
       {achieved ? (
         <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-accent via-warning to-primary" />
@@ -285,7 +289,7 @@ function CertCard({
           className="pattern-bauhaus pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full [mask-image:radial-gradient(circle_at_center,black,transparent_70%)]"
         />
       ) : null}
-      <CardContent className="relative flex flex-col gap-3 p-5">
+      <div className="relative flex flex-col gap-3 p-5">
         <div className="flex items-start justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
             <span
@@ -296,14 +300,14 @@ function CertCard({
               {achieved ? <Trophy className="size-5" /> : <Award className="size-5" />}
             </span>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">{c.name}</p>
-              {c.issuer ? <p className="truncate text-xs text-muted-foreground">{c.issuer}</p> : null}
+              <p className="truncate text-body-semibold text-text-primary">{c.name}</p>
+              {c.issuer ? <p className="truncate text-caption-1-medium text-muted-foreground">{c.issuer}</p> : null}
             </div>
           </div>
           <Badge variant={STATUS_VARIANT[status]}>{certificateStatusLabels[status]}</Badge>
         </div>
 
-        <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+        <div className="flex flex-col gap-1 text-caption-1-medium text-muted-foreground">
           {c.earnedDate ? <span>取得：{c.earnedDate.slice(0, 10)}</span> : null}
           {info.level !== "none" ? (
             <span className={info.level === "expired" ? "text-danger" : info.level === "soon" ? "text-warning" : ""}>
@@ -314,7 +318,7 @@ function CertCard({
           ) : null}
         </div>
 
-        {c.note ? <p className="line-clamp-2 text-xs text-muted-foreground">{c.note}</p> : null}
+        {c.note ? <p className="line-clamp-2 text-caption-1-medium text-muted-foreground">{c.note}</p> : null}
 
         {/* 证书图片内嵌展示：全卡宽、原生比例，点开新窗口看原图（移动端上传的 /uploads/ 由 nginx 直出） */}
         {c.imageUrl ? (
@@ -322,7 +326,7 @@ function CertCard({
             href={c.imageUrl}
             target="_blank"
             rel="noreferrer"
-            className="block overflow-hidden rounded-xl border border-border/60 bg-white"
+            className="block overflow-hidden rounded-xl border border-border-button-default bg-background-tertiary-default"
             aria-label={`查看「${c.name}」的证书图片`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element -- 外部/COS 任意域名，next/image 需逐域配置 */}
@@ -339,21 +343,21 @@ function CertCard({
         <div className="flex items-center justify-between pt-1">
           <div className="flex gap-1">
             {c.imageUrl ? (
-              <a href={c.imageUrl} target="_blank" rel="noreferrer" className="rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-muted hover:text-foreground" aria-label="新窗口打开证书图片">
+              <a href={c.imageUrl} target="_blank" rel="noreferrer" className="rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-background-tertiary-default hover:text-text-primary" aria-label="新窗口打开证书图片">
                 <ExternalLink className="size-3.5" />
               </a>
             ) : null}
           </div>
           <div className="flex gap-1">
-            <button onClick={() => onEdit(c)} className="rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-muted hover:text-foreground" aria-label="编辑">
+            <button onClick={() => onEdit(c)} className="rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-background-tertiary-default hover:text-text-primary" aria-label="编辑">
               <Pencil className="size-3.5" />
             </button>
-            <button onClick={() => onDelete(c)} className="rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-muted hover:text-danger" aria-label="删除">
+            <button onClick={() => onDelete(c)} className="rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-danger/15 hover:text-danger" aria-label="删除">
               <Trash2 className="size-3.5" />
             </button>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

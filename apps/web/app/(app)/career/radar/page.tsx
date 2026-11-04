@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import type { MarketAnalysis } from "@learn-workbench/shared/schemas";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
 import { cn } from "@/lib/utils";
 import {
   Radar, MapPin, GraduationCap, Clock3, CheckCircle2, Circle, TrendingUp,
@@ -47,7 +48,7 @@ interface RadarResponse {
 function MatchRing({ value, size = 54 }: { value: number; size?: number }) {
   const r = (size - 8) / 2;
   const c = 2 * Math.PI * r;
-  const stroke = value >= 75 ? "var(--success, #16a34a)" : value >= 55 ? "var(--primary, #2f74c0)" : "var(--muted-foreground, #94a3b8)";
+  const stroke = value >= 75 ? "var(--color-success)" : value >= 55 ? "var(--color-primary)" : "var(--color-muted-foreground)";
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
@@ -65,7 +66,7 @@ function MatchRing({ value, size = 54 }: { value: number; size?: number }) {
           style={{ transition: "stroke-dashoffset .5s ease" }}
         />
       </svg>
-      <span className="absolute inset-0 flex items-center justify-center text-xs font-bold tabular-nums">
+      <span className="absolute inset-0 flex items-center justify-center text-caption-1-bold tabular-nums text-text-primary">
         {value}%
       </span>
     </div>
@@ -131,33 +132,34 @@ export default function CareerRadarPage() {
   const top = radar?.top ?? [];
 
   return (
-    <div className="page-enter flex flex-col gap-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="min-w-0">
-          <h1 className="page-title flex items-center gap-2 text-2xl font-bold tracking-tight lg:text-3xl">
-            <Radar className="size-6 text-primary" /> 就业雷达
-          </h1>
-          <p className="page-subtitle mt-1 text-sm">
-            {radar?.targetRole ? `目标：${radar.targetRole}` : "今日适合你的岗位信号"}
-            {radar?.profileCity ? ` · ${radar.profileCity}` : ""}
-          </p>
-        </div>
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <input
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") void load(); }}
-            placeholder="按城市筛选（回车）"
-            className="h-9 w-44 rounded-xl border border-border bg-card/60 px-3 text-sm"
-          />
-          <Button size="sm" variant="secondary" onClick={() => void load()}>
-            {loading ? <Loader2 className="size-4 animate-spin" /> : "刷新雷达"}
-          </Button>
-          <Button size="sm" variant="ghost" asChild>
-            <Link href="/career/market"><TrendingUp className="size-4" /> 市场工作台</Link>
-          </Button>
-        </div>
-      </div>
+    <div className="page-enter flex flex-col gap-5">
+      <PageHeader
+        title="就业雷达"
+        description={
+          radar?.targetRole
+            ? `目标：${radar.targetRole}${radar.profileCity ? ` · ${radar.profileCity}` : ""}`
+            : `今日适合你的岗位信号${radar?.profileCity ? ` · ${radar.profileCity}` : ""}`
+        }
+        icon={<Radar className="size-5 text-primary" />}
+        actions={
+          <>
+            <Input
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") void load(); }}
+              placeholder="按城市筛选（回车）"
+              aria-label="按城市筛选"
+              className="h-9 w-44"
+            />
+            <Button size="sm" variant="secondary" onClick={() => void load()}>
+              {loading ? <Loader2 className="size-4 animate-spin" /> : "刷新雷达"}
+            </Button>
+            <Button size="sm" variant="ghost" asChild>
+              <Link href="/career/market"><TrendingUp className="size-4" /> 市场工作台</Link>
+            </Button>
+          </>
+        }
+      />
 
       {/* 今日就业雷达：三档信号 */}
       <div className="grid gap-3 sm:grid-cols-3">
@@ -166,20 +168,18 @@ export default function CareerRadarPage() {
           { key: "highValue", label: "高价值", count: radar?.buckets.highValue.length ?? 0, hint: "薪资带靠前且匹配 ≥55%", tone: "text-primary" },
           { key: "urgent", label: "即将截止", count: radar?.buckets.urgent.length ?? 0, hint: "7 天内报名截止", tone: "text-warning" },
         ].map((s) => (
-          <Card key={s.key}>
-            <CardContent className="flex items-center gap-3 p-4">
-              <span className={cn("text-2xl font-extrabold tabular-nums", s.tone)}>{s.count}</span>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold">{s.label}</p>
-                <p className="truncate text-[11px] text-muted-foreground">{s.hint}</p>
-              </div>
-            </CardContent>
-          </Card>
+          <section key={s.key} className="flex items-center gap-3 rounded-3xl border border-border-button-default bg-background-secondary-default p-4">
+            <span className={cn("text-title-1-semibold tabular-nums", s.tone)}>{s.count}</span>
+            <div className="min-w-0">
+              <p className="text-body-semibold text-text-primary">{s.label}</p>
+              <p className="truncate text-caption-1-medium text-muted-foreground">{s.hint}</p>
+            </div>
+          </section>
         ))}
       </div>
 
       {radar && radar.mode === "batch" ? (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-caption-1-medium text-muted-foreground">
           已扫描 {counts?.candidates ?? 0} 个候选岗位（收藏 {counts?.favorites ?? 0} · 投递 {counts?.applications ?? 0}），
           其中 {counts?.matched ?? 0} 个完成画像匹配。
         </p>
@@ -187,9 +187,9 @@ export default function CareerRadarPage() {
 
       {/* 岗位信号卡 */}
       {loading && top.length === 0 ? (
-        <Card><CardContent className="flex items-center justify-center gap-2 p-10 text-sm text-muted-foreground">
+        <section className="flex items-center justify-center gap-2 rounded-3xl border border-border-button-default bg-background-secondary-default p-10 text-body-medium text-muted-foreground">
           <Loader2 className="size-4 animate-spin" /> 正在计算匹配…
-        </CardContent></Card>
+        </section>
       ) : top.length === 0 ? (
         <EmptyState
           icon={Radar}
@@ -204,8 +204,8 @@ export default function CareerRadarPage() {
         />
       ) : (
         <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-semibold">岗位信号</h2>
-          <div className="grid gap-4 lg:grid-cols-2">
+          <h2 className="text-title-3-semibold text-text-primary">岗位信号</h2>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {top.map((j) => (
               <JobSignalCard key={j.jobId} job={j} />
             ))}
@@ -215,26 +215,24 @@ export default function CareerRadarPage() {
 
       {/* 市场信号（只读 /api/market，独立于匹配分） */}
       <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold">市场信号</h2>
-          <span className="text-[11px] text-muted-foreground">来自市场快照 · 与个人匹配分无关</span>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-title-3-semibold text-text-primary">市场信号</h2>
+          <span className="text-caption-1-medium text-muted-foreground">来自市场快照 · 与个人匹配分无关</span>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {signalCards.length === 0 ? (
-            <Card className="sm:col-span-2 lg:col-span-4">
-              <CardContent className="p-4 text-sm text-muted-foreground">市场信号加载中…</CardContent>
-            </Card>
+            <section className="rounded-3xl border border-border-button-default bg-background-secondary-default p-4 text-body-medium text-muted-foreground sm:col-span-2 lg:col-span-4">
+              市场信号加载中…
+            </section>
           ) : (
             signalCards.map((s) => (
-              <Card key={s.key}>
-                <CardContent className="flex items-center gap-3 p-4">
-                  <s.icon className="size-4 shrink-0 text-primary" />
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold">{s.value}</p>
-                    <p className="text-[11px] text-muted-foreground">{s.label}</p>
-                  </div>
-                </CardContent>
-              </Card>
+              <section key={s.key} className="flex items-center gap-3 rounded-3xl border border-border-button-default bg-background-secondary-default p-4">
+                <s.icon className="size-4 shrink-0 text-primary" />
+                <div className="min-w-0">
+                  <p className="truncate text-body-semibold text-text-primary">{s.value}</p>
+                  <p className="text-caption-1-medium text-muted-foreground">{s.label}</p>
+                </div>
+              </section>
             ))
           )}
         </div>
@@ -247,14 +245,14 @@ function JobSignalCard({ job }: { job: RadarJob }) {
   const matched = job.matchedSkills.slice(0, 4);
   const missing = job.missingSkills.slice(0, 4);
   return (
-    <Card className="relative overflow-hidden">
-      <CardContent className="flex gap-4 p-5">
+    <section className="relative flex min-w-0 overflow-hidden rounded-3xl border border-border-button-default bg-background-secondary-default p-5">
+      <div className="flex min-w-0 gap-4">
         <MatchRing value={job.overall} />
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">{job.title}</p>
-              <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+              <p className="truncate text-body-semibold text-text-primary">{job.title}</p>
+              <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-caption-1-medium text-muted-foreground">
                 <span className="inline-flex items-center gap-1"><Building2 className="size-3" />{job.company || "—"}</span>
                 {job.city ? <span className="inline-flex items-center gap-1"><MapPin className="size-3" />{job.city}</span> : null}
                 {job.education ? <span className="inline-flex items-center gap-1"><GraduationCap className="size-3" />{job.education}</span> : null}
@@ -269,17 +267,17 @@ function JobSignalCard({ job }: { job: RadarJob }) {
             </div>
           </div>
 
-          {job.salaryText ? <p className="text-xs font-medium text-foreground">{job.salaryText}</p> : null}
+          {job.salaryText ? <p className="text-caption-1-semibold text-text-primary">{job.salaryText}</p> : null}
 
           {/* 技能命中 / 缺口 */}
           <div className="flex flex-wrap gap-1.5">
             {matched.map((s) => (
-              <span key={`m-${s.skill}`} className="inline-flex items-center gap-1 rounded-full border border-success/40 bg-success/10 px-2 py-0.5 text-[11px]">
+              <span key={`m-${s.skill}`} className="inline-flex items-center gap-1 rounded-full border border-success/40 bg-success/10 px-2 py-0.5 text-caption-1-medium text-text-primary">
                 <CheckCircle2 className="size-3 text-success" />{s.skill}
               </span>
             ))}
             {missing.map((s) => (
-              <span key={`x-${s.skill}`} className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 text-[11px] text-muted-foreground">
+              <span key={`x-${s.skill}`} className="inline-flex items-center gap-1 rounded-full border border-border-button-default bg-background-tertiary-default px-2 py-0.5 text-caption-1-medium text-muted-foreground">
                 <Circle className="size-3" />{s.skill}
               </span>
             ))}
@@ -287,7 +285,7 @@ function JobSignalCard({ job }: { job: RadarJob }) {
 
           <div className="mt-auto flex flex-wrap items-center gap-2 pt-1">
             {job.gapHours > 0 ? (
-              <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+              <span className="inline-flex items-center gap-1 text-caption-1-medium text-muted-foreground">
                 <Sparkles className="size-3" />缺口约 {Math.round(job.gapHours)} 小时
               </span>
             ) : null}
@@ -301,7 +299,7 @@ function JobSignalCard({ job }: { job: RadarJob }) {
             </span>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

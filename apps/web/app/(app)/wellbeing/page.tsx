@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { ReadinessHero } from "@/components/wellbeing/readiness-hero";
@@ -36,10 +36,11 @@ import {
   Salad,
   Trophy,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
+import { ScrollFade } from "@/components/ui/scroll-fade";
 import { cn } from "@/lib/utils";
 import { apiGet, apiMutate, ApiError, isAbortError } from "@/lib/client-api";
 import { AsyncSection } from "@/components/async-section";
@@ -63,14 +64,15 @@ const REMINDER_PRESETS = [
   { type: "BREAK", title: "休息提醒", intervalMinutes: 50 },
 ] as const;
 
-const planKindMeta: Record<DailyPlanItem["kind"], { icon: typeof TimerIcon; color: string }> = {
-  focus: { icon: TimerIcon, color: "#2f74c0" },
-  break: { icon: Coffee, color: "#3da35d" },
-  hydrate: { icon: GlassWater, color: "#2f74c0" },
-  energy: { icon: Zap, color: "#d99000" },
-  task: { icon: ListChecks, color: "#71717a" },
-  review: { icon: HeartPulse, color: "#e1781c" },
-  move: { icon: Activity, color: "#3da35d" },
+/** 今日建议的图标配色：全走主题 token（去掉裸色值），深浅色自动跟随 */
+const planKindMeta: Record<DailyPlanItem["kind"], { icon: typeof TimerIcon; chip: string; tone: string }> = {
+  focus: { icon: TimerIcon, chip: "bg-primary/12", tone: "text-primary" },
+  break: { icon: Coffee, chip: "bg-success/12", tone: "text-success" },
+  hydrate: { icon: GlassWater, chip: "bg-primary/12", tone: "text-primary" },
+  energy: { icon: Zap, chip: "bg-warning/12", tone: "text-warning" },
+  task: { icon: ListChecks, chip: "bg-background-tertiary-default", tone: "text-text-secondary" },
+  review: { icon: HeartPulse, chip: "bg-accent/12", tone: "text-accent" },
+  move: { icon: Activity, chip: "bg-success/12", tone: "text-success" },
 };
 
 const exerciseTypeIcons: Record<string, typeof Volleyball> = {
@@ -82,6 +84,60 @@ const exerciseTypeIcons: Record<string, typeof Volleyball> = {
   OTHER: Activity,
 };
 
+/** 卡片头部小徽标（数值摘要 / 状态胶囊） */
+function StatPill({ children }: { children: ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-background-tertiary-default px-2.5 py-1 text-caption-1-medium text-text-secondary">
+      {children}
+    </span>
+  );
+}
+
+/**
+ * 健康页统一卡片：rounded-3xl 语义表面 + 图标块标题 + 卡内滚动区。
+ * 头部留在滚动区外，长记录列表不会再顶掉标题；固定高度卡片由调用方传 md:h-[340px]。
+ */
+function SectionCard({
+  icon: Icon,
+  title,
+  badge,
+  action,
+  className,
+  bodyClassName,
+  children,
+}: {
+  icon: typeof Droplets;
+  title: string;
+  badge?: ReactNode;
+  action?: ReactNode;
+  className?: string;
+  bodyClassName?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section
+      className={cn(
+        "flex min-w-0 flex-col overflow-hidden rounded-3xl border border-border-button-default bg-background-secondary-default",
+        className
+      )}
+    >
+      <div className="flex shrink-0 items-center gap-2.5 px-5 pb-3 pt-4">
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-background-tertiary-default text-foreground-icon-primary">
+          <Icon className="size-4" aria-hidden />
+        </span>
+        <h2 className="min-w-0 truncate text-title-3-semibold text-text-primary">{title}</h2>
+        {badge || action ? (
+          <div className="ms-auto flex shrink-0 items-center gap-1.5">
+            {badge}
+            {action}
+          </div>
+        ) : null}
+      </div>
+      <div className={cn("flex min-h-0 flex-1 flex-col px-5 pb-4", bodyClassName)}>{children}</div>
+    </section>
+  );
+}
+
 function HydrationRing({ totalMl, targetMl }: { totalMl: number; targetMl: number }) {
   const R = 54;
   const C = 2 * Math.PI * R;
@@ -91,11 +147,11 @@ function HydrationRing({ totalMl, targetMl }: { totalMl: number; targetMl: numbe
       <svg viewBox="0 0 140 140" className="h-full w-full -rotate-90">
         <defs>
           <linearGradient id="hyd-ring" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#2f74c0" />
-            <stop offset="100%" stopColor="#5b93d6" />
+            <stop offset="0%" stopColor="var(--color-primary)" />
+            <stop offset="100%" stopColor="var(--color-primary-strong)" />
           </linearGradient>
         </defs>
-        <circle cx="70" cy="70" r={R} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="10" />
+        <circle cx="70" cy="70" r={R} fill="none" stroke="currentColor" strokeWidth="10" className="text-muted" />
         <circle
           cx="70"
           cy="70"
@@ -110,8 +166,8 @@ function HydrationRing({ totalMl, targetMl }: { totalMl: number; targetMl: numbe
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-xl font-bold tabular-nums">{totalMl}ml</span>
-        <span className="text-[11px] text-muted-foreground">目标 {targetMl}ml · {p}%</span>
+        <span className="text-title-2-medium tabular-nums text-text-primary">{totalMl}ml</span>
+        <span className="text-caption-2-medium text-text-tertiary">目标 {targetMl}ml · {p}%</span>
       </div>
     </div>
   );
@@ -298,8 +354,6 @@ export default function WellbeingPage() {
     }
   };
 
-
-
   const addWater = async (ml: number) => {
     // 乐观更新：先加毫升数，失败回滚 + toast（不再等接口返回才有反馈）
     const snapshot = today;
@@ -430,26 +484,37 @@ export default function WellbeingPage() {
     weekRows.reduce((a, r) => a + sportCalories(sportTypeFallbackItem[r.type].met, weightKg, r.minutes * 60), 0)
   );
   const weekMax = Math.max(1, ...weekRows.map((r) => r.minutes));
+  const exerciseLogs = exerciseToday?.logs ?? [];
+  const exercisePct = exerciseToday?.targetMinutes
+    ? Math.min(100, Math.round(((exerciseToday?.totalMinutes ?? 0) / exerciseToday.targetMinutes) * 100))
+    : 0;
 
   return (
-    <div className="page-enter flex flex-col gap-6">
-      <div>
-        <h1 className="page-title text-2xl font-bold tracking-tight lg:text-3xl">健康与状态</h1>
-        <p className="page-subtitle mt-1 text-sm">
-          Focus → 休息 → 饮水 → 精力，照顾好状态才有持续成长
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Link href="/wellbeing/workout" className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/50 px-3.5 py-1.5 text-xs transition-colors hover:bg-muted/60">
-            <Dumbbell className="size-3.5 text-primary" /> 训练记录
-          </Link>
-          <Link href="/wellbeing/nutrition" className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/50 px-3.5 py-1.5 text-xs transition-colors hover:bg-muted/60">
-            <Salad className="size-3.5 text-primary" /> 今日饮食
-          </Link>
-          <Link href="/wellbeing/sports" className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/50 px-3.5 py-1.5 text-xs transition-colors hover:bg-muted/60">
-            <Trophy className="size-3.5 text-primary" /> 运动档案
-          </Link>
-        </div>
-      </div>
+    <div className="page-enter flex flex-col gap-5">
+      <PageHeader
+        title="健康与状态"
+        description="Focus → 休息 → 饮水 → 精力，照顾好状态才有持续成长"
+        icon={<HeartPulse className="size-5" />}
+        actions={
+          <>
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/wellbeing/workout">
+                <Dumbbell className="size-4" /> 训练记录
+              </Link>
+            </Button>
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/wellbeing/nutrition">
+                <Salad className="size-4" /> 今日饮食
+              </Link>
+            </Button>
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/wellbeing/sports">
+                <Trophy className="size-4" /> 运动档案
+              </Link>
+            </Button>
+          </>
+        }
+      />
 
       {/* v8 P3：3D 状态球 hero（状态分 + 四项分解 + 本周概览） */}
       <ReadinessHero />
@@ -461,14 +526,11 @@ export default function WellbeingPage() {
         <AsyncSection status="loading" loadingLabel="正在加载健康数据…" skeletonRows={4} />
       ) : null}
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      {/* 2 列卡片网格（窄屏 1 列）：指标 / 图表 / 记录不再各自贯穿整页 */}
+      <div className="grid gap-4 md:grid-cols-2 md:items-start">
         {/* 今日饮水 */}
-        <Card>
-          <CardHeader className="flex-row items-center gap-2">
-            <Droplets className="size-5 text-accent" />
-            <CardTitle>今日饮水</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center gap-4">
+        <SectionCard icon={Droplets} title="今日饮水">
+          <div className="flex flex-1 flex-col items-center gap-4">
             <div className="flex flex-wrap items-center justify-center gap-4">
               <WaterGlass3D
                 ratio={(hydration?.totalMl ?? 0) / Math.max(1, hydration?.targetMl ?? 2000)}
@@ -481,7 +543,7 @@ export default function WellbeingPage() {
                 <button
                   key={ml}
                   onClick={() => addWater(ml)}
-                  className="press rounded-full border border-border bg-muted/50 px-3 py-1.5 text-sm text-foreground transition-all hover:border-accent/40 hover:bg-accent/10 active:bg-accent/15"
+                  className="press rounded-full border border-border bg-muted/50 px-3 py-1.5 text-body-medium text-text-primary transition-all hover:border-accent/40 hover:bg-accent/10 active:bg-accent/15"
                 >
                   +{ml}ml
                 </button>
@@ -494,7 +556,8 @@ export default function WellbeingPage() {
                   value={customMl}
                   onChange={(e) => setCustomMl(e.target.value)}
                   placeholder="自定义"
-                  className="w-16 bg-transparent text-center text-sm text-foreground placeholder:text-muted-foreground"
+                  aria-label="自定义饮水量"
+                  className="w-16 bg-transparent text-center text-body-medium text-text-primary placeholder:text-text-tertiary"
                 />
                 <button
                   onClick={() => {
@@ -509,7 +572,7 @@ export default function WellbeingPage() {
                 </button>
               </div>
             </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2 text-caption-1-medium text-text-secondary">
               {editingGoal ? (
                 <div className="flex items-center gap-1.5">
                   <Input
@@ -533,30 +596,23 @@ export default function WellbeingPage() {
                       setEditingGoal(true);
                     }}
                     aria-label="修改饮水目标"
-                    className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-muted/75 hover:text-foreground"
+                    className="rounded-lg p-1 text-text-tertiary transition-colors hover:bg-muted/75 hover:text-text-primary"
                   >
                     <Pencil className="size-3.5" />
                   </button>
                 </>
               )}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </SectionCard>
 
         {/* 精力状态 */}
-        <Card>
-          <CardHeader className="flex-row items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Zap className="size-5 text-warning" />
-              <CardTitle>精力状态</CardTitle>
-            </div>
-            {latestEnergy ? (
-              <span className="rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs text-muted-foreground">
-                最近：<span className="font-semibold">{energyLevelLabels[latestEnergy.level]}</span>
-              </span>
-            ) : null}
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
+        <SectionCard
+          icon={Zap}
+          title="精力状态"
+          badge={latestEnergy ? <StatPill>最近：<span className="font-semibold text-text-primary">{energyLevelLabels[latestEnergy.level]}</span></StatPill> : undefined}
+        >
+          <div className="flex flex-1 flex-col gap-4">
             <div className="grid grid-cols-5 gap-2">
               {[1, 2, 3, 4, 5].map((lv) => (
                 <button
@@ -570,8 +626,8 @@ export default function WellbeingPage() {
                   )}
                   style={energyLevel === lv ? { backgroundColor: energyLevelColors[lv] } : undefined}
                 >
-                  <span className="text-base font-bold">{lv}</span>
-                  <span className="text-[11px]">{energyLevelLabels[lv]}</span>
+                  <span className="text-headline-semibold">{lv}</span>
+                  <span className="text-caption-2-medium">{energyLevelLabels[lv]}</span>
                 </button>
               ))}
             </div>
@@ -579,111 +635,151 @@ export default function WellbeingPage() {
               value={energyNote}
               onChange={(e) => setEnergyNote(e.target.value)}
               placeholder="补充一句（可选）：状态来自睡眠 / 咖啡 / 压力…"
-              className="min-h-[64px] w-full resize-none rounded-xl border border-border bg-muted/40 px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/60 focus:bg-surface"
+              className="min-h-[64px] w-full resize-none rounded-xl border border-border bg-muted/40 px-3 py-2 text-body-medium text-text-primary outline-none placeholder:text-text-tertiary focus:border-primary/60 focus:bg-surface"
             />
             <Button onClick={saveEnergy} disabled={energyLevel === null} className="self-end">
               <Zap className="size-4" /> 记录精力
             </Button>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-caption-1-medium text-text-secondary">
               只做个人行为统计，用于安排任务强度，不做医学判断。
             </p>
-          </CardContent>
-        </Card>
+          </div>
+        </SectionCard>
 
-        {/* 休息与节奏 */}
-        <Card>
-          <CardHeader className="flex-row items-center gap-2">
-            <Coffee className="size-5 text-success" />
-            <CardTitle>休息与节奏</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <div className="flex items-center justify-between rounded-xl border border-border bg-muted/40 px-3 py-2.5">
+        {/* 休息与节奏（固定 340，休息记录卡内滚动） */}
+        <SectionCard icon={Coffee} title="休息与节奏" className="md:h-[340px]">
+          <div className="flex min-h-0 flex-1 flex-col gap-3">
+            <div className="flex shrink-0 items-center justify-between rounded-xl border border-border bg-muted/40 px-3 py-2.5">
               <div className="flex flex-col">
-                <span className="text-sm font-semibold">{today?.focusTodayMinutes ?? 0} 分钟</span>
-                <span className="text-[11px] text-muted-foreground">今日专注</span>
+                <span className="text-body-semibold text-text-primary">{today?.focusTodayMinutes ?? 0} 分钟</span>
+                <span className="text-caption-2-medium text-text-tertiary">今日专注</span>
               </div>
               {today?.nextBreakDue ? (
-                <span className="rounded-full bg-success/15 px-2.5 py-1 text-xs font-medium text-success">
+                <span className="rounded-full bg-success/15 px-2.5 py-1 text-caption-1-medium text-success">
                   建议休息一下
                 </span>
               ) : (
-                <span className="rounded-full border border-border bg-surface px-2.5 py-1 text-xs text-muted-foreground">
+                <span className="rounded-full border border-border bg-surface px-2.5 py-1 text-caption-1-medium text-text-secondary">
                   节奏良好
                 </span>
               )}
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex shrink-0 flex-wrap gap-2">
               {BREAK_PRESETS.map((b) => (
                 <button
                   key={b.kind}
                   onClick={() => recordBreak(b.kind, b.minutes)}
-                  className="flex items-center gap-1.5 rounded-full border border-border bg-muted/50 px-3 py-1.5 text-xs text-foreground transition-all hover:bg-muted/75"
+                  className="flex items-center gap-1.5 rounded-full border border-border bg-muted/50 px-3 py-1.5 text-caption-1-medium text-text-primary transition-all hover:bg-muted/75"
                 >
                   <b.icon className="size-3.5 text-success" /> {b.label} {b.minutes}′
                 </button>
               ))}
             </div>
-            <div className="flex flex-col gap-1.5">
-              {(today?.breaksToday ?? []).length === 0 ? (
-                <p className="py-2 text-center text-xs text-muted-foreground">今天还没有休息记录</p>
-              ) : (
-                today?.breaksToday.map((b) => (
-                  <div key={b.id} className="flex items-center justify-between rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs">
-                    <span className="flex items-center gap-1.5 text-foreground">
-                      <Coffee className="size-3.5 text-success" /> {breakKindLabels[b.kind] ?? b.kind}
-                    </span>
-                    <span className="text-muted-foreground">
-                      {new Date(b.startedAt).toLocaleTimeString("zh-CN", { hour12: false }).slice(0, 5)} · {b.minutes} 分钟
-                    </span>
+            <div className="min-h-0 flex-1">
+              <ScrollFade className="h-full">
+                {(today?.breaksToday ?? []).length === 0 ? (
+                  <p className="py-2 text-center text-caption-1-medium text-text-tertiary">今天还没有休息记录</p>
+                ) : (
+                  <div className="flex flex-col gap-1.5">
+                    {today?.breaksToday.map((b) => (
+                      <div key={b.id} className="flex items-center justify-between rounded-lg border border-border bg-muted/40 px-3 py-2 text-caption-1-medium">
+                        <span className="flex items-center gap-1.5 text-text-primary">
+                          <Coffee className="size-3.5 text-success" /> {breakKindLabels[b.kind] ?? b.kind}
+                        </span>
+                        <span className="tabular-nums text-text-tertiary">
+                          {new Date(b.startedAt).toLocaleTimeString("zh-CN", { hour12: false }).slice(0, 5)} · {b.minutes} 分钟
+                        </span>
+                      </div>
+                    ))}
                   </div>
-                ))
+                )}
+              </ScrollFade>
+            </div>
+          </div>
+        </SectionCard>
+
+        {/* 本周运动分布（固定 340，条形图卡内滚动） */}
+        <SectionCard
+          icon={Activity}
+          title="本周运动分布"
+          className="md:h-[340px]"
+          badge={<StatPill>共 <span className="stat-pop font-semibold text-text-primary">{weekTotalMinutes}</span> 分钟 · ≈{weekKcal} kcal</StatPill>}
+        >
+          <div className="min-h-0 flex-1">
+            <ScrollFade className="h-full">
+              {weekTotalMinutes === 0 ? (
+                <div className="relative overflow-hidden rounded-2xl px-4 py-7 text-center">
+                  <span
+                    aria-hidden
+                    className="pattern-bauhaus pointer-events-none absolute inset-0 opacity-70 [mask-image:radial-gradient(ellipse_at_center,black,transparent_72%)]"
+                  />
+                  <p className="relative text-caption-1-semibold text-text-primary">本周还没有运动记录</p>
+                  <p className="relative mt-1 text-caption-1-medium text-text-tertiary">去「今日运动」记一笔，这里就会出现分布</p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2.5">
+                  {weekRows.map((row) => {
+                    const Icon = exerciseTypeIcons[row.type] ?? Activity;
+                    const widthPct = row.minutes > 0 ? Math.max(2, Math.round((row.minutes / weekMax) * 100)) + "%" : "0%";
+                    return (
+                      <div key={row.type} className="flex items-center gap-2.5">
+                        <span className="flex w-20 shrink-0 items-center gap-1.5 text-caption-1-medium text-text-secondary">
+                          <Icon className="size-3.5 shrink-0 text-success" />
+                          {row.label}
+                        </span>
+                        <div className="h-4 flex-1 overflow-hidden rounded-full bg-background-tertiary-default">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-success/80 to-success transition-[width] duration-reveal ease-out motion-reduce:transition-none"
+                            style={{ width: widthPct }}
+                          />
+                        </div>
+                        <span className="w-14 shrink-0 text-right text-caption-1-semibold tabular-nums text-text-primary">
+                          {row.minutes}′
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
               )}
-            </div>
-          </CardContent>
-        </Card>
-        {/* 今日运动（健康模块小类） */}
-        <Card>
-          <CardHeader className="flex-row items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Activity className="size-5 text-success" />
-              <CardTitle>今日运动</CardTitle>
-            </div>
-            <span className="rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs text-muted-foreground">
-              今日 <span className="font-semibold">{exerciseToday?.totalMinutes ?? 0}</span>
-              <span className="text-muted-foreground"> / {exerciseToday?.targetMinutes ?? 30}</span>
-              <span className="text-muted-foreground"> 分钟</span>
-            </span>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
+              <p className="mt-2 text-caption-1-medium text-text-tertiary">
+                近 7 天按运动大类统计；周卡路里按各类兜底 MET × 体重估算。
+              </p>
+            </ScrollFade>
+          </div>
+        </SectionCard>
+
+        {/* 今日运动（记录表单，高度随内容） */}
+        <SectionCard
+          icon={Activity}
+          title="今日运动"
+          badge={
+            <StatPill>
+              今日 <span className="font-semibold text-text-primary">{exerciseToday?.totalMinutes ?? 0}</span> / {exerciseToday?.targetMinutes ?? 30} 分钟
+            </StatPill>
+          }
+        >
+          <div className="flex flex-1 flex-col gap-4">
             <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/40 px-3 py-2.5">
               <Activity className="size-5 shrink-0 text-success" />
               <div className="flex-1">
                 <div className="flex items-baseline justify-between">
-                  <span className="text-lg font-bold tabular-nums">
+                  <span className="text-title-2-medium tabular-nums text-text-primary">
                     {exerciseToday?.totalMinutes ?? 0}
-                    <span className="text-xs font-normal text-muted-foreground"> 分钟</span>
+                    <span className="text-caption-1-medium font-normal text-text-tertiary"> 分钟</span>
                   </span>
-                  <span className="text-[11px] text-muted-foreground">
-                    目标 {exerciseToday?.targetMinutes ?? 30} 分钟 ·{' '}
-                    {exerciseToday?.targetMinutes
-                      ? Math.min(100, Math.round(((exerciseToday?.totalMinutes ?? 0) / exerciseToday.targetMinutes) * 100))
-                      : 0}
-                    %
+                  <span className="text-caption-2-medium text-text-tertiary">
+                    目标 {exerciseToday?.targetMinutes ?? 30} 分钟 · {exercisePct}%
                   </span>
                 </div>
                 <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-muted">
                   <div
                     className="progress-fill h-full rounded-full transition-all"
-                    style={{
-                      width: `${exerciseToday?.targetMinutes
-                        ? Math.min(100, Math.round(((exerciseToday?.totalMinutes ?? 0) / exerciseToday.targetMinutes) * 100))
-                        : 0}%`,
-                    }}
+                    style={{ width: exercisePct + "%" }}
                   />
                 </div>
-                <div className="mt-1.5 flex items-center justify-between text-[11px] text-muted-foreground">
+                <div className="mt-1.5 flex items-center justify-between text-caption-2-medium text-text-tertiary">
                   <span>
-                    今日消耗 ≈ <span className="font-semibold text-foreground">{todayKcal}</span> kcal
+                    今日消耗 ≈ <span className="font-semibold text-text-primary">{todayKcal}</span> kcal
                   </span>
                   <span>按体重 {weightKg}kg · MET 估算</span>
                 </div>
@@ -702,7 +798,7 @@ export default function WellbeingPage() {
                       type="button"
                       onClick={() => setExerciseType(opt.type)}
                       className={cn(
-                        "inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-all",
+                        "inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-caption-1-medium transition-all",
                         active
                           ? "border-primary/30 bg-primary/12 text-primary-strong shadow-[0_2px_8px_rgba(47,116,192,0.12)]"
                           : "border-border bg-muted/40 text-muted-foreground hover:border-primary/30 hover:bg-muted/70 hover:text-foreground"
@@ -716,7 +812,7 @@ export default function WellbeingPage() {
                 <button
                   type="button"
                   onClick={() => setSportPickerOpen(true)}
-                  className="inline-flex h-9 items-center gap-1.5 rounded-full border border-dashed border-primary/40 px-3 text-xs font-medium text-primary-strong transition-all hover:bg-primary/10"
+                  className="inline-flex h-9 items-center gap-1.5 rounded-full border border-dashed border-primary/40 px-3 text-caption-1-medium text-primary-strong transition-all hover:bg-primary/10"
                 >
                   <Plus className="size-3.5" /> 选具体项目
                 </button>
@@ -738,7 +834,7 @@ export default function WellbeingPage() {
                   className="h-10 w-24"
                   aria-label="运动时长"
                 />
-                <span className="text-sm text-muted-foreground">分钟</span>
+                <span className="text-body-medium text-text-secondary">分钟</span>
                 <Button onClick={recordNow} disabled={timerRunning || !(Number(exMinutes) > 0)} className="ml-auto">
                   <Check className="size-4" /> 记录一下
                 </Button>
@@ -750,7 +846,7 @@ export default function WellbeingPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <TimerIcon className="size-5 text-success" />
-                  <span className="stat-pop text-2xl font-bold tabular-nums">{timerText}</span>
+                  <span className="stat-pop text-title-1-semibold tabular-nums text-text-primary">{timerText}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Button size="sm" onClick={startTimer} disabled={timerRunning}>
@@ -770,35 +866,13 @@ export default function WellbeingPage() {
                   </Button>
                 </div>
               </div>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-caption-2-medium text-text-tertiary">
                 专注运动倒计时，结束时自动记为「专注运动」；配合 {exMinutes || "—"} 分钟初始时长。
               </p>
             </div>
 
-            {/* 今日运动记录 */}
-            <div className="flex flex-col gap-1.5">
-              {(exerciseToday?.logs ?? []).length === 0 ? (
-                <p className="py-2 text-center text-xs text-muted-foreground">今天还没有运动记录</p>
-              ) : (
-                exerciseToday?.logs.map((l, li) => (
-                  <div
-                    key={l.id}
-                    style={{ animationDelay: `${li * 30}ms` }}
-                    className="rise-in press-soft flex items-center justify-between rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs"
-                  >
-                    <span className="flex items-center gap-1.5 text-foreground">
-                      <Activity className="size-3.5 text-success" /> {l.typeLabel || exerciseTypeLabels[l.type]}
-                    </span>
-                    <span className="text-muted-foreground">
-                      {new Date(l.startedAt).toLocaleTimeString("zh-CN", { hour12: false }).slice(0, 5)} · {Math.round(l.durationSeconds / 60)} 分钟
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-
             {/* 每日目标 + 体重（卡路里估算用） */}
-            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-2 text-caption-1-medium text-text-secondary">
               {editingExTarget ? (
                 <div className="flex items-center gap-1.5">
                   <Input
@@ -822,7 +896,7 @@ export default function WellbeingPage() {
                       setEditingExTarget(true);
                     }}
                     aria-label="修改运动目标"
-                    className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-muted/75 hover:text-foreground"
+                    className="rounded-lg p-1 text-text-tertiary transition-colors hover:bg-muted/75 hover:text-text-primary"
                   >
                     <Pencil className="size-3.5" />
                   </button>
@@ -841,14 +915,14 @@ export default function WellbeingPage() {
                     className="h-8 w-24"
                     aria-label="体重"
                   />
-                  <span className="text-muted-foreground">kg</span>
+                  <span className="text-text-secondary">kg</span>
                   <Button size="sm" onClick={saveWeight}>保存</Button>
                   <Button size="sm" variant="ghost" onClick={() => setEditingWeight(false)}>取消</Button>
                 </div>
               ) : (
                 <>
                   <span>
-                    体重 <span className="font-semibold text-foreground">{weightKg}</span> kg
+                    体重 <span className="font-semibold text-text-primary">{weightKg}</span> kg
                   </span>
                   <button
                     onClick={() => {
@@ -856,131 +930,103 @@ export default function WellbeingPage() {
                       setEditingWeight(true);
                     }}
                     aria-label="修改体重"
-                    className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-muted/75 hover:text-foreground"
+                    className="rounded-lg p-1 text-text-tertiary transition-colors hover:bg-muted/75 hover:text-text-primary"
                   >
                     <Pencil className="size-3.5" />
                   </button>
                 </>
               )}
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </SectionCard>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* 本周运动分布（近 7 天按大类聚合） */}
-        <Card>
-          <CardHeader className="flex-row items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Activity className="size-5 text-accent" />
-              <CardTitle>本周运动分布</CardTitle>
-            </div>
-            <span className="rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs text-muted-foreground">
-              共 <span className="stat-pop font-semibold text-foreground">{weekTotalMinutes}</span> 分钟 · ≈{weekKcal} kcal
-            </span>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2.5">
-            {weekTotalMinutes === 0 ? (
-              <div className="relative overflow-hidden rounded-2xl px-4 py-7 text-center">
-                <span
-                  aria-hidden
-                  className="pattern-bauhaus pointer-events-none absolute inset-0 opacity-70 [mask-image:radial-gradient(ellipse_at_center,black,transparent_72%)]"
-                />
-                <p className="relative text-xs font-medium text-foreground">本周还没有运动记录</p>
-                <p className="relative mt-1 text-[11px] text-muted-foreground">去「今日运动」记一笔，这里就会出现分布</p>
-              </div>
-            ) : (
-              weekRows.map((row) => {
-                const Icon = exerciseTypeIcons[row.type] ?? Activity;
-                return (
-                  <div key={row.type} className="flex items-center gap-2.5">
-                    <span className="flex w-20 shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
-                      <Icon className="size-3.5 shrink-0 text-success" />
-                      {row.label}
-                    </span>
-                    <div className="h-4 flex-1 overflow-hidden rounded-full bg-muted">
-                      <div
-                        className="rise-in h-full rounded-full bg-gradient-to-r from-success/80 to-success transition-[width] duration-reveal ease-out motion-reduce:transition-none"
-                        style={{ width: row.minutes > 0 ? `${Math.max(2, Math.round((row.minutes / weekMax) * 100))}%` : "0%" }}
-                      />
-                    </div>
-                    <span className="w-14 shrink-0 text-right text-xs font-semibold tabular-nums text-foreground">
-                      {row.minutes}′
-                    </span>
-                  </div>
-                );
-              })
-            )}
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              近 7 天按运动大类统计；周卡路里按各类兜底 MET × 体重估算。
+        {/* 今日运动记录（固定 340，记录卡内滚动） */}
+        <SectionCard
+          icon={ListChecks}
+          title="今日运动记录"
+          className="md:h-[340px]"
+          badge={<StatPill>{exerciseLogs.length} 条</StatPill>}
+        >
+          {exerciseLogs.length === 0 ? (
+            <p className="flex flex-1 items-center justify-center py-2 text-center text-caption-1-medium text-text-tertiary">
+              今天还没有运动记录
             </p>
-          </CardContent>
-        </Card>
+          ) : (
+            <div className="min-h-0 flex-1">
+              <ScrollFade className="h-full">
+                <div className="flex flex-col gap-1.5">
+                  {exerciseLogs.map((l) => (
+                    <div
+                      key={l.id}
+                      className="press-soft flex items-center justify-between rounded-lg border border-border bg-muted/40 px-3 py-2 text-caption-1-medium"
+                    >
+                      <span className="flex items-center gap-1.5 text-text-primary">
+                        <Activity className="size-3.5 text-success" /> {l.typeLabel || exerciseTypeLabels[l.type]}
+                      </span>
+                      <span className="tabular-nums text-text-tertiary">
+                        {new Date(l.startedAt).toLocaleTimeString("zh-CN", { hour12: false }).slice(0, 5)} · {Math.round(l.durationSeconds / 60)} 分钟
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </ScrollFade>
+            </div>
+          )}
+        </SectionCard>
 
         {/* 今日建议（Today Engine） */}
-        <Card>
-          <CardHeader className="flex-row items-center gap-2">
-            <ListChecks className="size-5 text-primary" />
-            <CardTitle>今日建议</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-1">
-            {plan.map((item, i) => {
-              const meta = planKindMeta[item.kind];
-              return (
-                <div key={i} className="flex items-start gap-3 rounded-xl px-2 py-2.5">
-                  <span
-                    className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
-                    style={{ backgroundColor: `${meta.color}1f`, color: meta.color }}
-                  >
-                    <meta.icon className="size-4" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-foreground">{item.label}</p>
-                    {item.hint ? <p className="mt-0.5 text-xs text-muted-foreground">{item.hint}</p> : null}
-                  </div>
-                  <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{item.time}</span>
-                </div>
-              );
-            })}
-          </CardContent>
-        </Card>
+        <SectionCard icon={ListChecks} title="今日建议" className="md:h-[340px]">
+          <div className="min-h-0 flex-1">
+            <ScrollFade className="h-full">
+              {plan.length === 0 ? (
+                <p className="py-2 text-center text-caption-1-medium text-text-tertiary">今天还没有建议</p>
+              ) : null}
+              <div className="flex flex-col gap-1">
+                {plan.map((item, i) => {
+                  const meta = planKindMeta[item.kind];
+                  return (
+                    <div key={i} className="flex items-start gap-3 rounded-xl px-2 py-2.5">
+                      <span
+                        className={cn(
+                          "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full",
+                          meta.chip,
+                          meta.tone
+                        )}
+                      >
+                        <meta.icon className="size-4" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-body-medium text-text-primary">{item.label}</p>
+                        {item.hint ? <p className="mt-0.5 text-caption-1-medium text-text-tertiary">{item.hint}</p> : null}
+                      </div>
+                      <span className="shrink-0 text-caption-1-medium tabular-nums text-text-tertiary">{item.time}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </ScrollFade>
+          </div>
+        </SectionCard>
 
         {/* 提醒 */}
-        <Card>
-          <CardHeader className="flex-row items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Bell className="size-5 text-primary" />
-              <CardTitle>提醒</CardTitle>
-            </div>
+        <SectionCard
+          icon={Bell}
+          title="提醒"
+          className="md:h-[340px]"
+          action={
             <Button variant="secondary" size="sm" onClick={() => setShowAddReminder((v) => !v)}>
               <Plus className="size-4" /> 添加提醒
             </Button>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            {reminders.length === 0 && !showAddReminder ? (
-              <div className="flex flex-col gap-2 py-2">
-                <p className="text-sm text-muted-foreground">还没有提醒，一键添加常用节奏：</p>
-                <div className="flex flex-wrap gap-2">
-                  {REMINDER_PRESETS.map((p) => (
-                    <button
-                      key={p.type}
-                      onClick={() => addReminderPreset(p)}
-                      className="rounded-full border border-border bg-muted/50 px-3 py-1.5 text-xs text-foreground transition-all hover:bg-muted/75"
-                    >
-                      {p.title} · 每 {p.intervalMinutes} 分钟
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
+          }
+        >
+          <div className="flex min-h-0 flex-1 flex-col gap-3">
             {showAddReminder ? (
-              <div className="flex flex-col gap-2 rounded-xl border border-border bg-muted/40 p-3">
+              <div className="flex shrink-0 flex-col gap-2 rounded-xl border border-border bg-muted/40 p-3">
                 <div className="grid gap-2 sm:grid-cols-2">
                   <select
                     value={rmType}
                     onChange={(e) => setRmType(e.target.value)}
-                    className="paper-select h-10 rounded-xl px-3 text-sm"
+                    className="paper-select h-10 rounded-xl px-3 text-body-medium"
                     aria-label="提醒类型"
                   >
                     {Object.entries(reminderTypeLabels).map(([k, v]) => (
@@ -1010,32 +1056,54 @@ export default function WellbeingPage() {
               </div>
             ) : null}
 
-            <div className="flex flex-col gap-2">
-              {reminders.map((r) => (
-                <div key={r.id} className="flex items-center gap-3 rounded-xl border border-border bg-muted/40 px-3 py-2.5">
-                  <span className="icon-chip h-9 w-9 shrink-0">
-                    <Bell className="size-4 text-primary" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">{r.title}</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {reminderTypeLabels[r.type] ?? r.type} · 每 {r.intervalMinutes} 分钟 · {r.startTime}-{r.endTime}
-                    </p>
-                  </div>
-                  <Switch checked={r.enabled} onCheckedChange={(v) => toggleReminder(r.id, v)} aria-label={`${r.title}开关`} />
-                  <button
-                    onClick={() => deleteReminder(r.id)}
-                    aria-label="删除提醒"
-                    className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-danger/15 hover:text-danger"
-                  >
-                    <Trash2 className="size-4" />
-                  </button>
+            {reminders.length === 0 && !showAddReminder ? (
+              <div className="flex shrink-0 flex-col gap-2">
+                <p className="text-body-medium text-text-secondary">还没有提醒，一键添加常用节奏：</p>
+                <div className="flex flex-wrap gap-2">
+                  {REMINDER_PRESETS.map((p) => (
+                    <button
+                      key={p.type}
+                      onClick={() => addReminderPreset(p)}
+                      className="rounded-full border border-border bg-muted/50 px-3 py-1.5 text-caption-1-medium text-text-primary transition-all hover:bg-muted/75"
+                    >
+                      {p.title} · 每 {p.intervalMinutes} 分钟
+                    </button>
+                  ))}
                 </div>
-              ))}
+              </div>
+            ) : null}
+
+            <div className="min-h-0 flex-1">
+              <ScrollFade className="h-full">
+                <div className="flex flex-col gap-2">
+                  {reminders.map((r) => (
+                    <div key={r.id} className="flex items-center gap-3 rounded-xl border border-border bg-muted/40 px-3 py-2.5">
+                      <span className="icon-chip h-9 w-9 shrink-0">
+                        <Bell className="size-4 text-primary" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-body-medium text-text-primary">{r.title}</p>
+                        <p className="text-caption-2-medium text-text-tertiary">
+                          {reminderTypeLabels[r.type] ?? r.type} · 每 {r.intervalMinutes} 分钟 · {r.startTime}-{r.endTime}
+                        </p>
+                      </div>
+                      <Switch checked={r.enabled} onCheckedChange={(v) => toggleReminder(r.id, v)} aria-label={r.title + "开关"} />
+                      <button
+                        onClick={() => deleteReminder(r.id)}
+                        aria-label="删除提醒"
+                        className="rounded-lg p-1.5 text-text-tertiary transition-colors hover:bg-danger/15 hover:text-danger"
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </ScrollFade>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </SectionCard>
       </div>
+
       <ExerciseSheet
         open={sportPickerOpen}
         mode="pick"
@@ -1045,7 +1113,6 @@ export default function WellbeingPage() {
           setExLabel(item.name);
         }}
       />
-
     </div>
   );
 }

@@ -1,19 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Habit, HabitLog } from "@learn-workbench/shared/schemas";
 import { HABIT_TEMPLATES, HABIT_WEEKDAY_LABELS } from "@learn-workbench/shared/labels";
 import { fromDateKey, isScheduled, toDateKey } from "@learn-workbench/shared/dates";
 import { todayISOInZone } from "@learn-workbench/shared/domains";
 import { computeHabitStats, isHabitDone } from "@learn-workbench/shared/pure";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { GlassModal } from "@/components/ui/modal";
 import { EmptyState } from "@/components/ui/empty-state";
-import { useToastStore } from "@/store/toast-store";
+import { PageHeader } from "@/components/ui/page-header";
 import { SectionLabel } from "@/components/ui/section-label";
+import { useToastStore } from "@/store/toast-store";
 import { cn } from "@/lib/utils";
 import { Plus, Trash2, Flame, Check, Loader2, Repeat, Pencil } from "lucide-react";
 
@@ -250,69 +250,52 @@ export default function HabitsPage() {
       ? 0
       : Math.round(habits.reduce((s, h) => s + (statsByHabit.get(h.id)?.weekRate ?? 0), 0) / habits.length);
 
+  /** hero 三张 KPI 卡（今日打卡 / 最长连续 / 本周完成率） */
+  const metrics = [
+    { label: "今日打卡", value: `${doneToday}/${scheduledToday}`, unit: "项", rate: null as number | null },
+    { label: "最长连续", value: String(bestStreak), unit: "天", rate: null as number | null },
+    { label: "本周完成率", value: String(weekRate), unit: "%", rate: Math.max(0, Math.min(100, weekRate)) },
+  ];
+
   return (
-    <div className="page-enter flex flex-col gap-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="min-w-0">
-          <h1 className="page-title text-2xl font-bold tracking-tight lg:text-3xl">习惯</h1>
-          <p className="page-subtitle mt-1 text-sm">
-            今日 {doneToday}/{scheduledToday} 已完成 · 连续打卡与热力图
-          </p>
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          <Button size="sm" variant="ghost" onClick={() => openCreate()} className="gap-1.5">
+    <div className="page-enter flex flex-col gap-5">
+      <PageHeader
+        title="习惯"
+        description={`今日 ${doneToday}/${scheduledToday} 已完成 · 连续打卡与热力图`}
+        actions={
+          <Button size="sm" variant="secondary" onClick={() => openCreate()} className="gap-1.5">
             <Plus className="size-4" /> 自定义习惯
           </Button>
-        </div>
-      </div>
+        }
+      />
 
-      {/* v8：习惯 hero（今日打卡 / 最长连续 / 本周完成率）—— 与健康页同一套视觉语言 */}
+      {/* 汇总：三张 KPI 卡同一行，替代原来的整宽渐变 hero */}
       {!loading && habits.length > 0 ? (
-        <Card className="relative overflow-hidden border-white/20 bg-gradient-to-br from-accent/12 via-card/70 to-primary/10 backdrop-blur-xl">
-          <div className="pointer-events-none absolute -left-20 -top-20 size-56 rounded-full bg-accent/20 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-24 -right-12 size-64 rounded-full bg-primary/15 blur-3xl" />
-          <CardContent className="relative grid gap-4 p-6 sm:grid-cols-3">
-            {[
-              { label: "今日打卡", value: `${doneToday}/${scheduledToday}`, unit: "项" },
-              { label: "最长连续", value: String(bestStreak), unit: "天" },
-              { label: "本周完成率", value: String(weekRate), unit: "%" },
-            ].map((s, i) => (
-              <div
-                key={s.label}
-                style={{ animationDelay: `${i * 70}ms` }}
-                className="rise-in lift flex items-center justify-between gap-3 rounded-2xl border border-white/15 bg-white/45 px-4 py-3 backdrop-blur-md dark:bg-white/5"
-              >
-                <div className="min-w-0">
-                  <div className="text-[11px] font-medium text-muted-foreground">{s.label}</div>
-                  <div className="stat-pop mt-0.5 text-3xl font-black tabular-nums">
-                    {s.value}
-                    <span className="ml-1 text-xs font-medium text-muted-foreground">{s.unit}</span>
-                  </div>
-                </div>
-                {s.label === "本周完成率" ? (
-                  <span
-                    aria-hidden
-                    className="ring-conic size-12 shrink-0 motion-reduce:transition-none"
-                    style={
-                      {
-                        "--ring-value": Math.max(0, Math.min(100, weekRate)),
-                        "--ring-from": "#2fb3a6",
-                        "--ring-to": "#8d7bd8",
-                        "--ring-size": "4px",
-                      } as CSSProperties
-                    }
-                  />
-                ) : null}
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+        <div className="grid gap-4 sm:grid-cols-3">
+          {metrics.map((s) => (
+            <section
+              key={s.label}
+              className="flex min-w-0 flex-col gap-1.5 rounded-3xl border border-border-button-default bg-background-secondary-default p-4"
+            >
+              <p className="text-body-medium text-text-secondary">{s.label}</p>
+              <p className="text-title-1-medium tabular-nums text-text-primary">
+                {s.value}
+                <span className="ms-1 text-body-medium text-text-secondary">{s.unit}</span>
+              </p>
+              {s.rate !== null ? (
+                <span className="mt-1 block h-1.5 w-full overflow-hidden rounded-full bg-background-tertiary-default">
+                  <span className="block h-full rounded-full bg-chart-1" style={{ width: `${s.rate}%` }} />
+                </span>
+              ) : null}
+            </section>
+          ))}
+        </div>
       ) : null}
 
       {loading ? (
-        <Card><CardContent className="flex items-center justify-center gap-2 p-8 text-sm text-muted-foreground">
+        <section className="flex items-center justify-center gap-2 rounded-3xl border border-border-button-default bg-background-secondary-default p-8 text-body-medium text-text-secondary">
           <Loader2 className="size-4 animate-spin" /> 加载中…
-        </CardContent></Card>
+        </section>
       ) : habits.length === 0 ? (
         <div className="flex flex-col gap-4">
           <EmptyState icon={Repeat} title="还没有习惯" hint="从下面的模板快速开始，或自定义一个" pattern="bauhaus" />
@@ -321,7 +304,7 @@ export default function HabitsPage() {
               <button
                 key={t.name}
                 onClick={() => openCreate(t)}
-                className="press-scale flex items-center gap-2 rounded-full border border-border/60 bg-card/50 px-3.5 py-2 text-sm transition-colors hover:border-primary/30 hover:bg-muted/60"
+                className="flex items-center gap-2 rounded-full border border-border-button-default bg-background-secondary-default px-3.5 py-2 text-body-medium text-text-primary transition-colors hover:bg-background-secondary-hover"
               >
                 <span>{t.icon}</span>
                 {t.name}
@@ -331,125 +314,139 @@ export default function HabitsPage() {
         </div>
       ) : (
         <>
-          {/* 今日打卡 */}
+          {/* 今日打卡：2–3 列卡片网格 */}
           <section className="flex flex-col gap-3">
             <SectionLabel>今日打卡</SectionLabel>
-            <div className="grid gap-3 lg:grid-cols-2">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {habits.map((h) => {
                 const v = logMap.get(logKey(h.id, todayKey));
                 const done = v !== undefined && isHabitDone(h, v);
                 const st = statsByHabit.get(h.id);
                 const scheduled = isScheduled(h.schedule, today);
                 return (
-                  <Card key={h.id} className={cn(!scheduled && "opacity-60")}>
-                    <CardContent className="flex items-center gap-3 p-4">
+                  <section
+                    key={h.id}
+                    className={cn(
+                      "flex min-w-0 items-center gap-3 rounded-3xl border border-border-button-default bg-background-primary-default p-4",
+                      !scheduled && "opacity-60"
+                    )}
+                  >
+                    <button
+                      onClick={() => void toggle(h)}
+                      disabled={busy === h.id}
+                      aria-label={done ? "取消打卡" : "打卡"}
+                      className={cn(
+                        "flex size-10 shrink-0 items-center justify-center rounded-2xl border transition-colors",
+                        done
+                          ? "border-transparent text-text-white"
+                          : "border-border-button-default text-foreground-icon-secondary hover:bg-background-secondary-hover"
+                      )}
+                      style={done ? { background: h.color } : undefined}
+                    >
+                      {busy === h.id ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : done ? (
+                        <Check className="check-draw size-5" />
+                      ) : (
+                        <span className="text-lg">{h.icon ?? "○"}</span>
+                      )}
+                    </button>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-body-semibold text-text-primary">{h.icon} {h.name}</span>
+                        {st && st.currentStreak > 0 ? (
+                          <span className="inline-flex items-center gap-0.5 text-caption-1-semibold text-status-orange-text">
+                            <Flame className="size-3" />{st.currentStreak}
+                          </span>
+                        ) : null}
+                        {!scheduled ? <Badge variant="muted">今日不排期</Badge> : null}
+                      </div>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-caption-1-regular text-text-tertiary">
+                        <span>近 7 天 {st?.weekRate ?? 0}%</span>
+                        <span>近 30 天 {st?.monthRate ?? 0}%</span>
+                        <span>最长 {st?.longestStreak ?? 0} 天</span>
+                      </div>
+
+                      {/* 近 7 天小条 */}
+                      <div className="mt-1.5 flex items-center gap-1">
+                        {last7.map((d) => {
+                          const dv = logMap.get(logKey(h.id, d.key));
+                          const dDone = dv !== undefined && isHabitDone(h, dv);
+                          const dSched = isScheduled(h.schedule, d.date);
+                          return (
+                            <span
+                              key={d.key}
+                              title={d.key}
+                              className={cn(
+                                "h-1.5 w-5 rounded-full",
+                                dDone ? "" : dSched ? "bg-background-tertiary-default" : "bg-background-secondary-default"
+                              )}
+                              style={dDone ? { background: h.color } : undefined}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {!h.isBoolean ? (
+                      <div className="flex shrink-0 items-center gap-1">
+                        <Input
+                          type="number"
+                          min={0}
+                          defaultValue={v ?? ""}
+                          onBlur={(e) => void setValue(h, e.target.value)}
+                          className="h-8 w-16 text-center text-caption-1-medium"
+                          aria-label={`${h.name} 数值`}
+                        />
+                        <span className="text-caption-1-regular text-text-tertiary">{h.unit ?? ""}</span>
+                      </div>
+                    ) : null}
+
+                    <div className="flex shrink-0 flex-col gap-1">
                       <button
-                        onClick={() => void toggle(h)}
-                        disabled={busy === h.id}
-                        aria-label={done ? "取消打卡" : "打卡"}
-                        className={cn(
-                          "press flex size-10 shrink-0 items-center justify-center rounded-2xl border transition-all",
-                          done
-                            ? "border-transparent text-white shadow-[0_6px_18px_-8px_rgba(0,0,0,0.45)]"
-                            : "border-border/70 text-muted-foreground hover:scale-105 hover:bg-muted/50"
-                        )}
-                        style={done ? { background: h.color } : undefined}
+                        onClick={() => openEdit(h)}
+                        className="rounded-lg p-1 text-foreground-icon-secondary hover:bg-background-secondary-hover hover:text-foreground-icon-primary"
+                        aria-label="编辑"
                       >
-                        {busy === h.id ? (
-                          <Loader2 className="size-4 animate-spin" />
-                        ) : done ? (
-                          <Check className="check-draw size-5" />
-                        ) : (
-                          <span className="text-lg">{h.icon ?? "○"}</span>
-                        )}
+                        <Pencil className="size-3.5" />
                       </button>
-
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="truncate text-sm font-semibold">{h.icon} {h.name}</span>
-                          {st && st.currentStreak > 0 ? (
-                            <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-warning">
-                              <Flame className="sport-anim-breathe size-3" />{st.currentStreak}
-                            </span>
-                          ) : null}
-                          {!scheduled ? <Badge variant="muted">今日不排期</Badge> : null}
-                        </div>
-                        <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-                          <span>近 7 天 {st?.weekRate ?? 0}%</span>
-                          <span>近 30 天 {st?.monthRate ?? 0}%</span>
-                          <span>最长 {st?.longestStreak ?? 0} 天</span>
-                        </div>
-
-                        {/* 近 7 天小条 */}
-                        <div className="mt-1.5 flex items-center gap-1">
-                          {last7.map((d) => {
-                            const dv = logMap.get(logKey(h.id, d.key));
-                            const dDone = dv !== undefined && isHabitDone(h, dv);
-                            const dSched = isScheduled(h.schedule, d.date);
-                            return (
-                              <span
-                                key={d.key}
-                                title={d.key}
-                                className={cn(
-                                  "h-1.5 w-5 rounded-full",
-                                  dDone ? "" : dSched ? "bg-muted" : "bg-muted/30"
-                                )}
-                                style={dDone ? { background: h.color } : undefined}
-                              />
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {!h.isBoolean ? (
-                        <div className="flex shrink-0 items-center gap-1">
-                          <Input
-                            type="number"
-                            min={0}
-                            defaultValue={v ?? ""}
-                            onBlur={(e) => void setValue(h, e.target.value)}
-                            className="h-8 w-16 text-center text-xs"
-                            aria-label={`${h.name} 数值`}
-                          />
-                          <span className="text-[11px] text-muted-foreground">{h.unit ?? ""}</span>
-                        </div>
-                      ) : null}
-
-                      <div className="flex shrink-0 flex-col gap-1">
-                        <button onClick={() => openEdit(h)} className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="编辑">
-                          <Pencil className="size-3.5" />
-                        </button>
-                        <button onClick={() => void remove(h)} className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-danger" aria-label="删除">
-                          <Trash2 className="size-3.5" />
-                        </button>
-                      </div>
-                    </CardContent>
-                  </Card>
+                      <button
+                        onClick={() => void remove(h)}
+                        className="rounded-lg p-1 text-foreground-icon-secondary hover:bg-background-tertiary-error hover:text-foreground-icon-error"
+                        aria-label="删除"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </div>
+                  </section>
                 );
               })}
             </div>
           </section>
 
-          {/* 完整热力图（趋势与档案层） */}
-          <SectionLabel>趋势与热力图</SectionLabel>
+          {/* 完整热力图（趋势与档案层）：2 列网格，不再逐条整宽堆叠 */}
           <section className="flex flex-col gap-3">
-            <h2 className="text-sm font-semibold">近 13 周热力图</h2>
-            <div className="flex flex-col gap-4">
+            <SectionLabel>趋势与热力图</SectionLabel>
+            <div className="grid gap-4 md:grid-cols-2">
               {habits.map((h) => (
-                <Card key={h.id}>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="flex items-center gap-2 text-sm">
+                <section
+                  key={h.id}
+                  className="flex min-w-0 flex-col overflow-hidden rounded-3xl border border-border-button-default bg-background-secondary-default"
+                >
+                  <div className="flex items-center gap-2 px-4 pb-2 pt-4">
+                    <h2 className="flex min-w-0 items-center gap-2 truncate text-headline-medium text-text-primary">
                       <span>{h.icon}</span>{h.name}
-                      <span className="ml-auto text-[11px] font-normal text-muted-foreground">
-                        近 90 天 {statsByHabit.get(h.id)?.monthRate ?? 0}%
-                      </span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
+                    </h2>
+                    <span className="ms-auto shrink-0 text-caption-1-regular text-text-tertiary">
+                      近 90 天 {statsByHabit.get(h.id)?.monthRate ?? 0}%
+                    </span>
+                  </div>
+                  <div className="px-4 pb-4">
                     <div className="flex gap-2">
                       <div className="flex flex-col gap-[3px] pt-[13px]">
                         {HABIT_WEEKDAY_LABELS.map((w, i) => (
-                          <span key={w} className="h-3 text-[11px] leading-3 text-muted-foreground">
+                          <span key={w} className="h-3 text-caption-2-regular leading-3 text-text-tertiary">
                             {i % 2 === 1 ? w : ""}
                           </span>
                         ))}
@@ -463,15 +460,18 @@ export default function HabitsPage() {
                             <span
                               key={d.key}
                               title={`${d.key}${dDone ? " 已完成" : dSched ? " 未完成" : " 不排期"}`}
-                              className={cn("size-3 rounded-[3px]", dDone ? "" : dSched ? "bg-muted" : "bg-muted/25")}
+                              className={cn(
+                                "size-3 rounded-[3px]",
+                                dDone ? "" : dSched ? "bg-background-tertiary-default" : "bg-background-tertiary-default/50"
+                              )}
                               style={dDone ? { background: h.color } : undefined}
                             />
                           );
                         })}
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </section>
               ))}
             </div>
           </section>
@@ -483,29 +483,39 @@ export default function HabitsPage() {
         <div className="flex flex-col gap-4">
           <div className="flex gap-3">
             <div className="w-20">
-              <label className="mb-1 block text-xs font-medium">图标</label>
+              <label className="mb-1 block text-caption-1-medium text-text-secondary">图标</label>
               <Input value={form.icon} onChange={(e) => setForm((s) => ({ ...s, icon: e.target.value.slice(0, 2) }))} className="text-center text-lg" />
             </div>
             <div className="flex-1">
-              <label className="mb-1 block text-xs font-medium">名称 *</label>
+              <label className="mb-1 block text-caption-1-medium text-text-secondary">名称 *</label>
               <Input value={form.name} onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))} placeholder="如：饮水 / 早睡" />
             </div>
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-medium">类型</label>
+            <label className="mb-1 block text-caption-1-medium text-text-secondary">类型</label>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => setForm((s) => ({ ...s, isBoolean: true }))}
-                className={cn("flex-1 rounded-xl border px-3 py-2 text-sm", form.isBoolean ? "border-primary/60 bg-primary/10" : "border-border/60 hover:bg-muted/50")}
+                className={cn(
+                  "flex-1 rounded-xl border px-3 py-2 text-body-medium",
+                  form.isBoolean
+                    ? "border-border-button-hover bg-background-secondary-hover text-text-primary"
+                    : "border-border-button-default text-text-secondary hover:bg-background-secondary-default"
+                )}
               >
                 打卡型（完成 / 未完成）
               </button>
               <button
                 type="button"
                 onClick={() => setForm((s) => ({ ...s, isBoolean: false }))}
-                className={cn("flex-1 rounded-xl border px-3 py-2 text-sm", !form.isBoolean ? "border-primary/60 bg-primary/10" : "border-border/60 hover:bg-muted/50")}
+                className={cn(
+                  "flex-1 rounded-xl border px-3 py-2 text-body-medium",
+                  !form.isBoolean
+                    ? "border-border-button-hover bg-background-secondary-hover text-text-primary"
+                    : "border-border-button-default text-text-secondary hover:bg-background-secondary-default"
+                )}
               >
                 量化型（记录数值）
               </button>
@@ -515,18 +525,18 @@ export default function HabitsPage() {
           {!form.isBoolean ? (
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-xs font-medium">目标值</label>
+                <label className="mb-1 block text-caption-1-medium text-text-secondary">目标值</label>
                 <Input type="number" value={form.targetValue} onChange={(e) => setForm((s) => ({ ...s, targetValue: e.target.value }))} placeholder="8" />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium">单位</label>
+                <label className="mb-1 block text-caption-1-medium text-text-secondary">单位</label>
                 <Input value={form.unit} onChange={(e) => setForm((s) => ({ ...s, unit: e.target.value }))} placeholder="杯 / 分钟 / 页" />
               </div>
             </div>
           ) : null}
 
           <div>
-            <label className="mb-1 block text-xs font-medium">排期（默认每天）</label>
+            <label className="mb-1 block text-caption-1-medium text-text-secondary">排期（默认每天）</label>
             <div className="flex gap-1.5">
               {HABIT_WEEKDAY_LABELS.map((label, idx) => {
                 const on = form.schedule.includes(idx);
@@ -541,8 +551,10 @@ export default function HabitsPage() {
                       })
                     }
                     className={cn(
-                      "size-8 rounded-full text-xs transition-colors",
-                      on ? "bg-primary/25 text-foreground ring-1 ring-primary/50" : "bg-muted/60 text-muted-foreground hover:bg-muted"
+                      "size-8 rounded-full text-caption-1-medium transition-colors",
+                      on
+                        ? "bg-background-secondary-hover text-text-primary ring-1 ring-border-button-hover"
+                        : "bg-background-secondary-default text-text-secondary hover:bg-background-secondary-hover"
                     )}
                   >
                     {label}
@@ -553,14 +565,14 @@ export default function HabitsPage() {
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-medium">颜色</label>
+            <label className="mb-1 block text-caption-1-medium text-text-secondary">颜色</label>
             <div className="flex gap-1.5">
               {COLORS.map((c) => (
                 <button
                   key={c}
                   type="button"
                   onClick={() => setForm((s) => ({ ...s, color: c }))}
-                  className={cn("size-7 rounded-full border-2", form.color === c ? "border-foreground" : "border-transparent")}
+                  className={cn("size-7 rounded-full border-2", form.color === c ? "border-border-button-hover" : "border-transparent")}
                   style={{ background: c }}
                   aria-label={`颜色 ${c}`}
                 />

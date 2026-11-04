@@ -1,6 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/ui/page-header";
 import { QuickLinks } from "@/components/settings/quick-links";
 import { AppearanceSection, AboutCard } from "./_components/appearance-section";
 import { JobsSettingsCard, SubscriptionsCard } from "./_components/jobs-settings-card";
@@ -27,13 +28,10 @@ export default function SettingsPage() {
   const account = useAccountSettings();
 
   return (
-    <div className="page-enter flex flex-col gap-6">
-      <div>
-        <h1 className="page-title text-2xl font-bold tracking-tight lg:text-3xl">设置</h1>
-        <p className="page-subtitle mt-1 text-sm">外观、背景图、数据备份与同步</p>
-      </div>
+    <div className="page-enter flex flex-col gap-5">
+      <PageHeader title="设置" description="外观、背景图、数据备份与同步" />
 
-      {backup.msg ? <Badge variant="success">{backup.msg}</Badge> : null}
+      {backup.msg ? <Badge variant="success" className="self-start">{backup.msg}</Badge> : null}
 
       {/* v8 P2：与 APP「我的」页一致的分组快捷入口（账号 / 学习与数据 / 健康 / 账号与安全） */}
       <QuickLinks />

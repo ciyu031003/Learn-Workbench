@@ -7,12 +7,13 @@ import type { DailyTask } from "@learn-workbench/shared/schemas";
 import { taskTypeLabels } from "@learn-workbench/shared/labels";
 import { formatDateCN } from "@learn-workbench/shared/dates";
 import { addDaysToDateKey, todayISOInZone } from "@learn-workbench/shared/domains";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { ScrollFade } from "@/components/ui/scroll-fade";
 import { CheckCircle2, Circle, ChevronLeft, ChevronRight, ListTodo, Play, Plus, Timer as TimerIcon, ArrowRight } from "lucide-react";
 import { FocusTimer } from "@/components/focus-timer";
 import { FocusStatsCard } from "@/components/focus-stats-card";
@@ -167,69 +168,81 @@ export default function TasksPage() {
   }, []);
 
   const totalFocus = tasks.reduce((a, t) => a + t.focusMinutes, 0);
+  const doneCount = tasks.filter((t) => t.done).length;
+  const allDone = tasks.length > 0 && doneCount === tasks.length;
 
   return (
-    <div className="page-enter flex flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="page-title text-2xl font-bold tracking-tight lg:text-3xl">每日任务</h1>
-          <p className="page-subtitle mt-1 text-sm">计划 → 专注 → 复盘，形成学习闭环</p>
-          {domain ? (
-            <Link href="/roadmap" className="mt-2 inline-flex items-center gap-2 rounded-xl border border-border bg-muted/40 px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-muted/70">
+    <div className="page-enter flex flex-col gap-5">
+      <PageHeader
+        title="每日任务"
+        description="计划 → 专注 → 复盘，形成学习闭环"
+        eyebrow={
+          domain ? (
+            <Link
+              href="/roadmap"
+              className="inline-flex items-center gap-2 rounded-xl border border-border-button-default bg-background-secondary-default py-1.5 pe-2.5 ps-2 transition-colors hover:bg-background-secondary-hover"
+            >
               <span
-                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg"
+                className="flex size-6 shrink-0 items-center justify-center rounded-lg"
                 style={{ backgroundColor: `${domain.color}26`, color: domain.color }}
               >
                 <DomainIcon icon={domain.icon} className="size-3.5" />
               </span>
-              <span className="max-w-40 truncate">{domain.name}</span>
-              <ArrowRight className="size-3.5 shrink-0 text-muted-foreground" />
+              <span className="max-w-40 truncate text-body-2-medium text-text-secondary">{domain.name}</span>
+              <ArrowRight className="size-3.5 shrink-0 text-foreground-icon-tertiary" />
             </Link>
-          ) : null}
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={() => shiftDate(-1)} aria-label="前一天">
-            <ChevronLeft className="size-4" />
-          </Button>
-          <Input
-            type="date"
-            aria-label="选择日期"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="w-40"
-          />
-          <Button variant="outline" size="icon" onClick={() => shiftDate(1)} aria-label="后一天">
-            <ChevronRight className="size-4" />
-          </Button>
-        </div>
-      </div>
+          ) : undefined
+        }
+        actions={
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" onClick={() => shiftDate(-1)} aria-label="前一天">
+              <ChevronLeft className="size-4" />
+            </Button>
+            <Input
+              type="date"
+              aria-label="选择日期"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="w-40"
+            />
+            <Button variant="outline" size="icon" onClick={() => shiftDate(1)} aria-label="后一天">
+              <ChevronRight className="size-4" />
+            </Button>
+          </div>
+        }
+      />
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* 专注计时：点击进入横屏倒计时 */}
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle>专注计时</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center gap-4 py-6">
-            <div className="flex items-center gap-2 font-mono text-4xl font-semibold tracking-tight tabular-nums">
-              <TimerIcon className="size-6 text-primary" />
+      {/* 专注计时 + 新建任务：3 列网格（1 + 2） */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <section className="flex min-w-0 flex-col overflow-hidden rounded-3xl border border-border-button-default bg-background-secondary-default">
+          <div className="flex items-center gap-2.5 px-5 pb-3 pt-5">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-background-primary-default">
+              <TimerIcon className="size-4 text-foreground-icon-secondary" />
+            </span>
+            <h2 className="min-w-0 truncate text-headline-medium text-text-primary">专注计时</h2>
+          </div>
+          <div className="flex flex-col items-center gap-4 px-5 pb-5 pt-1">
+            <div className="flex items-center gap-2 font-mono text-display-3-semibold tabular-nums text-text-primary">
+              <TimerIcon className="size-6 text-foreground-icon-secondary" />
               25:00
             </div>
             <Button onClick={() => openTimer(null, null)} className="w-full">
               <Play className="size-4" /> 开始倒计时
             </Button>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-center text-caption-1-regular text-text-tertiary">
               进入全屏横屏倒计时，可切换时钟样式；当日累计专注 {totalFocus} 分钟
             </p>
-          </CardContent>
-        </Card>
+          </div>
+        </section>
 
-        {/* 新建任务 */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>新建任务</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
+        <section className="flex min-w-0 flex-col overflow-hidden rounded-3xl border border-border-button-default bg-background-primary-default lg:col-span-2">
+          <div className="flex items-center gap-2.5 px-5 pb-3 pt-5">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-background-secondary-default">
+              <Plus className="size-4 text-foreground-icon-secondary" />
+            </span>
+            <h2 className="min-w-0 truncate text-headline-medium text-text-primary">新建任务</h2>
+          </div>
+          <div className="flex flex-col gap-3 px-5 pb-5">
             <Input
               ref={titleRef}
               placeholder="今天要学什么？（如：HCIP 路由交换第 3 章）"
@@ -243,7 +256,7 @@ export default function TasksPage() {
               <select
                 value={phaseId}
                 onChange={(e) => setPhaseId(e.target.value)}
-                className="paper-select h-10 rounded-xl px-3 text-sm"
+                className="h-10 rounded-xl border border-border-button-default bg-background-primary-default px-3 text-body-medium text-text-primary"
                 aria-label="选择路线图大类"
               >
                 <option value="">路线图大类（不限）</option>
@@ -268,119 +281,145 @@ export default function TasksPage() {
                 </Button>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       </div>
 
-      {/* 任务列表 */}
-      <Card>
-        <CardHeader className="flex-row items-center justify-between">
-          <CardTitle>{formatDateCN(date)} 的任务</CardTitle>
-          <Badge variant="muted">
-            {tasks.filter((t) => t.done).length}/{tasks.length} 已完成
-          </Badge>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2">
-          {tasks.length === 0 ? (
-            <EmptyState
-              icon={ListTodo}
-              title="这一天还没有任务"
-              hint="添加一个学习任务，开始「计划 → 专注 → 复盘」闭环"
-              pattern="bauhaus"
-              action={
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    titleRef.current?.focus();
-                    titleRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-                  }}
-                >
-                  <Plus className="size-4" /> 添加任务
-                </Button>
-              }
-            />
-          ) : (
-            tasks.map((t, i) => (
-              <div
-                key={t.id}
-                style={{ animationDelay: `${Math.min(i, 14) * 28}ms` }}
-                className={`rise-in flex items-center gap-3 rounded-xl border px-3 py-3 transition-colors ${t.done ? "border-success/20 bg-success/5" : "border-border/60 bg-muted/30 hover:border-primary/30 hover:bg-muted/50"}`}
-              >
-                <button
-                  onClick={() => toggleDone(t.id, !t.done)}
-                  aria-label={t.done ? "标记为未完成" : "标记为完成"}
-                  className="press -m-2 shrink-0 rounded-lg p-2"
-                >
-                  {t.done ? (
-                    <CheckCircle2 className="check-draw size-5 text-success" />
-                  ) : (
-                    <Circle className="size-5 text-muted-foreground/50 transition-transform hover:scale-110 hover:text-primary" />
-                  )}
-                </button>
-                <span className={`min-w-0 flex-1 text-sm font-medium ${t.done ? "text-muted-foreground line-through" : ""}`}>
-                  {t.title}
-                </span>
-                <Badge variant="muted">{taskTypeLabels[t.taskType] ?? t.taskType}</Badge>
-                {t.focusMinutes > 0 ? (
-                  <Badge variant="accent">{t.focusMinutes} 分钟</Badge>
-                ) : null}
-                <Button variant="ghost" size="icon" onClick={() => openTimer(t.id, t.title)} aria-label="开始专注">
-                  <Play className="size-4" />
-                </Button>
-              </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
-
-      {/* 分类专注统计：每一章大类的学习总时间 */}
-      <Card>
-        <CardHeader className="flex-row items-center gap-2">
-          <TimerIcon className="size-5 text-primary" />
-          <CardTitle>分类专注统计</CardTitle>
-          <Badge variant="muted">按路线图大类汇总</Badge>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2">
-          {stats.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">还没有专注记录，开始一次倒计时吧</p>
-          ) : (
-            stats.map((s, i) => (
-              <div
-                key={s.phaseId ?? 0}
-                style={{ animationDelay: `${Math.min(i, 12) * 30}ms` }}
-                className="rise-in press-soft flex flex-col gap-1.5 rounded-xl border border-border/60 bg-muted/30 px-3 py-2.5"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{s.phaseTitle}</span>
-                  <span className="shrink-0 text-sm text-muted-foreground">
-                    <span className="stat-pop font-semibold text-foreground">{s.totalMinutes} 分钟</span> · {s.sessionCount} 次
-                  </span>
-                </div>
-                <span className="progress-track h-1.5 w-full overflow-hidden rounded-full">
-                  <span
-                    className="progress-fill block h-full rounded-full transition-[width] duration-reveal ease-out motion-reduce:transition-none"
-                    style={{
-                      width: `${Math.max(
-                        4,
-                        Math.round((s.totalMinutes / Math.max(1, ...stats.map((x) => x.totalMinutes))) * 100)
-                      )}%`,
+      {/* 任务列表（卡内滚动）+ 分类专注统计：2/3 网格，页面不再被长列表拉长 */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <section className="flex min-w-0 flex-col overflow-hidden rounded-3xl border border-border-button-default bg-background-secondary-default lg:col-span-2 lg:h-[340px]">
+          <div className="flex items-center gap-2.5 px-5 pb-3 pt-5">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-background-primary-default">
+              <ListTodo className="size-4 text-foreground-icon-secondary" />
+            </span>
+            <h2 className="min-w-0 truncate text-headline-medium text-text-primary">{formatDateCN(date)} 的任务</h2>
+            <Badge variant="muted" className="ms-auto shrink-0">
+              {doneCount}/{tasks.length} 已完成
+            </Badge>
+          </div>
+          <div className="min-h-0 flex-1 px-5 pb-4">
+            {tasks.length === 0 ? (
+              <EmptyState
+                icon={ListTodo}
+                title="这一天还没有任务"
+                hint="添加一个学习任务，开始「计划 → 专注 → 复盘」闭环"
+                pattern="bauhaus"
+                action={
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      titleRef.current?.focus();
+                      titleRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
                     }}
-                  />
-                </span>
-              </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
+                  >
+                    <Plus className="size-4" /> 添加任务
+                  </Button>
+                }
+              />
+            ) : (
+              <ScrollFade className="h-full">
+                <div className="flex flex-col gap-2 pe-1">
+                  {tasks.map((t) => (
+                    <div
+                      key={t.id}
+                      className={`flex items-center gap-3 rounded-xl border px-3 py-3 transition-colors ${
+                        t.done
+                          ? "border-border-button-default bg-background-primary-default"
+                          : "border-border-button-default bg-background-primary-default hover:bg-background-secondary-hover"
+                      }`}
+                    >
+                      <button
+                        onClick={() => toggleDone(t.id, !t.done)}
+                        aria-label={t.done ? "标记为未完成" : "标记为完成"}
+                        className="-m-2 shrink-0 rounded-lg p-2"
+                      >
+                        {t.done ? (
+                          <CheckCircle2 className="check-draw size-5 text-success-strong" />
+                        ) : (
+                          <Circle className="size-5 text-foreground-icon-tertiary transition-colors hover:text-foreground-icon-primary" />
+                        )}
+                      </button>
+                      <span
+                        className={`min-w-0 flex-1 truncate text-body-medium ${
+                          t.done ? "text-text-tertiary line-through" : "text-text-primary"
+                        }`}
+                      >
+                        {t.title}
+                      </span>
+                      <Badge variant="muted">{taskTypeLabels[t.taskType] ?? t.taskType}</Badge>
+                      {t.focusMinutes > 0 ? (
+                        <Badge variant="accent">{t.focusMinutes} 分钟</Badge>
+                      ) : null}
+                      <Button variant="ghost" size="icon" onClick={() => openTimer(t.id, t.title)} aria-label="开始专注">
+                        <Play className="size-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </ScrollFade>
+            )}
+          </div>
+        </section>
 
-      {/* 专注打卡统计（计时完成 / 完成当日全部任务后可分享） */}
-      {tasks.length > 0 && tasks.every((t) => t.done) ? (
-        <div className="rise-in cta-breathe flex items-center gap-2 rounded-2xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-foreground">
-          今日任务已全部完成！生成你的专注打卡卡片分享一下吧
+        <section className="flex min-w-0 flex-col overflow-hidden rounded-3xl border border-border-button-default bg-background-secondary-default lg:h-[340px]">
+          <div className="flex items-center gap-2.5 px-5 pb-3 pt-5">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-background-primary-default">
+              <TimerIcon className="size-4 text-foreground-icon-secondary" />
+            </span>
+            <h2 className="min-w-0 truncate text-headline-medium text-text-primary">分类专注统计</h2>
+            <span className="ms-auto shrink-0 rounded-full bg-background-primary-default px-2 py-0.5 text-caption-1-medium text-text-secondary">
+              按路线图大类汇总
+            </span>
+          </div>
+          <div className="min-h-0 flex-1 px-5 pb-4">
+            {stats.length === 0 ? (
+              <p className="py-6 text-center text-body-medium text-text-secondary">还没有专注记录，开始一次倒计时吧</p>
+            ) : (
+              <ScrollFade className="h-full">
+                <div className="flex flex-col gap-2 pe-1">
+                  {stats.map((s) => (
+                    <div
+                      key={s.phaseId ?? 0}
+                      className="flex flex-col gap-1.5 rounded-xl border border-border-button-default bg-background-primary-default px-3 py-2.5"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="min-w-0 flex-1 truncate text-body-medium text-text-primary">{s.phaseTitle}</span>
+                        <span className="shrink-0 text-caption-1-regular text-text-secondary">
+                          <span className="font-semibold tabular-nums text-text-primary">{s.totalMinutes} 分钟</span> · {s.sessionCount} 次
+                        </span>
+                      </div>
+                      <span className="h-1.5 w-full overflow-hidden rounded-full bg-background-tertiary-default">
+                        <span
+                          className="block h-full rounded-full bg-chart-1"
+                          style={{
+                            width: `${Math.max(
+                              4,
+                              Math.round((s.totalMinutes / Math.max(1, ...stats.map((x) => x.totalMinutes))) * 100)
+                            )}%`,
+                          }}
+                        />
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </ScrollFade>
+            )}
+          </div>
+        </section>
+      </div>
+
+      {/* 专注打卡统计 + 完成提示：2/3 网格，避免单卡跨全宽 */}
+      <div id="focus" className="grid scroll-mt-24 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+        <div className="min-w-0 lg:col-span-2 xl:col-span-2">
+          <FocusStatsCard />
         </div>
-      ) : null}
-      <div id="focus" className="scroll-mt-24" />
-      <FocusStatsCard />
+        {allDone ? (
+          <section className="flex min-w-0 flex-col justify-center gap-2 rounded-3xl border border-border-button-default bg-background-secondary-default p-5">
+            <p className="text-headline-medium text-text-primary">今日任务已全部完成！</p>
+            <p className="text-body-medium text-text-secondary">生成你的专注打卡卡片分享一下吧</p>
+          </section>
+        ) : null}
+      </div>
 
       {celebration ? (
         <Celebration

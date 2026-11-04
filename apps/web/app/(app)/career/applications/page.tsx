@@ -7,7 +7,10 @@ import { KANBAN_COLUMNS, jobApplicationStageLabels, jobApplicationStageColors } 
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { GlassModal } from "@/components/ui/modal";
+import { PageHeader } from "@/components/ui/page-header";
+import { ScrollFade } from "@/components/ui/scroll-fade";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import { useToastStore } from "@/store/toast-store";
 import {
   ArrowRight, Building2, ChevronLeft, ExternalLink, Loader2, MapPin, MessageSquare, Trash2,
@@ -24,13 +27,13 @@ const BOARD_STYLES = `
 .ap-rise { animation: ap-rise 0.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
 .ap-pop  { animation: ap-pop 0.34s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
 .ap-stat { transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; }
-.ap-stat:hover { transform: translateY(-2px); box-shadow: 0 12px 28px -18px rgba(0, 0, 0, 0.6); }
+.ap-stat:hover { transform: translateY(-2px); box-shadow: var(--elev-2); }
 .ap-card {
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 .ap-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 16px 34px -22px rgba(0, 0, 0, 0.7);
+  box-shadow: var(--elev-2);
 }
 .ap-rail { display: block; height: 3px; width: 100%; border-radius: 999px; opacity: 0.85; }
 @media (prefers-reduced-motion: reduce) {
@@ -157,39 +160,42 @@ export default function ApplicationsPage() {
   };
 
   return (
-    <div className="page-enter flex flex-col gap-6">
+    <div className="page-enter flex flex-col gap-5">
       <style>{BOARD_STYLES}</style>
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="page-title text-2xl font-bold tracking-tight lg:text-3xl">我的求职</h1>
-          <p className="page-subtitle mt-1 text-sm">收藏 → 投递 → 笔试/面试 → Offer → 入职，全流程记录</p>
-        </div>
-        <div className="flex items-center gap-2">
+
+      <PageHeader
+        title="我的求职"
+        description="收藏 → 投递 → 笔试/面试 → Offer → 入职，全流程记录"
+        actions={
           <Button asChild variant="ghost" size="sm">
             <Link href="/jobs"><ChevronLeft className="size-4" /> 去招花找职位</Link>
           </Button>
-        </div>
-      </div>
+        }
+      />
 
-      {/* 统计 */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-9">
-        {STAGE_ORDER.map((s, i) => (
-          <div
-            key={s}
-            className="ap-stat ap-pop paper-card rounded-xl px-3 py-2.5 text-center"
-            style={{ animationDelay: `${i * 35}ms`, borderTopColor: jobApplicationStageColors[s], borderTopWidth: 2 }}
-            title={`${jobApplicationStageLabels[s]}：${stats?.[s] ?? 0} 条`}
-          >
-            <div className="text-lg font-black tabular-nums" style={{ color: jobApplicationStageColors[s] }}>
-              {stats?.[s] ?? 0}
+      {/* 阶段统计：2/3 列卡片网格，9 个阶段不再拉成一条超宽横条 */}
+      <section aria-label="求职阶段统计" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {STAGE_ORDER.map((s, i) => {
+          const color = jobApplicationStageColors[s];
+          return (
+            <div
+              key={s}
+              className="ap-stat ap-pop flex min-w-0 items-center gap-3 rounded-3xl border border-border-button-default bg-background-secondary-default px-4 py-3"
+              style={{ animationDelay: `${i * 35}ms` }}
+              title={`${jobApplicationStageLabels[s]}：${stats?.[s] ?? 0} 条`}
+            >
+              <span aria-hidden className="h-8 w-1 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+              <div className="min-w-0">
+                <div className="text-title-2-semibold tabular-nums text-text-primary">{stats?.[s] ?? 0}</div>
+                <div className="truncate text-caption-1-medium text-muted-foreground">{jobApplicationStageLabels[s]}</div>
+              </div>
             </div>
-            <div className="text-[11px] text-muted-foreground">{jobApplicationStageLabels[s]}</div>
-          </div>
-        ))}
-      </div>
+          );
+        })}
+      </section>
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 py-16 text-body-medium text-muted-foreground">
           <Loader2 className="size-4 animate-spin" /> 加载求职看板…
         </div>
       ) : apps.length === 0 ? (
@@ -206,108 +212,115 @@ export default function ApplicationsPage() {
           {KANBAN_COLUMNS.map((col) => {
             const colApps = apps.filter((a) => (col.stages as string[]).includes(a.stage));
             // 列色取该列首个阶段的语义色：让看板四列一眼可分，也和统计条同源
-            const colColor = jobApplicationStageColors[col.stages[0] as JobApplicationStage] ?? "#10b981";
+            const colColor = jobApplicationStageColors[col.stages[0] as JobApplicationStage];
             return (
-              <div key={col.key} className="flex flex-col gap-2">
-                <span className="ap-rail" style={{ backgroundColor: colColor }} aria-hidden />
-                <div className="flex items-center justify-between px-1">
-                  <h3 className="text-sm font-bold text-foreground">{col.label}</h3>
+              <section
+                key={col.key}
+                className="flex min-w-0 flex-col overflow-hidden rounded-3xl border border-border-button-default bg-background-secondary-default"
+              >
+                <span className="ap-rail shrink-0" style={{ backgroundColor: colColor }} aria-hidden />
+                <div className="flex items-center justify-between gap-2 px-4 pb-2 pt-3">
+                  <h3 className="truncate text-headline-medium text-text-primary">{col.label}</h3>
                   <span
-                    className="inline-flex min-w-6 items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-black text-white tabular-nums"
+                    className="inline-flex min-w-6 shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-caption-1-bold tabular-nums text-primary-foreground"
                     style={{ backgroundColor: colColor }}
                   >
                     {colApps.length}
                   </span>
                 </div>
-                <div className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-white/5 p-2 min-h-[120px]">
-                  {colApps.length === 0 ? (
-                    <p className="py-6 text-center text-xs text-muted-foreground">暂无</p>
-                  ) : (
-                    colApps.map((app, ci) => (
-                      <div
-                        key={app.id}
-                        className="ap-card ap-rise paper-card rounded-xl p-3"
-                        style={{ animationDelay: `${Math.min(ci, 10) * 45}ms` }}
-                      >
-                        <div className="flex items-start gap-2">
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-bold text-foreground">{app.jobTitle}</p>
-                            <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-                              <Building2 className="size-3" />
-                              <span className="truncate">{app.jobCompany || "未知公司"}</span>
-                            </p>
-                            <p className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
-                              <MapPin className="size-3" />
-                              {app.jobCity || "全国"}{app.jobSalary ? ` · ${app.jobSalary}` : ""}
-                            </p>
-                          </div>
-                          <span
-                            className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold text-white"
-                            style={{ backgroundColor: jobApplicationStageColors[app.stage] }}
+                <div className="px-3 pb-3">
+                  <ScrollFade className={cn("min-h-[120px]", colApps.length > 3 && "h-[340px]")}>
+                    <div className="flex flex-col gap-2 pe-1">
+                      {colApps.length === 0 ? (
+                        <p className="py-6 text-center text-caption-1-medium text-muted-foreground">暂无</p>
+                      ) : (
+                        colApps.map((app, ci) => (
+                          <div
+                            key={app.id}
+                            className="ap-card ap-rise rounded-2xl border border-border-button-default bg-background-primary-default p-3"
+                            style={{ animationDelay: `${Math.min(ci, 10) * 45}ms` }}
                           >
-                            {jobApplicationStageLabels[app.stage]}
-                          </span>
-                        </div>
-                        {/* 流程进度：这条求职走到全流程的第几步，一眼可见 */}
-                        <div className="mt-2 flex items-center gap-1.5" title={`流程进度 ${STAGE_ORDER.indexOf(app.stage) + 1}/${STAGE_ORDER.length}`}>
-                          <span className="h-1 flex-1 overflow-hidden rounded-full bg-white/10">
-                            <span
-                              className="block h-full rounded-full"
-                              style={{
-                                width: `${Math.round(((STAGE_ORDER.indexOf(app.stage) + 1) / STAGE_ORDER.length) * 100)}%`,
-                                backgroundColor: jobApplicationStageColors[app.stage],
-                              }}
-                            />
-                          </span>
-                          <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
-                            {STAGE_ORDER.indexOf(app.stage) + 1}/{STAGE_ORDER.length}
-                          </span>
-                        </div>
-                        {app.note ? (
-                          <p className="mt-2 rounded-lg bg-white/10 px-2 py-1.5 text-[11px] text-muted-foreground">{app.note}</p>
-                        ) : null}
-                        {(app.stage === "interview1" || app.stage === "interview2") ? (
-                          <div className="mt-2 flex flex-wrap items-center gap-2">
-                            <Button variant="ghost" size="sm" className="h-7 gap-1 px-2 text-[11px]" onClick={() => { setRecordTarget(app); setRecRating(0); setRecNote(""); }}>
-                              <MessageSquare className="size-3" /> 记录面试
-                            </Button>
-                            {attemptsByApp[String(app.id)] ? (
-                              <Link href="/career/interview" className="text-[11px] text-sky-300 hover:underline">
-                                已记录 {attemptsByApp[String(app.id)]} 场 · 去复盘
-                              </Link>
+                            <div className="flex items-start gap-2">
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-body-semibold text-text-primary">{app.jobTitle}</p>
+                                <p className="mt-0.5 flex items-center gap-1 text-caption-1-medium text-muted-foreground">
+                                  <Building2 className="size-3 shrink-0" />
+                                  <span className="truncate">{app.jobCompany || "未知公司"}</span>
+                                </p>
+                                <p className="mt-0.5 flex items-center gap-1 text-caption-1-medium text-muted-foreground">
+                                  <MapPin className="size-3 shrink-0" />
+                                  <span className="truncate">{app.jobCity || "全国"}{app.jobSalary ? ` · ${app.jobSalary}` : ""}</span>
+                                </p>
+                              </div>
+                              <span
+                                className="shrink-0 rounded-full px-2 py-0.5 text-caption-1-bold text-primary-foreground"
+                                style={{ backgroundColor: jobApplicationStageColors[app.stage] }}
+                              >
+                                {jobApplicationStageLabels[app.stage]}
+                              </span>
+                            </div>
+                            {/* 流程进度：这条求职走到全流程的第几步，一眼可见 */}
+                            <div className="mt-2 flex items-center gap-1.5" title={`流程进度 ${STAGE_ORDER.indexOf(app.stage) + 1}/${STAGE_ORDER.length}`}>
+                              <span className="h-1 flex-1 overflow-hidden rounded-full bg-background-tertiary-default">
+                                <span
+                                  className="block h-full rounded-full"
+                                  style={{
+                                    width: `${Math.round(((STAGE_ORDER.indexOf(app.stage) + 1) / STAGE_ORDER.length) * 100)}%`,
+                                    backgroundColor: jobApplicationStageColors[app.stage],
+                                  }}
+                                />
+                              </span>
+                              <span className="shrink-0 text-caption-1-medium tabular-nums text-muted-foreground">
+                                {STAGE_ORDER.indexOf(app.stage) + 1}/{STAGE_ORDER.length}
+                              </span>
+                            </div>
+                            {app.note ? (
+                              <p className="mt-2 rounded-lg bg-background-tertiary-default px-2 py-1.5 text-caption-1-medium text-muted-foreground">{app.note}</p>
                             ) : null}
+                            {(app.stage === "interview1" || app.stage === "interview2") ? (
+                              <div className="mt-2 flex flex-wrap items-center gap-2">
+                                <Button variant="ghost" size="sm" className="h-7 gap-1 px-2 text-caption-1-medium" onClick={() => { setRecordTarget(app); setRecRating(0); setRecNote(""); }}>
+                                  <MessageSquare className="size-3" /> 记录面试
+                                </Button>
+                                {attemptsByApp[String(app.id)] ? (
+                                  <Link href="/career/interview" className="text-caption-1-medium text-primary hover:underline">
+                                    已记录 {attemptsByApp[String(app.id)]} 场 · 去复盘
+                                  </Link>
+                                ) : null}
+                              </div>
+                            ) : null}
+                            <div className="mt-2.5 flex items-center gap-1 border-t border-separator-border pt-2">
+                              <Button variant="ghost" size="sm" className="h-7 px-2 text-caption-1-medium" disabled={busyId === Number(app.id)} onClick={() => move(app, -1)}>
+                                ←
+                              </Button>
+                              <select
+                                value={app.stage}
+                                onChange={(e) => setStage(app, e.target.value as JobApplicationStage)}
+                                className="paper-select h-7 min-w-0 flex-1 rounded-lg px-1.5 text-caption-1-medium"
+                              >
+                                {STAGE_ORDER.map((s) => (
+                                  <option key={s} value={s}>{jobApplicationStageLabels[s]}</option>
+                                ))}
+                              </select>
+                              <Button variant="ghost" size="sm" className="h-7 px-2 text-caption-1-medium" disabled={busyId === Number(app.id)} onClick={() => move(app, 1)}>
+                                →
+                              </Button>
+                              {app.jobUrl ? (
+                                <a href={app.jobUrl} target="_blank" rel="noreferrer" aria-label="查看原文" className="rounded-lg p-1.5 text-muted-foreground hover:bg-background-tertiary-default hover:text-text-primary">
+                                  <ExternalLink className="size-3.5" />
+                                </a>
+                              ) : null}
+                              <button type="button" onClick={() => remove(app)} aria-label="删除记录" className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-danger/15 hover:text-danger">
+                                <Trash2 className="size-3.5" />
+                              </button>
+                            </div>
                           </div>
-                        ) : null}
-                        <div className="mt-2.5 flex items-center gap-1 border-t border-white/10 pt-2">
-                          <Button variant="ghost" size="sm" className="h-7 px-2 text-[11px]" disabled={busyId === Number(app.id)} onClick={() => move(app, -1)}>
-                            ←
-                          </Button>
-                          <select
-                            value={app.stage}
-                            onChange={(e) => setStage(app, e.target.value as JobApplicationStage)}
-                            className="paper-select h-7 flex-1 rounded-lg px-1.5 text-[11px]"
-                          >
-                            {STAGE_ORDER.map((s) => (
-                              <option key={s} value={s}>{jobApplicationStageLabels[s]}</option>
-                            ))}
-                          </select>
-                          <Button variant="ghost" size="sm" className="h-7 px-2 text-[11px]" disabled={busyId === Number(app.id)} onClick={() => move(app, 1)}>
-                            →
-                          </Button>
-                          {app.jobUrl ? (
-                            <a href={app.jobUrl} target="_blank" rel="noreferrer" aria-label="查看原文" className="rounded-lg p-1.5 text-muted-foreground hover:bg-white/15 hover:text-foreground">
-                              <ExternalLink className="size-3.5" />
-                            </a>
-                          ) : null}
-                          <button type="button" onClick={() => remove(app)} aria-label="删除记录" className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-danger/15 hover:text-danger">
-                            <Trash2 className="size-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  )}
+                        ))
+                      )}
+                    </div>
+                  </ScrollFade>
                 </div>
-              </div>
+              </section>
             );
           })}
         </div>
@@ -316,8 +329,8 @@ export default function ApplicationsPage() {
       <GlassModal open={!!recordTarget} onClose={() => setRecordTarget(null)} title={`记录面试 · ${recordTarget?.jobTitle ?? ""}`}>
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-muted-foreground">自评（1-5）</label>
-            <select value={recRating} onChange={(e) => setRecRating(Number(e.target.value))} className="paper-select h-9 rounded-lg px-2 text-sm">
+            <label className="text-caption-1-medium text-muted-foreground">自评（1-5）</label>
+            <select value={recRating} onChange={(e) => setRecRating(Number(e.target.value))} className="paper-select h-9 rounded-lg px-2 text-body-medium">
               <option value={0}>未评分</option>
               {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n} 分</option>)}
             </select>

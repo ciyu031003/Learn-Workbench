@@ -5,14 +5,15 @@ import Link from "next/link";
 import type { Food, MealEntry, MealKind } from "@learn-workbench/shared/schemas";
 import { DEFAULT_NUTRITION_TARGETS, mealKindLabels } from "@learn-workbench/shared/labels";
 import { sumNutrition } from "@learn-workbench/shared/pure";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { GlassModal } from "@/components/ui/modal";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { ScrollFade } from "@/components/ui/scroll-fade";
 import { useToastStore } from "@/store/toast-store";
 import { cn } from "@/lib/utils";
-import { Plus, Trash2, Salad, Loader2, ChevronLeft, Search } from "lucide-react";
+import { Plus, Trash2, Salad, Loader2, ChevronLeft, Search, Flame, Utensils } from "lucide-react";
 import { FoodLibrarySearch } from "@/components/nutrition/food-library-search";
 import { RecipeInspiration } from "@/components/nutrition/recipe-inspiration";
 
@@ -23,7 +24,7 @@ function todayKey() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-/** 环形进度（Kcal / 蛋白 / 碳水 / 脂肪） */
+/** 环形进度（Kcal / 蛋白 / 碳水 / 脂肪）—— 颜色一律走主题 token，深浅色自动切换 */
 function MacroRing({
   label, value, target, unit, color,
 }: { label: string; value: number; target: number; unit: string; color: string }) {
@@ -35,7 +36,7 @@ function MacroRing({
     <div className="flex flex-col items-center gap-1">
       <div className="relative" style={{ width: size, height: size }}>
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
-          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="currentColor" strokeWidth={7} className="text-muted/40" />
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="currentColor" strokeWidth={7} className="text-muted" />
           <circle
             cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={7}
             strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - pct)}
@@ -43,11 +44,36 @@ function MacroRing({
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-sm font-bold tabular-nums">{Math.round(value)}</span>
-          <span className="text-[11px] text-muted-foreground">/ {target}{unit}</span>
+          <span className="text-body-semibold tabular-nums text-text-primary">{Math.round(value)}</span>
+          <span className="text-caption-2-medium text-text-tertiary">/ {target}{unit}</span>
         </div>
       </div>
-      <span className="text-[11px] font-medium text-muted-foreground">{label}</span>
+      <span className="text-caption-1-medium text-text-secondary">{label}</span>
+    </div>
+  );
+}
+
+/** 卡片头部（图标块 + 标题 + 右侧徽标），滚动区留在外部，长列表不顶掉标题 */
+function CardHead({
+  icon: Icon,
+  title,
+  badge,
+}: {
+  icon: typeof Flame;
+  title: string;
+  badge?: string;
+}) {
+  return (
+    <div className="flex shrink-0 items-center gap-2.5 px-5 pb-3 pt-4">
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-background-tertiary-default text-foreground-icon-primary">
+        <Icon className="size-4" aria-hidden />
+      </span>
+      <h2 className="min-w-0 truncate text-title-3-semibold text-text-primary">{title}</h2>
+      {badge ? (
+        <span className="ms-auto shrink-0 rounded-full bg-background-tertiary-default px-2 py-0.5 text-caption-1-medium text-text-secondary">
+          {badge}
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -184,22 +210,108 @@ export default function NutritionPage() {
   };
 
   return (
-    <div className="page-enter flex flex-col gap-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="min-w-0">
-          <Button size="sm" variant="ghost" asChild>
-            <Link href="/wellbeing"><ChevronLeft className="size-4" /> 健康</Link>
-          </Button>
-          <h1 className="page-title mt-1 flex items-center gap-2 text-2xl font-bold tracking-tight lg:text-3xl">
-            <Salad className="size-6 text-primary" /> 今日饮食
-          </h1>
-        </div>
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="h-9 w-40" />
-          <Button onClick={() => setOpen(true)} className="gap-2">
-            <Plus className="size-4" /> 添加
-          </Button>
-        </div>
+    <div className="page-enter flex flex-col gap-5">
+      <PageHeader
+        title="今日饮食"
+        description="记录三餐与营养摄入 · 食物库搜索或手动填写，自动汇总到今日营养环"
+        icon={<Salad className="size-5" />}
+        actions={
+          <>
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/wellbeing">
+                <ChevronLeft className="size-4" /> 健康
+              </Link>
+            </Button>
+            <Input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="h-9 w-40"
+              aria-label="用餐日期"
+            />
+            <Button onClick={() => setOpen(true)} className="gap-2">
+              <Plus className="size-4" /> 添加
+            </Button>
+          </>
+        }
+      />
+
+      {/* 指标卡 + 记录卡：桌面 2 列等宽，窄屏 1 列 */}
+      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+        {/* 营养环 */}
+        <section className="flex min-w-0 flex-col overflow-hidden rounded-3xl border border-border-button-default bg-background-secondary-default lg:h-[340px]">
+          <CardHead icon={Flame} title="今日营养" badge={`目标 ${targets.kcal} kcal`} />
+          <div className="flex flex-1 flex-wrap items-center justify-around gap-4 px-5 pb-5">
+            {[
+              { label: "热量", value: totals.kcal, target: targets.kcal, unit: "kcal", color: "var(--color-primary)" },
+              { label: "蛋白质", value: totals.proteinG, target: targets.proteinG, unit: "g", color: "var(--color-success)" },
+              { label: "碳水", value: totals.carbsG, target: targets.carbsG, unit: "g", color: "var(--color-warning)" },
+              { label: "脂肪", value: totals.fatG, target: targets.fatG, unit: "g", color: "var(--color-danger)" },
+            ].map((r, i) => (
+              <span key={r.label} className="rise-in" style={{ animationDelay: `${i * 70}ms` }}>
+                <MacroRing label={r.label} value={r.value} target={r.target} unit={r.unit} color={r.color} />
+              </span>
+            ))}
+          </div>
+        </section>
+
+        {/* 今日记录：按餐次分组，卡内滚动 + 顶部柔和渐隐 */}
+        <section className="flex min-w-0 flex-col overflow-hidden rounded-3xl border border-border-button-default bg-background-secondary-default lg:h-[340px]">
+          <CardHead icon={Utensils} title="今日记录" badge={`${entries.length} 条`} />
+          <div className="flex min-h-0 flex-1 flex-col px-5 pb-4">
+            {loading ? (
+              <div className="flex flex-1 items-center justify-center gap-2 text-body-medium text-text-secondary">
+                <Loader2 className="size-4 animate-spin" /> 加载中…
+              </div>
+            ) : entries.length === 0 ? (
+              <EmptyState
+                icon={Salad}
+                title="今天还没有记录"
+                hint="从常用食物里挑一个，或手动填写营养"
+                pattern="bauhaus"
+                className="flex-1 justify-center"
+              />
+            ) : (
+              <ScrollFade className="h-full">
+                {MEALS.map((m) => {
+                  const list = entries.filter((e) => e.meal === m);
+                  if (list.length === 0) return null;
+                  const sub = sumNutrition(list);
+                  return (
+                    <div key={m} className="border-b border-separator-border pb-2 last:border-b-0 last:pb-0">
+                      <div className="flex items-center justify-between py-1.5">
+                        <span className="text-caption-1-semibold text-text-secondary">{mealKindLabels[m]}</span>
+                        <span className="text-caption-1-medium tabular-nums text-text-tertiary">{sub.kcal} kcal</span>
+                      </div>
+                      <div className="flex flex-col divide-y divide-separator-border">
+                        {list.map((e) => (
+                          <div
+                            key={e.id}
+                            className="press-soft flex items-center justify-between gap-3 rounded-lg py-2 transition-colors hover:bg-background-tertiary-default/60"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-body-medium text-text-primary">{e.name}</p>
+                              <p className="text-caption-2-medium tabular-nums text-text-tertiary">
+                                {e.amount} {e.unit} · {e.kcal} kcal · P{e.proteinG} C{e.carbsG} F{e.fatG}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => void remove(e.id)}
+                              className="press shrink-0 rounded-lg p-1.5 text-text-tertiary transition-colors hover:bg-danger/12 hover:text-danger"
+                              aria-label="删除"
+                            >
+                              <Trash2 className="size-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </ScrollFade>
+            )}
+          </div>
+        </section>
       </div>
 
       {/* v8 P1：食物营养库搜索 + 按克录入（与 APP v6 对齐） */}
@@ -207,61 +319,6 @@ export default function NutritionPage() {
 
       {/* 2026-10 扩充：共享精选食谱（Web / App 同一份内容） */}
       <RecipeInspiration />
-
-      {/* 营养环 */}
-      <Card>
-        <CardContent className="flex flex-wrap items-center justify-around gap-4 p-5">
-          {[
-            { label: "热量", value: totals.kcal, target: targets.kcal, unit: "kcal", color: "var(--primary, #2f74c0)" },
-            { label: "蛋白质", value: totals.proteinG, target: targets.proteinG, unit: "g", color: "#16a34a" },
-            { label: "碳水", value: totals.carbsG, target: targets.carbsG, unit: "g", color: "#f59e0b" },
-            { label: "脂肪", value: totals.fatG, target: targets.fatG, unit: "g", color: "#dc2626" },
-          ].map((r, i) => (
-            <span key={r.label} className="rise-in" style={{ animationDelay: `${i * 70}ms` }}>
-              <MacroRing label={r.label} value={r.value} target={r.target} unit={r.unit} color={r.color} />
-            </span>
-          ))}
-        </CardContent>
-      </Card>
-
-      {loading ? (
-        <Card><CardContent className="flex items-center justify-center gap-2 p-8 text-sm text-muted-foreground">
-          <Loader2 className="size-4 animate-spin" /> 加载中…
-        </CardContent></Card>
-      ) : entries.length === 0 ? (
-        <EmptyState icon={Salad} title="今天还没有记录" hint="从常用食物里挑一个，或手动填写营养" pattern="bauhaus" />
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {MEALS.map((m, mi) => {
-            const list = entries.filter((e) => e.meal === m);
-            if (list.length === 0) return null;
-            const sub = sumNutrition(list);
-            return (
-              <Card key={m} style={{ animationDelay: `${mi * 60}ms` }} className="rise-in lift">
-                <CardHeader className="flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm">{mealKindLabels[m]}</CardTitle>
-                  <span className="text-[11px] text-muted-foreground tabular-nums">{sub.kcal} kcal</span>
-                </CardHeader>
-                <CardContent className="flex flex-col divide-y divide-border/50">
-                  {list.map((e) => (
-                    <div key={e.id} className="press-soft flex items-center justify-between gap-3 rounded-lg py-2 transition-colors hover:bg-muted/40">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm">{e.name}</p>
-                        <p className="text-[11px] text-muted-foreground tabular-nums">
-                          {e.amount} {e.unit} · {e.kcal} kcal · P{e.proteinG} C{e.carbsG} F{e.fatG}
-                        </p>
-                      </div>
-                      <button onClick={() => void remove(e.id)} className="press rounded-lg p-1.5 text-muted-foreground hover:bg-danger/12 hover:text-danger" aria-label="删除">
-                        <Trash2 className="size-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
 
       <GlassModal open={open} onClose={() => setOpen(false)} title="添加饮食" className="max-w-lg">
         <div className="flex flex-col gap-4">
@@ -295,14 +352,14 @@ export default function NutritionPage() {
                   key={f.id}
                   onClick={() => { setPicked(f); setName(f.name); }}
                   className={cn(
-                    "rounded-full border px-2.5 py-1 text-[11px] transition-colors",
+                    "rounded-full border px-2.5 py-1 text-caption-2-medium transition-colors",
                     picked?.id === f.id ? "border-primary/60 bg-primary/15" : "border-border/60 hover:bg-muted/50"
                   )}
                 >
                   {f.name} · {f.kcal}kcal/{f.unit}
                 </button>
               ))}
-              {foods.length === 0 ? <span className="text-[11px] text-muted-foreground">没有匹配的常用食物</span> : null}
+              {foods.length === 0 ? <span className="text-caption-2-medium text-muted-foreground">没有匹配的常用食物</span> : null}
             </div>
           </div>
 
@@ -324,7 +381,7 @@ export default function NutritionPage() {
                   ["kcal", "热量"], ["proteinG", "蛋白"], ["carbsG", "碳水"], ["fatG", "脂肪"],
                 ] as const).map(([key, label]) => (
                   <div key={key}>
-                    <label className="mb-1 block text-[11px] font-medium">{label}</label>
+                    <label className="mb-1 block text-caption-2-medium font-medium">{label}</label>
                     <Input
                       type="number"
                       value={manual[key]}
@@ -339,7 +396,7 @@ export default function NutritionPage() {
               </Button>
             </>
           ) : (
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-caption-2-medium text-muted-foreground">
               将按「{picked.name}」每 {picked.unit} {picked.kcal} kcal 计算 × {amount || 1}
             </p>
           )}

@@ -3,9 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { PageHeader } from "@/components/ui/page-header";
+import { ScrollFade } from "@/components/ui/scroll-fade";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { QUESTION_STATUS_LABEL, type QuestionStatus } from "@/lib/question-status";
 import { ArrowLeft, Loader2, ListChecks, BookOpen, Save, Search } from "lucide-react";
 
@@ -49,37 +53,31 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 export default function ContentManagePage() {
   const [tab, setTab] = useState<"questions" | "topics">("questions");
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-5 sm:p-7">
-      <header className="flex flex-col gap-2">
-        <Link href="/settings" className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline">
-          <ArrowLeft className="size-4" /> 返回设置
-        </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">内容管理</h1>
-        <p className="text-sm text-muted-foreground">
-          题目与知识点都存在数据库里；这里改完立即生效，前台不需要重新发布。
-        </p>
-      </header>
-      <div className="flex gap-2">
-        <TabButton active={tab === "questions"} onClick={() => setTab("questions")} icon={<ListChecks className="size-4" />} label="题目" />
-        <TabButton active={tab === "topics"} onClick={() => setTab("topics")} icon={<BookOpen className="size-4" />} label="知识点" />
-      </div>
+    <div className="page-enter flex flex-col gap-5">
+      <PageHeader
+        title="内容管理"
+        description="题目与知识点都存在数据库里；这里改完立即生效，前台不需要重新发布。"
+        icon={<BookOpen className="size-5 text-primary" />}
+        actions={
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/settings"><ArrowLeft className="size-4" /> 返回设置</Link>
+          </Button>
+        }
+      />
+
+      <Tabs value={tab} onValueChange={(value) => setTab(value as "questions" | "topics")}>
+        <TabsList>
+          <TabsTrigger value="questions">
+            <ListChecks className="size-4" /> 题目
+          </TabsTrigger>
+          <TabsTrigger value="topics">
+            <BookOpen className="size-4" /> 知识点
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       {tab === "questions" ? <QuestionsPanel /> : <TopicsPanel />}
     </div>
-  );
-}
-
-function TabButton({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={"inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors " +
-        (active ? "border-primary/40 bg-primary/10 text-primary" : "border-border/60 text-muted-foreground hover:text-foreground")}
-    >
-      {icon}
-      {label}
-    </button>
   );
 }
 
@@ -121,47 +119,53 @@ function QuestionsPanel() {
   }, [load]);
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-sm">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索题干" className="pl-9" aria-label="搜索题干" />
+    <div className={active ? "grid gap-4 xl:grid-cols-2 xl:items-start" : "flex flex-col gap-4"}>
+      <section className="flex min-w-0 flex-col rounded-3xl border border-border-button-default bg-background-secondary-default">
+        <div className="flex flex-wrap items-center gap-2 px-5 pb-3 pt-5">
+          <div className="relative w-full max-w-sm">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索题干" className="pl-9" aria-label="搜索题干" />
+          </div>
+          <select value={status} onChange={(event) => setStatus(event.target.value)} aria-label="按状态筛选" className="paper-select h-9 rounded-lg px-2 text-body-medium">
+            <option value="">全部状态</option>
+            {STATUSES.map((item) => <option key={item} value={item}>{QUESTION_STATUS_LABEL[item]}</option>)}
+          </select>
+          <span className="text-caption-1-medium text-muted-foreground">{loading ? "加载中…" : "共 " + total + " 道"}</span>
         </div>
-        <select value={status} onChange={(event) => setStatus(event.target.value)} aria-label="按状态筛选" className="paper-select h-9 rounded-lg px-2 text-sm">
-          <option value="">全部状态</option>
-          {STATUSES.map((item) => <option key={item} value={item}>{QUESTION_STATUS_LABEL[item]}</option>)}
-        </select>
-        <span className="text-xs text-muted-foreground">{loading ? "加载中…" : "共 " + total + " 道"}</span>
-      </div>
 
-      {error ? <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p> : null}
+        <div className="px-5 pb-5">
+          {error ? <p className="rounded-lg bg-danger/10 px-3 py-2 text-body-medium text-danger">{error}</p> : null}
 
-      {rows.length === 0 && !loading ? (
-        <EmptyState icon={ListChecks} title="没有匹配的题目" hint="换个关键词，或先跑一次内容同步。" />
-      ) : (
-        <div className="flex flex-col gap-2">
-          {rows.map((row) => (
-            <button
-              key={row.key}
-              type="button"
-              onClick={() => setActive(row)}
-              className="flex flex-col gap-1 rounded-lg border border-border/60 bg-card/40 p-3 text-left transition-colors hover:border-primary/40"
-            >
-              <span className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                <Badge variant="outline">{row.track_slug}</Badge>
-                <span>{row.type === "judge" ? "判断" : "单选"}</span>
-                <span>·</span>
-                <span>{row.level ?? "未分级"}</span>
-                <span>·</span>
-                <span>{DIFFICULTY_LABEL[row.difficulty] ?? row.difficulty}</span>
-                <span>·</span>
-                <span>{QUESTION_STATUS_LABEL[row.status as QuestionStatus] ?? row.status}</span>
-              </span>
-              <span className="line-clamp-2 text-sm">{row.stem}</span>
-            </button>
-          ))}
+          {rows.length === 0 && !loading ? (
+            <EmptyState icon={ListChecks} title="没有匹配的题目" hint="换个关键词，或先跑一次内容同步。" />
+          ) : (
+            <ScrollFade className="h-[340px]">
+              <div className="grid gap-2 pe-1 md:grid-cols-2">
+                {rows.map((row) => (
+                  <button
+                    key={row.key}
+                    type="button"
+                    onClick={() => setActive(row)}
+                    className="flex min-w-0 flex-col gap-1 rounded-2xl border border-border-button-default bg-background-primary-default p-3 text-left transition-colors hover:border-primary/40"
+                  >
+                    <span className="flex flex-wrap items-center gap-1.5 text-caption-1-medium text-muted-foreground">
+                      <Badge variant="outline">{row.track_slug}</Badge>
+                      <span>{row.type === "judge" ? "判断" : "单选"}</span>
+                      <span>·</span>
+                      <span>{row.level ?? "未分级"}</span>
+                      <span>·</span>
+                      <span>{DIFFICULTY_LABEL[row.difficulty] ?? row.difficulty}</span>
+                      <span>·</span>
+                      <span>{QUESTION_STATUS_LABEL[row.status as QuestionStatus] ?? row.status}</span>
+                    </span>
+                    <span className="line-clamp-2 text-body-medium text-text-primary">{row.stem}</span>
+                  </button>
+                ))}
+              </div>
+            </ScrollFade>
+          )}
         </div>
-      )}
+      </section>
 
       {active ? <QuestionEditor row={active} onClose={() => setActive(null)} onSaved={() => { setActive(null); void load(); }} /> : null}
     </div>
@@ -209,29 +213,31 @@ function QuestionEditor({ row, onClose, onSaved }: { row: QuestionRow; onClose: 
   };
 
   return (
-    <Card className="border-primary/30">
-      <CardContent className="flex flex-col gap-3 p-4">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-sm font-semibold">编辑题目 <span className="font-mono text-xs text-muted-foreground">{row.key}</span></p>
-          <button type="button" onClick={onClose} className="text-xs text-muted-foreground hover:text-foreground">关闭</button>
-        </div>
-        {error ? <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p> : null}
+    <section className="flex min-w-0 flex-col rounded-3xl border border-primary/30 bg-background-secondary-default">
+      <div className="flex items-center justify-between gap-2 px-5 pb-3 pt-5">
+        <p className="text-headline-medium text-text-primary">
+          编辑题目 <span className="font-mono text-caption-1-medium text-muted-foreground">{row.key}</span>
+        </p>
+        <button type="button" onClick={onClose} className="text-caption-1-medium text-muted-foreground hover:text-text-primary">关闭</button>
+      </div>
+      <div className="flex flex-col gap-3 px-5 pb-5">
+        {error ? <p className="rounded-lg bg-danger/10 px-3 py-2 text-body-medium text-danger">{error}</p> : null}
 
         <Field label="题干">
-          <textarea className="paper-textarea min-h-20 w-full rounded-lg p-2 text-sm" value={stem} onChange={(event) => setStem(event.target.value)} />
+          <Textarea className="min-h-20" value={stem} onChange={(event) => setStem(event.target.value)} />
         </Field>
         <Field label="选项（左侧为 key）">
           <div className="flex flex-col gap-1.5">
             {options.map((option, index) => (
               <div key={index} className="flex items-center gap-2">
-                <input
-                  className="paper-input w-10 rounded-lg px-2 py-1 text-center text-sm"
+                <Input
+                  className="h-8 w-12 px-2 text-center text-body-medium"
                   value={option.key}
                   onChange={(event) => setOptions(options.map((item, i) => (i === index ? { ...item, key: event.target.value } : item)))}
                   aria-label={"选项 " + (index + 1) + " key"}
                 />
-                <input
-                  className="paper-input flex-1 rounded-lg px-2 py-1 text-sm"
+                <Input
+                  className="h-8 flex-1 text-body-medium"
                   value={option.text}
                   onChange={(event) => setOptions(options.map((item, i) => (i === index ? { ...item, text: event.target.value } : item)))}
                   aria-label={"选项 " + (index + 1) + " 内容"}
@@ -240,45 +246,40 @@ function QuestionEditor({ row, onClose, onSaved }: { row: QuestionRow; onClose: 
             ))}
           </div>
         </Field>
-        <Field label="正确答案">
-          <select value={answer} onChange={(event) => setAnswer(event.target.value)} className="paper-select h-9 rounded-lg px-2 text-sm" aria-label="正确答案">
-            {options.map((option) => <option key={option.key} value={option.key}>{option.key}</option>)}
-          </select>
-        </Field>
-        <Field label="解析">
-          <textarea className="paper-textarea min-h-24 w-full rounded-lg p-2 text-sm" value={explanation} onChange={(event) => setExplanation(event.target.value)} />
-        </Field>
-        <Field label="标签（顿号或逗号分隔）">
-          <input className="paper-input w-full rounded-lg px-2 py-1 text-sm" value={tags} onChange={(event) => setTags(event.target.value)} />
-        </Field>
-        <div className="flex flex-wrap gap-3">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="正确答案">
+            <select value={answer} onChange={(event) => setAnswer(event.target.value)} className="paper-select h-9 rounded-lg px-2 text-body-medium" aria-label="正确答案">
+              {options.map((option) => <option key={option.key} value={option.key}>{option.key}</option>)}
+            </select>
+          </Field>
           <Field label="难度">
-            <select value={difficulty} onChange={(event) => setDifficulty(event.target.value)} className="paper-select h-9 rounded-lg px-2 text-sm" aria-label="难度">
+            <select value={difficulty} onChange={(event) => setDifficulty(event.target.value)} className="paper-select h-9 rounded-lg px-2 text-body-medium" aria-label="难度">
               {["easy", "medium", "hard"].map((item) => <option key={item} value={item}>{DIFFICULTY_LABEL[item]}</option>)}
             </select>
           </Field>
           <Field label="分级">
-            <select value={level} onChange={(event) => setLevel(event.target.value)} className="paper-select h-9 rounded-lg px-2 text-sm" aria-label="分级">
+            <select value={level} onChange={(event) => setLevel(event.target.value)} className="paper-select h-9 rounded-lg px-2 text-body-medium" aria-label="分级">
               {LEVELS.map((item) => <option key={item} value={item}>{item || "未分级"}</option>)}
             </select>
           </Field>
           <Field label="状态">
-            <select value={status} onChange={(event) => setStatus(event.target.value)} className="paper-select h-9 rounded-lg px-2 text-sm" aria-label="状态">
+            <select value={status} onChange={(event) => setStatus(event.target.value)} className="paper-select h-9 rounded-lg px-2 text-body-medium" aria-label="状态">
               {STATUSES.map((item) => <option key={item} value={item}>{QUESTION_STATUS_LABEL[item]}</option>)}
             </select>
           </Field>
         </div>
-        <button
-          type="button"
-          onClick={() => void save()}
-          disabled={saving}
-          className="inline-flex w-fit items-center gap-1.5 rounded-lg bg-primary/10 px-4 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/15 disabled:opacity-50"
-        >
+        <Field label="解析">
+          <Textarea className="min-h-24" value={explanation} onChange={(event) => setExplanation(event.target.value)} />
+        </Field>
+        <Field label="标签（顿号或逗号分隔）">
+          <Input value={tags} onChange={(event) => setTags(event.target.value)} />
+        </Field>
+        <Button onClick={() => void save()} disabled={saving} className="w-fit gap-1.5">
           {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
           保存
-        </button>
-      </CardContent>
-    </Card>
+        </Button>
+      </div>
+    </section>
   );
 }
 
@@ -318,38 +319,45 @@ function TopicsPanel() {
   }, [load]);
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-sm">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索知识点标题/摘要" className="pl-9" aria-label="搜索知识点" />
+    <div className={active ? "grid gap-4 xl:grid-cols-2 xl:items-start" : "flex flex-col gap-4"}>
+      <section className="flex min-w-0 flex-col rounded-3xl border border-border-button-default bg-background-secondary-default">
+        <div className="flex flex-wrap items-center gap-2 px-5 pb-3 pt-5">
+          <div className="relative w-full max-w-sm">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索知识点标题/摘要" className="pl-9" aria-label="搜索知识点" />
+          </div>
+          <span className="text-caption-1-medium text-muted-foreground">{loading ? "加载中…" : "共 " + total + " 个（仅显示前 " + rows.length + "）"}</span>
         </div>
-        <span className="text-xs text-muted-foreground">{loading ? "加载中…" : "共 " + total + " 个（仅显示前 " + rows.length + "）"}</span>
-      </div>
-      {error ? <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p> : null}
-      {rows.length === 0 && !loading ? (
-        <EmptyState icon={BookOpen} title="没有匹配的知识点" hint="换个关键词，或先跑一次内容同步。" />
-      ) : (
-        <div className="flex flex-col gap-2">
-          {rows.map((row) => (
-            <button
-              key={row.track_slug + "/" + row.key}
-              type="button"
-              onClick={() => setActive(row)}
-              className="flex flex-col gap-1 rounded-lg border border-border/60 bg-card/40 p-3 text-left transition-colors hover:border-primary/40"
-            >
-              <span className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                <Badge variant="outline">{row.track_slug}</Badge>
-                <span>{row.stage_key}</span>
-                <span>·</span>
-                <span>{row.status}</span>
-              </span>
-              <span className="text-sm font-medium">{row.title}</span>
-              <span className="line-clamp-2 text-xs text-muted-foreground">{row.summary}</span>
-            </button>
-          ))}
+        <div className="px-5 pb-5">
+          {error ? <p className="rounded-lg bg-danger/10 px-3 py-2 text-body-medium text-danger">{error}</p> : null}
+          {rows.length === 0 && !loading ? (
+            <EmptyState icon={BookOpen} title="没有匹配的知识点" hint="换个关键词，或先跑一次内容同步。" />
+          ) : (
+            <ScrollFade className="h-[340px]">
+              <div className="grid gap-2 pe-1 md:grid-cols-2">
+                {rows.map((row) => (
+                  <button
+                    key={row.track_slug + "/" + row.key}
+                    type="button"
+                    onClick={() => setActive(row)}
+                    className="flex min-w-0 flex-col gap-1 rounded-2xl border border-border-button-default bg-background-primary-default p-3 text-left transition-colors hover:border-primary/40"
+                  >
+                    <span className="flex flex-wrap items-center gap-1.5 text-caption-1-medium text-muted-foreground">
+                      <Badge variant="outline">{row.track_slug}</Badge>
+                      <span>{row.stage_key}</span>
+                      <span>·</span>
+                      <span>{row.status}</span>
+                    </span>
+                    <span className="text-body-medium text-text-primary">{row.title}</span>
+                    <span className="line-clamp-2 text-caption-1-medium text-muted-foreground">{row.summary}</span>
+                  </button>
+                ))}
+              </div>
+            </ScrollFade>
+          )}
         </div>
-      )}
+      </section>
+
       {active ? <TopicEditor row={active} onClose={() => setActive(null)} onSaved={() => { setActive(null); void load(); }} /> : null}
     </div>
   );
@@ -397,47 +405,44 @@ function TopicEditor({ row, onClose, onSaved }: { row: TopicRow; onClose: () => 
   };
 
   return (
-    <Card className="border-primary/30">
-      <CardContent className="flex flex-col gap-3 p-4">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-sm font-semibold">编辑知识点 <span className="font-mono text-xs text-muted-foreground">{row.track_slug}/{row.key}</span></p>
-          <button type="button" onClick={onClose} className="text-xs text-muted-foreground hover:text-foreground">关闭</button>
-        </div>
-        {error ? <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p> : null}
-        <Field label="标题"><input className="paper-input w-full rounded-lg px-2 py-1 text-sm" value={title} onChange={(event) => setTitle(event.target.value)} /></Field>
-        <Field label="摘要"><textarea className="paper-textarea min-h-16 w-full rounded-lg p-2 text-sm" value={summary} onChange={(event) => setSummary(event.target.value)} /></Field>
+    <section className="flex min-w-0 flex-col rounded-3xl border border-primary/30 bg-background-secondary-default">
+      <div className="flex items-center justify-between gap-2 px-5 pb-3 pt-5">
+        <p className="text-headline-medium text-text-primary">
+          编辑知识点 <span className="font-mono text-caption-1-medium text-muted-foreground">{row.track_slug}/{row.key}</span>
+        </p>
+        <button type="button" onClick={onClose} className="text-caption-1-medium text-muted-foreground hover:text-text-primary">关闭</button>
+      </div>
+      <div className="flex flex-col gap-3 px-5 pb-5">
+        {error ? <p className="rounded-lg bg-danger/10 px-3 py-2 text-body-medium text-danger">{error}</p> : null}
+        <Field label="标题"><Input value={title} onChange={(event) => setTitle(event.target.value)} /></Field>
+        <Field label="摘要"><Textarea className="min-h-16" value={summary} onChange={(event) => setSummary(event.target.value)} /></Field>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="概念（一行一条）"><textarea className="paper-textarea min-h-24 w-full rounded-lg p-2 text-sm" value={concepts} onChange={(event) => setConcepts(event.target.value)} /></Field>
-          <Field label="原理（一行一条）"><textarea className="paper-textarea min-h-24 w-full rounded-lg p-2 text-sm" value={principles} onChange={(event) => setPrinciples(event.target.value)} /></Field>
-          <Field label="应用（一行一条）"><textarea className="paper-textarea min-h-24 w-full rounded-lg p-2 text-sm" value={applications} onChange={(event) => setApplications(event.target.value)} /></Field>
-          <Field label="常见坑（一行一条）"><textarea className="paper-textarea min-h-24 w-full rounded-lg p-2 text-sm" value={pitfalls} onChange={(event) => setPitfalls(event.target.value)} /></Field>
+          <Field label="概念（一行一条）"><Textarea className="min-h-24" value={concepts} onChange={(event) => setConcepts(event.target.value)} /></Field>
+          <Field label="原理（一行一条）"><Textarea className="min-h-24" value={principles} onChange={(event) => setPrinciples(event.target.value)} /></Field>
+          <Field label="应用（一行一条）"><Textarea className="min-h-24" value={applications} onChange={(event) => setApplications(event.target.value)} /></Field>
+          <Field label="常见坑（一行一条）"><Textarea className="min-h-24" value={pitfalls} onChange={(event) => setPitfalls(event.target.value)} /></Field>
         </div>
-        <Field label="学习方法"><textarea className="paper-textarea min-h-16 w-full rounded-lg p-2 text-sm" value={method} onChange={(event) => setMethod(event.target.value)} /></Field>
-        <Field label="练习"><textarea className="paper-textarea min-h-16 w-full rounded-lg p-2 text-sm" value={exercise} onChange={(event) => setExercise(event.target.value)} /></Field>
-        <Field label="检查点"><textarea className="paper-textarea min-h-16 w-full rounded-lg p-2 text-sm" value={checkpoint} onChange={(event) => setCheckpoint(event.target.value)} /></Field>
+        <Field label="学习方法"><Textarea className="min-h-16" value={method} onChange={(event) => setMethod(event.target.value)} /></Field>
+        <Field label="练习"><Textarea className="min-h-16" value={exercise} onChange={(event) => setExercise(event.target.value)} /></Field>
+        <Field label="检查点"><Textarea className="min-h-16" value={checkpoint} onChange={(event) => setCheckpoint(event.target.value)} /></Field>
         <Field label="状态">
-          <select value={status} onChange={(event) => setStatus(event.target.value)} className="paper-select h-9 rounded-lg px-2 text-sm" aria-label="知识点状态">
+          <select value={status} onChange={(event) => setStatus(event.target.value)} className="paper-select h-9 rounded-lg px-2 text-body-medium" aria-label="知识点状态">
             {STATUSES.map((item) => <option key={item} value={item}>{QUESTION_STATUS_LABEL[item]}</option>)}
           </select>
         </Field>
-        <button
-          type="button"
-          onClick={() => void save()}
-          disabled={saving}
-          className="inline-flex w-fit items-center gap-1.5 rounded-lg bg-primary/10 px-4 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/15 disabled:opacity-50"
-        >
+        <Button onClick={() => void save()} disabled={saving} className="w-fit gap-1.5">
           {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
           保存
-        </button>
-      </CardContent>
-    </Card>
+        </Button>
+      </div>
+    </section>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
-    <label className="flex flex-col gap-1">
-      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+    <label className={className ? `flex flex-col gap-1 ${className}` : "flex flex-col gap-1"}>
+      <span className="text-caption-1-medium text-muted-foreground">{label}</span>
       {children}
     </label>
   );

@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import type { SkillOption, SkillRecommendResult, UserSkillView } from "@learn-workbench/shared/schemas";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
+import { ScrollFade } from "@/components/ui/scroll-fade";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, GraduationCap, Plus, RefreshCw, Sparkles, X } from "lucide-react";
 import { MarketGapsCard } from "@/components/skills/market-gaps-card";
@@ -126,101 +128,116 @@ export default function CareerSkillsPage() {
   }
 
   const catalogFiltered = catalog.filter((c) => !skills.some((s) => s.id === c.id));
+  const recommendFiltered = recommends.filter((r) => !skills.some((s) => s.id === r.id));
 
   return (
-    <div className="page-enter flex flex-col gap-6">
-      <div className="flex items-center gap-3">
-        <Button asChild variant="ghost" size="sm">
-          <Link href="/career"><ChevronLeft className="size-4" /> 职业画像</Link>
-        </Button>
-        <h1 className="page-title text-2xl font-bold tracking-tight">技能树</h1>
-        <Badge variant="muted">{skills.length} 项技能</Badge>
-      </div>
+    <div className="page-enter flex flex-col gap-5">
+      <PageHeader
+        title="技能树"
+        description="按分类维护技能等级，岗位匹配与市场能力缺口都按这份画像计算"
+        eyebrow={<Badge variant="muted">{skills.length} 项技能</Badge>}
+        actions={
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/career"><ChevronLeft className="size-4" /> 职业画像</Link>
+          </Button>
+        }
+      />
 
       {error ? (
-        <Card><CardContent className="p-4 text-sm text-danger">{error}</CardContent></Card>
+        <section className="rounded-3xl border border-danger/30 bg-danger/10 p-4 text-body-medium text-danger">{error}</section>
       ) : null}
 
       {/* 学习 × 招聘打通：市场高频需求 × 我的能力缺口 */}
       <MarketGapsCard />
 
-      {/* 技能画像冷启动：按目标职业推荐 */}
-      {recommends.filter((r) => !skills.some((s) => s.id === r.id)).length > 0 ? (
-        <Card>
-          <CardHeader className="flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Sparkles className="size-5 text-accent" /> 按职业推荐技能
-            </CardTitle>
-            {recommendCareer ? <Badge variant="muted">{recommendCareer}</Badge> : null}
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2">
-            <div className="flex flex-wrap gap-2">
-              {recommends
-                .filter((r) => !skills.some((s) => s.id === r.id))
-                .map((r) => (
+      <div className="grid gap-4 xl:grid-cols-2 xl:items-start">
+        {/* 技能画像冷启动：按目标职业推荐 */}
+        {recommendFiltered.length > 0 ? (
+          <section className="flex min-w-0 flex-col rounded-3xl border border-border-button-default bg-background-secondary-default">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-5 pb-3 pt-5">
+              <div className="flex items-center gap-2">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-background-tertiary-default">
+                  <Sparkles className="size-4 text-accent" />
+                </span>
+                <h2 className="text-headline-medium text-text-primary">按职业推荐技能</h2>
+              </div>
+              {recommendCareer ? <Badge variant="muted">{recommendCareer}</Badge> : null}
+            </div>
+            <div className="flex flex-col gap-2 px-5 pb-5">
+              <div className="flex flex-wrap gap-2">
+                {recommendFiltered.map((r) => (
                   <button
                     key={r.id}
                     type="button"
                     onClick={() => addRecommended(r.id)}
-                    className="group inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs text-foreground transition-colors hover:border-primary/50 hover:bg-primary/10"
+                    className="group inline-flex items-center gap-1.5 rounded-full border border-border-button-default bg-background-primary-default px-3 py-1.5 text-caption-1-medium text-text-primary transition-colors hover:border-primary/50 hover:bg-primary/10"
                   >
                     <Plus className="size-3 text-primary" />
                     {r.name}
-                    <span className="text-[11px] text-muted-foreground">{CATEGORY_LABELS[r.category] ?? "其他"}</span>
+                    <span className="text-caption-2-medium text-muted-foreground">{CATEGORY_LABELS[r.category] ?? "其他"}</span>
                   </button>
                 ))}
+              </div>
+              <p className="text-caption-1-medium text-muted-foreground">点击即添加为「入门」等级（可随后调整），用于计算岗位匹配度与能力缺口。</p>
             </div>
-            <p className="text-xs text-muted-foreground">点击即添加为「入门」等级（可随后调整），用于计算岗位匹配度与能力缺口。</p>
-          </CardContent>
-        </Card>
-      ) : null}
+          </section>
+        ) : null}
 
-      {/* 添加技能 */}
-      <Card>
-        <CardHeader className="flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-2"><GraduationCap className="size-5 text-primary" /> 技能画像</CardTitle>
-          <Button variant="secondary" size="sm" onClick={backfillFromResume} disabled={adding}>
-            {adding ? <RefreshCw className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
-            从简历资产回填
-          </Button>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="搜索技能库添加技能，如 Python / Docker"
-              className="h-10 w-full max-w-xs rounded-xl border border-white/25 bg-white/12 px-3 text-sm text-foreground outline-none backdrop-blur-md placeholder:text-muted-foreground focus:border-primary/60"
-            />
-            <select
-              value={selected?.id ?? ""}
-              onChange={(e) => {
-                const opt = catalogFiltered.find((c) => c.id === Number(e.target.value));
-                setSelected(opt ?? null);
-              }}
-              className="paper-select h-10 rounded-xl px-3 text-sm"
-            >
-              <option value="">选择技能…</option>
-              {catalogFiltered
-                .filter((c) => !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.aliases.some((a) => a.toLowerCase().includes(search.toLowerCase())))
-                .map((c) => (
-                  <option key={c.id} value={c.id}>{CATEGORY_LABELS[c.category] ?? "其他"} · {c.name}</option>
-                ))}
-            </select>
-            <select value={newLevel} onChange={(e) => setNewLevel(Number(e.target.value))} className="paper-select h-10 rounded-xl px-3 text-sm">
-              {LEVEL_LABELS.map((l, i) => <option key={l} value={i}>{i} · {l}</option>)}
-            </select>
-            <Button size="sm" onClick={addSkill} disabled={!selected}>
-              <Plus className="size-4" /> 添加
+        {/* 添加技能 */}
+        <section className="flex min-w-0 flex-col rounded-3xl border border-border-button-default bg-background-secondary-default">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-5 pb-3 pt-5">
+            <div className="flex items-center gap-2">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-background-tertiary-default">
+                <GraduationCap className="size-4 text-primary" />
+              </span>
+              <h2 className="text-headline-medium text-text-primary">技能画像</h2>
+            </div>
+            <Button variant="secondary" size="sm" onClick={backfillFromResume} disabled={adding}>
+              {adding ? <RefreshCw className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+              从简历资产回填
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">技能来源：resume_assets 自动回填（source=resume）或手动维护（source=manual）。岗位匹配度按此画像计算。</p>
-        </CardContent>
-      </Card>
+          <div className="flex flex-col gap-3 px-5 pb-5">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="搜索技能库添加技能，如 Python / Docker"
+                aria-label="搜索技能"
+              />
+              <select
+                value={selected?.id ?? ""}
+                onChange={(e) => {
+                  const opt = catalogFiltered.find((c) => c.id === Number(e.target.value));
+                  setSelected(opt ?? null);
+                }}
+                aria-label="选择技能"
+                className="paper-select h-10 rounded-xl px-3 text-body-medium"
+              >
+                <option value="">选择技能…</option>
+                {catalogFiltered
+                  .filter((c) => !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.aliases.some((a) => a.toLowerCase().includes(search.toLowerCase())))
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>{CATEGORY_LABELS[c.category] ?? "其他"} · {c.name}</option>
+                  ))}
+              </select>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <select value={newLevel} onChange={(e) => setNewLevel(Number(e.target.value))} aria-label="等级" className="paper-select h-10 rounded-xl px-3 text-body-medium">
+                {LEVEL_LABELS.map((l, i) => <option key={l} value={i}>{i} · {l}</option>)}
+              </select>
+              <Button size="sm" onClick={addSkill} disabled={!selected}>
+                <Plus className="size-4" /> 添加
+              </Button>
+            </div>
+            <p className="text-caption-1-medium text-muted-foreground">技能来源：resume_assets 自动回填（source=resume）或手动维护（source=manual）。岗位匹配度按此画像计算。</p>
+          </div>
+        </section>
+      </div>
 
-      {/* 技能分组展示 */}
+      {/* 技能分组展示：2 列卡片网格，长列表卡内滚动 */}
       {loading ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">加载中…</p>
+        <p className="py-8 text-center text-body-medium text-muted-foreground">加载中…</p>
       ) : skills.length === 0 ? (
         <EmptyState
           icon={GraduationCap}
@@ -231,39 +248,44 @@ export default function CareerSkillsPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {Array.from(grouped.entries()).map(([cat, list]) => (
-            <Card key={cat}>
-              <CardHeader>
-                <CardTitle className="text-sm">{CATEGORY_LABELS[cat] ?? "其他"} · {list.length}</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-2">
-                {list.map((s) => (
-                  <div key={s.id} className="flex items-center gap-3 rounded-xl border border-white/15 bg-muted/30 px-3 py-2.5">
-                    <span className="min-w-0 flex-1 truncate text-sm font-semibold">{s.name}</span>
-                    <div className="flex items-center gap-1">
-                      {LEVEL_LABELS.map((_, i) => (
-                        <button
-                          key={i}
-                          type="button"
-                          aria-label={`设技能 ${s.name} 为 ${LEVEL_LABELS[i]}`}
-                          onClick={() => updateLevel(s.id, i)}
-                          className={cn(
-                            "size-3 rounded-full transition-all",
-                            i <= s.level ? "bg-gradient-to-br from-emerald-400 to-cyan-500" : "bg-white/15 hover:bg-white/25"
-                          )}
-                        />
-                      ))}
-                    </div>
-                    <span className="w-10 text-right text-xs text-muted-foreground">{LEVEL_LABELS[s.level]}</span>
-                    {s.source !== "manual" ? (
-                      <Badge variant="muted" className="text-[11px]">{s.source === "resume" ? "简历" : s.source}</Badge>
-                    ) : null}
-                    <button type="button" onClick={() => removeSkill(s.id)} aria-label={`移除 ${s.name}`} className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-danger/15 hover:text-danger">
-                      <X className="size-3.5" />
-                    </button>
+            <section key={cat} className="flex min-w-0 flex-col rounded-3xl border border-border-button-default bg-background-secondary-default">
+              <div className="flex items-center gap-2 px-5 pb-2 pt-4">
+                <h2 className="text-headline-medium text-text-primary">{CATEGORY_LABELS[cat] ?? "其他"}</h2>
+                <Badge variant="muted">{list.length}</Badge>
+              </div>
+              <div className="px-5 pb-4">
+                <ScrollFade className={list.length > 5 ? "h-[300px]" : ""}>
+                  <div className="flex flex-col gap-2 pe-1">
+                    {list.map((s) => (
+                      <div key={s.id} className="flex items-center gap-3 rounded-xl border border-border-button-default bg-background-primary-default px-3 py-2.5">
+                        <span className="min-w-0 flex-1 truncate text-body-medium text-text-primary">{s.name}</span>
+                        <div className="flex shrink-0 items-center gap-1">
+                          {LEVEL_LABELS.map((_, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              aria-label={`设技能 ${s.name} 为 ${LEVEL_LABELS[i]}`}
+                              onClick={() => updateLevel(s.id, i)}
+                              className={cn(
+                                "size-3 rounded-full transition-all",
+                                i <= s.level ? "bg-primary" : "bg-background-tertiary-default hover:bg-background-tertiary-hover"
+                              )}
+                            />
+                          ))}
+                        </div>
+                        <span className="w-12 shrink-0 text-right text-caption-1-medium text-muted-foreground">{LEVEL_LABELS[s.level]}</span>
+                        {s.source !== "manual" ? (
+                          <Badge variant="muted" className="text-caption-2-medium">{s.source === "resume" ? "简历" : s.source}</Badge>
+                        ) : null}
+                        <button type="button" onClick={() => removeSkill(s.id)} aria-label={`移除 ${s.name}`} className="shrink-0 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-danger/15 hover:text-danger">
+                          <X className="size-3.5" />
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </CardContent>
-            </Card>
+                </ScrollFade>
+              </div>
+            </section>
           ))}
         </div>
       )}

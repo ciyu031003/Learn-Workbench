@@ -4,13 +4,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { Workout, WorkoutItem } from "@learn-workbench/shared/schemas";
 import { workoutVolume } from "@learn-workbench/shared/pure";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { GlassModal } from "@/components/ui/modal";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { ScrollFade } from "@/components/ui/scroll-fade";
 import { useToastStore } from "@/store/toast-store";
 import { NumberStepper } from "@/components/workout/number-stepper";
 import { ExercisePicker } from "@/components/workout/exercise-picker";
@@ -27,6 +28,27 @@ interface DraftItem {
 }
 
 const EMPTY_ITEM: DraftItem = { exerciseKey: null, exerciseLabel: "", sets: "4", reps: "8", weightKg: "" };
+
+/** 顶部指标块：窄屏 2 列 / 大屏 4 列，只读汇总，不参与写入。 */
+function StatTile({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof Dumbbell;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1 rounded-2xl border border-border-button-default bg-background-secondary-default px-4 py-3">
+      <span className="flex items-center gap-1.5 text-caption-1-medium text-text-secondary">
+        <Icon className="size-3.5 shrink-0 text-foreground-icon-tertiary" aria-hidden />
+        <span className="truncate">{label}</span>
+      </span>
+      <span className="text-title-3-semibold tabular-nums text-text-primary">{value}</span>
+    </div>
+  );
+}
 
 export default function WorkoutPage() {
   const pushToast = useToastStore((s) => s.push);
@@ -64,6 +86,10 @@ export default function WorkoutPage() {
   }, [load]);
 
   const totals = useMemo(() => workoutVolume(workouts.flatMap((w) => w.items)), [workouts]);
+  const totalMinutes = useMemo(
+    () => workouts.reduce((sum, w) => sum + Math.round((w.durationSeconds ?? 0) / 60), 0),
+    [workouts]
+  );
 
   const resetForm = () => {
     setName("训练");
@@ -127,82 +153,102 @@ export default function WorkoutPage() {
   };
 
   return (
-    <div className="page-enter flex flex-col gap-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="ghost" asChild>
-              <Link href="/wellbeing"><ChevronLeft className="size-4" /> 健康</Link>
+    <div className="page-enter flex flex-col gap-5">
+      <PageHeader
+        title="训练记录"
+        description="轻量记录动作 / 组数 / 次数 / 重量 · 近 60 天"
+        icon={<Dumbbell className="size-5" />}
+        actions={
+          <>
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/wellbeing">
+                <ChevronLeft className="size-4" /> 健康
+              </Link>
             </Button>
-          </div>
-          <h1 className="page-title mt-1 flex items-center gap-2 text-2xl font-bold tracking-tight lg:text-3xl">
-            <Dumbbell className="size-6 text-primary" /> 训练记录
-          </h1>
-          <p className="page-subtitle mt-1 text-sm">
-            轻量记录动作 / 组数 / 次数 / 重量 · 近 60 天 {workouts.length} 次 · 总容量 {totals.volumeKg.toLocaleString("zh-CN")} kg
-          </p>
-        </div>
-        <div className="ml-auto">
-          <Button onClick={() => setOpen(true)} className="gap-2">
-            <Plus className="size-4" /> 记录训练
-          </Button>
-        </div>
+            <Button onClick={() => setOpen(true)} className="gap-2">
+              <Plus className="size-4" /> 记录训练
+            </Button>
+          </>
+        }
+      />
+
+      {/* 指标条：2 列（窄屏）/ 4 列（大屏），避免一排超宽数字条贯穿整页 */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatTile icon={Dumbbell} label="近 60 天训练" value={`${workouts.length} 次`} />
+        <StatTile icon={Timer} label="累计时长" value={`${totalMinutes} 分钟`} />
+        <StatTile icon={Dumbbell} label="总组数 / 总次数" value={`${totals.sets} / ${totals.reps}`} />
+        <StatTile icon={Dumbbell} label="总容量" value={`${totals.volumeKg.toLocaleString("zh-CN")} kg`} />
       </div>
 
       {loading ? (
-        <Card><CardContent className="flex items-center justify-center gap-2 p-8 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 rounded-3xl border border-border-button-default bg-background-secondary-default p-8 text-body-medium text-text-secondary">
           <Loader2 className="size-4 animate-spin" /> 加载中…
-        </CardContent></Card>
+        </div>
       ) : workouts.length === 0 ? (
         <EmptyState icon={Dumbbell} title="还没有训练记录" hint="记录一次训练，动作与容量会自动汇总" pattern="bauhaus" />
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
           {workouts.map((w, wi) => {
             const v = workoutVolume(w.items);
             return (
-              <Card key={w.id} style={{ animationDelay: `${Math.min(wi, 10) * 45}ms` }} className="rise-in lift">
-                <CardHeader className="flex-row items-start justify-between pb-2">
+              <article
+                key={w.id}
+                style={{ animationDelay: `${Math.min(wi, 10) * 45}ms` }}
+                className="rise-in flex h-[340px] min-w-0 flex-col overflow-hidden rounded-3xl border border-border-button-default bg-background-secondary-default"
+              >
+                <header className="flex shrink-0 items-start justify-between gap-3 px-5 pb-2 pt-4">
                   <div className="min-w-0">
-                    <CardTitle className="truncate text-sm">{w.name}</CardTitle>
-                    <p className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                    <h2 className="truncate text-headline-medium text-text-primary">{w.name}</h2>
+                    <p className="mt-0.5 flex flex-wrap items-center gap-2 text-caption-1-medium text-text-secondary">
                       <span>{w.exercisedOn}</span>
                       {w.durationSeconds > 0 ? (
-                        <span className="inline-flex items-center gap-1"><Timer className="size-3" />{Math.round(w.durationSeconds / 60)} 分钟</span>
+                        <span className="inline-flex items-center gap-1">
+                          <Timer className="size-3" />
+                          {Math.round(w.durationSeconds / 60)} 分钟
+                        </span>
                       ) : null}
                     </p>
                   </div>
-                  <button onClick={() => void remove(w)} className="press rounded-lg p-1.5 text-muted-foreground hover:bg-danger/12 hover:text-danger" aria-label="删除">
+                  <button
+                    onClick={() => void remove(w)}
+                    className="press shrink-0 rounded-lg p-1.5 text-text-tertiary transition-colors hover:bg-danger/12 hover:text-danger"
+                    aria-label="删除"
+                  >
                     <Trash2 className="size-3.5" />
                   </button>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-2">
-                  {w.items.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">无动作明细</p>
-                  ) : (
-                    <div className="flex flex-col divide-y divide-border/50">
-                      {w.items.map((it: WorkoutItem, i) => (
-                        <div
-                          key={it.id ?? i}
-                          style={{ animationDelay: `${Math.min(i, 10) * 25}ms` }}
-                          className="rise-in press-soft flex items-center justify-between gap-3 rounded-md py-1.5 text-xs transition-colors hover:bg-muted/40"
-                        >
-                          <span className="min-w-0 truncate font-medium">{it.exerciseLabel}</span>
-                          <span className="shrink-0 text-muted-foreground tabular-nums">
-                            {it.sets} × {it.reps}
-                            {it.weightKg !== null ? ` · ${it.weightKg}kg` : ""}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <div className="mt-1 flex flex-wrap gap-1.5">
-                    <Badge variant="muted">{v.sets} 组</Badge>
-                    <Badge variant="muted">{v.reps} 次</Badge>
-                    {v.volumeKg > 0 ? <Badge variant="accent">{v.volumeKg.toLocaleString("zh-CN")} kg</Badge> : null}
-                  </div>
-                  {w.note ? <p className="text-[11px] text-muted-foreground">{w.note}</p> : null}
-                </CardContent>
-              </Card>
+                </header>
+
+                {/* 动作明细：卡内滚动，顶部柔和渐隐（长训练不再把卡片拉长） */}
+                <div className="min-h-0 flex-1 px-5 pb-1">
+                  <ScrollFade className="h-full">
+                    {w.items.length === 0 ? (
+                      <p className="text-body-2-medium text-text-tertiary">无动作明细</p>
+                    ) : (
+                      <div className="flex flex-col divide-y divide-separator-border">
+                        {w.items.map((it: WorkoutItem, i) => (
+                          <div
+                            key={it.id ?? i}
+                            className="press-soft flex items-center justify-between gap-3 rounded-md py-1.5 text-body-2-medium transition-colors hover:bg-background-tertiary-default/60"
+                          >
+                            <span className="min-w-0 truncate font-medium text-text-primary">{it.exerciseLabel}</span>
+                            <span className="shrink-0 tabular-nums text-text-secondary">
+                              {it.sets} × {it.reps}
+                              {it.weightKg !== null ? ` · ${it.weightKg}kg` : ""}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {w.note ? <p className="mt-2 text-caption-1-medium text-text-tertiary">{w.note}</p> : null}
+                  </ScrollFade>
+                </div>
+
+                <footer className="flex shrink-0 flex-wrap items-center gap-1.5 border-t border-separator-border px-5 py-3">
+                  <Badge variant="muted">{v.sets} 组</Badge>
+                  <Badge variant="muted">{v.reps} 次</Badge>
+                  {v.volumeKg > 0 ? <Badge variant="accent">{v.volumeKg.toLocaleString("zh-CN")} kg</Badge> : null}
+                </footer>
+              </article>
             );
           })}
         </div>

@@ -2,16 +2,16 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { GlassModal } from "@/components/ui/modal";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { useToastStore } from "@/store/toast-store";
 import { DomainIcon } from "@/components/domain-icon";
 import { useDomainStore } from "@/store/domain-store";
-import { Gauge, Plus, Trash2, Pencil, BarChart3 } from "lucide-react";
+import { Gauge, Plus, Trash2, Pencil, ArrowRight } from "lucide-react";
 import { todayISO } from "@learn-workbench/shared/dates";
 
 interface Tracker {
@@ -177,151 +177,170 @@ export default function TrackersPage() {
   const targetLabel = (t: Tracker) =>
     t.target_value != null ? `${CADENCE_LABELS[t.target_cadence ?? ""] ?? ""}目标 ${t.target_value}${t.unit}` : null;
 
+  const summary = [
+    { label: "今日投入", value: totalTodayValue, unit: "", hint: `${overview.todayCount} 项已记录` },
+    { label: "记录项", value: trackers.length, unit: "个", hint: "按领域归集" },
+  ];
+
   return (
-    <div className="page-enter flex flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="page-title text-2xl font-bold tracking-tight lg:text-3xl">领域记录</h1>
-          <p className="page-subtitle mt-1 text-sm">单词量 · 训练量 · 阅读页数… 用一组可自定义的计量项记录每日投入</p>
-          {domain ? (
-            <Link href="/roadmap" className="mt-2 inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-medium backdrop-blur-xl backdrop-saturate-150 transition-colors hover:bg-white/18">
+    <div className="page-enter flex flex-col gap-5">
+      <PageHeader
+        title="领域记录"
+        description="单词量 · 训练量 · 阅读页数… 用一组可自定义的计量项记录每日投入"
+        eyebrow={
+          domain ? (
+            <Link
+              href="/roadmap"
+              className="inline-flex items-center gap-2 rounded-xl border border-border-button-default bg-background-secondary-default py-1.5 pe-2.5 ps-2 transition-colors hover:bg-background-secondary-hover"
+            >
               <span
-                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg"
+                className="flex size-6 shrink-0 items-center justify-center rounded-lg"
                 style={{ backgroundColor: `${domain.color}26`, color: domain.color }}
               >
                 <DomainIcon icon={domain.icon} className="size-3.5" />
               </span>
-              <span className="max-w-44 truncate">{domain.name}</span>
+              <span className="max-w-44 truncate text-body-2-medium text-text-secondary">{domain.name}</span>
               <Badge variant="muted">{domain.kindLabel}</Badge>
+              <ArrowRight className="size-3.5 shrink-0 text-foreground-icon-tertiary" />
             </Link>
-          ) : null}
-        </div>
-        <Button onClick={openCreate}>
-          <Plus className="size-4" /> 新建记录项
-        </Button>
-      </div>
+          ) : undefined
+        }
+        actions={
+          <Button onClick={openCreate}>
+            <Plus className="size-4" /> 新建记录项
+          </Button>
+        }
+      />
 
       {trackers.length === 0 ? (
-        <Card>
-          <CardContent className="p-4">
-            <EmptyState
-              icon={Gauge}
-              title="还没有记录项"
-              hint="先建一个，比如「每日单词量（个）」「羽毛球训练（分钟）」「阅读页数」"
-              pattern="bauhaus"
-              action={
-                <Button size="sm" onClick={openCreate}>
-                  <Plus className="size-4" /> 新建记录项
-                </Button>
-              }
-            />
-          </CardContent>
-        </Card>
+        <section className="rounded-3xl border border-border-button-default bg-background-secondary-default p-4">
+          <EmptyState
+            icon={Gauge}
+            title="还没有记录项"
+            hint="先建一个，比如「每日单词量（个）」「羽毛球训练（分钟）」「阅读页数」"
+            pattern="bauhaus"
+            action={
+              <Button size="sm" onClick={openCreate}>
+                <Plus className="size-4" /> 新建记录项
+              </Button>
+            }
+          />
+        </section>
       ) : (
         <>
-          <Card>
-            <CardContent className="flex items-center justify-between gap-3 p-5">
-              <div className="flex items-center gap-3">
-                <span className="rise-in flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15">
-                  <BarChart3 className="size-5" />
-                </span>
-                <div>
-                  <p className="text-sm font-medium">今日投入</p>
-                  <p className="text-xs text-muted-foreground">
-                    {overview.todayCount} 项已记录 · 合计 {totalTodayValue}
-                  </p>
-                </div>
-              </div>
-              <span className="stat-pop text-2xl font-semibold tabular-nums">{totalTodayValue}</span>
-            </CardContent>
-          </Card>
+          {/* 今日投入：三张 KPI 卡，不再是一条超宽横条 */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            {summary.map((s) => (
+              <section
+                key={s.label}
+                className="flex min-w-0 flex-col gap-1 rounded-3xl border border-border-button-default bg-background-secondary-default p-4"
+              >
+                <p className="text-body-medium text-text-secondary">{s.label}</p>
+                <p className="text-title-1-medium tabular-nums text-text-primary">
+                  {s.value}
+                  {s.unit ? <span className="ms-1 text-body-medium text-text-secondary">{s.unit}</span> : null}
+                </p>
+                <p className="text-caption-1-regular text-text-tertiary">{s.hint}</p>
+              </section>
+            ))}
+          </div>
 
-          {trackers.map((t, ti) => {
-            const logs = logsByTracker[t.id] ?? [];
-            const todayLog = logs.find((l) => l.log_date === today);
-            return (
-              <Card key={t.id} style={{ animationDelay: `${Math.min(ti, 10) * 45}ms` }} className="rise-in lift">
-                <CardHeader className="flex-row items-center justify-between">
-                  <div className="flex items-center gap-2">
+          {/* 记录项：多列卡片网格，长历史留在卡内 */}
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {trackers.map((t) => {
+              const logs = logsByTracker[t.id] ?? [];
+              const todayLog = logs.find((l) => l.log_date === today);
+              return (
+                <section
+                  key={t.id}
+                  className="flex min-w-0 flex-col overflow-hidden rounded-3xl border border-border-button-default bg-background-primary-default"
+                >
+                  <div className="flex items-center gap-2 px-4 pb-2 pt-4">
                     <span
-                      className="flex h-8 w-8 items-center justify-center rounded-lg"
+                      className="flex size-8 shrink-0 items-center justify-center rounded-xl"
                       style={{ backgroundColor: `${t.color}26`, color: t.color }}
                     >
                       <Gauge className="size-4" />
                     </span>
-                    <CardTitle className="text-base">{t.name}</CardTitle>
+                    <h2 className="min-w-0 truncate text-headline-medium text-text-primary">{t.name}</h2>
                     {t.unit ? <Badge variant="muted">{t.unit}</Badge> : null}
-                    {targetLabel(t) ? <Badge variant="outline">{targetLabel(t)}</Badge> : null}
-                  </div>
-                  <div className="flex items-center gap-0.5">
-                    <button
-                      onClick={() => openEdit(t)}
-                      aria-label={`编辑${t.name}`}
-                      title="编辑"
-                      className="press flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary"
-                    >
-                      <Pencil className="size-4" />
-                    </button>
-                    <button
-                      onClick={() => removeTracker(t)}
-                      aria-label={`删除${t.name}`}
-                      title="删除"
-                      className="press flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-danger/15 hover:text-danger"
-                    >
-                      <Trash2 className="size-4" />
-                    </button>
-                  </div>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-3">
-                  {todayLog ? (
-                    <div className="flex items-center justify-between rounded-xl border border-success/25 bg-success/5 px-3 py-2.5 text-sm">
-                      <span>今日已记录</span>
-                      <span className="stat-pop font-semibold tabular-nums">
-                        {todayLog.value}{t.unit ? ` ${t.unit}` : ""}
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between rounded-xl border border-white/15 bg-white/10 px-3 py-2.5 text-sm">
-                      <span className="text-muted-foreground">今日还没有记录</span>
-                    </div>
-                  )}
-                  <div className="flex flex-wrap items-center gap-2">
-                    {[1, 5, 10, 20].map((v) => (
+                    <div className="ms-auto flex shrink-0 items-center gap-0.5">
                       <button
-                        key={v}
-                        onClick={() => recordToday(t.id, v)}
-                        disabled={busy}
-                        className="press rounded-lg border border-white/15 bg-white/10 px-3 py-1.5 text-sm font-medium transition-colors hover:border-primary/40 hover:bg-white/20 disabled:opacity-60"
+                        onClick={() => openEdit(t)}
+                        aria-label={`编辑${t.name}`}
+                        title="编辑"
+                        className="flex size-8 items-center justify-center rounded-lg text-foreground-icon-secondary hover:bg-background-secondary-hover hover:text-foreground-icon-primary"
                       >
-                        +{v}{t.unit ? ` ${t.unit}` : ""}
+                        <Pencil className="size-4" />
                       </button>
-                    ))}
+                      <button
+                        onClick={() => removeTracker(t)}
+                        aria-label={`删除${t.name}`}
+                        title="删除"
+                        className="flex size-8 items-center justify-center rounded-lg text-foreground-icon-secondary hover:bg-background-tertiary-error hover:text-foreground-icon-error"
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    </div>
                   </div>
-                  {logs.length > 1 ? (
-                    <div className="flex flex-col gap-1.5">
-                      {logs.slice(0, 7).map((l, li) => (
-                        <div
-                          key={l.id}
-                          style={{ animationDelay: `${li * 24}ms` }}
-                          className="rise-in flex items-center justify-between text-xs text-muted-foreground"
+
+                  <div className="flex min-w-0 flex-col gap-3 px-4 pb-4">
+                    {targetLabel(t) ? (
+                      <span className="self-start rounded-full bg-background-secondary-default px-2 py-0.5 text-caption-1-medium text-text-secondary">
+                        {targetLabel(t)}
+                      </span>
+                    ) : null}
+
+                    {todayLog ? (
+                      <div className="flex items-center justify-between rounded-xl border border-border-button-default bg-background-secondary-default px-3 py-2.5 text-body-medium">
+                        <span className="text-text-secondary">今日已记录</span>
+                        <span className="font-semibold tabular-nums text-text-primary">
+                          {todayLog.value}{t.unit ? ` ${t.unit}` : ""}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between rounded-xl border border-border-button-default bg-background-secondary-default px-3 py-2.5 text-body-medium">
+                        <span className="text-text-tertiary">今日还没有记录</span>
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      {[1, 5, 10, 20].map((v) => (
+                        <button
+                          key={v}
+                          onClick={() => recordToday(t.id, v)}
+                          disabled={busy}
+                          className="rounded-lg border border-border-button-default bg-background-secondary-default px-3 py-1.5 text-body-medium text-text-primary transition-colors hover:bg-background-secondary-hover disabled:opacity-60"
                         >
-                          <span>{l.log_date}</span>
-                          <span className="tabular-nums text-foreground">{l.value}{t.unit ? ` ${t.unit}` : ""}</span>
-                        </div>
+                          +{v}{t.unit ? ` ${t.unit}` : ""}
+                        </button>
                       ))}
                     </div>
-                  ) : null}
-                </CardContent>
-              </Card>
-            );
-          })}
+
+                    {logs.length > 1 ? (
+                      <div className="flex flex-col gap-1.5 border-t border-separator-border pt-2.5">
+                        {logs.slice(0, 7).map((l) => (
+                          <div key={l.id} className="flex items-center justify-between text-caption-1-regular text-text-tertiary">
+                            <span>{l.log_date}</span>
+                            <span className="tabular-nums text-text-secondary">
+                              {l.value}{t.unit ? ` ${t.unit}` : ""}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
         </>
       )}
 
       <GlassModal open={creating} onClose={() => setCreating(false)} title={editing ? "编辑记录项" : "新建记录项"}>
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-muted-foreground">名称</label>
+            <label className="text-caption-1-medium text-text-secondary">名称</label>
             <Input
               value={form.name}
               onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
@@ -329,7 +348,7 @@ export default function TrackersPage() {
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-muted-foreground">单位（可选）</label>
+            <label className="text-caption-1-medium text-text-secondary">单位（可选）</label>
             <Input
               value={form.unit}
               onChange={(e) => setForm((s) => ({ ...s, unit: e.target.value }))}
@@ -338,7 +357,7 @@ export default function TrackersPage() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-muted-foreground">目标值（可选）</label>
+              <label className="text-caption-1-medium text-text-secondary">目标值（可选）</label>
               <Input
                 value={form.targetValue}
                 onChange={(e) => setForm((s) => ({ ...s, targetValue: e.target.value }))}
@@ -347,11 +366,11 @@ export default function TrackersPage() {
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-muted-foreground">目标周期（可选）</label>
+              <label className="text-caption-1-medium text-text-secondary">目标周期（可选）</label>
               <select
                 value={form.targetCadence}
                 onChange={(e) => setForm((s) => ({ ...s, targetCadence: e.target.value }))}
-                className="paper-select h-10 rounded-xl px-3 text-sm backdrop-blur-md"
+                className="h-10 rounded-xl border border-border-button-default bg-background-primary-default px-3 text-body-medium text-text-primary"
               >
                 <option value="">不限</option>
                 <option value="daily">每日</option>
@@ -360,14 +379,14 @@ export default function TrackersPage() {
             </div>
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-muted-foreground">颜色</label>
+            <label className="text-caption-1-medium text-text-secondary">颜色</label>
             <div className="flex flex-wrap gap-1.5">
               {["#6366f1", "#4f46e5", "#0ea5e9", "#16a34a", "#ea580c", "#e11d48", "#7c3aed", "#f59e0b"].map((c) => (
                 <button
                   key={c}
                   onClick={() => setForm((s) => ({ ...s, color: c }))}
                   aria-label={`颜色 ${c}`}
-                  className={`h-8 w-8 rounded-full border-2 transition-transform ${form.color === c ? "scale-110 border-white" : "border-white/20"}`}
+                  className={`size-8 rounded-full border-2 transition-transform ${form.color === c ? "scale-110 border-border-button-hover" : "border-transparent"}`}
                   style={{ backgroundColor: c }}
                 />
               ))}
