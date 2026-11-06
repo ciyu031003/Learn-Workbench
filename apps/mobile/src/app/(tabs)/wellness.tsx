@@ -25,6 +25,11 @@ import { radius, spacing, tabularNums, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { useFocusRefresh } from "@/lib/use-focus-refresh";
+import {
+  INITIAL_FIRST_LOAD_GATE,
+  nextFirstLoadGate,
+  shouldShowSkeleton,
+} from "@/lib/first-load";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
 import { addHydration, fetchHydration, fetchWeight, type HydrationToday, type WeightPointDto } from "@/lib/wellbeing-client";
 import { toDaySummaryMap, todayAndYesterday } from "@/lib/nutrition-views";
@@ -116,7 +121,12 @@ export default function WellnessScreen() {
   useScrollToTopHandler("/wellness", wellnessScrollRef);
   const token = useAppStore((s) => s.token);
   const [data, setData] = useState<DailyOs | null>(null);
-  const [loading, setLoading] = useState(true);
+  /**
+   * v2.2.2：骨架屏闸门（lib/first-load）。首轮请求结束即落定，之后聚焦刷新 / 下拉刷新
+   * 只换数据、不再把骨架屏放回来 —— 页面已有内容时永远不会被骨架屏顶掉。
+   */
+  const [gate, setGate] = useState(INITIAL_FIRST_LOAD_GATE);
+  const showSkeleton = shouldShowSkeleton(gate);
   const [weightPoints, setWeightPoints] = useState<WeightPointDto[]>([]);
   const [weekWorkouts, setWeekWorkouts] = useState(0);
   /** 近 7 天逐日饮食行（带日期，供柱图逐日对上；旧版只留了 entryCount/kcal） */
@@ -181,9 +191,12 @@ export default function WellnessScreen() {
       if (dailyRes.ok) {
         setData(await dailyRes.json());
         setDailyFailed(false);
+        setGate((g) => nextFirstLoadGate(g, { type: "load-success" }));
       } else {
         // 401/500 不再静默：页面给「重试」入口，同时保留上一次数据
         setDailyFailed(true);
+        // 首轮就失败 → 闸门落定（页面走自己的降级 / 重试条，不再用骨架屏占位）
+        setGate((g) => nextFirstLoadGate(g, { type: "load-failure" }));
       }
       if (weightRes) setWeightPoints(weightRes.points);
       if (workoutRes && workoutRes.ok) {
@@ -219,8 +232,10 @@ export default function WellnessScreen() {
     } catch {
       // 离线保留上次数据，但标记失败让页面提示
       setDailyFailed(true);
+      setGate((g) => nextFirstLoadGate(g, { type: "load-failure" }));
     } finally {
-      setLoading(false);
+      // 兜底落定：任何异常路径都不允许让骨架屏永远留在屏幕上（已落定时这里是幂等的）
+      setGate((g) => nextFirstLoadGate(g, { type: "load-failure" }));
     }
   }, [token, todayKey]);
 
@@ -421,7 +436,7 @@ export default function WellnessScreen() {
 
         {/* ② 指标带三格：饮水 / 训练 / 睡眠（有数据 → 数值；无记录 → 「—」；失败保留上次） */}
         <Animated.View entering={entrance(0)}>
-          {loading && !data ? (
+          {showSkeleton ? (
             <SkeletonCard count={1} />
           ) : (
             <MetricGrid
@@ -503,7 +518,7 @@ export default function WellnessScreen() {
         {/* ④ 本周趋势：7 天柱图（今日高亮）；没有任何记录时走空态，不画一条全 0 的图 */}
         <SectionTitle title="本周趋势" />
         <Animated.View entering={entrance(2)}>
-          {loading && !data ? (
+          {showSkeleton ? (
             <SkeletonCard count={1} />
           ) : recordDays > 0 ? (
             <Card style={styles.trendCard}>
@@ -545,7 +560,7 @@ export default function WellnessScreen() {
         {/* ④-2 本周健康周报（v2.2）：三项达成率 + 四格周指标，数据全部来自上面已拉的四路 */}
         <SectionTitle title="本周健康周报" />
         <Animated.View entering={entrance(2)} style={styles.weekBlock}>
-          {loading && !data ? (
+          {showSkeleton ? (
             <SkeletonCard count={1} />
           ) : (
             <>
@@ -655,7 +670,8 @@ export default function WellnessScreen() {
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
-    root: { flex: 1 },
+    /** v2.2.2：根容器必须不透明 —— Tab 场景叠放叠滑时不透出下层（与 sceneStyle 的 canvas 双保险） */
+    root: { flex: 1, backgroundColor: colors.canvas },
     scroll: { flex: 1, backgroundColor: "transparent" },
     content: { paddingHorizontal: spacing.lg, gap: spacing.md },
 

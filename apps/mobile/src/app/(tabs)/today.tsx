@@ -1222,7 +1222,8 @@ export default function TodayScreen() {
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
-    root: { flex: 1 },
+    /** v2.2.2：根容器必须不透明 —— Tab 场景叠放叠滑时不透出下层（与 sceneStyle 的 canvas 双保险） */
+    root: { flex: 1, backgroundColor: colors.canvas },
     scroll: { flex: 1 },
     content: { paddingHorizontal: 17, paddingBottom: 24, gap: 14 },
 

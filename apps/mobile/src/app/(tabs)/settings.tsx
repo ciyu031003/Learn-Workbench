@@ -800,7 +800,8 @@ export default function SettingsScreen() {
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
-    scroll: { flex: 1, backgroundColor: "transparent" },
+    /** v2.2.2：本页没有外层 View，ScrollView 就是根容器 → 直接垫 canvas（不再 transparent） */
+    scroll: { flex: 1, backgroundColor: colors.canvas },
     content: { paddingHorizontal: spacing.lg, paddingBottom: spacing.lg },
 
     /* ② 身份卡（glassStrong 容器自带 16 内边距，这里只定内部节奏） */

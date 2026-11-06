@@ -156,11 +156,22 @@ function Exam408Content({ track }: { track: LearningTrack }) {
   const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [navNotice, setNavNotice] = useState("");
 
+  /** 首次数据是否已经拿到过（v2.2.2：区分"首屏加载"与"后台刷新"，见下面的 load*） */
+  const hasOverviewRef = useRef(false);
+  const hasDashboardRef = useRef(false);
+
   const loadOverview = useCallback(async () => {
-    setLoadingOverview(true);
+    /**
+     * v2.2.2：只有「还没有任何 408 数据」时才进入加载态。
+     * 从章节/知识点页返回会重新聚焦本页，若每次都把 loading 置回 true，
+     * 慢网/5xx 时已有知识体系会被加载占位顶掉（真机 = 切回来闪一下）。
+     */
+    if (!hasOverviewRef.current) setLoadingOverview(true);
     setOverviewError("");
     try {
-      setOverview(await getExam408Overview());
+      const next = await getExam408Overview();
+      hasOverviewRef.current = true;
+      setOverview(next);
     } catch (reason) {
       setOverviewError(
         reason instanceof Error ? reason.message : "408 权威数据加载失败",
@@ -171,7 +182,8 @@ function Exam408Content({ track }: { track: LearningTrack }) {
   }, []);
 
   const loadDashboard = useCallback(async () => {
-    setDashboardLoading(true);
+    // v2.2.2：同上，已有统计板/套卷记录时只做后台刷新，不再回到加载态
+    if (!hasDashboardRef.current) setDashboardLoading(true);
     // 三路并行、各自兜底：任何一路失败都不阻塞 408 页其它内容
     const [boardRes, paperRes, localAttempts] = await Promise.all([
       fetchCardStatsBoard().catch(() => ({ board: null, failure: "server" as const })),
@@ -199,6 +211,7 @@ function Exam408Content({ track }: { track: LearningTrack }) {
     setAttemptsSource(remote ? "remote" : "local");
     setAttemptsFailure(paperRes.failure);
     setAttemptsTotal(remote ? Math.max(paperRes.total, list.length) : list.length);
+    hasDashboardRef.current = true;
     setDashboardLoading(false);
   }, []);
 

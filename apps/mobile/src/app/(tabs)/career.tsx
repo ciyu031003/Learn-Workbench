@@ -21,6 +21,11 @@ import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
 import { useScrollToTopHandler } from "@/lib/scroll-to-top";
 import { useScreenEntrance } from "@/lib/use-screen-entrance";
+import {
+  INITIAL_FIRST_LOAD_GATE,
+  nextFirstLoadGate,
+  shouldShowSkeleton,
+} from "@/lib/first-load";
 import { getApiUrl } from "@/config";
 import { useAppStore } from "@/store/app-store";
 import { radius, shadows, spacing, tabularNums, typography } from "@/theme/tokens";
@@ -131,7 +136,12 @@ export default function CareerScreen() {
   const token = useAppStore((s) => s.token);
   const [readiness, setReadiness] = useState<CareerReadiness | null>(null);
   const [skills, setSkills] = useState<UserSkillView[]>([]);
-  const [loading, setLoading] = useState(true);
+  /**
+   * v2.2.2：骨架屏闸门（lib/first-load）。首轮请求结束即落定 —— 下拉刷新只会换数据，
+   * 已经有准备度数据时永远不会退回骨架屏（真机「切 Tab 闪骨架」的根因就是这里回 true）。
+   */
+  const [gate, setGate] = useState(INITIAL_FIRST_LOAD_GATE);
+  const showSkeleton = shouldShowSkeleton(gate);
   /** 今日新岗位数（现有 /api/jobs 接口；失败/未登录为 null，meta 降级为静态文案） */
   const [todayNewJobs, setTodayNewJobs] = useState<number | null>(null);
   /** 投递各阶段数量（现有 /api/jobs/applications 接口；null = 未登录 / 拉取失败） */
@@ -153,7 +163,10 @@ export default function CareerScreen() {
       ]);
       if (readinessRes?.ok) {
         const data = await readinessRes.json().catch(() => null);
-        if (data) setReadiness(data);
+        if (data) {
+          setReadiness(data);
+          setGate((g) => nextFirstLoadGate(g, { type: "load-success" }));
+        }
       }
       if (skillsRes?.ok) {
         const data = await skillsRes.json().catch(() => null);
@@ -173,8 +186,10 @@ export default function CareerScreen() {
       }
     } catch {
       // 离线或未登录：保持上一次数据（首屏 hero 降级为 0）
+      setGate((g) => nextFirstLoadGate(g, { type: "load-failure" }));
     } finally {
-      setLoading(false);
+      // 首轮落定（成功时幂等保留 hasData；失败时也不会清空已有数据）
+      setGate((g) => nextFirstLoadGate(g, { type: "load-failure" }));
     }
   }, [token]);
 
@@ -324,7 +339,7 @@ export default function CareerScreen() {
 
         {/* ② 准备度卡：左环 + 目标方向 + 说明 + 优先补齐（本屏唯一 glassStrong 锚点） */}
         <Animated.View entering={entrance(0)}>
-          {!loading && !hasTarget ? (
+          {!gate.firstLoadPending && !hasTarget ? (
             <Card>
               <EmptyState
                 pattern="none"
@@ -338,7 +353,7 @@ export default function CareerScreen() {
           ) : (
             <Surface tier="glassStrong" corner={radius.panel} style={styles.readinessCard}>
               <View style={styles.readinessTop}>
-                {loading && !readiness ? (
+                {showSkeleton ? (
                   <Skeleton variant="card" style={styles.ringSkeleton} />
                 ) : (
                   <View style={styles.readinessRing}>
@@ -419,7 +434,7 @@ export default function CareerScreen() {
               </>
             ) : (
               <Text style={styles.dimEmpty}>
-                {loading ? "正在计算准备度…" : "登录并记录技能 / 项目 / 面试日志后，这里会呈现职业画像"}
+                {gate.firstLoadPending ? "正在计算准备度…" : "登录并记录技能 / 项目 / 面试日志后，这里会呈现职业画像"}
               </Text>
             )}
           </Card>
@@ -604,7 +619,8 @@ export default function CareerScreen() {
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
-    root: { flex: 1 },
+    /** v2.2.2：根容器必须不透明 —— Tab 场景叠放叠滑时不透出下层（与 sceneStyle 的 canvas 双保险） */
+    root: { flex: 1, backgroundColor: colors.canvas },
     scroll: { flex: 1, backgroundColor: "transparent" },
     content: { paddingHorizontal: spacing.lg, gap: spacing.md },
 

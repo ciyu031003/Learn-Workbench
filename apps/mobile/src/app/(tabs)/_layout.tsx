@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { Tabs, useNavigation } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Animated as RNAnimated, StyleSheet, useWindowDimensions, View, type OpaqueColorValue } from "react-native";
+import {
+  Animated as RNAnimated,
+  Easing,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+  type OpaqueColorValue,
+} from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
 import { ThemedIcon } from "@/components/themed-icon";
 import { FloatingTabBar } from "@/components/v2/floating-tab-bar";
@@ -106,20 +113,26 @@ export default function TabsLayout() {
   const reducedMotion = useReducedMotion();
   const motionActive = isMotionActive(reducedMotion);
   /**
-   * v2.2：Tab 切换改为「从上一页横向滑过去」（用户反馈：不要瞬间切换）。
-   * react-navigation bottom-tabs 的 current.progress：-1 = 在左侧、0 = 当前、1 = 在右侧。
-   * 这里做方向感知的横向位移 + 轻微淡入；减弱动态/关闭动效时退化为无动画（animation:"none"）。
+   * v2.2.2：Tab 切换「不叠影、只位移」（v2.2 横向滑动 + v2.2.1 去叠加之后的真机二轮反馈）。
+   *
+   * react-navigation bottom-tabs 的 current.progress：-1 = 停在左侧、0 = 当前、1 = 停在右侧。
+   *
+   * 为什么**不用**内置的 shift 过渡（animation:"shift" 但不传 interpolator）：
+   * 内置实现 forShift 对 opacity 做 [-1,0,1] → [0,1,0] 的插值，而 Tab 场景是 absoluteFill
+   * **叠放**的（BottomTabView 给每个场景加 StyleSheet.absoluteFill + zIndex），过渡中两页
+   * 同时处于半透明，必然互相透出 —— 这就是 v2.2 真机「重影」的根因；v2.2.1 只把停靠态
+   * opacity 改成 0，过渡中间帧仍然是两页半透明叠加，所以没除根。
+   *
+   * 现在只做横向位移、**完全不碰 opacity**：两页各自都是不透明画布，新页从右侧滑入盖住
+   * 旧页、旧页同步左移（视差），全程没有叠加层，也没有跨页半透明。位移 ±18% 屏宽
+   * （封顶 96pt），配合 200ms ease-out，跟手不飘。减弱动态 / 关闭动效时整段降级成
+   * animation:"none"（连 transitionSpec 都不传，避免 200ms 空转）。
    */
   const tabShift = Math.min(96, Math.round(width * 0.18));
   const slideInterpolator = useCallback(
     ({ current }: { current: { progress: RNAnimated.Value } }) => ({
       sceneStyle: {
-        // 非激活页面在停靠位置必须完全透明：0.82 会让上一页以半透明"叠加"在当前页下面（真机反馈）
-        backgroundColor: colors.canvas,
-        opacity: current.progress.interpolate({
-          inputRange: [-1, 0, 1],
-          outputRange: [0, 1, 0],
-        }),
+        // 只位移：opacity 恒为 1，杜绝"两页半透明互相透出"
         transform: [
           {
             translateX: current.progress.interpolate({
@@ -130,7 +143,7 @@ export default function TabsLayout() {
         ],
       },
     }),
-    [tabShift, colors.canvas],
+    [tabShift],
   );
   // v19-M8：双击回顶需要经导航状态判断"按压的是否为当前已聚焦 Tab"
   const navigation = useNavigation();
@@ -143,13 +156,44 @@ export default function TabsLayout() {
        */
       tabBar={(props) => <FloatingTabBar {...props} />}
       screenOptions={{
-        // v2.2：页面横向滑动过渡（减弱动态时关闭）
-        animation: motionActive ? "shift" : "none",
-        transitionSpec: { animation: "timing", config: { duration: 240 } },
-        sceneStyleInterpolator: motionActive ? slideInterpolator : undefined,
+        /**
+         * v2.2.2：横向滑动过渡（180–220ms 区间取 200ms）。
+         * 用 animation:"shift" 只是为了拿到「过渡中保持两个场景 active」的语义，
+         * 真正的像素表现由上面的 transform-only interpolator 决定；
+         * 减弱动态 / 关闭动效时只留 animation:"none"（不传 spec，不做无谓的 200ms 等待）。
+         */
+        ...(motionActive
+          ? {
+              animation: "shift" as const,
+              transitionSpec: {
+                animation: "timing" as const,
+                config: { duration: 200, easing: Easing.out(Easing.cubic) },
+              },
+              sceneStyleInterpolator: slideInterpolator,
+            }
+          : { animation: "none" as const }),
+        /**
+         * 未激活页冻结渲染：切走的页面不再跟着 store / 计时器重渲染，减少「两个屏同时画」。
+         * 冻结只挂起渲染、不卸载，页面状态与滚动位置保留（回来不重建内容、不重播入场动画）。
+         * ⚠️ 上游细节（已核对 expo-router 57 vendored bottom-tabs）：BottomTabView 传的是
+         * shouldFreeze = activityState === 0，而开启动画时 activityState 是 Animated 插值节点、
+         * 这个比较恒为 false —— 所以「有动画」时 freezeOnBlur 实际不生效，真正起作用的是
+         * detachInactiveScreens（默认 true，停靠到右侧的场景会被 detach 掉、不再绘制）；
+         * 减弱动态（animation:"none"）时 activityState 是数字，freezeOnBlur 才真正生效。
+         * 保留该配置：既是给降级路径的正确行为，也保证后续上游修复后自动获得冻结。
+         */
+        freezeOnBlur: true,
+        /** 懒加载（默认值，这里显式钉住）：只有访问过的 Tab 才挂载，首帧不预渲染 5 个页面 */
+        lazy: true,
         headerShown: false,
         // 底栏材质 / 圆角 / 悬浮位置全部由 floating-tab-bar.tsx 负责，这里不再写 tabBarStyle。
-        sceneStyle: { backgroundColor: "transparent" },
+        /**
+         * 场景底色必须不透明：过渡中旧页压在新页下面（zIndex -1），新页只要有一处透明
+         * 就会透出旧页（"叠影"复发）。五页自身的根容器也各垫了一层 canvas（双保险）。
+         * 注意：这层不透明底会盖住 DailyBackground 的呼吸色斑 —— v2.2.1 的自定义
+         * interpolator 已经这么做了（只是只在开动效时），这里让它对所有路径一致。
+         */
+        sceneStyle: { backgroundColor: colors.canvas },
       }}
       screenListeners={{
         // Tab 切换触觉（v17 C3）：Apple 手感里"切换"属语义化柔和反馈
