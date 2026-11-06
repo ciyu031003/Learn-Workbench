@@ -75,6 +75,8 @@ const EXPECTED_ROUTES = [
   "/roadmap",
   "/search",
   "/settings",
+  // v2.3：睡眠详情页（健康页睡眠卡 / 指标格进入；非 Tab）
+  "/sleep",
   "/sports-card",
   "/study-stats",
   "/tasks",

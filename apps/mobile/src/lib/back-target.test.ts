@@ -16,6 +16,9 @@ describe("resolveBackTarget · 返回上一级", () => {
     expect(resolveBackTarget("/sports-card")).toBe("/wellness");
     expect(resolveBackTarget("/trackers")).toBe("/wellness");
     expect(resolveBackTarget("/wellbeing")).toBe("/wellness");
+    // v2.3：睡眠详情页同样回健康 Hub
+    expect(resolveBackTarget("/sleep")).toBe("/wellness");
+    expect(hubOf("/sleep")).toBe("/wellness");
   });
 
   it("职业域子页回到职业 Hub", () => {

@@ -341,6 +341,8 @@ function ThemedShell({ tier }: { tier: DeviceTier }) {
         {/* v1.47：记录/编辑训练从抽屉改为独立全屏页（动作明细太长，弹层放不下） */}
         <Stack.Screen name="workout-add" />
         <Stack.Screen name="nutrition" />
+        {/* v2.3：睡眠详情页（评分环 / 分期 / 规律性 / 补录 / 数据源），从健康页睡眠卡进入 */}
+        <Stack.Screen name="sleep" />
         {/* v1.45：饮食趋势升级为独立全屏页（饮食/运动/训练负荷三段） */}
         <Stack.Screen name="trends" />
         <Stack.Screen name="sports-card" />

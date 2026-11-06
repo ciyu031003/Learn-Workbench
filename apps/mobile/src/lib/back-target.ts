@@ -53,6 +53,8 @@ const PARENT_RULES: { prefix: string; parent: string }[] = [
   { prefix: "/workout-add", parent: "/workout" },
   { prefix: "/workout", parent: "/wellness" },
   { prefix: "/nutrition", parent: "/wellness" },
+  // v2.3：睡眠详情页的上一级是健康 Hub
+  { prefix: "/sleep", parent: "/wellness" },
   { prefix: "/habits", parent: "/wellness" },
   { prefix: "/wellbeing", parent: "/wellness" },
   { prefix: "/sports-card", parent: "/wellness" },
@@ -67,6 +69,7 @@ const PARENT_RULES: { prefix: string; parent: string }[] = [
 const HUB_RULES: { prefix: string; hub: string }[] = [
   { prefix: "/workout", hub: "/wellness" },
   { prefix: "/nutrition", hub: "/wellness" },
+  { prefix: "/sleep", hub: "/wellness" },
   { prefix: "/habits", hub: "/wellness" },
   { prefix: "/wellbeing", hub: "/wellness" },
   { prefix: "/sports-card", hub: "/wellness" },
