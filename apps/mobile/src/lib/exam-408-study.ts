@@ -102,6 +102,47 @@ export type StudySegment =
   | StudyCodeSegment
   | StudyMathSegment;
 
+/** 段/行内 token 扁平化成纯文本（表格列宽估算与目录去标记共用） */
+export function studyInlinePlain(tokens: StudyInline[] | undefined): string {
+  if (!tokens || tokens.length === 0) return "";
+  return tokens.map((token) => token.value).join("");
+}
+
+export function studySegmentsPlain(segments: StudySegment[] | undefined): string {
+  if (!segments || segments.length === 0) return "";
+  return segments
+    .map((segment) => (segment.type === "math" ? segment.tex : segment.type === "text" ? segment.text : segment.value))
+    .join("");
+}
+
+/** 估算显示宽度：CJK/全角按 2 个字符宽，ASCII 按 1 */
+function studyDisplayUnits(text: string): number {
+  let units = 0;
+  for (const char of text) {
+    units += /[\u1100-\u115f\u2e80-\ua4cf\uac00-\ud7a3\uf900-\ufaff\uff00-\uff60\uffe0-\uffe6]/.test(char) ? 2 : 1;
+  }
+  return units;
+}
+
+/**
+ * 408 精读表格的列宽（v2.2.2）。
+ *
+ * 为什么需要：每行是独立的 flex 行，单元格宽度按内容自适应时表头与数据行的列宽不一致，
+ * 「描述」「示例」会错位、文字跑到别的列下面。这里按列取全表最长内容估算宽度，
+ * 表头与所有数据行共用同一组宽度；超长内容在固定宽度内换行。
+ */
+export function studyTableColumnWidths(header: string[], rows: string[][], columnCount: number): number[] {
+  const count = Math.max(1, columnCount);
+  const widths: number[] = [];
+  for (let column = 0; column < count; column += 1) {
+    const cells = [header[column] ?? "", ...rows.map((row) => row[column] ?? "")];
+    const units = Math.max(6, ...cells.map((cell) => studyDisplayUnits(cell)));
+    // 6.3 近似一个半角字符在 caption 字号下的像素宽，+30 覆盖左右 padding 与边框
+    widths.push(Math.min(236, Math.max(92, Math.round(units * 6.3 + 30))));
+  }
+  return widths;
+}
+
 export interface StudyListItem {
   inlines: StudyInline[];
   /** 缩进层级（0 = 顶层，1 = 二级，最多 2） */

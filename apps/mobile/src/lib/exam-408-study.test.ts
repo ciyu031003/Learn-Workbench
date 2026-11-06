@@ -16,6 +16,7 @@ import {
   sanitizeStudyInlineHtml,
   studyImageKind,
   studyPlainText,
+  studyTableColumnWidths,
 } from "./exam-408-study";
 
 /**
@@ -114,6 +115,41 @@ describe("sanitizeStudyInlineHtml", () => {
   it("br 变空格、img 丢弃", () => {
     expect(sanitizeStudyInlineHtml("第一行<br/>第二行")).toBe("第一行 第二行");
     expect(sanitizeStudyInlineHtml('前 <img src="/a.svg"> 后')).toBe("前 后");
+  });
+});
+
+describe("studyTableColumnWidths（表格列宽固定）", () => {
+  it("表头与数据行按同一列取最长内容，宽度一致且有上下限", () => {
+    const widths = studyTableColumnWidths(
+      ["空间复杂度", "描述", "示例"],
+      [
+        ["O(1)", "只用一个额外变量保存中间值", "int tmp = a; a = b; b = tmp;"],
+        ["O(n)", "额外数组", "[1, 2, 3]"],
+      ],
+      3,
+    );
+    expect(widths).toHaveLength(3);
+    widths.forEach((width) => {
+      expect(width).toBeGreaterThanOrEqual(92);
+      expect(width).toBeLessThanOrEqual(236);
+    });
+    // 描述/示例列的内容比表头长 → 宽度应大于表头列（空间复杂度）
+    expect(widths[1]).toBeGreaterThan(widths[0]);
+    expect(widths[2]).toBeGreaterThanOrEqual(widths[0]);
+  });
+
+  it("列数多于表头时补默认宽度；空表也返回一列", () => {
+    const widths = studyTableColumnWidths(["A"], [["1", "2"]], 2);
+    expect(widths).toHaveLength(2);
+    expect(studyTableColumnWidths([], [], 1)).toHaveLength(1);
+  });
+
+  it("CJK 字符按 2 个半角宽估算，超长内容封顶", () => {
+    const narrow = studyTableColumnWidths(["ababab"], [["cdcdcd"]], 1)[0];
+    const wide = studyTableColumnWidths(["中文中文中文"], [["中文中文"]], 1)[0];
+    expect(wide).toBeGreaterThan(narrow);
+    const long = studyTableColumnWidths(["描述"], [["一".repeat(200)]], 1)[0];
+    expect(long).toBe(236);
   });
 });
 

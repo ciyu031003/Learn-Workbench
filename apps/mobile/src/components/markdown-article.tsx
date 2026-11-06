@@ -10,6 +10,9 @@ import type { Exam408KnowledgeMap } from "@/lib/exam-408-map";
 import {
   chunkInlineText,
   parseStudyInline,
+  studyInlinePlain,
+  studySegmentsPlain,
+  studyTableColumnWidths,
   resolveStudyAssetUrl,
   studyImageKind,
   type StudyBlock,
@@ -390,12 +393,26 @@ function TableView({ block }: { block: Extract<StudyBlock, { type: "table" }> })
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const columnCount = Math.max(block.header.length, ...block.rows.map((row) => row.length), 1);
+  // v2.2.2：表头与所有数据行共用同一组列宽（按全表最长内容估算），否则各行宽度不同导致列错位
+  const columnWidths = useMemo(() => {
+    const headerTexts = Array.from({ length: columnCount }).map((_, column) => {
+      const segments = block.headerSegments?.[column];
+      return segments && segments.length > 0 ? studySegmentsPlain(segments) : studyInlinePlain(block.header[column]);
+    });
+    const rowTexts = block.rows.map((row, rowIndex) =>
+      Array.from({ length: columnCount }).map((_, column) => {
+        const segments = block.rowSegments?.[rowIndex]?.[column];
+        return segments && segments.length > 0 ? studySegmentsPlain(segments) : studyInlinePlain(row[column]);
+      }),
+    );
+    return studyTableColumnWidths(headerTexts, rowTexts, columnCount);
+  }, [block, columnCount]);
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tableScroll}>
       <View style={styles.table}>
         <View style={[styles.tableRow, styles.tableHeaderRow]}>
           {Array.from({ length: columnCount }).map((_, column) => (
-            <View key={"h-" + column} style={[styles.tableCell, { minWidth: 96 }]}>
+            <View key={"h-" + column} style={[styles.tableCell, { width: columnWidths[column] }]}>
               {block.headerSegments?.[column] && block.headerSegments[column].length > 0 ? (
                 <InlineSegments segments={block.headerSegments[column]} style={styles.tableHeaderText} />
               ) : (
@@ -407,7 +424,7 @@ function TableView({ block }: { block: Extract<StudyBlock, { type: "table" }> })
         {block.rows.map((row, rowIndex) => (
           <View key={"r-" + rowIndex} style={styles.tableRow}>
             {Array.from({ length: columnCount }).map((_, column) => (
-              <View key={"c-" + rowIndex + "-" + column} style={[styles.tableCell, { minWidth: 96 }]}>
+              <View key={"c-" + rowIndex + "-" + column} style={[styles.tableCell, { width: columnWidths[column] }]}>
                 {block.rowSegments?.[rowIndex]?.[column] && block.rowSegments[rowIndex][column].length > 0 ? (
                   <InlineSegments segments={block.rowSegments[rowIndex][column]} style={styles.tableCellText} />
                 ) : (
@@ -697,10 +714,8 @@ const makeStyles = (colors: ThemeColors) =>
     },
     tableRow: { flexDirection: "row", borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
     tableHeaderRow: { backgroundColor: colors.surfaceMuted },
-    // 单元格宽度给下限/上限：窄屏可横向滚动，长文本在 240 内正常折行（不再逐字竖排）
+    // 列宽由 studyTableColumnWidths 统一计算（表头与数据行共用），这里只负责内边距
     tableCell: {
-      minWidth: 112,
-      maxWidth: 240,
       flexShrink: 0,
       paddingVertical: spacing.sm,
       paddingHorizontal: spacing.sm,
