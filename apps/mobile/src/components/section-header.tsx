@@ -17,21 +17,19 @@ export function SectionHeader({
   onAction,
   subtitle,
   style,
-  /** 左侧色条颜色（默认主色）—— 「今日饮食」那套语言：色条 + 标题 + 右侧说明 */
-  accentColor,
 }: {
   title: string;
   actionLabel?: string;
   onAction?: () => void;
   subtitle?: string;
   style?: StyleProp<ViewStyle>;
+  /** 已废弃：demo 区块标题不再渲染左侧色条，保留入参以免破坏调用方 */
   accentColor?: string;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={[styles.row, style]}>
-      <View style={[styles.accentBar, { backgroundColor: accentColor ?? colors.primary }]} />
       <View style={styles.textWrap}>
         <Text style={styles.title}>{title}</Text>
         {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
@@ -51,18 +49,17 @@ export function BlockTitle({
   title,
   right,
   style,
-  accentColor,
 }: {
   title: string;
   right?: ReactNode;
   style?: StyleProp<ViewStyle>;
+  /** 已废弃：demo 区块标题不再渲染左侧色条，保留入参以免破坏调用方 */
   accentColor?: string;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={[styles.blockRow, style]}>
-      <View style={[styles.accentBar, { backgroundColor: accentColor ?? colors.primary }]} />
       <Text style={[styles.blockTitle, styles.blockTitleFlex]}>{title}</Text>
       {right}
     </View>
@@ -80,19 +77,17 @@ const makeStyles = (colors: ThemeColors) =>
       gap: 12,
       marginTop: 12,
     },
-    // 左侧色条：深浅色都由主色/自定义色驱动（与档案页、饮食页统一）
-    accentBar: { width: 3, height: 18, borderRadius: 2 },
     textWrap: { flex: 1, minWidth: 0, gap: 2 },
-    title: { ...typography.title2, fontWeight: "800", color: colors.text },
+    title: { ...typography.title2, fontWeight: "600", color: colors.text },
     subtitle: { ...typography.caption, fontWeight: "400", color: colors.textMuted },
     action: { flexDirection: "row", alignItems: "center", gap: 2 },
-    actionText: { ...typography.caption, fontWeight: "700", color: colors.primary },
+    actionText: { ...typography.caption, fontWeight: "600", color: colors.primary },
     blockRow: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
       gap: 10,
     },
-    blockTitle: { ...typography.headline, fontWeight: "800", color: colors.text },
+    blockTitle: { ...typography.headline, fontWeight: "600", color: colors.text },
     blockTitleFlex: { flex: 1, minWidth: 0 },
   });

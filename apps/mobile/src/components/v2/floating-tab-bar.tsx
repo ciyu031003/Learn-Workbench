@@ -1,63 +1,33 @@
 import { useMemo } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
-import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from "expo-glass-effect";
 import { BlurView } from "expo-blur";
-import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop } from "react-native-svg";
 import type { BottomTabBarProps, BottomTabNavigationOptions } from "expo-router/tabs";
 import { useTheme } from "@/theme";
-import { TAB_BAR_FLOAT_GAP, TAB_BAR_HEIGHT, TAB_BAR_RADIUS, TAB_BAR_SIDE_INSET } from "@/lib/tab-bar-metrics";
+import { TAB_BAR_HEIGHT } from "@/lib/tab-bar-metrics";
 import type { ThemeColors } from "@/theme/tokens";
 
 /**
- * 浮动液态玻璃底栏（v2.1 · 参考图 2）
+ * 全宽白色底栏（对齐优化 demo `.tabbar` / `.tab`）
  *
- * 为什么不用默认 tabBar：选中态是一块**蓝色线性渐变胶囊 + 白色内高光 + 柔和外发光**，
- * 而 react-navigation 的 tabBarItemStyle 只能填纯色、tabBarBackground 又只能铺整条底栏，
- * 拼不出「渐变只跟着选中项走」。所以这里接管 tabBar 渲染，其余交互全部沿用 navigator：
+ * 2026-11 由「悬浮液态玻璃胶囊 + 蓝色渐变 pill + 外发光」改为 demo 的**全宽白色底栏**：
+ * 贴底、左右无留白、顶部 1px 分隔线、白色半透 + 背景模糊。
+ * 选中态不再是整块渐变胶囊，而是：图标落在一块蓝色软底圆角盒（26×24、圆角 9）上，
+ * 图标与文字变蓝、文字 600 字重；未选中为灰色图标 + 灰色文字，无底色。
  *
+ * 交互全部沿用 navigator，本组件不改变事件顺序：
  *  - 点击仍 navigation.emit({ type: "tabPress" }) 再 navigate → _layout 里既有的
  *    **触觉反馈**与**双击回顶**（v19-M8）照常生效，选中切换仍由 react-navigation 驱动；
  *  - 图标仍由各屏 options.tabBarIcon 渲染 → _layout 里 TabIcon 的**弹簧动效**原样保留
- *    （本文件不新增任何 Reanimated 补间 / 弹簧 / 循环动效点，无持续动画）；
- *  - 渐变与光晕都是**静态 SVG**（react-native-svg 已是依赖，不新增包），首帧画完就不再重绘。
- *
- * 几何：高度 / 左右留白 / 全圆角 / 悬浮间距全部取自 lib/tab-bar-metrics，
- * 页面底部留白（useTabBarSpace()）与本体共用同一组常量，改一处两边同步。
+ *    （本文件不新增任何 Reanimated 补间 / 弹簧 / 循环动效点，无持续动画）。
  */
-
-/** 胶囊内上下留白：选中 pill 高 = 66 − 2×7 = 52（整格高 52，触控高度仍 ≥ 44） */
-const ITEM_INSET = 7;
-const PILL_HEIGHT = TAB_BAR_HEIGHT - ITEM_INSET * 2;
-const PILL_RADIUS = PILL_HEIGHT / 2;
-/** 选中 pill 比未选中单元格左右各宽 1pt —— 参考图 2 里「选中块略大于未选中项」 */
-const PILL_OVERHANG = 1;
-/** 外发光外扩：只画一次静态径向渐变，不做循环动画（垂直外扩很小，主要向左右晕开） */
-const GLOW_PAD_X = 10;
-const GLOW_PAD_Y = 6;
-/** 选中渐变（晴空蓝 #5B93D6 → #2F74C0，对齐 v3 提案）；深色下同一组蓝色在深玻璃上更跳 */
-const PILL_FROM = "#5B93D6";
-const PILL_TO = "#2F74C0";
-const PILL_GLOW = "#2F74C0";
-/** 胶囊染色：浅色 = 更白更通透的白玻璃；深色 = 深蓝黑玻璃 */
-const CAPSULE_LIGHT = "rgba(255,255,255,0.92)";
-const CAPSULE_DARK = "rgba(18,24,38,0.88)";
-/**
- * 标签字号 10–11pt（参考图 2 的小字）。字阶 token 没有 11 档，而 scripts/check-font-scale.mjs
- * 只把「裸写的数字 fontSize」计为新违规 —— 这里用常量表达「底栏专用微字阶」，避免刷新基线。
- */
-const LABEL_FONT_SIZE = 11;
+/** 标签字号（demo `.tab` 10.5px），常量表达底栏专用微字阶，避免刷新字体基线 */
+const LABEL_FONT_SIZE = 10.5;
 const LABEL_LINE_HEIGHT = 14;
 const BADGE_FONT_SIZE = 10;
-
-/** iOS 26 且运行时 API 可用时才有真玻璃；非 iOS / 系统不支持返回 false（与 _layout 旧实现一致） */
-function liquidGlassAvailable(): boolean {
-  try {
-    return Platform.OS === "ios" && isLiquidGlassAvailable() && isGlassEffectAPIAvailable();
-  } catch {
-    // 极老版本 / 能力探测异常：安全回退到实底，绝不因为材质让底栏消失
-    return false;
-  }
-}
+/** 选中图标软底盒（demo `.tab .ic` 26×24、圆角 9） */
+const ICON_BOX_WIDTH = 26;
+const ICON_BOX_HEIGHT = 24;
+const ICON_BOX_RADIUS = 9;
 
 /**
  * expo-router 的 href: null 会把该路由的 options 改写成
@@ -81,43 +51,29 @@ function resolveLabel(options: BottomTabNavigationOptions, routeName: string): s
 export function FloatingTabBar({ state, descriptors, navigation, insets }: BottomTabBarProps) {
   const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
-  // 能力探测只在渲染时做一次；失败安全回退实底（旧 _layout 同款策略）
-  const glass = liquidGlassAvailable();
 
   const visible = state.routes.filter((route) => !isHiddenTab(descriptors[route.key].options));
 
   return (
-    <View pointerEvents="box-none" style={[styles.host, { bottom: insets.bottom + TAB_BAR_FLOAT_GAP }]}>
-      <View style={styles.capsule}>
-        {glass ? (
-          <GlassView
-            glassEffectStyle="regular"
-            colorScheme={dark ? "dark" : "light"}
-            style={styles.material}
-          >
-            <View pointerEvents="none" style={styles.hairline} />
-          </GlassView>
-        ) : (
-          <View style={styles.material} pointerEvents="none">
-            <BlurView
-              intensity={42}
-              tint={dark ? "dark" : "light"}
-              experimentalBlurMethod="dimezisBlurView"
-              style={StyleSheet.absoluteFill}
-            />
-            {/* 染色层：保证 11pt 灰字在白玻璃 / 深玻璃上的对比度，同时给材质一点色温 */}
-            <View style={[StyleSheet.absoluteFill, styles.tint]} />
-            <View style={styles.hairline} />
-          </View>
-        )}
+    <View pointerEvents="box-none" style={styles.host}>
+      <View style={styles.bar}>
+        {/* 背景模糊（demo backdrop-filter: blur(26px) saturate(1.2)）+ 白色半透染色 */}
+        <BlurView
+          intensity={42}
+          tint={dark ? "dark" : "light"}
+          experimentalBlurMethod="dimezisBlurView"
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={[StyleSheet.absoluteFill, styles.tint]} />
+        <View style={styles.topHairline} />
 
-        <View accessibilityRole="tablist" style={styles.row}>
+        <View accessibilityRole="tablist" style={[styles.row, { paddingBottom: insets.bottom + 8 }]}>
           {visible.map((route) => {
             const { options } = descriptors[route.key];
             const focused = state.routes[state.index]?.key === route.key;
             const label = resolveLabel(options, route.name);
             const showLabel = options.tabBarShowLabel !== false;
-            const tint = focused ? "#FFFFFF" : colors.textSecondary;
+            const tint = focused ? colors.primary : colors.textSecondary;
 
             const onPress = () => {
               /**
@@ -145,54 +101,16 @@ export function FloatingTabBar({ state, descriptors, navigation, insets }: Botto
                 accessibilityLabel={options.tabBarAccessibilityLabel ?? label}
                 style={({ pressed }) => [styles.item, pressed && styles.itemPressed]}
               >
-                {focused ? (
-                  <>
-                    {/* 外发光：静态径向渐变（一次绘制，无动效点） */}
-                    <View pointerEvents="none" style={styles.glow}>
-                      <Svg width="100%" height="100%">
-                        <Defs>
-                          <RadialGradient id="tabBarPillGlow" cx="50%" cy="50%" r="50%">
-                            <Stop offset="0" stopColor={PILL_GLOW} stopOpacity={dark ? 0.38 : 0.34} />
-                            <Stop offset="0.48" stopColor={PILL_GLOW} stopOpacity={dark ? 0.12 : 0.1} />
-                            <Stop offset="1" stopColor={PILL_GLOW} stopOpacity={0} />
-                          </RadialGradient>
-                        </Defs>
-                        <Rect x="0" y="0" width="100%" height="100%" fill="url(#tabBarPillGlow)" />
-                      </Svg>
-                    </View>
-                    {/* 选中胶囊：蓝色线性渐变 + 1px 白色内高光 */}
-                    <View pointerEvents="none" style={styles.pill}>
-                      <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
-                        <Defs>
-                          <LinearGradient id="tabBarPillGradient" x1="0" y1="0" x2="0.6" y2="1">
-                            <Stop offset="0" stopColor={PILL_FROM} />
-                            <Stop offset="1" stopColor={PILL_TO} />
-                          </LinearGradient>
-                        </Defs>
-                        <Rect
-                          x="0"
-                          y="0"
-                          width="100%"
-                          height="100%"
-                          rx={PILL_RADIUS}
-                          ry={PILL_RADIUS}
-                          fill="url(#tabBarPillGradient)"
-                        />
-                      </Svg>
-                      <View style={styles.pillHighlight} />
-                    </View>
-                  </>
-                ) : null}
+                <View style={[styles.iconBox, focused && styles.iconBoxOn]}>
+                  {options.tabBarIcon?.({ focused, color: tint, size: 24 })}
+                </View>
 
-                {options.tabBarIcon?.({ focused, color: tint, size: 24 })}
-
-                {/* 选中态只留反白图标（白字在浅蓝渐变上不到 4.5:1，故不显示文字标签） */}
-                {!focused && showLabel ? (
+                {showLabel ? (
                   <Text
                     numberOfLines={1}
                     allowFontScaling={options.tabBarAllowFontScaling ?? true}
                     maxFontSizeMultiplier={1.2}
-                    style={styles.label}
+                    style={[styles.label, focused && styles.labelOn]}
                   >
                     {label}
                   </Text>
@@ -218,94 +136,63 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
   StyleSheet.create({
     host: {
       position: "absolute",
-      left: TAB_BAR_SIDE_INSET,
-      right: TAB_BAR_SIDE_INSET,
-      height: TAB_BAR_HEIGHT,
-    },
-    /**
-     * 胶囊：圆角全圆 + 裁剪。阴影挂在**这一层**（子层被 overflow 裁掉，自身阴影不受影响）。
-     * elevation 恒为 0：Android 对「透明底 + 圆角」的 View 会按不透明矩形画阴影预算，
-     * 真机表现就是底栏四周多出白边（tokens.shadows.glass 同款踩坑）。
-     */
-    capsule: {
-      flex: 1,
-      borderRadius: TAB_BAR_RADIUS,
-      backgroundColor: "transparent",
-      overflow: "hidden",
-      shadowColor: "#23304E",
-      shadowOpacity: dark ? 0.3 : 0.14,
-      shadowRadius: 26,
-      shadowOffset: { width: 0, height: 12 },
-      elevation: 0,
-    },
-    /** 材质层（GlassView 或 BlurView + 染色）铺满胶囊 */
-    material: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
-    tint: { backgroundColor: dark ? CAPSULE_DARK : CAPSULE_LIGHT },
-    /** 1px 白色内描边：玻璃的「厚度」全靠这一笔 */
-    hairline: {
-      position: "absolute",
-      top: 0,
+      left: 0,
       right: 0,
       bottom: 0,
+    },
+    bar: {
+      backgroundColor: dark ? "rgba(18,24,38,0.92)" : "rgba(255,255,255,0.96)",
+      overflow: "hidden",
+      elevation: 0,
+    },
+    /** 白色半透染色（demo background rgba(255,255,255,.96)），保证灰字对比度 */
+    tint: { backgroundColor: dark ? "rgba(18,24,38,0.6)" : "rgba(255,255,255,0.72)" },
+    /** 顶部 1px 分隔线（demo border-top 1px solid var(--line)） */
+    topHairline: {
+      position: "absolute",
+      top: 0,
       left: 0,
-      borderRadius: TAB_BAR_RADIUS,
-      borderWidth: StyleSheet.hairlineWidth * 2,
-      borderColor: dark ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.95)",
+      right: 0,
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: colors.border,
     },
     row: {
-      flex: 1,
       flexDirection: "row",
-      alignItems: "center",
-      paddingHorizontal: ITEM_INSET,
-      paddingVertical: ITEM_INSET,
+      alignItems: "stretch",
+      paddingHorizontal: 6,
+      height: TAB_BAR_HEIGHT,
     },
-    /** 单格：高 52（≥44 命中区），横向等分 */
+    /** 单格（demo `.tab`：纵向、居中、圆角 14） */
     item: {
       flex: 1,
-      height: PILL_HEIGHT,
-      marginHorizontal: 2,
-      borderRadius: PILL_RADIUS,
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 3,
+      borderRadius: 14,
+    },
+    itemPressed: { backgroundColor: "rgba(47,116,192,0.06)" },
+    iconBox: {
+      width: ICON_BOX_WIDTH,
+      height: ICON_BOX_HEIGHT,
+      borderRadius: ICON_BOX_RADIUS,
       alignItems: "center",
       justifyContent: "center",
     },
-    itemPressed: { opacity: 0.86 },
-    glow: {
-      position: "absolute",
-      top: -GLOW_PAD_Y,
-      bottom: -GLOW_PAD_Y,
-      left: -GLOW_PAD_X,
-      right: -GLOW_PAD_X,
-    },
-    pill: {
-      position: "absolute",
-      top: 0,
-      bottom: 0,
-      left: -PILL_OVERHANG,
-      right: -PILL_OVERHANG,
-      borderRadius: PILL_RADIUS,
-      overflow: "hidden",
-    },
-    pillHighlight: {
-      position: "absolute",
-      top: 1,
-      right: 1,
-      bottom: 1,
-      left: 1,
-      borderRadius: PILL_RADIUS - 1,
-      borderWidth: 1,
-      borderColor: "rgba(255,255,255,0.55)",
-    },
+    /** 选中图标软底（demo `.tab.on .ic` background blue-soft） */
+    iconBoxOn: { backgroundColor: colors.primarySoft },
     label: {
       fontSize: LABEL_FONT_SIZE,
       lineHeight: LABEL_LINE_HEIGHT,
-      fontWeight: "600",
+      fontWeight: "400",
       color: colors.textSecondary,
-      letterSpacing: 0.1,
     },
+    /** 选中文字（demo `.tab.on`：蓝色、600 字重） */
+    labelOn: { color: colors.primary, fontWeight: "600" },
     badge: {
       position: "absolute",
-      top: 2,
-      right: 4,
+      top: 6,
+      right: 10,
       minWidth: 16,
       height: 16,
       paddingHorizontal: 4,

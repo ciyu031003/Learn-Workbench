@@ -63,7 +63,7 @@ export function MealCardGrid({
         {cards.map((card) => {
           const color = mealColorOf(card.meal, colors);
           return (
-            <View key={card.meal} style={[styles.card, { backgroundColor: color + "1A", borderColor: color + "55" }]}>
+            <View key={card.meal} style={[styles.card, { backgroundColor: color + "14", borderColor: color + "33" }]}>
               <View style={styles.cardHead}>
                 <Text style={[styles.cardTitle, { color }]}>{mealKindLabels[card.meal]}</Text>
                 <Text style={styles.cardCount}>{card.count} 条</Text>
@@ -162,9 +162,9 @@ const makeStyles = (colors: ThemeColors) =>
       borderWidth: StyleSheet.hairlineWidth,
     },
     cardHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    cardTitle: { ...typography.micro, fontWeight: "800" },
+    cardTitle: { ...typography.micro, fontWeight: "700" },
     cardCount: { ...typography.micro, fontWeight: "600", color: colors.textMuted },
-    cardKcal: { ...typography.title2, fontWeight: "800", color: colors.text },
+    cardKcal: { ...typography.title2, fontWeight: "700", color: colors.text },
     cardUnit: { ...typography.micro, fontWeight: "600", color: colors.textMuted },
     addBtn: {
       position: "absolute",
@@ -195,7 +195,7 @@ const makeStyles = (colors: ThemeColors) =>
       backgroundColor: colors.surfaceMuted,
     },
     weekNavOff: { opacity: 0.35 },
-    weekTitle: { ...typography.micro, fontWeight: "700", color: colors.text },
+    weekTitle: { ...typography.micro, fontWeight: "600", color: colors.text },
     weekHint: { ...typography.micro, fontWeight: "500", color: colors.textMuted },
     weekRow: { flexDirection: "row", alignItems: "flex-end", gap: 6, height: 64 },
     weekCell: { flex: 1, alignItems: "center", gap: 4, paddingVertical: 2 },
@@ -209,5 +209,5 @@ const makeStyles = (colors: ThemeColors) =>
     },
     weekFill: { width: "100%", borderRadius: 6 },
     weekLabel: { ...typography.micro, fontWeight: "600", color: colors.textMuted },
-    weekLabelActive: { color: colors.primary, fontWeight: "800" },
+    weekLabelActive: { color: colors.primary, fontWeight: "700" },
   });

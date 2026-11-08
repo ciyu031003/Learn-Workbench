@@ -225,6 +225,8 @@ export const typography = {
   eyebrow: { fontSize: 9, lineHeight: 12, fontWeight: "800", letterSpacing: 1.4 },
   /** 数字展示：20/800 等宽（配合 tabularNums） */
   num: { fontSize: 20, lineHeight: 24, fontWeight: "800", letterSpacing: -0.3 },
+  /** v3 大数字（今日专注时长，40/500，对接提案 .big 档） */
+  numLg: { fontSize: 40, lineHeight: 40, fontWeight: "500" },
 } as const;
 
 export type TypographyToken = keyof typeof typography;

@@ -659,6 +659,16 @@ export default function SettingsScreen() {
           </Svg>
           <View style={styles.heroInfo}>
             <View style={styles.heroAvatar}>
+              {/* 对齐 demo .pic：150° 蓝色渐变（#3C86CE → #1B4F87） */}
+              <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} pointerEvents="none">
+                <Defs>
+                  <LinearGradient id="meAvatarGradient" x1="0" y1="0" x2="0.5" y2="1">
+                    <Stop offset="0" stopColor="#3C86CE" />
+                    <Stop offset="1" stopColor="#1B4F87" />
+                  </LinearGradient>
+                </Defs>
+                <Rect x="0" y="0" width="100%" height="100%" fill="url(#meAvatarGradient)" />
+              </Svg>
               <Text style={styles.heroAvatarText}>{avatarInitial}</Text>
             </View>
             <View style={styles.heroText}>
@@ -1346,9 +1356,10 @@ const makeStyles = (colors: ThemeColors) =>
     /* ① 个人卡（实景带高度对齐今日页的实景带 158，暗场保证白字可读） */
     /** Web 上 react-native-web 会按原图尺寸布局绝对定位图片（导致只看左上角）：显式 100% 让 cover 生效 */
     heroImgFill: { width: "100%", height: "100%" },
+    /* 对齐 demo .me-hero：高 146、圆角 24（旧值 158/22） */
     hero: {
-      height: 158,
-      borderRadius: radius.panel,
+      height: 146,
+      borderRadius: 24,
       overflow: "hidden",
       ...shadows.card,
     },
@@ -1367,7 +1378,8 @@ const makeStyles = (colors: ThemeColors) =>
       borderRadius: radius.pill,
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: colors.focusCanvas,
+      overflow: "hidden",
+      backgroundColor: colors.primary, // 渐变层未就绪时的兜底
       borderWidth: 1.5,
       borderColor: colors.glassBorder,
       flexShrink: 0,

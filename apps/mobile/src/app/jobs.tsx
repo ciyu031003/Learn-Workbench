@@ -976,7 +976,7 @@ const makeStyles = (colors: ThemeColors) =>
   listSide: { paddingHorizontal: spacing.lg },
   // P1-2：一行文字统计（替代原 StatRow 三卡）
   statLine: { ...typography.meta, color: colors.textMuted, paddingTop: 2 },
-  statStrong: { ...typography.meta, fontWeight: "800", color: colors.text },
+  statStrong: { ...typography.meta, fontWeight: "600", color: colors.text },
 
   searchRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   // P1-2：主页面唯一一行筛选 chips（城市 / 方向 / 排序 / 更多筛选），横向滚动
@@ -995,8 +995,8 @@ const makeStyles = (colors: ThemeColors) =>
     borderColor: colors.border,
   },
   filterChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  filterChipText: { ...typography.caption, fontWeight: "700", color: colors.textSecondary },
-  filterChipTextActive: { ...typography.caption, fontWeight: "800", color: colors.canvas },
+  filterChipText: { ...typography.caption, fontWeight: "600", color: colors.textSecondary },
+  filterChipTextActive: { ...typography.caption, fontWeight: "700", color: colors.canvas },
   filterCountBadge: {
     minWidth: 17,
     height: 17,
@@ -1007,7 +1007,7 @@ const makeStyles = (colors: ThemeColors) =>
     backgroundColor: colors.primarySoft,
   },
   filterCountBadgeActive: { backgroundColor: colors.canvas },
-  filterCountText: { ...typography.micro, color: colors.primary, fontWeight: "800" },
+  filterCountText: { ...typography.micro, color: colors.primary, fontWeight: "700" },
   // P1-2：压缩版岗位卡 —— 上 40pt logo 行 + 下 26pt 徽章/标签行，实测高度约 97pt（目标 ≤132pt）
   // v2：radius.card(19) + 1px 细描边 + 轻投影（与 components/card.tsx 同一套视觉）
   jobCard: {
@@ -1033,17 +1033,17 @@ const makeStyles = (colors: ThemeColors) =>
     alignItems: "center",
     justifyContent: "center",
   },
-  logoText: { ...typography.callout, color: colors.canvas, fontWeight: "800" },
+  logoText: { ...typography.callout, color: colors.canvas, fontWeight: "700" },
   jobMain: { flex: 1, minWidth: 0, gap: 3 },
   titleRow: { flexDirection: "row", alignItems: "baseline", gap: spacing.sm },
-  jobTitle: { ...typography.callout, fontWeight: "800", flex: 1, color: colors.text },
-  salary: { ...typography.callout, fontWeight: "900", color: colors.accentStrong },
+  jobTitle: { ...typography.callout, fontWeight: "600", flex: 1, color: colors.text },
+  salary: { ...typography.callout, fontWeight: "700", color: colors.accentStrong },
   jobMeta: { ...typography.meta, color: colors.textSecondary },
   jobFoot: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: 10 },
   footTags: { flexDirection: "row", alignItems: "center", gap: 5, flex: 1, minWidth: 0, overflow: "hidden" },
   footFlag: {
     ...typography.micro,
-    fontWeight: "800",
+    fontWeight: "700",
     color: colors.primary,
     backgroundColor: colors.primarySoft,
     borderRadius: radius.pill,
@@ -1062,13 +1062,13 @@ const makeStyles = (colors: ThemeColors) =>
     paddingHorizontal: 7,
     paddingVertical: 2,
   },
-  tagText: { ...typography.micro, fontWeight: "700", color: colors.primary },
+  tagText: { ...typography.micro, fontWeight: "600", color: colors.primary },
   time: { ...typography.meta, color: colors.textFaint, textAlign: "right" },
   skeletonWrap: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
   // v20-J2：分页条与旧 sheet 样式已收进 components/pager-bar.tsx 与 sheet/*（v20-J1）；此处仅保留在用的表单件
   /** 弹层右上「重置」：44pt 热区，字号走 typography.meta */
   sheetResetHit: { minHeight: 44, paddingHorizontal: 4, justifyContent: "center" },
-  sheetReset: { ...typography.meta, fontWeight: "700", color: colors.primary },
+  sheetReset: { ...typography.meta, fontWeight: "600", color: colors.primary },
   skillInputRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.xs },
   skillInput: {
     flex: 1,
@@ -1087,5 +1087,5 @@ const makeStyles = (colors: ThemeColors) =>
     borderRadius: radius.control,
     paddingHorizontal: 16,
   },
-  skillAddText: { ...typography.callout, fontWeight: "800", color: colors.canvas },
+  skillAddText: { ...typography.callout, fontWeight: "700", color: colors.canvas },
 });

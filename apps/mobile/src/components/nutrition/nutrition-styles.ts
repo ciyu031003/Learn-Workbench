@@ -19,7 +19,7 @@ export const makeNutritionStyles = (colors: ThemeColors) =>
     /** 选中段用实底 + 轻投影，做出「滑块」的层次（参考图中日周月年那条） */
     segmentItemActive: { backgroundColor: colors.surfaceStrong, ...shadows.card },
     segmentText: { ...typography.caption, fontWeight: "700", color: colors.textMuted },
-    segmentTextActive: { color: colors.text, fontWeight: "800" },
+    segmentTextActive: { color: colors.text, fontWeight: "700" },
     dayPills: { flexDirection: "row", gap: spacing.sm },
     dayPill: {
       borderRadius: 999,
@@ -47,7 +47,7 @@ export const makeNutritionStyles = (colors: ThemeColors) =>
       ...shadows.card,
     },
     summaryItem: { flex: 1, minWidth: 0 },
-    summaryValue: { ...typography.headline, fontWeight: "800", color: colors.text, ...tabularNums },
+    summaryValue: { ...typography.headline, fontWeight: "700", color: colors.text, ...tabularNums },
     summaryLabel: { ...typography.micro, color: colors.textMuted },
     summaryDivider: { width: StyleSheet.hairlineWidth, height: 22, backgroundColor: colors.border },
     summaryAdd: {
@@ -72,15 +72,15 @@ export const makeNutritionStyles = (colors: ThemeColors) =>
       borderColor: colors.border,
     },
     advancedText: { ...typography.caption, color: colors.text, fontWeight: "700" },
-    advancedMeta: { ...typography.micro, color: colors.teal, fontWeight: "800", ...tabularNums },
+    advancedMeta: { ...typography.micro, color: colors.teal, fontWeight: "700", ...tabularNums },
     /* ---- 周 / 月 区间汇总卡 ---- */
     rangeCard: { gap: 2 },
-    rangeTitle: { ...typography.headline, fontWeight: "800", color: colors.text },
+    rangeTitle: { ...typography.headline, fontWeight: "700", color: colors.text },
     rangeMeta: { ...typography.caption, fontWeight: "400", color: colors.textMuted, ...tabularNums },
     rangeHint: { ...typography.micro, color: colors.textFaint, marginTop: 2 },
     monthCard: { paddingVertical: spacing.md },
     /** 月历格子下的当天热量汇总（有记录才显示） */
-    calBadgeText: { ...typography.micro, fontSize: 10, fontWeight: "800", color: colors.accentStrong, ...tabularNums },
+    calBadgeText: { ...typography.micro, fontSize: 10, fontWeight: "700", color: colors.accentStrong, ...tabularNums },
     hero: { flexDirection: "row", alignItems: "center", gap: spacing.lg, paddingVertical: spacing.lg },
     heroRight: { flex: 1, minWidth: 0, gap: 2 },
     heroCaption: { ...typography.caption, fontWeight: "600", color: colors.textMuted },
@@ -90,7 +90,7 @@ export const makeNutritionStyles = (colors: ThemeColors) =>
       fontSize: 38,
       lineHeight: 44,
       fontStyle: "italic",
-      fontWeight: "800",
+      fontWeight: "700",
       letterSpacing: -1,
       color: colors.accent,
       ...tabularNums,
@@ -109,7 +109,7 @@ export const makeNutritionStyles = (colors: ThemeColors) =>
       borderRadius: 999,
       paddingVertical: 13,
     },
-    addBtnText: { color: "#fff", ...typography.headline, fontWeight: "800" },
+    addBtnText: { color: "#fff", ...typography.headline, fontWeight: "700" },
     /* v6 P0-3：待同步状态条 */
     syncBar: {
       flexDirection: "row",
@@ -125,7 +125,7 @@ export const makeNutritionStyles = (colors: ThemeColors) =>
     syncBarText: { ...typography.caption, fontWeight: "700", color: colors.accentStrong },
     mealBlock: { gap: 6 },
     mealHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" },
-    mealTitle: { ...typography.headline, fontWeight: "800", color: colors.text },
+    mealTitle: { ...typography.headline, fontWeight: "700", color: colors.text },
     mealMeta: { ...typography.micro, color: colors.textMuted, ...tabularNums },
     mealTrack: { height: 5, borderRadius: 999, backgroundColor: colors.surfaceMuted, overflow: "hidden" },
     mealFill: { height: 5, borderRadius: 999 },
@@ -198,7 +198,7 @@ export const makeNutritionStyles = (colors: ThemeColors) =>
       borderColor: colors.border,
     },
     itemHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
-    itemName: { flex: 1, minWidth: 0, ...typography.headline, fontWeight: "800", color: colors.text },
+    itemName: { flex: 1, minWidth: 0, ...typography.headline, fontWeight: "700", color: colors.text },
     itemMeta: { ...typography.caption, color: colors.textMuted, ...tabularNums },
     gramsRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
     gramsField: { flex: 1, minWidth: 0 },
@@ -225,7 +225,7 @@ export const makeNutritionStyles = (colors: ThemeColors) =>
     stickerGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
     stickerCell: { alignItems: "center", gap: 2, width: 64 },
     stickerName: { ...typography.micro, fontSize: 10, color: colors.textMuted },
-    stickerTimes: { ...typography.micro, fontSize: 10, fontWeight: "800", color: colors.accentStrong },
+    stickerTimes: { ...typography.micro, fontSize: 10, fontWeight: "700", color: colors.accentStrong },
     /* ---- 需求 2：每日推荐（横向卡片，与「精选食谱」同色系但不抢焦点） ---- */
     dailyWrap: { gap: spacing.sm },
     dailyRow: { gap: spacing.sm, paddingRight: 4 },
@@ -241,11 +241,11 @@ export const makeNutritionStyles = (colors: ThemeColors) =>
       ...shadows.card,
     },
     dailyTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 6 },
-    dailyMeal: { ...typography.micro, fontWeight: "800" },
+    dailyMeal: { ...typography.micro, fontWeight: "700" },
     dailyTag: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 999 },
-    dailyTagText: { ...typography.micro, fontWeight: "800" },
-    dailyName: { ...typography.callout, fontWeight: "800", color: colors.text, lineHeight: 19 },
-    dailyKcal: { ...typography.caption, fontWeight: "800", color: colors.accentStrong, ...tabularNums },
+    dailyTagText: { ...typography.micro, fontWeight: "700" },
+    dailyName: { ...typography.callout, fontWeight: "700", color: colors.text, lineHeight: 19 },
+    dailyKcal: { ...typography.caption, fontWeight: "700", color: colors.accentStrong, ...tabularNums },
     dailyMacro: { ...typography.micro, fontWeight: "500", color: colors.textMuted, ...tabularNums },
     /* ---- 需求 1：折叠收纳栏（标题 + 条目数 + 展开态） ---- */
     group: {
@@ -264,7 +264,7 @@ export const makeNutritionStyles = (colors: ThemeColors) =>
       minHeight: 44,
     },
     groupTitleWrap: { flex: 1, minWidth: 0, gap: 1 },
-    groupTitle: { ...typography.callout, fontWeight: "800", color: colors.text },
+    groupTitle: { ...typography.callout, fontWeight: "700", color: colors.text },
     groupHint: { ...typography.micro, fontWeight: "400", color: colors.textMuted },
     /** 折叠标题上的条目数：小圆角胶囊，读起来像"这组有多少条"而不是按钮 */
     groupCount: {
@@ -275,7 +275,7 @@ export const makeNutritionStyles = (colors: ThemeColors) =>
       backgroundColor: colors.surfaceMuted,
       alignItems: "center",
     },
-    groupCountText: { ...typography.micro, fontWeight: "800", color: colors.textMuted, ...tabularNums },
+    groupCountText: { ...typography.micro, fontWeight: "700", color: colors.textMuted, ...tabularNums },
     groupBody: { gap: 8, paddingHorizontal: 12, paddingBottom: 12 },
     /* ---- 需求 1：按分量添加（行内选分量，热量与 P/C/F 实时联动） ---- */
     portionRow: {
@@ -311,7 +311,7 @@ export const makeNutritionStyles = (colors: ThemeColors) =>
       backgroundColor: colors.accentStrong,
     },
     portionAddDone: { backgroundColor: colors.successSoft },
-    portionAddText: { ...typography.micro, fontWeight: "800", color: "#ffffff" },
+    portionAddText: { ...typography.micro, fontWeight: "700", color: "#ffffff" },
     portionAddTextDone: { color: colors.success },
     portionPreview: { ...typography.micro, fontWeight: "700", color: colors.accentStrong, ...tabularNums },
     /* ---- 需求 3：以往添加的食物（右侧「+ 今日」） ---- */
@@ -339,7 +339,7 @@ export const makeNutritionStyles = (colors: ThemeColors) =>
       backgroundColor: colors.accentSoft,
     },
     historyAddDone: { borderColor: colors.success + "66", backgroundColor: colors.successSoft },
-    historyAddText: { ...typography.micro, fontWeight: "800", color: colors.accentStrong },
+    historyAddText: { ...typography.micro, fontWeight: "700", color: colors.accentStrong },
     historyAddTextDone: { color: colors.success },
     /* 需求 1：营养基准库的「基准量倍数」胶囊选中态 */
     gramsChipActive: { backgroundColor: colors.primary },

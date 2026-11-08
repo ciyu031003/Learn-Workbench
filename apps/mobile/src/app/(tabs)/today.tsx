@@ -868,6 +868,8 @@ export default function TodayScreen() {
               accessibilityLabel="通知"
             >
               <ThemedIcon name="notifications-outline" size={19} color={colors.text} />
+              {/* 对齐 demo .icon-btn.notif：右上角一枚橙色未读小圆点（避开已存在的 v3NotifDot 命名） */}
+              <View pointerEvents="none" style={styles.v3BellDot} />
             </Pressable>
             <Pressable
               hitSlop={10}
@@ -920,8 +922,8 @@ export default function TodayScreen() {
           </View>
         </View>
 
-        {/* ④ 今日专注（本屏唯一强玻璃锚点，负 margin 咬住实景带） */}
-        <Surface tier="glassStrong" corner={radius.panel} style={styles.v3FocusShell}>
+        {/* ④ 今日专注（本屏唯一强玻璃锚点，负 margin 咬住实景带；圆角 26 对齐 demo .focus-shell） */}
+        <Surface tier="glassStrong" corner={26} style={styles.v3FocusShell}>
           <View style={styles.v3FsHead}>
             <View style={styles.v3FsHeadText}>
               <View style={styles.v3FsKicker}>
@@ -987,7 +989,7 @@ export default function TodayScreen() {
               </Text>
               <Text style={styles.v3StatLabel}>今日任务</Text>
             </View>
-            <View style={styles.v3Stat}>
+            <View style={[styles.v3Stat, styles.v3StatDivider]}>
               <Text style={[styles.v3StatValue, tabularNums]}>
                 {learningSnapshot.questionsToday}
                 <Text style={styles.v3StatSuffix}>{"/" + DAILY_QUESTION_GOAL}</Text>
@@ -1000,7 +1002,7 @@ export default function TodayScreen() {
                 if (!checkedInToday) haptics.success();
                 checkinToday();
               }}
-              style={styles.v3Stat}
+              style={[styles.v3Stat, styles.v3StatDivider]}
               accessibilityRole="button"
               accessibilityLabel={checkedInToday ? "今日已打卡，连续 " + streak + " 天" : "点此打卡"}
             >
@@ -1024,6 +1026,16 @@ export default function TodayScreen() {
             accessibilityRole="button"
             accessibilityLabel={"开始专注 " + quickStartLabel}
           >
+            {/* 对齐 demo .focus-cta：160° 蓝色渐变（#3C86CE → #1E5C9E），整层绝对定位被圆角裁掉 */}
+            <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} pointerEvents="none">
+              <Defs>
+                <LinearGradient id="v3CtaGradient" x1="0" y1="0" x2="0.34" y2="1">
+                  <Stop offset="0" stopColor="#3C86CE" />
+                  <Stop offset="1" stopColor="#1E5C9E" />
+                </LinearGradient>
+              </Defs>
+              <Rect x="0" y="0" width="100%" height="100%" fill="url(#v3CtaGradient)" />
+            </Svg>
             <View style={styles.v3CtaPlay}>
               <ThemedIcon name="play" size={15} color="#FFFFFF" />
             </View>
@@ -1685,13 +1697,23 @@ const makeStyles = (colors: ThemeColors) =>
       borderWidth: StyleSheet.hairlineWidth * 2,
       borderColor: colors.border,
     },
+    v3BellDot: {
+      position: "absolute",
+      top: 8,
+      right: 9,
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: colors.accent,
+    },
     v3Avatar: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: colors.primary },
     v3AvatarText: { ...typography.callout, fontWeight: "700", color: "#FFFFFF" },
     v3Greet: { gap: 6, paddingHorizontal: 2, marginTop: 6 },
     v3GreetDate: { flexDirection: "row", alignItems: "center", gap: 8 },
     v3GreetDateText: { ...typography.caption, fontWeight: "600", color: colors.textSecondary },
     v3GreetDot: { width: 3, height: 3, borderRadius: 2, backgroundColor: colors.textFaint },
-    v3GreetTitle: { ...typography.pageTitle, color: colors.text },
+    /* demo h1 字重 680：RN 取最接近的 700（pageTitle 默认 800 偏粗） */
+    v3GreetTitle: { ...typography.pageTitle, fontWeight: "700", color: colors.text },
     v3GreetSub: { ...typography.meta, color: colors.textMuted, lineHeight: 17 },
     v3Scene: { height: 158, borderRadius: 26, overflow: "hidden", marginTop: 4, ...shadows.card },
     /** Web 上 react-native-web 会按原图尺寸布局绝对定位图片（导致只看左上角）：显式 100% 让 cover 生效，原生同值无影响 */
@@ -1707,9 +1729,10 @@ const makeStyles = (colors: ThemeColors) =>
     v3FsHeadText: { gap: 2 },
     v3FsKicker: { flexDirection: "row", alignItems: "center", gap: 6 },
     v3FsKickerText: { ...typography.caption, fontWeight: "600", color: colors.textSecondary },
-    v3FsBig: { flexDirection: "row", alignItems: "baseline", gap: 1 },
-    v3FsBigNum: { ...typography.display, color: colors.text },
-    v3FsBigUnit: { ...typography.caption, fontWeight: "600", color: colors.textMuted, marginRight: 3 },
+    v3FsBig: { flexDirection: "row", alignItems: "baseline", gap: 1, marginTop: 7 },
+    /* 对齐 demo .big：40/500（走 typography.numLg，避免裸字号棘轮） */
+    v3FsBigNum: { ...typography.numLg, color: colors.text },
+    v3FsBigUnit: { ...typography.caption, color: colors.textMuted, marginRight: 3 },
     v3FsBadge: { width: 56, height: 56, alignItems: "center", justifyContent: "center" },
     v3FsBadgeLabel: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, alignItems: "center", justifyContent: "center" },
     v3FsBadgeValue: { ...typography.caption, fontWeight: "700", color: colors.text },
@@ -1731,7 +1754,13 @@ const makeStyles = (colors: ThemeColors) =>
     v3WbLabelToday: { color: colors.accent, fontWeight: "700" },
     v3Stats: { flexDirection: "row", marginTop: 15, paddingTop: 13, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
     v3Stat: { flex: 1, gap: 2 },
-    v3StatValue: { ...typography.callout, fontWeight: "700", color: colors.text },
+    /* 对齐 demo .fs-stat：第 2、3 格左侧细分隔线 + 左内边距 */
+    v3StatDivider: {
+      borderLeftWidth: StyleSheet.hairlineWidth,
+      borderLeftColor: "rgba(15,25,29,0.07)",
+      paddingLeft: 14,
+    },
+    v3StatValue: { ...typography.callout, fontWeight: "600", color: colors.text },
     v3StatSuffix: { ...typography.caption, fontWeight: "500", color: colors.textMuted },
     v3StatLabel: { ...typography.micro, fontWeight: "500", color: colors.textMuted },
     v3Cta: {
@@ -1743,7 +1772,8 @@ const makeStyles = (colors: ThemeColors) =>
       paddingLeft: 8,
       paddingRight: 14,
       borderRadius: radius.pill,
-      backgroundColor: colors.primary,
+      overflow: "hidden",
+      backgroundColor: colors.primary, // 渐变层未就绪时的兜底
       ...shadows.brand,
     },
     v3CtaPlay: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.16)" },

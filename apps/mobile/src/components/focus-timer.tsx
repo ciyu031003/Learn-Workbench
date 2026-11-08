@@ -110,7 +110,8 @@ export function FocusTimer({
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
 
-  const [mode, setMode] = useState<BgMode>("gallery");
+  // 默认走纯色（#08131B 冷调深蓝，对齐 demo 专注暗场）；用户仍可在面板里选 Bing/其它背景
+  const [mode, setMode] = useState<BgMode>("color");
   const [color, setColor] = useState("#08131B");
   const [url, setUrl] = useState<string | null>(null);
   // v4 P2：默认改为「每日 Bing」风景壁纸（Web 端早就是 bing；用户若手动选过其它背景，
@@ -596,6 +597,8 @@ export function FocusTimer({
   const shareCard = () => setShareOpen(true);
 
   const ratio = timerMode === "stopwatch" ? 0 : (total > 0 ? remaining / total : 0);
+  // 对齐 demo：倒计时环表示「剩余」，开始即满圈、随时间缩短；秒表仍保持满圈（旧行为）
+  const ringProgress = timerMode === "stopwatch" ? 1 : ratio;
   // stopwatch 时 tick 已把「墙钟已跑秒数」写进 remaining 状态，render 内直接读 remaining 即可
   const elapsed = timerMode === "stopwatch" ? remaining : total - remaining;
   const remainingShown = remaining;
@@ -639,8 +642,8 @@ export function FocusTimer({
         {showImage ? <ExpoImage source={{ uri: url! }} style={ABS_FILL} contentFit="cover" cachePolicy="memory-disk" transition={200} onError={() => setUrl(null)} /> : null}
         {showBing ? <ExpoImage source={{ uri: bing! }} style={ABS_FILL} contentFit="cover" cachePolicy="memory-disk" transition={200} onError={() => setBing(null)} /> : null}
         {!showImage && !showBing ? <View style={[ABS_FILL, { backgroundColor: bgColor }]} /> : null}
-        <View style={[ABS_FILL, styles.scrim]} />
-        <View style={[ABS_FILL, styles.glow]} />
+        {/* 黑色压暗层只用于图片背景；纯色已是 #08131B 暗场，再叠 50% 黑会发死 */}
+        {showImage || showBing ? <View style={[ABS_FILL, styles.scrim]} /> : null}
 
         {/* 顶部：关闭 + 专注模式标题/时段 + 背景（提案 §专注模式） */}
         <View style={[styles.topBar, { paddingTop: insets.top + 12 }]}>
@@ -789,7 +792,7 @@ export function FocusTimer({
                     <RingProgress
                       size={ringSize}
                       strokeWidth={ringStroke}
-                      progress={1 - ratio}
+                      progress={ringProgress}
                       trackColor="rgba(143,195,240,0.14)"
                       color="#8FC3F0"
                     />
@@ -801,7 +804,7 @@ export function FocusTimer({
                 ) : (
                   <TimerDial
                     size={ringSize}
-                    progress={1 - ratio}
+                    progress={ringProgress}
                     color="#8FC3F0"
                     trackColor="rgba(143,195,240,0.14)"
                     tickColor="rgba(255,255,255,0.6)"
@@ -863,7 +866,7 @@ export function FocusTimer({
                   onPress={() => (running ? pause() : resume())}
                   hitSlop={6}
                 >
-                  <ThemedIcon name={running ? "pause" : "play"} size={16} color="#0B1620" />
+                  <ThemedIcon name={running ? "pause" : "play"} size={16} color="#EAF3F7" />
                   <Text style={styles.fmMainText}>{running ? "暂停" : "继续"}</Text>
                 </Pressable>
                 <Pressable
@@ -1028,7 +1031,6 @@ export function FocusTimer({
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#000" },
   scrim: { backgroundColor: "rgba(0,0,0,0.5)" },
-  glow: { backgroundColor: "rgba(232,147,12,0.10)" },
   topBar: { flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 16, zIndex: 20 },
   topBtn: {
     backgroundColor: "rgba(255,255,255,0.12)",
@@ -1079,7 +1081,8 @@ const styles = StyleSheet.create({
   viewChipText: { color: "rgba(255,255,255,0.8)", fontSize: 12 },
   viewChipTextActive: { color: "#fff", fontWeight: "700" },
   clockWrap: { position: "absolute", alignItems: "center", justifyContent: "center" },
-  clock: { color: "#fff", fontSize: 62, fontWeight: "800", fontVariant: ["tabular-nums"] },
+  /* 对齐 demo .fm-time b：细字重 400（旧值 800 偏粗），字号仍由 clockSize 动态决定 */
+  clock: { color: "#fff", fontSize: 62, fontWeight: "400", fontVariant: ["tabular-nums"] },
   landscapeWrap: { alignItems: "center", gap: 14, paddingVertical: 8 },
   landscapeTop: { alignItems: "center", gap: 3 },
   landscapeClockWrap: { alignItems: "center", gap: 6, paddingHorizontal: 24, paddingVertical: 6 },
@@ -1210,17 +1213,20 @@ const styles = StyleSheet.create({
   fmTitle: { ...typography.headline, fontWeight: "700", color: "#FFFFFF", textAlign: "center" },
   fmSub: { ...typography.meta, color: "rgba(255,255,255,0.6)", textAlign: "center" },
   fmActions: { flexDirection: "row", alignItems: "center", gap: 10 },
+  /* 对齐 demo .fm-main：半透明白玻璃胶囊（旧值实心浅蓝 #8FC3F0 偏跳） */
   fmMain: {
     flex: 1,
     minHeight: 50,
     borderRadius: 999,
-    backgroundColor: "#8FC3F0",
+    backgroundColor: "rgba(255,255,255,0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.16)",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
   },
-  fmMainText: { ...typography.callout, fontWeight: "700", color: "#0B1620" },
+  fmMainText: { ...typography.callout, fontWeight: "600", color: "#EAF3F7" },
   fmQuit: {
     flex: 1,
     minHeight: 50,
