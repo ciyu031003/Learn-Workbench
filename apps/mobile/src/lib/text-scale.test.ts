@@ -64,16 +64,16 @@ describe("v17-A text-scale policy", () => {
   });
 });
 
-describe("v17-A type scale (tokens)", () => {
-  it("字阶对齐 iOS 语义（v17 定稿值）", () => {
-    expect(typography.display.fontSize).toBe(32);
+describe("v3 type scale (tokens)", () => {
+  it("字阶对齐 v3 提案（27/16/15.5/11 字阶）", () => {
+    expect(typography.display.fontSize).toBe(30);
     expect(typography.title1.fontSize).toBe(28);
     expect(typography.title2.fontSize).toBe(22);
     expect(typography.headline.fontSize).toBe(17);
-    expect(typography.body.fontSize).toBe(16);
+    expect(typography.body.fontSize).toBe(15.5);
     expect(typography.callout.fontSize).toBe(15);
     expect(typography.caption.fontSize).toBe(12);
-    expect(typography.micro.fontSize).toBe(12);
+    expect(typography.micro.fontSize).toBe(11);
   });
 
   it("权重：中文标题 600 比 700 秀气（headline），正文 400", () => {

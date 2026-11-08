@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ComponentProps } from "react";
 import {
+  Image,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -30,7 +31,7 @@ import { SheetStickyCta } from "@/components/sheet";
 import { CelebrationModal } from "@/components/celebration-modal";
 import { RingProgress } from "@/components/ring-progress";
 import { PressableScale } from "@/components/pressable-scale";
-import { GlassHighlight, Surface } from "@/components/surface";
+import { Surface } from "@/components/surface";
 import { PageHead } from "@/components/v2/page-head";
 import { SectionTitle } from "@/components/v2/section-title";
 import { MoodPicker } from "@/components/v2/mood-picker";
@@ -819,27 +820,37 @@ export default function TodayScreen() {
         />
 
         {/*
-          ② Hero（浅蓝渐变 + 静态高光 = 本屏视觉锚点之一）：
-          时分问候 + 日期 + 打卡 pill + 连续打卡天数 + 本周 7 格（已打卡填充 / 今天描边）。
-          渐变用 react-native-svg 画（不新增依赖），色值全部取 useTheme().colors。
+          ② 实景带（每日一景 = 本屏视觉锚点）：
+          高山云海实景 + 顶部场景说明 + 时分问候 + 连续打卡 + 本周 7 格（白格已打卡 / 橘格今天）。
+          白字靠上下暗场保证可读；图片本地打包，不依赖网络。
         */}
         <View style={styles.hero}>
+          <Image
+            source={require("../../../assets/images/scene-hero.jpg")}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+          />
+          {/* 上下暗场：实景上的白字可读，且不遮挡画面中部（SVG 渐变，无硬边） */}
           <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} pointerEvents="none">
             <Defs>
-              <LinearGradient id="todayHeroGradient" x1="0" y1="0" x2="0.7" y2="1">
-                <Stop offset="0" stopColor={colors.primarySoft} />
-                <Stop offset="0.55" stopColor={colors.primarySoft} stopOpacity={0.55} />
-                <Stop offset="1" stopColor={colors.surfaceStrong} />
+              <LinearGradient id="heroScrimTop" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor="#08131B" stopOpacity={0.42} />
+                <Stop offset="1" stopColor="#08131B" stopOpacity={0} />
+              </LinearGradient>
+              <LinearGradient id="heroScrimBottom" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor="#08131B" stopOpacity={0} />
+                <Stop offset="1" stopColor="#08131B" stopOpacity={0.55} />
               </LinearGradient>
             </Defs>
-            <Rect x="0" y="0" width="100%" height="100%" fill="url(#todayHeroGradient)" />
+            <Rect x="0" y="0" width="100%" height="120" fill="url(#heroScrimTop)" />
+            <Rect x="0" y="0" width="100%" height="100%" fill="url(#heroScrimBottom)" />
           </Svg>
-          <GlassHighlight corner={radius.panel} />
 
-          <View style={styles.heroHead}>
-            <View style={styles.heroHeadText}>
-              <Text style={styles.heroGreet}>{greet}</Text>
-              <Text style={styles.heroDate}>{dateLabel}</Text>
+          {/* 顶部：场景说明 + 打卡 pill */}
+          <View style={styles.heroTopRow}>
+            <View style={styles.heroSceneRow}>
+              <ThemedIcon name="image-outline" size={13} color="#FFFFFF" />
+              <Text style={styles.heroSceneText}>每日一景 · 云海日出</Text>
             </View>
             <Pressable
               onPress={() => {
@@ -862,7 +873,12 @@ export default function TodayScreen() {
             </Pressable>
           </View>
 
-          {/* 连续打卡：数值（32/800）与标签（12/400）拉开三档，标签只做说明不抢视线 */}
+          <View style={styles.heroHeadText}>
+            <Text style={styles.heroGreet}>{greet}</Text>
+            <Text style={styles.heroDate}>{dateLabel}</Text>
+          </View>
+
+          {/* 连续打卡：数值（30/800）与标签（11/400）拉开三档，标签只做说明不抢视线 */}
           {streak > 0 ? (
             <View style={styles.heroStreakRow}>
               <Text style={[styles.heroStreakNum, tabularNums]}>{streak}</Text>
@@ -1227,45 +1243,44 @@ const makeStyles = (colors: ThemeColors) =>
     scroll: { flex: 1 },
     content: { paddingHorizontal: 17, paddingBottom: 24, gap: 14 },
 
-    // ---- Hero（浅蓝渐变 + 高光）----
+    // ---- 实景带（每日一景，白字 + 暗场）----
     hero: {
       gap: 12,
       padding: 18,
       borderRadius: radius.panel,
       overflow: "hidden",
-      backgroundColor: colors.surfaceStrong,
-      borderWidth: StyleSheet.hairlineWidth * 2,
-      borderColor: colors.border,
       ...shadows.card,
     },
-    heroHead: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 10 },
-    heroHeadText: { flex: 1, minWidth: 0, gap: 2 },
-    heroGreet: { ...typography.hero, color: colors.text },
-    heroDate: { ...typography.meta, color: colors.textSecondary },
+    heroTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
+    heroSceneRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+    heroSceneText: { ...typography.micro, fontWeight: "700", color: "#FFFFFF", letterSpacing: 0.4 },
+    heroHeadText: { gap: 2 },
+    heroGreet: { ...typography.hero, color: "#FFFFFF" },
+    heroDate: { ...typography.meta, color: "rgba(255,255,255,0.78)" },
     checkinPill: {
       flexDirection: "row",
       alignItems: "center",
       gap: 5,
-      minHeight: 44,
-      paddingHorizontal: 14,
+      minHeight: 36,
+      paddingHorizontal: 13,
       borderRadius: radius.pill,
-      borderWidth: StyleSheet.hairlineWidth * 2,
-      borderColor: colors.border,
-      backgroundColor: colors.surfaceStrong,
+      borderWidth: 1,
+      borderColor: "rgba(255,255,255,0.55)",
+      backgroundColor: "rgba(255,255,255,0.20)",
     },
-    checkinPillDone: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
-    checkinText: { ...typography.caption, fontWeight: "700", color: colors.textMuted },
+    checkinPillDone: { borderColor: "rgba(255,255,255,0.85)", backgroundColor: "rgba(255,255,255,0.88)" },
+    checkinText: { ...typography.caption, fontWeight: "700", color: "#FFFFFF" },
     checkinTextDone: { color: colors.primaryStrong },
     heroStreakRow: { flexDirection: "row", alignItems: "baseline", gap: 5 },
-    /* 数值 32/800 → 单位 12/700 → 标签 12/400：三级重量差撑开层级 */
-    heroStreakNum: { ...typography.display, color: colors.text },
-    heroStreakUnit: { ...typography.caption, fontWeight: "700", color: colors.textSecondary },
-    heroStreakLabel: { ...typography.meta, color: colors.textMuted, marginLeft: 2 },
-    heroStreakHint: { ...typography.meta, color: colors.textMuted, marginTop: -4 },
+    /* 数值 30/800 → 单位 11/700 → 标签 11/400：三级重量差撑开层级 */
+    heroStreakNum: { ...typography.display, color: "#FFFFFF" },
+    heroStreakUnit: { ...typography.micro, fontWeight: "700", color: "rgba(255,255,255,0.85)" },
+    heroStreakLabel: { ...typography.meta, color: "rgba(255,255,255,0.72)", marginLeft: 2 },
+    heroStreakHint: { ...typography.meta, color: "rgba(255,255,255,0.72)", marginTop: -4 },
     heroWeekHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: 8 },
-    heroWeekTitle: { ...typography.meta, fontWeight: "600", color: colors.textMuted },
-    heroWeekMeta: { ...typography.meta, color: colors.textMuted },
-    heroWeekMetaNum: { ...typography.callout, fontWeight: "800", color: colors.primary },
+    heroWeekTitle: { ...typography.meta, fontWeight: "600", color: "rgba(255,255,255,0.82)" },
+    heroWeekMeta: { ...typography.meta, color: "rgba(255,255,255,0.72)" },
+    heroWeekMetaNum: { ...typography.callout, fontWeight: "800", color: "#FFFFFF" },
     heroWeekRow: { flexDirection: "row", gap: 6 },
     heroWeekCell: { flex: 1, minWidth: 0 },
     heroWeekDot: {
@@ -1273,18 +1288,19 @@ const makeStyles = (colors: ThemeColors) =>
       borderRadius: radius.sm,
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: colors.surfaceMuted,
+      backgroundColor: "rgba(255,255,255,0.16)",
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: "rgba(255,255,255,0.35)",
     },
-    heroWeekDotDone: { backgroundColor: colors.primary, borderColor: colors.primary },
-    heroWeekDotToday: { backgroundColor: colors.primarySoft, borderColor: colors.primary, borderWidth: 1.5 },
-    heroWeekText: { ...typography.meta, fontWeight: "700", color: colors.textFaint },
-    heroWeekTextDone: { color: colors.canvas },
-    heroWeekTextToday: { color: colors.primaryStrong },
+    heroWeekDotDone: { backgroundColor: "#FFFFFF", borderColor: "#FFFFFF" },
+    /* 今天格强制阳光橘（提案：橘只给「今天」一个角色） */
+    heroWeekDotToday: { backgroundColor: colors.accent, borderColor: colors.accent, borderWidth: 1 },
+    heroWeekText: { ...typography.meta, fontWeight: "700", color: "rgba(255,255,255,0.72)" },
+    heroWeekTextDone: { color: colors.text },
+    heroWeekTextToday: { color: "#FFFFFF" },
     heroTipRow: { flexDirection: "row", alignItems: "flex-start", gap: 7 },
-    heroTipDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: colors.primary, marginTop: 6 },
-    heroTip: { ...typography.meta, color: colors.textSecondary, lineHeight: 17, flex: 1, minWidth: 0 },
+    heroTipDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: "#FFFFFF", marginTop: 6 },
+    heroTip: { ...typography.meta, color: "rgba(255,255,255,0.82)", lineHeight: 16, flex: 1, minWidth: 0 },
 
     // ---- 专注卡（glassStrong）----
     focusCard: { padding: 18, gap: 14 },

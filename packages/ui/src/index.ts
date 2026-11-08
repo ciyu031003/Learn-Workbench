@@ -2,32 +2,32 @@
 
 /** 色彩：Background / Surface / Glass / Primary / Secondary / Success / Warning / Danger / Text / Muted */
 export const colors = {
-  background: "#f8f9fb",
+  background: "#f1f4f5",      // 瓷白偏冷画布
   surface: "#ffffff",
-  glass: "rgba(255,255,255,0.78)",
-  text: "#18181b",
-  muted: "#f1f1f3",
-  mutedForeground: "#71717a",
-  border: "rgba(24,24,27,0.08)",
+  glass: "rgba(255,255,255,0.64)",
+  text: "#0f191d",
+  muted: "#f7fafa",
+  mutedForeground: "#78888f",
+  border: "rgba(15,25,29,0.085)",
   primary: "#2f74c0",        // 晴空蓝
   primaryForeground: "#ffffff",
-  secondary: "#eaf4fd",      // 晴空浅底（次级强调）
+  secondary: "#e3eff9",      // 晴空浅底（次级强调）
   accent: "#e1781c",         // 阳光橘
   success: "#3da35d",
   warning: "#d99000",
   danger: "#c04545",
-  overlay: "rgba(10,10,14,0.35)",
+  overlay: "rgba(15,25,29,0.42)",
 } as const;
 
-/** 圆角：sm(8) md(12) lg(16) xl(20) 2xl(28) */
-export const radius = { sm: 8, md: 12, lg: 16, xl: 20, "2xl": 28, full: 9999 } as const;
+/** 圆角：sm(8) md(12) lg(16) xl(20) 2xl(28)；机壳 30 / 卡 18 / 控件 12 / 胶囊 999 */
+export const radius = { sm: 8, md: 12, lg: 16, xl: 20, "2xl": 28, card: 18, shell: 30, full: 9999 } as const;
 
 /** 阴影：shadow-sm / md / lg / glass-shadow */
 export const shadows = {
-  sm: "0 1px 2px rgba(0,0,0,0.05)",
-  md: "0 4px 12px rgba(0,0,0,0.08)",
-  lg: "0 12px 32px rgba(0,0,0,0.12)",
-  glass: "inset 0 1px 0 rgba(255,255,255,0.22), 0 8px 32px rgba(0,0,0,0.08)",
+  sm: "0 1px 2px rgba(15,25,29,0.05)",
+  md: "0 4px 12px rgba(15,25,29,0.08)",
+  lg: "0 12px 32px rgba(15,25,29,0.12)",
+  glass: "inset 0 1px 0 rgba(255,255,255,0.22), 0 8px 32px rgba(27,79,135,0.14)",
 } as const;
 
 /** 间距：4 8 12 16 24 32 48 64 */
@@ -42,7 +42,7 @@ export const fontFamily = {
 } as const;
 
 /** 图表序列色板：晴空蓝 → 浅蓝 → 阳光橘 → 新芽绿（多系列数据按序取用） */
-export const chartSeries = ["#2f74c0", "#5b93d6", "#8bb7e8", "#e1781c", "#8fbf5f"] as const;
+export const chartSeries = ["#2f74c0", "#5b93d6", "#8bb7e8", "#e1781c", "#3da35d"] as const;
 
 export const tokens = { colors, radius, shadows, spacing, fontSize, fontFamily } as const;
 export type Tokens = typeof tokens;
@@ -68,7 +68,7 @@ export const oilPainting = {
   warningStrong: "#a86900",
   danger: "#c04545",
   dangerStrong: "#9c2f2f",
-  chartSeries: ["#2f74c0", "#5b93d6", "#8bb7e8", "#e1781c", "#8fbf5f"],
+  chartSeries: ["#2f74c0", "#5b93d6", "#8bb7e8", "#e1781c", "#3da35d"],
 } as const;
 
 /** v1.3 对外别名：保留 oilPainting，同时提供语义名 sunny。 */

@@ -34,10 +34,10 @@ const PILL_OVERHANG = 1;
 /** 外发光外扩：只画一次静态径向渐变，不做循环动画（垂直外扩很小，主要向左右晕开） */
 const GLOW_PAD_X = 10;
 const GLOW_PAD_Y = 6;
-/** 参考图 2 的选中渐变（#6FA0FF → #4777E8）；深色下同一组蓝色在深玻璃上更跳 */
-const PILL_FROM = "#6FA0FF";
-const PILL_TO = "#4777E8";
-const PILL_GLOW = "#5B8CF2";
+/** 选中渐变（晴空蓝 #5B93D6 → #2F74C0，对齐 v3 提案）；深色下同一组蓝色在深玻璃上更跳 */
+const PILL_FROM = "#5B93D6";
+const PILL_TO = "#2F74C0";
+const PILL_GLOW = "#2F74C0";
 /** 胶囊染色：浅色 = 更白更通透的白玻璃；深色 = 深蓝黑玻璃 */
 const CAPSULE_LIGHT = "rgba(255,255,255,0.92)";
 const CAPSULE_DARK = "rgba(18,24,38,0.88)";

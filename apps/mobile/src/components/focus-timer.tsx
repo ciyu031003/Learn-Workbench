@@ -49,7 +49,7 @@ const GALLERY = [
   { id: "candy", name: "糖果粉", color: "#831843" },
   { id: "bing", name: "每日 Bing", color: "#1f2937" },
 ];
-const COLORS = ["#0f172a", "#1f2937", "#7c2d12", "#7f1d1d", "#14532d", "#1e3a8a", "#4c1d95", "#831843"];
+const COLORS = ["#08131B", "#1f2937", "#7c2d12", "#7f1d1d", "#14532d", "#1e3a8a", "#4c1d95", "#831843"];
 
 const K_COLOR = "focus-bg-color";
 const K_URL = "focus-bg-url";
@@ -111,7 +111,7 @@ export function FocusTimer({
   const isLandscape = width > height;
 
   const [mode, setMode] = useState<BgMode>("gallery");
-  const [color, setColor] = useState("#0f172a");
+  const [color, setColor] = useState("#08131B");
   const [url, setUrl] = useState<string | null>(null);
   // v4 P2：默认改为「每日 Bing」风景壁纸（Web 端早就是 bing；用户若手动选过其它背景，
   // 显式选择优先 —— 因为我们从不自动写入这个 key，所以"改默认值"对老用户同样生效）
