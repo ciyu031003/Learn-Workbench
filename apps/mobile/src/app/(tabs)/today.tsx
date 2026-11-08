@@ -32,11 +32,8 @@ import { CelebrationModal } from "@/components/celebration-modal";
 import { RingProgress } from "@/components/ring-progress";
 import { PressableScale } from "@/components/pressable-scale";
 import { Surface } from "@/components/surface";
-import { PageHead } from "@/components/v2/page-head";
-import { SectionTitle } from "@/components/v2/section-title";
 import { MoodPicker } from "@/components/v2/mood-picker";
-import { HabitRow } from "@/components/v2/habit-row";
-import { ProgressBar } from "@/components/v2/progress-bar";
+import { AreaChart } from "@/components/v2/charts";
 
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useScrollToTopHandler } from "@/lib/scroll-to-top";
@@ -44,7 +41,7 @@ import { useAppStore } from "@/store/app-store";
 import type { ExerciseType, Habit, HabitLog } from "@learn-workbench/shared/schemas";
 import type { SportItem } from "@learn-workbench/shared/types";
 import { SPORT_CATALOG, exerciseTypeOptions, taskTypeLabels } from "@learn-workbench/shared/labels";
-import { isScheduled, pct } from "@learn-workbench/shared/dates";
+import { isScheduled } from "@learn-workbench/shared/dates";
 import { computeStreak, todayISOInZone } from "@learn-workbench/shared/domains";
 import { isHabitDone } from "@learn-workbench/shared/pure";
 import { sportIconOf, sportColorsOf, sportAnimOf, sportSfOf } from "@/lib/sport-view";
@@ -63,7 +60,6 @@ import { useTheme } from "@/theme";
 import { computeFocusStats } from "@/lib/focus-stats";
 import { getDailyQuote } from "@/lib/quotes";
 import { fetchAiTip } from "@/lib/ai-tip";
-import { buildSportTrend } from "@/lib/sport-trend";
 import { fetchHydration, fetchNutritionTarget } from "@/lib/wellbeing-client";
 import { toDaySummaryMap } from "@/lib/nutrition-views";
 import { localKey } from "@/lib/focus-series";
@@ -78,9 +74,19 @@ import { summarizeLearningAttempts as summarizeLearningEvidence } from "@learn-w
  * 这里只做展示，不改口径）；运动 30 分钟是目标条「训练」的参考线，同样只用于展示进度。
  */
 const DAILY_QUESTION_GOAL = 20;
-const DAILY_SPORT_GOAL_MINUTES = 30;
-/** 阅读目标（v2）：今日页没有阅读分钟数据源，目标条按「0/30m」展示，不编造进度 */
-const DAILY_READING_GOAL_MINUTES = 30;
+/** 每日专注目标（v3 原型「日目标」环）：180 分钟，只用于展示进度百分比，不改任何统计口径 */
+const DAILY_FOCUS_GOAL_MINUTES = 180;
+/** 实景带取景时刻：本地打包图的静态展示信息，不随设备时间变化 */
+const SCENE_TIME = "06:52";
+
+/** ISO 周号（与原型「第 46 周」同口径） */
+function isoWeekNo(d: Date): number {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil(((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+}
 const WEEKDAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"] as const;
 /** 本周 7 格：周一起（中文习惯），与原型 V3 一致 */
 const WEEK_INITIALS = ["一", "二", "三", "四", "五", "六", "日"] as const;
@@ -498,16 +504,18 @@ export default function TodayScreen() {
   const checkinToday = useAppStore((s) => s.checkinToday);
   const toggleTaskDone = useAppStore((s) => s.toggleTaskDone);
   const addSession = useAppStore((s) => s.addSession);
-  const sports = useAppStore((s) => s.sports);
   const addSportSeconds = useAppStore((s) => s.addSportSeconds);
   const aiTip = useAppStore((s) => s.aiTip);
   const setAiTip = useAppStore((s) => s.setAiTip);
   const token = useAppStore((s) => s.token);
+  const username = useAppStore((s) => s.username);
 
   const [focusOpen, setFocusOpen] = useState(false);
   const [sportSheetOpen, setSportSheetOpen] = useState(false);
   /** 完成任务的庆祝弹窗（null = 关闭） */
   const [celebrateInfo, setCelebrateInfo] = useState<{ title: string; subtitle?: string } | null>(null);
+  /** v3 顶栏通知弹层 */
+  const [notifOpen, setNotifOpen] = useState(false);
   /** 今日精力状态（1-5，来自 /api/wellbeing/energy）→ v2 MoodPicker */
   const [energyLevel, setEnergyLevel] = useState<number | null>(null);
   const [energyBusy, setEnergyBusy] = useState(false);
@@ -734,12 +742,6 @@ export default function TodayScreen() {
   };
   const focusStats = computeFocusStats(sessions);
 
-  /**
-   * 健康/运动快照（v1.62 P0-2）：只用今日页既有的运动数据源（store.sports 经 sport-trend 汇总）。
-   * v2 双列小卡只看「今日学习 / 今日饮水」；训练进度放在专注卡的目标条里。
-   */
-  const sportTrend = useMemo(() => buildSportTrend(sports, today, 7), [sports, today]);
-  const todaySport = sportTrend.points[sportTrend.points.length - 1] ?? { minutes: 0, sessions: 0 };
 
   /**
    * S5-1：连续打卡天数走 shared/domains（东八区口径，与 Web /api/dashboard 的 streak 同源）。
@@ -772,22 +774,7 @@ export default function TodayScreen() {
   }, [aiTip, today, setAiTip]);
   const heroTip = aiTip && aiTip.date === today && aiTip.text ? aiTip.text : todayTip;
 
-  /** 今日学习小卡：本地数据全空（未登录 / 新装 / 还没学）时渲染「—」而不是假 0 */
-  const learningEmpty =
-    learningSnapshot.questionsToday === 0 &&
-    learningSnapshot.stageTotal === 0 &&
-    focusStats.todayMinutes === 0;
-  /** 今日学习环 = 阶段主题完成度（与旧「学习进度」百分比同源）；无 roadmap 缓存 → null（「—」） */
-  const learningPercent =
-    learningSnapshot.stageTotal > 0
-      ? pct(learningSnapshot.stageDone, learningSnapshot.stageTotal)
-      : null;
-  const learningHint = learningEmpty
-    ? "今天还没有学习记录"
-    : "专注 " + focusStats.todayMinutes + " 分" +
-      (learningSnapshot.stageTotal > 0
-        ? " · 阶段 " + learningSnapshot.stageDone + "/" + learningSnapshot.stageTotal
-        : "");
+  /** v3 版式：今日学习小卡并入「本周学习」（专注分钟口径）；学习百分比改由专注目标环承载 */
   /** 今日饮水小卡：接口没数据（未登录/断网/没记录）→「—」 */
   const waterLiters = healthSnapshot.waterMl === null ? null : healthSnapshot.waterMl / 1000;
   const waterTargetLiters = healthSnapshot.waterTargetMl === null ? null : healthSnapshot.waterTargetMl / 1000;
@@ -803,6 +790,61 @@ export default function TodayScreen() {
         ? waterLiters.toFixed(1) + " L · 目标 " + waterTargetLiters.toFixed(1) + " L"
         : waterLiters.toFixed(1) + " L · 点击去记录";
 
+  /** ---------- v3 一屏原型的派生数据（全部来自既有本地数据，不新增接口） ---------- */
+  const focusMinutesToday = focusStats.todayMinutes;
+  const focusGoalPercent = Math.min(100, Math.round((focusMinutesToday / DAILY_FOCUS_GOAL_MINUTES) * 100));
+  const focusH = Math.floor(focusMinutesToday / 60);
+  const focusM = focusMinutesToday % 60;
+  /** 按日专注分钟：last14 = 最近 14 天（含今天），供本周节律柱与 7 天曲线共用 */
+  const focusByDay = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const d of focusStats.last14) map.set(d.date, d.minutes);
+    return map;
+  }, [focusStats]);
+  const weekBars = useMemo(() => {
+    const minutes = week.map((d) => focusByDay.get(d.iso) ?? 0);
+    const peak = Math.max(1, ...minutes);
+    return week.map((d, i) => ({ ...d, minutes: minutes[i], ratio: Math.max(0.08, minutes[i] / peak) }));
+  }, [week, focusByDay]);
+  const weekNo = isoWeekNo(todayDate);
+  const weekFocusMinutes = weekBars.reduce((sum, d) => sum + d.minutes, 0);
+  const prevWeekFocusMinutes = focusStats.last14.slice(0, 7).reduce((sum, d) => sum + d.minutes, 0);
+  const focusDelta = weekFocusMinutes - prevWeekFocusMinutes;
+  const focusDeltaPercent =
+    prevWeekFocusMinutes > 0 ? Math.round((focusDelta / prevWeekFocusMinutes) * 100) : null;
+  const last7Minutes = focusStats.last14.slice(-7).map((d) => d.minutes);
+  const last7Labels = focusStats.last14
+    .slice(-7)
+    .map((d) => WEEKDAY_LABELS[new Date(d.date + "T00:00:00").getDay()]);
+  const weekFocusPercent = Math.min(
+    100,
+    Math.round((weekFocusMinutes / (DAILY_FOCUS_GOAL_MINUTES * 7)) * 100)
+  );
+  const weekFocusHint =
+    weekFocusMinutes === 0
+      ? "本周还没有专注记录"
+      : Math.floor(weekFocusMinutes / 60) + "h " + String(weekFocusMinutes % 60).padStart(2, "0") +
+        "m · 较前 7 天 " + (focusDelta >= 0 ? "+" : "") + focusDelta + "m";
+  const mainSubject = focusStats.weekByContent[0]?.label ?? null;
+  const pomodoroNo = focusStats.todaySessions + 1;
+  const quickStartLabel = "25 分钟 · " + (mainSubject ?? "自由专注") + " · 第 " + pomodoroNo + " 个番茄";
+  const avatarLetter = username ? username.slice(0, 1) : "我";
+  const greetLine = username ? greet + "，" + username : greet;
+  const greetSub =
+    todayTasks.length === 0
+      ? "今天还没有安排，先定一件最重要的小事。"
+      : todayDone < todayTasks.length
+        ? "今天 " + todayTasks.length + " 件事，先做完最重要的那件。"
+        : "今天 " + todayTasks.length + " 件事都完成了，记得打卡。";
+  const insightLead =
+    weekFocusMinutes === 0
+      ? "本周还没有专注记录，从 25 分钟开始。"
+      : "本周累计专注 " + Math.floor(weekFocusMinutes / 60) + "h " +
+        String(weekFocusMinutes % 60).padStart(2, "0") + "m，" +
+        (focusDelta >= 0
+          ? "比前 7 天多 " + focusDelta + " 分钟。"
+          : "比前 7 天少 " + Math.abs(focusDelta) + " 分钟。");
+
   return (
     <View style={styles.root}>
       <Animated.ScrollView
@@ -812,296 +854,221 @@ export default function TodayScreen() {
         contentContainerStyle={[styles.content, { paddingTop: headerTop, paddingBottom: tabBarSpace }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* ① 页头（原型 V3）：eyebrow + 27/800 主标题 + 一句说明 */}
-        <PageHead
-          eyebrow="PERSONAL WORKSPACE"
-          title="今日"
-          subtitle="先定一件最重要的小事，按节奏完成今天的计划。"
-        />
+        {/* ① 顶栏：wordmark + 通知 + 头像（原型 v3 一屏结构） */}
+        <View style={styles.v3Topline}>
+          <Text style={styles.v3Wordmark}>LEARN · WORKBENCH</Text>
+          <View style={styles.v3TopActions}>
+            <Pressable
+              hitSlop={10}
+              onPress={() => { haptics.light(); setNotifOpen(true); }}
+              style={styles.v3IconBtn}
+              accessibilityRole="button"
+              accessibilityLabel="通知"
+            >
+              <ThemedIcon name="notifications-outline" size={19} color={colors.text} />
+            </Pressable>
+            <Pressable
+              hitSlop={10}
+              onPress={() => router.push("/settings" as never)}
+              style={styles.v3Avatar}
+              accessibilityRole="button"
+              accessibilityLabel="打开我的（设置）"
+            >
+              <Text style={styles.v3AvatarText}>{avatarLetter}</Text>
+            </Pressable>
+          </View>
+        </View>
 
-        {/*
-          ② 实景带（每日一景 = 本屏视觉锚点）：
-          高山云海实景 + 顶部场景说明 + 时分问候 + 连续打卡 + 本周 7 格（白格已打卡 / 橘格今天）。
-          白字靠上下暗场保证可读；图片本地打包，不依赖网络。
-        */}
-        <View style={styles.hero}>
+        {/* ② 问候区（在实景带之外）：日期 · 星期 · 周号 / 问候 / 今天几件事 */}
+        <View style={styles.v3Greet}>
+          <View style={styles.v3GreetDate}>
+            <Text style={styles.v3GreetDateText}>{dateLabel}</Text>
+            <View style={styles.v3GreetDot} />
+            <Text style={styles.v3GreetDateText}>{"第 " + weekNo + " 周"}</Text>
+          </View>
+          <Text style={styles.v3GreetTitle} accessibilityRole="header">
+            {greetLine}
+          </Text>
+          <Text style={styles.v3GreetSub}>{greetSub}</Text>
+        </View>
+
+        {/* ③ 实景带（每日一景）：本地打包图 + 上下暗场保证白字可读 */}
+        <View style={styles.v3Scene}>
           <Image
             source={require("../../../assets/images/scene-hero.jpg")}
             style={StyleSheet.absoluteFill}
             resizeMode="cover"
           />
-          {/* 上下暗场：实景上的白字可读，且不遮挡画面中部（SVG 渐变，无硬边） */}
           <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} pointerEvents="none">
             <Defs>
-              <LinearGradient id="heroScrimTop" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor="#08131B" stopOpacity={0.42} />
-                <Stop offset="1" stopColor="#08131B" stopOpacity={0} />
-              </LinearGradient>
-              <LinearGradient id="heroScrimBottom" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor="#08131B" stopOpacity={0} />
-                <Stop offset="1" stopColor="#08131B" stopOpacity={0.55} />
+              <LinearGradient id="v3SceneScrim" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor="#06121A" stopOpacity={0.44} />
+                <Stop offset="0.34" stopColor="#06121A" stopOpacity={0.04} />
+                <Stop offset="1" stopColor="#06121A" stopOpacity={0.46} />
               </LinearGradient>
             </Defs>
-            <Rect x="0" y="0" width="100%" height="120" fill="url(#heroScrimTop)" />
-            <Rect x="0" y="0" width="100%" height="100%" fill="url(#heroScrimBottom)" />
+            <Rect x="0" y="0" width="100%" height="100%" fill="url(#v3SceneScrim)" />
           </Svg>
+          <View style={styles.v3SceneCap}>
+            <View style={styles.v3SceneName}>
+              <View style={styles.v3SceneDot} />
+              <Text style={styles.v3SceneNameText}>每日一景 · 云海日出</Text>
+            </View>
+            <Text style={styles.v3SceneTime}>{SCENE_TIME}</Text>
+          </View>
+        </View>
 
-          {/* 顶部：场景说明 + 打卡 pill */}
-          <View style={styles.heroTopRow}>
-            <View style={styles.heroSceneRow}>
-              <ThemedIcon name="image-outline" size={13} color="#FFFFFF" />
-              <Text style={styles.heroSceneText}>每日一景 · 云海日出</Text>
+        {/* ④ 今日专注（本屏唯一强玻璃锚点，负 margin 咬住实景带） */}
+        <Surface tier="glassStrong" corner={radius.panel} style={styles.v3FocusShell}>
+          <View style={styles.v3FsHead}>
+            <View style={styles.v3FsHeadText}>
+              <View style={styles.v3FsKicker}>
+                <ThemedIcon name="timer-outline" size={13} color={colors.accent} />
+                <Text style={styles.v3FsKickerText}>今日专注</Text>
+              </View>
+              <View
+                style={styles.v3FsBig}
+                accessible
+                accessibilityLabel={"今日专注 " + focusH + " 小时 " + focusM + " 分，日目标完成 " + focusGoalPercent + "%"}
+              >
+                <Text style={[styles.v3FsBigNum, tabularNums]}>{focusH}</Text>
+                <Text style={styles.v3FsBigUnit}>h</Text>
+                <Text style={[styles.v3FsBigNum, tabularNums]}>{focusM}</Text>
+                <Text style={styles.v3FsBigUnit}>m</Text>
+              </View>
+            </View>
+            <View style={styles.v3FsBadge}>
+              <RingProgress
+                size={56}
+                strokeWidth={5}
+                progress={focusGoalPercent / 100}
+                trackColor={colors.surfaceMuted}
+                from={colors.primary}
+                to={colors.chart[1]}
+              />
+              <View pointerEvents="none" style={styles.v3FsBadgeLabel}>
+                <Text style={[styles.v3FsBadgeValue, tabularNums]}>{focusGoalPercent}%</Text>
+                <Text style={styles.v3FsBadgeText}>日目标</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* 本周节律：七格柱，今天给阳光橘 */}
+          <View
+            style={styles.v3Week}
+            accessible
+            accessibilityLabel={"本周已打卡 " + weekChecked + " 天，本周专注 " + weekFocusMinutes + " 分钟"}
+          >
+            {weekBars.map((d) => (
+              <View key={d.iso} style={styles.v3Wb}>
+                <View style={styles.v3WbSlot}>
+                  <View
+                    style={[
+                      styles.v3WbBar,
+                      { height: Math.round(38 * d.ratio) },
+                      d.minutes === 0 ? styles.v3WbBarIdle : null,
+                      d.iso === today ? styles.v3WbBarToday : null,
+                    ]}
+                  />
+                </View>
+                <Text style={[styles.v3WbLabel, d.iso === today ? styles.v3WbLabelToday : null]}>{d.label}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* 三格指标：今日任务 / 刷题进度 / 连续打卡（打卡格可直接点） */}
+          <View style={styles.v3Stats}>
+            <View style={styles.v3Stat}>
+              <Text style={[styles.v3StatValue, tabularNums]}>
+                {todayDone}
+                <Text style={styles.v3StatSuffix}>{"/" + todayTasks.length}</Text>
+              </Text>
+              <Text style={styles.v3StatLabel}>今日任务</Text>
+            </View>
+            <View style={styles.v3Stat}>
+              <Text style={[styles.v3StatValue, tabularNums]}>
+                {learningSnapshot.questionsToday}
+                <Text style={styles.v3StatSuffix}>{"/" + DAILY_QUESTION_GOAL}</Text>
+              </Text>
+              <Text style={styles.v3StatLabel}>刷题进度</Text>
             </View>
             <Pressable
+              hitSlop={8}
               onPress={() => {
                 if (!checkedInToday) haptics.success();
                 checkinToday();
               }}
-              hitSlop={10}
-              style={[styles.checkinPill, checkedInToday && styles.checkinPillDone]}
+              style={styles.v3Stat}
               accessibilityRole="button"
               accessibilityLabel={checkedInToday ? "今日已打卡，连续 " + streak + " 天" : "点此打卡"}
             >
-              <ThemedIcon
-                name={checkedInToday ? "checkmark-circle" : "flame"}
-                size={14}
-                color={checkedInToday ? colors.primary : colors.accent}
-              />
-              <Text style={[styles.checkinText, checkedInToday && styles.checkinTextDone]} numberOfLines={1}>
-                {checkedInToday ? "已打卡 · " + streak + " 天" : "打卡"}
+              <Text style={[styles.v3StatValue, tabularNums]}>
+                {streak}
+                <Text style={styles.v3StatSuffix}>天</Text>
               </Text>
+              <Text style={styles.v3StatLabel}>{checkedInToday ? "连续打卡" : "打卡开启"}</Text>
             </Pressable>
-          </View>
-
-          <View style={styles.heroHeadText}>
-            <Text style={styles.heroGreet}>{greet}</Text>
-            <Text style={styles.heroDate}>{dateLabel}</Text>
-          </View>
-
-          {/* 连续打卡：数值（30/800）与标签（11/400）拉开三档，标签只做说明不抢视线 */}
-          {streak > 0 ? (
-            <View style={styles.heroStreakRow}>
-              <Text style={[styles.heroStreakNum, tabularNums]}>{streak}</Text>
-              <Text style={styles.heroStreakUnit}>天</Text>
-              <Text style={styles.heroStreakLabel}>连续打卡</Text>
-            </View>
-          ) : (
-            <Text style={styles.heroStreakHint}>0 天 · 完成第一个习惯即可开启</Text>
-          )}
-
-          <View style={styles.heroWeekHead}>
-            <Text style={styles.heroWeekTitle}>本周打卡</Text>
-            <Text style={[styles.heroWeekMeta, tabularNums]}>
-              <Text style={styles.heroWeekMetaNum}>{weekChecked}</Text>
-              {"/7 天"}
-            </Text>
-          </View>
-          <View style={styles.heroWeekRow} accessible accessibilityLabel={"本周已打卡 " + weekChecked + " 天"}>
-            {week.map((d) => {
-              const checked = checkins.includes(d.iso);
-              const isToday = d.iso === today;
-              return (
-                <View key={d.iso} style={styles.heroWeekCell}>
-                  <View
-                    style={[
-                      styles.heroWeekDot,
-                      checked && styles.heroWeekDotDone,
-                      isToday && !checked && styles.heroWeekDotToday,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.heroWeekText,
-                        checked && styles.heroWeekTextDone,
-                        isToday && !checked && styles.heroWeekTextToday,
-                      ]}
-                    >
-                      {d.label}
-                    </Text>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-
-          <View style={styles.heroTipRow}>
-            <View style={styles.heroTipDot} />
-            <Text style={styles.heroTip} numberOfLines={2}>
-              {heroTip}
-            </Text>
-          </View>
-        </View>
-
-        {/* ③ 今天的状态（v2 MoodPicker 替换旧 EnergyBar；数据与提交沿用 /api/wellbeing/energy） */}
-        <MoodPicker value={energyLevel} onSelect={(l) => void pickEnergy(l)} busy={energyBusy} />
-
-        {/*
-          ④ 专注卡（Surface tier=glassStrong，本屏唯一的强玻璃锚点）：
-          eyebrow + 标题 + 专注模式胶囊 + 开始专注 CTA + 三格目标条（刷题 / 阅读 / 训练）。
-          CTA 沿用 focusOpen / FocusTimer / QuickStartSheet 的既有链路，不新增动画调用点。
-        */}
-        <Surface tier="glassStrong" corner={radius.panel} style={styles.focusCard}>
-          <View style={styles.focusHead}>
-            <View style={styles.focusHeadText}>
-              <Text style={styles.eyebrow}>FOCUS SPACE</Text>
-              <Text style={styles.focusTitle}>给重要的事留一段完整时间</Text>
-              <Text style={styles.focusSub}>选一种模式，从 25 分钟开始</Text>
-            </View>
-            <View style={styles.focusModePill}>
-              <Text style={styles.focusModeText}>专注模式</Text>
-            </View>
-          </View>
-
-          <View style={styles.pillRow}>
-            <ModePill
-              icon="layers-outline"
-              label="刷题"
-              accessibilityLabel="刷题，去题库"
-              onPress={() => router.push("/quiz" as never)}
-            />
-            <ModePill
-              icon="book-outline"
-              label="阅读"
-              accessibilityLabel="阅读，去学习页"
-              onPress={() => router.push("/learn" as never)}
-            />
-            <ModePill
-              icon="barbell-outline"
-              label="训练"
-              accessibilityLabel="训练，添加运动记录"
-              onPress={() => setSportSheetOpen(true)}
-            />
           </View>
 
           <PressableScale
             haptic
-            scaleTo={0.98}
+            scaleTo={0.99}
             onPress={() => {
-              // 打开时清掉上一轮遗留的待启动选择：保证「弹层里没点开始计时 → 一定不会启动」的不变量
               setPendingChoice(null);
               setQuickOpen(true);
             }}
-            style={styles.startButton}
+            style={styles.v3Cta}
             hitSlop={4}
             accessibilityRole="button"
-            accessibilityLabel="开始专注"
+            accessibilityLabel={"开始专注 " + quickStartLabel}
           >
-            <View style={styles.startIcon}>
-              <ThemedIcon name="play" size={18} color={colors.primary} />
+            <View style={styles.v3CtaPlay}>
+              <ThemedIcon name="play" size={15} color="#FFFFFF" />
             </View>
-            <View style={styles.startTextWrap}>
-              <Text style={styles.startTitle} numberOfLines={1}>
-                开始专注
-              </Text>
-              <Text style={styles.startSub} numberOfLines={1}>
-                选内容与时长，立即进入计时
-              </Text>
+            <View style={styles.v3CtaText}>
+              <Text style={styles.v3CtaTitle} numberOfLines={1}>开始专注</Text>
+              <Text style={styles.v3CtaSub} numberOfLines={1}>{quickStartLabel}</Text>
             </View>
-            <ThemedIcon name="chevron-forward" size={18} color={colors.canvas} />
+            <ThemedIcon name="chevron-forward" size={14} color="rgba(255,255,255,0.72)" />
           </PressableScale>
 
-          {/* 三格目标条：标签（12/600 弱化）与数值（15/800 语义色）拉开权重，条加粗到 8 */}
-          <View style={styles.goalList}>
-            <View style={styles.goalRow}>
-              <View style={styles.goalHead}>
-                <View style={styles.goalName}>
-                  <View style={[styles.goalDot, { backgroundColor: colors.primary }]} />
-                  <Text style={styles.goalLabel}>刷题</Text>
-                </View>
-                <Text style={[styles.goalValue, tabularNums, { color: colors.primary }]}>
-                  {learningSnapshot.questionsToday}/{DAILY_QUESTION_GOAL}
-                </Text>
-              </View>
-              <ProgressBar value={learningSnapshot.questionsToday / DAILY_QUESTION_GOAL} tone="primary" height={8} />
-            </View>
-            <View style={styles.goalRow}>
-              <View style={styles.goalHead}>
-                <View style={styles.goalName}>
-                  <View style={[styles.goalDot, { backgroundColor: colors.accent }]} />
-                  <Text style={styles.goalLabel}>阅读</Text>
-                </View>
-                {/* 阅读分钟没有本地/接口数据源（不新增接口）→ 按任务书显示 0/30m，不编造进度 */}
-                <Text style={[styles.goalValue, tabularNums, { color: colors.accent }]}>
-                  {0}/{DAILY_READING_GOAL_MINUTES}m
-                </Text>
-              </View>
-              <ProgressBar value={0} tone="accent" height={8} />
-            </View>
-            <View style={styles.goalRow}>
-              <View style={styles.goalHead}>
-                <View style={styles.goalName}>
-                  <View style={[styles.goalDot, { backgroundColor: colors.success }]} />
-                  <Text style={styles.goalLabel}>训练</Text>
-                </View>
-                <Text style={[styles.goalValue, tabularNums, { color: colors.success }]}>
-                  {todaySport.minutes}/{DAILY_SPORT_GOAL_MINUTES}m
-                </Text>
-              </View>
-              <ProgressBar value={todaySport.minutes / DAILY_SPORT_GOAL_MINUTES} tone="success" height={8} />
-            </View>
+          {/* 保留刷题 / 阅读 / 训练三个既有入口（v3 原型没有，但功能不丢） */}
+          <View style={styles.pillRow}>
+            <ModePill icon="layers-outline" label="刷题" accessibilityLabel="刷题，去题库" onPress={() => router.push("/quiz" as never)} />
+            <ModePill icon="book-outline" label="阅读" accessibilityLabel="阅读，去学习页" onPress={() => router.push("/learn" as never)} />
+            <ModePill icon="barbell-outline" label="训练" accessibilityLabel="训练，记录运动" onPress={() => setSportSheetOpen(true)} />
           </View>
         </Surface>
 
-        {/* ⑤ 今日习惯（v2 HabitRow）：沿用 habitRows 打卡 + 乐观更新 + linked 过滤 */}
-        <SectionTitle
-          title="今日习惯"
-          right={
-            <Text style={styles.sectionMeta}>
-              已完成 {habitOnlyDone}/{habitOnlyRows.length}
-            </Text>
-          }
-        />
-        {habitOnlyRows.length === 0 ? (
-          <Surface tier="surface" style={styles.habitEmpty}>
-            <Text style={styles.habitEmptyText}>
-              {habitRows.length > 0
-                ? "今天排期的习惯都已并入上面的任务，直接勾任务即可"
-                : "今天没有排期的习惯，去健康页添加一个"}
-            </Text>
-          </Surface>
-        ) : (
-          habitOnlyRows.map((row, i) => (
-            <Animated.View
-              key={"habit-" + row.id}
-              entering={reduced ? undefined : FadeInDown.duration(DURATION.base).delay(staggerDelay(i))}
-            >
-              <HabitRow
-                icon={habitIconName(row.icon)}
-                title={row.name}
-                subtitle="习惯"
-                done={row.done}
-                onToggle={() => {
-                  if (!row.done) fireCelebrate(row.name, "习惯打卡完成");
-                  void toggleHabit(row.id, row.done);
-                }}
-              />
-            </Animated.View>
-          ))
-        )}
-
-        {/* ⑥ 今日任务（紧凑行式，放在习惯之后；勾选/庆祝逻辑与 1.66 一致） */}
-        <SectionTitle
-          title="今日任务"
-          right={<Text style={styles.sectionMeta}>{todayDone}/{todayTasks.length} 已完成</Text>}
-          actionLabel="查看全部"
-          onAction={() => router.push("/tasks" as never)}
-        />
+        {/* ⑤ 今日安排：时间轴式任务行（勾选沿用既有 toggleTaskDone + 庆祝） */}
+        <View style={styles.v3SecHead}>
+          <Text style={styles.v3SecTitle}>今日安排</Text>
+          <Pressable
+            hitSlop={10}
+            onPress={() => router.push("/tasks" as never)}
+            style={styles.v3SecMore}
+            accessibilityRole="button"
+            accessibilityLabel={"全部 " + todayTasks.length + " 条，打开任务页"}
+          >
+            <Text style={styles.v3SecMoreText}>{"全部 " + todayTasks.length}</Text>
+            <ThemedIcon name="chevron-forward" size={13} color={colors.primary} />
+          </Pressable>
+        </View>
 
         {todayTasks.length === 0 ? (
           <Surface tier="surface" style={styles.taskEmptyCard}>
-            {/* v13 U12：任务页空状态的低透明度几何底纹 */}
             <PatternBackdrop variant="chevron" />
             <Text style={styles.taskEmpty}>今天还没有任务，去学习页添加一个吧</Text>
           </Surface>
         ) : (
-          <Surface tier="surface" style={styles.listCard}>
-            {todayTasks.slice(0, 3).map((t, i) => (
+          <Surface tier="surface" style={styles.v3Card}>
+            {todayTasks.slice(0, 5).map((t, i) => (
               <Animated.View
                 key={t.id}
                 entering={reduced ? undefined : FadeInDown.duration(DURATION.base).delay(staggerDelay(i))}
               >
                 <Pressable
-                  style={styles.taskRowCompact}
+                  style={styles.v3SchedRow}
                   hitSlop={4}
                   onPress={() => {
                     const willDone = !t.done;
@@ -1113,34 +1080,38 @@ export default function TodayScreen() {
                   accessibilityState={{ checked: t.done }}
                   accessibilityLabel={t.title + (t.done ? "，已完成" : "，未完成")}
                 >
-                  <View style={[styles.taskBox, t.done && styles.taskBoxDone]}>
-                    {/* v13 U8：勾选时用 strokeDashoffset 画对勾（组件常驻，靠 checked 驱动，才有「画」的过程） */}
-                    {/* 审查修复：canvas 对 success 绿底仅 2.88（< 非文本 3.0），白色对绿底 3.18 */}
-                    <AnimatedCheckMark checked={t.done} size={16} color="#FFFFFF" />
-                  </View>
-                  <View style={styles.taskBody}>
-                    <Text style={[styles.taskTitle, t.done && styles.taskDone]} numberOfLines={1}>
+                  <Text style={styles.v3SchedType}>{taskTypeLabels[t.taskType] ?? t.taskType}</Text>
+                  <View style={styles.v3SchedBody}>
+                    <Text style={[styles.v3SchedTitle, t.done ? styles.v3SchedTitleDone : null]} numberOfLines={2}>
                       {t.title}
                     </Text>
-                    <Text style={styles.taskMeta}>{taskTypeLabels[t.taskType] ?? t.taskType}</Text>
+                    <View style={styles.v3SchedMeta}>
+                      <Text style={styles.v3SchedTag}>{taskTypeLabels[t.taskType] ?? t.taskType}</Text>
+                      {t.focusMinutes > 0 ? (
+                        <Text style={styles.v3SchedMetaText}>{t.focusMinutes + " 分钟专注"}</Text>
+                      ) : null}
+                      {t.done ? <Text style={styles.v3SchedMetaText}>已完成</Text> : null}
+                    </View>
                   </View>
-                  <ThemedIcon name="chevron-forward" size={14} color={colors.textFaint} />
+                  <View style={[styles.v3SchedTick, t.done ? styles.v3SchedTickOn : null]}>
+                    <AnimatedCheckMark checked={t.done} size={13} color="#FFFFFF" />
+                  </View>
                 </Pressable>
-                {i < Math.min(todayTasks.length, 3) - 1 ? <View style={styles.rowDivider} /> : null}
+                {i < Math.min(todayTasks.length, 5) - 1 ? <View style={styles.v3SchedDivider} /> : null}
               </Animated.View>
             ))}
           </Surface>
         )}
 
-        {/* ⑦ 双列小卡：今日学习（本地题库/专注） / 今日饮水（接口）；点击沿用原跳转 */}
+        {/* ⑥ 双列小卡：本周学习 / 今日饮水 */}
         <View style={styles.dualRow}>
           <MiniStatCard
-            label="今日学习"
-            percent={learningPercent}
-            hint={learningHint}
+            label="本周学习"
+            percent={weekFocusPercent}
+            hint={weekFocusHint}
             icon="book-outline"
             onPress={() => router.push("/learn" as never)}
-            accessibilityLabel="今日学习，打开学习页"
+            accessibilityLabel="本周学习，打开学习页"
           />
           <MiniStatCard
             label="今日饮水"
@@ -1153,31 +1124,98 @@ export default function TodayScreen() {
           />
         </View>
 
-        {/* 每日语录：原「更多」抽屉里的装饰内容，保留为页尾一行（不占入口） */}
-        <Text style={styles.quoteFoot} numberOfLines={2}>
-          {quote}
-        </Text>
+        {/* ⑦ 今日习惯（3 列瓦片；沿用 habitRows 打卡 + 乐观更新 + linked 过滤） */}
+        <View style={styles.v3SecHead}>
+          <Text style={styles.v3SecTitle}>今日习惯</Text>
+          <Text style={styles.v3SecMeta}>{"已完成 " + habitOnlyDone + "/" + habitOnlyRows.length}</Text>
+        </View>
+        {habitOnlyRows.length === 0 ? (
+          <Surface tier="surface" style={styles.habitEmpty}>
+            <Text style={styles.habitEmptyText}>
+              {habitRows.length > 0
+                ? "今天排期的习惯都已并入上面的任务，直接勾任务即可"
+                : "今天没有排期的习惯，去健康页添加一个"}
+            </Text>
+          </Surface>
+        ) : (
+          <View style={styles.v3Habits}>
+            {habitOnlyRows.map((row) => (
+              <Pressable
+                key={"habit-" + row.id}
+                hitSlop={6}
+                onPress={() => {
+                  if (!row.done) fireCelebrate(row.name, "习惯打卡完成");
+                  void toggleHabit(row.id, row.done);
+                }}
+                style={[styles.v3Habit, row.done ? styles.v3HabitOn : null]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: row.done }}
+                accessibilityLabel={row.name + (row.done ? "，已完成" : "，未完成")}
+              >
+                <ThemedIcon
+                  name={habitIconName(row.icon)}
+                  size={18}
+                  color={row.done ? colors.primary : colors.textSecondary}
+                />
+                <Text style={[styles.v3HabitText, row.done ? styles.v3HabitTextOn : null]} numberOfLines={1}>
+                  {row.name}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
+
+        {/* ⑧ 洞察：本周专注对比 + 近 7 天曲线 */}
+        <View style={styles.v3Insight}>
+          <View style={styles.v3InsightTop}>
+            <Text style={styles.v3InsightLead}>{insightLead}</Text>
+            {focusDeltaPercent === null ? null : (
+              <Text style={styles.v3InsightDelta}>
+                {(focusDeltaPercent >= 0 ? "+" : "") + focusDeltaPercent + "%"}
+              </Text>
+            )}
+          </View>
+          <AreaChart
+            series={[{ values: last7Minutes }]}
+            labels={last7Labels}
+            height={62}
+            showEndDot={false}
+            legend={false}
+            style={styles.v3Spark}
+          />
+          <View style={styles.v3InsightFoot}>
+            <Text style={styles.v3InsightFootText}>近 7 天 · 单位分钟</Text>
+            <Pressable
+              hitSlop={10}
+              onPress={() => router.push("/study-stats" as never)}
+              style={styles.v3InsightGo}
+              accessibilityRole="button"
+              accessibilityLabel="看完整洞察"
+            >
+              <Text style={styles.v3InsightGoText}>看完整洞察</Text>
+              <ThemedIcon name="chevron-forward" size={12} color={colors.primary} />
+            </Pressable>
+          </View>
+        </View>
+
+        {/* 今天的状态：精力记录（保留既有 /api/wellbeing/energy 链路） */}
+        <MoodPicker value={energyLevel} onSelect={(l) => void pickEnergy(l)} busy={energyBusy} />
+
+        {/* 今日建议：AI 可用时用 AI，否则规则版 */}
+        <View style={styles.v3Tip}>
+          <View style={styles.v3TipDot} />
+          <Text style={styles.v3TipText} numberOfLines={2}>{heroTip}</Text>
+        </View>
+
+        <Text style={styles.quoteFoot} numberOfLines={2}>{quote}</Text>
       </Animated.ScrollView>
 
       <SportSheet visible={sportSheetOpen} onClose={() => setSportSheetOpen(false)} motionActive={motionActive} />
       <QuickStartSheet
         visible={quickOpen}
-        /**
-         * v2.0.1 真机反馈：专注开始界面要一屏展示、不要上下滑动。
-         * oneScreen = 近全屏、不滚动的一屏启动页（时长档位 + 计时方式 + 底部励志短句），
-         * 仍然只产出 QuickStartChoice，onPick / onClosed 的既有链路（先关弹层再开计时器）不变。
-         */
         oneScreen
         onClose={() => setQuickOpen(false)}
         onPick={(choice) => {
-          /**
-           * ⚠️ 两条不变量（v1.4.2）：
-           * 1) onPick **只由弹层底部的「开始计时」按钮触发** —— 弹层内的点选只改选择态，
-           *    所以「侧滑返回 / 点空白 / 返回键」都只会走 onClose，绝不会开始计时（真机反馈）。
-           * 2) 不能在这里直接 setFocusOpen(true)：QuickStartSheet 是 Modal，退场还要 180ms 才卸载，
-           *    同帧再 present 全屏 Modal 会出现两个 Modal 叠加（iOS 上表现为「点了没反应」）；
-           *    所以先存起来，等它真正关闭（onClosed）后再开。
-           */
           setPendingChoice(choice);
         }}
         onClosed={() => {
@@ -1192,10 +1230,6 @@ export default function TodayScreen() {
         key={timerSession}
         open={focusOpen}
         task={
-          /**
-           * v5 P2-1：一键开始路径**不再隐式绑定「今天第一个未完成任务」**
-           * （用户不可控，专注会被算到无关任务上）；改为用「这次学什么」作为标题。
-           */
           timerAuto
             ? {
                 id: null,
@@ -1215,8 +1249,6 @@ export default function TodayScreen() {
         exerciseLabel={timerAuto?.sportName ?? null}
         contentLabel={timerAuto?.kind === "focus" ? timerAuto.contentLabel ?? null : null}
         onClose={() => {
-          // 关闭时清空一键开始的配置：否则之后从焦点卡「开始专注」进入计时器时，
-          // 会继承上一次的运动类型/时长并再次自动开始（写错数据 + 跳过准备页）。
           setFocusOpen(false);
           setTimerAuto(null);
         }}
@@ -1233,6 +1265,65 @@ export default function TodayScreen() {
         title={celebrateInfo?.title ?? ""}
         subtitle={celebrateInfo?.subtitle}
       />
+      <BottomSheet
+        visible={notifOpen}
+        onClose={() => setNotifOpen(false)}
+        title="通知"
+        subtitle="今天的提醒都在这里，点一条直达"
+        icon="notifications-outline"
+        height="58%"
+      >
+        <View style={styles.v3NotifList}>
+          <Pressable
+            hitSlop={4}
+            style={styles.v3NotifRow}
+            onPress={() => { setNotifOpen(false); router.push("/tasks" as never); }}
+            accessibilityRole="button"
+            accessibilityLabel="今日任务提醒，打开任务页"
+          >
+            <View style={[styles.v3NotifDot, { backgroundColor: colors.primary }]} />
+            <View style={styles.v3NotifBody}>
+              <Text style={styles.v3NotifTitle}>{"今日还有 " + (todayTasks.length - todayDone) + " 条任务未完成"}</Text>
+              <Text style={styles.v3NotifSub}>按计划完成今天最重要的一件</Text>
+            </View>
+            <ThemedIcon name="chevron-forward" size={14} color={colors.textFaint} />
+          </Pressable>
+          <Pressable
+            hitSlop={4}
+            style={styles.v3NotifRow}
+            onPress={() => { setNotifOpen(false); router.push("/study-stats" as never); }}
+            accessibilityRole="button"
+            accessibilityLabel="专注目标提醒，打开学习统计"
+          >
+            <View style={[styles.v3NotifDot, { backgroundColor: colors.accent }]} />
+            <View style={styles.v3NotifBody}>
+              <Text style={styles.v3NotifTitle}>{"今日专注 " + focusMinutesToday + " 分 / 目标 " + DAILY_FOCUS_GOAL_MINUTES + " 分"}</Text>
+              <Text style={styles.v3NotifSub}>{"还差 " + Math.max(0, DAILY_FOCUS_GOAL_MINUTES - focusMinutesToday) + " 分钟到日目标"}</Text>
+            </View>
+            <ThemedIcon name="chevron-forward" size={14} color={colors.textFaint} />
+          </Pressable>
+          <Pressable
+            hitSlop={4}
+            style={styles.v3NotifRow}
+            onPress={() => {
+              setNotifOpen(false);
+              if (!checkedInToday) haptics.success();
+              checkinToday();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="打卡提醒"
+          >
+            <View style={[styles.v3NotifDot, { backgroundColor: colors.success }]} />
+            <View style={styles.v3NotifBody}>
+              <Text style={styles.v3NotifTitle}>
+                {checkedInToday ? "今日已打卡 · 连续 " + streak + " 天" : "今天还没打卡"}
+              </Text>
+              <Text style={styles.v3NotifSub}>{checkedInToday ? "保持节奏，明天继续" : "点一下留下今天的印记"}</Text>
+            </View>
+            <ThemedIcon name="chevron-forward" size={14} color={colors.textFaint} />
+          </Pressable>
+        </View>
+      </BottomSheet>
     </View>
   );
 }
@@ -1510,4 +1601,152 @@ const makeStyles = (colors: ThemeColors) =>
     quickChipActive: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
     quickChipText: { ...typography.caption, fontWeight: "700", color: colors.text },
     quickChipTextActive: { color: colors.accentStrong },
+
+    // ---- v3 一屏原型（2026-11-08 今日页版式对齐 demo）----
+    v3Topline: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4, marginBottom: 2 },
+    v3Wordmark: { ...typography.eyebrow, color: colors.textFaint, letterSpacing: 1.6 },
+    v3TopActions: { flexDirection: "row", alignItems: "center", gap: 8 },
+    v3IconBtn: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surface,
+      borderWidth: StyleSheet.hairlineWidth * 2,
+      borderColor: colors.border,
+    },
+    v3Avatar: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: colors.primary },
+    v3AvatarText: { ...typography.callout, fontWeight: "700", color: "#FFFFFF" },
+    v3Greet: { gap: 6, paddingHorizontal: 2, marginTop: 6 },
+    v3GreetDate: { flexDirection: "row", alignItems: "center", gap: 8 },
+    v3GreetDateText: { ...typography.caption, fontWeight: "600", color: colors.textSecondary },
+    v3GreetDot: { width: 3, height: 3, borderRadius: 2, backgroundColor: colors.textFaint },
+    v3GreetTitle: { ...typography.pageTitle, color: colors.text },
+    v3GreetSub: { ...typography.meta, color: colors.textMuted, lineHeight: 17 },
+    v3Scene: { height: 158, borderRadius: 26, overflow: "hidden", marginTop: 4, ...shadows.card },
+    v3SceneCap: { position: "absolute", left: 16, right: 16, top: 13, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    v3SceneName: { flexDirection: "row", alignItems: "center", gap: 7 },
+    v3SceneDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: colors.accent },
+    v3SceneNameText: { ...typography.caption, fontWeight: "600", color: "rgba(255,255,255,0.94)" },
+    v3SceneTime: { ...typography.micro, fontWeight: "600", color: "rgba(255,255,255,0.8)" },
+    /** content 有 14 的 gap：再 -46 才让玻璃卡实际咬住实景带底部 32pt（对齐原型） */
+    v3FocusShell: { marginTop: -46, padding: 18 },
+    v3FsHead: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 },
+    v3FsHeadText: { gap: 2 },
+    v3FsKicker: { flexDirection: "row", alignItems: "center", gap: 6 },
+    v3FsKickerText: { ...typography.caption, fontWeight: "600", color: colors.textSecondary },
+    v3FsBig: { flexDirection: "row", alignItems: "baseline", gap: 1 },
+    v3FsBigNum: { ...typography.display, color: colors.text },
+    v3FsBigUnit: { ...typography.caption, fontWeight: "600", color: colors.textMuted, marginRight: 3 },
+    v3FsBadge: { width: 56, height: 56, alignItems: "center", justifyContent: "center" },
+    v3FsBadgeLabel: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, alignItems: "center", justifyContent: "center" },
+    v3FsBadgeValue: { ...typography.caption, fontWeight: "700", color: colors.text },
+    v3FsBadgeText: { ...typography.micro, fontWeight: "500", color: colors.textMuted },
+    v3Week: { flexDirection: "row", gap: 4, marginTop: 17 },
+    v3Wb: { flex: 1, alignItems: "center", gap: 6 },
+    v3WbSlot: { height: 38, width: "100%", alignItems: "center", justifyContent: "flex-end" },
+    v3WbBar: {
+      width: 16,
+      borderTopLeftRadius: 8,
+      borderTopRightRadius: 8,
+      borderBottomLeftRadius: 3,
+      borderBottomRightRadius: 3,
+      backgroundColor: withAlpha(colors.primary, 0.3),
+    },
+    v3WbBarIdle: { backgroundColor: withAlpha(colors.primary, 0.14) },
+    v3WbBarToday: { backgroundColor: colors.accent },
+    v3WbLabel: { ...typography.micro, fontWeight: "500", color: colors.textMuted },
+    v3WbLabelToday: { color: colors.accent, fontWeight: "700" },
+    v3Stats: { flexDirection: "row", marginTop: 15, paddingTop: 13, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+    v3Stat: { flex: 1, gap: 2 },
+    v3StatValue: { ...typography.callout, fontWeight: "700", color: colors.text },
+    v3StatSuffix: { ...typography.caption, fontWeight: "500", color: colors.textMuted },
+    v3StatLabel: { ...typography.micro, fontWeight: "500", color: colors.textMuted },
+    v3Cta: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 11,
+      minHeight: 50,
+      marginTop: 15,
+      paddingLeft: 8,
+      paddingRight: 14,
+      borderRadius: radius.pill,
+      backgroundColor: colors.primary,
+      ...shadows.brand,
+    },
+    v3CtaPlay: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.16)" },
+    v3CtaText: { flex: 1, minWidth: 0, gap: 1 },
+    v3CtaTitle: { ...typography.headline, fontWeight: "700", color: "#FFFFFF" },
+    v3CtaSub: { ...typography.micro, fontWeight: "500", color: "rgba(255,255,255,0.72)" },
+    v3SecHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4, paddingHorizontal: 2 },
+    v3SecTitle: { ...typography.section, color: colors.text },
+    v3SecMore: { flexDirection: "row", alignItems: "center", gap: 1 },
+    v3SecMoreText: { ...typography.caption, fontWeight: "600", color: colors.primary },
+    v3SecMeta: { ...typography.micro, fontWeight: "600", color: colors.textMuted },
+    v3Card: { paddingVertical: 2, paddingHorizontal: 14 },
+    v3SchedRow: { flexDirection: "row", alignItems: "flex-start", gap: 11, paddingVertical: 13 },
+    v3SchedType: { width: 36, ...typography.micro, fontWeight: "600", color: colors.textMuted, paddingTop: 3 },
+    v3SchedBody: { flex: 1, minWidth: 0, gap: 4 },
+    v3SchedTitle: { ...typography.callout, fontWeight: "600", color: colors.text },
+    v3SchedTitleDone: { color: colors.textSecondary, textDecorationLine: "line-through" },
+    v3SchedMeta: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
+    v3SchedTag: { ...typography.micro, fontWeight: "600", color: colors.primary },
+    v3SchedMetaText: { ...typography.micro, fontWeight: "500", color: colors.textMuted },
+    v3SchedTick: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      borderWidth: 1.5,
+      borderColor: colors.borderStrong,
+      alignItems: "center",
+      justifyContent: "center",
+      marginTop: 1,
+    },
+    v3SchedTickOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+    v3SchedDivider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border, marginLeft: 47 },
+    v3Habits: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    v3Habit: {
+      flexGrow: 1,
+      flexBasis: "30%",
+      minWidth: 0,
+      minHeight: 62,
+      borderRadius: 15,
+      backgroundColor: colors.surface,
+      borderWidth: StyleSheet.hairlineWidth * 2,
+      borderColor: colors.border,
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 5,
+      paddingHorizontal: 6,
+    },
+    v3HabitOn: { backgroundColor: colors.primarySoft, borderColor: withAlpha(colors.primary, 0.18) },
+    v3HabitText: { ...typography.micro, fontWeight: "600", color: colors.textSecondary },
+    v3HabitTextOn: { color: colors.primaryStrong },
+    v3Insight: {
+      padding: 16,
+      borderRadius: 18,
+      backgroundColor: colors.surface,
+      borderWidth: StyleSheet.hairlineWidth * 2,
+      borderColor: colors.border,
+      ...shadows.card,
+    },
+    v3InsightTop: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 10 },
+    v3InsightLead: { ...typography.caption, fontWeight: "600", lineHeight: 20, color: colors.textSecondary, flex: 1, minWidth: 0 },
+    v3InsightDelta: { ...typography.micro, fontWeight: "700", color: colors.success },
+    v3Spark: { marginTop: 6 },
+    v3InsightFoot: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 2 },
+    v3InsightFootText: { ...typography.micro, fontWeight: "500", color: colors.textMuted },
+    v3InsightGo: { flexDirection: "row", alignItems: "center", gap: 2 },
+    v3InsightGoText: { ...typography.micro, fontWeight: "600", color: colors.primary },
+    v3Tip: { flexDirection: "row", alignItems: "flex-start", gap: 7, paddingHorizontal: 2 },
+    v3TipDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: colors.primary, marginTop: 6 },
+    v3TipText: { ...typography.meta, color: colors.textMuted, lineHeight: 17, flex: 1, minWidth: 0 },
+    v3NotifList: { gap: 4 },
+    v3NotifRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, paddingVertical: 13 },
+    v3NotifDot: { width: 8, height: 8, borderRadius: 4, marginTop: 6 },
+    v3NotifBody: { flex: 1, minWidth: 0, gap: 3 },
+    v3NotifTitle: { ...typography.callout, fontWeight: "600", color: colors.text },
+    v3NotifSub: { ...typography.micro, fontWeight: "500", color: colors.textMuted },
   });
+
