@@ -1115,7 +1115,8 @@ export default function TodayScreen() {
                 >
                   <View style={[styles.taskBox, t.done && styles.taskBoxDone]}>
                     {/* v13 U8：勾选时用 strokeDashoffset 画对勾（组件常驻，靠 checked 驱动，才有「画」的过程） */}
-                    <AnimatedCheckMark checked={t.done} size={16} color={colors.canvas} />
+                    {/* 审查修复：canvas 对 success 绿底仅 2.88（< 非文本 3.0），白色对绿底 3.18 */}
+                    <AnimatedCheckMark checked={t.done} size={16} color="#FFFFFF" />
                   </View>
                   <View style={styles.taskBody}>
                     <Text style={[styles.taskTitle, t.done && styles.taskDone]} numberOfLines={1}>

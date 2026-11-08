@@ -35,15 +35,14 @@ const cssSource = readFileSync(path.join(REPO, "apps/web/app/globals.css"), "utf
 const mobileSource = readFileSync(path.join(REPO, "apps/mobile/src/theme/tokens.ts"), "utf8");
 
 /**
- * mobile 刻意漂移的键（浅色档）：v1.x「暖柔象牙白」系列在移动端单独调过色。
- * 往这里加条目必须有理由（写在该键后面）。
+ * mobile 刻意漂移的键（浅色档）。
+ * v2.4「浅色科技风」起 primary / accent 已与 ui 单一事实源对齐（#2F74C0 / #E1781C），
+ * 不再是漂移项 —— 现仅保留按压态深色与画布色两条，往这里加条目必须写理由。
  */
 const MOBILE_INTENTIONAL_DRIFT = new Set([
-  "accent", // v2.0：#D9942D（语义橙），比 ui 的 #e1781c 更沉稳，用于提醒/成就
-  "accentStrong", // v2.0：#B87818，随 accent 调整
-  "primary", // v2.0：《成长App原型 V3》冷调天蓝 #4777E8；Web 端暂不换色，P4 跨端对齐时统一
-  "primaryStrong", // v2.0：#315FC8，移动端按压态更深
-  "canvas", // v2.0：#F6F8FC 冷调浅蓝灰画布（原型 V3），Web 仍为暖白
+  "accentStrong", // v2.4：#B85C12，随阳光橘 accent 的按压态深一档
+  "primaryStrong", // v2.4：#1B4F87，晴空蓝按压态深一档
+  "canvas", // v2.4：#F1F4F5 瓷白冷画布；ui 的 canvas 仍是油画底 #fdf8ef（Web 图表用）
 ]);
 
 describe("三端 tokens 一致性（棘轮）", () => {
@@ -71,10 +70,10 @@ describe("三端 tokens 一致性（棘轮）", () => {
 
   it("mobile 品牌主色与 ui 一致（primary 不分叉，除非已登记）", () => {
     if (MOBILE_INTENTIONAL_DRIFT.has("primary")) {
-      // v2.0 起移动端主色按原型 V3 换为天蓝；这里改为"必须在例外清单内"而不是禁止漂移
       expect(mobile.primary).not.toBe(ui.primary);
       return;
     }
+    // v2.4 起「晴空蓝」#2F74C0 为跨端唯一事实源
     expect(mobile.primary).toBe(ui.primary);
   });
 

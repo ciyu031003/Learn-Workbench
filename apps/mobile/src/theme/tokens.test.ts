@@ -35,3 +35,28 @@ describe("textSecondary 灰阶", () => {
     expect(ratio(light.textSecondary, light.canvas)).toBeGreaterThanOrEqual(4.5);
   });
 });
+
+/**
+ * 审查修复回归：textMuted 承载大量真实小字（taskMeta/miniHint/sectionMeta 等）。
+ * 旧值 #78888F 对白卡仅 3.67，不满足 WCAG AA；锁定白卡 ≥4.5，防止再次被改浅。
+ */
+describe("textMuted 白卡对比度", () => {
+  const lum = (hex: string) => {
+    const h = hex.replace("#", "");
+    const c = [0, 2, 4].map((i) => {
+      const v = parseInt(h.slice(i, i + 2), 16) / 255;
+      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  };
+  const ratio = (a: string, b: string) => {
+    const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m);
+    return (x + 0.05) / (y + 0.05);
+  };
+  it("浅色档对白卡满足 WCAG AA 正文对比度（>= 4.5）", () => {
+    expect(ratio(light.textMuted, "#FFFFFF")).toBeGreaterThanOrEqual(4.5);
+  });
+  it("深色档对深色卡面满足 WCAG AA（>= 4.5）", () => {
+    expect(ratio(dark.textMuted, dark.surfaceStrong)).toBeGreaterThanOrEqual(4.5);
+  });
+});

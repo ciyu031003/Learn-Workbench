@@ -16,7 +16,8 @@ const lightColors = {
   surfaceMuted: "rgba(15,25,29,0.04)",
   // 文字四级：ink / 次级正文 / 弱化 / 极弱
   text: "#0F191D",
-  textMuted: "#78888F",
+  // 审查修复：#78888F 对白卡仅 3.67（< WCAG AA 4.5），#64767D 对白卡 4.74/对画布 4.29，色相同源只压暗一档
+  textMuted: "#64767D",
   /** 次级正文灰：对白底与画布均满足 WCAG AA 正文 4.5（tokens.test.ts 锁定） */
   textSecondary: "#3F5058",
   textFaint: "#93A2A8",
