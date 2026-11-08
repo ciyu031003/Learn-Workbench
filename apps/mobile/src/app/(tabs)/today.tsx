@@ -898,7 +898,7 @@ export default function TodayScreen() {
         <View style={styles.v3Scene}>
           <Image
             source={require("../../../assets/images/scene-hero.jpg")}
-            style={StyleSheet.absoluteFill}
+            style={[StyleSheet.absoluteFill, styles.sceneImgFill]}
             resizeMode="cover"
           />
           <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -1694,6 +1694,8 @@ const makeStyles = (colors: ThemeColors) =>
     v3GreetTitle: { ...typography.pageTitle, color: colors.text },
     v3GreetSub: { ...typography.meta, color: colors.textMuted, lineHeight: 17 },
     v3Scene: { height: 158, borderRadius: 26, overflow: "hidden", marginTop: 4, ...shadows.card },
+    /** Web 上 react-native-web 会按原图尺寸布局绝对定位图片（导致只看左上角）：显式 100% 让 cover 生效，原生同值无影响 */
+    sceneImgFill: { width: "100%", height: "100%" },
     v3SceneCap: { position: "absolute", left: 16, right: 16, top: 13, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     v3SceneName: { flexDirection: "row", alignItems: "center", gap: 7 },
     v3SceneDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: colors.accent },

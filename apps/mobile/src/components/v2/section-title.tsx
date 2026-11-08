@@ -55,7 +55,8 @@ const makeStyles = (colors: ThemeColors) =>
     },
     /* v2.0.1 视觉深化：区块标题前加一枚主色竖条，统一节奏、减少"平淡感" */
     accent: { width: 3, height: 14, borderRadius: 2, backgroundColor: colors.primary },
-    title: { ...typography.section, color: colors.text, flexShrink: 1 },
+    /** flex:1 而非 flexShrink：右侧有 right/action 时 space-between 会把标题挤到行中间（真机/Web 均可见） */
+    title: { ...typography.section, color: colors.text, flex: 1 },
     action: { flexDirection: "row", alignItems: "center", gap: 2, minHeight: 44, paddingLeft: spacing.sm },
     actionText: { ...typography.meta, fontWeight: "700", color: colors.primary },
   });

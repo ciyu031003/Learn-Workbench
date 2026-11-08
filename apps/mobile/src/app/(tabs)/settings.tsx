@@ -643,7 +643,7 @@ export default function SettingsScreen() {
         <View style={styles.hero}>
           <Image
             source={require("../../../assets/images/scene-hero.jpg")}
-            style={StyleSheet.absoluteFill}
+            style={[StyleSheet.absoluteFill, styles.heroImgFill]}
             resizeMode="cover"
             accessibilityIgnoresInvertColors
           />
@@ -1344,6 +1344,8 @@ const makeStyles = (colors: ThemeColors) =>
     content: { paddingHorizontal: 17 },
 
     /* ① 个人卡（实景带高度对齐今日页的实景带 158，暗场保证白字可读） */
+    /** Web 上 react-native-web 会按原图尺寸布局绝对定位图片（导致只看左上角）：显式 100% 让 cover 生效 */
+    heroImgFill: { width: "100%", height: "100%" },
     hero: {
       height: 158,
       borderRadius: radius.panel,

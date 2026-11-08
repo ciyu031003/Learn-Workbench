@@ -515,7 +515,6 @@ export function FocusTimer({
     if (!open || !autoStart) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 一键开始：打开即进入计时态
     setStarted(true);
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- v3 专注模式记录会话开始时刻（顶栏时段展示）
     setSessionStartAt((v) => v ?? Date.now());
     setDone(false);
     startRef.current = null;
