@@ -1,13 +1,12 @@
 /* eslint-disable react-hooks/immutability */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useHeaderTopInset } from "@/components/screen-header";
-import { Alert, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
+import { Alert, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
 
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useScreenEntrance } from "@/lib/use-screen-entrance";
 import { useScrollToTopHandler } from "@/lib/scroll-to-top";
-import { EntryCard } from "@/components/entry-card";
 import { GroupLabel } from "@/components/group-label";
 import { ListGroup, ListRow } from "@/components/list-row";
 import { Surface } from "@/components/surface";
@@ -16,9 +15,9 @@ import { PressableScale } from "@/components/pressable-scale";
 import { LearningShelfHeader } from "@/components/learning-entry-cards";
 import { PageHead } from "@/components/v2/page-head";
 import { SectionTitle } from "@/components/v2/section-title";
-import { ActionCard } from "@/components/v2/action-card";
-import { BarChart } from "@/components/v2/bar-chart";
+import { StageTrack } from "@/components/v2/stage-track";
 import { ProgressBar } from "@/components/v2/progress-bar";
+import { AreaChart } from "@/components/v2/charts";
 
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -26,12 +25,9 @@ import Animated, {
   FadeInDown,
   FadeOutUp,
   LinearTransition,
-  cancelAnimation,
-  interpolateColor,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
-  withRepeat,
   withTiming,
   type SharedValue,
 } from "react-native-reanimated";
@@ -43,6 +39,7 @@ import { mainPhases } from "@learn-workbench/content/roadmap";
 import { getLearningTrackNow, useLearningTrack, useLearningTracks } from "@/lib/content-store";
 import { setNavPendingParams } from "@/lib/nav-pending";
 import { computeFocusStats } from "@/lib/focus-stats";
+import { withAlpha } from "@/lib/chart-math";
 import { radius, shadows, tabularNums, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
@@ -74,21 +71,11 @@ import {
   type ReadingStore,
 } from "@/lib/reading-state";
 
-
-const STAGE_GRADS: [string, string][] = [
-  ["#2F74C0", "#78C2E8"],
-  ["#F28C28", "#FF8F6B"],
-  ["#8D7BD8", "#B39AD9"],
-  ["#2FB3A6", "#57C7B2"],
-  ["#F26B5E", "#FFB77A"],
-  ["#4F8CD6", "#78C2E8"],
-  ["#3DA35D", "#7AC06E"],
-];
-/** 阶段卡之间的间距，必须与 `styles.content` 的 gap 一致（实时让位的位移量按"实测高度 + 这个值"算） */
+/** 阶段卡之间的间距，必须与 `styles.shelfContent` 的 gap 一致（拖拽让位的位移量按"实测高度 + 这个值"算） */
 const STAGE_CARD_GAP = 12;
 const DAILY_QUESTION_GOAL = 20;
-/** ⑤ 周柱状图列标签（getDay() 下标：0 = 周日），今天单独高亮 */
-const WEEKDAY_LABELS = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+/** 近 7 天面积图/轴的星期标签（getDay() 下标：0 = 周日） */
+const WEEKDAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"];
 
 /** 阅读卡片用的标题查表（找不到就退回 key，界面不会出现空白行） */
 function readingTitle(trackSlug: string, stageKey: string, topicKey: string): string {
@@ -98,88 +85,12 @@ function readingTitle(trackSlug: string, stageKey: string, topicKey: string): st
   return topic?.title ?? topicKey;
 }
 
-/**
- * 选中阶段卡的「流云呼吸」光效（v1.33.0，替换旧的白斜线扫光）。
- *
- * 三条动线同时跑，但**只在选中的那张卡上**（同一时刻最多一张；非选中直接不渲染 → 零开销）：
- *  1. 呼吸：光晕透明度 + 缩放缓慢起伏（5.2s 往返）；
- *  2. 变色：两层光晕各自 interpolateColor 在色环上往返 —— 颜色一直缓慢流转，不是七彩乱闪；
- *  3. 流转：底部一条"云带"左右来回漂移（7.6s，与呼吸错拍），像流云在卡底游走。
- *
- * 为什么不用模糊/渐变：Android 的 View 没有 blur，低透明度叠层圆角块 + 缓慢运动才是这个
- * 平台上的"柔光"通用做法；也没走 react-native-svg 的渐变（要动就得 animatedProps，踩坑 55）。
- * ⚠️ worklet 快照约束（踩坑 71）：下面 useAnimatedStyle 用到的量必须全部声明在它们之前。
- */
-const AURA_HUES = ["#9BD7FF", "#B9A6FF", "#FFAFD2", "#FFE0A3", "#9FF0DC"];
-
-function StageAura({
-  active,
-  seed,
-  motionActive,
-}: {
-  active: boolean;
-  seed: number;
-  motionActive: boolean;
-}) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
-  const { width } = useWindowDimensions();
-  const auraSize = Math.max(220, width * 0.88);
-  // 每张卡取相邻两个色相：同一张卡内缓慢变色，不同卡颜色不同（与阶段渐变呼应）
-  const hueA = AURA_HUES[seed % AURA_HUES.length];
-  const hueB = AURA_HUES[(seed + 1) % AURA_HUES.length];
-  const hueC = AURA_HUES[(seed + 3) % AURA_HUES.length];
-
-  const t = useSharedValue(0);
-  const drift = useSharedValue(0);
-
-  useFocusEffect(
-    useCallback(() => {
-      if (!active || !motionActive) {
-        cancelAnimation(t);
-        cancelAnimation(drift);
-        t.value = 0;
-        drift.value = 0;
-        return;
-      }
-      t.value = withRepeat(withTiming(1, { duration: 5200, easing: Easing.inOut(Easing.sin) }), -1, true);
-      drift.value = withRepeat(withTiming(1, { duration: 7600, easing: Easing.inOut(Easing.quad) }), -1, true);
-      return () => {
-        cancelAnimation(t);
-        cancelAnimation(drift);
-      };
-    }, [active, drift, motionActive, t])
-  );
-
-  const haloTop = useAnimatedStyle(() => ({
-    opacity: 0.16 + t.value * 0.2,
-    transform: [{ scale: 0.92 + t.value * 0.16 }],
-    backgroundColor: interpolateColor(t.value, [0, 1], [hueA, hueB]),
-  }));
-
-  const haloBottom = useAnimatedStyle(() => ({
-    opacity: 0.1 + drift.value * 0.16,
-    transform: [{ scale: 1.04 - drift.value * 0.12 }],
-    backgroundColor: interpolateColor(drift.value, [0, 1], [hueC, hueA]),
-  }));
-
-  const cloud = useAnimatedStyle(() => ({
-    opacity: 0.16 + drift.value * 0.18,
-    transform: [
-      { translateX: -auraSize * 0.2 + drift.value * auraSize * 0.4 },
-      { scaleX: 1 + t.value * 0.1 },
-    ],
-  }));
-
-  if (!active || !motionActive) return null;
-
-  return (
-    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <Animated.View style={[styles.auraHaloTop, { width: auraSize, height: auraSize * 0.72 }, haloTop]} />
-      <Animated.View style={[styles.auraHaloBottom, { width: auraSize * 0.78, height: auraSize * 0.6 }, haloBottom]} />
-      <Animated.View style={[styles.auraCloud, { width: auraSize * 1.15 }, cloud]} />
-    </View>
-  );
+/** 紧凑时长（8h 12m / 70m）：只做展示格式，不改任何统计口径 */
+function compactDuration(minutes: number): string {
+  const safe = Math.max(0, Math.round(Number.isFinite(minutes) ? minutes : 0));
+  const h = Math.floor(safe / 60);
+  const m = safe % 60;
+  return h > 0 ? h + "h " + m + "m" : m + "m";
 }
 
 function StageCard({
@@ -198,7 +109,6 @@ function StageCard({
   heights,
   onMeasure,
   onDragChange,
-  motionActive,
 }: {
   phase: Phase;
   index: number;
@@ -217,10 +127,10 @@ function StageCard({
   heights: SharedValue<number[]>;
   onMeasure: (index: number, height: number) => void;
   onDragChange: (index: number | null) => void;
-  motionActive: boolean;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const percent = progressInfo.total > 0 ? pct(progressInfo.done, progressInfo.total) : 0;
 
   const pan = useMemo(
     () =>
@@ -234,9 +144,7 @@ function StageCard({
         })
         .onUpdate((e) => {
           dragY.value = e.translationY;
-          // 目标下标：把"被拖卡片的中心"换算成落在哪张卡的中线上。
-          // 用**实测高度**累加（不再用固定步长 108 —— 实际行距是 104+12=116，且长标题会更高），
-          // 这样"拖到某张卡中间就换位"才准。
+          // 目标下标：把"被拖卡片的中心"换算成落在哪张卡的中线上（按实测高度累加，长标题也不会错位）。
           const hs = heights.value;
           let above = 0;
           for (let i = 0; i < index; i++) above += (hs[i] ?? 0) + STAGE_CARD_GAP;
@@ -267,11 +175,9 @@ function StageCard({
   );
 
   /**
-   * 拖拽表现（全部在 UI 线程）：
-   * - 被拖的卡片：跟手 + 轻微放大 + **浮到所有兄弟卡片之上**。Android 上同 elevation 的兄弟
-   *   仍按子视图顺序绘制，所以必须**同时**抬 `zIndex` 与 `elevation`（只加 zIndex 看不出效果）；
-   *   阴影也一起加重，去掉旧的 `opacity: 0.88`（半透明正是"沉到下面"观感的放大器）。
-   * - 其它卡片：在被拖卡片越过的区间里上移/下移一格，形成实时让位。
+   * 拖拽表现（全部在 UI 线程）：被拖的卡片跟手 + 轻微放大 + 浮到兄弟卡片之上
+   * （Android 同 elevation 按子视图顺序绘制，所以必须同时抬 zIndex 与 elevation）；
+   * 其它卡片在被拖卡片越过的区间里实时让位。
    */
   const cardStyle = useAnimatedStyle(() => {
     const from = dragIndex.value;
@@ -285,10 +191,7 @@ function StageCard({
     }
     return {
       zIndex: isDragged ? 30 : 0,
-      elevation: isDragged ? 18 : 4,
-      shadowOpacity: isDragged ? 0.34 : active ? 0.28 : 0.22,
-      shadowRadius: isDragged ? 22 : 14,
-      shadowOffset: { width: 0, height: isDragged ? 14 : 7 },
+      elevation: isDragged ? 18 : 0,
       transform: [
         {
           translateY: isDragged
@@ -303,38 +206,48 @@ function StageCard({
   return (
     <GestureDetector gesture={pan}>
       <Animated.View
-        style={[styles.stageCard, active && styles.stageCardActive, cardStyle]}
+        style={[styles.stageRowWrap, cardStyle]}
         onLayout={(e) => onMeasure(index, e.nativeEvent.layout.height)}
       >
-        <PressableScale style={styles.stageCardBody} haptic onPress={onSelect}>
-          <View style={[styles.stageBlob, { backgroundColor: STAGE_GRADS[index % STAGE_GRADS.length][1] }]} />
-          <View style={styles.stageTopLight} />
-          <StageAura active={active} seed={index} motionActive={motionActive} />
-          <View style={styles.stageTop}>
-            <Text style={styles.stageTag}>阶段 {index + 1}</Text>
-            <Text style={styles.stageName} numberOfLines={1}>{phase.title}</Text>
-            <View style={styles.stageActions}>
-              <Pressable accessibilityLabel="编辑"
-                hitSlop={6}
-                style={styles.stageActionBtn}
-                onPress={onEdit}
-              >
-                <ThemedIcon name="create-outline" size={14} color="rgba(255,255,255,0.92)" />
-              </Pressable>
-              <Pressable accessibilityLabel="删除"
-                hitSlop={6}
-                style={styles.stageActionBtn}
-                onPress={onDelete}
-              >
-                <ThemedIcon name="trash-outline" size={14} color="rgba(255,255,255,0.92)" />
-              </Pressable>
-            </View>
+        <PressableScale
+          haptic
+          scaleTo={0.99}
+          onPress={onSelect}
+          style={[styles.stageRow, active && styles.stageRowActive]}
+          accessibilityRole="button"
+          accessibilityLabel={
+            "阶段 " + (index + 1) + "，" + phase.title + "，已完成 " + progressInfo.done + "/" + progressInfo.total + " 个主题，打开详情"
+          }
+        >
+          <View style={[styles.stageRowBadge, active && styles.stageRowBadgeActive]}>
+            <Text style={[styles.stageRowBadgeText, active && styles.stageRowBadgeTextActive]}>{"P" + (index + 1)}</Text>
           </View>
-          <Text style={styles.stageDesc} numberOfLines={1}>
-            {phase.summary || phase.weeks || ""}
-          </Text>
-          <View style={styles.stageBar}>
-            <View style={[styles.stageBarFill, { width: `${pct(progressInfo.done, progressInfo.total)}%`, backgroundColor: STAGE_GRADS[index % STAGE_GRADS.length][1] }]} />
+          <View style={styles.stageRowBody}>
+            <Text style={styles.stageRowTitle} numberOfLines={1}>{phase.title}</Text>
+            <Text style={styles.stageRowMeta} numberOfLines={1}>
+              {(phase.weeks ?? "周期未设置") + " · " + progressInfo.done + "/" + progressInfo.total + " 主题 · " + percent + "%"}
+            </Text>
+            <ProgressBar value={percent / 100} height={4} style={styles.stageRowBar} />
+          </View>
+          <View style={styles.stageRowSide}>
+            <Pressable
+              hitSlop={8}
+              style={styles.stageRowIconBtn}
+              onPress={onEdit}
+              accessibilityRole="button"
+              accessibilityLabel={"编辑阶段 " + phase.title}
+            >
+              <ThemedIcon name="create-outline" ios="square.and.pencil" size={15} color={colors.textMuted} />
+            </Pressable>
+            <Pressable
+              hitSlop={8}
+              style={styles.stageRowIconBtn}
+              onPress={onDelete}
+              accessibilityRole="button"
+              accessibilityLabel={"删除阶段 " + phase.title}
+            >
+              <ThemedIcon name="trash-outline" size={15} color={colors.textMuted} />
+            </Pressable>
           </View>
         </PressableScale>
       </Animated.View>
@@ -526,7 +439,14 @@ export default function LearnScreen() {
       };
     }, [])
   );
-  const [reviewStats, setReviewStats] = useState<{ due: number; wrong: number } | null>(null);
+  const [reviewStats, setReviewStats] = useState<{
+    due: number;
+    wrong: number;
+    total: number;
+    mastered: number;
+    /** 远端复习排期是否真的拿到了（false = 离线/未登录，到期数要显示「—」而不是 0） */
+    remoteOk: boolean;
+  } | null>(null);
   useFocusEffect(
     useCallback(() => {
       let alive = true;
@@ -539,6 +459,9 @@ export default function LearnScreen() {
         setReviewStats({
           due: remote?.dueCount ?? 0,
           wrong: wrongQuestionKeys(attempts).length,
+          total: remote?.totalCount ?? 0,
+          mastered: remote?.masteredCount ?? 0,
+          remoteOk: remote !== null,
         });
       })();
       return () => {
@@ -587,22 +510,26 @@ export default function LearnScreen() {
 
   /** 入口卡只用这几个数；统计明细全部搬到 /study-stats 全屏页（v1.33.0） */
   const stats = useMemo(() => computeFocusStats(sessions), [sessions]);
-  /** ⑤ 本周学习时长：last14 的后 7 天（含今天）；柱高按「30 分钟封顶基准」归一，避免 5 分钟就顶满 */
-  const weekChart = useMemo(() => {
-    const days = stats.last14.slice(7);
-    const peak = Math.max(30, ...days.map((day) => day.minutes));
-    return {
-      total: days.reduce((sum, day) => sum + day.minutes, 0),
-      bars: days.map((day) => {
-        const highlight = day.date === stats.date;
-        return {
-          label: highlight ? "今天" : WEEKDAY_LABELS[new Date(`${day.date}T00:00:00`).getDay()],
-          value: day.minutes / peak,
-          highlight,
-        };
-      }),
-    };
-  }, [stats.date, stats.last14]);
+  /**
+   * ⑤ 数据洞察（近 7 天）：总时长 / 较前 7 天对比 / 日均 / 逐日面积图，
+   * 口径全部来自 focus-stats（与今日页同一份 last14），不新增接口。
+   */
+  const last7 = stats.last14.slice(-7);
+  const weekTotal = last7.reduce((sum, day) => sum + day.minutes, 0);
+  const prevWeekTotal = stats.last14.slice(0, 7).reduce((sum, day) => sum + day.minutes, 0);
+  const focusDelta = weekTotal - prevWeekTotal;
+  const focusDeltaPercent = prevWeekTotal > 0 ? Math.round((focusDelta / prevWeekTotal) * 100) : null;
+  const avgDailyMinutes = Math.round(weekTotal / 7);
+  const last7Minutes = last7.map((day) => day.minutes);
+  const last7Labels = last7.map((day) => WEEKDAY_LABELS[new Date(day.date + "T00:00:00").getDay()]);
+  const insightDeltaText =
+    weekTotal === 0
+      ? "近 7 天还没有专注记录"
+      : prevWeekTotal === 0
+        ? "前 7 天还没有专注记录"
+        : focusDelta === 0
+          ? "与前 7 天持平"
+          : "较前 7 天 " + (focusDelta > 0 ? "+" : "") + focusDelta + " 分钟";
   const learningSummary = useMemo(
     () => summarizeLearningAttempts(learningAttempts, allLearningQuestions),
     [learningAttempts, allLearningQuestions]
@@ -639,6 +566,30 @@ export default function LearnScreen() {
   const todayMinutes = stats.todayMinutes;
 
   const selectedPhase = roadmap.find((p) => p.id === selectedPhaseId) ?? firstPhase;
+  /** 当前阶段：轨道 / 百分比 / 页头副文案全部从这名阶段派生（没有阶段时走空态文案） */
+  const currentPhaseIndex = selectedPhase ? roadmap.findIndex((phase) => phase.id === selectedPhase.id) : -1;
+  const currentPhaseNumber = currentPhaseIndex >= 0 ? currentPhaseIndex + 1 : 1;
+  const currentPhaseProgress = selectedPhase ? phaseDone(selectedPhase) : { done: 0, total: 0 };
+  const currentPhasePercent =
+    currentPhaseProgress.total > 0 ? pct(currentPhaseProgress.done, currentPhaseProgress.total) : null;
+  const trackLabels = roadmap.map((_, index) => "P" + (index + 1));
+  const trackCurrent = currentPhaseIndex >= 0 ? currentPhaseIndex : 0;
+  const stageName = selectedPhase
+    ? "P" + currentPhaseNumber + " · " + selectedPhase.title
+    : "还没有学习阶段";
+  const headSub = selectedPhase
+    ? "第 " + currentPhaseNumber + " 阶段 · " + selectedPhase.title + "。近 7 天已专注 " + formatDuration(weekTotal) + "。"
+    : "还没有学习阶段，先建一条路线或导入 Markdown 开始。";
+  const openCurrentPhase = () => {
+    if (selectedPhase) router.push(("/phase/" + selectedPhase.id) as never);
+    else router.push("/roadmap" as never);
+  };
+  const currentPhaseA11y = selectedPhase
+    ? "当前阶段 P" + currentPhaseNumber + " " + selectedPhase.title + "，已完成 " + currentPhaseProgress.done + "/" + currentPhaseProgress.total + " 个主题，打开阶段详情"
+    : "还没有学习阶段，打开阶段路线";
+  const questionCount = allLearningQuestions.length;
+  const practiceAccuracy =
+    learningSummary.attempted > 0 ? pct(learningSummary.correct, learningSummary.attempted) : null;
   const selectedCustomTopics = useMemo(
     () => customTopics.filter((t) => t.phaseId === selectedPhase?.id),
     [customTopics, selectedPhase?.id]
@@ -831,201 +782,311 @@ export default function LearnScreen() {
       showsVerticalScrollIndicator={false}
       scrollEnabled={!stageDragging}
     >
-      {/* ① 页头：eyebrow + 主标题 + 说明，右上保留全局搜索入口 */}
+      {/* ① 页头：eyebrow + 主标题 + 副文案；右上保留「阶段路线 / 全局搜索」两个入口 */}
       <Animated.View style={styles.headRow} entering={entrance(0)}>
         <PageHead
-          eyebrow="PERSONAL WORKSPACE"
+          eyebrow="ICT · 网络与安全"
           title="学习"
-          subtitle="把知识点、练习与复习串成一条连续的学习路径。"
+          subtitle={headSub}
           style={styles.headText}
         />
-        <PressableScale
-          hitSlop={8}
-          scaleTo={0.92}
-          style={styles.headSearch}
-          onPress={() => router.push("/search" as never)}
-          accessibilityRole="button"
-          accessibilityLabel="全局搜索"
-        >
-          <ThemedIcon name="search" size={18} color={colors.textMuted} />
-        </PressableScale>
+        <View style={styles.headActions}>
+          <PressableScale
+            hitSlop={8}
+            scaleTo={0.92}
+            style={styles.headIconBtn}
+            onPress={() => router.push("/roadmap" as never)}
+            accessibilityRole="button"
+            accessibilityLabel="打开阶段路线"
+          >
+            <ThemedIcon name="git-branch-outline" size={18} color={colors.textMuted} />
+          </PressableScale>
+          <PressableScale
+            hitSlop={8}
+            scaleTo={0.92}
+            style={styles.headIconBtn}
+            onPress={() => router.push("/search" as never)}
+            accessibilityRole="button"
+            accessibilityLabel="全局搜索"
+          >
+            <ThemedIcon name="search" size={18} color={colors.textMuted} />
+          </PressableScale>
+        </View>
       </Animated.View>
 
-      {/* ② 复习提醒条：只有真的到期/有错题时出现，无数据整条隐藏 */}
-      {reviewStats && (reviewStats.due > 0 || reviewStats.wrong > 0) ? (
-        <Animated.View entering={entrance(1)}>
-          <PressableScale
-            haptic
-            scaleTo={0.985}
-            style={styles.reminderPress}
-            onPress={() => router.push("/quiz/review" as never)}
-            accessibilityRole="button"
-            accessibilityLabel={`复习到期 ${reviewStats.due} 题，错题 ${reviewStats.wrong} 题，立即复习`}
-          >
-            <View style={styles.reminderBar}>
-              <View style={styles.reminderIcon}>
-                <ThemedIcon name="alarm-outline" size={18} color={colors.danger} />
-              </View>
-              <View style={styles.reminderBody}>
-                <Text style={styles.reminderTitle}>
-                  复习到期 {reviewStats.due} 题 · 错题 {reviewStats.wrong}
-                </Text>
-                <Text style={styles.reminderHint}>按记忆曲线排期，先清到期再回顾错题</Text>
-              </View>
-              <View style={styles.reminderCta}>
-                <Text style={styles.reminderCtaText}>立即复习</Text>
-                <ThemedIcon name="chevron-forward" size={12} color={colors.danger} />
-              </View>
-            </View>
-          </PressableScale>
-        </Animated.View>
-      ) : null}
-
-      {/* ③ 继续学习卡：全屏唯一的 glassStrong 视觉锚点（进行中 / 收藏 / 空态） */}
+      {/* ② 当前阶段卡（提案 .stage-card）：阶段名 + 完成百分比 + P1..PN 轨道 + 主题数 / 阶段周期 */}
       <Animated.View entering={entrance(1)}>
         <PressableScale
           haptic
-          scaleTo={0.985}
+          scaleTo={0.99}
+          hitSlop={4}
+          style={styles.stagePress}
+          onPress={openCurrentPhase}
+          accessibilityRole="button"
+          accessibilityLabel={currentPhaseA11y}
+        >
+          <Surface tier="surface" corner={radius.panel} style={styles.stageCard}>
+            <View style={styles.stageTop}>
+              <View style={styles.stageTopText}>
+                <Text style={styles.stageLab}>当前阶段</Text>
+                <Text style={styles.stageName} numberOfLines={1}>{stageName}</Text>
+              </View>
+              <View
+                style={styles.stagePctRow}
+                accessible
+                accessibilityLabel={
+                  currentPhasePercent === null
+                    ? "阶段完成度暂无数据"
+                    : "阶段完成度 " + currentPhasePercent + "%"
+                }
+              >
+                <Text style={[styles.stagePct, tabularNums]}>
+                  {currentPhasePercent === null ? "—" : currentPhasePercent}
+                </Text>
+                {currentPhasePercent === null ? null : <Text style={styles.stagePctUnit}>%</Text>}
+              </View>
+            </View>
+
+            {trackLabels.length > 0 ? (
+              <View
+                style={styles.stageTrack}
+                accessible
+                accessibilityLabel={"共 " + trackLabels.length + " 个阶段，当前第 " + (trackCurrent + 1) + " 个"}
+              >
+                <StageTrack stages={trackLabels} current={trackCurrent} />
+              </View>
+            ) : null}
+
+            <View style={styles.stageFoot}>
+              <Text style={styles.stageFootText}>
+                已完成 <Text style={styles.stageFootNum}>{routeSummary.done}</Text> / {routeSummary.total} 个主题
+              </Text>
+              <Text style={styles.stageFootText} numberOfLines={1}>
+                {selectedPhase?.weeks ? "阶段周期 · " + selectedPhase.weeks : "阶段周期 · —"}
+              </Text>
+            </View>
+          </Surface>
+        </PressableScale>
+      </Animated.View>
+
+      {/* ③ 继续学习卡（提案 .continue）：进行中 / 收藏的章节 / 还没开始三态，落点沿用既有 */}
+      <Animated.View entering={entrance(2)}>
+        <PressableScale
+          haptic
+          scaleTo={0.99}
+          hitSlop={4}
           style={styles.continuePress}
           onPress={continueCard.onPress}
           accessibilityRole="button"
           accessibilityLabel={continueCard.a11y}
         >
-          <Surface tier="glassStrong" corner={radius.panel} style={styles.continueCard}>
-            <View style={styles.continueHead}>
-              <View style={styles.continueIcon}>
-                <ThemedIcon name={continueCard.icon} size={20} color={continueCard.color} />
-              </View>
-              <View style={styles.continueBody}>
-                <Text style={styles.continueKicker}>{continueCard.kicker}</Text>
-                <Text style={styles.continueTitle} numberOfLines={2}>{continueCard.title}</Text>
-              </View>
+          <Surface tier="surface" style={styles.continueCard}>
+            <View style={[styles.continueThumb, { backgroundColor: withAlpha(continueCard.color, 0.14) }]}>
+              <ThemedIcon
+                name={continueCard.icon}
+                ios={continueCard.icon === "star" ? "star.fill" : undefined}
+                size={24}
+                color={continueCard.color}
+              />
             </View>
-            {continueCard.progress !== null ? (
-              <ProgressBar value={continueCard.progress} height={6} />
-            ) : null}
-            <View style={styles.continueFoot}>
+            <View style={styles.continueBody}>
+              <Text style={styles.continueKicker}>{continueCard.kicker}</Text>
+              <Text style={styles.continueTitle} numberOfLines={2}>{continueCard.title}</Text>
               <Text style={styles.continueMeta} numberOfLines={1}>{continueCard.meta}</Text>
-              <Text style={styles.continueCta}>{continueCard.cta} ›</Text>
+              {continueCard.progress !== null ? (
+                <ProgressBar value={continueCard.progress} height={5} style={styles.continueBar} />
+              ) : null}
+            </View>
+            <View style={styles.continuePlay}>
+              <ThemedIcon name="play" size={14} color={colors.surfaceStrong} />
             </View>
           </Surface>
         </PressableScale>
       </Animated.View>
 
-      {/* ④ 学习入口：2×2 功能卡（沿用既有路由与统计文案） */}
-      <Animated.View entering={entrance(2)} style={styles.entrySection}>
-        <SectionTitle title="学习入口" />
-        <View style={styles.entryGrid}>
-          <ActionCard
-            icon="school-outline"
-            tone="teal"
-            title="408 专区"
-            subtitle={`${exam408ChapterCount} 章 · ${exam408PointCount} 知识点`}
-            actionLabel="进入专区"
-            onAction={() => router.push("/exam-408" as never)}
-          />
-          <ActionCard
-            icon="help-circle-outline"
-            tone="primary"
-            title="题库练习"
-            subtitle={`今日 ${learningSummary.today}/${DAILY_QUESTION_GOAL} 题 · 继续刷题`}
-            actionLabel="开始练习"
-            onAction={() => router.push("/quiz" as never)}
-          />
-        </View>
-        <View style={styles.entryGrid}>
-          <ActionCard
-            icon="git-branch-outline"
-            tone="accent"
-            title="阶段路线"
-            // 未登录 / 无 roadmap 缓存时是 0/0（不是真实的"0 个主题"）→ 走空态文案，有数据才显示数字
-            subtitle={
-              routeSummary.total > 0
-                ? `已完成 ${routeSummary.done}/${routeSummary.total} 主题 · ${routeSummary.percent}%`
-                : "还没有阶段，先建一条路线"
-            }
-            actionLabel="查看路线"
-            onAction={() => router.push("/roadmap" as never)}
-          />
-          <ActionCard
-            icon="repeat-outline"
-            tone="warning"
-            title="复习"
-            subtitle={
-              reviewStats
-                ? `到期 ${reviewStats.due} 题 · 错题 ${reviewStats.wrong} 题`
-                : "到期复习 · 错题回顾"
-            }
-            actionLabel="去复习"
-            onAction={() => router.push("/quiz/review" as never)}
-          />
-        </View>
-
-        {/* 408 专区主卡：数据取内容库现有统计，不写死篇数/卡片数 */}
-        <EntryCard
-          size="hero"
-          icon="school-outline"
-          tone="teal"
-          title="408 考研专区"
-          meta={`${exam408ChapterCount} 章 · ${exam408PointCount} 知识点 · 精读 / 演示 / 刷卡三入口`}
-          cta="进入专区"
-          onPress={() => router.push("/exam-408" as never)}
-          accessibilityLabel="进入 408 考研专区"
-        />
-      </Animated.View>
-
-      {/* ⑤ 本周学习时长：7 天柱状，今天高亮；没有记录走空态 */}
+      {/* ④ 数据洞察卡（提案 .chart-card）：近 7 天总时长 + 较前 7 天对比 + 面积图 + 三格 KPI */}
       <Animated.View entering={entrance(3)}>
         <SectionTitle
-          title="本周学习时长"
+          title="数据洞察"
           actionLabel="学习统计"
           onAction={() => router.push("/study-stats" as never)}
+          style={styles.sectionTitle}
         />
-        <Surface tier="surface" style={styles.weekCard}>
-          {weekChart.total > 0 ? (
-            <>
-              <View style={styles.weekHead}>
-                <Text style={[styles.weekTotal, tabularNums]}>{formatDuration(weekChart.total)}</Text>
-                <Text style={styles.weekMeta} numberOfLines={1}>
-                  近 7 天 · 今日 {formatDuration(todayMinutes)}
+        <Surface tier="surface" style={styles.insightCard}>
+          <View
+            style={styles.insightTop}
+            accessible
+            accessibilityLabel={
+              "近 7 天专注总时长 " + formatDuration(weekTotal) + "，今日 " + formatDuration(todayMinutes) + "，" + insightDeltaText
+            }
+          >
+            <View style={styles.insightTopText}>
+              <Text style={styles.insightLab}>专注总时长</Text>
+              <Text style={[styles.insightBig, tabularNums]}>{compactDuration(weekTotal)}</Text>
+              <Text style={styles.insightDelta}>{insightDeltaText}</Text>
+            </View>
+            {focusDeltaPercent !== null && focusDelta !== 0 ? (
+              <View
+                style={[
+                  styles.deltaPill,
+                  { backgroundColor: focusDelta > 0 ? colors.successSoft : colors.dangerSoft },
+                ]}
+              >
+                <ThemedIcon
+                  name={focusDelta > 0 ? "chevron-up" : "chevron-down"}
+                  size={12}
+                  color={focusDelta > 0 ? colors.success : colors.danger}
+                />
+                <Text
+                  style={[
+                    styles.deltaPillText,
+                    { color: focusDelta > 0 ? colors.success : colors.danger },
+                  ]}
+                >
+                  {Math.abs(focusDeltaPercent) + "%"}
                 </Text>
               </View>
-              <BarChart items={weekChart.bars} height={104} />
-            </>
+            ) : null}
+          </View>
+
+          {weekTotal > 0 ? (
+            <AreaChart
+              series={[{ values: last7Minutes }]}
+              labels={last7Labels}
+              height={92}
+              showEndDot={false}
+              legend={false}
+              style={styles.insightChart}
+            />
           ) : (
-            <View style={styles.weekEmpty}>
-              <View style={styles.weekEmptyIcon}>
-                <ThemedIcon name="bar-chart-outline" size={18} color={colors.textMuted} />
-              </View>
-              <View style={styles.weekEmptyBody}>
-                <Text style={styles.weekEmptyTitle}>本周还没有专注记录</Text>
-                <Text style={styles.weekEmptyHint}>完成一次专注后，这里会按天显示学习时长</Text>
-              </View>
+            <View style={styles.insightEmpty}>
+              <ThemedIcon name="stats-chart-outline" size={18} color={colors.textMuted} />
+              <Text style={styles.insightEmptyText}>近 7 天还没有专注记录，完成一次专注后这里会出现趋势</Text>
             </View>
           )}
+
+          <View
+            style={styles.kpis}
+            accessible
+            accessibilityLabel={
+              "日均专注 " + compactDuration(avgDailyMinutes) + "，计划完成率 " +
+              (routeSummary.total > 0 ? routeSummary.percent + "%" : "暂无数据") +
+              "，连续学习 " + stats.streak + " 天"
+            }
+          >
+            <View style={[styles.kpi, styles.kpiFirst]}>
+              <Text style={[styles.kpiValue, tabularNums]}>{compactDuration(avgDailyMinutes)}</Text>
+              <Text style={styles.kpiLabel}>日均专注</Text>
+            </View>
+            <View style={styles.kpi}>
+              <Text style={[styles.kpiValue, tabularNums]}>
+                {routeSummary.total > 0 ? routeSummary.percent + "%" : "—"}
+              </Text>
+              <Text style={styles.kpiLabel}>计划完成率</Text>
+            </View>
+            <View style={styles.kpi}>
+              <Text style={[styles.kpiValue, tabularNums]}>{stats.streak + " 天"}</Text>
+              <Text style={styles.kpiLabel}>连续学习</Text>
+            </View>
+          </View>
+
+          <View style={styles.insightFoot}>
+            <Text style={styles.insightFootText}>近 7 天 · 单位分钟</Text>
+            <Text style={styles.insightFootText}>{"今日 " + formatDuration(todayMinutes)}</Text>
+          </View>
         </Surface>
       </Animated.View>
 
-      {/* 学习统计卡：明细在 /study-stats 全屏页，首屏只留一行摘要 */}
+      {/* ⑤ 复习与题库（提案 .review / .list）：到期大数字 + 开始复习 CTA + 三行入口 */}
       <Animated.View entering={entrance(4)}>
-        <PressableScale
-          haptic
-          hitSlop={8}
-          scaleTo={0.98}
-          onPress={() => router.push("/study-stats" as never)}
-          accessibilityRole="button"
-          accessibilityLabel="打开学习统计"
-        >
-          <Surface tier="surface" style={styles.statsEntry}>
-            <View style={styles.statsEntryBody}>
-              <Text style={styles.statsEntryTitle}>今日已专注 {formatDuration(todayMinutes)}</Text>
-              <Text style={styles.statsEntrySub}>
-                热力图 · 周期柱状 · 近 14 天趋势 · 连续 {stats.streak} 天
-              </Text>
-            </View>
-            <ThemedIcon name="chevron-forward" size={16} color={colors.textFaint} />
-          </Surface>
-        </PressableScale>
+        <SectionTitle
+          title="复习与题库"
+          right={<Text style={styles.sectionMeta}>记忆曲线排期</Text>}
+          style={styles.sectionTitle}
+        />
+        <Surface tier="surface" style={styles.reviewCard}>
+          <Text
+            style={[styles.reviewNum, tabularNums]}
+            accessible
+            accessibilityLabel={
+              !reviewStats
+                ? "待复习知识点暂未加载"
+                : reviewStats.remoteOk
+                  ? "待复习 " + reviewStats.due + " 个知识点，错题 " + reviewStats.wrong + " 道"
+                  : "到期排期需联网刷新，本地错题 " + reviewStats.wrong + " 道"
+            }
+          >
+            {reviewStats && reviewStats.remoteOk ? reviewStats.due : "—"}
+          </Text>
+          <View style={styles.reviewBody}>
+            <Text style={styles.reviewTitle}>待复习知识点</Text>
+            <Text style={styles.reviewSub} numberOfLines={2}>
+              {reviewStats
+                ? reviewStats.remoteOk
+                  ? reviewStats.total > 0
+                    ? "共 " + reviewStats.total + " 个知识点在排期 · 已掌握 " + reviewStats.mastered + " 个"
+                    : "错题 " + reviewStats.wrong + " 道 · 按记忆曲线排期"
+                  : "错题 " + reviewStats.wrong + " 道 · 到期排期需联网刷新"
+                : "登录后可查看记忆曲线排期"}
+            </Text>
+          </View>
+          <PressableScale
+            haptic
+            scaleTo={0.97}
+            hitSlop={6}
+            style={styles.reviewCta}
+            onPress={() => router.push("/quiz/review" as never)}
+            accessibilityRole="button"
+            accessibilityLabel={
+              reviewStats && reviewStats.remoteOk
+                ? "开始复习，已到期 " + reviewStats.due + " 题，错题 " + reviewStats.wrong + " 道"
+                : "开始复习"
+            }
+          >
+            <Text style={styles.reviewCtaText}>开始复习</Text>
+          </PressableScale>
+        </Surface>
+
+        <ListGroup style={styles.questionList}>
+          <ListRow
+            icon="help-circle-outline"
+            title="技术题库"
+            subtitle={"今日 " + learningSummary.today + "/" + DAILY_QUESTION_GOAL + " 题 · 继续刷题"}
+            value={questionCount > 0 ? questionCount + " 题" : "—"}
+            showChevron
+            onPress={() => router.push("/quiz" as never)}
+            accessibilityLabel={
+              "打开技术题库，共 " + questionCount + " 题，今日已练 " + learningSummary.today + " 题"
+            }
+          />
+          <ListRow
+            icon="trophy"
+            iconBg={colors.accentSoft}
+            iconColor={colors.accent}
+            title="408 考研专区"
+            subtitle={
+              exam408ChapterCount > 0
+                ? exam408ChapterCount + " 章 · " + exam408PointCount + " 知识点"
+                : "章节题库 · 精读 / 演示 / 刷卡"
+            }
+            value={exam408ChapterCount > 0 ? exam408ChapterCount + " 章" : "—"}
+            showChevron
+            onPress={() => router.push("/exam-408" as never)}
+            accessibilityLabel="打开 408 考研专区"
+          />
+          {/* App 暂无独立的「练习记录」页：这一行只做信息展示（正确率来自本地作答记录），不做假跳转 */}
+          <ListRow
+            icon="stats-chart-outline"
+            title="练习记录"
+            subtitle={
+              learningSummary.attempted > 0
+                ? "累计 " + learningSummary.attempted + " 题 · 错题 " + learningSummary.wrong + " 道"
+                : "还没有作答记录，去题库练一组"
+            }
+            value={practiceAccuracy === null ? "—" : "正确率 " + practiceAccuracy + "%"}
+            last
+          />
+        </ListGroup>
       </Animated.View>
 
       {/* ⑥ 学习架与管理入口：默认收起为折叠条，展开后保留原列表 */}
@@ -1053,6 +1114,7 @@ export default function LearnScreen() {
                 <View style={styles.emptyActions}>
                   <PressableScale
                     haptic
+                    hitSlop={6}
                     style={styles.emptyAction}
                     onPress={() => {
                       setMdText("");
@@ -1066,6 +1128,7 @@ export default function LearnScreen() {
                   </PressableScale>
                   <PressableScale
                     haptic
+                    hitSlop={6}
                     style={styles.emptyAction}
                     onPress={() => {
                       setEditingPhase(null);
@@ -1079,6 +1142,7 @@ export default function LearnScreen() {
                   </PressableScale>
                   <PressableScale
                     haptic
+                    hitSlop={6}
                     style={styles.emptyAction}
                     onPress={() => router.push("/domain-manager" as never)}
                   >
@@ -1100,7 +1164,7 @@ export default function LearnScreen() {
                   total={roadmap.length}
                   active={active}
                   progressInfo={progressInfo}
-                  onSelect={() => router.push(`/phase/${phase.id}` as never)}
+                  onSelect={() => router.push(("/phase/" + phase.id) as never)}
                   onMove={swapPhase}
                   onDelete={() => removePhase(phase)}
                   onEdit={() => openEditPhase(phase)}
@@ -1110,7 +1174,6 @@ export default function LearnScreen() {
                   heights={stageHeights}
                   onMeasure={measureStage}
                   onDragChange={onStageDragChange}
-                  motionActive={motionActive}
                 />
               );
             })}
@@ -1378,7 +1441,7 @@ export default function LearnScreen() {
                       setContentTopic(null);
                     }}
                   >
-                    <ThemedIcon name="trash-outline" size={15} color="#D64545" />
+                    <ThemedIcon name="trash-outline" size={15} color={colors.danger} />
                     <Text style={styles.deleteTopicText}>删除该主题</Text>
                   </Pressable>
                 ) : null}
@@ -1393,225 +1456,270 @@ export default function LearnScreen() {
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
-    /* ① 页头：PageHead + 右上搜索（44 触控热区） */
-    headRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+    scroll: { flex: 1, backgroundColor: colors.canvas },
+    content: { paddingHorizontal: 17, gap: 14 },
+
+    /* ① 页头 + 右上两个入口（阶段路线 / 全局搜索） */
+    headRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
     headText: { flex: 1, minWidth: 0 },
-    headSearch: {
-      width: 44,
-      height: 44,
-      marginTop: 19,
+    headActions: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 22 },
+    headIconBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: radius.pill,
       alignItems: "center",
       justifyContent: "center",
-      borderRadius: radius.pill,
       backgroundColor: colors.surfaceStrong,
       borderWidth: StyleSheet.hairlineWidth * 2,
       borderColor: colors.border,
       ...shadows.card,
     },
-    /* ② 复习提醒条（dangerSoft 底，无数据时整条不渲染） */
-    reminderPress: { borderRadius: radius.card },
-    reminderBar: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 10,
-      minHeight: 60,
-      paddingHorizontal: 12,
-      paddingVertical: 10,
-      borderRadius: radius.card,
-      backgroundColor: colors.dangerSoft,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.danger,
-    },
-    reminderIcon: {
-      width: 32,
-      height: 32,
-      borderRadius: radius.control,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: colors.surfaceStrong,
-    },
-    reminderBody: { flex: 1, minWidth: 0, gap: 2 },
-    reminderTitle: { ...typography.callout, fontWeight: "800", color: colors.text },
-    reminderHint: { ...typography.meta, color: colors.textMuted },
-    reminderCta: { flexDirection: "row", alignItems: "center", gap: 2, minHeight: 44 },
-    reminderCtaText: { ...typography.meta, fontWeight: "800", color: colors.danger },
-    /* ③ 继续学习卡（glassStrong 锚点） */
-    continuePress: { borderRadius: radius.panel },
-    continueCard: { gap: 12 },
-    continueHead: { flexDirection: "row", alignItems: "center", gap: 12 },
-    continueIcon: {
-      width: 44,
-      height: 44,
-      borderRadius: radius.control,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: colors.primarySoft,
-    },
-    continueBody: { flex: 1, minWidth: 0, gap: 3 },
-    continueKicker: { ...typography.meta, fontWeight: "700", color: colors.textMuted },
-    continueTitle: { ...typography.hero, color: colors.text },
-    continueFoot: {
+
+    /* ② 当前阶段卡（提案 .stage-card） */
+    stagePress: { borderRadius: radius.panel },
+    stageCard: { gap: 0 },
+    stageTop: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: 10 },
+    stageTopText: { flex: 1, minWidth: 0, gap: 2 },
+    stageLab: { ...typography.meta, color: colors.textMuted },
+    stageName: { ...typography.callout, fontWeight: "700", color: colors.text },
+    stagePctRow: { flexDirection: "row", alignItems: "baseline" },
+    stagePct: { ...typography.title2, color: colors.text },
+    stagePctUnit: { ...typography.caption, fontWeight: "600", color: colors.textMuted },
+    stageTrack: { marginTop: 17, marginHorizontal: 2 },
+    stageFoot: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      gap: 12,
+      gap: 10,
+      marginTop: 14,
+      paddingTop: 12,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
     },
-    continueMeta: { ...typography.meta, color: colors.textMuted, flexShrink: 1 },
-    continueCta: { ...typography.caption, fontWeight: "800", color: colors.primary },
-    /* ④ 学习入口 2×2 */
-    entrySection: { gap: 12 },
-    entryGrid: { flexDirection: "row", gap: 12 },
-    /* ⑤ 本周学习时长 */
-    weekCard: { gap: 12 },
-    weekHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: 12 },
-    weekTotal: { ...typography.num, color: colors.text },
-    weekMeta: { ...typography.meta, color: colors.textMuted, flexShrink: 1, textAlign: "right" },
-    weekEmpty: { flexDirection: "row", alignItems: "center", gap: 10, minHeight: 60 },
-    weekEmptyIcon: {
-      width: 36,
-      height: 36,
+    stageFootText: { ...typography.meta, color: colors.textMuted, flexShrink: 1 },
+    stageFootNum: { ...typography.meta, fontWeight: "700", color: colors.textSecondary },
+
+    /* ③ 继续学习卡（提案 .continue） */
+    continuePress: { borderRadius: radius.card },
+    continueCard: { flexDirection: "row", alignItems: "center", gap: 12 },
+    continueThumb: {
+      width: 54,
+      height: 54,
+      borderRadius: radius.control,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    continueBody: { flex: 1, minWidth: 0, gap: 2 },
+    continueKicker: { ...typography.micro, fontWeight: "700", color: colors.primary },
+    continueTitle: { ...typography.callout, fontWeight: "700", color: colors.text },
+    continueMeta: { ...typography.meta, color: colors.textMuted },
+    continueBar: { marginTop: 6 },
+    continuePlay: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.primary,
+    },
+
+    /* ④ 数据洞察卡（提案 .chart-card） */
+    sectionTitle: { marginTop: 2, marginBottom: 11 },
+    sectionMeta: { ...typography.micro, fontWeight: "500", color: colors.textMuted },
+    insightCard: { gap: 0 },
+    insightTop: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 10 },
+    insightTopText: { flex: 1, minWidth: 0 },
+    insightLab: { ...typography.meta, color: colors.textMuted },
+    insightBig: { ...typography.title2, color: colors.text, marginTop: 3 },
+    insightDelta: { ...typography.meta, color: colors.textMuted, marginTop: 2 },
+    deltaPill: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 2,
+      height: 22,
+      paddingHorizontal: 8,
+      borderRadius: radius.pill,
+    },
+    deltaPillText: { ...typography.micro, fontWeight: "700" },
+    insightChart: { marginTop: 8 },
+    insightEmpty: { flexDirection: "row", alignItems: "center", gap: 9, paddingVertical: 16 },
+    insightEmptyText: { ...typography.meta, color: colors.textMuted, flex: 1, minWidth: 0, lineHeight: 17 },
+    kpis: {
+      flexDirection: "row",
+      marginTop: 12,
+      paddingTop: 12,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+    },
+    kpi: {
+      flex: 1,
+      minWidth: 0,
+      gap: 2,
+      paddingLeft: 12,
+      borderLeftWidth: StyleSheet.hairlineWidth,
+      borderLeftColor: colors.border,
+    },
+    kpiFirst: { paddingLeft: 0, borderLeftWidth: 0 },
+    kpiValue: { ...typography.callout, fontWeight: "700", color: colors.text },
+    kpiLabel: { ...typography.micro, fontWeight: "500", color: colors.textMuted },
+    insightFoot: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 10,
+      marginTop: 10,
+    },
+    insightFootText: { ...typography.micro, fontWeight: "500", color: colors.textMuted },
+
+    /* ⑤ 复习与题库（提案 .review / .list / .row） */
+    reviewCard: { flexDirection: "row", alignItems: "center", gap: 13 },
+    reviewNum: { ...typography.display, color: colors.text },
+    reviewBody: { flex: 1, minWidth: 0, gap: 2 },
+    reviewTitle: { ...typography.callout, fontWeight: "700", color: colors.text },
+    reviewSub: { ...typography.meta, color: colors.textMuted },
+    reviewCta: {
+      minHeight: 44,
+      paddingHorizontal: 16,
+      borderRadius: radius.pill,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.primary,
+      ...shadows.brand,
+    },
+    reviewCtaText: { ...typography.caption, fontWeight: "700", color: colors.surfaceStrong },
+    questionList: { marginTop: 12 },
+
+    /* 学习架：折叠头来自共享组件；展开后是阶段行 + 管理组 */
+    shelfWrap: { gap: 12 },
+    shelfContent: { gap: 12 },
+
+    /* 阶段行（长按拖拽排序；编辑/删除沿用既有弹层与确认） */
+    stageRowWrap: {
+      borderRadius: radius.card,
+      backgroundColor: colors.surfaceStrong,
+      borderWidth: StyleSheet.hairlineWidth * 2,
+      borderColor: colors.border,
+      overflow: "hidden",
+      ...shadows.card,
+    },
+    stageRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 11,
+      minHeight: 64,
+      paddingHorizontal: 12,
+      paddingVertical: 11,
+    },
+    stageRowActive: { backgroundColor: colors.primarySoft },
+    stageRowBadge: {
+      width: 34,
+      height: 34,
       borderRadius: radius.control,
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: colors.surfaceMuted,
     },
-    weekEmptyBody: { flex: 1, minWidth: 0, gap: 2 },
-    weekEmptyTitle: { ...typography.callout, fontWeight: "700", color: colors.text },
-    weekEmptyHint: { ...typography.meta, color: colors.textMuted },
-    /* 学习架：标题 + 展开后的阶段列表，间距与 entrySection 一致（12） */
-    shelfWrap: { gap: 12 },
-    shelfContent: { gap: 12 },
-    scroll: { flex: 1, backgroundColor: colors.canvas },
-    content: { paddingHorizontal: 16, gap: 12 },
-    /* v9：今日专注 hero（stageCard：章节卡，保留品牌藏青影） */
-    stageCard: {
-      borderRadius: radius.xl,
-      padding: 16,
-      overflow: "hidden",
-      minHeight: 104,
-      backgroundColor: colors.primary,
-      borderWidth: 1.5,
-      borderColor: "rgba(255,255,255,0.16)",
-      // v19-V3：品牌藏青影收进 token（原裸写 #14548D）
-      ...shadows.brand,
+    stageRowBadgeActive: { backgroundColor: colors.primary },
+    stageRowBadgeText: { ...typography.micro, fontWeight: "700", color: colors.textMuted },
+    stageRowBadgeTextActive: { color: colors.surfaceStrong },
+    stageRowBody: { flex: 1, minWidth: 0, gap: 3 },
+    stageRowTitle: { ...typography.callout, fontWeight: "600", color: colors.text },
+    stageRowMeta: { ...typography.meta, color: colors.textMuted },
+    stageRowBar: { marginTop: 3 },
+    stageRowSide: { flexDirection: "row", alignItems: "center", gap: 2 },
+    stageRowIconBtn: {
+      width: 32,
+      height: 32,
+      borderRadius: radius.control,
+      alignItems: "center",
+      justifyContent: "center",
     },
-  /** v1.33.0：选中态不再用刺眼白边抢戏，把"主角感"交给流云光效；阴影略抬 */
-  stageCardActive: { borderColor: "rgba(255,255,255,0.62)", shadowOpacity: 0.3 },
-  stageCardBody: { flex: 1 },
-  stageBlob: { position: "absolute", width: 160, height: 160, borderRadius: 80, right: -46, top: -56, opacity: 0.34 },
-  /** 顶部高光：给纯色卡面一点"玻璃边缘"的层次（静态，不参与动画） */
-  stageTopLight: { position: "absolute", top: 0, left: 18, right: 18, height: 2, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.22)" },
-  /** 流云光效三层：全部低透明度叠层 + 缓慢运动/变色（Android 无 blur，这是通用"柔光"做法） */
-  auraHaloTop: { position: "absolute", top: -76, left: -34, borderRadius: radius.pill },
-  auraHaloBottom: { position: "absolute", bottom: -64, right: -46, borderRadius: radius.pill },
-  auraCloud: { position: "absolute", bottom: -30, left: 0, height: 78, borderRadius: radius.pill },
-  stageTop: { flexDirection: "row", alignItems: "center", gap: 8 },
-  stageTag: { color: "rgba(255,255,255,0.9)", ...typography.micro, fontWeight: "800", backgroundColor: "rgba(255,255,255,0.18)", borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
-  stageName: { color: "#fff", ...typography.headline, fontWeight: "800", flex: 1 },
-  stageActions: { flexDirection: "row", alignItems: "center", gap: 6 },
-  stageActionBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "rgba(255,255,255,0.16)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  stageDesc: { color: "rgba(255,255,255,0.85)", ...typography.caption, marginTop: 6 },
-  stageBar: { height: 8, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.22)", marginTop: 12, overflow: "hidden" },
-  stageBarFill: { height: "100%", borderRadius: 999 },
 
-  statsEntry: { flexDirection: "row", alignItems: "center", gap: 12 },
-  statsEntryBody: { flex: 1, minWidth: 0, gap: 2 },
-  statsEntryTitle: { ...typography.callout, fontWeight: "800", color: colors.text },
-  statsEntrySub: { ...typography.caption, fontWeight: "500", color: colors.textMuted },
-
-  formSheet: { gap: 12, paddingTop: 4 },
-  /* v6 P3-1：空态引导 */
-  emptyCard: { gap: 10 },
-  emptyTitle: { ...typography.body, fontWeight: "800", color: colors.text },
-  emptyHint: { ...typography.caption, lineHeight: 18, color: colors.textMuted },
-  emptyActions: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  emptyAction: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 14,
-    backgroundColor: colors.primarySoft,
-  },
-  emptyActionText: { ...typography.caption, fontWeight: "800", color: colors.primary },
-  /* v6 P3-2：MD 导入 */
-  mdHint: { ...typography.caption, lineHeight: 18, color: colors.textMuted },
-  mdInput: {
-    minHeight: 180,
-    maxHeight: 300,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    ...typography.caption,
-    lineHeight: 19,
-    color: colors.text,
-    backgroundColor: colors.surfaceMuted,
-    textAlignVertical: "top",
-  },
-  mdMsg: { ...typography.caption, color: colors.danger },
-  mdPreview: { gap: 6, padding: 10, borderRadius: 12, backgroundColor: colors.surfaceMuted },
-  mdPreviewTitle: { ...typography.caption, fontWeight: "800", color: colors.primary },
-  mdPreviewPhase: { gap: 2 },
-  mdPreviewPhaseTitle: { ...typography.caption, fontWeight: "700", color: colors.text },
-  mdPreviewTopic: { ...typography.caption, color: colors.textMuted },
-  formInput: {
-    backgroundColor: colors.surfaceStrong,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    color: colors.text,
-    ...typography.callout,
-  },
-  formInputArea: { minHeight: 84, textAlignVertical: "top" },
-
-  modalScrim: {
-    flex: 1,
-    backgroundColor: "rgba(30,24,12,0.42)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 24,
-  },
-  modalCard: {
-    width: "100%",
-    maxWidth: 380,
-    backgroundColor: colors.surfaceStrong,
-    borderRadius: 24,
-    padding: 20,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderStrong,
-  },
-  modalHead: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 },
-  modalDot: { width: 10, height: 10, borderRadius: 5 },
-  modalTitle: { color: colors.text, fontSize: 19, fontWeight: "900", flex: 1 },
-  modalSub: { color: colors.textMuted, ...typography.caption, lineHeight: 19, marginBottom: 14 },
-  modalListTitle: { color: colors.text, ...typography.caption, fontWeight: "800", marginTop: 6, marginBottom: 8 },
-  modalRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 7 },
-  modalRowText: {
-    ...typography.callout,
-    color: colors.text,
-    flex: 1,
-  },
-  modalClose: { marginLeft: "auto", padding: 4 },
-  deleteTopicBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    marginTop: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: colors.dangerSoft,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.danger,
-  },
-  deleteTopicText: { color: "#D64545", ...typography.caption, fontWeight: "800" }});
+    /* 空态 / 表单 / 弹层：沿用既有功能，只把裸写色值收回 token */
+    emptyCard: { gap: 10 },
+    emptyTitle: { ...typography.body, fontWeight: "800", color: colors.text },
+    emptyHint: { ...typography.caption, lineHeight: 18, color: colors.textMuted },
+    emptyActions: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+    emptyAction: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      borderRadius: 14,
+      backgroundColor: colors.primarySoft,
+    },
+    emptyActionText: { ...typography.caption, fontWeight: "800", color: colors.primary },
+    formSheet: { gap: 12, paddingTop: 4 },
+    mdHint: { ...typography.caption, lineHeight: 18, color: colors.textMuted },
+    mdInput: {
+      minHeight: 180,
+      maxHeight: 300,
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      ...typography.caption,
+      lineHeight: 19,
+      color: colors.text,
+      backgroundColor: colors.surfaceMuted,
+      textAlignVertical: "top",
+    },
+    mdMsg: { ...typography.caption, color: colors.danger },
+    mdPreview: { gap: 6, padding: 10, borderRadius: 12, backgroundColor: colors.surfaceMuted },
+    mdPreviewTitle: { ...typography.caption, fontWeight: "800", color: colors.primary },
+    mdPreviewPhase: { gap: 2 },
+    mdPreviewPhaseTitle: { ...typography.caption, fontWeight: "700", color: colors.text },
+    mdPreviewTopic: { ...typography.caption, color: colors.textMuted },
+    formInput: {
+      backgroundColor: colors.surfaceStrong,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      borderRadius: 14,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      color: colors.text,
+      ...typography.callout,
+    },
+    formInputArea: { minHeight: 84, textAlignVertical: "top" },
+    modalScrim: {
+      flex: 1,
+      backgroundColor: colors.scrim,
+      justifyContent: "center",
+      alignItems: "center",
+      padding: 24,
+    },
+    modalCard: {
+      width: "100%",
+      maxWidth: 380,
+      backgroundColor: colors.surfaceStrong,
+      borderRadius: radius.panel,
+      padding: 20,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderStrong,
+    },
+    modalHead: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 },
+    modalDot: { width: 10, height: 10, borderRadius: 5 },
+    modalTitle: { color: colors.text, ...typography.hero, flex: 1 },
+    modalSub: { color: colors.textMuted, ...typography.caption, lineHeight: 19, marginBottom: 14 },
+    modalListTitle: { color: colors.text, ...typography.caption, fontWeight: "800", marginTop: 6, marginBottom: 8 },
+    modalRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 7 },
+    modalRowText: {
+      ...typography.callout,
+      color: colors.text,
+      flex: 1,
+    },
+    modalClose: { marginLeft: "auto", padding: 4 },
+    deleteTopicBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      marginTop: 16,
+      paddingVertical: 10,
+      borderRadius: 12,
+      backgroundColor: colors.dangerSoft,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.danger,
+    },
+    deleteTopicText: { color: colors.danger, ...typography.caption, fontWeight: "800" },
+  });

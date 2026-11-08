@@ -38,7 +38,7 @@ import { AreaChart } from "@/components/v2/charts";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useScrollToTopHandler } from "@/lib/scroll-to-top";
 import { useAppStore } from "@/store/app-store";
-import type { ExerciseType, Habit, HabitLog } from "@learn-workbench/shared/schemas";
+import type { DailyTask, ExerciseType, Habit, HabitLog } from "@learn-workbench/shared/schemas";
 import type { SportItem } from "@learn-workbench/shared/types";
 import { SPORT_CATALOG, exerciseTypeOptions, taskTypeLabels } from "@learn-workbench/shared/labels";
 import { isScheduled } from "@learn-workbench/shared/dates";
@@ -516,6 +516,8 @@ export default function TodayScreen() {
   const [celebrateInfo, setCelebrateInfo] = useState<{ title: string; subtitle?: string } | null>(null);
   /** v3 顶栏通知弹层 */
   const [notifOpen, setNotifOpen] = useState(false);
+  /** v3 任务详情面板：点任务行打开（null = 关闭） */
+  const [detailTask, setDetailTask] = useState<DailyTask | null>(null);
   /** 今日精力状态（1-5，来自 /api/wellbeing/energy）→ v2 MoodPicker */
   const [energyLevel, setEnergyLevel] = useState<number | null>(null);
   const [energyBusy, setEnergyBusy] = useState(false);
@@ -1071,14 +1073,11 @@ export default function TodayScreen() {
                   style={styles.v3SchedRow}
                   hitSlop={4}
                   onPress={() => {
-                    const willDone = !t.done;
                     haptics.light();
-                    toggleTaskDone(t.id);
-                    if (willDone) fireCelebrate(t.title, "今日任务 · 已完成");
+                    setDetailTask(t);
                   }}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: t.done }}
-                  accessibilityLabel={t.title + (t.done ? "，已完成" : "，未完成")}
+                  accessibilityRole="button"
+                  accessibilityLabel={t.title + (t.done ? "，已完成，打开详情" : "，未完成，打开详情")}
                 >
                   <Text style={styles.v3SchedType}>{taskTypeLabels[t.taskType] ?? t.taskType}</Text>
                   <View style={styles.v3SchedBody}>
@@ -1093,9 +1092,21 @@ export default function TodayScreen() {
                       {t.done ? <Text style={styles.v3SchedMetaText}>已完成</Text> : null}
                     </View>
                   </View>
-                  <View style={[styles.v3SchedTick, t.done ? styles.v3SchedTickOn : null]}>
+                  <Pressable
+                    hitSlop={10}
+                    onPress={() => {
+                      const willDone = !t.done;
+                      haptics.light();
+                      toggleTaskDone(t.id);
+                      if (willDone) fireCelebrate(t.title, "今日任务 · 已完成");
+                    }}
+                    style={[styles.v3SchedTick, t.done ? styles.v3SchedTickOn : null]}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: t.done }}
+                    accessibilityLabel={(t.done ? "取消完成 " : "标记完成 ") + t.title}
+                  >
                     <AnimatedCheckMark checked={t.done} size={13} color="#FFFFFF" />
-                  </View>
+                  </Pressable>
                 </Pressable>
                 {i < Math.min(todayTasks.length, 5) - 1 ? <View style={styles.v3SchedDivider} /> : null}
               </Animated.View>
@@ -1265,6 +1276,64 @@ export default function TodayScreen() {
         title={celebrateInfo?.title ?? ""}
         subtitle={celebrateInfo?.subtitle}
       />
+      <BottomSheet
+        visible={!!detailTask}
+        onClose={() => setDetailTask(null)}
+        title="任务详情"
+        subtitle="勾选完成会同步到云端，并计入今日进度"
+        icon="checkbox-outline"
+        height="54%"
+      >
+        {detailTask ? (
+          <View style={styles.v3Detail}>
+            <Text style={styles.v3DetailKicker}>
+              {(taskTypeLabels[detailTask.taskType] ?? detailTask.taskType) + " · " + (detailTask.done ? "已完成" : "未完成")}
+            </Text>
+            <Text style={styles.v3DetailTitle}>{detailTask.title}</Text>
+            <View style={styles.v3DetailTags}>
+              <Text style={styles.v3DetailTag}>{taskTypeLabels[detailTask.taskType] ?? detailTask.taskType}</Text>
+              {detailTask.focusMinutes > 0 ? (
+                <Text style={styles.v3DetailTag}>{detailTask.focusMinutes + " 分钟专注"}</Text>
+              ) : null}
+              <Text style={styles.v3DetailTag}>{detailTask.taskDate}</Text>
+            </View>
+            <Text style={styles.v3DetailNote}>
+              {"这条任务来自今天的学习安排。完成后会写入同步队列，明天的今日页与任务页都会同步这一状态。"}
+            </Text>
+            <View style={styles.v3DetailActions}>
+              <Pressable
+                hitSlop={6}
+                onPress={() => {
+                  setDetailTask(null);
+                  router.push("/tasks" as never);
+                }}
+                style={styles.v3DetailGhost}
+                accessibilityRole="button"
+                accessibilityLabel="去任务页"
+              >
+                <Text style={styles.v3DetailGhostText}>去任务页</Text>
+              </Pressable>
+              <Pressable
+                hitSlop={6}
+                onPress={() => {
+                  const target = detailTask;
+                  const willDone = !target.done;
+                  haptics.light();
+                  toggleTaskDone(target.id);
+                  if (willDone) fireCelebrate(target.title, "今日任务 · 已完成");
+                  setDetailTask(null);
+                }}
+                style={styles.v3DetailPrimary}
+                accessibilityRole="button"
+                accessibilityLabel={detailTask.done ? "标记为未完成" : "标记完成"}
+              >
+                <ThemedIcon name="checkmark" size={15} color="#FFFFFF" />
+                <Text style={styles.v3DetailPrimaryText}>{detailTask.done ? "标记未完成" : "标记完成"}</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
+      </BottomSheet>
       <BottomSheet
         visible={notifOpen}
         onClose={() => setNotifOpen(false)}
@@ -1748,5 +1817,42 @@ const makeStyles = (colors: ThemeColors) =>
     v3NotifBody: { flex: 1, minWidth: 0, gap: 3 },
     v3NotifTitle: { ...typography.callout, fontWeight: "600", color: colors.text },
     v3NotifSub: { ...typography.micro, fontWeight: "500", color: colors.textMuted },
+    v3Detail: { gap: 10, paddingBottom: 8 },
+    v3DetailKicker: { ...typography.caption, fontWeight: "600", color: colors.textSecondary },
+    v3DetailTitle: { ...typography.title2, color: colors.text },
+    v3DetailTags: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+    v3DetailTag: {
+      ...typography.micro,
+      fontWeight: "600",
+      color: colors.primaryStrong,
+      backgroundColor: colors.primarySoft,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: radius.pill,
+      overflow: "hidden",
+    },
+    v3DetailNote: { ...typography.caption, lineHeight: 20, color: colors.textMuted },
+    v3DetailActions: { flexDirection: "row", gap: 10, marginTop: 6 },
+    v3DetailGhost: {
+      flex: 1,
+      minHeight: 46,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      borderColor: colors.borderStrong,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    v3DetailGhostText: { ...typography.callout, fontWeight: "600", color: colors.textSecondary },
+    v3DetailPrimary: {
+      flex: 1.4,
+      minHeight: 46,
+      borderRadius: radius.pill,
+      backgroundColor: colors.primary,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+    },
+    v3DetailPrimaryText: { ...typography.callout, fontWeight: "700", color: "#FFFFFF" },
   });
 

@@ -125,6 +125,8 @@ export function FocusTimer({
   const [done, setDone] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [started, setStarted] = useState(false);
+  /** v3 专注模式顶栏时段：会话开始时刻（事件/副作用里写入，render 只读 state） */
+  const [sessionStartAt, setSessionStartAt] = useState<number | null>(null);
   const [recording, setRecording] = useState(false);
   /** V3 计时模式：countdown=倒计时（既有），stopwatch=正向秒表 */
   const [timerMode, setTimerMode] = useState<"countdown" | "stopwatch">("countdown");
@@ -462,6 +464,7 @@ export function FocusTimer({
     });
   };
   const begin = () => {
+    setSessionStartAt(Date.now());
     setStarted(true);
     resume();
   };
@@ -512,6 +515,8 @@ export function FocusTimer({
     if (!open || !autoStart) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 一键开始：打开即进入计时态
     setStarted(true);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- v3 专注模式记录会话开始时刻（顶栏时段展示）
+    setSessionStartAt((v) => v ?? Date.now());
     setDone(false);
     startRef.current = null;
     accumulatedMsRef.current = 0;
@@ -611,6 +616,19 @@ export function FocusTimer({
   const clockSize = Math.round(Math.max(40, Math.min(62, ringSize * 0.22)));
   const ringStroke = ringSize >= 260 ? 14 : 12;
 
+  /** v3 专注模式（提案 §专注模式）：顶栏时段、番茄序号、剩余时间文案 */
+  const fmtClock = (d: Date) =>
+    String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  const fmStart = sessionStartAt === null ? null : new Date(sessionStartAt);
+  const fmRange =
+    fmStart === null
+      ? ""
+      : timerMode === "stopwatch"
+        ? fmtClock(fmStart) + " – 进行中"
+        : fmtClock(fmStart) + " – " + fmtClock(new Date(fmStart.getTime() + Math.max(1, minutes) * 60 * 1000));
+  const fmKicker =
+    "第 " + (stats.todaySessions + 1) + " 个番茄" + (contentLabel?.trim() ? " · " + contentLabel.trim() : "");
+
   return (
     <Modal visible={open} animationType="fade" presentationStyle="fullScreen" onRequestClose={() => record(elapsed)}>
       {/* v17-C1 审计发现：本页是**暗色沉浸**画面，但状态栏图标色此前继承自 App 主题。
@@ -625,16 +643,21 @@ export function FocusTimer({
         <View style={[ABS_FILL, styles.scrim]} />
         <View style={[ABS_FILL, styles.glow]} />
 
-        {/* 顶部：背景切换 + 关闭 */}
+        {/* 顶部：关闭 + 专注模式标题/时段 + 背景（提案 §专注模式） */}
         <View style={[styles.topBar, { paddingTop: insets.top + 12 }]}>
-          <Pressable style={styles.topBtn} onPress={() => setShowBg((v) => !v)}>
-            <View style={styles.topBtnInner}>
-              <ThemedIcon name="color-palette-outline" size={16} color="rgba(255,255,255,0.9)" />
-              <Text style={styles.topBtnText}>背景</Text>
-            </View>
-          </Pressable>
-          <Pressable accessibilityLabel="关闭" style={styles.topBtn} onPress={() => record(elapsed)}>
+          <Pressable accessibilityLabel="关闭" style={styles.topBtn} onPress={() => record(elapsed)} hitSlop={8}>
             <ThemedIcon name="close" size={20} color="rgba(255,255,255,0.9)" />
+          </Pressable>
+          {started && !done ? (
+            <View style={styles.fmHeadMid} accessible accessibilityLabel={"专注模式 " + fmRange}>
+              <Text style={styles.fmHeadTitle}>专注模式</Text>
+              <Text style={styles.fmHeadRange}>{fmRange}</Text>
+            </View>
+          ) : (
+            <View style={styles.fmHeadSpacer} />
+          )}
+          <Pressable accessibilityLabel="背景设置" style={styles.topBtn} onPress={() => setShowBg((v) => !v)} hitSlop={8}>
+            <ThemedIcon name="color-palette-outline" size={18} color="rgba(255,255,255,0.9)" />
           </Pressable>
         </View>
 
@@ -757,13 +780,8 @@ export function FocusTimer({
           ) : (
             /* v2.0.1 一屏计时页：flex 分配高度、无 ScrollView */
             <View style={[styles.runBody, { paddingBottom: insets.bottom + 10 }]}>
-              {/* 任务名 + 状态 */}
-              <View style={styles.taskWrap}>
-                <Text style={styles.taskName} numberOfLines={1}>{task?.title ?? "自由专注"}</Text>
-                <Text style={styles.taskStatus}>
-                  {running ? "专注中 · 保持节奏" : "已暂停"}
-                </Text>
-              </View>
+              {/* 番茄序号 · 学习内容（提案 §专注模式） */}
+              <Text style={styles.fmKicker}>{fmKicker}</Text>
 
               {/* 圆环 / 表盘（v13 U3）+ 数字时钟：尺寸由实测可用高度决定（一屏不滚动） */}
               <View style={styles.stage} onLayout={(e) => setStageH(e.nativeEvent.layout.height)}>
@@ -773,19 +791,20 @@ export function FocusTimer({
                       size={ringSize}
                       strokeWidth={ringStroke}
                       progress={1 - ratio}
-                      trackColor="rgba(255,255,255,0.16)"
-                      color="#FFB25E"
+                      trackColor="rgba(143,195,240,0.14)"
+                      color="#8FC3F0"
                     />
                     <Pressable style={styles.clockWrap} onPress={() => (running ? pause() : resume())}>
                       <Text style={[styles.clock, { fontSize: clockSize }]}>{fmt(remainingShown)}</Text>
+                      <Text style={styles.fmRemain}>剩余时间</Text>
                     </Pressable>
                   </>
                 ) : (
                   <TimerDial
                     size={ringSize}
                     progress={1 - ratio}
-                    color="#FFB25E"
-                    trackColor="rgba(255,255,255,0.16)"
+                    color="#8FC3F0"
+                    trackColor="rgba(143,195,240,0.14)"
                     tickColor="rgba(255,255,255,0.6)"
                   />
                 )}
@@ -798,6 +817,12 @@ export function FocusTimer({
                   <Text style={styles.dialClockHint}>点击暂停 / 继续</Text>
                 </Pressable>
               ) : null}
+
+              {/* 当前内容 + 状态（提案 §专注模式：标题在环下） */}
+              <View style={styles.fmTitleWrap}>
+                <Text style={styles.fmTitle} numberOfLines={2}>{task?.title ?? "自由专注"}</Text>
+                <Text style={styles.fmSub}>{running ? "专注中 · 结束后自动记录" : "已暂停 · 点击计时继续"}</Text>
+              </View>
 
               {/* v13 U3：视图切换（默认圆环，选择持久化到 AsyncStorage） */}
               <View style={styles.viewToggle}>
@@ -819,30 +844,39 @@ export function FocusTimer({
                     </Text>
                   </Pressable>
                 ))}
-              </View>
-
-              {/* 控制按钮 */}
-              <View style={styles.controls}>
                 <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={running ? "暂停计时" : "继续计时"}
-            style={styles.ctrlBtn}
-            onPress={() => (running ? pause() : resume())}
-          >
-                  <ThemedIcon name={running ? "pause" : "play"} size={26} color="#fff" />
-                </Pressable>
-                <Pressable accessibilityLabel="刷新" style={styles.ctrlBtn} onPress={reset}>
-                  <ThemedIcon name="refresh" size={26} color="#fff" />
-                </Pressable>
-                <Pressable accessibilityLabel="停止" style={styles.ctrlBtn} onPress={() => record(elapsed)}>
-                  <ThemedIcon name="stop" size={26} color="#fff" />
+                  onPress={reset}
+                  accessibilityRole="button"
+                  accessibilityLabel="重置计时"
+                  style={styles.viewChip}
+                  hitSlop={8}
+                >
+                  <Text style={styles.viewChipText}>重置</Text>
                 </Pressable>
               </View>
 
-              <Pressable style={styles.recordBtn} onPress={() => record(elapsed)}>
-                <ThemedIcon name="checkmark-done" size={18} color="#1f1f1f" />
-                <Text style={styles.recordBtnText}>结束并记录本次专注</Text>
-              </Pressable>
+              {/* 主操作：暂停 / 继续 + 结束本次专注（提案 §专注模式） */}
+              <View style={styles.fmActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={running ? "暂停计时" : "继续计时"}
+                  style={styles.fmMain}
+                  onPress={() => (running ? pause() : resume())}
+                  hitSlop={6}
+                >
+                  <ThemedIcon name={running ? "pause" : "play"} size={16} color="#0B1620" />
+                  <Text style={styles.fmMainText}>{running ? "暂停" : "继续"}</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="结束本次专注"
+                  style={styles.fmQuit}
+                  onPress={() => record(elapsed)}
+                  hitSlop={6}
+                >
+                  <Text style={styles.fmQuitText}>结束本次专注</Text>
+                </Pressable>
+              </View>
 
               {/* 时长选择 */}
               <View style={styles.presets}>
@@ -1165,4 +1199,37 @@ const styles = StyleSheet.create({
   modeChipActive: { backgroundColor: "rgba(232,147,12,0.4)", borderColor: "rgba(232,147,12,0.7)" },
   modeChipText: { color: "rgba(255,255,255,0.8)", fontSize: 13 },
   modeChipTextActive: { color: "#fff", fontWeight: "600" },
+
+  // ---- v3 专注模式（提案 §专注模式：顶栏时段 / 番茄序号 / 环下标题 / 双主操作）----
+  fmHeadMid: { alignItems: "center", gap: 2 },
+  fmHeadSpacer: { width: 44 },
+  fmHeadTitle: { ...typography.caption, fontWeight: "700", color: "rgba(255,255,255,0.92)" },
+  fmHeadRange: { ...typography.meta, color: "rgba(255,255,255,0.6)" },
+  fmKicker: { ...typography.caption, fontWeight: "600", color: "rgba(143,195,240,0.92)", textAlign: "center" },
+  fmRemain: { ...typography.meta, color: "rgba(255,255,255,0.6)" },
+  fmTitleWrap: { alignItems: "center", gap: 4 },
+  fmTitle: { ...typography.headline, fontWeight: "700", color: "#FFFFFF", textAlign: "center" },
+  fmSub: { ...typography.meta, color: "rgba(255,255,255,0.6)", textAlign: "center" },
+  fmActions: { flexDirection: "row", alignItems: "center", gap: 10 },
+  fmMain: {
+    flex: 1,
+    minHeight: 50,
+    borderRadius: 999,
+    backgroundColor: "#8FC3F0",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  fmMainText: { ...typography.callout, fontWeight: "700", color: "#0B1620" },
+  fmQuit: {
+    flex: 1,
+    minHeight: 50,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.28)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  fmQuitText: { ...typography.callout, fontWeight: "600", color: "rgba(255,255,255,0.88)" },
 });
