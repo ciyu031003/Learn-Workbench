@@ -73,18 +73,30 @@ describe("redactSecrets", () => {
 });
 
 describe("脱敏性能护栏（2026-10-07 评审：邮箱正则曾退化成 O(N²)）", () => {
-  it("200k 连续字符必须在 250ms 内跑完（Hermes 上也留足余量）", () => {
-    const t0 = Date.now();
+  /**
+   * 护栏只防「正则退化为 O(N²)」（那会是秒级甚至分钟级，不是 20% 抖动），
+   * 所以取多次运行的最小值 + 600ms 上限：CI 慢机（2026-11-08 实测 299ms）不再抖动误报，
+   * 真出现二次复杂度时仍会被拦住。
+   */
+  const bestOf = (fn: () => void, runs = 3) => {
+    let best = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < runs; i += 1) {
+      const t0 = Date.now();
+      fn();
+      best = Math.min(best, Date.now() - t0);
+    }
+    return best;
+  };
+
+  it("200k 连续字符必须线性完成（Hermes / CI 慢机也留足余量）", () => {
     const out = redactSecrets("x".repeat(200000));
-    const ms = Date.now() - t0;
     expect(out).toContain("<redacted-token>");
-    expect(ms).toBeLessThan(250);
+    expect(bestOf(() => void redactSecrets("x".repeat(200000)))).toBeLessThan(600);
   });
 
   it("长邮箱样式串（有 @ 无点）同样不能退化", () => {
-    const t0 = Date.now();
-    redactSecrets("a".repeat(60000) + "@" + "b".repeat(60000));
-    expect(Date.now() - t0).toBeLessThan(250);
+    const ms = bestOf(() => void redactSecrets("a".repeat(60000) + "@" + "b".repeat(60000)));
+    expect(ms).toBeLessThan(600);
   });
 
   it("长 local part 的邮箱：local 被当作长串抹掉，域名不再被当成完整邮箱", () => {
@@ -95,9 +107,9 @@ describe("脱敏性能护栏（2026-10-07 评审：邮箱正则曾退化成 O(N�
   it("**折叠后存活**的输入也必须线性（v1.35.0：旧用例被折叠规则塌缩，邮箱规则根本没被压到）", () => {
     // 点号连接的 30 字符段：段内 <32 折叠不掉，正好整段打进邮箱/长串规则
     const hostile = Array.from({ length: 6000 }, () => "a".repeat(30)).join(".");
-    const t0 = Date.now();
-    const out = redactSecrets(hostile + "@" + "b".repeat(30) + ".com");
-    expect(Date.now() - t0).toBeLessThan(250);
+    const input = hostile + "@" + "b".repeat(30) + ".com";
+    const out = redactSecrets(input);
+    expect(bestOf(() => void redactSecrets(input))).toBeLessThan(600);
     expect(out).toContain("<email>");
   });
 });
