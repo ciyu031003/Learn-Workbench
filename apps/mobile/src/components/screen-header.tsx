@@ -7,7 +7,12 @@ import {
   Text,
   View,
 } from "react-native";
-import { useAnimatedScrollHandler, useSharedValue, type SharedValue } from "react-native-reanimated";
+import Animated, {
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+  type SharedValue,
+} from "react-native-reanimated";
 import { router, usePathname } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
@@ -16,6 +21,7 @@ import { ThemedIcon } from "@/components/themed-icon";
 import { useTheme } from "@/theme";
 import { typography, type ThemeColors } from "@/theme/tokens";
 import { resolveBackTarget } from "@/lib/back-target";
+import { compactTitleOpacity } from "@/lib/header-compact";
 import { STICKY_HEADER_ROW as STICKY_ROW_HEIGHT } from "@/lib/pull-refresh-core";
 
 /**
@@ -164,6 +170,7 @@ export function ScreenHeaderLargeTitle({ title, subtitle }: { title: string; sub
 export function ScreenHeaderStickyBar({
   title,
   backTo,
+  scrollY,
   right,
 }: {
   title: string;
@@ -177,6 +184,12 @@ export function ScreenHeaderStickyBar({
   const pathname = usePathname();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const goBack = useGoBack(backTo);
+  // 没有接入滚动值的详情页（弹层/静态页）保持标题常显；接入的页面按滚动淡入。
+  const titleStyle = useAnimatedStyle(() => {
+    const offset = scrollY?.value ?? 0;
+    const opacity = scrollY ? compactTitleOpacity(offset) : 1;
+    return { opacity, transform: [{ translateY: (1 - opacity) * 3 }] };
+  }, [scrollY]);
   if (isTabRootPath(pathname)) return null;
 
   return (
@@ -198,11 +211,11 @@ export function ScreenHeaderStickyBar({
         >
           <ThemedIcon name="chevron-back" size={20} color={colors.text} />
         </Pressable>
-        <View style={styles.text} pointerEvents="none">
+        <Animated.View style={[styles.text, titleStyle]} pointerEvents="none">
           <Text style={styles.title} numberOfLines={1}>
             {title}
           </Text>
-        </View>
+        </Animated.View>
         {right ? (
           <View style={styles.right}>
             {right}

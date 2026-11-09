@@ -20,7 +20,8 @@ const lightColors = {
   textMuted: "#64767D",
   /** 次级正文灰：对白底与画布均满足 WCAG AA 正文 4.5（tokens.test.ts 锁定） */
   textSecondary: "#3F5058",
-  textFaint: "#93A2A8",
+  /** 最弱一档：只给图标与装饰线；正文提示请用 textMuted（本档对白卡约 3.6:1） */
+  textFaint: "#78898F",
   border: "rgba(15,25,29,0.085)",
   borderStrong: "rgba(15,25,29,0.14)",
 
@@ -75,7 +76,7 @@ const darkColors = {
   text: "#E6ECEE",
   textMuted: "#8A989E",
   textSecondary: "#B7C3C8",
-  textFaint: "#66747B",
+  textFaint: "#7E8C93",
   border: "rgba(255,255,255,0.09)",
   borderStrong: "rgba(255,255,255,0.18)",
 
@@ -213,16 +214,16 @@ export const typography = {
   micro: { fontSize: 11, lineHeight: 15, fontWeight: "600" },
 
   // ---- v3 字阶（提案对齐）----
-  /** 页面主标题：27/800，负字距 */
-  pageTitle: { fontSize: 27, lineHeight: 33, fontWeight: "800", letterSpacing: -0.6 },
-  /** Hero 标题：21/800 */
-  hero: { fontSize: 21, lineHeight: 27, fontWeight: "800", letterSpacing: -0.4 },
+  /** 页面主标题：27/700，中文字距归零（负字距会把汉字挤在一起） */
+  pageTitle: { fontSize: 27, lineHeight: 34, fontWeight: "700", letterSpacing: 0 },
+  /** Hero 标题：21/700 */
+  hero: { fontSize: 21, lineHeight: 28, fontWeight: "700", letterSpacing: 0 },
   /** 区块标题：16/700 */
-  section: { fontSize: 16, lineHeight: 22, fontWeight: "700", letterSpacing: -0.15 },
-  /** 说明/元信息：11/400 */
-  meta: { fontSize: 11, lineHeight: 16, fontWeight: "400" },
-  /** eyebrow：9/800 大写字距（页头上方小标签） */
-  eyebrow: { fontSize: 9, lineHeight: 12, fontWeight: "800", letterSpacing: 1.4 },
+  section: { fontSize: 16, lineHeight: 22, fontWeight: "700", letterSpacing: 0 },
+  /** 说明/元信息：12/400（低于 12 的中文小字在真机上已难辨认） */
+  meta: { fontSize: 12, lineHeight: 17, fontWeight: "400" },
+  /** eyebrow：10/700（中文标签不再强行大写/拉字距） */
+  eyebrow: { fontSize: 10, lineHeight: 14, fontWeight: "700", letterSpacing: 0 },
   /** 数字展示：20/800 等宽（配合 tabularNums） */
   num: { fontSize: 20, lineHeight: 24, fontWeight: "800", letterSpacing: -0.3 },
   /** v3 大数字（今日专注时长，40/500，对接提案 .big 档） */

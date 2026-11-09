@@ -175,6 +175,6 @@ const makeStyles = (colors: ThemeColors) =>
       borderRadius: radius.pill,
     },
     deltaText: { ...typography.caption, fontWeight: "700" },
-    hint: { ...typography.caption, fontWeight: "400", color: colors.textFaint },
+    hint: { ...typography.caption, fontWeight: "400", color: colors.textMuted },
     row: { flexDirection: "row", alignItems: "stretch" },
   });

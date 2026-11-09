@@ -60,3 +60,28 @@ describe("textMuted 白卡对比度", () => {
     expect(ratio(dark.textMuted, dark.surfaceStrong)).toBeGreaterThanOrEqual(4.5);
   });
 });
+
+/**
+ * v2.6.3 P1：textFaint 只给图标与装饰线，但旧值对白卡仅 2.6:1，深色下也偏灰。
+ * 锁在 3:1（非文本对比下限），避免再次被调浅。
+ */
+describe("textFaint 图标对比度", () => {
+  const lum = (hex: string) => {
+    const h = hex.replace("#", "");
+    const c = [0, 2, 4].map((i) => {
+      const v = parseInt(h.slice(i, i + 2), 16) / 255;
+      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  };
+  const ratio = (a: string, b: string) => {
+    const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m);
+    return (x + 0.05) / (y + 0.05);
+  };
+  it("浅色档对白卡 >= 3", () => {
+    expect(ratio(light.textFaint, "#FFFFFF")).toBeGreaterThanOrEqual(3);
+  });
+  it("深色档对深色卡面 >= 3", () => {
+    expect(ratio(dark.textFaint, dark.surfaceStrong)).toBeGreaterThanOrEqual(3);
+  });
+});
