@@ -16,6 +16,8 @@
  */
 /** 底栏本体高度（demo `.tabbar` height:68），不含安全区 */
 export const TAB_BAR_HEIGHT = 68;
+/** 单格内容必须容纳的最小高度（24 图标 + 4 间距 + 15 标签） */
+export const TAB_BAR_ITEM_MIN_HEIGHT = 44;
 /** 全宽底栏不再悬浮，离底部间距为 0（保留常量名） */
 export const TAB_BAR_FLOAT_GAP = 0;
 /** 全宽底栏左右贴边，无留白（保留常量名） */
@@ -33,6 +35,23 @@ export const TAB_BAR_BREATHING = 18;
 export function tabBarSpaceFor(insetBottom: number, extra = 0): number {
   const safe = Number.isFinite(insetBottom) ? Math.max(0, insetBottom) : 0;
   return TAB_BAR_HEIGHT + safe + TAB_BAR_BREATHING + extra;
+}
+
+/**
+ * 底栏总高 = 固定内容区 68 + 底部安全区。
+ *
+ * 安全区是**追加**在内容区之外的 padding，不能从 68 里扣。旧实现把
+ * `paddingBottom` 塞进 68，手势条一出现内容区就只剩 36，图标/标签溢出，
+ * 表现为「图标顶在上沿、文字贴到底边」。
+ */
+export function tabBarTotalHeight(insetBottom: number): number {
+  const safe = Number.isFinite(insetBottom) ? Math.max(0, insetBottom) : 0;
+  return TAB_BAR_HEIGHT + safe;
+}
+
+/** 底栏内部只让安全区占 padding，内容区始终保留完整 68。 */
+export function tabBarRowPaddingBottom(insetBottom: number): number {
+  return Number.isFinite(insetBottom) ? Math.max(0, insetBottom) : 0;
 }
 
 /**

@@ -3,7 +3,7 @@ import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { BlurView } from "expo-blur";
 import type { BottomTabBarProps, BottomTabNavigationOptions } from "expo-router/tabs";
 import { useTheme } from "@/theme";
-import { TAB_BAR_HEIGHT } from "@/lib/tab-bar-metrics";
+import { tabBarRowPaddingBottom, tabBarTotalHeight } from "@/lib/tab-bar-metrics";
 import type { ThemeColors } from "@/theme/tokens";
 
 /**
@@ -20,14 +20,14 @@ import type { ThemeColors } from "@/theme/tokens";
  *  - 图标仍由各屏 options.tabBarIcon 渲染 → _layout 里 TabIcon 的**弹簧动效**原样保留
  *    （本文件不新增任何 Reanimated 补间 / 弹簧 / 循环动效点，无持续动画）。
  */
-/** 标签字号（demo `.tab` 10.5px），常量表达底栏专用微字阶，避免刷新字体基线 */
-const LABEL_FONT_SIZE = 10.5;
-const LABEL_LINE_HEIGHT = 14;
+/** 标签字号：10.5 在 3x 屏上过小，抬到 11.5 仍能塞进 68pt 内容区 */
+const LABEL_FONT_SIZE = 11.5;
+const LABEL_LINE_HEIGHT = 15;
 const BADGE_FONT_SIZE = 10;
-/** 选中图标软底盒（demo `.tab .ic` 26×24、圆角 9） */
-const ICON_BOX_WIDTH = 26;
-const ICON_BOX_HEIGHT = 24;
-const ICON_BOX_RADIUS = 9;
+/** 选中图标软底盒：比 24pt 图标各留 3pt 呼吸，选中态才看得出来 */
+const ICON_BOX_WIDTH = 30;
+const ICON_BOX_HEIGHT = 26;
+const ICON_BOX_RADIUS = 10;
 
 /**
  * expo-router 的 href: null 会把该路由的 options 改写成
@@ -67,7 +67,16 @@ export function FloatingTabBar({ state, descriptors, navigation, insets }: Botto
         <View style={[StyleSheet.absoluteFill, styles.tint]} />
         <View style={styles.topHairline} />
 
-        <View accessibilityRole="tablist" style={[styles.row, { paddingBottom: insets.bottom + 8 }]}>
+        <View
+          accessibilityRole="tablist"
+          style={[
+            styles.row,
+            {
+              height: tabBarTotalHeight(insets.bottom),
+              paddingBottom: tabBarRowPaddingBottom(insets.bottom),
+            },
+          ]}
+        >
           {visible.map((route) => {
             const { options } = descriptors[route.key];
             const focused = state.routes[state.index]?.key === route.key;
@@ -160,7 +169,6 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       flexDirection: "row",
       alignItems: "stretch",
       paddingHorizontal: 6,
-      height: TAB_BAR_HEIGHT,
     },
     /** 单格（demo `.tab`：纵向、居中、圆角 14） */
     item: {
@@ -168,7 +176,7 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
       flexDirection: "column",
       alignItems: "center",
       justifyContent: "center",
-      gap: 3,
+      gap: 4,
       borderRadius: 14,
     },
     itemPressed: { backgroundColor: "rgba(47,116,192,0.06)" },

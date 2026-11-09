@@ -7,9 +7,12 @@ import {
   TAB_BAR_ROUTES,
   TAB_BAR_FLOAT_GAP,
   TAB_BAR_HEIGHT,
+  TAB_BAR_ITEM_MIN_HEIGHT,
   TAB_BAR_BREATHING,
   TAB_BAR_SIDE_INSET,
   TAB_BAR_RADIUS,
+  tabBarRowPaddingBottom,
+  tabBarTotalHeight,
 } from "./tab-bar-metrics";
 
 /**
@@ -95,5 +98,21 @@ describe("底栏几何契约（全宽白色底栏）", () => {
 
   it("底部留白（底栏高 + 呼吸）严格大于底栏本体，内容不被压住", () => {
     expect(tabBarSpaceFor(0, 0)).toBeGreaterThan(TAB_BAR_HEIGHT);
+  });
+
+  it("安全区只追加底栏总高，不压缩 68pt 内容区", () => {
+    for (const inset of [0, 24, 34, 48]) {
+      expect(tabBarTotalHeight(inset) - tabBarRowPaddingBottom(inset)).toBe(TAB_BAR_HEIGHT);
+      expect(tabBarTotalHeight(inset) - tabBarRowPaddingBottom(inset)).toBeGreaterThanOrEqual(
+        TAB_BAR_ITEM_MIN_HEIGHT,
+      );
+    }
+  });
+
+  it("异常安全区按 0 处理，避免底栏高度出现 NaN", () => {
+    expect(tabBarTotalHeight(Number.NaN)).toBe(TAB_BAR_HEIGHT);
+    expect(tabBarTotalHeight(-10)).toBe(TAB_BAR_HEIGHT);
+    expect(tabBarRowPaddingBottom(Number.NaN)).toBe(0);
+    expect(tabBarRowPaddingBottom(-10)).toBe(0);
   });
 });
