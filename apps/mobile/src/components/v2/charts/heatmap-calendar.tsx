@@ -60,6 +60,9 @@ export function HeatmapCalendar({
   const activeDays = grid.cells.filter((cell) => cell !== null && cell.level > 0).length;
   const legendLevels = Array.from({ length: steps + 1 }, (_, index) => index);
   const onStrong = dark ? colors.canvas : colors.surface;
+  /** 深色档的同一 alpha 视觉更弱，补 0.14，保证 1 档与空格能区分 */
+  const alphaOf = (level: number) =>
+    dark ? Math.min(1, heatAlpha(level, steps) + 0.14) : heatAlpha(level, steps);
 
   return (
     <View style={[styles.wrap, style]}>
@@ -89,7 +92,7 @@ export function HeatmapCalendar({
               return <View key={`pad-${weekIndex}-${dayIndex}`} style={styles.cellPad} />;
             }
             const background =
-              cell.level === 0 ? colors.surfaceMuted : withAlpha(colors.primary, heatAlpha(cell.level, steps));
+              cell.level === 0 ? colors.chartTrack : withAlpha(colors.primary, alphaOf(cell.level));
             const dayColor = cell.level >= 3 ? onStrong : colors.textFaint;
             return (
               <Pressable
@@ -115,8 +118,8 @@ export function HeatmapCalendar({
         <Text style={styles.footerText} numberOfLines={1}>
           {activeDays > 0 ? `${activeDays} 天有记录` : "本月暂无记录"}
         </Text>
-        <View style={styles.legend}>
-          <Text style={styles.footerText}>Less</Text>
+        <View style={styles.legend} accessibilityLabel="颜色越深表示当天记录越多">
+          <Text style={styles.footerText}>少</Text>
           {legendLevels.map((level) => (
             <View
               key={`swatch-${level}`}
@@ -124,12 +127,12 @@ export function HeatmapCalendar({
                 styles.swatch,
                 {
                   backgroundColor:
-                    level === 0 ? colors.surfaceMuted : withAlpha(colors.primary, heatAlpha(level, steps)),
+                    level === 0 ? colors.chartTrack : withAlpha(colors.primary, alphaOf(level)),
                 },
               ]}
             />
           ))}
-          <Text style={styles.footerText}>More</Text>
+          <Text style={styles.footerText}>多</Text>
         </View>
       </View>
     </View>

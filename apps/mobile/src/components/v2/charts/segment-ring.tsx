@@ -72,7 +72,7 @@ export function SegmentRing({
             cx={center}
             cy={center}
             r={radius}
-            stroke={colors.surfaceMuted}
+            stroke={colors.chartTrack}
             strokeWidth={thickness}
             fill="none"
           />

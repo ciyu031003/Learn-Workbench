@@ -14,6 +14,10 @@ const lightColors = {
   surface: "#FFFFFF",
   surfaceStrong: "#FFFFFF",
   surfaceMuted: "rgba(15,25,29,0.04)",
+  /** 图表轨道 / 热力空格：比 surfaceMuted 实一档，避免目标环和空档在白卡上"消失" */
+  chartTrack: "rgba(15,25,29,0.09)",
+  /** 原生 Switch 滑块：浅色档白钮、深色档浅灰钮 */
+  controlThumb: "#FFFFFF",
   // 文字四级：ink / 次级正文 / 弱化 / 极弱
   text: "#0F191D",
   // 审查修复：#78888F 对白卡仅 3.67（< WCAG AA 4.5），#64767D 对白卡 4.74/对画布 4.29，色相同源只压暗一档
@@ -73,6 +77,9 @@ const darkColors = {
   surface: "#121A1F",
   surfaceStrong: "#172026",
   surfaceMuted: "rgba(255,255,255,0.05)",
+  /** 深色档轨道要更亮：0.16 才能在 #121A1F 上看清未完成部分 */
+  chartTrack: "rgba(255,255,255,0.16)",
+  controlThumb: "#E9EEF0",
   text: "#E6ECEE",
   textMuted: "#8A989E",
   textSecondary: "#B7C3C8",

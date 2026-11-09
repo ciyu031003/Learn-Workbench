@@ -406,7 +406,7 @@ export default function MarketScreen() {
   return (
     <View style={styles.root}>
       {/* v17-C2b：紧凑栏在滚动容器之外才能真吸顶 */}
-      <ScreenHeaderStickyBar title="招聘市场工作台" scrollY={headerScroll.scrollY} />
+      <ScreenHeaderStickyBar title="市场分析" scrollY={headerScroll.scrollY} />
     <Animated.ScrollView
       onScroll={headerScroll.onScroll}
       scrollEventThrottle={16}
@@ -417,8 +417,8 @@ export default function MarketScreen() {
       refreshControl={<RefreshControl {...pullControl} />}
     >
       <ScreenHeaderLargeTitle
-        title="招聘市场工作台"
-        subtitle={`筛选 · 趋势 · 个人位置${summary ? ` · ${summary.total} 个样本` : ""}`} />
+        title="市场分析"
+        subtitle={`行业数据 · 趋势 · 个人位置${summary ? ` · ${summary.total} 个样本` : ""}`} />
 
       <SheetSegmented
         options={RANGE_OPTIONS}

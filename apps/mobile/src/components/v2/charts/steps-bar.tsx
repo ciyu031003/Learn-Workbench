@@ -143,7 +143,7 @@ const makeStyles = (colors: ThemeColors) =>
     bar: { width: "62%", maxWidth: 22, borderRadius: radius.sm },
     barIdle: { backgroundColor: colors.primarySoft },
     barActive: { backgroundColor: colors.primary },
-    barEmpty: { backgroundColor: colors.surfaceMuted },
+    barEmpty: { backgroundColor: colors.chartTrack },
     valueLabel: { ...typography.caption, fontWeight: "700", color: colors.primary, marginBottom: 2 },
     weekday: { ...typography.caption, fontWeight: "400", color: colors.textFaint },
     weekdayActive: { color: colors.primary, fontWeight: "700" },

@@ -83,7 +83,7 @@ export function ActivityRings({
                   cx={center}
                   cy={center}
                   r={ring.radius}
-                  stroke={colors.surfaceMuted}
+                  stroke={colors.chartTrack}
                   strokeWidth={ring.strokeWidth}
                   fill="none"
                 />

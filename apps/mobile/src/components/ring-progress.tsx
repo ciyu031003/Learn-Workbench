@@ -85,7 +85,7 @@ export function RingProgress({
         cx={size / 2}
         cy={size / 2}
         r={r}
-        stroke={trackColor ?? colors.surfaceMuted}
+        stroke={trackColor ?? colors.chartTrack}
         strokeWidth={strokeWidth}
         fill="none"
       />

@@ -111,7 +111,7 @@ const CHIP_LIMIT_EXPANDED = 10;
 const TARGET_ROLE_MAX_LENGTH = 30;
 
 /**
- * V4 就业雷达（移动端）：概览统计 + 多条件底部弹层 + 三种排序 + 加载更多。
+ * V4 岗位雷达（移动端）：按目标岗位算匹配度 + 概览统计 + 多条件底部弹层 + 加载更多。
  *
  * 数据口径：GET /api/jobs/radar 一次取回 ≤200 条候选（含匹配度/匹配技能/缺口小时/来源/发布时间），
  * 屏幕层只做纯函数筛选排序（见 lib/radar-filter.ts，全部有单测）。
@@ -399,7 +399,7 @@ export default function RadarScreen() {
 
   return (
     <View style={styles.root}>
-      <ScreenHeaderStickyBar title="就业雷达" scrollY={headerScroll.scrollY} />
+      <ScreenHeaderStickyBar title="岗位雷达" scrollY={headerScroll.scrollY} />
       <Animated.ScrollView
         onScroll={headerScroll.onScroll}
         scrollEventThrottle={16}
@@ -412,8 +412,8 @@ export default function RadarScreen() {
         <View style={styles.pageHead}>
           <PageHead
             style={styles.pageHeadText}
-            eyebrow="JOB RADAR"
-            title="就业雷达"
+            eyebrow="岗位匹配"
+            title="岗位雷达"
             subtitle={
               data?.targetRole
                 ? `目标 ${data.targetRole}${data.profileCity ? ` · ${data.profileCity}` : ""}`

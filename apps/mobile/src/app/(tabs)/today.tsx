@@ -489,8 +489,8 @@ function SportSheet({
 }
 
 export default function TodayScreen() {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, dark } = useTheme();
+  const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
   const headerTop = useHeaderTopInset("hero");
   const tabBarSpace = useTabBarSpace();
   /** v19-M8：TabBar 双击回顶（再点已聚焦的「今日」时滚回顶部） */
@@ -1416,7 +1416,7 @@ export default function TodayScreen() {
   );
 }
 
-const makeStyles = (colors: ThemeColors) =>
+const makeStyles = (colors: ThemeColors, dark = false) =>
   StyleSheet.create({
     /** v2.2.2：根容器必须不透明 —— Tab 场景叠放叠滑时不透出下层（与 sceneStyle 的 canvas 双保险） */
     root: { flex: 1, backgroundColor: colors.canvas },
@@ -1762,9 +1762,9 @@ const makeStyles = (colors: ThemeColors) =>
       borderTopRightRadius: 8,
       borderBottomLeftRadius: 3,
       borderBottomRightRadius: 3,
-      backgroundColor: withAlpha(colors.primary, 0.3),
+      backgroundColor: withAlpha(colors.primary, dark ? 0.52 : 0.34),
     },
-    v3WbBarIdle: { backgroundColor: withAlpha(colors.primary, 0.14) },
+    v3WbBarIdle: { backgroundColor: withAlpha(colors.primary, dark ? 0.24 : 0.14) },
     v3WbBarToday: { backgroundColor: colors.accent },
     v3WbLabel: { ...typography.micro, fontWeight: "500", color: colors.textMuted },
     v3WbLabelToday: { color: colors.accent, fontWeight: "700" },

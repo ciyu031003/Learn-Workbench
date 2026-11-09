@@ -42,9 +42,11 @@ export function BarList({
   onPressItem?: (item: BarListItem) => void;
   style?: StyleProp<ViewStyle>;
 }) {
-  const { colors } = useTheme();
+  const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const shares = useMemo(() => barShares(items.map((item) => item.value), max), [items, max]);
+  // 深色下同一条 alpha 会明显更弱，补一档让排行条还能看出长度
+  const resolvedOpacity = dark ? Math.min(0.34, barOpacity + 0.08) : barOpacity;
 
   if (items.length === 0) {
     return (
@@ -64,7 +66,10 @@ export function BarList({
           const width = `${Math.max(2, (shares[index] ?? 0) * 100).toFixed(2)}%` as `${number}%`;
           const body = (
             <>
-              <View pointerEvents="none" style={[styles.bar, { width, backgroundColor: withAlpha(color, barOpacity) }]} />
+              <View
+                pointerEvents="none"
+                style={[styles.bar, { width, backgroundColor: withAlpha(color, resolvedOpacity) }]}
+              />
               <View style={styles.content}>
                 {showRank ? (
                   <Text style={[styles.rank, tabularNums]} numberOfLines={1}>

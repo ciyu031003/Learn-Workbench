@@ -793,7 +793,7 @@ export function FocusTimer({
                       size={ringSize}
                       strokeWidth={ringStroke}
                       progress={ringProgress}
-                      trackColor="rgba(143,195,240,0.14)"
+                      trackColor="rgba(143,195,240,0.24)"
                       color="#8FC3F0"
                     />
                     <Pressable style={styles.clockWrap} onPress={() => (running ? pause() : resume())}>
@@ -806,7 +806,7 @@ export function FocusTimer({
                     size={ringSize}
                     progress={ringProgress}
                     color="#8FC3F0"
-                    trackColor="rgba(143,195,240,0.14)"
+                    trackColor="rgba(143,195,240,0.24)"
                     tickColor="rgba(255,255,255,0.6)"
                   />
                 )}

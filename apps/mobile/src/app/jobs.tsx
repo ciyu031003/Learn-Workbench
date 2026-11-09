@@ -4,7 +4,6 @@ import {
   Alert,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -288,12 +287,8 @@ function JobsListHeader({
 
       <JobsSearchRow onSearch={onSearch} />
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.filterBarRow}
-        accessibilityLabel="筛选栏"
-      >
+      {/* 320/390 宽屏：宁可换行也不让最后一枚筛选被裁掉（横向滚动看似可滑，实际容易被当成截断） */}
+      <View style={styles.filterBarRow} accessibilityLabel="筛选栏">
         <FilterBarChip
           label={city ? cityProvinceLabel(city) : "城市"}
           icon="location-outline"
@@ -341,7 +336,7 @@ function JobsListHeader({
             onOpenFilter();
           }}
         />
-      </ScrollView>
+      </View>
     </View>
   );
 }
@@ -981,7 +976,14 @@ const makeStyles = (colors: ThemeColors) =>
 
   searchRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   // P1-2：主页面唯一一行筛选 chips（城市 / 方向 / 排序 / 更多筛选），横向滚动
-  filterBarRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingTop: spacing.sm, paddingBottom: 2 },
+  filterBarRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: spacing.sm,
+    paddingTop: spacing.sm,
+    paddingBottom: 2,
+  },
   /** v2 筛选胶囊：34pt 视觉高度 + hitSlop 6 → 46pt 触控热区 */
   filterChip: {
     flexDirection: "row",

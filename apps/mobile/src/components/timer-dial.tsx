@@ -75,7 +75,7 @@ export function TimerDial({
   const majorLen = Math.round(size * 0.055);
   const minorLen = Math.round(size * 0.03);
   const handColor = color ?? colors.primary;
-  const ringColor = trackColor ?? colors.surfaceMuted;
+  const ringColor = trackColor ?? colors.chartTrack;
   const baseTick = tickColor ?? colors.textFaint;
   const angle = dialHandAngle(clamped);
 

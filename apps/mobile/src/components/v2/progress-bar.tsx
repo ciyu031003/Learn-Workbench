@@ -50,6 +50,6 @@ export function ProgressBar({
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
-    track: { backgroundColor: colors.surfaceMuted, overflow: "hidden", width: "100%" },
+    track: { backgroundColor: colors.chartTrack, overflow: "hidden", width: "100%" },
     fill: { height: "100%" },
   });
