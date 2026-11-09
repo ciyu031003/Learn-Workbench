@@ -922,8 +922,8 @@ export default function TodayScreen() {
           </View>
         </View>
 
-        {/* ④ 今日专注（本屏唯一强玻璃锚点，负 margin 咬住实景带；圆角 26 对齐 demo .focus-shell） */}
-        <Surface tier="glassStrong" corner={26} style={styles.v3FocusShell}>
+        {/* ④ 今日专注：与实景带分开，避免图片被半透明卡片压住 */}
+        <Surface tier="elevated" corner={26} style={styles.v3FocusShell}>
           <View style={styles.v3FsHead}>
             <View style={styles.v3FsHeadText}>
               <View style={styles.v3FsKicker}>
@@ -969,7 +969,7 @@ export default function TodayScreen() {
                   <View
                     style={[
                       styles.v3WbBar,
-                      { height: Math.round(38 * d.ratio) },
+                      { height: Math.max(4, Math.round(38 * d.ratio)) },
                       d.minutes === 0 ? styles.v3WbBarIdle : null,
                       d.iso === today ? styles.v3WbBarToday : null,
                     ]}
@@ -1715,7 +1715,7 @@ const makeStyles = (colors: ThemeColors) =>
     /* demo h1 字重 680：RN 取最接近的 700（pageTitle 默认 800 偏粗） */
     v3GreetTitle: { ...typography.pageTitle, fontWeight: "700", color: colors.text },
     v3GreetSub: { ...typography.meta, color: colors.textMuted, lineHeight: 17 },
-    v3Scene: { height: 158, borderRadius: 26, overflow: "hidden", marginTop: 4, ...shadows.card },
+    v3Scene: { height: 150, borderRadius: 26, overflow: "hidden", marginTop: 4, ...shadows.card },
     /** Web 上 react-native-web 会按原图尺寸布局绝对定位图片（导致只看左上角）：显式 100% 让 cover 生效，原生同值无影响 */
     sceneImgFill: { width: "100%", height: "100%" },
     v3SceneCap: { position: "absolute", left: 16, right: 16, top: 13, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
@@ -1723,8 +1723,8 @@ const makeStyles = (colors: ThemeColors) =>
     v3SceneDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: colors.accent },
     v3SceneNameText: { ...typography.caption, fontWeight: "600", color: "rgba(255,255,255,0.94)" },
     v3SceneTime: { ...typography.micro, fontWeight: "600", color: "rgba(255,255,255,0.8)" },
-    /** content 有 14 的 gap：再 -46 才让玻璃卡实际咬住实景带底部 32pt（对齐原型） */
-    v3FocusShell: { marginTop: -46, padding: 18 },
+    /** 实景带与专注卡分离：保留 content 的 14pt 间距，不再用负 margin 重叠 */
+    v3FocusShell: { marginTop: 0, padding: 18 },
     v3FsHead: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 },
     v3FsHeadText: { gap: 2 },
     v3FsKicker: { flexDirection: "row", alignItems: "center", gap: 6 },
