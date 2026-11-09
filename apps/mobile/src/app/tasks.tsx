@@ -172,7 +172,8 @@ export default function TasksScreen() {
         </PressableScale>
       </Card>
 
-      {/* ② 今日任务：信息量最大的一张，升到工具区之前，并补进度条（v19-M2：动画进度条） */}
+      {/* ② 今日任务：空态已由上方 hero 承担，这里只在有任务时出现，避免同一句「还没有任务」出现两次 */}
+      {todayTasks.length > 0 ? (
       <Card title="今日任务" subtitle={`${doneCount}/${todayTasks.length} 已完成 · 专注 ${totalFocus} 分钟`}>
         <ProgressBar progress={donePct / 100} color={colors.success} height={6} style={styles.progressTrack} />
         {allDone ? (
@@ -180,10 +181,7 @@ export default function TasksScreen() {
             <Text style={styles.doneBannerText}>今日任务已全部完成！生成打卡卡片分享吧</Text>
           </View>
         ) : null}
-        {todayTasks.length === 0 ? (
-          <Text style={styles.empty}>今天还没有任务</Text>
-        ) : (
-          todayTasks.map((t, i) => (
+        {todayTasks.map((t, i) => (
             <Animated.View
               key={t.id}
               style={styles.taskRow}
@@ -206,9 +204,9 @@ export default function TasksScreen() {
                 <ThemedIcon name="play" size={15} color={colors.primary} />
               </PressableScale>
             </Animated.View>
-          ))
-        )}
+          ))}
       </Card>
+      ) : null}
 
       {/* ③ 工具区收拢：原来「专注计时」「新建任务」两张等权卡占首屏前两位，现合成一张紧凑卡 */}
       <Card variant="glass" title="快速开始" subtitle={`当日累计专注 ${totalFocus} 分钟`}>
@@ -220,7 +218,6 @@ export default function TasksScreen() {
             <Text style={styles.toolBtnTextGhost}>＋ 新建任务</Text>
           </PressableScale>
         </View>
-        <Text style={styles.toolHint}>自由专注可先选「这次学什么」；倒计时可切正向秒表、可换背景；新建任务在弹层里输入</Text>
       </Card>
 
       {/* ④ 统计降权：整卡改玻璃，明细仍保留在这里 */}
@@ -392,7 +389,6 @@ const makeStyles = (colors: ThemeColors) =>
   toolBtnGhost: { backgroundColor: colors.surfaceMuted },
   toolBtnTextPrimary: { ...typography.callout, color: "#fff", fontWeight: "700" },
   toolBtnTextGhost: { ...typography.callout, color: colors.primary, fontWeight: "700" },
-  toolHint: { ...typography.caption, color: colors.textMuted, marginTop: 8 },
   sheetBody: { gap: 12, paddingTop: 4 },
   ghostStartBtn: { backgroundColor: colors.surfaceMuted },
   ghostStartText: { color: colors.primary },

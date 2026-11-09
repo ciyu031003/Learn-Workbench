@@ -696,9 +696,7 @@ export default function SleepScreen() {
                 }))}
                 height={120}
               />
-              <Text style={styles.chartFoot}>
-                柱高按 8 小时满格计；今天高亮并标出日期。没有记录的晚上留空，不会用假数据补。
-              </Text>
+              <Text style={styles.chartFoot}>柱高按 8 小时满格计，今天高亮。</Text>
             </Card>
 
             <SectionTitle title="平均指标" />

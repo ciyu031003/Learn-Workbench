@@ -1104,7 +1104,6 @@ export default function TodayScreen() {
                       {t.title}
                     </Text>
                     <View style={styles.v3SchedMeta}>
-                      <Text style={styles.v3SchedTag}>{taskTypeLabels[t.taskType] ?? t.taskType}</Text>
                       {t.focusMinutes > 0 ? (
                         <Text style={styles.v3SchedMetaText}>{t.focusMinutes + " 分钟专注"}</Text>
                       ) : null}
@@ -1808,7 +1807,6 @@ const makeStyles = (colors: ThemeColors, dark = false) =>
     v3SchedTitle: { ...typography.callout, fontWeight: "600", color: colors.text },
     v3SchedTitleDone: { color: colors.textSecondary, textDecorationLine: "line-through" },
     v3SchedMeta: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
-    v3SchedTag: { ...typography.micro, fontWeight: "600", color: colors.primary },
     v3SchedMetaText: { ...typography.micro, fontWeight: "500", color: colors.textMuted },
     v3SchedTick: {
       width: 24,

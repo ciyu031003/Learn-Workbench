@@ -317,7 +317,7 @@ export default function CareerScreen() {
   const highMatchCount = radar?.hasProfile ? radar.buckets?.highMatch?.length ?? 0 : null;
   const subtitle =
     todayCount !== null
-      ? "今日新增 " + todayCount + " 条岗位" + (highMatchCount !== null ? " · 高匹配 " + highMatchCount + " 条" : "") + "。岗位详情统一在招花查看。"
+      ? "今日新增 " + todayCount + " 条岗位" + (highMatchCount !== null ? " · 高匹配 " + highMatchCount + " 条" : "")
       : "岗位抓取、准备度与投递进度集中在这里。";
 
   const kpiItems: KpiSpec[] = [
@@ -503,7 +503,7 @@ export default function CareerScreen() {
                 pattern="none"
                 icon="flag-outline"
                 title="还没有目标方向"
-                hint="先去岗位雷达设置目标岗位，准备度、匹配岗位与补齐建议会跟着更新。"
+                hint="设置目标岗位后，准备度与匹配结果会自动更新。"
                 actionLabel="设置目标方向"
                 onAction={() => router.push("/radar?editTarget=1" as never)}
               />
