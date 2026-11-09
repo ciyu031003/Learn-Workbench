@@ -542,3 +542,25 @@ describe("S5-6 持久化拆轻/重两份 key", () => {
     expect(light.tasks).toBeUndefined();
   });
 });
+
+describe("profile identity lifecycle", () => {
+  it("keeps the same account profile on refresh and clears it on account change", () => {
+    useAppStore.setState({ token: null, username: null, displayName: null, avatarUrl: null });
+    const st = useAppStore.getState();
+
+    st.setAuth("token-a", "alice");
+    st.setProfile("阿梨", "/uploads/a/avatar.webp");
+    st.setAuth("token-a", "alice");
+    expect(useAppStore.getState()).toMatchObject({
+      displayName: "阿梨",
+      avatarUrl: "/uploads/a/avatar.webp",
+    });
+
+    useAppStore.getState().setAuth("token-b", "bob");
+    expect(useAppStore.getState()).toMatchObject({ displayName: null, avatarUrl: null });
+
+    useAppStore.getState().setProfile("Bob", "/uploads/b/avatar.webp");
+    useAppStore.getState().setAuth(null, null);
+    expect(useAppStore.getState()).toMatchObject({ displayName: null, avatarUrl: null });
+  });
+});

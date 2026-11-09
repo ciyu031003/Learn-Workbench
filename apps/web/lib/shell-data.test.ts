@@ -12,7 +12,7 @@ const userMock = vi.mocked(currentUser);
 
 beforeEach(() => {
   vi.resetAllMocks();
-  userMock.mockResolvedValue({ id: "u-1", username: "alice", displayName: "Alice" });
+  userMock.mockResolvedValue({ id: "u-1", username: "alice", displayName: "Alice", avatarUrl: null });
   queryMock.mockImplementation((sql: string) => {
     const s = String(sql);
     if (s.includes("FROM careers")) {

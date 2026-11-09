@@ -22,6 +22,7 @@ import { UpdateSheet } from "@/components/update-sheet";
 import { StudyTimeTracker } from "@/components/study-time-tracker";
 import { secureToken } from "@/lib/secure-token";
 import { useAppStore } from "@/store/app-store";
+import { fetchIdentity } from "@/lib/identity";
 import { setMotionUserEnabled } from "@/theme/motion";
 import { migrateLegacySports } from "@/store/sport-legacy";
 import {
@@ -255,6 +256,20 @@ export default function RootLayout() {
 function ThemedShell({ tier }: { tier: DeviceTier }) {
   const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const token = useAppStore((s) => s.token);
+
+  // 昵称 / 头像属于会话资料：token 恢复或登录后回填，失败时保留本机缓存。
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    void fetchIdentity(token).then((identity) => {
+      if (!cancelled && identity) useAppStore.getState().setProfile(identity.displayName, identity.avatarUrl);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
   // 记住"上一个展示过的页面"，供 resolveBackTarget 在无栈历史时兜底（v1.22）
   const pathname = usePathname();
   useEffect(() => {

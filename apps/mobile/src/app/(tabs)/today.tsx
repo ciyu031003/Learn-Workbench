@@ -38,6 +38,8 @@ import { AreaChart } from "@/components/v2/charts";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useScrollToTopHandler } from "@/lib/scroll-to-top";
 import { useAppStore } from "@/store/app-store";
+import { useIdentity } from "@/hooks/use-identity";
+import { absoluteMediaUrl } from "@/lib/uploads";
 import type { DailyTask, ExerciseType, Habit, HabitLog } from "@learn-workbench/shared/schemas";
 import type { SportItem } from "@learn-workbench/shared/types";
 import { SPORT_CATALOG, exerciseTypeOptions, taskTypeLabels } from "@learn-workbench/shared/labels";
@@ -508,7 +510,7 @@ export default function TodayScreen() {
   const aiTip = useAppStore((s) => s.aiTip);
   const setAiTip = useAppStore((s) => s.setAiTip);
   const token = useAppStore((s) => s.token);
-  const username = useAppStore((s) => s.username);
+  const identity = useIdentity();
 
   const [focusOpen, setFocusOpen] = useState(false);
   const [sportSheetOpen, setSportSheetOpen] = useState(false);
@@ -830,8 +832,9 @@ export default function TodayScreen() {
   const mainSubject = focusStats.weekByContent[0]?.label ?? null;
   const pomodoroNo = focusStats.todaySessions + 1;
   const quickStartLabel = "25 分钟 · " + (mainSubject ?? "自由专注") + " · 第 " + pomodoroNo + " 个番茄";
-  const avatarLetter = username ? username.slice(0, 1) : "我";
-  const greetLine = username ? greet + "，" + username : greet;
+  const avatarUri = token ? absoluteMediaUrl(identity.avatarUrl) : null;
+  const avatarLetter = token ? identity.initial : "我";
+  const greetLine = token ? greet + "，" + identity.name : greet;
   const greetSub =
     todayTasks.length === 0
       ? "今天还没有安排，先定一件最重要的小事。"
@@ -878,7 +881,11 @@ export default function TodayScreen() {
               accessibilityRole="button"
               accessibilityLabel="打开我的（设置）"
             >
-              <Text style={styles.v3AvatarText}>{avatarLetter}</Text>
+              {avatarUri ? (
+                <Image source={{ uri: avatarUri }} style={styles.v3AvatarImage} resizeMode="cover" />
+              ) : (
+                <Text style={styles.v3AvatarText}>{avatarLetter}</Text>
+              )}
             </Pressable>
           </View>
         </View>
@@ -1706,7 +1713,16 @@ const makeStyles = (colors: ThemeColors) =>
       borderRadius: 3,
       backgroundColor: colors.accent,
     },
-    v3Avatar: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: colors.primary },
+    v3Avatar: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.primary,
+      overflow: "hidden",
+    },
+    v3AvatarImage: { width: "100%", height: "100%", borderRadius: 19 },
     v3AvatarText: { ...typography.callout, fontWeight: "700", color: "#FFFFFF" },
     v3Greet: { gap: 6, paddingHorizontal: 2, marginTop: 6 },
     v3GreetDate: { flexDirection: "row", alignItems: "center", gap: 8 },

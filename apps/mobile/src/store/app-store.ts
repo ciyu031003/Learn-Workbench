@@ -135,6 +135,10 @@ interface AppState {
   motionEnabled: boolean;
   token: string | null;
   username: string | null;
+  /** 云端昵称（users.display_name）；null/空时页面回落到登录名 */
+  displayName: string | null;
+  /** 个人头像（/uploads/... 相对地址）；null 时显示首字渐变 */
+  avatarUrl: string | null;
   /** 当前登录账号的归属标识（取 username；未登录/无法判定为 null）。用于 pendingChanges 打标 + 换账号清空旧发件箱（S1-6） */
   ownerUserId: string | null;
   github: GithubRecord[];
@@ -187,6 +191,8 @@ interface AppState {
   setThemeMode: (mode: ThemeMode) => void;
 
   setAuth: (token: string | null, username: string | null) => void;
+  /** 会话资料回填 / 编辑保存后同步到各页 */
+  setProfile: (displayName: string | null, avatarUrl: string | null) => void;
   setApiUrl: (url: string) => void;
   addGithub: (title: string, url: string | null, content: string | null) => void;
   removeGithub: (id: number) => void;
@@ -219,7 +225,7 @@ const nextId = () => seq++;
 
 export const useAppStore = create<AppState>()(
   persist(
-    (rawSet) => {
+    (rawSet, get) => {
       /**
        * 统一收口（S5-6）：任何一次会写 pendingChanges 的 set 都先做归一化
        * （同实体只留最新 + 上限 2000 条；队列首=最新，超限丢最旧），
@@ -252,6 +258,8 @@ export const useAppStore = create<AppState>()(
       themeMode: "system" as ThemeMode,
       token: null,
       username: null,
+      displayName: null,
+      avatarUrl: null,
       ownerUserId: null,
       github: [],
       customTopics: [],
@@ -474,6 +482,8 @@ export const useAppStore = create<AppState>()(
           aiTip: null,
           token: null,
           username: null,
+          displayName: null,
+          avatarUrl: null,
           ownerUserId: null,
         });
       },
@@ -481,13 +491,18 @@ export const useAppStore = create<AppState>()(
       setAuth: (token, username) => {
         if (token) void secureToken.save(token);
         else void secureToken.clear();
+        const prev = get();
+        const sameAccount = Boolean(token && prev.username && prev.username === username);
         set({
           token,
           username,
+          displayName: token && sameAccount ? prev.displayName : null,
+          avatarUrl: token && sameAccount ? prev.avatarUrl : null,
           // 登录成功写入归属、登出清空。换账号时旧队列按 ownerUserId 丢弃（见 selectForeignPendingChanges）
           ownerUserId: token ? (username?.trim() || null) : null,
         });
       },
+      setProfile: (displayName, avatarUrl) => set({ displayName, avatarUrl }),
       setApiUrl: (url) => set({ apiUrl: url }),
 
       addGithub: (title, url, content) =>

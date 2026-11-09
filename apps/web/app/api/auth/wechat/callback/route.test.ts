@@ -88,7 +88,7 @@ describe("POST /api/auth/wechat/callback", () => {
   });
 
   it("binds when already logged in", async () => {
-    currentUserMock.mockResolvedValue({ id: "u-1", username: "tester", displayName: null });
+    currentUserMock.mockResolvedValue({ id: "u-1", username: "tester", displayName: null, avatarUrl: null });
     bindMock.mockResolvedValue("bound");
     exchangeCodeMock.mockResolvedValue({ openid: "ox-1", unionid: null, nickname: "n", avatarUrl: null });
     const res = await post({ code: "c", state: "s" });
@@ -97,7 +97,7 @@ describe("POST /api/auth/wechat/callback", () => {
   });
 
   it("conflicts when wechat belongs to another user", async () => {
-    currentUserMock.mockResolvedValue({ id: "u-1", username: "tester", displayName: null });
+    currentUserMock.mockResolvedValue({ id: "u-1", username: "tester", displayName: null, avatarUrl: null });
     bindMock.mockResolvedValue("conflict");
     exchangeCodeMock.mockResolvedValue({ openid: "ox-1", unionid: null, nickname: "n", avatarUrl: null });
     const res = await post({ code: "c", state: "s" });

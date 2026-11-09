@@ -23,6 +23,7 @@ CREATE TABLE users (
   id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   email        text UNIQUE,
   display_name text,
+  avatar_url   text,
   created_at   timestamptz NOT NULL DEFAULT now(),
   updated_at   timestamptz NOT NULL DEFAULT now()
 );

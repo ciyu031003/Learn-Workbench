@@ -1,5 +1,6 @@
 import { File } from "expo-file-system";
 import * as LegacyFileSystem from "expo-file-system/legacy";
+import { Platform } from "react-native";
 
 const MIME_EXT: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -46,6 +47,13 @@ export async function makeUploadPart(
     desiredName && /.[a-z0-9]+$/i.test(desiredName)
       ? desiredName
       : (desiredName?.replace(/.[a-z0-9]+$/i, "").trim() || "upload") + "." + ext;
+
+  // Web 预览没有 expo-file-system 的原生 File 实现；选择器给的是 blob/data URL，
+  // 直接取 Blob 交给浏览器 FormData，真机仍走下面的 File + cache 路径。
+  if (Platform.OS === "web") {
+    const res = await fetch(uri);
+    return { part: await res.blob(), filename };
+  }
 
   let path = uri;
   try {

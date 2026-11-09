@@ -53,6 +53,9 @@ import { BottomSheet } from "@/components/bottom-sheet";
 import { DayNightSwitch } from "@/components/day-night-switch";
 import { router } from "expo-router";
 import { AuthSheet } from "@/components/auth-sheet";
+import { ProfileEditSheet } from "@/components/profile-edit-sheet";
+import { useIdentity } from "@/hooks/use-identity";
+import { absoluteMediaUrl } from "@/lib/uploads";
 import { haptics } from "@/lib/haptics";
 import type { ThemeColors, ThemeMode } from "@/theme/tokens";
 import { useTheme } from "@/theme";
@@ -300,7 +303,6 @@ export default function SettingsScreen() {
   const streak = useMemo(() => computeStreak(checkins, { now: new Date() }), [checkins]);
 
   const token = useAppStore((s) => s.token);
-  const username = useAppStore((s) => s.username);
   const setAuth = useAppStore((s) => s.setAuth);
   const pendingCount = useAppStore((s) => s.pendingChanges.length);
   const themeMode = useAppStore((s) => s.themeMode);
@@ -311,6 +313,7 @@ export default function SettingsScreen() {
   const clock = useServerClock();
 
   const [authOpen, setAuthOpen] = useState(false);
+  const [profileEditOpen, setProfileEditOpen] = useState(false);
   // 手动同步按钮的 loading 跟随引擎状态（v2.1：手动同步已并入引擎 single-flight）
   const busy = engine.syncing;
   const [msg, setMsg] = useState<string | null>(null);
@@ -546,9 +549,11 @@ export default function SettingsScreen() {
             ? colors.accentStrong
             : colors.success;
 
-  /** 身份卡：头像首字母 + 昵称（未登录沿用「学习工作台」文案） */
-  const displayName = token ? username || "学习工作台" : "学习工作台";
-  const avatarInitial = (username ?? "旅").slice(0, 1).toUpperCase();
+  /** 身份卡：昵称 / 头像统一走 useIdentity，未登录沿用「学习工作台」文案 */
+  const identity = useIdentity();
+  const displayName = token ? identity.name : "学习工作台";
+  const avatarInitial = token ? identity.initial : "旅";
+  const avatarUri = absoluteMediaUrl(identity.avatarUrl);
 
   /** 个人卡副标题：专业 · 届别 · 城市（真实资料；缺失时给引导语，不编造） */
   const profileLine = useMemo(() => {
@@ -658,43 +663,53 @@ export default function SettingsScreen() {
             <Rect x="0" y="0" width="100%" height="100%" fill="url(#meHeroScrim)" />
           </Svg>
           <View style={styles.heroInfo}>
-            <View style={styles.heroAvatar}>
-              {/* 对齐 demo .pic：150° 蓝色渐变（#3C86CE → #1B4F87） */}
-              <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} pointerEvents="none">
-                <Defs>
-                  <LinearGradient id="meAvatarGradient" x1="0" y1="0" x2="0.5" y2="1">
-                    <Stop offset="0" stopColor="#3C86CE" />
-                    <Stop offset="1" stopColor="#1B4F87" />
-                  </LinearGradient>
-                </Defs>
-                <Rect x="0" y="0" width="100%" height="100%" fill="url(#meAvatarGradient)" />
-              </Svg>
-              <Text style={styles.heroAvatarText}>{avatarInitial}</Text>
-            </View>
-            <View style={styles.heroText}>
-              <Text style={styles.heroName} numberOfLines={1} accessibilityRole="header">
-                {displayName}
-              </Text>
-              {token ? (
-                <Text style={styles.heroSub} numberOfLines={1}>
-                  {profileLine}
+            <Pressable
+              onPress={() => {
+                haptics.light();
+                if (token) setProfileEditOpen(true);
+                else setAuthOpen(true);
+              }}
+              style={styles.heroIdentity}
+              accessibilityRole="button"
+              accessibilityLabel={token ? "编辑头像和昵称" : "登录或注册，登录后自动同步到云端"}
+            >
+              <View style={styles.heroAvatarWrap}>
+                <View style={styles.heroAvatar}>
+                  {/* 对齐 demo .pic：150° 蓝色渐变（#3C86CE → #1B4F87） */}
+                  <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} pointerEvents="none">
+                    <Defs>
+                      <LinearGradient id="meAvatarGradient" x1="0" y1="0" x2="0.5" y2="1">
+                        <Stop offset="0" stopColor="#3C86CE" />
+                        <Stop offset="1" stopColor="#1B4F87" />
+                      </LinearGradient>
+                    </Defs>
+                    <Rect x="0" y="0" width="100%" height="100%" fill="url(#meAvatarGradient)" />
+                  </Svg>
+                  {avatarUri ? (
+                    <Image source={{ uri: avatarUri }} style={styles.heroAvatarImage} resizeMode="cover" />
+                  ) : (
+                    <Text style={styles.heroAvatarText}>{avatarInitial}</Text>
+                  )}
+                </View>
+                <View style={styles.heroAvatarEdit}>
+                  <ThemedIcon name="create" size={10} color={colors.canvas} />
+                </View>
+              </View>
+              <View style={styles.heroText}>
+                <Text style={styles.heroName} numberOfLines={1} accessibilityRole="header">
+                  {displayName}
                 </Text>
-              ) : (
-                <Pressable
-                  hitSlop={6}
-                  onPress={() => {
-                    haptics.light();
-                    setAuthOpen(true);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel="登录或注册，登录后自动同步到云端"
-                >
+                {token ? (
+                  <Text style={styles.heroSub} numberOfLines={1}>
+                    {profileLine}
+                  </Text>
+                ) : (
                   <Text style={styles.heroSubLink} numberOfLines={1}>
                     登录后自动同步到云端
                   </Text>
-                </Pressable>
-              )}
-            </View>
+                )}
+              </View>
+            </Pressable>
             <View style={styles.streakPill} accessible accessibilityLabel={"连续打卡 " + streak + " 天"}>
               <ThemedIcon name="flame" size={13} color={colors.focusCanvas} />
               <Text style={styles.streakText} numberOfLines={1}>
@@ -1343,6 +1358,7 @@ export default function SettingsScreen() {
       </BottomSheet>
 
       <AuthSheet visible={authOpen} onClose={() => setAuthOpen(false)} onAuthed={handleAuthed} />
+      <ProfileEditSheet visible={profileEditOpen} onClose={() => setProfileEditOpen(false)} />
     </ScrollView>
   );
 }
@@ -1372,6 +1388,14 @@ const makeStyles = (colors: ThemeColors) =>
       alignItems: "center",
       gap: 11,
     },
+    heroIdentity: {
+      flex: 1,
+      minWidth: 0,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 11,
+    },
+    heroAvatarWrap: { width: 50, height: 50, flexShrink: 0 },
     heroAvatar: {
       width: 50,
       height: 50,
@@ -1383,6 +1407,20 @@ const makeStyles = (colors: ThemeColors) =>
       borderWidth: 1.5,
       borderColor: colors.glassBorder,
       flexShrink: 0,
+    },
+    heroAvatarImage: { width: "100%", height: "100%", borderRadius: radius.pill },
+    heroAvatarEdit: {
+      position: "absolute",
+      right: -3,
+      bottom: -3,
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.primary,
+      borderWidth: 2,
+      borderColor: colors.focusCanvas,
     },
     heroAvatarText: { ...typography.hero, fontWeight: "700", color: "#FFFFFF" },
     heroText: { flex: 1, minWidth: 0, gap: 3 },

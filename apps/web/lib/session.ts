@@ -15,6 +15,7 @@ export interface SessionUser {
   id: string;
   username: string;
   displayName: string | null;
+  avatarUrl: string | null;
 }
 
 /**
@@ -55,7 +56,7 @@ export async function currentUser(): Promise<SessionUser | null> {
        WHERE sessions.token_hash = $1
          AND (cur.last_used_at IS NULL OR cur.last_used_at < now() - ${TOUCH_WINDOW_SQL})
      )
-     SELECT u.id, a.username, u.display_name AS "displayName"
+     SELECT u.id, a.username, u.display_name AS "displayName", u.avatar_url AS "avatarUrl"
      FROM cur
      JOIN users u ON u.id = cur.user_id
      JOIN accounts a ON a.user_id = u.id`,
