@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Animated, { FadeInDown, LinearTransition } from "react-native-reanimated";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
@@ -36,6 +36,7 @@ import { radius, tabularNums, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { getApiUrl } from "@/config";
+import { useLocalSearchParams } from "expo-router";
 import { haptics } from "@/lib/haptics";
 import {
   applyRadarFilter,
@@ -123,6 +124,7 @@ export default function RadarScreen() {
   const headerScroll = useLargeTitleHeader();
   const tabBarSpace = useTabBarSpace();
   const token = useAppStore((s) => s.token);
+  const { editTarget } = useLocalSearchParams<{ editTarget?: string }>();
   const [data, setData] = useState<RadarResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -332,6 +334,15 @@ export default function RadarScreen() {
     setTargetError(null);
     setTargetSheetOpen(true);
   };
+
+  const requestedTargetEdit = useRef(false);
+  useEffect(() => {
+    if (editTarget !== "1" || loading || requestedTargetEdit.current) return;
+    requestedTargetEdit.current = true;
+    setTargetDraft(data?.targetRole ?? "");
+    setTargetError(null);
+    setTargetSheetOpen(true);
+  }, [editTarget, loading, data?.targetRole]);
 
   /**
    * 保存目标岗位：先乐观更新标题与「目标岗位」行，PUT 成功后再带 target 重算雷达；
