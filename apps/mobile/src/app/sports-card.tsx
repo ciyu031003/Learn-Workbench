@@ -1135,6 +1135,9 @@ export default function SportsCardScreen() {
             <Switch
               value={draft.isPublic}
               onValueChange={(v) => setDraft((d) => ({ ...d, isPublic: v, showGearImages: v ? d.showGearImages : false }))}
+              trackColor={{ false: colors.chartTrack, true: colors.primary }}
+              thumbColor={colors.controlThumb}
+              ios_backgroundColor={colors.chartTrack}
             />
           </View>
           <View style={[styles.switchRow, !draft.isPublic && styles.switchRowOff]}>
@@ -1146,6 +1149,9 @@ export default function SportsCardScreen() {
               disabled={!draft.isPublic}
               value={draft.isPublic && draft.showGearImages}
               onValueChange={(v) => setDraft((d) => ({ ...d, showGearImages: v }))}
+              trackColor={{ false: colors.chartTrack, true: colors.primary }}
+              thumbColor={colors.controlThumb}
+              ios_backgroundColor={colors.chartTrack}
             />
           </View>
           </SheetSection>

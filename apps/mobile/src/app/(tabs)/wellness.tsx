@@ -781,7 +781,7 @@ export default function WellnessScreen() {
             <Surface tier="surface" corner={radius.card} padded={false} style={styles.dietCard}>
               <View style={styles.mealTop}>
                 <View style={styles.mealThumb}>
-                  <ThemedIcon name="restaurant-outline" size={22} color={colors.accentStrong} />
+                  <ThemedIcon name="restaurant-outline" size={22} color={colors.primaryStrong} />
                 </View>
                 <View style={styles.mealBody}>
                   <Text style={styles.mealKicker} numberOfLines={1}>
@@ -969,8 +969,8 @@ export default function WellnessScreen() {
             />
             <RecordRow
               icon="restaurant-outline"
-              iconColor={colors.accentStrong}
-              iconBg={colors.accentSoft}
+              iconColor={colors.primaryStrong}
+              iconBg={colors.primarySoft}
               title="饮食"
               subtitle={
                 summaryFailed
@@ -1225,7 +1225,7 @@ const makeStyles = (colors: ThemeColors) =>
       borderRadius: radius.md,
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: colors.accentSoft,
+      backgroundColor: colors.primarySoft,
       flexShrink: 0,
     },
     mealBody: { flex: 1, minWidth: 0, gap: 2 },

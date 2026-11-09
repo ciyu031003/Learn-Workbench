@@ -173,7 +173,7 @@ export function AddFoodSheet({
                 >
                   <View style={styles.foodCardTop}>
                     <FoodSticker name={f.name} size={46} />
-                    <ThemedIcon name="add-circle" size={18} color={colors.accentStrong} />
+                    <ThemedIcon name="add-circle" size={18} color={colors.primaryStrong} />
                   </View>
                   <Text style={styles.foodCardName} numberOfLines={2}>{f.name}</Text>
                   <Text style={styles.foodCardMeta} numberOfLines={1}>
@@ -298,7 +298,7 @@ export function AddFoodSheet({
                     <ThemedIcon
                       name={added ? "checkmark" : "add"}
                       size={13}
-                      color={added ? colors.success : colors.accentStrong}
+                      color={added ? colors.success : colors.primaryStrong}
                     />
                     <Text style={[styles.historyAddText, added && styles.historyAddTextDone]}>
                       {added ? "已加入" : "+ 今日"}
@@ -371,7 +371,13 @@ export function AddFoodSheet({
               />
             </View>
             <Pressable style={styles.switchRow} onPress={() => setSaveAsCommon((v) => !v)}>
-              <Switch value={saveAsCommon} onValueChange={setSaveAsCommon} trackColor={{ true: colors.primary }} />
+              <Switch
+                value={saveAsCommon}
+                onValueChange={setSaveAsCommon}
+                trackColor={{ false: colors.chartTrack, true: colors.primary }}
+                thumbColor={colors.controlThumb}
+                ios_backgroundColor={colors.chartTrack}
+              />
               <Text style={styles.switchLabel}>存入常用食物（下次可直接选）</Text>
             </Pressable>
             <Button

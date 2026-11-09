@@ -966,7 +966,9 @@ export default function SettingsScreen() {
               <Switch
                 value={backgroundEnabled}
                 onValueChange={toggleBackground}
-                trackColor={{ true: colors.primary }}
+                trackColor={{ false: colors.chartTrack, true: colors.primary }}
+                thumbColor={colors.controlThumb}
+                ios_backgroundColor={colors.chartTrack}
                 accessibilityLabel="每日背景图"
                 accessibilityRole="switch"
                 accessibilityState={{ checked: backgroundEnabled }}
@@ -987,7 +989,9 @@ export default function SettingsScreen() {
               <Switch
                 value={motionEnabled}
                 onValueChange={toggleMotion}
-                trackColor={{ true: colors.primary }}
+                trackColor={{ false: colors.chartTrack, true: colors.primary }}
+                thumbColor={colors.controlThumb}
+                ios_backgroundColor={colors.chartTrack}
                 accessibilityLabel={motionEnabled ? "动效已开启，点此关闭" : "动效已关闭，点此开启"}
                 accessibilityRole="switch"
                 accessibilityState={{ checked: motionEnabled }}

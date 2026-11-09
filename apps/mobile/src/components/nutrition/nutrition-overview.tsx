@@ -247,7 +247,7 @@ export function NutritionOverview({
             }}
             accessibilityLabel="打开 LiveLog 贴纸画布"
           >
-            <ThemedIcon name="sparkles-outline" size={15} color={colors.accent} />
+            <ThemedIcon name="sparkles-outline" size={15} color={colors.primary} />
             <Text style={styles.advancedText}>LiveLog</Text>
           </Pressable>
         ) : null}

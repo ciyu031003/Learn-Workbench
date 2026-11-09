@@ -98,7 +98,7 @@ export function NutritionBody({
           style={styles.syncBar}
           accessibilityLabel="重试同步待上传的饮食记录"
         >
-          <ThemedIcon name="refresh" size={15} color={colors.accentStrong} />
+          <ThemedIcon name="refresh" size={15} color={colors.primaryStrong} />
           <Text style={styles.syncBarText}>{pendingCount(outbox)} 条待同步 · 点此重试</Text>
         </Pressable>
       ) : null}
@@ -139,7 +139,7 @@ export function NutritionBody({
               <ProgressBar
                 progress={Math.min(1, Number.isFinite(mealPct) ? mealPct : 0)}
                 height={5}
-                color={mealPct >= 1 ? colors.success : colors.accent}
+                color={mealPct >= 1 ? colors.success : colors.primary}
                 style={styles.mealTrack}
               />
               <View style={styles.timeline}>
