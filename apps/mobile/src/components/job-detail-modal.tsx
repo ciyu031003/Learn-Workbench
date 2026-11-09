@@ -15,6 +15,7 @@ import { enrollJobGaps, fetchJobDetail, fetchJobPlan, type JobDetail } from "@/l
 import type { JobLearningPlan, JobPostingListItem } from "@learn-workbench/shared/schemas";
 import { jobSourceLabels } from "@learn-workbench/shared/labels";
 import { formatRelativeTime } from "@learn-workbench/shared/dates";
+import { friendlyError } from "@/lib/friendly-error";
 
 /**
  * v20-B1 · 详情弹层的"种子"入参：雷达等入口只拿到部分字段也能打开详情，
@@ -113,7 +114,7 @@ export function JobDetailModal({
         }
       })
       .catch((e) => {
-        if (alive) setError(e instanceof Error ? e.message : "职位详情加载失败");
+        if (alive) setError(friendlyError(e, "职位详情加载失败"));
       })
       .finally(() => {
         if (alive) setLoading(false);
@@ -164,7 +165,7 @@ export function JobDetailModal({
       showToast(`已加入 ${created} 项学习任务到今日计划`, "success", 2400);
     } catch (e) {
       haptics.error();
-      showToast(e instanceof Error ? e.message : "加入失败", "error", 2400);
+      showToast(friendlyError(e, "加入失败"), "error", 2400);
     } finally {
       setEnrolling(false);
     }
@@ -240,7 +241,7 @@ export function JobDetailModal({
                   setDetail(d);
                   setPlan(p);
                 })
-                .catch((e2) => setError(e2 instanceof Error ? e2.message : "职位详情加载失败"))
+                .catch((e2) => setError(friendlyError(e2, "职位详情加载失败")))
                 .finally(() => setLoading(false));
             }}
           >

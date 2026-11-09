@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { ThemedIcon } from "@/components/themed-icon";
 import { recordCrumb } from "@/lib/crash-capture";
 import { useTheme } from "@/theme";
+import { friendlyError } from "@/lib/friendly-error";
 import { radius, spacing, typography, type ThemeColors } from "@/theme/tokens";
 
 /**
@@ -67,7 +68,7 @@ function DefaultErrorFallback({ error, onRetry }: { error: Error; onRetry: () =>
           已拦截渲染异常，不会再白屏。可以重试；如果反复出现，请重启 App 并反馈这一页。
         </Text>
         <Text style={styles.detail} numberOfLines={3}>
-          {error.message}
+          {friendlyError(error, "未知错误")}
         </Text>
         <Pressable onPress={onRetry} style={styles.button} accessibilityRole="button" accessibilityLabel="重试">
           <Text style={styles.buttonText}>重试</Text>

@@ -24,6 +24,7 @@ import { Card } from "@/components/card";
 import { PressableScale } from "@/components/pressable-scale";
 import { useTheme } from "@/theme";
 import type { ThemeColors } from "@/theme/tokens";
+import { friendlyError } from "@/lib/friendly-error";
 
 interface IdentityInfo {
   provider: string;
@@ -108,7 +109,7 @@ export default function AccountSecurityScreen() {
               setMsg("已解除微信绑定");
               await load();
             })
-            .catch((e: unknown) => setMsg(e instanceof Error ? e.message : "解绑失败"))
+            .catch((e: unknown) => setMsg(friendlyError(e, "解绑失败")))
             .finally(() => setBusy(false));
         },
       },
@@ -134,7 +135,7 @@ export default function AccountSecurityScreen() {
       })
       .catch((e: unknown) => {
         haptics.error();
-        Alert.alert("注销失败", e instanceof Error ? e.message : "请稍后重试");
+        Alert.alert("注销失败", friendlyError(e, "请稍后重试"));
       })
       .finally(() => setDeleteBusy(false));
   };

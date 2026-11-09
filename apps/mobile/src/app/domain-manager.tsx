@@ -37,6 +37,7 @@ import {
   type DomainItem,
   type DomainTemplateItem,
 } from "@/lib/domains";
+import { friendlyError } from "@/lib/friendly-error";
 
 /** 领域图标的可选色盘（与 Web 领域取色同冷调 + 暖调语义） */
 const COLOR_PALETTE = [
@@ -135,7 +136,7 @@ export default function DomainManagerScreen() {
       setMsg(`已从模板创建「${tpl.name}」`);
       await load();
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : "创建失败");
+      setMsg(friendlyError(e, "创建失败"));
     } finally {
       setBusy(false);
     }
@@ -158,7 +159,7 @@ export default function DomainManagerScreen() {
       setEditOpen(false);
       await load();
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : "保存失败");
+      setMsg(friendlyError(e, "保存失败"));
     } finally {
       setBusy(false);
     }
@@ -189,7 +190,7 @@ export default function DomainManagerScreen() {
       await archiveDomain(item.career_key);
       await load();
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : "归档失败");
+      setMsg(friendlyError(e, "归档失败"));
     } finally {
       setBusy(false);
     }
@@ -201,7 +202,7 @@ export default function DomainManagerScreen() {
       await restoreDomain(item.career_key);
       await load();
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : "恢复失败");
+      setMsg(friendlyError(e, "恢复失败"));
     } finally {
       setBusy(false);
     }
@@ -221,7 +222,7 @@ export default function DomainManagerScreen() {
       haptics.warning();
       await load();
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : "删除失败");
+      setMsg(friendlyError(e, "删除失败"));
     } finally {
       setBusy(false);
     }

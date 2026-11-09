@@ -16,6 +16,7 @@ import { haptics } from "@/lib/haptics";
 import { radius } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
+import { friendlyError } from "@/lib/friendly-error";
 
 /**
  * 登录 / 注册底部抽屉：从「我的」页唤起，成功后回写会话并自动关闭。
@@ -69,7 +70,7 @@ export function AuthSheet({
       onClose();
     } catch (e) {
       haptics.error();
-      setError(e instanceof Error ? e.message : "登录失败");
+      setError(friendlyError(e, "登录失败"));
     } finally {
       setBusy(false);
     }
@@ -103,7 +104,7 @@ export function AuthSheet({
       onClose();
     } catch (e) {
       haptics.error();
-      setError(e instanceof Error ? e.message : "注册失败");
+      setError(friendlyError(e, "注册失败"));
     } finally {
       setBusy(false);
     }

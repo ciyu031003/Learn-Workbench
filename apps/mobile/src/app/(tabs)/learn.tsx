@@ -70,6 +70,7 @@ import {
   syncReadingState,
   type ReadingStore,
 } from "@/lib/reading-state";
+import { friendlyError } from "@/lib/friendly-error";
 
 /** 阶段卡之间的间距，必须与 `styles.shelfContent` 的 gap 一致（拖拽让位的位移量按"实测高度 + 这个值"算） */
 const STAGE_CARD_GAP = 12;
@@ -356,7 +357,7 @@ export default function LearnScreen() {
       setMdPreview(r);
     } catch (e) {
       setMdPreview(null);
-      setMdMsg(e instanceof Error ? e.message : "解析失败");
+      setMdMsg(friendlyError(e, "解析失败"));
     } finally {
       setMdBusy(false);
     }
@@ -380,7 +381,7 @@ export default function LearnScreen() {
       setMdText("");
       await reloadRoadmap();
     } catch (e) {
-      setMdMsg(e instanceof Error ? e.message : "导入失败");
+      setMdMsg(friendlyError(e, "导入失败"));
     } finally {
       setMdBusy(false);
     }
@@ -639,7 +640,7 @@ export default function LearnScreen() {
             await deletePhase(phase.id);
             await reloadRoadmap();
           } catch (e) {
-            Alert.alert("删除失败", e instanceof Error ? e.message : "本机已移除，联网后会重试或对齐");
+            Alert.alert("删除失败", friendlyError(e, "本机已移除，联网后会重试或对齐"));
           }
         },
       },
@@ -708,7 +709,7 @@ export default function LearnScreen() {
       setEditingPhase(null);
       setStageSheet(true);
     } catch (e) {
-      Alert.alert(editingPhase ? "保存失败" : "创建失败", e instanceof Error ? e.message : "请稍后重试");
+      Alert.alert(editingPhase ? "保存失败" : "创建失败", friendlyError(e, "请稍后重试"));
     } finally {
       setRoadmapLoading(false);
     }

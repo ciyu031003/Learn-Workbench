@@ -74,6 +74,7 @@ import {
   typography,
   type ThemeColors,
 } from "@/theme/tokens";
+import { friendlyError } from "@/lib/friendly-error";
 
 type ExamTab = "knowledge" | "practice" | "papers";
 type BrowserMode = "knowledge" | "practice";
@@ -174,7 +175,7 @@ function Exam408Content({ track }: { track: LearningTrack }) {
       setOverview(next);
     } catch (reason) {
       setOverviewError(
-        reason instanceof Error ? reason.message : "408 权威数据加载失败",
+        friendlyError(reason, "408 权威数据加载失败"),
       );
     } finally {
       setLoadingOverview(false);

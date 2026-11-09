@@ -39,6 +39,7 @@ import {
   type TrackerItem,
   type TrackerLogItem,
 } from "@/lib/trackers";
+import { friendlyError } from "@/lib/friendly-error";
 
 /** 首屏直接展示的领域个数，其余收进「更多」 */
 const MAX_VISIBLE_DOMAINS = 4;
@@ -166,7 +167,7 @@ export default function TrackersScreen() {
       setCreateOpen(false);
       await loadTrackers(currentDomain);
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : "保存失败");
+      setMsg(friendlyError(e, "保存失败"));
     } finally {
       setBusy(false);
     }
@@ -204,7 +205,7 @@ export default function TrackersScreen() {
       setLogOpen(null);
       await loadTrackers(currentDomain);
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : "保存失败");
+      setMsg(friendlyError(e, "保存失败"));
     } finally {
       setBusy(false);
     }
@@ -223,7 +224,7 @@ export default function TrackersScreen() {
               haptics.warning();
               await loadTrackers(currentDomain);
             })
-            .catch((e: unknown) => setMsg(e instanceof Error ? e.message : "删除失败"))
+            .catch((e: unknown) => setMsg(friendlyError(e, "删除失败")))
             .finally(() => setBusy(false));
         },
       },

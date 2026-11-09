@@ -21,6 +21,7 @@ import { getApiUrl } from "@/config";
 import type { Workout } from "@learn-workbench/shared/schemas";
 import { TRAINING_LOAD_METRIC_META } from "@learn-workbench/shared/labels";
 import { trainingLoadSeries, workoutVolume } from "@learn-workbench/shared/pure";
+import { friendlyError } from "@/lib/friendly-error";
 
 /** 柱状图横轴标签（训练负荷按「最近 7 天」聚合） */
 const WEEKDAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"];
@@ -123,7 +124,7 @@ export default function WorkoutScreen() {
             if (!r.ok) throw new Error("删除失败");
             await load();
           } catch (e) {
-            Alert.alert("删除失败", e instanceof Error ? e.message : "请稍后重试");
+            Alert.alert("删除失败", friendlyError(e, "请稍后重试"));
           }
         },
       },

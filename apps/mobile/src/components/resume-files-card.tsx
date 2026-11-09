@@ -30,6 +30,7 @@ import {
   resumeRenameDraft,
   resumeRenameMaxLength,
 } from "@/lib/resume-files";
+import { friendlyError } from "@/lib/friendly-error";
 
 /** 简历文件（v12 P2-2）：PDF / Word ≤5MB，文件本体在 COS 桶（resume/ 私有目录） */
 interface ResumeFileRow {
@@ -152,7 +153,7 @@ export function ResumeFilesCard() {
       }
       await load();
     } catch (e) {
-      Alert.alert("上传失败", e instanceof Error ? e.message : "请稍后重试");
+      Alert.alert("上传失败", friendlyError(e, "请稍后重试"));
     } finally {
       setBusy(false);
     }
@@ -178,7 +179,7 @@ export function ResumeFilesCard() {
         const url = getApiUrl() + "/api/resume-files/" + row.id + "?sig=" + encodeURIComponent(sig);
         await WebBrowser.openBrowserAsync(url);
       } catch (e) {
-        Alert.alert("打不开", e instanceof Error ? e.message : "请稍后重试");
+        Alert.alert("打不开", friendlyError(e, "请稍后重试"));
       }
     },
     [headers]
@@ -248,7 +249,7 @@ export function ResumeFilesCard() {
       setFiles((list) => list.map((item) => (item.id === row.id ? { ...item, fileName: confirmed } : item)));
     } catch (e) {
       setFiles(previous);
-      Alert.alert("重命名失败", e instanceof Error ? e.message : "请稍后重试");
+      Alert.alert("重命名失败", friendlyError(e, "请稍后重试"));
     } finally {
       setRenameBusy(false);
     }
@@ -279,7 +280,7 @@ export function ResumeFilesCard() {
       setFiles((list) => applyResumeLabel(list, row.id, normalizeResumeLabel(d?.label)));
     } catch (e) {
       setFiles(previous);
-      Alert.alert("标签保存失败", e instanceof Error ? e.message : "请稍后重试");
+      Alert.alert("标签保存失败", friendlyError(e, "请稍后重试"));
     } finally {
       setLabelBusy(false);
     }
@@ -307,7 +308,7 @@ export function ResumeFilesCard() {
       await load();
     } catch (e) {
       setFiles(previous);
-      Alert.alert("设置默认失败", e instanceof Error ? e.message : "请稍后重试");
+      Alert.alert("设置默认失败", friendlyError(e, "请稍后重试"));
     }
   };
 
@@ -324,7 +325,7 @@ export function ResumeFilesCard() {
               if (!r.ok) throw new Error("删除失败");
               await load();
             } catch (e) {
-              Alert.alert("删除失败", e instanceof Error ? e.message : "请稍后重试");
+              Alert.alert("删除失败", friendlyError(e, "请稍后重试"));
             }
           })();
         },

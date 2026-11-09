@@ -51,6 +51,7 @@ import {
   jobSourceLabels,
 } from "@learn-workbench/shared/labels";
 import { formatRelativeTime } from "@learn-workbench/shared/dates";
+import { friendlyError } from "@/lib/friendly-error";
 
 const PAGE_SIZE = 12;
 /**
@@ -694,7 +695,7 @@ export default function JobsScreen() {
           sort,
         });
       } catch (e) {
-        setError(e instanceof Error ? e.message : "职位列表加载失败");
+        setError(friendlyError(e, "职位列表加载失败"));
       } finally {
         if (mode === "initial") setInitialLoading(false);
         if (mode === "refresh") setRefreshing(false);
@@ -762,7 +763,7 @@ export default function JobsScreen() {
       else haptics.soft();
       setJobs((prev) => prev.map((x) => (x.id === job.id ? { ...x, isFav: favorited } : x)));
     } catch (e) {
-      Alert.alert("收藏失败", e instanceof Error ? e.message : "请稍后重试");
+      Alert.alert("收藏失败", friendlyError(e, "请稍后重试"));
     }
   };
 
@@ -788,7 +789,7 @@ export default function JobsScreen() {
       Alert.alert("已启动", "招聘爬虫任务已提交，稍后刷新即可看到最新职位。");
       await Promise.all([loadJobs(1, "refresh"), fetchJobStats().then(setStats).catch(() => {})]);
     } catch (e) {
-      Alert.alert("启动失败", e instanceof Error ? e.message : "请稍后重试");
+      Alert.alert("启动失败", friendlyError(e, "请稍后重试"));
     } finally {
       setRunning(false);
     }
@@ -807,9 +808,9 @@ export default function JobsScreen() {
       return (
         <EmptyState
           icon="cloud-offline-outline"
-          title="加载失败"
+          title="职位列表加载失败"
           hint={error}
-          actionLabel="重新加载"
+          actionLabel="重试"
           onAction={() => loadJobs(1, "initial")}
         />
       );

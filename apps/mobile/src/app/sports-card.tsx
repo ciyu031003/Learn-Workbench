@@ -61,6 +61,7 @@ import { radius, shadows, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { isMotionActive } from "@/theme/motion";
+import { friendlyError } from "@/lib/friendly-error";
 
 /**
  * 待补发提示文案：按真实原因给话，不再一律说「网络不顺」。
@@ -333,7 +334,7 @@ export default function SportsCardScreen() {
       setSheetOpen(false);
       await load();
     } catch (e) {
-      Alert.alert("保存失败", e instanceof Error ? e.message : "请稍后重试");
+      Alert.alert("保存失败", friendlyError(e, "请稍后重试"));
     } finally {
       setSaving(false);
     }
@@ -367,7 +368,7 @@ export default function SportsCardScreen() {
       if (previous?.startsWith("/uploads/")) void deleteUpload(previous);
       await load();
     } catch (e) {
-      Alert.alert("上传失败", e instanceof Error ? e.message : "请稍后重试");
+      Alert.alert("上传失败", friendlyError(e, "请稍后重试"));
     }
   };
 
@@ -405,7 +406,7 @@ export default function SportsCardScreen() {
       if (row.imageUrl?.startsWith("/uploads/")) void deleteUpload(row.imageUrl);
       await load();
     } catch (e) {
-      Alert.alert("上传失败", e instanceof Error ? e.message : "请稍后重试");
+      Alert.alert("上传失败", friendlyError(e, "请稍后重试"));
     }
   };
 
@@ -426,7 +427,7 @@ export default function SportsCardScreen() {
       }
       setDraft((d) => ({ ...d, photoUrl: result.url }));
     } catch (e) {
-      Alert.alert("上传失败", e instanceof Error ? e.message : "请稍后重试");
+      Alert.alert("上传失败", friendlyError(e, "请稍后重试"));
     }
   };
 

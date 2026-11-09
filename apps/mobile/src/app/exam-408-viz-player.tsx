@@ -14,6 +14,7 @@ import { useScreenEntrance } from "@/lib/use-screen-entrance";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
 import { radius, shadows, spacing, typography, type ThemeColors } from "@/theme/tokens";
+import { friendlyError } from "@/lib/friendly-error";
 
 /** 408 演示播放器页（v1.55）：逐帧播放器 + 步骤说明 + 关联知识点 */
 export default function Exam408VizPlayerScreen(): React.JSX.Element {
@@ -41,7 +42,7 @@ function DemoContent({ demoKey }: { demoKey: string }): React.JSX.Element {
     try {
       setDemo(await getExam408Demo(demoKey));
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "演示加载失败");
+      setError(friendlyError(reason, "演示加载失败"));
     } finally {
       setLoading(false);
     }

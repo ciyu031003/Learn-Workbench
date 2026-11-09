@@ -51,6 +51,7 @@ import { buildWeekReport, type WeekTile } from "@/lib/wellness-week";
 import { sleepApi, type SleepNight } from "@/lib/sleep-api";
 import { clamp01 } from "@/lib/chart-math";
 import { fromDateKey, toDateKey } from "@learn-workbench/shared/dates";
+import { friendlyError } from "@/lib/friendly-error";
 
 interface DailyOs {
   learning: { tasksTotal: number; tasksDone: number; focusMinutes: number };
@@ -662,7 +663,7 @@ export default function WellnessScreen() {
       }
     } catch (e) {
       setWaterDelta((d) => Math.max(0, d - ml)); // 回滚
-      Alert.alert("记录饮水失败", e instanceof Error ? e.message : "网络似乎不太顺，稍后再试");
+      Alert.alert("记录饮水失败", friendlyError(e, "网络似乎不太顺，稍后再试"));
     } finally {
       setWaterBusy(false);
     }

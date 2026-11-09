@@ -29,6 +29,7 @@ import { takeNavPendingParams } from "@/lib/nav-pending";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
 import { radius, spacing, typography, type ThemeColors } from "@/theme/tokens";
+import { friendlyError } from "@/lib/friendly-error";
 
 const NAV_CHANNEL = "exam-408-study-read";
 
@@ -93,14 +94,14 @@ export default function Exam408StudyReadScreen() {
           setKnowledgeMap(map);
           setMapError(map ? "" : "本章知识图谱暂未同步");
         } catch (mapReason) {
-          setMapError(mapReason instanceof Error ? mapReason.message : "知识图谱加载失败");
+          setMapError(friendlyError(mapReason, "知识图谱加载失败"));
         } finally {
           setMapLoading(false);
         }
       }
     } catch (reason) {
       setDetail(null);
-      setError(reason instanceof Error ? reason.message : "正文加载失败");
+      setError(friendlyError(reason, "正文加载失败"));
     } finally {
       setLoading(false);
     }

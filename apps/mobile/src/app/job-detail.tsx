@@ -36,6 +36,7 @@ import { radius, shadows, spacing, typography, type ThemeColors } from "@/theme/
 import type { JobApplication, JobLearningPlan } from "@learn-workbench/shared/schemas";
 import { jobApplicationStageLabels, jobSourceLabels } from "@learn-workbench/shared/labels";
 import { formatRelativeTime } from "@learn-workbench/shared/dates";
+import { friendlyError } from "@/lib/friendly-error";
 
 /**
  * 招花 · 岗位详情页（P3-3A）。
@@ -112,7 +113,7 @@ function JobDetailView({ jobId }: { jobId: string }) {
       setPlan(null);
       setApplication(null);
       setNotFound(missing);
-      setError(missing ? "这个岗位可能已下线或被删除" : e instanceof Error ? e.message : "职位详情加载失败");
+      setError(missing ? "这个岗位可能已下线或被删除" : friendlyError(e, "职位详情加载失败"));
     } finally {
       setLoading(false);
     }
@@ -160,7 +161,7 @@ function JobDetailView({ jobId }: { jobId: string }) {
     } catch (e) {
       setFavorite(!optimistic);
       haptics.error();
-      showToast(e instanceof Error ? e.message : "收藏失败，请稍后重试", "error", 2600);
+      showToast(friendlyError(e, "收藏失败，请稍后重试"), "error", 2600);
     } finally {
       setFavoriteBusy(false);
     }
@@ -214,7 +215,7 @@ function JobDetailView({ jobId }: { jobId: string }) {
       showToast("已投递，可在「我的求职」里继续跟进", "success", 2600);
     } catch (e) {
       haptics.error();
-      showToast(e instanceof Error ? e.message : "投递失败，请稍后重试", "error", 2600);
+      showToast(friendlyError(e, "投递失败，请稍后重试"), "error", 2600);
     } finally {
       setApplying(false);
     }
@@ -233,7 +234,7 @@ function JobDetailView({ jobId }: { jobId: string }) {
       showToast("已加入 " + created + " 项学习任务到今日计划", "success", 2400);
     } catch (e) {
       haptics.error();
-      showToast(e instanceof Error ? e.message : "加入学习任务失败", "error", 2600);
+      showToast(friendlyError(e, "加入学习任务失败"), "error", 2600);
     } finally {
       setEnrolling(false);
     }

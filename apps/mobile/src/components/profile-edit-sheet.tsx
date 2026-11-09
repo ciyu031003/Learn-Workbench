@@ -9,6 +9,7 @@ import { absoluteMediaUrl, pickAndUpload } from "@/lib/uploads";
 import { useAppStore } from "@/store/app-store";
 import { useTheme } from "@/theme";
 import { radius, typography, type ThemeColors } from "@/theme/tokens";
+import { friendlyError } from "@/lib/friendly-error";
 
 const NAME_MAX = 20;
 
@@ -47,7 +48,7 @@ export function ProfileEditSheet({ visible, onClose }: { visible: boolean; onClo
       const url = await pickAndUpload("avatar");
       if (url) setAvatarUrl(url);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "头像上传失败，请重试");
+      setError(friendlyError(e, "头像上传失败，请重试"));
     } finally {
       setUploading(false);
     }
@@ -66,7 +67,7 @@ export function ProfileEditSheet({ visible, onClose }: { visible: boolean; onClo
       useAppStore.getState().setProfile(next.displayName, next.avatarUrl);
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "保存失败，请稍后重试");
+      setError(friendlyError(e, "保存失败，请稍后重试"));
     } finally {
       setSaving(false);
     }

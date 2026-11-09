@@ -21,6 +21,7 @@ import { useScreenEntrance } from "@/lib/use-screen-entrance";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
 import { radius, shadows, spacing, tabularNums, typography, type ThemeColors } from "@/theme/tokens";
+import { friendlyError } from "@/lib/friendly-error";
 
 /**
  * 408 精读·目录（v1.55）。cs408.cloud 的 181 篇正文按「科目 → 章节 → 文章」组织，
@@ -57,7 +58,7 @@ export default function Exam408StudyScreen() {
     } catch (reason) {
       if (subjectRef.current === next) {
         setCatalog(null);
-        setError(reason instanceof Error ? reason.message : "精读目录加载失败");
+        setError(friendlyError(reason, "精读目录加载失败"));
       }
     } finally {
       if (subjectRef.current === next) setLoading(false);

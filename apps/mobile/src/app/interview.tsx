@@ -24,6 +24,7 @@ import type { InterviewQuestion, QuestionModule } from "@learn-workbench/shared/
 
 /** 难度徽章：文案 +配色（v20-E1：色收进主题 token） */
 import { ThemedIcon } from "@/components/themed-icon";
+import { friendlyError } from "@/lib/friendly-error";
 
 /** v1.26：题型只预览前 3 个，其余从「更多」弹层选（不再一行横滑找） */
 const MODULE_PREVIEW = 3;
@@ -166,7 +167,7 @@ export default function InterviewScreen() {
         Alert.alert("提交失败", data.error || "请稍后重试");
       }
     } catch (e) {
-      Alert.alert("提交失败", e instanceof Error ? e.message : "请稍后重试");
+      Alert.alert("提交失败", friendlyError(e, "请稍后重试"));
     } finally {
       setSubmitting(false);
     }

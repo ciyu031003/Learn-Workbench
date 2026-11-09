@@ -30,6 +30,7 @@ import { certificateStatusLabels } from "@learn-workbench/shared/labels";
 import { absoluteMediaUrl, deleteUpload, pickAndUploadPhoto } from "@/lib/uploads";
 import { onUploadResolved } from "@/lib/upload-sync";
 import { isLocalFileUri } from "@/lib/upload-outbox";
+import { friendlyError } from "@/lib/friendly-error";
 
 /** V3 独立证书领域：移动端证书列表 + 新增 + 状态流程 + 已取得图片（直连 /api/certificates） */
 export default function CertificatesScreen() {
@@ -129,7 +130,7 @@ export default function CertificatesScreen() {
           clearLocalPreview(pending.id);
           // 图已进桶但 PATCH 失败：没有记录会引用它，删掉避免孤儿文件
           void deleteUpload(url);
-          Alert.alert("证书图片保存失败", e instanceof Error ? e.message : "图片已上传，但没能关联到证书，请重新上传");
+          Alert.alert("证书图片保存失败", friendlyError(e, "图片已上传，但没能关联到证书，请重新上传"));
         });
       }),
     [applyImageUrl, clearLocalPreview]
@@ -185,7 +186,7 @@ export default function CertificatesScreen() {
       setPhotoUrl(result.url);
       haptics.success();
     } catch (e) {
-      Alert.alert("图片上传失败", e instanceof Error ? e.message : "请稍后重试");
+      Alert.alert("图片上传失败", friendlyError(e, "请稍后重试"));
     } finally {
       setPhotoUploading(false);
     }
@@ -220,7 +221,7 @@ export default function CertificatesScreen() {
       setPhotoUrl(null);
       await load({ silent: true });
     } catch (e) {
-      Alert.alert("保存失败", e instanceof Error ? e.message : "请稍后重试");
+      Alert.alert("保存失败", friendlyError(e, "请稍后重试"));
     } finally {
       setSaving(false);
     }
@@ -244,7 +245,7 @@ export default function CertificatesScreen() {
     } catch (e) {
       setRecords((prev) => prev.map((x) => (x.id === record.id ? { ...x, status: prevStatus } : x)));
       haptics.error();
-      Alert.alert("状态更新失败", e instanceof Error ? e.message : "请稍后重试");
+      Alert.alert("状态更新失败", friendlyError(e, "请稍后重试"));
     }
   };
 
@@ -275,7 +276,7 @@ export default function CertificatesScreen() {
       }
       haptics.success();
     } catch (e) {
-      Alert.alert("图片上传失败", e instanceof Error ? e.message : "请稍后重试");
+      Alert.alert("图片上传失败", friendlyError(e, "请稍后重试"));
     } finally {
       setUploadingId(null);
     }
@@ -296,7 +297,7 @@ export default function CertificatesScreen() {
               if (statusSheetFor === record.id) setStatusSheetFor(null);
             }
           } catch (e) {
-            Alert.alert("删除失败", e instanceof Error ? e.message : "");
+            Alert.alert("删除失败", friendlyError(e, ""));
           }
         },
       },

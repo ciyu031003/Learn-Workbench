@@ -43,6 +43,7 @@ import {
   type DraftItem,
 } from "@/lib/workout-draft";
 import { takeNavPendingParams } from "@/lib/nav-pending";
+import { friendlyError } from "@/lib/friendly-error";
 
 /**
  * 记录训练（全屏路由，v1.47）。
@@ -160,7 +161,7 @@ export default function WorkoutAddScreen() {
       );
       setNote(found.note ?? "");
     } catch (e) {
-      setLoadError(e instanceof Error ? e.message : "读取失败，请稍后重试");
+      setLoadError(friendlyError(e, "读取失败，请稍后重试"));
     } finally {
       setLoading(false);
     }
@@ -269,7 +270,7 @@ export default function WorkoutAddScreen() {
     } catch (e) {
       // 先把 loading 复位再弹窗：返回键/重试时按钮不能一直转圈
       setSaving(false);
-      Alert.alert("保存失败", e instanceof Error ? e.message : "请稍后重试");
+      Alert.alert("保存失败", friendlyError(e, "请稍后重试"));
       return;
     }
     // 先复位再导航：避免 back() 之后还在已卸载组件上 setState

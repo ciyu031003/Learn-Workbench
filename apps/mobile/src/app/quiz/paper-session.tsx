@@ -30,6 +30,7 @@ import { useScreenEntrance } from "@/lib/use-screen-entrance";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
 import { radius, shadows, spacing, typography, type ThemeColors } from "@/theme/tokens";
+import { friendlyError } from "@/lib/friendly-error";
 
 type ResultKind = "correct" | "wrong" | "reviewed";
 
@@ -103,7 +104,7 @@ function PaperSession({ year, start }: { year: number; start: number }) {
       // 只在首次加载时记开始时间：重新聚焦不重置本次作答的用时
       if (!startedAtRef.current) startedAtRef.current = Date.now();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "试卷加载失败");
+      setError(friendlyError(reason, "试卷加载失败"));
     } finally {
       setLoading(false);
     }

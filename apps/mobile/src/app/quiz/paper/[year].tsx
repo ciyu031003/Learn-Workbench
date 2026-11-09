@@ -11,6 +11,7 @@ import { useScreenEntrance } from "@/lib/use-screen-entrance";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
 import { radius, shadows, spacing, typography, type ThemeColors } from "@/theme/tokens";
+import { friendlyError } from "@/lib/friendly-error";
 
 export default function Exam408PaperScreen() {
   const params = useLocalSearchParams<{ year?: string }>();
@@ -37,7 +38,7 @@ function PaperContent({ year }: { year: number }) {
     try {
       setPaper(await getExam408Paper(year));
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "试卷加载失败");
+      setError(friendlyError(reason, "试卷加载失败"));
     } finally {
       setLoading(false);
     }

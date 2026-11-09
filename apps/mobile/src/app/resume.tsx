@@ -28,6 +28,7 @@ import { resumeAssetKindLabels } from "@learn-workbench/shared/labels";
 import { ResumeFilesCard } from "@/components/resume-files-card";
 import { DURATION, useReducedMotion } from "@/lib/motion";
 import { staggerDelay } from "@/lib/stagger";
+import { friendlyError } from "@/lib/friendly-error";
 
 const KINDS: ResumeAssetKind[] = ["project", "skill", "github", "certificate"];
 
@@ -118,7 +119,7 @@ export default function ResumeScreen() {
       setUrl("");
       await load();
     } catch (e) {
-      Alert.alert("保存失败", e instanceof Error ? e.message : "请稍后重试");
+      Alert.alert("保存失败", friendlyError(e, "请稍后重试"));
     } finally {
       setSaving(false);
     }
@@ -135,7 +136,7 @@ export default function ResumeScreen() {
             const r = await fetch(`${getApiUrl()}/api/resume-assets?id=${record.id}`, { method: "DELETE", headers: headers() });
             if (r.ok) setRecords((prev) => prev.filter((x) => x.id !== record.id));
           } catch (e) {
-            Alert.alert("删除失败", e instanceof Error ? e.message : "");
+            Alert.alert("删除失败", friendlyError(e, ""));
           }
         },
       },

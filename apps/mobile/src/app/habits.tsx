@@ -38,6 +38,7 @@ import { HABIT_TEMPLATES, HABIT_WEEKDAY_LABELS } from "@learn-workbench/shared/l
 import { isScheduled, toDateKey, fromDateKey } from "@learn-workbench/shared/dates";
 import { todayISOInZone } from "@learn-workbench/shared/domains";
 import { computeHabitStats, habitTimeLabel, isHabitDone, normalizeHabitTime } from "@learn-workbench/shared/pure";
+import { friendlyError } from "@/lib/friendly-error";
 
 /**
  * 内置习惯图标：**存储值仍是 emoji，渲染走 habitIconName 映射成开源图标**
@@ -194,7 +195,7 @@ const last7 = useMemo(() => {
       closeSheet();
       await load();
     } catch (err) {
-      Alert.alert("保存失败", err instanceof Error ? err.message : "请稍后重试");
+      Alert.alert("保存失败", friendlyError(err, "请稍后重试"));
     } finally {
       setSaving(false);
     }
@@ -227,7 +228,7 @@ const last7 = useMemo(() => {
               if (!r.ok) throw new Error("删除失败");
               await load();
             } catch (e) {
-              Alert.alert("删除失败", e instanceof Error ? e.message : "请稍后重试");
+              Alert.alert("删除失败", friendlyError(e, "请稍后重试"));
             }
           })();
         },

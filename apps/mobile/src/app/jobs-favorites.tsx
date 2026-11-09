@@ -29,6 +29,7 @@ import { radius, spacing, typography, type ThemeColors } from "@/theme/tokens";
 import type { JobPostingListItem } from "@learn-workbench/shared/schemas";
 import { jobSourceLabels } from "@learn-workbench/shared/labels";
 import { formatRelativeTime } from "@learn-workbench/shared/dates";
+import { friendlyError } from "@/lib/friendly-error";
 
 /**
  * 招花 · 我的收藏（P3-3A）。
@@ -88,7 +89,7 @@ export default function JobsFavoritesScreen() {
           setTotal(0);
           setError(null);
         } else {
-          setError(e instanceof Error ? e.message : "收藏列表加载失败");
+          setError(friendlyError(e, "收藏列表加载失败"));
         }
       } finally {
         setLoading(false);
@@ -144,7 +145,7 @@ export default function JobsFavoritesScreen() {
     } catch (e) {
       setJobs(snapshotJobs);
       setTotal(snapshotTotal);
-      Alert.alert("取消收藏失败", e instanceof Error ? e.message : "请稍后重试");
+      Alert.alert("取消收藏失败", friendlyError(e, "请稍后重试"));
     } finally {
       setRemovingId(null);
     }
@@ -249,7 +250,7 @@ export default function JobsFavoritesScreen() {
           icon="cloud-offline-outline"
           title="收藏列表加载失败"
           hint={error}
-          actionLabel="重新加载"
+          actionLabel="重试"
           onAction={() => void load(1, "initial")}
           pattern="none"
         />

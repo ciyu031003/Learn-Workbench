@@ -20,6 +20,7 @@ import {
   type Exam408Topic,
 } from "@/lib/exam-408-topic";
 import { exam408BodyParagraphs } from "@/lib/exam-408-view";
+import { friendlyError } from "@/lib/friendly-error";
 import { takeNavPendingParams } from "@/lib/nav-pending";
 import { recordCrumb } from "@/lib/crash-capture";
 import { useScreenEntrance } from "@/lib/use-screen-entrance";
@@ -96,11 +97,7 @@ function PointContent({ pointKey }: { pointKey: string }) {
         setDetail(pointResult.value);
       } else {
         setDetail(null);
-        setError(
-          pointResult.reason instanceof Error
-            ? pointResult.reason.message
-            : "知识点加载失败",
-        );
+        setError(friendlyError(pointResult.reason, "知识点加载失败"));
       }
       setTopic(topicResult.status === "fulfilled" ? topicResult.value : null);
     } finally {

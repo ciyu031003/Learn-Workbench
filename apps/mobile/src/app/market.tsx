@@ -44,6 +44,7 @@ import {
 } from "@/lib/market";
 import { aggregateTimeSeries, labelPositions } from "@/lib/market-series";
 import type { MarketGapItem } from "@learn-workbench/shared/schemas";
+import { friendlyError } from "@/lib/friendly-error";
 
 type MarketStyles = ReturnType<typeof makeStyles>;
 type FilterKey = "city" | "function" | "industry" | "seniority" | "source";
@@ -282,7 +283,7 @@ export default function MarketScreen() {
       setPersonal(nextPersonal);
       loadedOnceRef.current = true;
     } catch (e) {
-      setError(e instanceof Error ? e.message : "市场数据加载失败");
+      setError(friendlyError(e, "市场数据加载失败"));
     } finally {
       setLoading(false);
       setFilterRefreshing(false);
@@ -338,7 +339,7 @@ export default function MarketScreen() {
       setPersonal(await fetchMarketPersonal());
     } catch (e) {
       haptics.error();
-      showToast(e instanceof Error ? e.message : "加入失败，请稍后重试", "error");
+      showToast(friendlyError(e, "加入失败，请稍后重试"), "error");
     } finally {
       setEnrolling(null);
     }
@@ -474,7 +475,7 @@ export default function MarketScreen() {
           icon="cloud-offline-outline"
           title="市场数据加载失败"
           hint={error}
-          actionLabel="重新加载"
+          actionLabel="重试"
           onAction={() => void load()}
         />
       ) : !data || !summary || summary.total === 0 ? (
