@@ -383,7 +383,8 @@ function PaperSession({ year, start }: { year: number; start: number }) {
 
   return (
     <View style={styles.root}>
-      <ScreenHeaderStickyBar title={`${year} 年 408 真题`} scrollY={header.scrollY} backTo={`/quiz/paper/${year}`} />
+      {/* 本页内容区没有大标题：吸顶栏标题常显 */}
+      <ScreenHeaderStickyBar title={`${year} 年 408 真题`} backTo={`/quiz/paper/${year}`} />
       <Animated.ScrollView
         onScroll={header.onScroll}
         scrollEventThrottle={16}

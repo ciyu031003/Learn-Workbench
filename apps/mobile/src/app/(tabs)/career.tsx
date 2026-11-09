@@ -184,8 +184,20 @@ export default function CareerScreen() {
   const [appStats, setAppStats] = useState<Record<string, number> | null>(null);
   const [jobStats, setJobStats] = useState<JobStats | null>(null);
   const [radar, setRadar] = useState<RadarSummary | null>(null);
+  /** 换号/退出时丢弃上一账号还在飞的请求，避免旧准备度/投递数短暂串号。 */
+  const loadSeq = useRef(0);
 
-  const loadCareer = useCallback(async () => {
+  const loadCareer = useCallback(async (reset = false) => {
+    const seq = ++loadSeq.current;
+    if (reset) {
+      setReadiness(null);
+      setSkills([]);
+      setTodayNewJobs(null);
+      setAppStats(null);
+      setJobStats(null);
+      setRadar(null);
+      setGate(INITIAL_FIRST_LOAD_GATE);
+    }
     const headers: Record<string, string> = {};
     if (token) headers.Authorization = "Bearer " + token;
     try {
@@ -197,6 +209,7 @@ export default function CareerScreen() {
         fetchJobStats().catch(() => null),
         fetch(getApiUrl() + "/api/jobs/radar?limit=" + RADAR_FETCH_LIMIT, { headers }).catch(() => null),
       ]);
+      if (seq !== loadSeq.current) return;
       if (readinessRes?.ok) {
         const data = await readinessRes.json().catch(() => null);
         if (data) {
@@ -224,15 +237,15 @@ export default function CareerScreen() {
         if (data && typeof data.hasProfile === "boolean") setRadar(data);
       }
     } catch {
-      setGate((g) => nextFirstLoadGate(g, { type: "load-failure" }));
+      if (seq === loadSeq.current) setGate((g) => nextFirstLoadGate(g, { type: "load-failure" }));
     } finally {
-      setGate((g) => nextFirstLoadGate(g, { type: "load-failure" }));
+      if (seq === loadSeq.current) setGate((g) => nextFirstLoadGate(g, { type: "load-failure" }));
     }
   }, [token]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data load
-    void loadCareer();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data load / account switch reset
+    void loadCareer(true);
   }, [loadCareer]);
 
   const { control: careerRefresh } = usePullRefresh(loadCareer, { stickyHeader: true });

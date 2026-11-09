@@ -23,7 +23,7 @@ import Animated, {
 import { EmptyState } from "@/components/empty-state";
 import { PressableScale } from "@/components/pressable-scale";
 import { RichText } from "@/components/rich-text";
-import { ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
+import { ScreenHeaderStickyBar } from "@/components/screen-header";
 import { ThemedIcon } from "@/components/themed-icon";
 import { getApiUrl } from "@/config";
 import { haptics } from "@/lib/haptics";
@@ -104,7 +104,6 @@ const SLIDE_OUT = 460;
 export default function Exam408DrillScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const header = useLargeTitleHeader();
   const bottomSpace = useTabBarSpace();
   const entrance = useScreenEntrance();
   const token = useAppStore((s) => s.token);
@@ -410,7 +409,8 @@ export default function Exam408DrillScreen() {
   if (!token || activeFailure === "unauthorized") {
     return (
       <View style={styles.root}>
-        <ScreenHeaderStickyBar title="408 刷卡" scrollY={header.scrollY} backTo="/exam-408" />
+        {/* 本页内容区没有大标题：吸顶栏标题必须常显，不能跟随滚动淡出 */}
+        <ScreenHeaderStickyBar title="408 刷卡" backTo="/exam-408" />
         <View style={styles.centerBox}>
           <EmptyState
             icon="lock-closed-outline"
@@ -428,7 +428,7 @@ export default function Exam408DrillScreen() {
   if (activeLoading) {
     return (
       <View style={styles.root}>
-        <ScreenHeaderStickyBar title="408 刷卡" scrollY={header.scrollY} backTo="/exam-408" />
+        <ScreenHeaderStickyBar title="408 刷卡" backTo="/exam-408" />
         <View style={styles.centerBox}>
           <ActivityIndicator color={colors.primary} />
           <Text style={styles.centerText}>正在准备刷卡队列…</Text>
@@ -439,7 +439,7 @@ export default function Exam408DrillScreen() {
 
   return (
     <View style={styles.root}>
-      <ScreenHeaderStickyBar title="408 刷卡" scrollY={header.scrollY} backTo="/exam-408" />
+      <ScreenHeaderStickyBar title="408 刷卡" backTo="/exam-408" />
 
       <View
         style={[

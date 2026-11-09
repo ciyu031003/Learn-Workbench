@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { palettes } from "./tokens";
+import { palettes, typography } from "./tokens";
 
 const light = palettes.light;
 const dark = palettes.dark;
@@ -83,5 +83,18 @@ describe("textFaint 图标对比度", () => {
   });
   it("深色档对深色卡面 >= 3", () => {
     expect(ratio(dark.textFaint, dark.surfaceStrong)).toBeGreaterThanOrEqual(3);
+  });
+});
+
+/** v2.6.3 P1：中文标题字距必须归零，元信息不能低于 12px。 */
+describe("中文字阶护栏", () => {
+  it("页面 / Hero / 区块标题不使用负字距", () => {
+    expect(typography.pageTitle.letterSpacing).toBe(0);
+    expect(typography.hero.letterSpacing).toBe(0);
+    expect(typography.section.letterSpacing).toBe(0);
+  });
+
+  it("元信息至少 12px", () => {
+    expect(typography.meta.fontSize).toBeGreaterThanOrEqual(12);
   });
 });

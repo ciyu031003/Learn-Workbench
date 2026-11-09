@@ -97,4 +97,26 @@ describe("PUT /api/auth/me", () => {
     expect((await PUT(jsonReq({ avatarUrl: "https://example.com/a.png" }))).status).toBe(400);
     expect((await PUT(jsonReq({ avatarUrl: "/uploads/../secret" }))).status).toBe(400);
   });
+
+  it("rejects another user's upload directory", async () => {
+    currentUserMock.mockResolvedValue({
+      id: "u-1",
+      username: "alice",
+      displayName: "Alice",
+      avatarUrl: null,
+    } as never);
+    expect((await PUT(jsonReq({ avatarUrl: "/uploads/u-2/avatar.webp" }))).status).toBe(400);
+  });
+
+  it("rejects nested paths and query strings", async () => {
+    currentUserMock.mockResolvedValue({
+      id: "u-1",
+      username: "alice",
+      displayName: "Alice",
+      avatarUrl: null,
+    } as never);
+    expect((await PUT(jsonReq({ avatarUrl: "/uploads/u-1/a/b.webp" }))).status).toBe(400);
+    expect((await PUT(jsonReq({ avatarUrl: "/uploads/u-1/avatar.webp?x=1" }))).status).toBe(400);
+    expect((await PUT(jsonReq({ avatarUrl: "/uploads/u-1/" }))).status).toBe(400);
+  });
 });

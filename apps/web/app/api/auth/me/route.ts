@@ -18,9 +18,10 @@ function hasOwn(body: object, key: string): boolean {
 /**
  * 保存个人资料（昵称 / 头像）。只接受两份数据：
  * - displayName：1–20 个字符（按 Unicode code point 计），null 表示恢复登录名兜底；
- * - avatarUrl：本站 /uploads/ 下的相对地址，null 表示移除头像。
+ * - avatarUrl：本站 /uploads/<当前用户 id>/ 下的单个文件名，null 表示移除头像。
  *
- * 头像不走外部 URL，避免把用户资料变成任意外链加载入口。
+ * 头像不走外部 URL，避免把用户资料变成任意外链加载入口；
+ * 同时只接受本人目录，防止把别人的上传文件挂成自己的头像。
  */
 export async function PUT(req: Request) {
   const user = await currentUser();
@@ -61,8 +62,16 @@ export async function PUT(req: Request) {
       avatarUrl = null;
     } else if (typeof raw === "string") {
       const value = raw.trim();
+      const ownPrefix = `/uploads/${user.id}/`;
+      const fileName = value.startsWith(ownPrefix) ? value.slice(ownPrefix.length) : "";
       if (!value) avatarUrl = null;
-      else if (value.length > 500 || !value.startsWith("/uploads/") || value.includes("..")) {
+      else if (
+        value.length > 500 ||
+        !fileName ||
+        fileName.includes("/") ||
+        value.includes("..") ||
+        /[\\?#]/.test(value)
+      ) {
         return withPrivateNoStore(NextResponse.json({ error: "头像地址不合法" }, { status: 400 }));
       } else avatarUrl = value;
     } else {

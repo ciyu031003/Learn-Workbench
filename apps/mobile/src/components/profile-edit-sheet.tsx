@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Image, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { SheetStickyCta } from "@/components/sheet";
 import { ThemedIcon } from "@/components/themed-icon";
 import { useIdentity } from "@/hooks/use-identity";
 import { identityInitial, updateIdentity } from "@/lib/identity";
-import { absoluteMediaUrl, pickAndUpload } from "@/lib/uploads";
+import { absoluteMediaUrl, deleteUpload, pickAndUpload } from "@/lib/uploads";
 import { useAppStore } from "@/store/app-store";
 import { useTheme } from "@/theme";
 import { radius, typography, type ThemeColors } from "@/theme/tokens";
@@ -27,11 +27,17 @@ export function ProfileEditSheet({ visible, onClose }: { visible: boolean; onClo
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** 打开弹层时的头像：保存成功后若被替换/移除，清掉旧文件，避免 /uploads 里留孤儿。 */
+  const initialAvatarRef = useRef<string | null>(identity.avatarUrl);
+  /** 本次会话刚上传、尚未保存的头像；关掉弹层时清掉。 */
+  const unsavedUploadRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!visible) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reset editor state on open
     setName(identity.name);
+    initialAvatarRef.current = identity.avatarUrl;
+    unsavedUploadRef.current = null;
     setAvatarUrl(identity.avatarUrl);
     setError(null);
   }, [visible, identity.name, identity.avatarUrl]);
@@ -46,7 +52,12 @@ export function ProfileEditSheet({ visible, onClose }: { visible: boolean; onClo
     setError(null);
     try {
       const url = await pickAndUpload("avatar");
-      if (url) setAvatarUrl(url);
+      if (url) {
+        const previous = avatarUrl;
+        if (previous && previous !== initialAvatarRef.current) void deleteUpload(previous);
+        unsavedUploadRef.current = url;
+        setAvatarUrl(url);
+      }
     } catch (e) {
       setError(friendlyError(e, "头像上传失败，请重试"));
     } finally {
@@ -65,6 +76,9 @@ export function ProfileEditSheet({ visible, onClose }: { visible: boolean; onClo
     try {
       const next = await updateIdentity(token, { displayName: name.trim(), avatarUrl });
       useAppStore.getState().setProfile(next.displayName, next.avatarUrl);
+      const initial = initialAvatarRef.current;
+      if (initial && initial !== next.avatarUrl) void deleteUpload(initial);
+      unsavedUploadRef.current = null;
       onClose();
     } catch (e) {
       setError(friendlyError(e, "保存失败，请稍后重试"));
@@ -73,10 +87,17 @@ export function ProfileEditSheet({ visible, onClose }: { visible: boolean; onClo
     }
   };
 
+  const handleClose = () => {
+    const pending = unsavedUploadRef.current;
+    unsavedUploadRef.current = null;
+    if (pending) void deleteUpload(pending);
+    onClose();
+  };
+
   return (
     <BottomSheet
       visible={visible}
-      onClose={onClose}
+      onClose={handleClose}
       title="编辑资料"
       subtitle="头像和昵称会同步到今日页与我的页"
       icon="person-circle-outline"
