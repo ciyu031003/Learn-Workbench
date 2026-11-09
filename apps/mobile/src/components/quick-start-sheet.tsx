@@ -86,6 +86,8 @@ export function QuickStartSheet({
   const compact = winHeight < 700;
   /** 一屏化模式的「选内容」子步骤 */
   const [contentStep, setContentStep] = useState(false);
+  /** 一屏化模式的「选运动项目」子步骤 */
+  const [exerciseStep, setExerciseStep] = useState(false);
   /** 每日一言来自纯函数（按天取）——与 FocusTimer 的「励志短句」同一内容源，此处只读展示 */
   const dailyQuote = useMemo(() => getDailyQuote(), []);
   const [tab, setTab] = useState<"learning" | "exercise">("learning");
@@ -101,7 +103,8 @@ export function QuickStartSheet({
   const [exerciseMode, setExerciseMode] = useState<"countdown" | "stopwatch">("countdown");
 
   const sports = useMemo(() => SPORT_CATALOG.filter((s) => s.type === sportType), [sportType]);
-  const pickedSport = sport ?? sports[0] ?? null;
+  /** 切换运动类型后旧的 sport 可能不属于当前类型，按 key 重新校验 */
+  const pickedSport = sport && sports.some((s) => s.key === sport.key) ? sport : sports[0] ?? null;
 
   /** 每次关闭都回到默认选择（D4：不记住上次）——所有关闭路径（含侧滑/点空白）都会走它 */
   const reset = () => {
@@ -113,6 +116,7 @@ export function QuickStartSheet({
     setSportMinutes(30);
     setTab("learning");
     setContentStep(false);
+    setExerciseStep(false);
   };
 
   const close = () => {
@@ -163,17 +167,23 @@ export function QuickStartSheet({
    * 只在 oneScreen 时渲染；旧的多分组弹层（学习/运动）原样保留，其它调用方零改动。
    */
   if (oneScreen) {
-    const focusStartLabel =
-      learningMode === "stopwatch" ? "开始专注 · 正向计时" : `开始专注 · ${learningMinutes} 分钟`;
+    const isExercise = tab === "exercise";
+    const focusStartLabel = isExercise
+      ? exerciseMode === "stopwatch"
+        ? "开始锻炼 · " + (pickedSport?.name ?? "运动")
+        : "开始锻炼 · " + (pickedSport?.name ?? "运动") + " " + sportMinutes + " 分钟"
+      : learningMode === "stopwatch"
+        ? "开始专注 · 正向计时"
+        : `开始专注 · ${learningMinutes} 分钟`;
     return (
       <BottomSheet
         visible={visible}
         onClose={close}
-        title="开始专注"
-        subtitle="选好时长，点底部按钮进入全屏专注"
-        icon="play-circle-outline"
-        // 近全屏：94% 可用高度（已扣状态栏与底部安全区），固定高度、不可上拉展开
-        height="94%"
+        title={isExercise ? "开始运动" : "开始专注"}
+        subtitle={isExercise ? "选好项目和时长，点底部按钮开始记录" : "选好时长，点底部按钮进入全屏专注"}
+        icon={isExercise ? "barbell-outline" : "play-circle-outline"}
+        // 常规屏贴合内容；小屏仍保留 94% 防止设置区被压缩
+        height={compact ? "96%" : "84%"}
         expandable={false}
         // 关键：不内置滚动容器 —— 一屏内的高度全部交给 flex 分配
         scroll={false}
@@ -194,6 +204,23 @@ export function QuickStartSheet({
         }
       >
         <View style={[styles.oneScreen, compact && styles.oneScreenCompact]}>
+          {!contentStep && !exerciseStep ? (
+            <View style={styles.oneModeSwitch}>
+              <SheetSegmented
+                options={[
+                  { key: "learning", label: "学习", icon: "book-outline" },
+                  { key: "exercise", label: "运动", icon: "barbell-outline" },
+                ]}
+                value={tab}
+                onChange={(next) => {
+                  setTab(next);
+                  setContentStep(false);
+                  setExerciseStep(false);
+                }}
+              />
+            </View>
+          ) : null}
+
           {contentStep ? (
             <View style={styles.stepWrap}>
               <View style={styles.stepHead}>
@@ -219,63 +246,179 @@ export function QuickStartSheet({
                 <ContentPicker value={content} onChange={setContent} />
               </ScrollView>
             </View>
-          ) : (
-            <View style={[styles.oneMain, compact && styles.oneMainCompact]}>
-              <View style={styles.oneBlock}>
-                <Text style={styles.oneLabel}>专注时长</Text>
-                <View style={styles.chipRow}>
-                  {[25, 45, 60].map((m) => {
-                    const active = learningMode === "countdown" && learningMinutes === m;
-                    return (
-                      <Pressable
-                        key={m}
-                        onPress={() => {
-                          setLearningMode("countdown");
-                          setLearningMinutes(m);
-                        }}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected: active }}
-                        accessibilityLabel={`专注 ${m} 分钟`}
-                        style={[styles.chip, active && styles.chipActive]}
-                      >
-                        <Text style={[styles.chipText, active && styles.chipTextActive]}>{m} 分钟</Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-                <StepperRow
-                  label="自定义时长"
-                  hint="5–180 分钟"
-                  value={learningMinutes}
-                  step={5}
-                  min={5}
-                  max={180}
-                  unit="分钟"
-                  onChange={(v) => {
-                    setLearningMode("countdown");
-                    setLearningMinutes(v);
-                  }}
-                />
+          ) : exerciseStep ? (
+            <View style={styles.stepWrap}>
+              <View style={styles.stepHead}>
+                <Pressable
+                  onPress={() => setExerciseStep(false)}
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  accessibilityLabel="返回运动设置"
+                  style={styles.stepBack}
+                >
+                  <ThemedIcon name="chevron-back" size={16} color={colors.text} />
+                  <Text style={styles.stepBackText}>返回</Text>
+                </Pressable>
+                <Text style={styles.stepTitle}>选择运动</Text>
               </View>
-
-              <View style={styles.oneBlock}>
-                <Text style={styles.oneLabel}>计时方式</Text>
-                <SheetSegmented options={MODE_OPTIONS} value={learningMode} onChange={setLearningMode} />
-              </View>
-
-              <Pressable
-                onPress={() => setContentStep(true)}
-                accessibilityRole="button"
-                accessibilityLabel="选择这次学习的内容"
-                style={styles.contentRow}
+              <ScrollView
+                style={styles.stepScroll}
+                contentContainerStyle={styles.stepScrollContent}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
               >
-                <ThemedIcon name="bookmark-outline" size={14} color={colors.primary} />
-                <Text style={styles.contentRowText} numberOfLines={1}>
-                  {contentLabelOf(content) ?? "不指定 · 自由专注"}
-                </Text>
-                <ThemedIcon name="chevron-forward" size={14} color={colors.textFaint} />
-              </Pressable>
+                <SheetSection title="项目类型">
+                  <ChipGroup
+                    multiple={false}
+                    wrap
+                    options={exerciseTypeOptions.map((t) => ({ key: t.type, label: t.label }))}
+                    selected={[sportType]}
+                    onToggle={(k) => {
+                      setSportType(k);
+                      setSport(null);
+                    }}
+                  />
+                </SheetSection>
+                <SheetSection title="项目" last>
+                  <ChipGroup
+                    multiple={false}
+                    wrap
+                    options={sports.map((s) => ({ key: s.key, label: s.name }))}
+                    selected={pickedSport ? [pickedSport.key] : []}
+                    onToggle={(k) => {
+                      const next = sports.find((s) => s.key === k);
+                      if (next) setSport(next);
+                    }}
+                  />
+                </SheetSection>
+              </ScrollView>
             </View>
+          ) : (
+            <ScrollView
+              style={styles.oneMainScroll}
+              contentContainerStyle={[styles.oneMain, compact && styles.oneMainCompact]}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {tab === "learning" ? (
+                <>
+                  <View style={styles.oneBlock}>
+                    <Text style={styles.oneLabel}>专注时长</Text>
+                    <View style={styles.chipRow}>
+                      {[25, 45, 60].map((m) => {
+                        const active = learningMode === "countdown" && learningMinutes === m;
+                        return (
+                          <Pressable
+                            key={m}
+                            onPress={() => {
+                              setLearningMode("countdown");
+                              setLearningMinutes(m);
+                            }}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: active }}
+                            accessibilityLabel={`专注 ${m} 分钟`}
+                            style={[styles.chip, active && styles.chipActive]}
+                          >
+                            <Text style={[styles.chipText, active && styles.chipTextActive]}>{m} 分钟</Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                    <StepperRow
+                      label="自定义时长"
+                      hint="5–180 分钟"
+                      value={learningMinutes}
+                      step={5}
+                      min={5}
+                      max={180}
+                      unit="分钟"
+                      onChange={(v) => {
+                        setLearningMode("countdown");
+                        setLearningMinutes(v);
+                      }}
+                    />
+                  </View>
+
+                  <View style={styles.oneBlock}>
+                    <Text style={styles.oneLabel}>计时方式</Text>
+                    <SheetSegmented options={MODE_OPTIONS} value={learningMode} onChange={setLearningMode} />
+                  </View>
+
+                  <Pressable
+                    onPress={() => setContentStep(true)}
+                    accessibilityRole="button"
+                    accessibilityLabel="选择这次学习的内容"
+                    style={styles.contentRow}
+                  >
+                    <ThemedIcon name="bookmark-outline" size={14} color={colors.primary} />
+                    <Text style={styles.contentRowText} numberOfLines={1}>
+                      {contentLabelOf(content) ?? "不指定 · 自由专注"}
+                    </Text>
+                    <ThemedIcon name="chevron-forward" size={14} color={colors.textFaint} />
+                  </Pressable>
+                </>
+              ) : (
+                <>
+                  <View style={styles.oneBlock}>
+                    {compact ? null : <Text style={styles.oneLabel}>运动项目</Text>}
+                    <Pressable
+                      onPress={() => setExerciseStep(true)}
+                      accessibilityRole="button"
+                      accessibilityLabel="选择运动项目"
+                      style={styles.contentRow}
+                    >
+                      <ThemedIcon name="barbell-outline" size={14} color={colors.primary} />
+                      <Text style={styles.contentRowText} numberOfLines={1}>
+                        {pickedSport ? pickedSport.name : "选择运动项目"}
+                      </Text>
+                      <ThemedIcon name="chevron-forward" size={14} color={colors.textFaint} />
+                    </Pressable>
+                  </View>
+
+                  <View style={styles.oneBlock}>
+                    {compact ? null : <Text style={styles.oneLabel}>运动时长</Text>}
+                    <View style={styles.chipRow}>
+                      {[15, 30, 45, 60].map((m) => {
+                        const active = exerciseMode === "countdown" && sportMinutes === m;
+                        return (
+                          <Pressable
+                            key={m}
+                            onPress={() => {
+                              setExerciseMode("countdown");
+                              setSportMinutes(m);
+                            }}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: active }}
+                            accessibilityLabel={`运动 ${m} 分钟`}
+                            style={[styles.chip, active && styles.chipActive]}
+                          >
+                            <Text style={[styles.chipText, active && styles.chipTextActive]}>{m} 分钟</Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                    <StepperRow
+                      label="自定义时长"
+                      hint="5–300 分钟"
+                      value={sportMinutes}
+                      step={5}
+                      min={5}
+                      max={300}
+                      unit="分钟"
+                      onChange={(v) => {
+                        setExerciseMode("countdown");
+                        setSportMinutes(v);
+                      }}
+                    />
+                  </View>
+
+                  <View style={styles.oneBlock}>
+                    <Text style={styles.oneLabel}>计时方式</Text>
+                    <SheetSegmented options={MODE_OPTIONS} value={exerciseMode} onChange={setExerciseMode} />
+                  </View>
+                </>
+              )}
+            </ScrollView>
           )}
         </View>
       </BottomSheet>
@@ -429,12 +572,15 @@ export function QuickStartSheet({
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     // 一屏化启动页：内容区撑满，短句用 space-between 钉在底部
-    oneScreen: { flex: 1, justifyContent: "center", gap: 12, minHeight: 0 },
+    /** 顶部对齐：模式切换之后直接进入设置，避免一屏弹层上方出现大块空白 */
+    oneScreen: { flex: 1, justifyContent: "flex-start", gap: 12, minHeight: 0 },
+    oneModeSwitch: { paddingTop: 2 },
+    oneMainScroll: { flex: 1, minHeight: 0 },
     footerWrap: { gap: 8 },
     footerHint: { ...typography.micro, color: colors.textMuted, textAlign: "center" },
     oneScreenCompact: { gap: 8 },
     oneMain: { gap: 16, paddingTop: 2 },
-    oneMainCompact: { gap: 10 },
+    oneMainCompact: { gap: 8 },
     oneBlock: { gap: 8 },
     oneLabel: { ...typography.section, color: colors.textMuted },
     chipRow: { flexDirection: "row", gap: 8 },
