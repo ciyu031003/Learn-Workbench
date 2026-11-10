@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { useFocusBgStore, FOCUS_COLORS, FOCUS_GALLERY } from "./focus-bg-store";
+import {
+  useFocusBgStore,
+  FOCUS_COLORS,
+  FOCUS_GALLERY,
+  normalizeFocusGalleryId,
+} from "./focus-bg-store";
 
 beforeEach(() =>
   useFocusBgStore.setState({
@@ -15,8 +20,20 @@ beforeEach(() =>
 describe("useFocusBgStore", () => {
   it("exports focus palette and gallery presets", () => {
     expect(FOCUS_COLORS).toContain("#0f172a");
-    expect(FOCUS_GALLERY[0]).toMatchObject({ id: "sunset", name: "黄昏暖阳" });
+    expect(FOCUS_GALLERY[0]).toMatchObject({
+      id: "window",
+      name: "清晨窗边",
+      imageUrl: "/scenes/window.jpg",
+    });
     expect(FOCUS_GALLERY.some((g) => g.id === "bing")).toBe(true);
+  });
+
+  it("migrates unknown persisted gallery ids to the default scene", () => {
+    expect(normalizeFocusGalleryId("sunset")).toBe("snow");
+    expect(normalizeFocusGalleryId("ocean")).toBe("snow");
+    expect(normalizeFocusGalleryId("bing")).toBe("bing");
+    expect(normalizeFocusGalleryId("rain-cafe")).toBe("rain-cafe");
+    expect(normalizeFocusGalleryId(null)).toBe("snow");
   });
 
   it("starts with the default focus background state", () => {

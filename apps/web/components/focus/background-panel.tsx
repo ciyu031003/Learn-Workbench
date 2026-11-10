@@ -2,10 +2,12 @@
 
 import { useRef } from "react";
 import { ImagePlus, Images, Palette } from "lucide-react";
-import { FOCUS_COLORS, FOCUS_GALLERY, useFocusBgStore } from "@/store/focus-bg-store";
+import { FOCUS_SCENES } from "@learn-workbench/shared/focus-scenes";
+import { FOCUS_COLORS, useFocusBgStore } from "@/store/focus-bg-store";
 import { cn } from "@/lib/utils";
+import { focusSceneImage } from "@/lib/focus-scene";
 
-/** 背景设置面板（图库/纯色/自定义上传）。S8-a 从 focus-timer.tsx 原样搬出。 */
+/** Background settings: built-in scenes, solid color, or a local image. */
 export function FocusBackgroundPanel({ open }: { open: boolean }) {
   const bg = useFocusBgStore();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -26,21 +28,21 @@ export function FocusBackgroundPanel({ open }: { open: boolean }) {
   };
 
   return (
-    <div className="glass relative z-10 mx-auto mt-3 w-[min(92vw,420px)] rounded-2xl p-4">
+    <div className="relative z-10 mx-auto mt-3 w-[min(94vw,480px)] rounded-2xl border border-white/20 bg-black/45 p-4 text-white shadow-2xl backdrop-blur-2xl">
       <div className="mb-3 flex items-center gap-2">
         {[
-          { key: "gallery", label: "默认图库", icon: Images },
+          { key: "gallery", label: "场景", icon: Images },
           { key: "color", label: "纯色", icon: Palette },
-          { key: "upload", label: "自定义图片", icon: ImagePlus },
+          { key: "upload", label: "自定义", icon: ImagePlus },
         ].map((m) => (
           <button
             key={m.key}
             onClick={() => bg.setMode(m.key as "gallery" | "color" | "upload")}
             className={cn(
-              "flex flex-1 items-center justify-center gap-1 rounded-xl border px-2 py-2 text-xs transition-all",
+              "flex flex-1 items-center justify-center gap-1.5 rounded-xl border px-2 py-2 text-xs transition-all",
               bg.mode === m.key
-                ? "border-primary/60 bg-primary/25 text-foreground"
-                : "border-white/20 bg-white/10 text-muted-foreground hover:bg-white/15"
+                ? "border-white/50 bg-white/20 text-white"
+                : "border-white/15 bg-white/5 text-white/65 hover:bg-white/10"
             )}
           >
             <m.icon className="size-3.5" /> {m.label}
@@ -96,20 +98,35 @@ export function FocusBackgroundPanel({ open }: { open: boolean }) {
         </div>
       ) : null}
       {bg.mode === "gallery" ? (
-        <div className="grid grid-cols-4 gap-2">
-          {FOCUS_GALLERY.map((g) => (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {FOCUS_SCENES.map((scene) => (
             <button
-              key={g.id}
-              onClick={() => bg.setGalleryId(g.id)}
+              key={scene.id}
+              onClick={() => bg.setGalleryId(scene.id)}
               className={cn(
-                "flex h-14 items-center justify-center overflow-hidden rounded-xl border text-[11px] text-white transition-all",
-                bg.galleryId === g.id ? "border-white ring-2 ring-primary/50" : "border-white/20"
+                "relative h-20 overflow-hidden rounded-xl border text-left transition-all",
+                bg.galleryId === scene.id
+                  ? "border-white ring-2 ring-white/40"
+                  : "border-white/20 hover:border-white/50"
               )}
-              style={g.css ? { background: g.css } : { background: "linear-gradient(135deg,#1e293b,#0f172a)" }}
             >
-              {g.name}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={focusSceneImage(scene.id)} alt="" className="absolute inset-0 h-full w-full object-cover" />
+              <span className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
+              <span className="absolute bottom-2 left-2.5 text-xs font-semibold text-white">{scene.name}</span>
             </button>
           ))}
+          <button
+            onClick={() => bg.setGalleryId("bing")}
+            className={cn(
+              "relative h-20 overflow-hidden rounded-xl border bg-gradient-to-br from-slate-700 to-slate-950 text-left transition-all",
+              bg.galleryId === "bing"
+                ? "border-white ring-2 ring-white/40"
+                : "border-white/20 hover:border-white/50"
+            )}
+          >
+            <span className="absolute bottom-2 left-2.5 text-xs font-semibold text-white">每日 Bing</span>
+          </button>
         </div>
       ) : null}
     </div>

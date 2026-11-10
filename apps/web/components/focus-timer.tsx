@@ -410,6 +410,11 @@ export function FocusTimer({
     }
   };
 
+  const skipRound = () => {
+    reset();
+    start();
+  };
+
   // 专注模式：倒计时自然结束自动入账（不关闭，done 页继续展示统计）
   useEffect(() => {
     if (!done || mode !== "focus" || exerciseRecordedRef.current) return;
@@ -526,9 +531,9 @@ export function FocusTimer({
           endDisabled={elapsed < 10 && mode === "focus" && timerMode === "countdown" && remaining === total}
           onToggleRun={() => (running ? pause() : start())}
           onReset={reset}
+          onSkip={skipRound}
           onEnd={() => record(currentElapsed())}
           onChangeView={chooseTimerView}
-          onPickPreset={changePreset}
         />
       ) : (
         <StartScreen

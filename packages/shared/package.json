@@ -14,6 +14,7 @@
     "./pure": "./src/pure.ts",
     "./learning": "./src/learning.ts",
     "./md-lite": "./src/md-lite.ts",
+    "./focus-scenes": "./src/focus-scenes.ts",
     "./domains": "./src/domains/index.ts",
     "./sync": "./src/sync.ts"
   },

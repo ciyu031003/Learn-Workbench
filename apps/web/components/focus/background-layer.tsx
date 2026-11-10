@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FOCUS_GALLERY, useFocusBgStore } from "@/store/focus-bg-store";
+import { FOCUS_SCENES } from "@learn-workbench/shared/focus-scenes";
+import { useFocusBgStore } from "@/store/focus-bg-store";
+import { focusSceneImage } from "@/lib/focus-scene";
 
-/** 全屏专注背景层（图库/纯色/上传；Bing 当日图异步取）。S8-a 从 focus-timer.tsx 原样搬出。 */
+/** Fullscreen focus background: scene photo, custom upload, color, or daily Bing. */
 export function FocusBackgroundLayer() {
   const { mode, color, uploadUrl, galleryId } = useFocusBgStore();
   const [bing, setBing] = useState<string | null>(null);
@@ -37,6 +39,19 @@ export function FocusBackgroundLayer() {
     }
     return <div className="absolute inset-0 bg-gradient-to-br from-slate-800 via-slate-900 to-black" />;
   }
-  const g = FOCUS_GALLERY.find((x) => x.id === galleryId) ?? FOCUS_GALLERY[0];
-  return <div className="absolute inset-0" style={{ background: g.css }} />;
+
+  // Persisted preferences from older releases may contain gallery ids that no
+  // longer exist. Always render a real scene instead of an empty gradient.
+  const scene = FOCUS_SCENES.find((item) => item.id === galleryId) ?? FOCUS_SCENES[0];
+  return (
+    <div className="absolute inset-0" style={{ background: scene.gradient }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={focusSceneImage(scene.id)}
+        alt=""
+        className="absolute inset-0 h-full w-full object-cover"
+        fetchPriority="high"
+      />
+    </div>
+  );
 }

@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { Image as ExpoImage } from "expo-image";
+import { BlurView } from "expo-blur";
 import { ThemedIcon } from "@/components/themed-icon";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -31,22 +32,19 @@ import { startFocusNotification, stopFocusNotification } from "@/lib/focus-notif
 import { RingProgress } from "@/components/ring-progress";
 import { TimerDial } from "@/components/timer-dial";
 import { getDailyQuote } from "@/lib/quotes";
+import { haptics } from "@/lib/haptics";
 import { typography } from "@/theme/tokens";
 import type { FocusSession } from "@learn-workbench/shared/schemas";
+import { DEFAULT_FOCUS_SCENE_ID, FOCUS_SCENES, getFocusScene } from "@learn-workbench/shared/focus-scenes";
+import { focusSceneSource } from "@/lib/focus-scene-assets";
 
-const PRESETS = [15, 25, 45];
 /**
  * 准备开始（一屏启动页）的时长档位：v2.0.1 按真机反馈改为 25/45/60。
  * 计时中的快捷档位（PRESETS）保持原样，避免改变既有行为。
  */
-const START_PRESETS = [25, 45, 60];
+const START_PRESETS = [25, 45, 50, 90];
 const GALLERY = [
-  { id: "sunset", name: "黄昏暖阳", color: "#7c2d12" },
-  { id: "ocean", name: "深海蓝", color: "#0f2027" },
-  { id: "forest", name: "森野绿", color: "#134e5e" },
-  { id: "aurora", name: "极光紫", color: "#41295a" },
-  { id: "midnight", name: "午夜蓝", color: "#0b1026" },
-  { id: "candy", name: "糖果粉", color: "#831843" },
+  ...FOCUS_SCENES.map((scene) => ({ id: scene.id, name: scene.name, color: scene.accent })),
   { id: "bing", name: "每日 Bing", color: "#1f2937" },
 ];
 const COLORS = ["#08131B", "#1f2937", "#7c2d12", "#7f1d1d", "#14532d", "#1e3a8a", "#4c1d95", "#831843"];
@@ -62,6 +60,9 @@ const K_VIEW = "focus-timer-view";
 type TimerView = "ring" | "dial";
 /** Bing 壁纸 URL 最近一次解析结果（秒出图用；按天由服务端回退历史图，不会 404） */
 const K_BING = "focus-bg-bing-v1";
+const K_GOAL = "focus-today-goal";
+const K_MUSIC = "focus-music-volume";
+const K_AMBIENT = "focus-ambient-volume";
 
 type BgMode = "gallery" | "color" | "upload";
 
@@ -111,12 +112,12 @@ export function FocusTimer({
   const isLandscape = width > height;
 
   // 默认走纯色（#08131B 冷调深蓝，对齐 demo 专注暗场）；用户仍可在面板里选 Bing/其它背景
-  const [mode, setMode] = useState<BgMode>("color");
+  const [mode, setMode] = useState<BgMode>("gallery");
   const [color, setColor] = useState("#08131B");
   const [url, setUrl] = useState<string | null>(null);
   // v4 P2：默认改为「每日 Bing」风景壁纸（Web 端早就是 bing；用户若手动选过其它背景，
   // 显式选择优先 —— 因为我们从不自动写入这个 key，所以"改默认值"对老用户同样生效）
-  const [galleryId, setGalleryId] = useState("bing");
+  const [galleryId, setGalleryId] = useState(DEFAULT_FOCUS_SCENE_ID);
   const [bing, setBing] = useState<string | null>(null);
 
   const [minutes, setMinutes] = useState(25);
@@ -133,14 +134,13 @@ export function FocusTimer({
   const [timerMode, setTimerMode] = useState<"countdown" | "stopwatch">("countdown");
   /** v13 U3：主视图形态，默认仍是圆环 */
   const [timerView, setTimerView] = useState<TimerView>("ring");
-  // eslint-disable-next-line react-hooks/purity -- useState 初始每日一言（既有模式）
+
   const [quote, setQuote] = useState(getDailyQuote());
-  const [editingQuote, setEditingQuote] = useState(false);
-  const [quoteInput, setQuoteInput] = useState("");
   const [showBg, setShowBg] = useState(false);
-  const [customMin, setCustomMin] = useState("");
-  /** 计时区实测高度（一屏自适应：圆环尺寸随可用高度收缩，不靠滚动） */
-  const [stageH, setStageH] = useState(0);
+  const [goal, setGoal] = useState("");
+  const [editingGoal, setEditingGoal] = useState(false);
+  const [musicVolume, setMusicVolume] = useState(45);
+  const [ambientVolume, setAmbientVolume] = useState(65);
 
   const startRef = useRef<number | null>(null);
   /** 记录去重：同一帧内连点"记录"/Modal 关闭与按钮并发时，避免写两条 */
@@ -176,7 +176,7 @@ export function FocusTimer({
   useEffect(() => {
     (async () => {
       try {
-        const [m, c, u, g, q, mins, view] = await Promise.all([
+        const [m, c, u, g, q, mins, view, goalVal, music, ambient] = await Promise.all([
           AsyncStorage.getItem(K_MODE),
           AsyncStorage.getItem(K_COLOR),
           AsyncStorage.getItem(K_URL),
@@ -184,6 +184,9 @@ export function FocusTimer({
           AsyncStorage.getItem(K_QUOTE),
           AsyncStorage.getItem(K_MINUTES),
           AsyncStorage.getItem(K_VIEW),
+          AsyncStorage.getItem(K_GOAL),
+          AsyncStorage.getItem(K_MUSIC),
+          AsyncStorage.getItem(K_AMBIENT),
         ]);
         if (view === "dial" || view === "ring") setTimerView(view);
         if (m) setMode(m as BgMode);
@@ -191,6 +194,9 @@ export function FocusTimer({
         if (u) setUrl(u);
         if (g) setGalleryId(g);
         if (q) setQuote(q);
+        if (goalVal) setGoal(goalVal);
+        if (music) setMusicVolume(Math.min(100, Math.max(0, Number(music) || 45)));
+        if (ambient) setAmbientVolume(Math.min(100, Math.max(0, Number(ambient) || 65)));
         if (mins) {
           const v = Math.min(180, Math.max(1, Number(mins) || 25));
           // 调用方显式指定了时长/模式时以调用方为准
@@ -407,7 +413,7 @@ export function FocusTimer({
     setRunning(false);
     startRef.current = null;
     accumulatedMsRef.current = 0;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- 打开弹层时重置状态（既有模式）
+
     setDone(false);
     if (timer.current) clearInterval(timer.current);
     persist(K_MINUTES, String(v));
@@ -509,7 +515,7 @@ export function FocusTimer({
         onRecordedRef.current(stale.taskId, seconds, stale.contentLabel);
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, []);
 
   useEffect(() => {
@@ -527,21 +533,39 @@ export function FocusTimer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, autoStart]);
 
-  const reset = () => {
+  const resetTimerState = () => {
     if (timer.current) clearInterval(timer.current);
     setRunning(false);
     stopFocusNotification();
-    // 用户主动重来 = 放弃这一段，不该在下次启动被补记
-    void clearRunningFocus();
-    setRemaining(total);
-    remainingRef.current = total;
+    const resetValue = timerModeRef.current === "stopwatch" ? 0 : totalRef.current;
+    setRemaining(resetValue);
+    remainingRef.current = resetValue;
     startRef.current = null;
     accumulatedMsRef.current = 0;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- 打开弹层时重置状态（既有模式）
     setDone(false);
+    // 重开一轮后必须允许再次记录；否则完成页的自动记录会把后续会话全部拦掉。
+    recordedRef.current = false;
+    autoRecordedRef.current = false;
   };
 
-  const record = async (elapsedSeconds: number) => {
+  const reset = () => {
+    resetTimerState();
+    // 用户主动重来 = 放弃这一段，不该在下次启动被补记
+    void clearRunningFocus();
+  };
+
+  /**
+   * 跳过 / 再来一次：只重置计时状态并立刻开下一轮。
+   * 不能复用 reset()，否则它异步清除恢复标记会和 resume() 的落盘竞争，
+   * 可能把刚开始的下一轮标记删掉。
+   */
+  const restartRound = () => {
+    resetTimerState();
+    setSessionStartAt(Date.now());
+    resume();
+  };
+  const skipRound = restartRound;
+  const record = async (elapsedSeconds: number, options: { keepOpen?: boolean } = {}) => {
     // 用 ref 去重：同一帧内"连点记录"或"到点自动记录 + 用户手动点"都只写一条
     if (recording || recordedRef.current) return;
     recordedRef.current = true;
@@ -556,14 +580,14 @@ export function FocusTimer({
     if (sessionMode === "exercise") {
       onExerciseRecorded?.(elapsedSeconds, exerciseLabel);
       setRecording(false);
-      onClose();
+      if (!options.keepOpen) onClose();
       return;
     }
     // v5 P2-1：把"这次学什么"一并带出（调用方写入 focus_sessions.tag）
     const label = contentLabel?.trim() ? contentLabel.trim().slice(0, 40) : null;
     onRecorded(task?.id ?? null, elapsedSeconds, label);
     setRecording(false);
-    onClose();
+    if (!options.keepOpen) onClose();
   };
 
   /**
@@ -577,21 +601,10 @@ export function FocusTimer({
     if (autoRecordedRef.current) return;
     autoRecordedRef.current = true;
     const seconds = timerModeRef.current === "stopwatch" ? currentElapsed() : totalRef.current;
-    void record(seconds);
+    // 自然完成保留结果页（分享 / 再来一次）；只有手动结束和关闭才退出。
+    void record(seconds, { keepOpen: sessionMode === "focus" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, done]);
-
-  const saveQuote = () => {
-    const v = quoteInput.trim();
-    if (v) {
-      setQuote(v);
-      persist(K_QUOTE, v);
-    } else {
-      setQuote(getDailyQuote());
-      persist(K_QUOTE, "");
-    }
-    setEditingQuote(false);
-  };
 
   /** v1.22：分享改为卡片图片弹层（截图 → 系统分享面板；不可用时弹层内退回文字） */
   const shareCard = () => setShareOpen(true);
@@ -606,17 +619,15 @@ export function FocusTimer({
   const bgColor = mode === "color" ? color : mode === "upload" ? "#1f2937" : (GALLERY.find((g) => g.id === galleryId)?.color ?? "#1f2937");
   const showImage = mode === "upload" && !!url;
   const showBing = mode === "gallery" && galleryId === "bing" && !!bing;
+  const sceneItem = getFocusScene(galleryId);
+  const showScene = mode === "gallery" && galleryId !== "bing";
+  const sceneSource = focusSceneSource(sceneItem.id);
 
   /**
    * v2.0.1 一屏化（真机反馈「专注界面不要上下滑动」）：
    * 小屏档位 + 用实测高度反推圆环尺寸 —— 顶部标题与底部励志短句都固定在一屏内。
    */
   const compact = height < 700;
-  const ringSize = Math.round(
-    Math.max(180, Math.min(300, Math.min(width - 96, (stageH > 0 ? stageH : height * 0.42) - 6)))
-  );
-  const clockSize = Math.round(Math.max(40, Math.min(62, ringSize * 0.22)));
-  const ringStroke = ringSize >= 260 ? 14 : 12;
 
   /** v3 专注模式（提案 §专注模式）：顶栏时段、番茄序号、剩余时间文案 */
   const fmtClock = (d: Date) =>
@@ -628,8 +639,71 @@ export function FocusTimer({
       : timerMode === "stopwatch"
         ? fmtClock(fmStart) + " – 进行中"
         : fmtClock(fmStart) + " – " + fmtClock(new Date(fmStart.getTime() + Math.max(1, minutes) * 60 * 1000));
-  const fmKicker =
-    "第 " + (stats.todaySessions + 1) + " 个番茄" + (contentLabel?.trim() ? " · " + contentLabel.trim() : "");
+  const pomodoroLabel = "POMODORO #" + (stats.todaySessions + 1);
+  const progressPct =
+    timerMode === "countdown" ? Math.max(0, Math.min(100, Math.round((1 - ratio) * 100))) : 0;
+
+  const volumeControls = (
+    <View style={styles.volumeRow}>
+      <VolumeSlider
+        label="音乐"
+        value={musicVolume}
+        onChange={(value) => {
+          setMusicVolume(value);
+          persist(K_MUSIC, String(value));
+        }}
+      />
+      <VolumeSlider
+        label="背景音"
+        value={ambientVolume}
+        onChange={(value) => {
+          setAmbientVolume(value);
+          persist(K_AMBIENT, String(value));
+        }}
+      />
+    </View>
+  );
+
+  const actionDock = (
+    <View style={styles.dockActions}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={running ? "暂停计时" : "继续计时"}
+        style={styles.dockAction}
+        onPress={() => (running ? pause() : resume())}
+      >
+        <ThemedIcon name={running ? "pause" : "play"} size={18} color="#FFFFFF" />
+        <Text style={styles.dockActionText}>{running ? "暂停" : "继续"}</Text>
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="跳过本轮，开始下一轮"
+        style={styles.dockAction}
+        onPress={skipRound}
+      >
+        <ThemedIcon name="play-skip-forward" size={18} color="#FFFFFF" />
+        <Text style={styles.dockActionText}>跳过</Text>
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="重置计时"
+        style={styles.dockAction}
+        onPress={reset}
+      >
+        <ThemedIcon name="refresh" size={18} color="#FFFFFF" />
+        <Text style={styles.dockActionText}>重置</Text>
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="结束本次专注"
+        style={styles.dockAction}
+        onPress={() => record(elapsed)}
+      >
+        <ThemedIcon name="stop" size={18} color="#FFD6AE" />
+        <Text style={[styles.dockActionText, styles.dockActionDanger]}>结束</Text>
+      </Pressable>
+    </View>
+  );
 
   return (
     <Modal visible={open} animationType="fade" presentationStyle="fullScreen" onRequestClose={() => record(elapsed)}>
@@ -641,9 +715,14 @@ export function FocusTimer({
         {/* 背景层 */}
         {showImage ? <ExpoImage source={{ uri: url! }} style={ABS_FILL} contentFit="cover" cachePolicy="memory-disk" transition={200} onError={() => setUrl(null)} /> : null}
         {showBing ? <ExpoImage source={{ uri: bing! }} style={ABS_FILL} contentFit="cover" cachePolicy="memory-disk" transition={200} onError={() => setBing(null)} /> : null}
-        {!showImage && !showBing ? <View style={[ABS_FILL, { backgroundColor: bgColor }]} /> : null}
+        {showScene ? <ExpoImage source={sceneSource} style={ABS_FILL} contentFit="cover" cachePolicy="memory-disk" transition={200} /> : null}
+        {!showImage && !showBing && !showScene ? <View style={[ABS_FILL, { backgroundColor: bgColor }]} /> : null}
         {/* 黑色压暗层只用于图片背景；纯色已是 #08131B 暗场，再叠 50% 黑会发死 */}
-        {showImage || showBing ? <View style={[ABS_FILL, styles.scrim]} /> : null}
+        {showImage || showBing || showScene ? <View style={[ABS_FILL, styles.scrim]} /> : null}
+
+        <View pointerEvents="none" style={[styles.sceneTag, { top: insets.top + 58 }]}>
+          <Text style={styles.sceneTagText}>{sceneItem.name}</Text>
+        </View>
 
         {/* 顶部：关闭 + 专注模式标题/时段 + 背景（提案 §专注模式） */}
         <View style={[styles.topBar, { paddingTop: insets.top + 12 }]}>
@@ -700,11 +779,40 @@ export function FocusTimer({
               <View style={styles.gallery}>
                 {GALLERY.map((g) => (
                   <Pressable key={g.id} onPress={() => pickGallery(g.id)} style={[styles.galleryItem, { backgroundColor: g.color }, galleryId === g.id && styles.galleryItemActive]}>
+                    {g.id === "bing"
+                      ? bing
+                        ? <ExpoImage source={{ uri: bing }} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" />
+                        : null
+                      : <ExpoImage source={focusSceneSource(g.id)} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" />}
+                    <View style={styles.galleryShade} />
                     <Text style={styles.galleryText}>{g.name}</Text>
                   </Pressable>
                 ))}
               </View>
             ) : null}
+            <View style={styles.bgViewRow}>
+              <Text style={styles.bgViewLabel}>计时显示</Text>
+              <View style={styles.viewToggle}>
+                {(
+                  [
+                    { key: "ring", label: "圆环" },
+                    { key: "dial", label: "表盘" },
+                  ] as const
+                ).map((o) => (
+                  <Pressable
+                    key={o.key}
+                    onPress={() => pickView(o.key)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: timerView === o.key }}
+                    style={[styles.viewChip, timerView === o.key && styles.viewChipActive]}
+                  >
+                    <Text style={[styles.viewChipText, timerView === o.key && styles.viewChipTextActive]}>
+                      {o.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
           </View>
         ) : null}
 
@@ -736,7 +844,7 @@ export function FocusTimer({
               </Pressable>
               <FocusShareSheet visible={shareOpen} onClose={() => setShareOpen(false)} data={focusShareDataFromStats(stats)} />
               <View style={styles.doneBtns}>
-                <Pressable style={styles.secondaryBtn} onPress={() => { reset(); resume(); }}>
+                <Pressable style={styles.secondaryBtn} onPress={restartRound}>
                   <Text style={styles.secondaryBtnText}>再来一次</Text>
                 </Pressable>
                 <Pressable style={styles.primaryBtn} onPress={onClose}>
@@ -747,197 +855,156 @@ export function FocusTimer({
           </ScrollView>
         ) : started ? (
           isLandscape ? (
-            <ScrollView contentContainerStyle={styles.center} showsVerticalScrollIndicator={false}>
-              <View style={styles.landscapeWrap}>
-                <View style={styles.landscapeTop}>
-                  <Text style={styles.taskName} numberOfLines={1}>{task?.title ?? "自由专注"}</Text>
-                  <Text style={styles.taskStatus}>{running ? "专注中" : "已暂停"}</Text>
+            <View
+              style={[
+                styles.landscapeRoot,
+                {
+                  paddingLeft: Math.max(16, insets.left + 8),
+                  paddingRight: Math.max(16, insets.right + 8),
+                  paddingBottom: insets.bottom + 12,
+                },
+              ]}
+            >
+              <View style={styles.landscapeCard}>
+                <BlurView intensity={28} tint="dark" style={StyleSheet.absoluteFill} />
+                <View style={styles.timerCardHead}>
+                  <Text style={styles.timerCardKicker}>{pomodoroLabel}</Text>
+                  <View style={[styles.statusPill, !running && styles.statusPillPaused]}>
+                    <View style={[styles.statusDot, !running && styles.statusDotPaused]} />
+                    <Text style={styles.statusText}>{running ? (sessionMode === "exercise" ? "运动中" : "学习中") : "已暂停"}</Text>
+                  </View>
                 </View>
-                <Pressable style={styles.landscapeClockWrap} onPress={() => (running ? pause() : resume())}>
-                  <Text style={styles.landscapeClock}>{fmt(remainingShown)}</Text>
-                  <Text style={styles.landscapeClockHint}>点击计时 · 暂停 / 继续</Text>
+                <Text style={styles.timerCardTask} numberOfLines={1}>{task?.title ?? "自由专注"}</Text>
+                <Pressable
+                  onPress={() => (running ? pause() : resume())}
+                  accessibilityRole="button"
+                  accessibilityLabel={running ? "暂停计时" : "继续计时"}
+                >
+                  <Text style={styles.landscapeTime} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{fmt(remainingShown)}</Text>
                 </Pressable>
-                <View style={styles.controls}>
-                  <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={running ? "暂停计时" : "继续计时"}
-            style={styles.ctrlBtn}
-            onPress={() => (running ? pause() : resume())}
-          >
-                    <ThemedIcon name={running ? "pause" : "play"} size={26} color="#fff" />
-                  </Pressable>
-                  <Pressable accessibilityLabel="刷新" style={styles.ctrlBtn} onPress={reset}>
-                    <ThemedIcon name="refresh" size={26} color="#fff" />
-                  </Pressable>
-                  <Pressable accessibilityLabel="停止" style={styles.ctrlBtn} onPress={() => record(elapsed)}>
-                    <ThemedIcon name="stop" size={26} color="#fff" />
-                  </Pressable>
+                <View style={styles.progressTrack}>
+                  <View style={[styles.progressFill, { width: `${progressPct}%` as `${number}%` }]} />
                 </View>
-                <Pressable style={styles.recordBtn} onPress={() => record(elapsed)}>
-                  <ThemedIcon name="checkmark-done" size={18} color="#1f1f1f" />
-                  <Text style={styles.recordBtnText}>结束并记录本次专注</Text>
-                </Pressable>
+                <View style={styles.progressMeta}>
+                  <Text style={styles.progressLabel}>{timerMode === "stopwatch" ? "正向计时" : "本轮进度"}</Text>
+                  <Text style={styles.progressLabel}>{timerMode === "stopwatch" ? "进行中" : `${progressPct}%`}</Text>
+                </View>
               </View>
-            </ScrollView>
+
+              <View style={styles.landscapeSide}>
+                <Pressable style={styles.goalPill} onPress={() => setEditingGoal(true)}>
+                  <ThemedIcon name="locate-outline" size={14} color="rgba(255,255,255,0.9)" />
+                  {editingGoal ? (
+                    <TextInput
+                      style={styles.goalInput}
+                      value={goal}
+                      onChangeText={(value) => {
+                        setGoal(value);
+                        persist(K_GOAL, value);
+                      }}
+                      placeholder="写下今天想完成的事…"
+                      placeholderTextColor="rgba(255,255,255,0.45)"
+                      autoFocus
+                      maxLength={60}
+                      onBlur={() => setEditingGoal(false)}
+                      onSubmitEditing={() => setEditingGoal(false)}
+                    />
+                  ) : (
+                    <Text style={styles.goalText} numberOfLines={1}>
+                      {goal.trim() ? goal : "今日目标 · 写下今天想完成的事…"}
+                    </Text>
+                  )}
+                </Pressable>
+                <View style={styles.glassDock}>
+                  <BlurView intensity={32} tint="dark" style={StyleSheet.absoluteFill} />
+                  {volumeControls}
+                  {actionDock}
+                </View>
+              </View>
+            </View>
           ) : (
             /* v2.0.1 一屏计时页：flex 分配高度、无 ScrollView */
             <View style={[styles.runBody, { paddingBottom: insets.bottom + 10 }]}>
-              {/* 番茄序号 · 学习内容（提案 §专注模式） */}
-              <Text style={styles.fmKicker}>{fmKicker}</Text>
-
-              {/* 圆环 / 表盘（v13 U3）+ 数字时钟：尺寸由实测可用高度决定（一屏不滚动） */}
-              <View style={styles.stage} onLayout={(e) => setStageH(e.nativeEvent.layout.height)}>
-                {timerView === "ring" ? (
-                  <>
+              <View style={styles.runSpacer} />
+              <View style={styles.timerCard}>
+                <BlurView intensity={26} tint="dark" style={StyleSheet.absoluteFill} />
+                <View style={styles.timerCardHead}>
+                  <Text style={styles.timerCardKicker}>{pomodoroLabel}</Text>
+                  <View style={[styles.statusPill, !running && styles.statusPillPaused]}>
+                    <View style={[styles.statusDot, !running && styles.statusDotPaused]} />
+                    <Text style={styles.statusText}>{running ? (sessionMode === "exercise" ? "运动中" : "学习中") : "已暂停"}</Text>
+                  </View>
+                </View>
+                <Text style={styles.timerCardTask} numberOfLines={1}>{task?.title ?? "自由专注"}</Text>
+                <View style={styles.timerCardClockRow}>
+                  {timerView === "ring" ? (
                     <RingProgress
-                      size={ringSize}
-                      strokeWidth={ringStroke}
+                      size={58}
+                      strokeWidth={4.5}
                       progress={ringProgress}
-                      trackColor="rgba(143,195,240,0.24)"
-                      color="#8FC3F0"
+                      trackColor="rgba(255,255,255,0.18)"
+                      color="#B7D9F2"
                     />
-                    <Pressable style={styles.clockWrap} onPress={() => (running ? pause() : resume())}>
-                      <Text style={[styles.clock, { fontSize: clockSize }]}>{fmt(remainingShown)}</Text>
-                      <Text style={styles.fmRemain}>剩余时间</Text>
-                    </Pressable>
-                  </>
-                ) : (
-                  <TimerDial
-                    size={ringSize}
-                    progress={ringProgress}
-                    color="#8FC3F0"
-                    trackColor="rgba(143,195,240,0.24)"
-                    tickColor="rgba(255,255,255,0.6)"
-                  />
-                )}
-              </View>
-
-              {/* 表盘视图下时钟放到盘下方（指针扫过中心，数字放中间会互相压） */}
-              {timerView === "dial" ? (
-                <Pressable style={styles.dialClockWrap} onPress={() => (running ? pause() : resume())}>
-                  <Text style={[styles.clock, { fontSize: clockSize }]}>{fmt(remainingShown)}</Text>
-                  <Text style={styles.dialClockHint}>点击暂停 / 继续</Text>
-                </Pressable>
-              ) : null}
-
-              {/* 当前内容 + 状态（提案 §专注模式：标题在环下） */}
-              <View style={styles.fmTitleWrap}>
-                <Text style={styles.fmTitle} numberOfLines={2}>{task?.title ?? "自由专注"}</Text>
-                <Text style={styles.fmSub}>{running ? "专注中 · 结束后自动记录" : "已暂停 · 点击计时继续"}</Text>
-              </View>
-
-              {/* v13 U3：视图切换（默认圆环，选择持久化到 AsyncStorage） */}
-              <View style={styles.viewToggle}>
-                {(
-                  [
-                    { key: "ring", label: "圆环" },
-                    { key: "dial", label: "表盘" },
-                  ] as const
-                ).map((o) => (
+                  ) : (
+                    <TimerDial
+                      size={58}
+                      progress={ringProgress}
+                      color="#B7D9F2"
+                      trackColor="rgba(255,255,255,0.18)"
+                      tickColor="rgba(255,255,255,0.5)"
+                    />
+                  )}
                   <Pressable
-                    key={o.key}
-                    onPress={() => pickView(o.key)}
+                    style={styles.timerCardClockBtn}
+                    onPress={() => (running ? pause() : resume())}
                     accessibilityRole="button"
-                    accessibilityState={{ selected: timerView === o.key }}
-                    style={[styles.viewChip, timerView === o.key && styles.viewChipActive]}
+                    accessibilityLabel={running ? "暂停计时" : "继续计时"}
                   >
-                    <Text style={[styles.viewChipText, timerView === o.key && styles.viewChipTextActive]}>
-                      {o.label}
-                    </Text>
+                    <Text style={styles.timerCardTime} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{fmt(remainingShown)}</Text>
                   </Pressable>
-                ))}
-                <Pressable
-                  onPress={reset}
-                  accessibilityRole="button"
-                  accessibilityLabel="重置计时"
-                  style={styles.viewChip}
-                  hitSlop={8}
-                >
-                  <Text style={styles.viewChipText}>重置</Text>
-                </Pressable>
-              </View>
-
-              {/* 主操作：暂停 / 继续 + 结束本次专注（提案 §专注模式） */}
-              <View style={styles.fmActions}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={running ? "暂停计时" : "继续计时"}
-                  style={styles.fmMain}
-                  onPress={() => (running ? pause() : resume())}
-                  hitSlop={6}
-                >
-                  <ThemedIcon name={running ? "pause" : "play"} size={16} color="#EAF3F7" />
-                  <Text style={styles.fmMainText}>{running ? "暂停" : "继续"}</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="结束本次专注"
-                  style={styles.fmQuit}
-                  onPress={() => record(elapsed)}
-                  hitSlop={6}
-                >
-                  <Text style={styles.fmQuitText}>结束本次专注</Text>
-                </Pressable>
-              </View>
-
-              {/* 时长选择 */}
-              <View style={styles.presets}>
-                {PRESETS.map((m) => (
-                  <Pressable key={m} style={[styles.presetChip, minutes === m && styles.presetChipActive]} onPress={() => setMin(m)}>
-                    <Text style={[styles.presetText, minutes === m && styles.presetTextActive]}>{m} 分钟</Text>
-                  </Pressable>
-                ))}
-                <View style={styles.customMin}>
-                  <TextInput
-                    style={styles.customMinInput}
-                    placeholder="自定义"
-                    placeholderTextColor="rgba(255,255,255,0.45)"
-                    keyboardType="number-pad"
-                    value={customMin}
-                    onChangeText={(t) => {
-                      setCustomMin(t);
-                      const v = Number(t);
-                      if (v >= 1 && v <= 180) setMin(v);
-                    }}
-                  />
-                  <Text style={styles.customMinUnit}>分</Text>
+                </View>
+                <View style={styles.progressTrack}>
+                  <View style={[styles.progressFill, { width: `${progressPct}%` as `${number}%` }]} />
+                </View>
+                <View style={styles.progressMeta}>
+                  <Text style={styles.progressLabel}>{timerMode === "stopwatch" ? "正向计时" : "本轮进度"}</Text>
+                  <Text style={styles.progressLabel}>{timerMode === "stopwatch" ? "进行中" : `${progressPct}%`}</Text>
                 </View>
               </View>
 
-              {/* 励志短句：一屏的最底部（图标 + 纯文字，无 emoji）；右侧画笔可改 */}
-              <View style={styles.quoteFooter}>
-                <ThemedIcon name="sparkles" size={14} color="#FFB25E" />
-                {editingQuote ? (
-                  <View style={styles.quoteEditRow}>
-                    <TextInput
-                      style={styles.quoteInput}
-                      placeholder="输入你的励志短句…"
-                      placeholderTextColor="rgba(255,255,255,0.4)"
-                      value={quoteInput}
-                      onChangeText={setQuoteInput}
-                    />
-                    <Pressable style={styles.quoteSave} onPress={saveQuote}>
-                      <Text style={styles.quoteSaveText}>保存</Text>
-                    </Pressable>
-                  </View>
+              <Pressable style={styles.goalPill} onPress={() => setEditingGoal(true)}>
+                <ThemedIcon name="locate-outline" size={14} color="rgba(255,255,255,0.9)" />
+                {editingGoal ? (
+                  <TextInput
+                    style={styles.goalInput}
+                    value={goal}
+                    onChangeText={(value) => {
+                      setGoal(value);
+                      persist(K_GOAL, value);
+                    }}
+                    placeholder="写下今天想完成的事…"
+                    placeholderTextColor="rgba(255,255,255,0.45)"
+                    autoFocus
+                    maxLength={60}
+                    onBlur={() => setEditingGoal(false)}
+                    onSubmitEditing={() => setEditingGoal(false)}
+                  />
                 ) : (
-                  <Text style={styles.quoteFooterText} numberOfLines={compact ? 1 : 2}>{quote}</Text>
+                  <Text style={styles.goalText} numberOfLines={1}>
+                    {goal.trim() ? goal : "今日目标 · 写下今天想完成的事…"}
+                  </Text>
                 )}
-                {editingQuote ? null : (
-                  <Pressable
-                    onPress={() => { setEditingQuote(true); setQuoteInput(quote); }}
-                    hitSlop={10}
-                    accessibilityRole="button"
-                    accessibilityLabel="编辑励志短句"
-                  >
-                    <ThemedIcon name="create-outline" size={14} color="rgba(255,255,255,0.6)" />
-                  </Pressable>
-                )}
+              </Pressable>
+
+              <View style={styles.glassDock}>
+                <BlurView intensity={32} tint="dark" style={StyleSheet.absoluteFill} />
+                {volumeControls}
+                {actionDock}
               </View>
             </View>
           )
         ) : (
-          <View style={[styles.readyBody, { paddingBottom: insets.bottom + 14 }]}>
+          <ScrollView contentContainerStyle={[styles.readyBody, { paddingBottom: insets.bottom + 14 }]} showsVerticalScrollIndicator={false}>
               {/* 顶部：标题与说明（自适应，永远完整可见） */}
               <View style={styles.readyHead}>
                 <Text style={styles.readyEyebrow}>FOCUS SESSION</Text>
@@ -956,6 +1023,81 @@ export function FocusTimer({
                     本次学习 · {contentLabel?.trim() ? contentLabel.trim() : "自由专注"}
                   </Text>
                 </View>
+              </View>
+
+              {/* 今日目标：对齐参考图的 “今日目标 · 写下今天想完成的事” */}
+              <Pressable style={styles.goalPill} onPress={() => setEditingGoal(true)}>
+                <ThemedIcon name="locate-outline" size={14} color="rgba(255,255,255,0.9)" />
+                {editingGoal ? (
+                  <TextInput
+                    style={styles.goalInput}
+                    value={goal}
+                    onChangeText={(value) => {
+                      setGoal(value);
+                      persist(K_GOAL, value);
+                    }}
+                    placeholder="写下今天想完成的事…"
+                    placeholderTextColor="rgba(255,255,255,0.45)"
+                    autoFocus
+                    maxLength={60}
+                    onBlur={() => setEditingGoal(false)}
+                    onSubmitEditing={() => setEditingGoal(false)}
+                  />
+                ) : (
+                  <Text style={styles.goalText} numberOfLines={1}>
+                    {goal.trim() ? goal : "今日目标 · 写下今天想完成的事…"}
+                  </Text>
+                )}
+              </Pressable>
+
+              {/* 学习场景：横向场景卡，点一下切换背景 */}
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sceneStrip}>
+                {FOCUS_SCENES.map((scene) => {
+                  const active = galleryId === scene.id && mode === "gallery";
+                  return (
+                    <Pressable
+                      key={scene.id}
+                      onPress={() => {
+                        if (mode !== "gallery") switchMode("gallery");
+                        pickGallery(scene.id);
+                        haptics.light();
+                      }}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                      accessibilityLabel={scene.name}
+                      style={[styles.sceneCard, active && styles.sceneCardActive]}
+                    >
+                      <ExpoImage
+                        source={focusSceneSource(scene.id)}
+                        style={styles.sceneThumb}
+                        contentFit="cover"
+                        cachePolicy="memory-disk"
+                      />
+                      <View style={styles.sceneShade} />
+                      <Text style={styles.sceneName} numberOfLines={1}>{scene.name}</Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+
+              {/* 声音氛围：值持久化，进入计时后沿用 */}
+              <View style={styles.volumeRow}>
+                <VolumeSlider
+                  label="音乐"
+                  value={musicVolume}
+                  onChange={(value) => {
+                    setMusicVolume(value);
+                    persist(K_MUSIC, String(value));
+                  }}
+                />
+                <VolumeSlider
+                  label="背景音"
+                  value={ambientVolume}
+                  onChange={(value) => {
+                    setAmbientVolume(value);
+                    persist(K_AMBIENT, String(value));
+                  }}
+                />
               </View>
 
               {/* 中部：时长档位 + 计时方式（flex 撑满剩余高度，小屏自动收紧） */}
@@ -1021,12 +1163,55 @@ export function FocusTimer({
                 <ThemedIcon name="sparkles" size={14} color="#FFB25E" />
                 <Text style={styles.quoteFooterText} numberOfLines={2}>{quote}</Text>
               </View>
-            </View>
+            </ScrollView>
           )}
       </View>
     </Modal>
   );
 }
+
+/** 轻量音量条：点击轨道任意位置即可设值；不引入新的滑块原生依赖。 */
+function VolumeSlider({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
+  const [trackWidth, setTrackWidth] = useState(0);
+  return (
+    <View style={volumeStyles.wrap}>
+      <View style={volumeStyles.head}>
+        <Text style={volumeStyles.label}>{label}</Text>
+        <Text style={volumeStyles.value}>{value}%</Text>
+      </View>
+      <Pressable
+        accessibilityRole="adjustable"
+        accessibilityLabel={label + "音量"}
+        accessibilityValue={{ min: 0, max: 100, now: value }}
+        onLayout={(event) => setTrackWidth(event.nativeEvent.layout.width)}
+        onPress={(event) => {
+          if (!(trackWidth > 0)) return;
+          onChange(Math.max(0, Math.min(100, Math.round((event.nativeEvent.locationX / trackWidth) * 100))));
+        }}
+        style={volumeStyles.track}
+      >
+        <View style={[volumeStyles.fill, { width: `${value}%` as `${number}%` }]} />
+        <View style={[volumeStyles.thumb, { left: Math.max(0, (value / 100) * Math.max(0, trackWidth - 12)) }]} />
+      </Pressable>
+    </View>
+  );
+}
+
+const volumeStyles = StyleSheet.create({
+  wrap: { flex: 1, gap: 5 },
+  head: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  label: { color: "rgba(255,255,255,0.78)", fontSize: 10.5, fontWeight: "600" },
+  value: { color: "rgba(255,255,255,0.45)", fontSize: 9.5, fontVariant: ["tabular-nums"] },
+  track: { height: 18, justifyContent: "center", borderRadius: 9 },
+  fill: {
+    position: "absolute",
+    left: 0,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: "rgba(255,255,255,0.88)",
+  },
+  thumb: { position: "absolute", top: 4, width: 10, height: 10, borderRadius: 5, backgroundColor: "#FFFFFF" },
+});
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#000" },
@@ -1064,9 +1249,20 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.06)",
   },
   gallery: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  galleryItem: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: "rgba(255,255,255,0.2)" },
+  galleryItem: {
+    width: "31%",
+    minHeight: 54,
+    justifyContent: "flex-end",
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
+    overflow: "hidden",
+  },
   galleryItemActive: { borderColor: "#fff" },
-  galleryText: { color: "#fff", fontSize: 12 },
+  galleryText: { color: "#fff", fontSize: 11, fontWeight: "600" },
+  galleryShade: { ...ABS_FILL, backgroundColor: "rgba(0,0,0,0.28)" },
   center: { flexGrow: 1, alignItems: "center", padding: 20, paddingBottom: 40, gap: 20 },
   taskWrap: { alignItems: "center", gap: 6 },
   taskName: { color: "#fff", fontSize: 16, fontWeight: "600", maxWidth: "85%" },
@@ -1083,8 +1279,33 @@ const styles = StyleSheet.create({
   clockWrap: { position: "absolute", alignItems: "center", justifyContent: "center" },
   /* 对齐 demo .fm-time b：细字重 400（旧值 800 偏粗），字号仍由 clockSize 动态决定 */
   clock: { color: "#fff", fontSize: 62, fontWeight: "400", fontVariant: ["tabular-nums"] },
+  landscapeRoot: {
+    flex: 1,
+    minHeight: 0,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    gap: 16,
+    paddingTop: 8,
+  },
+  landscapeCard: {
+    flex: 1,
+    maxWidth: 340,
+    overflow: "hidden",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.22)",
+    backgroundColor: "rgba(10,14,18,0.30)",
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    gap: 6,
+  },
+  landscapeTime: { color: "#FFFFFF", fontSize: 46, fontWeight: "300", fontVariant: ["tabular-nums"] },
+  landscapeSide: { flex: 1, maxWidth: 430, gap: 8 },
   landscapeWrap: { alignItems: "center", gap: 14, paddingVertical: 8 },
   landscapeTop: { alignItems: "center", gap: 3 },
+  landscapeGoal: { color: "rgba(255,255,255,0.78)", fontSize: 12, maxWidth: "78%", textAlign: "center" },
+  landscapeVolume: { maxWidth: 420, width: "72%", paddingHorizontal: 0 },
   landscapeClockWrap: { alignItems: "center", gap: 6, paddingHorizontal: 24, paddingVertical: 6 },
   landscapeClock: { color: "#fff", fontSize: 64, fontWeight: "800", fontVariant: ["tabular-nums"], letterSpacing: 2 },
   landscapeClockHint: { color: "rgba(255,255,255,0.65)", fontSize: 12 },
@@ -1141,15 +1362,66 @@ const styles = StyleSheet.create({
   secondaryBtnText: { color: "#fff", fontSize: 15, fontWeight: "600" },
   doneBtns: { flexDirection: "row", gap: 12 },
   // ---- v2.0.1 一屏布局（启动页 / 计时页都不滚动）----
-  runBody: { flex: 1, minHeight: 0, paddingHorizontal: 16, gap: 8 },
+  runBody: { flex: 1, minHeight: 0, paddingHorizontal: 16, gap: 10 },
+  runSpacer: { flex: 1, minHeight: 0 },
+  timerCard: {
+    overflow: "hidden",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.22)",
+    backgroundColor: "rgba(10,14,18,0.30)",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 7,
+  },
+  timerCardHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  timerCardKicker: { color: "rgba(255,255,255,0.72)", fontSize: 10.5, fontWeight: "600" },
+  timerCardTask: { color: "rgba(255,255,255,0.55)", fontSize: 11 },
+  timerCardClockRow: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 74 },
+  timerCardClockBtn: { flex: 1, minWidth: 0 },
+  timerCardTime: { color: "#FFFFFF", fontSize: 54, fontWeight: "300", fontVariant: ["tabular-nums"] },
+  statusPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: "rgba(255,255,255,0.10)",
+  },
+  statusPillPaused: { backgroundColor: "rgba(255,178,94,0.16)" },
+  statusDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: "#7EE0A3" },
+  statusDotPaused: { backgroundColor: "#FFB25E" },
+  statusText: { color: "rgba(255,255,255,0.82)", fontSize: 9.5, fontWeight: "600" },
+  progressTrack: { height: 2, borderRadius: 1, backgroundColor: "rgba(255,255,255,0.18)", overflow: "hidden" },
+  progressFill: { height: 2, borderRadius: 1, backgroundColor: "rgba(255,255,255,0.9)" },
+  progressMeta: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  progressLabel: { color: "rgba(255,255,255,0.48)", fontSize: 9.5 },
+  glassDock: {
+    overflow: "hidden",
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.22)",
+    backgroundColor: "rgba(12,16,22,0.34)",
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 6,
+    gap: 6,
+  },
+  dockActions: { flexDirection: "row", alignItems: "center" },
+  dockAction: { flex: 1, alignItems: "center", justifyContent: "center", gap: 3, paddingVertical: 5 },
+  dockActionText: { color: "rgba(255,255,255,0.82)", fontSize: 9.5, fontWeight: "600" },
+  dockActionDanger: { color: "#FFD6AE" },
+  bgViewRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 10 },
+  bgViewLabel: { color: "rgba(255,255,255,0.66)", fontSize: 11, fontWeight: "600" },
   /** 计时圆环的可用舞台：flex 撑满剩余高度，圆环尺寸由实测高度反推 */
   stage: { flex: 1, minHeight: 0, alignItems: "center", justifyContent: "center" },
-  readyBody: { flex: 1, minHeight: 0, paddingHorizontal: 20, gap: 10, justifyContent: "space-between" },
+  readyBody: { flexGrow: 1, minHeight: 0, paddingHorizontal: 20, gap: 10, justifyContent: "space-between" },
   readyHead: { alignItems: "center", gap: 6, paddingTop: 2 },
   readyEyebrow: { ...typography.eyebrow, color: "rgba(255,255,255,0.55)", letterSpacing: 1.6 },
   readyTask: { ...typography.caption, color: "rgba(255,255,255,0.72)" },
   readySub: { ...typography.caption, color: "rgba(255,255,255,0.62)", textAlign: "center" },
-  readyStage: { flex: 1, minHeight: 0, justifyContent: "center", gap: 18 },
+  readyStage: { justifyContent: "center", gap: 18, paddingVertical: 4 },
   readyStageCompact: { gap: 10 },
   readyBlock: { gap: 8 },
   readyLabel: { ...typography.section, color: "rgba(255,255,255,0.65)", textAlign: "center" },
@@ -1237,4 +1509,45 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   fmQuitText: { ...typography.callout, fontWeight: "600", color: "rgba(255,255,255,0.88)" },
+  sceneTag: {
+    position: "absolute",
+    right: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
+  },
+  sceneTagText: { color: "rgba(255,255,255,0.78)", fontSize: 10.5, fontWeight: "600" },
+  goalPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    alignSelf: "stretch",
+    minHeight: 38,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.09)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
+  },
+  goalText: { flex: 1, color: "rgba(255,255,255,0.78)", fontSize: 11.5 },
+  goalInput: { flex: 1, color: "#FFFFFF", fontSize: 11.5, paddingVertical: 7 },
+  sceneStrip: { gap: 8, paddingRight: 8 },
+  sceneCard: {
+    width: 96,
+    height: 62,
+    borderRadius: 14,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
+    justifyContent: "flex-end",
+    padding: 7,
+  },
+  sceneCardActive: { borderColor: "rgba(255,255,255,0.82)", borderWidth: 1.5 },
+  sceneThumb: { ...ABS_FILL },
+  sceneShade: { ...ABS_FILL, backgroundColor: "rgba(0,0,0,0.28)" },
+  sceneName: { color: "#FFFFFF", fontSize: 10.5, fontWeight: "700" },
+  volumeRow: { flexDirection: "row", gap: 16, alignSelf: "stretch", paddingHorizontal: 4 },
 });
