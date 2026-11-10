@@ -527,6 +527,7 @@ export function FocusTimer({
           ratio={ratio}
           remainingSeconds={remainingShown}
           timerView={timerView}
+          timerMode={timerMode}
           minutes={minutes}
           endDisabled={elapsed < 10 && mode === "focus" && timerMode === "countdown" && remaining === total}
           onToggleRun={() => (running ? pause() : start())}

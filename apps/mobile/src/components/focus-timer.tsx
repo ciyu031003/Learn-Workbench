@@ -628,6 +628,8 @@ export function FocusTimer({
   const sceneItem = getFocusScene(galleryId);
   const showScene = mode === "gallery" && galleryId !== "bing";
   const sceneSource = focusSceneSource(sceneItem.id);
+  const sceneTagName =
+    mode === "gallery" ? (galleryId === "bing" ? "每日 Bing" : sceneItem.name) : null;
 
   /**
    * v2.0.1 一屏化（真机反馈「专注界面不要上下滑动」）：
@@ -726,15 +728,17 @@ export function FocusTimer({
         {/* 黑色压暗层只用于图片背景；纯色已是 #08131B 暗场，再叠 50% 黑会发死 */}
         {showImage || showBing || showScene ? <View style={[ABS_FILL, styles.scrim]} /> : null}
 
-        <View
-          pointerEvents="none"
-          style={[
-            styles.sceneTag,
-            { top: insets.top + 58, right: Math.max(16, insets.right + 8) },
-          ]}
-        >
-          <Text style={styles.sceneTagText}>{sceneItem.name}</Text>
-        </View>
+        {sceneTagName ? (
+          <View
+            pointerEvents="none"
+            style={[
+              styles.sceneTag,
+              { top: insets.top + 58, right: Math.max(16, insets.right + 8) },
+            ]}
+          >
+            <Text style={styles.sceneTagText}>{sceneTagName}</Text>
+          </View>
+        ) : null}
 
         {/* 顶部：关闭 + 专注模式标题/时段 + 背景（提案 §专注模式） */}
         <View

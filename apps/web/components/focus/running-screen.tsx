@@ -14,6 +14,7 @@ export function RunningScreen({
   ratio,
   remainingSeconds,
   timerView,
+  timerMode,
   minutes,
   endDisabled,
   onToggleRun,
@@ -28,6 +29,7 @@ export function RunningScreen({
   ratio: number;
   remainingSeconds: number;
   timerView: "ring" | "dial";
+  timerMode: "countdown" | "stopwatch";
   minutes: number;
   endDisabled: boolean;
   onToggleRun: () => void;
@@ -38,13 +40,19 @@ export function RunningScreen({
 }) {
   const bg = useFocusBgStore();
   const scene = FOCUS_SCENES.find((item) => item.id === bg.galleryId) ?? FOCUS_SCENES[0];
-  const progress = Math.max(0, Math.min(100, Math.round((1 - ratio) * 100)));
+  const isStopwatch = timerMode === "stopwatch";
+  // Stopwatch has no fixed target, so a percentage would always read 100%.
+  const progress = isStopwatch ? 0 : Math.max(0, Math.min(100, Math.round((1 - ratio) * 100)));
+  const sceneLabel =
+    bg.mode === "gallery" ? (bg.galleryId === "bing" ? "每日 Bing" : scene.name) : null;
 
   return (
     <div className="relative z-10 flex flex-1 flex-col justify-end px-4 pb-5 pt-2">
-      <div className="pointer-events-none absolute right-5 top-1 text-xs font-medium text-white/70">
-        {scene.name}
-      </div>
+      {sceneLabel ? (
+        <div className="pointer-events-none absolute right-5 top-1 text-xs font-medium text-white/70">
+          {sceneLabel}
+        </div>
+      ) : null}
 
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 lg:flex-row lg:items-end">
         <section className="w-full overflow-hidden rounded-2xl border border-white/25 bg-black/30 p-4 shadow-2xl backdrop-blur-2xl lg:w-[286px]">
@@ -69,7 +77,7 @@ export function RunningScreen({
                   strokeWidth="3"
                   strokeLinecap="round"
                   strokeDasharray={2 * Math.PI * 20}
-                  strokeDashoffset={(2 * Math.PI * 20) * (1 - ratio)}
+                  strokeDashoffset={isStopwatch ? 0 : (2 * Math.PI * 20) * (1 - ratio)}
                 />
               </svg>
             ) : (
@@ -89,8 +97,8 @@ export function RunningScreen({
             <div className="h-full rounded-full bg-white/90 transition-[width] duration-700" style={{ width: `${progress}%` }} />
           </div>
           <div className="mt-1.5 flex items-center justify-between text-[10px] text-white/45">
-            <span>本轮进度</span>
-            <span className="tabular-nums">{progress}%</span>
+            <span>{isStopwatch ? "正向计时" : "本轮进度"}</span>
+            <span className="tabular-nums">{isStopwatch ? "进行中" : `${progress}%`}</span>
           </div>
           <div className="mt-2 flex items-center justify-between border-t border-white/10 pt-2">
             <span className="text-[10px] text-white/40">{minutes} 分钟番茄钟</span>
@@ -182,10 +190,10 @@ export function RunningScreen({
               <button
                 onClick={onEnd}
                 disabled={endDisabled}
-                title="结束学习"
+                title={mode === "exercise" ? "结束运动" : "结束学习"}
                 className="flex items-center gap-1.5 rounded-full border border-white/25 bg-white/10 px-2.5 py-1.5 text-[11px] text-white/90 transition-colors hover:bg-white/20 disabled:opacity-40"
               >
-                <Square className="size-3.5" /> 结束学习
+                <Square className="size-3.5" /> {mode === "exercise" ? "结束运动" : "结束学习"}
               </button>
             </div>
           </div>
