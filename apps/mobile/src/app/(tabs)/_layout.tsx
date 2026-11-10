@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect } from "react";
 import { Tabs, useNavigation } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -65,7 +65,7 @@ function TabIcon({
   /**
    * v1.44.2 曾按反馈在选中图标外加一圈白色圆环；v1.45 用户给了参考图
    * （选中态是一块更大的实色圆角块、并无圆环），据此把圆环去掉；
-   * v2.1 起选中态由底栏的蓝色渐变 pill 承担，图标只负责弹簧与反白。
+   * v2.6.4 起选中态由底栏的轻量玻璃软底承担，图标只负责弹簧与反白。
    */
 
   useEffect(() => {
@@ -98,9 +98,9 @@ function TabIcon({
 /**
  * 图标盒高度参与底栏的几何标定（v1.27 真机反馈"图标与文字偏下"）。
  *
- * v2.1 底栏改为 66pt 胶囊 + 52pt 单格（components/v2/floating-tab-bar.tsx）：
- *   未选中内容高 = 图标盒 27 + 标签行高 14 = 41 → 单格 52 内上下各余 5.5pt（几何居中）
- *   选中态只剩图标盒 27，居中于 52 → 图标视觉居中于蓝色 pill
+ * v2.6.4 底栏为 64pt 悬浮胶囊（components/v2/floating-tab-bar.tsx）：
+ *   图标盒 28 + 间距 2 + 标签行高 13.5 = 43.5 → 64pt 内上下留白均分
+ *   选中态软底 30×28，图标与标签整体垂直居中，不再顶到胶囊上沿
  * 三处（本高度 / 底栏标签字号与行高 / 单格高度）互为一体，改任一处都要照上式重算。
  */
 const styles = StyleSheet.create({
