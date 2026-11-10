@@ -756,7 +756,13 @@ export default function SleepScreen() {
             </Card>
 
             <SectionTitle title="平均指标" />
-            {tileRows(averageTiles(weekStats, weekNights.length)).map((row, index) => (
+            {tileRows(
+              averageTiles(
+                weekStats,
+                weekNights.length,
+                weekNights.some((night) => sleepApi.sleepMetrics(night).quality === "estimated")
+              )
+            ).map((row, index) => (
               <StatTileRow key={"week-tiles-" + index} items={row} columns={3} />
             ))}
 
@@ -829,7 +835,13 @@ export default function SleepScreen() {
             </Card>
 
             <SectionTitle title="平均指标" right={<Text style={styles.sectionMeta}>30 天</Text>} />
-            {tileRows(averageTiles(monthStats, monthHeat.recordDays)).map((row, index) => (
+            {tileRows(
+              averageTiles(
+                monthStats,
+                monthHeat.recordDays,
+                monthNights.some((night) => sleepApi.sleepMetrics(night).quality === "estimated")
+              )
+            ).map((row, index) => (
               <StatTileRow key={"month-tiles-" + index} items={row} columns={3} />
             ))}
           </>
@@ -1255,7 +1267,7 @@ function dateOptions(todayKey: string, editingDate: string | null): string[] {
 }
 
 /** 周 / 月平均指标（6 格） */
-function averageTiles(stats: SleepStatsLike, recordedNights: number): StatTileProps[] {
+function averageTiles(stats: SleepStatsLike, recordedNights: number, hasEstimated = false): StatTileProps[] {
   return [
     {
       label: "平均时长",
@@ -1269,21 +1281,21 @@ function averageTiles(stats: SleepStatsLike, recordedNights: number): StatTilePr
       value: percentText(stats.avgEfficiency, 0),
       icon: "pulse-outline",
       tone: "success",
-      hint: "≥85%",
+      hint: hasEstimated ? "含估算" : "≥85%",
     },
     {
       label: "深睡占比",
       value: percentText(stats.avgDeepPct, 0),
       icon: "layers-outline",
       tone: "accent",
-      hint: "参考 15–60%",
+      hint: "15–20%",
     },
     {
       label: "快速眼动",
       value: percentText(stats.avgRemPct, 0),
       icon: "analytics-outline",
       tone: "teal",
-      hint: "15–25%",
+      hint: "20–25%",
     },
     {
       label: "清醒均值",
@@ -1291,7 +1303,7 @@ function averageTiles(stats: SleepStatsLike, recordedNights: number): StatTilePr
       unit: stats.avgAwakeCount === null ? undefined : "次",
       icon: "eye-outline",
       tone: "warning",
-      hint: "≤2 次",
+      hint: hasEstimated ? "含估算" : "≤2次",
     },
     {
       label: "记录晚数",

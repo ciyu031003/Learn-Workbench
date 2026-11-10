@@ -40,7 +40,14 @@ export function FloatingTabBar({ state, descriptors, navigation, insets }: Botto
   return (
     <View
       pointerEvents="box-none"
-      style={[styles.host, { bottom: insets.bottom + TAB_BAR_FLOAT_GAP }]}
+      style={[
+        styles.host,
+        {
+          bottom: insets.bottom + TAB_BAR_FLOAT_GAP,
+          paddingLeft: Math.max(TAB_BAR_SIDE_INSET, insets.left),
+          paddingRight: Math.max(TAB_BAR_SIDE_INSET, insets.right),
+        },
+      ]}
     >
       <View style={styles.shadow}>
         <View style={styles.bar}>

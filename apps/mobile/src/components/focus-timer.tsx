@@ -189,10 +189,16 @@ export function FocusTimer({
           AsyncStorage.getItem(K_AMBIENT),
         ]);
         if (view === "dial" || view === "ring") setTimerView(view);
-        if (m) setMode(m as BgMode);
+        if (m === "gallery" || m === "color" || m === "upload") setMode(m);
         if (c) setColor(c);
         if (u) setUrl(u);
-        if (g) setGalleryId(g);
+        // Older releases persisted scene ids that no longer exist. Keep the
+        // gallery selection consistent with the current catalog.
+        if (g && (g === "bing" || FOCUS_SCENES.some((scene) => scene.id === g))) {
+          setGalleryId(g);
+        } else if (g) {
+          setGalleryId(DEFAULT_FOCUS_SCENE_ID);
+        }
         if (q) setQuote(q);
         if (goalVal) setGoal(goalVal);
         if (music) setMusicVolume(Math.min(100, Math.max(0, Number(music) || 45)));
@@ -720,12 +726,27 @@ export function FocusTimer({
         {/* 黑色压暗层只用于图片背景；纯色已是 #08131B 暗场，再叠 50% 黑会发死 */}
         {showImage || showBing || showScene ? <View style={[ABS_FILL, styles.scrim]} /> : null}
 
-        <View pointerEvents="none" style={[styles.sceneTag, { top: insets.top + 58 }]}>
+        <View
+          pointerEvents="none"
+          style={[
+            styles.sceneTag,
+            { top: insets.top + 58, right: Math.max(16, insets.right + 8) },
+          ]}
+        >
           <Text style={styles.sceneTagText}>{sceneItem.name}</Text>
         </View>
 
         {/* 顶部：关闭 + 专注模式标题/时段 + 背景（提案 §专注模式） */}
-        <View style={[styles.topBar, { paddingTop: insets.top + 12 }]}>
+        <View
+          style={[
+            styles.topBar,
+            {
+              paddingTop: insets.top + 12,
+              paddingLeft: Math.max(16, insets.left + 8),
+              paddingRight: Math.max(16, insets.right + 8),
+            },
+          ]}
+        >
           <Pressable accessibilityLabel="关闭" style={styles.topBtn} onPress={() => record(elapsed)} hitSlop={8}>
             <ThemedIcon name="close" size={20} color="rgba(255,255,255,0.9)" />
           </Pressable>
