@@ -48,6 +48,18 @@ export type SleepHealthStatus = "ok" | "unsupported" | "unavailable" | "denied" 
 export interface SleepHealthRead {
   status: SleepHealthStatus;
   nights: SleepNight[];
+  diagnostics?: {
+    recordCount: number;
+    stageRecordCount: number;
+    lastRecordAt: string | null;
+  };
+}
+
+export interface SleepEffectiveMetrics {
+  stages: { deep: number; light: number; rem: number; awake: number } | null;
+  awakeCount: number | null;
+  efficiencyPct: number | null;
+  quality: "measured" | "estimated";
 }
 
 export interface ManualSleepInput {
@@ -55,6 +67,10 @@ export interface ManualSleepInput {
   durationMin: number;
   bedtime?: string;
   wakeTime?: string;
+  deepMin?: number;
+  remMin?: number;
+  awakeCount?: number;
+  efficiencyPct?: number;
 }
 
 /** 数据层实际导出（全部可选：运行时探测，避免编译期硬绑定） */
@@ -66,6 +82,8 @@ interface SleepModuleShape {
   upsertManualSleepNight?: (input: ManualSleepInput) => Promise<unknown>;
   deleteSleepNight?: (date: string) => Promise<unknown>;
   sleepScore?: (night: SleepNight) => unknown;
+  effectiveSleepMetrics?: (night: SleepNight) => unknown;
+  sleepDataQuality?: (night: SleepNight) => unknown;
   sleepStats?: (nights: SleepNight[], days: number) => unknown;
   sleepStageSlices?: (night: SleepNight) => unknown;
   formatSleepMinutes?: (minutes: number) => unknown;
@@ -113,7 +131,7 @@ export const SLEEP_SOURCE_LABEL: Record<SleepSource, string> = {
 
 /** 小米运动健康的同步路径（用户最容易卡住的一步，UI 上直接写出来） */
 export const XIAOMI_SYNC_HINT =
-  "小米运动健康不会自动写入 Health Connect：请在「小米运动健康 → 我的 → 健康数据/第三方接入」里打开 Health Connect 同步，再回到这里点「重新读取」。";
+  "小米运动健康不会自动写入 Health Connect：请在「小米运动健康 → 我的 → 健康数据 / 第三方接入」打开 Health Connect 并勾选睡眠，再回来点「重新读取」。部分系统版本只同步总时长、不带深睡/REM 分期，此时深睡、REM、清醒次数会标注为估算，也可以手动补录分期。";
 
 /* ------------------------------------------------------------------ *
  * 归一（脏数据收敛，页面拿到的一定是合法形状）
@@ -125,6 +143,19 @@ function finiteOrNull(value: unknown): number | null {
 
 function stringOr(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
+}
+
+function normalizeDiagnostics(raw: unknown): SleepHealthRead["diagnostics"] | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const value = raw as Record<string, unknown>;
+  const recordCount = finiteOrNull(value.recordCount);
+  const stageRecordCount = finiteOrNull(value.stageRecordCount);
+  if (recordCount === null || stageRecordCount === null) return undefined;
+  return {
+    recordCount: Math.max(0, Math.round(recordCount)),
+    stageRecordCount: Math.max(0, Math.round(stageRecordCount)),
+    lastRecordAt: typeof value.lastRecordAt === "string" ? value.lastRecordAt : null,
+  };
 }
 
 function normalizeStages(raw: unknown): SleepNightLike["stages"] {
@@ -263,7 +294,7 @@ export const sleepApi = {
         const raw = asRecord(await lib.readSleepNightsFromHealth(options));
         const status = normalizeStatus(raw?.status);
         const nights = normalizeSleepNights(raw?.nights);
-        return { status, nights };
+        return { status, nights, diagnostics: normalizeDiagnostics(raw?.diagnostics) };
       } catch {
         return { status: "error", nights: [] };
       }
@@ -334,6 +365,53 @@ export const sleepApi = {
       }
     }
     return fallbackSleepScore(night);
+  },
+
+  /** 设备分期 = measured；仅有时长/效率时页面显示「估算」 */
+  sleepDataQuality(night: SleepNight | null | undefined): "measured" | "estimated" {
+    if (!night) return "estimated";
+    if (typeof lib.sleepDataQuality === "function") {
+      try {
+        return lib.sleepDataQuality(night) === "measured" ? "measured" : "estimated";
+      } catch {
+        return night.stages ? "measured" : "estimated";
+      }
+    }
+    return night.stages ? "measured" : "estimated";
+  },
+
+  /** 日详情 / 周月统计共用的有效指标：设备分期优先，缺失时按时长估算。 */
+  sleepMetrics(night: SleepNight | null | undefined): SleepEffectiveMetrics {
+    if (!night) {
+      return { stages: null, awakeCount: null, efficiencyPct: null, quality: "estimated" };
+    }
+    if (typeof lib.effectiveSleepMetrics === "function") {
+      try {
+        const raw = asRecord(lib.effectiveSleepMetrics(night));
+        const stages = normalizeStages(raw?.stages);
+        return {
+          stages: stages
+            ? {
+                deep: stages.deep,
+                light: stages.light,
+                rem: stages.rem,
+                awake: stages.awake,
+              }
+            : null,
+          awakeCount: finiteOrNull(raw?.awakeCount),
+          efficiencyPct: finiteOrNull(raw?.efficiencyPct),
+          quality: raw?.quality === "measured" ? "measured" : "estimated",
+        };
+      } catch {
+        // 落到下面的最小兜底
+      }
+    }
+    return {
+      stages: night.stages,
+      awakeCount: night.awakeCount,
+      efficiencyPct: night.efficiencyPct,
+      quality: night.stages ? "measured" : "estimated",
+    };
   },
 
   /** 区间统计 */

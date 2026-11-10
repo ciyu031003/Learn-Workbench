@@ -37,6 +37,7 @@ import {
   SLEEP_STATUS_LABEL,
   XIAOMI_SYNC_HINT,
   type SleepHealthStatus,
+  type SleepHealthRead,
   type SleepNight,
   type SleepStageSlice,
 } from "@/lib/sleep-api";
@@ -138,6 +139,7 @@ export default function SleepScreen() {
   const [healthNights, setHealthNights] = useState<SleepNight[]>([]);
   const [healthStatus, setHealthStatus] = useState<SleepHealthStatus | null>(null);
   const [healthCount, setHealthCount] = useState(0);
+  const [healthDiagnostics, setHealthDiagnostics] = useState<SleepHealthRead["diagnostics"] | null>(null);
   const [healthMessage, setHealthMessage] = useState<string | null>(null);
   const [reading, setReading] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -147,7 +149,16 @@ export default function SleepScreen() {
   /** 补录弹层 */
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingDate, setEditingDate] = useState<string | null>(null);
-  const [form, setForm] = useState({ date: todayKey, duration: "", bedtime: "", wakeTime: "" });
+  const [form, setForm] = useState({
+    date: todayKey,
+    duration: "",
+    bedtime: "",
+    wakeTime: "",
+    deep: "",
+    rem: "",
+    awakeCount: "",
+    efficiency: "",
+  });
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -169,6 +180,7 @@ export default function SleepScreen() {
       });
       setHealthStatus(result.status);
       setHealthCount(result.nights.length);
+      setHealthDiagnostics(result.diagnostics ?? null);
       setHealthNights(result.nights);
       setReading(false);
       return result;
@@ -213,6 +225,8 @@ export default function SleepScreen() {
   /* ---------------------------- 日视图数据 ---------------------------- */
   const score = detailNight ? sleepApi.sleepScore(detailNight) : null;
   const rating = sleepApi.qualityLabel(score);
+  const effectiveMetrics = useMemo(() => sleepApi.sleepMetrics(detailNight), [detailNight]);
+  const quality = effectiveMetrics.quality;
   const slices = useMemo(() => (detailNight ? sleepApi.sleepStageSlices(detailNight) : []), [detailNight]);
   /** 深睡占比与数据层同口径：直接取切片（pct 以卧床时长为分母） */
   const deepPct = useMemo(() => slices.find((slice) => slice.key === "deep")?.pct ?? null, [slices]);
@@ -276,28 +290,28 @@ export default function SleepScreen() {
         value: deepPct === null ? "—" : percentText(deepPct, 1),
         icon: "layers-outline",
         tone: "accent",
-        hint: "参考 15–60%",
+        hint: quality === "estimated" ? "估算 · 15–20%" : "15–20%",
       },
       {
         label: "清醒次数",
         value:
-          detailNight.awakeCount === null || !Number.isFinite(detailNight.awakeCount)
+          effectiveMetrics.awakeCount === null || !Number.isFinite(effectiveMetrics.awakeCount)
             ? "—"
-            : String(Math.round(detailNight.awakeCount)),
-        unit: detailNight.awakeCount === null ? undefined : "次",
+            : String(Math.round(effectiveMetrics.awakeCount)),
+        unit: effectiveMetrics.awakeCount === null ? undefined : "次",
         icon: "eye-outline",
         tone: "warning",
-        hint: "≤2 次",
+        hint: quality === "estimated" ? "估算 · ≤2次" : "≤2次",
       },
       {
         label: "睡眠效率",
-        value: percentText(detailNight.efficiencyPct, 0),
+        value: percentText(effectiveMetrics.efficiencyPct, 0),
         icon: "pulse-outline",
         tone: "success",
-        hint: "≥85%",
+        hint: quality === "estimated" ? "估算 · ≥85%" : "≥85%",
       },
     ];
-  }, [deepPct, detailNight]);
+  }, [deepPct, detailNight, effectiveMetrics, quality]);
 
   /* ---------------------------- 周 / 月数据 ---------------------------- */
   const weekStart = shiftSleepDate(todayKey, -6);
@@ -335,7 +349,7 @@ export default function SleepScreen() {
   const openCreate = useCallback(() => {
     haptics.light();
     setEditingDate(null);
-    setForm({ date: todayKey, duration: "", bedtime: "", wakeTime: "" });
+    setForm({ date: todayKey, duration: "", bedtime: "", wakeTime: "", deep: "", rem: "", awakeCount: "", efficiency: "" });
     setFormError(null);
     setSheetOpen(true);
   }, [todayKey]);
@@ -350,6 +364,10 @@ export default function SleepScreen() {
       duration: sleepApi.formatSleepMinutes(night.durationMin),
       bedtime: bedtimeText === "—" ? "" : bedtimeText,
       wakeTime: wakeText === "—" ? "" : wakeText,
+      deep: night.stages ? String(Math.round(night.stages.deep)) : "",
+      rem: night.stages ? String(Math.round(night.stages.rem)) : "",
+      awakeCount: night.awakeCount === null ? "" : String(Math.round(night.awakeCount)),
+      efficiency: night.efficiencyPct === null ? "" : String(Math.round(night.efficiencyPct)),
     });
     setFormError(null);
     setSheetOpen(true);
@@ -376,6 +394,37 @@ export default function SleepScreen() {
       setFormError("起床时间写成 07:10 这样");
       return;
     }
+    const deepText = form.deep.trim();
+    const remText = form.rem.trim();
+    if (Boolean(deepText) !== Boolean(remText)) {
+      haptics.soft();
+      setFormError("深睡和 REM 要一起填，才能生成完整分期");
+      return;
+    }
+    const deepMin = deepText ? Number(deepText) : undefined;
+    const remMin = remText ? Number(remText) : undefined;
+    if (
+      deepText &&
+      (!Number.isFinite(deepMin) || deepMin! < 0 || !Number.isFinite(remMin) || remMin! < 0 || deepMin! + remMin! > durationMin)
+    ) {
+      haptics.soft();
+      setFormError("深睡 + REM 分钟数要有效，且不能超过总睡眠时长");
+      return;
+    }
+    const awakeText = form.awakeCount.trim();
+    const awakeCount = awakeText ? Number(awakeText) : undefined;
+    if (awakeText && (!Number.isFinite(awakeCount) || awakeCount! < 0 || awakeCount! > 30)) {
+      haptics.soft();
+      setFormError("清醒次数填 0–30 的整数");
+      return;
+    }
+    const efficiencyText = form.efficiency.trim();
+    const efficiencyPct = efficiencyText ? Number(efficiencyText) : undefined;
+    if (efficiencyText && (!Number.isFinite(efficiencyPct) || efficiencyPct! < 0 || efficiencyPct! > 100)) {
+      haptics.soft();
+      setFormError("睡眠效率填 0–100 的百分比");
+      return;
+    }
     setSaving(true);
     setFormError(null);
     const saved = await sleepApi.upsertManualSleepNight({
@@ -383,6 +432,10 @@ export default function SleepScreen() {
       durationMin,
       bedtime: bedtime ?? undefined,
       wakeTime: wakeTime ?? undefined,
+      deepMin,
+      remMin,
+      awakeCount: awakeCount === undefined ? undefined : Math.round(awakeCount),
+      efficiencyPct,
     });
     setSaving(false);
     if (!saved) {
@@ -612,7 +665,7 @@ export default function SleepScreen() {
                     segments={ringSegments}
                     score={score ?? "—"}
                     scoreLabel="睡眠评分"
-                    caption={rating}
+                    caption={quality === "estimated" ? rating + " · 估算" : rating}
                     title={null}
                     legend={false}
                     size={176}
@@ -648,7 +701,10 @@ export default function SleepScreen() {
                   <StatTileRow key={"day-tiles-" + index} items={row} columns={3} />
                 ))}
 
-                <SectionTitle title="睡眠分期" />
+                <SectionTitle
+                  title="睡眠分期"
+                  right={<Text style={styles.sectionMeta}>{quality === "estimated" ? "按时长估算" : "设备分期"}</Text>}
+                />
                 <Card style={styles.stageCard}>
                   <StageTimeline night={detailNight} />
                   {slices.length > 0 ? (
@@ -800,6 +856,12 @@ export default function SleepScreen() {
           {healthStatus === "ok" ? (
             <Text style={styles.sourceMeta}>已读到 {healthCount} 晚记录（同日以系统数据为准）</Text>
           ) : null}
+          {healthDiagnostics ? (
+            <Text style={styles.sourceMeta}>
+              原始会话 {healthDiagnostics.recordCount} 条 · 含分期 {healthDiagnostics.stageRecordCount} 条
+              {healthDiagnostics.stageRecordCount === 0 ? " · 小米只同步了总时长，深睡/REM/清醒次数按估算显示" : ""}
+            </Text>
+          ) : null}
           {healthMessage ? <Text style={styles.sourceError}>{healthMessage}</Text> : null}
           <View style={styles.sourceActions}>
             <PressableScale
@@ -917,7 +979,7 @@ export default function SleepScreen() {
           />
         </SheetSection>
 
-        <SheetSection title="入睡 / 起床（可选）" hint="填了时间才能算规律性与起卧床点" last>
+        <SheetSection title="入睡 / 起床（可选）" hint="填了时间才能算规律性与起卧床点">
           <View style={styles.formRow}>
             <View style={styles.formCell}>
               <Field
@@ -942,6 +1004,69 @@ export default function SleepScreen() {
                 }}
                 placeholder="07:10"
                 hint="记在起床那天"
+                autoCorrect={false}
+              />
+            </View>
+          </View>
+        </SheetSection>
+
+        <SheetSection
+          title="睡眠分期（可选）"
+          hint="设备没同步分期时手填；深睡 + REM 不能超过总时长。全部留空则按时长估算"
+          last
+        >
+          <View style={styles.formRow}>
+            <View style={styles.formCell}>
+              <Field
+                label="深睡分钟"
+                value={form.deep}
+                onChangeText={(value) => {
+                  setForm((prev) => ({ ...prev, deep: value }));
+                  setFormError(null);
+                }}
+                placeholder="90"
+                hint="与 REM 一起填"
+                autoCorrect={false}
+              />
+            </View>
+            <View style={styles.formCell}>
+              <Field
+                label="REM 分钟"
+                value={form.rem}
+                onChangeText={(value) => {
+                  setForm((prev) => ({ ...prev, rem: value }));
+                  setFormError(null);
+                }}
+                placeholder="100"
+                hint="快速眼动"
+                autoCorrect={false}
+              />
+            </View>
+          </View>
+          <View style={styles.formRow}>
+            <View style={styles.formCell}>
+              <Field
+                label="清醒次数"
+                value={form.awakeCount}
+                onChangeText={(value) => {
+                  setForm((prev) => ({ ...prev, awakeCount: value }));
+                  setFormError(null);
+                }}
+                placeholder="2"
+                hint="0–30 次"
+                autoCorrect={false}
+              />
+            </View>
+            <View style={styles.formCell}>
+              <Field
+                label="睡眠效率"
+                value={form.efficiency}
+                onChangeText={(value) => {
+                  setForm((prev) => ({ ...prev, efficiency: value }));
+                  setFormError(null);
+                }}
+                placeholder="92"
+                hint="0–100%"
                 autoCorrect={false}
               />
             </View>

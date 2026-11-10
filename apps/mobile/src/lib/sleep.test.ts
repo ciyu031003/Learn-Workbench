@@ -7,6 +7,7 @@ import {
   clockFromBedtimeMinutes,
   countSessionsInWindow,
   deleteSleepNight,
+  effectiveSleepMetrics,
   formatClockTime,
   formatSleepHours,
   formatSleepHoursValue,
@@ -34,8 +35,10 @@ import {
   sleepHoursInWindow,
   sleepRegularity,
   sleepScore,
+  sleepDataQuality,
   sleepStageSlices,
   sleepStats,
+  summarizeSleepHealthRecords,
   SLEEP_NIGHTS_STORAGE_KEY,
   SLEEP_STORAGE_KEY,
   SLEEP_STATUS_HINT,
@@ -607,12 +610,12 @@ describe("睡眠规律性（sleepRegularity）", () => {
  * ================================================================== */
 
 describe("睡眠评分（sleepScore / qualityLabel）", () => {
-  it("8 小时 + 23:00 入睡（无阶段）→ 100（权重重分配后满分）", () => {
-    expect(sleepScore(makeNight())).toBe(100);
+  it("8 小时 + 23:00 入睡（无阶段）→ 估算上限 84，不再给满分", () => {
+    expect(sleepScore(makeNight())).toBe(84);
   });
 
-  it("6 小时无阶段：时长 60 分 + 规律性 100 → 67", () => {
-    expect(sleepScore(makeNight({ durationMin: 360, timeInBedMin: 360 }))).toBe(67);
+  it("6 小时无阶段：时长 + 估算分期/效率 + 规律性 → 75", () => {
+    expect(sleepScore(makeNight({ durationMin: 360, timeInBedMin: 360 }))).toBe(75);
   });
 
   it("阶段齐全且落在参考区间 → 95 以上", () => {
@@ -657,8 +660,8 @@ describe("睡眠评分（sleepScore / qualityLabel）", () => {
   });
 
   it("传入历史规律性标准差：90 分钟 → 规律性分 40", () => {
-    expect(sleepScore(makeNight(), { regularityStdevMin: 90 })).toBe(90);
-    expect(sleepScore(makeNight(), { regularityStdevMin: 10 })).toBe(100);
+    expect(sleepScore(makeNight(), { regularityStdevMin: 90 })).toBe(84);
+    expect(sleepScore(makeNight(), { regularityStdevMin: 10 })).toBe(84);
   });
 
   it("qualityLabel 分档", () => {
@@ -726,8 +729,11 @@ describe("阶段切片（sleepStageSlices）", () => {
     expect(slices[0].isNormal).toBe(false);
   });
 
-  it("无阶段数据 → 空数组（UI 显示无分段）", () => {
-    expect(sleepStageSlices(makeNight())).toEqual([]);
+  it("无阶段数据 → 四段估算切片（页面标注估算）", () => {
+    const slices = sleepStageSlices(makeNight());
+    expect(slices).toHaveLength(4);
+    expect(slices.every((slice) => slice.estimated === true)).toBe(true);
+    expect(slices.reduce((sum, slice) => sum + slice.minutes, 0)).toBeGreaterThan(0);
     expect(sleepStageSlices(null)).toEqual([]);
   });
 });
@@ -772,17 +778,18 @@ describe("睡眠统计（sleepStats）", () => {
     const stats = sleepStats(nights, 7);
     expect(stats.count).toBe(3);
     expect(stats.avgDurationMin).toBe(470);
-    expect(stats.avgEfficiencyPct).toBe(96.5);
-    expect(stats.avgDeepPct).toBe(16.2);
-    expect(stats.avgRemPct).toBe(17);
-    expect(stats.avgAwakeCount).toBe(0.5);
+    // 第三晚只有总时长，效率按估算 94% 参与均值
+    expect(stats.avgEfficiencyPct).toBe(95.7);
+    expect(stats.avgDeepPct).toBe(16.8);
+    expect(stats.avgRemPct).toBe(18.3);
+    expect(stats.avgAwakeCount).toBe(0.7);
     expect(stats.avgBedtimeMinutes).toBe(60);
     expect(stats.avgBedtime).toBe("23:00");
-    expect(stats.avgScore).toBe(98);
+    expect(stats.avgScore).toBe(93);
     expect(stats.regularity.stdevMin).toBe(24);
     expect(stats.regularity.label).toBe("规律");
     // 页面适配层（lib/sleep-api.ts）读的兼容别名
-    expect(stats.avgEfficiency).toBe(96.5);
+    expect(stats.avgEfficiency).toBe(95.7);
     expect(stats.regularityStdMin).toBe(24);
     expect(stats.regularityLabel).toBe("规律");
   });
@@ -1162,5 +1169,89 @@ describe("存储键", () => {
     expect(SLEEP_NIGHTS_STORAGE_KEY).toBe("lwb.sleep.v2");
     expect(LEGACY_SLEEP_STORAGE_KEY).toBe("lwb.sleep.v1");
     expect(SLEEP_STORAGE_KEY).toBe("lwb.sleep.v1");
+  });
+});
+
+/* ================================================================== *
+ * 估算指标与评分可信度（2026-11 小米只同步总时长）
+ * ================================================================== */
+
+describe("睡眠估算与评分可信度", () => {
+  it("只有总时长时补全深睡/浅睡/REM/清醒与效率，并标记 estimated", () => {
+    const metrics = effectiveSleepMetrics(makeNight());
+    expect(metrics.quality).toBe("estimated");
+    expect(metrics.stages).not.toBeNull();
+    const stages = metrics.stages!;
+    expect(stages.deep).toBeGreaterThan(0);
+    expect(stages.light).toBeGreaterThan(0);
+    expect(stages.rem).toBeGreaterThan(0);
+    expect(stages.awake).toBeGreaterThan(0);
+    expect(stages.deep + stages.light + stages.rem + stages.awake).toBeGreaterThan(0);
+    expect(metrics.awakeCount).toBeGreaterThanOrEqual(1);
+    expect(metrics.efficiencyPct).toBeGreaterThanOrEqual(80);
+  });
+
+  it("无设备分期时 8 小时记录不再给到 98 分，最高 84 分", () => {
+    const score = sleepScore(makeNight());
+    expect(score).toBeGreaterThan(65);
+    expect(score).toBeLessThanOrEqual(84);
+    expect(sleepDataQuality(makeNight())).toBe("estimated");
+  });
+
+  it("真实设备分期仍可超过估算上限", () => {
+    const measured = makeNight({
+      stages: { deep: 96, light: 264, rem: 96, awake: 24 },
+      awakeCount: 1,
+      efficiencyPct: 95,
+      source: "health",
+    });
+    expect(effectiveSleepMetrics(measured).quality).toBe("measured");
+    expect(sleepScore(measured)).toBeGreaterThan(84);
+  });
+
+  it("分期切片在估算时带 estimated 标记，页面可显示估算徽标", () => {
+    const slices = sleepStageSlices(makeNight());
+    expect(slices).toHaveLength(4);
+    expect(slices.every((slice) => slice.estimated === true)).toBe(true);
+  });
+
+  it("只有总时长时，周统计仍给出效率与清醒次数估算，不落成空值", () => {
+    const stats = sleepStats([makeNight({ durationMin: 480, timeInBedMin: 480 })], 7);
+    expect(stats.avgEfficiencyPct).toBe(94);
+    expect(stats.avgAwakeCount).toBe(1);
+    expect(stats.avgDeepPct).toBeGreaterThan(0);
+    expect(stats.avgRemPct).toBeGreaterThan(0);
+  });
+});
+
+describe("Health Connect 原始诊断", () => {
+  it("统计原始会话数、含分期条数与最近结束时间", () => {
+    const records: SleepHealthRecord[] = [
+      { startTime: ts(2026, 3, 9, 23, 0), endTime: ts(2026, 3, 10, 7, 0), stages: [] },
+      { startTime: ts(2026, 3, 10, 8, 0), endTime: ts(2026, 3, 10, 9, 0), stages: [stage(ts(2026, 3, 10, 8, 0), ts(2026, 3, 10, 8, 30), 5)] },
+    ];
+    expect(summarizeSleepHealthRecords(records)).toEqual({
+      recordCount: 2,
+      stageRecordCount: 1,
+      lastRecordAt: ts(2026, 3, 10, 9, 0),
+    });
+  });
+});
+
+describe("手动补录睡眠分期", () => {
+  it("深睡/REM/清醒次数/效率会写入，并按 measured 参与后续评分", async () => {
+    mem.map.clear();
+    const saved = await upsertManualSleepNight({
+      date: "2026-03-10",
+      durationMin: 480,
+      deepMin: 90,
+      remMin: 100,
+      awakeCount: 2,
+      efficiencyPct: 92,
+    });
+    expect(saved?.stages).toEqual({ deep: 90, rem: 100, light: 290, awake: 0 });
+    expect(saved?.awakeCount).toBe(2);
+    expect(saved?.efficiencyPct).toBe(92);
+    expect(saved ? effectiveSleepMetrics(saved).quality : null).toBe("measured");
   });
 });

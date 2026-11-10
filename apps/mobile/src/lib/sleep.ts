@@ -146,6 +146,17 @@ export interface SleepNightsResult {
   nights: SleepNight[];
   /** 失败/空结果的机器可读原因（同时给人看的一句话） */
   reason?: string;
+  /** 原始 Health Connect 读取诊断（权限通过后始终带回，便于解释“为什么没有分期”） */
+  diagnostics?: SleepHealthDiagnostics;
+}
+
+export interface SleepHealthDiagnostics {
+  /** 查询窗口内原始 SleepSession 条数 */
+  recordCount: number;
+  /** 其中带 stages 的条数 */
+  stageRecordCount: number;
+  /** 最近一条会话的结束时间（ISO） */
+  lastRecordAt: string | null;
 }
 
 /** Health Connect 返回的睡眠会话（只取聚合需要的字段，宽松接受原生脏数据） */
@@ -185,6 +196,8 @@ export interface SleepStageSlice {
   reference: string;
   /** 是否落在参考区间内 */
   isNormal: boolean;
+  /** true = 由时长/效率估算，不是设备上报的分期 */
+  estimated?: boolean;
 }
 
 export interface SleepRegularity {
@@ -238,6 +251,13 @@ export interface ManualSleepNightInput {
   durationMin: number;
   bedtime?: string;
   wakeTime?: string;
+  /** 可选分期补录：深睡分钟与 REM 分钟；两者都有效且不超总时长才启用 */
+  deepMin?: number;
+  remMin?: number;
+  /** 可选：夜间清醒次数 */
+  awakeCount?: number;
+  /** 可选：睡眠效率（%）；不传且卧床 > 睡眠时自动计算 */
+  efficiencyPct?: number;
 }
 
 export interface SleepNightsOptions {
@@ -508,9 +528,71 @@ function durationComponent(minutes: number): number {
   return 0;
 }
 
+/** 数据质量：measured = 设备上报分期；estimated = 由时长/效率推导（小米只同步总时长时使用） */
+export type SleepDataQuality = "measured" | "estimated";
+
+export interface EffectiveSleepMetrics {
+  stages: SleepStages | null;
+  awakeCount: number | null;
+  efficiencyPct: number | null;
+  quality: SleepDataQuality;
+}
+
+/**
+ * 把「只有总时长/入睡/起床」的记录补成可展示的完整指标。
+ *
+ * 这不是把估算冒充设备数据：返回 quality=estimated，页面会标注「估算」。
+ * 一旦 Health Connect 的分期记录可读，effectiveSleepMetrics 会直接采用 measured，不再估算。
+ */
+export function effectiveSleepMetrics(night: SleepNight | null | undefined): EffectiveSleepMetrics {
+  if (!night) return { stages: null, awakeCount: null, efficiencyPct: null, quality: "estimated" };
+  if (night.stages) {
+    return {
+      stages: night.stages,
+      awakeCount: night.awakeCount,
+      efficiencyPct: night.efficiencyPct,
+      quality: "measured",
+    };
+  }
+  const inBed = night.timeInBedMin > 0 ? night.timeInBedMin : night.durationMin;
+  const sleep = clamp(night.durationMin, 0, inBed);
+  if (!(inBed > 0) || !(sleep > 0)) {
+    return { stages: null, awakeCount: night.awakeCount, efficiencyPct: night.efficiencyPct, quality: "estimated" };
+  }
+  const actualAwake = Math.max(0, inBed - sleep);
+  // 以人群常见区间为锚点，按睡眠总时长做很小幅调整；只用于趋势参考。
+  const deepRatio = sleep < 360 ? 0.16 : sleep > 540 ? 0.19 : 0.18;
+  const remRatio = sleep < 360 ? 0.19 : sleep > 540 ? 0.22 : 0.21;
+  const deep = Math.round(sleep * deepRatio);
+  const rem = Math.round(sleep * remRatio);
+  const awake = Math.max(5, Math.round(actualAwake > 0 ? actualAwake : sleep * 0.025));
+  // 四段之和对齐卧床时长：无真实清醒段时，从浅睡里让出估算的清醒分钟。
+  const light = Math.max(0, Math.round(inBed - deep - rem - awake));
+  const awakeCount = night.awakeCount ?? Math.max(1, Math.min(6, Math.round(awake / 18)));
+  const efficiencyPct =
+    night.efficiencyPct ??
+    (actualAwake > 2
+      ? Math.round(clamp((sleep / inBed) * 100, 0, 100))
+      : sleep >= 420 && sleep <= 540
+        ? 94
+        : sleep >= 360
+          ? 91
+          : 88);
+  return {
+    stages: { deep, light, rem, awake },
+    awakeCount,
+    efficiencyPct,
+    quality: "estimated",
+  };
+}
+
+export function sleepDataQuality(night: SleepNight | null | undefined): SleepDataQuality {
+  return effectiveSleepMetrics(night).quality;
+}
+
 /** 阶段质量分（0-100）：深睡/REM 各占一半，参考区间 15-20% / 20-25%；无阶段 → null（权重重分配） */
-function stageQualityComponent(night: SleepNight): number | null {
-  const stages = night.stages;
+function stageQualityComponent(night: SleepNight, stagesOverride?: SleepStages | null): number | null {
+  const stages = stagesOverride ?? night.stages;
   if (!stages) return null;
   const total = night.timeInBedMin > 0 ? night.timeInBedMin : night.durationMin;
   if (!(total > 0)) return null;
@@ -549,19 +631,25 @@ export function sleepScore(
     ? clamp(night.durationMin, 0, MAX_SLEEP_HOURS * 60)
     : 0;
   if (!(durationMin > 0)) return 0;
+  // 超过 24h 的记录是设备时钟/脏数据，不能靠“估算分期”又把分数抬起来。
+  if (durationMin >= MAX_SLEEP_HOURS * 60) return 0;
 
+  const metrics = effectiveSleepMetrics(night);
   let weighted = durationComponent(durationMin) * 50;
   let weights = 50;
 
-  const quality = stageQualityComponent(night);
+  const quality = stageQualityComponent(night, metrics.stages);
   if (quality !== null) {
-    weighted += quality * 30;
-    weights += 30;
+    // 估算分期只给 14 分权重，避免「按时长推出来的完美深睡/REM」把分数顶满。
+    const qualityWeight = metrics.quality === "measured" ? 30 : 14;
+    weighted += quality * qualityWeight;
+    weights += qualityWeight;
   }
 
-  if (night.efficiencyPct !== null && isFiniteNumber(night.efficiencyPct)) {
-    weighted += clamp(night.efficiencyPct, 0, 100) * 10;
-    weights += 10;
+  if (metrics.efficiencyPct !== null && isFiniteNumber(metrics.efficiencyPct)) {
+    const efficiencyWeight = metrics.quality === "measured" ? 10 : 8;
+    weighted += clamp(metrics.efficiencyPct, 0, 100) * efficiencyWeight;
+    weights += efficiencyWeight;
   }
 
   const regularity = regularityComponent(night, context.regularityStdevMin ?? null);
@@ -571,7 +659,9 @@ export function sleepScore(
   }
 
   if (weights <= 0) return 0;
-  return Math.round(clamp(weighted / weights, 0, 100));
+  // 无设备分期时最高 84 分：数据可信度不足，不能用满分误导用户。
+  const cap = metrics.quality === "measured" ? 100 : 84;
+  return Math.round(clamp(Math.min(weighted / weights, cap), 0, 100));
 }
 
 /** 评分文案（中性措辞，不做医疗判断） */
@@ -603,11 +693,12 @@ const STAGE_REFERENCE: Record<SleepStageTone, string> = {
  * 阶段切片（饼图/条形图数据）：深睡 → 浅睡 → REM → 清醒 固定顺序。
  * pct 以卧床时长为分母（4 片相加约为 100）；isNormal 对照参考区间：
  * 深睡 15-20% / 浅睡 55-75% / REM 20-25% / 清醒 0-2 次（拿不到次数时按不超过 20 分钟）。
- * 没有阶段数据（手动记录）→ 空数组，UI 显示「无分段数据」。
+ * 没有设备分期时按时长/效率估算（estimated=true），页面必须显示「估算」。
  */
 export function sleepStageSlices(night: SleepNight | null | undefined): SleepStageSlice[] {
   if (!night) return [];
-  const stages = night.stages;
+  const metrics = effectiveSleepMetrics(night);
+  const stages = metrics.stages;
   if (!stages) return [];
   const total = (night.timeInBedMin > 0 ? night.timeInBedMin : night.durationMin) || 0;
   if (!(total > 0)) return [];
@@ -617,9 +708,10 @@ export function sleepStageSlices(night: SleepNight | null | undefined): SleepSta
   const lightPct = pctOf(stages.light);
   const remPct = pctOf(stages.rem);
   const awakeNormal =
-    night.awakeCount !== null && isFiniteNumber(night.awakeCount)
-      ? night.awakeCount <= AWAKE_REFERENCE_MAX_COUNT
+    metrics.awakeCount !== null && isFiniteNumber(metrics.awakeCount)
+      ? metrics.awakeCount <= AWAKE_REFERENCE_MAX_COUNT
       : stages.awake <= AWAKE_REFERENCE_MAX_MINUTES;
+  const estimated = metrics.quality === "estimated";
 
   return [
     {
@@ -630,6 +722,7 @@ export function sleepStageSlices(night: SleepNight | null | undefined): SleepSta
       tone: "deep",
       reference: STAGE_REFERENCE.deep,
       isNormal: deepPct >= 15 && deepPct <= 20,
+      estimated,
     },
     {
       key: "light",
@@ -639,6 +732,7 @@ export function sleepStageSlices(night: SleepNight | null | undefined): SleepSta
       tone: "light",
       reference: STAGE_REFERENCE.light,
       isNormal: lightPct >= 55 && lightPct <= 75,
+      estimated,
     },
     {
       key: "rem",
@@ -648,6 +742,7 @@ export function sleepStageSlices(night: SleepNight | null | undefined): SleepSta
       tone: "rem",
       reference: STAGE_REFERENCE.rem,
       isNormal: remPct >= 20 && remPct <= 25,
+      estimated,
     },
     {
       key: "awake",
@@ -657,6 +752,7 @@ export function sleepStageSlices(night: SleepNight | null | undefined): SleepSta
       tone: "awake",
       reference: STAGE_REFERENCE.awake,
       isNormal: awakeNormal,
+      estimated,
     },
   ];
 }
@@ -671,12 +767,13 @@ function average(values: readonly number[]): number | null {
   return Math.round((valid.reduce((sum, value) => sum + value, 0) / valid.length) * 10) / 10;
 }
 
-/** 一晚的深睡/REM 占比（%，分母卧床时长）；无阶段 → null */
+/** 一晚的深睡/REM 占比（%，分母卧床时长）；无阶段时使用估算值 */
 function stageShare(night: SleepNight, kind: "deep" | "rem"): number | null {
-  if (!night.stages) return null;
+  const stages = effectiveSleepMetrics(night).stages;
+  if (!stages) return null;
   const total = night.timeInBedMin > 0 ? night.timeInBedMin : night.durationMin;
   if (!(total > 0)) return null;
-  return (night.stages[kind] / total) * 100;
+  return (stages[kind] / total) * 100;
 }
 
 /** 按起床日升序排序（同日期保留 updatedAt 最新的） */
@@ -728,8 +825,11 @@ export function sleepStats(nights: readonly SleepNight[] | null | undefined, day
   }
 
   const avgDurationMin = average(windowNights.map((night) => night.durationMin));
+  // 小米等设备可能只同步总时长；统计口径与日详情一致，使用估算后的有效指标，
+  // 否则周/月会把大面积 null 直接显示成「—」。
+  const effectiveMetrics = windowNights.map((night) => effectiveSleepMetrics(night));
   const avgEfficiencyPct = average(
-    windowNights.map((night) => night.efficiencyPct).filter((value): value is number => value !== null)
+    effectiveMetrics.map((metrics) => metrics.efficiencyPct).filter((value): value is number => value !== null)
   );
   const avgDeepPct = average(
     windowNights.map((night) => stageShare(night, "deep")).filter((value): value is number => value !== null)
@@ -738,7 +838,7 @@ export function sleepStats(nights: readonly SleepNight[] | null | undefined, day
     windowNights.map((night) => stageShare(night, "rem")).filter((value): value is number => value !== null)
   );
   const avgAwakeCount = average(
-    windowNights.map((night) => night.awakeCount).filter((value): value is number => value !== null)
+    effectiveMetrics.map((metrics) => metrics.awakeCount).filter((value): value is number => value !== null)
   );
   const avgBedtimeMinutes = average(
     windowNights.map((night) => bedtimeMinutes(night.bedtime)).filter((value): value is number => value !== null)
@@ -1013,15 +1113,34 @@ export async function upsertManualSleepNight(input: ManualSleepNightInput): Prom
   if (bedtimeMs >= wakeTimeMs) bedtimeMs = wakeTimeMs - durationMs;
 
   const timeInBedMin = Math.max(duration, Math.round((wakeTimeMs - bedtimeMs) / MINUTE_MS));
+  const deepMin = toMinutes(input.deepMin);
+  const remMin = toMinutes(input.remMin);
+  const stageInputValid =
+    deepMin !== null && remMin !== null && deepMin >= 0 && remMin >= 0 && deepMin + remMin <= duration;
+  const stages: SleepStages | null = stageInputValid
+    ? {
+        deep: deepMin,
+        rem: remMin,
+        light: Math.max(0, duration - deepMin - remMin),
+        awake: Math.max(0, timeInBedMin - duration),
+      }
+    : null;
+  const awakeCount =
+    isFiniteNumber(input.awakeCount) ? Math.round(clamp(input.awakeCount, 0, 30)) : null;
+  const efficiencyPct = isFiniteNumber(input.efficiencyPct)
+    ? Math.round(clamp(input.efficiencyPct, 0, 100))
+    : timeInBedMin > duration
+      ? Math.round(clamp((duration / timeInBedMin) * 100, 0, 100))
+      : null;
   const night: SleepNight = {
     date: input.date,
     bedtime: new Date(bedtimeMs).toISOString(),
     wakeTime: new Date(wakeTimeMs).toISOString(),
     durationMin: duration,
     timeInBedMin,
-    stages: null,
-    awakeCount: null,
-    efficiencyPct: timeInBedMin > duration ? Math.round((duration / timeInBedMin) * 100) : null,
+    stages,
+    awakeCount,
+    efficiencyPct,
     source: "manual",
     updatedAt: new Date().toISOString(),
   };
@@ -1448,6 +1567,25 @@ export function aggregateHealthSleepRecords(
   return sortNights(nights);
 }
 
+/** 原始会话诊断：页面用它解释「有记录但没有分期」到底发生在哪一层 */
+export function summarizeSleepHealthRecords(
+  records: readonly SleepHealthRecord[] | null | undefined
+): SleepHealthDiagnostics {
+  const list = Array.isArray(records) ? records : [];
+  let stageRecordCount = 0;
+  let lastRecordAtMs: number | null = null;
+  for (const record of list) {
+    if (Array.isArray(record?.stages) && record.stages.length > 0) stageRecordCount += 1;
+    const end = parseInstant(record?.endTime);
+    if (end !== null && (lastRecordAtMs === null || end > lastRecordAtMs)) lastRecordAtMs = end;
+  }
+  return {
+    recordCount: list.length,
+    stageRecordCount,
+    lastRecordAt: lastRecordAtMs === null ? null : new Date(lastRecordAtMs).toISOString(),
+  };
+}
+
 /** 分页读完 [startTime, endTime] 内的睡眠会话（倒序：最新在前） */
 async function readSleepRecordPages(
   healthConnect: HealthConnectModule,
@@ -1546,8 +1684,11 @@ export async function readSleepNightsFromHealth(options: SleepNightsOptions = {}
     const nights = aggregateHealthSleepRecords(records, { updatedAt: now.toISOString() }).filter(
       (night) => night.date >= startKey && night.date <= todayKey
     );
-    if (nights.length === 0) return nightsFailure("no-data", "系统里还没有这段时间的睡眠记录");
-    return { ok: true, status: "ok", nights };
+    const diagnostics = summarizeSleepHealthRecords(records);
+    if (nights.length === 0) {
+      return { ...nightsFailure("no-data", "系统里还没有这段时间的睡眠记录"), diagnostics };
+    }
+    return { ok: true, status: "ok", nights, diagnostics };
   } catch (error) {
     const timedOut = error instanceof Error && error.message === "sleep-timeout";
     return nightsFailure("error", timedOut ? "读取系统睡眠超时" : "读取系统睡眠失败");
