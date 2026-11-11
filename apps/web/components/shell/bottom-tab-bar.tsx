@@ -17,8 +17,9 @@ export function BottomTabBar() {
           <Link
             key={item.href}
             href={item.href}
+            aria-current={active ? "page" : undefined}
             className={cn(
-              "lwb-tab flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-transform active:scale-[.94]",
+              "lwb-tab flex flex-col items-center gap-1 rounded-2xl py-2.5 text-[11px] font-medium outline-none transition-transform active:scale-[.94] focus-visible:ring-2 focus-visible:ring-border-focus-ring",
               active ? "text-primary" : "text-muted-foreground"
             )}
           >

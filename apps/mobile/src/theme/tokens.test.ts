@@ -120,6 +120,7 @@ describe("中文字阶护栏", () => {
     expect(typography.pageTitle.letterSpacing).toBe(0);
     expect(typography.hero.letterSpacing).toBe(0);
     expect(typography.section.letterSpacing).toBe(0);
+    expect(typography.display.letterSpacing).toBe(0);
   });
 
   it("元信息至少 12px", () => {

@@ -692,7 +692,7 @@ export default function WellnessScreen() {
         {/* ① 页头：eyebrow + 27px 标题 + 今天状态副文案；readiness 作为页头右下的一行 */}
         <View style={styles.headBlock}>
           <PageHead
-            eyebrow="HEALTH · 每日状态"
+            eyebrow="健康 · 每日状态"
             title="健康"
             subtitle={headerSubtitle}
             style={styles.pageHead}

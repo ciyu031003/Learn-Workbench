@@ -215,7 +215,7 @@ export const spacing = {
  * 既有键保持不变（大量页面在用），增量迁移到新键。
  */
 export const typography = {
-  display: { fontSize: 30, lineHeight: 36, fontWeight: "800", letterSpacing: -0.4 },
+  display: { fontSize: 30, lineHeight: 36, fontWeight: "800", letterSpacing: 0 },
   title1: { fontSize: 28, lineHeight: 34, fontWeight: "700" },
   title2: { fontSize: 22, lineHeight: 28, fontWeight: "700" },
   headline: { fontSize: 17, lineHeight: 23, fontWeight: "600" },

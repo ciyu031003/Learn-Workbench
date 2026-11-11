@@ -4,7 +4,6 @@ import { RefreshControl, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { ScreenHeaderStickyBar, useHeaderTopInset, useLargeTitleHeader } from "@/components/screen-header";
-import { EmptyState } from "@/components/empty-state";
 import { PressableScale } from "@/components/pressable-scale";
 import { Skeleton } from "@/components/skeleton";
 import { Surface } from "@/components/surface";
@@ -472,7 +471,7 @@ export default function CareerScreen() {
         contentContainerStyle={[styles.content, { paddingTop: headerTop, paddingBottom: tabBarSpace }]}
         showsVerticalScrollIndicator={false}
       >
-        <PageHead eyebrow="CAREER DESK" title="职业" subtitle={subtitle} style={styles.pageHead} />
+        <PageHead eyebrow="职业 · 求职准备" title="职业" subtitle={subtitle} style={styles.pageHead} />
 
         <Animated.View entering={entrance(0)} style={styles.kpiGrid}>
           {kpiItems.map((item) => (
@@ -493,7 +492,7 @@ export default function CareerScreen() {
               <ThemedIcon name="compass-outline" size={23} color="#FFFFFF" />
             </View>
             <View style={styles.zhaohuaBody}>
-              <Text style={styles.zhaohuaKicker}>JOB MARKET</Text>
+              <Text style={styles.zhaohuaKicker}>在招岗位</Text>
               <Text style={styles.zhaohuaTitle}>招花</Text>
               <Text style={styles.zhaohuaSub} numberOfLines={2}>{zhaohuaSub}</Text>
             </View>
@@ -511,16 +510,22 @@ export default function CareerScreen() {
         />
         <Animated.View entering={entrance(2)}>
           {!gate.firstLoadPending && !hasTarget ? (
-            <Surface style={styles.card}>
-              <EmptyState
-                pattern="none"
-                icon="flag-outline"
-                title="还没有目标方向"
-                hint="设置目标岗位后，准备度与匹配结果会自动更新。"
-                actionLabel="设置目标方向"
-                onAction={() => router.push("/radar?editTarget=1" as never)}
-              />
-            </Surface>
+            <PressableScale
+              haptic
+              scaleTo={0.99}
+              style={styles.targetEmptyRow}
+              onPress={() => router.push("/radar?editTarget=1" as never)}
+              accessibilityRole="button"
+              accessibilityLabel="还没有目标方向，点此设置"
+            >
+              <ThemedIcon name="flag-outline" size={18} color={colors.primary} />
+              <View style={styles.targetEmptyBody}>
+                <Text style={styles.targetEmptyTitle}>还没有目标方向</Text>
+                <Text style={styles.targetEmptyHint}>设置后自动计算准备度与匹配岗位</Text>
+              </View>
+              <Text style={styles.targetEmptyCta}>去设置</Text>
+              <ThemedIcon name="chevron-forward" size={14} color={colors.textMeta} />
+            </PressableScale>
           ) : showSkeleton ? (
             <Skeleton variant="card" style={styles.prepSkeleton} />
           ) : (
@@ -731,6 +736,21 @@ const makeStyles = (colors: ThemeColors) =>
     zhaohuaCtaText: { ...typography.caption, fontWeight: "700", color: "#FFFFFF" },
 
     card: { paddingVertical: 6 },
+    targetEmptyRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      minHeight: 56,
+      paddingHorizontal: spacing.md,
+      borderRadius: radius.card,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    targetEmptyBody: { flex: 1, minWidth: 0 },
+    targetEmptyTitle: { ...typography.callout, fontWeight: "700", color: colors.text },
+    targetEmptyHint: { ...typography.meta, color: colors.textMeta },
+    targetEmptyCta: { ...typography.caption, fontWeight: "700", color: colors.primary },
     prepCard: { gap: 12 },
     prepTop: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 },
     prepTopText: { flex: 1, minWidth: 0, gap: 3 },

@@ -1030,7 +1030,7 @@ export default function TodayScreen() {
                 >
                   <Text style={[styles.v3StatValue, tabularNums]}>
                     {streak}
-                    <Text style={styles.v3StatSuffix}>天</Text>
+                    <Text style={styles.v3StatSuffix}> 天</Text>
                   </Text>
                   <Text style={styles.v3StatLabel}>{checkedInToday ? "连续打卡" : "打卡开启"}</Text>
                 </Pressable>

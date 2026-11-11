@@ -11,7 +11,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScreenHeaderStickyBar } from "@/components/screen-header";
-import { PageHead } from "@/components/v2/page-head";
 import { SectionTitle } from "@/components/v2/section-title";
 import { Card } from "@/components/card";
 import { EmptyState } from "@/components/empty-state";
@@ -611,12 +610,7 @@ export default function SleepScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl {...control} />}
       >
-        <PageHead
-          eyebrow="SLEEP RECOVERY"
-          title="睡眠详情"
-          subtitle="评分、分期与规律性放在一屏；系统读不到就手动补一笔，一样能看趋势。"
-          style={styles.pageHead}
-        />
+        <Text style={styles.pageSub}>评分 · 分期 · 规律性；读不到系统数据就手动补一笔。</Text>
 
         <View style={styles.segmentTrack}>
           {RANGE_OPTIONS.map((option) => {
@@ -1460,7 +1454,7 @@ const makeStyles = (colors: ThemeColors) =>
     root: { flex: 1, backgroundColor: colors.canvas },
     scroll: { flex: 1, backgroundColor: "transparent" },
     content: { paddingHorizontal: spacing.lg, gap: spacing.md },
-    pageHead: { marginBottom: 2 },
+    pageSub: { ...typography.meta, color: colors.textMeta, marginTop: 2 },
 
     /* 顶栏「+」：40 命中区 + hitSlop 8 = 56 */
     headerAdd: {

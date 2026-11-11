@@ -385,13 +385,8 @@ export function formatSleepMinutes(minutes: number | null | undefined): string {
 
 /** 分钟 → 紧凑时长（「7h30m」/「8h」/「45m」/「—」），窄卡片用 */
 export function formatSleepMinutesShort(minutes: number | null | undefined): string {
-  if (!isFiniteNumber(minutes) || minutes < 0) return "—";
-  const total = Math.round(minutes);
-  if (total <= 0) return "0m";
-  const hours = Math.floor(total / 60);
-  const rest = total % 60;
-  if (hours <= 0) return rest + "m";
-  return rest === 0 ? hours + "h" : hours + "h" + rest + "m";
+  // 短标签与长文案共用中文单位，避免同一页出现 7h30m / 7 小时 30 分 两套口径
+  return formatSleepMinutes(minutes);
 }
 
 /** ISO → 本地 HH:mm（解析失败 → 「—」） */

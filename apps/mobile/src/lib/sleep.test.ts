@@ -235,9 +235,10 @@ describe("旧 API：格式化", () => {
     expect(formatSleepMinutes(45)).toBe("45 分钟");
     expect(formatSleepMinutes(0)).toBe("0 分钟");
     expect(formatSleepMinutes(null)).toBe("—");
-    expect(formatSleepMinutesShort(450)).toBe("7h30m");
-    expect(formatSleepMinutesShort(480)).toBe("8h");
-    expect(formatSleepMinutesShort(45)).toBe("45m");
+    expect(formatSleepMinutesShort(450)).toBe("7 小时 30 分");
+    expect(formatSleepMinutesShort(480)).toBe("8 小时");
+    expect(formatSleepMinutesShort(45)).toBe("45 分钟");
+    expect(formatSleepMinutesShort(0)).toBe("0 分钟");
     expect(formatSleepMinutesShort(null)).toBe("—");
   });
 
