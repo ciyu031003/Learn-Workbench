@@ -45,8 +45,10 @@
 
 ## 部署
 
-- Web：构建后通过本机 SSH 证书上传腾讯云并重启生产容器。
-- App：`2.6.6 (versionCode 118)` 通用 APK，生成 OTA 清单并发布升级推送。
+- Web：已通过本机 SSH 证书上传腾讯云并重建 `learn-workbench-web`，健康检查返回 `version=a00a605`、数据库 `up`、迁移 `093`。
+- App：已生成 `2.6.6 (versionCode 118)` 通用 APK，发布至 <https://learn.yuanabd.cn/download/learn-workbench-v2.6.6.apk>，OTA 清单签名校验通过。
+- 下载页：<https://learn.yuanabd.cn/download.html>；OTA 清单：<https://learn.yuanabd.cn/mobile-update.json>。
+- APK SHA-256：`5c898a9c4d2230f10ad744636bea4b03ca063b7308943533c5f2d01f0db49e8d`。
 
 ## 已知边界
 
