@@ -14,13 +14,15 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { ScrollFade } from "@/components/ui/scroll-fade";
-import { CheckCircle2, Circle, ChevronLeft, ChevronRight, ListTodo, Play, Plus, Timer as TimerIcon, ArrowRight } from "lucide-react";
+import { CheckCircle2, Circle, ChevronLeft, ChevronRight, ListTodo, Play, Plus, Timer as TimerIcon, ArrowRight, BookOpen, Dumbbell } from "lucide-react";
+import { SPORT_CATALOG } from "@learn-workbench/shared/labels";
 import { FocusTimer } from "@/components/focus-timer";
 import { FocusStatsCard } from "@/components/focus-stats-card";
 import { DomainIcon } from "@/components/domain-icon";
 import { useDomainStore } from "@/store/domain-store";
 import { useToastStore } from "@/store/toast-store";
 import { parseAutofocusParams } from "@/lib/autofocus";
+import { cn } from "@/lib/utils";
 import { Celebration } from "@/components/celebration";
 
 const TYPES = ["study", "agent", "output", "review", "exam"] as const;
@@ -58,6 +60,10 @@ export default function TasksPage() {
     mode: "focus",
   });
   const [celebration, setCelebration] = useState<"sparkle" | "confetti" | null>(null);
+  const [startKind, setStartKind] = useState<"study" | "exercise">("study");
+  const [sportKey, setSportKey] = useState("run");
+  const [sportMinutes, setSportMinutes] = useState(30);
+  const sport = SPORT_CATALOG.find((item) => item.key === sportKey) ?? SPORT_CATALOG[0];
   const autofocusHandled = useRef(false);
   const pushToast = useToastStore((s) => s.push);
 
@@ -148,6 +154,24 @@ export default function TasksPage() {
     setTimerOpen(true);
   };
 
+  // 开始入口先选学习/运动，再进全屏；选择不等于立即开始，时长仍可在启动页调整。
+  const startSession = () => {
+    setTimerTask({ id: null, title: null });
+    if (startKind === "exercise") {
+      setTimerAuto({
+        autoStart: false,
+        mode: "exercise",
+        minutes: sportMinutes,
+        label: sport?.name,
+        stype: sport?.type,
+      });
+    } else {
+      setTimerAuto({ autoStart: false, mode: "focus", minutes: 25 });
+    }
+    setTimerSession((s) => s + 1);
+    setTimerOpen(true);
+  };
+
   // 快捷开始：/tasks?autofocus=study|exercise&minutes=N 自动打开并启动倒计时（解析后清除参数）
   useEffect(() => {
     if (autofocusHandled.current || timerOpen) return;
@@ -221,17 +245,91 @@ export default function TasksPage() {
             </span>
             <h2 className="min-w-0 truncate text-headline-medium text-text-primary">专注计时</h2>
           </div>
-          <div className="flex flex-col items-center gap-4 px-5 pb-5 pt-1">
-            <div className="flex items-center gap-2 font-mono text-display-3-semibold tabular-nums text-text-primary">
-              <TimerIcon className="size-6 text-foreground-icon-secondary" />
-              25:00
+          <div className="flex flex-col gap-3 px-5 pb-5 pt-1">
+            <div role="tablist" aria-label="选择计时类型" className="grid grid-cols-2 gap-1 rounded-xl bg-background-primary-default p-1">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={startKind === "study"}
+                onClick={() => setStartKind("study")}
+                className={cn(
+                  "flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-colors",
+                  startKind === "study" ? "bg-surface text-primary shadow-sm" : "text-text-secondary hover:text-text-primary"
+                )}
+              >
+                <BookOpen className="size-3.5" /> 学习专注
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={startKind === "exercise"}
+                onClick={() => setStartKind("exercise")}
+                className={cn(
+                  "flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-colors",
+                  startKind === "exercise" ? "bg-surface text-primary shadow-sm" : "text-text-secondary hover:text-text-primary"
+                )}
+              >
+                <Dumbbell className="size-3.5" /> 运动记录
+              </button>
             </div>
-            <Button onClick={() => openTimer(null, null)} className="w-full">
-              <Play className="size-4" /> 开始倒计时
-            </Button>
-            <p className="text-center text-caption-1-regular text-text-tertiary">
-              进入全屏横屏倒计时，可切换时钟样式；当日累计专注 {totalFocus} 分钟
-            </p>
+
+            {startKind === "study" ? (
+              <>
+                <div className="flex items-center justify-center gap-2 py-1 font-mono text-display-3-semibold tabular-nums text-text-primary">
+                  <TimerIcon className="size-6 text-foreground-icon-secondary" />
+                  25:00
+                </div>
+                <Button onClick={startSession} className="w-full">
+                  <Play className="size-4" /> 开始专注
+                </Button>
+                <p className="text-center text-caption-1-regular text-text-tertiary">
+                  进入全屏专注，可切换倒计时/正向计时；当日累计 {totalFocus} 分钟
+                </p>
+              </>
+            ) : (
+              <>
+                <label className="flex flex-col gap-1 text-xs font-medium text-text-secondary">
+                  运动项目
+                  <select
+                    value={sportKey}
+                    onChange={(e) => setSportKey(e.target.value)}
+                    className="h-10 rounded-xl border border-border-button-default bg-background-primary-default px-3 text-body-medium text-text-primary"
+                    aria-label="选择运动项目"
+                  >
+                    {SPORT_CATALOG.filter((item) => item.featured).map((item) => (
+                      <option key={item.key} value={item.key}>{item.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-text-secondary">时长</span>
+                  <div className="flex flex-1 gap-1">
+                    {[15, 30, 45, 60].map((minutes) => (
+                      <button
+                        key={minutes}
+                        type="button"
+                        onClick={() => setSportMinutes(minutes)}
+                        aria-pressed={sportMinutes === minutes}
+                        className={cn(
+                          "flex-1 rounded-lg border py-1.5 text-xs font-medium transition-colors",
+                          sportMinutes === minutes
+                            ? "border-primary/40 bg-primary/10 text-primary"
+                            : "border-border-button-default text-text-secondary hover:bg-muted/60"
+                        )}
+                      >
+                        {minutes}′
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <Button onClick={startSession} className="w-full">
+                  <Play className="size-4" /> 开始运动
+                </Button>
+                <p className="text-center text-caption-1-regular text-text-tertiary">
+                  结束后写入运动记录；运动满 1 分钟才计入。
+                </p>
+              </>
+            )}
           </div>
         </section>
 

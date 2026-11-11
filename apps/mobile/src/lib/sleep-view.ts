@@ -54,6 +54,8 @@ export interface SleepStageSliceLike {
   /** 参考区间文案（数据层提供时优先用它的口径） */
   reference?: string;
   isNormal: boolean;
+  /** true = 由时长估算，不是设备上报的分期 */
+  estimated?: boolean;
 }
 
 /** 单日上限：超过 24h 的记录按 24h 计（脏数据不能把指标撑爆） */
@@ -287,6 +289,7 @@ export function fallbackSleepStageSlices(night: SleepNightLike | null | undefine
       tone: ref ? ref.tone : "primary",
       reference: stageReferenceText(key),
       isNormal: total > 0 ? stageVerdict(key, pct) === "正常" : false,
+      estimated: false,
     };
   });
 }

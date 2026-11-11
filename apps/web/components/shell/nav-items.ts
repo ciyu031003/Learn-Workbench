@@ -116,12 +116,12 @@ export const CAREER_ITEMS: readonly ShellNavItem[] = [
   { href: "/career/market", label: "市场分析", icon: BarChart3 },
 ];
 
-/** 移动端底部导航（5 入口：首页 / 学习 / 招花 / 职业 / 我的） */
+/** 移动端底部导航（5 入口：今日 / 学习 / 职业 / 健康 / 我的） */
 export const BOTTOM_TABS: readonly ShellNavItem[] = [
-  { href: "/dashboard", label: "首页", icon: LayoutDashboard },
+  { href: "/today", label: "今日", icon: Sparkles },
   { href: "/roadmap", label: "学习", icon: GraduationCap },
-  { href: "/jobs", label: "招花", icon: Flower },
   { href: "/career", label: "职业", icon: Rocket },
+  { href: "/wellbeing", label: "健康", icon: Activity },
   { href: "/settings", label: "我的", icon: Settings },
 ];
 
@@ -144,7 +144,7 @@ export function resolveDownloadUrl(raw: string | null | undefined): string | nul
 }
 
 /** 顶栏选中态 key（滑动胶囊指示器用）。 */
-export type NavActiveKey = "dashboard" | "today" | "learn" | "jobs" | "career" | "settings";
+export type NavActiveKey = "dashboard" | "today" | "learn" | "jobs" | "career" | "wellness" | "settings";
 
 /**
  * 路径 -> 顶栏选中态 key（纯函数）。
@@ -155,11 +155,11 @@ export type NavActiveKey = "dashboard" | "today" | "learn" | "jobs" | "career" |
 export function getNavActiveKey(pathname: string): NavActiveKey | null {
   if (pathname === "/dashboard") return "dashboard";
   if (pathname === "/today") return "today";
+  if (pathname.startsWith("/wellbeing")) return "wellness";
   if (
     pathname.startsWith("/roadmap") ||
     pathname.startsWith("/tasks") ||
     pathname.startsWith("/logs") ||
-    pathname.startsWith("/wellbeing") ||
     pathname.startsWith("/habits") ||
     pathname.startsWith("/trackers")
   ) {

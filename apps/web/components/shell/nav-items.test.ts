@@ -79,8 +79,8 @@ describe("shell 导航常量（S6-6 IA）", () => {
   });
 
   it("BOTTOM_TABS 是 5 入口移动底栏", () => {
-    expect(BOTTOM_TABS.map((item) => item.href)).toEqual(["/dashboard", "/roadmap", "/jobs", "/career", "/settings"]);
-    expect(BOTTOM_TABS.map((item) => item.label)).toEqual(["首页", "学习", "招花", "职业", "我的"]);
+    expect(BOTTOM_TABS.map((item) => item.href)).toEqual(["/today", "/roadmap", "/career", "/wellbeing", "/settings"]);
+    expect(BOTTOM_TABS.map((item) => item.label)).toEqual(["今日", "学习", "职业", "健康", "我的"]);
   });
 
   it("所有导航项都有可渲染的 icon（组件函数/对象，非空）", () => {
@@ -111,8 +111,8 @@ describe("getNavActiveKey", () => {
     expect(getNavActiveKey("/roadmap/x")).toBe("learn");
     expect(getNavActiveKey("/tasks")).toBe("learn");
     expect(getNavActiveKey("/logs/2026-10-19")).toBe("learn");
-    expect(getNavActiveKey("/wellbeing")).toBe("learn");
-    expect(getNavActiveKey("/wellbeing/nutrition")).toBe("learn");
+    expect(getNavActiveKey("/wellbeing")).toBe("wellness");
+    expect(getNavActiveKey("/wellbeing/nutrition")).toBe("wellness");
     expect(getNavActiveKey("/habits")).toBe("learn");
     expect(getNavActiveKey("/trackers")).toBe("learn");
   });

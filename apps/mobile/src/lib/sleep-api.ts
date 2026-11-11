@@ -62,6 +62,19 @@ export interface SleepEffectiveMetrics {
   quality: "measured" | "estimated";
 }
 
+export interface SleepScorePart {
+  key: string;
+  label: string;
+  score: number;
+  weightPct: number;
+}
+
+export interface SleepScoreBreakdown {
+  total: number;
+  quality: "measured" | "estimated";
+  parts: SleepScorePart[];
+}
+
 export interface ManualSleepInput {
   date: string;
   durationMin: number;
@@ -82,6 +95,10 @@ interface SleepModuleShape {
   upsertManualSleepNight?: (input: ManualSleepInput) => Promise<unknown>;
   deleteSleepNight?: (date: string) => Promise<unknown>;
   sleepScore?: (night: SleepNight) => unknown;
+  sleepScoreBreakdown?: (
+    night: SleepNight,
+    context?: { regularityStdevMin?: number | null }
+  ) => unknown;
   effectiveSleepMetrics?: (night: SleepNight) => unknown;
   sleepDataQuality?: (night: SleepNight) => unknown;
   sleepStats?: (nights: SleepNight[], days: number) => unknown;
@@ -139,6 +156,10 @@ export const XIAOMI_SYNC_HINT =
 
 function finiteOrNull(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
 }
 
 function stringOr(value: unknown, fallback = ""): string {
@@ -367,6 +388,39 @@ export const sleepApi = {
     return fallbackSleepScore(night);
   },
 
+  /** 评分拆解（时长 / 分期 / 效率 / 规律性）；数据层缺席时返回 null，页面隐藏该模块 */
+  sleepScoreBreakdown(
+    night: SleepNight | null | undefined,
+    context: { regularityStdevMin?: number | null } = {}
+  ): SleepScoreBreakdown | null {
+    if (!night) return null;
+    if (typeof lib.sleepScoreBreakdown !== "function") return null;
+    try {
+      const raw = asRecord(lib.sleepScoreBreakdown(night, context));
+      const total = finiteOrNull(raw?.total);
+      const partsRaw = Array.isArray(raw?.parts) ? raw.parts : [];
+      const parts = partsRaw
+        .map((part) => {
+          const record = asRecord(part);
+          return {
+            key: stringOr(record?.key),
+            label: stringOr(record?.label),
+            score: Math.round(clampNumber(finiteOrNull(record?.score) ?? 0, 0, 100)),
+            weightPct: Math.round(clampNumber(finiteOrNull(record?.weightPct) ?? 0, 0, 100)),
+          };
+        })
+        .filter((part) => part.key.length > 0 && part.label.length > 0);
+      if (total === null || parts.length === 0) return null;
+      return {
+        total: Math.round(clampNumber(total, 0, 100)),
+        quality: raw?.quality === "measured" ? "measured" : "estimated",
+        parts,
+      };
+    } catch {
+      return null;
+    }
+  },
+
   /** 设备分期 = measured；仅有时长/效率时页面显示「估算」 */
   sleepDataQuality(night: SleepNight | null | undefined): "measured" | "estimated" {
     if (!night) return "estimated";
@@ -462,6 +516,7 @@ export const sleepApi = {
                 tone: textOr(slice.tone, "primary"),
                 reference: textOr(slice.reference, stageReferenceText(key)),
                 isNormal: slice.isNormal === true,
+                estimated: slice.estimated === true,
               } satisfies SleepStageSlice;
             })
             .filter((item): item is NonNullable<typeof item> => item !== null);

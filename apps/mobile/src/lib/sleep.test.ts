@@ -35,6 +35,7 @@ import {
   sleepHoursInWindow,
   sleepRegularity,
   sleepScore,
+  sleepScoreBreakdown,
   sleepDataQuality,
   sleepStageSlices,
   sleepStats,
@@ -610,6 +611,40 @@ describe("睡眠规律性（sleepRegularity）", () => {
  * ================================================================== */
 
 describe("睡眠评分（sleepScore / qualityLabel）", () => {
+  it("评分拆解与总分一致，权重归一到 100", () => {
+    const breakdown = sleepScoreBreakdown(makeNight());
+    expect(breakdown).not.toBeNull();
+    expect(breakdown?.total).toBe(sleepScore(makeNight()));
+    expect(breakdown?.quality).toBe("estimated");
+    expect(breakdown?.parts.map((part) => part.key)).toEqual([
+      "duration",
+      "stage",
+      "efficiency",
+      "regularity",
+    ]);
+    const weightSum = breakdown?.parts.reduce((sum, part) => sum + part.weightPct, 0) ?? 0;
+    expect(weightSum).toBeGreaterThanOrEqual(99);
+    expect(weightSum).toBeLessThanOrEqual(101);
+  });
+
+  it("设备分期时分期质量占 30% 权重", () => {
+    const night = makeNight({
+      durationMin: 456,
+      timeInBedMin: 480,
+      stages: { deep: 84, light: 276, rem: 96, awake: 24 },
+      awakeCount: 2,
+      efficiencyPct: 95,
+    });
+    const breakdown = sleepScoreBreakdown(night);
+    expect(breakdown?.quality).toBe("measured");
+    expect(breakdown?.parts.find((part) => part.key === "stage")?.weightPct).toBe(30);
+  });
+
+  it("没有有效时长时返回 null", () => {
+    expect(sleepScoreBreakdown(null)).toBeNull();
+    expect(sleepScoreBreakdown(makeNight({ durationMin: 0, timeInBedMin: 0 }))).toBeNull();
+  });
+
   it("8 小时 + 23:00 入睡（无阶段）→ 估算上限 84，不再给满分", () => {
     expect(sleepScore(makeNight())).toBe(84);
   });

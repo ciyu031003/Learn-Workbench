@@ -35,7 +35,6 @@ import {
   sleepApi,
   SLEEP_SOURCE_LABEL,
   SLEEP_STATUS_LABEL,
-  XIAOMI_SYNC_HINT,
   type SleepHealthStatus,
   type SleepHealthRead,
   type SleepNight,
@@ -88,6 +87,11 @@ const RANGE_OPTIONS: { key: RangeKey; label: string; icon: "sunny-outline" | "ca
 
 /** 柱状图满格口径：8 小时（不是"目标"，只是坐标上限） */
 const BAR_FULL_MIN = 8 * 60;
+const XIAOMI_STEPS = [
+  "在小米运动健康「我的 → 健康数据 / 第三方接入」打开 Health Connect，并勾选睡眠。",
+  "在系统 Health Connect 里允许本应用读取「睡眠」。",
+  "回到这里点「重新读取」；若仍只有总时长，深睡 / REM / 清醒会标注为估算。",
+];
 /** 分期色（语义 token，深色自动跟随） */
 const TONE_TOKENS: Record<string, keyof ThemeColors> = {
   lavender: "lavender",
@@ -145,6 +149,7 @@ export default function SleepScreen() {
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState<RangeKey>("day");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [scoreDetailOpen, setScoreDetailOpen] = useState(false);
 
   /** 补录弹层 */
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -230,6 +235,28 @@ export default function SleepScreen() {
   const slices = useMemo(() => (detailNight ? sleepApi.sleepStageSlices(detailNight) : []), [detailNight]);
   /** 深睡占比与数据层同口径：直接取切片（pct 以卧床时长为分母） */
   const deepPct = useMemo(() => slices.find((slice) => slice.key === "deep")?.pct ?? null, [slices]);
+  const scoreBreakdown = useMemo(
+    () => (detailNight ? sleepApi.sleepScoreBreakdown(detailNight) : null),
+    [detailNight]
+  );
+  /** 评分卡第一层就要说清数据可信度：设备分期 / 按时长估算 / 手动记录 / 数据不足 */
+  const dataBadge = useMemo(() => {
+    if (!detailNight || !(detailNight.durationMin > 0)) {
+      return { label: "数据不足", tone: "muted" as const };
+    }
+    if (quality === "estimated") {
+      return detailNight.source === "manual"
+        ? { label: "手动记录 · 估算", tone: "manual" as const }
+        : { label: "按时长估算", tone: "estimated" as const };
+    }
+    return { label: "设备分期", tone: "measured" as const };
+  }, [detailNight, quality]);
+  const dataBadgeColors = useMemo(() => {
+    if (dataBadge.tone === "measured") return { bg: colors.successSoft, fg: colors.success };
+    if (dataBadge.tone === "estimated") return { bg: colors.warningSoft, fg: colors.warning };
+    if (dataBadge.tone === "manual") return { bg: colors.primarySoft, fg: colors.primary };
+    return { bg: colors.surfaceMuted, fg: colors.textMuted };
+  }, [colors, dataBadge.tone]);
 
   const ringSegments = useMemo<SegmentRingItem[]>(() => {
     if (!detailNight) return [];
@@ -321,6 +348,13 @@ export default function SleepScreen() {
   );
   const weekColumns = useMemo(() => sleepWeekColumns(nights, todayKey, 7), [nights, todayKey]);
   const weekStats = useMemo(() => sleepApi.sleepStats(weekNights, 7), [weekNights]);
+  /** 单晚分数需要参照：近 7 晚平均分（至少 2 晚才显示，避免拿自己和自己比） */
+  const weekAverageScore = useMemo(() => {
+    const scored = weekNights.map((night) => sleepApi.sleepScore(night)).filter((value) => value > 0);
+    if (scored.length < 2) return null;
+    return Math.round(scored.reduce((sum, value) => sum + value, 0) / scored.length);
+  }, [weekNights]);
+  const scoreDelta = weekAverageScore !== null && detailNight ? (score ?? 0) - weekAverageScore : null;
 
   const monthHeat = useMemo(() => sleepHeatWeeks(nights, todayKey, { days: 30, steps: 4 }), [nights, todayKey]);
   const monthNights = useMemo(() => {
@@ -661,11 +695,35 @@ export default function SleepScreen() {
             {detailNight ? (
               <>
                 <Card style={styles.scoreCard}>
+                  <View style={styles.scoreBadgeRow}>
+                    <View style={[styles.dataBadge, { backgroundColor: dataBadgeColors.bg }]}>
+                      <ThemedIcon
+                        name={
+                          dataBadge.tone === "measured"
+                            ? "checkmark-circle-outline"
+                            : dataBadge.tone === "muted"
+                              ? "alert-circle-outline"
+                              : "information-circle-outline"
+                        }
+                        size={13}
+                        color={dataBadgeColors.fg}
+                      />
+                      <Text style={[styles.dataBadgeText, { color: dataBadgeColors.fg }]}>{dataBadge.label}</Text>
+                    </View>
+                    {weekAverageScore !== null ? (
+                      <Text style={styles.scoreCompare} numberOfLines={1}>
+                        近 7 晚均分 {weekAverageScore}
+                        {scoreDelta !== null && scoreDelta !== 0
+                          ? " · 本晚 " + (scoreDelta > 0 ? "+" : "") + scoreDelta
+                          : ""}
+                      </Text>
+                    ) : null}
+                  </View>
                   <SegmentRing
                     segments={ringSegments}
                     score={score ?? "—"}
                     scoreLabel="睡眠评分"
-                    caption={quality === "estimated" ? rating + " · 估算" : rating}
+                    caption={quality === "estimated" ? "参考 " + rating : rating}
                     title={null}
                     legend={false}
                     size={176}
@@ -694,6 +752,72 @@ export default function SleepScreen() {
                       </Text>
                     </View>
                   </View>
+
+                  {scoreBreakdown ? (
+                    <>
+                      <Pressable
+                        onPress={() => {
+                          haptics.soft();
+                          setScoreDetailOpen((open) => !open);
+                        }}
+                        hitSlop={8}
+                        accessibilityRole="button"
+                        accessibilityState={{ expanded: scoreDetailOpen }}
+                        accessibilityLabel={scoreDetailOpen ? "收起评分构成" : "展开评分构成"}
+                        style={styles.scoreDetailToggle}
+                      >
+                        <Text style={styles.scoreDetailToggleText}>评分构成</Text>
+                        <ThemedIcon
+                          name={scoreDetailOpen ? "chevron-up" : "chevron-down"}
+                          size={15}
+                          color={colors.textMuted}
+                        />
+                      </Pressable>
+                      {scoreDetailOpen ? (
+                        <View style={styles.scoreParts}>
+                          {scoreBreakdown.parts.map((part) => (
+                            <View key={part.key} style={styles.scorePartRow}>
+                              <Text style={styles.scorePartLabel}>{part.label}</Text>
+                              <View style={styles.scorePartTrack}>
+                                <View
+                                  style={[
+                                    styles.scorePartFill,
+                                    {
+                                      width: `${Math.max(0, Math.min(100, part.score))}%` as `${number}%`,
+                                      backgroundColor: colors.primary,
+                                    },
+                                  ]}
+                                />
+                              </View>
+                              <Text style={[styles.scorePartValue, tabularNums]}>{part.score}</Text>
+                              <Text style={[styles.scorePartWeight, tabularNums]}>{part.weightPct}%</Text>
+                            </View>
+                          ))}
+                        </View>
+                      ) : null}
+                    </>
+                  ) : null}
+
+                  {quality === "estimated" ? (
+                    <View style={styles.scoreNotice}>
+                      <ThemedIcon name="information-circle-outline" size={15} color={colors.textMuted} />
+                      <Text style={styles.scoreNoticeText}>
+                        {healthStatus === "ok"
+                          ? "系统只同步了总时长，深睡 / REM / 清醒为按时长估算。"
+                          : "尚未读到设备分期，当前按总时长估算。"}
+                      </Text>
+                      <Pressable
+                        onPress={() => void (healthStatus === "ok" ? refreshHealth() : authorize())}
+                        hitSlop={8}
+                        accessibilityRole="button"
+                        accessibilityLabel={healthStatus === "ok" ? "重新读取系统健康数据" : "去授权系统健康数据"}
+                      >
+                        <Text style={styles.scoreNoticeAction}>
+                          {healthStatus === "ok" ? "重新读取" : "去授权"}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  ) : null}
                 </Card>
 
                 <SectionTitle title="关键指标" right={<Text style={styles.sectionMeta}>6 项</Text>} />
@@ -901,8 +1025,21 @@ export default function SleepScreen() {
             </PressableScale>
           </View>
           <View style={styles.xiaomiBox}>
-            <ThemedIcon name="information-circle-outline" size={15} color={colors.textMuted} />
-            <Text style={styles.xiaomiText}>{XIAOMI_SYNC_HINT}</Text>
+            <Text style={styles.xiaomiTitle}>小米运动健康同步到 Health Connect</Text>
+            {XIAOMI_STEPS.map((step, index) => (
+              <View key={step} style={styles.xiaomiStep}>
+                <Text style={styles.xiaomiStepIndex}>{index + 1}</Text>
+                <Text style={styles.xiaomiText}>{step}</Text>
+              </View>
+            ))}
+            <Pressable
+              onPress={() => void authorize()}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="打开 Health Connect 设置"
+            >
+              <Text style={styles.xiaomiLink}>打开 Health Connect</Text>
+            </Pressable>
           </View>
         </Card>
 
@@ -1166,6 +1303,7 @@ function StageSliceRow({ slice, index }: { slice: SleepStageSlice; index: number
         <Text style={styles.sliceLabel} numberOfLines={1}>
           {slice.label}
         </Text>
+        <Text style={styles.sliceSourceTag}>{slice.estimated ? "估算" : "实测"}</Text>
         <Text style={[styles.slicePct, tabularNums]} numberOfLines={1}>
           {percentText(slice.pct, 1)}
         </Text>
@@ -1384,11 +1522,59 @@ const makeStyles = (colors: ThemeColors) =>
 
     /* 评分环卡 */
     scoreCard: { alignItems: "center", gap: spacing.md, paddingVertical: spacing.lg },
+    scoreBadgeRow: { flexDirection: "row", alignItems: "center", gap: 8, alignSelf: "stretch", paddingHorizontal: 2 },
+    dataBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: 9,
+      paddingVertical: 4,
+      borderRadius: radius.pill,
+    },
+    dataBadgeText: { ...typography.micro, fontWeight: "700" },
+    scoreCompare: { ...typography.caption, color: colors.textMuted, marginLeft: "auto" },
     scoreFoot: { flexDirection: "row", alignItems: "center", alignSelf: "stretch" },
     scoreFootCell: { flex: 1, alignItems: "center", gap: 3 },
     scoreFootLabel: { ...typography.meta, color: colors.textMuted },
     scoreFootValue: { ...typography.headline, color: colors.text },
     scoreFootDivider: { width: StyleSheet.hairlineWidth, alignSelf: "stretch", backgroundColor: colors.border },
+    scoreDetailToggle: {
+      alignSelf: "stretch",
+      minHeight: 36,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingTop: spacing.sm,
+      paddingHorizontal: 2,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+    },
+    scoreDetailToggleText: { ...typography.caption, fontWeight: "700", color: colors.text },
+    scoreParts: { alignSelf: "stretch", gap: 8, paddingHorizontal: 2 },
+    scorePartRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+    scorePartLabel: { ...typography.meta, color: colors.textMuted, width: 56 },
+    scorePartTrack: {
+      flex: 1,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: colors.surfaceMuted,
+      overflow: "hidden",
+    },
+    scorePartFill: { height: 6, borderRadius: 3 },
+    scorePartValue: { ...typography.caption, color: colors.text, width: 28, textAlign: "right" },
+    scorePartWeight: { ...typography.caption, color: colors.textFaint, width: 38, textAlign: "right" },
+    scoreNotice: {
+      alignSelf: "stretch",
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 8,
+      borderRadius: radius.control,
+      backgroundColor: colors.surfaceMuted,
+    },
+    scoreNoticeText: { flex: 1, minWidth: 0, ...typography.meta, color: colors.textMuted },
+    scoreNoticeAction: { ...typography.caption, fontWeight: "700", color: colors.primary },
 
     sectionMeta: { ...typography.meta, color: colors.textFaint },
 
@@ -1417,6 +1603,15 @@ const makeStyles = (colors: ThemeColors) =>
     sliceTop: { flexDirection: "row", alignItems: "center", gap: 8 },
     sliceDot: { width: 8, height: 8, borderRadius: 4 },
     sliceLabel: { ...typography.callout, fontWeight: "700", color: colors.text, flexShrink: 1 },
+    sliceSourceTag: {
+      ...typography.micro,
+      fontWeight: "700",
+      color: colors.textMuted,
+      backgroundColor: colors.surfaceMuted,
+      paddingHorizontal: 6,
+      paddingVertical: 1,
+      borderRadius: radius.pill,
+    },
     slicePct: { ...typography.callout, fontWeight: "700", color: colors.text, marginLeft: "auto" },
     sliceBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.pill, minWidth: 40, alignItems: "center" },
     sliceBadgeText: { ...typography.micro, fontWeight: "700" },
@@ -1495,14 +1690,25 @@ const makeStyles = (colors: ThemeColors) =>
     },
     sourceBadgeText: { ...typography.micro, fontWeight: "700" },
     xiaomiBox: {
-      flexDirection: "row",
-      alignItems: "flex-start",
       gap: 6,
       paddingTop: 6,
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: colors.border,
     },
+    xiaomiTitle: { ...typography.caption, fontWeight: "700", color: colors.text },
+    xiaomiStep: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+    xiaomiStepIndex: {
+      ...typography.micro,
+      fontWeight: "700",
+      color: colors.primary,
+      width: 16,
+      textAlign: "center",
+      paddingVertical: 1,
+      borderRadius: 8,
+      backgroundColor: colors.primarySoft,
+    },
     xiaomiText: { flex: 1, minWidth: 0, ...typography.caption, fontWeight: "400", color: colors.textMuted, lineHeight: 18 },
+    xiaomiLink: { ...typography.caption, fontWeight: "700", color: colors.primary, marginTop: 2 },
 
     /* 补录弹层 */
     dateGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6 },

@@ -34,7 +34,7 @@ export function StartScreen({
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
         <header className="flex flex-wrap items-end justify-between gap-2 px-1">
           <div>
-            <p className="text-[11px] font-semibold tracking-[0.18em] text-white/45">FOCUS ROOM</p>
+            <p className="text-[11px] font-semibold tracking-[0.18em] text-white/65">FOCUS ROOM</p>
             <h1 className="mt-1 text-2xl font-semibold text-white">专注室</h1>
             <p className="mt-1 text-sm text-white/55">{sessionLabel} · 选一个今天想待的地方</p>
           </div>
@@ -43,9 +43,9 @@ export function StartScreen({
           </span>
         </header>
 
-        <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
+        <div className="grid gap-4 landscape:grid-cols-[1.3fr_1fr]">
           <section className="rounded-2xl border border-white/20 bg-white/[0.06] p-4 backdrop-blur-2xl">
-            <p className="text-[10.5px] font-semibold tracking-[0.2em] text-white/40">STEP 01</p>
+            <p className="text-[11px] font-semibold tracking-[0.18em] text-white/70">STEP 01</p>
             <h2 className="mt-1 text-xl font-semibold text-white">选择你的学习场景</h2>
             <div className="mt-3 grid grid-cols-2 gap-2.5">
               {FOCUS_SCENES.map((scene) => {
@@ -73,7 +73,7 @@ export function StartScreen({
                     <span className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent" />
                     <span className="absolute inset-x-2.5 bottom-2 flex flex-col">
                       <span className="text-sm font-semibold text-white">{scene.name}</span>
-                      <span className="truncate text-[10.5px] text-white/60">{scene.tagline}</span>
+                      <span className="truncate text-[11px] text-white/70">{scene.tagline}</span>
                     </span>
                   </button>
                 );
@@ -82,14 +82,14 @@ export function StartScreen({
           </section>
           <div className="flex flex-col gap-4">
             <section className="rounded-2xl border border-white/20 bg-white/[0.06] p-4 backdrop-blur-2xl">
-              <p className="text-[10.5px] font-semibold tracking-[0.2em] text-white/40">STEP 02</p>
+              <p className="text-[11px] font-semibold tracking-[0.18em] text-white/70">STEP 02</p>
               <h2 className="mt-1 text-xl font-semibold text-white">设置声音氛围</h2>
               <div className="mt-3 space-y-2.5">
                 <label className="block rounded-xl border border-white/15 bg-white/[0.05] px-3 py-2.5">
                   <span className="flex items-center gap-2 text-xs font-medium text-white/85">
                     <Headphones className="size-3.5" /> 音乐
                   </span>
-                  <span className="mt-0.5 block text-[10.5px] text-white/45">Lo-fi、轻音乐、钢琴等专注音乐</span>
+                  <span className="mt-0.5 block text-[11px] text-white/65">Lo-fi、轻音乐、钢琴等专注音乐</span>
                   <input
                     type="range"
                     min={0}
@@ -119,7 +119,7 @@ export function StartScreen({
             </section>
 
             <section className="rounded-2xl border border-white/20 bg-white/[0.06] p-4 backdrop-blur-2xl">
-              <p className="text-[10.5px] font-semibold tracking-[0.2em] text-white/40">STEP 03</p>
+              <p className="text-[11px] font-semibold tracking-[0.18em] text-white/70">STEP 03</p>
               <h2 className="mt-1 text-xl font-semibold text-white">设置番茄钟</h2>
 
               <label className="mt-3 flex items-center gap-2 rounded-full border border-white/20 bg-white/[0.07] px-3.5 py-2">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Celebration } from "@/components/celebration";
 import { MIN_FOCUS_SECONDS, MIN_EXERCISE_SECONDS } from "@/lib/focus-session";
 import { useFocusSession } from "@/lib/use-focus-session";
@@ -127,6 +128,7 @@ export function FocusTimer({
   const lastFlushRef = useRef<number>(0);
   const lastVisibleRef = useRef<number>(0);
   const idleStartedAtRef = useRef<number | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   const taskIdRef = useRef(task?.id ?? null);
   const modeRef = useRef(mode);
@@ -477,10 +479,67 @@ export function FocusTimer({
     else onCloseRef.current();
   };
 
-  if (!open) return null;
+  const closeRef = useRef(handleClose);
+  useEffect(() => {
+    closeRef.current = handleClose;
+  });
 
-  return (
-    <div className="fixed inset-0 z-[100] flex flex-col overflow-hidden bg-black/80">
+  // 全屏任务面：Portal 到 body，避免被 AppShell 的 stacking context 压住；
+  // 同时锁滚动、接 Escape、把 Tab 焦点留在层内，关闭后回到触发按钮。
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const focusTimer = window.setTimeout(() => dialogRef.current?.focus(), 0);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        if (document.fullscreenElement) return;
+        event.preventDefault();
+        closeRef.current();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const root = dialogRef.current;
+      if (!root) return;
+      const nodes = Array.from(
+        root.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((node) => node.offsetParent !== null);
+      if (nodes.length === 0) return;
+      const first = nodes[0];
+      const last = nodes[nodes.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+      window.clearTimeout(focusTimer);
+      previous?.focus?.();
+    };
+  }, [open]);
+
+  if (!open) return null;
+  if (typeof document === "undefined") return null;
+
+  const dialog = (
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label={mode === "exercise" ? "运动计时" : "专注计时"}
+      data-testid="focus-dialog"
+      tabIndex={-1}
+      className="fixed inset-0 z-[100] flex flex-col overflow-hidden bg-black/80 outline-none"
+    >
       <FocusBackgroundLayer />
       {celebration ? (
         <Celebration
@@ -549,4 +608,6 @@ export function FocusTimer({
       )}
     </div>
   );
+
+  return createPortal(dialog, document.body);
 }

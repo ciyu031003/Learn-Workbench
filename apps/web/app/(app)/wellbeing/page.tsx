@@ -35,6 +35,8 @@ import {
   BicepsFlexed,
   Salad,
   Trophy,
+  Moon,
+  ArrowUpRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -45,6 +47,7 @@ import { cn } from "@/lib/utils";
 import { apiGet, apiMutate, ApiError, isAbortError } from "@/lib/client-api";
 import { AsyncSection } from "@/components/async-section";
 import { useToastStore } from "@/store/toast-store";
+import { resolveDownloadUrl } from "@/components/shell/nav-items";
 import { ExerciseSheet, useSportCatalog } from "@/components/sport/exercise-sheet";
 import type { ExerciseType, WellbeingToday, WellbeingReminder, DailyPlanItem } from "@learn-workbench/shared/schemas";
 import type { SportItem } from "@learn-workbench/shared/types";
@@ -488,6 +491,7 @@ export default function WellbeingPage() {
   const exercisePct = exerciseToday?.targetMinutes
     ? Math.min(100, Math.round(((exerciseToday?.totalMinutes ?? 0) / exerciseToday.targetMinutes) * 100))
     : 0;
+  const downloadUrl = resolveDownloadUrl(process.env.NEXT_PUBLIC_DOWNLOAD_URL);
 
   return (
     <div className="page-enter flex flex-col gap-5">
@@ -518,6 +522,28 @@ export default function WellbeingPage() {
 
       {/* v8 P3：3D 状态球 hero（状态分 + 四项分解 + 本周概览） */}
       <ReadinessHero />
+
+      {/* 睡眠数据只在 App 与 Health Connect 本地读取：Web 端明确能力边界，避免“空白=没记录”的误解 */}
+      <section className="flex flex-col gap-3 rounded-2xl bg-surface p-5 shadow-card sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="icon-chip h-10 w-10 shrink-0">
+            <Moon className="size-5 text-primary" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-headline-medium">睡眠 · 在 App 里记录与同步</p>
+            <p className="mt-0.5 text-caption-1-medium text-muted-foreground">
+              App 从 Health Connect 读取小米运动健康；系统只给总时长时，深睡、REM 和清醒次数会标注为估算。
+            </p>
+          </div>
+        </div>
+        {downloadUrl ? (
+          <Button asChild variant="secondary" size="sm" className="shrink-0 self-stretch sm:self-auto">
+            <a href={downloadUrl}>
+              打开 App <ArrowUpRight className="size-4" />
+            </a>
+          </Button>
+        ) : null}
+      </section>
 
       {/* S6-1：数据块三态 —— 断网/500 显示「加载失败 + 重试」，加载中显示骨架 */}
       {status === "error" ? (

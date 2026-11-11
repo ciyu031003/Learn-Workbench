@@ -31,7 +31,9 @@ export function DesktopNav({ date, shell }: { date: string; shell: ShellData }) 
   const [pill, setPill] = useState<{ left: number; width: number } | null>(null);
 
   const navActiveKey = getNavActiveKey(pathname);
-  const learnActive = navActiveKey === "learn";
+  /** 健康在桌面端仍归在「学习」下拉里；wellness 只用于移动底栏的独立高亮 */
+  const navPillKey = navActiveKey === "wellness" ? "learn" : navActiveKey;
+  const learnActive = navPillKey === "learn";
   const isJobs = navActiveKey === "jobs";
   const isCareer = navActiveKey === "career";
   const focusActive = pathname === "/tasks";
@@ -40,7 +42,7 @@ export function DesktopNav({ date, shell }: { date: string; shell: ShellData }) 
     if (pathname === "/login" || pathname === "/") return;
     const measure = () => {
       const nav = navRef.current;
-      const el = navActiveKey ? navItemRefs.current[navActiveKey] : null;
+    const el = navPillKey ? navItemRefs.current[navPillKey] : null;
       if (!nav || !el) {
         setPill(null);
         return;
@@ -57,7 +59,7 @@ export function DesktopNav({ date, shell }: { date: string; shell: ShellData }) 
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", measure);
     };
-  }, [pathname, navActiveKey, domain]);
+  }, [pathname, navPillKey, domain]);
 
   // 点击外部关闭下拉
   useEffect(() => {

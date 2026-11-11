@@ -13,17 +13,16 @@ export function BottomTabBar() {
     <nav className="surface-nav app-bottomnav fixed inset-x-0 bottom-0 z-30 border-t">
       {BOTTOM_TABS.map((item) => {
         const active = isActivePath(pathname, item.href);
-        const jobs = item.href === "/jobs";
         return (
           <Link
             key={item.href}
             href={item.href}
             className={cn(
               "lwb-tab flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-transform active:scale-[.94]",
-              active ? (jobs ? "text-accent" : "text-primary") : "text-muted-foreground"
+              active ? "text-primary" : "text-muted-foreground"
             )}
           >
-            <span className="lwb-tab-icon" data-active={active ? "true" : "false"} data-tone={jobs ? "accent" : "primary"}>
+            <span className="lwb-tab-icon" data-active={active ? "true" : "false"} data-tone="primary">
               <item.icon className="lwb-nav-icon size-5" />
             </span>
             {item.label}

@@ -622,20 +622,43 @@ function regularityComponent(night: SleepNight, stdevMin: number | null): number
  * 缺项（无阶段 / 无效率）时**按可得项重分配权重**，不会因为「手动记录没有阶段」就压成低分。
  * 第二参数可传历史规律性标准差（sleepRegularity），不传则用入睡时间兜底。
  */
-export function sleepScore(
+export interface SleepScorePart {
+  key: "duration" | "stage" | "efficiency" | "regularity";
+  label: string;
+  /** 该项 0–100 的原始分 */
+  score: number;
+  /** 归一化后的权重百分比（合计约 100） */
+  weightPct: number;
+}
+
+export interface SleepScoreBreakdown {
+  total: number;
+  quality: SleepDataQuality;
+  parts: SleepScorePart[];
+}
+
+/**
+ * 评分拆解：与 sleepScore 共用同一套权重，用来解释「这个分数从哪来」。
+ * 缺项会重分配权重，weightPct 已归一到合计 100。
+ */
+export function sleepScoreBreakdown(
   night: SleepNight | null | undefined,
   context: { regularityStdevMin?: number | null } = {}
-): number {
-  if (!night) return 0;
+): SleepScoreBreakdown | null {
+  if (!night) return null;
   const durationMin = isFiniteNumber(night.durationMin)
     ? clamp(night.durationMin, 0, MAX_SLEEP_HOURS * 60)
     : 0;
-  if (!(durationMin > 0)) return 0;
+  if (!(durationMin > 0)) return null;
   // 超过 24h 的记录是设备时钟/脏数据，不能靠“估算分期”又把分数抬起来。
-  if (durationMin >= MAX_SLEEP_HOURS * 60) return 0;
+  if (durationMin >= MAX_SLEEP_HOURS * 60) return null;
 
   const metrics = effectiveSleepMetrics(night);
-  let weighted = durationComponent(durationMin) * 50;
+  const durationScore = durationComponent(durationMin);
+  const parts: { key: SleepScorePart["key"]; label: string; score: number; weight: number }[] = [
+    { key: "duration", label: "时长", score: durationScore, weight: 50 },
+  ];
+  let weighted = durationScore * 50;
   let weights = 50;
 
   const quality = stageQualityComponent(night, metrics.stages);
@@ -644,24 +667,44 @@ export function sleepScore(
     const qualityWeight = metrics.quality === "measured" ? 30 : 14;
     weighted += quality * qualityWeight;
     weights += qualityWeight;
+    parts.push({ key: "stage", label: "分期质量", score: quality, weight: qualityWeight });
   }
 
   if (metrics.efficiencyPct !== null && isFiniteNumber(metrics.efficiencyPct)) {
     const efficiencyWeight = metrics.quality === "measured" ? 10 : 8;
-    weighted += clamp(metrics.efficiencyPct, 0, 100) * efficiencyWeight;
+    const efficiencyScore = clamp(metrics.efficiencyPct, 0, 100);
+    weighted += efficiencyScore * efficiencyWeight;
     weights += efficiencyWeight;
+    parts.push({ key: "efficiency", label: "睡眠效率", score: efficiencyScore, weight: efficiencyWeight });
   }
 
   const regularity = regularityComponent(night, context.regularityStdevMin ?? null);
   if (regularity !== null) {
     weighted += regularity * 10;
     weights += 10;
+    parts.push({ key: "regularity", label: "规律性", score: regularity, weight: 10 });
   }
 
-  if (weights <= 0) return 0;
+  if (weights <= 0) return null;
   // 无设备分期时最高 84 分：数据可信度不足，不能用满分误导用户。
   const cap = metrics.quality === "measured" ? 100 : 84;
-  return Math.round(clamp(Math.min(weighted / weights, cap), 0, 100));
+  return {
+    total: Math.round(clamp(Math.min(weighted / weights, cap), 0, 100)),
+    quality: metrics.quality,
+    parts: parts.map(({ key, label, score, weight }) => ({
+      key,
+      label,
+      score: Math.round(score),
+      weightPct: Math.round((weight / weights) * 100),
+    })),
+  };
+}
+
+export function sleepScore(
+  night: SleepNight | null | undefined,
+  context: { regularityStdevMin?: number | null } = {}
+): number {
+  return sleepScoreBreakdown(night, context)?.total ?? 0;
 }
 
 /** 评分文案（中性措辞，不做医疗判断） */
