@@ -35,6 +35,7 @@
 
 ## 验证
 
+- `node scripts/check-release-hygiene.mjs`：`ota.ts / app.json / package.json / build.gradle` 版本号统一为 `2.6.6 (118)`。
 - `pnpm -F web typecheck` 通过。
 - `pnpm -F web lint` 0 error（存量 warning 保留）。
 - `pnpm -F mobile typecheck` 通过。
