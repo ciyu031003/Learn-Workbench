@@ -695,7 +695,7 @@ const makeStyles = (colors: ThemeColors) =>
     kpiIcon: { width: 28, height: 28, borderRadius: 9, alignItems: "center", justifyContent: "center", flexShrink: 0 },
     kpiValue: { ...typography.title2, fontWeight: "800", color: colors.text },
     kpiUnit: { ...typography.caption, fontWeight: "600", color: colors.textMuted },
-    kpiHint: { ...typography.micro, color: colors.textFaint },
+    kpiHint: { ...typography.micro, color: colors.textMeta },
 
     zhaohuaCard: {
       flexDirection: "row",

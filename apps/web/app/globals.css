@@ -398,13 +398,39 @@ html.dark .glass-3 {
   .app-bottomnav {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
+    position: fixed;
+    left: 50%;
+    bottom: calc(12px + var(--safe-bottom, 0px));
+    transform: translateX(-50%);
+    width: min(520px, calc(100vw - 36px));
+    height: 64px;
+    padding: 0 6px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.82);
+    border-radius: 26px;
+    background: rgba(255, 255, 255, 0.74);
+    -webkit-backdrop-filter: blur(22px) saturate(150%);
+    backdrop-filter: blur(22px) saturate(150%);
+    box-shadow: 0 14px 34px rgba(15, 25, 29, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.9);
   }
   .app-main {
-    padding-bottom: calc(5rem + var(--safe-bottom, 0px));
+    padding-bottom: calc(92px + var(--safe-bottom, 0px));
   }
+}
+@media (orientation: landscape) and (max-height: 500px) {
   .app-bottomnav {
-    padding-bottom: var(--safe-bottom, 0px);
+    bottom: calc(8px + var(--safe-bottom, 0px));
+    height: 52px;
+    border-radius: 22px;
   }
+  .app-main {
+    padding-bottom: calc(72px + var(--safe-bottom, 0px));
+  }
+}
+html.dark .app-bottomnav {
+  background: rgba(18, 26, 31, 0.74);
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
 /* ============ 玻璃下拉选择 ============ */

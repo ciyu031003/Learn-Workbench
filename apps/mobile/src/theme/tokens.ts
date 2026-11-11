@@ -24,6 +24,8 @@ const lightColors = {
   textMuted: "#64767D",
   /** 次级正文灰：对白底与画布均满足 WCAG AA 正文 4.5（tokens.test.ts 锁定） */
   textSecondary: "#3F5058",
+  /** 11–12px 信息文本：对白卡 5.10、对画布 4.61（tokens.test.ts 锁定） */
+  textMeta: "#5F7178",
   /** 最弱一档：只给图标与装饰线；正文提示请用 textMuted（本档对白卡约 3.6:1） */
   textFaint: "#78898F",
   border: "rgba(15,25,29,0.085)",
@@ -83,6 +85,8 @@ const darkColors = {
   text: "#E6ECEE",
   textMuted: "#8A989E",
   textSecondary: "#B7C3C8",
+  /** 11–12px 信息文本：深色档保持与 textMuted 同档可读性 */
+  textMeta: "#93A1A7",
   textFaint: "#7E8C93",
   border: "rgba(255,255,255,0.09)",
   borderStrong: "rgba(255,255,255,0.18)",

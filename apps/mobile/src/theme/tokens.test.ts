@@ -86,6 +86,34 @@ describe("textFaint 图标对比度", () => {
   });
 });
 
+/** v2.6.6 P1：11–12px 信息文本专用灰阶，白卡与画布都要过 4.5。 */
+describe("textMeta 信息文本对比度", () => {
+  const lum = (hex: string) => {
+    const h = hex.replace("#", "");
+    const c = [0, 2, 4].map((i) => {
+      const v = parseInt(h.slice(i, i + 2), 16) / 255;
+      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  };
+  const ratio = (a: string, b: string) => {
+    const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m);
+    return (x + 0.05) / (y + 0.05);
+  };
+  it("浅色档对白卡与画布均 >= 4.5", () => {
+    expect(ratio(light.textMeta, "#FFFFFF")).toBeGreaterThanOrEqual(4.5);
+    expect(ratio(light.textMeta, light.canvas)).toBeGreaterThanOrEqual(4.5);
+  });
+  it("深色档对卡面与画布均 >= 4.5", () => {
+    expect(ratio(dark.textMeta, dark.surfaceStrong)).toBeGreaterThanOrEqual(4.5);
+    expect(ratio(dark.textMeta, dark.canvas)).toBeGreaterThanOrEqual(4.5);
+  });
+  it("比 textFaint 更适合正文信息", () => {
+    expect(light.textMeta).not.toBe(light.textFaint);
+    expect(dark.textMeta).not.toBe(dark.textFaint);
+  });
+});
+
 /** v2.6.3 P1：中文标题字距必须归零，元信息不能低于 12px。 */
 describe("中文字阶护栏", () => {
   it("页面 / Hero / 区块标题不使用负字距", () => {

@@ -635,6 +635,14 @@ export default function WellnessScreen() {
       valueText: dietKcal !== null ? groupThousands(dietKcal) : NO_RECORD,
     },
   ];
+  /** 冷启动判断：任何一项有记录才展开三环与趋势，避免空态连续四张卡 */
+  const hasWellnessData =
+    (data !== null && exerciseMinutes > 0) ||
+    waterRecorded ||
+    dietKcal !== null ||
+    weightValue !== null ||
+    todayWorkout !== null ||
+    sleepRecorded;
 
   /* ---------- 页头副文案（有数据才写具体数字，没有就通用一句） ---------- */
   const headerSubtitle = data
@@ -720,8 +728,62 @@ export default function WellnessScreen() {
           </PressableScale>
         ) : null}
 
+        {/* 空数据先给动作组；有记录后再展开三环与趋势 */}
+        {!hasWellnessData && !dailyFailed && !showSkeleton ? (
+          <Surface tier="surface" corner={radius.card} padded={false} style={styles.emptyActionCard}>
+            <Text style={styles.emptyActionTitle}>今天先记一笔</Text>
+            <Text style={styles.emptyActionSub}>任选一项，三环和趋势会随记录出现</Text>
+            <View style={styles.emptyActionGrid}>
+              <PressableScale
+                haptic
+                scaleTo={0.97}
+                style={styles.emptyAction}
+                onPress={() => void quickWater(250)}
+                accessibilityRole="button"
+                accessibilityLabel="记录饮水 250 毫升"
+              >
+                <ThemedIcon name="water-outline" size={18} color={colors.primary} />
+                <Text style={styles.emptyActionLabel}>饮水 +250</Text>
+              </PressableScale>
+              <PressableScale
+                haptic
+                scaleTo={0.97}
+                style={styles.emptyAction}
+                onPress={() => router.push("/nutrition" as never)}
+                accessibilityRole="button"
+                accessibilityLabel="记一餐"
+              >
+                <ThemedIcon name="restaurant-outline" size={18} color={colors.success} />
+                <Text style={styles.emptyActionLabel}>记一餐</Text>
+              </PressableScale>
+              <PressableScale
+                haptic
+                scaleTo={0.97}
+                style={styles.emptyAction}
+                onPress={() => router.push("/trends" as never)}
+                accessibilityRole="button"
+                accessibilityLabel="记录体重"
+              >
+                <ThemedIcon name="scale-outline" size={18} color={colors.accent} />
+                <Text style={styles.emptyActionLabel}>记体重</Text>
+              </PressableScale>
+              <PressableScale
+                haptic
+                scaleTo={0.97}
+                style={styles.emptyAction}
+                onPress={() => router.push("/sleep" as never)}
+                accessibilityRole="button"
+                accessibilityLabel="记录睡眠"
+              >
+                <ThemedIcon name="moon-outline" size={18} color={colors.lavender} />
+                <Text style={styles.emptyActionLabel}>记录睡眠</Text>
+              </PressableScale>
+            </View>
+          </Surface>
+        ) : null}
+
         {/* ② 三环活动卡：运动 / 饮水 / 饮食 + 中心今日完成百分比 + 右侧图例 */}
-        <Animated.View entering={entrance(0)}>
+        <Animated.View entering={entrance(0)} style={hasWellnessData ? undefined : styles.hiddenSection}>
           {showSkeleton ? (
             <SkeletonCard count={1} />
           ) : (
@@ -1020,9 +1082,9 @@ export default function WellnessScreen() {
           />
         </View>
 
-        {/* ⑦ 本周趋势：7 天柱图（今日高亮）；没有任何记录时走空态，不画一条全 0 的图 */}
-        <SectionTitle title="本周趋势" />
-        <Animated.View entering={entrance(5)}>
+        {/* ⑦ 本周饮食热量：7 天柱图（今日高亮）；空态/失败态仍给出下一步 */}
+        {hasWellnessData || summaryFailed ? <SectionTitle title="本周饮食热量" /> : null}
+        <Animated.View entering={entrance(5)} style={hasWellnessData || summaryFailed ? undefined : styles.hiddenSection}>
           {showSkeleton ? (
             <SkeletonCard count={1} />
           ) : recordDays > 0 ? (
@@ -1105,7 +1167,7 @@ export default function WellnessScreen() {
               meta={
                 data && data.habits.scheduled > 0
                   ? "今日 " + data.habits.done + "/" + data.habits.scheduled + " · " + habitPct + "%"
-                  : "连续天数 · 13 周热力图 · 时间段"
+                  : "连续天数 · 14 周热力图 · 时间段"
               }
               value={data && data.habits.scheduled > 0 ? data.habits.done + "/" + data.habits.scheduled : undefined}
               onPress={() => router.push("/habits" as never)}
@@ -1160,6 +1222,23 @@ const makeStyles = (colors: ThemeColors) =>
     root: { flex: 1, backgroundColor: colors.canvas },
     scroll: { flex: 1, backgroundColor: "transparent" },
     content: { paddingHorizontal: spacing.lg, gap: spacing.md },
+    hiddenSection: { display: "none" },
+    emptyActionCard: { padding: spacing.md, gap: 3 },
+    emptyActionTitle: { ...typography.headline, color: colors.text },
+    emptyActionSub: { ...typography.meta, color: colors.textMeta },
+    emptyActionGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: spacing.sm },
+    emptyAction: {
+      flexBasis: "47%",
+      flexGrow: 1,
+      minHeight: 48,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      paddingHorizontal: spacing.sm,
+      borderRadius: radius.control,
+      backgroundColor: colors.surfaceMuted,
+    },
+    emptyActionLabel: { ...typography.caption, fontWeight: "600", color: colors.text },
 
     /* 页头 + 今日状态行 */
     headBlock: { gap: 8 },
@@ -1264,7 +1343,7 @@ const makeStyles = (colors: ThemeColors) =>
     weightDeltaDown: { color: colors.success },
     weightDeltaUp: { color: colors.accentStrong },
     weightDeltaMuted: { color: colors.textMuted },
-    weightHint: { ...typography.meta, color: colors.textFaint },
+    weightHint: { ...typography.meta, color: colors.textMeta },
     weightSpark: { width: 118, height: 56, alignItems: "center", justifyContent: "center", flexShrink: 0 },
     weightSparkEmpty: { ...typography.hero, color: colors.textFaint },
 
@@ -1307,7 +1386,7 @@ const makeStyles = (colors: ThemeColors) =>
     trainLinkText: { ...typography.caption, fontWeight: "600", color: colors.primary },
 
     /* ⑥ 今日记录行 + 快捷记录 */
-    sectionMeta: { ...typography.meta, color: colors.textFaint },
+    sectionMeta: { ...typography.meta, color: colors.textMeta },
     recordRow: {
       flexDirection: "row",
       alignItems: "center",
@@ -1361,12 +1440,12 @@ const makeStyles = (colors: ThemeColors) =>
     trendHeadText: { flex: 1, minWidth: 0 },
     trendValue: { ...typography.hero, color: colors.text },
     trendCaption: { ...typography.meta, color: colors.textMuted },
-    trendMeta: { ...typography.meta, color: colors.textFaint },
-    trendFoot: { ...typography.meta, color: colors.textFaint },
+    trendMeta: { ...typography.meta, color: colors.textMeta },
+    trendFoot: { ...typography.meta, color: colors.textMeta },
 
     /* ⑦-2 本周健康周报 */
     weekBlock: { gap: spacing.sm },
     tileGrid: { gap: spacing.sm },
-    weekCaption: { ...typography.meta, color: colors.textFaint, textAlign: "center" },
+    weekCaption: { ...typography.meta, color: colors.textMeta, textAlign: "center" },
     weekEmpty: { ...typography.meta, color: colors.textMuted, lineHeight: 19 },
   });

@@ -314,6 +314,7 @@ export default function SettingsScreen() {
 
   const [authOpen, setAuthOpen] = useState(false);
   const [profileEditOpen, setProfileEditOpen] = useState(false);
+  const [heatOpen, setHeatOpen] = useState(false);
   // 手动同步按钮的 loading 跟随引擎状态（v2.1：手动同步已并入引擎 single-flight）
   const busy = engine.syncing;
   const [msg, setMsg] = useState<string | null>(null);
@@ -710,11 +711,27 @@ export default function SettingsScreen() {
                 )}
               </View>
             </Pressable>
-            <View style={styles.streakPill} accessible accessibilityLabel={"连续打卡 " + streak + " 天"}>
-              <ThemedIcon name="flame" size={13} color={colors.focusCanvas} />
-              <Text style={styles.streakText} numberOfLines={1}>
-                {streak + " 天"}
-              </Text>
+            <View style={styles.heroActions}>
+              <View style={styles.streakPill} accessible accessibilityLabel={"连续打卡 " + streak + " 天"}>
+                <ThemedIcon name="flame" size={13} color={colors.focusCanvas} />
+                <Text style={styles.streakText} numberOfLines={1}>
+                  {streak + " 天"}
+                </Text>
+              </View>
+              <PressableScale
+                haptic
+                scaleTo={0.97}
+                onPress={() => {
+                  if (token) setProfileEditOpen(true);
+                  else setAuthOpen(true);
+                }}
+                style={styles.heroAuthCta}
+                accessibilityRole="button"
+                accessibilityLabel={token ? "编辑资料" : "登录或注册"}
+              >
+                <ThemedIcon name={token ? "create-outline" : "log-in-outline"} size={13} color={colors.focusCanvas} />
+                <Text style={styles.heroAuthText}>{token ? "编辑资料" : "登录 / 注册"}</Text>
+              </PressableScale>
             </View>
           </View>
         </View>
@@ -766,25 +783,90 @@ export default function SettingsScreen() {
         </Surface>
       </Animated.View>
 
+      {/* ⑤ 设置：数据同步 / 学习提醒 / 外观与主题 / 关于 Workbench */}
+      <Animated.View entering={entrance(4)}>
+        <SectionTitle title="设置" />
+        <GroupCard style={styles.listCard}>
+          <SettingsRow
+            icon="cloud-upload-outline"
+            iconColor={colors.primary}
+            title="数据同步"
+            subtitle="推送与拉取 · 云端账号"
+            value={syncValue}
+            valueColor={syncValueColor}
+            valueDotColor={token ? syncValueColor : undefined}
+            showChevron
+            onPress={() => {
+              haptics.light();
+              setSyncOpen(true);
+            }}
+            accessibilityLabel={"数据同步，" + syncValue + "，" + syncHint + "，点此查看同步详情"}
+          />
+          <SettingsRow
+            icon="alert-circle"
+            iconColor={colors.textSecondary}
+            title="学习提醒"
+            subtitle="通知权限在系统设置中开启"
+            value="系统设置"
+            showChevron
+            onPress={() => void Linking.openSettings().catch(() => {})}
+            accessibilityLabel="学习提醒，通知权限在系统设置中开启，点此打开系统设置"
+          />
+          <SettingsRow
+            icon="color-palette-outline"
+            iconColor={colors.textSecondary}
+            title="外观与主题"
+            value={themeLabel}
+            showChevron
+            onPress={() => {
+              haptics.light();
+              setThemeOpen(true);
+            }}
+            accessibilityLabel={"外观与主题，当前" + themeLabel + "，点此选择主题"}
+          />
+          <SettingsRow
+            icon="information-circle-outline"
+            iconColor={colors.textSecondary}
+            title="关于 Workbench"
+            subtitle="检查更新 · 隐私政策 · 备案信息"
+            value={"v" + APP_VERSION_NAME}
+            showChevron
+            last
+            onPress={() => {
+              haptics.light();
+              setAboutOpen(true);
+            }}
+            accessibilityLabel={"关于 Workbench，当前版本 " + APP_VERSION_NAME + "，点此查看"}
+          />
+        </GroupCard>
+      </Animated.View>
+
       {/* ③ 成长记录：近 14 周每日专注热力格 + 少↔多图例（点开学习统计） */}
       <Animated.View entering={entrance(2)}>
-        <PressableScale
-          haptic
-          scaleTo={0.99}
-          hitSlop={4}
-          onPress={() => {
-            haptics.light();
-            router.push("/study-stats" as never);
-          }}
-          accessibilityRole="button"
-          accessibilityLabel={"成长记录，近 14 周每日专注，共 " + heatActiveDays + " 天有记录，打开学习统计"}
-          style={styles.heatPress}
-        >
-          <Surface tier="surface" corner={radius.card} padded={false} style={styles.heatCard}>
-            <View style={styles.heatHead}>
-              <Text style={styles.heatTitle}>成长记录</Text>
-              <Text style={styles.heatMeta}>近 14 周 · 每日专注</Text>
+        <Surface tier="surface" corner={radius.card} padded={false} style={styles.heatCard}>
+          <Pressable
+            onPress={() => {
+              haptics.light();
+              setHeatOpen((open) => !open);
+            }}
+            hitSlop={6}
+            style={styles.heatHead}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: heatActiveDays === 0 ? heatOpen : true }}
+            accessibilityLabel={"成长记录，近 14 周 " + heatActiveDays + " 天有记录"}
+          >
+            <Text style={styles.heatTitle}>成长记录</Text>
+            <View style={styles.heatHeadRight}>
+              <Text style={styles.heatMeta}>{"近 14 周 · " + heatActiveDays + " 天有记录"}</Text>
+              {heatActiveDays === 0 ? (
+                <ThemedIcon name={heatOpen ? "chevron-up" : "chevron-down"} size={14} color={colors.textMeta} />
+              ) : null}
             </View>
+          </Pressable>
+          {heatActiveDays === 0 && !heatOpen ? (
+            <Text style={styles.heatEmptyText}>还没有专注记录，开始一次后这里会亮起来</Text>
+          ) : (
+            <>
             <View style={styles.heatGrid}>
               {heatWeeks.map((week) => (
                 <View key={week[0]?.key ?? "week"} style={styles.heatCol}>
@@ -814,8 +896,22 @@ export default function SettingsScreen() {
               ))}
               <Text style={styles.heatLegendText}>多</Text>
             </View>
-          </Surface>
-        </PressableScale>
+            <Pressable
+              onPress={() => {
+                haptics.light();
+                router.push("/study-stats" as never);
+              }}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="打开学习统计"
+              style={styles.heatMore}
+            >
+              <Text style={styles.heatMoreText}>查看学习统计</Text>
+              <ThemedIcon name="chevron-forward" size={13} color={colors.primary} />
+            </Pressable>
+            </>
+          )}
+        </Surface>
       </Animated.View>
 
       {/* ④ 最近获得：已取得证书最近 3 枚（现有成就数据；无数据给空态，不编造） */}
@@ -885,72 +981,10 @@ export default function SettingsScreen() {
                     : "登录后可查看已获得的证书"
                   : "还没有已取得的证书"}
               </Text>
-              <Text style={styles.badgeEmptyHint}>
-                {achievedCerts === null
-                  ? "点此打开证书页"
-                  : "在证书页把状态标记为「已取得」，这里就会亮起来"}
-              </Text>
+              <ThemedIcon name="chevron-forward" size={14} color={colors.textMeta} />
             </Surface>
           </PressableScale>
         )}
-      </Animated.View>
-
-      {/* ⑤ 设置：数据同步 / 学习提醒 / 外观与主题 / 关于 Workbench */}
-      <Animated.View entering={entrance(4)}>
-        <SectionTitle title="设置" />
-        <GroupCard style={styles.listCard}>
-          <SettingsRow
-            icon="cloud-upload-outline"
-            iconColor={colors.primary}
-            title="数据同步"
-            subtitle="推送与拉取 · 云端账号"
-            value={syncValue}
-            valueColor={syncValueColor}
-            valueDotColor={token ? syncValueColor : undefined}
-            showChevron
-            onPress={() => {
-              haptics.light();
-              setSyncOpen(true);
-            }}
-            accessibilityLabel={"数据同步，" + syncValue + "，" + syncHint + "，点此查看同步详情"}
-          />
-          <SettingsRow
-            icon="alert-circle"
-            iconColor={colors.textSecondary}
-            title="学习提醒"
-            subtitle="通知权限在系统设置中开启"
-            value="系统设置"
-            showChevron
-            onPress={() => void Linking.openSettings().catch(() => {})}
-            accessibilityLabel="学习提醒，通知权限在系统设置中开启，点此打开系统设置"
-          />
-          <SettingsRow
-            icon="color-palette-outline"
-            iconColor={colors.textSecondary}
-            title="外观与主题"
-            value={themeLabel}
-            showChevron
-            onPress={() => {
-              haptics.light();
-              setThemeOpen(true);
-            }}
-            accessibilityLabel={"外观与主题，当前" + themeLabel + "，点此选择主题"}
-          />
-          <SettingsRow
-            icon="information-circle-outline"
-            iconColor={colors.textSecondary}
-            title="关于 Workbench"
-            subtitle="检查更新 · 隐私政策 · 备案信息"
-            value={"v" + APP_VERSION_NAME}
-            showChevron
-            last
-            onPress={() => {
-              haptics.light();
-              setAboutOpen(true);
-            }}
-            accessibilityLabel={"关于 Workbench，当前版本 " + APP_VERSION_NAME + "，点此查看"}
-          />
-        </GroupCard>
       </Animated.View>
 
       {/* ⑥ 账户与偏好：每日背景 / 动效 / 字体大小 / 学习领域（全部原设置项） */}
@@ -1069,7 +1103,7 @@ export default function SettingsScreen() {
             icon="checkmark-circle"
             iconColor={colors.accent}
             title="习惯与打卡"
-            subtitle="连续天数 · 13 周热力图"
+            subtitle="连续天数 · 14 周热力图"
             showChevron
             onPress={() => {
               haptics.light();
@@ -1371,7 +1405,7 @@ const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     /** v2.2.2：本页没有外层 View，ScrollView 就是根容器 → 直接垫 canvas（不再 transparent） */
     scroll: { flex: 1, backgroundColor: colors.canvas },
-    content: { paddingHorizontal: 17 },
+    content: { paddingHorizontal: 18 },
 
     /* ① 个人卡（实景带高度对齐今日页的实景带 158，暗场保证白字可读） */
     /** Web 上 react-native-web 会按原图尺寸布局绝对定位图片（导致只看左上角）：显式 100% 让 cover 生效 */
@@ -1442,6 +1476,17 @@ const makeStyles = (colors: ThemeColors) =>
       flexShrink: 0,
     },
     streakText: { ...typography.micro, fontWeight: "700", color: colors.focusCanvas },
+    heroActions: { alignItems: "flex-end", gap: 7, flexShrink: 0 },
+    heroAuthCta: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      minHeight: 30,
+      paddingHorizontal: 11,
+      borderRadius: radius.pill,
+      backgroundColor: "rgba(255,255,255,0.92)",
+    },
+    heroAuthText: { ...typography.micro, fontWeight: "700", color: colors.focusCanvas },
 
     /* 状态提示条（保留原身份卡里的操作反馈） */
     msgBar: {
@@ -1472,9 +1517,11 @@ const makeStyles = (colors: ThemeColors) =>
     /* ③ 成长记录热力图 */
     heatPress: { marginTop: spacing.md + 2, borderRadius: radius.card },
     heatCard: { paddingHorizontal: spacing.lg - 1, paddingVertical: spacing.lg - 1 },
-    heatHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: spacing.sm },
+    heatHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
+    heatHeadRight: { flexDirection: "row", alignItems: "center", gap: 5 },
     heatTitle: { ...typography.callout, fontWeight: "700", color: colors.text },
     heatMeta: { ...typography.micro, fontWeight: "500", color: colors.textMuted },
+    heatEmptyText: { ...typography.meta, color: colors.textMeta, marginTop: spacing.sm },
     heatGrid: { flexDirection: "row", gap: 3, marginTop: spacing.md },
     heatCol: { flex: 1, gap: 3 },
     heatCell: { width: "100%", aspectRatio: 1, borderRadius: radius.sm / 2 },
@@ -1488,6 +1535,8 @@ const makeStyles = (colors: ThemeColors) =>
     },
     heatLegendText: { ...typography.meta, color: colors.textMuted },
     heatSwatch: { width: 8, height: 8, borderRadius: radius.sm / 4 },
+    heatMore: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 3, marginTop: spacing.sm },
+    heatMoreText: { ...typography.caption, fontWeight: "600", color: colors.primary },
 
     /* ④ 最近获得（徽章 = 已取得证书） */
     badgeRow: { flexDirection: "row", gap: 9 },
@@ -1505,12 +1554,13 @@ const makeStyles = (colors: ThemeColors) =>
     badgeDate: { ...typography.meta, color: colors.textMuted, marginTop: 3, textAlign: "center" },
     badgeEmptySlot: { marginTop: 0 },
     badgeEmpty: {
+      flexDirection: "row",
       alignItems: "center",
       gap: spacing.sm,
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.lg + 2,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm + 2,
     },
-    badgeEmptyText: { ...typography.callout, fontWeight: "600", color: colors.textSecondary, textAlign: "center" },
+    badgeEmptyText: { flex: 1, ...typography.caption, fontWeight: "600", color: colors.textSecondary },
     badgeEmptyHint: { ...typography.meta, color: colors.textMuted, textAlign: "center" },
 
     /* ⑤ 设置列表卡（提案 .list：padding 2 / 14，行内 divider 由行自己画） */
@@ -1569,10 +1619,10 @@ const makeStyles = (colors: ThemeColors) =>
 
     /* 弹层内动作与说明 */
     sheetActions: { marginTop: spacing.md },
-    sheetNote: { ...typography.meta, color: colors.textFaint, textAlign: "center", marginTop: spacing.md },
+    sheetNote: { ...typography.meta, color: colors.textMeta, textAlign: "center", marginTop: spacing.md },
 
     footerBlock: { marginTop: spacing.xl, paddingHorizontal: spacing.xs, gap: 3 },
     footerName: { ...typography.caption, fontWeight: "600", color: colors.textSecondary, textAlign: "center" },
     footerVersion: { ...typography.meta, color: colors.textMuted, textAlign: "center" },
-    footerNote: { ...typography.meta, color: colors.textFaint, textAlign: "center" },
+    footerNote: { ...typography.meta, color: colors.textMeta, textAlign: "center" },
   });

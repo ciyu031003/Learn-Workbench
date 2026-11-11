@@ -1,15 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import dynamic from "next/dynamic";
 import Link from "next/link";
-
-/** 3D 完成度球（懒加载，ssr:false；three 只在客户端进入时拉取） */
-const StateOrb = dynamic(() => import("@/components/three/state-orb").then((m) => m.StateOrb), {
-  ssr: false,
-  loading: () => <Skeleton className="size-[208px]" rounded="rounded-full" />,
-});
-import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SectionLabel } from "@/components/ui/section-label";
@@ -120,24 +112,37 @@ export default function TodayPage() {
   ];
 
   return (
-    <div className="page-enter relative">
-      {/* 流动呼吸光效层（与移动端流光呼应；减弱动态时静止） */}
-      <div className="lwb-page-aurora" aria-hidden>
-        <span className="lwb-page-orb lwb-page-orb-a" />
-        <span className="lwb-page-orb lwb-page-orb-b" />
-        <span className="lwb-page-orb lwb-page-orb-c" />
-      </div>
-      <div className="lwb-stagger relative z-[1] flex flex-col gap-5">
+    <div className="page-enter">
+      <div className="lwb-stagger flex flex-col gap-5">
         {/* 问候 + 今日日期 */}
         <PageHeader title={data.greeting} description={`今天 · ${formatCN(data.date)}`} />
 
         {/* 完成度球 + 四个域入口：3 列网格，球独占一列，域入口 2×2 */}
         <div className="grid gap-4 lg:grid-cols-3">
-          <section className="flex min-w-0 flex-col items-center justify-center gap-3 rounded-3xl border border-border-button-default bg-background-secondary-default p-5">
-            <StateOrb score={data.progress} size={208} />
+          <section className="flex min-w-0 flex-col items-center justify-center gap-4 rounded-2xl border border-border-button-default bg-background-secondary-default p-5">
+            <div className="relative flex size-40 items-center justify-center">
+              <svg viewBox="0 0 160 160" className="size-40 -rotate-90" role="img" aria-label="今日完成度">
+                <circle cx="80" cy="80" r="66" fill="none" stroke="var(--color-border-button-default)" strokeWidth="10" />
+                <circle
+                  cx="80"
+                  cy="80"
+                  r="66"
+                  fill="none"
+                  stroke="var(--color-primary)"
+                  strokeWidth="10"
+                  strokeLinecap="round"
+                  strokeDasharray={2 * Math.PI * 66}
+                  strokeDashoffset={2 * Math.PI * 66 * (1 - Math.max(0, Math.min(100, data.progress)) / 100)}
+                  style={{ transition: "stroke-dashoffset 0.8s ease" }}
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-display-3-semibold tabular-nums text-text-primary">{data.progress}%</span>
+                <span className="text-caption-1-medium text-text-secondary">今日完成</span>
+              </div>
+            </div>
             <div className="text-center">
-              <div className="text-display-3-semibold tabular-nums text-text-primary">{data.progress}%</div>
-              <p className="mt-1 text-caption-1-medium text-text-secondary">
+              <p className="text-caption-1-medium text-text-secondary">
                 今日完成度 · 学习 40% · 习惯 30% · 运动 15% · 饮食 15%
               </p>
             </div>
@@ -146,7 +151,7 @@ export default function TodayPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:col-span-2">
             {blocks.map((b) => (
               <Link key={b.key} href={b.href} className="group min-w-0">
-                <section className="flex h-full min-w-0 items-center gap-3 rounded-3xl border border-border-button-default bg-background-primary-default p-4 transition-colors group-hover:bg-background-secondary-default">
+                <section className="flex h-full min-w-0 items-center gap-3 rounded-2xl border border-border-button-default bg-background-primary-default p-4 transition-colors group-hover:bg-background-secondary-default">
                   <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-background-tertiary-default">
                     <b.icon className="size-5 text-foreground-icon-primary" />
                   </span>

@@ -33,16 +33,18 @@ export default function SettingsPage() {
 
       {backup.msg ? <Badge variant="success" className="self-start">{backup.msg}</Badge> : null}
 
-      {/* v8 P2：与 APP「我的」页一致的分组快捷入口（账号 / 学习与数据 / 健康 / 账号与安全） */}
-      <QuickLinks />
+      {/* 账号与同步优先：设置页第一屏先解决身份与数据归属 */}
+      <div id="account">
+        <AccountCards account={account} />
+      </div>
 
       <AppearanceSection backup={backup} />
+
+      <QuickLinks />
 
       <JobsSettingsCard jobs={jobs} />
 
       <SubscriptionsCard jobs={jobs} />
-
-      <AccountCards account={account} />
 
       <AboutCard />
     </div>

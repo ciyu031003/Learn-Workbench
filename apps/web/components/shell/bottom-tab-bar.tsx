@@ -10,7 +10,7 @@ export function BottomTabBar() {
   const pathname = usePathname();
 
   return (
-    <nav className="surface-nav app-bottomnav fixed inset-x-0 bottom-0 z-30 border-t">
+    <nav className="surface-nav app-bottomnav fixed z-30" aria-label="主导航">
       {BOTTOM_TABS.map((item) => {
         const active = isActivePath(pathname, item.href);
         return (

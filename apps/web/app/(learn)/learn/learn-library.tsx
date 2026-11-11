@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { LearningTrack } from "@learn-workbench/content/types";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,6 +22,21 @@ export default function LearnLibrary({ tracks }: { tracks: LearningTrack[] }) {
   const [category, setCategory] = useState<CategoryFilter>("全部");
   /** 分级浏览（2026-10-15）：入门 / 进阶 / 综合 */
   const [level, setLevel] = useState<LevelFilter>("全部");
+  const [anonymous, setAnonymous] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/learning/progress?track=__probe")
+      .then((response) => {
+        if (alive) setAnonymous(!response.ok);
+      })
+      .catch(() => {
+        if (alive) setAnonymous(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const visible = useMemo(() => {
     const keyword = query.trim().toLowerCase();
@@ -151,7 +166,14 @@ export default function LearnLibrary({ tracks }: { tracks: LearningTrack[] }) {
         </section>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-3">
+      {anonymous ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border-button-default bg-background-secondary-default px-3.5 py-2.5 text-caption-1-medium text-text-secondary">
+          <span>登录后记录每门课的掌握度与练习进度</span>
+          <Link href="/login" className="font-semibold text-primary hover:underline">去登录</Link>
+        </div>
+      ) : null}
+
+      <div className="sticky top-0 z-10 -mx-1 flex flex-wrap items-center gap-3 bg-background-primary-default/95 px-1 py-2 backdrop-blur">
         <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
           <span>分类</span>
           <select
@@ -208,13 +230,13 @@ export default function LearnLibrary({ tracks }: { tracks: LearningTrack[] }) {
           hint="试试 Python、Java、JavaScript、Linux 或 AI 工程。"
         />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {visible.map((track) => {
             const stats = trackStats(track);
             const isExam408 = track.slug === "ex-408-grad";
             return (
               <Card key={track.slug} rail="study" className="flex flex-col">
-                <CardContent className="flex h-full flex-col gap-3 p-5">
+                <CardContent className="flex h-full flex-col gap-2.5 p-4 sm:gap-3 sm:p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <h2 className="truncate text-base font-semibold">
@@ -235,13 +257,13 @@ export default function LearnLibrary({ tracks }: { tracks: LearningTrack[] }) {
                     </span>
                   </div>
 
-                  <p className="text-sm text-muted-foreground">
+                  <p className="hidden text-sm text-muted-foreground sm:block">
                     {isExam408
                       ? "四科知识体系与历年原卷真题：章节知识点、完整题型、原题号、配图与参考答案。"
                       : <RichText text={track.summary} />}
                   </p>
 
-                  <dl className="grid grid-cols-3 gap-2 rounded-lg bg-muted/40 px-3 py-2 text-center">
+                  <dl className="grid grid-cols-3 gap-2 rounded-lg bg-muted/40 px-3 py-1.5 text-center sm:py-2">
                     <Stat label={isExam408 ? "科目" : "阶段"} value={isExam408 ? 4 : stats.stages} />
                     <Stat label="知识点" value={isExam408 ? 99 : stats.topics} />
                     <Stat label="配套题" value={isExam408 ? 846 : stats.questions} />

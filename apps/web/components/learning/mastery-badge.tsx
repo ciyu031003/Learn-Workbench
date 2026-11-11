@@ -52,9 +52,8 @@ export function LearningMastery({ trackSlug, className }: { trackSlug?: string; 
   }
 
   if (state === "anon" || !progress) {
-    return (
-      <span className={cn("text-xs text-muted-foreground", className)}>登录后统计掌握度</span>
-    );
+    // 匿名态不逐卡重复提示；列表页顶部统一给一次登录说明
+    return null;
   }
 
   return (

@@ -1562,7 +1562,7 @@ const makeStyles = (colors: ThemeColors) =>
     },
     scorePartFill: { height: 6, borderRadius: 3 },
     scorePartValue: { ...typography.caption, color: colors.text, width: 28, textAlign: "right" },
-    scorePartWeight: { ...typography.caption, color: colors.textFaint, width: 38, textAlign: "right" },
+    scorePartWeight: { ...typography.caption, color: colors.textMeta, width: 38, textAlign: "right" },
     scoreNotice: {
       alignSelf: "stretch",
       flexDirection: "row",
@@ -1576,7 +1576,7 @@ const makeStyles = (colors: ThemeColors) =>
     scoreNoticeText: { flex: 1, minWidth: 0, ...typography.meta, color: colors.textMuted },
     scoreNoticeAction: { ...typography.caption, fontWeight: "700", color: colors.primary },
 
-    sectionMeta: { ...typography.meta, color: colors.textFaint },
+    sectionMeta: { ...typography.meta, color: colors.textMeta },
 
     /* 分期 */
     stageCard: { gap: spacing.md },
@@ -1591,7 +1591,7 @@ const makeStyles = (colors: ThemeColors) =>
     timelineBarFull: { flex: 1 },
     timelineAxis: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
     timelineTime: { ...typography.caption, fontWeight: "700", color: colors.text },
-    timelineHint: { ...typography.caption, fontWeight: "400", color: colors.textFaint, flexShrink: 1, textAlign: "center" },
+    timelineHint: { ...typography.caption, fontWeight: "400", color: colors.textMeta, flexShrink: 1, textAlign: "center" },
     stageEmptyHint: { ...typography.meta, color: colors.textMuted, lineHeight: 19 },
     sliceList: { gap: spacing.sm },
     sliceRow: {
@@ -1617,7 +1617,7 @@ const makeStyles = (colors: ThemeColors) =>
     sliceBadgeText: { ...typography.micro, fontWeight: "700" },
     sliceBottom: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm, paddingLeft: 16 },
     sliceMinutes: { ...typography.caption, color: colors.textMuted },
-    sliceRef: { ...typography.caption, fontWeight: "400", color: colors.textFaint },
+    sliceRef: { ...typography.caption, fontWeight: "400", color: colors.textMeta },
 
     /* 操作按钮（编辑 / 删除） */
     actionRow: { flexDirection: "row", gap: spacing.sm },
@@ -1638,7 +1638,7 @@ const makeStyles = (colors: ThemeColors) =>
 
     /* 图表卡 */
     chartCard: { gap: spacing.sm },
-    chartFoot: { ...typography.meta, color: colors.textFaint, lineHeight: 18 },
+    chartFoot: { ...typography.meta, color: colors.textMeta, lineHeight: 18 },
 
     /* 月热力 */
     heatGrid: { gap: 6 },
@@ -1647,7 +1647,7 @@ const makeStyles = (colors: ThemeColors) =>
     heatCellEmpty: { flex: 1, aspectRatio: 1 },
     heatDay: { ...typography.micro, color: colors.textMuted, fontWeight: "700" },
     heatLegend: { flexDirection: "row", alignItems: "center", gap: 5, paddingTop: 2 },
-    heatLegendText: { ...typography.caption, fontWeight: "400", color: colors.textFaint },
+    heatLegendText: { ...typography.caption, fontWeight: "400", color: colors.textMeta },
     heatLegendCell: { width: 12, height: 12, borderRadius: 4 },
     heatLegendSpacer: { flex: 1 },
     regularBadge: {
@@ -1668,7 +1668,7 @@ const makeStyles = (colors: ThemeColors) =>
     sourceSpacer: { flex: 1 },
     statusText: { ...typography.caption, fontWeight: "700" },
     sourceHint: { ...typography.meta, color: colors.textMuted, lineHeight: 18 },
-    sourceMeta: { ...typography.caption, fontWeight: "400", color: colors.textFaint },
+    sourceMeta: { ...typography.caption, fontWeight: "400", color: colors.textMeta },
     sourceError: { ...typography.caption, fontWeight: "600", color: colors.danger },
     sourceActions: { flexDirection: "row", gap: spacing.sm, marginTop: 2 },
     sourceButton: {

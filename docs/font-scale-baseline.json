@@ -1,5 +1,4 @@
 {
-  "apps/mobile/src/app/(tabs)/learn.tsx": 1,
   "apps/mobile/src/app/(tabs)/today.tsx": 2,
   "apps/mobile/src/app/+not-found.tsx": 3,
   "apps/mobile/src/app/account-security.tsx": 6,
@@ -22,7 +21,7 @@
   "apps/mobile/src/components/day-strip.tsx": 1,
   "apps/mobile/src/components/equipment-picker-sheet.tsx": 1,
   "apps/mobile/src/components/focus-share-card.tsx": 1,
-  "apps/mobile/src/components/focus-timer.tsx": 29,
+  "apps/mobile/src/components/focus-timer.tsx": 44,
   "apps/mobile/src/components/food-calendar.tsx": 3,
   "apps/mobile/src/components/gear-card.tsx": 1,
   "apps/mobile/src/components/group-label.tsx": 1,
@@ -41,5 +40,6 @@
   "apps/mobile/src/components/study-share-card.tsx": 6,
   "apps/mobile/src/components/training-load-card.tsx": 2,
   "apps/mobile/src/components/update-sheet.tsx": 7,
+  "apps/mobile/src/components/v2/floating-tab-bar.tsx": 2,
   "apps/mobile/src/components/water-cup.tsx": 3
 }

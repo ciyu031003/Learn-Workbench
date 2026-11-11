@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
@@ -495,6 +496,9 @@ export default function TodayScreen() {
   const tabBarSpace = useTabBarSpace();
   /** v19-M8：TabBar 双击回顶（再点已聚焦的「今日」时滚回顶部） */
   const todayScrollRef = useRef<Animated.ScrollView>(null);
+  const { height: winHeight } = useWindowDimensions();
+  /** 320x640 / 紧凑屏：压缩实景带与专注卡内边距，保证「开始专注」在底栏之上 */
+  const compact = winHeight < 700;
   useScrollToTopHandler("/today", todayScrollRef);
   /** 入场错峰统一走 lib/stagger（步长取 token）；减弱动态时传 undefined，彻底不动 */
   const reduced = useReducedMotion();
@@ -829,6 +833,8 @@ export default function TodayScreen() {
       ? "本周还没有专注记录"
       : Math.floor(weekFocusMinutes / 60) + "h " + String(weekFocusMinutes % 60).padStart(2, "0") +
         "m · 较前 7 天 " + (focusDelta >= 0 ? "+" : "") + focusDelta + "m";
+  const hasTodayActivity =
+    todayTasks.length > 0 || todayDone > 0 || learningSnapshot.questionsToday > 0 || streak > 0 || weekFocusMinutes > 0;
   const mainSubject = focusStats.weekByContent[0]?.label ?? null;
   const pomodoroNo = focusStats.todaySessions + 1;
   const quickStartLabel = "25 分钟 · " + (mainSubject ?? "自由专注") + " · 第 " + pomodoroNo + " 个番茄";
@@ -904,7 +910,7 @@ export default function TodayScreen() {
         </View>
 
         {/* ③ 实景带（每日一景）：本地打包图 + 上下暗场保证白字可读 */}
-        <View style={styles.v3Scene}>
+        <View style={[styles.v3Scene, compact ? styles.v3SceneCompact : null]}>
           <Image
             source={require("../../../assets/images/scene-hero.jpg")}
             style={[StyleSheet.absoluteFill, styles.sceneImgFill]}
@@ -930,7 +936,7 @@ export default function TodayScreen() {
         </View>
 
         {/* ④ 今日专注：与实景带分开，避免图片被半透明卡片压住 */}
-        <Surface tier="elevated" corner={26} style={styles.v3FocusShell}>
+        <Surface tier="elevated" corner={26} style={[styles.v3FocusShell, compact ? styles.v3FocusShellCompact : null]}>
           <View style={styles.v3FsHead}>
             <View style={styles.v3FsHeadText}>
               <View style={styles.v3FsKicker}>
@@ -964,30 +970,37 @@ export default function TodayScreen() {
             </View>
           </View>
 
-          {/* 本周节律：七格柱，今天给阳光橘 */}
-          <View
-            style={styles.v3Week}
-            accessible
-            accessibilityLabel={"本周已打卡 " + weekChecked + " 天，本周专注 " + weekFocusMinutes + " 分钟"}
-          >
-            {weekBars.map((d) => (
-              <View key={d.iso} style={styles.v3Wb}>
-                <View style={styles.v3WbSlot}>
-                  <View
-                    style={[
-                      styles.v3WbBar,
-                      { height: Math.max(4, Math.round(38 * d.ratio)) },
-                      d.minutes === 0 ? styles.v3WbBarIdle : null,
-                      d.iso === today ? styles.v3WbBarToday : null,
-                    ]}
-                  />
+          {/* 本周节律：有记录才画七格柱；空态用一行说明，避免七根 0 柱占首屏 */}
+          {weekFocusMinutes > 0 ? (
+            <View
+              style={styles.v3Week}
+              accessible
+              accessibilityLabel={"本周已打卡 " + weekChecked + " 天，本周专注 " + weekFocusMinutes + " 分钟"}
+            >
+              {weekBars.map((d) => (
+                <View key={d.iso} style={styles.v3Wb}>
+                  <View style={styles.v3WbSlot}>
+                    <View
+                      style={[
+                        styles.v3WbBar,
+                        { height: Math.max(4, Math.round(38 * d.ratio)) },
+                        d.minutes === 0 ? styles.v3WbBarIdle : null,
+                        d.iso === today ? styles.v3WbBarToday : null,
+                      ]}
+                    />
+                  </View>
+                  <Text style={[styles.v3WbLabel, d.iso === today ? styles.v3WbLabelToday : null]}>{d.label}</Text>
                 </View>
-                <Text style={[styles.v3WbLabel, d.iso === today ? styles.v3WbLabelToday : null]}>{d.label}</Text>
-              </View>
-            ))}
-          </View>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.v3WeekEmpty} accessible accessibilityLabel="本周还没有专注记录">
+              <ThemedIcon name="time-outline" size={14} color={colors.textMeta} />
+              <Text style={styles.v3WeekEmptyText}>本周还没有专注，开始一次就有节律了</Text>
+            </View>
+          )}
 
-          {/* 三格指标：今日任务 / 刷题进度 / 连续打卡（打卡格可直接点） */}
+          {/* 三格指标：空态只留「今日任务」，刷题/打卡在有记录后再出现 */}
           <View style={styles.v3Stats}>
             <View style={styles.v3Stat}>
               <Text style={[styles.v3StatValue, tabularNums]}>
@@ -996,29 +1009,33 @@ export default function TodayScreen() {
               </Text>
               <Text style={styles.v3StatLabel}>今日任务</Text>
             </View>
-            <View style={[styles.v3Stat, styles.v3StatDivider]}>
-              <Text style={[styles.v3StatValue, tabularNums]}>
-                {learningSnapshot.questionsToday}
-                <Text style={styles.v3StatSuffix}>{"/" + DAILY_QUESTION_GOAL}</Text>
-              </Text>
-              <Text style={styles.v3StatLabel}>刷题进度</Text>
-            </View>
-            <Pressable
-              hitSlop={8}
-              onPress={() => {
-                if (!checkedInToday) haptics.success();
-                checkinToday();
-              }}
-              style={[styles.v3Stat, styles.v3StatDivider]}
-              accessibilityRole="button"
-              accessibilityLabel={checkedInToday ? "今日已打卡，连续 " + streak + " 天" : "点此打卡"}
-            >
-              <Text style={[styles.v3StatValue, tabularNums]}>
-                {streak}
-                <Text style={styles.v3StatSuffix}>天</Text>
-              </Text>
-              <Text style={styles.v3StatLabel}>{checkedInToday ? "连续打卡" : "打卡开启"}</Text>
-            </Pressable>
+            {hasTodayActivity ? (
+              <>
+                <View style={[styles.v3Stat, styles.v3StatDivider]}>
+                  <Text style={[styles.v3StatValue, tabularNums]}>
+                    {learningSnapshot.questionsToday}
+                    <Text style={styles.v3StatSuffix}>{"/" + DAILY_QUESTION_GOAL}</Text>
+                  </Text>
+                  <Text style={styles.v3StatLabel}>刷题进度</Text>
+                </View>
+                <Pressable
+                  hitSlop={8}
+                  onPress={() => {
+                    if (!checkedInToday) haptics.success();
+                    checkinToday();
+                  }}
+                  style={[styles.v3Stat, styles.v3StatDivider]}
+                  accessibilityRole="button"
+                  accessibilityLabel={checkedInToday ? "今日已打卡，连续 " + streak + " 天" : "点此打卡"}
+                >
+                  <Text style={[styles.v3StatValue, tabularNums]}>
+                    {streak}
+                    <Text style={styles.v3StatSuffix}>天</Text>
+                  </Text>
+                  <Text style={styles.v3StatLabel}>{checkedInToday ? "连续打卡" : "打卡开启"}</Text>
+                </Pressable>
+              </>
+            ) : null}
           </View>
 
           <PressableScale
@@ -1132,15 +1149,15 @@ export default function TodayScreen() {
           </Surface>
         )}
 
-        {/* ⑥ 双列小卡：本周学习 / 今日饮水 */}
+        {/* ⑥ 双列小卡：本周专注 / 今日饮水 */}
         <View style={styles.dualRow}>
           <MiniStatCard
-            label="本周学习"
+            label="本周专注"
             percent={weekFocusPercent}
             hint={weekFocusHint}
             icon="book-outline"
             onPress={() => router.push("/learn" as never)}
-            accessibilityLabel="本周学习，打开学习页"
+            accessibilityLabel="本周专注，打开学习页"
           />
           <MiniStatCard
             label="今日饮水"
@@ -1420,7 +1437,7 @@ const makeStyles = (colors: ThemeColors, dark = false) =>
     /** v2.2.2：根容器必须不透明 —— Tab 场景叠放叠滑时不透出下层（与 sceneStyle 的 canvas 双保险） */
     root: { flex: 1, backgroundColor: colors.canvas },
     scroll: { flex: 1 },
-    content: { paddingHorizontal: 17, paddingBottom: 24, gap: 14 },
+    content: { paddingHorizontal: 18, paddingBottom: 24, gap: 14 },
 
     // ---- 实景带（每日一景，白字 + 暗场）----
     hero: {
@@ -1496,7 +1513,7 @@ const makeStyles = (colors: ThemeColors, dark = false) =>
     focusModeText: { ...typography.micro, fontWeight: "700", color: colors.primaryStrong },
     focusHead: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 10 },
     focusHeadText: { flex: 1, minWidth: 0, gap: 3 },
-    eyebrow: { ...typography.eyebrow, color: colors.textFaint },
+    eyebrow: { ...typography.eyebrow, color: colors.textMeta },
     focusTitle: { ...typography.title2, color: colors.text },
     focusSub: { ...typography.meta, color: colors.textMuted },
     focusToday: { alignItems: "flex-end", minWidth: 56 },
@@ -1691,7 +1708,7 @@ const makeStyles = (colors: ThemeColors, dark = false) =>
 
     // ---- v3 一屏原型（2026-11-08 今日页版式对齐 demo）----
     v3Topline: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4, marginBottom: 2 },
-    v3Wordmark: { ...typography.eyebrow, color: colors.textFaint, letterSpacing: 1.6 },
+    v3Wordmark: { ...typography.eyebrow, color: colors.textMeta, letterSpacing: 1.6 },
     v3TopActions: { flexDirection: "row", alignItems: "center", gap: 8 },
     v3IconBtn: {
       width: 38,
@@ -1731,6 +1748,7 @@ const makeStyles = (colors: ThemeColors, dark = false) =>
     v3GreetTitle: { ...typography.pageTitle, fontWeight: "700", color: colors.text },
     v3GreetSub: { ...typography.meta, color: colors.textMuted, lineHeight: 17 },
     v3Scene: { height: 150, borderRadius: 26, overflow: "hidden", marginTop: 4, ...shadows.card },
+    v3SceneCompact: { height: 120 },
     /** Web 上 react-native-web 会按原图尺寸布局绝对定位图片（导致只看左上角）：显式 100% 让 cover 生效，原生同值无影响 */
     sceneImgFill: { width: "100%", height: "100%" },
     v3SceneCap: { position: "absolute", left: 16, right: 16, top: 13, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
@@ -1740,6 +1758,7 @@ const makeStyles = (colors: ThemeColors, dark = false) =>
     v3SceneTime: { ...typography.micro, fontWeight: "600", color: "rgba(255,255,255,0.8)" },
     /** 实景带与专注卡分离：保留 content 的 14pt 间距，不再用负 margin 重叠 */
     v3FocusShell: { marginTop: 0, padding: 18 },
+    v3FocusShellCompact: { padding: 16 },
     v3FsHead: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 },
     v3FsHeadText: { gap: 2 },
     v3FsKicker: { flexDirection: "row", alignItems: "center", gap: 6 },
@@ -1753,6 +1772,17 @@ const makeStyles = (colors: ThemeColors, dark = false) =>
     v3FsBadgeValue: { ...typography.caption, fontWeight: "700", color: colors.text },
     v3FsBadgeText: { ...typography.micro, fontWeight: "500", color: colors.textMuted },
     v3Week: { flexDirection: "row", gap: 4, marginTop: 17 },
+    v3WeekEmpty: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      marginTop: 14,
+      paddingVertical: 8,
+      paddingHorizontal: 10,
+      borderRadius: 12,
+      backgroundColor: colors.surfaceMuted,
+    },
+    v3WeekEmptyText: { ...typography.meta, color: colors.textMeta },
     v3Wb: { flex: 1, alignItems: "center", gap: 6 },
     v3WbSlot: { height: 38, width: "100%", alignItems: "center", justifyContent: "flex-end" },
     v3WbBar: {

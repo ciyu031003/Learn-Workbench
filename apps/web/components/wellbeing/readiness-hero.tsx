@@ -6,7 +6,6 @@ import { DAILY_WEAKEST_LABEL } from "@learn-workbench/shared/labels";
 import { todayISO } from "@learn-workbench/shared/dates";
 import { computeDailyReadiness } from "@learn-workbench/shared/pure";
 import { Card, CardContent } from "@/components/ui/card";
-import { LazyStateOrb } from "@/components/three/lazy-three";
 import { cn } from "@/lib/utils";
 
 interface DailyOs {
@@ -89,14 +88,11 @@ export function ReadinessHero() {
   const avgKcal = recordDays > 0 ? Math.round(weekRows.reduce((s, r) => s + r.kcal, 0) / recordDays) : 0;
 
   return (
-    <Card className="relative overflow-hidden border-white/20 bg-gradient-to-br from-primary/12 via-card/70 to-accent/12 shadow-[0_18px_60px_-30px_rgba(47,116,192,0.65)] backdrop-blur-xl">
-      <div className="pointer-events-none absolute -left-24 -top-24 size-64 rounded-full bg-primary/20 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-28 -right-16 size-72 rounded-full bg-accent/15 blur-3xl" />
+    <Card className="relative overflow-hidden border-border-button-default bg-surface shadow-card">
       <CardContent className="relative grid gap-7 p-6 lg:grid-cols-[248px_1fr] lg:p-8">
         <div className="flex flex-col items-center gap-2">
           {/* 状态分圆环：与习惯/任务的完成度环形共用 .ring-conic 语言（--ring-value 就是分数本身） */}
-          <div className="relative flex size-[248px] items-center justify-center">
-            <span aria-hidden className="ring-halo pointer-events-none absolute inset-0 rounded-full bg-primary/10 blur-xl" />
+          <div className="relative flex size-[200px] items-center justify-center">
             <span
               aria-hidden
               className="ring-conic pointer-events-none absolute inset-0 opacity-90 motion-reduce:transition-none"
@@ -104,20 +100,19 @@ export function ReadinessHero() {
                 {
                   "--ring-value": Math.max(0, Math.min(100, readiness.score)),
                   "--ring-from": "#2f74c0",
-                  "--ring-to": "#e1781c",
+                  "--ring-to": "#5b93d6",
                   "--ring-size": "6px",
                 } as CSSProperties
               }
             />
-            {/* S3-6：进入视口才拉 three chunk；低端设备/省流模式自动降级为静态回退 */}
-            <LazyStateOrb score={readiness.score} size={220} />
+            <div className="flex size-[180px] flex-col items-center justify-center rounded-full bg-surface">
+              <div className="stat-pop text-5xl font-black tabular-nums text-primary">{readiness.score}</div>
+              <div className="mt-1 text-[11px] font-medium text-muted-foreground">今日状态分</div>
+            </div>
           </div>
           <div className="text-center">
-            <div className="stat-pop bg-gradient-to-r from-primary to-accent bg-clip-text text-5xl font-black tabular-nums text-transparent">
-              {readiness.score}
-            </div>
-            <div className="mt-1 text-xs font-medium text-muted-foreground">
-              今日状态分 · {readiness.weakest ? DAILY_WEAKEST_LABEL[readiness.weakest] : readiness.verdict}
+            <div className="text-xs font-medium text-muted-foreground">
+              {readiness.weakest ? "今天最短板 · " + DAILY_WEAKEST_LABEL[readiness.weakest] : readiness.verdict}
             </div>
           </div>
         </div>
@@ -132,7 +127,7 @@ export function ReadinessHero() {
               <div
                 key={s.label}
                 style={{ animationDelay: `${i * 60}ms` }}
-                className="rise-in lift rounded-2xl border border-white/15 bg-white/45 px-4 py-3 backdrop-blur-md dark:bg-white/5"
+                className="rise-in lift rounded-2xl border border-border-button-default bg-background-secondary-default px-4 py-3"
               >
                 <div className="text-[11px] font-medium text-muted-foreground">{s.label}</div>
                 <div className="stat-pop mt-0.5 text-2xl font-bold tabular-nums">
@@ -152,7 +147,7 @@ export function ReadinessHero() {
                   key={d.key}
                   href={d.href}
                   style={{ animationDelay: `${180 + i * 70}ms` }}
-                  className="rise-in press-soft group flex items-center gap-3 rounded-xl px-2 py-1.5 transition-colors hover:bg-white/40 dark:hover:bg-white/5"
+                  className="rise-in press-soft group flex items-center gap-3 rounded-xl px-2 py-1.5 transition-colors hover:bg-background-secondary-hover"
                 >
                   <span className="w-9 shrink-0 text-xs font-semibold text-muted-foreground">{d.label}</span>
                   <span className="relative h-2 flex-1 overflow-hidden rounded-full bg-muted/50">
@@ -176,8 +171,8 @@ export function ReadinessHero() {
 
           <div className="flex flex-wrap gap-2">
             <Link href="/wellbeing/nutrition" className="press-scale cta-breathe rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground">记一条饮食</Link>
-            <Link href="/wellbeing/workout" className="press-scale rounded-full border border-border/70 bg-card/60 px-4 py-2 text-xs font-semibold transition-colors hover:bg-muted/60">记录训练</Link>
-            <Link href="/today" className="press-scale rounded-full border border-border/70 bg-card/60 px-4 py-2 text-xs font-semibold transition-colors hover:bg-muted/60">我的一天</Link>
+            <Link href="/wellbeing/workout" className="press-scale rounded-full border border-border-button-default bg-background-secondary-default px-4 py-2 text-xs font-semibold transition-colors hover:bg-background-secondary-hover">记录训练</Link>
+            <Link href="/today" className="press-scale rounded-full border border-border-button-default bg-background-secondary-default px-4 py-2 text-xs font-semibold transition-colors hover:bg-background-secondary-hover">我的一天</Link>
           </div>
         </div>
       </CardContent>

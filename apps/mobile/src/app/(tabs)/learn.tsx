@@ -525,7 +525,7 @@ export default function LearnScreen() {
   const last7Labels = last7.map((day) => WEEKDAY_LABELS[new Date(day.date + "T00:00:00").getDay()]);
   const insightDeltaText =
     weekTotal === 0
-      ? "近 7 天还没有专注记录"
+      ? "还没有专注数据"
       : prevWeekTotal === 0
         ? "前 7 天还没有专注记录"
         : focusDelta === 0
@@ -579,7 +579,7 @@ export default function LearnScreen() {
     ? "P" + currentPhaseNumber + " · " + selectedPhase.title
     : "还没有学习阶段";
   const headSub = selectedPhase
-    ? "第 " + currentPhaseNumber + " 阶段 · " + selectedPhase.title + "。近 7 天已专注 " + formatDuration(weekTotal) + "。"
+    ? "P" + currentPhaseNumber + " · " + selectedPhase.title
     : "还没有学习阶段，先建一条路线或导入 Markdown 开始。";
   const openCurrentPhase = () => {
     if (selectedPhase) router.push(("/phase/" + selectedPhase.id) as never);
@@ -763,11 +763,8 @@ export default function LearnScreen() {
       color: colors.accent,
       kicker: "还没开始",
       title: "从阶段路线开始",
-      meta:
-        routeSummary.total > 0
-          ? `已完成 ${routeSummary.done}/${routeSummary.total} 个主题 · ${routeSummary.percent}%`
-          : "还没有学习阶段，先建一条路线或导入 Markdown",
-      progress: (routeSummary.total > 0 ? routeSummary.percent / 100 : 0) as number | null,
+      meta: routeSummary.total > 0 ? "从阶段路线按顺序推进" : "还没有学习阶段，先建一条路线或导入 Markdown",
+      progress: null,
       cta: "查看路线",
       a11y: "从阶段路线开始学习",
       onPress: () => router.push("/roadmap" as never),
@@ -786,7 +783,7 @@ export default function LearnScreen() {
       {/* ① 页头：eyebrow + 主标题 + 副文案；右上保留「阶段路线 / 全局搜索」两个入口 */}
       <Animated.View style={styles.headRow} entering={entrance(0)}>
         <PageHead
-          eyebrow="ICT · 网络与安全"
+          eyebrow="学习 · 网络与安全"
           title="学习"
           subtitle={headSub}
           style={styles.headText}
@@ -962,7 +959,7 @@ export default function LearnScreen() {
           ) : (
             <View style={styles.insightEmpty}>
               <ThemedIcon name="stats-chart-outline" size={18} color={colors.textMuted} />
-              <Text style={styles.insightEmptyText}>近 7 天还没有专注记录，完成一次专注后这里会出现趋势</Text>
+              <Text style={styles.insightEmptyText}>完成一次专注后这里会出现趋势</Text>
             </View>
           )}
 
@@ -1458,7 +1455,7 @@ export default function LearnScreen() {
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     scroll: { flex: 1, backgroundColor: colors.canvas },
-    content: { paddingHorizontal: 17, gap: 14 },
+    content: { paddingHorizontal: 18, gap: 14 },
 
     /* ① 页头 + 右上两个入口（阶段路线 / 全局搜索） */
     headRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
