@@ -1,5 +1,6 @@
 {
-  "apps/mobile/src/app/(tabs)/today.tsx": 2,
+  "apps/mobile/src/app/(tabs)/learn.tsx": 2,
+  "apps/mobile/src/app/(tabs)/today.tsx": 3,
   "apps/mobile/src/app/+not-found.tsx": 3,
   "apps/mobile/src/app/account-security.tsx": 6,
   "apps/mobile/src/app/diagnostics.tsx": 3,
@@ -41,5 +42,6 @@
   "apps/mobile/src/components/training-load-card.tsx": 2,
   "apps/mobile/src/components/update-sheet.tsx": 7,
   "apps/mobile/src/components/v2/floating-tab-bar.tsx": 2,
+  "apps/mobile/src/components/v2/home-kit.tsx": 9,
   "apps/mobile/src/components/water-cup.tsx": 3
 }

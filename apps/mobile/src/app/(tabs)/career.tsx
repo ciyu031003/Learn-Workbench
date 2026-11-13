@@ -10,6 +10,7 @@ import { Surface } from "@/components/surface";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PageHead } from "@/components/v2/page-head";
 import { SectionTitle } from "@/components/v2/section-title";
+import { HeroCard } from "@/components/v2/home-kit";
 import { ProgressBar } from "@/components/v2/progress-bar";
 import { BarList, RadarChart } from "@/components/v2/charts";
 import { withAlpha } from "@/lib/chart-math";
@@ -477,39 +478,34 @@ export default function CareerScreen() {
       >
         <PageHead eyebrow="职业 · 求职准备" title="职业" subtitle={subtitle} style={styles.pageHead} />
 
-        {hasTarget || gate.firstLoadPending || showSkeleton ? (
-          <Animated.View entering={entrance(0)} style={styles.kpiGrid}>
-            {kpiItems.map((item) => (
-              <KpiCard key={item.key} item={item} />
-            ))}
-          </Animated.View>
-        ) : null}
 
-        {hasTarget ? (
-          <Animated.View entering={entrance(1)}>
-            <PressableScale
-              style={styles.zhaohuaCard}
-            hitSlop={4}
-            haptic
-            onPress={() => router.push("/jobs" as never)}
-            accessibilityRole="button"
-            accessibilityLabel="打开招花，浏览全部岗位"
-          >
-              <View style={styles.zhaohuaIcon}>
-                <ThemedIcon name="compass-outline" size={23} color="#FFFFFF" />
-              </View>
-              <View style={styles.zhaohuaBody}>
-                <Text style={styles.zhaohuaKicker}>在招岗位</Text>
-                <Text style={styles.zhaohuaTitle}>招花</Text>
-                <Text style={styles.zhaohuaSub} numberOfLines={2}>{zhaohuaSub}</Text>
-              </View>
-              <View style={styles.zhaohuaCta}>
-                <Text style={styles.zhaohuaCtaText}>进入</Text>
-                <ThemedIcon name="chevron-forward" size={13} color="#FFFFFF" />
-              </View>
-            </PressableScale>
-          </Animated.View>
-        ) : null}
+        <Animated.View entering={entrance(0)}>
+          {hasTarget ? (
+            <HeroCard
+              eyebrow="今日岗位推荐"
+              eyebrowIcon="briefcase-outline"
+              title={
+                todayCount !== null && todayCount > 0
+                  ? todayCount + " 个新岗位" + (highMatchCount !== null ? "，" + highMatchCount + " 个高度匹配" : "")
+                  : "岗位库已更新，先看看匹配方向"
+              }
+              copy="已按目标方向、技能与期望城市筛选"
+              ctaLabel={highMatchCount !== null && highMatchCount > 0 ? "查看 " + highMatchCount + " 个匹配岗位" : "浏览全部岗位"}
+              ctaIcon="arrow-forward"
+              onCta={() => router.push("/jobs" as never)}
+            />
+          ) : (
+            <HeroCard
+              eyebrow="职业起点"
+              eyebrowIcon="flag-outline"
+              title="先设置求职方向"
+              copy="填写目标岗位后，才能计算准备度并推荐真正匹配的岗位。"
+              ctaLabel="设置求职方向"
+              ctaIcon="locate-outline"
+              onCta={() => router.push("/radar?editTarget=1" as never)}
+            />
+          )}
+        </Animated.View>
 
         <SectionTitle
           title="求职准备"
@@ -517,29 +513,8 @@ export default function CareerScreen() {
           style={styles.section}
         />
         <Animated.View entering={entrance(2)}>
-          {!gate.firstLoadPending && !hasTarget ? (
-            <PressableScale
-              haptic
-              scaleTo={0.99}
-              style={styles.targetEmptyHero}
-              onPress={() => router.push("/radar?editTarget=1" as never)}
-              accessibilityRole="button"
-              accessibilityLabel="先设置目标方向，点此开始"
-            >
-              <View style={styles.targetEmptyTop}>
-                <View style={styles.targetEmptyIcon}>
-                  <ThemedIcon name="flag-outline" size={21} color="#FFFFFF" />
-                </View>
-                <View style={styles.targetEmptyBody}>
-                  <Text style={styles.targetEmptyTitle}>先设置求职方向</Text>
-                  <Text style={styles.targetEmptyHint}>填写目标岗位后，才能计算准备度并推荐真正匹配的岗位。</Text>
-                </View>
-              </View>
-              <View style={styles.targetEmptyCta}>
-                <Text style={styles.targetEmptyCtaText}>设置目标方向</Text>
-                <ThemedIcon name="chevron-forward" size={14} color={colors.primary} />
-              </View>
-            </PressableScale>
+          {false ? (
+            null
           ) : showSkeleton ? (
             <Skeleton variant="card" style={styles.prepSkeleton} />
           ) : (
@@ -582,6 +557,18 @@ export default function CareerScreen() {
                   </View>
                 ))}
               </View>
+
+              <PressableScale
+                hitSlop={4}
+                scaleTo={0.98}
+                onPress={() => router.push("/radar" as never)}
+                style={styles.reportLink}
+                accessibilityRole="button"
+                accessibilityLabel="查看准备度报告"
+              >
+                <Text style={styles.reportLinkText}>查看准备度报告</Text>
+                <ThemedIcon name="chevron-forward" size={13} color={colors.primary} />
+              </PressableScale>
 
               {appStats ? (
                 <View style={styles.funnelBlock}>
@@ -689,6 +676,8 @@ export default function CareerScreen() {
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
+    reportLink: { flexDirection: "row", alignItems: "center", gap: 3, minHeight: 44, marginTop: 6 },
+    reportLinkText: { ...typography.meta, fontWeight: "700", color: colors.primary },
     root: { flex: 1, backgroundColor: colors.canvas },
     scroll: { flex: 1, backgroundColor: "transparent" },
     content: { paddingHorizontal: spacing.lg, gap: spacing.md },

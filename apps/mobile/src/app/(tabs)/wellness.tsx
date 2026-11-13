@@ -6,6 +6,7 @@ import { ThemedIcon } from "@/components/themed-icon";
 import { ScreenHeaderStickyBar, useHeaderTopInset, useLargeTitleHeader } from "@/components/screen-header";
 import { PageHead } from "@/components/v2/page-head";
 import { SectionTitle } from "@/components/v2/section-title";
+import { HeroCard } from "@/components/v2/home-kit";
 import { BarChart } from "@/components/v2/bar-chart";
 import { ActivityRings, AreaChart, StatTileRow, type StatTileProps, type StatTone } from "@/components/v2/charts";
 import { ProgressBar } from "@/components/v2/progress-bar";
@@ -730,26 +731,16 @@ export default function WellnessScreen() {
 
         {/* 空数据先给动作组；有记录后再展开三环与趋势 */}
         {!hasWellnessData && !dailyFailed && !showSkeleton ? (
-          <Surface tier="surface" corner={radius.card} padded={false} style={styles.emptyActionCard}>
-            <Text style={styles.emptyActionTitle}>今天先记一笔</Text>
-            <Text style={styles.emptyActionSub}>任选一项，三环和趋势会随记录出现</Text>
-            <PressableScale
-              haptic
-              scaleTo={0.98}
-              style={styles.emptyPrimary}
-              onPress={() => void quickWater(250)}
-              accessibilityRole="button"
-              accessibilityLabel="先记录一杯水 250 毫升"
-            >
-              <View style={styles.emptyPrimaryIcon}>
-                <ThemedIcon name="water-outline" size={19} color="#FFFFFF" />
-              </View>
-              <View style={styles.emptyPrimaryCopy}>
-                <Text style={styles.emptyPrimaryTitle}>先记一杯水</Text>
-                <Text style={styles.emptyPrimarySub}>250 ml · 立刻生成今日第一条记录</Text>
-              </View>
-              <ThemedIcon name="chevron-forward" size={14} color="rgba(255,255,255,0.72)" />
-            </PressableScale>
+          <View style={styles.emptyHeroWrap}>
+            <HeroCard
+              eyebrow="今天，从一条记录开始"
+              eyebrowIcon="heart-outline"
+              title="今天先记一笔"
+              copy="饮水、一餐、运动或睡眠，任选一项就是开始。"
+              ctaLabel="先记一杯水 · 250 ml"
+              ctaIcon="water-outline"
+              onCta={() => void quickWater(250)}
+            />
             <View style={styles.emptyActionGrid}>
               <PressableScale
                 haptic
@@ -785,7 +776,7 @@ export default function WellnessScreen() {
                 <Text style={styles.emptyActionLabel}>记录睡眠</Text>
               </PressableScale>
             </View>
-          </Surface>
+          </View>
         ) : null}
 
         {/* ② 三环活动卡：运动 / 饮水 / 饮食 + 中心今日完成百分比 + 右侧图例 */}
@@ -1224,6 +1215,7 @@ export default function WellnessScreen() {
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
+    emptyHeroWrap: { gap: 10, marginBottom: 4 },
     /** v2.2.2：根容器必须不透明 —— Tab 场景叠放叠滑时不透出下层（与 sceneStyle 的 canvas 双保险） */
     root: { flex: 1, backgroundColor: colors.canvas },
     scroll: { flex: 1, backgroundColor: "transparent" },

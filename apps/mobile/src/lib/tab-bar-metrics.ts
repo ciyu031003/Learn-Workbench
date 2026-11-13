@@ -14,15 +14,15 @@
  * 需要安全区的组件用 `@/lib/use-tab-bar-space` 的 `useTabBarSpace()`。
  */
 /** 底栏本体高度，不含悬浮间距与安全区 */
-export const TAB_BAR_HEIGHT = 64;
+export const TAB_BAR_HEIGHT = 70;
 /** 单格内容必须容纳的最小高度（24 图标 + 4 间距 + 15 标签） */
 export const TAB_BAR_ITEM_MIN_HEIGHT = 44;
 /** 胶囊底边与底部安全区之间的悬浮间距 */
 export const TAB_BAR_FLOAT_GAP = 12;
 /** 胶囊左右两侧的屏幕留白 */
-export const TAB_BAR_SIDE_INSET = 18;
+export const TAB_BAR_SIDE_INSET = 12;
 /** 胶囊圆角 */
-export const TAB_BAR_RADIUS = 26;
+export const TAB_BAR_RADIUS = 22;
 /** 底栏之上的呼吸留白，避免最后一行贴着底栏 */
 export const TAB_BAR_BREATHING = 16;
 

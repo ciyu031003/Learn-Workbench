@@ -15,7 +15,7 @@ import { PressableScale } from "@/components/pressable-scale";
 import { LearningShelfHeader } from "@/components/learning-entry-cards";
 import { PageHead } from "@/components/v2/page-head";
 import { SectionTitle } from "@/components/v2/section-title";
-import { StageTrack } from "@/components/v2/stage-track";
+import { HeroCard, Panel, PrimaryButton } from "@/components/v2/home-kit";
 import { ProgressBar } from "@/components/v2/progress-bar";
 import { AreaChart } from "@/components/v2/charts";
 
@@ -812,97 +812,74 @@ export default function LearnScreen() {
         </View>
       </Animated.View>
 
-      {/* ② 当前阶段卡（提案 .stage-card）：阶段名 + 完成百分比 + P1..PN 轨道 + 主题数 / 阶段周期 */}
-      <Animated.View entering={entrance(1)} style={roadmapLoading || roadmap.length > 0 ? undefined : styles.hiddenSection}>
-        <PressableScale
-          haptic
-          scaleTo={0.99}
-          hitSlop={4}
-          style={styles.stagePress}
-          onPress={openCurrentPhase}
-          accessibilityRole="button"
-          accessibilityLabel={currentPhaseA11y}
-        >
-          <Surface tier="surface" corner={radius.panel} style={styles.stageCard}>
-            <View style={styles.stageTop}>
-              <View style={styles.stageTopText}>
-                <Text style={styles.stageLab}>当前阶段</Text>
-                <Text style={styles.stageName} numberOfLines={1}>{stageName}</Text>
-              </View>
-              <View
-                style={styles.stagePctRow}
-                accessible
-                accessibilityLabel={
-                  currentPhasePercent === null
-                    ? "阶段完成度暂无数据"
-                    : "阶段完成度 " + currentPhasePercent + "%"
-                }
+      {/* ② 学习 hero（对齐 demo .spotlight）：阶段 chip + 路线名 + 进度 + 继续学习 + 唯一主 CTA */}
+      <Animated.View entering={entrance(1)}>
+        {roadmapLoading ? null : roadmap.length > 0 ? (
+          <Panel spotlight style={styles.routeCard}>
+            <View style={styles.routeTop}>
+              <Text style={styles.routeChip}>{"当前阶段 · P" + currentPhaseNumber}</Text>
+              <PressableScale
+                hitSlop={10}
+                scaleTo={0.94}
+                onPress={() => router.push("/roadmap" as never)}
+                style={styles.routeLink}
+                accessibilityRole="button"
+                accessibilityLabel="查看完整路线"
               >
-                <Text style={[styles.stagePct, tabularNums]}>
-                  {currentPhasePercent === null ? "—" : currentPhasePercent}
-                </Text>
-                {currentPhasePercent === null ? null : <Text style={styles.stagePctUnit}>%</Text>}
-              </View>
+                <Text style={styles.routeLinkText}>完整路线</Text>
+                <ThemedIcon name="chevron-forward" size={13} color={colors.primary} />
+              </PressableScale>
             </View>
-
-            {trackLabels.length > 0 ? (
-              <View
-                style={styles.stageTrack}
-                accessible
-                accessibilityLabel={"共 " + trackLabels.length + " 个阶段，当前第 " + (trackCurrent + 1) + " 个"}
-              >
-                <StageTrack stages={trackLabels} current={trackCurrent} />
-              </View>
-            ) : null}
-
-            <View style={styles.stageFoot}>
-              <Text style={styles.stageFootText}>
-                {routeSummary.total > 0
-                  ? "已完成 " + routeSummary.done + " / " + routeSummary.total + " 个主题"
-                  : "还没有主题，先添加一个"}
-              </Text>
-              <Text style={styles.stageFootText} numberOfLines={1}>
-                {selectedPhase?.weeks ? "阶段周期 · " + selectedPhase.weeks : "阶段周期 · —"}
+            <Text style={styles.routeTitle} numberOfLines={2}>{stageName}</Text>
+            <Text style={styles.routeMeta}>
+              {routeSummary.total > 0
+                ? "已完成 " + routeSummary.done + " / " + routeSummary.total + " 个主题"
+                : "还没有主题，先添加一个"}
+            </Text>
+            <View style={styles.routeProgressMeta}>
+              <Text style={styles.routeProgressLabel}>阶段进度</Text>
+              <Text style={[styles.routeProgressValue, tabularNums]}>
+                {currentPhasePercent === null ? "—" : currentPhasePercent + "%"}
               </Text>
             </View>
-          </Surface>
-        </PressableScale>
-      </Animated.View>
+            <ProgressBar value={(currentPhasePercent ?? 0) / 100} height={6} />
 
-      {/* ③ 继续学习卡（提案 .continue）：进行中 / 收藏的章节 / 还没开始三态，落点沿用既有 */}
-      <Animated.View entering={entrance(2)} style={roadmapLoading || roadmap.length > 0 ? undefined : styles.hiddenSection}>
-        <PressableScale
-          haptic
-          scaleTo={0.99}
-          hitSlop={4}
-          style={styles.continuePress}
-          onPress={continueCard.onPress}
-          accessibilityRole="button"
-          accessibilityLabel={continueCard.a11y}
-        >
-          <Surface tier="surface" style={styles.continueCard}>
-            <View style={[styles.continueThumb, { backgroundColor: withAlpha(continueCard.color, 0.14) }]}>
-              <ThemedIcon
-                name={continueCard.icon}
-                ios={continueCard.icon === "star" ? "star.fill" : undefined}
-                size={24}
-                color={continueCard.color}
-              />
-            </View>
-            <View style={styles.continueBody}>
-              <Text style={styles.continueKicker}>{continueCard.kicker}</Text>
-              <Text style={styles.continueTitle} numberOfLines={2}>{continueCard.title}</Text>
-              <Text style={styles.continueMeta} numberOfLines={1}>{continueCard.meta}</Text>
-              {continueCard.progress !== null ? (
-                <ProgressBar value={continueCard.progress} height={5} style={styles.continueBar} />
-              ) : null}
-            </View>
-            <View style={styles.continuePlay}>
-              <ThemedIcon name="play" size={13} color={colors.surfaceStrong} />
-              <Text style={styles.continuePlayText}>继续</Text>
-            </View>
-          </Surface>
-        </PressableScale>
+            <PressableScale
+              haptic
+              scaleTo={0.99}
+              hitSlop={4}
+              style={styles.routeContinue}
+              onPress={continueCard.onPress}
+              accessibilityRole="button"
+              accessibilityLabel={continueCard.a11y}
+            >
+              <View style={[styles.routeContinueIcon, { backgroundColor: withAlpha(continueCard.color, 0.14) }]}>
+                <ThemedIcon
+                  name={continueCard.icon}
+                  ios={continueCard.icon === "star" ? "star.fill" : undefined}
+                  size={19}
+                  color={continueCard.color}
+                />
+              </View>
+              <View style={styles.routeContinueCopy}>
+                <Text style={styles.routeContinueTitle} numberOfLines={2}>{continueCard.title}</Text>
+                <Text style={styles.routeContinueMeta} numberOfLines={1}>{continueCard.meta}</Text>
+              </View>
+            </PressableScale>
+
+            <PrimaryButton label="继续学习" icon="play" onPress={continueCard.onPress} style={styles.routeCta} />
+          </Panel>
+        ) : (
+          <HeroCard
+            eyebrow="学习起点"
+            eyebrowIcon="layers-outline"
+            title="先创建你的学习路线"
+            copy="把目标拆成阶段与主题，每次学习都知道下一步。"
+            ctaLabel="创建学习路线"
+            ctaIcon="add"
+            onCta={() => router.push("/roadmap" as never)}
+          />
+        )}
       </Animated.View>
 
       {/* ④ 数据洞察卡（提案 .chart-card）：近 7 天总时长 + 较前 7 天对比 + 面积图 + 三格 KPI */}
@@ -1470,6 +1447,42 @@ export default function LearnScreen() {
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
+    routeCard: { marginBottom: 14 },
+    routeTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
+    routeChip: {
+      fontSize: 10,
+      fontWeight: "700",
+      color: colors.primaryStrong,
+      backgroundColor: colors.primarySoft,
+      borderRadius: 8,
+      paddingHorizontal: 8,
+      paddingVertical: 5,
+      overflow: "hidden",
+    },
+    routeLink: { flexDirection: "row", alignItems: "center", gap: 2, minHeight: 36 },
+    routeLinkText: { ...typography.meta, fontWeight: "700", color: colors.primary },
+    routeTitle: { fontSize: 21, lineHeight: 28, fontWeight: "700", letterSpacing: -0.4, color: colors.text, marginTop: 10 },
+    routeMeta: { ...typography.meta, color: colors.textMeta, marginTop: 5 },
+    routeProgressMeta: { flexDirection: "row", justifyContent: "space-between", marginTop: 13, marginBottom: 8 },
+    routeProgressLabel: { ...typography.caption, fontWeight: "700", color: colors.textSecondary },
+    routeProgressValue: { ...typography.caption, fontWeight: "700", color: colors.primary },
+    routeContinue: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 11,
+      marginTop: 15,
+      padding: 13,
+      borderRadius: 14,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    routeContinueIcon: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+    routeContinueCopy: { flex: 1, minWidth: 0 },
+    routeContinueTitle: { ...typography.caption, fontWeight: "700", color: colors.text, lineHeight: 19 },
+    routeContinueMeta: { ...typography.micro, color: colors.textMeta, marginTop: 3 },
+    routeCta: { marginTop: 14 },
+
     scroll: { flex: 1, backgroundColor: colors.canvas },
     content: { paddingHorizontal: 18, gap: 14 },
 

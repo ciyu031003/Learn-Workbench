@@ -72,10 +72,10 @@ describe("showsTabBar / tabBarSpaceForRoute", () => {
 });
 
 describe("floating geometry", () => {
-  it("uses a 64pt capsule with side gutters and a large radius", () => {
-    expect(TAB_BAR_HEIGHT).toBe(64);
-    expect(TAB_BAR_SIDE_INSET).toBe(18);
-    expect(TAB_BAR_RADIUS).toBe(26);
+  it("uses a 70pt capsule with side gutters and a large radius", () => {
+    expect(TAB_BAR_HEIGHT).toBe(70);
+    expect(TAB_BAR_SIDE_INSET).toBe(12);
+    expect(TAB_BAR_RADIUS).toBe(22);
     expect(TAB_BAR_FLOAT_GAP).toBe(12);
   });
 
