@@ -37,6 +37,8 @@ import { typography } from "@/theme/tokens";
 import type { FocusSession } from "@learn-workbench/shared/schemas";
 import { DEFAULT_FOCUS_SCENE_ID, FOCUS_SCENES, getFocusScene } from "@learn-workbench/shared/focus-scenes";
 import { focusSceneSource } from "@/lib/focus-scene-assets";
+import { Celebration } from "@/components/celebration";
+import type { FocusSnapshot } from "@/store/focus-session-store";
 
 /**
  * 准备开始（一屏启动页）的时长档位：v2.0.1 按真机反馈改为 25/45/60。
@@ -87,6 +89,9 @@ export function FocusTimer({
   exerciseLabel = null,
   onExerciseRecorded,
   contentLabel = null,
+  minimized = false,
+  onMinimize,
+  onSnapshot,
 }: {
   open: boolean;
   task: { id: number | null; title: string | null } | null;
@@ -106,6 +111,11 @@ export function FocusTimer({
   onExerciseRecorded?: (seconds: number, label: string | null) => void;
   /** 本次学习的内容名（"英语读写" / "阶段X · 主题Y"），随会话一起写入 tag */
   contentLabel?: string | null;
+  /** 收起为悬浮计时（会话保持运行，不记录） */
+  minimized?: boolean;
+  onMinimize?: () => void;
+  /** 向全局悬浮计时广播快照 */
+  onSnapshot?: (snapshot: FocusSnapshot) => void;
 }) {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
@@ -153,12 +163,20 @@ export function FocusTimer({
    * 用 ref 跟随最新值更稳。
    */
   const recoveredRef = useRef(false);
+  /** 一键开始只消费一次；最小化/恢复不重挂载，必须用 ref 防止 autoStart 重置计时 */
+  const autoStartedRef = useRef(false);
+  /** 完成庆祝只触发一次（再来一次后重置） */
+  const celebratedRef = useRef(false);
   const onRecordedRef = useRef(onRecorded);
   const onExerciseRecordedRef = useRef(onExerciseRecorded);
   useEffect(() => {
     onRecordedRef.current = onRecorded;
     onExerciseRecordedRef.current = onExerciseRecorded;
   }, [onRecorded, onExerciseRecorded]);
+  const onSnapshotRef = useRef(onSnapshot);
+  useEffect(() => {
+    onSnapshotRef.current = onSnapshot;
+  }, [onSnapshot]);
   const remainingRef = useRef(25 * 60);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   // V3 墙钟对时：累计跨暂停段的毫秒；startRef 为当前运行段墙钟起点。
@@ -232,9 +250,9 @@ export function FocusTimer({
   //    若用 state 判断，interval 里的旧闭包永远读到 running=false → 已跑时长恒为 0（计时器不动）。
   const currentElapsed = () => elapsedSeconds(accumulatedMsRef.current, startRef.current, Date.now());
 
-  // 打开：自动开始 + 加载每日 Bing
+  // 打开全屏：解锁旋转；收起为悬浮计时时锁回竖屏（不影响会话运行）
   useEffect(() => {
-    if (open) {
+    if (open && !minimized) {
       ScreenOrientation.unlockAsync().catch(() => {
         // 忽略某些设备不支持旋转
       });
@@ -251,7 +269,10 @@ export function FocusTimer({
         // 忽略
       });
     }
+  }, [open, minimized]);
 
+  // 会话级初始化：只在挂载时跑一次；收起/恢复不会重置计时
+  useEffect(() => {
     if (!open) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 打开弹层时重置状态（既有模式）
     setDone(false);
@@ -525,8 +546,8 @@ export function FocusTimer({
   }, []);
 
   useEffect(() => {
-    if (!open || !autoStart) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- 一键开始：打开即进入计时态
+    if (!open || !autoStart || autoStartedRef.current) return;
+    autoStartedRef.current = true;
     setStarted(true);
     setSessionStartAt((v) => v ?? Date.now());
     setDone(false);
@@ -611,6 +632,37 @@ export function FocusTimer({
     void record(seconds, { keepOpen: sessionMode === "focus" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, done]);
+
+  /**
+   * 完成页第一次出现时给一次成功触感；烟花由 <Celebration play={done} /> 负责。
+   * “再来一次”会把 done 置回 false，本 effect 同步重置 celebratedRef，下一轮可再次庆祝。
+   */
+  useEffect(() => {
+    if (!done) {
+      celebratedRef.current = false;
+      return;
+    }
+    if (celebratedRef.current) return;
+    celebratedRef.current = true;
+    haptics.success();
+  }, [done]);
+
+  /**
+   * 向全局悬浮计时广播最小快照（收起后仍每秒更新）。
+   * 不把计时引擎搬进 store：FocusTimer 仍是唯一事实源，store 只做跨页面展示。
+   */
+  useEffect(() => {
+    const status = done ? "done" : running ? "running" : started ? "paused" : "idle";
+    onSnapshotRef.current?.({
+      status,
+      remainingSeconds: remaining,
+      totalSeconds: total,
+      timerMode,
+      taskTitle: task?.title ?? null,
+      sessionMode,
+      updatedAt: Date.now(),
+    });
+  }, [done, running, started, remaining, total, timerMode, task?.title, sessionMode]);
 
   /** v1.22：分享改为卡片图片弹层（截图 → 系统分享面板；不可用时弹层内退回文字） */
   const shareCard = () => setShareOpen(true);
@@ -714,11 +766,27 @@ export function FocusTimer({
   );
 
   return (
-    <Modal visible={open} animationType="fade" presentationStyle="fullScreen" onRequestClose={() => record(elapsed)}>
+    <Modal
+      visible={open && !minimized}
+      animationType="fade"
+      presentationStyle="fullScreen"
+      onRequestClose={() => {
+        // 推荐行为：计时中按返回 = 收起为悬浮计时（不误记录）；完成页/准备页仍走原逻辑
+        if (started && !done && onMinimize) {
+          onMinimize();
+          return;
+        }
+        if (done) {
+          onClose();
+          return;
+        }
+        record(elapsed);
+      }}
+    >
       {/* v17-C1 审计发现：本页是**暗色沉浸**画面，但状态栏图标色此前继承自 App 主题。
           App 处于浅色主题时会变成「深色图标压深色背景」的低对比 —— 这里强制浅色图标；
           弹层卸载后由根布局的 StatusBar 自动恢复。 */}
-      <RNStatusBar barStyle="light-content" />
+      {!minimized ? <RNStatusBar barStyle="light-content" /> : null}
       <View style={styles.root}>
         {/* 背景层 */}
         {showImage ? <ExpoImage source={{ uri: url! }} style={ABS_FILL} contentFit="cover" cachePolicy="memory-disk" transition={200} onError={() => setUrl(null)} /> : null}
@@ -751,7 +819,12 @@ export function FocusTimer({
             },
           ]}
         >
-          <Pressable accessibilityLabel="关闭" style={styles.topBtn} onPress={() => record(elapsed)} hitSlop={8}>
+          <Pressable
+            accessibilityLabel={started && !done ? "结束并记录" : "关闭"}
+            style={styles.topBtn}
+            onPress={() => record(elapsed)}
+            hitSlop={8}
+          >
             <ThemedIcon name="close" size={20} color="rgba(255,255,255,0.9)" />
           </Pressable>
           {started && !done ? (
@@ -762,9 +835,21 @@ export function FocusTimer({
           ) : (
             <View style={styles.fmHeadSpacer} />
           )}
-          <Pressable accessibilityLabel="背景设置" style={styles.topBtn} onPress={() => setShowBg((v) => !v)} hitSlop={8}>
-            <ThemedIcon name="color-palette-outline" size={18} color="rgba(255,255,255,0.9)" />
-          </Pressable>
+          <View style={styles.topRight}>
+            {started && !done && onMinimize ? (
+              <Pressable
+                accessibilityLabel="收起为悬浮计时"
+                style={styles.topBtn}
+                onPress={() => onMinimize?.()}
+                hitSlop={8}
+              >
+                <ThemedIcon name="chevron-down" size={20} color="rgba(255,255,255,0.9)" />
+              </Pressable>
+            ) : null}
+            <Pressable accessibilityLabel="背景设置" style={styles.topBtn} onPress={() => setShowBg((v) => !v)} hitSlop={8}>
+              <ThemedIcon name="color-palette-outline" size={18} color="rgba(255,255,255,0.9)" />
+            </Pressable>
+          </View>
         </View>
 
         {showBg ? (
@@ -842,14 +927,20 @@ export function FocusTimer({
         ) : null}
 
         {done ? (
-          /* 完成页是结果页：内容可能较多，保留滚动（不属于「开始 / 计时」的一屏范围） */
-          <ScrollView contentContainerStyle={styles.center} showsVerticalScrollIndicator={false}>
+          <>
+            {/* 专注完成：复用全局烟花/彩带（减弱动态时组件自身返回 null） */}
+            <Celebration play={done} />
+            {/* 完成页是结果页：内容可能较多，保留滚动（不属于「开始 / 计时」的一屏范围） */}
+            <ScrollView contentContainerStyle={styles.center} showsVerticalScrollIndicator={false}>
             <View style={styles.doneWrap}>
               <View style={styles.doneTitleRow}>
                 <ThemedIcon name="trophy" size={34} color="#FFB25E" />
-                <Text style={styles.doneTitle}>专注完成！</Text>
+                <Text style={styles.doneTitle}>{sessionMode === "exercise" ? "运动完成！" : "专注完成！"}</Text>
               </View>
-              <Text style={styles.doneSub}>本次专注 {fmt(elapsed)}，已自动记录</Text>
+              <Text style={styles.doneSub}>
+                {sessionMode === "exercise" ? "本次运动 " : "本次专注 "}
+                {fmt(elapsed)}，已自动记录
+              </Text>
               <View style={styles.statGrid}>
                 {[
                   { label: "累计专注", value: `${stats.totalFocusDays} 天` },
@@ -877,7 +968,8 @@ export function FocusTimer({
                 </Pressable>
               </View>
             </View>
-          </ScrollView>
+            </ScrollView>
+          </>
         ) : started ? (
           isLandscape ? (
             <View
@@ -1242,6 +1334,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#000" },
   scrim: { backgroundColor: "rgba(0,0,0,0.5)" },
   topBar: { flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 16, zIndex: 20 },
+  topRight: { flexDirection: "row", alignItems: "center", gap: 8 },
   topBtn: {
     backgroundColor: "rgba(255,255,255,0.12)",
     borderRadius: 999,

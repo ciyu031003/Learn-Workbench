@@ -19,6 +19,8 @@ import { installCrashCapture, recordCrumb, setCurrentScreen, setCrashCaptureAppS
 import { flushPersistWrites, setPersistDiagnosticSink } from "@/lib/persist";
 import { promptPendingCrash } from "@/lib/crash-upload";
 import { UpdateSheet } from "@/components/update-sheet";
+import { GlobalFocusTimer } from "@/components/global-focus-timer";
+import { FloatingFocusTimer } from "@/components/floating-focus-timer";
 import { StudyTimeTracker } from "@/components/study-time-tracker";
 import { secureToken } from "@/lib/secure-token";
 import { useAppStore } from "@/store/app-store";
@@ -369,6 +371,8 @@ function ThemedShell({ tier }: { tier: DeviceTier }) {
         <Stack.Screen name="diagnostics" options={{ animation: "fade_from_bottom" }} />
         <Stack.Screen name="+not-found" />
       </Stack>
+      <GlobalFocusTimer />
+      <FloatingFocusTimer />
       <StudyTimeTracker />
       <UpdateSheet />
     </DailyBackground>

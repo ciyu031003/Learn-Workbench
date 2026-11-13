@@ -45,8 +45,11 @@ export function EmptyState({
   return (
     <View style={[styles.wrap, style]}>
       {pattern !== "none" ? <PatternBackdrop variant={pattern} /> : null}
-      <View style={styles.chip}>
-        <ThemedIcon name={icon} size={26} color={colors.textFaint} />
+      <View style={styles.chipWrap}>
+        <View pointerEvents="none" style={styles.halo} />
+        <View style={styles.chip}>
+          <ThemedIcon name={icon} size={26} color={colors.textFaint} />
+        </View>
       </View>
       <Text style={styles.title} numberOfLines={2}>
         {title}
@@ -76,6 +79,22 @@ const makeStyles = (colors: ThemeColors) =>
       borderRadius: radius.card,
       overflow: "hidden",
     },
+    chipWrap: {
+      width: 68,
+      height: 68,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 2,
+    },
+    halo: {
+      position: "absolute",
+      width: 68,
+      height: 68,
+      borderRadius: 22,
+      borderWidth: 1,
+      borderColor: colors.primary,
+      opacity: 0.14,
+    },
     chip: {
       width: 52,
       height: 52,
@@ -83,7 +102,6 @@ const makeStyles = (colors: ThemeColors) =>
       backgroundColor: colors.surfaceMuted,
       alignItems: "center",
       justifyContent: "center",
-      marginBottom: 2,
     },
     title: { ...typography.callout, fontWeight: "700", color: colors.text, textAlign: "center" },
     hint: {

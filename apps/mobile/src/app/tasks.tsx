@@ -5,6 +5,7 @@ import { RefreshControl, StyleSheet, Text, TextInput, View } from "react-native"
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import { useAppStore, type TaskType } from "@/store/app-store";
+import { useFocusSessionStore } from "@/store/focus-session-store";
 
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
@@ -24,7 +25,6 @@ import { PressableScale } from "@/components/pressable-scale";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { ChipGroup, SheetSection, SheetStickyCta } from "@/components/sheet";
 import { BottomSheet } from "@/components/bottom-sheet";
-import { FocusTimer } from "@/components/focus-timer";
 import { ContentPicker, EMPTY_CONTENT, contentLabelOf, type ContentChoice } from "@/components/content-picker";
 import { computeFocusStats, FOCUS_MOTIVATIONS } from "@/lib/focus-stats";
 import { FocusShareSheet } from "@/components/focus-share-card";
@@ -41,8 +41,8 @@ export default function TasksScreen() {
   const sessions = useAppStore((s) => s.sessions);
   const addTask = useAppStore((s) => s.addTask);
   const toggleTaskDone = useAppStore((s) => s.toggleTaskDone);
-  const addSession = useAppStore((s) => s.addSession);
   const token = useAppStore((s) => s.token);
+  const openFocus = useFocusSessionStore((s) => s.openFocus);
 
   /**
    * v17 收尾：本页数据来自本地 store + 同步引擎（没有页面级 loader），
@@ -73,9 +73,6 @@ export default function TasksScreen() {
 
   const [title, setTitle] = useState("");
   const [type, setType] = useState<TaskType>("study");
-  const [timerOpen, setTimerOpen] = useState(false);
-  const [timerSession, setTimerSession] = useState(0);
-  const [timerTask, setTimerTask] = useState<{ id: number | null; title: string | null } | null>(null);
   /** v4 P1：新建任务改为弹层输入（不再让输入框常驻首屏第一位） */
   const [newTaskOpen, setNewTaskOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -86,8 +83,6 @@ export default function TasksScreen() {
   const [contentOpen, setContentOpen] = useState(false);
   const [content, setContent] = useState<ContentChoice>(EMPTY_CONTENT);
   const [pendingStart, setPendingStart] = useState<{ label: string | null; timerMode: "countdown" | "stopwatch" } | null>(null);
-  /** 由"自由专注"弹出的计时器：需要自动开始 + 指定模式 + 带内容名 */
-  const [autoTimer, setAutoTimer] = useState<{ label: string | null; timerMode: "countdown" | "stopwatch" } | null>(null);
 
   // 业务日期统一东八区（评审 2026-10-31 P2，S5-1 同款），与 dashboard/today 页口径一致
   const today = todayISOInZone();
@@ -103,10 +98,7 @@ export default function TasksScreen() {
 
   const openTimer = (taskId: number | null, taskTitle: string | null) => {
     haptics.soft();
-    setAutoTimer(null);
-    setTimerTask({ id: taskId, title: taskTitle });
-    setTimerSession((s) => s + 1);
-    setTimerOpen(true);
+    openFocus({ task: { id: taskId, title: taskTitle } });
   };
 
   /** 「自由专注」：带着"这次学什么"直接开始（不需要再点一次开始） */
@@ -336,12 +328,15 @@ export default function TasksScreen() {
         footerHint="返回或点空白只会关闭，不会开始计时"
         onClosed={() => {
           // 等选择弹层真正卸载后再开计时器（两个 Modal 同帧 present 会互相吞掉）
-          if (!pendingStart) return;
-          setTimerTask({ id: null, title: pendingStart.label ?? "自由专注" });
-          setAutoTimer({ label: pendingStart.label, timerMode: pendingStart.timerMode });
+          const start = pendingStart;
+          if (!start) return;
           setPendingStart(null);
-          setTimerSession((s) => s + 1);
-          setTimerOpen(true);
+          openFocus({
+            task: { id: null, title: start.label ?? "自由专注" },
+            autoStart: true,
+            initialTimerMode: start.timerMode,
+            contentLabel: start.label,
+          });
         }}
       >
         <SheetSection title="这次学什么" hint="不指定就是自由专注" last>
@@ -349,23 +344,6 @@ export default function TasksScreen() {
         </SheetSection>
       </BottomSheet>
 
-      <FocusTimer
-        key={timerSession}
-        open={timerOpen}
-        task={timerTask}
-        sessions={sessions}
-        autoStart={!!autoTimer}
-        initialTimerMode={autoTimer?.timerMode}
-        contentLabel={autoTimer?.label ?? null}
-        onClose={() => {
-          setTimerOpen(false);
-          setAutoTimer(null);
-        }}
-        onRecorded={(taskId, seconds, label) =>
-          // 任务行 ▶ 进入的专注没有显式内容名 → 用任务标题兜底，避免统计里全是「未分类」
-          addSession(taskId, seconds, label ?? (taskId ? (timerTask?.title ?? null) : null))
-        }
-      />
       </Animated.ScrollView>
     </View>
   );

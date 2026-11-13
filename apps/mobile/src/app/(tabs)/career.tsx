@@ -22,7 +22,7 @@ import { INITIAL_FIRST_LOAD_GATE, nextFirstLoadGate, shouldShowSkeleton } from "
 import { getApiUrl } from "@/config";
 import { useAppStore } from "@/store/app-store";
 import { formatRelativeTime } from "@learn-workbench/shared/dates";
-import { radius, spacing, tabularNums, typography } from "@/theme/tokens";
+import { radius, shadows, spacing, tabularNums, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
 import type { CareerReadiness, JobStats, ReadinessDimension, UserSkillView } from "@learn-workbench/shared/schemas";
@@ -329,16 +329,18 @@ export default function CareerScreen() {
   const highMatchCount = radar?.hasProfile ? radar.buckets?.highMatch?.length ?? 0 : null;
   const subtitle =
     todayCount !== null
-      ? "今日新增 " + todayCount + " 条岗位" + (highMatchCount !== null ? " · 高匹配 " + highMatchCount + " 条" : "")
+      ? todayCount > 0
+        ? "今日新增 " + todayCount + " 条岗位" + (highMatchCount !== null ? " · 高匹配 " + highMatchCount + " 条" : "")
+        : "今天暂无新岗位，先补齐目标方向与求职准备。"
       : "岗位抓取、准备度与投递进度集中在这里。";
 
   const kpiItems: KpiSpec[] = [
     {
       key: "new",
       label: "今日新增",
-      value: todayCount === null ? "—" : String(todayCount),
-      unit: todayCount === null ? "" : "个",
-      hint: "招花今日抓取",
+      value: todayCount === null ? "—" : todayCount > 0 ? String(todayCount) : "待更新",
+      unit: todayCount !== null && todayCount > 0 ? "个" : "",
+      hint: todayCount !== null && todayCount === 0 ? "今天暂无新增" : "招花今日抓取",
       icon: "cloud-download-outline",
       tone: "primary",
       href: "/jobs",
@@ -347,9 +349,9 @@ export default function CareerScreen() {
     {
       key: "match",
       label: "高匹配",
-      value: highMatchCount === null ? "—" : String(highMatchCount),
-      unit: highMatchCount === null ? "" : "个",
-      hint: highMatchCount === null ? "完善技能画像后显示" : "按真实匹配度统计",
+      value: highMatchCount === null ? "—" : highMatchCount > 0 ? String(highMatchCount) : "待匹配",
+      unit: highMatchCount !== null && highMatchCount > 0 ? "个" : "",
+      hint: highMatchCount === null ? "完善技能画像后显示" : highMatchCount > 0 ? "按真实匹配度统计" : "完善技能与目标后生成",
       icon: "locate-outline",
       tone: "teal",
       href: "/radar",
@@ -358,9 +360,9 @@ export default function CareerScreen() {
     {
       key: "active",
       label: "进行中投递",
-      value: activeApplications === null ? "—" : String(activeApplications),
-      unit: activeApplications === null ? "" : "个",
-      hint: activeApplications === null ? "登录后统计" : "当前 " + currentStageLabel,
+      value: activeApplications === null ? "—" : activeApplications > 0 ? String(activeApplications) : "暂无",
+      unit: activeApplications !== null && activeApplications > 0 ? "个" : "",
+      hint: activeApplications === null ? "登录后统计" : activeApplications > 0 ? "当前 " + currentStageLabel : "还没有进行中的投递",
       icon: "briefcase-outline",
       tone: "accent",
       href: "/applications",
@@ -369,8 +371,8 @@ export default function CareerScreen() {
     {
       key: "ready",
       label: "准备度",
-      value: readiness === null ? "—" : String(overall),
-      unit: readiness === null ? "" : "%",
+      value: readiness === null ? "—" : hasTarget ? String(overall) : "待设置",
+      unit: readiness !== null && hasTarget ? "%" : "",
       hint: hasTarget ? targetRole : "先设置目标方向",
       icon: "speedometer-outline",
       tone: "success",
@@ -381,7 +383,9 @@ export default function CareerScreen() {
 
   const zhaohuaSub =
     todayCount !== null
-      ? "今日新增 " + todayCount + " 条" + (highMatchCount !== null ? " · 高匹配 " + highMatchCount + " 条" : "")
+      ? todayCount > 0
+        ? "今日新增 " + todayCount + " 条" + (highMatchCount !== null ? " · 高匹配 " + highMatchCount + " 条" : "")
+        : "岗位库持续更新 · 按目标方向筛选匹配"
       : "浏览全部岗位、匹配度与收藏";
 
   const prepRows: EntryRowSpec[] = [
@@ -473,35 +477,39 @@ export default function CareerScreen() {
       >
         <PageHead eyebrow="职业 · 求职准备" title="职业" subtitle={subtitle} style={styles.pageHead} />
 
-        <Animated.View entering={entrance(0)} style={styles.kpiGrid}>
-          {kpiItems.map((item) => (
-            <KpiCard key={item.key} item={item} />
-          ))}
-        </Animated.View>
+        {hasTarget || gate.firstLoadPending || showSkeleton ? (
+          <Animated.View entering={entrance(0)} style={styles.kpiGrid}>
+            {kpiItems.map((item) => (
+              <KpiCard key={item.key} item={item} />
+            ))}
+          </Animated.View>
+        ) : null}
 
-        <Animated.View entering={entrance(1)}>
-          <PressableScale
-            style={styles.zhaohuaCard}
+        {hasTarget ? (
+          <Animated.View entering={entrance(1)}>
+            <PressableScale
+              style={styles.zhaohuaCard}
             hitSlop={4}
             haptic
             onPress={() => router.push("/jobs" as never)}
             accessibilityRole="button"
             accessibilityLabel="打开招花，浏览全部岗位"
           >
-            <View style={styles.zhaohuaIcon}>
-              <ThemedIcon name="compass-outline" size={23} color="#FFFFFF" />
-            </View>
-            <View style={styles.zhaohuaBody}>
-              <Text style={styles.zhaohuaKicker}>在招岗位</Text>
-              <Text style={styles.zhaohuaTitle}>招花</Text>
-              <Text style={styles.zhaohuaSub} numberOfLines={2}>{zhaohuaSub}</Text>
-            </View>
-            <View style={styles.zhaohuaCta}>
-              <Text style={styles.zhaohuaCtaText}>进入</Text>
-              <ThemedIcon name="chevron-forward" size={13} color="#FFFFFF" />
-            </View>
-          </PressableScale>
-        </Animated.View>
+              <View style={styles.zhaohuaIcon}>
+                <ThemedIcon name="compass-outline" size={23} color="#FFFFFF" />
+              </View>
+              <View style={styles.zhaohuaBody}>
+                <Text style={styles.zhaohuaKicker}>在招岗位</Text>
+                <Text style={styles.zhaohuaTitle}>招花</Text>
+                <Text style={styles.zhaohuaSub} numberOfLines={2}>{zhaohuaSub}</Text>
+              </View>
+              <View style={styles.zhaohuaCta}>
+                <Text style={styles.zhaohuaCtaText}>进入</Text>
+                <ThemedIcon name="chevron-forward" size={13} color="#FFFFFF" />
+              </View>
+            </PressableScale>
+          </Animated.View>
+        ) : null}
 
         <SectionTitle
           title="求职准备"
@@ -513,18 +521,24 @@ export default function CareerScreen() {
             <PressableScale
               haptic
               scaleTo={0.99}
-              style={styles.targetEmptyRow}
+              style={styles.targetEmptyHero}
               onPress={() => router.push("/radar?editTarget=1" as never)}
               accessibilityRole="button"
-              accessibilityLabel="还没有目标方向，点此设置"
+              accessibilityLabel="先设置目标方向，点此开始"
             >
-              <ThemedIcon name="flag-outline" size={18} color={colors.primary} />
-              <View style={styles.targetEmptyBody}>
-                <Text style={styles.targetEmptyTitle}>还没有目标方向</Text>
-                <Text style={styles.targetEmptyHint}>设置后自动计算准备度与匹配岗位</Text>
+              <View style={styles.targetEmptyTop}>
+                <View style={styles.targetEmptyIcon}>
+                  <ThemedIcon name="flag-outline" size={21} color="#FFFFFF" />
+                </View>
+                <View style={styles.targetEmptyBody}>
+                  <Text style={styles.targetEmptyTitle}>先设置求职方向</Text>
+                  <Text style={styles.targetEmptyHint}>填写目标岗位后，才能计算准备度并推荐真正匹配的岗位。</Text>
+                </View>
               </View>
-              <Text style={styles.targetEmptyCta}>去设置</Text>
-              <ThemedIcon name="chevron-forward" size={14} color={colors.textMeta} />
+              <View style={styles.targetEmptyCta}>
+                <Text style={styles.targetEmptyCtaText}>设置目标方向</Text>
+                <ThemedIcon name="chevron-forward" size={14} color={colors.primary} />
+              </View>
             </PressableScale>
           ) : showSkeleton ? (
             <Skeleton variant="card" style={styles.prepSkeleton} />
@@ -573,7 +587,7 @@ export default function CareerScreen() {
                 <View style={styles.funnelBlock}>
                   <View style={styles.funnelHead}>
                     <Text style={styles.funnelTitle}>投递漏斗</Text>
-                    <Text style={styles.funnelMeta}>{activeApplications ?? 0} 个进行中</Text>
+                    <Text style={styles.funnelMeta}>{activeApplications && activeApplications > 0 ? activeApplications + " 个进行中" : "暂无进行中的投递"}</Text>
                   </View>
                   <View style={styles.funnelRow}>
                     {funnelStages.map((stage) => {
@@ -586,7 +600,7 @@ export default function CareerScreen() {
                             <View style={[styles.funnelFill, { width }]} />
                           </View>
                           <Text style={styles.funnelLabel} numberOfLines={1}>{stage.label}</Text>
-                          <Text style={[styles.funnelCount, tabularNums]}>{stage.count ?? "—"}</Text>
+                          <Text style={[styles.funnelCount, tabularNums]}>{stage.count && stage.count > 0 ? stage.count : "—"}</Text>
                         </View>
                       );
                     })}
@@ -736,21 +750,36 @@ const makeStyles = (colors: ThemeColors) =>
     zhaohuaCtaText: { ...typography.caption, fontWeight: "700", color: "#FFFFFF" },
 
     card: { paddingVertical: 6 },
-    targetEmptyRow: {
+    targetEmptyHero: {
+      gap: 14,
+      padding: 16,
+      borderRadius: radius.card,
+      backgroundColor: colors.primary,
+      ...shadows.brand,
+    },
+    targetEmptyTop: { flexDirection: "row", alignItems: "flex-start", gap: 11 },
+    targetEmptyIcon: {
+      width: 42,
+      height: 42,
+      borderRadius: 14,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: withAlpha("#FFFFFF", 0.16),
+      flexShrink: 0,
+    },
+    targetEmptyBody: { flex: 1, minWidth: 0, gap: 3 },
+    targetEmptyTitle: { ...typography.headline, fontWeight: "700", color: "#FFFFFF" },
+    targetEmptyHint: { ...typography.meta, color: withAlpha("#FFFFFF", 0.78), lineHeight: 18 },
+    targetEmptyCta: {
+      minHeight: 42,
+      borderRadius: radius.pill,
+      backgroundColor: "#FFFFFF",
       flexDirection: "row",
       alignItems: "center",
-      gap: 8,
-      minHeight: 56,
-      paddingHorizontal: spacing.md,
-      borderRadius: radius.card,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.border,
-      backgroundColor: colors.surface,
+      justifyContent: "center",
+      gap: 4,
     },
-    targetEmptyBody: { flex: 1, minWidth: 0 },
-    targetEmptyTitle: { ...typography.callout, fontWeight: "700", color: colors.text },
-    targetEmptyHint: { ...typography.meta, color: colors.textMeta },
-    targetEmptyCta: { ...typography.caption, fontWeight: "700", color: colors.primary },
+    targetEmptyCtaText: { ...typography.callout, fontWeight: "700", color: colors.primary },
     prepCard: { gap: 12 },
     prepTop: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 },
     prepTopText: { flex: 1, minWidth: 0, gap: 3 },

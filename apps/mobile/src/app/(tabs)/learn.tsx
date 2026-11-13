@@ -813,7 +813,7 @@ export default function LearnScreen() {
       </Animated.View>
 
       {/* ② 当前阶段卡（提案 .stage-card）：阶段名 + 完成百分比 + P1..PN 轨道 + 主题数 / 阶段周期 */}
-      <Animated.View entering={entrance(1)}>
+      <Animated.View entering={entrance(1)} style={roadmapLoading || roadmap.length > 0 ? undefined : styles.hiddenSection}>
         <PressableScale
           haptic
           scaleTo={0.99}
@@ -857,7 +857,9 @@ export default function LearnScreen() {
 
             <View style={styles.stageFoot}>
               <Text style={styles.stageFootText}>
-                已完成 <Text style={styles.stageFootNum}>{routeSummary.done}</Text> / {routeSummary.total} 个主题
+                {routeSummary.total > 0
+                  ? "已完成 " + routeSummary.done + " / " + routeSummary.total + " 个主题"
+                  : "还没有主题，先添加一个"}
               </Text>
               <Text style={styles.stageFootText} numberOfLines={1}>
                 {selectedPhase?.weeks ? "阶段周期 · " + selectedPhase.weeks : "阶段周期 · —"}
@@ -868,7 +870,7 @@ export default function LearnScreen() {
       </Animated.View>
 
       {/* ③ 继续学习卡（提案 .continue）：进行中 / 收藏的章节 / 还没开始三态，落点沿用既有 */}
-      <Animated.View entering={entrance(2)}>
+      <Animated.View entering={entrance(2)} style={roadmapLoading || roadmap.length > 0 ? undefined : styles.hiddenSection}>
         <PressableScale
           haptic
           scaleTo={0.99}
@@ -896,7 +898,8 @@ export default function LearnScreen() {
               ) : null}
             </View>
             <View style={styles.continuePlay}>
-              <ThemedIcon name="play" size={14} color={colors.surfaceStrong} />
+              <ThemedIcon name="play" size={13} color={colors.surfaceStrong} />
+              <Text style={styles.continuePlayText}>继续</Text>
             </View>
           </Surface>
         </PressableScale>
@@ -920,7 +923,7 @@ export default function LearnScreen() {
           >
             <View style={styles.insightTopText}>
               <Text style={styles.insightLab}>专注总时长</Text>
-              <Text style={[styles.insightBig, tabularNums]}>{compactDuration(weekTotal)}</Text>
+              <Text style={[styles.insightBig, tabularNums]}>{weekTotal > 0 ? compactDuration(weekTotal) : "—"}</Text>
               <Text style={styles.insightDelta}>{insightDeltaText}</Text>
             </View>
             {focusDeltaPercent !== null && focusDelta !== 0 ? (
@@ -973,17 +976,17 @@ export default function LearnScreen() {
             }
           >
             <View style={[styles.kpi, styles.kpiFirst]}>
-              <Text style={[styles.kpiValue, tabularNums]}>{compactDuration(avgDailyMinutes)}</Text>
+              <Text style={[styles.kpiValue, tabularNums]}>{weekTotal > 0 ? compactDuration(avgDailyMinutes) : "—"}</Text>
               <Text style={styles.kpiLabel}>日均专注</Text>
             </View>
             <View style={styles.kpi}>
               <Text style={[styles.kpiValue, tabularNums]}>
-                {routeSummary.total > 0 ? routeSummary.percent + "%" : "—"}
+                {routeSummary.total > 0 && routeSummary.percent > 0 ? routeSummary.percent + "%" : routeSummary.total > 0 ? "尚未开始" : "—"}
               </Text>
               <Text style={styles.kpiLabel}>计划完成率</Text>
             </View>
             <View style={styles.kpi}>
-              <Text style={[styles.kpiValue, tabularNums]}>{stats.streak + " 天"}</Text>
+              <Text style={[styles.kpiValue, tabularNums]}>{stats.streak > 0 ? stats.streak + " 天" : "—"}</Text>
               <Text style={styles.kpiLabel}>连续学习</Text>
             </View>
           </View>
@@ -1014,7 +1017,7 @@ export default function LearnScreen() {
                   : "到期排期需联网刷新，本地错题 " + reviewStats.wrong + " 道"
             }
           >
-            {reviewStats && reviewStats.remoteOk ? reviewStats.due : "—"}
+            {reviewStats && reviewStats.remoteOk && reviewStats.due > 0 ? reviewStats.due : "—"}
           </Text>
           <View style={styles.reviewBody}>
             <Text style={styles.reviewTitle}>待复习知识点</Text>
@@ -1049,7 +1052,7 @@ export default function LearnScreen() {
           <ListRow
             icon="help-circle-outline"
             title="技术题库"
-            subtitle={"今日 " + learningSummary.today + "/" + DAILY_QUESTION_GOAL + " 题 · 继续刷题"}
+            subtitle={learningSummary.today > 0 ? "今日 " + learningSummary.today + "/" + DAILY_QUESTION_GOAL + " 题 · 继续刷题" : "今天还没开始 · 每日目标 " + DAILY_QUESTION_GOAL + " 题"}
             value={questionCount > 0 ? questionCount + " 题" : "—"}
             showChevron
             onPress={() => router.push("/quiz" as never)}
@@ -1109,6 +1112,19 @@ export default function LearnScreen() {
                   这个学习领域下还没有任何阶段。可以自己新建，也可以导入 Markdown：
                   # 一级标题 = 学习阶段，## 二级 = 阶段里的主题，### 三级 = 主题下的学习内容。
                 </Text>
+                <PressableScale
+                  haptic
+                  scaleTo={0.98}
+                  hitSlop={6}
+                  style={styles.emptyPrimaryCta}
+                  onPress={() => router.push("/domain-manager" as never)}
+                  accessibilityRole="button"
+                  accessibilityLabel="创建学习路线"
+                >
+                  <ThemedIcon name="layers-outline" size={18} color="#FFFFFF" />
+                  <Text style={styles.emptyPrimaryText}>创建学习路线</Text>
+                  <ThemedIcon name="chevron-forward" size={14} color="rgba(255,255,255,0.72)" />
+                </PressableScale>
                 <View style={styles.emptyActions}>
                   <PressableScale
                     haptic
@@ -1513,13 +1529,17 @@ const makeStyles = (colors: ThemeColors) =>
     continueMeta: { ...typography.meta, color: colors.textMuted },
     continueBar: { marginTop: 6 },
     continuePlay: {
-      width: 34,
-      height: 34,
+      minHeight: 34,
+      paddingHorizontal: 10,
       borderRadius: 17,
+      flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
+      gap: 4,
       backgroundColor: colors.primary,
+      ...shadows.brand,
     },
+    continuePlayText: { ...typography.micro, fontWeight: "700", color: colors.surfaceStrong },
 
     /* ④ 数据洞察卡（提案 .chart-card） */
     sectionTitle: { marginTop: 2, marginBottom: 11 },
@@ -1581,10 +1601,11 @@ const makeStyles = (colors: ThemeColors) =>
       borderRadius: radius.pill,
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: colors.primary,
-      ...shadows.brand,
+      backgroundColor: colors.primarySoft,
+      borderWidth: StyleSheet.hairlineWidth * 2,
+      borderColor: withAlpha(colors.primary, 0.2),
     },
-    reviewCtaText: { ...typography.caption, fontWeight: "700", color: colors.surfaceStrong },
+    reviewCtaText: { ...typography.caption, fontWeight: "700", color: colors.primary },
     questionList: { marginTop: 12 },
 
     /* 学习架：折叠头来自共享组件；展开后是阶段行 + 管理组 */
@@ -1637,6 +1658,18 @@ const makeStyles = (colors: ThemeColors) =>
     emptyCard: { gap: 10 },
     emptyTitle: { ...typography.body, fontWeight: "800", color: colors.text },
     emptyHint: { ...typography.caption, lineHeight: 18, color: colors.textMuted },
+    hiddenSection: { display: "none" },
+    emptyPrimaryCta: {
+      minHeight: 50,
+      borderRadius: radius.pill,
+      backgroundColor: colors.primary,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      ...shadows.brand,
+    },
+    emptyPrimaryText: { ...typography.callout, fontWeight: "700", color: "#FFFFFF" },
     emptyActions: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
     emptyAction: {
       flexDirection: "row",

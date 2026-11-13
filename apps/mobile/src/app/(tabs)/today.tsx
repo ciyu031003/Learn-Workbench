@@ -24,8 +24,7 @@ import Animated, {
 import { useHeaderTopInset } from "@/components/screen-header";
 import { SportThemedIcon, ThemedIcon } from "@/components/themed-icon";
 import { AnimatedCheckMark } from "@/components/check-mark";
-import { PatternBackdrop } from "@/components/pattern-backdrop";
-import { FocusTimer } from "@/components/focus-timer";
+import { EmptyState } from "@/components/empty-state";
 import { QuickStartSheet, type QuickStartChoice } from "@/components/quick-start-sheet";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { SheetStickyCta } from "@/components/sheet";
@@ -39,6 +38,7 @@ import { AreaChart } from "@/components/v2/charts";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useScrollToTopHandler } from "@/lib/scroll-to-top";
 import { useAppStore } from "@/store/app-store";
+import { useFocusSessionStore } from "@/store/focus-session-store";
 import { useIdentity } from "@/hooks/use-identity";
 import { absoluteMediaUrl } from "@/lib/uploads";
 import type { DailyTask, ExerciseType, Habit, HabitLog } from "@learn-workbench/shared/schemas";
@@ -509,14 +509,12 @@ export default function TodayScreen() {
   const topicProgress = useAppStore((s) => s.progress);
   const checkinToday = useAppStore((s) => s.checkinToday);
   const toggleTaskDone = useAppStore((s) => s.toggleTaskDone);
-  const addSession = useAppStore((s) => s.addSession);
-  const addSportSeconds = useAppStore((s) => s.addSportSeconds);
   const aiTip = useAppStore((s) => s.aiTip);
   const setAiTip = useAppStore((s) => s.setAiTip);
   const token = useAppStore((s) => s.token);
   const identity = useIdentity();
+  const openFocus = useFocusSessionStore((s) => s.openFocus);
 
-  const [focusOpen, setFocusOpen] = useState(false);
   const [sportSheetOpen, setSportSheetOpen] = useState(false);
   /** 完成任务的庆祝弹窗（null = 关闭） */
   const [celebrateInfo, setCelebrateInfo] = useState<{ title: string; subtitle?: string } | null>(null);
@@ -529,9 +527,7 @@ export default function TodayScreen() {
   const [energyBusy, setEnergyBusy] = useState(false);
   /** v4 P2：一键开始（弹层选学习/运动/正向计时 → 选完立即进入计时） */
   const [quickOpen, setQuickOpen] = useState(false);
-  const [timerAuto, setTimerAuto] = useState<QuickStartChoice | null>(null);
   const [pendingChoice, setPendingChoice] = useState<QuickStartChoice | null>(null);
-  const [timerSession, setTimerSession] = useState(0);
   /**
    * v12 P1-2：今天的习惯排期也进「今日任务」列表（新建习惯时还会自动建一条
    * 「[习惯] 名称」的真任务，这里按标题去重，避免出现两条）。
@@ -757,7 +753,6 @@ export default function TodayScreen() {
    */
   const streak = useMemo(() => computeStreak(checkins, { now: new Date() }), [checkins]);
 
-  const focusTask = todayTasks.find((t) => !t.done);
   const checkedInToday = checkins.includes(today);
 
   const fireCelebrate = (title: string, subtitle?: string) => {
@@ -937,38 +932,49 @@ export default function TodayScreen() {
 
         {/* ④ 今日专注：与实景带分开，避免图片被半透明卡片压住 */}
         <Surface tier="elevated" corner={26} style={[styles.v3FocusShell, compact ? styles.v3FocusShellCompact : null]}>
-          <View style={styles.v3FsHead}>
-            <View style={styles.v3FsHeadText}>
+          {focusMinutesToday === 0 ? (
+            <View style={styles.v3FsEmpty}>
               <View style={styles.v3FsKicker}>
-                <ThemedIcon name="timer-outline" size={13} color={colors.accent} />
-                <Text style={styles.v3FsKickerText}>今日专注</Text>
+                <ThemedIcon name="sparkles-outline" size={13} color={colors.accent} />
+                <Text style={styles.v3FsKickerText}>今天，从一小步开始</Text>
               </View>
-              <View
-                style={styles.v3FsBig}
-                accessible
-                accessibilityLabel={"今日专注 " + focusH + " 小时 " + focusM + " 分，日目标完成 " + focusGoalPercent + "%"}
-              >
-                <Text style={[styles.v3FsBigNum, tabularNums]}>{focusH}</Text>
-                <Text style={styles.v3FsBigUnit}>h</Text>
-                <Text style={[styles.v3FsBigNum, tabularNums]}>{focusM}</Text>
-                <Text style={styles.v3FsBigUnit}>m</Text>
+              <Text style={styles.v3FsEmptyTitle}>还没有专注记录</Text>
+              <Text style={styles.v3FsEmptyHint}>不必先制定完整计划，专注 25 分钟就是进展。</Text>
+            </View>
+          ) : (
+            <View style={styles.v3FsHead}>
+              <View style={styles.v3FsHeadText}>
+                <View style={styles.v3FsKicker}>
+                  <ThemedIcon name="timer-outline" size={13} color={colors.accent} />
+                  <Text style={styles.v3FsKickerText}>今日专注</Text>
+                </View>
+                <View
+                  style={styles.v3FsBig}
+                  accessible
+                  accessibilityLabel={"今日专注 " + focusH + " 小时 " + focusM + " 分，日目标完成 " + focusGoalPercent + "%"}
+                >
+                  <Text style={[styles.v3FsBigNum, tabularNums]}>{focusH}</Text>
+                  <Text style={styles.v3FsBigUnit}>h</Text>
+                  <Text style={[styles.v3FsBigNum, tabularNums]}>{focusM}</Text>
+                  <Text style={styles.v3FsBigUnit}>m</Text>
+                </View>
+              </View>
+              <View style={styles.v3FsBadge}>
+                <RingProgress
+                  size={56}
+                  strokeWidth={5}
+                  progress={focusGoalPercent / 100}
+                  trackColor={colors.surfaceMuted}
+                  from={colors.primary}
+                  to={colors.chart[1]}
+                />
+                <View pointerEvents="none" style={styles.v3FsBadgeLabel}>
+                  <Text style={[styles.v3FsBadgeValue, tabularNums]}>{focusGoalPercent}%</Text>
+                  <Text style={styles.v3FsBadgeText}>日目标</Text>
+                </View>
               </View>
             </View>
-            <View style={styles.v3FsBadge}>
-              <RingProgress
-                size={56}
-                strokeWidth={5}
-                progress={focusGoalPercent / 100}
-                trackColor={colors.surfaceMuted}
-                from={colors.primary}
-                to={colors.chart[1]}
-              />
-              <View pointerEvents="none" style={styles.v3FsBadgeLabel}>
-                <Text style={[styles.v3FsBadgeValue, tabularNums]}>{focusGoalPercent}%</Text>
-                <Text style={styles.v3FsBadgeText}>日目标</Text>
-              </View>
-            </View>
-          </View>
+          )}
 
           {/* 本周节律：有记录才画七格柱；空态用一行说明，避免七根 0 柱占首屏 */}
           {weekFocusMinutes > 0 ? (
@@ -1004,8 +1010,8 @@ export default function TodayScreen() {
           <View style={styles.v3Stats}>
             <View style={styles.v3Stat}>
               <Text style={[styles.v3StatValue, tabularNums]}>
-                {todayDone}
-                <Text style={styles.v3StatSuffix}>{"/" + todayTasks.length}</Text>
+                {todayTasks.length > 0 ? todayDone : "待规划"}
+                {todayTasks.length > 0 ? <Text style={styles.v3StatSuffix}>{"/" + todayTasks.length}</Text> : null}
               </Text>
               <Text style={styles.v3StatLabel}>今日任务</Text>
             </View>
@@ -1064,7 +1070,7 @@ export default function TodayScreen() {
               <ThemedIcon name="play" size={15} color="#FFFFFF" />
             </View>
             <View style={styles.v3CtaText}>
-              <Text style={styles.v3CtaTitle} numberOfLines={1}>开始专注</Text>
+              <Text style={styles.v3CtaTitle} numberOfLines={1}>{focusMinutesToday === 0 ? "开始第一次专注" : "开始专注"}</Text>
               <Text style={styles.v3CtaSub} numberOfLines={1}>{quickStartLabel}</Text>
             </View>
             <ThemedIcon name="chevron-forward" size={14} color="rgba(255,255,255,0.72)" />
@@ -1086,17 +1092,23 @@ export default function TodayScreen() {
             onPress={() => router.push("/tasks" as never)}
             style={styles.v3SecMore}
             accessibilityRole="button"
-            accessibilityLabel={"全部 " + todayTasks.length + " 条，打开任务页"}
+            accessibilityLabel={todayTasks.length > 0 ? "全部 " + todayTasks.length + " 条，打开任务页" : "管理今日任务"}
           >
-            <Text style={styles.v3SecMoreText}>{"全部 " + todayTasks.length}</Text>
+            <Text style={styles.v3SecMoreText}>{todayTasks.length > 0 ? "全部 " + todayTasks.length : "管理"}</Text>
             <ThemedIcon name="chevron-forward" size={13} color={colors.primary} />
           </Pressable>
         </View>
 
         {todayTasks.length === 0 ? (
           <Surface tier="surface" style={styles.taskEmptyCard}>
-            <PatternBackdrop variant="chevron" />
-            <Text style={styles.taskEmpty}>今天还没有任务，去学习页添加一个吧</Text>
+            <EmptyState
+              pattern="chevron"
+              icon="calendar-outline"
+              title="今天还没有安排"
+              hint="从一个 25 分钟的小任务开始，完成后这里会形成你的今日节奏。"
+              actionLabel="添加今日任务"
+              onAction={() => router.push("/tasks" as never)}
+            />
           </Surface>
         ) : (
           <Surface tier="surface" style={styles.v3Card}>
@@ -1173,15 +1185,33 @@ export default function TodayScreen() {
         {/* ⑦ 今日习惯（3 列瓦片；沿用 habitRows 打卡 + 乐观更新 + linked 过滤） */}
         <View style={styles.v3SecHead}>
           <Text style={styles.v3SecTitle}>今日习惯</Text>
-          <Text style={styles.v3SecMeta}>{"已完成 " + habitOnlyDone + "/" + habitOnlyRows.length}</Text>
+          <Text style={styles.v3SecMeta}>
+            {habitOnlyRows.length === 0
+              ? "待设置"
+              : habitOnlyDone === 0
+                ? "从第一项开始"
+                : "已完成 " + habitOnlyDone + "/" + habitOnlyRows.length}
+          </Text>
         </View>
         {habitOnlyRows.length === 0 ? (
           <Surface tier="surface" style={styles.habitEmpty}>
             <Text style={styles.habitEmptyText}>
               {habitRows.length > 0
                 ? "今天排期的习惯都已并入上面的任务，直接勾任务即可"
-                : "今天没有排期的习惯，去健康页添加一个"}
+                : "今天没有排期的习惯，先设一个轻量目标"}
             </Text>
+            {habitRows.length === 0 ? (
+              <Pressable
+                hitSlop={8}
+                onPress={() => router.push("/habits" as never)}
+                style={styles.habitEmptyAction}
+                accessibilityRole="button"
+                accessibilityLabel="去设置每日习惯"
+              >
+                <Text style={styles.habitEmptyActionText}>去设置习惯</Text>
+                <ThemedIcon name="chevron-forward" size={12} color={colors.primary} />
+              </Pressable>
+            ) : null}
           </Surface>
         ) : (
           <View style={styles.v3Habits}>
@@ -1221,27 +1251,49 @@ export default function TodayScreen() {
               </Text>
             )}
           </View>
-          <AreaChart
-            series={[{ values: last7Minutes }]}
-            labels={last7Labels}
-            height={62}
-            showEndDot={false}
-            legend={false}
-            style={styles.v3Spark}
-          />
-          <View style={styles.v3InsightFoot}>
-            <Text style={styles.v3InsightFootText}>近 7 天 · 单位分钟</Text>
-            <Pressable
-              hitSlop={10}
-              onPress={() => router.push("/study-stats" as never)}
-              style={styles.v3InsightGo}
-              accessibilityRole="button"
-              accessibilityLabel="看完整洞察"
-            >
-              <Text style={styles.v3InsightGoText}>看完整洞察</Text>
-              <ThemedIcon name="chevron-forward" size={12} color={colors.primary} />
-            </Pressable>
-          </View>
+          {weekFocusMinutes > 0 ? (
+            <>
+              <AreaChart
+                series={[{ values: last7Minutes }]}
+                labels={last7Labels}
+                height={62}
+                showEndDot={false}
+                legend={false}
+                style={styles.v3Spark}
+              />
+              <View style={styles.v3InsightFoot}>
+                <Text style={styles.v3InsightFootText}>近 7 天 · 单位分钟</Text>
+                <Pressable
+                  hitSlop={10}
+                  onPress={() => router.push("/study-stats" as never)}
+                  style={styles.v3InsightGo}
+                  accessibilityRole="button"
+                  accessibilityLabel="看完整洞察"
+                >
+                  <Text style={styles.v3InsightGoText}>看完整洞察</Text>
+                  <ThemedIcon name="chevron-forward" size={12} color={colors.primary} />
+                </Pressable>
+              </View>
+            </>
+          ) : (
+            <View style={styles.v3InsightEmpty}>
+              <ThemedIcon name="stats-chart-outline" size={17} color={colors.textMuted} />
+              <Text style={styles.v3InsightEmptyText}>完成一次专注后，这里会出现你的节律。</Text>
+              <Pressable
+                hitSlop={10}
+                onPress={() => {
+                  setPendingChoice(null);
+                  setQuickOpen(true);
+                }}
+                style={styles.v3InsightGo}
+                accessibilityRole="button"
+                accessibilityLabel="开始一次专注"
+              >
+                <Text style={styles.v3InsightGoText}>去专注</Text>
+                <ThemedIcon name="chevron-forward" size={12} color={colors.primary} />
+              </Pressable>
+            </View>
+          )}
         </View>
 
         {/* 今天的状态：精力记录（保留既有 /api/wellbeing/energy 链路） */}
@@ -1265,44 +1317,24 @@ export default function TodayScreen() {
           setPendingChoice(choice);
         }}
         onClosed={() => {
-          if (!pendingChoice) return;
-          setTimerAuto(pendingChoice);
+          const choice = pendingChoice;
+          if (!choice) return;
           setPendingChoice(null);
-          setTimerSession((n) => n + 1);
-          setFocusOpen(true);
-        }}
-      />
-      <FocusTimer
-        key={timerSession}
-        open={focusOpen}
-        task={
-          timerAuto
-            ? {
-                id: null,
-                title:
-                  timerAuto.contentLabel ??
-                  (timerAuto.kind === "exercise" ? timerAuto.sportName ?? "运动" : "自由专注"),
-              }
-            : focusTask
-              ? { id: focusTask.id, title: focusTask.title }
-              : { id: null, title: "自由专注" }
-        }
-        sessions={sessions}
-        autoStart={!!timerAuto}
-        initialTimerMode={timerAuto?.timerMode}
-        initialMinutes={timerAuto?.minutes}
-        mode={timerAuto?.kind === "exercise" ? "exercise" : "focus"}
-        exerciseLabel={timerAuto?.sportName ?? null}
-        contentLabel={timerAuto?.kind === "focus" ? timerAuto.contentLabel ?? null : null}
-        onClose={() => {
-          setFocusOpen(false);
-          setTimerAuto(null);
-        }}
-        onRecorded={(taskId, seconds, label) =>
-          addSession(taskId, seconds, label ?? (taskId ? (focusTask?.title ?? null) : null))
-        }
-        onExerciseRecorded={(seconds) => {
-          if (timerAuto?.sportKey) addSportSeconds(timerAuto.sportKey, seconds);
+          openFocus({
+            task: {
+              id: null,
+              title:
+                choice.contentLabel ??
+                (choice.kind === "exercise" ? choice.sportName ?? "运动" : "自由专注"),
+            },
+            autoStart: true,
+            initialTimerMode: choice.timerMode,
+            initialMinutes: choice.minutes,
+            mode: choice.kind === "exercise" ? "exercise" : "focus",
+            exerciseLabel: choice.sportName ?? null,
+            contentLabel: choice.kind === "focus" ? choice.contentLabel ?? null : null,
+            sportKey: choice.sportKey ?? null,
+          });
         }}
       />
       <CelebrationModal
@@ -1401,8 +1433,14 @@ export default function TodayScreen() {
           >
             <View style={[styles.v3NotifDot, { backgroundColor: colors.accent }]} />
             <View style={styles.v3NotifBody}>
-              <Text style={styles.v3NotifTitle}>{"今日专注 " + focusMinutesToday + " 分 / 目标 " + DAILY_FOCUS_GOAL_MINUTES + " 分"}</Text>
-              <Text style={styles.v3NotifSub}>{"还差 " + Math.max(0, DAILY_FOCUS_GOAL_MINUTES - focusMinutesToday) + " 分钟到日目标"}</Text>
+              <Text style={styles.v3NotifTitle}>
+                {focusMinutesToday > 0 ? "今日专注 " + focusMinutesToday + " 分 / 目标 " + DAILY_FOCUS_GOAL_MINUTES + " 分" : "今天还没有专注记录"}
+              </Text>
+              <Text style={styles.v3NotifSub}>
+                {focusMinutesToday > 0
+                  ? "还差 " + Math.max(0, DAILY_FOCUS_GOAL_MINUTES - focusMinutesToday) + " 分钟到日目标"
+                  : "从 25 分钟开始，今天就会有第一段进展"}
+              </Text>
             </View>
             <ThemedIcon name="chevron-forward" size={14} color={colors.textFaint} />
           </Pressable>
@@ -1598,11 +1636,13 @@ const makeStyles = (colors: ThemeColors, dark = false) =>
     taskDone: { textDecorationLine: "line-through", color: colors.textSecondary },
     taskMeta: { ...typography.caption, color: colors.textMuted },
     taskEmpty: { ...typography.caption, color: colors.textMuted, textAlign: "center", paddingVertical: 4 },
-    taskEmptyCard: { overflow: "hidden", alignItems: "center", paddingVertical: 22 },
+    taskEmptyCard: { overflow: "hidden", paddingVertical: 4 },
 
     // ---- 今日习惯 ----
-    habitEmpty: { paddingVertical: 16 },
+    habitEmpty: { paddingVertical: 16, alignItems: "center", gap: 10 },
     habitEmptyText: { ...typography.caption, color: colors.textMuted, textAlign: "center" },
+    habitEmptyAction: { flexDirection: "row", alignItems: "center", gap: 2, minHeight: 44, paddingHorizontal: 6 },
+    habitEmptyActionText: { ...typography.caption, fontWeight: "700", color: colors.primary },
 
     // ---- 双列小卡 ----
     dualRow: { flexDirection: "row", gap: 12, alignItems: "stretch" },
@@ -1760,6 +1800,9 @@ const makeStyles = (colors: ThemeColors, dark = false) =>
     v3FocusShell: { marginTop: 0, padding: 18 },
     v3FocusShellCompact: { padding: 16 },
     v3FsHead: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 },
+    v3FsEmpty: { gap: 5, paddingTop: 2 },
+    v3FsEmptyTitle: { ...typography.title2, color: colors.text, marginTop: 4 },
+    v3FsEmptyHint: { ...typography.meta, color: colors.textMuted, lineHeight: 18, maxWidth: 270 },
     v3FsHeadText: { gap: 2 },
     v3FsKicker: { flexDirection: "row", alignItems: "center", gap: 6 },
     v3FsKickerText: { ...typography.caption, fontWeight: "600", color: colors.textSecondary },
@@ -1884,6 +1927,8 @@ const makeStyles = (colors: ThemeColors, dark = false) =>
     v3InsightFootText: { ...typography.micro, fontWeight: "500", color: colors.textMuted },
     v3InsightGo: { flexDirection: "row", alignItems: "center", gap: 2 },
     v3InsightGoText: { ...typography.micro, fontWeight: "600", color: colors.primary },
+    v3InsightEmpty: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12, paddingTop: 11, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+    v3InsightEmptyText: { flex: 1, minWidth: 0, ...typography.meta, color: colors.textMuted, lineHeight: 18 },
     v3Tip: { flexDirection: "row", alignItems: "flex-start", gap: 7, paddingHorizontal: 2 },
     v3TipDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: colors.primary, marginTop: 6 },
     v3TipText: { ...typography.meta, color: colors.textMuted, lineHeight: 17, flex: 1, minWidth: 0 },

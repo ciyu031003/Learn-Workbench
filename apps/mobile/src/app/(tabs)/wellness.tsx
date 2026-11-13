@@ -20,7 +20,7 @@ import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useScrollToTopHandler } from "@/lib/scroll-to-top";
 import { computeReadiness, WEAKEST_LABEL } from "@/lib/readiness";
 import { useTheme } from "@/theme";
-import { radius, spacing, tabularNums, typography } from "@/theme/tokens";
+import { radius, shadows, spacing, tabularNums, typography } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useAppStore } from "@/store/app-store";
 import { useFocusRefresh } from "@/lib/use-focus-refresh";
@@ -733,18 +733,24 @@ export default function WellnessScreen() {
           <Surface tier="surface" corner={radius.card} padded={false} style={styles.emptyActionCard}>
             <Text style={styles.emptyActionTitle}>今天先记一笔</Text>
             <Text style={styles.emptyActionSub}>任选一项，三环和趋势会随记录出现</Text>
+            <PressableScale
+              haptic
+              scaleTo={0.98}
+              style={styles.emptyPrimary}
+              onPress={() => void quickWater(250)}
+              accessibilityRole="button"
+              accessibilityLabel="先记录一杯水 250 毫升"
+            >
+              <View style={styles.emptyPrimaryIcon}>
+                <ThemedIcon name="water-outline" size={19} color="#FFFFFF" />
+              </View>
+              <View style={styles.emptyPrimaryCopy}>
+                <Text style={styles.emptyPrimaryTitle}>先记一杯水</Text>
+                <Text style={styles.emptyPrimarySub}>250 ml · 立刻生成今日第一条记录</Text>
+              </View>
+              <ThemedIcon name="chevron-forward" size={14} color="rgba(255,255,255,0.72)" />
+            </PressableScale>
             <View style={styles.emptyActionGrid}>
-              <PressableScale
-                haptic
-                scaleTo={0.97}
-                style={styles.emptyAction}
-                onPress={() => void quickWater(250)}
-                accessibilityRole="button"
-                accessibilityLabel="记录饮水 250 毫升"
-              >
-                <ThemedIcon name="water-outline" size={18} color={colors.primary} />
-                <Text style={styles.emptyActionLabel}>饮水 +250</Text>
-              </PressableScale>
               <PressableScale
                 haptic
                 scaleTo={0.97}
@@ -825,7 +831,7 @@ export default function WellnessScreen() {
         </Animated.View>
 
         {/* ③ 饮食摄入卡：最近一餐 / 今日摄入 ÷ 目标 / 三大宏量条（整卡点进饮食页） */}
-        <Animated.View entering={entrance(1)}>
+        <Animated.View entering={entrance(1)} style={hasWellnessData ? undefined : styles.hiddenSection}>
           <PressableScale
             haptic
             scaleTo={0.99}
@@ -904,7 +910,7 @@ export default function WellnessScreen() {
         </Animated.View>
 
         {/* ④ 体重卡：今晨（或最近一次）+ 本周变化 + 近七日 sparkline */}
-        <Animated.View entering={entrance(2)}>
+        <Animated.View entering={entrance(2)} style={hasWellnessData ? undefined : styles.hiddenSection}>
           <Surface tier="surface" corner={radius.card} padded={false} style={styles.weightCard}>
             <View style={styles.weightBody}>
               <Text style={styles.weightKicker}>{weightKicker}</Text>
@@ -959,7 +965,7 @@ export default function WellnessScreen() {
         </Animated.View>
 
         {/* ⑤ 训练卡：今日训练 + 记录训练按钮 + 全部训练记录入口 */}
-        <Animated.View entering={entrance(3)}>
+        <Animated.View entering={entrance(3)} style={hasWellnessData ? undefined : styles.hiddenSection}>
           <Surface tier="surface" corner={radius.card} padded={false} style={styles.trainCard}>
             <View style={styles.trainHead}>
               <View style={styles.trainIcon}>
@@ -1014,8 +1020,8 @@ export default function WellnessScreen() {
         </Animated.View>
 
         {/* ⑥ 今日记录三行：饮水 / 饮食 / 训练，点进对应页面 */}
-        <SectionTitle title="今日记录" right={<Text style={styles.sectionMeta}>共 3 条</Text>} />
-        <Animated.View entering={entrance(4)}>
+        <SectionTitle title="今日记录" right={<Text style={styles.sectionMeta}>最近记录</Text>} style={hasWellnessData ? undefined : styles.hiddenSection} />
+        <Animated.View entering={entrance(4)} style={hasWellnessData ? undefined : styles.hiddenSection}>
           <ListGroup>
             <RecordRow
               icon="water-outline"
@@ -1064,7 +1070,7 @@ export default function WellnessScreen() {
         </Animated.View>
 
         {/* 快捷记录：保留旧版「就地 +250ml 饮水」与睡眠入口（详情仍走 /sleep） */}
-        <View style={styles.quickRow}>
+        <View style={[styles.quickRow, hasWellnessData ? undefined : styles.hiddenSection]}>
           <QuickPill
             icon="add"
             label={waterBusy ? "记录中…" : "饮水 +250 ml"}
@@ -1125,8 +1131,8 @@ export default function WellnessScreen() {
         </Animated.View>
 
         {/* ⑦-2 本周健康周报（v2.2）：四格周指标（原有活动环已由上方三环卡承接，数据不丢） */}
-        <SectionTitle title="本周健康周报" />
-        <Animated.View entering={entrance(6)} style={styles.weekBlock}>
+        <SectionTitle title="本周健康周报" style={hasWellnessData ? undefined : styles.hiddenSection} />
+        <Animated.View entering={entrance(6)} style={[styles.weekBlock, hasWellnessData ? undefined : styles.hiddenSection]}>
           {showSkeleton ? (
             <SkeletonCard count={1} />
           ) : (
@@ -1226,19 +1232,42 @@ const makeStyles = (colors: ThemeColors) =>
     emptyActionCard: { padding: spacing.md, gap: 3 },
     emptyActionTitle: { ...typography.headline, color: colors.text },
     emptyActionSub: { ...typography.meta, color: colors.textMeta },
-    emptyActionGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: spacing.sm },
-    emptyAction: {
-      flexBasis: "47%",
-      flexGrow: 1,
-      minHeight: 48,
+    emptyPrimary: {
+      minHeight: 54,
+      marginTop: spacing.sm,
+      paddingHorizontal: 12,
+      borderRadius: radius.control,
+      backgroundColor: colors.primary,
       flexDirection: "row",
       alignItems: "center",
-      gap: 6,
-      paddingHorizontal: spacing.sm,
+      gap: 10,
+      ...shadows.brand,
+    },
+    emptyPrimaryIcon: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: "rgba(255,255,255,0.16)",
+    },
+    emptyPrimaryCopy: { flex: 1, minWidth: 0, gap: 1 },
+    emptyPrimaryTitle: { ...typography.callout, fontWeight: "700", color: "#FFFFFF" },
+    emptyPrimarySub: { ...typography.micro, color: "rgba(255,255,255,0.72)" },
+    emptyActionGrid: { flexDirection: "row", gap: 8, marginTop: spacing.sm },
+    emptyAction: {
+      flexBasis: "30%",
+      flexGrow: 1,
+      minHeight: 62,
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 5,
+      paddingHorizontal: 6,
       borderRadius: radius.control,
       backgroundColor: colors.surfaceMuted,
     },
-    emptyActionLabel: { ...typography.caption, fontWeight: "600", color: colors.text },
+    emptyActionLabel: { ...typography.caption, fontWeight: "600", color: colors.text, textAlign: "center" },
 
     /* 页头 + 今日状态行 */
     headBlock: { gap: 8 },

@@ -182,6 +182,7 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
     },
     itemPressed: {
       backgroundColor: dark ? "rgba(255,255,255,0.10)" : "rgba(47,116,192,0.08)",
+      transform: [{ scale: 0.96 }],
     },
     iconBox: {
       width: ICON_BOX_WIDTH,
