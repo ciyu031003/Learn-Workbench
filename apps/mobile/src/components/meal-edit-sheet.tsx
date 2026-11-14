@@ -78,11 +78,30 @@ export function MealEditSheet({
   }, [entry]);
 
   // 所有 Hook 必须在早退之前（react-hooks/rules-of-hooks）
-  const isFoodLinked = !!entry && entry.foodId !== null && !!food;
-  const preview = useMemo(() => {
-    if (isFoodLinked && food) return portionPreviewText(food, amount);
+  /**
+   * 只要条目挂着 foodId 就按「食物型」处理：foods 列表是分页/限量加载的，
+   * 列表里找不到这条食物时不能退回「手动改营养」，否则改份量后服务端不会重算、
+   * 预览也永远停在 1 份（v2.6.9 修复）。
+   */
+  const isFoodLinked = !!entry && entry.foodId !== null;
+  /** 优先用食物库的单位营养；找不到就用条目自身的「单位营养 = 当前营养 ÷ 当前份量」反推 */
+  const baseNutrition = useMemo(() => {
+    if (!entry) return null;
+    if (food) return food;
+    if (isFoodLinked && entry.amount > 0) {
+      return {
+        kcal: entry.kcal / entry.amount,
+        proteinG: entry.proteinG / entry.amount,
+        carbsG: entry.carbsG / entry.amount,
+        fatG: entry.fatG / entry.amount,
+      };
+    }
     return null;
-  }, [amount, food, isFoodLinked]);
+  }, [entry, food, isFoodLinked]);
+  const preview = useMemo(() => {
+    if (isFoodLinked && baseNutrition) return portionPreviewText(baseNutrition, amount);
+    return null;
+  }, [amount, baseNutrition, isFoodLinked]);
 
   if (!entry) return null;
 

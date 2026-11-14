@@ -110,7 +110,8 @@ export function useNutritionScreen({ initialDate }: NutritionScreenInput) {
   const portionMemoRef = useRef<Record<string, PortionMemoEntry>>({});
   // 手动录入（v2 Bug 7a 保留）
   const [manual, setManual] = useState({ name: "", unit: "份", kcal: "", proteinG: "", carbsG: "", fatG: "" });
-  const [saveAsCommon, setSaveAsCommon] = useState(false);
+  /** v2.6.9??????????????????????????? */
+  const [saveAsCommon, setSaveAsCommon] = useState(true);
   const [foodQuery, setFoodQuery] = useState("");
   // v6 P1-3：营养基准库（food_items）搜索 → 选一条 → 输入实际摄入量 → 服务端换算
   const [dbItems, setDbItems] = useState<FoodItemHit[]>([]);
@@ -495,7 +496,7 @@ export function useNutritionScreen({ initialDate }: NutritionScreenInput) {
     setPickedItem(null);
     setItemGrams("100");
     setManual({ name: "", unit: "份", kcal: "", proteinG: "", carbsG: "", fatG: "" });
-    setSaveAsCommon(false);
+    setSaveAsCommon(true);
     setFoodQuery("");
     // 收纳态归零：下次打开仍是「只展开第一组」，不会记住上次随手点开的组
     setOpenGroups(INITIAL_OPEN_GROUPS);

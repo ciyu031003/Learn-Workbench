@@ -26,6 +26,8 @@ import { RichText } from "@/components/rich-text";
 import { ScreenHeaderStickyBar } from "@/components/screen-header";
 import { ThemedIcon } from "@/components/themed-icon";
 import { getApiUrl } from "@/config";
+import { DAILY_CARD_PLAN, filterUnseen, localDateKey } from "@/lib/drill-progress-core";
+import { loadSeen, markSeen, resetSeen } from "@/lib/drill-progress";
 import { haptics } from "@/lib/haptics";
 import { useScreenEntrance } from "@/lib/use-screen-entrance";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
@@ -136,6 +138,8 @@ export default function Exam408DrillScreen() {
   const [offline, setOffline] = useState(false);
   const [pending, setPending] = useState(0);
   const [notice, setNotice] = useState("");
+  /** 今日计划已全部看完（队列里的卡都被过滤掉） */
+  const [dailyCleared, setDailyCleared] = useState(false);
   /** v1.55 易错本：scope=mistake 的独立队列（只读不写缓存，避免覆盖今日队列缓存） */
   const [scope, setScope] = useState<"queue" | "mistake">("queue");
   const [mistakeQueue, setMistakeQueue] = useState<Exam408CardQueue | null>(null);
@@ -214,12 +218,16 @@ export default function Exam408DrillScreen() {
       setNotice("");
 
       const [queueResult, boardResult] = await Promise.all([
-        fetchCardQueue(targetSubject, 20),
+        fetchCardQueue(targetSubject, DAILY_CARD_PLAN),
         fetchCardStatsBoard(targetSubject),
       ]);
 
+      const todayKey = localDateKey();
       if (queueResult.queue) {
-        setQueue(queueResult.queue);
+        const seen = await loadSeen(targetSubject, todayKey);
+        const remaining = filterUnseen(queueResult.queue.cards, seen);
+        setQueue({ ...queueResult.queue, cards: remaining });
+        setDailyCleared(queueResult.queue.cards.length > 0 && remaining.length === 0);
         setStats(mergeCardStatsWithPending(queueResult.queue.stats, flushed.remaining));
         setOffline(false);
         setFailure(null);
@@ -230,7 +238,10 @@ export default function Exam408DrillScreen() {
         setFailure(queueResult.failure);
         setOffline(queueResult.failure === "offline");
         if (cached) {
-          setQueue(cached);
+          const seen = await loadSeen(targetSubject, todayKey);
+          const remaining = filterUnseen(cached.cards, seen);
+          setQueue({ ...cached, cards: remaining });
+          setDailyCleared(cached.cards.length > 0 && remaining.length === 0);
           setStats(mergeCardStatsWithPending(cached.stats, flushed.remaining));
         } else {
           setQueue(null);
@@ -266,7 +277,7 @@ export default function Exam408DrillScreen() {
       setPending(flushed.remaining);
       setMistakeLoading(true);
       setMistakeFailure(null);
-      const result = await fetchMistakeQueue(targetSubject, 20);
+      const result = await fetchMistakeQueue(targetSubject, DAILY_CARD_PLAN);
       if (result.queue) {
         setMistakeQueue(result.queue);
         setMistakeFailure(null);
@@ -327,6 +338,14 @@ export default function Exam408DrillScreen() {
   const card = index < cards.length ? cards[index] : null;
   const progress = cardProgress(index, cards.length);
   const finished = cards.length > 0 && index >= cards.length;
+
+  /** 翻到即算「已看」：下次进入自动从下一张继续（跨天重置） */
+  useEffect(() => {
+    if (scope !== "queue") return;
+    const key = card?.key;
+    if (!key) return;
+    void markSeen(subjectKey, localDateKey(), key);
+  }, [card?.key, scope, subjectKey]);
 
   const changeSubject = (key: string) => {
     if (key === subjectKey) return;
@@ -540,7 +559,9 @@ export default function Exam408DrillScreen() {
                   ? "暂时拿不到队列"
                   : scope === "mistake"
                     ? "易错本还是空的"
-                    : "今天没有待刷的卡"
+                    : dailyCleared
+                      ? "今日 " + DAILY_CARD_PLAN + " 张已完成"
+                      : "今天没有待刷的卡"
               }
               hint={
                 activeFailure === "offline"
@@ -549,12 +570,21 @@ export default function Exam408DrillScreen() {
                     ? subjectTitle
                       ? subjectTitle + " 还没有评过错的卡；刷题时选「忘记/模糊」后会进入易错本。"
                       : "还没有评过错的卡；刷题时选「忘记/模糊」后会进入易错本。"
-                    : subjectTitle
-                      ? subjectTitle + " 的到期卡已清空，换一科或稍后再来。"
-                      : "全部科目的到期卡都清空了，明天再来。"
+                    : dailyCleared
+                      ? "已看过 " + DAILY_CARD_PLAN + " 张。明天会按记忆曲线安排新的卡片；想再过一遍可以点「再刷一轮」。"
+                      : subjectTitle
+                        ? subjectTitle + " 的到期卡已清空，换一科或稍后再来。"
+                        : "全部科目的到期卡都清空了，明天再来。"
               }
-              actionLabel={activeFailure ? "重试" : "刷新"}
-              onAction={retry}
+              actionLabel={activeFailure ? "重试" : dailyCleared ? "再刷一轮" : "刷新"}
+              onAction={
+                dailyCleared && !activeFailure
+                  ? () => {
+                      haptics.light();
+                      void resetSeen(subjectKey, localDateKey()).then(() => retry());
+                    }
+                  : retry
+              }
               pattern="none"
             />
           </View>

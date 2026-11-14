@@ -56,8 +56,8 @@ export function NutritionSheetsA({
         visible={cupOpen}
         onClose={() => setCupOpen(false)}
         title="今日饮水"
-        height="86%"
-        scroll={false}
+        height="92%"
+        expandable
       >
         <WaterCupSheet
           visible={cupOpen}
