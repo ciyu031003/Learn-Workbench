@@ -255,8 +255,14 @@ export function parseQuestionBlocks(text: string): QuestionBlock[] {
   let list: { ordered: boolean; items: string[] } | null = null;
 
   const flushParagraph = () => {
-    const kept = paragraph.filter((line) => line.trim().length > 0);
-    if (kept.length > 0) blocks.push({ type: "paragraph", lines: kept.map((l) => softBreak(l.trim())) });
+    // 段落内的 <br> 还原成独立行（保持旧结构：lines 数组每项一行），
+    // 表格单元格与代码块不经过这里，所以不会被拆散。
+    const kept = paragraph
+      .filter((line) => line.trim().length > 0)
+      .flatMap((line) => softBreak(line.trim()).split("\n"))
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+    if (kept.length > 0) blocks.push({ type: "paragraph", lines: kept });
     paragraph = [];
   };
   const flushList = () => {

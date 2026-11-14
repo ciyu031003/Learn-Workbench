@@ -40,7 +40,7 @@ describe("parseQuestionBlocks br handling", () => {
 
   it("turns <br> into a line break inside paragraphs", () => {
     const blocks = parseQuestionBlocks("第一行<br>第二行");
-    expect(blocks).toEqual([{ type: "paragraph", lines: ["第一行\n第二行"] }]);
+    expect(blocks).toEqual([{ type: "paragraph", lines: ["第一行", "第二行"] }]);
   });
 
   it("does not rewrite <br> inside fenced code", () => {
