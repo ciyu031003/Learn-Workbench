@@ -30,6 +30,8 @@ import { QuickStartSheet, type QuickStartChoice } from "@/components/quick-start
 import { BottomSheet } from "@/components/bottom-sheet";
 import { SheetStickyCta } from "@/components/sheet";
 import { CelebrationModal } from "@/components/celebration-modal";
+import { CelebrationBurst } from "@/components/celebration-burst";
+import { useCelebration } from "@/lib/use-celebration";
 import { RingProgress } from "@/components/ring-progress";
 import { PressableScale } from "@/components/pressable-scale";
 import { Surface } from "@/components/surface";
@@ -517,8 +519,10 @@ export default function TodayScreen() {
   const openFocus = useFocusSessionStore((s) => s.openFocus);
 
   const [sportSheetOpen, setSportSheetOpen] = useState(false);
-  /** 完成任务的庆祝弹窗（null = 关闭） */
-  const [celebrateInfo, setCelebrateInfo] = useState<{ title: string; subtitle?: string } | null>(null);
+  /** 里程碑庆祝（今日计划全部完成）：统一走 useCelebration，同一天只弹一次 */
+  const { request: celebrationRequest, celebrateOnce, close: closeCelebration } = useCelebration();
+  /** 单条任务/习惯完成：轻量横幅，2.4s 自动收起，不打断浏览 */
+  const [burst, setBurst] = useState<{ kicker: string; title: string; subtitle?: string } | null>(null);
   /** v3 顶栏通知弹层 */
   const [notifOpen, setNotifOpen] = useState(false);
   /** v3 任务详情面板：点任务行打开（null = 关闭） */
@@ -756,8 +760,21 @@ export default function TodayScreen() {
 
   const checkedInToday = checkins.includes(today);
 
-  const fireCelebrate = (title: string, subtitle?: string) => {
-    setCelebrateInfo({ title, subtitle });
+  const fireBurst = (kicker: string, title: string, subtitle?: string) => {
+    setBurst({ kicker, title, subtitle });
+  };
+
+  /**
+   * 今日计划完成：任务全部勾完（且没有待打卡的独立习惯）才触发全屏庆祝。
+   * 去重交给 claimCelebration（kind + 日期），退出重进不会重复弹。
+   */
+  const pendingHabits = habitOnlyRows.filter((row) => !row.done).length;
+  const maybeCelebratePlan = (tasksDone: number, habitsPending: number) => {
+    const total = todayTasks.length;
+    if (total <= 0) return;
+    if (tasksDone >= total && habitsPending <= 0) {
+      void celebrateOnce("plan-complete", today);
+    }
   };
 
   // 今日建议（规则版）：根据任务/打卡状态给一句可执行的小建议
@@ -1007,7 +1024,10 @@ export default function TodayScreen() {
                       const willDone = !t.done;
                       haptics.light();
                       toggleTaskDone(t.id);
-                      if (willDone) fireCelebrate(t.title, "今日任务 · 已完成");
+                      if (willDone) {
+                        fireBurst("任务完成", t.title, "已加入今日完成");
+                        maybeCelebratePlan(todayDone + 1, pendingHabits);
+                      }
                     }}
                     style={[styles.v3SchedTick, t.done ? styles.v3SchedTickOn : null]}
                     accessibilityRole="checkbox"
@@ -1082,7 +1102,10 @@ export default function TodayScreen() {
                 key={"habit-" + row.id}
                 hitSlop={6}
                 onPress={() => {
-                  if (!row.done) fireCelebrate(row.name, "习惯打卡完成");
+                  if (!row.done) {
+                    fireBurst("习惯打卡", row.name, "今天的习惯又稳了一项");
+                    maybeCelebratePlan(todayDone, pendingHabits - 1);
+                  }
                   void toggleHabit(row.id, row.done);
                 }}
                 style={[styles.v3Habit, row.done ? styles.v3HabitOn : null]}
@@ -1200,10 +1223,21 @@ export default function TodayScreen() {
         }}
       />
       <CelebrationModal
-        visible={!!celebrateInfo}
-        onClose={() => setCelebrateInfo(null)}
-        title={celebrateInfo?.title ?? ""}
-        subtitle={celebrateInfo?.subtitle}
+        visible={!!celebrationRequest}
+        onClose={closeCelebration}
+        title={celebrationRequest?.title ?? ""}
+        subtitle={celebrationRequest?.subtitle}
+        badge={celebrationRequest?.badge}
+        kicker={celebrationRequest?.kicker}
+        buttonText={celebrationRequest?.buttonText}
+        tone={celebrationRequest?.tone}
+      />
+      <CelebrationBurst
+        visible={!!burst}
+        kicker={burst?.kicker}
+        title={burst?.title ?? ""}
+        subtitle={burst?.subtitle}
+        onDone={() => setBurst(null)}
       />
       <BottomSheet
         visible={!!detailTask}
@@ -1249,7 +1283,10 @@ export default function TodayScreen() {
                   const willDone = !target.done;
                   haptics.light();
                   toggleTaskDone(target.id);
-                  if (willDone) fireCelebrate(target.title, "今日任务 · 已完成");
+                  if (willDone) {
+                    fireBurst("任务完成", target.title, "已加入今日完成");
+                    maybeCelebratePlan(todayDone + 1, pendingHabits);
+                  }
                   setDetailTask(null);
                 }}
                 style={styles.v3DetailPrimary}

@@ -7,6 +7,9 @@ import { QUALITY_LEVEL_LABEL, isReviewed, knowledgePointKeyOf, qualityOfTopic } 
 import type { LearningStage, LearningTopic, LearningTrack } from "@learn-workbench/content/types";
 import { RichTextBlock } from "@/components/rich-text-block";
 import { StudyTimerChip } from "@/components/study-timer-chip";
+import { CelebrationBurst } from "@/components/celebration-burst";
+import { claimCelebration } from "@/lib/celebration-state";
+import { celebrationDayKey } from "@/lib/celebration-core";
 import { useLearningTrack } from "@/lib/content-store";
 import { setNavPendingParams, takeNavPendingParams } from "@/lib/nav-pending";
 import { ThemedIcon } from "@/components/themed-icon";
@@ -116,6 +119,9 @@ function KnowledgeReader({
   );
   const [readingStore, setReadingStore] = useState<ReadingStore | null>(null);
   const [toast, setToast] = useState<{ message: string; kind: ToastKind } | null>(null);
+  /** v2.6.11：读完本节 → 轻量庆祝横幅（不打断阅读，同一天同一节只弹一次） */
+  const [chapterBurst, setChapterBurst] = useState<{ title: string; subtitle?: string } | null>(null);
+  const chapterClaimedRef = useRef(false);
   const progressRef = useRef(0);
   const reportedRef = useRef(0);
   const readState: LocalReadState | null = readingStore ? readStateOf(readingStore, pointRef.pointKey) : null;
@@ -187,9 +193,17 @@ function KnowledgeReader({
       if (progressRef.current >= READ_COMPLETE_PERCENT && reportedRef.current < READ_COMPLETE_PERCENT) {
         reportedRef.current = progressRef.current;
         void markTopicRead({ ...pointRef, progress: progressRef.current }).then(setReadingStore);
+        if (!chapterClaimedRef.current) {
+          chapterClaimedRef.current = true;
+          void claimCelebration("chapter-complete", pointRef.pointKey, celebrationDayKey()).then((claimed) => {
+            if (claimed) {
+              setChapterBurst({ title: topic.title + " · 读完", subtitle: "已记入学习进度，顺手练两道题会更牢。" });
+            }
+          });
+        }
       }
     },
-    [header, pointRef]
+    [header, pointRef, topic.title]
   );
 
   // 扁平化的"上一节 / 下一节"：跨章节时自动落到相邻章的边界知识点
@@ -464,6 +478,12 @@ function KnowledgeReader({
       </BottomSheet>
 
       {toast ? <InlineToast message={toast.message} kind={toast.kind} style={styles.toast} /> : null}
+      <CelebrationBurst
+        visible={!!chapterBurst}
+        title={chapterBurst?.title ?? ""}
+        subtitle={chapterBurst?.subtitle}
+        onDone={() => setChapterBurst(null)}
+      />
     </View>
   );
 }

@@ -28,6 +28,8 @@ import { ThemedIcon } from "@/components/themed-icon";
 import { getApiUrl } from "@/config";
 import { DAILY_CARD_PLAN, filterUnseen, localDateKey } from "@/lib/drill-progress-core";
 import { StudyTimerChip } from "@/components/study-timer-chip";
+import { CelebrationModal } from "@/components/celebration-modal";
+import { useCelebration } from "@/lib/use-celebration";
 import { loadSeen, markSeen, resetSeen } from "@/lib/drill-progress";
 import { useStudyTimer } from "@/lib/use-study-timer";
 import { haptics } from "@/lib/haptics";
@@ -142,6 +144,8 @@ export default function Exam408DrillScreen() {
   const [notice, setNotice] = useState("");
   /** 今日计划已全部看完（队列里的卡都被过滤掉） */
   const [dailyCleared, setDailyCleared] = useState(false);
+  /** v2.6.11：每日 20 张完成庆祝（同一天同一科目只弹一次） */
+  const { request: celebrationRequest, celebrateOnce, close: closeCelebration } = useCelebration();
   /** v1.55 易错本：scope=mistake 的独立队列（只读不写缓存，避免覆盖今日队列缓存） */
   const [scope, setScope] = useState<"queue" | "mistake">("queue");
   const [mistakeQueue, setMistakeQueue] = useState<Exam408CardQueue | null>(null);
@@ -342,6 +346,17 @@ export default function Exam408DrillScreen() {
   const card = index < cards.length ? cards[index] : null;
   const progress = cardProgress(index, cards.length);
   const finished = cards.length > 0 && index >= cards.length;
+
+  /**
+   * 每日 20 张计划完成 → 全屏庆祝。
+   * 口径用「今日已完成张数」而不是本轮队列长度：中途退出再进时队列可能只剩 10 张，
+   * 但累计到 20 张同样算完成计划。去重按 科目 + 当天，只弹一次。
+   */
+  useEffect(() => {
+    if (scope !== "queue") return;
+    if (stats.doneToday < DAILY_CARD_PLAN) return;
+    void celebrateOnce("drill-daily-20", subjectKey || "all");
+  }, [scope, stats.doneToday, subjectKey, celebrateOnce]);
 
   /**
    * 翻到答案面即算「已看」：下次进入自动从下一张继续（跨天重置）。
@@ -845,6 +860,16 @@ export default function Exam408DrillScreen() {
           </View>
         ) : null}
       </View>
+      <CelebrationModal
+        visible={!!celebrationRequest}
+        onClose={closeCelebration}
+        title={celebrationRequest?.title ?? ""}
+        subtitle={celebrationRequest?.subtitle}
+        badge={celebrationRequest?.badge}
+        kicker={celebrationRequest?.kicker}
+        buttonText={celebrationRequest?.buttonText}
+        tone={celebrationRequest?.tone}
+      />
     </View>
   );
 }

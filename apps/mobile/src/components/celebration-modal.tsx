@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Modal, Pressable, StyleSheet, Text, View, type ImageSourcePropType } from "react-native";
+import { Image } from "expo-image";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -11,10 +12,11 @@ import type { CelebrationTone } from "@/lib/celebration-copy";
 import { TOTAL_MS } from "@/lib/celebration-particles";
 import { ThemedIcon } from "@/components/themed-icon";
 import { haptics } from "@/lib/haptics";
+import { CELEBRATION_GIF } from "@/lib/energy-art";
 import { useReducedMotion } from "@/lib/motion";
 import { useTheme } from "@/theme";
 import { isMotionActive } from "@/theme/motion";
-import { radius, shadows, tabularNums, typography, type ThemeColors } from "@/theme/tokens";
+import { shadows, tabularNums, typography, type ThemeColors } from "@/theme/tokens";
 
 /**
  * 完成每日任务 / 习惯 / 一组练习后的**庆祝弹窗**。
@@ -48,6 +50,9 @@ export function CelebrationModal({
    */
   autoCloseMs = TOTAL_MS + 1700,
   tone,
+  kicker,
+  buttonText,
+  imageSource,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -59,6 +64,12 @@ export function CelebrationModal({
   autoCloseMs?: number;
   /** 按正确率分档的文案与配色（不传则用中性默认） */
   tone?: CelebrationTone;
+  /** 顶部小字；不传则用分档文案或「恭喜完成」 */
+  kicker?: string;
+  /** 主按钮文案；不传则用分档文案或「继续加油」 */
+  buttonText?: string;
+  /** 主视觉；默认用本地打包的 3D 完成 GIF */
+  imageSource?: ImageSourcePropType;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -133,16 +144,27 @@ export function CelebrationModal({
             ))}
           </Animated.View>
 
-          <Text style={styles.kicker}>{tone?.kicker ?? "恭喜完成"}</Text>
-          <Animated.View style={[styles.badge, badgeStyle, tone ? { backgroundColor: tone.badgeColor } : null]}>
+          <Text style={styles.kicker}>{kicker ?? tone?.kicker ?? "恭喜完成"}</Text>
+          <Animated.View style={[styles.hero, badgeStyle]}>
+            <Image
+              source={imageSource ?? CELEBRATION_GIF}
+              style={styles.heroImage}
+              contentFit="contain"
+              autoplay={motionActive}
+              transition={0}
+              cachePolicy="memory-disk"
+              accessibilityIgnoresInvertColors
+              accessibilityLabel="庆祝表情"
+            />
             {badge ? (
-              <Text style={styles.badgeText}>{badge}</Text>
-            ) : (
-              /* v1.44.2 去 emoji：原来兜底是一个 "✓" 字符，改成图标 */
-              <ThemedIcon name="checkmark" size={30} color="#FFFFFF" />
-            )}
+              <View style={[styles.badgeChip, tone ? { backgroundColor: tone.badgeColor } : null]}>
+                <Text style={styles.badgeChipText}>{badge}</Text>
+              </View>
+            ) : null}
           </Animated.View>
-          <Text style={styles.resultLabel}>{tone?.resultLabel ?? "又向前一步"}</Text>
+          {tone || !kicker ? (
+            <Text style={styles.resultLabel}>{tone?.resultLabel ?? "又向前一步"}</Text>
+          ) : null}
 
           <Text style={styles.title} numberOfLines={2}>{title}</Text>
           {subtitle ? <Text style={styles.subtitle} numberOfLines={2}>{subtitle}</Text> : null}
@@ -156,7 +178,7 @@ export function CelebrationModal({
             accessibilityRole="button"
           >
             <ThemedIcon name="sparkles" size={16} color="#fff" />
-            <Text style={styles.btnText}>{tone?.buttonText ?? "继续加油"}</Text>
+            <Text style={styles.btnText}>{buttonText ?? tone?.buttonText ?? "继续加油"}</Text>
           </Pressable>
         </Animated.View>
       </Pressable>
@@ -206,18 +228,29 @@ const makeStyles = (colors: ThemeColors) =>
       backgroundColor: "rgba(255,255,255,0.5)",
     },
     kicker: { ...typography.micro, fontWeight: "800", color: "rgba(255,255,255,0.72)", letterSpacing: 2 },
-    badge: {
-      width: 132,
-      height: 132,
-      borderRadius: 66,
-      marginTop: 16,
+    hero: {
+      width: 156,
+      height: 156,
+      marginTop: 8,
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: "rgba(86,171,47,0.92)",
-      borderWidth: 4,
-      borderColor: "rgba(255,255,255,0.28)",
     },
-    badgeText: { fontSize: 40, fontWeight: "900", color: "#fff", ...tabularNums },
+    heroImage: { width: 150, height: 150 },
+    badgeChip: {
+      position: "absolute",
+      right: 0,
+      bottom: 4,
+      minWidth: 52,
+      paddingHorizontal: 10,
+      height: 30,
+      borderRadius: 15,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: "rgba(86,171,47,0.95)",
+      borderWidth: 2.5,
+      borderColor: "rgba(255,255,255,0.9)",
+    },
+    badgeChipText: { fontSize: 14, fontWeight: "900", color: "#fff", ...tabularNums },
     resultLabel: { marginTop: 14, ...typography.callout, fontWeight: "700", color: "rgba(255,255,255,0.82)" },
     title: {
       marginTop: 10,

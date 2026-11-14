@@ -38,6 +38,7 @@ import type { FocusSession } from "@learn-workbench/shared/schemas";
 import { DEFAULT_FOCUS_SCENE_ID, FOCUS_SCENES, getFocusScene } from "@learn-workbench/shared/focus-scenes";
 import { focusSceneSource } from "@/lib/focus-scene-assets";
 import { Celebration } from "@/components/celebration";
+import { CELEBRATION_GIF } from "@/lib/energy-art";
 import type { FocusSnapshot } from "@/store/focus-session-store";
 
 /**
@@ -933,6 +934,15 @@ export function FocusTimer({
             {/* 完成页是结果页：内容可能较多，保留滚动（不属于「开始 / 计时」的一屏范围） */}
             <ScrollView contentContainerStyle={styles.center} showsVerticalScrollIndicator={false}>
             <View style={styles.doneWrap}>
+              {/* v2.6.11：完成庆祝主视觉（本地 3D 表情 GIF；减弱动态时只显示静帧） */}
+              <ExpoImage
+                source={CELEBRATION_GIF}
+                style={styles.doneCelebration}
+                contentFit="contain"
+                transition={0}
+                accessibilityIgnoresInvertColors
+                accessibilityLabel="庆祝表情"
+              />
               <View style={styles.doneTitleRow}>
                 <ThemedIcon name="trophy" size={34} color="#FFB25E" />
                 <Text style={styles.doneTitle}>{sessionMode === "exercise" ? "运动完成！" : "专注完成！"}</Text>
@@ -1467,6 +1477,7 @@ const styles = StyleSheet.create({
   quoteSaveText: { color: "#fff", fontSize: 13, fontWeight: "600" },
   quoteText: { color: "rgba(255,255,255,0.92)", fontSize: 14, lineHeight: 21 },
   doneWrap: { alignItems: "center", gap: 14, width: "100%" },
+  doneCelebration: { width: 132, height: 132, marginBottom: 2 },
   doneTitleRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   doneTitle: { color: "#fff", fontSize: 26, fontWeight: "800" },
   doneSub: { color: "rgba(255,255,255,0.75)", fontSize: 13 },

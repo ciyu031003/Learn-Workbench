@@ -1,9 +1,9 @@
 {
   "totals": {
-    "animationSites": 250,
-    "animatedStyleFiles": 35,
+    "animationSites": 262,
+    "animatedStyleFiles": 37,
     "repeatFiles": 8,
-    "filesWithAnimations": 37
+    "filesWithAnimations": 39
   },
   "sites": {
     "apps/mobile/src/app/(tabs)/_layout.tsx": 7,
@@ -14,6 +14,7 @@
     "apps/mobile/src/components/achievement-card.tsx": 4,
     "apps/mobile/src/components/animated-number.tsx": 3,
     "apps/mobile/src/components/bottom-sheet.tsx": 15,
+    "apps/mobile/src/components/celebration-burst.tsx": 3,
     "apps/mobile/src/components/celebration-modal.tsx": 5,
     "apps/mobile/src/components/celebration.tsx": 3,
     "apps/mobile/src/components/cert-card.tsx": 4,
@@ -37,6 +38,7 @@
     "apps/mobile/src/components/toast.tsx": 2,
     "apps/mobile/src/components/v2/floating-tab-bar.tsx": 2,
     "apps/mobile/src/components/v2/habit-row.tsx": 3,
+    "apps/mobile/src/components/v2/mood-picker.tsx": 9,
     "apps/mobile/src/components/v2/progress-bar.tsx": 2,
     "apps/mobile/src/components/water-card.tsx": 2,
     "apps/mobile/src/components/water-cup.tsx": 5,
