@@ -6,6 +6,7 @@ import { QUALITY_LEVEL_LABEL, isLearnable, isReviewed, qualityOfTopic } from "@l
 import type { KnowledgeQuality } from "@learn-workbench/content/learning";
 import type { LearningStage, LearningTopic, LearningTrack } from "@learn-workbench/content/types";
 import { RichText } from "@/components/rich-text";
+import { RichTextBlock } from "@/components/rich-text-block";
 import { useLearningTrack } from "@/lib/content-store";
 import { setNavPendingParams } from "@/lib/nav-pending";
 import { ThemedIcon } from "@/components/themed-icon";
@@ -163,7 +164,9 @@ function TrackContent({ track }: { track: LearningTrack }) {
               {track.studyMethod.map((method, index) => (
                 <View key={method} style={styles.guideRow}>
                   <Text style={styles.guideIndex}>{index + 1}</Text>
-                  <RichText text={method} style={styles.guideText} />
+                  <View style={styles.guideBody}>
+                    <RichTextBlock text={method} style={styles.guideText} />
+                  </View>
                 </View>
               ))}
             </View>
@@ -385,7 +388,7 @@ function StageSection({
           <View style={styles.outcomeBox}>
             <Text style={styles.outcomeLabel}>阶段目标</Text>
             <RichText text={stage.goal} style={styles.outcomeText} />
-            <RichText text={"验收：" + stage.outcome} style={styles.outcomeResult} />
+            <RichTextBlock text={"验收：" + stage.outcome} style={styles.outcomeResult} />
           </View>
           {learnableTopics.map(({ topic, quality }) => (
             <TopicRow
@@ -456,12 +459,12 @@ function TopicRow({
           <DetailBlock title="常见误区" items={topic.pitfalls} warning />
           <View style={styles.methodCard}>
             <Text style={styles.methodLabel}>学习方法</Text>
-            <RichText text={topic.method} style={styles.methodText} />
+            <RichTextBlock text={topic.method} style={styles.methodText} />
           </View>
           <View style={styles.exerciseCard}>
             <Text style={styles.exerciseLabel}>练习任务</Text>
-            <RichText text={topic.exercise} style={styles.exerciseText} />
-            <RichText text={"掌握标准：" + topic.checkpoint} style={styles.checkpointText} />
+            <RichTextBlock text={topic.exercise} style={styles.exerciseText} />
+            <RichTextBlock text={"掌握标准：" + topic.checkpoint} style={styles.checkpointText} />
             <PressableScale
               haptic
               scaleTo={0.97}
@@ -489,7 +492,9 @@ function DetailBlock({ title, items, warning = false }: { title: string; items: 
       {items.map((item) => (
         <View key={item} style={styles.detailRow}>
           <View style={[styles.detailDot, warning && { backgroundColor: colors.danger }]} />
-          <RichText text={item} style={styles.detailText} />
+          <View style={styles.detailBody}>
+            <RichTextBlock text={item} style={styles.detailText} />
+          </View>
         </View>
       ))}
     </View>
@@ -703,7 +708,8 @@ const makeStyles = (colors: ThemeColors) =>
     learningGuideTitle: { ...typography.headline, color: colors.text },
     guideRow: { flexDirection: "row", gap: spacing.sm, alignItems: "flex-start" },
     guideIndex: { ...typography.micro, color: colors.primary, width: 16, marginTop: 2 },
-    guideText: { flex: 1, ...typography.callout, color: colors.textSecondary },
+    guideBody: { flex: 1 },
+    guideText: { ...typography.callout, color: colors.textSecondary },
     stageCard: {
       borderRadius: radius.lg,
       backgroundColor: colors.surfaceStrong,
@@ -745,7 +751,8 @@ const makeStyles = (colors: ThemeColors) =>
     detailTitle: { ...typography.micro, color: colors.primary },
     detailRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
     detailDot: { width: 4, height: 4, borderRadius: 999, backgroundColor: colors.primary, marginTop: 7 },
-    detailText: { flex: 1, ...typography.caption, fontWeight: "400", color: colors.textSecondary },
+    detailBody: { flex: 1 },
+    detailText: { ...typography.caption, fontWeight: "400", color: colors.textSecondary },
     methodCard: { borderRadius: radius.md, padding: spacing.md, backgroundColor: colors.primarySoft, gap: 4 },
     methodLabel: { ...typography.micro, color: colors.primary },
     methodText: { ...typography.caption, fontWeight: "400", color: colors.textSecondary },

@@ -5,7 +5,8 @@ import Animated from "react-native-reanimated";
 import * as Clipboard from "expo-clipboard";
 import { QUALITY_LEVEL_LABEL, isReviewed, knowledgePointKeyOf, qualityOfTopic } from "@learn-workbench/content/learning";
 import type { LearningStage, LearningTopic, LearningTrack } from "@learn-workbench/content/types";
-import { RichText } from "@/components/rich-text";
+import { RichTextBlock } from "@/components/rich-text-block";
+import { StudyTimerChip } from "@/components/study-timer-chip";
 import { useLearningTrack } from "@/lib/content-store";
 import { setNavPendingParams, takeNavPendingParams } from "@/lib/nav-pending";
 import { ThemedIcon } from "@/components/themed-icon";
@@ -15,6 +16,7 @@ import { BottomSheet } from "@/components/bottom-sheet";
 import { InlineToast, TOAST_DEFAULT_LIFE_MS, type ToastKind } from "@/components/toast";
 import { ScreenHeaderLargeTitle, ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { useScreenEntrance } from "@/lib/use-screen-entrance";
+import { useStudyTimer } from "@/lib/use-study-timer";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import {
   isFavorite as isFavoriteIn,
@@ -98,6 +100,8 @@ function KnowledgeReader({
   const trackTint = dark ? `${track.accent}24` : track.softAccent;
   const topic = stage.topics[topicIndex] ?? stage.topics[0];
   const topicCount = stage.topics.length;
+  /** 学习计时：知识点阅读时长计入今日专注（v2.6.10） */
+  const { seconds } = useStudyTimer(topic.title);
 
   // ---- 阅读状态（本地优先 + 跨设备同步，见 lib/reading-state.ts） ----
   // 稳定引用：React Compiler 要求 memo 依赖可被保持（否则整个组件跳过编译优化）
@@ -314,7 +318,8 @@ function KnowledgeReader({
             <Text style={styles.heroWeeks}>{stage.weeks}</Text>
           </View>
           <Text style={styles.heroTitle}>{topic.title}</Text>
-          <RichText text={topic.summary} style={styles.heroSummary} />
+          <RichTextBlock text={topic.summary} style={styles.heroSummary} />
+          <StudyTimerChip seconds={seconds} />
           <View style={styles.heroMeta}>
             <View style={styles.heroMetaItem}>
               <ThemedIcon name="book-outline" size={17} color={track.accent} />
@@ -346,9 +351,9 @@ function KnowledgeReader({
         {topicIndex === 0 ? (
           <Animated.View entering={entrance(2)} style={styles.outcome}>
             <Text style={styles.outcomeLabel}>本章目标</Text>
-            <RichText text={stage.goal} style={styles.outcomeText} />
+            <RichTextBlock text={stage.goal} style={styles.outcomeText} />
             <Text style={[styles.outcomeLabel, styles.outcomeLabelSpaced]}>本章验收</Text>
-            <RichText text={stage.outcome} style={styles.outcomeText} />
+            <RichTextBlock text={stage.outcome} style={styles.outcomeText} />
           </Animated.View>
         ) : null}
 
@@ -502,8 +507,8 @@ function TopicArticle({
                 {topic.lesson.terms.map((term) => (
                   <View key={term.term} style={styles.termRow}>
                     <Text style={[styles.termName, { color: track.accent }]}>{term.term}</Text>
-                    <RichText text={term.plain} style={styles.termPlain} />
-                    {term.detail ? <RichText text={term.detail} style={styles.termDetail} /> : null}
+                    <RichTextBlock text={term.plain} style={styles.termPlain} />
+                    {term.detail ? <RichTextBlock text={term.detail} style={styles.termDetail} /> : null}
                   </View>
                 ))}
               </View>
@@ -544,7 +549,7 @@ function TopicArticle({
 
       <View style={styles.method}>
         <Text style={styles.methodLabel}>怎么学</Text>
-        <RichText text={topic.method} style={styles.methodText} />
+        <RichTextBlock text={topic.method} style={styles.methodText} />
       </View>
 
       <PressableScale
@@ -559,20 +564,24 @@ function TopicArticle({
           <ThemedIcon name="create-outline" size={18} color={track.accent} />
           <Text style={styles.practiceTitle}>动手练习</Text>
         </View>
-        <RichText text={topic.exercise} style={styles.practiceText} />
+        <RichTextBlock text={topic.exercise} style={styles.practiceText} />
         {topic.lesson ? (
           <View style={styles.masteryList}>
             {topic.lesson.masteryChecklist.map((item) => (
               <View key={item} style={styles.masteryRow}>
                 <ThemedIcon name="checkmark-circle-outline" size={15} color={track.accent} />
-                <RichText text={item} style={styles.masteryText} />
+                <View style={styles.masteryBody}>
+                  <RichTextBlock text={item} style={styles.masteryText} />
+                </View>
               </View>
             ))}
           </View>
         ) : null}
         <View style={styles.checkpoint}>
           <ThemedIcon name="checkmark-circle" size={16} color={colors.success} />
-          <RichText text={"掌握检查：" + topic.checkpoint} style={styles.checkpointText} />
+          <View style={styles.checkpointBody}>
+            <RichTextBlock text={"掌握检查：" + topic.checkpoint} style={styles.checkpointText} />
+          </View>
         </View>
         <View style={[styles.practiceAction, { backgroundColor: trackTint }]}>
           <Text style={[styles.practiceActionText, { color: track.accent }]}>开始本知识点练习</Text>
@@ -610,7 +619,9 @@ function StageLessonCard({
             <View style={[styles.stageLoopIndex, { backgroundColor: `${track.accent}18` }]}>
               <Text style={[styles.stageLoopIndexText, { color: track.accent }]}>{index + 1}</Text>
             </View>
-            <RichText text={item} style={styles.stageLoopText} />
+            <View style={styles.stageLoopBody}>
+              <RichTextBlock text={item} style={styles.stageLoopText} />
+            </View>
           </View>
         ))}
       </View>
@@ -619,8 +630,8 @@ function StageLessonCard({
           <View key={milestone.title} style={styles.milestoneRow}>
             <ThemedIcon name="flag-outline" size={16} color={track.accent} />
             <View style={styles.milestoneBody}>
-              <RichText text={milestone.title} style={styles.milestoneTitle} />
-              <RichText text={milestone.evidence} style={styles.milestoneEvidence} />
+              <RichTextBlock text={milestone.title} style={styles.milestoneTitle} />
+              <RichTextBlock text={milestone.evidence} style={styles.milestoneEvidence} />
             </View>
           </View>
         ))}
@@ -630,7 +641,9 @@ function StageLessonCard({
         {lesson.completionCriteria.map((item) => (
           <View key={item} style={styles.completionRow}>
             <ThemedIcon name="checkmark" size={14} color={colors.success} />
-            <RichText text={item} style={styles.completionText} />
+            <View style={styles.completionBody}>
+              <RichTextBlock text={item} style={styles.completionText} />
+            </View>
           </View>
         ))}
       </View>
@@ -686,7 +699,7 @@ function CodeExample({
       >
         <Text selectable style={styles.codeText}>{example.code}</Text>
       </ScrollView>
-      <RichText text={example.explanation} style={styles.codeExplanation} />
+      <RichTextBlock text={example.explanation} style={styles.codeExplanation} />
     </View>
   );
 }
@@ -725,7 +738,9 @@ function ParagraphList({ items, danger = false }: { items: string[]; danger?: bo
       {items.map((item) => (
         <View key={item} style={styles.paragraphRow}>
           <View style={[styles.paragraphDot, danger && { backgroundColor: colors.danger }]} />
-          <RichText text={item} style={styles.paragraphText} />
+          <View style={styles.paragraphBody}>
+            <RichTextBlock text={item} style={styles.paragraphText} />
+          </View>
         </View>
       ))}
     </View>
@@ -822,7 +837,8 @@ const makeStyles = (colors: ThemeColors) =>
     stageLoopStep: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
     stageLoopIndex: { width: 26, height: 26, borderRadius: 10, alignItems: "center", justifyContent: "center" },
     stageLoopIndexText: { ...typography.micro, fontWeight: "800" },
-    stageLoopText: { flex: 1, ...typography.callout, color: colors.textSecondary },
+    stageLoopBody: { flex: 1 },
+    stageLoopText: { ...typography.callout, color: colors.textSecondary },
     milestoneList: { gap: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingTop: spacing.md },
     milestoneRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
     milestoneBody: { flex: 1, gap: 2 },
@@ -831,7 +847,8 @@ const makeStyles = (colors: ThemeColors) =>
     completionBox: { gap: 6, borderRadius: radius.md, padding: spacing.md, backgroundColor: colors.successSoft },
     completionLabel: { ...typography.micro, color: colors.success },
     completionRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
-    completionText: { flex: 1, ...typography.caption, color: colors.textSecondary },
+    completionBody: { flex: 1 },
+    completionText: { ...typography.caption, color: colors.textSecondary },
     article: { gap: spacing.lg, paddingVertical: spacing.sm },
     articleHead: { flexDirection: "row", alignItems: "flex-start", gap: spacing.md },
     articleNumber: { width: 44, height: 44, borderRadius: 15, alignItems: "center", justifyContent: "center" },
@@ -877,9 +894,10 @@ const makeStyles = (colors: ThemeColors) =>
       gap: 3,
     },
     termName: { ...typography.caption, fontWeight: "800", fontFamily: "monospace" },
-    termPlain: { ...typography.body, color: "inherit" },
+    termPlain: { ...typography.body, color: colors.text },
     termDetail: { ...typography.caption, opacity: 0.85 },
-    paragraphText: { flex: 1, ...typography.callout, color: colors.textSecondary },
+    paragraphBody: { flex: 1 },
+    paragraphText: { ...typography.callout, color: colors.textSecondary },
     method: { borderRadius: radius.lg, padding: spacing.lg, backgroundColor: colors.primarySoft, gap: 5 },
     methodLabel: { ...typography.micro, color: colors.primary },
     methodText: { ...typography.callout, color: colors.text },
@@ -889,9 +907,11 @@ const makeStyles = (colors: ThemeColors) =>
     practiceText: { ...typography.callout, color: colors.textSecondary },
     masteryList: { gap: 6 },
     masteryRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
-    masteryText: { flex: 1, ...typography.caption, color: colors.textSecondary },
+    masteryBody: { flex: 1 },
+    masteryText: { ...typography.caption, color: colors.textSecondary },
     checkpoint: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, paddingTop: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
-    checkpointText: { flex: 1, ...typography.caption, color: colors.textMuted },
+    checkpointBody: { flex: 1 },
+    checkpointText: { ...typography.caption, color: colors.textMuted },
     practiceAction: { minHeight: 42, marginTop: spacing.xs, borderRadius: radius.md, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm },
     practiceActionText: { ...typography.callout, fontWeight: "700" },
     chapterNav: { flexDirection: "row", gap: spacing.md },

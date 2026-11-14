@@ -23,7 +23,7 @@ export function Exam408QuestionCard({
   const correctLetters = new Set(
     (question.answerLetter ?? "")
       .split("")
-      .map((letter) => letter.trim())
+      .map((letter) => letter.trim().toUpperCase())
       .filter(Boolean),
   );
 
@@ -32,7 +32,7 @@ export function Exam408QuestionCard({
       <View style={styles.meta}>
         <Text style={styles.questionNumber}>第 {question.number} 题</Text>
         <Text style={styles.metaText}>{question.type === "choice" ? "选择题" : "综合应用题"}</Text>
-        <Text style={styles.metaText}>{question.points} 分</Text>
+        {question.points > 0 ? <Text style={styles.metaText}>{question.points} 分</Text> : null}
         <Text style={styles.metaText}>{question.subject.title}</Text>
       </View>
 
@@ -68,10 +68,10 @@ export function Exam408QuestionCard({
       {question.options.length > 0 ? (
         <View style={styles.optionList}>
           {question.options.map((option) => {
-            const correct = revealed && correctLetters.has(option.letter);
+            const correct = revealed && correctLetters.has(option.letter.trim().toUpperCase());
             return (
               <View key={option.letter} style={[styles.option, correct && styles.optionCorrect]}>
-                <Text style={styles.optionLetter}>{option.letter}</Text>
+                <Text style={[styles.optionLetter, correct && { color: colors.success }]}>{option.letter}</Text>
                 <RichText text={option.text} style={styles.optionText} />
                 {correct ? <ThemedIcon name="checkmark-circle" size={16} color={colors.success} /> : null}
               </View>
@@ -82,11 +82,15 @@ export function Exam408QuestionCard({
 
       {revealed ? (
         <View style={styles.answer}>
+          {/* 无选项字母的解答题此前会把整段解析塞进标题、正文再渲染一次；标题只保留字母 */}
           <Text style={styles.answerTitle}>
-            参考答案：{question.answerLetter ?? answerText}
+            参考答案{question.answerLetter ? "：" + question.answerLetter : ""}
           </Text>
           {answerText && answerText !== question.answerLetter ? (
             <QuestionBlocks text={answerText} style={styles.answerText} compact />
+          ) : null}
+          {!answerText && !question.answerLetter ? (
+            <Text style={styles.answerEmpty}>这道题暂未收录文字解析。</Text>
           ) : null}
           {question.answerImageRefs.map((url) => (
             <PressableScale
@@ -181,7 +185,15 @@ const makeStyles = (colors: ThemeColors) =>
       backgroundColor: colors.surfaceMuted,
     },
     optionCorrect: { borderColor: colors.success, backgroundColor: colors.successSoft },
-    optionLetter: { ...typography.caption, fontWeight: "900", color: colors.textMuted, width: 16 },
+    optionLetter: {
+      ...typography.caption,
+      lineHeight: 21,
+      fontWeight: "900",
+      color: colors.textMuted,
+      width: 18,
+      textAlign: "center",
+      flexShrink: 0,
+    },
     optionText: { flex: 1, ...typography.callout, color: colors.textSecondary, lineHeight: 21 },
     answer: {
       gap: spacing.sm,
@@ -192,6 +204,7 @@ const makeStyles = (colors: ThemeColors) =>
       padding: spacing.md,
     },
     answerTitle: { ...typography.callout, fontWeight: "800", color: colors.success },
+    answerEmpty: { ...typography.caption, color: colors.textMuted },
     answerText: { ...typography.caption, color: colors.textSecondary, lineHeight: 20 },
     videoLink: { minHeight: 42, flexDirection: "row", alignItems: "center", gap: spacing.sm },
     videoText: { ...typography.callout, fontWeight: "700", color: colors.primary },

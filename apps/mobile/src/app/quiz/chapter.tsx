@@ -9,6 +9,7 @@ import { setNavPendingParams, takeNavPendingParams } from "@/lib/nav-pending";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
 import { RichText } from "@/components/rich-text";
+import { RichTextBlock } from "@/components/rich-text-block";
 import { ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { loadReadingStore, readStateOf, type ReadingStore } from "@/lib/reading-state";
 import { useScreenEntrance } from "@/lib/use-screen-entrance";
@@ -117,10 +118,10 @@ function ChapterContent({
             </View>
           </View>
           <Text style={styles.heroTitle}>{stage.title}</Text>
-          <RichText text={stage.goal} style={styles.heroSummary} />
+          <RichTextBlock text={stage.goal} style={styles.heroSummary} />
           <View style={styles.outcomeBox}>
             <Text style={styles.outcomeLabel}>本章验收</Text>
-            <RichText text={stage.outcome} style={styles.outcomeText} />
+            <RichTextBlock text={stage.outcome} style={styles.outcomeText} />
           </View>
         </Animated.View>
 

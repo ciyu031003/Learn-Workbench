@@ -27,7 +27,9 @@ import { ScreenHeaderStickyBar } from "@/components/screen-header";
 import { ThemedIcon } from "@/components/themed-icon";
 import { getApiUrl } from "@/config";
 import { DAILY_CARD_PLAN, filterUnseen, localDateKey } from "@/lib/drill-progress-core";
+import { StudyTimerChip } from "@/components/study-timer-chip";
 import { loadSeen, markSeen, resetSeen } from "@/lib/drill-progress";
+import { useStudyTimer } from "@/lib/use-study-timer";
 import { haptics } from "@/lib/haptics";
 import { useScreenEntrance } from "@/lib/use-screen-entrance";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
@@ -145,6 +147,8 @@ export default function Exam408DrillScreen() {
   const [mistakeQueue, setMistakeQueue] = useState<Exam408CardQueue | null>(null);
   const [mistakeLoading, setMistakeLoading] = useState(false);
   const [mistakeFailure, setMistakeFailure] = useState<Exam408FetchFailure | null>(null);
+  /** 学习计时：刷卡停留时长计入今日专注（v2.6.10） */
+  const { seconds } = useStudyTimer(subjectKey ? subjectLabel(subjectKey) + " · 408 刷卡" : "408 刷卡");
 
   /* ---------------- 动画共享值（必须声明在 worklet 之前） ---------------- */
   const flip = useSharedValue(0);
@@ -339,13 +343,17 @@ export default function Exam408DrillScreen() {
   const progress = cardProgress(index, cards.length);
   const finished = cards.length > 0 && index >= cards.length;
 
-  /** 翻到即算「已看」：下次进入自动从下一张继续（跨天重置） */
+  /**
+   * 翻到答案面即算「已看」：下次进入自动从下一张继续（跨天重置）。
+   * v2.6.10 修正：此前在「卡片成为当前卡」时就标记，只看到题干也算看完；
+   * 现在严格按产品口径，只有 flipped=true 才写入进度。
+   */
   useEffect(() => {
-    if (scope !== "queue") return;
+    if (scope !== "queue" || !flipped) return;
     const key = card?.key;
     if (!key) return;
     void markSeen(subjectKey, localDateKey(), key);
-  }, [card?.key, scope, subjectKey]);
+  }, [card?.key, flipped, scope, subjectKey]);
 
   const changeSubject = (key: string) => {
     if (key === subjectKey) return;
@@ -423,6 +431,10 @@ export default function Exam408DrillScreen() {
   const subjectTitle =
     EXAM_408_CARD_SUBJECTS.find((item) => item.key === subjectKey)?.title ?? "";
   const dueNow = stats.dueCount;
+  // 空数据态不显示裸 0：用「还没开始 / 暂无 / 从今天起步」替代
+  const todayLine = stats.doneToday > 0 ? "今日已刷 " + stats.doneToday + " 张" : "今天还没开始";
+  const dueLine = dueNow > 0 ? "待复习 " + dueNow + " 张" : "暂无待复习";
+  const streakLine = stats.streak > 0 ? "连续 " + stats.streak + " 天" : "从今天起步";
 
   // 未登录优先判：登录态变化时不需要先闪一帧 loading 再跳到登录引导
   if (!token || activeFailure === "unauthorized") {
@@ -474,7 +486,8 @@ export default function Exam408DrillScreen() {
                 {progressLabel(index, cards.length, finished)}
               </Text>
               <Text style={styles.progressMeta} numberOfLines={1}>
-                今日已刷 {stats.doneToday} 张{offline ? " · 离线" : ""}
+                {todayLine}
+                {offline ? " · 离线" : ""}
               </Text>
             </View>
             <View style={styles.progressTrack}>
@@ -484,10 +497,11 @@ export default function Exam408DrillScreen() {
             </View>
             {layout.showStatsLine ? (
               <Text style={styles.statsLine} numberOfLines={1}>
-                待复习 {dueNow} 张 · 今日正确率{" "}
-                {board.today.done > 0 ? formatAccuracy(board.today.accuracy) : "—"} · 连续 {stats.streak} 天
+                {dueLine} · 今日正确率{" "}
+                {board.today.done > 0 ? formatAccuracy(board.today.accuracy) : "—"} · {streakLine}
               </Text>
             ) : null}
+            <StudyTimerChip seconds={seconds} style={styles.timerChip} />
           </Animated.View>
         ) : null}
 
@@ -974,6 +988,7 @@ const makeStyles = (colors: ThemeColors) =>
       overflow: "hidden",
     },
     progressFill: { height: "100%", borderRadius: radius.pill, backgroundColor: colors.primary },
+    timerChip: { marginTop: 2 },
     statsLine: { ...typography.micro, color: colors.textFaint },
 
     /* 范围 + 科目 */

@@ -1,7 +1,9 @@
 import { useMemo } from "react";
-import { ScrollView, StyleSheet, Text, View, type StyleProp, type TextStyle } from "react-native";
+import { Platform, ScrollView, StyleSheet, Text, View, type StyleProp, type TextStyle } from "react-native";
 import { parseQuestionBlocks, type QuestionBlock } from "@learn-workbench/shared/md-lite";
 import { RichText } from "@/components/rich-text";
+import { formatMathText } from "@/lib/latex-lite";
+import { parseMatrix, splitDisplayMath } from "@/lib/display-math";
 import { useTheme } from "@/theme";
 import { radius, typography, type ThemeColors } from "@/theme/tokens";
 
@@ -27,10 +29,14 @@ function BlockView({
 }) {
   switch (block.type) {
     case "heading": {
+      // 标题必须比正文更大或至少同号加粗：此前 ### 用了 caption(12)，
+      // 比正文 callout(15) 还小，答案里的小节标题反而像脚注。
       const headingStyle: StyleProp<TextStyle> =
-        block.level <= 2
-          ? { ...typography.callout, fontWeight: "800", color: colors.text }
-          : { ...typography.caption, fontWeight: "700", color: colors.textSecondary };
+        block.level === 1
+          ? { ...typography.headline, fontWeight: "800", color: colors.text }
+          : block.level === 2
+            ? { ...typography.section, fontWeight: "800", color: colors.text }
+            : { ...typography.callout, lineHeight: 22, fontWeight: "800", color: colors.text };
       return <RichText text={block.text} style={headingStyle} codeStyle={codeStyle} />;
     }
     case "code":
@@ -43,11 +49,28 @@ function BlockView({
             borderColor: colors.border,
             paddingHorizontal: 10,
             paddingVertical: 8,
+            gap: 5,
           }}
         >
-          <Text style={{ ...typography.caption, lineHeight: 18, color: colors.textSecondary }} selectable>
-            {block.code}
-          </Text>
+          {block.lang ? (
+            <Text style={{ ...typography.micro, color: colors.textMuted, textTransform: "uppercase" }}>
+              {block.lang}
+            </Text>
+          ) : null}
+          {/* 代码不折行：横向滚动比把一行 80 列的 C 代码折成三行更可读 */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }}>
+            <Text
+              selectable
+              style={{
+                ...typography.caption,
+                lineHeight: 18,
+                color: colors.text,
+                fontFamily: Platform.select({ ios: "Menlo", android: "monospace", default: "monospace" }),
+              }}
+            >
+              {block.code}
+            </Text>
+          </ScrollView>
         </View>
       );
     case "table": {
@@ -118,22 +141,138 @@ function BlockView({
           ))}
         </View>
       );
-    case "paragraph":
+    case "paragraph": {
+      const source = block.lines.join("\n");
+      const parts = splitDisplayMath(source);
+      if (!parts.some((part) => part.type === "math")) {
+        return (
+          <Text style={[{ ...typography.callout, color: colors.text }, baseStyle]} selectable>
+            {block.lines.map((line, index) => (
+              <Text key={index}>
+                {index > 0 ? "\n" : ""}
+                <RichText text={line} style={[{ ...typography.callout, color: colors.text }, baseStyle]} codeStyle={codeStyle} />
+              </Text>
+            ))}
+          </Text>
+        );
+      }
       return (
-        <Text style={[{ ...typography.callout, color: colors.text }, baseStyle]} selectable>
-          {block.lines.map((line, i) => (
-            <Text key={i}>
-              {i > 0 ? "\n" : ""}
-              <RichText text={line} style={[{ ...typography.callout, color: colors.text }, baseStyle]} codeStyle={codeStyle} />
-            </Text>
-          ))}
-        </Text>
+        <View style={{ gap: 8 }}>
+          {parts.map((part, index) => {
+            if (part.type === "math") {
+              return <FormulaBlock key={index} tex={part.value} colors={colors} />;
+            }
+            const value = part.value.replace(/^\n+|\n+$/g, "");
+            if (!value.trim()) return null;
+            return (
+              <RichText
+                key={index}
+                text={value}
+                style={[{ ...typography.callout, color: colors.text }, baseStyle]}
+                codeStyle={codeStyle}
+              />
+            );
+          })}
+        </View>
       );
+    }
     default:
       return null;
   }
 }
 
+/** 展示公式：矩阵用原生表格，其余公式做可读化后按代码块呈现 */
+function FormulaBlock({ tex, colors }: { tex: string; colors: ThemeColors }) {
+  const matrix = parseMatrix(tex);
+  if (matrix) {
+    const bracket = matrix.env === "pmatrix" ? "paren" : matrix.env === "vmatrix" ? "bar" : matrix.env === "matrix" ? "none" : "bracket";
+    return (
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }}>
+        <View style={{ flexDirection: "row", alignItems: "stretch", gap: 5, paddingVertical: 4 }}>
+          {bracket !== "none" ? <MatrixBracket side="left" kind={bracket} color={colors.textMuted} /> : null}
+          <View style={{ gap: 5, justifyContent: "center" }}>
+            {matrix.rows.map((row, rowIndex) => (
+              <View key={rowIndex} style={{ flexDirection: "row", gap: 14, justifyContent: "center" }}>
+                {row.map((cell, cellIndex) => (
+                  <Text
+                    key={cellIndex}
+                    style={{ ...typography.caption, lineHeight: 19, color: colors.text, textAlign: "center", minWidth: 18 }}
+                  >
+                    {formatMathText(cell)}
+                  </Text>
+                ))}
+              </View>
+            ))}
+          </View>
+          {bracket !== "none" ? <MatrixBracket side="right" kind={bracket} color={colors.textMuted} /> : null}
+        </View>
+      </ScrollView>
+    );
+  }
+  const lines = tex
+    .split(/\n+/)
+    .map((line) => formatMathText(line))
+    .filter((line) => line.trim().length > 0);
+  if (lines.length === 0) return null;
+  return (
+    <View
+      style={{
+        borderRadius: radius.md,
+        backgroundColor: colors.surfaceMuted,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: colors.border,
+        paddingHorizontal: 10,
+        paddingVertical: 8,
+      }}
+    >
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }}>
+        <Text
+          selectable
+          style={{
+            ...typography.caption,
+            lineHeight: 19,
+            color: colors.text,
+            fontFamily: Platform.select({ ios: "Menlo", android: "monospace", default: "monospace" }),
+          }}
+        >
+          {lines.join("\n")}
+        </Text>
+      </ScrollView>
+    </View>
+  );
+}
+
+/** 矩阵括号：用边框拉伸到矩阵高度，避免固定 fontSize 超出字阶门禁 */
+function MatrixBracket({
+  side,
+  kind,
+  color,
+}: {
+  side: "left" | "right";
+  kind: "bracket" | "paren" | "bar";
+  color: string;
+}) {
+  if (kind === "bar") {
+    return <View style={{ width: StyleSheet.hairlineWidth * 2, alignSelf: "stretch", marginVertical: 2, backgroundColor: color }} />;
+  }
+  if (kind === "paren") {
+    return <Text style={{ ...typography.display, color }}>{side === "left" ? "(" : ")"}</Text>;
+  }
+  return (
+    <View
+      style={{
+        width: 7,
+        alignSelf: "stretch",
+        marginVertical: 2,
+        borderColor: color,
+        borderLeftWidth: side === "left" ? StyleSheet.hairlineWidth * 2 : 0,
+        borderRightWidth: side === "right" ? StyleSheet.hairlineWidth * 2 : 0,
+        borderTopWidth: StyleSheet.hairlineWidth * 2,
+        borderBottomWidth: StyleSheet.hairlineWidth * 2,
+      }}
+    />
+  );
+}
 export function QuestionBlocks({
   text,
   style,

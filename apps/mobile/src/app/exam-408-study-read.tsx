@@ -26,6 +26,8 @@ import {
   type Exam408StudyDetail,
 } from "@/lib/exam-408-study";
 import { takeNavPendingParams } from "@/lib/nav-pending";
+import { StudyTimerChip } from "@/components/study-timer-chip";
+import { useStudyTimer } from "@/lib/use-study-timer";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
 import { radius, spacing, typography, type ThemeColors } from "@/theme/tokens";
@@ -62,6 +64,8 @@ export default function Exam408StudyReadScreen() {
   const articleY = useRef(0);
   const lastLoad = useRef({ slug: "", at: 0 });
   const assetBaseUrl = useMemo(() => getApiUrl(), []);
+  /** 学习计时：精读正文停留时长计入今日专注（v2.6.10） */
+  const { seconds } = useStudyTimer(detail?.article.title ?? null);
 
   const load = useCallback(async (nextSlug: string, options?: { keepScroll?: boolean }) => {
     const target = nextSlug.trim();
@@ -221,6 +225,7 @@ export default function Exam408StudyReadScreen() {
               {article.examFrequency > 0 ? "真题命中 " + article.examFrequency + " 次" : "统计未命中"}
             </Text>
             <Text style={styles.heroMetaText}>约 {minutes} 分钟</Text>
+            <StudyTimerChip seconds={seconds} />
           </View>
         </View>
 

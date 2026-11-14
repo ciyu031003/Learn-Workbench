@@ -8,6 +8,7 @@ import { QuestionBlocks } from "@/components/question-blocks";
 import { RichText } from "@/components/rich-text";
 import { ScreenHeaderStickyBar } from "@/components/screen-header";
 import { Skeleton, SkeletonCard } from "@/components/skeleton";
+import { StudyTimerChip } from "@/components/study-timer-chip";
 import { ThemedIcon } from "@/components/themed-icon";
 import {
   cleanAnswerText,
@@ -20,6 +21,7 @@ import {
   type Exam408QuestionFetchFailure,
 } from "@/lib/exam-408-question";
 import { haptics } from "@/lib/haptics";
+import { useStudyTimer } from "@/lib/use-study-timer";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
 import { radius, shadows, spacing, typography, type ThemeColors } from "@/theme/tokens";
@@ -52,6 +54,10 @@ function QuestionDetail({ questionKey }: { questionKey: string }) {
   const [loading, setLoading] = useState(true);
   const [failure, setFailure] = useState<Exam408QuestionFetchFailure | null>(null);
   const [revealed, setRevealed] = useState(false);
+  /** 学习计时：真题详情页停留时长计入今日专注（v2.6.10） */
+  const { seconds } = useStudyTimer(
+    question ? "第 " + question.number + " 题 · " + question.subject.title : null,
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -132,10 +138,11 @@ function QuestionDetail({ questionKey }: { questionKey: string }) {
           <Text style={styles.metaStrong}>{yearLabel}</Text>
           <Text style={styles.metaText}>第 {question.number} 题</Text>
           <Text style={styles.metaText}>{typeLabel}</Text>
-          <Text style={styles.metaText}>{question.points} 分</Text>
+          {question.points > 0 ? <Text style={styles.metaText}>{question.points} 分</Text> : null}
           {question.subject.title ? (
             <Text style={styles.metaText}>{question.subject.title}</Text>
           ) : null}
+          <StudyTimerChip seconds={seconds} style={styles.metaTimer} />
         </View>
 
         <View style={styles.card}>
@@ -149,10 +156,10 @@ function QuestionDetail({ questionKey }: { questionKey: string }) {
           {question.options.length > 0 ? (
             <View style={styles.optionList}>
               {question.options.map((option) => {
-                const correct = revealed && correctLetters.has(option.letter.toUpperCase());
+                const correct = revealed && correctLetters.has(option.letter.trim().toUpperCase());
                 return (
                   <View key={option.letter} style={[styles.option, correct && styles.optionCorrect]}>
-                    <Text style={styles.optionLetter}>{option.letter}</Text>
+                    <Text style={[styles.optionLetter, correct && { color: colors.success }]}>{option.letter}</Text>
                     <RichText text={option.text} style={styles.optionText} />
                     {correct ? (
                       <ThemedIcon name="checkmark-circle" size={16} color={colors.success} />
@@ -320,6 +327,7 @@ const makeStyles = (colors: ThemeColors) =>
     metaRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: spacing.sm },
     metaStrong: { ...typography.caption, fontWeight: "800", color: colors.text },
     metaText: { ...typography.caption, color: colors.textMuted },
+    metaTimer: { marginLeft: "auto" },
 
     card: {
       borderRadius: radius.xl,
@@ -358,7 +366,15 @@ const makeStyles = (colors: ThemeColors) =>
       backgroundColor: colors.surfaceMuted,
     },
     optionCorrect: { borderColor: colors.success, backgroundColor: colors.successSoft },
-    optionLetter: { ...typography.caption, fontWeight: "900", color: colors.textMuted, width: 16 },
+    optionLetter: {
+      ...typography.caption,
+      lineHeight: 21,
+      fontWeight: "900",
+      color: colors.textMuted,
+      width: 18,
+      textAlign: "center",
+      flexShrink: 0,
+    },
     optionText: { flex: 1, ...typography.callout, color: colors.textSecondary },
 
     tagWrap: { flexDirection: "row", flexWrap: "wrap", gap: 6 },

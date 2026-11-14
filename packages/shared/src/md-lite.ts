@@ -235,27 +235,28 @@ function tableCells(line: string): string[] {
   return body2
     .replace(/\\\|/g, ESC)
     .split("|")
-    .map((cell) => cell.trim().split(ESC).join("\\|"));
+    .map((cell) => cell.trim().split(ESC).join("\\|").replace(/<br\s*\/?>/gi, "\n"));
 }
 
 /**
- * 把题库文本解析成结构块；`<br>`（含 `<br/>`）换成换行 —— 数据里唯一的真 HTML 标签就是它，
- * 其余尖括号内容（`<v0,v1>`、`<net1,16>`）是数学记号，必须原样保留。
+ * 把题库文本解析成结构块；`<br>`（含 `<br/>`）在段落/列表/表格单元格内换成换行，
+ * 代码块内保留原文 —— 数据里唯一的真 HTML 标签就是它，其余尖括号内容
+ * （`<v0,v1>`、`<net1,16>`）是数学记号，必须原样保留。
  */
 export function parseQuestionBlocks(text: string): QuestionBlock[] {
   const source = String(text ?? "");
   if (!source.trim()) return [];
-  const lines = source
-    .replace(/\r\n?/g, "\n")
-    .replace(/<br\s*\/?>/gi, "\n")
-    .split("\n");
+  // `<br>` 不能在最前面统一换成换行：表格单元格里的 <br> 会把一行表格拆成多行，
+  // 代码块里的 <br> 也可能本来就是要展示的代码。改为在各结构渲染前局部处理。
+  const lines = source.replace(/\r\n?/g, "\n").split("\n");
+  const softBreak = (value: string) => value.replace(/<br\s*\/?>/gi, "\n");
   const blocks: QuestionBlock[] = [];
   let paragraph: string[] = [];
   let list: { ordered: boolean; items: string[] } | null = null;
 
   const flushParagraph = () => {
     const kept = paragraph.filter((line) => line.trim().length > 0);
-    if (kept.length > 0) blocks.push({ type: "paragraph", lines: kept.map((l) => l.trim()) });
+    if (kept.length > 0) blocks.push({ type: "paragraph", lines: kept.map((l) => softBreak(l.trim())) });
     paragraph = [];
   };
   const flushList = () => {
@@ -301,7 +302,8 @@ export function parseQuestionBlocks(text: string): QuestionBlock[] {
       blocks.push({
         type: "heading",
         level: heading[1].length,
-        text: heading[2].replace(/\s+#+\s*$/, "").trim(),
+        // 标题里出现 <br> 时压成空格，避免标题被拆成多行
+        text: softBreak(heading[2].replace(/\s+#+\s*$/, "").trim()).replace(/\n/g, " "),
       });
       continue;
     }
@@ -329,7 +331,7 @@ export function parseQuestionBlocks(text: string): QuestionBlock[] {
         flushList();
         list = { ordered: isOrdered, items: [] };
       }
-      list.items.push(((unordered ?? ordered)?.[1] ?? "").trim());
+      list.items.push(softBreak(((unordered ?? ordered)?.[1] ?? "").trim()));
       continue;
     }
 

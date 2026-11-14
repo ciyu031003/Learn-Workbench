@@ -1,5 +1,7 @@
 import { Text, type StyleProp, type TextStyle } from "react-native";
-import { parseInlineRich, type InlineToken } from "@learn-workbench/shared/md-lite";
+import type { InlineToken } from "@learn-workbench/shared/md-lite";
+import { formatMathText } from "@/lib/latex-lite";
+import { parseInlineRichExtended } from "@/lib/rich-inline";
 
 /**
  * 行内富文本（移动端）：把 `**加粗**` / ```代码``` / `$公式$` 渲染成原生 Text 嵌套节点。
@@ -26,7 +28,7 @@ function InlineTokens({
     <>
       {tokens.map((token, index) => {
         if (token.type === "strong") {
-          const nested = depth < MAX_NESTED_DEPTH ? parseInlineRich(token.value) : null;
+          const nested = depth < MAX_NESTED_DEPTH ? parseInlineRichExtended(token.value) : null;
           return (
             <Text key={index} style={{ fontWeight: "700" }}>
               {nested ? (
@@ -40,7 +42,7 @@ function InlineTokens({
         if (token.type === "code" || token.type === "math") {
           return (
             <Text key={index} style={codeStyle}>
-              {token.value}
+              {token.type === "math" ? formatMathText(token.value) : token.value}
             </Text>
           );
         }
@@ -62,7 +64,7 @@ export function RichText({
   /** 与 RN Text 一致：只对多行截断场景（列表预览、卡片摘要）开放 */
   numberOfLines?: number;
 }) {
-  const tokens = parseInlineRich(text);
+  const tokens = parseInlineRichExtended(text);
   if (tokens.length === 1 && tokens[0].type === "text") {
     return (
       <Text style={style} numberOfLines={numberOfLines}>

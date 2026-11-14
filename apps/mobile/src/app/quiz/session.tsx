@@ -25,6 +25,9 @@ import { fetchDueReviewKeys } from "@/lib/learning-review";
 import { CelebrationModal } from "@/components/celebration-modal";
 import { QuestionSwipe } from "@/components/question-swipe";
 import { RichText } from "@/components/rich-text";
+import { RichTextBlock } from "@/components/rich-text-block";
+import { StudyTimerChip } from "@/components/study-timer-chip";
+import { useStudyTimer } from "@/lib/use-study-timer";
 import { celebrationSummary, celebrationTone } from "@/lib/celebration-copy";
 import { useAppStore } from "@/store/app-store";
 import { useReducedMotion } from "@/lib/motion";
@@ -100,6 +103,8 @@ function SessionContent({
   const topicTitle = topicKey
     ? track.stages.flatMap((item) => item.topics).find((topic) => topic.key === topicKey)?.title
     : null;
+  /** 学习计时：整组练习停留时长计入今日专注（v2.6.10），交卷后停止 */
+  const { seconds: timerSeconds } = useStudyTimer(topicTitle ?? track.title, !finished);
 
   const loadSession = useCallback(async () => {
     const attempts = await loadLearningAttempts();
@@ -303,7 +308,12 @@ function SessionContent({
 
   return (
     <View style={styles.root}>
-      <SessionTopBar title={track.title} progress={index / questions.length} onClose={() => router.back()} />
+      <SessionTopBar
+        title={track.title}
+        progress={index / questions.length}
+        timerSeconds={timerSeconds}
+        onClose={() => router.back()}
+      />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
@@ -328,7 +338,7 @@ function SessionContent({
             </Text>
             <Text style={styles.questionCount}>{index + 1} / {questions.length}</Text>
           </View>
-          <RichText text={question.stem} style={styles.questionStem} />
+          <RichTextBlock text={question.stem} style={styles.questionStem} />
           <View style={styles.optionList}>
             {question.options.map((option) => {
               const chosen = selected.includes(option.key);
@@ -386,7 +396,7 @@ function SessionContent({
             <Text style={styles.answerLine}>
               正确答案：{question.answer.join("、")}
             </Text>
-            <RichText text={question.explanation} style={styles.explanation} />
+            <RichTextBlock text={question.explanation} style={styles.explanation} />
             {source ? (
               <View style={styles.sourceRow}>
                 <ThemedIcon name="document-text-outline" size={14} color={colors.textMuted} />
@@ -431,7 +441,17 @@ function SessionContent({
   );
 }
 
-function SessionTopBar({ title, progress, onClose }: { title: string; progress: number; onClose: () => void }) {
+function SessionTopBar({
+  title,
+  progress,
+  timerSeconds = 0,
+  onClose,
+}: {
+  title: string;
+  progress: number;
+  timerSeconds?: number;
+  onClose: () => void;
+}) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -441,7 +461,12 @@ function SessionTopBar({ title, progress, onClose }: { title: string; progress: 
         <ThemedIcon name="close" size={21} color={colors.text} />
       </Pressable>
       <View style={styles.topBody}>
-        <Text style={styles.topLabel}>练习中 · {title}</Text>
+        <View style={styles.topLabelRow}>
+          <Text style={styles.topLabel} numberOfLines={1}>
+            练习中 · {title}
+          </Text>
+          <StudyTimerChip seconds={timerSeconds} />
+        </View>
         <View style={styles.progressTrack}>
           <View style={[styles.progressFill, { width: `${Math.round(Math.max(0, Math.min(1, progress)) * 100)}%` }]} />
         </View>
@@ -479,7 +504,8 @@ const makeStyles = (colors: ThemeColors) =>
     },
     closeButton: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceMuted },
     topBody: { flex: 1, gap: 6 },
-    topLabel: { ...typography.micro, color: colors.textMuted },
+    topLabelRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+    topLabel: { flex: 1, ...typography.micro, color: colors.textMuted },
     progressTrack: { height: 5, borderRadius: 999, backgroundColor: colors.surfaceMuted, overflow: "hidden" },
     progressFill: { height: "100%", borderRadius: 999, backgroundColor: colors.primary },
     scroll: { flex: 1 },
@@ -488,7 +514,8 @@ const makeStyles = (colors: ThemeColors) =>
     questionTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md },
     questionStage: { ...typography.micro, flex: 1 },
     questionCount: { ...typography.micro, color: colors.textMuted },
-    questionStem: { ...typography.title2, color: colors.text },
+    // 长题干（含 408 代码/公式）用正文号，22px 的 title2 会让一屏只剩几行
+    questionStem: { ...typography.body, lineHeight: 24, color: colors.text },
     optionList: { gap: spacing.sm },
     option: {
       minHeight: 58,

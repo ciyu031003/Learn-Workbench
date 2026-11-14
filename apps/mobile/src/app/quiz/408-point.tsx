@@ -10,7 +10,8 @@ import Animated from "react-native-reanimated";
 import { ThemedIcon } from "@/components/themed-icon";
 import { PressableScale } from "@/components/pressable-scale";
 import { Exam408QuestionCard } from "@/components/exam-408-question-card";
-import { RichText } from "@/components/rich-text";
+import { RichTextBlock } from "@/components/rich-text-block";
+import { StudyTimerChip } from "@/components/study-timer-chip";
 import { ScreenHeaderStickyBar, useLargeTitleHeader } from "@/components/screen-header";
 import { getExam408Point, type Exam408PointDetail } from "@/lib/exam-408";
 import { internalizePointKey } from "@/lib/exam-408-point-key";
@@ -24,6 +25,7 @@ import { friendlyError } from "@/lib/friendly-error";
 import { takeNavPendingParams } from "@/lib/nav-pending";
 import { recordCrumb } from "@/lib/crash-capture";
 import { useScreenEntrance } from "@/lib/use-screen-entrance";
+import { useStudyTimer } from "@/lib/use-study-timer";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
 import { useTheme } from "@/theme";
 import { radius, shadows, spacing, typography, type ThemeColors } from "@/theme/tokens";
@@ -47,6 +49,8 @@ function PointContent({ pointKey }: { pointKey: string }) {
   const [topic, setTopic] = useState<Exam408Topic | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  /** 学习计时：知识点页停留时长计入今日专注（v2.6.10） */
+  const { seconds } = useStudyTimer(detail?.point.title ?? null);
   /**
    * 知识点正文（v1.54.0）。旧接口无此列 → 空数组 → 整个区块不渲染，
    * 保持 1.53.x 的老页面形态。hook 必须在下面的提前 return 之前。
@@ -177,10 +181,11 @@ function PointContent({ pointKey }: { pointKey: string }) {
             </View>
           </View>
           <Text style={styles.heroTitle}>{detail.point.title}</Text>
-          <RichText text={detail.point.summary} style={styles.heroSummary} />
+          <RichTextBlock text={detail.point.summary} style={styles.heroSummary} />
+          <StudyTimerChip seconds={seconds} />
           <View style={styles.heroStats}>
             <View style={styles.countBox}>
-              <Text style={styles.countValue}>{detail.point.questionCount}</Text>
+              <Text style={styles.countValue}>{detail.point.questionCount > 0 ? detail.point.questionCount : "—"}</Text>
               <Text style={styles.countLabel}>关联真题</Text>
             </View>
             <View style={styles.tagWrap}>
@@ -201,10 +206,11 @@ function PointContent({ pointKey }: { pointKey: string }) {
             </View>
             <View style={styles.bodyList}>
               {bodyParagraphs.map((paragraph, index) => (
-                <RichText
+                <RichTextBlock
                   key={`body-${index}`}
                   text={paragraph.text}
                   style={paragraph.heading ? styles.bodyParagraphHeading : styles.bodyParagraph}
+                  containerStyle={styles.bodyParagraphBody}
                 />
               ))}
             </View>
@@ -321,13 +327,30 @@ function PointContent({ pointKey }: { pointKey: string }) {
           </PressableScale>
         </View>
 
-        <View style={styles.questionList}>
-          {detail.questions.map((question) => (
-            <Animated.View key={question.key} entering={entrance(2)}>
-              <Exam408QuestionCard question={question} />
-            </Animated.View>
-          ))}
-        </View>
+        {detail.questions.length > 0 ? (
+          <View style={styles.questionList}>
+            {detail.questions.map((question) => (
+              <Animated.View key={question.key} entering={entrance(2)}>
+                <Exam408QuestionCard question={question} />
+              </Animated.View>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.emptyQuestions}>
+            <ThemedIcon name="document-text-outline" size={24} color={colors.textMuted} />
+            <Text style={styles.emptyTitle}>这个知识点还没有配套真题</Text>
+            <Text style={styles.emptyText}>可以先去 408 专区按章节刷题，或从上方延伸内容进入精读。</Text>
+            <PressableScale
+              haptic
+              onPress={() => router.push("/exam-408-drill" as never)}
+              style={styles.emptyAction}
+              accessibilityRole="button"
+              accessibilityLabel="去刷 408 卡片"
+            >
+              <Text style={styles.emptyActionText}>去刷 408 卡片</Text>
+            </PressableScale>
+          </View>
+        )}
 
         <View style={styles.sourceBox}>
           <Text style={styles.sourceTitle}>来源</Text>
@@ -426,6 +449,7 @@ const makeStyles = (colors: ThemeColors) =>
     // 段间距 12（规范 10-12）：长正文靠间距分段，不用分隔线，避免视觉噪音
     bodyList: { gap: spacing.md },
     bodyParagraph: { ...typography.body, color: colors.textSecondary },
+    bodyParagraphBody: { flexGrow: 0 },
     // 以【】开头的段落是正文里的小标题，加粗 + 主文本色，压过正文一档
     bodyParagraphHeading: { ...typography.body, fontWeight: "700", color: colors.text },
     sectionHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
@@ -433,6 +457,27 @@ const makeStyles = (colors: ThemeColors) =>
     backButton: { flexDirection: "row", alignItems: "center", gap: 4, padding: 6 },
     backText: { ...typography.caption, color: colors.textMuted },
     questionList: { gap: spacing.md },
+    emptyQuestions: {
+      alignItems: "center",
+      gap: spacing.sm,
+      borderRadius: radius.xl,
+      padding: spacing.xl,
+      backgroundColor: colors.surface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    emptyTitle: { ...typography.callout, fontWeight: "800", color: colors.text },
+    emptyText: { ...typography.caption, color: colors.textMuted, textAlign: "center", lineHeight: 19 },
+    emptyAction: {
+      minHeight: 44,
+      marginTop: spacing.xs,
+      paddingHorizontal: spacing.xl,
+      borderRadius: radius.md,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.primarySoft,
+    },
+    emptyActionText: { ...typography.callout, fontWeight: "800", color: colors.primaryStrong },
     extensionCard: {
       borderRadius: radius.xl,
       padding: spacing.lg,
