@@ -183,6 +183,11 @@ export default function Exam408DrillScreen() {
    */
   const [queueOrder, setQueueOrder] = useState<Exam408DrillCard[]>([]);
   const [mistakeOrder, setMistakeOrder] = useState<Exam408DrillCard[]>([]);
+  /** 本会话已经刷完：切到易错本再切回来时保持完成态，不闪回第 1 张 */
+  const queueCompleted = useRef(false);
+  const mistakeCompleted = useRef(false);
+  /** rate 的 220ms 滑出动画结束后用它确认用户没有切换范围 */
+  const scopeRef = useRef<"queue" | "mistake">("queue");
   /** v2.6.11：每日 20 张完成庆祝（同一天同一科目只弹一次） */
   const { request: celebrationRequest, celebrateOnce, close: closeCelebration } = useCelebration();
   /**
@@ -193,6 +198,9 @@ export default function Exam408DrillScreen() {
   const positionMemory = useRef<Record<string, { date: string; cardKey: string; index: number }>>({});
   /** v1.55 易错本：scope=mistake 的独立队列（只读不写缓存，避免覆盖今日队列缓存） */
   const [scope, setScope] = useState<"queue" | "mistake">("queue");
+  useEffect(() => {
+    scopeRef.current = scope;
+  }, [scope]);
   const [mistakeQueue, setMistakeQueue] = useState<Exam408CardQueue | null>(null);
   const [mistakeLoading, setMistakeLoading] = useState(false);
   const [mistakeFailure, setMistakeFailure] = useState<Exam408FetchFailure | null>(null);
@@ -383,6 +391,7 @@ export default function Exam408DrillScreen() {
         setClearedTotal(todayTotal);
         setQueue({ ...queueResult.queue, cards: remaining });
         setDailyCleared(remaining.length === 0 && todayTotal > 0);
+        queueCompleted.current = remaining.length === 0 && todayTotal > 0;
         setStats(mergeCardStatsWithPending(queueResult.queue.stats, flushed.remaining));
         setOffline(false);
         setFailure(null);
@@ -411,6 +420,7 @@ export default function Exam408DrillScreen() {
           setClearedTotal(todayTotal);
           setQueue({ ...cached, cards: remaining });
           setDailyCleared(remaining.length === 0 && todayTotal > 0);
+          queueCompleted.current = remaining.length === 0 && todayTotal > 0;
           setStats(mergeCardStatsWithPending(cached.stats, flushed.remaining));
           await saveRoundPlan(targetSubject, todayKey, cached);
         } else {
@@ -465,6 +475,7 @@ export default function Exam408DrillScreen() {
         setMistakeOrder(roundOrder);
         setMistakeQueue(result.queue);
         setMistakeFailure(null);
+        if (result.queue.cards.length > 0) mistakeCompleted.current = false;
         // 易错本也留一份整轮快照，供「重刷易错本」使用（服务端重算后可能不再返回同一批）
         await saveRoundPlan(targetSubject, todayKey, result.queue, "mistake");
       } else {
@@ -598,7 +609,16 @@ export default function Exam408DrillScreen() {
    * 重刷则走当天的整轮快照。
    */
   const finishRatedCard = useCallback(
-    (targetIndex: number) => {
+    (targetIndex: number, total: number, ratedScope: "queue" | "mistake") => {
+      // 用户评级后 220ms 内切到另一个范围：不要把新范围的游标改成旧队列的终点
+      if (scopeRef.current !== ratedScope) {
+        setBusy(false);
+        return;
+      }
+      if (targetIndex >= total) {
+        if (ratedScope === "queue") queueCompleted.current = true;
+        else mistakeCompleted.current = true;
+      }
       setIndex(targetIndex);
       setFlipped(false);
       flip.value = 0;
@@ -638,7 +658,7 @@ export default function Exam408DrillScreen() {
     cardSlide.value = withTiming(0, { duration: 220 }, (done) => {
       // 动画回调在 UI 线程：不复位共享值（否则旧卡会闪现一帧），只转发切卡；
       // 复位由 finishRatedCard 在 JS 侧与新卡状态同一 tick 完成。
-      if (done) runOnJS(finishRatedCard)(targetIndex);
+      if (done) runOnJS(finishRatedCard)(targetIndex, cards.length, scope);
     });
 
     const clientId = makeClientId();
@@ -698,6 +718,7 @@ export default function Exam408DrillScreen() {
       setMistakeQueue({ ...plan, cards: plan.cards });
       setMistakeOrder(plan.cards);
       setMistakeFailure(null);
+      mistakeCompleted.current = false;
     } else {
       const plan = await loadRoundPlan(subjectKey, todayKey, "queue");
       await resetSeen(subjectKey, todayKey);
@@ -709,6 +730,7 @@ export default function Exam408DrillScreen() {
       setQueue({ ...plan, cards: plan.cards });
       setQueueOrder(plan.cards);
       setClearedTotal(plan.cards.length);
+      queueCompleted.current = false;
     }
     setIndex(0);
     setFlipped(false);
@@ -726,6 +748,23 @@ export default function Exam408DrillScreen() {
   const todayLine = stats.doneToday > 0 ? "今日已刷 " + stats.doneToday + " 张" : "今天还没开始";
   const dueLine = dueNow > 0 ? "待复习 " + dueNow + " 张" : "暂无待复习";
   const streakLine = stats.streak > 0 ? "连续 " + stats.streak + " 天" : "从今天起步";
+  // 范围切换里的数量写「共 N 张」而不是「剩 N 张」：本轮评级后卡片保留在会话里，
+  // 用 index 算剩余数会在切范围时失真；完成态则明确写「本轮已完成」。
+  const queueMeta = queue
+    ? (scope === "queue" && finished) || dailyCleared
+      ? "本轮已完成"
+      : queue.cards.length > 0
+        ? "共 " + queue.cards.length + " 张"
+        : "已清空"
+    : "到期优先";
+  const mistakeMeta =
+    scope === "mistake" && mistakeQueue
+      ? finished
+        ? "本轮已完成"
+        : mistakeQueue.cards.length > 0
+          ? "共 " + mistakeQueue.cards.length + " 张"
+          : "已清空"
+      : "错题重刷";
 
   // 未登录优先判：登录态变化时不需要先闪一帧 loading 再跳到登录引导
   if (!token || activeFailure === "unauthorized") {
@@ -802,35 +841,39 @@ export default function Exam408DrillScreen() {
             styles={styles}
             colors={colors}
             label="今日队列"
-            meta={queue ? (queue.cards.length > 0 ? "剩 " + queue.cards.length + " 张" : "已清空") : "到期优先"}
+            meta={queueMeta}
             active={scope === "queue"}
             onPress={() => {
               haptics.light();
               // 切回今日队列：恢复上次停下的那张（内存指针优先，避免回到第 1 张）
               const memory = positionMemory.current[drillBucketKey(subjectKey, "queue")];
               const cardsNow = queue?.cards ?? [];
+              scopeRef.current = "queue";
               setScope("queue");
               setFlipped(false);
-              setIndex(memory ? resolveDrillResumeIndex(cardsNow, memory, localDateKey(), cardsNow) : 0);
+              // 本轮已刷完时保持完成态；否则按内存指针恢复上次位置
+              setIndex(
+                queueCompleted.current
+                  ? cardsNow.length
+                  : memory
+                    ? resolveDrillResumeIndex(cardsNow, memory, localDateKey(), cardsNow)
+                    : 0,
+              );
             }}
           />
           <ScopeTab
             styles={styles}
             colors={colors}
             label="易错本"
-            meta={
-              scope === "mistake" && mistakeQueue
-                ? mistakeQueue.cards.length > 0
-                  ? "剩 " + mistakeQueue.cards.length + " 张"
-                  : "已清空"
-                : "错题重刷"
-            }
+            meta={mistakeMeta}
             active={scope === "mistake"}
             onPress={() => {
               haptics.light();
+              scopeRef.current = "mistake";
               setScope("mistake");
               setMistakeLoading(true);
               setFlipped(false);
+              if (mistakeCompleted.current && mistakeQueue) setIndex(mistakeQueue.cards.length);
               // index 交给 loadMistakes：它会按易错本自己的指针恢复
             }}
           />
@@ -938,6 +981,7 @@ export default function Exam408DrillScreen() {
                   haptic
                   onPress={() => {
                     haptics.light();
+                    scopeRef.current = "mistake";
                     setScope("mistake");
                     setMistakeLoading(true);
                     setFlipped(false);
