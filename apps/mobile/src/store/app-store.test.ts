@@ -543,6 +543,28 @@ describe("S5-6 持久化拆轻/重两份 key", () => {
   });
 });
 
+describe("每日专注目标（v2.6.12 可人为设置）", () => {
+  it("默认 3 小时，设置时归一到 15 分钟并夹在 15–720", () => {
+    useAppStore.setState({ dailyFocusGoalMinutes: 180 });
+    expect(useAppStore.getState().dailyFocusGoalMinutes).toBe(180);
+
+    useAppStore.getState().setDailyFocusGoalMinutes(240);
+    expect(useAppStore.getState().dailyFocusGoalMinutes).toBe(240);
+
+    useAppStore.getState().setDailyFocusGoalMinutes(193);
+    expect(useAppStore.getState().dailyFocusGoalMinutes).toBe(195);
+
+    useAppStore.getState().setDailyFocusGoalMinutes(1);
+    expect(useAppStore.getState().dailyFocusGoalMinutes).toBe(15);
+
+    useAppStore.getState().setDailyFocusGoalMinutes(9999);
+    expect(useAppStore.getState().dailyFocusGoalMinutes).toBe(720);
+
+    useAppStore.getState().setDailyFocusGoalMinutes(Number.NaN);
+    expect(useAppStore.getState().dailyFocusGoalMinutes).toBe(180);
+  });
+});
+
 describe("profile identity lifecycle", () => {
   it("keeps the same account profile on refresh and clears it on account change", () => {
     useAppStore.setState({ token: null, username: null, displayName: null, avatarUrl: null });

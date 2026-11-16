@@ -304,6 +304,14 @@ describe("统计合并", () => {
     expect(merged).toEqual({ newCount: 10, dueCount: 0, doneToday: 13, streak: 6 });
   });
 
+  it("快速连评响应乱序时今日完成数不回退", () => {
+    const merged = mergeRatingResultStats(
+      { newCount: 0, dueCount: 2, doneToday: 15, streak: 3 },
+      { cardKey: "k", rating: "good", isCorrect: true, state: "review", dueAt: "", intervalDays: 1, streak: 3, doneToday: 12, remainingDue: 4 },
+    );
+    expect(merged.doneToday).toBe(15);
+  });
+
   it("评级的是新卡时本地 newCount -1（服务端不回 newCount）", () => {
     const merged = mergeRatingResultStats(
       { newCount: 10, dueCount: 0, doneToday: 0, streak: 0 },

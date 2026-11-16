@@ -518,6 +518,43 @@ describe("服务端公式段（P7 / format=svg）", () => {
     }
   });
 
+  it("408 列表公式保留服务端 SVG，且不泄漏 ** 与原始 LaTeX（知识精读截图场景）", () => {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -750 19176 1000"></svg>';
+    const blocks = normalizeApiStudyBlocks([
+      {
+        type: "list",
+        ordered: false,
+        items: [
+          {
+            text: "**加法规则**：$T(n)=T_1(n)+T_2(n)=O(\\max(f(n),g(n)))$",
+            depth: 0,
+            segments: [
+              { type: "text", text: "**加法规则**：" },
+              { type: "math", tex: "T(n)=T_1(n)+T_2(n)=O(\\max(f(n),g(n)))", svg },
+            ],
+          },
+        ],
+      },
+    ]);
+    expect(blocks[0].type).toBe("list");
+    if (blocks[0].type === "list") {
+      const segments = blocks[0].items[0].segments ?? [];
+      expect(segments.map((segment) => segment.type)).toEqual(["strong", "text", "math"]);
+      const math = segments.find((segment) => segment.type === "math");
+      expect(math).toMatchObject({
+        type: "math",
+        tex: "T(n)=T_1(n)+T_2(n)=O(\\max(f(n),g(n)))",
+      });
+      if (math?.type === "math") expect(math.svg).toContain("<svg");
+      const plain = segments
+        .filter((segment) => segment.type === "text")
+        .map((segment) => (segment as { text: string }).text)
+        .join("");
+      expect(plain).not.toContain("**");
+      expect(plain).not.toContain("\\max");
+    }
+  });
+
   it("chunkInlineText 给折行留机会，空串返回空数组", () => {
     expect(chunkInlineText("一二三四五六七八九十", 4)).toEqual(["一二三四", "五六七八", "九十"]);
     expect(chunkInlineText("abc", 10)).toEqual(["abc"]);

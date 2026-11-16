@@ -471,7 +471,8 @@ export function mergeRatingResultStats(
   return {
     newCount: ratedState === "new" ? Math.max(0, stats.newCount - 1) : stats.newCount,
     dueCount: Math.max(0, result.remainingDue),
-    doneToday: result.doneToday > 0 ? result.doneToday : stats.doneToday,
+    // 快速连续评级时响应可能乱序：今日完成数只增不减，避免界面「刷了又退回去」
+    doneToday: Math.max(stats.doneToday, result.doneToday),
     streak: Math.max(stats.streak, result.streak),
   };
 }

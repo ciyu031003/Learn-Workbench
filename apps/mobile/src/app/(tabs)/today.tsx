@@ -80,8 +80,8 @@ import { summarizeLearningAttempts as summarizeLearningEvidence } from "@learn-w
  * 这里只做展示，不改口径）；运动 30 分钟是目标条「训练」的参考线，同样只用于展示进度。
  */
 const DAILY_QUESTION_GOAL = 20;
-/** 每日专注目标（v3 原型「日目标」环）：180 分钟，只用于展示进度百分比，不改任何统计口径 */
-const DAILY_FOCUS_GOAL_MINUTES = 180;
+/** 每日专注目标默认值（v2.6.12 起可在「设置 → 每日专注目标」人为调整） */
+const DEFAULT_FOCUS_GOAL_MINUTES = 180;
 /** 实景带取景时刻：本地打包图的静态展示信息，不随设备时间变化 */
 const SCENE_TIME = "06:52";
 
@@ -750,6 +750,14 @@ export default function TodayScreen() {
     }
   };
   const focusStats = computeFocusStats(sessions);
+  /** 每日专注目标（分钟）：用户可在设置里改，今日页目标环 / 提醒文案实时跟随 */
+  const dailyFocusGoalMinutes = useAppStore(
+    (s) => s.dailyFocusGoalMinutes ?? DEFAULT_FOCUS_GOAL_MINUTES,
+  );
+  const focusGoalLabel =
+    dailyFocusGoalMinutes % 60 === 0
+      ? dailyFocusGoalMinutes / 60 + " 小时"
+      : Math.floor(dailyFocusGoalMinutes / 60) + " 小时 " + (dailyFocusGoalMinutes % 60) + " 分";
 
 
   /**
@@ -813,7 +821,7 @@ export default function TodayScreen() {
 
   /** ---------- v3 一屏原型的派生数据（全部来自既有本地数据，不新增接口） ---------- */
   const focusMinutesToday = focusStats.todayMinutes;
-  const focusGoalPercent = Math.min(100, Math.round((focusMinutesToday / DAILY_FOCUS_GOAL_MINUTES) * 100));
+  const focusGoalPercent = Math.min(100, Math.round((focusMinutesToday / dailyFocusGoalMinutes) * 100));
   const focusH = Math.floor(focusMinutesToday / 60);
   const focusM = focusMinutesToday % 60;
   /** 按日专注分钟：last14 = 最近 14 天（含今天），供本周节律柱与 7 天曲线共用 */
@@ -839,7 +847,7 @@ export default function TodayScreen() {
     .map((d) => WEEKDAY_LABELS[new Date(d.date + "T00:00:00").getDay()]);
   const weekFocusPercent = Math.min(
     100,
-    Math.round((weekFocusMinutes / (DAILY_FOCUS_GOAL_MINUTES * 7)) * 100)
+    Math.round((weekFocusMinutes / (dailyFocusGoalMinutes * 7)) * 100)
   );
   const weekFocusHint =
     weekFocusMinutes === 0
@@ -921,8 +929,8 @@ export default function TodayScreen() {
           title={focusMinutesToday > 0 ? undefined : "还没有专注记录"}
           copy={
             focusMinutesToday > 0
-              ? "目标 " + Math.floor(DAILY_FOCUS_GOAL_MINUTES / 60) + " 小时，再专注 " +
-                Math.max(0, DAILY_FOCUS_GOAL_MINUTES - focusMinutesToday) + " 分钟即可达成"
+              ? "目标 " + focusGoalLabel + "，再专注 " +
+                Math.max(0, dailyFocusGoalMinutes - focusMinutesToday) + " 分钟即可达成"
               : "不必先制定完整计划，专注 25 分钟就是进展。"
           }
           ring={focusMinutesToday > 0 ? { percent: focusGoalPercent, label: "日目标" } : undefined}
@@ -1333,11 +1341,11 @@ export default function TodayScreen() {
             <View style={[styles.v3NotifDot, { backgroundColor: colors.accent }]} />
             <View style={styles.v3NotifBody}>
               <Text style={styles.v3NotifTitle}>
-                {focusMinutesToday > 0 ? "今日专注 " + focusMinutesToday + " 分 / 目标 " + DAILY_FOCUS_GOAL_MINUTES + " 分" : "今天还没有专注记录"}
+                {focusMinutesToday > 0 ? "今日专注 " + focusMinutesToday + " 分 / 目标 " + focusGoalLabel : "今天还没有专注记录"}
               </Text>
               <Text style={styles.v3NotifSub}>
                 {focusMinutesToday > 0
-                  ? "还差 " + Math.max(0, DAILY_FOCUS_GOAL_MINUTES - focusMinutesToday) + " 分钟到日目标"
+                  ? "还差 " + Math.max(0, dailyFocusGoalMinutes - focusMinutesToday) + " 分钟到日目标"
                   : "从 25 分钟开始，今天就会有第一段进展"}
               </Text>
             </View>

@@ -19,6 +19,7 @@ import {
   type StudyInline,
   type StudySegment,
 } from "@/lib/exam-408-study";
+import { formatMathText } from "@/lib/latex-lite";
 import { useTheme } from "@/theme";
 import { radius, spacing, typography, type ThemeColors } from "@/theme/tokens";
 
@@ -34,6 +35,11 @@ import { radius, spacing, typography, type ThemeColors } from "@/theme/tokens";
  */
 
 const MONO = "monospace";
+
+/** 段里是否有「服务端已渲染成 SVG」的公式：有就必须走 SegmentRow（Text 里嵌不了 SvgXml） */
+function hasMathSvg(segments: StudySegment[] | undefined): boolean {
+  return Boolean(segments?.some((segment) => segment.type === "math" && segment.svg));
+}
 
 export interface MarkdownArticleProps {
   blocks: StudyBlock[];
@@ -106,11 +112,17 @@ export function MarkdownArticle({
                 {block.items.map((item, itemIndex) => (
                   <View key={key + "-" + itemIndex} style={[styles.listItem, { marginLeft: item.depth * spacing.lg }]}>
                     <Text style={styles.bullet}>{block.ordered ? itemIndex + 1 + "." : "•"}</Text>
-                    {item.segments && item.segments.length > 0 ? (
-                      <InlineSegments segments={item.segments} style={styles.listText} />
-                    ) : (
-                      <InlineText tokens={item.inlines} style={styles.listText} />
-                    )}
+                    <View style={styles.listBody}>
+                      {item.segments && item.segments.length > 0 ? (
+                        hasMathSvg(item.segments) ? (
+                          <SegmentRow segments={item.segments} style={styles.listTextPlain} />
+                        ) : (
+                          <InlineSegments segments={item.segments} style={styles.listText} />
+                        )
+                      ) : (
+                        <InlineText tokens={item.inlines} style={styles.listText} />
+                      )}
+                    </View>
                   </View>
                 ))}
               </View>
@@ -121,7 +133,11 @@ export function MarkdownArticle({
                 {block.lines.map((line, lineIndex) => {
                   const segments = block.lineSegments?.[lineIndex];
                   return segments && segments.length > 0 ? (
-                    <InlineSegments key={key + "-" + lineIndex} segments={segments} style={styles.quoteText} />
+                    hasMathSvg(segments) ? (
+                      <SegmentRow key={key + "-" + lineIndex} segments={segments} style={styles.quoteText} />
+                    ) : (
+                      <InlineSegments key={key + "-" + lineIndex} segments={segments} style={styles.quoteText} />
+                    )
                   ) : (
                     <InlineText key={key + "-" + lineIndex} tokens={line} style={styles.quoteText} />
                   );
@@ -160,15 +176,13 @@ export function MarkdownArticle({
             return (
               <View key={key} style={styles.mathBlock}>
                 <View style={styles.blockHead}>
-                  <Text style={styles.mathLabel}>LaTeX 公式 · 服务端未渲染</Text>
-                  <CopyButton value={block.tex} label="复制公式" />
+                  <Text style={styles.mathLabel}>公式</Text>
+                  <CopyButton value={block.tex} label="复制 LaTeX" />
                 </View>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.codeScroll}>
-                  <Text style={styles.mathText} selectable>
-                    {block.tex}
-                  </Text>
-                </ScrollView>
-                <Text style={styles.mathHint}>可复制到支持 LaTeX 的工具查看。</Text>
+                <Text style={styles.mathFallback} selectable>
+                  {formatMathText(block.tex)}
+                </Text>
+                <Text style={styles.mathHint}>服务端暂未生成矢量图，已转成可读的数学排版。</Text>
               </View>
             );
           case "image":
@@ -286,7 +300,7 @@ function SegmentRow({ segments, style }: { segments: StudySegment[]; style: obje
             <MathSvg key={part.key} svg={part.svg} />
           ) : (
             <Text key={part.key} style={styles.inlineMath}>
-              {part.tex}
+              {formatMathText(part.tex)}
             </Text>
           )
         ) : (
@@ -322,7 +336,7 @@ function InlineSegments({ segments, style }: { segments: StudySegment[]; style: 
         if (segment.type === "math") {
           return (
             <Text key={"m-" + index} style={styles.inlineMath}>
-              {segment.tex}
+              {formatMathText(segment.tex)}
             </Text>
           );
         }
@@ -370,7 +384,7 @@ function InlineTokens({ tokens }: { tokens: StudyInline[] }): React.JSX.Element 
         if (token.type === "math") {
           return (
             <Text key={index} style={styles.inlineMath}>
-              {token.value}
+              {formatMathText(token.value)}
             </Text>
           );
         }
@@ -414,7 +428,11 @@ function TableView({ block }: { block: Extract<StudyBlock, { type: "table" }> })
           {Array.from({ length: columnCount }).map((_, column) => (
             <View key={"h-" + column} style={[styles.tableCell, { width: columnWidths[column] }]}>
               {block.headerSegments?.[column] && block.headerSegments[column].length > 0 ? (
-                <InlineSegments segments={block.headerSegments[column]} style={styles.tableHeaderText} />
+                hasMathSvg(block.headerSegments[column]) ? (
+                  <SegmentRow segments={block.headerSegments[column]} style={styles.tableHeaderText} />
+                ) : (
+                  <InlineSegments segments={block.headerSegments[column]} style={styles.tableHeaderText} />
+                )
               ) : (
                 <InlineText tokens={block.header[column] ?? []} style={styles.tableHeaderText} />
               )}
@@ -426,7 +444,11 @@ function TableView({ block }: { block: Extract<StudyBlock, { type: "table" }> })
             {Array.from({ length: columnCount }).map((_, column) => (
               <View key={"c-" + rowIndex + "-" + column} style={[styles.tableCell, { width: columnWidths[column] }]}>
                 {block.rowSegments?.[rowIndex]?.[column] && block.rowSegments[rowIndex][column].length > 0 ? (
-                  <InlineSegments segments={block.rowSegments[rowIndex][column]} style={styles.tableCellText} />
+                  hasMathSvg(block.rowSegments[rowIndex][column]) ? (
+                    <SegmentRow segments={block.rowSegments[rowIndex][column]} style={styles.tableCellText} />
+                  ) : (
+                    <InlineSegments segments={block.rowSegments[rowIndex][column]} style={styles.tableCellText} />
+                  )
                 ) : (
                   <InlineText tokens={row[column] ?? []} style={styles.tableCellText} />
                 )}
@@ -651,7 +673,10 @@ const makeStyles = (colors: ThemeColors) =>
     list: { gap: spacing.sm },
     listItem: { flexDirection: "row", gap: spacing.sm, alignItems: "flex-start" },
     bullet: { ...typography.body, color: colors.primary, minWidth: 16 },
+    listBody: { flex: 1 },
     listText: { ...typography.body, color: colors.textSecondary, flex: 1, lineHeight: 27 },
+    /** SegmentRow 的每一块都是独立 Text：样式里不能带 flex，否则每块都会抢满整行 */
+    listTextPlain: { ...typography.body, color: colors.textSecondary, lineHeight: 27 },
     quote: {
       borderLeftWidth: 3,
       borderLeftColor: colors.accent,
@@ -704,7 +729,12 @@ const makeStyles = (colors: ThemeColors) =>
       paddingVertical: spacing.sm,
       paddingHorizontal: spacing.md,
     },
-    mathText: { fontFamily: MONO, fontSize: 14, lineHeight: 22, color: colors.primaryStrong },
+    mathFallback: {
+      ...typography.body,
+      color: colors.primaryStrong,
+      lineHeight: 26,
+      fontStyle: "italic",
+    },
     tableScroll: { flexGrow: 0 },
     table: {
       borderWidth: StyleSheet.hairlineWidth,

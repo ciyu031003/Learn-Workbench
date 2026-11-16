@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  AppState,
   Dimensions,
   Pressable,
   ScrollView,
@@ -26,7 +27,17 @@ import { RichText } from "@/components/rich-text";
 import { ScreenHeaderStickyBar } from "@/components/screen-header";
 import { ThemedIcon } from "@/components/themed-icon";
 import { getApiUrl } from "@/config";
-import { DAILY_CARD_PLAN, filterUnseen, localDateKey } from "@/lib/drill-progress-core";
+import {
+  DAILY_CARD_PLAN,
+  drillBucketKey,
+  filterUnseen,
+  localDateKey,
+  pickRoundOrder,
+  resolveDrillResumeIndex,
+  roundOrderPosition,
+} from "@/lib/drill-progress-core";
+import { clearDrillPointer, loadDrillPointer, saveDrillPointer } from "@/lib/drill-position";
+import { loadRoundPlan, saveRoundPlan } from "@/lib/drill-round";
 import { StudyTimerChip } from "@/components/study-timer-chip";
 import { CelebrationModal } from "@/components/celebration-modal";
 import { useCelebration } from "@/lib/use-celebration";
@@ -76,12 +87,19 @@ import {
   type Exam408CardStats,
   type Exam408CardStatsBoard,
   type Exam408CardQueue,
+  type Exam408DrillCard,
   type Exam408FetchFailure,
   type Exam408QueueFetch,
 } from "@/lib/exam-408-cards";
 
 /**
- * 408 刷卡页（v1.55 / P11 重做）。
+ * 408 刷卡页（v2.6.12 交互与续播重构）。
+ *
+ * 交互口径：
+ * - 轻点卡片任意位置 = 题干 ↔ 答案；左右滑动 = 上一张 / 下一张；
+ * - 翻到答案才写「已看」，滑动本身只移动游标；
+ * - 退出 / 切页 / 换科目 / 切易错本后再进来，按持久化指针恢复上次位置，
+ *   并静默刷新服务端队列（服务端插卡、删卡、当天已评级都不影响落点）。
  *
  * 与 Web 共用同一套 /api/exam/408/cards 与 FSRS 状态：
  * - 需要登录（401 → 引导去「我的」登录）；
@@ -99,13 +117,16 @@ import {
  */
 
 const FLIP_DURATION = 220;
-/** 横向滑动翻面的阈值（距离 + 速度双判，与 question-swipe 同口径） */
+/** 左右滑切换卡片的阈值（距离 + 速度双判，与 question-swipe 同口径） */
 const SWIPE_DISTANCE = 56;
 const SWIPE_VELOCITY = 420;
 const ACTIVATE_X = 18;
 const FAIL_Y = 14;
 /** 评级后卡片滑出的横向距离 */
 const SLIDE_OUT = 460;
+/** 左右滑切换卡片时：旧卡滑出距离 / 新卡滑入的起始偏移 */
+const SWITCH_OUT = 320;
+const SWITCH_IN = 26;
 
 export default function Exam408DrillScreen() {
   const { colors } = useTheme();
@@ -142,10 +163,34 @@ export default function Exam408DrillScreen() {
   const [offline, setOffline] = useState(false);
   const [pending, setPending] = useState(0);
   const [notice, setNotice] = useState("");
+  /** 左右滑到头时的轻提示：1.8s 自动消失，不占常驻版面 */
+  const [navHint, setNavHint] = useState("");
+  useEffect(() => {
+    if (!navHint) return;
+    const timer = setTimeout(() => setNavHint(""), 1800);
+    return () => clearTimeout(timer);
+  }, [navHint]);
+  /** 轻提示入口：不碰 ref，可安全地交给 runOnJS */
+  const showNavHint = useCallback((message: string) => setNavHint(message), []);
   /** 今日计划已全部看完（队列里的卡都被过滤掉） */
   const [dailyCleared, setDailyCleared] = useState(false);
+  /** 本轮总张数：服务端当天已清空时用当天快照兜底，空态文案不再写死 20 */
+  const [clearedTotal, setClearedTotal] = useState(0);
+  /**
+   * 整轮顺序（含已看卡）：服务端当天只返回剩余 10 张时，仍按当天 20 张的顺序显示
+   * 「第 11 / 20 张」，而不是重新从「第 1 / 10 张」开始。今日队列与易错本各存一份，
+   * 来回切换范围时互不覆盖。
+   */
+  const [queueOrder, setQueueOrder] = useState<Exam408DrillCard[]>([]);
+  const [mistakeOrder, setMistakeOrder] = useState<Exam408DrillCard[]>([]);
   /** v2.6.11：每日 20 张完成庆祝（同一天同一科目只弹一次） */
   const { request: celebrationRequest, celebrateOnce, close: closeCelebration } = useCelebration();
+  /**
+   * 本会话内的续播位置（按 scope|subject 分桶）。
+   * 持久化在 lib/drill-position.ts；内存这份用来在切换范围/科目时立刻恢复，
+   * 不必等 AsyncStorage 往返。
+   */
+  const positionMemory = useRef<Record<string, { date: string; cardKey: string; index: number }>>({});
   /** v1.55 易错本：scope=mistake 的独立队列（只读不写缓存，避免覆盖今日队列缓存） */
   const [scope, setScope] = useState<"queue" | "mistake">("queue");
   const [mistakeQueue, setMistakeQueue] = useState<Exam408CardQueue | null>(null);
@@ -154,6 +199,20 @@ export default function Exam408DrillScreen() {
   /** 学习计时：刷卡停留时长计入今日专注（v2.6.10） */
   const { seconds } = useStudyTimer(subjectKey ? subjectLabel(subjectKey) + " · 408 刷卡" : "408 刷卡");
 
+  // 当前渲染的队列范围：今日队列（到期+新卡）或易错本（错题重刷）
+  const activeQueue = scope === "mistake" ? mistakeQueue : queue;
+  const activeFailure = scope === "mistake" ? mistakeFailure : failure;
+  const activeLoading = scope === "mistake" ? mistakeLoading : loading;
+  const cards = activeQueue?.cards ?? [];
+  const card = index < cards.length ? cards[index] : null;
+  const finished = cards.length > 0 && index >= cards.length;
+  const activeOrder = scope === "mistake" ? mistakeOrder : queueOrder;
+  const progressTotal = Math.max(activeOrder.length, cards.length);
+  const progressIndex = finished
+    ? progressTotal
+    : roundOrderPosition(activeOrder, card?.key ?? "", index);
+  const progress = cardProgress(progressIndex, progressTotal);
+
   /* ---------------- 动画共享值（必须声明在 worklet 之前） ---------------- */
   const flip = useSharedValue(0);
   const panX = useSharedValue(0);
@@ -161,6 +220,8 @@ export default function Exam408DrillScreen() {
   const cardSlide = useSharedValue(1);
   /** 滑出方向（-1 左 / 0 原位 / 1 右），直接写值不产生动画点 */
   const cardDir = useSharedValue(1);
+  /** 正在滑出、等待落位的目标下标；-1 = 没有挂起切换（防连滑吞卡） */
+  const pendingSwitch = useSharedValue(-1);
 
   // 单向数据流：state → 动画值。任何翻面入口都只改 state，避免双源不同步（P11 根因之一）
   useEffect(() => {
@@ -168,29 +229,82 @@ export default function Exam408DrillScreen() {
   }, [flipped, flip]);
 
   const toggleFlip = useCallback(() => {
+    if (busy) return;
     haptics.soft();
     setFlipped((prev) => !prev);
+  }, [busy]);
+
+  /* ---------------- 手势：轻点翻面 / 左右滑切换卡片 ---------------- */
+  /**
+   * 交互口径（v2.6.12 用户确认）：
+   * - 轻点卡片：题干 ↔ 答案（翻面）；
+   * - 左滑：下一张；右滑：上一张；
+   * - 滑动只移动游标，不写「已看」（只有翻到答案面才算看过）；
+   * - 第一张右滑、最后一张左滑：回弹 + 轻提示，不误判为完成。
+   */
+  /**
+   * 真正换卡只改 React 状态（不碰共享值），这样手势 worklet 里 runOnJS 的
+   * 目标函数不访问 ref；卡片滑出/滑入动画全部留在 UI 线程完成。
+   */
+  const switchCard = useCallback((target: number) => {
+    haptics.light();
+    setIndex(target);
+    setFlipped(false);
   }, []);
 
-  /* ---------------- 手势：横向滑动翻面（点击交给各面的 Pressable） ---------------- */
   const panGesture = Gesture.Pan()
+    .enabled(!busy)
     .activeOffsetX([-ACTIVATE_X, ACTIVATE_X])
     .failOffsetY([-FAIL_Y, FAIL_Y])
+    .onBegin(() => {
+      // 上一笔滑出的落位回调被新手势打断时先补提交，避免快速连滑吞卡
+      if (pendingSwitch.value >= 0) {
+        const pending = pendingSwitch.value;
+        pendingSwitch.value = -1;
+        panX.value = 0;
+        flip.value = 0;
+        runOnJS(switchCard)(pending);
+      }
+    })
     .onUpdate((event) => {
-      panX.value = event.translationX * 0.35;
+      // 卡片跟手；横向位移同时驱动轻微倾斜，形成「翻卡牌」的手感
+      panX.value = event.translationX;
     })
     .onEnd((event) => {
       const far = Math.abs(event.translationX) > SWIPE_DISTANCE;
       const fast = Math.abs(event.velocityX) > SWIPE_VELOCITY;
-      if (far || fast) runOnJS(toggleFlip)();
-      panX.value = withTiming(0, { duration: 180 });
+      // 速度参与判定：快速轻扫即使位移不大也切卡
+      const projected = event.translationX + event.velocityX * 0.08;
+      const swiped = (far || fast) && Math.abs(projected) > SWIPE_DISTANCE * 0.6;
+      const delta = projected < 0 ? 1 : -1;
+      const target = index + delta;
+      if (!swiped || target < 0 || target >= cards.length) {
+        // 未过阈值 / 第一张右滑 / 最后一张左滑：橡皮筋回弹
+        panX.value = withTiming(0, { duration: 180 });
+        if (swiped) {
+          runOnJS(showNavHint)(target < 0 ? "已经是第一张了" : "已经是最后一张了");
+        }
+        return;
+      }
+      pendingSwitch.value = target;
+      panX.value = withTiming(-delta * SWITCH_OUT, { duration: 150 }, (done) => {
+        if (!done) return;
+        pendingSwitch.value = -1;
+        // 新卡从反侧轻微滑入；同时立即回到题干面
+        panX.value = delta * SWITCH_IN;
+        flip.value = 0;
+        runOnJS(switchCard)(target);
+        panX.value = withTiming(0, { duration: 170 });
+      });
     });
 
   const frontStyle = useAnimatedStyle(() => ({
     opacity: flip.value < 0.5 ? 1 : 0,
     transform: [
       { perspective: 1100 },
+      { scale: interpolate(Math.abs(panX.value), [0, SWITCH_OUT], [1, 0.97], "clamp") },
       { translateX: panX.value },
+      { rotateZ: interpolate(panX.value, [-SWITCH_OUT, 0, SWITCH_OUT], [-7, 0, 7], "clamp") + "deg" },
       { rotateY: interpolate(flip.value, [0, 1], [0, 180]) + "deg" },
     ],
   }));
@@ -198,7 +312,9 @@ export default function Exam408DrillScreen() {
     opacity: flip.value < 0.5 ? 0 : 1,
     transform: [
       { perspective: 1100 },
+      { scale: interpolate(Math.abs(panX.value), [0, SWITCH_OUT], [1, 0.97], "clamp") },
       { translateX: panX.value },
+      { rotateZ: interpolate(panX.value, [-SWITCH_OUT, 0, SWITCH_OUT], [-7, 0, 7], "clamp") + "deg" },
       { rotateY: interpolate(flip.value, [0, 1], [180, 360]) + "deg" },
     ],
   }));
@@ -213,44 +329,90 @@ export default function Exam408DrillScreen() {
   /* ---------------- 数据加载 ---------------- */
   /** 已全量加载过的「登录态|科目」签名；重复聚焦时不再重置游标 */
   const loadedSignature = useRef("");
+  /**
+   * 加载代次：换科目 / 切易错本 / 连续重试时只让最后一次请求改 UI。
+   * 否则慢请求晚到会把 index 和队列覆盖成上一个科目的，用户会看到「跳卡」。
+   */
+  const loadSeq = useRef(0);
   const reload = useCallback(
-    async (targetSubject: string) => {
+    async (targetSubject: string, options?: { silent?: boolean }) => {
       // 未登录由渲染层直接拦（见下方 !token 分支），这里不 setState：
       // 该函数由 focus 回调触发，同步 setState 会被 react-hooks/set-state-in-effect 判错
       if (!token) return;
+      const seq = ++loadSeq.current;
       // 先补发上一轮离线评级：拿到权威计数后再拉队列，避免「今日 done」来回跳。
       // 这行 await 同时保证 loading 态在首次 await 之后才翻转。
       const flushed = await flushRatingOutbox();
+      if (seq !== loadSeq.current) return;
       setPending(flushed.remaining);
-      setLoading(true);
+      if (!options?.silent) setLoading(true);
       setNotice("");
 
       const [queueResult, boardResult] = await Promise.all([
         fetchCardQueue(targetSubject, DAILY_CARD_PLAN),
         fetchCardStatsBoard(targetSubject),
       ]);
+      if (seq !== loadSeq.current) return;
 
       const todayKey = localDateKey();
+      /** 本次加载后要停在哪张：优先内存指针 → 持久化指针 → 第一张 */
+      let resumeIndex = 0;
+      const applyResume = async (cards: { key: string }[], fullOrder: { key: string }[]) => {
+        const pointer =
+          positionMemory.current[drillBucketKey(targetSubject, "queue")] ??
+          (await loadDrillPointer(targetSubject, "queue", todayKey));
+        return resolveDrillResumeIndex(cards, pointer, todayKey, fullOrder);
+      };
       if (queueResult.queue) {
         const seen = await loadSeen(targetSubject, todayKey);
         const remaining = filterUnseen(queueResult.queue.cards, seen);
+        // 整轮快照（通常 20 张）用于恢复「第 11 / 20 张」的服务端口径；
+        // 优先用更长的快照，服务端新插的卡由 pickRoundOrder 接在后面。
+        const todayPlan = await loadRoundPlan(targetSubject, todayKey, "queue");
+        const roundOrder = pickRoundOrder(queueResult.queue.cards, todayPlan?.cards);
+        resumeIndex = await applyResume(remaining, roundOrder);
+        if (seq !== loadSeq.current) return;
+        // 服务端当天已把评过级的卡移出队列时，用快照与服务端 doneToday 共同兜底；
+        // 重装 App 没有本地快照时，也不会把「今天已完成 10 张」误判成「今天没有卡」。
+        const todayTotal = Math.max(
+          queueResult.queue.cards.length,
+          todayPlan?.cards.length ?? 0,
+          queueResult.queue.stats.doneToday,
+        );
+        setQueueOrder(roundOrder);
+        setClearedTotal(todayTotal);
         setQueue({ ...queueResult.queue, cards: remaining });
-        setDailyCleared(queueResult.queue.cards.length > 0 && remaining.length === 0);
+        setDailyCleared(remaining.length === 0 && todayTotal > 0);
         setStats(mergeCardStatsWithPending(queueResult.queue.stats, flushed.remaining));
         setOffline(false);
         setFailure(null);
         await saveCachedQueue(targetSubject, queueResult.queue);
+        // 当天第一次拿到队列时留一份「整轮快照」，供「再刷一轮」真正重来
+        await saveRoundPlan(targetSubject, todayKey, queueResult.queue);
       } else {
         // 服务端不可用（离线/5xx）：回落缓存队列，绝不能用空列表覆盖
         const cached = await loadCachedQueue(targetSubject);
+        if (seq !== loadSeq.current) return;
         setFailure(queueResult.failure);
         setOffline(queueResult.failure === "offline");
         if (cached) {
           const seen = await loadSeen(targetSubject, todayKey);
           const remaining = filterUnseen(cached.cards, seen);
+          const todayPlan = await loadRoundPlan(targetSubject, todayKey, "queue");
+          const roundOrder = pickRoundOrder(cached.cards, todayPlan?.cards);
+          resumeIndex = await applyResume(remaining, roundOrder);
+          if (seq !== loadSeq.current) return;
+          const todayTotal = Math.max(
+            cached.cards.length,
+            todayPlan?.cards.length ?? 0,
+            cached.stats.doneToday,
+          );
+          setQueueOrder(roundOrder);
+          setClearedTotal(todayTotal);
           setQueue({ ...cached, cards: remaining });
-          setDailyCleared(cached.cards.length > 0 && remaining.length === 0);
+          setDailyCleared(remaining.length === 0 && todayTotal > 0);
           setStats(mergeCardStatsWithPending(cached.stats, flushed.remaining));
+          await saveRoundPlan(targetSubject, todayKey, cached);
         } else {
           setQueue(null);
           setStats(mergeCardStatsWithPending(EMPTY_CARD_STATS, flushed.remaining));
@@ -267,12 +429,13 @@ export default function Exam408DrillScreen() {
         setBoard(cachedBoard ?? EMPTY_CARD_STATS_BOARD);
       }
 
-      setIndex(0);
+      if (seq !== loadSeq.current) return;
+      setIndex(resumeIndex);
       flip.value = 0;
       cardSlide.value = 1;
       cardDir.value = 1;
       setFlipped(false);
-      setLoading(false);
+      if (!options?.silent) setLoading(false);
     },
     [token, flip, cardSlide, cardDir],
   );
@@ -281,19 +444,35 @@ export default function Exam408DrillScreen() {
   const loadMistakes = useCallback(
     async (targetSubject: string) => {
       if (!token) return;
+      const seq = ++loadSeq.current;
       const flushed = await flushRatingOutbox();
+      if (seq !== loadSeq.current) return;
       setPending(flushed.remaining);
       setMistakeLoading(true);
       setMistakeFailure(null);
       const result = await fetchMistakeQueue(targetSubject, DAILY_CARD_PLAN);
+      if (seq !== loadSeq.current) return;
+      let resumeIndex = 0;
       if (result.queue) {
+        const todayKey = localDateKey();
+        const pointer =
+          positionMemory.current[drillBucketKey(targetSubject, "mistake")] ??
+          (await loadDrillPointer(targetSubject, "mistake", todayKey));
+        if (seq !== loadSeq.current) return;
+        const todayPlan = await loadRoundPlan(targetSubject, todayKey, "mistake");
+        const roundOrder = pickRoundOrder(result.queue.cards, todayPlan?.cards);
+        resumeIndex = resolveDrillResumeIndex(result.queue.cards, pointer, todayKey, roundOrder);
+        setMistakeOrder(roundOrder);
         setMistakeQueue(result.queue);
         setMistakeFailure(null);
+        // 易错本也留一份整轮快照，供「重刷易错本」使用（服务端重算后可能不再返回同一批）
+        await saveRoundPlan(targetSubject, todayKey, result.queue, "mistake");
       } else {
         setMistakeQueue(null);
         setMistakeFailure(result.failure);
       }
-      setIndex(0);
+      if (seq !== loadSeq.current) return;
+      setIndex(resumeIndex);
       flip.value = 0;
       cardSlide.value = 1;
       cardDir.value = 1;
@@ -317,35 +496,44 @@ export default function Exam408DrillScreen() {
    */
   useFocusEffect(
     useCallback(() => {
+      // 易错本有自己的队列与续播指针，由上面的 loadMistakes 负责；
+      // 这里再跑 rebase 会把 index 改成今日队列的位置，造成两个范围互相跳。
+      if (scope === "mistake") return;
       const signature = (token ?? "") + "|" + subjectKey;
-      let cancelled = false;
-      if (loadedSignature.current !== signature) {
-        loadedSignature.current = signature;
-        void reload(subjectKey);
-        return () => {
-          cancelled = true;
-        };
-      }
-      void (async () => {
-        const flushed = await flushRatingOutbox();
-        if (!cancelled) setPending(flushed.remaining);
-        const boardResult = await fetchCardStatsBoard(subjectKey);
-        if (!cancelled && boardResult.board) setBoard(boardResult.board);
-      })();
-      return () => {
-        cancelled = true;
-      };
-    }, [reload, subjectKey, token]),
+      const fresh = loadedSignature.current !== signature;
+      loadedSignature.current = signature;
+      /**
+       * 进页 / 换科目：完整加载（显示 loading）。
+       * 只是从别的页面回来：静默刷新队列与统计，再按续播指针停回原来那张 ——
+       * 既拿到服务端最新卡片，又不会回到第 1 张。静默模式不闪 loading 屏。
+       */
+      void reload(subjectKey, { silent: !fresh });
+    }, [reload, subjectKey, token, scope]),
   );
 
-  // 当前渲染的队列范围：今日队列（到期+新卡）或易错本（错题重刷）
-  const activeQueue = scope === "mistake" ? mistakeQueue : queue;
-  const activeFailure = scope === "mistake" ? mistakeFailure : failure;
-  const activeLoading = scope === "mistake" ? mistakeLoading : loading;
-  const cards = activeQueue?.cards ?? [];
-  const card = index < cards.length ? cards[index] : null;
-  const progress = cardProgress(index, cards.length);
-  const finished = cards.length > 0 && index >= cards.length;
+  /**
+   * 回前台刷新（v2.6.12）：用户锁屏/切到别的 App 很久后再回来，页面仍然 focus，
+   * useFocusEffect 不会重跑。这里在 AppState 变 active 时静默刷新服务端队列：
+   * 先补发离线评级（reload 内部），再按续播指针停回上次那张；跨天时 pointer 的
+   * date 不匹配会自动回到新一轮第一张。
+   */
+  const drillFocused = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      drillFocused.current = true;
+      return () => {
+        drillFocused.current = false;
+      };
+    }, []),
+  );
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (next) => {
+      if (next !== "active" || !drillFocused.current || busy) return;
+      if (scope === "mistake") void loadMistakes(subjectKey);
+      else void reload(subjectKey, { silent: true });
+    });
+    return () => subscription.remove();
+  }, [busy, loadMistakes, reload, scope, subjectKey]);
 
   /**
    * 每日 20 张计划完成 → 全屏庆祝。
@@ -357,6 +545,22 @@ export default function Exam408DrillScreen() {
     if (stats.doneToday < DAILY_CARD_PLAN) return;
     void celebrateOnce("drill-daily-20", subjectKey || "all");
   }, [scope, stats.doneToday, subjectKey, celebrateOnce]);
+
+  /**
+   * 记住「停在哪一张」：卡片 / 序号一变就写内存 + 持久化。
+   * 加载中不写，避免换科目 / 换范围时把旧卡错记到新桶里；
+   * 卡片所属科目与当前筛选不一致时也不写，避免 reload 窗口期串桶。
+   */
+  const pointerKey = card?.key ?? "";
+  const pointerSubject = card?.subjectKey ?? "";
+  useEffect(() => {
+    if (!pointerKey || activeLoading) return;
+    if (subjectKey && pointerSubject && pointerSubject !== subjectKey) return;
+    const todayKey = localDateKey();
+    const bucket = drillBucketKey(subjectKey, scope);
+    positionMemory.current[bucket] = { date: todayKey, cardKey: pointerKey, index };
+    void saveDrillPointer(subjectKey, scope, todayKey, pointerKey, index);
+  }, [pointerKey, pointerSubject, index, subjectKey, scope, activeLoading]);
 
   /**
    * 翻到答案面即算「已看」：下次进入自动从下一张继续（跨天重置）。
@@ -373,37 +577,71 @@ export default function Exam408DrillScreen() {
   const changeSubject = (key: string) => {
     if (key === subjectKey) return;
     haptics.light();
-    setSubjectKey(key);
-  };
-
-  /* ---------------- 评级 ---------------- */
-  /** 动画结束后切下一张；同时复位动画值（新卡从正面、屏幕内开始） */
-  const finishCard = useCallback(() => {
-    setIndex(nextCardIndex(index, cards.length));
+    // 同步进入 loading，避免「科目 chip 已换、下面还留着上一个科目的卡」的闪帧；
+    // loadSeq 会保证快速连点时只有最后一次请求落盘。
+    if (scope === "mistake") setMistakeLoading(true);
+    else setLoading(true);
+    setIndex(0);
     setFlipped(false);
     flip.value = 0;
     cardSlide.value = 1;
     cardDir.value = 1;
-    setBusy(false);
-  }, [index, cards.length, flip, cardSlide, cardDir]);
+    setSubjectKey(key);
+  };
+
+  /* ---------------- 评级 ---------------- */
+  /**
+   * 评级动画结束后的收尾：游标推进到下一张并复位动画。
+   *
+   * v2.6.12 起今日队列 / 易错本都**不在这里删卡**：本轮卡片保持原长度，
+   * 进度始终是「第 i / N 张」，不会边评边缩短；服务端刷新时自然不再返回已评卡，
+   * 重刷则走当天的整轮快照。
+   */
+  const finishRatedCard = useCallback(
+    (targetIndex: number) => {
+      setIndex(targetIndex);
+      setFlipped(false);
+      flip.value = 0;
+      cardSlide.value = 1;
+      cardDir.value = 1;
+      setBusy(false);
+    },
+    [flip, cardSlide, cardDir],
+  );
 
   const rate = async (rating: Exam408CardRating) => {
     if (!card || busy || !canSubmitRating(flipped)) return;
     setBusy(true);
     setNotice("");
     haptics.light();
+    const ratedCard = card;
     // 先收起答案，再滑出：新卡一定从题干面开始
     setFlipped(false);
     const direction = ratingDirectionOf(rating);
+    const targetIndex = nextCardIndex(index, cards.length);
+    /**
+     * 提前把续播指针推到下一张：评级滑出动画有 220ms，用户可能在动画结束前就退出。
+     * 若指针仍停在「刚评过的卡」上，重进时服务端已删掉它，单靠旧 index 可能跳过
+     * 中间多张卡。这里在评级一开始就写入下一张，退出/杀进程都不会丢位置。
+     */
+    const todayKey = localDateKey();
+    const nextCard = targetIndex < cards.length ? cards[targetIndex] : null;
+    const bucket = drillBucketKey(subjectKey, scope);
+    if (nextCard) {
+      positionMemory.current[bucket] = { date: todayKey, cardKey: nextCard.key, index: targetIndex };
+      void saveDrillPointer(subjectKey, scope, todayKey, nextCard.key, targetIndex);
+    } else {
+      delete positionMemory.current[bucket];
+      void clearDrillPointer(subjectKey, scope);
+    }
     cardDir.value = direction;
     cardSlide.value = withTiming(0, { duration: 220 }, (done) => {
       // 动画回调在 UI 线程：不复位共享值（否则旧卡会闪现一帧），只转发切卡；
-      // 复位由 finishCard 在 JS 侧与新卡状态同一 tick 完成。
-      if (done) runOnJS(finishCard)();
+      // 复位由 finishRatedCard 在 JS 侧与新卡状态同一 tick 完成。
+      if (done) runOnJS(finishRatedCard)(targetIndex);
     });
 
     const clientId = makeClientId();
-    const ratedCard = card;
     const outcome = await submitCardRating({ cardKey: ratedCard.key, rating, clientId });
 
     const result = outcome.result;
@@ -423,13 +661,9 @@ export default function Exam408DrillScreen() {
       );
     }
 
-    if (scope === "mistake") {
-      // 易错本不写本机缓存：只在本次会话里摘掉刚评过的卡，服务端仍是权威
-      setMistakeQueue((previous) =>
-        previous ? removeCardFromQueue(previous, ratedCard.key) : previous,
-      );
-    } else {
+    if (scope !== "mistake") {
       // 无论成功与否都从离线缓存里摘掉这张卡：断网重启后不该再看到刚评过的卡
+      // （易错本没有缓存队列，刷新时以服务端为准）
       const cachedQueue = await loadCachedQueue(subjectKey);
       if (cachedQueue) {
         await saveCachedQueue(subjectKey, removeCardFromQueue(cachedQueue, ratedCard.key));
@@ -440,6 +674,48 @@ export default function Exam408DrillScreen() {
   const retry = () => {
     if (scope === "mistake") void loadMistakes(subjectKey);
     else void reload(subjectKey);
+  };
+
+  /**
+   * 真正「再刷一轮」：
+   * - 今日队列：清已看 + 清续播指针，用当天原始整轮快照从第 1 张重来；
+   * - 易错本：清续播指针，用本轮快照从第 1 张重来。
+   *
+   * 不能用 reload 代替：评级过的卡服务端当天往往不再返回，重新拉会拿到空队列，
+   * 表现就是「点了再刷一轮却没卡」。
+   */
+  const restartRound = async () => {
+    haptics.light();
+    const todayKey = localDateKey();
+    delete positionMemory.current[drillBucketKey(subjectKey, scope)];
+    await clearDrillPointer(subjectKey, scope);
+    if (scope === "mistake") {
+      const plan = await loadRoundPlan(subjectKey, todayKey, "mistake");
+      if (!plan) {
+        await loadMistakes(subjectKey);
+        return;
+      }
+      setMistakeQueue({ ...plan, cards: plan.cards });
+      setMistakeOrder(plan.cards);
+      setMistakeFailure(null);
+    } else {
+      const plan = await loadRoundPlan(subjectKey, todayKey, "queue");
+      await resetSeen(subjectKey, todayKey);
+      if (!plan) {
+        await reload(subjectKey);
+        return;
+      }
+      setDailyCleared(false);
+      setQueue({ ...plan, cards: plan.cards });
+      setQueueOrder(plan.cards);
+      setClearedTotal(plan.cards.length);
+    }
+    setIndex(0);
+    setFlipped(false);
+    setNotice("");
+    flip.value = 0;
+    cardSlide.value = 1;
+    cardDir.value = 1;
   };
 
   /* ---------------- 渲染 ---------------- */
@@ -493,12 +769,12 @@ export default function Exam408DrillScreen() {
           { paddingBottom: Math.max(12, bottomSpace) + spacing.md, gap: layout.gap },
         ]}
       >
-        {/* 顶部（P13 压缩）：一行进度文案 + 4pt 进度条；紧凑档不再显示统计小字 */}
-        {cards.length > 0 ? (
+        {/* 顶部（P13 压缩）：一行进度文案 + 4pt 进度条；完成态不再占高度，给居中留空间 */}
+        {cards.length > 0 && !finished ? (
           <Animated.View entering={entrance(0)} style={styles.progressBlock}>
             <View style={styles.progressHead}>
               <Text style={styles.progressText} numberOfLines={1}>
-                {progressLabel(index, cards.length, finished)}
+                {progressLabel(progressIndex, progressTotal, finished)}
               </Text>
               <Text style={styles.progressMeta} numberOfLines={1}>
                 {todayLine}
@@ -526,27 +802,36 @@ export default function Exam408DrillScreen() {
             styles={styles}
             colors={colors}
             label="今日队列"
-            meta={queue ? queue.cards.length + " 张" : "到期优先"}
+            meta={queue ? (queue.cards.length > 0 ? "剩 " + queue.cards.length + " 张" : "已清空") : "到期优先"}
             active={scope === "queue"}
             onPress={() => {
               haptics.light();
+              // 切回今日队列：恢复上次停下的那张（内存指针优先，避免回到第 1 张）
+              const memory = positionMemory.current[drillBucketKey(subjectKey, "queue")];
+              const cardsNow = queue?.cards ?? [];
               setScope("queue");
-              setIndex(0);
               setFlipped(false);
+              setIndex(memory ? resolveDrillResumeIndex(cardsNow, memory, localDateKey(), cardsNow) : 0);
             }}
           />
           <ScopeTab
             styles={styles}
             colors={colors}
             label="易错本"
-            meta={scope === "mistake" && mistakeQueue ? mistakeQueue.cards.length + " 张" : "错题重刷"}
+            meta={
+              scope === "mistake" && mistakeQueue
+                ? mistakeQueue.cards.length > 0
+                  ? "剩 " + mistakeQueue.cards.length + " 张"
+                  : "已清空"
+                : "错题重刷"
+            }
             active={scope === "mistake"}
             onPress={() => {
               haptics.light();
               setScope("mistake");
               setMistakeLoading(true);
-              setIndex(0);
               setFlipped(false);
+              // index 交给 loadMistakes：它会按易错本自己的指针恢复
             }}
           />
         </Animated.View>
@@ -555,6 +840,7 @@ export default function Exam408DrillScreen() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
+          style={styles.subjectScroll}
           contentContainerStyle={styles.subjectRow}
         >
           <SubjectChip
@@ -589,7 +875,9 @@ export default function Exam408DrillScreen() {
                   : scope === "mistake"
                     ? "易错本还是空的"
                     : dailyCleared
-                      ? "今日 " + DAILY_CARD_PLAN + " 张已完成"
+                      ? clearedTotal > 0
+                        ? "今日 " + clearedTotal + " 张已完成"
+                        : "今日计划已完成"
                       : "今天没有待刷的卡"
               }
               hint={
@@ -600,66 +888,66 @@ export default function Exam408DrillScreen() {
                       ? subjectTitle + " 还没有评过错的卡；刷题时选「忘记/模糊」后会进入易错本。"
                       : "还没有评过错的卡；刷题时选「忘记/模糊」后会进入易错本。"
                     : dailyCleared
-                      ? "已看过 " + DAILY_CARD_PLAN + " 张。明天会按记忆曲线安排新的卡片；想再过一遍可以点「再刷一轮」。"
+                      ? "已看过 " + (clearedTotal > 0 ? clearedTotal : DAILY_CARD_PLAN) + " 张。明天会按记忆曲线安排新的卡片；想再过一遍可以点「再刷一轮」。"
                       : subjectTitle
                         ? subjectTitle + " 的到期卡已清空，换一科或稍后再来。"
                         : "全部科目的到期卡都清空了，明天再来。"
               }
               actionLabel={activeFailure ? "重试" : dailyCleared ? "再刷一轮" : "刷新"}
-              onAction={
-                dailyCleared && !activeFailure
-                  ? () => {
-                      haptics.light();
-                      void resetSeen(subjectKey, localDateKey()).then(() => retry());
-                    }
-                  : retry
-              }
+              onAction={dailyCleared && !activeFailure ? () => void restartRound() : retry}
               pattern="none"
             />
           </View>
         ) : finished ? (
-          <ScrollView style={styles.finishedScroll} contentContainerStyle={styles.finishedBox}>
-            <ThemedIcon name="checkmark-done" size={34} color={colors.success} />
-            <Text style={styles.finishedTitle}>
-              {scope === "mistake" ? "这一轮错题刷完了" : "这一轮刷完了"}
-            </Text>
-            <Text style={styles.finishedText}>
-              今日已刷 {stats.doneToday} 张 · 待复习 {stats.dueCount} 张 · 连续 {stats.streak} 天
-            </Text>
-            {pending > 0 ? (
-              <Text style={styles.finishedPending}>{pending} 条评级待同步，联网后自动补发。</Text>
-            ) : null}
-            <View style={styles.subjectStatsList}>
-              {board.subjects.map((item) => (
-                <View key={item.subjectKey} style={styles.subjectStatRow}>
-                  <Text style={styles.subjectStatTitle}>{item.title}</Text>
-                  <Text style={styles.subjectStatMeta}>
-                    待复习 {item.dueCount} · 今日 {item.doneToday}
-                    {item.accuracy === null ? "" : " · 正确率 " + formatAccuracy(item.accuracy)}
-                  </Text>
-                </View>
-              ))}
-            </View>
-            <PressableScale haptic onPress={retry} style={styles.primaryButton}>
-              <Text style={styles.primaryButtonText}>
-                {scope === "mistake" ? "重刷易错本" : "再刷一轮"}
+          <ScrollView style={styles.finishedScroll} contentContainerStyle={styles.finishedBox} showsVerticalScrollIndicator={false}>
+            <View style={styles.finishedInner}>
+              <ThemedIcon name="checkmark-done" size={34} color={colors.success} />
+              <Text style={styles.finishedTitle}>
+                {scope === "mistake" ? "这一轮错题刷完了" : "这一轮刷完了"}
               </Text>
-            </PressableScale>
-            {scope === "queue" ? (
-              <PressableScale
-                haptic
-                onPress={() => {
-                  haptics.light();
-                  setScope("mistake");
-                  setMistakeLoading(true);
-                  setIndex(0);
-                  setFlipped(false);
-                }}
-                style={styles.secondaryButton}
-              >
-                <Text style={styles.secondaryButtonText}>去易错本重刷错题</Text>
+              <Text style={styles.finishedText}>
+                {stats.doneToday > 0 ? "今日已刷 " + stats.doneToday + " 张" : "今天还没有新的评级"}
+                {" · "}
+                {stats.dueCount > 0 ? "待复习 " + stats.dueCount + " 张" : "待复习已清空"}
+                {" · "}
+                {stats.streak > 0 ? "连续 " + stats.streak + " 天" : "从今天起步"}
+              </Text>
+              {pending > 0 ? (
+                <Text style={styles.finishedPending}>{pending} 条评级待同步，联网后自动补发。</Text>
+              ) : null}
+              <View style={styles.subjectStatsList}>
+                {board.subjects.map((item) => (
+                  <View key={item.subjectKey} style={styles.subjectStatRow}>
+                    <Text style={styles.subjectStatTitle}>{item.title}</Text>
+                    <Text style={styles.subjectStatMeta}>
+                      {item.dueCount > 0 ? "待复习 " + item.dueCount : "待复习已清空"}
+                      {" · "}
+                      {item.doneToday > 0 ? "今日 " + item.doneToday : "今日未刷"}
+                      {item.accuracy === null ? "" : " · 正确率 " + formatAccuracy(item.accuracy)}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+              <PressableScale haptic onPress={() => void restartRound()} style={styles.primaryButton}>
+                <Text style={styles.primaryButtonText}>
+                  {scope === "mistake" ? "重刷易错本" : "再刷一轮"}
+                </Text>
               </PressableScale>
-            ) : null}
+              {scope === "queue" ? (
+                <PressableScale
+                  haptic
+                  onPress={() => {
+                    haptics.light();
+                    setScope("mistake");
+                    setMistakeLoading(true);
+                    setFlipped(false);
+                  }}
+                  style={styles.secondaryButton}
+                >
+                  <Text style={styles.secondaryButtonText}>去易错本重刷错题</Text>
+                </PressableScale>
+              ) : null}
+            </View>
           </ScrollView>
         ) : card ? (
           <View style={[styles.cardSlot, { minHeight: layout.cardMinHeight }]}>
@@ -673,11 +961,12 @@ export default function Exam408DrillScreen() {
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={"显示答案：" + toPlainText(card.question)}
-                    accessibilityHint="点按任意位置翻到答题要点；左右滑动也可以翻面"
+                    accessibilityHint="点按任意位置查看答案；左右滑动切换上一张或下一张"
                     onPress={toggleFlip}
                     style={styles.facePress}
                   >
                     <ScrollView
+                      key={card.key + "-front"}
                       style={styles.faceScroll}
                       contentContainerStyle={styles.faceContent}
                       showsVerticalScrollIndicator={false}
@@ -708,7 +997,7 @@ export default function Exam408DrillScreen() {
                       <View style={styles.faceHintRow}>
                         <ThemedIcon name="eye-outline" size={15} color={colors.primary} />
                         <Text style={[styles.faceHint, styles.faceHintActive]}>
-                          {flipActionLabel(flipped)}（点卡片或左右滑）
+                          {flipActionLabel(flipped)} · 左右滑切换卡片
                         </Text>
                       </View>
                     </ScrollView>
@@ -723,11 +1012,12 @@ export default function Exam408DrillScreen() {
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel="隐藏答案，回到题干"
-                    accessibilityHint="点按任意位置收起答案；上下滚动查看长答案"
+                    accessibilityHint="点按任意位置收起答案；上下滚动查看长答案；左右滑动切换卡片"
                     onPress={toggleFlip}
                     style={styles.facePress}
                   >
                     <ScrollView
+                      key={card.key + "-back"}
                       style={styles.faceScroll}
                       contentContainerStyle={styles.faceContent}
                       showsVerticalScrollIndicator={false}
@@ -773,7 +1063,7 @@ export default function Exam408DrillScreen() {
                       {card.demoKey ? (
                         <Text style={styles.demoHint}>关联演示：{card.demoKey}</Text>
                       ) : null}
-                      <Text style={styles.faceHint}>轻点卡片任意处也能收起答案</Text>
+                      <Text style={styles.faceHint}>轻点收起答案 · 左右滑切换卡片</Text>
                     </ScrollView>
                   </Pressable>
 
@@ -792,6 +1082,13 @@ export default function Exam408DrillScreen() {
                 </Animated.View>
               </Animated.View>
             </GestureDetector>
+            {navHint ? (
+              <View style={styles.navHintPill} pointerEvents="none">
+                <View style={styles.navHintBubble}>
+                  <Text style={styles.navHintText}>{navHint}</Text>
+                </View>
+              </View>
+            ) : null}
           </View>
         ) : null}
 
@@ -1038,6 +1335,8 @@ const makeStyles = (colors: ThemeColors) =>
     scopeTabActive: { backgroundColor: colors.surfaceStrong, ...shadows.card },
     scopeTabText: { ...typography.caption, fontWeight: "800", color: colors.textMuted },
     scopeTabMeta: { ...typography.micro, color: colors.textFaint, flexShrink: 1 },
+    /** horizontal ScrollView 默认 flexGrow:1，会抢走完成态/卡片区的剩余高度；这里只占内容高度 */
+    subjectScroll: { flexGrow: 0, flexShrink: 0 },
     subjectRow: { gap: 6, paddingRight: spacing.lg, paddingVertical: 1 },
     // P13：chip 只占「文字 + 内边距」的宽度（不再 minWidth/等分）；v2 统一 radius.control
     subjectChip: {
@@ -1177,6 +1476,18 @@ const makeStyles = (colors: ThemeColors) =>
 
     /* 操作区 */
     notice: { ...typography.micro, color: colors.warning },
+    /** 滑到头的轻提示：悬浮在卡片底部，不参与布局，避免卡片高度跳动 */
+    navHintPill: { position: "absolute", left: 0, right: 0, bottom: 12, alignItems: "center" },
+    navHintBubble: {
+      borderRadius: radius.pill,
+      backgroundColor: colors.surfaceStrong,
+      borderWidth: StyleSheet.hairlineWidth * 2,
+      borderColor: colors.primary,
+      paddingHorizontal: spacing.md,
+      paddingVertical: 6,
+      ...shadows.card,
+    },
+    navHintText: { ...typography.micro, fontWeight: "800", color: colors.primary },
     showButton: {
       minHeight: 56,
       flexDirection: "row",
@@ -1216,14 +1527,14 @@ const makeStyles = (colors: ThemeColors) =>
     pendingText: { ...typography.micro, flex: 1, color: colors.textSecondary },
 
     /* 完成态 */
-    finishedScroll: { flex: 1 },
+    finishedScroll: { flex: 1, minHeight: 0 },
     finishedBox: {
       flexGrow: 1,
-      alignItems: "center",
+      alignItems: "stretch",
       justifyContent: "center",
-      gap: spacing.sm,
       paddingVertical: spacing.lg,
     },
+    finishedInner: { width: "100%", alignItems: "center", gap: spacing.sm, paddingHorizontal: spacing.xs },
     finishedTitle: { ...typography.title2, color: colors.text },
     finishedText: { ...typography.caption, color: colors.textMuted, textAlign: "center" },
     finishedPending: { ...typography.micro, color: colors.warning },

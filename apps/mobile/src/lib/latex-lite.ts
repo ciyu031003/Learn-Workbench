@@ -38,6 +38,18 @@ const SYMBOLS: [string, string][] = [
   ["\\degree", "°"], ["\\circ", "°"], ["\\%", "%"],
   ["\\quad", " "], ["\\qquad", "  "], ["\\,", ""], ["\\;", ""], ["\\!", ""], ["\\ ", " "],
   ["\\{", "{"], ["\\}", "}"], ["\\_", "_"], ["\\#", "#"], ["\\&", "&"],
+  // 408 常见集合 / 取整 / 定界符：无 SVG 时也能读成正常数学符号
+  ["\\notin", "∉"], ["\\subseteq", "⊆"], ["\\subset", "⊂"], ["\\supseteq", "⊇"],
+  ["\\cup", "∪"], ["\\cap", "∩"], ["\\in", "∈"],
+  ["\\lfloor", "⌊"], ["\\rfloor", "⌋"], ["\\lceil", "⌈"], ["\\rceil", "⌉"],
+  ["\\forall", "∀"], ["\\exists", "∃"], ["\\emptyset", "∅"], ["\\varnothing", "∅"],
+  ["\\prime", "′"], ["\\bmod", "mod"],
+  // 函数名：保留可读单词，避免回落成「去掉反斜杠」的偶然结果
+  ["\\log", "log"], ["\\ln", "ln"], ["\\lg", "lg"], ["\\max", "max"], ["\\min", "min"],
+  ["\\lim", "lim"], ["\\sup", "sup"], ["\\inf", "inf"], ["\\sin", "sin"], ["\\cos", "cos"],
+  ["\\tan", "tan"], ["\\det", "det"], ["\\gcd", "gcd"], ["\\lcm", "lcm"],
+  ["\\displaystyle", ""], ["\\limits", ""], ["\\nolimits", ""],
+  ["\\left", ""], ["\\right", ""], ["\\Bigg", ""], ["\\bigg", ""], ["\\Big", ""], ["\\big", ""],
 ];
 
 function toScript(value: string, table: Record<string, string>, marker: "^" | "_"): string {
@@ -76,13 +88,20 @@ export function formatMathText(input: string): string {
     .replace(/_\{([^{}]*)\}/g, (_, inner: string) => toScript(inner, SUBSCRIPT, "_"))
     .replace(/_([A-Za-z0-9+\-=])/g, (_, inner: string) => toScript(inner, SUBSCRIPT, "_"));
 
+  // 矩阵/分段函数的换行必须先处理：否则 SYMBOLS 里的「反斜杠 + 空格」会先吃掉第二根反斜杠
+  text = text.replace(/\\\\/g, "；");
+
   // 常见命令：按长度倒序，避免 \\le 抢先吃掉 \\leftarrow、\\neq 抢先吃掉 \\ne
   for (const [from, to] of [...SYMBOLS].sort((a, b) => b[0].length - a[0].length)) {
     text = text.split(from).join(to);
   }
   // \text{...} / \mathrm{...} / \operatorname{...} 只留内容
   text = text
-    .replace(/\\(?:text|mathrm|operatorname|mathbf|mathit)\{([^{}]*)\}/g, "$1")
+    .replace(/\\(?:text|mathrm|operatorname|mathbf|mathit|mathcal|mathbb|mathsf|mathfrak)\*?\{([^{}]*)\}/g, "$1")
+    .replace(/\\(?:overline|bar)\{([^{}]*)\}/g, "‾($1)")
+    .replace(/\\(?:vec|overrightarrow)\{([^{}]*)\}/g, "→($1)")
+    .replace(/\\(?:begin|end)\{[^{}]*\}/g, "")
+    .replace(/&/g, " ")
     // 反斜杠空白命令残留
     .replace(/\\[,;! ]/g, " ")
     // 未识别的命令保留可读形式（去掉反斜杠，避免像代码）

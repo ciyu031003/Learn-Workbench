@@ -281,6 +281,13 @@ export default function SettingsScreen() {
   // 只认显式 false（老版本持久化里没有该字段 → 默认开，不能显示成关闭）
   const motionEnabled = useAppStore((s) => s.motionEnabled !== false);
   const setMotionEnabled = useAppStore((s) => s.setMotionEnabled);
+  /** 每日专注目标（分钟）：v2.6.12 起由用户自己设置，默认 3 小时 */
+  const dailyFocusGoalMinutes = useAppStore((s) => s.dailyFocusGoalMinutes ?? 180);
+  const setDailyFocusGoalMinutes = useAppStore((s) => s.setDailyFocusGoalMinutes);
+  const focusGoalLabel =
+    dailyFocusGoalMinutes % 60 === 0
+      ? dailyFocusGoalMinutes / 60 + " 小时"
+      : Math.floor(dailyFocusGoalMinutes / 60) + " 小时 " + (dailyFocusGoalMinutes % 60) + " 分";
   /**
    * 动效开关（真实生效）：写持久化偏好 + 立刻作用到 theme/motion 的运行期 override。
    * 根布局 _layout 也订阅了 store，双保险（设置页直接调是为了点击即生效、不等下一帧）。
@@ -321,6 +328,8 @@ export default function SettingsScreen() {
   const [updateState, setUpdateState] = useState<"idle" | "checking" | "latest" | "update" | "failed">("idle");
   // v7 P1：主题改为弹层选择
   const [themeOpen, setThemeOpen] = useState(false);
+  /** 每日专注目标选择弹层 */
+  const [focusGoalOpen, setFocusGoalOpen] = useState(false);
   // v3：同步详情与「关于」改为弹层（页面主列表只保留提案的四个入口）
   const [syncOpen, setSyncOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
@@ -1032,6 +1041,20 @@ export default function SettingsScreen() {
               />
             }
           />
+          {/* 每日专注目标：人为设置，今日页目标环与提醒实时跟随 */}
+          <SettingsRow
+            icon="timer-outline"
+            iconColor={colors.accent}
+            title="每日专注目标"
+            subtitle="决定今日页目标环与提醒的达成线"
+            value={focusGoalLabel}
+            showChevron
+            onPress={() => {
+              haptics.light();
+              setFocusGoalOpen(true);
+            }}
+            accessibilityLabel={"每日专注目标 " + focusGoalLabel + "，点此调整"}
+          />
           {/* 字体大小：不做假开关，直接跳系统设置改字号 */}
           <SettingsRow
             icon="options-outline"
@@ -1270,6 +1293,40 @@ export default function SettingsScreen() {
           />
         )}
         {msg ? <Text style={styles.msgLine}>{msg}</Text> : null}
+      </BottomSheet>
+
+      {/* 每日专注目标弹层：1–8 小时档位，选中即写偏好 */}
+      <BottomSheet
+        visible={focusGoalOpen}
+        onClose={() => setFocusGoalOpen(false)}
+        title="每日专注目标"
+        subtitle="按自己的节奏设定，只影响目标环与提醒"
+        icon="timer-outline"
+        height="56%"
+      >
+        <GroupCard style={styles.listCard}>
+          {[60, 120, 180, 240, 300, 360, 480].map((minutes, index, list) => {
+            const active = dailyFocusGoalMinutes === minutes;
+            return (
+              <SettingsRow
+                key={minutes}
+                icon="time-outline"
+                iconColor={active ? colors.primary : colors.textSecondary}
+                title={minutes / 60 + " 小时"}
+                value={active ? "当前" : undefined}
+                valueColor={active ? colors.primary : undefined}
+                accessibilityState={{ selected: active }}
+                last={index === list.length - 1}
+                onPress={() => {
+                  haptics.soft();
+                  setDailyFocusGoalMinutes(minutes);
+                  setFocusGoalOpen(false);
+                }}
+              />
+            );
+          })}
+        </GroupCard>
+        <Text style={styles.msgLine}>目标只是参考线，不会改变已经记录的专注时长。</Text>
       </BottomSheet>
 
       {/* 外观与主题弹层：日夜开关快捷切换 + 三档主题（保留「跟随系统」） */}

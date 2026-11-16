@@ -1,6 +1,6 @@
 {
   "totals": {
-    "animationSites": 262,
+    "animationSites": 264,
     "animatedStyleFiles": 37,
     "repeatFiles": 8,
     "filesWithAnimations": 39
@@ -9,7 +9,7 @@
     "apps/mobile/src/app/(tabs)/_layout.tsx": 7,
     "apps/mobile/src/app/(tabs)/learn.tsx": 2,
     "apps/mobile/src/app/(tabs)/today.tsx": 92,
-    "apps/mobile/src/app/exam-408-drill.tsx": 4,
+    "apps/mobile/src/app/exam-408-drill.tsx": 6,
     "apps/mobile/src/app/sports-card.tsx": 3,
     "apps/mobile/src/components/achievement-card.tsx": 4,
     "apps/mobile/src/components/animated-number.tsx": 3,

@@ -128,6 +128,11 @@ interface AppState {
   checkins: string[];
   backgroundEnabled: boolean;
   /**
+   * 每日专注目标（分钟，v2.6.12）：由「设置 → 账户与偏好 → 每日专注目标」人为设置，
+   * 默认 180 分钟（3 小时）。只影响今日页目标环 / 提醒文案，不改任何统计口径。
+   */
+  dailyFocusGoalMinutes: number;
+  /**
    * 动效开关（v1.62 P2-2）：false = 全 App 装饰动效停止（与系统「减弱动态」同一条降级路径）。
    * 持久化在本 store（AsyncStorage 拆分存储里的偏好键）；启动时由 _layout 应用到
    * theme/motion 的模块级 override，运行期由设置页直接改。
@@ -175,6 +180,8 @@ interface AppState {
   /** v5 P2-1：label = 本次学习的内容名（写进 focus_sessions.tag；空/未传 = 自由专注） */
   addSession: (taskId: number | null, seconds: number, label?: string | null) => void;
   toggleBackground: () => void;
+  /** 每日专注目标（分钟）：设置页选择后立即写偏好，今日页目标环同步更新 */
+  setDailyFocusGoalMinutes: (minutes: number) => void;
   setEdgeSwipeEnabled: (enabled: boolean) => void;
   /** 动效开关（真实生效）：写偏好 + 由设置页/根布局同步到 theme/motion 的运行期 override */
   setMotionEnabled: (enabled: boolean) => void;
@@ -254,6 +261,7 @@ export const useAppStore = create<AppState>()(
       sessions: [],
       checkins: [],
       backgroundEnabled: true,
+      dailyFocusGoalMinutes: 180,
       motionEnabled: true,
       themeMode: "system" as ThemeMode,
       token: null,
@@ -439,6 +447,14 @@ export const useAppStore = create<AppState>()(
         }),
 
       toggleBackground: () => set((s) => ({ backgroundEnabled: !s.backgroundEnabled })),
+      /**
+       * 目标只接受 15–720 分钟，并归一到最近的 15 分钟：
+       * 既挡住异常持久化数据，也避免出现「2 小时 7 分」这种没法执行的数字。
+       */
+      setDailyFocusGoalMinutes: (minutes) => {
+        const safe = Number.isFinite(minutes) ? Math.round(minutes / 15) * 15 : 180;
+        set({ dailyFocusGoalMinutes: Math.min(720, Math.max(15, safe)) });
+      },
       setEdgeSwipeEnabled: (enabled) => set({ edgeSwipeEnabled: enabled }),
       // 只改偏好；运行期 override 由调用方（设置页开关 / _layout 启动订阅）同步到 theme/motion，
       // 这样 store 不需要 import 带 reanimated 的模块（node 单测才能继续加载本文件）。
