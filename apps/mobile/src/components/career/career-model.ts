@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import type { Ionicons } from "@expo/vector-icons";
 import { formatRelativeTime } from "@learn-workbench/shared/dates";
 import type { CareerReadiness, JobStats, ReadinessDimension, UserSkillView } from "@learn-workbench/shared/schemas";
 
