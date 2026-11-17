@@ -29,6 +29,7 @@ import { useScreenEntrance } from "@/lib/use-screen-entrance";
 import { useScrollToTopHandler } from "@/lib/scroll-to-top";
 import { getApiUrl } from "@/config";
 import { discardForeignPendingChanges, requestSync, useSyncEngineStatus } from "@/lib/sync-engine";
+import { describeLedger, useSyncLedger } from "@/lib/sync-ledger";
 import { clockSkewHint, useServerClock } from "@/lib/sync-clock";
 import {
   APP_ICP_NUMBER,
@@ -316,6 +317,11 @@ export default function SettingsScreen() {
   const setThemeMode = useAppStore((s) => s.setThemeMode);
   const lastSyncedAt = useAppStore((s) => s.lastSyncedAt);
   const engine = useSyncEngineStatus();
+  /**
+   * P4 同步账本：把 5 条离线通道（业务/饮食/图片/答题/刷卡）聚合成一个数字。
+   * 此前这里只显示 pendingChanges，用户看到的"0 条"并不代表真的都同步了。
+   */
+  const ledger = useSyncLedger();
   /** S5-3：设备时钟与服务器偏移（>5min 提示校准；游标本身只认 serverTime，不依赖本机时钟） */
   const clock = useServerClock();
 
@@ -1254,8 +1260,9 @@ export default function SettingsScreen() {
           <SettingsRow
             icon="cloud-upload-outline"
             iconColor={colors.primary}
-            title="待同步变更"
-            value={pendingCount + " 条"}
+            title="待同步队列"
+            subtitle={describeLedger(ledger)}
+            value={(ledger ? ledger.total : "—") + (ledger ? " 条" : "")}
           />
           <SettingsRow
             icon="time-outline"

@@ -258,12 +258,18 @@ export default function TabsLayout() {
           ),
         }}
       />
+      {/*
+        P4：第 4 个一级 Tab 由「健康」改为「成长」。
+        路由名仍保留 wellness（URL 不变，避免动 back-target / TAB_ROUTES / 路由快照 30 余处，
+        而 URL 对用户不可见）；页面标题、文案与分区在本阶段全部改为成长口径。
+        图标由 heart 改为 leaf：成长=长期积累，不再暗示"健康数据"。
+      */}
       <Tabs.Screen
         name="wellness"
         options={{
-          title: "健康",
+          title: "成长",
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon name="heart" outlineName="heart-outline" iosFilled="heart.fill" iosOutline="heart" color={color} focused={focused} />
+            <TabIcon name="leaf" outlineName="leaf-outline" iosFilled="leaf.fill" iosOutline="leaf" color={color} focused={focused} />
           ),
         }}
       />

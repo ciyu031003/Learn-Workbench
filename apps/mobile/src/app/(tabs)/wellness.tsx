@@ -680,7 +680,7 @@ export default function WellnessScreen() {
 
   return (
     <View style={styles.root}>
-      <ScreenHeaderStickyBar title="健康" scrollY={headerScroll.scrollY} />
+      <ScreenHeaderStickyBar title="成长" scrollY={headerScroll.scrollY} />
       <Animated.ScrollView
         ref={wellnessScrollRef}
         onScroll={headerScroll.onScroll}
@@ -693,8 +693,8 @@ export default function WellnessScreen() {
         {/* ① 页头：eyebrow + 27px 标题 + 今天状态副文案；readiness 作为页头右下的一行 */}
         <View style={styles.headBlock}>
           <PageHead
-            eyebrow="健康 · 每日状态"
-            title="健康"
+            eyebrow="成长 · 每日状态"
+            title="成长"
             subtitle={headerSubtitle}
             style={styles.pageHead}
           />
@@ -723,10 +723,74 @@ export default function WellnessScreen() {
           >
             <ThemedIcon name="cloud-offline-outline" size={16} color={colors.danger} />
             <Text style={styles.errorText}>
-              {data ? "刚才的数据没刷新成功，点这里重试" : "健康数据没加载出来，点这里重试"}
+              {data ? "刚才的数据没刷新成功，点这里重试" : "成长数据没加载出来，点这里重试"}
             </Text>
             <ThemedIcon name="refresh" size={16} color={colors.danger} />
           </PressableScale>
+        ) : null}
+
+        {/* P4 ① 本周概览：四格周指标提到首屏（原「本周健康周报」位置上移） */}
+        <SectionTitle title="本周概览" style={hasWellnessData ? undefined : styles.hiddenSection} />
+        <Animated.View entering={entrance(0)} style={[styles.weekBlock, hasWellnessData ? undefined : styles.hiddenSection]}>
+          {showSkeleton ? (
+            <SkeletonCard count={1} />
+          ) : (
+            <>
+              <View style={styles.tileGrid}>
+                <StatTileRow
+                  items={[
+                    weekTile(weekReport.water, "water-outline", "teal"),
+                    weekTile(weekReport.workout, "barbell-outline", "primary"),
+                  ]}
+                />
+                <StatTileRow
+                  items={[
+                    weekTile(weekReport.sleep, "moon-outline", "success"),
+                    weekTile(weekReport.kcal, "restaurant-outline", "accent"),
+                  ]}
+                />
+              </View>
+              <Text style={styles.weekCaption}>{weekReport.caption}</Text>
+              {weekReport.empty ? (
+                <Text style={styles.weekEmpty}>
+                  本周还没有记录——先记一条饮水、训练或睡眠，周报就会亮起来。
+                </Text>
+              ) : null}
+            </>
+          )}
+        </Animated.View>
+
+        {/* P4 ② 今日习惯：只给进度与入口（勾选仍在习惯页，避免同一份数据两处写入） */}
+        {data ? (
+          <Animated.View entering={entrance(1)}>
+            <PressableScale
+              haptic
+              scaleTo={0.99}
+              hitSlop={4}
+              onPress={() => router.push("/habits" as never)}
+              accessibilityRole="button"
+              accessibilityLabel={
+                data.habits.scheduled > 0
+                  ? "今日习惯 已完成 " + data.habits.done + " / " + data.habits.scheduled + "，打开习惯页"
+                  : "还没有习惯计划，打开习惯页创建"
+              }
+            >
+              <Surface tier="surface" corner={radius.card} style={styles.habitZoneCard}>
+                <View style={styles.habitZoneText}>
+                  <Text style={styles.habitZoneTitle}>今日习惯</Text>
+                  <Text style={styles.habitZoneHint} numberOfLines={2}>
+                    {data.habits.scheduled > 0
+                      ? "已完成 " + data.habits.done + " / " + data.habits.scheduled + " · 本周完成率 " + habitPct + "%"
+                      : "还没有习惯计划，去习惯页建一个每天能坚持的小习惯"}
+                  </Text>
+                </View>
+                <Text style={styles.habitZoneValue} numberOfLines={1}>
+                  {data.habits.scheduled > 0 ? data.habits.done + "/" + data.habits.scheduled : "—"}
+                </Text>
+                <ThemedIcon name="chevron-forward" size={13} color={colors.textMuted} />
+              </Surface>
+            </PressableScale>
+          </Animated.View>
         ) : null}
 
         {/* 空数据先给动作组；有记录后再展开三环与趋势 */}
@@ -821,7 +885,11 @@ export default function WellnessScreen() {
           )}
         </Animated.View>
 
-        {/* ③ 饮食摄入卡：最近一餐 / 今日摄入 ÷ 目标 / 三大宏量条（整卡点进饮食页） */}
+        {/* P4 ③ 健康记录（二级）：饮食 / 体重 / 训练 / 饮水等明细卡统一收进这一层，
+            一级只保留「本周概览 + 今日习惯」，睡眠与饮食的完整页面仍是独立二级页 */}
+        <SectionTitle title="健康记录" style={hasWellnessData ? undefined : styles.hiddenSection} />
+
+        {/* 饮食摄入卡：最近一餐 / 今日摄入 ÷ 目标 / 三大宏量条（整卡点进饮食页） */}
         <Animated.View entering={entrance(1)} style={hasWellnessData ? undefined : styles.hiddenSection}>
           <PressableScale
             haptic
@@ -1118,37 +1186,6 @@ export default function WellnessScreen() {
                 onAction={() => router.push("/nutrition" as never)}
               />
             </Surface>
-          )}
-        </Animated.View>
-
-        {/* ⑦-2 本周健康周报（v2.2）：四格周指标（原有活动环已由上方三环卡承接，数据不丢） */}
-        <SectionTitle title="本周健康周报" style={hasWellnessData ? undefined : styles.hiddenSection} />
-        <Animated.View entering={entrance(6)} style={[styles.weekBlock, hasWellnessData ? undefined : styles.hiddenSection]}>
-          {showSkeleton ? (
-            <SkeletonCard count={1} />
-          ) : (
-            <>
-              <View style={styles.tileGrid}>
-                <StatTileRow
-                  items={[
-                    weekTile(weekReport.water, "water-outline", "teal"),
-                    weekTile(weekReport.workout, "barbell-outline", "primary"),
-                  ]}
-                />
-                <StatTileRow
-                  items={[
-                    weekTile(weekReport.sleep, "moon-outline", "success"),
-                    weekTile(weekReport.kcal, "restaurant-outline", "accent"),
-                  ]}
-                />
-              </View>
-              <Text style={styles.weekCaption}>{weekReport.caption}</Text>
-              {weekReport.empty ? (
-                <Text style={styles.weekEmpty}>
-                  本周还没有记录——先记一条饮水、训练或睡眠，周报就会亮起来。
-                </Text>
-              ) : null}
-            </>
           )}
         </Animated.View>
 
@@ -1466,6 +1503,19 @@ const makeStyles = (colors: ThemeColors) =>
 
     /* ⑦-2 本周健康周报 */
     weekBlock: { gap: spacing.sm },
+    // P4 今日习惯：只读进度卡（勾选仍在习惯页）
+    habitZoneCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.md,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.lg,
+      minHeight: 64,
+    },
+    habitZoneText: { flex: 1, gap: 2 },
+    habitZoneTitle: { ...typography.callout, fontWeight: "600", color: colors.text },
+    habitZoneHint: { ...typography.meta, color: colors.textMuted },
+    habitZoneValue: { ...typography.hero, color: colors.text, ...tabularNums },
     tileGrid: { gap: spacing.sm },
     weekCaption: { ...typography.meta, color: colors.textMeta, textAlign: "center" },
     weekEmpty: { ...typography.meta, color: colors.textMuted, lineHeight: 19 },

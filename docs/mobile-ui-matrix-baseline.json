@@ -1,7 +1,7 @@
 {
   "hitSlop": {
     "apps/mobile/src/app/(tabs)/settings.tsx": 9,
-    "apps/mobile/src/app/(tabs)/wellness.tsx": 6,
+    "apps/mobile/src/app/(tabs)/wellness.tsx": 7,
     "apps/mobile/src/app/account-security.tsx": 1,
     "apps/mobile/src/app/certificates.tsx": 2,
     "apps/mobile/src/app/domain-manager.tsx": 6,
