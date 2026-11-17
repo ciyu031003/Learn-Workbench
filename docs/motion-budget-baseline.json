@@ -7,7 +7,6 @@
   },
   "sites": {
     "apps/mobile/src/app/(tabs)/_layout.tsx": 7,
-    "apps/mobile/src/app/(tabs)/learn.tsx": 2,
     "apps/mobile/src/app/exam-408-drill.tsx": 6,
     "apps/mobile/src/app/sports-card.tsx": 3,
     "apps/mobile/src/components/achievement-card.tsx": 4,
@@ -22,6 +21,7 @@
     "apps/mobile/src/components/day-night-switch.tsx": 2,
     "apps/mobile/src/components/filter-refresh-bar.tsx": 8,
     "apps/mobile/src/components/float-field.tsx": 2,
+    "apps/mobile/src/components/learn/learn-widgets.tsx": 2,
     "apps/mobile/src/components/portion-slider.tsx": 6,
     "apps/mobile/src/components/press-button.tsx": 3,
     "apps/mobile/src/components/pressable-scale.tsx": 6,
