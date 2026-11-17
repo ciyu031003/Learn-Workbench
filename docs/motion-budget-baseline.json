@@ -1,14 +1,13 @@
 {
   "totals": {
-    "animationSites": 264,
-    "animatedStyleFiles": 37,
+    "animationSites": 266,
+    "animatedStyleFiles": 38,
     "repeatFiles": 8,
-    "filesWithAnimations": 39
+    "filesWithAnimations": 40
   },
   "sites": {
     "apps/mobile/src/app/(tabs)/_layout.tsx": 7,
     "apps/mobile/src/app/(tabs)/learn.tsx": 2,
-    "apps/mobile/src/app/(tabs)/today.tsx": 92,
     "apps/mobile/src/app/exam-408-drill.tsx": 6,
     "apps/mobile/src/app/sports-card.tsx": 3,
     "apps/mobile/src/components/achievement-card.tsx": 4,
@@ -36,6 +35,8 @@
     "apps/mobile/src/components/stat.tsx": 2,
     "apps/mobile/src/components/success-burst.tsx": 5,
     "apps/mobile/src/components/toast.tsx": 2,
+    "apps/mobile/src/components/today/today-widgets.tsx": 92,
+    "apps/mobile/src/components/v2/collapsible-section.tsx": 2,
     "apps/mobile/src/components/v2/floating-tab-bar.tsx": 2,
     "apps/mobile/src/components/v2/habit-row.tsx": 3,
     "apps/mobile/src/components/v2/mood-picker.tsx": 9,
