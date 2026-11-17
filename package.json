@@ -32,6 +32,7 @@
     "sync:parity": "node scripts/sync-parity.mjs",
     "test:shared": "node --import ./packages/shared/src/domains/node-loader.mjs --test packages/shared/src/domains/domains.test.mjs",
     "check:sync-matrix": "node scripts/mobile-sync-matrix.mjs",
+    "check:mobile-release": "node scripts/mobile-release-preflight.mjs",
     "check:content-freshness": "node scripts/content-freshness.mjs",
     "drill": "node scripts/drill.mjs",
     "drill:ci": "node scripts/drill.mjs --json"
