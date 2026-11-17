@@ -4,7 +4,7 @@ import { router } from "expo-router";
 
 import { useHeaderTopInset, useLargeTitleHeader } from "@/components/screen-header";
 import type { ToastKind } from "@/components/toast";
-import { getApiUrl } from "@/config";
+import { apiGetJson } from "@/lib/api-request";
 import { useAppStore } from "@/store/app-store";
 import { useTheme } from "@/theme";
 import { useTabBarSpace } from "@/lib/use-tab-bar-space";
@@ -87,43 +87,35 @@ export function useCareerScreen() {
       setRadar(null);
       setGate(INITIAL_FIRST_LOAD_GATE);
     }
-    const headers: Record<string, string> = {};
-    if (token) headers.Authorization = "Bearer " + token;
     try {
+      // P5：统一走 apiGetJson（不抛异常、Bearer 由请求层注入、错误按 network/auth/client/server 分类）
       const [readinessRes, skillsRes, jobsRes, applicationsRes, statsRes, radarRes] = await Promise.all([
-        fetch(getApiUrl() + "/api/profile/readiness", { headers }).catch(() => null),
-        fetch(getApiUrl() + "/api/profile/skills", { headers }).catch(() => null),
-        fetch(getApiUrl() + "/api/jobs?publishedWithin=today&pageSize=1", { headers }).catch(() => null),
-        token ? fetch(getApiUrl() + "/api/jobs/applications", { headers }).catch(() => null) : Promise.resolve(null),
+        apiGetJson<CareerReadiness>("/api/profile/readiness", { token }),
+        apiGetJson<{ skills?: UserSkillView[] }>("/api/profile/skills", { token }),
+        apiGetJson<{ total?: unknown }>("/api/jobs?publishedWithin=today&pageSize=1", { token }),
+        token ? apiGetJson<{ stats?: Record<string, number> }>("/api/jobs/applications", { token }) : Promise.resolve(null),
         fetchJobStats().catch(() => null),
-        fetch(getApiUrl() + "/api/jobs/radar?limit=" + RADAR_FETCH_LIMIT, { headers }).catch(() => null),
+        apiGetJson<RadarSummary>("/api/jobs/radar?limit=" + RADAR_FETCH_LIMIT, { token }),
       ]);
       if (seq !== loadSeq.current) return;
-      if (readinessRes?.ok) {
-        const data = await readinessRes.json().catch(() => null);
-        if (data) {
-          setReadiness(data as CareerReadiness);
-          setGate((g) => nextFirstLoadGate(g, { type: "load-success" }));
-        }
+      if (readinessRes.ok && readinessRes.data) {
+        setReadiness(readinessRes.data);
+        setGate((g) => nextFirstLoadGate(g, { type: "load-success" }));
       }
-      if (skillsRes?.ok) {
-        const data = await skillsRes.json().catch(() => null);
-        if (Array.isArray(data?.skills)) setSkills(data.skills as UserSkillView[]);
+      if (skillsRes.ok && Array.isArray(skillsRes.data?.skills)) {
+        setSkills(skillsRes.data?.skills ?? []);
       }
-      if (jobsRes?.ok) {
-        const data = await jobsRes.json().catch(() => null);
-        const total = Number(data?.total);
+      if (jobsRes.ok) {
+        const total = Number(jobsRes.data?.total);
         setTodayNewJobs(Number.isFinite(total) ? total : null);
       }
       if (applicationsRes?.ok) {
-        const data = await applicationsRes.json().catch(() => null);
-        const stats = data?.stats;
-        if (stats && typeof stats === "object") setAppStats(stats as Record<string, number>);
+        const stats = applicationsRes.data?.stats;
+        if (stats && typeof stats === "object") setAppStats(stats);
       }
       if (statsRes) setJobStats(statsRes);
-      if (radarRes?.ok) {
-        const data = (await radarRes.json().catch(() => null)) as RadarSummary | null;
-        if (data && typeof data.hasProfile === "boolean") setRadar(data);
+      if (radarRes.ok && radarRes.data && typeof radarRes.data.hasProfile === "boolean") {
+        setRadar(radarRes.data);
       }
     } catch {
       if (seq === loadSeq.current) setGate((g) => nextFirstLoadGate(g, { type: "load-failure" }));

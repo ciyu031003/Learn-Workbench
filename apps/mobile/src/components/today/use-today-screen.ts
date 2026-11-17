@@ -19,7 +19,7 @@ import { localKey } from "@/lib/focus-series";
 import { loadLearningAttempts } from "@/lib/learning-progress";
 import { readCachedRoadmap } from "@/lib/roadmap";
 import { absoluteMediaUrl } from "@/lib/uploads";
-import { getApiUrl } from "@/config";
+import { apiGetJson, apiRequest } from "@/lib/api-request";
 import { isScheduled } from "@learn-workbench/shared/dates";
 import { computeStreak, todayISOInZone } from "@learn-workbench/shared/domains";
 import { isHabitDone } from "@learn-workbench/shared/pure";
@@ -132,12 +132,10 @@ export function useTodayScreen() {
 
   const loadHabits = useCallback(async () => {
     try {
-      const headers: Record<string, string> = token ? { Authorization: "Bearer " + token } : {};
-      const r = await fetch(getApiUrl() + "/api/habits", { headers });
-      if (!r.ok) return;
-      const d = await r.json();
-      const list: Habit[] = Array.isArray(d.habits) ? d.habits : [];
-      const logs: HabitLog[] = Array.isArray(d.logs) ? d.logs : [];
+      const res = await apiGetJson<{ habits?: Habit[]; logs?: HabitLog[] }>("/api/habits", { token });
+      if (!res.ok || !res.data) return;
+      const list: Habit[] = Array.isArray(res.data.habits) ? res.data.habits : [];
+      const logs: HabitLog[] = Array.isArray(res.data.logs) ? res.data.logs : [];
       const map = new Map<string, number>();
       for (const l of logs) map.set(l.habitId + "|" + String(l.logDate).slice(0, 10), Number(l.value));
       setHabitRows(
@@ -209,14 +207,13 @@ export function useTodayScreen() {
       return;
     }
     try {
-      const headers = { Authorization: "Bearer " + token };
-      const [summary, target, hydration] = await Promise.all([
-        fetch(getApiUrl() + "/api/nutrition/summary?days=1", { headers })
-          .then((r) => (r.ok ? (r.json() as Promise<{ summary?: unknown }>) : null))
-          .catch(() => null),
+      const [summaryRes, target, hydration] = await Promise.all([
+        apiGetJson<{ summary?: unknown }>("/api/nutrition/summary?days=1", { token }),
         fetchNutritionTarget(token).catch(() => null),
         fetchHydration(token).catch(() => null),
       ]);
+      /** 请求失败 → null（保留上次）；成功但今天没条目 → data 里也没有当天行（显示「—」） */
+      const summary = summaryRes.ok ? summaryRes.data : null;
       const todayRow = summary ? toDaySummaryMap(summary.summary)[today] : undefined;
       const targetKcal = target?.target?.kcal;
       setHealthSnapshot((prev) => ({
@@ -271,20 +268,17 @@ export function useTodayScreen() {
 
   /** 首页直接给习惯打卡（乐观 + 失败回滚） */
   const toggleHabit = async (id: number, done: boolean) => {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: "Bearer " + token } : {}),
-    };
     setHabitRows((rows) => rows.map((r) => (r.id === id ? { ...r, done: !done } : r)));
     try {
       const r = done
-        ? await fetch(getApiUrl() + "/api/habits/logs?habitId=" + id + "&date=" + today, { method: "DELETE", headers })
-        : await fetch(getApiUrl() + "/api/habits/logs", {
+        ? await apiRequest("/api/habits/logs?habitId=" + id + "&date=" + today, { method: "DELETE", token })
+        : await apiRequest("/api/habits/logs", {
             method: "POST",
-            headers,
+            token,
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ habitId: id, date: today, value: 1 }),
           });
-      if (!r.ok) throw new Error("打卡失败");
+      if (!r || !r.ok) throw new Error("打卡失败");
       await loadHabits();
     } catch {
       setHabitRows((rows) => rows.map((r) => (r.id === id ? { ...r, done } : r)));

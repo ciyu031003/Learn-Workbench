@@ -29,6 +29,10 @@ function walk(dir, out = []) {
     const p = path.join(dir, e.name);
     if (e.isDirectory()) walk(p, out);
     else if (e.name.endsWith(".tsx")) out.push(p);
+    // P5：样式表被拆分到 *.ts（today-styles / learn-styles / ...）后不再被扫到，
+    // 裸写 fontSize 会从这里漏出去。这里把样式文件（*styles.ts）一并纳入扫描，
+    // 与 .tsx 同一套规则；theme/tokens.ts 是字号唯一事实源，不在扫描范围。
+    else if (e.name.endsWith(".ts") && /styles?\.ts$/.test(e.name) && !e.name.endsWith(".test.ts")) out.push(p);
   }
   return out;
 }
