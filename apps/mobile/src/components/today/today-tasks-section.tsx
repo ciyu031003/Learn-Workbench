@@ -59,6 +59,7 @@ export function TodayTasksSection({
     {todayTasks.length === 0 ? (
       <Surface tier="surface" style={styles.taskEmptyCard}>
         <EmptyState
+          compact
           pattern="chevron"
           icon="calendar-outline"
           title="今天还没有安排"

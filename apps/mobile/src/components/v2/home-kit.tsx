@@ -4,7 +4,7 @@ import { ThemedIcon } from "@/components/themed-icon";
 import { RingProgress } from "@/components/ring-progress";
 import { useTheme } from "@/theme";
 import { haptics } from "@/lib/haptics";
-import { radius, shadows, tabularNums, typography, type ThemeColors } from "@/theme/tokens";
+import { radius, shadows, spacing, tabularNums, typography, type ThemeColors } from "@/theme/tokens";
 import type { Ionicons } from "@expo/vector-icons";
 
 /**
@@ -161,20 +161,26 @@ export function PrimaryButton({
   );
 }
 
-/** 三格数据条：无数据时显示 pending 文案，禁止裸 0 */
+/**
+ * 三格数据条：无数据时显示 pending 文案，禁止裸 0。
+ *
+ * v2.7 视觉收敛：原来是「三张各自带边的小卡并排」，首屏出现三块同构色块，
+ * 噪声压过了信息。改成**一条实底卡 + 两道细分割线**的紧凑数字带（ticker），
+ * 数字居中、标签在下 —— 与「层级靠色场与细边」的设计语言一致，少 2 条边框、少 2 个圆角。
+ */
 export function StatStrip({
   items,
   style,
 }: {
-  items: Array<{ value: string; unit?: string; label: string; pending?: boolean }>;
+  items: { value: string; unit?: string; label: string; pending?: boolean }[];
   style?: StyleProp<ViewStyle>;
 }) {
   const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
   return (
-    <View style={[styles.statRow, style]}>
-      {items.map((item) => (
-        <View key={item.label} style={styles.stat}>
+    <View style={[styles.statStrip, style]}>
+      {items.map((item, index) => (
+        <View key={item.label} style={[styles.statCol, index > 0 && styles.statColDivided]}>
           <Text
             numberOfLines={1}
             adjustsFontSizeToFit
@@ -258,19 +264,32 @@ const makeStyles = (colors: ThemeColors, dark: boolean) =>
     },
     ctaPressed: { opacity: 0.88 },
     ctaText: { fontSize: 14, fontWeight: "700", color: "#FFFFFF" },
-    statRow: { flexDirection: "row", gap: 9, marginBottom: 4 },
-    stat: {
+    /** 与「我的」页 statsCard 同一套刻度：一格一列、细分割线、数值居上 */
+    statStrip: {
+      flexDirection: "row",
+      alignItems: "stretch",
+      marginBottom: 4,
+      backgroundColor: colors.surface,
+      borderWidth: StyleSheet.hairlineWidth * 2,
+      borderColor: colors.border,
+      borderRadius: radius.lg,
+      overflow: "hidden",
+    },
+    statCol: {
       flex: 1,
       minWidth: 0,
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: 16,
-      paddingVertical: 13,
-      paddingHorizontal: 10,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.xs,
+      gap: 2,
     },
-    statValue: { fontSize: 19, lineHeight: 23, fontWeight: "700", letterSpacing: -0.3, color: colors.text },
-    statValuePending: { fontSize: 14, letterSpacing: 0, color: colors.textSecondary },
-    statUnit: { fontSize: 11, fontWeight: "600", color: colors.textSecondary },
-    statLabel: { fontSize: 11, lineHeight: 15, color: colors.textMeta, marginTop: 4 },
+    statColDivided: {
+      borderLeftWidth: StyleSheet.hairlineWidth,
+      borderLeftColor: colors.border,
+    },
+    statValue: { ...typography.num, color: colors.text },
+    statValuePending: { ...typography.callout, fontWeight: "600", color: colors.textSecondary },
+    statUnit: { ...typography.micro, color: colors.textMuted },
+    statLabel: { ...typography.meta, color: colors.textMuted },
   });

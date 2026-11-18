@@ -234,9 +234,9 @@ export const makeStyles = (colors: ThemeColors, dark = false) =>
     miniCard: {
       flex: 1,
       minWidth: 0,
-      minHeight: 176,
-      gap: 8,
-      padding: 14,
+      minHeight: 140,
+      gap: 6,
+      padding: 13,
       borderRadius: radius.card,
       backgroundColor: colors.surfaceStrong,
       borderWidth: StyleSheet.hairlineWidth * 2,
@@ -257,7 +257,7 @@ export const makeStyles = (colors: ThemeColors, dark = false) =>
     },
     /** 标签压在语义 soft 渐变上：用 textSecondary 保证 12pt 小字仍过 WCAG（textMuted 在 soft 底上只有 ~4.2） */
     miniLabel: { ...typography.caption, fontWeight: "700", color: colors.textSecondary, flexShrink: 1 },
-    miniRing: { width: 86, height: 86, alignSelf: "center", alignItems: "center", justifyContent: "center", marginTop: 2 },
+    miniRing: { width: 64, height: 64, alignSelf: "center", alignItems: "center", justifyContent: "center", marginTop: 2 },
     miniRingLabel: {
       position: "absolute",
       top: 0,

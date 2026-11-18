@@ -187,7 +187,6 @@ export default function TodayScreen() {
           stageDone={learningSnapshot.stageDone}
           stageTotal={learningSnapshot.stageTotal}
           onOpenTask={setDetailTask}
-          onStartFocus={openQuickStart}
         />
 
         {/* ⑥ 成长摘要：双列小卡 + 今日习惯瓦片 */}

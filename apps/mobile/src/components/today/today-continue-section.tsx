@@ -20,31 +20,29 @@ export function TodayContinueSection({
   stageDone,
   stageTotal,
   onOpenTask,
-  onStartFocus,
 }: {
   unfinishedTask: DailyTask | null;
   stageDone: number;
   stageTotal: number;
   onOpenTask: (task: DailyTask) => void;
-  onStartFocus: () => void;
-}): React.JSX.Element {
+}): React.JSX.Element | null {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const hasLearningLeft = stageTotal > 0 && stageDone < stageTotal;
-  const kicker = unfinishedTask ? "继续上次" : hasLearningLeft ? "继续学习" : "现在开始";
-  const title = unfinishedTask
-    ? unfinishedTask.title
-    : hasLearningLeft
-      ? "还有 " + (stageTotal - stageDone) + " 个知识点没看完"
-      : "今天还没有专注记录";
+  /**
+   * 没有「上次没做完」也没有「没学完的阶段」时整块隐藏：
+   * 零状态下它只会重复 hero 的「开始第一次专注」，是同一屏第二个同义 CTA。
+   */
+  if (!unfinishedTask && !hasLearningLeft) return null;
+
+  const kicker = unfinishedTask ? "继续上次" : "继续学习";
+  const title = unfinishedTask ? unfinishedTask.title : "还有 " + (stageTotal - stageDone) + " 个知识点没看完";
   const meta = unfinishedTask
     ? (taskTypeLabels[unfinishedTask.taskType] ?? unfinishedTask.taskType) +
       (unfinishedTask.focusMinutes > 0 ? " · 已专注 " + unfinishedTask.focusMinutes + " 分钟" : "")
-    : hasLearningLeft
-      ? "已完成 " + stageDone + " / " + stageTotal
-      : "从一个 25 分钟的小目标开始";
-  const cta = unfinishedTask ? "打开" : hasLearningLeft ? "去学习" : "开始专注";
+    : "已完成 " + stageDone + " / " + stageTotal;
+  const cta = unfinishedTask ? "打开" : "去学习";
 
   const handlePress = () => {
     haptics.light();
@@ -52,11 +50,7 @@ export function TodayContinueSection({
       onOpenTask(unfinishedTask);
       return;
     }
-    if (hasLearningLeft) {
-      router.push("/quiz" as never);
-      return;
-    }
-    onStartFocus();
+    router.push("/quiz" as never);
   };
 
   return (
@@ -68,7 +62,7 @@ export function TodayContinueSection({
         style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
       >
         <View style={styles.iconWrap}>
-          <ThemedIcon name={unfinishedTask ? "play-forward" : hasLearningLeft ? "book" : "timer-outline"} size={18} color={colors.primary} />
+          <ThemedIcon name={unfinishedTask ? "play-forward" : "book"} size={18} color={colors.primary} />
         </View>
         <View style={styles.textCol}>
           <Text style={styles.kicker}>{kicker}</Text>

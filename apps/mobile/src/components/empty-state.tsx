@@ -23,6 +23,7 @@ export function EmptyState({
   actionLabel,
   onAction,
   pattern = "chevron",
+  compact = false,
   style,
 }: {
   icon?: keyof typeof Ionicons.glyphMap;
@@ -32,6 +33,11 @@ export function EmptyState({
   onAction?: () => void;
   /** bauhaus=暖色几何拼花；chevron=灰阶人字纹；none=纯色 */
   pattern?: PatternVariant | "none";
+  /**
+   * 紧凑态：用于「卡片内部的一小块空位」（如今日页的今日安排）。
+   * 小一号图标 + 更紧的上下留白 + 矮一点的 CTA，让首屏不被空态吃掉。
+   */
+  compact?: boolean;
   style?: StyleProp<ViewStyle>;
 }): React.JSX.Element {
   const { colors } = useTheme();
@@ -43,12 +49,12 @@ export function EmptyState({
   }, [onAction]);
 
   return (
-    <View style={[styles.wrap, style]}>
+    <View style={[styles.wrap, compact && styles.wrapCompact, style]}>
       {pattern !== "none" ? <PatternBackdrop variant={pattern} /> : null}
-      <View style={styles.chipWrap}>
-        <View pointerEvents="none" style={styles.halo} />
-        <View style={styles.chip}>
-          <ThemedIcon name={icon} size={26} color={colors.textFaint} />
+      <View style={[styles.chipWrap, compact && styles.chipWrapCompact]}>
+        <View pointerEvents="none" style={[styles.halo, compact && styles.haloCompact]} />
+        <View style={[styles.chip, compact && styles.chipCompact]}>
+          <ThemedIcon name={icon} size={compact ? 20 : 26} color={colors.textFaint} />
         </View>
       </View>
       <Text style={styles.title} numberOfLines={2}>
@@ -60,7 +66,12 @@ export function EmptyState({
         </Text>
       ) : null}
       {actionLabel ? (
-        <PressableScale style={styles.cta} onPress={handlePress} accessibilityRole="button" accessibilityLabel={actionLabel}>
+        <PressableScale
+          style={[styles.cta, compact && styles.ctaCompact]}
+          onPress={handlePress}
+          accessibilityRole="button"
+          accessibilityLabel={actionLabel}
+        >
           <Text style={styles.ctaText}>{actionLabel}</Text>
         </PressableScale>
       ) : null}
@@ -79,6 +90,7 @@ const makeStyles = (colors: ThemeColors) =>
       borderRadius: radius.card,
       overflow: "hidden",
     },
+    wrapCompact: { paddingVertical: 12, gap: 4 },
     chipWrap: {
       width: 68,
       height: 68,
@@ -86,6 +98,7 @@ const makeStyles = (colors: ThemeColors) =>
       justifyContent: "center",
       marginBottom: 2,
     },
+    chipWrapCompact: { width: 50, height: 50, marginBottom: 0 },
     halo: {
       position: "absolute",
       width: 68,
@@ -95,6 +108,7 @@ const makeStyles = (colors: ThemeColors) =>
       borderColor: colors.primary,
       opacity: 0.14,
     },
+    haloCompact: { width: 50, height: 50, borderRadius: 16 },
     chip: {
       width: 52,
       height: 52,
@@ -103,6 +117,7 @@ const makeStyles = (colors: ThemeColors) =>
       alignItems: "center",
       justifyContent: "center",
     },
+    chipCompact: { width: 40, height: 40, borderRadius: 12 },
     title: { ...typography.callout, fontWeight: "700", color: colors.text, textAlign: "center" },
     hint: {
       ...typography.meta,
@@ -120,5 +135,6 @@ const makeStyles = (colors: ThemeColors) =>
       paddingVertical: spacing.md,
       justifyContent: "center",
     },
+    ctaCompact: { marginTop: 6, minHeight: 40, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
     ctaText: { ...typography.callout, fontWeight: "700", color: colors.primary },
   });

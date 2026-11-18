@@ -159,17 +159,15 @@ export function MiniStatCard({
       hitSlop={6}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      style={({ pressed }) => [
-        styles.miniCard,
-        { borderColor: withAlpha(strong, 0.24) },
-        pressed && styles.miniCardPressed,
-      ]}
+      style={({ pressed }) => [styles.miniCard, pressed && styles.miniCardPressed]}
     >
       {/* 轻微渐变：语义 soft 从左上淡出到卡面（只用 token，卡片 overflow:hidden 兜住圆角） */}
       <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} pointerEvents="none">
         <Defs>
           <LinearGradient id={gradientId} x1="0" y1="0" x2="0.7" y2="1">
-            <Stop offset="0" stopColor={soft} stopOpacity={1} />
+            {/* v2.7：原来是 1 → 0 的全饱和 soft 渐变，深色下读起来像两块蓝/橙色块；
+                收敛到 0.55 → 0，只留一层色温，卡片主体回到 surface。 */}
+            <Stop offset="0" stopColor={soft} stopOpacity={0.55} />
             <Stop offset="1" stopColor={soft} stopOpacity={0} />
           </LinearGradient>
         </Defs>
@@ -187,8 +185,8 @@ export function MiniStatCard({
 
       <View style={styles.miniRing}>
         <RingProgress
-          size={86}
-          strokeWidth={10}
+          size={64}
+          strokeWidth={8}
           progress={ratio}
           trackColor={colors.surfaceMuted}
           from={isAccent ? colors.accent : colors.primary}
