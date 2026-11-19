@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, type ReactNode } from "react";
+import { StyleSheet, View } from "react-native";
 import Svg, { Circle, Defs, LinearGradient, Stop } from "react-native-svg";
 import Animated, {
   useAnimatedProps,
@@ -73,8 +74,14 @@ export function RingProgress({
 
   const animatedProps = useAnimatedProps(() => ({ strokeDashoffset: offset.value }));
 
+  /**
+   * 环心内容不能直接塞进 <Svg>：react-native-svg 只认 SVG 子节点，RN 的 View/Text
+   * 会被画在画布原点（左上角），真机上就表现为「14% 压在环顶」。这里把 children
+   * 放到绝对定位的覆盖层里居中，调用方（HeroCard）不需要改。
+   */
   return (
-    <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+    <View style={[styles.box, { width: size, height: size }]}>
+      <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
       <Defs>
         <LinearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
           <Stop offset="0" stopColor={gradientStart} />
@@ -101,7 +108,25 @@ export function RingProgress({
         transform={`rotate(-90 ${size / 2} ${size / 2})`}
         animatedProps={animatedProps}
       />
-      {children}
-    </Svg>
+      </Svg>
+      {children ? (
+        <View pointerEvents="none" style={styles.center}>
+          {children}
+        </View>
+      ) : null}
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  box: { alignItems: "center", justifyContent: "center" },
+  center: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});

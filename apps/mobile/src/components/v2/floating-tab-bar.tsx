@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View, type TextStyle, type ViewStyle } from "react-native";
 import { BlurView } from "expo-blur";
+import { useBlurTarget } from "@/components/blur-target";
 import type { BottomTabBarProps, BottomTabNavigationOptions } from "expo-router/tabs";
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { useTheme } from "@/theme";
@@ -35,6 +36,8 @@ const PILL_GAP = 6;
 export function FloatingTabBar({ state, descriptors, navigation, insets }: BottomTabBarProps) {
   const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
+  /** Android 真玻璃的截图目标（provider 没挂时是 null，BlurView 自动退化） */
+  const blurTarget = useBlurTarget();
   const reduced = useReducedMotion();
   const active = isMotionActive(reduced);
 
@@ -69,7 +72,8 @@ export function FloatingTabBar({ state, descriptors, navigation, insets }: Botto
           <BlurView
             intensity={62}
             tint={dark ? "dark" : "light"}
-            experimentalBlurMethod="dimezisBlurView"
+            blurMethod={Platform.OS === "android" ? "dimezisBlurViewSdk31Plus" : undefined}
+            blurTarget={blurTarget ?? undefined}
             style={StyleSheet.absoluteFill}
           />
           <View style={[StyleSheet.absoluteFill, styles.tint]} />

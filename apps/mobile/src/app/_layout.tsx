@@ -7,6 +7,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { DailyBackground } from "@/components/daily-background";
+import { BlurTargetProvider } from "@/components/blur-target";
 import { ThemeProvider } from "@/theme";
 import { useTheme } from "@/theme";
 import { noteScreenPath } from "@/lib/back-target";
@@ -281,6 +282,8 @@ function ThemedShell({ tier }: { tier: DeviceTier }) {
   }, [pathname]);
   return (
     <DailyBackground>
+      {/* Android 真玻璃：整棵壳层作为 blurTarget，底部悬浮栏 / 玻璃卡才有东西可截 */}
+      <BlurTargetProvider>
       {/*
         v17-C1 边到边：内容从状态栏下穿过，不再用实色底把内容"顶开"。
         只保留 barStyle —— 状态栏**图标颜色**仍由 App 内主题运行时决定，
@@ -375,6 +378,7 @@ function ThemedShell({ tier }: { tier: DeviceTier }) {
       <FloatingFocusTimer />
       <StudyTimeTracker />
       <UpdateSheet />
+      </BlurTargetProvider>
     </DailyBackground>
   );
 }

@@ -2,6 +2,7 @@ import { useMemo, type ReactNode } from "react";
 import { Platform, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from "expo-glass-effect";
 import { BlurView } from "expo-blur";
+import { useBlurTarget } from "@/components/blur-target";
 import { radius, shadows } from "@/theme/tokens";
 import type { ThemeColors } from "@/theme/tokens";
 import { useTheme } from "@/theme";
@@ -29,7 +30,7 @@ export function glassSupported(): boolean {
 }
 
 /** Android 的 BlurView 需要显式开启实验实现；其它平台不需要 */
-const BLUR_METHOD = Platform.OS === "android" ? "dimezisBlurView" : "none";
+const BLUR_METHOD = Platform.OS === "android" ? "dimezisBlurViewSdk31Plus" : "none";
 
 export function Surface({
   children,
@@ -90,6 +91,8 @@ export function GlassSurface({
   const { colors, dark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
   const themeKey = dark ? "dark" : "light";
+  /** Android 真玻璃的截图目标（provider 没挂时是 null，BlurView 自动退化） */
+  const blurTarget = useBlurTarget();
 
   if (glassSupported() && !opaque) {
     return (
@@ -121,7 +124,8 @@ export function GlassSurface({
       <BlurView
         intensity={strong ? 54 : 36}
         tint={dark ? "dark" : "light"}
-        experimentalBlurMethod={BLUR_METHOD}
+        blurMethod={BLUR_METHOD}
+        blurTarget={blurTarget ?? undefined}
         style={StyleSheet.absoluteFill}
       />
       {/* 半透明染色层：保证文字对比度，同时给玻璃一点色温 */}
