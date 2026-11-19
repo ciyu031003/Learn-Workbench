@@ -76,9 +76,14 @@ const lightColors = {
 /** 深色档：冷调深青黑（不用纯黑），玻璃用深色半透 + 顶部高光 */
 const darkColors = {
   canvas: "#0B1216",
-  surface: "#121A1F",
-  surfaceStrong: "#172026",
-  surfaceMuted: "rgba(255,255,255,0.05)",
+  /**
+   * v2.7：深色档把卡面提亮一档（#121A1F → #141D24）。
+   * 原来 canvas 与 surface 的明度差只有 ~3%，真机上"卡内卡"几乎糊成一片；
+   * 提到 ~5% 后卡片边界能自己立住，仍不靠阴影（深色下投影本来就看不见）。
+   */
+  surface: "#141D24",
+  surfaceStrong: "#1B252C",
+  surfaceMuted: "rgba(255,255,255,0.055)",
   /** 深色档轨道要更亮：0.16 才能在 #121A1F 上看清未完成部分 */
   chartTrack: "rgba(255,255,255,0.16)",
   controlThumb: "#E9EEF0",
@@ -88,8 +93,8 @@ const darkColors = {
   /** 11–12px 信息文本：深色档保持与 textMuted 同档可读性 */
   textMeta: "#93A1A7",
   textFaint: "#7E8C93",
-  border: "rgba(255,255,255,0.09)",
-  borderStrong: "rgba(255,255,255,0.18)",
+  border: "rgba(255,255,255,0.105)",
+  borderStrong: "rgba(255,255,255,0.19)",
 
   primary: "#5B93D6",
   primaryStrong: "#8BB7E8",

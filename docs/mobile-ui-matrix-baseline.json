@@ -48,7 +48,7 @@
     "apps/mobile/src/components/learn/learn-page-head.tsx": 2,
     "apps/mobile/src/components/learn/learn-sheets.tsx": 2,
     "apps/mobile/src/components/learn/learn-shelf.tsx": 4,
-    "apps/mobile/src/components/learn/learn-tools-grid.tsx": 1,
+    "apps/mobile/src/components/learn/learn-tools-grid.tsx": 2,
     "apps/mobile/src/components/learn/learn-widgets.tsx": 2,
     "apps/mobile/src/components/live-log-sheet.tsx": 1,
     "apps/mobile/src/components/meal-card-grid.tsx": 3,
