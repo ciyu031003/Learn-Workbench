@@ -7,7 +7,7 @@ import { LearnToolsGrid, type LearnToolItem } from "./learn-tools-grid";
 import { makeStyles } from "./learn-styles";
 
 /**
- * 学习工具（P2 · 三层结构第二层）：4 个工具，每个带真实数字。
+ * 学习工具（P2 · 三层结构第二层）：v2.7 起 3 个入口（复习与错题 / 技术题库 / 408 专区）。
  *
  * 层级变化：原来「复习大卡 + 3 行等权列表」共 7 个入口并排，用户看不出下一步；
  * 现在只保留 4 个工具，数字本身承担优先级：待复习（到期数）/ 技术题库（今日进度）/
@@ -41,20 +41,32 @@ export function LearnToolsSection({
         : "按记忆曲线排期"
       : "错题 " + reviewStats.wrong + " 道 · 到期需联网";
 
+  /**
+   * 「待复习」与「错题练习」原来各占一格，但跳的是同一个页面，
+   * 合并成一张通栏主卡：到期数当主数值，错题数与正确率并进副文案。
+   */
+  const wrongSummary =
+    learningSummary.wrong > 0
+      ? "错题 " + learningSummary.wrong + " 道" + (practiceAccuracy === null ? "" : " · 正确率 " + practiceAccuracy + "%")
+      : practiceAccuracy === null
+        ? dueHint
+        : dueHint + " · 正确率 " + practiceAccuracy + "%";
+
+  const featured: LearnToolItem = {
+    key: "review",
+    icon: "alarm-outline",
+    value: dueValue,
+    title: "复习与错题",
+    hint: wrongSummary,
+    tone: "primary",
+    onPress: () => router.push("/quiz/review" as never),
+    accessibilityLabel:
+      reviewStats && reviewStats.remoteOk
+        ? "打开复习，已到期 " + reviewStats.due + " 个知识点"
+        : "打开复习与错题",
+  };
+
   const items: LearnToolItem[] = [
-    {
-      key: "review",
-      icon: "alarm-outline",
-      value: dueValue,
-      title: "待复习",
-      hint: dueHint,
-      tone: "primary",
-      onPress: () => router.push("/quiz/review" as never),
-      accessibilityLabel:
-        reviewStats && reviewStats.remoteOk
-          ? "打开复习，已到期 " + reviewStats.due + " 个知识点"
-          : "打开复习",
-    },
     {
       key: "bank",
       icon: "help-circle-outline",
@@ -66,15 +78,6 @@ export function LearnToolsSection({
           : "每日目标 " + DAILY_QUESTION_GOAL + " 题",
       onPress: () => router.push("/quiz" as never),
       accessibilityLabel: "打开技术题库，共 " + questionCount + " 题",
-    },
-    {
-      key: "wrong",
-      icon: "alert-circle-outline",
-      value: learningSummary.wrong > 0 ? String(learningSummary.wrong) : "—",
-      title: "错题练习",
-      hint: practiceAccuracy === null ? "还没有作答记录" : "正确率 " + practiceAccuracy + "%",
-      onPress: () => router.push("/quiz/review" as never),
-      accessibilityLabel: "打开错题复习，共 " + learningSummary.wrong + " 道错题",
     },
     {
       key: "exam408",
@@ -94,7 +97,7 @@ export function LearnToolsSection({
         right={<Text style={styles.sectionMeta}>今天先做哪一个</Text>}
         style={styles.sectionTitle}
       />
-      <LearnToolsGrid items={items} />
+      <LearnToolsGrid featured={featured} items={items} />
     </>
   );
 }
