@@ -2,6 +2,8 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { ErrorBoundaryProps } from "expo-router";
 
+import { typography } from "@/theme/tokens";
+
 import { useTheme } from "@/theme";
 
 /**
@@ -41,9 +43,9 @@ export function ScreenErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 
 const styles = StyleSheet.create({
   wrap: { flex: 1, paddingHorizontal: 24, paddingTop: 96, gap: 10 },
-  title: { fontSize: 22, fontWeight: "800", letterSpacing: -0.3 },
-  body: { fontSize: 14, lineHeight: 22 },
-  detail: { fontSize: 11, lineHeight: 16 },
+  title: { ...typography.title2, fontWeight: "800", letterSpacing: -0.3 },
+  body: { ...typography.callout, lineHeight: 22 },
+  detail: { ...typography.micro, fontWeight: "400" },
   retry: { marginTop: 14, alignSelf: "flex-start", paddingHorizontal: 18, height: 42, borderRadius: 13, justifyContent: "center" },
-  retryText: { fontSize: 14, fontWeight: "700" },
+  retryText: { ...typography.callout, fontWeight: "700" },
 });
